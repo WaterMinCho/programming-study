@@ -18,8 +18,8 @@ from unittest import mock
 
 try:
     from PyQt6.QtCore import QEvent, QEventLoop, QMimeData, QPoint, QPointF, QSettings, Qt, QTimer, qInstallMessageHandler
-    from PyQt6.QtGui import (QColor, QContextMenuEvent, QDragEnterEvent, QDropEvent, QFontDatabase, QGuiApplication, QKeyEvent,
-                             QTextCursor, qGray)
+    from PyQt6.QtGui import (QColor, QContextMenuEvent, QDragEnterEvent, QDropEvent, QFontDatabase, QGuiApplication, QInputMethodEvent,
+                             QKeyEvent, QKeySequence, QTextCursor, qGray)
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication, QLabel, QPushButton
 except ImportError:
@@ -30,11 +30,11 @@ import adaptive  # noqa: E402
 import mdlite  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
-from gui import app, dialogs, errors, icon, motion, theme  # noqa: E402
+from gui import app, dialogs, errors, icon, motion, theme, widgets  # noqa: E402
 from gui.mascot import Mascot  # noqa: E402
 from gui.guard import NOTE as PASTE_NOTE  # noqa: E402
 from gui.team_page import Avatar, EmptyCard, MemberCard  # noqa: E402
-from gui.widgets import ChoiceCard, ChoicePanel, CodeEditor, content_height  # noqa: E402
+from gui.widgets import ChoiceCard, ChoicePanel, CodeEditor, TextPanel, content_height  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -1287,7 +1287,24 @@ class WidgetTest(unittest.TestCase):
         left, top = down.mapTo(edit, QPoint(0, 0)).x(), across.mapTo(edit, QPoint(0, 0)).y()
         image = edit.grab().toImage()
         colors = {image.pixelColor(left + x, top + y).name() for x in range(8) for y in range(8)}  # 바깥쪽은 입력칸의 둥근 테두리와 겹침
-        self.assertEqual(colors, {theme.color("surface")})
+        self.assertEqual(colors, {theme.EDITOR["bg"]})
+
+    def test_run_hint_wraps_inside_a_narrow_result_box(self):
+        """실행하기 전의 안내는 칸이 좁아도 줄을 바꿔 끝까지 보임."""
+        panel = widgets.CodePanel()
+        panel.resize(300, 520)
+        panel.show()
+        self.addCleanup(panel.close)
+        panel.set_item({"type": "return", "answer": "x = 1\n"})
+        pump()
+        console = panel.console
+        start, end = QTextCursor(console.document()), QTextCursor(console.document())
+        end.movePosition(QTextCursor.MoveOperation.End)
+        self.assertEqual((console.toPlainText(), panel.console_html, console.horizontalScrollBar().maximum()), (panel.HINT, "", 0))
+        self.assertGreater(console.cursorRect(end).top(), console.cursorRect(start).top())  # 한 줄에 다 들어가지 않아 줄이 바뀜
+        self.assertTrue(console.viewport().rect().contains(console.cursorRect(end)))  # 마지막 글자까지 칸 안에 있음
+        panel.show_console("<body><p>결과</p></body>")  # 결과가 나오면 안내는 사라짐
+        self.assertEqual(console.toPlainText(), "결과")
 
     def test_standard_menu_of_an_answer_box_is_in_korean(self):
         translator = app.korean(APP)
@@ -1322,10 +1339,43 @@ class EditorTest(unittest.TestCase):
     def keys(self, *steps):
         for step in steps:
             if isinstance(step, str):
-                QTest.keyClicks(self.ed, step)
+                for ascii_run, chars in itertools.groupby(step, str.isascii):
+                    if ascii_run:
+                        QTest.keyClicks(self.ed, "".join(chars))
+                    else:
+                        self.compose(chars)
             else:
                 QTest.keyClick(self.ed, *(step if isinstance(step, tuple) else (step,)))
         return self.ed.toPlainText()
+
+    def compose(self, text):
+        """한글은 키가 아니라 입력기가 조합해서 확정한 글자로 들어옴."""
+        for ch in text:
+            QApplication.sendEvent(self.ed, QInputMethodEvent(ch, []))
+            done = QInputMethodEvent()
+            done.setCommitString(ch)
+            QApplication.sendEvent(self.ed, done)
+
+    def put(self, text):
+        """| 를 뺀 글을 넣고 | 자리에 커서를 둠. | 가 둘이면 그 사이를 선택함."""
+        parts = text.split("|")
+        self.ed.setPlainText("".join(parts))
+        cursor = self.ed.textCursor()
+        cursor.setPosition(len(parts[0]))
+        cursor.setPosition(len("".join(parts[:-1])), QTextCursor.MoveMode.KeepAnchor)
+        self.ed.setTextCursor(cursor)
+
+    def view(self):
+        """커서와 선택 양 끝을 | 로 표시한 글."""
+        text, cursor = self.ed.toPlainText(), self.ed.textCursor()
+        for spot in sorted({cursor.selectionStart(), cursor.selectionEnd()}, reverse=True):
+            text = text[:spot] + "|" + text[spot:]
+        return text
+
+    def typed(self, start, *steps):
+        self.put(start)
+        self.keys(*steps)
+        return self.view()
 
     def test_tab_inserts_spaces_up_to_the_next_stop(self):
         self.assertEqual(self.keys(Qt.Key.Key_Tab, "x", Qt.Key.Key_Tab, "# t"), "    x   # t")
@@ -1364,7 +1414,255 @@ class EditorTest(unittest.TestCase):
         self.assertTrue(self.ed.font().fixedPitch())
         self.assertFalse(hasattr(self.ed, "completer"))
         self.ed.setReadOnly(True)
-        self.assertEqual(self.keys(Qt.Key.Key_Tab, Qt.Key.Key_Return), "")  # 잠겨 있을 때는 키로도 바뀌지 않음
+        self.assertEqual(self.keys(Qt.Key.Key_Tab, Qt.Key.Key_Return, "("), "")  # 잠겨 있을 때는 키로도 바뀌지 않음
+
+    def test_opening_bracket_or_quote_brings_its_closer(self):
+        for ch, pair in (("(", "(|)"), ("[", "[|]"), ("{", "{|}"), ('"', '"|"'), ("'", "'|'")):
+            self.assertEqual(self.typed("|", ch), pair)
+            self.assertEqual(self.typed("x = | + 1", ch), "x = %s + 1" % pair)
+        self.assertEqual(self.typed("f(a|, b)", "["), "f(a[|], b)")
+        self.assertEqual(self.typed("d = {|: 1}", '"'), 'd = {"|": 1}')
+        self.assertEqual(self.typed("x[|]", "("), "x[(|)]")
+
+    def test_no_closer_when_text_follows_the_cursor(self):
+        for ch in "([{\"'":
+            self.assertEqual(self.typed("x = |name", ch), "x = %s|name" % ch)
+        self.assertEqual(self.typed('print(|"a")', "("), 'print((|"a")')
+
+    def test_opening_bracket_or_quote_wraps_the_selection(self):
+        self.assertEqual(self.typed("x = |a + b|", "("), "x = (|a + b|)")
+        self.assertEqual(self.typed("x = |a + b|", "(", '"'), 'x = ("|a + b|")')  # 감싼 글이 선택된 채라 이어서 또 감쌈
+        self.assertEqual(self.typed("|a\nb|", "["), "[|a\nb|]")
+        self.assertEqual(self.typed("x = |a + b|", ")"), "x = )|")  # 닫는 괄호는 여느 글자처럼 선택한 글을 바꿈
+
+    def test_closing_bracket_steps_over_the_one_already_there(self):
+        self.assertEqual(self.typed("f(a|)", ")"), "f(a)|")
+        self.assertEqual(self.typed("x[{1|}]", "}", "]"), "x[{1}]|")
+        self.assertEqual(self.typed("f(a|]", ")"), "f(a)|]")
+        self.assertEqual(self.typed("f(g(a|)", ")"), "f(g(a)|)")  # 닫는 괄호가 모자라면 새로 넣음
+        self.assertEqual(self.typed('print("(" + x|)  # (', ")"), 'print("(" + x)|  # (')  # 문자열과 주석 안의 괄호는 세지 않음
+
+    def test_quote_closes_only_where_a_string_starts(self):
+        cases = (('s = "abc|"', '"', 's = "abc"|'),  # 뒤가 같은 따옴표면 넘어감
+                 ('s = "abc|', '"', 's = "abc"|'),  # 문자열을 닫는 중
+                 ("x1|", '"', 'x1"|'),
+                 ("don|", "'", "don'|"),
+                 ('""|', '"', '"""|'),
+                 ("# 메모 # |", '"', '# 메모 # "|'),  # 주석은 줄 끝까지
+                 ('"1 + |"', "'", '"1 + \'|"'),  # 문자열 안의 아포스트로피
+                 ("'it\\|'", "'", "'it\\'|'"),  # 역슬래시 뒤는 넘어가지 않고 넣음
+                 ('print("#", |)', "'", 'print("#", \'|\')'),  # 문자열 안의 # 은 주석이 아님
+                 ('x = "it\'s" + |', "'", 'x = "it\'s" + \'|\''),
+                 ("print(f|)", '"', 'print(f"|")'),  # 문자열 접두사 뒤
+                 ("x = rb|", "'", "x = rb'|'"),
+                 ("x = ab|", '"', 'x = ab"|'))
+        for start, key, expected in cases:
+            self.assertEqual(self.typed(start, key), expected)
+
+    def test_brackets_inside_strings_and_comments_are_plain_characters(self):
+        """문자열과 주석 안의 괄호는 짝을 맞출 까닭이 없는 글자라 닫지도, 넘어가지도, 함께 지우지도 않음."""
+        cases = (('print("|")', "(", 'print("(|")'),
+                 ('print(f"|")', "{", 'print(f"{|")'),
+                 ('s = "abc |', "[", 's = "abc [|'),
+                 ('"a|)"', ")", '"a)|)"'),
+                 ("# 1|", ")", "# 1)|"),
+                 ("# |", "(", "# (|"),
+                 ("# (a|)", ")", "# (a)|)"),
+                 ('s = "(|)"', Qt.Key.Key_Backspace, 's = "|)"'),
+                 ("# [|]", Qt.Key.Key_Backspace, "# |]"),
+                 ('s = "{|}"', Qt.Key.Key_Return, 's = "{\n|}"'),
+                 ("# it|'s", "'", "# it'|'s"),  # 주석 안의 따옴표도 넘어가지 않음
+                 ('"it|\'s"', "'", '"it\'|\'s"'),  # 문자열을 닫는 따옴표가 아니면 넘어가지 않음
+                 ('print("a", |"b")', '"', 'print("a", "|"b")'))  # 다른 문자열을 여는 따옴표 앞
+        for start, key, expected in cases:
+            self.assertEqual(self.typed(start, key), expected)
+
+    def test_triple_quoted_string_stays_a_string_on_every_line_it_covers(self):
+        """삼중 따옴표로 연 문자열은 닫을 때까지 여러 줄이 문자열임. 그 안의 괄호와 따옴표는 친 대로 들어가고 바깥 괄호의 짝을 세는 데 들지 않음."""
+        enter = Qt.Key.Key_Return
+        typed = self.typed("|", 'print("""첫째 줄', enter, '둘째 줄""")', enter, 'print("끝")')
+        self.assertEqual(typed, 'print("""첫째 줄\n둘째 줄""")\nprint("끝")|')  # 닫는 줄에서 친 괄호는 먼저 들어와 있던 괄호를 넘어감
+        self.assertEqual(self.typed("|", "x = ['''a", enter, "b''', 1]"), "x = ['''a\nb''', 1]|")
+        for line in ("print('''it's''')", 'print("""키 5" 이상""")', 'print("""그는 "네" 라고 함""")'):  # 한 줄 안에서도 따옴표 하나로는 닫히지 않음
+            self.assertEqual(self.typed("|", line), line + "|")
+        for line in ("(that's all)", "rock 'n roll", '값이 "a 일 때 [예', "f(x)"):  # 문서 문자열의 가운데 줄
+            self.assertEqual(self.typed('"""\n|\n"""', line), '"""\n%s|\n"""' % line)
+        self.assertEqual(self.typed('"""\n(|)\n"""', Qt.Key.Key_Backspace), '"""\n|)\n"""')
+        self.assertEqual(self.typed('"""\n{|}\n"""', enter), '"""\n{\n|}\n"""')
+        self.assertEqual(self.typed('"""\n끝"""|', " + str("), '"""\n끝""" + str(|)')  # 닫은 뒤는 다시 코드
+        typed = self.typed("|", "def f(a):", enter, '"""', enter, "Return a (that's all)", enter, '"""', enter, "return a")
+        self.assertEqual(typed, 'def f(a):\n    """\n    Return a (that\'s all)\n    """\n    return a|')
+
+    def test_string_typed_in_front_of_another_string_keeps_its_closing_quote(self):
+        """닫는 따옴표를 쳤는데 바로 뒤가 다른 문자열을 여는 따옴표면 넘어가지 않고 새로 넣음. 넘어가면 따옴표가 하나 모자라게 됨."""
+        cases = (('names = ["kim", |"park"]', '"lee", ', 'names = ["kim", "lee", |"park"]'),
+                 ('print(|"점")', '"총", ', 'print("총", |"점")'),
+                 ("return |'b'", "'a' + ", "return 'a' + |'b'"),
+                 ('d = {|"b": 2}', '"a": 1, ', 'd = {"a": 1, |"b": 2}'),
+                 ('print(|f"{x}")', '"a", ', 'print("a", |f"{x}")'),
+                 ('x = ["a|", "b"]', '"', 'x = ["a"|, "b"]'),  # 따옴표의 짝이 맞는 줄에서는 넘어감
+                 ('x = [| "b"]', '"a",', 'x = ["a",| "b"]'))
+        for start, keys, expected in cases:
+            self.assertEqual(self.typed(start, keys), expected)
+
+    def test_backspace_between_an_empty_pair_removes_both(self):
+        for left, right in ("()", "[]", "{}", '""', "''"):
+            self.assertEqual(self.typed("x = %s|%s" % (left, right), Qt.Key.Key_Backspace), "x = |")
+        self.assertEqual(self.typed("f(a|)", Qt.Key.Key_Backspace), "f(|)")
+        self.assertEqual(self.typed("x = (|]", Qt.Key.Key_Backspace), "x = |]")
+        self.assertEqual(self.typed('"a"|"b"', Qt.Key.Key_Backspace), '"a|"b"')  # 닫는 따옴표와 여는 따옴표가 맞닿은 자리
+        self.assertEqual(self.typed("    (|)", Qt.Key.Key_Backspace, Qt.Key.Key_Backspace), "|")  # 들여쓰기는 전처럼 한 단계씩
+
+    def test_enter_between_empty_brackets_puts_the_closer_on_its_own_line(self):
+        self.assertEqual(self.typed("    x = [|]", Qt.Key.Key_Return, "1,"), "    x = [\n        1,|\n    ]")
+        self.assertEqual(self.typed("def f(|):", Qt.Key.Key_Return), "def f(\n    |\n):")
+        self.assertEqual(self.typed("d = {|}", Qt.Key.Key_Enter), "d = {\n    |\n}")
+        self.assertEqual(self.typed("f(|a)", Qt.Key.Key_Return), "f(\n|a)")  # 사이에 글이 있으면 전과 같음
+        self.assertEqual(self.typed('s = "|"', Qt.Key.Key_Return), 's = "\n|"')
+
+    def test_one_keystroke_is_one_undo(self):
+        undo = (Qt.Key.Key_Z, CTRL)
+        self.assertEqual(self.typed("|", "print", "("), "print(|)")
+        self.assertEqual(self.keys(undo), "print")  # 앞서 친 글은 남음
+        for start, key, changed in (("x = |a + b|", "(", "x = (a + b)"), ("x = (|)", Qt.Key.Key_Backspace, "x = "),
+                                    ("x = (|)", Qt.Key.Key_Return, "x = (\n    \n)")):
+            self.put(start)
+            self.assertEqual(self.keys(key), changed)
+            self.assertEqual(self.keys(undo), start.replace("|", ""))
+        redo = (Qt.Key.Key_Z, CTRL | SHIFT)  # 줄 나눔을 다시 실행하면 커서가 가운데 줄에 놓임
+        self.assertEqual(self.typed("d = {|}", Qt.Key.Key_Return, undo, redo, "1"), "d = {\n    1|\n}")
+
+    def test_bracket_left_open_for_a_later_line_brings_no_closer(self):
+        """여는 괄호가 아랫줄에서 닫히는 문장의 첫 줄에서는 같은 종류의 새 괄호를 닫지 않음. 닫으면 친 닫는 괄호가 넘어가지 못하고 하나 남음."""
+        cases = (('print("합:",|\n      b)', " len(a),", 'print("합:", len(a),|\n      b)'),
+                 ("print(|____|,\n      sep='')", "len(a)", "print(len(a)|,\n      sep='')"),
+                 ("x = [|____|,\n     2]", "a[0]", "x = [a[0]|,\n     2]"),
+                 ('d = {"a": 1,|\n     "b": 2}', ' "c": {"x": 1},', 'd = {"a": 1, "c": {"x": 1},|\n     "b": 2}'),
+                 ("x = max(|\n    b,\n)", "a[0](", "x = max(a[0](|\n    b,\n)"),  # 다른 종류의 괄호는 전처럼 닫음
+                 ("x = max(\n    |\n)", "len(a),", "x = max(\n    len(a),|\n)"),  # 짝이 맞는 가운데 줄
+                 ('print("(", |)', "(", 'print("(", (|))'))  # 문자열 안의 괄호는 세지 않음
+        for start, keys, expected in cases:
+            self.assertEqual(self.typed(start, keys), expected)
+
+    def test_filling_a_blank_keeps_brackets_balanced(self):
+        """빈칸을 지운 자리는 원래 있던 닫는 괄호 앞임. 안에서 연 괄호는 닫히고 원래 있던 닫는 괄호는 하나로 남음."""
+        self.assertEqual(self.typed("print(|____|)", "len(a"), "print(len(a|))")
+        self.assertEqual(self.typed("print(|____|)", "len(a))"), "print(len(a))|")  # 닫는 괄호를 버릇대로 다 쳐도 같음
+        self.assertEqual(self.typed("    for j in range(|):", "len(letters)"), "    for j in range(len(letters)|):")
+        self.assertEqual(self.typed('print(letters[|], end=" ")', "(i + j) % 9"), 'print(letters[(i + j) % 9|], end=" ")')
+        self.assertEqual(self.typed("while |:", 'text != ""'), 'while text != ""|:')
+
+    def test_typing_over_a_selected_blank_replaces_it_instead_of_wrapping_it(self):
+        """빈칸을 선택하고 괄호나 따옴표로 시작하는 답을 쳐도 빈칸이 감싸여 남지 않음. 빈칸을 지운 자리에 친 것과 같음."""
+        cases = (("print(line, end=|____|)", '""', 'print(line, end=""|)'),
+                 ("self.stack = |____|", "[]", "self.stack = []|"),
+                 ('with open("a.txt", |____|, encoding="utf-8") as f:', '"r"', 'with open("a.txt", "r"|, encoding="utf-8") as f:'),
+                 ("d = |____|", '{"a": 1}', 'd = {"a": 1}|'),
+                 ('if __name__ == "|____|":', '__main__"', 'if __name__ == "__main__"|:'),
+                 ("x = |____|(a)", "(", "x = (|(a)"),  # 뒤에 글자가 이어지면 닫지 않음
+                 ("x = |____ + 1|", "(", "x = (|____ + 1|)"))  # 빈칸보다 넓게 선택하면 감쌈
+        for start, keys, expected in cases:
+            self.assertEqual(self.typed(start, keys), expected)
+        self.put("self.stack = |____|")  # 끝에서 앞으로 선택해도 같음
+        cursor = self.ed.textCursor()
+        cursor.setPosition(cursor.selectionEnd())
+        cursor.setPosition(cursor.position() - 4, QTextCursor.MoveMode.KeepAnchor)
+        self.ed.setTextCursor(cursor)
+        self.assertEqual(self.keys("[]"), "self.stack = []")
+        for start, key, changed in (("d = |____|", "{", "d = {|}"), ('x = "|____|"', '"', 'x = ""|')):  # 뒤와 같은 닫는 글자를 치면 빈칸을 지우고 넘어감
+            self.assertEqual(self.typed(start, key), changed)
+            self.assertEqual(self.keys((Qt.Key.Key_Z, CTRL)), start.replace("|", ""))  # 한 번 친 것은 한 번에 되돌아감
+
+    def test_typing_python_the_usual_way_gives_what_was_typed(self):
+        """닫는 글자가 먼저 들어가 있어도 평소 치는 순서대로 끝까지 치면 친 글이 그대로 나옴."""
+        lines = ("def solution(a, b):", 'print("합:", a + b)', 'd = {"a": [1, 2]}', "s = 'it\\'s'", '"""두 수의 합을 돌려줌."""',
+                 'print(f"{a} + {b} = {a + b}")', "print('{}점'.format(scores[len(scores) - 1]))", 'x = ["", (1, 2), {}]',
+                 "# 주석의 (괄호)와 '따옴표'도 친 대로 나옴", 'if s[i] == "(":', 'pairs = {")": "(", "}": "{", "]": "["}',
+                 'return text + " (" + name + ")"', 'm = re.findall(r"\\d+(?:\\.\\d+)?", text)', '"""설명 (예: f(1))"""')
+        for line in lines:
+            self.assertEqual(self.typed("|", line), line + "|")
+        typed = self.typed("|", "def solution(a, b):", Qt.Key.Key_Return, '"""', Qt.Key.Key_Return, "두 수의 합", Qt.Key.Key_Return, '"""',
+                           Qt.Key.Key_Return, "return (a + b)")
+        self.assertEqual(typed, 'def solution(a, b):\n    """\n    두 수의 합\n    """\n    return (a + b)|')
+
+    def type_out(self, text):
+        """사람이 치듯 한 글자씩 침. 줄을 바꾸면 편집기가 넣은 들여쓰기에서 Backspace 나 공백으로 맞추고, 닫는 글자까지 전부 침.
+        빈 괄호 사이에서 줄을 바꿔 닫는 괄호가 먼저 내려가 있으면 그 줄은 아래 화살표로 내려가 나머지만 침."""
+        self.ed.clear()
+        for number, line in enumerate(text.split("\n")):
+            below = self.ed.textCursor().block().next().text()
+            if number and below.strip() and line.startswith(below):
+                self.keys(Qt.Key.Key_Down, Qt.Key.Key_End, line[len(below):])
+                continue
+            body = line.lstrip(" ")
+            if number:
+                self.keys(Qt.Key.Key_Return)
+            while body and self.ed.textCursor().positionInBlock() > len(line) - len(body):
+                self.keys(Qt.Key.Key_Backspace)
+            if body:
+                self.keys(" " * (len(line) - len(body) - self.ed.textCursor().positionInBlock()), body)
+        return [line.rstrip() for line in self.ed.toPlainText().split("\n")]  # 빈 줄에 남은 들여쓰기는 보지 않음
+
+    def test_typing_the_bank_solutions_the_usual_way_gives_the_same_text(self):
+        nested = 'data = {\n    "a": [\n        1,\n    ],\n}\nprint(data)'
+        self.assertEqual(self.type_out(nested), nested.split("\n"))
+        for sid in study.all_set_ids():
+            bank = study.load_set(sid)
+            for spec in bank["problems"]:
+                answer = bank["secrets"][spec["id"] + "/solution.py"].rstrip("\n")
+                self.assertEqual(self.type_out(answer), answer.split("\n"), "%s/%s" % (sid, spec["id"]))
+
+    def test_filling_every_blank_of_the_bank_gives_the_model_answer(self):
+        """빈칸 채우기 문항의 빈칸을 앞에서부터 하나씩 선택하고 모범 답안의 그 자리 글을 침."""
+        for sid in study.all_set_ids():
+            bank = study.load_set(sid)
+            for spec in bank["problems"]:
+                if spec["type"] != "fill":
+                    continue
+                starter = study.read_text(os.path.join(spec["dir"], "starter.py")).rstrip("\n")
+                answer = bank["secrets"][spec["id"] + "/solution.py"].rstrip("\n")
+                self.ed.setPlainText(starter)
+                for number, (before, after) in enumerate(zip(starter.split("\n"), answer.split("\n"))):
+                    parts = before.split("____")
+                    for piece in re.fullmatch("(.*?)".join(map(re.escape, parts)), after).groups():
+                        block = self.ed.document().findBlockByNumber(number)
+                        cursor = self.ed.textCursor()
+                        cursor.setPosition(block.position() + block.text().index("____"))
+                        cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, 4)
+                        self.ed.setTextCursor(cursor)
+                        self.keys(piece or Qt.Key.Key_Delete)
+                self.assertEqual(self.ed.toPlainText(), answer, "%s/%s" % (sid, spec["id"]))
+
+    def test_characters_outside_the_basic_plane_do_not_shift_the_cursor(self):
+        """Qt 는 이모지를 두 칸으로 세지만, 그 뒤에서도 커서 앞뒤의 글자를 바로 봄."""
+        self.ed.setPlainText('print("\U0001F389")')
+        cursor = self.ed.textCursor()
+        cursor.setPosition(len('print("') + 2)
+        self.ed.setTextCursor(cursor)
+        self.assertEqual(self.keys('"', ")"), 'print("\U0001F389")')  # 닫는 따옴표와 괄호를 넘어감
+        self.assertEqual(self.ed.textCursor().position(), len('print("")') + 2)
+        self.assertEqual(self.keys(" + (", '"'), 'print("\U0001F389") + ("")')
+
+    def test_pairs_follow_the_typed_character_not_the_key_code(self):
+        """괄호 키의 코드는 자판 배열과 입력기에 따라 다르고, 글자 없이 오는 키 이벤트도 있음."""
+        none, altgr = Qt.KeyboardModifier.NoModifier, CTRL | Qt.KeyboardModifier.AltModifier
+        cases = ((Qt.Key.Key_unknown, none, "(", "(|)"),  # 입력기를 거쳐 키 코드 없이 온 글자
+                 (Qt.Key.Key_8, altgr, "[", "[|]"),  # 독일어 자판의 AltGr+8
+                 (Qt.Key.Key_ParenLeft, none, "", "|"),
+                 (Qt.Key.Key_ParenLeft, CTRL | SHIFT, "(", "|"))  # Ctrl 조합은 글자를 넣지 않음
+        for key, modifiers, text, expected in cases:
+            self.put("|")
+            QApplication.sendEvent(self.ed, QKeyEvent(QEvent.Type.KeyPress, key, modifiers, text))
+            self.assertEqual(self.view(), expected)
+        self.assertEqual(self.typed("|", 'print("안녕'), 'print("안녕|")')  # 조합해 넣은 한글은 따옴표 사이에 들어감
+        self.assertEqual(self.typed("|", 'print("안녕")'), 'print("안녕")|')
+
+    def test_other_answer_boxes_do_not_close_brackets(self):
+        """출력 예측과 단답은 답 글자를 그대로 적는 칸이라 닫는 글자가 따라 들어가면 오답이 됨."""
+        panel = TextPanel()
+        QTest.keyClicks(panel.multi, "[('")
+        QTest.keyClicks(panel.single, "{\"")
+        self.assertEqual((panel.multi.toPlainText(), panel.single.text()), ("[('", "{\""))
 
 
 class ThemeTest(GuiTest):
@@ -1491,7 +1789,7 @@ class ThemeTest(GuiTest):
 
         check(win, page.body, page.code_panel.console)  # 코드 문항: 본문의 표와 인라인 코드, 실행 결과 표
         editor = page.code_panel.editor.grab().toImage()
-        self.assertEqual(editor.pixelColor(editor.width() // 2, editor.height() - 12).name(), theme.DARK["surface"])
+        self.assertEqual(editor.pixelColor(editor.width() // 2, editor.height() - 12).name(), theme.EDITOR["bg"])
         for kind in ("choice", "output"):
             self.select(lambda it: it["type"] == kind)
             check(win)
@@ -1542,6 +1840,868 @@ class ThemeTest(GuiTest):
         self.assertGreater(bright_share(win), 0.5)
         self.assertIn(theme.LIGHT["ink"], result.detail.document().defaultStyleSheet())
         self.assertEqual(result.listw.item(1).foreground().color().name(), theme.LIGHT[theme.result_label(result.view["items"][0]["state"])[1]])
+
+
+SAMPLE = "def solution(numbers):\n    total = 0\n    for n in numbers:\n        total += n\n    Total = total\n    return Total\n"
+
+
+def find_marks(editor):
+    """찾기가 편집기에 칠한 곳을 (줄 번호, 글, 진하게 칠했는지)로 돌려줌."""
+    colors = {(theme.EDITOR[name], theme.EDITOR[name + "_ink"]): name == "find_current" for name in ("find", "find_current")}  # 바탕과 글자색
+    return [(mark.cursor.blockNumber() + 1, mark.cursor.selectedText(),
+             colors[mark.format.background().color().name(), mark.format.foreground().color().name()]) for mark in editor.extraSelections()]
+
+
+class LineNumberTest(unittest.TestCase):
+    def setUp(self):
+        theme.set_mode("light")
+        self.addCleanup(theme.set_mode, "system")
+        self.ed = CodeEditor()
+        self.ed.setFont(theme.code_font())
+        self.ed.resize(360, 200)
+        self.ed.show()
+        self.addCleanup(self.ed.close)
+        pump()
+
+    def lines(self, count):
+        self.ed.setPlainText("\n".join("line %d" % number for number in range(1, count + 1)))
+        pump()
+
+    def drawn(self):
+        """줄 번호 칸을 다시 그리게 하고, 그려진 번호를 위에서부터 (글자, 글자색, 오른쪽 끝, 글자 크기)로 돌려줌."""
+        seen, real = [], widgets.QPainter.drawText
+
+        def spy(painter, point, text):
+            seen.append((text, painter.pen().color().name(), point.x() + painter.fontMetrics().horizontalAdvance(text), painter.font().pixelSize()))
+            return real(painter, point, text)
+
+        with mock.patch.object(widgets.QPainter, "drawText", spy):
+            self.ed.numbers.grab()
+        return seen
+
+    def test_width_follows_the_digit_count_and_never_drops_below_two_digits(self):
+        strip, char, widths = self.ed.numbers, self.ed.fontMetrics().horizontalAdvance("9"), {}
+        for count in (1, 9, 99, 100, 999, 1000):
+            self.lines(count)
+            widths[count] = strip.width()
+            self.assertEqual(self.ed.viewportMargins().left(), strip.width(), count)  # 본문은 칸의 폭만큼 밀림
+            self.assertEqual(self.ed.viewport().x(), strip.geometry().right() + 1, count)
+        self.assertEqual(widths[1], 2 * strip.PAD + 2 * char)
+        self.assertEqual((widths[9], widths[99]), (widths[1], widths[1]))
+        self.assertEqual((widths[100] - widths[99], widths[999], widths[1000] - widths[999]), (char, widths[100], char))
+        self.lines(3)  # 줄을 지우면 다시 좁아짐
+        self.assertEqual(strip.width(), widths[1])
+
+    def test_numbers_start_at_one_are_right_aligned_and_follow_scrolling_and_the_cursor(self):
+        self.lines(60)
+        ink, dim, strip = theme.EDITOR["ink"], theme.EDITOR["line_no"], self.ed.numbers
+        shown = self.drawn()
+        rows = self.ed.viewport().height() // self.ed.fontMetrics().lineSpacing()
+        self.assertEqual([text for text, *_ in shown[:rows]], [str(number) for number in range(1, rows + 1)])  # 오류 내용의 줄 번호처럼 1부터
+        self.assertLessEqual(len(shown), rows + 2)  # 보이는 줄만 그림
+        self.assertEqual({round(right) for _, _, right, _ in shown}, {strip.width() - strip.PAD})  # 오른쪽 정렬
+        self.assertEqual({size for *_, size in shown}, {theme.CODE_PX})
+        self.assertEqual([color for _, color, *_ in shown], [ink] + [dim] * (len(shown) - 1))  # 커서는 첫 줄에 있음
+        self.ed.verticalScrollBar().setValue(20)
+        pump()
+        self.assertEqual([text for text, *_ in self.drawn()[:3]], ["21", "22", "23"])
+        cursor = self.ed.textCursor()
+        cursor.setPosition(self.ed.document().findBlockByNumber(22).position())
+        self.ed.setTextCursor(cursor)
+        self.assertEqual([text for text, color, *_ in self.drawn() if color == ink], ["23"])
+        QTest.keyClick(self.ed, Qt.Key.Key_Return)  # 줄이 늘면 번호도 늘고, 커서가 내려간 줄의 번호가 진해짐
+        self.assertEqual(self.ed.blockCount(), 61)
+        self.assertEqual([text for text, color, *_ in self.drawn() if color == ink], ["24"])
+        image = strip.grab().toImage()
+        self.assertEqual(image.pixelColor(2, image.height() // 2).name(), theme.EDITOR["gutter"])  # 칸 바탕은 편집기 바탕과 다른 색
+        self.assertEqual(image.pixelColor(image.width() - 1, image.height() // 2).name(), theme.EDITOR["edge"])  # 본문과 맞닿은 쪽에 그은 줄
+        self.assertNotEqual(theme.EDITOR["gutter"], theme.EDITOR["bg"])
+
+    def test_numbers_follow_font_size_and_window_size_and_keep_their_colors_in_the_dark_theme(self):
+        self.lines(120)
+        strip, view = self.ed.numbers, self.ed.viewport()
+        before, rows = strip.width(), len(self.drawn())
+        self.ed.setFont(theme.code_font(6))  # 글자 크기를 키움
+        pump()
+        self.assertEqual(strip.width(), 2 * strip.PAD + 3 * self.ed.fontMetrics().horizontalAdvance("9"))
+        self.assertGreater(strip.width(), before)
+        self.assertEqual(self.ed.viewportMargins().left(), strip.width())
+        shown = self.drawn()
+        self.assertEqual(({size for *_, size in shown}, {round(right) for _, _, right, _ in shown}), ({theme.CODE_PX + 6}, {strip.width() - strip.PAD}))
+        self.assertLess(len(shown), rows)
+        self.ed.setFont(theme.code_font())
+        self.ed.resize(300, 120)  # 창을 줄임
+        pump()
+        self.assertEqual((strip.width(), strip.geometry().bottom()), (before, view.geometry().bottom()))
+        self.assertLess(len(self.drawn()), rows)
+        self.ed.appendPlainText("x" * 200)  # 가로 스크롤 막대가 생기면 칸은 그 위에서 끝남
+        pump()
+        across = self.ed.horizontalScrollBar()
+        self.assertTrue(across.isVisible())
+        self.assertLess(strip.geometry().bottom(), across.mapTo(self.ed, QPoint(0, 0)).y())
+        self.assertEqual(strip.geometry().bottom(), view.geometry().bottom())
+        theme.set_mode("dark")  # 앱 테마를 바꿔도 편집기의 색은 같음
+        pump()
+        image = strip.grab().toImage()
+        self.assertEqual(image.pixelColor(2, image.height() // 2).name(), theme.EDITOR["gutter"])
+        self.assertEqual(image.pixelColor(image.width() - 1, image.height() // 2).name(), theme.EDITOR["edge"])
+        self.assertEqual({color for _, color, *_ in self.drawn()}, {theme.EDITOR["ink"], theme.EDITOR["line_no"]})
+
+    def test_clicking_the_numbers_changes_nothing_and_the_wheel_scrolls_the_text(self):
+        from PyQt6.QtGui import QMouseEvent, QWheelEvent
+        self.lines(60)
+        strip, bar = self.ed.numbers, self.ed.verticalScrollBar()
+        cursor = self.ed.textCursor()
+        cursor.setPosition(self.ed.document().findBlockByNumber(2).position() + 3)
+        self.ed.setTextCursor(cursor)
+        before = (self.ed.toPlainText(), self.ed.textCursor().position(), self.ed.textCursor().hasSelection())
+        spot = QPoint(strip.width() // 2, 5 * self.ed.fontMetrics().lineSpacing())
+        kinds = QEvent.Type
+        for kind, button in ((kinds.MouseButtonPress, LEFT), (kinds.MouseButtonRelease, LEFT), (kinds.MouseButtonDblClick, LEFT),
+                             (kinds.MouseButtonRelease, LEFT), (kinds.MouseButtonPress, Qt.MouseButton.MiddleButton)):
+            QApplication.sendEvent(strip, QMouseEvent(kind, QPointF(spot), QPointF(strip.mapToGlobal(spot)), button, button, Qt.KeyboardModifier.NoModifier))
+        self.assertEqual((self.ed.toPlainText(), self.ed.textCursor().position(), self.ed.textCursor().hasSelection()), before)
+        wheel = QWheelEvent(QPointF(spot), QPointF(strip.mapToGlobal(spot)), QPoint(0, 0), QPoint(0, -240), Qt.MouseButton.NoButton,
+                            Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
+        QApplication.sendEvent(strip, wheel)
+        self.assertGreater(bar.value(), 0)
+        self.assertEqual(self.drawn()[0][0], str(bar.value() + 1))
+
+
+class FindBarTest(unittest.TestCase):
+    """찾기 막대와 편집기. 회차 화면과 맞물리는 부분은 FindTest 에서 봄."""
+
+    def setUp(self):
+        theme.set_mode("light")
+        self.addCleanup(theme.set_mode, "system")
+        self.panel, self.seen = widgets.CodePanel(), []
+        self.ed = self.panel.editor
+        self.bar = widgets.FindBar(self.ed, self.panel)
+        self.panel.changed.connect(self.seen.append)  # 자동 저장으로 가는 신호
+        self.ed.setFont(theme.code_font())
+        self.panel.resize(480, 520)
+        self.panel.show()
+        self.addCleanup(self.panel.close)
+        self.panel.set_code(SAMPLE)
+        self.panel.activateWindow()
+        self.ed.setFocus()
+        pump()
+
+    def open(self, text=None):
+        QTest.keyClick(self.ed, Qt.Key.Key_F, CTRL)
+        if text is not None:
+            self.bar.input.clear()
+            QTest.keyClicks(self.bar.input, text)
+
+    def at(self):
+        """편집기의 커서: (줄 번호, 선택한 글)."""
+        cursor = self.ed.textCursor()
+        return self.ed.document().findBlock(cursor.selectionStart()).blockNumber() + 1, cursor.selectedText()
+
+    def test_ctrl_f_opens_the_bar_above_the_text_and_typing_paints_every_match(self):
+        self.assertTrue(self.bar.isHidden())
+        self.assertEqual((self.ed.head, self.ed.extraSelections()), (0, []))
+        self.open()
+        self.assertTrue(self.bar.isVisible())
+        self.assertIs(QApplication.focusWidget(), self.bar.input)
+        self.assertEqual((self.bar.count.text(), find_marks(self.ed), bool(self.bar.input.property("missing"))), ("", [], False))
+        view = self.ed.viewport()
+        top, box = view.mapTo(self.panel, QPoint(0, 0)), self.bar.geometry()
+        self.assertEqual(self.ed.viewportMargins().top(), box.height() + 2 * self.bar.GAP)  # 본문이 막대의 높이만큼 내려가 글이 가려지지 않음
+        self.assertEqual((box.bottom() + 1, box.right() + 1), (top.y() - self.bar.GAP, top.x() + view.width() - self.bar.GAP))  # 오른쪽 위
+        self.assertGreaterEqual(box.top(), self.ed.mapTo(self.panel, QPoint(0, 0)).y())
+        QTest.keyClicks(self.bar.input, "total")  # 대소문자를 가리지 않음
+        self.assertEqual(self.bar.count.text(), "1/5")
+        self.assertEqual(find_marks(self.ed), [(2, "total", True), (4, "total", False), (5, "Total", False), (5, "total", False), (6, "Total", False)])
+        QTest.keyClicks(self.bar.input, " +")  # 입력하는 대로 다시 찾음
+        self.assertEqual((self.bar.count.text(), find_marks(self.ed)), ("1/1", [(4, "total +", True)]))
+        self.assertEqual((self.ed.toPlainText(), self.seen), (SAMPLE, []))  # 친 글자는 편집기와 답으로 가지 않음
+        self.ed.setFocus()
+        self.open()  # 떠 있을 때 다시 누르면 입력칸으로 돌아가 쓰던 글을 전부 선택함
+        self.assertIs(QApplication.focusWidget(), self.bar.input)
+        self.assertEqual(self.bar.input.selectedText(), "total +")
+
+    def test_enter_buttons_and_keys_walk_the_matches_and_wrap_around(self):
+        self.open("total")
+        steps = [(lambda: QTest.keyClick(self.bar.input, Qt.Key.Key_Return), "2/5", 4),
+                 (lambda: click(self.bar.next_btn), "3/5", 5),
+                 (lambda: QTest.keyClick(self.bar.input, Qt.Key.Key_Enter), "4/5", 5),
+                 (lambda: QTest.keyClick(self.bar.input, Qt.Key.Key_G, CTRL), "5/5", 6),
+                 (lambda: QTest.keyClick(self.bar.input, Qt.Key.Key_Return), "1/5", 2),  # 끝에서 처음으로
+                 (lambda: QTest.keyClick(self.bar.input, Qt.Key.Key_Return, SHIFT), "5/5", 6),  # 처음에서 끝으로
+                 (lambda: click(self.bar.prev_btn), "4/5", 5),
+                 (lambda: QTest.keyClick(self.bar.input, Qt.Key.Key_G, CTRL | SHIFT), "3/5", 5)]
+        for number, (press, count, line) in enumerate(steps):
+            press()
+            self.assertEqual((self.bar.count.text(), self.at()), (count, (line, "")), number)
+            marks = find_marks(self.ed)
+            self.assertEqual(([mark[2] for mark in marks].index(True), sum(mark[2] for mark in marks)), (int(count[0]) - 1, 1), number)
+            self.assertIs(QApplication.focusWidget(), self.bar.input, number)  # 단추를 눌러도 입력칸에 남음
+        self.ed.setFocus()  # 편집기에 포커스가 있어도 다음·이전 키는 들음
+        QTest.keyClick(self.ed, Qt.Key.Key_G, CTRL)
+        self.assertEqual((self.bar.count.text(), self.at()), ("4/5", (5, "")))
+        self.assertEqual((self.ed.toPlainText(), self.seen), (SAMPLE, []))
+
+    def test_f3_walks_the_matches_on_every_platform_and_escape_closes_from_the_editor_too(self):
+        none = Qt.KeyboardModifier.NoModifier
+        self.open("total")
+        for key, modifiers, count in ((Qt.Key.Key_F3, none, "2/5"), (Qt.Key.Key_F3, none, "3/5"), (Qt.Key.Key_F3, SHIFT, "2/5")):
+            QTest.keyClick(self.bar.input, key, modifiers)
+            self.assertEqual(self.bar.count.text(), count)  # 한 번에 한 곳씩
+        self.ed.setFocus()
+        QTest.keyClick(self.ed, Qt.Key.Key_F3)
+        self.assertEqual((self.bar.count.text(), self.at(), self.bar.escape.isEnabled()), ("3/5", (5, ""), True))
+        QTest.keyClick(self.ed, Qt.Key.Key_Escape)  # 포커스가 편집기에 있어도 닫힘
+        self.assertEqual((self.bar.isHidden(), self.ed.extraSelections(), self.at(), self.bar.escape.isEnabled()), (True, [], (5, "Total"), False))
+        self.assertIs(QApplication.focusWidget(), self.ed)
+        QTest.keyClick(self.ed, Qt.Key.Key_Escape)  # 닫힌 뒤의 Esc 는 선택을 건드리지 않음
+        self.assertEqual((self.at(), self.ed.toPlainText(), self.seen), ((5, "Total"), SAMPLE, []))
+
+        keys = QKeySequence.StandardKey  # 맥의 표준 키에는 F3 이 없어서 따로 들음
+        mac = {keys.Find: ["Ctrl+F"], keys.FindNext: ["Ctrl+G"], keys.FindPrevious: ["Ctrl+Shift+G"]}
+        with mock.patch.object(widgets.QKeySequence, "keyBindings", lambda key: [QKeySequence(text) for text in mac[key]]):
+            panel = widgets.CodePanel()
+            bar = widgets.FindBar(panel.editor, panel)
+        panel.show()
+        self.addCleanup(panel.close)
+        panel.set_code(SAMPLE)
+        panel.activateWindow()
+        panel.editor.setFocus()
+        pump()
+        QTest.keyClick(panel.editor, Qt.Key.Key_F, CTRL)
+        self.assertIs(QApplication.focusWidget(), bar.input)
+        QTest.keyClicks(bar.input, "total")
+        steps = ((Qt.Key.Key_F3, none, "2/5"), (Qt.Key.Key_G, CTRL, "3/5"), (Qt.Key.Key_F3, SHIFT, "2/5"), (Qt.Key.Key_G, CTRL | SHIFT, "1/5"))
+        for target in (bar.input, panel.editor):
+            target.setFocus()
+            for key, modifiers, count in steps:
+                QTest.keyClick(target, key, modifiers)
+                self.assertEqual(bar.count.text(), count)
+
+    def test_match_outside_the_view_is_scrolled_into_it(self):
+        self.panel.set_code("\n".join("row %d" % number for number in range(1, 201)) + "\nneedle\n" + "\n".join("x" * 150 for _ in range(60)))
+        pump()
+        self.open("needle")
+        self.assertEqual((self.bar.count.text(), self.at()), ("1/1", (201, "")))
+        self.assertGreater(self.ed.verticalScrollBar().value(), 150)
+        shown = self.ed.cursorRect()
+        self.assertTrue(self.ed.viewport().rect().contains(shown), shown)
+        self.assertLess(abs(shown.center().y() - self.ed.viewport().height() // 2), 2 * shown.height())  # 가운데쯤에 옴
+
+    def test_no_match_says_so_and_marks_the_input(self):
+        self.open("totla")
+        self.assertEqual((self.bar.count.text(), find_marks(self.ed), self.bar.input.property("missing")), ("없음", [], True))
+        self.assertFalse(self.bar.prev_btn.isEnabled() or self.bar.next_btn.isEnabled())
+        pump()
+        image = self.bar.input.grab().toImage()
+        self.assertEqual(image.pixelColor(image.width() // 2, 0).name(), theme.EDITOR["missing"])  # 입력칸 테두리가 오류 색
+        before = self.at()
+        QTest.keyClick(self.bar.input, Qt.Key.Key_Return)  # 갈 곳이 없으면 커서가 옮겨지지 않음
+        self.assertEqual((self.bar.count.text(), self.at()), ("없음", before))
+        for _ in range(2):
+            QTest.keyClick(self.bar.input, Qt.Key.Key_Backspace)
+        self.assertEqual((self.bar.count.text(), self.bar.input.property("missing"), self.bar.next_btn.isEnabled()), ("1/5", False, True))
+        image = self.bar.input.grab().toImage()
+        self.assertEqual(image.pixelColor(image.width() // 2, 0).name(), theme.EDITOR["focus"])
+        self.bar.input.clear()  # 찾을 글이 없으면 개수도 비움
+        self.assertEqual((self.bar.count.text(), find_marks(self.ed), self.bar.input.property("missing")), ("", [], False))
+
+    def test_text_selected_within_one_line_becomes_the_query(self):
+        cursor = self.ed.textCursor()
+        start = SAMPLE.index("Total")
+        cursor.setPosition(start)
+        cursor.setPosition(start + 5, QTextCursor.MoveMode.KeepAnchor)
+        self.ed.setTextCursor(cursor)
+        self.open()
+        self.assertEqual((self.bar.input.text(), self.bar.input.selectedText(), self.bar.count.text()), ("Total", "Total", "3/5"))  # 선택했던 곳을 가리킴
+        self.assertEqual(find_marks(self.ed)[2], (5, "Total", True))
+        QTest.keyClick(self.bar.input, Qt.Key.Key_Escape)
+        self.assertEqual(self.at(), (5, "Total"))
+        cursor.setPosition(0)  # 여러 줄을 선택하고 열면 쓰던 글이 남음
+        cursor.setPosition(start, QTextCursor.MoveMode.KeepAnchor)
+        self.ed.setTextCursor(cursor)
+        self.open()
+        self.assertEqual((self.bar.input.text(), self.bar.count.text()), ("Total", "1/5"))
+
+    def test_closing_clears_the_paint_selects_the_current_match_and_returns_focus(self):
+        for close in (lambda: QTest.keyClick(self.bar.input, Qt.Key.Key_Escape), lambda: click(self.bar.close_btn)):
+            self.open("total")
+            QTest.keyClick(self.bar.input, Qt.Key.Key_Return)
+            QTest.keyClick(self.bar.input, Qt.Key.Key_Return)
+            self.assertEqual((self.bar.count.text(), len(find_marks(self.ed))), ("3/5", 5))
+            close()
+            self.assertTrue(self.bar.isHidden())
+            self.assertEqual((self.ed.extraSelections(), self.ed.head, self.ed.viewportMargins().top()), ([], 0, 0))
+            self.assertEqual(self.at(), (5, "Total"))  # 가리키던 곳이 선택된 채로 남음
+            self.assertIs(QApplication.focusWidget(), self.ed)
+            cursor = self.ed.textCursor()
+            cursor.setPosition(0)
+            self.ed.setTextCursor(cursor)
+        self.open("zzz")  # 맞는 곳이 없는 채로 닫으면 커서가 옮겨지지 않음
+        before = self.at()
+        QTest.keyClick(self.bar.input, Qt.Key.Key_Escape)
+        self.assertEqual((self.at(), self.bar.isHidden()), (before, True))
+        self.assertIs(QApplication.focusWidget(), self.ed)
+        QTest.keyClick(self.ed, Qt.Key.Key_G, CTRL)  # 닫힌 채로 다음 키를 누르면 쓰던 글로 다시 띄움
+        self.assertEqual((self.bar.isVisible(), self.bar.input.text()), (True, "zzz"))
+        self.assertEqual((self.ed.toPlainText(), self.seen), (SAMPLE, []))
+
+    def test_closing_leaves_the_cursor_where_the_editor_was_being_edited(self):
+        """막대를 띄운 채 편집기의 다른 곳을 고치다가 닫으면 커서가 찾은 곳으로 끌려가지 않음. 끌려가 선택되면 이어 친 글자가 그 글을 덮어씀."""
+        for close in (lambda: QTest.keyClick(self.ed, Qt.Key.Key_Escape), lambda: click(self.bar.close_btn)):
+            self.panel.set_code(SAMPLE)
+            self.ed.moveCursor(QTextCursor.MoveOperation.Start)
+            self.open("total")
+            self.assertEqual((self.bar.count.text(), self.at()), ("1/5", (2, "")))
+            self.ed.setFocus()
+            self.ed.moveCursor(QTextCursor.MoveOperation.End)
+            QTest.keyClicks(self.ed, "# memo")
+            close()
+            self.assertEqual((self.bar.isHidden(), self.at()), (True, (7, "")))
+            self.assertIs(QApplication.focusWidget(), self.ed)
+            QTest.keyClicks(self.ed, "x")
+            self.assertEqual((self.ed.toPlainText(), self.seen[-1]), (SAMPLE + "# memox", SAMPLE + "# memox"))
+        self.panel.set_code(SAMPLE)  # 편집기에서 선택해 둔 글도 그대로 남음
+        self.open("total")
+        self.ed.setFocus()
+        cursor = self.ed.textCursor()
+        cursor.setPosition(SAMPLE.index("numbers"))
+        cursor.setPosition(SAMPLE.index("total"), QTextCursor.MoveMode.KeepAnchor)  # 커서 쪽 끝이 찾은 곳의 시작과 같은 선택
+        self.ed.setTextCursor(cursor)
+        QTest.keyClick(self.ed, Qt.Key.Key_Escape)
+        self.assertEqual(self.ed.textCursor().selectedText(), "numbers):     ")
+
+    def test_count_and_input_are_not_cut_off_in_a_narrow_editor(self):
+        """답안 칸을 끝까지 좁히고 맞는 곳이 천 개를 넘어도 개수가 다 보이고 입력칸에 찾는 글이 몇 글자는 보임."""
+        self.panel.set_code("\n".join("row = %d" % number for number in range(2500)))
+        self.panel.resize(251, 520)
+        pump()
+        self.open("row")
+        QTest.keyClick(self.bar.input, Qt.Key.Key_Return, SHIFT)  # 처음에서 끝으로
+        pump()
+        count, view = self.bar.count, self.ed.viewport()
+
+        def whole():
+            """막대 안의 칸들이 서로 겹치거나 막대 밖으로 나가지 않고 개수가 다 보이는지."""
+            boxes = [part.geometry() for part in (self.bar.input, count, self.bar.prev_btn, self.bar.next_btn, self.bar.close_btn)]
+            apart = all(left.right() < right.left() for left, right in zip(boxes, boxes[1:]))
+            return apart and boxes[0].left() >= 0 and boxes[-1].right() < self.bar.width() and count.width() >= count.fontMetrics().horizontalAdvance(count.text())
+
+        box = self.bar.geometry()
+        self.assertEqual((count.text(), whole()), ("2500/2500", True))
+        self.assertGreater(self.bar.input.width(), 40)
+        self.assertGreater(box.width(), view.width() - 2 * self.bar.GAP)  # 본문 폭으로는 모자라서 줄 번호 칸 위의 빈 자리까지 씀
+        self.assertGreaterEqual(box.left(), self.ed.mapTo(self.panel, QPoint(0, 0)).x() + self.bar.GAP)  # 편집기 밖으로는 나가지 않음
+        self.assertEqual((box.right() + 1, box.bottom() + 1),
+                         (view.mapTo(self.panel, QPoint(view.width(), 0)).x() - self.bar.GAP, view.mapTo(self.panel, QPoint(0, 0)).y() - self.bar.GAP))
+        for text, shown in (("row = 7", "1/111"), ("row = 77", "1/11")):  # 개수가 짧아지면 그만큼 입력칸이 넓어짐
+            self.bar.input.setText(text)
+            pump()
+            self.assertEqual((count.text(), whole()), (shown, True))
+        self.assertGreaterEqual(self.bar.input.width(), self.bar.INPUT)
+
+    def test_find_input_takes_no_dropped_text(self):
+        """편집기에서 끌어온 글을 입력칸이 받으면 그 글이 답에서 빠짐."""
+        self.open("to")
+        data = QMimeData()
+        data.setText("tal")
+        events = (QDragEnterEvent(QPoint(8, 8), Qt.DropAction.MoveAction, data, LEFT, Qt.KeyboardModifier.NoModifier),
+                  QDropEvent(QPointF(8, 8), Qt.DropAction.MoveAction, data, LEFT, Qt.KeyboardModifier.NoModifier))
+        for event in events:
+            QApplication.sendEvent(self.bar.input, event)
+        self.assertFalse(events[0].isAccepted())
+        self.assertEqual((self.bar.input.text(), self.ed.toPlainText(), self.seen), ("to", SAMPLE, []))
+
+    def test_editing_the_text_recounts_at_once_without_moving_the_cursor(self):
+        self.open("total")
+        QTest.keyClick(self.bar.input, Qt.Key.Key_Return)
+        self.assertEqual(self.bar.count.text(), "2/5")
+        self.ed.setFocus()  # 막대를 띄워 둔 채로 편집기를 고침
+        cursor = self.ed.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.ed.setTextCursor(cursor)
+        QTest.keyClicks(self.ed, "total = 1")
+        self.assertEqual((self.bar.count.text(), len(find_marks(self.ed)), find_marks(self.ed)[-1]), ("2/6", 6, (7, "total", False)))
+        self.assertEqual(self.at(), (7, ""))  # 치던 자리에 남음
+        cursor.setPosition(0)
+        self.ed.setTextCursor(cursor)
+        QTest.keyClicks(self.ed, "# total")  # 앞쪽에 생겨도 가리키던 곳은 같은 곳
+        QTest.keyClick(self.ed, Qt.Key.Key_Return)
+        self.assertEqual((self.bar.count.text(), find_marks(self.ed)[2]), ("3/7", (5, "total", True)))
+        for _ in range(8):  # 맞는 곳이 지워지면 개수가 줄어듦
+            QTest.keyClick(self.ed, Qt.Key.Key_Backspace)
+        self.assertEqual((self.bar.count.text(), find_marks(self.ed)[1]), ("2/6", (4, "total", True)))
+        self.assertEqual(self.seen[-1], self.ed.toPlainText())  # 편집기에 친 글은 그대로 답이 됨
+        self.ed.selectAll()
+        QTest.keyClick(self.ed, Qt.Key.Key_Delete)
+        self.assertEqual((self.bar.count.text(), find_marks(self.ed), self.bar.input.property("missing")), ("없음", [], True))
+
+    def test_find_works_on_a_locked_editor_and_never_changes_it(self):
+        for lock, unlock in ((lambda: self.ed.setReadOnly(True), lambda: self.ed.setReadOnly(False)),
+                             (lambda: self.ed.setEnabled(False), lambda: self.ed.setEnabled(True))):
+            self.ed.setFocus()
+            self.ed.moveCursor(QTextCursor.MoveOperation.Start)
+            self.open("total")
+            lock()
+            self.bar.input.setFocus()
+            QTest.keyClick(self.bar.input, Qt.Key.Key_Return)
+            click(self.bar.next_btn)
+            self.assertEqual((self.bar.count.text(), self.at(), find_marks(self.ed)[2]), ("3/5", (5, ""), (5, "Total", True)))
+            QTest.keyClicks(self.bar.input, " =")
+            self.assertEqual((self.bar.count.text(), find_marks(self.ed)), ("2/2", [(2, "total =", False), (5, "Total =", True)]))
+            QTest.keyClick(self.bar.input, Qt.Key.Key_Escape)
+            self.assertEqual((self.at(), self.ed.extraSelections()), ((5, "Total ="), []))
+            unlock()
+        self.assertEqual((self.ed.toPlainText(), self.seen, self.ed.document().isModified()), (SAMPLE, [], False))
+
+
+class FindTest(GuiTest):
+    """회차 화면의 찾기: 답과 자동 저장, 문항 이동, 숫자 키, 잠금, 앱 테마와 글자 크기."""
+
+    def open_code(self):
+        self.boot()
+        self.make_round("r96", [self.first(type="return"), self.first(type="choice", multi=False), self.first(type="print")])
+        self.win.open_round("r96")
+        page = self.win.round_page
+        item = self.select(lambda it: it["kind"] == "code")
+        self.win.activateWindow()
+        page.code_panel.editor.setFocus()
+        return page, page.code_panel.editor, page.find_bar, item
+
+    def test_find_stays_out_of_the_answer_the_autosave_and_the_number_keys(self):
+        page, editor, bar, code = self.open_code()
+        path = os.path.join(self.win.session.folder("r96"), code["id"] + ".py")
+        saved, progress, word = study.read_text(path), page.progress.text(), code["starter"].split()[0]
+        self.assertTrue(bar.isHidden())
+        QTest.keyClick(editor, Qt.Key.Key_F, CTRL)
+        self.assertTrue(bar.isVisible())
+        self.assertIs(QApplication.focusWidget(), bar.input)
+        QTest.keyClicks(bar.input, word + " 12")  # 숫자도 입력칸에 글자로 들어감
+        self.assertEqual((bar.input.text(), bar.count.text()), (word + " 12", "없음"))
+        for _ in range(3):
+            QTest.keyClick(bar.input, Qt.Key.Key_Backspace)
+        self.assertEqual((bar.input.text(), bar.count.text()[:2], find_marks(editor)[0][1:]), (word, "1/", (word, True)))
+        pump(save_delay())
+        self.assertEqual((editor.toPlainText(), study.read_text(path)), (code["starter"], saved))  # 친 글자는 편집기와 답안 파일로 가지 않음
+        self.assertEqual((page.dirty, page.save_timer.isActive(), page.status.text()), ({}, False, ""))  # 자동 저장도 돌지 않음
+        self.assertEqual((code["answered"], page.progress.text(), page.listw.item(code["no"] - 1).data(Qt.ItemDataRole.UserRole)),
+                         (False, progress, False))  # 작성한 문항으로 치지 않음
+        editor.setFocus()  # 막대를 띄워 둔 채로 편집기에 친 글은 답이 되고 개수도 따라감
+        editor.moveCursor(QTextCursor.MoveOperation.End)
+        QTest.keyClicks(editor, word)
+        self.assertEqual((bar.count.text(), code["answered"]), ("1/%d" % (code["starter"].lower().count(word) + 1), True))
+        pump(save_delay())
+        self.assertEqual(study.read_text(path).rstrip("\n"), (code["starter"] + word).rstrip("\n"))
+
+        choice = self.select(lambda it: it["type"] == "choice")  # 문항을 옮기면 막대가 닫힘
+        self.assertTrue(bar.isHidden())
+        self.assertEqual((editor.extraSelections(), editor.viewportMargins().top()), ([], 0))
+        page.listw.setFocus()
+        QTest.keyClick(page.listw, Qt.Key.Key_2)  # 숫자 키는 보기를 고르고 찾을 글은 바뀌지 않음
+        self.assertEqual((choice["answer"], bar.input.text()), ([2], word))
+        QTest.keyClick(page.listw, Qt.Key.Key_F, CTRL)  # 편집기가 없는 문항에서는 뜨지 않음
+        self.assertTrue(bar.isHidden())
+        self.select(lambda it: it is code)  # 돌아와도 닫힌 채로 있고, 다시 띄우면 찾던 글이 남아 있음
+        self.assertEqual((bar.isHidden(), editor.extraSelections()), (True, []))
+        editor.setFocus()
+        QTest.keyClick(editor, Qt.Key.Key_F, CTRL)
+        self.assertEqual((bar.isVisible(), bar.input.text(), bar.input.selectedText()), (True, word, word))
+        self.assertEqual(self.saved_quiz("r96")[choice["id"]], 2)
+
+    def test_find_works_while_the_screen_is_locked_and_follows_font_size_and_keeps_its_colors_in_the_dark_theme(self):
+        page, editor, bar, _ = self.open_code()
+        self.fill(page.current, SAMPLE)
+        self.addCleanup(theme.set_mode, "system")
+        editor.moveCursor(QTextCursor.MoveOperation.Start)
+        QTest.keyClick(editor, Qt.Key.Key_F, CTRL)
+        QTest.keyClicks(bar.input, "total")
+        self.assertEqual(bar.count.text(), "1/5")
+
+        page.set_busy(True, "채점하는 중입니다.")  # 실행·채점 중에는 답안 칸이 잠기지만 찾기는 됨
+        self.assertFalse(editor.isEnabled())
+        self.assertTrue(bar.isEnabled() and bar.isVisible())
+        bar.input.setFocus()
+        QTest.keyClick(bar.input, Qt.Key.Key_Return)
+        click(bar.next_btn)
+        self.assertEqual((bar.count.text(), find_marks(editor)[2], editor.textCursor().blockNumber() + 1), ("3/5", (5, "Total", True), 5))
+        QTest.keyClicks(bar.input, " =")
+        self.assertEqual((bar.count.text(), len(find_marks(editor))), ("2/2", 2))
+        for _ in range(2):
+            QTest.keyClick(bar.input, Qt.Key.Key_Backspace)
+        page.set_busy(False)
+        self.assertEqual((editor.toPlainText(), bar.count.text(), bar.isVisible()), (SAMPLE, "3/5", True))
+
+        view, right = editor.viewport(), bar.parentWidget()
+
+        def placed():
+            """막대가 본문 위에 비운 자리의 오른쪽 끝에 놓였는지."""
+            top, box = view.mapTo(right, QPoint(0, 0)), bar.geometry()
+            return (box.bottom() + 1, box.right() + 1) == (top.y() - bar.GAP, top.x() + view.width() - bar.GAP) and box.width() <= bar.WIDTH
+
+        self.assertTrue(placed())
+        marks = find_marks(editor)
+        theme.set_mode("dark")  # 띄워 둔 채로 앱 테마를 바꿔도 칠과 줄 번호 칸은 편집기의 색으로 남음
+        pump()
+        self.assertEqual((find_marks(editor), [mark[2] for mark in marks]), (marks, [False, False, True, False, False]))
+        strip = editor.numbers.grab().toImage()
+        self.assertEqual(strip.pixelColor(2, strip.height() - 4).name(), theme.EDITOR["gutter"])
+        self.assertEqual(bright_share(self.win), 0)
+        width = editor.numbers.width()
+        self.win.set_zoom(4)  # 글자를 키우면 줄 번호 칸이 넓어지고 막대는 제자리를 따라감
+        pump()
+        self.assertGreater(editor.numbers.width(), width)
+        self.assertTrue(placed())
+        self.assertEqual((bar.count.text(), len(find_marks(editor))), ("3/5", 5))
+        self.win.resize(1024, 700)  # 창을 줄여도 편집기 안에 놓임
+        pump()
+        self.assertTrue(placed())
+        self.assertGreaterEqual(bar.geometry().left(), editor.mapTo(right, QPoint(0, 0)).x())
+        click(bar.close_btn)
+        self.assertEqual((editor.textCursor().selectedText(), editor.extraSelections()), ("Total", []))
+
+
+SYNTAX = ("keyword", "def", "builtin", "string", "comment", "number", "decorator", "self", "blank")  # 문법 색칠이 나누는 종류
+
+
+def painted(editor, line):
+    """문법 색칠이 한 줄에 입힌 조각을 (글, 종류)로 돌려줌. 색을 입히지 않은 글은 빠짐."""
+    kinds = {theme.EDITOR[name]: name for name in SYNTAX}
+    block = editor.document().findBlockByNumber(line)
+    raw = block.text().encode("utf-16-le")  # Qt 의 위치는 UTF-16 단위
+    return [(raw[2 * part.start:2 * (part.start + part.length)].decode("utf-16-le"), kinds[part.format.foreground().color().name()])
+            for part in block.layout().formats()]
+
+
+class HighlightTest(unittest.TestCase):
+    """편집기의 바탕과 파이썬 문법 색칠."""
+
+    def setUp(self):
+        theme.set_mode("light")
+        self.addCleanup(theme.set_mode, "system")
+        self.panel, self.seen = widgets.CodePanel(), []
+        self.ed = self.panel.editor
+        self.panel.changed.connect(self.seen.append)  # 자동 저장으로 가는 신호
+        self.ed.setFont(theme.code_font())
+        self.panel.resize(520, 560)
+        self.panel.show()
+        self.addCleanup(self.panel.close)
+        pump()
+
+    def kinds(self, code):
+        self.panel.set_code(code)
+        return [painted(self.ed, line) for line in range(self.ed.blockCount())]
+
+    def test_each_kind_of_token_gets_its_own_color(self):
+        code = ("import re\n"
+                "class Dog(Animal):\n"
+                "    @property\n"
+                "    def speak(self, times=2):  # 울음 for 3\n"
+                "        for n in range(times):\n"
+                "            print(self.sound, \"멍\", 0x1F + 3.5e2, .5, 1_000)\n"
+                "        return None if not self.items else self.items.index(max(self.items))\n"
+                "classes, define, printer, selfish, x1, in_ = text.format(a), d.keys\n"
+                "@app.route\n"
+                "y = a @ b\n")
+        self.assertEqual(self.kinds(code), [
+            [("import", "keyword")],
+            [("class", "keyword"), ("Dog", "def")],  # 부모 클래스 같은 여느 이름은 칠하지 않음
+            [("@property", "decorator")],
+            [("def", "keyword"), ("speak", "def"), ("self", "self"), ("2", "number"), ("# 울음 for 3", "comment")],
+            [("for", "keyword"), ("in", "keyword"), ("range", "builtin")],
+            [("print", "builtin"), ("self", "self"), ('"멍"', "string"), ("0x1F", "number"), ("3.5e2", "number"), (".5", "number"),
+             ("1_000", "number")],
+            [("return", "keyword"), ("None", "keyword"), ("if", "keyword"), ("not", "keyword"), ("self", "self"), ("else", "keyword"),
+             ("self", "self"), ("max", "builtin"), ("self", "self")],  # 점 뒤의 index 는 속성
+            [],  # 예약어나 내장 함수로 시작할 뿐인 이름, 점 뒤의 format
+            [("@app.route", "decorator")],
+            [],  # 줄 가운데의 @ 는 연산자
+            []])
+        colors = [QColor(theme.EDITOR[name]) for name in SYNTAX[:-1] + ("ink",)]
+        for one, other in itertools.combinations(colors, 2):  # 종류마다 색이 서로 구분됨. 빈칸은 바탕으로 구분함
+            gap = abs(one.red() - other.red()) + abs(one.green() - other.green()) + abs(one.blue() - other.blue())
+            self.assertGreater(gap, 60, "%s / %s" % (one.name(), other.name()))
+
+    def test_strings_keep_one_color_through_prefixes_escapes_and_several_lines(self):
+        code = ("a = f\"{x}점\" + r'\\d+' + Rb\"\\x00\" + 'it\\'s' + \"\" + str(1)\n"
+                "b = \"# 아님\"  # 주석 if\n"
+                "def f():\n"
+                "    \"\"\"첫 줄\n"
+                "    for x in range(3):  # 문자열 안\n"
+                "    끝\"\"\" + str(2)\n"
+                "c = '''여는 줄에서 \"\"\" 는 닫지 않음\n"
+                "'''\n"
+                "d = 3\n")
+        self.assertEqual(self.kinds(code), [
+            [('f"{x}점"', "string"), ("r'\\d+'", "string"), ('Rb"\\x00"', "string"), ("'it\\'s'", "string"), ('""', "string"), ("str", "builtin"),
+             ("1", "number")],
+            [('"# 아님"', "string"), ("# 주석 if", "comment")],
+            [("def", "keyword"), ("f", "def")],
+            [('"""첫 줄', "string")],
+            [("    for x in range(3):  # 문자열 안", "string")],
+            [('    끝"""', "string"), ("str", "builtin"), ("2", "number")],
+            [("'''여는 줄에서 \"\"\" 는 닫지 않음", "string")],
+            [("'''", "string")],
+            [("3", "number")],
+            []])
+        cursor = self.ed.textCursor()  # 여는 따옴표를 지우면 아랫줄이 코드로 돌아가고, 다시 치면 문자열이 됨
+        cursor.setPosition(self.ed.document().findBlockByNumber(3).position() + 4)
+        self.ed.setTextCursor(cursor)
+        for _ in range(3):
+            QTest.keyClick(self.ed, Qt.Key.Key_Delete)
+        self.assertEqual(painted(self.ed, 4), [("for", "keyword"), ("in", "keyword"), ("range", "builtin"), ("3", "number"),
+                                               ("# 문자열 안", "comment")])
+        self.assertEqual(painted(self.ed, 5)[0], ('""" + str(2)', "string"))  # 닫던 따옴표가 이제 문자열을 엶
+        QTest.keyClicks(self.ed, '"""')
+        self.assertEqual((painted(self.ed, 4), painted(self.ed, 5)[1:]),
+                         ([("    for x in range(3):  # 문자열 안", "string")], [("str", "builtin"), ("2", "number")]))
+
+    def test_unfinished_code_is_colored_without_errors(self):
+        """치는 중에는 따옴표와 괄호가 닫히지 않은 글이 계속 지나감."""
+        pieces = ('s = "abc', "t = 'it\\", 'u = f"{', 'x = (1, [2, {"a": ', "0x", "1e", "1.", "@", "def", "def (", "class ", "self.", "print(",
+                  "\\", "#", "____", "\U0001F389 = '\U0001F389' + str(1)  # \U0001F389", "w = '''", 'v = """문서')
+        failures = []
+        with mock.patch.object(sys, "excepthook", lambda *args: failures.append(args)):
+            for piece in pieces:
+                for length in range(len(piece) + 1):
+                    self.panel.set_code("y = 0\n%s\nz = None" % piece[:length])
+            self.panel.set_code("\n".join(pieces))
+        self.assertEqual(failures, [])
+        rows = [painted(self.ed, line) for line in range(len(pieces))]
+        self.assertEqual(rows[:4], [[('"abc', "string")], [("'it\\", "string")], [('f"{', "string")],  # 닫지 않은 문자열은 줄 끝까지만
+                                    [("1", "number"), ("2", "number"), ('"a"', "string")]])
+        self.assertEqual(rows[8:13], [[("def", "keyword")], [("def", "keyword")], [("class", "keyword")], [("self", "self")], [("print", "builtin")]])
+        self.assertEqual(rows[16], [("'\U0001F389'", "string"), ("str", "builtin"), ("1", "number"), ("# \U0001F389", "comment")])  # 이모지 뒤에서도 제자리
+        self.assertEqual(rows[17:], [[("'''", "string")], [('v = """문서', "string")]])  # 닫지 않은 삼중 따옴표는 글 끝까지
+
+    def test_blanks_of_a_fill_item_stand_out(self):
+        rows = self.kinds('print(____, "____")  # ____\nif __name__ == "____":\n    ____.info()\n')
+        self.assertEqual(rows[0], [("print", "builtin"), ("____", "blank"), ('"', "string"), ("____", "blank"), ('"', "string"),
+                                   ("# ", "comment"), ("____", "blank")])
+        self.assertEqual(rows[1], [("if", "keyword"), ('"', "string"), ("____", "blank"), ('"', "string")])  # __name__ 은 빈칸이 아님
+        self.assertEqual(rows[2], [("____", "blank")])
+        ground = {part.format.background().color().name() for line in range(3)
+                  for part in self.ed.document().findBlockByNumber(line).layout().formats()
+                  if part.format.foreground().color().name() == theme.EDITOR["blank"]}
+        self.assertEqual(ground, {theme.EDITOR["blank_bg"]})  # 글자색에 더해 옅은 바탕을 깖
+        image = self.ed.grab().toImage()
+        colors = {image.pixelColor(x, y).name() for x in range(image.width()) for y in range(0, 40)}
+        self.assertIn(theme.EDITOR["blank_bg"], colors)
+
+    def test_selected_blank_looks_different_from_the_other_blanks(self):
+        """빈칸만 선택하고 치면 그 자리에 들어가므로 어느 빈칸을 선택했는지 보여야 함. 빈칸의 바탕은 선택 영역, 찾은 곳, 편집기 바탕과 색이 다름."""
+        code = "result = ____ * ____\n"
+        self.panel.set_code(code)
+        first = code.index("____")
+        cursor = self.ed.textCursor()
+        cursor.setPosition(first)
+        cursor.setPosition(first + 4, QTextCursor.MoveMode.KeepAnchor)
+        self.ed.setTextCursor(cursor)
+        pump()
+        image, view = self.ed.grab().toImage(), self.ed.viewport()
+
+        def ground(position):
+            """position 번째 글자 칸의 바탕색. 밑줄 글자가 닿지 않는 위쪽을 봄."""
+            spot = QTextCursor(self.ed.document())
+            spot.setPosition(position)
+            box = self.ed.cursorRect(spot)
+            return image.pixelColor(view.mapTo(self.ed, QPoint(box.left() + 5, box.top() + 3))).name()
+
+        tokens = theme.EDITOR
+        self.assertEqual((ground(first), ground(code.rindex("____")), ground(0)), (tokens["selection"], tokens["blank_bg"], tokens["bg"]))
+        blank = QColor(tokens["blank_bg"])
+        for name in ("selection", "find", "find_current", "bg"):
+            other = QColor(tokens[name])
+            gap = abs(blank.red() - other.red()) + abs(blank.green() - other.green()) + abs(blank.blue() - other.blue())
+            self.assertGreater(gap, 60, name)
+
+    def test_editor_keeps_the_same_navy_ground_in_both_app_themes(self):
+        other = TextPanel()
+        other.set_item({"type": "output", "answer": ""})
+        other.resize(300, 200)
+        other.show()
+        self.addCleanup(other.close)
+        self.panel.set_code("\n".join("        row = %d" % number for number in range(80)))
+        self.ed.selectAll()
+        down, seen = self.ed.verticalScrollBar(), []
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            pump()
+            image = self.ed.grab().toImage()
+            view, handle = self.ed.viewport().geometry(), down.mapTo(self.ed, QPoint(down.width() // 2, 12))
+            seen.append((image.pixelColor(view.right() - 20, view.bottom() - 4).name(),  # 글이 없는 바탕
+                         image.pixelColor(view.left() + 10, view.top() + 14).name(),  # 선택한 들여쓰기
+                         image.pixelColor(handle).name(),  # 스크롤 막대의 손잡이
+                         image.pixelColor(3, image.height() // 2).name(),  # 줄 번호 칸
+                         self.ed.palette().color(self.ed.foregroundRole()).name()))  # 기본 글자색. 커서도 이 색으로 그림
+            for box in (other.multi, self.panel.console):  # 다른 답 칸과 실행 결과 칸은 앱 테마를 따름
+                shot = box.grab().toImage()
+                self.assertEqual(shot.pixelColor(shot.width() // 2, shot.height() // 2).name(), theme.TOKENS[mode]["surface"])
+        ground = theme.EDITOR["bg"]
+        self.assertEqual(seen, [(ground, theme.EDITOR["selection"], theme.EDITOR["scroll"], theme.EDITOR["gutter"], theme.EDITOR["ink"])] * 2)
+        color = QColor(ground)
+        self.assertTrue(color.red() < color.green() < color.blue() and gray(ground) < 80, ground)  # 어두운 남색
+        for tokens in theme.TOKENS.values():  # 문제 칸의 바탕과 구분됨
+            self.assertGreater(contrast(ground, tokens["surface"]), 1.2)
+
+    def test_locked_editor_turns_darker_and_stays_navy_in_both_app_themes(self):
+        """실행·채점 중에는 키를 쳐도 들어가지 않으므로 잠긴 것이 편집기에서 보여야 함. 글자 대비는 평소보다 낮아지지 않음."""
+        self.panel.set_code("\n".join("        row = %d" % number for number in range(80)))
+        tokens, view = theme.EDITOR, self.ed.viewport().geometry()
+
+        def grounds():
+            image = self.ed.grab().toImage()
+            return image.pixelColor(view.right() - 20, view.bottom() - 4).name(), image.pixelColor(3, image.height() // 2).name()  # 본문, 줄 번호 칸
+
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            self.ed.setEnabled(True)
+            pump()
+            self.assertEqual(grounds(), (tokens["bg"], tokens["gutter"]), mode)
+            self.ed.setEnabled(False)
+            pump()
+            self.assertEqual(grounds(), (tokens["locked"], tokens["locked_gutter"]), mode)
+        color = QColor(tokens["locked"])
+        self.assertTrue(color.red() < color.green() < color.blue(), tokens["locked"])  # 남색 계열
+        self.assertGreater(contrast(tokens["bg"], tokens["locked"]), 1.2)  # 잠기기 전과 구분됨
+        for ink, back, locked in (("ink", "bg", "locked"), ("comment", "bg", "locked"), ("line_no", "gutter", "locked_gutter")):
+            self.assertGreaterEqual(contrast(tokens[ink], tokens[locked]), contrast(tokens[ink], tokens[back]), ink)
+
+    def test_editor_colors_are_readable_on_the_navy_ground(self):
+        tokens = theme.EDITOR
+        pairs = [(name, "bg") for name in ("ink", "keyword", "def", "builtin", "string", "number", "decorator", "self", "blank", "muted")]
+        pairs += [("blank", "blank_bg"), ("find_ink", "find"), ("find_current_ink", "find_current"), ("ink", "selection"), ("ink", "gutter"),
+                  ("ink", "bar"), ("muted", "bar"), ("ink", "field"), ("muted", "field")]
+        for ink, back in pairs:
+            self.assertGreaterEqual(contrast(tokens[ink], tokens[back]), 4.5, "%s / %s" % (ink, back))
+        for ink, back in (("comment", "bg"), ("line_no", "bg"), ("line_no", "gutter"), ("missing", "field"), ("focus", "bg")):
+            self.assertGreaterEqual(contrast(tokens[ink], tokens[back]), 3, "%s / %s" % (ink, back))
+        self.assertGreater(contrast(tokens["find_current"], tokens["find"]), 3)  # 가리키는 곳은 다른 곳보다 뚜렷함
+        self.assertGreater(contrast(tokens["ink"], tokens["bg"]), contrast(tokens["line_no"], tokens["bg"]))  # 커서 줄의 번호가 더 밝음
+
+    def test_coloring_leaves_the_text_the_answer_and_the_undo_history_alone(self):
+        code = 'def f(x):\n    """문서"""\n    return [x, "a"]  # 끝\n'
+        document = self.ed.document()
+        self.panel.set_code(code)
+        pump()
+        self.assertTrue(painted(self.ed, 0) and painted(self.ed, 2))
+        self.assertEqual((self.ed.toPlainText(), self.seen), (code, []))  # 칠만으로는 답이 바뀌었다는 신호가 나가지 않음
+        self.assertEqual((document.isModified(), document.isUndoAvailable(), document.availableUndoSteps()), (False, False, 0))
+        for mode in ("dark", "light"):  # 앱 테마와 글자 크기를 바꿔도 같음
+            theme.set_mode(mode)
+            self.ed.setFont(theme.code_font(3))
+            pump()
+        self.ed.highlighter.rehighlight()  # 전부 다시 칠하면 Qt 는 글이 같아도 바뀌었다고 알림
+        self.assertEqual((self.ed.toPlainText(), self.seen, document.isModified(), document.isUndoAvailable()), (code, [], False, False))
+        self.ed.setFocus()
+        self.ed.moveCursor(QTextCursor.MoveOperation.End)
+        QTest.keyClicks(self.ed, "x")
+        self.assertEqual((self.seen, document.availableUndoSteps()), ([code + "x"], 1))  # 친 글자만큼만 신호와 되돌리기가 생김
+        self.ed.moveCursor(QTextCursor.MoveOperation.Start)
+        QTest.keyClicks(self.ed, '"""')  # 아랫줄의 색이 전부 바뀌는 입력
+        self.assertEqual(painted(self.ed, 2)[-1][1], "string")
+        self.assertEqual((self.ed.toPlainText(), self.seen[-1]), ('"""' + code + "x", '"""' + code + "x"))
+        steps = document.availableUndoSteps()
+        self.assertLessEqual(steps, 4)  # 칠이 되돌리기 기록을 늘리지 않음
+        for _ in range(steps):
+            QTest.keyClick(self.ed, Qt.Key.Key_Z, CTRL)
+        self.assertEqual((self.ed.toPlainText(), document.isUndoAvailable(), document.isModified()), (code, False, False))
+        self.assertEqual(painted(self.ed, 2)[0], ("return", "keyword"))  # 되돌린 글에 맞게 다시 칠함
+        self.ed.redo()
+        self.assertEqual((self.ed.toPlainText(), self.seen[-1]), (code + "x", code + "x"))
+
+    def test_typing_stays_quick_in_a_file_of_5000_lines(self):
+        unit = ("class Step%d(Base):\n    \"\"\"단계.\"\"\"\n    def run(self, value, times=3):\n        total = 0  # 합계\n"
+                "        for n in range(times):\n            total += int(value) + len(\"문자열\")\n        return f\"{total}점\"\n\n")
+        self.panel.set_code("".join(unit % number for number in range(625)))
+        self.assertEqual(self.ed.blockCount(), 5001)
+        self.assertEqual(painted(self.ed, 4998), [("return", "keyword"), ('f"{total}점"', "string")])  # 끝줄까지 칠함
+
+        def spent(press, times=1):
+            """press 를 times 번 하고 화면까지 그리는 데 든 시간을 한 번에 든 초로 돌려줌."""
+            start = time.perf_counter()
+            for _ in range(times):
+                press()
+                APP.processEvents()
+            return (time.perf_counter() - start) / times
+
+        cursor = self.ed.textCursor()
+        cursor.setPosition(self.ed.document().findBlockByNumber(2500).position())
+        self.ed.setTextCursor(cursor)
+        self.ed.setFocus()
+        self.assertLess(spent(lambda: QTest.keyClick(self.ed, Qt.Key.Key_X), 30), 0.05)  # 한 글자
+        self.assertLess(spent(lambda: QTest.keyClick(self.ed, Qt.Key.Key_Return), 5), 0.05)
+        self.ed.moveCursor(QTextCursor.MoveOperation.Start)
+        self.assertLess(spent(lambda: QTest.keyClicks(self.ed, '"""')), 0.5)  # 아래 5000줄이 전부 문자열이 되는 입력
+        self.assertEqual(painted(self.ed, 4998)[0][1], "string")
+        self.assertEqual(len(self.seen), 30 + 5 + 3)
+
+
+class HighlightRoundTest(GuiTest):
+    def test_opening_a_code_item_colors_it_and_saves_nothing(self):
+        self.boot()
+        fill = next(key for key in sorted(self.win.session.cat, key=study.natural_key) if self.win.session.cat[key]["type"] == "fill")
+        self.make_round("r97", [fill, self.first(type="output")])
+        self.win.open_round("r97")
+        page = self.win.round_page
+        item = self.select(lambda it: it["type"] == "fill")
+        editor = page.code_panel.editor
+        path = os.path.join(self.win.session.folder("r97"), item["id"] + ".py")
+        saved = study.read_text(path)
+        rows = [painted(editor, line) for line in range(editor.blockCount())]
+        self.assertEqual(sum(row.count(("____", "blank")) for row in rows), item["starter"].count("____"))  # 빈칸마다 표시
+        self.assertTrue(any(kind != "blank" for row in rows for _, kind in row))
+        self.addCleanup(theme.set_mode, "system")
+        for change in (lambda: theme.set_mode("dark"), lambda: self.win.set_zoom(2), lambda: theme.set_mode("light")):
+            change()
+            pump()
+            shot = editor.grab().toImage()
+            self.assertEqual(shot.pixelColor(shot.width() - 30, shot.height() - 30).name(), theme.EDITOR["bg"])
+        editor.highlighter.rehighlight()
+        pump(save_delay())
+        self.assertEqual((editor.toPlainText(), study.read_text(path)), (item["starter"], saved))
+        self.assertEqual((page.dirty, page.save_timer.isActive(), page.status.text(), item["answered"]), ({}, False, "", False))
+        self.select(lambda it: it["type"] == "output")  # 다른 답 칸에는 색칠이 없음
+        self.fill(page.current, "for x in range(3)")
+        self.assertEqual(page.text_panel.multi.document().firstBlock().layout().formats(), [])
+        self.assertEqual(page.text_panel.multi.objectName(), "")
+
+    def test_theme_change_keeps_the_scroll_position_at_the_end_of_a_long_answer(self):
+        """앱 테마를 바꾸는 동안 편집기의 글꼴이 잠깐 앱 글꼴로 돌아감. 그 글꼴로 줄 번호 칸을 다시 맞추면 끝까지 내린 스크롤이 위로 밀림."""
+        self.boot()
+        self.make_round("r99", [self.first(type="return")])
+        self.win.open_round("r99")
+        item = self.select(lambda it: it["kind"] == "code")
+        editor = self.win.round_page.code_panel.editor
+        self.fill(item, "\n".join("row = %d" % number for number in range(300)))
+        self.addCleanup(theme.set_mode, "system")
+        down = editor.verticalScrollBar()
+        down.setValue(down.maximum())
+        pump()
+        place, width = down.value(), editor.numbers.width()
+        self.assertGreater(place, 200)
+        for mode in ("dark", "light"):
+            theme.set_mode(mode)
+            pump()
+            self.assertEqual((down.value(), down.maximum(), editor.numbers.width()), (place, place, width), mode)
+        self.win.set_zoom(3)  # 글자 크기를 바꾸면 줄 번호 칸은 따라감
+        pump()
+        self.assertGreater(editor.numbers.width(), width)
+
+    def test_blanks_of_a_starter_stay_in_view_at_the_default_window_size(self):
+        """줄 번호 칸이 생겨 글이 보이는 폭이 줄어든 만큼 답안 칸을 넓혀 둠. 기본 창 크기에서 s03/p08 의 세 번째 빈칸이 편집기 밖으로 잘리지 않음."""
+        self.boot()
+        self.win.resize(1280, 800)
+        self.make_round("r98", ["s03/p08"])
+        self.win.open_round("r98")
+        item = self.select(lambda it: it["type"] == "fill")
+        editor = self.win.round_page.code_panel.editor
+        blanks = [found.end() for found in re.finditer("_{4,}", item["starter"])]
+        self.assertGreaterEqual(len(blanks), 3)
+        spot = QTextCursor(editor.document())
+        for end in blanks:
+            spot.setPosition(end)
+            self.assertLessEqual(editor.cursorRect(spot).right(), editor.viewport().width(), item["starter"][:end].split("\n")[-1])
+        self.assertEqual(editor.horizontalScrollBar().value(), 0)
 
 
 class IconTest(unittest.TestCase):
