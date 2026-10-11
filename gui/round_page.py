@@ -13,7 +13,7 @@ import mdlite
 import study
 from gui import theme
 from gui.guard import NOTE
-from gui.widgets import ChoicePanel, CodePanel, PasteBlock, TextPanel
+from gui.widgets import ChoicePanel, CodePanel, FindBar, PasteBlock, TextPanel
 from session import SessionError
 
 SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
@@ -133,12 +133,13 @@ class RoundPage(QWidget):
             self.paste_block.watch(edit)
         right_box.addWidget(self.pane_title)
         right_box.addWidget(self.stack, 1)
+        self.find_bar = FindBar(self.code_panel.editor, right)  # 실행·채점 중에 답안 칸을 잠가도 쓰이게 그 밖에 둠
         for widget in (self.listw, mid, right):
             split.addWidget(widget)
         split.setStretchFactor(0, 0)
         split.setStretchFactor(1, 5)
         split.setStretchFactor(2, 4)
-        split.setSizes([245, 535, 475])
+        split.setSizes([245, 515, 495])
         split.setChildrenCollapsible(False)
         root.addWidget(split, 1)
 
@@ -237,6 +238,7 @@ class RoundPage(QWidget):
         if not 0 <= row < len(self.view["items"]):
             return
         item = self.view["items"][row]
+        self.find_bar.dismiss(select=False)
         label = "%s · %s · %d점" % (item["type_label"], item["unit_title"], item["points"])
         if item["kind"] == "code":
             label = "%s · %s" % (item["title"], label)
