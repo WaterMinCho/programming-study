@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""테마(시스템 · 밝게 · 어둡게) · 글꼴 · 색. 화면 코드는 색 값을 직접 적지 않고 color(토큰 이름)으로 꺼내 씀.
+"""테마(시스템 · 밝게 · 어둡게) · 글꼴 · 색. 화면 코드는 색 값을 직접 적지 않고 color(토큰 이름)으로, 코드 편집기의 색은 editor(토큰 이름)으로 꺼내 씀.
 테마가 바뀌면 signals.changed 가 나옴. 직접 그리는 위젯과 HTML 을 만들어 넣는 화면은 이 신호를 받아 다시 그림."""
 import os
 import re
@@ -57,6 +57,20 @@ DARK = {
 }
 TOKENS = {"light": LIGHT, "dark": DARK}
 
+# 코드 편집기의 색. 앱 테마가 밝든 어둡든 같은 남색 바탕을 써서 문제 칸과 구분함.
+# 바탕(bg)과의 대비는 글자색이 4.5:1 이상, 주석과 줄 번호가 3:1 이상(tests/test_gui.py 의 HighlightTest 가 확인함)
+# locked 는 실행·채점 중에 잠긴 동안의 바탕. blank_bg 는 선택 영역(selection)·찾은 곳(find)과 색상이 달라야 빈칸을 선택했는지 보임
+EDITOR = {
+    "bg": "#253747", "gutter": "#203140", "edge": "#3a5166", "focus": "#6aa5ff", "selection": "#3d6187",
+    "locked": "#19252f", "locked_gutter": "#151f28",
+    "scroll": "#4a6177", "scroll_hover": "#5f7a93",
+    "ink": "#e0e8f0", "line_no": "#7d91a4",
+    "keyword": "#ba9cdc", "def": "#e8e078", "builtin": "#6cc4dc", "string": "#7fc18e", "comment": "#8497a9", "number": "#e092c4",
+    "decorator": "#f0a868", "self": "#f08c8c", "blank": "#ffe08a", "blank_bg": "#6a3f6e",
+    "find": "#665619", "find_ink": "#fff4c4", "find_current": "#ffb454", "find_current_ink": "#17222d",
+    "bar": "#2e4356", "bar_edge": "#4a6177", "field": "#1c2b38", "muted": "#9fb0c0", "faint": "#6f8496", "missing": "#ff8a80",
+}
+
 # 채점 결과와 판정: (이름, 토큰). 토큰 이름은 본문 CSS 의 클래스 이름(.ok, .wrong ...)으로도 씀
 RESULT = {"ok": ("정답", "ok"), "wrong": ("오답", "wrong"), "blank": ("미응답", "blank")}
 VERDICT = {"up": ("진급", "up"), "mastered": ("숙달", "ok"), "done": ("숙달", "ok"), "keep": ("유지", "muted"), "retry": ("재도전", "retry")}
@@ -83,6 +97,11 @@ def color(name):
 
 def qcolor(name):
     return QColor(color(name))
+
+
+def editor(name):
+    """코드 편집기의 색(EDITOR 의 토큰)."""
+    return QColor(EDITOR[name])
 
 
 STYLE = """
@@ -143,6 +162,27 @@ QAbstractScrollArea::corner { background: transparent; border: 0; }
 STYLE += "".join("QLabel#unit_%s { background: %%(unit_%s)s; color: %%(unit_%s_ink)s; border-radius: 4px; font-weight: 700; }\n" % (name, name, name)
                  for name in UNIT)
 STYLE += "QLabel#unit_none { border: 1px solid %(unit_none_edge)s; }\n"  # 미진단 칸은 바탕과 색이 비슷해 테두리로 구분함
+
+# 코드 편집기와 그 위에 뜨는 찾기 막대. 앱 테마의 규칙 뒤에 붙여서 두 테마에서 같은 색으로 덮음
+EDITOR_STYLE = """
+QPlainTextEdit#code { background: %(bg)s; color: %(ink)s; border: 1px solid %(edge)s;
+    selection-background-color: %(selection)s; selection-color: %(ink)s; }
+QPlainTextEdit#code:focus { border-color: %(focus)s; }
+QPlainTextEdit#code:disabled { background: %(locked)s; }
+QPlainTextEdit#code QScrollBar::handle { background: %(scroll)s; }
+QPlainTextEdit#code QScrollBar::handle:hover { background: %(scroll_hover)s; }
+QFrame#find { background: %(bar)s; border: 1px solid %(bar_edge)s; border-radius: 6px; }
+QFrame#find QLineEdit { background: %(field)s; color: %(ink)s; border: 1px solid %(bar_edge)s; padding: 3px 6px;
+    selection-background-color: %(selection)s; selection-color: %(ink)s; placeholder-text-color: %(muted)s; }
+QFrame#find QLineEdit:focus { border-color: %(focus)s; }
+QFrame#find QLineEdit[missing="true"] { border-color: %(missing)s; }
+QFrame#find QLabel#muted { color: %(muted)s; }
+QFrame#find QPushButton#tool { background: transparent; color: %(ink)s; border: 0; border-radius: 4px; padding: 3px 0; min-width: 26px;
+    font-weight: 700; }
+QFrame#find QPushButton#tool:hover { background: %(bar_edge)s; }
+QFrame#find QPushButton#tool:pressed { background: %(scroll_hover)s; }
+QFrame#find QPushButton#tool:disabled { background: transparent; color: %(faint)s; }
+""" % EDITOR
 
 # 본문 CSS(mdlite.CSS)에 화면이 더하는 것: 결과·판정 글자색과 결과 화면의 구역 띠
 DOC_CSS = """
@@ -219,7 +259,7 @@ def _paint(scheme):
                        (role.ToolTipText, "ink"), (role.Link, "link")):
         palette.setColor(part, qcolor(name))
     app.setPalette(palette)
-    app.setStyleSheet(STYLE % TOKENS[scheme])
+    app.setStyleSheet(STYLE % TOKENS[scheme] + EDITOR_STYLE)
     signals.changed.emit()
 
 

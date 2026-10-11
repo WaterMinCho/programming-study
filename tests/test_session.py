@@ -433,7 +433,15 @@ class SessionTest(unittest.TestCase):
         self.assertEqual([(a["try"], a["ok"]) for a in firsts], [(1, False)])
 
     def test_unsafe_characters_never_reach_the_files(self):
-        rid = self.first_real_round()
+        cat = self.sess.cat  # 회차는 무작위라 글로 답하는 문항이 없을 때가 있어서, 고른 문항으로 직접 만듦
+        keys = [next(k for k in sorted(cat) if cat[k]["kind"] == "quiz" and cat[k]["type"] == "short"),
+                next(k for k in sorted(cat) if cat[k]["kind"] == "code")]
+        rid = "r90"
+        rnd = {"id": rid, "kind": "round", "focus": [], "items": keys, "retest": [], "shortages": [], "created": adaptive.now(),
+               "tries": 0, "avg_level": 1}
+        self.sess.prof["rounds"].append(rnd)
+        adaptive.write_round("tester", rnd, cat)
+        adaptive.save_profile(self.sess.prof)
         views = self.sess.open_round(rid)["items"]
         text_item = next(v for v in views if v["type"] in ("output", "short"))
         code = next(v for v in views if v["kind"] == "code")
