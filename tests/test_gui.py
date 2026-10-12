@@ -1362,7 +1362,11 @@ class WidgetTest(unittest.TestCase):
         self.assertIn("NanumGothic", QFontDatabase.families())
         self.assertEqual(APP.font().family(), "NanumGothic")
         self.assertIn("Bold", QFontDatabase.styles("NanumGothic"))
-        self.assertEqual(theme.code_families()[-1], "NanumGothic")  # 편집기의 한글도 같은 글꼴
+        self.assertEqual(theme.code_families(), ["D2Coding", "NanumGothic"])  # 코드 글꼴도 같이 배포해서 어느 컴퓨터에서나 같음
+        self.assertIn("Bold", QFontDatabase.styles("D2Coding"))
+        code = QFontMetricsF(theme.code_font())
+        self.assertEqual(code.horizontalAdvance("한"), 2 * code.horizontalAdvance("a"))  # 한글이 영문 두 칸 폭이라 코드 안의 한글도 줄이 맞음
+        self.assertIn("font-family: 'D2Coding'", theme.doc_css())  # 문제 본문의 코드도 같은 글꼴
 
     def test_corner_between_two_scroll_bars_is_not_drawn_as_a_box(self):
         edit = CodeEditor()
@@ -1997,7 +2001,7 @@ class LineNumberTest(unittest.TestCase):
         self.lines(60)
         ink, dim, strip = theme.EDITOR["ink"], theme.EDITOR["line_no"], self.ed.numbers
         shown = self.drawn()
-        rows = self.ed.viewport().height() // self.ed.fontMetrics().lineSpacing()
+        rows = int(self.ed.viewport().height() // self.ed.blockBoundingRect(self.ed.firstVisibleBlock()).height())  # 실제로 앉은 줄 높이로 셈
         self.assertEqual([text for text, *_ in shown[:rows]], [str(number) for number in range(1, rows + 1)])  # 오류 내용의 줄 번호처럼 1부터
         self.assertLessEqual(len(shown), rows + 2)  # 보이는 줄만 그림
         self.assertEqual({round(right) for _, _, right, _ in shown}, {strip.width() - strip.PAD})  # 오른쪽 정렬
