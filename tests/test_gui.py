@@ -19,7 +19,7 @@ from unittest import mock
 try:
     from PyQt6.QtCore import QEvent, QEventLoop, QMimeData, QPoint, QPointF, QSettings, Qt, QTimer, qInstallMessageHandler
     from PyQt6.QtGui import (QColor, QContextMenuEvent, QDragEnterEvent, QDropEvent, QFontDatabase, QGuiApplication, QInputMethodEvent,
-                             QKeyEvent, QKeySequence, QTextCursor, QTextDocument, qGray)
+                             QFontMetricsF, QKeyEvent, QKeySequence, QTextCursor, QTextDocument, qGray)
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QListWidget, QPushButton, QWidget
 except ImportError:
@@ -1283,9 +1283,10 @@ class WidgetTest(unittest.TestCase):
             self.assertLessEqual(card.height(), card.top + content_height(card.doc) + 2 * card.PAD + card.BADGE)
         self.assertEqual(short.height(), short.BADGE + 2 * short.PAD)  # 한 줄짜리는 번호 배지 높이에 맞춤
         self.assertEqual(content_height(code.doc), code.doc.size().height() - 10)  # 코드 상자 아래 여백은 뺌
-        line = short.doc.firstBlock().layout().lineAt(0).height()
-        self.assertGreater(short.doc.size().height(), line + 4)  # 본문은 줄 간격을 넓혀서 그림
-        self.assertAlmostEqual(content_height(short.doc), line, delta=1)  # 마지막 줄 아래에 붙는 줄 간격은 뺌
+        line = short.doc.firstBlock().layout().lineAt(0)
+        glyphs = line.ascent() + line.descent()
+        self.assertGreater(short.doc.size().height(), glyphs + 4)  # 본문은 줄 간격을 넓혀서 그림
+        self.assertAlmostEqual(content_height(short.doc), glyphs, delta=1)  # 마지막 줄의 글자 아래에 붙는 줄 간격은 뺌
         self.assertGreater(code.height(), 4 * short.height() // 2)
         narrow = long.height()
         long.resize(1600, narrow)
@@ -1333,7 +1334,11 @@ class WidgetTest(unittest.TestCase):
         while block.isValid():
             found[block.text()] = block.blockFormat().lineHeight()
             block = block.next()
-        self.assertEqual([found[text] for text in ("본문", "항목", "칸")], [145, 145, 145])
+        spaced = theme.line_pct(theme.DOC_LINE)
+        self.assertEqual([found[text] for text in ("본문", "항목", "칸")], [spaced, spaced, spaced])
+        metrics = QFontMetricsF(APP.font())  # 운영체제가 글꼴의 줄 높이를 다르게 읽어도 줄 간격은 글자 크기의 같은 배수
+        self.assertAlmostEqual(metrics.lineSpacing() * spaced / 100, theme.DOC_LINE * APP.font().pixelSize(), delta=0.2)
+        self.assertGreater(spaced, 100)
         self.assertEqual([found[text] for text in ("제목", "x = 1", "y = 2")], [100, 100, 100])  # 목록 안의 코드 상자도 그대로
 
     def test_bundled_font_is_used_everywhere(self):

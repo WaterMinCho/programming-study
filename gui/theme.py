@@ -6,7 +6,7 @@ import re
 import sys
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontDatabase, QPalette
+from PyQt6.QtGui import QColor, QFont, QFontDatabase, QFontInfo, QFontMetricsF, QPalette
 from PyQt6.QtWidgets import QApplication
 
 import mdlite
@@ -18,6 +18,7 @@ CODE_FONTS = ("D2Coding", "Consolas", "Menlo", "Cascadia Mono", "DejaVu Sans Mon
 UI_PX = 15  # 버튼·목록·안내 글자 크기
 CODE_PX = 16  # 편집기 글자 크기(확대 0 일 때)
 DOC_PX = 2  # 문제 본문은 mdlite.CSS 의 크기에 이만큼 더함
+DOC_LINE, GUIDE_LINE = 1.45, 1.35  # 본문과 안내 글의 줄 간격. 글자 크기의 몇 배인지
 ZOOM_RANGE = (-3, 10)
 
 MODES = {"system": "시스템", "light": "밝게", "dark": "어둡게"}  # 홈의 단추를 누르면 이 순서로 돎
@@ -263,6 +264,13 @@ def _paint(scheme):
     signals.changed.emit()
 
 
+def line_pct(times):
+    """줄 간격이 글자 크기의 times 배가 되게 하는 줄 높이 백분율. Qt 는 이 값을 글꼴의 줄 높이에 곱하는데,
+    같은 글꼴도 운영체제에 따라 줄 높이가 글자 크기의 1.0~1.3 배로 다르게 읽혀서 화면 글꼴로 재서 맞춤."""
+    font = QApplication.font()
+    return max(100, round(100 * times * QFontInfo(font).pixelSize() / QFontMetricsF(font).lineSpacing()))
+
+
 def code_families():
     """고정폭 글꼴 하나와 한글 대체 글꼴. 플랫폼 기본 고정폭이 실제로는 고정폭이 아닌 환경이 있어 설치된 글꼴에서 이름으로 고름."""
     mono = _installed(CODE_FONTS)[:1] or [QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()]
@@ -280,7 +288,7 @@ def code_font(zoom=0):
 
 def doc_css(zoom=0):
     """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈."""
-    css = (mdlite.CSS + DOC_CSS) % TOKENS[state["scheme"]]
+    css = (mdlite.CSS + DOC_CSS) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE))
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
     families = ", ".join("'%s'" % name for name in code_families())
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)

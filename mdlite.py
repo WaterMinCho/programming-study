@@ -198,11 +198,11 @@ def inline_plain(text):
 
 # HTML (Qt 리치텍스트 부분집합)
 
-# 본문 글은 줄 높이를 145% 로 넓힘(제목과 코드는 그대로). 넓힌 간격은 마지막 줄 아래에도 붙어서 문단 아래 여백과 칸의 아래 여백을 그만큼 줄여 둠
-# 색은 %(이름)s 자리에 채워 씀: ink, doc_heading, code_bg, codebox_bg, border, notice_bg, notice_border, table_head, grid, link
+# 본문 글은 줄 간격을 넓힘(제목과 코드는 그대로). 넓힌 간격은 마지막 줄 아래에도 붙어서 문단 아래 여백과 칸의 아래 여백을 그만큼 줄여 둠
+# %(line)s 에는 줄 높이의 백분율을, 색은 %(이름)s 자리에 채워 씀: ink, doc_heading, code_bg, codebox_bg, border, notice_bg, notice_border, table_head, grid, link
 CSS = """
 body { font-size: 14px; color: %(ink)s; }
-p { margin-top: 0px; margin-bottom: 3px; line-height: 145%%; }
+p { margin-top: 0px; margin-bottom: 3px; line-height: %(line)s%%; }
 p.h1 { font-size: 24px; font-weight: bold; margin-top: 14px; margin-bottom: 8px; line-height: 100%%; }
 p.h2 { font-size: 18px; font-weight: bold; margin-top: 16px; margin-bottom: 6px; color: %(doc_heading)s; line-height: 100%%; }
 p.h3 { font-size: 14px; font-weight: bold; margin-top: 12px; margin-bottom: 4px; line-height: 100%%; }
@@ -213,8 +213,8 @@ td.codebox { background-color: %(codebox_bg)s; border: 1px solid %(border)s; }
 td.quote { background-color: %(notice_bg)s; border: 1px solid %(notice_border)s; padding-bottom: 0px; }
 table.grid { border-collapse: collapse; margin-top: 4px; margin-bottom: 10px; }
 table.grid th { background-color: %(table_head)s; font-weight: bold; padding: 6px 10px; border: 1px solid %(grid)s; }
-table.grid td { line-height: 145%%; padding: 6px 10px; padding-bottom: 0px; border: 1px solid %(grid)s; }
-li { margin-bottom: 6px; line-height: 145%%; }
+table.grid td { line-height: %(line)s%%; padding: 6px 10px; padding-bottom: 0px; border: 1px solid %(grid)s; }
+li { margin-bottom: 6px; line-height: %(line)s%%; }
 """
 
 

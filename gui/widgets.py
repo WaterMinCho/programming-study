@@ -7,7 +7,7 @@ import math
 import re
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import (QFont, QKeySequence, QPainter, QPainterPath, QPen, QShortcut, QSyntaxHighlighter, QTextBlockFormat, QTextCharFormat,
+from PyQt6.QtGui import (QFont, QFontMetricsF, QKeySequence, QPainter, QPainterPath, QPen, QShortcut, QSyntaxHighlighter, QTextBlockFormat, QTextCharFormat,
                          QTextCursor, QTextDocument, QTextDocumentFragment, QTextFrame)
 from PyQt6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSplitter,
                              QTextBrowser, QTextEdit, QVBoxLayout, QWidget)
@@ -387,15 +387,12 @@ class LineNumbers(QWidget):
         QApplication.sendEvent(self.editor.viewport(), event)
 
 
-LINE_PCT = 135  # 안내 글의 줄 높이. 글자 크기에 대한 백분율
-
-
 class Para(QLabel):
     """여러 줄로 넘어가는 안내 글. 같이 배포하는 글꼴은 줄 높이가 글자 크기와 같아 줄이 붙어 보이므로 줄 간격을 넓혀 그림.
     setText 와 text 는 QLabel 처럼 꾸밈없는 글을 주고받음. 넓힌 줄 간격은 마지막 줄 아래에도 붙는데, 그만큼은 높이에서 빼서
     한 줄짜리 글이 QLabel 과 같은 자리를 차지하게 함."""
 
-    plain = ""
+    plain, pct = "", 100  # 넣은 글, 줄 높이 백분율
 
     def __init__(self, text="", name=""):
         super().__init__()
@@ -408,16 +405,17 @@ class Para(QLabel):
         return '<span style="white-space: pre-wrap;">%s</span>' % html.escape(text)
 
     def setText(self, text):
-        self.plain = text
-        super().setText(text and '<p style="margin: 0; line-height: %d%%;">%s</p>' % (LINE_PCT, self.markup(text)))
+        self.plain, self.pct = text, theme.line_pct(theme.GUIDE_LINE)
+        super().setText(text and '<p style="margin: 0; line-height: %d%%;">%s</p>' % (self.pct, self.markup(text)))
 
     def text(self):
         return self.plain
 
     def tail(self):
-        """마지막 줄 아래에 붙는 줄 간격."""
+        """마지막 줄의 글자 아래에 붙는 줄 간격."""
         self.ensurePolished()
-        return self.fontMetrics().height() * (LINE_PCT - 100) // 100 if self.plain else 0
+        metrics = QFontMetricsF(self.font())
+        return max(0, math.floor(metrics.lineSpacing() * self.pct / 100 - metrics.height())) if self.plain else 0
 
     def heightForWidth(self, width):
         return super().heightForWidth(width) - self.tail()
@@ -477,21 +475,20 @@ class LinkLabel(Para):
 
 
 def content_height(doc):
-    """문서의 내용이 끝나는 높이. 표나 코드 상자로 끝나면 그 아래 여백을, 글로 끝나면 마지막 줄 아래에 붙는 줄 간격을 뺌."""
+    """문서의 내용이 끝나는 높이. 표나 코드 상자로 끝나면 그 아래 여백을, 글로 끝나면 마지막 줄의 글자 아래에 붙는 줄 간격을 뺌."""
+    height = doc.size().height()  # 줄을 먼저 앉혀야 아래에서 마지막 줄을 읽을 수 있음
     last, child = None, doc.rootFrame().begin()
     while not child.atEnd():
         frame = child.currentFrame()
         if frame is not None or child.currentBlock().text():
             last = frame or child.currentBlock()
         child += 1
-    if last is None:
-        return doc.size().height()
     if isinstance(last, QTextFrame):
-        return doc.size().height() - last.frameFormat().bottomMargin()
-    form, line = last.blockFormat(), last.layout().lineAt(last.layout().lineCount() - 1)
-    if form.lineHeightType() != QTextBlockFormat.LineHeightTypes.ProportionalHeight.value:
-        return doc.size().height()
-    return doc.size().height() - line.height() * (form.lineHeight() / 100 - 1)
+        return height - last.frameFormat().bottomMargin()
+    if last is None or last.blockFormat().lineHeightType() != QTextBlockFormat.LineHeightTypes.ProportionalHeight.value:
+        return height
+    line = last.layout().lineAt(last.layout().lineCount() - 1)
+    return height - max(0.0, line.height() * last.blockFormat().lineHeight() / 100 - line.ascent() - line.descent())
 
 
 class ChoiceCard(QWidget):
