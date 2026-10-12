@@ -1362,7 +1362,11 @@ class WidgetTest(unittest.TestCase):
         self.assertIn("NanumGothic", QFontDatabase.families())
         self.assertEqual(APP.font().family(), "NanumGothic")
         self.assertIn("Bold", QFontDatabase.styles("NanumGothic"))
-        self.assertEqual(theme.code_families()[-1], "NanumGothic")  # 편집기의 한글도 같은 글꼴
+        self.assertEqual(theme.code_families(), ["D2Coding", "NanumGothic"])  # 코드 글꼴도 같이 배포해서 어느 컴퓨터에서나 같음
+        self.assertIn("Bold", QFontDatabase.styles("D2Coding"))
+        code = QFontMetricsF(theme.code_font())
+        self.assertEqual(code.horizontalAdvance("한"), 2 * code.horizontalAdvance("a"))  # 한글이 영문 두 칸 폭이라 코드 안의 한글도 줄이 맞음
+        self.assertIn("font-family: 'D2Coding'", theme.doc_css())  # 문제 본문의 코드도 같은 글꼴
 
     def test_corner_between_two_scroll_bars_is_not_drawn_as_a_box(self):
         edit = CodeEditor()
