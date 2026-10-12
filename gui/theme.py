@@ -41,19 +41,19 @@ LIGHT = {
     "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#848d97",
 }
 DARK = {
-    "bg": "#0f1318", "surface": "#171c23", "surface_alt": "#1c222b", "hover": "#222a34",
-    "border": "#2b323c", "border_strong": "#3a434f", "line": "#222933", "track": "#2b323c",
-    "scroll": "#3a434f", "scroll_hover": "#4d5866",
-    "ink": "#e6ebf2", "heading": "#f3f6fa", "muted": "#9aa5b1", "placeholder": "#8b949e", "faint": "#6b7684",
-    "primary": "#5b8cff", "primary_hover": "#7aa2ff", "primary_ink": "#0b1220", "primary_off": "#2b3d66", "primary_off_ink": "#8fa0c0",
-    "selection": "#1d3156", "selection_ink": "#cfe0ff", "text_selection": "#2c4a80",
+    "bg": "#14181e", "surface": "#1d232b", "surface_alt": "#232a33", "hover": "#2a323d",
+    "border": "#3a4451", "border_strong": "#4b5666", "line": "#2b333e", "track": "#343d49",
+    "scroll": "#4b5666", "scroll_hover": "#5f6b7b",
+    "ink": "#e6ebf2", "heading": "#f3f6fa", "muted": "#b7c1cc", "placeholder": "#a3adb9", "faint": "#8793a1",
+    "primary": "#5b8cff", "primary_hover": "#7aa2ff", "primary_ink": "#0b1220", "primary_off": "#2b3d66", "primary_off_ink": "#aebbd6",
+    "selection": "#223a66", "selection_ink": "#cfe0ff", "text_selection": "#2c4a80",
     "notice_bg": "#2a2413", "notice_border": "#5f4d17",
-    "code_bg": "#252c36", "codebox_bg": "#11161c", "table_head": "#1f2630", "grid": "#3a434f",
+    "code_bg": "#2e3743", "codebox_bg": "#151a20", "table_head": "#28303a", "grid": "#4b5666",
     "doc_heading": "#8fb4ff", "link": "#6ea8ff",
     "ok": "#3fb950", "wrong": "#ff7b72", "blank": "#8b949e", "up": "#6ea8ff", "retry": "#f0883e",
     "unit_mastered": "#2ea043", "unit_mastered_ink": "#06120a", "unit_level2": "#58a6ff", "unit_level2_ink": "#0b1220",
     "unit_level1": "#d9b44a", "unit_level1_ink": "#0b1220", "unit_retry": "#e2673a", "unit_retry_ink": "#0b1220",
-    "unit_none": "#2b323c", "unit_none_ink": "#9aa5b1", "unit_none_edge": "#6b7684",
+    "unit_none": "#2b323c", "unit_none_ink": "#b7c1cc", "unit_none_edge": "#6b7684",
 }
 TOKENS = {"light": LIGHT, "dark": DARK}
 

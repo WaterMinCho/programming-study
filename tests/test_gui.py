@@ -19,9 +19,9 @@ from unittest import mock
 try:
     from PyQt6.QtCore import QEvent, QEventLoop, QMimeData, QPoint, QPointF, QSettings, Qt, QTimer, qInstallMessageHandler
     from PyQt6.QtGui import (QColor, QContextMenuEvent, QDragEnterEvent, QDropEvent, QFontDatabase, QGuiApplication, QInputMethodEvent,
-                             QKeyEvent, QKeySequence, QTextCursor, qGray)
+                             QKeyEvent, QKeySequence, QTextCursor, QTextDocument, qGray)
     from PyQt6.QtTest import QTest
-    from PyQt6.QtWidgets import QApplication, QLabel, QPushButton
+    from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QPushButton
 except ImportError:
     raise unittest.SkipTest("PyQt6 가 설치돼 있지 않아 화면 테스트를 건너뜁니다")
 
@@ -34,7 +34,8 @@ from gui import app, dialogs, errors, icon, motion, theme, widgets  # noqa: E402
 from gui.mascot import Mascot  # noqa: E402
 from gui.guard import NOTE as PASTE_NOTE  # noqa: E402
 from gui.team_page import Avatar, EmptyCard, MemberCard  # noqa: E402
-from gui.widgets import ChoiceCard, ChoicePanel, CodeEditor, TextPanel, content_height  # noqa: E402
+from gui.round_page import ROW_GAP  # noqa: E402
+from gui.widgets import ChoiceCard, ChoicePanel, CodeEditor, Para, TextPanel, content_height  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -770,6 +771,28 @@ class ErrorTest(GuiTest):
 
 
 class BankTest(GuiTest):
+    def test_question_list_keeps_the_two_lines_of_a_row_apart(self):
+        """문항 목록의 한 줄은 유형과 단원 두 줄. 글꼴의 줄 높이가 낮아 붙어 보이던 두 줄 사이를 띄워서 그림."""
+        self.boot()
+        self.make_round("r90", [self.first(type="choice"), self.first(type="short")])
+        self.win.open_round("r90")
+        self.win.resize(1280, 800)
+        self.win.show()
+        pump()
+        listw = self.win.round_page.listw
+        plain = QListWidget()  # 기본 그리기로 잰 같은 줄
+        plain.setIconSize(listw.iconSize())
+        plain.addItem(listw.item(1).text())
+        plain.item(0).setIcon(listw.item(1).icon())
+        self.assertEqual(listw.sizeHintForRow(1), plain.sizeHintForRow(0) + ROW_GAP)
+        image = listw.viewport().grab(listw.visualItemRect(listw.item(1))).toImage()  # 고르지 않은 줄
+        left, back = image.width() // 4, gray(image.pixel(image.width() - 4, 4))
+        inked = [any(abs(gray(image.pixel(x, y)) - back) > 60 for x in range(left, image.width())) for y in range(image.height())]
+        bands = re.findall("1+", "".join("1" if row else "0" for row in inked))
+        gap = re.search("10+1", "".join("1" if row else "0" for row in inked))
+        self.assertEqual(len(bands), 2, inked)  # 유형 줄과 단원 줄
+        self.assertGreaterEqual(len(gap.group()) - 2, ROW_GAP * image.devicePixelRatio())
+
     def test_each_answer_type_saves_what_the_widgets_show(self):
         self.boot()
         keys = [self.first(type="choice", multi=False), self.first(type="choice", multi=True), self.first(type="short"),
@@ -1259,12 +1282,55 @@ class WidgetTest(unittest.TestCase):
             self.assertGreaterEqual(card.height(), card.top + content_height(card.doc) + card.PAD - 1)
             self.assertLessEqual(card.height(), card.top + content_height(card.doc) + 2 * card.PAD + card.BADGE)
         self.assertEqual(short.height(), short.BADGE + 2 * short.PAD)  # 한 줄짜리는 번호 배지 높이에 맞춤
-        self.assertEqual((content_height(short.doc), content_height(code.doc)), (short.doc.size().height(), code.doc.size().height() - 10))  # 코드 상자 아래 여백은 뺌
+        self.assertEqual(content_height(code.doc), code.doc.size().height() - 10)  # 코드 상자 아래 여백은 뺌
+        line = short.doc.firstBlock().layout().lineAt(0).height()
+        self.assertGreater(short.doc.size().height(), line + 4)  # 본문은 줄 간격을 넓혀서 그림
+        self.assertAlmostEqual(content_height(short.doc), line, delta=1)  # 마지막 줄 아래에 붙는 줄 간격은 뺌
         self.assertGreater(code.height(), 4 * short.height() // 2)
         narrow = long.height()
         long.resize(1600, narrow)
         long.arrange()
         self.assertGreater(narrow, long.height())  # 좁으면 긴 코드 줄을 잘라 내지 않고 줄바꿈함
+
+    def test_guide_label_spaces_its_lines_and_hands_back_plain_text(self):
+        label = Para("첫 줄 <b>굵게</b> & 끝\n둘째 줄", "muted")
+        self.assertEqual((label.text(), label.objectName(), label.wordWrap()), ("첫 줄 <b>굵게</b> & 끝\n둘째 줄", "muted", True))
+        line = label.fontMetrics().height()
+        self.assertGreater(label.sizeHint().height(), 2 * line + 4)  # 두 줄이 붙지 않음
+        one, plain = Para("한 줄"), QLabel("한 줄")
+        self.assertEqual(one.sizeHint().width(), plain.sizeHint().width())
+        self.assertLessEqual(one.sizeHint().height(), plain.sizeHint().height() + 1)  # 한 줄짜리는 전과 같은 자리를 차지함
+        one.show()
+        one.resize(200, one.sizeHint().height())
+        pump()
+        self.assertEqual((one.lift, one.heightForWidth(200)), (0, one.sizeHint().height()))
+        one.resize(200, 40)  # 단추 옆처럼 높이가 남으면 글을 가운데로 내림
+        pump()
+        self.assertEqual((one.lift, one.heightForWidth(200)), (one.tail(), one.sizeHint().height()))
+        one.close()
+        long = Para("가나다라마바사 " * 30)
+        self.assertGreater(long.sizeHint().width(), 400)  # 좁고 길게 어림하지 않아서 대화상자가 헐겁게 열리지 않음
+        link = widgets.LinkLabel('앞 <a href="https://example.com">링크</a>')
+        self.assertEqual(link.text(), '앞 <a href="https://example.com">링크</a>')
+        self.assertIn('<a href="https://example.com">링크</a>', QLabel.text(link))  # 링크는 글자로 바꾸지 않음
+        shown = QTextDocument()
+        shown.setHtml(QLabel.text(label))
+        self.assertEqual(shown.toPlainText(), "첫 줄 <b>굵게</b> & 끝\n둘째 줄")  # 태그로 읽지 않고 글자로 보여 줌
+        label.setText("")
+        self.assertEqual((label.text(), QLabel.text(label)), ("", ""))
+        label.setText("다시")
+        self.assertEqual(label.text(), "다시")
+
+    def test_problem_text_spaces_its_lines_but_code_boxes_do_not(self):
+        doc = QTextDocument()
+        doc.setDefaultStyleSheet(theme.doc_css())
+        doc.setHtml(mdlite.to_html("## 제목\n\n본문\n\n- 항목\n\n  ```python\n  y = 2\n  ```\n\n```python\nx = 1\n```\n\n| 이름 | 뜻 |\n|---|---|\n| a | 칸 |"))
+        found, block = {}, doc.begin()
+        while block.isValid():
+            found[block.text()] = block.blockFormat().lineHeight()
+            block = block.next()
+        self.assertEqual([found[text] for text in ("본문", "항목", "칸")], [145, 145, 145])
+        self.assertEqual([found[text] for text in ("제목", "x = 1", "y = 2")], [100, 100, 100])  # 목록 안의 코드 상자도 그대로
 
     def test_bundled_font_is_used_everywhere(self):
         """같이 배포하는 나눔고딕이 등록되고 화면 글꼴로 쓰임. 굵은 글자도 같은 글꼴의 Bold 로 나옴."""
@@ -1696,6 +1762,18 @@ class ThemeTest(GuiTest):
         self.assertIn("QLabel#unit_none { border: 1px solid %s; }" % theme.color("unit_none_edge"), APP.styleSheet())
         for back in theme.AVATARS:  # 이니셜 원의 글자
             self.assertGreaterEqual(contrast(theme.BRAND[2], back), 4.5, back)
+
+    def test_dark_theme_keeps_guide_text_bright_and_panels_apart(self):
+        """어두운 바탕에서는 회색 글자가 가늘어 보여서 안내 글을 7:1 이상으로, 꺼진 단추의 글자도 4.5:1 이상으로 둠."""
+        dark = theme.DARK
+        for back in ("bg", "surface", "surface_alt"):
+            self.assertGreaterEqual(contrast(dark["muted"], dark[back]), 7, back)
+        for ink, back in (("faint", "bg"), ("faint", "surface"), ("primary_off_ink", "primary_off"), ("placeholder", "bg")):
+            self.assertGreaterEqual(contrast(dark[ink], dark[back]), 4.5, "%s / %s" % (ink, back))
+        for ink in ("muted", "placeholder", "faint"):  # 본문 글자보다는 어두워서 덜 중요한 글로 읽힘
+            self.assertGreater(contrast(dark["ink"], dark["surface"]), contrast(dark[ink], dark["surface"]) + 3, ink)
+        for back in ("bg", "surface"):  # 판과 입력칸의 테두리가 바탕에서 보임
+            self.assertGreaterEqual(contrast(dark["border"], dark[back]), 1.5, back)
 
     def test_button_cycles_system_light_dark_and_the_choice_is_remembered(self):
         self.boot()
@@ -2794,7 +2872,7 @@ class MotionTest(GuiTest):
             wait_until(lambda: lids and lids[-1] == 1.0, 5)
         self.assertTrue(len(lids) > 2 and bot.open == 1.0)  # 감았다가 다시 뜬 눈으로 끝남
         click(win.home.action_btn)
-        item = self.select(lambda it: it["type"] == "choice")
+        item = self.select(lambda it: it["type"] == "choice" and not it["multi"])  # 복수 정답이면 아래에서 둘 다 골라진 채로 남음
         cards = page.choice_panel.buttons
         QTest.mouseClick(cards[0], LEFT)
         self.assertEqual((item["answer"], cards[0].isChecked()), ([1], True))  # 답은 체크가 그려지기를 기다리지 않음

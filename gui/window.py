@@ -13,6 +13,7 @@ from gui.home_page import HomePage
 from gui.result_page import ResultPage
 from gui.round_page import RoundPage
 from gui.team_page import TeamPage
+from gui.widgets import Para
 from gui.worker import Job
 from session import SessionError
 
@@ -43,9 +44,7 @@ class StartPage(QWidget):
         self.busy_bar.setTextVisible(False)
         self.busy_bar.setFixedWidth(260)
         self.busy_bar.hide()
-        self.error = QLabel("")
-        self.error.setObjectName("error")
-        self.error.setWordWrap(True)
+        self.error = Para(name="error")
         self.error.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.retry = QPushButton("다시 시도")
         self.retry.hide()

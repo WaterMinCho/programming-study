@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """답안 입력 위젯과 단원 띠."""
 import builtins
+import html
 import keyword
 import math
 import re
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import (QFont, QKeySequence, QPainter, QPainterPath, QPen, QShortcut, QSyntaxHighlighter, QTextCharFormat, QTextCursor,
-                         QTextDocument)
+from PyQt6.QtGui import (QFont, QKeySequence, QPainter, QPainterPath, QPen, QShortcut, QSyntaxHighlighter, QTextBlockFormat, QTextCharFormat,
+                         QTextCursor, QTextDocument, QTextDocumentFragment, QTextFrame)
 from PyQt6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSplitter,
                              QTextBrowser, QTextEdit, QVBoxLayout, QWidget)
 
@@ -386,15 +387,99 @@ class LineNumbers(QWidget):
         QApplication.sendEvent(self.editor.viewport(), event)
 
 
+LINE_PCT = 135  # 안내 글의 줄 높이. 글자 크기에 대한 백분율
+
+
+class Para(QLabel):
+    """여러 줄로 넘어가는 안내 글. 같이 배포하는 글꼴은 줄 높이가 글자 크기와 같아 줄이 붙어 보이므로 줄 간격을 넓혀 그림.
+    setText 와 text 는 QLabel 처럼 꾸밈없는 글을 주고받음. 넓힌 줄 간격은 마지막 줄 아래에도 붙는데, 그만큼은 높이에서 빼서
+    한 줄짜리 글이 QLabel 과 같은 자리를 차지하게 함."""
+
+    plain, lift, kept, settling = "", 0, None, False  # 넣은 글, 글을 내리려고 위 여백에 더한 값, 그때의 여백
+
+    def __init__(self, text="", name=""):
+        super().__init__()
+        self.setObjectName(name)
+        self.setWordWrap(True)
+        self.setTextFormat(Qt.TextFormat.RichText)
+        self.setText(text)
+
+    def markup(self, text):
+        return '<span style="white-space: pre-wrap;">%s</span>' % html.escape(text)
+
+    def setText(self, text):
+        self.plain = text
+        super().setText(text and '<p style="margin: 0; line-height: %d%%;">%s</p>' % (LINE_PCT, self.markup(text)))
+        self.settle()
+
+    def text(self):
+        return self.plain
+
+    def tail(self):
+        """마지막 줄 아래에 붙는 줄 간격."""
+        self.ensurePolished()
+        return self.fontMetrics().height() * (LINE_PCT - 100) // 100 if self.plain else 0
+
+    def lifted(self):
+        """위 여백에 지금 들어 있는 lift. 스타일이 여백을 다시 잡으면(테마 전환) 더해 둔 값이 지워지므로 그때는 0."""
+        return self.lift if self.contentsMargins() == self.kept else 0
+
+    def heightForWidth(self, width):
+        return super().heightForWidth(width) - self.lifted() - self.tail()
+
+    def sizeHint(self):
+        """꾸밈없는 QLabel 이 줄바꿈하는 글의 폭을 어림하는 방식을 따름. 꾸민 글의 어림은 좁고 길어서 대화상자가 헐겁게 열림."""
+        if not self.plain:
+            return super().sizeHint()
+        self.ensurePolished()
+        metrics, shown = self.fontMetrics(), QTextDocumentFragment.fromHtml(super().text()).toPlainText()
+        frame = self.contentsMargins().left() + self.contentsMargins().right()
+        wide = metrics.averageCharWidth() * 80
+        flags = Qt.TextFlag.TextWordWrap if self.wordWrap() else 0
+        box = metrics.boundingRect(0, 0, wide, 2000, flags, shown)
+        for part, lines in ((2, 4), (4, 2)):
+            if self.wordWrap() and box.height() < lines * metrics.lineSpacing() and box.width() > wide // part:
+                box = metrics.boundingRect(0, 0, wide // part, 2000, flags, shown)
+        return QSize(box.width() + frame, self.heightForWidth(box.width() + frame))
+
+    def minimumSizeHint(self):
+        size = super().minimumSizeHint()
+        return QSize(size.width(), max(0, size.height() - self.lifted() - self.tail()))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.settle()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.StyleChange:
+            self.settle()
+
+    def settle(self):
+        """높이가 남으면 글을 세로 가운데에 둠. QLabel 은 마지막 줄 아래 간격까지 넣어 가운데를 잡아서 글이 위로 치우침."""
+        if self.settling:  # 여백을 고치는 동안 스타일이 다시 입혀지며 되돌아오는 호출
+            return
+        self.settling = True
+        have = self.lifted()
+        spare = self.height() - self.heightForWidth(self.width()) if self.plain else 0
+        want = max(0, min(self.tail(), spare // 2))
+        if want != have or self.kept is None:
+            margins = self.contentsMargins()
+            margins.setTop(margins.top() - have + want)
+            self.setContentsMargins(margins)
+            self.lift, self.kept = want, self.contentsMargins()
+        self.settling = False
+
+
 def hint_label():
-    label = QLabel()
-    label.setObjectName("muted")
-    label.setWordWrap(True)
-    return label
+    return Para(name="muted")
 
 
-class LinkLabel(QLabel):
-    """링크가 든 글. 링크 색은 글을 넣는 순간의 팔레트로 굳으므로 테마가 바뀌면 글을 다시 넣음."""
+class LinkLabel(Para):
+    """링크가 든 글(HTML). 링크 색은 글을 넣는 순간의 팔레트로 굳으므로 테마가 바뀌면 글을 다시 넣음."""
+
+    def markup(self, text):
+        return text
 
     def changeEvent(self, event):
         super().changeEvent(event)
@@ -405,14 +490,21 @@ class LinkLabel(QLabel):
 
 
 def content_height(doc):
-    """문서의 내용이 끝나는 높이. 표나 코드 상자로 끝나면 그 아래 여백은 뺌."""
+    """문서의 내용이 끝나는 높이. 표나 코드 상자로 끝나면 그 아래 여백을, 글로 끝나면 마지막 줄 아래에 붙는 줄 간격을 뺌."""
     last, child = None, doc.rootFrame().begin()
     while not child.atEnd():
         frame = child.currentFrame()
         if frame is not None or child.currentBlock().text():
-            last = frame
+            last = frame or child.currentBlock()
         child += 1
-    return doc.size().height() - (last.frameFormat().bottomMargin() if last is not None else 0)
+    if last is None:
+        return doc.size().height()
+    if isinstance(last, QTextFrame):
+        return doc.size().height() - last.frameFormat().bottomMargin()
+    form, line = last.blockFormat(), last.layout().lineAt(last.layout().lineCount() - 1)
+    if form.lineHeightType() != QTextBlockFormat.LineHeightTypes.ProportionalHeight.value:
+        return doc.size().height()
+    return doc.size().height() - line.height() * (form.lineHeight() / 100 - 1)
 
 
 class ChoiceCard(QWidget):

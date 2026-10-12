@@ -7,17 +7,18 @@ import textwrap
 from PyQt6.QtCore import QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPen, QPixmap, QTextCursor
 from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QProgressBar, QPushButton, QSplitter,
-                             QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
+                             QStackedWidget, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QTextBrowser, QVBoxLayout, QWidget)
 
 import mdlite
 import study
 from gui import theme
 from gui.guard import NOTE
-from gui.widgets import ChoicePanel, CodePanel, FindBar, PasteBlock, TextPanel
+from gui.widgets import ChoicePanel, CodePanel, FindBar, Para, PasteBlock, TextPanel
 from session import SessionError
 
 SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
 DOT_PX = 12
+ROW_GAP = 5  # 문항 목록 한 줄 안에서 윗줄과 아랫줄 사이
 _dots = {}
 
 
@@ -74,6 +75,33 @@ def run_html(run):
     return "<body>%s</body>" % "".join(parts)
 
 
+class RowDelegate(QStyledItemDelegate):
+    """문항 목록의 줄. 같이 배포하는 글꼴은 줄 높이가 글자 크기와 같아 두 줄이 붙어 보이므로 줄 사이를 띄워 그림."""
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        return QSize(size.width(), size.height() + ROW_GAP * (index.data() or "").count("\n"))
+
+    def paint(self, painter, option, index):
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        style = opt.widget.style()
+        margin = style.pixelMetric(QStyle.PixelMetric.PM_FocusFrameHMargin, opt, opt.widget) + 1  # 기본 그리기가 글 양옆에 두는 여백
+        rect = QRectF(style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, opt.widget)).adjusted(margin, 0, -margin, 0)
+        lines, opt.text = (index.data() or "").split("\n"), ""
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, opt.widget)  # 바탕과 동그라미
+        height = opt.fontMetrics.height()
+        top = rect.center().y() - (len(lines) * (height + ROW_GAP) - ROW_GAP) / 2
+        painter.save()
+        painter.setFont(opt.font)
+        painter.setPen(theme.qcolor("selection_ink" if opt.state & QStyle.StateFlag.State_Selected else "ink"))
+        for n, line in enumerate(lines):
+            painter.drawText(QRectF(rect.left(), top + n * (height + ROW_GAP), rect.width(), height),
+                             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                             opt.fontMetrics.elidedText(line, Qt.TextElideMode.ElideRight, int(rect.width())))
+        painter.restore()
+
+
 class RoundPage(QWidget):
     def __init__(self, win):
         super().__init__()
@@ -106,13 +134,12 @@ class RoundPage(QWidget):
         self.listw = QListWidget()
         self.listw.setMinimumWidth(200)
         self.listw.setIconSize(QSize(DOT_PX, DOT_PX))
+        self.listw.setItemDelegate(RowDelegate(self.listw))
         self.listw.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         mid = QWidget()
         mid_box = QVBoxLayout(mid)
         mid_box.setContentsMargins(0, 0, 0, 0)
-        self.item_title = QLabel()
-        self.item_title.setObjectName("h2")
-        self.item_title.setWordWrap(True)
+        self.item_title = Para(name="h2")
         self.body = QTextBrowser()
         self.body.setOpenLinks(False)
         self.body.document().setDocumentMargin(14)
