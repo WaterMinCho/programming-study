@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QProgress
 import mdlite
 from gui import motion, theme
 from gui.mascot import Mascot
+from gui.widgets import Para, centered
 
 PARTY_RATIO = 90  # 득점률이 이 이상이면 마스코트가 웃고, 방금 제출한 회차면 색종이가 떨어짐
 
@@ -67,9 +68,7 @@ class ResultPage(QWidget):
         self.score.setObjectName("big")
         self.ratio = QLabel()
         self.ratio.setObjectName("h2")
-        self.note = QLabel()
-        self.note.setObjectName("muted")
-        self.note.setWordWrap(True)
+        self.note = Para(name="muted")
         ready_box = QVBoxLayout()
         self.ready = QLabel()
         self.ready.setObjectName("h2")
@@ -87,7 +86,7 @@ class ResultPage(QWidget):
         card_box.addSpacing(14)
         card_box.addWidget(self.ratio)
         card_box.addSpacing(14)
-        card_box.addWidget(self.note, 1)
+        card_box.addLayout(centered(self.note), 1)
         card_box.addLayout(ready_box)
         root.addWidget(card)
 

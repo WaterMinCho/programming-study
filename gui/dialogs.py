@@ -5,7 +5,7 @@ from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QVBoxLayout
 
 import session
-from gui.widgets import LinkLabel
+from gui.widgets import LinkLabel, Para
 
 
 class MessageDialog(QDialog):
@@ -21,15 +21,12 @@ class MessageDialog(QDialog):
         box.setSpacing(12)
         head = QLabel(title)
         head.setObjectName("h2")
-        self.text = QLabel(text)
-        self.text.setTextFormat(Qt.TextFormat.PlainText)
-        self.text.setWordWrap(True)
+        self.text = Para(text)
         self.text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         box.addWidget(head)
         box.addWidget(self.text)
         if link:
             self.link = LinkLabel('<a href="%s">%s</a>' % (link, link))
-            self.link.setWordWrap(True)
             self.link.linkActivated.connect(lambda url: parent.open_url(url))
             box.addWidget(self.link)
         self.detail = QPlainTextEdit(detail)
@@ -86,16 +83,12 @@ class IdDialog(QDialog):
         box.setSpacing(10)
         head = QLabel("깃허브 ID 를 입력해 주세요")
         head.setObjectName("h2")
-        why = QLabel("깃허브 주소 github.com/ 뒤에 나오는 이름입니다(메일 주소나 실명이 아닙니다). "
-                     "내 풀이를 저장하는 폴더 이름(submissions/ID)과 제출할 때 올라가는 브랜치 이름에 쓰입니다. "
-                     "한 번만 입력하면 됩니다.")
-        why.setWordWrap(True)
-        why.setObjectName("muted")
+        why = Para("깃허브 주소 github.com/ 뒤에 나오는 이름입니다(메일 주소나 실명이 아닙니다). "
+                   "내 풀이를 저장하는 폴더 이름(submissions/ID)과 제출할 때 올라가는 브랜치 이름에 쓰입니다. "
+                   "한 번만 입력하면 됩니다.", "muted")
         self.edit = QLineEdit()
         self.edit.setPlaceholderText("예: gildong-hong")
-        self.error = QLabel(" ")
-        self.error.setObjectName("error")
-        self.error.setWordWrap(True)
+        self.error = Para(" ", "error")
         self.ok = QPushButton("시작")
         self.ok.setObjectName("primary")
         self.ok.setDefault(True)
@@ -155,13 +148,10 @@ class ErrorDialog(QDialog):
         head.setObjectName("h2")
         note = LinkLabel("작성한 답은 저장돼 있고, 이 창을 닫으면 계속 쓸 수 있습니다. 같은 오류가 반복되면 아래 내용을 복사해 "
                          '<a href="%s">불편 신고 양식</a>에 붙여 주세요.' % issue_url)
-        note.setWordWrap(True)
         note.setOpenExternalLinks(True)
         self.view = QPlainTextEdit(text)
         self.view.setReadOnly(True)
-        where = QLabel("기록 파일: %s" % log_path if log_path else "기록 파일을 쓰지 못했습니다.")
-        where.setObjectName("muted")
-        where.setWordWrap(True)
+        where = Para("기록 파일: %s" % log_path if log_path else "기록 파일을 쓰지 못했습니다.", "muted")
         where.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.copy = QPushButton("오류 내용 복사")
         self.copy.clicked.connect(lambda: QGuiApplication.clipboard().setText(self.view.toPlainText()))
