@@ -1,0 +1,19 @@
+{
+  "title": "range 처럼 세는 이터레이터 클래스",
+  "type": "print",
+  "level": 3,
+  "points": 8,
+  "mode": "exec",
+  "tags": ["이터레이터 클래스", "next와 StopIteration", "경계값"],
+  "examples": 3,
+  "cases": [
+    {"code": "for x in MyRange(0, 5, 1):\n    print(x)", "stdout": "0\n1\n2\n3\n4\n"},
+    {"code": "for x in MyRange(1, 10, 3):\n    print(x, end=\" \")\nprint(\"end\")\nfor x in MyRange(10, 0, -3):\n    print(x, end=\" \")\nprint(\"end\")", "stdout": "1 4 7 end\n10 7 4 1 end\n"},
+    {"code": "r = MyRange(2, 5)\nprint(next(r))\nprint(next(r))\nprint(next(r))\ntry:\n    next(r)\nexcept StopIteration:\n    print(\"stop\")", "stdout": "2\n3\n4\nstop\n"},
+    {"code": "def show(r):\n    for x in r:\n        print(x, end=\" \")\n    print(\"end\")\n\nshow(MyRange(0, 6, 2))\nshow(MyRange(5, 5, 1))\nshow(MyRange(5, 1, 1))", "stdout": "0 2 4 end\nend\nend\n"},
+    {"code": "def show(r):\n    for x in r:\n        print(x, end=\" \")\n    print(\"end\")\n\nshow(MyRange(3, 0, -1))\nshow(MyRange(6, 0, -2))\nshow(MyRange(0, 3, -1))", "stdout": "3 2 1 end\n6 4 2 end\nend\n"},
+    {"code": "def show(r):\n    for x in r:\n        print(x, end=\" \")\n    print(\"end\")\n\nshow(MyRange(-3, 4, 2))\nshow(MyRange(4, -3, -2))", "stdout": "-3 -1 1 3 end\n4 2 0 -2 end\n"},
+    {"code": "a = MyRange(0, 3, 1)\nb = MyRange(0, 30, 10)\nprint(next(a), next(b))\nprint(next(a), next(b))", "stdout": "0 0\n1 10\n"},
+    {"code": "def show(r):\n    for x in r:\n        print(x, end=\" \")\n    print(\"end\")\n\nr = MyRange(0, 2)\nshow(r)\nshow(r)\ntry:\n    next(r)\nexcept StopIteration:\n    print(\"stop\")", "stdout": "0 1 end\nend\nstop\n"}
+  ]
+}

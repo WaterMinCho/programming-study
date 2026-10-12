@@ -1,0 +1,19 @@
+{
+  "title": "Python 이 들어 있는 문장",
+  "type": "return",
+  "level": 3,
+  "points": 8,
+  "mode": "call",
+  "tags": ["문자 클래스", "반복 메타 문자", "findall과 finditer"],
+  "examples": 3,
+  "cases": [
+    {"call": "solution(\"I love Python. Java is also popular. Python is great for AI.\")", "expected": "['I love Python.', 'Python is great for AI.']"},
+    {"call": "solution(\"Java only. C too.\")", "expected": "[]"},
+    {"call": "solution(\"python is lower. Python is upper.\")", "expected": "['Python is upper.']"},
+    {"call": "solution(\"Python.\")", "expected": "['Python.']"},
+    {"call": "solution(\"We write Pythonic code. No snakes here. MicroPython runs on boards.\")", "expected": "['We write Pythonic code.', 'MicroPython runs on boards.']"},
+    {"call": "solution(\"Python and Python again.  Two spaces before this Python.\")", "expected": "['Python and Python again.', 'Two spaces before this Python.']"},
+    {"call": "solution(\"A. B Python C. D.\")", "expected": "['B Python C.']"},
+    {"call": "solution(\"\")", "expected": "[]"}
+  ]
+}

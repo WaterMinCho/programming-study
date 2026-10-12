@@ -1,0 +1,12 @@
+{
+  "title": "next() 로 끝까지 꺼내기",
+  "type": "fill",
+  "level": 2,
+  "points": 6,
+  "mode": "io",
+  "tags": ["next와 StopIteration", "try-except 흐름"],
+  "examples": 1,
+  "cases": [
+    {"stdout": "1 apple\n2 banana\n3 cherry\ntotal: 3\n"}
+  ]
+}

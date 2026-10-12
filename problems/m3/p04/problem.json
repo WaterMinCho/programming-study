@@ -1,0 +1,62 @@
+{
+  "title": "사탕 나누기와 예외 이름",
+  "type": "fill",
+  "level": 2,
+  "points": 6,
+  "mode": "call",
+  "tags": [
+    "예외 클래스 이름",
+    "except 여러 개"
+  ],
+  "examples": 4,
+  "cases": [
+    {
+      "call": "candies({\"A\": [4, 5], \"B\": [0, 8]}, \"A\", 1)",
+      "expected": "24"
+    },
+    {
+      "call": "candies({\"A\": [4, 5], \"B\": [0, 8]}, \"C\", 0)",
+      "expected": "'팀 없음'"
+    },
+    {
+      "call": "candies({\"A\": [4, 5], \"B\": [0, 8]}, \"A\", 2)",
+      "expected": "'조 없음'"
+    },
+    {
+      "call": "candies({\"A\": [4, 5], \"B\": [0, 8]}, \"B\", 0)",
+      "expected": "'인원 0명'"
+    },
+    {
+      "call": "candies({\"A\": [4, 5], \"B\": [0, 8]}, \"B\", -1)",
+      "expected": "15"
+    },
+    {
+      "call": "candies({}, \"A\", 0)",
+      "expected": "'팀 없음'"
+    },
+    {
+      "call": "candies({\"A\": []}, \"A\", 0)",
+      "expected": "'조 없음'"
+    },
+    {
+      "call": "candies({\"A\": [7]}, \"A\", 0)",
+      "expected": "17"
+    },
+    {
+      "call": "candies({\"A\": [4, 5]}, \"Z\", 9)",
+      "expected": "'팀 없음'"
+    },
+    {
+      "call": "candies({\"A\": [4, 0]}, \"A\", -3)",
+      "expected": "'조 없음'"
+    },
+    {
+      "call": "candies({\"A\": [4, 0]}, \"A\", -1)",
+      "expected": "'인원 0명'"
+    },
+    {
+      "call": "candies({\"A\": [120], \"B\": [121]}, \"B\", 0)",
+      "expected": "0"
+    }
+  ]
+}

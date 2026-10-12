@@ -193,7 +193,7 @@ class MainWindow(QMainWindow):
             self.ask("알림", str(error))
             return
         if rnd is None:
-            self.ask("알림", "전 단원을 심화까지 끝내 더 낼 문항이 없습니다.\n터미널에서 python study.py start m1 (2회는 m2)로 모의고사를 볼 수 있습니다.")
+            self.ask("알림", "전 단원을 심화까지 끝내 더 낼 문항이 없습니다.\n터미널에서 python study.py start m1 (2회는 m2, 3회는 m3)로 모의고사를 볼 수 있습니다.")
             return
         self.open_round(rnd["id"])
 

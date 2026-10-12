@@ -1,0 +1,16 @@
+{
+  "title": "JSON 파일 읽어 출력하기",
+  "type": "print",
+  "level": 2,
+  "points": 6,
+  "mode": "io",
+  "tags": ["json 파일 입출력", "중첩 자료 접근"],
+  "examples": 2,
+  "cases": [
+    {"files": {"sample.json": "{\n    \"name\": \"Alice\",\n    \"age\": 25,\n    \"city\": \"Seoul\",\n    \"skills\": [\"Python\", \"Django\", \"Machine Learning\"]\n}\n"}, "stdout": "이름: Alice\n나이: 25\n도시: Seoul\n기술 3개: Python, Django, Machine Learning\n"},
+    {"files": {"sample.json": "{\"name\": \"Bob\", \"age\": 30, \"city\": \"Busan\", \"skills\": [\"Java\"]}\n"}, "stdout": "이름: Bob\n나이: 30\n도시: Busan\n기술 1개: Java\n"},
+    {"files": {"sample.json": "{\"skills\": [\"C\", \"C++\"], \"city\": \"Daegu\", \"age\": 41, \"name\": \"Kim\", \"job\": \"dev\", \"active\": true, \"nickname\": null}"}, "stdout": "이름: Kim\n나이: 41\n도시: Daegu\n기술 2개: C, C++\n"},
+    {"files": {"sample.json": "{\n    \"name\": \"홍길동\",\n    \"age\": 25,\n    \"city\": \"서울\",\n    \"skills\": [\"파이썬\", \"엑셀\"]\n}\n"}, "stdout": "이름: 홍길동\n나이: 25\n도시: 서울\n기술 2개: 파이썬, 엑셀\n"},
+    {"files": {"sample.json": "{\n    \"name\": \"\\ubc15\\uc601\\ud76c\",\n    \"age\": 9,\n    \"city\": \"\\ubd80\\uc0b0\",\n    \"skills\": [\n        \"SQL\",\n        \"R\",\n        \"Go\",\n        \"Rust\"\n    ]\n}\n"}, "stdout": "이름: 박영희\n나이: 9\n도시: 부산\n기술 4개: SQL, R, Go, Rust\n"}
+  ]
+}

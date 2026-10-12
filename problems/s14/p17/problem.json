@@ -1,0 +1,18 @@
+{
+  "title": "대문자 약어 뽑기",
+  "type": "fill",
+  "level": 1,
+  "points": 4,
+  "mode": "io",
+  "tags": ["문자 클래스", "반복 메타 문자", "findall과 finditer"],
+  "examples": 3,
+  "cases": [
+    {"stdin": "NASA is working on AI projects with IBM and Google.\n", "stdout": "['NASA', 'AI', 'IBM']\n"},
+    {"stdin": "I am a Robot\n", "stdout": "[]\n"},
+    {"stdin": "USA2024 and KOREA_ROK\n", "stdout": "['USA', 'KOREA', 'ROK']\n"},
+    {"stdin": "A BB CCC\n", "stdout": "['BB', 'CCC']\n"},
+    {"stdin": "iPhone and eBOOK\n", "stdout": "['BOOK']\n"},
+    {"stdin": "rokey\n", "stdout": "[]\n"},
+    {"stdin": "ABCDEF\n", "stdout": "['ABCDEF']\n"}
+  ]
+}

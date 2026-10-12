@@ -1,0 +1,23 @@
+{
+  "title": "이메일 형식 검사",
+  "type": "print",
+  "level": 2,
+  "points": 6,
+  "mode": "io",
+  "tags": ["앵커 ^와 $", "문자 클래스", "match와 search"],
+  "examples": 3,
+  "cases": [
+    {"stdin": "user@example.com\n", "stdout": "Valid email\n"},
+    {"stdin": "user@example\n", "stdout": "Invalid email\n"},
+    {"stdin": "user@example.com!!\n", "stdout": "Invalid email\n"},
+    {"stdin": "kim.lee-01@mail.rokey.co.kr\n", "stdout": "Valid email\n"},
+    {"stdin": "@example.com\n", "stdout": "Invalid email\n"},
+    {"stdin": "user.example.com\n", "stdout": "Invalid email\n"},
+    {"stdin": "to user@example.com\n", "stdout": "Invalid email\n"},
+    {"stdin": "user@@example.com\n", "stdout": "Invalid email\n"},
+    {"stdin": "user@example.\n", "stdout": "Invalid email\n"},
+    {"stdin": "rokey_11@my-site.net\n", "stdout": "Valid email\n"},
+    {"stdin": "user@example.com extra\n", "stdout": "Invalid email\n"},
+    {"stdin": "\n", "stdout": "Invalid email\n"}
+  ]
+}

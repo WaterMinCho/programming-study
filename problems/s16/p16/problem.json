@@ -1,0 +1,16 @@
+{
+  "title": "리스트로 만드는 덱",
+  "type": "fill",
+  "level": 2,
+  "points": 6,
+  "mode": "exec",
+  "tags": ["리스트로 만든 덱", "빈 자료구조 처리"],
+  "examples": 2,
+  "cases": [
+    {"code": "d = Deque()\nd.push_back(1)\nd.push_back(2)\nd.push_front(3)\nprint(d.items)\nprint(d.pop_front())\nprint(d.pop_back())\nprint(d.items)", "stdout": "[3, 1, 2]\n3\n2\n[1]\n"},
+    {"code": "d = Deque()\nprint(d.pop_front())\nprint(d.pop_back())\nprint(d.items)", "stdout": "-1\n-1\n[]\n"},
+    {"code": "d = Deque()\nd.push_front(1)\nd.push_front(2)\nd.push_front(3)\nprint(d.items)\nd.push_back(d.pop_front())\nprint(d.items)\nprint(d.pop_back(), d.pop_back(), d.pop_back(), d.pop_back())", "stdout": "[3, 2, 1]\n[2, 1, 3]\n3 1 2 -1\n"},
+    {"code": "d = Deque()\nd.push_back(\"a\")\nd.push_front(\"b\")\nd.push_back(\"c\")\nprint(d.pop_front(), d.pop_front())\nd.push_front(\"z\")\nprint(d.items)", "stdout": "b a\n['z', 'c']\n"},
+    {"code": "d = Deque()\nd.push_front(0)\nd.push_back(9)\nd.push_front(4)\nd.push_front(5)\nprint(d.items)\nprint(d.pop_front(), d.pop_back(), d.pop_front())\nprint(d.items)", "stdout": "[5, 4, 0, 9]\n5 9 4\n[0]\n"}
+  ]
+}
