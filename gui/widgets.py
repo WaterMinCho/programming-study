@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """답안 입력 위젯과 단원 띠."""
 import builtins
+import html
 import keyword
 import math
 import re
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import (QFont, QKeySequence, QPainter, QPainterPath, QPen, QShortcut, QSyntaxHighlighter, QTextCharFormat, QTextCursor,
-                         QTextDocument)
+from PyQt6.QtGui import (QFont, QFontMetricsF, QKeySequence, QPainter, QPainterPath, QPen, QShortcut, QSyntaxHighlighter, QTextBlockFormat, QTextCharFormat,
+                         QTextCursor, QTextDocument, QTextDocumentFragment, QTextFrame)
 from PyQt6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSplitter,
                              QTextBrowser, QTextEdit, QVBoxLayout, QWidget)
 
@@ -386,15 +387,84 @@ class LineNumbers(QWidget):
         QApplication.sendEvent(self.editor.viewport(), event)
 
 
+class Para(QLabel):
+    """여러 줄로 넘어가는 안내 글. 같이 배포하는 글꼴은 줄 높이가 글자 크기와 같아 줄이 붙어 보이므로 줄 간격을 넓혀 그림.
+    setText 와 text 는 QLabel 처럼 꾸밈없는 글을 주고받음. 넓힌 줄 간격은 마지막 줄 아래에도 붙는데, 그만큼은 높이에서 빼서
+    한 줄짜리 글이 QLabel 과 같은 자리를 차지하게 함."""
+
+    plain, pct = "", 100  # 넣은 글, 줄 높이 백분율
+
+    def __init__(self, text="", name=""):
+        super().__init__()
+        self.setObjectName(name)
+        self.setWordWrap(True)
+        self.setTextFormat(Qt.TextFormat.RichText)
+        self.setText(text)
+
+    def markup(self, text):
+        return '<span style="white-space: pre-wrap;">%s</span>' % html.escape(text)
+
+    def setText(self, text):
+        self.plain, self.pct = text, theme.line_pct(theme.GUIDE_LINE)
+        super().setText(text and '<p style="margin: 0; line-height: %d%%;">%s</p>' % (self.pct, self.markup(text)))
+
+    def text(self):
+        return self.plain
+
+    def tail(self):
+        """마지막 줄의 글자 아래에 붙는 줄 간격."""
+        self.ensurePolished()
+        metrics = QFontMetricsF(self.font())
+        return max(0, math.floor(metrics.lineSpacing() * self.pct / 100 - metrics.height())) if self.plain else 0
+
+    def heightForWidth(self, width):
+        return super().heightForWidth(width) - self.tail()
+
+    def sizeHint(self):
+        """꾸밈없는 QLabel 이 줄바꿈하는 글의 폭을 어림하는 방식을 따름. 꾸민 글의 어림은 좁고 길어서 대화상자가 헐겁게 열림."""
+        if not self.plain:
+            return super().sizeHint()
+        self.ensurePolished()
+        metrics, shown = self.fontMetrics(), QTextDocumentFragment.fromHtml(super().text()).toPlainText()
+        wide = metrics.averageCharWidth() * 80
+        flags = Qt.TextFlag.TextWordWrap if self.wordWrap() else 0
+        box = metrics.boundingRect(0, 0, wide, 2000, flags, shown)
+        for part, lines in ((2, 4), (4, 2)):
+            if self.wordWrap() and box.height() < lines * metrics.lineSpacing() and box.width() > wide // part:
+                box = metrics.boundingRect(0, 0, wide // part, 2000, flags, shown)
+        width = box.width()
+        if box.height() < 2 * metrics.lineSpacing():  # 한 줄이면 꾸민 글이 실제로 차지하는 폭을 줌. 1px 만 모자라도 두 줄로 넘어감
+            doc = QTextDocument()
+            doc.setDefaultFont(self.font())
+            doc.setDocumentMargin(0)
+            doc.setHtml(super().text())
+            width = max(width, math.ceil(doc.idealWidth()))
+        width += self.contentsMargins().left() + self.contentsMargins().right()
+        return QSize(width, self.heightForWidth(width))
+
+    def minimumSizeHint(self):
+        size = super().minimumSizeHint()
+        return QSize(size.width(), max(0, size.height() - self.tail()))
+
+
+def centered(label):
+    """단추나 다른 글과 한 줄에 놓이는 Para 를 세로 가운데에 둠. 줄 전체 높이로 늘리면 마지막 줄 아래 간격 때문에 글이 위로 치우침."""
+    column = QVBoxLayout()
+    column.addStretch(1)
+    column.addWidget(label)
+    column.addStretch(1)
+    return column
+
+
 def hint_label():
-    label = QLabel()
-    label.setObjectName("muted")
-    label.setWordWrap(True)
-    return label
+    return Para(name="muted")
 
 
-class LinkLabel(QLabel):
-    """링크가 든 글. 링크 색은 글을 넣는 순간의 팔레트로 굳으므로 테마가 바뀌면 글을 다시 넣음."""
+class LinkLabel(Para):
+    """링크가 든 글(HTML). 링크 색은 글을 넣는 순간의 팔레트로 굳으므로 테마가 바뀌면 글을 다시 넣음."""
+
+    def markup(self, text):
+        return text
 
     def changeEvent(self, event):
         super().changeEvent(event)
@@ -405,14 +475,20 @@ class LinkLabel(QLabel):
 
 
 def content_height(doc):
-    """문서의 내용이 끝나는 높이. 표나 코드 상자로 끝나면 그 아래 여백은 뺌."""
+    """문서의 내용이 끝나는 높이. 표나 코드 상자로 끝나면 그 아래 여백을, 글로 끝나면 마지막 줄의 글자 아래에 붙는 줄 간격을 뺌."""
+    height = doc.size().height()  # 줄을 먼저 앉혀야 아래에서 마지막 줄을 읽을 수 있음
     last, child = None, doc.rootFrame().begin()
     while not child.atEnd():
         frame = child.currentFrame()
         if frame is not None or child.currentBlock().text():
-            last = frame
+            last = frame or child.currentBlock()
         child += 1
-    return doc.size().height() - (last.frameFormat().bottomMargin() if last is not None else 0)
+    if isinstance(last, QTextFrame):
+        return height - last.frameFormat().bottomMargin()
+    if last is None or last.blockFormat().lineHeightType() != QTextBlockFormat.LineHeightTypes.ProportionalHeight.value:
+        return height
+    line = last.layout().lineAt(last.layout().lineCount() - 1)
+    return height - max(0.0, line.height() * last.blockFormat().lineHeight() / 100 - line.ascent() - line.descent())
 
 
 class ChoiceCard(QWidget):
@@ -701,7 +777,7 @@ class CodePanel(QWidget):
         top = QHBoxLayout()
         self.hint = hint_label()
         self.reset_btn = QPushButton("시작 코드로 되돌리기")
-        top.addWidget(self.hint, 1)
+        top.addLayout(centered(self.hint), 1)
         top.addWidget(self.reset_btn)
         box.addLayout(top)
         split = QSplitter(Qt.Orientation.Vertical)

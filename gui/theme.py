@@ -6,7 +6,7 @@ import re
 import sys
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontDatabase, QPalette
+from PyQt6.QtGui import QColor, QFont, QFontDatabase, QFontInfo, QFontMetricsF, QPalette
 from PyQt6.QtWidgets import QApplication
 
 import mdlite
@@ -18,6 +18,7 @@ CODE_FONTS = ("D2Coding", "Consolas", "Menlo", "Cascadia Mono", "DejaVu Sans Mon
 UI_PX = 15  # 버튼·목록·안내 글자 크기
 CODE_PX = 16  # 편집기 글자 크기(확대 0 일 때)
 DOC_PX = 2  # 문제 본문은 mdlite.CSS 의 크기에 이만큼 더함
+DOC_LINE, GUIDE_LINE = 1.45, 1.35  # 본문과 안내 글의 줄 간격. 글자 크기의 몇 배인지
 ZOOM_RANGE = (-3, 10)
 
 MODES = {"system": "시스템", "light": "밝게", "dark": "어둡게"}  # 홈의 단추를 누르면 이 순서로 돎
@@ -41,19 +42,19 @@ LIGHT = {
     "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#848d97",
 }
 DARK = {
-    "bg": "#0f1318", "surface": "#171c23", "surface_alt": "#1c222b", "hover": "#222a34",
-    "border": "#2b323c", "border_strong": "#3a434f", "line": "#222933", "track": "#2b323c",
-    "scroll": "#3a434f", "scroll_hover": "#4d5866",
-    "ink": "#e6ebf2", "heading": "#f3f6fa", "muted": "#9aa5b1", "placeholder": "#8b949e", "faint": "#6b7684",
-    "primary": "#5b8cff", "primary_hover": "#7aa2ff", "primary_ink": "#0b1220", "primary_off": "#2b3d66", "primary_off_ink": "#8fa0c0",
-    "selection": "#1d3156", "selection_ink": "#cfe0ff", "text_selection": "#2c4a80",
+    "bg": "#14181e", "surface": "#1d232b", "surface_alt": "#232a33", "hover": "#2a323d",
+    "border": "#3a4451", "border_strong": "#4b5666", "line": "#2b333e", "track": "#343d49",
+    "scroll": "#4b5666", "scroll_hover": "#5f6b7b",
+    "ink": "#e6ebf2", "heading": "#f3f6fa", "muted": "#b7c1cc", "placeholder": "#a3adb9", "faint": "#8793a1",
+    "primary": "#5b8cff", "primary_hover": "#7aa2ff", "primary_ink": "#0b1220", "primary_off": "#2b3d66", "primary_off_ink": "#aebbd6",
+    "selection": "#223a66", "selection_ink": "#cfe0ff", "text_selection": "#2c4a80",
     "notice_bg": "#2a2413", "notice_border": "#5f4d17",
-    "code_bg": "#252c36", "codebox_bg": "#11161c", "table_head": "#1f2630", "grid": "#3a434f",
+    "code_bg": "#2e3743", "codebox_bg": "#151a20", "table_head": "#28303a", "grid": "#4b5666",
     "doc_heading": "#8fb4ff", "link": "#6ea8ff",
     "ok": "#3fb950", "wrong": "#ff7b72", "blank": "#8b949e", "up": "#6ea8ff", "retry": "#f0883e",
     "unit_mastered": "#2ea043", "unit_mastered_ink": "#06120a", "unit_level2": "#58a6ff", "unit_level2_ink": "#0b1220",
     "unit_level1": "#d9b44a", "unit_level1_ink": "#0b1220", "unit_retry": "#e2673a", "unit_retry_ink": "#0b1220",
-    "unit_none": "#2b323c", "unit_none_ink": "#9aa5b1", "unit_none_edge": "#6b7684",
+    "unit_none": "#2b323c", "unit_none_ink": "#b7c1cc", "unit_none_edge": "#6b7684",
 }
 TOKENS = {"light": LIGHT, "dark": DARK}
 
@@ -263,6 +264,13 @@ def _paint(scheme):
     signals.changed.emit()
 
 
+def line_pct(times):
+    """줄 간격이 글자 크기의 times 배가 되게 하는 줄 높이 백분율. Qt 는 이 값을 글꼴의 줄 높이에 곱하는데,
+    같은 글꼴도 운영체제에 따라 줄 높이가 글자 크기의 1.0~1.3 배로 다르게 읽혀서 화면 글꼴로 재서 맞춤."""
+    font = QApplication.font()
+    return max(100, round(100 * times * QFontInfo(font).pixelSize() / QFontMetricsF(font).lineSpacing()))
+
+
 def code_families():
     """고정폭 글꼴 하나와 한글 대체 글꼴. 플랫폼 기본 고정폭이 실제로는 고정폭이 아닌 환경이 있어 설치된 글꼴에서 이름으로 고름."""
     mono = _installed(CODE_FONTS)[:1] or [QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()]
@@ -280,7 +288,7 @@ def code_font(zoom=0):
 
 def doc_css(zoom=0):
     """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈."""
-    css = (mdlite.CSS + DOC_CSS) % TOKENS[state["scheme"]]
+    css = (mdlite.CSS + DOC_CSS) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE))
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
     families = ", ".join("'%s'" % name for name in code_families())
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)

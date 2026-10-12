@@ -8,15 +8,15 @@ from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QListWidg
 
 from gui import errors, motion, theme
 from gui.mascot import Mascot
-from gui.widgets import LinkLabel, UnitStrip
+from gui.widgets import LinkLabel, Para, UnitStrip
 
 
 def card(title):
     frame = QFrame()
     frame.setObjectName("card")
     box = QVBoxLayout(frame)
-    box.setContentsMargins(18, 14, 18, 14)
-    box.setSpacing(8)
+    box.setContentsMargins(18, 12, 18, 12)
+    box.setSpacing(6)
     head = QLabel(title)
     head.setObjectName("h2")
     box.addWidget(head)
@@ -24,10 +24,7 @@ def card(title):
 
 
 def muted(text=""):
-    label = QLabel(text)
-    label.setObjectName("muted")
-    label.setWordWrap(True)
-    return label
+    return Para(text, "muted")
 
 
 class HomePage(QWidget):
@@ -46,13 +43,13 @@ class HomePage(QWidget):
         outer.addWidget(scroll)
         root = QVBoxLayout(inner)
         root.setContentsMargins(24, 16, 24, 12)
-        root.setSpacing(12)
+        root.setSpacing(10)
 
         head = QHBoxLayout()
         title = QLabel("ROKEY 파이썬 스터디")
         title.setObjectName("h1")
-        self.user = muted()
-        self.user.setWordWrap(False)
+        self.user = QLabel()  # 한 줄이고 단추와 나란히 놓여서 줄 간격을 넓히지 않음
+        self.user.setObjectName("muted")
         self.team_btn = QPushButton("팀 현황")
         self.team_btn.setToolTip("팀원들의 준비도와 단원별 상태를 봅니다.")
         self.theme_btn = QPushButton()
@@ -68,15 +65,13 @@ class HomePage(QWidget):
         head.addWidget(self.theme_btn)
         root.addLayout(head)
         self.notice = LinkLabel()
-        self.notice.setObjectName("notice")
-        self.notice.setWordWrap(True)
-        self.notice.setTextFormat(Qt.TextFormat.RichText)  # refresh 가 html.escape 한 글을 넣음. 링크가 없는 글에서도 &#x27; 가 글자로 보이지 않게 함
+        self.notice.setObjectName("notice")  # refresh 가 html.escape 한 글을 넣음
         self.notice.linkActivated.connect(lambda _: win.show_notice_detail())
         self.notice.hide()
         root.addWidget(self.notice)
 
         top = QHBoxLayout()
-        top.setSpacing(12)
+        top.setSpacing(10)
         ready_card, box = card("시험 준비도")
         line = QHBoxLayout()
         self.ready = QLabel()
@@ -116,7 +111,7 @@ class HomePage(QWidget):
         root.addWidget(units_card)
 
         bottom = QHBoxLayout()
-        bottom.setSpacing(12)
+        bottom.setSpacing(10)
         rounds_card, box = card("지난 회차")
         self.rounds = QListWidget()
         self.rounds.setObjectName("plain")
@@ -125,7 +120,7 @@ class HomePage(QWidget):
         box.addWidget(self.rounds_hint)
         box.addWidget(self.rounds, 1)
         column = QVBoxLayout()
-        column.setSpacing(12)
+        column.setSpacing(10)
         git_card, box = card("제출")
         row = QHBoxLayout()
         self.git_btn = QPushButton("제출(PR 올리기)")
