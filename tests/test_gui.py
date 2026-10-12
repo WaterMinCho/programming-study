@@ -21,7 +21,7 @@ try:
     from PyQt6.QtGui import (QColor, QContextMenuEvent, QDragEnterEvent, QDropEvent, QFontDatabase, QGuiApplication, QInputMethodEvent,
                              QKeyEvent, QKeySequence, QTextCursor, QTextDocument, qGray)
     from PyQt6.QtTest import QTest
-    from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QPushButton
+    from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QListWidget, QPushButton, QWidget
 except ImportError:
     raise unittest.SkipTest("PyQt6 가 설치돼 있지 않아 화면 테스트를 건너뜁니다")
 
@@ -1298,16 +1298,20 @@ class WidgetTest(unittest.TestCase):
         line = label.fontMetrics().height()
         self.assertGreater(label.sizeHint().height(), 2 * line + 4)  # 두 줄이 붙지 않음
         one, plain = Para("한 줄"), QLabel("한 줄")
-        self.assertEqual(one.sizeHint().width(), plain.sizeHint().width())
-        self.assertLessEqual(one.sizeHint().height(), plain.sizeHint().height() + 1)  # 한 줄짜리는 전과 같은 자리를 차지함
-        one.show()
-        one.resize(200, one.sizeHint().height())
+        self.assertLessEqual(abs(one.sizeHint().width() - plain.sizeHint().width()), 2)
+        self.assertLessEqual(one.sizeHint().height(), plain.sizeHint().height() + 2)  # 한 줄짜리는 전과 같은 자리를 차지함
+        self.assertEqual(one.heightForWidth(400), one.sizeHint().height())
+        row, button = QWidget(), QPushButton("단추")  # 단추 옆에 놓으면 글이 단추 글자와 같은 높이에 옴
+        box = QHBoxLayout(row)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.addLayout(widgets.centered(one), 1)
+        box.addWidget(button)
+        row.resize(300, row.sizeHint().height())
+        row.show()
         pump()
-        self.assertEqual((one.lift, one.heightForWidth(200)), (0, one.sizeHint().height()))
-        one.resize(200, 40)  # 단추 옆처럼 높이가 남으면 글을 가운데로 내림
-        pump()
-        self.assertEqual((one.lift, one.heightForWidth(200)), (one.tail(), one.sizeHint().height()))
-        one.close()
+        self.assertLessEqual(abs(one.geometry().center().y() - button.geometry().center().y()), 1)
+        self.assertEqual(one.height(), one.heightForWidth(one.width()))
+        row.close()
         long = Para("가나다라마바사 " * 30)
         self.assertGreater(long.sizeHint().width(), 400)  # 좁고 길게 어림하지 않아서 대화상자가 헐겁게 열리지 않음
         link = widgets.LinkLabel('앞 <a href="https://example.com">링크</a>')

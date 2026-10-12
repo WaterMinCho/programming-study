@@ -395,7 +395,7 @@ class Para(QLabel):
     setText 와 text 는 QLabel 처럼 꾸밈없는 글을 주고받음. 넓힌 줄 간격은 마지막 줄 아래에도 붙는데, 그만큼은 높이에서 빼서
     한 줄짜리 글이 QLabel 과 같은 자리를 차지하게 함."""
 
-    plain, lift, kept, settling = "", 0, None, False  # 넣은 글, 글을 내리려고 위 여백에 더한 값, 그때의 여백
+    plain = ""
 
     def __init__(self, text="", name=""):
         super().__init__()
@@ -410,7 +410,6 @@ class Para(QLabel):
     def setText(self, text):
         self.plain = text
         super().setText(text and '<p style="margin: 0; line-height: %d%%;">%s</p>' % (LINE_PCT, self.markup(text)))
-        self.settle()
 
     def text(self):
         return self.plain
@@ -420,12 +419,8 @@ class Para(QLabel):
         self.ensurePolished()
         return self.fontMetrics().height() * (LINE_PCT - 100) // 100 if self.plain else 0
 
-    def lifted(self):
-        """위 여백에 지금 들어 있는 lift. 스타일이 여백을 다시 잡으면(테마 전환) 더해 둔 값이 지워지므로 그때는 0."""
-        return self.lift if self.contentsMargins() == self.kept else 0
-
     def heightForWidth(self, width):
-        return super().heightForWidth(width) - self.lifted() - self.tail()
+        return super().heightForWidth(width) - self.tail()
 
     def sizeHint(self):
         """꾸밈없는 QLabel 이 줄바꿈하는 글의 폭을 어림하는 방식을 따름. 꾸민 글의 어림은 좁고 길어서 대화상자가 헐겁게 열림."""
@@ -433,42 +428,34 @@ class Para(QLabel):
             return super().sizeHint()
         self.ensurePolished()
         metrics, shown = self.fontMetrics(), QTextDocumentFragment.fromHtml(super().text()).toPlainText()
-        frame = self.contentsMargins().left() + self.contentsMargins().right()
         wide = metrics.averageCharWidth() * 80
         flags = Qt.TextFlag.TextWordWrap if self.wordWrap() else 0
         box = metrics.boundingRect(0, 0, wide, 2000, flags, shown)
         for part, lines in ((2, 4), (4, 2)):
             if self.wordWrap() and box.height() < lines * metrics.lineSpacing() and box.width() > wide // part:
                 box = metrics.boundingRect(0, 0, wide // part, 2000, flags, shown)
-        return QSize(box.width() + frame, self.heightForWidth(box.width() + frame))
+        width = box.width()
+        if box.height() < 2 * metrics.lineSpacing():  # 한 줄이면 꾸민 글이 실제로 차지하는 폭을 줌. 1px 만 모자라도 두 줄로 넘어감
+            doc = QTextDocument()
+            doc.setDefaultFont(self.font())
+            doc.setDocumentMargin(0)
+            doc.setHtml(super().text())
+            width = max(width, math.ceil(doc.idealWidth()))
+        width += self.contentsMargins().left() + self.contentsMargins().right()
+        return QSize(width, self.heightForWidth(width))
 
     def minimumSizeHint(self):
         size = super().minimumSizeHint()
-        return QSize(size.width(), max(0, size.height() - self.lifted() - self.tail()))
+        return QSize(size.width(), max(0, size.height() - self.tail()))
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.settle()
 
-    def changeEvent(self, event):
-        super().changeEvent(event)
-        if event.type() == QEvent.Type.StyleChange:
-            self.settle()
-
-    def settle(self):
-        """높이가 남으면 글을 세로 가운데에 둠. QLabel 은 마지막 줄 아래 간격까지 넣어 가운데를 잡아서 글이 위로 치우침."""
-        if self.settling:  # 여백을 고치는 동안 스타일이 다시 입혀지며 되돌아오는 호출
-            return
-        self.settling = True
-        have = self.lifted()
-        spare = self.height() - self.heightForWidth(self.width()) if self.plain else 0
-        want = max(0, min(self.tail(), spare // 2))
-        if want != have or self.kept is None:
-            margins = self.contentsMargins()
-            margins.setTop(margins.top() - have + want)
-            self.setContentsMargins(margins)
-            self.lift, self.kept = want, self.contentsMargins()
-        self.settling = False
+def centered(label):
+    """단추나 다른 글과 한 줄에 놓이는 Para 를 세로 가운데에 둠. 줄 전체 높이로 늘리면 마지막 줄 아래 간격 때문에 글이 위로 치우침."""
+    column = QVBoxLayout()
+    column.addStretch(1)
+    column.addWidget(label)
+    column.addStretch(1)
+    return column
 
 
 def hint_label():
@@ -793,7 +780,7 @@ class CodePanel(QWidget):
         top = QHBoxLayout()
         self.hint = hint_label()
         self.reset_btn = QPushButton("시작 코드로 되돌리기")
-        top.addWidget(self.hint, 1)
+        top.addLayout(centered(self.hint), 1)
         top.addWidget(self.reset_btn)
         box.addLayout(top)
         split = QSplitter(Qt.Orientation.Vertical)
