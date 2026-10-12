@@ -1285,7 +1285,7 @@ class WidgetTest(unittest.TestCase):
         self.assertEqual(content_height(code.doc), code.doc.size().height() - 10)  # 코드 상자 아래 여백은 뺌
         line = short.doc.firstBlock().layout().lineAt(0)
         glyphs = line.ascent() + line.descent()
-        self.assertGreater(short.doc.size().height(), glyphs + 4)  # 본문은 줄 간격을 넓혀서 그림
+        self.assertGreater(short.doc.size().height(), glyphs + 1)  # 본문은 줄 간격을 넓혀서 그림. 코드 글꼴은 운영체제마다 높이가 달라 넉넉히 봄
         self.assertAlmostEqual(content_height(short.doc), glyphs, delta=1)  # 마지막 줄의 글자 아래에 붙는 줄 간격은 뺌
         self.assertGreater(code.height(), 4 * short.height() // 2)
         narrow = long.height()
