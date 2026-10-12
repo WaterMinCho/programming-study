@@ -58,6 +58,7 @@ class MessageDialog(QDialog):
 
     def fit(self):
         """글이 줄바꿈되는 폭에 맞춰 높이를 잡음. 줄바꿈하는 QLabel 의 크기 추정을 쓰면 좁고 길게 나와 빈 줄이 생김."""
+        self.layout().activate()  # 자세히를 접은 직후에는 최소 높이가 펼친 값으로 남아 있어 창이 줄어들지 않음
         width = max(480, self.layout().minimumSize().width())
         self.resize(width, self.layout().totalHeightForWidth(width))
 
