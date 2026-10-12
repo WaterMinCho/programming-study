@@ -1,0 +1,17 @@
+{
+  "title": "폴더 안의 항목 확인하기",
+  "type": "print",
+  "level": 1,
+  "points": 4,
+  "mode": "io",
+  "tags": ["os 모듈 함수"],
+  "examples": 3,
+  "cases": [
+    {"files": {"sample_folder/memo.txt": "메모\n", "sample_folder/data.csv": "1,2\n", "sample_folder/images/cat.png": "png\n"}, "stdin": "memo.txt\n", "stdout": "항목 수: 3\nmemo.txt 있음\n"},
+    {"files": {"sample_folder/memo.txt": "메모\n", "sample_folder/data.csv": "1,2\n", "sample_folder/images/cat.png": "png\n"}, "stdin": "report.txt\n", "stdout": "항목 수: 3\nreport.txt 없음\n"},
+    {"files": {"sample_folder/memo.txt": "메모\n", "sample_folder/data.csv": "1,2\n", "sample_folder/images/cat.png": "png\n"}, "stdin": "images\n", "stdout": "항목 수: 3\nimages 있음\n"},
+    {"files": {"sample_folder/memo.txt": "메모\n", "sample_folder/data.csv": "1,2\n", "sample_folder/images/cat.png": "png\n"}, "stdin": "cat.png\n", "stdout": "항목 수: 3\ncat.png 없음\n"},
+    {"files": {"sample_folder/only.txt": "x\n", "other.txt": "y\n", "notes.md": "z\n"}, "stdin": "other.txt\n", "stdout": "항목 수: 1\nother.txt 없음\n"},
+    {"files": {"sample_folder/a.txt": "1\n", "sample_folder/b.txt": "2\n", "sample_folder/c.txt": "3\n", "sample_folder/d.txt": "4\n", "sample_folder/e.txt": "5\n"}, "stdin": "e.txt\n", "stdout": "항목 수: 5\ne.txt 있음\n"}
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "title": "길이별로 단어 묶기",
+  "type": "fill",
+  "level": 1,
+  "points": 4,
+  "mode": "call",
+  "tags": [
+    "딕셔너리에 리스트 담기",
+    "in과 not in",
+    "리스트 추가"
+  ],
+  "examples": 3,
+  "cases": [
+    {
+      "call": "group_by_length([\"hi\", \"sun\", \"to\", \"cat\"])",
+      "expected": "{2: ['hi', 'to'], 3: ['sun', 'cat']}"
+    },
+    {
+      "call": "group_by_length([\"a\"])",
+      "expected": "{1: ['a']}"
+    },
+    {
+      "call": "group_by_length([])",
+      "expected": "{}"
+    },
+    {
+      "call": "group_by_length([\"rokey\", \"robot\", \"arm\", \"rokey\"])",
+      "expected": "{5: ['rokey', 'robot', 'rokey'], 3: ['arm']}"
+    },
+    {
+      "call": "group_by_length([\"\", \"x\", \"\"])",
+      "expected": "{0: ['', ''], 1: ['x']}"
+    },
+    {
+      "call": "group_by_length([\"bb\", \"a\", \"cc\", \"d\", \"ee\"])",
+      "expected": "{2: ['bb', 'cc', 'ee'], 1: ['a', 'd']}"
+    },
+    {
+      "call": "group_by_length([\"파이썬\", \"로봇\", \"코드\", \"팔\"])",
+      "expected": "{3: ['파이썬'], 2: ['로봇', '코드'], 1: ['팔']}"
+    }
+  ]
+}

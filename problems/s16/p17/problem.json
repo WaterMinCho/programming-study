@@ -1,0 +1,26 @@
+{
+  "title": "후위 표기법 계산",
+  "type": "return",
+  "level": 3,
+  "points": 8,
+  "mode": "call",
+  "tags": ["후위 표기법", "스택 LIFO"],
+  "examples": 5,
+  "cases": [
+    {"call": "solution(\"3 4 +\")", "expected": "7"},
+    {"call": "solution(\"5 3 -\")", "expected": "2"},
+    {"call": "solution(\"2 3 4 * +\")", "expected": "14"},
+    {"call": "solution(\"8 2 /\")", "expected": "4.0"},
+    {"call": "solution(\"5 1 2 + 4 * + 3 -\")", "expected": "14"},
+    {"call": "solution(\"42\")", "expected": "42"},
+    {"call": "solution(\"10 4 /\")", "expected": "2.5"},
+    {"call": "solution(\"1 2 - 3 -\")", "expected": "-4"},
+    {"call": "solution(\"2 3 + 4 *\")", "expected": "20"},
+    {"call": "solution(\"3 4 /\")", "expected": "0.75"},
+    {"call": "solution(\"12 3 4 + -\")", "expected": "5"},
+    {"call": "solution(\"100 5 / 2 *\")", "expected": "40.0"},
+    {"call": "solution(\"6 3 / 1 +\")", "expected": "3.0"},
+    {"call": "solution(\"15 7 1 1 + - / 3 * 2 1 1 + + -\")", "expected": "5.0"},
+    {"call": "solution(\"0 5 * 9 +\")", "expected": "9"}
+  ]
+}

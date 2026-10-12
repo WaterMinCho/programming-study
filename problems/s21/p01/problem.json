@@ -1,0 +1,13 @@
+{
+  "title": "JSON 파일로 저장하고 불러오기",
+  "type": "fill",
+  "level": 1,
+  "points": 4,
+  "mode": "io",
+  "tags": ["json 파일 입출력"],
+  "examples": 2,
+  "cases": [
+    {"stdout": "홍길동 25 서울\n<class 'dict'>\nTrue\n"},
+    {"files": {"data.json": "{\"name\": \"김철수\"}\n"}, "stdout": "홍길동 25 서울\n<class 'dict'>\nTrue\n"}
+  ]
+}

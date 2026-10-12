@@ -1,0 +1,55 @@
+{
+  "title": "넘치지 않는 물탱크",
+  "type": "print",
+  "level": 3,
+  "points": 6,
+  "mode": "exec",
+  "tags": [
+    "오버라이딩",
+    "super()",
+    "raise"
+  ],
+  "examples": 2,
+  "cases": [
+    {
+      "code": "t = SafeTank(\"A\", 10)\nt.fill(4)\nt.fill(6)\nprint(t.room())",
+      "stdout": "A 채움 4\nA 채움 10\n0\n"
+    },
+    {
+      "code": "t = SafeTank(\"B\", 10)\ntry:\n    t.fill_all([4, 5, 3, 1])\nexcept ValueError as e:\n    print(\"오류:\", e)\nprint(t.amount, t.room())",
+      "stdout": "B 채움 4\nB 채움 9\n오류: 넘침\n9 1\n"
+    },
+    {
+      "code": "Tank(\"C\").fill_all([3, 4])",
+      "stdout": "C 채움 3\nC 채움 7\nC 완료 7\n"
+    },
+    {
+      "code": "SafeTank(\"D\", 5).fill_all([2, 3])",
+      "stdout": "D 채움 2\nD 채움 5\nD 완료 5\n"
+    },
+    {
+      "code": "t = SafeTank(\"E\", 0)\ntry:\n    t.fill(1)\nexcept ValueError as e:\n    print(e)\nprint(t.name, t.amount, t.capacity)",
+      "stdout": "넘침\nE 0 0\n"
+    },
+    {
+      "code": "a = SafeTank(\"F\", 3)\nb = SafeTank(\"G\", 30)\na.fill(3)\nb.fill(3)\nb.fill(20)\nprint(a.room(), b.room())\ntry:\n    a.fill(1)\nexcept ValueError as e:\n    print(a.name, e)\nb.fill(7)",
+      "stdout": "F 채움 3\nG 채움 3\nG 채움 23\n0 7\nF 넘침\nG 채움 30\n"
+    },
+    {
+      "code": "t = SafeTank(\"H\", 8)\nfor plan in [[5, 4], [3], [1]]:\n    try:\n        t.fill_all(plan)\n    except ValueError as e:\n        print(\"오류:\", e)\nprint(t.amount)",
+      "stdout": "H 채움 5\n오류: 넘침\nH 채움 8\nH 완료 8\n오류: 넘침\n8\n"
+    },
+    {
+      "code": "def quiet_fill(self, liters):\n    self.amount += liters\n    print(self.name, \"+\", liters)\n\nTank.fill = quiet_fill\nt = SafeTank(\"K\", 5)\nt.fill(3)\ntry:\n    t.fill(3)\nexcept ValueError as e:\n    print(\"오류:\", e)\nprint(t.room())",
+      "stdout": "K + 3\n오류: 넘침\n2\n"
+    },
+    {
+      "code": "def new_init(self, name):\n    self.name = \"[\" + name + \"]\"\n    self.amount = 1\n\nTank.__init__ = new_init\nt = SafeTank(\"K\", 5)\nt.fill(4)\nprint(t.room(), t.capacity)",
+      "stdout": "[K] 채움 5\n0 5\n"
+    },
+    {
+      "code": "def new_all(self, plan):\n    for liters in plan:\n        self.fill(liters)\n    print(self.name, \"끝\")\n\nTank.fill_all = new_all\nSafeTank(\"K\", 9).fill_all([4, 5])",
+      "stdout": "K 채움 4\nK 채움 9\nK 끝\n"
+    }
+  ]
+}

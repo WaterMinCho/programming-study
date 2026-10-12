@@ -1,0 +1,16 @@
+{
+  "title": "txt 파일만 삭제하기",
+  "type": "fill",
+  "level": 2,
+  "points": 6,
+  "mode": "exec",
+  "tags": ["pathlib 생성·삭제", "pathlib 목록·확장자"],
+  "examples": 2,
+  "cases": [
+    {"files": {"inbox/a.txt": "apple\n", "inbox/b.txt": "banana\n", "inbox/c.png": "png\n"}, "code": "import os\nprint(delete_txt_files(\"inbox\"))\nprint(os.path.exists(\"inbox/a.txt\"), os.path.exists(\"inbox/c.png\"))\nprint(len(os.listdir(\"inbox\")))", "stdout": "2\nFalse True\n1\n", "expect_files": {"inbox/c.png": "png\n"}},
+    {"files": {"work/memo.txt": "memo\n", "work/memo.txt.bak": "bak\n", "work/old.txt/keep.md": "keep\n", "work/sub/inner.txt": "inner\n"}, "code": "import os\nprint(delete_txt_files(\"work\"))\nprint(os.path.exists(\"work/memo.txt\"), os.path.exists(\"work/old.txt\"))\nprint(os.path.exists(\"work/sub/inner.txt\"), os.path.exists(\"work/memo.txt.bak\"))", "stdout": "1\nFalse True\nTrue True\n", "expect_files": {"work/memo.txt.bak": "bak\n", "work/old.txt/keep.md": "keep\n", "work/sub/inner.txt": "inner\n"}},
+    {"files": {"pics/a.png": "1\n", "pics/b.jpg": "2\n", "pics/txt": "3\n"}, "code": "import os\nprint(delete_txt_files(\"pics\"))\nprint(len(os.listdir(\"pics\")))", "stdout": "0\n3\n", "expect_files": {"pics/a.png": "1\n", "pics/b.jpg": "2\n", "pics/txt": "3\n"}},
+    {"files": {"logs/a.txt": "1\n", "logs/b.txt": "2\n", "logs/app.log.txt": "3\n", "logs/txt.log": "4\n"}, "code": "import os\nprint(delete_txt_files(\"logs\"))\nprint(delete_txt_files(\"logs\"))\nprint(os.listdir(\"logs\"))", "stdout": "3\n0\n['txt.log']\n", "expect_files": {"logs/txt.log": "4\n"}},
+    {"files": {"a/1.txt": "1\n", "b/2.txt": "2\n", "3.txt": "3\n"}, "code": "import os\nprint(delete_txt_files(\"a\"))\nprint(os.path.exists(\"a/1.txt\"), os.path.exists(\"b/2.txt\"), os.path.exists(\"3.txt\"))", "stdout": "1\nFalse True True\n", "expect_files": {"b/2.txt": "2\n", "3.txt": "3\n"}}
+  ]
+}

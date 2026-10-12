@@ -1,0 +1,17 @@
+{
+  "title": "날씨 응답 요약하기",
+  "type": "return",
+  "level": 3,
+  "points": 8,
+  "mode": "call",
+  "tags": ["json 변환 함수", "중첩 자료 접근"],
+  "examples": 2,
+  "cases": [
+    {"call": "solution('[{\"name\": \"Seoul\", \"weather\": [{\"description\": \"clear sky\"}], \"main\": {\"temp_max\": 11, \"humidity\": 68}}, {\"name\": \"Busan\", \"weather\": [{\"description\": \"few clouds\"}, {\"description\": \"mist\"}], \"main\": {\"temp_max\": 15, \"humidity\": 80}}]')", "expected": "'{\"count\": 2, \"hottest\": \"Busan\", \"weather\": \"few clouds\", \"humid\": [\"Busan\"]}'"},
+    {"call": "solution('[{\"name\": \"Jeju\", \"weather\": [{\"description\": \"rain\"}], \"main\": {\"temp_max\": 20, \"humidity\": 70}}]')", "expected": "'{\"count\": 1, \"hottest\": \"Jeju\", \"weather\": \"rain\", \"humid\": [\"Jeju\"]}'"},
+    {"call": "solution('[{\"name\": \"Seoul\", \"weather\": [{\"description\": \"snow\"}], \"main\": {\"temp_max\": -7, \"humidity\": 68}}, {\"name\": \"Daegu\", \"weather\": [{\"description\": \"clear sky\"}], \"main\": {\"temp_max\": -2, \"humidity\": 40}}, {\"name\": \"Incheon\", \"weather\": [{\"description\": \"mist\"}], \"main\": {\"temp_max\": -5, \"humidity\": 69}}]')", "expected": "'{\"count\": 3, \"hottest\": \"Daegu\", \"weather\": \"clear sky\", \"humid\": []}'"},
+    {"call": "solution('[{\"name\": \"A\", \"weather\": [{\"description\": \"rain\"}], \"main\": {\"temp_max\": 10, \"humidity\": 90}}, {\"name\": \"B\", \"weather\": [{\"description\": \"mist\"}], \"main\": {\"temp_max\": 10, \"humidity\": 75}}, {\"name\": \"C\", \"weather\": [{\"description\": \"snow\"}], \"main\": {\"temp_max\": 9, \"humidity\": 71}}]')", "expected": "'{\"count\": 3, \"hottest\": \"A\", \"weather\": \"rain\", \"humid\": [\"A\", \"B\", \"C\"]}'"},
+    {"call": "solution('[{\"name\": \"X\", \"weather\": [{\"description\": \"haze\"}], \"main\": {\"temp_max\": 30, \"humidity\": 10}}, {\"name\": \"Y\", \"weather\": [{\"description\": \"rain\"}], \"main\": {\"temp_max\": 25, \"humidity\": 95}}, {\"name\": \"Z\", \"weather\": [{\"description\": \"fog\"}], \"main\": {\"temp_max\": 28, \"humidity\": 70}}]')", "expected": "'{\"count\": 3, \"hottest\": \"X\", \"weather\": \"haze\", \"humid\": [\"Y\", \"Z\"]}'"},
+    {"call": "solution('[{\"name\": \"P\", \"weather\": [{\"description\": \"a\"}], \"main\": {\"temp_max\": 5, \"humidity\": 50}}, {\"name\": \"Q\", \"weather\": [{\"description\": \"b\"}, {\"description\": \"c\"}], \"main\": {\"temp_max\": 9, \"humidity\": 69}}, {\"name\": \"R\", \"weather\": [{\"description\": \"d\"}], \"main\": {\"temp_max\": 7, \"humidity\": 100}}, {\"name\": \"S\", \"weather\": [{\"description\": \"e\"}], \"main\": {\"temp_max\": 9, \"humidity\": 30}}]')", "expected": "'{\"count\": 4, \"hottest\": \"Q\", \"weather\": \"b\", \"humid\": [\"R\"]}'"}
+  ]
+}

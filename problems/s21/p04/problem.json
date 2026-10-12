@@ -1,0 +1,15 @@
+{
+  "title": "폴더가 없으면 만들고 빈 파일 만들기",
+  "type": "fill",
+  "level": 2,
+  "points": 6,
+  "mode": "io",
+  "tags": ["pathlib 생성·삭제", "pathlib 기본"],
+  "examples": 2,
+  "cases": [
+    {"stdin": "memo.txt\n", "stdout": "True True\n.txt\n", "expect_files": {"new_folder/memo.txt": ""}},
+    {"files": {"new_folder/old.txt": "기존 파일\n"}, "stdin": "data.csv\n", "stdout": "True True\n.csv\n", "expect_files": {"new_folder/data.csv": "", "new_folder/old.txt": "기존 파일\n"}},
+    {"stdin": "README\n", "stdout": "True True\n\n", "expect_files": {"new_folder/README": ""}},
+    {"files": {"new_folder/a.txt": "a\n", "new_folder/b.txt": "b\n"}, "stdin": "report.tar.gz\n", "stdout": "True True\n.gz\n", "expect_files": {"new_folder/report.tar.gz": "", "new_folder/a.txt": "a\n", "new_folder/b.txt": "b\n"}}
+  ]
+}

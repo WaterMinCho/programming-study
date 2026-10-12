@@ -1,0 +1,19 @@
+{
+  "title": "짝수의 제곱 이터레이터",
+  "type": "return",
+  "level": 2,
+  "points": 6,
+  "mode": "call",
+  "tags": ["이터러블과 이터레이터", "제너레이터 표현식", "range 경계"],
+  "examples": 4,
+  "cases": [
+    {"call": "next(solution(9))", "expected": "0"},
+    {"call": "sum(solution(4))", "expected": "20"},
+    {"call": "list(solution(6))", "expected": "[0, 4, 16, 36]"},
+    {"call": "list(solution(0))", "expected": "[0]"},
+    {"call": "list(solution(5))", "expected": "[0, 4, 16]"},
+    {"call": "list(solution(10))", "expected": "[0, 4, 16, 36, 64, 100]"},
+    {"call": "list(solution(1))", "expected": "[0]"},
+    {"call": "len(list(solution(1000)))", "expected": "501"}
+  ]
+}

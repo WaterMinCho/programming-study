@@ -1,0 +1,20 @@
+{
+  "title": "config.ini 에서 값 불러오기",
+  "type": "print",
+  "level": 2,
+  "points": 6,
+  "mode": "io",
+  "tags": ["os 모듈 함수", "설정 파일 읽기"],
+  "examples": 3,
+  "cases": [
+    {"files": {"config.ini": "1반 = 홍길동\n2반 = 김철수\n3반 = 박영희\n4반 = 최로키\n"}, "stdin": "3반\n", "stdout": "설정 4개\n3반: 박영희\n"},
+    {"files": {"config.ini": "1반 = 홍길동\n2반 = 김철수\n3반 = 박영희\n4반 = 최로키\n"}, "stdin": "5반\n", "stdout": "설정 4개\n5반: 없음\n"},
+    {"stdin": "1반\n", "stdout": "설정 파일이 없습니다\n"},
+    {"files": {"config.ini": "host=localhost\nport =  8080\n  mode = test  \n"}, "stdin": "port\n", "stdout": "설정 3개\nport: 8080\n"},
+    {"files": {"config.ini": "host=localhost\nport =  8080\n  mode = test  \n"}, "stdin": "mode\n", "stdout": "설정 3개\nmode: test\n"},
+    {"files": {"config.ini": "a = 1\nb = 2"}, "stdin": "b\n", "stdout": "설정 2개\nb: 2\n"},
+    {"files": {"config.ini": "title = Python Study\nroom = B 201\n"}, "stdin": "room\n", "stdout": "설정 2개\nroom: B 201\n"},
+    {"files": {"config.ini": "1반 = 홍길동\n", "config.txt": "9반 = 가나다\n"}, "stdin": "9반\n", "stdout": "설정 1개\n9반: 없음\n"},
+    {"files": {"settings.ini": "1반 = 홍길동\n"}, "stdin": "1반\n", "stdout": "설정 파일이 없습니다\n"}
+  ]
+}

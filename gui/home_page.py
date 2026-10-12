@@ -148,7 +148,7 @@ class HomePage(QWidget):
         bottom.addLayout(column, 2)
         root.addLayout(bottom, 1)
 
-        self.foot = LinkLabel("모의고사: 전 단원을 숙달한 뒤 터미널에서 <code>python study.py start m1</code>(2회는 <code>m2</code>) · 글자 크기: Ctrl(맥은 Cmd) 과 +, -, 0 · "
+        self.foot = LinkLabel("모의고사: 전 단원을 숙달한 뒤 터미널에서 <code>python study.py start m1</code>(2회는 <code>m2</code>, 3회는 <code>m3</code>) · 글자 크기: Ctrl(맥은 Cmd) 과 +, -, 0 · "
                               '<a href="%s">불편한 점 신고하기</a>' % errors.ISSUE_URL)
         self.foot.setObjectName("muted")
         self.foot.setOpenExternalLinks(True)

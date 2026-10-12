@@ -1,0 +1,75 @@
+{
+  "title": "버전 번호 찾기",
+  "type": "return",
+  "level": 2,
+  "points": 4,
+  "mode": "call",
+  "tags": [
+    "findall과 finditer",
+    "반복 메타 문자",
+    "메타 문자 이스케이프"
+  ],
+  "examples": 4,
+  "cases": [
+    {
+      "call": "solution(\"v1.0 에서 v2.10 으로 올렸습니다\")",
+      "expected": "['v1.0', 'v2.10']"
+    },
+    {
+      "call": "solution(\"V3.1 과 v2x10 은 버전 번호가 아닙니다\")",
+      "expected": "[]"
+    },
+    {
+      "call": "solution(\"(v0.9) 앱v12.34로\")",
+      "expected": "['v0.9', 'v12.34']"
+    },
+    {
+      "call": "solution(\"\")",
+      "expected": "[]"
+    },
+    {
+      "call": "solution(\"v7\")",
+      "expected": "[]"
+    },
+    {
+      "call": "solution(\"v.5 v3. v3.x\")",
+      "expected": "[]"
+    },
+    {
+      "call": "solution(\"지금은 v2.1.\")",
+      "expected": "['v2.1']"
+    },
+    {
+      "call": "solution(\"v1.0 v1.0 v1.1\")",
+      "expected": "['v1.0', 'v1.0', 'v1.1']"
+    },
+    {
+      "call": "solution(\"3.5 버전, v 4.0, v4 .0\")",
+      "expected": "[]"
+    },
+    {
+      "call": "solution(\"v10.0v3.3\")",
+      "expected": "['v10.0', 'v3.3']"
+    },
+    {
+      "call": "solution(\"v2,10 v2.10\")",
+      "expected": "['v2.10']"
+    },
+    {
+      "call": "solution(\"V1.1 v1.1 v1-1 v1 1\")",
+      "expected": "['v1.1']"
+    },
+    {
+      "call": "solution(\"v007.250\")",
+      "expected": "['v007.250']"
+    },
+    {
+      "call": "solution(\"x1.5 ver2.0 v3.3\")",
+      "expected": "['v3.3']"
+    },
+    {
+      "call": "solution(\"v2024.10 v1.2025\")",
+      "expected": "['v2024.10', 'v1.2025']"
+    }
+  ]
+}

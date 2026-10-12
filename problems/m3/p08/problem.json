@@ -1,0 +1,51 @@
+{
+  "title": "건너뛰며 꺼내는 이터레이터",
+  "type": "fill",
+  "level": 2,
+  "points": 6,
+  "mode": "exec",
+  "tags": [
+    "__iter__와 __next__",
+    "next와 StopIteration",
+    "경계값"
+  ],
+  "examples": 2,
+  "cases": [
+    {
+      "code": "for x in Skip([10, 20, 30, 40, 50], 2):\n    print(x)",
+      "stdout": "10\n30\n50\n"
+    },
+    {
+      "code": "it = Skip([\"a\", \"b\", \"c\"], 1)\nprint(next(it), next(it), next(it))\ntry:\n    next(it)\nexcept StopIteration:\n    print(\"끝\")",
+      "stdout": "a b c\n끝\n"
+    },
+    {
+      "code": "print(list(Skip([1, 2, 3, 4], 3)))",
+      "stdout": "[1, 4]\n"
+    },
+    {
+      "code": "print(list(Skip([], 2)))",
+      "stdout": "[]\n"
+    },
+    {
+      "code": "print(list(Skip([7], 5)))",
+      "stdout": "[7]\n"
+    },
+    {
+      "code": "print(list(Skip([1, 2, 3, 4], 2)))",
+      "stdout": "[1, 3]\n"
+    },
+    {
+      "code": "s = Skip([1, 2, 3, 4, 5, 6], 2)\nprint(next(s))\nprint(list(s))\nprint(list(s))",
+      "stdout": "1\n[3, 5]\n[]\n"
+    },
+    {
+      "code": "a = Skip([1, 2, 3], 1)\nb = Skip([1, 2, 3], 2)\nprint(next(a), next(b), next(a), next(b))\nprint(a.index, b.index)",
+      "stdout": "1 1 2 3\n2 4\n"
+    },
+    {
+      "code": "total = 0\nfor n in Skip([5, 1, 5, 1, 5, 1, 5], 2):\n    total += n\nprint(total)",
+      "stdout": "20\n"
+    }
+  ]
+}

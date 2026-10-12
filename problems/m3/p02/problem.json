@@ -1,0 +1,65 @@
+{
+  "title": "폴더가 없으면 만들기",
+  "type": "fill",
+  "level": 1,
+  "points": 4,
+  "mode": "io",
+  "tags": [
+    "os 모듈 함수",
+    "os.path 경로 다루기"
+  ],
+  "examples": 2,
+  "cases": [
+    {
+      "stdin": "backup\n",
+      "stdout": "backup 폴더를 만들었습니다\n항목 수: 0\n"
+    },
+    {
+      "files": {
+        "photos/a.png": "1\n",
+        "photos/b.png": "2\n",
+        "photos/raw/c.png": "3\n"
+      },
+      "stdin": "photos\n",
+      "stdout": "항목 수: 3\n",
+      "expect_files": {
+        "photos/a.png": "1\n",
+        "photos/b.png": "2\n",
+        "photos/raw/c.png": "3\n"
+      }
+    },
+    {
+      "files": {
+        "docs/memo.txt": "memo\n"
+      },
+      "stdin": "docs\n",
+      "stdout": "항목 수: 1\n",
+      "expect_files": {
+        "docs/memo.txt": "memo\n"
+      }
+    },
+    {
+      "files": {
+        "other/x.txt": "x\n",
+        "data.txt": "d\n"
+      },
+      "stdin": "data\n",
+      "stdout": "data 폴더를 만들었습니다\n항목 수: 0\n",
+      "expect_files": {
+        "other/x.txt": "x\n",
+        "data.txt": "d\n"
+      }
+    },
+    {
+      "files": {
+        "logs/a/one.txt": "1\n",
+        "logs/b/two.txt": "2\n",
+        "logs/c.txt": "3\n",
+        "logs/d.txt": "4\n",
+        "logs/e.txt": "5\n"
+      },
+      "stdin": "logs\n",
+      "stdout": "항목 수: 5\n"
+    }
+  ]
+}

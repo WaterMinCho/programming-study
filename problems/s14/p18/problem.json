@@ -1,0 +1,19 @@
+{
+  "title": "전화번호 뽑기",
+  "type": "return",
+  "level": 2,
+  "points": 6,
+  "mode": "call",
+  "tags": ["반복 메타 문자", "findall과 finditer"],
+  "examples": 3,
+  "cases": [
+    {"call": "solution(\"연락처: 010-1234-5678, 02-987-6543, 031-456-7890\")", "expected": "['010-1234-5678', '02-987-6543', '031-456-7890']"},
+    {"call": "solution(\"call 010-12-5678 or 1-234-5678\")", "expected": "[]"},
+    {"call": "solution(\"tel 02-123-4567.\")", "expected": "['02-123-4567']"},
+    {"call": "solution(\"no phone here\")", "expected": "[]"},
+    {"call": "solution(\"010-1234-567 and 010 1234 5678 and 01012345678\")", "expected": "[]"},
+    {"call": "solution(\"a 031-456-7890 b 010-9999-0000 c 2024-10-16\")", "expected": "['031-456-7890', '010-9999-0000']"},
+    {"call": "solution(\"02-987-6543\")", "expected": "['02-987-6543']"},
+    {"call": "solution(\"fax 02-1234-5678, room 12-34-5678\")", "expected": "['02-1234-5678']"}
+  ]
+}
