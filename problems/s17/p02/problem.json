@@ -1,0 +1,17 @@
+{
+  "title": "DFS 함수 완성",
+  "type": "fill",
+  "level": 1,
+  "points": 4,
+  "mode": "call",
+  "tags": ["DFS 구현", "reversed와 extend", "방문 처리"],
+  "examples": 2,
+  "cases": [
+    {"call": "my_dfs(my_graph, \"A\")", "expected": "['A', 'B', 'E', 'I', 'C', 'F', 'J', 'G', 'D', 'H']"},
+    {"call": "my_dfs(g1, 1)", "expected": "[1, 2, 5, 6, 3, 4]"},
+    {"call": "my_dfs(g1, 4)", "expected": "[4, 1, 2, 5, 6, 3]"},
+    {"call": "my_dfs(my_graph, \"F\")", "expected": "['F', 'C', 'A', 'B', 'E', 'I', 'D', 'H', 'G', 'J']"},
+    {"call": "my_dfs({1: [2, 3], 2: [3], 3: [4], 4: [], 5: [1, 4]}, 5)", "expected": "[5, 1, 2, 3, 4]"},
+    {"call": "my_dfs({7: []}, 7)", "expected": "[7]"}
+  ]
+}

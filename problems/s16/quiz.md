@@ -322,3 +322,127 @@ print(dq, len(dq))
 3. `data.insert(0, data.pop())` 을 3번 실행
 4. `data.append(data.pop())` 을 2번 실행
 5. `data = data[2:] + data[:2]` 를 1번 실행
+
+## Q20 (객관식 · 2점)
+
+파이썬 리스트를 스택으로 사용할 때, 가장 나중에 넣은 요소를 제거하는 메서드는?
+
+1. `pop()`
+2. `remove()`
+3. `del`
+4. `discard()`
+
+## Q21 (객관식 · 2점)
+
+큐(Queue) 자료구조의 주요 특징은?
+
+1. LIFO (Last In First Out)
+2. FIFO (First In First Out)
+3. 정렬된 데이터 관리
+4. 랜덤 접근 가능
+
+## Q22 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+class Stack:
+    def __init__(self):
+        self.stack = ['두산', '로키', '부트']
+
+    def push(self, data):
+        self.stack.append(data)
+
+    def pop(self):
+        if not self.is_empty():
+            return self.stack.pop()
+        return
+
+    def is_empty(self):
+        return len(self.stack) == 0
+
+    def peak(self):
+        if not self.is_empty():
+            return self.stack[-1]
+        return
+
+    def status_stack(self):
+        return self.stack
+
+
+s = Stack()
+s.push("캠프")
+print(s.status_stack())
+print(s.pop())
+print(s.status_stack())
+print(s.peak(), s.is_empty())
+```
+
+## Q23 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+class Stack:
+    def __init__(self):
+        self.stack = []
+
+    def push(self, x):
+        self.stack.append(x)
+
+    def pop(self):
+        if self.is_empty():
+            return -1
+        return self.stack.pop()
+
+    def top(self):
+        if self.is_empty():
+            return -1
+        return self.stack[-1]
+
+    def is_empty(self):
+        return len(self.stack) == 0
+
+
+s = Stack()
+print(s.top(), s.is_empty())
+s.push(4)
+s.push(8)
+print(s.top(), s.pop(), s.top())
+print(s.pop(), s.pop())
+print(s.stack, s.is_empty())
+```
+
+## Q24 (출력 예측 · 3점)
+
+후위 표기법은 연산자를 피연산자 뒤에 적는 표기법입니다. `3 4 +` 는 `3 + 4` 를 나타냅니다.
+후위 표기법 수식을 스택으로 계산하는 다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+expr = "7 2 3 * - 8 4 / +"
+stack = []
+for t in expr.split():
+    if t == "+" or t == "-" or t == "*" or t == "/":
+        b = stack.pop()
+        a = stack.pop()
+        if t == "+":
+            stack.append(a + b)
+        elif t == "-":
+            stack.append(a - b)
+        elif t == "*":
+            stack.append(a * b)
+        else:
+            stack.append(a / b)
+        print(t, stack)
+    else:
+        stack.append(int(t))
+```
+
+## Q25 (객관식 · 2점)
+
+`collections` 의 `deque` 를 쓰지 않고 리스트 `data` 로 덱을 구현하려고 합니다. 덱의 연산과 리스트 코드의 연결이 옳지 **않은** 것은?
+
+1. 앞에 넣기 `push_front(x)` 는 `data.insert(0, x)`
+2. 뒤에 넣기 `push_back(x)` 는 `data.append(x)`
+3. 앞에서 꺼내기 `pop_front()` 는 `data.popleft()`
+4. 뒤에서 꺼내기 `pop_back()` 은 `data.pop()`

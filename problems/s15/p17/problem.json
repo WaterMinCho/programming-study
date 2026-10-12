@@ -1,0 +1,16 @@
+{
+  "title": "제곱 제너레이터 함수",
+  "type": "print",
+  "level": 1,
+  "points": 4,
+  "mode": "exec",
+  "tags": ["제너레이터와 yield", "range 경계"],
+  "examples": 3,
+  "cases": [
+    {"code": "gen = square_gen(999)\nprint(next(gen))\nprint(next(gen))\nprint(next(gen))", "stdout": "1\n4\n9\n"},
+    {"code": "for v in square_gen(5):\n    print(v)", "stdout": "1\n4\n9\n16\n25\n"},
+    {"code": "gen = square_gen(3)\nprint(type(gen).__name__)\nprint(next(gen), next(gen), next(gen))\ntry:\n    next(gen)\nexcept StopIteration:\n    print(\"stop\")", "stdout": "generator\n1 4 9\nstop\n"},
+    {"code": "for v in square_gen(1):\n    print(v)\nprint(\"end\")\nfor v in square_gen(0):\n    print(v)\nprint(\"end\")", "stdout": "1\nend\nend\n"},
+    {"code": "g = square_gen(4)\nnext(g)\nnext(g)\nfor v in g:\n    print(v)\nprint(sum(square_gen(10)))", "stdout": "9\n16\n385\n"}
+  ]
+}

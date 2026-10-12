@@ -107,7 +107,7 @@ ROKEY 11기 파이썬 교과목 평가(10/16)를 같이 준비하려고 만든 �
 
 ## 모의고사 보기
 
-실전 모의고사는 2회(`m1`, `m2`)가 있고 각각 120분, 100점입니다. 화면이 아니라 터미널에서 봅니다. 전 단원을 숙달한 뒤에 보기를 권하지만 그 전에도 받을 수 있습니다. 아래는 1회 기준이고, 2회는 `m1` 자리에 `m2` 를 씁니다.
+실전 모의고사는 3회(`m1`, `m2`, `m3`)가 있고 각각 120분, 100점입니다. `m1` 과 `m2` 는 1~16차시, `m3` 은 1~21차시에서 냅니다. 화면이 아니라 터미널에서 봅니다. 전 단원을 숙달한 뒤에 보기를 권하지만 그 전에도 받을 수 있습니다. 아래는 1회 기준이고, 2회와 3회는 `m1` 자리에 `m2`, `m3` 을 씁니다.
 
 1. `python study.py start m1` 을 실행합니다. 이때부터 120분을 잽니다. 남은 시간은 보여 주지 않으니 시계를 봅니다.
 2. 문제지는 `problems/m1/quiz.md` 와 `problems/m1/p01/problem.md` 같은 파일이고, 답은 `submissions/<내 ID>/m1/` 의 `quiz.py` 와 `p01.py` 같은 파일에 적습니다. 파일은 메모장 같은 편집기로 엽니다.
@@ -121,8 +121,8 @@ ROKEY 11기 파이썬 교과목 평가(10/16)를 같이 준비하려고 만든 �
 
 | 폴더 | 내용 |
 |---|---|
-| `problems/s01` ~ `s16` | 1~16차시. 파이썬 소개, 프로그래밍 기초, 조건문, 리스트와 딕셔너리, 반복문, 함수 1·2, 자료구조와 알고리즘, 클래스 1·2, GUI, 파일 처리, 예외·문자열·람다·map, 정규표현식, 고급 함수, 알고리즘 1 |
-| `problems/m1`, `m2` | 모의고사 1회, 2회. 각각 120분, 100점 |
+| `problems/s01` ~ `s21` | 1~21차시. 파이썬 소개, 프로그래밍 기초, 조건문, 리스트와 딕셔너리, 반복문, 함수 1·2, 자료구조와 알고리즘, 클래스 1·2, GUI, 파일 처리, 예외·문자열·람다·map, 정규표현식, 고급 함수, 알고리즘 1·2, Pandas·NumPy·Matplotlib, statsmodels·scikit-learn·SciPy, Seaborn·OpenCV, 파이썬 활용 심화. 18~20차시는 패키지를 다루는 차시라 객관식과 단답만 있습니다 |
+| `problems/m1`, `m2`, `m3` | 모의고사 1회, 2회, 3회. 각각 120분, 100점 |
 | `problems/c1`, `c2` | 코딩테스트 연습 Lv.1, Lv.2 (선택) |
 | `submissions/<내 ID>` | 내 회차, 풀이, 기록(`profile.json`) |
 | `docs` | [GIT_GUIDE](docs/GIT_GUIDE.md)(제출과 피드백), [CRITERIA](docs/CRITERIA.md)(판정 규칙), [AUTHORING](docs/AUTHORING.md)(스터디장용 운영 메모와 출제 규격) |
@@ -180,7 +180,7 @@ git clean -fdq ":(top)problems"
 | `python study.py me` | 단원별 숙달도와 약한 개념 |
 | `python study.py explain s03_Q4` | 정답과 해설 |
 | `python study.py grade r02` | 2회차(`r02`) 다시 채점 |
-| `python study.py start m1` | 실전 모의고사(120분). 채점은 `grade m1`. 2회는 `m2` |
+| `python study.py start m1` | 실전 모의고사(120분). 채점은 `grade m1`. 2회는 `m2`, 3회는 `m3` |
 | `python study.py start c1` | 코딩테스트 연습 Lv.1. 채점은 `grade c1`. Lv.2 는 `c2` |
 
 ## 라이선스

@@ -3,6 +3,7 @@
 값을 한꺼번에 다 만들어 두지 않고 필요할 때 하나씩 꺼내 쓰는 **이터레이터**(클래스로 만들기)와 **제너레이터**(함수로 만들기)를 배우는 차시입니다.
 리스트·딕셔너리를 한 줄로 만드는 **컴프리헨션** 문법도 함께 다룹니다.
 용어를 묻는 객관식과, `next()`·`yield` 를 눈으로 따라가는 출력 문제가 나오기 좋은 단원입니다.
+차시 과제는 코드의 실행 결과를 고르는 객관식과 프로그램 작성 문제였고, 주간 과제는 이터레이터 클래스 코드의 빈칸 세 곳(인스턴스 변수 이름, 예외 이름, 클래스 이름)을 채우는 문제와 제너레이터 함수를 작성하는 문제였습니다.
 
 ## 1. 이터레이터란
 
@@ -45,6 +46,8 @@ print(next(r))      # b   p 가 a 를 꺼낸 다음 값
 print(next(q))      # a   q 는 p 와 따로 위치를 기억
 ```
 
+`range` 도 리스트처럼 이터러블이고 이터레이터는 아닙니다. `next(range(3))` 은 `TypeError` 이고, `it = iter(range(3))` 으로 바꾼 뒤에는 `next(it)` 로 0, 1, 2 를 차례로 꺼낼 수 있습니다. 문자열, 튜플, 딕셔너리도 `iter()` 에 넣으면 이터레이터가 만들어집니다.
+
 ## 3. for 문과 이터레이터
 
 - for 문은 속으로 `iter()` 를 한 번 부른 뒤 `next()` 를 반복하고, `StopIteration` 이 나면 오류 없이 멈춥니다. 그래서 for 문에서는 예외가 보이지 않습니다.
@@ -71,6 +74,21 @@ print([x * 2 for x in nums])    # [2, 4, 6]  리스트는 다시 처음부터
 
 13차시의 `map()` 이 돌려주는 객체도 이터레이터입니다. `list()` 로 한 번 값을 모두 꺼내고 나면 두 번째 `list()` 는 빈 리스트를 돌려줍니다.
 
+for 문 없이 `next()` 만으로 끝까지 꺼내려면 `StopIteration` 을 직접 잡아 반복을 끝냅니다(차시 과제). for 문이 속으로 하는 일을 풀어 쓴 코드입니다.
+
+```python
+fruits = ["apple", "banana", "cherry"]
+it = iter(fruits)
+while True:
+    try:
+        fruit = next(it)
+    except StopIteration:
+        break               # 값이 다 떨어지면 while 종료
+    print(fruit)            # apple, banana, cherry
+```
+
+`except` 절에서 `break` 를 빼면 `while True` 가 끝나지 않습니다. 리스트에서 만든 이터레이터라도 끝에서 나는 예외는 `IndexError` 가 아니라 `StopIteration` 입니다.
+
 ## 4. 클래스로 이터레이터 만들기
 
 ```python
@@ -96,6 +114,9 @@ for x in Count(3):
 - 리스트나 문자열을 받아 앞에서부터 돌려줄 때는 위치를 0 에서 시작해 `+= 1` 하고, 위치가 `len(data)` 이상이면 `StopIteration` 을 일으킵니다.
 - 역순으로 돌려주려면 위치를 `len(data) - 1` 에서 시작해 `-= 1` 하고, `< 0` 이면 `StopIteration` 을 일으킵니다. 끝 조건을 `<= 0` 으로 쓰면 인덱스 0 의 원소가 빠집니다.
 - `__next__` 안에서 **값을 바꾸는 줄과 `return` 하는 줄의 순서**가 출력을 결정합니다. 위 예는 먼저 1 을 더하고 돌려주므로 1 부터 시작하지만, 순서를 바꾸면 0 부터 시작합니다.
+- 끝 조건은 두 가지 모양으로 적을 수 있습니다. 강의와 요약본의 `MyIterator` 는 `if self.position >= len(self.data): raise StopIteration` 을 먼저 적고 그 아래에서 값을 돌려줍니다. 주간 과제의 `ListIterator` 는 `if self.index < len(self.data):` 안에서 값을 돌려주고 `else:` 에서 `raise StopIteration` 을 합니다. 두 클래스는 같은 순서로 같은 값을 냅니다.
+- `isinstance(값, 자료형)` 은 값이 그 자료형이면 `True` 를 돌려주는 내장 함수입니다. 주간 과제의 `ListIterator` 는 `__init__` 첫머리에서 `if not isinstance(data, list): raise TypeError("리스트를 입력해야 합니다.")` 로 검사합니다. 튜플이나 문자열을 넘기면 객체를 만드는 줄에서 `TypeError` 가 나고 for 문은 한 번도 돌지 않습니다.
+- `start`, `stop`, `step` 을 받아 `range` 처럼 세는 클래스(차시 과제의 `MyRange`)는 현재 값을 `start` 에서 시작해 값을 돌려줄 때마다 `step` 을 더하고, 현재 값이 `stop` 이상이면 `StopIteration` 을 일으킵니다. `stop` 은 나오지 않습니다. `step` 이 음수이면 끝 조건이 `stop` 이하로 바뀝니다.
 
 이터레이터 클래스도 상속할 수 있습니다(10차시). 자식 클래스는 부모의 `__iter__` 를 물려받으므로 `__next__` 만 재정의하면 되고, 부모의 `__next__` 는 `super().__next__()` 로 부릅니다.
 
@@ -139,6 +160,32 @@ def squares(n):
 print(list(squares(3)))   # [1, 4, 9]
 ```
 
+강의와 요약본의 `mygen` 예제는 끝값을 크게 잡고 `next()` 를 세 번만 부릅니다. `range(1, 1000)` 은 999 까지 돌 수 있지만 제곱은 요구받은 세 번만 계산됩니다.
+
+```python
+def mygen():
+    for i in range(1, 1000):
+        result = i * i
+        yield result
+
+gen = mygen()
+print(next(gen))   # 1
+print(next(gen))   # 4
+print(next(gen))   # 9
+```
+
+`while` 문 안에 `yield` 를 둘 수도 있습니다(차시 과제). `yield n` 뒤의 `n -= 1` 은 다음 값을 요구받을 때 실행되고, 그런 다음 `while` 조건을 다시 검사합니다.
+
+```python
+def countdown(n):
+    while n > 0:
+        yield n
+        n -= 1
+
+for x in countdown(3):
+    print(x, end=" ")     # 3 2 1
+```
+
 제너레이터 함수 안에서도 `try ... except` 를 쓸 수 있습니다(13차시). 문제가 생긴 항목만 건너뛰고 계속 내보내려면 `try` 를 for 문 안에 둡니다. `try` 로 for 문 전체를 감싸면 처음 예외가 난 곳에서 반복이 끝납니다.
 
 ```python
@@ -175,6 +222,8 @@ g = (x * x for x in nums)                 # 제너레이터 객체
 print(type(g))                            # <class 'generator'>
 print(next(g))                            # 1
 ```
+
+중괄호 안에 `키: 값` 없이 식 하나만 적은 `{x * 2 for x in range(5)}` 는 집합(set)이 됩니다. 제너레이터 표현식은 소괄호로 감싼 것뿐이고, `g = lambda x: x * 2 for x in range(5)` 처럼 괄호 없이 적으면 문법 오류입니다.
 
 `yield` 함수로 만든 제너레이터와 `( )` 표현식으로 만든 제너레이터는 `type` 이 똑같이 `<class 'generator'>` 로 출력되고, `next()` 와 for 문에서도 같은 방식으로 값을 내놓습니다.
 
@@ -223,6 +272,8 @@ for v in b:
 - `next(리스트)` 는 `TypeError` 입니다. 리스트는 이터러블이지 이터레이터가 아니므로, `it = iter(리스트)` 로 바꾼 뒤에야 `next(it)` 가 됩니다.
 - `iter(리스트)` 는 부를 때마다 새 이터레이터를 만들고, `iter(이터레이터)` 는 같은 객체를 돌려줍니다. `a = iter(nums)` 뒤의 `c = iter(a)` 는 복사본이 아니어서 `next(c)` 가 `a` 의 위치를 함께 옮깁니다.
 - `StopIteration` 은 값이 다 떨어졌다는 신호입니다. for 문은 이 신호를 받아 오류 없이 멈추지만, 직접 `next()` 를 부르면 예외로 나타납니다.
+- 예외 이름의 철자는 `StopIteration` 이고 `S` 와 `I` 가 대문자입니다. 5주차 요약본의 `MyIterator` 코드에는 `raise Stopiteration` 으로 적혀 있는데 오타입니다. 이대로 실행하면 값을 다 돌려준 순간 `NameError` 가 납니다.
+- `next(gen)` 의 결과를 변수에 담거나 출력하지 않아도 값 하나는 꺼내집니다. 그 뒤의 for 문은 다음 값부터 받습니다.
 - `try` 블록 안에서 부른 `next()` 가 `StopIteration` 을 일으키면 블록의 남은 줄은 실행되지 않고 `except StopIteration` 으로 넘어갑니다. `finally` 가 있으면 그 뒤에 실행됩니다.
 - 이터레이터는 처음으로 되돌릴 수 없습니다. `next()` 로 하나 꺼낸 뒤 for 문을 돌리면 그 다음 값부터 나오고, 끝까지 읽은 이터레이터로 다시 for 문을 돌리면 아무것도 출력되지 않습니다.
 - 제너레이터 함수 호출은 실행이 아니라 객체 생성입니다. 본문 첫 줄의 `print` 는 첫 `next()` 때 비로소 실행됩니다.

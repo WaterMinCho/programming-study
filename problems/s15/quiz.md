@@ -264,3 +264,156 @@ except StopIteration:
 finally:
     print("end")
 ```
+
+## Q20 (객관식 · 2점)
+
+파이썬의 이터레이터(iterator)에 대한 설명으로 옳은 것은?
+
+1. 리스트와 튜플로만 이터레이터를 만들 수 있다.
+2. 값을 끝까지 읽은 이터레이터는 처음 위치로 돌아가므로 for 문에 다시 넣어 쓸 수 있다.
+3. `next()` 를 호출할 때마다 다음 값을 차례로 하나씩 돌려준다.
+4. 리스트는 그 자체가 이터레이터라서 `iter()` 없이 `next()` 에 넣을 수 있다.
+
+## Q21 (객관식 · 2점)
+
+다음 코드를 실행했을 때 출력되는 것은?
+
+```python
+def countdown(n):
+    while n > 0:
+        yield n
+        n -= 2
+
+gen = countdown(7)
+next(gen)
+for x in gen:
+    print(x, end=" ")
+```
+
+1. `7 5 3 1`
+2. `5 3 1`
+3. `5 3 1 -1`
+4. `7 5 3 1 -1`
+
+## Q22 (객관식 · 2점)
+
+다음은 리스트의 요소를 `next()` 로 하나씩 꺼내 출력하고, 값이 다 떨어지면 반복을 끝내는 프로그램입니다. 실행 결과가 아래와 같아지도록 (가), (나), (다)의 빈칸(`____`)에 들어갈 코드를 순서대로 적은 것은?
+
+```python
+fruits = ["apple", "banana", "cherry"]
+it = iter(fruits)
+while True:
+    try:
+        print(____(it))    # (가)
+    except ____:           # (나)
+        ____               # (다)
+print("done")
+```
+
+```
+apple
+banana
+cherry
+done
+```
+
+1. `next`, `StopIteration`, `break`
+2. `iter`, `StopIteration`, `break`
+3. `next`, `StopIteration`, `continue`
+4. `next`, `IndexError`, `break`
+
+## Q23 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+def mygen():
+    for i in range(1, 1000):
+        result = i * i
+        yield result
+
+gen = mygen()
+print(next(gen))
+print(next(gen))
+print(next(gen))
+```
+
+## Q24 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+it = iter(range(11))
+first = next(it)
+evens = [n for n in it if n % 2 == 0]
+print(first)
+print(evens)
+print(len(evens), list(it))
+```
+
+## Q25 (단답 · 3점)
+
+이터레이터 객체를 `next()` 함수에 넣으면 그 객체의 어떤 메서드가 호출됩니까? 메서드 이름을 밑줄까지 정확히 적으세요.
+
+## Q26 (객관식 · 2점)
+
+다음 코드를 실행했을 때의 결과로 옳은 것은?
+
+```python
+class ListIterator:
+    def __init__(self, data):
+        if not isinstance(data, list):
+            raise TypeError("리스트를 입력해야 합니다.")
+        self.data = data
+        self.index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.index < len(self.data):
+            value = self.data[self.index]
+            self.index += 1
+            return value
+        else:
+            raise StopIteration
+
+try:
+    for item in ListIterator((1, 2, 3)):
+        print(item)
+except TypeError as e:
+    print(e)
+```
+
+1. `1`, `2`, `3` 이 한 줄에 하나씩 출력된다.
+2. `리스트를 입력해야 합니다.` 한 줄만 출력된다.
+3. `1`, `2`, `3` 이 출력된 뒤 `리스트를 입력해야 합니다.` 가 출력된다.
+4. `TypeError: 리스트를 입력해야 합니다.` 한 줄만 출력된다.
+
+## Q27 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+class MyRange:
+    def __init__(self, start, stop, step):
+        self.current = start
+        self.stop = stop
+        self.step = step
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current >= self.stop:
+            raise StopIteration
+        value = self.current
+        self.current += self.step
+        return value
+
+r = MyRange(1, 10, 3)
+print(next(r))
+print(list(r))
+print(list(r))
+print(r.current)
+```

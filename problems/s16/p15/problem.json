@@ -1,0 +1,16 @@
+{
+  "title": "비어 있으면 -1 을 돌려주는 큐",
+  "type": "print",
+  "level": 2,
+  "points": 6,
+  "mode": "exec",
+  "tags": ["큐 클래스", "빈 자료구조 처리"],
+  "examples": 2,
+  "cases": [
+    {"code": "bank = Queue()\nbank.enqueue(\"김철수\")\nbank.enqueue(\"이영희\")\nbank.enqueue(\"박민수\")\nprint(\"현재 대기열:\", bank.queue)\nprint(\"업무 처리 중인 고객:\", bank.dequeue())\nprint(\"남은 대기 고객:\", bank.queue)", "stdout": "현재 대기열: ['김철수', '이영희', '박민수']\n업무 처리 중인 고객: 김철수\n남은 대기 고객: ['이영희', '박민수']\n"},
+    {"code": "q = Queue()\nprint(q.dequeue())\nprint(q.front())\nprint(q.is_empty())", "stdout": "-1\n-1\nTrue\n"},
+    {"code": "q = Queue()\nq.enqueue(3)\nq.enqueue(0)\nprint(q.front(), q.front())\nprint(q.dequeue(), q.front())\nprint(q.is_empty())\nprint(q.dequeue(), q.dequeue())\nprint(q.queue, q.is_empty())", "stdout": "3 3\n3 0\nFalse\n0 -1\n[] True\n"},
+    {"code": "a = Queue()\nb = Queue()\na.enqueue(1)\nb.enqueue(2)\nb.enqueue(3)\nprint(a.dequeue(), a.dequeue())\nprint(b.front(), b.queue)", "stdout": "1 -1\n2 [2, 3]\n"},
+    {"code": "q = Queue()\nfor n in [5, 6, 7]:\n    q.enqueue(n)\nq.dequeue()\nq.enqueue(8)\nprint(q.front(), q.queue)\nwhile not q.is_empty():\n    print(q.dequeue())\nprint(q.front())\nprint(q.dequeue() == -1, q.front() + 1)", "stdout": "6 [6, 7, 8]\n6\n7\n8\n-1\nTrue 0\n"}
+  ]
+}

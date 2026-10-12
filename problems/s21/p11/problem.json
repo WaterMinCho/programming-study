@@ -1,0 +1,19 @@
+{
+  "title": "JSON 프로필 고쳐서 돌려주기",
+  "type": "return",
+  "level": 2,
+  "points": 6,
+  "mode": "call",
+  "tags": ["json 변환 함수", "중첩 자료 접근"],
+  "examples": 3,
+  "cases": [
+    {"call": "solution('{\"name\": \"Alice\", \"age\": 25, \"city\": \"Seoul\", \"skills\": [\"Python\", \"Django\"]}', 'Flask')", "expected": "'{\"name\": \"Alice\", \"age\": 26, \"city\": \"Seoul\", \"skills\": [\"Python\", \"Django\", \"Flask\"]}'"},
+    {"call": "solution('{\"name\": \"Alice\", \"age\": 25, \"city\": \"Seoul\", \"skills\": [\"Python\", \"Django\"]}', 'Python')", "expected": "'{\"name\": \"Alice\", \"age\": 26, \"city\": \"Seoul\", \"skills\": [\"Python\", \"Django\"]}'"},
+    {"call": "solution('{\"name\": \"Bob\", \"age\": 30, \"skills\": []}', 'Java')", "expected": "'{\"name\": \"Bob\", \"age\": 31, \"skills\": [\"Java\"]}'"},
+    {"call": "solution('{\"skills\": [\"C\"], \"age\": 9, \"name\": \"Kim\"}', 'c')", "expected": "'{\"skills\": [\"C\", \"c\"], \"age\": 10, \"name\": \"Kim\"}'"},
+    {"call": "solution('{\"name\": \"Lee\", \"age\": 41, \"city\": \"Busan\", \"skills\": [\"Go\", \"Rust\", \"Go\"], \"job\": {\"title\": \"dev\", \"years\": 12}}', 'Rust')", "expected": "'{\"name\": \"Lee\", \"age\": 42, \"city\": \"Busan\", \"skills\": [\"Go\", \"Rust\", \"Go\"], \"job\": {\"title\": \"dev\", \"years\": 12}}'"},
+    {"call": "solution('{\"age\": 0, \"skills\": [\"Python\"]}', 'Django')", "expected": "'{\"age\": 1, \"skills\": [\"Python\", \"Django\"]}'"},
+    {"call": "solution('{\"name\":\"Park\",\"age\":19,\"skills\":[\"SQL\",\"R\"],\"city\":\"Jeju\"}', 'Python')", "expected": "'{\"name\": \"Park\", \"age\": 20, \"skills\": [\"SQL\", \"R\", \"Python\"], \"city\": \"Jeju\"}'"},
+    {"call": "solution('{\"name\": \"Choi\", \"age\": 28, \"skills\": [\"Python\"], \"active\": true, \"nickname\": null}', 'Excel')", "expected": "'{\"name\": \"Choi\", \"age\": 29, \"skills\": [\"Python\", \"Excel\"], \"active\": true, \"nickname\": null}'"}
+  ]
+}

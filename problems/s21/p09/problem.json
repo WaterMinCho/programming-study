@@ -1,0 +1,17 @@
+{
+  "title": "확장자별 폴더로 정리하기",
+  "type": "print",
+  "level": 3,
+  "points": 8,
+  "mode": "exec",
+  "tags": ["pathlib 이름 변경·이동", "pathlib 목록·확장자", "pathlib 생성·삭제"],
+  "examples": 2,
+  "cases": [
+    {"files": {"inbox/a.txt": "apple\n", "inbox/b.txt": "banana\n", "inbox/photo.png": "png\n"}, "code": "import os\norganize(\"inbox\")\nprint(os.path.exists(\"inbox/a.txt\"), os.path.exists(\"inbox/txt/a.txt\"))\nprint(os.path.exists(\"inbox/photo.png\"), os.path.exists(\"inbox/png/photo.png\"))", "stdout": "이동한 파일: 3개\nFalse True\nFalse True\n", "expect_files": {"inbox/txt/a.txt": "apple\n", "inbox/txt/b.txt": "banana\n", "inbox/png/photo.png": "png\n"}},
+    {"files": {"work/txt/old.txt": "old\n", "work/new.txt": "new\n", "work/README": "readme\n", "work/data.csv": "1,2\n"}, "code": "import os\norganize(\"work\")\nprint(os.path.exists(\"work/new.txt\"), os.path.exists(\"work/README\"))", "stdout": "이동한 파일: 2개\nFalse True\n", "expect_files": {"work/txt/old.txt": "old\n", "work/txt/new.txt": "new\n", "work/README": "readme\n", "work/csv/data.csv": "1,2\n"}},
+    {"files": {"box/sub/x.txt": "x\n", "box/LICENSE": "MIT\n"}, "code": "import os\norganize(\"box\")\nprint(os.path.exists(\"box/txt\"), os.path.exists(\"box/sub/x.txt\"))", "stdout": "이동한 파일: 0개\nFalse True\n", "expect_files": {"box/sub/x.txt": "x\n", "box/LICENSE": "MIT\n"}},
+    {"files": {"dl/archive.tar.gz": "z\n", "dl/song.mp3": "m\n", "dl/song2.mp3": "n\n"}, "code": "import os\norganize(\"dl\")\nprint(len(os.listdir(\"dl\")), len(os.listdir(\"dl/mp3\")))", "stdout": "이동한 파일: 3개\n2 2\n", "expect_files": {"dl/gz/archive.tar.gz": "z\n", "dl/mp3/song.mp3": "m\n", "dl/mp3/song2.mp3": "n\n"}},
+    {"files": {"p/v1.0/note.md": "n\n", "p/a.md": "a\n"}, "code": "import os\norganize(\"p\")\nprint(os.path.exists(\"p/v1.0/note.md\"), os.path.exists(\"p/md/a.md\"))", "stdout": "이동한 파일: 1개\nTrue True\n", "expect_files": {"p/v1.0/note.md": "n\n", "p/md/a.md": "a\n"}},
+    {"files": {"inbox/a.txt": "1\n", "inbox/b.csv": "2\n"}, "code": "organize(\"inbox\")\norganize(\"inbox\")", "stdout": "이동한 파일: 2개\n이동한 파일: 0개\n", "expect_files": {"inbox/txt/a.txt": "1\n", "inbox/csv/b.csv": "2\n"}}
+  ]
+}

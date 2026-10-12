@@ -1,0 +1,18 @@
+{
+  "title": "txt 파일 수 세기",
+  "type": "return",
+  "level": 2,
+  "points": 6,
+  "mode": "call",
+  "tags": ["pathlib 목록·확장자"],
+  "examples": 3,
+  "cases": [
+    {"files": {"docs/a.txt": "1\n", "docs/b.txt": "2\n", "docs/c.png": "3\n"}, "call": "solution('docs')", "expected": "2"},
+    {"files": {"docs/memo.txt": "m\n", "docs/sub/inner.txt": "i\n"}, "call": "solution('docs')", "expected": "1"},
+    {"files": {"notes/readme.md": "r\n"}, "call": "solution('notes')", "expected": "0"},
+    {"files": {"box/x.txt.bak": "1\n", "box/txt": "2\n", "box/atxt": "3\n", "box/real.txt": "4\n"}, "call": "solution('box')", "expected": "1"},
+    {"files": {"box/old.txt/keep.md": "k\n", "box/new.txt": "n\n"}, "call": "solution('box')", "expected": "1"},
+    {"files": {"a/1.txt": "1\n", "a/2.txt": "2\n", "a/3.txt": "3\n", "a/4.txt": "4\n", "b/5.txt": "5\n"}, "call": "solution('a')", "expected": "4"},
+    {"files": {"logs/app.log.txt": "1\n", "logs/txt.log": "2\n", "logs/error.txt": "3\n"}, "call": "solution('logs')", "expected": "2"}
+  ]
+}

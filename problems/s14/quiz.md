@@ -252,3 +252,116 @@ print(re.findall(r"[a-c.+]+", "a+b.c=d-e"))
 2. `['a', 'b', 'c']`
 3. `['a+b.c=d-e']`
 4. `['a+b', 'c']`
+
+## Q23 (단답 · 3점)
+
+파이썬에서 정규표현식을 쓰려고 `import` 하는 표준 라이브러리 모듈의 이름을 적으세요.
+
+## Q24 (객관식 · 2점)
+
+정규식 `^abc` 의 의미로 옳은 것은?
+
+1. 문자열이 `abc` 로 시작해야 매치된다.
+2. 문자열이 `abc` 로 끝나야 매치된다.
+3. 문자열 어디에든 `abc` 가 들어 있으면 매치된다.
+4. `a`, `b`, `c` 가 아닌 글자 하나와 매치된다.
+
+## Q25 (객관식 · 2점)
+
+다음 코드의 출력 결과는?
+
+```python
+import re
+pattern = r"\w+"
+text = "Hi, ROKEY_11!"
+print(re.findall(pattern, text))
+```
+
+1. `['Hi', 'ROKEY_11']`
+2. `['Hi', 'ROKEY', '11']`
+3. `['Hi,', 'ROKEY_11!']`
+4. `['Hi', ',', 'ROKEY_11', '!']`
+
+## Q26 (객관식 · 2점)
+
+다음 코드의 출력 결과는?
+
+```python
+import re
+pattern = r"(ab)+"
+text = "ababa"
+match = re.match(pattern, text)
+print(match.group())
+```
+
+1. `ab`
+2. `abab`
+3. `ababa`
+4. 오류가 발생한다
+
+## Q27 (객관식 · 2점)
+
+메타 문자에 대한 설명으로 옳지 **않은** 것은?
+
+1. 원래 그 문자가 가진 뜻이 아니라 특별한 의미로 쓰이는 문자를 말한다.
+2. 리스트를 표현하는 `[]`, 튜플을 표현하는 `()` 처럼 자료 구조나 특정 표식을 나타내는 데 쓰는 기호가 그 예이다.
+3. 정규식에서는 `. ^ $ * + ? { } [ ] \ | ( )` 를 메타 문자로 쓴다.
+4. `@` 도 정규식의 메타 문자라서 `\@` 로 적어야만 `@` 글자와 매치된다.
+
+## Q28 (객관식 · 2점)
+
+정규표현식과 `re` 모듈에 대한 설명으로 옳지 **않은** 것은?
+
+1. 정규표현식은 정해 둔 패턴으로 문자열을 검색하거나 일치 여부를 확인하고, 필요한 부분을 추출·변환하는 데 쓴다.
+2. 이메일·전화번호 형식 검증이나 로그 파일 처리에 쓰이며, 문법이 언어 사이에 비슷해 다른 언어에서도 응용할 수 있다.
+3. `re.compile(정규식)` 은 정규식을 컴파일한 패턴 객체를 돌려주고, 이 객체의 `match`, `search`, `findall`, `finditer` 로 문자열을 조사한다.
+4. 축약형 `re.match(정규식, 문자열)` 은 match 객체가 아니라 매치된 문자열을 바로 돌려준다.
+
+## Q29 (객관식 · 2점)
+
+다음 코드의 출력 결과는?
+
+```python
+import re
+p = re.compile("^python\s\w+")
+
+data = """python one
+life is too short
+python two
+you need python
+python three"""
+
+print(p.findall(data))
+```
+
+1. `['python one']`
+2. `['python one', 'python two', 'python three']`
+3. `['python one', 'python two', 'you need python', 'python three']`
+4. `[]`
+
+## Q30 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+import re
+print(re.match(r"(ab)+", "ababab").group())
+print(re.match(r"ab+", "ababab").group())
+print(re.match(r"ab+", "abbab").group())
+print(re.match(r"(ab)+", "aabab"))
+print(re.search(r"(ab)+", "aabab").span())
+```
+
+## Q31 (객관식 · 2점)
+
+다음은 강의에서 `re.VERBOSE` 를 설명할 때 나온 정규식입니다. `p.match(문자열)` 로 조사했을 때 매치되는 문자열을 **모두 고르세요**.
+
+```python
+import re
+p = re.compile(r"&[#](0[0-7]+|[0-9]+|x[0-9a-fA-F]+);")
+```
+
+1. `&#123;`
+2. `&#x4F;`
+3. `&#12`
+4. `&#xyz;`

@@ -1,0 +1,15 @@
+{
+  "title": "txt 파일만 복사하기",
+  "type": "fill",
+  "level": 2,
+  "points": 6,
+  "mode": "exec",
+  "tags": ["shutil 복사·이동·삭제", "os.path 경로 다루기", "os 모듈 함수"],
+  "examples": 2,
+  "cases": [
+    {"files": {"inbox/a.txt": "apple\n", "inbox/b.txt": "banana\n", "inbox/c.png": "png\n"}, "code": "print(copy_txt_files(\"inbox\", \"backup\"))\nprint(os.path.exists(\"inbox/a.txt\"), os.path.exists(\"backup/a.txt\"))\nprint(os.path.exists(\"backup/c.png\"))", "stdout": "2\nTrue True\nFalse\n", "expect_files": {"backup/a.txt": "apple\n", "backup/b.txt": "banana\n", "inbox/a.txt": "apple\n", "inbox/b.txt": "banana\n"}},
+    {"files": {"notes/todo.txt": "할 일\n", "saved/old.txt": "예전 파일\n"}, "code": "print(copy_txt_files(\"notes\", \"saved\"))\nprint(len(os.listdir(\"saved\")))", "stdout": "1\n2\n", "expect_files": {"saved/todo.txt": "할 일\n", "saved/old.txt": "예전 파일\n", "notes/todo.txt": "할 일\n"}},
+    {"files": {"pics/a.png": "1\n", "pics/b.jpg": "2\n"}, "code": "print(copy_txt_files(\"pics\", \"out\"))\nprint(os.path.exists(\"out\"), os.listdir(\"out\"))", "stdout": "0\nTrue []\n"},
+    {"files": {"mix/txt": "1\n", "mix/a.txt.bak": "2\n", "mix/x.txt": "3\n"}, "code": "print(copy_txt_files(\"mix\", \"dst\"))\nprint(os.listdir(\"dst\"), len(os.listdir(\"mix\")))", "stdout": "1\n['x.txt'] 3\n", "expect_files": {"dst/x.txt": "3\n", "mix/x.txt": "3\n"}}
+  ]
+}

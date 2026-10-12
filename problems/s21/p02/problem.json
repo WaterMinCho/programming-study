@@ -1,0 +1,20 @@
+{
+  "title": "JSON 문자열에서 값 꺼내기",
+  "type": "return",
+  "level": 1,
+  "points": 4,
+  "mode": "call",
+  "tags": ["json 변환 함수"],
+  "examples": 4,
+  "cases": [
+    {"call": "solution('{\"name\": \"Alice\", \"age\": 25, \"city\": \"Seoul\"}', 'name')", "expected": "'Alice'"},
+    {"call": "solution('{\"name\": \"Alice\", \"age\": 25, \"city\": \"Seoul\"}', 'age')", "expected": "25"},
+    {"call": "solution('{\"name\": \"Alice\", \"age\": 25, \"city\": \"Seoul\"}', 'job')", "expected": "None"},
+    {"call": "solution('{\"skills\": [\"Python\", \"Django\"], \"level\": 3}', 'skills')", "expected": "['Python', 'Django']"},
+    {"call": "solution('{\"title\": \"json\", \"pages\": 120, \"price\": 15000.5}', 'price')", "expected": "15000.5"},
+    {"call": "solution('{}', 'name')", "expected": "None"},
+    {"call": "solution('{\"a\": {\"b\": 1}, \"c\": \"25\"}', 'c')", "expected": "'25'"},
+    {"call": "solution('{\"a\": {\"b\": 1}, \"c\": \"25\"}', 'a')", "expected": "{'b': 1}"},
+    {"call": "solution('{\"active\": true, \"nickname\": null}', 'active')", "expected": "True"}
+  ]
+}
