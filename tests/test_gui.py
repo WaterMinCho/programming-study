@@ -2001,7 +2001,7 @@ class LineNumberTest(unittest.TestCase):
         self.lines(60)
         ink, dim, strip = theme.EDITOR["ink"], theme.EDITOR["line_no"], self.ed.numbers
         shown = self.drawn()
-        rows = self.ed.viewport().height() // self.ed.fontMetrics().lineSpacing()
+        rows = int(self.ed.viewport().height() // self.ed.blockBoundingRect(self.ed.firstVisibleBlock()).height())  # 실제로 앉은 줄 높이로 셈
         self.assertEqual([text for text, *_ in shown[:rows]], [str(number) for number in range(1, rows + 1)])  # 오류 내용의 줄 번호처럼 1부터
         self.assertLessEqual(len(shown), rows + 2)  # 보이는 줄만 그림
         self.assertEqual({round(right) for _, _, right, _ in shown}, {strip.width() - strip.PAD})  # 오른쪽 정렬
