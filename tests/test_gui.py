@@ -1293,6 +1293,20 @@ class WidgetTest(unittest.TestCase):
         long.arrange()
         self.assertGreater(narrow, long.height())  # 좁으면 긴 코드 줄을 잘라 내지 않고 줄바꿈함
 
+    def test_message_dialog_shrinks_back_when_the_detail_is_folded(self):
+        dialog = dialogs.MessageDialog(None, "제목", "안내 글", detail="자세한 내용")
+        self.addCleanup(dialog.close)
+        dialog.show()
+        pump()
+        more = next(button for button in dialog.findChildren(QPushButton) if button.text() == "자세히")
+        closed = dialog.height()
+        click(more)
+        self.assertTrue(dialog.detail.isVisible())
+        self.assertGreaterEqual(dialog.height(), closed + dialog.detail.minimumHeight())
+        click(more)
+        self.assertFalse(dialog.detail.isVisible())
+        self.assertEqual(dialog.height(), closed)  # 접으면 펼치기 전 높이로 돌아감
+
     def test_guide_label_spaces_its_lines_and_hands_back_plain_text(self):
         label = Para("첫 줄 <b>굵게</b> & 끝\n둘째 줄", "muted")
         self.assertEqual((label.text(), label.objectName(), label.wordWrap()), ("첫 줄 <b>굵게</b> & 끝\n둘째 줄", "muted", True))
