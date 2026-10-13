@@ -45,7 +45,7 @@ def main(argv=None):
     code = app.exec()
     lock.unlock()
     if window.restart:  # 도구 파일이 새 버전으로 바뀌었으면 처음 실행한 명령으로 다시 띄움
-        return subprocess.call([sys.executable] + sys.orig_argv[1:])  # 새 창이 끝날 때까지 기다림. 먼저 끝나면 터미널·start.bat 이 닫혀 새 창이 죽음
+        return subprocess.call([sys.executable] + sys.orig_argv[1:])  # 새 창이 끝날 때까지 기다림. 터미널에서 켰을 때 먼저 끝나면 터미널·start.bat 이 닫혀 새 창이 죽음
     return code
 
 

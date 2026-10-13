@@ -1,0 +1,17 @@
+#!/bin/zsh -l
+# macOS: 더블클릭하면 터미널 없이 스터디 화면(창)이 뜸. 로그인 셸로 돌려서 ~/.zprofile 의 PATH 를 씀
+cd "$(dirname "$0")/../../.." || exit 1
+extra="/opt/homebrew/bin:/usr/local/bin:/Library/Frameworks/Python.framework/Versions/Current/bin"
+case "$(command -v python3)" in
+    # macOS 기본 파이썬(3.9)에는 PyQt6 를 설치할 수 없음. PATH 를 ~/.zshrc 에서만 잡은 맥은 여기서 그 파이썬이 먼저 잡힘
+    ""|/usr/bin/python3) PATH="$extra:$PATH" ;;
+    *) PATH="$PATH:$extra" ;;
+esac
+export STUDY_WINDOW=1
+# 내려받아 격리된 앱은 macOS 가 다른 경로에서 실행해서 옆에 start.pyw 가 없음
+# /usr/bin/python3 는 명령어 도구를 설치하지 않은 맥에도 있어서 command -v 로는 가릴 수 없음. 실제로 실행해 봄
+if [ ! -f start.pyw ] || ! python3 -c '' >/dev/null 2>&1; then
+    osascript -e 'display alert "ROKEY 파이썬 스터디" message "창을 열지 못했습니다. start.command 로 실행해 주세요."'
+    exit 1
+fi
+exec python3 start.pyw

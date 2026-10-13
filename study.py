@@ -273,6 +273,13 @@ def check_fill(template, source):
     return None
 
 
+def console_python():
+    """콘솔 프로그램을 띄울 때 쓸 파이썬. 창 모드에서는 pythonw.exe 로 돌고 있어서 같은 폴더의 python.exe 를 고름.
+    채점 러너가 학생 코드를 pythonw 로 돌리지 않게 함."""
+    folder, name = os.path.split(sys.executable)
+    return os.path.join(folder, "python.exe") if name.lower() == "pythonw.exe" else sys.executable
+
+
 def runner_memory(pid_path):
     """채점 러너가 지금 쓰는 메모리(바이트). 읽지 못하면 0 을 돌려주고, 그때는 상한을 검사하지 않음.
     맥은 setrlimit 으로 상한을 512MB 까지 낮출 수 없고 Windows 에는 resource 모듈이 없어서 부모가 밖에서 읽음.
@@ -341,7 +348,7 @@ def run_cases(spec, source_path, limit=None):
         write_text(job_path, json.dumps(job, ensure_ascii=False))
         env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1")
         with subprocess.Popen(
-            [sys.executable, os.path.abspath(__file__), "_run", job_path],
+            [console_python(), os.path.abspath(__file__), "_run", job_path],
             cwd=tmp, env=env,
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
             creationflags=NO_WINDOW,
