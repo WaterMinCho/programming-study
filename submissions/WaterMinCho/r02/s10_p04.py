@@ -8,7 +8,7 @@ class Device:
         print("가격:", self.price)
 
 
-class Laptop(____):
+class Laptop(Device):
     def __init__(self, name, price, ram):
-        ____.__init__(name, price)
-        self.ram = ____
+        super().__init__(name, price)
+        self.ram = ram
