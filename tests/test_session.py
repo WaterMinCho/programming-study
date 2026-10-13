@@ -197,6 +197,14 @@ class SessionTest(unittest.TestCase):
         self.sess.reset_item("r90", fill)
         self.assertIn("빈칸", self.sess.try_run("r90", fill)["message"])
 
+    def test_try_run_reports_memory_overuse(self):
+        rid = self.first_real_round()
+        code = next(v for v in self.sess.open_round(rid)["items"] if v["kind"] == "code")
+        self.sess.set_answer(rid, code["id"], "import time\ndata = b'x' * (200 * 1024 * 1024)\ntime.sleep(60)\n")
+        # 회차 구성이 무작위라 빈칸 채우기 문제가 뽑혀도 실행까지 가도록 빈칸 검사를 건너뜀
+        with mock.patch.object(study, "MEMORY_LIMIT_MB", 128), mock.patch.object(study, "check_fill", return_value=None):
+            self.assertIn("메모리 초과", self.sess.try_run(rid, code["id"])["message"])
+
     # 채점 · 기록
 
     def test_untouched_round_is_not_recorded(self):

@@ -870,6 +870,13 @@ class BankTest(GuiTest):
         self.assertLess(max(b - a for a, b in zip(ticks, ticks[1:])), 0.5)
         self.assertTrue(page.stack.isEnabled())
 
+        # 메모리를 너무 많이 쓰는 코드는 제한 시간 전에 멈추고 이유를 알려 줌
+        editor.setPlainText("import time\ndata = b'x' * (200 * 1024 * 1024)\ntime.sleep(60)\n")
+        with mock.patch.object(study, "MEMORY_LIMIT_MB", 128):
+            click(page.run_btn)
+            self.idle()
+        self.assertIn("메모리 초과", page.code_panel.console.toPlainText())
+
         # 문법 오류는 줄 번호와 함께
         editor.setPlainText("def broken(:\n")
         click(page.run_btn)

@@ -30,6 +30,8 @@ USER_FILE = os.path.join(ROOT, ".study_user")
 
 PASS_RATIO = 0.8  # 세트 통과 기준(득점률)
 DEFAULT_TIMEOUT = 5  # 문제 1개(모든 테스트 합계)의 제한 시간(초)
+MEMORY_LIMIT_MB = 512  # 문제 1개를 채점하는 프로세스가 쓸 수 있는 메모리
+MEMORY_POLL = 0.02  # 채점 프로세스의 메모리를 확인하는 간격(초)
 BLANK_RE = re.compile(r"_{4,}")  # 빈칸 표시: 밑줄 4개 이상
 USER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 KIND_ORDER = {"session": 0, "codetest": 1, "mock": 2}
@@ -271,6 +273,56 @@ def check_fill(template, source):
     return None
 
 
+def runner_memory(pid_path):
+    """채점 러너가 지금 쓰는 메모리(바이트). 읽지 못하면 0 을 돌려주고, 그때는 상한을 검사하지 않음.
+    맥은 setrlimit 으로 상한을 512MB 까지 낮출 수 없고 Windows 에는 resource 모듈이 없어서 부모가 밖에서 읽음.
+    Windows 가상 환경의 python.exe 는 진짜 파이썬을 다시 띄우는 실행기라서, 러너가 pid_path 에 적어 둔 pid 로 찾음."""
+    try:
+        pid = int(read_text(pid_path))
+        if sys.platform == "win32":
+            import ctypes
+
+            class Counters(ctypes.Structure):  # PROCESS_MEMORY_COUNTERS
+                _fields_ = [("cb", ctypes.c_uint32), ("page_faults", ctypes.c_uint32)] + [
+                    (name, ctypes.c_size_t) for name in (
+                        "peak_working_set", "working_set", "peak_paged_pool", "paged_pool",
+                        "peak_nonpaged_pool", "nonpaged_pool", "commit", "peak_commit")]
+
+            kernel32 = ctypes.WinDLL("kernel32")
+            kernel32.OpenProcess.restype = ctypes.c_void_p
+            handle = ctypes.c_void_p(kernel32.OpenProcess(0x0410, False, pid))  # PROCESS_QUERY_INFORMATION | PROCESS_VM_READ
+            info = Counters()
+            try:
+                if kernel32.K32GetProcessMemoryInfo(handle, ctypes.byref(info), ctypes.c_uint32(ctypes.sizeof(info))):
+                    return info.commit
+            finally:
+                kernel32.CloseHandle(handle)
+        elif sys.platform == "darwin":
+            import ctypes
+            info = (ctypes.c_uint64 * 12)()  # rusage_info_v0. 열 번째 값이 ri_phys_footprint
+            if ctypes.CDLL(None).proc_pid_rusage(pid, 0, info) == 0:
+                return info[9]
+        else:
+            with open("/proc/%d/statm" % pid) as f:
+                return int(f.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
+    except Exception:
+        pass
+    return 0
+
+
+def wait_child(proc, timeout, pid_path):
+    """채점 프로세스를 기다려 (표준 오류, 멈춘 이유)를 돌려줌. 이유는 제때 끝났으면 None, 아니면 "timeout" 이나 "memory"."""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            return proc.communicate(timeout=MEMORY_POLL)[1].decode("utf-8", "replace"), None
+        except subprocess.TimeoutExpired:
+            if runner_memory(pid_path) > MEMORY_LIMIT_MB * 1024 * 1024:
+                return "", "memory"
+            if time.monotonic() >= deadline:
+                return "", "timeout"
+
+
 def run_cases(spec, source_path, limit=None):
     """제출 파일을 별도 프로세스에서 실행해 테스트별 결과를 돌려줌.
     limit 를 주면 앞의 limit 개만 실행함. 화면의 '코드 실행'이 예시만 돌릴 때 씀."""
@@ -283,24 +335,26 @@ def run_cases(spec, source_path, limit=None):
             "cases": cases,
             "workdir": tmp,
             "result": os.path.join(tmp, "result.json"),
+            "pid": os.path.join(tmp, "pid.txt"),
         }
         job_path = os.path.join(tmp, "job.json")
         write_text(job_path, json.dumps(job, ensure_ascii=False))
         env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1")
-        timed_out, stderr = False, ""
-        try:
-            proc = subprocess.run(
-                [sys.executable, os.path.abspath(__file__), "_run", job_path],
-                cwd=tmp, env=env, timeout=timeout,
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                creationflags=NO_WINDOW,
-            )
-            stderr = proc.stderr.decode("utf-8", "replace")
-        except subprocess.TimeoutExpired:
-            timed_out = True
+        with subprocess.Popen(
+            [sys.executable, os.path.abspath(__file__), "_run", job_path],
+            cwd=tmp, env=env,
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            creationflags=NO_WINDOW,
+        ) as proc:
+            try:
+                stderr, stopped = wait_child(proc, timeout, job["pid"])
+            finally:
+                proc.kill()  # 이미 끝난 프로세스에는 아무 일도 하지 않음
+            if stopped and os.name == "nt":  # 표준 오류를 읽던 스레드가 끝나게 함. subprocess.run 도 같은 처리를 함
+                proc.communicate()
         result = read_json(job["result"]) if os.path.isfile(job["result"]) else {"fatal": None, "cases": []}
-    return {"fatal": result.get("fatal"), "cases": result["cases"], "timed_out": timed_out,
-            "total": len(cases), "stderr": stderr, "timeout": timeout}
+    return {"fatal": result.get("fatal"), "cases": result["cases"], "timed_out": stopped == "timeout",
+            "out_of_memory": stopped == "memory", "total": len(cases), "stderr": stderr, "timeout": timeout}
 
 
 def run_problem(spec, source_path):
@@ -317,6 +371,11 @@ def run_problem(spec, source_path):
         return False, passed, (
             "시간 초과: %d번째 테스트가 %s초 안에 끝나지 않았습니다. 무한 루프가 없는지 확인하세요."
             % (len(cases) + 1, run["timeout"])
+        )
+    if run["out_of_memory"]:
+        return False, passed, (
+            "메모리 초과: %d번째 테스트가 메모리를 %dMB 넘게 썼습니다. 반복이 끝나지 않아 값이 계속 쌓이는 곳이 없는지 확인하세요."
+            % (len(cases) + 1, MEMORY_LIMIT_MB)
         )
     if len(cases) < run["total"]:
         return False, passed, "채점기 내부 오류입니다. 스터디장에게 알려 주세요.\n" + clip(run["stderr"].strip())
@@ -456,6 +515,7 @@ def _run_case(code, name, mode, case):
 
 def _child_main(job_path):
     job = read_json(job_path)
+    write_text(job["pid"], str(os.getpid()))
     results = []
 
     def save(fatal=None):
