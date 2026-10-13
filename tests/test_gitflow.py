@@ -889,7 +889,7 @@ class GitFlowTest(unittest.TestCase):
         self.sync(pc)
         git(self.origin, "pack-refs", "--all")  # 원격(GitHub)은 대소문자를 구분함. 묶인 참조로 두 이름을 함께 둠
         main = self.server.rev("main")
-        with open(os.path.join(self.origin, "packed-refs"), "a", encoding="utf-8") as f:
+        with open(os.path.join(self.origin, "packed-refs"), "a", encoding="utf-8", newline="\n") as f:
             f.write("%s refs/heads/study/Kim\n%s refs/heads/study/kim\n" % (main, main))
         for _ in range(3):
             self.sync(pc)
