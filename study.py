@@ -80,6 +80,14 @@ def read_json(path):
     return json.loads(read_text(path))
 
 
+def shown_path(path):
+    """안내에 적을 경로. 저장소 기준 상대 경로로 바꾸고, Windows 에서 드라이브가 달라 바꿀 수 없으면 절대 경로를 돌려줌."""
+    try:
+        return os.path.relpath(path, ROOT)
+    except ValueError:
+        return os.path.abspath(path)
+
+
 def natural_key(text):
     return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", text)]
 
@@ -818,7 +826,7 @@ def announce_round(user, rnd, folder):
     import adaptive
     title = round_as_set(rnd)["meta"]["title"]
     print("%s %d문항이 준비되어 있습니다." % (title, len(rnd["items"])))
-    print("  문제지 : %s/README.md" % os.path.relpath(folder, ROOT))
+    print("  문제지 : %s/README.md" % shown_path(folder))
     print("  답안   : 같은 폴더의 quiz.py 와 .py 파일")
     if rnd["kind"] == "diag":
         print("  약 30분. 코드는 실행하지 말고 눈으로 풀어 주세요. 진단 점수로는 단원별 출발 레벨만 정합니다.")

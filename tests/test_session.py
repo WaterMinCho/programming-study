@@ -8,6 +8,7 @@ import ast
 import contextlib
 import importlib.util
 import io
+import ntpath
 import os
 import shutil
 import sys
@@ -63,6 +64,14 @@ class SessionTest(unittest.TestCase):
         rnd, _ = self.sess.ensure_round()
         result = self.sess.grade(rnd["id"], finalize=True)
         return result["next_round"]
+
+    def make_round(self, rid, keys):
+        """진단·회차는 무작위라 유형이 빠질 수 있어, 고른 문항으로 회차를 직접 만듦."""
+        rnd = {"id": rid, "kind": "round", "focus": [], "items": keys, "retest": [], "shortages": [], "created": adaptive.now(),
+               "tries": 0, "avg_level": 1}
+        self.sess.prof["rounds"].append(rnd)
+        adaptive.write_round("tester", rnd, self.sess.cat)
+        adaptive.save_profile(self.sess.prof)
 
     # 사용자
 
@@ -177,15 +186,16 @@ class SessionTest(unittest.TestCase):
         self.assertIsNone(adaptive.find_round(self.sess.prof, rid).get("results"))
 
     def test_try_run_reports_syntax_error_and_unfilled_blank(self):
-        rid = self.first_real_round()
-        items = [v for v in self.sess.open_round(rid)["items"] if v["kind"] == "code"]
-        plain = next(v for v in items if v["type"] != "fill")
-        self.sess.set_answer(rid, plain["id"], "def broken(:\n")
-        self.assertIn("문법 오류", self.sess.try_run(rid, plain["id"])["message"])
-        fill = next((v for v in items if v["type"] == "fill"), None)
-        if fill:
-            self.sess.reset_item(rid, fill["id"])
-            self.assertIn("빈칸", self.sess.try_run(rid, fill["id"])["message"])
+        cat = self.sess.cat
+        code = [k for k in sorted(cat) if cat[k]["kind"] == "code"]
+        plain = next(k for k in code if cat[k]["type"] != "fill")
+        fill = next(k for k in code if cat[k]["type"] == "fill")
+        self.make_round("r90", [plain, fill])
+        plain, fill = adaptive.fname_of(plain), adaptive.fname_of(fill)
+        self.sess.set_answer("r90", plain, "def broken(:\n")
+        self.assertIn("문법 오류", self.sess.try_run("r90", plain)["message"])
+        self.sess.reset_item("r90", fill)
+        self.assertIn("빈칸", self.sess.try_run("r90", fill)["message"])
 
     # 채점 · 기록
 
@@ -367,6 +377,12 @@ class SessionTest(unittest.TestCase):
                       study.read_text(os.path.join(out, "DASHBOARD.md")))
         self.assertIn("준비도 %d%% · 숙달 %d/%d · 회차 %d" % (row["readiness"], row["mastered"], row["total"], row["rounds"]),
                       study.read_text(os.path.join(out, "dashboard.svg")))
+
+    def test_path_on_another_drive_is_shown_in_full(self):
+        """Windows 에서 임시 폴더(C:)와 저장소(D:)처럼 드라이브가 다르면 상대 경로를 만들 수 없음. 안내를 찍다가 멈추지 않고 절대 경로를 보여 줌."""
+        with mock.patch.object(os, "path", ntpath), mock.patch.object(study, "ROOT", "D:\\repo"):
+            self.assertEqual(study.shown_path("D:\\repo\\submissions\\tester\\d1"), "submissions\\tester\\d1")
+            self.assertEqual(study.shown_path("C:\\Temp\\out"), "C:\\Temp\\out")
 
     # 기록을 망가뜨리던 경로들
 
