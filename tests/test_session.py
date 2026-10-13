@@ -8,6 +8,7 @@ import ast
 import contextlib
 import importlib.util
 import io
+import ntpath
 import os
 import shutil
 import sys
@@ -376,6 +377,12 @@ class SessionTest(unittest.TestCase):
                       study.read_text(os.path.join(out, "DASHBOARD.md")))
         self.assertIn("준비도 %d%% · 숙달 %d/%d · 회차 %d" % (row["readiness"], row["mastered"], row["total"], row["rounds"]),
                       study.read_text(os.path.join(out, "dashboard.svg")))
+
+    def test_path_on_another_drive_is_shown_in_full(self):
+        """Windows 에서 임시 폴더(C:)와 저장소(D:)처럼 드라이브가 다르면 상대 경로를 만들 수 없음. 안내를 찍다가 멈추지 않고 절대 경로를 보여 줌."""
+        with mock.patch.object(os, "path", ntpath), mock.patch.object(study, "ROOT", "D:\\repo"):
+            self.assertEqual(study.shown_path("D:\\repo\\submissions\\tester\\d1"), "submissions\\tester\\d1")
+            self.assertEqual(study.shown_path("C:\\Temp\\out"), "C:\\Temp\\out")
 
     # 기록을 망가뜨리던 경로들
 

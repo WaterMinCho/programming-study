@@ -111,7 +111,7 @@ def main():
     rows.sort(key=lambda r: (-r["readiness"], -r["mastered"], r["user"]))
     study.write_text(os.path.join(out_dir, "dashboard.svg"), render_svg(rows, cat, unit_ids))
     study.write_text(os.path.join(out_dir, "DASHBOARD.md"), render_markdown(rows, cat, unit_ids))
-    print("현황판 생성: %d명 → %s" % (len(rows), os.path.relpath(out_dir, study.ROOT)))
+    print("현황판 생성: %d명 → %s" % (len(rows), study.shown_path(out_dir)))
 
 
 if __name__ == "__main__":
