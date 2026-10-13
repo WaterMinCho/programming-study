@@ -499,7 +499,7 @@ class NoGuiImportTest(unittest.TestCase):
     def test_child_runner(self):
         source = os.path.join(self.tmp, "p01.py")
         job = {"source": source, "mode": "print", "cases": [], "workdir": self.tmp,
-               "result": os.path.join(self.tmp, "result.json")}
+               "result": os.path.join(self.tmp, "result.json"), "pid": os.path.join(self.tmp, "pid.txt")}
         job_path = os.path.join(self.tmp, "job.json")
         with open(source, "w", encoding="utf-8") as f:
             f.write("print(1)\n")
@@ -508,6 +508,7 @@ class NoGuiImportTest(unittest.TestCase):
         codes, _ = self.run_study(["_run", job_path])
         self.assertEqual(codes, [0])
         self.assertTrue(os.path.isfile(job["result"]))
+        self.assertTrue(study.read_text(job["pid"]).isdigit())
 
     def test_help(self):
         codes, out = self.run_study(["--help"])

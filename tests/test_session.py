@@ -187,6 +187,13 @@ class SessionTest(unittest.TestCase):
             self.sess.reset_item(rid, fill["id"])
             self.assertIn("빈칸", self.sess.try_run(rid, fill["id"])["message"])
 
+    def test_try_run_reports_memory_overuse(self):
+        rid = self.first_real_round()
+        plain = next(v for v in self.sess.open_round(rid)["items"] if v["kind"] == "code" and v["type"] != "fill")
+        self.sess.set_answer(rid, plain["id"], "import time\ndata = b'x' * (300 * 1024 * 1024)\ntime.sleep(60)\n")
+        with mock.patch.object(study, "MEMORY_LIMIT_MB", 128):
+            self.assertIn("메모리 초과", self.sess.try_run(rid, plain["id"])["message"])
+
     # 채점 · 기록
 
     def test_untouched_round_is_not_recorded(self):

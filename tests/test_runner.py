@@ -34,7 +34,7 @@ def peak_child_memory():
 class MemoryLimitTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="study_test_")
-        patch = mock.patch.object(study, "MEMORY_LIMIT_MB", LIMIT_MB, create=True)
+        patch = mock.patch.object(study, "MEMORY_LIMIT_MB", LIMIT_MB)
         patch.start()
         self.addCleanup(patch.stop)
 
