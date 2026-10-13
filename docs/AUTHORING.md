@@ -14,7 +14,8 @@
 저장소는 아래처럼 나뉘어 있습니다.
 
 ```
-start.bat, start.command   더블클릭 실행
+start.pyw, ROKEY.app       더블클릭 실행 (터미널 없이 창만 열림)
+start.bat, start.command   더블클릭 실행 (터미널이 같이 열림. 위의 파일로 안 열릴 때 씀)
 study.py                 실행기, 터미널 명령, 문제 은행 로딩과 채점
 bootstrap.py             PyQt6 확인과 설치
 gui/                     화면 (PyQt6)
