@@ -391,6 +391,8 @@ class Session:
         message = run["fatal"] or ""
         if not message and run["timed_out"]:
             message = "시간 초과: %s초 안에 끝나지 않았습니다. 무한 루프가 없는지 확인하세요." % run["timeout"]
+        if not message and run["out_of_memory"]:
+            message = "메모리 초과: 메모리를 %dMB 넘게 썼습니다. 반복이 끝나지 않아 값이 계속 쌓이는 곳이 없는지 확인하세요." % study.MEMORY_LIMIT_MB
         cases = [{"ok": c["ok"], "input": c.get("input", ""), "want": c.get("want", ""), "got": c.get("got", ""),
                   "printed": c.get("printed", "")} for c in run["cases"]]
         return {"message": message, "cases": cases, "ran": len(cases), "examples": self._examples(spec)}
