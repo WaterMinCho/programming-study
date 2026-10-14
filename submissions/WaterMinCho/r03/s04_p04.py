@@ -1,3 +1,4 @@
 def solution(nums):
-    answer = 0
+    answer = nums[0] + nums[len(nums)-1]
+    
     return answer

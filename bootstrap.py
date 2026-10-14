@@ -9,18 +9,25 @@
 막히면 원인과 선택지를 알리고 0 이 아닌 코드로 끝냄. 터미널 모드(go)는 실행하자마자 채점해서
 화면에서 풀다 만 답이 첫 시도로 기록되므로 go 로 넘기지 않음.
 
-표준 라이브러리만 씀. PyQt6 는 Host.pyqt_error 와 Host.gui_main 안에서만 import 함.
+start.pyw 나 ROKEY.app 으로 켜면 터미널이 없는 창 모드로 돎. 흐름은 같고 안내, 동의, 진행 표시를 준비 창에 띄움.
+
+표준 라이브러리만 씀. PyQt6 는 Host.pyqt_error 와 Host.gui_main 안에서만, tkinter 는 SetupWindow 안에서만 import 함.
 """
 import importlib.util
 import os
+import queue
 import re
 import shutil
 import subprocess
 import sys
 import sysconfig
+import threading
+
+import study
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STUDY = os.path.join(ROOT, "study.py")
+START = os.path.join(ROOT, "start.pyw")  # 창 모드의 실행 파일. 예외로 끝나면 기록하고 알림 창을 띄움
 MIN_VERSION, MAX_VERSION = (3, 10), (3, 14)  # PyQt6 휠이 나와 있는 파이썬 범위. 3.15 용은 아직 없음(2026-10)
 PROBE_TIMEOUT = 60  # 초 단위. 설치 직후 첫 import 는 백신 검사로 느릴 수 있어 넉넉히 잡음
 # 소스 빌드로 빠지면 한참 뒤에 알아보기 어려운 오류로 끝나서 휠만 받음
@@ -30,10 +37,15 @@ RETRY = "python study.py"
 UPDATE_RETRY = "python study.py update 로 새 버전을 받은 뒤 python study.py"
 OPENING = "화면을 엽니다. 쓰는 동안 이 터미널 창은 닫지 말아 주세요(닫으면 화면도 함께 닫힙니다)."
 YES = ("y", "yes", "ㅛ", "예", "네")  # ㅛ: 한글 입력 상태에서 y 를 누른 경우
+LOG = os.path.join(os.path.expanduser("~"), ".rokey-study", "launch.log")  # 창 모드에서 터미널 대신 출력을 받는 파일
+WINDOW_TITLE = "ROKEY 파이썬 스터디 준비"
+POLL = 50  # 준비 창이 작업 스레드의 출력을 확인하는 간격(밀리초)
 
 
 class Host:
     """입력·출력·프로세스 실행·설치처럼 실행기가 바깥에 하는 일을 모아 둠. 테스트는 이 클래스를 가짜로 바꿈."""
+
+    flags = 0  # 자식 프로세스에 주는 creationflags. 창 모드는 콘솔 창을 숨기는 값으로 바꿈
 
     def python_info(self):
         return {"version": sys.version_info[:2], "bits64": sys.maxsize > 2 ** 32,
@@ -73,7 +85,7 @@ class Host:
         try:
             return subprocess.run([python, "-c", "import PyQt6.QtWidgets"], timeout=PROBE_TIMEOUT,
                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.DEVNULL).returncode == 0
+                                  stderr=subprocess.DEVNULL, creationflags=self.flags).returncode == 0
         except (OSError, subprocess.TimeoutExpired):  # 기반 파이썬이 지워졌거나 응답이 없음
             return False
 
@@ -96,6 +108,234 @@ class Host:
     def call(self, command):
         """os.execv 는 Windows 에서 부모가 먼저 끝나 콘솔과 종료 코드를 잃어서 쓰지 않음."""
         return subprocess.call(command)
+
+
+class SetupWindow:
+    """설치 동의, 진행 표시, 실패 안내를 띄우는 준비 창. 이 창이 필요할 때는 PyQt6 가 없어서 tkinter 로 그림."""
+
+    def __init__(self):
+        import tkinter  # Homebrew 파이썬처럼 tkinter 가 빠진 파이썬이 있어서 창을 만들 때 불러옴
+        from tkinter import ttk
+        self.inbox = queue.Queue()  # 작업 스레드가 낸 글. tkinter 는 창을 만든 스레드에서만 건드릴 수 있음
+        self.answer = False
+        self.root = tkinter.Tk()
+        self.root.title(WINDOW_TITLE)
+        self.text = tkinter.Text(self.root, width=88, height=20, wrap="char", state="disabled", font="TkFixedFont")
+        self.text.pack(fill="both", expand=True, padx=12, pady=(12, 8))
+        self.bar = ttk.Progressbar(self.root, mode="indeterminate")
+        self.bar.pack(fill="x", padx=12)
+        buttons = ttk.Frame(self.root)
+        buttons.pack(anchor="e", padx=12, pady=12)
+        self.install = ttk.Button(buttons, text="설치", command=lambda: self.press(True))
+        self.cancel = ttk.Button(buttons, text="닫기", command=lambda: self.press(False))
+        self.install.pack(side="left")
+        self.cancel.pack(side="left", padx=(8, 0))
+        self.root.protocol("WM_DELETE_WINDOW", self.cancel.invoke)  # 꺼진 단추의 invoke 는 아무 일도 하지 않아서 설치 중에는 닫히지 않음
+        self.enable()
+
+    def enable(self, *buttons):
+        """넘긴 단추만 켜고 나머지는 끔."""
+        for button in (self.install, self.cancel):
+            button.state(["!disabled" if button in buttons else "disabled"])
+
+    def write(self, text):
+        self.text.configure(state="normal")
+        self.text.insert("end", text)
+        self.text.configure(state="disabled")
+        self.text.see("end")
+
+    def update(self):
+        """적은 글이 바로 보이게 창을 한 번 그림."""
+        self.root.update()
+
+    def wait(self):
+        """release 가 불릴 때까지 창을 돌림."""
+        self.root.mainloop()
+
+    def release(self):
+        self.root.quit()
+
+    def press(self, answer):
+        self.answer = answer
+        self.release()
+
+    def ask(self):
+        """[설치]나 [닫기]를 누를 때까지 기다림. [설치]를 눌렀으면 True."""
+        self.enable(self.install, self.cancel)
+        self.wait()
+        self.enable()
+        return self.answer
+
+    def wait_close(self):
+        """[닫기]를 누를 때까지 창을 그대로 둠."""
+        self.enable(self.cancel)
+        self.wait()
+
+    def run(self, work):
+        """work(emit) 를 스레드에서 돌리고 끝날 때까지 진행 표시를 움직인 뒤 work 의 결과를 돌려줌. emit 에 넘긴 글은 글 칸에 붙음.
+        오래 걸리는 일을 창을 만든 스레드에서 하면 창이 멈춘 것처럼 보임."""
+        outcome = {}
+
+        def target():
+            try:
+                outcome["value"] = work(self.inbox.put)
+            except Exception as error:  # 스레드에서 난 예외는 부른 쪽에서 다시 던짐
+                outcome["error"] = error
+
+        thread = threading.Thread(target=target, daemon=True)
+        thread.start()
+        self.bar.start()
+        self.root.after(POLL, self.pump, thread)
+        self.wait()
+        self.bar.stop()
+        if "error" in outcome:
+            raise outcome["error"]
+        return outcome["value"]
+
+    def pump(self, thread):
+        """작업 스레드가 낸 글을 글 칸으로 옮기고, 스레드가 끝났으면 기다림을 풂."""
+        alive = thread.is_alive()  # 글을 옮기기 전에 확인해야 끝나기 직전에 낸 글을 놓치지 않음
+        try:
+            while True:
+                self.write(self.inbox.get_nowait())
+        except queue.Empty:
+            pass
+        if alive:
+            self.root.after(POLL, self.pump, thread)
+        else:
+            self.release()
+
+    def close(self):
+        self.root.destroy()
+
+
+class WindowHost(Host):
+    """창 모드의 Host. 터미널에 내보내던 안내, 동의, 진행 표시를 준비 창으로 옮기고 자식 프로세스의 콘솔 창을 숨김."""
+
+    flags = study.NO_WINDOW
+
+    def __init__(self, log=None):
+        self.log = log  # 출력을 받는 기록 파일. 연결하지 않았으면 None
+        self.lines = []  # 사용자가 아직 확인하지 않은 안내. 본 화면을 띄우면 비움
+        self.window = None  # 준비 창. 설치 동의나 실패 안내가 필요할 때 만듦
+        self.dismissed = False  # 설치 동의에서 [닫기]를 눌렀는가
+
+    def open_window(self):
+        """준비 창을 띄우고 그동안의 안내를 옮겨 적음. 띄우지 못하면 False."""
+        if self.window is None:
+            try:
+                self.window = SetupWindow()
+            except Exception:  # tkinter 가 없으면 ImportError, 화면을 못 열면 TclError
+                return False
+            self.window.write("".join(line + "\n" for line in self.lines))
+        return True
+
+    def close_window(self):
+        if self.window is not None:
+            self.window.close()
+            self.window = None
+
+    def isatty(self):
+        """설치 동의를 받을 수 있는가. 창 모드는 준비 창의 단추로 받음."""
+        return self.open_window()
+
+    def say(self, text):
+        text = text.replace(OPENING, "").rstrip()  # 터미널이 없어서 터미널 창을 닫지 말라는 안내는 뺌
+        if not text:
+            return
+        print(text, flush=True)  # 기록 파일에 남김
+        if self.dismissed:
+            return
+        self.lines.append(text)
+        if self.window is not None:
+            self.window.write(text + "\n")
+            self.window.update()
+
+    def ask(self, prompt):
+        if self.window.ask():
+            return "y"
+        self.close_window()  # [닫기]를 눌렀으므로 뒤따르는 안내는 띄우지 않음
+        self.lines, self.dismissed = [], True
+        return ""
+
+    def stream(self, command):
+        """명령을 콘솔 창 없이 돌리면서 출력을 준비 창에 흘리고 (종료 코드, 출력)을 돌려줌."""
+        def work(emit):
+            lines = []
+            with subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  text=True, errors="replace", creationflags=self.flags) as proc:
+                for line in proc.stdout:
+                    print(line, end="", flush=True)
+                    emit(line)
+                    lines.append(line)
+            return proc.returncode, "".join(lines)
+        return self.window.run(work)
+
+    def create_venv(self, path):
+        """venv.EnvBuilder 는 안에서 ensurepip 를 콘솔 프로그램으로 띄워 검은 창이 번쩍이므로 `-m venv` 를 콘솔 창 없이 돌림."""
+        command = [study.console_python(), "-m", "venv", path]
+        code, _ = self.stream(command)
+        if code != 0:
+            raise subprocess.CalledProcessError(code, command)
+
+    def pip_install(self, python):
+        return self.stream([python] + PIP_INSTALL)
+
+    def remove(self, path):
+        self.window.run(lambda emit: shutil.rmtree(path))  # 파일이 많아서 창을 만든 스레드에서 지우면 그동안 창이 멈춤
+
+    def call(self, command):
+        """준비 창을 닫고 본 화면을 띄움. Windows 는 콘솔 창이 뜨지 않게 전용 환경의 pythonw.exe 로 띄움.
+        study.py 대신 start.pyw 를 실행해서 본 화면 쪽이 예외로 끝나도 기록과 알림이 남음."""
+        self.close_window()
+        self.lines = []
+        pythonw = os.path.join(os.path.dirname(command[0]), "pythonw.exe")
+        python = pythonw if os.path.isfile(pythonw) else command[0]
+        return subprocess.call([python, START] + command[2:], env=dict(os.environ, STUDY_WINDOW="1"), creationflags=self.flags)
+
+    def finish(self, code):
+        """실패 안내가 남아 있으면 [닫기]를 누를 때까지 준비 창에 둠. 준비 창을 띄울 수 없으면 예전 실행 파일로 넘기고 0 을 돌려줌."""
+        if not self.lines:
+            return code
+        if not self.open_window():
+            hand_off()
+            return 0
+        if self.log:
+            self.window.write("  기록          : %s\n" % self.log)
+        self.window.wait_close()
+        self.close_window()
+        return code
+
+
+def windowed():
+    """창 모드인가. start.pyw 와 ROKEY.app 이 STUDY_WINDOW=1 을 세우고, pythonw 로 켜면 표준 출력이 없음."""
+    return os.environ.get("STUDY_WINDOW") == "1" or sys.stdout is None
+
+
+def connect_log():
+    """표준 출력이나 표준 오류가 없으면(pythonw) 기록 파일에 연결하고 그 경로를 돌려줌. 연결하지 않았으면 None.
+    print 는 출력이 없어도 조용히 넘어가지만 sys.stderr.write 처럼 직접 쓰는 코드는 죽음. 파일은 실행할 때마다 새로 씀."""
+    if sys.stdout is not None and sys.stderr is not None:
+        return None
+    try:
+        os.makedirs(os.path.dirname(LOG), exist_ok=True)
+        stream, path = open(LOG, "w", encoding="utf-8", errors="replace", buffering=1), LOG
+    except OSError:
+        stream, path = open(os.devnull, "w", encoding="utf-8", errors="replace"), None
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+    return path
+
+
+def hand_off():
+    """준비 창을 띄울 수 없을 때 예전 실행 파일을 열어 터미널에서 이어 가게 함."""
+    os.environ.pop("STUDY_WINDOW", None)  # 넘겨받은 쪽까지 창 모드로 돌면 다시 여기로 와서 끝없이 되풀이됨
+    if os.name == "nt":
+        os.startfile(os.path.join(ROOT, "start.bat"))
+    else:
+        subprocess.call(["open", os.path.join(ROOT, "start.command")])
 
 
 def venv_dir():
@@ -171,6 +411,9 @@ def consent(host, venv, broken):
 def launch(argv=None, host=None):
     """화면을 띄우고 종료 코드를 돌려줌. 띄우지 못하면 0 이 아닌 값."""
     argv = list(argv or [])
+    if host is None and windowed():
+        host = WindowHost(connect_log())
+        return host.finish(launch(argv, host))
     host = host or Host()
     info = host.python_info()
     venv = venv_dir()

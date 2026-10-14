@@ -3,10 +3,12 @@ class Cart:
         self.items = []
 
     def put(self, item):
-        pass
+        self.items.append(item)
 
     def put_many(self, item, count):
-        pass
+        for _ in range(count):
+            self.put(item)
+        
 
 
 def solution(names, counts):
