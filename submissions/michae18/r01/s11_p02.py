@@ -1,10 +1,10 @@
 class CheckBox:
     def __init__(self, text):
         self.text = text
-        self.checked = ____
+        self.checked = False
 
     def setChecked(self, value):
-        self.checked = ____
+        self.checked = value
 
     def isChecked(self):
-        return ____
+        return self.checked
