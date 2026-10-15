@@ -1,3 +1,9 @@
 def add_bonus(scores, bonus):
-    # 여기에 코드를 작성하세요 (아래 return 은 지워도 됩니다)
-    return
+    for i in scores:
+        new_score = scores[i] + bonus
+        
+        if new_score > 100:
+            new_score = 100
+        
+        scores[i] = new_score
+        print(i, scores[i])

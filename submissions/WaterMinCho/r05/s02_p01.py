@@ -1,3 +1,3 @@
-boxes = ____(input())
+boxes = int(input())
 total = boxes + 10
-print("상자 수:", ____)
+print("상자 수:", total)
