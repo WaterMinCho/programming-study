@@ -7,11 +7,11 @@ class Button:
         self.slot = func
 
     def click(self):
-        self.____()
+        self.slot()
 
 
 btn = Button()
-btn.connect(____)
+btn.connect(order)
 clicks = int(input())
 for i in range(clicks):
     btn.click()

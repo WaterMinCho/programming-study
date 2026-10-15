@@ -1,2 +1,2 @@
-print(____)
-____("Hello")
+print("print")
+print("Hello")
