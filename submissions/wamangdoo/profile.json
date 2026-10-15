@@ -284,8 +284,133 @@
    ],
    "shortages": [],
    "created": "2026-10-10T15:39:47",
+   "tries": 1,
+   "avg_level": 1.44,
+   "results": {
+    "s01/Q15": "ok",
+    "s03/Q2": "ok",
+    "s03/Q3": "ok",
+    "s04/Q6": "ok",
+    "s05/Q12": "ok",
+    "s07/Q15": "wrong",
+    "s08/Q2": "ok",
+    "s08/Q14": "ok",
+    "s11/Q5": "ok",
+    "s11/Q14": "wrong",
+    "s15/Q8": "wrong",
+    "s01/p04": "ok",
+    "s06/p10": "skipped",
+    "s08/p04": "ok",
+    "s09/p06": "ok",
+    "s11/p02": "wrong",
+    "s12/p05": "wrong",
+    "s15/p08": "wrong"
+   },
+   "last_graded": "2026-10-15T13:11:21",
+   "score": "35/64",
+   "unanswered": 0,
+   "completed_at": "2026-10-15T13:11:21",
+   "first_score": "35/64"
+  },
+  {
+   "id": "r03",
+   "kind": "round",
+   "size_reason": "보강할 단원 19개",
+   "focus": [
+    {
+     "unit": "s19",
+     "level": 1,
+     "count": 3
+    },
+    {
+     "unit": "s04",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s15",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s18",
+     "level": 1,
+     "count": 2
+    },
+    {
+     "unit": "s01",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s06",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s07",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s08",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s10",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s11",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s14",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s20",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s21",
+     "level": 1,
+     "count": 1
+    }
+   ],
+   "items": [
+    "s04/Q14",
+    "s07/Q17",
+    "s15/Q1",
+    "s15/Q15",
+    "s18/Q15",
+    "s18/Q39",
+    "s19/Q6",
+    "s19/Q9",
+    "s19/Q36",
+    "s20/Q1",
+    "s21/Q13",
+    "s01/p05",
+    "s04/p08",
+    "s06/p06",
+    "s08/p07",
+    "s10/p04",
+    "s11/p01",
+    "s14/p08"
+   ],
+   "retest": [
+    "s04/Q14",
+    "s15/Q1"
+   ],
+   "shortages": [],
+   "created": "2026-10-15T13:11:21",
    "tries": 0,
-   "avg_level": 1.44
+   "avg_level": 1.39
   }
  ],
  "attempts": [
@@ -683,6 +808,133 @@
    "try": 1,
    "ok": true,
    "at": "2026-10-10T15:39:47"
+  },
+  {
+   "round": "r02",
+   "item": "s01/Q15",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s03/Q2",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s03/Q3",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s04/Q6",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s05/Q12",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s07/Q15",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s08/Q2",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s08/Q14",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s11/Q5",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s11/Q14",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s15/Q8",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s01/p04",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s06/p10",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T13:11:21",
+   "skipped": true
+  },
+  {
+   "round": "r02",
+   "item": "s08/p04",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s09/p06",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s11/p02",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s12/p05",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T13:11:21"
+  },
+  {
+   "round": "r02",
+   "item": "s15/p08",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T13:11:21"
   }
  ]
 }
