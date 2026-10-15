@@ -55,23 +55,23 @@
 <rect x="16" y="176" width="928" height="102" rx="12" fill="#f5f5f3"/>
 <text x="32" y="204" font-size="16" font-weight="700" fill="#1c211d">wamangdoo</text>
 <rect x="32" y="216" width="220" height="12" rx="6" fill="#e5e7eb"/>
-<rect x="32" y="216" width="112" height="12" rx="6" fill="#2e7d32"/>
-<text x="32" y="246" fill="#374151">준비도 51% · 숙달 2/21 · 회차 3 · 정답률 80%</text>
+<rect x="32" y="216" width="118" height="12" rx="6" fill="#2e7d32"/>
+<text x="32" y="246" fill="#374151">준비도 54% · 숙달 2/21 · 회차 4 · 정답률 75%</text>
 <rect x="300" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s01 파이썬 소개 및 환경설정: 레벨2 진행</title></rect>
 <text x="309" y="230" font-size="9" fill="#6b7280" text-anchor="middle">01</text>
 <rect x="322" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s02 프로그래밍 기초: 레벨2 진행</title></rect>
 <text x="331" y="230" font-size="9" fill="#6b7280" text-anchor="middle">02</text>
-<rect x="344" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s03 조건식과 제어문: 레벨1 진행</title></rect>
+<rect x="344" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s03 조건식과 제어문: 레벨2 진행</title></rect>
 <text x="353" y="230" font-size="9" fill="#6b7280" text-anchor="middle">03</text>
-<rect x="366" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s04 리스트와 딕셔너리: 레벨1 진행</title></rect>
+<rect x="366" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s04 리스트와 딕셔너리: 레벨2 진행</title></rect>
 <text x="375" y="230" font-size="9" fill="#6b7280" text-anchor="middle">04</text>
 <rect x="388" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s05 반복문: 숙달</title></rect>
 <text x="397" y="230" font-size="9" fill="#6b7280" text-anchor="middle">05</text>
 <rect x="410" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s06 함수(1): 레벨2 진행</title></rect>
 <text x="419" y="230" font-size="9" fill="#6b7280" text-anchor="middle">06</text>
-<rect x="432" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s07 함수(2): 레벨2 진행</title></rect>
+<rect x="432" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s07 함수(2): 레벨1 진행</title></rect>
 <text x="441" y="230" font-size="9" fill="#6b7280" text-anchor="middle">07</text>
-<rect x="454" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s08 자료구조와 알고리즘: 레벨1 진행</title></rect>
+<rect x="454" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s08 자료구조와 알고리즘: 레벨2 진행</title></rect>
 <text x="463" y="230" font-size="9" fill="#6b7280" text-anchor="middle">08</text>
 <rect x="476" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s09 클래스(1): 레벨2 진행</title></rect>
 <text x="485" y="230" font-size="9" fill="#6b7280" text-anchor="middle">09</text>
@@ -99,9 +99,9 @@
 <text x="727" y="230" font-size="9" fill="#6b7280" text-anchor="middle">20</text>
 <rect x="740" y="198" width="18" height="18" rx="4" fill="#cfd8dc"><title>s21 파이썬 활용 심화(os·pathlib·JSON): 미진단</title></rect>
 <text x="749" y="230" font-size="9" fill="#6b7280" text-anchor="middle">21</text>
-<text x="300" y="250" fill="#b91c1c">약한 단원: s04, s08, s03</text>
+<text x="300" y="250" fill="#b91c1c">약한 단원: s11, s07, s13</text>
 <text x="560" y="250" fill="#166534">능숙한 단원: s05, s10</text>
-<text x="300" y="270" fill="#374151">약한 개념: if 문법, 리스트 추가, 튜플, NameError</text>
+<text x="300" y="270" fill="#374151">약한 개념: 네임스페이스, tkinter 대응, pip와 외부 라이브러리, 이터러블과 이터레이터</text>
 <rect x="16" y="288" width="928" height="102" rx="12" fill="#f5f5f3"/>
 <text x="32" y="316" font-size="16" font-weight="700" fill="#1c211d">kimjs85529-a11y</text>
 <rect x="32" y="328" width="220" height="12" rx="6" fill="#e5e7eb"/>
