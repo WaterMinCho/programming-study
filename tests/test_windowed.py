@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -158,6 +159,91 @@ class WindowedTest(unittest.TestCase):
         self.assertEqual(os.path.basename(python).lower(), "pythonw.exe")  # 본 화면도 콘솔 창 없이 띄움
         self.assertEqual(start, os.path.join(ROOT, "start.pyw"))
         self.assertEqual(result["flags"], subprocess.CREATE_NO_WINDOW)
+
+
+OLD_START_BAT = "\r\n".join([
+    '@echo off',
+    'rem Windows: double-click to open the study window. study.py prints every other message.',
+    'chcp 65001 >nul',
+    'cd /d "%~dp0"',
+    'where py >nul 2>nul',
+    'if %errorlevel%==0 (',
+    '    py -3 study.py',
+    ') else (',
+    '    python study.py',
+    ')',
+    'if %errorlevel%==9009 echo Python 을 찾지 못했습니다. https://www.python.org/downloads/latest/python3.14/ 에서 Python 3.14 를 설치한 뒤 다시 실행해 주세요.',
+    'if not %errorlevel%==0 pause',
+]) + "\r\n"  # 터미널을 같이 열던 예전 start.bat
+
+# study.py·start.pyw 대신 넣는 가짜. 어떤 파일이 어떤 파이썬으로 실행됐는지 ran.txt 에 한 줄씩 남김
+FAKE = """import os, sys
+here = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(here, "ran.txt"), "a", encoding="utf-8") as f:
+    f.write("%s %s %s\\n" % (os.path.basename(__file__), os.path.basename(sys.executable).lower(), os.environ.get("STUDY_CONSOLE", "")))
+"""
+# 실행 중에 start.bat 을 새 파일로 바꾸는 가짜 study.py. 문제 받기가 프로그램을 갱신하는 경우와 같음
+UPDATE = FAKE + """import shutil
+shutil.copyfile(os.path.join(here, "new_start.bat"), os.path.join(here, "start.bat"))
+"""
+
+
+@unittest.skipUnless(os.name == "nt", "start.bat 은 Windows 에서만 확인함")
+class StartBatTest(unittest.TestCase):
+    """start.bat 을 임시 폴더에 복사하고 study.py·start.pyw 를 가짜로 바꿔 cmd 로 실행함."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="start_bat_test_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        shutil.copyfile(os.path.join(ROOT, "start.bat"), os.path.join(self.tmp, "start.bat"))
+        for name in ("study.py", "start.pyw"):
+            self.write(name, FAKE)
+
+    def write(self, name, text):
+        with open(os.path.join(self.tmp, name), "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+
+    def run_bat(self, **env):
+        """더블클릭과 같이 cmd /c 로 실행함. 끝난 뒤 cmd 의 오류 출력을 돌려줌."""
+        base = {k: v for k, v in os.environ.items() if k != "STUDY_CONSOLE"}
+        proc = subprocess.run(["cmd", "/c", os.path.join(self.tmp, "start.bat")], stdin=subprocess.DEVNULL,
+                              capture_output=True, timeout=TIMEOUT, env=dict(base, **env))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return proc.stderr
+
+    def ran(self, count):
+        """가짜 스크립트가 count 줄을 남길 때까지 기다린 뒤 잠깐 더 보고 남은 줄을 모두 돌려줌. start 로 띄운 것은 cmd 가 끝난 뒤에 돌 수 있음."""
+        path = os.path.join(self.tmp, "ran.txt")
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not (os.path.isfile(path) and len(open(path, encoding="utf-8").readlines()) >= count):
+            time.sleep(0.2)
+        time.sleep(2)
+        if not os.path.isfile(path):
+            return []
+        with open(path, encoding="utf-8") as f:
+            return f.read().splitlines()
+
+    def test_double_click_hands_off_to_start_pyw_without_console(self):
+        self.run_bat()
+        self.assertEqual(self.ran(1), ["start.pyw pythonw.exe "])
+
+    def test_console_mode_runs_study_py_in_this_console(self):
+        self.run_bat(STUDY_CONSOLE="1")
+        self.assertEqual(self.ran(1), ["study.py python.exe 1"])
+
+    def test_old_start_bat_updated_while_running_ends_without_starting_again(self):
+        shutil.copyfile(os.path.join(ROOT, "start.bat"), os.path.join(self.tmp, "new_start.bat"))
+        with open(os.path.join(self.tmp, "start.bat"), "wb") as f:
+            f.write(OLD_START_BAT.encode("utf-8"))
+        self.write("study.py", UPDATE)
+        self.assertEqual(self.run_bat().strip(), b"")  # 엉뚱한 자리부터 읽으면 '내부 또는 외부 명령이 아닙니다' 같은 오류가 남
+        self.assertEqual(self.ran(1), ["study.py python.exe "])
+
+    def test_hand_off_opens_start_bat_in_console_mode(self):
+        body = "import sys\nsys.path.insert(0, sys.argv[1])\nimport bootstrap\nbootstrap.ROOT = sys.argv[2]\nbootstrap.hand_off()\n"
+        subprocess.run([sys.executable, "-c", body, ROOT, self.tmp], timeout=TIMEOUT, check=True,
+                       env=dict(os.environ, STUDY_WINDOW="1"))
+        self.assertEqual(self.ran(1), ["study.py python.exe 1"])
 
 
 if __name__ == "__main__":

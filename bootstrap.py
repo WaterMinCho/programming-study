@@ -333,6 +333,7 @@ def hand_off():
     """준비 창을 띄울 수 없을 때 예전 실행 파일을 열어 터미널에서 이어 가게 함."""
     os.environ.pop("STUDY_WINDOW", None)  # 넘겨받은 쪽까지 창 모드로 돌면 다시 여기로 와서 끝없이 되풀이됨
     if os.name == "nt":
+        os.environ["STUDY_CONSOLE"] = "1"  # 이 값이 없으면 start.bat 이 start.pyw 로 다시 넘겨서 여기로 돌아옴
         os.startfile(os.path.join(ROOT, "start.bat"))
     else:
         subprocess.call(["open", os.path.join(ROOT, "start.command")])

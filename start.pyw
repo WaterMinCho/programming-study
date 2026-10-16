@@ -15,7 +15,7 @@ import traceback
 ROOT = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(os.path.expanduser("~"), ".rokey-study", "launch.log")  # bootstrap.LOG 와 같은 파일
 TITLE = "ROKEY 파이썬 스터디"
-FAILED = "창을 열지 못했습니다. start.bat(맥은 start.command)으로 실행하거나 python study.py update 를 실행해 주세요.\n기록: %s"
+FAILED = "창을 열지 못했습니다. 터미널에서 python study.py 로 켜거나(맥은 start.command) python study.py update 를 실행해 주세요.\n기록: %s"
 
 
 def record(text):
