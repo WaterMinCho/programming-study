@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "call",
   "tags": ["튜플 반환", "return"],
+  "ref": ["주간 과제 2주차 6차시 1번", "2주차 요약본 2.4"],
   "examples": 3,
   "cases": [
     {"call": "solution(17, 5)", "expected": "(3, 2)"},

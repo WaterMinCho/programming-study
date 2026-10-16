@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["findall과 finditer", "반복 메타 문자"],
+  "ref": ["강의 14차시 42쪽", "강의 14차시 24쪽"],
   "examples": 4,
   "cases": [
     {"call": "solution(\"a12 b345 c6\")", "expected": "'345'"},

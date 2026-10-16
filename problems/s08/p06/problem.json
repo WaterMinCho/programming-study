@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["최댓값·최솟값", "인덱스와 값"],
+  "ref": ["강의 8차시 17쪽", "강의 8차시 14쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution([12, 30, 25, 41, 8])", "expected": "3"},

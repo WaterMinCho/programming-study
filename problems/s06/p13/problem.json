@@ -1,0 +1,15 @@
+{
+  "title": "기본값이 있는 인사말",
+  "type": "print",
+  "level": 1,
+  "points": 4,
+  "mode": "exec",
+  "tags": ["기본값 매개변수", "함수 정의"],
+  "ref": ["과제 6차시 8번", "강의 7차시 23쪽"],
+  "examples": 2,
+  "cases": [
+    {"code": "greet(\"Alice\")", "stdout": "Hello, Alice!\n"},
+    {"code": "greet()", "stdout": "Hello, Guest!\n"},
+    {"code": "greet(\"ROKEY\")\ngreet()\ngreet(\"민수\")", "stdout": "Hello, ROKEY!\nHello, Guest!\nHello, 민수!\n"}
+  ]
+}

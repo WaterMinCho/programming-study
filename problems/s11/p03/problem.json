@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "call",
   "tags": ["콤보박스", "인덱스 범위"],
+  "ref": ["강의 11차시 39~41쪽"],
   "examples": 5,
   "cases": [
     {"call": "solution([\"소\", \"중\", \"대\"], 1)", "expected": "'중'"},

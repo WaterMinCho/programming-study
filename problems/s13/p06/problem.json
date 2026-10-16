@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["try-except 흐름"],
+  "ref": ["강의 13차시 7쪽", "주간 과제 4주차 13차시 1번", "4주차 요약본 13.2"],
   "examples": 2,
   "cases": [
     {"stdin": "abc\n3.5\n7\n", "stdout": "정수를 입력하세요\n정수를 입력하세요\n49\n"},

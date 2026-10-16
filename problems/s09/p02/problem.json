@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "call",
   "tags": ["메서드 반환값", "self"],
+  "ref": ["강의 9차시 14쪽", "강의 9차시 12쪽", "강의 6차시 15쪽"],
   "examples": 3,
   "cases": [
     {"call": "Rect(3, 4).area()", "expected": "12"},

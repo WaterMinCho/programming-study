@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["열기 모드", "읽기 메서드"],
+  "ref": ["강의 12차시 8쪽", "강의 12차시 16쪽", "주간 과제 4주차 12차시 1번"],
   "examples": 2,
   "cases": [
     {"stdout": "김밥\n라면\n", "expect_files": {"menu.txt": "김밥\n라면\n"}},

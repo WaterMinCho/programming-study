@@ -801,3 +801,204 @@ CSV 파일과 엑셀 파일의 구조에 대한 설명으로 옳지 **않은** �
 2. CSV 파일은 텍스트 에디터에 내용을 적고 확장자를 `.csv` 로 저장해 만들 수 있다.
 3. 엑셀 파일은 북(book)이라고 부르며, 북 하나에는 시트(sheet)를 하나만 둘 수 있다.
 4. 엑셀의 시트는 행(row)과 열(column)을 가진 2차원 셀(cell)로 이루어진다.
+
+## Q40 (단답 · 3점)
+
+`df` 에서 열마다 결측치(NaN)가 몇 개인지 세려고 합니다. 빈칸(`____`)에 들어갈 메서드 이름을 적으세요.
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({
+    'ID': [1, 2, 3, 4],
+    'Name': ['Alice', 'Bob', 'Eve', 'Frank'],
+    'Salary': [50000, 70000, None, None]
+})
+print(df.____().sum())
+```
+
+출력 결과는 아래와 같습니다.
+
+```
+ID        0
+Name      0
+Salary    2
+dtype: int64
+```
+
+## Q41 (단답 · 3점)
+
+`Salary` 열의 결측치를 그 열의 평균으로 채우려고 합니다. 빈칸(`____`)에 들어갈 메서드 이름을 적으세요.
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({
+    'ID': [1, 2, 3, 4],
+    'Name': ['Alice', 'Bob', 'Eve', 'Frank'],
+    'Salary': [50000, 70000, None, None]
+})
+meanVal = df['Salary'].mean()
+df['Salary'] = df['Salary'].____(meanVal)
+print(df)
+```
+
+출력 결과는 아래와 같습니다.
+
+```
+   ID   Name   Salary
+0   1  Alice  50000.0
+1   2    Bob  70000.0
+2   3    Eve  60000.0
+3   4  Frank  60000.0
+```
+
+## Q42 (단답 · 3점)
+
+두 DataFrame 을 위아래로 이어 붙이려고 합니다(행 연결). 빈칸(`____`)에 들어갈 함수 이름을 적으세요.
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({'ID': [1, 2], 'Name': ['Alice', 'Bob']})
+df2 = pd.DataFrame({'ID': [3], 'Name': ['Eve']})
+concated = pd.____([df, df2])
+print(concated)
+```
+
+출력 결과는 아래와 같습니다.
+
+```
+   ID   Name
+0   1  Alice
+1   2    Bob
+0   3    Eve
+```
+
+## Q43 (객관식 · 2점)
+
+다음 코드에서 `df['Name']` 에 대한 설명으로 옳은 것은?
+
+```python
+import pandas as pd
+
+data = {'ID': [1, 2, 3], 'Name': ['Alice', 'Bob', 'Charlie'], 'Age': [30, 35, 25]}
+df = pd.DataFrame(data)
+print(df['Name'])
+```
+
+1. `Name` 열의 값을 인덱스 0, 1, 2 와 함께 담은 Series 이다.
+2. `Name` 열 하나만 가진 DataFrame 이다.
+3. 값만 담긴 리스트 `['Alice', 'Bob', 'Charlie']` 이다.
+4. 열 이름으로는 고를 수 없어 KeyError 가 발생한다.
+
+## Q44 (단답 · 3점)
+
+선 그래프를 `my_plot.png` 이미지 파일로 저장하려고 합니다. 빈칸(`____`)에 들어갈 함수 이름을 적으세요.
+
+```python
+import matplotlib.pyplot as plt
+
+x = [1, 2, 3, 4]
+y = [10, 20, 25, 30]
+plt.plot(x, y)
+plt.____("my_plot.png")
+plt.show()
+```
+
+## Q45 (객관식 · 2점)
+
+다음 코드를 실행했을 때 출력되는 것은?
+
+```python
+import numpy as np
+
+print(np.full((2, 3), 7))
+```
+
+**1번**
+
+```
+[[7 7 7]
+ [7 7 7]]
+```
+
+**2번**
+
+```
+[[7. 7. 7.]
+ [7. 7. 7.]]
+```
+
+**3번**
+
+```
+[[7 7]
+ [7 7]
+ [7 7]]
+```
+
+**4번**
+
+```
+[7 7 7 7 7 7]
+```
+
+## Q46 (객관식 · 2점)
+
+다음 코드를 실행했을 때 출력되는 것은?
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({'Name': ['Alice', 'Bob', 'Alice', 'Bob'], 'Age': [30, 35, 30, 40]})
+print(df.duplicated())
+```
+
+**1번**
+
+```
+0    False
+1    False
+2     True
+3    False
+dtype: bool
+```
+
+**2번**
+
+```
+0     True
+1    False
+2     True
+3    False
+dtype: bool
+```
+
+**3번**
+
+```
+0    False
+1    False
+2     True
+3     True
+dtype: bool
+```
+
+**4번**
+
+```
+    Name  Age
+0  Alice   30
+1    Bob   35
+3    Bob   40
+```
+
+## Q47 (객관식 · 2점)
+
+NumPy 로 0 이상 1 미만의 실수 난수로 채운 3행 3열 배열을 만드는 코드는?
+
+1. `np.random.rand(3, 3)`
+2. `np.random.randint(0, 1, (3, 3))`
+3. `np.random.randint(1, 10, (3, 3))`
+4. `np.zeros((3, 3))`

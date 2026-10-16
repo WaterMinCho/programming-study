@@ -4,6 +4,7 @@
   "level": 2,
   "points": 6,
   "tags": ["break", "인덱스"],
+  "ref": ["강의 5차시 14쪽", "강의 5차시 18쪽"],
   "mode": "call",
   "examples": 3,
   "cases": [

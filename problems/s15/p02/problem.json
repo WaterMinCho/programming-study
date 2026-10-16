@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "exec",
   "tags": ["이터레이터 클래스", "next와 StopIteration"],
+  "ref": ["강의 15차시 10~11쪽", "5주차 요약본 15.1"],
   "examples": 2,
   "cases": [
     {"code": "for x in Looper([1, 2, 3]):\n    print(x)", "stdout": "1\n2\n3\n"},

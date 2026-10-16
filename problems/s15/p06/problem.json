@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["제너레이터와 yield"],
+  "ref": ["강의 15차시 13~14쪽", "강의 15차시 16쪽"],
   "examples": 5,
   "cases": [
     {"call": "list(solution([1, 2, 3]))", "expected": "[1, 3, 6]"},

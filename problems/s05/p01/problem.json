@@ -4,6 +4,7 @@
   "level": 1,
   "points": 4,
   "tags": ["range 끝값", "인덱스"],
+  "ref": ["강의 5차시 18쪽", "강의 5차시 8쪽"],
   "mode": "io",
   "examples": 1,
   "cases": [

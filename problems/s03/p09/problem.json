@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["elif 사슬", "논리 연산자", "경계값"],
+  "ref": ["강의 3차시 27쪽", "강의 3차시 11쪽"],
   "examples": 4,
   "cases": [
     {"call": "solution(10, False)", "expected": "2000"},

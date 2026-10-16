@@ -511,3 +511,103 @@ window.setLayout(layout)
 2. `label.setStyleSheet("background-color: blue; color: white;")` 는 레이블의 배경을 파란색, 글자를 흰색으로 지정한다.
 3. `QPixmap` 은 위젯 클래스들과 같은 모듈에 있어서 `from PyQt6.QtWidgets import QPixmap` 으로 가져온다.
 4. `btn.setFixedSize(120, 40)` 은 버튼의 폭을 120, 높이를 40 으로 지정한다.
+
+## Q34 (객관식 · 2점)
+
+PyQt6 를 사용해 파이썬으로 구현하는 것은?
+
+1. 데이터 분석
+2. 그래픽 사용자 인터페이스(GUI)
+3. 데이터베이스 관리
+4. 네트워크 프로그래밍
+
+## Q35 (객관식 · 2점)
+
+PyQt6 에서 위젯들을 세로(수직) 방향으로 차례대로 배치할 때 사용하는 레이아웃 클래스는?
+
+1. `QHBoxLayout`
+2. `QVBoxLayout`
+3. `QGridLayout`
+4. `QFormLayout`
+
+## Q36 (객관식 · 2점)
+
+PyQt6 에서 클릭할 수 있는 버튼 위젯을 만드는 클래스는?
+
+1. `QLineEdit`
+2. `QTextEdit`
+3. `QLabel`
+4. `QPushButton`
+
+## Q37 (객관식 · 2점)
+
+PyQt6 의 창 `window` 를 가로 400, 세로 300 크기로 만들고, 제목 표시줄에 `조각 피자 주문 프로그램` 을 표시하는 코드로 옳은 것은?
+
+1. `window.resize(400, 300)` 다음 `window.setWindowTitle("조각 피자 주문 프로그램")`
+2. `window.resize("400x300")` 다음 `window.title("조각 피자 주문 프로그램")`
+3. `window.setGeometry(400, 300)` 다음 `window.setText("조각 피자 주문 프로그램")`
+4. `window.geometry("400x300")` 다음 `window.setWindowTitle("조각 피자 주문 프로그램")`
+
+## Q38 (객관식 · 2점)
+
+tkinter 로 제목이 `간단한 Tkinter 앱` 인 창을 만들고, 버튼을 클릭하면 `버튼이 클릭되었습니다!` 라는 알림 창이 뜨게 하려 합니다. (가), (나), (다)에 들어갈 것을 순서대로 적은 것은?
+
+```python
+import tkinter as tk
+from tkinter import messagebox
+
+def on_buton_click():
+    (가).showinfo("알림", "버튼이 클릭되었습니다!")
+
+root = tk.Tk()
+root.(나)("간단한 Tkinter 앱")
+root.geometry("300x200")
+
+btn = tk.Button(root, text="클릭하세요", command=(다))
+btn.pack(pady=20)
+
+root.mainloop()
+```
+
+1. `messagebox` · `title` · `on_buton_click`
+2. `messagebox` · `title` · `on_buton_click()`
+3. `tk` · `setWindowTitle` · `on_buton_click`
+4. `showinfo` · `title` · `on_buton_click()`
+
+## Q39 (객관식 · 2점)
+
+위젯과 그 위젯에서 쓰는 시그널을 짝지은 것으로 옳지 **않은** 것은?
+
+1. `QPushButton`: `clicked`
+2. `QRadioButton`: `toggled`
+3. `QCheckBox`: `stateChanged`
+4. `QComboBox`: `textChanged`
+
+## Q40 (객관식 · 2점)
+
+레이블(`QLabel`)의 설정 메서드와 하는 일을 짝지은 것으로 옳지 **않은** 것은?
+
+1. `setText("텍스트")` / `text()`: 표시할 텍스트를 지정하고, 현재 텍스트를 돌려준다.
+2. `setAlignment(Qt.AlignmentFlag.AlignCenter)`: 텍스트나 이미지를 가운데로 정렬한다.
+3. `setPixmap(QPixmap("이미지경로"))`: 레이블에 이미지를 표시한다.
+4. `setWordWrap(True)`: 레이블 글자의 글꼴과 크기를 지정한다.
+
+## Q41 (객관식 · 2점)
+
+클래스로 만든 창에서 버튼을 클릭하면 `on_click_event` 메서드가 실행되게 하려 합니다. 빈칸에 들어갈 것은?
+
+```python
+class Window(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.button = QPushButton("클릭", self)
+        self.button.clicked.connect(____)
+
+    def on_click_event(self):
+        print("버튼 클릭!")
+```
+
+1. `self.on_click_event`
+2. `self.on_click_event()`
+3. `on_click_event`
+4. `Window.on_click_event()`

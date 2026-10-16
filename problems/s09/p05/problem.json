@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["self", "객체별 상태"],
+  "ref": ["강의 9차시 12쪽", "4주차 요약본 9.4"],
   "examples": 3,
   "cases": [
     {"call": "solution([\"apple\", \"milk\"], [2, 1])", "expected": "['apple', 'apple', 'milk']"},

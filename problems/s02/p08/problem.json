@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["몫과 나머지", "문자열 이어 붙이기"],
+  "ref": ["강의 2차시 22쪽", "강의 2차시 25쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution(205)", "expected": "'3분 25초'"},

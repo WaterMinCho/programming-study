@@ -5,12 +5,14 @@
   "points": 4,
   "mode": "call",
   "tags": ["딕셔너리 매개변수", "누적 패턴"],
+  "ref": ["과제 8차시 10번", "강의 8차시 29쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution({'pen': 1200, 'note': 2500, 'eraser': 800})", "expected": "4500"},
     {"call": "solution({'apple': 3})", "expected": "3"},
     {"call": "solution({})", "expected": "0"},
     {"call": "solution({'x': -5, 'y': 5, 'z': 7})", "expected": "7"},
-    {"call": "solution({1: 100, 2: 200, 'three': 300, 'four': 400})", "expected": "1000"}
+    {"call": "solution({1: 100, 2: 200, 'three': 300, 'four': 400})", "expected": "1000"},
+    {"call": "solution({'a': 10, 'b': 20, 'c': 30})", "expected": "60"}
   ]
 }

@@ -4,6 +4,7 @@
   "level": 2,
   "points": 6,
   "tags": ["이중 for", "들여쓰기 범위"],
+  "ref": ["강의 5차시 33~36쪽", "강의 5차시 15쪽"],
   "mode": "io",
   "examples": 1,
   "cases": [

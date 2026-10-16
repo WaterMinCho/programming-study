@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["input은 문자열", "자료형 변환"],
+  "ref": ["과제 2차시 10번", "강의 2차시 25~26쪽"],
   "examples": 2,
   "cases": [
     {"stdin": "25\n", "stdout": "상자 수: 35\n"},

@@ -4,6 +4,7 @@
   "level": 1,
   "points": 4,
   "tags": ["while 조건"],
+  "ref": ["강의 5차시 22쪽", "강의 5차시 10쪽"],
   "mode": "io",
   "examples": 2,
   "cases": [

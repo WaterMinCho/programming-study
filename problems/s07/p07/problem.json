@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["재귀 함수"],
+  "ref": ["강의 7차시 25쪽"],
   "examples": 3,
   "cases": [
     {"stdin": "4\n", "stdout": "10\n"},

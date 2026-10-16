@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["ord·chr", "문자열 성질"],
+  "ref": ["강의 13차시 14~15쪽"],
   "examples": 4,
   "cases": [
     {"call": "solution(\"abc\", 1)", "expected": "'bcd'"},

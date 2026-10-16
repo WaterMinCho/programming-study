@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["이터러블과 이터레이터", "제너레이터 표현식", "range 경계"],
+  "ref": ["과제 15차시 8번", "과제 15차시 9번", "강의 15차시 17쪽"],
   "examples": 4,
   "cases": [
     {"call": "next(solution(9))", "expected": "0"},

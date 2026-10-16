@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["제너레이터와 yield", "제너레이터 표현식", "range 경계"],
+  "ref": ["강의 15차시 16~17쪽", "과제 15차시 5번", "과제 15차시 4번"],
   "examples": 1,
   "cases": [
     {"stdout": "3\n2\n1\n<class 'generator'>\n1\n4\n9\n16\n"}

@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["따옴표와 문자열", "print 형식"],
+  "ref": ["과제 2차시 2번", "과제 2차시 3번", "강의 2차시 8쪽"],
   "examples": 1,
   "cases": [
     {"stdout": "Tom's robot\n로봇이 말했다. \"준비 완료\"\n"}

@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["대소문자 구분", "따옴표와 문자열", "실행 순서"],
+  "ref": ["강의 1차시 8쪽", "강의 2차시 8쪽"],
   "examples": 1,
   "cases": [
     {"stdout": "IDLE\nVSCode\nColab\n"}

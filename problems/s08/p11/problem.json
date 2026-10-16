@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["선택 정렬", "맞바꾸기"],
+  "ref": ["과제 8차시 9번", "강의 8차시 20쪽"],
   "examples": 3,
   "cases": [
     {"call": "sort_desc([3, 8, 5])", "expected": "[8, 5, 3]"},

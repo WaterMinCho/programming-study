@@ -365,3 +365,83 @@ p = re.compile(r"&[#](0[0-7]+|[0-9]+|x[0-9a-fA-F]+);")
 2. `&#x4F;`
 3. `&#12`
 4. `&#xyz;`
+
+## Q32 (객관식 · 2점)
+
+`re.match()` 와 `re.search()` 의 차이를 바르게 설명한 것은?
+
+1. 둘 다 문자열 전체를 뒤져 처음 매치되는 곳을 찾는다.
+2. `re.match()` 는 문자열의 시작 부분부터 정규식과 매치되는지 검사한다.
+3. `re.search()` 는 문자열의 시작 부분이 정규식과 맞을 때만 match 객체를 리턴한다.
+4. 둘의 동작은 다르지 않다.
+
+## Q33 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+import re
+text = "id_7, pw-9!"
+print(re.findall(r"\w+", text))
+print(re.findall(r"\W", text))
+print(len(re.findall(r"\D", text)))
+```
+
+## Q34 (객관식 · 2점)
+
+대괄호 `[ ]` 문자 클래스에 대한 설명으로 옳지 **않은** 것은?
+
+1. `[a-c]` 는 `[abc]` 와 같다.
+2. `[\^]` 는 `^` 글자 하나와 매치된다.
+3. `[^0-9]` 는 숫자가 아닌 글자 하나와 매치된다.
+4. `[.]` 는 줄바꿈 문자를 뺀 아무 글자 하나와 매치된다.
+
+## Q35 (객관식 · 2점)
+
+`p = re.compile('[a-z]+')` 일 때, 결과가 match 객체가 **아닌** 것은?
+
+1. `p.match("python")`
+2. `p.search("3 python")`
+3. `p.findall("life is too short")`
+4. `for m in p.finditer("life is too short"):` 에서 하나씩 꺼낸 `m`
+
+## Q36 (객관식 · 2점)
+
+역슬래시 문제와 raw string 에 대한 설명으로 옳지 **않은** 것은?
+
+1. 정규식 `\section` 의 `\s` 는 화이트스페이스로 해석되어 `[ \t\n\r\f\v]ection` 과 같은 뜻이 된다.
+2. 보통 문자열로 정규식 엔진에 `\\section` 을 전달하려면 `'\\\\section'` 처럼 역슬래시 4개를 쓴다.
+3. raw string 을 쓰면 `r'\\section'` 처럼 역슬래시 2개만 써도 엔진에 `\\section` 이 전달된다.
+4. 역슬래시가 없는 정규식도 앞에 `r` 을 붙이면 다른 정규식으로 컴파일되어 결과가 달라진다.
+
+## Q37 (객관식 · 2점)
+
+다음 코드의 출력 결과는?
+
+```python
+import re
+text = "Contact us at support@example.com or sales@example.org."
+pattern = r"[\w.-]+@[\w.-]+\.\w+"
+emails = re.findall(pattern, text)
+print(emails)
+```
+
+1. `['support@example.com', 'sales@example.org']`
+2. `['support@example.com', 'sales@example.org.']`
+3. `['support@example', 'sales@example']`
+4. `['support', 'sales']`
+
+## Q38 (객관식 · 2점)
+
+다음 코드의 출력 결과는?
+
+```python
+import re
+text = "상품 코드: A123, B456, C789, 가격: 12000원"
+print(re.findall(r"\d+", text))
+```
+
+1. `['123', '456', '789', '12000']`
+2. `[123, 456, 789, 12000]`
+3. `['A123', 'B456', 'C789', '12000원']`
+4. `['1', '2', '3', '4', '5', '6', '7', '8', '9', '1', '2', '0', '0', '0']`

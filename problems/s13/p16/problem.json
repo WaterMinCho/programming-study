@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["인덱싱·슬라이싱", "문자열 성질"],
+  "ref": ["강의 13차시 11쪽", "강의 13차시 20~21쪽", "강의 13차시 16쪽"],
   "examples": 4,
   "cases": [
     {"stdin": "python\n", "stdout": "p****n\n"},

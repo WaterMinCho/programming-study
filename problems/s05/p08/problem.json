@@ -4,6 +4,7 @@
   "level": 2,
   "points": 6,
   "tags": ["누적 패턴", "for 시퀀스"],
+  "ref": ["과제 5차시 6번", "과제 5차시 11번", "강의 4차시 9~10쪽"],
   "mode": "call",
   "examples": 3,
   "cases": [
