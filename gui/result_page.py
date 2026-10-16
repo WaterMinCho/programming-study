@@ -41,6 +41,21 @@ def my_answer_html(item):
     return code_box(str(answer).rstrip("\n"))
 
 
+def explain_html(item, info):
+    """정답과 해설 구역. info 는 session.explain 이 돌려준 값. 오답 노트 화면도 같이 씀."""
+    parts = [band("정답과 해설", "answer")]
+    if info["answer"]:
+        parts.append("<p><b>정답: %s</b></p>" % info["answer"] if item["type"] == "choice"
+                     else "<p><b>정답</b></p>" + code_box(info["answer"]))
+    if info["markdown"]:
+        parts.append(md_html(re.sub(r"^# [^\n]*\n", "", info["explain"], count=1)))  # 문서 첫 줄의 제목은 띠 제목과 겹쳐서 뺌
+    else:  # 퀴즈 해설은 마크다운 문서가 아니라 한 문단짜리 글임
+        parts.append("<p>%s</p>" % mdlite.inline_html(info["explain"]))
+    if info["solution"]:
+        parts += [band("모범 답안"), code_box(info["solution"])]
+    return "".join(parts)
+
+
 class ResultPage(QWidget):
     def __init__(self, win):
         super().__init__()
@@ -238,17 +253,7 @@ class ResultPage(QWidget):
             parts.append("<p>틀린 이유는 '다시 풀기'에서 '다시 채점'을 누르면 나옵니다.</p>")
         parts += [md_html(item["body_md"]), band("내 답"), my_answer_html(item)]
         if item["id"] in self.revealed:
-            info = self.win.session.explain(self.view["id"], item["id"])
-            parts.append(band("정답과 해설", "answer"))
-            if info["answer"]:
-                parts.append("<p><b>정답: %s</b></p>" % info["answer"] if item["type"] == "choice"
-                             else "<p><b>정답</b></p>" + code_box(info["answer"]))
-            if info["markdown"]:
-                parts.append(md_html(re.sub(r"^# [^\n]*\n", "", info["explain"], count=1)))  # 문서 첫 줄의 제목은 띠 제목과 겹쳐서 뺌
-            else:  # 퀴즈 해설은 마크다운 문서가 아니라 한 문단짜리 글임
-                parts.append("<p>%s</p>" % mdlite.inline_html(info["explain"]))
-            if info["solution"]:
-                parts += [band("모범 답안"), code_box(info["solution"])]
+            parts.append(explain_html(item, self.win.session.explain(self.view["id"], item["id"])))
         return "<body>%s</body>" % "".join(parts)
 
     def color_rows(self):

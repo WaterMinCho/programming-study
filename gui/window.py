@@ -15,6 +15,7 @@ from gui.round_page import RoundPage
 from gui.team_page import TeamPage
 from gui.widgets import Para
 from gui.worker import Job
+from gui.wrong_page import WrongPage
 from session import SessionError
 
 
@@ -81,8 +82,8 @@ class MainWindow(QMainWindow):
 
         self.pages = QStackedWidget()
         self.start, self.home, self.round_page, self.result_page = StartPage(self), HomePage(self), RoundPage(self), ResultPage(self)
-        self.team_page = TeamPage(self)
-        for page in (self.start, self.home, self.round_page, self.result_page, self.team_page):
+        self.team_page, self.wrong_page = TeamPage(self), WrongPage(self)
+        for page in (self.start, self.home, self.round_page, self.result_page, self.team_page, self.wrong_page):
             self.pages.addWidget(page)
         self.setCentralWidget(self.pages)
         self.restyle()  # 스타일시트가 있으면 부모가 바뀔 때 위젯 글꼴이 초기화되므로 창에 붙인 뒤에 글꼴을 줌
@@ -216,6 +217,10 @@ class MainWindow(QMainWindow):
     def show_team(self):
         self.team_page.refresh()
         motion.switch(self.pages, self.team_page)
+
+    def show_wrong(self):
+        self.wrong_page.refresh()
+        motion.switch(self.pages, self.wrong_page)
 
     # 대화상자
 
@@ -368,7 +373,7 @@ class MainWindow(QMainWindow):
 
     def restyle(self):
         """글자 크기나 테마가 바뀌면 화면마다 본문과 색을 다시 넣음."""
-        for page in (self.home, self.round_page, self.result_page):
+        for page in (self.home, self.round_page, self.result_page, self.wrong_page):
             page.restyle()
 
     def closeEvent(self, event):

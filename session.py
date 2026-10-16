@@ -463,6 +463,41 @@ class Session:
         return {"kind": "code", "answer": "", "explain": secrets.get(pid + "/explain.md", "").strip(), "markdown": True,
                 "solution": secrets.get(pid + "/solution.py", "").rstrip("\n")}
 
+    # 오답 노트
+
+    def wrong_notes(self):
+        """첫 시도에 틀린(미응답 포함) 적이 있는 문항을 단원별로 묶음. 단원은 차시 순, 단원 안에서는 최근에 틀린 것이 위.
+        round·at·skipped 는 마지막으로 틀린 첫 시도의 값이고 completed 는 그 회차를 끝냈는가임.
+        그 뒤에 다른 회차의 첫 시도나 그 회차의 다시 채점에서 맞혔으면 fixed 임. 앞 회차를 다시 채점해 맞힌 것은 넣지 않음.
+        은행에서 빠진 문항은 건너뜀."""
+        order = {rnd["id"]: n for n, rnd in enumerate(self.prof["rounds"])}
+        notes, place = {}, {}
+        for n, a in enumerate(self.prof["attempts"]):  # 기록은 채점한 순서로 쌓임
+            key = a["item"]
+            if key not in self.cat:
+                continue
+            if a["try"] == 1 and not a["ok"]:
+                it, rnd = self.cat[key], self.prof["rounds"][order[a["round"]]]
+                labels = study.QTYPE_LABEL if it["kind"] == "quiz" else study.TYPE_LABEL
+                notes[key] = {
+                    "key": key, "id": adaptive.fname_of(key), "type_label": labels[it["type"]], "level": it["level"], "points": it["points"],
+                    "round": a["round"], "round_title": adaptive.round_title(rnd), "completed": bool(rnd.get("completed_at")), "at": a["at"],
+                    "skipped": bool(a.get("skipped")), "wrong_count": notes[key]["wrong_count"] + 1 if key in notes else 1, "fixed": False,
+                }
+                place[key] = (a["at"], order[a["round"]], -n)  # 시각이 같으면 뒤 회차가 먼저, 같이 채점한 문항은 문제지 순서
+            elif a["ok"] and key in notes and (a["try"] == 1 or a["round"] == notes[key]["round"]):
+                notes[key]["fixed"] = True
+        units = {}
+        for note in sorted(notes.values(), key=lambda note: place[note["key"]], reverse=True):
+            units.setdefault(self.cat[note["key"]]["unit"], []).append(note)
+        return [{"unit": unit, "title": adaptive.cat_unit_title(self.cat, unit), "items": items}
+                for unit, items in sorted(units.items(), key=lambda pair: study.natural_key(pair[0]))]
+
+    def wrong_item(self, rid, item_id):
+        """오답 노트에서 고른 문항을 open_round 의 문항 모양으로 돌려줌. 내 답은 그 회차에 적은 답임. 답안지가 깨졌으면 SessionError."""
+        rnd, key, _ = self._find(rid, item_id)
+        return self._item_view(rnd, key, self._keys(rnd).index(key) + 1, self._quiz_answers(rnd["id"]))
+
     # 현황
 
     def _unit_views(self, states):
