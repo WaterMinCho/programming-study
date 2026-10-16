@@ -1261,6 +1261,178 @@ class TeamTest(GuiTest):
         self.assertEqual((len(team.findChildren(MemberCard)), team.findChildren(EmptyCard)), (2, []))  # 앞서 놓았던 카드는 남지 않음
 
 
+class WrongNotesTest(GuiTest):
+    def submit(self, rid, keys, right=(), wrong=()):
+        """고른 문항으로 회차를 만들어 화면에서 풀고 제출함. right 는 정답, wrong 은 오답을 적고 나머지는 비움."""
+        self.make_round(rid, keys)
+        self.win.open_round(rid)
+        for key in keys:
+            if key in right or key in wrong:
+                item = self.select(lambda it: it["key"] == key)
+                self.fill(item, right_answer(self.win.session, item) if key in right else "print('오답')\n")
+        self.submit_round()
+        self.assertIs(self.page(), self.win.result_page)
+
+    def open_notes(self):
+        self.win.go_home()
+        click(self.win.home.wrong_btn)
+        self.assertIs(self.page(), self.win.wrong_page)
+        return self.win.wrong_page
+
+    def rows(self, page):
+        return [page.listw.item(row).text() for row in range(page.listw.count())]
+
+    def test_notes_list_misses_by_unit_and_open_each_item(self):
+        self.boot()
+        choice, output, code = self.first(type="choice", multi=False), self.first(type="output"), self.first(type="return")
+        cat = self.win.session.cat
+        self.assertEqual([cat[key]["unit"] for key in (choice, output, code)], ["s01", "s01", "s02"])
+        self.submit("r91", [choice, output, code], right=[choice], wrong=[code])
+        page = self.open_notes()
+        self.assertEqual(page.summary.text(), "틀린 문항 2개 · 그 뒤에 맞힌 문항 0개")
+        self.assertFalse(page.hide_fixed.isChecked())
+        self.assertIs(page.stack.currentWidget(), page.split)
+        self.assertEqual(self.rows(page), ["1차시 · %s · 1문항" % cat[output]["unit_title"], "출력 예측 · 91회차 미니 모의고사 · 미응답",
+                                           "2차시 · %s · 1문항" % cat[code]["unit_title"], "반환값 · 91회차 미니 모의고사"])
+        for row in (0, 2):  # 단원 머리 줄은 누르거나 화살표 키로 고를 수 없음
+            self.assertFalse(page.listw.item(row).flags() & (Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled))
+            self.assertTrue(page.listw.item(row).font().bold())
+        self.assertEqual(page.listw.currentRow(), 1)
+        QTest.mouseClick(page.listw.viewport(), LEFT, pos=page.listw.visualItemRect(page.listw.item(0)).center())
+        self.assertEqual(page.listw.currentRow(), 1)
+        page.listw.setFocus()
+        QTest.keyClick(page.listw, Qt.Key.Key_Down)
+        self.assertEqual(page.listw.currentRow(), 3)
+        QTest.keyClick(page.listw, Qt.Key.Key_Up)
+        self.assertEqual(page.listw.currentRow(), 1)
+        for key, row in ((Qt.Key.Key_End, 3), (Qt.Key.Key_Home, 1), (Qt.Key.Key_PageDown, 3), (Qt.Key.Key_PageUp, 1)):
+            QTest.keyClick(page.listw, key)  # Home 과 PageUp 이 0번 단원 머리 줄을 가리키면 그 아래 문항 줄로 감
+            self.assertEqual(page.listw.currentRow(), row, key)
+        self.assertEqual([page.listw.item(row).foreground().color().name() for row in (1, 3)], [theme.color("blank"), theme.color("wrong")])
+
+        item = self.win.session.wrong_item("r91", adaptive.fname_of(output))
+        self.assertEqual(page.item_title.text(), "출력 예측 · %s · %d점" % (cat[output]["unit_title"], cat[output]["points"]))
+        text = page.detail.toPlainText()
+        self.assertIn("미응답 · 91회차 미니 모의고사", text)
+        self.assertIn(mdlite.inline_plain(item["body_md"].split("\n")[0]), text)
+        self.assertIn("내 답", text)
+        self.assertIn("(작성하지 않았습니다)", text)
+        self.assertNotIn("정답과 해설", text)
+        self.assertTrue(page.explain_btn.isEnabled())
+        click(page.explain_btn)
+        self.assertIn("정답과 해설", page.detail.toPlainText())
+        self.assertIn(cat[output]["q"]["answer"].strip("\n").split("\n")[0], page.detail.toPlainText())
+        self.assertFalse(page.explain_btn.isEnabled())
+
+        page.listw.setCurrentRow(3)
+        self.assertIn("print('오답')", page.detail.toPlainText())
+        self.assertTrue(page.item_title.text().startswith(cat[code]["spec"]["title"] + " · 반환값"))
+        click(page.explain_btn)
+        self.assertIn("모범 답안", page.detail.toPlainText())
+        click(page.retry_btn)  # 그 회차의 다시 풀기 화면에서 그 문항을 엶
+        round_page = self.win.round_page
+        self.assertIs(self.page(), round_page)
+        self.assertEqual((round_page.view["id"], round_page.review, round_page.current["key"]), ("r91", True, code))
+        self.assertEqual(round_page.title.text(), "91회차 미니 모의고사 · 다시 풀기")
+
+    def test_items_answered_right_later_are_marked_and_can_be_hidden(self):
+        self.boot()
+        output, code = self.first(type="output"), self.first(type="return")
+        self.submit("r91", [output, code], wrong=[code])
+        self.submit("r92", [output], right=[output])
+        page = self.open_notes()
+        self.assertEqual(page.summary.text(), "틀린 문항 2개 · 그 뒤에 맞힌 문항 1개")
+        self.assertEqual(self.rows(page)[1], "출력 예측 · 91회차 미니 모의고사 · 미응답 · 다시 맞힘")
+        self.assertEqual(page.listw.item(1).foreground().color().name(), theme.color("ok"))
+        self.assertIn("그 뒤에 다시 맞힘", page.detail.toPlainText())
+        page.listw.setCurrentRow(3)
+        click(page.hide_fixed)
+        self.assertEqual(self.rows(page), ["2차시 · %s · 1문항" % self.win.session.cat[code]["unit_title"], "반환값 · 91회차 미니 모의고사"])
+        self.assertEqual(page.selected()["key"], code)  # 고르던 문항이 남아 있으면 그대로
+        click(page.hide_fixed)
+        self.assertEqual(len(self.rows(page)), 4)
+        self.assertEqual(page.selected()["key"], code)
+
+        click(page.retry_btn)  # 다시 풀기에서 고쳐 다시 채점하고 돌아오면 다시 맞힌 문항이 됨
+        self.fill(self.win.round_page.current, right_answer(self.win.session, self.win.round_page.current))
+        click(self.win.round_page.submit_btn)
+        self.idle()
+        page = self.open_notes()
+        self.assertEqual(page.summary.text(), "틀린 문항 2개 · 그 뒤에 맞힌 문항 2개")
+        click(page.hide_fixed)
+        self.assertIs(page.stack.currentWidget(), page.empty)
+        self.assertIn("모두 다시 맞혔습니다", page.empty_text.text())
+        self.assertFalse(page.explain_btn.isEnabled() or page.retry_btn.isEnabled())
+
+    def test_empty_notes_say_where_misses_come_from(self):
+        self.boot()
+        page = self.open_notes()
+        self.assertIs(page.stack.currentWidget(), page.empty)
+        self.assertEqual(page.empty_text.text(), "아직 틀린 문항이 없습니다. 회차를 제출하면 틀린 문항이 여기에 모입니다.")
+        self.assertEqual(page.summary.text(), "틀린 문항 0개 · 그 뒤에 맞힌 문항 0개")
+        click(page.home_btn)
+        self.assertIs(self.page(), self.win.home)
+
+    def test_explain_opens_only_after_the_round_is_submitted(self):
+        """터미널에서 일부만 채점한 회차의 오답도 목록에 나오지만, 해설은 회차를 제출한 뒤에 열림."""
+        self.boot()
+        output, code = self.first(type="output"), self.first(type="return")
+        self.make_round("r91", [output, code])
+        self.win.session.set_answer("r91", adaptive.fname_of(output), "틀린 답")
+        self.win.session.grade("r91")
+        page = self.open_notes()
+        self.assertEqual(self.rows(page)[1:], ["출력 예측 · 91회차 미니 모의고사"])
+        click(page.explain_btn)
+        self.assertIn("제출한 뒤에", self.win.dialog.text.text())
+        self.choose("ok")
+        self.assertNotIn("정답과 해설", page.detail.toPlainText())
+        self.assertTrue(page.explain_btn.isEnabled())
+        click(page.retry_btn)  # 끝나지 않은 회차는 다시 풀기가 아니라 이어 풀기와 같은 풀이 화면으로 열림
+        round_page = self.win.round_page
+        self.assertIs(self.page(), round_page)
+        self.assertEqual((round_page.view["id"], round_page.review, round_page.current["key"]), ("r91", False, output))
+        self.assertEqual(round_page.submit_btn.text(), "회차 제출")
+
+    def test_broken_answer_sheet_is_reported_and_retry_offers_repair(self):
+        self.boot()
+        output, code = self.first(type="output"), self.first(type="return")
+        self.submit("r91", [output, code], wrong=[code])
+        path = os.path.join(self.win.session.folder("r91"), "quiz.py")
+        study.write_text(path, study.read_text(path) + "x = (\n")
+        page = self.open_notes()
+        self.assertIn("답안지 복구", page.detail.toPlainText())
+        self.assertFalse(page.explain_btn.isEnabled())
+        click(page.retry_btn)
+        self.assertIs(self.page(), page)  # 열지 않고 복구를 제안함
+        self.choose("repair")
+        self.assertIs(self.page(), self.win.round_page)
+        self.assertEqual(self.win.round_page.current["key"], output)
+        self.choose("ok")
+
+    def test_notes_follow_the_dark_theme_and_font_size(self):
+        self.boot()
+        output, code = self.first(type="output"), self.first(type="return")
+        self.submit("r91", [output, code], wrong=[code])
+        page = self.open_notes()
+        page.listw.setCurrentRow(3)
+        click(page.explain_btn)
+        theme.set_mode("dark")
+        pump()
+        self.assertEqual([page.listw.item(row).foreground().color().name() for row in (1, 3)], [theme.DARK["blank"], theme.DARK["wrong"]])
+        self.assertIn(theme.DARK["ink"], page.detail.document().defaultStyleSheet())
+        self.assertIn("모범 답안", page.detail.toPlainText())  # 펼친 해설은 다시 그려도 남음
+        self.assertEqual(page.hide_fixed.palette().color(page.hide_fixed.palette().ColorRole.Base).name(), theme.DARK["track"])
+        self.assertEqual(bright_share(self.win), 0)
+        shown = backgrounds(page.detail.document().toHtml())  # 구역 띠와 코드 상자
+        self.assertTrue(shown and all(gray(value) <= 200 for value in shown), shown)
+        self.win.set_zoom(2)
+        self.assertIn("body { font-size: %dpx" % (14 + theme.DOC_PX + 2), page.detail.document().defaultStyleSheet())
+        theme.set_mode("light")
+        pump()
+        self.assertEqual(page.listw.item(3).foreground().color().name(), theme.LIGHT["wrong"])
+        self.assertGreater(bright_share(self.win), 0.5)
+
+
 class WidgetTest(unittest.TestCase):
     def test_choice_falls_back_to_a_number_box_when_options_cannot_be_counted(self):
         panel, seen = ChoicePanel(), []

@@ -343,6 +343,81 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(graded["state"], "wrong")
         self.assertIn("따옴표", graded["detail"])
 
+    # 오답 노트
+
+    def quiz_keys(self, unit, count):
+        cat = self.sess.cat
+        return [k for k in sorted(cat, key=study.natural_key) if cat[k]["unit"] == unit and cat[k]["kind"] == "quiz"][:count]
+
+    def submit(self, rid, right=(), wrong=(), blank=()):
+        """고른 문항으로 회차를 만들어 right 는 정답, wrong 은 오답을 적고 blank 는 비운 채 제출함."""
+        self.make_round(rid, list(right) + list(wrong) + list(blank))
+        for view in self.sess.open_round(rid)["items"]:
+            if view["key"] in right or view["key"] in wrong:
+                self.sess.set_answer(rid, view["id"], right_answer(self.sess, view) if view["key"] in right else wrong_answer(view))
+        return self.sess.grade(rid, finalize=True)
+
+    def test_wrong_notes_hold_first_attempt_misses_by_unit(self):
+        """첫 시도에 틀렸거나 비워 둔 문항만 단원별로 모임. 단원은 차시 순이고, 단원 안에서는 최근에 틀린 것이 위, 같이 채점한 문항은 문제지 순서."""
+        self.assertEqual(self.sess.wrong_notes(), [])
+        a1, a2, a3, a4 = self.quiz_keys("s02", 4)
+        b1, c1 = self.quiz_keys("s05", 1)[0], self.quiz_keys("s07", 1)[0]
+        self.submit("r91", right=[a1], wrong=[a2, a3, c1], blank=[b1])
+        self.submit("r92", wrong=[a4])
+        notes = self.sess.wrong_notes()
+        self.assertEqual([(u["unit"], u["title"]) for u in notes], [(u, adaptive.cat_unit_title(self.sess.cat, u)) for u in ("s02", "s05", "s07")])
+        self.assertEqual([[n["key"] for n in u["items"]] for u in notes], [[a4, a2, a3], [b1], [c1]])
+        it = self.sess.cat[b1]
+        self.assertEqual(notes[1]["items"][0], {
+            "key": b1, "id": adaptive.fname_of(b1), "type_label": study.QTYPE_LABEL[it["type"]], "level": it["level"], "points": it["points"],
+            "round": "r91", "round_title": "91회차 미니 모의고사", "completed": True, "at": notes[1]["items"][0]["at"], "skipped": True,
+            "wrong_count": 1, "fixed": False})
+        self.assertEqual([(n["round"], n["skipped"]) for n in notes[0]["items"]], [("r92", False), ("r91", False), ("r91", False)])
+
+    def test_wrong_notes_mark_items_answered_right_later(self):
+        """다른 회차의 첫 시도나 같은 회차의 다시 채점에서 맞히면 fixed. 그 뒤에 또 틀리면 그 회차가 마지막으로 틀린 회차가 됨.
+        그보다 앞 회차를 다시 채점해 맞힌 것은 fixed 가 아님."""
+        k1, k2 = self.quiz_keys("s03", 2)
+        self.submit("r91", wrong=[k1, k2])
+        self.submit("r92", right=[k1])
+        view = next(v for v in self.sess.open_round("r91")["items"] if v["key"] == k2)
+        self.sess.set_answer("r91", view["id"], right_answer(self.sess, view))
+        self.sess.grade("r91")
+        notes = {n["key"]: n for n in self.sess.wrong_notes()[0]["items"]}
+        self.assertEqual([(notes[k]["round"], notes[k]["wrong_count"], notes[k]["fixed"]) for k in (k1, k2)], [("r91", 1, True), ("r91", 1, True)])
+        self.submit("r93", wrong=[k1])
+        notes = self.sess.wrong_notes()[0]["items"]
+        self.assertEqual([(n["key"], n["round"], n["wrong_count"], n["fixed"]) for n in notes], [(k1, "r93", 2, False), (k2, "r91", 1, True)])
+        view = next(v for v in self.sess.open_round("r91")["items"] if v["key"] == k1)
+        self.sess.set_answer("r91", view["id"], right_answer(self.sess, view))
+        self.sess.grade("r91")
+        notes = self.sess.wrong_notes()[0]["items"]
+        self.assertEqual([(n["key"], n["round"], n["wrong_count"], n["fixed"]) for n in notes], [(k1, "r93", 2, False), (k2, "r91", 1, True)])
+
+    def test_wrong_notes_skip_items_outside_exam_scope(self):
+        keep = self.quiz_keys("s04", 1)[0]
+        self.submit("r91", wrong=[keep])
+        for key in ("s20/Q17", "s21/p01"):  # 시험 범위를 정하기 전에 남은 기록
+            self.sess.prof["attempts"].append({"round": "r91", "item": key, "try": 1, "ok": False, "at": adaptive.now()})
+        self.assertEqual([n["key"] for u in self.sess.wrong_notes() for n in u["items"]], [keep])
+
+    def test_wrong_item_shows_the_answer_written_in_that_round(self):
+        key = next(k for k in sorted(self.sess.cat, key=study.natural_key) if self.sess.cat[k]["type"] == "short")
+        name = adaptive.fname_of(key)
+        for rid, answer in (("r91", "첫 번째 오답"), ("r92", "두 번째 오답")):
+            self.make_round(rid, [key])
+            self.sess.set_answer(rid, name, answer)
+            self.sess.grade(rid, finalize=True)
+        self.assertEqual(self.sess.wrong_notes()[0]["items"][0]["round"], "r92")
+        for rid, answer in (("r91", "첫 번째 오답"), ("r92", "두 번째 오답")):
+            item = self.sess.wrong_item(rid, name)
+            self.assertEqual((item["key"], item["answer"], item["no"]), (key, answer, 1))
+            self.assertTrue(item["body_md"].strip())
+        self.assertTrue(self.sess.explain("r92", name)["answer"])
+        study.write_text(os.path.join(self.sess.folder("r91"), "quiz.py"), "%s = '깨진\n" % name)
+        with self.assertRaises(session.SessionError):
+            self.sess.wrong_item("r91", name)
+
     # 현황
 
     def test_overview_tracks_progress(self):
