@@ -6,11 +6,11 @@ class Hero:
     def hit(self, damage):
         self.hp = self.hp - damage
         if self.hp < 0:
-            ____ = 0
+            self.hp = 0
 
     def alive(self):
-        return ____ > 0
+        return self.hp > 0
 
     def heal(self, amount):
-        if self.____():
+        if self.alive():
             self.hp = self.hp + amount

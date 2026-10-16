@@ -10,3 +10,12 @@ class Counter:
 
 
 # 아래에 DoubleCounter, StepCounter 클래스를 작성하세요
+ 
+class DoubleCounter(Counter):
+    def up(self):
+        self.value += 2
+    
+class StepCounter(Counter):
+    def super.__init__(self):
+        self.value = 0
+        
