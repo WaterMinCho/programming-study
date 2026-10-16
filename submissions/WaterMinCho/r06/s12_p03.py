@@ -1,6 +1,6 @@
 with open("names.txt", "r", encoding="utf-8") as f:
-    lines = f.____()
+    lines = f.readlines()
 
-print("인원:", ____(lines))
+print("인원:", len(lines))
 for line in lines:
-    print(line, end=____)
+    print(line, end="")
