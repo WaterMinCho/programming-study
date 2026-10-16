@@ -179,8 +179,613 @@
    "retest": [],
    "shortages": [],
    "created": "2026-10-10T13:21:27",
+   "tries": 1,
+   "avg_level": 1.61,
+   "results": {
+    "s01/Q5": "ok",
+    "s02/Q4": "ok",
+    "s04/Q4": "ok",
+    "s04/Q15": "ok",
+    "s05/Q3": "wrong",
+    "s09/Q7": "ok",
+    "s10/Q13": "wrong",
+    "s11/Q5": "ok",
+    "s12/Q5": "ok",
+    "s13/Q16": "ok",
+    "s15/Q16": "wrong",
+    "s06/p07": "ok",
+    "s08/p05": "ok",
+    "s09/p03": "ok",
+    "s10/p04": "ok",
+    "s11/p03": "skipped",
+    "s14/p01": "ok",
+    "s14/p04": "skipped"
+   },
+   "last_graded": "2026-10-15T22:54:16",
+   "score": "43/59",
+   "unanswered": 0,
+   "completed_at": "2026-10-15T22:54:16",
+   "first_score": "43/59"
+  },
+  {
+   "id": "r02",
+   "kind": "round",
+   "size_reason": "보강할 단원 20개",
+   "focus": [
+    {
+     "unit": "s14",
+     "level": 1,
+     "count": 3
+    },
+    {
+     "unit": "s01",
+     "level": 1,
+     "count": 2
+    },
+    {
+     "unit": "s08",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s09",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s02",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s03",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s07",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s10",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s11",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s13",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s17",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s20",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s21",
+     "level": 1,
+     "count": 1
+    }
+   ],
+   "items": [
+    "s01/Q23",
+    "s02/Q17",
+    "s03/Q3",
+    "s08/Q3",
+    "s08/Q13",
+    "s09/Q14",
+    "s13/Q19",
+    "s14/Q24",
+    "s14/Q28",
+    "s17/Q2",
+    "s20/Q3",
+    "s01/p02",
+    "s07/p08",
+    "s09/p07",
+    "s10/p11",
+    "s11/p02",
+    "s14/p17",
+    "s21/p03"
+   ],
+   "retest": [
+    "s03/Q3",
+    "s09/Q14"
+   ],
+   "shortages": [],
+   "created": "2026-10-15T22:54:16",
+   "tries": 1,
+   "avg_level": 1.39,
+   "results": {
+    "s01/Q23": "ok",
+    "s02/Q17": "ok",
+    "s03/Q3": "ok",
+    "s08/Q3": "wrong",
+    "s08/Q13": "ok",
+    "s09/Q14": "ok",
+    "s13/Q19": "ok",
+    "s14/Q24": "ok",
+    "s14/Q28": "ok",
+    "s17/Q2": "ok",
+    "s20/Q3": "ok",
+    "s01/p02": "ok",
+    "s07/p08": "ok",
+    "s09/p07": "ok",
+    "s10/p11": "ok",
+    "s11/p02": "ok",
+    "s14/p17": "ok",
+    "s21/p03": "skipped"
+   },
+   "last_graded": "2026-10-15T23:16:36",
+   "score": "52/59",
+   "unanswered": 0,
+   "completed_at": "2026-10-15T23:16:36",
+   "first_score": "52/59"
+  },
+  {
+   "id": "r03",
+   "kind": "round",
+   "size_reason": "보강할 단원 18개",
+   "focus": [
+    {
+     "unit": "s14",
+     "level": 2,
+     "count": 4
+    },
+    {
+     "unit": "s09",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s10",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s12",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s01",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s02",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s05",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s08",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s15",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s16",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s19",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s21",
+     "level": 1,
+     "count": 1
+    }
+   ],
+   "items": [
+    "s08/Q15",
+    "s09/Q16",
+    "s10/Q13",
+    "s12/Q6",
+    "s14/Q2",
+    "s14/Q6",
+    "s14/Q10",
+    "s14/Q15",
+    "s16/Q11",
+    "s19/Q5",
+    "s21/Q26",
+    "s01/p05",
+    "s02/p08",
+    "s05/p08",
+    "s09/p06",
+    "s10/p07",
+    "s12/p03",
+    "s15/p05"
+   ],
+   "retest": [
+    "s10/Q13",
+    "s14/Q6"
+   ],
+   "shortages": [],
+   "created": "2026-10-15T23:16:36",
+   "tries": 2,
+   "avg_level": 1.83,
+   "results": {
+    "s08/Q15": "wrong",
+    "s09/Q16": "ok",
+    "s10/Q13": "ok",
+    "s12/Q6": "ok",
+    "s14/Q2": "ok",
+    "s14/Q6": "ok",
+    "s14/Q10": "skipped",
+    "s14/Q15": "ok",
+    "s16/Q11": "ok",
+    "s19/Q5": "ok",
+    "s21/Q26": "ok",
+    "s01/p05": "ok",
+    "s02/p08": "ok",
+    "s05/p08": "ok",
+    "s09/p06": "ok",
+    "s10/p07": "ok",
+    "s12/p03": "ok",
+    "s15/p05": "ok"
+   },
+   "last_graded": "2026-10-15T23:49:43",
+   "score": "63/69",
+   "unanswered": 0,
+   "completed_at": "2026-10-15T23:48:43",
+   "first_score": "63/69"
+  },
+  {
+   "id": "r04",
+   "kind": "round",
+   "size_reason": "보강할 단원 15개 · 직전 득점률이 높아 조금 더",
+   "focus": [
+    {
+     "unit": "s11",
+     "level": 1,
+     "count": 3
+    },
+    {
+     "unit": "s05",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s16",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s19",
+     "level": 1,
+     "count": 2
+    },
+    {
+     "unit": "s21",
+     "level": 1,
+     "count": 2
+    },
+    {
+     "unit": "s03",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s04",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s06",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s07",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s14",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s17",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s20",
+     "level": 1,
+     "count": 1
+    }
+   ],
+   "items": [
+    "s03/Q7",
+    "s05/Q16",
+    "s07/Q10",
+    "s11/Q9",
+    "s11/Q30",
+    "s14/Q29",
+    "s16/Q9",
+    "s17/Q8",
+    "s19/Q2",
+    "s19/Q9",
+    "s20/Q2",
+    "s04/p09",
+    "s05/p12",
+    "s06/p05",
+    "s11/p01",
+    "s16/p15",
+    "s21/p02",
+    "s21/p03"
+   ],
+   "retest": [
+    "s11/Q30",
+    "s21/p03"
+   ],
+   "shortages": [],
+   "created": "2026-10-15T23:48:43",
+   "tries": 1,
+   "avg_level": 1.44,
+   "results": {
+    "s03/Q7": "ok",
+    "s05/Q16": "ok",
+    "s07/Q10": "ok",
+    "s11/Q9": "ok",
+    "s11/Q30": "ok",
+    "s14/Q29": "ok",
+    "s16/Q9": "ok",
+    "s17/Q8": "ok",
+    "s19/Q2": "ok",
+    "s19/Q9": "ok",
+    "s20/Q2": "ok",
+    "s04/p09": "ok",
+    "s05/p12": "ok",
+    "s06/p05": "ok",
+    "s11/p01": "ok",
+    "s16/p15": "wrong",
+    "s21/p02": "skipped",
+    "s21/p03": "skipped"
+   },
+   "last_graded": "2026-10-16T00:21:25",
+   "score": "49/63",
+   "unanswered": 0,
+   "completed_at": "2026-10-16T00:21:25",
+   "first_score": "49/63"
+  },
+  {
+   "id": "r05",
+   "kind": "round",
+   "size_reason": "보강할 단원 11개",
+   "focus": [
+    {
+     "unit": "s13",
+     "level": 2,
+     "count": 3
+    },
+    {
+     "unit": "s01",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s14",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s15",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s21",
+     "level": 1,
+     "count": 2
+    },
+    {
+     "unit": "s03",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s05",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s08",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s10",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s11",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s18",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s19",
+     "level": 2,
+     "count": 1
+    }
+   ],
+   "items": [
+    "s01/Q25",
+    "s05/Q3",
+    "s10/Q20",
+    "s11/Q28",
+    "s13/Q7",
+    "s13/Q11",
+    "s13/Q18",
+    "s14/Q10",
+    "s18/Q3",
+    "s19/Q19",
+    "s21/Q18",
+    "s01/p04",
+    "s03/p07",
+    "s08/p11",
+    "s14/p10",
+    "s15/p10",
+    "s15/p15",
+    "s21/p01"
+   ],
+   "retest": [
+    "s05/Q3",
+    "s14/Q10"
+   ],
+   "shortages": [],
+   "created": "2026-10-16T00:21:25",
+   "tries": 1,
+   "avg_level": 1.83,
+   "results": {
+    "s01/Q25": "ok",
+    "s05/Q3": "ok",
+    "s10/Q20": "ok",
+    "s11/Q28": "wrong",
+    "s13/Q7": "ok",
+    "s13/Q11": "ok",
+    "s13/Q18": "ok",
+    "s14/Q10": "wrong",
+    "s18/Q3": "ok",
+    "s19/Q19": "ok",
+    "s21/Q18": "ok",
+    "s01/p04": "ok",
+    "s03/p07": "ok",
+    "s08/p11": "ok",
+    "s14/p10": "ok",
+    "s15/p10": "skipped",
+    "s15/p15": "ok",
+    "s21/p01": "ok"
+   },
+   "last_graded": "2026-10-16T01:08:31",
+   "score": "55/67",
+   "unanswered": 0,
+   "completed_at": "2026-10-16T01:08:31",
+   "first_score": "55/67"
+  },
+  {
+   "id": "r06",
+   "kind": "round",
+   "size_reason": "보강할 단원 10개",
+   "focus": [
+    {
+     "unit": "s11",
+     "level": 2,
+     "count": 3
+    },
+    {
+     "unit": "s15",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s17",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s18",
+     "level": 1,
+     "count": 2
+    },
+    {
+     "unit": "s20",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s01",
+     "level": 3,
+     "count": 1
+    },
+    {
+     "unit": "s04",
+     "level": 3,
+     "count": 1
+    },
+    {
+     "unit": "s13",
+     "level": 3,
+     "count": 1
+    },
+    {
+     "unit": "s14",
+     "level": 3,
+     "count": 1
+    },
+    {
+     "unit": "s16",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s19",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s21",
+     "level": 1,
+     "count": 1
+    }
+   ],
+   "items": [
+    "s01/Q3",
+    "s13/Q21",
+    "s14/Q13",
+    "s15/Q23",
+    "s17/Q21",
+    "s18/Q1",
+    "s18/Q15",
+    "s19/Q11",
+    "s20/Q11",
+    "s20/Q28",
+    "s21/Q1",
+    "s04/p10",
+    "s11/p03",
+    "s11/p04",
+    "s11/p07",
+    "s15/p08",
+    "s16/p05",
+    "s17/p08"
+   ],
+   "retest": [
+    "s14/Q13",
+    "s11/p03"
+   ],
+   "shortages": [],
+   "created": "2026-10-16T01:08:31",
    "tries": 0,
-   "avg_level": 1.61
+   "avg_level": 1.89
   }
  ],
  "attempts": [
@@ -411,6 +1016,643 @@
    "try": 1,
    "ok": true,
    "at": "2026-10-10T13:21:27"
+  },
+  {
+   "round": "r01",
+   "item": "s01/Q5",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s02/Q4",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s04/Q4",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s04/Q15",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s05/Q3",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s09/Q7",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s10/Q13",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s11/Q5",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s12/Q5",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s13/Q16",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s15/Q16",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s06/p07",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s08/p05",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s09/p03",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s10/p04",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s11/p03",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T22:54:16",
+   "skipped": true
+  },
+  {
+   "round": "r01",
+   "item": "s14/p01",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T22:54:16"
+  },
+  {
+   "round": "r01",
+   "item": "s14/p04",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T22:54:16",
+   "skipped": true
+  },
+  {
+   "round": "r02",
+   "item": "s01/Q23",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s02/Q17",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s03/Q3",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s08/Q3",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s08/Q13",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s09/Q14",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s13/Q19",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s14/Q24",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s14/Q28",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s17/Q2",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s20/Q3",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s01/p02",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s07/p08",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s09/p07",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s10/p11",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s11/p02",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s14/p17",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:16:36"
+  },
+  {
+   "round": "r02",
+   "item": "s21/p03",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T23:16:36",
+   "skipped": true
+  },
+  {
+   "round": "r03",
+   "item": "s08/Q15",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s09/Q16",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s10/Q13",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s12/Q6",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s14/Q2",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s14/Q6",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s14/Q10",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-15T23:48:43",
+   "skipped": true
+  },
+  {
+   "round": "r03",
+   "item": "s14/Q15",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s16/Q11",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s19/Q5",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s21/Q26",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s01/p05",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s02/p08",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s05/p08",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s09/p06",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s10/p07",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s12/p03",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r03",
+   "item": "s15/p05",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-15T23:48:43"
+  },
+  {
+   "round": "r04",
+   "item": "s03/Q7",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s05/Q16",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s07/Q10",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s11/Q9",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s11/Q30",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s14/Q29",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s16/Q9",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s17/Q8",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s19/Q2",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s19/Q9",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s20/Q2",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s04/p09",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s05/p12",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s06/p05",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s11/p01",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s16/p15",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T00:21:25"
+  },
+  {
+   "round": "r04",
+   "item": "s21/p02",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T00:21:25",
+   "skipped": true
+  },
+  {
+   "round": "r04",
+   "item": "s21/p03",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T00:21:25",
+   "skipped": true
+  },
+  {
+   "round": "r05",
+   "item": "s01/Q25",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s05/Q3",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s10/Q20",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s11/Q28",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s13/Q7",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s13/Q11",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s13/Q18",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s14/Q10",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s18/Q3",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s19/Q19",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s21/Q18",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s01/p04",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s03/p07",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s08/p11",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s14/p10",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s15/p10",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T01:08:31",
+   "skipped": true
+  },
+  {
+   "round": "r05",
+   "item": "s15/p15",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
+  },
+  {
+   "round": "r05",
+   "item": "s21/p01",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T01:08:31"
   }
  ]
 }
