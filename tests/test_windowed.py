@@ -214,14 +214,18 @@ class StartBatTest(unittest.TestCase):
     def ran(self, count):
         """가짜 스크립트가 count 줄을 남길 때까지 기다린 뒤 잠깐 더 보고 남은 줄을 모두 돌려줌. start 로 띄운 것은 cmd 가 끝난 뒤에 돌 수 있음."""
         path = os.path.join(self.tmp, "ran.txt")
+
+        def lines():
+            if not os.path.isfile(path):
+                return []
+            with open(path, encoding="utf-8") as f:
+                return f.read().splitlines()
+
         deadline = time.monotonic() + 30
-        while time.monotonic() < deadline and not (os.path.isfile(path) and len(open(path, encoding="utf-8").readlines()) >= count):
+        while time.monotonic() < deadline and len(lines()) < count:
             time.sleep(0.2)
         time.sleep(2)
-        if not os.path.isfile(path):
-            return []
-        with open(path, encoding="utf-8") as f:
-            return f.read().splitlines()
+        return lines()
 
     def test_double_click_hands_off_to_start_pyw_without_console(self):
         self.run_bat()
