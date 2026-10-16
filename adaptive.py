@@ -40,13 +40,13 @@ def clear_cache():
 
 
 def units():
-    """적응형 학습의 단원 = 차시 세트."""
+    """적응형 학습의 단원 = 차시 세트. meta.json 에 "exam": false 가 있는 세트(시험 범위 밖)는 빼서 회차, 준비도, 단원 띠에 나오지 않음."""
     global _UNITS
     if _UNITS is None:
         out = []
         for sid in study.all_set_ids():
             s = study.load_set(sid)
-            if s["meta"].get("kind", "session") == "session":
+            if s["meta"].get("kind", "session") == "session" and s["meta"].get("exam", True):
                 out.append(s)
         _UNITS = out
     return _UNITS
@@ -62,15 +62,20 @@ def unit_priority():
 
 
 def catalog():
-    """{문항키: 문항}. 키는 's03/Q4', 's03/p02' 형태."""
+    """{문항키: 문항}. 키는 's03/Q4', 's03/p02' 형태. "exam": false 인 문항(시험 범위 밖)은 넣지 않음.
+    이미 만든 회차에 든 그 문항은 은행에서 사라진 문항처럼 건너뜀."""
     items = {}
     for s in units():
         for q in s["questions"]:
+            if not q.get("exam", True):
+                continue
             key = "%s/%s" % (s["id"], q["id"])
             items[key] = {"key": key, "unit": s["id"], "unit_title": short_title(s), "kind": "quiz",
                           "type": q["type"], "level": int(q.get("level") or DEFAULT_QUIZ_LEVEL[q["type"]]),
                           "points": q["points"], "tags": q.get("tags", []), "q": q, "set": s}
         for p in s["problems"]:
+            if not p.get("exam", True):
+                continue
             key = "%s/%s" % (s["id"], p["id"])
             items[key] = {"key": key, "unit": s["id"], "unit_title": short_title(s), "kind": "code",
                           "type": p["type"], "level": int(p["level"]), "points": p["points"],
