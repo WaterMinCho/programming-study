@@ -65,6 +65,8 @@ def check_quiz(s, errors):
             errors.append(where + "level(1·2·3)이 필요합니다.")
         if not (isinstance(q.get("tags"), list) and q["tags"] and all(isinstance(t, str) and t.strip() for t in q["tags"])):
             errors.append(where + "tags(개념 1~3개)가 필요합니다.")
+        if "ref" in q and not (isinstance(q["ref"], list) and all(isinstance(r, str) and r.strip() for r in q["ref"])):
+            errors.append(where + "ref(참고 자료)는 비어 있지 않은 글의 리스트여야 합니다. 예) [\"강의 9차시 12쪽\"]")
         answer = q.get("answer")
         if q["type"] == "choice":
             if not (isinstance(answer, list) and answer and all(isinstance(n, int) and 1 <= n <= 9 for n in answer)):
@@ -120,6 +122,8 @@ def check_problem(s, p, errors):
         errors.append(where + "level 은 1·2·3 중 하나여야 합니다.")
     if not (isinstance(p.get("tags"), list) and p["tags"] and all(isinstance(t, str) and t.strip() for t in p["tags"])):
         errors.append(where + "tags(개념 1~3개)가 필요합니다.")
+    if "ref" in p and not (isinstance(p["ref"], list) and all(isinstance(r, str) and r.strip() for r in p["ref"])):
+        errors.append(where + "ref(참고 자료)는 비어 있지 않은 글의 리스트여야 합니다. 예) [\"강의 9차시 12쪽\"]")
     if not (isinstance(p.get("points"), int) and p["points"] > 0):
         errors.append(where + "points 는 양의 정수여야 합니다.")
     cases = p.get("cases")
