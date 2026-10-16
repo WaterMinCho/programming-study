@@ -3,31 +3,31 @@
 <text x="24" y="34" font-size="20" font-weight="700" fill="#1c211d">학습 현황판</text>
 <text x="24" y="52" fill="#6b7280">단원 = 차시. 준비도 = 단원 준비도의 중요도 가중 평균(0~100). main 에 풀이가 올라오면 자동 갱신됩니다.</text>
 <rect x="16" y="64" width="928" height="102" rx="12" fill="#f5f5f3"/>
-<text x="32" y="92" font-size="16" font-weight="700" fill="#1c211d">WaterMinCho</text>
+<text x="32" y="92" font-size="16" font-weight="700" fill="#1c211d">kimjs85529-a11y</text>
 <rect x="32" y="104" width="220" height="12" rx="6" fill="#e5e7eb"/>
-<rect x="32" y="104" width="167" height="12" rx="6" fill="#2e7d32"/>
-<text x="32" y="134" fill="#374151">준비도 76% · 숙달 10/21 · 회차 7 · 정답률 81%</text>
+<rect x="32" y="104" width="169" height="12" rx="6" fill="#2e7d32"/>
+<text x="32" y="134" fill="#374151">준비도 77% · 숙달 11/21 · 회차 7 · 정답률 82%</text>
 <rect x="300" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s01 파이썬 소개 및 환경설정: 숙달</title></rect>
 <text x="309" y="118" font-size="9" fill="#6b7280" text-anchor="middle">01</text>
 <rect x="322" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s02 프로그래밍 기초: 숙달</title></rect>
 <text x="331" y="118" font-size="9" fill="#6b7280" text-anchor="middle">02</text>
-<rect x="344" y="86" width="18" height="18" rx="4" fill="#fb8c00"><title>s03 조건식과 제어문: 레벨1 진행</title></rect>
+<rect x="344" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s03 조건식과 제어문: 레벨2 진행</title></rect>
 <text x="353" y="118" font-size="9" fill="#6b7280" text-anchor="middle">03</text>
-<rect x="366" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s04 리스트와 딕셔너리: 레벨2 진행</title></rect>
+<rect x="366" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s04 리스트와 딕셔너리: 숙달</title></rect>
 <text x="375" y="118" font-size="9" fill="#6b7280" text-anchor="middle">04</text>
-<rect x="388" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s05 반복문: 레벨2 진행</title></rect>
+<rect x="388" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s05 반복문: 숙달</title></rect>
 <text x="397" y="118" font-size="9" fill="#6b7280" text-anchor="middle">05</text>
-<rect x="410" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s06 함수(1): 레벨2 진행</title></rect>
+<rect x="410" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s06 함수(1): 숙달</title></rect>
 <text x="419" y="118" font-size="9" fill="#6b7280" text-anchor="middle">06</text>
 <rect x="432" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s07 함수(2): 숙달</title></rect>
 <text x="441" y="118" font-size="9" fill="#6b7280" text-anchor="middle">07</text>
-<rect x="454" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s08 자료구조와 알고리즘: 숙달</title></rect>
+<rect x="454" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s08 자료구조와 알고리즘: 레벨2 진행</title></rect>
 <text x="463" y="118" font-size="9" fill="#6b7280" text-anchor="middle">08</text>
 <rect x="476" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s09 클래스(1): 숙달</title></rect>
 <text x="485" y="118" font-size="9" fill="#6b7280" text-anchor="middle">09</text>
-<rect x="498" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s10 클래스(2): 레벨2 진행</title></rect>
+<rect x="498" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s10 클래스(2): 숙달</title></rect>
 <text x="507" y="118" font-size="9" fill="#6b7280" text-anchor="middle">10</text>
-<rect x="520" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s11 GUI 프로그래밍(PyQt6 · tkinter): 숙달</title></rect>
+<rect x="520" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s11 GUI 프로그래밍(PyQt6 · tkinter): 레벨2 진행</title></rect>
 <text x="529" y="118" font-size="9" fill="#6b7280" text-anchor="middle">11</text>
 <rect x="542" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s12 파일 처리: 숙달</title></rect>
 <text x="551" y="118" font-size="9" fill="#6b7280" text-anchor="middle">12</text>
@@ -35,87 +35,87 @@
 <text x="573" y="118" font-size="9" fill="#6b7280" text-anchor="middle">13</text>
 <rect x="586" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s14 정규표현식: 숙달</title></rect>
 <text x="595" y="118" font-size="9" fill="#6b7280" text-anchor="middle">14</text>
-<rect x="608" y="86" width="18" height="18" rx="4" fill="#81c784"><title>s15 고급 함수: 숙달</title></rect>
+<rect x="608" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s15 고급 함수: 레벨2 진행</title></rect>
 <text x="617" y="118" font-size="9" fill="#6b7280" text-anchor="middle">15</text>
 <rect x="630" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s16 알고리즘(1): 레벨2 진행</title></rect>
 <text x="639" y="118" font-size="9" fill="#6b7280" text-anchor="middle">16</text>
-<rect x="652" y="86" width="18" height="18" rx="4" fill="#fb8c00"><title>s17 알고리즘(2): 레벨1 진행</title></rect>
+<rect x="652" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s17 알고리즘(2): 레벨2 진행</title></rect>
 <text x="661" y="118" font-size="9" fill="#6b7280" text-anchor="middle">17</text>
-<rect x="674" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s18 Pandas·NumPy·Matplotlib: 레벨2 진행</title></rect>
+<rect x="674" y="86" width="18" height="18" rx="4" fill="#fb8c00"><title>s18 Pandas·NumPy·Matplotlib: 레벨1 진행</title></rect>
 <text x="683" y="118" font-size="9" fill="#6b7280" text-anchor="middle">18</text>
 <rect x="696" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s19 statsmodels·scikit-learn·SciPy: 레벨2 진행</title></rect>
 <text x="705" y="118" font-size="9" fill="#6b7280" text-anchor="middle">19</text>
 <rect x="718" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s20 Seaborn·OpenCV: 레벨2 진행</title></rect>
 <text x="727" y="118" font-size="9" fill="#6b7280" text-anchor="middle">20</text>
-<rect x="740" y="86" width="18" height="18" rx="4" fill="#ffb300"><title>s21 파이썬 활용 심화(os·pathlib·JSON): 레벨2 진행</title></rect>
+<rect x="740" y="86" width="18" height="18" rx="4" fill="#fb8c00"><title>s21 파이썬 활용 심화(os·pathlib·JSON): 레벨1 진행</title></rect>
 <text x="749" y="118" font-size="9" fill="#6b7280" text-anchor="middle">21</text>
-<text x="300" y="138" fill="#b91c1c">약한 단원: s17, s03, s05</text>
-<text x="560" y="138" fill="#166534">능숙한 단원: s01, s07, s09</text>
-<text x="300" y="158" fill="#374151">약한 개념: 출력 형식, 오버라이딩, 변수 이름 규칙, 인덱스</text>
+<text x="300" y="138" fill="#b91c1c">약한 단원: s21, s18, s11</text>
+<text x="560" y="138" fill="#166534">능숙한 단원: s02, s04, s06</text>
+<text x="300" y="158" fill="#374151">약한 개념: 컴파일 옵션, match 객체 메서드, 콤보박스, os 모듈 함수</text>
 <rect x="16" y="176" width="928" height="102" rx="12" fill="#f5f5f3"/>
-<text x="32" y="204" font-size="16" font-weight="700" fill="#1c211d">wamangdoo</text>
+<text x="32" y="204" font-size="16" font-weight="700" fill="#1c211d">WaterMinCho</text>
 <rect x="32" y="216" width="220" height="12" rx="6" fill="#e5e7eb"/>
-<rect x="32" y="216" width="136" height="12" rx="6" fill="#2e7d32"/>
-<text x="32" y="246" fill="#374151">준비도 62% · 숙달 3/21 · 회차 5 · 정답률 74%</text>
+<rect x="32" y="216" width="167" height="12" rx="6" fill="#2e7d32"/>
+<text x="32" y="246" fill="#374151">준비도 76% · 숙달 10/21 · 회차 7 · 정답률 81%</text>
 <rect x="300" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s01 파이썬 소개 및 환경설정: 숙달</title></rect>
 <text x="309" y="230" font-size="9" fill="#6b7280" text-anchor="middle">01</text>
-<rect x="322" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s02 프로그래밍 기초: 레벨2 진행</title></rect>
+<rect x="322" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s02 프로그래밍 기초: 숙달</title></rect>
 <text x="331" y="230" font-size="9" fill="#6b7280" text-anchor="middle">02</text>
-<rect x="344" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s03 조건식과 제어문: 레벨2 진행</title></rect>
+<rect x="344" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s03 조건식과 제어문: 레벨1 진행</title></rect>
 <text x="353" y="230" font-size="9" fill="#6b7280" text-anchor="middle">03</text>
 <rect x="366" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s04 리스트와 딕셔너리: 레벨2 진행</title></rect>
 <text x="375" y="230" font-size="9" fill="#6b7280" text-anchor="middle">04</text>
-<rect x="388" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s05 반복문: 숙달</title></rect>
+<rect x="388" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s05 반복문: 레벨2 진행</title></rect>
 <text x="397" y="230" font-size="9" fill="#6b7280" text-anchor="middle">05</text>
 <rect x="410" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s06 함수(1): 레벨2 진행</title></rect>
 <text x="419" y="230" font-size="9" fill="#6b7280" text-anchor="middle">06</text>
-<rect x="432" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s07 함수(2): 레벨2 진행</title></rect>
+<rect x="432" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s07 함수(2): 숙달</title></rect>
 <text x="441" y="230" font-size="9" fill="#6b7280" text-anchor="middle">07</text>
-<rect x="454" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s08 자료구조와 알고리즘: 레벨2 진행</title></rect>
+<rect x="454" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s08 자료구조와 알고리즘: 숙달</title></rect>
 <text x="463" y="230" font-size="9" fill="#6b7280" text-anchor="middle">08</text>
-<rect x="476" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s09 클래스(1): 레벨2 진행</title></rect>
+<rect x="476" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s09 클래스(1): 숙달</title></rect>
 <text x="485" y="230" font-size="9" fill="#6b7280" text-anchor="middle">09</text>
-<rect x="498" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s10 클래스(2): 숙달</title></rect>
+<rect x="498" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s10 클래스(2): 레벨2 진행</title></rect>
 <text x="507" y="230" font-size="9" fill="#6b7280" text-anchor="middle">10</text>
-<rect x="520" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s11 GUI 프로그래밍(PyQt6 · tkinter): 레벨1 진행</title></rect>
+<rect x="520" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s11 GUI 프로그래밍(PyQt6 · tkinter): 숙달</title></rect>
 <text x="529" y="230" font-size="9" fill="#6b7280" text-anchor="middle">11</text>
-<rect x="542" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s12 파일 처리: 레벨2 진행</title></rect>
+<rect x="542" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s12 파일 처리: 숙달</title></rect>
 <text x="551" y="230" font-size="9" fill="#6b7280" text-anchor="middle">12</text>
-<rect x="564" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s13 예외 처리·문자열·람다·map: 레벨1 진행</title></rect>
+<rect x="564" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s13 예외 처리·문자열·람다·map: 숙달</title></rect>
 <text x="573" y="230" font-size="9" fill="#6b7280" text-anchor="middle">13</text>
-<rect x="586" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s14 정규표현식: 레벨2 진행</title></rect>
+<rect x="586" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s14 정규표현식: 숙달</title></rect>
 <text x="595" y="230" font-size="9" fill="#6b7280" text-anchor="middle">14</text>
-<rect x="608" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s15 고급 함수: 레벨1 진행</title></rect>
+<rect x="608" y="198" width="18" height="18" rx="4" fill="#81c784"><title>s15 고급 함수: 숙달</title></rect>
 <text x="617" y="230" font-size="9" fill="#6b7280" text-anchor="middle">15</text>
 <rect x="630" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s16 알고리즘(1): 레벨2 진행</title></rect>
 <text x="639" y="230" font-size="9" fill="#6b7280" text-anchor="middle">16</text>
-<rect x="652" y="198" width="18" height="18" rx="4" fill="#cfd8dc"><title>s17 알고리즘(2): 미진단</title></rect>
+<rect x="652" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s17 알고리즘(2): 레벨1 진행</title></rect>
 <text x="661" y="230" font-size="9" fill="#6b7280" text-anchor="middle">17</text>
-<rect x="674" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s18 Pandas·NumPy·Matplotlib: 레벨1 진행</title></rect>
+<rect x="674" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s18 Pandas·NumPy·Matplotlib: 레벨2 진행</title></rect>
 <text x="683" y="230" font-size="9" fill="#6b7280" text-anchor="middle">18</text>
 <rect x="696" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s19 statsmodels·scikit-learn·SciPy: 레벨2 진행</title></rect>
 <text x="705" y="230" font-size="9" fill="#6b7280" text-anchor="middle">19</text>
-<rect x="718" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s20 Seaborn·OpenCV: 레벨1 진행</title></rect>
+<rect x="718" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s20 Seaborn·OpenCV: 레벨2 진행</title></rect>
 <text x="727" y="230" font-size="9" fill="#6b7280" text-anchor="middle">20</text>
-<rect x="740" y="198" width="18" height="18" rx="4" fill="#fb8c00"><title>s21 파이썬 활용 심화(os·pathlib·JSON): 레벨1 진행</title></rect>
+<rect x="740" y="198" width="18" height="18" rx="4" fill="#ffb300"><title>s21 파이썬 활용 심화(os·pathlib·JSON): 레벨2 진행</title></rect>
 <text x="749" y="230" font-size="9" fill="#6b7280" text-anchor="middle">21</text>
-<text x="300" y="250" fill="#b91c1c">약한 단원: s15, s18, s11</text>
-<text x="560" y="250" fill="#166534">능숙한 단원: s05, s10, s01</text>
-<text x="300" y="270" fill="#374151">약한 개념: 이터러블과 이터레이터, 네임스페이스, tkinter 대응, pip와 외부 라이브러리</text>
+<text x="300" y="250" fill="#b91c1c">약한 단원: s17, s03, s05</text>
+<text x="560" y="250" fill="#166534">능숙한 단원: s01, s07, s09</text>
+<text x="300" y="270" fill="#374151">약한 개념: 출력 형식, 오버라이딩, 변수 이름 규칙, 인덱스</text>
 <rect x="16" y="288" width="928" height="102" rx="12" fill="#f5f5f3"/>
-<text x="32" y="316" font-size="16" font-weight="700" fill="#1c211d">michae18</text>
+<text x="32" y="316" font-size="16" font-weight="700" fill="#1c211d">wamangdoo</text>
 <rect x="32" y="328" width="220" height="12" rx="6" fill="#e5e7eb"/>
-<rect x="32" y="328" width="129" height="12" rx="6" fill="#2e7d32"/>
-<text x="32" y="358" fill="#374151">준비도 59% · 숙달 1/21 · 회차 5 · 정답률 63%</text>
-<rect x="300" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s01 파이썬 소개 및 환경설정: 레벨2 진행</title></rect>
+<rect x="32" y="328" width="136" height="12" rx="6" fill="#2e7d32"/>
+<text x="32" y="358" fill="#374151">준비도 62% · 숙달 3/21 · 회차 5 · 정답률 74%</text>
+<rect x="300" y="310" width="18" height="18" rx="4" fill="#81c784"><title>s01 파이썬 소개 및 환경설정: 숙달</title></rect>
 <text x="309" y="342" font-size="9" fill="#6b7280" text-anchor="middle">01</text>
-<rect x="322" y="310" width="18" height="18" rx="4" fill="#81c784"><title>s02 프로그래밍 기초: 숙달</title></rect>
+<rect x="322" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s02 프로그래밍 기초: 레벨2 진행</title></rect>
 <text x="331" y="342" font-size="9" fill="#6b7280" text-anchor="middle">02</text>
 <rect x="344" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s03 조건식과 제어문: 레벨2 진행</title></rect>
 <text x="353" y="342" font-size="9" fill="#6b7280" text-anchor="middle">03</text>
-<rect x="366" y="310" width="18" height="18" rx="4" fill="#e53935"><title>s04 리스트와 딕셔너리: 레벨1 재도전</title></rect>
+<rect x="366" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s04 리스트와 딕셔너리: 레벨2 진행</title></rect>
 <text x="375" y="342" font-size="9" fill="#6b7280" text-anchor="middle">04</text>
-<rect x="388" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s05 반복문: 레벨2 진행</title></rect>
+<rect x="388" y="310" width="18" height="18" rx="4" fill="#81c784"><title>s05 반복문: 숙달</title></rect>
 <text x="397" y="342" font-size="9" fill="#6b7280" text-anchor="middle">05</text>
 <rect x="410" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s06 함수(1): 레벨2 진행</title></rect>
 <text x="419" y="342" font-size="9" fill="#6b7280" text-anchor="middle">06</text>
@@ -125,45 +125,45 @@
 <text x="463" y="342" font-size="9" fill="#6b7280" text-anchor="middle">08</text>
 <rect x="476" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s09 클래스(1): 레벨2 진행</title></rect>
 <text x="485" y="342" font-size="9" fill="#6b7280" text-anchor="middle">09</text>
-<rect x="498" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s10 클래스(2): 레벨2 진행</title></rect>
+<rect x="498" y="310" width="18" height="18" rx="4" fill="#81c784"><title>s10 클래스(2): 숙달</title></rect>
 <text x="507" y="342" font-size="9" fill="#6b7280" text-anchor="middle">10</text>
-<rect x="520" y="310" width="18" height="18" rx="4" fill="#e53935"><title>s11 GUI 프로그래밍(PyQt6 · tkinter): 레벨2 재도전</title></rect>
+<rect x="520" y="310" width="18" height="18" rx="4" fill="#fb8c00"><title>s11 GUI 프로그래밍(PyQt6 · tkinter): 레벨1 진행</title></rect>
 <text x="529" y="342" font-size="9" fill="#6b7280" text-anchor="middle">11</text>
 <rect x="542" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s12 파일 처리: 레벨2 진행</title></rect>
 <text x="551" y="342" font-size="9" fill="#6b7280" text-anchor="middle">12</text>
-<rect x="564" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s13 예외 처리·문자열·람다·map: 레벨2 진행</title></rect>
+<rect x="564" y="310" width="18" height="18" rx="4" fill="#fb8c00"><title>s13 예외 처리·문자열·람다·map: 레벨1 진행</title></rect>
 <text x="573" y="342" font-size="9" fill="#6b7280" text-anchor="middle">13</text>
-<rect x="586" y="310" width="18" height="18" rx="4" fill="#e53935"><title>s14 정규표현식: 레벨2 재도전</title></rect>
+<rect x="586" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s14 정규표현식: 레벨2 진행</title></rect>
 <text x="595" y="342" font-size="9" fill="#6b7280" text-anchor="middle">14</text>
 <rect x="608" y="310" width="18" height="18" rx="4" fill="#fb8c00"><title>s15 고급 함수: 레벨1 진행</title></rect>
 <text x="617" y="342" font-size="9" fill="#6b7280" text-anchor="middle">15</text>
 <rect x="630" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s16 알고리즘(1): 레벨2 진행</title></rect>
 <text x="639" y="342" font-size="9" fill="#6b7280" text-anchor="middle">16</text>
-<rect x="652" y="310" width="18" height="18" rx="4" fill="#fb8c00"><title>s17 알고리즘(2): 레벨1 진행</title></rect>
+<rect x="652" y="310" width="18" height="18" rx="4" fill="#cfd8dc"><title>s17 알고리즘(2): 미진단</title></rect>
 <text x="661" y="342" font-size="9" fill="#6b7280" text-anchor="middle">17</text>
 <rect x="674" y="310" width="18" height="18" rx="4" fill="#fb8c00"><title>s18 Pandas·NumPy·Matplotlib: 레벨1 진행</title></rect>
 <text x="683" y="342" font-size="9" fill="#6b7280" text-anchor="middle">18</text>
-<rect x="696" y="310" width="18" height="18" rx="4" fill="#cfd8dc"><title>s19 statsmodels·scikit-learn·SciPy: 미진단</title></rect>
+<rect x="696" y="310" width="18" height="18" rx="4" fill="#ffb300"><title>s19 statsmodels·scikit-learn·SciPy: 레벨2 진행</title></rect>
 <text x="705" y="342" font-size="9" fill="#6b7280" text-anchor="middle">19</text>
 <rect x="718" y="310" width="18" height="18" rx="4" fill="#fb8c00"><title>s20 Seaborn·OpenCV: 레벨1 진행</title></rect>
 <text x="727" y="342" font-size="9" fill="#6b7280" text-anchor="middle">20</text>
 <rect x="740" y="310" width="18" height="18" rx="4" fill="#fb8c00"><title>s21 파이썬 활용 심화(os·pathlib·JSON): 레벨1 진행</title></rect>
 <text x="749" y="342" font-size="9" fill="#6b7280" text-anchor="middle">21</text>
-<text x="300" y="362" fill="#b91c1c">약한 단원: s18, s21, s04</text>
-<text x="560" y="362" fill="#166534">능숙한 단원: s02</text>
-<text x="300" y="382" fill="#374151">약한 개념: 자료형, 연산자 우선순위, len·sum, 출력 형식</text>
+<text x="300" y="362" fill="#b91c1c">약한 단원: s15, s18, s11</text>
+<text x="560" y="362" fill="#166534">능숙한 단원: s05, s10, s01</text>
+<text x="300" y="382" fill="#374151">약한 개념: 이터러블과 이터레이터, 네임스페이스, tkinter 대응, pip와 외부 라이브러리</text>
 <rect x="16" y="400" width="928" height="102" rx="12" fill="#f5f5f3"/>
-<text x="32" y="428" font-size="16" font-weight="700" fill="#1c211d">kimjs85529-a11y</text>
+<text x="32" y="428" font-size="16" font-weight="700" fill="#1c211d">michae18</text>
 <rect x="32" y="440" width="220" height="12" rx="6" fill="#e5e7eb"/>
-<rect x="32" y="440" width="105" height="12" rx="6" fill="#2e7d32"/>
-<text x="32" y="470" fill="#374151">준비도 48% · 숙달 0/21 · 회차 2 · 정답률 78%</text>
-<rect x="300" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s01 파이썬 소개 및 환경설정: 레벨1 진행</title></rect>
+<rect x="32" y="440" width="129" height="12" rx="6" fill="#2e7d32"/>
+<text x="32" y="470" fill="#374151">준비도 59% · 숙달 1/21 · 회차 5 · 정답률 63%</text>
+<rect x="300" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s01 파이썬 소개 및 환경설정: 레벨2 진행</title></rect>
 <text x="309" y="454" font-size="9" fill="#6b7280" text-anchor="middle">01</text>
-<rect x="322" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s02 프로그래밍 기초: 레벨2 진행</title></rect>
+<rect x="322" y="422" width="18" height="18" rx="4" fill="#81c784"><title>s02 프로그래밍 기초: 숙달</title></rect>
 <text x="331" y="454" font-size="9" fill="#6b7280" text-anchor="middle">02</text>
-<rect x="344" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s03 조건식과 제어문: 레벨1 진행</title></rect>
+<rect x="344" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s03 조건식과 제어문: 레벨2 진행</title></rect>
 <text x="353" y="454" font-size="9" fill="#6b7280" text-anchor="middle">03</text>
-<rect x="366" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s04 리스트와 딕셔너리: 레벨2 진행</title></rect>
+<rect x="366" y="422" width="18" height="18" rx="4" fill="#e53935"><title>s04 리스트와 딕셔너리: 레벨1 재도전</title></rect>
 <text x="375" y="454" font-size="9" fill="#6b7280" text-anchor="middle">04</text>
 <rect x="388" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s05 반복문: 레벨2 진행</title></rect>
 <text x="397" y="454" font-size="9" fill="#6b7280" text-anchor="middle">05</text>
@@ -173,35 +173,35 @@
 <text x="441" y="454" font-size="9" fill="#6b7280" text-anchor="middle">07</text>
 <rect x="454" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s08 자료구조와 알고리즘: 레벨2 진행</title></rect>
 <text x="463" y="454" font-size="9" fill="#6b7280" text-anchor="middle">08</text>
-<rect x="476" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s09 클래스(1): 레벨1 진행</title></rect>
+<rect x="476" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s09 클래스(1): 레벨2 진행</title></rect>
 <text x="485" y="454" font-size="9" fill="#6b7280" text-anchor="middle">09</text>
 <rect x="498" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s10 클래스(2): 레벨2 진행</title></rect>
 <text x="507" y="454" font-size="9" fill="#6b7280" text-anchor="middle">10</text>
-<rect x="520" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s11 GUI 프로그래밍(PyQt6 · tkinter): 레벨1 진행</title></rect>
+<rect x="520" y="422" width="18" height="18" rx="4" fill="#e53935"><title>s11 GUI 프로그래밍(PyQt6 · tkinter): 레벨2 재도전</title></rect>
 <text x="529" y="454" font-size="9" fill="#6b7280" text-anchor="middle">11</text>
 <rect x="542" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s12 파일 처리: 레벨2 진행</title></rect>
 <text x="551" y="454" font-size="9" fill="#6b7280" text-anchor="middle">12</text>
 <rect x="564" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s13 예외 처리·문자열·람다·map: 레벨2 진행</title></rect>
 <text x="573" y="454" font-size="9" fill="#6b7280" text-anchor="middle">13</text>
-<rect x="586" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s14 정규표현식: 레벨1 진행</title></rect>
+<rect x="586" y="422" width="18" height="18" rx="4" fill="#e53935"><title>s14 정규표현식: 레벨2 재도전</title></rect>
 <text x="595" y="454" font-size="9" fill="#6b7280" text-anchor="middle">14</text>
-<rect x="608" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s15 고급 함수: 레벨2 진행</title></rect>
+<rect x="608" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s15 고급 함수: 레벨1 진행</title></rect>
 <text x="617" y="454" font-size="9" fill="#6b7280" text-anchor="middle">15</text>
 <rect x="630" y="422" width="18" height="18" rx="4" fill="#ffb300"><title>s16 알고리즘(1): 레벨2 진행</title></rect>
 <text x="639" y="454" font-size="9" fill="#6b7280" text-anchor="middle">16</text>
-<rect x="652" y="422" width="18" height="18" rx="4" fill="#cfd8dc"><title>s17 알고리즘(2): 미진단</title></rect>
+<rect x="652" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s17 알고리즘(2): 레벨1 진행</title></rect>
 <text x="661" y="454" font-size="9" fill="#6b7280" text-anchor="middle">17</text>
-<rect x="674" y="422" width="18" height="18" rx="4" fill="#cfd8dc"><title>s18 Pandas·NumPy·Matplotlib: 미진단</title></rect>
+<rect x="674" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s18 Pandas·NumPy·Matplotlib: 레벨1 진행</title></rect>
 <text x="683" y="454" font-size="9" fill="#6b7280" text-anchor="middle">18</text>
 <rect x="696" y="422" width="18" height="18" rx="4" fill="#cfd8dc"><title>s19 statsmodels·scikit-learn·SciPy: 미진단</title></rect>
 <text x="705" y="454" font-size="9" fill="#6b7280" text-anchor="middle">19</text>
-<rect x="718" y="422" width="18" height="18" rx="4" fill="#cfd8dc"><title>s20 Seaborn·OpenCV: 미진단</title></rect>
+<rect x="718" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s20 Seaborn·OpenCV: 레벨1 진행</title></rect>
 <text x="727" y="454" font-size="9" fill="#6b7280" text-anchor="middle">20</text>
-<rect x="740" y="422" width="18" height="18" rx="4" fill="#cfd8dc"><title>s21 파이썬 활용 심화(os·pathlib·JSON): 미진단</title></rect>
+<rect x="740" y="422" width="18" height="18" rx="4" fill="#fb8c00"><title>s21 파이썬 활용 심화(os·pathlib·JSON): 레벨1 진행</title></rect>
 <text x="749" y="454" font-size="9" fill="#6b7280" text-anchor="middle">21</text>
-<text x="300" y="474" fill="#b91c1c">약한 단원: s11, s14, s01</text>
-<text x="560" y="474" fill="#166534">능숙한 단원: -</text>
-<text x="300" y="494" fill="#374151">약한 개념: 프로그램과 컴퓨터, 논리 연산자, __init__, 창 표시와 이벤트 루프</text>
+<text x="300" y="474" fill="#b91c1c">약한 단원: s18, s21, s04</text>
+<text x="560" y="474" fill="#166534">능숙한 단원: s02</text>
+<text x="300" y="494" fill="#374151">약한 개념: 자료형, 연산자 우선순위, len·sum, 출력 형식</text>
 <rect x="24" y="536" width="12" height="12" rx="3" fill="#2e7d32"/>
 <text x="40" y="546" fill="#374151">숙달</text>
 <rect x="134" y="536" width="12" height="12" rx="3" fill="#ffb300"/>
