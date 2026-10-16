@@ -842,7 +842,8 @@ def in_open_round(key):
 
 def cmd_explain(args):
     set_token, item = args.set, args.item
-    if item is None and "_" in set_token:  # 회차 문항 ID: s03_Q4
+    in_round = item is None and "_" in set_token  # 회차 문항 ID: s03_Q4. 회차 배점은 회차마다 달라서 은행 배점을 적지 않음
+    if in_round:
         set_token, item = set_token.split("_", 1)
     if item is None:
         die("문항을 지정하세요. 예) python study.py explain 3 Q4  또는  python study.py explain s03_Q4")
@@ -858,7 +859,8 @@ def cmd_explain(args):
                 answer = "\n" + indent(q["answer"].rstrip("\n"))
             else:
                 answer = " 또는 ".join(q["answer"])
-            print("[%s %s] %s · %d점\n정답: %s\n\n%s" % (s["id"], q["id"], QTYPE_LABEL[q["type"]], q["points"], answer, q["explain"]))
+            points = "" if in_round else " · %d점" % q["points"]
+            print("[%s %s] %s%s\n정답: %s\n\n%s" % (s["id"], q["id"], QTYPE_LABEL[q["type"]], points, answer, q["explain"]))
             return
     for p in s["problems"]:
         if p["id"].lower() == item.lower():

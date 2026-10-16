@@ -209,6 +209,10 @@ class Session:
             if rnd is None:
                 return self._start(adaptive.build_diagnostic(self.prof, self.cat)), True
             if not rnd.get("completed_at"):
+                try:  # 배점을 바꾸기 전에 만든 회차의 문제지(README.md)도 지금 배점으로 다시 씀. 답안지와 코드 파일은 덮어쓰지 않음
+                    adaptive.write_round(self.user, rnd, self.cat)
+                except OSError:  # 화면은 문제지를 읽지 않아서 못 고쳐도 이어 풀 수 있음
+                    pass
                 return rnd, False
             nxt = adaptive.build_round(self.prof, self.cat)
             if nxt is None:
@@ -265,14 +269,16 @@ class Session:
     def _code_path(self, rid, name):
         return os.path.join(self.folder(rid), name + ".py")
 
-    def _item_view(self, rnd, key, number, quiz_answers):
+    def _item_view(self, rnd, key, number, quiz_answers, points):
+        """points 는 그 회차의 배점(adaptive.round_points)임."""
         it = self.cat[key]
         name = adaptive.fname_of(key)
         view = {
             "id": name, "key": key, "no": number, "unit": it["unit"], "unit_title": it["unit_title"],
-            "kind": it["kind"], "type": it["type"], "level": it["level"], "points": it["points"],
+            "kind": it["kind"], "type": it["type"], "level": it["level"], "points": points[key],
             "result": (rnd.get("results") or {}).get(key),  # None | ok | wrong | skipped. 채점한 뒤에만 값이 있음
             "retest": key in (rnd.get("retest") or []),
+            "ref": (it["q"] if it["kind"] == "quiz" else it["spec"]).get("ref", []),  # 참고 자료(강의·과제 쪽수 등). 은행에 없으면 빈 목록임
         }
         if it["kind"] == "quiz":
             body = adaptive.quiz_section(it["set"], it["q"]["id"])
@@ -298,10 +304,21 @@ class Session:
                         examples=self._examples(spec))
         return view
 
+    def _score(self, rnd, first=False):
+        """회차 점수 "득점/100". 예전 회차는 옛 배점으로 저장돼 있어서 저장된 값 대신 지금 배점으로 다시 셈.
+        first=True 면 그 회차의 첫 시도 기록으로, 아니면 문항별 마지막 결과(rnd["results"])로 셈."""
+        points = adaptive.round_points(rnd["items"], self.cat)
+        if first:
+            ok = {a["item"] for a in self.prof["attempts"] if a["round"] == rnd["id"] and a["try"] == 1 and a["ok"]}
+        else:
+            ok = {key for key, state in (rnd.get("results") or {}).items() if state == "ok"}
+        return "%d/%d" % (sum(p for key, p in points.items() if key in ok), sum(points.values()))
+
     def _round_summary(self, rnd):
         return {
             "id": rnd["id"], "title": adaptive.round_title(rnd), "kind": rnd["kind"],
-            "size": len(self._keys(rnd)), "score": rnd.get("score"), "first_score": rnd.get("first_score"),
+            "size": len(self._keys(rnd)), "score": self._score(rnd) if rnd.get("score") else None,
+            "first_score": self._score(rnd, first=True) if rnd.get("first_score") else None,
             "completed": bool(rnd.get("completed_at")), "avg_level": rnd.get("avg_level"),
             "size_reason": rnd.get("size_reason", ""), "unanswered": rnd.get("unanswered"),
             "graded": bool(rnd.get("results")),
@@ -313,7 +330,8 @@ class Session:
         answers = self._quiz_answers(rnd["id"])
         view = self._round_summary(rnd)
         view["folder"] = self.folder(rnd["id"])
-        view["items"] = [self._item_view(rnd, k, i, answers) for i, k in enumerate(self._keys(rnd), 1)]
+        points = adaptive.round_points(rnd["items"], self.cat)
+        view["items"] = [self._item_view(rnd, k, i, answers, points) for i, k in enumerate(self._keys(rnd), 1)]
         return view
 
     def rounds(self):
@@ -348,13 +366,14 @@ class Session:
     def _write_quiz(self, rnd, answers):
         lines = ["# %s 퀴즈 답안지입니다. 문제는 같은 폴더의 README.md 에 있습니다." % adaptive.round_title(rnd),
                  "# 객관식: 번호(복수 정답은 [1, 3]) / 출력 예측·단답: 문자열(여러 줄은 \"\"\" 사용) / 안 푼 문제는 None", ""]
+        points = adaptive.round_points(rnd["items"], self.cat)
         for key in self._keys(rnd):
             it = self.cat[key]
             if it["kind"] != "quiz":
                 continue
             name = adaptive.fname_of(key)
             lines.append("%s = %s  # %s · %s · %d점" % (
-                name, literal(answers.get(name)), it["unit_title"], study.QTYPE_LABEL[it["type"]], it["points"]))
+                name, literal(answers.get(name)), it["unit_title"], study.QTYPE_LABEL[it["type"]], points[key]))
         study.write_text(os.path.join(self.folder(rnd["id"]), "quiz.py"), "\n".join(lines) + "\n")
 
     def reset_item(self, rid, item_id):
@@ -423,7 +442,7 @@ class Session:
                 completed_now, next_id = False, None
                 if not rnd.get("completed_at") and rnd["unanswered"] == 0:
                     rnd["completed_at"] = adaptive.now()
-                    rnd["first_score"] = rnd["score"]  # 다음 회차 크기는 이 점수로 정함. 나중에 고쳐서 다시 채점해도 바꾸지 않음
+                    rnd["first_score"] = self._score(rnd, first=True)  # 다음 회차 크기는 이 점수로 정함. 화면의 첫 제출 점수와 같은 값이고, 나중에 고쳐서 다시 채점해도 바꾸지 않음
                     completed_now = True
                     if rnd is self.latest():
                         nxt = adaptive.build_round(self.prof, self.cat)
@@ -471,7 +490,7 @@ class Session:
         그 뒤에 다른 회차의 첫 시도나 그 회차의 다시 채점에서 맞혔으면 fixed 임. 앞 회차를 다시 채점해 맞힌 것은 넣지 않음.
         은행에서 빠진 문항은 건너뜀."""
         order = {rnd["id"]: n for n, rnd in enumerate(self.prof["rounds"])}
-        notes, place = {}, {}
+        notes, place, points = {}, {}, {}  # points 는 회차별 배점
         for n, a in enumerate(self.prof["attempts"]):  # 기록은 채점한 순서로 쌓임
             key = a["item"]
             if key not in self.cat:
@@ -479,8 +498,10 @@ class Session:
             if a["try"] == 1 and not a["ok"]:
                 it, rnd = self.cat[key], self.prof["rounds"][order[a["round"]]]
                 labels = study.QTYPE_LABEL if it["kind"] == "quiz" else study.TYPE_LABEL
+                if rnd["id"] not in points:
+                    points[rnd["id"]] = adaptive.round_points(rnd["items"], self.cat)
                 notes[key] = {
-                    "key": key, "id": adaptive.fname_of(key), "type_label": labels[it["type"]], "level": it["level"], "points": it["points"],
+                    "key": key, "id": adaptive.fname_of(key), "type_label": labels[it["type"]], "level": it["level"], "points": points[rnd["id"]][key],
                     "round": a["round"], "round_title": adaptive.round_title(rnd), "completed": bool(rnd.get("completed_at")), "at": a["at"],
                     "skipped": bool(a.get("skipped")), "wrong_count": notes[key]["wrong_count"] + 1 if key in notes else 1, "fixed": False,
                 }
@@ -496,7 +517,8 @@ class Session:
     def wrong_item(self, rid, item_id):
         """오답 노트에서 고른 문항을 open_round 의 문항 모양으로 돌려줌. 내 답은 그 회차에 적은 답임. 답안지가 깨졌으면 SessionError."""
         rnd, key, _ = self._find(rid, item_id)
-        return self._item_view(rnd, key, self._keys(rnd).index(key) + 1, self._quiz_answers(rnd["id"]))
+        return self._item_view(rnd, key, self._keys(rnd).index(key) + 1, self._quiz_answers(rnd["id"]),
+                               adaptive.round_points(rnd["items"], self.cat))
 
     # 현황
 

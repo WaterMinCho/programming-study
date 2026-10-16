@@ -31,6 +31,13 @@ def band(title, anchor=""):
             '<tr><td class="band"><b>%s</b></td></tr></table>' % (anchor, title))
 
 
+def ref_html(refs):
+    """참고 자료 구역. 강의·과제 쪽수 같은 짧은 글을 한 줄로 이음. 문항에 ref 가 없으면 빈 글자를 돌려줌."""
+    if not refs:
+        return ""
+    return band("참고 자료") + "<p>%s</p>" % " · ".join(html.escape(ref, quote=False) for ref in refs)
+
+
 def my_answer_html(item):
     answer = item["answer"]
     if not item["answered"]:
@@ -51,6 +58,7 @@ def explain_html(item, info):
         parts.append(md_html(re.sub(r"^# [^\n]*\n", "", info["explain"], count=1)))  # 문서 첫 줄의 제목은 띠 제목과 겹쳐서 뺌
     else:  # 퀴즈 해설은 마크다운 문서가 아니라 한 문단짜리 글임
         parts.append("<p>%s</p>" % mdlite.inline_html(info["explain"]))
+    parts.append(ref_html(item["ref"]))
     if info["solution"]:
         parts += [band("모범 답안"), code_box(info["solution"])]
     return "".join(parts)

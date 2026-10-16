@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (QAbstractItemView, QCheckBox, QHBoxLayout, QLabel, 
 
 from gui import theme
 from gui.mascot import Mascot
-from gui.result_page import band, explain_html, md_html, my_answer_html
+from gui.result_page import band, explain_html, md_html, my_answer_html, ref_html
 from gui.widgets import Para
 from session import SessionError
 
@@ -168,15 +168,18 @@ class WrongPage(QWidget):
         self.retry_btn.setEnabled(note is not None)
 
     def item_html(self, note, item):
-        """첫 시도의 결과와 틀린 회차, 문제, 내 답. [해설 보기]를 눌렀으면 결과 화면과 같은 정답과 해설을 덧붙임."""
+        """첫 시도의 결과와 틀린 회차, 참고 자료, 문제, 내 답. [해설 보기]를 눌렀으면 결과 화면과 같은 정답과 해설을 덧붙임.
+        참고 자료는 정답을 알려 주지 않아서 해설을 펴기 전에도 보여 줌. 은행 문항에 ref 가 없으면 참고 자료와 문제 띠를 넣지 않음."""
         name, mark = theme.result_label("skipped" if note["skipped"] else "wrong")
         facts = [note["round_title"]]
         if note["wrong_count"] > 1:
             facts.append("%d개 회차에서 틀림" % note["wrong_count"])
         if note["fixed"]:
             facts.append('<span class="ok">그 뒤에 다시 맞힘</span>')
-        parts = ['<p><b><span class="%s">%s</span></b> <span class="muted">· %s</span></p>' % (mark, name, " · ".join(facts)),
-                 md_html(item["body_md"]), band("내 답"), my_answer_html(item)]
+        parts = ['<p><b><span class="%s">%s</span></b> <span class="muted">· %s</span></p>' % (mark, name, " · ".join(facts))]
+        if item["ref"]:  # 문제 본문이 참고 자료 목록에 이어 붙어 보이지 않게 문제에도 띠를 붙임
+            parts += [ref_html(item["ref"]), band("문제")]
+        parts += [md_html(item["body_md"]), band("내 답"), my_answer_html(item)]
         if note["key"] in self.revealed:
             parts.append(explain_html(item, self.revealed[note["key"]]))
         return "<body>%s</body>" % "".join(parts)

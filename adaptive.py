@@ -22,6 +22,7 @@ DIAG_PER_UNIT = 2  # 진단에서 단원당 문항 수
 WINDOW = 4  # 레벨 통과 판정에 보는 최근 시도 수
 MASTER_LEVEL = 2  # 이 레벨까지 통과하면 단원 숙달
 DEFAULT_QUIZ_LEVEL = {"choice": 1, "short": 1, "output": 2}  # 출제자가 level 을 안 적은 퀴즈의 기본 레벨
+ROUND_TOTAL = 100  # 회차(진단 포함) 만점
 ROUND_RE = re.compile(r"[dr]\d+")
 
 
@@ -81,6 +82,34 @@ def catalog():
                           "type": p["type"], "level": int(p["level"]), "points": p["points"],
                           "tags": p.get("tags", []), "spec": p, "set": s}
     return items
+
+
+def item_weight(it):
+    """회차 배점의 가중치. 퀴즈는 은행 배점(객관식 2, 단답·출력 예측 3)에 레벨 - 1 을 더하고, 코드 문제는 은행 배점(레벨 1·2·3 = 4·6·8)을 그대로 씀."""
+    return it["points"] + it["level"] - 1 if it["kind"] == "quiz" else it["points"]
+
+
+def round_points(keys, cat):
+    """회차 문항의 배점 {문항키: 점수}. 카탈로그에 있는 문항만 가중치에 비례해 100점을 나눔.
+    정수로 내림한 뒤 나머지가 큰 순서(같으면 문항 순서)로 1점씩 더해 합을 100으로 맞춤.
+    0점이 된 문항은 1점으로 두고, 남은 점수를 나머지 문항에 같은 방식으로 다시 나눔."""
+    keys = [k for k in keys if k in cat]
+    fixed = {}
+    while True:
+        rest = [k for k in keys if k not in fixed]
+        budget = ROUND_TOTAL - len(fixed)
+        weights = {k: item_weight(cat[k]) for k in rest}
+        total = sum(weights.values())
+        points = {k: budget * w // total for k, w in weights.items()}
+        left = budget - sum(points.values())
+        for k in sorted(rest, key=lambda k: -(budget * weights[k] % total))[:left]:  # sorted 는 같은 값의 순서를 지킴
+            points[k] += 1
+        zeros = [k for k in rest if points[k] < 1]
+        if not zeros:
+            break
+        fixed.update(dict.fromkeys(zeros, 1))
+    points.update(fixed)
+    return {k: points[k] for k in keys}
 
 
 # 프로필
@@ -426,6 +455,7 @@ def write_round(user, rnd, cat):
         readme.append("")
     quiz_lines = ["# %s 퀴즈 답안지입니다. 문제는 같은 폴더의 README.md 에 있습니다." % title,
                   "# 객관식: 번호(복수 정답은 [1, 3]) / 출력 예측·단답: 문자열(여러 줄은 \"\"\" 사용) / 안 푼 문제는 None", ""]
+    points = round_points(rnd["items"], cat)
     for key in rnd["items"]:
         if key not in cat:  # 은행에서 사라진 문항
             continue
@@ -433,12 +463,12 @@ def write_round(user, rnd, cat):
         name = fname_of(key)
         if it["kind"] == "quiz":
             readme.append("## %s (%s · %s · %d점)\n\n%s\n" % (
-                name, it["unit_title"], study.QTYPE_LABEL[it["type"]], it["points"], quiz_section(it["set"], it["q"]["id"])))
-            quiz_lines.append("%s = None  # %s · %s · %d점" % (name, it["unit_title"], study.QTYPE_LABEL[it["type"]], it["points"]))
+                name, it["unit_title"], study.QTYPE_LABEL[it["type"]], points[key], quiz_section(it["set"], it["q"]["id"])))
+            quiz_lines.append("%s = None  # %s · %s · %d점" % (name, it["unit_title"], study.QTYPE_LABEL[it["type"]], points[key]))
         else:
             spec = it["spec"]
             readme.append("## %s (%s · %s · %s · %d점)\n\n파일: `%s.py`\n\n%s\n" % (
-                name, it["unit_title"], study.TYPE_LABEL[spec["type"]], spec["title"], it["points"], name, problem_body(spec)))
+                name, it["unit_title"], study.TYPE_LABEL[spec["type"]], spec["title"], points[key], name, problem_body(spec)))
             target = os.path.join(folder, name + ".py")
             if not os.path.exists(target):
                 shutil.copyfile(os.path.join(spec["dir"], "starter.py"), target)
@@ -458,12 +488,13 @@ def cat_unit_title(cat, unit_id):
 # 채점 · 기록
 
 def grade_round(user, rnd, cat):
-    """회차 채점. 세트 채점과 같은 항목 형식으로 돌려줌."""
+    """회차 채점. 세트 채점과 같은 항목 형식으로 돌려줌. 배점은 round_points 라서 합이 100임."""
     folder = os.path.join(study.SUBMISSIONS_DIR, user, rnd["id"])
     answers, error = {}, None
     if os.path.isfile(os.path.join(folder, "quiz.py")):
         answers, error = study.parse_quiz_answers(os.path.join(folder, "quiz.py"))
     items = []
+    points = round_points(rnd["items"], cat)
     for key in rnd["items"]:
         if key not in cat:  # 은행에서 사라진 문항
             continue
@@ -477,8 +508,8 @@ def grade_round(user, rnd, cat):
         else:
             state, detail = study.grade_problem(it["spec"], os.path.join(folder, name + ".py"))
             label = "%s · %s · %s" % (it["unit_title"], study.TYPE_LABEL[it["type"]], it["spec"]["title"])
-        items.append({"id": name, "key": key, "label": label, "points": it["points"],
-                      "earned": it["points"] if state == "ok" else 0, "state": state, "detail": detail})
+        items.append({"id": name, "key": key, "label": label, "points": points[key],
+                      "earned": points[key] if state == "ok" else 0, "state": state, "detail": detail})
     return items
 
 
