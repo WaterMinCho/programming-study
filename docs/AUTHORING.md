@@ -15,7 +15,8 @@
 
 ```
 start.pyw, ROKEY.app       더블클릭 실행 (터미널 없이 창만 열림)
-start.bat, start.command   더블클릭 실행 (터미널이 같이 열림. 위의 파일로 안 열릴 때 씀)
+start.bat                  더블클릭 실행 (start.pyw 로 넘기고 바로 닫힘. 처음 설치에 준비 창을 못 띄우면 터미널로 실행)
+start.command              더블클릭 실행 (터미널이 같이 열림. ROKEY.app 으로 안 열릴 때 씀)
 study.py                 실행기, 터미널 명령, 문제 은행 로딩과 채점
 bootstrap.py             PyQt6 확인과 설치
 gui/                     화면 (PyQt6)

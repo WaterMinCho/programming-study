@@ -820,10 +820,16 @@ class WindowHostTest(unittest.TestCase):
                     mock.patch.object(subprocess, "call") as call:
                 bootstrap.hand_off()
                 self.assertNotIn("STUDY_WINDOW", os.environ)  # 넘겨받은 쪽까지 창 모드면 끝없이 되풀이됨
+                self.assertEqual(os.environ.get("STUDY_CONSOLE"), "1" if name == "nt" else None)  # start.bat 이 창 모드로 넘기지 않게 함
             opened = startfile.call_args_list + call.call_args_list
             expected = mock.call(os.path.join(ROOT, "start.bat")) if name == "nt" else \
                 mock.call(["open", os.path.join(ROOT, "start.command")])
             self.assertEqual(opened, [expected])
+
+    def test_old_start_bat_resumes_on_exit_line(self):
+        """예전 start.bat 은 study.py 가 끝나면 230바이트 자리부터 이어 읽음. 실행 중에 문제 받기로 이 파일이 바뀌어도 다시 켜지지 않게 그 자리에 exit /b 를 둠."""
+        with open(os.path.join(ROOT, "start.bat"), "rb") as f:
+            self.assertEqual(f.read()[228:239], b"\r\nexit /b\r\n")
 
     def test_real_window_host_cannot_open_window_without_tkinter(self):
         with mock.patch.dict(sys.modules, {"tkinter": None}):
@@ -906,7 +912,7 @@ class StartFileTest(unittest.TestCase):
         self.assertIn("Traceback", recorded)
         self.assertIn("RuntimeError: 받아 온 코드의 오류", recorded)
         (text,), _ = alert.call_args
-        for part in ("start.bat", "start.command", "python study.py update", self.log):
+        for part in ("python study.py 로 켜거나", "start.command", "python study.py update", self.log):
             self.assertIn(part, text)
 
     def test_import_failure_is_recorded_and_alerted(self):
