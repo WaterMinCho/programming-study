@@ -1261,6 +1261,41 @@ class TeamTest(GuiTest):
         self.assertEqual((len(team.findChildren(MemberCard)), team.findChildren(EmptyCard)), (2, []))  # 앞서 놓았던 카드는 남지 않음
 
 
+class RoundScoreTest(GuiTest):
+    def test_scores_are_out_of_100_even_for_rounds_saved_with_old_points(self):
+        """회차 화면의 문항 제목은 회차 배점을 보여 주고, 결과 화면과 홈 목록은 100점 기준임.
+        예전 배점("6/12")으로 저장된 회차도 지금 배점으로 다시 셈."""
+        self.boot()
+        win, sess, page, result = self.win, self.win.session, self.win.round_page, self.win.result_page
+        choice, output, code = self.first(type="choice", multi=False), self.first(type="output"), self.first(type="return")
+        points = adaptive.round_points([choice, output, code], sess.cat)
+        self.make_round("r91", [choice, output, code])
+        win.open_round("r91")
+        for key in (choice, code):
+            item = self.select(lambda it: it["key"] == key)
+            self.assertTrue(page.item_title.text().endswith(" · %d점" % points[key]), page.item_title.text())
+            self.fill(item, right_answer(sess, item))
+        self.submit_round()
+        first = points[choice] + points[code]
+        self.assertEqual(result.score.text(), "%d / 100점" % first)
+        adaptive.find_round(sess.prof, "r91").update(score="6/12", first_score="6/12")
+        adaptive.save_profile(sess.prof)
+        win.go_home()
+        home = win.home
+        self.assertEqual(home.rounds.item(0).text(), "91회차 미니 모의고사    %d / 100점 (%d%%)" % (first, first))
+        QTest.mouseClick(home.rounds.viewport(), LEFT, pos=home.rounds.visualItemRect(home.rounds.item(0)).center())
+        pump()
+        self.assertIs(self.page(), result)
+        self.assertEqual((result.score.text(), result.note.text()), ("%d / 100점" % first, ""))
+        result.listw.setCurrentRow(2)  # 비워 둔 출력 예측을 고쳐 다시 채점
+        click(result.retry_btn)
+        self.fill(page.current, right_answer(sess, page.current))
+        click(page.submit_btn)
+        self.idle()
+        self.assertEqual(result.score.text(), "100 / 100점")
+        self.assertEqual(result.note.text(), "첫 제출은 %d / 100점이었습니다. 숙달 판정에는 첫 제출만 반영됩니다." % first)
+
+
 class WrongNotesTest(GuiTest):
     def submit(self, rid, keys, right=(), wrong=()):
         """고른 문항으로 회차를 만들어 화면에서 풀고 제출함. right 는 정답, wrong 은 오답을 적고 나머지는 비움."""
@@ -1311,7 +1346,7 @@ class WrongNotesTest(GuiTest):
         self.assertEqual([page.listw.item(row).foreground().color().name() for row in (1, 3)], [theme.color("blank"), theme.color("wrong")])
 
         item = self.win.session.wrong_item("r91", adaptive.fname_of(output))
-        self.assertEqual(page.item_title.text(), "출력 예측 · %s · %d점" % (cat[output]["unit_title"], cat[output]["points"]))
+        self.assertEqual(page.item_title.text(), "출력 예측 · %s · %d점" % (cat[output]["unit_title"], adaptive.round_points([choice, output, code], cat)[output]))
         text = page.detail.toPlainText()
         self.assertIn("미응답 · 91회차 미니 모의고사", text)
         self.assertIn(mdlite.inline_plain(item["body_md"].split("\n")[0]), text)
@@ -1431,6 +1466,32 @@ class WrongNotesTest(GuiTest):
         pump()
         self.assertEqual(page.listw.item(3).foreground().color().name(), theme.LIGHT["wrong"])
         self.assertGreater(bright_share(self.win), 0.5)
+
+    def test_reference_list_shows_under_the_status_line_and_the_explanation(self):
+        """은행 문항에 ref 가 있으면 오답 노트의 상태 줄 아래(해설을 펴기 전에도)와 정답과 해설 아래에 참고 자료가 나옴. 없으면 띠도 없음."""
+        self.boot()
+        output, code = self.first(type="output"), self.first(type="return")
+        refs = ["강의 1차시 12쪽", "과제 1차시 3번", "4주차 요약본 1.2"]
+        shown = r"참고 자료\s+" + re.escape(" · ".join(refs))  # 띠 아래에 한 줄로 이음
+        with mock.patch.dict(self.win.session.cat[output]["q"], ref=refs), mock.patch.dict(self.win.session.cat[code]["spec"]):
+            self.win.session.cat[code]["spec"].pop("ref", None)  # 은행 문항에는 ref 가 있어서 없는 경우는 여기서 지움. patch.dict 가 끝나면 되돌림
+            self.submit("r91", [output, code], wrong=[code])
+            result = self.win.result_page
+            result.listw.setCurrentRow(1)
+            click(result.explain_btn)
+            self.assertRegex(result.detail.toPlainText().split("정답과 해설")[1], shown)
+            page = self.open_notes()
+            text = page.detail.toPlainText()
+            self.assertNotIn("정답과 해설", text)
+            self.assertRegex(text, shown + r"\s+문제\n")  # 문제 본문이 참고 자료에 이어 붙어 보이지 않게 띠로 나눔
+            self.assertLess(text.index("미응답 · 91회차 미니 모의고사"), text.index("참고 자료"))
+            self.assertLess(text.index("참고 자료"), text.index("내 답"))
+            click(page.explain_btn)
+            self.assertRegex(page.detail.toPlainText().split("정답과 해설")[1], shown)
+            page.listw.setCurrentRow(3)  # ref 가 없는 코드 문제
+            click(page.explain_btn)
+            self.assertIn("모범 답안", page.detail.toPlainText())
+            self.assertNotIn("참고 자료", page.detail.toPlainText())
 
 
 class WidgetTest(unittest.TestCase):
