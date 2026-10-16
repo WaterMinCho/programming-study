@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "exec",
   "tags": ["이터레이터 클래스", "next와 StopIteration"],
+  "ref": ["강의 15차시 12쪽", "강의 15차시 10~11쪽"],
   "examples": 4,
   "cases": [
     {"code": "for x in Countdown(3):\n    print(x)", "stdout": "3\n2\n1\n"},

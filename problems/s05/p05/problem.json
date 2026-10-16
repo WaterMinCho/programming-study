@@ -4,6 +4,7 @@
   "level": 1,
   "points": 4,
   "tags": ["range 끝값"],
+  "ref": ["과제 5차시 10번", "강의 5차시 9쪽"],
   "mode": "io",
   "examples": 1,
   "cases": [

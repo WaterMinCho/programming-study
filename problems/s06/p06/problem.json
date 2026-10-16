@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["return", "매개변수와 인수"],
+  "ref": ["강의 6차시 26~27쪽", "주간 과제 2주차 6차시 2번"],
   "examples": 4,
   "cases": [
     {"call": "solution(3, 10)", "expected": "18"},

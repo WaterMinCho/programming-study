@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["return", "매개변수와 인수"],
+  "ref": ["강의 6차시 24쪽"],
   "examples": 4,
   "cases": [
     {"call": "solution(\"hello world\")", "expected": "10"},

@@ -4,6 +4,7 @@
   "level": 2,
   "points": 6,
   "tags": ["for-while 변환", "while 조건", "복합 대입"],
+  "ref": ["강의 5차시 10쪽", "강의 5차시 29쪽"],
   "mode": "io",
   "examples": 2,
   "cases": [

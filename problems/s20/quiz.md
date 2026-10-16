@@ -450,3 +450,117 @@ print(h, w)
 print(center)
 print((w, h))
 ```
+
+## Q31 (객관식 · 2점)
+
+엣지 검출과 블러 처리 코드입니다. 설명으로 옳지 **않은** 것은?
+
+```python
+edges = cv2.Canny(image, 100, 200)
+blurred = cv2.GaussianBlur(image, (15, 15), 0)
+```
+
+1. `cv2.Canny()` 의 100 은 최소 임계값, 200 은 최대 임계값이다.
+2. `cv2.Canny()` 의 입력으로는 보통 그레이스케일 이미지를 쓴다.
+3. `cv2.GaussianBlur()` 의 `(15, 15)` 는 커널 크기이고, 커널이 클수록 이미지가 더 선명해진다.
+4. `cv2.GaussianBlur()` 의 마지막 인자 `0` 은 sigma 값을 OpenCV 가 자동으로 계산하게 한다.
+
+## Q32 (단답 · 3점)
+
+이미지에 가우시안 블러(Gaussian Blur) 필터를 적용해 노이즈를 줄이고 부드럽게 만든 뒤 화면에 보여 주는 프로그램입니다. 빈칸에 들어갈 함수 이름을 적으세요. 대소문자를 구분합니다.
+
+```python
+import cv2
+
+image = cv2.imread('sample.jpg')
+blurred = cv2.____(image, (15, 15), 0)
+cv2.imshow('Gaussian Blur', blurred)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+## Q33 (객관식 · 2점)
+
+`edges = cv2.Canny(image, threshold1, threshold2)` 에 대한 설명으로 옳은 것은?
+
+1. `threshold1`(최소 임계값)을 너무 낮게 정하면 원하지 않는 엣지까지 검출된다.
+2. `threshold2`(최대 임계값)를 너무 높게 정하면 엣지가 더 많이 검출된다.
+3. 두 임계값은 보통 `threshold1` 이 `threshold2` 의 2배나 3배가 되도록 정한다.
+4. `cv2.Canny()` 는 검출한 엣지의 개수를 정수로 돌려준다.
+
+## Q34 (객관식 · 2점)
+
+붓꽃 종별 꽃받침 길이의 분포를 상자 그림과 커널 밀도 추정을 결합한 모양으로 그리고, 안쪽에 사분위수를 선으로 표시하려고 합니다. 빈칸에 들어갈 함수는?
+
+```python
+iris = sns.load_dataset("iris")
+sns.____(data=iris, x="species", y="sepal_length", inner="quart")
+plt.show()
+```
+
+1. `boxplot`
+2. `violinplot`
+3. `histplot`
+4. `pairplot`
+
+## Q35 (객관식 · 2점)
+
+붓꽃 종별 꽃받침 길이의 히스토그램 위에 분포 곡선(커널 밀도 추정 곡선)을 함께 그리려고 합니다. 빈칸에 들어갈 인자는?
+
+```python
+iris = sns.load_dataset("iris")
+sns.histplot(data=iris, x="sepal_length", hue="species", ____)
+plt.title("Histogram Example")
+plt.show()
+```
+
+1. `kde=True`
+2. `curve=True`
+3. `inner="quart"`
+4. `style="kde"`
+
+## Q36 (객관식 · 2점)
+
+`cv2.imread()` 로 읽은 컬러 이미지 `image` 를 HSV 색 공간으로 변환하려고 합니다. 빈칸에 들어갈 플래그는?
+
+```python
+hsv = cv2.cvtColor(image, ____)
+```
+
+1. `cv2.COLOR_BGR2HSV`
+2. `cv2.COLOR_HSV2BGR`
+3. `cv2.COLOR_BGR2RGB`
+4. `cv2.COLOR_BGR2GRAY`
+
+## Q37 (객관식 · 2점)
+
+이미지를 읽어 창에 보여 주는 프로그램입니다. 설명으로 옳은 것은?
+
+```python
+import cv2
+
+image = cv2.imread('sample.jpg')
+cv2.imshow('Loaded Image', image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+1. `cv2.imread()` 는 이미지 파일을 읽어 바로 새 창에 띄운다.
+2. `cv2.imshow()` 의 첫 번째 인자 `'Loaded Image'` 는 창의 제목이고, 두 번째 인자가 보여 줄 이미지이다.
+3. `cv2.waitKey(0)` 은 기다리지 않고 바로 다음 줄로 넘어간다.
+4. `cv2.destroyAllWindows()` 는 읽어 온 이미지 파일 `sample.jpg` 를 지운다.
+
+## Q38 (단답 · 3점)
+
+산점도를 그리기 전에 색상 팔레트만 pastel 로 바꾸려고 합니다. 빈칸에 들어갈 Seaborn 함수 이름을 적으세요. 대소문자와 밑줄을 구분합니다.
+
+```python
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+iris = sns.load_dataset("iris")
+sns.____("pastel")
+sns.scatterplot(data=iris, x="sepal_length", y="sepal_width", hue="species")
+plt.title("Custom Palette")
+plt.show()
+```

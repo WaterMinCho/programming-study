@@ -417,3 +417,34 @@ print(list(r))
 print(list(r))
 print(r.current)
 ```
+
+## Q28 (객관식 · 2점)
+
+제너레이터 표현식으로 만든 제너레이터는 만드는 줄에서 값을 계산하지 않고, `next()` 로 값을 요구받을 때 하나씩 계산합니다. 이처럼 결과값이 필요할 때까지 연산을 늦추는 방식을 무엇이라고 합니까?
+
+1. 컴프리헨션(comprehension)
+2. 느긋한 계산법(lazy evaluation)
+3. 오버라이딩(overriding)
+4. 이터러블(iterable)
+
+## Q29 (객관식 · 2점)
+
+다음 코드를 실행했을 때의 결과로 옳은 것은?
+
+```python
+def simple_generator():
+    yield 'a'
+    yield 'b'
+    yield 'c'
+
+g = simple_generator()
+print(next(g))
+print(next(g))
+print(next(g))
+print(next(g))
+```
+
+1. `a`, `b`, `c` 가 한 줄에 하나씩 출력된 뒤 `a` 가 한 번 더 출력된다.
+2. `a`, `b`, `c` 가 한 줄에 하나씩 출력된 뒤 `None` 이 출력된다.
+3. `a`, `b`, `c` 가 한 줄에 하나씩 출력된 뒤 `StopIteration` 예외가 발생한다.
+4. 첫 번째 `next(g)` 에서 `TypeError` 가 발생한다.

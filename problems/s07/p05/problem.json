@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["global", "반환값"],
+  "ref": ["강의 7차시 15쪽", "강의 7차시 18쪽", "3주차 요약본 7.4"],
   "examples": 1,
   "cases": [
     {"call": "[solution(3), solution(4), solution(5)]", "expected": "[3, 7, 12]"},

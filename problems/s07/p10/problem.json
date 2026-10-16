@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "exec",
   "tags": ["global", "print 출력 형식"],
+  "ref": ["강의 7차시 9쪽", "강의 7차시 15쪽", "3주차 요약본 7.4"],
   "examples": 1,
   "cases": [
     {"code": "deposit(3000)\nwithdraw(1000)\nwithdraw(5000)\nprint(balance)", "stdout": "입금 3000 잔액 3000\n출금 1000 잔액 2000\n잔액 부족\n2000\n"},

@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["회전 큐", "큐 FIFO"],
+  "ref": ["강의 16차시 13쪽", "강의 16차시 22~23쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution(1)", "expected": "1"},

@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "exec",
   "tags": ["시그널과 슬롯 연결", "super()", "자식 __init__"],
+  "ref": ["강의 11차시 19~20쪽", "강의 11차시 25쪽", "강의 10차시 19쪽"],
   "examples": 2,
   "cases": [
     {"code": "entry = LineEdit()\nlabel = Label()\nentry.textChanged.connect(label.setText)\nprint(entry.text() == \"\", label.text() == \"\")\nentry.setText(\"RO\")\nprint(entry.text(), label.text())\nentry.setText(\"ROKEY\")\nprint(entry.text(), label.text())", "stdout": "True True\nRO RO\nROKEY ROKEY\n"},

@@ -4,6 +4,7 @@
   "level": 1,
   "points": 4,
   "tags": ["누적 패턴", "range 끝값"],
+  "ref": ["강의 5차시 25쪽", "강의 5차시 27쪽", "과제 5차시 9번"],
   "mode": "call",
   "examples": 3,
   "cases": [

@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["따옴표와 문자열", "print 기초"],
+  "ref": ["강의 1차시 8쪽", "강의 1차시 22쪽"],
   "examples": 1,
   "cases": [
     {"stdout": "print\nHello\n"}

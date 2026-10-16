@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["튜플 반환", "return"],
+  "ref": ["주간 과제 2주차 6차시 1번", "강의 6차시 25쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution([70, 50, 90], 60)", "expected": "(2, 80.0)"},

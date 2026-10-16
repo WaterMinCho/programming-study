@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["elif 사슬", "input 형변환"],
+  "ref": ["과제 3차시 8번", "과제 3차시 7번", "강의 3차시 27쪽"],
   "examples": 3,
   "cases": [
     {"stdin": "50\n20\n", "stdout": "볼륨: 70\n"},

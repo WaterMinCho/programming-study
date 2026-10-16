@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["elif 사슬", "비교 연산자"],
+  "ref": ["강의 3차시 28쪽", "강의 2차시 22쪽"],
   "examples": 3,
   "cases": [
     {"stdin": "7\n+\n3\n", "stdout": "7 + 3 = 10\n"},

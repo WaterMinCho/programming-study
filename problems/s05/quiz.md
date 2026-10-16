@@ -255,3 +255,65 @@ for item in orders:
 print(sold)
 print(stock)
 ```
+
+## Q20 (객관식 · 2점)
+
+다음 코드와 같은 결과를 출력하는 코드를 **모두 고르세요**.
+
+```python
+value = 10
+print(value)
+value = 20
+print(value)
+value = 30
+print(value)
+```
+
+**1번**
+
+```python
+for value in [10, 20, 30]:
+    print(value)
+```
+
+**2번**
+
+```python
+for value in range(10, 30, 10):
+    print(value)
+```
+
+**3번**
+
+```python
+for value in range(10, 31, 10):
+    print(value)
+```
+
+**4번**
+
+```python
+for value in range(3):
+    print(value * 10)
+```
+
+## Q21 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+count = 0
+while count <= 5:
+    if count % 2 != 0:
+        print(count)
+    count = count + 1
+```
+
+## Q22 (객관식 · 2점)
+
+반복문과 들여쓰기에 대한 설명으로 **옳지 않은** 것은?
+
+1. `for` 문은 문자열·리스트·튜플처럼 순서와 길이가 있는 시퀀스 자료형과 함께 쓴다
+2. `for` 문의 `in` 뒤에는 리스트를 직접 적어도 되고, 리스트를 저장한 변수를 적어도 된다
+3. 코드블록은 들여쓰기로 구분하고, 한 프로그램 안에서는 띄어쓰기 4칸이나 탭 가운데 한 가지로 통일한다
+4. `for` 문은 조건을 더는 만족하지 않을 때까지 반복하고, `while` 문은 반복 횟수가 정해진 경우에 쓴다

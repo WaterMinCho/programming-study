@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["print 기초", "대소문자 구분"],
+  "ref": ["강의 1차시 8쪽", "강의 1차시 16쪽"],
   "examples": 1,
   "cases": [
     {"stdout": "Hello ROKEY!\n"}

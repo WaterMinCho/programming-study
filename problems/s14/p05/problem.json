@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["findall과 finditer", "match 객체 메서드"],
+  "ref": ["강의 14차시 25~26쪽", "강의 14차시 28쪽"],
   "examples": 2,
   "cases": [
     {"stdin": "a1bb22ccc333\n", "stdout": "1 (1, 2)\n22 (4, 6)\n333 (9, 12)\n"},

@@ -438,3 +438,88 @@ m.read()
 x = m.up(2)
 print(x, m.read())
 ```
+
+## Q24 (객관식 · 2점)
+
+클래스의 기본 구조에 대한 설명이 **아닌** 것은?
+
+1. `class` 키워드를 사용한다.
+2. 클래스 이름은 대문자로 시작한다.
+3. 클래스 이름 뒤에는 반드시 콜론(`:`)이 위치한다.
+4. 클래스는 반드시 함수를 포함해서 작성한다.
+
+## Q25 (객관식 · 2점)
+
+다음 중 `self` 가 클래스 안에서 하는 역할로 알맞은 것은?
+
+1. 객체를 호출할 때 필요한 변수
+2. 클래스의 인스턴스를 참조하는 변수
+3. 객체의 메서드에 대한 접근을 제한하는 변수
+4. 메서드의 파라미터로 주로 사용하는 예약어
+5. 클래스의 속성을 초기화하는 변수
+
+## Q26 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+class Student:
+    school = "High School"
+
+    def __init__(self, name, grade):
+        self.name = name
+        self.grade = grade
+
+s1 = Student("Alice", 1)
+
+print(Student.school)
+print(s1.school)
+print(s1.name)
+```
+
+## Q27 (객관식 · 2점)
+
+다음 코드를 실행하면 `30`, `12`, `3` 이 한 줄에 하나씩 출력됩니다. (가)에 들어갈 줄로 알맞은 것은?
+
+```python
+class Cadd:
+    (가)
+        self.x = a
+        self.y = b
+        self.hap = self.x + self.y
+
+obj = Cadd()
+obj.fadd(10, 20)
+print(obj.hap)
+obj.fadd(10)
+print(obj.hap)
+obj.fadd()
+print(obj.hap)
+```
+
+1. `def fadd(self, a=1, b=2):`
+2. `def fadd(self, a=2, b=1):`
+3. `def fadd(a=1, b=2):`
+4. `def fadd(self, a, b=2):`
+
+## Q28 (객관식 · 2점)
+
+다음 코드에 이어서 실행했을 때 오류가 발생하는 문장은?
+
+```python
+class Car:
+    def __init__(self, pnum, pspeed):
+        self.num = pnum
+        self.speed = pspeed
+
+    def fprint(self):
+        print("차량 번호", self.num)
+        print("속도는", self.speed)
+
+new_car = Car(2023, 90)
+```
+
+1. `print("차량 번호", new_car.num)`
+2. `print("차량 번호", new_car.pnum)`
+3. `new_car.fprint()`
+4. `print("속도는", new_car.speed)`

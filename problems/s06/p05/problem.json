@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["return", "함수 호출"],
+  "ref": ["강의 6차시 16쪽", "강의 6차시 14쪽"],
   "examples": 3,
   "cases": [
     {"stdin": "30\n", "stdout": "30 -> hot\n"},

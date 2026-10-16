@@ -1,0 +1,34 @@
+{
+  "title": "강아지 소리 바꾸기",
+  "type": "return",
+  "level": 1,
+  "points": 4,
+  "mode": "call",
+  "tags": [
+    "오버라이딩",
+    "상속 문법"
+  ],
+  "ref": [
+    "주간 과제 4주차 10차시 2번",
+    "강의 10차시 18쪽"
+  ],
+  "examples": 3,
+  "cases": [
+    {
+      "call": "Dog().speak()",
+      "expected": "'Woof!'"
+    },
+    {
+      "call": "Animal().speak()",
+      "expected": "'Animal speaks'"
+    },
+    {
+      "call": "Dog().move()",
+      "expected": "'Animal moves'"
+    },
+    {
+      "call": "Animal().move()",
+      "expected": "'Animal moves'"
+    }
+  ]
+}

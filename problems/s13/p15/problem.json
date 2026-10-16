@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["split·strip·join", "람다", "map"],
+  "ref": ["강의 13차시 22~27쪽", "강의 13차시 33쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution(\" kim, lee ,park \")", "expected": "'kim/lee/park'"},

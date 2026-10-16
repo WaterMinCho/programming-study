@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "exec",
   "tags": ["딕셔너리 매개변수", "별명"],
+  "ref": ["강의 8차시 28~29쪽"],
   "examples": 1,
   "cases": [
     {"code": "score = {\"kim\": 80, \"lee\": 95, \"park\": 62}\nadd_bonus(score, 10)\nprint(score)", "stdout": "kim 90\nlee 100\npark 72\n{'kim': 90, 'lee': 100, 'park': 72}\n"},

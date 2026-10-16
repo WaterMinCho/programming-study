@@ -6,7 +6,7 @@
 
 전역 변수와 지역 변수에 대한 설명으로 **옳지 않은** 것은?
 
-1. 전역 변수는 함수 바깥에서 만든 변수이며, 프로그램이 끝날 때까지 유지된다.
+1. 함수 바깥에서 정의한 변수는 전역 변수이며, 프로그램이 끝날 때까지 유지된다.
 2. 함수마다 자신만의 이름공간(namespace)이 있어서, `global` 선언이 없다면 함수 안에서 만든 변수와 함수 밖의 변수는 이름이 같아도 서로 다른 변수이다.
 3. 전역 변수의 값은 `global` 선언 없이도 함수 안에서 읽을(참조할) 수 있다.
 4. 지역 변수는 그 함수를 한 번 호출하고 나면 함수 밖에서도 사용할 수 있다.
@@ -359,4 +359,62 @@ def setup():
 
 setup()
 print(count)
+```
+
+## Q21 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+x = 10
+
+def example1():
+    x = 20
+    print(x)
+
+example1()
+print(x)
+```
+
+## Q22 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+x = 5
+
+def example2():
+    global x
+    x = 15
+    print(x)
+
+example2()
+print(x)
+```
+
+## Q23 (단답 · 3점)
+
+다음 코드를 실행하면 `함수 밖의 a 값은 0` 이 출력된 뒤 `scope_test()` 를 호출할 때 오류가 발생합니다. 발생하는 오류의 **이름**을 적으세요.
+
+```python
+a = 0
+
+def scope_test():
+    a = a + 3
+    print("함수 안의 a 값은", a)
+
+print("함수 밖의 a 값은", a)
+scope_test()
+```
+
+## Q24 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+def calculate_area(length, width=10):
+    return length * width
+
+print(calculate_area(5))
+print(calculate_area(5, 20))
 ```

@@ -274,3 +274,46 @@ b = triple(4)
 print(a, b)
 print(twice(triple(1)))
 ```
+
+## Q20 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+def welcome(name):
+    print(name, '님 이상한 나라에 오신 것을 환영합니다.')
+
+welcome('앨리스')
+welcome('도도새')
+```
+
+## Q21 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+def fadd(pa, pb):
+    pc = pa + pb
+    return pc
+
+na = 10
+nb = 20
+nc = fadd(na, nb)
+print(na, "+", nb, "결괏값은", nc, "이다.")
+```
+
+## Q22 (객관식 · 2점)
+
+다음 코드를 실행한 결과로 옳은 것은?
+
+```python
+def fhello():
+    print("매개변수 없는 함수 호출하기")
+
+fhello("안녕")
+```
+
+1. `매개변수 없는 함수 호출하기` 가 출력된다.
+2. `안녕` 이 출력된다.
+3. `안녕 매개변수 없는 함수 호출하기` 가 출력된다.
+4. 오류가 발생한다.

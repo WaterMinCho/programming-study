@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["문자 클래스", "반복 메타 문자", "findall과 finditer"],
+  "ref": ["과제 14차시 8번", "강의 14차시 6쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution(\"I love Python. Java is also popular. Python is great for AI.\")", "expected": "['I love Python.', 'Python is great for AI.']"},

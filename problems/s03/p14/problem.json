@@ -1,0 +1,24 @@
+{
+  "title": "점수 구간 학점",
+  "type": "print",
+  "level": 2,
+  "points": 6,
+  "mode": "io",
+  "tags": ["elif 사슬", "경계값", "input 형변환"],
+  "ref": ["과제 3차시 10번", "강의 3차시 26~27쪽"],
+  "examples": 3,
+  "cases": [
+    {"stdin": "83\n", "stdout": "grade is A\n"},
+    {"stdin": "80\n", "stdout": "grade is B\n"},
+    {"stdin": "20\n", "stdout": "grade is E\n"},
+    {"stdin": "100\n", "stdout": "grade is A\n"},
+    {"stdin": "81\n", "stdout": "grade is A\n"},
+    {"stdin": "61\n", "stdout": "grade is B\n"},
+    {"stdin": "60\n", "stdout": "grade is C\n"},
+    {"stdin": "41\n", "stdout": "grade is C\n"},
+    {"stdin": "40\n", "stdout": "grade is D\n"},
+    {"stdin": "21\n", "stdout": "grade is D\n"},
+    {"stdin": "0\n", "stdout": "grade is E\n"},
+    {"stdin": "55\n", "stdout": "grade is C\n"}
+  ]
+}

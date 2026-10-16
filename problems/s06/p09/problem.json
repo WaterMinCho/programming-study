@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "io",
   "tags": ["return", "함수 호출", "print 형식"],
+  "ref": ["강의 6차시 22~23쪽", "강의 6차시 25쪽"],
   "examples": 2,
   "cases": [
     {"stdin": "20\n5\n", "stdout": "20 + 5 = 25\n20 - 5 = 15\n20 * 5 = 100\n20 / 5 = 4.0\n"},

@@ -4,6 +4,7 @@
   "level": 3,
   "points": 8,
   "tags": ["while 조건", "누적 패턴", "반복 후 변수"],
+  "ref": ["강의 5차시 28쪽", "강의 5차시 11쪽"],
   "mode": "call",
   "examples": 3,
   "cases": [

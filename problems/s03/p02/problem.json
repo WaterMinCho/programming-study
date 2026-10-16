@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["if 문법", "input 형변환", "블록 밖 실행"],
+  "ref": ["강의 3차시 24쪽", "과제 3차시 6번"],
   "examples": 2,
   "cases": [
     {"stdin": "37\n", "stdout": "37 홀수\n판별 끝\n"},

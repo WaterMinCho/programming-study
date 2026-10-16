@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "exec",
   "tags": ["객체 리스트", "객체별 상태", "경계값"],
+  "ref": ["강의 8차시 22쪽", "강의 8차시 8쪽", "강의 9차시 8쪽"],
   "examples": 3,
   "cases": [
     {"code": "a = Player(\"A\")\nb = Player(\"B\")\nprint(a.score, b.score)\na.add(3)\nb.add(5)\nprint(top([a, b]).name)", "stdout": "0 0\nB\n"},

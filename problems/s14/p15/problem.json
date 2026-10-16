@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["문자 클래스", "반복 메타 문자", "findall과 finditer"],
+  "ref": ["강의 14차시 43쪽", "과제 14차시 6번", "강의 14차시 6쪽"],
   "examples": 3,
   "cases": [
     {"stdin": "send to help@rokey.kr or kim.lee@mail.rokey.co.kr\n", "stdout": "['help@rokey.kr', 'kim.lee@mail.rokey.co.kr']\n2\n"},

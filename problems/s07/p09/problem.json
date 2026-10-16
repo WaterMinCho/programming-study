@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["SWAP", "타입 힌트", "반환값"],
+  "ref": ["강의 7차시 3쪽", "강의 7차시 24쪽"],
   "examples": 4,
   "cases": [
     {"call": "solution(3, 1, 2)", "expected": "[1, 2, 3]"},

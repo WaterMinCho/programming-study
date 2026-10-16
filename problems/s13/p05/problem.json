@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["split·strip·join", "map"],
+  "ref": ["강의 13차시 22쪽", "강의 13차시 32쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution(\"2026-10-16\")", "expected": "[2026, 10, 16]"},

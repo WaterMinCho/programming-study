@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["elif 사슬", "경계값"],
+  "ref": ["강의 3차시 27쪽", "주간 과제 2주차 3차시 2번", "2주차 요약본 3.3"],
   "examples": 4,
   "cases": [
     {"stdin": "120000\n", "stdout": "VIP\n"},

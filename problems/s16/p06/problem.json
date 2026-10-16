@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["괄호 짝 검사", "스택 LIFO"],
+  "ref": ["강의 16차시 20~21쪽", "강의 16차시 6쪽"],
   "examples": 7,
   "cases": [
     {"call": "solution(\"()\")", "expected": "True"},

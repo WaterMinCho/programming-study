@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["문자 클래스", "반복 메타 문자", "findall과 finditer"],
+  "ref": ["강의 14차시 24쪽", "강의 14차시 6쪽"],
   "examples": 3,
   "cases": [
     {"stdin": "we love regex\n", "stdout": "['we', 'love', 'regex']\n3\n"},

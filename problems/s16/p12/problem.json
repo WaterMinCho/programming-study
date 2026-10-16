@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["괄호 짝 검사", "스택 LIFO", "빈 자료구조 처리"],
+  "ref": ["강의 16차시 20~21쪽", "강의 4차시 23쪽"],
   "examples": 6,
   "cases": [
     {"call": "solution(\"([]{})\")", "expected": "True"},

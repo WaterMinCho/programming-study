@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "exec",
   "tags": ["큐 클래스", "super()", "오버라이딩"],
+  "ref": ["강의 16차시 14쪽", "강의 10차시 18~19쪽"],
   "examples": 2,
   "cases": [
     {"code": "q = LimitedQueue(2)\nq.enqueue(\"A\")\nq.enqueue(\"B\")\nq.enqueue(\"C\")\nprint(q.status_queue())\nprint(q.dequeue())\nq.enqueue(\"C\")\nprint(q.status_queue())", "stdout": "등록: A\n등록: B\n가득 참: C\n['A', 'B']\n호출: A\nA\n등록: C\n['B', 'C']\n"},

@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["try-except 흐름", "출력 형식"],
+  "ref": ["과제 13차시 6번", "강의 13차시 4쪽", "강의 13차시 18쪽"],
   "examples": 2,
   "cases": [
     {"stdin": "10\n4\n", "stdout": "10 / 4 = 2.5\n"},

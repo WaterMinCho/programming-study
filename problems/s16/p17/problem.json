@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["후위 표기법", "스택 LIFO"],
+  "ref": ["과제 16차시 7번", "강의 16차시 7쪽", "강의 13차시 22쪽"],
   "examples": 5,
   "cases": [
     {"call": "solution(\"3 4 +\")", "expected": "7"},

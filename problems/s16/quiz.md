@@ -446,3 +446,21 @@ for t in expr.split():
 2. 뒤에 넣기 `push_back(x)` 는 `data.append(x)`
 3. 앞에서 꺼내기 `pop_front()` 는 `data.popleft()`
 4. 뒤에서 꺼내기 `pop_back()` 은 `data.pop()`
+
+## Q26 (객관식 · 2점)
+
+스택(Stack) 자료구조의 주요 특징은?
+
+1. FIFO (First In First Out)
+2. LIFO (Last In First Out)
+3. 정렬된 데이터 관리
+4. 랜덤 접근 가능
+
+## Q27 (객관식 · 2점)
+
+덱(Deque)의 주요 특징은?
+
+1. 한쪽에서만 삽입과 삭제가 가능하다.
+2. 양쪽 끝에서 삽입과 삭제가 가능하다.
+3. 데이터를 자동으로 정렬한다.
+4. LIFO만 지원한다.
