@@ -10,3 +10,11 @@ class Announcer:
 
 
 # 아래에 EmergencyAnnouncer 클래스를 작성하세요
+
+
+class EmergencyAnnouncer(Announcer):
+    def __init__(self, place):
+        self.place = place
+        
+    def prefix(self):
+        return "[긴급]"
