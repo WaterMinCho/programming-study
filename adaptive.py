@@ -15,7 +15,7 @@ import unicodedata
 
 import study
 
-ROUND_MIN, ROUND_MAX = 8, 18  # 회차 문항 수 범위. 실제 수는 보강할 단원 수와 직전 성적으로 정함
+ROUND_MIN, ROUND_MAX = 15, 30  # 회차 문항 수 범위. 실제 수는 보강할 단원 수와 직전 성적으로 정함
 CODE_RATIO = 0.4  # 회차의 코드 문제 비율. 실제 평가 비율에 맞춤
 FOCUS_UNITS = 3  # 가이드에서 보여 주는 집중 단원 수
 DIAG_PER_UNIT = 2  # 진단에서 단원당 문항 수
@@ -224,7 +224,7 @@ def round_size(prof, states):
     reason = "보강할 단원 %d개" % weak
     if ratio is not None and ratio < 0.5:  # 힘들어하면 짧게 끊어 자주 피드백
         need *= 0.75
-        cap = 12
+        cap = 20
         reason += " · 직전 득점률이 낮아 짧게"
     elif ratio is not None and ratio >= 0.9:
         need += 2
