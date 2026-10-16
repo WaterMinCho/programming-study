@@ -177,7 +177,7 @@ class Highlighter(QSyntaxHighlighter):
 
 
 class CodeEditor(PlainEdit):
-    """시험 화면처럼 남색 바탕에 파이썬 문법대로 글자색을 입힌 편집기. 고정폭이고 자동완성이 없음. 들여쓰기와 괄호·따옴표 닫기를 돕고 탭 문자는 넣지 않음."""
+    """시험 화면처럼 남색 바탕에 파이썬 문법대로 글자색을 입힌 편집기. 고정폭이고 자동완성이 없음. 들여쓰기와 괄호·따옴표 닫기, Ctrl+/ 줄 주석을 돕고 탭 문자는 넣지 않음."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -202,6 +202,8 @@ class CodeEditor(PlainEdit):
             self._shift_lines(-1 if back else 1)
         elif key == Qt.Key.Key_Tab:
             cur.insertText(" " * (INDENT - cur.positionInBlock() % INDENT))
+        elif key == Qt.Key.Key_Slash and event.modifiers() & Qt.KeyboardModifier.ControlModifier:  # Ctrl+/ (맥은 Cmd+/)
+            self._toggle_comment()
         elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             cur.beginEditBlock()
             cur.removeSelectedText()
@@ -319,6 +321,31 @@ class CodeEditor(PlainEdit):
                 drop = min(INDENT, len(text) - len(text.lstrip(" ")))
                 edit.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, drop)
                 edit.removeSelectedText()
+        cur.endEditBlock()
+
+    def _toggle_comment(self):
+        """고른 줄(없으면 커서가 있는 줄)을 주석으로 만들거나 풂. 빈 줄을 뺀 모든 줄이 이미 주석이면 풀고, 아니면 모두 주석으로 만듦.
+        '# ' 는 고른 줄 가운데 가장 얕은 들여쓰기 자리에 넣어서 들여쓰기 모양이 그대로 남음. 한 번에 되돌아가게 한 덩어리로 고침."""
+        cur, doc = self.textCursor(), self.document()
+        first = doc.findBlock(cur.selectionStart()).blockNumber()
+        last = doc.findBlock(max(cur.selectionStart(), cur.selectionEnd() - 1)).blockNumber()
+        lines = [doc.findBlockByNumber(number) for number in range(first, last + 1)]
+        lines = [block for block in lines if block.text().strip()]
+        if not lines:
+            return
+        indents = [len(block.text()) - len(block.text().lstrip(" ")) for block in lines]
+        undo = all(block.text().lstrip(" ").startswith("#") for block in lines)
+        cur.beginEditBlock()
+        for block, indent in zip(lines, indents):
+            edit = QTextCursor(block)
+            if undo:
+                width = 2 if block.text()[indent:indent + 2] == "# " else 1
+                edit.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, indent)
+                edit.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, width)
+                edit.removeSelectedText()
+            else:
+                edit.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, min(indents))
+                edit.insertText("# ")
         cur.endEditBlock()
 
     def number_width(self):

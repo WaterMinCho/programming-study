@@ -1620,6 +1620,25 @@ class EditorTest(unittest.TestCase):
                 QTest.keyClick(self.ed, *(step if isinstance(step, tuple) else (step,)))
         return self.ed.toPlainText()
 
+    def test_ctrl_slash_comments_lines_and_undoes_in_one_step(self):
+        """Ctrl+/ 는 커서 줄이나 고른 줄을 '# ' 로 주석 처리하고, 다시 누르면 풂. 들여쓰기 모양과 빈 줄은 그대로 둠."""
+        slash = (Qt.Key.Key_Slash, Qt.KeyboardModifier.ControlModifier)
+        self.put("x = 1\nprint(|x)")
+        self.assertEqual(self.keys(slash), "x = 1\n# print(x)")
+        self.assertEqual(self.keys(slash), "x = 1\nprint(x)")
+        self.put("def f():\n|    a = 1\n\n        b = 2\n|    return a")
+        self.assertEqual(self.keys(slash), "def f():\n    # a = 1\n\n    #     b = 2\n    return a")  # 가장 얕은 들여쓰기 자리에 맞춤
+        self.assertEqual(self.ed.textCursor().selectedText().count("\u2029"), 3)  # 고른 줄은 고른 채로 남음
+        self.assertEqual(self.keys(slash), "def f():\n    a = 1\n\n        b = 2\n    return a")
+        self.put("|# 설명\nx = 1|")
+        self.assertEqual(self.keys(slash), "# # 설명\n# x = 1")  # 주석이 아닌 줄이 섞이면 모두 주석으로 만듦
+        self.ed.undo()
+        self.assertEqual(self.ed.toPlainText(), "# 설명\nx = 1")  # 한 번에 되돌아감
+        self.put("#x = 1|")
+        self.assertEqual(self.keys(slash), "x = 1")  # 공백 없이 붙은 # 도 풂
+        self.put("\n|\n")
+        self.assertEqual(self.keys(slash), "\n\n")  # 빈 줄만 고르면 아무것도 하지 않음
+
     def compose(self, text):
         """한글은 키가 아니라 입력기가 조합해서 확정한 글자로 들어옴."""
         for ch in text:
