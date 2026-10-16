@@ -185,6 +185,25 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(len(self.sess.prof["attempts"]), before)
         self.assertIsNone(adaptive.find_round(self.sess.prof, rid).get("results"))
 
+    def test_sets_and_items_outside_exam_scope_are_left_out(self):
+        """시험 범위 밖으로 표시한 세트(21차시)와 문항(20차시 캐스케이드 분류기 이후)은 단원과 회차에서 빠지고,
+        그 문항이 든 예전 회차는 남은 문항만으로 열리고 채점됨."""
+        self.assertEqual([u["id"] for u in adaptive.units()][-2:], ["s19", "s20"])
+        cat = self.sess.cat
+        self.assertFalse([k for k in cat if k.startswith("s21/")])
+        self.assertNotIn("s20/Q17", cat)
+        self.assertIn("s20/Q30", cat)
+        for key, it in cat.items():
+            self.assertTrue((it.get("q") or it.get("spec")).get("exam", True), key)
+        keep = next(k for k in sorted(cat) if cat[k]["kind"] == "quiz")
+        self.make_round("r91", [keep])
+        rnd = adaptive.find_round(self.sess.prof, "r91")
+        rnd["items"] += ["s20/Q17", "s21/p01"]  # 범위를 정하기 전에 만든 회차
+        adaptive.save_profile(self.sess.prof)
+        self.assertEqual([v["key"] for v in self.sess.open_round("r91")["items"]], [keep])
+        result = self.sess.grade("r91", finalize=True)
+        self.assertEqual([it["key"] for it in result["items"]], [keep])
+
     def test_try_run_reports_syntax_error_and_unfilled_blank(self):
         cat = self.sess.cat
         code = [k for k in sorted(cat) if cat[k]["kind"] == "code"]
