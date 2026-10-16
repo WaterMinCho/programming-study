@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["제너레이터와 yield", "try-except 흐름", "형 변환"],
+  "ref": ["강의 15차시 13~14쪽", "강의 13차시 6~7쪽"],
   "examples": 4,
   "cases": [
     {"call": "list(solution([\"3\", \"x\", \"10\"]))", "expected": "[3, 10]"},

@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "exec",
   "tags": ["선택 정렬", "딕셔너리 매개변수", "출력 형식"],
+  "ref": ["강의 8차시 20~21쪽", "강의 8차시 29쪽"],
   "examples": 1,
   "cases": [
     {"code": "score = {\"kim\": 80, \"lee\": 95, \"park\": 62}\nprint_rank(score)\nprint(score)", "stdout": "1 lee 95\n2 kim 80\n3 park 62\n{'kim': 80, 'lee': 95, 'park': 62}\n"},

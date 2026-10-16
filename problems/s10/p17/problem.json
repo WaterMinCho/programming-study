@@ -1,0 +1,36 @@
+{
+  "title": "핸드폰과 스마트폰",
+  "type": "print",
+  "level": 2,
+  "points": 6,
+  "mode": "exec",
+  "tags": [
+    "super()",
+    "오버라이딩",
+    "자식 __init__"
+  ],
+  "ref": [
+    "과제 10차시 7번",
+    "과제 10차시 10번",
+    "강의 10차시 24~26쪽"
+  ],
+  "examples": 2,
+  "cases": [
+    {
+      "code": "phone = Phone(\"010-1234-5678\", \"검정\")\nprint(phone.number)\nprint(phone.color)\nphone.showInfo()",
+      "stdout": "010-1234-5678\n검정\n전화번호: 010-1234-5678\n색상: 검정\n"
+    },
+    {
+      "code": "apple = SmartPhone(\"010-1234-5678\", \"검정\", \"애플\")\nprint(apple.company)\napple.showInfo()",
+      "stdout": "애플\n전화번호: 010-1234-5678\n색상: 검정\n회사: 애플\n"
+    },
+    {
+      "code": "s = SmartPhone(\"010-9876-5432\", \"화이트\", \"삼성\")\nprint(s.number, s.color)\nPhone(\"010-0000-0000\", \"빨강\").showInfo()",
+      "stdout": "010-9876-5432 화이트\n전화번호: 010-0000-0000\n색상: 빨강\n"
+    },
+    {
+      "code": "a = SmartPhone(\"010-1111-2222\", \"파랑\", \"LG\")\nb = Phone(\"010-3333-4444\", \"회색\")\na.showInfo()\nb.showInfo()",
+      "stdout": "전화번호: 010-1111-2222\n색상: 파랑\n회사: LG\n전화번호: 010-3333-4444\n색상: 회색\n"
+    }
+  ]
+}

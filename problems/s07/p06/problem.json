@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "exec",
   "tags": ["디폴트 매개변수", "print 출력 형식"],
+  "ref": ["강의 7차시 20쪽", "강의 7차시 23쪽", "3주차 요약본 7.6"],
   "examples": 3,
   "cases": [
     {"code": "print_box()", "stdout": "***\n***\n"},

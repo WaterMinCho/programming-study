@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "call",
   "tags": ["디폴트 매개변수", "반환값"],
+  "ref": ["강의 7차시 20쪽", "강의 7차시 23쪽", "과제 7차시 9번"],
   "examples": 4,
   "cases": [
     {"call": "solution(10)", "expected": "'배수'"},

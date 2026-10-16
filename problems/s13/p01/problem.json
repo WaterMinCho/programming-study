@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["try-except 흐름", "예외의 종류"],
+  "ref": ["강의 13차시 6~7쪽", "과제 13차시 2번"],
   "examples": 4,
   "cases": [
     {"stdin": "21\n", "stdout": "42\n"},

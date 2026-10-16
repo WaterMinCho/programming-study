@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["슬라이싱", "len·sum", "경계값"],
+  "ref": ["강의 4차시 14쪽", "과제 4차시 5번", "과제 4차시 6번"],
   "examples": 3,
   "cases": [
     {"call": "solution([10, 20, 30, 40])", "expected": "25.0"},

@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "exec",
   "tags": ["제너레이터와 yield", "range 경계"],
+  "ref": ["주간 과제 5주차 15차시 2번", "강의 15차시 16쪽", "5주차 요약본 15.2"],
   "examples": 3,
   "cases": [
     {"code": "gen = square_gen(999)\nprint(next(gen))\nprint(next(gen))\nprint(next(gen))", "stdout": "1\n4\n9\n"},

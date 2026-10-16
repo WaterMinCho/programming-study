@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "exec",
   "tags": ["리스트로 만든 덱", "빈 자료구조 처리"],
+  "ref": ["과제 16차시 10번", "강의 16차시 18쪽", "강의 4차시 13쪽"],
   "examples": 2,
   "cases": [
     {"code": "d = Deque()\nd.push_back(1)\nd.push_back(2)\nd.push_front(3)\nprint(d.items)\nprint(d.pop_front())\nprint(d.pop_back())\nprint(d.items)", "stdout": "[3, 1, 2]\n3\n2\n[1]\n"},

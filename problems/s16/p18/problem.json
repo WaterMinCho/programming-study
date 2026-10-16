@@ -1,0 +1,16 @@
+{
+  "title": "비어 있으면 -1 을 돌려주는 스택",
+  "type": "fill",
+  "level": 1,
+  "points": 4,
+  "mode": "exec",
+  "tags": ["스택 클래스", "빈 자료구조 처리"],
+  "ref": ["과제 16차시 6번", "강의 16차시 8쪽"],
+  "examples": 2,
+  "cases": [
+    {"code": "s = Stack()\ns.push(4)\ns.push(8)\nprint(s.top())\nprint(s.pop())\nprint(s.stack)", "stdout": "8\n8\n[4]\n"},
+    {"code": "s = Stack()\nprint(s.pop())\nprint(s.top())\nprint(s.is_empty())", "stdout": "-1\n-1\nTrue\n"},
+    {"code": "s = Stack()\nfor n in [1, 2, 3]:\n    s.push(n)\nprint(s.top(), s.top())\nprint(s.pop(), s.pop())\nprint(s.is_empty(), s.stack)\nprint(s.pop(), s.pop())\nprint(s.is_empty())", "stdout": "3 3\n3 2\nFalse [1]\n1 -1\nTrue\n"},
+    {"code": "s = Stack()\ns.push(0)\nprint(s.is_empty(), s.top())\ns.push(5)\nprint(s.pop() + s.top())\nprint(s.stack)", "stdout": "False 0\n5\n[0]\n"}
+  ]
+}

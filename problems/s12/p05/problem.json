@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["읽기 메서드", "형 변환"],
+  "ref": ["강의 12차시 15쪽", "4주차 요약본 12.4"],
   "examples": 3,
   "cases": [
     {"files": {"n.txt": "10\n20\n30\n"}, "call": "solution(\"n.txt\")", "expected": "60"},

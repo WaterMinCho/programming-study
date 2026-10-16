@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["이터러블과 이터레이터", "이터레이터 일회성"],
+  "ref": ["강의 15차시 25쪽", "강의 15차시 6~8쪽", "과제 15차시 6번"],
   "examples": 1,
   "cases": [
     {"stdout": "<class 'list_iterator'>\nfirst: bibimbap\nnext: ramen\nnext: gimbap\nnext: sushi\n"}

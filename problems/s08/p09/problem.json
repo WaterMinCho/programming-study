@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["맞바꾸기", "인덱스와 값"],
+  "ref": ["과제 8차시 6번", "강의 8차시 4쪽"],
   "examples": 3,
   "cases": [
     {"call": "solution([5, 8, 2, 7, 4, 11, 6])", "expected": "[5, 11, 2, 7, 4, 8, 6]"},
@@ -15,6 +16,7 @@
     {"call": "solution([9, 2, 3, 6, 5, 8])", "expected": "[9, 5, 3, 6, 2, 8]"},
     {"call": "solution([0, 7])", "expected": "[7, 0]"},
     {"call": "solution([-3, -4, 7, 10])", "expected": "[-3, 7, -4, 10]"},
-    {"call": "solution([7])", "expected": "[7]"}
+    {"call": "solution([7])", "expected": "[7]"},
+    {"call": "solution([3, 6, 7, 4, 9, 10, 13])", "expected": "[3, 13, 7, 4, 9, 10, 6]"}
   ]
 }

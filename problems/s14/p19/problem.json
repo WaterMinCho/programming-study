@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["앵커 ^와 $", "문자 클래스", "match와 search"],
+  "ref": ["주간 과제 5주차 14차시 2번", "강의 14차시 43~44쪽"],
   "examples": 3,
   "cases": [
     {"stdin": "user@example.com\n", "stdout": "Valid email\n"},

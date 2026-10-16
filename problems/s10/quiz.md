@@ -590,3 +590,80 @@ e = Express()
 print(e.total(10000))
 print(Delivery().total(10000))
 ```
+
+## Q28 (객관식 · 2점)
+
+같은 폴더에 다음 두 파일이 있습니다.
+
+```python
+# mex1.py
+class Cvalue:
+    def __init__(self):
+        self.lista = []
+
+    def add(self, num):
+        self.lista.append(num)
+
+    def fprint(self):
+        print(self.lista)
+
+
+def plus(a, b):
+    c = a + b
+    return c
+
+
+p1 = Cvalue()
+p1.add(1)
+p1.add(2)
+p1.add(3)
+p1.fprint()
+```
+
+```python
+# main.py
+import mex1
+
+p2 = mex1.Cvalue()
+p2.add(11)
+p2.add(21)
+p2.add(31)
+p2.fprint()
+value = mex1.plus(10, 20)
+print(value)
+```
+
+`python main.py` 로 **main.py 를 실행**했을 때 화면에 출력되는 것은?
+
+1. `[11, 21, 31]` → `30`
+2. `[1, 2, 3]` → `[11, 21, 31]` → `30`
+3. `[1, 2, 3]` → `[1, 2, 3, 11, 21, 31]` → `30`
+4. `[1, 2, 3, 11, 21, 31]` → `30`
+
+## Q29 (단답 · 3점)
+
+리스트 `animals` 의 값 중 하나를 임의로 골라 출력하려고 합니다. 빈칸에 들어갈 `random` 모듈의 함수 이름을 적으세요.
+
+```python
+import random
+animals = ["체셔고양이", "오리", "도도새"]
+print(random.____(animals))
+```
+
+## Q30 (객관식 · 2점)
+
+다음 중 상속의 개념을 가장 잘 설명한 것은?
+
+1. 한 클래스가 다른 클래스를 복사하는 것
+2. 한 클래스가 다른 클래스의 속성과 메서드를 물려받는 것
+3. 두 클래스가 동일한 이름을 사용하는 것
+4. 한 클래스가 여러 메서드를 포함하는 것
+
+## Q31 (객관식 · 2점)
+
+`math` 모듈을 불러오면서 별칭 `m` 을 붙여 `m.factorial(5)` 처럼 쓰려고 합니다. 올바른 문장은?
+
+1. `include math as m`
+2. `import math as m`
+3. `alias math as m`
+4. `define math m`

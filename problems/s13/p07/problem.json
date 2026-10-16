@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["raise와 예외 메시지"],
+  "ref": ["강의 13차시 10쪽", "강의 13차시 8쪽", "과제 13차시 7번"],
   "examples": 3,
   "cases": [
     {"stdin": "25\n", "stdout": "나이: 25\n"},

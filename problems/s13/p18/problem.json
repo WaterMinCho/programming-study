@@ -1,0 +1,19 @@
+{
+  "title": "인덱스로 원소 꺼내기",
+  "type": "fill",
+  "level": 1,
+  "points": 4,
+  "mode": "io",
+  "tags": ["예외의 종류", "except 여러 개", "인덱싱·슬라이싱"],
+  "ref": ["과제 13차시 10번", "강의 13차시 8쪽"],
+  "examples": 3,
+  "cases": [
+    {"stdin": "1\n", "stdout": "20\n"},
+    {"stdin": "3\n", "stdout": "잘못된 인덱스입니다.\n"},
+    {"stdin": "abc\n", "stdout": "숫자를 입력하세요.\n"},
+    {"stdin": "-1\n", "stdout": "30\n"},
+    {"stdin": "0\n", "stdout": "10\n"},
+    {"stdin": "-4\n", "stdout": "잘못된 인덱스입니다.\n"},
+    {"stdin": "1.5\n", "stdout": "숫자를 입력하세요.\n"}
+  ]
+}

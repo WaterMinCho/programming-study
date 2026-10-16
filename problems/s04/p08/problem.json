@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["딕셔너리 키", "인덱스"],
+  "ref": ["강의 4차시 21쪽", "강의 4차시 23쪽", "2주차 요약본 2.4"],
   "examples": 2,
   "cases": [
     {"call": "solution({'name': '지호', 'scores': [80, 90, 100]})", "expected": "90.0"},

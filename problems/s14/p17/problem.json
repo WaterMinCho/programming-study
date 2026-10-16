@@ -5,6 +5,7 @@
   "points": 4,
   "mode": "io",
   "tags": ["문자 클래스", "반복 메타 문자", "findall과 finditer"],
+  "ref": ["과제 14차시 10번", "강의 14차시 12쪽"],
   "examples": 3,
   "cases": [
     {"stdin": "NASA is working on AI projects with IBM and Google.\n", "stdout": "['NASA', 'AI', 'IBM']\n"},

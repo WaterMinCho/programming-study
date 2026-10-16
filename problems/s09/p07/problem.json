@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "exec",
   "tags": ["디폴트 매개변수", "self"],
+  "ref": ["강의 9차시 22쪽", "강의 9차시 12쪽"],
   "examples": 1,
   "cases": [
     {"code": "t = Tank()\nt.fill()\nprint(t.level)\nt.fill(5)\nprint(t.level)\nt.fill_twice(20)\nprint(t.level)", "stdout": "10\n15\n55\n"},

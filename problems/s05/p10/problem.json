@@ -4,6 +4,7 @@
   "level": 3,
   "points": 8,
   "tags": ["이중 for", "인덱스", "print end"],
+  "ref": ["강의 5차시 37쪽", "강의 5차시 15쪽"],
   "mode": "io",
   "examples": 1,
   "cases": [

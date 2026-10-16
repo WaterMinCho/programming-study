@@ -4,6 +4,7 @@
   "level": 1,
   "points": 4,
   "tags": ["for 시퀀스", "들여쓰기 범위"],
+  "ref": ["주간 과제 2주차 5차시 2번", "강의 5차시 7쪽"],
   "mode": "io",
   "examples": 2,
   "cases": [

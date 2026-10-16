@@ -1,0 +1,15 @@
+{
+  "title": "두 단어를 한 줄에 출력하기",
+  "type": "fill",
+  "level": 1,
+  "points": 4,
+  "mode": "io",
+  "tags": ["print 형식"],
+  "ref": ["과제 2차시 5번"],
+  "examples": 2,
+  "cases": [
+    {"stdin": "first\nsecond\n", "stdout": "firstsecond\n"},
+    {"stdin": "Ro\nbot\n", "stdout": "Robot\n"},
+    {"stdin": "12\n34\n", "stdout": "1234\n"}
+  ]
+}

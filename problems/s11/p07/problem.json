@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["문자열 순회", "자료형 변환", "경계값"],
+  "ref": ["강의 11차시 19~20쪽", "강의 11차시 17~18쪽"],
   "examples": 7,
   "cases": [
     {"call": "solution(\"3\")", "expected": "'수량: 3개'"},

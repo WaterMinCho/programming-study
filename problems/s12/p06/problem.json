@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "call",
   "tags": ["딕셔너리 누적", "형 변환"],
+  "ref": ["강의 12차시 22쪽", "강의 13차시 22쪽", "강의 4차시 22쪽"],
   "examples": 3,
   "cases": [
     {"files": {"score.txt": "민수 90\n지영 85\n"}, "call": "solution(\"score.txt\")", "expected": "{'민수': 90, '지영': 85}"},

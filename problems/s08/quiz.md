@@ -334,3 +334,34 @@ print(ca, count)
 2. `[11, 4, 2, 9] 0`
 3. `[4, 9, 2, 11] 0`
 4. `[11, 9, 2, 4] 0`
+
+## Q20 (객관식 · 2점)
+
+다음 코드를 실행했을 때 출력되는 것은?
+
+```python
+a = [10, 11, 12, 13]
+p = id(a)
+q = id(a[0])
+r = id(a[1])
+a[1] = 21
+print(p == id(a), q == id(a[0]), r == id(a[1]))
+```
+
+1. `True True True`
+2. `True True False`
+3. `False True False`
+4. `False False False`
+
+## Q21 (출력 예측 · 3점)
+
+다음 코드의 출력 결과를 그대로 적으세요.
+
+```python
+a = {0: "kim", 1: "lee", "two": "park"}
+x = a
+x[1] = "choi"
+x[2] = "han"
+print(a)
+print(len(a))
+```

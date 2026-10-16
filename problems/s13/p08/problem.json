@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "call",
   "tags": ["try-except 흐름"],
+  "ref": ["과제 13차시 9번", "강의 13차시 6쪽"],
   "examples": 4,
   "cases": [
     {"call": "solution([\"10\", \"x\", \"25\", \"3.5\"])", "expected": "[35, ['x', '3.5']]"},

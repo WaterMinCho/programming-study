@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "exec",
   "tags": ["앵커 ^와 $", "클래스 변수 상속", "raise와 예외 메시지"],
+  "ref": ["강의 14차시 44쪽", "강의 14차시 16쪽", "강의 14차시 29쪽"],
   "examples": 2,
   "cases": [
     {"code": "p = Phone(\"010-1234-5678\")\np.show()\nd = Date(\"2025-10-16\")\nd.show()\nprint(d.month())", "stdout": "전화 010-1234-5678\n날짜 2025-10-16\n10\n"},

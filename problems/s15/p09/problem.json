@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "exec",
   "tags": ["제너레이터와 yield", "파일 읽기", "이터레이터 일회성"],
+  "ref": ["강의 15차시 26쪽", "강의 12차시 18쪽", "강의 13차시 24쪽"],
   "examples": 3,
   "cases": [
     {"files": {"memo.txt": "apple\nbanana\ncherry\n"}, "code": "g = read_lines(\"memo.txt\")\nprint(type(g).__name__)\nprint(next(g))\nprint(next(g))", "stdout": "generator\napple\nbanana\n"},

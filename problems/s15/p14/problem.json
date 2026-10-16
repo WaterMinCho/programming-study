@@ -5,6 +5,7 @@
   "points": 6,
   "mode": "io",
   "tags": ["next와 StopIteration", "try-except 흐름"],
+  "ref": ["과제 15차시 7번", "강의 15차시 7쪽", "강의 13차시 6쪽"],
   "examples": 1,
   "cases": [
     {"stdout": "1 apple\n2 banana\n3 cherry\ntotal: 3\n"}

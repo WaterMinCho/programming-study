@@ -5,6 +5,7 @@
   "points": 8,
   "mode": "exec",
   "tags": ["덮어쓰기와 이어 쓰기", "오버라이딩", "super()"],
+  "ref": ["강의 12차시 8쪽", "강의 12차시 17쪽", "강의 10차시 18~19쪽"],
   "examples": 3,
   "cases": [
     {"code": "j = Journal(\"day.txt\")\nj.add(\"운동\")\nj.add(\"독서\")\nj.show()\nprint(j.count())", "stdout": "운동\n독서\n2\n", "expect_files": {"day.txt": "운동\n독서\n"}},
