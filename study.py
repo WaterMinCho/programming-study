@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""ROKEY 파이썬 스터디의 문제 받기 · 채점 · 해설 도구.
+"""프로그래밍 스터디의 문제 받기 · 채점 · 해설 도구.
 
 표준 라이브러리만 씀.
 사용법: python study.py --help  (자세한 흐름은 README.md)
@@ -1023,7 +1023,7 @@ def cmd_update(args):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="ROKEY 파이썬 스터디 도구입니다. `python study.py` 만 치면 화면(창)이 열리고, 터미널 모드는 뒤에 go 를 붙입니다.")
+    parser = argparse.ArgumentParser(description="프로그래밍 스터디 도구입니다. `python study.py` 만 치면 화면(창)이 열리고, 터미널 모드는 뒤에 go 를 붙입니다.")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("gui", help="(기본) 화면(창)으로 열기: 문제 받기 · 풀기 · 실행 · 채점 · 해설 · 제출")

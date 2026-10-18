@@ -36,7 +36,7 @@ class StartPage(QWidget):
         self.setObjectName("page")
         box = QVBoxLayout(self)
         box.setSpacing(14)
-        title = QLabel("ROKEY 파이썬 스터디")
+        title = QLabel("프로그래밍 스터디")
         title.setObjectName("h1")
         self.status = QLabel("")
         self.status.setObjectName("muted")
@@ -69,7 +69,7 @@ class StartPage(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self, settings, gitflow_factory=load_gitflow):
         super().__init__()
-        self.setWindowTitle("ROKEY 파이썬 스터디")
+        self.setWindowTitle("프로그래밍 스터디")
         self.settings, self.gitflow_factory = settings, gitflow_factory
         self.user, self.session, self.gitflow, self.git_reason = None, None, None, ""
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)

@@ -46,7 +46,7 @@ class HomePage(QWidget):
         root.setSpacing(10)
 
         head = QHBoxLayout()
-        title = QLabel("ROKEY 파이썬 스터디")
+        title = QLabel("파이썬 스터디")
         title.setObjectName("h1")
         self.user = QLabel()  # 한 줄이고 단추와 나란히 놓여서 줄 간격을 넓히지 않음
         self.user.setObjectName("muted")

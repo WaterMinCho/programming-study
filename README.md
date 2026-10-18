@@ -1,6 +1,6 @@
-# <img src="docs/img/icon.png" width="36" alt=""> ROKEY 파이썬 스터디
+# <img src="docs/img/icon.png" width="36" alt=""> 프로그래밍 스터디
 
-ROKEY 11기 파이썬 교과목 평가(10/16)를 같이 준비하려고 만든 프로그램입니다. 실행하면 창이 열리고 문제 풀이, 채점, 해설 확인, 제출을 그 안에서 합니다.
+프로그래밍 공부와 코딩 테스트 준비를 같이 하려고 만든 프로그램입니다. 지금은 ROKEY 11기 파이썬 교과목 평가(10/16)를 준비하며 만든 파이썬 문제가 들어 있습니다. 실행하면 창이 열리고 문제 풀이, 채점, 해설 확인, 제출을 그 안에서 합니다.
 
 ![회차 화면](docs/img/round.png)
 
@@ -25,14 +25,14 @@ ROKEY 11기 파이썬 교과목 평가(10/16)를 같이 준비하려고 만든 �
 그다음 저장소를 받아 실행합니다. 터미널에서 쓰던 예전 버전을 받아 둔 폴더가 있으면 새로 받지 않고 [안 될 때](#안-될-때)의 네 줄 명령으로 새 버전을 받은 뒤 3번부터 합니다.
 
 1. 프로그램을 둘 폴더를 탐색기로 열고 주소 칸에 `cmd` 를 입력한 뒤 Enter 를 누릅니다. 그 폴더에서 터미널(검은 창)이 열립니다. macOS 는 터미널 앱을 엽니다.
-2. 아래 명령을 입력합니다. `rokey-python-study` 폴더가 생깁니다.
+2. 아래 명령을 입력합니다. `programming-study` 폴더가 생깁니다.
 
    ```bash
-   git clone https://github.com/WaterMinCho/rokey-python-study.git
+   git clone https://github.com/WaterMinCho/programming-study.git
    ```
 
-3. `rokey-python-study` 폴더의 `start.pyw`(macOS 는 `ROKEY.app`)를 더블클릭합니다. 검은 창 없이 프로그램 창이 열립니다. Windows 탐색기에 확장자가 보이지 않아 `start` 가 두 개로 보이면 종류가 'Python File (no console)'인 파일을 엽니다. 톱니바퀴 아이콘의 `start.bat` 을 열어도 검은 창이 잠깐 떴다가 닫히고 프로그램 창만 남습니다.
-4. 처음 실행하면 'ROKEY 파이썬 스터디 준비' 창이 설치할지 묻습니다. [설치]를 누르면 화면을 그리는 PyQt6 를 `~/.rokey-study/venv` 에 설치하는데, 내려받는 양이 85MB 쯤이고 설치하면 250MB 쯤 됩니다. 수업 때 PyQt6 를 설치했다면 묻지 않습니다.
+3. `programming-study` 폴더의 `start.pyw`(macOS 는 `ROKEY.app`)를 더블클릭합니다. 검은 창 없이 프로그램 창이 열립니다. Windows 탐색기에 확장자가 보이지 않아 `start` 가 두 개로 보이면 종류가 'Python File (no console)'인 파일을 엽니다. 톱니바퀴 아이콘의 `start.bat` 을 열어도 검은 창이 잠깐 떴다가 닫히고 프로그램 창만 남습니다.
+4. 처음 실행하면 '프로그래밍 스터디 준비' 창이 설치할지 묻습니다. [설치]를 누르면 화면을 그리는 PyQt6 를 `~/.rokey-study/venv` 에 설치하는데, 내려받는 양이 85MB 쯤이고 설치하면 250MB 쯤 됩니다. 수업 때 PyQt6 를 설치했다면 묻지 않습니다.
 5. 프로그램 창이 열리면 깃허브 ID(github.com/ 뒤에 나오는 이름)를 입력하고 [시작]을 누릅니다.
 6. 홈 화면의 [진단 테스트 시작]을 누릅니다. 단원마다 2문항씩 42문항이고 40분쯤 걸립니다. 모르는 문항은 비워 두고 제출해도 됩니다.
 
@@ -95,9 +95,9 @@ Sourcetree 같은 앱으로 받은 폴더에서는 macOS 가 `ROKEY.app` 을 확
 
 로그인 설정, 제출이 안 될 때 확인할 것, PR 에서 피드백하는 방법은 [docs/GIT_GUIDE.md](docs/GIT_GUIDE.md)에 있습니다.
 
-![학습 현황판](https://raw.githubusercontent.com/WaterMinCho/rokey-python-study/dashboard/dashboard.svg)
+![학습 현황판](https://raw.githubusercontent.com/WaterMinCho/programming-study/dashboard/dashboard.svg)
 
-[현황판을 표로 보기](https://github.com/WaterMinCho/rokey-python-study/blob/dashboard/DASHBOARD.md)
+[현황판을 표로 보기](https://github.com/WaterMinCho/programming-study/blob/dashboard/DASHBOARD.md)
 
 홈 오른쪽 위의 [팀 현황]을 누르면 팀원들의 준비도와 단원별 상태가 카드로 나옵니다. 내 카드는 이 컴퓨터의 풀이 기록입니다. 다른 사람의 카드는 main 에 머지된 풀이 기준이고, 프로그램을 켤 때와 홈의 [문제 받기]를 누를 때 새로 받습니다.
 
@@ -145,7 +145,7 @@ Sourcetree 같은 앱으로 받은 폴더에서는 macOS 가 `ROKEY.app` 을 확
 
 ### 예전 버전을 받아 뒀거나 문제 받기가 계속 오류로 끝날 때
 
-터미널에서 쓰던 예전 버전을 받아 뒀거나(폴더에 `start.bat` 이 없습니다), 프로그램을 켤 때마다 "문제를 받다가 오류가 났습니다"가 나오면 `rokey-python-study` 폴더에서 아래 네 줄을 따옴표까지 똑같이 차례로 입력한 뒤 프로그램을 켭니다.
+터미널에서 쓰던 예전 버전을 받아 뒀거나(폴더에 `start.bat` 이 없습니다), 프로그램을 켤 때마다 "문제를 받다가 오류가 났습니다"가 나오면 `programming-study` 폴더에서 아래 네 줄을 따옴표까지 똑같이 차례로 입력한 뒤 프로그램을 켭니다.
 
 ```bash
 git fetch origin main
