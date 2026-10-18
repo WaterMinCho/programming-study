@@ -23,8 +23,8 @@ def korean(app):
 
 def main(argv=None):
     app = QApplication(sys.argv[:1] + list(sys.argv[1:] if argv is None else argv))
-    app.setApplicationName("ROKEY 파이썬 스터디")
-    settings = QSettings("rokey-python-study", "study")
+    app.setApplicationName("프로그래밍 스터디")
+    settings = QSettings("rokey-python-study", "study")  # 저장소 이름을 바꾸기 전의 이름이지만, 바꾸면 저장된 테마와 창 크기를 잃어서 그대로 둠
     theme.apply(app, settings.value("theme", "system", type=str))
     icon.install(app)
     korean(app)
@@ -36,7 +36,7 @@ def main(argv=None):
         text = "이미 실행 중입니다. 열려 있는 창을 사용해 주세요."
         if sys.stderr:  # pythonw 로 띄우면 stderr 가 없음
             print(text, file=sys.stderr)
-        MessageDialog(None, "ROKEY 파이썬 스터디", text).exec()
+        MessageDialog(None, "프로그래밍 스터디", text).exec()
         return 1
 
     window = MainWindow(settings)

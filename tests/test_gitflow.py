@@ -1275,10 +1275,10 @@ class GitFlowTest(unittest.TestCase):
 
 class HelperTest(unittest.TestCase):
     def test_remote_slug(self):
-        for url in ("https://github.com/WaterMinCho/rokey-python-study.git", "https://github.com/WaterMinCho/rokey-python-study",
-                    "https://github.com/WaterMinCho/rokey-python-study/", "git@github.com:WaterMinCho/rokey-python-study.git",
-                    "ssh://git@github.com/WaterMinCho/rokey-python-study.git", "https://user:token@github.com/WaterMinCho/rokey-python-study.git\n"):
-            self.assertEqual(gitflow.remote_slug(url), ("WaterMinCho", "rokey-python-study"), url)
+        for url in ("https://github.com/WaterMinCho/programming-study.git", "https://github.com/WaterMinCho/programming-study",
+                    "https://github.com/WaterMinCho/programming-study/", "git@github.com:WaterMinCho/programming-study.git",
+                    "ssh://git@github.com/WaterMinCho/programming-study.git", "https://user:token@github.com/WaterMinCho/programming-study.git\n"):
+            self.assertEqual(gitflow.remote_slug(url), ("WaterMinCho", "programming-study"), url)
         for url in ("", None, "/tmp/origin.git", "https://gitlab.com/a/b.git", "https://github.com/only-owner"):
             self.assertIsNone(gitflow.remote_slug(url), url)
 

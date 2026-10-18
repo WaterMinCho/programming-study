@@ -38,7 +38,7 @@ UPDATE_RETRY = "python study.py update 로 새 버전을 받은 뒤 python study
 OPENING = "화면을 엽니다. 쓰는 동안 이 터미널 창은 닫지 말아 주세요(닫으면 화면도 함께 닫힙니다)."
 YES = ("y", "yes", "ㅛ", "예", "네")  # ㅛ: 한글 입력 상태에서 y 를 누른 경우
 LOG = os.path.join(os.path.expanduser("~"), ".rokey-study", "launch.log")  # 창 모드에서 터미널 대신 출력을 받는 파일
-WINDOW_TITLE = "ROKEY 파이썬 스터디 준비"
+WINDOW_TITLE = "프로그래밍 스터디 준비"
 POLL = 50  # 준비 창이 작업 스레드의 출력을 확인하는 간격(밀리초)
 
 
