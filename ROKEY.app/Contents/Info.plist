@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>ROKEY 파이썬 스터디</string>
+	<string>프로그래밍 스터디</string>
 	<key>CFBundleDisplayName</key>
-	<string>ROKEY 파이썬 스터디</string>
+	<string>프로그래밍 스터디</string>
 	<key>CFBundleIdentifier</key>
 	<string>rokey.python.study.launcher</string>
 	<key>CFBundleExecutable</key>

@@ -7,7 +7,7 @@ import traceback
 
 from gui import dialogs
 
-ISSUE_URL = "https://github.com/WaterMinCho/rokey-python-study/issues/new/choose"
+ISSUE_URL = "https://github.com/WaterMinCho/programming-study/issues/new/choose"
 
 state = {"log_dir": None, "dialog": None}
 

@@ -125,7 +125,7 @@ def find_open_pr(owner, repo, branch, timeout=5):
     """그 브랜치로 열려 있는 PR 의 주소(익명 GitHub REST). 없거나 조회하지 못하면 None."""
     query = urllib.parse.urlencode({"head": "%s:%s" % (owner, branch), "state": "open"})
     request = urllib.request.Request("https://api.github.com/repos/%s/%s/pulls?%s" % (owner, repo, query),
-                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "rokey-python-study"})
+                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "programming-study"})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             pulls = json.loads(response.read().decode("utf-8"))

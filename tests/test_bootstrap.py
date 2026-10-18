@@ -1018,7 +1018,7 @@ class MacAppTest(unittest.TestCase):
     def test_info_plist_points_at_script_and_icon(self):
         with open(os.path.join(self.CONTENTS, "Info.plist"), "rb") as f:
             info = plistlib.load(f)
-        self.assertEqual((info["CFBundleName"], info["CFBundlePackageType"]), ("ROKEY 파이썬 스터디", "APPL"))
+        self.assertEqual((info["CFBundleName"], info["CFBundlePackageType"]), ("프로그래밍 스터디", "APPL"))
         self.assertTrue(os.path.isfile(os.path.join(self.CONTENTS, "MacOS", info["CFBundleExecutable"])))
         self.assertTrue(os.path.isfile(os.path.join(self.CONTENTS, "Resources", info["CFBundleIconFile"] + ".icns")))
 
@@ -1056,7 +1056,7 @@ class SetupWindowTest(unittest.TestCase):
         self.assertEqual(str(self.window.text.cget("state")), "disabled")
         self.window.write("안내 한 줄\n")
         self.window.update()
-        self.assertEqual(self.window.root.title(), "ROKEY 파이썬 스터디 준비")
+        self.assertEqual(self.window.root.title(), "프로그래밍 스터디 준비")
         self.assertEqual(self.shown(), "안내 한 줄\n")
         self.assertEqual(str(self.window.text.cget("state")), "disabled")
 

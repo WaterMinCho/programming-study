@@ -462,7 +462,7 @@ class HomeAndGitTest(GuiTest):
 
     def test_submit_opens_the_pr_page(self):
         self.boot()
-        url = "https://github.com/WaterMinCho/rokey-python-study/compare/main...study/tester?quick_pull=1"
+        url = "https://github.com/WaterMinCho/programming-study/compare/main...study/tester?quick_pull=1"
         self.git.replies["submit"] = {"status": "ok", "message": "제출했습니다. 브라우저에서 PR 을 확인하세요.", "pr_url": url}
         self.git.delay = 0.3
         click(self.win.home.git_btn)
