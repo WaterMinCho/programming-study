@@ -1,0 +1,2518 @@
+{
+  "updated": "2026-10-20",
+  "memo": [
+    "status 의 rokey 는 11기 교과별 커리큘럼 PDF 와 Life Guide 교육과정 표에 이름이 나온 것에만 씀. src 에 교과와 차시를 적음.",
+    "self 는 교과표에 이름이 없는 것임. 수업에서 잠깐 다룰 수는 있음.",
+    "alt 는 같은 자리에 쓰는 다른 도구임. 하나만 골라 배우면 됨.",
+    "any 는 순서와 상관없이 필요할 때 배우는 것임. 상자 안의 하위 항목은 따로 rokey 로 표시할 수 있음.",
+    "verify 가 붙은 상자는 공식 표의 이름과 바로 맞지 않음. 그림에서는 배지 옆에 verify_mark 를 붙이고, 실무 프로젝트 차시별 목차가 나오면 rokey 나 self 로 다시 맞춤.",
+    "notes 의 수는 final_groups.json 의 분류에 공고 본문 정규식을 대어 센 값임(2026-10-20 재검산). 머신비전은 '머신 ?비전|machine vision', 생성·응용은 'style transfer|스타일 ?변환|GAN\\b|VAE|diffusion|캡셔닝|caption|XAI|grad-?cam|생성 ?모델|generative' 로 셈(대소문자 무시).",
+    "ros2_control(로봇 SW 공고 46건 중 0건), 다중 로봇(자율주행 65건 중 3건), 화면 품질(관제 27건 중 접근성 0건)은 공고 근거가 약해 any 로 둠.",
+    "MoveIt 2, Isaac Sim, 디지털 트윈, 웹 관제 화면, 테스트 설계는 2026-08 지원서에만 나오고 11기 공식 자료에는 없음.",
+    "실무 프로젝트 2 의 교과명은 학사 일정표(협동로봇 기초)와 교육과정 표(지능형로봇 기초)가 어긋남. 교육과정 표를 따름.",
+    "공고 수는 2026-10-20 점핏·원티드에 열려 있던 공고를 여섯 분류로 나눈 값임(329건, 161개사). 다시 세면 notes 의 숫자도 같이 고침.",
+    "common 은 329건 가운데 30% 넘게 나온 기술(Python, C++, Linux, Git, ROS2, 영어·논문)과 코딩 테스트, 그 바탕인 자료구조·알고리즘임.",
+    "자료구조·알고리즘은 공고 본문에 자료구조라고 적은 곳이 329건 중 10건뿐임. 알고리즘이라는 말은 대부분 SLAM·인식 알고리즘 같은 직무 기술이라 근거로 쓰지 않음. 대신 전형 절차를 적은 94건(37개사) 중 25건(10개사)이 코딩 테스트나 기술 과제를 봄.",
+    "intro.groups 의 paths 순서가 첫 그림의 자리임. 길이 셋 이상인 묶음은 두 칸씩 왼쪽 위부터 채움. links 화살표가 다른 상자를 지나지 않게 순서를 골랐음.",
+    "그림은 tools/roadmap/draw.py 가 이 파일을 읽어 docs/roadmap 에 그림. 고친 뒤 다시 실행함.",
+    "intro.side 의 'AI 개론', 'AI 응용' 은 교과명 AI(Computer Vision) 개론·응용을 줄인 이름임. 띠 한 칸에 교과명이 다 들어가지 않음.",
+    "notes 의 text 에 \\n 을 넣으면 그 자리에서 줄이 바뀜. 낱말 단위로 자르면 '데이터 / 수집' 처럼 어색하게 끊기는 글에만 씀."
+  ],
+  "legend": [
+    {
+      "status": "rokey",
+      "label": "ROKEY 수업에서 배움",
+      "color": "#7048E8"
+    },
+    {
+      "status": "self",
+      "label": "스스로 더 공부",
+      "color": "#F76707"
+    },
+    {
+      "status": "alt",
+      "label": "골라서 하나",
+      "color": "#2F9E44"
+    },
+    {
+      "status": "any",
+      "label": "순서 상관없음",
+      "color": "#868E96"
+    }
+  ],
+  "verify_mark": {
+    "text": "?",
+    "label": "목차 나오면 다시 확인"
+  },
+  "track_legend": "이 프로그램에서 연습하는 트랙",
+  "tracks": [
+    "파이썬 스터디",
+    "알고리즘 여행",
+    "웹 면접 준비"
+  ],
+  "style": {
+    "main_fill": "#FFFF00",
+    "sub_fill": "#FFE599",
+    "alt_fill": "#CED4DA",
+    "border": "#212529",
+    "spine": "#1C7ED6",
+    "dots": "#1C7ED6",
+    "track_tag_fill": "#D0EBFF",
+    "track_tag_text": "#1864AB"
+  },
+  "postings_basis": "2026-10-20 점핏·원티드 공고 329건(161개사)",
+  "intro": {
+    "title": "로봇·AI 개발자 로드맵",
+    "caption": "ROKEY 11기 과정과 2026년 10월 채용 공고 기준",
+    "question": "길을 골라 보세요",
+    "common_title": "모든 경로에 필수 사항",
+    "paths": [
+      "arm",
+      "nav",
+      "vision",
+      "field",
+      "physical",
+      "platform"
+    ],
+    "groups": [
+      {
+        "label": "ROKEY 수업과 많이 겹치는 길",
+        "paths": [
+          "arm",
+          "nav",
+          "field",
+          "vision"
+        ]
+      },
+      {
+        "label": "혼자 채울 것이 많은 길",
+        "paths": [
+          "platform",
+          "physical"
+        ]
+      }
+    ],
+    "links": [
+      {
+        "from": "field",
+        "to": "arm",
+        "label": "현장 경력 뒤"
+      },
+      {
+        "from": "field",
+        "to": "nav",
+        "label": "현장 경력 뒤"
+      },
+      {
+        "from": "field",
+        "to": "physical",
+        "label": "현장 경력 뒤"
+      },
+      {
+        "from": "vision",
+        "to": "physical",
+        "label": "비전 다음"
+      }
+    ],
+    "side": {
+      "title": "ROKEY 11기 과정 순서",
+      "items": [
+        {
+          "label": "파이썬 프로그래밍",
+          "hours": 126,
+          "when": "2026.09~10"
+        },
+        {
+          "label": "AI 개론",
+          "hours": 102,
+          "when": "2026.10~11"
+        },
+        {
+          "label": "AI 응용",
+          "hours": 128,
+          "when": "2026.11~12"
+        },
+        {
+          "label": "ROS 기초·입문·실습",
+          "hours": 132,
+          "when": "2026.12~2027.01"
+        },
+        {
+          "label": "DevOps 구현",
+          "hours": 36,
+          "when": "2027.01"
+        },
+        {
+          "label": "협동로봇 프로그래밍 실습",
+          "hours": 240,
+          "when": "2027.01~03"
+        },
+        {
+          "label": "지능형로봇 프로그래밍 실습",
+          "hours": 80,
+          "when": "2027.02~03"
+        }
+      ]
+    }
+  },
+  "common": [
+    {
+      "label": "Python",
+      "status": "rokey",
+      "src": "파이썬 1~21",
+      "track": "파이썬 스터디",
+      "evidence": "329건 중 216건"
+    },
+    {
+      "label": "C++",
+      "status": "self",
+      "evidence": "329건 중 205건"
+    },
+    {
+      "label": "자료구조·알고리즘",
+      "status": "rokey",
+      "src": "파이썬 8·16·17",
+      "track": "파이썬 스터디",
+      "evidence": "코딩 테스트의 바탕"
+    },
+    {
+      "label": "코딩 테스트",
+      "status": "self",
+      "track": "알고리즘 여행",
+      "evidence": "전형 절차를 적은 94건 중 25건, 과정 중 PCCE·PCCP 응시 지원"
+    },
+    {
+      "label": "Linux·터미널",
+      "status": "rokey",
+      "src": "ROS 기초 1",
+      "evidence": "329건 중 104건"
+    },
+    {
+      "label": "Git·GitHub",
+      "status": "rokey",
+      "src": "DevOps 3~4",
+      "evidence": "329건 중 106건"
+    },
+    {
+      "label": "ROS2",
+      "status": "rokey",
+      "src": "ROS 기초 3~5",
+      "evidence": "329건 중 124건"
+    },
+    {
+      "label": "영어 문서 읽기",
+      "status": "self",
+      "evidence": "329건 중 113건(영어·논문)"
+    }
+  ],
+  "paths": [
+    {
+      "id": "arm",
+      "title": "로봇 SW·제어 엔지니어",
+      "subtitle": "매니퓰레이터·ROS2",
+      "postings": {
+        "count": 46,
+        "companies": 37,
+        "entry": 7
+      },
+      "nodes": [
+        {
+          "id": "cpp",
+          "label": "C++ 실전",
+          "status": "self",
+          "left": [
+            {
+              "label": "Modern C++",
+              "status": "self"
+            },
+            {
+              "label": "STL 컨테이너",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "CMake 빌드",
+              "status": "self"
+            },
+            {
+              "label": "멀티스레드",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "frames",
+          "label": "좌표계와 변환",
+          "status": "rokey",
+          "src": "ROS 기초 3",
+          "left": [
+            {
+              "label": "회전 행렬",
+              "status": "self"
+            },
+            {
+              "label": "쿼터니언",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "동차 변환",
+              "status": "rokey",
+              "src": "AI 응용 2"
+            }
+          ]
+        },
+        {
+          "id": "ros2",
+          "label": "ROS2 기본",
+          "status": "rokey",
+          "src": "ROS 기초 3~5, 입문 1~5",
+          "left": [
+            {
+              "label": "노드와 토픽",
+              "status": "rokey",
+              "src": "ROS 입문 3"
+            },
+            {
+              "label": "서비스",
+              "status": "rokey",
+              "src": "ROS 입문 3"
+            },
+            {
+              "label": "액션",
+              "status": "rokey",
+              "src": "ROS 입문 5"
+            }
+          ],
+          "right": [
+            {
+              "label": "인터페이스",
+              "status": "rokey",
+              "src": "ROS 입문 2"
+            },
+            {
+              "label": "파라미터",
+              "status": "rokey",
+              "src": "ROS 입문 5"
+            },
+            {
+              "label": "launch 파일",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "client",
+          "label": "노드 프로그래밍",
+          "status": "rokey",
+          "src": "ROS 입문 4",
+          "left": [
+            {
+              "label": "rclpy",
+              "status": "rokey",
+              "src": "ROS 입문 4"
+            },
+            {
+              "label": "Executor·멀티스레드",
+              "status": "rokey",
+              "src": "ROS 입문 4"
+            }
+          ],
+          "right": [
+            {
+              "label": "rclcpp",
+              "status": "self"
+            },
+            {
+              "label": "colcon 빌드",
+              "status": "rokey",
+              "src": "ROS 입문 구성표"
+            }
+          ]
+        },
+        {
+          "id": "tools",
+          "label": "개발 도구",
+          "status": "rokey",
+          "src": "ROS 입문 8, 실습 1·3",
+          "left": [
+            {
+              "label": "ros2 CLI",
+              "status": "rokey",
+              "src": "ROS 실습 1"
+            },
+            {
+              "label": "rosbag",
+              "status": "rokey",
+              "src": "ROS 입문 8"
+            }
+          ],
+          "right": [
+            {
+              "label": "RQt",
+              "status": "rokey",
+              "src": "ROS 실습 3"
+            },
+            {
+              "label": "RViz",
+              "status": "rokey",
+              "src": "ROS 실습 7",
+              "verify": true
+            },
+            {
+              "label": "Docker 개발 환경",
+              "status": "rokey",
+              "src": "DevOps 5~6"
+            }
+          ]
+        },
+        {
+          "id": "model",
+          "label": "로봇 모델",
+          "status": "rokey",
+          "src": "ROS 실습 4",
+          "left": [
+            {
+              "label": "URDF",
+              "status": "rokey",
+              "src": "ROS 실습 4"
+            },
+            {
+              "label": "xacro",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "tf2",
+              "status": "rokey",
+              "src": "ROS 실습 4"
+            }
+          ]
+        },
+        {
+          "id": "kinematics",
+          "label": "로봇 기구학",
+          "status": "self",
+          "left": [
+            {
+              "label": "정기구학",
+              "status": "self"
+            },
+            {
+              "label": "역기구학",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "자코비안",
+              "status": "self"
+            },
+            {
+              "label": "DH 파라미터",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "sim",
+          "label": "시뮬레이션",
+          "status": "rokey",
+          "src": "ROS 실습 5·7",
+          "left": [
+            {
+              "label": "Gazebo",
+              "status": "rokey",
+              "src": "ROS 실습 5"
+            }
+          ],
+          "right": [
+            {
+              "label": "두산로봇 시뮬레이션",
+              "status": "rokey",
+              "src": "ROS 실습 7"
+            },
+            {
+              "label": "Isaac Sim",
+              "status": "alt",
+              "verify": true
+            }
+          ]
+        },
+        {
+          "id": "cobot",
+          "label": "협동로봇 프로그래밍",
+          "status": "rokey",
+          "src": "협동로봇 실습",
+          "left": [
+            {
+              "label": "로봇 동작 명령",
+              "status": "rokey",
+              "src": "협동로봇 실습",
+              "verify": true
+            },
+            {
+              "label": "그리퍼·I/O 제어",
+              "status": "rokey",
+              "src": "협동로봇 실습",
+              "verify": true
+            }
+          ],
+          "right": [
+            {
+              "label": "성공률·사이클타임",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "moveit",
+          "label": "MoveIt 2",
+          "status": "self",
+          "verify": true,
+          "left": [
+            {
+              "label": "모션 플래닝",
+              "status": "self"
+            },
+            {
+              "label": "충돌 회피",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "Pick and Place",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "vision",
+          "label": "비전 연동",
+          "status": "rokey",
+          "src": "AI 응용 12, ROS 실습 6·7",
+          "left": [
+            {
+              "label": "YOLO 물체 검출",
+              "status": "rokey",
+              "src": "AI 응용 12"
+            },
+            {
+              "label": "포인트 클라우드",
+              "status": "rokey",
+              "src": "ROS 실습 7"
+            }
+          ],
+          "right": [
+            {
+              "label": "카메라 캘리브레이션",
+              "status": "self",
+              "verify": true
+            },
+            {
+              "label": "핸드-아이 캘리브레이션",
+              "status": "self",
+              "verify": true
+            }
+          ]
+        },
+        {
+          "id": "control",
+          "label": "ros2_control",
+          "status": "any",
+          "left": [
+            {
+              "label": "하드웨어 인터페이스",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "컨트롤러 설정",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "comm",
+          "label": "통신과 실시간성",
+          "status": "rokey",
+          "src": "ROS 기초 2, 실습 2",
+          "left": [
+            {
+              "label": "TCP·UDP 소켓",
+              "status": "rokey",
+              "src": "ROS 기초 2"
+            },
+            {
+              "label": "DDS QoS",
+              "status": "rokey",
+              "src": "ROS 실습 2"
+            }
+          ],
+          "right": [
+            {
+              "label": "실시간 리눅스",
+              "status": "self"
+            },
+            {
+              "label": "EtherCAT·CAN",
+              "status": "self"
+            },
+            {
+              "label": "Modbus·PLC",
+              "status": "any"
+            }
+          ]
+        },
+        {
+          "id": "force",
+          "label": "궤적·힘 제어",
+          "status": "self",
+          "left": [
+            {
+              "label": "궤적 생성",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "임피던스 제어",
+              "status": "self"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "near": "client",
+          "text": "수업은 rclpy로 합니다. 로봇 SW 공고 46건 중 41건이 C++를 적어서 rclcpp도 익혀 두세요."
+        },
+        {
+          "near": "cobot",
+          "text": "협동로봇 실습 결과를 성공률과 사이클타임 같은 수치로 남겨 두세요."
+        }
+      ]
+    },
+    {
+      "id": "nav",
+      "title": "자율주행 로봇 엔지니어",
+      "subtitle": "SLAM·Nav2",
+      "postings": {
+        "count": 65,
+        "companies": 35,
+        "entry": 9
+      },
+      "nodes": [
+        {
+          "id": "cpp",
+          "label": "C++ 실전",
+          "status": "self",
+          "left": [
+            {
+              "label": "Modern C++",
+              "status": "self"
+            },
+            {
+              "label": "CMake 빌드",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "Eigen 행렬 연산",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "prob",
+          "label": "확률과 선형대수",
+          "status": "self",
+          "left": [
+            {
+              "label": "행렬 연산",
+              "status": "rokey",
+              "src": "AI 개론 2"
+            },
+            {
+              "label": "가우시안 분포",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "공분산",
+              "status": "self"
+            },
+            {
+              "label": "베이즈 갱신",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "search",
+          "label": "경로 탐색 알고리즘",
+          "status": "self",
+          "track": "알고리즘 여행",
+          "left": [
+            {
+              "label": "BFS·DFS",
+              "status": "rokey",
+              "src": "파이썬 17",
+              "track": "파이썬 스터디"
+            },
+            {
+              "label": "다익스트라",
+              "status": "self",
+              "track": "알고리즘 여행"
+            }
+          ],
+          "right": [
+            {
+              "label": "우선순위 큐",
+              "status": "self",
+              "track": "알고리즘 여행"
+            },
+            {
+              "label": "A*",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "ros2",
+          "label": "ROS2 기본",
+          "status": "rokey",
+          "src": "ROS 기초 3~5, 입문 1~5",
+          "left": [
+            {
+              "label": "노드와 토픽",
+              "status": "rokey",
+              "src": "ROS 입문 3"
+            },
+            {
+              "label": "서비스·액션",
+              "status": "rokey",
+              "src": "ROS 입문 3·5"
+            }
+          ],
+          "right": [
+            {
+              "label": "파라미터",
+              "status": "rokey",
+              "src": "ROS 입문 5"
+            },
+            {
+              "label": "launch 파일",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "tf",
+          "label": "좌표 변환",
+          "status": "rokey",
+          "src": "ROS 실습 4",
+          "left": [
+            {
+              "label": "tf2",
+              "status": "rokey",
+              "src": "ROS 실습 4"
+            },
+            {
+              "label": "URDF",
+              "status": "rokey",
+              "src": "ROS 실습 4"
+            }
+          ],
+          "right": [
+            {
+              "label": "map·odom·base_link",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "sensor",
+          "label": "센서 데이터",
+          "status": "rokey",
+          "src": "ROS 기초 3",
+          "left": [
+            {
+              "label": "LiDAR·IMU·카메라",
+              "status": "rokey",
+              "src": "ROS 기초 3",
+              "verify": true
+            },
+            {
+              "label": "포인트 클라우드",
+              "status": "rokey",
+              "src": "ROS 실습 7"
+            }
+          ],
+          "right": [
+            {
+              "label": "휠 오도메트리",
+              "status": "self"
+            },
+            {
+              "label": "센서 시간 동기화",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "sim",
+          "label": "시뮬레이션",
+          "status": "rokey",
+          "src": "ROS 실습 5",
+          "left": [
+            {
+              "label": "Gazebo",
+              "status": "rokey",
+              "src": "ROS 실습 5"
+            }
+          ],
+          "right": [
+            {
+              "label": "Isaac Sim",
+              "status": "alt",
+              "verify": true
+            }
+          ]
+        },
+        {
+          "id": "slam",
+          "label": "2D SLAM",
+          "status": "rokey",
+          "src": "ROS 실습 5",
+          "left": [
+            {
+              "label": "지도 작성",
+              "status": "rokey",
+              "src": "ROS 실습 5"
+            }
+          ],
+          "right": [
+            {
+              "label": "slam_toolbox",
+              "status": "alt"
+            },
+            {
+              "label": "Cartographer",
+              "status": "alt"
+            }
+          ]
+        },
+        {
+          "id": "loc",
+          "label": "위치 추정",
+          "status": "self",
+          "left": [
+            {
+              "label": "AMCL",
+              "status": "self",
+              "verify": true
+            },
+            {
+              "label": "robot_localization",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "칼만 필터",
+              "status": "self"
+            },
+            {
+              "label": "파티클 필터",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "nav2",
+          "label": "Nav2",
+          "status": "rokey",
+          "src": "ROS 실습 5",
+          "left": [
+            {
+              "label": "목표 지점 주행",
+              "status": "rokey",
+              "src": "ROS 실습 5"
+            },
+            {
+              "label": "코스트맵 설정",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "플래너·컨트롤러",
+              "status": "self"
+            },
+            {
+              "label": "행동 트리",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "percep",
+          "label": "인식 연동",
+          "status": "rokey",
+          "src": "ROS 실습 6·7, AI 응용 12",
+          "left": [
+            {
+              "label": "차선 검출",
+              "status": "rokey",
+              "src": "ROS 실습 6"
+            },
+            {
+              "label": "YOLO 물체 검출",
+              "status": "rokey",
+              "src": "AI 응용 12"
+            }
+          ],
+          "right": [
+            {
+              "label": "Open3D",
+              "status": "rokey",
+              "src": "ROS 실습 7"
+            },
+            {
+              "label": "PCL",
+              "status": "alt"
+            }
+          ]
+        },
+        {
+          "id": "slam3d",
+          "label": "3D SLAM",
+          "status": "self",
+          "left": [
+            {
+              "label": "LiDAR SLAM",
+              "status": "alt"
+            },
+            {
+              "label": "Visual SLAM",
+              "status": "alt"
+            }
+          ],
+          "right": [
+            {
+              "label": "팩터 그래프",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "fleet",
+          "label": "다중 로봇",
+          "status": "any",
+          "left": [
+            {
+              "label": "Fleet 관리",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "Open-RMF",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "board",
+          "label": "임베디드 보드",
+          "status": "any",
+          "left": [
+            {
+              "label": "Jetson",
+              "status": "any"
+            }
+          ],
+          "right": [
+            {
+              "label": "micro-ROS",
+              "status": "any"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "near": "nav2",
+          "text": "수업은 ROS 실습 5차시 하루에 Gazebo, SLAM, Nav2를 함께 다룹니다. 위치 추정과 튜닝은 따로 익히세요."
+        },
+        {
+          "near": "slam3d",
+          "text": "신입 가능 공고 9건 중 6건이 자격 요건에 석사나 박사를 적었습니다."
+        }
+      ]
+    },
+    {
+      "id": "vision",
+      "title": "비전 AI 엔지니어",
+      "subtitle": "인식·3D·엣지 배포",
+      "postings": {
+        "count": 105,
+        "companies": 83,
+        "entry": 19
+      },
+      "nodes": [
+        {
+          "id": "data",
+          "label": "데이터 다루기",
+          "status": "rokey",
+          "src": "파이썬 18~20, AI 개론 2",
+          "track": "파이썬 스터디",
+          "left": [
+            {
+              "label": "NumPy",
+              "status": "rokey",
+              "src": "파이썬 18",
+              "track": "파이썬 스터디"
+            },
+            {
+              "label": "pandas",
+              "status": "rokey",
+              "src": "파이썬 18",
+              "track": "파이썬 스터디"
+            }
+          ],
+          "right": [
+            {
+              "label": "Matplotlib",
+              "status": "rokey",
+              "src": "파이썬 18",
+              "track": "파이썬 스터디"
+            },
+            {
+              "label": "OpenCV 기초",
+              "status": "rokey",
+              "src": "파이썬 20",
+              "track": "파이썬 스터디"
+            }
+          ]
+        },
+        {
+          "id": "math",
+          "label": "딥러닝 수학",
+          "status": "rokey",
+          "src": "AI 개론 2·4·5·6",
+          "left": [
+            {
+              "label": "행렬 연산",
+              "status": "rokey",
+              "src": "AI 개론 2"
+            },
+            {
+              "label": "미분과 역전파",
+              "status": "rokey",
+              "src": "AI 개론 4"
+            }
+          ],
+          "right": [
+            {
+              "label": "경사 하강법",
+              "status": "rokey",
+              "src": "AI 개론 5"
+            },
+            {
+              "label": "손실 함수",
+              "status": "rokey",
+              "src": "AI 개론 6"
+            }
+          ]
+        },
+        {
+          "id": "torch",
+          "label": "PyTorch 기본",
+          "status": "rokey",
+          "src": "AI 개론 3~10",
+          "left": [
+            {
+              "label": "텐서와 자동 미분",
+              "status": "rokey",
+              "src": "AI 개론 3"
+            },
+            {
+              "label": "학습 루프",
+              "status": "rokey",
+              "src": "AI 개론 5"
+            },
+            {
+              "label": "DataLoader",
+              "status": "rokey",
+              "src": "AI 개론 10"
+            }
+          ],
+          "right": [
+            {
+              "label": "회귀",
+              "status": "rokey",
+              "src": "AI 개론 7"
+            },
+            {
+              "label": "이진·다중 분류",
+              "status": "rokey",
+              "src": "AI 개론 8~10"
+            },
+            {
+              "label": "정밀도·재현율",
+              "status": "rokey",
+              "src": "AI 개론 8"
+            },
+            {
+              "label": "TensorFlow",
+              "status": "alt"
+            }
+          ]
+        },
+        {
+          "id": "cnn",
+          "label": "이미지 분류 모델",
+          "status": "rokey",
+          "src": "AI 개론 11·13·14·16",
+          "left": [
+            {
+              "label": "CNN 구조",
+              "status": "rokey",
+              "src": "AI 개론 11"
+            },
+            {
+              "label": "VGG·ResNet",
+              "status": "rokey",
+              "src": "AI 개론 13·14"
+            }
+          ],
+          "right": [
+            {
+              "label": "ResNet 직접 구현",
+              "status": "rokey",
+              "src": "AI 개론 16"
+            }
+          ]
+        },
+        {
+          "id": "tune",
+          "label": "학습 튜닝",
+          "status": "rokey",
+          "src": "AI 개론 12",
+          "left": [
+            {
+              "label": "옵티마이저",
+              "status": "rokey",
+              "src": "AI 개론 12"
+            },
+            {
+              "label": "드롭아웃·배치 정규화",
+              "status": "rokey",
+              "src": "AI 개론 12"
+            }
+          ],
+          "right": [
+            {
+              "label": "데이터 증강",
+              "status": "rokey",
+              "src": "AI 개론 12"
+            },
+            {
+              "label": "학습률 스케줄",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "transfer",
+          "label": "전이 학습",
+          "status": "rokey",
+          "src": "AI 개론 13~15, AI 응용 5",
+          "left": [
+            {
+              "label": "사전 학습 모델",
+              "status": "rokey",
+              "src": "AI 개론 13·14"
+            },
+            {
+              "label": "파인 튜닝",
+              "status": "rokey",
+              "src": "AI 개론 13·15"
+            }
+          ],
+          "right": [
+            {
+              "label": "Custom Dataset",
+              "status": "rokey",
+              "src": "AI 개론 15"
+            },
+            {
+              "label": "MobileNet",
+              "status": "rokey",
+              "src": "AI 응용 5"
+            }
+          ]
+        },
+        {
+          "id": "opencv",
+          "label": "OpenCV 영상 처리",
+          "status": "rokey",
+          "src": "AI 응용 1~3",
+          "left": [
+            {
+              "label": "색 공간·히스토그램",
+              "status": "rokey",
+              "src": "AI 응용 1"
+            },
+            {
+              "label": "필터·기하 변환",
+              "status": "rokey",
+              "src": "AI 응용 2"
+            }
+          ],
+          "right": [
+            {
+              "label": "에지·윤곽선",
+              "status": "rokey",
+              "src": "AI 응용 3"
+            },
+            {
+              "label": "웹캠 실시간 처리",
+              "status": "rokey",
+              "src": "AI 응용 3"
+            }
+          ]
+        },
+        {
+          "id": "detect",
+          "label": "객체 검출",
+          "status": "rokey",
+          "src": "AI 응용 11·12·16",
+          "left": [
+            {
+              "label": "YOLO",
+              "status": "rokey",
+              "src": "AI 응용 12·16"
+            },
+            {
+              "label": "Faster R-CNN",
+              "status": "alt"
+            },
+            {
+              "label": "SSD",
+              "status": "alt"
+            }
+          ],
+          "right": [
+            {
+              "label": "NMS·앵커 박스",
+              "status": "rokey",
+              "src": "AI 응용 11·12"
+            },
+            {
+              "label": "Roboflow 라벨링",
+              "status": "rokey",
+              "src": "AI 응용 16"
+            },
+            {
+              "label": "커스텀 YOLO 학습",
+              "status": "rokey",
+              "src": "AI 응용 16"
+            },
+            {
+              "label": "mAP·IoU 평가",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "segtrack",
+          "label": "분할과 추적",
+          "status": "rokey",
+          "src": "AI 응용 4·11·13",
+          "left": [
+            {
+              "label": "Mask R-CNN",
+              "status": "rokey",
+              "src": "AI 응용 11"
+            }
+          ],
+          "right": [
+            {
+              "label": "Optical Flow",
+              "status": "rokey",
+              "src": "AI 응용 4"
+            },
+            {
+              "label": "MeanShift·CamShift",
+              "status": "rokey",
+              "src": "AI 응용 4"
+            }
+          ]
+        },
+        {
+          "id": "vit",
+          "label": "트랜스포머 비전",
+          "status": "rokey",
+          "src": "AI 응용 13·16",
+          "left": [
+            {
+              "label": "ViT",
+              "status": "rokey",
+              "src": "AI 응용 13·16"
+            },
+            {
+              "label": "YOLO와 ViT 연결",
+              "status": "rokey",
+              "src": "AI 응용 16"
+            }
+          ],
+          "right": [
+            {
+              "label": "SAM 분할 모델",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "extra",
+          "label": "생성·응용 모델",
+          "status": "any",
+          "src": "AI 응용 6~10",
+          "left": [
+            {
+              "label": "스타일 변환",
+              "status": "rokey",
+              "src": "AI 응용 6"
+            },
+            {
+              "label": "GAN·VAE",
+              "status": "rokey",
+              "src": "AI 응용 7"
+            }
+          ],
+          "right": [
+            {
+              "label": "이미지 캡셔닝",
+              "status": "rokey",
+              "src": "AI 응용 8"
+            },
+            {
+              "label": "XAI·의료 영상",
+              "status": "rokey",
+              "src": "AI 응용 10"
+            }
+          ]
+        },
+        {
+          "id": "pipeline",
+          "label": "학습 파이프라인",
+          "status": "rokey",
+          "src": "AI 응용 14",
+          "left": [
+            {
+              "label": "설정 파일 분리",
+              "status": "rokey",
+              "src": "AI 응용 14"
+            },
+            {
+              "label": "로그·실험 관리",
+              "status": "rokey",
+              "src": "AI 응용 14"
+            }
+          ],
+          "right": [
+            {
+              "label": "데이터에서 추론까지",
+              "status": "rokey",
+              "src": "AI 응용 14"
+            }
+          ]
+        },
+        {
+          "id": "three_d",
+          "label": "3D 비전",
+          "status": "rokey",
+          "src": "AI 응용 9, ROS 실습 7",
+          "left": [
+            {
+              "label": "카메라 캘리브레이션",
+              "status": "self"
+            },
+            {
+              "label": "깊이 카메라",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "포인트 클라우드",
+              "status": "rokey",
+              "src": "ROS 실습 7"
+            },
+            {
+              "label": "NeRF·Gaussian Splatting",
+              "status": "rokey",
+              "src": "AI 응용 9"
+            },
+            {
+              "label": "6D 포즈 추정",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "machine",
+          "label": "머신비전 장비",
+          "status": "any",
+          "left": [
+            {
+              "label": "산업용 카메라·렌즈",
+              "status": "self"
+            },
+            {
+              "label": "조명",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "검사 설비 연동",
+              "status": "self"
+            },
+            {
+              "label": "C#·MFC",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "deploy",
+          "label": "경량화와 배포",
+          "status": "rokey",
+          "src": "AI 응용 13",
+          "left": [
+            {
+              "label": "ONNX",
+              "status": "self"
+            },
+            {
+              "label": "TensorRT",
+              "status": "self"
+            },
+            {
+              "label": "양자화",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "Jetson",
+              "status": "self"
+            },
+            {
+              "label": "OpenCV DNN",
+              "status": "rokey",
+              "src": "AI 응용 12"
+            },
+            {
+              "label": "C++ 추론",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "ros",
+          "label": "ROS2 연동",
+          "status": "rokey",
+          "src": "ROS 실습 6",
+          "left": [
+            {
+              "label": "카메라 토픽 구독",
+              "status": "rokey",
+              "src": "ROS 실습 6"
+            }
+          ],
+          "right": [
+            {
+              "label": "검출 결과 발행",
+              "status": "rokey",
+              "src": "ROS 실습 6"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "near": "extra",
+          "text": "생성 모델, 스타일 변환, 캡셔닝, XAI는 비전 공고 105건 중 6건에만 나옵니다."
+        },
+        {
+          "near": "machine",
+          "text": "비전 공고 105건 중 25건, 신입 가능 공고\n19건 중 6건이 머신비전을 적었습니다.\n제조 검사 장비 회사에 지원할 때 익히세요."
+        },
+        {
+          "near": "deploy",
+          "text": "비전 공고 105건 중 36건이 TensorRT 나 ONNX를 적었습니다. 학습한 모델을 장비에 올려 속도까지 재 보세요."
+        }
+      ]
+    },
+    {
+      "id": "field",
+      "title": "로봇 현장·통합 엔지니어",
+      "subtitle": "설치·통합·QA",
+      "postings": {
+        "count": 34,
+        "companies": 26,
+        "entry": 8
+      },
+      "nodes": [
+        {
+          "id": "linux",
+          "label": "Linux 운영",
+          "status": "rokey",
+          "src": "ROS 기초 1",
+          "left": [
+            {
+              "label": "셸 스크립트",
+              "status": "self"
+            },
+            {
+              "label": "서비스·로그 확인",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "권한·패키지 관리",
+              "status": "self"
+            },
+            {
+              "label": "ssh 원격 접속",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "net",
+          "label": "네트워크 기초",
+          "status": "rokey",
+          "src": "ROS 기초 2",
+          "left": [
+            {
+              "label": "소켓 통신",
+              "status": "rokey",
+              "src": "ROS 기초 2"
+            },
+            {
+              "label": "IP·포트 설정",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "패킷 확인",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "py",
+          "label": "Python 자동화",
+          "status": "rokey",
+          "src": "파이썬 11·12·14·21",
+          "track": "파이썬 스터디",
+          "left": [
+            {
+              "label": "파일 처리",
+              "status": "rokey",
+              "src": "파이썬 12",
+              "track": "파이썬 스터디"
+            },
+            {
+              "label": "정규표현식",
+              "status": "rokey",
+              "src": "파이썬 14",
+              "track": "파이썬 스터디"
+            }
+          ],
+          "right": [
+            {
+              "label": "os·shutil",
+              "status": "rokey",
+              "src": "파이썬 21",
+              "track": "파이썬 스터디"
+            },
+            {
+              "label": "GUI 기초",
+              "status": "rokey",
+              "src": "파이썬 11",
+              "track": "파이썬 스터디"
+            },
+            {
+              "label": "로그 파싱",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "hw",
+          "label": "하드웨어 기초",
+          "status": "rokey",
+          "src": "ROS 기초 3",
+          "left": [
+            {
+              "label": "센서 종류",
+              "status": "rokey",
+              "src": "ROS 기초 3"
+            }
+          ],
+          "right": [
+            {
+              "label": "모터·드라이버",
+              "status": "self"
+            },
+            {
+              "label": "전원·배선",
+              "status": "self"
+            },
+            {
+              "label": "시리얼 통신",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "diag",
+          "label": "ROS2 진단 도구",
+          "status": "rokey",
+          "src": "ROS 입문 8, 실습 1·3",
+          "left": [
+            {
+              "label": "ros2 CLI",
+              "status": "rokey",
+              "src": "ROS 실습 1"
+            },
+            {
+              "label": "rosbag",
+              "status": "rokey",
+              "src": "ROS 입문 8"
+            }
+          ],
+          "right": [
+            {
+              "label": "RQt",
+              "status": "rokey",
+              "src": "ROS 실습 3"
+            },
+            {
+              "label": "RViz",
+              "status": "rokey",
+              "src": "ROS 실습 7",
+              "verify": true
+            }
+          ]
+        },
+        {
+          "id": "cobot",
+          "label": "협동로봇 셋업",
+          "status": "rokey",
+          "src": "협동로봇 실습",
+          "verify": true,
+          "left": [
+            {
+              "label": "티칭",
+              "status": "rokey",
+              "src": "협동로봇 실습",
+              "verify": true
+            },
+            {
+              "label": "그리퍼·I/O 연결",
+              "status": "rokey",
+              "src": "협동로봇 실습",
+              "verify": true
+            }
+          ],
+          "right": [
+            {
+              "label": "안전 설정",
+              "status": "self",
+              "verify": true
+            },
+            {
+              "label": "툴 좌표 설정",
+              "status": "self",
+              "verify": true
+            }
+          ]
+        },
+        {
+          "id": "amr",
+          "label": "이동 로봇 셋업",
+          "status": "rokey",
+          "src": "ROS 실습 5",
+          "left": [
+            {
+              "label": "지도 작성",
+              "status": "rokey",
+              "src": "ROS 실습 5"
+            }
+          ],
+          "right": [
+            {
+              "label": "구역·경로 설정",
+              "status": "self"
+            },
+            {
+              "label": "주행 파라미터 조정",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "calib",
+          "label": "캘리브레이션",
+          "status": "self",
+          "verify": true,
+          "left": [
+            {
+              "label": "카메라 캘리브레이션",
+              "status": "self"
+            },
+            {
+              "label": "핸드-아이 캘리브레이션",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "LiDAR·카메라 정렬",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "plc",
+          "label": "PLC와 산업 통신",
+          "status": "self",
+          "left": [
+            {
+              "label": "Modbus TCP",
+              "status": "self"
+            },
+            {
+              "label": "디지털 I/O",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "로봇·비전·PLC 연동",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "trouble",
+          "label": "장애 대응",
+          "status": "self",
+          "left": [
+            {
+              "label": "로그 분석",
+              "status": "self"
+            },
+            {
+              "label": "재현 절차",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "원인 보고",
+              "status": "self"
+            },
+            {
+              "label": "원격 지원",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "test",
+          "label": "테스트 설계",
+          "status": "self",
+          "verify": true,
+          "left": [
+            {
+              "label": "테스트 케이스",
+              "status": "self"
+            },
+            {
+              "label": "단위·통합 테스트",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "V-Model",
+              "status": "self"
+            },
+            {
+              "label": "현장 인수 시험",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "deploy",
+          "label": "원격 배포",
+          "status": "rokey",
+          "src": "DevOps 5~6",
+          "left": [
+            {
+              "label": "Docker",
+              "status": "rokey",
+              "src": "DevOps 5"
+            },
+            {
+              "label": "Compose",
+              "status": "rokey",
+              "src": "DevOps 6"
+            }
+          ],
+          "right": [
+            {
+              "label": "원격 업데이트",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "poc",
+          "label": "고객 요구와 PoC",
+          "status": "self",
+          "left": [
+            {
+              "label": "요구 정리",
+              "status": "self"
+            },
+            {
+              "label": "성공 기준 정의",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "성공률·사이클타임",
+              "status": "self"
+            },
+            {
+              "label": "결과 보고서",
+              "status": "self",
+              "verify": true
+            }
+          ]
+        },
+        {
+          "id": "data",
+          "label": "현장 데이터 수집",
+          "status": "any",
+          "left": [
+            {
+              "label": "텔레오퍼레이션",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "rosbag 기록",
+              "status": "rokey",
+              "src": "ROS 입문 8"
+            },
+            {
+              "label": "학습 데이터 관리",
+              "status": "self"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "near": "linux",
+          "text": "공고 34건 중 석사를 요구한 곳이 없고, 학사 신입 공고 비율이 여섯 길 가운데 가장 높습니다."
+        },
+        {
+          "near": "cobot",
+          "text": "공고 34건 중 17건이 출장이나 현장 근무를 적었습니다."
+        }
+      ]
+    },
+    {
+      "id": "physical",
+      "title": "Physical AI 엔지니어",
+      "subtitle": "시뮬레이션·로봇 학습",
+      "postings": {
+        "count": 52,
+        "companies": 34,
+        "entry": 16
+      },
+      "nodes": [
+        {
+          "id": "math",
+          "label": "수학",
+          "status": "self",
+          "left": [
+            {
+              "label": "선형대수",
+              "status": "self"
+            },
+            {
+              "label": "확률",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "최적화",
+              "status": "self"
+            },
+            {
+              "label": "미분",
+              "status": "rokey",
+              "src": "AI 개론 4·5"
+            }
+          ]
+        },
+        {
+          "id": "torch",
+          "label": "PyTorch",
+          "status": "rokey",
+          "src": "AI 개론 3~16",
+          "left": [
+            {
+              "label": "텐서와 학습 루프",
+              "status": "rokey",
+              "src": "AI 개론 3·5"
+            },
+            {
+              "label": "CNN",
+              "status": "rokey",
+              "src": "AI 개론 11"
+            }
+          ],
+          "right": [
+            {
+              "label": "전이 학습",
+              "status": "rokey",
+              "src": "AI 개론 13~15"
+            },
+            {
+              "label": "트랜스포머(ViT)",
+              "status": "rokey",
+              "src": "AI 응용 13"
+            }
+          ]
+        },
+        {
+          "id": "robot",
+          "label": "ROS2와 로봇 모델",
+          "status": "rokey",
+          "src": "ROS 입문 3, 실습 4",
+          "left": [
+            {
+              "label": "토픽·서비스",
+              "status": "rokey",
+              "src": "ROS 입문 3"
+            },
+            {
+              "label": "URDF·tf2",
+              "status": "rokey",
+              "src": "ROS 실습 4"
+            }
+          ],
+          "right": [
+            {
+              "label": "로봇 기구학",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "sim",
+          "label": "시뮬레이터",
+          "status": "rokey",
+          "src": "ROS 실습 5",
+          "left": [
+            {
+              "label": "Gazebo",
+              "status": "rokey",
+              "src": "ROS 실습 5"
+            },
+            {
+              "label": "Isaac Sim",
+              "status": "self",
+              "verify": true
+            },
+            {
+              "label": "MuJoCo",
+              "status": "alt"
+            }
+          ],
+          "right": [
+            {
+              "label": "URDF를 USD로 변환",
+              "status": "self"
+            },
+            {
+              "label": "물리 파라미터",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "rl",
+          "label": "강화학습 기초",
+          "status": "rokey",
+          "src": "AI 응용 15",
+          "left": [
+            {
+              "label": "MDP",
+              "status": "rokey",
+              "src": "AI 응용 15"
+            },
+            {
+              "label": "가치 함수",
+              "status": "rokey",
+              "src": "AI 응용 15"
+            }
+          ],
+          "right": [
+            {
+              "label": "벨만 방정식",
+              "status": "rokey",
+              "src": "AI 응용 15"
+            },
+            {
+              "label": "Gym 환경",
+              "status": "rokey",
+              "src": "AI 응용 15"
+            }
+          ]
+        },
+        {
+          "id": "rlalgo",
+          "label": "강화학습 알고리즘",
+          "status": "self",
+          "left": [
+            {
+              "label": "PPO",
+              "status": "self"
+            },
+            {
+              "label": "SAC",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "보상 설계",
+              "status": "self"
+            },
+            {
+              "label": "Isaac Lab 병렬 학습",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "data",
+          "label": "시연 데이터 수집",
+          "status": "self",
+          "left": [
+            {
+              "label": "텔레오퍼레이션",
+              "status": "self"
+            },
+            {
+              "label": "rosbag 기록",
+              "status": "rokey",
+              "src": "ROS 입문 8"
+            }
+          ],
+          "right": [
+            {
+              "label": "데이터셋 형식",
+              "status": "self"
+            },
+            {
+              "label": "데이터 품질 점검",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "imitation",
+          "label": "모방학습",
+          "status": "self",
+          "left": [
+            {
+              "label": "Behavior Cloning",
+              "status": "self"
+            },
+            {
+              "label": "ACT",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "Diffusion Policy",
+              "status": "self"
+            },
+            {
+              "label": "LeRobot",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "vla",
+          "label": "VLA 모델",
+          "status": "self",
+          "left": [
+            {
+              "label": "비전·언어·행동 모델",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "VLA 파인 튜닝",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "sim2real",
+          "label": "Sim2Real",
+          "status": "self",
+          "left": [
+            {
+              "label": "도메인 랜덤화",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "시스템 식별",
+              "status": "self"
+            },
+            {
+              "label": "실물 로봇 검증",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "twin",
+          "label": "디지털 트윈",
+          "status": "self",
+          "verify": true,
+          "left": [
+            {
+              "label": "Omniverse",
+              "status": "self"
+            },
+            {
+              "label": "USD 장면 구성",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "합성 데이터 생성",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "paper",
+          "label": "논문 구현",
+          "status": "self",
+          "left": [
+            {
+              "label": "논문 재현",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "다중 GPU 학습",
+              "status": "self"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "near": "math",
+          "text": "신입 가능 공고 16건 중 13건이 자격 요건에 석사나 박사를 적었습니다."
+        },
+        {
+          "near": "data",
+          "text": "학사로 지원할 수 있는 자리는 인턴,\n데이터 수집, 배포 직무에 있습니다."
+        }
+      ]
+    },
+    {
+      "id": "platform",
+      "title": "로봇 관제 개발자",
+      "subtitle": "웹·백엔드",
+      "postings": {
+        "count": 27,
+        "companies": 18,
+        "entry": 2
+      },
+      "nodes": [
+        {
+          "id": "web",
+          "label": "HTTP와 웹 기초",
+          "status": "self",
+          "left": [
+            {
+              "label": "HTML·CSS",
+              "status": "self"
+            },
+            {
+              "label": "HTTP 요청·응답",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "REST API",
+              "status": "self"
+            },
+            {
+              "label": "CORS·캐시",
+              "status": "self",
+              "track": "웹 면접 준비"
+            }
+          ]
+        },
+        {
+          "id": "js",
+          "label": "JavaScript",
+          "status": "self",
+          "track": "웹 면접 준비",
+          "left": [
+            {
+              "label": "이벤트 루프",
+              "status": "self",
+              "track": "웹 면접 준비"
+            },
+            {
+              "label": "Promise·async",
+              "status": "self",
+              "track": "웹 면접 준비"
+            }
+          ],
+          "right": [
+            {
+              "label": "클로저·this",
+              "status": "self",
+              "track": "웹 면접 준비"
+            },
+            {
+              "label": "DOM 다루기",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "ts",
+          "label": "TypeScript",
+          "status": "self",
+          "track": "웹 면접 준비",
+          "left": [
+            {
+              "label": "타입 좁히기",
+              "status": "self",
+              "track": "웹 면접 준비"
+            }
+          ],
+          "right": [
+            {
+              "label": "제네릭",
+              "status": "self",
+              "track": "웹 면접 준비"
+            }
+          ]
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "status": "self",
+          "track": "웹 면접 준비",
+          "left": [
+            {
+              "label": "렌더링과 key",
+              "status": "self",
+              "track": "웹 면접 준비"
+            },
+            {
+              "label": "state와 effect",
+              "status": "self",
+              "track": "웹 면접 준비"
+            }
+          ],
+          "right": [
+            {
+              "label": "서버 상태",
+              "status": "self",
+              "track": "웹 면접 준비"
+            },
+            {
+              "label": "Vue",
+              "status": "alt"
+            }
+          ]
+        },
+        {
+          "id": "quality",
+          "label": "화면 품질",
+          "status": "any",
+          "track": "웹 면접 준비",
+          "left": [
+            {
+              "label": "브라우저 렌더링",
+              "status": "self",
+              "track": "웹 면접 준비"
+            },
+            {
+              "label": "웹 성능 측정",
+              "status": "self",
+              "track": "웹 면접 준비"
+            }
+          ],
+          "right": [
+            {
+              "label": "화면 테스트",
+              "status": "self",
+              "track": "웹 면접 준비"
+            }
+          ]
+        },
+        {
+          "id": "db",
+          "label": "SQL과 DB",
+          "status": "rokey",
+          "src": "DevOps 1~2",
+          "left": [
+            {
+              "label": "DDL·DML",
+              "status": "rokey",
+              "src": "DevOps 1·2"
+            },
+            {
+              "label": "JOIN",
+              "status": "rokey",
+              "src": "DevOps 2"
+            }
+          ],
+          "right": [
+            {
+              "label": "트랜잭션",
+              "status": "rokey",
+              "src": "DevOps 2"
+            },
+            {
+              "label": "파이썬 DB 연동",
+              "status": "rokey",
+              "src": "DevOps 2"
+            }
+          ]
+        },
+        {
+          "id": "api",
+          "label": "백엔드 API",
+          "status": "self",
+          "left": [
+            {
+              "label": "FastAPI",
+              "status": "self"
+            },
+            {
+              "label": "JSON·API 호출",
+              "status": "rokey",
+              "src": "파이썬 21",
+              "track": "파이썬 스터디"
+            }
+          ],
+          "right": [
+            {
+              "label": "Django",
+              "status": "alt"
+            },
+            {
+              "label": "Node.js",
+              "status": "alt"
+            },
+            {
+              "label": "Spring",
+              "status": "alt"
+            }
+          ]
+        },
+        {
+          "id": "realtime",
+          "label": "실시간 통신",
+          "status": "self",
+          "left": [
+            {
+              "label": "WebSocket",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "MQTT",
+              "status": "self"
+            },
+            {
+              "label": "gRPC",
+              "status": "self"
+            }
+          ]
+        },
+        {
+          "id": "ros",
+          "label": "ROS2 연동",
+          "status": "rokey",
+          "src": "ROS 입문 3, 실습 2",
+          "left": [
+            {
+              "label": "토픽·서비스",
+              "status": "rokey",
+              "src": "ROS 입문 3"
+            },
+            {
+              "label": "DDS QoS",
+              "status": "rokey",
+              "src": "ROS 실습 2"
+            }
+          ],
+          "right": [
+            {
+              "label": "rosbridge",
+              "status": "self"
+            },
+            {
+              "label": "Foxglove",
+              "status": "alt"
+            }
+          ]
+        },
+        {
+          "id": "container",
+          "label": "컨테이너",
+          "status": "rokey",
+          "src": "DevOps 5~6",
+          "left": [
+            {
+              "label": "Docker 명령",
+              "status": "rokey",
+              "src": "DevOps 5"
+            },
+            {
+              "label": "Dockerfile",
+              "status": "rokey",
+              "src": "DevOps 6"
+            }
+          ],
+          "right": [
+            {
+              "label": "Compose",
+              "status": "rokey",
+              "src": "DevOps 6"
+            }
+          ]
+        },
+        {
+          "id": "console",
+          "label": "관제 화면",
+          "status": "self",
+          "verify": true,
+          "left": [
+            {
+              "label": "지도 위 위치 표시",
+              "status": "self"
+            },
+            {
+              "label": "상태 대시보드",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "작업 배정(FMS)",
+              "status": "self"
+            },
+            {
+              "label": "Open-RMF",
+              "status": "self"
+            },
+            {
+              "label": "Three.js 3D 뷰",
+              "status": "any"
+            }
+          ]
+        },
+        {
+          "id": "ops",
+          "label": "배포와 운영",
+          "status": "self",
+          "left": [
+            {
+              "label": "AWS",
+              "status": "self"
+            },
+            {
+              "label": "GitHub Actions",
+              "status": "self"
+            }
+          ],
+          "right": [
+            {
+              "label": "Kubernetes",
+              "status": "any"
+            },
+            {
+              "label": "Prometheus·Grafana",
+              "status": "any"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "near": "web",
+          "text": "웹 기초는 developer-roadmap의 프론트엔드·백엔드 그림을 함께 보세요."
+        },
+        {
+          "near": "console",
+          "text": "로봇 관제 공고 27건 중 21건이\n경력 3년 이상을 요구합니다."
+        }
+      ]
+    }
+  ]
+}
