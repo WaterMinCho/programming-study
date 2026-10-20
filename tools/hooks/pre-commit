@@ -1,0 +1,3 @@
+#!/bin/sh
+# 스테이지에 올린 글(문서, 지문, 화면 문구, 주석)의 말투 검사. python3 tools/check_style.py --install-hooks 가 .git/hooks 로 복사
+exec python3 tools/check_style.py --staged

@@ -1,0 +1,36 @@
+name: 문장 검사
+
+# 문서·지문·화면 문구·주석의 말투와 PR 제목·본문의 형식을 봄. 풀이만 바꾼 PR(바뀐 파일이 모두 submissions/ 아래)에서는 돌지 않음
+# edited 를 넣어 마지막 push 뒤에 고친 PR 제목·본문도 스쿼시 머지 전에 다시 봄
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    paths-ignore:
+      - "submissions/**"
+
+concurrency:
+  group: style-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  style:
+    name: 문장 검사
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      # 이 PR 이 바꾼 글(문서, 지문·힌트·해설, 화면 문구와 주석). base 이름은 환경 변수로 넘김
+      - env:
+          BASE: ${{ github.base_ref }}
+        run: python tools/check_style.py --changed "origin/$BASE"
+      # PR 제목과 본문. 스쿼시 머지의 커밋 메시지가 됨. 글은 환경 변수로 넘겨 명령에 끼어들지 않게 함
+      - env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n\n%s\n' "$TITLE" "$BODY" > "$RUNNER_TEMP/pr.txt"
+          python tools/check_style.py --commit "$RUNNER_TEMP/pr.txt"

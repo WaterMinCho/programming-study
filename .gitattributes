@@ -1,2 +1,5 @@
 start.bat -text
 ROKEY.app/Contents/MacOS/ROKEY text eol=lf
+tools/hooks/* text eol=lf
+*.gif binary
+*.png binary

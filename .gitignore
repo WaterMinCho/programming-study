@@ -20,3 +20,21 @@ problems/*/quiz_key.json
 problems/*/*/solution.py
 problems/*/*/explain.md
 shortage.md
+
+# 알고리즘 여행 출제자 작업본(평문). dungeons/<던전>/sealed.json 으로만 커밋합니다
+dungeons/*/*/solution.py
+dungeons/*/*/solution.js
+dungeons/*/*/brute.py
+dungeons/*/*/certify.py
+dungeons/*/*/alt.py
+dungeons/*/*/alt.js
+dungeons/*/*/gen.py
+dungeons/*/*/validate.py
+dungeons/*/*/tests.json
+dungeons/*/*/extra.json
+dungeons/*/*/wrong.json
+dungeons/*/*/wrong/
+dungeons/*/*/hints.md
+dungeons/*/*/explain.md
+dungeons/*/*/review.json
+dungeons/*/review.json
