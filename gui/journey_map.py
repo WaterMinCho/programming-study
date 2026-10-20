@@ -396,7 +396,7 @@ class JourneyMapPage(QWidget):
 
     def restyle(self):
         """글자 크기나 테마가 바뀌면 부름. 소개 글의 CSS 와 목록의 동그라미 색을 다시 넣음. 지도는 칠할 때마다 테마 색을 읽음."""
-        self.intro.restyle(theme.doc_css(self.win.zoom), theme.code_font(self.win.zoom))
+        self.intro.restyle(theme.journey_css(self.win.zoom), theme.code_font(self.win.zoom))
         self.legend.setText(legend_html())
         if self.info and self.info["ready"]:
             for number, row in enumerate(self.info["problems"]):
