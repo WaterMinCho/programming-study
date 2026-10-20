@@ -11,6 +11,7 @@ import math
 
 SAFE_MAX = 2 ** 53 - 1
 BASE_TYPES = ("int", "str", "bool")
+MAX_DEPTH = 64  # 반환값 리스트가 겹칠 수 있는 단계. 하네스와 같은 값임
 LANGS = ("python", "javascript")
 
 NONE_NOTE = "None 을 반환했습니다. return 을 빠뜨렸는지 확인하세요."
@@ -20,6 +21,7 @@ DICT_NOTE = "딕셔너리를 반환했습니다. 리스트로 바꿔 반환하�
 GENERATOR_NOTE = "제너레이터를 반환했습니다. list(...) 로 감싸 반환하세요."
 FLOAT_NOTE = "유한하지 않은 실수(%s)를 반환했습니다."
 OTHER_NOTE = "%s 타입은 반환할 수 없습니다. 정수·문자열·불리언이나 그 리스트로 반환하세요."
+DEPTH_NOTE = "리스트가 64겹을 넘게 겹쳐 있습니다. 반복문 안에서 answer = [answer, x] 처럼 리스트를 다시 감싸고 있는지 확인하세요."
 LITERAL_NOTE = '값을 읽지 못했습니다. JSON 이나 파이썬 리터럴로 적어 주세요. 예) [1, 2, 3], "abc", true'
 LITERAL_KIND_NOTE = "딕셔너리와 집합은 쓸 수 없습니다. 정수·문자열·불리언이나 그 리스트만 적어 주세요."
 
@@ -98,8 +100,8 @@ def matches(text, expected=None, expected_sha=None):
     return True
 
 
-def reject_py(value):
-    """하네스와 같은 규칙으로 허용하지 않는 반환값의 이유를 돌려줌. 허용하면 빈 글."""
+def reject_py(value, depth=1):
+    """하네스와 같은 규칙으로 허용하지 않는 반환값의 이유를 돌려줌. 허용하면 빈 글. depth 는 value 가 리스트일 때 몇 겹째인지."""
     if value is None or isinstance(value, (bool, int, str)):
         return ""
     if isinstance(value, float):
@@ -107,8 +109,10 @@ def reject_py(value):
             return FLOAT_NOTE % repr(value)
         return ""
     if isinstance(value, list):
+        if depth > MAX_DEPTH:
+            return DEPTH_NOTE
         for item in value:
-            bad = reject_py(item)
+            bad = reject_py(item, depth + 1)
             if bad:
                 return bad
         return ""

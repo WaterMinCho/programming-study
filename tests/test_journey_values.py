@@ -95,6 +95,11 @@ class CanonicalTest(unittest.TestCase):
         self.assertIn("inf", values.encode_py(float("inf"))[1])
         self.assertIn("object", values.encode_py(object())[1])
         self.assertEqual(values.encode_py(3.0), ("3.0", ""))
+        deep = [1]
+        for _ in range(63):
+            deep = [deep]
+        self.assertEqual(values.encode_py(deep)[1], "")  # 64겹까지 받음
+        self.assertEqual(values.encode_py([deep]), (None, values.DEPTH_NOTE))
 
 
 class ShowTest(unittest.TestCase):

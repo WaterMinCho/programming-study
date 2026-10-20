@@ -29,6 +29,8 @@ const sleepCell = new Int32Array(new SharedArrayBuffer(4));
 
 const OUTPUT_LIMIT = 1000000;
 const PRINT_KEEP = 20000;
+// 반환값 배열이 겹칠 수 있는 단계. 더 깊으면 부모가 JSON 을 읽다가 스택이 넘칠 수 있음
+const MAX_DEPTH = 64;
 const UNDEFINED_NOTE = "undefined 를 반환했습니다. return 을 빠뜨렸는지 확인하세요.";
 const HOLE_NOTE = "배열에 빈 칸이나 undefined 가 있습니다. 모든 칸을 채워 반환하세요.";
 const NAN_NOTE = "NaN 이나 Infinity 는 반환할 수 없습니다.";
@@ -38,6 +40,7 @@ const MAP_NOTE = "Map 은 반환할 수 없습니다. 배열로 바꿔 반환하
 const SET_NOTE = "Set 은 반환할 수 없습니다. Array.from(...) 으로 배열로 바꿔 반환하세요.";
 const TYPED_NOTE = "TypedArray 는 반환할 수 없습니다. Array.from(...) 으로 배열로 바꿔 반환하세요.";
 const OBJECT_NOTE = "객체는 반환할 수 없습니다. 정수·문자열·불리언이나 그 배열로 반환하세요.";
+const DEPTH_NOTE = "배열이 64겹을 넘게 겹쳐 있습니다. 반복문 안에서 answer = [answer, x] 처럼 배열을 다시 감싸고 있는지 확인하세요.";
 const FUNCTION_NOTE = "함수를 반환했습니다. 값을 반환하세요.";
 const PROMISE_NOTE = "Promise 를 반환했습니다. async 를 빼세요.";
 const OUTPUT_NOTE = "출력이 1,000,000자를 넘었습니다.";
@@ -119,8 +122,8 @@ function isStackOverflow(error) {
         && error.message.indexOf("Maximum call stack size exceeded") >= 0;
 }
 
-// 반환값 검사. 허용하지 않으면 이유를, 허용하면 빈 글을 돌려줌
-function reject(value) {
+// 반환값 검사. 허용하지 않으면 이유를, 허용하면 빈 글을 돌려줌. depth 는 value 가 배열일 때 몇 겹째인지
+function reject(value, depth) {
     if (value === null) {
         return "";
     }
@@ -147,11 +150,14 @@ function reject(value) {
         return FUNCTION_NOTE;
     }
     if (isArray(value)) {
+        if (depth > MAX_DEPTH) {
+            return DEPTH_NOTE;
+        }
         for (let i = 0; i < value.length; i++) {
             if (!(i in value)) {
                 return HOLE_NOTE;
             }
-            const bad = reject(value[i]);
+            const bad = reject(value[i], depth + 1);
             if (bad) {
                 return bad;
             }
@@ -178,7 +184,7 @@ function encode(value) {
     if (value !== null && (typeof value === "object" || typeof value === "function") && typeof value.then === "function") {
         return {text: null, note: PROMISE_NOTE};
     }
-    const bad = reject(value);
+    const bad = reject(value, 1);
     if (bad) {
         return {text: null, note: bad};
     }
@@ -284,7 +290,7 @@ function main(jobPath) {
         try {
             encoded = encode(value);
         } catch (error) {
-            // 너무 깊게 겹친 배열, 읽을 때 예외를 내는 Proxy·getter
+            // 읽을 때 예외를 내는 Proxy·getter
             let message = errorText(error);
             if (message.length > 300) {
                 message = message.slice(0, 300) + "…";

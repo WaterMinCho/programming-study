@@ -245,7 +245,7 @@ def compose(lang, case_dir, case, reason, killed_call, exit_code):
         else:
             try:
                 normalized = [values.canonical(json.loads(text)) for text in raw]
-            except ValueError:
+            except (ValueError, RecursionError, MemoryError):  # 하네스가 64겹 넘는 리스트를 막아서 깨진 result.json 에서만 남
                 normalized = None
             if normalized is None:
                 result["status"] = "runtime"

@@ -225,7 +225,8 @@ class GitFlow:
 
     def resolve(self, choice):
         """"diverged" 로 멈춘 뒤 사용자가 고른 쪽을 적용함.
-        "remote" 면 원격 풀이를 가져오고 이 컴퓨터 것은 보관함에 복사함. "local" 이면 이 컴퓨터 풀이를 올림."""
+        "remote" 면 원격 풀이를 가져오고 이 컴퓨터 것은 보관함에 복사함. "local" 이면 갈라진 영역은 이 컴퓨터 풀이로 두고
+        원격이 앞선 영역은 받기처럼 가져온 뒤 올림."""
         if choice == "remote":
             return self._run("sync", self._take_remote)
         if choice == "local":
@@ -509,10 +510,11 @@ class GitFlow:
                     verdicts[area] = ("take", ref, 0)
         return verdicts
 
-    def _reconcile(self):
+    def _reconcile(self, keep_diverged=False):
         """가장 새 판의 내 풀이가 작업 폴더에 오게 함. 프로필 영역과 여정 영역은 겹치는 파일이 없어 영역마다 따로 맞춤.
         작업 폴더가 비었거나 옛 판이면 새 판을 가져오고, 어느 영역이든 서로 다르게 이어졌으면 아무것도 가져오지 않고 멈춤.
-        한 영역을 먼저 가져온 뒤 멈추면 반쯤 바뀐 폴더가 남기 때문임."""
+        한 영역을 먼저 가져온 뒤 멈추면 반쯤 바뀐 폴더가 남기 때문임.
+        keep_diverged 면(이 컴퓨터 풀이로 올리기) 멈추지 않고 갈라진 영역은 이 컴퓨터 판을 둠. 원격이 앞선 영역은 그대로 가져옴."""
         local = {area: self._log(area) for area in AREAS}
         if local["profile"] is BROKEN:
             raise Stop("blocked", M_BROKEN_PROFILE)
@@ -521,7 +523,7 @@ class GitFlow:
         verdicts = self._judge(local)
         diverged = ["원격(%s)의 %s %d개, 이 컴퓨터 %d개" % (ref, AREA_LOGS[area], count, len(local[area]))
                     for area, (verdict, ref, count) in verdicts.items() if verdict == "diverged"]
-        if diverged:
+        if diverged and not keep_diverged:
             raise Stop("diverged", M_DIVERGED, "\n".join(diverged))
         picks = [(ref, area) for area, (verdict, ref, _) in verdicts.items() if verdict == "take"]
         if picks:
@@ -755,8 +757,7 @@ class GitFlow:
             raise Stop("blocked", M_BROKEN % (broken[0] + more), "\n".join(broken))
         self._fetch()
         for attempt in (1, 2):
-            if not force:
-                self._reconcile()
+            self._reconcile(keep_diverged=force)
             snap = self._snapshot("풀이 제출: %s" % self.user)
             mine = self._folder_tree(snap)
             if mine == self._folder_tree(self._base):

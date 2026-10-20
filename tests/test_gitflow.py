@@ -1523,6 +1523,45 @@ class GitFlowTest(unittest.TestCase):
         self.assertEqual(pc.state(), state)
         self.submit()
 
+    def keep_local(self, after):
+        """갈라진 뒤 이 컴퓨터 풀이로 올림. 내 폴더는 after 가 되고, 원격은 다른 컴퓨터가 올린 커밋에 이어 붙어 내 폴더와 같아야 함."""
+        theirs = self.server.rev("study/alice")
+        result = self.call(self.pc, "resolve", "ok", after, "local")
+        self.assertEqual((result["changed"], result["pr_url"]), (True, NEW_PR))
+        self.assertTrue(result["message"].startswith(gitflow.M_TOOK_OVER), result["message"])
+        self.check_remote(self.pc)
+        self.assertTrue(self.server.is_ancestor(theirs, "study/alice"))
+        self.assertEqual(self.pc.status(), [])
+        return result
+
+    def test_keep_local_brings_the_longer_journey_when_only_rounds_diverged(self):
+        """프로필만 갈라지고 여정은 원격이 앞서면, 이 컴퓨터 풀이로 올려도 원격의 여정 기록과 코드를 지우지 않음."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(correct=True); theirs = pc2.journey(2); self.submit(pc2)
+        mine = pc.solve()
+        self.assertEqual(self.sync(expect="diverged")["detail"].count("시도 기록"), 1)
+        self.keep_local(self.split(mine, theirs))
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice/journey")
+        self.assertIn("submissions/alice/journey/d01/p2.py", self.server.folder("study/alice", "alice"))
+        self.merge()
+
+    def test_keep_local_brings_the_longer_rounds_when_only_the_journey_diverged(self):
+        """여정만 갈라지고 프로필은 원격이 앞서면, 이 컴퓨터 풀이로 올려도 원격의 시도 기록을 지우지 않음."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(); theirs = pc2.journey(2); self.submit(pc2)
+        mine = pc.journey(2, lang="javascript")
+        self.assertEqual(self.sync(expect="diverged")["detail"].count("여정 기록"), 1)
+        self.keep_local(self.split(theirs, mine))
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey")
+        self.assertEqual(pc.attempts(), pc2.attempts())
+        self.merge()
+
 
 class CiReportTest(unittest.TestCase):
     def report(self, files, present):

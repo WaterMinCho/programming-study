@@ -41,6 +41,8 @@ STYLES = {
              "    memo[n] = 0 if n == 0 else 1 + f(n - 1)\n    return memo[n]\n"),
 }
 SOLUTION_F = "\n\ndef solution(n):\n    return f(n)\n"
+NEST_PY = "def solution(n):\n    x = []\n    for _ in range(n - 1):\n        x = [x]\n    return x\n"
+NEST_JS = "function solution(n) {\n    let x = [];\n    for (let i = 1; i < n; i++) {\n        x = [x];\n    }\n    return x;\n}\n"
 
 HEAVY_JS = """function heavy(a, b, c, d, e, f, g) {
     let [x, y] = [a, b];
@@ -83,6 +85,14 @@ process.on("exit", function () {
     fs.writeFileSync("retries.json", JSON.stringify({failed: failed, waits: waits}));
 });
 """
+
+
+def nested(depth):
+    """depth 겹으로 감싼 빈 리스트. NEST_PY·NEST_JS 가 돌려주는 값임."""
+    value = []
+    for _ in range(depth - 1):
+        value = [value]
+    return value
 
 
 class RunnerCase(unittest.TestCase):
@@ -227,11 +237,16 @@ class PythonRunnerTest(RunnerCase):
         self.assertIn("1,000,000자", result["fatal"]["message"])
         self.assertIn("1,000,000자", result["note"])
 
+    def test_list_nested_over_64_is_bad_return_with_note(self):
+        """반복문에서 answer = [answer, i] 로 쌓은 수천 겹 리스트가 부모로 가면 GUI 스레드의 json.loads 가 스택을 넘기므로 하네스가 막음."""
+        self.assertPasses(NEST_PY, [[64]], nested(64))
+        over = self.run_one(NEST_PY, [[65]], 1)
+        self.assertEqual((over["status"], over["note"]), ("bad_return", values.DEPTH_NOTE), over)
+        text = "import sys\nsys.setrecursionlimit(10**6)\n\n\ndef solution(n):\n    answer = []\n    for i in range(n):\n        answer = [answer, i]\n    return answer\n"
+        deep = self.run_one(text, [[100000]], 1)
+        self.assertEqual((deep["status"], deep["failed_call"], deep["note"]), ("bad_return", 0, values.DEPTH_NOTE), deep)
+
     def test_value_that_cannot_be_encoded_is_bad_return(self):
-        deep = self.run_one("def solution(a):\n    x = []\n    for _ in range(100000):\n        x = [x]\n    return x\n",
-                            [[1]], 1)
-        self.assertEqual((deep["status"], deep["failed_call"]), ("bad_return", 0), deep)
-        self.assertIn("RecursionError", deep["note"])
         if hasattr(sys, "get_int_max_str_digits"):  # 3.10.7 부터 4300자 제한이 있음
             big = self.run_one("def solution(a):\n    return 10 ** 5000\n", [[1]], 1)
             self.assertEqual(big["status"], "bad_return", big)
@@ -476,11 +491,21 @@ class NodeRunnerTest(RunnerCase):
         self.assertEqual(result["values"], ['[1,"b",true]'])
         self.assertGreater(result["elapsed_ms"], 0)
 
+    def test_array_nested_over_64_is_bad_return_with_note(self):
+        """하네스는 8,000겹 가까이 인코딩하지만 부모의 json.loads 가 그보다 얕은 곳에서 스택을 넘기므로 64겹에서 막음."""
+        self.assertPasses(NEST_JS, [[64]], nested(64))
+        over = self.run_one(NEST_JS, [[65]], 1)
+        self.assertEqual(over["status"], "bad_return", over)
+        self.assertIn("64겹", over["note"])
+        text = "function solution(n) {\n    let answer = [];\n    for (let i = 0; i < n; i++) {\n        answer = [answer, i];\n    }\n    return answer;\n}\n"
+        deep = self.run_one(text, [[6000]], 1)
+        self.assertEqual((deep["status"], deep["failed_call"], deep["note"]), ("bad_return", 0, over["note"]), deep)
+
     def test_value_that_cannot_be_encoded_is_bad_return(self):
-        text = "function solution(a) {\n    let x = [];\n    for (let i = 0; i < 100000; i++) {\n        x = [x];\n    }\n    return x;\n}\n"
+        text = "function solution(a) {\n    const x = [1];\n    Object.defineProperty(x, 0, {get() {\n        throw new Error('boom');\n    }});\n    return x;\n}\n"
         result = self.run_one(text, [[1]], 1)
         self.assertEqual((result["status"], result["failed_call"]), ("bad_return", 0), result)
-        self.assertIn("RangeError", result["note"])
+        self.assertIn("Error: boom", result["note"])
 
     def test_output_over_limit_at_top_level_is_fatal_with_note(self):
         result = self.run_one("process.stdout.write('x'.repeat(1000001));\nfunction solution(a) {\n    return a;\n}\n", [[1]], 1)
@@ -741,6 +766,17 @@ class HelperTest(unittest.TestCase):
                 self.assertEqual(runner.child_memory("pid", "python"), 100 * MB)
         with mock.patch.object(study, "runner_memory", return_value=0):
             self.assertEqual(runner.child_memory("pid", "python"), 0)
+
+    def test_values_the_parent_cannot_read_give_a_verdict(self):
+        """result.json 의 반환값을 부모가 읽다가 RecursionError·MemoryError 가 나도 채점 전체가 멈추지 않고 그 줄만 runtime 이 됨."""
+        case_dir = tempfile.mkdtemp(prefix="journey_test_")
+        self.addCleanup(shutil.rmtree, case_dir, True)
+        study.write_text(os.path.join(case_dir, "result.json"), json.dumps({"status": "done", "values": ["[1]"], "times_ns": [1000]}))
+        case = {"calls": 1, "limit_ms": 1000, "expected": "[1]"}
+        self.assertEqual(runner.compose("python", case_dir, case, None, None, 0)["status"], "pass")
+        for error in (RecursionError, MemoryError):
+            with mock.patch.object(values, "canonical", side_effect=error):
+                self.assertEqual(runner.compose("python", case_dir, case, None, None, 0)["status"], "runtime", error)
 
     def test_command_lines(self):
         cmd, env = runner.command("python", "/w")

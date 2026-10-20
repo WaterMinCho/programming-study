@@ -21,6 +21,7 @@ BASE_LIMIT = 1000
 RAISED_LIMIT = 10000
 OUTPUT_LIMIT = 1000000
 PRINT_KEEP = 20000
+MAX_DEPTH = 64  # 반환값 리스트가 겹칠 수 있는 단계. 더 깊으면 부모가 JSON 을 읽다가 스택이 넘칠 수 있음
 CACHE_DECORATOR = re.compile(r"^\s*@\s*(functools\s*\.\s*)?(cache|lru_cache)\b", re.MULTILINE)
 
 # 학생 코드가 모듈 속성을 바꿔도 시간 재기와 결과 쓰기가 흔들리지 않게 함수를 지역 이름으로 잡아 둠
@@ -41,6 +42,7 @@ DICT_NOTE = "딕셔너리를 반환했습니다. 리스트로 바꿔 반환하�
 GENERATOR_NOTE = "제너레이터를 반환했습니다. list(...) 로 감싸 반환하세요."
 FLOAT_NOTE = "유한하지 않은 실수(%s)를 반환했습니다."
 OTHER_NOTE = "%s 타입은 반환할 수 없습니다. 정수·문자열·불리언이나 그 리스트로 반환하세요."
+DEPTH_NOTE = "리스트가 64겹을 넘게 겹쳐 있습니다. 반복문 안에서 answer = [answer, x] 처럼 리스트를 다시 감싸고 있는지 확인하세요."
 OUTPUT_NOTE = "출력이 1,000,000자를 넘었습니다."
 INPUT_NOTE = "이 문제는 input() 으로 읽지 않고 solution 의 매개변수로 받습니다."
 LIMIT_LOW_NOTE = ("sys.setrecursionlimit 으로 한도를 늘리거나 반복문으로 바꾸세요. "
@@ -101,8 +103,8 @@ def write_file(path, text):
             sleep(0.005)
 
 
-def reject(value):
-    """허용하지 않는 반환값의 이유. 허용하면 빈 글. values.reject_py 와 같은 규칙임."""
+def reject(value, depth=1):
+    """허용하지 않는 반환값의 이유. 허용하면 빈 글. values.reject_py 와 같은 규칙임. depth 는 value 가 리스트일 때 몇 겹째인지."""
     if value is None or isinstance(value, (bool, int, str)):
         return ""
     if isinstance(value, float):
@@ -110,8 +112,10 @@ def reject(value):
             return FLOAT_NOTE % repr(value)
         return ""
     if isinstance(value, list):
+        if depth > MAX_DEPTH:
+            return DEPTH_NOTE
         for item in value:
-            bad = reject(item)
+            bad = reject(item, depth + 1)
             if bad:
                 return bad
         return ""
@@ -291,7 +295,7 @@ def main(job_path):
             except MemoryError as error:
                 fail(k, "memory", error)
                 return
-            except Exception as error:  # 4300자를 넘는 정수, 너무 깊게 겹친 리스트, 속성 접근에서 예외를 내는 객체
+            except Exception as error:  # 4300자를 넘는 정수, 속성 접근에서 예외를 내는 객체
                 text, note = None, ENCODE_NOTE % short_error(error)
             if text is None:
                 result["status"] = "bad_return"
