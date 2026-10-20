@@ -2,13 +2,14 @@
 """여정 문제 화면의 지문·힌트·해설 칸(DocView)과 해설 그림(FigureView), 그림을 그린 크기로 보는 창(FigureDialog).
 
 DocView 는 마크다운을 글 조각(QTextBrowser)과 그림 조각으로 나눠 위에서 아래로 쌓고, 기준 풀이 같은 코드 조각과 표·문단을 뒤에 더함.
-조각은 스크롤 막대 없이 내용 높이만큼 늘어나고 바깥 스크롤 하나로 읽음."""
+조각은 스크롤 막대 없이 내용 높이만큼 늘어나고 바깥 스크롤 하나로 읽음. 글은 theme.journey_css 로 그리고, 칸 맨 위가 아닌
+구역 제목(2·3단계) 앞에는 가로줄을 넣음. 칸이 좁으면(TIGHT_WIDTH) 표 칸과 코드 상자의 가로 여백을 줄임."""
 import html
 import math
 import os
 
-from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QMovie, QPainter, QPixmap
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QMovie, QPainter, QPainterPath, QPen, QPixmap, QTextCursor, QTextLength, QTextTable
 from PyQt6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QTextBrowser, QVBoxLayout,
                              QWidget)
 
@@ -20,6 +21,13 @@ from gui.widgets import Para
 CODE_MARKS = {"python": ("python", "py"), "javascript": ("javascript", "js")}  # 펜스 코드 블록에 붙는 언어 표시
 SCALE = 2  # 그림 파일은 화면에 보일 크기의 2배로 그려 둠
 NARROW_CSS = "pre { white-space: pre-wrap; }"  # 글 조각은 가로 스크롤이 없으므로 긴 코드 줄을 조각 폭에서 줄바꿈함
+RULED = (2, 3)  # 앞에 가로줄을 넣는 제목 단계. 지문·해설의 구역 제목은 2단계, 힌트 제목은 3단계임
+CODE_RADIUS = 8  # 코드 상자와 해설 그림의 모서리 반지름
+CODE_MARGIN = (12, -4)  # 코드 상자 위·아래의 바깥 여백. mdlite 가 표에 style 로 적은 여백은 CSS 로 덮지 못해 문서를 읽은 뒤 바꿈.
+# 아래 여백이 음수인 까닭: Qt 가 표 뒤에 두는 빈 줄이 상자 아래로 4px 남짓 삐져나와서, 그만큼 당겨야 상자 뒤의 가로줄 간격이 문단 뒤와 같아짐
+MIN_SHARE = 0.1  # 표의 열 하나가 가지는 폭의 하한. 전체 폭의 비율
+TIGHT_WIDTH = 500  # 칸이 이보다 좁으면(1024 폭 창의 왼쪽 칸) 표 칸과 코드 상자의 가로 여백을 줄임
+TIGHT_CSS = "table.grid th { padding: 9px 10px; } table.grid td { padding: 0px 10px 10px 10px; } td.codebox { padding: 12px 12px; }"
 
 
 def keep_lang(blocks, lang):
@@ -35,6 +43,25 @@ def keep_lang(blocks, lang):
             block = dict(block, blocks=keep_lang(block["blocks"], lang))
         out.append(block)
     return out
+
+
+def cell_text(cell):
+    """표 칸의 글."""
+    cursor = cell.firstCursorPosition()
+    cursor.setPosition(cell.lastCursorPosition().position(), QTextCursor.MoveMode.KeepAnchor)
+    return cursor.selectedText()
+
+
+def spread(table):
+    """표를 조각 폭에 꽉 채우고, 열 폭을 그 열에서 가장 긴 칸 글의 길이에 비례해 나눔(열마다 적어도 MIN_SHARE).
+    Qt 가 정하는 폭은 긴 목록이 든 열을 좁혀 원소마다 줄을 바꾸고 짧은 열은 비워 두어서 직접 나눔."""
+    longest = [max(len(cell_text(table.cellAt(row, column))) for row in range(table.rows())) for column in range(table.columns())]
+    shares = [max(length, sum(longest) * MIN_SHARE) for length in longest]
+    total = sum(shares) or 1
+    box = table.format()
+    box.setWidth(QTextLength(QTextLength.Type.PercentageLength, 100))
+    box.setColumnWidthConstraints([QTextLength(QTextLength.Type.PercentageLength, 100 * share / total) for share in shares])
+    table.setFormat(box)
 
 
 class Sheet(QWidget):
@@ -63,6 +90,13 @@ class TextPiece(QTextBrowser):
         """CSS 는 다음에 넣는 HTML 부터 적용되므로 HTML 을 다시 넣음."""
         self.document().setDefaultStyleSheet(css + NARROW_CSS)
         self.setHtml(self.markup)
+        for frame in self.code_frames():
+            box = frame.format()
+            box.setTopMargin(CODE_MARGIN[0])
+            box.setBottomMargin(CODE_MARGIN[1])
+            frame.setFormat(box)
+        for table in self.grid_tables():
+            spread(table)
         self.fit()
 
     def fit(self):
@@ -80,6 +114,53 @@ class TextPiece(QTextBrowser):
 
     def wheelEvent(self, event):
         event.ignore()
+
+    def tables(self):
+        """문서의 표들. 인용 상자 안의 코드 상자처럼 표 안에 든 표도 봄."""
+        found, frames = [], self.document().rootFrame().childFrames()
+        while frames:
+            frame = frames.pop()
+            frames.extend(frame.childFrames())
+            if isinstance(frame, QTextTable):
+                found.append(frame)
+        return found
+
+    def code_frames(self):
+        """코드 블록 하나가 든 1x1 표(mdlite 의 코드 상자)들. 테두리가 없고 첫 글자가 코드 글꼴인 1x1 표로 알아봄."""
+        mono = theme.code_families()[:1]
+        return [frame for frame in self.tables() if frame.rows() == frame.columns() == 1 and not frame.format().border()
+                and (frame.cellAt(0, 0).firstCursorPosition().block().charFormat().fontFamilies() or [])[:1] == mono]
+
+    def grid_tables(self):
+        """마크다운 표(mdlite 의 class="grid")들. 코드·인용 상자와 달리 테두리가 있고 열이 둘 이상임."""
+        return [frame for frame in self.tables() if frame.format().border() and frame.columns() > 1]
+
+    def code_boxes(self):
+        """코드 상자마다 화면 위의 사각형. 칸 안 첫 줄과 끝 줄의 자리에 칸 여백을 더해 셈.
+        끝 줄 아래에 붙는 넓힌 줄 간격은 블록 사각형에 들지 않아 위아래 여백이 같아짐."""
+        layout, rects = self.document().documentLayout(), []
+        for frame in self.code_frames():
+            cell = frame.cellAt(0, 0)
+            pad = cell.format().toTableCellFormat()
+            top = layout.blockBoundingRect(cell.firstCursorPosition().block())
+            bottom = layout.blockBoundingRect(cell.lastCursorPosition().block())
+            rects.append(QRectF(top.left() - pad.leftPadding(), top.top() - pad.topPadding(),
+                                top.width() + pad.leftPadding() + pad.rightPadding(),
+                                bottom.bottom() - top.top() + pad.topPadding() + pad.bottomPadding()))
+        return rects
+
+    def paintEvent(self, event):
+        """Qt 의 표는 모서리를 둥글게 그리지 못해서 코드 상자의 바탕과 테두리를 글보다 먼저 그림. 상자 칸의 바탕은 CSS 에서 투명하게 둠."""
+        boxes = self.code_boxes()
+        if boxes:
+            painter = QPainter(self.viewport())
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setPen(QPen(theme.qcolor("border"), 1))
+            painter.setBrush(theme.qcolor("codebox_bg"))
+            for rect in boxes:
+                painter.drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), CODE_RADIUS, CODE_RADIUS)
+            painter.end()
+        super().paintEvent(event)
 
 
 class CodeView(CodeEditor):
@@ -130,12 +211,24 @@ class DocView(QScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.sheet = Sheet()
         self.box = QVBoxLayout(self.sheet)
-        self.box.setContentsMargins(14, 12, 14, 14)
-        self.box.setSpacing(8)
+        self.box.setContentsMargins(20, 18, 20, 20)
+        self.box.setSpacing(10)
         self.box.addStretch(1)
         self.setWidget(self.sheet)
         self.pieces = []  # 쌓은 순서대로의 조각: TextPiece, FigureView, CodeView, 없는 그림 안내(Para)
-        self.css, self.code_font = theme.doc_css(), theme.code_font()
+        self.css, self.code_font = theme.journey_css(), theme.code_font()
+        self.tight = False  # 칸이 TIGHT_WIDTH 보다 좁은지. resizeEvent 가 바꿈
+
+    def sheet_css(self):
+        """글 조각에 주는 CSS. 칸이 좁으면 여백을 줄이는 규칙을 더함."""
+        return self.css + (TIGHT_CSS if self.tight else "")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        tight = self.width() < TIGHT_WIDTH
+        if tight != self.tight:
+            self.tight = tight
+            self.restyle(self.css, self.code_font)
 
     def clear(self):
         for piece in self.pieces:
@@ -179,26 +272,39 @@ class DocView(QScrollArea):
         body = html.escape(text, quote=False)
         if link:
             body = '<a href="%s">%s</a>' % (html.escape(link), body)
-        self._add_piece('<body><p%s>%s</p></body>' % (' class="%s"' % kind if kind else "", body))
+        rule = "<hr/>" if kind in ("h%d" % level for level in RULED) and self.pieces else ""
+        self._add_piece('<body>%s<p%s>%s</p></body>' % (rule, ' class="%s"' % kind if kind else "", body))
 
     def restyle(self, css, code_font):
-        """글자 크기나 테마가 바뀌면 부름. 글 조각에 CSS 를, 코드 조각에 글꼴을 다시 주고 읽던 자리는 지킴."""
+        """글자 크기나 테마가 바뀌거나 칸이 좁아지면 부름. 글 조각에 CSS 를, 코드 조각에 글꼴을 다시 주고, 그림의 테두리를 다시 그리고,
+        읽던 자리는 지킴."""
         bar = self.verticalScrollBar()
         place = bar.value()
         self.css, self.code_font = css, code_font
         for piece in self.pieces:
             if isinstance(piece, TextPiece):
-                piece.restyle(css)
+                piece.restyle(self.sheet_css())
             elif isinstance(piece, CodeView):
                 piece.setFont(code_font)
+            elif isinstance(piece, FigureView):
+                piece.draw()
         bar.setValue(place)
 
     def _add_blocks(self, blocks):
         if blocks:
-            self._add_piece(mdlite.blocks_html(blocks))
+            self._add_piece(mdlite.blocks_html(self._ruled(blocks)))
+
+    def _ruled(self, blocks):
+        """맨 바깥의 구역 제목 앞에 가로줄 블록을 넣은 목록. 칸 맨 위에 오는 제목에는 넣지 않음."""
+        out = []
+        for block in blocks:
+            if block["t"] == "heading" and block["level"] in RULED and (out or self.pieces):
+                out.append({"t": "rule"})
+            out.append(block)
+        return out
 
     def _add_piece(self, markup):
-        piece = TextPiece(markup, self.css)
+        piece = TextPiece(markup, self.sheet_css())
         piece.anchorClicked.connect(lambda url: self.linked.emit(url.toString()))
         self._add(piece)
 
@@ -221,7 +327,7 @@ class FigureView(QWidget):
         self.shrunk, self.down, self.dialog = False, False, None
         self.source = QPixmap()
         box = QVBoxLayout(self)
-        box.setContentsMargins(0, 0, 0, 0)
+        box.setContentsMargins(0, 10, 0, 0)  # 글 조각의 줄은 글자 위에 여백이 있고 아래에는 없어서, 그림 위만 띄워 위아래 간격을 맞춤
         box.setSpacing(6)
         self.picture = QLabel()
         self.picture.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -337,7 +443,7 @@ class FigureView(QWidget):
         self.play_btn.setText("멈춤" if self.playing else "재생")
 
     def draw(self):
-        """지금 장을 칸 폭에 맞춰 화면 배율로 부드럽게 줄여 보여 줌."""
+        """지금 장을 칸 폭에 맞춰 화면 배율로 부드럽게 줄이고, 모서리를 코드 상자처럼 둥글게 깎고 테두리를 둘러 보여 줌."""
         self.drawn_width = self.width()
         if self.source.isNull():
             return
@@ -345,7 +451,21 @@ class FigureView(QWidget):
         width = min(self.source.width() / SCALE, max(1, self.width()))
         pixmap = self.source.scaledToWidth(max(1, round(width * ratio)), Qt.TransformationMode.SmoothTransformation)
         pixmap.setDevicePixelRatio(ratio)
-        self.picture.setPixmap(pixmap)
+        framed = QPixmap(pixmap.size())
+        framed.setDevicePixelRatio(ratio)
+        framed.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(framed)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(QPointF(0, 0), pixmap.deviceIndependentSize()).adjusted(0.5, 0.5, -0.5, -0.5), CODE_RADIUS, CODE_RADIUS)
+        painter.setClipPath(path)
+        painter.drawPixmap(0, 0, pixmap)
+        painter.setClipping(False)
+        painter.setPen(QPen(theme.qcolor("border"), 1))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(path)
+        painter.end()
+        self.picture.setPixmap(framed)
         self.shrunk = width < self.source.width() / SCALE
         self.picture.setCursor(Qt.CursorShape.PointingHandCursor if self.shrunk else Qt.CursorShape.ArrowCursor)
         self.picture.setToolTip("누르면 그림을 원래 크기로 봅니다." if self.shrunk else "")

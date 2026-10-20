@@ -131,8 +131,9 @@ class HomePage(QWidget):
         row = QHBoxLayout()
         self.git_btn = QPushButton("제출(PR 올리기)")
         self.sync_btn = QPushButton("문제 받기")
-        row.addWidget(self.git_btn, 1)
-        row.addWidget(self.sync_btn, 1)
+        for button in (self.git_btn, self.sync_btn):
+            button.setMinimumHeight(40)  # 첫 화면의 제출 카드와 같은 높이
+            row.addWidget(button, 1)
         self.git_hint = muted()
         self.status = muted()
         self.busy_bar = QProgressBar()

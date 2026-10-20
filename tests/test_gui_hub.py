@@ -197,15 +197,18 @@ class HubScreenTest(HubTest):
         last = [r for r in overview["rounds"] if r["completed"]][-1]
         earned = int(last["first_score"].split("/")[0])
         self.assertEqual((hub.ready_label.text(), hub.ready.text()), ("시험 준비도", "%d%%" % overview["readiness"]))
-        self.assertEqual(hub.mastered.text(), "숙달한 단원 %d / %d" % (overview["mastered"], overview["total_units"]))
-        self.assertEqual(hub.python_next.text(), "지금 할 일: %s" % win.next_action(overview)[0])
-        self.assertEqual(hub.python_last.text(), "지난 회차: %s 첫 채점 %d / 100점" % (last["title"], earned))
-        self.assertRegex(hub.python_last.text(), r"첫 채점 \d+ / 100점$")
+        self.assertEqual(hub.mastered.text(), "%d / %d" % (overview["mastered"], overview["total_units"]))
+        self.assertEqual(hub.python_next.text(), win.next_action(overview)[0])
+        self.assertEqual((hub.python_last.text(), hub.python_last_label.text()), ("%d / 100" % earned, "%s 첫 채점" % last["title"]))
+        self.assertTrue(hub.python_last_stat.isVisible())
 
-        # 여행 카드: 1-1·1-2 를 통과해 보스가 열리고 다음 추천은 보스
-        self.assertEqual(hub.journey_passed.text(), "통과 2 / 4 · 보스 0 / 1")
-        self.assertEqual(hub.journey_langs.text(), "언어별 통과: Python 2 · JavaScript 1")
-        self.assertTrue(hub.journey_next.text().startswith("다음 추천: 1-B "), hub.journey_next.text())
+        # 여행 카드: 1-1·1-2 를 통과해 보스가 열리고 다음 추천은 보스. 언어별 통과 수는 수치 하나씩. 띠에는 던전 16개가 모두 나옴
+        self.assertEqual((hub.journey_passed.text(), hub.journey_boss.text()), ("2 / 4", "0 / 1"))
+        self.assertEqual({lang: item.value.text() for lang, item in hub.journey_langs.items()}, {"python": "2", "javascript": "1"})
+        self.assertEqual(hub.journey_langs["javascript"].name.text(), "JavaScript 통과")
+        self.assertTrue(hub.journey_next.text().startswith("1-B "), hub.journey_next.text())
+        self.assertTrue(hub.journey_next.text().endswith(" · 던전 1 「시험 마을」"), hub.journey_next.text())
+        self.assertEqual(len(hub.strip.rows), 16)
         self.assertTrue(hub.journey_btn.isEnabled())
         self.assertFalse(hub.journey_error.isVisible())
 
@@ -216,11 +219,12 @@ class HubScreenTest(HubTest):
         self.assertEqual(hub.chart.days[-2], (today - datetime.timedelta(days=1), 0, 1))
         self.assertEqual(len(hub.chart.days), 7)
         self.assertEqual(hub.streak.text(), "연속 학습 2일")
-        recent = hub.recent.text().split("\n")
-        self.assertEqual(recent[0], "최근 채점")
-        self.assertEqual(len(recent), 6)  # 다섯 줄까지
-        self.assertIn("1-2 JavaScript 100.0점 · %d/%d " % (today.month, today.day), hub.recent.text())
-        self.assertIn("파이썬 스터디 %s · " % last["title"], hub.recent.text())
+        self.assertTrue(hub.recent_box.isVisible())
+        self.assertEqual(len(hub.recent.rows), 5)  # 다섯 줄까지. 줄마다 (무엇을 채점했는지, 시각)
+        labels, stamps = zip(*hub.recent.rows)
+        self.assertIn("1-2 JavaScript 100.0점", labels)
+        self.assertIn("파이썬 스터디 %s" % last["title"], labels)
+        self.assertTrue(all(stamp.startswith("%d/%d " % (today.month, today.day)) for stamp in stamps[:4]), stamps)
 
     def test_buttons_and_cards_move_between_the_two_areas(self):
         win = self.boot()
@@ -301,10 +305,13 @@ class HubScreenTest(HubTest):
         self.assertIn("파일을 고친 뒤 프로그램을 다시 실행해 주세요.", hub.journey_error.text())
         self.assertFalse(hub.journey_btn.isEnabled())
         self.assertFalse(hub.journey_passed.isVisible())
+        self.assertFalse(hub.python_last_stat.isVisible())  # 제출한 회차가 없으면 지난 회차 수치를 빼고 보임
         QTest.mouseClick(hub.journey_card, guikit.LEFT, pos=QPoint(8, hub.journey_card.height() - 8))
         guikit.pump()
         self.assertIs(self.page(), hub)  # 꺼진 카드는 눌러도 그대로
         self.assertEqual(hub.chart.days[-1][2], 0)
+        self.assertFalse(hub.recent_box.isVisible())  # 채점 기록이 없으면 최근 채점 칸을 빼고 막대만 보임
+        self.assertTrue(hub.git_tips.isVisible())
         guikit.click(hub.python_btn)
         self.assertIs(self.page(), win.home)
         self.assertEqual(win.home.action_btn.text(), "진단 테스트 시작")

@@ -265,7 +265,7 @@ class JourneyPage(QWidget):
         box.setContentsMargins(0, 0, 0, 8)
         view = DocView()
         row = QHBoxLayout()
-        row.setContentsMargins(14, 0, 14, 0)
+        row.setContentsMargins(20, 0, 20, 0)
         box.addWidget(view, 1)
         box.addLayout(row)
         return page, view, row
@@ -599,10 +599,11 @@ class JourneyPage(QWidget):
     # 테마 · 글자 크기
 
     def restyle(self):
-        """글자 크기나 테마가 바뀌면 부름. 지문·힌트·해설과 결과 칸에 CSS 를, 편집기에 글꼴을 다시 주고 읽던 자리는 지킴."""
+        """글자 크기나 테마가 바뀌면 부름. 지문·힌트·해설과 결과 칸에 CSS 를, 편집기에 글꼴을 다시 주고 읽던 자리는 지킴.
+        지문·힌트·해설은 여행용 CSS(theme.journey_css)로, 결과 칸은 본문 CSS 로 그림."""
         css, font = theme.doc_css(self.win.zoom), theme.code_font(self.win.zoom)
         for view in (self.problem_view, self.hint_view, self.explain_view):
-            view.restyle(css, font)
+            view.restyle(theme.journey_css(self.win.zoom), font)
         self.code_panel.editor.setFont(font)
         console = self.code_panel.console
         bar = console.verticalScrollBar()

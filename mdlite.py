@@ -35,7 +35,7 @@ def split_row(line):
 def parse(text):
     """블록 목록을 돌려줌. 블록: dict(t=..., ...)
     heading(level, text) · para(text) · code(lang, text) · ol(start, items[[blocks]]) · ul(items) · quote(blocks) · table(head, rows)
-    · image(alt, src). 이미지는 맨 바깥 블록에만 있음"""
+    · image(alt, src). 이미지는 맨 바깥 블록에만 있음. blocks_html 은 parse 가 만들지 않는 rule(가로줄)도 받음"""
     return _blocks(text.replace("\r\n", "\n").replace("\t", "    ").split("\n"), top=True)
 
 
@@ -259,6 +259,8 @@ def _html(blocks, tight=False):
                 out.append('<ol start="%d">%s</ol>' % (b["start"], items))
             else:
                 out.append("<ul>%s</ul>" % items)
+        elif t == "rule":
+            out.append("<hr/>")
         elif t == "image":
             out.append('<p align="center"><img src="%s"></p><p class="muted" align="center">%s</p>'
                        % (html.escape(b["src"]), html.escape(b["alt"], quote=False)))

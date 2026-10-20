@@ -19,6 +19,8 @@ UI_PX = 15  # 버튼·목록·안내 글자 크기
 CODE_PX = 16  # 편집기 글자 크기(확대 0 일 때)
 DOC_PX = 2  # 문제 본문은 mdlite.CSS 의 크기에 이만큼 더함
 DOC_LINE, GUIDE_LINE = 1.45, 1.35  # 본문과 안내 글의 줄 간격. 글자 크기의 몇 배인지
+JOURNEY_PX = 15  # 알고리즘 여행 지문·힌트·해설의 본문 글자 크기(확대 0 일 때)
+JOURNEY_LINE, JOURNEY_CODE_LINE = 1.7, 1.45  # 그 본문의 줄 간격과 코드 상자 안의 줄 간격. 글자 크기의 몇 배인지
 ZOOM_RANGE = (-3, 10)
 
 MODES = {"system": "시스템", "light": "밝게", "dark": "어둡게"}  # 홈의 단추를 누르면 이 순서로 돎
@@ -110,12 +112,17 @@ QMainWindow, QDialog, QWidget#page, QScrollArea { background: %(bg)s; }
 QLabel { color: %(ink)s; }
 QLabel#h1 { font-size: 21px; font-weight: 700; color: %(heading)s; }
 QLabel#h2 { font-size: 17px; font-weight: 700; color: %(heading)s; }
+QLabel#hub_title { font-size: 24px; font-weight: 700; color: %(heading)s; }
 QLabel#muted { color: %(muted)s; }
 QLabel#big { font-size: 46px; font-weight: 700; color: %(heading)s; }
 QLabel#ready { font-size: 26px; font-weight: 700; color: %(heading)s; }
 QLabel#me { background: %(primary)s; color: %(primary_ink)s; border-radius: 9px; padding: 1px 8px; font-size: 12px; font-weight: 700; }
 QLabel#error { color: %(wrong)s; }
 QLabel#warn { color: %(retry)s; }
+QLabel#track { font-size: 20px; font-weight: 700; color: %(heading)s; }
+QLabel#stat { font-size: 28px; font-weight: 700; color: %(heading)s; }
+QLabel#caption { font-size: 13px; color: %(muted)s; }
+QLabel#tag { background: %(selection)s; color: %(selection_ink)s; border-radius: 8px; padding: 3px 10px; font-size: 13px; font-weight: 700; }
 QLabel#notice { background: %(notice_bg)s; color: %(ink)s; border: 1px solid %(notice_border)s; border-radius: 6px; padding: 8px 12px; }
 QFrame#card { background: %(surface)s; border: 1px solid %(border)s; border-radius: 8px; }
 QFrame#card[me="true"] { border-color: %(primary)s; }
@@ -138,6 +145,7 @@ QPushButton#primary { background: %(primary)s; color: %(primary_ink)s; border: 1
 QPushButton#primary:hover, QPushButton#primary:pressed { background: %(primary_hover)s; }
 QPushButton#primary:disabled { background: %(primary_off)s; border-color: %(primary_off)s; color: %(primary_off_ink)s; }
 QPushButton#primary[big="true"] { font-size: 18px; }
+QPushButton#primary[track="true"] { padding: 0 26px; }
 QPushButton#quiet { background: transparent; color: %(muted)s; border: 1px solid %(border)s; padding: 4px 12px; }
 QPushButton#quiet:hover { background: %(hover)s; color: %(ink)s; }
 QProgressBar { background: %(track)s; border: 0; border-radius: 5px; max-height: 10px; min-height: 10px; }
@@ -195,6 +203,29 @@ DOC_CSS = """
 .up { color: %(up)s; }
 .retry { color: %(retry)s; }
 td.band { background-color: %(table_head)s; }
+"""
+
+# 알고리즘 여행의 지문·힌트·해설(gui/docview.py)이 본문 CSS 뒤에 더하는 것. 같은 이름의 규칙을 뒤에서 덮음.
+# 구역 제목 앞의 가로줄(hr)은 DocView 가 넣고, 코드 상자의 바깥 여백·바탕·둥근 테두리와 표의 열 폭은 TextPiece 가 정함.
+# 힌트 제목(h3)은 구역 제목(h2)과 같은 색으로, 크기는 h2 와 본문 사이로 둠.
+# 본문 줄 높이는 px 로 고정함. 비율로 주면 화면 글꼴에 없어 다른 글꼴로 그리는 글자(−)가 든 문단은 줄마다 그 글꼴의 높이로 벌어짐.
+# 고정 줄 높이에서 Qt 는 글자를 줄의 아래쪽에 붙여 그려서 넓힌 간격이 글자 위에 생기므로, 제목·표 칸의 여백은 위를 줄이고 아래를 늘려 맞춤
+JOURNEY_CSS = """
+body { font-size: %(body)spx; }
+p { margin-bottom: 8px; line-height: %(wide)spx; }
+p.h1 { font-size: 20px; margin-top: 0px; margin-bottom: 6px; }
+p.h2 { font-size: 16px; margin-top: 0px; margin-bottom: 3px; }
+p.h3 { font-size: 15px; margin-top: 0px; margin-bottom: 3px; color: %(doc_heading)s; }
+hr { background-color: %(track)s; margin-top: 16px; margin-bottom: 15px; }
+ul, ol { margin-top: 4px; }
+li { margin-bottom: 6px; line-height: %(wide)spx; }
+li p { margin-bottom: 6px; }
+code { font-size: 12px; }
+pre { font-size: 12px; line-height: %(code_line)s%%; }
+td.codebox { background-color: transparent; border: 0px; padding: 12px 16px; }
+table.grid { margin-top: 10px; margin-bottom: 0px; }
+table.grid th { padding: 9px 14px; }
+table.grid td { line-height: %(wide)spx; padding: 0px 14px 10px 14px; }
 """
 
 _fonts = {}
@@ -265,10 +296,10 @@ def _paint(scheme):
     signals.changed.emit()
 
 
-def line_pct(times):
+def line_pct(times, font=None):
     """줄 간격이 글자 크기의 times 배가 되게 하는 줄 높이 백분율. Qt 는 이 값을 글꼴의 줄 높이에 곱하는데,
-    같은 글꼴도 운영체제에 따라 줄 높이가 글자 크기의 1.0~1.3 배로 다르게 읽혀서 화면 글꼴로 재서 맞춤."""
-    font = QApplication.font()
+    같은 글꼴도 운영체제에 따라 줄 높이가 글자 크기의 1.0~1.3 배로 다르게 읽혀서 화면 글꼴(font 를 주면 그 글꼴)로 재서 맞춤."""
+    font = font or QApplication.font()
     return max(100, round(100 * times * QFontInfo(font).pixelSize() / QFontMetricsF(font).lineSpacing()))
 
 
@@ -287,9 +318,17 @@ def code_font(zoom=0):
     return font
 
 
-def doc_css(zoom=0):
-    """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈."""
-    css = (mdlite.CSS + DOC_CSS) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE))
+def doc_css(zoom=0, extra=""):
+    """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈.
+    extra 는 본문 CSS 뒤에 붙일 규칙(JOURNEY_CSS)."""
+    css = (mdlite.CSS + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE), body=JOURNEY_PX - DOC_PX,
+                                                wide=round(JOURNEY_LINE * (JOURNEY_PX + zoom)),
+                                                code_line=line_pct(JOURNEY_CODE_LINE, code_font()))
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
     families = ", ".join("'%s'" % name for name in code_families())
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)
+
+
+def journey_css(zoom=0):
+    """알고리즘 여행의 지문·힌트·해설용 CSS. doc_css 에 JOURNEY_CSS 를 더함."""
+    return doc_css(zoom, JOURNEY_CSS)
