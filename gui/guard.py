@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""시험처럼 복사·잘라내기·붙여넣기와 우클릭 메뉴를 막음. 대화상자(오류 내용 복사, ID 입력)는 막지 않음."""
+"""시험처럼 복사·잘라내기·붙여넣기와 우클릭 메뉴를 막음. 대화상자(오류 내용 복사, ID 입력)와 clipboard 속성을 둔 화면은 막지 않음."""
 from PyQt6.QtCore import QEvent, QObject, pyqtSignal
 from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QWidget
@@ -21,6 +21,11 @@ class Guard(QObject):
             return False
         if not isinstance(target, QWidget) or target.window() is not self.window:
             return False
+        widget = target
+        while widget is not None:  # 여정 문제 화면처럼 clipboard 속성이 참인 화면 안에서는 막지 않음
+            if widget.property("clipboard"):
+                return False
+            widget = widget.parentWidget()
         if kind == QEvent.Type.ContextMenu:
             return True
         if any(event.matches(key) for key in KEYS):
