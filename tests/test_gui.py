@@ -177,6 +177,9 @@ class GuiTest(unittest.TestCase):
     def boot(self):
         self.win.boot()
         self.idle()
+        if self.page() is self.win.hub:
+            click(self.win.hub.python_btn)
+            self.idle()
 
     def page(self):
         return self.win.pages.currentWidget()
@@ -269,6 +272,8 @@ class FirstRunTest(GuiTest):
         QTest.keyClicks(dialog.edit, "tester")
         click(dialog.ok)
         self.idle()
+        self.assertIs(self.page(), win.hub)
+        click(win.hub.python_btn)
         self.assertEqual(session.saved_user(), "tester")
         self.assertEqual(self.git.calls, ["sync"])
         self.assertIs(self.page(), home)
@@ -431,6 +436,7 @@ class FirstRunTest(GuiTest):
             self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()), label.text())
         click(dialog.ok)
         self.idle()
+        click(self.win.hub.python_btn)
         self.assertEqual(session.saved_user(), "Tester")
         self.assertEqual(self.win.home.user.text(), "ID: Tester")
         self.assertEqual(self.win.home.action_btn.text(), "진단 테스트 시작")
@@ -767,7 +773,7 @@ class ErrorTest(GuiTest):
         self.assertTrue(start.retry.isVisible())
         os.remove(adaptive.profile_path("tester"))
         click(start.retry)
-        self.assertIs(self.page(), self.win.home)
+        self.assertIs(self.page(), self.win.hub)
 
 
 class BankTest(GuiTest):
