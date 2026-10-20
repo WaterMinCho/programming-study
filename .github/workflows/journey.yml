@@ -1,0 +1,103 @@
+name: 알고리즘 여행 검증
+
+# 여정 실행기·검증 도구·던전이 바뀐 PR 에서만 돎. 경로 필터로 건너뛴 작업을 필수 검사로 걸면 그 PR 이 끝없이 기다리므로 필수 검사가 아님
+# push 트리거는 두지 않음. main 에는 이 검사를 통과한 PR 만 들어감. 손으로 다시 돌릴 때는 workflow_dispatch 를 씀
+on:
+  pull_request:
+    paths:
+      - "dungeons/**"
+      - "journey/**"
+      - "study.py"
+      - "tools/verify_journey.py"
+      - "tools/journey_seal.py"
+      - "tools/journey_art/**"
+      - "tests/test_journey_*.py"
+      - "tests/journey_bank/**"
+      - ".github/workflows/journey.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: journey-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: 바뀐 곳 보기
+    runs-on: ubuntu-latest
+    outputs:
+      engine: ${{ steps.plan.outputs.engine }}
+      styles: ${{ steps.plan.outputs.styles }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # base 가 없으면(workflow_dispatch) 빈 글을 넘겨 engine=true, styles=true 가 나옴
+      - id: plan
+        env:
+          BASE: ${{ github.base_ref }}
+        run: python3 tools/verify_journey.py --plan "${BASE:+origin/$BASE}" >> "$GITHUB_OUTPUT"
+
+  runner:
+    name: 여정 실행기 (Python ${{ matrix.python }})
+    needs: plan
+    if: needs.plan.outputs.engine == 'true' || needs.plan.outputs.styles == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      # 실행기·서비스·도구 단위 테스트. 던전 내용만 바뀐 PR 에서는 건너뜀
+      - if: needs.plan.outputs.engine == 'true'
+        run: python -m unittest tests.test_journey_values tests.test_journey_runner tests.test_journey_service tests.test_journey_tools
+      # 재귀 방식별 판정(wrong.json 의 style 항목)이 이 Python 판에서도 명세의 재귀 표와 같은지 봄
+      - if: needs.plan.outputs.styles == 'true'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: python tools/verify_journey.py --styles ${BASE:+--changed "origin/$BASE"}
+
+  verify:
+    name: 여정 문제 검증
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - run: python tools/journey_seal.py check
+      # 바뀐 던전만 봄(실행기·검증 도구가 바뀌었거나 base 가 없으면 전부). 검토 서명 뒤에 바뀐 파일이 있으면 실패
+      - env:
+          BASE: ${{ github.base_ref }}
+        run: python tools/verify_journey.py --require-review ${BASE:+--changed "origin/$BASE"}
+
+  verify-node22:
+    name: 여정 JS 검증 (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      # JS 쪽 단계만 돎. Python 쪽 단계는 verify 작업이 한 번만 함
+      - env:
+          BASE: ${{ github.base_ref }}
+        run: python tools/verify_journey.py --lang javascript ${BASE:+--changed "origin/$BASE"}
