@@ -2,8 +2,9 @@
 """문제 은행 마크다운(제한된 부분집합) → 블록 구조 → Qt 리치텍스트용 HTML. 표준 라이브러리만 사용.
 
 지원: 제목(#), 문단, 펜스 코드 블록(목록 안 들여쓴 것·`1. ```python` 꼴 포함), 번호/글머리 목록(중첩),
-      인용(>), 표(| a | b |, 셀 안 <br>, \\| 이스케이프), 인라인 `코드`·``코드``·**굵게**.
-지원하지 않는 것(은행에 없음): 링크, 이미지, 기울임, 취소선, HTML 태그(문자 그대로 보여 줌).
+      인용(>), 표(| a | b |, 셀 안 <br>, \\| 이스케이프), 인라인 `코드`·``코드``·**굵게**,
+      이미지(한 줄 전체 `![캡션](경로)`. 문단·목록·인용 안의 것은 글자 그대로 보여 줌).
+지원하지 않는 것(은행에 없음): 링크, 기울임, 취소선, HTML 태그(문자 그대로 보여 줌).
 """
 import html
 import re
@@ -13,6 +14,7 @@ HEAD_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 OL_RE = re.compile(r"^(\s*)(\d+)([.)])(\s+)(.*)$")
 UL_RE = re.compile(r"^(\s*)([-*+])(\s+)(.*)$")
 SEP_RE = re.compile(r"^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$")
+IMAGE_RE = re.compile(r"^!\[([^\]]*)\]\(([^)\s]+)\)\s*$")
 INLINE_RE = re.compile(r"(``.+?``|`[^`\n]*`|\*\*.+?\*\*|<br\s*/?>|\\[\\`*_|<>#\[\]()-])")
 
 
@@ -32,15 +34,21 @@ def split_row(line):
 
 def parse(text):
     """블록 목록을 돌려줌. 블록: dict(t=..., ...)
-    heading(level, text) · para(text) · code(lang, text) · ol(start, items[[blocks]]) · ul(items) · quote(blocks) · table(head, rows)"""
-    return _blocks(text.replace("\r\n", "\n").replace("\t", "    ").split("\n"))
+    heading(level, text) · para(text) · code(lang, text) · ol(start, items[[blocks]]) · ul(items) · quote(blocks) · table(head, rows)
+    · image(alt, src). 이미지는 맨 바깥 블록에만 있음"""
+    return _blocks(text.replace("\r\n", "\n").replace("\t", "    ").split("\n"), top=True)
 
 
-def _blocks(lines):
+def _blocks(lines, top=False):
     out, i, n = [], 0, len(lines)
     while i < n:
         line = lines[i]
         if not line.strip():
+            i += 1
+            continue
+        m = IMAGE_RE.match(line) if top else None
+        if m:
+            out.append({"t": "image", "alt": m.group(1), "src": m.group(2)})
             i += 1
             continue
         m = FENCE_RE.match(line)
@@ -251,14 +259,17 @@ def _html(blocks, tight=False):
                 out.append('<ol start="%d">%s</ol>' % (b["start"], items))
             else:
                 out.append("<ul>%s</ul>" % items)
+        elif t == "image":
+            out.append('<p align="center"><img src="%s"></p><p class="muted" align="center">%s</p>'
+                       % (html.escape(b["src"]), html.escape(b["alt"], quote=False)))
     return "".join(out)
 
 
 # 감사(audit)용 기대값
 
 def expected(text):
-    """렌더링 결과와 대조할 기대 구조: 코드 줄, 표, 번호 목록의 번호, 인라인 코드, 굵게, 전체 글자."""
-    exp = {"code_lines": [], "tables": [], "ol_numbers": [], "inline_code": [], "bold": [], "plain": []}
+    """렌더링 결과와 대조할 기대 구조: 코드 줄, 표, 번호 목록의 번호, 인라인 코드, 굵게, 전체 글자, 이미지 경로."""
+    exp = {"code_lines": [], "tables": [], "ol_numbers": [], "inline_code": [], "bold": [], "plain": [], "images": []}
 
     def walk_inline(text, in_heading=False, in_th=False):
         def rec(tokens, bold=False):
@@ -301,5 +312,9 @@ def expected(text):
                     if t == "ol":
                         exp["ol_numbers"].append(b["start"] + k)
                     walk(item)
+            elif t == "image":
+                exp["images"].append(b["src"])
+                if b["alt"]:
+                    exp["plain"].append(b["alt"])
     walk(parse(text))
     return exp
