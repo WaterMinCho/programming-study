@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""메인 창. 시작 순서(ID → 새 문제 받기 → 풀이 기록 열기), 화면 전환, 워커, 제출 흐름, 테마를 맡음."""
+"""메인 창. 시작 순서(ID → 새 문제 받기 → 풀이 기록 열기), 화면 전환, 워커, 제출 흐름, 테마를 맡음.
+첫 화면은 허브이고, 파이썬 스터디(홈 이하)와 알고리즘 여행(지도·문제 화면)으로 나뉨. area 가 지금 어느 쪽에 있는지 기억함."""
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
-from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QProgressBar, QPushButton, QStackedWidget, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QProgressBar, QPushButton, QStackedWidget, QVBoxLayout,
+                             QWidget)
 
 import session
 import study
@@ -10,12 +12,16 @@ from gui import errors, motion, theme
 from gui.dialogs import IdDialog, MessageDialog
 from gui.guard import Guard
 from gui.home_page import HomePage
+from gui.hub_page import HubPage
+from gui.journey_map import JourneyMapPage
+from gui.journey_page import JourneyPage, saved_lang, with_node
 from gui.result_page import ResultPage
 from gui.round_page import RoundPage
 from gui.team_page import TeamPage
 from gui.widgets import Para
 from gui.worker import Job
 from gui.wrong_page import WrongPage
+from journey.service import JourneyError, JourneySession
 from session import SessionError
 
 
@@ -49,7 +55,7 @@ class StartPage(QWidget):
         self.error.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.retry = QPushButton("다시 시도")
         self.retry.hide()
-        self.retry.clicked.connect(win.open_session)
+        self.retry.clicked.connect(lambda: win.open_session())
         box.addStretch(2)
         for widget in (title, self.status, self.busy_bar):
             box.addWidget(widget, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -72,18 +78,23 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("프로그래밍 스터디")
         self.settings, self.gitflow_factory = settings, gitflow_factory
         self.user, self.session, self.gitflow, self.git_reason = None, None, None, ""
+        self.journey, self.journey_error = None, ""  # 알고리즘 여행 서비스와 그것을 열지 못한 이유
+        self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면)
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)
         self.dialog = None  # 가장 최근에 띄운 대화상자
-        self.notice = None  # 홈 위쪽에 한 줄로 보여 줄 제출 모듈의 결과
+        self.notice = None  # 허브와 홈 위쪽에 한 줄로 보여 줄 제출 모듈의 결과
         self.restart, self.close_pending = False, False
         self.open_url = lambda url: QDesktopServices.openUrl(QUrl(url))
+        self.pick_file = lambda title: QFileDialog.getOpenFileName(self, title)[0]
         self.zoom = settings.value("zoom", 0, type=int)
         theme.set_mode(settings.value("theme", "system", type=str))
 
         self.pages = QStackedWidget()
-        self.start, self.home, self.round_page, self.result_page = StartPage(self), HomePage(self), RoundPage(self), ResultPage(self)
-        self.team_page, self.wrong_page = TeamPage(self), WrongPage(self)
-        for page in (self.start, self.home, self.round_page, self.result_page, self.team_page, self.wrong_page):
+        self.start, self.hub, self.home, self.round_page = StartPage(self), HubPage(self), HomePage(self), RoundPage(self)
+        self.result_page, self.team_page, self.wrong_page = ResultPage(self), TeamPage(self), WrongPage(self)
+        self.journey_map, self.journey_page = JourneyMapPage(self), JourneyPage(self)
+        for page in (self.start, self.hub, self.home, self.round_page, self.result_page, self.team_page, self.wrong_page,
+                     self.journey_map, self.journey_page):
             self.pages.addWidget(page)
         self.setCentralWidget(self.pages)
         self.restyle()  # 스타일시트가 있으면 부모가 바뀔 때 위젯 글꼴이 초기화되므로 창에 붙인 뒤에 글꼴을 줌
@@ -129,25 +140,83 @@ class MainWindow(QMainWindow):
         if self.open_session() and diverged:
             self._git_done("문제 받기", dict(result, changed=False))
 
-    def open_session(self):
-        """풀이 기록과 문제 은행을 새로 읽고 홈으로 감. 읽지 못하면 시작 화면에 이유를 보여 주고 False 를 돌려줌."""
+    def open_session(self, then=None):
+        """풀이 기록과 문제 은행을 새로 읽고 then()(없으면 허브)으로 감. 풀이 기록을 읽지 못하면 시작 화면에 이유를 보여 주고 False 를 돌려줌.
+        알고리즘 여행 기록을 읽지 못하면 파이썬 스터디는 그대로 열고, 허브의 여행 카드에 이유를 보여 줌. 여기서는 node 를 찾지 않음."""
         try:
             self.session = session.Session(self.user)
         except SessionError as error:
             self.start.show_error("%s\n파일을 고친 뒤 '다시 시도'를 눌러 주세요. 고치기 어려우면 스터디장에게 알려 주세요." % error)
             motion.switch(self.pages, self.start)
             return False
+        try:
+            self.journey = JourneySession(self.user, node_path=self.settings.value("journey/node", "", type=str) or None)
+            self.journey_error = ""
+        except JourneyError as error:
+            self.journey, self.journey_error = None, str(error)
         self.start.show_error("")
-        self.go_home()
+        (then or self.go_hub)()
         return True
 
+    def _stay_here(self):
+        """문제 받기로 은행이나 풀이 폴더가 바뀐 뒤, 보던 쪽에 머묾. 문제 화면은 같은 문제를 다시 읽고, 그 문제가 사라졌으면 지도로 감."""
+        if self.area == "python":
+            self.go_home()
+        elif self.area == "journey" and self.journey is not None:
+            if self.pages.currentWidget() is self.journey_page and self.journey_page.reload():
+                return
+            self.go_journey()
+        else:
+            self.go_hub()
+
     # 화면 전환
+
+    def go_hub(self):
+        if not self.leave_pages(self.go_hub, "저장하지 않고 나가기"):
+            return
+        self.hub.refresh()
+        self.area = "hub"
+        motion.switch(self.pages, self.hub)
 
     def go_home(self):
         if not self.leave_round(self.go_home, "저장하지 않고 나가기"):
             return
         self.home.refresh()
+        self.area = "python"
         motion.switch(self.pages, self.home)
+
+    def go_journey(self, did=None):
+        if not self.leave_pages(lambda: self.go_journey(did), "저장하지 않고 나가기"):
+            return
+        if self.node_first(lambda: self.go_journey(did)):
+            return
+        self.journey_map.refresh(did)
+        self.area = "journey"
+        motion.switch(self.pages, self.journey_map)
+
+    def open_problem(self, did, pid):
+        if self.node_first(lambda: self.open_problem(did, pid)):
+            return
+        try:
+            self.journey_page.load(did, pid)
+        except SessionError as error:  # 잠긴 보스, 사라진 문제, 앞 문제의 코드를 저장하지 못한 경우
+            self.ask("알림", str(error))
+            return
+        self.area = "journey"
+        self.settings.setValue("journey/last", "%s/%s" % (did, pid))
+        motion.switch(self.pages, self.journey_page)
+
+    def node_first(self, then):
+        """JavaScript 를 고른 적이 있는데 node 를 아직 찾아 보지 않았으면 워커에서 찾은 뒤 then() 을 부르고 True 를 돌려줌.
+        지도와 문제 화면은 언어를 정할 때 기억한 결과만 읽으므로, 화면 스레드에서 node 를 띄우지 않음."""
+        if saved_lang(self.settings) != "javascript" or self.journey.node_checked():
+            return False
+        with_node(self, lambda ok: then())
+        return True
+
+    def leave_pages(self, then, leave):
+        """회차 화면의 답과 문제 화면의 코드를 모두 저장했으면 True. 인자는 leave_round 와 같음."""
+        return self.leave_round(then, leave) and self.leave_journey(then, leave)
 
     def leave_round(self, then, leave):
         """회차 화면을 떠나기 전에 쓰던 답을 저장하고 True 를 돌려줌. 저장하지 못하면 알리고 False 를 돌려줌.
@@ -163,6 +232,22 @@ class MainWindow(QMainWindow):
         self.ask("저장하지 못한 답", "%s\n\n쓰던 답 %d개가 파일에 저장되지 않았습니다. [돌아가기]를 누르면 회차 화면으로 돌아가고 쓰던 답은 화면에 남습니다. "
                  "풀이 폴더의 파일을 다른 프로그램에서 열어 두었다면 닫고 다시 나가 보세요.\n"
                  "[%s]를 누르면 저장되지 않은 답은 지워집니다." % (page.status.text(), len(page.dirty), leave),
+                 (("돌아가기", ""), (leave, "drop")), drop)
+        return False
+
+    def leave_journey(self, then, leave):
+        """문제 화면을 떠나기 전에 쓰던 코드를 저장하고 True 를 돌려줌. 저장하지 못하면 알리고 False 를 돌려줌. 인자는 leave_round 와 같음."""
+        page = self.journey_page
+        if page.flush(offer=False):
+            return True
+
+        def drop(_):
+            page.dirty.clear()
+            then()
+
+        self.ask("저장하지 못한 코드", "%s\n\n쓰던 코드가 파일에 저장되지 않았습니다. [돌아가기]를 누르면 문제 화면으로 돌아가고 쓰던 코드는 화면에 남습니다. "
+                 "풀이 폴더의 파일을 다른 프로그램에서 열어 두었다면 닫고 다시 나가 보세요.\n"
+                 "[%s]를 누르면 저장되지 않은 코드는 지워집니다." % (page.status.text(), leave),
                  (("돌아가기", ""), (leave, "drop")), drop)
         return False
 
@@ -260,14 +345,17 @@ class MainWindow(QMainWindow):
 
     # 워커
 
-    def run_job(self, text, fn, on_done, on_fail=None):
-        """fn 을 워커 스레드에서 돌리고, 끝나면 화면 스레드에서 on_done(결과)을 부름. 도는 동안 지금 화면을 잠금."""
+    def run_job(self, text, fn, on_done, on_fail=None, on_progress=None):
+        """fn 을 워커 스레드에서 돌리고, 끝나면 화면 스레드에서 on_done(결과)을 부름. 도는 동안 지금 화면을 잠금.
+        on_progress 가 있으면 fn(진행 알림, 취소 신호)로 부르고, 워커가 낸 진행 알림마다 화면 스레드에서 on_progress(알림)를 부름."""
         if self.job is not None:
             return
         page = self.pages.currentWidget()
         page.set_busy(True, text)
-        job = Job(fn)
+        job = Job(fn, progress=on_progress is not None)
         self.job = (job, page, on_done, on_fail)
+        if on_progress is not None:
+            job.progress.connect(on_progress)
         job.done.connect(self._job_done)
         job.failed.connect(self._job_failed)
         job.start()
@@ -299,23 +387,24 @@ class MainWindow(QMainWindow):
     # 제출 · 문제 받기
 
     def submit_pr(self):
-        if self.round_page.flush():  # 쓰다 만 답이 빠진 채 올라가지 않게
+        if self.round_page.flush() and self.journey_page.flush():  # 쓰다 만 답과 코드가 빠진 채 올라가지 않게
             self.run_job("제출하는 중입니다.", self.gitflow.submit, lambda result: self._git_done("제출", result))
 
     def fetch_problems(self):
-        if self.round_page.flush():
+        if self.round_page.flush() and self.journey_page.flush():
             self.run_job("새 문제 확인 중입니다.", self.gitflow.sync, self._fetched)
 
     def _fetched(self, result):
         self.notice = None  # 시작할 때 받지 못했다는 알림은 방금 결과가 대신함
         self.home.refresh()
+        self.hub.refresh()
         self._git_done("문제 받기", result)
 
     def _git_done(self, title, result):
         if result.get("restart"):
             self._restart(result)
             return
-        if result.get("changed") and not self.open_session():  # 문제나 내 풀이 폴더가 바뀌었으면 새로 읽음
+        if result.get("changed") and not self.open_session(self._stay_here):  # 문제나 내 풀이 폴더가 바뀌었으면 새로 읽음
             return
         message = result.get("message") or "(안내 문구가 없습니다)"
         if result.get("backup"):
@@ -368,21 +457,23 @@ class MainWindow(QMainWindow):
         def change():
             theme.set_mode(mode)
             self.home.restyle()  # 밝기가 그대로여도 단추의 글자는 바뀜
+            self.hub.restyle()
 
         motion.fade_over(self, change)
 
     def restyle(self):
         """글자 크기나 테마가 바뀌면 화면마다 본문과 색을 다시 넣음."""
-        for page in (self.home, self.round_page, self.result_page, self.wrong_page):
+        for page in (self.hub, self.home, self.round_page, self.result_page, self.wrong_page, self.journey_map, self.journey_page):
             page.restyle()
 
     def closeEvent(self, event):
         if self.job is not None:  # 스레드를 도중에 버리면 프로세스가 죽으므로 채점·제출이 끝난 뒤에 닫음
+            self.job[0].cancel.set()  # 여행 채점은 곧 멈추고 기록하지 않음. 다른 일은 이 신호를 보지 않음
             self.close_pending = True
             self.job[1].set_busy(True, "하던 작업이 끝나면 창을 닫습니다.")
             event.ignore()
             return
-        if not self.leave_round(self.close, "저장하지 않고 닫기"):
+        if not self.leave_pages(self.close, "저장하지 않고 닫기"):
             event.ignore()
             return
         self.settings.setValue("geometry", self.saveGeometry())

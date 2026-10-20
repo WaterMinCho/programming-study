@@ -1,0 +1,24 @@
+{
+  "first_k": {
+    "langs": [
+      "python",
+      "javascript"
+    ],
+    "expect": "wrong",
+    "on": [
+      "ex1",
+      "mixed"
+    ],
+    "why": "정렬하지 않고 앞에서 k개를 더함"
+  },
+  "default_sort": {
+    "langs": [
+      "javascript"
+    ],
+    "expect": "wrong",
+    "on": [
+      "long"
+    ],
+    "why": "비교 함수 없이 sort() 를 불러 수를 문자열 순서로 정렬함"
+  }
+}

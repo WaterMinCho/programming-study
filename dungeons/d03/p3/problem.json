@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "title": "이미 놓인 수정",
+  "tier": "G4 / Lv3",
+  "signature": {
+    "params": [
+      {"name": "stands", "type": "list[int]"},
+      {"name": "fixed", "type": "list[int]"},
+      {"name": "K", "type": "int"}
+    ],
+    "returns": "int"
+  },
+  "time_limit_ms": {"python": 11500, "javascript": 2500},
+  "score": {"accuracy": 60, "efficiency": 40},
+  "examples": [
+    {"args": [[0, 3, 6, 7, 10], [], 3], "expected": 4},
+    {"args": [[1, 4, 9, 12], [6], 2], "expected": 5},
+    {"args": [[2, 3, 8], [0, 5, 6], 1], "expected": 1}
+  ],
+  "prep": ["p1"]
+}

@@ -104,6 +104,42 @@ result["window_closed"] = host.window is None
 '''
 
 
+# 여정 실행기. pythonw 부모가 Python 하네스를 띄워 채점하고, 자식에 콘솔 창이 없는지, 80MB 상한에서도 64MB 스택을 뺀 값으로 보는지 봄
+JOURNEY_RUN = '''
+import tempfile
+from journey import runner, values
+
+
+def run(lang, text, args, expected, limit_ms=3000):
+    source = os.path.join(tmp, "solution_%d%s" % (len(os.listdir(tmp)), runner.EXT[lang]))
+    study.write_text(source, text)
+    case = {"args": args, "calls": len(args), "limit_ms": limit_ms, "expected": values.canonical(expected)}
+    return runner.run_case(lang, source, case, tempfile.mkdtemp(prefix="w", dir=tmp))
+
+
+result["plain"] = run("python", "def solution(a, b):\\n    return a + b\\n", [[1, 2]], 3)["status"]
+console = run("python", "import ctypes\\n\\n\\ndef solution(a):\\n    return ctypes.windll.kernel32.GetConsoleWindow()\\n", [[1]], 0)
+result["console"] = [console["status"], console["values"], console["error"]]
+study.MEMORY_LIMIT_MB = 80
+lean = run("python", "def solution(a):\\n    return a\\n", [[1]], 1)
+result["lean"] = [lean["status"], lean["peak_mb"]]
+'''
+
+# 여정 JS. pythonw 에서 node.find() 가 PATH 의 node.exe(setup-node)를 찾고 JS 풀이가 통과하는지 봄
+JOURNEY_NODE = '''
+import tempfile
+from journey import node, runner, values
+found = node.find()
+result["node"] = found
+if found:
+    source = os.path.join(tmp, "solution.js")
+    study.write_text(source, "function solution(a, b) {\\n    return a + b;\\n}\\n")
+    case = {"args": [[1, 2]], "calls": 1, "limit_ms": 3000, "expected": "3"}
+    graded = runner.run_case("javascript", source, case, tempfile.mkdtemp(prefix="w", dir=tmp))
+    result["js"] = [graded["status"], graded["values"], graded["error"], graded["note"]]
+'''
+
+
 def script(body):
     return SCRIPT % textwrap.indent(body, "    ")
 
@@ -159,6 +195,24 @@ class WindowedTest(unittest.TestCase):
         self.assertEqual(os.path.basename(python).lower(), "pythonw.exe")  # 본 화면도 콘솔 창 없이 띄움
         self.assertEqual(start, os.path.join(ROOT, "start.pyw"))
         self.assertEqual(result["flags"], subprocess.CREATE_NO_WINDOW)
+
+    def test_journey_runner_grades_under_pythonw(self):
+        """여정 하네스도 pythonw 부모에서 통과하고, 채점 자식에 콘솔 창이 없으며, 80MB 상한에서도 빈 풀이가 통과함."""
+        result = self.run_pythonw(JOURNEY_RUN)
+        self.assertEqual(result["plain"], "pass")
+        self.assertEqual(result["console"], ["pass", ["0"], ""])  # GetConsoleWindow() 가 0 이면 콘솔 창이 없음
+        self.assertEqual(result["lean"][0], "pass", result["lean"])
+
+    def test_journey_node_is_found_under_pythonw(self):
+        on_path = shutil.which("node")  # 건너뛸지는 콘솔 쪽 테스트 프로세스가 정함. setup-node 가 있으면 반드시 찾아야 함
+        result = self.run_pythonw(JOURNEY_NODE)
+        if on_path:
+            self.assertIsNotNone(result["node"], "PATH 의 %s 를 pythonw 에서 찾지 못함" % on_path)
+        elif not result["node"]:
+            self.skipTest("Node.js 가 없음")
+        self.assertTrue(result["node"]["path"].lower().endswith("node.exe"), result["node"])
+        self.assertGreaterEqual(result["node"]["major"], 20)
+        self.assertEqual(result["js"][:2], ["pass", ["3"]], result["js"])
 
 
 OLD_START_BAT = "\r\n".join([

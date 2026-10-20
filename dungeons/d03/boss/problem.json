@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "title": "수정 구역 배치",
+  "tier": "G3 / Lv3~4",
+  "signature": {
+    "params": [
+      {"name": "zones", "type": "list[list[int]]"},
+      {"name": "K", "type": "int"}
+    ],
+    "returns": "list[int]"
+  },
+  "time_limit_ms": {"python": 7000, "javascript": 2000},
+  "score": {"accuracy": 50, "efficiency": 50},
+  "examples": [
+    {"args": [[[0, 3], [20, 29]], 5], "expected": [3, 26]},
+    {"args": [[[0, 2], [5, 5], [10, 12]], 4], "expected": [2, 10]},
+    {"args": [[[0, 1000000000000]], 3], "expected": [500000000000, 1000000000000]}
+  ],
+  "prep": [],
+  "uses": ["p1", "p2", "p3"]
+}

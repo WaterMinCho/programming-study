@@ -1,6 +1,6 @@
 # 운영 메모와 출제 규격 (스터디장용)
 
-스터디장이 저장소를 운영하고 문제를 추가하거나 고칠 때 보는 문서입니다. 세트 폴더를 `problems/` 아래에 추가하면 프로그램이 자동으로 인식하고, 코드는 고치지 않아도 됩니다.
+스터디장이 저장소를 운영하고 문제를 추가하거나 고칠 때 보는 문서입니다. 세트 폴더를 `problems/` 아래에 추가하면 프로그램이 자동으로 인식하고, 코드는 고치지 않아도 됩니다. 알고리즘 여행의 던전 문제(`dungeons/`)는 규격과 검증 절차가 달라서 [JOURNEY_AUTHORING.md](JOURNEY_AUTHORING.md)에 따로 적었습니다.
 
 ## 1. 운영 메모
 
@@ -8,7 +8,9 @@
 - main 은 PR 로만 바뀝니다. 머지 방식은 Squash 만 켜 뒀고, 머지되면 브랜치가 지워집니다. 머지 버튼은 검사 두 개(문제 은행 검증, 채점)가 통과한 뒤에 눌립니다.
 - 풀이 PR 은 스터디 시간에 리뷰가 끝나면 스터디장이 머지합니다. 머지되면 현황판이 바뀝니다.
 - 문항이 모자라면 Actions 가 "출제 요청" 이슈를 만들거나 고칩니다. 이슈의 표대로 문제를 추가해 머지하면 스터디원이 다음에 프로그램을 켤 때부터 회차에 들어갑니다.
-- 전원의 학습 분석은 `python study.py analyze` 로 봅니다.
+- 전원의 학습 분석은 `python study.py analyze` 로 봅니다. 알고리즘 여행 기록(`submissions/<ID>/journey/progress.json`)은 아직 분석, PR 코멘트, 현황판에 들어가지 않습니다.
+- PR 에는 필수 검사 두 개 말고도 알고리즘 여행 검증과 문장 검사가 돕니다. 둘 다 필수 검사가 아니고, 알고리즘 여행 검증은 `dungeons/`, `journey/`, `study.py`, 알고리즘 여행 도구와 테스트, `.github/workflows/journey.yml` 을 바꾼 PR 에서만, 문장 검사는 풀이 폴더 밖을 바꾼 PR 에서만 돕니다. 실패하면 고친 뒤 머지합니다.
+- 문장 검사는 커밋할 때도 돌릴 수 있습니다. 저장소를 받은 컴퓨터에서 `python tools/check_style.py --install-hooks` 를 한 번 실행하면 커밋마다 스테이지에 올린 글과 커밋 메시지를 검사합니다. `.git/hooks` 에 같은 이름의 다른 훅이 이미 있으면 덮어쓰지 않고 그 경로를 알려 줍니다.
 - 문제나 도구는 `main` 과 `study/<ID>` 가 아닌 새 브랜치에서 고칩니다. `main` 이나 `study/<ID>` 브랜치에서 풀이 폴더 밖의 파일을 고친 채 프로그램을 켜면, 문제 받기가 그 수정을 `.git/study-backup/` 에 복사하고 되돌립니다. 새 브랜치에서 고치는 중에 프로그램을 켜면 [문제 받기]를 건너뛰고 "지금 '<브랜치>' 에서 문제·도구 파일을 고치는 중이라 [문제 받기]는 하지 않았습니다."라고 알립니다.
 
 저장소는 아래처럼 나뉘어 있습니다.
@@ -19,15 +21,18 @@ start.bat                  더블클릭 실행 (start.pyw 로 넘기고 바로 �
 start.command              더블클릭 실행 (터미널이 같이 열림. ROKEY.app 으로 안 열릴 때 씀)
 study.py                 실행기, 터미널 명령, 문제 은행 로딩과 채점
 bootstrap.py             PyQt6 확인과 설치
-gui/                     화면 (PyQt6)
+gui/                     화면 (PyQt6). 첫 화면 hub_page.py, 알고리즘 여행 화면 journey_*.py
 session.py               화면과 터미널이 같이 쓰는 서비스 계층
 adaptive.py              단원별 숙달도, 회차 구성, 준비도
+journey/                 알고리즘 여행의 실행기, 채점, 진행 기록과 잠금 규칙(service.py)
 gitflow.py               문제 받기와 제출
 mdlite.py                문제 본문(마크다운)을 화면용으로 변환
-problems/<세트>/         문제 은행
+problems/<세트>/         파이썬 스터디 문제 은행
+dungeons/<던전>/         알고리즘 여행 문제 은행 (index.json 에 16개 던전 목록, 비밀 파일은 던전마다 sealed.json)
 submissions/<ID>/        스터디원별 회차, 풀이, profile.json
-docs/                    GIT_GUIDE(제출과 피드백), CRITERIA(판정 규칙), AUTHORING(이 문서)
-tools/, tests/           출제와 CI 에 쓰는 도구, 테스트
+submissions/<ID>/journey/  알고리즘 여행 코드, 내가 추가한 테스트 케이스, progress.json
+docs/                    GIT_GUIDE(제출과 피드백), CRITERIA(판정 규칙), AUTHORING(이 문서), JOURNEY_AUTHORING(알고리즘 여행 출제)
+tools/, tests/           출제와 CI 에 쓰는 도구, 테스트 (알고리즘 여행은 journey_seal.py, verify_journey.py, journey_art/)
 ```
 
 ## 2. 작업 순서

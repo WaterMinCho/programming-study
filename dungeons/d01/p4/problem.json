@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "title": "주문서를 채우는 최단 진열",
+  "tier": "G4 / Lv3",
+  "signature": {
+    "params": [
+      {"name": "stalls", "type": "list[str]"},
+      {"name": "order", "type": "list[str]"}
+    ],
+    "returns": "int"
+  },
+  "time_limit_ms": {"python": 2000, "javascript": 1000},
+  "score": {"accuracy": 60, "efficiency": 40},
+  "examples": [
+    {"args": [["salt", "cumin", "cumin", "pepper", "cumin", "salt", "cumin"], ["cumin 2", "salt 1"]], "expected": 3},
+    {"args": [["mint", "anise", "anise", "mint"], ["mint 1", "anise 1"]], "expected": 2},
+    {"args": [["salt", "salt"], ["salt 3"]], "expected": 0}
+  ],
+  "prep": ["p1"]
+}

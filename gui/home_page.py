@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""홈 화면: 시험 준비도 · 단원 띠 · 지금 할 일 · 지난 회차 · 제출. 머리줄에서 오답 노트와 팀 현황을 열고 테마를 바꿈."""
+"""파이썬 스터디 홈: 시험 준비도 · 단원 띠 · 지금 할 일 · 지난 회차 · 제출. 머리줄에서 허브로 돌아가고, 오답 노트와 팀 현황을 열고 테마를 바꿈."""
 import html
 
 from PyQt6.QtCore import Qt
@@ -46,6 +46,7 @@ class HomePage(QWidget):
         root.setSpacing(10)
 
         head = QHBoxLayout()
+        self.hub_btn = QPushButton("처음으로")
         title = QLabel("파이썬 스터디")
         title.setObjectName("h1")
         self.user = QLabel()  # 한 줄이고 단추와 나란히 놓여서 줄 간격을 넓히지 않음
@@ -57,6 +58,8 @@ class HomePage(QWidget):
         self.theme_btn = QPushButton()
         self.theme_btn.setObjectName("quiet")
         self.theme_btn.setToolTip("누를 때마다 시스템 → 밝게 → 어둡게 순서로 바뀝니다. 시스템은 운영체제 설정을 따릅니다.")
+        head.addWidget(self.hub_btn)
+        head.addSpacing(8)
         head.addWidget(Mascot(34))
         head.addSpacing(4)
         head.addWidget(title)
@@ -157,6 +160,7 @@ class HomePage(QWidget):
         self.foot.setOpenExternalLinks(True)
         root.addWidget(self.foot)
 
+        self.hub_btn.clicked.connect(win.go_hub)
         self.wrong_btn.clicked.connect(win.show_wrong)
         self.team_btn.clicked.connect(win.show_team)
         self.theme_btn.clicked.connect(win.cycle_theme)
@@ -201,7 +205,7 @@ class HomePage(QWidget):
         self.theme_btn.setText("테마: %s" % theme.MODES[theme.state["mode"]])
 
     def set_busy(self, busy, text=""):
-        for widget in (self.action_btn, self.rounds, self.team_btn, self.wrong_btn):
+        for widget in (self.action_btn, self.rounds, self.team_btn, self.wrong_btn, self.hub_btn):
             widget.setEnabled(not busy)
         for widget in (self.git_btn, self.sync_btn):
             widget.setEnabled(not busy and self.win.gitflow is not None)

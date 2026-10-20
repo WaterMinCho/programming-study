@@ -1,0 +1,21 @@
+{
+  "start_zero": {
+    "langs": [
+      "python",
+      "javascript"
+    ],
+    "expect": "wrong",
+    "on": [
+      "ex2",
+      "all_negative"
+    ],
+    "why": "최댓값을 0 에서 시작해 모두 음수인 배열에서 0 을 돌려줌"
+  },
+  "spread_max": {
+    "langs": [
+      "javascript"
+    ],
+    "expect": "pass",
+    "why": "Math.max(...nums) 로 펼침. 원소가 2만 개라 펼치기 한도 안임"
+  }
+}

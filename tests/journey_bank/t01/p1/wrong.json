@@ -1,0 +1,21 @@
+{
+  "first_only": {
+    "langs": [
+      "python",
+      "javascript"
+    ],
+    "expect": "wrong",
+    "on": [
+      "ex1",
+      "mixed"
+    ],
+    "why": "첫 원소만 돌려줌"
+  },
+  "builtin_sum": {
+    "langs": [
+      "python"
+    ],
+    "expect": "pass",
+    "why": "내장 함수 sum 으로 더함"
+  }
+}
