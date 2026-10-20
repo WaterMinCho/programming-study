@@ -1,0 +1,39 @@
+{
+  "format": 1,
+  "title": "이름 뒤집기",
+  "tier": "B3 / Lv1",
+  "signature": {
+    "params": [
+      {
+        "name": "name",
+        "type": "str"
+      }
+    ],
+    "returns": "str"
+  },
+  "time_limit_ms": {
+    "python": 2000,
+    "javascript": 1000
+  },
+  "examples": [
+    {
+      "args": [
+        "abc"
+      ],
+      "expected": "cba"
+    },
+    {
+      "args": [
+        "level"
+      ],
+      "expected": "level"
+    },
+    {
+      "args": [
+        "ab"
+      ],
+      "expected": "ba"
+    }
+  ],
+  "prep": []
+}

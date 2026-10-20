@@ -9,8 +9,11 @@ git 이 없거나 2.38 보다 오래됐으면 검사에 쓰는 merge-tree --writ
 
 실행: python -m unittest discover -s tests
 """
+import contextlib
 import hashlib
 import http.server
+import importlib.util
+import io
 import json
 import os
 import re
@@ -95,6 +98,15 @@ class Server:
             write(os.path.join(self.dir, "study.py"), "# 도구 갱신 %s\n" % sid, "a")
         git(self.dir, "add", "-A")
         git(self.dir, "commit", "-q", "-m", "문제 세트 %s 추가" % sid)
+        git(self.dir, "push", "-q", "origin", "main")
+
+    def add_files(self, files, message):
+        """{경로: 내용} 을 main 에 올림. 던전 내용이나 실행기 파일이 바뀌는 PR 이 머지된 것."""
+        self._main()
+        for rel, text in files.items():
+            write(os.path.join(self.dir, rel), text)
+        git(self.dir, "add", "-A")
+        git(self.dir, "commit", "-q", "-m", message)
         git(self.dir, "push", "-q", "origin", "main")
 
     def merge(self, branch, method="squash", delete=False):
@@ -198,6 +210,17 @@ class PC:
             sess.set_answer(rnd["id"], view["id"], answer)
         if grade:
             sess.grade(rnd["id"], finalize=True)
+        return self.read()
+
+    def journey(self, n, lang="python"):
+        """알고리즘 여행 기록(journey/progress.json)에 채점 n개를 적고 마지막 문제의 코드 파일을 둠.
+        마지막 기록의 언어가 lang 이라 두 컴퓨터가 n번째를 다른 언어로 풀면 기록이 갈라짐. 내 폴더 내용을 돌려줌."""
+        log = [{"at": "2026-10-20T10:%02d:00" % i, "kind": "grade", "item": "d01/p%d" % i, "lang": lang if i == n else "python",
+                "score": 100.0, "acc": 70.0, "eff": 30.0, "passed": True, "tests": [21, 21, 3, 3]} for i in range(1, n + 1)]
+        data = {"format": 1, "user": self.user, "created": "2026-10-20T10:00:00", "log": log}
+        write(os.path.join(self.folder, "journey", "progress.json"), json.dumps(data, ensure_ascii=False, indent=1) + "\n")
+        ext, code = ("py", "def solution(x):\n    return x\n") if lang == "python" else ("js", "function solution(x) {\n  return x;\n}\n")
+        write(os.path.join(self.folder, "journey", "d01", "p%d.%s" % (n, ext)), code)
         return self.read()
 
     def read(self, outside=False):
@@ -1271,6 +1294,303 @@ class GitFlowTest(unittest.TestCase):
             self.assertEqual((doctor["ok"], doctor["git"], doctor["problems"]), (False, False, [gitflow.M_NO_GIT]))
             self.assertEqual(self.pc.flow.sync()["status"], "no_git")
         self.assertEqual(gitflow.GitFlow(self.pc.path, "../bob").submit()["status"], "error")
+
+    # 알고리즘 여행 기록. 프로필 영역(profile.json 과 회차 폴더)과 여정 영역(journey/)을 따로 맞춤
+
+    def split(self, profile_from, journey_from):
+        """프로필 영역은 profile_from, journey/ 는 journey_from 의 파일로 짠 기대 폴더."""
+        expected = {rel: data for rel, data in profile_from.items() if "/journey/" not in rel}
+        expected.update({rel: data for rel, data in journey_from.items() if "/journey/" in rel})
+        return expected
+
+    def checkouts(self, pc):
+        """이번까지 pc 가 부른 checkout 의 경로 지정."""
+        return [line.split(" -- ", 1)[1].rsplit(" → ", 1)[0] for line in pc.flow.log if line.startswith("git checkout -q ") and " -- " in line]
+
+    def test_journey_only_user_on_a_new_computer(self):
+        pc = self.pc
+        mine = pc.journey(1); self.submit()  # 회차는 풀지 않고 여정만 풂
+        pc2 = self.new_pc("pc2")
+        result = self.sync(pc2, after=mine)
+        self.assertEqual((result["changed"], result["backup"], result["message"]), (True, None, gitflow.M_TOOK + " " + gitflow.M_LATEST))
+        pc2.journey(2); self.submit(pc2)
+        self.merge(pc2)
+        self.sync(pc, after=pc2.read())
+
+    def test_longer_journey_log_elsewhere_takes_only_the_journey_area(self):
+        """프로필 시도 기록은 같고 다른 컴퓨터의 여정 기록이 더 길면 여정 영역만 가져옴."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        theirs = pc2.journey(2); self.submit(pc2)
+        result = self.sync(pc, after=theirs)
+        self.assertEqual((result["changed"], result["message"]), (True, gitflow.M_TOOK_OVER + " " + gitflow.M_LATEST))
+        self.assertEqual(pc.status(), [])
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice/journey")
+        pc.journey(3); self.submit(pc)
+        self.merge(pc)
+
+    def test_journey_here_and_rounds_there_are_not_diverged(self):
+        """이쪽은 여정 기록만, 저쪽은 프로필 기록만 늘어남. 프로필 영역은 원격 판, journey/ 는 이쪽 판이 남음."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(); self.submit(pc2)
+        mine = pc.journey(2)
+        result = self.sync(pc, after=self.split(pc2.read(), mine))
+        self.assertEqual((result["changed"], result["message"]), (True, gitflow.M_TOOK_OVER + " " + gitflow.M_LATEST))
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey")
+        self.submit(pc)
+        self.merge(pc)
+        self.sync(pc2, after=pc.read())
+
+    def test_journey_diverged_takes_nothing(self):
+        """여정 기록이 양쪽에서 다르게 이어지면 프로필 영역이 가져올 판이어도 아무것도 가져오지 않음."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(); pc2.journey(2); self.submit(pc2)
+        mine = pc.journey(2, lang="javascript")
+        tip = self.server.rev("study/alice")
+        for result in (self.sync(expect="diverged"), self.submit(expect="diverged")):
+            self.assertEqual(result["detail"], "원격(%s)의 여정 기록 2개, 이 컴퓨터 2개" % tip)
+            self.assertIsNone(result["backup"])
+        self.assertEqual(pc.read(), mine)
+        result = self.call(pc, "resolve", "ok", pc2.read(), "remote")  # 원격을 고르면 갈라진 여정과 더 긴 프로필을 한 번에 가져옴
+        self.assertEqual((result["changed"], result["message"]), (True, gitflow.M_TOOK_OVER))
+        self.assertEqual((pc.status(), self.checkouts(pc)[-1]), ([], "submissions/alice"))
+        self.on_uploaded_commit()
+        pc.journey(3); self.submit()
+        self.merge()
+
+    def test_journey_diverged_keep_local(self):
+        pc = self.pc
+        pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.journey(2); self.submit(pc2)
+        theirs = self.server.rev("study/alice")
+        pc.journey(2, lang="javascript")
+        self.sync(expect="diverged")
+        result = self.call(pc, "resolve", "ok", None, "local")
+        self.assertEqual(result["pr_url"], NEW_PR)
+        self.check_remote(pc)
+        self.assertTrue(self.server.is_ancestor(theirs, "study/alice"))
+        self.sync()
+        self.merge()
+
+    def test_take_remote_replaces_only_the_diverged_area(self):
+        """원격을 골라도 갈라진 영역만 바꾸고, 원격에 없는 파일을 지우는 것도 그 영역 안에서만 함."""
+        pc = self.pc
+        pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.journey(2); self.submit(pc2)
+        pc.journey(2, lang="javascript")  # journey/d01/p2.js 는 이 컴퓨터에만 있음
+        mine = pc.solve(grade=False)  # 회차 폴더와 profile.json 도 이 컴퓨터에만 있음
+        self.sync(expect="diverged")
+        result = self.call(pc, "resolve", "ok", self.split(mine, pc2.read()), "remote")
+        self.assertEqual(result["message"], gitflow.M_TOOK_OVER)
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice/journey")
+        self.assertTrue(os.path.isfile(os.path.join(result["backup"], "replaced", "journey", "d01", "p2.js")))
+        self.assertFalse(os.path.exists(os.path.join(pc.folder, "journey", "d01", "p2.js")))
+        self.submit(pc)
+        self.merge(pc)
+
+    def test_longer_profile_elsewhere_with_same_journey(self):
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        theirs = pc2.solve(); self.submit(pc2)
+        result = self.sync(pc, after=theirs)
+        self.assertEqual((result["changed"], result["message"]), (True, gitflow.M_TOOK_OVER + " " + gitflow.M_LATEST))
+        self.assertEqual((pc.status(), self.checkouts(pc)[-1]), ([], "submissions/alice :(exclude)submissions/alice/journey"))
+        pc.solve(); self.submit(pc)
+        self.merge(pc)
+
+    def test_broken_progress_file(self):
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        tip = self.server.rev("study/alice")
+        mine = pc.journey(2)
+        progress = os.path.join(pc.folder, "journey", "progress.json")
+        write(progress, "{")
+        result = self.submit(expect="blocked")
+        self.assertEqual(result["message"], gitflow.M_BROKEN % "journey/progress.json 을 읽을 수 없습니다.")
+        self.assertEqual(result["detail"], "journey/progress.json 을 읽을 수 없습니다.")
+        self.assertEqual(self.sync(expect="blocked")["message"], gitflow.M_BROKEN_JOURNEY)
+        write(progress, '{"format": 1, "log": {}}\n')  # log 가 목록이 아님
+        self.assertEqual(self.sync(expect="blocked")["message"], gitflow.M_BROKEN_JOURNEY)
+        write(os.path.join(pc.folder, "profile.json"), "{")  # 둘 다 깨지면 프로필부터 알림
+        self.assertEqual(self.sync(expect="blocked")["message"], gitflow.M_BROKEN_PROFILE)
+        self.assertEqual(len(self.submit(expect="blocked")["detail"].splitlines()), 2)
+        self.assertEqual(self.server.rev("study/alice"), tip)
+        for rel in ("profile.json", "journey/progress.json"):
+            with open(os.path.join(pc.folder, rel), "wb") as f:
+                f.write(mine["submissions/alice/" + rel])
+        self.submit()
+
+    def test_dungeon_files_on_main(self):
+        """던전 내용이 바뀌면 재시작 없이 세션만 새로 만들고, journey/ 가 바뀌면 재시작함."""
+        pc = self.pc
+        pc.solve()
+        self.server.add_files({"dungeons/d02/meta.json": '{"title": "d02"}\n'}, "던전 2 추가")
+        result = self.sync()
+        self.assertEqual((result["changed"], result["restart"], result["message"]), (True, False, gitflow.M_NEW))
+        self.assertTrue(os.path.isfile(os.path.join(pc.path, "dungeons", "d02", "meta.json")))
+        self.server.add_files({"journey/runner.py": "# 실행기\n"}, "실행기 고침")
+        result = self.sync()
+        self.assertEqual((result["changed"], result["restart"], result["message"]), (True, True, gitflow.M_RESTART))
+        self.assertEqual(self.sync()["changed"], False)
+        self.submit()
+
+    def test_journey_code_without_a_log_comes_to_a_new_computer(self):
+        """채점 전이라 progress.json 없이 코드만 올라간 여정도 새 컴퓨터가 받고, 그 컴퓨터의 다음 제출이 지우지 않음."""
+        pc = self.pc
+        pc.solve()
+        write(os.path.join(pc.folder, "journey", "d01", "p1.py"), "def solution(x):\n    return x + 1\n")
+        mine = pc.read(); self.submit()
+        pc2 = self.new_pc("pc2")
+        result = self.sync(pc2, after=mine)
+        self.assertEqual((result["changed"], result["message"]), (True, gitflow.M_TOOK + " " + gitflow.M_LATEST))
+        self.assertEqual((pc2.status(), self.checkouts(pc2)[-1]), ([], "submissions/alice"))
+        pc2.solve(); self.submit(pc2)
+        self.assertIn("submissions/alice/journey/d01/p1.py", self.server.folder("study/alice", "alice"))
+
+    def test_journey_code_without_a_log_comes_when_the_rounds_are_the_same(self):
+        """회차 기록이 같아 프로필 영역을 가져오지 않아도, 이쪽 journey/ 가 비어 있으면 기록 없이 올라간 여정 코드를 받음."""
+        pc = self.pc
+        pc.solve(); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        write(os.path.join(pc.folder, "journey", "d01", "p1.py"), "def solution(x):\n    return x + 1\n")
+        mine = pc.read(); self.submit()
+        result = self.sync(pc2, after=mine)
+        self.assertEqual((result["changed"], result["message"]), (True, gitflow.M_TOOK_OVER + " " + gitflow.M_LATEST))
+        self.assertEqual((pc2.status(), self.checkouts(pc2)[-1]), ([], "submissions/alice/journey"))
+        pc2.solve(); self.submit(pc2)
+        self.assertIn("submissions/alice/journey/d01/p1.py", self.server.folder("study/alice", "alice"))
+
+    def test_take_remote_keeps_journey_files_when_only_rounds_diverged(self):
+        """프로필만 갈라지고 여정은 이쪽이 앞서면 원격을 골라도 프로필 영역만 바꾸고 이쪽에만 있는 여정 파일은 남김."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(correct=True); self.submit(pc2)
+        pc.solve()
+        mine = pc.journey(2, lang="javascript")  # journey/d01/p2.js 는 이 컴퓨터에만 있음
+        self.sync(expect="diverged")
+        result = self.call(pc, "resolve", "ok", self.split(pc2.read(), mine), "remote")
+        self.assertEqual(result["message"], gitflow.M_TOOK_OVER)
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey")
+        changed = pc.status(mine=True)
+        self.assertTrue(changed and all("/journey/" in line for line in changed), changed)  # 아직 올리지 않은 여정만 바뀐 파일로 남음
+        self.submit()
+        self.merge()
+
+    def test_take_remote_brings_longer_rounds_like_sync(self):
+        """여정은 갈라지고 프로필은 원격이 더 길면, 원격을 골랐을 때 프로필 영역은 받기처럼 가져와 이쪽에만 있는 파일을 지우지 않음."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(); pc2.journey(2); self.submit(pc2)
+        pc.journey(2, lang="javascript")
+        note = "submissions/alice/notes.txt"  # 프로필 영역에서 이 컴퓨터에만 있는 파일
+        write(os.path.join(pc.path, note), "다음에 볼 것\n")
+        self.sync(expect="diverged")
+        expected = pc2.read()
+        expected[note] = pc.read()[note]
+        result = self.call(pc, "resolve", "ok", expected, "remote")
+        self.assertEqual(result["message"], gitflow.M_TOOK_OVER)
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice")
+        self.submit()
+        self.merge()
+
+    def test_take_remote_when_this_computer_is_already_ahead(self):
+        """고르는 사이에 갈라진 곳이 없어져 두 영역 모두 이쪽이 앞서면 원격을 골라도 아무것도 바꾸지 않음."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc.solve(); pc.journey(2)
+        state = pc.state()
+        result = self.call(pc, "resolve", "ok", None, "remote")
+        self.assertEqual((result["message"], result["backup"], result["changed"]), (gitflow.M_HAVE_REMOTE, None, False))
+        self.assertEqual(pc.state(), state)
+        self.submit()
+
+    def keep_local(self, after):
+        """갈라진 뒤 이 컴퓨터 풀이로 올림. 내 폴더는 after 가 되고, 원격은 다른 컴퓨터가 올린 커밋에 이어 붙어 내 폴더와 같아야 함."""
+        theirs = self.server.rev("study/alice")
+        result = self.call(self.pc, "resolve", "ok", after, "local")
+        self.assertEqual((result["changed"], result["pr_url"]), (True, NEW_PR))
+        self.assertTrue(result["message"].startswith(gitflow.M_TOOK_OVER), result["message"])
+        self.check_remote(self.pc)
+        self.assertTrue(self.server.is_ancestor(theirs, "study/alice"))
+        self.assertEqual(self.pc.status(), [])
+        return result
+
+    def test_keep_local_brings_the_longer_journey_when_only_rounds_diverged(self):
+        """프로필만 갈라지고 여정은 원격이 앞서면, 이 컴퓨터 풀이로 올려도 원격의 여정 기록과 코드를 지우지 않음."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(correct=True); theirs = pc2.journey(2); self.submit(pc2)
+        mine = pc.solve()
+        self.assertEqual(self.sync(expect="diverged")["detail"].count("시도 기록"), 1)
+        self.keep_local(self.split(mine, theirs))
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice/journey")
+        self.assertIn("submissions/alice/journey/d01/p2.py", self.server.folder("study/alice", "alice"))
+        self.merge()
+
+    def test_keep_local_brings_the_longer_rounds_when_only_the_journey_diverged(self):
+        """여정만 갈라지고 프로필은 원격이 앞서면, 이 컴퓨터 풀이로 올려도 원격의 시도 기록을 지우지 않음."""
+        pc = self.pc
+        pc.solve(); pc.journey(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(); theirs = pc2.journey(2); self.submit(pc2)
+        mine = pc.journey(2, lang="javascript")
+        self.assertEqual(self.sync(expect="diverged")["detail"].count("여정 기록"), 1)
+        self.keep_local(self.split(theirs, mine))
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey")
+        self.assertEqual(pc.attempts(), pc2.attempts())
+        self.merge()
+
+
+class CiReportTest(unittest.TestCase):
+    def report(self, files, present):
+        """changed_files 가 files 를 돌려주는 PR 에서 ci_report 를 돌려 (모듈, report.md 내용, 표준 출력) 을 돌려줌. present 는 PR 을 합친 결과에 남은 파일."""
+        spec = importlib.util.spec_from_file_location("ci_report", os.path.join(ROOT, "tools", "ci_report.py"))
+        ci_report = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ci_report)
+        tmp = tempfile.mkdtemp(prefix="study_ci_")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        for rel in present:
+            write(os.path.join(tmp, rel), "{}\n")
+        env = {"GITHUB_BASE_REF": "main", "GITHUB_STEP_SUMMARY": ""}
+        with mock.patch.object(study, "ROOT", tmp), mock.patch.object(study, "SUBMISSIONS_DIR", os.path.join(tmp, "submissions")), \
+                mock.patch.object(ci_report, "changed_files", return_value=files), mock.patch.dict(os.environ, env), \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            ci_report.main()
+        return ci_report, study.read_text(os.path.join(tmp, "report.md")), out.getvalue()
+
+    def test_journey_only_pr_has_a_report(self):
+        """여정 파일만 바꾼 풀이 PR 에서도 보고서가 빈 글이 아님. 빈 본문이면 gh pr comment 가 실패함."""
+        files = ["submissions/alice/journey/progress.json", "submissions/alice/journey/d01/p1.py"]
+        ci_report, report, out = self.report(files, files)
+        self.assertEqual(report, ci_report.JOURNEY_ONLY)
+        self.assertEqual(out.strip(), ci_report.JOURNEY_ONLY.strip())
+
+    def test_deleted_folder_pr_has_a_report(self):
+        """풀이 폴더를 지운 PR 은 여정 안내 대신 채점할 풀이가 없다는 한 줄을 씀."""
+        ci_report, report, _ = self.report(["submissions/alice/profile.json", "submissions/alice/journey/progress.json"], [])
+        self.assertEqual(report, ci_report.NO_REPORT)
 
 
 class HelperTest(unittest.TestCase):

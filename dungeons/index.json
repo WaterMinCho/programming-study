@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "dungeons": [
+    {"id": "d01", "no": 1, "title": "향신료 시장", "topic": "해시·투 포인터", "boss_target": "G3 / Lv3", "prereq": []},
+    {"id": "d02", "no": 2, "title": "용암 평원", "topic": "누적합·차분", "boss_target": "G2 / Lv3", "prereq": ["d01"]},
+    {"id": "d03", "no": 3, "title": "모래시계 탑", "topic": "이분 탐색", "boss_target": "G3 / Lv3~4", "prereq": ["d01"]},
+    {"id": "d04", "no": 4, "title": "태엽 공방", "topic": "구현·시뮬레이션", "boss_target": "G2 / Lv3", "prereq": ["d01", "d02"]},
+    {"id": "d05", "no": 5, "title": "얼음 미궁", "topic": "BFS 심화", "boss_target": "G2 / Lv3 상", "prereq": []},
+    {"id": "d06", "no": 6, "title": "메아리 동굴", "topic": "스택·큐·덱", "boss_target": "G1 / Lv3~4", "prereq": ["d02"]},
+    {"id": "d07", "no": 7, "title": "봉인 사원", "topic": "완전 탐색·백트래킹", "boss_target": "G2 / Lv3", "prereq": ["d05"]},
+    {"id": "d08", "no": 8, "title": "용병 길드", "topic": "힙·그리디", "boss_target": "G1 / Lv3~4", "prereq": ["d01", "d04"]},
+    {"id": "d09", "no": 9, "title": "기억의 도서관", "topic": "DP Ⅰ", "boss_target": "G2 / Lv4", "prereq": ["d01"]},
+    {"id": "d10", "no": 10, "title": "별빛 항로", "topic": "최단 경로", "boss_target": "G1~P5 / Lv4", "prereq": ["d05", "d06", "d08"]},
+    {"id": "d11", "no": 11, "title": "연결과 순서의 다리", "topic": "유니온 파인드·위상 정렬", "boss_target": "G1 / Lv4", "prereq": ["d08", "d09"]},
+    {"id": "d12", "no": 12, "title": "룬 공방", "topic": "DP Ⅱ 구간 DP", "boss_target": "G1 / Lv4", "prereq": ["d09"]},
+    {"id": "d13", "no": 13, "title": "차원의 서고", "topic": "비트마스크 DP", "boss_target": "G1~P5 / Lv4", "prereq": ["d07", "d09"]},
+    {"id": "d14", "no": 14, "title": "세계수", "topic": "트리 DP", "boss_target": "P5 / Lv4", "prereq": ["d09", "d11"]},
+    {"id": "d15", "no": 15, "title": "속삭이는 사전", "topic": "트라이·문자열", "boss_target": "G1~P5 / Lv4", "prereq": ["d01", "d07", "d14"]},
+    {"id": "d16", "no": 16, "title": "시간의 탑", "topic": "펜윅·세그먼트·오프라인", "boss_target": "P5~P4 / Lv4", "prereq": ["d03", "d08"], "final": true}
+  ]
+}

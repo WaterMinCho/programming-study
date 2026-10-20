@@ -1,0 +1,31 @@
+{
+  "parts": [
+    {
+      "text": "배열을 한 번 훑으며 값을 더함",
+      "from": [
+        "p1"
+      ]
+    },
+    {
+      "text": "큰 값부터 고름",
+      "from": [
+        "p2"
+      ]
+    }
+  ],
+  "boss_new": "정렬한 뒤 앞에서 k개를 골라 더함",
+  "similar": [
+    {
+      "site": "programmers",
+      "title": "K번째수",
+      "url": "https://school.programmers.co.kr/learn/courses/30/lessons/42748",
+      "fit": "easy"
+    },
+    {
+      "site": "boj",
+      "title": "수 정렬하기",
+      "id": 2750,
+      "fit": "easy"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "skills": [],
+  "problems": [
+    {
+      "id": "p1",
+      "no": "2-1",
+      "role": "basic"
+    },
+    {
+      "id": "boss",
+      "no": "2-B",
+      "role": "boss"
+    }
+  ]
+}

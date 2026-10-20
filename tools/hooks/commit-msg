@@ -1,0 +1,3 @@
+#!/bin/sh
+# 커밋 메시지의 제목 형식과 본문 말투 검사. python3 tools/check_style.py --install-hooks 가 .git/hooks 로 복사
+exec python3 tools/check_style.py --commit "$1"

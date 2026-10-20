@@ -13,6 +13,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import study  # noqa: E402
 import adaptive  # noqa: E402
 
+JOURNEY_ONLY = "이번 풀이 변경은 알고리즘 여행 기록뿐이라 채점 리포트가 없습니다. 여정 채점은 다음 단계에서 붙습니다.\n"
+NO_REPORT = "이 PR 에서 바뀐 풀이 중에 채점할 것이 없습니다.\n"
+
 
 def changed_files(base_ref):
     out = subprocess.run(
@@ -46,6 +49,9 @@ def main():
             if study.started_sets(user):
                 parts.append(study.render_markdown(user, study.grade_user(user)))
         report = "\n".join(parts)
+        if not report.strip():  # 여정 파일만 바뀌었거나 풀이 폴더를 지운 PR. 빈 본문이면 gh pr comment 가 실패함
+            mine = [f.split("/", 2)[2] for f in files if f.startswith("submissions/") and f.count("/") >= 2]
+            report = JOURNEY_ONLY if all(f.startswith("journey/") for f in mine) else NO_REPORT
     else:
         analysis, shortages = adaptive.team_analysis_markdown(cat)
         report = analysis + "\n### 세트 현황판\n\n" + study.render_board()

@@ -26,7 +26,10 @@ import study
 MAIN = "refs/remotes/origin/main"
 MAIN_REFSPEC = "+refs/heads/main:" + MAIN  # --single-branch 로 clone 한 폴더에서도 받게 직접 적음
 TOOL_FILES = ("study.py", "adaptive.py", "session.py", "mdlite.py", "gitflow.py", "bootstrap.py")
-TOOL_DIRS = ("gui/",)
+TOOL_DIRS = ("gui/", "journey/")
+BANK_DIRS = ("problems/", "dungeons/")  # 내용만 바뀌면 재시작 없이 세션만 새로 만듦
+AREAS = ("profile", "journey")  # 내 폴더의 두 영역. profile = profile.json 과 회차 폴더, journey = journey/ 폴더. 겹치는 파일이 없음
+AREA_LOGS = {"profile": "시도 기록", "journey": "여정 기록"}
 STALLED = (("MERGE_HEAD", "merge"), ("rebase-merge", "rebase"), ("rebase-apply", "rebase"),
            ("CHERRY_PICK_HEAD", "cherry-pick"), ("REVERT_HEAD", "revert"))
 PUSH_PATIENCE = 5  # push 제한 시간 = timeout 의 몇 배. 첫 push 는 브라우저 로그인 창에서 시간이 걸림
@@ -34,7 +37,7 @@ FETCH_LIMIT = 20  # fetch 는 로그인 없이 되고, 시작할 때 화면이 �
 PR_WAIT, PR_POLL = 30, 3  # 올린 뒤 저장소의 Actions 가 PR 을 만들 때까지 기다리는 시간과 확인 간격(초)
 URL_LIMIT = 2000
 REMOTE_RE = re.compile(r"github\.com[:/]+([^/\s:]+)/([^/\s]+?)(?:\.git)?/?$")
-BROKEN = object()  # profile.json 이 있는데 읽지 못함
+BROKEN = object()  # 기록 파일(profile.json, journey/progress.json)이 있는데 읽지 못함
 
 # 원격 실패 이유를 가리는 문구. LC_ALL=C 의 영어 출력을 소문자로 비교하고, 위에서부터 먼저 맞는 것을 씀
 REMOTE_MARKS = (
@@ -60,6 +63,7 @@ M_ERROR = {"sync": "문제를 받다가 오류가 났습니다(풀이는 이 컴
            "submit": "제출하다가 오류가 났습니다(풀이는 이 컴퓨터에 남아 있습니다). [자세히]의 내용을 스터디장에게 보내 주세요."}
 M_DIVERGED = "다른 컴퓨터에서 올린 풀이가 있고, 이 컴퓨터의 풀이와 이어지지 않습니다. 덮어쓰지 않고 멈췄으니 어느 쪽을 쓸지 골라 주세요."
 M_BROKEN_PROFILE = "풀이 기록 파일(profile.json)을 읽을 수 없어 멈췄습니다. 풀이 폴더는 건드리지 않았습니다."
+M_BROKEN_JOURNEY = "알고리즘 여행 기록 파일(journey/progress.json)을 읽을 수 없어 멈췄습니다. 풀이 폴더는 건드리지 않았습니다."
 M_BROKEN = "읽을 수 없는 풀이 파일이 있어 올리지 않았습니다: %s 고친 뒤 [제출]을 다시 눌러 주세요."
 M_DEV = "지금 '%s' 에서 문제·도구 파일을 고치는 중이라 [문제 받기]는 하지 않았습니다. 제출은 그대로 할 수 있습니다."
 M_LOCKED = "파일 %%d개를 새 버전으로 바꾸지 못했습니다: %%s. 이 파일을 연 프로그램을 닫고 [문제 받기]를 다시 눌러 주세요(%s)." % SAFE
@@ -84,6 +88,7 @@ M_PUSHED = "%s 브랜치에 올렸습니다."
 M_SPELLING = ("ID '%%s' 가 이미 있는 풀이 폴더 '%%s' 와 대소문자만 다릅니다(%s). submissions 폴더 안의 '%%s' 폴더 이름을 "
               "'%%s' 로 바꾼 뒤 프로그램을 다시 실행해 주세요.") % SAFE
 M_NO_REMOTE_COPY = "가져올 원격 풀이가 없습니다. 이 컴퓨터의 풀이는 그대로 두었습니다."
+M_HAVE_REMOTE = "다른 컴퓨터에서 올린 풀이가 이 컴퓨터의 풀이에 들어 있어 바꾸지 않았습니다."
 M_BAD_CHOICE = "고를 수 있는 것은 remote(원격 풀이 가져오기)와 local(이 컴퓨터 풀이로 올리기)입니다: %r"
 
 Run = collections.namedtuple("Run", "args code out err")  # git 한 번의 결과. code 가 None 이면 시간 초과
@@ -220,7 +225,8 @@ class GitFlow:
 
     def resolve(self, choice):
         """"diverged" 로 멈춘 뒤 사용자가 고른 쪽을 적용함.
-        "remote" 면 원격 풀이를 가져오고 이 컴퓨터 것은 보관함에 복사함. "local" 이면 이 컴퓨터 풀이를 올림."""
+        "remote" 면 원격 풀이를 가져오고 이 컴퓨터 것은 보관함에 복사함. "local" 이면 갈라진 영역은 이 컴퓨터 풀이로 두고
+        원격이 앞선 영역은 받기처럼 가져온 뒤 올림."""
         if choice == "remote":
             return self._run("sync", self._take_remote)
         if choice == "local":
@@ -416,45 +422,132 @@ class GitFlow:
         except (ValueError, KeyError, TypeError):
             return BROKEN
 
+    def _journey_log(self, ref=None):
+        """journey/progress.json 의 log 를 항목마다 키를 정렬한 JSON 글의 목록으로. 덧붙기만 하는 기록임.
+        ref 가 없으면 작업 폴더의 것. 파일이 없으면 None, 못 읽으면 BROKEN."""
+        if ref is None:
+            path = os.path.join(self.folder, "journey", "progress.json")
+            if not os.path.isfile(path):
+                return None
+            try:
+                text = study.read_text(path)
+            except (OSError, ValueError):
+                return BROKEN
+        else:
+            run = self._git("show", "%s:%s/journey/progress.json" % (ref, self.rel), check=False)
+            if run.code != 0:
+                return None
+            text = run.out
+        try:
+            log = json.loads(text)["log"]
+            if not isinstance(log, list):
+                return BROKEN
+            return [json.dumps(entry, sort_keys=True, ensure_ascii=False) for entry in log]
+        except (ValueError, KeyError, TypeError):
+            return BROKEN
+
+    def _log(self, area, ref=None):
+        """그 영역의 기록. profile 은 profile.json 의 시도 기록, journey 는 journey/progress.json 의 log."""
+        return self._attempts(ref) if area == "profile" else self._journey_log(ref)
+
+    def _area_paths(self, area):
+        """그 영역의 git 경로 지정. journey 는 <폴더>/journey, profile 은 <폴더> 에서 journey 를 뺀 것."""
+        journey = self.rel + "/journey"
+        return [journey] if area == "journey" else [self.rel, ":(exclude)" + journey]
+
+    def _in_area(self, rel, area):
+        journey = self.rel + "/journey/"
+        return rel.startswith(journey) if area == "journey" else not rel.startswith(journey)
+
+    def _area_files(self, area, ref=None):
+        """그 영역에 든 파일의 저장소 기준 경로. ref 가 없으면 작업 폴더에 있는 파일(.gitignore 적용)."""
+        if ref:
+            listed = self._paths("ls-tree", "-r", "-z", "--name-only", ref, "--", self.rel)
+        else:
+            listed = [rel for rel in self._paths("ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", self.rel)
+                      if os.path.isfile(os.path.join(self.root, rel))]
+        return [rel for rel in listed if self._in_area(rel, area)]
+
     def _remote_copies(self):
-        """원격에 있는 내 풀이의 [(커밋, 시도 기록)]. 아직 머지되지 않은 내 브랜치가 있으면 그것이 main 보다 새 판이라 main 은 보지 않음."""
+        """원격에 있는 내 풀이의 [(커밋, 시도 기록, 여정 기록)]. 기록은 목록이거나 None(파일 없음)이거나 BROKEN 임.
+        아직 머지되지 않은 내 브랜치가 있으면 그것이 main 보다 새 판이라 main 은 보지 않음."""
         refs = [self._tip] if self._tip else []
         if not self._tip or self._is_ancestor(self._tip, self._base):
             refs.append(self._base)
-        return [(ref, attempts) for ref in refs for attempts in [self._attempts(ref)] if isinstance(attempts, list)]
+        return [(ref, self._attempts(ref), self._journey_log(ref)) for ref in refs]
 
-    def _reconcile(self):
-        """가장 새 판의 내 풀이가 작업 폴더에 오게 함. 시도 기록은 덧붙기만 하므로 앞부분이 같으면 긴 쪽을 새 판으로 봄.
-        작업 폴더가 비었거나 옛 판이면 새 판을 가져오고, 서로 다르게 이어졌으면 덮어쓰지 않고 멈춤."""
-        local = self._attempts()
-        if local is BROKEN:
-            raise Stop("blocked", M_BROKEN_PROFILE)
+    def _judge(self, local):
+        """영역마다 가장 새 원격 판과 견줌. {영역: (판정, ref, 원격 기록 수)}. 판정은 same(그대로)·take(가져옴)·diverged.
+        기록은 덧붙기만 하므로 앞부분이 같으면 긴 쪽을 새 판으로 봄. 후보 판이 없는 영역은 빠짐.
+        local 은 {영역: 이쪽 기록}. 이쪽에 기록 파일이 없으면(None) 원격 판을 그대로 가져옴.
+        기록 없이 파일만 있는 영역(채점 전에 저장한 여정 코드 등)은 이쪽에 그 영역의 파일이 하나도 없을 때만
+        다른 영역이 견준 판에서 가져옴. 그러지 않으면 다음 제출이 원격의 그 파일을 지움."""
         copies = self._remote_copies()
         mine = "refs/heads/" + self.branch
         if self._branch() != self.branch and self._has(mine):  # 손으로 브랜치를 옮겨 폴더가 옛 판이 됐을 때만 씀
-            attempts = self._attempts(mine)
-            if isinstance(attempts, list) and (local is None or attempts[:len(local)] == local):
-                copies.append((mine, attempts))
-        if not copies:
-            return
-        ref, newest = max(copies, key=lambda copy: len(copy[1]))
-        if local is not None and local[:len(newest)] == newest:
-            return
-        if local is not None and newest[:len(local)] != local:
-            raise Stop("diverged", M_DIVERGED, "원격(%s)의 시도 기록 %d개, 이 컴퓨터 %d개" % (ref, len(newest), len(local)))
-        self._take(ref)
+            copies.append((mine, self._attempts(mine), self._journey_log(mine)))
+        verdicts = {}
+        for index, area in enumerate(AREAS, 1):
+            here = local[area]
+            candidates = []
+            for copy in copies:
+                ref, log = copy[0], copy[index]
+                if isinstance(log, list) and (ref != mine or here is None or log[:len(here)] == here):  # mine 은 이쪽을 이어 쓴 판일 때만
+                    candidates.append((ref, log))
+            if not candidates:
+                continue
+            ref, newest = max(candidates, key=lambda candidate: len(candidate[1]))
+            if here is not None and here[:len(newest)] == newest:
+                verdicts[area] = ("same", ref, len(newest))
+            elif here is None or newest[:len(here)] == here:
+                verdicts[area] = ("take", ref, len(newest))
+            else:
+                verdicts[area] = ("diverged", ref, len(newest))
+        for area, other in (AREAS, AREAS[::-1]):
+            if area not in verdicts and other in verdicts and local[area] is None and not self._area_files(area):
+                ref = verdicts[other][1]
+                if self._area_files(area, ref):
+                    verdicts[area] = ("take", ref, 0)
+        return verdicts
 
-    def _take(self, ref, exact=False):
-        """내 폴더를 ref 에 있는 판으로 바꾸고 지금 것은 보관함에 복사해 둠.
-        exact 면 ref 에 없는 파일(갈라진 뒤 이 컴퓨터에서만 만든 회차)도 지움. 남겨 두면 새 회차의 답으로 읽힘."""
+    def _reconcile(self, keep_diverged=False):
+        """가장 새 판의 내 풀이가 작업 폴더에 오게 함. 프로필 영역과 여정 영역은 겹치는 파일이 없어 영역마다 따로 맞춤.
+        작업 폴더가 비었거나 옛 판이면 새 판을 가져오고, 어느 영역이든 서로 다르게 이어졌으면 아무것도 가져오지 않고 멈춤.
+        한 영역을 먼저 가져온 뒤 멈추면 반쯤 바뀐 폴더가 남기 때문임.
+        keep_diverged 면(이 컴퓨터 풀이로 올리기) 멈추지 않고 갈라진 영역은 이 컴퓨터 판을 둠. 원격이 앞선 영역은 그대로 가져옴."""
+        local = {area: self._log(area) for area in AREAS}
+        if local["profile"] is BROKEN:
+            raise Stop("blocked", M_BROKEN_PROFILE)
+        if local["journey"] is BROKEN:
+            raise Stop("blocked", M_BROKEN_JOURNEY)
+        verdicts = self._judge(local)
+        diverged = ["원격(%s)의 %s %d개, 이 컴퓨터 %d개" % (ref, AREA_LOGS[area], count, len(local[area]))
+                    for area, (verdict, ref, count) in verdicts.items() if verdict == "diverged"]
+        if diverged and not keep_diverged:
+            raise Stop("diverged", M_DIVERGED, "\n".join(diverged))
+        picks = [(ref, area) for area, (verdict, ref, _) in verdicts.items() if verdict == "take"]
+        if picks:
+            self._take(picks)
+
+    def _take(self, picks, exact=()):
+        """picks 의 (ref, 영역)마다 그 영역을 ref 에 있는 판으로 바꾸고, 지금 폴더는 통째로 보관함에 복사해 둠.
+        exact 에 든 영역은 ref 에 없는 파일(갈라진 뒤 이 컴퓨터에서만 만든 회차)도 지움. 남겨 두면 새 회차의 답으로 읽힘.
+        같은 ref 에서 두 영역을 다 가져오면 checkout 한 번에 폴더 전체를 가져옴."""
         kept = self._keep_folder("replaced")
-        self._git("checkout", "-q", ref, "--", self.rel)
-        if exact:
-            wanted = set(self._paths("ls-tree", "-r", "-z", "--name-only", ref, "--", self.rel))
-            for rel in self._paths("ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", self.rel):
-                path = os.path.join(self.root, rel)
-                if rel not in wanted and os.path.isfile(path):
-                    os.remove(path)
+        by_ref = {}
+        for ref, area in picks:
+            by_ref.setdefault(ref, []).append(area)
+        for ref, areas in by_ref.items():
+            if set(areas) == set(AREAS):
+                self._git("checkout", "-q", ref, "--", self.rel)
+            else:
+                for area in areas:
+                    self._git("checkout", "-q", ref, "--", *self._area_paths(area))
+            for area in [area for area in areas if area in exact]:
+                wanted = set(self._area_files(area, ref))
+                for rel in self._area_files(area):
+                    if rel not in wanted:
+                        os.remove(os.path.join(self.root, rel))
         self._changed = True
         self._notes.append(M_TOOK_OVER if kept else M_TOOK)
 
@@ -527,10 +620,12 @@ class GitFlow:
                 shutil.copy2(source, target)
 
     def _broken_files(self):
-        """올리면 안 되는 깨진 파일: JSON 이 아닌 profile.json, 읽히지 않는 회차 답안지(quiz.py)."""
+        """올리면 안 되는 깨진 파일: JSON 이 아닌 profile.json 과 journey/progress.json, 읽히지 않는 회차 답안지(quiz.py)."""
         broken = []
         if self._attempts() is BROKEN:
             broken.append("profile.json 을 읽을 수 없습니다.")
+        if self._journey_log() is BROKEN:
+            broken.append("journey/progress.json 을 읽을 수 없습니다.")
         for name in sorted(os.listdir(self.folder)) if os.path.isdir(self.folder) else []:
             path = os.path.join(self.folder, name, "quiz.py")
             if not os.path.isfile(path):
@@ -646,7 +741,7 @@ class GitFlow:
             self._git("checkout", "-q", "-B", self.branch, snap)  # 덮어쓸 수정이 있으면 git 이 거부함
         moved |= set(self._paths("diff", "--name-only", "-z", before, snap, "--", *self.outside))
         restart = any(is_tool(path) for path in moved)
-        changed = restart or any(path.startswith("problems/") for path in moved)
+        changed = restart or any(path.startswith(BANK_DIRS) for path in moved)
         stale = self._paths("diff", "--name-only", "-z", "HEAD", "--", *self.outside)
         if stale:  # checkout 은 파일을 못 바꿔도 0 으로 끝나서 직접 확인함. 나머지 파일은 이미 바뀌었으니 restart·changed 도 같이 알림
             return self._result("blocked", M_LOCKED % (len(stale), ", ".join(stale[:3])), "\n".join(stale), restart=restart, changed=changed)
@@ -662,8 +757,7 @@ class GitFlow:
             raise Stop("blocked", M_BROKEN % (broken[0] + more), "\n".join(broken))
         self._fetch()
         for attempt in (1, 2):
-            if not force:
-                self._reconcile()
+            self._reconcile(keep_diverged=force)
             snap = self._snapshot("풀이 제출: %s" % self.user)
             mine = self._folder_tree(snap)
             if mine == self._folder_tree(self._base):
@@ -694,11 +788,17 @@ class GitFlow:
         if not dev:
             self._preflight()
         self._fetch()
-        copies = self._remote_copies()
-        if not copies:
+        local = {area: self._log(area) for area in AREAS}
+        local = {area: None if log is BROKEN else log for area, log in local.items()}  # 읽을 수 없는 기록은 원격 판으로 바꿈
+        verdicts = self._judge(local)
+        if not verdicts:
             return self._result("nothing", M_NO_REMOTE_COPY)
-        ref = max(copies, key=lambda copy: len(copy[1]))[0]
-        self._take(ref, exact=True)
-        if not dev:
-            self._settle(ref)  # 가져온 풀이가 add 된 변경으로 남지 않게 함
+        picks = [(ref, area) for area, (verdict, ref, _) in verdicts.items() if verdict != "same"]
+        if not picks:  # 고르는 사이에 갈라진 영역이 없어짐. 이쪽이 원격과 같거나 앞서므로 바꾸지 않음
+            return self._result("ok", M_HAVE_REMOTE)
+        diverged = [area for area, (verdict, _, _) in verdicts.items() if verdict == "diverged"]
+        self._take(picks, exact=diverged)  # 갈라진 영역은 원격 판과 똑같이, 원격이 더 긴 영역은 받기처럼 가져오고 같거나 앞선 영역은 그대로 둠
+        refs = {ref for ref, _ in picks}
+        if not dev and len(refs) == 1:  # 두 영역을 서로 다른 판에서 가져왔으면 맞출 판이 하나로 정해지지 않아 맞추지 않음
+            self._settle(refs.pop())  # 가져온 풀이가 add 된 변경으로 남지 않게 함
         return self._result("ok", "")

@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "title": "장부 정산",
+  "tier": "S3 / Lv2",
+  "signature": {
+    "params": [
+      {"name": "records", "type": "list[str]"},
+      {"name": "k", "type": "int"}
+    ],
+    "returns": "list[str]"
+  },
+  "time_limit_ms": {"python": 2500, "javascript": 3000},
+  "score": {"accuracy": 70, "efficiency": 30},
+  "examples": [
+    {"args": [["pepper 3", "salt 5", "pepper 4", "cumin 2", "salt 1"], 2], "expected": ["pepper", "salt"]},
+    {"args": [["mint 10", "basil 4", "anise 6", "basil 6", "clove 10"], 3], "expected": ["basil", "clove", "mint"]},
+    {"args": [["constructor 9", "__proto__ 2", "salt 9", "salt 1"], 5], "expected": ["salt", "constructor", "__proto__"]}
+  ],
+  "prep": []
+}

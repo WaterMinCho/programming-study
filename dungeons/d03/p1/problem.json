@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "title": "기록관 질의",
+  "tier": "S3 / Lv2",
+  "signature": {
+    "params": [
+      {"name": "times", "type": "list[int]"},
+      {"name": "queries", "type": "list[list[int]]"}
+    ],
+    "returns": "list[int]"
+  },
+  "time_limit_ms": {"python": 12500, "javascript": 2500},
+  "score": {"accuracy": 70, "efficiency": 30},
+  "examples": [
+    {"args": [[5, 1, 9, 5, 3], [[1, 5], [6, 8], [5, 5], [0, 100]]], "expected": [4, 0, 2, 5]},
+    {"args": [[7], [[8, 9], [0, 6], [7, 7]]], "expected": [0, 0, 1]}
+  ],
+  "prep": []
+}
