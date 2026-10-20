@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "title": "물통 합계",
+  "tier": "B2 / Lv1",
+  "signature": {
+    "params": [
+      {
+        "name": "nums",
+        "type": "list[int]"
+      }
+    ],
+    "returns": "int"
+  },
+  "time_limit_ms": {
+    "python": 2000,
+    "javascript": 1000
+  },
+  "examples": [
+    {
+      "args": [
+        [
+          1,
+          2,
+          3
+        ]
+      ],
+      "expected": 6
+    },
+    {
+      "args": [
+        [
+          5,
+          -2
+        ]
+      ],
+      "expected": 3
+    },
+    {
+      "args": [
+        [
+          7
+        ]
+      ],
+      "expected": 7
+    }
+  ],
+  "prep": []
+}

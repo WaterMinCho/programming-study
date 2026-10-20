@@ -1,0 +1,28 @@
+{
+  "accuracy": [
+    {"id": "one_char", "name": "글자가 하나", "args": ["z"], "expected": "z"},
+    {"id": "palindrome", "name": "뒤집어도 같은 이름", "args": ["racecar"], "expected": "racecar"},
+    {"id": "repeated", "name": "같은 글자가 이어짐", "args": ["aaab"], "expected": "baaa"},
+    {"id": "long_name", "name": "글자 30개", "args": ["abcdefghijabcdefghijabcdefghij"], "expected": "jihgfedcbajihgfedcbajihgfedcba"},
+    {"id": "alphabet", "name": "알파벳 전체", "args": ["abcdefghijklmnopqrstuvwxyz"], "expected": "zyxwvutsrqponmlkjihgfedcba"},
+    {"id": "two_chars", "name": "글자가 둘", "args": ["xy"], "expected": "yx"},
+    {"id": "even_palindrome", "name": "짝수 길이 회문", "args": ["abba"], "expected": "abba"},
+    {"id": "keyboard", "name": "키보드 윗줄", "args": ["qwerty"], "expected": "ytrewq"},
+    {"id": "river", "name": "같은 글자가 여러 번", "args": ["mississippi"], "expected": "ippississim"},
+    {"id": "rand1", "name": "소형 무작위 1", "gen": "small", "seed": 101, "count": 50, "expected": ["acacbaa", "aa", "baccccac", "ab", "cccbbbab", "ccaaac", "c", "acba", "cbccbaba", "aabac", "cbacb", "cbbb", "ccbcbcb", "bcbaaabc", "bca", "caacbc", "cbbab", "bca", "cbcbc", "bbbcbccc", "baabaa", "abc", "cbccacc", "c", "cbcbbba", "aac", "caba", "a", "bbcbba", "cccbc", "ccabc", "bccbaaaa", "a", "ccbc", "caabaa", "cbcccb", "cbac", "babaa", "ccccac", "bacaabba", "cabbbbb", "bbc", "aca", "ba", "abaaabb", "babc", "bb", "ccbccbc", "acbbcaab", "ababcbb"]},
+    {"id": "rand2", "name": "소형 무작위 2", "gen": "small", "seed": 102, "count": 50, "expected": ["b", "bbbb", "aa", "aaccc", "bcaaccc", "bccaca", "bcaa", "b", "abaacacc", "bb", "cbcabcbb", "accc", "acbbabc", "b", "babb", "bacca", "abccacca", "acaa", "caaca", "acaaccc", "aababca", "cabacc", "cccaba", "b", "bcbacab", "ccbcacb", "cab", "cbb", "aaabb", "bccac", "acbbcccc", "aca", "aa", "cbaccaa", "a", "bbaca", "b", "abc", "aabbc", "ab", "baa", "abb", "a", "ca", "bbccbbc", "cacc", "bab", "bacccca", "bc", "bbaca"]},
+    {"id": "rand3", "name": "소형 무작위 3", "gen": "small", "seed": 103, "count": 50, "expected": ["b", "aa", "ccbcbbaa", "ba", "ca", "b", "cbcbbabc", "bb", "ca", "aacbbccc", "a", "bcacbbaa", "ccabcb", "ca", "acbabccb", "cbca", "cb", "acacab", "acaaca", "abaa", "bacbb", "abbcbcbc", "ba", "aac", "bbc", "b", "cbaacbc", "abb", "cc", "ab", "aac", "acabacb", "bcbbaab", "bacabccc", "caac", "cbacbba", "bbcbbbca", "aaa", "cabbbcbc", "ab", "aacbac", "aaaa", "bbc", "ccc", "ccabbbba", "ba", "babbc", "ca", "ccbbbcb", "aaba"]},
+    {"id": "rand4", "name": "소형 무작위 4", "gen": "small", "seed": 104, "count": 50, "expected": ["bca", "cbbb", "ccbacbc", "b", "ccabab", "aaaacc", "cabaacb", "babaac", "bba", "accccbca", "bcab", "baacbabc", "cccaaab", "b", "aabbbba", "caab", "abbbcaa", "abacbaa", "ccccb", "acacc", "aabbca", "acccaaa", "cacacc", "bbacc", "ac", "acccab", "abccabac", "ca", "bcac", "cccb", "cbaa", "cbabcaab", "bcbcab", "baa", "c", "bbcaaacc", "aabbbab", "aabbcc", "abccbcb", "cacb", "aaacbaca", "c", "aa", "bbccb", "ac", "bbabbb", "accaaa", "bacacbb", "bbbbcbcb", "acacccaa"]},
+    {"id": "rand5", "name": "소형 무작위 5", "gen": "small", "seed": 105, "count": 50, "expected": ["caabaa", "bbca", "ba", "bbccb", "cbbb", "aacacbc", "b", "bccac", "baacaac", "bbba", "cbaca", "abbcca", "bacca", "acc", "cba", "abaaaa", "ccabacb", "caacaccc", "baaaa", "bcbcaa", "cc", "ccccaa", "baca", "cacbb", "a", "baccb", "b", "a", "b", "cabbb", "bcccc", "acacccca", "cccabbca", "aaa", "abbabbc", "cababcc", "c", "bacca", "cccaac", "ccaac", "acacca", "bbccbcbb", "cbcba", "ccbcaaab", "abacb", "aabcac", "babbbccc", "ccacc", "bcbaab", "aabcba"]},
+    {"id": "rand6", "name": "소형 무작위 6", "gen": "small", "seed": 106, "count": 50, "expected": ["bc", "aaccbac", "bbcaaba", "aaaab", "acbaa", "cc", "b", "bbcc", "aacbbba", "ab", "abbaaa", "bcb", "aaaac", "aabaaac", "ccca", "aaacbcac", "acaa", "bacc", "cbb", "aaabab", "bcabcac", "aa", "bac", "babbca", "cccc", "bcaccb", "ccab", "ccaab", "ababbba", "bbcaabc", "c", "ac", "cbabcccc", "cb", "ababcbb", "bbba", "cba", "bbbca", "bbbcabaa", "aaacbbc", "acaaaa", "bbc", "baabbccc", "abccca", "aba", "acb", "bcccacbc", "ab", "abcbac", "b"]}
+  ],
+  "efficiency": [
+    {"id": "long_a", "name": "a 가 10만 개", "gen": "repeat", "seed": 7, "params": {"n": 100000}, "stress": {"n": 200}, "expected_sha": "54df96ab5649109cbf32a70a39f87a3f22dd210e4770cd25a58cee0bfdbfa08f"},
+    {"id": "long_mix", "name": "무작위 10만 글자", "gen": "letters", "seed": 8, "params": {"n": 100000}, "stress": {"n": 200}, "expected_sha": "d731efceb1530115beab66dd6af64777e61455ef26beeca40e30fefb3905682f"},
+    {"id": "long_two", "name": "두 글자가 번갈아 10만 개", "gen": "two", "seed": 9, "params": {"n": 100000}, "stress": {"n": 200}, "expected_sha": "7c1cf5a32b808cd5222993522cc68cb1c26f5ee32fb78c9024af7c77f3b81e31"}
+  ],
+  "invalid": [
+    {"line": 1, "args": [""]},
+    {"line": 2, "args": ["Abc"]}
+  ]
+}

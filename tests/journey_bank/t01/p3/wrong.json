@@ -1,0 +1,13 @@
+{
+  "same_name": {
+    "langs": [
+      "python"
+    ],
+    "expect": "wrong",
+    "on": [
+      "ex1",
+      "repeated"
+    ],
+    "why": "뒤집지 않고 그대로 돌려줌"
+  }
+}
