@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""여정 문제 화면의 지문·힌트·해설 칸(DocView)과 해설 그림(FigureView).
+"""여정 문제 화면의 지문·힌트·해설 칸(DocView)과 해설 그림(FigureView), 그림을 그린 크기로 보는 창(FigureDialog).
 
 DocView 는 마크다운을 글 조각(QTextBrowser)과 그림 조각으로 나눠 위에서 아래로 쌓고, 기준 풀이 같은 코드 조각과 표·문단을 뒤에 더함.
 조각은 스크롤 막대 없이 내용 높이만큼 늘어나고 바깥 스크롤 하나로 읽음."""
@@ -9,7 +9,8 @@ import os
 
 from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QMovie, QPainter, QPixmap
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QTextBrowser, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QTextBrowser, QVBoxLayout,
+                             QWidget)
 
 import mdlite
 from gui import motion, theme
@@ -208,7 +209,8 @@ class DocView(QScrollArea):
 
 class FigureView(QWidget):
     """해설 그림 하나와 캡션. 파일은 처음에 한 번 바이트로 읽고 열어 두지 않아서, 보이는 동안에도 [문제 받기]가 파일을 바꾸거나 지울 수 있음.
-    그림 파일은 2배 크기라 화면에는 그 절반 폭까지만 보이고, 칸이 좁으면 칸 폭에 맞춰 줄임.
+    그림 파일은 2배 크기라 화면에는 그 절반 폭까지만 보이고, 칸이 좁으면 칸 폭에 맞춰 줄임. 줄어 보일 때 그림을 누르면
+    그린 크기(절반 폭)로 FigureDialog 를 띄움.
     GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 움직임이 켜져 있으면 처음 보일 때 한 번 재생하고 마지막 장에서 멈춤."""
 
     def __init__(self, path, alt="", parent=None):
@@ -216,6 +218,7 @@ class FigureView(QWidget):
         with open(path, "rb") as handle:
             data = handle.read()
         self.movie, self.count, self.playing, self.shown, self.drawn_width = None, 1, False, False, -1
+        self.shrunk, self.down, self.dialog = False, False, None
         self.source = QPixmap()
         box = QVBoxLayout(self)
         box.setContentsMargins(0, 0, 0, 0)
@@ -343,6 +346,28 @@ class FigureView(QWidget):
         pixmap = self.source.scaledToWidth(max(1, round(width * ratio)), Qt.TransformationMode.SmoothTransformation)
         pixmap.setDevicePixelRatio(ratio)
         self.picture.setPixmap(pixmap)
+        self.shrunk = width < self.source.width() / SCALE
+        self.picture.setCursor(Qt.CursorShape.PointingHandCursor if self.shrunk else Qt.CursorShape.ArrowCursor)
+        self.picture.setToolTip("누르면 그림을 원래 크기로 봅니다." if self.shrunk else "")
+
+    def _on_picture(self, event):
+        return event.button() == Qt.MouseButton.LeftButton and self.picture.geometry().contains(event.position().toPoint())
+
+    def mousePressEvent(self, event):
+        """줄어 보이는 그림 위의 누름을 받음. 그림을 담은 QLabel 은 누름을 받지 않고 여기로 넘김."""
+        self.down = self.shrunk and self._on_picture(event)
+        if self.down:
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        down, self.down = self.down, False
+        if down and self._on_picture(event):
+            self.dialog = FigureDialog(self.window(), self.source, self.caption.text())
+            self.dialog.show()
+        else:
+            super().mouseReleaseEvent(event)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -359,3 +384,33 @@ class FigureView(QWidget):
     def hideEvent(self, event):
         super().hideEvent(event)
         self.stop()
+
+
+class FigureDialog(QDialog):
+    """해설 그림 한 장을 그린 크기(파일 폭의 1/SCALE)로 보여 주는 창. 화면보다 크면 스크롤함. 움직이는 그림은 누른 때의 장을 보여 줌."""
+
+    def __init__(self, parent, source, title=""):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)  # 누를 때마다 새 창을 만들므로 닫은 창은 지움
+        self.setWindowTitle(title or "그림")
+        box = QVBoxLayout(self)
+        box.setContentsMargins(12, 12, 12, 12)
+        ratio = self.devicePixelRatioF()
+        pixmap = source.scaledToWidth(max(1, round(source.width() / SCALE * ratio)), Qt.TransformationMode.SmoothTransformation)
+        pixmap.setDevicePixelRatio(ratio)
+        self.picture = QLabel()
+        self.picture.setPixmap(pixmap)
+        scroll = QScrollArea()
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        scroll.setWidget(self.picture)
+        box.addWidget(scroll, 1)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        close = QPushButton("닫기")
+        close.clicked.connect(self.close)
+        row.addWidget(close)
+        box.addLayout(row)
+        size = pixmap.deviceIndependentSize()
+        room = self.screen().availableGeometry()
+        self.resize(min(round(size.width()) + 40, room.width() - 40), min(round(size.height()) + 90, room.height() - 60))

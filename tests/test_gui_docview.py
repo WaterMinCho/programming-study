@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """지문·힌트·해설 칸(gui/docview.py): 글·그림 조각 나누기, 언어별 코드 블록, 코드 조각 색칠, 없는 그림 안내, 어두운 테마, 확대,
-그림 재생기의 단계 이동. PyQt6 가 없으면 전부 건너뜀."""
+그림 재생기의 단계 이동, 줄어 보이는 그림을 눌러 크게 보기. PyQt6 가 없으면 전부 건너뜀."""
 import base64
 import os
 import re
@@ -314,6 +314,25 @@ class FigureViewTest(unittest.TestCase):
         guikit.pump()
         self.assertEqual(figure.width(), 60)
         self.assertLessEqual(figure.picture.pixmap().deviceIndependentSize().width(), 60)
+
+    def test_shrunk_figure_opens_at_its_drawn_size_when_clicked(self):
+        self.path = write(self.folder, "assets/1-1b.png", PNG)
+        figure = self.figure()
+        self.assertFalse(figure.shrunk)
+        QTest.mouseClick(figure.picture, guikit.LEFT)
+        guikit.pump()
+        self.assertIsNone(figure.dialog, "다 보이는 그림은 눌러도 창을 띄우지 않음")
+        figure.resize(60, 200)
+        guikit.pump()
+        self.assertTrue(figure.shrunk)
+        self.assertEqual("누르면 그림을 원래 크기로 봅니다.", figure.picture.toolTip())
+        QTest.mouseClick(figure.picture, guikit.LEFT)
+        guikit.pump()
+        dialog = figure.dialog
+        self.addCleanup(lambda: dialog.close())
+        self.assertTrue(dialog.isVisible())
+        self.assertEqual("그림 1-1a. 장부 줄이 모이는 모습", dialog.windowTitle())
+        self.assertEqual(100, dialog.picture.pixmap().deviceIndependentSize().width())
 
     def test_does_not_play_when_motion_is_off(self):
         self.assertFalse(motion.enabled)

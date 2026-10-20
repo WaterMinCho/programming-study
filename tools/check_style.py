@@ -229,6 +229,8 @@ def sealed_texts(path, text=None):
                 text = f.read()
         files = study.unseal_blob(json.loads(text)["blob"])
         pairs = [(rel, note) for rel, note in sorted(files.items()) if rel.endswith(SEALED_NOTES)]
+    except OSError as e:
+        return [], [("파일을 열 수 없음", "없는 파일" if isinstance(e, FileNotFoundError) else str(e)[:60])]
     except (ValueError, KeyError, TypeError, zlib.error) as e:
         return [], [("sealed.json 을 풀 수 없음", str(e)[:60])]
     return pairs, []
@@ -242,8 +244,11 @@ def check_path(path, commit=False, shown=None, text=None):
         pairs, broken = sealed_texts(path, text)
         return [(shown, broken)] if broken else [("%s:%s" % (shown, rel), check(note, path=rel)) for rel, note in pairs]
     if text is None:
-        with open(path, encoding="utf-8") as f:
-            text = f.read()
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except OSError as e:
+            return [(shown, [("파일을 열 수 없음", "없는 파일" if isinstance(e, FileNotFoundError) else str(e)[:60])])]
     return [(shown, check(text, commit, path))]
 
 

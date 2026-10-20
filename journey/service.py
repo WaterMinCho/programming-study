@@ -108,6 +108,9 @@ class JourneySession:
             log = data["log"]
             if not isinstance(log, list) or not all(isinstance(e, dict) and "kind" in e and "item" in e for e in log):
                 raise ValueError("log 항목의 형식이 맞지 않습니다")
+        except json.JSONDecodeError as error:
+            raise JourneyError("알고리즘 여행 기록(journey/progress.json)을 읽을 수 없습니다: %d번째 줄 %d번째 글자 근처의 JSON 형식이 "
+                               "맞지 않습니다." % (error.lineno, error.colno))
         except (OSError, ValueError, KeyError, TypeError) as error:
             raise JourneyError("알고리즘 여행 기록(journey/progress.json)을 읽을 수 없습니다: %s" % error)
         return data
@@ -381,6 +384,10 @@ class JourneySession:
         if not found:
             return {"ok": False, "label": "", "problem": NO_NODE}
         return {"ok": True, "label": "Node.js %s" % found["version"], "problem": "", "path": found["path"]}
+
+    def node_checked(self):
+        """node 를 이미 찾아 봤는지. True 면 runtime("javascript") 가 node 를 띄우지 않고 기억한 결과를 바로 돌려줌."""
+        return node_finder.searched()
 
     def cache_info(self):
         return runner.cache_info()

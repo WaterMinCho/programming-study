@@ -167,12 +167,15 @@ class HubPage(QWidget):
         self.python_btn = QPushButton("파이썬 스터디 들어가기")
         self.python_card = EntryCard("파이썬 스터디", self.python_btn)
         line = QHBoxLayout()
+        self.ready_label = QLabel("시험 준비도")
         self.ready = QLabel()
         self.ready.setObjectName("ready")
         self.ready_bar = QProgressBar()
         self.ready_bar.setRange(0, 100)
         self.ready_bar.setTextVisible(False)
         self.mastered = QLabel()
+        line.addWidget(self.ready_label)
+        line.addSpacing(8)
         line.addWidget(self.ready)
         line.addSpacing(12)
         line.addWidget(self.ready_bar, 1)
@@ -290,7 +293,8 @@ class HubPage(QWidget):
         overview = win.journey.overview()
         self.journey_passed.setText("통과 %d / %d · 보스 %d / %d" % (overview["passed"], overview["total"], overview["cleared"],
                                                                    overview["ready"]))
-        self.journey_langs.setText(" · ".join("%s %d" % (label, overview["by_lang"].get(lang, 0)) for lang, label in LANG_LABEL.items()))
+        self.journey_langs.setText("언어별 통과: " + " · ".join("%s %d" % (label, overview["by_lang"].get(lang, 0))
+                                                             for lang, label in LANG_LABEL.items()))
         target = overview["next"]
         if target:
             self.journey_next.setText("다음 추천: %s %s" % (target["no"], target["title"]))

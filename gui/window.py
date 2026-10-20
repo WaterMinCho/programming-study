@@ -14,7 +14,7 @@ from gui.guard import Guard
 from gui.home_page import HomePage
 from gui.hub_page import HubPage
 from gui.journey_map import JourneyMapPage
-from gui.journey_page import JourneyPage
+from gui.journey_page import JourneyPage, saved_lang, with_node
 from gui.result_page import ResultPage
 from gui.round_page import RoundPage
 from gui.team_page import TeamPage
@@ -188,11 +188,15 @@ class MainWindow(QMainWindow):
     def go_journey(self, did=None):
         if not self.leave_pages(lambda: self.go_journey(did), "저장하지 않고 나가기"):
             return
+        if self.node_first(lambda: self.go_journey(did)):
+            return
         self.journey_map.refresh(did)
         self.area = "journey"
         motion.switch(self.pages, self.journey_map)
 
     def open_problem(self, did, pid):
+        if self.node_first(lambda: self.open_problem(did, pid)):
+            return
         try:
             self.journey_page.load(did, pid)
         except SessionError as error:  # 잠긴 보스, 사라진 문제, 앞 문제의 코드를 저장하지 못한 경우
@@ -201,6 +205,14 @@ class MainWindow(QMainWindow):
         self.area = "journey"
         self.settings.setValue("journey/last", "%s/%s" % (did, pid))
         motion.switch(self.pages, self.journey_page)
+
+    def node_first(self, then):
+        """JavaScript 를 고른 적이 있는데 node 를 아직 찾아 보지 않았으면 워커에서 찾은 뒤 then() 을 부르고 True 를 돌려줌.
+        지도와 문제 화면은 언어를 정할 때 기억한 결과만 읽으므로, 화면 스레드에서 node 를 띄우지 않음."""
+        if saved_lang(self.settings) != "javascript" or self.journey.node_checked():
+            return False
+        with_node(self, lambda ok: then())
+        return True
 
     def leave_pages(self, then, leave):
         """회차 화면의 답과 문제 화면의 코드를 모두 저장했으면 True. 인자는 leave_round 와 같음."""

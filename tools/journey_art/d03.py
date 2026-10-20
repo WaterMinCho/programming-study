@@ -106,7 +106,7 @@ def first_true(n, ok):
     return steps, lo
 
 
-@figure("3-1a", 560, 300)
+@figure("3-1c", 560, 300)
 def lower_bound_steps(fig):
     steps, answer = first_true(len(SORTED), lambda i: SORTED[i] >= 5)
     assert [s[:3] for s in steps] == [(0, 5, 2), (0, 2, 1)] and answer == 2  # 해설의 단계
@@ -147,7 +147,7 @@ def lower_bound_steps(fig):
         note(c, text)
 
 
-@figure("3-1b", 560, 260)
+@figure("3-1a", 560, 260)
 def first_true_strip(fig):
     c = fig.frame()
     head(c, "예 1의 정렬된 배열 [1, 3, 5, 5, 9]에 a = 5를 대기")
@@ -164,7 +164,7 @@ def first_true_strip(fig):
     note(c, "F가 이어지다가 처음 T가 나오는 2번 자리가 5의 lower bound입니다.")
 
 
-@figure("3-1c", 560, 320)
+@figure("3-1b", 560, 320)
 def two_bounds(fig):
     c = fig.frame()
     head(c, "같은 배열에 질의 [5, 5]를 대고 두 경계 찾기")
@@ -555,7 +555,7 @@ def zone_batch(fig):
     note(c, "구역 안에서는 s, s + D, s + 2D, …에 같은 간격으로 놓입니다.")
 
 
-@figure("3-bb", 560, 300)
+@figure("3-bd", 560, 300)
 def zone_search(fig):
     hi0 = (ZONES[-1][1] - ZONES[0][0]) // (K - 1)
     steps, answer = search_last_true(1, hi0, lambda D: kth(ZONES, D, K) >= 0)
@@ -612,7 +612,7 @@ def zone_search(fig):
         note(c, text)
 
 
-@figure("3-bc", 560, 300)
+@figure("3-bb", 560, 300)
 def kth_spot(fig):
     D = 3
     parts = batch(ZONES, D, K)
@@ -640,7 +640,7 @@ def kth_spot(fig):
     note(c, "앞 구역까지 2개라 K번째 수정은 이 구역의 3번째 자리 26에 놓입니다.")
 
 
-@figure("3-bd", 560, 300)
+@figure("3-bc", 560, 300)
 def greedy_proof(fig):
     D = 3
     other = [1, 20, 23, 26, 29]

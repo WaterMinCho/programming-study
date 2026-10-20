@@ -38,12 +38,22 @@ def saved_lang(settings):
 
 
 def node_ready(win):
-    """JavaScript 로 풀 수 있는지. 처음 물을 때 서비스가 node 를 찾고, 결과는 프로세스 안에서 기억함."""
+    """JavaScript 로 풀 수 있는지. 서비스가 처음 찾은 결과를 프로세스 안에서 기억함.
+    처음 찾기는 창이 지도·문제 화면을 열기 전이나 with_node 에서 워커로 해 두므로, 여기서는 기억한 결과만 읽음."""
     return bool(win.journey.runtime("javascript")["ok"])
 
 
+def with_node(win, then):
+    """then(JavaScript 로 풀 수 있는지)을 부름. 아직 node 를 찾아 보지 않았으면 찾기와 버전 확인을 워커에서 한 뒤에 부름.
+    느린 node 후보(백신이 잡은 첫 실행, 멈춘 심)가 있어도 화면이 멈추지 않음."""
+    if win.journey.node_checked():
+        then(node_ready(win))
+        return
+    win.run_job("Node.js 를 찾는 중입니다.", lambda: win.journey.runtime("javascript"), lambda info: then(bool(info["ok"])))
+
+
 def ask_node(win, on_ready):
-    """Node.js 가 없을 때의 대화상자. [다시 찾기]나 [Node 위치 지정…]으로 node 를 찾으면 on_ready() 를 부름."""
+    """Node.js 가 없을 때의 대화상자. [다시 찾기]나 [Node 위치 지정…]으로 node 를 찾으면 on_ready() 를 부름. 찾기와 확인은 워커에서 함."""
 
     def found(info):
         if info.get("ok"):
@@ -58,13 +68,12 @@ def ask_node(win, on_ready):
         path = win.pick_file("node 실행 파일 고르기")
         if not path:
             return
-        try:
-            info = win.journey.set_node(path)
-        except SessionError as error:
-            win.ask("알림", str(error))
-            return
-        win.settings.setValue("journey/node", path)
-        found(info)
+
+        def checked(info):
+            win.settings.setValue("journey/node", path)
+            found(info)
+
+        win.run_job("Node.js 를 확인하는 중입니다.", lambda: win.journey.set_node(path), checked)
 
     return win.ask(NODE_TITLE, NODE_TEXT, (("다시 찾기", "find"), ("Node 위치 지정…", "pick"), ("닫기", "")), choose)
 
@@ -264,7 +273,8 @@ class JourneyPage(QWidget):
     # 불러오기
 
     def usable_lang(self):
-        """설정의 언어. JavaScript 인데 node 가 없으면 Python 으로 풀고 "Node.js 필요" 를 보임."""
+        """설정의 언어. JavaScript 인데 node 가 없으면 Python 으로 풀고 "Node.js 필요" 를 보임.
+        창이 이 화면을 열기 전에 워커에서 node 를 찾아 두므로 여기서는 기억한 결과만 읽음."""
         lang = saved_lang(self.win.settings)
         if lang == "javascript" and not node_ready(self.win):
             self.lang_bar.note.show()
@@ -334,20 +344,17 @@ class JourneyPage(QWidget):
         data = self.data
         hints, total = data["hints"], data["hint_total"]
         self.tabs.setTabText(1, "힌트 %d/%d" % (len(hints), total) if total else "힌트")
-        text = "\n\n".join("### 힌트 %d\n\n%s" % (number, body) for number, body in enumerate(hints, 1))
+        if hints:
+            text = "\n\n".join("### 힌트 %d\n\n%s" % (number, body) for number, body in enumerate(hints, 1))
+        elif total:
+            text = "힌트는 한 단계씩 열리고, 연 단계는 기록에 남습니다. 아래 [힌트 1 보기]를 누르면 첫 힌트가 나옵니다."
+        else:
+            text = "이 문제에는 힌트가 없습니다."
         self.hint_view.set_markdown(text, data["base_dir"], self.lang)
         left = total - len(hints)
         self.hint_btn.setText("힌트 %d 보기" % (len(hints) + 1))
         self.hint_btn.setVisible(left > 0)
-        if not total:
-            note = "이 문제에는 힌트가 없습니다."
-        elif not left:
-            note = "힌트를 모두 열었습니다."
-        elif not hints:
-            note = "힌트는 한 단계씩 열리고, 연 단계는 기록에 남습니다."
-        else:
-            note = ""
-        self.hint_note.setText(note)
+        self.hint_note.setText("힌트를 모두 열었습니다." if total and not left else "")
 
     def show_explain(self):
         """해설이 열렸으면 explain.md, (보스면) 합성표, 기준 풀이, 더 풀어 볼 문제. 안 열렸으면 안내와 [포기하고 해설 보기]."""
@@ -380,11 +387,16 @@ class JourneyPage(QWidget):
 
     # 언어
 
-    def pick_lang(self, lang):
-        """언어를 바꿈. 쓰던 코드를 저장하고 그 언어의 파일(없으면 시작 코드)을 엶. JavaScript 인데 node 가 없으면 Python 에 머묾."""
+    def pick_lang(self, lang, node_ok=None):
+        """언어를 바꿈. 쓰던 코드를 저장하고 그 언어의 파일(없으면 시작 코드)을 엶. JavaScript 인데 node 가 없으면 Python 에 머묾.
+        node_ok 는 with_node 가 알아낸 결과이고, 없으면 with_node 를 거쳐 다시 부름."""
         if self.data is None or lang == self.lang:
             return
-        if lang == "javascript" and not node_ready(self.win):
+        if lang == "javascript" and node_ok is None:
+            with_node(self.win, lambda ok: self.pick_lang(lang, ok))
+            return
+        if lang == "javascript" and not node_ok:
+            self.status.setText("")
             self.lang_bar.note.show()
             ask_node(self.win, lambda: self.pick_lang("javascript"))
             return
@@ -401,6 +413,7 @@ class JourneyPage(QWidget):
         self.lang, self.data = lang, data
         self.find_bar.dismiss(select=False)
         self._show_code()
+        self.status.setText("")
         self.show_docs()
         self.show_result()
 
@@ -480,8 +493,7 @@ class JourneyPage(QWidget):
             widget.setEnabled(not busy)
         self.stop_btn.setEnabled(busy)
         self.busy_bar.setVisible(busy)
-        if busy:
-            self.status.setText(text)
+        self.status.setText(text if busy else "")
 
     def run_code(self):
         if self.data is None or not self.flush():

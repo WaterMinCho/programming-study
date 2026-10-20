@@ -39,7 +39,7 @@ from session import SessionError  # noqa: E402
 
 FIXTURE = os.path.join(guikit.ROOT, "tests", "journey_bank")
 LEAN = bool(os.environ.get("STUDY_LEAN_CI"))
-SKIP_LEAN = unittest.skipIf(LEAN, "자식 프로세스를 띄우는 테스트는 journey.yml 에서 돎")
+SKIP_LEAN = unittest.skipIf(LEAN, "자식 프로세스를 띄우는 테스트는 ci.yml 의 화면 테스트 작업에서 돎")
 NODE = None if LEAN else node.find()
 NO_NODE = {"ok": False, "label": "", "problem": "Node.js 를 찾지 못했습니다."}
 HAS_NODE = {"ok": True, "label": "Node.js 22.0.0", "problem": ""}
@@ -223,6 +223,7 @@ class MapTest(Base):
         self.assertEqual("t01", page.view.selected)
         self.assertIn("던전 1 · 합·최댓값 「시험 마을」", page.title.text())
         self.assertEqual("통과 0/4", page.passed.text())
+        self.assertEqual("muted", MapView.state(page.view.rows[0]), "시작 전 원은 흰 바탕에서도 보이는 색")
         self.assertTrue(page.notice.isVisible())
         self.assertIn("t02", page.notice.text())
         nodes = dict(page.view.nodes())
@@ -322,9 +323,11 @@ class PageTest(Base):
         editor = page.code_panel.editor
         self.assertIn(("def", "keyword"), guikit.painted(editor, 0))
         self.type_code("# 파이썬 풀이\n" + editor.toPlainText())
+        page.status.setText("코드 실행을 마쳤습니다.")
         with mock.patch.object(win.journey, "runtime", lambda lang: HAS_NODE):
             guikit.click(page.lang_btns["javascript"])
             self.assertEqual("javascript", page.lang)
+            self.assertEqual("", page.status.text(), "앞 언어의 상태 글이 남지 않음")
             self.assertIs(JAVASCRIPT, editor.lang)
             self.assertEqual(values.starter(page.data["signature"], "javascript"), editor.toPlainText())
             self.assertIn(("function", "keyword"), guikit.painted(editor, 0))
@@ -580,10 +583,13 @@ class HintExplainTest(Base):
         page = self.open("p1")
         self.assertEqual("힌트 0/3", page.tabs.tabText(1))
         self.assertEqual("힌트 1 보기", page.hint_btn.text())
+        self.assertIn("힌트는 한 단계씩 열리고, 연 단계는 기록에 남습니다.", doc_text(page.hint_view))
+        self.assertEqual("", page.hint_note.text())
         guikit.click(page.hint_btn)
         self.assertEqual("힌트 1/3", page.tabs.tabText(1))
         self.assertIn("한 변수에 모아 두세요", doc_text(page.hint_view))
         self.assertNotIn("변수를 0으로 시작하고", doc_text(page.hint_view))
+        self.assertNotIn("힌트는 한 단계씩", doc_text(page.hint_view))
         guikit.click(page.hint_btn)
         guikit.click(page.hint_btn)
         self.assertEqual("힌트 3/3", page.tabs.tabText(1))
@@ -667,6 +673,7 @@ class CasesDialogTest(Base):
         page = self.open("p3")
         guikit.click(page.cases_btn)
         dialog = page.cases_dialog
+        self.assertEqual("예시에서 가져오기", dialog.example_btn.text(), "메뉴 화살표는 Qt 가 그림")
         self.assertEqual(["입출력 예 1", "입출력 예 2", "입출력 예 3"], [action.text() for action in dialog.example_menu.actions()])
         dialog.example_menu.actions()[1].trigger()
         self.assertEqual(2, len(dialog.rows))

@@ -81,8 +81,8 @@ class RunHtmlTest(unittest.TestCase):
                  run_case(3, "runtime", error="ZeroDivisionError: division by zero (3번째 줄)", note=""),
                  run_case(4, "timeout"), run_case(5, "memory")]
         text = self.shown(cases)
-        self.assertIn("실행 결과 〉 실행한 결괏값 ['mint', 'clove', 'basil']이 기댓값 ['basil', 'clove', 'mint']과 다릅니다.", text)
-        self.assertIn("실행 결과 〉 실행한 결괏값이 기댓값 ['pepper']과 다릅니다.\n참고 〉 " + values.TUPLE_NOTE, text)
+        self.assertIn("기댓값 〉 ['basil', 'clove', 'mint']\n실행 결과 〉 기댓값과 다릅니다. 실행한 결괏값: ['mint', 'clove', 'basil']", text)
+        self.assertIn("실행 결과 〉 기댓값과 다릅니다.\n참고 〉 " + values.TUPLE_NOTE, text)
         self.assertIn("실행 결과 〉 실행 중 오류가 발생했습니다.\nZeroDivisionError: division by zero (3번째 줄)", text)
         self.assertIn("실행 시간이 %.1f초를 초과하여 실행이 중단되었습니다." % (runner.RUN_LIMIT_MS / 1000.0), text)
         self.assertIn("10.0초", text)
@@ -125,8 +125,8 @@ class RunHtmlTest(unittest.TestCase):
         python, script = shown["python"], shown["javascript"]
         self.assertIn("입력값 〉 ['salt 1', 'mint 2'], True", python)
         self.assertIn("입력값 〉 [\"salt 1\", \"mint 2\"], true", script)
-        self.assertIn("실행한 결괏값 ['anise']이 기댓값 []과 다릅니다.", python)
-        self.assertIn("실행한 결괏값 [\"anise\"]이 기댓값 []과 다릅니다.", script)
+        self.assertIn("기댓값과 다릅니다. 실행한 결괏값: ['anise']", python)
+        self.assertIn("기댓값과 다릅니다. 실행한 결괏값: [\"anise\"]", script)
         self.assertIn("테스트 결과 3개 중 2개 성공", python)
         self.assertNotIn("True", script)
 

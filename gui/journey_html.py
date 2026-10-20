@@ -55,8 +55,8 @@ def run_verdict(case):
     if status == "pass":
         return '<span class="ok">테스트를 통과하였습니다.</span>', ""
     if status in ("wrong", "bad_return"):
-        got = "실행한 결괏값 %s이" % esc(case["got_text"]) if case.get("got_text") else "실행한 결괏값이"
-        return '<span class="wrong">%s 기댓값 %s과 다릅니다.</span>' % (got, esc(case["want_text"])), note_line(case.get("note"))
+        got = " 실행한 결괏값: <code>%s</code>" % esc(case["got_text"]) if case.get("got_text") else ""
+        return '<span class="wrong">기댓값과 다릅니다.</span>' + got, note_line(case.get("note"))
     if status == "runtime":
         return '<span class="wrong">실행 중 오류가 발생했습니다.</span>', code_box(case.get("error") or "") + note_line(case.get("note"))
     if status == "timeout":

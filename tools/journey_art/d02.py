@@ -477,7 +477,7 @@ def boss_maps():
     return d, temp, lava, L, safe, table(safe)
 
 
-@figure("2-ba", 560, 340)
+@figure("2-bc", 560, 340)
 def boss_steps(fig):
     d, temp, lava, L, safe, S = boss_maps()
     assert temp == [[5, 5, 5, 4], [5, 2, 2, 1], [0, -3, -3, 1]]
@@ -584,7 +584,7 @@ def square_vs_diamond(fig):
     say(c, "빗금 칸은 두 차이가 모두 d 이하라 위험 칸이지만 마름모에서는 빠집니다.")
 
 
-@figure("2-bc", 560, 280)
+@figure("2-ba", 560, 280)
 def tall_work(fig):
     n, d, q, e = 250000, 100000, 250000, 250000
     full, small = e // 2, e // 2  # tall 의 분출: 띠 전체 분출 짝 62,500쌍(125,000개)과 50칸 미만의 작은 분출
@@ -594,7 +594,7 @@ def tall_work(fig):
     widen = n * d  # 띠 전체를 d번 훑음
     ours = 4 * e + 2 * n + n + 4 * n + n + 4 * q  # 표시 4칸, 두 방향 누적, L, 칸마다 L 네 칸, S, 질의마다 S 네 칸
     c = fig.frame()
-    title(c, "tall(250,000×1 띠, d = 100,000)에서 칸을 읽고 쓰는 횟수")
+    title(c, "효율성 테스트 3(250,000×1 띠, d = 100,000)에서 칸을 읽고 쓰는 횟수")
     x0, length, top = 150, 300, rows_way
     for k, (label, value, color_name) in enumerate((("행 단위 풀이", rows_way, "missing"), ("d번 넓히기", widen, "decorator"), ("기준 풀이", ours, "string"))):
         y = 62 + k * 52

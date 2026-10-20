@@ -476,7 +476,7 @@ TARGET = 2
 PREFIX = [0, 3, 2, 4, 2, 3]  # 예 1 의 deltas = [3, -1, 2, -2, 1] 의 누적합
 
 
-@figure("1-5a", 560, 300)
+@figure("1-5b", 560, 300)
 def prefix_pairs(fig):
     c = fig.frame()
     head(c, "예 1: deltas = [3, -1, 2, -2, 1] 의 누적합 P 꺾은선 (K = 2)")
@@ -522,7 +522,7 @@ PREFIX_STEPS = [  # (j, 답에 더한 수, 설명)
 ]
 
 
-@figure("1-5b", 560, 300)
+@figure("1-5c", 560, 300)
 def prefix_scan(fig):
     def px(i):
         return 40 + i * 46
@@ -573,7 +573,7 @@ def prefix_scan(fig):
         note(c, text)
 
 
-@figure("1-5c", 560, 280)
+@figure("1-5a", 560, 280)
 def window_breaks(fig):
     c = fig.frame()
     head(c, "[-2, 5, -1], K = 2 에서 r 이 5 에 닿아 합이 K 를 넘을 때 l 을 당기기")

@@ -352,6 +352,12 @@ class SealedTest(unittest.TestCase):
             self.assertEqual(1, len(got))
             self.assertEqual(["sealed.json 을 풀 수 없음"], names(got[0][1]))
 
+    def test_missing_file_is_a_failure_not_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("hints.md", "d09/sealed.json"):
+                got = check_style.check_path(os.path.join(tmp, name), shown=name)
+                self.assertEqual([(name, [("파일을 열 수 없음", "없는 파일")])], got)
+
 
 class RepoFilesTest(unittest.TestCase):
     """저장소에 든 훅, style.yml, .gitignore 가 명세대로인지 봄."""

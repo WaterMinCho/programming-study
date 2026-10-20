@@ -308,6 +308,10 @@ class ProgressFileTest(Base):
                 self.session()
             self.assertIsInstance(caught.exception, session.SessionError)
             self.assertIn("journey/progress.json", str(caught.exception))
+        study.write_text(self.progress_path(), '{"log": [\n  {"kind": "hint"}\n  {"kind": "hint"}\n]}')
+        with self.assertRaises(JourneyError) as caught:
+            self.session()
+        self.assertTrue(str(caught.exception).endswith(": 3번째 줄 3번째 글자 근처의 JSON 형식이 맞지 않습니다."), caught.exception)
 
     def test_write_rereads_records_made_by_another_session(self):
         first, second = self.session(), self.session()

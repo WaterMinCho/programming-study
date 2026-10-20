@@ -10,6 +10,7 @@ import re
 import shutil
 import sys
 import tempfile
+import threading
 import unittest
 from unittest import mock
 
@@ -26,11 +27,12 @@ import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
 from gui import errors, theme  # noqa: E402
+from gui.journey_page import NODE_TITLE  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
-from journey import bank, runner  # noqa: E402
+from journey import bank, node, runner  # noqa: E402
 
 FIXTURE = os.path.join(guikit.ROOT, "tests", "journey_bank")
-SKIP_LEAN = unittest.skipIf(os.environ.get("STUDY_LEAN_CI"), "자식 프로세스를 띄우는 테스트는 journey.yml 에서 돎")
+SKIP_LEAN = unittest.skipIf(os.environ.get("STUDY_LEAN_CI"), "자식 프로세스를 띄우는 테스트는 ci.yml 의 화면 테스트 작업에서 돎")
 USER = "tester"
 
 
@@ -194,7 +196,7 @@ class HubScreenTest(HubTest):
         overview = win.session.overview()
         last = [r for r in overview["rounds"] if r["completed"]][-1]
         earned = int(last["first_score"].split("/")[0])
-        self.assertEqual(hub.ready.text(), "%d%%" % overview["readiness"])
+        self.assertEqual((hub.ready_label.text(), hub.ready.text()), ("시험 준비도", "%d%%" % overview["readiness"]))
         self.assertEqual(hub.mastered.text(), "숙달한 단원 %d / %d" % (overview["mastered"], overview["total_units"]))
         self.assertEqual(hub.python_next.text(), "지금 할 일: %s" % win.next_action(overview)[0])
         self.assertEqual(hub.python_last.text(), "지난 회차: %s 첫 채점 %d / 100점" % (last["title"], earned))
@@ -202,7 +204,7 @@ class HubScreenTest(HubTest):
 
         # 여행 카드: 1-1·1-2 를 통과해 보스가 열리고 다음 추천은 보스
         self.assertEqual(hub.journey_passed.text(), "통과 2 / 4 · 보스 0 / 1")
-        self.assertEqual(hub.journey_langs.text(), "Python 2 · JavaScript 1")
+        self.assertEqual(hub.journey_langs.text(), "언어별 통과: Python 2 · JavaScript 1")
         self.assertTrue(hub.journey_next.text().startswith("다음 추천: 1-B "), hub.journey_next.text())
         self.assertTrue(hub.journey_btn.isEnabled())
         self.assertFalse(hub.journey_error.isVisible())
@@ -368,6 +370,59 @@ class JobTest(HubTest):
         self.assertIsNone(win.job)
         self.assertEqual([e for e in self.read_log() if e["kind"] == "grade"], [])
         self.assertTrue(study.read_text(self.code_path("p1")).startswith("def solution(nums):\n    while True"))
+
+
+class NodeLookupTest(HubTest):
+    """node 찾기와 버전 확인은 워커에서 함. 느린 node 후보가 있어도 누른 단추가 화면을 멈추지 않게 함."""
+
+    NODE_INFO = {"path": "/opt/node/bin/node", "version": "22.0.0", "major": 22}
+
+    def setUp(self):
+        super().setUp()
+        self.threads = {"search": [], "check": []}  # 부른 스레드가 화면 스레드였는지
+        self.found = None
+
+        def search(probe=False, saved=None):
+            self.threads["search"].append(threading.current_thread() is threading.main_thread())
+            return self.found
+
+        def check(path):
+            self.threads["check"].append(threading.current_thread() is threading.main_thread())
+            return dict(self.NODE_INFO, path=path)
+
+        for patcher in (mock.patch.object(node, "_found", None), mock.patch.object(node, "search", search),
+                        mock.patch.object(node, "check", check)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_saved_javascript_is_checked_before_the_map_opens(self):
+        self.found = self.NODE_INFO
+        self.settings.setValue("journey/lang", "javascript")
+        win = self.boot()
+        guikit.click(win.hub.journey_btn)
+        self.idle()
+        self.assertIs(self.page(), win.journey_map)
+        self.assertEqual("javascript", win.journey_map.lang_bar.lang)
+        page = self.open_problem("p1")
+        self.assertEqual("javascript", page.lang)
+        self.assertEqual([False], self.threads["search"], "한 번 찾은 결과를 기억하고, 찾기는 워커에서만 함")
+
+    def test_javascript_button_and_node_path_are_checked_in_the_worker(self):
+        win = self.boot()
+        guikit.click(win.hub.journey_btn)
+        self.assertEqual([], self.threads["search"], "Python 이면 node 를 찾지 않음")
+        page = win.journey_map
+        guikit.click(page.lang_btns["javascript"])
+        self.idle()
+        self.assertEqual([False], self.threads["search"])
+        self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
+        self.assertEqual("python", page.lang_bar.lang)
+        win.pick_file = lambda title: "/opt/node/bin/node"
+        self.choose("pick")
+        self.idle()
+        self.assertEqual([False], self.threads["check"])
+        self.assertEqual("javascript", page.lang_bar.lang)
+        self.assertEqual("/opt/node/bin/node", self.settings.value("journey/node"))
 
 
 if __name__ == "__main__":

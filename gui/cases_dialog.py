@@ -62,7 +62,7 @@ class CasesDialog(QDialog):
         tools = QHBoxLayout()
         self.add_btn = QPushButton("케이스 추가")
         self.add_btn.clicked.connect(lambda: self.add_row())
-        self.example_btn = QPushButton("예시에서 가져오기 ▾")
+        self.example_btn = QPushButton("예시에서 가져오기")
         self.example_menu = QMenu(self)
         for index in range(len(self.examples)):
             self.example_menu.addAction("입출력 예 %d" % (index + 1), lambda index=index: self.from_example(index))

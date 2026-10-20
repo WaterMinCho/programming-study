@@ -195,6 +195,11 @@ def find(probe=False, saved=None):
     return _found or None
 
 
+def searched():
+    """찾아 본 결과(찾았든 못 찾았든)를 기억하는지. 그때 find() 는 자식 프로세스를 띄우지 않고 바로 돌아옴."""
+    return _found is not None
+
+
 def remember(info):
     """사용자가 고른 경로를 확인한 결과를 기억함."""
     global _found

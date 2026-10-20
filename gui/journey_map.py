@@ -12,14 +12,14 @@ from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QListWidg
 
 from gui import theme
 from gui.docview import DocView
-from gui.journey_page import LANG_LABEL, LangButtons, ask_node, md_text, node_ready, saved_lang
+from gui.journey_page import LANG_LABEL, LangButtons, ask_node, md_text, node_ready, saved_lang, with_node
 from gui.round_page import DOT_PX, RowDelegate, dot
 from gui.widgets import Para
 
 COLUMNS = 4  # 한 줄의 던전 수
 RADIUS = 19  # 던전 원의 반지름
-LEGEND = (("ok", "●", "클리어"), ("primary", "◐", "진행 중"), ("border_strong", "○", "시작 전"), ("faint", "◌", "준비 중"))
-CLEAR_TEXT = "만들어 둔 효율성 테스트 입력을 지웁니다. 다음 채점 때 다시 만듭니다. 지울까요?"
+LEGEND = (("ok", "●", "클리어"), ("primary", "◐", "진행 중"), ("muted", "○", "시작 전"), ("faint", "◌", "준비 중"))
+CLEAR_TEXT = "채점할 때 만들어 둔 테스트 입력(효율성 테스트의 큰 입력과 정확성 테스트의 작은 무작위 입력)을 지웁니다. 다음 채점 때 다시 만듭니다. 지울까요?"
 
 
 def size_text(size):
@@ -54,7 +54,7 @@ def row_text(row, info):
 
 
 class MapView(QWidget):
-    """QPainter 로 그린 지도. 원 안에 던전 번호, 색은 클리어 ok · 진행 중 primary · 시작 전 border_strong · 준비 중 faint 점선.
+    """QPainter 로 그린 지도. 원 안에 던전 번호, 색은 클리어 ok · 진행 중 primary · 시작 전 muted · 준비 중 faint 점선.
     고른 던전은 primary 두 겹 테두리. 누르면 picked(던전 id) 를 냄."""
     picked = pyqtSignal(str)
 
@@ -104,7 +104,7 @@ class MapView(QWidget):
             return "faint"
         if row["cleared"]:
             return "ok"
-        return "primary" if row["passed"] else "border_strong"
+        return "primary" if row["passed"] else "muted"
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -207,7 +207,7 @@ class JourneyMapPage(QWidget):
         self.cache.setObjectName("muted")
         self.clear_cache_btn = QPushButton("캐시 비우기")
         self.clear_cache_btn.setObjectName("quiet")
-        self.clear_cache_btn.setToolTip("효율성 테스트의 큰 입력은 처음 채점할 때 만들어 이 컴퓨터에 보관해 둡니다.")
+        self.clear_cache_btn.setToolTip("효율성 테스트의 큰 입력과 정확성 테스트의 작은 무작위 입력은 처음 채점할 때 만들어 이 컴퓨터에 보관해 둡니다.")
         cache_row.addWidget(self.cache)
         cache_row.addWidget(self.clear_cache_btn)
         cache_row.addStretch(1)
@@ -284,7 +284,8 @@ class JourneyMapPage(QWidget):
             self.show_dungeon(did)
 
     def usable_lang(self):
-        """설정의 언어. JavaScript 를 고른 적이 있을 때만 node 를 찾아 보고, 없으면 Python 과 "Node.js 필요" 를 보임."""
+        """설정의 언어. JavaScript 인데 node 가 없으면 Python 과 "Node.js 필요" 를 보임.
+        node 는 JavaScript 를 고른 적이 있을 때만 창이 이 화면을 열기 전에 워커에서 찾아 두므로, 여기서는 기억한 결과만 읽음."""
         lang = saved_lang(self.win.settings)
         if lang == "javascript" and not node_ready(self.win):
             self.lang_bar.note.show()
@@ -347,7 +348,7 @@ class JourneyMapPage(QWidget):
             return dot(theme.color("faint"), False)
         if row["passed"]:
             return dot(theme.color("ok"), True)
-        return dot(theme.color("primary" if row["tried"] else "border_strong"), False)
+        return dot(theme.color("primary" if row["tried"] else "muted"), False)
 
     def _sync_solve(self):
         item = self.listw.currentItem()
@@ -360,9 +361,13 @@ class JourneyMapPage(QWidget):
 
     # 언어 · 캐시
 
-    def pick_lang(self, lang):
-        """문제 화면과 같은 설정을 바꿈. JavaScript 인데 node 가 없으면 Python 에 머물고 대화상자를 띄움."""
-        if lang == "javascript" and not node_ready(self.win):
+    def pick_lang(self, lang, node_ok=None):
+        """문제 화면과 같은 설정을 바꿈. JavaScript 인데 node 가 없으면 Python 에 머물고 대화상자를 띄움.
+        node_ok 는 with_node 가 알아낸 결과이고, 없으면 with_node 를 거쳐 다시 부름."""
+        if lang == "javascript" and node_ok is None:
+            with_node(self.win, lambda ok: self.pick_lang(lang, ok))
+            return
+        if lang == "javascript" and not node_ok:
             self.lang_bar.note.show()
             ask_node(self.win, lambda: self.pick_lang("javascript"))
             return
