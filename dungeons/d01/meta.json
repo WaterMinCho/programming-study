@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "skills": ["dict/Map 집계", "다중 기준 정렬", "양끝 포인터", "가변 창", "합의 범위로 구간 세기", "누적합+해시"],
+  "problems": [
+    {"id": "p1", "no": "1-1", "role": "basic"},
+    {"id": "p2", "no": "1-2", "role": "basic"},
+    {"id": "p3", "no": "1-3", "role": "mid"},
+    {"id": "p4", "no": "1-4", "role": "mid"},
+    {"id": "p5", "no": "1-5", "role": "mid"},
+    {"id": "boss", "no": "1-B", "role": "boss"}
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "title": "분출 기록",
+  "tier": "S1 / Lv2",
+  "signature": {
+    "params": [
+      {"name": "n", "type": "int"},
+      {"name": "eruptions", "type": "list[list[int]]"},
+      {"name": "T", "type": "int"}
+    ],
+    "returns": "int"
+  },
+  "time_limit_ms": {"python": 2000, "javascript": 1000},
+  "score": {"accuracy": 70, "efficiency": 30},
+  "examples": [
+    {"args": [5, [[1, 3, 2], [2, 5, 3], [3, 3, -4]], 3], "expected": 3},
+    {"args": [4, [[2, 2, -1]], 0], "expected": 3},
+    {"args": [3, [], 1], "expected": 0}
+  ],
+  "prep": []
+}

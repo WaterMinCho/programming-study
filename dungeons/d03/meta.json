@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "skills": ["lower/upper bound", "최소화·최대화 매개변수 탐색", "결정 함수 안의 일괄 세기", "고정점이 있는 탐욕 판정"],
+  "problems": [
+    {"id": "p1", "no": "3-1", "role": "basic"},
+    {"id": "p2", "no": "3-2", "role": "mid"},
+    {"id": "p3", "no": "3-3", "role": "mid"},
+    {"id": "boss", "no": "3-B", "role": "boss"}
+  ]
+}

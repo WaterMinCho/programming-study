@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "skills": ["1차원·2차원 누적합", "포함 배제", "1차원·2차원 차분"],
+  "problems": [
+    {"id": "p1", "no": "2-1", "role": "basic"},
+    {"id": "p2", "no": "2-2", "role": "basic"},
+    {"id": "p3", "no": "2-3", "role": "mid"},
+    {"id": "p4", "no": "2-4", "role": "mid"},
+    {"id": "boss", "no": "2-B", "role": "boss"}
+  ]
+}

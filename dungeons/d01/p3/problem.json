@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "title": "대상단 하루 일정",
+  "tier": "G4 / Lv3",
+  "signature": {
+    "params": [
+      {"name": "fuel", "type": "list[int]"},
+      {"name": "L", "type": "int"},
+      {"name": "R", "type": "int"}
+    ],
+    "returns": "int"
+  },
+  "time_limit_ms": {"python": 2000, "javascript": 1000},
+  "score": {"accuracy": 60, "efficiency": 40},
+  "examples": [
+    {"args": [[2, 1, 3, 2], 3, 5], "expected": 4},
+    {"args": [[5, 5, 5], 5, 5], "expected": 3},
+    {"args": [[1, 1, 1, 1], 1, 100], "expected": 10}
+  ],
+  "prep": ["p2"]
+}

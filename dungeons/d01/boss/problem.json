@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "title": "감사관의 구간 세기",
+  "tier": "G3 / Lv3",
+  "signature": {
+    "params": [
+      {"name": "stalls", "type": "list[str]"},
+      {"name": "K", "type": "int"},
+      {"name": "C", "type": "int"}
+    ],
+    "returns": "int"
+  },
+  "time_limit_ms": {"python": 4500, "javascript": 1000},
+  "score": {"accuracy": 50, "efficiency": 50},
+  "examples": [
+    {"args": [["salt", "mint", "salt", "mint", "cumin"], 2, 2], "expected": 7},
+    {"args": [["salt", "mint", "salt", "mint", "cumin"], 2, 1], "expected": 4},
+    {"args": [["anise", "anise", "anise"], 1, 2], "expected": 5}
+  ],
+  "prep": [],
+  "uses": ["p1", "p2", "p3", "p4", "p5"]
+}
