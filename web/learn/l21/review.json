@@ -1,0 +1,14 @@
+{
+ "format": 1,
+ "writer": "출제 W",
+ "resolver": "재풀이 S",
+ "reviewer": "검토 R",
+ "files": {
+  "assets/l21-1.png": "0ff446f44df44b7518ecb68a563b7c93eeda2eef2adc6d5532cc11c8292e5b66",
+  "assets/l21-2.png": "d2aefaa36ba5f1d5520cca2aefdbcaaab98ba1ff5ddc1aceea4597df406c6420",
+  "assets/l21-3.gif": "3e322c185af19c1bf497239dd030e38b17f8f4da3335fc194d23f8ac6536c575",
+  "meta.json": "49195e658f6881b62c57b1a40a3aa67a8db5a38fa14e8a54355cee20ec43f63c",
+  "page.md": "49ddf2e102c72d082027f65d5863e3f99536f62f347c2a9ce801f3364ff0b117"
+ },
+ "findings": []
+}

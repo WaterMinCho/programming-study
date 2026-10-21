@@ -397,7 +397,7 @@ class NodeLookupTest(HubTest):
             self.threads["check"].append(threading.current_thread() is threading.main_thread())
             return dict(self.NODE_INFO, path=path)
 
-        for patcher in (mock.patch.object(node, "_found", None), mock.patch.object(node, "search", search),
+        for patcher in (mock.patch.object(node, "_found", {}), mock.patch.object(node, "search", search),
                         mock.patch.object(node, "check", check)):
             patcher.start()
             self.addCleanup(patcher.stop)

@@ -1,0 +1,9 @@
+{
+  "name": "w03-transactions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "x01",
+  "title": "횟수 세기 버튼",
+  "level": "워밍업",
+  "prep_min": 2,
+  "live_min": 6,
+  "steps": [1, 2, 2],
+  "hidden": false,
+  "pages": ["l90"],
+  "chains": ["90-A"],
+  "needs": [],
+  "defines_inline": [],
+  "sources": []
+}

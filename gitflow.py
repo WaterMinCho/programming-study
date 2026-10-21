@@ -332,7 +332,7 @@ class GitFlow:
         """내 폴더를 보관함의 label 폴더로 통째로 복사함. 복사할 파일이 없으면 False."""
         if not any(files for _, _, files in os.walk(self.folder)):
             return False
-        shutil.copytree(self.folder, os.path.join(self._backup_dir(), label), ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(self.folder, os.path.join(self._backup_dir(), label), ignore=shutil.ignore_patterns("__pycache__", "node_modules", "dist"))
         return True
 
     # 단계

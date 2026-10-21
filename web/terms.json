@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "known": ["함수", "변수", "배열", "객체", "콜백", "Promise", "async", "await", "fetch", "DOM",
+            "컴포넌트", "props", "state", "useState", "useEffect", "useRef", "TypeScript", "타입"],
+  "terms": [
+    {"term": "경쟁 상태", "page": "l03"},
+    {"term": "정리 함수", "page": "l03"},
+    {"term": "플래그", "page": "l03"},
+    {"term": "멱등", "page": "l03"},
+    {"term": "지수 백오프", "page": "l03"},
+    {"term": "디바운스", "page": "l01"},
+    {"term": "쿼리 키", "page": "l07"},
+    {"term": "판별 유니온", "page": "l08"},
+    {"term": "운영표", "page": "l21"},
+    {"term": "진입점", "page": "l21"}
+  ]
+}
