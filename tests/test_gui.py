@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """화면 테스트. 창을 화면에 내보내지 않고(offscreen) 위젯을 직접 눌러 처음 실행부터 다시 채점까지 돌려 봄.
 
-실제 문제 은행을 쓰되 풀이 폴더는 임시 폴더로 돌리고, 제출 모듈은 가짜를 끼움. PyQt6 가 없으면 전부 건너뜀.
+실제 문제 은행을 쓰되 풀이 폴더는 임시 폴더로 돌리고, 제출 모듈은 가짜를 끼움. 웹 트랙은 고정 은행 tests/web_bank 과 임시 웹 홈 폴더를 쓰고
+Node 찾기는 가짜로 바꿔, 이 컴퓨터의 기록이나 node 가 결과에 끼지 않게 함. PyQt6 가 없으면 전부 건너뜀.
 실행: python -m unittest discover -s tests
 """
 import contextlib
@@ -37,8 +38,12 @@ from gui.team_page import Avatar, EmptyCard, MemberCard  # noqa: E402
 from gui.round_page import ROW_GAP  # noqa: E402
 from gui.widgets import ChoiceCard, ChoicePanel, CodeEditor, Para, TextPanel, content_height  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
+from webprep import bank as web_bank  # noqa: E402
+from webprep import stack  # noqa: E402
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+WEB_FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_bank")
+FAKE_NODE = {"path": "/fake/node", "version": "22.23.2", "major": 22}
 NOISE = ("propagateSizeHints", "Populating font family aliases")  # offscreen 플랫폼이 창을 띄울 때마다 찍는 안내
 qInstallMessageHandler(lambda mode, context, text: None if any(n in text for n in NOISE) else print(text, file=sys.stderr))
 APP = QApplication.instance() or QApplication(sys.argv[:1])
@@ -139,6 +144,11 @@ class GuiTest(unittest.TestCase):
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="study_gui_")
+        for patcher in (mock.patch.dict(os.environ, {"STUDY_WEB_HOME": os.path.join(self.tmp, "web_home")}),
+                        mock.patch.object(web_bank, "BANK_DIR", WEB_FIXTURE),
+                        mock.patch.object(stack, "find_node", lambda saved=None, probe=False: FAKE_NODE)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self._saved = (study.SUBMISSIONS_DIR, study.USER_FILE, os.environ.pop("STUDY_USER", None), sys.excepthook)
         study.SUBMISSIONS_DIR = os.path.join(self.tmp, "submissions")
         study.USER_FILE = os.path.join(self.tmp, ".study_user")

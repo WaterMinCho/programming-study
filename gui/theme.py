@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 import mdlite
 
 FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")  # 같이 배포하는 나눔고딕과 D2Coding
+ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")  # 체크 상자의 표시(check_light.svg, check_dark.svg)
 CLEAR_FONTS = ("NanumGothic", "Nanum Gothic", "Noto Sans KR", "Noto Sans CJK KR")  # 화면 글꼴로 먼저 씀
 UI_FONTS = CLEAR_FONTS + ("Malgun Gothic", "Apple SD Gothic Neo")  # 한글이 있는 글꼴
 CODE_FONTS = ("D2Coding", "Consolas", "Menlo", "Cascadia Mono", "DejaVu Sans Mono", "Courier New")  # 코드 글꼴. 같이 배포하는 D2Coding 이 먼저 잡힘
@@ -37,7 +38,7 @@ LIGHT = {
     "selection": "#dbe9ff", "selection_ink": "#0b3d91", "text_selection": "#b6d4fe",
     "notice_bg": "#fff8e1", "notice_border": "#f0d98c",
     "code_bg": "#eef0f3", "codebox_bg": "#f3f4f6", "table_head": "#eaeef2", "grid": "#c8d1da",
-    "doc_heading": "#0b3d91", "link": "#0969da",
+    "doc_heading": "#0b3d91", "link": "#0969da", "indicator_border": "#8c959f",
     "ok": "#1a7f37", "wrong": "#cf222e", "blank": "#6e7781", "up": "#0969da", "retry": "#bc4c00",
     "unit_mastered": "#1f883d", "unit_mastered_ink": "#ffffff", "unit_level2": "#9cd0ff", "unit_level2_ink": "#1f2328",
     "unit_level1": "#f5d776", "unit_level1_ink": "#1f2328", "unit_retry": "#f0883e", "unit_retry_ink": "#1f2328",
@@ -52,7 +53,7 @@ DARK = {
     "selection": "#223a66", "selection_ink": "#cfe0ff", "text_selection": "#2c4a80",
     "notice_bg": "#2a2413", "notice_border": "#5f4d17",
     "code_bg": "#2e3743", "codebox_bg": "#151a20", "table_head": "#28303a", "grid": "#4b5666",
-    "doc_heading": "#8fb4ff", "link": "#6ea8ff",
+    "doc_heading": "#8fb4ff", "link": "#6ea8ff", "indicator_border": "#6e7781",
     "ok": "#3fb950", "wrong": "#ff7b72", "blank": "#8b949e", "up": "#6ea8ff", "retry": "#f0883e",
     "unit_mastered": "#2ea043", "unit_mastered_ink": "#06120a", "unit_level2": "#58a6ff", "unit_level2_ink": "#0b1220",
     "unit_level1": "#d9b44a", "unit_level1_ink": "#0b1220", "unit_retry": "#e2673a", "unit_retry_ink": "#0b1220",
@@ -136,6 +137,11 @@ QTextBrowser, QPlainTextEdit, QLineEdit { background: %(surface)s; color: %(ink)
     selection-background-color: %(text_selection)s; selection-color: %(ink)s; placeholder-text-color: %(placeholder)s; }
 QPlainTextEdit:focus, QLineEdit:focus { border-color: %(primary)s; }
 QPlainTextEdit:disabled, QLineEdit:disabled { background: %(surface_alt)s; }
+QCheckBox::indicator { width: 16px; height: 16px; border-radius: 3px; border: 1px solid %(indicator_border)s; background: %(surface)s; }
+QCheckBox::indicator:hover { border-color: %(primary)s; }
+QCheckBox::indicator:checked { background: %(primary)s; border-color: %(primary)s; image: url(%(check)s); }
+QCheckBox::indicator:disabled { border-color: %(faint)s; background: %(surface_alt)s; }
+QCheckBox::indicator:checked:disabled { background: %(primary_off)s; border-color: %(primary_off)s; }
 QLineEdit { padding: 6px 8px; }
 QPushButton { background: %(surface)s; color: %(ink)s; border: 1px solid %(border_strong)s; border-radius: 6px; padding: 7px 16px; }
 QPushButton:hover { background: %(hover)s; }
@@ -292,7 +298,8 @@ def _paint(scheme):
                        (role.ToolTipText, "ink"), (role.Link, "link")):
         palette.setColor(part, qcolor(name))
     app.setPalette(palette)
-    app.setStyleSheet(STYLE % TOKENS[scheme] + EDITOR_STYLE)
+    check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
+    app.setStyleSheet(STYLE % dict(TOKENS[scheme], check=check) + EDITOR_STYLE)
     signals.changed.emit()
 
 
