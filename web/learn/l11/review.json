@@ -1,0 +1,21 @@
+{
+ "format": 1,
+ "writer": "출제 11",
+ "resolver": "재풀이 11",
+ "reviewer": "검토 11",
+ "files": {
+  "assets/11a-1.png": "993411002a80352a0650442a248d5681236342b9520a7e6e85b00dc0980c47d0",
+  "assets/11b-1.png": "4f671eb31337747d53d707a81eb0ce0bfcb3fe9c98b3ebd82ba238f2d3d59513",
+  "assets/11b-2.gif": "c2d5c8c2f23df3d846fe58864b1725640e21632e52fa88ca119c88609cf0ddc7",
+  "assets/11c-1.gif": "92a3e956f7cb5b5618fa37059f586e9506109859039060b4cfa7d8395488e963",
+  "assets/11c-2.gif": "02722c2dcbbd206a54194f2f6972da67246ee52fab8a790d8d8dd8b50f130c80",
+  "assets/11c-3.png": "98e87effbe7d699e5c32d517acce89918b3c8949ffd1b3dea47832ecdd87d708",
+  "meta.json": "50b55b8ae483995452501d66e2b376c768614afc3ab14a9f98b7c7fba45a50d7",
+  "page.md": "7aeab9d1effbe1bba5afd9c6f5314108d6311c59d7a1cb605b5062cb65afbdd3"
+ },
+ "findings": [
+  "Context 정의를 처음 쓰는 문장 앞으로 옮김",
+  "React Query로 옮길 때 QueryClientProvider와 wrapper가 필요하다고 적음",
+  "호출부와 CI를 풀어 쓰고 짧은 문장을 앞 문장에 합침"
+ ]
+}

@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "id": "t01",
+  "no": 1,
+  "title": "실행 모델과 이벤트 루프",
+  "page": "l01",
+  "chains": [
+    {"id": "1-A", "title": "기다리는 동안 화면이 멈추지 않는 이유",
+     "goal": "콜 스택, 태스크 큐, 마이크로태스크 큐, 화면 그리기 차례를 실행 순서대로 설명합니다.",
+     "secs": 60, "missions": [], "section": "1a",
+     "defines_inline": ["콜 스택", "태스크 큐", "이벤트 루프", "마이크로태스크 큐", "메인 스레드"]},
+    {"id": "1-B", "title": "긴 작업이 입력을 막을 때",
+     "goal": "롱 태스크를 찾고, 우선순위 낮추기, 디바운스, 웹 워커 가운데 비용을 따져 고칠 방법을 고릅니다.",
+     "secs": 60, "missions": ["w04"], "section": "1b",
+     "defines_inline": ["메인 스레드", "롱 태스크", "디바운스", "스로틀", "웹 워커"]}
+  ],
+  "sources": [
+    {"what": "MDN 마이크로태스크 안내: 태스크가 끝날 때마다 마이크로태스크 큐를 빌 때까지 실행하고, 새로 넣은 마이크로태스크도 다음 태스크 전에 실행함, 끝없이 이어 넣으면 이벤트 루프가 마이크로태스크만 처리함", "url": "https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide", "checked": "2026-10-21"},
+    {"what": "HTML 표준 이벤트 루프 처리 모델: 태스크 하나, 마이크로태스크 체크포인트, 렌더링 기회가 있으면 화면 갱신", "url": "https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model", "checked": "2026-10-21"},
+    {"what": "MDN await: 이어지는 코드는 마이크로태스크로 예약됨", "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/await", "checked": "2026-10-21"},
+    {"what": "MDN requestAnimationFrame: 다음 리페인트 전에 콜백을 부르고, 호출 빈도는 보통 화면 주사율(가장 흔한 값 60Hz)을 따름", "url": "https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame", "checked": "2026-10-21"},
+    {"what": "web.dev 「Optimize long tasks」: 50ms 를 넘는 태스크가 롱 태스크, 메인 스레드는 한 번에 태스크 하나만 처리", "url": "https://web.dev/articles/optimize-long-tasks", "checked": "2026-10-21"},
+    {"what": "Chrome DevTools Performance 참고: 롱 태스크의 빨간 삼각형, CPU 느리게 하기는 지금 컴퓨터 기준이라 휴대폰 CPU 를 그대로 흉내 내지 못함, Bottom-Up 탭", "url": "https://developer.chrome.com/docs/devtools/performance/reference", "checked": "2026-10-21"},
+    {"what": "React useDeferredValue: 옛 값으로 먼저 다시 렌더링하고 새 값 렌더링은 뒤에서 하며 끊길 수 있음, memo 가 필요함, 옛 결과 흐리게 표시, 정한 지연이 없음, 렌더링 밖의 일에는 디바운스·스로틀이 쓸모 있음", "url": "https://react.dev/reference/react/useDeferredValue", "checked": "2026-10-21"},
+    {"what": "React 18 발표 글: 동시 렌더링은 도중에 멈추거나 버릴 수 있고, DOM 변경은 트리 전체를 계산한 뒤 끝에 한꺼번에 함", "url": "https://react.dev/blog/2022/03/29/react-v18", "checked": "2026-10-21"},
+    {"what": "web.dev 긴 목록 가상화: 사용자에게 보이는 부분만 렌더링함", "url": "https://web.dev/articles/virtualize-long-lists-react-window", "checked": "2026-10-21"},
+    {"what": "MDN Using Web Workers: DOM 을 직접 바꿀 수 없음, postMessage 데이터는 복사됨", "url": "https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers", "checked": "2026-10-21"}
+  ]
+}

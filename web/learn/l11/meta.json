@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "id": "l11",
+  "title": "바꾸기 쉬운 코드와 테스트",
+  "defines": ["커스텀 훅", "prop drilling", "응집도", "결합도", "불안정한 테스트", "가짜 타이머", "구현 세부"],
+  "needs": [],
+  "sections": {
+    "11a": "리뷰 의견은 어떤 변경이 쉬워지는지로 말합니다",
+    "11b": "함께 바뀌는 코드는 한곳에 둡니다",
+    "11c": "가끔 실패하는 테스트는 무엇을 기다리지 않았나요"
+  },
+  "outputs": [
+    {"block": 7, "expect": "47 null\n45 null"}
+  ],
+  "sources": [
+    {"what": "React 「Reusing Logic with Custom Hooks」: 훅 이름은 use 뒤에 대문자, 훅을 부르지 않는 함수에는 use 를 붙이지 않음, 훅을 부르는 컴포넌트마다 state 가 따로 생김, 작은 중복은 괜찮고 effect 를 쓸 때 커스텀 훅으로 감쌀지 생각함, effect 를 커스텀 훅으로 감싸 두면 컴포넌트를 고치지 않고 다른 방법으로 옮김", "url": "https://react.dev/learn/reusing-logic-with-custom-hooks", "checked": "2026-10-21"},
+    {"what": "TanStack Query QueryClientProvider: QueryClient 를 앱에 연결해 주는 컴포넌트", "url": "https://tanstack.com/query/latest/docs/framework/react/reference/QueryClientProvider", "checked": "2026-10-21"},
+    {"what": "TanStack Query 테스트 안내: 테스트에서 QueryClient 와 QueryClientProvider 를 만드는 wrapper 를 넘김", "url": "https://tanstack.com/query/latest/docs/framework/react/guides/testing", "checked": "2026-10-21"},
+    {"what": "React Testing Library API: render 의 wrapper 옵션으로 그릴 컴포넌트를 Provider 같은 컴포넌트로 감쌈", "url": "https://testing-library.com/docs/react-testing-library/api#wrapper", "checked": "2026-10-21"},
+    {"what": "React 「Passing Data Deeply with Context」: 공통 부모로 올린 state 를 여러 겹 넘기는 prop drilling, Context 를 쓰기 전에 props 로 넘기기와 children 으로 넘기기를 먼저 해 봄(<Layout><Posts posts={posts} /></Layout> 예), props 로 넘기면 어느 컴포넌트가 어떤 데이터를 쓰는지 드러남", "url": "https://react.dev/learn/passing-data-deeply-with-context", "checked": "2026-10-21"},
+    {"what": "React 「Choosing the State Structure」: props 를 state 에 복사해 그 뒤 바뀌는 값을 무시할 때는 이름을 initial 이나 default 로 시작함", "url": "https://react.dev/learn/choosing-the-state-structure", "checked": "2026-10-21"},
+    {"what": "Sandi Metz 「The Wrong Abstraction」: 중복이 잘못된 추상화보다 훨씬 쌈, 옵션과 조건이 늘어난 공통 코드는 부르는 곳마다 다시 풀어 놓고 필요한 줄만 남김", "url": "https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction", "checked": "2026-10-21"},
+    {"what": "user-event 소개: userEvent.setup() 으로 만든 user 의 메서드를 await 으로 부름, 클릭 하나에 여러 이벤트를 보냄", "url": "https://testing-library.com/docs/user-event/intro", "checked": "2026-10-21"},
+    {"what": "user-event 옵션: delay 기본 0 이고 동작 사이에 setTimeout 으로 기다림, 가짜 타이머를 쓸 때는 advanceTimers 에 테스트 도구의 시계 앞당기는 함수를 넘김", "url": "https://testing-library.com/docs/user-event/options", "checked": "2026-10-21"},
+    {"what": "user-event 14.6.1 소스(설치본 dist/esm/pointer/index.js, utils/misc/wait.js): pointer 동작마다 앞에서 wait 로 setTimeout(delay) 를 기다림, click 은 hover 이동과 누르기 두 동작", "url": "https://github.com/testing-library/user-event/blob/main/src/pointer/index.ts", "checked": "2026-10-21"},
+    {"what": "Testing Library 쿼리: getBy 는 없으면 에러, queryBy 는 없으면 null, findBy 는 Promise 이고 기본 1000ms 뒤 거부, 역할로 찾는 getByRole 이 먼저이고 data-testid 는 마지막", "url": "https://testing-library.com/docs/queries/about", "checked": "2026-10-21"},
+    {"what": "Testing Library 비동기 도구: findBy 는 getBy 와 waitFor 를 합친 것, waitFor 기본 timeout 1000ms·interval 50ms, MutationObserver 로 화면이 바뀔 때마다 다시 부름", "url": "https://testing-library.com/docs/dom-testing-library/api-async", "checked": "2026-10-21"},
+    {"what": "Testing Library 원칙: 테스트가 소프트웨어를 쓰는 방식과 닮을수록 더 믿을 수 있음", "url": "https://testing-library.com/docs/guiding-principles", "checked": "2026-10-21"},
+    {"what": "Testing Library 가짜 타이머: 타이머를 쓰는 테스트는 느리고 불안정해질 수 있음, 테스트가 끝나면 진짜 타이머로 되돌림", "url": "https://testing-library.com/docs/using-fake-timers", "checked": "2026-10-21"},
+    {"what": "Vitest vi: useFakeTimers, advanceTimersByTimeAsync(비동기로 건 타이머까지 실행), useRealTimers", "url": "https://vitest.dev/api/vi.html", "checked": "2026-10-21"},
+    {"what": "Vitest fakeTimers 설정: shouldAdvanceTime 은 실제 시간이 흐른 만큼 가짜 시계를 앞당김(기본 false, 20ms 단위), toFake 기본은 nextTick·queueMicrotask 를 뺀 전부(Date 포함)", "url": "https://vitest.dev/config/faketimers", "checked": "2026-10-21"},
+    {"what": "Vitest testTimeout: Node.js 에서 기본 5000ms", "url": "https://vitest.dev/config/testtimeout", "checked": "2026-10-21"},
+    {"what": "user-event 이슈 #1115: vitest 의 vi.useFakeTimers() 에서 await user.click() 이 끝나지 않음, React Testing Library 가 Jest 일 때만 가짜 시계를 앞당기는 문제로 열린 채 남음", "url": "https://github.com/testing-library/user-event/issues/1115", "checked": "2026-10-21"},
+    {"what": "React Testing Library 16.3.2 소스(설치본 dist/pure.js): asyncWrapper 가 끝에 setTimeout(0) 으로 기다리고 jest 전역이 있을 때만 jest.advanceTimersByTime(0) 을 부름", "url": "https://github.com/testing-library/react-testing-library/blob/main/src/pure.js", "checked": "2026-10-21"}
+  ]
+}
