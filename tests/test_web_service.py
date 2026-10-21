@@ -503,7 +503,7 @@ class DrillTest(Base):
             local = study.read_json(os.path.join(self.home, "record.json"))["log"]
             self.assertEqual(["drill", "chain"], [e["kind"] for e in local])
             self.assertEqual(1, web.chain("90-A")["box"])
-            self.assertEqual(["90-B"], [r["chain"] for r in web.today_list()["chains"]])
+            self.assertEqual(["90-B"], [r["chain"] for r in web.today_list(datetime.date(2026, 10, 21))["chains"]])
 
 
 class TodayOverviewTest(Base):
