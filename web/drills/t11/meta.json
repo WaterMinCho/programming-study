@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "id": "t11",
+  "no": 11,
+  "title": "코드 설계와 테스트",
+  "page": "l11",
+  "chains": [
+    {"id": "11-A", "title": "리뷰를 남긴다면",
+     "goal": "이름 붙이기, 훅으로 떼기, props 전달 줄이기를 리뷰 의견으로 말하고, 각각이 어떤 변경을 쉽게 하는지 설명합니다.",
+     "secs": 60, "missions": ["w13"], "section": "11a",
+     "defines_inline": ["커스텀 훅", "prop drilling"]},
+    {"id": "11-B", "title": "합칠 때와 나눌 때",
+     "goal": "함께 바뀌는 코드인지로 합칠지 정하고, 시간이 부족할 때 무엇부터 할지 말합니다.",
+     "secs": 60, "missions": ["w13"], "section": "11b",
+     "defines_inline": ["응집도", "결합도"]},
+    {"id": "11-C", "title": "가끔 실패하는 테스트",
+     "goal": "await이 빠진 user-event, 기다리는 쿼리, 가짜 타이머, 구현 세부를 묻는 테스트를 고칩니다.",
+     "secs": 60, "missions": ["w12"], "section": "11c",
+     "defines_inline": ["불안정한 테스트", "가짜 타이머", "구현 세부"]}
+  ],
+  "sources": [
+    {"what": "React 「Reusing Logic with Custom Hooks」: 훅 이름은 use 뒤에 대문자, 훅을 부르는 컴포넌트마다 state 가 따로 생김, 작은 중복은 괜찮고 effect 를 쓸 때 커스텀 훅으로 감쌀지 생각함, effect 를 커스텀 훅으로 감싸 두면 컴포넌트를 고치지 않고 다른 방법으로 옮김", "url": "https://react.dev/learn/reusing-logic-with-custom-hooks", "checked": "2026-10-21"},
+    {"what": "TanStack Query QueryClientProvider: QueryClient 를 앱에 연결해 주는 컴포넌트", "url": "https://tanstack.com/query/latest/docs/framework/react/reference/QueryClientProvider", "checked": "2026-10-21"},
+    {"what": "TanStack Query 테스트 안내: 테스트에서 QueryClient 와 QueryClientProvider 를 만드는 wrapper 를 넘김", "url": "https://tanstack.com/query/latest/docs/framework/react/guides/testing", "checked": "2026-10-21"},
+    {"what": "React Testing Library API: render 의 wrapper 옵션으로 그릴 컴포넌트를 Provider 같은 컴포넌트로 감쌈", "url": "https://testing-library.com/docs/react-testing-library/api#wrapper", "checked": "2026-10-21"},
+    {"what": "React 「Passing Data Deeply with Context」: prop drilling, Context 를 쓰기 전에 props 로 넘기기와 children 으로 넘기기를 먼저 해 봄, props 로 넘기면 어느 컴포넌트가 어떤 데이터를 쓰는지 드러남", "url": "https://react.dev/learn/passing-data-deeply-with-context", "checked": "2026-10-21"},
+    {"what": "Sandi Metz 「The Wrong Abstraction」: 중복이 잘못된 추상화보다 훨씬 쌈, 옵션과 조건이 늘어난 공통 코드는 부르는 곳마다 다시 풀어 놓고 필요한 줄만 남김", "url": "https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction", "checked": "2026-10-21"},
+    {"what": "user-event 옵션: delay 기본 0 이고 동작 사이에 setTimeout 으로 기다림, 가짜 타이머를 쓸 때는 advanceTimers 에 시계 앞당기는 함수를 넘김", "url": "https://testing-library.com/docs/user-event/options", "checked": "2026-10-21"},
+    {"what": "Testing Library 쿼리: getBy 는 없으면 에러, queryBy 는 없으면 null, findBy 는 Promise 이고 기본 1000ms 뒤 거부, getByRole 을 먼저 씀", "url": "https://testing-library.com/docs/queries/about", "checked": "2026-10-21"},
+    {"what": "Testing Library 비동기 도구: findBy 는 getBy 와 waitFor 를 합친 것, waitFor 기본 timeout 1000ms, 화면이 바뀔 때마다 다시 부름", "url": "https://testing-library.com/docs/dom-testing-library/api-async", "checked": "2026-10-21"},
+    {"what": "Testing Library 원칙: 테스트가 소프트웨어를 쓰는 방식과 닮을수록 더 믿을 수 있음", "url": "https://testing-library.com/docs/guiding-principles", "checked": "2026-10-21"},
+    {"what": "Testing Library 가짜 타이머: 테스트가 끝나면 진짜 타이머로 되돌림", "url": "https://testing-library.com/docs/using-fake-timers", "checked": "2026-10-21"},
+    {"what": "Vitest vi: useFakeTimers, advanceTimersByTimeAsync, useRealTimers", "url": "https://vitest.dev/api/vi.html", "checked": "2026-10-21"},
+    {"what": "Vitest fakeTimers 설정: shouldAdvanceTime 은 실제 시간이 흐른 만큼 가짜 시계를 앞당김(기본 false), toFake 기본은 nextTick·queueMicrotask 를 뺀 전부(Date 포함)", "url": "https://vitest.dev/config/faketimers", "checked": "2026-10-21"},
+    {"what": "Vitest testTimeout: Node.js 에서 기본 5000ms", "url": "https://vitest.dev/config/testtimeout", "checked": "2026-10-21"},
+    {"what": "user-event 이슈 #1115: vitest 의 vi.useFakeTimers() 에서 await user.click() 이 끝나지 않음, React Testing Library 가 Jest 일 때만 가짜 시계를 앞당기는 문제로 열린 채 남음", "url": "https://github.com/testing-library/user-event/issues/1115", "checked": "2026-10-21"}
+  ]
+}
