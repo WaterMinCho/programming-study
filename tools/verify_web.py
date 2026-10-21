@@ -77,6 +77,16 @@ def file_sha(path):
         return hashlib.sha256(f.read()).hexdigest()
 
 
+TEXT_EXT = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".html", ".css", ".md", ".txt", ".svg")
+
+
+def public_sha(path):
+    """공개 파일의 sha256. 글 파일은 줄 끝을 LF 로 읽어서 Windows 가 CRLF 로 받아도 서명이 맞음. 그림은 바이트 그대로."""
+    if path.lower().endswith(TEXT_EXT):
+        return text_sha(study.read_text(path))
+    return file_sha(path)
+
+
 def clip(text, limit=SHOWN):
     text = " ".join(str(text).split())
     return text if len(text) <= limit else text[:limit] + "…"
@@ -1071,17 +1081,17 @@ def check_total_images(v):
 # 검토 서명
 
 def review_files(kind, item, secrets):
-    """review.json 이 덮는 파일의 sha256. 공개 파일과 그림은 바이트로, 봉인 안 글은 글로 셈. review.json 자신은 뺌."""
+    """review.json 이 덮는 파일의 sha256. 공개 글 파일과 봉인 안 글은 LF 기준 글로, 그림은 바이트로 셈. review.json 자신은 뺌."""
     files = {}
     folder = item["dir"]
     names = ("meta.json", "brief.md") if kind == "mission" else ("meta.json", "page.md") if kind == "page" else ("meta.json",)
     for name in names:
         path = os.path.join(folder, name)
         if os.path.isfile(path):
-            files[name] = file_sha(path)
+            files[name] = public_sha(path)
     if kind == "mission":
         for rel, path in walk_files(item["app_dir"]):
-            files["app/" + rel] = file_sha(path)
+            files["app/" + rel] = public_sha(path)
     assets = os.path.join(folder, "assets")
     if os.path.isdir(assets):
         for name in sorted(os.listdir(assets)):
