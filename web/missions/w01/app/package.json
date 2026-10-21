@@ -1,0 +1,9 @@
+{
+  "name": "w01-product-search",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run"
+  }
+}
