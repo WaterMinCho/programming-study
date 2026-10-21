@@ -2,7 +2,8 @@
 """웹 면접 준비 터미널 명령. `python study.py web <명령>` 으로 들어옴(study.main 이 넘김).
 
 화면 없이 미션 하나를 [과제 받기]부터 해설까지, 사슬 하나를 답 시간·자기 채점·다음 복습 날짜까지 끝낼 수 있음.
-출력·입력·시계는 main(argv, out, ask, clock) 으로 바꿔 끼울 수 있어 테스트가 터미널 없이 돌림. 창이나 편집기를 열지 않음.
+출력·입력·시계는 main(argv, out, ask, clock) 으로 바꿔 끼울 수 있어 테스트가 터미널 없이 돌림. 창이나 편집기, 브라우저를 열지 않음.
+`dev` 는 Ctrl+C 를 누를 때까지 화면 서버를 켜 두고, 테스트는 time.sleep 을 바꿔 끼워 Ctrl+C 를 흉내 냄.
 """
 import argparse
 import os
@@ -11,7 +12,7 @@ import time
 
 import session
 import study
-from webprep import service
+from webprep import dev, service
 from webprep.service import WebError
 
 USAGE = """웹 면접 준비 (터미널)
@@ -25,6 +26,8 @@ USAGE = """웹 면접 준비 (터미널)
   python study.py web hint <미션>             [힌트 듣기]
   python study.py web skip <미션>             [다음 요구로 넘어가기] 목표 시간이 지난 뒤
   python study.py web finish <미션>           [끝내기] 해설, 모범 답안 비교, 스스로 점검
+  python study.py web dev <미션>              [화면 띄우기] 미션 폴더에서 화면 서버 띄우기, Ctrl+C 로 끄기
+  python study.py web test <미션>             [테스트 돌리기] 미션 폴더에서 npm test 와 같은 테스트 돌리기
   python study.py web show <페이지>           학습 페이지 읽기
   python study.py web drill [<사슬>]          꼬리 질문 사슬 풀기 (사슬을 비우면 오늘 복습의 첫 사슬)
 
@@ -295,6 +298,34 @@ class Cli:
             self.say("학습 페이지: %s" % ", ".join("`python study.py web show %s`" % p for p in result["pages"]))
         return 0
 
+    def dev(self, web, mid):
+        """화면 서버를 띄우고 Ctrl+C 까지 기다림. 브라우저는 열지 않고 주소만 알림. 터미널 창을 닫아도 서버를 끊음."""
+        dev.stop_on_hangup()
+        info = web.serve(mid)
+        self.say("화면을 띄웠습니다: %s" % info["url"])
+        self.say("브라우저에서 이 주소를 여세요. 코드를 저장하면 화면이 바로 바뀝니다. 끄려면 Ctrl+C 를 누르세요.")
+        try:
+            while web.serving()["running"]:
+                time.sleep(0.5)
+            self.say("화면 서버가 멈췄습니다.")
+            self.say(web.server.tail())
+            return 1
+        except KeyboardInterrupt:
+            self.say()
+            self.say("화면을 껐습니다.")
+            return 0
+        finally:
+            web.stop_serving()
+
+    def test(self, web, mid):
+        dev.stop_on_hangup()
+        result = web.own_tests(mid)
+        for fail in result["fails"]:
+            self.say(dev.failure_text(fail))
+            self.say()
+        self.say(dev.summary(result))
+        return 0 if result["ok"] else 1
+
     def show(self, web, pid):
         page = web.show(pid)
         self.say(page["text"])
@@ -384,7 +415,7 @@ def build_parser():
     p = sub.add_parser("check", parents=[common])
     p.add_argument("mission")
     p.add_argument("--said", help="0단계 점검 항목 가운데 말한 번호 (예: 1,3)")
-    for name in ("hint", "skip"):
+    for name in ("hint", "skip", "dev", "test"):
         p = sub.add_parser(name, parents=[common])
         p.add_argument("mission")
     p = sub.add_parser("finish", parents=[common])
@@ -444,6 +475,10 @@ def main(argv=None, out=None, ask=None, clock=None, repo=None, home=None):
             return cli.skip(web, args.mission)
         if args.command == "finish":
             return cli.finish(web, args.mission, args.self_marks)
+        if args.command == "dev":
+            return cli.dev(web, args.mission)
+        if args.command == "test":
+            return cli.test(web, args.mission)
         if args.command == "show":
             return cli.show(web, args.page)
         if args.command == "drill":

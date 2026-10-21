@@ -170,6 +170,8 @@ class MainWindow(QMainWindow):
             self.journey_error = ""
         except JourneyError as error:
             self.journey, self.journey_error = None, str(error)
+        if self.web is not None:
+            self.web.stop_serving()  # 서비스를 새로 만들면 옛 서비스가 띄운 화면 서버를 끌 길이 없어짐
         try:
             self.web = web_service.WebSession(self.user, node_path=saved_node)
             self.web_error = ""
@@ -556,7 +558,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self.job is not None:  # 스레드를 도중에 버리면 프로세스가 죽으므로 채점·제출이 끝난 뒤에 닫음
-            self.job[0].cancel.set()  # 여행 채점은 곧 멈추고 기록하지 않음. 다른 일은 이 신호를 보지 않음
+            self.job[0].cancel.set()  # 여행 채점은 곧 멈추고 기록하지 않음. [테스트 돌리기]는 vitest 를 끊고 대화상자 없이 끝남. 다른 일은 이 신호를 보지 않음
             self.close_pending = True
             self.job[1].set_busy(True, "하던 작업이 끝나면 창을 닫습니다.")
             event.ignore()
@@ -564,5 +566,7 @@ class MainWindow(QMainWindow):
         if not self.leave_pages(self.close, "저장하지 않고 닫기"):
             event.ignore()
             return
+        if self.web is not None:
+            self.web.stop_serving()  # 미션 화면의 [화면 띄우기]로 띄운 서버가 프로그램보다 오래 남지 않게 끔
         self.settings.setValue("geometry", self.saveGeometry())
         event.accept()

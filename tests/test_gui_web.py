@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 """웹 면접 준비 화면(gui/web_home.py, web_mission.py, web_drill.py, web_learn.py, web_setup.py)과 첫 화면의 웹 줄 카드.
 실제 MainWindow 를 띄우되 웹 은행은 tests/web_bank, 여행 은행은 tests/journey_bank, 풀이 폴더·웹 홈 폴더·검사 도구 폴더는 임시 폴더,
-제출 모듈·Node·vitest·설치·폴더 열기는 가짜를 씀. 시계는 서비스의 now(기록 시각)와 화면의 clock(흐른 초)을 같이 돌림.
+제출 모듈·Node·vitest·설치·폴더 열기·화면 서버·브라우저 열기는 가짜를 씀. 시계는 서비스의 now(기록 시각)와 화면의 clock(흐른 초)을 같이 돌림.
 PyQt6 가 없으면 전부 건너뜀."""
 import base64
 import datetime
 import os
 import shutil
+import signal
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 
@@ -26,15 +28,17 @@ from gui import errors, theme  # noqa: E402
 from gui.docview import FigureView, TextPiece  # noqa: E402
 from gui.web_home import NO_STUCK  # noqa: E402
 from gui.web_learn import scroll_to_heading  # noqa: E402
-from gui.web_mission import open_folder  # noqa: E402
+from gui.web_mission import SERVE_STOPPED, SERVE_TIP, open_folder  # noqa: E402
 from gui.web_setup import BUSY_ELSEWHERE, SetupDialog  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank as journey_bank  # noqa: E402
 from journey import node as node_finder  # noqa: E402
 from journey import runner  # noqa: E402
 from tests.test_gui_hub import FakeGitFlow, bright_share  # noqa: E402
+from tests.test_web_dev import (FakeServer, FakeTestRun, HangingRun, fake_popen, group_gone, reset_fakes, start_child,  # noqa: E402
+                                 vitest_report, wait_file)
 from tests.test_web_service import FAKE_NODE, FakeVitest  # noqa: E402
-from webprep import bank, checks, service, stack  # noqa: E402
+from webprep import bank, checks, dev, service, stack  # noqa: E402
 
 FIXTURE = os.path.join(guikit.ROOT, "tests", "web_bank")
 JOURNEY_FIXTURE = os.path.join(guikit.ROOT, "tests", "journey_bank")
@@ -50,6 +54,13 @@ def doc_text(view):
 def inside(win, widget):
     """widget 이 창 안에 다 들어와 있는지."""
     return win.rect().contains(QRect(widget.mapTo(win, QPoint(0, 0)), widget.size()))
+
+
+def shows_whole(label):
+    """글이 잘리지 않고 다 보이는지. 줄바꿈하는 글은 지금 폭에서 필요한 높이를, 한 줄 글은 필요한 폭을 봄."""
+    if label.wordWrap():
+        return label.height() >= label.heightForWidth(label.width())
+    return label.width() >= label.sizeHint().width()
 
 
 def rows_height(listw, rows):
@@ -627,6 +638,209 @@ class MissionTest(WebTest):
         self.assertIs(self.page(), win.hub)
 
 
+class ServeTest(WebTest):
+    """[화면 띄우기]와 [테스트 돌리기]. 화면 서버와 vitest 는 test_web_dev 의 가짜를 쓰고, 브라우저 열기는 주소만 모음."""
+
+    def setUp(self):
+        super().setUp()
+        study.write_text(os.path.join(self.repo, dev.VITE_JS), "")
+        reset_fakes()
+        for name, value in (("_popen", fake_popen), ("_kill_tree", lambda proc: proc.kill()), ("_hold", lambda proc: None)):
+            patcher = mock.patch.object(dev, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.addCleanup(dev.stop_all)
+        self.urls = []
+
+    def boot(self, size=(1280, 800)):
+        win = super().boot(size)
+        win.open_url = self.urls.append
+        return win
+
+    def serve(self, page):
+        guikit.click(page.serve_btn)
+        self.idle()
+        return FakeServer.procs[-1]
+
+    def test_serve_opens_the_browser_and_stops_when_pressed_left_or_closed(self):
+        win = self.boot()
+        page = self.open_mission()
+        self.assertFalse(page.serve_btn.isEnabled())  # 받기 전
+        self.assertFalse(page.test_btn.isEnabled())
+        guikit.click(page.get_btn)
+        self.assertTrue(page.serve_btn.isEnabled())
+        self.assertTrue(page.test_btn.isEnabled())
+        proc = self.serve(page)
+        self.assertEqual(self.urls, ["http://localhost:5173"])
+        self.assertEqual(page.status.text(), "화면을 띄웠습니다: http://localhost:5173")
+        self.assertEqual(page.serve_btn.text(), "화면 끄기")
+        self.assertIn("http://localhost:5173", page.serve_btn.toolTip())  # 상태 줄이 바뀌어도 주소를 볼 수 있음
+        self.assertEqual(proc.options["cwd"], page.view["dir"])
+        guikit.click(page.serve_btn)
+        self.assertEqual((page.serve_btn.text(), page.status.text()), ("화면 띄우기", "화면을 껐습니다."))
+        self.assertEqual(page.serve_btn.toolTip(), SERVE_TIP)
+        self.assertIsNone(win.web.serving())
+        dev.settle()  # 끊기는 화면 스레드가 기다리지 않음
+        self.assertTrue(proc.killed)
+        proc = self.serve(page)
+        win.go_web()
+        self.idle()
+        dev.settle()
+        self.assertTrue(proc.killed)  # 미션 화면을 떠나면 끔. 창을 내려 둘 때(event.spontaneous())는 offscreen 에서 흉내 낼 수 없음
+        page = self.open_mission()
+        self.assertEqual(page.serve_btn.text(), "화면 띄우기")
+        proc = self.serve(page)
+        win.close()
+        guikit.pump()
+        self.assertTrue(proc.killed)  # 프로그램을 닫으면 끔
+        self.assertEqual(dev._running, set())
+
+    def test_a_server_that_stops_by_itself_resets_the_button(self):
+        self.web().get("x01")
+        self.boot()
+        page = self.open_mission()
+        proc = self.serve(page)
+        proc.end(1)
+        page.tick()
+        self.assertEqual((page.serve_btn.text(), page.status.text()), ("화면 띄우기", SERVE_STOPPED))
+        self.assertIsNone(self.win.web.serving())  # 멈춘 서버는 치움
+        self.assertIn("서버가 마지막으로 남긴 출력입니다.", self.win.dialog.text.text())
+        self.assertIn("Local:   http://localhost:5173/", self.win.dialog.text.text())
+        self.choose("ok")
+        page.tick()
+        self.assertFalse(self.win.dialog.isVisible())  # 한 번만 알림
+
+    def test_again_and_a_new_session_stop_the_server(self):
+        web = self.to_live()
+        web.finish("x01")
+        win = self.boot()
+        page = self.open_mission()
+        proc = self.serve(page)
+        killed_before_get, get = [], win.web.get
+
+        def slow_kill(target):  # Windows 의 taskkill 처럼 오래 걸리는 끊기
+            time.sleep(0.3)
+            target.kill()
+
+        def recording_get(mid, again=False):
+            killed_before_get.append(proc.killed)
+            return get(mid, again)
+
+        with mock.patch.object(dev, "_kill_tree", slow_kill), mock.patch.object(win.web, "get", recording_get):
+            guikit.click(page.again_btn)
+            self.choose("again")
+        self.assertEqual(killed_before_get, [True])  # 다시 하기는 서버가 지켜보는 폴더를 새로 쓰기 전에 끝날 때까지 기다림
+        self.assertEqual(page.serve_btn.text(), "화면 띄우기")
+        proc = self.serve(page)
+        win.open_session(win.go_web)
+        self.idle()
+        self.assertTrue(proc.killed)
+        self.assertEqual(dev._running, set())
+
+    def test_turning_off_or_leaving_does_not_wait_for_the_kill(self):
+        self.web().get("x01")
+        win = self.boot()
+        page = self.open_mission()
+        gate = threading.Event()
+
+        def gated_kill(target):  # 화면 스레드가 기다리면 gate 가 열릴 때까지 멈춤
+            gate.wait(5)
+            target.kill()
+
+        for leave in (lambda: guikit.click(page.serve_btn), win.go_web):
+            proc = self.serve(page) if win.pages.currentWidget() is page else self.serve(self.open_mission())
+            gate.clear()
+            with mock.patch.object(dev, "_kill_tree", gated_kill):
+                started = time.monotonic()
+                leave()
+                self.assertLess(time.monotonic() - started, 2)
+                self.assertFalse(proc.killed)
+                gate.set()
+                dev.settle()
+            self.assertTrue(proc.killed)
+
+    def test_closing_the_window_stops_a_test_run_that_hangs(self):
+        self.web().get("x01")
+        win = self.boot()
+        page = self.open_mission()
+        HangingRun.procs = []
+        with mock.patch.object(dev, "_popen", HangingRun):
+            page.test_btn.click()
+            guikit.wait_until(lambda: HangingRun.procs)
+            started = time.monotonic()
+            win.close()  # 끝나지 않는 테스트를 한도(60초)까지 기다리지 않고 끊고 닫음
+            guikit.wait_until(lambda: not win.isVisible(), timeout=10)
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertTrue(HangingRun.procs[-1].killed.is_set())
+        self.assertEqual(dev._tests, {})
+        self.assertIsNone(win.dialog)  # 멈췄다는 대화상자 없이 닫음
+
+    def test_closing_while_the_server_starts_does_not_open_the_browser(self):
+        self.web().get("x01")
+        win = self.boot()
+        page = self.open_mission()
+        page.serve_btn.click()  # 워커가 끝났다는 알림을 받기 전에 창을 닫음
+        win.close()
+        self.assertTrue(win.close_pending)
+        self.idle()
+        guikit.pump()
+        self.assertEqual(self.urls, [])
+        self.assertTrue(FakeServer.procs[-1].killed)
+        self.assertEqual(dev._running, set())
+
+    def test_a_server_that_fails_to_start_shows_why(self):
+        self.web().get("x01")
+        self.boot()
+        page = self.open_mission()
+        FakeServer.lines, FakeServer.code = (b"error when starting dev server:\n", b"Error: Cannot find module 'vite'\n"), 1
+        guikit.click(page.serve_btn)
+        self.idle()
+        self.assertIn("종료 코드 1", self.win.dialog.text.text())
+        self.assertIn("Cannot find module 'vite'", self.win.dialog.text.text())
+        self.assertEqual((page.serve_btn.text(), self.urls), ("화면 띄우기", []))
+
+    def test_without_the_stack_the_buttons_stay_off(self):
+        os.remove(os.path.join(self.repo, stack.VITEST_MJS))
+        self.web().get("x01")
+        self.boot()
+        page = self.open_mission()
+        self.assertTrue(page.folder_btn.isEnabled())
+        self.assertFalse(page.serve_btn.isEnabled())
+        self.assertFalse(page.test_btn.isEnabled())
+
+    def test_run_tests_shows_the_summary_and_the_first_failure(self):
+        web = self.to_live()
+        self.boot()
+        page = self.open_mission()
+        FakeTestRun.report = vitest_report(web.learner_dir("x01"), fail=True)
+        guikit.click(page.test_btn)
+        self.idle()
+        self.assertTrue(page.status.text().startswith("내 테스트 2개 가운데 1개 통과"))
+        text = self.win.dialog.text.text()
+        self.assertIn("src/App.test.tsx > App > 더하기를 누르면 1", text)
+        self.assertIn("AssertionError: expected '0' to be '1'", text)
+        self.assertEqual(self.win.dialog.detail.toPlainText(), "")  # 실패가 하나면 [자세히]가 없음
+        self.assertEqual(FakeTestRun.calls[-1][1]["cwd"], page.view["dir"])
+        self.choose("ok")
+        FakeTestRun.report = vitest_report(web.learner_dir("x01"))
+        guikit.click(page.test_btn)
+        self.idle()
+        self.assertTrue(page.status.text().startswith("내 테스트 1개 가운데 1개 통과"))
+        self.assertFalse(self.win.dialog.isVisible())
+        self.assertEqual(self.kinds()[-1], "step")  # 내 테스트는 기록하지 않음
+
+
+@unittest.skipIf(sys.platform == "win32", "SIGHUP 은 POSIX 에만 있음")
+class HangupGuiTest(unittest.TestCase):
+    def test_closing_the_terminal_stops_the_server_of_a_window_started_from_it(self):
+        """start.command 처럼 터미널에서 띄운 창. 창이 이벤트 루프에서 기다리는 동안 SIGHUP 을 받아도 서버를 끊고 끝남."""
+        child, pid, tmp = start_child(self, "gui", {"QT_QPA_PLATFORM": "offscreen"})
+        wait_file(self, child, tmp, os.path.join("mission", "looping"))  # 이벤트 루프에 들어간 뒤에 보냄
+        child.send_signal(signal.SIGHUP)
+        self.assertEqual(child.wait(10), -signal.SIGHUP)
+        self.assertTrue(group_gone(pid))
+
+
 class DrillTest(WebTest):
     def test_marks_verdicts_and_the_chain_end(self):
         win = self.boot()
@@ -752,6 +966,10 @@ class LearnTest(WebTest):
         self.assertEqual(self.kinds(), ["learn", "learn"])
 
 
+LONG_STATUS = ("검사 5개 가운데 3개 통과 (1.2초). 고친 뒤 다시 [검사]를 누르세요.", "실전 시간 45분이 시작되었습니다. 받은 코드를 설명하세요.",
+               "과제를 받았습니다. 읽기 시간 20분이 시작되었습니다.", SERVE_STOPPED)
+
+
 class LookTest(WebTest):
     """어두운 테마에서 밝은 조각이 남지 않고, 작은 창(1024x700)에서 단추가 창 밖으로 나가지 않음. 화면마다 한 번씩 봄."""
 
@@ -759,9 +977,10 @@ class LookTest(WebTest):
         """(이름, 그 화면을 띄우는 함수, 살펴볼 단추들). 미션은 네 상태를 모두 거침."""
         mission, drill = win.web_mission, win.web_drill
 
-        def mission_live():
-            self.open_mission()
+        def mission_reading():
             guikit.click(mission.get_btn)
+
+        def mission_live():
             guikit.click(mission.start_btn)
             self.tick(minutes=1)
             mission.tick()
@@ -793,9 +1012,11 @@ class LookTest(WebTest):
 
         return (("hub", win.go_hub, (win.hub.web_btn,)),
                 ("home", win.go_web, (win.web_home.review_btn, win.web_home.mission_btn, win.web_home.drill_btn, win.web_home.read_btn)),
-                ("mission_before", lambda: self.open_mission(), (mission.get_btn, mission.folder_btn)),
-                ("mission_live", mission_live, (mission.check_btn, mission.finish_btn, mission.hint_btn, mission.skip_btn)),
-                ("mission_done", mission_done, (mission.again_btn, mission.save_btn, mission.followup_btn)),
+                ("mission_before", lambda: self.open_mission(), (mission.get_btn, mission.folder_btn, mission.serve_btn, mission.test_btn)),
+                ("mission_reading", mission_reading, (mission.folder_btn, mission.serve_btn, mission.test_btn, mission.start_btn)),
+                ("mission_live", mission_live, (mission.check_btn, mission.finish_btn, mission.hint_btn, mission.skip_btn, mission.serve_btn,
+                                                mission.test_btn)),
+                ("mission_done", mission_done, (mission.again_btn, mission.save_btn, mission.followup_btn, mission.serve_btn)),
                 ("drill_checklist", drill_checklist, (drill.next_btn, drill.give_up_btn)),
                 ("drill_end", drill_end, (drill.done_btn, drill.learn_btn)),
                 ("learn", lambda: win.open_learn("l90"), (win.web_learn.back_btn,)))
@@ -833,6 +1054,16 @@ class LookTest(WebTest):
                     scroll.ensureWidgetVisible(button)
                     guikit.pump()
                 self.assertTrue(inside(win, button), "%s: %s" % (name, button.text()))
+            mission = win.web_mission
+            if page is mission:  # 상태 줄은 작은 창에서도 끝까지 보임
+                for text in LONG_STATUS:
+                    mission.status.setText(text)
+                    guikit.pump()
+                    self.assertTrue(shows_whole(mission.status), "%s: %s" % (name, text))
+                mission.set_busy(True, "하던 작업이 끝나면 창을 닫습니다.")
+                guikit.pump()
+                self.assertTrue(shows_whole(mission.status), name)
+                mission.set_busy(False)
         win.go_web()
         guikit.pump()
         self.assertGreater(win.web_home.findChild(QScrollArea).verticalScrollBar().maximum(), 0)
