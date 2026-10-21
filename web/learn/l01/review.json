@@ -1,0 +1,25 @@
+{
+ "format": 1,
+ "writer": "출제 1",
+ "resolver": "재풀이 1",
+ "reviewer": "검토 1",
+ "files": {
+  "assets/l01-1.gif": "0c97ec32346f1b701d684a797651eddb4c988035213d733754a98c77fa15d02f",
+  "assets/l01-2.gif": "ba438b3b61f6584618e4c1b92e1cfdbc84113df8af80efa34ab9ee8495f49878",
+  "assets/l01-3.gif": "eb385863a4cfed549d292a0c3d1c1b8acf89f4abd2a251678bac58b47fb89748",
+  "assets/l01-4.png": "0d2314fca1e7cc1fa74441f84953931f3a1d029e5c81d463a8c07f75a790622d",
+  "assets/l01-5.gif": "294a71ce769f3444dc8215c0c2a0dfd0cd84473b0c700304003de0c1c9602a33",
+  "assets/l01-6.gif": "06ad82934741f15daa25dc4ccf235699a2ad3d45106c870d966c0114f684d1ec",
+  "assets/l01-7.gif": "9c9cc8aaf843219f0ebab2c2cd8f5312e3d4f6a1c557579ccc7bfae4675420c5",
+  "assets/l01-8.gif": "5f06241d23d6c3bfb4c86564bb8f159ae64a5ef87ae33e505e71112361e9bd58",
+  "meta.json": "2f4335ed6b85a9001df22a477f5e72767dfb0a469a6e2cce1e71a2d1407dc292",
+  "page.md": "a98867967739fdcdee7c8c80e45de7b1b4b1eb1d0490c0d16315ee3771ac6f33"
+ },
+ "findings": [
+  "직접 해 보기의 결과를 따로 절로 옮기고 setTimeout 줄을 옮긴 경우의 결과를 더함",
+  "Node에서 돌린다는 말을 콘솔에서 돌리는 말로 고침",
+  "목록 한 행을 뜻하던 줄을 목록 항목으로 고치고 1-A 질문 인용을 풀어 씀",
+  "useDeferredValue 절과 고르는 기준에 가상화를 더함",
+  "그림 6의 롱 태스크 표시와 700ms 글자 자리, 그림 7 제목, 그림 8 글자 자리를 고침"
+ ]
+}

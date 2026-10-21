@@ -1,0 +1,19 @@
+{
+ "format": 1,
+ "writer": "출제 6",
+ "resolver": "재풀이 6",
+ "reviewer": "검토 6",
+ "files": {
+  "assets/6a-1.gif": "4d98bed99994749f2b4c967662421c521d83be3d8d0c2b21cca403fafb444219",
+  "assets/6b-1.gif": "952636248cd48f550613824523344138e55d5e7dcb49d34ecbe9a23a962e7b1c",
+  "assets/6c-1.png": "d0a7bb32485b454016d3823cff30bce52ab5e2a08d2dbf6d3969b2d0536db271",
+  "assets/6d-1.gif": "916e7ebde0248bd3e040e84cc95c66c1490812488d4060a632c6fcf0893ac618",
+  "meta.json": "35e10469627724d62a4148dc65c27f47d4c871cfed62c0850a5c626e094f33ab",
+  "page.md": "e6a1c08f1575e2f9e3f59671d2dd8f2c898aaa5a3bff26589ec6831c9431b7e1"
+ },
+ "findings": [
+  "StrictMode가 업데이트 함수 결과 가운데 한 번만 쓴다고 고침",
+  "렌더링 정의 앞의 두 단계 예고를 지움",
+  "w06, w08이 아직 준비 중이라고 적음"
+ ]
+}

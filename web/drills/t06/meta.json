@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "id": "t06",
+  "no": 6,
+  "title": "React 렌더링",
+  "page": "l06",
+  "chains": [
+    {"id": "6-A", "title": "언제 다시 그리고 무엇을 바꾸나요",
+     "goal": "렌더링과 커밋을 나누고, key와 memo가 다시 그리는 범위를 어떻게 바꾸는지 설명합니다.",
+     "secs": 60, "missions": ["w06", "w08"], "section": "6a",
+     "defines_inline": ["커밋 단계", "얕은 비교"]},
+    {"id": "6-B", "title": "setState 직후의 값",
+     "goal": "렌더링마다 state가 고정된다는 것과 업데이트 함수, 묶음 렌더링을 설명합니다.",
+     "secs": 60, "missions": [], "section": "6d",
+     "defines_inline": ["업데이트 함수", "묶음 렌더링", "정리 함수"]}
+  ],
+  "sources": [
+    {"what": "React 「Render and Commit」: 렌더링은 React가 컴포넌트 함수를 부르는 일, 다시 렌더링할 때 바뀐 속성을 계산해 두었다가 커밋에서 필요한 만큼만 DOM 을 고침, 같은 자리의 input 은 건드리지 않음, state 가 바뀐 컴포넌트 아래를 모두 렌더링함", "url": "https://react.dev/learn/render-and-commit", "checked": "2026-10-21"},
+    {"what": "React 「Rendering Lists」: key 는 형제끼리 겹치지 않고 바뀌지 않아야 함, index key 는 항목이 끼어들거나 빠지거나 순서가 바뀌면 버그가 생김, key={Math.random()} 은 렌더링마다 모든 컴포넌트와 DOM 을 새로 만들고 입력이 사라짐", "url": "https://react.dev/learn/rendering-lists", "checked": "2026-10-21"},
+    {"what": "React 「Preserving and Resetting State」: state 는 화면 트리 안의 자리에 묶이고 key 를 주면 순서 대신 key 로 자리를 정함", "url": "https://react.dev/learn/preserving-and-resetting-state", "checked": "2026-10-21"},
+    {"what": "React memo: props 를 하나씩 Object.is 로 비교함, 렌더링 중에 만든 함수나 객체를 넘기면 쓸모가 없음, 같은 props 로 자주 다시 렌더링되고 렌더링이 오래 걸릴 때만 쓸 만함, 자기 state 와 Context 가 바뀌면 다시 렌더링됨, Profiler 로 찾음, React Compiler 가 memo 와 같은 일을 자동으로 함", "url": "https://react.dev/reference/react/memo", "checked": "2026-10-21"},
+    {"what": "React useCallback: 의존성이 같으면 앞 렌더링의 함수를 돌려줌, 업데이트 함수로 state 의존성을 없앰", "url": "https://react.dev/reference/react/useCallback", "checked": "2026-10-21"},
+    {"what": "React useState: set 함수는 다음 렌더링의 값만 바꾸고 실행 중인 코드의 변수는 옛 값, Object.is 로 같은 값이면 다시 렌더링을 건너뜀, 직접 고친 객체를 다시 넘기면 무시함, 업데이트 함수, 클릭마다 다음 클릭 전에 state 를 새로 함, flushSync", "url": "https://react.dev/reference/react/useState", "checked": "2026-10-21"},
+    {"what": "React 「State as a Snapshot」: 렌더링마다 state 값이 정해지고 이벤트 함수가 비동기여도 바뀌지 않음", "url": "https://react.dev/learn/state-as-a-snapshot", "checked": "2026-10-21"},
+    {"what": "React 「Queueing a Series of State Updates」: 이벤트 함수가 끝난 뒤 업데이트를 묶어 처리함, 여러 번의 클릭은 묶지 않음, 업데이트 함수는 렌더링 중에 실행되어 순수해야 하고 StrictMode 에서 두 번 실행됨", "url": "https://react.dev/learn/queueing-a-series-of-state-updates", "checked": "2026-10-21"},
+    {"what": "React v18.0 발표: 자동 batching 으로 Promise, setTimeout, 브라우저 이벤트 안의 업데이트도 묶음", "url": "https://react.dev/blog/2022/03/29/react-v18", "checked": "2026-10-21"},
+    {"what": "React 18 작업 그룹 「Automatic batching for fewer renders in React 18」: createRoot 로 띄우면 어디서 부른 업데이트든 묶고, React 17 은 Promise 콜백 안의 두 업데이트를 두 번 렌더링함", "url": "https://github.com/reactwg/react-18/discussions/21", "checked": "2026-10-21"},
+    {"what": "React useEffect: 의존성 배열이 빈 effect 는 처음 화면에 나타난 뒤 한 번 실행되고 화면에서 빠질 때 정리 함수가 불림", "url": "https://react.dev/reference/react/useEffect", "checked": "2026-10-21"}
+  ]
+}
