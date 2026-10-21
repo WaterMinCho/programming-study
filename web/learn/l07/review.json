@@ -1,0 +1,21 @@
+{
+ "format": 1,
+ "writer": "출제 7",
+ "resolver": "재풀이 7",
+ "reviewer": "검토 7",
+ "files": {
+  "assets/7a-1.gif": "d1732788fab7f13e1e17f8bfb608ec6821e2f957afbf132a96a315e1387fd41b",
+  "assets/7a-2.png": "1d12f0ea59b7cfe76ffd088a4ba083841f6ec33f72309eac7742a38a59a7e1ff",
+  "assets/7b-1.gif": "80074bab60c790258147f2fc229548ef4285d2dc3f42cb48be9366c0b7a04daa",
+  "assets/7b-2.gif": "2626c3ddc95f011b1a8d3087eb85aa8914934f0202f9fc41468aa81bcfbcd411",
+  "assets/7c-1.gif": "8fdbcce5bdcce8945bfa627801eb7d326cb8d6872a32f0ce8773637e9f202c91",
+  "assets/7c-2.png": "434ac0f4d0afce995c13f641f8c7b3f88438678ad905c62f7a68186d957f37ef",
+  "meta.json": "f823c00f4936dcf873601ae4e8a6e36b0ff919f5df8d89db090881d35bcfcd6c",
+  "page.md": "433da46e0ede8da3976960a653a34d2cd2d2df4cfccda753d6c7873caa012118"
+ },
+ "findings": [
+  "useProducts 실패 뒤 화면 설명을 탭을 다시 누를 때까지 머문다로 고침",
+  "StockBadge 예상 문제의 질문 문단을 코드 앞으로 옮김",
+  "쿼리 키 공유 설명에 그림 7C-1과 같은 목록과 상품 수 배지 예를 넣음"
+ ]
+}
