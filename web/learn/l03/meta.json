@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "id": "l03",
+  "title": "비동기와 Promise: 늦게 온 응답과 요청 묶기",
+  "defines": ["경쟁 상태", "정리 함수", "플래그", "멱등", "지수 백오프"],
+  "needs": [],
+  "sections": {
+    "3a": "늦게 온 응답은 어떻게 화면을 덮나요",
+    "3b": "여러 요청을 묶을 때 하나가 실패하면 어떻게 되나요"
+  },
+  "outputs": [
+    {"block": 2, "expect": "react 결과\nre 결과"},
+    {"block": 7, "expect": "all 실패 B 실패\nfulfilled, rejected, fulfilled"},
+    {"block": 9, "expect": "B 끝\nA 끝\nA, B"},
+    {"block": 10, "expect": "끝난 순서 1 2 0 3 5 4\n결과 순서 0 1 2 3 4 5"}
+  ],
+  "sources": [
+    {"what": "React useEffect 문서: 정리 함수가 불리는 때와 ignore 플래그로 경쟁 상태 막기", "url": "https://react.dev/reference/react/useEffect", "checked": "2026-10-21"},
+    {"what": "React 「Synchronizing with Effects」: 새 effect 가 실행되기 전에 앞 effect 의 정리 함수가 먼저 불림", "url": "https://react.dev/learn/synchronizing-with-effects", "checked": "2026-10-21"},
+    {"what": "MDN AbortController: abort() 뒤 fetch 가 AbortError 로 거부됨", "url": "https://developer.mozilla.org/en-US/docs/Web/API/AbortController", "checked": "2026-10-21"},
+    {"what": "MDN fetch(): HTTP 404·500 응답에서는 거부되지 않고 네트워크 오류에서만 거부됨", "url": "https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch", "checked": "2026-10-21"},
+    {"what": "MDN Promise.all(): 하나라도 거부되면 그 거부로 바로 거부되고 결과는 넘긴 순서", "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/all", "checked": "2026-10-21"},
+    {"what": "MDN Promise.allSettled(): 모두 끝난 뒤 status·value·reason 이 든 결과 배열", "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled", "checked": "2026-10-21"},
+    {"what": "MDN HTTP/1.x 연결 관리: 한 호스트에 보통 6개 병렬 연결", "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Connection_management_in_HTTP_1.x", "checked": "2026-10-21"},
+    {"what": "MDN 429 Too Many Requests", "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429", "checked": "2026-10-21"},
+    {"what": "MDN Retry-After 헤더", "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After", "checked": "2026-10-21"},
+    {"what": "MDN 용어집 Idempotent(멱등)", "url": "https://developer.mozilla.org/en-US/docs/Glossary/Idempotent", "checked": "2026-10-21"},
+    {"what": "TanStack Query v5 쿼리 취소: queryFn 에 signal 전달", "url": "https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation", "checked": "2026-10-21"},
+    {"what": "TanStack Query v5 placeholderData: keepPreviousData", "url": "https://tanstack.com/query/v5/docs/framework/react/guides/paginated-queries", "checked": "2026-10-21"}
+  ]
+}

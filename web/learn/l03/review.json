@@ -1,0 +1,21 @@
+{
+ "format": 1,
+ "writer": "출제 W",
+ "resolver": "재풀이 S",
+ "reviewer": "검토 R",
+ "files": {
+  "assets/3a-1.gif": "d85dad373a0a4ea5bde7cff365afa40b791104012ccdbc0ee4b90c88367c9ce5",
+  "assets/3a-2.png": "7517e2fff528e29a234a5c0127a245a7a73cc6f3ad14cb95bbaf4840c8cdfdcd",
+  "assets/3a-3.gif": "d6b0f63a5744c42575457cbed7d4aa0c58729f1020fd622d4702d26fefa46050",
+  "assets/3b-1.gif": "010598bcdd5a5b094b3df36fa94d730494e3467237736e7cd94b1717f84010b0",
+  "assets/3b-2.png": "2e6ba43199231031a6b1cc8ca46726a960b05edc6d8f0074ac8f97f6a01130d8",
+  "assets/3b-3.gif": "95b0cf00420cfaea0998a638bb660a9118155ea75393b1210ded2c17cf0a1128",
+  "assets/3b-4.png": "2f0d3952ffd8bb871d95a3e65f0f7fac22085bb92118c5eb7459e5cbf32fa1bb",
+  "meta.json": "900c1527719b83d201ee199b9c364622c5bdc03fb7dccd337a6debbd3d564069",
+  "page.md": "c98f3caddc0a480bda2b136c5964f4f760ec83d83d44ef0003d6f00dfb27870c"
+ },
+ "findings": [
+  "검토 R: 3B 본문의 A 와 C 이행 시각이 코드와 반대로 적혀 있어 고침",
+  "검토 R: 다시 보내는 조건 문단이 RETRY_STATUS 의 408 을 빼놓아 408 과 429 를 함께 적음. 3b-3.gif 7번 프레임의 지금 표시가 오른쪽 끝에 잘려 선 왼쪽에 두게 고침"
+ ]
+}

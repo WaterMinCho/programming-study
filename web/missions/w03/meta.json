@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "id": "w03",
+  "title": "거래내역 불러오기",
+  "level": "기본",
+  "prep_min": 20,
+  "live_min": 45,
+  "steps": [3, 8, 8, 13, 8],
+  "hidden": false,
+  "pages": ["l03", "l07"],
+  "chains": ["3-A", "7-A", "w03-F"],
+  "needs": ["l03"],
+  "defines_inline": ["경쟁 상태", "정리 함수", "판별 유니온", "쿼리 키"],
+  "sources": [
+    {"what": "토스증권 2026 FE 공고의 전형(미리 받은 코드베이스로 라이브 코딩). 공고 상세 주소는 스터디장이 채움", "url": "https://toss.im/career/jobs", "checked": "2026-10-18"},
+    {"what": "StrictMode 가 개발 모드에서 effect 를 한 번 더 실행함", "url": "https://react.dev/reference/react/StrictMode", "checked": "2026-10-21"},
+    {"what": "effect 정리 함수와 데이터 받기의 경쟁 상태(ignore 플래그)", "url": "https://react.dev/learn/synchronizing-with-effects", "checked": "2026-10-21"},
+    {"what": "useRef 값은 바꿔도 다시 그리지 않음", "url": "https://react.dev/reference/react/useRef", "checked": "2026-10-21"},
+    {"what": "AbortController 와 abort() 가 거부하는 AbortError", "url": "https://developer.mozilla.org/en-US/docs/Web/API/AbortController", "checked": "2026-10-21"},
+    {"what": "429 응답과 Retry-After 헤더", "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429", "checked": "2026-10-21"},
+    {"what": "React Query v5 의 쿼리 키", "url": "https://tanstack.com/query/v5/docs/framework/react/guides/query-keys", "checked": "2026-10-21"},
+    {"what": "React Query v5 가 queryFn 에 signal 을 넘겨 요청을 끊음", "url": "https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation", "checked": "2026-10-21"},
+    {"what": "TypeScript 판별 유니온과 never 로 빠뜨린 갈래 잡기", "url": "https://www.typescriptlang.org/docs/handbook/2/narrowing.html", "checked": "2026-10-21"}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "id": "t03",
+  "no": 3,
+  "title": "비동기 처리와 Promise",
+  "page": "l03",
+  "chains": [
+    {"id": "3-A", "title": "늦게 온 응답이 화면을 덮을 때",
+     "goal": "검색 요청의 응답 순서가 바뀌는 원인을 말하고, 정리 함수와 AbortController로 고치는 법을 설명합니다.",
+     "secs": 60, "missions": ["w03"], "section": "3a",
+     "defines_inline": ["경쟁 상태", "정리 함수", "디바운스", "쿼리 키"]},
+    {"id": "3-B", "title": "여러 요청을 묶을 때",
+     "goal": "실패를 어떻게 다룰지에 따라 Promise.all과 allSettled를 고르고, 동시 요청 수 제한과 재시도 조건을 설명합니다.",
+     "secs": 60, "missions": ["w13"], "section": "3b",
+     "defines_inline": ["멱등"]}
+  ],
+  "sources": [
+    {"what": "MDN Promise.all(): 하나라도 거부되면 그 거부로 바로 거부됨", "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/all", "checked": "2026-10-21"},
+    {"what": "MDN Promise.allSettled(): 모두 끝난 뒤 status 가 든 결과 배열", "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled", "checked": "2026-10-21"},
+    {"what": "MDN HTTP/1.x 연결 관리: 한 호스트에 보통 6개 병렬 연결", "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Connection_management_in_HTTP_1.x", "checked": "2026-10-21"},
+    {"what": "MDN 429 Too Many Requests 와 Retry-After 헤더", "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429", "checked": "2026-10-21"},
+    {"what": "TanStack Query v5 쿼리 취소: queryFn 에 signal 전달", "url": "https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation", "checked": "2026-10-21"}
+  ]
+}
