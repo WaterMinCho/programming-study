@@ -188,7 +188,7 @@ def select(paths):
         top = p.split("/")[0]
         if p.endswith(".md"):
             picked.append(p)
-        elif p.endswith(".py") and ("/" not in p or top in ("gui", "journey", "tools")):
+        elif p.endswith(".py") and ("/" not in p or top in ("gui", "journey", "webprep", "tools")):
             picked.append(p)
         elif p.startswith(".github/workflows/") and p.endswith((".yml", ".yaml")):
             picked.append(p)
