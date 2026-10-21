@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """첫 화면(gui/hub_page.py)과 창 연결(gui/window.py, gui/worker.py). 실제 MainWindow 를 띄우되 여행 은행은 고정 은행
-tests/journey_bank, 풀이 폴더는 임시 폴더, 제출 모듈은 가짜를 씀. PyQt6 가 없으면 전부 건너뜀.
+tests/journey_bank, 웹 은행은 tests/web_bank, 풀이 폴더는 임시 폴더, 제출 모듈은 가짜를 씀. 웹 트랙의 Node 찾기는 가짜로 바꿔
+자식 프로세스를 띄우지 않음(웹 줄 카드 자체는 tests/test_gui_web.py 가 봄). PyQt6 가 없으면 전부 건너뜀.
 
 채점 도중 창을 닫는 테스트는 실제 Python 하네스를 띄우므로 STUDY_LEAN_CI 가 있으면 건너뜀. 시간 값(ms)은 단언하지 않음."""
 import datetime
@@ -30,8 +31,12 @@ from gui import errors, theme  # noqa: E402
 from gui.journey_page import NODE_TITLE  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank, node, runner  # noqa: E402
+from webprep import bank as web_bank  # noqa: E402
+from webprep import stack  # noqa: E402
 
 FIXTURE = os.path.join(guikit.ROOT, "tests", "journey_bank")
+WEB_FIXTURE = os.path.join(guikit.ROOT, "tests", "web_bank")
+FAKE_NODE = {"path": "/fake/node", "version": "22.23.2", "major": 22}
 SKIP_LEAN = unittest.skipIf(os.environ.get("STUDY_LEAN_CI"), "자식 프로세스를 띄우는 테스트는 ci.yml 의 화면 테스트 작업에서 돎")
 USER = "tester"
 
@@ -80,7 +85,8 @@ class HubTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, True)
         for target, name, value in ((study, "SUBMISSIONS_DIR", os.path.join(self.tmp, "submissions")),
                                     (study, "USER_FILE", os.path.join(self.tmp, ".study_user")),
-                                    (runner, "CACHE_DIR", os.path.join(self.tmp, "cache")), (bank, "BANK_DIR", FIXTURE)):
+                                    (runner, "CACHE_DIR", os.path.join(self.tmp, "cache")), (bank, "BANK_DIR", FIXTURE),
+                                    (web_bank, "BANK_DIR", WEB_FIXTURE), (stack, "find_node", lambda saved=None, probe=False: FAKE_NODE)):
             patcher = mock.patch.object(target, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -88,6 +94,7 @@ class HubTest(unittest.TestCase):
         environ.start()
         self.addCleanup(environ.stop)
         os.environ.pop("STUDY_USER", None)
+        os.environ["STUDY_WEB_HOME"] = os.path.join(self.tmp, "web_home")
         self.addCleanup(setattr, sys, "excepthook", sys.excepthook)
         self.logs = os.path.join(self.tmp, ".study_logs")
         errors.install(self.logs)
@@ -212,11 +219,11 @@ class HubScreenTest(HubTest):
         self.assertTrue(hub.journey_btn.isEnabled())
         self.assertFalse(hub.journey_error.isVisible())
 
-        # 막대: 25문항 회차를 한 번 채점한 날의 파이썬 값은 1, 여행은 채점 기록 수. 어제도 여행 채점이 있어 연속 2일
+        # 막대: 25문항 회차를 한 번 채점한 날의 파이썬 값은 1, 여행은 채점 기록 수, 웹은 기록이 없어 0. 어제도 여행 채점이 있어 연속 2일
         today = datetime.date.today()
         self.assertEqual(len([a for a in prof["attempts"] if a["round"] == "r1"]), 25)
-        self.assertEqual(hub.chart.days[-1], (today, 1, 3))
-        self.assertEqual(hub.chart.days[-2], (today - datetime.timedelta(days=1), 0, 1))
+        self.assertEqual(hub.chart.days[-1], (today, 1, 3, 0))
+        self.assertEqual(hub.chart.days[-2], (today - datetime.timedelta(days=1), 0, 1, 0))
         self.assertEqual(len(hub.chart.days), 7)
         self.assertEqual(hub.streak.text(), "연속 학습 2일")
         self.assertTrue(hub.recent_box.isVisible())

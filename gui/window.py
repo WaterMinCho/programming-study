@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
-"""메인 창. 시작 순서(ID → 새 문제 받기 → 풀이 기록 열기), 화면 전환, 워커, 제출 흐름, 테마를 맡음.
-첫 화면은 허브이고, 파이썬 스터디(홈 이하)와 알고리즘 여행(지도·문제 화면)으로 나뉨. area 가 지금 어느 쪽에 있는지 기억함."""
+"""메인 창. 시작 순서(ID → 새 문제 받기 → 풀이 기록 열기 → 웹 트랙의 Node 찾기), 화면 전환, 워커, 제출 흐름, 테마를 맡음.
+첫 화면은 허브이고, 파이썬 스터디(홈 이하), 알고리즘 여행(지도·문제 화면), 웹 면접 준비(웹 홈·미션·드릴·학습 노트)로 나뉨.
+area 가 지금 어느 쪽에 있는지 기억함. 웹 트랙의 Node 는 허브 카드가 설치 상태를 보이므로 허브를 열기 전에 워커에서 한 번 찾아 두고,
+여행의 [다시 찾기]가 기억을 버렸으면 허브나 웹 홈을 열기 전에 다시 찾음."""
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QProgressBar, QPushButton, QStackedWidget, QVBoxLayout,
@@ -18,11 +20,20 @@ from gui.journey_page import JourneyPage, saved_lang, with_node
 from gui.result_page import ResultPage
 from gui.round_page import RoundPage
 from gui.team_page import TeamPage
+from gui.web_drill import WebDrillPage
+from gui.web_home import WebHomePage
+from gui.web_learn import WebLearnPage
+from gui.web_mission import WebMissionPage, open_folder
 from gui.widgets import Para
 from gui.worker import Job
 from gui.wrong_page import WrongPage
+from journey import node as node_finder
 from journey.service import JourneyError, JourneySession
 from session import SessionError
+from webprep import service as web_service
+from webprep import stack
+from webprep.record import RecordError
+from webprep.service import WebError
 
 
 def load_gitflow(root, user):
@@ -79,13 +90,16 @@ class MainWindow(QMainWindow):
         self.settings, self.gitflow_factory = settings, gitflow_factory
         self.user, self.session, self.gitflow, self.git_reason = None, None, None, ""
         self.journey, self.journey_error = None, ""  # 알고리즘 여행 서비스와 그것을 열지 못한 이유
-        self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면)
+        self.web, self.web_error = None, ""  # 웹 면접 준비 서비스와 열지 못한 이유
+        self.web_node_known, self.web_node_seen = False, False  # 웹 트랙의 Node 를 찾아 봤는지, 그때 node 모듈이 결과를 기억했는지
+        self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면), web(웹 홈·미션·드릴·학습 노트)
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)
         self.dialog = None  # 가장 최근에 띄운 대화상자
         self.notice = None  # 허브와 홈 위쪽에 한 줄로 보여 줄 제출 모듈의 결과
         self.restart, self.close_pending = False, False
         self.open_url = lambda url: QDesktopServices.openUrl(QUrl(url))
         self.pick_file = lambda title: QFileDialog.getOpenFileName(self, title)[0]
+        self.open_folder = lambda path: open_folder(path, settings)  # 미션 폴더를 편집기로 엶. 테스트는 가짜로 바꿈
         self.zoom = settings.value("zoom", 0, type=int)
         theme.set_mode(settings.value("theme", "system", type=str))
 
@@ -93,8 +107,9 @@ class MainWindow(QMainWindow):
         self.start, self.hub, self.home, self.round_page = StartPage(self), HubPage(self), HomePage(self), RoundPage(self)
         self.result_page, self.team_page, self.wrong_page = ResultPage(self), TeamPage(self), WrongPage(self)
         self.journey_map, self.journey_page = JourneyMapPage(self), JourneyPage(self)
+        self.web_home, self.web_mission, self.web_drill, self.web_learn = WebHomePage(self), WebMissionPage(self), WebDrillPage(self), WebLearnPage(self)
         for page in (self.start, self.hub, self.home, self.round_page, self.result_page, self.team_page, self.wrong_page,
-                     self.journey_map, self.journey_page):
+                     self.journey_map, self.journey_page, self.web_home, self.web_mission, self.web_drill, self.web_learn):
             self.pages.addWidget(page)
         self.setCentralWidget(self.pages)
         self.restyle()  # 스타일시트가 있으면 부모가 바뀔 때 위젯 글꼴이 초기화되므로 창에 붙인 뒤에 글꼴을 줌
@@ -149,14 +164,38 @@ class MainWindow(QMainWindow):
             self.start.show_error("%s\n파일을 고친 뒤 '다시 시도'를 눌러 주세요. 고치기 어려우면 스터디장에게 알려 주세요." % error)
             motion.switch(self.pages, self.start)
             return False
+        saved_node = self.settings.value("journey/node", "", type=str) or None
         try:
-            self.journey = JourneySession(self.user, node_path=self.settings.value("journey/node", "", type=str) or None)
+            self.journey = JourneySession(self.user, node_path=saved_node)
             self.journey_error = ""
         except JourneyError as error:
             self.journey, self.journey_error = None, str(error)
+        try:
+            self.web = web_service.WebSession(self.user, node_path=saved_node)
+            self.web_error = ""
+        except WebError as error:
+            self.web, self.web_error = None, str(error)
         self.start.show_error("")
-        (then or self.go_hub)()
+        go = then or self.go_hub
+        if not self.web_node_first(go):
+            go()
         return True
+
+    def web_node_first(self, then):
+        """웹 트랙의 Node 를 아직 찾지 않았거나 여행의 [다시 찾기]가 기억을 버렸으면 워커에서 찾은 뒤 then() 을 부르고 True 를 돌려줌.
+        허브의 웹 카드와 웹 홈이 Node 상태를 보이므로 화면 스레드에서 node 를 띄우지 않음. 테스트처럼 찾기를 가짜로 바꾼 곳에서는
+        node 모듈이 결과를 기억하지 않으므로(web_node_seen 이 거짓) 한 번 찾은 뒤 다시 찾지 않음."""
+        if self.web is None:
+            return False
+        forgotten = self.web_node_seen and not node_finder.searched(stack.MIN_NODE)
+        if self.web_node_known and not forgotten:
+            return False
+        return self.run_job("Node.js 를 찾는 중입니다.", self.web.node, lambda info: self._web_node_found(then),
+                            on_fail=lambda: self._web_node_found(then))
+
+    def _web_node_found(self, then):
+        self.web_node_known, self.web_node_seen = True, node_finder.searched(stack.MIN_NODE)
+        then()
 
     def _stay_here(self):
         """문제 받기로 은행이나 풀이 폴더가 바뀐 뒤, 보던 쪽에 머묾. 문제 화면은 같은 문제를 다시 읽고, 그 문제가 사라졌으면 지도로 감."""
@@ -166,6 +205,10 @@ class MainWindow(QMainWindow):
             if self.pages.currentWidget() is self.journey_page and self.journey_page.reload():
                 return
             self.go_journey()
+        elif self.area == "web" and self.web is not None:
+            if self.pages.currentWidget() is self.web_mission and self.web_mission.reload():
+                return
+            self.go_web()
         else:
             self.go_hub()
 
@@ -173,6 +216,8 @@ class MainWindow(QMainWindow):
 
     def go_hub(self):
         if not self.leave_pages(self.go_hub, "저장하지 않고 나가기"):
+            return
+        if self.web_node_first(self.go_hub):
             return
         self.hub.refresh()
         self.area = "hub"
@@ -193,6 +238,44 @@ class MainWindow(QMainWindow):
         self.journey_map.refresh(did)
         self.area = "journey"
         motion.switch(self.pages, self.journey_map)
+
+    def go_web(self):
+        if not self.leave_pages(self.go_web, "저장하지 않고 나가기"):
+            return
+        if self.web_node_first(self.go_web):
+            return
+        self.web_home.refresh()
+        self.area = "web"
+        motion.switch(self.pages, self.web_home)
+
+    def open_mission(self, mid):
+        try:
+            self.web_mission.load(mid)
+        except (SessionError, RecordError) as error:  # 출제되지 않은 미션, 깨진 봉인 파일, 도는 동안 깨진 기록
+            self.ask("알림", str(error))
+            return
+        self.area = "web"
+        motion.switch(self.pages, self.web_mission)
+
+    def open_drill(self, cid, back=None, resume=False):
+        """사슬 cid 를 처음부터 풂. resume 이면 같은 사슬이 화면에 남아 있을 때(학습 노트를 읽고 돌아올 때) 그 자리로 돌아감."""
+        if not (resume and self.web_drill.cid == cid):
+            try:
+                self.web_drill.load(cid, back)
+            except (SessionError, RecordError) as error:  # 끝내지 않은 미션의 꼬리 질문, 없는 사슬, 도는 동안 깨진 기록
+                self.ask("알림", str(error))
+                return
+        self.area = "web"
+        motion.switch(self.pages, self.web_drill)
+
+    def open_learn(self, pid, section="", back=None):
+        try:
+            self.web_learn.load(pid, section, back)
+        except (SessionError, RecordError) as error:
+            self.ask("알림", str(error))
+            return
+        self.area = "web"
+        motion.switch(self.pages, self.web_learn)
 
     def open_problem(self, did, pid):
         if self.node_first(lambda: self.open_problem(did, pid)):
@@ -347,9 +430,10 @@ class MainWindow(QMainWindow):
 
     def run_job(self, text, fn, on_done, on_fail=None, on_progress=None):
         """fn 을 워커 스레드에서 돌리고, 끝나면 화면 스레드에서 on_done(결과)을 부름. 도는 동안 지금 화면을 잠금.
-        on_progress 가 있으면 fn(진행 알림, 취소 신호)로 부르고, 워커가 낸 진행 알림마다 화면 스레드에서 on_progress(알림)를 부름."""
+        on_progress 가 있으면 fn(진행 알림, 취소 신호)로 부르고, 워커가 낸 진행 알림마다 화면 스레드에서 on_progress(알림)를 부름.
+        다른 일이 도는 중이면 시작하지 않고 False 를 돌려줌."""
         if self.job is not None:
-            return
+            return False
         page = self.pages.currentWidget()
         page.set_busy(True, text)
         job = Job(fn, progress=on_progress is not None)
@@ -359,6 +443,7 @@ class MainWindow(QMainWindow):
         job.done.connect(self._job_done)
         job.failed.connect(self._job_failed)
         job.start()
+        return True
 
     def _job_end(self):
         job, page, on_done, on_fail = self.job
@@ -395,6 +480,8 @@ class MainWindow(QMainWindow):
             self.run_job("새 문제 확인 중입니다.", self.gitflow.sync, self._fetched)
 
     def _fetched(self, result):
+        if self.web_node_first(lambda: self._fetched(result)):
+            return
         self.notice = None  # 시작할 때 받지 못했다는 알림은 방금 결과가 대신함
         self.home.refresh()
         self.hub.refresh()
@@ -463,7 +550,8 @@ class MainWindow(QMainWindow):
 
     def restyle(self):
         """글자 크기나 테마가 바뀌면 화면마다 본문과 색을 다시 넣음."""
-        for page in (self.hub, self.home, self.round_page, self.result_page, self.wrong_page, self.journey_map, self.journey_page):
+        for page in (self.hub, self.home, self.round_page, self.result_page, self.wrong_page, self.journey_map, self.journey_page,
+                     self.web_home, self.web_mission, self.web_drill, self.web_learn):
             page.restyle()
 
     def closeEvent(self, event):
