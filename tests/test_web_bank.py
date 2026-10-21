@@ -289,6 +289,7 @@ class NodeMinimumTest(unittest.TestCase):
         self.assertEqual("22.12", node.minimum_label((22, 12)))
         self.assertEqual("20", node.minimum_label(None))
 
+    @unittest.skipIf(os.name == "nt", "PATH 에서는 node.exe 만 받아서 가짜 node 파일로는 Windows 에서 찾지 못함")
     def test_search_skips_candidates_below_minimum(self):
         env = {"PATH": self.tmp}
         with mock.patch.object(node, "MAC_FIXED", ()), mock.patch.object(node, "_run", self.fake("20.10.0")):

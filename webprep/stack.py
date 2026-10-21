@@ -48,11 +48,9 @@ def find_node(saved=None, probe=False):
 def npm_cli(node_path):
     """node 실행 파일 옆의 npm-cli.js. 없으면 None."""
     folder = os.path.dirname(os.path.abspath(node_path))
-    if sys.platform == "win32":
-        candidates = [os.path.join(folder, "node_modules", "npm", "bin", "npm-cli.js")]
-    else:
-        candidates = [os.path.join(folder, "..", "lib", "node_modules", "npm", "bin", "npm-cli.js"),
-                      os.path.join(folder, "node_modules", "npm", "bin", "npm-cli.js")]
+    beside = os.path.join(folder, "node_modules", "npm", "bin", "npm-cli.js")  # Windows 설치본과 nvm-windows 의 자리
+    under_lib = os.path.join(folder, "..", "lib", "node_modules", "npm", "bin", "npm-cli.js")  # macOS·Linux 설치본과 nvm 의 자리
+    candidates = [beside, under_lib] if sys.platform == "win32" else [under_lib, beside]  # 어느 OS 에서든 두 자리를 다 봄
     for path in candidates:
         if os.path.isfile(path):
             return os.path.normpath(path)
