@@ -4,13 +4,14 @@ import os
 import subprocess
 import sys
 
-from PyQt6.QtCore import QLibraryInfo, QLockFile, QSettings, QTranslator
+from PyQt6.QtCore import QLibraryInfo, QLockFile, QSettings, QTimer, QTranslator
 from PyQt6.QtWidgets import QApplication
 
 import study
 from gui import errors, icon, theme
 from gui.dialogs import MessageDialog
 from gui.window import MainWindow
+from webprep import dev
 
 
 def korean(app):
@@ -19,6 +20,19 @@ def korean(app):
     if translator.load("qtbase_ko", QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
         app.installTranslator(translator)
     return translator
+
+
+def stop_servers_on_hangup(app):
+    """터미널에서 띄운 창(start.command, python study.py)은 터미널 창을 닫으면 SIGHUP 으로 끝남. 그때도 [화면 띄우기]의 서버가
+    남지 않게 dev.stop_on_hangup 의 처리기를 걺. 파이썬 신호 처리기는 파이썬 코드가 돌 때만 불려서, 타이머로 0.5초마다 빈 파이썬
+    함수를 부름. Windows 는 걸 처리기가 없음."""
+    if sys.platform == "win32":
+        return None
+    dev.stop_on_hangup()
+    timer = QTimer(app)
+    timer.timeout.connect(lambda: None)
+    timer.start(500)
+    return timer
 
 
 def main(argv=None):
@@ -39,6 +53,7 @@ def main(argv=None):
         MessageDialog(None, "프로그래밍 스터디", text).exec()
         return 1
 
+    stop_servers_on_hangup(app)
     window = MainWindow(settings)
     window.show()
     window.boot()
