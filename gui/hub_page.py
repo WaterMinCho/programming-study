@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""첫 화면(허브): 파이썬 스터디와 알고리즘 여행 줄 카드를 위아래로 쌓고, 그 아래에 두 쪽을 합친 최근 7일 학습과 제출을 나란히 둠.
+"""첫 화면(허브): 파이썬 스터디, 알고리즘 여행, 웹 면접 준비 줄 카드를 위아래로 쌓고, 그 아래에 세 쪽을 합친 최근 7일 학습과 제출을 나란히 둠.
 
-카드의 수치는 두 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service 의 overview).
+카드의 수치는 세 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service 의 overview).
 막대의 파이썬 채점 수는 시도 기록에서 서로 다른 (회차, 시각) 쌍의 수임. 회차를 한 번 채점하면 문항마다 같은 시각의 시도가
 하나씩 남아서, 시도 수를 그대로 세면 여행 채점 한 번(1)과 견줄 수 없음.
 카드의 바탕·테두리와 막대·던전 띠·최근 채점 줄은 칠할 때마다 지금 테마의 색을 읽음."""
@@ -18,12 +18,16 @@ from gui import errors, motion, theme
 from gui.journey_map import LEGEND, MapView
 from gui.journey_page import LANG_LABEL
 from gui.mascot import Mascot
+from gui.web_home import next_text, stack_line
 from gui.widgets import LinkLabel, Para
+from webprep.record import RecordError
+from webprep.service import WebError
 
 DAYS = 7  # 막대로 보이는 날 수(오늘 포함)
 RECENT = 5  # 최근 채점 줄 수
 WEEKDAYS = "월화수목금토일"
-SERIES = (("ok", "파이썬 스터디"), ("primary", "알고리즘 여행"))  # 막대 색과 범례. 날마다 이 순서로 나란히 그림. 줄 카드의 색 띠도 이 색임
+SERIES = (("ok", "파이썬 스터디"), ("primary", "알고리즘 여행"), ("retry", "웹 면접 준비"))  # 막대 색과 범례. 날마다 이 순서로 나란히 그림. 줄 카드의 색 띠도 이 색임
+BAR_GAP = 2  # 한 날의 막대 사이
 ACCENT = 5  # 줄 카드 왼쪽 색 띠의 폭
 RADIUS = 8  # 카드 모서리의 반지름. 파이썬 스터디 화면의 카드(QFrame#card)와 같음
 PAD = 24  # 카드 안쪽 여백
@@ -314,19 +318,19 @@ class RecentList(QWidget):
 
 
 class WeekChart(QWidget):
-    """최근 7일의 날짜별 채점 수. 날마다 파이썬(ok)과 알고리즘(primary) 막대를 나란히 그리고, 바탕은 track 색.
-    채점이 없는 날의 바탕은 옅게 그리고, 7일 모두 없으면 막대 자리 가운데에 EMPTY 를 씀.
-    막대 아래에 요일과 날짜를 쓰고 오늘은 굵게 씀. 범례는 카드 머리줄에 있음."""
+    """최근 7일의 날짜별 학습 수. 날마다 파이썬(ok), 알고리즘(primary), 웹(retry) 막대를 SERIES 순서로 나란히 그리고, 바탕은 track 색.
+    기록이 없는 날의 바탕은 옅게 그리고, 7일 모두 없으면 막대 자리 가운데에 EMPTY 를 씀.
+    막대 아래에 요일과 날짜를 쓰고 오늘은 굵게 씀. 하루 칸이 좁아 날짜(10/15)끼리 붙으면 날만(15) 씀. 범례는 카드 머리줄에 있음."""
 
     def __init__(self):
         super().__init__()
-        self.days = []  # [(날짜, 파이썬 채점 수, 알고리즘 채점 수)], 오늘이 마지막
+        self.days = []  # [(날짜, 파이썬 채점 수, 알고리즘 채점 수, 웹 검사·드릴 수)], 오늘이 마지막
         self.setMinimumHeight(130)
 
     def set_days(self, days):
         self.days = list(days)
-        self.setToolTip("\n".join("%d/%d(%s) 파이썬 %d · 알고리즘 %d" % (day.month, day.day, WEEKDAYS[day.weekday()], python, journey)
-                                  for day, python, journey in self.days))
+        self.setToolTip("\n".join("%d/%d(%s) 파이썬 %d · 알고리즘 %d · 웹 %d" % (day.month, day.day, WEEKDAYS[day.weekday()], python, journey, web)
+                                  for day, python, journey, web in self.days))
         self.update()
 
     def paintEvent(self, event):
@@ -338,16 +342,19 @@ class WeekChart(QWidget):
         label_top = self.height() - day_line - date_line - 2
         top, bottom = 2.0, label_top - 8.0
         span = max(1.0, bottom - top)
-        peak = max([1] + [max(python, journey) for _, python, journey in self.days])
+        peak = max([1] + [max(values) for _, *values in self.days])
         column = self.width() / max(1, len(self.days))
-        bar = max(10.0, min(18.0, column / 3.2))
-        for number, (day, python, journey) in enumerate(self.days):
+        bar = max(8.0, min(16.0, (column - 10) / len(SERIES) - BAR_GAP))
+        day_only = column < QFontMetricsF(small).horizontalAdvance("10/15") + 12
+        for number, (day, *values) in enumerate(self.days):
             middle = column * (number + 0.5)
             painter.setPen(Qt.PenStyle.NoPen)
             track = theme.qcolor("track")
-            if not (python or journey):
+            if not any(values):
                 track.setAlphaF(0.6)
-            for left, value, token in ((middle - bar - 2, python, SERIES[0][0]), (middle + 2, journey, SERIES[1][0])):
+            first = middle - (len(SERIES) * bar + (len(SERIES) - 1) * BAR_GAP) / 2
+            for slot, (value, (token, _)) in enumerate(zip(values, SERIES)):
+                left = first + slot * (bar + BAR_GAP)
                 painter.setBrush(track)
                 painter.drawRoundedRect(QRectF(left, top, bar, span), 4, 4)
                 if value:
@@ -363,8 +370,8 @@ class WeekChart(QWidget):
             painter.setFont(small)
             painter.setPen(theme.qcolor("muted"))
             painter.drawText(QRectF(column * number, label_top + day_line + 2, column, date_line), Qt.AlignmentFlag.AlignCenter,
-                             "%d/%d" % (day.month, day.day))
-        if self.days and not any(python or journey for _, python, journey in self.days):
+                             "%d" % day.day if day_only else "%d/%d" % (day.month, day.day))
+        if self.days and not any(any(values) for _, *values in self.days):
             note = QFont(self.font())
             note.setPixelSize(13)
             painter.setFont(note)
@@ -452,15 +459,33 @@ class HubPage(QWidget):
         box.addWidget(self.strip)
         box.addSpacing(16)
         self.journey_next = next_line(box, "다음 추천")
-        for button in (self.python_btn, self.journey_btn):
+
+        self.web_btn = QPushButton("들어가기")
+        self.web_card = EntryCard("웹 면접 준비", "프런트엔드 채용의 라이브 코딩 미션과 직무 면접 꼬리 질문을 연습합니다.", SERIES[2][0],
+                                  self.web_btn)
+        self.web_error = Para(name="error")
+        self.web_body = QWidget()  # 웹 기록을 읽지 못하면 수치·상태·추천을 통째로 숨김
+        self.web_card.box.addWidget(self.web_error)
+        self.web_card.box.addWidget(self.web_body)
+        box = QVBoxLayout(self.web_body)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(0)
+        done, due = Stat("끝낸 미션"), Stat("오늘 복습할 사슬")
+        self.web_done, self.web_due = done.value, due.value
+        stat_row(box, done, due)
+        box.addSpacing(14)
+        self.web_stack = Para(name="muted")
+        box.addWidget(self.web_stack)
+        box.addSpacing(16)
+        self.web_next = next_line(box, "다음 추천")
+        for button in (self.python_btn, self.journey_btn, self.web_btn):
             button.setObjectName("primary")
             button.setProperty("big", True)
             button.setProperty("track", True)
             button.setMinimumSize(250, 54)
-        self.python_card.sync()
-        self.journey_card.sync()
-        root.addWidget(self.python_card)
-        root.addWidget(self.journey_card)
+        for entry in (self.python_card, self.journey_card, self.web_card):
+            entry.sync()
+            root.addWidget(entry)
 
         bottom = QHBoxLayout()
         bottom.setSpacing(GAP)
@@ -531,6 +556,7 @@ class HubPage(QWidget):
         self.theme_btn.clicked.connect(win.cycle_theme)
         self.python_btn.clicked.connect(win.go_home)
         self.journey_btn.clicked.connect(lambda: win.go_journey())
+        self.web_btn.clicked.connect(lambda: win.go_web())
         self.git_btn.clicked.connect(win.submit_pr)
         self.sync_btn.clicked.connect(win.fetch_problems)
 
@@ -567,7 +593,8 @@ class HubPage(QWidget):
         self.python_last_stat.setVisible(bool(done))  # 제출한 회차가 없으면 지난 회차 수치를 빼고 준비도와 단원만 보임
         self.python_last_line.setVisible(bool(done))
         journey = self.show_journey()
-        self.show_week(overview, journey)
+        web = self.show_web()
+        self.show_week(overview, journey, web)
         usable = win.gitflow is not None
         self.git_btn.setEnabled(usable)
         self.sync_btn.setEnabled(usable)
@@ -609,18 +636,44 @@ class HubPage(QWidget):
             self.journey_next.setText("아직 출제된 던전이 없습니다.")
         return overview
 
-    def show_week(self, overview, journey):
-        """막대, 연속 학습일, 최근 채점. overview 는 파이썬 쪽, journey 는 여행 쪽 overview(읽지 못했으면 None)."""
+    def show_web(self):
+        """웹 면접 준비 카드. 웹 기록을 읽지 못했으면 이유를 보이고 단추를 끄고 None 을, 아니면 웹 서비스의 overview 를 돌려줌."""
+        win = self.win
+        overview, error = None, win.web_error
+        if win.web is not None:
+            try:
+                overview = win.web.overview()
+            except (WebError, RecordError) as caught:
+                error = str(caught)
+        ready = overview is not None
+        self.web_body.setVisible(ready)
+        self.web_error.setVisible(not ready)
+        self.web_btn.setEnabled(ready)
+        self.web_card.sync()
+        if not ready:
+            self.web_error.setText("%s\n파일을 고친 뒤 프로그램을 다시 실행해 주세요." % error)
+            return None
+        self.web_done.setText("%d / %d" % (overview["done_missions"], overview["ready_missions"]))
+        self.web_due.setText(str(len(overview["today"]["chains"])))
+        self.web_stack.setText(stack_line(overview["stack"]))
+        self.web_next.setText(next_text(overview))
+        return overview
+
+    def show_week(self, overview, journey, web=None):
+        """막대, 연속 학습일, 최근 채점. overview 는 파이썬 쪽, journey 와 web 은 여행·웹 쪽 overview(읽지 못했으면 None).
+        웹은 검사와 드릴 기록이 있는 날을 하루 1 로 셈(overview 의 activity 는 날짜 목록임)."""
         gradings = python_gradings(self.win.session.prof["attempts"])
         python = {}
         for at, _ in gradings:
             python[at[:10]] = python.get(at[:10], 0) + 1
         activity = journey["activity"] if journey else {}
+        web_days = {day: 1 for day in (web["activity"] if web else [])}
         today = datetime.date.today()
         days = [today - datetime.timedelta(days=back) for back in range(DAYS - 1, -1, -1)]
-        self.chart.set_days((day, python.get(day.isoformat(), 0), activity.get(day.isoformat(), 0)) for day in days)
+        self.chart.set_days((day, python.get(day.isoformat(), 0), activity.get(day.isoformat(), 0), web_days.get(day.isoformat(), 0))
+                            for day in days)
         streak, day = 0, today
-        while python.get(day.isoformat()) or activity.get(day.isoformat()):
+        while python.get(day.isoformat()) or activity.get(day.isoformat()) or web_days.get(day.isoformat()):
             streak += 1
             day -= datetime.timedelta(days=1)
         self.streak.setText("연속 학습 %d일" % streak)
@@ -637,15 +690,16 @@ class HubPage(QWidget):
     def restyle(self):
         self.theme_btn.setText("테마: %s" % theme.MODES[theme.state["mode"]])
         self.series.setText(legend_html([(token, "■", label) for token, label in SERIES]))
-        for widget in (self.chart, self.strip, self.recent, self.python_card, self.journey_card):
+        for widget in (self.chart, self.strip, self.recent, self.python_card, self.journey_card, self.web_card):
             widget.update()
 
     def set_busy(self, busy, text=""):
         self.python_btn.setEnabled(not busy)
         self.journey_btn.setEnabled(not busy and self.win.journey is not None)
+        self.web_btn.setEnabled(not busy and self.web_body.isVisibleTo(self))
         for widget in (self.git_btn, self.sync_btn):
             widget.setEnabled(not busy and self.win.gitflow is not None)
-        for entry in (self.python_card, self.journey_card):
+        for entry in (self.python_card, self.journey_card, self.web_card):
             entry.sync()
         self.busy_bar.setVisible(busy)
         self.status.setText(text if busy else "")
