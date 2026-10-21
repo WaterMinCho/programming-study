@@ -14,7 +14,7 @@ import threading
 import adaptive
 import session
 import study
-from webprep import bank, checks, record, review, stack
+from webprep import bank, checks, dev, record, review, stack
 
 PHASE_LABEL = {"none": "받기 전", "reading": "읽는 중", "live": "실전 중", "done": "끝남"}
 RESULT_LABEL = {"pass": "통과", "partial": "부분", "stuck": "막힘", "done": "끝", "skip": "넘어감"}
@@ -71,6 +71,7 @@ class WebSession:
         self.node_path = node_path or None
         self._lock = threading.RLock()
         self._secrets = {}
+        self.server, self.server_mid = None, None  # [화면 띄우기]로 띄운 dev.DevServer 와 그 미션
         self.folder = os.path.join(study.SUBMISSIONS_DIR, user, "web")
         self.root = bank.BANK_DIR
         try:
@@ -475,6 +476,53 @@ class WebSession:
         clean = {str(k): (1 if v else 0) for k, v in dict(ticks).items()}
         self._append({"kind": "self", "item": mid, "try": state["try"], "ticks": clean})
         return clean
+
+    # 화면 띄우기 · 내 테스트
+
+    def _received(self, mid):
+        """받은 미션 폴더. 아직 받지 않았으면 WebError."""
+        self._mission(mid)
+        folder = self.learner_dir(mid)
+        if not os.path.isfile(os.path.join(folder, "package.json")):
+            raise WebError("미션 폴더가 없습니다: %s. 과제를 먼저 받아 주세요." % study.shown_path(folder))
+        return folder
+
+    def serve(self, mid):
+        """[화면 띄우기]. 미션 폴더에서 vite 개발 서버를 띄우고 {"mid", "url"} 을 돌려줌. 켜 둔 서버가 있으면 먼저 끔."""
+        folder = self._received(mid)
+        node, _ = self._require_stack()
+        self.stop_serving()
+        server = dev.DevServer(node["path"], self.repo, folder)
+        try:
+            url = server.start()
+        except dev.DevError as error:
+            raise WebError(str(error))
+        self.server, self.server_mid = server, mid
+        return {"mid": mid, "url": url}
+
+    def stop_serving(self, wait=True):
+        """켜 둔 화면 서버를 끔. 없으면 아무것도 하지 않음. wait 가 거짓이면 끊기를 기다리지 않음(dev.DevServer.stop)."""
+        if self.server is not None:
+            self.server.stop(wait)
+            self.server, self.server_mid = None, None
+
+    def serving(self):
+        """켜 둔 화면 서버 {"mid", "url", "running"}. 없으면 None. running 이 거짓이면 서버가 스스로 멈춘 것이고, 마지막 출력은
+        self.server.tail() 로 읽음. 화면이 1초마다 부르므로 출력을 기다리지 않음."""
+        server = self.server
+        if server is None:
+            return None
+        return {"mid": self.server_mid, "url": server.url, "running": server.running}
+
+    def own_tests(self, mid, cancel=None):
+        """[테스트 돌리기]. 미션 폴더의 내 테스트를 npm test 처럼 돌리고 dev.run_tests 의 값을 돌려줌. 기록하지 않음.
+        cancel(threading.Event)이 서면 vitest 를 끊고 None."""
+        folder = self._received(mid)
+        node, _ = self._require_stack()
+        try:
+            return dev.run_tests(node["path"], self.repo, folder, cancel=cancel)
+        except dev.DevError as error:
+            raise WebError(str(error))
 
     # 학습 페이지
 

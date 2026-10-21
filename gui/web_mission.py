@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """라이브 코딩 미션 화면: 머리줄(웹 홈 · 제목 · 읽기/실전 시계 · 상태) · 단계 띠 · 왼쪽 지금 요구(또는 읽기 안내, 해설) · 오른쪽 검사 결과
-(끝나면 모범 답안 비교와 스스로 점검 탭) · 아래 [폴더 열기] [검사] [끝내기].
+(끝나면 모범 답안 비교와 스스로 점검 탭) · 아래 [폴더 열기] [화면 띄우기] [테스트 돌리기] [검사] [끝내기].
 
 상태(받기 전·읽는 중·실전 중·끝남)와 시계는 서비스가 record.json 의 시각에서 계산한 값에, 그 값을 받은 뒤 흐른 초를 더해 보여 줌.
 그래서 프로그램을 껐다 켜도 시계가 이어 흐르고, 테스트는 서비스의 시각과 이 화면의 clock 을 바꿔 끼워 시계를 돌림.
 검사와 끝내기(숨긴 검사)는 창의 run_job 으로 워커에서 돌림. [폴더 열기]는 open_folder 가 맡고, 테스트는 창의 open_folder 를
 가짜로 바꿔 실제로 편집기를 띄우지 않음.
+[화면 띄우기]는 서비스가 미션 폴더에서 vite 를 띄우면 창의 open_url 로 주소를 엶. 다시 누르거나, 이 화면을 떠나거나(창을 내려 둔 것은 빼고),
+프로그램을 닫으면 서버를 끔. [테스트 돌리기]는 미션 폴더의 내 테스트를 npm test 처럼 돌림. 둘 다 npm 과 PowerShell 을 거치지 않음.
 왼쪽과 오른쪽 칸의 비율은 상태마다 다름(SPLIT): 받기 전·읽는 중은 읽기 안내가 넓고, 1단계부터는 검사 결과가 넓음."""
 import html
 import os
@@ -26,8 +28,8 @@ from gui.docview import DocView
 from gui.journey_page import md_text
 from gui.web_home import clock_text, stack_line
 from gui.web_setup import SetupDialog
-from gui.widgets import LinkLabel, Para
-from webprep import service
+from gui.widgets import LinkLabel, Para, centered
+from webprep import dev, service
 from webprep.service import WebError
 
 MAC_EDITORS = (("Cursor", "/Applications/Cursor.app"), ("Visual Studio Code", "/Applications/Visual Studio Code.app"))
@@ -40,6 +42,9 @@ AGAIN_TEXT = ("내 미션 폴더를 템플릿으로 덮어쓰고 새 시도로 �
 SKIP_TEXT = "이 요구를 넘어가면 기록에 '넘어감'으로 남고 다음 요구가 열립니다. 넘어갈까요?"
 NO_STACK_TEXT = ("%s\n받은 코드를 읽고 고칠 수는 있지만 [검사]는 검사 도구를 설치한 뒤에 됩니다.")
 AI_TEXT = "에디터의 AI 자동완성을 껐습니다"
+SERVE_ON, SERVE_OFF = "화면 띄우기", "화면 끄기"
+SERVE_STOPPED = "화면 서버가 멈췄습니다. 다시 띄우려면 [화면 띄우기]를 누르세요."
+SERVE_TIP = "미션 폴더에서 npm run dev 와 같은 화면 서버를 띄우고 브라우저로 엽니다. 다시 누르면 끕니다."
 AFTER_LEAVE_TEXT = "통과 뒤 질문에 아직 답하지 않았습니다. 지금 나가면 이 질문은 기록되지 않고 다음에 열 때 다음 단계부터 보입니다. 나갈까요?"
 NO_CHECK_STEP0 = "0단계에는 자동 검사가 없습니다. 1단계부터 [검사] 결과가 여기에 나옵니다."
 NO_CHECK_YET = "[검사]를 누르면 1단계부터 지금 단계까지의 검사가 돌고 결과가 여기에 나옵니다."
@@ -334,6 +339,7 @@ class WebMissionPage(QWidget):
         self.showing_brief, self.revealed, self.busy = False, False, False
         self.request_step = None  # 표시 항목을 만든 단계. 같은 단계를 다시 그릴 때 표시를 지킴
         self.setup_dialog = None
+        self.stack_ok = False  # 화면 띄우기와 테스트 돌리기에 쓰는 Node 와 검사 도구가 있는지
 
         root = QVBoxLayout(self)
         root.setContentsMargins(14, 12, 14, 0)
@@ -443,8 +449,7 @@ class WebMissionPage(QWidget):
         bar.setObjectName("bar")
         bar_box = QHBoxLayout(bar)
         bar_box.setContentsMargins(4, 8, 4, 8)
-        self.status = QLabel("")
-        self.status.setObjectName("muted")
+        self.status = Para(name="muted")  # 작은 창에서는 두 줄로 넘어가 [검사] 안내가 잘리지 않음
         self.status.setMinimumWidth(1)
         self.busy_bar = QProgressBar()
         self.busy_bar.setRange(0, 0)
@@ -455,6 +460,10 @@ class WebMissionPage(QWidget):
         self.brief_btn.setObjectName("quiet")
         self.folder_btn = QPushButton("폴더 열기")
         self.folder_btn.setToolTip("내 미션 폴더를 편집기(Cursor, VS Code)로 엽니다. 없으면 탐색기로 엽니다.")
+        self.serve_btn = QPushButton(SERVE_ON)
+        self.serve_btn.setToolTip(SERVE_TIP)
+        self.test_btn = QPushButton("테스트 돌리기")
+        self.test_btn.setToolTip("미션 폴더에서 npm test 와 같은 테스트를 돌립니다.")
         self.ai_box = QCheckBox(AI_TEXT)
         self.get_btn = QPushButton("과제 받기")
         self.start_btn = QPushButton("실전 시작")
@@ -463,11 +472,13 @@ class WebMissionPage(QWidget):
         self.again_btn = QPushButton("다시 하기")
         for button in (self.get_btn, self.start_btn, self.check_btn):
             button.setObjectName("primary")
-        bar_box.addWidget(self.status, 1)
+        bar_box.addLayout(centered(self.status), 1)
         bar_box.addWidget(self.busy_bar)
         bar_box.addWidget(self.brief_btn)
         bar_box.addSpacing(12)
         bar_box.addWidget(self.folder_btn)
+        bar_box.addWidget(self.serve_btn)
+        bar_box.addWidget(self.test_btn)
         bar_box.addWidget(self.ai_box)
         for button in (self.again_btn, self.finish_btn, self.get_btn, self.start_btn, self.check_btn):
             bar_box.addWidget(button)
@@ -482,6 +493,8 @@ class WebMissionPage(QWidget):
         self.home_btn.clicked.connect(self.go_home)
         self.brief_btn.clicked.connect(self.toggle_brief)
         self.folder_btn.clicked.connect(self.open_folder)
+        self.serve_btn.clicked.connect(self.toggle_serve)
+        self.test_btn.clicked.connect(self.run_tests)
         self.get_btn.clicked.connect(self.get)
         self.start_btn.clicked.connect(self.start)
         self.check_btn.clicked.connect(self.check)
@@ -627,6 +640,7 @@ class WebMissionPage(QWidget):
             if current and current["no"] == 0 and not self.revealed and not self.showing_brief \
                     and timers["step_elapsed"] >= (timers["step_target"] or 0):
                 self.show_request()  # 읽기 안내를 보는 중이면 돌아올 때 show() 가 엶
+        self.sync_serve()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -636,6 +650,8 @@ class WebMissionPage(QWidget):
     def hideEvent(self, event):
         super().hideEvent(event)
         self.ticker.stop()
+        if not event.spontaneous():  # 창을 내려 둘 때는 화면 서버를 끄지 않음
+            self.stop_serving(wait=False)
 
     # 그리기
 
@@ -653,10 +669,12 @@ class WebMissionPage(QWidget):
         self.again_btn.setVisible(phase == "done")
         self.brief_btn.setVisible(phase in ("live", "done"))
         self.folder_btn.setEnabled(os.path.isdir(view["dir"]) and not self.busy)
+        stack = self.win.web.stack_state()
+        self.stack_ok = bool(stack["node"] and stack["installed"] and stack["lock"])
         if phase in ("none", "reading"):
             self.brief_view.set_markdown(view["brief"], self.base_dir(), LANG)
             self.left.setCurrentWidget(self.brief_view)
-            self.info_view.set_markdown(info_markdown(view, self.win.web.stack_state()), "", LANG)
+            self.info_view.set_markdown(info_markdown(view, stack), "", LANG)
             self.right.setCurrentWidget(self.info_view)
         elif self.after is not None:  # 마지막 단계를 통과해 끝났어도 통과 뒤 질문에 먼저 답함
             self.right.setCurrentWidget(self.result_view)
@@ -773,7 +791,10 @@ class WebMissionPage(QWidget):
             button.setEnabled(not busy)
         for button in self.page_btns:
             button.setEnabled(not busy)
-        self.folder_btn.setEnabled(not busy and self.view is not None and os.path.isdir(self.view["dir"]))
+        received = self.view is not None and os.path.isdir(self.view["dir"])
+        self.folder_btn.setEnabled(not busy and received)
+        for button in (self.serve_btn, self.test_btn):
+            button.setEnabled(not busy and received and self.stack_ok)
         if self.view is not None and self.view["phase"] == "live" and not busy:
             step = self.view["current"]
             self.check_btn.setEnabled(step is not None and step["no"] > 0 and self.after is None)
@@ -809,6 +830,68 @@ class WebMissionPage(QWidget):
         if self.view is not None:
             self.status.setText(self.win.open_folder(self.view["dir"]))
 
+    def serving(self):
+        """이 미션의 화면 서버가 돌고 있으면 서비스의 serving() 값, 아니면 None."""
+        info = self.win.web.serving() if self.win.web is not None else None
+        return info if info and info["running"] and info["mid"] == self.mid else None
+
+    def sync_serve(self):
+        """[화면 띄우기] 단추를 서버 상태에 맞춤. 띄운 서버가 스스로 멈췄으면 치우고 대화상자로 서버의 마지막 출력을 보임."""
+        info = self.serving()
+        if self.serve_btn.text() == SERVE_OFF and info is None:
+            server = self.win.web.server if self.win.web is not None else None
+            tail = server.tail(6, wait=False) if server is not None else ""
+            self.stop_serving()
+            self.status.setText(SERVE_STOPPED)
+            if tail.strip():
+                self.win.ask("화면 서버", "%s\n\n서버가 마지막으로 남긴 출력입니다.\n%s" % (SERVE_STOPPED, tail))
+        self.show_serving(info)
+
+    def show_serving(self, info):
+        """[화면 띄우기] 단추의 글자와 툴팁을 바꿈. 서버가 돌면 툴팁에 주소를 둠."""
+        self.serve_btn.setText(SERVE_OFF if info else SERVE_ON)
+        self.serve_btn.setToolTip("%s 에서 화면 서버가 돌고 있습니다. 누르면 끕니다." % info["url"] if info else SERVE_TIP)
+
+    def toggle_serve(self):
+        """[화면 띄우기]면 워커에서 서버를 띄우고, [화면 끄기]면 끔."""
+        if self.serving() is not None:
+            self.stop_serving(wait=False)
+            self.status.setText("화면을 껐습니다.")
+            return
+        mid = self.mid
+        self.win.run_job("화면을 띄우는 중입니다.", lambda: self.win.web.serve(mid), self._served)
+
+    def _served(self, info):
+        if self.win.close_pending:  # 띄우는 사이에 창을 닫았으면 브라우저를 열지 않음. 서버는 창을 닫으며 끔
+            return
+        self.show_serving(info)
+        self.win.open_url(info["url"])
+        self.status.setText("화면을 띄웠습니다: %s" % info["url"])
+
+    def stop_serving(self, wait=True):
+        """화면 서버를 끄고 단추를 되돌림. wait 가 거짓이면 프로세스가 끝나기를 기다리지 않음(화면이 멈추지 않게)."""
+        if self.win.web is not None:
+            self.win.web.stop_serving(wait)
+        self.show_serving(None)
+
+    def run_tests(self):
+        """워커에서 내 테스트를 돌림. 진행 알림은 없고, 창을 닫으면 run_job 의 취소 신호로 vitest 를 끊음."""
+        mid = self.mid
+        self.win.run_job("내 테스트를 돌리는 중입니다.", lambda report, cancel: self.win.web.own_tests(mid, cancel), self._tested,
+                         on_progress=lambda event: None)
+
+    def _tested(self, result):
+        """상태 줄에 요약을 쓰고, 실패가 있으면 첫 실패의 앞 줄을 대화상자로 보임. 실패가 여럿이면 [자세히]에 모두 둠.
+        창을 닫아 멈춘 테스트(None)는 알리지 않음."""
+        if result is None:
+            return
+        line = dev.summary(result)
+        self.status.setText(line)
+        fails = result["fails"]
+        if fails:
+            detail = "\n\n".join(dev.failure_text(fail) for fail in fails) if len(fails) > 1 else ""
+            self.win.ask("내 테스트", "%s\n\n%s" % (line, dev.failure_text(fails[0])), detail=detail)
+
     def get(self):
         """[과제 받기]. 검사 도구가 없으면 설치를 먼저 권함."""
         stack = self.win.web.stack_state()
@@ -832,6 +915,7 @@ class WebMissionPage(QWidget):
             self._get(False)
 
     def _get(self, again):
+        self.stop_serving()  # 다시 하기는 서버가 지켜보는 폴더를 지우고 새로 씀
         try:
             self.win.web.get(self.mid, again)
         except WebError as error:

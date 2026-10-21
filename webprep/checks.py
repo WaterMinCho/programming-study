@@ -3,7 +3,7 @@
 
 봉인을 풀어 <ROOT>/.web-check/<미션>/ 에 checks/step<k>.test.tsx, kit/, setup.ts, vitest.config.mts 를 쓰고
 `node <ROOT>/node_modules/vitest/vitest.mjs run --config … --reporter=json --outputFile=…` 을 돌림. cwd 는 저장소 맨 위,
-CI=1, FORCE_COLOR=0, NODE_OPTIONS 는 비움. 60초를 넘기면 프로세스 트리를 끊음. 끝나면 성공·실패와 상관없이 폴더를 지움.
+CI=1, FORCE_COLOR=0, NODE_OPTIONS 는 비움. 60초를 넘기거나 Ctrl+C 로 멈추면 프로세스 트리를 끊음. 끝나면 성공·실패와 상관없이 폴더를 지움.
 JSON 의 testResults[].assertionResults[] 에서 title, status, duration, failureMessages 를 읽고, 검사 이름의 첫 낱말이
 검사 id("1a") 임. 파일이 아예 돌지 못한 경우(문법 오류 등)는 그 파일의 검사 id 를 모두 실패로 적음.
 """
@@ -153,6 +153,9 @@ def run(node_path, root, config, out_path, limit=LIMIT_S):
         except (subprocess.TimeoutExpired, OSError, ValueError):
             output = b""
         timeout = True
+    except BaseException:  # Ctrl+C. vitest 는 새 세션(Windows 는 콘솔 없음)이라 신호를 받지 못하므로 끊음
+        _kill_tree(proc)
+        raise
     text = output.decode("utf-8", "replace") if isinstance(output, bytes) else (output or "")
     return {"returncode": proc.returncode, "timeout": timeout, "output": ANSI.sub("", text),
             "ms": int((time.monotonic() - started) * 1000)}
