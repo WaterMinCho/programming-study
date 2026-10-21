@@ -1027,6 +1027,7 @@ def build_parser():
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("gui", help="(기본) 화면(창)으로 열기: 문제 받기 · 풀기 · 실행 · 채점 · 해설 · 제출")
+    sub.add_parser("web", help="웹 면접 준비: python study.py web --help", add_help=False)
 
     p = sub.add_parser("go", help="터미널 모드로 다음 할 일 이어 가기: 진단 → 풀기 → 채점 → 다음 회차")
     p.add_argument("--user")
@@ -1101,6 +1102,9 @@ def main(argv=None):
             stream.reconfigure(encoding="utf-8", errors="replace")
         except Exception:
             pass
+    if argv and argv[0] == "web":  # 웹 면접 준비 명령은 webprep.cli 가 받음
+        from webprep import cli
+        sys.exit(cli.main(argv[1:]))
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command in (None, "gui"):  # 화면을 못 열어도 터미널 모드(cmd_go)로 넘어가 채점하지 않음

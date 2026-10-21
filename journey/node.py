@@ -2,6 +2,8 @@
 """Node 찾기·버전 확인·기억.
 
 JourneySession 을 만들 때는 찾지 않고, 처음 JS 를 고르거나 runtime("javascript") 를 물을 때 찾아 프로세스 안에서 기억함.
+최소 판은 minimum=(주, 부) 인자로 받고(기본은 MIN_MAJOR), 못 넘는 후보는 건너뛰며, 기억은 minimum 마다 따로 둠.
+웹 면접 준비 트랙은 같은 후보 순서로 minimum=(22, 12) 를 넘겨 더 높은 Node 를 받음.
 후보 목록은 candidates() 라는 순수 함수가 만들고(파일이 있는지는 보지 않음), 실제 파일 확인과 --version 은 그 뒤에 함.
 그래서 Windows 경로 순서도 macOS·Linux 의 테스트에서 가짜 환경 변수로 확인할 수 있음. 로그인 셸에 묻는 것은
 [다시 찾기]를 눌렀을 때뿐이고 -lc 만 씀(-i 는 .zshrc 전체를 GUI 뒤에서 돌림).
@@ -25,8 +27,22 @@ PREFIX_RE = re.compile(r"v?(\d+(?:\.\d+){0,2})\Z")
 SHELLS = ("/bin/zsh", "/bin/bash")
 MAC_FIXED = ("/opt/homebrew/bin/node", "/usr/local/bin/node", "/opt/local/bin/node")
 
-_found = None  # None 은 아직 찾지 않음, False 는 못 찾음, 아니면 {"path", "version", "major"}
+_found = {}  # minimum → 찾은 결과. 없으면 아직 찾지 않음, False 는 못 찾음, 아니면 {"path", "version", "major"}
 _run = subprocess.run  # 테스트가 가짜로 바꿔 끼움
+
+
+def _minimum(minimum):
+    """(주, 부) 튜플로 맞춤. None 은 (MIN_MAJOR, 0)."""
+    if minimum is None:
+        return (MIN_MAJOR, 0)
+    parts = tuple(int(part) for part in minimum) + (0, 0)
+    return parts[:2]
+
+
+def minimum_label(minimum=None):
+    """안내 문구에 적는 최소 판. (20, 0) 은 "20", (22, 12) 는 "22.12"."""
+    major, minor = _minimum(minimum)
+    return "%d" % major if minor == 0 else "%d.%d" % (major, minor)
 
 
 def _read_or_none(path):
@@ -124,8 +140,9 @@ def runnable(path):
     return os.path.isfile(path) and os.access(path, os.X_OK)
 
 
-def inspect(path):
-    """`node --version` 으로 판을 확인함. 돌릴 수 없으면 None, 아니면 {"path", "version", "major", "ok"}."""
+def inspect(path, minimum=None):
+    """`node --version` 으로 판을 확인함. 돌릴 수 없으면 None, 아니면 {"path", "version", "major", "ok"}.
+    ok 는 minimum(기본 MIN_MAJOR) 이상인지임."""
     try:
         proc = _run([path, "--version"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                     timeout=VERSION_LIMIT_S, creationflags=study.NO_WINDOW)
@@ -135,19 +152,19 @@ def inspect(path):
     found = VERSION_RE.match(output.strip())
     if not found:
         return None
-    major = int(found.group(1))
-    return {"path": path, "version": "%s.%s.%s" % found.groups(), "major": major, "ok": major >= MIN_MAJOR}
+    major, minor = int(found.group(1)), int(found.group(2))
+    return {"path": path, "version": "%s.%s.%s" % found.groups(), "major": major, "ok": (major, minor) >= _minimum(minimum)}
 
 
-def check(path):
+def check(path, minimum=None):
     """사용자가 직접 고른 경로를 확인함. 쓸 수 있으면 {"path", "version", "major"}, 아니면 ValueError(사용자 문구)."""
     if not path or not runnable(path):
         raise ValueError("실행할 수 있는 파일이 아닙니다: %s" % (path or "(비어 있음)"))
-    info = inspect(path)
+    info = inspect(path, minimum)
     if info is None:
         raise ValueError("Node.js 실행 파일이 아니거나 버전을 알 수 없습니다: %s" % path)
     if not info["ok"]:
-        raise ValueError("Node.js %d 이상이 필요한데 이 파일은 %s 입니다." % (MIN_MAJOR, info["version"]))
+        raise ValueError("Node.js %s 이상이 필요한데 이 파일은 %s 입니다." % (minimum_label(minimum), info["version"]))
     return {"path": info["path"], "version": info["version"], "major": info["major"]}
 
 
@@ -166,8 +183,8 @@ def shell_probe(env):
     return None
 
 
-def search(probe=False, saved=None, env=None, home=None, platform=None):
-    """기억을 쓰지 않고 지금 찾음. 못 찾으면 None."""
+def search(probe=False, saved=None, env=None, home=None, platform=None, minimum=None):
+    """기억을 쓰지 않고 지금 찾음. minimum(기본 MIN_MAJOR)을 못 넘는 후보는 건너뜀. 못 찾으면 None."""
     env = os.environ if env is None else env
     home = home or os.path.expanduser("~")
     platform = platform or sys.platform
@@ -181,31 +198,31 @@ def search(probe=False, saved=None, env=None, home=None, platform=None):
     for path in _dedupe(paths):
         if not runnable(path):
             continue
-        info = inspect(path)
+        info = inspect(path, minimum)
         if info and info["ok"]:
             return {"path": info["path"], "version": info["version"], "major": info["major"]}
     return None
 
 
-def find(probe=False, saved=None):
-    """기억한 결과를 돌려주고, 아직 없거나 probe 면 다시 찾음."""
-    global _found
-    if _found is None or probe:
-        _found = search(probe, saved) or False
-    return _found or None
+def find(probe=False, saved=None, minimum=None):
+    """기억한 결과를 돌려주고, 아직 없거나 probe 면 다시 찾음. 기억은 minimum 마다 따로 둠."""
+    key = _minimum(minimum)
+    if key not in _found or probe:
+        found = search(probe, saved) if minimum is None else search(probe, saved, minimum=minimum)
+        _found[key] = found or False
+    return _found[key] or None
 
 
-def searched():
+def searched(minimum=None):
     """찾아 본 결과(찾았든 못 찾았든)를 기억하는지. 그때 find() 는 자식 프로세스를 띄우지 않고 바로 돌아옴."""
-    return _found is not None
+    return _minimum(minimum) in _found
 
 
-def remember(info):
+def remember(info, minimum=None):
     """사용자가 고른 경로를 확인한 결과를 기억함."""
-    global _found
-    _found = info or False
+    _found[_minimum(minimum)] = info or False
 
 
 def forget():
-    global _found
-    _found = None
+    """기억을 모두 버림(모든 minimum)."""
+    _found.clear()

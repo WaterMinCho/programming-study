@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "id": "l21",
+  "title": "라이브 코딩 60분 운영표",
+  "defines": ["운영표", "진입점"],
+  "needs": [],
+  "sections": {
+    "21a": "읽기 60분은 실행부터 시작합니다",
+    "21b": "면접 첫 5분은 코드 설명입니다",
+    "21c": "요구마다 작게 고치고 바로 확인합니다",
+    "21d": "테스트와 정리는 마지막에 몰지 않습니다",
+    "21e": "15분 넘게 막히면 방향을 확인합니다"
+  },
+  "outputs": [],
+  "sources": [
+    {"what": "토스 Frontend Developer 2026년 커뮤니티 대규모 채용 공고(사본): 사전 과제 없이 면접 1시간 30분 전에 코드베이스를 주고 라이브 코딩에서 함께 읽고 고침. 전형은 서류, 1차 라이브 코딩, 2차 이력 인터뷰, 문화적합성 순서. 이 프로그램이 기준으로 삼은 '코드를 받고 면접까지 1시간'은 설계 1.1절의 값", "url": "https://freehire.me/jobs/frontend-developer-2026nyeon-keomyuniti-daegyumo-caeyong-toss-hskpdyna", "checked": "2026-10-21"},
+    {"what": "Vite 안내서: index.html 이 앱의 진입점이고 그 안의 script 가 src 의 시작 파일을 가리킴", "url": "https://vite.dev/guide/#index-html-and-project-root", "checked": "2026-10-21"}
+  ]
+}

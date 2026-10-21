@@ -1,0 +1,10 @@
+{
+  "name": "x01-counter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  }
+}

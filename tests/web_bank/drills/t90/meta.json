@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "t90",
+  "no": 90,
+  "title": "시험 주제: state 와 렌더링",
+  "page": "l90",
+  "chains": [
+    {"id": "90-A", "title": "버튼을 눌렀는데 화면이 그대로일 때",
+     "goal": "일반 변수와 state 의 차이를 다시 그리기로 설명합니다.",
+     "secs": 60, "missions": ["x01"], "section": "90a", "defines_inline": ["렌더링"]},
+    {"id": "90-B", "title": "state 를 두 번 바꿀 때",
+     "goal": "함수형 업데이트가 필요한 경우를 설명합니다.",
+     "secs": 45, "missions": ["x01"], "section": "90b"}
+  ]
+}

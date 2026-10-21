@@ -15,7 +15,7 @@ __pycache__/
 *.pyc
 .DS_Store
 
-# 정답·해설 평문(출제자 작업본) — sealed.json 으로만 커밋합니다
+# 정답·해설 평문(출제자 작업본). sealed.json 으로만 커밋합니다
 problems/*/quiz_key.json
 problems/*/*/solution.py
 problems/*/*/explain.md
@@ -38,3 +38,10 @@ dungeons/*/*/hints.md
 dungeons/*/*/explain.md
 dungeons/*/*/review.json
 dungeons/*/review.json
+
+# 웹 면접 준비. 검사 도구는 저장소 맨 위 node_modules 에 설치되고 검사하는 동안 .web-check 가 생김
+node_modules/
+.web-check/
+# 웹 미션·사슬의 출제자 작업본(평문). web/<종류>/<id>/sealed.json 으로만 커밋합니다
+web/**/work/
+submissions/*/web/**/dist/

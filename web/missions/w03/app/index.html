@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>거래내역</title>
+    <style>
+      body { font-family: sans-serif; margin: 0; background: #f4f5f7; color: #1b1f24; }
+      main { max-width: 480px; margin: 0 auto; padding: 24px 16px; }
+      [role='tablist'] { display: flex; gap: 8px; margin-bottom: 16px; }
+      [role='tab'] { flex: 1; padding: 10px 0; border: 1px solid #c9ced6; border-radius: 8px; background: #fff; cursor: pointer; }
+      [role='tab'][aria-selected='true'] { background: #1b1f24; color: #fff; border-color: #1b1f24; }
+      ul { list-style: none; padding: 0; margin: 0; }
+      li { display: grid; grid-template-columns: 72px 1fr auto; gap: 12px; padding: 12px 8px; border-bottom: 1px solid #e3e6ea; background: #fff; }
+      li span:last-child { font-variant-numeric: tabular-nums; }
+      p { padding: 24px 8px; text-align: center; color: #5b6470; }
+      button:not([role='tab']) { padding: 8px 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

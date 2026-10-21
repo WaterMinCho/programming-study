@@ -1,0 +1,7 @@
+{
+  "known": ["함수", "변수", "컴포넌트", "props", "state", "useState", "DOM"],
+  "terms": [
+    {"term": "렌더링", "page": "l90"},
+    {"term": "커밋", "page": "l90"}
+  ]
+}
