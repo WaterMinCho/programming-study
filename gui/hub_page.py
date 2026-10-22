@@ -295,7 +295,7 @@ class HubPage(QWidget):
         root.addSpacing(8)
         root.addWidget(self.busy_bar)
         root.addSpacing(24)
-        self.foot = LinkLabel('글자 크기는 위의 단추나 Ctrl(맥은 Cmd)과 +, -, 0 으로 바꿉니다. <a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL,
+        self.foot = LinkLabel('<a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL,
                               line=theme.TYPE["caption"][1], font=theme.font("caption"))
         kit.typed(self.foot, "caption")
         self.foot.setProperty("tone", "tertiary")

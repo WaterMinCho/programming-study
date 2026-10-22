@@ -798,8 +798,11 @@ class MissionTest(WebTest):
             guikit.click(page.get_btn)
             dialog = win.dialog
             self.assertEqual({key: b.text() for key, b in dialog.buttons.items()}, {"resume": "이어서 하기", "again": "처음부터 다시 받기", "": "닫기"})
-            self.assertEqual((dialog.buttons["resume"].objectName(), dialog.buttons["again"].objectName()), ("primary", "danger"))
+            self.assertEqual((dialog.buttons["resume"].objectName(), dialog.buttons["again"].objectName()), ("primary", "danger_text"))
             self.assertFalse(dialog.buttons["again"].isDefault())
+            guikit.pump()
+            self.assertLess(dialog.buttons["again"].geometry().right(), dialog.buttons[""].x())  # 되돌릴 수 없는 단추는 왼쪽 끝이고 [닫기]가 사이에 옴
+            self.assertLess(dialog.buttons[""].geometry().right(), dialog.buttons["resume"].x())
             for hidden in ("--", "study.py"):
                 self.assertNotIn(hidden, dialog.text.text())
             self.choose("")
