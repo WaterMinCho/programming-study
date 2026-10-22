@@ -102,10 +102,6 @@ class Para(QLabel):
             self.held = height
             self.updateGeometry()
 
-    def minimumSizeHint(self):
-        hint = super().minimumSizeHint()
-        return QSize(hint.width(), self.held) if self.line and self.held else hint
-
     def text(self):
         return self.plain
 
@@ -141,7 +137,10 @@ class Para(QLabel):
         return QSize(width, self.heightForWidth(width))
 
     def minimumSizeHint(self):
+        """px 줄 높이를 준 글은 지금 폭에서 줄바꿈한 높이(hold 가 잼), 아니면 QLabel 의 값에서 마지막 줄 아래 간격을 뺀 높이."""
         size = super().minimumSizeHint()
+        if self.line and self.held:
+            return QSize(size.width(), self.held)
         return QSize(size.width(), max(0, size.height() - self.tail()))
 
 

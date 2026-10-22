@@ -250,6 +250,33 @@ class PartsTest(unittest.TestCase):
         guikit.pump()
         self.assertLessEqual(max(text.heightForWidth(text.width()), text.minimumSizeHint().height()), 28)
 
+    def test_para_in_a_card_gets_its_whole_wrapped_height(self):
+        """카드 안에 겹친 상자에서도 긴 글이 줄바꿈한 높이를 다 받음. Para 의 최소 높이 알림이 꺼지면 아래가 잘림."""
+        card, card_box = kit.card(24, 8)
+        text = kit.para("긴 안내 글입니다. " * 30)
+        card_box.addWidget(text)
+        self.box.addWidget(card)
+        self.box.addStretch(1)
+        self.root.resize(420, 300)  # 글이 다 들어가기에 모자란 높이를 달라고 해도 창이 글 높이만큼은 커져야 함
+        self.root.show()
+        guikit.pump()
+        self.assertGreaterEqual(text.height(), text.heightForWidth(text.width()))
+
+    def test_web_documents_use_the_type_scale(self):
+        """웹 문서의 본문·제목·코드 글자가 설계 크기(17·22·15)이고, 코드 상자 칸은 둥근 바탕을 덮지 않게 투명함."""
+        import mdlite
+        from gui.docview import TextPiece
+        piece = TextPiece(mdlite.to_html("# 제목\n\n본문 문단\n\n```js\nconst a = 1;\n```\n"), theme.web_css())
+        sizes = {}
+        block = piece.document().begin()
+        while block.isValid():
+            if block.text().strip():
+                sizes[block.text()] = block.begin().fragment().charFormat().font().pixelSize()
+            block = block.next()
+        self.assertEqual((sizes["제목"], sizes["본문 문단"], sizes["const a = 1;"]),
+                         (theme.TYPE["headline"][0], theme.TYPE["body"][0], theme.TYPE["code"][0]))
+        self.assertIn("td.codebox { background-color: transparent;", theme.web_css().split("body { font-size: 17px; }")[1])
+
     def test_code_fields_keep_the_code_font_size(self):
         """새 화면의 입력칸 규칙이 글자 크기를 정하지 않아, 코드 칸(원문 상자, 비교, 설치 로그)에 준 코드 글꼴 크기가 남음."""
         from PyQt6.QtWidgets import QPlainTextEdit

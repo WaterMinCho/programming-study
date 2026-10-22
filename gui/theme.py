@@ -365,7 +365,7 @@ li { margin-bottom: 8px; line-height: %(wline)spx; }
 li p { margin-bottom: 8px; }
 code { font-size: %(wcode)spx; background-color: %(track)s; }  /* doc_css 의 line 은 줄 간격 값이라 색은 track 으로 씀 */
 pre { font-size: %(wcode)spx; line-height: %(wcodeline)spx; }
-td.codebox { background-color: %(surface_alt)s; border: 0px; padding: 12px 16px; }
+td.codebox { background-color: transparent; border: 0px; padding: 12px 16px; }  /* 둥근 바탕은 TextPiece.paintEvent 가 칠함 */
 td.quote { padding: 12px 16px 4px 16px; }
 table.grid { margin-top: 8px; margin-bottom: 8px; }
 table.grid th { padding: 8px 12px; }
@@ -473,10 +473,12 @@ def code_font(zoom=0):
     return font
 
 
-def doc_css(zoom=0, extra=""):
+def doc_css(zoom=0, extra="", own_body=False):
     """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈.
-    extra 는 본문 CSS 뒤에 붙일 규칙(JOURNEY_CSS)."""
-    css = (mdlite.CSS + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE), body=JOURNEY_PX - DOC_PX,
+    extra 는 본문 CSS 뒤에 붙일 규칙(JOURNEY_CSS). own_body 면 mdlite 의 body 글자 크기를 빼서 extra 의 body 크기가 먹게 함.
+    Qt 리치 텍스트는 body 의 font-size 가 둘이면 앞의 것을 씀."""
+    base = re.sub(r"(?m)^(body \{[^}]*?)font-size: \d+px; ?", r"\1", mdlite.CSS) if own_body else mdlite.CSS
+    css = (base + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE), body=JOURNEY_PX - DOC_PX,
                                                 wide=round(JOURNEY_LINE * (JOURNEY_PX + zoom)),
                                                 code_line=line_pct(JOURNEY_CODE_LINE, code_font()),
                                                 wbody=TYPE["body"][0] - DOC_PX, wline=TYPE["body"][1] + zoom, wh1=TYPE["headline"][0] - DOC_PX,
@@ -493,4 +495,4 @@ def journey_css(zoom=0):
 
 def web_css(zoom=0):
     """웹 면접 준비의 지문·해설·학습 노트용 CSS. doc_css 에 WEB_CSS 를 더함."""
-    return doc_css(zoom, WEB_CSS)
+    return doc_css(zoom, WEB_CSS, own_body=True)
