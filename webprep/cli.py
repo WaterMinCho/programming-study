@@ -157,6 +157,9 @@ class Cli:
                 state = "준비 중" if not row["error"] else "읽을 수 없음: " + row["error"]
             elif row["phase"] == "live":
                 state = "실전 %s / %d:00, %d단계" % (_secs(row["timers"]["live_elapsed"]), row["live_min"], row["current"])
+                current = self._current_title(web, row["id"])
+                if current:
+                    state += " " + current
             elif row["phase"] == "done":
                 state = "끝남 %d/%d" % (row["done_steps"], max(0, row["total_steps"] - 1))
             else:
@@ -194,6 +197,14 @@ class Cli:
             self.say("은행 오류: " + line)
         return 0
 
+    def _current_title(self, web, mid):
+        """실전 중인 미션의 지금 단계 제목. 봉인을 풀지 못하면 빈 글(현황은 그대로 보임)."""
+        try:
+            current = web.mission(mid)["current"]
+        except WebError:
+            return ""
+        return current["title"] if current else ""
+
     def install(self, web, yes):
         self.say(web.consent())
         self.say()
@@ -210,6 +221,16 @@ class Cli:
         return 0
 
     # 미션
+
+    def _brief(self, step):
+        """검사할 때마다 보이는 지금 단계의 요구와 검사 설명. 앞서 본 요구가 화면 위로 밀려 올라가도 무엇을 검사하는지 다시 보임."""
+        self.say("%d단계. %s (목표 %d분)" % (step["no"], step["title"], step["target_min"]))
+        self.say(step["request"])
+        if step["checks"]:
+            self.say("검사는 아래 내용을 확인합니다.")
+            for line in step["checks"]:
+                self.say("- " + line)
+        self.say()
 
     def _request(self, step):
         self.say("%d단계. %s (목표 %d분)" % (step["no"], step["title"], step["target_min"]))
@@ -296,8 +317,38 @@ class Cli:
             return "%d초 (%d초 안)" % (secs, limit)
         return "%d초 (%d초 넘김)" % (secs, secs - limit)
 
+    def _done_note(self, web, mid):
+        """끝난 미션에 check 를 하면. 단계 기록은 그대로이고 해설과 다시 풀기 명령을 알림."""
+        self.say("%s 미션은 이미 끝나서 더 검사하지 않습니다. 통과한 단계와 검사 기록은 그대로 남아 있습니다." % mid)
+        pending = web.pending_after(mid)
+        if pending:
+            self.say("답하지 않은 통과 뒤 질문이 %d개 있습니다. `python study.py web answer %s` 로 답할 수 있습니다." % (len(pending), mid))
+        self.say("해설과 모범 답안은 `python study.py web finish %s` 로 봅니다." % mid)
+        self.say("처음부터 다시 풀려면 `python study.py web get %s --again` 을 실행하세요. 지금 코드는 템플릿으로 덮어써집니다." % mid)
+
+    def _broken(self, view, result):
+        """앞서 통과했는데 이번 검사에서 실패한 단계를 "1단계(제목)" 꼴로 이은 글. 넘어간 단계는 검사가 실패하는 것이 당연하므로 뺌."""
+        rows = {row["no"]: row for row in view["steps"]}
+        broken = [k for k in result["broken"] if rows.get(k, {}).get("result") == "pass"]
+        return ", ".join("%d단계(%s)" % (k, rows[k]["title"]) if rows[k]["title"] else "%d단계" % k for k in broken)
+
+    def _broken_note(self, view, result):
+        """지금 단계는 통과했는데 앞서 통과한 단계의 검사가 실패한 경우. 진행은 막지 않으므로 무엇이 깨졌고 기록이 어떻게 되는지 적음."""
+        names = self._broken(view, result)
+        if not names:
+            return
+        self.say("앞서 통과한 %s 검사가 지금 코드에서는 실패합니다. %d단계를 고치면서 그 단계의 동작이 깨졌을 수 있습니다."
+                 % (names, result["open"]))
+        if result["finished"]:
+            self.say("지금 단계만 통과하면 넘어가는 규칙이라 미션은 끝난 것으로 기록했습니다. 해설의 모범 답안과 비교해 깨진 단계를 확인해 보세요.")
+        else:
+            self.say("지금 단계만 통과하면 넘어가는 규칙이라 다음 단계를 열었습니다. 깨진 단계도 같이 고쳐 두세요.")
+
     def check(self, web, mid, said):
         view = web.mission(mid)
+        if view["phase"] == "done":
+            self._done_note(web, mid)
+            return 0
         if view["phase"] != "live":
             raise WebError("실전 중이 아닙니다(지금 %s)." % view["phase_label"])
         if view["current"] and view["current"]["no"] == 0:
@@ -311,6 +362,8 @@ class Cli:
             self.say("0단계를 끝냈습니다.")
             self._after_step(web, mid, result)
             return 0
+        if view["current"]:
+            self._brief(view["current"])
         result = web.check(mid)
         for line in result["warnings"]:
             self.say("주의: " + line)
@@ -320,15 +373,16 @@ class Cli:
             if test["status"] != "pass" and test["message"]:
                 self.say(study.indent(test["message"]))
         self.say("검사 %d개 가운데 %d개 통과 (%.1f초)" % (len(result["tests"]), len(result["pass"]), result["ms"] / 1000.0))
-        if result["broken"]:
-            self.say("앞 단계 검사가 깨졌습니다: %s단계" % ", ".join(str(k) for k in result["broken"]))
         if result["passed"]:
             self.say("%d단계를 통과했습니다." % result["open"])
+            self._broken_note(view, result)
             if result["after"]:
                 self._after_question(web, mid, result["after"])
             self._after_step(web, mid, result)
         else:
-            self.say("%d단계 검사가 아직 통과하지 않았습니다. 고친 뒤 다시 `check` 하세요." % result["open"])
+            if self._broken(view, result):
+                self.say("앞서 통과한 %s 검사도 지금 코드에서는 실패합니다." % self._broken(view, result))
+            self.say("%d단계 검사가 아직 통과하지 않았습니다. 고친 뒤 `python study.py web check %s` 로 다시 검사하세요." % (result["open"], mid))
         return 0
 
     def answer(self, web, mid, said):

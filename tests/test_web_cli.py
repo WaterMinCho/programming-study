@@ -295,7 +295,7 @@ class StatusInstallCliTest(CliBase):
 
 
 class FollowCliTest(CliBase):
-    """통과 뒤 질문을 받지 못했을 때 다음 단계 요구를 보이고, 나중에 answer 로 답함."""
+    """check 가 결과 앞에 지금 단계 요구를 다시 보임. 통과 뒤 질문을 받지 못해도 다음 요구를 보이고 끝난 미션과 깨진 앞 단계를 알림."""
 
     def live(self):
         self.cmd("get", "x01")
@@ -311,6 +311,18 @@ class FollowCliTest(CliBase):
             steps[1]["after"] = {"ask": "면접관: 버튼 글자는 어디에 쓰이나요?", "items": [{"text": "접근성 이름이 됩니다.", "need": True}]}
             return steps
         return mock.patch.object(service.bank, "parse_steps", parse)
+
+    def test_every_check_shows_the_open_request_first(self):
+        self.live()
+        code, text = self.cmd("check", "x01")
+        self.assertEqual(0, code)
+        lines = text.splitlines()
+        self.assertEqual("1단계. 더하기 버튼 (목표 2분)", lines[0])
+        self.assertIn('면접관: 버튼 이름을 "더하기"로 바꾸고', lines[1])
+        self.assertLess(text.index("- 이름이 \"더하기\"인 버튼이 있는지 봅니다."), text.index("1a  실패"))
+        self.assertIn("`python study.py web check x01` 로 다시 검사하세요", lines[-1])
+        code, text = self.cmd("status")
+        self.assertIn("1단계 더하기 버튼", text)  # 실전 중인 미션 줄에 지금 단계 제목
 
     def test_follow_up_without_an_answer_still_shows_the_next_request(self):
         """통과 뒤 질문에서 입력이 끝나거나(EOF) Ctrl+C 를 눌러도 다음 단계 요구가 보이고, 질문은 기록하지 않으며 answer 로 나중에 답함."""
@@ -350,12 +362,58 @@ class FollowCliTest(CliBase):
         with mock.patch.object(self, "ask", side_effect=EOFError):
             self.cmd("check", "x01")
         self.assertEqual(["check", "step", "finish"], self.kinds()[-3:])
+        code, text = self.cmd("check", "x01")  # 끝난 미션에도 답하지 않은 질문을 알림
+        self.assertIn("답하지 않은 통과 뒤 질문이 1개 있습니다. `python study.py web answer x01`", text)
         code, text = self.cmd("answer", "x01", "--said", "2")
         self.assertEqual(0, code, text)
         self.assertIn("면접관: 초기화 버튼을 눌렀을 때", text)
         self.assertIn("판정: 막힘", text)
         self.assertEqual(({"kind": "after", "step": 2, "secs": None, "need": [0], "extra": [1]}, []),
                          ({k: self.log()[-1][k] for k in ("kind", "step", "secs", "need", "extra")}, self.session().pending_after("x01")))
+
+    def test_check_on_a_finished_mission_explains_instead_of_an_error(self):
+        self.live()
+        self.solve(2)
+        self.cmd("check", "x01")
+        self.cmd("check", "x01", answers=["", "1"])
+        before = len(self.log())
+        code, text = self.cmd("check", "x01")
+        self.assertEqual(0, code)
+        self.assertNotIn("오류", text)
+        self.assertIn("x01 미션은 이미 끝나서 더 검사하지 않습니다.", text)
+        self.assertIn("`python study.py web finish x01`", text)
+        self.assertIn("`python study.py web get x01 --again`", text)
+        self.assertNotIn("answer", text)  # 답한 질문뿐이면 answer 를 알리지 않음
+        self.assertEqual(before, len(self.log()))
+
+    def break_step1(self):
+        """2단계 답안에서 더하기 버튼만 빼 1단계 검사는 실패하고 2단계 검사는 통과하게 함(가짜 vitest 는 글자로 판정)."""
+        self.solve(2)
+        study.write_text(self.app_path(), study.read_text(self.app_path()).replace("더하기", "plus"))
+
+    def test_finishing_with_a_broken_earlier_step_names_it(self):
+        """마지막 단계를 고치다 앞 단계를 깨도 진행은 막지 않음(설계). 대신 어느 단계가 깨졌고 미션은 끝난 것으로 기록됐다고 적음.
+        넘어간 단계는 검사가 실패해도 깨졌다고 하지 않음."""
+        self.live()
+        self.solve(1)
+        self.cmd("check", "x01")
+        self.break_step1()
+        code, text = self.cmd("check", "x01", answers=["", "1"])
+        self.assertEqual(0, code)
+        self.assertIn("2단계를 통과했습니다.\n앞서 통과한 1단계(더하기 버튼) 검사가 지금 코드에서는 실패합니다.", text)
+        self.assertIn("미션은 끝난 것으로 기록했습니다", text)
+        self.assertIn("모든 단계를 끝냈습니다", text)
+        self.assertEqual("finish", [k for k in self.kinds() if k != "after"][-1])
+
+        self.cmd("get", "x01", "--again")
+        self.cmd("start", "x01", "--no-ai", "yes")
+        self.cmd("check", "x01", "--said", "1")
+        self.tick(minutes=2)
+        self.cmd("skip", "x01")
+        self.break_step1()
+        code, text = self.cmd("check", "x01", answers=["", "1"])
+        self.assertIn("2단계를 통과했습니다.", text)
+        self.assertNotIn("앞서 통과한", text)  # 넘어간 1단계는 깨졌다고 하지 않음
 
 
 class PipeAskTest(unittest.TestCase):
