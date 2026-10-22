@@ -56,6 +56,7 @@ class WebLearnPage(QWidget):
         self.view = DocView()
         self.view.box.setContentsMargins(0, 0, 0, 0)
         self.view.css = theme.web_css(self.win.zoom)
+        self.view.ruled = False
         card_box.addWidget(self.view, 1)
         self.next_row = QWidget()
         next_box = QHBoxLayout(self.next_row)

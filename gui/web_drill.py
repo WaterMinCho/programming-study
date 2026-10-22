@@ -81,7 +81,7 @@ class WebDrillPage(QWidget):
         self.cid, self.chain, self.back = None, None, None
         self.index, self.started, self.checked, self.gave_up = 0, 0.0, False, False
         self.verdicts, self.secs, self.done = [], 0, None  # 이번 회차의 질문별 판정, 지금 질문의 답 시간, 사슬 끝 결과
-        self.talked_any = False  # 이번 회차에 "아는 데까지 말했습니다"를 표시한 적이 있는지
+        self.talked_count = 0  # 이번 회차에 "아는 데까지 말했습니다"를 표시하고 넘긴 질문 수
         self.clock = time.monotonic
         self.busy = False
         self.code_views = []
@@ -215,7 +215,7 @@ class WebDrillPage(QWidget):
         follow_box.addWidget(self.follow)
         follow_col.addWidget(self.follow_well)
         end_box.addWidget(self.follow_block)
-        self.learn_list = kit.RowList(inside_card=True)
+        self.learn_list = kit.RowList(flush=True)
         self.learn_row = None
         end_box.addWidget(self.learn_list)
         self.stack.addWidget(self.ask_page)
@@ -262,7 +262,7 @@ class WebDrillPage(QWidget):
         """사슬을 화면에 올리고 첫 질문부터 시작함. back 은 돌아갈 곳(("mission", 미션 id) 또는 None 이면 웹 홈). 잠긴 사슬이면 WebError."""
         chain = self.win.web.chain(cid)
         self.cid, self.chain, self.back = cid, chain, back
-        self.index, self.verdicts, self.done, self.talked_any = 0, [], None, False
+        self.index, self.verdicts, self.done, self.talked_count = 0, [], None, 0
         self.title.setText(chain["title"])
         self.title.show()
         self.back_btn.setText("← 미션" if back and back[0] == "mission" else "← 웹 면접 준비")
@@ -384,16 +384,11 @@ class WebDrillPage(QWidget):
             row.box.toggled.connect(lambda checked=False: self.sync_stuck())
         self.items_title.setText(GAVE_UP_HINT if gave_up else ITEMS_HINT)
         self.talked.set_items([(TALKED_TEXT, "", "", "", False)])
-        self.talked.rows[0].box.toggled.connect(lambda checked: self._talked(checked))
         self.answer_box.show()
         self.next_btn.setText("사슬 끝내기" if self.index == len(self.chain["questions"]) - 1 else "다음 질문")
         self.next_btn.setVisible(True)
         self.next_btn.setEnabled(not self.busy)
         self.sync_stuck()
-
-    def _talked(self, checked):
-        if checked:
-            self.talked_any = True
 
     def need_marks(self):
         question = self.question()
@@ -420,6 +415,8 @@ class WebDrillPage(QWidget):
             self.win.ask("알림", str(error))
             return
         self.verdicts.append(result["result"])
+        if talked == 1:
+            self.talked_count += 1
         if self.index + 1 < len(self.chain["questions"]):
             self.index += 1
             self.show_question()
@@ -439,8 +436,7 @@ class WebDrillPage(QWidget):
         passed = sum(1 for r in done["per_question"] if r == "pass")
         self.score.setText("%d/%d" % (passed, total))
         self.due_text.setText("다음 복습은 %s입니다." % date_text(done["due"]))
-        stuck = sum(1 for r in done["per_question"] if r != "pass")
-        self.talked_text.setText("막힌 질문 %d개에서 아는 데까지 말했습니다." % stuck if self.talked_any and stuck else "")
+        self.talked_text.setText("막힌 질문 %d개에서 아는 데까지 말했습니다." % self.talked_count if self.talked_count else "")
         self.talked_text.setVisible(bool(self.talked_text.text()))
         for row in self.result_rows:
             self.results_col.removeWidget(row)

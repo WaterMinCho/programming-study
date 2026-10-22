@@ -246,6 +246,29 @@ class PartsTest(unittest.TestCase):
         self.assertLessEqual(plain.width(), 560)
         self.assertGreaterEqual(plain.width(), 480)
 
+    def test_message_dialog_buttons_keep_their_whole_label(self):
+        """글자가 긴 단추도 잘리지 않음. 한 줄에 들어가지 않으면 한 줄에 하나씩 쌓고 첫 번째(주 단추)를 위에 둠."""
+        long = (("다른 컴퓨터의 풀이 가져오기", "remote"), ("이 컴퓨터 풀이로 올리기", "local"), ("나중에 정하기", ""))
+        for buttons, detail in ((long, "자세한 출력"), ((("다시 찾기", "find"), ("Node 위치 지정…", "pick"), ("닫기", "")), "")):
+            ask = dialogs.MessageDialog(None, "알림", "글", buttons, detail=detail)
+            ask.show()
+            guikit.pump()
+            self.addCleanup(ask.close)
+            self.assertLessEqual(ask.width(), 560)
+            for button in ask.buttons.values():
+                self.assertTrue(button.isVisible())
+                self.assertGreaterEqual(button.width(), button.sizeHint().width(), button.text())
+                self.assertLessEqual(button.geometry().right(), ask.width() - 32)
+        stacked = [ask_button.y() for ask_button in self.stacked(long)]
+        self.assertEqual(stacked, sorted(stacked))  # 첫 번째 단추가 맨 위
+
+    def stacked(self, buttons):
+        ask = dialogs.MessageDialog(None, "알림", "글", buttons)
+        ask.show()
+        guikit.pump()
+        self.addCleanup(ask.close)
+        return [ask.buttons[item[1]] for item in buttons]
+
 
 if __name__ == "__main__":
     unittest.main()

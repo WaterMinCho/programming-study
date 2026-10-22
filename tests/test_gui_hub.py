@@ -204,11 +204,10 @@ class HubScreenTest(HubTest):
 
         # 파이썬 줄: 서비스가 낸 값을 그대로 보임
         overview = win.session.overview()
-        self.assertEqual(hub.python_row.second.text(), "준비도 %d%% · 단원 %d개 중 %d개 숙달 · 다음은 2회차"
-                         % (overview["readiness"], overview["total_units"], overview["mastered"]))
+        self.assertEqual(hub.python_row.second.text(), "단원 %d개 중 %d개 숙달 · 다음은 2회차" % (overview["total_units"], overview["mastered"]))
 
         # 여행 줄: 1-1·1-2 를 통과해 보스가 열리고 다음은 보스
-        self.assertEqual(hub.journey_row.second.text(), "4문제 중 2개 통과 · 던전 1개 중 0개 클리어 · 다음은 물통 정리")
+        self.assertEqual(hub.journey_row.second.text(), "4문제 중 2개 통과 · 다음은 물통 정리")
         self.assertFalse(hub.journey_row.inert)
         self.assertFalse(hub.journey_error.isVisible())
 

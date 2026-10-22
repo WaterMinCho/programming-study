@@ -9,6 +9,9 @@ from gui import kit, theme
 from gui.widgets import LinkLabel, Para
 
 
+NARROWEST, WIDEST = 480, 560  # 알림 창의 폭
+
+
 class MessageDialog(QDialog):
     """안내·확인. buttons 는 (글자, 키) 또는 (글자, 키, 역할) 목록이고 첫 번째가 오른쪽 끝에 옴. 역할은 primary(파란 주 단추, 단추가 하나면
     Enter 로 눌림), danger(되돌릴 수 없는 행동. 빨간 옅은 바탕, Enter 없음), close(닫기 같은 보조 단추). 역할을 주지 않으면 첫 번째가 primary,
@@ -42,16 +45,13 @@ class MessageDialog(QDialog):
         box.addSpacing(16)
         box.addWidget(self.detail)
         box.addSpacing(16)
-        row = QHBoxLayout()
-        row.setSpacing(8)
+        tools = []
         if detail:
             more = kit.button("자세히", "text", "l")
             more.clicked.connect(lambda: (self.detail.setVisible(not self.detail.isVisible()), self.fit()))
             copy = kit.button("내용 복사", "text", "l")
             copy.clicked.connect(lambda: QGuiApplication.clipboard().setText("%s\n\n%s" % (text, detail)))
-            row.addWidget(more)
-            row.addWidget(copy)
-        row.addStretch(1)
+            tools = [more, copy]
         self.buttons = {}
         roles = {}
         for number, item in enumerate(buttons):
@@ -62,17 +62,48 @@ class MessageDialog(QDialog):
             kind = {"primary": "primary", "danger": "danger"}.get(roles[key], "secondary")
             button = kit.button(label, kind, "l")
             button.clicked.connect(lambda checked=False, k=key: self.choose(k))
-            row.addWidget(button)
+            button.setParent(self)  # 창의 단추 규칙(ui=2)이 붙은 뒤에 크기를 잼
+            button.ensurePolished()
+            button.setMinimumWidth(button.sizeHint().width())  # 창이 좁아도 단추 글자가 잘리지 않게
             self.buttons[key] = button
         first = self.buttons[buttons[0][1]]
         first.setDefault(len(buttons) == 1 and roles[buttons[0][1]] == "primary")  # 고를 것이 있거나 되돌릴 수 없는 창은 Enter 로 넘어가지 않음
-        box.addLayout(row)
+        made = list(self.buttons.values())
+        for tool in tools:
+            tool.setParent(self)
+            tool.ensurePolished()
+        room = WIDEST - box.contentsMargins().left() - box.contentsMargins().right()
+        need = sum(b.sizeHint().width() + 8 for b in made) - 8
+        if tools and need + sum(t.sizeHint().width() + 8 for t in tools) > room:  # 한 줄에 다 들어가지 않으면 자세히·내용 복사를 윗줄로
+            box.addLayout(self.line(tools, []))
+            box.addSpacing(8)
+            tools = []
+        if need > room:  # 단추 글자가 길면 한 줄에 하나씩, 첫 번째(주 단추)를 위에 둠
+            column = QVBoxLayout()
+            column.setSpacing(8)
+            for button in reversed(made):
+                column.addWidget(button)
+            box.addLayout(column)
+        else:
+            box.addLayout(self.line(tools, made))
         self.fit()
+
+    @staticmethod
+    def line(left, right):
+        """단추 한 줄. left 는 왼쪽 끝에, right 는 오른쪽 끝에 붙임."""
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        for widget in left:
+            row.addWidget(widget)
+        row.addStretch(1)
+        for widget in right:
+            row.addWidget(widget)
+        return row
 
     def fit(self):
         """글이 줄바꿈되는 폭에 맞춰 높이를 잡음. 줄바꿈하는 QLabel 의 크기 추정을 쓰면 좁고 길게 나와 빈 줄이 생김."""
         self.layout().activate()  # 자세히를 접은 직후에는 최소 높이가 펼친 값으로 남아 있어 창이 줄어들지 않음
-        width = max(480, min(560, self.layout().minimumSize().width()))
+        width = max(NARROWEST, min(WIDEST, self.layout().minimumSize().width()))
         self.resize(width, self.layout().totalHeightForWidth(width))
 
     def choose(self, key):

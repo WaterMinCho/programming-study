@@ -357,13 +357,13 @@ WEB_CSS = """
 body { font-size: %(wbody)spx; }
 p { margin-bottom: 16px; line-height: %(wline)spx; }
 p.h1 { font-size: %(wh1)spx; margin-top: 0px; margin-bottom: 8px; line-height: %(wh1line)spx; color: %(ink)s; }
-p.h2 { font-size: %(wbody)spx; margin-top: 8px; margin-bottom: 4px; line-height: %(wline)spx; color: %(ink)s; }
+p.h2 { font-size: %(wbody)spx; margin-top: 24px; margin-bottom: 8px; line-height: %(wline)spx; color: %(ink)s; }
 p.h3 { font-size: %(wbody)spx; margin-top: 8px; margin-bottom: 4px; line-height: %(wline)spx; color: %(ink)s; }
-hr { background-color: %(line)s; margin-top: 16px; margin-bottom: 16px; }
+hr { background-color: %(track)s; margin-top: 16px; margin-bottom: 16px; }
 ul, ol { margin-top: 0px; margin-bottom: 8px; }
 li { margin-bottom: 8px; line-height: %(wline)spx; }
 li p { margin-bottom: 8px; }
-code { font-size: %(wcode)spx; background-color: %(line)s; }
+code { font-size: %(wcode)spx; background-color: %(track)s; }  /* doc_css 의 line 은 줄 간격 값이라 색은 track 으로 씀 */
 pre { font-size: %(wcode)spx; line-height: %(wcodeline)spx; }
 td.codebox { background-color: %(surface_alt)s; border: 0px; padding: 12px 16px; }
 td.quote { padding: 12px 16px 4px 16px; }

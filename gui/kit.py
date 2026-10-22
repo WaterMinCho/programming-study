@@ -7,10 +7,10 @@ theme.TYPE 으로 글꼴을 직접 주고(label, para), 간격은 theme.SPACE �
 칠할 때마다 지금 테마의 색을 읽음."""
 import math
 
-from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
+                             QSizePolicy, QVBoxLayout, QWidget)
 
 from gui import theme
 from gui.widgets import LinkLabel, Para
@@ -37,8 +37,11 @@ def repolish(widget):
 
 
 def set_tone(widget, tone):
+    """tone 속성을 바꾸고 다시 칠함. 띠의 앞 낱말처럼 부모의 tone 으로 색이 정해지는 자식도 같이 다시 칠함."""
     widget.setProperty("tone", tone or None)
     repolish(widget)
+    for child in widget.findChildren(QWidget):
+        repolish(child)
 
 
 def label(text="", role="body", tone="", bold=None, align=None):
@@ -309,6 +312,8 @@ class Row(QFrame):
         column_box = box(text, (0, 12, 0, 12), 0)
         self.title = ElideLabel(title, "label", bold=strong)  # 긴 제목은 줄임표로 줄이고 전체는 도움말에 둠
         self.second = ElideLabel(second, "caption", "secondary")
+        self.title.setFixedHeight(theme.TYPE["label"][1])  # 글꼴의 줄 높이가 글자 크기와 같아 두 줄이 닿지 않게 줄 높이를 줌
+        self.second.setFixedHeight(theme.TYPE["caption"][1])
         self.second.setVisible(bool(second))
         column_box.addWidget(self.title)
         column_box.addWidget(self.second)
@@ -396,12 +401,14 @@ def link_banner(tone=""):
 
 
 class RowList(QFrame):
-    """줄을 세로로 쌓은 흰 목록. 줄 사이에만 line 색 1px 선(좌우 24 들여서). 준비 중 항목은 끝의 글자 단추 하나로 접음."""
+    """줄을 세로로 쌓은 흰 목록. 줄 사이에만 line 색 1px 선(좌우 24 들여서). 준비 중 항목은 끝의 글자 단추 하나로 접음.
+    flush 면 카드 안 이름표 아래에 두는 목록이라 줄과 선을 들이지 않고 이름표와 같은 세로선에 맞춤."""
 
-    def __init__(self, inside_card=False):
+    def __init__(self, inside_card=False, flush=False):
         super().__init__()
-        self.setObjectName("rows" if inside_card else "card")
+        self.setObjectName("rows" if inside_card or flush else "card")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.flush = flush
         self.box = box(self)
         self.rows, self.lines, self.more_btn, self.more_list = [], [], None, None
 
@@ -420,10 +427,12 @@ class RowList(QFrame):
             line.setFixedHeight(1)
             line.setContentsMargins(0, 0, 0, 0)
             holder = QWidget()
-            holder_box = box(holder, (24, 0, 24, 0))
+            holder_box = box(holder, (0, 0, 0, 0) if self.flush else (24, 0, 24, 0))
             holder_box.addWidget(line)
             self.box.addWidget(holder)
             self.lines.append(holder)
+        if self.flush:
+            row.layout().setContentsMargins(0, 0, 0, 0)
         self.box.addWidget(row)
         self.rows.append(row)
         return row
@@ -454,6 +463,68 @@ class RowList(QFrame):
         self.more_btn.clicked.connect(toggle)
         self.lines.append(holder)  # clear 가 같이 치움
         return self.more_btn
+
+
+class FlowLayout(QLayout):
+    """가로로 늘어놓다가 폭이 모자라면 다음 줄로 넘기는 배치(주제 칩). 줄 사이와 칸 사이 간격은 spacing 하나로 씀."""
+
+    def __init__(self, parent=None, spacing=8):
+        super().__init__(parent)
+        self.items = []
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setSpacing(spacing)
+
+    def addItem(self, item):
+        self.items.append(item)
+
+    def count(self):
+        return len(self.items)
+
+    def itemAt(self, index):
+        return self.items[index] if 0 <= index < len(self.items) else None
+
+    def takeAt(self, index):
+        return self.items.pop(index) if 0 <= index < len(self.items) else None
+
+    def expandingDirections(self):
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._place(QRect(0, 0, width, 0), move=False)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._place(rect, move=True)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        size = QSize()
+        for item in self.items:
+            size = size.expandedTo(item.minimumSize())
+        left, top, right, bottom = self.getContentsMargins()
+        return size + QSize(left + right, top + bottom)
+
+    def _place(self, rect, move):
+        left, top, right, bottom = self.getContentsMargins()
+        area = rect.adjusted(left, top, -right, -bottom)
+        x, y, line = area.x(), area.y(), 0
+        gap = self.spacing()
+        for item in self.items:
+            if item.widget() is not None and not item.widget().isVisibleTo(item.widget().parentWidget()):
+                continue
+            hint = item.sizeHint()
+            if x > area.x() and x + hint.width() > area.right() + 1:
+                x, y, line = area.x(), y + line + gap, 0
+            if move:
+                item.setGeometry(QRect(QPoint(x, y), hint))
+            x += hint.width() + gap
+            line = max(line, hint.height())
+        return y + line - rect.y() + bottom
 
 
 class Stepper(QWidget):
@@ -644,14 +715,14 @@ class NextCard(QFrame):
 
 
 class CheckMark(QWidget):
-    """체크 상자 20(테두리 2px field_edge, 모서리 6). 켜면 accent 바탕과 흰 체크 표시, 초점이면 바깥 2px focus 테두리.
-    QCheckBox 처럼 setChecked·isChecked·toggled·setEnabled 를 가짐. 줄(Check)이 누름과 키를 받아 넘김."""
+    """체크 상자 20(테두리 2px field_edge, 모서리 6). 켜면 accent 바탕과 흰 체크 표시. 상자는 칸의 왼쪽 끝에 붙여 그려서 위 본문과 같은
+    세로선에 옴. 키보드 초점 테두리는 줄(Check)이 그림. QCheckBox 처럼 setChecked·isChecked·toggled·setEnabled 를 가짐."""
     toggled = pyqtSignal(bool)
 
     def __init__(self):
         super().__init__()
-        self.checked, self.ring = False, False
-        self.setFixedSize(28, 28)  # 상자 20 과 초점 테두리 자리
+        self.checked = False
+        self.setFixedSize(20, 28)  # 상자 20 을 본문 첫 줄(28)의 가운데에 둠
 
     def isChecked(self):
         return self.checked
@@ -674,7 +745,7 @@ class CheckMark(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = QRectF(4, 4, 20, 20)
+        rect = QRectF(0, 4, 20, 20)
         if not self.isEnabled():
             edge, fill = ("primary_off", "primary_off") if self.checked else ("border", "surface_alt")
         elif self.checked:
@@ -687,14 +758,10 @@ class CheckMark(QWidget):
         if self.checked:
             painter.setPen(QPen(theme.qcolor("primary_ink" if self.isEnabled() else "primary_off_ink"), 2, Qt.PenStyle.SolidLine,
                                 Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-            path = QPainterPath(QPointF(9, 14))
-            path.lineTo(12.5, 17.5)
-            path.lineTo(19, 10.5)
+            path = QPainterPath(QPointF(5, 14))
+            path.lineTo(8.5, 17.5)
+            path.lineTo(15, 10.5)
             painter.drawPath(path)
-        if self.ring:
-            painter.setPen(QPen(theme.qcolor("focus"), 2))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRoundedRect(QRectF(1, 1, 26, 26), theme.RADIUS["small"], theme.RADIUS["small"])
 
 
 class Check(QFrame):
@@ -741,13 +808,19 @@ class Check(QFrame):
 
     def focusInEvent(self, event):
         super().focusInEvent(event)
-        self.box.ring = True
-        self.box.update()
+        self.update()
 
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
-        self.box.ring = False
-        self.box.update()
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.hasFocus():  # 키보드 초점은 목록 줄처럼 줄 안쪽 2px 테두리로 보임
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setPen(QPen(theme.qcolor("focus"), 2))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), theme.RADIUS["small"], theme.RADIUS["small"])
 
 
 class CheckList(QWidget):

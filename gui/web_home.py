@@ -15,7 +15,7 @@ from webprep.record import RecordError
 from webprep.service import WebError
 
 ABOUT = "프런트엔드 채용의 라이브 코딩 미션과 직무 면접 꼬리 질문을 연습합니다."
-REVIEW_ABOUT = "한 번 푼 꼬리 질문을 정해진 날에 다시 풉니다."
+REVIEW_ABOUT = "한 번 푼 꼬리 질문을 정해진 날에 다시 풀고, 아직 풀지 않은 사슬을 하루 몇 개씩 더합니다."
 NO_TODAY = "오늘 복습할 사슬이 없습니다."
 NO_STUCK = "막힌 질문에서 아는 데까지 말한 비율은 꼬리 질문에서 필수 항목을 빠뜨린 뒤부터 보입니다."
 ALL_DONE = "출제된 미션과 사슬을 모두 끝냈습니다."
@@ -51,6 +51,7 @@ class WebHomePage(QWidget):
         self.hub_btn = self.top.back
         self.stack_dot = kit.Dot("todo", 8)
         self.stack_label = kit.label("", "caption", "secondary")
+        self.top.row.addStretch(1)  # 제목이 없는 막대라 돌아가기는 왼쪽 끝, 상태와 설치 관리는 오른쪽 끝에 붙임
         self.top.add_right(self.stack_dot)
         self.top.add_right(self.stack_label)
         self.setup_btn = kit.button("설치 관리", "text", "s", onbg=True)
@@ -68,8 +69,11 @@ class WebHomePage(QWidget):
         self.notice.hide()
         self.problem = kit.banner("", "warning")  # 검사 도구나 Node 가 없을 때의 안내
         self.problem.hide()
-        root.addWidget(self.notice)
-        root.addWidget(self.problem)
+        banners = QWidget()  # 띠 둘이 같이 보이면 8 띄움. 숨은 띠 옆에는 간격이 생기지 않음
+        banner_box = kit.box(banners, spacing=8)
+        banner_box.addWidget(self.notice)
+        banner_box.addWidget(self.problem)
+        root.addWidget(banners)
         root.addSpacing(16)
         self.next_card = kit.NextCard()
         self.next_btn = self.next_card.button
@@ -103,7 +107,8 @@ class WebHomePage(QWidget):
         self.topic_card, card_box = kit.card(pad=0, spacing=0)
         card_box.setContentsMargins(0, 24, 0, 0)
         chips_holder = QWidget()
-        self.chip_row = kit.box(chips_holder, (24, 0, 24, 16), 8, horizontal=True)
+        self.chip_row = kit.FlowLayout(chips_holder, 8)  # 칩이 넘치면 다음 줄로 넘김
+        self.chip_row.setContentsMargins(24, 0, 24, 16)
         self.chip_group = QButtonGroup(self)
         self.chip_group.setExclusive(True)
         self.more_topics_btn = kit.button("", "text", "s")
@@ -280,7 +285,6 @@ class WebHomePage(QWidget):
             self.chip_row.addWidget(self.more_topics_btn)
             for name in waiting:
                 self.more_topics_box.addWidget(kit.label(name, "caption", "tertiary"))
-        self.chip_row.addStretch(1)
         self.topic_count.setText("사슬 %d개 중 %d개 끝남" % (sum(t["total"] for t in ready), sum(t["done"] for t in ready)) if ready else "")
         if self.topic not in self.chips:
             self.topic = next((t["id"] for t in ready), None)

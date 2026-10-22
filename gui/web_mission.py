@@ -11,6 +11,7 @@
 프로그램을 닫으면 서버를 끔. [테스트 돌리기]는 미션 폴더의 내 테스트를 npm test 처럼 돌림. 둘 다 npm 과 PowerShell 을 거치지 않음.
 두 카드의 폭은 어느 상태에서나 7:5 이고, 위 막대·단계 표시·아래 막대는 고정이며 카드 안만 스크롤함."""
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -106,21 +107,29 @@ def said(text):
 
 def request_markdown(step, hints, revealed=True):
     """지금 요구 칸의 마크다운(면접관 말은 회색 칸이 따로 보임): 설명, 검사가 확인하는 내용, 들은 힌트.
-    0단계는 자동 검사가 없다는 말과, 점검 항목이 아직 열리지 않았으면 언제 열리는지를 적음."""
+    0단계는 점검 항목이 아직 열리지 않았으면 언제 열리는지를 적음."""
     parts = []
     if step["note"]:
         parts.append(step["note"])
     if step["checks"]:
         parts.append("검사는 아래 내용을 확인합니다.\n" + "\n".join("- " + line for line in step["checks"]))
-    if step["no"] == 0:
-        parts.append(NO_CHECK_STEP0 + ("" if revealed else " 설명을 마치면 점검 항목이 나옵니다. 목표 시간 %d분이 지나면 열립니다." % step["target_min"]))
+    if step["no"] == 0 and not revealed:  # 자동 검사가 없다는 말은 오른쪽 결과 칸에 한 번만 둠
+        parts.append("설명을 마치면 점검 항목이 나옵니다. 목표 시간 %d분이 지나면 열립니다." % step["target_min"])
     for number, text in enumerate(hints, 1):
         parts.append("### 면접관 힌트 %d\n\n%s" % (number, text))
     return "\n\n".join(parts)
 
 
+def brief_text(markdown):
+    """읽기 안내의 첫 제목('# w03. 거래내역 불러오기')에서 미션 id 를 뗌. 내부 id 는 화면에 쓰지 않음."""
+    return re.sub(r"\A(#+ )[a-z]+\d+\. ", r"\1", markdown or "")
+
+
 def after_markdown(after):
     return "%d초 안에 소리 내어 답한 뒤, 아래에서 말한 항목에 표시하고 [답을 마쳤습니다]를 누르세요." % after["secs"]
+
+
+WORDS = {"끝": "끝남", "잠김": "시작 전"}  # 서비스의 단계 낱말을 화면 낱말 사전으로 바꿈. 잠김은 단계 표시에서만 씀
 
 
 def done_markdown(done, base_dir):
@@ -128,7 +137,8 @@ def done_markdown(done, base_dir):
     rows = []
     for row in done["steps"]:
         name = "%d단계 %s" % (row["no"], row["title"]) if row["title"] else "%d단계" % row["no"]
-        rows.append("- %s: **%s**%s" % (md_text(name), row["label"], " (힌트 %d)" % row["hints"] if row["hints"] else ""))
+        label = WORDS.get(row["label"], row["label"])
+        rows.append("- %s: **%s**%s" % (md_text(name), label, " (힌트 %d)" % row["hints"] if row["hints"] else ""))
     parts = ["## 단계별 결과", "\n".join(rows)]
     if done["explain"]:
         parts.append(figures_to_images(done["explain"], base_dir))
@@ -480,6 +490,7 @@ class WebMissionPage(QWidget):
         # 왼쪽: 읽기 안내
         self.brief_view = DocView()
         self.brief_view.box.setContentsMargins(24, 24, 24, 24)
+        self.brief_view.ruled = False
         self.brief_view.sheet.setMaximumWidth(DOC_WIDTH + 48)
         # 왼쪽: 지금 요구(실전 중)와 통과 뒤 질문
         self.request_page = Column()
@@ -536,6 +547,7 @@ class WebMissionPage(QWidget):
         self.tab_pages = QStackedWidget()
         self.done_view = DocView()
         self.done_view.box.setContentsMargins(24, 24, 24, 24)
+        self.done_view.ruled = False
         self.done_view.sheet.setMaximumWidth(DOC_WIDTH + 48)
         diff_page = QWidget()
         diff_box = kit.box(diff_page, (24, 24, 24, 24), 8)
@@ -586,7 +598,7 @@ class WebMissionPage(QWidget):
         grid.setColumnStretch(1, 1)
         self.get_note = kit.para(GET_NOTE, "body", "secondary")
         self.notes_caption = kit.label("같이 읽을 노트", "caption", "tertiary")
-        self.note_rows = kit.RowList(inside_card=True)
+        self.note_rows = kit.RowList(flush=True)
         self.ready_caption = kit.label("실전 전 확인", "caption", "tertiary")
         self.ai_box = kit.Check(AI_TEXT)
         self.ai_note = kit.label(AI_NOTE, "caption", "secondary")
@@ -619,7 +631,7 @@ class WebMissionPage(QWidget):
         count_row.addWidget(kit.label("통과한 단계", "caption", "secondary"), 0, Qt.AlignmentFlag.AlignBottom)
         count_row.addStretch(1)
         self.summary = kit.para("", "body", "secondary")
-        self.next_rows = kit.RowList(inside_card=True)
+        self.next_rows = kit.RowList(flush=True)
         box.addLayout(count_row)
         box.addSpacing(8)
         box.addWidget(self.summary)
@@ -690,11 +702,12 @@ class WebMissionPage(QWidget):
     def load(self, mid):
         """미션을 화면에 올림. 읽을 수 없으면 WebError."""
         view = self.win.web.mission(mid)
+        if mid != self.mid or view["phase"] != "reading":  # 읽는 중에 같이 읽을 노트를 보고 돌아오면 표시를 지키고, 그 밖에는 지움
+            self.ai_box.box.setChecked(False)
         self.mid, self.view, self.done = mid, view, None
         self.fetched = self.clock()
         self.after, self.showing_brief, self.revealed = None, False, False
         self.expanded = set()
-        self.ai_box.box.setChecked(False)
         self.status.setText("")
         if view["phase"] == "done":
             self.done = self.finished_view()
@@ -774,8 +787,8 @@ class WebMissionPage(QWidget):
         """위 막대 오른쪽: 받기 전은 읽기·실전 시간 한 줄, 읽는 중·실전 중·통과 뒤 질문은 시계 하나, 끝남은 끝남 꼬리표."""
         view, phase = self.view, self.view["phase"]
         self.phase_note.setVisible(phase == "none")
-        self.clock_box.setVisible(phase in ("reading", "live"))
-        self.done_badge.setVisible(phase == "done")
+        self.clock_box.setVisible(phase in ("reading", "live") or self.after is not None)  # 마지막 단계의 통과 뒤 질문도 답 시계를 보임
+        self.done_badge.setVisible(phase == "done" and self.after is None)
         if phase == "none":
             self.phase_note.setText("읽기 %d분 · 실전 %d분" % (view["prep_min"], view["live_min"]))
         elif self.after is not None:
@@ -850,7 +863,7 @@ class WebMissionPage(QWidget):
         stack = self.win.web.stack_state()
         self.stack_ok = bool(stack["node"] and stack["installed"] and stack["lock"])
         if phase in ("none", "reading"):
-            self.brief_view.set_markdown(view["brief"], self.base_dir(), LANG)
+            self.brief_view.set_markdown(brief_text(view["brief"]), self.base_dir(), LANG)
             self.left.setCurrentWidget(self.brief_view)
             self.show_info(stack)
             self.right.setCurrentWidget(self.info_page)
@@ -866,7 +879,7 @@ class WebMissionPage(QWidget):
             self.right.setCurrentWidget(self.summary_page)
             self.show_done()
         if self.showing_brief and phase in ("live", "done"):
-            self.brief_view.set_markdown(view["brief"], self.base_dir(), LANG)
+            self.brief_view.set_markdown(brief_text(view["brief"]), self.base_dir(), LANG)
             self.left.setCurrentWidget(self.brief_view)
         self.brief_btn.setText(("해설로 돌아가기" if phase == "done" else "요구로 돌아가기") if self.showing_brief else "안내 다시 보기")
         self.tick()
@@ -923,13 +936,13 @@ class WebMissionPage(QWidget):
         self.check_btn.setVisible(step["no"] > 0)
         self.check_btn.setEnabled(step["no"] > 0 and not self.busy)
         self.after_btn.hide()
-        self.hint_btn.setVisible(step["hint_total"] > 0)
-        self.hint_btn.setEnabled(len(step["hints"]) < step["hint_total"] and not self.busy)
+        self.hint_btn.setVisible(len(step["hints"]) < step["hint_total"])  # 힌트를 다 들으면 쓸 일이 없어 숨김
+        self.hint_btn.setEnabled(not self.busy)
         self.hint_btn.setToolTip("들은 힌트 %d/%d. 누른 시각이 기록에 남습니다." % (len(step["hints"]), step["hint_total"]))
         self.skip_btn.setVisible(step["no"] > 0)
         self.skip_btn.setEnabled(bool(timers["can_skip"]) and not self.busy)
         self.skip_note.setVisible(step["no"] > 0)
-        self.request_buttons.setVisible(step["hint_total"] > 0 or step["no"] > 0)
+        self.request_buttons.setVisible(len(step["hints"]) < step["hint_total"] or step["no"] > 0)
         self.show_step_time(timers)
 
     def show_after(self):
@@ -1195,12 +1208,12 @@ class WebMissionPage(QWidget):
             self.after, self.after_started = result["after"], self.clock()
         self.refresh()
         self.result_view.verticalScrollBar().setValue(0)
+        # 통과 수는 결과 칸 머리가 보이므로 위 막대에는 걸린 시간만 적음(같은 말을 두 번 하지 않음)
         if result["finished"] and not result["after"]:
             self.status.setText("모든 단계를 끝냈습니다.")
-        elif result["passed"]:
-            self.status.setText("%d단계를 통과했습니다.%s" % (result["open"], took_text(result)))
         else:
-            self.status.setText("검사 %d개 중 %d개 통과%s." % (len(result["tests"]), len(result["pass"]), took_text(result)))
+            took = took_text(result).strip(" ()")
+            self.status.setText("검사에 %s 걸렸습니다." % took if took else "")
 
     def toggle_raw(self, cid, opened):
         """[원문 보기]·[원문 접기]."""

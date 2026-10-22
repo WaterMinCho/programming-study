@@ -79,7 +79,7 @@ class TextPiece(QTextBrowser):
         self.markup = markup
         self.setOpenLinks(False)
         self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setStyleSheet("QTextBrowser { background: transparent; border: 0; }")
+        self.setStyleSheet("QTextBrowser { background: transparent; border: 0; padding: 0; }")  # 앱 전체의 입력칸 여백이 붙지 않게
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -218,6 +218,7 @@ class DocView(QScrollArea):
         self.pieces = []  # 쌓은 순서대로의 조각: TextPiece, FigureView, CodeView, 없는 그림 안내(Para)
         self.css, self.code_font = theme.journey_css(), theme.code_font()
         self.tight = False  # 칸이 TIGHT_WIDTH 보다 좁은지. resizeEvent 가 바꿈
+        self.ruled = True  # 구역 제목 앞에 가로줄을 넣는지. 웹 면접 준비 화면은 줄 없이 제목 위 여백만 둠
 
     def sheet_css(self):
         """글 조각에 주는 CSS. 칸이 좁으면 여백을 줄이는 규칙을 더함."""
@@ -272,7 +273,7 @@ class DocView(QScrollArea):
         body = html.escape(text, quote=False)
         if link:
             body = '<a href="%s">%s</a>' % (html.escape(link), body)
-        rule = "<hr/>" if kind in ("h%d" % level for level in RULED) and self.pieces else ""
+        rule = "<hr/>" if self.ruled and kind in ("h%d" % level for level in RULED) and self.pieces else ""
         self._add_piece('<body>%s<p%s>%s</p></body>' % (rule, ' class="%s"' % kind if kind else "", body))
 
     def restyle(self, css, code_font):
@@ -298,7 +299,7 @@ class DocView(QScrollArea):
         """맨 바깥의 구역 제목 앞에 가로줄 블록을 넣은 목록. 칸 맨 위에 오는 제목에는 넣지 않음."""
         out = []
         for block in blocks:
-            if block["t"] == "heading" and block["level"] in RULED and (out or self.pieces):
+            if self.ruled and block["t"] == "heading" and block["level"] in RULED and (out or self.pieces):
                 out.append({"t": "rule"})
             out.append(block)
         return out

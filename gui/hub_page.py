@@ -48,6 +48,13 @@ def stamp(at):
     return "%d/%d %s" % (month, date, clock[:5])
 
 
+def first_sentence(text):
+    """안내 글의 첫 문장. 카드의 설명은 한 줄이라 '지금 할 일' 안내의 둘째 문장과 둘째 줄을 뺌."""
+    line = text.splitlines()[0] if text else ""
+    head, dot, _ = line.partition(". ")
+    return head + "." if dot else line
+
+
 def split_action(label):
     """파이썬 스터디의 '지금 할 일' 글자("2회차 이어 풀기", "진단 테스트 시작", "다음 회차 시작")를 (이름, 단추 글자)로 나눔."""
     for tail in ("이어 풀기", "시작"):
@@ -185,10 +192,13 @@ class HubPage(QWidget):
         self.notice_banner, self.notice = kit.link_banner("warning")  # refresh 가 html.escape 한 글을 넣음
         self.notice.linkActivated.connect(lambda _: win.show_notice_detail())
         self.notice_banner.hide()
-        root.addWidget(self.notice_banner)
         self.next_card = kit.NextCard()
         self.next_btn = self.next_card.button
-        root.addWidget(self.next_card)
+        lead = QWidget()  # 알림 띠가 보이면 카드와 16 띄움. 숨은 띠 옆에는 간격이 생기지 않음
+        lead_box = kit.box(lead, spacing=16)
+        lead_box.addWidget(self.notice_banner)
+        lead_box.addWidget(self.next_card)
+        root.addWidget(lead)
         root.addSpacing(48)
 
         cols = QHBoxLayout()
@@ -203,13 +213,15 @@ class HubPage(QWidget):
         self.python_row = self.tracks.add(kit.Row("파이썬 스터디", PYTHON_ABOUT, mark=kit.Dot("series_python", 8), strong=True))
         self.journey_row = self.tracks.add(kit.Row("알고리즘 여행", "", mark=kit.Dot("series_algorithm", 8), strong=True))
         self.web_row = self.tracks.add(kit.Row("웹 면접 준비", "", mark=kit.Dot("series_web", 8), strong=True))
-        left_box.addWidget(self.tracks)
         self.journey_error = kit.banner("", "danger")  # 여행 기록을 읽지 못한 이유. 그동안 여행 줄은 눌리지 않음
         self.web_error = kit.banner("", "danger")
+        stack = QWidget()  # 목록과 띠 사이 12. 숨은 띠 옆에는 간격이 생기지 않아 띠가 없으면 구역 사이가 48 로 남음
+        stack_box = kit.box(stack, spacing=12)
+        stack_box.addWidget(self.tracks)
         for banner in (self.journey_error, self.web_error):
             banner.hide()
-            left_box.addSpacing(12)
-            left_box.addWidget(banner)
+            stack_box.addWidget(banner)
+        left_box.addWidget(stack)
         left_box.addStretch(1)
         right = QWidget()
         right_box = kit.box(right)
@@ -288,8 +300,7 @@ class HubPage(QWidget):
         overview = win.session.overview()
         self.user.setText("ID: %s" % overview["user"])
         name, _ = split_action(win.next_action(overview)[0])
-        self.python_row.set_second("준비도 %d%% · 단원 %d개 중 %d개 숙달 · 다음은 %s"
-                                   % (overview["readiness"], overview["total_units"], overview["mastered"], name))
+        self.python_row.set_second("단원 %d개 중 %d개 숙달 · 다음은 %s" % (overview["total_units"], overview["mastered"], name))
         journey = self.show_journey()
         web = self.show_web()
         self.show_week(overview, journey, web)
@@ -324,8 +335,7 @@ class HubPage(QWidget):
             tail = "출제된 던전을 모두 클리어했습니다."
         else:
             tail = "아직 출제된 던전이 없습니다."
-        self.journey_row.set_second("%d문제 중 %d개 통과 · 던전 %d개 중 %d개 클리어 · %s"
-                                    % (overview["total"], overview["passed"], overview["ready"], overview["cleared"], tail))
+        self.journey_row.set_second("%d문제 중 %d개 통과 · %s" % (overview["total"], overview["passed"], tail))
         return overview
 
     def show_web(self):
@@ -379,7 +389,7 @@ class HubPage(QWidget):
             if track == "python":
                 label, desc = self.win.next_action(overview)
                 name, action = split_action(label)
-                self.set_next(name, "파이썬 스터디 · %s" % desc.splitlines()[0], action, self.start_python)
+                self.set_next(name, "파이썬 스터디 · %s" % first_sentence(desc), action, self.start_python)
                 return
             if track == "journey" and journey and journey["next"]:
                 target = journey["next"]
