@@ -8,7 +8,9 @@
   "assets/l20-2.gif": "c980344cff26d1436640e7b3c0657fbcb9c050c01fc8bddb8c94829c235d2c9e",
   "assets/l20-3.png": "60577a3e9aa69222a35b361a7c13e55343b4e3808f1b2ac9cbd4b1bd0346111d",
   "meta.json": "aac2624606ef7a3ac2f396045ac415cf81b7b10056972769011f3eefeca879fc",
-  "page.md": "105bd12e043aa7f59331c762bf2772cbeed01a59c59f25a12f04c855e03a691a"
+  "page.md": "51dbec2eeee2c38685fedfad0d0854b19fd241335248f5565dff7defe1c6f8aa"
  },
- "findings": []
+ "findings": [
+  "kit/self_check.md 의 연결어미 쉼표를 걷어낸 문장에 맞춰 스스로 점검 항목 인용을 고침"
+ ]
 }
