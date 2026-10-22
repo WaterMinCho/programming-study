@@ -202,6 +202,26 @@ class WebTest(unittest.TestCase):
 
 
 class HubRowTest(WebTest):
+    def test_a_due_review_becomes_the_next_card_on_both_homes(self):
+        """한 번 푼 사슬의 복습 날이 되면 첫 화면과 웹 홈의 이어서 할 일이 그 사슬이고, 단추를 누르면 드릴이 열림."""
+        web = self.web()
+        web.answer("90-B", 1, 10, [1], [])
+        web.finish_chain("90-B")
+        later = datetime.date.fromisoformat(self.clock[:10]) + datetime.timedelta(days=30)
+        with mock.patch.object(service, "today", lambda: later):
+            win = self.boot()
+            hub = win.hub
+            title = web.chains["90-B"]["title"]
+            self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), (title, "복습 시작"))
+            self.assertIn("오늘 복습 1개", hub.summary.text())
+            win.go_web()
+            self.idle()
+            home = win.web_home
+            self.assertEqual((home.next_card.title.text(), home.next_btn.text()), (title, "복습 시작"))
+            guikit.click(home.next_btn)
+            self.idle()
+            self.assertEqual((self.page(), win.web_drill.cid), (win.web_drill, "90-B"))
+
     def test_row_numbers_follow_the_service_and_web_days_reach_the_chart(self):
         win = self.boot()
         hub = win.hub
