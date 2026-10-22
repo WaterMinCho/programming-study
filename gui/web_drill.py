@@ -231,8 +231,9 @@ class WebDrillPage(QWidget):
         for button in (self.confirm_btn, self.next_btn, self.done_btn):
             button.setToolTip(SHORTCUT_TIP)
         root.addWidget(self.bar)
-        self.shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
-        self.shortcut.activated.connect(self.press_primary)
+        self.shortcuts = [QShortcut(QKeySequence(keys), self) for keys in ("Ctrl+Return", "Ctrl+Enter")]  # 키패드 Enter 도 받음
+        for shortcut in self.shortcuts:
+            shortcut.activated.connect(self.press_primary)
 
         self.ticker = QTimer(self)
         self.ticker.setInterval(1000)

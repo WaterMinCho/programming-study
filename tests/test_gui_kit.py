@@ -11,9 +11,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
 from PyQt6.QtCore import Qt  # noqa: E402
-from PyQt6.QtGui import QColor  # noqa: E402
+from PyQt6.QtGui import QColor, QKeyEvent  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QWidget  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 from gui import dialogs, kit, theme  # noqa: E402
 
@@ -147,6 +147,13 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(opened, ["b"])
         self.assertFalse(inert.chevron.isVisible())
         self.assertEqual(len(rows.lines), 2)
+        for key in (Qt.Key.Key_Return, Qt.Key.Key_Space):  # 키로도 열리고, 누르고 있어도 한 번만 열림
+            QTest.keyClick(two, key)
+        QApplication.sendEvent(two, QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Return, Qt.KeyboardModifier.NoModifier, "", True))
+        self.assertEqual(opened, ["b", "b", "b"])
+        inert.clicked.connect(lambda: opened.append("inert"))
+        QTest.keyClick(inert, Qt.Key.Key_Return)
+        self.assertEqual(opened, ["b", "b", "b"])
         rows.add_more(["준비 중 하나", "준비 중 둘"])
         guikit.pump()
         self.assertEqual(rows.more_btn.text(), "준비 중 2개 보기")
@@ -212,6 +219,21 @@ class PartsTest(unittest.TestCase):
         colors = {image.pixelColor(x, image.height() // 2).name() for x in range(0, image.width(), 2)}
         self.assertIn(theme.color("primary"), colors)  # 지금 단계의 원
         self.assertIn(theme.color("link"), colors)  # 끝난 구간의 선
+        middle, link = image.height() // 2, theme.color("link")
+        background = image.pixelColor(0, 1).name()
+        line = [x for x in range(image.width()) if image.pixelColor(x, middle).name() == link and image.pixelColor(x, middle - 6).name() == background]
+        self.assertTrue(line)
+        shades = {image.pixelColor(x, y).name() for x in line for y in range(middle - 3, middle + 4)} - {background}
+        self.assertEqual(shades, {link})  # 2px 연결선이 반 화소로 번진 옅은 줄 없이 그려짐
+        for dot in self.root.findChildren(kit.Dot):
+            middle = dot.grab().toImage().pixelColor(kit.MARK // 2, kit.MARK // 2).name()
+            edge = dot.grab().toImage().pixelColor(kit.MARK // 2, kit.MARK // 2 - 4).name()
+            token = theme.color(kit.DOT_STATES.get(dot.state, dot.state))
+            if dot.state == "todo":  # 테두리만 칠하고 가운데는 비움
+                self.assertEqual(edge, token)
+                self.assertNotEqual(middle, token)
+            elif dot.state != "done":  # done 은 가운데에 체크를 그림
+                self.assertEqual(middle, token, dot.state)
 
     def test_para_grows_with_its_text_and_keeps_px_line_height(self):
         text = kit.para("긴 안내 글입니다. " * 20)
@@ -224,6 +246,9 @@ class PartsTest(unittest.TestCase):
         self.assertGreater(text.height(), 28 * 3)
         self.assertEqual(short.property("tone"), "secondary")
         self.assertEqual(short.font().pixelSize(), 14)
+        text.setText("한 줄 글")  # 폭이 그대로여도 긴 글의 높이가 남지 않음
+        guikit.pump()
+        self.assertLessEqual(max(text.heightForWidth(text.width()), text.minimumSizeHint().height()), 28)
 
     def test_code_fields_keep_the_code_font_size(self):
         """새 화면의 입력칸 규칙이 글자 크기를 정하지 않아, 코드 칸(원문 상자, 비교, 설치 로그)에 준 코드 글꼴 크기가 남음."""

@@ -561,6 +561,7 @@ class WebMissionPage(QWidget):
             edit.setReadOnly(True)
             edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
             edit.setFont(theme.code_font(-1))
+            edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)  # 최소 높이를 내세우지 않아 창의 최소 높이를 키우지 않음
             self.highlighters.append(DiffHighlighter(edit.document()))
             diff_box.addWidget(kit.label(name, "caption", "tertiary"))
             diff_box.addWidget(edit, 1)
@@ -682,8 +683,9 @@ class WebMissionPage(QWidget):
         for widget in (self.clock_box, self.done_badge, self.finish_btn, self.again_btn, self.serve_btn, self.test_btn,
                        self.brief_btn, self.skip_btn, self.skip_note, self.explain_note, self.request_items) + self.primaries:
             widget.hide()
-        self.shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
-        self.shortcut.activated.connect(self.press_primary)
+        self.shortcuts = [QShortcut(QKeySequence(keys), self) for keys in ("Ctrl+Return", "Ctrl+Enter")]  # 키패드 Enter 도 받음
+        for shortcut in self.shortcuts:
+            shortcut.activated.connect(self.press_primary)
 
         self.ticker = QTimer(self)
         self.ticker.setInterval(1000)

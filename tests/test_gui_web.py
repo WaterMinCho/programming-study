@@ -19,7 +19,8 @@ os.environ.setdefault("STUDY_NODE_PROBE", "0")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
-from PyQt6.QtCore import QPoint, QRect, QSettings  # noqa: E402
+from PyQt6.QtCore import QPoint, QRect, QSettings, Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea  # noqa: E402
 
 import session  # noqa: E402
@@ -961,6 +962,18 @@ class HangupGuiTest(unittest.TestCase):
 
 
 class DrillTest(WebTest):
+    def test_ctrl_enter_presses_the_primary_button_from_either_enter_key(self):
+        """작업 화면의 주 단추는 Ctrl+Enter 로 눌림. 숫자 키패드의 Enter 도 같음."""
+        win = self.boot()
+        page = self.open_drill("90-A")
+        win.activateWindow()
+        page.note.setFocus()
+        QTest.keyClick(page.note, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
+        self.assertFalse(page.confirm_btn.isVisible())  # [답 확인]이 눌림
+        page.items.rows[0].box.setChecked(True)
+        QTest.keyClick(page, Qt.Key.Key_Enter, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.KeypadModifier)
+        self.assertEqual(page.timer_label.text(), "질문 2/3")  # [다음 질문]이 눌림
+
     def test_marks_verdicts_and_the_chain_end(self):
         win = self.boot()
         page = self.open_drill("90-A")
@@ -1171,6 +1184,7 @@ class LookTest(WebTest):
     def test_small_window_keeps_every_button_inside(self):
         win = self.boot((1024, 700))
         self.assertEqual((win.width(), win.height()), (1024, 700))
+        self.assertLessEqual(win.minimumSizeHint().height(), 480)  # 1366x768 125% 배율(작업 영역 약 576)에도 창 전체가 들어감
         for name, show, buttons in self.screens(win):
             show()
             self.idle()

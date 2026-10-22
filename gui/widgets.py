@@ -56,6 +56,7 @@ class Para(QLabel):
     한 줄짜리 글이 QLabel 과 같은 자리를 차지하게 함."""
 
     plain, pct, line = "", 100, 0  # 넣은 글, 줄 높이 백분율, px 로 정한 줄 높이(0 이면 GUIDE_LINE 비율)
+    held = 0  # 지금 폭에서 줄바꿈한 글의 높이(line 을 준 글만). minimumSizeHint 로 레이아웃에 알림
 
     def __init__(self, text="", name="", line=0, font=None):
         """line 은 새 화면(gui/kit.py)이 주는 px 줄 높이. 글꼴은 줄 높이를 셈하기 전에 주어야 해서 font 로 같이 받음."""
@@ -80,6 +81,8 @@ class Para(QLabel):
     def setText(self, text):
         self.plain, self.pct = text, self.percent()
         super().setText(text and '<p style="margin: 0; line-height: %d%%;">%s</p>' % (self.pct, self.markup(text)))
+        if self.line and self.width() > 1:  # 폭이 그대로면 resizeEvent 가 오지 않으므로 새 글의 높이를 여기서 잼
+            self.hold()
 
     def changeEvent(self, event):
         super().changeEvent(event)
@@ -87,13 +90,21 @@ class Para(QLabel):
             self.setText(self.plain)  # 스타일시트가 글꼴을 바꾸면 px 줄 높이를 새 글꼴로 다시 셈
 
     def resizeEvent(self, event):
-        """줄바꿈한 글의 높이를 최소 높이로 둠(line 을 준 글만). 칸이 여럿 겹친 상자는 줄바꿈 높이를 끝까지 전하지 못해 한 줄만 보이기 때문임."""
         super().resizeEvent(event)
         if self.line:
-            height = self.heightForWidth(max(1, self.width())) if self.plain else 0
-            if height != self.minimumHeight():
-                self.setMinimumHeight(height)
-                self.updateGeometry()
+            self.hold()
+
+    def hold(self):
+        """줄바꿈한 글의 높이를 최소 크기 힌트로 둠(line 을 준 글만). 칸이 여럿 겹친 상자는 줄바꿈 높이를 끝까지 전하지 못해 한 줄만
+        보이기 때문임. setMinimumHeight 로 두면 QLabel.heightForWidth 가 그 아래로 내려가지 않아 글이 짧아져도 높이가 남음."""
+        height = self.heightForWidth(max(1, self.width())) if self.plain else 0
+        if height != self.held:
+            self.held = height
+            self.updateGeometry()
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        return QSize(hint.width(), self.held) if self.line and self.held else hint
 
     def text(self):
         return self.plain

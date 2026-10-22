@@ -37,6 +37,8 @@ def repolish(widget):
 
 def set_tone(widget, tone):
     """tone 속성을 바꾸고 다시 칠함. 띠의 앞 낱말처럼 부모의 tone 으로 색이 정해지는 자식도 같이 다시 칠함."""
+    if widget.property("tone") == (tone or None):  # 시계처럼 1초마다 같은 값으로 부르는 곳이 있어 바뀔 때만 다시 칠함
+        return
     widget.setProperty("tone", tone or None)
     repolish(widget)
     for child in widget.findChildren(QWidget):
@@ -545,9 +547,10 @@ class Stepper(QWidget):
         self.update()
 
     def _label_width(self, metrics, title, state):
+        """단계 이름이 차지하는 폭. 넘어간 단계는 이름 대신 '넘어감'을 쓰므로 그 폭으로 잼."""
         if state == "lock" or not title:
             return 0
-        return min(self.LABEL_MAX, math.ceil(metrics.horizontalAdvance(title)))
+        return min(self.LABEL_MAX, math.ceil(metrics.horizontalAdvance("넘어감" if state == "skip" else title)))
 
     def paintEvent(self, event):
         if not self.steps:
@@ -562,7 +565,7 @@ class Stepper(QWidget):
         conns = max(0, len(self.steps) - 1)
         room = self.width() - sum(widths) - conns * 24
         conn = max(self.CONN_MIN, min(self.CONN_MAX, room / conns)) if conns else 0
-        x, middle = 0.0, self.height() / 2
+        x, middle = 0.0, float(self.height() // 2)  # 정수 줄에 맞춰 2px 선과 원이 반 화소로 번지지 않게
         for number, ((no, title, state), width) in enumerate(zip(self.steps, widths)):
             circle = QRectF(x, middle - self.CIRCLE / 2, self.CIRCLE, self.CIRCLE)
             painter.setPen(Qt.PenStyle.NoPen)

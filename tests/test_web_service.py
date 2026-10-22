@@ -524,6 +524,22 @@ class TodayOverviewTest(Base):
         self.assertEqual(["90-B", "90-A"], [r["chain"] for r in today["chains"]])
         self.assertEqual([False, True], [r["new"] for r in today["chains"]])
 
+    def test_next_takes_a_running_mission_then_a_due_review_then_the_order(self):
+        """이어서 할 일: 읽는 중·실전 중 미션, 한 번 푼 사슬의 오늘 복습, 권장 순서 차례. 새 사슬은 복습으로 치지 않음."""
+        web = self.session()
+        web.answer("90-B", 1, 10, [1], [])
+        web.finish_chain("90-B")
+
+        def next_on(day):
+            with mock.patch.object(service, "today", lambda: day):
+                target = web.overview()["next"]
+            return target["kind"], target["id"]
+
+        self.assertEqual(("page", "l90"), next_on(datetime.date(2026, 10, 21)))  # 복습 날이 아니면 권장 순서(새 사슬 90-A 는 건너뜀)
+        self.assertEqual(("chain", "90-B"), next_on(datetime.date(2026, 10, 30)))  # 복습할 사슬이 권장 순서보다 먼저
+        web.get("x01")
+        self.assertEqual(("mission", "x01"), next_on(datetime.date(2026, 10, 30)))  # 읽는 중인 미션이 가장 먼저
+
     def test_mission_followup_chain_is_new_only_after_finish(self):
         web = self.to_live(self.session())
         study.write_text(os.path.join(self.home, "settings.json"), '{"new_per_day": 5}')

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """시험처럼 복사·잘라내기·붙여넣기와 우클릭 메뉴를 막음. 대화상자(오류 내용 복사, ID 입력)와 clipboard 속성을 둔 화면은 막지 않음."""
 from PyQt6.QtCore import QEvent, QObject, pyqtSignal
-from PyQt6.QtGui import QKeySequence
+from PyQt6.QtGui import QKeyEvent, QKeySequence
 from PyQt6.QtWidgets import QWidget
 
 NOTE = "복사와 붙여넣기는 막아 두었습니다. 시험처럼 직접 입력해 주세요."
@@ -28,6 +28,8 @@ class Guard(QObject):
             widget = widget.parentWidget()
         if kind == QEvent.Type.ContextMenu:
             return True
+        if not isinstance(event, QKeyEvent):  # 같은 주소에 남은 다른 사건의 파이썬 껍데기가 돌아오는 드문 경우
+            return False
         if any(event.matches(key) for key in KEYS):
             self.blocked.emit()
             return True
