@@ -41,19 +41,6 @@ def consent_html(text):
     return mdlite.to_html("\n\n".join(line for line in text.splitlines() if line.strip()))
 
 
-def stack_line(stack):
-    """"Node.js 22.23.2 · 검사 도구 설치됨 (약 80MB)" 같은 한 줄. 설치 상태는 stack.state() 의 값. 미션 정보와 터미널이 이 줄을 씀."""
-    node = stack.get("node")
-    parts = ["Node.js %s" % node["version"] if node else "Node.js 없음"]
-    if stack.get("installed"):
-        parts.append("검사 도구 설치됨 (약 %dMB)" % stack.get("size_mb", 0))
-        if stack.get("stale"):
-            parts.append("다시 설치 필요")
-    else:
-        parts.append("검사 도구 설치 전")
-    return " · ".join(parts)
-
-
 def state_sentence(state):
     """창 맨 위의 상태 한 문장. Node 나 lockfile 이 없으면 그 안내. Node 판과 경로는 [자세히] 안의 동의 글에만 적음."""
     if not state["node"] or not state["lock"]:

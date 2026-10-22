@@ -3,14 +3,12 @@
 학습 노트 구역. 구역은 아래로 이어지고 준비 중인 항목은 구역 끝의 글자 단추 하나로 접음.
 
 수치는 모두 webprep.service.WebSession.overview() 가 계산한 값이고, 이 화면은 그것을 줄(gui.kit.Row)로 보여 주기만 함. 줄을 한 번 누르면
-바로 열리고 미리 고른 줄은 없음. 화면 낱말은 gui/web_text.py 가 만들고, 옛 이름(clock_text, mission_state, stack_line 등)은 아직 그것을
-가져가는 화면을 위해 여기서 다시 내보냄."""
-from PyQt6.QtCore import Qt
+바로 열리고 미리 고른 줄은 없음. 화면 낱말은 gui/web_text.py 가 만듦."""
 from PyQt6.QtWidgets import QButtonGroup, QWidget
 
-from gui import kit, theme
-from gui.web_setup import SetupDialog, stack_line  # noqa: F401  stack_line 은 미션 화면이 여기서 가져감
-from gui.web_text import chain_line, clock_text, date_text, day_text, mission_line, mission_state, next_item, next_text, ordinal, stack_status  # noqa: F401
+from gui import kit
+from gui.web_setup import SetupDialog
+from gui.web_text import chain_line, date_text, mission_line, next_item, ordinal, stack_status
 from webprep.record import RecordError
 from webprep.service import WebError
 
@@ -20,13 +18,6 @@ NO_TODAY = "오늘 복습할 사슬이 없습니다."
 NO_STUCK = "막힌 질문에서 아는 데까지 말한 비율은 꼬리 질문에서 필수 항목을 빠뜨린 뒤부터 보입니다."
 ALL_DONE = "출제된 미션과 사슬을 모두 끝냈습니다."
 NOTHING_YET = "아직 출제된 미션이 없습니다."
-
-
-def chain_plan(chain):
-    """사슬 한 줄의 복습 계획(옛 화면과 터미널이 쓰던 글). 상자가 없으면 새 사슬."""
-    if chain.get("box") is None:
-        return "새 사슬"
-    return "다음 복습 %s" % day_text(chain.get("due"))
 
 
 def next_due_text(topics):

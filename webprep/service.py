@@ -294,7 +294,7 @@ class WebSession:
     # 미션 쓰기
 
     def get(self, mid, again=False):
-        """[과제 받기]. 템플릿을 submissions/<ID>/web/missions/<id>/ 로 복사하고 receive 를 기록함.
+        """[미션 받기]. 템플릿을 submissions/<ID>/web/missions/<id>/ 로 복사하고 receive 를 기록함.
         이미 받은 코드가 있으면(진행 중이든 끝났든) again 일 때만 새 try 로 덮어씀."""
         mission = self._mission(mid)
         self._steps(mid)
@@ -328,7 +328,7 @@ class WebSession:
         return state
 
     def explain_done(self, mid, said):
-        """[설명 끝]. 0단계 점검 항목에 표시한 것(0/1 목록)을 기록하고 1단계를 엶."""
+        """[설명 끝내기]. 0단계 점검 항목에 표시한 것(0/1 목록)을 기록하고 1단계를 엶."""
         mission = self._mission(mid)
         state = self._live(mid)
         if state["current"] != 0:
@@ -348,7 +348,7 @@ class WebSession:
         return {"finished": False, "next": self._step_view(mid, steps, state, k + 1)}
 
     def check(self, mid):
-        """[검사]. 1~지금 단계의 검사를 모두 돌리고 check 를 기록함. 지금 단계가 모두 통과하면 step 통과를 기록하고
+        """[검사하기]. 1~지금 단계의 검사를 모두 돌리고 check 를 기록함. 지금 단계가 모두 통과하면 step 통과를 기록하고
         다음 요구(또는 끝남)와 통과 뒤 질문을 돌려줌. 앞 단계가 깨졌으면 broken 에 적되 진행은 막지 않음."""
         mission = self._mission(mid)
         state = self._live(mid)
@@ -404,7 +404,7 @@ class WebSession:
         return {"n": n + 1, "text": hints[n], "left": len(hints) - n - 1}
 
     def skip(self, mid):
-        """[다음 요구로 넘어가기]. 목표 시간이 지난 뒤에만. skip 을 기록하고 다음 요구(또는 끝남)를 돌려줌."""
+        """[이 단계 건너뛰기]. 목표 시간이 지난 뒤에만. skip 을 기록하고 다음 요구(또는 끝남)를 돌려줌."""
         mission = self._mission(mid)
         state = self._live(mid)
         if state["current"] == 0:
@@ -434,7 +434,7 @@ class WebSession:
         self._append({"kind": "finish", "item": mid, "try": state["try"], "hidden": hidden})
 
     def finish(self, mid):
-        """[끝내기]. 실전 중이면 끝남을 기록하고, 해설·모범 답안 비교·꼬리 질문·점검 항목을 돌려줌. 끝난 미션은 기록
+        """[실전 끝내기]. 실전 중이면 끝남을 기록하고, 해설·모범 답안 비교·꼬리 질문·점검 항목을 돌려줌. 끝난 미션은 기록
         없이 같은 것을 돌려줌."""
         mission = self._mission(mid)
         state = self._state(mid)

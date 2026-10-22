@@ -165,7 +165,7 @@ class HubTest(unittest.TestCase):
         return adaptive.load_profile(USER)
 
     def open_problem(self, pid):
-        """허브에서 [여행 떠나기] → 지도에서 pid 를 골라 [문제 풀기]."""
+        """첫 화면의 알고리즘 여행 줄 → 지도에서 pid 를 골라 [문제 풀기]."""
         win = self.win
         if self.page() is not win.journey_map:
             guikit.click(win.hub.journey_row)

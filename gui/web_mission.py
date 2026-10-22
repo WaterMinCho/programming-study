@@ -94,10 +94,6 @@ def open_folder(path, settings=None, platform=None, exists=os.path.exists, which
         return "폴더를 열지 못했습니다: %s" % error
 
 
-def quote_lines(text):
-    return "\n".join("> " + line for line in (text or "").splitlines())
-
-
 def said(text):
     """면접관 말. 은행 글이 '면접관:' 으로 시작하면 그 앞말을 뗌(회색 칸의 이름표가 대신함)."""
     text = (text or "").strip()
@@ -912,7 +908,7 @@ class WebMissionPage(QWidget):
 
     def show_request(self):
         """지금 단계의 요구. 0단계는 목표 시간이 지나면 점검 항목이 열림."""
-        view, step = self.view, self.view["current"]
+        step = self.view["current"]
         if not self.showing_brief:
             self.left.setCurrentWidget(self.request_page)
         if step is None:

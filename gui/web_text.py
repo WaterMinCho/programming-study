@@ -9,8 +9,6 @@ from webprep import service
 
 WEEKDAYS = "월화수목금토일"
 ACTIONS = {"mission": "미션 시작", "chain": "복습 시작", "page": "노트 읽기", "topic": "사슬 풀기"}  # 이어서 할 일 카드의 단추 글자
-NONE_WEB = "아직 출제된 미션이 없습니다."
-ALL_DONE_WEB = "출제된 미션과 사슬을 모두 끝냈습니다."
 
 
 def clock_text(seconds):
@@ -111,16 +109,6 @@ def next_item(overview, missions=None):
         item["line"] = "꼬리 질문 · %s" % target["title"]
         item["id"] = target.get("chain") or iid
     return item
-
-
-def next_text(overview):
-    """다음 추천 한 줄(터미널과 옛 화면이 씀)."""
-    item = next_item(overview)
-    if item:
-        return item["title"]
-    if overview.get("ready_missions") or any(t["ready"] for t in overview.get("topics", [])):
-        return ALL_DONE_WEB
-    return NONE_WEB
 
 
 def stack_status(stack):

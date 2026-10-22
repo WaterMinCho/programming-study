@@ -15,7 +15,8 @@ from PyQt6.QtWidgets import QPushButton, QScrollArea  # noqa: E402
 
 from gui import kit, theme  # noqa: E402
 from gui.docview import TextPiece  # noqa: E402
-from tests.test_gui_web import LookTest, WebTest, inside  # noqa: E402
+from tests import test_gui_web  # noqa: E402  LookTest 를 이름으로 가져오면 discover 가 그 테스트를 한 번 더 돌림
+from tests.test_gui_web import WebTest, inside  # noqa: E402
 
 MARGIN = kit.MARGIN
 
@@ -31,7 +32,7 @@ def kit_buttons(page):
 
 class DesignTest(WebTest):
     def screens(self, win):
-        return LookTest.screens(self, win)
+        return test_gui_web.LookTest.screens(self, win)
 
     def test_one_primary_button_and_control_sizes_on_every_screen(self):
         win = self.boot((1024, 700))

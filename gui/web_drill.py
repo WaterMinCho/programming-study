@@ -80,7 +80,7 @@ class WebDrillPage(QWidget):
         self.win = win
         self.cid, self.chain, self.back = None, None, None
         self.index, self.started, self.checked, self.gave_up = 0, 0.0, False, False
-        self.verdicts, self.secs, self.done = [], 0, None  # 이번 회차의 질문별 판정, 지금 질문의 답 시간, 사슬 끝 결과
+        self.secs, self.done = 0, None  # 지금 질문의 답 시간, 사슬 끝 결과
         self.talked_count = 0  # 이번 회차에 "아는 데까지 말했습니다"를 표시하고 넘긴 질문 수
         self.clock = time.monotonic
         self.busy = False
@@ -262,7 +262,7 @@ class WebDrillPage(QWidget):
         """사슬을 화면에 올리고 첫 질문부터 시작함. back 은 돌아갈 곳(("mission", 미션 id) 또는 None 이면 웹 홈). 잠긴 사슬이면 WebError."""
         chain = self.win.web.chain(cid)
         self.cid, self.chain, self.back = cid, chain, back
-        self.index, self.verdicts, self.done, self.talked_count = 0, [], None, 0
+        self.index, self.done, self.talked_count = 0, None, 0
         self.title.setText(chain["title"])
         self.title.show()
         self.back_btn.setText("← 미션" if back and back[0] == "mission" else "← 웹 면접 준비")
@@ -410,11 +410,10 @@ class WebDrillPage(QWidget):
         need, extra = self.need_marks()
         talked = (1 if self.talked.marks()[0] else 0) if not all(need) else None
         try:
-            result = self.win.web.answer(self.cid, self.question()["no"], self.secs, need, extra, talked, self.note.toPlainText())
+            self.win.web.answer(self.cid, self.question()["no"], self.secs, need, extra, talked, self.note.toPlainText())
         except WebError as error:
             self.win.ask("알림", str(error))
             return
-        self.verdicts.append(result["result"])
         if talked == 1:
             self.talked_count += 1
         if self.index + 1 < len(self.chain["questions"]):

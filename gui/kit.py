@@ -20,7 +20,6 @@ MARGIN = 32  # 창 좌우 여백
 MARK = 20  # 목록 줄 앞 상태 점의 칸 폭
 ROW_TEXT = 24 + MARK + 12  # 목록 줄의 글이 시작하는 자리(안쪽 여백, 점 칸, 점과 글 사이)
 HOME_WIDTH = 960  # 홈 화면 내용 단의 최대 폭
-KINDS = ("primary", "secondary", "text", "danger", "danger_text", "chip", "tab")
 DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok"}  # 상태 점의 색 토큰
 
 
@@ -76,7 +75,7 @@ def badge(text="", tone=""):
 
 
 def button(text="", kind="secondary", scale="m", onbg=False):
-    """단추. kind 는 KINDS 가운데 하나, scale 은 l(48)·m(40)·s(32). onbg 는 회색 바탕 위의 글자 단추(올리면 line 색)."""
+    """단추. kind 는 primary·secondary·text·danger·danger_text·chip·tab 가운데 하나, scale 은 l(48)·m(40)·s(32). onbg 는 회색 바탕 위의 글자 단추(올리면 line 색)."""
     out = QPushButton(text)
     if kind != "secondary":
         out.setObjectName(kind)

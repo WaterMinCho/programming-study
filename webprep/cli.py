@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """웹 면접 준비 터미널 명령. `python study.py web <명령>` 으로 들어옴(study.main 이 넘김).
 
-화면 없이 미션 하나를 [과제 받기]부터 해설까지, 사슬 하나를 답 시간·자기 채점·다음 복습 날짜까지 끝낼 수 있음.
+화면 없이 미션 하나를 [미션 받기]부터 해설까지, 사슬 하나를 답 시간·자기 채점·다음 복습 날짜까지 끝낼 수 있음.
 출력·입력·시계는 main(argv, out, ask, clock) 으로 바꿔 끼울 수 있어 테스트가 터미널 없이 돌림. 창이나 편집기, 브라우저를 열지 않음.
 `dev` 는 Ctrl+C 를 누를 때까지 화면 서버를 켜 두고, 테스트는 time.sleep 을 바꿔 끼워 Ctrl+C 를 흉내 냄.
 """
@@ -20,12 +20,12 @@ USAGE = """웹 면접 준비 (터미널)
   python study.py web status                 Node·설치 상태, 미션·사슬·학습 노트 현황, 오늘 복습
   python study.py web install [--yes]        검사 도구 설치 (처음 한 번, 인터넷 필요)
   python study.py web uninstall              검사 도구 지우기
-  python study.py web get <미션> [--again]    [과제 받기] 코드를 내 폴더로 복사하고 읽기 시간 시작
+  python study.py web get <미션> [--again]    [미션 받기] 코드를 내 폴더로 복사하고 읽기 시간 시작
   python study.py web start <미션>            [실전 시작] 0단계(코드 설명)가 열립니다
-  python study.py web check <미션>            [검사] 0단계면 점검 항목 표시, 그 뒤는 단계 검사
+  python study.py web check <미션>            [검사하기] 0단계면 점검 항목 표시, 그 뒤는 단계 검사
   python study.py web hint <미션>             [힌트 듣기]
-  python study.py web skip <미션>             [다음 요구로 넘어가기] 목표 시간이 지난 뒤
-  python study.py web finish <미션>           [끝내기] 해설, 모범 답안 비교, 스스로 점검
+  python study.py web skip <미션>             [이 단계 건너뛰기] 목표 시간이 지난 뒤
+  python study.py web finish <미션>           [실전 끝내기] 해설, 모범 답안 비교, 스스로 점검
   python study.py web dev <미션>              [화면 띄우기] 미션 폴더에서 화면 서버 띄우기, Ctrl+C 로 끄기
   python study.py web test <미션>             [테스트 돌리기] 미션 폴더에서 npm test 와 같은 테스트 돌리기
   python study.py web show <페이지>           학습 페이지 읽기

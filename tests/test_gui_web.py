@@ -68,11 +68,6 @@ def shows_whole(label):
     return label.width() >= label.sizeHint().width()
 
 
-def rows_height(listw, rows):
-    """목록이 rows 줄에 맞춘 높이."""
-    return sum(listw.sizeHintForRow(n) for n in range(rows)) + 2 * listw.frameWidth()
-
-
 def layout_height(dialog):
     """대화상자의 레이아웃이 지금 폭에서 줄바꿈까지 셈한 높이."""
     layout = dialog.layout()
@@ -1017,7 +1012,7 @@ class DrillTest(WebTest):
         web.answer("90-A", 3, 40, [1], [1])
         web.finish_chain("90-A")
         self.clock = "2026-10-22T09:00:00"
-        win = self.boot()
+        self.boot()
         page = self.open_drill("90-A")
         self.assertEqual(page.timer_label.text(), "두 번째 복습 · 질문 1/3")
         guikit.click(page.confirm_btn)
