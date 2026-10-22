@@ -4,14 +4,14 @@
 맨 위 위젯에 page() 로 ui="2" 속성을 주면 theme.STYLE_V2 의 색 규칙이 그 아래에만 걸림. 글자 크기와 굵기는 스타일시트가 아니라
 theme.TYPE 으로 글꼴을 직접 주고(label, para), 그 역할을 role 속성에 적어 두어 글자 크기 단계가 바뀌면 refont 가 글꼴을 다시 줌.
 간격은 theme.SPACE 의 값만 씀. 단추는 종류(kind)를 objectName 으로, 크기(scale)를
-속성으로 받음. 목록 줄(Row)은 줄 전체가 눌림. 단계 표시(Stepper), 상태 점(Dot), 꺾쇠(Chevron)는 직접 그리는 위젯이고
-칠할 때마다 지금 테마의 색을 읽음."""
+속성으로 받음. 목록 줄(Row)은 줄 전체가 눌림. 단계 표시(Stepper), 상태 점(Dot), 꺾쇠(Chevron), 칸 나누기 손잡이(SplitHandle)는
+직접 그리는 위젯이고 칠할 때마다 지금 테마의 색을 읽음."""
 import math
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
-                             QSizePolicy, QVBoxLayout, QWidget)
+                             QSizePolicy, QSplitter, QSplitterHandle, QVBoxLayout, QWidget)
 
 from gui import theme
 from gui.widgets import LinkLabel, Para
@@ -26,7 +26,9 @@ DOC_CHARS = 54  # DOC_MIN 에 들어가는 17px 본문 글자 수
 DOC_PX = theme.BASE_TYPE["body"][0]  # 그 글자 수를 잰 본문 크기(설계값 17)
 LINE_CHARS = 64  # 한 줄에 두는 글자 수의 상한. 설계값 DOC_CHARS 의 1.2배이고 '가'로만 채우면 48자
 GROW_FROM = 1280  # 이 창 폭부터 읽는 글의 단이 넓어짐
-DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok"}  # 상태 점의 색 토큰
+DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok", "lock": "faint"}  # 상태 점의 색 토큰
+PANE_MIN = 320  # 끄는 칸 나누기에서 가로로 놓인 칸 하나의 최소 폭
+GRIP = (4, 32)  # 칸 나누기 손잡이 가운데 무늬의 짧은 변과 긴 변
 
 
 def doc_max():
@@ -131,8 +133,9 @@ def button(text="", kind="secondary", scale="m", onbg=False):
     return out
 
 
-def chip(text, tid=None):
-    out = button(text, "chip", "m")
+def chip(text, tid=None, onbg=False):
+    """누르면 골라지는 칩(높이 40). onbg 는 회색 바탕 위에 두는 칩임. 평소에는 바탕 없이 글만 보이고 고르면 흰 알약이 됨."""
+    out = button(text, "chip", "m", onbg)
     out.setCheckable(True)
     out.tid = tid
     return out
@@ -210,8 +213,10 @@ def spaced(*items, spacing=4):
     return out
 
 
-def banner(text="", tone="", lead=""):
-    """안내·주의·오류·완료 띠. (띠, 글 Para). lead 가 없으면 tone 에 맞는 앞 낱말을 씀."""
+def banner(text="", tone="", lead="", action=""):
+    """안내·주의·오류·완료 띠. 글 Para 는 out.text, 앞 낱말은 out.word. lead 가 없으면 tone 에 맞는 앞 낱말을 씀.
+    action 이 있으면 글 오른쪽에 그 이름의 보조 단추 m 을 두고 out.action 으로 돌려줌(없으면 None). 띠 안 단추의 바탕은
+    theme.STYLE_V2 가 surface 로 칠함. 단추가 있는 띠는 앞 낱말과 글을 한 묶음으로 단추 높이의 가운데에 둠."""
     out = frame("banner")
     words = {"": "안내", "warning": "주의", "danger": "오류", "success": "완료"}
     if tone:
@@ -220,10 +225,19 @@ def banner(text="", tone="", lead=""):
     word = label(lead or words.get(tone, "안내"), "body", bold=True)
     word.setObjectName("lead")
     text_label = para(text)
-    row.addWidget(word, 0, Qt.AlignmentFlag.AlignTop)
-    row.addWidget(text_label, 1)
+    line = row
+    if action:  # 글이 한 줄이면 묶음이 단추의 가운데 높이에 옴. 두 줄 이상이면 띠가 글 높이를 따름
+        holder = QWidget()
+        line = box(holder, spacing=8, horizontal=True)
+        row.addWidget(holder, 1, Qt.AlignmentFlag.AlignVCenter)
+    line.addWidget(word, 0, Qt.AlignmentFlag.AlignTop)
+    line.addWidget(text_label, 1)
     out.text = text_label
     out.word = word
+    out.action = None
+    if action:
+        out.action = button(action, "secondary", "m")
+        row.addWidget(out.action, 0, Qt.AlignmentFlag.AlignVCenter)
     return out
 
 
@@ -288,8 +302,9 @@ class ElideLabel(QLabel):
 
 
 class Dot(QWidget):
-    """상태 점. state 는 progress(채운 파랑)·review(채운 주황)·done(초록 원 안 체크)·todo(테두리 원)·ready(채운 초록), 또는 색 토큰 이름.
-    size 는 지름(트랙 이름 앞은 8, 목록 줄은 10, 끝남 체크는 16)."""
+    """상태 점. state 는 progress(채운 파랑)·review(채운 주황)·done(초록 원 안 체크)·todo(테두리 원)·ready(채운 초록)·lock(자물쇠),
+    또는 색 토큰 이름. size 는 지름(트랙 이름 앞은 8, 목록 줄은 10, 끝남 체크는 16). 자물쇠는 size 와 무관하게 높이 16 으로 그림.
+    2px 선으로 고리(폭 6, 높이 8)를 긋고 그 아래에 몸통(10×8, 모서리 2)을 채움."""
 
     def __init__(self, state="todo", size=10):
         super().__init__()
@@ -305,6 +320,9 @@ class Dot(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         token = DOT_STATES.get(self.state, self.state)
         color = theme.qcolor(token)
+        if self.state == "lock":
+            self.paint_lock(painter, color)
+            return
         size = 16 if self.state == "done" else self.size
         rect = QRectF((self.width() - size) / 2, (self.height() - size) / 2, size, size)
         if self.state == "todo":
@@ -321,6 +339,21 @@ class Dot(QWidget):
             path.lineTo(rect.left() + 7, rect.top() + 11.5)
             path.lineTo(rect.left() + 12, rect.top() + 5.5)
             painter.drawPath(path)
+
+    def paint_lock(self, painter, color):
+        """칸 가운데에 자물쇠를 그림. 위 끝 2 에서 아래 끝 18 까지 높이 16 을 차지함. 고리 선의 가운데는 x 7~13 이고
+        반원 꼭대기 y 3 에서 몸통 위 10 까지 내려옴."""
+        middle = self.width() / 2
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        path = QPainterPath(QPointF(middle - 3, 10.5))
+        path.lineTo(middle - 3, 6)
+        path.arcTo(QRectF(middle - 3, 3, 6, 6), 180, -180)
+        path.lineTo(middle + 3, 10.5)
+        painter.drawPath(path)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(color)
+        painter.drawRoundedRect(QRectF(middle - 5, 10, 10, 8), 2, 2)
 
 
 class Chevron(QWidget):
@@ -684,6 +717,113 @@ class TabBar(QWidget):
 
     def set_visible(self, number, visible):
         self.buttons[number].setVisible(visible)
+
+
+class SplitHandle(QSplitterHandle):
+    """칸 나누기의 손잡이. 바탕은 스타일시트(bg)가 칠하고 가운데에 GRIP 무늬(가로로 누운 손잡이는 32×4, 모서리 2)를 그림.
+    무늬 색은 평소 border 이고 마우스를 올리면 scroll_hover 로 바뀜. 두 번 누르면 처음 몫으로 돌아감. 칸 나누기가 잠기면 무늬를 그리지 않음."""
+
+    def __init__(self, orientation, parent):
+        super().__init__(orientation, parent)
+        self.over = False
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self.over = True
+        self.update()
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self.over = False
+        self.update()
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and not self.splitter().locked:
+            self.splitter().reset()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.splitter().locked:
+            return
+        short, long = GRIP
+        width, height = (short, long) if self.orientation() == Qt.Orientation.Horizontal else (long, short)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(theme.qcolor("scroll_hover" if self.over else "border"))
+        painter.drawRoundedRect(QRectF((self.width() - width) // 2, (self.height() - height) // 2, width, height), 2, 2)  # 정수 자리에 둬 번지지 않게
+
+
+class Splitter(QSplitter):
+    """사람이 끌어서 두 칸의 몫을 바꾸는 칸 나누기(splitter 가 만듦). 칸은 접히지 않음. 가로로 놓인 칸은 PANE_MIN 보다 좁아지지 않음.
+    첫 칸의 몫(0~1)을 ratio 로 들고 창 크기가 바뀌어도 그 몫을 지킴(QSplitter 는 마지막으로 받은 크기의 비율로 나눔).
+    사람이 끌면 그 몫을 settings 의 key 에 적음. 다음에 같은 key 로 만들면 그 몫으로 시작함. set_locked 는 손잡이를 끄고 무늬를 숨김."""
+
+    def __init__(self, orientation, key="", ratio=0.5, handle=24, settings=None):
+        super().__init__(orientation)
+        self.key, self.start, self.settings = key, ratio, settings
+        self.locked = False
+        self.ratio = self.saved()
+        self.setHandleWidth(handle)
+        self.setChildrenCollapsible(False)
+        self.splitterMoved.connect(self.moved)
+
+    def createHandle(self):
+        return SplitHandle(self.orientation(), self)
+
+    def addWidget(self, widget):
+        if self.orientation() == Qt.Orientation.Horizontal:
+            widget.setMinimumWidth(max(widget.minimumWidth(), PANE_MIN))
+        super().addWidget(widget)
+        if self.count() == 2:
+            self.place()
+
+    def saved(self):
+        """설정에 적힌 몫. 설정이 없거나 값이 0~1 사이의 수가 아니면 처음 몫."""
+        if self.settings is None or not self.key:
+            return self.start
+        try:
+            value = float(self.settings.value(self.key, self.start))
+        except (TypeError, ValueError):
+            return self.start
+        return value if 0 < value < 1 else self.start
+
+    def place(self):
+        """지금 몫으로 두 칸의 크기를 줌. 크기는 비율로만 쓰이므로 큰 수로 나눠 주면 Qt 가 칸 폭에 맞춰 나눔."""
+        first = round(self.ratio * 10000)
+        self.setSizes([first, 10000 - first])
+
+    def remember(self):
+        if self.settings is not None and self.key:
+            self.settings.setValue(self.key, round(self.ratio, 4))
+
+    def moved(self, *_):
+        sizes = self.sizes()
+        if len(sizes) == 2 and sum(sizes) > 0:
+            self.ratio = sizes[0] / sum(sizes)
+            self.remember()
+
+    def reset(self):
+        """처음 몫으로 되돌리고 기억함(손잡이를 두 번 누를 때)."""
+        self.ratio = self.start
+        self.place()
+        self.remember()
+
+    def set_locked(self, locked):
+        """손잡이를 끄거나(끌리지 않고 무늬를 그리지 않음) 다시 켬. 잠근 동안의 칸 크기는 부른 쪽이 칸의 최대 크기로 정함."""
+        self.locked = bool(locked)
+        split = Qt.CursorShape.SplitHCursor if self.orientation() == Qt.Orientation.Horizontal else Qt.CursorShape.SplitVCursor
+        for index in range(1, self.count()):
+            grip = self.handle(index)
+            grip.setEnabled(not self.locked)
+            grip.setCursor(Qt.CursorShape.ArrowCursor if self.locked else split)
+            grip.update()
+
+
+def splitter(orientation, key="", ratio=0.5, handle=24, settings=None):
+    """사람이 끄는 두 칸 나누기. orientation 은 Qt.Orientation, 손잡이 폭 handle 은 가로 나누기 24, 세로 나누기 16.
+    ratio 는 첫 칸의 처음 몫(0~1)이고 끈 몫은 settings(QSettings)의 key 에 0~1 값으로 남음."""
+    return Splitter(orientation, key, ratio, handle, settings)
 
 
 class TopBar(QFrame):

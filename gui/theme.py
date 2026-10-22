@@ -216,7 +216,7 @@ STYLE += "QListWidget#notes::item:disabled { background: %(table_head)s; color: 
 
 # 새 화면(첫 화면, 웹 면접 준비)의 규칙. 맨 위 위젯에 setProperty("ui", "2") 를 준 화면과 대화상자 아래에만 걸림(옮기지 않은 화면은 그대로).
 # 글자 크기는 여기서 주지 않고 gui/kit.py 가 TYPE 으로 글꼴을 직접 줌. 색과 단추·입력칸·체크 상자의 모양만 여기서 줌. 단추의 글자 크기(btn 은
-# label, btn_s 는 caption)와 꼬리표 높이(badge)는 스타일시트로만 줄 수 있어 TYPE 에서 꺼내 채움(_style).
+# label, btn_s 는 caption, 편집기 찾기 막대의 단추 code)와 꼬리표 높이(badge)는 스타일시트로만 줄 수 있어 TYPE 에서 꺼내 채움(_style).
 # 단추의 min-height 는 테두리 안쪽 높이라 평소 2px 투명 테두리를 빼서 적음(48 = 44 + 2 + 2). 초점이 와도 크기가 바뀌지 않음.
 # 크기 속성은 QWidget 의 size 와 부딪히지 않게 scale 로 부름
 STYLE_V2 = """
@@ -252,6 +252,9 @@ QWidget[ui="2"] QFrame#banner QLabel#lead { color: %(info)s; }
 QWidget[ui="2"] QFrame#banner[tone="warning"] QLabel#lead { color: %(retry)s; }
 QWidget[ui="2"] QFrame#banner[tone="danger"] QLabel#lead { color: %(wrong)s; }
 QWidget[ui="2"] QFrame#banner[tone="success"] QLabel#lead { color: %(ok)s; }
+QWidget[ui="2"] QFrame#banner QPushButton { background: %(surface)s; }
+QWidget[ui="2"] QFrame#banner QPushButton:hover, QWidget[ui="2"] QFrame#banner QPushButton:pressed { background: %(line)s; }
+QWidget[ui="2"] QFrame#banner QPushButton:disabled { background: transparent; color: %(faint)s; }
 QWidget[ui="2"] QFrame#row { background: transparent; border: 0; border-radius: 0; }
 QWidget[ui="2"] QFrame#row[over="true"] { background: %(hover)s; }
 QWidget[ui="2"] QFrame#row[down="true"] { background: %(surface_alt)s; }
@@ -282,6 +285,13 @@ QWidget[ui="2"] QPushButton#danger_text { background: transparent; color: %(wron
 QWidget[ui="2"] QPushButton#danger_text:hover, QWidget[ui="2"] QPushButton#danger_text:pressed { background: %(wrong_weak)s; }
 QWidget[ui="2"] QPushButton#chip { font-weight: 400; padding: 0 16px; }
 QWidget[ui="2"] QPushButton#chip:checked { background: %(selection)s; color: %(selection_ink)s; font-weight: 700; }
+QWidget[ui="2"] QPushButton#chip[onbg="true"] { background: transparent; color: %(muted)s; }
+QWidget[ui="2"] QPushButton#chip[onbg="true"]:hover { background: %(line)s; color: %(ink)s; }
+QWidget[ui="2"] QPushButton#chip[onbg="true"]:checked { background: %(surface)s; color: %(selection_ink)s; font-weight: 700; }
+QWidget[ui="2"] QPushButton#chip:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
+QWidget[ui="2"] QPushButton#chip:checked:disabled { background: %(selection)s; color: %(faint)s; }
+QWidget[ui="2"] QPushButton#chip[onbg="true"]:disabled { background: transparent; color: %(faint)s; }
+QWidget[ui="2"] QPushButton#chip[onbg="true"]:checked:disabled { background: %(surface)s; color: %(faint)s; }
 QWidget[ui="2"] QPushButton#tab { background: transparent; border-radius: 0; padding: 0; min-width: 0; min-height: 46px; max-height: 46px;
     color: %(faint)s; border: 0; border-bottom: 2px solid transparent; }
 QWidget[ui="2"] QPushButton#tab:hover { color: %(muted)s; }
@@ -295,7 +305,7 @@ QWidget[ui="2"] QPlainTextEdit { padding: 8px 15px; }
 QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QPlainTextEdit:focus { border: 2px solid %(focus)s; padding: 0 14px; }
 QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
 QWidget[ui="2"] QLineEdit:disabled, QWidget[ui="2"] QPlainTextEdit:disabled { background: %(surface_alt)s; color: %(muted)s; }
-QWidget[ui="2"] QPlainTextEdit#code { border-radius: 6px; padding: 0; }
+QWidget[ui="2"] QPlainTextEdit#code { border-radius: 12px; padding: 0; }
 QWidget[ui="2"] QTextBrowser#plain, QWidget[ui="2"] QPlainTextEdit#plain { border: 0; border-radius: 0; padding: 0; background: transparent; }
 QWidget[ui="2"] QCheckBox { color: %(ink)s; spacing: 12px; }
 QWidget[ui="2"] QCheckBox::indicator { width: 16px; height: 16px; border: 2px solid %(field_edge)s; border-radius: 6px; background: %(surface)s; }
@@ -314,7 +324,11 @@ QWidget[ui="2"] QProgressBar[tone="danger"]::chunk { background: %(wrong)s; }
 QWidget[ui="2"] QScrollArea, QWidget[ui="2"] QScrollArea > QWidget > QWidget { background: transparent; }
 QWidget[ui="2"] QScrollArea#page, QWidget[ui="2"] QWidget#page { background: %(bg)s; }
 QWidget[ui="2"] QFrame#card QScrollArea, QWidget[ui="2"] QFrame#card QScrollArea > QWidget > QWidget { background: %(surface)s; }
+QWidget[ui="2"] QFrame#card QScrollArea[flat="true"], QWidget[ui="2"] QFrame#card QScrollArea[flat="true"] > QWidget,
+    QWidget[ui="2"] QFrame#card QScrollArea[flat="true"] > QWidget > QWidget { background: transparent; }
 QWidget[ui="2"] QSplitter::handle { background: %(bg)s; }
+QWidget[ui="2"] QFrame#find QLineEdit { min-height: 0px; max-height: 200px; border-radius: 6px; }
+QWidget[ui="2"] QFrame#find QPushButton#tool { min-height: 0px; max-height: 200px; font-size: %(code)spx; }
 """
 
 # 코드 편집기와 그 위에 뜨는 찾기 막대. 앱 테마의 규칙 뒤에 붙여서 두 테마에서 같은 색으로 덮음
@@ -448,9 +462,10 @@ def _style(scheme):
 
 
 def style_tokens(scheme):
-    """스타일시트에 채우는 값: scheme 의 색, 체크 표시 그림, 단추 글자 크기(btn 은 label, btn_s 는 caption), 꼬리표 높이(caption 줄 높이 + 2)."""
+    """스타일시트에 채우는 값: scheme 의 색, 체크 표시 그림, 단추 글자 크기(btn 은 label, btn_s 는 caption, code 는 찾기 막대 단추),
+    꼬리표 높이(caption 줄 높이 + 2)."""
     check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
-    return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], badge=TYPE["caption"][1] + 2)
+    return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2)
 
 
 def set_text(step):
