@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QPr
 
 import session
 import study
-from gui import errors, motion, theme
+from gui import errors, motion, theme, web_text
 from gui.dialogs import IdDialog, MessageDialog
 from gui.guard import Guard
 from gui.home_page import HomePage
@@ -395,10 +395,10 @@ class MainWindow(QMainWindow):
     # 대화상자
 
     def ask(self, title, text, buttons=(("확인", "ok"),), on_choice=None, detail="", link=""):
-        """대화상자를 띄움. 빈 키("")가 아닌 버튼을 고르면 on_choice(키)를 부름."""
+        """대화상자를 띄움. 빈 키("")가 아닌 버튼을 고르면 on_choice(키)를 부름. 글에 든 터미널 명령은 단추 이름으로 바꿈."""
         if self.dialog is not None and not self.dialog.isVisible():
             self.dialog.deleteLater()  # 닫힌 대화상자가 창에 쌓이지 않게
-        self.dialog = MessageDialog(self, title, text, buttons, lambda key: key and on_choice and on_choice(key), detail, link)
+        self.dialog = MessageDialog(self, title, web_text.gui_text(text), buttons, lambda key: key and on_choice and on_choice(key), detail, link)
         self.dialog.show()
         return self.dialog
 

@@ -27,7 +27,7 @@ from gui import kit, theme
 from gui.docview import DocView, FigureView, TextPiece, keep_lang
 from gui.journey_page import md_text
 from gui.web_setup import SetupDialog
-from gui.web_text import clock_text, minutes_text
+from gui.web_text import clock_text, gui_text, minutes_text
 from webprep import dev, service
 from webprep.service import WebError
 
@@ -37,6 +37,9 @@ DOC_WIDTH = 640  # 읽는 글의 단 폭
 STEP_STATE = {"done": "done", "pass": "done", "skip": "skip", "open": "now", "locked": "lock"}  # 서비스의 단계 결과 → 단계 표시의 상태
 FINISH_TEXT = "지금 상태로 기록을 남기고 해설을 엽니다. 남은 단계는 통과하지 않은 채 끝나고, 다시 풀려면 처음부터 다시 해야 합니다."
 AGAIN_TEXT = "미션 폴더의 코드를 처음 상태로 되돌립니다. 지금 코드는 지워집니다. 남기려면 먼저 첫 화면에서 제출하세요."
+RECEIVED_TEXT = "이미 받은 미션입니다. 지금 폴더의 코드를 그대로 두고 이어서 할 수 있고, 템플릿으로 덮어쓰고 처음부터 다시 할 수도 있습니다."
+RECEIVED_BUTTONS = (("이어서 하기", "resume"), ("처음부터 다시 받기", "again", "danger"), ("닫기", ""))
+RESUMED_TEXT = "폴더의 코드를 그대로 두고 이어서 합니다."
 SKIP_TEXT = "이 단계를 건너뛰면 기록에 넘어감으로 남고 다음 단계가 열립니다."
 NO_STACK_TEXT = "%s\n받은 코드를 읽고 고칠 수는 있지만 검사는 검사 도구를 설치한 뒤에 됩니다."
 AI_TEXT = "에디터의 AI 자동완성을 껐습니다"
@@ -898,7 +901,7 @@ class WebMissionPage(QWidget):
     def show_info(self, stack):
         """받기 전·읽는 중의 오른쪽 카드: 미션 정보, 같이 읽을 노트, 실전 전 확인."""
         view = self.view
-        self.stack_banner.text.setText(stack["problem"])
+        self.stack_banner.text.setText(gui_text(stack["problem"]))
         self.stack_banner.setVisible(bool(stack["problem"]))
         self.info_values["난이도"].setText(view["level"])
         self.info_values["시간"].setText("읽기 %d분, 실전 %d분" % (view["prep_min"], view["live_min"]))
@@ -1136,13 +1139,36 @@ class WebMissionPage(QWidget):
             self.win.ask("내 테스트", "%s\n\n%s" % (line, dev.failure_text(fails[0])), detail=detail)
 
     def get(self):
-        """[미션 받기]. 검사 도구가 없으면 설치를 먼저 권함."""
+        """[미션 받기]. 받은 코드가 이미 있으면 이어서 할지 처음부터 다시 받을지 묻고, 검사 도구가 없으면 설치를 먼저 권함."""
+        if self.win.web.received(self.mid):
+            self.ask_received()
+            return
         stack = self.win.web.stack_state()
         if stack["problem"]:
-            self.win.ask("검사 도구", NO_STACK_TEXT % stack["problem"], (("설치하기", "install"), ("그냥 받기", "get", "close"), ("닫기", "")),
+            self.win.ask("검사 도구", NO_STACK_TEXT % gui_text(stack["problem"]), (("설치하기", "install"), ("그냥 받기", "get", "close"), ("닫기", "")),
                          self._get_choice)
             return
         self._get(False)
+
+    def ask_received(self):
+        """받기 전으로 보이는데 받은 코드가 있을 때(기록이 사라졌거나 다른 곳에서 받음). 폴더를 두고 이어서 할지 다시 받을지 물음."""
+        self.win.ask("이미 받은 미션", RECEIVED_TEXT, RECEIVED_BUTTONS, self._received_choice)
+
+    def _received_choice(self, key):
+        if key == "resume":
+            self.resume()
+        elif key == "again":
+            self._get(True)
+
+    def resume(self):
+        """[이어서 하기]. 폴더의 코드를 그대로 두고 받은 것으로 기록한 뒤 지금 상태(읽는 중이나 실전 중)를 보임."""
+        try:
+            self.win.web.resume(self.mid)
+        except WebError as error:
+            self.win.ask("알림", str(error))
+            return
+        self.load(self.mid)
+        self.status.setText(RESUMED_TEXT)
 
     def _get_choice(self, key):
         if key == "get":
@@ -1161,6 +1187,9 @@ class WebMissionPage(QWidget):
         self.stop_serving()  # 다시 하기는 서버가 지켜보는 폴더를 지우고 새로 씀
         try:
             self.win.web.get(self.mid, again)
+        except service.AlreadyReceived:  # 받기 전으로 보이는 사이에 다른 곳에서 받은 경우
+            self.ask_received()
+            return
         except WebError as error:
             self.win.ask("알림", str(error))
             return

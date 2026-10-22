@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPlainTextEdit, QTextBrowser, 
 import mdlite
 import study
 from gui import kit, theme
+from gui.web_text import gui_text
 from webprep import stack
 from webprep.service import WebError
 
@@ -44,7 +45,7 @@ def consent_html(text):
 def state_sentence(state):
     """창 맨 위의 상태 한 문장. Node 나 lockfile 이 없으면 그 안내. Node 판과 경로는 [자세히] 안의 동의 글에만 적음."""
     if not state["node"] or not state["lock"]:
-        return state["problem"]
+        return gui_text(state["problem"])
     if state["installed"]:
         return "패키지 목록이 바뀌어 검사 도구를 다시 설치해야 합니다." if state.get("stale") else "검사 도구가 설치되어 있어 미션의 [검사하기]를 쓸 수 있습니다."
     return "검사 도구 약 %dMB 를 이 컴퓨터에 설치합니다. 처음 설치할 때 한 번 인터넷이 필요합니다." % stack.SIZE_MB
@@ -149,7 +150,7 @@ class SetupDialog(QDialog):
         kit.set_tone(self.badge, tone)
         document = self.consent.document()
         document.setDefaultStyleSheet(theme.web_css(self.win.zoom))
-        self.consent.setHtml(consent_html(web.consent()))
+        self.consent.setHtml(consent_html(gui_text(web.consent())))
         document.setTextWidth(WIDTH - 64 - 16)
         low, high = CONSENT_HEIGHT
         self.consent.setFixedHeight(max(low, min(high, int(document.size().height()) + 4)))
@@ -159,7 +160,7 @@ class SetupDialog(QDialog):
         self.again_btn.setVisible(installed and not self.failed)
         for button in (self.install_btn, self.again_btn):
             button.setEnabled(state["node"] is not None and not self.busy)
-            button.setToolTip("" if state["node"] else state["problem"])
+            button.setToolTip("" if state["node"] else gui_text(state["problem"]))
         self.remove_btn.setVisible(bool(state["installed"]))
         self.remove_btn.setEnabled(state["installed"] and not self.busy)
 

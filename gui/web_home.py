@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QButtonGroup, QWidget
 
 from gui import kit
 from gui.web_setup import SetupDialog
-from gui.web_text import chain_line, date_text, mission_line, next_item, ordinal, stack_status
+from gui.web_text import chain_line, date_text, gui_text, mission_line, next_item, ordinal, stack_status
 from webprep.record import RecordError
 from webprep.service import WebError
 
@@ -170,7 +170,7 @@ class WebHomePage(QWidget):
         state, text = stack_status(stack)
         self.stack_dot.set_state(state)
         self.stack_label.setText(text)
-        self.problem.text.setText(stack["problem"])
+        self.problem.text.setText(gui_text(stack["problem"]))
         self.problem.setVisible(bool(stack["problem"]))
         broken = [row["title"] for kind in ("missions", "topics", "pages") for row in overview[kind] if row.get("error")]
         self.say(BROKEN % ", ".join(broken) if broken else "", "warning")

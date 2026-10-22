@@ -3,9 +3,11 @@
 실제 MainWindow 를 띄우되 웹 은행은 tests/web_bank, 여행 은행은 tests/journey_bank, 풀이 폴더·웹 홈 폴더·검사 도구 폴더는 임시 폴더,
 제출 모듈·Node·vitest·설치·폴더 열기·화면 서버·브라우저 열기는 가짜를 씀. 시계는 서비스의 now(기록 시각)와 화면의 clock(흐른 초)을 같이 돌림.
 PyQt6 가 없으면 전부 건너뜀."""
+import ast
 import base64
 import datetime
 import os
+import re
 import shutil
 import signal
 import sys
@@ -29,7 +31,7 @@ from gui import errors, kit, theme, web_text  # noqa: E402
 from gui.docview import FigureView, TextPiece  # noqa: E402
 from gui.web_home import NO_STUCK  # noqa: E402
 from gui.web_learn import scroll_to_heading  # noqa: E402
-from gui.web_mission import SERVE_STOPPED, SERVE_TIP, open_folder  # noqa: E402
+from gui.web_mission import RESUMED_TEXT, SERVE_STOPPED, SERVE_TIP, open_folder  # noqa: E402
 from gui.web_setup import BUSY_ELSEWHERE, SetupDialog  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank as journey_bank  # noqa: E402
@@ -742,9 +744,11 @@ class MissionTest(WebTest):
         win = self.boot()
         page = self.open_mission()
         self.assertTrue(page.stack_banner.isVisible())
-        self.assertIn("web install", page.stack_banner.text.text())
+        self.assertIn("[설치 관리]에서 설치해 주세요", page.stack_banner.text.text())  # 터미널 명령 대신 단추 이름
+        self.assertNotIn("study.py", page.stack_banner.text.text())
         guikit.click(page.get_btn)
         self.assertEqual(set(win.dialog.buttons), {"install", "get", ""})
+        self.assertNotIn("study.py", win.dialog.text.text())
         self.choose("install")
         dialog = page.setup_dialog
         self.assertTrue(dialog.isVisible())
@@ -755,6 +759,45 @@ class MissionTest(WebTest):
         guikit.click(page.get_btn)
         self.choose("get")
         self.assertEqual(page.view["phase"], "reading")
+
+    def test_receiving_again_asks_to_continue_or_start_over(self):
+        """받은 코드가 있는데 받기 전으로 보이면(기록이 사라짐) [미션 받기]가 이어서 할지 처음부터 다시 받을지 묻고,
+        화면 어디에도 터미널 명령이 없음. 받기 전으로 보이는 사이에 다른 곳에서 받아 서비스가 거절해도 같은 창이 뜸."""
+        self.web().get("x01")
+        app = os.path.join(study.SUBMISSIONS_DIR, USER, "web", "missions", "x01", "src", "App.tsx")
+        study.write_text(app, "내 코드")
+        os.remove(self.record_path())
+        win = self.boot()
+        page = self.open_mission()
+        self.assertEqual(page.view["phase"], "none")
+        calls, real_get = [], win.web.get
+        with mock.patch.object(win.web, "get", lambda mid, again=False: calls.append(again) or real_get(mid, again)):
+            guikit.click(page.get_btn)
+            dialog = win.dialog
+            self.assertEqual({key: b.text() for key, b in dialog.buttons.items()}, {"resume": "이어서 하기", "again": "처음부터 다시 받기", "": "닫기"})
+            self.assertEqual((dialog.buttons["resume"].objectName(), dialog.buttons["again"].objectName()), ("primary", "danger"))
+            self.assertFalse(dialog.buttons["again"].isDefault())
+            for hidden in ("--", "study.py"):
+                self.assertNotIn(hidden, dialog.text.text())
+            self.choose("")
+            self.assertEqual((page.view["phase"], self.kinds(), calls), ("none", [], []))
+            guikit.click(page.get_btn)
+            self.choose("resume")
+        self.assertEqual((page.view["phase"], page.view["try"], self.kinds()), ("reading", 1, ["receive"]))
+        self.assertEqual((study.read_text(app), page.status.text(), calls), ("내 코드", RESUMED_TEXT, []))  # 폴더는 그대로
+        self.assertTrue(page.folder_btn.isEnabled())
+        os.remove(self.record_path())
+        win.open_session(lambda: win.open_mission("x01"))
+        self.idle()
+        self.assertEqual((self.page(), page.view["phase"]), (page, "none"))
+        with mock.patch.object(win.web, "received", return_value=False), \
+                mock.patch.object(win.web, "get", side_effect=service.AlreadyReceived("none")):  # 서비스가 거절하는 경우
+            guikit.click(page.get_btn)
+        self.assertEqual(set(win.dialog.buttons), {"resume", "again", ""})
+        self.assertEqual(page.view["phase"], "none")
+        self.choose("again")
+        self.assertEqual((page.view["phase"], page.view["try"], self.kinds()), ("reading", 1, ["receive"]))
+        self.assertNotEqual(study.read_text(app), "내 코드")  # 템플릿으로 덮어씀
 
     def test_locked_mission_and_unknown_mission_show_a_message(self):
         win = self.boot()
@@ -954,6 +997,31 @@ class ServeTest(WebTest):
         self.assertTrue(page.status.text().startswith("내 테스트 1개 가운데 1개 통과"))
         self.assertFalse(self.win.dialog.isVisible())
         self.assertEqual(self.kinds()[-1], "step")  # 내 테스트는 기록하지 않음
+
+
+class WordingTest(unittest.TestCase):
+    """화면 문구에 터미널 명령이 없음. 서비스와 검사 도구의 안내는 터미널에서도 쓰여 명령이 들어 있는데, gui_text 를 거치면 사라져야 함."""
+
+    FLAG = re.compile(r"(^|\s)--[a-z]")
+
+    def test_no_terminal_commands_reach_the_screen(self):
+        for name in sorted(os.listdir(os.path.join(guikit.ROOT, "gui"))):
+            if name.endswith(".py") and name != "web_text.py":  # 바꿀 명령의 표는 web_text 에 있음
+                text = study.read_text(os.path.join(guikit.ROOT, "gui", name))
+                self.assertNotIn("--again", text, name)
+                self.assertNotIn("study.py web", text, name)
+        found = 0
+        for name in ("service", "stack", "checks", "dev", "record", "bank", "review"):
+            tree = ast.parse(study.read_text(os.path.join(guikit.ROOT, "webprep", name + ".py")))
+            docs = {ast.get_docstring(node, clean=False) for node in ast.walk(tree) if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef))}
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or node.value in docs:
+                    continue
+                if re.search("[가-힣]", node.value) and ("study.py" in node.value or self.FLAG.search(node.value)):
+                    found += 1
+                    shown = web_text.gui_text(node.value)
+                    self.assertFalse("study.py" in shown or self.FLAG.search(shown), "%s: %s" % (name, node.value))
+        self.assertGreater(found, 0)  # 검사 도구 설치 안내처럼 명령이 든 문구가 있음
 
 
 class NextItemTest(unittest.TestCase):
