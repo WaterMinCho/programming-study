@@ -1,14 +1,25 @@
 # -*- coding: utf-8 -*-
 """웹 면접 준비 화면과 첫 화면이 같이 쓰는 글자 도우미. 서비스의 overview() 값을 화면 낱말로 바꿈.
 
-낱말은 정해 둔 것만 씀: 시작 전, 진행 중, 끝남, 준비 중. 내부 ID(w03, 3-A, l03, 상자 1)는 화면에 쓰지 않음."""
+낱말은 정해 둔 것만 씀: 시작 전, 진행 중, 끝남, 준비 중. 내부 ID(w03, 3-A, l03, 상자 1)는 화면에 쓰지 않음.
+서비스와 검사 도구의 안내 문구는 터미널에서도 쓰여 명령이 들어 있음. 화면에 보이기 전에 gui_text 로 단추 이름으로 바꿈."""
 import datetime
 import math
 
 from webprep import service
 
 WEEKDAYS = "월화수목금토일"
+# 터미널 명령으로 적힌 안내 → 화면의 단추 이름. 새 명령을 안내에 넣으면 여기에도 더함(tests/test_gui_web.py 가 빠진 것을 잡음)
+CLI_WORDS = (("`python study.py web install` 로", "[설치 관리]에서"),
+             ("`python study.py web uninstall` 을 실행하거나", "[설치 관리]의 [지우기]를 누르거나"))
 ACTIONS = {"mission": "미션 시작", "chain": "복습 시작", "page": "노트 읽기", "topic": "사슬 풀기"}  # 이어서 할 일 카드의 단추 글자
+
+
+def gui_text(text):
+    """안내 문구의 터미널 명령을 화면의 단추 이름으로 바꿈. 창의 대화상자(window.ask)와 검사 도구 띠가 보이기 전에 거침."""
+    for cli, gui in CLI_WORDS:
+        text = text.replace(cli, gui)
+    return text
 
 
 def clock_text(seconds):

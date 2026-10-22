@@ -14,7 +14,8 @@ NARROWEST, WIDEST = 480, 560  # 알림 창의 폭
 
 class MessageDialog(QDialog):
     """안내·확인. buttons 는 (글자, 키) 또는 (글자, 키, 역할) 목록이고 첫 번째가 오른쪽 끝에 옴. 역할은 primary(파란 주 단추, 단추가 하나면
-    Enter 로 눌림), danger(되돌릴 수 없는 행동. 빨간 옅은 바탕, Enter 없음), close(닫기 같은 보조 단추). 역할을 주지 않으면 첫 번째가 primary,
+    Enter 로 눌림), danger(되돌릴 수 없는 행동. 빨간 옅은 바탕, Enter 없음), danger_text(주 단추가 따로 있는 창의 되돌릴 수 없는 행동.
+    빨간 글자 단추이고 주 단추와 가장 멀게 왼쪽 끝에 옴), close(닫기 같은 보조 단추). 역할을 주지 않으면 첫 번째가 primary,
     나머지는 close. 창을 그냥 닫으면 고른 키는 "" 임."""
 
     def __init__(self, parent, title, text, buttons=(("확인", "ok"),), on_choice=None, detail="", link=""):
@@ -33,13 +34,13 @@ class MessageDialog(QDialog):
         box.addSpacing(12)
         box.addWidget(self.text)
         if link:
-            self.link = LinkLabel('<a href="%s">%s</a>' % (link, link), line=theme.TYPE["body"][1], font=theme.font("body"))
+            self.link = kit.typed(LinkLabel('<a href="%s">%s</a>' % (link, link), line=theme.TYPE["body"][1], font=theme.font("body")), "body")
             self.link.linkActivated.connect(lambda url: parent.open_url(url))
             box.addSpacing(8)
             box.addWidget(self.link)
         self.detail = QPlainTextEdit(detail)
         self.detail.setReadOnly(True)
-        self.detail.setFont(theme.code_font(-1))
+        self.detail.setFont(theme.code_font(theme.text_px() - 1))
         self.detail.setMinimumHeight(140)
         self.detail.hide()
         box.addSpacing(16)
@@ -59,7 +60,7 @@ class MessageDialog(QDialog):
             roles[key] = item[2] if len(item) > 2 else ("primary" if number == 0 else "close")
         for item in reversed(buttons):  # 첫 번째 버튼이 오른쪽 끝에 오게
             label, key = item[0], item[1]
-            kind = {"primary": "primary", "danger": "danger"}.get(roles[key], "secondary")
+            kind = {"primary": "primary", "danger": "danger", "danger_text": "danger_text"}.get(roles[key], "secondary")
             button = kit.button(label, kind, "l")
             button.clicked.connect(lambda checked=False, k=key: self.choose(k))
             button.setParent(self)  # 창의 단추 규칙(ui=2)이 붙은 뒤에 크기를 잼
@@ -68,24 +69,25 @@ class MessageDialog(QDialog):
             self.buttons[key] = button
         first = self.buttons[buttons[0][1]]
         first.setDefault(len(buttons) == 1 and roles[buttons[0][1]] == "primary")  # 고를 것이 있거나 되돌릴 수 없는 창은 Enter 로 넘어가지 않음
-        made = list(self.buttons.values())
+        far = [self.buttons[key] for key in roles if roles[key] == "danger_text"]  # 왼쪽 끝. 주 단추와 가장 멀게
+        made = [button for button in self.buttons.values() if button not in far]
         for tool in tools:
             tool.setParent(self)
             tool.ensurePolished()
         room = WIDEST - box.contentsMargins().left() - box.contentsMargins().right()
-        need = sum(b.sizeHint().width() + 8 for b in made) - 8
+        need = sum(b.sizeHint().width() + 8 for b in made + far) - 8
         if tools and need + sum(t.sizeHint().width() + 8 for t in tools) > room:  # 한 줄에 다 들어가지 않으면 자세히·내용 복사를 윗줄로
             box.addLayout(self.line(tools, []))
             box.addSpacing(8)
             tools = []
-        if need > room:  # 단추 글자가 길면 한 줄에 하나씩, 첫 번째(주 단추)를 위에 둠
+        if need > room:  # 단추 글자가 길면 한 줄에 하나씩, 첫 번째(주 단추)를 위에 두고 파괴 글자 단추는 맨 아래
             column = QVBoxLayout()
             column.setSpacing(8)
-            for button in reversed(made):
+            for button in list(reversed(made)) + far:
                 column.addWidget(button)
             box.addLayout(column)
         else:
-            box.addLayout(self.line(tools, made))
+            box.addLayout(self.line(tools + far, made))
         self.fit()
 
     @staticmethod

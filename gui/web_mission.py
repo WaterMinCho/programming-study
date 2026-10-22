@@ -9,7 +9,8 @@
 가짜로 바꿔 실제로 편집기를 띄우지 않음.
 [화면 띄우기]는 서비스가 미션 폴더에서 vite 를 띄우면 창의 open_url 로 주소를 엶. 다시 누르거나, 이 화면을 떠나거나(창을 내려 둔 것은 빼고),
 프로그램을 닫으면 서버를 끔. [테스트 돌리기]는 미션 폴더의 내 테스트를 npm test 처럼 돌림. 둘 다 npm 과 PowerShell 을 거치지 않음.
-두 카드의 폭은 어느 상태에서나 7:5 이고, 위 막대·단계 표시·아래 막대는 고정이며 카드 안만 스크롤함."""
+두 카드의 폭은 어느 상태에서나 7:5 이되 오른쪽 카드는 RIGHT_MAX 까지, 왼쪽 카드는 읽는 글의 단 폭(kit.doc_width, 창 폭을 따라 넓어짐)에
+안쪽 여백을 더한 폭까지이고 남는 폭은 양옆에 똑같이 둠. 위 막대·단계 표시·아래 막대는 고정이며 카드 안만 스크롤함."""
 import os
 import re
 import shutil
@@ -27,16 +28,20 @@ from gui import kit, theme
 from gui.docview import DocView, FigureView, TextPiece, keep_lang
 from gui.journey_page import md_text
 from gui.web_setup import SetupDialog
-from gui.web_text import clock_text, minutes_text
+from gui.web_text import clock_text, gui_text, minutes_text
 from webprep import dev, service
 from webprep.service import WebError
 
 MAC_EDITORS = (("Cursor", "/Applications/Cursor.app"), ("Visual Studio Code", "/Applications/Visual Studio Code.app"))
 LANG = "javascript"  # 지문·해설의 코드 블록은 언어 표시가 tsx 라 어느 언어를 줘도 모두 보임
-DOC_WIDTH = 640  # 읽는 글의 단 폭
+RIGHT_MAX = 480  # 오른쪽 카드(미션 정보, 검사 결과, 요약)의 가장 넓은 폭. 보통 글자 기준이고 글자 크기에 비례함(크게 536, 더 크게 593)
+CARD_PAD = 24  # 카드 안쪽 여백
 STEP_STATE = {"done": "done", "pass": "done", "skip": "skip", "open": "now", "locked": "lock"}  # 서비스의 단계 결과 → 단계 표시의 상태
 FINISH_TEXT = "지금 상태로 기록을 남기고 해설을 엽니다. 남은 단계는 통과하지 않은 채 끝나고, 다시 풀려면 처음부터 다시 해야 합니다."
 AGAIN_TEXT = "미션 폴더의 코드를 처음 상태로 되돌립니다. 지금 코드는 지워집니다. 남기려면 먼저 첫 화면에서 제출하세요."
+RECEIVED_TEXT = "폴더에 받아 둔 코드가 있습니다. 그대로 두고 이어서 할 수 있습니다. 처음 상태로 되돌려 다시 받을 수도 있습니다. 다시 받으면 지금 코드는 지워집니다. 남기려면 먼저 첫 화면에서 제출하세요."
+RECEIVED_BUTTONS = (("이어서 하기", "resume"), ("처음부터 다시 받기", "again", "danger_text"), ("닫기", ""))
+RESUMED_TEXT = "폴더의 코드를 그대로 두고 이어서 합니다."
 SKIP_TEXT = "이 단계를 건너뛰면 기록에 넘어감으로 남고 다음 단계가 열립니다."
 NO_STACK_TEXT = "%s\n받은 코드를 읽고 고칠 수는 있지만 검사는 검사 도구를 설치한 뒤에 됩니다."
 AI_TEXT = "에디터의 AI 자동완성을 껐습니다"
@@ -244,14 +249,14 @@ CheckList = kit.CheckList  # 드릴 화면이 여기서 가져감
 
 class Doc(QWidget):
     """스크롤하지 않는 마크다운 글. 카드 안에서 다른 위젯과 같이 스크롤되게 DocView 의 조각(TextPiece, FigureView)만 세로로 쌓음.
-    pieces 는 쌓은 순서대로의 조각이고, 글 폭은 DOC_WIDTH 까지."""
+    pieces 는 쌓은 순서대로의 조각이고, 글 폭은 화면이 fit_columns 로 주는 단 폭까지."""
 
     def __init__(self):
         super().__init__()
         self.box = kit.box(self, spacing=8)
         self.pieces = []
         self.css, self.code_font = theme.web_css(), theme.code_font()
-        self.setMaximumWidth(DOC_WIDTH)
+        self.setMaximumWidth(kit.DOC_MIN)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
     def clear(self):
@@ -319,7 +324,7 @@ class RawBox(QFrame):
         self.edit = QPlainTextEdit(text)
         self.edit.setObjectName("plain")
         self.edit.setReadOnly(True)
-        self.edit.setFont(theme.code_font(-1))
+        self.edit.setFont(theme.code_font(theme.text_px() - 1))
         self.edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self.edit.setMaximumHeight(RAW_MAX)
         box.addWidget(self.edit)
@@ -480,21 +485,22 @@ class WebMissionPage(QWidget):
 
         body = QWidget()
         body_box = kit.box(body, (kit.MARGIN, 24, kit.MARGIN, 24), 24, horizontal=True)
-        left_card, left_box = kit.card(pad=0, spacing=0)
+        self.left_card, left_box = kit.card(pad=0, spacing=0)
         self.left = QStackedWidget()
         left_box.addWidget(self.left)
-        right_card, right_box = kit.card(pad=0, spacing=0)
+        self.right_card, right_box = kit.card(pad=0, spacing=0)
         self.right = QStackedWidget()
         right_box.addWidget(self.right)
-        body_box.addWidget(left_card, 7)
-        body_box.addWidget(right_card, 5)
+        body_box.addStretch(0)  # 두 카드가 모두 최대 폭에 닿은 뒤에만 남는 폭을 양옆이 나눔
+        body_box.addWidget(self.left_card, 7)
+        body_box.addWidget(self.right_card, 5)
+        body_box.addStretch(0)
         root.addWidget(body, 1)
 
         # 왼쪽: 읽기 안내
         self.brief_view = DocView()
         self.brief_view.box.setContentsMargins(24, 24, 24, 24)
         self.brief_view.ruled = False
-        self.brief_view.sheet.setMaximumWidth(DOC_WIDTH + 48)
         # 왼쪽: 지금 요구(실전 중)와 통과 뒤 질문
         self.request_page = Column()
         box = self.request_page.box
@@ -551,7 +557,6 @@ class WebMissionPage(QWidget):
         self.done_view = DocView()
         self.done_view.box.setContentsMargins(24, 24, 24, 24)
         self.done_view.ruled = False
-        self.done_view.sheet.setMaximumWidth(DOC_WIDTH + 48)
         diff_page = QWidget()
         diff_box = kit.box(diff_page, (24, 24, 24, 24), 8)
         self.mine_diff, self.template_diff = QPlainTextEdit(), QPlainTextEdit()
@@ -560,7 +565,7 @@ class WebMissionPage(QWidget):
             edit.setObjectName("plain")
             edit.setReadOnly(True)
             edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-            edit.setFont(theme.code_font(-1))
+            edit.setFont(theme.code_font(theme.text_px() - 1))
             edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)  # 최소 높이를 내세우지 않아 창의 최소 높이를 키우지 않음
             self.highlighters.append(DiffHighlighter(edit.document()))
             diff_box.addWidget(kit.label(name, "caption", "tertiary"))
@@ -687,6 +692,7 @@ class WebMissionPage(QWidget):
         for shortcut in self.shortcuts:
             shortcut.activated.connect(self.press_primary)
 
+        self.fit_columns()
         self.ticker = QTimer(self)
         self.ticker.setInterval(1000)
         self.ticker.timeout.connect(self.tick)
@@ -708,6 +714,21 @@ class WebMissionPage(QWidget):
         self.tabs.picked.connect(self.tab_pages.setCurrentIndex)
         self.done_view.linked.connect(lambda url: self.win.open_url(url))
         self.brief_view.linked.connect(lambda url: self.win.open_url(url))
+
+    # 폭
+
+    def fit_columns(self):
+        """읽는 글의 단 폭을 창 폭에 맞춤. 왼쪽 카드는 단 폭에 안쪽 여백을 더한 폭까지이고 읽기 안내·해설·지금 요구의 글이 그 단 폭을 씀."""
+        doc = kit.doc_width(self.width())
+        self.left_card.setMaximumWidth(doc + 2 * CARD_PAD + self.brief_view.verticalScrollBar().sizeHint().width())  # 글 옆의 스크롤 막대 자리
+        self.right_card.setMaximumWidth(round(RIGHT_MAX * theme.TYPE["body"][0] / kit.DOC_PX))
+        for view in (self.brief_view, self.done_view):
+            view.sheet.setMaximumWidth(doc + 2 * CARD_PAD)
+        self.request_view.setMaximumWidth(doc)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_columns()
 
     # 불러오기
 
@@ -898,7 +919,7 @@ class WebMissionPage(QWidget):
     def show_info(self, stack):
         """받기 전·읽는 중의 오른쪽 카드: 미션 정보, 같이 읽을 노트, 실전 전 확인."""
         view = self.view
-        self.stack_banner.text.setText(stack["problem"])
+        self.stack_banner.text.setText(gui_text(stack["problem"]))
         self.stack_banner.setVisible(bool(stack["problem"]))
         self.info_values["난이도"].setText(view["level"])
         self.info_values["시간"].setText("읽기 %d분, 실전 %d분" % (view["prep_min"], view["live_min"]))
@@ -1136,13 +1157,36 @@ class WebMissionPage(QWidget):
             self.win.ask("내 테스트", "%s\n\n%s" % (line, dev.failure_text(fails[0])), detail=detail)
 
     def get(self):
-        """[미션 받기]. 검사 도구가 없으면 설치를 먼저 권함."""
+        """[미션 받기]. 받은 코드가 이미 있으면 이어서 할지 처음부터 다시 받을지 묻고, 검사 도구가 없으면 설치를 먼저 권함."""
+        if self.win.web.received(self.mid):
+            self.ask_received()
+            return
         stack = self.win.web.stack_state()
         if stack["problem"]:
-            self.win.ask("검사 도구", NO_STACK_TEXT % stack["problem"], (("설치하기", "install"), ("그냥 받기", "get", "close"), ("닫기", "")),
+            self.win.ask("검사 도구", NO_STACK_TEXT % gui_text(stack["problem"]), (("설치하기", "install"), ("그냥 받기", "get", "close"), ("닫기", "")),
                          self._get_choice)
             return
         self._get(False)
+
+    def ask_received(self):
+        """받기 전으로 보이는데 받은 코드가 있을 때(기록이 사라졌거나 다른 곳에서 받음). 폴더를 두고 이어서 할지 다시 받을지 물음."""
+        self.win.ask("이미 받은 미션", RECEIVED_TEXT, RECEIVED_BUTTONS, self._received_choice)
+
+    def _received_choice(self, key):
+        if key == "resume":
+            self.resume()
+        elif key == "again":
+            self._get(True)
+
+    def resume(self):
+        """[이어서 하기]. 폴더의 코드를 그대로 두고 받은 것으로 기록한 뒤 지금 상태(읽는 중이나 실전 중)를 보임."""
+        try:
+            self.win.web.resume(self.mid)
+        except WebError as error:
+            self.win.ask("알림", str(error))
+            return
+        self.load(self.mid)
+        self.status.setText(RESUMED_TEXT)
 
     def _get_choice(self, key):
         if key == "get":
@@ -1161,6 +1205,9 @@ class WebMissionPage(QWidget):
         self.stop_serving()  # 다시 하기는 서버가 지켜보는 폴더를 지우고 새로 씀
         try:
             self.win.web.get(self.mid, again)
+        except service.AlreadyReceived:  # 받기 전으로 보이는 사이에 다른 곳에서 받은 경우
+            self.ask_received()
+            return
         except WebError as error:
             self.win.ask("알림", str(error))
             return
@@ -1311,7 +1358,8 @@ class WebMissionPage(QWidget):
     # 테마 · 글자 크기
 
     def restyle(self):
-        css, font = theme.web_css(self.win.zoom), theme.code_font(self.win.zoom)
+        css, font = theme.web_css(), theme.code_font(self.win.zoom)
+        self.fit_columns()  # 글자 크기가 바뀌면 단 폭의 상한도 바뀜
         for view in (self.brief_view, self.request_view, self.done_view):
             view.restyle(css, font)
         for edit in (self.mine_diff, self.template_diff):

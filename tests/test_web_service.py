@@ -169,10 +169,21 @@ class MissionFlowTest(Base):
         web = self.session()
         web.get("x01")
         study.write_text(self.app_path(), "내 코드")
-        with self.assertRaises(WebError) as caught:
+        with self.assertRaises(service.AlreadyReceived) as caught:
             web.get("x01")
-        self.assertIn("--again", str(caught.exception))
+        self.assertEqual("reading", caught.exception.phase)
+        self.assertNotIn("--", str(caught.exception))  # 터미널 명령은 cli 가 붙임
         self.assertEqual("내 코드", study.read_text(self.app_path()))
+        self.assertTrue(web.received("x01"))
+        self.assertEqual(1, web.resume("x01")["try"])  # 받은 것으로 기록돼 있으면 그대로
+        os.remove(self.record_path())  # 기록이 사라져 폴더만 남은 경우: 받기 전으로 보이지만 받은 코드가 있음
+        web = self.session()
+        self.assertTrue(web.received("x01"))
+        with self.assertRaises(service.AlreadyReceived) as caught:
+            web.get("x01")
+        self.assertEqual("none", caught.exception.phase)
+        view = web.resume("x01")  # 폴더의 코드를 그대로 두고 받은 것으로 기록함
+        self.assertEqual(("reading", 1, "내 코드"), (view["phase"], view["try"], study.read_text(self.app_path())))
         view = web.get("x01", again=True)
         self.assertEqual(2, view["try"])
         self.assertIn("누르기", study.read_text(self.app_path()))

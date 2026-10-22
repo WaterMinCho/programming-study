@@ -32,6 +32,15 @@ class WebError(session.SessionError):
     """사용자에게 그대로 보여 줄 수 있는 웹 면접 준비 오류."""
 
 
+class AlreadyReceived(WebError):
+    """받은 코드가 있는 미션을 again 없이 다시 받으려 함. phase 는 기록의 상태(폴더만 남았으면 none). 화면은 이어서 할지 다시 받을지 묻고,
+    터미널은 --again 을 안내함."""
+
+    def __init__(self, phase):
+        super().__init__("이미 받은 미션입니다(%s). 다시 받으면 지금 코드는 템플릿으로 덮어써집니다." % PHASE_LABEL[phase])
+        self.phase = phase
+
+
 def _seconds(start, end):
     a, b = record.parse_at(start), record.parse_at(end)
     if a is None or b is None:
@@ -293,22 +302,38 @@ class WebSession:
 
     # 미션 쓰기
 
+    def received(self, mid):
+        """받은 코드가 있는지. 기록에 받은 것으로 남았거나(진행 중이든 끝났든) 미션 폴더가 남아 있으면 참."""
+        return self._state(mid)["phase"] != "none" or os.path.isdir(self.learner_dir(mid))
+
     def get(self, mid, again=False):
         """[미션 받기]. 템플릿을 submissions/<ID>/web/missions/<id>/ 로 복사하고 receive 를 기록함.
-        이미 받은 코드가 있으면(진행 중이든 끝났든) again 일 때만 새 try 로 덮어씀."""
+        이미 받은 코드가 있으면(진행 중이든 끝났든) again 일 때만 새 try 로 덮어쓰고, 아니면 AlreadyReceived."""
         mission = self._mission(mid)
         self._steps(mid)
         state = self._state(mid)
         dest = self.learner_dir(mid)
-        if (state["phase"] != "none" or os.path.isdir(dest)) and not again:
-            raise WebError("이미 받은 미션입니다(%s). 처음부터 다시 하려면 --again 을 붙이세요. 지금 코드는 템플릿으로 덮어써집니다."
-                           % PHASE_LABEL[state["phase"]])
+        if self.received(mid) and not again:
+            raise AlreadyReceived(state["phase"])
         try:
             if os.path.isdir(dest):
                 shutil.rmtree(dest)
             shutil.copytree(mission["app_dir"], dest, ignore=shutil.ignore_patterns(*SKIP_DIRS))
         except OSError as error:
             raise WebError("과제 코드를 복사하지 못했습니다: %s" % error)
+        self._append({"kind": "receive", "item": mid, "try": state["try"] + 1})
+        return self.mission(mid)
+
+    def resume(self, mid):
+        """[이어서 하기]. 폴더에 남은 코드를 그대로 두고 받은 것으로 기록함. 기록에 이미 받은 것으로 남아 있으면 그대로 둠.
+        폴더가 없으면 WebError."""
+        self._mission(mid)
+        self._steps(mid)
+        state = self._state(mid)
+        if state["phase"] != "none":
+            return self.mission(mid)
+        if not os.path.isdir(self.learner_dir(mid)):
+            raise WebError("미션 폴더가 없습니다: %s. 미션을 받아 주세요." % study.shown_path(self.learner_dir(mid)))
         self._append({"kind": "receive", "item": mid, "try": state["try"] + 1})
         return self.mission(mid)
 

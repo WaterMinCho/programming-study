@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""첫 화면(허브): 위 막대(이름, ID, 테마 단추), 제목 "오늘 할 공부", 이어서 할 일 카드 하나(화면에 하나뿐인 주 단추), 공부 트랙 줄 셋,
+"""첫 화면(허브): 위 막대(이름, ID, 글자 크기 단추 셋, 테마 단추), 제목 "오늘 할 공부", 이어서 할 일 카드 하나(화면에 하나뿐인 주 단추), 공부 트랙 줄 셋,
 최근 7일 학습 카드, 제출 줄 둘, 바닥글. 960 폭의 가운데 단에 두고 창이 작으면 스크롤함.
 
 카드의 수치는 세 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service 의 overview).
@@ -13,7 +13,7 @@ import math
 
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QFontMetricsF, QPainter
-from PyQt6.QtWidgets import QHBoxLayout, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
 
 from gui import errors, kit, theme, web_text
 from gui.journey_page import LANG_LABEL
@@ -29,6 +29,8 @@ TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면
 BAR_GAP = 2  # 한 날의 막대 사이
 EMPTY = "아직 채점한 기록이 없습니다."
 THEME_TEXT = {"system": "밝게 보기", "light": "어둡게 보기", "dark": "시스템 따르기"}  # 단추를 누르면 바뀌는 쪽(시스템 → 밝게 → 어둡게 → 시스템)
+TEXT_LABELS = {"normal": "보통 글자", "large": "큰 글자", "larger": "더 큰 글자"}  # 글자 크기 단추. 지금 단계가 고른 모양으로 보임
+TEXT_TIP = "화면의 글자 크기를 바꿉니다. Ctrl(맥은 Cmd)과 +, -, 0 으로도 바꿀 수 있습니다."
 PYTHON_ABOUT = "파이썬 교과목 평가에 나오는 문제를 회차로 나눠 풀고 채점합니다."
 FIX_HINT = "파일을 고친 뒤 프로그램을 다시 실행해 주세요."
 
@@ -72,8 +74,11 @@ class RecentList(QWidget):
     def __init__(self):
         super().__init__()
         self.rows = []  # [(글, 시각)]
-        self.setFont(theme.font("label"))
+        kit.typed(self, "label")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def refont(self):
+        self.set_rows(self.rows)
 
     def set_rows(self, rows):
         self.rows = list(rows)
@@ -179,6 +184,18 @@ class HubPage(QWidget):
         top.row.addWidget(kit.label("프로그래밍 스터디", "headline"))
         top.row.addStretch(1)
         top.row.addWidget(self.user)
+        top.row.addSpacing(12)
+        self.text_buttons = {}  # 글자 크기 단계 → 단추. 테마 단추와 같은 모양이고 지금 단계는 고른 모양
+        self.text_group = QButtonGroup(self)
+        self.text_group.setExclusive(True)
+        for step in theme.TEXT_STEPS:
+            button = kit.button(TEXT_LABELS[step], "text", "s", onbg=True)
+            button.setCheckable(True)
+            button.setToolTip(TEXT_TIP)
+            button.clicked.connect(lambda checked=False, step=step: win.set_text(step))
+            self.text_group.addButton(button)
+            self.text_buttons[step] = top.add_right(button)
+        top.row.addSpacing(12)
         top.add_right(self.theme_btn, flush=True)
         outer.addWidget(top)
 
@@ -278,8 +295,9 @@ class HubPage(QWidget):
         root.addSpacing(8)
         root.addWidget(self.busy_bar)
         root.addSpacing(24)
-        self.foot = LinkLabel('글자 크기는 Ctrl(맥은 Cmd)과 +, -, 0 으로 바꿉니다. <a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL,
+        self.foot = LinkLabel('<a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL,
                               line=theme.TYPE["caption"][1], font=theme.font("caption"))
+        kit.typed(self.foot, "caption")
         self.foot.setProperty("tone", "tertiary")
         self.foot.setOpenExternalLinks(True)
         root.addWidget(self.foot)
@@ -449,6 +467,8 @@ class HubPage(QWidget):
 
     def restyle(self):
         self.theme_btn.setText(THEME_TEXT[theme.state["mode"]])
+        for step, button in self.text_buttons.items():
+            button.setChecked(step == theme.state["text"])
         for widget in (self.chart, self.recent):
             widget.update()
 

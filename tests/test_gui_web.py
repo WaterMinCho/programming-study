@@ -3,9 +3,11 @@
 실제 MainWindow 를 띄우되 웹 은행은 tests/web_bank, 여행 은행은 tests/journey_bank, 풀이 폴더·웹 홈 폴더·검사 도구 폴더는 임시 폴더,
 제출 모듈·Node·vitest·설치·폴더 열기·화면 서버·브라우저 열기는 가짜를 씀. 시계는 서비스의 now(기록 시각)와 화면의 clock(흐른 초)을 같이 돌림.
 PyQt6 가 없으면 전부 건너뜀."""
+import ast
 import base64
 import datetime
 import os
+import re
 import shutil
 import signal
 import sys
@@ -29,7 +31,7 @@ from gui import errors, kit, theme, web_text  # noqa: E402
 from gui.docview import FigureView, TextPiece  # noqa: E402
 from gui.web_home import NO_STUCK  # noqa: E402
 from gui.web_learn import scroll_to_heading  # noqa: E402
-from gui.web_mission import SERVE_STOPPED, SERVE_TIP, open_folder  # noqa: E402
+from gui.web_mission import RESUMED_TEXT, SERVE_STOPPED, SERVE_TIP, open_folder  # noqa: E402
 from gui.web_setup import BUSY_ELSEWHERE, SetupDialog  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank as journey_bank  # noqa: E402
@@ -52,9 +54,32 @@ def doc_text(view):
     return "\n".join(piece.toPlainText() for piece in view.pieces if isinstance(piece, TextPiece))
 
 
+def doc_sizes(view):
+    """DocView 첫 글 조각의 줄마다 (글, 글자 크기 px)."""
+    piece = next(p for p in view.pieces if isinstance(p, TextPiece))
+    out, block = {}, piece.document().begin()
+    while block.isValid():
+        if block.text().strip():
+            out[block.text().strip()] = block.begin().fragment().charFormat().font().pixelSize()
+        block = block.next()
+    return out
+
+
 def inside(win, widget):
     """widget 이 창 안에 다 들어와 있는지."""
     return win.rect().contains(QRect(widget.mapTo(win, QPoint(0, 0)), widget.size()))
+
+
+def scroll_to(widget):
+    """widget 이 스크롤 칸 안에 있으면 그 칸을 widget 이 보이는 자리로 굴림. 굴린 칸을 돌려줌(없으면 None)."""
+    parent = widget.parentWidget()
+    while parent is not None:
+        if isinstance(parent, QScrollArea):
+            parent.ensureWidgetVisible(widget)
+            guikit.pump()
+            return parent
+        parent = parent.parentWidget()
+    return None
 
 
 def name_of(widget):
@@ -485,7 +510,7 @@ class HomeTest(WebTest):
         self.assertIn("added 240 packages", dialog.log.toPlainText())
         self.assertTrue(dialog.log.isVisible())
         self.assertGreaterEqual(dialog.height(), layout_height(dialog))  # 로그와 결과 띠가 나타나도 위젯이 겹치지 않음
-        self.assertLess(abs(dialog.height() - installed_height), 2 * theme.TYPE["body"][1])  # 실패 문구가 한 줄 더 길 뿐
+        self.assertLessEqual(abs(dialog.height() - installed_height), 2 * theme.TYPE["body"][1])  # 실패 문구가 한두 줄 더 길 뿐
         self.assertEqual((dialog.install_btn.text(), dialog.install_btn.isVisible(), dialog.again_btn.isVisible()), ("다시 설치하기", True, False))
         with mock.patch.object(win, "run_job", return_value=False):  # 다른 일이 도는 중이면 잠긴 채 남지 않음
             dialog.install()
@@ -742,9 +767,11 @@ class MissionTest(WebTest):
         win = self.boot()
         page = self.open_mission()
         self.assertTrue(page.stack_banner.isVisible())
-        self.assertIn("web install", page.stack_banner.text.text())
+        self.assertIn("[설치 관리]에서 설치해 주세요", page.stack_banner.text.text())  # 터미널 명령 대신 단추 이름
+        self.assertNotIn("study.py", page.stack_banner.text.text())
         guikit.click(page.get_btn)
         self.assertEqual(set(win.dialog.buttons), {"install", "get", ""})
+        self.assertNotIn("study.py", win.dialog.text.text())
         self.choose("install")
         dialog = page.setup_dialog
         self.assertTrue(dialog.isVisible())
@@ -755,6 +782,48 @@ class MissionTest(WebTest):
         guikit.click(page.get_btn)
         self.choose("get")
         self.assertEqual(page.view["phase"], "reading")
+
+    def test_receiving_again_asks_to_continue_or_start_over(self):
+        """받은 코드가 있는데 받기 전으로 보이면(기록이 사라짐) [미션 받기]가 이어서 할지 처음부터 다시 받을지 묻고,
+        화면 어디에도 터미널 명령이 없음. 받기 전으로 보이는 사이에 다른 곳에서 받아 서비스가 거절해도 같은 창이 뜸."""
+        self.web().get("x01")
+        app = os.path.join(study.SUBMISSIONS_DIR, USER, "web", "missions", "x01", "src", "App.tsx")
+        study.write_text(app, "내 코드")
+        os.remove(self.record_path())
+        win = self.boot()
+        page = self.open_mission()
+        self.assertEqual(page.view["phase"], "none")
+        calls, real_get = [], win.web.get
+        with mock.patch.object(win.web, "get", lambda mid, again=False: calls.append(again) or real_get(mid, again)):
+            guikit.click(page.get_btn)
+            dialog = win.dialog
+            self.assertEqual({key: b.text() for key, b in dialog.buttons.items()}, {"resume": "이어서 하기", "again": "처음부터 다시 받기", "": "닫기"})
+            self.assertEqual((dialog.buttons["resume"].objectName(), dialog.buttons["again"].objectName()), ("primary", "danger_text"))
+            self.assertFalse(dialog.buttons["again"].isDefault())
+            guikit.pump()
+            self.assertLess(dialog.buttons["again"].geometry().right(), dialog.buttons[""].x())  # 되돌릴 수 없는 단추는 왼쪽 끝이고 [닫기]가 사이에 옴
+            self.assertLess(dialog.buttons[""].geometry().right(), dialog.buttons["resume"].x())
+            for hidden in ("--", "study.py"):
+                self.assertNotIn(hidden, dialog.text.text())
+            self.choose("")
+            self.assertEqual((page.view["phase"], self.kinds(), calls), ("none", [], []))
+            guikit.click(page.get_btn)
+            self.choose("resume")
+        self.assertEqual((page.view["phase"], page.view["try"], self.kinds()), ("reading", 1, ["receive"]))
+        self.assertEqual((study.read_text(app), page.status.text(), calls), ("내 코드", RESUMED_TEXT, []))  # 폴더는 그대로
+        self.assertTrue(page.folder_btn.isEnabled())
+        os.remove(self.record_path())
+        win.open_session(lambda: win.open_mission("x01"))
+        self.idle()
+        self.assertEqual((self.page(), page.view["phase"]), (page, "none"))
+        with mock.patch.object(win.web, "received", return_value=False), \
+                mock.patch.object(win.web, "get", side_effect=service.AlreadyReceived("none")):  # 서비스가 거절하는 경우
+            guikit.click(page.get_btn)
+        self.assertEqual(set(win.dialog.buttons), {"resume", "again", ""})
+        self.assertEqual(page.view["phase"], "none")
+        self.choose("again")
+        self.assertEqual((page.view["phase"], page.view["try"], self.kinds()), ("reading", 1, ["receive"]))
+        self.assertNotEqual(study.read_text(app), "내 코드")  # 템플릿으로 덮어씀
 
     def test_locked_mission_and_unknown_mission_show_a_message(self):
         win = self.boot()
@@ -956,6 +1025,31 @@ class ServeTest(WebTest):
         self.assertEqual(self.kinds()[-1], "step")  # 내 테스트는 기록하지 않음
 
 
+class WordingTest(unittest.TestCase):
+    """화면 문구에 터미널 명령이 없음. 서비스와 검사 도구의 안내는 터미널에서도 쓰여 명령이 들어 있는데, gui_text 를 거치면 사라져야 함."""
+
+    FLAG = re.compile(r"(^|\s)--[a-z]")
+
+    def test_no_terminal_commands_reach_the_screen(self):
+        for name in sorted(os.listdir(os.path.join(guikit.ROOT, "gui"))):
+            if name.endswith(".py") and name != "web_text.py":  # 바꿀 명령의 표는 web_text 에 있음
+                text = study.read_text(os.path.join(guikit.ROOT, "gui", name))
+                self.assertNotIn("--again", text, name)
+                self.assertNotIn("study.py web", text, name)
+        found = 0
+        for name in ("service", "stack", "checks", "dev", "record", "bank", "review"):
+            tree = ast.parse(study.read_text(os.path.join(guikit.ROOT, "webprep", name + ".py")))
+            docs = {ast.get_docstring(node, clean=False) for node in ast.walk(tree) if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef))}
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or node.value in docs:
+                    continue
+                if re.search("[가-힣]", node.value) and ("study.py" in node.value or self.FLAG.search(node.value)):
+                    found += 1
+                    shown = web_text.gui_text(node.value)
+                    self.assertFalse("study.py" in shown or self.FLAG.search(shown), "%s: %s" % (name, node.value))
+        self.assertGreater(found, 0)  # 검사 도구 설치 안내처럼 명령이 든 문구가 있음
+
+
 class NextItemTest(unittest.TestCase):
     def test_review_card_names_the_round_like_the_web_home_row(self):
         """이어서 할 일 카드의 복습 차수는 주제 목록의 times 에서 가져옴. 미션 뒤 사슬처럼 주제에 없으면 차수를 쓰지 않음."""
@@ -1096,6 +1190,63 @@ class DrillTest(WebTest):
         self.assertIs(self.page(), win.hub)
 
 
+class TextSizeTest(WebTest):
+    """글자 크기 단계. 새로 설치하면 크게이고, 단계를 바꾸면 이름표·문단·단추·문서의 글자가 같이 커지며, 첫 화면의 단추와 Ctrl 키로 바꾸고
+    창을 다시 열어도 남음. 옛 확대 단계(zoom)는 단계로 옮김."""
+
+    def test_default_is_large_and_the_step_scales_labels_buttons_and_documents(self):
+        win = self.boot()
+        hub = win.hub
+        self.assertEqual((theme.state["text"], win.zoom, self.settings.value("text")), ("large", 2, None))
+        self.assertEqual([step for step, button in hub.text_buttons.items() if button.isChecked()], ["large"])
+        self.assertEqual([button.text() for button in hub.text_buttons.values()], ["보통 글자", "큰 글자", "더 큰 글자"])
+        self.assertTrue(all(inside(win, button) for button in hub.text_buttons.values()))
+        self.assertEqual((hub.summary.font().pixelSize(), hub.summary.line, hub.next_btn.font().pixelSize()), (19, 32, 19))
+        win.open_learn("l90")
+        self.idle()
+        learn = win.web_learn
+        sizes = doc_sizes(learn.view)
+        head = max(sizes, key=sizes.get)  # 문서의 절 제목(headline)
+        self.assertEqual((head, sizes[head]), ("state 가 바뀌면 무엇이 다시 그려지나요", 24))  # headline +2
+        row = win.web_home.page_list.rows[0] if win.web_home.page_list.rows else None
+        hub.text_buttons["larger"].click()
+        guikit.pump()
+        self.assertEqual((theme.state["text"], win.zoom, self.settings.value("text")), ("larger", 4, "larger"))
+        self.assertEqual([step for step, button in hub.text_buttons.items() if button.isChecked()], ["larger"])
+        self.assertEqual((hub.summary.font().pixelSize(), hub.summary.line, hub.next_btn.font().pixelSize()), (21, 36, 21))
+        self.assertEqual(hub.theme_btn.font().pixelSize(), 18)  # 작은 글자 단추는 caption
+        self.assertEqual((learn.title.font().pixelSize(), doc_sizes(learn.view)[head]), (26, 26))
+        self.assertEqual(learn.card.maximumWidth(), kit.doc_width(win.width()) + 48)
+        if row is not None:
+            self.assertEqual((row.title.font().pixelSize(), row.title.height()), (21, 28))
+        win.activateWindow()
+        QTest.keyClick(win, Qt.Key.Key_Minus, Qt.KeyboardModifier.ControlModifier)
+        QTest.keyClick(win, Qt.Key.Key_Minus, Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual((theme.state["text"], hub.summary.font().pixelSize(), hub.summary.line, doc_sizes(learn.view)[head]), ("normal", 17, 28, 22))
+        self.assertTrue(hub.text_buttons["normal"].isChecked())
+        QTest.keyClick(win, Qt.Key.Key_0, Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual((theme.state["text"], hub.summary.font().pixelSize()), ("large", 19))
+        win.set_text("larger")
+        win.close()
+        win.deleteLater()
+        guikit.pump()
+        self.win = None
+        again = self.boot()  # 다시 열어도 고른 단계
+        self.assertEqual((theme.state["text"], again.zoom, again.hub.summary.font().pixelSize()), ("larger", 4, 21))
+        self.assertEqual([step for step, button in again.hub.text_buttons.items() if button.isChecked()], ["larger"])
+
+    def test_old_zoom_setting_moves_to_a_step(self):
+        for zoom, step in ((-2, "normal"), (0, "large"), (2, "large"), (3, "larger")):
+            self.settings.remove("text")
+            self.settings.setValue("zoom", zoom)
+            win = self.boot()
+            self.assertEqual((theme.state["text"], self.settings.value("text"), self.settings.contains("zoom")), (step, step, False), zoom)
+            win.close()
+            win.deleteLater()
+            guikit.pump()
+            self.win = None
+
+
 class LearnTest(WebTest):
     def test_figures_sections_and_the_record(self):
         win = self.boot()
@@ -1202,7 +1353,14 @@ class LookTest(WebTest):
         dialog.close()
 
     def test_small_window_keeps_every_button_inside(self):
+        self.check_small_window(theme.TEXT_DEFAULT)
+
+    def test_small_window_keeps_every_button_inside_at_the_largest_text(self):
+        self.check_small_window("larger")
+
+    def check_small_window(self, step):
         win = self.boot((1024, 700))
+        win.set_text(step)
         self.assertEqual((win.width(), win.height()), (1024, 700))
         self.assertLessEqual(win.minimumSizeHint().height(), 480)  # 1366x768 125% 배율(작업 영역 약 576)에도 창 전체가 들어감
         for name, show, buttons in self.screens(win):
@@ -1212,13 +1370,12 @@ class LookTest(WebTest):
             self.assertLessEqual(page.minimumSizeHint().width(), 1024, name)
             self.assertLessEqual(page.minimumSizeHint().height(), 700, name)
             self.assertEqual((win.width(), win.height()), (1024, 700), name)
-            scroll = page.findChild(QScrollArea) if name in ("hub", "home") else None  # 허브와 웹 홈은 작은 창에서 스크롤함
+            if name == "hub":
+                buttons = buttons + tuple(win.hub.text_buttons.values()) + (win.hub.theme_btn,)
             for button in buttons:
                 if not button.isVisible():
                     continue
-                if scroll is not None:
-                    scroll.ensureWidgetVisible(button)
-                    guikit.pump()
+                scroll_to(button)  # 허브·웹 홈과 카드 안의 칸은 작은 창에서 스크롤함
                 self.assertTrue(inside(win, button), "%s: %s" % (name, name_of(button)))
             mission = win.web_mission
             if page is mission:  # 상태 줄은 작은 창에서도 끝까지 보임

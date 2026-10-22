@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QPr
 
 import session
 import study
-from gui import errors, motion, theme
+from gui import errors, kit, motion, theme, web_text
 from gui.dialogs import IdDialog, MessageDialog
 from gui.guard import Guard
 from gui.home_page import HomePage
@@ -34,6 +34,21 @@ from webprep import service as web_service
 from webprep import stack
 from webprep.record import RecordError
 from webprep.service import WebError
+
+
+def saved_text(settings):
+    """저장된 글자 크기 단계. 없으면 옛 확대 단계(zoom: 문서와 코드만 키우던 값)를 단계로 옮기고 그 키를 지움. 줄였으면 보통,
+    0~2 는 크게(새 기본), 3 이상은 더 크게. 둘 다 없으면 기본."""
+    step = settings.value("text", "", type=str)
+    if step in theme.TEXT_PX:
+        return step
+    if settings.contains("zoom"):
+        zoom = settings.value("zoom", 0, type=int)
+        step = "normal" if zoom < 0 else ("large" if zoom < 3 else "larger")
+        settings.remove("zoom")
+        settings.setValue("text", step)
+        return step
+    return theme.TEXT_DEFAULT
 
 
 def load_gitflow(root, user):
@@ -100,7 +115,7 @@ class MainWindow(QMainWindow):
         self.open_url = lambda url: QDesktopServices.openUrl(QUrl(url))
         self.pick_file = lambda title: QFileDialog.getOpenFileName(self, title)[0]
         self.open_folder = lambda path: open_folder(path, settings)  # 미션 폴더를 편집기로 엶. 테스트는 가짜로 바꿈
-        self.zoom = settings.value("zoom", 0, type=int)
+        theme.set_text(saved_text(settings))  # 화면을 만들기 전에 정해야 부품이 그 크기로 만들어짐
         theme.set_mode(settings.value("theme", "system", type=str))
 
         self.pages = QStackedWidget()
@@ -119,8 +134,8 @@ class MainWindow(QMainWindow):
         if settings.value("geometry"):
             self.restoreGeometry(settings.value("geometry"))
         for keys, step in ((QKeySequence.StandardKey.ZoomIn, 1), ("Ctrl+=", 1), (QKeySequence.StandardKey.ZoomOut, -1)):
-            QShortcut(QKeySequence(keys), self, lambda step=step: self.set_zoom(self.zoom + step))
-        QShortcut(QKeySequence("Ctrl+0"), self, lambda: self.set_zoom(0))
+            QShortcut(QKeySequence(keys), self, lambda step=step: self.step_text(step))
+        QShortcut(QKeySequence("Ctrl+0"), self, lambda: self.set_text(theme.TEXT_DEFAULT))
         self.guard = Guard(self)
         QApplication.instance().installEventFilter(self.guard)
         self.guard.blocked.connect(self.round_page.note_blocked)
@@ -395,10 +410,10 @@ class MainWindow(QMainWindow):
     # 대화상자
 
     def ask(self, title, text, buttons=(("확인", "ok"),), on_choice=None, detail="", link=""):
-        """대화상자를 띄움. 빈 키("")가 아닌 버튼을 고르면 on_choice(키)를 부름."""
+        """대화상자를 띄움. 빈 키("")가 아닌 버튼을 고르면 on_choice(키)를 부름. 글에 든 터미널 명령은 단추 이름으로 바꿈."""
         if self.dialog is not None and not self.dialog.isVisible():
             self.dialog.deleteLater()  # 닫힌 대화상자가 창에 쌓이지 않게
-        self.dialog = MessageDialog(self, title, text, buttons, lambda key: key and on_choice and on_choice(key), detail, link)
+        self.dialog = MessageDialog(self, title, web_text.gui_text(text), buttons, lambda key: key and on_choice and on_choice(key), detail, link)
         self.dialog.show()
         return self.dialog
 
@@ -531,11 +546,22 @@ class MainWindow(QMainWindow):
 
     # 글자 크기 · 테마 · 닫기
 
-    def set_zoom(self, zoom):
-        low, high = theme.ZOOM_RANGE
-        self.zoom = max(low, min(high, zoom))
-        self.settings.setValue("zoom", self.zoom)
+    @property
+    def zoom(self):
+        """옛 화면의 문서와 코드 글꼴이 받는 확대 단계. 글자 크기 단계가 더하는 px 와 같음."""
+        return theme.text_px()
+
+    def set_text(self, step):
+        """글자 크기 단계를 고르고 기억함. 모든 부품의 글꼴을 다시 주고 화면마다 문서를 다시 넣음."""
+        theme.set_text(step)
+        self.settings.setValue("text", theme.state["text"])
+        kit.refont(self)  # 열려 있는 대화상자도 창의 자식이라 같이 바뀜
         self.restyle()
+
+    def step_text(self, step):
+        """Ctrl+= 와 Ctrl+- 로 한 단계 키우거나 줄임. 끝에서는 그대로."""
+        steps = list(theme.TEXT_STEPS)
+        self.set_text(steps[max(0, min(len(steps) - 1, steps.index(theme.state["text"]) + step))])
 
     def cycle_theme(self):
         """시스템 → 밝게 → 어둡게 순서로 다음 테마를 고르고 기억함."""

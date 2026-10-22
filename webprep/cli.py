@@ -171,7 +171,10 @@ class Cli:
             self._request(result["next"])
 
     def get(self, web, mid, again):
-        view = web.get(mid, again)
+        try:
+            view = web.get(mid, again)
+        except service.AlreadyReceived as error:
+            raise WebError("%s 처음부터 다시 하려면 --again 을 붙이세요." % error)
         self.say("과제를 받았습니다: %s" % study.shown_path(view["dir"]))
         self.say("읽기 시간 %d분이 시작되었습니다. 읽기 안내를 읽고 준비되면 `python study.py web start %s` 를 실행하세요."
                  % (view["prep_min"], mid))

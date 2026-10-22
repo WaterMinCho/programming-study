@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""꼬리 질문 사슬 화면. 위 막대(← 웹 면접 준비 · 사슬 제목 · 복습 차수와 질문 번호), 가운데 720 단의 카드 하나, 아래 막대의 주 단추.
+"""꼬리 질문 사슬 화면. 위 막대(← 웹 면접 준비 · 사슬 제목 · 복습 차수와 질문 번호), 가운데 카드 하나(1280 창에서 720 단, 넓은 창에서는
+읽는 글의 단이 넓어지는 만큼 같이 넓어짐), 아래 막대의 주 단추.
 
 질문 상태: 면접관 질문(title 크기), 답 시간 막대, 면접관이 보여 주는 코드(사슬 소개는 [배경 보기]로 접음), 말한 내용 칸.
 확인 상태: 내 답 칸, 지난 답, 짚을 내용 표시 목록([필수]·[보충]), [필수]를 빠뜨리면 「막히면」 띠와 "아는 데까지 말했습니다" 표시.
@@ -26,6 +27,7 @@ STUCK_DEFAULT = "막힌 곳에서 아는 데까지 말했는지 표시하세요.
 NOTE_HELP = "다음 복습 때 지난 답으로 보입니다. 풀이를 제출하면 저장소에도 올라갑니다."
 WARN_SHARE = 0.2  # 남은 시간이 이 비율 이하면 주황
 SHORTCUT_TIP = "Ctrl+Enter (맥은 Cmd+Enter)"
+CARD_WIDTH = 720  # 1280 창까지의 카드 폭
 
 
 def plain(text):
@@ -140,7 +142,7 @@ class WebDrillPage(QWidget):
         field_col = kit.box(self.field_box, spacing=8)
         field_col.addWidget(kit.label("말한 내용 (선택)", "label", bold=True))
         self.note = QPlainTextEdit()
-        self.note.setFont(theme.font("body"))  # 글자 크기는 스타일시트가 아니라 글꼴로 줌(스타일시트 크기는 코드 칸의 글꼴을 덮음)
+        kit.typed(self.note, "body")  # 글자 크기는 스타일시트가 아니라 글꼴로 줌(스타일시트 크기는 코드 칸의 글꼴을 덮음)
         self.note.setMinimumHeight(144)
         self.note.setMaximumHeight(144)
         field_col.addWidget(self.note)
@@ -249,13 +251,22 @@ class WebDrillPage(QWidget):
 
     @staticmethod
     def _page(spacing):
-        """720 단의 카드 하나가 든 스크롤 칸. (칸, 카드, 카드 안 세로 상자)."""
+        """CARD_WIDTH 단의 카드 하나가 든 스크롤 칸. (칸, 카드, 카드 안 세로 상자)."""
         card, box = kit.card(24, spacing)
         inner = QWidget()
         outer = kit.box(inner, (kit.MARGIN, 24, kit.MARGIN, 32))
-        outer.addWidget(kit.column(card, 720))
+        outer.addWidget(kit.column(card, CARD_WIDTH))
         outer.addStretch(1)
         return kit.scroll(inner), card, box
+
+    def fit_column(self):
+        """카드 폭을 창 폭에 맞춤. 읽는 글의 단(kit.doc_width)이 640 에서 넓어진 만큼 720 에 더함."""
+        for card in (self.ask_card, self.end_card):
+            card.setMaximumWidth(CARD_WIDTH + kit.doc_width(self.width()) - kit.DOC_MIN)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_column()
 
     # 불러오기
 
@@ -278,7 +289,7 @@ class WebDrillPage(QWidget):
         self.code_views = []
         markup = code_html(chain["code"])
         if markup:
-            view = TextPiece(markup, theme.web_css(self.win.zoom))
+            view = TextPiece(markup, theme.web_css())
             self.code_col.addWidget(view)
             self.code_views.append(view)
         self.code_label.setText("면접관이 보여 주는 코드" if self.code_views else "배경")
@@ -509,7 +520,8 @@ class WebDrillPage(QWidget):
         self.talked.set_enabled(not busy)
 
     def restyle(self):
+        self.fit_column()
         for view in self.code_views:
-            view.restyle(theme.web_css(self.win.zoom))
+            view.restyle(theme.web_css())
         if self.chain is not None:
             self.tick()

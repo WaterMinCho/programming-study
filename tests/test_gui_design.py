@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """첫 화면과 웹 면접 준비 화면이 디자인 시스템의 규칙을 지키는지(설계 검사 C5~C8). 화면 상태마다 보이는 주 단추는 하나 이하이고,
 단추는 32 이상(주 단추 48), 목록 줄은 56 이상이며, 작업 화면의 주 단추는 아래 막대 오른쪽 끝(창 폭 − 32)에 있고, 홈 화면의 주 단추는
-1024×700 에서 스크롤 없이 보임. 읽는 글의 폭은 640 이하. 화면을 띄우는 순서는 tests/test_gui_web.py 의 LookTest.screens 를 그대로 씀.
+1024×700 에서 스크롤 없이 보임. 읽는 글의 폭은 1280 창에서 640 이하이고 넓은 창에서는 창을 따라 넓어지되 kit.doc_max 를 넘지 않음.
+화면을 띄우는 순서는 tests/test_gui_web.py 의 LookTest.screens 를 그대로 씀.
 PyQt6 가 없으면 전부 건너뜀."""
 import os
 import sys
@@ -11,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
 from PyQt6.QtCore import QPoint  # noqa: E402
-from PyQt6.QtWidgets import QPushButton, QScrollArea  # noqa: E402
+from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea  # noqa: E402
 
 from gui import kit, theme  # noqa: E402
 from gui.docview import TextPiece  # noqa: E402
@@ -63,18 +64,43 @@ class DesignTest(WebTest):
                 self.assertEqual(scroll.verticalScrollBar().value(), 0, name)
                 self.assertTrue(inside(win, primaries[0]), "%s: 주 단추가 스크롤 없이 보여야 함" % name)
 
-    def test_reading_measure_is_640_or_less(self):
-        win = self.boot()
-        win.open_learn("l90")
-        self.idle()
-        pieces = [p for p in win.web_learn.view.findChildren(TextPiece) if shown(p, win)]
-        self.assertTrue(pieces)
-        for piece in pieces:
-            self.assertLessEqual(piece.width(), 640, "학습 노트 %d" % piece.width())
-        self.open_mission()
-        for piece in win.web_mission.findChildren(TextPiece):
-            if shown(piece, win):
-                self.assertLessEqual(piece.width(), 640, "미션 안내 %d" % piece.width())
+    def test_reading_measure_follows_the_window(self):
+        """읽는 글의 단은 1280 창에서 640(설계값)이고 2000 창에서는 본문 64자 폭(크게 848)까지 넓어짐. 미션의 오른쪽 카드는 480(글자 크기에 비례)까지만
+        넓어지고 그 안에서 같이 읽을 노트 줄의 제목이 잘리지 않으며, 학습 노트와 꼬리 질문 카드도 같이 넓어짐."""
+        self.assertEqual((kit.doc_width(1024), kit.doc_width(1280), kit.doc_width(2000)), (640, 640, min(1000, kit.doc_max())))
+        self.addCleanup(theme.set_text, theme.state["text"])
+        for step, widest in (("normal", 759), ("large", 848), ("larger", 937)):
+            theme.set_text(step)
+            self.assertEqual(kit.doc_max(), widest, step)
+        theme.set_text(theme.TEXT_DEFAULT)
+        for size, low, high in (((1280, 800), 600, 640), ((2000, 1070), 800, kit.doc_max())):
+            win = self.boot(size)
+            win.open_learn("l90")
+            self.idle()
+            learn = win.web_learn
+            pieces = [p for p in learn.view.findChildren(TextPiece) if shown(p, win)]
+            self.assertTrue(pieces)
+            for piece in pieces:
+                self.assertTrue(low <= piece.width() <= high, "%s 학습 노트 %d" % (size, piece.width()))
+            page = self.open_mission()
+            for piece in page.brief_view.findChildren(TextPiece):
+                if shown(piece, win):
+                    self.assertTrue(low <= piece.width() <= high, "%s 미션 안내 %d" % (size, piece.width()))
+            row = page.note_rows.rows[0]
+            drill = self.open_drill("90-A")
+            if size[0] == 2000:
+                self.assertEqual(page.brief_view.sheet.width(), kit.doc_width(2000) + 48)
+                self.assertEqual(page.right_card.width(), round(480 * theme.TYPE["body"][0] / 17))
+                self.assertEqual(QLabel.text(row.title), row.title.full)  # 제목이 줄임표 없이 다 보임
+                self.assertEqual(learn.card.width(), kit.doc_width(2000) + 48)
+                self.assertGreater(drill.ask_card.width(), 720)
+            else:
+                self.assertLessEqual(page.brief_view.sheet.width(), 640 + 48)
+                self.assertEqual((learn.card.width(), drill.ask_card.width()), (688, 720))
+            win.close()
+            win.deleteLater()
+            guikit.pump()
+            self.win = None
 
 
 if __name__ == "__main__":
