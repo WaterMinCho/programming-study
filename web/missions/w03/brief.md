@@ -10,7 +10,7 @@
 
 ## 어떻게 실행하나요
 
-[폴더 열기]를 누르거나 `submissions/<내 ID>/web/missions/w03/` 폴더를 에디터에서 여세요. 패키지는 웹 홈의 [설치 관리]나 `python study.py web install`로 검사 도구를 설치할 때 스터디 저장소 맨 위 `node_modules` 폴더에 들어갑니다. 미션 폴더에서 `npm install`을 하지 마세요. 미션 폴더 안에 따로 설치하면 React가 두 벌 읽혀 `Invalid hook call` 오류가 날 수 있습니다. 에디터의 터미널에서 아래 명령을 실행하세요.
+[폴더 열기]를 누르거나 `submissions/<내 ID>/web/missions/w03/` 폴더를 에디터에서 여세요. 앱이 쓰는 패키지는 검사 도구를 설치할 때 스터디 저장소 맨 위 `node_modules` 폴더에 함께 들어갑니다. 검사 도구는 웹 홈의 [설치 관리]나 터미널의 `python study.py web install`로 설치합니다. 미션 폴더에서 `npm install`을 하지 마세요. 미션 폴더 안에 따로 설치하면 React가 두 벌 읽혀 `Invalid hook call` 오류가 날 수 있습니다. 에디터의 터미널에서 아래 명령을 실행하세요.
 
 ```
 npm run dev      # http://localhost:5173 에서 앱이 열립니다
