@@ -27,7 +27,6 @@ JOURNEY_LINE, JOURNEY_CODE_LINE = 1.7, 1.45  # 그 본문의 줄 간격과 코�
 # 이 px 를 확대 단계(doc_css, code_font 의 zoom)로 받음
 TEXT_STEPS = ("normal", "large", "larger")
 TEXT_PX = {"normal": 0, "large": 2, "larger": 4}
-TEXT_NAMES = {"normal": "보통", "large": "크게", "larger": "더 크게"}
 TEXT_DEFAULT = "large"
 
 MODES = {"system": "시스템", "light": "밝게", "dark": "어둡게"}  # 홈의 단추를 누르면 이 순서로 돎

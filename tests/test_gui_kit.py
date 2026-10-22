@@ -380,6 +380,7 @@ class PartsTest(unittest.TestCase):
         """글자가 긴 단추도 어느 글자 크기에서나 잘리지 않음. 한 줄에 들어가지 않으면 한 줄에 하나씩 쌓고 첫 번째(주 단추)를 위에 둠."""
         long = (("다른 컴퓨터의 풀이 가져오기", "remote"), ("이 컴퓨터 풀이로 올리기", "local"), ("나중에 정하기", ""))
         three = (("이어서 하기", "resume"), ("처음부터 다시 받기", "again", "danger"), ("닫기", ""))
+        self.addCleanup(theme.set_text, "normal")
         for step in theme.TEXT_STEPS:
             theme.set_text(step)
             for buttons, detail in ((long, "자세한 출력"), ((("다시 찾기", "find"), ("Node 위치 지정…", "pick"), ("닫기", "")), ""), (three, "")):
