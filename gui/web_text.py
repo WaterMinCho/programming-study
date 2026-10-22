@@ -32,12 +32,12 @@ def minutes_text(seconds):
 
 
 def day_text(iso):
-    """2026-10-24 를 10/24 로. 못 읽으면 그대로."""
+    """2026-10-24 를 10/24(토) 로. 못 읽으면 그대로."""
     try:
-        _, month, day = (int(n) for n in str(iso)[:10].split("-"))
+        day = datetime.date.fromisoformat(str(iso)[:10])
     except ValueError:
         return str(iso or "")
-    return "%d/%d" % (month, day)
+    return "%d/%d(%s)" % (day.month, day.day, WEEKDAYS[day.weekday()])
 
 
 def date_text(iso):

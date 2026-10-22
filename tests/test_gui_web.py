@@ -210,7 +210,7 @@ class HubRowTest(WebTest):
         today = datetime.date.today()
         self.assertEqual(hub.chart.days[-1], (today, 0, 0, 0))
         self.assertEqual(hub.streak.text(), "연속 학습 0일")
-        self.assertEqual(hub.summary.text(), "이어서 할 일을 골라 시작하세요.")
+        self.assertEqual(hub.summary.text(), "진행 중인 미션과 오늘 복습이 없습니다.")
         self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("진단 테스트", "시작"))  # 어느 트랙에도 기록이 없으면 파이썬
         self.assertTrue(hub.next_card.line.text().startswith("파이썬 스터디 · "), hub.next_card.line.text())
         self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
@@ -627,7 +627,7 @@ class MissionTest(WebTest):
         guikit.click(page.after_btn)
         entry = self.log()[-1]
         self.assertEqual((entry["kind"], entry["need"], entry["extra"], entry["secs"]), ("after", [1], [0], 35))
-        self.assertEqual(page.status.text(), "판정: 통과 (35초)")
+        self.assertEqual(page.status.text(), "통과 뒤 질문 판정: 통과 (답 시간 35초)")
         self.assertEqual(page.view["phase"], "done")
         self.assertTrue(page.done_badge.isVisible())
         self.assertIs(page.left.currentWidget(), page.done_page)
@@ -946,6 +946,7 @@ class NextItemTest(unittest.TestCase):
 
     def test_minutes_text_reads_as_a_duration(self):
         self.assertEqual([web_text.minutes_text(s) for s in (40, 120, 90, 0)], ["40초", "2분", "1분 30초", "0초"])
+        self.assertEqual((web_text.day_text("2026-10-24"), web_text.day_text("어제")), ("10/24(토)", "어제"))  # 사슬 줄의 다음 복습 날짜
 
 
 @unittest.skipIf(sys.platform == "win32", "SIGHUP 은 POSIX 에만 있음")

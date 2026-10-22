@@ -141,7 +141,6 @@ class WebDrillPage(QWidget):
         field_col.addWidget(kit.label("말한 내용 (선택)", "label", bold=True))
         self.note = QPlainTextEdit()
         self.note.setFont(theme.font("body"))  # 글자 크기는 스타일시트가 아니라 글꼴로 줌(스타일시트 크기는 코드 칸의 글꼴을 덮음)
-        self.note.setPlaceholderText("예: 응답 순서")
         self.note.setMinimumHeight(144)
         self.note.setMaximumHeight(144)
         field_col.addWidget(self.note)

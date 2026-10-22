@@ -1063,7 +1063,7 @@ class WebMissionPage(QWidget):
     def go_home(self):
         """[← 웹 면접 준비]. 통과 뒤 질문에 답하는 중이면 그 질문이 기록되지 않는다고 알리고 물음."""
         if self.after is not None:
-            self.win.ask("통과 뒤 질문", AFTER_LEAVE_TEXT, (("나가기", "leave", "danger"), ("닫기", "")), lambda key: self.win.go_web())
+            self.win.ask("통과 뒤 질문 나가기", AFTER_LEAVE_TEXT, (("나가기", "leave", "danger"), ("닫기", "")), lambda key: self.win.go_web())
             return
         self.win.go_web()
 
@@ -1258,7 +1258,7 @@ class WebMissionPage(QWidget):
             return
         self.after = None
         self.refresh()
-        self.status.setText("판정: %s (%d초)" % (service.RESULT_LABEL[result["result"]], secs))
+        self.status.setText("통과 뒤 질문 판정: %s (답 시간 %d초)" % (service.RESULT_LABEL[result["result"]], secs))
 
     def ask_finish(self):
         self.win.ask("실전 끝내기", FINISH_TEXT, (("끝내기", "finish", "danger"), ("닫기", "")), lambda key: self.finish())

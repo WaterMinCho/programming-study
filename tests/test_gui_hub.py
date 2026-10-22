@@ -191,7 +191,7 @@ class HubScreenTest(HubTest):
     def test_starts_at_the_hub_and_the_rows_show_their_numbers(self):
         prof = self.graded_round()
         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat(timespec="seconds")
-        later = (datetime.datetime.now() + datetime.timedelta(minutes=1)).isoformat(timespec="seconds")  # 파이썬 채점보다 뒤의 여행 채점
+        later = datetime.datetime.combine(datetime.date.today(), datetime.time(23, 59, 59)).isoformat()  # 파이썬 채점보다 뒤, 같은 날의 여행 채점
         self.write_log([grade_entry("p1", at=yesterday), grade_entry("p1", at=later), grade_entry("p2", at=later),
                         grade_entry("p2", "javascript", at=later)])
         win = self.boot()
@@ -215,7 +215,7 @@ class HubScreenTest(HubTest):
         self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
                          ("물통 정리", "알고리즘 여행 · 던전 1 「시험 마을」", "문제 풀기"))
         self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
-        self.assertEqual(hub.summary.text(), "이어서 할 일을 골라 시작하세요.")
+        self.assertEqual(hub.summary.text(), "진행 중인 미션과 오늘 복습이 없습니다.")
 
         # 막대: 25문항 회차를 한 번 채점한 날의 파이썬 값은 1, 여행은 채점 기록 수, 웹은 기록이 없어 0. 어제도 여행 채점이 있어 연속 2일
         today = datetime.date.today()

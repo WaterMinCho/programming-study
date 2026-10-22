@@ -373,7 +373,7 @@ class HubPage(QWidget):
             parts.append("진행 중인 미션 %d개" % len(running))
         if due:
             parts.append("오늘 복습 %d개" % len(due))
-        self.summary.setText("%s가 있습니다." % "와 ".join(parts) if parts else "이어서 할 일을 골라 시작하세요.")
+        self.summary.setText("%s가 있습니다." % "와 ".join(parts) if parts else "진행 중인 미션과 오늘 복습이 없습니다.")
         web_item = web_text.next_item(web, self.win.web.missions) if web else None
         latest = []
         gradings = python_gradings(self.win.session.prof["attempts"])
