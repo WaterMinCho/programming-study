@@ -46,10 +46,12 @@ SERVE_ON, SERVE_OFF = "화면 띄우기", "화면 끄기"
 SERVE_STOPPED = "화면 서버가 멈췄습니다."
 SERVE_TIP = "미션 폴더에서 npm run dev 와 같은 화면 서버를 띄우고 브라우저로 엽니다. 다시 누르면 끕니다."
 AFTER_LEAVE_TEXT = "통과 뒤 질문에 아직 답하지 않았습니다. 지금 나가면 이 질문은 기록되지 않고 다음에 열 때 다음 단계부터 보입니다."
-NO_CHECK_STEP0 = "이 단계는 말로 설명하는 단계라 자동 검사가 없습니다."
+NO_CHECK_STEP0 = ("자동 검사 없음", "0단계는 받은 코드를 말로 설명하는 단계입니다. 1단계부터 [검사하기]로 코드를 검사합니다.")  # 결과 칸의 (머리, 안내)
 NO_CHECK_YET = "아직 검사하지 않았습니다."
 CHECK_HINT = "검사하기를 누르면 1단계부터 지금 단계까지의 검사가 돌고 결과가 여기에 나옵니다."
 FIX_NOTE = "고친 뒤 다시 검사하세요."
+SELF_GROUPS = (("c", "모든 미션"), ("m", "이 미션"))  # 스스로 점검의 두 묶음. 항목 키의 앞 글자로 나눔
+BRIEF_HEAD = "읽기 시간에 보는 안내"  # 읽기 안내 맨 위 제목
 SHORTCUT = "Ctrl+Enter (맥은 Cmd+Enter)"
 RAW_MAX = 240  # 검사 원문 상자의 가장 큰 높이
 STATUS_WIDTH = 420  # 위 막대의 상태 글 폭. 넘으면 줄을 바꿈(두 줄까지)
@@ -121,8 +123,8 @@ def request_markdown(step, hints, revealed=True):
 
 
 def brief_text(markdown):
-    """읽기 안내의 첫 제목('# w03. 거래내역 불러오기')에서 미션 id 를 뗌. 내부 id 는 화면에 쓰지 않음."""
-    return re.sub(r"\A(#+ )[a-z]+\d+\. ", r"\1", markdown or "")
+    """읽기 안내의 첫 제목('# w03. 거래내역 불러오기')을 BRIEF_HEAD 로 바꿈. 미션 이름은 위 막대에 있고 내부 id 는 화면에 쓰지 않음."""
+    return re.sub(r"\A# [^\n]*", "# " + BRIEF_HEAD, markdown or "")
 
 
 def after_markdown(after):
@@ -311,7 +313,7 @@ class RawBox(QFrame):
     def __init__(self, text):
         super().__init__()
         self.setObjectName("well")
-        box = kit.box(self, (4, 4, 4, 4))
+        box = kit.box(self, (12, 8, 12, 8))  # 글 칸의 문서 여백 4 를 더해 위아래 12, 좌우 16
         self.edit = QPlainTextEdit(text)
         self.edit.setObjectName("plain")
         self.edit.setReadOnly(True)
@@ -356,15 +358,15 @@ class ResultPanel(Column):
                 widget.deleteLater()
         self.labels = []
 
-    def show_empty(self, text):
-        """검사 결과가 아직 없을 때의 안내 한두 문장."""
+    def show_empty(self, text, head=NO_CHECK_YET):
+        """검사 결과가 아직 없을 때의 머리 한 줄과 안내. text 가 비면 머리만 보임."""
         self._clear_rows()
-        self.head.setText(NO_CHECK_YET)
+        self.head.setText(head)
         self.bar.hide()
         self.note.hide()
         self.hint.setText(text)
-        self.hint.show()
-        self.labels = [self.head, self.hint]
+        self.hint.setVisible(bool(text))
+        self.labels = [self.head, self.hint] if text else [self.head]
 
     def show_result(self, result, expanded):
         """검사 결과를 그림. expanded 는 원문을 펼친 검사 id 들."""
@@ -458,14 +460,13 @@ class WebMissionPage(QWidget):
         self.top = kit.TopBar("← 웹 면접 준비", "", steps=True)
         self.home_btn, self.title = self.top.back, self.top.title
         self.title.show()
-        self.phase_note = kit.label("", "caption", "secondary")  # 받기 전: 읽기·실전 시간
         self.clock_box, self.clock_caption, self.timer_label = kit.clock("남은 시간")
         self.done_badge = kit.badge("끝남", "success")
         self.status = kit.para("", "caption", "secondary")  # 동작 결과 한 문장. 제목 오른쪽에 두 줄까지. 아래 막대는 단추로 차서 자리가 없음
         self.status.setMinimumWidth(1)
         self.status.setMaximumWidth(STATUS_WIDTH)
         self.top.row.insertWidget(2, self.status, 0, Qt.AlignmentFlag.AlignVCenter)
-        for widget in (self.phase_note, self.clock_box, self.done_badge):
+        for widget in (self.clock_box, self.done_badge):
             self.top.add_right(widget)
         root.addWidget(self.top)
         stepper_frame = kit.frame("stepper")
@@ -557,18 +558,25 @@ class WebMissionPage(QWidget):
             edit.setObjectName("plain")
             edit.setReadOnly(True)
             edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-            edit.setFont(theme.code_font(-2))
+            edit.setFont(theme.code_font(-1))
             self.highlighters.append(DiffHighlighter(edit.document()))
             diff_box.addWidget(kit.label(name, "caption", "tertiary"))
             diff_box.addWidget(edit, 1)
             diff_box.addSpacing(8)
         self.check_page = Column()
         self.done_items_title = kit.para("해당하는 항목에 표시하세요. 표시하면 바로 저장합니다.", "body", "secondary")
-        self.done_items = kit.CheckList()
         self.saved_note = kit.label("", "caption", "tertiary")
         self.check_page.box.addWidget(self.done_items_title)
-        self.check_page.box.addSpacing(8)
-        self.check_page.box.addWidget(self.done_items)
+        self.done_groups = {}  # 키 앞 글자(c 는 모든 미션 공통, m 은 이 미션) → (묶음 위젯, 표시 목록)
+        for prefix, name in SELF_GROUPS:
+            group = QWidget()
+            group_box = kit.box(group, (0, 16, 0, 0), 8)
+            group_box.addWidget(kit.label(name, "caption", "tertiary"))
+            items = kit.CheckList()
+            items.changed.connect(self.save_self)
+            group_box.addWidget(items)
+            self.check_page.box.addWidget(group)
+            self.done_groups[prefix] = (group, items)
         self.check_page.box.addSpacing(8)
         self.check_page.box.addWidget(self.saved_note)
         self.check_page.box.addStretch(1)
@@ -658,6 +666,7 @@ class WebMissionPage(QWidget):
         self.busy_bar.setFixedWidth(120)
         self.busy_bar.hide()
         self.bar.add_action(self.busy_bar)
+        self.explain_note = self.bar.add_action(kit.label("", "caption", "tertiary"))  # 꺼진 [설명 끝내기]가 언제 켜지는지
         self.get_btn = self.bar.add_action(kit.button("미션 받기", "primary", "l"))
         self.start_btn = self.bar.add_action(kit.button("실전 시작", "primary", "l"))
         self.explain_btn = self.bar.add_action(kit.button("설명 끝내기", "primary", "l"))
@@ -668,8 +677,8 @@ class WebMissionPage(QWidget):
         for button in self.primaries:
             button.setToolTip(SHORTCUT)
         root.addWidget(self.bar)
-        for widget in (self.phase_note, self.clock_box, self.done_badge, self.finish_btn, self.again_btn, self.serve_btn, self.test_btn,
-                       self.brief_btn, self.skip_btn, self.skip_note, self.request_items) + self.primaries:
+        for widget in (self.clock_box, self.done_badge, self.finish_btn, self.again_btn, self.serve_btn, self.test_btn,
+                       self.brief_btn, self.skip_btn, self.skip_note, self.explain_note, self.request_items) + self.primaries:
             widget.hide()
         self.shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
         self.shortcut.activated.connect(self.press_primary)
@@ -693,7 +702,6 @@ class WebMissionPage(QWidget):
         self.after_btn.clicked.connect(self.answer_after)
         self.next_btn.clicked.connect(lambda: self.win.go_web())
         self.tabs.picked.connect(self.tab_pages.setCurrentIndex)
-        self.done_items.changed.connect(self.save_self)
         self.done_view.linked.connect(lambda url: self.win.open_url(url))
         self.brief_view.linked.connect(lambda url: self.win.open_url(url))
 
@@ -784,14 +792,11 @@ class WebMissionPage(QWidget):
             kit.set_tone(self.timer_label, "warning" if warn_under and seconds <= warn_under else "")
 
     def show_clock(self, timers):
-        """위 막대 오른쪽: 받기 전은 읽기·실전 시간 한 줄, 읽는 중·실전 중·통과 뒤 질문은 시계 하나, 끝남은 끝남 꼬리표."""
+        """위 막대 오른쪽: 읽는 중·실전 중·통과 뒤 질문은 시계 하나, 끝남은 끝남 꼬리표. 받기 전의 읽기·실전 시간은 미션 정보 카드에만 있음."""
         view, phase = self.view, self.view["phase"]
-        self.phase_note.setVisible(phase == "none")
         self.clock_box.setVisible(phase in ("reading", "live") or self.after is not None)  # 마지막 단계의 통과 뒤 질문도 답 시계를 보임
         self.done_badge.setVisible(phase == "done" and self.after is None)
-        if phase == "none":
-            self.phase_note.setText("읽기 %d분 · 실전 %d분" % (view["prep_min"], view["live_min"]))
-        elif self.after is not None:
+        if self.after is not None:
             self._clock("답 시간", self.after["secs"] - int(self.clock() - self.after_started))
         elif phase == "reading":
             self._clock("읽기 남은 시간", timers["reading_left"] or 0)
@@ -817,6 +822,7 @@ class WebMissionPage(QWidget):
         kit.set_tone(self.time_left, tone or "secondary")
         kit.set_tone(self.time_bar, tone)
         self.skip_note.setText("" if timers["can_skip"] else "%d분 뒤 열립니다" % max(1, (left + 59) // 60))
+        self.explain_note.setText("%d분 뒤 열립니다" % max(1, (left + 59) // 60) if left > 0 else "")
 
     def tick(self):
         if self.view is None or self.mid is None:
@@ -850,7 +856,7 @@ class WebMissionPage(QWidget):
         phase = view["phase"]
         self.title.setText(view["title"])
         self.stepper.set_steps((row["no"], row["title"], STEP_STATE.get(row["result"], "lock")) for row in view["steps"])
-        for button in self.primaries:
+        for button in self.primaries + (self.explain_note,):
             button.hide()
         self.get_btn.setVisible(phase == "none")
         self.start_btn.setVisible(phase == "reading")
@@ -933,6 +939,7 @@ class WebMissionPage(QWidget):
         self.request_items.set_enabled(not self.busy)
         self.explain_btn.setVisible(step["no"] == 0)
         self.explain_btn.setEnabled(self.revealed and not self.busy)
+        self.explain_note.setVisible(step["no"] == 0 and not self.revealed)
         self.check_btn.setVisible(step["no"] > 0)
         self.check_btn.setEnabled(step["no"] > 0 and not self.busy)
         self.after_btn.hide()
@@ -961,7 +968,7 @@ class WebMissionPage(QWidget):
                                        "", n < len(kept) and kept[n]) for n, item in enumerate(after["items"])])
         self.request_items.set_enabled(not self.busy)
         self.request_buttons.hide()
-        for button in (self.explain_btn, self.check_btn):
+        for button in (self.explain_btn, self.explain_note, self.check_btn):
             button.hide()
         self.after_btn.show()
         self.after_btn.setEnabled(not self.busy)
@@ -970,7 +977,10 @@ class WebMissionPage(QWidget):
         result = self.results.get(self.mid)
         if result is None:
             current = self.view["current"]
-            self.result_view.show_empty(NO_CHECK_STEP0 if current is not None and current["no"] == 0 and self.after is None else CHECK_HINT)
+            if current is not None and current["no"] == 0 and self.after is None:  # 검사가 없는 단계에 '아직 검사하지 않았다'를 붙이지 않음
+                self.result_view.show_empty(NO_CHECK_STEP0[1], NO_CHECK_STEP0[0])
+            else:
+                self.result_view.show_empty(CHECK_HINT)
         else:
             self.result_view.show_result(result, self.expanded)
 
@@ -979,7 +989,10 @@ class WebMissionPage(QWidget):
         self.left.setCurrentWidget(self.done_page)
         self.done_view.set_markdown(done_markdown(done, self.base_dir()), self.base_dir(), LANG)
         ticks = done["self_ticks"] or {}
-        self.done_items.set_items([(mdlite.inline_plain(item["text"]), "", "", "", ticks.get(item["key"])) for item in done["self_items"]])
+        for prefix, (group, items) in self.done_groups.items():
+            rows = [item for item in done["self_items"] if item["key"].startswith(prefix)]
+            items.set_items([(mdlite.inline_plain(item["text"]), "", "", "", ticks.get(item["key"])) for item in rows])
+            group.setVisible(bool(rows))
         self.saved_note.setText("")
         self.tabs.set_visible(2, bool(done["self_items"]))
         if not done["self_items"] and self.tab_pages.currentWidget() is self.check_page:
@@ -1021,7 +1034,8 @@ class WebMissionPage(QWidget):
         if not busy and not self.checking:
             self.check_btn.setText("검사하기")
         self.request_items.set_enabled(not busy)
-        self.done_items.set_enabled(not busy)
+        for group, items in self.done_groups.values():
+            items.set_enabled(not busy)
 
     def set_busy(self, busy, text=""):
         self.busy = busy
@@ -1175,7 +1189,7 @@ class WebMissionPage(QWidget):
             self.win.ask("알림", str(error))
             return
         self.refresh()
-        self.status.setText("힌트 %d을 들었습니다." % hint["n"])
+        self.status.setText("%d번째 힌트를 들었습니다." % hint["n"])
 
     def ask_skip(self):
         self.win.ask("이 단계 건너뛰기", SKIP_TEXT, (("건너뛰기", "skip", "danger"), ("닫기", "")), lambda key: self.skip())
@@ -1264,7 +1278,10 @@ class WebMissionPage(QWidget):
         done = self.done
         if done is None or self.busy:
             return
-        ticks = {item["key"]: mark for item, mark in zip(done["self_items"], self.done_items.marks())}
+        ticks = {}
+        for prefix, (group, items) in self.done_groups.items():
+            rows = [item for item in done["self_items"] if item["key"].startswith(prefix)]
+            ticks.update({item["key"]: mark for item, mark in zip(rows, items.marks())})
         try:
             self.win.web.self_check(self.mid, ticks)
         except WebError as error:
@@ -1286,7 +1303,7 @@ class WebMissionPage(QWidget):
         for view in (self.brief_view, self.request_view, self.done_view):
             view.restyle(css, font)
         for edit in (self.mine_diff, self.template_diff):
-            edit.setFont(theme.code_font(self.win.zoom - 2))
+            edit.setFont(theme.code_font(self.win.zoom - 1))
         for highlighter in self.highlighters:
             highlighter.rehighlight()
         if self.view is not None:

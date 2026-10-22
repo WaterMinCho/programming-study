@@ -120,7 +120,7 @@ class SetupDialog(QDialog):
         self.log = QPlainTextEdit()
         self.log.setObjectName("plain")
         self.log.setReadOnly(True)
-        self.log.setFont(theme.code_font(-2))
+        self.log.setFont(theme.code_font(-1))
         self.log.setFixedHeight(QFontMetrics(self.log.font()).lineSpacing() * TAIL_LINES + 8)  # 꼬리 줄 수만큼
         self.log.hide()
         self.result = kit.banner("", "success")

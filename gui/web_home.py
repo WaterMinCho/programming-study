@@ -275,7 +275,7 @@ class WebHomePage(QWidget):
         waiting = [t["title"] for t in topics if not t["ready"]]
         for number, row in enumerate(ready):
             chip = kit.chip(row["title"], row["id"])
-            chip.setToolTip("사슬 %d개 가운데 %d개 풂" % (row["total"], row["done"]))
+            chip.setToolTip("사슬 %d개 중 %d개 끝남" % (row["total"], row["done"]))
             self.chip_group.addButton(chip, number)
             self.chip_row.addWidget(chip)
             self.chips[row["id"]] = chip

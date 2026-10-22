@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea  # noqa: E402
 
 import session  # noqa: E402
 import study  # noqa: E402
-from gui import errors, kit, theme  # noqa: E402
+from gui import errors, kit, theme, web_text  # noqa: E402
 from gui.docview import FigureView, TextPiece  # noqa: E402
 from gui.web_home import NO_STUCK  # noqa: E402
 from gui.web_learn import scroll_to_heading  # noqa: E402
@@ -465,14 +465,12 @@ class MissionTest(WebTest):
         self.assertEqual((page.view["phase"], page.title.text()), ("none", "횟수 세기 버튼"))
         self.assertIs(page.left.currentWidget(), page.brief_view)
         self.assertIs(page.right.currentWidget(), page.info_page)
-        self.assertIn("횟수 세기 버튼", doc_text(page.brief_view))
-        self.assertNotIn("x01.", doc_text(page.brief_view))  # 안내 첫 제목에 미션 id 를 쓰지 않음
+        self.assertTrue(doc_text(page.brief_view).startswith("읽기 시간에 보는 안내"))  # 미션 이름은 위 막대에만, id 는 어디에도 없음
+        self.assertNotIn("x01.", doc_text(page.brief_view))
         self.assertEqual(page.info_values["시간"].text(), "읽기 2분, 실전 6분")
         self.assertEqual(page.info_values["단계"].text(), "0~2단계. 0단계는 말로 설명합니다.")
         self.assertEqual([row.title.text() for row in page.note_rows.rows], ["시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요"])
-        self.assertTrue(page.phase_note.isVisible())
-        self.assertEqual(page.phase_note.text(), "읽기 2분 · 실전 6분")
-        self.assertFalse(page.clock_box.isVisible())
+        self.assertFalse(page.clock_box.isVisible() or page.done_badge.isVisible())  # 읽기·실전 시간은 미션 정보에만
         self.assertFalse(page.ai_box.isVisible())  # 실전 전 확인은 읽는 중에만
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["미션 받기"])
         self.assertFalse(page.start_btn.isVisible())
@@ -525,7 +523,7 @@ class MissionTest(WebTest):
         self.assertFalse(page.check_btn.isVisible())
         self.assertFalse(page.skip_btn.isVisible())
         self.assertEqual((page.time_note.text(), page.time_left.text()), ("목표 1분 중 0분 지났습니다", "1:00 남음"))
-        self.assertIn("자동 검사가 없습니다", page.result_view.text())
+        self.assertTrue(page.result_view.text().startswith("자동 검사 없음\n0단계는"))  # 검사가 없는 단계에 '아직 검사하지 않았다'를 붙이지 않음
         guikit.click(page.brief_btn)  # 읽기 안내를 보는 동안 목표 시간이 지나도 끌어오지 않음
         self.assertEqual(page.brief_btn.text(), "요구로 돌아가기")
         self.tick(minutes=1)
@@ -624,12 +622,13 @@ class MissionTest(WebTest):
         self.assertIn("+        초기화", page.template_diff.toPlainText())
         self.assertEqual([b.text() for b in page.tabs.buttons], ["해설", "내 코드와 비교", "스스로 점검"])
         self.assertTrue(page.tabs.buttons[2].isVisible())  # 스스로 점검은 해설을 가리지 않게 탭에 있음
-        self.assertEqual(len(page.done_items.rows), 5)
+        common, mine = page.done_groups["c"][1], page.done_groups["m"][1]
+        self.assertEqual((len(common.rows), len(mine.rows)), (3, 2))  # 모든 미션 공통과 이 미션 항목을 나눠 보임
         page.tabs.buttons[2].click()
         guikit.pump()
         self.assertIs(page.tab_pages.currentWidget(), page.check_page)
         for number in (0, 2):  # 표시하면 바로 저장함
-            page.done_items.rows[number].box.setChecked(True)
+            common.rows[number].box.setChecked(True)
         self.assertEqual(self.log()[-1]["ticks"], {"c1": 1, "c2": 0, "c3": 1, "m1": 0, "m2": 0})
         self.assertEqual(page.saved_note.text(), "저장했습니다")
         self.assertEqual([(row.title.text(), row.second.text()) for row in page.next_rows.rows],
@@ -913,6 +912,16 @@ class ServeTest(WebTest):
         self.assertTrue(page.status.text().startswith("내 테스트 1개 가운데 1개 통과"))
         self.assertFalse(self.win.dialog.isVisible())
         self.assertEqual(self.kinds()[-1], "step")  # 내 테스트는 기록하지 않음
+
+
+class NextItemTest(unittest.TestCase):
+    def test_review_card_names_the_round_like_the_web_home_row(self):
+        """이어서 할 일 카드의 복습 차수는 주제 목록의 times 에서 가져옴. 미션 뒤 사슬처럼 주제에 없으면 차수를 쓰지 않음."""
+        topics = [{"title": "React 상태", "chains": [{"id": "90-A", "times": 1}]}]
+        for iid, line in (("90-A", "꼬리 질문 복습 · 두 번째 복습"), ("w03-F", "꼬리 질문 복습")):
+            overview = {"next": {"kind": "chain", "id": iid, "title": "제목"}, "topics": topics,
+                        "today": {"chains": [{"chain": iid, "box": 1, "due": "2026-10-22", "new": False}]}}
+            self.assertEqual(web_text.next_item(overview)["line"], line)
 
 
 @unittest.skipIf(sys.platform == "win32", "SIGHUP 은 POSIX 에만 있음")

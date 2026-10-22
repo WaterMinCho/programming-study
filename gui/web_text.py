@@ -102,11 +102,8 @@ def next_item(overview, missions=None):
             prep = (missions or {}).get(iid, {}).get("prep_min")
             item["line"] = "라이브 코딩 미션 · %s" % mission_line(row, prep).replace("시작 전 · ", "")
     elif kind == "chain":
-        row = next((c for c in overview.get("today", {}).get("chains", []) if c["chain"] == iid), None)
-        box = row.get("box") if row else None
-        item["line"] = "꼬리 질문 복습" + (" · %s 복습" % ordinal((row.get("times") or 0) + 1) if row and row.get("times") is not None else "")
-        if box is None:
-            item["line"] = "꼬리 질문 복습"
+        times = next((c["times"] for t in overview.get("topics", []) for c in t["chains"] if c["id"] == iid), None)  # 웹 홈 줄과 같은 차수
+        item["line"] = "꼬리 질문 복습" + (" · %s 복습" % ordinal(times + 1) if times is not None else "")
     elif kind == "page":
         item["line"] = "학습 노트"
     elif kind == "topic":
