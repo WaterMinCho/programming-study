@@ -600,10 +600,10 @@ class JourneyPage(QWidget):
 
     def restyle(self):
         """글자 크기나 테마가 바뀌면 부름. 지문·힌트·해설과 결과 칸에 CSS 를, 편집기에 글꼴을 다시 주고 읽던 자리는 지킴.
-        지문·힌트·해설은 여행용 CSS(theme.journey_css)로, 결과 칸은 본문 CSS 로 그림."""
+        지문·힌트·해설은 여행용 CSS(theme.journey_css)로, 기준 풀이는 문서 코드와 같은 code 크기로, 결과 칸은 본문 CSS 로 그림."""
         css, font = theme.doc_css(self.win.zoom), theme.code_font(self.win.zoom)
         for view in (self.problem_view, self.hint_view, self.explain_view):
-            view.restyle(theme.journey_css(self.win.zoom), font)
+            view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
         self.code_panel.editor.setFont(font)
         console = self.code_panel.console
         bar = console.verticalScrollBar()

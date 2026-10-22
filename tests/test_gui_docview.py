@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """지문·힌트·해설 칸(gui/docview.py): 글·그림 조각 나누기, 언어별 코드 블록, 코드 조각 색칠, 없는 그림 안내, 어두운 테마, 확대,
-그림 재생기의 단계 이동, 줄어 보이는 그림을 눌러 크게 보기. PyQt6 가 없으면 전부 건너뜀."""
+글자 크기 단계마다 그려진 본문 크기와 줄 사이, 둥근 코드 상자, 조각 맨 위 여백, 머리·꼬리 위젯, 카드 안 칸(flat), 표 열 폭,
+그림 재생기의 단계 이동, 줄어 보이는 그림의 [크게 보기]와 그림 창. PyQt6 가 없으면 전부 건너뜀."""
 import base64
 import os
 import re
@@ -13,12 +14,16 @@ os.environ.setdefault("STUDY_NODE_PROBE", "0")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
+from PyQt6 import sip  # noqa: E402
 from PyQt6.QtCore import QPoint, Qt  # noqa: E402
-from PyQt6.QtGui import QColor, qGray  # noqa: E402
+from PyQt6.QtGui import QColor, QPixmap, QRegion, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QLabel, QPushButton, QWidget  # noqa: E402
 
-from gui import motion, theme  # noqa: E402
-from gui.docview import CodeView, DocView, FigureView, TextPiece  # noqa: E402
+import mdlite  # noqa: E402
+from gui import kit, motion, theme  # noqa: E402
+from gui import docview  # noqa: E402
+from gui.docview import TIGHT_CSS, CodeView, DocView, FigureView, TextPiece, cell_text  # noqa: E402
 from gui.widgets import Para  # noqa: E402
 
 # 80×40 짜리 3장 GIF(장마다 100ms). n 번 장은 남색 바탕에 x = 4 + 24n ~ 20 + 24n, y = 10 ~ 30 에 초록 네모가 있음
@@ -199,15 +204,17 @@ class DocViewTest(unittest.TestCase):
         self.assertEqual(python.toPlainText(), "def solution(records, k):\n    return len(records)")
 
     def test_missing_figure_shows_a_notice(self):
+        """없는 그림 자리는 caption 글 한 줄이고 경로는 도움말에 있음."""
         pieces = self.shown("앞 글\n\n![없는 그림](assets/none.gif)\n")
         self.assertEqual(len(pieces), 2)
         self.assertIsInstance(pieces[1], Para)
-        self.assertEqual(pieces[1].text(), "그림을 찾을 수 없습니다: assets/none.gif")
-        self.assertEqual(pieces[1].objectName(), "muted")
+        self.assertEqual((pieces[1].text(), pieces[1].toolTip()), ("그림을 불러오지 못했습니다.", "assets/none.gif"))
+        self.assertEqual((pieces[1].property("role"), pieces[1].property("tone")), ("caption", "secondary"))
+        self.assertEqual(pieces[1].font().pixelSize(), theme.TYPE["caption"][0])
         os.makedirs(os.path.join(self.folder, "assets", "folder.gif"))  # 있지만 열 수 없는 자리. 읽기 권한이 없는 파일처럼 OSError 가 남
         pieces = self.shown("![폴더](assets/folder.gif)")
         self.assertIsInstance(pieces[0], Para)
-        self.assertEqual(pieces[0].text(), "그림을 찾을 수 없습니다: assets/folder.gif")
+        self.assertEqual((pieces[0].text(), pieces[0].toolTip()), ("그림을 불러오지 못했습니다.", "assets/folder.gif"))
 
     def test_narrow_column_keeps_text_inside(self):
         """GIF 단추 줄보다 좁은 칸에서도 바탕이 칸보다 넓어지지 않아 글이 오른쪽 밖으로 밀리지 않음."""
@@ -221,7 +228,7 @@ class DocViewTest(unittest.TestCase):
         figure = self.shown("![표](assets/1-1b.png)")[0]
         self.assertIsNone(figure.movie)
         self.assertEqual(figure.picture.pixmap().deviceIndependentSize().width(), 100)
-        self.assertFalse(hasattr(figure, "controls"))
+        self.assertIsNone(figure.controls)
         figure.hide()  # 움직이는 그림이 없어도 가릴 수 있음
 
     def test_add_table_and_linked_paragraph(self):
@@ -242,8 +249,10 @@ class DocViewTest(unittest.TestCase):
         self.view.add_code("기준 풀이 (Python)", "x = 1", "python")
         guikit.pump()
         text, code = pieces[0], self.view.pieces[-1]
-        before, size = text.height(), theme.CODE_PX
         self.assertIn("font-size: %dpx" % (14 + theme.DOC_PX), text.document().defaultStyleSheet())
+        self.view.restyle(theme.doc_css(), theme.code_font())  # 기본 CSS 는 새 문서 규칙이라 확대 0 의 본문 CSS 에서 잼
+        guikit.pump()
+        before, size = text.height(), theme.CODE_PX
         bar = self.view.verticalScrollBar()
         self.assertGreater(bar.maximum(), 0)
         bar.setValue(bar.maximum() // 2)
@@ -266,6 +275,111 @@ class DocViewTest(unittest.TestCase):
         self.view.resize(640, 1400)
         guikit.pump(60)
         self.assertEqual(bright_share(self.view), 0)
+
+    def test_defaults_use_the_spacing_tokens(self):
+        """기본 안쪽 여백 24, 조각 사이 16(문단 사이와 같음). 좁은 칸의 표·코드 상자 여백도 8·12 단위."""
+        margins = self.view.box.contentsMargins()
+        self.assertEqual((margins.left(), margins.top(), margins.right(), margins.bottom(), self.view.box.spacing()), (24, 24, 24, 24, 16))
+        pieces = self.shown(DOC)
+        self.assertEqual(pieces[1].y() - pieces[0].geometry().bottom() - 1, 16)
+        for value in re.findall(r"padding: ([^;]+);", TIGHT_CSS):
+            for number in re.findall(r"\d+", value):
+                self.assertIn(int(number), theme.SPACE)
+
+    def test_piece_starts_without_a_top_margin(self):
+        """조각 맨 위의 절 제목과 코드 상자는 위 여백 없이 조각 첫 줄에 붙음. 칸 위 간격은 안쪽 여백 24 가 줌."""
+        piece = self.shown("## 관찰\n\n첫 문단입니다.\n\n## 풀이\n\n끝 문단입니다.")[0]
+        first = piece.document().begin()
+        self.assertEqual(first.text(), "관찰")
+        self.assertEqual(first.blockFormat().topMargin(), 0)
+        later = [block for block in blocks(piece) if block.text() == "풀이"][0]
+        self.assertEqual(later.blockFormat().topMargin(), 24)  # 조각 안의 절 제목은 CSS 의 위 24 를 받음
+        piece = self.shown("```python\nx = 1\n```\n\n뒤 문단입니다.")[0]
+        self.assertEqual(piece.code_boxes()[0].top(), 0)
+
+    def test_code_box_is_round_and_filled_without_a_border(self):
+        """코드 상자는 테두리 없이 surface_alt 로 채운 모서리 12 상자. 모서리 안쪽 1px 은 바탕색(둥긂)이고 위 변 가운데는 상자 색."""
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        for scheme in ("light", "dark"):
+            theme.set_mode(scheme)
+            self.view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
+            piece = self.shown("앞 문단입니다.\n\n```python\nx = 1\ny = 2\n```\n\n뒤 문단입니다.")[0]
+            guikit.pump(30)
+            image = self.view.grab().toImage()
+            box = piece.code_boxes()[0].translated(piece.mapTo(self.view, QPoint(0, 0)).toPointF())
+            left, top, right = round(box.left()), round(box.top()), round(box.right()) - 1
+            self.assertEqual(image.pixelColor(left + 1, top + 1).name(), theme.color("surface"), scheme)
+            self.assertEqual(image.pixelColor(right - 1, top + 1).name(), theme.color("surface"), scheme)
+            self.assertEqual(image.pixelColor(round(box.center().x()), top).name(), theme.color("surface_alt"), scheme)
+            self.assertEqual(image.pixelColor(left, round(box.center().y())).name(), theme.color("surface_alt"), scheme)
+
+    def test_code_box_has_the_same_space_above_and_below(self):
+        """코드 상자 위아래로 보이는 간격(앞 문단 글 끝에서 상자 위, 상자 아래에서 뒤 문단 글 위)이 세 글자 단계에서 2px 안으로 같음."""
+        self.addCleanup(theme.set_text, "normal")
+        for step in theme.TEXT_STEPS:
+            theme.set_text(step)
+            self.view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
+            piece = self.shown("앞 문단입니다.\n\n```python\nx = 1\n```\n\n뒤 문단입니다.")[0]
+            guikit.pump(30)
+            rows = ink_rows(self.view.grab().toImage(), theme.color("surface"), theme.color("surface_alt"))
+            box = piece.code_boxes()[0].translated(piece.mapTo(self.view, QPoint(0, 0)).toPointF())
+            above = round(box.top()) - max(y for y in rows if y < box.top()) - 1
+            below = min(y for y in rows if y > box.bottom()) - round(box.bottom()) - 1
+            self.assertLessEqual(abs(above - below), 2, (step, above, below))
+            self.assertGreaterEqual(min(above, below), 16, step)
+
+    def test_head_and_tail_stay_outside_the_pieces(self):
+        """set_head 위젯은 조각 위, set_tail 위젯은 조각 아래에 있고 set_markdown·clear 가 지우지 않음. 새로 주면 앞 위젯은 숨음."""
+        head, tail = kit.label("머리", "caption"), kit.label("꼬리", "caption")
+        self.view.set_head(head)
+        self.view.set_tail(tail)
+        pieces = self.shown(DOC)
+        self.assertNotIn(head, pieces)
+        self.assertLess(head.geometry().bottom(), pieces[0].y())
+        self.assertGreater(tail.y(), pieces[-1].geometry().bottom())
+        self.view.add_para("더한 문단")
+        guikit.pump()
+        self.assertGreater(tail.y(), self.view.pieces[-1].geometry().bottom())  # 뒤에 더한 조각도 꼬리 위에 들어감
+        self.shown("다른 글")
+        self.assertTrue(head.isVisible() and tail.isVisible())
+        other = kit.label("새 머리", "caption")
+        self.view.set_head(other)
+        guikit.pump()
+        self.assertFalse(head.isVisible())
+        self.assertTrue(other.isVisible())
+        self.view.set_tail(None)
+        guikit.pump()
+        self.assertFalse(tail.isVisible())
+
+    def test_flat_view_does_not_paint_its_sheet(self):
+        """flat 칸은 flat 속성을 달고 바탕을 칠하지 않아 카드의 면이 보임. 기본 칸은 surface 로 칠함."""
+        for flat, expected in ((False, theme.color("surface")), (True, "#ff00ff")):
+            view = DocView(flat=flat)
+            self.addCleanup(view.deleteLater)
+            self.assertEqual(bool(view.property("flat")), flat)
+            view.resize(200, 100)
+            view.sheet.resize(200, 100)
+            canvas = QPixmap(200, 100)
+            canvas.fill(QColor("#ff00ff"))
+            view.sheet.render(canvas, QPoint(0, 0), QRegion(), QWidget.RenderFlag.DrawChildren)  # 창 바탕 없이 칠한 것만
+            self.assertEqual(canvas.toImage().pixelColor(100, 50).name(), expected, flat)
+
+    def test_short_table_column_keeps_its_words_whole(self):
+        """보스 표처럼 한 열이 짧아도 그 열은 띄어쓰기 없는 가장 긴 덩어리와 칸 여백이 들어가는 폭을 받아 낱말 안에서 줄을 바꾸지 않음."""
+        work = "장부 줄을 상품 이름으로 묶어 개수를 세고 많이 팔린 순서로 정렬한 뒤 앞에서 k개를 고르는 일을 한 칸에 길게 씁니다"
+        for width in (468, 640):
+            self.view.resize(width, 700)
+            self.view.clear()
+            self.view.add_table(["이 보스에서 하는 일", "익힌 문제"], [[work, "1-1"], ["짧은 일", "1-3"]])
+            guikit.pump(30)
+            piece = self.view.pieces[0]
+            table = piece.grid_tables()[0]
+            head = table.cellAt(0, 1).firstCursorPosition().block()
+            self.assertEqual(cell_text(table.cellAt(0, 1)), "익힌 문제")
+            self.assertLessEqual(head.layout().lineCount(), 2, width)  # 낱말 둘이라 줄이 바뀌어도 둘까지
+            for number in range(head.layout().lineCount()):
+                line = head.layout().lineAt(number)
+                self.assertIn(head.text()[line.textStart():line.textStart() + line.textLength()].strip(), ("익힌", "문제", "익힌 문제"), width)
 
 
 class FigureViewTest(unittest.TestCase):
@@ -322,17 +436,69 @@ class FigureViewTest(unittest.TestCase):
         QTest.mouseClick(figure.picture, guikit.LEFT)
         guikit.pump()
         self.assertIsNone(figure.dialog, "다 보이는 그림은 눌러도 창을 띄우지 않음")
+        self.assertFalse(figure.zoom_btn.isVisible())
         figure.resize(60, 200)
         guikit.pump()
         self.assertTrue(figure.shrunk)
-        self.assertEqual("누르면 그림을 원래 크기로 봅니다.", figure.picture.toolTip())
+        self.assertEqual("", figure.picture.toolTip())
+        self.assertTrue(figure.zoom_btn.isVisible())  # 줄어 보일 때만 [크게 보기]가 그림 아래 오른쪽에 보임
+        self.assertGreater(figure.zoom_row.y(), figure.picture.geometry().bottom())
+        self.assertEqual((figure.zoom_btn.text(), figure.zoom_btn.objectName(), figure.zoom_btn.property("scale")), ("크게 보기", "text", "s"))
         QTest.mouseClick(figure.picture, guikit.LEFT)
         guikit.pump()
         dialog = figure.dialog
-        self.addCleanup(lambda: dialog.close())
         self.assertTrue(dialog.isVisible())
         self.assertEqual("그림 1-1a. 장부 줄이 모이는 모습", dialog.windowTitle())
         self.assertEqual(100, dialog.picture.pixmap().deviceIndependentSize().width())
+        self.assertEqual(dialog.property("ui"), "2")
+        title = [label.text() for label in dialog.findChildren(QLabel) if label.property("role") == "headline"]
+        self.assertEqual(title, ["그림 1-1a. 장부 줄이 모이는 모습"])
+        close = [button for button in dialog.findChildren(QPushButton) if button.text() == "닫기"]
+        self.assertEqual([(button.objectName(), button.property("scale")) for button in close], [("", "l")])
+        dialog.close()
+        guikit.pump()
+        guikit.click(figure.zoom_btn)  # [크게 보기]를 눌러도 같은 창이 뜸
+        guikit.pump()
+        second = figure.dialog
+        self.addCleanup(lambda: sip.isdeleted(second) or second.close())
+        self.assertTrue(second.isVisible())
+
+    def test_moving_figure_keeps_its_buttons_in_the_dialog(self):
+        """움직이는 그림의 넘김 단추는 kit 글자 단추 s 이고, 줄어 보일 때 [크게 보기]는 넘김 줄에 자리가 있으면 그 오른쪽 끝에, 없으면
+        그림 아래 줄에 있어 글자가 잘리지 않음. 그림 창은 누른 때의 장과 넘김 단추를 가지고 저절로 재생하지 않음."""
+        self.addCleanup(setattr, docview, "SCALE", docview.SCALE)
+        docview.SCALE = 0.125  # 80 폭 시험 그림을 640 폭으로 그려 넘김 줄이 들어가는 폭에서도 줄어 보이게 함
+        figure = kit.page(FigureView(self.path))
+        figure.resize(700, 400)
+        figure.show()
+        self.addCleanup(figure.deleteLater)
+        self.addCleanup(figure.close)
+        guikit.pump()
+        for button in (figure.first_btn, figure.prev_btn, figure.play_btn, figure.next_btn):
+            self.assertEqual((button.objectName(), button.property("scale")), ("text", "s"))
+        self.assertEqual(figure.counter.property("role"), "caption")
+        self.assertFalse(figure.shrunk or figure.zoom_btn.isVisible() or figure.zoom_row.isVisible())
+        guikit.click(figure.next_btn)
+        figure.resize(600, 400)
+        guikit.pump()
+        self.assertTrue(figure.shrunk and figure.zoom_btn.isVisible())
+        self.assertIs(figure.zoom_btn.parentWidget(), figure.controls)  # 넘김 줄 오른쪽 끝
+        self.assertFalse(figure.zoom_row.isVisible())
+        self.assertLessEqual(figure.zoom_btn.geometry().right(), figure.width())
+        self.assertGreater(figure.zoom_btn.x(), figure.counter.geometry().right())
+        narrow = figure.controls.sizeHint().width() - 10
+        figure.resize(narrow, 400)
+        guikit.pump()
+        self.assertIs(figure.zoom_btn.parentWidget(), figure.zoom_row)  # 넘김 줄에 자리가 없으면 그림 아래 줄로 내려감
+        self.assertTrue(figure.zoom_row.isVisible() and figure.zoom_btn.isVisible())
+        self.assertGreater(figure.zoom_row.y(), figure.controls.geometry().bottom())
+        self.assertGreaterEqual(figure.zoom_btn.width(), figure.zoom_btn.sizeHint().width())
+        guikit.click(figure.zoom_btn)
+        dialog = figure.dialog
+        self.addCleanup(lambda: sip.isdeleted(dialog) or dialog.close())
+        self.assertEqual(dialog.view.counter.text(), "2 / 3")
+        self.assertFalse(dialog.view.zoom_btn.isVisible() or dialog.view.playing)
+        self.assertGreaterEqual(dialog.width(), min(dialog.view.controls.sizeHint().width() + 48, dialog.screen().availableGeometry().width() - 40))
 
     def test_does_not_play_when_motion_is_off(self):
         self.assertFalse(motion.enabled)
@@ -369,6 +535,88 @@ class FigureViewTest(unittest.TestCase):
         self.assertTrue(green_at(figure, 1))
         guikit.click(figure.first_btn)
         self.assertTrue(green_at(figure, 0))
+
+
+def size(block):
+    """블록 첫 글 조각의 글자 px."""
+    return block.begin().fragment().charFormat().font().pixelSize()
+
+
+def blocks(piece):
+    out, block = [], piece.document().begin()
+    while block.isValid():
+        out.append(block)
+        block = block.next()
+    return out
+
+
+def ink_rows(image, back, box):
+    """글자 화소가 있는 줄(y)들. 바탕색과 코드 상자 색이 아닌 어두운 화소가 있는 줄을 셈."""
+    back, box = qGray(QColor(back).rgb()), qGray(QColor(box).rgb())
+    rows = set()
+    for y in range(image.height()):
+        for x in range(30, image.width() - 30):
+            gray = qGray(image.pixel(x, y))
+            if abs(gray - back) > 60 and abs(gray - box) > 60:
+                rows.add(y)
+                break
+    return rows
+
+
+class TextStepTest(unittest.TestCase):
+    """새 문서 규칙(theme.journey_css 는 web_css 와 같음)으로 그린 글의 크기와 줄 사이가 글자 크기 단계를 따름.
+    CSS 글이 아니라 그려진 블록의 글자 크기와 줄 자리를 봄."""
+
+    def setUp(self):
+        self.addCleanup(theme.set_text, "normal")
+
+    def drawn(self):
+        view = DocView()
+        self.addCleanup(view.deleteLater)
+        self.addCleanup(view.close)
+        view.resize(640, 900)
+        view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
+        view.show()
+        view.set_markdown("# 문서 제목\n\n" + "두 줄을 넘는 문단입니다. " * 12 + "\n\n```python\nx = 1\n```\n", "", "python")
+        code = view.add_code("기준 풀이 (Python)", "def solution():\n    return 1", "python")
+        guikit.pump(30)
+        found = {}
+        for block in blocks(view.pieces[0]):
+            if block.text().strip():
+                found.setdefault(block.text()[:4], block)
+        return found, code
+
+    def test_body_heading_and_code_follow_the_text_step(self):
+        expected = {"normal": (17, 28, 22, 15), "large": (19, 32, 24, 17), "larger": (21, 36, 26, 19)}
+        for step in theme.TEXT_STEPS:
+            theme.set_text(step)
+            found, code = self.drawn()
+            body = found["두 줄을"]
+            layout = body.layout()
+            self.assertGreaterEqual(layout.lineCount(), 2, step)
+            got = (size(body), round(layout.lineAt(1).y() - layout.lineAt(0).y()), size(found["문서 제"]), size(found["x = "]))
+            self.assertEqual(got, expected[step], step)
+            self.assertEqual(got, (theme.TYPE["body"][0], theme.TYPE["body"][1], theme.TYPE["headline"][0], theme.TYPE["code"][0]), step)
+            self.assertEqual(code.font().pixelSize(), theme.TYPE["code"][0], step)  # 기준 풀이도 문서 코드와 같은 크기
+
+    def test_default_code_font_is_the_code_step(self):
+        """DocView 의 기본 코드 글꼴(기준 풀이)은 code 크기: 보통 15, 크게 17."""
+        for step, size in (("normal", 15), ("large", 17)):
+            theme.set_text(step)
+            view = DocView()
+            self.addCleanup(view.deleteLater)
+            self.assertEqual(view.add_code("", "x = 1", "python").font().pixelSize(), size, step)
+
+    def test_result_css_keeps_lines_close(self):
+        """결과 칸 CSS 는 새 문서 규칙에서 문단 아래만 4 로 줄임. 글자 크기와 줄 높이는 같음."""
+        markup = mdlite.to_html("테스트 1 〉 통과\n\n테스트 2 〉 실패")
+        normal, result = TextPiece(markup, theme.journey_css()), TextPiece(markup, theme.result_css())
+        self.addCleanup(normal.deleteLater)
+        self.addCleanup(result.deleteLater)
+        first = normal.document().begin(), result.document().begin()
+        self.assertEqual([block.blockFormat().bottomMargin() for block in first], [16, 4])
+        self.assertEqual([size(block) for block in first], [theme.TYPE["body"][0]] * 2)
+        self.assertTrue(theme.result_css().startswith(theme.web_css()))
 
 
 if __name__ == "__main__":

@@ -21,8 +21,6 @@ UI_PX = 15  # 버튼·목록·안내 글자 크기
 CODE_PX = 16  # 편집기 글자 크기(확대 0 일 때)
 DOC_PX = 2  # 문제 본문은 mdlite.CSS 의 크기에 이만큼 더함
 DOC_LINE, GUIDE_LINE = 1.45, 1.35  # 본문과 안내 글의 줄 간격. 글자 크기의 몇 배인지
-JOURNEY_PX = 15  # 알고리즘 여행 지문·힌트·해설의 본문 글자 크기(확대 0 일 때)
-JOURNEY_LINE, JOURNEY_CODE_LINE = 1.7, 1.45  # 그 본문의 줄 간격과 코드 상자 안의 줄 간격. 글자 크기의 몇 배인지
 # 글자 크기 단계: 이름 → TYPE 의 모든 크기에 더하는 px. 보통은 설계값, 크게는 새로 설치했을 때의 기본. 옛 화면의 문서와 코드 글꼴은
 # 이 px 를 확대 단계(doc_css, code_font 의 zoom)로 받음
 TEXT_STEPS = ("normal", "large", "larger")
@@ -219,7 +217,7 @@ STYLE += "QListWidget#notes::item:disabled { background: %(table_head)s; color: 
 # 새 화면(첫 화면, 웹 면접 준비)의 규칙. 맨 위 위젯에 setProperty("ui", "2") 를 준 화면과 대화상자 아래에만 걸림(옮기지 않은 화면은 그대로).
 # 글자 크기는 여기서 주지 않고 gui/kit.py 가 TYPE 으로 글꼴을 직접 줌. 색과 단추·입력칸·체크 상자의 모양만 여기서 줌. 단추의 글자 크기(btn 은
 # label, btn_s 는 caption)와 꼬리표 높이(badge)는 스타일시트로만 줄 수 있어 TYPE 에서 꺼내 채움(_style).
-# 단추의 min-height 는 테두리 안쪽 높이라 평소 2px 투명 테두리를 빼서 적음(48 = 44 + 2 + 2). 초점이 와도 크기가 그대로임.
+# 단추의 min-height 는 테두리 안쪽 높이라 평소 2px 투명 테두리를 빼서 적음(48 = 44 + 2 + 2). 초점이 와도 크기가 바뀌지 않음.
 # 크기 속성은 QWidget 의 size 와 부딪히지 않게 scale 로 부름
 STYLE_V2 = """
 QWidget[ui="2"] { background: %(bg)s; }
@@ -351,32 +349,11 @@ DOC_CSS = """
 td.band { background-color: %(table_head)s; }
 """
 
-# 알고리즘 여행의 지문·힌트·해설(gui/docview.py)이 본문 CSS 뒤에 더하는 것. 같은 이름의 규칙을 뒤에서 덮음.
-# 구역 제목 앞의 가로줄(hr)은 DocView 가 넣고, 코드 상자의 바깥 여백·바탕·둥근 테두리와 표의 열 폭은 TextPiece 가 정함.
-# 힌트 제목(h3)은 구역 제목(h2)과 같은 색으로, 크기는 h2 와 본문 사이로 둠.
-# 본문 줄 높이는 px 로 고정함. 비율로 주면 화면 글꼴에 없어 다른 글꼴로 그리는 글자(−)가 든 문단은 줄마다 그 글꼴의 높이로 벌어짐.
-# 고정 줄 높이에서 Qt 는 글자를 줄의 아래쪽에 붙여 그려서 넓힌 간격이 글자 위에 생기므로, 제목·표 칸의 여백은 위를 줄이고 아래를 늘려 맞춤
-JOURNEY_CSS = """
-body { font-size: %(body)spx; }
-p { margin-bottom: 8px; line-height: %(wide)spx; }
-p.h1 { font-size: 20px; margin-top: 0px; margin-bottom: 6px; }
-p.h2 { font-size: 16px; margin-top: 0px; margin-bottom: 3px; }
-p.h3 { font-size: 15px; margin-top: 0px; margin-bottom: 3px; color: %(doc_heading)s; }
-hr { background-color: %(track)s; margin-top: 16px; margin-bottom: 15px; }
-ul, ol { margin-top: 4px; }
-li { margin-bottom: 6px; line-height: %(wide)spx; }
-li p { margin-bottom: 6px; }
-code { font-size: 12px; }
-pre { font-size: 12px; line-height: %(code_line)s%%; }
-td.codebox { background-color: transparent; border: 0px; padding: 12px 16px; }
-table.grid { margin-top: 10px; margin-bottom: 0px; }
-table.grid th { padding: 9px 14px; }
-table.grid td { line-height: %(wide)spx; padding: 0px 14px 10px 14px; }
-"""
-
-# 웹 면접 준비의 문서(미션 지문·해설, 학습 노트, 드릴 배경)가 본문 CSS 뒤에 더하는 것. 크기는 TYPE 의 body 17/28, h1 22/30, h2 17 700,
-# code 15/22 이고 문단 사이 16. doc_css 가 모든 font-size 에 DOC_PX 와 확대 단계를 더하므로 여기 적는 값은 그만큼 뺀 것임.
-# 줄 높이는 px 로 고정하고(JOURNEY_CSS 와 같은 까닭), 제목은 글자색과 같은 색(파란 제목 없음)
+# 새 화면의 문서(웹 면접 준비의 미션 지문·해설·학습 노트·드릴 배경, 알고리즘 여행의 지문·힌트·해설·던전 소개)가 본문 CSS 뒤에 더하는 것.
+# 크기는 TYPE 의 body 17/28, h1 22/30, h2 17 700, code 15/22 이고 문단 사이 16. doc_css 가 모든 font-size 에 DOC_PX 와 확대 단계를
+# 더하므로 여기 적는 값은 그만큼 뺀 것임. 제목은 글자색과 같은 색(파란 제목 없음). 구역 제목 앞의 가로줄(hr)은 DocView 가 넣고,
+# 코드 상자의 바깥 여백·둥근 바탕과 표의 열 폭은 TextPiece 가 정함.
+# 줄 높이는 px 로 고정함. 비율로 주면 화면 글꼴에 없어 다른 글꼴로 그리는 글자(−)가 든 문단은 줄마다 그 글꼴의 높이로 벌어짐
 WEB_CSS = """
 body { font-size: %(wbody)spx; }
 p { margin-bottom: 16px; line-height: %(wline)spx; }
@@ -523,12 +500,10 @@ def code_font(zoom=0):
 
 def doc_css(zoom=0, extra="", own_body=False):
     """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈.
-    extra 는 본문 CSS 뒤에 붙일 규칙(JOURNEY_CSS). own_body 면 mdlite 의 body 글자 크기를 빼서 extra 의 body 크기가 먹게 함.
+    extra 는 본문 CSS 뒤에 붙일 규칙(WEB_CSS). own_body 면 mdlite 의 body 글자 크기를 빼서 extra 의 body 크기가 먹게 함.
     Qt 리치 텍스트는 body 의 font-size 가 둘이면 앞의 것을 씀. WEB_CSS 의 크기는 지금 단계의 TYPE 값이라 확대 단계를 미리 뺌."""
     base = re.sub(r"(?m)^(body \{[^}]*?)font-size: \d+px; ?", r"\1", mdlite.CSS) if own_body else mdlite.CSS
-    css = (base + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE), body=JOURNEY_PX - DOC_PX,
-                                                wide=round(JOURNEY_LINE * (JOURNEY_PX + zoom)),
-                                                code_line=line_pct(JOURNEY_CODE_LINE, code_font()),
+    css = (base + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE),
                                                 wbody=TYPE["body"][0] - DOC_PX - zoom, wline=TYPE["body"][1], wh1=TYPE["headline"][0] - DOC_PX - zoom,
                                                 wh1line=TYPE["headline"][1], wcode=TYPE["code"][0] - DOC_PX - zoom, wcodeline=TYPE["code"][1])
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
@@ -536,11 +511,16 @@ def doc_css(zoom=0, extra="", own_body=False):
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)
 
 
-def journey_css(zoom=0):
-    """알고리즘 여행의 지문·힌트·해설용 CSS. doc_css 에 JOURNEY_CSS 를 더함."""
-    return doc_css(zoom, JOURNEY_CSS)
-
-
 def web_css():
-    """웹 면접 준비의 지문·해설·학습 노트용 CSS. doc_css 에 WEB_CSS 를 더함. 크기는 지금 글자 크기 단계의 TYPE 값."""
+    """새 화면 문서용 CSS. doc_css 에 WEB_CSS 를 더함. 크기는 지금 글자 크기 단계의 TYPE 값."""
     return doc_css(text_px(), WEB_CSS, own_body=True)
+
+
+def journey_css():
+    """알고리즘 여행의 지문·힌트·해설과 던전 소개용 CSS. 웹 면접 준비 문서와 같은 규칙(web_css)을 씀."""
+    return web_css()
+
+
+def result_css():
+    """알고리즘 여행 결과 칸용 CSS. web_css 에서 문단 아래 여백만 4 로 줄여 테스트 한 줄이 문단 하나인 결과가 길게 늘어지지 않게 함."""
+    return web_css() + "p { margin-bottom: 4px; } p.h3 { margin-top: 16px; margin-bottom: 4px; }"
