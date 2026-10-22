@@ -221,8 +221,8 @@ class HubRowTest(WebTest):
         web.finish_chain("90-A")
         web.show("l90")
         hub.refresh()
-        self.assertEqual(hub.chart.days[-1], (today, 0, 0, 1))
-        self.assertEqual(hub.streak.text(), "연속 학습 1일")
+        self.assertEqual(hub.chart.days[-1], (today, 0, 0, 2))  # 검사 한 번과 끝낸 사슬 하나
+        self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 1일", "채점 2회"))
         self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 1개")
         self.assertEqual(hub.summary.text(), "진행 중인 미션 1개가 있습니다.")
         self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), (win.web.missions["x01"]["title"], "이어 하기"))
@@ -355,6 +355,31 @@ class HomeTest(WebTest):
         self.assertEqual((home.status.text(), home.busy_bar.isVisible(), home.next_btn.isEnabled()), ("제출하는 중입니다.", True, False))
         home.set_busy(False)
         self.assertEqual(len(kit.visible_primary_buttons(home)), 1)  # 주 단추는 이어서 할 일 카드의 것 하나
+
+    def test_unreadable_items_are_named_by_title_in_a_warning_band(self):
+        """읽지 못한 미션은 준비 중으로 세지 않고, 알림 띠에 id 없이 제목만 나옴. 파일과 까닭은 도움말에 있음."""
+        win = self.boot()
+        win.go_web()
+        self.idle()
+        home, real = win.web_home, win.web.overview
+
+        def broken():
+            view = real()
+            view["missions"][0].update(ready=False, error="meta.json 을 읽을 수 없습니다")
+            view["bank_errors"] = ["x01: meta.json 을 읽을 수 없습니다"]
+            return view
+
+        title = real()["missions"][0]["title"]
+        with mock.patch.object(win.web, "overview", broken):
+            home.refresh()
+        self.assertTrue(home.notice.isVisible())
+        self.assertEqual((home.notice.property("tone"), home.notice.word.text()), ("warning", "주의"))
+        self.assertIn(title, home.notice.text.text())
+        self.assertNotIn("x01", home.notice.text.text())
+        self.assertIn("x01", home.notice.toolTip())
+        self.assertNotIn(title, [row.title.text() for row in home.mission_list.rows])
+        waiting = sum(1 for row in real()["missions"] if not row["ready"])
+        self.assertEqual(home.mission_list.more_btn.text(), "준비 중 %d개 보기" % waiting)  # 준비 중으로도 세지 않음
 
     def test_a_record_broken_while_running_clears_the_page_and_the_screens_say_why(self):
         win = self.boot()
@@ -558,9 +583,10 @@ class MissionTest(WebTest):
         text = page.result_view.text()
         self.assertIn("검사 2개 중 0개 통과", text)
         self.assertIn("실패", text)
-        self.assertIn("Unable to find role button", text)
+        self.assertNotIn("Unable to find role button", text)  # 영어 오류 원문은 접힌 원문 안에만
         self.assertNotIn("<body />", text)
         page.on_result_link("more:1a")
+        self.assertIn("Unable to find role button", page.result_view.text())
         self.assertIn("<body />", page.result_view.text())
         self.assertIn("원문 접기", [b.text() for b in page.result_view.findChildren(QPushButton)])
         page.on_result_link("fold:1a")
@@ -608,7 +634,7 @@ class MissionTest(WebTest):
         self.assertIs(page.right.currentWidget(), page.summary_page)
         text = doc_text(page.done_view)
         self.assertIn("단계별 결과", text)
-        self.assertIn("1단계 더하기 버튼: 통과 (힌트 1)", text)
+        self.assertIn("1단계 더하기 버튼: 통과 · 힌트 1번", text)
         self.assertIn("모범 답안", text)
         self.assertEqual(page.passed_count.text(), "2/2")
         self.assertIn("힌트를 1번 들었습니다.", page.summary.text())
@@ -627,7 +653,7 @@ class MissionTest(WebTest):
         self.assertEqual(self.log()[-1]["ticks"], {"c1": 1, "c2": 0, "c3": 1, "m1": 0, "m2": 0})
         self.assertEqual(page.saved_note.text(), "저장했습니다")
         self.assertEqual([(row.title.text(), row.second.text()) for row in page.next_rows.rows],
-                         [("이 미션의 꼬리 질문", "꼬리 질문"), ("시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요", "학습 노트")])
+                         [("이 미션의 꼬리 질문", "질문 2개 · 약 3분"), ("시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요", "학습 노트")])
         page.next_rows.rows[0].clicked.emit()
         guikit.pump()
         self.assertEqual((self.page(), win.web_drill.cid, win.web_drill.back), (win.web_drill, "x01-F", ("mission", "x01")))
@@ -677,10 +703,10 @@ class MissionTest(WebTest):
         self.assertEqual(win.dialog.buttons["finish"].objectName(), "danger")
         self.choose("finish")
         self.assertEqual((page.view["phase"], self.kinds()[-1]), ("done", "finish"))
-        self.assertIn("2단계 초기화 버튼: 시작 전", doc_text(page.done_view))
+        self.assertIn("2단계 초기화 버튼: 하지 않음", doc_text(page.done_view))
         self.assertNotIn("잠김", doc_text(page.done_view))
         self.assertEqual(page.passed_count.text(), "0/2")
-        self.assertTrue(page.summary.text().startswith("1단계는 넘어갔습니다. 실전에 2:00 걸렸습니다."))
+        self.assertTrue(page.summary.text().startswith("1단계는 넘어갔습니다. 실전에 2분 걸렸습니다."))
         self.assertTrue(page.mine_diff.toPlainText().startswith("모범 답안과 다른 파일 1개: src/App.tsx"))
         self.assertFalse(page.finish_btn.isVisible())
         self.assertTrue(page.again_btn.isVisible())
@@ -917,6 +943,9 @@ class NextItemTest(unittest.TestCase):
             overview = {"next": {"kind": "chain", "id": iid, "title": "제목"}, "topics": topics,
                         "today": {"chains": [{"chain": iid, "box": 1, "due": "2026-10-22", "new": False}]}}
             self.assertEqual(web_text.next_item(overview)["line"], line)
+
+    def test_minutes_text_reads_as_a_duration(self):
+        self.assertEqual([web_text.minutes_text(s) for s in (40, 120, 90, 0)], ["40초", "2분", "1분 30초", "0초"])
 
 
 @unittest.skipIf(sys.platform == "win32", "SIGHUP 은 POSIX 에만 있음")

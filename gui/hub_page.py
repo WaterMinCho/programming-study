@@ -332,9 +332,9 @@ class HubPage(QWidget):
         if target:
             tail = "다음은 %s" % target["title"]
         elif overview["total"]:
-            tail = "출제된 던전을 모두 클리어했습니다."
+            tail = "모두 클리어했습니다."
         else:
-            tail = "아직 출제된 던전이 없습니다."
+            tail = "아직 준비된 던전이 없습니다."
         self.journey_row.set_second("%d문제 중 %d개 통과 · %s" % (overview["total"], overview["passed"], tail))
         return overview
 
@@ -420,20 +420,21 @@ class HubPage(QWidget):
 
     def show_week(self, overview, journey, web=None):
         """막대, 연속 학습일, 최근 채점. overview 는 파이썬 쪽, journey 와 web 은 여행·웹 쪽 overview(읽지 못했으면 None).
-        웹은 검사와 드릴 기록이 있는 날을 하루 1 로 셈(overview 의 activity 는 날짜 목록임)."""
+        웹 막대는 검사 한 번과 끝낸 사슬 하나를 1 로 세고(activity_counts), 연속 학습일은 검사나 드릴 기록이 있는 날(activity)로 셈."""
         gradings = python_gradings(self.win.session.prof["attempts"])
         python = {}
         for at, _ in gradings:
             python[at[:10]] = python.get(at[:10], 0) + 1
         activity = journey["activity"] if journey else {}
-        web_days = {day: 1 for day in (web["activity"] if web else [])}
+        web_days = set(web["activity"] if web else [])
+        web_counts = web["activity_counts"] if web else {}
         today = datetime.date.today()
         days = [today - datetime.timedelta(days=back) for back in range(DAYS - 1, -1, -1)]
-        self.chart.set_days((day, python.get(day.isoformat(), 0), activity.get(day.isoformat(), 0), web_days.get(day.isoformat(), 0))
+        self.chart.set_days((day, python.get(day.isoformat(), 0), activity.get(day.isoformat(), 0), web_counts.get(day.isoformat(), 0))
                             for day in days)
-        self.total.setText("합계 %d회" % sum(sum(values) for _, *values in self.chart.days))
+        self.total.setText("채점 %d회" % sum(sum(values) for _, *values in self.chart.days))
         streak, day = 0, today
-        while python.get(day.isoformat()) or activity.get(day.isoformat()) or web_days.get(day.isoformat()):
+        while python.get(day.isoformat()) or activity.get(day.isoformat()) or day.isoformat() in web_days:
             streak += 1
             day -= datetime.timedelta(days=1)
         self.streak.setText("연속 학습 %d일" % streak)

@@ -16,8 +16,9 @@ ABOUT = "프런트엔드 채용의 라이브 코딩 미션과 직무 면접 꼬�
 REVIEW_ABOUT = "한 번 푼 꼬리 질문을 정해진 날에 다시 풀고, 아직 풀지 않은 사슬을 하루 몇 개씩 더합니다."
 NO_TODAY = "오늘 복습할 사슬이 없습니다."
 NO_STUCK = "막힌 질문에서 아는 데까지 말한 비율은 꼬리 질문에서 필수 항목을 빠뜨린 뒤부터 보입니다."
-ALL_DONE = "출제된 미션과 사슬을 모두 끝냈습니다."
-NOTHING_YET = "아직 출제된 미션이 없습니다."
+ALL_DONE = "지금 있는 미션과 사슬을 모두 끝냈습니다."
+NOTHING_YET = "아직 준비된 미션이 없습니다."
+BROKEN = "읽지 못한 항목이 있습니다: %s. [새 문제 받기]로 최신 판을 받은 뒤 다시 열어 보세요."
 
 
 def next_due_text(topics):
@@ -56,7 +57,7 @@ class WebHomePage(QWidget):
         root.addSpacing(4)
         root.addWidget(kit.para(ABOUT, "body", "secondary"))
         root.addSpacing(16)
-        self.notice = kit.banner("", "danger")  # 기록이나 은행을 읽지 못한 까닭
+        self.notice = kit.banner("", "danger")  # 기록을 읽지 못한 까닭(오류), 읽지 못한 미션·주제·노트(주의)
         self.notice.hide()
         self.problem = kit.banner("", "warning")  # 검사 도구나 Node 가 없을 때의 안내
         self.problem.hide()
@@ -160,7 +161,8 @@ class WebHomePage(QWidget):
             overview = self.overview = self.win.web.overview()
         except (WebError, RecordError) as error:
             self.overview = None
-            self.notice.text.setText(str(error))
+            self.say(str(error), "danger")
+            self.notice.setToolTip("")
             self.notice.show()
             self.clear()
             return
@@ -170,9 +172,10 @@ class WebHomePage(QWidget):
         self.stack_label.setText(text)
         self.problem.text.setText(stack["problem"])
         self.problem.setVisible(bool(stack["problem"]))
-        errors = overview["bank_errors"]
-        self.notice.text.setText("은행에서 읽지 못한 항목이 있습니다. %s" % " / ".join(errors) if errors else "")
-        self.notice.setVisible(bool(errors))
+        broken = [row["title"] for kind in ("missions", "topics", "pages") for row in overview[kind] if row.get("error")]
+        self.say(BROKEN % ", ".join(broken) if broken else "", "warning")
+        self.notice.setToolTip("\n".join(overview["bank_errors"]))  # 파일 이름과 까닭은 도움말에만
+        self.notice.setVisible(bool(broken))
         self.show_next(overview)
         self.show_today(overview["today"])
         self.show_missions(overview["missions"])
@@ -229,12 +232,19 @@ class WebHomePage(QWidget):
         self.today_empty.setText(" ".join(part for part in (NO_TODAY, next_due_text((self.overview or {}).get("topics", []))) if part))
         self.today_empty.setVisible(empty)
 
+    def say(self, text, tone):
+        """알림 띠의 글과 색. tone 은 danger(기록을 읽지 못함)나 warning(읽지 못한 항목이 있음)."""
+        kit.set_tone(self.notice, tone)
+        self.notice.word.setText("오류" if tone == "danger" else "주의")
+        self.notice.text.setText(text)
+
     def show_missions(self, missions):
         self.mission_list.clear()
         waiting = []
         for row in missions:
             if not row["ready"]:
-                waiting.append(row["title"])
+                if not row.get("error"):  # 읽지 못한 미션은 준비 중으로 세지 않고 위 알림 띠에만 이름이 나옴
+                    waiting.append(row["title"])
                 continue
             state = {"done": "done", "live": "progress", "reading": "progress"}.get(row["phase"], "todo")
             prep = self.win.web.missions[row["id"]]["prep_min"]
@@ -306,7 +316,7 @@ class WebHomePage(QWidget):
         has = bool(self.chain_list.rows)
         self.chain_line.setVisible(has or self.overview is not None)
         self.chain_list.setVisible(has)
-        self.chain_empty.setText("" if has else ("이 주제에는 아직 사슬이 없습니다." if row is not None else "아직 출제된 주제가 없습니다."))
+        self.chain_empty.setText("" if has else ("이 주제에는 아직 사슬이 없습니다." if row is not None else "아직 준비된 주제가 없습니다."))
         self.chain_empty_holder.setVisible(not has and self.overview is not None)
 
     def show_pages(self, pages):

@@ -25,6 +25,12 @@ def minutes_left(seconds):
     return "%d분 남음" % max(1, math.ceil(seconds / 60))
 
 
+def minutes_text(seconds):
+    """걸린 시간을 문장 안에 쓰는 꼴로. 90 → '1분 30초', 120 → '2분', 40 → '40초'."""
+    minutes, rest = divmod(max(0, int(seconds or 0)), 60)
+    return " ".join(part for part in ("%d분" % minutes if minutes else "", "%d초" % rest if rest or not minutes else "") if part)
+
+
 def day_text(iso):
     """2026-10-24 를 10/24 로. 못 읽으면 그대로."""
     try:

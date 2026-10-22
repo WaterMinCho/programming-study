@@ -679,4 +679,5 @@ class WebSession:
         return {"stack": self.stack_state(), "missions": missions, "topics": topics, "pages": pages,
                 "done_missions": sum(1 for m in missions if m["phase"] == "done"), "ready_missions": sum(1 for m in missions if m["ready"]),
                 "today": today, "next": self._next(found, schedules, learned, today), "talked": talked, "stuck": stuck,
-                "activity": sorted(record.activity_days(self._all_log())), "bank_errors": list(self.bank_errors)}
+                "activity": sorted(record.activity_days(self._all_log())), "activity_counts": record.activity_counts(self._all_log()),
+                "bank_errors": list(self.bank_errors)}

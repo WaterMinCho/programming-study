@@ -27,7 +27,7 @@ from gui import kit, theme
 from gui.docview import DocView, FigureView, TextPiece, keep_lang
 from gui.journey_page import md_text
 from gui.web_setup import SetupDialog
-from gui.web_text import clock_text
+from gui.web_text import clock_text, minutes_text
 from webprep import dev, service
 from webprep.service import WebError
 
@@ -127,7 +127,7 @@ def after_markdown(after):
     return "%d초 안에 소리 내어 답한 뒤, 아래에서 말한 항목에 표시하고 [답을 마쳤습니다]를 누르세요." % after["secs"]
 
 
-WORDS = {"끝": "끝남", "잠김": "시작 전"}  # 서비스의 단계 낱말을 화면 낱말 사전으로 바꿈. 잠김은 단계 표시에서만 씀
+WORDS = {"끝": "끝남", "잠김": "하지 않음", "진행 중": "통과하지 못함"}  # 끝난 미션의 단계 결과를 화면 낱말로. 잠김은 단계 표시에서만 씀
 
 
 def done_markdown(done, base_dir):
@@ -136,7 +136,7 @@ def done_markdown(done, base_dir):
     for row in done["steps"]:
         name = "%d단계 %s" % (row["no"], row["title"]) if row["title"] else "%d단계" % row["no"]
         label = WORDS.get(row["label"], row["label"])
-        rows.append("- %s: **%s**%s" % (md_text(name), label, " (힌트 %d)" % row["hints"] if row["hints"] else ""))
+        rows.append("- %s: **%s**%s" % (md_text(name), label, " · 힌트 %d번" % row["hints"] if row["hints"] else ""))
     parts = ["## 단계별 결과", "\n".join(rows)]
     if done["explain"]:
         parts.append(figures_to_images(done["explain"], base_dir))
@@ -150,9 +150,9 @@ def summary_text(done, live_min):
     if skipped:
         parts.append("%s단계는 넘어갔습니다." % ", ".join(skipped))
     timers = done["timers"]
-    took = "실전에 %s 걸렸습니다." % clock_text(timers["live_elapsed"])
+    took = "실전에 %s 걸렸습니다." % minutes_text(timers["live_elapsed"])
     if timers["live_over"]:
-        took = "실전에 %s 걸려 목표 %d분을 %s 넘겼습니다." % (clock_text(timers["live_elapsed"]), live_min, clock_text(timers["live_over"]))
+        took = "실전에 %s 걸려 목표 %d분을 %s 넘겼습니다." % (minutes_text(timers["live_elapsed"]), live_min, minutes_text(timers["live_over"]))
     parts.append(took)
     hints = sum(row["hints"] for row in done["steps"])
     if hints:
@@ -204,6 +204,12 @@ def first_line(text):
         if line.strip():
             return line.strip()
     return ""
+
+
+def korean_line(text):
+    """실패 문구의 첫 줄이 한국어면 그 줄, 아니면 빈 글. 영어 오류 원문은 [원문 보기] 안에만 둠."""
+    line = first_line(text)
+    return line if re.search("[가-힣]", line) else ""
 
 
 def diff_text(rows):
@@ -392,7 +398,7 @@ class ResultPanel(Column):
             text_box.addWidget(title)
             self.labels += [tag, title]
             if not ok:
-                why = kit.para(first_line(test["message"]), "caption", "secondary")
+                why = kit.para(korean_line(test["message"]), "caption", "secondary")
                 why.setVisible(bool(why.text()))
                 text_box.addWidget(why)
                 self.labels.append(why)
@@ -1001,7 +1007,7 @@ class WebMissionPage(QWidget):
         self.summary.setText(summary_text(done, view["live_min"]))
         self.next_rows.clear()
         if done["followups"]:
-            row = self.next_rows.add(kit.Row("이 미션의 꼬리 질문", "꼬리 질문", data=done["followups"]))
+            row = self.next_rows.add(kit.Row("이 미션의 꼬리 질문", self.followup_line(done["followups"]), data=done["followups"]))
             row.clicked.connect(self.open_followups)
         for pid in done["pages"]:
             row = self.next_rows.add(kit.Row(self.page_title(pid), "학습 노트", data=pid))
@@ -1285,6 +1291,14 @@ class WebMissionPage(QWidget):
             return
         done["self_ticks"] = ticks
         self.saved_note.setText("저장했습니다")
+
+    def followup_line(self, cid):
+        """이어서 할 일의 꼬리 질문 줄 둘째 줄: 질문 수와 걸리는 시간. 사슬을 읽지 못하면 빈 글."""
+        try:
+            count = len(self.win.web.chain(cid)["questions"])
+        except WebError:
+            return ""
+        return "질문 %d개 · 약 %d분" % (count, max(1, round(count * service.MINUTES_PER_QUESTION)))
 
     def open_followups(self):
         self.win.open_drill(self.done["followups"], back=("mission", self.mid))

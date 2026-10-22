@@ -223,7 +223,7 @@ class HubScreenTest(HubTest):
         self.assertEqual(hub.chart.days[-1], (today, 1, 3, 0))
         self.assertEqual(hub.chart.days[-2], (today - datetime.timedelta(days=1), 0, 1, 0))
         self.assertEqual(len(hub.chart.days), 7)
-        self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 2일", "합계 5회"))
+        self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 2일", "채점 5회"))
         self.assertTrue(hub.recent_box.isVisible())
         self.assertEqual(len(hub.recent.rows), 5)  # 다섯 줄까지. 줄마다 (무엇을 채점했는지, 시각)
         labels, stamps = zip(*hub.recent.rows)
