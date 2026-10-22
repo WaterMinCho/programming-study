@@ -31,7 +31,7 @@ from gui import errors, kit, theme, web_text  # noqa: E402
 from gui.docview import FigureView, TextPiece  # noqa: E402
 from gui.web_home import NO_STUCK  # noqa: E402
 from gui.web_learn import scroll_to_heading  # noqa: E402
-from gui.web_mission import RESUMED_TEXT, SERVE_STOPPED, SERVE_TIP, open_folder  # noqa: E402
+from gui.web_mission import RESUMED_TEXT, SERVE_STOPPED, SERVE_TIP, ResultPanel, open_folder  # noqa: E402
 from gui.web_setup import BUSY_ELSEWHERE, SetupDialog  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank as journey_bank  # noqa: E402
@@ -1062,6 +1062,19 @@ class NextItemTest(unittest.TestCase):
     def test_minutes_text_reads_as_a_duration(self):
         self.assertEqual([web_text.minutes_text(s) for s in (40, 120, 90, 0)], ["40초", "2분", "1분 30초", "0초"])
         self.assertEqual((web_text.day_text("2026-10-24"), web_text.day_text("어제")), ("10/24(토)", "어제"))  # 사슬 줄의 다음 복습 날짜
+
+
+class BrokenBannerTest(unittest.TestCase):
+    """앞서 통과한 단계의 검사가 이번에 실패하면 결과 칸 아래에 띠를 둠. 마지막 단계를 통과해 끝난 미션이면 끝남으로 기록했다고 적음."""
+
+    def banner(self, finished):
+        panel = ResultPanel(lambda cid, opened: None)
+        panel.show_result({"tests": [], "pass": [], "open": 3, "passed": True, "warnings": [], "broken": [1], "finished": finished}, set())
+        return panel.labels[-1].text()
+
+    def test_banner_names_the_step_and_what_was_recorded(self):
+        self.assertEqual(self.banner(False), "앞서 통과한 1단계 검사가 지금 코드에서는 실패합니다. 진행은 막지 않지만 고쳐 두세요.")
+        self.assertEqual(self.banner(True), "앞서 통과한 1단계 검사가 지금 코드에서는 실패합니다. 미션은 끝난 것으로 기록했습니다. 해설의 모범 답안과 비교해 보세요.")
 
 
 @unittest.skipIf(sys.platform == "win32", "SIGHUP 은 POSIX 에만 있음")

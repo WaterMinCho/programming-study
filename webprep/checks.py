@@ -36,8 +36,8 @@ FOREIGN_FRAME = re.compile(r"node_modules[/\\]|\(node:|\(<anonymous>\)|" + re.es
 SLOT_NAME = re.compile(r"\b([\w.]+)-[0-9a-f]{8}(?=[/\\]checks[/\\])")
 ASSERT_HEAD = re.compile(r"^(?:AssertionError|Error): (.+)$")
 HANGUL = re.compile("[가-힣]")
-FILE_FAILED = ("검사 파일을 불러오다 멈춰서 이 검사를 돌리지 못했습니다. 원문에 나온 파일과 줄에서 문법 오류나 "
-               "없는 파일을 가져오는 import가 있는지 확인해 주세요.")
+FILE_FAILED = ("내 코드를 불러오다 오류가 나서 이 검사를 돌리지 못했습니다. 원문에 나온 파일과 줄에서 문법 오류나 "
+               "없는 파일을 가져오는 import를 찾아 고쳐 주세요.")
 # Testing Library 가 요소를 못 찾았을 때의 영어 첫 줄 → 화면에 보일 한국어 한 줄. 원래 줄은 접은 원문 맨 앞에 남김
 LIBRARY_LINES = (
     (r'Unable to find an accessible element with the role "([^"]+)" and name "([^"]*)"', '이름이 "{1}"이고 역할(role)이 {0}인 요소를 화면에서 찾지 못했습니다.'),
@@ -362,7 +362,7 @@ def run_steps(node_path, root, mid, secrets, kit, steps, app_src, hidden=False, 
     by_step 은 {단계: {"pass": [...], "fail": [...], "ok": bool}} 이고 검사가 하나도 없는 단계는 ok 가 False."""
     warnings = []
     if has_packages(os.path.join(os.path.dirname(app_src), "node_modules")):
-        warnings.append("미션 폴더 안에 node_modules 가 있습니다. React 가 두 벌 읽혀 훅 에러가 날 수 있으니 지워 주세요.")
+        warnings.append("미션 폴더 안에 node_modules 폴더가 있습니다. React 가 두 벌 읽혀 Invalid hook call 오류가 날 수 있으니 이 폴더를 지워 주세요.")
     sweep(root, mid)
     slot = new_slot(mid)
     prepared = prepare(root, slot, secrets, kit, steps, app_src, hidden)

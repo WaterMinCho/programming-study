@@ -429,7 +429,8 @@ class ResultPanel(Column):
             line.setFixedHeight(1)
             self.rows_box.addWidget(line)
         if result["broken"]:
-            self._add(kit.banner("앞 단계 검사가 깨졌습니다: %s단계. 진행은 막지 않지만 고쳐 두세요." % ", ".join(str(k) for k in result["broken"]),
+            tail = "미션은 끝난 것으로 기록했습니다. 해설의 모범 답안과 비교해 보세요." if result.get("finished") else "진행은 막지 않지만 고쳐 두세요."
+            self._add(kit.banner("앞서 통과한 %s단계 검사가 지금 코드에서는 실패합니다. %s" % (", ".join(str(k) for k in result["broken"]), tail),
                                  "danger"), 8)
 
     def _add(self, widget, below=0):

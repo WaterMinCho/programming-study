@@ -324,7 +324,7 @@ class WebSession:
                 shutil.rmtree(dest)
             shutil.copytree(mission["app_dir"], dest, ignore=shutil.ignore_patterns(*SKIP_DIRS))
         except OSError as error:
-            raise WebError("과제 코드를 복사하지 못했습니다: %s" % error)
+            raise WebError("미션 코드를 내 폴더로 복사하지 못했습니다: %s" % error)
         self._append({"kind": "receive", "item": mid, "try": state["try"] + 1})
         return self.mission(mid)
 
@@ -378,7 +378,8 @@ class WebSession:
 
     def check(self, mid):
         """[검사하기]. 1~지금 단계의 검사를 모두 돌리고 check 를 기록함. 지금 단계가 모두 통과하면 step 통과를 기록하고
-        다음 요구(또는 끝남)와 통과 뒤 질문을 돌려줌. 앞 단계가 깨졌으면 broken 에 적되 진행은 막지 않음."""
+        다음 요구(또는 끝남)와 통과 뒤 질문을 돌려줌. 앞서 통과한 단계의 검사가 이번에 실패하면 broken 에 적되 진행은 막지 않음.
+        넘어간 단계는 검사가 실패하는 것이 당연하므로 broken 에 넣지 않음."""
         mission = self._mission(mid)
         state = self._live(mid)
         current = state["current"]
@@ -399,7 +400,8 @@ class WebSession:
         passed = result["by_step"].get(current, {}).get("ok", False)
         out = {"open": current, "tests": result["tests"], "pass": result["pass"], "fail": result["fail"], "ms": result["ms"],
                "warnings": result["warnings"], "passed": passed, "after": None, "finished": False, "next": None,
-               "broken": [k for k in range(1, current) if not result["by_step"].get(k, {}).get("ok", False)]}
+               "broken": [k for k in range(1, current) if state["steps"].get(k, {}).get("result") == "pass"
+                          and not result["by_step"].get(k, {}).get("ok", False)]}
         if passed:
             self._append({"kind": "step", "item": mid, "try": state["try"], "step": current, "result": "pass"})
             after = steps[current]["after"]

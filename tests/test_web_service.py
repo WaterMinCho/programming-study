@@ -257,6 +257,15 @@ class MissionFlowTest(Base):
         self.assertEqual(["1a", "1b", "2a"], result["fail"])
         self.assertEqual(2, web.mission("x01")["current"]["no"])  # 진행은 막지 않음
 
+    def test_skipped_step_is_not_reported_as_broken(self):
+        # 넘어간 단계는 검사가 실패하는 것이 당연하므로 깨진 단계로 알리지 않음
+        web = self.to_live(self.session())
+        self.tick(minutes=2)
+        web.skip("x01")
+        result = web.check("x01")
+        self.assertEqual((2, []), (result["open"], result["broken"]))
+        self.assertIn("1a", result["fail"])
+
     def test_last_step_pass_finishes_and_returns_after_question(self):
         web = self.to_live(self.session())
         self.solve(2)
