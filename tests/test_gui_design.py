@@ -47,7 +47,8 @@ class DesignTest(WebTest):
                     continue
                 least = theme.CONTROL["l"] if button.objectName() == "primary" else theme.CONTROL["s"]
                 self.assertGreaterEqual(button.height(), least, "%s: %s" % (name, button.text()))
-                self.assertLessEqual(len(button.text().replace(" ", "")), 8, "%s: %s" % (name, button.text()))
+                if button.objectName() != "chip":  # 칩은 주제 제목이라 길이 규칙에서 뺌
+                    self.assertLessEqual(len(button.text().replace(" ", "")), 8, "%s: %s" % (name, button.text()))
             for row in page.findChildren(kit.Row):
                 if shown(row, win):
                     self.assertGreaterEqual(row.height(), theme.CONTROL["row"], "%s: %s" % (name, row.title.text()))

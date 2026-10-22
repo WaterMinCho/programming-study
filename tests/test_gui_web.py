@@ -535,7 +535,7 @@ class MissionTest(WebTest):
         self.assertTrue(page.check_btn.isEnabled())
         self.assertFalse(page.skip_btn.isEnabled())
         self.assertEqual(page.skip_note.text(), "2분 뒤 열립니다")
-        self.assertEqual(page.hint_btn.text(), "힌트 듣기 (0/1)")
+        self.assertEqual((page.hint_btn.text(), page.hint_btn.toolTip()[:10]), ("힌트 듣기", "들은 힌트 0/1."))
         guikit.click(page.hint_btn)
         self.assertIn("면접관 힌트 1", doc_text(page.request_view))
         self.assertIn("접근성 이름", doc_text(page.request_view))

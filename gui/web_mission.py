@@ -925,7 +925,7 @@ class WebMissionPage(QWidget):
         self.after_btn.hide()
         self.hint_btn.setVisible(step["hint_total"] > 0)
         self.hint_btn.setEnabled(len(step["hints"]) < step["hint_total"] and not self.busy)
-        self.hint_btn.setText("힌트 듣기 (%d/%d)" % (len(step["hints"]), step["hint_total"]))
+        self.hint_btn.setToolTip("들은 힌트 %d/%d. 누른 시각이 기록에 남습니다." % (len(step["hints"]), step["hint_total"]))
         self.skip_btn.setVisible(step["no"] > 0)
         self.skip_btn.setEnabled(bool(timers["can_skip"]) and not self.busy)
         self.skip_note.setVisible(step["no"] > 0)
