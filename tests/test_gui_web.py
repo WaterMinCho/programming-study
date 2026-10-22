@@ -54,9 +54,32 @@ def doc_text(view):
     return "\n".join(piece.toPlainText() for piece in view.pieces if isinstance(piece, TextPiece))
 
 
+def doc_sizes(view):
+    """DocView 첫 글 조각의 줄마다 (글, 글자 크기 px)."""
+    piece = next(p for p in view.pieces if isinstance(p, TextPiece))
+    out, block = {}, piece.document().begin()
+    while block.isValid():
+        if block.text().strip():
+            out[block.text().strip()] = block.begin().fragment().charFormat().font().pixelSize()
+        block = block.next()
+    return out
+
+
 def inside(win, widget):
     """widget 이 창 안에 다 들어와 있는지."""
     return win.rect().contains(QRect(widget.mapTo(win, QPoint(0, 0)), widget.size()))
+
+
+def scroll_to(widget):
+    """widget 이 스크롤 칸 안에 있으면 그 칸을 widget 이 보이는 자리로 굴림. 굴린 칸을 돌려줌(없으면 None)."""
+    parent = widget.parentWidget()
+    while parent is not None:
+        if isinstance(parent, QScrollArea):
+            parent.ensureWidgetVisible(widget)
+            guikit.pump()
+            return parent
+        parent = parent.parentWidget()
+    return None
 
 
 def name_of(widget):
@@ -487,7 +510,7 @@ class HomeTest(WebTest):
         self.assertIn("added 240 packages", dialog.log.toPlainText())
         self.assertTrue(dialog.log.isVisible())
         self.assertGreaterEqual(dialog.height(), layout_height(dialog))  # 로그와 결과 띠가 나타나도 위젯이 겹치지 않음
-        self.assertLess(abs(dialog.height() - installed_height), 2 * theme.TYPE["body"][1])  # 실패 문구가 한 줄 더 길 뿐
+        self.assertLessEqual(abs(dialog.height() - installed_height), 2 * theme.TYPE["body"][1])  # 실패 문구가 한두 줄 더 길 뿐
         self.assertEqual((dialog.install_btn.text(), dialog.install_btn.isVisible(), dialog.again_btn.isVisible()), ("다시 설치하기", True, False))
         with mock.patch.object(win, "run_job", return_value=False):  # 다른 일이 도는 중이면 잠긴 채 남지 않음
             dialog.install()
@@ -1164,6 +1187,63 @@ class DrillTest(WebTest):
         self.assertIs(self.page(), win.hub)
 
 
+class TextSizeTest(WebTest):
+    """글자 크기 단계. 새로 설치하면 크게이고, 단계를 바꾸면 이름표·문단·단추·문서의 글자가 같이 커지며, 첫 화면의 단추와 Ctrl 키로 바꾸고
+    창을 다시 열어도 남음. 옛 확대 단계(zoom)는 단계로 옮김."""
+
+    def test_default_is_large_and_the_step_scales_labels_buttons_and_documents(self):
+        win = self.boot()
+        hub = win.hub
+        self.assertEqual((theme.state["text"], win.zoom, self.settings.value("text")), ("large", 2, None))
+        self.assertEqual([step for step, button in hub.text_buttons.items() if button.isChecked()], ["large"])
+        self.assertEqual([button.text() for button in hub.text_buttons.values()], ["보통 글자", "큰 글자", "더 큰 글자"])
+        self.assertTrue(all(inside(win, button) for button in hub.text_buttons.values()))
+        self.assertEqual((hub.summary.font().pixelSize(), hub.summary.line, hub.next_btn.font().pixelSize()), (19, 32, 19))
+        win.open_learn("l90")
+        self.idle()
+        learn = win.web_learn
+        sizes = doc_sizes(learn.view)
+        head = max(sizes, key=sizes.get)  # 문서의 절 제목(headline)
+        self.assertEqual((head, sizes[head]), ("state 가 바뀌면 무엇이 다시 그려지나요", 24))  # headline +2
+        row = win.web_home.page_list.rows[0] if win.web_home.page_list.rows else None
+        hub.text_buttons["larger"].click()
+        guikit.pump()
+        self.assertEqual((theme.state["text"], win.zoom, self.settings.value("text")), ("larger", 4, "larger"))
+        self.assertEqual([step for step, button in hub.text_buttons.items() if button.isChecked()], ["larger"])
+        self.assertEqual((hub.summary.font().pixelSize(), hub.summary.line, hub.next_btn.font().pixelSize()), (21, 36, 21))
+        self.assertEqual(hub.theme_btn.font().pixelSize(), 18)  # 작은 글자 단추는 caption
+        self.assertEqual((learn.title.font().pixelSize(), doc_sizes(learn.view)[head]), (26, 26))
+        self.assertEqual(learn.card.maximumWidth(), kit.doc_width(win.width()) + 48)
+        if row is not None:
+            self.assertEqual((row.title.font().pixelSize(), row.title.height()), (21, 28))
+        win.activateWindow()
+        QTest.keyClick(win, Qt.Key.Key_Minus, Qt.KeyboardModifier.ControlModifier)
+        QTest.keyClick(win, Qt.Key.Key_Minus, Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual((theme.state["text"], hub.summary.font().pixelSize(), hub.summary.line, doc_sizes(learn.view)[head]), ("normal", 17, 28, 22))
+        self.assertTrue(hub.text_buttons["normal"].isChecked())
+        QTest.keyClick(win, Qt.Key.Key_0, Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual((theme.state["text"], hub.summary.font().pixelSize()), ("large", 19))
+        win.set_text("larger")
+        win.close()
+        win.deleteLater()
+        guikit.pump()
+        self.win = None
+        again = self.boot()  # 다시 열어도 고른 단계
+        self.assertEqual((theme.state["text"], again.zoom, again.hub.summary.font().pixelSize()), ("larger", 4, 21))
+        self.assertEqual([step for step, button in again.hub.text_buttons.items() if button.isChecked()], ["larger"])
+
+    def test_old_zoom_setting_moves_to_a_step(self):
+        for zoom, step in ((-2, "normal"), (0, "large"), (2, "large"), (3, "larger")):
+            self.settings.remove("text")
+            self.settings.setValue("zoom", zoom)
+            win = self.boot()
+            self.assertEqual((theme.state["text"], self.settings.value("text"), self.settings.contains("zoom")), (step, step, False), zoom)
+            win.close()
+            win.deleteLater()
+            guikit.pump()
+            self.win = None
+
+
 class LearnTest(WebTest):
     def test_figures_sections_and_the_record(self):
         win = self.boot()
@@ -1270,7 +1350,14 @@ class LookTest(WebTest):
         dialog.close()
 
     def test_small_window_keeps_every_button_inside(self):
+        self.check_small_window(theme.TEXT_DEFAULT)
+
+    def test_small_window_keeps_every_button_inside_at_the_largest_text(self):
+        self.check_small_window("larger")
+
+    def check_small_window(self, step):
         win = self.boot((1024, 700))
+        win.set_text(step)
         self.assertEqual((win.width(), win.height()), (1024, 700))
         self.assertLessEqual(win.minimumSizeHint().height(), 480)  # 1366x768 125% 배율(작업 영역 약 576)에도 창 전체가 들어감
         for name, show, buttons in self.screens(win):
@@ -1280,13 +1367,12 @@ class LookTest(WebTest):
             self.assertLessEqual(page.minimumSizeHint().width(), 1024, name)
             self.assertLessEqual(page.minimumSizeHint().height(), 700, name)
             self.assertEqual((win.width(), win.height()), (1024, 700), name)
-            scroll = page.findChild(QScrollArea) if name in ("hub", "home") else None  # 허브와 웹 홈은 작은 창에서 스크롤함
+            if name == "hub":
+                buttons = buttons + tuple(win.hub.text_buttons.values()) + (win.hub.theme_btn,)
             for button in buttons:
                 if not button.isVisible():
                     continue
-                if scroll is not None:
-                    scroll.ensureWidgetVisible(button)
-                    guikit.pump()
+                scroll_to(button)  # 허브·웹 홈과 카드 안의 칸은 작은 창에서 스크롤함
                 self.assertTrue(inside(win, button), "%s: %s" % (name, name_of(button)))
             mission = win.web_mission
             if page is mission:  # 상태 줄은 작은 창에서도 끝까지 보임

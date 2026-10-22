@@ -158,6 +158,7 @@ class GuiTest(unittest.TestCase):
             session.save_user(self.user)
         self.git, self.opened = FakeGitFlow(), []
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
+        self.settings.setValue("text", "normal")  # 옛 화면의 테스트는 보통 글자(문서·코드 확대 0)에서 봄
         self.win = MainWindow(self.settings, lambda root, user: (None if self.git_reason else self.git, self.git_reason))
         self.win.open_url = self.opened.append
         self.win.show()
@@ -646,15 +647,18 @@ class HomeAndGitTest(GuiTest):
         self.assertEqual(page.code_panel.editor.toPlainText(), "a")
 
     def test_font_size_is_adjustable_and_remembered(self):
+        """글자 크기 단계(보통 0, 크게 2, 더 크게 4)는 옛 화면의 문서와 코드 글꼴에 확대 px 로 들어가고, Ctrl 과 +, -, 0 으로 바꾸며 기억됨."""
         self.boot()
         page = self.win.round_page
+        self.assertEqual((theme.state["text"], self.win.zoom), ("normal", 0))
         self.assertEqual(page.code_panel.editor.font().pixelSize(), theme.CODE_PX)
         self.assertTrue(page.code_panel.editor.font().fixedPitch())
         click(self.win.home.action_btn)
         self.select(lambda it: it["type"] == "choice")
         card = page.choice_panel.buttons[0]
         self.assertIn("body { font-size: %dpx" % (14 + theme.DOC_PX), card.doc.defaultStyleSheet())
-        self.win.set_zoom(2)
+        self.win.set_text("large")
+        self.assertEqual(self.win.zoom, 2)
         self.assertEqual(page.code_panel.editor.font().pixelSize(), theme.CODE_PX + 2)
         self.assertEqual(page.text_panel.multi.font().pixelSize(), theme.CODE_PX + 2)
         self.assertIn("body { font-size: %dpx" % (14 + theme.DOC_PX + 2), page.body.document().defaultStyleSheet())
@@ -666,21 +670,25 @@ class HomeAndGitTest(GuiTest):
             block = block.next()
         self.assertEqual(sizes, [18 + theme.DOC_PX + 2, 14 + theme.DOC_PX + 2])  # 본문의 제목도 본문 글자와 같이 커짐
         click(page.home_btn)
-        self.win.set_zoom(99)
-        self.assertEqual(self.win.zoom, theme.ZOOM_RANGE[1])
+        self.win.set_text("huge")  # 모르는 값은 기본 단계
+        self.assertEqual((theme.state["text"], self.win.zoom), (theme.TEXT_DEFAULT, 2))
         self.win.activateWindow()
-        QTest.keyClick(self.win, Qt.Key.Key_0, Qt.KeyboardModifier.ControlModifier)
-        self.assertEqual(self.win.zoom, 0)
         QTest.keyClick(self.win, Qt.Key.Key_Equal, Qt.KeyboardModifier.ControlModifier)
-        QTest.keyClick(self.win, Qt.Key.Key_Minus, Qt.KeyboardModifier.ControlModifier)
-        QTest.keyClick(self.win, Qt.Key.Key_Minus, Qt.KeyboardModifier.ControlModifier)
-        self.assertEqual(self.win.zoom, -1)
-        self.win.set_zoom(3)
+        self.assertEqual((theme.state["text"], self.win.zoom), ("larger", 4))
+        QTest.keyClick(self.win, Qt.Key.Key_Equal, Qt.KeyboardModifier.ControlModifier)  # 끝에서는 그대로
+        self.assertEqual(theme.state["text"], "larger")
+        for _ in range(3):
+            QTest.keyClick(self.win, Qt.Key.Key_Minus, Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual((theme.state["text"], self.win.zoom), ("normal", 0))
+        QTest.keyClick(self.win, Qt.Key.Key_0, Qt.KeyboardModifier.ControlModifier)  # 0 은 기본 단계로
+        self.assertEqual((theme.state["text"], self.win.zoom), (theme.TEXT_DEFAULT, 2))
+        self.win.set_text("larger")
         self.win.resize(760, 680)
         size = self.win.size()
         self.win.close()
+        self.assertEqual(self.settings.value("text"), "larger")
         again = MainWindow(self.settings, lambda root, user: (self.git, ""))
-        self.assertEqual(again.zoom, 3)
+        self.assertEqual((again.zoom, theme.state["text"]), (4, "larger"))
         self.assertEqual(again.size(), size)
         again.deleteLater()
 
@@ -1476,7 +1484,7 @@ class WrongNotesTest(GuiTest):
         self.assertEqual(bright_share(self.win), 0)
         shown = backgrounds(page.detail.document().toHtml())  # 구역 띠와 코드 상자
         self.assertTrue(shown and all(gray(value) <= 200 for value in shown), shown)
-        self.win.set_zoom(2)
+        self.win.set_text("large")
         self.assertIn("body { font-size: %dpx" % (14 + theme.DOC_PX + 2), page.detail.document().defaultStyleSheet())
         theme.set_mode("light")
         pump()
@@ -2120,7 +2128,7 @@ class ThemeTest(GuiTest):
         self.git.delay = 0.5
         click(result.git_btn)
         self.assertIsNotNone(win.job)
-        for change in (lambda: win.set_zoom(1), lambda: theme.set_mode("dark")):
+        for change in (lambda: win.set_text("large"), lambda: theme.set_mode("dark")):
             change()
             self.assertFalse(any(button.isEnabled() for button in buttons))
         self.idle()
@@ -2729,7 +2737,7 @@ class FindTest(GuiTest):
         self.assertEqual(strip.pixelColor(2, strip.height() - 4).name(), theme.EDITOR["gutter"])
         self.assertEqual(bright_share(self.win), 0)
         width = editor.numbers.width()
-        self.win.set_zoom(4)  # 글자를 키우면 줄 번호 칸이 넓어지고 막대는 제자리를 따라감
+        self.win.set_text("larger")  # 글자를 키우면 줄 번호 칸이 넓어지고 막대는 제자리를 따라감
         pump()
         self.assertGreater(editor.numbers.width(), width)
         self.assertTrue(placed())
@@ -3033,7 +3041,7 @@ class HighlightRoundTest(GuiTest):
         self.assertEqual(sum(row.count(("____", "blank")) for row in rows), item["starter"].count("____"))  # 빈칸마다 표시
         self.assertTrue(any(kind != "blank" for row in rows for _, kind in row))
         self.addCleanup(theme.set_mode, "system")
-        for change in (lambda: theme.set_mode("dark"), lambda: self.win.set_zoom(2), lambda: theme.set_mode("light")):
+        for change in (lambda: theme.set_mode("dark"), lambda: self.win.set_text("large"), lambda: theme.set_mode("light")):
             change()
             pump()
             shot = editor.grab().toImage()
@@ -3065,7 +3073,7 @@ class HighlightRoundTest(GuiTest):
             theme.set_mode(mode)
             pump()
             self.assertEqual((down.value(), down.maximum(), editor.numbers.width()), (place, place, width), mode)
-        self.win.set_zoom(3)  # 글자 크기를 바꾸면 줄 번호 칸은 따라감
+        self.win.set_text("larger")  # 글자 크기를 바꾸면 줄 번호 칸은 따라감
         pump()
         self.assertGreater(editor.numbers.width(), width)
 

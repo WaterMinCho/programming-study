@@ -142,7 +142,7 @@ class WebDrillPage(QWidget):
         field_col = kit.box(self.field_box, spacing=8)
         field_col.addWidget(kit.label("말한 내용 (선택)", "label", bold=True))
         self.note = QPlainTextEdit()
-        self.note.setFont(theme.font("body"))  # 글자 크기는 스타일시트가 아니라 글꼴로 줌(스타일시트 크기는 코드 칸의 글꼴을 덮음)
+        kit.typed(self.note, "body")  # 글자 크기는 스타일시트가 아니라 글꼴로 줌(스타일시트 크기는 코드 칸의 글꼴을 덮음)
         self.note.setMinimumHeight(144)
         self.note.setMaximumHeight(144)
         field_col.addWidget(self.note)
@@ -289,7 +289,7 @@ class WebDrillPage(QWidget):
         self.code_views = []
         markup = code_html(chain["code"])
         if markup:
-            view = TextPiece(markup, theme.web_css(self.win.zoom))
+            view = TextPiece(markup, theme.web_css())
             self.code_col.addWidget(view)
             self.code_views.append(view)
         self.code_label.setText("면접관이 보여 주는 코드" if self.code_views else "배경")
@@ -522,6 +522,6 @@ class WebDrillPage(QWidget):
     def restyle(self):
         self.fit_column()
         for view in self.code_views:
-            view.restyle(theme.web_css(self.win.zoom))
+            view.restyle(theme.web_css())
         if self.chain is not None:
             self.tick()

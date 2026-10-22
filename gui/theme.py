@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-"""테마(시스템 · 밝게 · 어둡게) · 글꼴 · 색. 화면 코드는 색 값을 직접 적지 않고 color(토큰 이름)으로, 코드 편집기의 색은 editor(토큰 이름)으로 꺼내 씀.
-테마가 바뀌면 signals.changed 가 나옴. 직접 그리는 위젯과 HTML 을 만들어 넣는 화면은 이 신호를 받아 다시 그림."""
+"""테마(시스템 · 밝게 · 어둡게) · 글자 크기 단계(보통 · 크게 · 더 크게) · 글꼴 · 색. 화면 코드는 색 값을 직접 적지 않고 color(토큰 이름)으로,
+코드 편집기의 색은 editor(토큰 이름)으로 꺼내 씀. 테마가 바뀌면 signals.changed 가 나옴. 직접 그리는 위젯과 HTML 을 만들어 넣는 화면은
+이 신호를 받아 다시 그림. 글자 크기 단계는 set_text 가 TYPE 을 그 단계의 값으로 바꾸고, 창(gui/window.py)이 부품의 글꼴을 다시 줌."""
 import os
 import re
 import sys
@@ -22,7 +23,12 @@ DOC_PX = 2  # 문제 본문은 mdlite.CSS 의 크기에 이만큼 더함
 DOC_LINE, GUIDE_LINE = 1.45, 1.35  # 본문과 안내 글의 줄 간격. 글자 크기의 몇 배인지
 JOURNEY_PX = 15  # 알고리즘 여행 지문·힌트·해설의 본문 글자 크기(확대 0 일 때)
 JOURNEY_LINE, JOURNEY_CODE_LINE = 1.7, 1.45  # 그 본문의 줄 간격과 코드 상자 안의 줄 간격. 글자 크기의 몇 배인지
-ZOOM_RANGE = (-3, 10)
+# 글자 크기 단계: 이름 → TYPE 의 모든 크기에 더하는 px. 보통은 설계값, 크게는 새로 설치했을 때의 기본. 옛 화면의 문서와 코드 글꼴은
+# 이 px 를 확대 단계(doc_css, code_font 의 zoom)로 받음
+TEXT_STEPS = ("normal", "large", "larger")
+TEXT_PX = {"normal": 0, "large": 2, "larger": 4}
+TEXT_NAMES = {"normal": "보통", "large": "크게", "larger": "더 크게"}
+TEXT_DEFAULT = "large"
 
 MODES = {"system": "시스템", "light": "밝게", "dark": "어둡게"}  # 홈의 단추를 누르면 이 순서로 돎
 BRAND = ("#2f6bff", "#7b5cff", "#ffffff")  # 아이콘의 바탕 그라데이션 두 색과 글자 색. 테마가 바뀌어도 같음
@@ -68,9 +74,11 @@ DARK = {
 TOKENS = {"light": LIGHT, "dark": DARK}
 
 # 새 화면(첫 화면, 웹 면접 준비)의 글자 단계: 이름 → (글자 크기 px, 줄 높이 px, 굵기). 굵기는 번들 나눔고딕에 있는 400·700 만 씀.
-# 한 화면 상태에서 쓰는 크기는 넷 이하. micro 는 직접 그리는 그래프 눈금에만 씀
-TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 30, 700), "body": (17, 28, 400), "label": (17, 24, 400),
-        "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400)}
+# 한 화면 상태에서 쓰는 크기는 넷 이하. micro 는 직접 그리는 그래프 눈금에만 씀. BASE_TYPE 은 보통 단계의 설계값이고
+# TYPE 은 지금 단계의 값(set_text 가 바꿈). 화면 코드는 TYPE 을 읽음
+BASE_TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 30, 700), "body": (17, 28, 400), "label": (17, 24, 400),
+             "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400)}
+TYPE = dict(BASE_TYPE)
 SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 간격이 아니라 선으로 셈
 RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16}
 CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 72, "topbar": 64, "bottombar": 80, "stepper": 56}
@@ -106,7 +114,22 @@ class Signals(QObject):
 
 
 signals = Signals()
-state = {"mode": "system", "scheme": "light"}  # 고른 값(MODES 의 키)과 지금 칠한 밝기(light · dark)
+state = {"mode": "system", "scheme": "light", "text": "normal"}  # 고른 테마(MODES 의 키), 지금 칠한 밝기(light · dark), 글자 크기 단계
+
+
+def scaled_type(step):
+    """글자 크기 단계 step 의 TYPE. 크기마다 TEXT_PX 를 더하고, 줄 높이는 글자 크기에 비례해 키운 값을 4 단위로 반올림함
+    (본문 17/28 → 19/32 → 21/36, 이름표 17/24 → 19/28 → 21/28). 보통은 설계값 그대로."""
+    extra = TEXT_PX[step]
+    out = {}
+    for role, (size, line, weight) in BASE_TYPE.items():
+        out[role] = (size + extra, line if not extra else 4 * round(line * (size + extra) / size / 4), weight)
+    return out
+
+
+def text_px():
+    """지금 글자 크기 단계가 모든 크기에 더하는 px. 옛 화면의 문서와 코드 글꼴은 이 값을 확대 단계로 받음."""
+    return TEXT_PX[state["text"]]
 
 
 def color(name):
@@ -195,7 +218,8 @@ STYLE += "QLabel#unit_none { border: 1px solid %(unit_none_edge)s; }\n"  # 미�
 STYLE += "QListWidget#notes::item:disabled { background: %(table_head)s; color: %(heading)s; }\n"  # 오답 노트의 단원 머리 줄. 고를 수 없게 꺼 둔 줄임
 
 # 새 화면(첫 화면, 웹 면접 준비)의 규칙. 맨 위 위젯에 setProperty("ui", "2") 를 준 화면과 대화상자 아래에만 걸림(옮기지 않은 화면은 그대로).
-# 글자 크기는 여기서 주지 않고 gui/kit.py 가 TYPE 으로 글꼴을 직접 줌. 색과 단추·입력칸·체크 상자의 모양만 여기서 줌.
+# 글자 크기는 여기서 주지 않고 gui/kit.py 가 TYPE 으로 글꼴을 직접 줌. 색과 단추·입력칸·체크 상자의 모양만 여기서 줌. 단추의 글자 크기(btn 은
+# label, btn_s 는 caption)와 꼬리표 높이(badge)는 스타일시트로만 줄 수 있어 TYPE 에서 꺼내 채움(_style).
 # 단추의 min-height 는 테두리 안쪽 높이라 평소 2px 투명 테두리를 빼서 적음(48 = 44 + 2 + 2). 초점이 와도 크기가 그대로임.
 # 크기 속성은 QWidget 의 size 와 부딪히지 않게 scale 로 부름
 STYLE_V2 = """
@@ -209,7 +233,7 @@ QWidget[ui="2"] QLabel[tone="success"] { color: %(ok)s; }
 QWidget[ui="2"] QLabel[tone="warning"] { color: %(retry)s; }
 QWidget[ui="2"] QLabel[tone="danger"] { color: %(wrong)s; }
 QWidget[ui="2"] QLabel[tone="on_accent"] { color: %(primary_ink)s; }
-QWidget[ui="2"] QLabel#badge { border-radius: 12px; padding: 0 8px; min-height: 24px; max-height: 24px; background: %(surface_alt)s; color: %(muted)s; }
+QWidget[ui="2"] QLabel#badge { border-radius: 12px; padding: 0 8px; min-height: %(badge)spx; max-height: %(badge)spx; background: %(surface_alt)s; color: %(muted)s; }
 QWidget[ui="2"] QLabel#badge[tone="accent"] { background: %(selection)s; color: %(selection_ink)s; }
 QWidget[ui="2"] QLabel#badge[tone="success"] { background: %(ok_weak)s; color: %(ok)s; }
 QWidget[ui="2"] QLabel#badge[tone="warning"] { background: %(retry_weak)s; color: %(retry)s; }
@@ -237,14 +261,14 @@ QWidget[ui="2"] QFrame#row[down="true"] { background: %(surface_alt)s; }
 QWidget[ui="2"] QFrame#row[picked="true"] { background: %(selection)s; }
 QWidget[ui="2"] QFrame#row[picked="true"] QLabel { color: %(selection_ink)s; }
 QWidget[ui="2"] QFrame#rowline { background: %(line)s; border: 0; }
-QWidget[ui="2"] QPushButton { font-size: 17px; font-weight: 700; border-radius: 12px; padding: 0 20px; min-height: 36px; max-height: 36px;
+QWidget[ui="2"] QPushButton { font-size: %(btn)spx; font-weight: 700; border-radius: 12px; padding: 0 20px; min-height: 36px; max-height: 36px;
     min-width: 48px; border: 2px solid transparent; background: %(surface_alt)s; color: %(ink)s; }
 QWidget[ui="2"] QPushButton:hover { background: %(track)s; }
 QWidget[ui="2"] QPushButton:pressed { background: %(border)s; }
 QWidget[ui="2"] QPushButton:focus { border-color: %(focus)s; }
 QWidget[ui="2"] QPushButton:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
 QWidget[ui="2"] QPushButton[scale="l"] { min-height: 44px; max-height: 44px; padding: 0 24px; min-width: 72px; }
-QWidget[ui="2"] QPushButton[scale="s"] { min-height: 28px; max-height: 28px; padding: 0 12px; min-width: 32px; font-size: 14px; border-radius: 8px; }
+QWidget[ui="2"] QPushButton[scale="s"] { min-height: 28px; max-height: 28px; padding: 0 12px; min-width: 32px; font-size: %(btn_s)spx; border-radius: 8px; }
 QWidget[ui="2"] QPushButton#primary { background: %(primary)s; color: %(primary_ink)s; border: 2px solid transparent; }
 QWidget[ui="2"] QPushButton#primary:hover, QWidget[ui="2"] QPushButton#primary:pressed { background: %(primary_hover)s; }
 QWidget[ui="2"] QPushButton#primary:focus { border-color: %(surface)s; }
@@ -254,6 +278,7 @@ QWidget[ui="2"] QPushButton#text:hover { background: %(hover)s; color: %(ink)s; 
 QWidget[ui="2"] QPushButton#text[onbg="true"]:hover { background: %(line)s; }
 QWidget[ui="2"] QPushButton#text:pressed { background: %(track)s; }
 QWidget[ui="2"] QPushButton#text:disabled { background: transparent; color: %(faint)s; }
+QWidget[ui="2"] QPushButton#text:checked { background: %(selection)s; color: %(selection_ink)s; }
 QWidget[ui="2"] QPushButton#danger { background: %(wrong_weak)s; color: %(wrong)s; }
 QWidget[ui="2"] QPushButton#danger:hover, QWidget[ui="2"] QPushButton#danger:pressed { background: %(wrong_weak)s; border-color: %(wrong)s; }
 QWidget[ui="2"] QPushButton#danger_text { background: transparent; color: %(wrong)s; padding: 0 12px; }
@@ -426,6 +451,12 @@ def _follow_system(*_):
 
 
 def _paint(scheme):
+    _style(scheme)
+    signals.changed.emit()
+
+
+def _style(scheme):
+    """팔레트와 스타일시트를 scheme 의 색과 지금 TYPE 의 크기로 다시 입힘."""
     state["scheme"] = scheme
     app = QApplication.instance()
     palette = QPalette(qcolor("surface"), qcolor("bg"))  # 버튼 색과 창 색을 주면 나머지 음영은 Qt 가 계산함
@@ -436,10 +467,28 @@ def _paint(scheme):
                        (role.ToolTipText, "ink"), (role.Link, "link")):
         palette.setColor(part, qcolor(name))
     app.setPalette(palette)
-    check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
-    tokens = dict(TOKENS[scheme], check=check)
+    tokens = style_tokens(scheme)
     app.setStyleSheet(STYLE % tokens + STYLE_V2 % tokens + EDITOR_STYLE)
-    signals.changed.emit()
+
+
+def style_tokens(scheme):
+    """스타일시트에 채우는 값: scheme 의 색, 체크 표시 그림, 단추 글자 크기(btn 은 label, btn_s 는 caption), 꼬리표 높이(caption 줄 높이 + 2)."""
+    check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
+    return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], badge=TYPE["caption"][1] + 2)
+
+
+def set_text(step):
+    """글자 크기 단계를 고름(TEXT_STEPS 의 이름, 모르는 값은 기본). TYPE 을 그 단계의 값으로 바꾸고 스타일시트를 다시 입힘.
+    이미 만든 부품의 글꼴은 바꾸지 않으므로 창이 kit.refont 로 다시 줌. 바뀌었으면 True."""
+    step = step if step in TEXT_PX else TEXT_DEFAULT
+    if step == state["text"] and TYPE == scaled_type(step):
+        return False
+    state["text"] = step
+    TYPE.clear()
+    TYPE.update(scaled_type(step))
+    if QApplication.instance() is not None:
+        _style(state["scheme"])
+    return True
 
 
 def font(role, bold=None):
@@ -476,13 +525,13 @@ def code_font(zoom=0):
 def doc_css(zoom=0, extra="", own_body=False):
     """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈.
     extra 는 본문 CSS 뒤에 붙일 규칙(JOURNEY_CSS). own_body 면 mdlite 의 body 글자 크기를 빼서 extra 의 body 크기가 먹게 함.
-    Qt 리치 텍스트는 body 의 font-size 가 둘이면 앞의 것을 씀."""
+    Qt 리치 텍스트는 body 의 font-size 가 둘이면 앞의 것을 씀. WEB_CSS 의 크기는 지금 단계의 TYPE 값이라 확대 단계를 미리 뺌."""
     base = re.sub(r"(?m)^(body \{[^}]*?)font-size: \d+px; ?", r"\1", mdlite.CSS) if own_body else mdlite.CSS
     css = (base + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE), body=JOURNEY_PX - DOC_PX,
                                                 wide=round(JOURNEY_LINE * (JOURNEY_PX + zoom)),
                                                 code_line=line_pct(JOURNEY_CODE_LINE, code_font()),
-                                                wbody=TYPE["body"][0] - DOC_PX, wline=TYPE["body"][1] + zoom, wh1=TYPE["headline"][0] - DOC_PX,
-                                                wh1line=TYPE["headline"][1] + zoom, wcode=TYPE["code"][0] - DOC_PX, wcodeline=TYPE["code"][1] + zoom)
+                                                wbody=TYPE["body"][0] - DOC_PX - zoom, wline=TYPE["body"][1], wh1=TYPE["headline"][0] - DOC_PX - zoom,
+                                                wh1line=TYPE["headline"][1], wcode=TYPE["code"][0] - DOC_PX - zoom, wcodeline=TYPE["code"][1])
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
     families = ", ".join("'%s'" % name for name in code_families())
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)
@@ -493,6 +542,6 @@ def journey_css(zoom=0):
     return doc_css(zoom, JOURNEY_CSS)
 
 
-def web_css(zoom=0):
-    """웹 면접 준비의 지문·해설·학습 노트용 CSS. doc_css 에 WEB_CSS 를 더함."""
-    return doc_css(zoom, WEB_CSS, own_body=True)
+def web_css():
+    """웹 면접 준비의 지문·해설·학습 노트용 CSS. doc_css 에 WEB_CSS 를 더함. 크기는 지금 글자 크기 단계의 TYPE 값."""
+    return doc_css(text_px(), WEB_CSS, own_body=True)

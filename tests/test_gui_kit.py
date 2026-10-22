@@ -20,7 +20,6 @@ from gui import dialogs, kit, theme  # noqa: E402
 ROOT = guikit.ROOT
 V2_FILES = ("gui/kit.py", "gui/hub_page.py", "gui/web_home.py", "gui/web_mission.py", "gui/web_drill.py", "gui/web_learn.py",
             "gui/web_setup.py", "gui/web_text.py")  # 새 규칙을 따르는 파일
-SIZES = {size for size, _, _ in theme.TYPE.values()} | {theme.CODE_PX}
 WEIGHTS = {400, 700}
 TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover")
 WEAK = {"ok": "ok_weak", "retry": "retry_weak", "wrong": "wrong_weak", "info": "info_weak", "selection_ink": "selection",
@@ -46,6 +45,11 @@ def source(path):
 
 def numbers(text):
     return [int(n) for n in re.findall(r"\b(\d+)\b", text)]
+
+
+def sizes():
+    """지금 글자 크기 단계에서 쓸 수 있는 글자 크기."""
+    return {size for size, _, _ in theme.TYPE.values()} | {theme.CODE_PX}
 
 
 class ContrastTest(unittest.TestCase):
@@ -82,10 +86,16 @@ class RuleTest(unittest.TestCase):
             text = source(path)
             for value in re.findall(r"setPixelSize\((\d+)\)", text) + re.findall(r"font-size:\s*(\d+)px", text):
                 found.setdefault(path, set()).add(int(value))
-        for value in re.findall(r"font-size:\s*(\d+)px", theme.STYLE_V2):
-            found.setdefault("theme.STYLE_V2", set()).add(int(value))
+        for step in theme.TEXT_STEPS:  # 단추 글자와 꼬리표 높이는 스타일시트가 단계마다 TYPE 에서 채움
+            theme.set_text(step)
+            self.addCleanup(theme.set_text, "normal")
+            sheet = theme.STYLE_V2 % theme.style_tokens("light")
+            values = {int(value) for value in re.findall(r"font-size:\s*(\d+)px", sheet)}
+            self.assertTrue(values and values <= sizes(), "theme.STYLE_V2 %s: %s" % (step, sorted(values - sizes())))
+            self.assertIn("max-height: %dpx" % (theme.TYPE["caption"][1] + 2), sheet)
+        theme.set_text("normal")
         for path, values in found.items():
-            self.assertTrue(values <= SIZES, "%s: %s" % (path, sorted(values - SIZES)))
+            self.assertTrue(values <= sizes(), "%s: %s" % (path, sorted(values - sizes())))
 
     def test_weights_are_regular_or_bold(self):
         for value in re.findall(r"font-weight:\s*(\d+)", theme.STYLE_V2):
@@ -109,10 +119,41 @@ class RuleTest(unittest.TestCase):
             self.assertEqual([], re.findall(r"#[0-9a-fA-F]{6}\b", source(path)), path)
 
 
+class TextStepTest(unittest.TestCase):
+    """글자 크기 단계. 크게는 모든 크기 +2, 더 크게는 +4 이고 줄 높이는 비례해 키워 4 단위에 맞춤."""
+
+    def test_steps_add_px_and_keep_line_heights_on_the_grid(self):
+        self.assertEqual(theme.scaled_type("normal"), theme.BASE_TYPE)
+        for step, extra in theme.TEXT_PX.items():
+            scaled = theme.scaled_type(step)
+            for role, (size, line, weight) in theme.BASE_TYPE.items():
+                grown, grown_line, grown_weight = scaled[role]
+                self.assertEqual((grown, grown_weight), (size + extra, weight), role)
+                if extra:
+                    self.assertEqual(grown_line % 4, 0, role)
+                    self.assertTrue(grown + 3 <= grown_line <= grown * 2, (step, role, scaled[role]))
+                    self.assertGreaterEqual(grown_line, line, role)
+        self.assertEqual((theme.scaled_type("large")["body"], theme.scaled_type("larger")["body"]), ((19, 32, 400), (21, 36, 400)))
+        self.assertEqual((theme.scaled_type("large")["headline"], theme.scaled_type("larger")["caption"]), ((24, 32, 700), (18, 28, 400)))
+
+    def test_set_text_changes_type_and_falls_back_to_the_default(self):
+        self.addCleanup(theme.set_text, "normal")
+        self.assertTrue(theme.set_text("larger"))
+        self.assertEqual((theme.state["text"], theme.TYPE["body"], theme.text_px(), theme.font("body").pixelSize()), ("larger", (21, 36, 400), 4, 21))
+        self.assertFalse(theme.set_text("larger"))
+        self.assertTrue(theme.set_text("huge"))
+        self.assertEqual(theme.state["text"], theme.TEXT_DEFAULT)
+        self.assertIn("body { font-size: 19px; }", theme.web_css())  # 문서 본문도 단계를 따름
+        theme.set_text("normal")
+        self.assertEqual((theme.TYPE, theme.text_px()), (theme.BASE_TYPE, 0))
+
+
 class PartsTest(unittest.TestCase):
-    """부품의 크기와 동작."""
+    """부품의 크기와 동작. 보통 글자에서 봄."""
 
     def setUp(self):
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text("normal")
         self.root = kit.page(QWidget())
         self.box = kit.box(self.root, (24, 24, 24, 24), 8)
         self.addCleanup(self.root.close)
@@ -262,6 +303,33 @@ class PartsTest(unittest.TestCase):
         guikit.pump()
         self.assertGreaterEqual(text.height(), text.heightForWidth(text.width()))
 
+    def test_refont_follows_the_text_step(self):
+        """글자 크기 단계를 바꾼 뒤 refont 가 문단·이름표·목록 줄·꼬리표·시계·체크 상자의 글꼴과 크기를 지금 단계로 다시 줌."""
+        text = kit.para("긴 안내 글입니다. " * 10)
+        short = kit.label("짧은 글", "caption", "secondary")
+        rows = kit.RowList()
+        row = rows.add(kit.Row("제목", "둘째 줄"))
+        tag = kit.badge("통과", "success")
+        clock_box, _, num = kit.clock()
+        checks = kit.CheckList()
+        checks.set_items([("항목", "", "", "", False)])
+        for widget in (text, short, rows, tag, clock_box, checks):
+            self.box.addWidget(widget)
+        self.show()
+        narrow = num.minimumWidth()
+        theme.set_text("larger")
+        kit.refont(self.root)
+        guikit.pump()
+        self.assertEqual((text.font().pixelSize(), text.line, short.font().pixelSize()), (21, 36, 18))
+        self.assertEqual((row.title.font().pixelSize(), row.title.height(), row.second.height()), (21, 28, 28))
+        self.assertEqual((tag.font().pixelSize(), tag.height(), checks.rows[0].box.height()), (18, 30, 36))
+        self.assertGreater(num.minimumWidth(), narrow)
+        self.assertGreater(text.height(), 36 * 3)
+        theme.set_text("normal")
+        kit.refont(self.root)
+        guikit.pump()
+        self.assertEqual((text.font().pixelSize(), text.line, row.title.height(), tag.height(), num.minimumWidth()), (17, 28, 24, 24, narrow))
+
     def test_web_documents_use_the_type_scale(self):
         """웹 문서의 본문·제목·코드 글자가 설계 크기(17·22·15)이고, 코드 상자 칸은 둥근 바탕을 덮지 않게 투명함."""
         import mdlite
@@ -309,18 +377,24 @@ class PartsTest(unittest.TestCase):
         self.assertGreaterEqual(plain.width(), 480)
 
     def test_message_dialog_buttons_keep_their_whole_label(self):
-        """글자가 긴 단추도 잘리지 않음. 한 줄에 들어가지 않으면 한 줄에 하나씩 쌓고 첫 번째(주 단추)를 위에 둠."""
+        """글자가 긴 단추도 어느 글자 크기에서나 잘리지 않음. 한 줄에 들어가지 않으면 한 줄에 하나씩 쌓고 첫 번째(주 단추)를 위에 둠."""
         long = (("다른 컴퓨터의 풀이 가져오기", "remote"), ("이 컴퓨터 풀이로 올리기", "local"), ("나중에 정하기", ""))
-        for buttons, detail in ((long, "자세한 출력"), ((("다시 찾기", "find"), ("Node 위치 지정…", "pick"), ("닫기", "")), "")):
-            ask = dialogs.MessageDialog(None, "알림", "글", buttons, detail=detail)
-            ask.show()
-            guikit.pump()
-            self.addCleanup(ask.close)
-            self.assertLessEqual(ask.width(), 560)
-            for button in ask.buttons.values():
-                self.assertTrue(button.isVisible())
-                self.assertGreaterEqual(button.width(), button.sizeHint().width(), button.text())
-                self.assertLessEqual(button.geometry().right(), ask.width() - 32)
+        three = (("이어서 하기", "resume"), ("처음부터 다시 받기", "again", "danger"), ("닫기", ""))
+        for step in theme.TEXT_STEPS:
+            theme.set_text(step)
+            for buttons, detail in ((long, "자세한 출력"), ((("다시 찾기", "find"), ("Node 위치 지정…", "pick"), ("닫기", "")), ""), (three, "")):
+                ask = dialogs.MessageDialog(None, "알림", "글", buttons, detail=detail)
+                ask.show()
+                guikit.pump()
+                self.addCleanup(ask.close)
+                self.assertLessEqual(ask.width(), 560)
+                self.assertGreaterEqual(ask.height(), ask.layout().totalHeightForWidth(ask.width()), step)
+                for button in ask.buttons.values():
+                    self.assertTrue(button.isVisible())
+                    self.assertGreaterEqual(button.width(), button.sizeHint().width(), "%s: %s" % (step, button.text()))
+                    self.assertLessEqual(button.geometry().right(), ask.width() - 32)
+                    self.assertEqual(button.font().pixelSize(), theme.TYPE["label"][0], step)
+        theme.set_text("normal")
         stacked = [ask_button.y() for ask_button in self.stacked(long)]
         self.assertEqual(stacked, sorted(stacked))  # 첫 번째 단추가 맨 위
 

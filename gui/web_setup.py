@@ -108,7 +108,7 @@ class SetupDialog(QDialog):
         self.log = QPlainTextEdit()
         self.log.setObjectName("plain")
         self.log.setReadOnly(True)
-        self.log.setFont(theme.code_font(-1))
+        self.log.setFont(theme.code_font(theme.text_px() - 1))
         self.log.setFixedHeight(QFontMetrics(self.log.font()).lineSpacing() * TAIL_LINES + 8)  # 꼬리 줄 수만큼
         self.log.hide()
         self.result = kit.banner("", "success")
@@ -149,7 +149,7 @@ class SetupDialog(QDialog):
         self.badge.setText(text)
         kit.set_tone(self.badge, tone)
         document = self.consent.document()
-        document.setDefaultStyleSheet(theme.web_css(self.win.zoom))
+        document.setDefaultStyleSheet(theme.web_css())
         self.consent.setHtml(consent_html(gui_text(web.consent())))
         document.setTextWidth(WIDTH - 64 - 16)
         low, high = CONSENT_HEIGHT

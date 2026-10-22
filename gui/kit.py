@@ -2,7 +2,8 @@
 """새 디자인 시스템의 부품. 첫 화면과 웹 면접 준비 화면이 씀.
 
 맨 위 위젯에 page() 로 ui="2" 속성을 주면 theme.STYLE_V2 의 색 규칙이 그 아래에만 걸림. 글자 크기와 굵기는 스타일시트가 아니라
-theme.TYPE 으로 글꼴을 직접 주고(label, para), 간격은 theme.SPACE 의 값만 씀. 단추는 종류(kind)를 objectName 으로, 크기(scale)를
+theme.TYPE 으로 글꼴을 직접 주고(label, para), 그 역할을 role 속성에 적어 두어 글자 크기 단계가 바뀌면 refont 가 글꼴을 다시 줌.
+간격은 theme.SPACE 의 값만 씀. 단추는 종류(kind)를 objectName 으로, 크기(scale)를
 속성으로 받음. 목록 줄(Row)은 줄 전체가 눌림. 단계 표시(Stepper), 상태 점(Dot), 꺾쇠(Chevron)는 직접 그리는 위젯이고
 칠할 때마다 지금 테마의 색을 읽음."""
 import math
@@ -62,10 +63,34 @@ def set_tone(widget, tone):
         repolish(child)
 
 
+def typed(widget, role, bold=None):
+    """위젯에 theme.TYPE 의 role 글꼴을 주고 역할을 적어 둠(refont 가 다시 줄 때 읽음)."""
+    widget.setFont(theme.font(role, bold))
+    widget.setProperty("role", role)
+    if bold is not None:
+        widget.setProperty("bold", bool(bold))
+    return widget
+
+
+def refont(root):
+    """글자 크기 단계가 바뀐 뒤 root 아래 모든 부품의 글꼴을 지금 TYPE 으로 다시 줌. 역할을 적어 둔 위젯은 글꼴(Para 는 줄 높이도)을,
+    refont 메서드가 있는 부품(줄임표 글, 목록 줄, 체크 상자)은 제 크기를 다시 잡음. 시계 숫자처럼 measure 속성이 있는 글은 그 글자의 폭을 다시 잼."""
+    for widget in [root] + root.findChildren(QWidget):
+        role = widget.property("role")
+        if role:
+            widget.setFont(theme.font(role, widget.property("bold")))
+            if isinstance(widget, Para):  # 줄 높이를 바꾸고 글을 다시 넣어 새 글꼴로 줄 높이를 다시 셈
+                widget.line = theme.TYPE[role][1]
+                widget.setText(widget.text())
+            if widget.property("measure"):
+                widget.setMinimumWidth(math.ceil(QFontMetricsF(widget.font()).horizontalAdvance(widget.property("measure"))))
+        if hasattr(widget, "refont"):
+            widget.refont()
+
+
 def label(text="", role="body", tone="", bold=None, align=None):
     """한 줄 글. role 은 theme.TYPE 의 이름, tone 은 secondary·tertiary·accent·success·warning·danger."""
-    out = QLabel(text)
-    out.setFont(theme.font(role, bold))
+    out = typed(QLabel(text), role, bold)
     if tone:
         out.setProperty("tone", tone)
     if align is not None:
@@ -75,7 +100,7 @@ def label(text="", role="body", tone="", bold=None, align=None):
 
 def para(text="", role="body", tone="", bold=None):
     """여러 줄로 넘어가는 글. 줄 높이는 TYPE 의 px 값."""
-    out = Para(text, line=theme.TYPE[role][1], font=theme.font(role, bold))
+    out = typed(Para(text, line=theme.TYPE[role][1], font=theme.font(role, bold)), role, bold)
     if tone:
         out.setProperty("tone", tone)
     return out
@@ -83,9 +108,8 @@ def para(text="", role="body", tone="", bold=None):
 
 def badge(text="", tone=""):
     """누를 수 없는 꼬리표. 높이 24, 글자 caption 700. tone 은 accent·success·warning·danger, 없으면 회색."""
-    out = QLabel(text)
+    out = typed(QLabel(text), "caption", True)
     out.setObjectName("badge")
-    out.setFont(theme.font("caption", True))
     out.setAlignment(Qt.AlignmentFlag.AlignCenter)
     if tone:
         out.setProperty("tone", tone)
@@ -220,7 +244,8 @@ def clock(caption_text="남은 시간"):
     row = box(out, spacing=12, horizontal=True)
     cap = label(caption_text, "caption", "tertiary")
     num = label("", "display")
-    num.setMinimumWidth(math.ceil(QFontMetricsF(num.font()).horizontalAdvance("88:88")))  # 자릿수가 바뀌어도 폭이 흔들리지 않음
+    num.setProperty("measure", "88:88")  # 자릿수가 바뀌어도 폭이 흔들리지 않게 이 글자의 폭을 최소 폭으로 둠. refont 도 같은 글자로 다시 잼
+    num.setMinimumWidth(math.ceil(QFontMetricsF(num.font()).horizontalAdvance("88:88")))
     row.addWidget(cap, 0, Qt.AlignmentFlag.AlignBottom)
     row.addWidget(num, 0, Qt.AlignmentFlag.AlignBottom)
     return out, cap, num
@@ -232,11 +257,15 @@ class ElideLabel(QLabel):
     def __init__(self, text="", role="headline", tone="", bold=None):
         super().__init__()
         self.full = ""
-        self.setFont(theme.font(role, bold))
+        typed(self, role, bold)
         if tone:
             self.setProperty("tone", tone)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.setText(text)
+
+    def refont(self):
+        self._fit()
+        self.updateGeometry()
 
     def setText(self, text):
         self.full = text
@@ -351,6 +380,11 @@ class Row(QFrame):
         self.second.setVisible(bool(text))
         self.setMinimumHeight(theme.CONTROL["row2"] if text else theme.CONTROL["row"])
 
+    def refont(self):
+        """글자 크기 단계가 바뀐 뒤 두 줄의 높이를 지금 줄 높이로."""
+        self.title.setFixedHeight(theme.TYPE["label"][1])
+        self.second.setFixedHeight(theme.TYPE["caption"][1])
+
     def _flag(self, name, on):
         if self.property(name) != on:
             self.setProperty(name, on)
@@ -411,7 +445,7 @@ def set_inert(row, inert):
 def link_banner(tone=""):
     """링크가 든 글을 담는 띠. banner 의 글 자리에 LinkLabel 을 둠. (띠, LinkLabel)."""
     out = banner("", tone)
-    link = LinkLabel("", line=theme.TYPE["body"][1], font=theme.font("body"))
+    link = typed(LinkLabel("", line=theme.TYPE["body"][1], font=theme.font("body")), "body")
     out.layout().replaceWidget(out.text, link)
     out.text.hide()
     out.text.deleteLater()
@@ -632,7 +666,7 @@ class TabBar(QWidget):
         for number, name in enumerate(names):
             tab = button(name, "tab")
             tab.setCheckable(True)
-            tab.setFont(theme.font("label", True))
+            typed(tab, "label", True)
             self.group.addButton(tab, number)
             row.addWidget(tab)
             self.buttons.append(tab)
@@ -742,7 +776,10 @@ class CheckMark(QWidget):
     def __init__(self):
         super().__init__()
         self.checked = False
-        self.setFixedSize(20, 28)  # 상자 20 을 본문 첫 줄(28)의 가운데에 둠
+        self.refont()
+
+    def refont(self):
+        self.setFixedSize(20, theme.TYPE["body"][1])  # 상자 20 을 본문 첫 줄의 가운데에 둠
 
     def isChecked(self):
         return self.checked
@@ -765,7 +802,8 @@ class CheckMark(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = QRectF(0, 4, 20, 20)
+        top = (self.height() - 20) // 2
+        rect = QRectF(0, top, 20, 20)
         if not self.isEnabled():
             edge, fill = ("primary_off", "primary_off") if self.checked else ("border", "surface_alt")
         elif self.checked:
@@ -778,9 +816,9 @@ class CheckMark(QWidget):
         if self.checked:
             painter.setPen(QPen(theme.qcolor("primary_ink" if self.isEnabled() else "primary_off_ink"), 2, Qt.PenStyle.SolidLine,
                                 Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-            path = QPainterPath(QPointF(5, 14))
-            path.lineTo(8.5, 17.5)
-            path.lineTo(15, 10.5)
+            path = QPainterPath(QPointF(5, top + 10))
+            path.lineTo(8.5, top + 13.5)
+            path.lineTo(15, top + 6.5)
             painter.drawPath(path)
 
 

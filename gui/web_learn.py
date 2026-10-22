@@ -56,7 +56,7 @@ class WebLearnPage(QWidget):
         self.card, card_box = kit.card(24, 0)
         self.view = DocView()
         self.view.box.setContentsMargins(0, 0, 0, 0)
-        self.view.css = theme.web_css(self.win.zoom)
+        self.view.css = theme.web_css()
         self.view.ruled = False
         card_box.addWidget(self.view, 1)
         self.next_row = QWidget()
@@ -142,4 +142,4 @@ class WebLearnPage(QWidget):
 
     def restyle(self):
         self.fit_column()
-        self.view.restyle(theme.web_css(self.win.zoom), theme.code_font(self.win.zoom))
+        self.view.restyle(theme.web_css(), theme.code_font(self.win.zoom))

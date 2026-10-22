@@ -34,7 +34,7 @@ from webprep.service import WebError
 
 MAC_EDITORS = (("Cursor", "/Applications/Cursor.app"), ("Visual Studio Code", "/Applications/Visual Studio Code.app"))
 LANG = "javascript"  # 지문·해설의 코드 블록은 언어 표시가 tsx 라 어느 언어를 줘도 모두 보임
-RIGHT_MAX = 480  # 오른쪽 카드(미션 정보, 검사 결과, 요약)의 가장 넓은 폭. 창이 넓어도 이 폭을 넘지 않음
+RIGHT_MAX = 480  # 오른쪽 카드(미션 정보, 검사 결과, 요약)의 가장 넓은 폭. 보통 글자 기준이고 글자 크기에 비례함(크게 536, 더 크게 593)
 CARD_PAD = 24  # 카드 안쪽 여백
 STEP_STATE = {"done": "done", "pass": "done", "skip": "skip", "open": "now", "locked": "lock"}  # 서비스의 단계 결과 → 단계 표시의 상태
 FINISH_TEXT = "지금 상태로 기록을 남기고 해설을 엽니다. 남은 단계는 통과하지 않은 채 끝나고, 다시 풀려면 처음부터 다시 해야 합니다."
@@ -324,7 +324,7 @@ class RawBox(QFrame):
         self.edit = QPlainTextEdit(text)
         self.edit.setObjectName("plain")
         self.edit.setReadOnly(True)
-        self.edit.setFont(theme.code_font(-1))
+        self.edit.setFont(theme.code_font(theme.text_px() - 1))
         self.edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self.edit.setMaximumHeight(RAW_MAX)
         box.addWidget(self.edit)
@@ -491,7 +491,6 @@ class WebMissionPage(QWidget):
         self.right_card, right_box = kit.card(pad=0, spacing=0)
         self.right = QStackedWidget()
         right_box.addWidget(self.right)
-        self.right_card.setMaximumWidth(RIGHT_MAX)
         body_box.addStretch(0)  # 두 카드가 모두 최대 폭에 닿은 뒤에만 남는 폭을 양옆이 나눔
         body_box.addWidget(self.left_card, 7)
         body_box.addWidget(self.right_card, 5)
@@ -566,7 +565,7 @@ class WebMissionPage(QWidget):
             edit.setObjectName("plain")
             edit.setReadOnly(True)
             edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-            edit.setFont(theme.code_font(-1))
+            edit.setFont(theme.code_font(theme.text_px() - 1))
             edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)  # 최소 높이를 내세우지 않아 창의 최소 높이를 키우지 않음
             self.highlighters.append(DiffHighlighter(edit.document()))
             diff_box.addWidget(kit.label(name, "caption", "tertiary"))
@@ -722,6 +721,7 @@ class WebMissionPage(QWidget):
         """읽는 글의 단 폭을 창 폭에 맞춤. 왼쪽 카드는 단 폭에 안쪽 여백을 더한 폭까지이고 읽기 안내·해설·지금 요구의 글이 그 단 폭을 씀."""
         doc = kit.doc_width(self.width())
         self.left_card.setMaximumWidth(doc + 2 * CARD_PAD + self.brief_view.verticalScrollBar().sizeHint().width())  # 글 옆의 스크롤 막대 자리
+        self.right_card.setMaximumWidth(round(RIGHT_MAX * theme.TYPE["body"][0] / kit.DOC_PX))
         for view in (self.brief_view, self.done_view):
             view.sheet.setMaximumWidth(doc + 2 * CARD_PAD)
         self.request_view.setMaximumWidth(doc)
@@ -1358,7 +1358,7 @@ class WebMissionPage(QWidget):
     # 테마 · 글자 크기
 
     def restyle(self):
-        css, font = theme.web_css(self.win.zoom), theme.code_font(self.win.zoom)
+        css, font = theme.web_css(), theme.code_font(self.win.zoom)
         self.fit_columns()  # 글자 크기가 바뀌면 단 폭의 상한도 바뀜
         for view in (self.brief_view, self.request_view, self.done_view):
             view.restyle(css, font)
