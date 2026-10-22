@@ -183,5 +183,15 @@ def talked_ratio(log):
 
 
 def activity_days(log):
-    """check·drill 기록이 있는 날짜(YYYY-MM-DD) 집합. 공통 대시보드의 막대와 연속 학습일에 더함."""
+    """check·drill 기록이 있는 날짜(YYYY-MM-DD) 집합. 공통 대시보드의 연속 학습일에 더함."""
     return {str(e.get("at") or "")[:10] for e in log if e.get("kind") in ("check", "drill") and e.get("at")}
+
+
+def activity_counts(log):
+    """{날짜: 채점 수}. 미션 검사 한 번과 끝낸 사슬 하나를 1 로 셈(다른 트랙의 채점 한 번에 맞춤). 공통 대시보드의 막대에 씀."""
+    counts = {}
+    for e in log:
+        if e.get("kind") in ("check", "chain") and e.get("at"):
+            day = str(e["at"])[:10]
+            counts[day] = counts.get(day, 0) + 1
+    return counts

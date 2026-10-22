@@ -26,7 +26,7 @@ from webprep import checks, stack
 
 VITE_JS = os.path.join("node_modules", "vite", "bin", "vite.js")
 START_LIMIT_S = 30
-TEST_LIMIT_S = checks.LIMIT_S  # 도는 동안 미션 화면이 잠기므로, [검사]가 같은 vitest·jsdom 실행에 두는 한도를 씀
+TEST_LIMIT_S = checks.LIMIT_S  # 도는 동안 미션 화면이 잠기므로, [검사하기]가 같은 vitest·jsdom 실행에 두는 한도를 씀
 WAIT_STEP_S = 0.5  # 테스트를 기다리며 취소 신호를 보는 간격
 TAIL_LINES = 40
 LOCAL_URL = re.compile(r"Local:\s+(https?://\S+)")
@@ -50,7 +50,7 @@ class DevError(Exception):
 
 
 def _env():
-    """npm run dev, npm test 처럼 CI 를 두지 않음. 색을 끄고 NODE_OPTIONS 를 비우는 것은 [검사]와 같음."""
+    """npm run dev, npm test 처럼 CI 를 두지 않음. 색을 끄고 NODE_OPTIONS 를 비우는 것은 [검사하기]와 같음."""
     env = dict(os.environ)
     env.pop("NODE_OPTIONS", None)
     env["FORCE_COLOR"] = "0"

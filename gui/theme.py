@@ -28,38 +28,53 @@ MODES = {"system": "시스템", "light": "밝게", "dark": "어둡게"}  # 홈�
 BRAND = ("#2f6bff", "#7b5cff", "#ffffff")  # 아이콘의 바탕 그라데이션 두 색과 글자 색. 테마가 바뀌어도 같음
 AVATARS = ("#2a62f0", "#6d4df2", "#0b7f6a", "#b4530a", "#b83280", "#0e7490")  # 팀 현황의 이니셜 원. 글자는 BRAND 의 글자 색
 
-# 글자와 바탕의 대비는 4.5:1 이상으로 맞춤(tests/test_gui.py 의 ThemeTest 가 확인함)
+# 글자와 바탕의 대비는 4.5:1 이상으로 맞춤(tests/test_gui.py 의 ThemeTest 가 확인함).
+# 회색은 밝게 9개, 어둡게 11개만 쓰고 같은 값을 뜻이 다른 토큰이 나눠 씀(bg·surface_alt·hover·primary_off·info_weak 는 밝게에서 모두 같음).
+# 파란색은 누를 수 있는 것, 고른 것, 진행에만 쓰고 제목(heading·doc_heading)은 글자색과 같음
 LIGHT = {
-    "bg": "#f4f5f7", "surface": "#ffffff", "surface_alt": "#f6f8fa", "hover": "#f0f3f6",
-    "border": "#d0d7de", "border_strong": "#c8d1da", "line": "#eef0f3", "track": "#e6e9ed",
-    "scroll": "#c4ccd4", "scroll_hover": "#a3adb8",
-    "ink": "#1f2328", "heading": "#16233b", "muted": "#57606a", "placeholder": "#6e7781", "faint": "#8c959f",
-    "primary": "#1f6feb", "primary_hover": "#1a5fd0", "primary_ink": "#ffffff", "primary_off": "#9bbcf2", "primary_off_ink": "#ffffff",
-    "selection": "#dbe9ff", "selection_ink": "#0b3d91", "text_selection": "#b6d4fe",
-    "notice_bg": "#fff8e1", "notice_border": "#f0d98c",
-    "code_bg": "#eef0f3", "codebox_bg": "#f3f4f6", "table_head": "#eaeef2", "grid": "#c8d1da",
-    "doc_heading": "#0b3d91", "link": "#0969da", "indicator_border": "#8c959f",
-    "ok": "#1a7f37", "wrong": "#cf222e", "blank": "#6e7781", "up": "#0969da", "retry": "#bc4c00",
+    "bg": "#eef1f5", "surface": "#ffffff", "surface_alt": "#eef1f5", "hover": "#eef1f5", "surface_raised": "#ffffff",
+    "border": "#cdd3db", "border_strong": "#818a95", "field_edge": "#818a95", "line": "#e0e5eb", "track": "#e0e5eb",
+    "scroll": "#cdd3db", "scroll_hover": "#a9b0ba", "focus": "#1d63ed",
+    "ink": "#171b22", "heading": "#171b22", "muted": "#464e59", "placeholder": "#616a76", "faint": "#616a76",
+    "primary": "#1d63ed", "primary_hover": "#1251cc", "primary_ink": "#ffffff", "primary_off": "#eef1f5", "primary_off_ink": "#616a76",
+    "selection": "#e5efff", "selection_ink": "#1251cc", "text_selection": "#c4d8fd",
+    "notice_bg": "#fff2d6", "notice_border": "#fff2d6",
+    "code_bg": "#e0e5eb", "codebox_bg": "#eef1f5", "table_head": "#eef1f5", "grid": "#cdd3db",
+    "doc_heading": "#171b22", "link": "#1d63ed", "indicator_border": "#818a95",
+    "ok": "#007840", "wrong": "#c2272d", "blank": "#616a76", "up": "#1d63ed", "retry": "#a1540f",
+    "ok_weak": "#e3f8e9", "wrong_weak": "#ffecec", "retry_weak": "#fff2d6", "info": "#464e59", "info_weak": "#eef1f5",
+    "series_python": "#0f9b89", "series_algorithm": "#9476ff", "series_web": "#99007a",
     "unit_mastered": "#1f883d", "unit_mastered_ink": "#ffffff", "unit_level2": "#9cd0ff", "unit_level2_ink": "#1f2328",
     "unit_level1": "#f5d776", "unit_level1_ink": "#1f2328", "unit_retry": "#f0883e", "unit_retry_ink": "#1f2328",
-    "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#848d97",
+    "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#818a95",
 }
 DARK = {
-    "bg": "#14181e", "surface": "#1d232b", "surface_alt": "#232a33", "hover": "#2a323d",
-    "border": "#3a4451", "border_strong": "#4b5666", "line": "#2b333e", "track": "#343d49",
-    "scroll": "#4b5666", "scroll_hover": "#5f6b7b",
-    "ink": "#e6ebf2", "heading": "#f3f6fa", "muted": "#b7c1cc", "placeholder": "#a3adb9", "faint": "#8793a1",
-    "primary": "#5b8cff", "primary_hover": "#7aa2ff", "primary_ink": "#0b1220", "primary_off": "#2b3d66", "primary_off_ink": "#aebbd6",
-    "selection": "#223a66", "selection_ink": "#cfe0ff", "text_selection": "#2c4a80",
-    "notice_bg": "#2a2413", "notice_border": "#5f4d17",
-    "code_bg": "#2e3743", "codebox_bg": "#151a20", "table_head": "#28303a", "grid": "#4b5666",
-    "doc_heading": "#8fb4ff", "link": "#6ea8ff", "indicator_border": "#6e7781",
-    "ok": "#3fb950", "wrong": "#ff7b72", "blank": "#8b949e", "up": "#6ea8ff", "retry": "#f0883e",
+    "bg": "#0e1217", "surface": "#1d2228", "surface_alt": "#282d34", "hover": "#252a30", "surface_raised": "#252a30",
+    "border": "#42474d", "border_strong": "#7b8189", "field_edge": "#7b8189", "line": "#33373d", "track": "#33373d",
+    "scroll": "#42474d", "scroll_hover": "#595e65", "focus": "#7aa8ff",
+    "ink": "#eaf1fa", "heading": "#eaf1fa", "muted": "#c5cbd4", "placeholder": "#9ea3ac", "faint": "#9ea3ac",
+    "primary": "#3168e8", "primary_hover": "#2755c7", "primary_ink": "#ffffff", "primary_off": "#282d34", "primary_off_ink": "#9ea3ac",
+    "selection": "#1c2f53", "selection_ink": "#c2d8ff", "text_selection": "#294375",
+    "notice_bg": "#382810", "notice_border": "#382810",
+    "code_bg": "#33373d", "codebox_bg": "#282d34", "table_head": "#282d34", "grid": "#42474d",
+    "doc_heading": "#eaf1fa", "link": "#7aa8ff", "indicator_border": "#7b8189",
+    "ok": "#5ccb89", "wrong": "#f87e77", "blank": "#9ea3ac", "up": "#7aa8ff", "retry": "#eeb154",
+    "ok_weak": "#182f20", "wrong_weak": "#3e1e1c", "retry_weak": "#382810", "info": "#c5cbd4", "info_weak": "#282d34",
+    "series_python": "#0aa99b", "series_algorithm": "#8a7cfd", "series_web": "#c231ac",
     "unit_mastered": "#2ea043", "unit_mastered_ink": "#06120a", "unit_level2": "#58a6ff", "unit_level2_ink": "#0b1220",
     "unit_level1": "#d9b44a", "unit_level1_ink": "#0b1220", "unit_retry": "#e2673a", "unit_retry_ink": "#0b1220",
-    "unit_none": "#2b323c", "unit_none_ink": "#b7c1cc", "unit_none_edge": "#6b7684",
+    "unit_none": "#2b323c", "unit_none_ink": "#b7c1cc", "unit_none_edge": "#7b8189",
 }
 TOKENS = {"light": LIGHT, "dark": DARK}
+
+# 새 화면(첫 화면, 웹 면접 준비)의 글자 단계: 이름 → (글자 크기 px, 줄 높이 px, 굵기). 굵기는 번들 나눔고딕에 있는 400·700 만 씀.
+# 한 화면 상태에서 쓰는 크기는 넷 이하. micro 는 직접 그리는 그래프 눈금에만 씀
+TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 30, 700), "body": (17, 28, 400), "label": (17, 24, 400),
+        "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400)}
+SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 간격이 아니라 선으로 셈
+RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16}
+CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 72, "topbar": 64, "bottombar": 80, "stepper": 56}
+SERIES = ("series_python", "series_algorithm", "series_web")  # 7일 그래프와 트랙 이름 앞 점에만 쓰는 트랙 색
 
 # 코드 편집기의 색. 앱 테마가 밝든 어둡든 같은 남색 바탕을 써서 문제 칸과 구분함.
 # 바탕(bg)과의 대비는 글자색이 4.5:1 이상, 주석과 줄 번호가 3:1 이상(tests/test_gui.py 의 HighlightTest 가 확인함)
@@ -179,6 +194,107 @@ STYLE += "".join("QLabel#unit_%s { background: %%(unit_%s)s; color: %%(unit_%s_i
 STYLE += "QLabel#unit_none { border: 1px solid %(unit_none_edge)s; }\n"  # 미진단 칸은 바탕과 색이 비슷해 테두리로 구분함
 STYLE += "QListWidget#notes::item:disabled { background: %(table_head)s; color: %(heading)s; }\n"  # 오답 노트의 단원 머리 줄. 고를 수 없게 꺼 둔 줄임
 
+# 새 화면(첫 화면, 웹 면접 준비)의 규칙. 맨 위 위젯에 setProperty("ui", "2") 를 준 화면과 대화상자 아래에만 걸림(옮기지 않은 화면은 그대로).
+# 글자 크기는 여기서 주지 않고 gui/kit.py 가 TYPE 으로 글꼴을 직접 줌. 색과 단추·입력칸·체크 상자의 모양만 여기서 줌.
+# 단추의 min-height 는 테두리 안쪽 높이라 평소 2px 투명 테두리를 빼서 적음(48 = 44 + 2 + 2). 초점이 와도 크기가 그대로임.
+# 크기 속성은 QWidget 의 size 와 부딪히지 않게 scale 로 부름
+STYLE_V2 = """
+QWidget[ui="2"] { background: %(bg)s; }
+QDialog[ui="2"] { background: %(surface_raised)s; }
+QWidget[ui="2"] QLabel { color: %(ink)s; background: transparent; }
+QWidget[ui="2"] QLabel[tone="secondary"] { color: %(muted)s; }
+QWidget[ui="2"] QLabel[tone="tertiary"] { color: %(faint)s; }
+QWidget[ui="2"] QLabel[tone="accent"] { color: %(link)s; }
+QWidget[ui="2"] QLabel[tone="success"] { color: %(ok)s; }
+QWidget[ui="2"] QLabel[tone="warning"] { color: %(retry)s; }
+QWidget[ui="2"] QLabel[tone="danger"] { color: %(wrong)s; }
+QWidget[ui="2"] QLabel[tone="on_accent"] { color: %(primary_ink)s; }
+QWidget[ui="2"] QLabel#badge { border-radius: 12px; padding: 0 8px; min-height: 24px; max-height: 24px; background: %(surface_alt)s; color: %(muted)s; }
+QWidget[ui="2"] QLabel#badge[tone="accent"] { background: %(selection)s; color: %(selection_ink)s; }
+QWidget[ui="2"] QLabel#badge[tone="success"] { background: %(ok_weak)s; color: %(ok)s; }
+QWidget[ui="2"] QLabel#badge[tone="warning"] { background: %(retry_weak)s; color: %(retry)s; }
+QWidget[ui="2"] QLabel#badge[tone="danger"] { background: %(wrong_weak)s; color: %(wrong)s; }
+QWidget[ui="2"] QFrame#card { background: %(surface)s; border: 0; border-radius: 16px; }
+QWidget[ui="2"] QFrame#card QFrame#card { background: %(surface_alt)s; border-radius: 12px; }
+QWidget[ui="2"] QFrame#well { background: %(surface_alt)s; border: 0; border-radius: 12px; }
+QWidget[ui="2"] QFrame#topbar, QWidget[ui="2"] QFrame#bottombar, QWidget[ui="2"] QFrame#stepper { background: %(surface)s; border: 0; }
+QWidget[ui="2"] QFrame#topbar[plain="true"] { background: %(bg)s; }
+QWidget[ui="2"] QFrame#topbar { border-bottom: 1px solid %(line)s; }
+QWidget[ui="2"] QFrame#topbar[plain="true"], QWidget[ui="2"] QFrame#topbar[steps="true"] { border-bottom: 0; }
+QWidget[ui="2"] QFrame#stepper { border-bottom: 1px solid %(line)s; }
+QWidget[ui="2"] QFrame#bottombar { border-top: 1px solid %(line)s; }
+QWidget[ui="2"] QFrame#banner { border: 0; border-radius: 12px; background: %(info_weak)s; }
+QWidget[ui="2"] QFrame#banner[tone="warning"] { background: %(retry_weak)s; }
+QWidget[ui="2"] QFrame#banner[tone="danger"] { background: %(wrong_weak)s; }
+QWidget[ui="2"] QFrame#banner[tone="success"] { background: %(ok_weak)s; }
+QWidget[ui="2"] QFrame#banner QLabel#lead { color: %(info)s; }
+QWidget[ui="2"] QFrame#banner[tone="warning"] QLabel#lead { color: %(retry)s; }
+QWidget[ui="2"] QFrame#banner[tone="danger"] QLabel#lead { color: %(wrong)s; }
+QWidget[ui="2"] QFrame#banner[tone="success"] QLabel#lead { color: %(ok)s; }
+QWidget[ui="2"] QFrame#row { background: transparent; border: 0; border-radius: 0; }
+QWidget[ui="2"] QFrame#row[over="true"] { background: %(hover)s; }
+QWidget[ui="2"] QFrame#row[down="true"] { background: %(surface_alt)s; }
+QWidget[ui="2"] QFrame#row[picked="true"] { background: %(selection)s; }
+QWidget[ui="2"] QFrame#row[picked="true"] QLabel { color: %(selection_ink)s; }
+QWidget[ui="2"] QFrame#rowline { background: %(line)s; border: 0; }
+QWidget[ui="2"] QPushButton { font-size: 17px; font-weight: 700; border-radius: 12px; padding: 0 20px; min-height: 36px; max-height: 36px;
+    min-width: 48px; border: 2px solid transparent; background: %(surface_alt)s; color: %(ink)s; }
+QWidget[ui="2"] QPushButton:hover { background: %(track)s; }
+QWidget[ui="2"] QPushButton:pressed { background: %(border)s; }
+QWidget[ui="2"] QPushButton:focus { border-color: %(focus)s; }
+QWidget[ui="2"] QPushButton:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
+QWidget[ui="2"] QPushButton[scale="l"] { min-height: 44px; max-height: 44px; padding: 0 24px; min-width: 72px; }
+QWidget[ui="2"] QPushButton[scale="s"] { min-height: 28px; max-height: 28px; padding: 0 12px; min-width: 32px; font-size: 14px; border-radius: 8px; }
+QWidget[ui="2"] QPushButton#primary { background: %(primary)s; color: %(primary_ink)s; border: 2px solid transparent; }
+QWidget[ui="2"] QPushButton#primary:hover, QWidget[ui="2"] QPushButton#primary:pressed { background: %(primary_hover)s; }
+QWidget[ui="2"] QPushButton#primary:focus { border-color: %(surface)s; }
+QWidget[ui="2"] QPushButton#primary:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
+QWidget[ui="2"] QPushButton#text { background: transparent; color: %(muted)s; padding: 0 12px; }
+QWidget[ui="2"] QPushButton#text:hover { background: %(hover)s; color: %(ink)s; }
+QWidget[ui="2"] QPushButton#text[onbg="true"]:hover { background: %(line)s; }
+QWidget[ui="2"] QPushButton#text:pressed { background: %(track)s; }
+QWidget[ui="2"] QPushButton#text:disabled { background: transparent; color: %(faint)s; }
+QWidget[ui="2"] QPushButton#danger { background: %(wrong_weak)s; color: %(wrong)s; }
+QWidget[ui="2"] QPushButton#danger:hover, QWidget[ui="2"] QPushButton#danger:pressed { background: %(wrong_weak)s; border-color: %(wrong)s; }
+QWidget[ui="2"] QPushButton#danger_text { background: transparent; color: %(wrong)s; padding: 0 12px; }
+QWidget[ui="2"] QPushButton#danger_text:hover, QWidget[ui="2"] QPushButton#danger_text:pressed { background: %(wrong_weak)s; }
+QWidget[ui="2"] QPushButton#chip { font-weight: 400; padding: 0 16px; }
+QWidget[ui="2"] QPushButton#chip:checked { background: %(selection)s; color: %(selection_ink)s; font-weight: 700; }
+QWidget[ui="2"] QPushButton#tab { background: transparent; border-radius: 0; padding: 0; min-width: 0; min-height: 46px; max-height: 46px;
+    color: %(faint)s; border: 0; border-bottom: 2px solid transparent; }
+QWidget[ui="2"] QPushButton#tab:hover { color: %(muted)s; }
+QWidget[ui="2"] QPushButton#tab:checked { color: %(ink)s; border-bottom-color: %(ink)s; }
+QWidget[ui="2"] QPushButton#tab:focus { border-bottom-color: %(focus)s; }
+QWidget[ui="2"] QLineEdit, QWidget[ui="2"] QPlainTextEdit, QWidget[ui="2"] QTextBrowser { background: %(surface)s; color: %(ink)s;
+    border: 1px solid %(field_edge)s; border-radius: 12px; padding: 0 15px; selection-background-color: %(text_selection)s; selection-color: %(ink)s;
+    placeholder-text-color: %(faint)s; }
+QWidget[ui="2"] QLineEdit { min-height: 46px; max-height: 46px; }
+QWidget[ui="2"] QPlainTextEdit { padding: 8px 15px; }
+QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QPlainTextEdit:focus { border: 2px solid %(focus)s; padding: 0 14px; }
+QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
+QWidget[ui="2"] QLineEdit:disabled, QWidget[ui="2"] QPlainTextEdit:disabled { background: %(surface_alt)s; color: %(muted)s; }
+QWidget[ui="2"] QPlainTextEdit#code { border-radius: 6px; padding: 0; }
+QWidget[ui="2"] QTextBrowser#plain, QWidget[ui="2"] QPlainTextEdit#plain { border: 0; border-radius: 0; padding: 0; background: transparent; }
+QWidget[ui="2"] QCheckBox { color: %(ink)s; spacing: 12px; }
+QWidget[ui="2"] QCheckBox::indicator { width: 16px; height: 16px; border: 2px solid %(field_edge)s; border-radius: 6px; background: %(surface)s; }
+QWidget[ui="2"] QCheckBox::indicator:hover { border-color: %(primary)s; }
+QWidget[ui="2"] QCheckBox::indicator:checked { background: %(primary)s; border-color: %(primary)s; image: url(%(check)s); }
+QWidget[ui="2"] QCheckBox::indicator:disabled { border-color: %(border)s; background: %(surface_alt)s; }
+QWidget[ui="2"] QCheckBox::indicator:checked:disabled { background: %(primary_off)s; border-color: %(primary_off)s; }
+QWidget[ui="2"] QCheckBox:focus { outline: 0; }
+QWidget[ui="2"] QProgressBar { background: %(track)s; border: 0; border-radius: 4px; min-height: 8px; max-height: 8px; }
+QWidget[ui="2"] QProgressBar::chunk { background: %(link)s; border-radius: 4px; }
+QWidget[ui="2"] QProgressBar[tone="success"]::chunk { background: %(ok)s; }
+QWidget[ui="2"] QProgressBar[thin="true"] { border-radius: 2px; min-height: 4px; max-height: 4px; }
+QWidget[ui="2"] QProgressBar[thin="true"]::chunk { border-radius: 2px; }
+QWidget[ui="2"] QProgressBar[tone="warning"]::chunk { background: %(retry)s; }
+QWidget[ui="2"] QProgressBar[tone="danger"]::chunk { background: %(wrong)s; }
+QWidget[ui="2"] QScrollArea, QWidget[ui="2"] QScrollArea > QWidget > QWidget { background: transparent; }
+QWidget[ui="2"] QScrollArea#page, QWidget[ui="2"] QWidget#page { background: %(bg)s; }
+QWidget[ui="2"] QFrame#card QScrollArea, QWidget[ui="2"] QFrame#card QScrollArea > QWidget > QWidget { background: %(surface)s; }
+QWidget[ui="2"] QSplitter::handle { background: %(bg)s; }
+"""
+
 # 코드 편집기와 그 위에 뜨는 찾기 막대. 앱 테마의 규칙 뒤에 붙여서 두 테마에서 같은 색으로 덮음
 EDITOR_STYLE = """
 QPlainTextEdit#code { background: %(bg)s; color: %(ink)s; border: 1px solid %(edge)s;
@@ -232,6 +348,28 @@ td.codebox { background-color: transparent; border: 0px; padding: 12px 16px; }
 table.grid { margin-top: 10px; margin-bottom: 0px; }
 table.grid th { padding: 9px 14px; }
 table.grid td { line-height: %(wide)spx; padding: 0px 14px 10px 14px; }
+"""
+
+# 웹 면접 준비의 문서(미션 지문·해설, 학습 노트, 드릴 배경)가 본문 CSS 뒤에 더하는 것. 크기는 TYPE 의 body 17/28, h1 22/30, h2 17 700,
+# code 15/22 이고 문단 사이 16. doc_css 가 모든 font-size 에 DOC_PX 와 확대 단계를 더하므로 여기 적는 값은 그만큼 뺀 것임.
+# 줄 높이는 px 로 고정하고(JOURNEY_CSS 와 같은 까닭), 제목은 글자색과 같은 색(파란 제목 없음)
+WEB_CSS = """
+body { font-size: %(wbody)spx; }
+p { margin-bottom: 16px; line-height: %(wline)spx; }
+p.h1 { font-size: %(wh1)spx; margin-top: 0px; margin-bottom: 8px; line-height: %(wh1line)spx; color: %(ink)s; }
+p.h2 { font-size: %(wbody)spx; margin-top: 24px; margin-bottom: 8px; line-height: %(wline)spx; color: %(ink)s; }
+p.h3 { font-size: %(wbody)spx; margin-top: 8px; margin-bottom: 4px; line-height: %(wline)spx; color: %(ink)s; }
+hr { background-color: %(track)s; margin-top: 16px; margin-bottom: 16px; }
+ul, ol { margin-top: 0px; margin-bottom: 8px; }
+li { margin-bottom: 8px; line-height: %(wline)spx; }
+li p { margin-bottom: 8px; }
+code { font-size: %(wcode)spx; background-color: %(track)s; }  /* doc_css 의 line 은 줄 간격 값이라 색은 track 으로 씀 */
+pre { font-size: %(wcode)spx; line-height: %(wcodeline)spx; }
+td.codebox { background-color: %(surface_alt)s; border: 0px; padding: 12px 16px; }
+td.quote { padding: 12px 16px 4px 16px; }
+table.grid { margin-top: 8px; margin-bottom: 8px; }
+table.grid th { padding: 8px 12px; }
+table.grid td { line-height: %(wline)spx; padding: 4px 12px 8px 12px; }
 """
 
 _fonts = {}
@@ -299,8 +437,18 @@ def _paint(scheme):
         palette.setColor(part, qcolor(name))
     app.setPalette(palette)
     check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
-    app.setStyleSheet(STYLE % dict(TOKENS[scheme], check=check) + EDITOR_STYLE)
+    tokens = dict(TOKENS[scheme], check=check)
+    app.setStyleSheet(STYLE % tokens + STYLE_V2 % tokens + EDITOR_STYLE)
     signals.changed.emit()
+
+
+def font(role, bold=None):
+    """TYPE 의 글자 단계 role 로 만든 화면 글꼴. bold 를 주면 굵기를 그것으로 바꿈(강조한 본문·이름표)."""
+    size, _, weight = TYPE[role]
+    f = QFont(QApplication.font())
+    f.setPixelSize(size)
+    f.setBold(weight >= 700 if bold is None else bool(bold))
+    return f
 
 
 def line_pct(times, font=None):
@@ -330,7 +478,9 @@ def doc_css(zoom=0, extra=""):
     extra 는 본문 CSS 뒤에 붙일 규칙(JOURNEY_CSS)."""
     css = (mdlite.CSS + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE), body=JOURNEY_PX - DOC_PX,
                                                 wide=round(JOURNEY_LINE * (JOURNEY_PX + zoom)),
-                                                code_line=line_pct(JOURNEY_CODE_LINE, code_font()))
+                                                code_line=line_pct(JOURNEY_CODE_LINE, code_font()),
+                                                wbody=TYPE["body"][0] - DOC_PX, wline=TYPE["body"][1] + zoom, wh1=TYPE["headline"][0] - DOC_PX,
+                                                wh1line=TYPE["headline"][1] + zoom, wcode=TYPE["code"][0] - DOC_PX, wcodeline=TYPE["code"][1] + zoom)
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
     families = ", ".join("'%s'" % name for name in code_families())
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)
@@ -339,3 +489,8 @@ def doc_css(zoom=0, extra=""):
 def journey_css(zoom=0):
     """알고리즘 여행의 지문·힌트·해설용 CSS. doc_css 에 JOURNEY_CSS 를 더함."""
     return doc_css(zoom, JOURNEY_CSS)
+
+
+def web_css(zoom=0):
+    """웹 면접 준비의 지문·해설·학습 노트용 CSS. doc_css 에 WEB_CSS 를 더함."""
+    return doc_css(zoom, WEB_CSS)

@@ -144,6 +144,9 @@ class ChainRecordTest(unittest.TestCase):
         log = DESIGN_LOG + [{"kind": "drill", "chain": "3-A", "q": 2, "talked": 1}, {"kind": "drill", "chain": "3-A", "q": 3, "talked": 0}]
         self.assertEqual((1, 2), record.talked_ratio(log))
         self.assertEqual({"2026-10-20"}, record.activity_days(DESIGN_LOG))
+        drills = [{"at": "2026-10-21T10:00:00", "kind": "drill", "chain": "3-A", "q": 1}, {"at": "2026-10-21T10:05:00", "kind": "chain", "chain": "3-A"}]
+        graded = sum(1 for e in DESIGN_LOG if e["kind"] in ("check", "chain"))  # 검사 한 번과 끝낸 사슬 하나
+        self.assertEqual({"2026-10-20": graded, "2026-10-21": 1}, record.activity_counts(DESIGN_LOG + drills))  # 드릴 질문 하나는 세지 않음
 
     def test_parse_at(self):
         self.assertEqual(datetime.datetime(2026, 10, 20, 9, 0, 0), record.parse_at("2026-10-20T09:00:00"))
