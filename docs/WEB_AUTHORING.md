@@ -119,7 +119,7 @@ web/
 
 - `package.json` 에는 `name`, `"private": true`, `"type": "module"`, `scripts` 만 둡니다. `scripts` 는 `dev: vite`, `test: vitest run` 이고 `typecheck: tsc --noEmit` 은 두어도 됩니다. 의존성은 저장소 맨 위 `package.json` 의 것을 쓰므로 적지 않습니다.
 - `vite.config.ts`(react 플러그인, `test.environment: 'jsdom'`), `tsconfig.json`, `index.html`, `src/` 를 둡니다.
-- `src/api.ts` 는 가짜 서버입니다. 검사가 `vi.mock('@app/api')` 로 바꿔 끼울 수 있게 함수만 export 합니다. 개발 모드의 지연과 실패는 `import.meta.env.DEV` 일 때만 쓰고 주소 쿼리(`?fail=1`)로 켭니다.
+- `src/api.ts` 는 가짜 서버입니다. 검사가 `vi.mock('@app/api')` 로 바꿔 끼울 수 있게 함수만 export 합니다. 개발 모드의 지연과 실패는 `import.meta.env.DEV` 일 때만 쓰고 주소 쿼리(`?fail=1`)로 켭니다. 개발 모드에서는 `main.tsx` 의 StrictMode 때문에 처음 요청이 두 번 나갑니다. 실패를 첫 요청 하나에만 주면 두 번째 요청이 성공해 실패 화면이 보이지 않습니다. 그래서 화면을 연 뒤 1초 안에 보낸 요청을 모두 실패시킵니다.
 - 실제 저장소처럼 기존 테스트를 1~3개 두고 템플릿에서 통과하게 합니다.
 - 바깥 주소(localhost 제외), 회사 이름, `node_modules`, `dist` 를 두지 않습니다. `app/` 전체 크기는 200KB 를 넘지 않게 합니다.
 
