@@ -49,8 +49,11 @@ def _seconds(start, end):
     return int((b - a).total_seconds())
 
 
-def _unified(name, before, after):
-    lines = difflib.unified_diff(before.splitlines(), after.splitlines(), fromfile=name, tofile=name, lineterm="")
+def _unified(name, before, after, labels=("내 코드", "모범 답안")):
+    """두 쪽 글의 unified diff. before·after 가 None 이면 그쪽에 파일이 없는 것. 머리 줄에 어느 쪽인지 적어 - 줄과 + 줄이
+    누구의 코드인지 보이게 하고, 한쪽에만 있는 파일은 다른 쪽 머리에 (없음)을 적음."""
+    head = ["%s %s" % (label, name) if text is not None else "%s (없음)" % label for label, text in zip(labels, (before, after))]
+    lines = difflib.unified_diff((before or "").splitlines(), (after or "").splitlines(), fromfile=head[0], tofile=head[1], lineterm="")
     return "\n".join(lines)
 
 
@@ -343,7 +346,7 @@ class WebSession:
         self._mission(mid)
         state = self._state(mid)
         if state["phase"] != "reading":
-            raise WebError("실전은 과제를 받고 읽는 중일 때 시작할 수 있습니다(지금 %s)." % PHASE_LABEL[state["phase"]])
+            raise WebError("실전은 미션을 받고 읽는 중일 때 시작할 수 있습니다(지금 %s)." % PHASE_LABEL[state["phase"]])
         self._append({"kind": "live", "item": mid, "try": state["try"], "no_ai": None if no_ai is None else bool(no_ai)})
         return self.mission(mid)
 
@@ -385,7 +388,7 @@ class WebSession:
         node, _ = self._require_stack()
         app_src = os.path.join(self.learner_dir(mid), "src")
         if not os.path.isdir(app_src):
-            raise WebError("미션 폴더가 없습니다: %s. 과제를 다시 받아 주세요." % study.shown_path(self.learner_dir(mid)))
+            raise WebError("미션 폴더가 없습니다: %s. 미션을 다시 받아 주세요." % study.shown_path(self.learner_dir(mid)))
         try:
             result = checks.run_steps(node["path"], self.repo, mid, self._secrets_of("mission", mid), bank.kit_files(self.root),
                                       list(range(1, current + 1)), app_src)
@@ -493,10 +496,10 @@ class WebSession:
         template_diff, mine_diff = [], []
         for name in sorted(set(template) | set(model)):
             if template.get(name, "") != model.get(name, ""):
-                template_diff.append({"file": name, "diff": _unified(name, template.get(name, ""), model.get(name, ""))})
+                template_diff.append({"file": name, "diff": _unified(name, template.get(name), model.get(name), ("템플릿", "모범 답안"))})
         for name in sorted(set(mine) | set(model)):
             if mine.get(name, "") != model.get(name, ""):
-                mine_diff.append({"file": name, "diff": _unified(name, mine.get(name, ""), model.get(name, ""))})
+                mine_diff.append({"file": name, "diff": _unified(name, mine.get(name), model.get(name))})
         cid = mid + "-F"
         followups = None
         if "followups.md" in secrets and cid in bank.parse_chains(secrets["followups.md"]):
@@ -525,7 +528,7 @@ class WebSession:
         self._mission(mid)
         folder = self.learner_dir(mid)
         if not os.path.isfile(os.path.join(folder, "package.json")):
-            raise WebError("미션 폴더가 없습니다: %s. 과제를 먼저 받아 주세요." % study.shown_path(folder))
+            raise WebError("미션 폴더가 없습니다: %s. 미션을 먼저 받아 주세요." % study.shown_path(folder))
         return folder
 
     def serve(self, mid):

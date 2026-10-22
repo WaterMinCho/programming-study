@@ -5,6 +5,7 @@ FakeVitest 를 씀. 창·터미널·편집기는 열지 않음.
 
 실행: python -m unittest tests.test_web_cli
 """
+import io
 import os
 import sys
 import time
@@ -49,7 +50,7 @@ class MissionCliTest(CliBase):
     def test_mission_from_get_to_explanation(self):
         code, text = self.cmd("get", "x01")
         self.assertEqual(0, code)
-        self.assertIn("과제를 받았습니다", text)
+        self.assertIn("미션을 받았습니다", text)
         self.assertIn("읽기 시간 2분", text)
         self.assertIn("# x01. 횟수 세기 버튼", text)
         self.assertTrue(os.path.isfile(self.app_path()))
@@ -414,6 +415,101 @@ class FollowCliTest(CliBase):
         code, text = self.cmd("check", "x01", answers=["", "1"])
         self.assertIn("2단계를 통과했습니다.", text)
         self.assertNotIn("앞서 통과한", text)  # 넘어간 1단계는 깨졌다고 하지 않음
+
+
+class CliWordingTest(CliBase):
+    """재풀이 보고에서 헷갈린다고 한 터미널 글. 그림 메모, 비교의 어느 쪽, 시간 단위, 빈 줄과 없는 번호, 영어 도움말."""
+
+    def live(self):
+        self.cmd("get", "x01")
+        self.cmd("start", "x01", "--no-ai", "yes")
+        self.cmd("check", "x01", "--said", "1")
+
+    def test_step_zero_points_to_the_command_and_lists_said_items(self):
+        self.cmd("get", "x01")
+        code, text = self.cmd("start", "x01", "--no-ai", "yes")
+        self.assertIn("표시하려면 `python study.py web check x01` 를 실행하세요.", text)
+        code, text = self.cmd("check", "x01", "--said", "1,3")
+        self.assertEqual(0, code)
+        self.assertIn("적은 번호를 아래 항목에 표시했습니다.", text)
+        self.assertIn("  1. [v] 횟수가 `App`의 state 에 있다고 말했습니다.", text)
+        self.assertIn("  2. [ ] 버튼을 누르면", text)
+        self.assertIn("항목 번호가 아니라서 빼고 기록했습니다: 3. 항목은 1번부터 2번까지입니다.", text)
+        self.assertEqual([1, 0], self.log()[-1]["said"])
+
+    def test_follow_up_asks_again_after_an_empty_line(self):
+        self.live()
+        self.solve(2)
+        self.cmd("check", "x01")
+        code, text = self.cmd("check", "x01", answers=["", "", "1"])
+        self.assertEqual(0, code)
+        self.assertIn("면접관이 이어서 묻습니다. 30초 안에 소리 내어 답하세요.", text)
+        self.assertNotIn("통과하면 면접관이", text)
+        self.assertIn("표시한 항목이 없습니다", self.asked[-1])
+        self.assertIn("판정: 통과", text)
+        self.assertEqual(("after", [1]), (self.log()[-1]["kind"], self.log()[-1]["need"]))
+
+    def test_follow_up_two_empty_lines_mean_nothing_was_said(self):
+        self.live()
+        self.solve(2)
+        self.cmd("check", "x01")
+        code, text = self.cmd("check", "x01", answers=["", "", ""])
+        self.assertIn("판정: 막힘", text)
+        self.assertEqual(("after", [0]), (self.log()[-1]["kind"], self.log()[-1]["need"]))
+
+    def test_answer_said_drops_unknown_numbers_and_shows_marks(self):
+        self.live()
+        self.solve(2)
+        self.cmd("check", "x01")
+        with mock.patch.object(self, "ask", side_effect=EOFError):
+            self.cmd("check", "x01")
+        code, text = self.cmd("answer", "x01", "--said", "1 3")
+        self.assertEqual(0, code)
+        self.assertIn("항목 번호가 아니라서 빼고 기록했습니다: 3. 항목은 1번부터 2번까지입니다.", text)
+        self.assertIn("  1. [v] [필수] `App` 함수가", text)
+        self.assertIn("  2. [ ] [보충]", text)
+        self.assertEqual([1], self.log()[-1]["need"])
+
+    def test_finish_shows_figure_captions_labels_the_diff_and_spells_out_time(self):
+        self.live()
+        self.solve(2)
+        self.cmd("check", "x01")
+        self.cmd("check", "x01", answers=["", "1"])
+        study.write_text(os.path.join(os.path.dirname(self.app_path()), "Extra.tsx"), "export const extra = 1;\n")
+        real = service.WebSession.finish
+
+        def finish(web, mid):
+            result = real(web, mid)
+            result["explain"] += ("\n\n```figure\n파일: assets/x01-1.png\n캡션: 그림 1. 두 버튼이 같은 state 를 바꿉니다.\n"
+                                  "내용: 버튼 두 개에서 count 상자로 화살표를 그음.\n```\n")
+            return result
+        with mock.patch.object(service.WebSession, "finish", finish):
+            code, text = self.cmd("finish", "x01", "--self", "")
+        self.assertEqual(0, code)
+        self.assertIn("[그림] 그림 1. 두 버튼이 같은 state 를 바꿉니다.", text)
+        self.assertNotIn("파일: assets", text)
+        self.assertNotIn("내용: 버튼", text)
+        self.assertIn("내 코드(-)와 모범 답안(+)의 차이", text)
+        self.assertIn("--- 내 코드 src/Extra.tsx", text)
+        self.assertIn("+++ 모범 답안 (없음)", text)
+        self.assertRegex(text, r"실전 (\d+분( \d+초)?|\d+초)")
+        self.assertNotRegex(text, r"실전 \d+:\d\d")
+        self.assertIn("스스로 점검 항목 가운데 해당하는 것에 표시하세요.", text)
+        self.assertEqual(["46초", "1분 27초", "10분"], [cli._duration(s) for s in (46, 87, 600)])
+
+    def test_command_help_and_argument_errors_are_korean(self):
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch("sys.stdout", out):
+            code = cli.main(["check", "--help"], out=self.lines.append, ask=self.ask, clock=self.monotonic, repo=self.repo, home=self.home)
+        self.assertEqual(0, code)
+        self.assertIn("사용법: study.py web check", out.getvalue())
+        self.assertIn("이 도움말을 보고 끝냅니다", out.getvalue())
+        for english in ("usage:", "options:", "positional arguments", "show this help"):
+            self.assertNotIn(english, out.getvalue())
+        with mock.patch("sys.stderr", err):
+            code = cli.main(["check"], out=self.lines.append, ask=self.ask, clock=self.monotonic, repo=self.repo, home=self.home)
+        self.assertEqual(2, code)
+        self.assertIn("오류: 빠진 인자가 있습니다: mission", err.getvalue())
 
 
 class PipeAskTest(unittest.TestCase):
