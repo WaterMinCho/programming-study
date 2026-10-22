@@ -627,14 +627,23 @@ class WebSession:
 
     # 현황
 
-    def _next(self, found, schedules, learned):
+    def _next(self, found, schedules, learned, today=None):
+        """이어서 할 일 하나. 읽는 중·실전 중인 미션이 먼저, 그다음 오늘 복습할 사슬, 그다음 권장 순서(index.order)에서 아직 안 한 것.
+        {"kind", "id", "title", "phase"(미션만), "chain"(복습 사슬의 주제 kind 일 때 사슬 id)}."""
+        for iid in self.index["order"]:
+            if iid in self.missions and (found.get(iid) or {}).get("phase") in ("reading", "live"):
+                return {"kind": "mission", "id": iid, "title": self.missions[iid]["title"], "phase": found[iid]["phase"]}
+        due = [row for row in (today or self.today_list())["chains"] if not row["new"]]  # 한 번 푼 사슬의 복습만. 새 사슬은 권장 순서로 돎
+        if due:
+            return {"kind": "chain", "id": due[0]["chain"], "title": due[0]["title"]}
         for iid in self.index["order"]:
             if iid in self.pages and iid not in learned:
                 return {"kind": "page", "id": iid, "title": self.pages[iid]["title"]}
             if iid in self.missions and (found.get(iid) or {}).get("phase") != "done":
-                return {"kind": "mission", "id": iid, "title": self.missions[iid]["title"]}
+                return {"kind": "mission", "id": iid, "title": self.missions[iid]["title"], "phase": (found.get(iid) or {}).get("phase", "none")}
             if iid in self.topics and any(c["id"] not in schedules for c in self.topics[iid]["chains"]):
-                return {"kind": "topic", "id": iid, "title": self.topics[iid]["title"]}
+                chain = next(c for c in self.topics[iid]["chains"] if c["id"] not in schedules)
+                return {"kind": "topic", "id": iid, "title": self.topics[iid]["title"], "chain": chain["id"], "chain_title": chain["title"]}
         return None
 
     def overview(self):
@@ -666,7 +675,8 @@ class WebSession:
         pages = [dict(entry, ready=entry["id"] in self.pages, error=self.errors.get(entry["id"], ""),
                       learned_at=learned.get(entry["id"])) for entry in self.index["pages"]]
         talked, stuck = record.talked_ratio(self._all_log())
+        today = self.today_list()
         return {"stack": self.stack_state(), "missions": missions, "topics": topics, "pages": pages,
                 "done_missions": sum(1 for m in missions if m["phase"] == "done"), "ready_missions": sum(1 for m in missions if m["ready"]),
-                "today": self.today_list(), "next": self._next(found, schedules, learned), "talked": talked, "stuck": stuck,
+                "today": today, "next": self._next(found, schedules, learned, today), "talked": talked, "stuck": stuck,
                 "activity": sorted(record.activity_days(self._all_log())), "bank_errors": list(self.bank_errors)}

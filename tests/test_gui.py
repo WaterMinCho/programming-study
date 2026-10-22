@@ -188,7 +188,7 @@ class GuiTest(unittest.TestCase):
         self.win.boot()
         self.idle()
         if self.page() is self.win.hub:
-            click(self.win.hub.python_btn)
+            click(self.win.hub.python_row)
             self.idle()
 
     def page(self):
@@ -283,7 +283,7 @@ class FirstRunTest(GuiTest):
         click(dialog.ok)
         self.idle()
         self.assertIs(self.page(), win.hub)
-        click(win.hub.python_btn)
+        click(win.hub.python_row)
         self.assertEqual(session.saved_user(), "tester")
         self.assertEqual(self.git.calls, ["sync"])
         self.assertIs(self.page(), home)
@@ -446,7 +446,7 @@ class FirstRunTest(GuiTest):
             self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()), label.text())
         click(dialog.ok)
         self.idle()
-        click(self.win.hub.python_btn)
+        click(self.win.hub.python_row)
         self.assertEqual(session.saved_user(), "Tester")
         self.assertEqual(self.win.home.user.text(), "ID: Tester")
         self.assertEqual(self.win.home.action_btn.text(), "진단 테스트 시작")
@@ -2158,6 +2158,8 @@ class ThemeTest(GuiTest):
         self.assertIn(theme.DARK["ink"], page.body.document().defaultStyleSheet())
         self.assertTrue(all(gray(value) <= 200 for value in backgrounds(sheet)), backgrounds(sheet))
         for name in ("bg", "surface", "surface_alt", "hover", "notice_bg", "code_bg", "codebox_bg", "table_head", "selection", "track"):
+            if theme.LIGHT[name] in theme.DARK.values():  # 흰색은 어두운 테마에서 주 단추 글자색으로 씀
+                continue
             self.assertNotIn(theme.LIGHT[name], sheet, name)
 
         def check(widget, *browsers):

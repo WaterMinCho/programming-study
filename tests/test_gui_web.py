@@ -20,11 +20,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
 from PyQt6.QtCore import QPoint, QRect, QSettings  # noqa: E402
-from PyQt6.QtWidgets import QScrollArea  # noqa: E402
+from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea  # noqa: E402
 
 import session  # noqa: E402
 import study  # noqa: E402
-from gui import errors, theme  # noqa: E402
+from gui import errors, kit, theme  # noqa: E402
 from gui.docview import FigureView, TextPiece  # noqa: E402
 from gui.web_home import NO_STUCK  # noqa: E402
 from gui.web_learn import scroll_to_heading  # noqa: E402
@@ -54,6 +54,11 @@ def doc_text(view):
 def inside(win, widget):
     """widget 이 창 안에 다 들어와 있는지."""
     return win.rect().contains(QRect(widget.mapTo(win, QPoint(0, 0)), widget.size()))
+
+
+def name_of(widget):
+    """단추나 목록 줄의 글. 목록 줄(kit.Row)은 제목으로 부름."""
+    return widget.text() if hasattr(widget, "text") else widget.title.text()
 
 
 def shows_whole(label):
@@ -205,13 +210,15 @@ class HubRowTest(WebTest):
         win = self.boot()
         hub = win.hub
         self.assertTrue(win.web_node_known)
-        self.assertEqual((hub.web_done.text(), hub.web_due.text()), ("0 / 1", "2"))
-        self.assertEqual(hub.web_stack.text(), "Node.js 22.23.2 · 검사 도구 설치됨 (약 80MB)")
-        self.assertEqual(hub.web_next.text(), "학습 노트 l90 시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요")
-        self.assertTrue(hub.web_btn.isEnabled())
+        self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 2개")
+        self.assertFalse(hub.web_row.inert)
         today = datetime.date.today()
         self.assertEqual(hub.chart.days[-1], (today, 0, 0, 0))
         self.assertEqual(hub.streak.text(), "연속 학습 0일")
+        self.assertEqual(hub.summary.text(), "이어서 할 일을 골라 시작하세요.")
+        self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("진단 테스트", "시작"))  # 어느 트랙에도 기록이 없으면 파이썬
+        self.assertTrue(hub.next_card.line.text().startswith("파이썬 스터디 · "), hub.next_card.line.text())
+        self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
         self.clock = datetime.datetime.now().isoformat(timespec="seconds")  # 검사와 드릴을 오늘 기록함
         web = self.to_live()
         web.check("x01")
@@ -221,12 +228,17 @@ class HubRowTest(WebTest):
         hub.refresh()
         self.assertEqual(hub.chart.days[-1], (today, 0, 0, 1))
         self.assertEqual(hub.streak.text(), "연속 학습 1일")
-        self.assertEqual((hub.web_done.text(), hub.web_due.text()), ("0 / 1", "1"))
-        self.assertTrue(hub.web_next.text().startswith("미션 x01 "), hub.web_next.text())
+        self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 1개")
+        self.assertEqual(hub.summary.text(), "진행 중인 미션 1개가 있습니다.")
+        self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), (win.web.missions["x01"]["title"], "이어 하기"))
+        self.assertTrue(hub.next_card.line.text().startswith("웹 면접 준비 · 라이브 코딩 미션 · 1단계 · "), hub.next_card.line.text())
+        guikit.click(hub.next_btn)
+        self.idle()
+        self.assertEqual((self.page(), win.web_mission.mid), (win.web_mission, "x01"))
+        win.go_hub()
         self.node = None
         hub.refresh()
-        self.assertEqual(hub.web_stack.text(), "Node.js 없음 · 검사 도구 설치됨 (약 80MB)")
-        self.assertIn("웹 면접 준비", hub.series.text())
+        self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 1개 · Node.js 없음")
 
     def test_broken_web_record_disables_the_row_and_the_other_tracks_still_work(self):
         study.write_text(self.record_path(), '{"log": [<<<<')
@@ -234,20 +246,19 @@ class HubRowTest(WebTest):
         hub = win.hub
         self.assertIsNone(win.web)
         self.assertTrue(hub.web_error.isVisible())
-        self.assertIn("record.json", hub.web_error.text())
-        self.assertFalse(hub.web_btn.isEnabled())
-        self.assertFalse(hub.web_body.isVisible())
-        self.assertTrue(hub.journey_btn.isEnabled())
+        self.assertIn("record.json", hub.web_error.text.text())
+        self.assertTrue(hub.web_row.inert)
+        self.assertEqual(hub.web_row.second.text(), "기록을 읽지 못했습니다.")
+        self.assertFalse(hub.journey_row.inert)
         self.assertEqual(hub.chart.days[-1][3], 0)
-        hub.web_btn.click()
-        guikit.pump()
+        guikit.click(hub.web_row)
         self.assertIs(self.page(), hub)
-        guikit.click(hub.python_btn)
+        guikit.click(hub.python_row)
         self.assertIs(self.page(), win.home)
 
     def test_entering_and_leaving_the_web_home(self):
         win = self.boot()
-        guikit.click(win.hub.web_btn)
+        guikit.click(win.hub.web_row)
         self.assertEqual((self.page(), win.area), (win.web_home, "web"))
         guikit.click(win.web_home.hub_btn)
         self.assertEqual((self.page(), win.area), (win.hub, "hub"))
@@ -259,7 +270,7 @@ class HubRowTest(WebTest):
         win.web.node = lambda probe=False: workers.append(threading.current_thread() is not threading.main_thread()) or real(probe)
         win.web_node_seen = True  # 진짜 찾기는 node 모듈이 결과를 기억함
         with mock.patch.object(node_finder, "searched", return_value=False):  # 여행의 [다시 찾기]가 기억을 모두 버린 뒤
-            guikit.click(win.hub.web_btn)
+            guikit.click(win.hub.web_row)
             self.idle()
         self.assertEqual((workers, self.page()), ([True, False], win.web_home))  # 워커에서 한 번 찾은 뒤 웹 홈이 현황을 읽음
         guikit.click(win.web_home.hub_btn)
@@ -270,69 +281,97 @@ class HubRowTest(WebTest):
 class HomeTest(WebTest):
     def test_lists_show_today_missions_topics_and_pages(self):
         win = self.boot()
-        guikit.click(win.hub.web_btn)
+        win.go_web()
+        self.idle()
         home = win.web_home
-        self.assertEqual(home.stack_label.text(), "Node.js 22.23.2 · 검사 도구 설치됨 (약 80MB)")
+        self.assertEqual((home.stack_dot.state, home.stack_label.text()), ("ready", "검사 도구 준비됨"))
         self.assertFalse(home.problem.isVisible())
-        rows = [home.today_list.item(n).text() for n in range(home.today_list.count())]
-        self.assertEqual(rows, ["사슬 90-A 버튼을 눌렀는데 화면이 그대로일 때\n새 사슬", "사슬 90-B state 를 두 번 바꿀 때\n새 사슬"])
+        self.assertEqual((home.next_card.title.text(), home.next_card.line.text(), home.next_btn.text()),
+                         ("시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요", "학습 노트", "노트 읽기"))
+        rows = [(r.title.text(), r.second.text(), r.mark.state) for r in home.today_list.rows]
+        self.assertEqual(rows, [("버튼을 눌렀는데 화면이 그대로일 때", "시작 전 · 시험 주제: state 와 렌더링", "todo"),
+                                ("state 를 두 번 바꿀 때", "시작 전 · 시험 주제: state 와 렌더링", "todo")])
         self.assertEqual(home.today_minutes.text(), "약 8분")
-        self.assertEqual(home.today_list.height(), rows_height(home.today_list, 2))  # 목록은 줄 수만큼의 높이
-        rows = [home.mission_list.item(n) for n in range(home.mission_list.count())]
-        self.assertEqual([r.text() for r in rows], ["x01 횟수 세기 버튼 · 워밍업\n받기 전", "x02 준비 중 미션 · 기본\n준비 중"])
-        self.assertEqual(home.mission_list.height(), rows_height(home.mission_list, 2))
-        self.assertFalse(rows[1].flags() & rows[1].flags().ItemIsEnabled)
-        self.assertEqual((home.mission_btn.text(), home.mission_note.text()), ("받기", "읽기 2분 · 실전 6분 · 2단계"))
-        self.assertEqual(sorted(home.chips), ["t90", "t91"])
-        self.assertEqual((home.chips["t90"].ready, home.chips["t91"].ready), (True, False))
-        self.assertEqual((home.chips["t90"].count.text(), home.chips["t91"].count.text()), ("0/2", "준비 중"))
-        self.assertEqual(home.chips["t90"].toolTip(), "90 시험 주제: state 와 렌더링 · 사슬 2개 가운데 0개 풂")
-        self.assertEqual(home.chain_title.text(), "주제 90 「시험 주제: state 와 렌더링」의 사슬")
-        self.assertEqual([home.chain_list.item(n).text().split("\n")[1] for n in range(home.chain_list.count())], ["새 사슬", "새 사슬"])
-        rows = [home.page_list.item(n) for n in range(home.page_list.count())]
-        self.assertEqual([r.text().split("\n")[1] for r in rows], ["아직 읽지 않음", "준비 중"])
+        self.assertTrue(all(r.height() >= 72 for r in home.today_list.rows))  # 두 줄짜리 줄은 72 이상
+        rows = home.mission_list.rows
+        self.assertEqual([(r.title.text(), r.second.text(), r.end.text(), r.mark.state) for r in rows],
+                         [("횟수 세기 버튼", "시작 전 · 읽기 2분, 실전 6분", "워밍업", "todo")])
+        self.assertEqual((home.mission_list.more_btn.text(), home.mission_count.text()), ("준비 중 1개 보기", "1개 중 0개 끝남"))
+        self.assertEqual(sorted(home.chips), ["t90"])  # 준비 중인 주제는 칩이 아니라 접힌 글
+        self.assertTrue(home.chips["t90"].isChecked())
+        self.assertEqual((home.more_topics_btn.text(), home.more_topics.isVisible()), ("준비 중 1개 보기", False))
+        guikit.click(home.more_topics_btn)
+        self.assertTrue(home.more_topics.isVisible())
+        self.assertEqual(home.topic_count.text(), "사슬 2개 중 0개 끝남")
+        self.assertEqual([(r.title.text(), r.second.text(), r.mark.state) for r in home.chain_list.rows],
+                         [("버튼을 눌렀는데 화면이 그대로일 때", "시작 전", "todo"), ("state 를 두 번 바꿀 때", "시작 전", "todo")])
+        self.assertEqual([(r.title.text(), r.second.isVisible(), r.mark.state) for r in home.page_list.rows],
+                         [("시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요", False, "todo")])
+        self.assertEqual((home.page_list.more_btn.text(), home.page_count.text()), ("준비 중 1개 보기", "1개 중 0개 끝남"))
         self.assertEqual(home.talked.text(), NO_STUCK)
+        texts = " ".join(label.text() for label in home.findChildren(QLabel))
+        for hidden in ("x01", "x02", "t90", "l90", "90-A", "상자"):  # 내부 ID 는 화면에 없음
+            self.assertNotIn(hidden, texts)
         web = self.to_live()
         web.answer("90-A", 1, 10, [0], [], False)
+        web.finish_chain("90-A")
         web.show("l90")
+        self.tick(minutes=1)
         home.refresh()
-        self.assertEqual(home.talked.text(), "막힌 질문에서 아는 데까지 말한 비율 0 / 1")
-        self.assertEqual(home.mission_list.item(0).text(), "x01 횟수 세기 버튼 · 워밍업\n실전 중 0:00 / 6:00 · 1단계")
-        self.assertEqual(home.mission_btn.text(), "이어 하기")
-        self.assertTrue(home.page_list.item(0).text().endswith("읽음 10/21"))
+        self.assertEqual(home.talked.text(), "막혀도 끝까지 말함 0/1")
+        self.assertEqual((home.next_card.title.text(), home.next_card.line.text(), home.next_btn.text()),
+                         ("횟수 세기 버튼", "라이브 코딩 미션 · 1단계 · 5분 남음", "이어 하기"))
+        row = home.mission_list.rows[0]
+        self.assertEqual((row.second.text(), row.mark.state), ("진행 중 · 1단계 · 5분 남음", "progress"))
+        # 막힌 사슬은 바로 오늘 다시 풀게 잡혀서 사슬 줄과 오늘 복습에 '오늘 복습'으로 보임
+        self.assertEqual([(r.second.text(), r.mark.state) for r in home.chain_list.rows], [("오늘 복습", "review"), ("시작 전", "todo")])
+        self.assertEqual([(r.title.text(), r.second.text(), r.mark.state) for r in home.today_list.rows][0],
+                         ("버튼을 눌렀는데 화면이 그대로일 때", "시험 주제: state 와 렌더링 · 두 번째 복습", "review"))
+        self.assertEqual(home.page_list.rows[0].mark.state, "done")
+        self.assertEqual(home.page_count.text(), "1개 중 1개 끝남")
 
-    def test_buttons_open_the_screens(self):
+    def test_rows_and_the_card_open_the_screens(self):
         win = self.boot()
-        guikit.click(win.hub.web_btn)
+        win.go_web()
+        self.idle()
         home = win.web_home
-        guikit.click(home.review_btn)
-        self.assertIs(self.page(), win.web_drill)
-        self.assertEqual(win.web_drill.cid, "90-A")
-        guikit.click(win.web_drill.back_btn)
-        self.assertIs(self.page(), home)
-        home.chain_list.setCurrentRow(1)
-        guikit.click(home.drill_btn)
-        self.assertEqual((self.page(), win.web_drill.cid), (win.web_drill, "90-B"))
-        guikit.click(win.web_drill.back_btn)
-        guikit.click(home.mission_btn)
-        self.assertEqual((self.page(), win.web_mission.mid), (win.web_mission, "x01"))
-        guikit.click(win.web_mission.home_btn)
-        guikit.click(home.read_btn)
+        guikit.click(home.next_btn)  # 이어서 할 일: 학습 노트
         self.assertEqual((self.page(), win.web_learn.pid), (win.web_learn, "l90"))
         guikit.click(win.web_learn.back_btn)
         self.assertIs(self.page(), home)
-        self.assertEqual(self.kinds(), ["learn"])
+        guikit.click(home.today_list.rows[0])
+        self.assertEqual((self.page(), win.web_drill.cid), (win.web_drill, "90-A"))
+        guikit.click(win.web_drill.back_btn)
+        self.assertIs(self.page(), home)
+        guikit.click(home.chain_list.rows[1])
+        self.assertEqual((self.page(), win.web_drill.cid), (win.web_drill, "90-B"))
+        guikit.click(win.web_drill.back_btn)
+        guikit.click(home.mission_list.rows[0])
+        self.assertEqual((self.page(), win.web_mission.mid), (win.web_mission, "x01"))
+        guikit.click(win.web_mission.home_btn)
+        guikit.click(home.page_list.rows[0])
+        self.assertEqual((self.page(), win.web_learn.pid), (win.web_learn, "l90"))
+        guikit.click(win.web_learn.back_btn)
+        self.assertIs(self.page(), home)
+        self.assertEqual(self.kinds(), ["learn", "learn"])
+        home.set_busy(True, "제출하는 중입니다.")  # 일이 도는 동안은 줄을 눌러도 열리지 않음
+        guikit.click(home.mission_list.rows[0])
+        self.assertIs(self.page(), home)
+        self.assertEqual((home.status.text(), home.busy_bar.isVisible(), home.next_btn.isEnabled()), ("제출하는 중입니다.", True, False))
+        home.set_busy(False)
+        self.assertEqual(len(kit.visible_primary_buttons(home)), 1)  # 주 단추는 이어서 할 일 카드의 것 하나
 
     def test_a_record_broken_while_running_clears_the_page_and_the_screens_say_why(self):
         win = self.boot()
-        guikit.click(win.hub.web_btn)
+        win.go_web()
+        self.idle()
         home = win.web_home
         study.write_text(self.record_path(), '{"log": [<<<<')
         home.refresh()
         self.assertTrue(home.notice.isVisible())
-        self.assertIn("record.json", home.notice.text())
-        self.assertEqual((home.chips, home.mission_list.count(), home.stack_label.text(), home.chain_title.text()), ({}, 0, "", ""))
-        self.assertFalse(home.mission_btn.isEnabled() or home.drill_btn.isEnabled() or home.read_btn.isEnabled())
+        self.assertIn("record.json", home.notice.text.text())
+        self.assertEqual((home.chips, home.mission_list.rows, home.stack_label.text(), home.chain_list.rows), ({}, [], "", []))
+        self.assertFalse(home.next_card.isVisible())
         win.open_mission("x01")
         guikit.pump()
         self.assertIn("record.json", win.dialog.text.text())
@@ -341,15 +380,17 @@ class HomeTest(WebTest):
     def test_without_node_the_problem_line_shows(self):
         self.node = None
         win = self.boot()
-        guikit.click(win.hub.web_btn)
+        win.go_web()
+        self.idle()
         home = win.web_home
         self.assertTrue(home.problem.isVisible())
-        self.assertIn("Node.js 22.12", home.problem.text())
-        self.assertEqual(home.stack_label.text(), "Node.js 없음 · 검사 도구 설치됨 (약 80MB)")
+        self.assertIn("Node.js 22.12", home.problem.text.text())
+        self.assertEqual((home.stack_dot.state, home.stack_label.text()), ("todo", "Node.js 없음"))
 
     def test_setup_dialog_installs_removes_and_shows_failures(self):
         win = self.boot()
-        guikit.click(win.hub.web_btn)
+        win.go_web()
+        self.idle()
         home = win.web_home
         guikit.click(home.setup_btn)
         dialog = home.setup_dialog
@@ -357,14 +398,18 @@ class HomeTest(WebTest):
         self.assertIn("약 80MB", dialog.consent.toPlainText())
         self.assertIn("/fake/node", dialog.consent.toPlainText())  # 경로는 동의 글에만, 상태 줄은 한 줄
         self.assertEqual(dialog.state.text(), "Node.js 22.23.2 · 검사 도구 설치됨 (약 80MB)")
-        self.assertEqual(dialog.install_btn.text(), "다시 설치")
-        self.assertTrue(dialog.remove_btn.isEnabled())
+        self.assertEqual((dialog.badge.text(), dialog.badge.property("tone")), ("설치됨", "success"))
+        self.assertFalse(dialog.install_btn.isVisible())  # 설치된 상태에서는 주 단추 없이 [닫기]. 다시 설치는 글자 단추
+        self.assertTrue(dialog.again_btn.isVisible() and dialog.remove_btn.isEnabled())
+        self.assertEqual(kit.visible_primary_buttons(dialog), [])
         guikit.click(dialog.remove_btn)
+        self.assertEqual(win.dialog.buttons["remove"].objectName(), "danger")  # 되돌릴 수 없는 확인은 빨간 단추, Enter 없음
+        self.assertFalse(win.dialog.buttons["remove"].isDefault())
         self.choose("remove")  # 지우기는 워커에서 돌고 choose 가 끝나기를 기다림
         self.assertFalse(os.path.isdir(os.path.join(self.repo, "node_modules")))
-        self.assertEqual((dialog.result.text(), dialog.busy), ("지웠습니다: node_modules", False))
-        self.assertEqual((dialog.install_btn.text(), dialog.remove_btn.isEnabled()), ("설치", False))
-        self.assertEqual(home.stack_label.text(), "Node.js 22.23.2 · 검사 도구 설치 전")
+        self.assertEqual((dialog.result.text.text(), dialog.result.property("tone"), dialog.busy), ("지웠습니다: node_modules", "success", False))
+        self.assertEqual((dialog.install_btn.text(), dialog.install_btn.isVisible(), dialog.remove_btn.isVisible()), ("설치하기", True, False))
+        self.assertEqual((dialog.badge.text(), home.stack_label.text()), ("설치 전", "검사 도구 설치 전"))
         self.assertTrue(home.problem.isVisible())
         log = stack.log_path()
 
@@ -378,28 +423,29 @@ class HomeTest(WebTest):
         with mock.patch.object(stack, "install", fake_install):
             guikit.click(dialog.install_btn)
             self.idle()
-        self.assertEqual(dialog.result.text(), "검사 도구를 설치했습니다(3초).")
+        self.assertEqual(dialog.result.text.text(), "검사 도구를 설치했습니다(3초).")
         self.assertFalse(dialog.busy)
-        self.assertEqual(dialog.install_btn.text(), "다시 설치")
-        self.assertEqual(home.stack_label.text(), "Node.js 22.23.2 · 검사 도구 설치됨 (약 80MB)")
+        self.assertFalse(dialog.install_btn.isVisible())
+        self.assertEqual(home.stack_label.text(), "검사 도구 준비됨")
         self.assertFalse(home.problem.isVisible())
         failed = {"ok": False, "message": "설치가 실패했습니다(종료 코드 1). 로그를 확인해 주세요: %s" % log, "seconds": 1.0, "log": log}
         with mock.patch.object(stack, "install", return_value=failed):
-            guikit.click(dialog.install_btn)
+            guikit.click(dialog.again_btn)
             self.idle()
-        self.assertEqual(dialog.result.text(), failed["message"])
-        self.assertEqual(dialog.result.objectName(), "error")
+        self.assertEqual(dialog.result.text.text(), failed["message"])
+        self.assertEqual(dialog.result.property("tone"), "danger")
         self.assertIn("added 240 packages", dialog.log.toPlainText())
         self.assertTrue(dialog.log.isVisible())
-        self.assertGreaterEqual(dialog.height(), layout_height(dialog))  # 로그와 결과 글이 나타나도 위젯이 겹치지 않음
+        self.assertGreaterEqual(dialog.height(), layout_height(dialog))  # 로그와 결과 띠가 나타나도 위젯이 겹치지 않음
         with mock.patch.object(win, "run_job", return_value=False):  # 다른 일이 도는 중이면 잠긴 채 남지 않음
             dialog.install()
-        self.assertEqual((dialog.busy, dialog.status.text(), dialog.install_btn.isEnabled()), (False, BUSY_ELSEWHERE, True))
+        self.assertEqual((dialog.busy, dialog.status.text(), dialog.again_btn.isEnabled()), (False, BUSY_ELSEWHERE, True))
         self.node = None
-        guikit.click(dialog.install_btn)  # Node 가 없으면 설치 단추는 꺼짐
+        guikit.click(dialog.again_btn)  # Node 가 없으면 설치 단추는 꺼짐
         self.idle()
         dialog.refresh()
-        self.assertFalse(dialog.install_btn.isEnabled())
+        self.assertFalse(dialog.again_btn.isEnabled() or dialog.install_btn.isEnabled())
+        self.assertEqual((dialog.badge.text(), dialog.badge.property("tone")), ("Node.js 없음", "danger"))
         dialog.close()
 
 
@@ -407,41 +453,45 @@ class MissionTest(WebTest):
     def test_before_and_reading_states_and_the_reading_timer(self):
         win = self.boot()
         page = self.open_mission()
-        self.assertEqual((page.view["phase"], page.phase_tag.text()), ("none", "받기 전"))
+        self.assertEqual((page.view["phase"], page.title.text()), ("none", "횟수 세기 버튼"))
         self.assertIs(page.left.currentWidget(), page.brief_view)
+        self.assertIs(page.right.currentWidget(), page.info_page)
         self.assertIn("x01. 횟수 세기 버튼", doc_text(page.brief_view))
-        self.assertIn("읽기 2분, 실전 6분", doc_text(page.info_view))
-        self.assertEqual(page.timer_label.text(), "읽기 2분 · 실전 6분")
-        self.assertTrue(page.get_btn.isVisible())
+        self.assertEqual(page.info_values["시간"].text(), "읽기 2분, 실전 6분")
+        self.assertEqual(page.info_values["단계"].text(), "0~2단계. 0단계는 말로 설명합니다.")
+        self.assertEqual([row.title.text() for row in page.note_rows.rows], ["시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요"])
+        self.assertTrue(page.phase_note.isVisible())
+        self.assertEqual(page.phase_note.text(), "읽기 2분 · 실전 6분")
+        self.assertFalse(page.clock_box.isVisible())
+        self.assertFalse(page.ai_box.isVisible())  # 실전 전 확인은 읽는 중에만
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["미션 받기"])
         self.assertFalse(page.start_btn.isVisible())
         self.assertFalse(page.folder_btn.isEnabled())
-        self.assertEqual(page.split_key, "none")
-        self.assertGreater(*page.split.sizes())  # 받기 전에는 읽기 안내가 넓음
         self.assertFalse(page.brief_btn.isVisible())
-        self.assertEqual(page.strip.text().count("잠김"), 3)
+        self.assertEqual([state for _, _, state in page.stepper.steps], ["lock", "lock", "lock"])
         guikit.click(page.get_btn)
-        self.assertEqual((page.view["phase"], page.phase_tag.text()), ("reading", "읽는 중"))
+        self.assertEqual(page.view["phase"], "reading")
         self.assertEqual(self.kinds(), ["receive"])
         self.assertTrue(page.folder_btn.isEnabled())
         guikit.click(page.folder_btn)
         self.assertEqual(self.opened, [page.view["dir"]])
         self.assertEqual(page.status.text(), "Cursor 에서 폴더를 열었습니다.")
-        self.assertEqual(page.timer_label.text(), "읽기 남은 시간 2:00")
+        self.assertTrue(page.clock_box.isVisible())
+        self.assertEqual((page.clock_caption.text(), page.timer_label.text()), ("읽기 남은 시간", "2:00"))
         self.tick(seconds=30)
         page.tick()
-        self.assertEqual(page.timer_label.text(), "읽기 남은 시간 1:30")
+        self.assertEqual(page.timer_label.text(), "1:30")
         self.tick(minutes=2, seconds=30)
         page.tick()
-        self.assertIn("읽기 시간 끝", page.timer_label.text())
-        self.assertIn("1:00 지남", page.timer_label.text())
-        self.assertIn(theme.color("wrong"), page.timer_label.text())
+        self.assertEqual((page.clock_caption.text(), page.timer_label.text()), ("읽기 시간 끝", "+1:00"))
+        self.assertEqual(page.timer_label.property("tone"), "danger")
         self.assertTrue(page.ai_box.isVisible())
-        page.ai_box.setChecked(True)
+        page.ai_box.box.setChecked(True)
         guikit.click(page.start_btn)
         self.assertEqual((page.view["phase"], page.view["current"]["no"]), ("live", 0))
         self.assertTrue(self.log()[-1]["no_ai"])
-        self.assertEqual(page.timer_label.text(), "실전 0:00 / 6:00")
-        self.assertEqual(page.split_key, "step0")
+        self.assertEqual((page.clock_caption.text(), page.timer_label.text()), ("남은 시간", "6:00"))
+        self.assertEqual([state for _, _, state in page.stepper.steps], ["now", "lock", "lock"])
 
     def test_live_flow_from_explaining_to_the_explanation(self):
         win = self.boot()
@@ -450,15 +500,17 @@ class MissionTest(WebTest):
         guikit.click(page.start_btn)
         # 0단계: 목표 시간이 지나야 점검 항목이 열림
         self.assertIs(page.left.currentWidget(), page.request_page)
-        self.assertIn("0단계. 코드 설명", doc_text(page.request_view))
+        self.assertEqual((page.step_caption.text(), page.step_title.text()), ("0단계", "코드 설명"))
+        self.assertEqual(page.quote_text.text(), "받은 코드를 어떻게 읽으셨는지 1분 정도 설명해 주세요. 버튼을 눌렀을 때 무슨 일이 일어나는지 위주로요.")
         self.assertIn("목표 시간 1분이 지나면 열립니다", doc_text(page.request_view))
         self.assertFalse(page.request_items.isVisible())
         self.assertFalse(page.explain_btn.isEnabled())
-        self.assertFalse(page.check_btn.isEnabled())
+        self.assertFalse(page.check_btn.isVisible())
         self.assertFalse(page.skip_btn.isVisible())
-        self.assertIn("0 진행 중 (목표 1분, 1:00 남음)", page.strip.text())
-        self.assertIn("0단계에는 자동 검사가 없습니다", page.result_view.toPlainText())
+        self.assertEqual((page.time_note.text(), page.time_left.text()), ("목표 1분 중 0분 지났습니다", "1:00 남음"))
+        self.assertIn("자동 검사가 없습니다", page.result_view.text())
         guikit.click(page.brief_btn)  # 읽기 안내를 보는 동안 목표 시간이 지나도 끌어오지 않음
+        self.assertEqual(page.brief_btn.text(), "요구로 돌아가기")
         self.tick(minutes=1)
         page.tick()
         self.assertIs(page.left.currentWidget(), page.brief_view)
@@ -468,51 +520,51 @@ class MissionTest(WebTest):
         self.assertEqual(len(page.request_items.rows), 2)
         self.assertEqual(page.request_items.rows[0].label.text(), "횟수가 App의 state 에 있다고 말했습니다.")  # `코드` 표시를 뺀 글
         self.assertTrue(page.explain_btn.isEnabled())
-        self.assertIn("0 진행 중 (목표 1분, 0:00 지남)", page.strip.text())
+        self.assertEqual(page.time_left.text(), "0:00 남음")
         page.request_items.rows[0].box.setChecked(True)
         guikit.click(page.explain_btn)
         self.assertEqual(self.log()[-1]["said"], [1, 0])
-        # 1단계: 요구, 검사 내용, 힌트, 넘어가기
+        # 1단계: 요구, 검사 내용, 힌트, 건너뛰기
         self.assertEqual(page.view["current"]["no"], 1)
+        self.assertEqual((page.step_caption.text(), page.step_title.text()), ("1단계", "더하기 버튼"))
         text = doc_text(page.request_view)
-        self.assertIn("1단계. 더하기 버튼", text)
         self.assertIn("검사는 아래 내용을 확인합니다.", text)
-        self.assertIn("0 끝", page.strip.text())
-        self.assertIn("1 진행 중", page.strip.text())
-        self.assertIn("[검사]를 누르면", page.result_view.toPlainText())
-        self.assertEqual(page.split_key, "live")
-        self.assertLess(*page.split.sizes())  # 1단계부터는 검사 결과가 넓음
+        self.assertEqual([state for _, _, state in page.stepper.steps], ["done", "now", "lock"])
+        self.assertIn("검사하기를 누르면", page.result_view.text())
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["검사하기"])
         self.assertTrue(page.check_btn.isEnabled())
         self.assertFalse(page.skip_btn.isEnabled())
+        self.assertEqual(page.skip_note.text(), "2분 뒤 열립니다")
         self.assertEqual(page.hint_btn.text(), "힌트 듣기 (0/1)")
         guikit.click(page.hint_btn)
         self.assertIn("면접관 힌트 1", doc_text(page.request_view))
         self.assertIn("접근성 이름", doc_text(page.request_view))
         self.assertFalse(page.hint_btn.isEnabled())
         self.assertEqual(self.kinds()[-1], "hint")
-        guikit.click(page.check_btn)
+        page.check_btn.click()  # 누르면 바로 꺼지고 글자가 바뀜
+        self.assertEqual((page.check_btn.text(), page.check_btn.isEnabled()), ("검사 중", False))
         self.idle()
-        text = page.result_view.toPlainText()
-        self.assertIn("검사 2개 가운데 0개 통과", text)
-        self.assertIn("1a 실패", text)
+        self.assertEqual((page.check_btn.text(), page.check_btn.isEnabled()), ("검사하기", True))
+        text = page.result_view.text()
+        self.assertIn("검사 2개 중 0개 통과", text)
+        self.assertIn("실패", text)
         self.assertIn("Unable to find role button", text)
-        self.assertIn("자세히", text)
         self.assertNotIn("<body />", text)
         page.on_result_link("more:1a")
-        self.assertIn("<body />", page.result_view.toPlainText())
-        self.assertIn("접기", page.result_view.toPlainText())
+        self.assertIn("<body />", page.result_view.text())
+        self.assertIn("원문 접기", [b.text() for b in page.result_view.findChildren(QPushButton)])
         page.on_result_link("fold:1a")
-        self.assertNotIn("<body />", page.result_view.toPlainText())
-        self.assertIn("고친 뒤 다시 [검사]", page.status.text())
+        self.assertNotIn("<body />", page.result_view.text())
+        self.assertEqual(page.status.text(), "검사 2개 중 0개 통과.")
         self.tick(minutes=2)
         page.tick()
         self.assertTrue(page.skip_btn.isEnabled())
+        self.assertEqual(page.skip_note.text(), "")
         self.solve(1)
         guikit.click(page.check_btn)
         self.idle()
         self.assertEqual((page.view["current"]["no"], page.status.text()), (2, "1단계를 통과했습니다."))
-        self.assertIn("1 통과", page.strip.text())
-        self.assertIn("2 진행 중", page.strip.text())
+        self.assertEqual([state for _, _, state in page.stepper.steps], ["done", "done", "now"])
         # 2단계 통과 뒤 질문에 답하면 끝남
         self.solve(2)
         guikit.click(page.check_btn)
@@ -520,45 +572,51 @@ class MissionTest(WebTest):
         self.assertIsNotNone(page.after)
         guikit.click(page.home_btn)  # 답하는 중에 나가려 하면 기록되지 않는다고 물음
         self.assertIn("통과 뒤 질문", win.dialog.text.text())
+        self.assertEqual(win.dialog.buttons["leave"].objectName(), "danger")
         self.choose("")
         self.assertIs(self.page(), page)
         self.assertIsNotNone(page.after)
-        self.assertIn("통과 뒤 질문", doc_text(page.request_view))
+        self.assertEqual(page.step_title.text(), "통과 뒤 질문")
+        self.assertIn("초 안에 소리 내어 답한 뒤", doc_text(page.request_view))
         self.assertEqual([row.tag.text() for row in page.request_items.rows], ["필수", "보충"])
-        self.assertTrue(page.after_btn.isVisible())
-        self.assertFalse(page.check_btn.isEnabled())
-        self.assertEqual(page.timer_label.text(), "답 시간 0:00 / 0:30")
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["답을 마쳤습니다"])
+        self.assertFalse(page.check_btn.isVisible())
+        self.assertEqual((page.clock_caption.text(), page.timer_label.text()), ("답 시간", "0:30"))
         self.tick(seconds=35)
         page.tick()
-        self.assertIn("0:05 넘김", page.timer_label.text())
+        self.assertEqual(page.timer_label.text(), "+0:05")
         page.request_items.rows[0].box.setChecked(True)
         guikit.click(page.after_btn)
         entry = self.log()[-1]
         self.assertEqual((entry["kind"], entry["need"], entry["extra"], entry["secs"]), ("after", [1], [0], 35))
-        self.assertEqual(page.status.text(), "통과 뒤 질문 판정: 통과 (답 시간 35초)")
-        self.assertEqual((page.view["phase"], page.phase_tag.text()), ("done", "끝남"))
+        self.assertEqual(page.status.text(), "판정: 통과 (35초)")
+        self.assertEqual(page.view["phase"], "done")
+        self.assertTrue(page.done_badge.isVisible())
         self.assertIs(page.left.currentWidget(), page.done_page)
-        self.assertIs(page.right.currentWidget(), page.diff_tabs)
-        self.assertEqual(page.split_key, "done")
+        self.assertIs(page.right.currentWidget(), page.summary_page)
         text = doc_text(page.done_view)
         self.assertIn("단계별 결과", text)
         self.assertIn("1단계 더하기 버튼: 통과 (힌트 1)", text)
         self.assertIn("모범 답안", text)
+        self.assertEqual(page.passed_count.text(), "2/2")
+        self.assertIn("힌트를 1번 들었습니다.", page.summary.text())
         self.assertEqual(page.mine_diff.toPlainText(), "모범 답안과 같습니다.")
         self.assertTrue(page.template_diff.toPlainText().startswith("모범 답안과 다른 파일 1개: src/App.tsx"))
         self.assertIn("+        초기화", page.template_diff.toPlainText())
-        self.assertEqual([page.diff_tabs.tabText(n) for n in range(3)], ["내 코드와 모범 답안", "템플릿과 모범 답안", "스스로 점검"])
-        self.assertTrue(page.diff_tabs.isTabVisible(2))  # 스스로 점검은 해설을 가리지 않게 오른쪽 탭에 있음
+        self.assertEqual([b.text() for b in page.tabs.buttons], ["해설", "내 코드와 비교", "스스로 점검"])
+        self.assertTrue(page.tabs.buttons[2].isVisible())  # 스스로 점검은 해설을 가리지 않게 탭에 있음
         self.assertEqual(len(page.done_items.rows), 5)
-        page.diff_tabs.setCurrentWidget(page.check_tab)
+        page.tabs.buttons[2].click()
         guikit.pump()
-        self.assertTrue(inside(win, page.save_btn))
-        for number in (0, 2):
+        self.assertIs(page.tab_pages.currentWidget(), page.check_page)
+        for number in (0, 2):  # 표시하면 바로 저장함
             page.done_items.rows[number].box.setChecked(True)
-        guikit.click(page.save_btn)
         self.assertEqual(self.log()[-1]["ticks"], {"c1": 1, "c2": 0, "c3": 1, "m1": 0, "m2": 0})
-        self.assertEqual([b.text() for b in page.page_btns], ["학습 노트 l90"])
-        guikit.click(page.followup_btn)
+        self.assertEqual(page.saved_note.text(), "저장했습니다")
+        self.assertEqual([(row.title.text(), row.second.text()) for row in page.next_rows.rows],
+                         [("이 미션의 꼬리 질문", "꼬리 질문"), ("시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요", "학습 노트")])
+        page.next_rows.rows[0].clicked.emit()
+        guikit.pump()
         self.assertEqual((self.page(), win.web_drill.cid, win.web_drill.back), (win.web_drill, "x01-F", ("mission", "x01")))
         guikit.click(win.web_drill.back_btn)
         self.assertEqual((self.page(), page.view["phase"]), (page, "done"))
@@ -567,21 +625,23 @@ class MissionTest(WebTest):
         self.assertEqual(page.brief_btn.text(), "해설로 돌아가기")
         guikit.click(page.brief_btn)
         self.assertIs(page.left.currentWidget(), page.done_page)
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["다음 할 일 보기"])
+        guikit.click(page.next_btn)
+        self.assertIs(self.page(), win.web_home)
 
     def test_timers_come_from_record_timestamps_and_survive_a_restart(self):
         self.to_live(explained=False)
         self.tick(minutes=7)
-        for shown, ticked in (("7:00", "7:10"), ("7:10", "7:20")):  # 창을 새로 띄워도 기록 시각에서 이어 셈
+        for shown, ticked in (("1:00", "1:10"), ("1:10", "1:20")):  # 창을 새로 띄워도 기록 시각에서 이어 셈. 6분 실전을 넘긴 시간
             win = self.boot()
             page = self.open_mission()
-            self.assertEqual(page.timer_label.text().split(" · ")[0], "실전 %s / 6:00" % shown)
-            self.assertIn("넘김", page.timer_label.text())
-            self.assertIn("0 진행 중 (목표 1분, %s 지남)" % ("6:00" if shown == "7:00" else "6:10"), page.strip.text())
+            self.assertEqual((page.clock_caption.text(), page.timer_label.text()), ("시간 지남", "+" + shown))
+            self.assertEqual(page.time_left.text(), "+%s 지남" % ("6:00" if shown == "1:00" else "6:10"))
             self.assertTrue(page.request_items.isVisible())  # 목표 시간이 이미 지나 점검 항목이 열려 있음
             self.assertTrue(page.explain_btn.isEnabled())
             self.tick(seconds=10)
             page.tick()
-            self.assertIn("실전 %s / 6:00" % ticked, page.timer_label.text())
+            self.assertEqual(page.timer_label.text(), "+" + ticked)
             win.close()
             win.deleteLater()
             guikit.pump()
@@ -596,18 +656,22 @@ class MissionTest(WebTest):
         page.tick()
         self.assertTrue(page.skip_btn.isEnabled())
         guikit.click(page.skip_btn)
+        self.assertEqual(win.dialog.buttons["skip"].objectName(), "danger")
         self.choose("skip")
         self.assertEqual((self.kinds()[-1], page.view["current"]["no"]), ("skip", 2))
-        self.assertIn("1 넘어감", page.strip.text())
+        self.assertEqual([state for _, _, state in page.stepper.steps], ["done", "skip", "now"])
         guikit.click(page.finish_btn)
+        self.assertEqual(win.dialog.buttons["finish"].objectName(), "danger")
         self.choose("finish")
         self.assertEqual((page.view["phase"], self.kinds()[-1]), ("done", "finish"))
         self.assertIn("2단계 초기화 버튼: 잠김", doc_text(page.done_view))
-        self.assertIn("실전 2:00", doc_text(page.done_view))
+        self.assertEqual(page.passed_count.text(), "0/2")
+        self.assertTrue(page.summary.text().startswith("1단계는 넘어갔습니다. 실전에 2:00 걸렸습니다."))
         self.assertTrue(page.mine_diff.toPlainText().startswith("모범 답안과 다른 파일 1개: src/App.tsx"))
         self.assertFalse(page.finish_btn.isVisible())
         self.assertTrue(page.again_btn.isVisible())
         guikit.click(page.again_btn)
+        self.assertEqual(win.dialog.buttons["again"].objectName(), "danger")
         self.choose("again")
         self.assertEqual((page.view["phase"], page.view["try"]), ("reading", 2))
         self.assertEqual(self.kinds()[-1], "receive")
@@ -616,13 +680,14 @@ class MissionTest(WebTest):
         os.remove(os.path.join(self.repo, stack.VITEST_MJS))
         win = self.boot()
         page = self.open_mission()
-        self.assertIn("web install", doc_text(page.info_view))
+        self.assertTrue(page.stack_banner.isVisible())
+        self.assertIn("web install", page.stack_banner.text.text())
         guikit.click(page.get_btn)
         self.assertEqual(set(win.dialog.buttons), {"install", "get", ""})
         self.choose("install")
         dialog = page.setup_dialog
         self.assertTrue(dialog.isVisible())
-        self.assertEqual(dialog.install_btn.text(), "설치")
+        self.assertTrue(dialog.install_btn.text().startswith("설치"))
         dialog.close()
         guikit.pump()
         self.assertEqual(page.view["phase"], "none")  # 설치하지 않고 닫으면 받지 않음
@@ -845,71 +910,76 @@ class DrillTest(WebTest):
     def test_marks_verdicts_and_the_chain_end(self):
         win = self.boot()
         page = self.open_drill("90-A")
-        self.assertEqual((page.title.text(), page.counter.text(), page.timer_label.text()),
-                         ("사슬 90-A 버튼을 눌렀는데 화면이 그대로일 때", "질문 1 / 3", "답 시간 1:00"))
-        self.assertIn("사슬 90-A. 버튼을 눌렀는데 화면이 그대로일 때", doc_text(page.intro_view))
-        self.assertIn("let count = 0;", doc_text(page.intro_view))
-        self.assertTrue(page.ask.text().startswith("면접관: 버튼을 눌러도 화면의 숫자가 바뀌지 않습니다."))
-        self.assertFalse(page.items.isVisible())
-        card_height = page.card_scroll.height()
-        self.assertGreater(page.intro_view.height(), card_height)  # 짚을 내용이 열리기 전에는 사슬 소개가 더 넓음
-        self.mono += 70
+        self.assertEqual((page.title.text(), page.timer_label.text()), ("버튼을 눌렀는데 화면이 그대로일 때", "질문 1/3"))
+        self.assertEqual(page.back_btn.text(), "← 웹 면접 준비")
+        self.assertEqual(page.ask.text(), "버튼을 눌러도 화면의 숫자가 바뀌지 않습니다. 왜 그럴까요?")  # "면접관:" 없이 질문만
+        self.assertEqual((page.limit_label.text(), page.left_label.text()), ("답 시간 1분", "1:00 남음"))
+        self.assertEqual([view.toPlainText().strip().splitlines()[0] for view in page.code_views], ["let count = 0;"])
+        self.assertFalse(page.intro.isVisible())  # 사슬 소개는 [배경 보기]로 펼침
+        guikit.click(page.bg_btn)
+        self.assertTrue(page.intro.isVisible())
+        self.assertTrue(page.intro.text().startswith("일반 변수와 state 의 차이를"))
+        self.assertEqual(page.bg_btn.text(), "배경 접기")
+        self.assertFalse(page.answer_box.isVisible())
+        self.assertEqual(len(kit.visible_primary_buttons(page)), 1)
+        self.mono += 50
         page.tick()
-        self.assertIn("0:10 넘김", page.timer_label.text())
+        self.assertEqual((page.left_label.text(), page.left_label.property("tone")), ("0:10 남음", "warning"))
+        self.mono += 20
+        page.tick()
+        self.assertEqual((page.left_label.text(), page.left_label.property("tone"), page.time_bar.value()), ("+0:10 시간 지남", "danger", 100))
         page.note.setPlainText("일반 변수는 React 가 모름")
         guikit.click(page.confirm_btn)
-        self.assertTrue(page.timer_label.text().startswith("답 시간 1:10 · "), page.timer_label.text())  # 답하는 동안과 같은 m:ss
-        self.assertIn("0:10 넘김", page.timer_label.text())
-        self.assertFalse(page.answer_row.isVisible())  # 한 번 쓴 [답 확인] [모르겠어요]는 숨겨 그 줄을 짚을 내용에 돌려줌
-        self.assertGreater(page.card_scroll.height(), card_height)  # 짚을 내용만큼 질문 칸이 커짐
+        self.assertEqual(page.mine_head.text(), "내 답 · 1:10 · 0:10 넘김")
+        self.assertEqual(page.mine_note.text(), "일반 변수는 React 가 모름")
+        self.assertFalse(page.confirm_btn.isVisible())  # 한 번 쓴 [답 확인] [모르겠습니다]는 숨김
+        self.assertFalse(page.give_up_btn.isVisible())
+        self.assertFalse(page.time_box.isVisible())
         self.assertTrue(inside(win, page.next_btn))
         self.assertEqual([row.tag.text() for row in page.items.rows], ["필수", "보충"])
         self.assertTrue(page.items.rows[0].label.text().startswith("count는 바뀌지만"))
-        self.assertTrue(page.stuck.isVisible())
+        self.assertTrue(page.stuck_box.isVisible())
         self.assertTrue(page.talked.isVisible())
         page.items.rows[0].box.setChecked(True)
-        self.assertFalse(page.stuck.isVisible())
-        self.assertFalse(page.talked.isVisible())
+        self.assertFalse(page.stuck_box.isVisible())
         page.items.rows[1].box.setChecked(True)
         guikit.click(page.next_btn)
         entry = self.log()[-1]
         self.assertEqual({k: entry[k] for k in ("kind", "chain", "q", "secs", "need", "extra", "talked", "note")},
                          {"kind": "drill", "chain": "90-A", "q": 1, "secs": 70, "need": [1], "extra": [1], "talked": None,
                           "note": "일반 변수는 React 가 모름"})
-        self.assertEqual((page.counter.text(), page.status.text(), page.progress.text()), ("질문 2 / 3", "Q1 판정: 통과", "Q1 통과"))
-        self.assertEqual(page.note.toPlainText(), "")
-        self.assertTrue(page.answer_row.isVisible())
+        self.assertEqual((page.timer_label.text(), page.note.toPlainText()), ("질문 2/3", ""))
+        self.assertTrue(page.confirm_btn.isVisible())
         guikit.click(page.give_up_btn)
         self.assertFalse(page.items.rows[0].box.isEnabled())
-        self.assertIn("다시 그려 달라", page.stuck.text())
+        self.assertIn("다시 그려 달라", page.stuck.text.text())
         self.assertTrue(page.talked.isVisible())
         page.talked.rows[0].box.setChecked(True)
         guikit.click(page.next_btn)
         entry = self.log()[-1]
         self.assertEqual((entry["q"], entry["need"], entry["talked"]), (2, [0], 1))
-        self.assertEqual(page.progress.text(), "Q1 통과 · Q2 막힘")
         guikit.click(page.confirm_btn)
         page.items.rows[0].box.setChecked(True)
         self.assertEqual(page.next_btn.text(), "사슬 끝내기")
         guikit.click(page.next_btn)
         self.assertIs(page.stack.currentWidget(), page.end_page)
-        text = doc_text(page.end_view)
-        self.assertIn("사슬 결과: 막힘", text)
-        self.assertIn("질문별 통과, 막힘, 통과", text)
-        self.assertIn("상자 1, 다음 복습 10/22", text)
-        self.assertIn("리렌더링이 안 돼서 그렇습니다.", text)
-        self.assertIn("이어 말하기", text)
+        self.assertTrue(page.end_badge.isVisible())
+        self.assertEqual((page.score.text(), page.due_text.text()), ("2/3", "다음 복습은 10월 22일(목)입니다."))
+        self.assertEqual(page.talked_text.text(), "막힌 질문 1개에서 아는 데까지 말했습니다.")
+        self.assertEqual([row.findChild(QLabel).text() for row in page.result_rows], ["통과", "막힘", "통과"])
+        self.assertEqual(page.weak_quote.text(), '"리렌더링이 안 돼서 그렇습니다."')
+        self.assertTrue(page.follow_block.isVisible())
         self.assertEqual(self.kinds()[-1], "chain")
-        self.assertEqual(page.learn_btn.text(), "학습 노트 l90 읽기 (90a 절)")
-        guikit.click(page.learn_btn)
+        self.assertEqual(len(kit.visible_primary_buttons(page)), 1)
+        self.assertEqual(page.learn_row.title.text(), "시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요")  # 노트 id 없이 제목만
+        guikit.click(page.learn_row)
         learn = win.web_learn
-        self.assertEqual((self.page(), learn.pid, learn.where.text()), (learn, "l90", "90a 절"))
+        self.assertEqual((self.page(), learn.pid, learn.section, learn.back_btn.text()), (learn, "l90", "90a", "← 꼬리 질문"))
         self.assertTrue(scroll_to_heading(learn.view, "일반 변수는 화면을 바꾸지 못합니다"))
         guikit.click(learn.back_btn)
         self.assertEqual((self.page(), page.stack.currentWidget()), (page, page.end_page))  # 끝난 자리로 돌아옴
         guikit.click(page.done_btn)
         self.assertIs(self.page(), win.web_home)
-        self.assertEqual(win.web_home.chain_list.item(0).text().split("\n")[1], "상자 1 · 다음 복습 10/22")
 
     def test_review_shows_the_previous_answer_and_marks(self):
         web = self.web()
@@ -920,15 +990,15 @@ class DrillTest(WebTest):
         self.clock = "2026-10-22T09:00:00"
         win = self.boot()
         page = self.open_drill("90-A")
-        self.assertIn("상자 1, 2번째 복습", doc_text(page.intro_view))
+        self.assertEqual(page.timer_label.text(), "두 번째 복습 · 질문 1/3")
         guikit.click(page.confirm_btn)
-        self.assertEqual(page.timer_label.text(), "답 시간 0:00 (1:00 안)")
-        self.assertEqual(page.last.text(), "지난 답 (10/21, 40초): 플래그 변수를 말함")
+        self.assertEqual((page.mine_head.text(), page.mine_note.text()), ("내 답 · 0초", "적은 내용 없음"))
+        self.assertEqual(page.last.text(), "지난 답 · 10월 21일(수) · 40초: 플래그 변수를 말함")
         self.assertEqual([row.note.text() for row in page.items.rows], ["지난번 표시함", "지난번 빠뜨림"])
         page.items.rows[0].box.setChecked(True)
         guikit.click(page.next_btn)
         guikit.click(page.confirm_btn)
-        self.assertEqual(page.last.text(), "지난 답 (10/21, 40초): 적은 내용 없음")
+        self.assertEqual(page.last.text(), "지난 답 · 10월 21일(수) · 40초: 적은 내용 없음")
         self.assertEqual([row.note.text() for row in page.items.rows], ["지난번 빠뜨림"])
 
     def test_mission_followups_stay_locked_until_the_mission_ends(self):
@@ -945,10 +1015,18 @@ class LearnTest(WebTest):
         win.open_learn("l90")
         self.idle()
         learn = win.web_learn
+        self.assertEqual((learn.title.text(), learn.back_btn.text()), ("시험 페이지: state 가 바뀌면 무엇이 다시 그려지나요", "← 웹 면접 준비"))
         text = doc_text(learn.view)
         self.assertIn("그림 준비 중. 그림 1. 두 호출이 같은 값을 넣어", text)  # 고정 은행에는 그림 파일이 없음
         self.assertNotIn("내용:", text)
         self.assertEqual([p for p in learn.view.pieces if isinstance(p, FigureView)], [])
+        self.assertLessEqual(learn.view.width(), 640 + 2)  # 읽는 글 폭
+        self.assertEqual(len(kit.visible_primary_buttons(learn)), 0)  # 읽기 화면에는 주 단추가 없음
+        self.assertEqual((learn.next_row.isVisible(), learn.next_title.text()), (True, "일반 변수는 화면을 바꾸지 못합니다"))
+        guikit.click(learn.next_btn)
+        self.assertEqual(learn.next_title.text(), "같은 렌더의 값을 두 번 쓰면")
+        guikit.click(learn.next_btn)
+        self.assertFalse(learn.next_row.isVisible())  # 마지막 절 뒤에는 다음 절이 없음
         root = os.path.join(self.tmp, "bank_with_png")
         shutil.copytree(FIXTURE, root)
         os.makedirs(os.path.join(root, "learn", "l90", "assets"))
@@ -961,13 +1039,13 @@ class LearnTest(WebTest):
         figures = [p for p in learn.view.pieces if isinstance(p, FigureView)]
         self.assertEqual(len(figures), 1)
         self.assertEqual(figures[0].caption.text(), "그림 1. 두 호출이 같은 값을 넣어 숫자가 1 만 오릅니다.")
-        self.assertEqual(learn.where.text(), "90b 절")
+        self.assertEqual(learn.section, "90b")
         self.assertTrue(scroll_to_heading(learn.view, "같은 렌더의 값을 두 번 쓰면"))
         self.assertEqual(self.kinds(), ["learn", "learn"])
 
 
-LONG_STATUS = ("검사 5개 가운데 3개 통과 (1.2초). 고친 뒤 다시 [검사]를 누르세요.", "실전 시간 45분이 시작되었습니다. 받은 코드를 설명하세요.",
-               "과제를 받았습니다. 읽기 시간 20분이 시작되었습니다.", SERVE_STOPPED)
+LONG_STATUS = ("검사 5개 중 3개 통과 (1.2초).", "실전 45분이 시작되었습니다.", "Cursor 에서 폴더를 열었습니다.",
+               "내 테스트 12개 가운데 11개 통과 (3.2초)", SERVE_STOPPED)  # 아래 막대의 상태 글 가운데 긴 것들. 작은 창에서도 끝까지 보여야 함
 
 
 class LookTest(WebTest):
@@ -997,7 +1075,7 @@ class LookTest(WebTest):
             self.choose("skip")
             guikit.click(mission.finish_btn)
             self.choose("finish")
-            mission.diff_tabs.setCurrentWidget(mission.check_tab)
+            mission.tabs.buttons[2].click()
 
         def drill_checklist():
             self.open_drill("90-A")
@@ -1010,15 +1088,15 @@ class LookTest(WebTest):
                 drill.items.rows[0].box.setChecked(True)
                 guikit.click(drill.next_btn)
 
-        return (("hub", win.go_hub, (win.hub.web_btn,)),
-                ("home", win.go_web, (win.web_home.review_btn, win.web_home.mission_btn, win.web_home.drill_btn, win.web_home.read_btn)),
+        return (("hub", win.go_hub, (win.hub.next_btn, win.hub.web_row)),
+                ("home", win.go_web, (win.web_home.next_btn, win.web_home.setup_btn, win.web_home.hub_btn)),
                 ("mission_before", lambda: self.open_mission(), (mission.get_btn, mission.folder_btn, mission.serve_btn, mission.test_btn)),
                 ("mission_reading", mission_reading, (mission.folder_btn, mission.serve_btn, mission.test_btn, mission.start_btn)),
                 ("mission_live", mission_live, (mission.check_btn, mission.finish_btn, mission.hint_btn, mission.skip_btn, mission.serve_btn,
                                                 mission.test_btn)),
-                ("mission_done", mission_done, (mission.again_btn, mission.save_btn, mission.followup_btn, mission.serve_btn)),
+                ("mission_done", mission_done, (mission.again_btn, mission.next_btn, mission.brief_btn, mission.serve_btn)),
                 ("drill_checklist", drill_checklist, (drill.next_btn, drill.give_up_btn)),
-                ("drill_end", drill_end, (drill.done_btn, drill.learn_btn)),
+                ("drill_end", drill_end, (drill.done_btn, drill.again_btn)),
                 ("learn", lambda: win.open_learn("l90"), (win.web_learn.back_btn,)))
 
     def test_dark_theme_leaves_no_light_patches_on_every_screen(self):
@@ -1053,7 +1131,7 @@ class LookTest(WebTest):
                 if scroll is not None:
                     scroll.ensureWidgetVisible(button)
                     guikit.pump()
-                self.assertTrue(inside(win, button), "%s: %s" % (name, button.text()))
+                self.assertTrue(inside(win, button), "%s: %s" % (name, name_of(button)))
             mission = win.web_mission
             if page is mission:  # 상태 줄은 작은 창에서도 끝까지 보임
                 for text in LONG_STATUS:

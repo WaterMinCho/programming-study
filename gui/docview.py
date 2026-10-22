@@ -374,6 +374,7 @@ class FigureView(QWidget):
     def _button(self, bar, text, slot):
         button = QPushButton(text)
         button.setObjectName("quiet")
+        button.setProperty("scale", "s")  # 새 화면(ui="2") 아래에서는 작은 단추 32 로 그려짐. 여행 화면에서는 뜻이 없음
         button.clicked.connect(slot)
         bar.addWidget(button)
         return button

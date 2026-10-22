@@ -207,7 +207,8 @@ def inline_plain(text):
 # HTML (Qt 리치텍스트 부분집합)
 
 # 본문 글은 줄 간격을 넓힘(제목과 코드는 그대로). 넓힌 간격은 마지막 줄 아래에도 붙어서 문단 아래 여백과 칸의 아래 여백을 그만큼 줄여 둠
-# %(line)s 에는 줄 높이의 백분율을, 색은 %(이름)s 자리에 채워 씀: ink, doc_heading, code_bg, codebox_bg, border, notice_bg, notice_border, table_head, grid, link
+# %(line)s 에는 줄 높이의 백분율을, 색은 %(이름)s 자리에 채워 씀: ink, doc_heading, code_bg, codebox_bg, border, surface_alt, table_head, grid, link
+# 인용 상자(면접관 말)는 surface_alt 바탕에 테두리 없이, 위 12·좌우 16 여백. 아래는 넓힌 줄 간격이 붙어 4 만 둠
 CSS = """
 body { font-size: 14px; color: %(ink)s; }
 p { margin-top: 0px; margin-bottom: 3px; line-height: %(line)s%%; }
@@ -218,7 +219,7 @@ a { color: %(link)s; }
 code { font-family: 'Menlo', 'Consolas', 'D2Coding', 'Courier New', monospace; font-size: 13px; background-color: %(code_bg)s; color: %(ink)s; white-space: pre-wrap; }
 pre { font-family: 'Menlo', 'Consolas', 'D2Coding', 'Courier New', monospace; font-size: 13px; margin: 0px; color: %(ink)s; line-height: 100%%; }
 td.codebox { background-color: %(codebox_bg)s; border: 1px solid %(border)s; }
-td.quote { background-color: %(notice_bg)s; border: 1px solid %(notice_border)s; padding-bottom: 0px; }
+td.quote { background-color: %(surface_alt)s; border: 0px; padding: 12px 16px 4px 16px; }
 table.grid { border-collapse: collapse; margin-top: 4px; margin-bottom: 10px; }
 table.grid th { background-color: %(table_head)s; font-weight: bold; padding: 6px 10px; border: 1px solid %(grid)s; }
 table.grid td { line-height: %(line)s%%; padding: 6px 10px; padding-bottom: 0px; border: 1px solid %(grid)s; }

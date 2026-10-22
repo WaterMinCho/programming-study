@@ -1,32 +1,31 @@
 # -*- coding: utf-8 -*-
-"""꼬리 질문 사슬 화면: 머리줄(돌아가기 · 사슬 제목 · 질문 번호 · 답 시계) · 위쪽 사슬 소개와 면접관이 보여 주는 코드 · 아래쪽 질문 하나,
-적는 칸(선택), [답 확인] [모르겠어요], 그 뒤 [필수]·[보충] 짚을 내용과 지난 답, 「막히면」 줄과 "아는 데까지 말했습니다" 표시,
-질문별 판정 · 사슬 끝의 약한 답, 이어 말하기, 학습 노트 절로 가는 단추, 결과와 다음 복습 날짜.
+"""꼬리 질문 사슬 화면. 위 막대(← 웹 면접 준비 · 사슬 제목 · 복습 차수와 질문 번호), 가운데 720 단의 카드 하나, 아래 막대의 주 단추.
 
-답 시간은 질문을 보인 때부터 [답 확인]이나 [모르겠어요]를 누른 때까지이고 clock(기본 time.monotonic)으로 잼. 시계가 끝나도 막지 않고
-넘긴 초만 빨갛게 보임. 두 단추는 한 질문에서 한 번만 쓰므로 누른 뒤에는 숨겨 그 줄을 짚을 내용에 돌려줌.
-기록은 질문마다 서비스의 answer 로, 사슬 끝에 finish_chain 으로 남김.
-질문 칸은 내용 높이만큼만 차지하고(FitScroll) 나머지는 사슬 소개와 코드가 씀."""
+질문 상태: 면접관 질문(title 크기), 답 시간 막대, 면접관이 보여 주는 코드(사슬 소개는 [배경 보기]로 접음), 말한 내용 칸.
+확인 상태: 내 답 칸, 지난 답, 짚을 내용 표시 목록([필수]·[보충]), [필수]를 빠뜨리면 「막히면」 띠와 "아는 데까지 말했습니다" 표시.
+사슬 끝: 통과한 질문 수, 다음 복습 날짜, 질문별 판정, 약한 답, 이어서 답한 예, 학습 노트로 가는 줄.
+답 시간은 질문을 보인 때부터 [답 확인]이나 [모르겠습니다]를 누른 때까지이고 clock(기본 time.monotonic)으로 잼. 시간이 끝나도 막지 않고
+넘긴 초만 빨갛게 보임. 기록은 질문마다 서비스의 answer 로, 사슬 끝에 finish_chain 으로 남김."""
 import time
 
-from PyQt6.QtCore import QSize, Qt, QTimer
-from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtWidgets import QHBoxLayout, QPlainTextEdit, QStackedWidget, QWidget
 
 import mdlite
-from gui import theme
-from gui.docview import DocView
-from gui.journey_page import md_text
-from gui.web_home import clock_text, day_text
-from gui.web_mission import LANG, CheckList, quote_lines
-from gui.widgets import Para
-from webprep import service
+from gui import kit, theme
+from gui.docview import TextPiece
+from gui.web_text import clock_text, date_text, ordinal, result_label, result_tone
 from webprep.record import NOTE_LIMIT
 from webprep.service import WebError
 
 TALKED_TEXT = "막힌 곳에서 아는 데까지 말했습니다"
-INTRO_LEAST = 120  # 질문 칸이 커져도 사슬 소개에 남겨 두는 높이
-NOTE_HINT = "말한 내용 (선택, %d자까지). 다음 복습 때 짚을 내용 옆에 보입니다. [제출]하면 저장소에 올라갑니다." % NOTE_LIMIT
+ITEMS_HINT = "말한 항목에 표시하세요."
+GAVE_UP_HINT = "모르겠다고 답했습니다. 짚을 내용을 읽고 [다음 질문]을 누르세요."
+STUCK_DEFAULT = "막힌 곳에서 아는 데까지 말했는지 표시하세요."
+NOTE_HELP = "다음 복습 때 지난 답으로 보입니다. 풀이를 제출하면 저장소에도 올라갑니다."
+WARN_SHARE = 0.2  # 남은 시간이 이 비율 이하면 주황
+SHORTCUT_TIP = "Ctrl+Enter (맥은 Cmd+Enter)"
 
 
 def plain(text):
@@ -34,180 +33,206 @@ def plain(text):
     return mdlite.inline_plain(text)
 
 
-def intro_markdown(chain):
-    parts = ["## 사슬 %s. %s" % (chain["id"], md_text(chain["title"]))]
-    if chain["goal"]:
-        parts.append(md_text(chain["goal"]))
+def background_text(chain):
+    """[배경 보기]로 펼치는 사슬 소개: 목표와 소개 문단."""
+    parts = [plain(part) for part in (chain["goal"], chain["intro"]) if part]
+    return "\n\n".join(parts)
+
+
+def code_html(markdown):
+    """면접관이 보여 주는 코드(펜스 블록이 든 마크다운)를 코드 상자 HTML 로. 코드 블록이 없으면 빈 글."""
+    blocks = [block for block in mdlite.parse(markdown or "") if block["t"] == "code"]
+    return mdlite.blocks_html(blocks) if blocks else ""
+
+
+def review_text(chain, index, total):
+    """위 막대 오른쪽 글: 복습 차수(한 번 푼 사슬만)와 질문 번호."""
+    where = "질문 %d/%d" % (index + 1, total)
     if chain["box"]:
-        parts.append("상자 %d, %d번째 복습" % (chain["box"], chain["times"] + 1))
-    if chain["intro"]:
-        parts.append(chain["intro"])
-    if chain["code"]:
-        parts.append(chain["code"])
-    return "\n\n".join(parts)
+        return "%s 복습 · %s" % (ordinal(chain["times"] + 1), where)
+    return where
 
 
-def end_markdown(done, chain):
-    """사슬 끝 칸: 결과와 상자, 약한 답, 이어 말하기."""
-    per = ", ".join(service.RESULT_LABEL[r] for r in done["per_question"])
-    parts = ["## 사슬 결과: %s" % done["label"], "질문별 %s" % per, "상자 %d, 다음 복습 %s" % (done["box"], day_text(done["due"]))]
-    if done["weak"]:
-        parts.append("## 약한 답\n\n%s" % quote_lines(done["weak"]["quote"]))
-        if done["weak"]["why"]:
-            parts.append(done["weak"]["why"])
-    if done["follow"]:
-        parts.append("## 이어 말하기\n\n%s" % quote_lines(done["follow"]))
-    if chain["page"]:
-        parts.append("이어서 학습 노트 %s%s 을 읽으면 이 사슬의 원리가 나옵니다." % (chain["page"], " (%s 절)" % chain["section"] if chain["section"] else ""))
-    return "\n\n".join(parts)
+def mine_text(secs, limit):
+    """내 답 칸의 머리글. 걸린 시간과 넘긴 시간."""
+    head = "내 답 · %s" % ("%d초" % secs if secs < 60 else clock_text(secs))
+    if secs > limit:
+        head += " · %s 넘김" % clock_text(secs - limit)
+    return head
 
 
 def last_note(last):
     """지난 답 한 줄. 적은 내용이 없으면 그 사실과 날짜."""
     if not last:
         return ""
-    when = day_text(last.get("at") or "")
-    note = last.get("note") or "적은 내용 없음"
+    when = date_text(last.get("at") or "") if last.get("at") else ""
     secs = last.get("secs")
-    return "지난 답 (%s%s): %s" % (when, ", %d초" % secs if secs is not None else "", note)
-
-
-class FitScroll(QScrollArea):
-    """질문 칸을 담는 스크롤 칸. 세로 상자에 카드의 줄바꿈 높이를 heightForWidth 로 알려 주어 칸이 내용 높이만큼만 차지하고,
-    창이 작아 위의 사슬 소개에 keep 만큼을 남기지 못할 때는 그만큼 줄여 안에서 스크롤함."""
-
-    def __init__(self, keep):
-        super().__init__()
-        self.keep = keep
-        self.setWidgetResizable(True)
-        self.setFrameShape(QFrame.Shape.NoFrame)
-
-    def hasHeightForWidth(self):
-        return self.widget() is not None
-
-    def heightForWidth(self, width):
-        card = self.widget()
-        layout = card.layout()
-        want = layout.heightForWidth(width) if layout.hasHeightForWidth() else card.sizeHint().height()
-        parent = self.parentWidget()
-        room = parent.height() - self.keep if parent is not None and parent.height() > 0 else want
-        return max(0, min(want, room))
-
-    def sizeHint(self):
-        return QSize(super().sizeHint().width(), self.heightForWidth(max(1, self.width())))
+    head = "지난 답" + (" · " + when if when else "") + (" · %d초" % secs if secs is not None else "")
+    return "%s: %s" % (head, last.get("note") or "적은 내용 없음")
 
 
 class WebDrillPage(QWidget):
     def __init__(self, win):
         super().__init__()
+        kit.page(self)
         self.setObjectName("page")
         self.setProperty("clipboard", True)  # 적는 칸은 자기 말을 적는 곳이라 붙여넣기를 막지 않음
         self.win = win
         self.cid, self.chain, self.back = None, None, None
         self.index, self.started, self.checked, self.gave_up = 0, 0.0, False, False
         self.verdicts, self.secs, self.done = [], 0, None  # 이번 회차의 질문별 판정, 지금 질문의 답 시간, 사슬 끝 결과
+        self.talked_any = False  # 이번 회차에 "아는 데까지 말했습니다"를 표시한 적이 있는지
         self.clock = time.monotonic
         self.busy = False
+        self.code_views = []
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(14, 12, 14, 0)
-        root.setSpacing(8)
-        head = QHBoxLayout()
-        self.back_btn = QPushButton("돌아가기")
-        self.title = QLabel()
-        self.title.setObjectName("h1")
-        self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.counter = QLabel()
-        self.counter.setObjectName("muted")
-        self.timer_label = QLabel()
-        self.timer_label.setObjectName("h2")
-        self.timer_label.setTextFormat(Qt.TextFormat.RichText)
-        head.addWidget(self.back_btn)
-        head.addSpacing(8)
-        head.addWidget(self.title, 1)
-        head.addWidget(self.counter)
-        head.addSpacing(16)
-        head.addWidget(self.timer_label)
-        root.addLayout(head)
+        root = kit.box(self)
+        self.top = kit.TopBar("← 웹 면접 준비", "")
+        self.back_btn, self.title = self.top.back, self.top.title
+        self.timer_label = self.top.add_right(kit.label("", "caption", "secondary"))
+        self.end_badge = self.top.add_right(kit.badge("끝남", "success"))
+        self.end_badge.hide()
+        root.addWidget(self.top)
 
         self.stack = QStackedWidget()
-        ask_page = QWidget()
-        ask_box = QVBoxLayout(ask_page)
-        ask_box.setContentsMargins(0, 0, 0, 0)
-        ask_box.setSpacing(8)
-        self.intro_view = DocView()
-        self.intro_view.setMinimumHeight(INTRO_LEAST)
-        card = QFrame()
-        card.setObjectName("card")
-        box = QVBoxLayout(card)
-        box.setContentsMargins(20, 14, 20, 14)
-        box.setSpacing(10)
-        self.ask = Para(name="h2")
+        self.ask_page, self.ask_card, ask_box = self._page(24)
+        # 질문
+        self.ask_head = kit.spaced(kit.label("면접관 질문", "caption", "tertiary"))
+        self.ask = kit.para("", "title")
+        self.ask_head.layout().addWidget(self.ask)
+        ask_box.addWidget(self.ask_head)
+        # 답 시간
+        self.time_box = QWidget()
+        time_col = kit.box(self.time_box, spacing=8)
+        time_row = QHBoxLayout()
+        time_row.setContentsMargins(0, 0, 0, 0)
+        time_row.setSpacing(12)
+        self.limit_label = kit.label("", "caption", "secondary")
+        self.left_label = kit.label("", "caption", "secondary")
+        time_row.addWidget(self.limit_label)
+        time_row.addStretch(1)
+        time_row.addWidget(self.left_label)
+        self.time_bar = kit.progress(thin=True)
+        time_col.addLayout(time_row)
+        time_col.addWidget(self.time_bar)
+        ask_box.addWidget(self.time_box)
+        # 면접관이 보여 주는 코드와 배경
+        self.code_box = QWidget()
+        code_col = kit.box(self.code_box, spacing=8)
+        head = QHBoxLayout()
+        head.setContentsMargins(0, 0, 0, 0)
+        head.setSpacing(12)
+        self.code_label = kit.label("면접관이 보여 주는 코드", "caption", "tertiary")
+        self.bg_btn = kit.button("배경 보기", "text", "s")
+        head.addWidget(self.code_label)
+        head.addStretch(1)
+        head.addWidget(self.bg_btn)
+        code_col.addLayout(head)
+        self.intro = kit.para("", "body", "secondary")
+        self.intro.hide()
+        code_col.addWidget(self.intro)
+        self.code_holder = QWidget()
+        self.code_col = kit.box(self.code_holder, spacing=8)
+        code_col.addWidget(self.code_holder)
+        ask_box.addWidget(self.code_box)
+        # 말한 내용
+        self.field_box = QWidget()
+        field_col = kit.box(self.field_box, spacing=8)
+        field_col.addWidget(kit.label("말한 내용 (선택)", "label", bold=True))
         self.note = QPlainTextEdit()
-        self.note.setPlaceholderText(NOTE_HINT)
-        self.note.setMaximumHeight(72)
-        self.answer_row = QWidget()  # [답 확인] [모르겠어요]. 누른 뒤에는 통째로 숨김
-        row = QHBoxLayout(self.answer_row)
-        row.setContentsMargins(0, 0, 0, 0)
-        self.confirm_btn = QPushButton("답 확인")
-        self.confirm_btn.setObjectName("primary")
-        self.give_up_btn = QPushButton("모르겠어요")
-        row.addWidget(self.confirm_btn)
-        row.addStretch(1)
-        row.addWidget(self.give_up_btn)
-        self.items_title = Para("짚을 내용입니다. 말한 항목에 표시하세요.", "muted")
-        self.last = Para(name="muted")
-        self.items = CheckList()
-        self.stuck = Para(name="warn")
-        self.talked = CheckList()
-        self.progress = Para(name="muted")
-        after_row = QHBoxLayout()
-        self.next_btn = QPushButton("다음 질문")
-        self.next_btn.setObjectName("primary")
-        after_row.addStretch(1)
-        after_row.addWidget(self.next_btn)
-        for widget in (self.ask, self.note, self.answer_row, self.items_title, self.last, self.items, self.stuck, self.talked, self.progress):
-            box.addWidget(widget)
-        box.addLayout(after_row)
-        self.card = card
-        self.card_scroll = FitScroll(INTRO_LEAST + ask_box.spacing())
-        self.card_scroll.setWidget(card)
-        ask_box.addWidget(self.intro_view, 1)
-        ask_box.addWidget(self.card_scroll)
-        end_page = QWidget()
-        end_box = QVBoxLayout(end_page)
-        end_box.setContentsMargins(0, 0, 0, 8)
-        self.end_view = DocView()
-        end_row = QHBoxLayout()
-        end_row.setContentsMargins(20, 0, 20, 0)
-        self.learn_btn = QPushButton("학습 노트 읽기")
-        self.again_btn = QPushButton("한 번 더")
-        self.done_btn = QPushButton("돌아가기")
-        self.done_btn.setObjectName("primary")
-        end_row.addWidget(self.learn_btn)
-        end_row.addStretch(1)
-        end_row.addWidget(self.again_btn)
-        end_row.addWidget(self.done_btn)
-        end_box.addWidget(self.end_view, 1)
-        end_box.addLayout(end_row)
-        self.stack.addWidget(ask_page)
-        self.stack.addWidget(end_page)
-        self.ask_page, self.end_page = ask_page, end_page
+        self.note.setPlaceholderText("예: 응답 순서")
+        self.note.setMinimumHeight(144)
+        self.note.setMaximumHeight(144)
+        field_col.addWidget(self.note)
+        field_col.addWidget(kit.label(NOTE_HELP, "caption", "secondary"))
+        ask_box.addWidget(self.field_box)
+        # 답 확인 뒤
+        self.answer_box = QWidget()
+        answer_col = kit.box(self.answer_box, spacing=24)
+        mine_block = QWidget()
+        mine_col = kit.box(mine_block, spacing=12)
+        self.mine, mine_box = kit.well()
+        self.mine_head = kit.label("", "caption", "secondary", bold=True)
+        self.mine_note = kit.para("")
+        mine_box.addWidget(self.mine_head)
+        mine_box.addWidget(self.mine_note)
+        self.last = kit.para("", "caption", "secondary")
+        mine_col.addWidget(self.mine)
+        mine_col.addWidget(self.last)
+        answer_col.addWidget(mine_block)
+        items_block = QWidget()
+        items_col = kit.box(items_block, spacing=8)
+        self.items_title = kit.para(ITEMS_HINT)
+        items_col.addWidget(kit.spaced(kit.label("짚을 내용", "caption", "tertiary"), self.items_title))
+        self.items = kit.CheckList()
+        items_col.addWidget(self.items)
+        answer_col.addWidget(items_block)
+        self.stuck_box = QWidget()
+        stuck_col = kit.box(self.stuck_box, spacing=8)
+        self.stuck = kit.banner("", lead="막히면")
+        self.talked = kit.CheckList()
+        stuck_col.addWidget(self.stuck)
+        stuck_col.addWidget(self.talked)
+        answer_col.addWidget(self.stuck_box)
+        self.answer_box.hide()
+        ask_box.addWidget(self.answer_box)
+
+        self.end_page, self.end_card, end_box = self._page(32)
+        score_block = QWidget()
+        score_col = kit.box(score_block, spacing=8)
+        score_row = QHBoxLayout()
+        score_row.setContentsMargins(0, 0, 0, 0)
+        score_row.setSpacing(12)
+        self.score = kit.label("", "display")
+        score_row.addWidget(self.score)
+        score_row.addWidget(kit.label("통과한 질문", "caption", "secondary"), 0, Qt.AlignmentFlag.AlignBottom)
+        score_row.addStretch(1)
+        score_col.addLayout(score_row)
+        self.due_text = kit.para("")
+        self.talked_text = kit.para("", "caption", "secondary")
+        score_col.addWidget(self.due_text)
+        score_col.addWidget(self.talked_text)
+        end_box.addWidget(score_block)
+        self.results = QWidget()
+        self.results_col = kit.box(self.results)
+        self.result_rows = []
+        end_box.addWidget(self.results)
+        self.weak_block = QWidget()
+        weak_col = kit.box(self.weak_block, spacing=12)
+        weak_col.addWidget(kit.label("약한 답", "headline"))
+        self.weak_well, weak_box = kit.well()
+        self.weak_quote = kit.para("")
+        weak_box.addWidget(self.weak_quote)
+        self.weak_why = kit.para("", "body", "secondary")
+        weak_col.addWidget(self.weak_well)
+        weak_col.addWidget(self.weak_why)
+        end_box.addWidget(self.weak_block)
+        self.follow_block = QWidget()
+        follow_col = kit.box(self.follow_block, spacing=12)
+        follow_col.addWidget(kit.label("이어서 답한 예", "headline"))
+        self.follow_well, follow_box = kit.well()
+        self.follow = kit.para("")
+        follow_box.addWidget(self.follow)
+        follow_col.addWidget(self.follow_well)
+        end_box.addWidget(self.follow_block)
+        self.learn_list = kit.RowList(inside_card=True)
+        self.learn_row = None
+        end_box.addWidget(self.learn_list)
+        self.stack.addWidget(self.ask_page)
+        self.stack.addWidget(self.end_page)
         root.addWidget(self.stack, 1)
 
-        bar = QHBoxLayout()
-        bar.setContentsMargins(0, 0, 0, 8)
-        self.status = QLabel("")
-        self.status.setObjectName("muted")
-        self.status.setMinimumWidth(1)
-        self.busy_bar = QProgressBar()
-        self.busy_bar.setRange(0, 0)
-        self.busy_bar.setTextVisible(False)
-        self.busy_bar.setFixedWidth(140)
-        self.busy_bar.hide()
-        bar.addWidget(self.status, 1)
-        bar.addWidget(self.busy_bar)
-        root.addLayout(bar)
+        self.bar = kit.BottomBar()
+        self.give_up_btn = self.bar.add_action(kit.button("모르겠습니다", "secondary", "l"))
+        self.again_btn = self.bar.add_action(kit.button("한 번 더 풀기", "secondary", "l"))
+        self.confirm_btn = self.bar.add_action(kit.button("답 확인", "primary", "l"))
+        self.next_btn = self.bar.add_action(kit.button("다음 질문", "primary", "l"))
+        self.done_btn = self.bar.add_action(kit.button("다음 할 일 보기", "primary", "l"))
+        for button in (self.confirm_btn, self.next_btn, self.done_btn):
+            button.setToolTip(SHORTCUT_TIP)
+        root.addWidget(self.bar)
+        self.shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
+        self.shortcut.activated.connect(self.press_primary)
 
         self.ticker = QTimer(self)
         self.ticker.setInterval(1000)
@@ -217,9 +242,19 @@ class WebDrillPage(QWidget):
         self.confirm_btn.clicked.connect(lambda: self.reveal(False))
         self.give_up_btn.clicked.connect(lambda: self.reveal(True))
         self.next_btn.clicked.connect(self.answer)
-        self.learn_btn.clicked.connect(self.open_learn)
         self.again_btn.clicked.connect(lambda: self.load(self.cid, self.back))
+        self.bg_btn.clicked.connect(self.toggle_background)
         self.note.textChanged.connect(self._clip_note)
+
+    @staticmethod
+    def _page(spacing):
+        """720 단의 카드 하나가 든 스크롤 칸. (칸, 카드, 카드 안 세로 상자)."""
+        card, box = kit.card(24, spacing)
+        inner = QWidget()
+        outer = kit.box(inner, (kit.MARGIN, 24, kit.MARGIN, 32))
+        outer.addWidget(kit.column(card, 720))
+        outer.addStretch(1)
+        return kit.scroll(inner), card, box
 
     # 불러오기
 
@@ -227,11 +262,28 @@ class WebDrillPage(QWidget):
         """사슬을 화면에 올리고 첫 질문부터 시작함. back 은 돌아갈 곳(("mission", 미션 id) 또는 None 이면 웹 홈). 잠긴 사슬이면 WebError."""
         chain = self.win.web.chain(cid)
         self.cid, self.chain, self.back = cid, chain, back
-        self.index, self.verdicts = 0, []
-        self.title.setText("사슬 %s %s" % (chain["id"], chain["title"]))
-        self.intro_view.set_markdown(intro_markdown(chain), "", LANG)
+        self.index, self.verdicts, self.done, self.talked_any = 0, [], None, False
+        self.title.setText(chain["title"])
+        self.title.show()
+        self.back_btn.setText("← 미션" if back and back[0] == "mission" else "← 웹 면접 준비")
+        self.intro.setText(background_text(chain))
+        self.intro.hide()
+        self.bg_btn.setText("배경 보기")
+        self.bg_btn.setVisible(bool(self.intro.text()))
+        for view in self.code_views:
+            self.code_col.removeWidget(view)
+            view.hide()
+            view.deleteLater()
+        self.code_views = []
+        markup = code_html(chain["code"])
+        if markup:
+            view = TextPiece(markup, theme.web_css(self.win.zoom))
+            self.code_col.addWidget(view)
+            self.code_views.append(view)
+        self.code_label.setText("면접관이 보여 주는 코드" if self.code_views else "배경")
+        self.code_box.setVisible(bool(self.code_views) or bool(self.intro.text()))
+        self.end_badge.hide()
         self.stack.setCurrentWidget(self.ask_page)
-        self.status.setText("")
         self.show_question()
 
     def question(self):
@@ -239,23 +291,30 @@ class WebDrillPage(QWidget):
 
     def show_question(self):
         question = self.question()
-        self.counter.setText("질문 %d / %d" % (self.index + 1, len(self.chain["questions"])))
-        self.ask.setText("면접관: %s" % plain(question["ask"]))
+        total = len(self.chain["questions"])
+        self.timer_label.setText(review_text(self.chain, self.index, total))
+        self.ask.setText(plain(question["ask"]))
         self.note.setPlainText("")
         self.started, self.checked, self.gave_up = self.clock(), False, False
-        for widget in (self.items_title, self.last, self.items, self.stuck, self.talked, self.next_btn):
-            widget.hide()
+        self.limit_label.setText("답 시간 %s" % ("%d분" % (self.chain["secs"] // 60) if self.chain["secs"] % 60 == 0 else clock_text(self.chain["secs"])))
+        self.time_box.show()
+        self.field_box.show()
+        self.answer_box.hide()
         self.note.setEnabled(True)
-        self.answer_row.show()
+        self.confirm_btn.setVisible(True)
+        self.give_up_btn.setVisible(True)
+        self.next_btn.setVisible(False)
+        self.again_btn.setVisible(False)
+        self.done_btn.setVisible(False)
         self.confirm_btn.setEnabled(not self.busy)
         self.give_up_btn.setEnabled(not self.busy)
-        self.progress.setText(self.progress_text())
-        self.progress.setVisible(bool(self.verdicts))
         self.tick()
-        self.card_scroll.updateGeometry()  # 질문 칸의 높이를 새 내용에 맞춤
+        self.ask_page.verticalScrollBar().setValue(0)
 
-    def progress_text(self):
-        return " · ".join("Q%d %s" % (q["no"], service.RESULT_LABEL[r]) for q, r in zip(self.chain["questions"], self.verdicts))
+    def toggle_background(self):
+        opened = not self.intro.isVisible()
+        self.intro.setVisible(opened)
+        self.bg_btn.setText("배경 접기" if opened else "배경 보기")
 
     # 시계
 
@@ -264,10 +323,18 @@ class WebDrillPage(QWidget):
             return
         limit = self.chain["secs"]
         gone = int(self.clock() - self.started)
-        if gone <= limit:
-            self.timer_label.setText("답 시간 %s" % clock_text(limit - gone))
+        left = limit - gone
+        if left >= 0:
+            self.left_label.setText("%s 남음" % clock_text(left))
+            self.time_bar.setValue(min(100, round(100 * gone / max(1, limit))))
+            tone = "warning" if left <= limit * WARN_SHARE else ""
         else:
-            self.timer_label.setText('답 시간 0:00 · <span style="color: %s;">%s 넘김</span>' % (theme.color("wrong"), clock_text(gone - limit)))
+            self.left_label.setText("+%s 시간 지남" % clock_text(-left))
+            self.time_bar.setValue(100)
+            tone = "danger"
+        if self.left_label.property("tone") != (tone or None):
+            kit.set_tone(self.left_label, tone)
+            kit.set_tone(self.time_bar, tone)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -280,19 +347,27 @@ class WebDrillPage(QWidget):
 
     # 답 확인
 
+    def press_primary(self):
+        """Ctrl+Enter. 지금 보이는 주 단추를 누름."""
+        for button in (self.confirm_btn, self.next_btn, self.done_btn):
+            if button.isVisible() and button.isEnabled():
+                button.click()
+                return
+
     def reveal(self, gave_up):
-        """[답 확인]이나 [모르겠어요]. 답 시간을 멈추고 짚을 내용을 엶."""
+        """[답 확인]이나 [모르겠습니다]. 답 시간을 멈추고 짚을 내용을 엶."""
         question = self.question()
         self.secs = int(self.clock() - self.started)
         self.checked, self.gave_up = True, gave_up
-        limit = self.chain["secs"]
-        if self.secs <= limit:
-            self.timer_label.setText("답 시간 %s (%s 안)" % (clock_text(self.secs), clock_text(limit)))
-        else:
-            self.timer_label.setText('답 시간 %s · <span style="color: %s;">%s 넘김</span>'
-                                     % (clock_text(self.secs), theme.color("wrong"), clock_text(self.secs - limit)))
-        self.answer_row.hide()
+        self.time_box.hide()
+        self.field_box.hide()
+        self.confirm_btn.hide()
+        self.give_up_btn.hide()
+        self.mine_head.setText(mine_text(self.secs, self.chain["secs"]))
+        self.mine_note.setText(self.note.toPlainText().strip() or "적은 내용 없음")
         last = question["last"]
+        self.last.setText(last_note(last))
+        self.last.setVisible(bool(last))
         need_marks = list(last["need"]) if last else []
         extra_marks = list(last["extra"]) if last else []
         rows, need_no, extra_no = [], 0, 0
@@ -302,22 +377,23 @@ class WebDrillPage(QWidget):
             else:
                 mark, extra_no = (extra_marks[extra_no] if extra_no < len(extra_marks) else None), extra_no + 1
             note = "" if mark is None else ("지난번 표시함" if mark else "지난번 빠뜨림")
-            rows.append((plain(item["text"]), "필수" if item["need"] else "보충", note, False))
+            rows.append((plain(item["text"]), "필수" if item["need"] else "보충", "accent" if item["need"] else "", note, False))
         self.items.set_items(rows)
-        self.items.set_enabled(not gave_up)
+        self.items.set_enabled(not gave_up and not self.busy)
         for row in self.items.rows:
             row.box.toggled.connect(lambda checked=False: self.sync_stuck())
-        self.last.setText(last_note(last))
-        self.last.setVisible(bool(last))
-        self.items_title.setText("모르겠다고 답했습니다. 짚을 내용을 읽고 [다음 질문]을 누르세요." if gave_up else "짚을 내용입니다. 말한 항목에 표시하세요.")
-        self.items_title.show()
-        self.items.show()
-        self.talked.set_items([(TALKED_TEXT, "", "", False)])
+        self.items_title.setText(GAVE_UP_HINT if gave_up else ITEMS_HINT)
+        self.talked.set_items([(TALKED_TEXT, "", "", "", False)])
+        self.talked.rows[0].box.toggled.connect(lambda checked: self._talked(checked))
+        self.answer_box.show()
         self.next_btn.setText("사슬 끝내기" if self.index == len(self.chain["questions"]) - 1 else "다음 질문")
-        self.next_btn.show()
+        self.next_btn.setVisible(True)
         self.next_btn.setEnabled(not self.busy)
         self.sync_stuck()
-        self.card_scroll.updateGeometry()
+
+    def _talked(self, checked):
+        if checked:
+            self.talked_any = True
 
     def need_marks(self):
         question = self.question()
@@ -327,13 +403,12 @@ class WebDrillPage(QWidget):
         return need, extra
 
     def sync_stuck(self):
-        """[필수]를 빠뜨렸으면 「막히면」 줄과 "아는 데까지 말했습니다" 표시를 보임."""
+        """[필수]를 빠뜨렸으면 「막히면」 띠와 "아는 데까지 말했습니다" 표시를 보임."""
         need, _ = self.need_marks()
         missing = not all(need)
         question = self.question()
-        self.stuck.setText("막히면: %s" % plain(question["stuck"]) if question["stuck"] else "막힌 곳에서 아는 데까지 말했는지 표시하세요.")
-        self.stuck.setVisible(missing)
-        self.talked.setVisible(missing)
+        self.stuck.text.setText(plain(question["stuck"]) if question["stuck"] else STUCK_DEFAULT)
+        self.stuck_box.setVisible(missing)
 
     def answer(self):
         """[다음 질문]. 표시를 기록하고 다음 질문이나 사슬 끝으로 감."""
@@ -345,7 +420,6 @@ class WebDrillPage(QWidget):
             self.win.ask("알림", str(error))
             return
         self.verdicts.append(result["result"])
-        self.status.setText("Q%d 판정: %s" % (self.question()["no"], result["label"]))
         if self.index + 1 < len(self.chain["questions"]):
             self.index += 1
             self.show_question()
@@ -359,14 +433,52 @@ class WebDrillPage(QWidget):
             self.win.ask("알림", str(error))
             return
         self.done = done
-        self.counter.setText("질문 %d / %d" % (len(self.chain["questions"]), len(self.chain["questions"])))
+        total = len(self.chain["questions"])
         self.timer_label.setText("")
-        self.end_view.set_markdown(end_markdown(done, self.chain), "", LANG)
-        self.learn_btn.setVisible(bool(done["page"]))
-        self.learn_btn.setText("학습 노트 %s 읽기%s" % (done["page"], " (%s 절)" % done["section"] if done["section"] else ""))
-        self.done_btn.setText("미션으로" if self.back and self.back[0] == "mission" else "웹 홈")
+        self.end_badge.show()
+        passed = sum(1 for r in done["per_question"] if r == "pass")
+        self.score.setText("%d/%d" % (passed, total))
+        self.due_text.setText("다음 복습은 %s입니다." % date_text(done["due"]))
+        stuck = sum(1 for r in done["per_question"] if r != "pass")
+        self.talked_text.setText("막힌 질문 %d개에서 아는 데까지 말했습니다." % stuck if self.talked_any and stuck else "")
+        self.talked_text.setVisible(bool(self.talked_text.text()))
+        for row in self.result_rows:
+            self.results_col.removeWidget(row)
+            row.hide()
+            row.deleteLater()
+        self.result_rows = []
+        for question, result in zip(self.chain["questions"], done["per_question"]):
+            row = QWidget()
+            line = kit.box(row, (0, 12, 0, 12), 12, horizontal=True)
+            line.addWidget(kit.badge(result_label(result), result_tone(result)), 0, Qt.AlignmentFlag.AlignTop)
+            line.addWidget(kit.para(plain(question["ask"])), 1)
+            self.results_col.addWidget(row)
+            self.result_rows.append(row)
+        weak = done["weak"]
+        self.weak_block.setVisible(bool(weak))
+        if weak:
+            self.weak_quote.setText(plain(weak["quote"]))
+            self.weak_why.setText(plain(weak["why"]))
+            self.weak_why.setVisible(bool(weak["why"]))
+        self.follow_block.setVisible(bool(done["follow"]))
+        self.follow.setText(plain(done["follow"]))
+        self.learn_list.clear()
+        self.learn_row = None
+        if done["page"]:
+            pages = getattr(self.win.web, "pages", {})
+            title = pages.get(done["page"], {}).get("title") or "학습 노트"
+            self.learn_row = self.learn_list.add(kit.Row(title, "이 사슬의 원리가 나오는 학습 노트", data=done["page"]))
+            self.learn_row.clicked.connect(self.open_learn)
+        self.learn_list.setVisible(self.learn_row is not None)
+        self.done_btn.setText("미션으로" if self.back and self.back[0] == "mission" else "다음 할 일 보기")
+        for button in (self.confirm_btn, self.give_up_btn, self.next_btn):
+            button.hide()
+        self.again_btn.show()
+        self.done_btn.show()
+        self.again_btn.setEnabled(not self.busy)
+        self.done_btn.setEnabled(not self.busy)
         self.stack.setCurrentWidget(self.end_page)
-        self.status.setText("사슬 결과 %s. 상자 %d, 다음 복습 %s." % (done["label"], done["box"], day_text(done["due"])))
+        self.end_page.verticalScrollBar().setValue(0)
 
     def open_learn(self):
         done = self.done
@@ -390,16 +502,15 @@ class WebDrillPage(QWidget):
 
     def set_busy(self, busy, text=""):
         self.busy = busy
-        for widget in (self.back_btn, self.done_btn, self.learn_btn, self.again_btn, self.next_btn):
+        for widget in (self.back_btn, self.done_btn, self.again_btn, self.next_btn):
             widget.setEnabled(not busy)
         self.confirm_btn.setEnabled(not busy and not self.checked)
         self.give_up_btn.setEnabled(not busy and not self.checked)
-        self.busy_bar.setVisible(busy)
-        self.status.setText(text if busy else "")
+        self.items.set_enabled(not busy and not self.gave_up)
+        self.talked.set_enabled(not busy)
 
     def restyle(self):
-        css, font = theme.journey_css(self.win.zoom), theme.code_font(self.win.zoom)
-        for view in (self.intro_view, self.end_view):
-            view.restyle(css, font)
+        for view in self.code_views:
+            view.restyle(theme.web_css(self.win.zoom))
         if self.chain is not None:
             self.tick()

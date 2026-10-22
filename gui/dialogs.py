@@ -5,61 +5,74 @@ from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QVBoxLayout
 
 import session
+from gui import kit, theme
 from gui.widgets import LinkLabel, Para
 
 
 class MessageDialog(QDialog):
-    """안내·확인. buttons 는 (글자, 키) 목록이고 첫 번째를 강조함. 창을 그냥 닫으면 고른 키는 "" 임."""
+    """안내·확인. buttons 는 (글자, 키) 또는 (글자, 키, 역할) 목록이고 첫 번째가 오른쪽 끝에 옴. 역할은 primary(파란 주 단추, 단추가 하나면
+    Enter 로 눌림), danger(되돌릴 수 없는 행동. 빨간 옅은 바탕, Enter 없음), close(닫기 같은 보조 단추). 역할을 주지 않으면 첫 번째가 primary,
+    나머지는 close. 창을 그냥 닫으면 고른 키는 "" 임."""
 
     def __init__(self, parent, title, text, buttons=(("확인", "ok"),), on_choice=None, detail="", link=""):
         super().__init__(parent)
+        kit.page(self)
         self.setWindowTitle(title)
         self.setModal(True)
         self.on_choice, self.choice = on_choice, ""
         box = QVBoxLayout(self)
-        box.setContentsMargins(22, 20, 22, 16)
-        box.setSpacing(12)
-        head = QLabel(title)
-        head.setObjectName("h2")
-        self.text = Para(text)
+        box.setContentsMargins(32, 32, 32, 24)
+        box.setSpacing(0)
+        head = kit.para(title, "headline")
+        self.text = kit.para(text)
         self.text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         box.addWidget(head)
+        box.addSpacing(12)
         box.addWidget(self.text)
         if link:
-            self.link = LinkLabel('<a href="%s">%s</a>' % (link, link))
+            self.link = LinkLabel('<a href="%s">%s</a>' % (link, link), line=theme.TYPE["body"][1], font=theme.font("body"))
             self.link.linkActivated.connect(lambda url: parent.open_url(url))
+            box.addSpacing(8)
             box.addWidget(self.link)
         self.detail = QPlainTextEdit(detail)
         self.detail.setReadOnly(True)
+        self.detail.setFont(theme.code_font(-1))
         self.detail.setMinimumHeight(140)
         self.detail.hide()
+        box.addSpacing(16)
         box.addWidget(self.detail)
+        box.addSpacing(16)
         row = QHBoxLayout()
+        row.setSpacing(8)
         if detail:
-            more = QPushButton("자세히")
+            more = kit.button("자세히", "text", "l")
             more.clicked.connect(lambda: (self.detail.setVisible(not self.detail.isVisible()), self.fit()))
-            copy = QPushButton("내용 복사")
+            copy = kit.button("내용 복사", "text", "l")
             copy.clicked.connect(lambda: QGuiApplication.clipboard().setText("%s\n\n%s" % (text, detail)))
             row.addWidget(more)
             row.addWidget(copy)
         row.addStretch(1)
         self.buttons = {}
-        for label, key in reversed(buttons):  # 첫 번째 버튼이 오른쪽 끝에 오게
-            button = QPushButton(label)
-            button.setAutoDefault(False)
+        roles = {}
+        for number, item in enumerate(buttons):
+            label, key = item[0], item[1]
+            roles[key] = item[2] if len(item) > 2 else ("primary" if number == 0 else "close")
+        for item in reversed(buttons):  # 첫 번째 버튼이 오른쪽 끝에 오게
+            label, key = item[0], item[1]
+            kind = {"primary": "primary", "danger": "danger"}.get(roles[key], "secondary")
+            button = kit.button(label, kind, "l")
             button.clicked.connect(lambda checked=False, k=key: self.choose(k))
             row.addWidget(button)
             self.buttons[key] = button
         first = self.buttons[buttons[0][1]]
-        first.setObjectName("primary")
-        first.setDefault(len(buttons) == 1)  # 실수로 회차를 제출하지 않게, 고를 것이 있는 대화상자는 Enter 로 넘어가지 않게 함
+        first.setDefault(len(buttons) == 1 and roles[buttons[0][1]] == "primary")  # 고를 것이 있거나 되돌릴 수 없는 창은 Enter 로 넘어가지 않음
         box.addLayout(row)
         self.fit()
 
     def fit(self):
         """글이 줄바꿈되는 폭에 맞춰 높이를 잡음. 줄바꿈하는 QLabel 의 크기 추정을 쓰면 좁고 길게 나와 빈 줄이 생김."""
         self.layout().activate()  # 자세히를 접은 직후에는 최소 높이가 펼친 값으로 남아 있어 창이 줄어들지 않음
-        width = max(480, self.layout().minimumSize().width())
+        width = max(480, min(560, self.layout().minimumSize().width()))
         self.resize(width, self.layout().totalHeightForWidth(width))
 
     def choose(self, key):

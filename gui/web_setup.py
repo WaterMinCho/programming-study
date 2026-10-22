@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
-"""검사 도구 설치 관리 대화상자: 설치 상태 한 줄, 동의 글(무엇을, 어디에, 언제 인터넷이 필요한지, 지우는 법), 설치 진행과 설치 로그 꼬리,
-실패했을 때의 이유와 로그 위치, [지우기].
+"""검사 도구 설치 관리 대화상자: 상태 한 문장과 꼬리표, 동의 글(무엇을, 어디에, 언제 인터넷이 필요한지, 지우는 법), 설치 진행과 설치 로그 꼬리,
+결과 띠(완료·오류), [지우기] [닫기] [설치하기].
 
 설치와 지우기는 창의 run_job 으로 워커에서 돌리고(node_modules 는 파일 수천 개라 지우는 데도 몇 초 걸림), 진행 알림은 상태 줄에,
 로그 파일의 끝 몇 줄은 반초마다 읽어 보여 줌. WebSession.install 이 내는 WebError 는 워커 안에서 받아 결과로 돌려주므로 실패 문구가
-이 창 안에 남음. 로그와 결과 글이 나타나면 창 높이를 줄바꿈한 글까지 담게 늘림(fit)."""
+이 창 안에 남음. 로그와 결과 띠가 나타나면 창 높이를 줄바꿈한 글까지 담게 늘림(fit). 설치가 끝난 상태에서는 주 단추가 없고 [닫기]만 있음."""
 import os
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFontMetrics
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPlainTextEdit, QProgressBar, QPushButton, QTextBrowser, QVBoxLayout
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPlainTextEdit, QTextBrowser
 
 import mdlite
 import study
-from gui import theme
-from gui.widgets import Para
+from gui import kit, theme
 from webprep import stack
 from webprep.service import WebError
 
 TAIL_LINES = 8  # 보여 주는 설치 로그의 끝 줄 수
 TAIL_MS = 500  # 로그를 다시 읽는 간격
-CONSENT_HEIGHT = (220, 300)  # 동의 글 상자의 높이 범위. 글이 짧으면 그만큼만, 경로가 길어 넘치면 안에서 스크롤함
-CONSENT_WIDTH = 660  # 동의 글의 줄바꿈 높이를 셈할 때 쓰는 글 폭(창 720 에서 여백과 스크롤 막대를 뺀 값)
-CONFIRM_REMOVE = "검사 도구(node_modules)를 지웁니다. 미션의 [검사]를 다시 쓰려면 다시 설치해야 합니다. 지울까요?"
+CONSENT_HEIGHT = (200, 280)  # 동의 글 상자의 높이 범위. 글이 짧으면 그만큼만, 경로가 길어 넘치면 안에서 스크롤함
+WIDTH = 560  # 대화상자 폭(설계 5.14 의 최대). 경로가 긴 동의 글이 들어가야 함
+CONFIRM_REMOVE = "검사 도구(node_modules)를 지웁니다. 미션의 [검사하기]를 다시 쓰려면 다시 설치해야 합니다."
 BUSY_ELSEWHERE = "다른 작업이 끝난 뒤 다시 눌러 주세요."
+FAILED = "검사 도구를 설치하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 설치하세요."
 
 
 def log_tail(path, lines=TAIL_LINES):
@@ -41,8 +41,7 @@ def consent_html(text):
 
 
 def stack_line(stack):
-    """"Node.js 22.23.2 · 검사 도구 설치됨 (약 80MB)" 같은 한 줄. 설치 상태는 stack.state() 의 값. 웹 홈 머리줄과 허브의 웹 카드,
-    미션 정보도 이 줄을 씀."""
+    """"Node.js 22.23.2 · 검사 도구 설치됨 (약 80MB)" 같은 한 줄. 설치 상태는 stack.state() 의 값. 미션 정보와 터미널이 이 줄을 씀."""
     node = stack.get("node")
     parts = ["Node.js %s" % node["version"] if node else "Node.js 없음"]
     if stack.get("installed"):
@@ -55,55 +54,82 @@ def stack_line(stack):
 
 
 def stack_text(state):
-    """상태 줄. Node 판과 설치 여부를 한 줄로, 문제가 있으면 그 안내를 다음 줄에. 경로는 동의 글의 '어디에'와 '쓰는 Node.js'에만 적음."""
+    """상태 줄. Node 판과 설치 여부를 한 줄로, Node 나 lockfile 이 없으면 그 안내를 다음 줄에. 설치 전·다시 설치 필요는 이 창의 단추가
+    하는 일이라 터미널 명령 안내를 다시 적지 않음. 경로는 동의 글의 '어디에'와 '쓰는 Node.js'에만 적음."""
     text = stack_line(state)
-    if state["problem"]:
+    if state["problem"] and (not state["node"] or not state["lock"]):
         text += "\n" + state["problem"]
     return text
+
+
+def stack_badge(state):
+    """상태 꼬리표의 (글, 색)."""
+    if not state["node"]:
+        return "Node.js 없음", "danger"
+    if state["installed"]:
+        return ("다시 설치 필요", "warning") if state.get("stale") else ("설치됨", "success")
+    return "설치 전", ""
 
 
 class SetupDialog(QDialog):
     def __init__(self, win, on_change=None):
         super().__init__(win)
+        kit.page(self)
         self.win, self.on_change = win, on_change
         self.setWindowTitle("검사 도구 설치 관리")
         self.setModal(True)
-        self.setMinimumWidth(640)
+        self.setFixedWidth(WIDTH)
         self.busy = False  # 설치나 지우기가 도는 중. 그동안 단추를 끄고 창을 닫지 않음
-        box = QVBoxLayout(self)
-        box.setContentsMargins(22, 20, 22, 16)
-        box.setSpacing(12)
-        head = QLabel("검사 도구 설치 관리")
-        head.setObjectName("h2")
-        self.state = Para()
+        box = kit.box(self, (32, 32, 32, 24))
+        head_row = QHBoxLayout()
+        head_row.setSpacing(12)
+        head_row.addWidget(kit.label("검사 도구 설치 관리", "headline"))
+        self.badge = kit.badge("")
+        head_row.addWidget(self.badge, 0, Qt.AlignmentFlag.AlignVCenter)
+        head_row.addStretch(1)
+        box.addLayout(head_row)
+        box.addSpacing(12)
+        self.state = kit.para("")
         self.state.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        box.addWidget(self.state)
+        box.addSpacing(16)
         self.consent = QTextBrowser()
+        self.consent.setObjectName("plain")
         self.consent.setOpenLinks(False)
-        self.consent.document().setDocumentMargin(12)
-        self.status = Para(name="muted")
-        self.busy_bar = QProgressBar()
+        self.consent.document().setDocumentMargin(0)
+        box.addWidget(self.consent)
+        box.addSpacing(16)
+        self.status = kit.label("", "caption", "secondary")
+        self.status.hide()
+        self.busy_bar = kit.progress(thin=True)
         self.busy_bar.setRange(0, 0)
-        self.busy_bar.setTextVisible(False)
         self.busy_bar.hide()
         self.log = QPlainTextEdit()
+        self.log.setObjectName("plain")
         self.log.setReadOnly(True)
         self.log.setFont(theme.code_font(-2))
-        self.log.setFixedHeight(QFontMetrics(self.log.font()).lineSpacing() * TAIL_LINES + 14)  # 꼬리 줄 수만큼. 동의 글과 높이를 다투지 않음
+        self.log.setFixedHeight(QFontMetrics(self.log.font()).lineSpacing() * TAIL_LINES + 8)  # 꼬리 줄 수만큼. 동의 글과 높이를 다투지 않음
         self.log.hide()
-        self.result = Para()
-        self.result.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.result = kit.banner("", "success")
         self.result.hide()
-        for widget in (head, self.state, self.consent):
-            box.addWidget(widget)
-        box.addSpacing(4)  # 동의 글 상자의 테두리와 상태 줄 사이
-        for widget in (self.status, self.busy_bar, self.log, self.result):
-            box.addWidget(widget)
+        box.addWidget(self.status)
+        box.addSpacing(8)
+        box.addWidget(self.busy_bar)
+        box.addSpacing(8)
+        box.addWidget(self.log)
+        box.addSpacing(8)
+        box.addWidget(self.result)
+        box.addSpacing(24)
         row = QHBoxLayout()
-        self.remove_btn = QPushButton("지우기")
-        self.close_btn = QPushButton("닫기")
-        self.install_btn = QPushButton("설치")
-        self.install_btn.setObjectName("primary")
+        row.setSpacing(8)
+        self.remove_btn = kit.button("지우기", "danger_text", "l")
+        self.again_btn = kit.button("다시 설치하기", "text", "l")  # 설치돼 있을 때 주 단추 대신 글자 단추로 둠
+        self.close_btn = kit.button("닫기", "secondary", "l")
+        self.install_btn = kit.button("설치하기", "primary", "l")
+        row.setContentsMargins(0, 0, 0, 0)
         row.addWidget(self.remove_btn)
+        row.addSpacing(16)
+        row.addWidget(self.again_btn)
         row.addStretch(1)
         row.addWidget(self.close_btn)
         row.addWidget(self.install_btn)
@@ -114,27 +140,36 @@ class SetupDialog(QDialog):
         self.remove_btn.clicked.connect(self.ask_remove)
         self.close_btn.clicked.connect(self.close)
         self.install_btn.clicked.connect(self.install)
+        self.again_btn.clicked.connect(self.install)
         self.refresh()
-        self.resize(720, self.sizeHint().height())
+        self.resize(WIDTH, self.sizeHint().height())
 
     def refresh(self):
         """설치 상태와 동의 글을 다시 읽음."""
         web = self.win.web
         state = web.stack_state()
         self.state.setText(stack_text(state))
+        text, tone = stack_badge(state)
+        self.badge.setText(text)
+        kit.set_tone(self.badge, tone)
         document = self.consent.document()
-        document.setDefaultStyleSheet(theme.doc_css(self.win.zoom))
+        document.setDefaultStyleSheet(theme.web_css(self.win.zoom))
         self.consent.setHtml(consent_html(web.consent()))
-        document.setTextWidth(CONSENT_WIDTH)
+        document.setTextWidth(WIDTH - 64 - 16)
         low, high = CONSENT_HEIGHT
-        self.consent.setMinimumHeight(max(low, min(high, int(document.size().height()) + 4)))
-        self.install_btn.setText("다시 설치" if state["installed"] else "설치")
-        self.install_btn.setEnabled(state["node"] is not None and not self.busy)
-        self.install_btn.setToolTip("" if state["node"] else state["problem"])
+        self.consent.setFixedHeight(max(low, min(high, int(document.size().height()) + 4)))
+        installed = state["installed"] and not state.get("stale")
+        self.install_btn.setText("다시 설치하기" if state["installed"] else "설치하기")
+        self.install_btn.setVisible(not installed)  # 설치된 상태에서는 주 단추 없이 [닫기]만
+        self.again_btn.setVisible(installed)
+        for button in (self.install_btn, self.again_btn):
+            button.setEnabled(state["node"] is not None and not self.busy)
+            button.setToolTip("" if state["node"] else state["problem"])
+        self.remove_btn.setVisible(bool(state["installed"]))
         self.remove_btn.setEnabled(state["installed"] and not self.busy)
 
     def fit(self):
-        """로그·진행 막대·결과 글이 나타난 뒤 창 높이를 레이아웃이 줄바꿈까지 셈한 높이에 맞춤. 줄어들지는 않음."""
+        """로그·진행 막대·결과 띠가 나타난 뒤 창 높이를 레이아웃이 줄바꿈까지 셈한 높이에 맞춤. 줄어들지는 않음."""
         layout = self.layout()
         layout.activate()
         need = layout.totalHeightForWidth(self.width()) if layout.hasHeightForWidth() else layout.totalSizeHint().height()
@@ -142,12 +177,13 @@ class SetupDialog(QDialog):
             self.resize(self.width(), need)
 
     def lock(self, text):
-        """설치나 지우기를 시작함. 결과 글을 치우고 단추를 끄고 상태 줄에 text 를 보임."""
+        """설치나 지우기를 시작함. 결과 띠를 치우고 단추를 끄고 상태 줄에 text 를 보임."""
         self.busy = True
         self.result.hide()
         self.busy_bar.show()
         self.status.setText(text)
-        for button in (self.install_btn, self.remove_btn, self.close_btn):
+        self.status.show()
+        for button in (self.install_btn, self.again_btn, self.remove_btn, self.close_btn):
             button.setEnabled(False)
 
     def _done(self):
@@ -156,6 +192,7 @@ class SetupDialog(QDialog):
         self.tail_timer.stop()
         self.busy_bar.hide()
         self.status.setText("")
+        self.status.hide()
         self.close_btn.setEnabled(True)
         self.refresh()
         if self.on_change:
@@ -165,6 +202,7 @@ class SetupDialog(QDialog):
         """run_job 이 다른 일 때문에 시작하지 못함."""
         self._done()
         self.status.setText(BUSY_ELSEWHERE)
+        self.status.show()
 
     # 설치
 
@@ -208,7 +246,7 @@ class SetupDialog(QDialog):
             self.say(result.get("message") or "검사 도구를 설치했습니다.", "")
             return
         log = result.get("log") or stack.log_path()
-        text = result.get("message") or "설치가 실패했습니다."
+        text = result.get("message") or FAILED
         if log and log not in text:
             text += "\n설치 로그: %s" % log
         self.say(text, "error")
@@ -219,17 +257,18 @@ class SetupDialog(QDialog):
         self.say("설치 도중 프로그램 오류가 났습니다. 설치 로그: %s" % stack.log_path(), "error")
 
     def say(self, text, name):
-        self.result.setObjectName(name)
-        self.result.style().unpolish(self.result)
-        self.result.style().polish(self.result)
-        self.result.setText(text)
+        """결과 띠에 글을 보임. name 이 error 면 오류 띠, 아니면 완료 띠."""
+        tone = "danger" if name == "error" else "success"
+        kit.set_tone(self.result, tone)
+        self.result.word.setText("오류" if name == "error" else "완료")
+        self.result.text.setText(text)
         self.result.show()
         self.fit()
 
     # 지우기
 
     def ask_remove(self):
-        self.win.ask("검사 도구 지우기", CONFIRM_REMOVE, (("지우기", "remove"), ("취소", "")), lambda key: self.remove())
+        self.win.ask("검사 도구 지우기", CONFIRM_REMOVE, (("지우기", "remove", "danger"), ("닫기", "")), lambda key: self.remove())
 
     def remove(self):
         if self.busy:

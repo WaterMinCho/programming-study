@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import QLabel  # noqa: E402
 import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
-from gui import errors, theme  # noqa: E402
+from gui import errors, kit, theme  # noqa: E402
 from gui.journey_page import NODE_TITLE  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank, node, runner  # noqa: E402
@@ -168,7 +168,7 @@ class HubTest(unittest.TestCase):
         """허브에서 [여행 떠나기] → 지도에서 pid 를 골라 [문제 풀기]."""
         win = self.win
         if self.page() is not win.journey_map:
-            guikit.click(win.hub.journey_btn)
+            guikit.click(win.hub.journey_row)
         page = win.journey_map
         row = next(n for n in range(page.listw.count()) if page.listw.item(n).data(Qt.ItemDataRole.UserRole) == pid)
         page.listw.setCurrentRow(row)
@@ -188,36 +188,35 @@ class HubTest(unittest.TestCase):
 
 
 class HubScreenTest(HubTest):
-    def test_starts_at_the_hub_and_both_cards_show_their_numbers(self):
+    def test_starts_at_the_hub_and_the_rows_show_their_numbers(self):
         prof = self.graded_round()
         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat(timespec="seconds")
-        self.write_log([grade_entry("p1", at=yesterday), grade_entry("p1"), grade_entry("p2"), grade_entry("p2", "javascript")])
+        later = (datetime.datetime.now() + datetime.timedelta(minutes=1)).isoformat(timespec="seconds")  # 파이썬 채점보다 뒤의 여행 채점
+        self.write_log([grade_entry("p1", at=yesterday), grade_entry("p1", at=later), grade_entry("p2", at=later),
+                        grade_entry("p2", "javascript", at=later)])
         win = self.boot()
         hub = win.hub
         self.assertIs(self.page(), hub)
         self.assertEqual((win.area, win.windowTitle()), ("hub", "프로그래밍 스터디"))
         self.assertIn("프로그래밍 스터디", [label.text() for label in hub.findChildren(QLabel)])
         self.assertEqual(hub.user.text(), "ID: tester")
+        self.assertEqual(hub.theme_btn.text(), "밝게 보기")  # 시스템을 따르는 중이라 누르면 밝게로 바뀜
 
-        # 파이썬 카드: 서비스가 낸 값을 그대로 보임
+        # 파이썬 줄: 서비스가 낸 값을 그대로 보임
         overview = win.session.overview()
-        last = [r for r in overview["rounds"] if r["completed"]][-1]
-        earned = int(last["first_score"].split("/")[0])
-        self.assertEqual((hub.ready_label.text(), hub.ready.text()), ("시험 준비도", "%d%%" % overview["readiness"]))
-        self.assertEqual(hub.mastered.text(), "%d / %d" % (overview["mastered"], overview["total_units"]))
-        self.assertEqual(hub.python_next.text(), win.next_action(overview)[0])
-        self.assertEqual((hub.python_last.text(), hub.python_last_label.text()), ("%d / 100" % earned, "%s 첫 채점" % last["title"]))
-        self.assertTrue(hub.python_last_stat.isVisible())
+        self.assertEqual(hub.python_row.second.text(), "준비도 %d%% · 단원 %d개 중 %d개 숙달 · 다음은 2회차"
+                         % (overview["readiness"], overview["total_units"], overview["mastered"]))
 
-        # 여행 카드: 1-1·1-2 를 통과해 보스가 열리고 다음 추천은 보스. 언어별 통과 수는 수치 하나씩. 띠에는 던전 16개가 모두 나옴
-        self.assertEqual((hub.journey_passed.text(), hub.journey_boss.text()), ("2 / 4", "0 / 1"))
-        self.assertEqual({lang: item.value.text() for lang, item in hub.journey_langs.items()}, {"python": "2", "javascript": "1"})
-        self.assertEqual(hub.journey_langs["javascript"].name.text(), "JavaScript 통과")
-        self.assertTrue(hub.journey_next.text().startswith("1-B "), hub.journey_next.text())
-        self.assertTrue(hub.journey_next.text().endswith(" · 던전 1 「시험 마을」"), hub.journey_next.text())
-        self.assertEqual(len(hub.strip.rows), 16)
-        self.assertTrue(hub.journey_btn.isEnabled())
+        # 여행 줄: 1-1·1-2 를 통과해 보스가 열리고 다음은 보스
+        self.assertEqual(hub.journey_row.second.text(), "4문제 중 2개 통과 · 던전 1개 중 0개 클리어 · 다음은 물통 정리")
+        self.assertFalse(hub.journey_row.inert)
         self.assertFalse(hub.journey_error.isVisible())
+
+        # 이어서 할 일: 웹에 진행 중인 것이 없고 가장 최근 기록이 여행이라 여행의 다음 문제. 주 단추는 화면에 하나
+        self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
+                         ("물통 정리", "알고리즘 여행 · 던전 1 「시험 마을」", "문제 풀기"))
+        self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
+        self.assertEqual(hub.summary.text(), "이어서 할 일을 골라 시작하세요.")
 
         # 막대: 25문항 회차를 한 번 채점한 날의 파이썬 값은 1, 여행은 채점 기록 수, 웹은 기록이 없어 0. 어제도 여행 채점이 있어 연속 2일
         today = datetime.date.today()
@@ -225,26 +224,41 @@ class HubScreenTest(HubTest):
         self.assertEqual(hub.chart.days[-1], (today, 1, 3, 0))
         self.assertEqual(hub.chart.days[-2], (today - datetime.timedelta(days=1), 0, 1, 0))
         self.assertEqual(len(hub.chart.days), 7)
-        self.assertEqual(hub.streak.text(), "연속 학습 2일")
+        self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 2일", "합계 5회"))
         self.assertTrue(hub.recent_box.isVisible())
         self.assertEqual(len(hub.recent.rows), 5)  # 다섯 줄까지. 줄마다 (무엇을 채점했는지, 시각)
         labels, stamps = zip(*hub.recent.rows)
-        self.assertIn("1-2 JavaScript 100.0점", labels)
+        self.assertIn("1-2 JavaScript 100점", labels)
+        last = [r for r in overview["rounds"] if r["completed"]][-1]
         self.assertIn("파이썬 스터디 %s" % last["title"], labels)
         self.assertTrue(all(stamp.startswith("%d/%d " % (today.month, today.day)) for stamp in stamps[:4]), stamps)
 
-    def test_buttons_and_cards_move_between_the_two_areas(self):
+        # 이어서 할 일의 단추는 그 문제를 바로 엶
+        guikit.click(hub.next_btn)
+        self.idle()
+        self.assertEqual((self.page(), win.journey_page.pid), (win.journey_page, "boss"))
+
+    def test_next_card_prefers_python_when_nothing_was_graded(self):
         win = self.boot()
         hub = win.hub
-        guikit.click(hub.python_btn)
+        self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("진단 테스트", "시작"))
+        self.assertTrue(hub.next_card.line.text().startswith("파이썬 스터디 · "), hub.next_card.line.text())
+        guikit.click(hub.next_btn)
+        self.idle()
+        self.assertEqual((self.page(), win.area), (win.round_page, "python"))
+
+    def test_rows_move_between_the_areas_and_the_theme_button_names_the_next_mode(self):
+        win = self.boot()
+        hub = win.hub
+        guikit.click(hub.python_row)
         self.assertEqual((self.page(), win.area), (win.home, "python"))
         guikit.click(win.home.hub_btn)
         self.assertEqual((self.page(), win.area), (hub, "hub"))
-        QTest.mouseClick(hub.python_card, guikit.LEFT, pos=QPoint(8, hub.python_card.height() - 8))  # 카드의 빈 곳을 눌러도 들어감
+        QTest.mouseClick(hub.python_row, guikit.LEFT, pos=QPoint(8, hub.python_row.height() - 8))  # 줄의 빈 곳을 눌러도 들어감
         guikit.pump()
         self.assertIs(self.page(), win.home)
         guikit.click(win.home.hub_btn)
-        QTest.mouseClick(hub.journey_card, guikit.LEFT, pos=QPoint(8, hub.journey_card.height() - 8))
+        QTest.mouseClick(hub.journey_row, guikit.LEFT, pos=QPoint(8, hub.journey_row.height() - 8))
         guikit.pump()
         self.assertEqual((self.page(), win.area), (win.journey_map, "journey"))
         page = self.open_problem("p1")
@@ -254,9 +268,18 @@ class HubScreenTest(HubTest):
         self.assertIs(self.page(), win.journey_map)
         guikit.click(win.journey_map.home_btn)
         self.assertEqual((self.page(), win.area), (hub, "hub"))
+        self.addCleanup(theme.set_mode, "system")
+        guikit.click(hub.theme_btn)
+        guikit.pump(400)
+        self.assertEqual((theme.state["mode"], hub.theme_btn.text()), ("light", "어둡게 보기"))
+        guikit.click(hub.theme_btn)
+        guikit.pump(400)
+        self.assertEqual((theme.state["mode"], hub.theme_btn.text()), ("dark", "시스템 따르기"))
+        self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
 
     def test_hub_submit_writes_unsaved_journey_code_first(self):
         win = self.boot()
+        self.assertFalse(win.hub.git_btn.inert)
         guikit.click(win.hub.git_btn)
         self.idle()
         self.assertEqual(self.git.calls, ["sync", "submit"])
@@ -267,7 +290,7 @@ class HubScreenTest(HubTest):
         self.git.before_submit = lambda: seen.append(study.read_text(path) if os.path.isfile(path) else None)
         self.type_code(code)
         self.assertTrue(win.journey_page.dirty)  # 자동 저장을 기다리지 않음
-        win.hub.git_btn.click()
+        win.hub.git_btn.clicked.emit()
         self.idle()
         self.assertEqual(seen, [code])
         self.assertEqual(win.journey_page.dirty, {})
@@ -285,7 +308,7 @@ class HubScreenTest(HubTest):
             self.assertIn("새 문제를 받았습니다", win.dialog.text.text())
             self.choose("ok")
 
-        guikit.click(win.hub.journey_btn)
+        guikit.click(win.hub.journey_row)
         fetch()
         self.assertEqual((self.page(), win.area), (win.journey_map, "journey"))
         page = self.open_problem("p2")
@@ -293,7 +316,7 @@ class HubScreenTest(HubTest):
         self.assertEqual((self.page(), page.pid), (page, "p2"))  # 같은 문제를 다시 읽음
         guikit.click(page.map_btn)
         guikit.click(win.journey_map.home_btn)
-        guikit.click(win.hub.python_btn)
+        guikit.click(win.hub.python_row)
         fetch()
         self.assertEqual((self.page(), win.area), (win.home, "python"))
         guikit.click(win.home.hub_btn)
@@ -308,24 +331,24 @@ class HubScreenTest(HubTest):
         self.assertIs(self.page(), hub)
         self.assertIsNone(win.journey)
         self.assertTrue(hub.journey_error.isVisible())
-        self.assertIn("progress.json", hub.journey_error.text())
-        self.assertIn("파일을 고친 뒤 프로그램을 다시 실행해 주세요.", hub.journey_error.text())
-        self.assertFalse(hub.journey_btn.isEnabled())
-        self.assertFalse(hub.journey_passed.isVisible())
-        self.assertFalse(hub.python_last_stat.isVisible())  # 제출한 회차가 없으면 지난 회차 수치를 빼고 보임
-        QTest.mouseClick(hub.journey_card, guikit.LEFT, pos=QPoint(8, hub.journey_card.height() - 8))
-        guikit.pump()
-        self.assertIs(self.page(), hub)  # 꺼진 카드는 눌러도 그대로
+        self.assertIn("progress.json", hub.journey_error.text.text())
+        self.assertIn("파일을 고친 뒤 프로그램을 다시 실행해 주세요.", hub.journey_error.text.text())
+        self.assertTrue(hub.journey_row.inert)
+        self.assertEqual(hub.journey_row.second.text(), "기록을 읽지 못했습니다.")
+        guikit.click(hub.journey_row)
+        self.assertIs(self.page(), hub)  # 꺼진 줄은 눌러도 그대로
         self.assertEqual(hub.chart.days[-1][2], 0)
         self.assertFalse(hub.recent_box.isVisible())  # 채점 기록이 없으면 최근 채점 칸을 빼고 막대만 보임
-        self.assertTrue(hub.git_tips.isVisible())
-        guikit.click(hub.python_btn)
+        self.assertFalse(hub.git_hint.isVisible())
+        guikit.click(hub.python_row)
         self.assertIs(self.page(), win.home)
         self.assertEqual(win.home.action_btn.text(), "진단 테스트 시작")
         guikit.click(win.home.hub_btn)
         hub.set_busy(True, "확인 중입니다.")
+        self.assertTrue(hub.python_row.inert and hub.git_btn.inert and not hub.next_btn.isEnabled())
         hub.set_busy(False)
-        self.assertFalse(hub.journey_btn.isEnabled())  # 잠금이 풀려도 여행 단추는 꺼진 채로 남음
+        self.assertFalse(hub.python_row.inert or hub.git_btn.inert)
+        self.assertTrue(hub.journey_row.inert)  # 잠금이 풀려도 여행 줄은 꺼진 채로 남음
 
     def test_dark_theme_leaves_no_light_patches(self):
         self.write_log([grade_entry("p1")])
@@ -413,7 +436,7 @@ class NodeLookupTest(HubTest):
         self.found = self.NODE_INFO
         self.settings.setValue("journey/lang", "javascript")
         win = self.boot()
-        guikit.click(win.hub.journey_btn)
+        guikit.click(win.hub.journey_row)
         self.idle()
         self.assertIs(self.page(), win.journey_map)
         self.assertEqual("javascript", win.journey_map.lang_bar.lang)
@@ -423,7 +446,7 @@ class NodeLookupTest(HubTest):
 
     def test_javascript_button_and_node_path_are_checked_in_the_worker(self):
         win = self.boot()
-        guikit.click(win.hub.journey_btn)
+        guikit.click(win.hub.journey_row)
         self.assertEqual([], self.threads["search"], "Python 이면 node 를 찾지 않음")
         page = win.journey_map
         guikit.click(page.lang_btns["javascript"])
