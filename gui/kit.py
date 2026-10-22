@@ -20,7 +20,24 @@ MARGIN = 32  # 창 좌우 여백
 MARK = 20  # 목록 줄 앞 상태 점의 칸 폭
 ROW_TEXT = 24 + MARK + 12  # 목록 줄의 글이 시작하는 자리(안쪽 여백, 점 칸, 점과 글 사이)
 HOME_WIDTH = 960  # 홈 화면 내용 단의 최대 폭
+DOC_MIN = 640  # 1280 창까지의 읽는 글 단 폭. 17px 본문으로 약 54자(설계 문서의 실측)
+DOC_CHARS = 54  # DOC_MIN 에 들어가는 17px 본문 글자 수
+DOC_PX = 17  # 그 글자 수를 잰 본문 크기
+LINE_CHARS = 75  # 한 줄에 두는 글자 수의 상한. 설계 원칙(P4)이 드는 한 줄 80자 이하에서 여유를 둠
+GROW_FROM = 1280  # 이 창 폭부터 읽는 글의 단이 넓어짐
 DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok"}  # 상태 점의 색 토큰
+
+
+def doc_max():
+    """읽는 글 단 폭의 상한. 지금 본문 크기로 LINE_CHARS 자가 들어가는 폭: DOC_MIN / DOC_CHARS 가 17px 글자 하나의 폭이고
+    본문이 커진 만큼 비례함. 17px 이면 889, 19px 이면 994, 21px 이면 1098."""
+    return round(DOC_MIN / DOC_CHARS * LINE_CHARS * theme.TYPE["body"][0] / DOC_PX)
+
+
+def doc_width(window_width):
+    """창 폭에 맞춘 읽는 글의 단 폭. 1280 창까지는 DOC_MIN 이고, 창이 그보다 넓어진 폭의 반만큼 넓어지되 doc_max 를 넘지 않음.
+    2000 창이면 640 + 360 = 1000 에서 상한으로 자름(17px 본문 889, 19px 994)."""
+    return max(DOC_MIN, min(doc_max(), DOC_MIN + (window_width - GROW_FROM) // 2))
 
 
 def page(widget):
