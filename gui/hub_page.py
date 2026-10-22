@@ -6,17 +6,15 @@
 막대의 파이썬 채점 수는 시도 기록에서 서로 다른 (회차, 시각) 쌍의 수임. 회차를 한 번 채점하면 문항마다 같은 시각의 시도가
 하나씩 남아서, 시도 수를 그대로 세면 여행 채점 한 번(1)과 견줄 수 없음.
 이어서 할 일은 웹의 진행 중 미션이나 오늘 복습이 있으면 그것, 아니면 가장 최근에 기록을 남긴 트랙의 다음 할 일, 기록이 없으면 파이썬 스터디의
-다음 회차임. 막대와 최근 채점 줄은 칠할 때마다 지금 테마의 색을 읽음."""
+다음 회차임. 여행의 다음 할 일은 journey_text.next_item 이 마지막으로 연 문제부터 보고 고름. 막대와 최근 채점 줄은 칠할 때마다 지금 테마의 색을 읽음."""
 import datetime
 import html
-import math
 
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QFontMetricsF, QPainter
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
 
-from gui import errors, kit, theme, web_text
-from gui.journey_page import LANG_LABEL
+from gui import errors, journey_text, kit, theme, web_text
 from gui.mascot import Mascot
 from gui.widgets import LinkLabel
 from webprep.record import RecordError
@@ -174,6 +172,7 @@ class HubPage(QWidget):
         self.setObjectName("page")
         self.win = win
         self.target = None  # 이어서 할 일 카드의 단추가 여는 것: 부르면 화면을 여는 함수
+        self.journey_next = None  # 여행의 이어서 할 일(journey_text.next_item). 여행 줄과 카드가 같은 문제를 말함
         outer = kit.box(self)
 
         top = kit.TopBar(plain=True)
@@ -336,24 +335,21 @@ class HubPage(QWidget):
         self.restyle()
 
     def show_journey(self):
-        """알고리즘 여행 줄. 여행 기록을 읽지 못했으면 이유를 띠로 보이고 줄을 끄고 None 을, 아니면 여행 서비스의 overview 를 돌려줌."""
+        """알고리즘 여행 줄. 여행 기록을 읽지 못했으면 이유를 띠로 보이고 줄을 끄고 None 을, 아니면 여행 서비스의 overview 를 돌려줌.
+        이어서 할 일은 설정 journey/last 의 마지막으로 연 문제를 먼저 보고 journey_next 에 둠."""
         win = self.win
         ready = win.journey is not None
         self.journey_error.setVisible(not ready)
         kit.set_inert(self.journey_row, not ready)
+        self.journey_next = None
         if not ready:
             self.journey_error.text.setText("%s\n%s" % (win.journey_error, FIX_HINT))
             self.journey_row.set_second("기록을 읽지 못했습니다.")
             return None
         overview = win.journey.overview()
-        target = overview["next"]
-        if target:
-            tail = "다음은 %s" % target["title"]
-        elif overview["total"]:
-            tail = "모두 클리어했습니다."
-        else:
-            tail = "아직 준비된 던전이 없습니다."
-        self.journey_row.set_second("%d문제 중 %d개 통과 · %s" % (overview["total"], overview["passed"], tail))
+        last = win.settings.value("journey/last", "", type=str)
+        self.journey_next = journey_text.next_item(win.journey, last, overview)
+        self.journey_row.set_second(journey_text.track_line(overview, self.journey_next))
         return overview
 
     def show_web(self):
@@ -409,11 +405,9 @@ class HubPage(QWidget):
                 name, action = split_action(label)
                 self.set_next(name, "파이썬 스터디 · %s" % first_sentence(desc), action, self.start_python)
                 return
-            if track == "journey" and journey and journey["next"]:
-                target = journey["next"]
-                there = next((row for row in journey["dungeons"] if row["id"] == target["did"]), None)
-                place = " · 던전 %d 「%s」" % (there["no"], there["title"]) if there else ""
-                self.set_next(target["title"], "알고리즘 여행%s" % place, "문제 풀기",
+            if track == "journey" and journey and self.journey_next:
+                target = self.journey_next
+                self.set_next(target["title"], "알고리즘 여행 · %s" % target["place"], target["action"],
                               lambda did=target["did"], pid=target["pid"]: self.win.open_problem(did, pid))
                 return
             if track == "web" and web_item:
@@ -459,8 +453,8 @@ class HubPage(QWidget):
         titles = {r["id"]: r["title"] for r in overview["rounds"]}
         rows = [(at, "파이썬 스터디 %s" % titles.get(rid, rid)) for at, rid in gradings[-RECENT:]]
         for entry in (journey["recent"] if journey else []):
-            rows.append((str(entry["at"] or ""), "%s %s %d점" % (entry["no"], LANG_LABEL.get(entry["lang"], entry["lang"]),
-                                                               math.floor(entry["score"] or 0.0))))
+            rows.append((str(entry["at"] or ""), "%s %s %s점" % (entry["no"], journey_text.LANG_LABEL.get(entry["lang"], entry["lang"]),
+                                                               journey_text.whole_score(entry["score"]))))
         rows.sort(key=lambda row: row[0], reverse=True)
         self.recent.set_rows((label, stamp(at)) for at, label in rows[:RECENT])
         self.recent_box.setVisible(bool(rows))

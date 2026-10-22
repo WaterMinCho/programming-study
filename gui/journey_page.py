@@ -16,13 +16,13 @@ from gui import journey_html, motion, theme
 from gui.cases_dialog import CasesDialog
 from gui.docview import DocView
 from gui.editor import LANGS
+from gui.journey_text import LANG_LABEL
 from gui.widgets import CodePanel, FindBar, Para
 from journey.node import MIN_MAJOR
 from journey.service import JourneyError
 from session import SessionError
 
 SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
-LANG_LABEL = {"python": "Python", "javascript": "JavaScript"}
 SITE_LABEL = {"boj": "백준", "programmers": "프로그래머스"}
 NODE_TITLE = "Node.js 가 필요합니다"
 NODE_TEXT = ("JavaScript 로 풀려면 이 컴퓨터에 Node.js %d 이상이 있어야 합니다. https://nodejs.org 에서 LTS 버전을 설치한 뒤 "

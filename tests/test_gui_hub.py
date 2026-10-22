@@ -246,6 +246,35 @@ class HubScreenTest(HubTest):
         self.idle()
         self.assertEqual((self.page(), win.area), (win.round_page, "python"))
 
+    def test_journey_next_starts_from_the_last_opened_problem(self):
+        """설정 journey/last 의 문제가 아직 통과 전이고 열 수 있으면 여행 줄과 이어서 할 일이 그 문제를 말함. 다른 던전의 문제도
+        같음. 은행에 없는 문제, 읽지 못한 던전, 통과한 문제, 잠긴 보스를 가리키면 서비스 추천으로 돌아감."""
+        root = os.path.join(self.tmp, "bank")
+        shutil.copytree(FIXTURE, root)
+        shutil.copytree(os.path.join(root, "t01"), os.path.join(root, "t03"))  # 준비된 던전을 하나 더 둠
+        patcher = mock.patch.object(bank, "BANK_DIR", root)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.write_log([grade_entry("p1")])
+        self.settings.setValue("journey/last", "t03/p1")
+        win = self.boot()
+        hub = win.hub
+        self.assertEqual(hub.journey_row.second.text(), "8문제 중 1개 통과 · 다음은 물통 합계")
+        self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
+                         ("물통 합계", "알고리즘 여행 · 던전 3 「준비 중 던전 3」", "문제 풀기"))
+        guikit.click(hub.next_btn)
+        self.idle()
+        self.assertEqual((self.page(), win.journey_page.did, win.journey_page.pid), (win.journey_page, "t03", "p1"))
+        guikit.click(win.journey_page.map_btn)
+        guikit.click(win.journey_map.home_btn)
+        self.assertIs(self.page(), hub)
+        self.assertEqual(hub.next_card.line.text(), "알고리즘 여행 · 던전 3 「준비 중 던전 3」")
+        for last in ("t01/p9", "t02/p1", "t01/p1", "t01/boss"):
+            self.settings.setValue("journey/last", last)
+            hub.refresh()
+            self.assertEqual((hub.journey_row.second.text(), hub.next_card.title.text(), hub.next_card.line.text()),
+                             ("8문제 중 1개 통과 · 다음은 가장 큰 물통", "가장 큰 물통", "알고리즘 여행 · 던전 1 「시험 마을」"), last)
+
     def test_rows_move_between_the_areas_and_the_theme_button_names_the_next_mode(self):
         win = self.boot()
         hub = win.hub

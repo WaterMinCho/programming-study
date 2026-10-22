@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """여정 결과 칸의 HTML(gui/journey_html.py). PyQt 없이 돎. [코드 실행]과 [제출 후 채점하기]의 문구, 숫자 꼴
-(0.42ms, 10.3MB, 합계: 88.5 / 100.0), 값 표기가 고른 언어를 따르는지를 봄. 자식 프로세스는 띄우지 않고 runner 를 가짜로 바꿔 끼움."""
+(0.42ms, 10.3MB, 합계: 88.5 / 100.0), 값 표기가 고른 언어를 따르는지를 봄. 자식 프로세스는 띄우지 않고 runner 를 가짜로 바꿔 끼움.
+결과 카드 본문(run_body·grade_body)은 요약 줄 없이 같은 테스트 줄을 그리는지 봄."""
 import contextlib
 import html
 import os
@@ -131,18 +132,22 @@ class RunHtmlTest(unittest.TestCase):
         self.assertNotIn("True", script)
 
 
+def grade_result(**fields):
+    accuracy = [grade_case(1, "pass"), grade_case(2, "wrong", ms=0.0213, mb=10.2),
+                grade_case(3, "pass", ms=0.4213, mb=15.3, count=50), grade_case(4, "runtime")]
+    efficiency = [grade_case(1, "pass", ms=76.2149, mb=98.4), grade_case(2, "timeout"), grade_case(3, "memory")]
+    result = {"lang": "python", "runtime": "Python 3.14.4", "fatal": None, "cancelled": False,
+              "groups": [{"name": "정확성", "points": 70.0, "earned": 56.5, "cases": accuracy},
+                         {"name": "효율성", "points": 30.0, "earned": 32.0, "cases": efficiency}],
+              "acc": 56.5, "eff": 32.0, "score": 88.5, "passed": False, "first_pass": False, "boss_opened": False,
+              "cleared": False}
+    result.update(fields)
+    return result
+
+
 class GradeHtmlTest(unittest.TestCase):
     def result(self, **fields):
-        accuracy = [grade_case(1, "pass"), grade_case(2, "wrong", ms=0.0213, mb=10.2),
-                    grade_case(3, "pass", ms=0.4213, mb=15.3, count=50), grade_case(4, "runtime")]
-        efficiency = [grade_case(1, "pass", ms=76.2149, mb=98.4), grade_case(2, "timeout"), grade_case(3, "memory")]
-        result = {"lang": "python", "runtime": "Python 3.14.4", "fatal": None, "cancelled": False,
-                  "groups": [{"name": "정확성", "points": 70.0, "earned": 56.5, "cases": accuracy},
-                             {"name": "효율성", "points": 30.0, "earned": 32.0, "cases": efficiency}],
-                  "acc": 56.5, "eff": 32.0, "score": 88.5, "passed": False, "first_pass": False, "boss_opened": False,
-                  "cleared": False}
-        result.update(fields)
-        return result
+        return grade_result(**fields)
 
     def test_groups_lines_and_total(self):
         text = plain(journey_html.grade_html(self.result()))
@@ -212,6 +217,71 @@ class GradeHtmlTest(unittest.TestCase):
         self.assertIn("정확성: 45.0", text)  # 중급 60점 × 3/4
         self.assertIn("효율성: 0.0", text)
         self.assertIn("합계: 45.0 / 100.0", text)
+
+
+
+class BodyTest(unittest.TestCase):
+    """결과 카드 본문. 요약은 카드 머리(journey_text.result_head)가 말하므로 본문에는 테스트 줄과 끝의 안내 줄만 있음."""
+
+    def run_result(self, **fields):
+        cases = [run_case(1, "pass", got_text="['pepper']"), run_case(2, "wrong", got_text="[]")]
+        result = {"lang": "python", "runtime": "Python 3.14.4", "fatal": None, "cases": cases, "passed": 1, "total": 2,
+                  "cancelled": False, "limit_note": LIMIT_NOTE}
+        result.update(fields)
+        return result
+
+    def test_run_body_has_the_same_lines_without_the_summary(self):
+        result = self.run_result()
+        whole, body = journey_html.run_html(result), journey_html.run_body(result)
+        lines = "".join(journey_html.run_case_html(case) for case in result["cases"])
+        self.assertIn(lines, whole)
+        self.assertIn(lines, body)
+        text = plain(body)
+        for line in ("테스트 결과", "성공", LIMIT_NOTE, journey_html.STOPPED_RUN):
+            self.assertNotIn(line, text)
+        self.assertTrue(text.rstrip().endswith("실행 환경 Python 3.14.4"), text)
+        self.assertNotIn("실행 환경", plain(journey_html.run_body(result, done=False)))
+        stopped = plain(journey_html.run_body(self.run_result(cancelled=True)))
+        self.assertIn("테스트 2", stopped)
+        self.assertNotIn(journey_html.STOPPED_RUN, stopped)
+        fatal = {"kind": "syntax", "message": "SyntaxError: invalid syntax", "line": 3, "note": ""}
+        self.assertIn("SyntaxError: invalid syntax (3번째 줄)", plain(journey_html.run_body(self.run_result(cases=[], fatal=fatal))))
+
+    def test_grade_body_has_the_same_lines_without_the_summary(self):
+        result = grade_result(first_pass=True, boss_opened=True)
+        whole, body = journey_html.grade_html(result), journey_html.grade_body(result)
+        lines = "".join(journey_html.grade_lines(result))
+        self.assertIn(lines, whole)
+        self.assertTrue(body.startswith("<body>" + lines), body[:200])
+        text = plain(body)
+        for line in ("채점 결과", "정확성: 56.5", "합계", "처음으로 통과", "보스 문제가 열렸습니다", "로 실행했습니다"):
+            self.assertNotIn(line, text)
+        self.assertNotIn(journey_html.BOSS_LINK, body)
+        self.assertLess(text.index(journey_html.HIDDEN_NOTE), text.index("실행 환경 Python 3.14.4"))
+        self.assertTrue(text.rstrip().endswith(journey_html.MEMORY_NOTE), text)
+
+    def test_hidden_note_only_for_a_failed_hidden_test(self):
+        """입출력 예(ex1, ex2 …)는 [코드 실행]에서도 보이므로 그 줄만 틀렸으면 숨은 테스트 안내를 붙이지 않음."""
+        example_failed = {"groups": [{"name": "정확성", "cases": [dict(grade_case(1, "wrong"), id="ex1"), grade_case(2, "pass")]}]}
+        hidden_failed = {"groups": [{"name": "정확성", "cases": [dict(grade_case(1, "pass"), id="ex1"), grade_case(2, "timeout")]}]}
+        self.assertNotIn(journey_html.HIDDEN_NOTE, journey_html.grade_body(example_failed))
+        self.assertIn(journey_html.HIDDEN_NOTE, journey_html.grade_body(hidden_failed))
+        self.assertNotIn(journey_html.HIDDEN_NOTE, journey_html.grade_body(hidden_failed, done=False))
+        self.assertNotIn(journey_html.HIDDEN_NOTE, journey_html.grade_body(dict(hidden_failed, cancelled=True)))
+        cancelled = {"groups": [{"name": "정확성", "cases": [grade_case(1, "pass"), grade_case(2, "cancelled")]}]}
+        self.assertNotIn(journey_html.HIDDEN_NOTE, journey_html.grade_body(cancelled))
+
+    def test_grade_body_when_the_code_did_not_load_or_was_stopped(self):
+        fatal = {"kind": "syntax", "message": "SyntaxError: invalid syntax", "line": 3, "note": ""}
+        text = plain(journey_html.grade_body(grade_result(fatal=fatal, groups=[], score=0.0)))
+        self.assertIn("SyntaxError: invalid syntax (3번째 줄)", text)
+        self.assertIn("실행 환경 Python 3.14.4", text)
+        self.assertNotIn(journey_html.MEMORY_NOTE, text)
+        self.assertNotIn("합계", text)
+        stopped = plain(journey_html.grade_body(grade_result(cancelled=True)))
+        self.assertIn("효율성 테스트", stopped)
+        for line in (journey_html.STOPPED_GRADE, journey_html.MEMORY_NOTE, "실행 환경"):
+            self.assertNotIn(line, stopped)
 
 
 if __name__ == "__main__":
