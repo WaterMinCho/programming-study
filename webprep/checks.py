@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """단계 검사 준비·실행·결과 해석.
 
-봉인을 풀어 <ROOT>/.web-check/<미션>/ 에 checks/step<k>.test.tsx, kit/, setup.ts, vitest.config.mts 를 쓰고
+봉인을 풀어 <ROOT>/.web-check/<미션>-<8자리 16진수>/ 에 checks/step<k>.test.tsx, kit/, setup.ts, vitest.config.mts 를 쓰고
 `node <ROOT>/node_modules/vitest/vitest.mjs run --config … --reporter=json --outputFile=…` 을 돌림. cwd 는 저장소 맨 위,
 CI=1, FORCE_COLOR=0, NODE_OPTIONS 는 비움. 60초를 넘기거나 Ctrl+C 로 멈추면 프로세스 트리를 끊음. 끝나면 성공·실패와 상관없이 폴더를 지움.
+폴더 이름에 실행마다 다른 꼬리를 붙여, 화면과 터미널이 같은 미션을 동시에 검사해도 서로의 폴더를 지우거나 덮어쓰지 않음.
 JSON 의 testResults[].assertionResults[] 에서 title, status, duration, failureMessages 를 읽고, 검사 이름의 첫 낱말이
-검사 id("1a") 임. 파일이 아예 돌지 못한 경우(문법 오류 등)는 그 파일의 검사 id 를 모두 실패로 적음.
+검사 id("1a") 임. 파일이 아예 돌지 못한 경우(문법 오류 등)는 그 파일의 검사 id 를 모두 실패로 적되, 제목은 검사 파일에서 읽고
+문구 첫 줄은 한국어 안내로 둠. 화면은 실패 문구의 첫 줄만 보이고 나머지는 [원문 보기]에 두므로 첫 줄을 읽을 수 있는 한국어로 만듦.
 """
 import json
 import os
@@ -16,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 import study
 from webprep import bank
@@ -28,6 +31,29 @@ TEST_TIMEOUT_MS = 5000
 MESSAGE_LINES = 12
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 DUMP_HEAD = re.compile(r"^\s*(Ignored nodes:|<body|<div|Here are the accessible roles|Unable to find)")
+STACK_LINE = re.compile(r"^\s+at ")
+FOREIGN_FRAME = re.compile(r"node_modules[/\\]|\(node:|\(<anonymous>\)|" + re.escape(CHECK_DIR) + r"[/\\]")
+SLOT_NAME = re.compile(r"\b([\w.]+)-[0-9a-f]{8}(?=[/\\]checks[/\\])")
+ASSERT_HEAD = re.compile(r"^(?:AssertionError|Error): (.+)$")
+HANGUL = re.compile("[가-힣]")
+FILE_FAILED = ("검사 파일을 불러오다 멈춰서 이 검사를 돌리지 못했습니다. 원문에 나온 파일과 줄에서 문법 오류나 "
+               "없는 파일을 가져오는 import가 있는지 확인해 주세요.")
+# Testing Library 가 요소를 못 찾았을 때의 영어 첫 줄 → 화면에 보일 한국어 한 줄. 원래 줄은 접은 원문 맨 앞에 남김
+LIBRARY_LINES = (
+    (r'Unable to find an accessible element with the role "([^"]+)" and name "([^"]*)"', '이름이 "{1}"이고 역할(role)이 {0}인 요소를 화면에서 찾지 못했습니다.'),
+    (r'Unable to find role="([^"]+)" and name "([^"]*)"', '이름이 "{1}"이고 역할(role)이 {0}인 요소를 화면에서 찾지 못했습니다.'),
+    (r'Unable to find an accessible element with the role "([^"]+)"', '역할(role)이 {0}인 요소를 화면에서 찾지 못했습니다.'),
+    (r'Unable to find role="([^"]+)"', '역할(role)이 {0}인 요소를 화면에서 찾지 못했습니다.'),
+    (r'Unable to find an element with the text: (.+?)(?:\. This could be because.*)?', '"{0}" 글자를 화면에서 찾지 못했습니다.'),
+    (r'Unable to find a label with the text of: (.+)', '"{0}" label이 붙은 요소를 화면에서 찾지 못했습니다.'),
+    (r'Found a label with the text of: (.+?), however no form control was found.*', '"{0}" label은 있지만 그 label에 이어진 입력칸이 없습니다.'),
+    (r'Unable to find an element with the placeholder text of: (.+)', '안내 글자(placeholder)가 "{0}"인 요소를 화면에서 찾지 못했습니다.'),
+    (r'Found multiple elements with the role "([^"]+)" and name "([^"]*)"', '이름이 "{1}"이고 역할(role)이 {0}인 요소가 화면에 둘 이상 있습니다.'),
+    (r'Found multiple elements with the role "([^"]+)"', '역할(role)이 {0}인 요소가 화면에 둘 이상 있습니다.'),
+    (r'Found multiple elements with the text(?: of)?: (.+)', '"{0}" 글자가 화면에 둘 이상 있습니다.'),
+)
+LIBRARY_HEAD = re.compile(r"^(?:TestingLibraryElementError|Error): (.+)$")
+STALE_S = 600  # 이보다 오래된 검사 폴더는 끊긴 실행이 남긴 것으로 보고 지움. 한 번 검사는 LIMIT_S 를 넘지 않음
 _popen = subprocess.Popen  # 테스트가 가짜로 바꿔 끼움
 
 
@@ -59,12 +85,13 @@ def config_text(root, includes, app_src, kit_dir, setup_path):
 
 
 def prepare(root, mid, secrets, kit, steps, app_src, hidden=False):
-    """.web-check/<mid>/ 를 만들고 {"dir", "config", "expected": {검사 id: 단계}} 를 돌려줌. steps 는 돌릴 단계 번호 목록."""
+    """.web-check/<mid>/ 를 만들고 {"dir", "config", "expected": {검사 id: 단계}, "titles": {검사 id: 이름}} 를 돌려줌.
+    steps 는 돌릴 단계 번호 목록. mid 자리에 run_steps 는 실행마다 다른 폴더 이름을 넘김."""
     folder = os.path.join(root, CHECK_DIR, mid)
     if os.path.isdir(folder):
         shutil.rmtree(folder, ignore_errors=True)
     files = bank.check_files(secrets)
-    includes, expected = [], {}
+    includes, expected, titles = [], {}, {}
     wanted = [(step, files.get(step)) for step in steps]
     if hidden and "hidden" in files:
         wanted.append(("hidden", files["hidden"]))
@@ -77,6 +104,9 @@ def prepare(root, mid, secrets, kit, steps, app_src, hidden=False):
         includes.append(path)
         for cid in bank.check_ids(text):
             expected[cid] = step
+        for _, name in bank.TEST_NAME.findall(text):
+            cid, _, rest = name.partition(" ")
+            titles.setdefault(cid, rest)
     kit_dir = os.path.join(folder, "kit")
     setup_path = os.path.join(folder, SETUP_NAME)
     setup_written = False
@@ -91,7 +121,32 @@ def prepare(root, mid, secrets, kit, steps, app_src, hidden=False):
     os.makedirs(kit_dir, exist_ok=True)
     config = os.path.join(folder, CONFIG_NAME)
     study.write_text(config, config_text(root, includes, app_src, kit_dir, setup_path))
-    return {"dir": folder, "config": config, "expected": expected}
+    return {"dir": folder, "config": config, "expected": expected, "titles": titles}
+
+
+def new_slot(mid):
+    """이번 검사 실행의 폴더 이름. 같은 미션을 두 곳에서 동시에 검사해도 겹치지 않음."""
+    return "%s-%s" % (mid, uuid.uuid4().hex[:8])
+
+
+def sweep(root, mid, now=None):
+    """끊긴 실행(전원 꺼짐, 강제 종료)이 남긴 이 미션의 검사 폴더 가운데 STALE_S 보다 오래된 것을 지움. 도는 중인 폴더는 건드리지 않음."""
+    parent = os.path.join(root, CHECK_DIR)
+    now = time.time() if now is None else now
+    try:
+        names = os.listdir(parent)
+    except OSError:
+        return
+    for name in names:
+        if not re.match(r"%s-[0-9a-f]{8}\Z" % re.escape(mid), name):
+            continue
+        path = os.path.join(parent, name)
+        try:
+            old = now - os.path.getmtime(path) > STALE_S
+        except OSError:
+            continue
+        if old:
+            shutil.rmtree(path, ignore_errors=True)
 
 
 def cleanup(root, mid):
@@ -161,22 +216,91 @@ def run(node_path, root, config, out_path, limit=LIMIT_S):
             "ms": int((time.monotonic() - started) * 1000)}
 
 
-def clean_message(messages, root):
-    """실패 문구를 (보이는 글, 접은 DOM 덤프)로. ANSI 와 .web-check 경로를 지우고 앞 12줄만 보임."""
+def _prefixes(folder):
+    """경로를 줄일 때 찾을 폴더 앞부분. 운영체제 구분자와 / 둘 다, 실제 경로가 다르면(심볼릭 링크) 그것도."""
+    found = []
+    for path in (folder, os.path.realpath(folder)):
+        for text in (os.path.join(path, ""), os.path.join(path, "").replace("\\", "/")):
+            if text not in found:
+                found.append(text)
+    return found
+
+
+def _relative(folder, root):
+    """vite 가 오류에 저장소 기준 상대 경로로 적는 미션 폴더(submissions/<ID>/web/missions/<미션>/)."""
+    try:
+        rel = os.path.relpath(folder, root)
+    except ValueError:  # Windows 에서 드라이브가 다른 경우
+        return []
+    return [os.path.join(rel, "").replace("\\", "/")]
+
+
+def _shorten(line, root, app):
+    """줄 안의 긴 경로를 줄임. 검사 폴더는 `<미션>/checks/…`, 미션 폴더는 `src/…`, 저장소의 나머지는 `node_modules/…` 처럼
+    저장소 기준으로 보이고 file:// 앞머리도 뗌. 미션 폴더도 저장소 안에 있으므로 저장소보다 먼저 줄임."""
+    for prefix in _prefixes(os.path.join(root, CHECK_DIR)) + (_prefixes(app) + _relative(app, root) if app else []) + _prefixes(root):
+        line = line.replace("file:///" + prefix, "").replace("file://" + prefix, "").replace(prefix, "")
+    return SLOT_NAME.sub(r"\1", line.replace(CHECK_DIR + "/", ""))
+
+
+def _foreign(line, app):
+    """호출 줄이 학습자 코드 밖(검사 도구, Node 안쪽, 봉인한 검사 파일)을 가리키는지. app 을 주면 그 폴더 밖이면 모두 밖으로 봄."""
+    if FOREIGN_FRAME.search(line):
+        return True
+    if app:
+        flat = line.replace("\\", "/")
+        return not any(prefix.replace("\\", "/") in flat for prefix in _prefixes(app))
+    return False
+
+
+def clean_message(messages, root, app=None):
+    """실패 문구를 (보이는 글, 접은 원문)으로. ANSI 를 지우고 긴 경로를 줄이며 보이는 글은 앞 12줄만 둠.
+    DOM 덤프와, 검사 도구·Node 안쪽·봉인한 검사 파일을 가리키는 호출 줄은 접은 원문으로 보냄. 학습자 코드를 가리키는 호출 줄은
+    보이는 글에 남김. app 은 미션 폴더이고, 주면 그 폴더 밖을 가리키는 호출 줄도 접은 원문으로 보냄."""
     text = ANSI.sub("", "\n".join(m for m in messages if m))
-    text = text.replace(os.path.join(root, CHECK_DIR) + os.sep, "").replace(CHECK_DIR + "/", "")
-    shown, detail = [], []
+    shown, detail, frames = [], [], []
     for line in text.splitlines():
         if detail or DUMP_HEAD.match(line):
-            detail.append(line)
+            detail.append(_shorten(line, root, app))
+        elif STACK_LINE.match(line) and _foreign(line, app):
+            frames.append(_shorten(line, root, app))
         else:
-            shown.append(line)
+            shown.append(_shorten(line, root, app))
     while shown and not shown[-1].strip():
         shown.pop()
     clipped = shown[:MESSAGE_LINES]
     if len(shown) > MESSAGE_LINES:
         clipped.append("… (이하 생략)")
-    return "\n".join(clipped).strip(), "\n".join(detail).strip()
+    return "\n".join(clipped).strip(), "\n".join(detail + frames).strip()
+
+
+def korean_first(message, detail):
+    """보이는 글의 첫 줄을 한국어로 만듦. 화면은 이 첫 줄만 보이고 나머지는 [원문 보기]에 둠.
+    검사가 expect(값, '한국어 문구')로 남긴 문구는 vitest 가 "AssertionError: <문구>: expected …" 한 줄로 내므로 <문구>만 보임.
+    jest-dom 처럼 "Error: <문구>" 만 내는 경우는 문구가 한국어로 시작할 때만 올림. Testing Library 가 요소를 못 찾은 줄은
+    LIBRARY_LINES 로 옮김. 어느 경우든 원래 첫 줄(기대값과 실제값, 영어 원문)은 접은 원문 맨 앞에 둠. 그 밖은 그대로 둠."""
+    lines = message.splitlines()
+    head = _korean_head(lines[0]) if lines else None
+    if head is None:
+        return message, detail
+    return "\n".join([head] + lines[1:]), "\n".join(part for part in (lines[0], detail) if part)
+
+
+def _korean_head(line):
+    found = ASSERT_HEAD.match(line)
+    if found:
+        said = found.group(1)
+        cut = said.find(": expected ")
+        head = (said[:cut] if cut > 0 else said).strip()
+        if HANGUL.search(head) if cut > 0 else HANGUL.match(head.lstrip("\"'“‘「[(").strip()):
+            return head
+    found = LIBRARY_HEAD.match(line)
+    if found:
+        for pattern, korean in LIBRARY_LINES:
+            matched = re.fullmatch(pattern, found.group(1).strip())
+            if matched:
+                return korean.format(*matched.groups())
+    return None
 
 
 def _step_of(cid, expected):
@@ -186,9 +310,10 @@ def _step_of(cid, expected):
     return int(found.group(1)) if found else "hidden"
 
 
-def parse(text, expected, root):
+def parse(text, expected, root, titles=None, app=None):
     """vitest JSON 보고서를 {"tests": [{"id", "step", "title", "status", "ms", "message", "detail"}], "files": [...]} 로.
-    expected 에 있는데 결과에 없는 검사 id 는 파일 수준 실패 문구와 함께 실패로 넣음."""
+    expected 에 있는데 결과에 없는 검사 id 는 파일 수준 실패로 넣음. 제목은 titles(검사 파일에서 읽은 이름)에서 가져오고 문구 첫 줄은
+    FILE_FAILED, 그 아래에 그 파일의 오류 원문을 둠. app 은 미션 폴더(clean_message)."""
     try:
         data = json.loads(text)
         results = data["testResults"]
@@ -201,7 +326,9 @@ def parse(text, expected, root):
             cid, _, rest = title.partition(" ")
             status = str(item.get("status") or "")
             passed = status == "passed"
-            message, detail = clean_message(item.get("failureMessages") or [], root) if not passed else ("", "")
+            message, detail = ("", "")
+            if not passed:
+                message, detail = korean_first(*clean_message(item.get("failureMessages") or [], root, app))
             if not message and not passed:
                 message = "검사가 %s 상태로 끝났습니다." % (status or "알 수 없는")
             tests.append({"id": cid, "step": _step_of(cid, expected), "title": rest or title, "status": "pass" if passed else "fail",
@@ -209,14 +336,14 @@ def parse(text, expected, root):
             seen.add(cid)
         if not file_result.get("assertionResults") and str(file_result.get("status")) != "passed":
             name = os.path.basename(str(file_result.get("name") or ""))
-            file_errors.append((name, clean_message([str(file_result.get("message") or "")], root)))
+            file_errors.append((name, clean_message([str(file_result.get("message") or "")], root, app)))
     for cid, step in expected.items():
         if cid in seen:
             continue
         name = "hidden.test.tsx" if step == "hidden" else "step%s.test.tsx" % step
         message, detail = next(((m, d) for n, (m, d) in file_errors if n == name), ("", ""))
-        tests.append({"id": cid, "step": step, "title": "", "status": "fail", "ms": 0,
-                      "message": message or "검사 파일이 끝까지 돌지 못했습니다.", "detail": detail})
+        tests.append({"id": cid, "step": step, "title": (titles or {}).get(cid, ""), "status": "fail", "ms": 0,
+                      "message": "\n".join(part for part in (FILE_FAILED, message) if part), "detail": detail})
     order = {cid: n for n, cid in enumerate(expected)}
     tests.sort(key=lambda t: (order.get(t["id"], len(order)), t["id"]))
     return {"tests": tests, "file_errors": [n for n, _ in file_errors]}
@@ -236,7 +363,9 @@ def run_steps(node_path, root, mid, secrets, kit, steps, app_src, hidden=False, 
     warnings = []
     if has_packages(os.path.join(os.path.dirname(app_src), "node_modules")):
         warnings.append("미션 폴더 안에 node_modules 가 있습니다. React 가 두 벌 읽혀 훅 에러가 날 수 있으니 지워 주세요.")
-    prepared = prepare(root, mid, secrets, kit, steps, app_src, hidden)
+    sweep(root, mid)
+    slot = new_slot(mid)
+    prepared = prepare(root, slot, secrets, kit, steps, app_src, hidden)
     try:
         with tempfile.TemporaryDirectory(prefix="web_check_", **study.TMP_OPTIONS) as tmp:
             out_path = os.path.join(tmp, "result.json")
@@ -248,9 +377,9 @@ def run_steps(node_path, root, mid, secrets, kit, steps, app_src, hidden=False, 
             except OSError:
                 tail = "\n".join(ran["output"].strip().splitlines()[-MESSAGE_LINES:])
                 raise CheckError("검사 결과 파일이 만들어지지 않았습니다(종료 코드 %s).\n%s" % (ran["returncode"], tail))
-            parsed = parse(text, prepared["expected"], root)
+            parsed = parse(text, prepared["expected"], root, prepared["titles"], os.path.dirname(app_src))
     finally:
-        cleanup(root, mid)
+        cleanup(root, slot)
     by_step = {}
     for step in list(steps) + (["hidden"] if hidden and "hidden" in bank.check_files(secrets) else []):
         mine = [t for t in parsed["tests"] if t["step"] == step]

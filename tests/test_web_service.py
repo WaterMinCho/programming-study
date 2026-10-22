@@ -626,7 +626,8 @@ class RealVitestTest(Base):
         result = web.check("x01")
         self.assertEqual((False, ["1a", "1b"]), (result["passed"], result["fail"]))
         self.assertIn('이름이 "더하기"인 버튼이 있습니다', result["tests"][0]["title"], result["tests"][0]["message"])
-        self.assertIn("Unable to find an accessible element", result["tests"][0]["message"])
+        self.assertEqual('이름이 "더하기"이고 역할(role)이 button인 요소를 화면에서 찾지 못했습니다.', result["tests"][0]["message"])
+        self.assertIn("Unable to find an accessible element", result["tests"][0]["detail"].splitlines()[0])  # 영어 원문은 접어 둠
         self.assertIn("<body>", result["tests"][0]["detail"])
         self.solve(1)
         result = web.check("x01")
