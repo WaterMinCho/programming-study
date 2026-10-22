@@ -4,15 +4,20 @@
 화면 없이 미션 하나를 [미션 받기]부터 해설까지, 사슬 하나를 답 시간·자기 채점·다음 복습 날짜까지 끝낼 수 있음.
 출력·입력·시계는 main(argv, out, ask, clock) 으로 바꿔 끼울 수 있어 테스트가 터미널 없이 돌림. 창이나 편집기, 브라우저를 열지 않음.
 `dev` 는 Ctrl+C 를 누를 때까지 화면 서버를 켜 두고, 테스트는 time.sleep 을 바꿔 끼워 Ctrl+C 를 흉내 냄.
+표준 입력이 터미널이 아니면(파이프, 파일) PipeAsk 로 묻고, 한 줄이 PIPE_WAIT_S 안에 오지 않으면 입력이 끝난 것으로 봄.
+열려 있지만 아무것도 쓰지 않는 파이프에서 영영 기다리지 않게 하려는 것이고, 파이프로 미리 넣은 답은 그대로 읽음.
 """
 import argparse
 import os
+import queue
+import re
 import sys
+import threading
 import time
 
 import session
 import study
-from webprep import dev, service
+from webprep import bank, dev, service
 from webprep.service import WebError
 
 USAGE = """웹 면접 준비 (터미널)
@@ -23,6 +28,7 @@ USAGE = """웹 면접 준비 (터미널)
   python study.py web get <미션> [--again]    [미션 받기] 코드를 내 폴더로 복사하고 읽기 시간 시작
   python study.py web start <미션>            [실전 시작] 0단계(코드 설명)가 열립니다
   python study.py web check <미션>            [검사하기] 0단계면 점검 항목 표시, 그 뒤는 단계 검사
+  python study.py web answer <미션>           통과 뒤 질문에 답하지 못하고 넘어갔으면 그 질문에 다시 답하기
   python study.py web hint <미션>             [힌트 듣기]
   python study.py web skip <미션>             [이 단계 건너뛰기] 목표 시간이 지난 뒤
   python study.py web finish <미션>           [실전 끝내기] 해설, 모범 답안 비교, 스스로 점검
@@ -42,6 +48,15 @@ def _secs(seconds):
     return "%d:%02d" % (seconds // 60, seconds % 60)
 
 
+def _duration(seconds):
+    """끝난 뒤 보이는 걸린 시간. 46 → "46초", 87 → "1분 27초", 600 → "10분". 0:46 처럼 쓰면 분인지 초인지 헷갈림."""
+    seconds = int(seconds or 0)
+    minutes, rest = divmod(seconds, 60)
+    if not minutes:
+        return "%d초" % rest
+    return "%d분 %d초" % (minutes, rest) if rest else "%d분" % minutes
+
+
 def _marks(text, total):
     """"1 3" 같은 입력을 항목마다 0/1 로. 번호가 아닌 글자는 무시함."""
     marks = [0] * total
@@ -51,8 +66,76 @@ def _marks(text, total):
     return marks
 
 
+def _unused(text, total):
+    """_marks 가 버린 글자(항목에 없는 번호, 번호가 아닌 글자) 목록."""
+    return [t for t in (text or "").replace(",", " ").split() if not (t.isdigit() and 1 <= int(t) <= total)]
+
+
 def _yes(text):
     return (text or "").strip().lower() in ("y", "yes", "네", "예", "ㅇ")
+
+
+PIPE_WAIT_S = 60  # 터미널이 아닌 입력에서 한 줄을 기다리는 최대 초. 통과 뒤 질문의 답 시간(30초)에 여유를 더함
+
+
+class PipeAsk(object):
+    """터미널이 아닌 표준 입력에서 한 줄씩 읽는 ask. 줄이 wait 초 안에 오지 않거나 입력이 끝나면 EOFError 이고, 그 뒤로는 바로 EOFError.
+    읽기는 데몬 스레드가 os.read 로 함. 파이썬의 입력 잠금을 쥐지 않으므로 기다리던 스레드가 남아도 프로그램이 끝날 때 걸리지 않음."""
+
+    def __init__(self, fd, out, wait=PIPE_WAIT_S, encoding="utf-8"):
+        self.fd, self.out, self.wait, self.encoding = fd, out, wait, encoding
+        self.lines = queue.Queue()
+        self.thread = None
+        self.closed = False
+
+    def _pump(self):
+        rest = b""
+        while True:
+            try:
+                chunk = os.read(self.fd, 4096)
+            except OSError:
+                chunk = b""
+            if not chunk:
+                if rest:
+                    self.lines.put(rest)
+                self.lines.put(None)
+                return
+            rest += chunk
+            while b"\n" in rest:
+                line, rest = rest.split(b"\n", 1)
+                self.lines.put(line)
+
+    def __call__(self, prompt):
+        self.out(prompt)
+        if self.closed:
+            raise EOFError
+        if self.thread is None:
+            self.thread = threading.Thread(target=self._pump, daemon=True)
+            self.thread.start()
+        try:
+            line = self.lines.get(timeout=self.wait)
+        except queue.Empty:
+            line = None
+        if line is None:
+            self.closed = True
+            raise EOFError
+        return line.decode(self.encoding, "replace").rstrip("\r")
+
+
+def default_ask(out):
+    """표준 입력이 터미널이면 input, 아니면 PipeAsk. 표준 입력이 없으면(pythonw) 묻는 즉시 EOFError."""
+    stdin = sys.stdin
+    try:
+        if stdin is None:
+            raise ValueError
+        if stdin.isatty():
+            return input
+        return PipeAsk(stdin.fileno(), out, encoding=stdin.encoding or "utf-8")
+    except (ValueError, OSError, AttributeError):
+        def closed(prompt):
+            out(prompt)
+            raise EOFError
+        return closed
 
 
 class Cli:
@@ -89,6 +172,9 @@ class Cli:
                 state = "준비 중" if not row["error"] else "읽을 수 없음: " + row["error"]
             elif row["phase"] == "live":
                 state = "실전 %s / %d:00, %d단계" % (_secs(row["timers"]["live_elapsed"]), row["live_min"], row["current"])
+                current = self._current_title(web, row["id"])
+                if current:
+                    state += " " + current
             elif row["phase"] == "done":
                 state = "끝남 %d/%d" % (row["done_steps"], max(0, row["total_steps"] - 1))
             else:
@@ -126,6 +212,14 @@ class Cli:
             self.say("은행 오류: " + line)
         return 0
 
+    def _current_title(self, web, mid):
+        """실전 중인 미션의 지금 단계 제목. 봉인을 풀지 못하면 빈 글(현황은 그대로 보임)."""
+        try:
+            current = web.mission(mid)["current"]
+        except WebError:
+            return ""
+        return current["title"] if current else ""
+
     def install(self, web, yes):
         self.say(web.consent())
         self.say()
@@ -143,7 +237,17 @@ class Cli:
 
     # 미션
 
-    def _request(self, step):
+    def _brief(self, step):
+        """검사할 때마다 보이는 지금 단계의 요구와 검사 설명. 앞서 본 요구가 화면 위로 밀려 올라가도 무엇을 검사하는지 다시 보임."""
+        self.say("%d단계. %s (목표 %d분)" % (step["no"], step["title"], step["target_min"]))
+        self.say(step["request"])
+        if step["checks"]:
+            self.say("검사는 아래 내용을 확인합니다.")
+            for line in step["checks"]:
+                self.say("- " + line)
+        self.say()
+
+    def _request(self, step, mid):
         self.say("%d단계. %s (목표 %d분)" % (step["no"], step["title"], step["target_min"]))
         self.say(step["request"])
         if step["note"]:
@@ -158,7 +262,7 @@ class Cli:
             self.say()
             for i, text in enumerate(step["self"], 1):
                 self.say("%d. %s" % (i, text))
-            self.say("설명을 마치면 `check` 로 말한 것에 표시하세요.")
+            self.say("표시하려면 `python study.py web check %s` 를 실행하세요." % mid)
         for text in step["hints"]:
             self.say("면접관 힌트: " + text)
 
@@ -168,15 +272,15 @@ class Cli:
             self.say("모든 단계를 끝냈습니다. `python study.py web finish %s` 로 해설을 보세요." % mid)
         elif result.get("next"):
             self.say()
-            self._request(result["next"])
+            self._request(result["next"], mid)
 
     def get(self, web, mid, again):
         try:
             view = web.get(mid, again)
         except service.AlreadyReceived as error:
             raise WebError("%s 처음부터 다시 하려면 --again 을 붙이세요." % error)
-        self.say("과제를 받았습니다: %s" % study.shown_path(view["dir"]))
-        self.say("읽기 시간 %d분이 시작되었습니다. 읽기 안내를 읽고 준비되면 `python study.py web start %s` 를 실행하세요."
+        self.say("미션을 받았습니다: %s" % study.shown_path(view["dir"]))
+        self.say("읽기 시간 %d분이 시작되었습니다. 아래 안내를 읽고 준비되면 `python study.py web start %s` 를 실행하세요."
                  % (view["prep_min"], mid))
         self.say()
         self.say(view["brief"])
@@ -188,22 +292,52 @@ class Cli:
         view = web.start(mid, no_ai)
         self.say("실전 시간 %d분이 시작되었습니다." % view["live_min"])
         self.say()
-        self._request(view["current"])
+        self._request(view["current"], mid)
         return 0
 
-    def _ask_items(self, items, prompt):
+    def _ask_items(self, items, prompt, confirm_empty=False):
+        """항목을 보이고 번호를 받아 0/1 목록으로. confirm_empty 면 빈 줄을 받았을 때 한 번 더 물음(Enter 를 잘못 눌러
+        아무것도 말하지 않은 것으로 기록되지 않게)."""
         for n, item in enumerate(items, 1):
             label = ("[필수] " if item.get("need") else "[보충] ") if "need" in item else ""
             self.say("  %d. %s%s" % (n, label, item["text"] if isinstance(item, dict) else item))
-        return _marks(self.ask(prompt), len(items))
+        text = self.ask(prompt)
+        if confirm_empty and not (text or "").strip():
+            text = self.ask("표시한 항목이 없습니다. 말한 항목이 있으면 번호를 적으세요. 없으면 Enter 를 한 번 더 누르세요: ")
+        return self._read_marks(text, len(items))
 
-    def _after_question(self, web, mid, after):
+    def _read_marks(self, text, total):
+        """번호 글을 0/1 목록으로. 항목에 없는 번호나 번호가 아닌 글자는 빼고, 뺐다는 것을 알림."""
+        unused = _unused(text, total)
+        if unused:
+            self.say("항목 번호가 아니라서 빼고 기록했습니다: %s. 항목은 1번부터 %d번까지입니다." % (", ".join(unused), total))
+        return _marks(text, total)
+
+    def _show_marks(self, items, marks):
+        for n, (item, mark) in enumerate(zip(items, marks), 1):
+            self.say("  %d. [%s] %s" % (n, "v" if mark else " ", item))
+
+    def _after_question(self, web, mid, after, head=True):
+        """통과 뒤 질문을 묻고 표시한 항목을 기록함. 답을 받지 못하면(입력 끝, 시간 넘김, Ctrl+C) 기록하지 않고 나중에 답하는 법을
+        알린 뒤 돌아감. 부른 쪽은 그다음 단계 요구를 이어서 보임. 기록했으면 True."""
         self.say()
-        self.say("통과하면 면접관이 이어서 묻습니다. %d초 안에 소리 내어 답하세요." % after["secs"])
+        if head:
+            self.say("면접관이 이어서 묻습니다. %d초 안에 소리 내어 답하세요." % after["secs"])
+        else:
+            self.say("%d단계를 통과한 뒤의 질문입니다. %d초 안에 소리 내어 답하세요." % (after["step"], after["secs"]))
         self.say(after["ask"])
-        _, secs = self.timed_ask("답한 뒤 Enter 를 누르세요. ")
-        self.say("답 시간: %s" % self._time_note(secs, after["secs"]))
-        marks = self._ask_items(after["items"], "말한 항목 번호를 띄어쓰기로 적으세요(없으면 Enter): ")
+        try:
+            _, secs = self.timed_ask("답한 뒤 Enter 를 누르세요. ")
+            self.say("답 시간: %s" % self._time_note(secs, after["secs"]))
+            marks = self._ask_items(after["items"], "말한 항목 번호를 띄어쓰기로 적으세요(없으면 Enter): ", confirm_empty=True)
+        except (EOFError, KeyboardInterrupt):
+            self.say()
+            self.say("답을 받지 못해 이 질문은 기록하지 않았습니다. 나중에 `python study.py web answer %s` 로 답할 수 있습니다." % mid)
+            return False
+        self._record_after(web, mid, after, marks, secs)
+        return True
+
+    def _record_after(self, web, mid, after, marks, secs):
         need = [m for m, item in zip(marks, after["items"]) if item["need"]]
         extra = [m for m, item in zip(marks, after["items"]) if not item["need"]]
         result = web.after_answer(mid, after["step"], need, extra, secs)
@@ -214,21 +348,55 @@ class Cli:
             return "%d초 (%d초 안)" % (secs, limit)
         return "%d초 (%d초 넘김)" % (secs, secs - limit)
 
+    def _done_note(self, web, mid):
+        """끝난 미션에 check 를 하면. 단계 기록은 그대로이고 해설과 다시 풀기 명령을 알림."""
+        self.say("%s 미션은 이미 끝나서 더 검사하지 않습니다. 통과한 단계와 검사 기록은 그대로 남아 있습니다." % mid)
+        pending = web.pending_after(mid)
+        if pending:
+            self.say("답하지 않은 통과 뒤 질문이 %d개 있습니다. `python study.py web answer %s` 로 답할 수 있습니다." % (len(pending), mid))
+        self.say("해설과 모범 답안은 `python study.py web finish %s` 로 봅니다." % mid)
+        self.say("처음부터 다시 풀려면 `python study.py web get %s --again` 을 실행하세요. 지금 코드는 템플릿으로 덮어써집니다." % mid)
+
+    def _broken(self, view, result):
+        """앞서 통과했는데 이번 검사에서 실패한 단계를 "1단계(제목)" 꼴로 이은 글. 넘어간 단계는 검사가 실패하는 것이 당연하므로 뺌."""
+        rows = {row["no"]: row for row in view["steps"]}
+        broken = [k for k in result["broken"] if rows.get(k, {}).get("result") == "pass"]
+        return ", ".join("%d단계(%s)" % (k, rows[k]["title"]) if rows[k]["title"] else "%d단계" % k for k in broken)
+
+    def _broken_note(self, view, result):
+        """지금 단계는 통과했는데 앞서 통과한 단계의 검사가 실패한 경우. 진행은 막지 않으므로 무엇이 깨졌고 기록이 어떻게 되는지 적음."""
+        names = self._broken(view, result)
+        if not names:
+            return
+        self.say("앞서 통과한 %s 검사가 지금 코드에서는 실패합니다. %d단계를 고치면서 그 단계의 동작이 깨졌을 수 있습니다."
+                 % (names, result["open"]))
+        if result["finished"]:
+            self.say("지금 단계만 통과하면 넘어가는 규칙이라 미션은 끝난 것으로 기록했습니다. 해설의 모범 답안과 비교해 깨진 단계를 확인해 보세요.")
+        else:
+            self.say("지금 단계만 통과하면 넘어가는 규칙이라 다음 단계를 열었습니다. 깨진 단계도 같이 고쳐 두세요.")
+
     def check(self, web, mid, said):
         view = web.mission(mid)
+        if view["phase"] == "done":
+            self._done_note(web, mid)
+            return 0
         if view["phase"] != "live":
             raise WebError("실전 중이 아닙니다(지금 %s)." % view["phase_label"])
         if view["current"] and view["current"]["no"] == 0:
             step = view["current"]
-            self.say("0단계에는 자동 검사가 없습니다. 아래 항목 가운데 말한 것에 표시하세요.")
             if said is None:
+                self.say("0단계에는 자동 검사가 없습니다. 아래 항목 가운데 말한 것에 표시하세요.")
                 marks = self._ask_items([{"text": t} for t in step["self"]], "말한 항목 번호를 띄어쓰기로 적으세요(없으면 Enter): ")
             else:
-                marks = _marks(said, len(step["self"]))
+                self.say("0단계에는 자동 검사가 없습니다. 적은 번호를 아래 항목에 표시했습니다.")
+                marks = self._read_marks(said, len(step["self"]))
+                self._show_marks(step["self"], marks)
             result = web.explain_done(mid, marks)
             self.say("0단계를 끝냈습니다.")
             self._after_step(web, mid, result)
             return 0
+        if view["current"]:
+            self._brief(view["current"])
         result = web.check(mid)
         for line in result["warnings"]:
             self.say("주의: " + line)
@@ -238,15 +406,35 @@ class Cli:
             if test["status"] != "pass" and test["message"]:
                 self.say(study.indent(test["message"]))
         self.say("검사 %d개 가운데 %d개 통과 (%.1f초)" % (len(result["tests"]), len(result["pass"]), result["ms"] / 1000.0))
-        if result["broken"]:
-            self.say("앞 단계 검사가 깨졌습니다: %s단계" % ", ".join(str(k) for k in result["broken"]))
         if result["passed"]:
             self.say("%d단계를 통과했습니다." % result["open"])
+            self._broken_note(view, result)
             if result["after"]:
                 self._after_question(web, mid, result["after"])
             self._after_step(web, mid, result)
         else:
-            self.say("%d단계 검사가 아직 통과하지 않았습니다. 고친 뒤 다시 `check` 하세요." % result["open"])
+            if self._broken(view, result):
+                self.say("앞서 통과한 %s 검사도 지금 코드에서는 실패합니다." % self._broken(view, result))
+            self.say("%d단계 검사가 아직 통과하지 않았습니다. 고친 뒤 `python study.py web check %s` 로 다시 검사하세요." % (result["open"], mid))
+        return 0
+
+    def answer(self, web, mid, said):
+        """답하지 못하고 넘어간 통과 뒤 질문에 답함. said 를 주면 묻지 않고 첫 질문에 그 번호를 표시함(답 시간은 남기지 않음)."""
+        pending = web.pending_after(mid)
+        if not pending:
+            self.say("답하지 않은 통과 뒤 질문이 없습니다.")
+            return 0
+        if said is not None:
+            after = pending[0]
+            self.say("%d단계를 통과한 뒤의 질문입니다." % after["step"])
+            self.say(after["ask"])
+            marks = self._read_marks(said, len(after["items"]))
+            self._show_marks([("[필수] " if item["need"] else "[보충] ") + item["text"] for item in after["items"]], marks)
+            self._record_after(web, mid, after, marks, None)
+            return 0
+        for after in pending:
+            if not self._after_question(web, mid, after, head=False):
+                return 1
         return 0
 
     def hint(self, web, mid):
@@ -265,8 +453,8 @@ class Cli:
     def finish(self, web, mid, self_marks):
         result = web.finish(mid)
         timers = result["timers"]
-        self.say("%s %s 끝남 (%d번째 시도). 실전 %s%s" % (mid, result["title"], result["try"], _secs(timers["live_elapsed"]),
-                                                   ", %s 넘김" % _secs(timers["live_over"]) if timers["live_over"] else ""))
+        self.say("%s %s 끝남 (%d번째 시도). 실전 %s%s" % (mid, result["title"], result["try"], _duration(timers["live_elapsed"]),
+                                                   ", %s 넘김" % _duration(timers["live_over"]) if timers["live_over"] else ""))
         for row in result["steps"]:
             self.say("  %d단계 %-20s %s%s" % (row["no"], row["title"], row["label"], " (힌트 %d)" % row["hints"] if row["hints"] else ""))
         if result["hidden"]:
@@ -275,9 +463,9 @@ class Cli:
             else:
                 self.say("숨긴 검사: 통과 %d, 실패 %d" % (len(result["hidden"]["pass"]), len(result["hidden"]["fail"])))
         self.say()
-        self.say(result["explain"])
+        self.say(bank.strip_figures(result["explain"]))
         self.say()
-        self.say("내 코드와 모범 답안의 차이")
+        self.say("내 코드(-)와 모범 답안(+)의 차이")
         if not result["mine_diff"]:
             self.say("  (같습니다)")
         for row in result["mine_diff"]:
@@ -286,13 +474,12 @@ class Cli:
         self.say("템플릿에서 모범 답안까지 바뀐 파일: %s" % (", ".join(r["file"] for r in result["template_diff"]) or "없음"))
         if result["self_items"]:
             self.say()
-            self.say("스스로 점검. 해당하는 항목에 표시하세요.")
+            self.say("스스로 점검 항목 가운데 해당하는 것에 표시하세요.")
             if self_marks is None:
                 marks = self._ask_items([{"text": i["text"]} for i in result["self_items"]], "해당 항목 번호를 띄어쓰기로 적으세요(없으면 Enter): ")
             else:
-                marks = _marks(self_marks, len(result["self_items"]))
-                for n, (item, mark) in enumerate(zip(result["self_items"], marks), 1):
-                    self.say("  %d. [%s] %s" % (n, "v" if mark else " ", item["text"]))
+                marks = self._read_marks(self_marks, len(result["self_items"]))
+                self._show_marks([item["text"] for item in result["self_items"]], marks)
             web.self_check(mid, {item["key"]: m for item, m in zip(result["self_items"], marks)})
         if result["followups"]:
             self.say()
@@ -399,35 +586,78 @@ class Cli:
         return 0
 
 
+class _Formatter(argparse.RawDescriptionHelpFormatter):
+    """도움말의 usage: 머리를 한국어로."""
+
+    def add_usage(self, usage, actions, groups, prefix=None):
+        return super().add_usage(usage, actions, groups, "사용법: " if prefix is None else prefix)
+
+
+# argparse 가 영어로 내는 오류 → 한국어. 맞는 것이 없으면 원문을 그대로 보임
+ARG_ERRORS = (
+    (r"the following arguments are required: (.+)", "빠진 인자가 있습니다: \\1"),
+    (r"unrecognized arguments: (.+)", "모르는 인자입니다: \\1"),
+    (r"argument (\S+): invalid choice: (.+?) \(choose from (.+)\)", "\\1 에는 \\3 가운데 하나를 적습니다. 받은 값: \\2"),
+    (r"argument (\S+): expected one argument", "\\1 뒤에 값을 하나 적어 주세요."),
+)
+
+
+class _Parser(argparse.ArgumentParser):
+    """도움말 머리와 오류 문구를 한국어로 내는 parser. 화면에 보이는 글이 영어와 한국어로 섞이지 않게 함."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("formatter_class", _Formatter)
+        super().__init__(*args, **kwargs)
+        if not kwargs.get("add_help", True):
+            return  # parents 로 쓰는 parser. 이름을 그대로 두어야 받는 쪽의 옵션 묶음에 합쳐짐
+        self._positionals.title = "적는 값"
+        self._optionals.title = "옵션"
+        for action in self._actions:
+            if "-h" in action.option_strings:
+                action.help = "이 도움말을 보고 끝냅니다"
+
+    def error(self, message):
+        for pattern, korean in ARG_ERRORS:
+            found = re.fullmatch(pattern, message)
+            if found:
+                message = found.expand(korean)
+                break
+        self.print_usage(sys.stderr)
+        self.exit(2, "%s: 오류: %s\n" % (self.prog, message))
+
+
 def build_parser():
-    common = argparse.ArgumentParser(add_help=False)
+    common = _Parser(add_help=False)
     common.add_argument("--user", default=argparse.SUPPRESS, help="다른 ID 의 기록을 씁니다")  # 하위 명령의 기본값이 앞의 값을 덮지 않게 함
-    parser = argparse.ArgumentParser(prog="study.py web", description=USAGE, parents=[common],
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    sub = parser.add_subparsers(dest="command")
+    parser = _Parser(prog="study.py web", description=USAGE, parents=[common])
+    sub = parser.add_subparsers(dest="command", parser_class=_Parser, title="명령")
+    mission_help = "미션 id (예: w03)"
     sub.add_parser("status", parents=[common])
     p = sub.add_parser("install", parents=[common])
-    p.add_argument("--yes", action="store_true")
+    p.add_argument("--yes", action="store_true", help="묻지 않고 설치합니다")
     sub.add_parser("uninstall", parents=[common])
     p = sub.add_parser("get", parents=[common])
-    p.add_argument("mission")
-    p.add_argument("--again", action="store_true")
+    p.add_argument("mission", help=mission_help)
+    p.add_argument("--again", action="store_true", help="처음부터 다시 받습니다. 지금 코드는 템플릿으로 덮어써집니다")
     p = sub.add_parser("start", parents=[common])
-    p.add_argument("mission")
-    p.add_argument("--no-ai", dest="no_ai", choices=("yes", "no"))
+    p.add_argument("mission", help=mission_help)
+    p.add_argument("--no-ai", dest="no_ai", choices=("yes", "no"), help="에디터의 AI 자동완성을 껐는지 (yes 또는 no)")
     p = sub.add_parser("check", parents=[common])
-    p.add_argument("mission")
+    p.add_argument("mission", help=mission_help)
     p.add_argument("--said", help="0단계 점검 항목 가운데 말한 번호 (예: 1,3)")
+    p = sub.add_parser("answer", parents=[common])
+    p.add_argument("mission", help=mission_help)
+    p.add_argument("--said", help="통과 뒤 질문의 짚을 내용 가운데 말한 번호 (예: 1,2)")
     for name in ("hint", "skip", "dev", "test"):
         p = sub.add_parser(name, parents=[common])
-        p.add_argument("mission")
+        p.add_argument("mission", help=mission_help)
     p = sub.add_parser("finish", parents=[common])
-    p.add_argument("mission")
+    p.add_argument("mission", help=mission_help)
     p.add_argument("--self", dest="self_marks", help="스스로 점검에 표시할 번호 (예: 1,2,5)")
     p = sub.add_parser("show", parents=[common])
-    p.add_argument("page")
+    p.add_argument("page", help="학습 페이지 id (예: l03)")
     p = sub.add_parser("drill", parents=[common])
-    p.add_argument("chain", nargs="?")
+    p.add_argument("chain", nargs="?", help="사슬 id (예: 3-A). 비우면 오늘 복습의 첫 사슬")
     return parser
 
 
@@ -444,7 +674,7 @@ def main(argv=None, out=None, ask=None, clock=None, repo=None, home=None):
     """명령을 실행하고 종료 코드를 돌려줌. out·ask·clock 은 테스트가 바꿔 끼움."""
     argv = sys.argv[1:] if argv is None else list(argv)
     out = out or print
-    ask = ask or input
+    ask = ask or default_ask(out)
     clock = clock or time.monotonic
     if not argv or argv[0] in ("-h", "--help", "help"):
         out(USAGE)
@@ -472,6 +702,8 @@ def main(argv=None, out=None, ask=None, clock=None, repo=None, home=None):
             return cli.start(web, args.mission, None if args.no_ai is None else args.no_ai == "yes")
         if args.command == "check":
             return cli.check(web, args.mission, args.said)
+        if args.command == "answer":
+            return cli.answer(web, args.mission, args.said)
         if args.command == "hint":
             return cli.hint(web, args.mission)
         if args.command == "skip":

@@ -738,7 +738,7 @@ class RealVitestTest(BankCase):
         self.assertFalse(os.path.exists(os.path.join(ROOT, ".web-check")))
         self.replace("missions/x01/work/solution/step2/src/App.tsx", "초기화", "리셋")
         out = self.assertFails("2단계까지 고친 코드에서 2단계 검사가 실패합니다", "x01", "--runs", "1", root=ROOT, steps={4, 5})
-        self.assertIn("Unable to find an accessible element", out)
+        self.assertIn('2a(이름이 "초기화"이고 역할(role)이 button인 요소를 화면에서 찾지 못했습니다.)', out)
         self.assertFalse(os.path.exists(os.path.join(ROOT, ".web-check")))
 
 

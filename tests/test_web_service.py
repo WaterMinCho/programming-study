@@ -257,6 +257,15 @@ class MissionFlowTest(Base):
         self.assertEqual(["1a", "1b", "2a"], result["fail"])
         self.assertEqual(2, web.mission("x01")["current"]["no"])  # 진행은 막지 않음
 
+    def test_skipped_step_is_not_reported_as_broken(self):
+        # 넘어간 단계는 검사가 실패하는 것이 당연하므로 깨진 단계로 알리지 않음
+        web = self.to_live(self.session())
+        self.tick(minutes=2)
+        web.skip("x01")
+        result = web.check("x01")
+        self.assertEqual((2, []), (result["open"], result["broken"]))
+        self.assertIn("1a", result["fail"])
+
     def test_last_step_pass_finishes_and_returns_after_question(self):
         web = self.to_live(self.session())
         self.solve(2)
@@ -375,6 +384,22 @@ class MissionFlowTest(Base):
             web.skip("x01")
         self.assertEqual({"pass": ["h1"], "fail": []}, self.log()[-1]["hidden"])
         self.assertEqual("finish", self.log()[-1]["kind"])
+
+    def test_hidden_checks_without_stack_leave_no_terminal_command(self):
+        """끝낼 때 검사 도구가 없어 숨긴 검사를 못 돌리면 그 까닭을 기록함. 화면의 해설 탭에도 보이므로 설치 명령을 담지 않음."""
+        root = os.path.join(self.tmp, "hidden_bank")
+        shutil.copytree(FIXTURE, root)
+        meta_path = os.path.join(root, "missions", "x01", "meta.json")
+        study.write_text(meta_path, json.dumps(dict(study.read_json(meta_path), hidden=True)))
+        study.write_text(os.path.join(root, "missions", "x01", "work", "checks", "hidden.test.tsx"),
+                         "import { test } from 'vitest';\ntest('h1 숨긴 검사가 통과합니다', () => {});\n")
+        with mock.patch.object(bank, "BANK_DIR", root):
+            web = self.to_live(self.session())
+            os.remove(os.path.join(self.repo, stack.VITEST_MJS))
+            done = web.finish("x01")
+        self.assertEqual({"error": service.HIDDEN_NO_STACK}, self.log()[-1]["hidden"])
+        self.assertEqual({"error": service.HIDDEN_NO_STACK}, done["hidden"])
+        self.assertNotIn("study.py", service.HIDDEN_NO_STACK)
 
     def test_check_without_stack_or_node_explains(self):
         web = self.to_live(self.session())
@@ -626,7 +651,8 @@ class RealVitestTest(Base):
         result = web.check("x01")
         self.assertEqual((False, ["1a", "1b"]), (result["passed"], result["fail"]))
         self.assertIn('이름이 "더하기"인 버튼이 있습니다', result["tests"][0]["title"], result["tests"][0]["message"])
-        self.assertIn("Unable to find an accessible element", result["tests"][0]["message"])
+        self.assertEqual('이름이 "더하기"이고 역할(role)이 button인 요소를 화면에서 찾지 못했습니다.', result["tests"][0]["message"])
+        self.assertIn("Unable to find an accessible element", result["tests"][0]["detail"].splitlines()[0])  # 영어 원문은 접어 둠
         self.assertIn("<body>", result["tests"][0]["detail"])
         self.solve(1)
         result = web.check("x01")

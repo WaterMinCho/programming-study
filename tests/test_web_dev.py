@@ -677,7 +677,7 @@ class ServiceTest(Base):
         web = self.session()
         with self.assertRaises(WebError) as caught:
             web.serve("x01")
-        self.assertIn("과제를 먼저 받아 주세요", str(caught.exception))
+        self.assertIn("미션을 먼저 받아 주세요", str(caught.exception))
         self.assertIsNone(web.serving())
         web.get("x01")
         self.assertEqual(web.serve("x01"), {"mid": "x01", "url": "http://localhost:5173"})

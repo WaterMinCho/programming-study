@@ -19,6 +19,7 @@ from webprep import bank, checks, dev, record, review, stack
 PHASE_LABEL = {"none": "받기 전", "reading": "읽는 중", "live": "실전 중", "done": "끝남"}
 RESULT_LABEL = {"pass": "통과", "partial": "부분", "stuck": "막힘", "done": "끝", "skip": "넘어감"}
 AFTER_SECS = 30
+HIDDEN_NO_STACK = "Node.js 나 검사 도구가 준비되지 않았습니다."  # 숨긴 검사를 돌리지 못한 까닭. 화면의 해설 탭에도 그대로 보임
 MINUTES_PER_QUESTION = 1.5
 SKIP_DIRS = ("node_modules", "dist", ".git")
 now = adaptive.now  # 테스트가 바꿔 끼움
@@ -48,8 +49,11 @@ def _seconds(start, end):
     return int((b - a).total_seconds())
 
 
-def _unified(name, before, after):
-    lines = difflib.unified_diff(before.splitlines(), after.splitlines(), fromfile=name, tofile=name, lineterm="")
+def _unified(name, before, after, labels=("내 코드", "모범 답안")):
+    """두 쪽 글의 unified diff. before·after 가 None 이면 그쪽에 파일이 없는 것. 머리 줄에 어느 쪽인지 적어 - 줄과 + 줄이
+    누구의 코드인지 보이게 하고, 한쪽에만 있는 파일은 다른 쪽 머리에 (없음)을 적음."""
+    head = ["%s %s" % (label, name) if text is not None else "%s (없음)" % label for label, text in zip(labels, (before, after))]
+    lines = difflib.unified_diff((before or "").splitlines(), (after or "").splitlines(), fromfile=head[0], tofile=head[1], lineterm="")
     return "\n".join(lines)
 
 
@@ -320,7 +324,7 @@ class WebSession:
                 shutil.rmtree(dest)
             shutil.copytree(mission["app_dir"], dest, ignore=shutil.ignore_patterns(*SKIP_DIRS))
         except OSError as error:
-            raise WebError("과제 코드를 복사하지 못했습니다: %s" % error)
+            raise WebError("미션 코드를 내 폴더로 복사하지 못했습니다: %s" % error)
         self._append({"kind": "receive", "item": mid, "try": state["try"] + 1})
         return self.mission(mid)
 
@@ -342,7 +346,7 @@ class WebSession:
         self._mission(mid)
         state = self._state(mid)
         if state["phase"] != "reading":
-            raise WebError("실전은 과제를 받고 읽는 중일 때 시작할 수 있습니다(지금 %s)." % PHASE_LABEL[state["phase"]])
+            raise WebError("실전은 미션을 받고 읽는 중일 때 시작할 수 있습니다(지금 %s)." % PHASE_LABEL[state["phase"]])
         self._append({"kind": "live", "item": mid, "try": state["try"], "no_ai": None if no_ai is None else bool(no_ai)})
         return self.mission(mid)
 
@@ -374,7 +378,8 @@ class WebSession:
 
     def check(self, mid):
         """[검사하기]. 1~지금 단계의 검사를 모두 돌리고 check 를 기록함. 지금 단계가 모두 통과하면 step 통과를 기록하고
-        다음 요구(또는 끝남)와 통과 뒤 질문을 돌려줌. 앞 단계가 깨졌으면 broken 에 적되 진행은 막지 않음."""
+        다음 요구(또는 끝남)와 통과 뒤 질문을 돌려줌. 앞서 통과한 단계의 검사가 이번에 실패하면 broken 에 적되 진행은 막지 않음.
+        넘어간 단계는 검사가 실패하는 것이 당연하므로 broken 에 넣지 않음."""
         mission = self._mission(mid)
         state = self._live(mid)
         current = state["current"]
@@ -384,7 +389,7 @@ class WebSession:
         node, _ = self._require_stack()
         app_src = os.path.join(self.learner_dir(mid), "src")
         if not os.path.isdir(app_src):
-            raise WebError("미션 폴더가 없습니다: %s. 과제를 다시 받아 주세요." % study.shown_path(self.learner_dir(mid)))
+            raise WebError("미션 폴더가 없습니다: %s. 미션을 다시 받아 주세요." % study.shown_path(self.learner_dir(mid)))
         try:
             result = checks.run_steps(node["path"], self.repo, mid, self._secrets_of("mission", mid), bank.kit_files(self.root),
                                       list(range(1, current + 1)), app_src)
@@ -395,7 +400,8 @@ class WebSession:
         passed = result["by_step"].get(current, {}).get("ok", False)
         out = {"open": current, "tests": result["tests"], "pass": result["pass"], "fail": result["fail"], "ms": result["ms"],
                "warnings": result["warnings"], "passed": passed, "after": None, "finished": False, "next": None,
-               "broken": [k for k in range(1, current) if not result["by_step"].get(k, {}).get("ok", False)]}
+               "broken": [k for k in range(1, current) if state["steps"].get(k, {}).get("result") == "pass"
+                          and not result["by_step"].get(k, {}).get("ok", False)]}
         if passed:
             self._append({"kind": "step", "item": mid, "try": state["try"], "step": current, "result": "pass"})
             after = steps[current]["after"]
@@ -405,14 +411,26 @@ class WebSession:
         return out
 
     def after_answer(self, mid, step, need, extra, secs):
-        """통과 뒤 질문에 표시한 것을 기록함. need·extra 는 [필수]·[보충] 항목마다 0/1."""
+        """통과 뒤 질문에 표시한 것을 기록함. need·extra 는 [필수]·[보충] 항목마다 0/1. secs 는 답 시간(초)이고, 나중에 번호만
+        적어 기록하면 None."""
         self._mission(mid)
         state = self._state(mid)
         if state["phase"] not in ("live", "done"):
             raise WebError("실전 중이나 끝난 미션에만 기록할 수 있습니다.")
-        self._append({"kind": "after", "item": mid, "try": state["try"], "step": int(step), "secs": int(secs),
+        self._append({"kind": "after", "item": mid, "try": state["try"], "step": int(step), "secs": None if secs is None else int(secs),
                       "need": [1 if v else 0 for v in need], "extra": [1 if v else 0 for v in extra]})
         return {"result": review.question_result(need)}
+
+    def pending_after(self, mid):
+        """이번 시도에서 통과했지만 답을 기록하지 않은 통과 뒤 질문을 단계 순서대로. 항목 꼴은 check() 의 after 와 같음.
+        실전 전이면 빈 목록."""
+        self._mission(mid)
+        state = self._state(mid)
+        if state["phase"] not in ("live", "done"):
+            return []
+        steps = self._steps(mid)
+        return [dict(steps[k]["after"], step=k, secs=AFTER_SECS) for k in sorted(state["steps"])
+                if k < len(steps) and state["steps"][k]["result"] == "pass" and steps[k]["after"] and k not in state["after"]]
 
     def hint(self, mid):
         """[힌트 듣기]. 지금 단계의 다음 힌트를 열고 기록함. {"n", "text", "left"}."""
@@ -443,7 +461,8 @@ class WebSession:
         return dict(self._after_step(mid, mission, steps, state["current"]), skipped=state["current"])
 
     def _finish_record(self, mid):
-        """끝남 기록. 숨긴 검사가 있으면 이때 한 번 돌림(실패해도 끝남은 기록함)."""
+        """끝남 기록. 숨긴 검사가 있으면 이때 한 번 돌림(실패해도 끝남은 기록함). 돌리지 못한 까닭은 기록에 남고 화면과 터미널이
+        같이 보이므로, 터미널 명령이 든 설치 안내 대신 HIDDEN_NO_STACK 을 남김."""
         mission = self._mission(mid)
         state = self._state(mid)
         hidden = None
@@ -454,7 +473,9 @@ class WebSession:
                 result = checks.run_steps(node["path"], self.repo, mid, secrets, bank.kit_files(self.root), [],
                                           os.path.join(self.learner_dir(mid), "src"), hidden=True)
                 hidden = {"pass": result["pass"], "fail": result["fail"]}
-            except (WebError, checks.CheckError) as error:
+            except WebError:
+                hidden = {"error": HIDDEN_NO_STACK}
+            except checks.CheckError as error:
                 hidden = {"error": str(error)}
         self._append({"kind": "finish", "item": mid, "try": state["try"], "hidden": hidden})
 
@@ -477,10 +498,10 @@ class WebSession:
         template_diff, mine_diff = [], []
         for name in sorted(set(template) | set(model)):
             if template.get(name, "") != model.get(name, ""):
-                template_diff.append({"file": name, "diff": _unified(name, template.get(name, ""), model.get(name, ""))})
+                template_diff.append({"file": name, "diff": _unified(name, template.get(name), model.get(name), ("템플릿", "모범 답안"))})
         for name in sorted(set(mine) | set(model)):
             if mine.get(name, "") != model.get(name, ""):
-                mine_diff.append({"file": name, "diff": _unified(name, mine.get(name, ""), model.get(name, ""))})
+                mine_diff.append({"file": name, "diff": _unified(name, mine.get(name), model.get(name))})
         cid = mid + "-F"
         followups = None
         if "followups.md" in secrets and cid in bank.parse_chains(secrets["followups.md"]):
@@ -509,7 +530,7 @@ class WebSession:
         self._mission(mid)
         folder = self.learner_dir(mid)
         if not os.path.isfile(os.path.join(folder, "package.json")):
-            raise WebError("미션 폴더가 없습니다: %s. 과제를 먼저 받아 주세요." % study.shown_path(folder))
+            raise WebError("미션 폴더가 없습니다: %s. 미션을 먼저 받아 주세요." % study.shown_path(folder))
         return folder
 
     def serve(self, mid):

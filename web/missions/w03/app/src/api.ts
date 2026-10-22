@@ -1,7 +1,7 @@
 import type { Transaction } from './types';
 
 // 가짜 서버. 실제 서버 대신 정해 둔 거래내역을 잠시 기다렸다가 돌려줌.
-// 개발 모드(npm run dev)에서만 통장마다 다른 지연을 두고, 주소 끝에 ?fail=1 을 붙이면 첫 요청이 실패함.
+// 개발 모드(npm run dev)에서만 통장마다 다른 지연을 둠. 주소 끝에 ?fail=1 을 붙이면 화면을 연 뒤 1초 안에 보낸 요청이 모두 실패함.
 // 테스트에서는 바로 응답함.
 
 const TRANSACTIONS: Record<string, Transaction[]> = {
@@ -24,7 +24,8 @@ const DELAY_MS: Record<string, number> = { living: 1500, saving: 300, fresh: 300
 
 const SLOW = import.meta.env.DEV && import.meta.env.MODE !== 'test';
 
-let failNext = SLOW && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('fail') === '1';
+const FAIL_UNTIL =
+  SLOW && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('fail') === '1' ? Date.now() + 1000 : 0;
 
 export type GetTransactionsOptions = {
   /** 요청을 그만두라는 신호. abort() 가 불리면 Promise 가 AbortError 로 거부됨 */
@@ -33,6 +34,7 @@ export type GetTransactionsOptions = {
 
 export function getTransactions(accountId: string, options: GetTransactionsOptions = {}): Promise<Transaction[]> {
   const { signal } = options;
+  const fail = Date.now() < FAIL_UNTIL;
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(abortError());
@@ -44,8 +46,7 @@ export function getTransactions(accountId: string, options: GetTransactionsOptio
     };
     const timer = setTimeout(() => {
       signal?.removeEventListener('abort', onAbort);
-      if (failNext) {
-        failNext = false;
+      if (fail) {
         reject(new Error('서버와 연결하지 못했습니다'));
         return;
       }

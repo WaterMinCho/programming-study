@@ -470,7 +470,8 @@ class ChecksTest(unittest.TestCase):
         self.assertEqual(["1a", "1b", "2a"], [t["id"] for t in parsed["tests"]])
         self.assertEqual(("pass", 75, '이름이 "더하기"인 버튼이 있습니다'), (tests["1a"]["status"], tests["1a"]["ms"], tests["1a"]["title"]))
         self.assertEqual("fail", tests["1b"]["status"])
-        self.assertEqual("TestingLibraryElementError: Unable to find an element with the text: 지금까지 2번", tests["1b"]["message"])
+        self.assertEqual('"지금까지 2번" 글자를 화면에서 찾지 못했습니다.', tests["1b"]["message"])  # 화면은 첫 줄만 보임
+        self.assertTrue(tests["1b"]["detail"].startswith("TestingLibraryElementError: Unable to find an element with the text: 지금까지 2번\n"))
         self.assertIn("<body>", tests["1b"]["detail"])
         self.assertNotIn("\u001b", tests["1b"]["detail"])
         self.assertEqual("fail", tests["2a"]["status"])
@@ -495,7 +496,9 @@ class ChecksTest(unittest.TestCase):
                 seen["cmd"], seen["options"] = cmd, options
                 self.returncode = 1
                 out = [a for a in cmd if a.startswith("--outputFile=")][0].split("=", 1)[1]
-                seen["check_dir_existed"] = os.path.isdir(os.path.join(options["cwd"], ".web-check", "x01", "checks"))
+                config = cmd[cmd.index("--config") + 1]
+                seen["check_dir"] = os.path.dirname(config)
+                seen["check_dir_existed"] = os.path.isdir(os.path.join(seen["check_dir"], "checks"))
                 study.write_text(out, json.dumps(REPORT))
 
             def communicate(self, timeout=None):
@@ -511,11 +514,132 @@ class ChecksTest(unittest.TestCase):
         self.assertEqual(("1", "0"), (options["env"]["CI"], options["env"]["FORCE_COLOR"]))
         self.assertNotIn("NODE_OPTIONS", options["env"])
         self.assertTrue(seen["check_dir_existed"])
+        self.assertRegex(os.path.basename(seen["check_dir"]), r"^x01-[0-9a-f]{8}$")  # 실행마다 다른 폴더
+        self.assertEqual(os.path.join(self.repo, ".web-check"), os.path.dirname(seen["check_dir"]))
         self.assertEqual(["1a"], result["pass"])
         self.assertEqual(["1b", "2a"], result["fail"])
         self.assertEqual({1: {"pass": ["1a"], "fail": ["1b"], "ok": False}, 2: {"pass": [], "fail": ["2a"], "ok": False}}, result["by_step"])
         self.assertEqual([], result["warnings"])
         self.assertFalse(os.path.exists(os.path.join(self.repo, ".web-check")))
+
+    def test_two_runs_of_one_mission_use_their_own_folders(self):
+        """화면과 터미널이 같은 미션을 동시에 검사해도 서로의 검사 파일을 지우거나 덮어쓰지 않음(w03 에서 4단계 검사 중 1단계 검사 파일이
+        사라져 1a~1d 가 실패하던 일). 첫 실행이 vitest 를 돌리는 사이에 둘째 실행이 처음부터 끝까지 돌아도 첫 실행의 폴더가 남아 있음."""
+        seen = []
+
+        class FakeProc(object):
+            def __init__(self, cmd, **options):
+                self.returncode = 1
+                folder = os.path.dirname(cmd[cmd.index("--config") + 1])
+                seen.append(folder)
+                if len(seen) == 1:
+                    checks.run_steps("/fake/node", test.repo, "x01", test.secrets, test.kit, [1, 2], test.app_src)
+                seen.append(os.path.isfile(os.path.join(folder, "checks", "step1.test.tsx")))
+                out = [a for a in cmd if a.startswith("--outputFile=")][0].split("=", 1)[1]
+                study.write_text(out, json.dumps(REPORT))
+
+            def communicate(self, timeout=None):
+                return b"", b""
+
+        test = self  # FakeProc 안에서 둘째 실행을 부를 때 씀
+        with mock.patch.object(checks, "_popen", FakeProc):
+            result = checks.run_steps("/fake/node", self.repo, "x01", self.secrets, self.kit, [1, 2], self.app_src)
+        outer, inner, inner_kept, outer_kept = seen
+        self.assertNotEqual(outer, inner)
+        self.assertEqual((True, True), (inner_kept, outer_kept))
+        self.assertEqual(["1a"], result["pass"])
+        self.assertFalse(os.path.exists(os.path.join(self.repo, ".web-check")))
+
+    def test_cleanup_leaves_other_runs_and_sweep_removes_only_old_ones(self):
+        parent = os.path.join(self.repo, ".web-check")
+        names = ("x01-0000000a", "x01-0000000b", "x02-0000000c", "x01")
+        for name in names:
+            os.makedirs(os.path.join(parent, name))
+        old = os.path.getmtime(os.path.join(parent, "x01-0000000a")) - checks.STALE_S - 5
+        for name in ("x01-0000000a", "x02-0000000c", "x01"):
+            os.utime(os.path.join(parent, name), (old, old))
+        checks.sweep(self.repo, "x01")
+        self.assertEqual(["x01", "x01-0000000b", "x02-0000000c"], sorted(os.listdir(parent)))  # 다른 미션과 옛 이름은 두고
+        checks.cleanup(self.repo, "x01-0000000b")
+        self.assertEqual(["x01", "x02-0000000c"], sorted(os.listdir(parent)))
+
+    def test_assertion_with_a_korean_message_shows_only_that_message(self):
+        """expect(값, '한국어 문구')가 실패하면 보이는 첫 줄은 그 문구이고, 기대값·실제값과 호출 줄은 접은 원문에 감.
+        검사 도구(node_modules)와 봉인한 검사 파일을 가리키는 호출 줄은 보이지 않고, 학습자 코드를 가리키는 줄은 보임."""
+        app = "/repo/submissions/me/web/missions/x01"
+        raw = ("AssertionError: 상품 줄이 두 개여야 합니다: expected [ …(6) ] to have a length of 2 but got 6\n"
+               "    at Proxy.<anonymous> (file:///repo/node_modules/@vitest/expect/dist/index.js:1322:20)\n"
+               "    at Proxy.methodWrapper (file:///repo/node_modules/chai/index.js:1737:25)\n"
+               "    at /repo/.web-check/x01-1a2b3c4d/checks/step1.test.tsx:54:45\n"
+               "    at filterItems (/repo/submissions/me/web/missions/x01/src/App.tsx:12:5)\n"
+               "    at file:///repo/node_modules/@vitest/runner/dist/index.js:145:11\n"
+               "    at new Promise (<anonymous>)\n")
+        report = {"testResults": [{"status": "failed", "message": "", "name": "/repo/.web-check/x01-1a2b3c4d/checks/step1.test.tsx",
+                                   "assertionResults": [{"title": "1b 텀블을 치면 두 개만 보입니다", "status": "failed", "duration": 3,
+                                                         "failureMessages": [raw]}]}]}
+        test = checks.parse(json.dumps(report), {"1b": 1}, "/repo", app=app)["tests"][0]
+        self.assertEqual("상품 줄이 두 개여야 합니다\n    at filterItems (src/App.tsx:12:5)", test["message"])
+        detail = test["detail"].splitlines()
+        self.assertEqual("AssertionError: 상품 줄이 두 개여야 합니다: expected [ …(6) ] to have a length of 2 but got 6", detail[0])
+        self.assertIn("    at x01/checks/step1.test.tsx:54:45", detail)
+        self.assertIn("    at node_modules/@vitest/runner/dist/index.js:145:11", detail)
+        self.assertIn("    at new Promise (<anonymous>)", detail)
+        self.assertNotIn("/repo/", test["detail"])
+        self.assertNotIn("1a2b3c4d", test["detail"])
+        jest_dom = "Error: 검색 결과가 없다는 문구가 보여야 합니다\n    at Proxy.expectWrapper (file:///repo/node_modules/@vitest/expect/dist/index.js:1821:12)"
+        english = "AssertionError: expected '텀블' to be '텀블러' // Object.is equality\n    at /repo/.web-check/x01-1a2b3c4d/checks/step1.test.tsx:9:1"
+        library = "TestingLibraryElementError: Unable to find a label with the text of: 상품 검색\n\nIgnored nodes: comments\n<body />"
+        self.assertEqual(("검색 결과가 없다는 문구가 보여야 합니다", jest_dom.splitlines()[0]),
+                         tuple(part.splitlines()[0] for part in checks.korean_first(*checks.clean_message([jest_dom], "/repo", app))))
+        self.assertEqual("AssertionError: expected '텀블' to be '텀블러' // Object.is equality",
+                         checks.korean_first(*checks.clean_message([english], "/repo", app))[0])
+        self.assertEqual("TestingLibraryElementError: Unable to find a label with the text of: 상품 검색",
+                         checks.korean_first(*checks.clean_message([library], "/repo", app))[1].splitlines()[0])
+
+    def test_testing_library_lines_get_a_korean_first_line(self):
+        """요소를 못 찾았다는 Testing Library 의 영어 첫 줄은 한국어 한 줄로 바꾸고 원래 줄은 접은 원문에 둠. 모르는 꼴은 그대로 둠."""
+        cases = {
+            'TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "다시 시도"':
+                '이름이 "다시 시도"이고 역할(role)이 button인 요소를 화면에서 찾지 못했습니다.',
+            'Error: Unable to find role="alert"': "역할(role)이 alert인 요소를 화면에서 찾지 못했습니다.",
+            "Error: Unable to find an element with the text: 거래내역이 없습니다. This could be because the text is broken up by "
+            "multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.":
+                '"거래내역이 없습니다" 글자를 화면에서 찾지 못했습니다.',
+            "TestingLibraryElementError: Unable to find a label with the text of: 상품 검색": '"상품 검색" label이 붙은 요소를 화면에서 찾지 못했습니다.',
+            "TestingLibraryElementError: Found a label with the text of: 상품 검색, however no form control was found associated to that "
+            'label. Make sure you\'re using the "for" attribute or "aria-labelledby" attribute correctly.':
+                '"상품 검색" label은 있지만 그 label에 이어진 입력칸이 없습니다.',
+            "TestingLibraryElementError: Found multiple elements with the text: 텀블": '"텀블" 글자가 화면에 둘 이상 있습니다.',
+            'TestingLibraryElementError: Found multiple elements with the role "listitem"': "역할(role)이 listitem인 요소가 화면에 둘 이상 있습니다.",
+            "Error: expect(element).toHaveTextContent()": None,
+            "TypeError: Cannot read properties of undefined (reading 'map')": None,
+        }
+        for line, korean in cases.items():
+            message, detail = checks.korean_first(line + "\n\nIgnored nodes: comments", "")
+            if korean is None:
+                self.assertEqual((line + "\n\nIgnored nodes: comments", ""), (message, detail), line)
+            else:
+                self.assertEqual((korean + "\n\nIgnored nodes: comments", line), (message, detail), line)
+
+    def test_file_that_did_not_run_gets_its_titles_and_a_korean_first_line(self):
+        """검사 파일이 돌지 못하면(학습자 코드의 문법 오류, 없는 파일 import) 결과에 없는 검사도 검사 파일에 적힌 이름으로 보이고,
+        첫 줄은 한국어 안내, 그 아래는 줄인 경로의 오류 원문임."""
+        app = "/repo/submissions/me/web/missions/x01"
+        report = {"testResults": [{"status": "failed", "assertionResults": [], "name": "/repo/.web-check/x01-1a2b3c4d/checks/step1.test.tsx",
+                                   "message": "Transform failed with 1 error:\n/repo/submissions/me/web/missions/x01/src/App.tsx:9:2: "
+                                              "ERROR: Expected \")\" but found \"return\""}]}
+        titles = {"1a": "이름이 \"더하기\"인 버튼이 있습니다", "1b": "두 번 누르면 \"지금까지 2번\"이 보입니다"}
+        parsed = checks.parse(json.dumps(report), {"1a": 1, "1b": 1}, "/repo", titles, app)
+        self.assertEqual(["step1.test.tsx"], parsed["file_errors"])
+        for test in parsed["tests"]:
+            self.assertEqual((titles[test["id"]], "fail"), (test["title"], test["status"]))
+            lines = test["message"].splitlines()
+            self.assertEqual([checks.FILE_FAILED, "Transform failed with 1 error:", 'src/App.tsx:9:2: ERROR: Expected ")" but found "return"'], lines)
+        prepared = checks.prepare(self.repo, "x01-1a2b3c4d", self.secrets, self.kit, [1, 2], self.app_src)
+        self.assertEqual(set(prepared["expected"]), set(prepared["titles"]))
+        self.assertTrue(all(prepared["titles"].values()))
+        empty = checks.parse(json.dumps({"testResults": []}), {"1a": 1}, "/repo", titles)["tests"][0]
+        self.assertEqual((titles["1a"], checks.FILE_FAILED), (empty["title"], empty["message"]))
 
     def test_run_steps_timeout_kills_and_cleans_up(self):
         class HangingProc(object):

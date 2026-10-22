@@ -119,7 +119,7 @@ web/
 
 - `package.json` 에는 `name`, `"private": true`, `"type": "module"`, `scripts` 만 둡니다. `scripts` 는 `dev: vite`, `test: vitest run` 이고 `typecheck: tsc --noEmit` 은 두어도 됩니다. 의존성은 저장소 맨 위 `package.json` 의 것을 쓰므로 적지 않습니다.
 - `vite.config.ts`(react 플러그인, `test.environment: 'jsdom'`), `tsconfig.json`, `index.html`, `src/` 를 둡니다.
-- `src/api.ts` 는 가짜 서버입니다. 검사가 `vi.mock('@app/api')` 로 바꿔 끼울 수 있게 함수만 export 합니다. 개발 모드의 지연과 실패는 `import.meta.env.DEV` 일 때만 쓰고 주소 쿼리(`?fail=1`)로 켭니다.
+- `src/api.ts` 는 가짜 서버입니다. 검사가 `vi.mock('@app/api')` 로 바꿔 끼울 수 있게 함수만 export 합니다. 개발 모드의 지연과 실패는 `import.meta.env.DEV` 일 때만 쓰고 주소 쿼리(`?fail=1`)로 켭니다. 개발 모드에서는 `main.tsx` 의 StrictMode 때문에 처음 요청이 두 번 나갑니다. 실패를 첫 요청 하나에만 주면 두 번째 요청이 성공해 실패 화면이 보이지 않습니다. 그래서 화면을 연 뒤 1초 안에 보낸 요청을 모두 실패시킵니다.
 - 실제 저장소처럼 기존 테스트를 1~3개 두고 템플릿에서 통과하게 합니다.
 - 바깥 주소(localhost 제외), 회사 이름, `node_modules`, `dist` 를 두지 않습니다. `app/` 전체 크기는 200KB 를 넘지 않게 합니다.
 
@@ -163,6 +163,7 @@ web/
 - 파일은 `step<k>.test.tsx` 이고 테스트 이름은 `"<k><a-z> <학습자용 문장>"` 입니다. 예) `test('3a 생활비 통장 응답이 늦게 와도 저축 통장 내역이 그대로 보입니다', …)`. 첫 낱말이 검사 id 가 되어 기록에 남고 나머지가 화면에 보입니다. 숨긴 검사의 id 는 숫자로 시작하지 않습니다.
 - 학습자 코드는 `@app/…` 로만, 공통 도우미는 `@kit/…` 로만 import 합니다. 상대 경로 import 는 검증이 막습니다. `@kit/<이름>` 은 `web/kit/<이름>.ts` 나 `.tsx` 가 있어야 합니다.
 - 검사는 구현 방식을 묻지 않고 화면(역할, 이름, 글자)과 가짜 서버 호출(횟수, 인자, signal)만 봅니다. 구현을 묻는 검사는 요구 글에 그 요구가 적혀 있을 때만 씁니다.
+- 검사 하나하나는 브라우저에서 페이지를 새로 연 것처럼 시작합니다. `beforeEach` 에서 `vi.resetModules()` 를 부른 뒤 `@app/api` 와 `@app/App` 을 다시 불러와 씁니다. 그러지 않으면 모듈 범위에 둔 저장소나 캐시가 앞 검사의 값을 이어받아 브라우저에서는 맞는 풀이가 검사에서만 떨어집니다. 파일 맨 위의 `import '@app/App'` 은 남겨 둡니다. 학습자 코드에 문법 오류가 있으면 검사 파일을 불러올 때 드러나 화면이 문법 오류 안내를 보입니다.
 - 시간이 걸리는 동작은 `vi.useFakeTimers()` 와 `userEvent.setup({ advanceTimers: vi.advanceTimersByTime })` 로 시계를 앞당깁니다.
 - 검사 파일 하나는 5초, 열린 단계 전체는 15초 안에 끝나야 합니다.
 
