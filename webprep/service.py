@@ -19,6 +19,7 @@ from webprep import bank, checks, dev, record, review, stack
 PHASE_LABEL = {"none": "받기 전", "reading": "읽는 중", "live": "실전 중", "done": "끝남"}
 RESULT_LABEL = {"pass": "통과", "partial": "부분", "stuck": "막힘", "done": "끝", "skip": "넘어감"}
 AFTER_SECS = 30
+HIDDEN_NO_STACK = "Node.js 나 검사 도구가 준비되지 않았습니다."  # 숨긴 검사를 돌리지 못한 까닭. 화면의 해설 탭에도 그대로 보임
 MINUTES_PER_QUESTION = 1.5
 SKIP_DIRS = ("node_modules", "dist", ".git")
 now = adaptive.now  # 테스트가 바꿔 끼움
@@ -455,7 +456,8 @@ class WebSession:
         return dict(self._after_step(mid, mission, steps, state["current"]), skipped=state["current"])
 
     def _finish_record(self, mid):
-        """끝남 기록. 숨긴 검사가 있으면 이때 한 번 돌림(실패해도 끝남은 기록함)."""
+        """끝남 기록. 숨긴 검사가 있으면 이때 한 번 돌림(실패해도 끝남은 기록함). 돌리지 못한 까닭은 기록에 남고 화면과 터미널이
+        같이 보이므로, 터미널 명령이 든 설치 안내 대신 HIDDEN_NO_STACK 을 남김."""
         mission = self._mission(mid)
         state = self._state(mid)
         hidden = None
@@ -466,7 +468,9 @@ class WebSession:
                 result = checks.run_steps(node["path"], self.repo, mid, secrets, bank.kit_files(self.root), [],
                                           os.path.join(self.learner_dir(mid), "src"), hidden=True)
                 hidden = {"pass": result["pass"], "fail": result["fail"]}
-            except (WebError, checks.CheckError) as error:
+            except WebError:
+                hidden = {"error": HIDDEN_NO_STACK}
+            except checks.CheckError as error:
                 hidden = {"error": str(error)}
         self._append({"kind": "finish", "item": mid, "try": state["try"], "hidden": hidden})
 

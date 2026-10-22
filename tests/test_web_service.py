@@ -376,6 +376,22 @@ class MissionFlowTest(Base):
         self.assertEqual({"pass": ["h1"], "fail": []}, self.log()[-1]["hidden"])
         self.assertEqual("finish", self.log()[-1]["kind"])
 
+    def test_hidden_checks_without_stack_leave_no_terminal_command(self):
+        """끝낼 때 검사 도구가 없어 숨긴 검사를 못 돌리면 그 까닭을 기록함. 화면의 해설 탭에도 보이므로 설치 명령을 담지 않음."""
+        root = os.path.join(self.tmp, "hidden_bank")
+        shutil.copytree(FIXTURE, root)
+        meta_path = os.path.join(root, "missions", "x01", "meta.json")
+        study.write_text(meta_path, json.dumps(dict(study.read_json(meta_path), hidden=True)))
+        study.write_text(os.path.join(root, "missions", "x01", "work", "checks", "hidden.test.tsx"),
+                         "import { test } from 'vitest';\ntest('h1 숨긴 검사가 통과합니다', () => {});\n")
+        with mock.patch.object(bank, "BANK_DIR", root):
+            web = self.to_live(self.session())
+            os.remove(os.path.join(self.repo, stack.VITEST_MJS))
+            done = web.finish("x01")
+        self.assertEqual({"error": service.HIDDEN_NO_STACK}, self.log()[-1]["hidden"])
+        self.assertEqual({"error": service.HIDDEN_NO_STACK}, done["hidden"])
+        self.assertNotIn("study.py", service.HIDDEN_NO_STACK)
+
     def test_check_without_stack_or_node_explains(self):
         web = self.to_live(self.session())
         os.remove(os.path.join(self.repo, stack.VITEST_MJS))
