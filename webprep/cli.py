@@ -4,10 +4,14 @@
 화면 없이 미션 하나를 [미션 받기]부터 해설까지, 사슬 하나를 답 시간·자기 채점·다음 복습 날짜까지 끝낼 수 있음.
 출력·입력·시계는 main(argv, out, ask, clock) 으로 바꿔 끼울 수 있어 테스트가 터미널 없이 돌림. 창이나 편집기, 브라우저를 열지 않음.
 `dev` 는 Ctrl+C 를 누를 때까지 화면 서버를 켜 두고, 테스트는 time.sleep 을 바꿔 끼워 Ctrl+C 를 흉내 냄.
+표준 입력이 터미널이 아니면(파이프, 파일) PipeAsk 로 묻고, 한 줄이 PIPE_WAIT_S 안에 오지 않으면 입력이 끝난 것으로 봄.
+열려 있지만 아무것도 쓰지 않는 파이프에서 영영 기다리지 않게 하려는 것이고, 파이프로 미리 넣은 답은 그대로 읽음.
 """
 import argparse
 import os
+import queue
 import sys
+import threading
 import time
 
 import session
@@ -23,6 +27,7 @@ USAGE = """웹 면접 준비 (터미널)
   python study.py web get <미션> [--again]    [미션 받기] 코드를 내 폴더로 복사하고 읽기 시간 시작
   python study.py web start <미션>            [실전 시작] 0단계(코드 설명)가 열립니다
   python study.py web check <미션>            [검사하기] 0단계면 점검 항목 표시, 그 뒤는 단계 검사
+  python study.py web answer <미션>           통과 뒤 질문에 답하지 못하고 넘어갔으면 그 질문에 다시 답하기
   python study.py web hint <미션>             [힌트 듣기]
   python study.py web skip <미션>             [이 단계 건너뛰기] 목표 시간이 지난 뒤
   python study.py web finish <미션>           [실전 끝내기] 해설, 모범 답안 비교, 스스로 점검
@@ -53,6 +58,69 @@ def _marks(text, total):
 
 def _yes(text):
     return (text or "").strip().lower() in ("y", "yes", "네", "예", "ㅇ")
+
+
+PIPE_WAIT_S = 60  # 터미널이 아닌 입력에서 한 줄을 기다리는 최대 초. 통과 뒤 질문의 답 시간(30초)에 여유를 더함
+
+
+class PipeAsk(object):
+    """터미널이 아닌 표준 입력에서 한 줄씩 읽는 ask. 줄이 wait 초 안에 오지 않거나 입력이 끝나면 EOFError 이고, 그 뒤로는 바로 EOFError.
+    읽기는 데몬 스레드가 os.read 로 함. 파이썬의 입력 잠금을 쥐지 않으므로 기다리던 스레드가 남아도 프로그램이 끝날 때 걸리지 않음."""
+
+    def __init__(self, fd, out, wait=PIPE_WAIT_S, encoding="utf-8"):
+        self.fd, self.out, self.wait, self.encoding = fd, out, wait, encoding
+        self.lines = queue.Queue()
+        self.thread = None
+        self.closed = False
+
+    def _pump(self):
+        rest = b""
+        while True:
+            try:
+                chunk = os.read(self.fd, 4096)
+            except OSError:
+                chunk = b""
+            if not chunk:
+                if rest:
+                    self.lines.put(rest)
+                self.lines.put(None)
+                return
+            rest += chunk
+            while b"\n" in rest:
+                line, rest = rest.split(b"\n", 1)
+                self.lines.put(line)
+
+    def __call__(self, prompt):
+        self.out(prompt)
+        if self.closed:
+            raise EOFError
+        if self.thread is None:
+            self.thread = threading.Thread(target=self._pump, daemon=True)
+            self.thread.start()
+        try:
+            line = self.lines.get(timeout=self.wait)
+        except queue.Empty:
+            line = None
+        if line is None:
+            self.closed = True
+            raise EOFError
+        return line.decode(self.encoding, "replace").rstrip("\r")
+
+
+def default_ask(out):
+    """표준 입력이 터미널이면 input, 아니면 PipeAsk. 표준 입력이 없으면(pythonw) 묻는 즉시 EOFError."""
+    stdin = sys.stdin
+    try:
+        if stdin is None:
+            raise ValueError
+        if stdin.isatty():
+            return input
+        return PipeAsk(stdin.fileno(), out, encoding=stdin.encoding or "utf-8")
+    except (ValueError, OSError, AttributeError):
+        def closed(prompt):
+            out(prompt)
+            raise EOFError
+        return closed
 
 
 class Cli:
@@ -197,13 +265,27 @@ class Cli:
             self.say("  %d. %s%s" % (n, label, item["text"] if isinstance(item, dict) else item))
         return _marks(self.ask(prompt), len(items))
 
-    def _after_question(self, web, mid, after):
+    def _after_question(self, web, mid, after, head=True):
+        """통과 뒤 질문을 묻고 표시한 항목을 기록함. 답을 받지 못하면(입력 끝, 시간 넘김, Ctrl+C) 기록하지 않고 나중에 답하는 법을
+        알린 뒤 돌아감. 부른 쪽은 그다음 단계 요구를 이어서 보임. 기록했으면 True."""
         self.say()
-        self.say("통과하면 면접관이 이어서 묻습니다. %d초 안에 소리 내어 답하세요." % after["secs"])
+        if head:
+            self.say("통과하면 면접관이 이어서 묻습니다. %d초 안에 소리 내어 답하세요." % after["secs"])
+        else:
+            self.say("%d단계를 통과한 뒤의 질문입니다. %d초 안에 소리 내어 답하세요." % (after["step"], after["secs"]))
         self.say(after["ask"])
-        _, secs = self.timed_ask("답한 뒤 Enter 를 누르세요. ")
-        self.say("답 시간: %s" % self._time_note(secs, after["secs"]))
-        marks = self._ask_items(after["items"], "말한 항목 번호를 띄어쓰기로 적으세요(없으면 Enter): ")
+        try:
+            _, secs = self.timed_ask("답한 뒤 Enter 를 누르세요. ")
+            self.say("답 시간: %s" % self._time_note(secs, after["secs"]))
+            marks = self._ask_items(after["items"], "말한 항목 번호를 띄어쓰기로 적으세요(없으면 Enter): ")
+        except (EOFError, KeyboardInterrupt):
+            self.say()
+            self.say("답을 받지 못해 이 질문은 기록하지 않았습니다. 나중에 `python study.py web answer %s` 로 답할 수 있습니다." % mid)
+            return False
+        self._record_after(web, mid, after, marks, secs)
+        return True
+
+    def _record_after(self, web, mid, after, marks, secs):
         need = [m for m, item in zip(marks, after["items"]) if item["need"]]
         extra = [m for m, item in zip(marks, after["items"]) if not item["need"]]
         result = web.after_answer(mid, after["step"], need, extra, secs)
@@ -247,6 +329,23 @@ class Cli:
             self._after_step(web, mid, result)
         else:
             self.say("%d단계 검사가 아직 통과하지 않았습니다. 고친 뒤 다시 `check` 하세요." % result["open"])
+        return 0
+
+    def answer(self, web, mid, said):
+        """답하지 못하고 넘어간 통과 뒤 질문에 답함. said 를 주면 묻지 않고 첫 질문에 그 번호를 표시함(답 시간은 남기지 않음)."""
+        pending = web.pending_after(mid)
+        if not pending:
+            self.say("답하지 않은 통과 뒤 질문이 없습니다.")
+            return 0
+        if said is not None:
+            after = pending[0]
+            self.say("%d단계를 통과한 뒤의 질문입니다." % after["step"])
+            self.say(after["ask"])
+            self._record_after(web, mid, after, _marks(said, len(after["items"])), None)
+            return 0
+        for after in pending:
+            if not self._after_question(web, mid, after, head=False):
+                return 1
         return 0
 
     def hint(self, web, mid):
@@ -418,6 +517,9 @@ def build_parser():
     p = sub.add_parser("check", parents=[common])
     p.add_argument("mission")
     p.add_argument("--said", help="0단계 점검 항목 가운데 말한 번호 (예: 1,3)")
+    p = sub.add_parser("answer", parents=[common])
+    p.add_argument("mission")
+    p.add_argument("--said", help="통과 뒤 질문의 짚을 내용 가운데 말한 번호 (예: 1,2)")
     for name in ("hint", "skip", "dev", "test"):
         p = sub.add_parser(name, parents=[common])
         p.add_argument("mission")
@@ -444,7 +546,7 @@ def main(argv=None, out=None, ask=None, clock=None, repo=None, home=None):
     """명령을 실행하고 종료 코드를 돌려줌. out·ask·clock 은 테스트가 바꿔 끼움."""
     argv = sys.argv[1:] if argv is None else list(argv)
     out = out or print
-    ask = ask or input
+    ask = ask or default_ask(out)
     clock = clock or time.monotonic
     if not argv or argv[0] in ("-h", "--help", "help"):
         out(USAGE)
@@ -472,6 +574,8 @@ def main(argv=None, out=None, ask=None, clock=None, repo=None, home=None):
             return cli.start(web, args.mission, None if args.no_ai is None else args.no_ai == "yes")
         if args.command == "check":
             return cli.check(web, args.mission, args.said)
+        if args.command == "answer":
+            return cli.answer(web, args.mission, args.said)
         if args.command == "hint":
             return cli.hint(web, args.mission)
         if args.command == "skip":

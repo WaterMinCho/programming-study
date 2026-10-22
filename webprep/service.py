@@ -405,14 +405,26 @@ class WebSession:
         return out
 
     def after_answer(self, mid, step, need, extra, secs):
-        """통과 뒤 질문에 표시한 것을 기록함. need·extra 는 [필수]·[보충] 항목마다 0/1."""
+        """통과 뒤 질문에 표시한 것을 기록함. need·extra 는 [필수]·[보충] 항목마다 0/1. secs 는 답 시간(초)이고, 나중에 번호만
+        적어 기록하면 None."""
         self._mission(mid)
         state = self._state(mid)
         if state["phase"] not in ("live", "done"):
             raise WebError("실전 중이나 끝난 미션에만 기록할 수 있습니다.")
-        self._append({"kind": "after", "item": mid, "try": state["try"], "step": int(step), "secs": int(secs),
+        self._append({"kind": "after", "item": mid, "try": state["try"], "step": int(step), "secs": None if secs is None else int(secs),
                       "need": [1 if v else 0 for v in need], "extra": [1 if v else 0 for v in extra]})
         return {"result": review.question_result(need)}
+
+    def pending_after(self, mid):
+        """이번 시도에서 통과했지만 답을 기록하지 않은 통과 뒤 질문을 단계 순서대로. 항목 꼴은 check() 의 after 와 같음.
+        실전 전이면 빈 목록."""
+        self._mission(mid)
+        state = self._state(mid)
+        if state["phase"] not in ("live", "done"):
+            return []
+        steps = self._steps(mid)
+        return [dict(steps[k]["after"], step=k, secs=AFTER_SECS) for k in sorted(state["steps"])
+                if k < len(steps) and state["steps"][k]["result"] == "pass" and steps[k]["after"] and k not in state["after"]]
 
     def hint(self, mid):
         """[힌트 듣기]. 지금 단계의 다음 힌트를 열고 기록함. {"n", "text", "left"}."""

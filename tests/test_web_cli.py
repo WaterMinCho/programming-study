@@ -7,6 +7,7 @@ FakeVitest 를 씀. 창·터미널·편집기는 열지 않음.
 """
 import os
 import sys
+import time
 import unittest
 from unittest import mock
 
@@ -15,7 +16,7 @@ os.environ.setdefault("STUDY_NODE_PROBE", "0")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import study  # noqa: E402
-from webprep import cli, stack  # noqa: E402
+from webprep import bank, cli, service, stack  # noqa: E402
 from tests.test_web_service import Base  # noqa: E402
 
 
@@ -291,6 +292,159 @@ class StatusInstallCliTest(CliBase):
                 study.main(["web", "status", "--user", "alice"])
         self.assertEqual(0, stop.exception.code)
         self.assertEqual((["status", "--user", "alice"],), fake.call_args[0])
+
+
+class FollowCliTest(CliBase):
+    """통과 뒤 질문을 받지 못했을 때 다음 단계 요구를 보이고, 나중에 answer 로 답함."""
+
+    def live(self):
+        self.cmd("get", "x01")
+        self.cmd("start", "x01", "--no-ai", "yes")
+        self.cmd("check", "x01", "--said", "1")
+
+    def with_after_on_step1(self):
+        """고정 은행에서 통과 뒤 질문은 마지막 2단계에만 있음. 1단계에도 붙여 '질문 뒤 다음 단계 요구'를 볼 수 있게 함."""
+        real = bank.parse_steps
+
+        def parse(text):
+            steps = real(text)
+            steps[1]["after"] = {"ask": "면접관: 버튼 글자는 어디에 쓰이나요?", "items": [{"text": "접근성 이름이 됩니다.", "need": True}]}
+            return steps
+        return mock.patch.object(service.bank, "parse_steps", parse)
+
+    def test_follow_up_without_an_answer_still_shows_the_next_request(self):
+        """통과 뒤 질문에서 입력이 끝나거나(EOF) Ctrl+C 를 눌러도 다음 단계 요구가 보이고, 질문은 기록하지 않으며 answer 로 나중에 답함."""
+        self.live()
+        self.solve(1)
+        for stop in (EOFError, KeyboardInterrupt):
+            with self.subTest(stop=stop.__name__), self.with_after_on_step1():
+                if stop is KeyboardInterrupt:
+                    self.cmd("get", "x01", "--again")
+                    self.cmd("start", "x01", "--no-ai", "yes")
+                    self.cmd("check", "x01", "--said", "1")
+                    self.solve(1)
+                with mock.patch.object(self, "ask", side_effect=stop):
+                    code, text = self.cmd("check", "x01")
+                self.assertEqual(0, code, text)
+                self.assertIn("면접관: 버튼 글자는 어디에 쓰이나요?", text)
+                self.assertIn("답을 받지 못해 이 질문은 기록하지 않았습니다. 나중에 `python study.py web answer x01` 로 답할 수 있습니다.", text)
+                self.assertIn("2단계. 초기화 버튼 (목표 2분)", text)
+                self.assertLess(text.index("answer x01"), text.index("2단계. 초기화 버튼"))
+                kinds = self.kinds()
+                self.assertNotIn("after", kinds[len(kinds) - kinds[::-1].index("receive"):])  # 이번 시도
+                self.assertNotIn("중단했습니다", text)
+
+                code, text = self.cmd("answer", "x01", answers=["", "1"])
+                self.assertEqual(0, code, text)
+                self.assertIn("1단계를 통과한 뒤의 질문입니다. 30초 안에 소리 내어 답하세요.", text)
+                self.assertIn("판정: 통과", text)
+                self.assertEqual({"kind": "after", "step": 1, "secs": 7, "need": [1], "extra": []},
+                                 {k: self.log()[-1][k] for k in ("kind", "step", "secs", "need", "extra")})
+                code, text = self.cmd("answer", "x01")
+                self.assertEqual((0, "답하지 않은 통과 뒤 질문이 없습니다."), (code, text))
+
+    def test_answer_later_with_numbers_only(self):
+        self.live()
+        self.solve(2)
+        self.cmd("check", "x01")
+        with mock.patch.object(self, "ask", side_effect=EOFError):
+            self.cmd("check", "x01")
+        self.assertEqual(["check", "step", "finish"], self.kinds()[-3:])
+        code, text = self.cmd("answer", "x01", "--said", "2")
+        self.assertEqual(0, code, text)
+        self.assertIn("면접관: 초기화 버튼을 눌렀을 때", text)
+        self.assertIn("판정: 막힘", text)
+        self.assertEqual(({"kind": "after", "step": 2, "secs": None, "need": [0], "extra": [1]}, []),
+                         ({k: self.log()[-1][k] for k in ("kind", "step", "secs", "need", "extra")}, self.session().pending_after("x01")))
+
+
+class PipeAskTest(unittest.TestCase):
+    """터미널이 아닌 입력. 미리 넣은 답은 읽고, 열려 있지만 아무것도 오지 않는 파이프에서는 기다림을 끝냄."""
+
+    def setUp(self):
+        self.read_fd, self.write_fd = os.pipe()
+        self.addCleanup(self.close, self.read_fd)
+        self.addCleanup(self.close, self.write_fd)
+        self.shown = []
+
+    @staticmethod
+    def close(fd):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+    def test_lines_written_ahead_are_read_then_eof(self):
+        os.write(self.write_fd, "\n1 2\r\n끝".encode("utf-8"))
+        os.close(self.write_fd)
+        ask = cli.PipeAsk(self.read_fd, self.shown.append, wait=5)
+        self.assertEqual(["", "1 2", "끝"], [ask("첫 질문"), ask("둘째"), ask("셋째")])
+        with self.assertRaises(EOFError):
+            ask("넷째")
+        self.assertEqual(["첫 질문", "둘째", "셋째", "넷째"], self.shown)
+
+    def test_silent_open_pipe_gives_up_after_the_wait(self):
+        ask = cli.PipeAsk(self.read_fd, self.shown.append, wait=0.2)
+        started = time.monotonic()
+        with self.assertRaises(EOFError):
+            ask("답한 뒤 Enter 를 누르세요. ")
+        with self.assertRaises(EOFError):
+            ask("말한 항목 번호를 적으세요: ")  # 한 번 넘긴 뒤에는 기다리지 않음
+        self.assertLess(time.monotonic() - started, 3)
+
+    def test_default_ask_uses_input_only_on_a_terminal(self):
+        terminal = mock.Mock(isatty=lambda: True)
+        piped = mock.Mock(isatty=lambda: False, fileno=lambda: self.read_fd, encoding="utf-8")
+        with mock.patch.object(sys, "stdin", terminal):
+            self.assertIs(input, cli.default_ask(self.shown.append))
+        with mock.patch.object(sys, "stdin", piped):
+            self.assertIsInstance(cli.default_ask(self.shown.append), cli.PipeAsk)
+        with mock.patch.object(sys, "stdin", None):
+            with self.assertRaises(EOFError):
+                cli.default_ask(self.shown.append)("묻기")
+
+
+class PipeCheckTest(CliBase):
+    """터미널이 아닌 입력으로 check 를 돌려도 통과 뒤 질문에서 멈추지 않음. 미리 넣은 답은 기록함."""
+
+    def run_check(self, written, close):
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(PipeAskTest.close, read_fd)
+        self.addCleanup(PipeAskTest.close, write_fd)
+        if written:
+            os.write(write_fd, written)
+        if close:
+            os.close(write_fd)
+        self.lines = []
+        ask = cli.PipeAsk(read_fd, self.lines.append, wait=0.3)
+        code = cli.main(["check", "x01", "--user", "alice"], out=self.lines.append, ask=ask, clock=self.monotonic,
+                        repo=self.repo, home=self.home)
+        return code, "\n".join(self.lines)
+
+    def to_step2(self, again=False):
+        web = self.session()
+        if again:
+            web.get("x01", again=True)
+            web.start("x01", no_ai=True)
+            web.explain_done("x01", [1, 1])
+        else:
+            self.to_live(web)
+        self.solve(2)
+        web.check("x01")  # 1단계 통과, 2단계가 열림
+
+    def test_written_answers_are_recorded_and_silent_pipe_moves_on(self):
+        self.to_step2()
+        code, text = self.run_check("\n1\n".encode("utf-8"), close=True)
+        self.assertEqual(0, code, text)
+        self.assertIn("판정: 통과", text)
+        self.assertEqual(["finish", "after"], self.kinds()[-2:])
+
+        self.to_step2(again=True)
+        code, text = self.run_check(b"", close=False)
+        self.assertEqual(0, code, text)
+        self.assertIn("답을 받지 못해 이 질문은 기록하지 않았습니다", text)
+        self.assertIn("모든 단계를 끝냈습니다", text)
+        self.assertEqual("finish", self.kinds()[-1])
 
 
 if __name__ == "__main__":

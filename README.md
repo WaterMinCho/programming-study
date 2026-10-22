@@ -454,6 +454,7 @@ git clean -fdq ":(top)problems"
 | `python study.py web get w03`    | 미션 코드를 내 폴더로 복사하고 읽기 시간 시작. 처음부터 다시 하려면 `--again`      |
 | `python study.py web start w03`  | 실전 시작. 0단계(코드 설명)가 열립니다                                             |
 | `python study.py web check w03`  | 0단계면 점검 항목 표시, 그 뒤는 단계 검사                                          |
+| `python study.py web answer w03` | 통과 뒤 질문에 답하지 못하고 넘어갔으면 그 질문에 다시 답하기                      |
 | `python study.py web hint w03`   | 면접관 힌트 듣기                                                                   |
 | `python study.py web skip w03`   | 목표 시간이 지난 단계 넘어가기                                                     |
 | `python study.py web finish w03` | 미션 끝내기: 해설, 모범 답안 비교, 스스로 점검                                     |
