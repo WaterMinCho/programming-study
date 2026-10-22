@@ -357,7 +357,8 @@ class Row(QFrame):
 
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space) and not self.inert:
-            self.clicked.emit()
+            if not event.isAutoRepeat():  # 누르고 있어도 한 번만 엶
+                self.clicked.emit()
         else:
             super().keyPressEvent(event)
 

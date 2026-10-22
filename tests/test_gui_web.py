@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""웹 면접 준비 화면(gui/web_home.py, web_mission.py, web_drill.py, web_learn.py, web_setup.py)과 첫 화면의 웹 줄 카드.
+"""웹 면접 준비 화면(gui/web_home.py, web_mission.py, web_drill.py, web_learn.py, web_setup.py)과 첫 화면의 웹 줄.
 실제 MainWindow 를 띄우되 웹 은행은 tests/web_bank, 여행 은행은 tests/journey_bank, 풀이 폴더·웹 홈 폴더·검사 도구 폴더는 임시 폴더,
 제출 모듈·Node·vitest·설치·폴더 열기·화면 서버·브라우저 열기는 가짜를 씀. 시계는 서비스의 now(기록 시각)와 화면의 clock(흐른 초)을 같이 돌림.
 PyQt6 가 없으면 전부 건너뜀."""
@@ -565,7 +565,7 @@ class MissionTest(WebTest):
         text = doc_text(page.request_view)
         self.assertIn("검사는 아래 내용을 확인합니다.", text)
         self.assertEqual([state for _, _, state in page.stepper.steps], ["done", "now", "lock"])
-        self.assertIn("검사하기를 누르면", page.result_view.text())
+        self.assertIn("[검사하기]를 누르면", page.result_view.text())
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["검사하기"])
         self.assertTrue(page.check_btn.isEnabled())
         self.assertFalse(page.skip_btn.isEnabled())

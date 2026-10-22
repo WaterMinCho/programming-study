@@ -15,7 +15,7 @@ from webprep.service import WebError
 ABOUT = "프런트엔드 채용의 라이브 코딩 미션과 직무 면접 꼬리 질문을 연습합니다."
 REVIEW_ABOUT = "한 번 푼 꼬리 질문을 정해진 날에 다시 풀고, 아직 풀지 않은 사슬을 하루 몇 개씩 더합니다."
 NO_TODAY = "오늘 복습할 사슬이 없습니다."
-NO_STUCK = "막힌 질문에서 아는 데까지 말한 비율은 꼬리 질문에서 필수 항목을 빠뜨린 뒤부터 보입니다."
+NO_STUCK = "'막혀도 끝까지 말함'은 꼬리 질문에서 필수 항목을 빠뜨린 뒤부터 셉니다."
 ALL_DONE = "지금 있는 미션과 사슬을 모두 끝냈습니다."
 NOTHING_YET = "아직 준비된 미션이 없습니다."
 BROKEN = "읽지 못한 항목이 있습니다: %s. [새 문제 받기]로 최신 판을 받은 뒤 다시 열어 보세요."
@@ -357,21 +357,6 @@ class WebHomePage(QWidget):
             return
         kind = "chain" if target["kind"] in ("chain", "topic") else target["kind"]
         self.open((kind, target["id"]))
-
-    def start_review(self, data=None):
-        """오늘 복습 첫 줄(또는 data 의 줄)을 엶."""
-        data = data or (self.today_list.rows[0].data if self.today_list.rows else None)
-        if data is not None:
-            self.open(data)
-
-    def open_mission(self, mid):
-        self.open(("mission", mid))
-
-    def open_chain(self, cid):
-        self.open(("chain", cid))
-
-    def open_page(self, pid):
-        self.open(("page", pid))
 
     def open_setup(self):
         self.setup_dialog = SetupDialog(self.win, on_change=self.refresh)

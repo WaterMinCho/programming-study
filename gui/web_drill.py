@@ -21,7 +21,7 @@ from webprep.service import WebError
 
 TALKED_TEXT = "막힌 곳에서 아는 데까지 말했습니다"
 ITEMS_HINT = "말한 항목에 표시하세요."
-GAVE_UP_HINT = "모르겠다고 답했습니다. 짚을 내용을 읽고 [다음 질문]을 누르세요."
+GAVE_UP_HINT = "모르겠다고 답했습니다. 짚을 내용을 읽고 [%s]를 누르세요."  # 마지막 질문에서는 [사슬 끝내기]
 STUCK_DEFAULT = "막힌 곳에서 아는 데까지 말했는지 표시하세요."
 NOTE_HELP = "다음 복습 때 지난 답으로 보입니다. 풀이를 제출하면 저장소에도 올라갑니다."
 WARN_SHARE = 0.2  # 남은 시간이 이 비율 이하면 주황
@@ -140,6 +140,7 @@ class WebDrillPage(QWidget):
         field_col = kit.box(self.field_box, spacing=8)
         field_col.addWidget(kit.label("말한 내용 (선택)", "label", bold=True))
         self.note = QPlainTextEdit()
+        self.note.setFont(theme.font("body"))  # 글자 크기는 스타일시트가 아니라 글꼴로 줌(스타일시트 크기는 코드 칸의 글꼴을 덮음)
         self.note.setPlaceholderText("예: 응답 순서")
         self.note.setMinimumHeight(144)
         self.note.setMaximumHeight(144)
@@ -382,7 +383,8 @@ class WebDrillPage(QWidget):
         self.items.set_enabled(not gave_up and not self.busy)
         for row in self.items.rows:
             row.box.toggled.connect(lambda checked=False: self.sync_stuck())
-        self.items_title.setText(GAVE_UP_HINT if gave_up else ITEMS_HINT)
+        last = self.index == len(self.chain["questions"]) - 1
+        self.items_title.setText(GAVE_UP_HINT % ("사슬 끝내기" if last else "다음 질문") if gave_up else ITEMS_HINT)
         self.talked.set_items([(TALKED_TEXT, "", "", "", False)])
         self.answer_box.show()
         self.next_btn.setText("사슬 끝내기" if self.index == len(self.chain["questions"]) - 1 else "다음 질문")
@@ -476,6 +478,8 @@ class WebDrillPage(QWidget):
         self.end_page.verticalScrollBar().setValue(0)
 
     def open_learn(self):
+        if self.busy:  # 저장이나 제출이 도는 동안에는 화면을 바꾸지 않음
+            return
         done = self.done
         self.win.open_learn(done["page"], done["section"], back=("drill", self.cid, self.back))
 

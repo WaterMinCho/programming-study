@@ -265,7 +265,7 @@ QWidget[ui="2"] QPushButton#tab { background: transparent; border-radius: 0; pad
 QWidget[ui="2"] QPushButton#tab:hover { color: %(muted)s; }
 QWidget[ui="2"] QPushButton#tab:checked { color: %(ink)s; border-bottom-color: %(ink)s; }
 QWidget[ui="2"] QPushButton#tab:focus { border-bottom-color: %(focus)s; }
-QWidget[ui="2"] QLineEdit, QWidget[ui="2"] QPlainTextEdit, QWidget[ui="2"] QTextBrowser { font-size: 17px; background: %(surface)s; color: %(ink)s;
+QWidget[ui="2"] QLineEdit, QWidget[ui="2"] QPlainTextEdit, QWidget[ui="2"] QTextBrowser { background: %(surface)s; color: %(ink)s;
     border: 1px solid %(field_edge)s; border-radius: 12px; padding: 0 15px; selection-background-color: %(text_selection)s; selection-color: %(ink)s;
     placeholder-text-color: %(faint)s; }
 QWidget[ui="2"] QLineEdit { min-height: 46px; max-height: 46px; }

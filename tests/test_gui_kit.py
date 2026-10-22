@@ -225,6 +225,16 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(short.property("tone"), "secondary")
         self.assertEqual(short.font().pixelSize(), 14)
 
+    def test_code_fields_keep_the_code_font_size(self):
+        """새 화면의 입력칸 규칙이 글자 크기를 정하지 않아, 코드 칸(원문 상자, 비교, 설치 로그)에 준 코드 글꼴 크기가 남음."""
+        from PyQt6.QtWidgets import QPlainTextEdit
+        edit = QPlainTextEdit("const a = 1")
+        edit.setObjectName("plain")
+        edit.setFont(theme.code_font(-1))
+        self.box.addWidget(edit)
+        self.show()
+        self.assertEqual(edit.font().pixelSize(), theme.code_font(-1).pixelSize())
+
     def test_message_dialog_roles(self):
         """되돌릴 수 없는 확인 창은 오른쪽 끝이 빨간 옅은 단추이고 Enter 로 눌리지 않음. 안내 창의 확인 단추는 Enter 로 눌림."""
         ask = dialogs.MessageDialog(None, "실전 끝내기", "지금 코드로 마지막 검사를 합니다.", (("끝내기", "finish", "danger"), ("닫기", "")))
