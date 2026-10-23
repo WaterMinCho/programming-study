@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QSizePolicy, QToolTip, QWidget
 from gui import kit, theme
 from gui.docview import Doc
 from gui.journey_page import LangChips, ask_node, node_ready, saved_lang, with_node
-from gui.journey_text import (bank_text, dungeon_count, dungeon_lines, map_count, next_item, node_tip, place, row_line, tier_tip)
+from gui.journey_text import (bank_text, dungeon_count, dungeon_lines, item_line, map_count, next_item, node_tip, place, row_line, tier_tip)
 from journey.node import MIN_MAJOR
 
 COLUMNS = 4  # 한 줄의 던전 수. 줄마다 방향을 바꾸는 뱀 모양 길
@@ -495,8 +495,7 @@ class JourneyMapPage(QWidget):
         if target is None:
             self.next_note.setText(ALL_CLEAR if overview["ready"] else NO_DUNGEON)
             return
-        line = " · ".join(part for part in (target["place"], target["role"]) if part)
-        self.next_card.set_item(target["title"], line, target["action"])
+        self.next_card.set_item(target["title"], item_line(target), target["action"])
 
     def show_cache(self, info):
         """[캐시 비우기]는 캐시가 1MB 이상일 때만 보임. 숨으면 칩이 막대 끝이라 오른쪽 여백을 글자 단추 몫만큼 되돌림."""

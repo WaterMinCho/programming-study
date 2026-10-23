@@ -348,7 +348,7 @@ class MainWindow(QMainWindow):
 
         self.ask("저장하지 못한 코드", "%s\n\n쓰던 코드가 파일에 저장되지 않았습니다. [돌아가기]를 누르면 문제 화면으로 돌아가고 쓰던 코드는 화면에 남습니다. "
                  "풀이 폴더의 파일을 다른 프로그램에서 열어 두었다면 닫고 다시 나가 보세요.\n"
-                 "[%s]를 누르면 저장되지 않은 코드는 지워집니다." % (page.status.text(), leave),
+                 "[%s]를 누르면 저장되지 않은 코드는 지워집니다." % (page.save_error, leave),
                  (("돌아가기", ""), (leave, "drop")), drop)
         return False
 

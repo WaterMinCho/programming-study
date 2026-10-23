@@ -1,24 +1,31 @@
 # -*- coding: utf-8 -*-
-"""알고리즘 여행의 문제 화면: 머리줄(던전 지도 · 문제 · 언어) · 왼쪽 문제·힌트·해설 탭 · 오른쪽 편집기와 결과 칸 · 아래 실행과 채점.
+"""알고리즘 여행의 문제 화면(작업 틀): 위 막대(← 알고리즘 여행 · 문제 이름 · 역할 꼬리표 · 번호 · 상태 / 풀이 언어 칩) ·
+왼쪽 지문 카드(문제·힌트·해설 탭) · 오른쪽 편집기와 결과 카드 · 아래 막대(코드 되돌리기, 테스트 추가 / 코드 실행, 채점하기).
 
-코드는 입력이 멈추고 SAVE_DELAY_MS 뒤에 서비스로 저장함. 실행·채점은 창의 run_job 으로 워커에서 돌림.
-진행 알림(report)이 올 때마다 결과 칸에 줄을 하나씩 붙임. 마지막 결과 HTML 은 (문제, 언어)마다 메모리에 두어 다른 문제를 갔다 와도 다시 보임.
+두 칸과 편집기·결과 카드 사이는 사람이 끌 수 있는 칸 나누기이고 끈 몫을 설정에 기억함. 결과가 아직 없으면 결과 카드를 머리만 남기고 접어
+편집기를 키우고, 처음 [코드 실행]·[채점하기]를 누르는 순간 기억한 몫으로 펼침. 지문 카드는 읽는 글의 단 폭(kit.doc_width)보다 넓어지지 않음.
+코드는 입력이 멈추고 SAVE_DELAY_MS 뒤에 서비스로 저장함(Ctrl+S 는 바로). 실행·채점은 창의 run_job 으로 워커에서 돌림.
+진행 알림(report)이 올 때마다 결과 카드 본문에 줄을 하나씩 붙임. 마지막 결과는 (문제, 언어)마다 dict 로 두어 다른 문제를 갔다 오거나
+테마·글자 크기가 바뀌어도 다시 그림. 같은 실행 안에서 다시 연 문제는 떠날 때의 탭과 읽던 자리로 돌아옴.
 이 화면 안에서는 복사·붙여넣기가 됨(clipboard 속성을 gui/guard.py 가 봄). 파이썬 스터디의 회차 화면은 지금처럼 막힘.
-언어 단추와 Node.js 가 없을 때의 대화상자는 지도(gui/journey_map.py)도 같이 씀."""
+언어 칩과 Node.js 가 없을 때의 대화상자는 지도(gui/journey_map.py)도 같이 씀."""
 import datetime
+import math
 import re
+import time
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QGuiApplication, QTextCursor
-from PyQt6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QSizePolicy, QSplitter, QTabWidget,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtCore import QEvent, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QFontMetricsF, QGuiApplication, QKeySequence, QShortcut, QTextCursor
+from PyQt6.QtWidgets import QButtonGroup, QSizePolicy, QStackedWidget, QWidget
 
-from gui import journey_html, kit, motion, theme
+from gui import kit, motion, theme
 from gui.cases_dialog import CasesDialog
-from gui.docview import DocView
-from gui.editor import LANGS
-from gui.journey_text import LANG_LABEL, clear_text, error_text
-from gui.widgets import CodePanel, FindBar, Para
+from gui.docview import PAD, DocView
+from gui.editor import LANGS, CodeEditor, FindBar
+from gui.journey_result import JourneyResult
+from gui.journey_text import (EXPLAIN_LOCKED, HINT_INTRO, LANG_LABEL, NO_HINT, SAVE_FAILED, SAVED, SIDE_NOTE, clear_text, error_text,
+                              fact_line, item_line, next_item, number_text, tier_tip, uses_text)
+from gui.widgets import LinkLabel
 from journey.node import MIN_MAJOR
 from journey.service import JourneyError
 from session import SessionError
@@ -36,6 +43,16 @@ GIVE_UP_TEXT = "아직 통과하지 않은 문제입니다. 해설을 열면 기
 RESET_TITLE = "코드 되돌리기"
 RESET_TEXT = "지금 코드를 지우고 시작 코드로 바꿉니다. 바로 뒤라면 편집기에서 Ctrl+Z(맥은 Cmd+Z)로 되살릴 수 있습니다."
 CLEAR_TITLE = "던전 클리어"
+RUN_TIP = "입출력 예와 내 테스트로 돌려 봅니다. 기록에 남지 않습니다. (Ctrl+Enter, 맥은 Cmd+Enter)"
+GRADE_TIP = "숨은 테스트까지 채점합니다. 결과는 기록에 남습니다. (Ctrl+Shift+Enter, 맥은 Cmd+Shift+Enter)"
+RUN_BUSY, GRADE_BUSY = "코드 실행 중", "채점 중"  # 실행·채점을 맡길 때 창에 넘기는 일 이름. 진행은 결과 카드 머리가 보이므로 위 막대에 쓰지 않음
+ESCAPE_NOTE = "Esc 를 누르면 편집기 밖으로 나갑니다."
+EDITOR_LINES = 6  # 편집기 최소 높이의 줄 수. 보통 글자(16px)에서 120
+RESULT_SPLIT = 340 / 608  # 펼친 결과 카드에서 편집기가 받는 처음 몫(1280×800 에서 편집기 331, 결과 카드 261)
+TITLE_MIN, TITLE_CAP = 120, 260  # 위 막대 문제 이름의 가장 좁은 폭과 다 보이는 상한(보통 headline 22px 기준, 글자에 비례)
+STATUS_LOW, STATUS_MAX = 120, 420  # 위 막대 상태 글의 하한(보통 caption 14px 기준, 글자에 비례)과 상한. 넘으면 두 줄
+STATUS_GAP = 4  # 번호와 상태 글 사이를 막대 간격 12 에 더해 16 으로 둠
+SAVE_ERROR = "코드를 저장하지 못했습니다"  # 저장 실패를 창으로 알릴 때의 첫 문장. 서비스 문구도 이것으로 시작함
 
 
 def saved_lang(settings):
@@ -145,33 +162,23 @@ class LangChips(QWidget):
     def fit(self):
         """칩마다 최소 폭을 지금 글자의 폭으로 묶음. 글자 크기 단계가 바뀌면 화면의 restyle 이 다시 부름."""
         for chip in self.buttons.values():
-            chip.setMinimumWidth(0)
-            chip.ensurePolished()
-            chip.setMinimumWidth(chip.sizeHint().width())
+            pin(chip)
 
     def showEvent(self, event):
         super().showEvent(event)
         self.fit()
 
 
-class JourneyCodePanel(CodePanel):
-    HINT = "'코드 실행'을 누르면 입출력 예와 내가 추가한 테스트 케이스의 결과가 여기에 나옵니다. 코드 실행은 기록되지 않습니다."
+def pin(widget):
+    """최소 폭을 지금 글자의 sizeHint 폭으로 묶음. 막대가 좁을 때 Qt 가 단추를 스타일시트의 min-width 까지 줄여 글자가 잘리지 않게 함."""
+    widget.setMinimumWidth(0)
+    widget.ensurePolished()
+    widget.setMinimumWidth(widget.sizeHint().width())
 
 
 def md_text(text):
     """마크다운 문단에 넣을 꾸밈없는 글. 인라인 꾸밈 글자를 글자 그대로 보이게 막음."""
     return re.sub(r"([\\`*_])", r"\\\1", text)
-
-
-def problem_markdown(data):
-    """[문제] 탭: 준비 문제 줄, 보스면 쓰는 문제 줄, 그다음 problem.md."""
-    lines = []
-    if data["prep"]:
-        lines.append("준비 문제: " + ", ".join("%s %s%s" % (ref["no"], ref["title"], " (통과)" if ref["passed"] else "")
-                                             for ref in data["prep"]))
-    if data["role"] == "boss" and data["uses"]:
-        lines.append("이 보스에 쓰는 문제: " + ", ".join(ref["no"] for ref in data["uses"]))
-    return "\n\n".join([md_text(line) for line in lines] + [data["markdown"]])
 
 
 def similar_text(item):
@@ -181,9 +188,171 @@ def similar_text(item):
     return "%s%s · %s" % (site, number, item.get("title") or "")
 
 
+def text_width(widget, text):
+    return math.ceil(QFontMetricsF(widget.font()).horizontalAdvance(text)) if text else 0
+
+
+class TabBarStack(QWidget):
+    """지문 카드의 탭 막대(kit.TabBar)와 그 아래 쌓인 칸. QTabWidget 처럼 tabText·setTabText·setCurrentIndex·currentIndex·currentChanged 를 씀."""
+    currentChanged = pyqtSignal(int)
+
+    def __init__(self, names, pages):
+        super().__init__()
+        box = kit.box(self)
+        self.bar = kit.TabBar(names)
+        self.stack = QStackedWidget()
+        for page in pages:
+            self.stack.addWidget(page)
+        box.addWidget(self.bar)
+        box.addWidget(self.stack, 1)
+        self.bar.picked.connect(self.setCurrentIndex)
+
+    def tabText(self, number):
+        return self.bar.buttons[number].text()
+
+    def setTabText(self, number, text):
+        self.bar.buttons[number].setText(text)
+
+    def currentIndex(self):
+        return self.stack.currentIndex()
+
+    def setCurrentIndex(self, number):
+        self.bar.set_current(number)
+        if number != self.stack.currentIndex():
+            self.stack.setCurrentIndex(number)
+            self.currentChanged.emit(number)
+
+    def focus_tab(self):
+        """고른 탭으로 키보드 초점을 옮김(편집기에서 Esc)."""
+        self.bar.buttons[self.currentIndex()].setFocus(Qt.FocusReason.ShortcutFocusReason)
+
+
+class PrepLink(LinkLabel):
+    """지문 머리의 준비 문제 링크. Para 는 마지막 줄 아래 줄 간격을 높이에서 빼는데, 링크 밑줄이 그 자리에 그려져 잘리므로 빼지 않음."""
+
+    def tail(self):
+        return 0
+
+
+class FactLine(QWidget):
+    """문제 탭 맨 위의 지문 머리(DocView.set_head). caption secondary 줄 하나나 둘, 줄 사이 4.
+    첫 줄은 난이도와 지금 언어의 시간 제한, 둘째 줄은 역할마다 다름: 보스는 이 보스에 쓰는 앞 문제, 선택 문제는 보스와 상관없다는 말,
+    중급은 준비 문제 링크와 통과 꼬리표. 링크를 누르면 opened(문제 id)를 냄. text() 는 보이는 글을 이은 것(시험용)."""
+    opened = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        box = kit.box(self, spacing=4)
+        self.first = kit.para("", "caption", "secondary")
+        self.second = QWidget()
+        self.second_box = kit.box(self.second, spacing=8, horizontal=True)
+        box.addWidget(self.first)
+        box.addWidget(self.second)
+        self.links = []
+
+    def set_problem(self, data, lang):
+        self.first.setText(fact_line(data, lang))
+        self.first.setToolTip(tier_tip(data["tier"]))
+        while self.second_box.count():
+            item = self.second_box.takeAt(0)
+            if item.widget() is not None:
+                item.widget().hide()
+                item.widget().deleteLater()
+        self.links = []
+        role = data["role"]
+        if role == "boss":
+            self.second_box.addWidget(kit.para(uses_text(data["uses"]), "caption", "secondary"), 1)
+        elif role == "side":
+            self.second_box.addWidget(kit.para(SIDE_NOTE, "caption", "secondary"), 1)
+        elif data["prep"]:
+            self.second_box.addWidget(kit.label("준비 문제", "caption", "secondary"))
+            for ref in data["prep"]:
+                link = kit.typed(PrepLink('<a href="%s">%s %s</a>' % (ref["pid"], ref["no"], ref["title"]), line=theme.TYPE["caption"][1],
+                                          font=theme.font("caption")), "caption")
+                link.linkActivated.connect(self.opened.emit)
+                self.links.append(link)
+                self.second_box.addWidget(link)
+                if ref["passed"]:
+                    self.second_box.addWidget(kit.badge("통과", "success"))
+            self.second_box.addStretch(1)
+        self.second.setVisible(self.second_box.count() > 0)
+
+    def text(self):
+        parts = [self.first.text()]
+        for index in range(self.second_box.count()):
+            widget = self.second_box.itemAt(index).widget()
+            if widget is not None:
+                parts.append(re.sub(r"<[^>]+>", "", widget.text()))
+        return " ".join(part for part in parts if part)
+
+
+class JourneyCodePanel(QWidget):
+    """오른쪽 칸: 편집기(위에 저장 실패 띠)와 결과 카드를 세로 칸 나누기(손잡이 16)로 나눔. 끈 몫은 설정 journey/split_v 에 남음.
+    collapse 는 결과 카드를 머리 높이로 묶고 손잡이를 잠그며, expand 는 묶음을 풀고 기억한 몫으로 나눔.
+    글이 달라졌을 때만 changed(글)를 냄. 문법 색칠을 다시 하면 글이 같아도 textChanged 가 나옴."""
+    changed = pyqtSignal(object)
+
+    def __init__(self, settings=None):
+        super().__init__()
+        box = kit.box(self)
+        self.split = kit.splitter(Qt.Orientation.Vertical, "journey/split_v", RESULT_SPLIT, 16, settings)
+        self.editor_pane = QWidget()  # 찾기 막대도 여기에 떠서 실행·채점 중에 편집기를 잠가도 쓰임
+        pane_box = kit.box(self.editor_pane, spacing=16)
+        self.save_banner = kit.banner(SAVE_FAILED, "danger")
+        self.save_banner.hide()
+        self.editor = CodeEditor(paste=True)
+        self.editor.setAccessibleDescription(ESCAPE_NOTE)
+        pane_box.addWidget(self.save_banner)
+        pane_box.addWidget(self.editor, 1)
+        self.result = JourneyResult()
+        self.split.addWidget(self.editor_pane)
+        self.split.addWidget(self.result)
+        box.addWidget(self.split)
+        self.reset_btn = None  # 아래 막대의 [코드 되돌리기]. 문제 화면이 넣음
+        self.code = ""  # 바로 앞에 알린 글
+        self.editor.textChanged.connect(self._edited)
+        self.refit()
+
+    def set_code(self, text):
+        self.editor.blockSignals(True)
+        self.editor.setPlainText(text)
+        self.editor.blockSignals(False)
+        self.code = self.editor.toPlainText()
+
+    def _edited(self):
+        text = self.editor.toPlainText()
+        if text != self.code:
+            self.code = text
+            self.changed.emit(text)
+
+    def focus_input(self):
+        self.editor.setFocus()
+
+    def collapse(self):
+        """결과 카드를 머리 글만 남은 높이로 묶고 손잡이를 잠금. 남는 높이는 편집기가 받음."""
+        self.result.set_collapsed(True)
+        self.split.set_locked(True)
+
+    def expand(self):
+        """묶음을 풀고 기억한 몫으로 나눔. 줄어든 편집기에서 커서 줄이 가려지지 않게 함."""
+        if not self.result.collapsed:
+            return
+        self.result.set_collapsed(False)
+        self.split.set_locked(False)
+        self.split.place()
+        QTimer.singleShot(0, self.editor.ensureCursorVisible)
+
+    def refit(self):
+        """글자 크기 단계에 따라 편집기와 결과 카드의 최소 높이, 접힌 카드의 높이를 다시 잡음. 결과 카드는 머리가 눌리지 않는 높이까지만
+        줄어듦. 편집기는 EDITOR_LINES 줄 남짓."""
+        self.editor.setMinimumHeight(round(EDITOR_LINES * 20 * theme.code_font(theme.text_px()).pixelSize() / theme.CODE_PX))
+        self.result.fit_height()
+
+
 class JourneyPage(QWidget):
     def __init__(self, win):
         super().__init__()
+        kit.page(self)  # 맨 먼저 걸어야 뒤에 만드는 찾기 막대도 새 규칙으로 그려짐
         self.setObjectName("page")
         self.setProperty("clipboard", True)  # gui/guard.py 가 이 화면 안의 복사·붙여넣기를 막지 않음
         self.win = win
@@ -192,88 +361,107 @@ class JourneyPage(QWidget):
         self.data = None  # service.problem() 의 결과
         self.explain = None  # service.open_explain() 의 결과. 해설 탭을 처음 그릴 때 읽음
         self.dirty = {}  # 아직 파일에 쓰지 않은 코드 {(던전, 문제, 언어): 글}
-        self.results = {}  # 마지막 결과 HTML {(던전, 문제, 언어): HTML}
+        self.results = {}  # 마지막 결과 {(던전, 문제, 언어): (종류, 결과 dict)}
+        self.places = {}  # 떠날 때의 탭과 세 칸의 스크롤 자리 {(던전, 문제): (탭, [자리])}
+        self.pending = {}  # 다시 연 문제에서 돌아갈 스크롤 자리 {DocView: 자리}. 사람이 스크롤하거나 다른 문제를 열 때까지 지킴
         self.live = None  # 실행·채점 중에 지금까지 온 결과
+        self.job_kind = None  # 도는 일이 실행("run")·채점("grade")이면 그 종류
+        self.stage, self.started = "", 0.0  # 채점 단계 문장과 시작한 때
+        self.busy, self.busy_text, self.opened_wide, self.node_missing = False, "", False, False
+        self.save_error = ""  # 마지막 저장 실패의 문구. 창이 떠날 때 묻는 창에 씀
         self.cases_dialog = None
+        root = kit.box(self)
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(14, 12, 14, 0)
-        head = QHBoxLayout()
-        self.map_btn = QPushButton("던전 지도")
-        self.title = QLabel()
-        self.title.setObjectName("h1")
-        self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)  # 긴 제목이 창을 넓히지 않게 함
-        self.tier = QLabel()
-        self.tier.setObjectName("muted")
+        # 위 막대
+        self.top = kit.TopBar("← 알고리즘 여행", "")
+        self.map_btn, self.title = self.top.back, self.top.title
+        self.title.show()
+        self.top.row.setStretchFactor(self.title, 0)
+        self.title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        self.heads = QWidget()  # 역할 꼬리표와 번호
+        heads_box = kit.box(self.heads, spacing=8, horizontal=True)
+        self.badge = kit.badge()
+        self.number = kit.label("", "caption", "tertiary")
+        heads_box.addWidget(self.badge, 0, Qt.AlignmentFlag.AlignVCenter)
+        heads_box.addWidget(self.number, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.status = kit.para("", "caption", "tertiary")  # 동작 결과 한 문장. 두 줄까지
+        self.status.hide()
+        self.top.row.insertWidget(2, self.heads, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.top.row.insertSpacing(3, STATUS_GAP)
+        self.top.row.insertWidget(4, self.status, 1, Qt.AlignmentFlag.AlignVCenter)
+        self.top.row.insertStretch(5, 0)  # 남는 폭은 상태 글이 상한까지 먼저 받고 나머지가 여기로 감
         self.lang_bar = LangChips()
         self.lang_btns = self.lang_bar.buttons
-        head.addWidget(self.map_btn)
-        head.addSpacing(8)
-        head.addWidget(self.title, 1)
-        head.addWidget(self.tier)
-        head.addSpacing(16)
-        head.addWidget(self.lang_bar)
-        root.addLayout(head)
-        self.band = Para(name="notice")
-        self.band.hide()
-        root.addWidget(self.band)
+        self.lang_bar.note.setMinimumWidth(1)  # 화면의 최소 폭에 넣지 않음. 자리가 모자라면 fit_top 이 숨김
+        self.top.add_right(self.lang_bar)
+        root.addWidget(self.top)
 
-        split = QSplitter(Qt.Orientation.Horizontal)
-        self.tabs = QTabWidget()
-        self.problem_view = DocView()
-        hint_page, self.hint_view, hint_row = self._doc_page()
-        self.hint_note = Para(name="muted")
-        self.hint_btn = QPushButton()
-        hint_row.addWidget(self.hint_note, 1)
-        hint_row.addWidget(self.hint_btn)
-        explain_page, self.explain_view, explain_row = self._doc_page()
-        self.give_up_btn = QPushButton("포기하고 해설 보기")
-        explain_row.addStretch(1)
-        explain_row.addWidget(self.give_up_btn)
-        self.tabs.addTab(self.problem_view, "문제")
-        self.tabs.addTab(hint_page, "힌트")
-        self.tabs.addTab(explain_page, "해설")
-        right = QWidget()
-        right_box = QVBoxLayout(right)
-        right_box.setContentsMargins(0, 0, 0, 0)
-        self.code_panel = JourneyCodePanel(paste=True)
-        self.code_panel.console.document().setDocumentMargin(10)
-        right_box.addWidget(self.code_panel, 1)
-        self.find_bar = FindBar(self.code_panel.editor, right)  # 실행·채점 중에 편집기를 잠가도 쓰이게 그 밖에 둠
-        split.addWidget(self.tabs)
-        split.addWidget(right)
-        split.setStretchFactor(0, 45)
-        split.setStretchFactor(1, 55)
-        split.setSizes([540, 660])
-        split.setChildrenCollapsible(False)
-        root.addWidget(split, 1)
+        # 왼쪽 지문 카드
+        self.problem_view, self.hint_view, self.explain_view = self.views = [DocView(flat=True) for _ in range(3)]
+        for view in self.views:
+            view.ruled = False
+            bar = view.verticalScrollBar()
+            bar.rangeChanged.connect(lambda low, high, view=view: self._settle(view))
+            bar.actionTriggered.connect(lambda action, view=view: self.pending.pop(view, None))  # 사람이 스크롤하면 옮겨 둘 자리를 버림
+        self.facts = FactLine()
+        self.problem_view.set_head(self.facts)
+        self.hint_tail = QWidget()
+        hint_box = kit.box(self.hint_tail, spacing=8)
+        self.hint_btn = kit.button("", "secondary", "m")
+        self.hint_note = kit.label("", "caption", "tertiary")
+        hint_box.addWidget(self.hint_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        hint_box.addWidget(self.hint_note)
+        self.hint_view.set_tail(self.hint_tail)
+        self.explain_tail = QWidget()
+        explain_box = kit.box(self.explain_tail)
+        self.give_up_btn = kit.button("해설 먼저 보기", "danger_text", "m")
+        self.next_box = QWidget()  # 해설 끝의 다음 문제 줄. 위 24(조각 사이 16 에 8 을 더함)
+        next_box = kit.box(self.next_box, (0, 8, 0, 0), 8)
+        self.next_rows = kit.RowList(flush=True)
+        next_box.addWidget(kit.label("다음 문제", "caption", "tertiary"))
+        next_box.addWidget(self.next_rows)
+        explain_box.addWidget(self.give_up_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        explain_box.addWidget(self.next_box)
+        self.explain_view.set_tail(self.explain_tail)
+        self.tabs = TabBarStack(["문제", "힌트", "해설"], self.views)
+        self.problem_card, card_box = kit.card(0, 0)
+        card_box.addWidget(self.tabs)
 
-        bar = QFrame()
-        bar.setObjectName("bar")
-        bar_box = QHBoxLayout(bar)
-        bar_box.setContentsMargins(4, 8, 4, 8)
-        self.status = QLabel("")
-        self.status.setObjectName("muted")
-        self.status.setMinimumWidth(1)  # 긴 안내가 창을 넓히지 않고 잘림
-        self.busy_bar = QProgressBar()
-        self.busy_bar.setRange(0, 0)
-        self.busy_bar.setTextVisible(False)
-        self.busy_bar.setFixedWidth(140)
-        self.busy_bar.hide()
-        self.cases_btn = QPushButton("테스트 케이스 추가하기")
-        self.stop_btn = QPushButton("중지")
-        self.stop_btn.setEnabled(False)
-        self.run_btn = QPushButton("코드 실행")
-        self.grade_btn = QPushButton("제출 후 채점하기")
-        self.grade_btn.setObjectName("primary")
-        bar_box.addWidget(self.status, 1)
-        bar_box.addWidget(self.busy_bar)
-        bar_box.addWidget(self.cases_btn)
-        bar_box.addSpacing(16)
-        bar_box.addWidget(self.stop_btn)
-        bar_box.addWidget(self.run_btn)
-        bar_box.addWidget(self.grade_btn)
-        root.addWidget(bar)
+        # 오른쪽 편집기와 결과 카드
+        self.code_panel = JourneyCodePanel(win.settings)
+        self.result = self.code_panel.result
+        self.find_bar = FindBar(self.code_panel.editor, self.code_panel.editor_pane)
+        kit.typed(self.find_bar.input, "code")
+        kit.typed(self.find_bar.count, "caption")
+        self.find_bar.installEventFilter(self)  # 막대가 뜨고 닫힐 때 편집기의 Esc 를 끄고 켬
+        self.split = kit.splitter(Qt.Orientation.Horizontal, "journey/split", 0.5, 24, win.settings)
+        self.split.addWidget(self.problem_card)
+        self.split.addWidget(self.code_panel)
+        body = QWidget()
+        kit.box(body, (kit.MARGIN, 24, kit.MARGIN, 24)).addWidget(self.split)
+        root.addWidget(body, 1)
+
+        # 아래 막대
+        self.bar = kit.BottomBar()
+        self.reset_btn = self.bar.add_tool(kit.button("코드 되돌리기", "danger_text", "m"))
+        self.reset_btn.setToolTip("시작 코드로 되돌립니다.")
+        self.code_panel.reset_btn = self.reset_btn
+        self.cases_btn = self.bar.add_tool(kit.button("테스트 추가", "text", "m"))
+        self.stop_btn = self.bar.add_action(kit.button("중지", "secondary", "l"))
+        self.stop_btn.hide()
+        self.run_btn = self.bar.add_action(kit.button("코드 실행", "secondary", "l"))
+        self.run_btn.setToolTip(RUN_TIP)
+        self.grade_btn = self.bar.add_action(kit.button("채점하기", "primary", "l"))
+        self.grade_btn.setToolTip(GRADE_TIP)
+        root.addWidget(self.bar)
+
+        # 단축키
+        editor = self.code_panel.editor
+        for keys, slot in ((("Ctrl+Return", "Ctrl+Enter"), self.run_code), (("Ctrl+Shift+Return", "Ctrl+Shift+Enter"), self.grade)):
+            for key in keys:  # 키패드 Enter 도 받음. 편집기 안에서도 창의 단축키가 먼저 받아 줄바꿈이 들어가지 않음
+                QShortcut(QKeySequence(key), self, slot)
+        QShortcut(QKeySequence.StandardKey.Save, self, self.save_now)
+        self.escape = QShortcut(QKeySequence(Qt.Key.Key_Escape), editor, self.tabs.focus_tab, context=Qt.ShortcutContext.WidgetShortcut)
 
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)
@@ -283,10 +471,14 @@ class JourneyPage(QWidget):
         self.hint_scroll.setSingleShot(True)
         self.hint_scroll.setInterval(0)
         self.hint_scroll.timeout.connect(lambda: self.hint_view.verticalScrollBar().setValue(self.hint_view.verticalScrollBar().maximum()))
+        self.ticker = QTimer(self)  # 채점 중 지난 초
+        self.ticker.setInterval(1000)
+        self.ticker.timeout.connect(self._tick)
         self.code_panel.changed.connect(self.on_code_changed)
-        self.code_panel.reset_btn.clicked.connect(self.ask_reset)
-        self.code_panel.console.anchorClicked.connect(lambda url: self.on_link(url.toString()))
+        self.reset_btn.clicked.connect(self.ask_reset)
         self.explain_view.linked.connect(lambda url: self.win.open_url(url))
+        self.facts.opened.connect(self.open_other)
+        self.result.acted.connect(self.on_banner)
         self.lang_bar.picked.connect(self.pick_lang)
         self.hint_btn.clicked.connect(self.next_hint)
         self.give_up_btn.clicked.connect(self.ask_give_up)
@@ -295,19 +487,71 @@ class JourneyPage(QWidget):
         self.stop_btn.clicked.connect(self.stop)
         self.run_btn.clicked.connect(self.run_code)
         self.grade_btn.clicked.connect(self.grade)
+        self.fit_columns()
 
-    @staticmethod
-    def _doc_page():
-        """DocView 아래에 단추 줄이 붙은 탭 하나. (탭, DocView, 단추 줄)."""
-        page = QWidget()
-        box = QVBoxLayout(page)
-        box.setContentsMargins(0, 0, 0, 8)
-        view = DocView()
-        row = QHBoxLayout()
-        row.setContentsMargins(20, 0, 20, 0)
-        box.addWidget(view, 1)
-        box.addLayout(row)
-        return page, view, row
+    # 폭
+
+    def fit_columns(self):
+        """지문 카드는 읽는 글의 단 폭(창 폭을 따라 넓어짐)에 안쪽 여백과 스크롤 막대 자리를 더한 폭까지이고 넘는 폭은 편집기 칸이 받음.
+        두 칸의 몫은 창 크기가 바뀌어도 기억한 몫대로 다시 나눔."""
+        doc = kit.doc_width(self.width())
+        self.problem_card.setMaximumWidth(doc + 2 * PAD + self.problem_view.verticalScrollBar().sizeHint().width())
+        for view in self.views:
+            view.sheet.setMaximumWidth(doc + 2 * PAD)
+        self.split.place()
+
+    def fit_top(self):
+        """위 막대의 문제 이름과 상태 글 폭. 돌아가기·꼬리표·번호·칩을 뺀 폭을 둘이 나눔. 이름은 다 보이되 상한(TITLE_CAP)까지,
+        상태 글은 하한과 STATUS_MAX 사이이고 넘으면 줄을 바꿈. 자리가 모자라면 이름이 TITLE_MIN 까지 줄임표로 줄고,
+        그래도 모자라면 "Node.js 필요" 를 숨김(같은 말이 JavaScript 칩 도움말에 있음). 최소 폭은 늘 TITLE_MIN 과 상태 하한이라
+        창이 좁아져도 이 막대가 1024 창을 넓히지 않음. 상하한은 글자 크기에 비례함."""
+        status, note, row = self.status, self.lang_bar.note, self.top.row
+        status.setVisible(bool(status.text()))
+        scale = theme.TYPE["headline"][0] / theme.BASE_TYPE["headline"][0]
+        title_full = text_width(self.title, self.title.text()) + 2
+        cap = round(TITLE_CAP * scale)
+        status_full = text_width(status, status.text()) + 2 if status.text() else 0  # 글 폭을 소수점까지 재어 올림하고도 한 줄에 들게 2 를 더함
+        low = min(status_full, round(STATUS_LOW * theme.TYPE["caption"][0] / theme.BASE_TYPE["caption"][0]))
+        left, _, right, _ = row.getContentsMargins()
+        gaps = row.spacing() * (4 if status.text() else 3) + STATUS_GAP
+
+        def room():
+            parts = (self.map_btn, self.heads, self.lang_bar)
+            return self.top.width() - left - right - gaps - sum(widget.sizeHint().width() for widget in parts)
+
+        note.setVisible(self.node_missing)
+        if self.node_missing and room() < min(TITLE_MIN, title_full) + low:
+            note.hide()
+        space = room()
+        title = max(min(TITLE_MIN, title_full), min(title_full, cap, space - low))
+        self.title.setMinimumWidth(min(TITLE_MIN, title_full))
+        self.title.setMaximumWidth(title)
+        status.setMinimumWidth(low)
+        status.setMaximumWidth(max(low, min(STATUS_MAX, status_full, space - title)))
+
+    def pin_widths(self):
+        """돌아가기 단추와 칩의 최소 폭을 지금 글자 폭으로 묶음."""
+        pin(self.map_btn)
+        self.lang_bar.fit()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_columns()
+        self.fit_top()
+
+    def showEvent(self, event):
+        """화면을 보일 때 초점은 편집기에 둠. 문제를 열면 바로 코드를 쓸 수 있음. 내려 둔 창을 다시 띄울 때(운영체제가 보내는 보이기)는
+        초점을 옮기지 않음."""
+        super().showEvent(event)
+        self.pin_widths()
+        self.fit_top()
+        if not event.spontaneous():
+            self.code_panel.editor.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def eventFilter(self, target, event):
+        if target is self.find_bar and event.type() in (QEvent.Type.Show, QEvent.Type.Hide):
+            self.escape.setEnabled(self.find_bar.isHidden())  # 같은 키의 단축키 둘이 같이 켜지면 둘 다 눌리지 않음
+        return False
 
     # 불러오기
 
@@ -315,25 +559,32 @@ class JourneyPage(QWidget):
         """설정의 언어. JavaScript 인데 node 가 없으면 Python 으로 풀고 "Node.js 필요" 를 보임.
         창이 이 화면을 열기 전에 워커에서 node 를 찾아 두므로 여기서는 기억한 결과만 읽음."""
         lang = saved_lang(self.win.settings)
-        if lang == "javascript" and not node_ready(self.win):
-            self.lang_bar.note.show()
-            return "python"
-        return lang
+        self.show_node_note(lang == "javascript" and not node_ready(self.win))
+        return "python" if self.node_missing else lang
+
+    def show_node_note(self, missing):
+        self.node_missing = missing
+        self.fit_top()
 
     def load(self, did, pid):
-        """문제를 화면에 올림. 잠긴 보스처럼 열 수 없거나 앞 문제의 코드를 저장하지 못하면 화면을 바꾸지 않고 JourneyError 를 냄."""
+        """문제를 화면에 올림. 잠긴 보스처럼 열 수 없거나 앞 문제의 코드를 저장하지 못하면 화면을 바꾸지 않고 JourneyError 를 냄.
+        같은 실행 안에서 열었던 문제면 떠날 때의 탭과 읽던 자리로 돌아감."""
         if not self.flush(offer=False):
-            raise JourneyError(self.status.text())
+            raise JourneyError(self.save_error)
         lang = self.usable_lang()
         data = self.win.journey.problem(did, pid, lang)
+        self.keep_place()
         self.did, self.pid, self.lang, self.data, self.explain = did, pid, lang, data, None
         self.find_bar.dismiss(select=False)
         self._show_code()
-        self.status.setText("")
-        self.tabs.setCurrentIndex(0)
+        self.set_status("")
         self.show_head()
         self.show_docs()
+        self.opened_wide = False
         self.show_result()
+        self.restore_place()
+        if self.isVisible():
+            self.code_panel.editor.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def reload(self):
         """[문제 받기]로 은행이 바뀐 뒤에 부름. 같은 문제를 새로 읽어 True, 그 문제를 더는 열 수 없으면 False."""
@@ -346,7 +597,7 @@ class JourneyPage(QWidget):
         return True
 
     def refresh(self):
-        """채점·해설로 기록이 바뀐 뒤 머리줄과 힌트·해설 탭을 다시 그림. 편집기의 글과 문제 탭의 읽던 자리는 그대로 둠."""
+        """채점·해설로 기록이 바뀐 뒤 머리와 힌트·해설 탭을 다시 그림. 편집기의 글과 문제 탭의 읽던 자리는 그대로 둠."""
         if self.data is None:
             return
         try:
@@ -357,50 +608,74 @@ class JourneyPage(QWidget):
         self.show_head()
         self.show_docs(problem=False)
 
+    def keep_place(self):
+        if self.data is not None:
+            self.places[(self.did, self.pid)] = (self.tabs.currentIndex(), [view.verticalScrollBar().value() for view in self.views])
+
+    def restore_place(self):
+        tab, places = self.places.get((self.did, self.pid), (0, [0, 0, 0]))
+        self.tabs.setCurrentIndex(tab)
+        self.pending = {view: place for view, place in zip(self.views, places) if place}
+        for view in self.views:
+            self._settle(view)
+
+    def _settle(self, view):
+        """돌아갈 자리가 있으면 스크롤 범위가 바뀔 때마다 그 자리로 옮김. 조각의 높이는 보인 뒤 레이아웃이 여러 번에 걸쳐 정하고,
+        그 사이 범위가 줄었다 늘면 스크롤 값이 줄어든 범위에 묶이므로 한 번 옮긴 것으로 끝내지 않음."""
+        place = self.pending.get(view)
+        bar = view.verticalScrollBar()
+        if place is not None and bar.maximum() >= place:
+            bar.setValue(place)
+
     def _show_code(self):
         self.code_panel.editor.set_lang(LANGS[self.lang])
         self.code_panel.set_code(self.data["code"])
-        self.code_panel.hint.setText(self.data["file_name"])
         self.lang_bar.set_lang(self.lang)
 
     def show_head(self):
+        """위 막대의 이름·꼬리표·번호와 지문 머리."""
         data = self.data
-        self.title.setText("%s · %s · %s" % (data["no"], data["role_label"], data["title"]))
-        self.tier.setText(data["tier"])
-        if data["role"] == "boss":
-            uses = ", ".join(ref["no"] for ref in data["uses"])
-            self.band.setText("보스 문제입니다. 이 던전의 %s에서 익힌 기술을 함께 씁니다." % uses if uses
-                              else "보스 문제입니다. 이 던전에서 익힌 기술을 함께 씁니다.")
-        self.band.setVisible(data["role"] == "boss")
+        self.title.setText(data["title"])
+        self.badge.setText(data["role_label"])
+        self.number.setText(number_text(data))
+        self.facts.set_problem(data, self.lang)
+        self.facts.setEnabled(not self.busy)
+        self.fit_top()
 
     def show_docs(self, problem=True):
         if problem:
-            self.problem_view.set_markdown(problem_markdown(self.data), self.data["base_dir"], self.lang)
+            self.problem_view.set_markdown(self.data["markdown"], self.data["base_dir"], self.lang)
         self.show_hints()
         self.show_explain()
 
     def show_hints(self):
-        data = self.data
+        """연 힌트와 그 아래 [힌트 n 보기]. 아직 연 힌트가 없으면 안내 한 문단, 힌트가 없는 문제는 그 한 문장."""
+        data, view = self.data, self.hint_view
         hints, total = data["hints"], data["hint_total"]
         self.tabs.setTabText(1, "힌트 %d/%d" % (len(hints), total) if total else "힌트")
         if hints:
-            text = "\n\n".join("### 힌트 %d\n\n%s" % (number, body) for number, body in enumerate(hints, 1))
-        elif total:
-            text = "힌트는 한 단계씩 열리고, 연 단계는 기록에 남습니다. 아래 [힌트 1 보기]를 누르면 첫 힌트가 나옵니다."
+            view.set_markdown("\n\n".join("### 힌트 %d\n\n%s" % (number, body) for number, body in enumerate(hints, 1)), data["base_dir"], self.lang)
         else:
-            text = "이 문제에는 힌트가 없습니다."
-        self.hint_view.set_markdown(text, data["base_dir"], self.lang)
+            view.set_markdown("", data["base_dir"], self.lang)
+            view.add_para(HINT_INTRO if total else NO_HINT, "muted")
         left = total - len(hints)
         self.hint_btn.setText("힌트 %d 보기" % (len(hints) + 1))
         self.hint_btn.setVisible(left > 0)
         self.hint_note.setText("힌트를 모두 열었습니다." if total and not left else "")
+        self.hint_note.setVisible(bool(self.hint_note.text()))
+        self.hint_tail.setVisible(bool(total))
 
     def show_explain(self):
-        """해설이 열렸으면 explain.md, (보스면) 합성표, 기준 풀이, 더 풀어 볼 문제. 안 열렸으면 안내와 [포기하고 해설 보기]."""
+        """해설이 열렸으면 explain.md, (보스면) 보스에 쓰인 기술 표, 기준 풀이, 더 풀어 볼 문제, 다음 문제 줄.
+        안 열렸으면 안내 한 문장과 [해설 먼저 보기]."""
         data, view = self.data, self.explain_view
-        self.give_up_btn.setVisible(not data["explain_open"])
-        if not data["explain_open"]:
-            view.set_markdown("이 문제를 통과하면 해설이 열립니다.", data["base_dir"], self.lang)
+        opened = data["explain_open"]
+        self.give_up_btn.setVisible(not opened)
+        self.next_box.hide()
+        self.explain_tail.setVisible(not opened)  # 다음 문제 줄이 생기면 show_next 가 다시 보임
+        if not opened:
+            view.set_markdown("", data["base_dir"], self.lang)
+            view.add_para(EXPLAIN_LOCKED, "muted")
             return
         if self.explain is None:
             try:
@@ -411,7 +686,7 @@ class JourneyPage(QWidget):
         explain = self.explain
         view.set_markdown(explain["markdown"], explain["base_dir"], self.lang)
         if explain["parts"]:
-            view.add_para("합성표", "h2")
+            view.add_para("보스에 쓰인 기술", "h2")
             view.add_table(["이 보스에서 하는 일", "익힌 문제"], [[part["text"], ", ".join(part["nos"])] for part in explain["parts"]])
         code = explain["solution"].get(self.lang)
         if code:
@@ -420,9 +695,47 @@ class JourneyPage(QWidget):
             view.add_para("더 풀어 볼 문제", "h2")
             for item in explain["similar"]:
                 view.add_para(similar_text(item), link=item.get("url"))
+        self.show_next()
+
+    def show_next(self):
+        """해설 끝의 다음 문제 줄. 지도·첫 화면과 같은 이어서 할 일(next_item)이고, 지금 문제와 같으면 두지 않음."""
+        self.next_rows.clear()
+        try:
+            item = next_item(self.win.journey, "%s/%s" % (self.did, self.pid))
+        except SessionError:
+            item = None
+        if item is None or (item["did"], item["pid"]) == (self.did, self.pid):
+            return
+        row = self.next_rows.add(kit.Row(item["title"], item_line(item), data=(item["did"], item["pid"])))
+        row.clicked.connect(lambda: self.busy or self.win.open_problem(*row.data))
+        row.setEnabled(not self.busy)
+        self.next_box.show()
+        self.explain_tail.show()
 
     def show_result(self):
-        self.code_panel.show_console(self.results.get((self.did, self.pid, self.lang), ""))
+        """(문제, 언어)의 기억한 결과를 그림. 없으면 결과가 없을 때의 머리를 두고, 이 문제를 연 뒤 한 번도 펼치지 않았으면 접음."""
+        remembered = self.results.get((self.did, self.pid, self.lang))
+        if remembered:
+            self.expand_result()
+            self.result.show_result(*remembered)
+            return
+        self.result.show_empty(self.data["best"].get(self.lang), len(self.data["cases"]))
+        if not self.opened_wide:
+            self.code_panel.collapse()
+
+    def expand_result(self):
+        self.opened_wide = True
+        self.code_panel.expand()
+
+    # 위 막대 상태
+
+    def set_status(self, text, tip=""):
+        self.status.setText(text)
+        self.status.setToolTip(tip)
+        self.fit_top()
+
+    def _saved(self):
+        self.set_status(SAVED, "%s 에 저장했습니다." % datetime.datetime.now().strftime("%H:%M:%S"))
 
     # 언어
 
@@ -436,9 +749,9 @@ class JourneyPage(QWidget):
             with_node(self.win, lambda ok: self.pick_lang(lang, ok))
             return
         if lang == "javascript" and not node_ok:
-            self.status.setText("")
+            self.set_status("")
             self.lang_bar.set_lang(self.lang)
-            self.lang_bar.note.show()
+            self.show_node_note(True)
             ask_node(self.win, lambda: self.pick_lang("javascript"))
             return
         if not self.flush():
@@ -452,11 +765,12 @@ class JourneyPage(QWidget):
             return
         self.win.settings.setValue("journey/lang", lang)
         if lang == "javascript":
-            self.lang_bar.note.hide()
-        self.lang, self.data = lang, data
+            self.show_node_note(False)
+        self.lang, self.data, self.explain = lang, data, None
         self.find_bar.dismiss(select=False)
         self._show_code()
-        self.status.setText("")
+        self.set_status("")
+        self.show_head()
         self.show_docs()
         self.show_result()
 
@@ -469,6 +783,7 @@ class JourneyPage(QWidget):
             self.fail("hint", error)
             return
         self.data["hints"].append(opened["text"])
+        self.pending.pop(self.hint_view, None)
         self.show_hints()
         self.hint_scroll.start()
 
@@ -486,7 +801,21 @@ class JourneyPage(QWidget):
         self.show_explain()
         self.tabs.setCurrentIndex(2)
 
-    # 자동 저장
+    def open_other(self, pid):
+        """지문 머리의 준비 문제 링크."""
+        if not self.busy:
+            self.win.open_problem(self.did, pid)
+
+    def on_banner(self, key):
+        """결과 카드 완료 띠의 [해설 보기]는 해설 탭을, [보스 풀기]는 이 던전의 보스 문제를 엶."""
+        if key == "explain":
+            self.tabs.setCurrentIndex(2)
+            return
+        boss = next((row["id"] for row in self.win.journey.dungeon(self.did)["problems"] if row["role"] == "boss"), None)
+        if boss and not self.busy:
+            self.win.open_problem(self.did, boss)
+
+    # 저장
 
     def on_code_changed(self, text):
         if self.data is None:
@@ -496,23 +825,37 @@ class JourneyPage(QWidget):
 
     def flush(self, offer=True, commit=True):
         """대기 중인 코드를 파일에 쓰고, 다 썼으면 True 를 돌려줌. commit 이면 조합 중인 한글부터 확정함.
-        저장하지 못하면 상태 줄에 이유를 쓰고, offer 면 대화상자로도 알림(부른 쪽이 직접 알릴 때는 offer=False)."""
+        저장하지 못하면 편집기 위에 오류 띠를 보이고(원문은 띠 도움말) 위 막대의 "저장했습니다" 를 지움.
+        offer 면 대화상자로도 알림(부른 쪽이 직접 알릴 때는 offer=False). 다음 저장이 되면 띠를 숨김."""
         if commit:
             QGuiApplication.inputMethod().commit()
         self.save_timer.stop()
         if not self.dirty:
             return True
+        banner = self.code_panel.save_banner
         for key, text in list(self.dirty.items()):
             try:
                 self.win.journey.save_code(key[0], key[1], key[2], text)
             except (SessionError, OSError) as error:
-                self.status.setText("저장하지 못했습니다: %s" % error)
+                message = str(error)
+                self.save_error = message if message.startswith(SAVE_ERROR) else "%s: %s" % (SAVE_ERROR, message)
+                banner.setToolTip(message)
+                banner.show()
+                if self.status.text() == SAVED:
+                    self.set_status("")
                 if offer:
                     self.fail("save", error)
                 return False
             del self.dirty[key]
-        self.status.setText("%s 에 자동 저장했습니다." % datetime.datetime.now().strftime("%H:%M:%S"))
+        self.save_error = ""
+        banner.hide()
+        self._saved()
         return True
+
+    def save_now(self):
+        """Ctrl+S. 기다리지 않고 저장함."""
+        if self.data is not None and not self.busy and self.flush():
+            self._saved()
 
     def ask_reset(self):
         self.win.ask(RESET_TITLE, RESET_TEXT, (("되돌리기", "reset", "danger"), ("닫기", "")), lambda key: self.reset())
@@ -530,51 +873,92 @@ class JourneyPage(QWidget):
 
     # 실행 · 채점
 
+    def locked(self):
+        """실행·채점하는 파일과 화면이 어긋나지 않게 도는 동안 끄는 것. 탭과 문서는 읽을 수 있게 둠."""
+        return ([self.code_panel.editor, self.lang_bar, self.map_btn, self.hint_btn, self.give_up_btn, self.cases_btn, self.reset_btn,
+                 self.run_btn, self.grade_btn, self.facts] + self.next_rows.rows)
+
     def set_busy(self, busy, text=""):
-        """실행·채점하는 파일과 화면이 어긋나지 않게 편집기·탭·단추를 잠그고 [중지]만 켬."""
-        for widget in (self.code_panel, self.tabs, self.lang_bar, self.map_btn, self.cases_btn, self.run_btn, self.grade_btn):
+        """도는 동안 편집기·칩·돌아가기·힌트·해설 단추·아래 막대를 잠그고 [코드 되돌리기]는 숨김. 실행·채점이면 누른 단추가
+        진행형(실행 중·채점 중)이 되고 그 왼쪽에 [중지]가 나옴. 진행은 결과 카드 머리가 보이므로 실행·채점이 아닌 일의 이름만 위 막대 상태 자리에 씀."""
+        first = busy and not self.busy
+        self.busy = busy
+        kind = self.job_kind if busy else None
+        for widget in self.locked():
             widget.setEnabled(not busy)
-        self.stop_btn.setEnabled(busy)
-        self.busy_bar.setVisible(busy)
-        self.status.setText(text if busy else "")
+        self.run_btn.setText("실행 중" if kind == "run" else "코드 실행")
+        self.grade_btn.setText("채점 중" if kind == "grade" else "채점하기")
+        self.stop_btn.setVisible(kind is not None)
+        if first:
+            self.stop_btn.setText("중지")
+            self.stop_btn.setEnabled(True)
+        self.reset_btn.setVisible(not busy)  # 파괴 글자 단추는 꺼진 모양이 없어 끄는 대신 숨김
+        if busy and text and text not in (RUN_BUSY, GRADE_BUSY):
+            self.busy_text = text
+            self.set_status(text)
+        if not busy:
+            if self.busy_text and self.status.text() == self.busy_text:
+                self.set_status("")
+            self.busy_text, self.job_kind = "", None
 
     def run_code(self):
-        if self.data is None or not self.flush():
+        """[코드 실행]. 입출력 예와 내 테스트를 돌리고 기록하지 않음. 결과 카드는 누른 순간 펼침."""
+        if self.data is None or self.busy or not self.flush():
             return
         did, pid, lang = self.did, self.pid, self.lang
-        self.live = {"cases": []}
-        self.code_panel.show_console('<body><p class="muted">실행 중입니다.</p></body>')
-        self.win.run_job("코드를 실행하는 중입니다.", caught(lambda report, cancel: self.win.journey.run(did, pid, lang, report, cancel)),
+        self.live = {"cases": [], "total": len(self.data["examples"]) + len(self.data["cases"])}
+        self._start("run")
+        self.win.run_job(RUN_BUSY, caught(lambda report, cancel: self.win.journey.run(did, pid, lang, report, cancel)),
                          lambda result: self._ran((did, pid, lang), result), on_fail=self._failed, on_progress=self.on_progress)
 
     def grade(self):
-        if self.data is None or not self.flush():
+        """[채점하기]. 숨은 테스트까지 채점하고 기록함."""
+        if self.data is None or self.busy or not self.flush():
             return
         did, pid, lang = self.did, self.pid, self.lang
         self.live = {"groups": []}
-        self.code_panel.show_console('<body><p class="muted">채점을 준비하는 중입니다.</p></body>')
-        self.win.run_job("채점하는 중입니다.", caught(lambda report, cancel: self.win.journey.grade(did, pid, lang, report, cancel)),
+        self._start("grade")
+        self.ticker.start()
+        self.win.run_job(GRADE_BUSY, caught(lambda report, cancel: self.win.journey.grade(did, pid, lang, report, cancel)),
                          lambda result: self._graded((did, pid, lang), result), on_fail=self._failed, on_progress=self.on_progress)
 
+    def _start(self, kind):
+        self.job_kind, self.stage, self.started = kind, "", time.monotonic()
+        self.expand_result()
+        self._show_live()
+
+    def seconds(self):
+        return int(time.monotonic() - self.started) if self.job_kind == "grade" else 0
+
+    def _show_live(self):
+        """진행 중인 결과를 머리와 본문에 그림."""
+        if self.live is not None:
+            self.result.show_result(self.job_kind, self.live, False, self.stage, self.seconds())
+
+    def _tick(self):
+        """채점 중 1초마다 머리 caption 의 지난 초만 고침."""
+        if self.live is None:
+            self.ticker.stop()
+            return
+        self.result.show_head(self.job_kind, self.live, False, self.stage, self.seconds())
+
     def on_progress(self, event):
-        """워커가 보낸 진행 알림. 문구는 상태 줄에, 끝난 테스트 줄은 결과 칸에 붙임."""
+        """워커가 보낸 진행 알림. 단계 문장은 결과 카드 머리에, 끝난 테스트 줄은 본문에 붙임."""
+        if self.live is None:
+            return
         if event.get("kind") == "status":
-            self.status.setText(event["text"])
-            return
-        if event.get("kind") != "case" or self.live is None:
-            return
-        if "groups" in self.live:
-            groups = self.live["groups"]
-            if not groups or groups[-1]["name"] != event.get("group"):
-                groups.append({"name": event.get("group"), "cases": []})
-            groups[-1]["cases"].append(event["case"])
-            markup = journey_html.grade_html(self.live, done=False)
+            self.stage = event["text"]
+        elif event.get("kind") == "case":
+            if "groups" in self.live:
+                groups = self.live["groups"]
+                if not groups or groups[-1]["name"] != event.get("group"):
+                    groups.append({"name": event.get("group"), "cases": []})
+                groups[-1]["cases"].append(event["case"])
+            else:
+                self.live["cases"].append(event["case"])
         else:
-            self.live["cases"].append(event["case"])
-            markup = journey_html.run_html(self.live, done=False)
-        self.code_panel.show_console(markup)
-        bar = self.code_panel.console.verticalScrollBar()
-        bar.setValue(bar.maximum())
+            return
+        self._show_live()
 
     def _ran(self, key, result):
         if isinstance(result, Failed):
@@ -582,9 +966,8 @@ class JourneyPage(QWidget):
             self.fail("run", result.message)
             return
         self.live = None
-        self.results[key] = journey_html.run_html(result)
+        self.results[key] = ("run", result)
         self.show_result()
-        self.status.setText(journey_html.STOPPED_RUN if result.get("cancelled") else "코드 실행을 마쳤습니다.")
         self.code_panel.focus_input()
 
     def _graded(self, key, result):
@@ -593,18 +976,18 @@ class JourneyPage(QWidget):
             self.fail("grade", result.message)
             return
         self.live = None
-        self.results[key] = journey_html.grade_html(result)
+        self.ticker.stop()
+        self.results[key] = ("grade", result)
         self.show_result()
         if result.get("cancelled"):
-            self.status.setText(journey_html.STOPPED_GRADE)
             return
-        self.status.setText("채점을 마쳤습니다. 합계 %.1f점입니다." % (result.get("score") or 0.0))
         self.refresh()
         if result.get("cleared"):
             self.celebrate()
 
     def _failed(self):
         self.live = None
+        self.ticker.stop()
         self.show_result()
 
     def stop(self):
@@ -612,7 +995,8 @@ class JourneyPage(QWidget):
         job = getattr(self.win, "job", None)
         if job is not None:
             job[0].cancel.set()
-            self.status.setText("중지하는 중입니다.")
+            self.stop_btn.setText("멈추는 중")
+            self.stop_btn.setEnabled(False)
 
     def celebrate(self):
         """보스를 처음 통과함. 색종이와 다음 추천 던전을 알리는 대화상자. 다음 던전이 있으면 [다음 던전 보기]가 지도에서 그 던전을 고름."""
@@ -631,16 +1015,8 @@ class JourneyPage(QWidget):
         title, text, detail = error_text(action, error)
         self.win.ask(title, text, detail=detail)
 
-    def on_link(self, url):
-        """결과 칸의 [보스에 도전하기]."""
-        if url != journey_html.BOSS_LINK:
-            return
-        boss = next((row["id"] for row in self.win.journey.dungeon(self.did)["problems"] if row["role"] == "boss"), None)
-        if boss:
-            self.win.open_problem(self.did, boss)
-
     def open_cases(self):
-        if self.data is None:
+        if self.data is None or self.busy:
             return
         did, pid = self.did, self.pid
         self.cases_dialog = CasesDialog(self, self.data, self.lang, lambda cases: self.win.journey.save_cases(did, pid, cases),
@@ -649,20 +1025,20 @@ class JourneyPage(QWidget):
 
     def _cases_saved(self, cases):
         self.data["cases"] = cases
-        self.status.setText("테스트 케이스 %d개를 저장했습니다. [코드 실행]을 누르면 입출력 예와 함께 실행합니다." % len(cases))
+        self.set_status("내 테스트 %d개를 저장했습니다." % len(cases))
+        if self.result.shown[0] is None:  # 결과가 없을 때의 caption 이 내 테스트 수를 말함
+            self.show_result()
 
     # 테마 · 글자 크기
 
     def restyle(self):
-        """글자 크기나 테마가 바뀌면 부름. 지문·힌트·해설과 결과 칸에 CSS 를, 편집기에 글꼴을 다시 주고 읽던 자리는 지킴.
-        지문·힌트·해설은 여행용 CSS(theme.journey_css)로, 기준 풀이는 문서 코드와 같은 code 크기로, 결과 칸은 본문 CSS 로 그림."""
-        css, font = theme.doc_css(self.win.zoom), theme.code_font(self.win.zoom)
-        for view in (self.problem_view, self.hint_view, self.explain_view):
+        """글자 크기나 테마가 바뀌면 부름. 지문·힌트·해설에 CSS 를, 편집기와 기준 풀이에 코드 글꼴을 다시 주고 결과 카드를 같은 결과로
+        다시 그림. 읽던 자리는 지킴. 글 폭이 바뀌므로 칸 폭, 위 막대, 접힌 카드 높이도 다시 잡음."""
+        for view in self.views:
             view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
-        self.code_panel.editor.setFont(font)
-        console = self.code_panel.console
-        bar = console.verticalScrollBar()
-        place = bar.value()
-        console.document().setDefaultStyleSheet(css)
-        self.code_panel.show_console(self.code_panel.console_html)  # 스타일은 다음에 넣는 HTML 부터 적용됨
-        bar.setValue(place)
+        self.code_panel.editor.setFont(theme.code_font(theme.text_px()))
+        self.result.redraw()
+        self.code_panel.refit()
+        self.pin_widths()
+        self.fit_columns()
+        self.fit_top()

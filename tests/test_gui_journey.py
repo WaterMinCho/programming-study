@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""여행 화면: 던전 지도(gui/journey_map.py), 문제 화면(gui/journey_page.py), 테스트 케이스 대화상자(gui/cases_dialog.py),
+"""여행 화면: 던전 지도(gui/journey_map.py), 문제 화면(gui/journey_page.py, 결과 카드 gui/journey_result.py), 테스트 추가 창(gui/cases_dialog.py),
 문제 화면의 복사·붙여넣기 예외(gui/guard.py). 가짜 창(run_job 이 fn 을 바로 부르고 report 를 on_progress 로 넘김)과
 고정 은행 tests/journey_bank 로 봄. PyQt6 가 없으면 전부 건너뜀.
 
@@ -18,10 +18,10 @@ os.environ.setdefault("STUDY_NODE_PROBE", "0")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
-from PyQt6.QtCore import QSettings, Qt, QUrl  # noqa: E402
-from PyQt6.QtGui import QGuiApplication, qGray  # noqa: E402
+from PyQt6.QtCore import QPoint, QSettings, Qt, QUrl  # noqa: E402
+from PyQt6.QtGui import QColor, QFontMetricsF, QGuiApplication, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QStackedWidget  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QFrame, QMainWindow, QPushButton, QStackedWidget  # noqa: E402
 
 import adaptive  # noqa: E402
 import study  # noqa: E402
@@ -218,7 +218,8 @@ class Base(unittest.TestCase):
         editor.setTextCursor(cur)
 
     def console(self):
-        return self.win.journey_page.code_panel.console.toPlainText()
+        """결과 카드의 머리, 띠, 본문 글."""
+        return self.win.journey_page.result.text()
 
     def choose(self, key):
         """떠 있는 대화상자에서 key 단추를 누름."""
@@ -256,6 +257,76 @@ def button_line(dialog):
 def edge_ink(edit):
     """입력칸 위 테두리 가운데 화소의 색 이름."""
     return edit.grab().toImage().pixelColor(edit.width() // 2, 1).name()
+
+
+def near(color, token):
+    """화소 색이 토큰 색과 채널마다 8 안쪽으로 같은지. 글자 가장자리의 안티에일리어싱을 받음."""
+    want = QColor(theme.color(token))
+    return max(abs(color.red() - want.red()), abs(color.green() - want.green()), abs(color.blue() - want.blue())) <= 8
+
+
+def far_ink(image, back):
+    """그림에서 바탕색 back 과 가장 먼 화소의 색. 글자를 그린 색을 찾을 때 씀."""
+    base, best, found = QColor(back), -1, None
+    for x in range(image.width()):
+        for y in range(image.height()):
+            color = image.pixelColor(x, y)
+            far = abs(color.red() - base.red()) + abs(color.green() - base.green()) + abs(color.blue() - base.blue())
+            if far > best:
+                best, found = far, color
+    return found
+
+
+def has_underline(link):
+    """링크 글을 그린 그림에 글 폭의 9할 넘게 이어지는 가로 줄(밑줄)이 있는지. 글자 획은 그만큼 길게 이어지지 않음."""
+    image, back = link.grab().toImage(), link.palette().color(link.backgroundRole())
+    width = QFontMetricsF(link.font()).horizontalAdvance(link.text().split(">", 1)[1].split("<", 1)[0])
+    for y in range(image.height()):
+        run = sum(1 for x in range(image.width()) if abs(image.pixelColor(x, y).lightness() - back.lightness()) > 40)
+        if run >= 0.9 * width:
+            return True
+    return False
+
+
+def full_lines(editor):
+    """편집기에 다 보이는 줄 수."""
+    return int((editor.viewport().height() - 2 * editor.document().documentMargin()) // QFontMetricsF(editor.font()).lineSpacing())
+
+
+def run_case(no, ok=True, printed=""):
+    """grading.run 이 진행 알림과 결과에 넣는 줄과 같은 꼴."""
+    return {"no": no, "source": "example", "args_text": "[3, 9, 4]", "want_text": "9", "got_text": "9" if ok else "3",
+            "status": "pass" if ok else "wrong", "ok": ok, "ms": 0.01, "mb": 10.2, "printed": printed, "printed_cut": False, "error": "", "note": ""}
+
+
+def fake_run(cases, seen=None, check=None):
+    """자식 프로세스 없이 cases 를 하나씩 알리고 결과를 돌려주는 service.run 대신. 알릴 때마다 check() 를 부르고 seen 에 부른 인자를 남김."""
+
+    def run(did, pid, lang, report, cancel):
+        if seen is not None:
+            seen.append((did, pid, lang))
+        for case in cases:
+            report({"kind": "case", "case": case})
+            if check:
+                check()
+        return {"lang": lang, "fatal": None, "cases": list(cases), "passed": sum(case["ok"] for case in cases), "total": len(cases),
+                "cancelled": False, "limit_note": "", "runtime": "Python 3.14.4"}
+
+    return run
+
+
+def fake_grade(result, seen=None, check=None):
+    """자식 프로세스 없이 result 를 돌려주는 service.grade 대신. 단계 문장 하나를 알리고 check() 를 부름."""
+
+    def grade(did, pid, lang, report, cancel):
+        if seen is not None:
+            seen.append((did, pid, lang))
+        report({"kind": "status", "text": "정확성 테스트를 채점하는 중입니다."})
+        if check:
+            check()
+        return dict({"groups": [], "score": 0.0, "runtime": "Python 3.14.4"}, **result)
+
+    return grade
 
 
 class MapTest(Base):
@@ -310,7 +381,7 @@ class MapTest(Base):
         self.assertFalse(any(row.hasFocus() for row in page.rows.rows), "미리 고른 줄이 없음")
         guikit.click(page.rows.rows[1])
         self.assertIs(win.pages.currentWidget(), win.journey_page)
-        self.assertEqual("1-2 · 중급 · 가장 큰 물통", win.journey_page.title.text())
+        self.assertEqual(("가장 큰 물통", "중급", "1-2"), (win.journey_page.title.text(), win.journey_page.badge.text(), win.journey_page.number.text()))
         guikit.click(win.journey_page.map_btn)
         self.assertIs(win.pages.currentWidget(), page)
         self.assertEqual("t01", page.view.selected)
@@ -495,7 +566,6 @@ class PageTest(Base):
         text = doc_text(page.problem_view)
         self.assertIn("def solution(nums: list[int]) -> int:", text)
         self.assertNotIn("function solution(nums) {}", text)
-        self.assertEqual("solution.py", page.code_panel.hint.text())
         with mock.patch.object(win.journey, "runtime", lambda lang: HAS_NODE):
             guikit.click(page.lang_btns["javascript"])
         text = doc_text(page.problem_view)
@@ -508,7 +578,7 @@ class PageTest(Base):
         editor = page.code_panel.editor
         self.assertIn(("def", "keyword"), guikit.painted(editor, 0))
         self.type_code("# 파이썬 풀이\n" + editor.toPlainText())
-        page.status.setText("코드 실행을 마쳤습니다.")
+        page.set_status("내 테스트 1개를 저장했습니다.")
         with mock.patch.object(win.journey, "runtime", lambda lang: HAS_NODE):
             guikit.click(page.lang_btns["javascript"])
             self.assertEqual("javascript", page.lang)
@@ -516,7 +586,6 @@ class PageTest(Base):
             self.assertIs(JAVASCRIPT, editor.lang)
             self.assertEqual(values.starter(page.data["signature"], "javascript"), editor.toPlainText())
             self.assertIn(("function", "keyword"), guikit.painted(editor, 0))
-            self.assertEqual("solution.js", page.code_panel.hint.text())
             self.assertEqual("javascript", win.settings.value("journey/lang"))
             self.assertIn("# 파이썬 풀이", study.read_text(self.code_path("p1")))
             self.type_code("// 자바스크립트\n" + editor.toPlainText())
@@ -536,7 +605,8 @@ class PageTest(Base):
         self.assertTrue(page.dirty)
         guikit.wait_until(lambda: not page.dirty, timeout=10)
         self.assertIn("# note", study.read_text(self.code_path("p2")))
-        self.assertIn("자동 저장했습니다", page.status.text())
+        self.assertEqual("저장했습니다", page.status.text())
+        self.assertRegex(page.status.toolTip(), r"^\d\d:\d\d:\d\d 에 저장했습니다\.$")
 
     def test_reset_returns_to_the_starter_code(self):
         win = self.boot()
@@ -568,7 +638,7 @@ class PageTest(Base):
             guikit.click(page.run_btn)
         self.assertEqual(("코드 실행", "코드를 실행하지 못했습니다."), (win.dialog.windowTitle(), win.dialog.text.text()))
         self.assertEqual("[Errno 2] python3", win.dialog.detail.toPlainText())
-        self.assertTrue(page.run_btn.isEnabled() and page.code_panel.isEnabled(), "바쁜 상태가 풀림")
+        self.assertTrue(page.run_btn.isEnabled() and page.code_panel.editor.isEnabled(), "바쁜 상태가 풀림")
         self.assertIsNone(page.live)
         win.dialog.close()
         with mock.patch.object(win.journey, "grade", side_effect=JourneyError("채점하지 못했습니다. 디스크가 가득 찼습니다.")):
@@ -576,15 +646,359 @@ class PageTest(Base):
         self.assertEqual(("채점하기", "채점하지 못했습니다."), (win.dialog.windowTitle(), win.dialog.text.text()))
         self.assertEqual([], self.read_log())
 
-    def test_boss_band_and_problem_lines_follow_uses_and_prep(self):
-        self.boot([passed("p1"), passed("p2")])
+    def test_top_bar_and_problem_head_follow_the_role(self):
+        """위 막대는 이름, 역할 꼬리표, 번호이고 보스는 번호 대신 "던전 1 보스". 지문 머리 첫 줄은 난이도와 지금 언어의 시간 제한,
+        둘째 줄은 보스가 쓰는 앞 문제, 선택 문제의 안내, 중급의 준비 문제 링크와 통과 꼬리표. 보스의 노란 띠는 없음."""
+        win = self.boot([passed("p1"), passed("p2")])
         page = self.open("boss")
-        self.assertTrue(page.band.isVisible())
-        self.assertEqual("보스 문제입니다. 이 던전의 1-1, 1-2에서 익힌 기술을 함께 씁니다.", page.band.text())
-        self.assertIn("이 보스에 쓰는 문제: 1-1, 1-2", doc_text(page.problem_view))
+        self.assertEqual(("물통 정리", "보스", "던전 1 보스"), (page.title.text(), page.badge.text(), page.number.text()))
+        self.assertEqual("난이도 S5 / Lv2 · 시간 제한 2초 이 던전의 1-1~1-2에서 익힌 기술을 함께 씁니다.", page.facts.text())
+        self.assertEqual("백준 실버 5, 프로그래머스 레벨 2 수준입니다.", page.facts.first.toolTip())
+        self.assertEqual([], [banner for banner in page.findChildren(QFrame, "banner") if banner.isVisible()])
+        self.assertNotIn("이 보스에 쓰는 문제", doc_text(page.problem_view))
+        page = self.open("p3")
+        self.assertEqual(("이름 뒤집기", "선택", "1-3"), (page.title.text(), page.badge.text(), page.number.text()))
+        self.assertEqual("난이도 B3 / Lv1 · 시간 제한 2초 풀지 않아도 보스가 열립니다.", page.facts.text())
         page = self.open("p2")
-        self.assertFalse(page.band.isVisible())
-        self.assertIn("준비 문제: 1-1 물통 합계 (통과)", doc_text(page.problem_view))
+        self.assertEqual("난이도 B1 / Lv1 · 시간 제한 2초 준비 문제 1-1 물통 합계 통과", page.facts.text())
+        self.assertNotIn("준비 문제", doc_text(page.problem_view))
+        with mock.patch.object(win.journey, "runtime", lambda lang: HAS_NODE):
+            guikit.click(page.lang_btns["javascript"])
+        self.assertIn("시간 제한 1초", page.facts.text(), "시간 제한은 고른 언어의 값")
+        page.facts.links[0].linkActivated.emit("p1")
+        guikit.pump()
+        self.assertEqual("p1", page.pid, "준비 문제 링크를 누르면 그 문제를 엶")
+        self.assertEqual("난이도 B2 / Lv1 · 시간 제한 1초", page.facts.text())
+
+    def test_the_prep_link_keeps_its_underline(self):
+        """통과 꼬리표가 없으면 둘째 줄이 링크 높이로 줄어드는데, 그때도 링크 밑줄이 잘리지 않음."""
+        self.addCleanup(theme.set_text, "normal")
+        win = self.boot()
+        page = self.open("p2")
+        for step in ("normal", "large"):
+            win.set_text(step)
+            page.load("t01", "p2")
+            guikit.pump()
+            self.assertEqual("준비 문제 1-1 물통 합계", page.facts.text().split("초 ", 1)[1], step)
+            self.assertTrue(has_underline(page.facts.links[0]), step)
+
+
+class WorkFrameTest(Base):
+    """문제 화면의 작업 틀: 결과 카드 머리와 접힘, 높이 예산, 단축키, 바쁜 상태, 초점, 다시 연 자리, 글자 단계, 읽는 단, 최소 폭.
+    실행·채점은 service 의 run·grade 를 가짜로 바꿔 자식 프로세스 없이 결과 dict 를 넣음."""
+
+    def small(self, log=()):
+        """1024×700 창으로 시작함."""
+        win = self.boot(log)
+        win.resize(1024, 700)
+        guikit.pump()
+        return win
+
+    def test_result_card_heads_the_run_and_the_grade(self):
+        win = self.boot([passed("p2")])
+        page = self.open("p1")
+        with mock.patch.object(win.journey, "run", fake_run([run_case(1), run_case(2, False), run_case(3, False)])):
+            guikit.click(page.run_btn)
+        text = page.result.text()
+        self.assertTrue(text.startswith("테스트 3개 중 1개 통과\n고친 뒤 다시 실행하세요.\n"), text)
+        self.assertIn("입력값 〉 [3, 9, 4]", text)
+        self.assertEqual((1 * 10, 3 * 10, ""), (page.result.bar.value(), page.result.bar.maximum(), page.result.bar.property("tone") or ""))
+        result = {"score": 41.5, "groups": [{"name": "정확성", "earned": 29.5, "points": 70.0, "cases": []},
+                                            {"name": "효율성", "earned": 12.0, "points": 30.0, "cases": []}]}
+        with mock.patch.object(win.journey, "grade", fake_grade(result)):
+            guikit.click(page.grade_btn)
+        self.assertTrue(page.result.text().startswith("100점 중 41.5점\n정확성 29.5 / 70 · 효율성 12 / 30"), page.result.text())
+        self.assertFalse(page.result.banners.isVisible())
+        with mock.patch.object(win.journey, "grade", fake_grade({"score": 100.0, "first_pass": True, "boss_opened": True})):
+            guikit.click(page.grade_btn)
+        self.assertEqual("success", page.result.bar.property("tone"))
+        explain, boss = [banner.action for banner in page.result.banners.findChildren(QFrame, "banner")]
+        self.assertEqual(0, page.result.scroll.verticalScrollBar().value(), "끝나면 스크롤 칸 맨 위")
+        guikit.click(explain)
+        self.assertEqual(2, page.tabs.currentIndex())
+        guikit.click(boss)
+        self.assertEqual(("boss", "물통 정리"), (page.pid, page.title.text()))
+
+    def test_the_result_card_folds_until_the_first_run(self):
+        """1024×700 에서 결과 전에는 결과 카드가 머리 글만 남아 편집기가 길어지고 손잡이가 잠김. [코드 실행]을 누르는 순간 펼치고,
+        끈 몫은 0~1 값으로 남아 다시 열어도 같음. 기억한 결과가 있는 문제는 펼친 채 열림."""
+        win = self.small()
+        win.journey.save_cases("t01", "p3", [{"args": ["ab"], "expected": "ba"}])
+        page = self.open("p3")
+        guikit.pump()
+        panel, result, editor = page.code_panel, page.result, page.code_panel.editor
+        self.assertEqual("[코드 실행]은 입출력 예와 내 테스트 1개를 돌립니다.", result.caption.text())
+        self.assertTrue(result.collapsed)
+        self.assertLessEqual(result.height(), 120)
+        self.assertEqual(result.height(), result.folded_height())
+        self.assertGreaterEqual(full_lines(editor), 19)
+        self.assertTrue(panel.split.locked)
+        self.assertFalse(panel.split.handle(1).isEnabled())
+        self.assertFalse(result.scroll.isVisible())
+        seen = []
+        with mock.patch.object(win.journey, "run", fake_run([run_case(1)], check=lambda: seen.append(result.height()))):
+            guikit.click(page.run_btn)
+        self.assertGreaterEqual(min(seen), 160, "누른 순간 펼침")
+        self.assertFalse(panel.split.locked)
+        self.assertGreaterEqual(result.height(), 160)
+        self.assertGreaterEqual(full_lines(editor), 10, "펼친 뒤에도 편집기 10줄")
+        handle = panel.split.handle(1)
+        start = handle.rect().center()
+        QTest.mousePress(handle, guikit.LEFT, Qt.KeyboardModifier.NoModifier, start)
+        QTest.mouseMove(handle, start + QPoint(0, 40))
+        QTest.mouseRelease(handle, guikit.LEFT, Qt.KeyboardModifier.NoModifier, start + QPoint(0, 40))
+        guikit.pump()
+        ratio = float(win.settings.value("journey/split_v"))
+        self.assertTrue(0 < ratio < 1, ratio)
+        heights = (editor.height(), result.height())
+        page.load("t01", "p1")
+        guikit.pump()
+        self.assertTrue(result.collapsed, "결과가 없는 다른 문제는 다시 접힘")
+        page.load("t01", "p3")
+        guikit.pump()
+        self.assertFalse(result.collapsed)
+        self.assertEqual(heights, (editor.height(), result.height()), "끈 몫 그대로")
+
+    def test_language_switch_keeps_the_card_open_without_a_result(self):
+        win = self.boot()
+        page = self.open("p1")
+        with mock.patch.object(win.journey, "run", fake_run([run_case(1)])):
+            guikit.click(page.run_btn)
+        with mock.patch.object(win.journey, "runtime", lambda lang: HAS_NODE):
+            guikit.click(page.lang_btns["javascript"])
+        self.assertFalse(page.result.collapsed, "한 번 펼치면 문제를 닫을 때까지 접지 않음")
+        self.assertEqual((journey_text.NOT_RUN, journey_text.RUN_HINT), (page.result.title.text(), page.result.caption.text()))
+        self.assertEqual("", page.result.body.toPlainText())
+
+    def test_shortcuts_run_grade_save_and_leave_the_editor(self):
+        win = self.boot()
+        page = self.open("p2")
+        editor = page.code_panel.editor
+        win.activateWindow()
+        editor.setFocus()
+        guikit.pump()
+        before, runs, grades = editor.toPlainText(), [], []
+        with mock.patch.object(win.journey, "run", fake_run([run_case(1)], runs)), mock.patch.object(win.journey, "grade", fake_grade({}, grades)):
+            QTest.keyClick(editor, Qt.Key.Key_Return, guikit.CTRL)
+            guikit.pump()
+            self.assertEqual((1, 0), (len(runs), len(grades)), "Ctrl+Enter 는 코드 실행")
+            self.assertEqual(before, editor.toPlainText(), "편집기에 줄바꿈이 들어가지 않음")
+            self.assertEqual([], self.read_log())
+            editor.setFocus()
+            QTest.keyClick(editor, Qt.Key.Key_Enter, guikit.CTRL | Qt.KeyboardModifier.KeypadModifier)
+            QTest.keyClick(editor, Qt.Key.Key_Return, guikit.CTRL | guikit.SHIFT)
+            guikit.pump()
+        self.assertEqual((2, 1), (len(runs), len(grades)), "키패드 Enter 도 실행, Ctrl+Shift+Enter 는 채점")
+        self.assertIn("Ctrl+Enter", page.run_btn.toolTip())
+        self.assertIn("Ctrl+Shift+Enter", page.grade_btn.toolTip())
+        editor.setFocus()
+        self.type_code(MAX_SOLUTION)
+        QTest.keyClick(editor, Qt.Key.Key_S, guikit.CTRL)
+        self.assertEqual({}, page.dirty, "기다리지 않고 바로 저장")
+        self.assertEqual(MAX_SOLUTION, study.read_text(self.code_path("p2")))
+        self.assertEqual("저장했습니다", page.status.text())
+        self.assertEqual(journey_text.SAVED, page.status.text())
+        editor.setFocus()
+        QTest.keyClick(editor, Qt.Key.Key_Escape)
+        self.assertIs(win.focusWidget(), page.tabs.bar.buttons[0], "Esc 는 고른 탭으로 초점을 옮김")
+        self.assertIn("Esc", editor.accessibleDescription())
+        editor.setFocus()
+        QTest.keyClick(editor, Qt.Key.Key_F, guikit.CTRL)
+        self.assertTrue(page.find_bar.isVisible())
+        editor.setFocus()
+        QTest.keyClick(editor, Qt.Key.Key_Escape)
+        self.assertFalse(page.find_bar.isVisible(), "찾기 막대가 떠 있으면 Esc 는 막대를 닫음")
+        self.assertIs(win.focusWidget(), editor)
+        QTest.keyClick(editor, Qt.Key.Key_Escape)
+        self.assertIs(win.focusWidget(), page.tabs.bar.buttons[0])
+
+    def test_find_bar_follows_the_scope_and_the_text_steps(self):
+        self.addCleanup(theme.set_text, "normal")
+        win = self.boot()
+        page = self.open("p1")
+        for step, highest in (("normal", 40), ("large", 44)):
+            win.set_text(step)
+            page.find_bar.reveal()
+            guikit.pump()
+            self.assertLessEqual(page.find_bar.height(), highest, step)
+            self.assertEqual(theme.TYPE["code"][0], page.find_bar.next_btn.font().pixelSize(), step)
+            self.assertEqual(theme.TYPE["code"][0], page.find_bar.input.font().pixelSize(), step)
+            page.find_bar.dismiss()
+
+    def test_busy_keeps_the_tabs_and_locks_the_rest(self):
+        win = self.boot([passed("p1")])
+        page = self.open("p2")
+        states = []
+
+        def check():
+            chip = page.lang_btns["python"]
+            image = chip.grab().toImage()
+            states.append({"tabs": page.tabs.isEnabled() and all(tab.isEnabled() for tab in page.tabs.bar.buttons),
+                           "locked": [widget.isEnabled() for widget in (page.code_panel.editor, page.map_btn, page.cases_btn, page.hint_btn,
+                                                                        page.facts.links[0])] + [chip.isEnabled() for chip in page.lang_btns.values()],
+                           "buttons": (page.run_btn.text(), page.run_btn.isEnabled(), page.grade_btn.text(), page.grade_btn.isEnabled()),
+                           "stop": (page.stop_btn.isVisible(), page.stop_btn.isEnabled(), page.stop_btn.text()), "reset": page.reset_btn.isVisible(),
+                           "chip": (near(image.pixelColor(image.width() // 2, 4), "selection"), near(far_ink(image, theme.color("selection")), "faint"))})
+
+        with mock.patch.object(win.journey, "run", fake_run([run_case(1)], check=check)):
+            guikit.click(page.run_btn)
+        with mock.patch.object(win.journey, "grade", fake_grade({}, check=check)):
+            guikit.click(page.grade_btn)
+        run, grade = states
+        for state in states:
+            self.assertTrue(state["tabs"], "탭과 문서는 읽을 수 있음")
+            self.assertEqual([False] * 7, state["locked"])
+            self.assertEqual((True, True, "중지"), state["stop"])
+            self.assertFalse(state["reset"])
+            self.assertEqual((True, True), state["chip"], "꺼진 고른 칩은 알약을 남기고 글만 faint")
+        self.assertEqual(("실행 중", False, "채점하기", False), run["buttons"])
+        self.assertEqual(("코드 실행", False, "채점 중", False), grade["buttons"])
+        self.assertEqual((False, True, True), (page.stop_btn.isVisible(), page.reset_btn.isVisible(), page.code_panel.editor.isEnabled()))
+        self.assertEqual("", page.status.text(), "실행·채점의 진행은 결과 카드 머리가 말함")
+        page.set_busy(True, NODE_BUSY)
+        self.assertEqual((NODE_BUSY, False, False), (page.status.text(), page.stop_btn.isVisible(), page.reset_btn.isVisible()))
+        page.set_busy(False)
+        self.assertEqual(("", True), (page.status.text(), page.reset_btn.isVisible()))
+
+    def test_opening_a_problem_focuses_the_editor_and_returns_to_the_last_place(self):
+        win = self.small()
+        win.activateWindow()
+        page = self.open("p2")
+        guikit.pump()
+        self.assertIs(win.focusWidget(), page.code_panel.editor, "문제를 열면 바로 코드를 씀")
+        bar = page.problem_view.verticalScrollBar()
+        self.assertGreater(bar.maximum(), 120)
+        bar.setValue(120)
+        page.tabs.setCurrentIndex(1)
+        self.open("p1")
+        self.assertEqual((0, 0), (page.tabs.currentIndex(), bar.value()))
+        self.open("p2")
+        guikit.pump()
+        self.assertEqual(1, page.tabs.currentIndex(), "같은 실행 안에서 다시 연 문제는 떠날 때의 탭")
+        page.tabs.setCurrentIndex(0)
+        guikit.pump()
+        self.assertEqual(120, bar.value(), "숨어 있던 칸도 보이면 떠날 때의 자리")
+
+    def test_a_failed_save_shows_a_banner_above_the_editor(self):
+        """저장하지 못하면 편집기 위에 오류 띠가 뜨고(원문은 도움말) 위 막대의 "저장했습니다" 가 사라짐. 다음 저장이 되면 띠를 숨김."""
+        win = self.boot()
+        page = self.open("p2")
+        banner = page.code_panel.save_banner
+        self.type_code(MAX_SOLUTION)
+        self.assertTrue(page.flush())
+        self.assertEqual((journey_text.SAVED, True), (page.status.text(), banner.isHidden()))
+        self.type_code(FIRST_SOLUTION)
+        with mock.patch.object(win.journey, "save_code", side_effect=JourneyError("코드를 저장하지 못했습니다: [Errno 13] 권한 없음")):
+            self.assertFalse(page.flush(offer=False))
+        self.assertTrue(banner.isVisible())
+        self.assertEqual(journey_text.SAVE_FAILED, banner.text.text())
+        self.assertEqual("코드를 저장하지 못했습니다: [Errno 13] 권한 없음", banner.toolTip())
+        self.assertEqual("", page.status.text())
+        self.assertLess(banner.mapTo(page, banner.rect().topLeft()).y(), page.code_panel.editor.mapTo(page, page.code_panel.editor.rect().topLeft()).y())
+        with mock.patch.object(win.journey, "save_code", side_effect=JourneyError("코드를 저장하지 못했습니다: [Errno 13] 권한 없음")):
+            win.open_problem("t01", "p1")
+        self.assertEqual(("문제 열기", "코드를 저장하지 못했습니다."), (win.dialog.windowTitle(), win.dialog.text.text()))
+        self.assertEqual("p2", page.pid, "앞 문제의 코드를 저장하지 못하면 화면을 바꾸지 않음")
+        win.dialog.close()
+        self.assertTrue(page.flush())
+        self.assertTrue(banner.isHidden())
+        self.assertEqual(journey_text.SAVED, page.status.text())
+
+    def test_the_explanation_ends_with_the_next_problem(self):
+        self.boot([passed("p1")])
+        page = self.open("p1")
+        self.assertTrue(page.next_box.isVisibleTo(page.explain_view))
+        row = page.next_rows.rows[0]
+        self.assertEqual(("가장 큰 물통", "던전 1 「시험 마을」 · 중급"), (row.title.text(), row.second.text()))
+        page.tabs.setCurrentIndex(2)
+        guikit.click(row)
+        self.assertEqual("p2", page.pid)
+        page.tabs.setCurrentIndex(2)
+        self.assertFalse(page.next_box.isVisible(), "해설이 잠긴 문제에는 없음")
+        self.assertFalse(page.give_up_btn.isHidden())
+
+    def test_the_head_stays_while_long_output_scrolls(self):
+        """1024×700 에서 줄마다 출력 200줄인 실행 알림을 20번 넣어도 결과 카드 머리는 카드 안에 보이고 스크롤 칸만 맨 아래로 감."""
+        win = self.small()
+        page = self.open("p1")
+        result, seen = page.result, []
+        printed = "\n".join("줄 %d" % n for n in range(200))
+
+        def check():
+            guikit.pump(5)
+            bar = result.scroll.verticalScrollBar()
+            top = result.title.mapTo(result, result.title.rect().topLeft())
+            seen.append((not result.title.visibleRegion().isEmpty(), top.y() >= 0, bar.maximum() > 0 and bar.value() == bar.maximum()))
+
+        with mock.patch.object(win.journey, "run", fake_run([run_case(n, printed=printed) for n in range(1, 21)], check=check)):
+            guikit.click(page.run_btn)
+        self.assertEqual([(True, True, True)] * 20, seen)
+        guikit.pump()
+        self.assertEqual(0, result.scroll.verticalScrollBar().value(), "끝나면 맨 위")
+
+    def test_text_steps_resize_the_problem_page(self):
+        """문제를 연 채 보통 → 더 크게 → 크게. 돌아가기·칩은 글자가 잘리지 않고, 지문·편집기·기준 풀이·접힌 카드가 같이 커지며 읽던 자리를 지킴.
+        테마를 바꿔도 글자 크기는 그대로."""
+        self.addCleanup(theme.set_text, "normal")
+        mode = theme.state["mode"]
+        self.addCleanup(theme.set_mode, mode)
+        win = self.small([passed("p1")])
+        page = self.open("p1")
+        page.tabs.setCurrentIndex(2)
+        code = next(piece for piece in page.explain_view.pieces if isinstance(piece, CodeView))
+        bar = page.problem_view.verticalScrollBar()
+        bar.setValue(60)
+        heights = {}
+        for step in ("normal", "larger", "large"):
+            win.set_text(step)
+            guikit.pump()
+            px = theme.text_px()
+            self.assertEqual((16 + px, 15 + px), (page.code_panel.editor.font().pixelSize(), code.font().pixelSize()), step)
+            self.assertEqual(theme.TYPE["body"][0], first_px(page.problem_view), step)
+            for button in [page.map_btn] + list(page.lang_btns.values()):
+                self.assertGreaterEqual(button.width(), button.sizeHint().width(), (step, button.text()))
+            self.assertEqual(page.result.folded_height(), page.result.height(), step)
+            heights[step] = page.result.height()
+            self.assertEqual(60, bar.value(), step)
+        self.assertLess(heights["normal"], heights["large"])
+        self.assertLess(heights["large"], heights["larger"])
+        theme.set_mode("dark")
+        page.restyle()
+        self.assertEqual((18, 17), (page.code_panel.editor.font().pixelSize(), code.font().pixelSize()))
+
+    def test_the_problem_card_stops_at_the_reading_width(self):
+        self.addCleanup(theme.set_text, "normal")
+        win = self.boot()
+        page = self.open("p1")
+        piece = next(piece for piece in page.problem_view.pieces if isinstance(piece, TextPiece))
+        self.assertEqual(534, piece.width(), "1280×800 의 6:6 칸")
+        win.set_text("large")
+        win.resize(2000, 1070)
+        guikit.pump()
+        doc = kit.doc_width(page.width())
+        self.assertEqual(848, doc)
+        self.assertLessEqual(piece.width(), doc)
+        self.assertGreaterEqual(piece.width(), 800)
+        self.assertLessEqual(page.problem_card.width(), doc + 62)
+        self.assertGreater(page.code_panel.width(), page.problem_card.width(), "남는 폭은 편집기 칸이 받음")
+
+    def test_the_page_never_widens_a_small_window(self):
+        """더 크게, 보스, Node 없음, 긴 상태 글에서도 문제 화면의 최소 폭이 1024 이하라 1024 창이 넓어지지 않음."""
+        self.addCleanup(theme.set_text, "normal")
+        win = self.small([passed("p2")])
+        win.set_text("larger")
+        with mock.patch.object(win.journey, "runtime", lambda lang: NO_NODE):
+            win.settings.setValue("journey/lang", "javascript")
+            page = self.open("boss")
+        page.set_busy(True, "하던 작업이 끝나면 창을 닫습니다.")
+        guikit.pump()
+        self.assertTrue(page.node_missing)
+        self.assertLessEqual(page.minimumSizeHint().width(), 1024)
+        self.assertEqual((1024, 700), (win.width(), win.height()))
+        self.assertLessEqual(page.status.height(), 2 * theme.TYPE["caption"][1], "상태 글은 두 줄까지")
+        for button in [page.map_btn] + list(page.lang_btns.values()):
+            self.assertGreaterEqual(button.width(), button.sizeHint().width(), button.text())
+        page.set_busy(False)
 
 
 class ClipboardTest(Base):
@@ -624,16 +1038,21 @@ class RunGradeTest(Base):
         cases = [call.args[0] for call in progress.call_args_list if call.args[0].get("kind") == "case"]
         self.assertEqual([1, 2, 3], [event["case"]["no"] for event in cases])
         text = self.console()
-        for line in ("테스트 1", "입력값 〉 [3, 9, 4]", "기댓값 〉 9", "실행 결과 〉 테스트를 통과하였습니다.", "출력 〉", "찍음",
-                     "테스트 결과 3개 중 3개 성공", "채점에서는 Python 2초, JavaScript 1초 안에 끝나야 합니다."):
+        self.assertTrue(text.startswith("테스트 3개 중 3개 통과\n[채점하기]로 숨은 테스트까지 채점하세요."), text)
+        for line in ("테스트 1", "입력값 〉 [3, 9, 4]", "기댓값 〉 9", "실행 결과 〉 테스트를 통과하였습니다.", "출력 〉", "찍음", "실행 환경 Python"):
             self.assertIn(line, text)
+        self.assertNotIn("테스트 결과 3개 중 3개 성공", text, "요약 줄은 머리가 말함")
+        self.assertNotIn("안에 끝나야 합니다", text, "시간 제한은 지문 머리에 있음")
+        self.assertIn("시간 제한 2초", page.facts.text())
         self.assertRegex(text, r"시간·메모리 〉 \d+\.\d\dms, \d+\.\dMB")
         self.assertEqual([], self.read_log())
         self.assertTrue(page.run_btn.isEnabled())
-        self.assertFalse(page.stop_btn.isEnabled())
+        self.assertTrue(page.stop_btn.isHidden(), "[중지]는 도는 동안에만 보임")
         page.load("t01", "p1")
+        self.assertTrue(page.result.collapsed, "결과가 없는 문제는 접힌 채 열림")
         page.load("t01", "p2")
-        self.assertIn("테스트 결과 3개 중 3개 성공", self.console(), "결과는 (문제, 언어)마다 기억함")
+        self.assertFalse(page.result.collapsed, "기억한 결과가 있는 문제는 펼친 채 열림")
+        self.assertTrue(self.console().startswith("테스트 3개 중 3개 통과"), "결과는 (문제, 언어)마다 기억함")
 
     def test_grade_shows_two_groups_and_the_total(self):
         win = self.boot()
@@ -645,18 +1064,24 @@ class RunGradeTest(Base):
         self.assertIn("효율성 테스트", text)
         self.assertRegex(text, r"테스트 3 〉 통과 \(\d+\.\d\dms, \d+\.\dMB\)")
         self.assertRegex(text, r"테스트 13 〉 (통과|실패) \(\d+\.\d\dms, \d+\.\dMB\) · 50건")
-        self.assertRegex(text, r"합계: \d+\.\d / 100\.0")
-        self.assertNotIn("합계: 100.0", text)
+        self.assertRegex(text, r"^100점 중 \d+(\.\d)?점\n정확성 [\d.]+ / 80 · 효율성 [\d.]+ / 20\n")
+        self.assertIn(journey_html.HIDDEN_NOTE, text, "숨은 테스트가 틀리면 본문 끝에 안내")
+        self.assertNotIn("100점 중 100점", text)
+        self.assertNotIn("합계", text, "요약 줄은 머리가 말함")
         self.assertEqual(1, len(self.read_log()))
         self.type_code(MAX_SOLUTION)
         guikit.click(page.grade_btn)
         text = self.console()
-        self.assertIn("합계: 100.0 / 100.0", text)
-        self.assertIn("처음으로 통과했습니다. 해설을 볼 수 있습니다.", text)
+        self.assertTrue(text.startswith("100점 중 100점\n정확성 80 / 80 · 효율성 20 / 20"), text)
+        self.assertIn("처음으로 통과했습니다. 해설이 열렸습니다.", text)
         self.assertIn("보스 문제가 열렸습니다.", text)
         self.assertTrue(page.give_up_btn.isHidden())
         self.assertIn("기준 풀이 (Python)", doc_text(page.explain_view))
-        page.on_link(journey_html.BOSS_LINK)
+        explain, boss = [banner.action for banner in page.result.banners.findChildren(QFrame, "banner")]
+        self.assertEqual(("해설 보기", "보스 풀기"), (explain.text(), boss.text()))
+        guikit.click(explain)
+        self.assertEqual(2, page.tabs.currentIndex())
+        guikit.click(boss)
         self.assertEqual("boss", page.pid)
         self.assertIs(win.pages.currentWidget(), page)
 
@@ -668,15 +1093,14 @@ class RunGradeTest(Base):
 
         def progress(event, original=page.on_progress):
             if event.get("kind") == "case" and not seen:
-                seen.append((page.stop_btn.isEnabled(), page.run_btn.isEnabled(), page.code_panel.isEnabled()))
+                seen.append((page.stop_btn.isEnabled(), page.run_btn.isEnabled(), page.code_panel.editor.isEnabled()))
                 guikit.click(page.stop_btn)
             original(event)
 
         with mock.patch.object(page, "on_progress", progress):
             guikit.click(page.grade_btn)
         self.assertEqual([(True, False, False)], seen)
-        self.assertIn(journey_html.STOPPED_GRADE, self.console())
-        self.assertNotIn("합계", self.console())
+        self.assertTrue(self.console().startswith("채점을 멈췄습니다\n이번 채점은 기록에 남지 않습니다."), self.console())
         self.assertEqual([], self.read_log())
         self.assertIsNone(win.job)
 
@@ -685,7 +1109,7 @@ class RunGradeTest(Base):
         page = self.open("boss")
         self.type_code(BOSS_SOLUTION)
         guikit.click(page.grade_btn)
-        self.assertIn("합계: 100.0 / 100.0", self.console())
+        self.assertTrue(self.console().startswith("100점 중 100점"))
         self.assertEqual("던전 클리어", win.dialog.windowTitle())
         self.assertEqual("「시험 마을」 던전을 클리어했습니다. 준비된 던전을 모두 클리어했습니다.", win.dialog.text.text())
         self.assertEqual([("ok", "확인", "primary")], button_line(win.dialog))
@@ -719,12 +1143,12 @@ class RunGradeTest(Base):
         guikit.click(page.run_btn)
         text = self.console()
         self.assertIn("입력값 〉 [-5, -2, -8]", text)
-        self.assertIn("테스트 결과 3개 중 3개 성공", text)
+        self.assertTrue(text.startswith("테스트 3개 중 3개 통과"))
         self.assertIn("출력 〉", text)
         guikit.click(page.grade_btn)
         text = self.console()
-        self.assertIn("합계: 100.0 / 100.0", text)
-        self.assertIn("Node.js %s로 실행했습니다." % NODE["version"], text)
+        self.assertTrue(text.startswith("100점 중 100점"))
+        self.assertIn("실행 환경 Node.js %s" % NODE["version"], text)
         self.assertEqual(["javascript"], [entry["lang"] for entry in self.read_log()])
         self.assertTrue(os.path.isfile(self.code_path("p2", ".js")))
 
@@ -828,7 +1252,7 @@ class NodeTest(Base):
             self.assertEqual("javascript", win.settings.value("journey/lang"))
             problem = self.open("p1")
             self.assertEqual("javascript", problem.lang)
-            self.assertEqual("solution.js", problem.code_panel.hint.text())
+            self.assertIs(JAVASCRIPT, problem.code_panel.editor.lang)
 
 
 class HintExplainTest(Base):
@@ -837,8 +1261,9 @@ class HintExplainTest(Base):
         page = self.open("p1")
         self.assertEqual("힌트 0/3", page.tabs.tabText(1))
         self.assertEqual("힌트 1 보기", page.hint_btn.text())
-        self.assertIn("힌트는 한 단계씩 열리고, 연 단계는 기록에 남습니다.", doc_text(page.hint_view))
-        self.assertEqual("", page.hint_note.text())
+        self.assertEqual(journey_text.HINT_INTRO, doc_text(page.hint_view))
+        self.assertEqual("힌트는 한 단계씩 열립니다. 연 힌트는 기록에 남습니다.", journey_text.HINT_INTRO)
+        self.assertEqual(("", True), (page.hint_note.text(), page.hint_note.isHidden()))
         guikit.click(page.hint_btn)
         self.assertEqual("힌트 1/3", page.tabs.tabText(1))
         self.assertIn("한 변수에 모아 두세요", doc_text(page.hint_view))
@@ -851,7 +1276,7 @@ class HintExplainTest(Base):
         self.assertLess(text.index("힌트 1"), text.index("힌트 2"))
         self.assertLess(text.index("힌트 2"), text.index("힌트 3"))
         self.assertTrue(page.hint_btn.isHidden())
-        self.assertEqual("힌트를 모두 열었습니다.", page.hint_note.text())
+        self.assertEqual(("힌트를 모두 열었습니다.", False), (page.hint_note.text(), page.hint_note.isHidden()))
         self.assertEqual([1, 2, 3], [entry["level"] for entry in self.read_log() if entry["kind"] == "hint"])
 
     def test_giving_up_opens_the_explanation_with_parts_solution_and_similar(self):
@@ -869,11 +1294,11 @@ class HintExplainTest(Base):
         self.choose("open")
         self.assertTrue(page.give_up_btn.isHidden())
         text = doc_text(page.explain_view)
-        for line in ("느린 풀이", "합성표", "배열을 한 번 훑으며 값을 더함", "큰 값부터 고름", "기준 풀이 (Python)", "더 풀어 볼 문제",
+        for line in ("느린 풀이", "보스에 쓰인 기술", "배열을 한 번 훑으며 값을 더함", "큰 값부터 고름", "기준 풀이 (Python)", "더 풀어 볼 문제",
                      "프로그래머스 · K번째수", "백준 2750 · 수 정렬하기"):
             self.assertIn(line, text)
-        self.assertLess(text.index("느린 풀이"), text.index("합성표"))
-        self.assertLess(text.index("합성표"), text.index("기준 풀이"))
+        self.assertLess(text.index("느린 풀이"), text.index("보스에 쓰인 기술"))
+        self.assertLess(text.index("보스에 쓰인 기술"), text.index("기준 풀이"))
         self.assertLess(text.index("기준 풀이"), text.index("더 풀어 볼 문제"))
         codes = [piece for piece in page.explain_view.pieces if isinstance(piece, CodeView)]
         self.assertEqual(1, len(codes))
@@ -928,7 +1353,7 @@ class CasesDialogTest(Base):
         self.assertEqual([{"args": ["abc"], "expected": "cba"}], page.data["cases"])
         saved = study.read_json(os.path.join(study.SUBMISSIONS_DIR, "alice", "journey", "t01", "p3.cases.json"))
         self.assertEqual([{"args": ["abc"], "expected": "cba"}], saved["cases"])
-        self.assertIn("테스트 케이스 1개를 저장했습니다", page.status.text())
+        self.assertEqual("내 테스트 1개를 저장했습니다.", page.status.text())
         guikit.click(page.cases_btn)
         self.assertEqual(["'abc'", "'cba'"], [edit.text() for edit in page.cases_dialog.rows[0][0]])
 
@@ -999,7 +1424,8 @@ class DarkThemeTest(Base):
         guikit.pump(60)
         self.assertIn("기준 풀이 (Python)", doc_text(page.explain_view))
         self.assertEqual(0, bright_share(win))
-        page.code_panel.show_console(journey_html.grade_html({"groups": [], "score": 100.0, "runtime": "Python 3.14.4"}))
+        page.expand_result()
+        page.result.show_result("grade", {"groups": [], "score": 100.0, "runtime": "Python 3.14.4"})
         page.tabs.setCurrentIndex(0)
         guikit.pump(60)
         self.assertEqual(0, bright_share(win))

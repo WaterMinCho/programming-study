@@ -23,7 +23,7 @@ from journey import bank  # noqa: E402
 
 ROOT = guikit.ROOT
 V2_FILES = ("gui/kit.py", "gui/hub_page.py", "gui/web_home.py", "gui/web_mission.py", "gui/web_drill.py", "gui/web_learn.py",
-            "gui/web_setup.py", "gui/web_text.py", "gui/journey_map.py")  # 새 규칙을 따르는 파일
+            "gui/web_setup.py", "gui/web_text.py", "gui/journey_map.py", "gui/journey_page.py", "gui/journey_result.py")  # 새 규칙을 따르는 파일
 WEIGHTS = {400, 700}
 TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover")
 WEAK = {"ok": "ok_weak", "retry": "retry_weak", "wrong": "wrong_weak", "info": "info_weak", "selection_ink": "selection",

@@ -22,8 +22,8 @@ FILE_NAME = {"python": "solution.py", "javascript": "solution.js"}
 MAX_CASES = 20
 RECENT = 5
 ACTIVITY_DAYS = 14
-NO_NODE = ("Node.js 를 찾지 못했습니다. Node.js %d 이상을 설치한 뒤 [다시 찾기]를 누르거나 [Node 위치 지정…]으로 "
-           "node 실행 파일을 골라 주세요." % node_finder.MIN_MAJOR)
+NO_NODE = ("Node.js 를 찾지 못했습니다. Node.js %d 이상을 설치한 뒤 [다시 찾기]를 누르거나 [직접 고르기]로 "
+           "node 실행 파일을 고르세요." % node_finder.MIN_MAJOR)
 
 
 class JourneyError(session.SessionError):
@@ -460,7 +460,7 @@ class JourneySession:
             state = self._state(self._states(), did, pid)
             if not (state["passed"] or state["explained"]):
                 if not give_up:
-                    raise JourneyError("이 문제를 통과하거나 [포기하고 해설 보기]를 눌러야 해설이 열립니다.")
+                    raise JourneyError("이 문제를 통과하거나 [해설 먼저 보기]를 누르면 해설이 열립니다.")
             secrets = self._secret_files(did)
             markdown = secrets.get(pid + "/explain.md")
             if markdown is None:
@@ -537,7 +537,7 @@ class JourneySession:
         return result
 
     def grade(self, did, pid, lang, report=None, cancel=None):
-        """[제출 후 채점하기]. 끝까지 돌면 grade 기록 한 줄을 남기고, 취소되면 기록하지 않음. 결과 모양은 명세 4.2."""
+        """[채점하기]. 끝까지 돌면 grade 기록 한 줄을 남기고, 취소되면 기록하지 않음. 결과 모양은 명세 4.2."""
         check_lang(lang)
         self._reload()
         before = self._states()

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """여정 문제 화면의 결과 칸에 넣을 HTML. 프로그래머스의 결과 화면과 같은 꼴임.
 [코드 실행]은 테스트마다 입력값·기댓값·실행 결과를 보여 줌.
-[제출 후 채점하기]는 그룹마다 "테스트 N 〉 통과 (0.42ms, 10.3MB)" 줄과 점수를 보여 줌.
+[채점하기]는 그룹마다 "테스트 N 〉 통과 (0.42ms, 10.3MB)" 줄과 점수를 보여 줌.
 색은 본문 CSS 의 클래스(.ok .wrong .muted)로 주어 테마가 바뀌면 HTML 을 다시 넣기만 하면 됨. PyQt 를 import 하지 않아서 화면 없이 시험할 수 있음.
 
 결과가 다 오기 전에도 done=False 로 부르면 지금까지 온 줄만 그림. 진행 중에는 요약과 안내 줄을 붙이지 않음.
@@ -121,7 +121,7 @@ def run_html(result, done=True):
     return "<body>%s</body>" % "".join(parts)
 
 
-# [제출 후 채점하기]
+# [채점하기]
 
 def grade_line(case):
     mark = "ok" if case["status"] == "pass" else ("muted" if case["status"] == "cancelled" else "wrong")
@@ -132,7 +132,7 @@ def grade_line(case):
 
 
 def grade_lines(result):
-    """[제출 후 채점하기]의 fatal 줄, 또는 그룹마다 이름과 테스트 줄."""
+    """[채점하기]의 fatal 줄, 또는 그룹마다 이름과 테스트 줄."""
     if result.get("fatal"):
         return [fatal_html(result["fatal"])]
     parts = []
@@ -162,7 +162,7 @@ def grade_body(result, done=True):
 
 
 def grade_html(result, done=True):
-    """[제출 후 채점하기] 결과(명세 4.2 의 dict). done=False 면 지금까지 끝난 그룹과 줄만."""
+    """[채점하기] 결과(명세 4.2 의 dict). done=False 면 지금까지 끝난 그룹과 줄만."""
     parts = grade_lines(result)
     if not done:
         return "<body>%s</body>" % "".join(parts)

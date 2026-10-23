@@ -9,6 +9,7 @@ import math
 import re
 
 from gui.web_text import minutes_text
+from journey.grading import seconds
 from journey.service import ROLE_LABEL
 
 LANG_LABEL = {"python": "Python", "javascript": "JavaScript"}
@@ -23,6 +24,14 @@ RUN_HINT = "[코드 실행]을 누르면 결과가 여기에 나옵니다."
 FIRST_PASS = "처음으로 통과했습니다. 해설이 열렸습니다."
 BOSS_OPENED = "보스 문제가 열렸습니다."
 NO_CODE = "코드를 불러오지 못했습니다"  # 머리 headline 이라 마침표가 없음(결과 수치 줄과 같은 꼴)
+
+# 문제 화면
+SAVED = "저장했습니다"  # 위 막대 상태 글. 저장한 시각은 도움말
+SAVE_FAILED = "코드를 저장하지 못했습니다. 다른 프로그램이 풀이 파일을 열고 있다면 닫으세요."  # 편집기 위 오류 띠. 원문은 도움말
+SIDE_NOTE = "풀지 않아도 보스가 열립니다."  # 선택 문제 지문 머리의 둘째 줄
+HINT_INTRO = "힌트는 한 단계씩 열립니다. 연 힌트는 기록에 남습니다."
+NO_HINT = "이 문제에는 힌트가 없습니다."
+EXPLAIN_LOCKED = "이 문제를 통과하면 해설이 열립니다."
 
 # 서비스 오류 창. 제목은 하던 행동의 이름
 ACTIONS = {"open": "문제 열기", "hint": "힌트 열기", "explain": "해설 열기", "lang": "언어 바꾸기", "reset": "코드 되돌리기",
@@ -153,6 +162,40 @@ def tier_tip(tier, boss=False):
     low, high, upper = found_level.groups()
     level_text = "레벨 %s%s%s" % (low, "~" + high if high else "", " 상위" if upper else "")
     return "%s백준 %s, 프로그래머스 %s 수준입니다." % ("보스 문제는 " if boss else "", boj_text, level_text)
+
+
+def fact_line(data, lang):
+    """문제 화면 지문 머리 첫 줄. "난이도 S3 / Lv2 · 시간 제한 2초" 이고 시간 제한은 lang 의 값임. data 는 서비스 problem() 의 결과."""
+    limit = (data.get("time_limit_ms") or {}).get(lang)
+    parts = ["난이도 %s" % data["tier"]] + (["시간 제한 %s초" % seconds(limit)] if limit else [])  # 2500 → "2.5초", 채점 안내와 같은 꼴
+    return " · ".join(parts)
+
+
+def number_text(data):
+    """문제 화면 위 막대의 번호. 보스는 번호 대신 "던전 1 보스"."""
+    return "던전 %d 보스" % data["dungeon_no"] if data["role"] == "boss" else data["no"]
+
+
+def span_text(nos):
+    """문제 번호 목록. 같은 던전에서 이어지는 번호면 "1-1~1-5", 아니면 "1-1, 1-3"."""
+    parts = [str(no).rpartition("-") for no in nos]
+    steps = [int(tail) if tail.isdigit() else None for _, _, tail in parts]
+    joined = len(nos) > 1 and None not in steps and len({head for head, _, _ in parts}) == 1
+    if joined and steps == list(range(steps[0], steps[0] + len(steps))):
+        return "%s~%s" % (nos[0], nos[-1])
+    return ", ".join(nos)
+
+
+def uses_text(uses):
+    """보스 문제 지문 머리 둘째 줄. uses 는 problem()["uses"](이 보스에 쓰는 앞 문제들)."""
+    if not uses:
+        return "이 던전에서 익힌 기술을 함께 씁니다."
+    return "이 던전의 %s에서 익힌 기술을 함께 씁니다." % span_text([ref["no"] for ref in uses])
+
+
+def item_line(item):
+    """이어서 할 일의 설명 한 줄. "던전 1 「향신료 시장」 · 중급"."""
+    return " · ".join(part for part in (item["place"], item["role"]) if part)
 
 
 def _line_hint(fatal):

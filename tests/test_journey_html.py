@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""여정 결과 칸의 HTML(gui/journey_html.py). PyQt 없이 돎. [코드 실행]과 [제출 후 채점하기]의 문구, 숫자 꼴
+"""여정 결과 칸의 HTML(gui/journey_html.py). PyQt 없이 돎. [코드 실행]과 [채점하기]의 문구, 숫자 꼴
 (0.42ms, 10.3MB, 합계: 88.5 / 100.0), 값 표기가 고른 언어를 따르는지를 봄. 자식 프로세스는 띄우지 않고 runner 를 가짜로 바꿔 끼움.
 결과 카드 본문(run_body·grade_body)은 요약 줄 없이 같은 테스트 줄을 그리는지 봄."""
 import contextlib

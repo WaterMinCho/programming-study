@@ -175,6 +175,36 @@ class RowLineTest(unittest.TestCase):
         self.assertEqual(journey_text.row_line(rows[-1][0], {"mid_total": 3, "mid_passed": 0}), "중급 3개를 모두 통과하면 열립니다.")
 
 
+class ProblemTextTest(unittest.TestCase):
+    """문제 화면 위 막대의 번호와 지문 머리 글."""
+
+    def test_fact_line_names_the_tier_and_the_limit_of_the_language(self):
+        data = {"tier": "S3 / Lv2", "time_limit_ms": {"python": 2000, "javascript": 1500}}
+        self.assertEqual(journey_text.fact_line(data, "python"), "난이도 S3 / Lv2 · 시간 제한 2초")
+        self.assertEqual(journey_text.fact_line(data, "javascript"), "난이도 S3 / Lv2 · 시간 제한 1.5초")
+        self.assertEqual(journey_text.fact_line({"tier": "S3 / Lv2", "time_limit_ms": {}}, "python"), "난이도 S3 / Lv2")
+        for ms, want in ((12500, "12.5초"), (10000, "10초"), (500, "0.5초")):
+            self.assertTrue(journey_text.fact_line({"tier": "G3", "time_limit_ms": {"python": ms}}, "python").endswith(want), ms)
+
+    def test_boss_number_and_used_problems(self):
+        self.assertEqual(journey_text.number_text({"role": "mid", "no": "1-2", "dungeon_no": 1}), "1-2")
+        self.assertEqual(journey_text.number_text({"role": "boss", "no": "1-B", "dungeon_no": 3}), "던전 3 보스")
+        refs = lambda *nos: [{"pid": "p", "no": no, "title": "", "passed": False} for no in nos]  # noqa: E731
+        self.assertEqual(journey_text.uses_text(refs("1-1", "1-2", "1-3", "1-4", "1-5")), "이 던전의 1-1~1-5에서 익힌 기술을 함께 씁니다.")
+        self.assertEqual(journey_text.uses_text(refs("1-1", "1-3")), "이 던전의 1-1, 1-3에서 익힌 기술을 함께 씁니다.")
+        self.assertEqual(journey_text.uses_text(refs("2-1")), "이 던전의 2-1에서 익힌 기술을 함께 씁니다.")
+        self.assertEqual(journey_text.uses_text([]), "이 던전에서 익힌 기술을 함께 씁니다.")
+        self.assertEqual(journey_text.span_text(["1-1", "1-2"]), "1-1~1-2")
+        self.assertEqual(journey_text.span_text(["1-2", "1-1"]), "1-2, 1-1", "순서가 거꾸로면 잇지 않음")
+        self.assertEqual(journey_text.span_text(["1-1", "2-2"]), "1-1, 2-2", "던전이 다르면 잇지 않음")
+        self.assertEqual(journey_text.span_text(["1-1", "1-B"]), "1-1, 1-B")
+
+    def test_item_line_matches_the_map_card(self):
+        item = {"place": "던전 1 「향신료 시장」", "role": "중급"}
+        self.assertEqual(journey_text.item_line(item), "던전 1 「향신료 시장」 · 중급")
+        self.assertEqual(journey_text.item_line(dict(item, role="")), "던전 1 「향신료 시장」")
+
+
 class ScoreTest(unittest.TestCase):
     def test_result_scores_drop_a_trailing_zero(self):
         for value, want in ((100.0, "100"), (41.5, "41.5"), (70, "70"), (29.5, "29.5"), (12.0, "12"), (0.0, "0"), (None, "0")):
@@ -353,6 +383,12 @@ class WordsTest(SessionBase):
                                                     "groups": [group("정확성", 70.0, 70.0), group("효율성", 30.0, 30.0)]})]
         for head in heads:
             texts += [head["title"], head["caption"]] + [part for banner in head["banners"] for part in banner[:2]]
+        texts += [journey_text.SAVED, journey_text.SAVE_FAILED, journey_text.SIDE_NOTE, journey_text.HINT_INTRO, journey_text.NO_HINT,
+                  journey_text.EXPLAIN_LOCKED, journey_text.item_line(journey_text.next_item(service, "", overview))]
+        opened = self.service([grade_entry("t01/p2")])  # 보스가 열린 기록
+        for pid in ("p1", "p2", "p3", "boss"):
+            data = opened.problem("t01", pid, "python")
+            texts += [journey_text.fact_line(data, "python"), journey_text.number_text(data), journey_text.uses_text(data["uses"])]
         for message in ("문제 d01/p1 를 찾을 수 없습니다.", "언어는 python 이나 javascript 여야 합니다: 'x'", "코드를 저장하지 못했습니다: 오류",
                         "알고리즘 여행 기록을 저장하지 못했습니다. 기록은 바뀌지 않았으니 잠시 뒤 다시 해 주세요.\n오류"):
             texts += journey_text.error_text("open", message)[:2]
