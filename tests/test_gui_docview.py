@@ -483,7 +483,7 @@ class FigureViewTest(unittest.TestCase):
         self.assertTrue(figure.shrunk)
         self.assertEqual("", figure.picture.toolTip())
         self.assertTrue(figure.zoom_btn.isVisible())  # 줄어 보일 때만 [크게 보기]가 그림 아래 오른쪽에 보임
-        self.assertGreater(figure.zoom_row.y(), figure.picture.geometry().bottom())
+        self.assertGreater(figure.zoom_row.y(), figure.caption.geometry().bottom(), "캡션은 그림 바로 아래, 단추는 그 아래")
         self.assertEqual((figure.zoom_btn.text(), figure.zoom_btn.objectName(), figure.zoom_btn.property("scale")), ("크게 보기", "text", "s"))
         QTest.mouseClick(figure.picture, guikit.LEFT)
         guikit.pump()
@@ -528,11 +528,12 @@ class FigureViewTest(unittest.TestCase):
         self.assertLessEqual(figure.zoom_btn.geometry().right(), figure.width())
         self.assertGreater(figure.zoom_btn.x(), figure.counter.geometry().right())
         narrow = figure.controls.sizeHint().width() - 10
-        figure.resize(narrow, 400)
+        figure.resize(narrow, 800)  # 좁은 폭에서 캡션이 여러 줄이 되어도 다 들어가는 높이
         guikit.pump()
         self.assertIs(figure.zoom_btn.parentWidget(), figure.zoom_row)  # 넘김 줄에 자리가 없으면 그림 아래 줄로 내려감
         self.assertTrue(figure.zoom_row.isVisible() and figure.zoom_btn.isVisible())
         self.assertGreater(figure.zoom_row.y(), figure.controls.geometry().bottom())
+        self.assertGreater(figure.zoom_row.y(), figure.caption.geometry().bottom(), "넘김 줄과 캡션 사이에 끼지 않음")
         self.assertGreaterEqual(figure.zoom_btn.width(), figure.zoom_btn.sizeHint().width())
         guikit.click(figure.zoom_btn)
         dialog = figure.dialog

@@ -526,7 +526,8 @@ class Doc(QWidget):
 class FigureView(QWidget):
     """해설 그림 하나와 캡션. 파일은 처음에 한 번 바이트로 읽고 열어 두지 않아서, 보이는 동안에도 [문제 받기]가 파일을 바꾸거나 지울 수 있음.
     그림 파일은 2배 크기라 화면에는 그 절반 폭까지만 보이고, 칸이 좁으면 칸 폭에 맞춰 줄임. 줄어 보일 때는 [크게 보기]가 보이고,
-    그 단추나 그림을 누르면 그린 크기(절반 폭)로 FigureDialog 를 띄움. 움직이는 그림의 단추는 넘김 줄 오른쪽 끝, 정지 그림은 그림 아래 오른쪽.
+    그 단추나 그림을 누르면 그린 크기(절반 폭)로 FigureDialog 를 띄움. 움직이는 그림의 단추는 넘김 줄 오른쪽 끝, 정지 그림이나 넘김 줄에
+    자리가 없는 그림은 캡션 아래 오른쪽이라 캡션이 그림 바로 아래에 붙음.
     GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 움직임이 켜져 있으면 처음 보일 때 한 번 재생하고 마지막 장에서 멈춤.
     data 를 주면 파일을 읽지 않고 그 바이트를 씀. zoomable 이 거짓이면(그림 창 안) 줄어도 크게 보기를 두지 않음."""
 
@@ -574,7 +575,11 @@ class FigureView(QWidget):
             self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
             box.addWidget(self.controls)  # 부모에 붙인 뒤에 숨김을 정함. 먼저 보이게 하면 잠깐 따로 창으로 뜨고 그 폭이 최소 폭으로 남음
             self.controls.setVisible(self.count > 1)
-        self.zoom_row = QWidget()  # [크게 보기]를 그림 아래 오른쪽에 두는 줄. 움직이는 그림은 넘김 줄에 자리가 있으면 그 오른쪽 끝에 둠
+        self.caption = kit.para(alt, "caption", "secondary")
+        self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        box.addWidget(self.caption)
+        self.caption.setVisible(bool(alt))  # 부모에 붙인 뒤에 보임. 먼저 보이면 잠깐 따로 창으로 떠서 화면의 창이 초점을 잃음
+        self.zoom_row = QWidget()  # [크게 보기]를 캡션 아래 오른쪽에 두는 줄. 움직이는 그림은 넘김 줄에 자리가 있으면 그 오른쪽 끝에 둠
         row = kit.box(self.zoom_row, horizontal=True)
         row.addStretch(1)
         row.addWidget(self.zoom_btn)
@@ -586,10 +591,6 @@ class FigureView(QWidget):
         else:
             self.source.loadFromData(data)
             self.draw()
-        self.caption = kit.para(alt, "caption", "secondary")
-        self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        box.addWidget(self.caption)
-        self.caption.setVisible(bool(alt))  # 부모에 붙인 뒤에 보임. 먼저 보이면 잠깐 따로 창으로 떠서 화면의 창이 초점을 잃음
 
     def _button(self, bar, text, slot):
         button = kit.button(text, "text", "s")
@@ -692,7 +693,7 @@ class FigureView(QWidget):
         self.place_zoom(zoom)
 
     def place_zoom(self, zoom):
-        """[크게 보기]를 보이거나 숨김. 움직이는 그림은 넘김 줄에 단추가 다 들어가면 그 오른쪽 끝에, 아니면 그림 아래 줄에 둠.
+        """[크게 보기]를 보이거나 숨김. 움직이는 그림은 넘김 줄에 단추가 다 들어가면 그 오른쪽 끝에, 아니면 캡션 아래 줄에 둠.
         글자 크기 단계가 커지면 1024 창의 지문 칸에서 넘김 단추 넷, 장 번호와 이 단추가 한 줄에 들어가지 않아 글자가 잘렸음."""
         inline = zoom and self.count > 1 and self.bar_room() >= self.zoom_btn.sizeHint().width()
         if inline != (self.zoom_btn.parentWidget() is self.controls):
