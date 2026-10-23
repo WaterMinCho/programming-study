@@ -21,20 +21,23 @@ from tests import guikit  # noqa: E402
 from PyQt6.QtCore import QSettings, Qt, QUrl  # noqa: E402
 from PyQt6.QtGui import QGuiApplication, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QStackedWidget  # noqa: E402
 
 import adaptive  # noqa: E402
 import study  # noqa: E402
-from gui import journey_html, kit, theme  # noqa: E402
+from gui import journey_html, journey_text, kit, theme  # noqa: E402
+from gui.cases_dialog import HINT, TITLE  # noqa: E402
 from gui.dialogs import MessageDialog  # noqa: E402
 from gui.docview import CodeView, TextPiece  # noqa: E402
 from gui.editor import JAVASCRIPT, PYTHON  # noqa: E402
 from gui.guard import Guard  # noqa: E402
 from gui.journey_map import ALL_CLEAR, BROKEN, CACHE_TIP, CLEAR_TEXT, WAITING, JourneyMapPage, MapView  # noqa: E402
-from gui.journey_page import GIVE_UP_TEXT, NODE_BUSY, NODE_TITLE, JourneyPage  # noqa: E402
+from gui.journey_page import (GIVE_UP_TEXT, GIVE_UP_TITLE, NODE_BUSY, NODE_LINK, NODE_MISSING, NODE_TEXT, NODE_TITLE, RESET_TITLE,  # noqa: E402
+                               JourneyPage)
 from gui.round_page import RoundPage  # noqa: E402
+from gui.widgets import Para  # noqa: E402
 from journey import bank, node, runner, values  # noqa: E402
-from journey.service import JourneySession  # noqa: E402
+from journey.service import JourneyError, JourneySession  # noqa: E402
 from session import SessionError  # noqa: E402
 
 FIXTURE = os.path.join(guikit.ROOT, "tests", "journey_bank")
@@ -150,7 +153,8 @@ class FakeWindow(QMainWindow):
         try:
             self.journey_page.load(did, pid)
         except SessionError as error:
-            self.ask("알림", str(error))
+            title, text, detail = journey_text.error_text("open", error)
+            self.ask(title, text, detail=detail)
             return
         self.pages.setCurrentWidget(self.journey_page)
 
@@ -243,6 +247,17 @@ def press(widget, key):
     guikit.pump()
 
 
+def button_line(dialog):
+    """대화상자 단추를 왼쪽부터 (키, 글자, 종류). 종류는 objectName 이고 보조 단추는 빈 글."""
+    keys = sorted(dialog.buttons, key=lambda key: dialog.buttons[key].mapTo(dialog, dialog.buttons[key].rect().topLeft()).x())
+    return [(key, dialog.buttons[key].text(), dialog.buttons[key].objectName()) for key in keys]
+
+
+def edge_ink(edit):
+    """입력칸 위 테두리 가운데 화소의 색 이름."""
+    return edit.grab().toImage().pixelColor(edit.width() // 2, 1).name()
+
+
 class MapTest(Base):
     def test_sixteen_nodes_and_picking_one_shows_its_detail(self):
         win = self.boot()
@@ -307,6 +322,7 @@ class MapTest(Base):
         press(row, Qt.Key.Key_Return)
         self.assertEqual((win.pages.currentWidget(), win.journey_page.pid), (win.journey_page, "p1"))
         win.open_problem("t01", "boss")
+        self.assertEqual("문제 열기", win.dialog.windowTitle())
         self.assertIn("중급 문제를 모두 통과하면 열립니다", win.dialog.text.text())
 
     def test_next_card_holds_the_only_primary_button(self):
@@ -367,8 +383,11 @@ class MapTest(Base):
         self.assertTrue(page.clear_cache_btn.isVisible())
         self.assertEqual(CACHE_TIP, page.clear_cache_btn.toolTip())
         guikit.click(page.clear_cache_btn)
+        self.assertEqual("캐시 비우기", win.dialog.windowTitle())
         self.assertEqual(CLEAR_TEXT % "3MB", win.dialog.text.text())
         self.assertIn("3MB", win.dialog.text.text())
+        self.assertEqual([("", "닫기", ""), ("clear", "지우기", "primary")], button_line(win.dialog))
+        self.assertFalse(win.dialog.buttons["clear"].isDefault(), "단추가 둘이라 Enter 로 지우지 않음")
         self.choose("clear")
         self.assertFalse(page.clear_cache_btn.isVisible())
         self.assertEqual([], os.listdir(runner.CACHE_DIR))
@@ -520,18 +539,42 @@ class PageTest(Base):
         self.assertIn("자동 저장했습니다", page.status.text())
 
     def test_reset_returns_to_the_starter_code(self):
-        self.boot()
+        win = self.boot()
         page = self.open("p2")
         editor = page.code_panel.editor
         self.type_code(MAX_SOLUTION)
         self.assertTrue(page.flush())
         guikit.click(page.code_panel.reset_btn)
+        self.assertEqual(RESET_TITLE, win.dialog.windowTitle())
+        self.assertIn("Ctrl+Z", win.dialog.text.text())
+        self.assertEqual([("", "닫기", ""), ("reset", "되돌리기", "danger")], button_line(win.dialog))
         self.choose("reset")
         starter = values.starter(page.data["signature"], "python")
         self.assertEqual(starter, editor.toPlainText())
         self.assertEqual(starter, study.read_text(self.code_path("p2")))
         editor.undo()
         self.assertEqual(MAX_SOLUTION, editor.toPlainText())
+
+    def test_service_errors_name_the_action_and_keep_the_original_in_details(self):
+        win = self.boot()
+        page = self.open("p2")
+        with mock.patch.object(win.journey, "reveal_hint", side_effect=JourneyError("문제 t01/p2 를 찾을 수 없습니다.")):
+            guikit.click(page.hint_btn)
+        self.assertEqual(("힌트 열기", journey_text.REFETCH), (win.dialog.windowTitle(), win.dialog.text.text()))
+        self.assertEqual("문제 t01/p2 를 찾을 수 없습니다.", win.dialog.detail.toPlainText())
+        self.assertNotIn("t01", win.dialog.text.text())
+        win.dialog.close()
+        with mock.patch.object(win.journey, "run", side_effect=JourneyError("코드를 실행하지 못했습니다. [Errno 2] python3")):
+            guikit.click(page.run_btn)
+        self.assertEqual(("코드 실행", "코드를 실행하지 못했습니다."), (win.dialog.windowTitle(), win.dialog.text.text()))
+        self.assertEqual("[Errno 2] python3", win.dialog.detail.toPlainText())
+        self.assertTrue(page.run_btn.isEnabled() and page.code_panel.isEnabled(), "바쁜 상태가 풀림")
+        self.assertIsNone(page.live)
+        win.dialog.close()
+        with mock.patch.object(win.journey, "grade", side_effect=JourneyError("채점하지 못했습니다. 디스크가 가득 찼습니다.")):
+            guikit.click(page.grade_btn)
+        self.assertEqual(("채점하기", "채점하지 못했습니다."), (win.dialog.windowTitle(), win.dialog.text.text()))
+        self.assertEqual([], self.read_log())
 
     def test_boss_band_and_problem_lines_follow_uses_and_prep(self):
         self.boot([passed("p1"), passed("p2")])
@@ -643,7 +686,27 @@ class RunGradeTest(Base):
         self.type_code(BOSS_SOLUTION)
         guikit.click(page.grade_btn)
         self.assertIn("합계: 100.0 / 100.0", self.console())
-        self.assertEqual("던전 1 「시험 마을」을 클리어했습니다. 출제된 던전을 모두 클리어했습니다.", win.dialog.text.text())
+        self.assertEqual("던전 클리어", win.dialog.windowTitle())
+        self.assertEqual("「시험 마을」 던전을 클리어했습니다. 준비된 던전을 모두 클리어했습니다.", win.dialog.text.text())
+        self.assertEqual([("ok", "확인", "primary")], button_line(win.dialog))
+
+    def test_the_clear_window_opens_the_next_dungeon_on_the_map(self):
+        win = self.boot([passed("p2")])
+        page = self.open("boss")
+        overview = win.journey.overview()
+        overview["next"] = {"did": "t03", "pid": "p1", "title": "첫 문제", "role": "basic"}
+        with mock.patch.object(win.journey, "overview", return_value=overview):
+            page.celebrate()
+        self.assertEqual("「시험 마을」 던전을 클리어했습니다. 다음은 「준비 중 던전 3」 던전입니다.", win.dialog.text.text())
+        self.assertEqual([("", "닫기", ""), ("next", "다음 던전 보기", "primary")], button_line(win.dialog))
+        self.choose("next")
+        self.assertIs(win.pages.currentWidget(), win.journey_map)
+        self.assertEqual("t03", win.journey_map.view.selected)
+        overview["next"] = {"did": "t01", "pid": "p3", "title": "선택 문제", "role": "side"}
+        self.open("boss")
+        with mock.patch.object(win.journey, "overview", return_value=overview):
+            page.celebrate()
+        self.assertIn("준비된 던전을 모두 클리어했습니다.", win.dialog.text.text(), "방금 클리어한 던전을 다음 던전으로 알리지 않음")
 
 
     @unittest.skipUnless(NODE, "Node.js 가 없어 JavaScript 채점을 건너뜁니다")
@@ -686,6 +749,7 @@ class NodeTest(Base):
             self.assertTrue(page.lang_bar.note.isVisible())
             self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
             self.assertIn("Node.js 20 이상", win.dialog.text.text())
+            self.assertEqual([("pick", "직접 고르기", ""), ("", "닫기", ""), ("find", "다시 찾기", "primary")], button_line(win.dialog))
             self.choose("pick")
             self.assertEqual(1, len(win.picks))
             self.assertEqual([], state["set"], "고르지 않고 닫으면 아무것도 바꾸지 않음")
@@ -705,9 +769,31 @@ class NodeTest(Base):
                 mock.patch.object(win.journey, "find_node", lambda probe=True: NO_NODE):
             guikit.click(page.lang_btns["javascript"])
             self.choose("find")
-        self.assertEqual("알림", win.dialog.windowTitle())
-        self.assertEqual(NO_NODE["problem"], win.dialog.text.text())
+        self.assertEqual(NODE_TITLE, win.dialog.windowTitle(), "못 찾으면 같은 창을 다시 띄워 [직접 고르기]로 이어 감")
+        self.assertEqual("%s %s" % (NODE_MISSING, NODE_TEXT), win.dialog.text.text())
         self.assertEqual("python", page.lang)
+
+    def test_node_window_links_the_download_page_and_explains_a_wrong_pick(self):
+        win = self.boot()
+        page = win.journey_map
+        win.pick_result = "/usr/bin/node18"
+        problem = "Node.js 20 이상이 필요한데 이 파일은 v18.19.0 입니다."
+        with mock.patch.object(win.journey, "runtime", lambda lang: NO_NODE), \
+                mock.patch.object(win.journey, "set_node", side_effect=JourneyError(problem)):
+            guikit.click(page.lang_btns["javascript"])
+            self.assertEqual(NODE_TEXT, win.dialog.text.text())
+            self.assertNotIn("http", NODE_TEXT, "주소는 본문 아래 누르는 글자로만 보임")
+            self.assertIn(NODE_LINK, win.dialog.link.text())
+            win.dialog.link.linkActivated.emit(NODE_LINK)
+            self.assertEqual([NODE_LINK], win.opened)
+            right = win.dialog.buttons["find"].mapTo(win.dialog, win.dialog.buttons["find"].rect().topRight()).x()
+            self.assertEqual(win.dialog.width() - 1 - 32, right, "주 단추가 창 안쪽 오른쪽 끝")
+            self.assertFalse(any(button.isDefault() for button in win.dialog.buttons.values()), "단추가 셋이라 Enter 로 넘어가지 않음")
+            self.choose("pick")
+        self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
+        self.assertEqual("%s %s" % (problem, NODE_TEXT), win.dialog.text.text())
+        self.assertIsNone(win.settings.value("journey/node"), "쓸 수 없는 파일은 기억하지 않음")
+        self.assertEqual("python", page.lang_bar.lang)
 
     def test_node_is_looked_up_only_after_javascript_was_chosen(self):
         win = self.boot()
@@ -774,7 +860,8 @@ class HintExplainTest(Base):
         page.tabs.setCurrentIndex(2)
         self.assertIn("이 문제를 통과하면 해설이 열립니다.", doc_text(page.explain_view))
         guikit.click(page.give_up_btn)
-        self.assertEqual(GIVE_UP_TEXT, win.dialog.text.text())
+        self.assertEqual((GIVE_UP_TITLE, GIVE_UP_TEXT), (win.dialog.windowTitle(), win.dialog.text.text()))
+        self.assertEqual([("", "닫기", ""), ("open", "해설 열기", "danger")], button_line(win.dialog))
         self.choose("")
         self.assertFalse(page.give_up_btn.isHidden())
         self.assertNotIn("explain", [entry["kind"] for entry in self.read_log()])
@@ -812,18 +899,27 @@ class CasesDialogTest(Base):
         edits, _ = dialog.rows[0]
         edits[0].setText('"abc"')
         edits[1].setText("3")
-        self.assertEqual("1번 케이스의 return 칸: 문자열이 아닙니다: 3", dialog.error.text())
+        self.assertEqual("1번 줄의 return 칸: 문자열이 아닙니다: 3", dialog.error.text())
+        self.assertTrue(dialog.error.isVisible())
+        self.assertEqual(("danger", None), (edits[1].property("tone"), edits[0].property("tone")))
         edits[1].setText("[1,")
-        self.assertIn("1번 케이스의 return 칸: 값을 읽지 못했습니다.", dialog.error.text())
+        self.assertIn("1번 줄의 return 칸: 값을 읽지 못했습니다.", dialog.error.text())
+        edits[0].setFocus()
         guikit.click(dialog.save_btn)
         self.assertTrue(dialog.isVisible())
+        self.assertTrue(edits[1].hasFocus(), "[저장]이 틀린 칸으로 초점을 옮김")
+        self.assertEqual("[1,", edits[1].text(), "쓴 값은 지우지 않음")
+        self.assertEqual(theme.color("wrong"), edge_ink(edits[1]), "초점이 있어도 틀린 칸은 빨간 테두리")
         edits[1].setText("'cba'")
         self.assertEqual("", dialog.error.text())
+        self.assertFalse(dialog.error.isVisible())
+        self.assertIsNone(edits[1].property("tone"))
+        self.assertNotEqual(theme.color("wrong"), edge_ink(edits[1]))
         guikit.click(dialog.add_btn)
         guikit.click(dialog.add_btn)
         self.assertEqual(3, len(dialog.rows))
         dialog.rows[1][0][0].setText("1")
-        self.assertEqual("2번 케이스의 name 칸: 문자열이 아닙니다: 1", dialog.error.text())
+        self.assertEqual("2번 줄의 name 칸: 문자열이 아닙니다: 1", dialog.error.text())
         guikit.click(dialog.rows[1][1])
         self.assertEqual(2, len(dialog.rows))
         self.assertEqual("", dialog.error.text())
@@ -853,6 +949,41 @@ class CasesDialogTest(Base):
         page.cases_dialog.example_menu.actions()[0].trigger()
         self.assertEqual(['"abc"', '"cba"'], [edit.text() for edit in page.cases_dialog.rows[-1][0]])
         self.assertEqual("", page.cases_dialog.error.text())
+
+    def test_dialog_uses_the_new_parts_and_follows_the_text_steps(self):
+        self.addCleanup(theme.set_text, "normal")
+        win = self.boot()
+        page = self.open("p3")
+        guikit.click(page.cases_btn)
+        dialog = page.cases_dialog
+        guikit.pump()
+        self.assertEqual("2", dialog.property("ui"), "부모와 상관없이 창 자신에 새 규칙을 걸음")
+        self.assertEqual((760, 520), (dialog.width(), dialog.height()))
+        self.assertEqual(TITLE, dialog.windowTitle())
+        texts = [label.text() for label in dialog.findChildren(Para)]
+        self.assertEqual([TITLE, HINT], texts[:2])
+        self.assertEqual("값은 파이썬이나 JSON 문법으로 적으세요. 예: [\"a\", \"b\"], 3, True", HINT)
+        close = next(button for button in dialog.findChildren(QPushButton) if button.text() == "닫기")
+        self.assertEqual("줄 추가", dialog.add_btn.text())
+        self.assertEqual([dialog.save_btn], kit.visible_primary_buttons(dialog))
+        self.assertFalse(any(button.isDefault() or button.autoDefault() for button in dialog.findChildren(QPushButton)),
+                         "입력칸에서 Enter 를 눌러도 저장하지 않음")
+        edits, remove = dialog.rows[0]
+        for step in ("normal", "large"):
+            win.set_text(step)
+            guikit.pump()
+            self.assertEqual(theme.TYPE["code"][0], edits[0].font().pixelSize(), step)
+            heights = [button.height() for button in (dialog.save_btn, close, dialog.add_btn, dialog.example_btn, remove)]
+            self.assertEqual([48, 48, 40, 40, 32], heights, step)
+            self.assertEqual(48, edits[0].height(), step)
+            self.assertEqual("삭제", remove.text())
+            self.assertEqual(("primary", "", "text", "text", "danger_text"),
+                             tuple(button.objectName() for button in (dialog.save_btn, close, dialog.add_btn, dialog.example_btn, remove)))
+            right = dialog.save_btn.mapTo(dialog, dialog.save_btn.rect().topRight()).x()
+            self.assertEqual(dialog.width() - 1 - 32, right, step)
+        guikit.click(dialog.add_btn)
+        self.assertEqual(theme.TYPE["code"][0], dialog.rows[1][0][0].font().pixelSize(), "새 줄도 지금 단계의 코드 글꼴")
+        self.assertEqual(17, theme.TYPE["code"][0])
 
 
 class DarkThemeTest(Base):

@@ -28,7 +28,7 @@ import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
 from gui import errors, kit, theme  # noqa: E402
-from gui.journey_page import NODE_TITLE  # noqa: E402
+from gui.journey_page import NODE_TEXT, NODE_TITLE  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank, node, runner  # noqa: E402
 from webprep import bank as web_bank  # noqa: E402
@@ -426,6 +426,18 @@ class JobTest(HubTest):
         self.idle()
         self.assertEqual(done, ["끝"])
 
+    def test_a_problem_that_cannot_open_names_the_action(self):
+        win = self.boot()
+        win.open_problem("t01", "boss")
+        self.assertIs(self.page(), win.hub)
+        self.assertEqual("문제 열기", win.dialog.windowTitle())
+        self.assertIn("중급 문제를 모두 통과하면 열립니다", win.dialog.text.text())
+        win.dialog.close()
+        win.open_problem("t01", "p9")
+        self.assertEqual(("문제 열기", "이 문제를 열 수 없습니다. 첫 화면의 [새 문제 받기]로 다시 받은 뒤 여세요."),
+                         (win.dialog.windowTitle(), win.dialog.text.text()))
+        self.assertIn("t01/p9", win.dialog.detail.toPlainText(), "내부 id 는 자세히에만 남음")
+
     @SKIP_LEAN
     def test_closing_while_grading_cancels_and_records_nothing(self):
         win = self.boot()
@@ -494,6 +506,21 @@ class NodeLookupTest(HubTest):
         self.assertEqual([False], self.threads["check"])
         self.assertEqual("javascript", page.lang_bar.lang)
         self.assertEqual("/opt/node/bin/node", self.settings.value("journey/node"))
+
+    def test_a_picked_file_that_is_not_node_reopens_the_node_window(self):
+        win = self.boot()
+        guikit.click(win.hub.journey_row)
+        page = win.journey_map
+        guikit.click(page.lang_btns["javascript"])
+        self.idle()
+        win.pick_file = lambda title: "/opt/old/node"
+        with mock.patch.object(node, "check", side_effect=ValueError("Node.js 20 이상이 필요한데 이 파일은 18.0.0 입니다.")):
+            self.choose("pick")
+            self.idle()
+        self.assertEqual(NODE_TITLE, win.dialog.windowTitle(), "창의 일반 알림 대신 같은 Node 창")
+        self.assertEqual("Node.js 20 이상이 필요한데 이 파일은 18.0.0 입니다. " + NODE_TEXT, win.dialog.text.text())
+        self.assertEqual("python", page.lang_bar.lang)
+        self.assertFalse(self.settings.value("journey/node"))
 
 
 if __name__ == "__main__":

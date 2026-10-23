@@ -304,6 +304,7 @@ QWidget[ui="2"] QLineEdit { min-height: 46px; max-height: 46px; }
 QWidget[ui="2"] QPlainTextEdit { padding: 8px 15px; }
 QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QPlainTextEdit:focus { border: 2px solid %(focus)s; padding: 0 14px; }
 QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
+QWidget[ui="2"] QLineEdit[tone="danger"] { border: 2px solid %(wrong)s; padding: 0 14px; }
 QWidget[ui="2"] QLineEdit:disabled, QWidget[ui="2"] QPlainTextEdit:disabled { background: %(surface_alt)s; color: %(muted)s; }
 QWidget[ui="2"] QPlainTextEdit#code { border-radius: 12px; padding: 0; }
 QWidget[ui="2"] QTextBrowser#plain, QWidget[ui="2"] QPlainTextEdit#plain { border: 0; border-radius: 0; padding: 0; background: transparent; }

@@ -593,7 +593,8 @@ class JourneyMapPage(QWidget):
             self.intro_box.setVisible(bool(self.intro.pieces))
 
     def ask_clear_cache(self):
-        self.win.ask("캐시 비우기", CLEAR_TEXT % size_text(self.cache_size), (("지우기", "clear"), ("취소", "")),
+        """지운 입력은 다음 채점 때 다시 만들 수 있어 [지우기]가 주 단추임. 단추가 둘이라 Enter 로 눌리지 않음."""
+        self.win.ask("캐시 비우기", CLEAR_TEXT % size_text(self.cache_size), (("지우기", "clear", "primary"), ("닫기", "")),
                      lambda key: self.clear_cache())
 
     def clear_cache(self):

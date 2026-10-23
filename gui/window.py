@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QPr
 
 import session
 import study
-from gui import errors, kit, motion, theme, web_text
+from gui import errors, journey_text, kit, motion, theme, web_text
 from gui.dialogs import IdDialog, MessageDialog
 from gui.guard import Guard
 from gui.home_page import HomePage
@@ -300,7 +300,8 @@ class MainWindow(QMainWindow):
         try:
             self.journey_page.load(did, pid)
         except SessionError as error:  # 잠긴 보스, 사라진 문제, 앞 문제의 코드를 저장하지 못한 경우
-            self.ask("알림", str(error))
+            title, text, detail = journey_text.error_text("open", error)
+            self.ask(title, text, detail=detail)
             return
         self.area = "journey"
         self.settings.setValue("journey/last", "%s/%s" % (did, pid))

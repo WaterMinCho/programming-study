@@ -17,7 +17,7 @@ from gui import journey_html, kit, motion, theme
 from gui.cases_dialog import CasesDialog
 from gui.docview import DocView
 from gui.editor import LANGS
-from gui.journey_text import LANG_LABEL
+from gui.journey_text import LANG_LABEL, clear_text, error_text
 from gui.widgets import CodePanel, FindBar, Para
 from journey.node import MIN_MAJOR
 from journey.service import JourneyError
@@ -25,12 +25,17 @@ from session import SessionError
 
 SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
 SITE_LABEL = {"boj": "백준", "programmers": "프로그래머스"}
-NODE_TITLE = "Node.js 가 필요합니다"
+NODE_TITLE = "Node.js 찾기"
 NODE_BUSY = "Node.js 찾는 중"  # node 를 찾거나 고른 파일을 확인하는 동안 화면 위 막대에 보이는 글
-NODE_TEXT = ("JavaScript 로 풀려면 이 컴퓨터에 Node.js %d 이상이 있어야 합니다. https://nodejs.org 에서 LTS 버전을 설치한 뒤 "
-             "[다시 찾기]를 눌러 주세요. 이미 설치했다면 [Node 위치 지정…]으로 node 실행 파일을 골라 주세요. "
-             "Python 으로는 지금도 풀 수 있습니다." % MIN_MAJOR)
-GIVE_UP_TEXT = "아직 통과하지 않은 문제입니다. 지금 해설을 열면 기록에 '해설 보고 풂'으로 남습니다. 열까요?"
+NODE_TEXT = ("JavaScript 로 풀려면 Node.js %d 이상이 필요합니다. 설치한 뒤 [다시 찾기]를 누르고, 설치했는데 찾지 못하면 "
+             "[직접 고르기]로 node 실행 파일을 고르세요." % MIN_MAJOR)
+NODE_LINK = "https://nodejs.org"  # Node 창 본문 아래에 누를 수 있는 주소로 보임
+NODE_MISSING = "Node.js 를 찾지 못했습니다."  # [다시 찾기]로도 찾지 못했을 때 Node 창 본문 앞에 붙는 문장
+GIVE_UP_TITLE = "해설 먼저 보기"
+GIVE_UP_TEXT = "아직 통과하지 않은 문제입니다. 해설을 열면 기록에 남고, 나중에 통과해도 목록에 '해설 보고 통과'로 보입니다."
+RESET_TITLE = "코드 되돌리기"
+RESET_TEXT = "지금 코드를 지우고 시작 코드로 바꿉니다. 바로 뒤라면 편집기에서 Ctrl+Z(맥은 Cmd+Z)로 되살릴 수 있습니다."
+CLEAR_TITLE = "던전 클리어"
 
 
 def saved_lang(settings):
@@ -54,14 +59,37 @@ def with_node(win, then):
     win.run_job(NODE_BUSY, lambda: win.journey.runtime("javascript"), lambda info: then(bool(info["ok"])))
 
 
-def ask_node(win, on_ready):
-    """Node.js 가 없을 때의 대화상자. [다시 찾기]나 [Node 위치 지정…]으로 node 를 찾으면 on_ready() 를 부름. 찾기와 확인은 워커에서 함."""
+class Failed:
+    """워커에서 난 SessionError 의 문구. caught 로 감싼 일은 오류를 내는 대신 이것을 결과로 돌려줌."""
+
+    def __init__(self, message):
+        self.message = message
+
+
+def caught(fn):
+    """워커에서 도는 fn 이 SessionError 를 내면 Failed(문구)를 돌려주게 감쌈. 창의 run_job 은 그 오류를 "알림" 창으로 보임.
+    여행 화면은 하던 행동의 이름을 제목으로 한 창(error_text)이나 Node 창으로 보이려고 결과로 받아 화면 스레드에서 다룸."""
+
+    def run(*args):
+        try:
+            return fn(*args)
+        except SessionError as error:
+            return Failed(str(error))
+
+    return run
+
+
+def ask_node(win, on_ready, first=""):
+    """Node.js 찾기 창. 오른쪽 끝 주 단추 [다시 찾기], 그 왼쪽 [닫기], 주 단추와 가장 먼 [직접 고르기] 순서이고 본문 아래에 내려받는 주소가 있음.
+    두 행동으로 node 를 찾으면 on_ready() 를 부름. 찾지 못하면 그 까닭(first)을 본문 앞에 붙여 같은 창을 다시 띄움. 찾기와 확인은 워커에서 함."""
 
     def found(info):
-        if info.get("ok"):
+        if isinstance(info, Failed):  # 고른 파일이 node 가 아니거나 버전이 낮음
+            ask_node(win, on_ready, info.message)
+        elif info.get("ok"):
             on_ready()
         else:
-            win.ask("알림", info.get("problem") or NODE_TEXT)
+            ask_node(win, on_ready, NODE_MISSING)
 
     def choose(key):
         if key == "find":
@@ -72,12 +100,14 @@ def ask_node(win, on_ready):
             return
 
         def checked(info):
-            win.settings.setValue("journey/node", path)
+            if not isinstance(info, Failed):
+                win.settings.setValue("journey/node", path)
             found(info)
 
-        win.run_job(NODE_BUSY, lambda: win.journey.set_node(path), checked)
+        win.run_job(NODE_BUSY, caught(lambda: win.journey.set_node(path)), checked)
 
-    return win.ask(NODE_TITLE, NODE_TEXT, (("다시 찾기", "find"), ("Node 위치 지정…", "pick"), ("닫기", "")), choose)
+    text = "%s %s" % (first, NODE_TEXT) if first else NODE_TEXT
+    return win.ask(NODE_TITLE, text, (("다시 찾기", "find", "primary"), ("닫기", ""), ("직접 고르기", "pick", "close")), choose, link=NODE_LINK)
 
 
 class LangChips(QWidget):
@@ -418,7 +448,7 @@ class JourneyPage(QWidget):
             data = self.win.journey.problem(self.did, self.pid, lang)
         except SessionError as error:
             self.lang_bar.set_lang(self.lang)
-            self.win.ask("알림", str(error))
+            self.fail("lang", error)
             return
         self.win.settings.setValue("journey/lang", lang)
         if lang == "javascript":
@@ -436,20 +466,21 @@ class JourneyPage(QWidget):
         try:
             opened = self.win.journey.reveal_hint(self.did, self.pid)
         except SessionError as error:
-            self.win.ask("알림", str(error))
+            self.fail("hint", error)
             return
         self.data["hints"].append(opened["text"])
         self.show_hints()
         self.hint_scroll.start()
 
     def ask_give_up(self):
-        self.win.ask("해설 보기", GIVE_UP_TEXT, (("해설 열기", "open"), ("계속 풀기", "")), lambda key: self.give_up())
+        """기록을 지울 수 없는 행동이라 [해설 열기]는 빨간 옅은 바탕이고 Enter 로 눌리지 않음."""
+        self.win.ask(GIVE_UP_TITLE, GIVE_UP_TEXT, (("해설 열기", "open", "danger"), ("닫기", "")), lambda key: self.give_up())
 
     def give_up(self):
         try:
             self.explain = self.win.journey.open_explain(self.did, self.pid, self.lang, give_up=True)
         except SessionError as error:
-            self.win.ask("알림", str(error))
+            self.fail("explain", error)
             return
         self.data["explain_open"] = True
         self.show_explain()
@@ -477,21 +508,20 @@ class JourneyPage(QWidget):
             except (SessionError, OSError) as error:
                 self.status.setText("저장하지 못했습니다: %s" % error)
                 if offer:
-                    self.win.ask("알림", self.status.text())
+                    self.fail("save", error)
                 return False
             del self.dirty[key]
         self.status.setText("%s 에 자동 저장했습니다." % datetime.datetime.now().strftime("%H:%M:%S"))
         return True
 
     def ask_reset(self):
-        self.win.ask("시작 코드로 되돌리기", "지금 작성한 코드를 지우고 시작 코드로 되돌립니다.",
-                     (("되돌리기", "reset"), ("취소", "")), lambda key: self.reset())
+        self.win.ask(RESET_TITLE, RESET_TEXT, (("되돌리기", "reset", "danger"), ("닫기", "")), lambda key: self.reset())
 
     def reset(self):
         try:
             starter = self.win.journey.reset_code(self.did, self.pid, self.lang)
         except SessionError as error:
-            self.win.ask("알림", str(error))
+            self.fail("reset", error)
             return
         cur = self.code_panel.editor.textCursor()
         cur.select(QTextCursor.SelectionType.Document)
@@ -514,7 +544,7 @@ class JourneyPage(QWidget):
         did, pid, lang = self.did, self.pid, self.lang
         self.live = {"cases": []}
         self.code_panel.show_console('<body><p class="muted">실행 중입니다.</p></body>')
-        self.win.run_job("코드를 실행하는 중입니다.", lambda report, cancel: self.win.journey.run(did, pid, lang, report, cancel),
+        self.win.run_job("코드를 실행하는 중입니다.", caught(lambda report, cancel: self.win.journey.run(did, pid, lang, report, cancel)),
                          lambda result: self._ran((did, pid, lang), result), on_fail=self._failed, on_progress=self.on_progress)
 
     def grade(self):
@@ -523,7 +553,7 @@ class JourneyPage(QWidget):
         did, pid, lang = self.did, self.pid, self.lang
         self.live = {"groups": []}
         self.code_panel.show_console('<body><p class="muted">채점을 준비하는 중입니다.</p></body>')
-        self.win.run_job("채점하는 중입니다.", lambda report, cancel: self.win.journey.grade(did, pid, lang, report, cancel),
+        self.win.run_job("채점하는 중입니다.", caught(lambda report, cancel: self.win.journey.grade(did, pid, lang, report, cancel)),
                          lambda result: self._graded((did, pid, lang), result), on_fail=self._failed, on_progress=self.on_progress)
 
     def on_progress(self, event):
@@ -547,6 +577,10 @@ class JourneyPage(QWidget):
         bar.setValue(bar.maximum())
 
     def _ran(self, key, result):
+        if isinstance(result, Failed):
+            self._failed()
+            self.fail("run", result.message)
+            return
         self.live = None
         self.results[key] = journey_html.run_html(result)
         self.show_result()
@@ -554,6 +588,10 @@ class JourneyPage(QWidget):
         self.code_panel.focus_input()
 
     def _graded(self, key, result):
+        if isinstance(result, Failed):
+            self._failed()
+            self.fail("grade", result.message)
+            return
         self.live = None
         self.results[key] = journey_html.grade_html(result)
         self.show_result()
@@ -577,17 +615,21 @@ class JourneyPage(QWidget):
             self.status.setText("중지하는 중입니다.")
 
     def celebrate(self):
-        """보스를 처음 통과함. 색종이와 다음 추천 던전을 알리는 대화상자."""
+        """보스를 처음 통과함. 색종이와 다음 추천 던전을 알리는 대화상자. 다음 던전이 있으면 [다음 던전 보기]가 지도에서 그 던전을 고름."""
         motion.confetti(self)
-        text = "던전 %d 「%s」을 클리어했습니다." % (self.data["dungeon_no"], self.data["dungeon_title"])
         overview = self.win.journey.overview()
         target = overview["next"]
-        there = next((row for row in overview["dungeons"] if target and row["id"] == target["did"]), None)
+        there = next((row for row in overview["dungeons"] if target and row["id"] == target["did"] != self.did), None)
+        text = clear_text(self.data["dungeon_title"], there["title"] if there else None)
         if there:
-            text += " 다음 추천: 던전 %d 「%s」." % (there["no"], there["title"])
+            self.win.ask(CLEAR_TITLE, text, (("다음 던전 보기", "next", "primary"), ("닫기", "")), lambda key: self.win.go_journey(there["id"]))
         else:
-            text += " 출제된 던전을 모두 클리어했습니다."
-        self.win.ask("던전 클리어", text)
+            self.win.ask(CLEAR_TITLE, text)
+
+    def fail(self, action, error):
+        """서비스 오류를 하던 행동의 이름("코드 실행")을 제목으로 한 창에 보임. 내부 id 나 원문은 [자세히]로 넘김(journey_text.error_text)."""
+        title, text, detail = error_text(action, error)
+        self.win.ask(title, text, detail=detail)
 
     def on_link(self, url):
         """결과 칸의 [보스에 도전하기]."""
