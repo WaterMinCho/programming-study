@@ -14,7 +14,8 @@ from PyQt6.QtWidgets import QHBoxLayout, QSizePolicy, QToolTip, QWidget
 from gui import kit, theme
 from gui.docview import Doc
 from gui.journey_page import LangChips, ask_node, node_ready, saved_lang, with_node
-from gui.journey_text import (bank_text, dungeon_count, dungeon_lines, item_line, map_count, next_item, node_tip, place, row_line, tier_tip)
+from gui.journey_text import (WAITING, bank_text, dungeon_count, dungeon_lines, item_line, map_count, next_item, node_tip, place, row_line,
+                               tier_tip)
 from journey.node import MIN_MAJOR
 
 COLUMNS = 4  # 한 줄의 던전 수. 줄마다 방향을 바꾸는 뱀 모양 길
@@ -39,7 +40,6 @@ ABOUT = "코딩 테스트 유형을 던전 %d개로 나눠 차례로 풀고, 던
 NODE_TEXT = "JavaScript 로 풀려면 Node.js %d 이상이 필요합니다. 지금은 Python 으로 풉니다." % MIN_MAJOR
 ALL_CLEAR = "준비된 던전을 모두 클리어했습니다. 새 던전이 나오면 첫 화면의 [새 문제 받기]로 받으세요."
 NO_DUNGEON = "아직 준비된 던전이 없습니다. 첫 화면의 [새 문제 받기]로 받으세요."
-WAITING = "준비 중인 던전입니다. 새 던전이 나오면 첫 화면의 [새 문제 받기]로 받으세요."
 BROKEN = "이 던전을 열 수 없습니다. 위 주의 띠를 확인하세요."
 CACHE_TIP = "채점에 쓰는 큰 테스트 입력을 이 컴퓨터에 보관해 둡니다."
 CLEAR_TEXT = "채점할 때 만든 테스트 입력 %s를 지웁니다. 다음 채점 때 다시 만들어서 그 채점만 조금 느려집니다."

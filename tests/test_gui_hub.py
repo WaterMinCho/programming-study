@@ -28,9 +28,10 @@ import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
 from gui import errors, kit, theme  # noqa: E402
-from gui.journey_page import NODE_TEXT, NODE_TITLE  # noqa: E402
+from gui.journey_page import NODE_RETRY, NODE_TITLE  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank, node, runner  # noqa: E402
+from journey.service import JourneyError  # noqa: E402
 from webprep import bank as web_bank  # noqa: E402
 from webprep import stack  # noqa: E402
 
@@ -419,6 +420,24 @@ class JobTest(HubTest):
         self.assertEqual(done, [True])  # 취소 신호를 받고 끝남
         self.assertIsNone(win.job)
 
+    def test_leaving_after_a_failed_save_keeps_the_raw_error_in_details(self):
+        """코드를 저장하지 못한 채 문제 화면을 떠나면 묻는 창의 본문은 쉬운 글이고 원문(errno, 경로)은 [자세히]에만 있음."""
+        win = self.boot()
+        win.open_problem("t01", "p1")
+        self.idle()
+        page = win.journey_page
+        page.on_code_changed("def solution(nums):\n    return 0\n")
+        failure = "코드를 저장하지 못했습니다: [Errno 13] 권한 없음: '/home/alice/journey/t01/p1.py'"
+        with mock.patch.object(win.journey, "save_code", side_effect=JourneyError(failure)):
+            guikit.click(page.map_btn)
+        self.assertEqual("저장하지 못한 코드", win.dialog.windowTitle())
+        self.assertNotIn("Errno", win.dialog.text.text())
+        self.assertNotIn("t01", win.dialog.text.text())
+        self.assertIn("[Errno 13]", win.dialog.detail.toPlainText())
+        self.choose("drop")
+        self.idle()
+        self.assertIs(self.page(), win.journey_map)
+
     def test_job_without_progress_is_called_with_no_arguments(self):
         win = self.boot()
         done = []
@@ -431,10 +450,10 @@ class JobTest(HubTest):
         win.open_problem("t01", "boss")
         self.assertIs(self.page(), win.hub)
         self.assertEqual("문제 열기", win.dialog.windowTitle())
-        self.assertIn("중급 문제를 모두 통과하면 열립니다", win.dialog.text.text())
+        self.assertEqual("보스 문제는 중급 문제를 통과하면 열립니다.", win.dialog.text.text(), "지도 목록 줄과 같은 말")
         win.dialog.close()
         win.open_problem("t01", "p9")
-        self.assertEqual(("문제 열기", "이 문제를 열 수 없습니다. 첫 화면의 [새 문제 받기]로 다시 받은 뒤 여세요."),
+        self.assertEqual(("문제 열기", "이 문제의 파일을 읽지 못했습니다. 첫 화면의 [새 문제 받기]로 문제를 다시 받으세요."),
                          (win.dialog.windowTitle(), win.dialog.text.text()))
         self.assertIn("t01/p9", win.dialog.detail.toPlainText(), "내부 id 는 자세히에만 남음")
 
@@ -518,7 +537,7 @@ class NodeLookupTest(HubTest):
             self.choose("pick")
             self.idle()
         self.assertEqual(NODE_TITLE, win.dialog.windowTitle(), "창의 일반 알림 대신 같은 Node 창")
-        self.assertEqual("Node.js 20 이상이 필요한데 이 파일은 18.0.0 입니다. " + NODE_TEXT, win.dialog.text.text())
+        self.assertEqual("Node.js 20 이상이 필요한데 이 파일은 18.0.0 입니다. " + NODE_RETRY, win.dialog.text.text(), "필요한 버전을 두 번 말하지 않음")
         self.assertEqual("python", page.lang_bar.lang)
         self.assertFalse(self.settings.value("journey/node"))
 

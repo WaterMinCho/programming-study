@@ -36,7 +36,9 @@ EXPLAIN_LOCKED = "이 문제를 통과하면 해설이 열립니다."
 # 서비스 오류 창. 제목은 하던 행동의 이름
 ACTIONS = {"open": "문제 열기", "hint": "힌트 열기", "explain": "해설 열기", "lang": "언어 바꾸기", "reset": "코드 되돌리기",
            "save": "코드 저장", "run": "코드 실행", "grade": "채점하기"}
-REFETCH = "이 문제를 열 수 없습니다. 첫 화면의 [새 문제 받기]로 다시 받은 뒤 여세요."
+REFETCH = "이 문제의 파일을 읽지 못했습니다. 첫 화면의 [새 문제 받기]로 문제를 다시 받으세요."  # 문제를 열 때도, 연 뒤 채점·힌트에서도 씀
+WAITING = "준비 중인 던전입니다. 새 던전이 나오면 첫 화면의 [새 문제 받기]로 받으세요."  # 지도 카드와 "아직 출제되지 않은 던전" 오류가 같이 씀
+CASES_FAILED = "내 테스트를 저장하지 못했습니다."
 NO_LANG = "이 언어로는 풀 수 없습니다. Python 이나 JavaScript 를 고르세요."
 NO_RECORD = "알고리즘 여행 기록을 저장하지 못했습니다. 기록은 바뀌지 않았습니다. 잠시 뒤 다시 하세요."
 # 내부 id 나 은행 파일 이름이 든 서비스·은행 문구. 화면에는 문제를 다시 받으라는 글(REFETCH)을 보임
@@ -44,8 +46,10 @@ BANK_PROBLEMS = (re.compile(r"(문제|던전) \S+ 를 찾을 수 없습니다\."
                  re.compile(r"던전 \S+ 의 봉인 파일을 풀 수 없습니다\."), re.compile(r"^이 문제의 채점 파일"),
                  re.compile(r"\S+\.(json|md|py|js) 을 (읽을|풀) 수 없습니다"))
 # 첫 문장은 쉬운 글이고 뒤에 원문(파일 경로, 예외 글)이 붙는 서비스 문구
-KEEP_FIRST = ("코드 파일을 읽을 수 없습니다", "코드를 실행하지 못했습니다", "채점하지 못했습니다", "테스트 입력을 만들지 못했습니다",
-              "코드를 저장하지 못했습니다", "테스트 케이스를 저장하지 못했습니다")
+KEEP_FIRST = ("코드 파일을 읽을 수 없습니다", "코드를 실행하지 못했습니다", "채점하지 못했습니다", "테스트 입력을 만들지 못했습니다")
+# 앞은 서비스 문구의 첫 문장, 뒤는 화면에 보일 글. 원문의 나머지는 자세히로 넘김
+REPLACE_FIRST = (("코드를 저장하지 못했습니다", SAVE_FAILED), ("테스트 케이스를 저장하지 못했습니다", CASES_FAILED))
+BOSS_LOCKED = re.compile(r"보스 문제는 중급 문제를 모두 통과하면 열립니다\((\d+)개 중 (\d+)개 통과\)\.")
 
 
 def score_text(score):
@@ -272,18 +276,35 @@ def bank_text(overview):
     return text, "\n".join(overview.get("bank_errors") or [])
 
 
+def boss_text(total, done):
+    """잠긴 보스를 열려 할 때의 글. 지도 목록 줄의 조건(row_line)과 같은 수를 문장으로 씀."""
+    if total == 1:
+        return "보스 문제는 중급 문제를 통과하면 열립니다."
+    text = "보스 문제는 중급 %d개를 모두 통과하면 열립니다." % total
+    return text + (" 지금 %d개 통과했습니다." % done if done else "")
+
+
 def error_text(action, message):
     """서비스 오류 창의 (제목, 글, 자세히). 제목은 하던 행동의 이름("문제 열기")이고 action 은 ACTIONS 의 키.
-    내부 id 나 은행 파일 이름이 든 문구는 쉬운 글로 바꾸고 원문은 자세히로 넘김. 첫 문장 뒤에 원문이 붙은 문구는 첫 문장만 남김.
-    잠긴 보스, 힌트를 다 연 경우처럼 쉬운 글로 된 나머지 문구는 그대로 둠."""
+    내부 id 나 은행 파일 이름이 든 문구는 쉬운 글로 바꾸고 원문은 자세히로 넘김. 첫 문장 뒤에 원문이 붙은 문구는 첫 문장만 남기거나
+    화면 낱말로 바꾼 글(코드 저장 실패는 편집기 위 띠와 같은 글)로 둠. 잠긴 보스와 준비 중인 던전은 지도와 같은 말로 바꿈.
+    힌트를 다 연 경우처럼 쉬운 글로 된 나머지 문구는 그대로 둠."""
     title, message = ACTIONS.get(action, "알림"), str(message or "")
     if message.startswith("알고리즘 여행 기록을 저장하지 못했습니다."):
         return title, NO_RECORD, message.partition("\n")[2].strip()
     if message.startswith("언어는 python 이나 javascript"):
         return title, NO_LANG, message
+    for first, text in REPLACE_FIRST:
+        if message.startswith(first):
+            return title, text, message[len(first):].lstrip(".:").strip()
     for first in KEEP_FIRST:
         if message.startswith(first):
             return title, first + ".", message[len(first):].lstrip(".:").strip()
+    locked = BOSS_LOCKED.fullmatch(message)
+    if locked:
+        return title, boss_text(int(locked.group(1)), int(locked.group(2))), ""
+    if message == "아직 출제되지 않은 던전입니다.":
+        return title, WAITING, ""
     if any(pattern.search(message) for pattern in BANK_PROBLEMS):
         return title, REFETCH, message
     return title, message, ""

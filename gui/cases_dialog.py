@@ -4,18 +4,22 @@
 [저장]은 부른 쪽이 넘긴 save(cases) 로 저장함. 서비스가 한 번 더 검사함. 틀린 칸이 있으면 그 칸으로 초점을 옮기고 저장하지 않음.
 부모가 문제 화면이라도 창 자신에 새 규칙 범위를 걸어 문제 화면이 어느 모양이든 같은 모양으로 보임.
 창 전체의 복사·붙여넣기 막기(gui/guard.py)는 메인 창에만 걸리므로 이 대화상자에서는 큰 입력도 붙여넣을 수 있음."""
+import re
 import sys
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QFrame, QGridLayout, QHBoxLayout, QLineEdit, QMenu, QScrollArea, QVBoxLayout, QWidget
 
 from gui import kit, theme
+from gui.journey_text import error_text
 from journey import values
 from session import SessionError
 
 MAX_CASES = 20
 TITLE = "테스트 추가"  # 창 제목과 안 제목. 문제 화면에서 여는 단추 이름과 같음
 HINT = '값은 파이썬이나 JSON 문법으로 적으세요. 예: ["a", "b"], 3, True'
+EMPTY = "%d번 줄의 %s 칸이 비어 있습니다."
+UNREADABLE = "%d번 줄의 %s 칸: 값을 읽지 못했습니다. 위 예처럼 적으세요."  # values.LITERAL_NOTE 는 도구(tools/verify_journey.py)와 같이 써서 창에서만 바꿈
 SIZE = (760, 520)
 
 
@@ -162,10 +166,13 @@ class CasesDialog(QDialog):
                 continue
             row = []
             for edit, text, kind, name in zip(edits, texts, kinds, names):
+                if not text.strip():  # 쓰는 동안 칸마다 검사하므로 아직 비운 칸은 읽지 못한 값과 다른 말로 알림
+                    return None, EMPTY % (number, name), edit
                 try:
                     value = values.parse_literal(text)
                 except ValueError as error:
-                    return None, "%d번 줄의 %s 칸: %s" % (number, name, error), edit
+                    note = UNREADABLE % (number, name) if str(error) == values.LITERAL_NOTE else "%d번 줄의 %s 칸: %s" % (number, name, error)
+                    return None, note, edit
                 problem = values.check(value, kind)
                 if problem:
                     return None, "%d번 줄의 %s 칸: %s" % (number, name, problem), edit
@@ -173,9 +180,10 @@ class CasesDialog(QDialog):
             cases.append({"args": row[:-1], "expected": row[-1]})
         return cases, "", None
 
-    def show_error(self, text, wrong=None):
-        """칸 묶음 아래 오류 줄과 틀린 칸의 빨간 테두리. text 가 비면 둘 다 거둠."""
+    def show_error(self, text, wrong=None, tip=""):
+        """칸 묶음 아래 오류 줄과 틀린 칸의 빨간 테두리. text 가 비면 둘 다 거둠. tip 은 오류 줄 도움말(서비스 원문)."""
         self.error.setText(text)
+        self.error.setToolTip(tip)
         self.error.setVisible(bool(text))
         for edits, _ in self.rows:
             for edit in edits:
@@ -195,8 +203,9 @@ class CasesDialog(QDialog):
             return
         try:
             saved = self.save_fn(cases)
-        except SessionError as error:
-            self.show_error(str(error))
+        except SessionError as error:  # 서비스 원문은 도움말에 두고 화면 낱말("N번 줄", "내 테스트")로 보임
+            _, text, _ = error_text("save", error)
+            self.show_error(re.sub(r"^(\d+)번 케이스의 ", r"\1번 줄의 ", text), tip=str(error))
             return
         self.accept()
         if self.on_saved:

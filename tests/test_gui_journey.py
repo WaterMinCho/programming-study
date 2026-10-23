@@ -32,11 +32,12 @@ from gui.docview import CodeView, FigureView, TextPiece  # noqa: E402
 from gui.editor import JAVASCRIPT, PYTHON  # noqa: E402
 from gui.guard import Guard  # noqa: E402
 from gui.journey_map import ALL_CLEAR, BROKEN, CACHE_TIP, CLEAR_TEXT, WAITING, JourneyMapPage, MapView  # noqa: E402
-from gui.journey_page import (GIVE_UP_TEXT, GIVE_UP_TITLE, NODE_BUSY, NODE_LINK, NODE_MISSING, NODE_TEXT, NODE_TITLE, RESET_TITLE,  # noqa: E402
+from gui.journey_page import (GIVE_UP_TEXT, GIVE_UP_TITLE, NODE_BUSY, NODE_LINK, NODE_MISSING, NODE_RETRY, NODE_TEXT, NODE_TITLE, RESET_TITLE,  # noqa: E402
                                JourneyPage)
 from gui.round_page import RoundPage  # noqa: E402
 from gui.widgets import Para  # noqa: E402
 from journey import bank, node, runner, values  # noqa: E402
+from journey import service  # noqa: E402
 from journey.service import JourneyError, JourneySession  # noqa: E402
 from session import SessionError  # noqa: E402
 
@@ -385,7 +386,7 @@ class MapTest(Base):
         self.assertEqual((win.pages.currentWidget(), win.journey_page.pid), (win.journey_page, "p1"))
         win.open_problem("t01", "boss")
         self.assertEqual("문제 열기", win.dialog.windowTitle())
-        self.assertIn("중급 문제를 모두 통과하면 열립니다", win.dialog.text.text())
+        self.assertEqual("보스 문제는 중급 문제를 통과하면 열립니다.", win.dialog.text.text())
 
     def test_next_card_holds_the_only_primary_button(self):
         win = self.boot([passed("p1")])
@@ -964,7 +965,7 @@ class WorkFrameTest(Base):
         self.assertLess(banner.mapTo(page, banner.rect().topLeft()).y(), page.code_panel.editor.mapTo(page, page.code_panel.editor.rect().topLeft()).y())
         with mock.patch.object(win.journey, "save_code", side_effect=JourneyError("코드를 저장하지 못했습니다: [Errno 13] 권한 없음")):
             win.open_problem("t01", "p1")
-        self.assertEqual(("문제 열기", "코드를 저장하지 못했습니다."), (win.dialog.windowTitle(), win.dialog.text.text()))
+        self.assertEqual(("문제 열기", journey_text.SAVE_FAILED), (win.dialog.windowTitle(), win.dialog.text.text()), "편집기 위 띠와 같은 글")
         self.assertEqual("p2", page.pid, "앞 문제의 코드를 저장하지 못하면 화면을 바꾸지 않음")
         win.dialog.close()
         self.assertTrue(page.flush())
@@ -1293,6 +1294,7 @@ class NodeTest(Base):
             self.assertIs(PYTHON, page.code_panel.editor.lang)
             self.assertEqual((page.lang_btns["python"].isChecked(), page.lang_btns["javascript"].isChecked()), (True, False))
             self.assertTrue(page.lang_bar.note.isVisible())
+            self.assertEqual(page.lang_bar.note.toolTip(), page.lang_btns["javascript"].toolTip(), "글이 숨어도 칩 도움말이 같은 말")
             self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
             self.assertIn("Node.js 20 이상", win.dialog.text.text())
             self.assertEqual([("pick", "직접 고르기", ""), ("", "닫기", ""), ("find", "다시 찾기", "primary")], button_line(win.dialog))
@@ -1307,6 +1309,17 @@ class NodeTest(Base):
             self.assertEqual("/opt/node/bin/node", win.settings.value("journey/node"))
             self.assertEqual("javascript", page.lang)
             self.assertFalse(page.lang_bar.note.isVisible())
+            self.assertEqual("", page.lang_btns["javascript"].toolTip())
+
+    def test_node_lost_during_a_run_opens_the_node_window(self):
+        """앱을 켠 뒤 node 가 사라져 실행이 NO_NODE 로 끝나면 [다시 찾기]·[직접 고르기]가 있는 Node 창이 뜸. 안내 글이 그 단추를 말하므로."""
+        win = self.boot()
+        page = self.open("p1")
+        with mock.patch.object(win.journey, "run", side_effect=JourneyError(service.NO_NODE)):
+            guikit.click(page.run_btn)
+        self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
+        self.assertEqual("%s %s" % (NODE_MISSING, NODE_TEXT), win.dialog.text.text())
+        self.assertIn("find", win.dialog.buttons)
 
     def test_find_again_reports_when_node_is_still_missing(self):
         win = self.boot()
@@ -1337,7 +1350,7 @@ class NodeTest(Base):
             self.assertFalse(any(button.isDefault() for button in win.dialog.buttons.values()), "단추가 셋이라 Enter 로 넘어가지 않음")
             self.choose("pick")
         self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
-        self.assertEqual("%s %s" % (problem, NODE_TEXT), win.dialog.text.text())
+        self.assertEqual("%s %s" % (problem, NODE_RETRY), win.dialog.text.text())
         self.assertIsNone(win.settings.value("journey/node"), "쓸 수 없는 파일은 기억하지 않음")
         self.assertEqual("python", page.lang_bar.lang)
 
@@ -1436,6 +1449,15 @@ class HintExplainTest(Base):
         self.assertIn("function solution(nums, k)", codes[0].toPlainText())
 
 
+    def test_a_broken_sealed_file_shows_the_plain_sentence(self):
+        """해설 봉인 파일을 풀지 못하면 해설 탭에 내부 id 없이 문제를 다시 받으라는 글이 나옴."""
+        win = self.boot([passed("p1")])
+        broken = JourneyError("던전 t01 의 봉인 파일을 풀 수 없습니다. 토큰이 맞지 않습니다.")
+        with mock.patch.object(win.journey, "open_explain", side_effect=broken):
+            page = self.open("p1")
+        self.assertEqual(journey_text.REFETCH, doc_text(page.explain_view))
+
+
 class CasesDialogTest(Base):
     def test_cells_are_checked_and_saved(self):
         self.boot()
@@ -1445,12 +1467,13 @@ class CasesDialogTest(Base):
         self.assertTrue(dialog.isVisible())
         edits, _ = dialog.rows[0]
         edits[0].setText('"abc"')
+        self.assertEqual("1번 줄의 return 칸이 비어 있습니다.", dialog.error.text(), "아직 비운 칸은 읽지 못한 값과 다른 말")
         edits[1].setText("3")
         self.assertEqual("1번 줄의 return 칸: 문자열이 아닙니다: 3", dialog.error.text())
         self.assertTrue(dialog.error.isVisible())
         self.assertEqual(("danger", None), (edits[1].property("tone"), edits[0].property("tone")))
         edits[1].setText("[1,")
-        self.assertIn("1번 줄의 return 칸: 값을 읽지 못했습니다.", dialog.error.text())
+        self.assertEqual("1번 줄의 return 칸: 값을 읽지 못했습니다. 위 예처럼 적으세요.", dialog.error.text())
         edits[0].setFocus()
         guikit.click(dialog.save_btn)
         self.assertTrue(dialog.isVisible())
@@ -1478,6 +1501,18 @@ class CasesDialogTest(Base):
         self.assertEqual("내 테스트 1개를 저장했습니다.", page.status.text())
         guikit.click(page.cases_btn)
         self.assertEqual(["'abc'", "'cba'"], [edit.text() for edit in page.cases_dialog.rows[0][0]])
+        dialog = page.cases_dialog
+        with mock.patch.object(self.win.journey, "save_cases", side_effect=JourneyError("1번 케이스의 name 칸: 문자열이 아닙니다: 1")):
+            guikit.click(dialog.save_btn)
+        self.assertEqual(("1번 줄의 name 칸: 문자열이 아닙니다: 1", "1번 케이스의 name 칸: 문자열이 아닙니다: 1"),
+                         (dialog.error.text(), dialog.error.toolTip()), "서비스 문구도 창의 낱말(N번 줄)로 보이고 원문은 도움말")
+        failure = "테스트 케이스를 저장하지 못했습니다: [Errno 13] 권한 없음: '/home/alice/journey/t01/p3.cases.json'"
+        with mock.patch.object(self.win.journey, "save_cases", side_effect=JourneyError(failure)):
+            guikit.click(dialog.save_btn)
+        self.assertEqual(("내 테스트를 저장하지 못했습니다.", failure), (dialog.error.text(), dialog.error.toolTip()), "경로와 내부 id 는 도움말에만")
+        guikit.click(dialog.rows[0][1])
+        guikit.click(dialog.save_btn)
+        self.assertEqual("내 테스트를 모두 지웠습니다.", page.status.text())
 
     def test_from_example_adds_a_row_in_the_chosen_language(self):
         win = self.boot()

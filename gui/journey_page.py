@@ -28,7 +28,7 @@ from gui.journey_text import (EXPLAIN_LOCKED, HINT_INTRO, LANG_LABEL, NO_HINT, S
                               fact_line, item_line, next_item, number_text, tier_tip, uses_text)
 from gui.widgets import LinkLabel
 from journey.node import MIN_MAJOR
-from journey.service import JourneyError
+from journey.service import NO_NODE, JourneyError
 from session import SessionError
 
 SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
@@ -39,6 +39,7 @@ NODE_TEXT = ("JavaScript 로 풀려면 Node.js %d 이상이 필요합니다. 설
              "[직접 고르기]로 node 실행 파일을 고르세요." % MIN_MAJOR)
 NODE_LINK = "https://nodejs.org"  # Node 창 본문 아래에 누를 수 있는 주소로 보임
 NODE_MISSING = "Node.js 를 찾지 못했습니다."  # [다시 찾기]로도 찾지 못했을 때 Node 창 본문 앞에 붙는 문장
+NODE_RETRY = "새 Node.js 를 설치한 뒤 [다시 찾기]를 누르세요. 이미 설치했다면 [직접 고르기]로 그 node 실행 파일을 고르세요."  # 고른 파일을 쓸 수 없을 때 그 까닭 뒤
 GIVE_UP_TITLE = "해설 먼저 보기"
 GIVE_UP_TEXT = "아직 통과하지 않은 문제입니다. 해설을 열면 기록에 남고, 나중에 통과해도 목록에 '해설 보고 통과'로 보입니다."
 RESET_TITLE = "코드 되돌리기"
@@ -100,7 +101,8 @@ def caught(fn):
 
 def ask_node(win, on_ready, first=""):
     """Node.js 찾기 창. 오른쪽 끝 주 단추 [다시 찾기], 그 왼쪽 [닫기], 주 단추와 가장 먼 [직접 고르기] 순서이고 본문 아래에 내려받는 주소가 있음.
-    두 행동으로 node 를 찾으면 on_ready() 를 부름. 찾지 못하면 그 까닭(first)을 본문 앞에 붙여 같은 창을 다시 띄움. 찾기와 확인은 워커에서 함."""
+    두 행동으로 node 를 찾으면 on_ready() 를 부름. 찾지 못하면 그 까닭(first)을 본문 앞에 붙여 같은 창을 다시 띄움. 찾기와 확인은 워커에서 함.
+    고른 파일을 쓸 수 없으면 검사기가 까닭에 필요한 버전을 이미 말하므로 뒤에는 짧은 안내(NODE_RETRY)만 붙임."""
 
     def found(info):
         if isinstance(info, Failed):  # 고른 파일이 node 가 아니거나 버전이 낮음
@@ -125,7 +127,10 @@ def ask_node(win, on_ready, first=""):
 
         win.run_job(NODE_BUSY, caught(lambda: win.journey.set_node(path)), checked)
 
-    text = "%s %s" % (first, NODE_TEXT) if first else NODE_TEXT
+    if not first:
+        text = NODE_TEXT
+    else:
+        text = "%s %s" % (first, NODE_TEXT if first == NODE_MISSING else NODE_RETRY)
     return win.ask(NODE_TITLE, text, (("다시 찾기", "find", "primary"), ("닫기", ""), ("직접 고르기", "pick", "close")), choose, link=NODE_LINK)
 
 
@@ -611,7 +616,9 @@ class JourneyPage(QWidget):
         return "python" if self.node_missing else lang
 
     def show_node_note(self, missing):
+        """"Node.js 필요" 를 보이거나 숨김. 자리가 모자라 fit_top 이 그 글을 숨겨도 같은 말이 JavaScript 칩 도움말에 있음."""
         self.node_missing = missing
+        self.lang_btns["javascript"].setToolTip(self.lang_bar.note.toolTip() if missing else "")
         self.fit_top()
 
     def load(self, did, pid):
@@ -735,7 +742,7 @@ class JourneyPage(QWidget):
             try:
                 self.explain = self.win.journey.open_explain(self.did, self.pid, self.lang)
             except SessionError as error:
-                view.set_markdown(md_text(str(error)), data["base_dir"], self.lang)
+                view.set_markdown(md_text(error_text("explain", error)[1]), data["base_dir"], self.lang)
                 return
         explain = self.explain
         view.set_markdown(explain["markdown"], explain["base_dir"], self.lang)
@@ -1076,7 +1083,11 @@ class JourneyPage(QWidget):
             self.win.ask(CLEAR_TITLE, text)
 
     def fail(self, action, error):
-        """서비스 오류를 하던 행동의 이름("코드 실행")을 제목으로 한 창에 보임. 내부 id 나 원문은 [자세히]로 넘김(journey_text.error_text)."""
+        """서비스 오류를 하던 행동의 이름("코드 실행")을 제목으로 한 창에 보임. 내부 id 나 원문은 [자세히]로 넘김(journey_text.error_text).
+        실행·채점 중에 node 가 사라졌으면(앱을 켠 뒤 지움) [다시 찾기]·[직접 고르기]가 있는 Node 창을 띄움."""
+        if str(error) == NO_NODE:
+            ask_node(self.win, lambda: None, NODE_MISSING)
+            return
         title, text, detail = error_text(action, error)
         self.win.ask(title, text, detail=detail)
 
@@ -1092,7 +1103,7 @@ class JourneyPage(QWidget):
 
     def _cases_saved(self, cases):
         self.data["cases"] = cases
-        self.set_status("내 테스트 %d개를 저장했습니다." % len(cases))
+        self.set_status("내 테스트 %d개를 저장했습니다." % len(cases) if cases else "내 테스트를 모두 지웠습니다.")
         if self.result.shown[0] is None:  # 결과가 없을 때의 caption 이 내 테스트 수를 말함
             self.show_result()
 
