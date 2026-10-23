@@ -11,7 +11,7 @@ import math
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
-                             QSizePolicy, QSplitter, QSplitterHandle, QVBoxLayout, QWidget)
+                             QSizePolicy, QSplitter, QSplitterHandle, QVBoxLayout, QWidget, QWidgetItem)
 
 from gui import theme
 from gui.widgets import LinkLabel, Para
@@ -139,6 +139,27 @@ def chip(text, tid=None, onbg=False):
     out.setCheckable(True)
     out.tid = tid
     return out
+
+
+class FlushItem(QWidgetItem):
+    """상자 안 위젯 하나를 FLUSH 만큼 왼쪽 여백 쪽으로 내어 두는 상자 칸. widen 이면 오른쪽 끝은 두고 그만큼 넓힘.
+    Qt 는 음수 상자 여백을 기본 여백으로 읽어서 여백으로는 내어 둘 수 없음."""
+
+    def __init__(self, widget, widen=False):
+        super().__init__(widget)
+        self.widen = widen
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect.adjusted(-FLUSH, 0, 0, 0) if self.widen else rect.translated(-FLUSH, 0))
+
+
+def flush_left(layout, widget, widen=False):
+    """layout 에 이미 넣은 widget 을 FLUSH 만큼 내어 둠. 맨 앞이 글자 단추라 단추 글자를 위 글과 같은 세로선에 둘 때 씀
+    (막대 가장자리 단추는 TopBar·BottomBar 가 막대 여백으로 같은 일을 함)."""
+    index = layout.indexOf(widget)
+    layout.takeAt(index)
+    layout.insertItem(index, FlushItem(widget, widen))
+    return widget
 
 
 def frame(name):

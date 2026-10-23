@@ -996,6 +996,21 @@ class WorkFrameTest(Base):
             self.assertTrue(page.flush())
             self.assertTrue(page.code_panel.save_banner.isHidden(), step)
 
+    def test_the_give_up_button_lines_up_with_the_text(self):
+        """해설 탭의 [해설 먼저 보기]는 글자 단추라 FLUSH 만큼 내어 두어 단추 글자가 위 문단 글과 같은 세로선에 옴. 다음 문제 줄은 제자리."""
+        self.boot([passed("p2")])
+        page = self.open("p1")
+        page.tabs.setCurrentIndex(2)
+        guikit.pump()
+        sheet = page.explain_view.sheet
+        text = next(piece for piece in page.explain_view.pieces if isinstance(piece, TextPiece)).mapTo(sheet, QPoint(0, 0)).x()
+        self.assertEqual(text - kit.FLUSH, page.give_up_btn.mapTo(sheet, QPoint(0, 0)).x())
+        page = self.open("p2")
+        page.tabs.setCurrentIndex(2)
+        guikit.pump()
+        self.assertEqual(text, page.next_rows.mapTo(sheet, QPoint(0, 0)).x())
+        self.assertEqual(sheet.width() - text, page.next_rows.mapTo(sheet, QPoint(page.next_rows.width(), 0)).x(), "오른쪽 끝도 글 끝")
+
     def test_the_explanation_ends_with_the_next_problem(self):
         self.boot([passed("p1")])
         page = self.open("p1")
@@ -1523,6 +1538,8 @@ class CasesDialogTest(Base):
                              tuple(button.objectName() for button in (dialog.save_btn, close, dialog.add_btn, dialog.example_btn, remove)))
             right = dialog.save_btn.mapTo(dialog, dialog.save_btn.rect().topRight()).x()
             self.assertEqual(dialog.width() - 1 - 32, right, step)
+            self.assertEqual(32 - kit.FLUSH, dialog.add_btn.mapTo(dialog, QPoint(0, 0)).x(), "[줄 추가] 글자가 제목과 같은 세로선")
+            self.assertEqual(8, dialog.example_btn.x() - dialog.add_btn.geometry().right() - 1)
         guikit.click(dialog.add_btn)
         self.assertEqual(theme.TYPE["code"][0], dialog.rows[1][0][0].font().pixelSize(), "새 줄도 지금 단계의 코드 글꼴")
         self.assertEqual(17, theme.TYPE["code"][0])

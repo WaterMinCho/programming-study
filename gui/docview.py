@@ -390,11 +390,12 @@ class DocView(QScrollArea):
         """조각 목록 위에 widget 을 둠(지문 머리). 앞에 둔 위젯은 빼서 숨김. None 이면 빼기만 함."""
         self._place("head", widget)
 
-    def set_tail(self, widget):
-        """조각 목록 아래, 남는 칸 앞에 widget 을 둠(힌트 꼬리). 앞에 둔 위젯은 빼서 숨김. None 이면 빼기만 함."""
-        self._place("tail", widget)
+    def set_tail(self, widget, flush=False):
+        """조각 목록 아래, 남는 칸 앞에 widget 을 둠(힌트 꼬리). 앞에 둔 위젯은 빼서 숨김. None 이면 빼기만 함.
+        flush 면 kit.FLUSH 만큼 왼쪽으로 내어 넓혀 둠. 맨 앞이 글자 단추인 꼬리에서 단추 글자가 위 글과 같은 세로선에 옴."""
+        self._place("tail", widget, flush)
 
-    def _place(self, name, widget):
+    def _place(self, name, widget, flush=False):
         old = getattr(self, name)
         if old is widget:
             return
@@ -404,6 +405,8 @@ class DocView(QScrollArea):
         setattr(self, name, widget)
         if widget is not None:
             self.box.insertWidget(0 if name == "head" else self.box.count() - 1, widget)
+            if flush:
+                kit.flush_left(self.box, widget, widen=True)
 
     def set_markdown(self, text, base_dir, lang):
         """내용을 text 로 바꾸고 맨 위로 감. 이미지 줄의 경로는 base_dir 에서 찾음."""

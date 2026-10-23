@@ -85,6 +85,7 @@ class CasesDialog(QDialog):
         row.setSpacing(8)
         for widget in (self.add_btn, self.example_btn):
             row.addWidget(widget)
+            kit.flush_left(row, widget)  # 글자 단추의 글자가 위 제목·칸과 같은 세로선에 옴
         row.addStretch(1)
         for widget in (close, self.save_btn):
             row.addWidget(widget)
