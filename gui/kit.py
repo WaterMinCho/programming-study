@@ -394,16 +394,17 @@ class Row(QFrame):
         self.second = ElideLabel(second, "caption", "secondary")
         self.title.setFixedHeight(theme.TYPE["label"][1])  # 글꼴의 줄 높이가 글자 크기와 같아 두 줄이 닿지 않게 줄 높이를 줌
         self.second.setFixedHeight(theme.TYPE["caption"][1])
-        self.second.setVisible(bool(second))
         column_box.addWidget(self.title)
         column_box.addWidget(self.second)
         row.addWidget(text, 1, Qt.AlignmentFlag.AlignVCenter)
         self.end = label(end, "caption", "tertiary")
-        self.end.setVisible(bool(end))
         row.addWidget(self.end, 0, Qt.AlignmentFlag.AlignVCenter)
         self.chevron = Chevron()
-        self.chevron.setVisible(not inert)
         row.addWidget(self.chevron, 0, Qt.AlignmentFlag.AlignVCenter)
+        # 부모가 생긴 뒤에 보이고 숨김. 부모 없는 위젯을 보이면 잠깐 따로 창으로 떠서 화면의 창이 초점을 잃음
+        self.second.setVisible(bool(second))
+        self.end.setVisible(bool(end))
+        self.chevron.setVisible(not inert)
         if not inert:
             self.setCursor(Qt.CursorShape.PointingHandCursor)
             self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)

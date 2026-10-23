@@ -12,16 +12,18 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
-from PyQt6.QtCore import QPoint, QSettings, Qt  # noqa: E402
+from PyQt6.QtCore import QEvent, QObject, QPoint, QSettings, Qt  # noqa: E402
 from PyQt6.QtGui import QColor, QKeyEvent  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 from gui import dialogs, kit, theme  # noqa: E402
+from gui.journey_map import COLUMNS, PILL_GAP, MapView  # noqa: E402
+from journey import bank  # noqa: E402
 
 ROOT = guikit.ROOT
 V2_FILES = ("gui/kit.py", "gui/hub_page.py", "gui/web_home.py", "gui/web_mission.py", "gui/web_drill.py", "gui/web_learn.py",
-            "gui/web_setup.py", "gui/web_text.py")  # 새 규칙을 따르는 파일
+            "gui/web_setup.py", "gui/web_text.py", "gui/journey_map.py")  # 새 규칙을 따르는 파일
 WEIGHTS = {400, 700}
 TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover")
 WEAK = {"ok": "ok_weak", "retry": "retry_weak", "wrong": "wrong_weak", "info": "info_weak", "selection_ink": "selection",
@@ -73,6 +75,34 @@ def ink(image, rect, back):
             if far > best:
                 best, found = far, color.name()
     return found
+
+
+def near(color, token):
+    """화소 색이 토큰 색과 채널마다 8 안쪽으로 같은지. 안티에일리어싱으로 끝 화소가 조금 섞이는 것을 받음."""
+    want = QColor(theme.color(token))
+    return max(abs(color.red() - want.red()), abs(color.green() - want.green()), abs(color.blue() - want.blue())) <= 8
+
+
+def map_rows():
+    """dungeons/index.json 의 던전 16개로 만든 지도 줄. 던전 1 은 클리어, 2 는 진행 중, 3 은 시작 전, 4 부터는 준비 중."""
+    rows = []
+    for number, entry in enumerate(bank.read_index(os.path.join(ROOT, "dungeons"))):
+        rows.append(dict(entry, ready=number < 3, error="", cleared=number == 0, passed=(6, 2, 0)[number] if number < 3 else 0,
+                         total=6 if number < 3 else 0))
+    return rows
+
+
+class WindowSpy(QObject):
+    """따로 창으로 뜨는 위젯의 이름을 shown 에 모음."""
+
+    def __init__(self, shown):
+        super().__init__()
+        self.shown = shown
+
+    def eventFilter(self, target, event):
+        if event.type() == QEvent.Type.Show and target.isWidgetType() and target.isWindow():
+            self.shown.append(type(target).__name__)
+        return False
 
 
 class ContrastTest(unittest.TestCase):
@@ -312,6 +342,73 @@ class PartsTest(unittest.TestCase):
         self.assertNotEqual(image.pixelColor(10, 7).name(), faint)  # 고리 안
         for y in (0, 1, 18, 19):
             self.assertEqual({image.pixelColor(x, y).name() for x in range(kit.MARK)}, {back}, y)
+
+    def test_new_rows_open_no_window_of_their_own(self):
+        """목록 줄을 만들 때 부모 없는 글자나 꺾쇠가 잠깐 따로 창으로 뜨지 않음. 뜨면 화면의 창이 초점을 잃어 키보드로 고르던 것이 끊김."""
+        rows = kit.RowList()
+        self.box.addWidget(rows)
+        self.show()
+        shown = []
+        spy = WindowSpy(shown)
+        guikit.APP.installEventFilter(spy)
+        self.addCleanup(guikit.APP.removeEventFilter, spy)
+        rows.add(kit.Row("제목", "둘째 줄", "끝", kit.Dot("todo"), data="a"))
+        rows.add(kit.Row("잠김", "여는 조건", "보스", kit.Dot("lock"), inert=True))
+        guikit.pump()
+        self.assertEqual([], shown)
+        self.assertEqual([True, True, True], [part.isVisible() for part in (rows.rows[0].second, rows.rows[0].end, rows.rows[0].chevron)])
+        self.assertFalse(rows.rows[1].chevron.isVisible())
+
+    def test_map_draws_round_nodes_name_pills_and_a_focus_ring(self):
+        """던전 지도(gui/journey_map.MapView). 높이는 caption 줄 높이로 정하고(보통 370, 크게 378) 원 지름은 40. 이름 알약은 caption 줄
+        높이이고 길보다 위에 surface 로 칠함. 바깥 열 이름 글은 [24, 폭 − 24] 안. 고른 원의 고리는 초점이 있으면 focus 색, 없으면 ink.
+        이름 알약을 눌러도 고름. 1024 창의 지도 폭(377)에서 이웃 알약 사이가 PILL_GAP 이상이고, 줄임표로 줄인 이름은 보통에서 하나,
+        크게에서 셋."""
+        for step, height, short in (("normal", 370, ["연결과 순서의 다리"]), ("large", 378, ["기억의 도서관", "연결과 순서의 다리", "속삭이는 사전"])):
+            theme.set_text(step)
+            root = kit.page(QWidget())
+            self.addCleanup(root.close)
+            box = kit.box(root)
+            view = MapView()
+            view.setFixedWidth(377)
+            view.set_rows(map_rows(), "d01")
+            box.addWidget(view)
+            root.show()
+            root.activateWindow()
+            guikit.pump()
+            view.clearFocus()  # 창이 켜질 때 첫 초점을 받으므로 먼저 뺌
+            guikit.pump()
+            self.assertEqual(view.height(), height, step)
+            image = view.grab().toImage()
+            center = view.nodes()[0][1].center().toPoint()
+            filled = [x for x in range(center.x() - 30, center.x() + 30) if near(image.pixelColor(x, center.y()), "ok")]
+            self.assertTrue(38 <= filled[-1] - filled[0] + 1 <= 40, (step, filled))  # 가운데 번호 글자는 빼고 양 끝 사이를 잼
+            self.assertTrue(near(image.pixelColor(center.x() + 24, center.y()), "ink"), (step, image.pixelColor(center.x() + 24, center.y()).name()))
+            labels = view.labels()
+            self.assertEqual({round(pill.height()) for _, pill, _, _ in labels}, {theme.TYPE["caption"][1]}, step)
+            turn = view.nodes()[3][1].center()  # 넷째 던전에서 다섯째로 꺾는 세로 길이 넷째 이름 밑으로 지나감
+            pill = labels[3][1]
+            self.assertTrue(near(image.pixelColor(round(turn.x()), round(pill.top()) + 1), "surface"), step)
+            for index, (_, _, text, _) in enumerate(labels):
+                if MapView.spot(index)[1] in (0, COLUMNS - 1):
+                    self.assertGreaterEqual(text.left(), 24, (step, index))
+                    self.assertLessEqual(text.right(), view.width() - 24, (step, index))
+            for line in range(4):
+                pills = sorted((pill for index, (_, pill, _, _) in enumerate(labels) if MapView.spot(index)[0] == line), key=lambda p: p.left())
+                for one, other in zip(pills, pills[1:]):
+                    self.assertGreaterEqual(other.left() - one.right(), PILL_GAP, (step, line))
+            self.assertEqual([row["title"] for row, (_, _, _, name) in zip(view.rows, labels) if name != row["title"]], short, step)
+            picked = []
+            view.picked.connect(picked.append)
+            name = labels[5][1]
+            QTest.mouseClick(view, guikit.LEFT, pos=QPoint(round(name.right()) - 3, round(name.center().y())))
+            self.assertEqual(picked, ["d06"], step)
+            view.set_selected("d01")
+            view.setFocus()
+            guikit.pump()
+            self.assertTrue(view.hasFocus(), step)
+            image = view.grab().toImage()
+            self.assertTrue(near(image.pixelColor(center.x() + 24, center.y()), "focus"), step)
 
     def test_splitter_keeps_and_remembers_the_ratio(self):
         """끄는 칸 나누기의 손잡이 폭은 24(세로 나누기 16)이고 가운데에 무늬가 있음. 가로 칸은 320 아래로 줄지 않음. 끈 몫은 설정에

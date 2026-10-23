@@ -137,6 +137,16 @@ class TrackAndDungeonTest(SessionBase):
                          ["최종 던전 · 펜윅·세그먼트·오프라인 · 보스 난이도 P5~P4 / Lv4", "던전 3, 8 다음에 풀면 좋습니다."])
         self.assertEqual(journey_text.dungeon_lines(dict(entries["d04"], prereq=["d01", "x9"]), NUMBERS)[1], "던전 1 다음에 풀면 좋습니다.")
 
+    def test_node_tips_name_the_dungeon_and_its_state(self):
+        service = self.service([grade_entry("t01/p1")])
+        rows = {row["id"]: row for row in service.overview()["dungeons"]}
+        self.assertEqual(journey_text.node_tip(rows["t01"]), "던전 1 「시험 마을」 · 합·최댓값 · 4문제 중 1개 통과")
+        self.assertEqual(journey_text.node_tip(rows["t04"]), "던전 4 「준비 중 던전 4」 · 준비 중")
+        broken = dict(rows["t04"], error="d04: meta.json 의 형식이 맞지 않습니다")
+        self.assertEqual(journey_text.node_tip(broken), "던전 4 「준비 중 던전 4」 · 열 수 없음", "못 읽은 던전은 준비 중과 다른 말")
+        last = dict(INDEX[-1], ready=False, error="")
+        self.assertEqual(journey_text.node_tip(last), "최종 던전 · 던전 16 「시간의 탑」 · 준비 중")
+
     def test_row_lines_from_the_service(self):
         service = self.service([grade_entry("t01/p1", "javascript"), grade_entry("t01/p3", passed=False, score=41.5)])
         info = service.dungeon("t01")
@@ -323,6 +333,7 @@ class WordsTest(SessionBase):
         service = self.service([grade_entry("t01/p1"), grade_entry("t01/p3", passed=False)])
         overview = service.overview()
         texts = [journey_text.ACTION, journey_text.map_count(overview), journey_text.bank_text(overview)[0]]
+        texts += [journey_text.node_tip(row) for row in overview["dungeons"]]
         for last in ("", "t03/p2"):
             item = journey_text.next_item(service, last, overview)
             texts += [item["title"], item["place"], item["role"], journey_text.track_line(overview, item)]

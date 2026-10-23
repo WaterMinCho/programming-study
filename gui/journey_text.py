@@ -108,6 +108,18 @@ def dungeon_lines(info, numbers):
     return lines
 
 
+def node_tip(row):
+    """지도 원의 도움말. row 는 overview()["dungeons"] 의 줄. 열린 던전은 "던전 1 「향신료 시장」 · 해시·투 포인터 · 6문제 중 2개 통과",
+    준비 중인 던전은 "… · 준비 중", 읽지 못한 던전은 "… · 열 수 없음" 이고 마지막 던전은 앞에 "최종 던전 · " 을 붙임."""
+    if row.get("error"):
+        tail = "열 수 없음"
+    elif not row["ready"]:
+        tail = "준비 중"
+    else:
+        tail = "%s · %d문제 중 %d개 통과" % (row["topic"], row["total"], row["passed"])
+    return "%s%s · %s" % ("최종 던전 · " if row.get("final") else "", place(row), tail)
+
+
 def row_line(row, info):
     """문제 목록 줄의 둘째 줄. 번호 · 난이도 · 상태 · 준비 문제 순서이고 보스는 번호를 뺌. 잠긴 보스는 여는 조건을 씀.
     row 는 dungeon()["problems"] 의 줄, info 는 그 dungeon() 결과."""

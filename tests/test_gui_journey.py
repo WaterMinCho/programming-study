@@ -21,17 +21,17 @@ from tests import guikit  # noqa: E402
 from PyQt6.QtCore import QSettings, Qt, QUrl  # noqa: E402
 from PyQt6.QtGui import QGuiApplication, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QMainWindow, QStackedWidget  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget  # noqa: E402
 
 import adaptive  # noqa: E402
 import study  # noqa: E402
-from gui import journey_html, theme  # noqa: E402
+from gui import journey_html, kit, theme  # noqa: E402
 from gui.dialogs import MessageDialog  # noqa: E402
 from gui.docview import CodeView, TextPiece  # noqa: E402
 from gui.editor import JAVASCRIPT, PYTHON  # noqa: E402
 from gui.guard import Guard  # noqa: E402
-from gui.journey_map import CLEAR_TEXT, JourneyMapPage, MapView  # noqa: E402
-from gui.journey_page import GIVE_UP_TEXT, NODE_TITLE, JourneyPage  # noqa: E402
+from gui.journey_map import ALL_CLEAR, BROKEN, CACHE_TIP, CLEAR_TEXT, WAITING, JourneyMapPage, MapView  # noqa: E402
+from gui.journey_page import GIVE_UP_TEXT, NODE_BUSY, NODE_TITLE, JourneyPage  # noqa: E402
 from gui.round_page import RoundPage  # noqa: E402
 from journey import bank, node, runner, values  # noqa: E402
 from journey.service import JourneySession  # noqa: E402
@@ -78,7 +78,7 @@ class FakeWindow(QMainWindow):
     def __init__(self, folder):
         super().__init__()
         self.settings = QSettings(os.path.join(folder, "settings.ini"), QSettings.Format.IniFormat)
-        self.zoom, self.dialog, self.job = 0, None, None
+        self.dialog, self.job = None, None
         self.journey = JourneySession("alice")
         self.opened, self.picks, self.pick_result, self.went, self.blocked = [], [], "", [], 0
         self.open_url = self.opened.append
@@ -93,6 +93,18 @@ class FakeWindow(QMainWindow):
         guikit.APP.installEventFilter(self.guard)
         self.guard.blocked.connect(self._blocked)
         self.resize(1280, 800)
+
+    @property
+    def zoom(self):
+        """MainWindow.zoom 과 같음. 옛 화면의 문서와 코드 글꼴이 받는 글자 단계의 px."""
+        return theme.text_px()
+
+    def set_text(self, step):
+        """MainWindow.set_text 와 같은 순서: 단계를 고르고, 모든 부품의 글꼴을 다시 준 뒤 화면마다 restyle."""
+        theme.set_text(step)
+        kit.refont(self)
+        self.journey_map.restyle()
+        self.journey_page.restyle()
 
     def _blocked(self):
         self.blocked += 1
@@ -215,87 +227,241 @@ def passed(pid, lang="python"):
             "passed": True, "tests": [1, 1, 0, 0]}
 
 
+def rows_of(page):
+    """지도 목록 줄의 (제목, 둘째 줄, 끝 caption)."""
+    return [(row.title.text(), row.second.text(), row.end.text()) for row in page.rows.rows]
+
+
+def first_px(view):
+    """문서 칸 첫 글 조각의 첫 블록 글자 px."""
+    piece = next(piece for piece in view.pieces if isinstance(piece, TextPiece))
+    return piece.document().begin().begin().fragment().charFormat().font().pixelSize()
+
+
+def press(widget, key):
+    QTest.keyClick(widget, key)
+    guikit.pump()
+
+
 class MapTest(Base):
     def test_sixteen_nodes_and_picking_one_shows_its_detail(self):
         win = self.boot()
         page = win.journey_map
+        self.assertEqual("2", page.property("ui"))
         self.assertEqual(16, len(page.view.nodes()))
         self.assertEqual("t01", page.view.selected)
-        self.assertIn("던전 1 · 합·최댓값 「시험 마을」", page.title.text())
-        self.assertEqual("통과 0/4", page.passed.text())
-        self.assertEqual("muted", MapView.state(page.view.rows[0]), "시작 전 원은 흰 바탕에서도 보이는 색")
-        self.assertTrue(page.notice.isVisible())
-        self.assertIn("t02", page.notice.text())
+        self.assertEqual(("던전 1 「시험 마을」", "4문제 중 0개 통과"), (page.title.text(), page.count.text()))
+        self.assertEqual("합·최댓값 · 보스 난이도 S5 / Lv2", page.meta.text())
+        self.assertEqual("보스 문제는 백준 실버 5, 프로그래머스 레벨 2 수준입니다.", page.meta.toolTip())
+        self.assertFalse(page.meta_more.isVisible())
+        self.assertEqual("4문제 중 0개 통과 · 클리어 0개", page.passed.text())
+        self.assertEqual("todo", MapView.state(page.view.rows[0]), "시작 전 원은 흰 바탕에 테두리")
+        self.assertTrue(page.bank_banner.isVisible())
+        self.assertIn("던전 2", page.bank_banner.text.text())
+        self.assertNotIn("t02", page.bank_banner.text.text())
+        self.assertIn("t02", page.bank_banner.toolTip(), "서비스 원문은 도움말에만")
         nodes = dict(page.view.nodes())
         QTest.mouseClick(page.view, guikit.LEFT, pos=nodes["t03"].center().toPoint())
         guikit.pump()
         self.assertEqual("t03", page.view.selected)
-        self.assertIn("던전 3 · 주제 3 「준비 중 던전 3」", page.title.text())
-        self.assertIn("아직 출제되지 않은 던전입니다.", doc_text(page.intro))
-        self.assertFalse(page.listw.isVisible())
-        self.assertEqual("faint", MapView.state(page.view.rows[2]))
+        self.assertEqual(("던전 3 「준비 중 던전 3」", ""), (page.title.text(), page.count.text()))
+        self.assertEqual(["주제 3 · 보스 난이도 G5 / Lv3", "던전 1 다음에 풀면 좋습니다."], [page.meta.text(), page.meta_more.text()])
+        self.assertEqual(WAITING, page.note.text())
+        self.assertFalse(page.rows.isVisible())
+        self.assertFalse(page.about_box.isVisible())
+        self.assertEqual("waiting", MapView.state(page.view.rows[2]))
         QTest.mouseClick(page.view, guikit.LEFT, pos=nodes["t02"].center().toPoint())
         guikit.pump()
-        self.assertIn("이 던전을 읽을 수 없습니다.", doc_text(page.intro))
+        self.assertEqual(BROKEN, page.note.text())
+        self.assertEqual("waiting", MapView.state(page.view.rows[1]))
         QTest.mouseClick(page.view, guikit.LEFT, pos=nodes["t01"].center().toPoint())
         guikit.pump()
-        self.assertTrue(page.listw.isVisible())
+        self.assertTrue(page.rows.isVisible())
+        self.assertFalse(page.note_box.isVisible())
         self.assertIn("물통에 담긴 물의 양을 더하고", doc_text(page.intro))
-        self.assertEqual("익히는 기술: 배열 합, 최댓값 찾기, 문자열 뒤집기", page.skills.text())
-        rows = [page.listw.item(n) for n in range(page.listw.count())]
-        self.assertEqual(["1-1 기초 · 물통 합계", "1-2 중급 · 가장 큰 물통", "1-3 선택 · 이름 뒤집기", "1-B 보스 · 물통 정리"],
-                         [row.text().split("\n")[0] for row in rows])
-        self.assertIn("준비 문제 1-1", rows[1].text())
-        boss = rows[3]
-        self.assertFalse(boss.flags() & Qt.ItemFlag.ItemIsEnabled)
-        self.assertEqual("중급 문제를 모두 통과하면 열립니다(1개 중 0개 통과).", boss.toolTip())
-        self.assertIn("잠김 · 중급 1개 중 0개 통과", boss.text())
-        self.assertTrue(boss.font().bold())
+        self.assertEqual("배열 합, 최댓값 찾기, 문자열 뒤집기", page.skills.text())
+        self.assertEqual([("물통 합계", "1-1 · B2 / Lv1", "기초"), ("가장 큰 물통", "1-2 · B1 / Lv1 · 준비 문제 1-1", "중급"),
+                          ("이름 뒤집기", "1-3 · B3 / Lv1", "선택"), ("물통 정리", "중급 1개를 모두 통과하면 열립니다.", "보스")], rows_of(page))
+        self.assertEqual(["todo", "todo", "todo", "lock"], [row.mark.state for row in page.rows.rows])
+        boss = page.rows.rows[3]
+        self.assertTrue(boss.inert)
+        self.assertTrue(boss.title.font().bold())
+        self.assertFalse(page.rows.rows[0].title.font().bold())
         self.assertFalse(page.boss_new.isVisible())
 
-    def test_solve_button_opens_the_selected_problem(self):
+    def test_rows_open_on_one_click_or_enter_and_the_locked_boss_stays_shut(self):
         win = self.boot()
         page = win.journey_map
-        page.listw.setCurrentRow(1)
-        guikit.click(page.solve_btn)
+        self.assertFalse(any(row.hasFocus() for row in page.rows.rows), "미리 고른 줄이 없음")
+        guikit.click(page.rows.rows[1])
         self.assertIs(win.pages.currentWidget(), win.journey_page)
         self.assertEqual("1-2 · 중급 · 가장 큰 물통", win.journey_page.title.text())
         guikit.click(win.journey_page.map_btn)
         self.assertIs(win.pages.currentWidget(), page)
+        self.assertEqual("t01", page.view.selected)
+        guikit.click(page.rows.rows[3])
+        self.assertIs(win.pages.currentWidget(), page, "잠긴 보스 줄은 눌러도 열리지 않음")
+        self.assertIsNone(win.dialog)
+        row = page.rows.rows[0]
+        row.setFocus()
+        press(row, Qt.Key.Key_Return)
+        self.assertEqual((win.pages.currentWidget(), win.journey_page.pid), (win.journey_page, "p1"))
         win.open_problem("t01", "boss")
         self.assertIn("중급 문제를 모두 통과하면 열립니다", win.dialog.text.text())
+
+    def test_next_card_holds_the_only_primary_button(self):
+        win = self.boot([passed("p1")])
+        page = win.journey_map
+        self.assertEqual((page.next_card.title.text(), page.next_card.line.text(), page.next_btn.text()),
+                         ("가장 큰 물통", "던전 1 「시험 마을」 · 중급", "문제 풀기"))
+        self.assertEqual([page.next_btn], kit.visible_primary_buttons(page))
+        win.settings.setValue("journey/last", "t01/p3")  # 지난번에 연 문제가 아직 통과 전이면 서비스 추천보다 먼저
+        win.go_journey()
+        guikit.pump()
+        self.assertEqual((page.next_card.title.text(), page.next_card.line.text()), ("이름 뒤집기", "던전 1 「시험 마을」 · 선택"))
+        guikit.click(page.next_btn)
+        self.assertEqual((win.pages.currentWidget(), win.journey_page.did, win.journey_page.pid), (win.journey_page, "t01", "p3"))
+
+    def test_without_a_next_problem_one_line_replaces_the_card(self):
+        win = self.boot([passed("p1"), passed("p2"), passed("boss")])
+        page = win.journey_map
+        self.assertFalse(page.next_card.isVisible())
+        self.assertEqual((page.next_note.isVisible(), page.next_note.text()), (True, ALL_CLEAR))
+        self.assertEqual([], kit.visible_primary_buttons(page))
+        self.assertEqual("cleared", MapView.state(page.view.rows[0]))
+        self.assertEqual("t01", page.view.selected, "다음이 없으면 첫 준비된 던전")
+        page.show_dungeon("t03")
+        win.go_journey()
+        self.assertEqual("t03", page.view.selected, "모두 클리어한 뒤에는 마지막으로 고른 던전에 머묾")
 
     def test_boss_skill_line_shows_only_after_the_boss_is_passed(self):
         win = self.boot([passed("p2"), passed("p1", "javascript"), {"at": adaptive.now(), "kind": "grade", "item": "t01/p3",
                                                                     "lang": "python", "score": 40.0, "passed": False}])
         page = win.journey_map
-        rows = [page.listw.item(n).text() for n in range(page.listw.count())]
-        self.assertIn("통과 (JavaScript)", rows[0])
-        self.assertIn("최고 40.0점", rows[2])
-        self.assertTrue(page.listw.item(3).flags() & Qt.ItemFlag.ItemIsEnabled)
+        self.assertEqual(["1-1 · B2 / Lv1 · 통과 · JavaScript", "1-2 · B1 / Lv1 · 통과 · Python · 준비 문제 1-1",
+                          "1-3 · B3 / Lv1 · 최고 40점", "S5 / Lv2"], [row.second.text() for row in page.rows.rows])
+        self.assertEqual(["done", "done", "progress", "todo"], [row.mark.state for row in page.rows.rows])
+        self.assertFalse(page.rows.rows[3].inert)
         self.assertFalse(page.boss_new.isVisible())
-        self.assertEqual("primary", MapView.state(page.view.rows[0]))
+        self.assertEqual("progress", MapView.state(page.view.rows[0]))
         self.write_log(self.read_log() + [passed("boss")])
         win.journey = JourneySession("alice")  # 기록을 밖에서 고쳤으므로 창이 [문제 받기] 뒤처럼 서비스를 새로 만듦
         page.refresh()
         guikit.pump()
         self.assertTrue(page.boss_new.isVisible())
-        self.assertEqual("보스에서 익힌 기술: 정렬한 뒤 앞에서 k개를 골라 더함", page.boss_new.text())
-        self.assertEqual("ok", MapView.state(page.view.rows[0]))
-        self.assertEqual("통과 3/4", page.passed.text())
+        self.assertEqual("정렬한 뒤 앞에서 k개를 골라 더함", page.boss_new.text())
+        self.assertEqual("cleared", MapView.state(page.view.rows[0]))
+        self.assertEqual("4문제 중 3개 통과 · 클리어 1개", page.passed.text())
 
-    def test_cache_line_and_clear_button(self):
+    def test_cache_button_shows_from_one_megabyte_and_hides_after_clearing(self):
+        win = self.boot()
+        page = win.journey_map
+        self.assertFalse(page.clear_cache_btn.isVisible())
+        chips = page.lang_bar.mapTo(page.top, page.lang_bar.rect().topRight())
+        self.assertEqual(page.top.width() - 1 - chips.x(), kit.MARGIN, "단추가 숨으면 칩이 막대 끝 여백 32 에 맞음")
         os.makedirs(runner.CACHE_DIR)
         with open(os.path.join(runner.CACHE_DIR, "a" * 64 + ".json"), "wb") as handle:
             handle.write(b"0" * (3 * 1024 * 1024))
+        page.refresh()
+        guikit.pump()
+        self.assertTrue(page.clear_cache_btn.isVisible())
+        self.assertEqual(CACHE_TIP, page.clear_cache_btn.toolTip())
+        guikit.click(page.clear_cache_btn)
+        self.assertEqual(CLEAR_TEXT % "3MB", win.dialog.text.text())
+        self.assertIn("3MB", win.dialog.text.text())
+        self.choose("clear")
+        self.assertFalse(page.clear_cache_btn.isVisible())
+        self.assertEqual([], os.listdir(runner.CACHE_DIR))
+
+    def test_keyboard_moves_on_the_map_by_screen_neighbours(self):
         win = self.boot()
         page = win.journey_map
-        self.assertEqual("생성 입력 캐시 3MB", page.cache.text())
-        guikit.click(page.clear_cache_btn)
-        self.assertEqual(CLEAR_TEXT, win.dialog.text.text())
-        self.choose("clear")
-        self.assertEqual("생성 입력 캐시 0MB", page.cache.text())
-        self.assertEqual([], os.listdir(runner.CACHE_DIR))
+        view = page.view
+        self.assertEqual(Qt.FocusPolicy.StrongFocus, view.focusPolicy())
+        win.activateWindow()
+        guikit.pump()
+        self.assertIs(QApplication.focusWidget(), page, "지도를 열면 초점은 화면 자체. 초점 테두리를 단 단추가 없음")
+        view.setFocus()
+        press(view, Qt.Key.Key_Right)
+        self.assertEqual(("t02", "던전 2 「부서진 다리」"), (view.selected, page.title.text()))
+        press(view, Qt.Key.Key_Left)
+        press(view, Qt.Key.Key_Left)
+        self.assertEqual("t01", view.selected, "첫 칸에서 왼쪽은 그대로")
+        press(view, Qt.Key.Key_Down)
+        self.assertEqual("t08", view.selected, "둘째 줄은 오른쪽에서 왼쪽으로 가므로 화면 아래 칸은 던전 8")
+        press(view, Qt.Key.Key_Right)
+        self.assertEqual("t07", view.selected)
+        press(view, Qt.Key.Key_Up)
+        self.assertEqual("t02", view.selected)
+        press(view, Qt.Key.Key_End)
+        self.assertEqual("t16", view.selected)
+        press(view, Qt.Key.Key_Home)
+        self.assertEqual("t01", view.selected)
+        press(view, Qt.Key.Key_Return)
+        self.assertIs(QApplication.focusWidget(), page.rows.rows[0], "Enter 는 그 던전의 첫 열 수 있는 줄로 초점을 옮김")
+        press(page.rows.rows[0], Qt.Key.Key_Space)
+        self.assertEqual((win.pages.currentWidget(), win.journey_page.pid), (win.journey_page, "p1"))
+
+    def test_javascript_without_node_keeps_python_and_the_banner_finds_node(self):
+        win = self.boot()
+        page = win.journey_map
+        self.assertFalse(page.node_banner.isVisible())
+        state = {"ok": False}
+
+        def find_node(probe=True):
+            state["ok"] = True
+            return HAS_NODE
+
+        runtime = lambda lang: HAS_NODE if lang == "python" or state["ok"] else NO_NODE  # noqa: E731
+        with mock.patch.object(win.journey, "runtime", runtime), mock.patch.object(win.journey, "find_node", find_node):
+            guikit.click(page.lang_btns["javascript"])
+            self.assertEqual((page.lang_btns["python"].isChecked(), page.lang_btns["javascript"].isChecked()), (True, False))
+            self.assertTrue(page.node_banner.isVisible())
+            self.assertFalse(page.lang_bar.note.isVisible(), "지도는 칩 옆 글 대신 띠로 알림")
+            self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
+            win.dialog.close()
+            guikit.click(page.node_banner.action)
+            self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
+            self.choose("find")
+            self.assertEqual((page.lang_btns["python"].isChecked(), page.lang_btns["javascript"].isChecked()), (False, True))
+            self.assertFalse(page.node_banner.isVisible())
+            self.assertEqual("javascript", win.settings.value("journey/lang"))
+
+    def test_busy_map_turns_off_its_controls_and_names_the_job(self):
+        win = self.boot()
+        page = win.journey_map
+        page.set_busy(True, NODE_BUSY)
+        guikit.pump()
+        self.assertEqual((page.busy_label.text(), page.busy_label.isVisible(), page.busy_bar.isVisible()), (NODE_BUSY, True, True))
+        controls = [page.home_btn, page.next_btn, page.view] + list(page.lang_btns.values())
+        self.assertEqual([], [widget for widget in controls + page.rows.rows if widget.isEnabled()])
+        page.show_dungeon("t01")
+        self.assertEqual([], [row for row in page.rows.rows if row.isEnabled()], "바쁜 동안 새로 만든 줄도 꺼짐")
+        guikit.click(page.rows.rows[0])
+        self.assertIs(win.pages.currentWidget(), page)
+        page.set_busy(False)
+        guikit.pump()
+        self.assertEqual((page.busy_label.isVisible(), page.busy_bar.isVisible()), (False, False))
+        self.assertTrue(all(widget.isEnabled() for widget in controls + page.rows.rows))
+
+    def test_text_steps_resize_the_map_rows_chips_and_intro(self):
+        self.addCleanup(theme.set_text, "normal")
+        win = self.boot()
+        page = win.journey_map
+        for step, px, height in (("larger", 21, 394), ("large", 19, 378)):
+            win.set_text(step)
+            guikit.pump()
+            self.assertEqual(height, page.view.height(), step)
+            for chip in page.lang_btns.values():
+                self.assertGreaterEqual(chip.width(), chip.sizeHint().width(), step)
+                self.assertGreaterEqual(chip.minimumWidth(), chip.sizeHint().width(), step)
+            self.assertEqual(px, page.rows.rows[0].title.font().pixelSize(), step)
+            self.assertEqual(px, first_px(page.intro), step)
+            card = page.map_card
+            for item in page.legend.items:
+                place = item.mapTo(card, item.rect().topLeft())
+                self.assertGreaterEqual(place.x(), 24, step)
+                self.assertLessEqual(place.x() + item.width(), card.width() - 24, step)
 
     def test_home_button_goes_to_the_hub(self):
         win = self.boot()
@@ -516,6 +682,7 @@ class NodeTest(Base):
             guikit.click(page.lang_btns["javascript"])
             self.assertEqual("python", page.lang)
             self.assertIs(PYTHON, page.code_panel.editor.lang)
+            self.assertEqual((page.lang_btns["python"].isChecked(), page.lang_btns["javascript"].isChecked()), (True, False))
             self.assertTrue(page.lang_bar.note.isVisible())
             self.assertEqual(NODE_TITLE, win.dialog.windowTitle())
             self.assertIn("Node.js 20 이상", win.dialog.text.text())
@@ -552,11 +719,12 @@ class NodeTest(Base):
             win.go_journey()
             runtime.assert_called_with("javascript")
         self.assertEqual("javascript", win.journey_map.lang_bar.lang)
-        self.assertFalse(win.journey_map.lang_bar.note.isVisible())
+        self.assertFalse(win.journey_map.node_banner.isVisible())
         with mock.patch.object(win.journey, "runtime", return_value=NO_NODE):
             win.journey_map.refresh()
             self.assertEqual("python", win.journey_map.lang_bar.lang)
-            self.assertTrue(win.journey_map.lang_bar.note.isVisible())
+            self.assertTrue(win.journey_map.lang_btns["python"].isChecked())
+            self.assertTrue(win.journey_map.node_banner.isVisible())
             page = self.open("p1")
         self.assertEqual("python", page.lang)
         self.assertTrue(page.lang_bar.note.isVisible())

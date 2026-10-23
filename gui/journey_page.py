@@ -10,9 +10,10 @@ import re
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QGuiApplication, QTextCursor
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QSizePolicy, QSplitter, QTabWidget, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QSizePolicy, QSplitter, QTabWidget,
+                             QVBoxLayout, QWidget)
 
-from gui import journey_html, motion, theme
+from gui import journey_html, kit, motion, theme
 from gui.cases_dialog import CasesDialog
 from gui.docview import DocView
 from gui.editor import LANGS
@@ -25,6 +26,7 @@ from session import SessionError
 SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
 SITE_LABEL = {"boj": "백준", "programmers": "프로그래머스"}
 NODE_TITLE = "Node.js 가 필요합니다"
+NODE_BUSY = "Node.js 찾는 중"  # node 를 찾거나 고른 파일을 확인하는 동안 화면 위 막대에 보이는 글
 NODE_TEXT = ("JavaScript 로 풀려면 이 컴퓨터에 Node.js %d 이상이 있어야 합니다. https://nodejs.org 에서 LTS 버전을 설치한 뒤 "
              "[다시 찾기]를 눌러 주세요. 이미 설치했다면 [Node 위치 지정…]으로 node 실행 파일을 골라 주세요. "
              "Python 으로는 지금도 풀 수 있습니다." % MIN_MAJOR)
@@ -49,7 +51,7 @@ def with_node(win, then):
     if win.journey.node_checked():
         then(node_ready(win))
         return
-    win.run_job("Node.js 를 찾는 중입니다.", lambda: win.journey.runtime("javascript"), lambda info: then(bool(info["ok"])))
+    win.run_job(NODE_BUSY, lambda: win.journey.runtime("javascript"), lambda info: then(bool(info["ok"])))
 
 
 def ask_node(win, on_ready):
@@ -63,7 +65,7 @@ def ask_node(win, on_ready):
 
     def choose(key):
         if key == "find":
-            win.run_job("Node.js 를 찾는 중입니다.", lambda: win.journey.find_node(probe=True), found)
+            win.run_job(NODE_BUSY, lambda: win.journey.find_node(probe=True), found)
             return
         path = win.pick_file("node 실행 파일 고르기")
         if not path:
@@ -73,46 +75,53 @@ def ask_node(win, on_ready):
             win.settings.setValue("journey/node", path)
             found(info)
 
-        win.run_job("Node.js 를 확인하는 중입니다.", lambda: win.journey.set_node(path), checked)
+        win.run_job(NODE_BUSY, lambda: win.journey.set_node(path), checked)
 
     return win.ask(NODE_TITLE, NODE_TEXT, (("다시 찾기", "find"), ("Node 위치 지정…", "pick"), ("닫기", "")), choose)
 
 
-class LangButtons(QWidget):
-    """언어 단추 두 개와 "Node.js 필요" 글자. 누르면 picked(언어)를 내고, 고른 언어는 부른 쪽이 set_lang 으로 표시함."""
+class LangChips(QWidget):
+    """풀이 언어 칩 두 개와 "Node.js 필요" 글자. 누르면 picked(언어)를 내고, 고른 언어는 부른 쪽이 set_lang 으로 표시함.
+    칩은 누르는 순간 체크가 옮겨 가므로 Node.js 가 없어 거절할 때는 부른 쪽이 set_lang(지금 언어)로 되돌림.
+    onbg 면 회색 바탕 위의 칩(지도 위 막대)이고 앞에 "풀이 언어" 이름표를 둠. 칩의 최소 폭은 글자 폭(fit)이라 좁은 막대에서도 글자가 잘리지 않음."""
     picked = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, onbg=False, parent=None):
         super().__init__(parent)
-        row = QHBoxLayout(self)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(4)
-        label = QLabel("언어")
-        label.setObjectName("muted")
-        row.addWidget(label)
-        row.addSpacing(4)
+        row = kit.box(self, spacing=8, horizontal=True)
+        if onbg:
+            row.addWidget(kit.label("풀이 언어", "caption", "tertiary"))
+        self.group = QButtonGroup(self)
+        self.group.setExclusive(True)
         self.buttons = {}
         for lang, text in LANG_LABEL.items():
-            button = QPushButton(text)
-            button.setAutoDefault(False)
-            button.clicked.connect(lambda checked=False, lang=lang: self.picked.emit(lang))
-            row.addWidget(button)
-            self.buttons[lang] = button
-        self.note = QLabel("Node.js 필요")
-        self.note.setObjectName("muted")
+            chip = kit.chip(text, lang, onbg)
+            chip.clicked.connect(lambda checked=False, lang=lang: self.picked.emit(lang))
+            self.group.addButton(chip)
+            row.addWidget(chip)
+            self.buttons[lang] = chip
+        self.note = kit.label("Node.js 필요", "caption", "tertiary")
         self.note.setToolTip("JavaScript 로 풀려면 Node.js %d 이상이 필요합니다." % MIN_MAJOR)
         self.note.hide()
-        row.addSpacing(6)
         row.addWidget(self.note)
         self.lang = ""
 
     def set_lang(self, lang):
-        """고른 언어의 단추를 강조함. 스타일은 objectName 으로 고르므로 바꾼 뒤 다시 입힘."""
+        """고른 언어의 칩을 고른 모양으로 둠."""
         self.lang = lang
-        for name, button in self.buttons.items():
-            button.setObjectName("primary" if name == lang else "quiet")
-            button.style().unpolish(button)
-            button.style().polish(button)
+        for name, chip in self.buttons.items():
+            chip.setChecked(name == lang)
+
+    def fit(self):
+        """칩마다 최소 폭을 지금 글자의 폭으로 묶음. 글자 크기 단계가 바뀌면 화면의 restyle 이 다시 부름."""
+        for chip in self.buttons.values():
+            chip.setMinimumWidth(0)
+            chip.ensurePolished()
+            chip.setMinimumWidth(chip.sizeHint().width())
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.fit()
 
 
 class JourneyCodePanel(CodePanel):
@@ -166,7 +175,7 @@ class JourneyPage(QWidget):
         self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)  # 긴 제목이 창을 넓히지 않게 함
         self.tier = QLabel()
         self.tier.setObjectName("muted")
-        self.lang_bar = LangButtons()
+        self.lang_bar = LangChips()
         self.lang_btns = self.lang_bar.buttons
         head.addWidget(self.map_btn)
         head.addSpacing(8)
@@ -391,20 +400,24 @@ class JourneyPage(QWidget):
         """언어를 바꿈. 쓰던 코드를 저장하고 그 언어의 파일(없으면 시작 코드)을 엶. JavaScript 인데 node 가 없으면 Python 에 머묾.
         node_ok 는 with_node 가 알아낸 결과이고, 없으면 with_node 를 거쳐 다시 부름."""
         if self.data is None or lang == self.lang:
+            self.lang_bar.set_lang(self.lang)
             return
         if lang == "javascript" and node_ok is None:
             with_node(self.win, lambda ok: self.pick_lang(lang, ok))
             return
         if lang == "javascript" and not node_ok:
             self.status.setText("")
+            self.lang_bar.set_lang(self.lang)
             self.lang_bar.note.show()
             ask_node(self.win, lambda: self.pick_lang("javascript"))
             return
         if not self.flush():
+            self.lang_bar.set_lang(self.lang)
             return
         try:
             data = self.win.journey.problem(self.did, self.pid, lang)
         except SessionError as error:
+            self.lang_bar.set_lang(self.lang)
             self.win.ask("알림", str(error))
             return
         self.win.settings.setValue("journey/lang", lang)

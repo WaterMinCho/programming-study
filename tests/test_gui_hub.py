@@ -165,14 +165,12 @@ class HubTest(unittest.TestCase):
         return adaptive.load_profile(USER)
 
     def open_problem(self, pid):
-        """첫 화면의 알고리즘 여행 줄 → 지도에서 pid 를 골라 [문제 풀기]."""
+        """첫 화면의 알고리즘 여행 줄 → 지도에서 pid 의 줄을 한 번 누름."""
         win = self.win
         if self.page() is not win.journey_map:
             guikit.click(win.hub.journey_row)
         page = win.journey_map
-        row = next(n for n in range(page.listw.count()) if page.listw.item(n).data(Qt.ItemDataRole.UserRole) == pid)
-        page.listw.setCurrentRow(row)
-        guikit.click(page.solve_btn)
+        guikit.click(next(row for row in page.rows.rows if row.data == pid))
         self.assertIs(self.page(), win.journey_page, win.dialog and win.dialog.text.text())
         return win.journey_page
 
@@ -262,6 +260,12 @@ class HubScreenTest(HubTest):
         self.assertEqual(hub.journey_row.second.text(), "8문제 중 1개 통과 · 다음은 물통 합계")
         self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
                          ("물통 합계", "알고리즘 여행 · 던전 3 「준비 중 던전 3」", "문제 풀기"))
+        guikit.click(hub.journey_row)
+        self.idle()
+        page = win.journey_map
+        self.assertEqual((self.page(), page.view.selected), (page, "t03"), "지도도 첫 화면이 말한 던전을 고름")
+        self.assertEqual((page.next_card.title.text(), page.next_card.line.text()), ("물통 합계", "던전 3 「준비 중 던전 3」 · 기초"))
+        guikit.click(page.home_btn)
         guikit.click(hub.next_btn)
         self.idle()
         self.assertEqual((self.page(), win.journey_page.did, win.journey_page.pid), (win.journey_page, "t03", "p1"))
@@ -274,6 +278,8 @@ class HubScreenTest(HubTest):
             hub.refresh()
             self.assertEqual((hub.journey_row.second.text(), hub.next_card.title.text(), hub.next_card.line.text()),
                              ("8문제 중 1개 통과 · 다음은 가장 큰 물통", "가장 큰 물통", "알고리즘 여행 · 던전 1 「시험 마을」"), last)
+            win.journey_map.refresh()
+            self.assertEqual((win.journey_map.view.selected, win.journey_map.next_card.title.text()), ("t01", "가장 큰 물통"), last)
 
     def test_rows_move_between_the_areas_and_the_theme_button_names_the_next_mode(self):
         win = self.boot()
