@@ -115,6 +115,25 @@ def missing_figure(src):
     return note
 
 
+def parts_of(text, base_dir, lang):
+    """마크다운을 쌓을 차례대로 나눠 내놓음. 그림 줄 사이의 블록들은 한 목록으로, 그림 줄은 그림 조각(FigureView)으로 내놓고
+    그림 파일을 읽지 못하면 그 자리에 안내 글을 내놓음. 이미지 줄의 경로는 base_dir 에서 찾음. DocView 와 Doc 이 같이 씀."""
+    run = []
+    for block in keep_lang(mdlite.parse(text), lang):
+        if block["t"] != "image":
+            run.append(block)
+            continue
+        if run:
+            yield run
+        run = []
+        try:
+            yield FigureView(os.path.join(base_dir, block["src"]), block["alt"])
+        except OSError:  # 없는 파일, 읽을 권한이 없는 파일, [문제 받기]가 바꾸는 중인 파일
+            yield missing_figure(block["src"])
+    if run:
+        yield run
+
+
 class Sheet(QWidget):
     """조각을 얹는 바탕. 칠할 때마다 지금 테마의 surface 색을 읽어서 테마를 바꿔도 따로 다시 칠할 일이 없음.
     flat 이면 칠하지 않음. 카드 안에 둔 칸은 카드가 면과 둥근 모서리를 그림."""
@@ -354,19 +373,11 @@ class DocView(QScrollArea):
     def set_markdown(self, text, base_dir, lang):
         """내용을 text 로 바꾸고 맨 위로 감. 이미지 줄의 경로는 base_dir 에서 찾음."""
         self.clear()
-        run = []
-        for block in keep_lang(mdlite.parse(text), lang):
-            if block["t"] != "image":
-                run.append(block)
-                continue
-            self._add_blocks(run)
-            run = []
-            try:
-                piece = FigureView(os.path.join(base_dir, block["src"]), block["alt"])
-            except OSError:  # 없는 파일, 읽을 권한이 없는 파일, [문제 받기]가 바꾸는 중인 파일
-                piece = missing_figure(block["src"])
-            self._add(piece)
-        self._add_blocks(run)
+        for part in parts_of(text, base_dir, lang):
+            if isinstance(part, list):
+                self._add_blocks(part)
+            else:
+                self._add(part)
         self.verticalScrollBar().setValue(0)
 
     def add_code(self, title, code, lang):
@@ -435,7 +446,7 @@ class Doc(QWidget):
         super().__init__()
         self.box = kit.box(self, spacing=8)
         self.pieces = []
-        self.css, self.code_font = theme.web_css(), theme.code_font()
+        self.css = theme.web_css()
         self.setMaximumWidth(kit.DOC_MIN)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
@@ -448,19 +459,11 @@ class Doc(QWidget):
 
     def set_markdown(self, text, base_dir, lang):
         self.clear()
-        run = []
-        for block in keep_lang(mdlite.parse(text), lang):
-            if block["t"] != "image":
-                run.append(block)
-                continue
-            self._add_blocks(run)
-            run = []
-            try:
-                piece = FigureView(os.path.join(base_dir, block["src"]), block["alt"])
-            except OSError:
-                piece = missing_figure(block["src"])
-            self._add(piece)
-        self._add_blocks(run)
+        for part in parts_of(text, base_dir, lang):
+            if isinstance(part, list):
+                self._add_blocks(part)
+            else:
+                self._add(part)
         self.setVisible(bool(self.pieces))
 
     def _add_blocks(self, blocks):
@@ -472,8 +475,9 @@ class Doc(QWidget):
         self.box.addWidget(widget)
         self.pieces.append(widget)
 
-    def restyle(self, css, code_font):
-        self.css, self.code_font = css, code_font
+    def restyle(self, css, code_font=None):
+        """code_font 는 DocView.restyle 과 같은 꼴로 부르게 받기만 함. 이 글에는 코드 조각이 없음."""
+        self.css = css
         for piece in self.pieces:
             if isinstance(piece, TextPiece):
                 piece.restyle(css)

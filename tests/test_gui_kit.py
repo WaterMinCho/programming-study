@@ -57,33 +57,6 @@ def sizes():
     return {size for size, _, _ in theme.TYPE.values()} | {theme.CODE_PX}
 
 
-def drag(handle, dx, dy=0):
-    """칸 나누기 손잡이를 가운데에서 잡아 (dx, dy) 만큼 끌고 놓음."""
-    start = QPoint(handle.width() // 2, handle.height() // 2)
-    QTest.mousePress(handle, guikit.LEFT, Qt.KeyboardModifier.NoModifier, start)
-    QTest.mouseMove(handle, start + QPoint(dx, dy))
-    QTest.mouseRelease(handle, guikit.LEFT, Qt.KeyboardModifier.NoModifier, start + QPoint(dx, dy))
-    guikit.pump()
-
-
-def ink(image, rect, back):
-    """rect 안에서 바탕색 back 과 가장 먼 화소의 색. 글자를 그린 색을 찾을 때 씀."""
-    base, best, found = QColor(back), -1, None
-    for x in range(rect.left(), rect.right() + 1):
-        for y in range(rect.top(), rect.bottom() + 1):
-            color = image.pixelColor(x, y)
-            far = abs(color.red() - base.red()) + abs(color.green() - base.green()) + abs(color.blue() - base.blue())
-            if far > best:
-                best, found = far, color.name()
-    return found
-
-
-def near(color, token):
-    """화소 색이 토큰 색과 채널마다 8 안쪽으로 같은지. 안티에일리어싱으로 끝 화소가 조금 섞이는 것을 받음."""
-    want = QColor(theme.color(token))
-    return max(abs(color.red() - want.red()), abs(color.green() - want.green()), abs(color.blue() - want.blue())) <= 8
-
-
 def map_rows():
     """dungeons/index.json 의 던전 16개로 만든 지도 줄. 던전 1 은 클리어, 2 는 진행 중, 3 은 시작 전, 4 부터는 준비 중."""
     rows = []
@@ -395,14 +368,14 @@ class PartsTest(unittest.TestCase):
             self.assertEqual(view.height(), height, step)
             image = view.grab().toImage()
             center = view.nodes()[0][1].center().toPoint()
-            filled = [x for x in range(center.x() - 30, center.x() + 30) if near(image.pixelColor(x, center.y()), "ok")]
+            filled = [x for x in range(center.x() - 30, center.x() + 30) if guikit.near(image.pixelColor(x, center.y()), "ok")]
             self.assertTrue(38 <= filled[-1] - filled[0] + 1 <= 40, (step, filled))  # 가운데 번호 글자는 빼고 양 끝 사이를 잼
-            self.assertTrue(near(image.pixelColor(center.x() + 24, center.y()), "ink"), (step, image.pixelColor(center.x() + 24, center.y()).name()))
+            self.assertTrue(guikit.near(image.pixelColor(center.x() + 24, center.y()), "ink"), (step, image.pixelColor(center.x() + 24, center.y()).name()))
             labels = view.labels()
             self.assertEqual({round(pill.height()) for _, pill, _, _ in labels}, {theme.TYPE["caption"][1]}, step)
             turn = view.nodes()[3][1].center()  # 넷째 던전에서 다섯째로 꺾는 세로 길이 넷째 이름 밑으로 지나감
             pill = labels[3][1]
-            self.assertTrue(near(image.pixelColor(round(turn.x()), round(pill.top()) + 1), "surface"), step)
+            self.assertTrue(guikit.near(image.pixelColor(round(turn.x()), round(pill.top()) + 1), "surface"), step)
             for index, (_, _, text, _) in enumerate(labels):
                 if MapView.spot(index)[1] in (0, COLUMNS - 1):
                     self.assertGreaterEqual(text.left(), 24, (step, index))
@@ -422,7 +395,7 @@ class PartsTest(unittest.TestCase):
             guikit.pump()
             self.assertTrue(view.hasFocus(), step)
             image = view.grab().toImage()
-            self.assertTrue(near(image.pixelColor(center.x() + 24, center.y()), "focus"), step)
+            self.assertTrue(guikit.near(image.pixelColor(center.x() + 24, center.y()), "focus"), step)
 
     def test_splitter_keeps_and_remembers_the_ratio(self):
         """끄는 칸 나누기의 손잡이 폭은 24(세로 나누기 16)이고 가운데에 무늬가 있음. 가로 칸은 320 아래로 줄지 않음. 끈 몫은 설정에
@@ -451,7 +424,7 @@ class PartsTest(unittest.TestCase):
         QTest.mouseMove(handle, middle)  # 올리면 무늬가 짙어짐
         guikit.pump()
         self.assertEqual(handle.grab().toImage().pixelColor(middle).name(), theme.color("scroll_hover"))
-        drag(handle, -100)
+        guikit.drag(handle, -100)
         ratio = wide.sizes()[0] / sum(wide.sizes())
         self.assertLess(ratio, 0.45)
         self.assertAlmostEqual(float(settings.value("test/split")), ratio, places=3)
@@ -465,13 +438,13 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(float(settings.value("test/split")), 0.5)
         before = wide.sizes()
         wide.set_locked(True)
-        drag(wide.handle(1), -150)
+        guikit.drag(wide.handle(1), -150)
         self.assertEqual(wide.sizes(), before)
         self.assertEqual(float(settings.value("test/split")), 0.5)
         self.assertEqual(wide.handle(1).grab().toImage().pixelColor(middle).name(), theme.color("bg"))
         self.assertEqual(wide.handle(1).cursor().shape(), Qt.CursorShape.ArrowCursor)
         wide.set_locked(False)
-        drag(wide.handle(1), -150)
+        guikit.drag(wide.handle(1), -150)
         self.assertLess(wide.sizes()[0], before[0])
         self.assertEqual(wide.handle(1).cursor().shape(), Qt.CursorShape.SplitHCursor)
         for bad in ("넓게", 1.5, 0):  # 0~1 사이의 수가 아니면 처음 몫으로 시작함
@@ -510,7 +483,7 @@ class PartsTest(unittest.TestCase):
         image = one.grab().toImage()
         button = one.action.geometry()
         self.assertEqual(image.pixelColor(button.x() + 8, button.y() + 20).name(), theme.color("ok_weak"))
-        self.assertEqual(ink(image, button.adjusted(12, 8, -12, -8), theme.color("ok_weak")), theme.color("faint"))
+        self.assertEqual(guikit.ink(image, theme.color("ok_weak"), button.adjusted(12, 8, -12, -8)).name(), theme.color("faint"))
         theme.set_text("large")
         kit.refont(self.root)
         guikit.pump()
@@ -545,7 +518,7 @@ class PartsTest(unittest.TestCase):
                 back = theme.color((backs if enabled else offs)[onbg, checked])
                 self.assertEqual(image.pixelColor(box.x() + 8, box.y() + 20).name(), back, where)
                 if not enabled:
-                    self.assertEqual(ink(image, box.adjusted(16, 8, -16, -8), back), theme.color("faint"), where)
+                    self.assertEqual(guikit.ink(image, back, box.adjusted(16, 8, -16, -8)).name(), theme.color("faint"), where)
 
     def test_flat_scroll_area_in_a_card_keeps_the_round_corners(self):
         """카드 끝까지 닿는 스크롤 칸은 flat 이면 바탕을 칠하지 않아 카드의 둥근 모서리가 보임. flat 이 아니면 칸 바탕(surface)이 모서리를 덮음."""

@@ -9,9 +9,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QFrame, QScrollArea, QWidget
 
 from gui import journey_html, journey_text, kit, theme
-from gui.docview import TextPiece
-
-PAD = 24  # 카드 안쪽 여백
+from gui.docview import PAD, TextPiece  # 카드 안쪽 여백은 문서 칸의 안쪽 여백과 같은 24
 
 
 class JourneyResult(QFrame):

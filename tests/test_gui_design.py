@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
 from PyQt6.QtCore import QPoint  # noqa: E402
-from PyQt6.QtGui import QColor  # noqa: E402
 from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea  # noqa: E402
 
 from gui import journey_text, kit, theme  # noqa: E402
@@ -59,12 +58,6 @@ def own(widget, root):
 def screen_sizes():
     """화면 글이 쓰는 글자 크기(설계 10.1-22). label 은 body 와 크기가 같고, code 는 앱 기본 크기(15)와 겹쳐 옮기지 않은 글을 못 잡으므로 뺌."""
     return {theme.TYPE[role][0] for role in ("display", "title", "headline", "body", "caption")}
-
-
-def near(color, token):
-    """화소 색이 토큰 색과 채널마다 8 안쪽으로 같은지."""
-    want = QColor(theme.color(token))
-    return max(abs(color.red() - want.red()), abs(color.green() - want.green()), abs(color.blue() - want.blue())) <= 8
 
 
 def holder(widget):
@@ -361,7 +354,7 @@ class JourneyDesignTest(test_gui_journey.Base):
                 self.assertFalse(page.result.collapsed)
                 inks += [(name, self.corner_inks(card)) for name, card in (("지문", page.problem_card), ("결과", page.result))]
                 for name, colors in inks:
-                    self.assertEqual([True] * 4, [near(color, "bg") for color in colors],
+                    self.assertEqual([True] * 4, [guikit.near(color, "bg") for color in colors],
                                      "%s %s %s: %s" % (scheme, size, name, [color.name() for color in colors]))
 
     def test_top_bar_keeps_its_buttons_and_the_tag_beside_the_name(self):

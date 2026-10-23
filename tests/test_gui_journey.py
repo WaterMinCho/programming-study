@@ -18,8 +18,8 @@ os.environ.setdefault("STUDY_NODE_PROBE", "0")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
-from PyQt6.QtCore import QPoint, QSettings, Qt, QUrl  # noqa: E402
-from PyQt6.QtGui import QColor, QFontMetricsF, QGuiApplication, qGray  # noqa: E402
+from PyQt6.QtCore import QSettings, Qt, QUrl  # noqa: E402
+from PyQt6.QtGui import QFontMetricsF, QGuiApplication, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QFrame, QMainWindow, QPushButton, QStackedWidget  # noqa: E402
 
@@ -257,24 +257,6 @@ def button_line(dialog):
 def edge_ink(edit):
     """입력칸 위 테두리 가운데 화소의 색 이름."""
     return edit.grab().toImage().pixelColor(edit.width() // 2, 1).name()
-
-
-def near(color, token):
-    """화소 색이 토큰 색과 채널마다 8 안쪽으로 같은지. 글자 가장자리의 안티에일리어싱을 받음."""
-    want = QColor(theme.color(token))
-    return max(abs(color.red() - want.red()), abs(color.green() - want.green()), abs(color.blue() - want.blue())) <= 8
-
-
-def far_ink(image, back):
-    """그림에서 바탕색 back 과 가장 먼 화소의 색. 글자를 그린 색을 찾을 때 씀."""
-    base, best, found = QColor(back), -1, None
-    for x in range(image.width()):
-        for y in range(image.height()):
-            color = image.pixelColor(x, y)
-            far = abs(color.red() - base.red()) + abs(color.green() - base.green()) + abs(color.blue() - base.blue())
-            if far > best:
-                best, found = far, color
-    return found
 
 
 def has_underline(link):
@@ -742,12 +724,7 @@ class WorkFrameTest(Base):
         self.assertFalse(panel.split.locked)
         self.assertGreaterEqual(result.height(), 160)
         self.assertGreaterEqual(full_lines(editor), 10, "펼친 뒤에도 편집기 10줄")
-        handle = panel.split.handle(1)
-        start = handle.rect().center()
-        QTest.mousePress(handle, guikit.LEFT, Qt.KeyboardModifier.NoModifier, start)
-        QTest.mouseMove(handle, start + QPoint(0, 40))
-        QTest.mouseRelease(handle, guikit.LEFT, Qt.KeyboardModifier.NoModifier, start + QPoint(0, 40))
-        guikit.pump()
+        guikit.drag(panel.split.handle(1), 0, 40)
         ratio = float(win.settings.value("journey/split_v"))
         self.assertTrue(0 < ratio < 1, ratio)
         heights = (editor.height(), result.height())
@@ -838,7 +815,8 @@ class WorkFrameTest(Base):
                                                                         page.facts.links[0])] + [chip.isEnabled() for chip in page.lang_btns.values()],
                            "buttons": (page.run_btn.text(), page.run_btn.isEnabled(), page.grade_btn.text(), page.grade_btn.isEnabled()),
                            "stop": (page.stop_btn.isVisible(), page.stop_btn.isEnabled(), page.stop_btn.text()), "reset": page.reset_btn.isVisible(),
-                           "chip": (near(image.pixelColor(image.width() // 2, 4), "selection"), near(far_ink(image, theme.color("selection")), "faint"))})
+                           "chip": (guikit.near(image.pixelColor(image.width() // 2, 4), "selection"),
+                                    guikit.near(guikit.ink(image, theme.color("selection")), "faint"))})
 
         with mock.patch.object(win.journey, "run", fake_run([run_case(1)], check=check)):
             guikit.click(page.run_btn)
