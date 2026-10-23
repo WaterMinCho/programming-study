@@ -98,7 +98,8 @@ def paint_node(painter, rect, state, number=None, font=None):
 
 class MapView(QWidget):
     """던전 16개를 4개씩 4줄 뱀 모양 길로 그린 지도. 원 가운데 x = 52 + 칸 × (폭 − 104) / 3, y = 28 + 줄 × 줄 사이.
-    원 아래에는 surface 알약 위에 이름을 써서 꺾이는 세로 길이 지나가도 읽힘. 고른 던전은 원 밖 6 에 2px 고리(초점이 있으면 focus 색).
+    원 아래에는 surface 알약 위에 이름을 써서 꺾이는 세로 길이 지나가도 읽힘. 고른 던전은 원 밖 6 에 2px 고리이고 글자색임.
+    키보드로 초점이 왔을 때만 focus 색이라 마우스로 누른 뒤에는 진행 중(파랑 채움) 던전에서 고리가 원에 묻히지 않음.
     누르거나 화살표로 고르면 picked(던전 id), Enter·Space 는 entered(던전 id) 를 냄. 화살표는 화면의 이웃(같은 줄의 왼쪽·오른쪽,
     위·아래 줄의 같은 칸)으로 움직임. 높이는 글자 단계의 caption 줄 높이로 정하고(refont) 늘어나지 않음. 색과 글꼴은 칠할 때마다 읽음."""
     picked = pyqtSignal(str)
@@ -107,8 +108,10 @@ class MapView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.rows, self.selected, self.over = [], None, None
+        self.keyed = False  # 초점이 키보드(Tab, 화살표)로 왔는지. 마우스로 누른 초점이면 거짓
         self.placed = (None, [])  # 이름 자리를 정한 조건(폭, caption 단계, 이름들)과 그 결과(labels)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName("던전 지도")
         self.setMouseTracking(True)  # 원과 이름 위에서만 손 모양 커서
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.refont()
@@ -126,11 +129,15 @@ class MapView(QWidget):
         return QSize(WIDTH_HINT, map_height(self.lines()))
 
     def set_rows(self, rows, selected):
-        self.rows, self.selected = list(rows), selected
+        self.rows = list(rows)
+        self.set_selected(selected)
         self.refont()
 
     def set_selected(self, did):
+        """고른 던전을 바꾸고 화면 읽기 프로그램이 읽을 설명을 그 던전의 도움말로 둠."""
         self.selected = did
+        row = next((row for row in self.rows if row["id"] == did), None)
+        self.setAccessibleDescription(node_tip(row) if row else "")
         self.update()
 
     @staticmethod
@@ -181,6 +188,8 @@ class MapView(QWidget):
         out = []
         for number, (row, center) in enumerate(zip(self.rows, centers)):
             name = metrics.elidedText(row["title"], Qt.TextElideMode.ElideRight, widths[number])
+            if name != row["title"] and name.endswith("…"):  # 낱말 사이에서 자르면 줄임표 앞에 띄어쓰기가 남음
+                name = name[:-1].rstrip() + "…"
             width = math.ceil(metrics.horizontalAdvance(name))
             text = QRectF(lefts[number] + (widths[number] - width) / 2, center.y() + CIRCLE / 2 + NAME_GAP, width, height)
             out.append((row["id"], text.adjusted(-PILL_PAD, 0, PILL_PAD, 0), text, name))
@@ -223,7 +232,7 @@ class MapView(QWidget):
         number_font = theme.font("caption", True)
         for (did, circle), row in zip(self.nodes(), self.rows):
             if did == self.selected:
-                painter.setPen(QPen(theme.qcolor("focus" if self.hasFocus() else "ink"), 2))
+                painter.setPen(QPen(theme.qcolor("focus" if self.hasFocus() and self.keyed else "ink"), 2))
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawEllipse(circle.adjusted(-RING + 1, -RING + 1, RING - 1, RING - 1))  # 2px 선의 가운데가 반지름 25 에 와서 바깥 끝이 26
             paint_node(painter, circle, self.state(row), row["no"], number_font)
@@ -238,8 +247,11 @@ class MapView(QWidget):
         painter.end()
 
     def mousePressEvent(self, event):
+        if self.keyed:
+            self.keyed = False
+            self.update()
         did = self.at(event.position())
-        if did and event.button() == Qt.MouseButton.LeftButton:
+        if did and did != self.selected and event.button() == Qt.MouseButton.LeftButton:  # 고른 던전을 다시 누르면 목록을 다시 그리지 않음
             self.picked.emit(did)
 
     def mouseMoveEvent(self, event):
@@ -260,6 +272,9 @@ class MapView(QWidget):
         if not ids:
             super().keyPressEvent(event)
             return
+        if (key in ARROWS or key in (Qt.Key.Key_Home, Qt.Key.Key_End, Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space)) and not self.keyed:
+            self.keyed = True
+            self.update()
         index = ids.index(self.selected) if self.selected in ids else 0
         target = None
         if key in ARROWS:
@@ -283,6 +298,7 @@ class MapView(QWidget):
 
     def focusInEvent(self, event):
         super().focusInEvent(event)
+        self.keyed = event.reason() != Qt.FocusReason.MouseFocusReason
         self.update()
 
     def focusOutEvent(self, event):
@@ -428,7 +444,7 @@ class JourneyMapPage(QWidget):
         self.skills_box = kit.spaced(kit.label("익히는 기술", "caption", "tertiary"), self.skills)
         self.boss_box = kit.spaced(kit.label("보스에서 익힌 기술", "caption", "tertiary"), self.boss_new)
         self.about_box = QWidget()
-        about_box = kit.box(self.about_box, (24, 24, 24, 24), 16)
+        about_box = kit.box(self.about_box, (24, 24, 24, 24), 24)  # 묶음 사이 24 는 소개 글의 문단 사이(16)보다 넓게 둠
         for widget in (self.intro_box, self.skills_box, self.boss_box):
             about_box.addWidget(widget)
         for widget in (lines, self.note_box, self.rows, self.rule, self.about_box):
@@ -545,7 +561,10 @@ class JourneyMapPage(QWidget):
                 state = "done"
             else:
                 state = "progress" if row["tried"] else "todo"
-            line = kit.Row(row["title"], row_line(row, info), row["role_label"], kit.Dot(state), row["id"], strong=row["role"] == "boss",
+            dot = kit.Dot(state)
+            if row["locked"]:
+                dot.setToolTip("잠김")
+            line = kit.Row(row["title"], row_line(row, info), row["role_label"], dot, row["id"], strong=row["role"] == "boss",
                            inert=row["locked"])
             line.clicked.connect(lambda pid=row["id"]: self.open_problem(pid))
             line.setEnabled(not self.busy)
@@ -567,9 +586,11 @@ class JourneyMapPage(QWidget):
             self.win.open_problem(self.target["did"], self.target["pid"])
 
     def showEvent(self, event):
-        """화면을 보일 때 초점은 화면 자체에 둠. 첫 TabFocus 단추(← 처음 화면)가 초점 테두리를 단 채 열리지 않게 함."""
+        """화면을 보일 때 초점은 화면 자체에 둠. 첫 TabFocus 단추(← 처음 화면)가 초점 테두리를 단 채 열리지 않게 함.
+        내려 둔 창을 다시 띄울 때(운영체제가 보내는 보이기)는 고르던 자리를 지킴."""
         super().showEvent(event)
-        self.setFocus(Qt.FocusReason.OtherFocusReason)
+        if not event.spontaneous():
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
 
     # 언어 · 캐시
 

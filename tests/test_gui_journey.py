@@ -18,7 +18,7 @@ os.environ.setdefault("STUDY_NODE_PROBE", "0")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
-from PyQt6.QtCore import QSettings, Qt, QUrl  # noqa: E402
+from PyQt6.QtCore import QPoint, QSettings, Qt, QUrl  # noqa: E402
 from PyQt6.QtGui import QFontMetricsF, QGuiApplication, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QFrame, QMainWindow, QPushButton, QStackedWidget  # noqa: E402
@@ -259,6 +259,13 @@ def edge_ink(edit):
     return edit.grab().toImage().pixelColor(edit.width() // 2, 1).name()
 
 
+def ring(view, center):
+    """지도 원 가운데 center 의 오른쪽 23~26 에 그린 고름 고리의 색 토큰("ink"·"focus"). 둘 다 아니면 None."""
+    image = view.grab().toImage()
+    colors = [image.pixelColor(center + QPoint(step, 0)) for step in range(23, 27)]
+    return next((token for token in ("ink", "focus") if any(guikit.near(color, token) for color in colors)), None)
+
+
 def has_underline(link):
     """링크 글을 그린 그림에 글 폭의 9할 넘게 이어지는 가로 줄(밑줄)이 있는지. 글자 획은 그만큼 길게 이어지지 않음."""
     image, back = link.grab().toImage(), link.palette().color(link.backgroundRole())
@@ -473,6 +480,31 @@ class MapTest(Base):
         self.assertIs(QApplication.focusWidget(), page.rows.rows[0], "Enter 는 그 던전의 첫 열 수 있는 줄로 초점을 옮김")
         press(page.rows.rows[0], Qt.Key.Key_Space)
         self.assertEqual((win.pages.currentWidget(), win.journey_page.pid), (win.journey_page, "p1"))
+
+    def test_a_click_keeps_the_ink_ring_and_keys_bring_the_focus_ring(self):
+        """마우스로 고른 던전의 고리는 글자색이고 화살표를 누른 뒤에야 focus 색이 됨. 고른 던전을 다시 눌러도 목록을 다시 그리지 않음.
+        지도는 이름과 고른 던전의 설명을 화면 읽기 프로그램에 줌. 잠긴 보스 점의 도움말은 "잠김"."""
+        win = self.boot()
+        page = win.journey_map
+        view = page.view
+        win.activateWindow()
+        guikit.pump()
+        center = view.nodes()[1][1].center().toPoint()
+        QTest.mouseClick(view, guikit.LEFT, pos=center)
+        guikit.pump()
+        self.assertEqual(("t02", True), (view.selected, view.hasFocus()))
+        self.assertEqual("ink", ring(view, center), "누른 고리는 글자색")
+        picked = []
+        view.picked.connect(picked.append)
+        QTest.mouseClick(view, guikit.LEFT, pos=center)
+        self.assertEqual([], picked, "고른 던전을 다시 누름")
+        press(view, Qt.Key.Key_Right)
+        center = view.nodes()[2][1].center().toPoint()
+        self.assertEqual("focus", ring(view, center), "키로 옮긴 고리는 focus 색")
+        self.assertEqual("던전 지도", view.accessibleName())
+        self.assertIn("던전 3", view.accessibleDescription())
+        page.show_dungeon("t01")
+        self.assertEqual("잠김", page.rows.rows[3].mark.toolTip())
 
     def test_javascript_without_node_keeps_python_and_the_banner_finds_node(self):
         win = self.boot()

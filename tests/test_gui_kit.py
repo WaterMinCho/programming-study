@@ -369,7 +369,7 @@ class PartsTest(unittest.TestCase):
 
     def test_map_draws_round_nodes_name_pills_and_a_focus_ring(self):
         """던전 지도(gui/journey_map.MapView). 높이는 caption 줄 높이로 정하고(보통 370, 크게 378) 원 지름은 40. 이름 알약은 caption 줄
-        높이이고 길보다 위에 surface 로 칠함. 바깥 열 이름 글은 [24, 폭 − 24] 안. 고른 원의 고리는 초점이 있으면 focus 색, 없으면 ink.
+        높이이고 길보다 위에 surface 로 칠함. 바깥 열 이름 글은 [24, 폭 − 24] 안. 고른 원의 고리는 키보드 초점이면 focus 색, 아니면 ink.
         이름 알약을 눌러도 고름. 1024 창의 지도 폭(377)에서 이웃 알약 사이가 PILL_GAP 이상이고, 줄임표로 줄인 이름은 보통에서 하나,
         크게에서 셋."""
         for step, height, short in (("normal", 370, ["연결과 순서의 다리"]), ("large", 378, ["기억의 도서관", "연결과 순서의 다리", "속삭이는 사전"])):
@@ -406,13 +406,15 @@ class PartsTest(unittest.TestCase):
                 for one, other in zip(pills, pills[1:]):
                     self.assertGreaterEqual(other.left() - one.right(), PILL_GAP, (step, line))
             self.assertEqual([row["title"] for row, (_, _, _, name) in zip(view.rows, labels) if name != row["title"]], short, step)
+            self.assertEqual([], [name for _, _, _, name in labels if name.endswith(" …")], "줄임표 앞에 띄어쓰기가 남지 않음")
             picked = []
             view.picked.connect(picked.append)
             name = labels[5][1]
             QTest.mouseClick(view, guikit.LEFT, pos=QPoint(round(name.right()) - 3, round(name.center().y())))
             self.assertEqual(picked, ["d06"], step)
             view.set_selected("d01")
-            view.setFocus()
+            view.clearFocus()
+            view.setFocus(Qt.FocusReason.TabFocusReason)  # 마우스로 누른 초점은 글자색 고리라 키보드 초점으로 다시 줌
             guikit.pump()
             self.assertTrue(view.hasFocus(), step)
             image = view.grab().toImage()
