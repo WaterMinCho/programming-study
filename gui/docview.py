@@ -25,7 +25,8 @@ RULED = (2, 3)  # 앞에 가로줄을 넣는 제목 단계. 지문·해설의 �
 CODE_RADIUS = theme.RADIUS["control"]  # 코드 상자와 해설 그림의 모서리 반지름(12)
 CODE_MARGIN = (16, 10)  # 코드 상자 위·아래의 바깥 여백. mdlite 가 표에 style 로 적은 여백은 CSS 로 덮지 못해 문서를 읽은 뒤 바꿈.
 # 위 16 은 문단 사이와 같음. Qt 는 표 뒤에 빈 줄을 두어 상자 아래가 CODE_SPILL 만큼 더 벌어지고, 고정 줄 높이의 넓힌 간격은 다음 문단 글자
-# 위에 생김. 아래를 10 으로 줄여야 상자 위와 아래에 보이는 간격이 같아짐(세 글자 단계에서 화소로 재어 1px 안)
+# 위에 생김. 아래를 10 으로 줄여야 상자 위와 아래에 보이는 간격이 같아짐(세 글자 단계에서 화소로 재어 1px 안).
+# 문단의 아래 여백은 다음 블록의 위 여백과 겹치지만 표의 여백은 더해지므로, 상자 뒤 블록에 위 여백(제목의 24)이 있으면 그만큼 아래 여백을 뺌
 CODE_SPILL = 4  # 그 빈 줄이 상자 아래로 삐져나오는 높이. 조각 끝 상자는 아래 여백을 이만큼 당겨 조각이 상자 끝에서 끝나게 함
 PAD = 24  # DocView 의 안쪽 여백
 GAP = 16  # DocView 의 조각 사이. 문단 사이와 같은 값
@@ -167,14 +168,48 @@ class TextPiece(QTextBrowser):
         """CSS 는 다음에 넣는 HTML 부터 적용되므로 HTML 을 다시 넣음."""
         self.document().setDefaultStyleSheet(css + NARROW_CSS)
         self.setHtml(self.markup)
+        self.document().setTextWidth(max(1, self.viewport().width()))  # 폭이 없으면 줄을 앉히지 않아 center_code 가 줄 자리를 못 읽음
+        following = self.following_margins()
         for frame in self.code_frames():
             box = frame.format()
             box.setTopMargin(CODE_MARGIN[0])
-            box.setBottomMargin(CODE_MARGIN[1])
+            box.setBottomMargin(max(0, CODE_MARGIN[1] - following.get(frame, 0)))
             frame.setFormat(box)
+            self.center_code(frame)
         self.trim_ends()
         self.spread_width = None
         self.fit()
+
+    def following_margins(self):
+        """문서 맨 바깥의 표마다 그 뒤 첫 글 블록의 위 여백 {표: 여백}. Qt 가 표 바로 뒤에 두는 빈 블록은 건너뜀."""
+        items, part = [], self.document().rootFrame().begin()
+        while not part.atEnd():
+            items.append(part.currentFrame() or part.currentBlock())
+            part += 1
+        out = {}
+        for index, item in enumerate(items):
+            if not isinstance(item, QTextFrame):
+                continue
+            after = items[index + 1:index + 3]
+            if after and not isinstance(after[0], QTextFrame) and not after[0].text():
+                after = after[1:]
+            if after and not isinstance(after[0], QTextFrame):
+                out[item] = after[0].blockFormat().topMargin()
+        return out
+
+    def center_code(self, frame):
+        """코드 상자 칸의 위아래 안쪽 여백을 글 줄에 맞춰 고침. 고정 줄 높이(pre 의 line-height)는 넓힌 간격을 줄 위에 두어 칸 안의 글이
+        그만큼 아래로 내려앉음. 그 간격만큼 위 여백을 줄이고 아래 여백을 늘려 상자 크기와 자리는 그대로 두고 글 줄을 가운데에 둠."""
+        cell = frame.cellAt(0, 0)
+        block = cell.firstCursorPosition().block()
+        self.document().documentLayout().blockBoundingRect(block)  # 줄을 앉혀야 줄 자리를 읽음
+        if block.layout().lineCount() == 0:
+            return
+        spill = block.layout().lineAt(0).y()
+        pad = cell.format().toTableCellFormat()
+        pad.setTopPadding(pad.topPadding() - spill)
+        pad.setBottomPadding(pad.bottomPadding() + spill)
+        cell.setFormat(pad)
 
     def trim_ends(self):
         """조각 맨 위와 맨 아래의 바깥 여백을 없앰. 조각 앞뒤 간격은 DocView 의 안쪽 여백과 조각 사이가 줌. 맨 위가 절 제목이면 CSS 의
@@ -241,8 +276,8 @@ class TextPiece(QTextBrowser):
         return [frame for frame in self.tables() if frame.format().border() and frame.columns() > 1]
 
     def code_boxes(self):
-        """코드 상자마다 화면 위의 사각형. 칸 안 첫 줄과 끝 줄의 자리에 칸 여백을 더해 셈.
-        끝 줄 아래에 붙는 넓힌 줄 간격은 블록 사각형에 들지 않아 위아래 여백이 같아짐."""
+        """코드 상자마다 화면 위의 사각형. 칸 안 첫 블록과 끝 블록의 사각형에 칸 여백을 더해 셈. 블록 사각형은 줄 위의 넓힌 간격을
+        넣고 끝 줄 아래 끝까지는 넣지 않으므로, center_code 가 고친 여백을 더하면 글 줄 위아래가 같은 12 가 됨."""
         layout, rects = self.document().documentLayout(), []
         for frame in self.code_frames():
             cell = frame.cellAt(0, 0)

@@ -3,6 +3,7 @@
 글자 크기 단계마다 그려진 본문 크기와 줄 사이, 둥근 코드 상자, 조각 맨 위 여백, 머리·꼬리 위젯, 카드 안 칸(flat), 표 열 폭,
 그림 재생기의 단계 이동, 줄어 보이는 그림의 [크게 보기]와 그림 창. PyQt6 가 없으면 전부 건너뜀."""
 import base64
+import itertools
 import os
 import re
 import shutil
@@ -327,6 +328,46 @@ class DocViewTest(unittest.TestCase):
             below = min(y for y in rows if y > box.bottom()) - round(box.bottom()) - 1
             self.assertLessEqual(abs(above - below), 2, (step, above, below))
             self.assertGreaterEqual(min(above, below), 16, step)
+
+    def test_code_text_sits_in_the_middle_of_its_box(self):
+        """코드 상자 안 글자는 위아래 여백이 2px 안으로 같음(설계 7.2 의 안쪽 12). 고정 줄 높이의 넓힌 간격이 줄 위에 생겨도 글이
+        아래로 내려앉지 않음. 여러 줄 상자도 같음."""
+        self.addCleanup(theme.set_text, "normal")
+        for step in theme.TEXT_STEPS:
+            theme.set_text(step)
+            self.view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
+            for code in ("solution(nums)", "def solution(nums):\n    return max(nums)"):
+                piece = self.shown("앞 문단입니다.\n\n```python\n%s\n```\n\n뒤 문단입니다." % code)[0]
+                guikit.pump(30)
+                rows = ink_rows(self.view.grab().toImage(), theme.color("surface"), theme.color("surface_alt"))
+                box = piece.code_boxes()[0].translated(piece.mapTo(self.view, QPoint(0, 0)).toPointF())
+                inside = [y for y in rows if box.top() < y < box.bottom()]
+                above, below = min(inside) - round(box.top()), round(box.bottom()) - 1 - max(inside)
+                self.assertLessEqual(abs(above - below), 2, (step, code, above, below))
+
+    def test_heading_after_a_code_box_sits_like_after_a_paragraph(self):
+        """코드 상자 아래에서 다음 절 제목 글자까지가 문단 글 끝에서 절 제목 글자까지와 3px 안으로 같음(설계 7.2 마지막 줄).
+        표의 아래 여백은 제목의 위 여백 24 와 겹치지 않고 더해지므로 제목 앞에서는 뺌. 제목 앞 가로줄이 있는 칸과 없는 칸(여행)을 다 봄."""
+        self.addCleanup(theme.set_text, "normal")
+        for step, ruled in itertools.product(theme.TEXT_STEPS, (True, False)):
+            theme.set_text(step)
+            self.view.ruled = ruled
+            self.view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
+            piece = self.shown("앞 문단입니다.\n\n## 함수\n\n```python\nsolution(nums)\n```\n\n## 제한사항\n\n끝 문단입니다.")[0]
+            guikit.pump(30)
+            rows = sorted(ink_rows(self.view.grab().toImage(), theme.color("surface"), theme.color("surface_alt")))
+            runs = [[rows[0], rows[0]]]
+            for y in rows[1:]:
+                if y - runs[-1][1] > 3:  # 한글 글자 안의 빈 줄은 한 덩어리로 봄
+                    runs.append([y, y])
+                runs[-1][1] = y
+            box = piece.code_boxes()[0].translated(piece.mapTo(self.view, QPoint(0, 0)).toPointF())
+            outside = [run for run in runs if run[1] < box.top() or run[0] > box.bottom()]
+            first, heading = outside[0], outside[1]
+            after = next(run for run in outside if run[0] > box.bottom())
+            gap_paragraph = heading[0] - first[1]
+            gap_code = after[0] - round(box.bottom())
+            self.assertLessEqual(abs(gap_code - gap_paragraph), 3, (step, ruled, gap_paragraph, gap_code))
 
     def test_head_and_tail_stay_outside_the_pieces(self):
         """set_head 위젯은 조각 위, set_tail 위젯은 조각 아래에 있고 set_markdown·clear 가 지우지 않음. 새로 주면 앞 위젯은 숨음."""
