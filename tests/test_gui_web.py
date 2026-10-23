@@ -1290,6 +1290,9 @@ class LearnTest(WebTest):
         figures = [p for p in learn.view.pieces if isinstance(p, FigureView)]
         self.assertEqual(len(figures), 1)
         self.assertEqual(figures[0].caption.text(), "그림 1. 두 호출이 같은 값을 넣어 숫자가 1 만 오릅니다.")
+        buttons = figures[0].findChildren(QPushButton)  # 그림의 단추는 여행 화면과 같은 kit 글자 단추 s
+        self.assertTrue(buttons)
+        self.assertEqual({(b.objectName(), b.property("scale")) for b in buttons}, {("text", "s")})
         self.assertEqual(learn.section, "90b")
         self.assertTrue(scroll_to_heading(learn.view, "같은 렌더의 값을 두 번 쓰면"))
         self.assertEqual(self.kinds(), ["learn", "learn"])

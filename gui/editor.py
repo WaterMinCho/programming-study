@@ -434,7 +434,7 @@ class CodeEditor(PlainEdit):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(theme.editor("gutter" if self.isEnabled() else "locked_gutter"))  # 실행·채점 중에 잠기면 본문처럼 어두워짐
-        corner = LineNumbers.CORNER  # 편집기의 둥근 테두리 안쪽을 따라 왼쪽 모서리만 둥글게 칠함. 오른쪽 모서리는 칸 밖에 놓임
+        corner = LineNumbers.corner(self)  # 편집기의 둥근 테두리 안쪽을 따라 왼쪽 모서리만 둥글게 칠함. 오른쪽 모서리는 칸 밖에 놓임
         painter.drawRoundedRect(QRectF(0, 0, strip.width() + corner, self.contentsRect().height()), corner, corner)
         painter.fillRect(QRectF(strip.width() - 1, 0, 1, strip.height()), theme.editor("edge"))
         painter.setFont(self.font())
@@ -451,11 +451,22 @@ class CodeEditor(PlainEdit):
 
 class LineNumbers(QWidget):
     """편집기 왼쪽의 줄 번호 칸. 그리기는 편집기(CodeEditor.paint_numbers)가 함. 눌러도 편집기의 글과 커서가 바뀌지 않고, 휠은 편집기로 넘김."""
-    PAD, CORNER = 8, 5  # 번호 양옆의 여백, 왼쪽 모서리의 반지름
+    PAD, CORNER = 8, 5  # 번호 양옆의 여백, 왼쪽 모서리의 반지름(편집기 테두리 모서리 6 에서 테두리 1 을 뺌)
 
     def __init__(self, editor):
         super().__init__(editor)
         self.editor = editor
+
+    @staticmethod
+    def corner(editor):
+        """왼쪽 모서리의 반지름. 편집기 테두리 모서리에서 테두리 1px 를 뺀 값임. 새 화면 규칙(ui="2") 안에서는 theme.STYLE_V2 가
+        테두리 모서리를 12 로 주어 11 이고 밖에서는 CORNER 임. 더 작은 반지름으로 칠하면 칸 모서리가 테두리 밖으로 나와 둥근 테두리 선을 덮음."""
+        widget = editor
+        while widget is not None:
+            if widget.property("ui") == "2":
+                return theme.RADIUS["control"] - 1
+            widget = widget.parentWidget()
+        return LineNumbers.CORNER
 
     def paintEvent(self, event):
         self.editor.paint_numbers(event)

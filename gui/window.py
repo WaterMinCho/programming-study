@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QPr
 
 import session
 import study
-from gui import errors, kit, motion, theme, web_text
+from gui import errors, journey_text, kit, motion, theme, web_text
 from gui.dialogs import IdDialog, MessageDialog
 from gui.guard import Guard
 from gui.home_page import HomePage
@@ -300,7 +300,8 @@ class MainWindow(QMainWindow):
         try:
             self.journey_page.load(did, pid)
         except SessionError as error:  # 잠긴 보스, 사라진 문제, 앞 문제의 코드를 저장하지 못한 경우
-            self.ask("알림", str(error))
+            title, text, detail = journey_text.error_text("open", error)
+            self.ask(title, text, detail=detail)
             return
         self.area = "journey"
         self.settings.setValue("journey/last", "%s/%s" % (did, pid))
@@ -345,10 +346,10 @@ class MainWindow(QMainWindow):
             page.dirty.clear()
             then()
 
-        self.ask("저장하지 못한 코드", "%s\n\n쓰던 코드가 파일에 저장되지 않았습니다. [돌아가기]를 누르면 문제 화면으로 돌아가고 쓰던 코드는 화면에 남습니다. "
+        self.ask("저장하지 못한 코드", "쓰던 코드가 파일에 저장되지 않았습니다. [돌아가기]를 누르면 문제 화면으로 돌아가고 쓰던 코드는 화면에 남습니다. "
                  "풀이 폴더의 파일을 다른 프로그램에서 열어 두었다면 닫고 다시 나가 보세요.\n"
-                 "[%s]를 누르면 저장되지 않은 코드는 지워집니다." % (page.status.text(), leave),
-                 (("돌아가기", ""), (leave, "drop")), drop)
+                 "[%s]를 누르면 저장되지 않은 코드는 지워집니다." % leave,
+                 (("돌아가기", ""), (leave, "drop")), drop, detail=page.save_error)
         return False
 
     def next_action(self, overview):

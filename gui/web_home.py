@@ -282,8 +282,8 @@ class WebHomePage(QWidget):
             self.chips[row["id"]] = chip
         if waiting:
             self.more_topics_btn.setText("준비 중 %d개 보기" % len(waiting))
-            self.more_topics_btn.show()
             self.chip_row.addWidget(self.more_topics_btn)
+            self.more_topics_btn.show()  # 줄에 붙여 부모가 생긴 뒤에 보임. 먼저 보이면 잠깐 따로 창으로 뜸
             for name in waiting:
                 self.more_topics_box.addWidget(kit.label(name, "caption", "tertiary"))
         self.topic_count.setText("사슬 %d개 중 %d개 끝남" % (sum(t["total"] for t in ready), sum(t["done"] for t in ready)) if ready else "")

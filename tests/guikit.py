@@ -13,7 +13,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("STUDY_NODE_PROBE", "0")  # 로그인 셸로 node 를 찾지 않음
 
 try:
-    from PyQt6.QtCore import QEventLoop, Qt, QTimer, qInstallMessageHandler
+    from PyQt6.QtCore import QEventLoop, QPoint, Qt, QTimer, qInstallMessageHandler
+    from PyQt6.QtGui import QColor
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication
 except ImportError:
@@ -54,6 +55,34 @@ def wait_until(predicate, timeout=30.0):
 def click(widget):
     QTest.mouseClick(widget, LEFT)
     pump()
+
+
+def drag(handle, dx, dy=0):
+    """칸 나누기 손잡이를 가운데에서 잡아 (dx, dy) 만큼 끌고 놓음."""
+    start = QPoint(handle.width() // 2, handle.height() // 2)
+    QTest.mousePress(handle, LEFT, Qt.KeyboardModifier.NoModifier, start)
+    QTest.mouseMove(handle, start + QPoint(dx, dy))
+    QTest.mouseRelease(handle, LEFT, Qt.KeyboardModifier.NoModifier, start + QPoint(dx, dy))
+    pump()
+
+
+def near(color, token):
+    """화소 색이 토큰 색과 채널마다 8 안쪽으로 같은지. 안티에일리어싱으로 끝 화소가 조금 섞이는 것을 받음."""
+    want = QColor(theme.color(token))
+    return max(abs(color.red() - want.red()), abs(color.green() - want.green()), abs(color.blue() - want.blue())) <= 8
+
+
+def ink(image, back, rect=None):
+    """그림(rect 를 주면 그 안)에서 바탕색 back 과 가장 먼 화소의 색(QColor). 글자를 그린 색을 찾을 때 씀."""
+    base, best, found = QColor(back), -1, None
+    rect = rect if rect is not None else image.rect()
+    for x in range(rect.left(), rect.right() + 1):
+        for y in range(rect.top(), rect.bottom() + 1):
+            color = image.pixelColor(x, y)
+            far = abs(color.red() - base.red()) + abs(color.green() - base.green()) + abs(color.blue() - base.blue())
+            if far > best:
+                best, found = far, color
+    return found
 
 
 def painted(editor, line):

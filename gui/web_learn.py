@@ -6,10 +6,10 @@ figure 블록은 web_mission.figures_to_images 가 그림 줄로 바꾸고, 그�
 드릴 화면의 학습 노트 줄은 절 id(3a)를 주고, 그 절의 제목 줄이 칸 맨 위에 오게 스크롤함. 열 때마다 서비스가 learn 을 기록함.
 카드 안 맨 아래의 [다음 절]은 지금 보는 자리 다음에 오는 절 제목으로 스크롤함. 읽기 화면이라 아래 막대와 주 단추가 없음."""
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QWidget
 
 from gui import kit, theme
-from gui.docview import DocView, FigureView, TextPiece
+from gui.docview import DocView, TextPiece
 from gui.web_mission import LANG, figures_to_images
 
 BACK_TEXT = {"mission": "← 미션", "drill": "← 꼬리 질문"}
@@ -85,11 +85,6 @@ class WebLearnPage(QWidget):
         self.title.show()
         self.back_btn.setText(BACK_TEXT.get(back[0], "← 웹 면접 준비") if back else "← 웹 면접 준비")
         self.view.set_markdown(figures_to_images(page["markdown"], page["dir"]), page["dir"], LANG)
-        for piece in self.view.pieces:
-            if isinstance(piece, FigureView):
-                for button in piece.findChildren(QPushButton):
-                    button.setObjectName("")  # 여행 화면의 quiet 모양 대신 이 화면의 작은 단추로 그림
-                    kit.repolish(button)
         self.headings = [text for text in page["sections"].values() if heading_top(self.view, text) is not None]
         heading = page["sections"].get(section, "") if section else ""
         if heading:

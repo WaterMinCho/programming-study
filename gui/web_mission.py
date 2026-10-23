@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QPlainTextEdit, QS
 import mdlite
 import study
 from gui import kit, theme
-from gui.docview import DocView, FigureView, TextPiece, keep_lang
+from gui.docview import Doc, DocView
 from gui.journey_page import md_text
 from gui.web_setup import SetupDialog
 from gui.web_text import clock_text, gui_text, minutes_text
@@ -245,60 +245,6 @@ class DiffHighlighter(QSyntaxHighlighter):
 
 
 CheckList = kit.CheckList  # 드릴 화면이 여기서 가져감
-
-
-class Doc(QWidget):
-    """스크롤하지 않는 마크다운 글. 카드 안에서 다른 위젯과 같이 스크롤되게 DocView 의 조각(TextPiece, FigureView)만 세로로 쌓음.
-    pieces 는 쌓은 순서대로의 조각이고, 글 폭은 화면이 fit_columns 로 주는 단 폭까지."""
-
-    def __init__(self):
-        super().__init__()
-        self.box = kit.box(self, spacing=8)
-        self.pieces = []
-        self.css, self.code_font = theme.web_css(), theme.code_font()
-        self.setMaximumWidth(kit.DOC_MIN)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-
-    def clear(self):
-        for piece in self.pieces:
-            self.box.removeWidget(piece)
-            piece.hide()
-            piece.deleteLater()
-        self.pieces = []
-
-    def set_markdown(self, text, base_dir, lang):
-        self.clear()
-        run = []
-        for block in keep_lang(mdlite.parse(text), lang):
-            if block["t"] != "image":
-                run.append(block)
-                continue
-            self._add_blocks(run)
-            run = []
-            try:
-                piece = FigureView(os.path.join(base_dir, block["src"]), block["alt"])
-            except OSError:
-                piece = kit.para("그림을 찾을 수 없습니다: %s" % block["src"], "caption", "secondary")
-            self._add(piece)
-        self._add_blocks(run)
-        self.setVisible(bool(self.pieces))
-
-    def _add_blocks(self, blocks):
-        if blocks:
-            piece = TextPiece(mdlite.blocks_html(blocks), self.css)
-            self._add(piece)
-
-    def _add(self, widget):
-        self.box.addWidget(widget)
-        self.pieces.append(widget)
-
-    def restyle(self, css, code_font):
-        self.css, self.code_font = css, code_font
-        for piece in self.pieces:
-            if isinstance(piece, TextPiece):
-                piece.restyle(css)
-            elif isinstance(piece, FigureView):
-                piece.draw()
 
 
 class Column(QScrollArea):

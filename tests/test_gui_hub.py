@@ -28,9 +28,10 @@ import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
 from gui import errors, kit, theme  # noqa: E402
-from gui.journey_page import NODE_TITLE  # noqa: E402
+from gui.journey_page import NODE_RETRY, NODE_TITLE  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank, node, runner  # noqa: E402
+from journey.service import JourneyError  # noqa: E402
 from webprep import bank as web_bank  # noqa: E402
 from webprep import stack  # noqa: E402
 
@@ -165,14 +166,12 @@ class HubTest(unittest.TestCase):
         return adaptive.load_profile(USER)
 
     def open_problem(self, pid):
-        """첫 화면의 알고리즘 여행 줄 → 지도에서 pid 를 골라 [문제 풀기]."""
+        """첫 화면의 알고리즘 여행 줄 → 지도에서 pid 의 줄을 한 번 누름."""
         win = self.win
         if self.page() is not win.journey_map:
             guikit.click(win.hub.journey_row)
         page = win.journey_map
-        row = next(n for n in range(page.listw.count()) if page.listw.item(n).data(Qt.ItemDataRole.UserRole) == pid)
-        page.listw.setCurrentRow(row)
-        guikit.click(page.solve_btn)
+        guikit.click(next(row for row in page.rows.rows if row.data == pid))
         self.assertIs(self.page(), win.journey_page, win.dialog and win.dialog.text.text())
         return win.journey_page
 
@@ -245,6 +244,43 @@ class HubScreenTest(HubTest):
         guikit.click(hub.next_btn)
         self.idle()
         self.assertEqual((self.page(), win.area), (win.round_page, "python"))
+
+    def test_journey_next_starts_from_the_last_opened_problem(self):
+        """설정 journey/last 의 문제가 아직 통과 전이고 열 수 있으면 여행 줄과 이어서 할 일이 그 문제를 말함. 다른 던전의 문제도
+        같음. 은행에 없는 문제, 읽지 못한 던전, 통과한 문제, 잠긴 보스를 가리키면 서비스 추천으로 돌아감."""
+        root = os.path.join(self.tmp, "bank")
+        shutil.copytree(FIXTURE, root)
+        shutil.copytree(os.path.join(root, "t01"), os.path.join(root, "t03"))  # 준비된 던전을 하나 더 둠
+        patcher = mock.patch.object(bank, "BANK_DIR", root)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.write_log([grade_entry("p1")])
+        self.settings.setValue("journey/last", "t03/p1")
+        win = self.boot()
+        hub = win.hub
+        self.assertEqual(hub.journey_row.second.text(), "8문제 중 1개 통과 · 다음은 물통 합계")
+        self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
+                         ("물통 합계", "알고리즘 여행 · 던전 3 「준비 중 던전 3」", "문제 풀기"))
+        guikit.click(hub.journey_row)
+        self.idle()
+        page = win.journey_map
+        self.assertEqual((self.page(), page.view.selected), (page, "t03"), "지도도 첫 화면이 말한 던전을 고름")
+        self.assertEqual((page.next_card.title.text(), page.next_card.line.text()), ("물통 합계", "던전 3 「준비 중 던전 3」 · 기초"))
+        guikit.click(page.home_btn)
+        guikit.click(hub.next_btn)
+        self.idle()
+        self.assertEqual((self.page(), win.journey_page.did, win.journey_page.pid), (win.journey_page, "t03", "p1"))
+        guikit.click(win.journey_page.map_btn)
+        guikit.click(win.journey_map.home_btn)
+        self.assertIs(self.page(), hub)
+        self.assertEqual(hub.next_card.line.text(), "알고리즘 여행 · 던전 3 「준비 중 던전 3」")
+        for last in ("t01/p9", "t02/p1", "t01/p1", "t01/boss"):
+            self.settings.setValue("journey/last", last)
+            hub.refresh()
+            self.assertEqual((hub.journey_row.second.text(), hub.next_card.title.text(), hub.next_card.line.text()),
+                             ("8문제 중 1개 통과 · 다음은 가장 큰 물통", "가장 큰 물통", "알고리즘 여행 · 던전 1 「시험 마을」"), last)
+            win.journey_map.refresh()
+            self.assertEqual((win.journey_map.view.selected, win.journey_map.next_card.title.text()), ("t01", "가장 큰 물통"), last)
 
     def test_rows_move_between_the_areas_and_the_theme_button_names_the_next_mode(self):
         win = self.boot()
@@ -384,12 +420,42 @@ class JobTest(HubTest):
         self.assertEqual(done, [True])  # 취소 신호를 받고 끝남
         self.assertIsNone(win.job)
 
+    def test_leaving_after_a_failed_save_keeps_the_raw_error_in_details(self):
+        """코드를 저장하지 못한 채 문제 화면을 떠나면 묻는 창의 본문은 쉬운 글이고 원문(errno, 경로)은 [자세히]에만 있음."""
+        win = self.boot()
+        win.open_problem("t01", "p1")
+        self.idle()
+        page = win.journey_page
+        page.on_code_changed("def solution(nums):\n    return 0\n")
+        failure = "코드를 저장하지 못했습니다: [Errno 13] 권한 없음: '/home/alice/journey/t01/p1.py'"
+        with mock.patch.object(win.journey, "save_code", side_effect=JourneyError(failure)):
+            guikit.click(page.map_btn)
+        self.assertEqual("저장하지 못한 코드", win.dialog.windowTitle())
+        self.assertNotIn("Errno", win.dialog.text.text())
+        self.assertNotIn("t01", win.dialog.text.text())
+        self.assertIn("[Errno 13]", win.dialog.detail.toPlainText())
+        self.choose("drop")
+        self.idle()
+        self.assertIs(self.page(), win.journey_map)
+
     def test_job_without_progress_is_called_with_no_arguments(self):
         win = self.boot()
         done = []
         win.run_job("인자 없는 일", lambda: "끝", done.append)
         self.idle()
         self.assertEqual(done, ["끝"])
+
+    def test_a_problem_that_cannot_open_names_the_action(self):
+        win = self.boot()
+        win.open_problem("t01", "boss")
+        self.assertIs(self.page(), win.hub)
+        self.assertEqual("문제 열기", win.dialog.windowTitle())
+        self.assertEqual("보스 문제는 중급 문제를 통과하면 열립니다.", win.dialog.text.text(), "지도 목록 줄과 같은 말")
+        win.dialog.close()
+        win.open_problem("t01", "p9")
+        self.assertEqual(("문제 열기", "이 문제의 파일을 읽지 못했습니다. 첫 화면의 [새 문제 받기]로 문제를 다시 받으세요."),
+                         (win.dialog.windowTitle(), win.dialog.text.text()))
+        self.assertIn("t01/p9", win.dialog.detail.toPlainText(), "내부 id 는 자세히에만 남음")
 
     @SKIP_LEAN
     def test_closing_while_grading_cancels_and_records_nothing(self):
@@ -459,6 +525,21 @@ class NodeLookupTest(HubTest):
         self.assertEqual([False], self.threads["check"])
         self.assertEqual("javascript", page.lang_bar.lang)
         self.assertEqual("/opt/node/bin/node", self.settings.value("journey/node"))
+
+    def test_a_picked_file_that_is_not_node_reopens_the_node_window(self):
+        win = self.boot()
+        guikit.click(win.hub.journey_row)
+        page = win.journey_map
+        guikit.click(page.lang_btns["javascript"])
+        self.idle()
+        win.pick_file = lambda title: "/opt/old/node"
+        with mock.patch.object(node, "check", side_effect=ValueError("Node.js 20 이상이 필요한데 이 파일은 18.0.0 입니다.")):
+            self.choose("pick")
+            self.idle()
+        self.assertEqual(NODE_TITLE, win.dialog.windowTitle(), "창의 일반 알림 대신 같은 Node 창")
+        self.assertEqual("Node.js 20 이상이 필요한데 이 파일은 18.0.0 입니다. " + NODE_RETRY, win.dialog.text.text(), "필요한 버전을 두 번 말하지 않음")
+        self.assertEqual("python", page.lang_bar.lang)
+        self.assertFalse(self.settings.value("journey/node"))
 
 
 if __name__ == "__main__":

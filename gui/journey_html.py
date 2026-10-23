@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 """여정 문제 화면의 결과 칸에 넣을 HTML. 프로그래머스의 결과 화면과 같은 꼴임.
 [코드 실행]은 테스트마다 입력값·기댓값·실행 결과를 보여 줌.
-[제출 후 채점하기]는 그룹마다 "테스트 N 〉 통과 (0.42ms, 10.3MB)" 줄과 점수를 보여 줌.
+[채점하기]는 그룹마다 "테스트 N 〉 통과 (0.42ms, 10.3MB)" 줄과 점수를 보여 줌.
 색은 본문 CSS 의 클래스(.ok .wrong .muted)로 주어 테마가 바뀌면 HTML 을 다시 넣기만 하면 됨. PyQt 를 import 하지 않아서 화면 없이 시험할 수 있음.
 
-결과가 다 오기 전에도 done=False 로 부르면 지금까지 온 줄만 그림. 진행 중에는 요약과 안내 줄을 붙이지 않음."""
+결과가 다 오기 전에도 done=False 로 부르면 지금까지 온 줄만 그림. 진행 중에는 요약과 안내 줄을 붙이지 않음.
+결과 카드는 run_body·grade_body 로 테스트 줄과 끝의 안내 줄만 그림. 합계와 통과 여부 같은 요약은 카드 머리(journey_text.result_head)가 말함.
+run_html·grade_html(본문 뒤에 요약 줄을 붙인 꼴)과 BOSS_LINK, STOPPED_RUN, STOPPED_GRADE 는 화면이 쓰지 않음. 요약 줄의 꼴을 시험이
+보려고 남겨 둠(tests/test_journey_html.py)."""
 import html
+import re
 
 import study
 from journey import grading, runner
@@ -14,6 +18,8 @@ BOSS_LINK = "journey:boss"  # [보스에 도전하기] 링크의 주소. 문제 
 MEMORY_NOTE = "메모리에는 시작할 때 쓰는 양(Python 약 15MB, Node.js 약 35MB)이 들어 있습니다."
 STOPPED_RUN = "실행을 중지했습니다. 코드 실행은 기록되지 않습니다."
 STOPPED_GRADE = "중지했습니다. 이번 채점은 기록하지 않았습니다."
+HIDDEN_NOTE = "숨은 테스트의 입력은 보이지 않습니다. [테스트 추가]로 비슷한 입력을 넣어 실행해 보세요."
+EXAMPLE_ID = re.compile(r"ex\d+\Z")  # grading.example_tests 가 입출력 예에 붙이는 id. 나머지 채점 줄은 숨은 테스트임
 
 
 def esc(text):
@@ -88,13 +94,25 @@ def run_case_html(case):
     return "".join(parts)
 
 
+def run_lines(result):
+    """[코드 실행]의 fatal 줄과 테스트 줄."""
+    parts = [fatal_html(result["fatal"])] if result.get("fatal") else []
+    parts.extend(run_case_html(case) for case in result.get("cases") or [])
+    return parts
+
+
+def runtime_line(result):
+    return [para("실행 환경 %s" % esc(result["runtime"]), "muted")] if result.get("runtime") else []
+
+
+def run_body(result, done=True):
+    """결과 카드의 [코드 실행] 본문. run_html 에서 요약 줄(테스트 결과, 중지 안내, 시간 제한)을 빼고 끝에 실행 환경을 붙임."""
+    return "<body>%s</body>" % "".join(run_lines(result) + (runtime_line(result) if done else []))
+
+
 def run_html(result, done=True):
     """[코드 실행] 결과(명세 4.1 의 dict). done=False 면 지금까지 끝난 테스트 줄만."""
-    parts = []
-    if result.get("fatal"):
-        parts.append(fatal_html(result["fatal"]))
-    for case in result.get("cases") or []:
-        parts.append(run_case_html(case))
+    parts = run_lines(result)
     if done:
         if result.get("cancelled"):
             parts.append(para(STOPPED_RUN, "muted"))
@@ -105,7 +123,7 @@ def run_html(result, done=True):
     return "<body>%s</body>" % "".join(parts)
 
 
-# [제출 후 채점하기]
+# [채점하기]
 
 def grade_line(case):
     mark = "ok" if case["status"] == "pass" else ("muted" if case["status"] == "cancelled" else "wrong")
@@ -115,15 +133,39 @@ def grade_line(case):
     return para(text)
 
 
-def grade_html(result, done=True):
-    """[제출 후 채점하기] 결과(명세 4.2 의 dict). done=False 면 지금까지 끝난 그룹과 줄만."""
-    parts = []
+def grade_lines(result):
+    """[채점하기]의 fatal 줄, 또는 그룹마다 이름과 테스트 줄."""
     if result.get("fatal"):
-        parts.append(fatal_html(result["fatal"]))
-    else:
-        for group in result.get("groups") or []:
-            parts.append(para("%s 테스트" % esc(group["name"]), "h3"))
-            parts.extend(grade_line(case) for case in group["cases"])
+        return [fatal_html(result["fatal"])]
+    parts = []
+    for group in result.get("groups") or []:
+        parts.append(para("%s 테스트" % esc(group["name"]), "h3"))
+        parts.extend(grade_line(case) for case in group["cases"])
+    return parts
+
+
+def hidden_failed(result):
+    """입출력 예가 아닌 채점 줄 가운데 통과하지 못한 줄이 있는지. 취소된 줄은 세지 않음."""
+    return any(case["status"] not in ("pass", "cancelled") and not EXAMPLE_ID.match(str(case.get("id") or ""))
+               for group in result.get("groups") or [] for case in group["cases"])
+
+
+def grade_body(result, done=True):
+    """결과 카드의 [채점하기] 본문. grade_html 에서 요약 줄(채점 결과, 합계, 처음 통과, 보스 링크, 중지 안내)을 뺌.
+    끝까지 돈 채점이면 끝에 숨은 테스트 안내(숨은 테스트가 틀렸을 때), 실행 환경, 메모리 안내를 붙임."""
+    parts = grade_lines(result)
+    if done and not result.get("cancelled"):
+        if not result.get("fatal") and hidden_failed(result):
+            parts.append(para(HIDDEN_NOTE, "muted"))
+        parts.extend(runtime_line(result))
+        if not result.get("fatal"):
+            parts.append(para(MEMORY_NOTE, "muted"))
+    return "<body>%s</body>" % "".join(parts)
+
+
+def grade_html(result, done=True):
+    """[채점하기] 결과(명세 4.2 의 dict). done=False 면 지금까지 끝난 그룹과 줄만."""
+    parts = grade_lines(result)
     if not done:
         return "<body>%s</body>" % "".join(parts)
     if result.get("cancelled"):

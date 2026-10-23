@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""여정 문제의 [코드 실행]과 [제출 후 채점하기]. 테스트를 실행기 케이스로 바꾸고, 판정 문구와 점수를 매김.
+"""여정 문제의 [코드 실행]과 [채점하기]. 테스트를 실행기 케이스로 바꾸고, 판정 문구와 점수를 매김.
 
 화면과 검증 도구가 같은 판정을 쓰도록 실행은 모두 runner 를 거침. 기록은 하지 않음(service 가 함).
 report 를 주면 진행을 dict 로 알림.
@@ -192,7 +192,7 @@ def _prepare_cases(group, tests, gen_source, limit_ms, report, cancel):
 
 
 def grade(problem, role, tests, gen_source, lang, source_path, report=None, cancel=None, node=None, reveal=False):
-    """[제출 후 채점하기]. 정확성 그룹은 동시에, 효율성 그룹은 하나씩 돌림. 결과 모양은 명세 4.2(runtime 과
+    """[채점하기]. 정확성 그룹은 동시에, 효율성 그룹은 하나씩 돌림. 결과 모양은 명세 4.2(runtime 과
     first_pass·boss_opened·cleared 는 service 가 채움). tests 는 tests.json 의 내용, gen_source 는 gen.py 원문.
     reveal 이면 실패한 정확성 줄에 테스트 이름을 붙임. 입력 생성이 실패하면 runner.GenError, 기댓값이 없는 테스트가
     있으면 돌리기 전에 bank.BankError. fatal 은 채점의 첫 케이스에서 났을 때만 결과 전체의 fatal 로 봄."""
