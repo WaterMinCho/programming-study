@@ -736,6 +736,20 @@ class WorkFrameTest(Base):
         self.assertFalse(result.collapsed)
         self.assertEqual(heights, (editor.height(), result.height()), "끈 몫 그대로")
 
+    def test_dragging_the_result_card_down_keeps_its_head(self):
+        """1024×700 에서 실행 뒤 세로 손잡이를 끝까지 내려도 결과 카드 머리(headline, 막대, caption)는 제 높이를 지키고 스크롤 칸만 줄어듦."""
+        win = self.small()
+        page = self.open("p1")
+        with mock.patch.object(win.journey, "run", fake_run([run_case(1), run_case(2, False)])):
+            guikit.click(page.run_btn)
+        result = page.result
+        guikit.drag(page.code_panel.split.handle(1), 0, 600)
+        self.assertEqual(result.head.sizeHint().height(), result.head.height())
+        caption = result.caption.mapTo(result.head, result.caption.rect().bottomLeft()).y()
+        self.assertLess(caption, result.head.height(), "caption 이 머리 안에 다 보임")
+        self.assertTrue(result.bar.isVisible())
+        self.assertEqual(result.minimumHeight(), result.height())
+
     def test_language_switch_keeps_the_card_open_without_a_result(self):
         win = self.boot()
         page = self.open("p1")

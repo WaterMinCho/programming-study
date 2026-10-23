@@ -6,7 +6,7 @@
 결과가 없을 때 접으면(set_collapsed) 머리 글 두 줄만 남음. 스크롤 칸은 카드 아래 끝에 닿으므로 flat 속성을 달아 바탕을 칠하지 않고
 카드가 면과 둥근 모서리를 그림(theme.STYLE_V2 의 카드 안 flat 스크롤 칸 규칙)."""
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QFrame, QScrollArea, QWidget
+from PyQt6.QtWidgets import QFrame, QScrollArea, QSizePolicy, QWidget
 
 from gui import journey_html, journey_text, kit, theme
 from gui.docview import PAD, TextPiece  # 카드 안쪽 여백은 문서 칸의 안쪽 여백과 같은 24
@@ -35,6 +35,7 @@ class JourneyResult(QFrame):
         self.caption = kit.para("", "caption", "secondary")
         for widget in (self.title, self.gap, self.bar_box, self.caption):
             head_box.addWidget(widget)
+        self.head.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)  # 카드를 줄여도 머리는 눌리지 않고 스크롤 칸이 줄어듦
         self.box.addWidget(self.head)
 
         self.scroll = QScrollArea()
@@ -42,6 +43,7 @@ class JourneyResult(QFrame):
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setMinimumHeight(1)  # 스크롤 칸이 스스로 잡는 최소 높이 대신 1. 카드의 최소 높이는 fit_height 가 머리로 셈
         inner = QWidget()
         inner_box = kit.box(inner, (PAD, 0, PAD, PAD))
         self.banners = QWidget()  # 완료 띠들. 띠 사이 8, 마지막 띠 아래 16
@@ -132,14 +134,14 @@ class JourneyResult(QFrame):
             self.redraw()
 
     def fit_height(self):
-        """접힌 카드는 높이를 지금 머리 글의 높이로 묶어서 칸 나누기가 남는 높이를 편집기에 줌. 펼친 카드는 머리가 눌리지 않을 만큼만
-        줄어듦(headline 과 caption 의 줄 높이로 셈). 글이나 폭, 글자 크기가 바뀌면 다시 부름."""
+        """접힌 카드는 높이를 지금 머리 글의 높이로 묶어서 칸 나누기가 남는 높이를 편집기에 줌. 펼친 카드는 머리, 그 아래 16,
+        스크롤 칸 1 까지만 줄어들어 손잡이를 끝까지 끌어도 머리가 눌리지 않음. 글이나 폭, 글자 크기가 바뀌면 다시 부름."""
         if self.collapsed:
             height = self.folded_height()
             self.setMinimumHeight(height)
             self.setMaximumHeight(height)
         else:
-            self.setMinimumHeight(2 * PAD + 4 + theme.TYPE["headline"][1] + theme.TYPE["caption"][1])
+            self.setMinimumHeight(self.head.sizeHint().height() + self.box.spacing() + 1)
             self.setMaximumHeight(16777215)
 
     def resizeEvent(self, event):

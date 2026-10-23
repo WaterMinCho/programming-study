@@ -312,6 +312,7 @@ class JourneyCodePanel(QWidget):
         self.reset_btn = None  # 아래 막대의 [코드 되돌리기]. 문제 화면이 넣음
         self.code = ""  # 바로 앞에 알린 글
         self.editor.textChanged.connect(self._edited)
+        self.collapse()  # 문제를 열기 전에도 접어 둠. 펼친 카드의 최소 높이가 창의 최소 높이에 들지 않음
         self.refit()
 
     def set_code(self, text):
