@@ -18,7 +18,7 @@ os.environ.setdefault("STUDY_NODE_PROBE", "0")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
-from PyQt6.QtCore import QPoint, QSettings, Qt, QUrl  # noqa: E402
+from PyQt6.QtCore import QPoint, QRect, QSettings, Qt, QUrl  # noqa: E402
 from PyQt6.QtGui import QFontMetricsF, QGuiApplication, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QFrame, QMainWindow, QPushButton, QStackedWidget  # noqa: E402
@@ -541,6 +541,15 @@ class MapTest(Base):
         self.assertEqual([], [widget for widget in controls + page.rows.rows if widget.isEnabled()])
         page.show_dungeon("t01")
         self.assertEqual([], [row for row in page.rows.rows if row.isEnabled()], "바쁜 동안 새로 만든 줄도 꺼짐")
+        guikit.pump()
+        row = page.rows.rows[0]
+        back = theme.color("surface")
+
+        def drawn(widget):
+            return win.grab(QRect(widget.mapTo(win, QPoint(0, 0)), widget.size())).toImage()
+
+        self.assertTrue(guikit.near(guikit.ink(drawn(row.title), back), "faint"), "꺼진 줄의 제목은 faint")
+        self.assertEqual(back, guikit.ink(drawn(row.chevron), back).name(), "꺼진 줄은 꺾쇠를 그리지 않음")
         guikit.click(page.rows.rows[0])
         self.assertIs(win.pages.currentWidget(), page)
         page.set_busy(False)
@@ -879,7 +888,7 @@ class WorkFrameTest(Base):
     def test_busy_keeps_the_tabs_and_locks_the_rest(self):
         win = self.boot([passed("p1")])
         page = self.open("p2")
-        states = []
+        states, cases_x = [], page.cases_btn.x()
 
         def check():
             chip = page.lang_btns["python"]
@@ -889,6 +898,7 @@ class WorkFrameTest(Base):
                                                                         page.facts.links[0])] + [chip.isEnabled() for chip in page.lang_btns.values()],
                            "buttons": (page.run_btn.text(), page.run_btn.isEnabled(), page.grade_btn.text(), page.grade_btn.isEnabled()),
                            "stop": (page.stop_btn.isVisible(), page.stop_btn.isEnabled(), page.stop_btn.text()), "reset": page.reset_btn.isVisible(),
+                           "link": has_underline(page.facts.links[0]), "cases_x": page.cases_btn.x(),
                            "chip": (guikit.near(image.pixelColor(image.width() // 2, 4), "selection"),
                                     guikit.near(guikit.ink(image, theme.color("selection")), "faint"))})
 
@@ -902,6 +912,8 @@ class WorkFrameTest(Base):
             self.assertEqual([False] * 7, state["locked"])
             self.assertEqual((True, True, "중지"), state["stop"])
             self.assertFalse(state["reset"])
+            self.assertFalse(state["link"], "꺼진 준비 문제 링크는 밑줄 없는 글")
+            self.assertEqual(cases_x, state["cases_x"], "[코드 되돌리기]를 숨겨도 [테스트 추가]가 제자리")
             self.assertEqual((True, True), state["chip"], "꺼진 고른 칩은 알약을 남기고 글만 faint")
         self.assertEqual(("실행 중", False, "채점하기", False), run["buttons"])
         self.assertEqual(("코드 실행", False, "채점 중", False), grade["buttons"])
@@ -911,6 +923,7 @@ class WorkFrameTest(Base):
         self.assertEqual((NODE_BUSY, False, False), (page.status.text(), page.stop_btn.isVisible(), page.reset_btn.isVisible()))
         page.set_busy(False)
         self.assertEqual(("", True), (page.status.text(), page.reset_btn.isVisible()))
+        self.assertTrue(has_underline(page.facts.links[0]), "다시 켜지면 링크")
 
     def test_opening_a_problem_focuses_the_editor_and_returns_to_the_last_place(self):
         win = self.small()

@@ -10,6 +10,7 @@
 이 화면 안에서는 복사·붙여넣기가 됨(clipboard 속성을 gui/guard.py 가 봄). 파이썬 스터디의 회차 화면은 지금처럼 막힘.
 언어 칩과 Node.js 가 없을 때의 대화상자는 지도(gui/journey_map.py)도 같이 씀."""
 import datetime
+import html
 import math
 import re
 import time
@@ -229,7 +230,23 @@ class TabBarStack(QWidget):
 
 
 class PrepLink(LinkLabel):
-    """지문 머리의 준비 문제 링크. Para 는 마지막 줄 아래 줄 간격을 높이에서 빼는데, 링크 밑줄이 그 자리에 그려져 잘리므로 빼지 않음."""
+    """지문 머리의 준비 문제 링크. Para 는 마지막 줄 아래 줄 간격을 높이에서 빼는데, 링크 밑줄이 그 자리에 그려져 잘리므로 빼지 않음.
+    실행·채점 중에 꺼지면 링크 대신 밑줄 없는 faint 색 글로 그려 누를 수 있어 보이지 않게 함."""
+
+    def __init__(self, pid, text):
+        super().__init__("", line=theme.TYPE["caption"][1], font=theme.font("caption"))
+        self.pid, self.label = pid, text
+        self.setText(self.shown())
+
+    def shown(self):
+        if self.isEnabled():
+            return '<a href="%s">%s</a>' % (html.escape(self.pid), html.escape(self.label))
+        return '<span style="color: %s;">%s</span>' % (theme.color("faint"), html.escape(self.label))
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.EnabledChange, QEvent.Type.PaletteChange) and hasattr(self, "pid") and self.text() != self.shown():
+            self.setText(self.shown())
 
     def tail(self):
         return 0
@@ -268,8 +285,7 @@ class FactLine(QWidget):
         elif data["prep"]:
             self.second_box.addWidget(kit.label("준비 문제", "caption", "secondary"))
             for ref in data["prep"]:
-                link = kit.typed(PrepLink('<a href="%s">%s %s</a>' % (ref["pid"], ref["no"], ref["title"]), line=theme.TYPE["caption"][1],
-                                          font=theme.font("caption")), "caption")
+                link = kit.typed(PrepLink(ref["pid"], "%s %s" % (ref["no"], ref["title"])), "caption")
                 link.linkActivated.connect(self.opened.emit)
                 self.links.append(link)
                 self.second_box.addWidget(link)
@@ -474,6 +490,9 @@ class JourneyPage(QWidget):
         self.bar = kit.BottomBar()
         self.reset_btn = self.bar.add_tool(kit.button("코드 되돌리기", "danger_text", "m"))
         self.reset_btn.setToolTip("시작 코드로 되돌립니다.")
+        policy = self.reset_btn.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)  # 실행·채점 중에 숨겨도 [테스트 추가]가 왼쪽으로 옮겨 가지 않음
+        self.reset_btn.setSizePolicy(policy)
         self.code_panel.reset_btn = self.reset_btn
         self.cases_btn = self.bar.add_tool(kit.button("테스트 추가", "text", "m"))
         self.stop_btn = self.bar.add_action(kit.button("중지", "secondary", "l"))

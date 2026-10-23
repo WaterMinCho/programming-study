@@ -357,13 +357,15 @@ class Dot(QWidget):
 
 
 class Chevron(QWidget):
-    """목록 줄 오른쪽 끝의 꺾쇠."""
+    """목록 줄 오른쪽 끝의 꺾쇠. 꺼지면(바쁜 동안 꺼진 줄) 그리지 않고 자리만 남김."""
 
     def __init__(self):
         super().__init__()
         self.setFixedSize(MARK, MARK)
 
     def paintEvent(self, event):
+        if not self.isEnabled():
+            return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(QPen(theme.qcolor("faint"), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
@@ -375,7 +377,8 @@ class Chevron(QWidget):
 
 class Row(QFrame):
     """목록 줄. 왼쪽 상태 점(없을 수 있음), 제목과 둘째 줄, 오른쪽 caption 과 꺾쇠. 줄 전체를 한 번 누르면 clicked 가 남.
-    한 줄이면 높이 56, 둘째 줄이 있으면 72. 올리면 hover 색, 누르면 surface_alt, 키보드 초점은 안쪽 2px 테두리."""
+    한 줄이면 높이 56, 둘째 줄이 있으면 72. 올리면 hover 색, 누르면 surface_alt, 키보드 초점은 안쪽 2px 테두리.
+    꺼지면 글이 faint 색이 되고 꺾쇠를 그리지 않음(theme.STYLE_V2, Chevron)."""
     clicked = pyqtSignal()
 
     def __init__(self, title, second="", end="", mark=None, data=None, strong=False, inert=False):

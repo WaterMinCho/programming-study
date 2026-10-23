@@ -260,6 +260,7 @@ QWidget[ui="2"] QFrame#row[over="true"] { background: %(hover)s; }
 QWidget[ui="2"] QFrame#row[down="true"] { background: %(surface_alt)s; }
 QWidget[ui="2"] QFrame#row[picked="true"] { background: %(selection)s; }
 QWidget[ui="2"] QFrame#row[picked="true"] QLabel { color: %(selection_ink)s; }
+QWidget[ui="2"] QFrame#row QLabel:disabled { color: %(faint)s; }
 QWidget[ui="2"] QFrame#rowline { background: %(line)s; border: 0; }
 QWidget[ui="2"] QPushButton { font-size: %(btn)spx; font-weight: 700; border-radius: 12px; padding: 0 20px; min-height: 36px; max-height: 36px;
     min-width: 48px; border: 2px solid transparent; background: %(surface_alt)s; color: %(ink)s; }
