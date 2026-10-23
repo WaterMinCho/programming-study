@@ -28,7 +28,7 @@ import study  # noqa: E402
 from gui import journey_html, journey_text, kit, theme  # noqa: E402
 from gui.cases_dialog import HINT, TITLE  # noqa: E402
 from gui.dialogs import MessageDialog  # noqa: E402
-from gui.docview import CodeView, TextPiece  # noqa: E402
+from gui.docview import CodeView, FigureView, TextPiece  # noqa: E402
 from gui.editor import JAVASCRIPT, PYTHON  # noqa: E402
 from gui.guard import Guard  # noqa: E402
 from gui.journey_map import ALL_CLEAR, BROKEN, CACHE_TIP, CLEAR_TEXT, WAITING, JourneyMapPage, MapView  # noqa: E402
@@ -1433,6 +1433,28 @@ class DarkThemeTest(Base):
         win.journey_page.restyle()
         guikit.pump(60)
         self.assertGreater(bright_share(win), 0.3)
+
+    def test_first_problem_and_its_windows_have_no_bright_area(self):
+        """설계 10.1-17 의 나머지 상태: 결과 전에 접힌 문제 화면, 테스트 추가 창, 해설 그림 창."""
+        mode = theme.state["mode"]
+        self.addCleanup(theme.set_mode, mode)
+        theme.set_mode("dark")
+        self.boot([passed("p1")])
+        page = self.open("p2")
+        guikit.pump(60)
+        self.assertTrue(page.result.collapsed)
+        self.assertEqual(0, bright_share(self.win))
+        guikit.click(page.cases_btn)
+        guikit.pump(60)
+        self.assertEqual(0, bright_share(page.cases_dialog))
+        page.cases_dialog.close()
+        page = self.open("p1")
+        page.tabs.setCurrentIndex(2)
+        figure = next(piece for piece in page.explain_view.pieces if isinstance(piece, FigureView))
+        figure.open_dialog()
+        guikit.pump(60)
+        self.assertEqual(0, bright_share(figure.dialog))
+        figure.dialog.close()
 
 
 if __name__ == "__main__":

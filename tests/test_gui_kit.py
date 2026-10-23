@@ -23,7 +23,8 @@ from journey import bank  # noqa: E402
 
 ROOT = guikit.ROOT
 V2_FILES = ("gui/kit.py", "gui/hub_page.py", "gui/web_home.py", "gui/web_mission.py", "gui/web_drill.py", "gui/web_learn.py",
-            "gui/web_setup.py", "gui/web_text.py", "gui/journey_map.py", "gui/journey_page.py", "gui/journey_result.py")  # 새 규칙을 따르는 파일
+            "gui/web_setup.py", "gui/web_text.py", "gui/journey_map.py", "gui/journey_page.py", "gui/journey_result.py",
+            "gui/journey_text.py", "gui/cases_dialog.py", "gui/docview.py")  # 새 규칙을 따르는 파일
 WEIGHTS = {400, 700}
 TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover")
 WEAK = {"ok": "ok_weak", "retry": "retry_weak", "wrong": "wrong_weak", "info": "info_weak", "selection_ink": "selection",
@@ -170,6 +171,19 @@ class RuleTest(unittest.TestCase):
     def test_no_colour_values_outside_theme(self):
         for path in V2_FILES:
             self.assertEqual([], re.findall(r"#[0-9a-fA-F]{6}\b", source(path)), path)
+
+    def test_journey_css_colours_are_plain_values(self):
+        """여행 문서와 결과 칸 CSS 의 글자·바탕 색은 #rrggbb 나 transparent 만 씀(설계 10.1-23). doc_css 의 줄 간격 키 line 이
+        같은 이름의 색 토큰을 가리므로 %(line)s 를 색으로 쓰면 116 이 들어가고 Qt 는 그 규칙을 말없이 버림."""
+        mode = theme.state["mode"]
+        self.addCleanup(theme.set_mode, mode)
+        for scheme in ("light", "dark"):
+            theme.set_mode(scheme)
+            for name, css in (("journey_css", theme.journey_css()), ("result_css", theme.result_css())):
+                values = re.findall(r"(?<![\w-])(?:background-)?color\s*:\s*([^;}]+)", css)
+                self.assertTrue(values, name)
+                for value in values:
+                    self.assertRegex(value.strip(), r"\A(#[0-9a-f]{6}|transparent)\Z", "%s %s" % (scheme, name))
 
 
 class TextStepTest(unittest.TestCase):
