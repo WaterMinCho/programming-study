@@ -780,9 +780,9 @@ class WorkFrameTest(Base):
             QTest.keyClick(editor, Qt.Key.Key_Return, guikit.CTRL | guikit.SHIFT)
             guikit.pump()
         self.assertEqual((2, 1), (len(runs), len(grades)), "키패드 Enter 도 실행, Ctrl+Shift+Enter 는 채점")
+        self.assertIs(win.focusWidget(), editor, "채점이 끝나면 초점이 편집기로 돌아옴")
         self.assertIn("Ctrl+Enter", page.run_btn.toolTip())
         self.assertIn("Ctrl+Shift+Enter", page.grade_btn.toolTip())
-        editor.setFocus()
         self.type_code(MAX_SOLUTION)
         QTest.keyClick(editor, Qt.Key.Key_S, guikit.CTRL)
         self.assertEqual({}, page.dirty, "기다리지 않고 바로 저장")
@@ -802,6 +802,34 @@ class WorkFrameTest(Base):
         self.assertIs(win.focusWidget(), editor)
         QTest.keyClick(editor, Qt.Key.Key_Escape)
         self.assertIs(win.focusWidget(), page.tabs.bar.buttons[0])
+
+    def test_grading_keeps_the_hint_place(self):
+        """채점이 끝나 힌트·해설 탭을 다시 그려도 읽던 힌트 자리를 지킴."""
+        win = self.boot()
+        win.resize(1024, 500)
+        page = self.open("p2")
+        page.tabs.setCurrentIndex(1)
+        while page.hint_btn.isVisible():
+            guikit.click(page.hint_btn)
+        guikit.pump()
+        bar = page.hint_view.verticalScrollBar()
+        self.assertGreaterEqual(bar.maximum(), 80)
+        bar.setValue(80)
+        with mock.patch.object(win.journey, "grade", fake_grade({"score": 10.0})):
+            guikit.click(page.grade_btn)
+        guikit.pump()
+        self.assertEqual(80, bar.value())
+
+    def test_a_refused_job_leaves_no_running_head(self):
+        """다른 일이 도는 중이라 창이 실행·채점을 받지 않으면(run_job 이 False) 진행 머리와 시계를 남기지 않음."""
+        win = self.boot()
+        page = self.open("p1")
+        with mock.patch.object(win, "run_job", lambda *args, **kwargs: False):
+            guikit.click(page.run_btn)
+            self.assertEqual((None, None), (page.live, page.job_kind))
+            guikit.click(page.grade_btn)
+        self.assertEqual((None, None, False), (page.live, page.job_kind, page.ticker.isActive()))
+        self.assertEqual(journey_text.NOT_RUN, page.result.title.text())
 
     def test_find_bar_follows_the_scope_and_the_text_steps(self):
         self.addCleanup(theme.set_text, "normal")
@@ -1101,6 +1129,21 @@ class RunGradeTest(Base):
         guikit.click(boss)
         self.assertEqual("boss", page.pid)
         self.assertIs(win.pages.currentWidget(), page)
+
+    def test_grading_key_adds_one_record(self):
+        """편집기에서 Ctrl+Shift+Enter 로 채점하면 기록이 한 줄 늘고 초점은 편집기에 남음(설계 10.1-13)."""
+        win = self.boot()
+        page = self.open("p2")
+        editor = page.code_panel.editor
+        self.type_code(FIRST_SOLUTION)
+        win.activateWindow()
+        editor.setFocus()
+        guikit.pump()
+        QTest.keyClick(editor, Qt.Key.Key_Return, guikit.CTRL | guikit.SHIFT)
+        guikit.pump()
+        self.assertEqual(1, len(self.read_log()))
+        self.assertEqual(FIRST_SOLUTION, editor.toPlainText(), "편집기에 줄바꿈이 들어가지 않음")
+        self.assertIs(win.focusWidget(), editor)
 
     def test_stop_during_grading_keeps_no_record(self):
         win = self.boot()

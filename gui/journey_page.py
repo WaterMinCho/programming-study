@@ -626,7 +626,8 @@ class JourneyPage(QWidget):
         return True
 
     def refresh(self):
-        """채점·해설로 기록이 바뀐 뒤 머리와 힌트·해설 탭을 다시 그림. 편집기의 글과 문제 탭의 읽던 자리는 그대로 둠."""
+        """채점·해설로 기록이 바뀐 뒤 머리와 힌트·해설 탭을 다시 그림. 편집기의 글과 세 탭의 읽던 자리는 그대로 둠.
+        힌트·해설 칸은 다시 그리면 맨 위로 가므로 읽던 자리를 돌아갈 자리(pending)에 넣음."""
         if self.data is None:
             return
         try:
@@ -634,8 +635,13 @@ class JourneyPage(QWidget):
         except SessionError:
             return
         self.data = data
+        kept = {view: view.verticalScrollBar().value() for view in (self.hint_view, self.explain_view)}
         self.show_head()
         self.show_docs(problem=False)
+        for view, place in kept.items():
+            if place:
+                self.pending[view] = place
+                self._settle(view)
 
     def keep_place(self):
         if self.data is not None:
@@ -938,8 +944,9 @@ class JourneyPage(QWidget):
         did, pid, lang = self.did, self.pid, self.lang
         self.live = {"cases": [], "total": len(self.data["examples"]) + len(self.data["cases"])}
         self._start("run")
-        self.win.run_job(RUN_BUSY, caught(lambda report, cancel: self.win.journey.run(did, pid, lang, report, cancel)),
-                         lambda result: self._ran((did, pid, lang), result), on_fail=self._failed, on_progress=self.on_progress)
+        started = self.win.run_job(RUN_BUSY, caught(lambda report, cancel: self.win.journey.run(did, pid, lang, report, cancel)),
+                                   lambda result: self._ran((did, pid, lang), result), on_fail=self._failed, on_progress=self.on_progress)
+        self._refused(started)
 
     def grade(self):
         """[채점하기]. 숨은 테스트까지 채점하고 기록함."""
@@ -949,8 +956,15 @@ class JourneyPage(QWidget):
         self.live = {"groups": []}
         self._start("grade")
         self.ticker.start()
-        self.win.run_job(GRADE_BUSY, caught(lambda report, cancel: self.win.journey.grade(did, pid, lang, report, cancel)),
-                         lambda result: self._graded((did, pid, lang), result), on_fail=self._failed, on_progress=self.on_progress)
+        started = self.win.run_job(GRADE_BUSY, caught(lambda report, cancel: self.win.journey.grade(did, pid, lang, report, cancel)),
+                                   lambda result: self._graded((did, pid, lang), result), on_fail=self._failed, on_progress=self.on_progress)
+        self._refused(started)
+
+    def _refused(self, started):
+        """다른 일이 도는 중이라 창이 일을 받지 않았으면(run_job 이 False) _start 가 펼친 진행 머리와 시계를 거둠."""
+        if started is False:
+            self.job_kind = None
+            self._failed()
 
     def _start(self, kind):
         self.job_kind, self.stage, self.started = kind, "", time.monotonic()
@@ -1009,6 +1023,7 @@ class JourneyPage(QWidget):
         self.ticker.stop()
         self.results[key] = ("grade", result)
         self.show_result()
+        self.code_panel.focus_input()  # 도는 동안 편집기를 꺼서 초점이 사라졌음
         if result.get("cancelled"):
             return
         self.refresh()
@@ -1019,6 +1034,7 @@ class JourneyPage(QWidget):
         self.live = None
         self.ticker.stop()
         self.show_result()
+        self.code_panel.focus_input()
 
     def stop(self):
         """도는 실행·채점에 멈추라고 알림. 결과는 끝난 줄까지만 돌아오고 기록되지 않음."""
