@@ -421,7 +421,7 @@ class PartsTest(unittest.TestCase):
             self.assertTrue(guikit.near(image.pixelColor(center.x() + 24, center.y()), "focus"), step)
 
     def test_splitter_keeps_and_remembers_the_ratio(self):
-        """끄는 칸 나누기의 손잡이 폭은 24(세로 나누기 16)이고 가운데에 무늬가 있음. 가로 칸은 320 아래로 줄지 않음. 끈 몫은 설정에
+        """끌어 옮기는 칸 나누기의 손잡이 폭은 24(세로 나누기 16)이고 가운데에 무늬가 있음. 가로 칸은 320 아래로 줄지 않음. 옮긴 몫은 설정에
         0~1 값으로 남고 창이 커져도 그 몫을 지킴. 같은 key 로 다시 만들면 그 몫으로 시작함. 두 번 누르면 처음 몫으로 돌아감.
         잠그면 끌리지 않고 무늬가 사라짐."""
         folder = tempfile.mkdtemp()

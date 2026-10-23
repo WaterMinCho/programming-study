@@ -36,7 +36,7 @@ WIDTH_HINT = 390  # 1280 창의 지도 카드 폭. 실제 폭은 카드 폭을 �
 LEGEND_ITEMS = (("cleared", "클리어"), ("progress", "진행 중"), ("todo", "시작 전"), ("waiting", "준비 중"))
 ARROWS = {Qt.Key.Key_Left: (0, -1), Qt.Key.Key_Right: (0, 1), Qt.Key.Key_Up: (-1, 0), Qt.Key.Key_Down: (1, 0)}  # 화면의 이웃: (줄, 칸)
 
-ABOUT = "코딩 테스트 유형을 던전 %d개로 나눠 차례로 풀고, 던전마다 보스 문제로 마무리합니다."
+ABOUT = "코딩 테스트 유형을 던전 %d개로 나눴습니다. 던전마다 문제를 차례로 풀고 보스 문제로 마무리합니다."
 NODE_TEXT = "JavaScript 로 풀려면 Node.js %d 이상이 필요합니다. 지금은 Python 으로 풉니다." % MIN_MAJOR
 ALL_CLEAR = "준비된 던전을 모두 클리어했습니다. 새 던전이 나오면 첫 화면의 [새 문제 받기]로 받으세요."
 NO_DUNGEON = "아직 준비된 던전이 없습니다. 첫 화면의 [새 문제 받기]로 받으세요."

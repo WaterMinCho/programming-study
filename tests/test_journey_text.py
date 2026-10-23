@@ -266,10 +266,10 @@ class ResultHeadTest(unittest.TestCase):
         self.assertEqual(self.head("run", passed), ("테스트 3개 중 3개 통과", (3, 3), "[채점하기]로 숨은 테스트까지 채점하세요."))
         self.assertEqual(journey_text.result_head("run", passed)["tone"], "success")
         fatal = dict(failed, cases=[], passed=0, fatal={"kind": "syntax", "message": "SyntaxError", "line": 3})
-        self.assertEqual(self.head("run", fatal), ("코드를 불러오지 못했습니다", None, "3번째 줄을 확인하세요."))
+        self.assertEqual(self.head("run", fatal), ("코드를 불러오지 못했습니다.", None, "3번째 줄을 확인하세요."))
         self.assertEqual(self.head("run", dict(fatal, fatal={"kind": "load", "message": "", "line": None})),
-                         ("코드를 불러오지 못했습니다", None, ""))
-        self.assertEqual(self.head("run", dict(failed, cancelled=True)), ("실행을 멈췄습니다", None, "끝난 테스트까지만 보입니다."))
+                         ("코드를 불러오지 못했습니다.", None, ""))
+        self.assertEqual(self.head("run", dict(failed, cancelled=True)), ("실행을 멈췄습니다.", None, "끝난 테스트까지만 보입니다."))
 
     def test_grade_in_progress(self):
         self.assertEqual(self.head("grade", {"groups": []}, done=False), ("채점 중", "busy", "채점을 준비하는 중입니다."))
@@ -296,10 +296,10 @@ class ResultHeadTest(unittest.TestCase):
 
     def test_grade_failed_or_stopped(self):
         fatal = {"fatal": {"kind": "syntax", "message": "SyntaxError", "line": 3}, "cancelled": False, "groups": [], "score": 0.0}
-        self.assertEqual(self.head("grade", fatal), ("코드를 불러오지 못했습니다", None, "0점으로 기록했습니다. 3번째 줄을 확인하세요."))
+        self.assertEqual(self.head("grade", fatal), ("코드를 불러오지 못했습니다.", None, "0점으로 기록했습니다. 3번째 줄을 확인하세요."))
         self.assertEqual(self.head("grade", dict(fatal, fatal={"kind": "load", "line": None}))[2], "0점으로 기록했습니다.")
         stopped = {"fatal": None, "cancelled": True, "groups": [group("정확성", 0.0, 70.0)], "score": 0.0}
-        self.assertEqual(self.head("grade", stopped), ("채점을 멈췄습니다", None, "이번 채점은 기록에 남지 않습니다."))
+        self.assertEqual(self.head("grade", stopped), ("채점을 멈췄습니다.", None, "이번 채점은 기록에 남지 않습니다."))
 
 
 class DialogTextTest(SessionBase):

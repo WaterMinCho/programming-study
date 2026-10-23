@@ -2,7 +2,7 @@
 """알고리즘 여행의 문제 화면(작업 틀): 위 막대(← 알고리즘 여행 · 문제 이름 · 역할 꼬리표 · 번호 · 상태 / 풀이 언어 칩) ·
 왼쪽 지문 카드(문제·힌트·해설 탭) · 오른쪽 편집기와 결과 카드 · 아래 막대(코드 되돌리기, 테스트 추가 / 코드 실행, 채점하기).
 
-두 칸과 편집기·결과 카드 사이는 사람이 끌 수 있는 칸 나누기이고 끈 몫을 설정에 기억함. 결과가 아직 없으면 결과 카드를 머리만 남기고 접어
+두 칸과 편집기·결과 카드 사이는 사람이 끌어 옮기는 칸 나누기이고 옮긴 몫을 설정에 기억함. 결과가 아직 없으면 결과 카드를 머리만 남기고 접어
 편집기를 키우고, 처음 [코드 실행]·[채점하기]를 누르는 순간 기억한 몫으로 펼침. 지문 카드는 읽는 글의 단 폭(kit.doc_width)보다 넓어지지 않음.
 코드는 입력이 멈추고 SAVE_DELAY_MS 뒤에 서비스로 저장함(Ctrl+S 는 바로). 실행·채점은 창의 run_job 으로 워커에서 돌림.
 진행 알림(report)이 올 때마다 결과 카드 본문에 줄을 하나씩 붙임. 마지막 결과는 (문제, 언어)마다 dict 로 두어 다른 문제를 갔다 오거나
@@ -35,18 +35,18 @@ SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
 SITE_LABEL = {"boj": "백준", "programmers": "프로그래머스"}
 NODE_TITLE = "Node.js 찾기"
 NODE_BUSY = "Node.js 찾는 중"  # node 를 찾거나 고른 파일을 확인하는 동안 화면 위 막대에 보이는 글
-NODE_TEXT = ("JavaScript 로 풀려면 Node.js %d 이상이 필요합니다. 설치한 뒤 [다시 찾기]를 누르고, 설치했는데 찾지 못하면 "
+NODE_TEXT = ("JavaScript 로 풀려면 Node.js %d 이상이 필요합니다. 설치한 뒤 [다시 찾기]를 누르세요. 설치했는데 찾지 못하면 "
              "[직접 고르기]로 node 실행 파일을 고르세요." % MIN_MAJOR)
 NODE_LINK = "https://nodejs.org"  # Node 창 본문 아래에 누를 수 있는 주소로 보임
 NODE_MISSING = "Node.js 를 찾지 못했습니다."  # [다시 찾기]로도 찾지 못했을 때 Node 창 본문 앞에 붙는 문장
 NODE_RETRY = "새 Node.js 를 설치한 뒤 [다시 찾기]를 누르세요. 이미 설치했다면 [직접 고르기]로 그 node 실행 파일을 고르세요."  # 고른 파일을 쓸 수 없을 때 그 까닭 뒤
 GIVE_UP_TITLE = "해설 먼저 보기"
-GIVE_UP_TEXT = "아직 통과하지 않은 문제입니다. 해설을 열면 기록에 남고, 나중에 통과해도 목록에 '해설 보고 통과'로 보입니다."
+GIVE_UP_TEXT = "아직 통과하지 않은 문제입니다. 해설을 열면 기록에 남습니다. 나중에 통과해도 목록에는 '해설 보고 통과'로 나옵니다."
 RESET_TITLE = "코드 되돌리기"
 RESET_TEXT = "지금 코드를 지우고 시작 코드로 바꿉니다. 바로 뒤라면 편집기에서 Ctrl+Z(맥은 Cmd+Z)로 되살릴 수 있습니다."
 CLEAR_TITLE = "던전 클리어"
-RUN_TIP = "입출력 예와 내 테스트로 돌려 봅니다. 기록에 남지 않습니다. (Ctrl+Enter, 맥은 Cmd+Enter)"
-GRADE_TIP = "숨은 테스트까지 채점합니다. 결과는 기록에 남습니다. (Ctrl+Shift+Enter, 맥은 Cmd+Shift+Enter)"
+RUN_TIP = "입출력 예와 내 테스트로 돌려 봅니다. 기록에 남지 않습니다.\nCtrl+Enter (맥은 Cmd+Enter)"  # 단축키는 웹 화면처럼 도움말의 따로 줄
+GRADE_TIP = "숨은 테스트까지 채점합니다. 결과는 기록에 남습니다.\nCtrl+Shift+Enter (맥은 Cmd+Shift+Enter)"
 RUN_BUSY, GRADE_BUSY = "코드 실행 중", "채점 중"  # 실행·채점을 맡길 때 창에 넘기는 일 이름. 진행은 결과 카드 머리가 보이므로 위 막대에 쓰지 않음
 ESCAPE_NOTE = "Esc 를 누르면 편집기 밖으로 나갑니다."
 EDITOR_LINES = 6  # 편집기 최소 높이의 줄 수. 보통 글자(16px)에서 120
@@ -936,7 +936,7 @@ class JourneyPage(QWidget):
     # 실행 · 채점
 
     def locked(self):
-        """실행·채점하는 파일과 화면이 어긋나지 않게 도는 동안 끄는 것. 탭과 문서는 읽을 수 있게 둠."""
+        """실행·채점하는 파일과 화면이 어긋나지 않게 도는 동안 꺼 두는 부품. 탭과 문서는 읽을 수 있게 둠."""
         return ([self.code_panel.editor, self.lang_bar, self.map_btn, self.hint_btn, self.give_up_btn, self.cases_btn, self.reset_btn,
                  self.run_btn, self.grade_btn, self.facts] + self.next_rows.rows)
 

@@ -529,7 +529,7 @@ def doc_css(zoom=0, extra="", own_body=False):
 
 
 def web_css():
-    """새 화면 문서용 CSS. doc_css 에 WEB_CSS 를 더함. 크기는 지금 글자 크기 단계의 TYPE 값."""
+    """새 규칙(ui="2") 화면의 문서용 CSS. doc_css 에 WEB_CSS 를 더함. 크기는 지금 글자 크기 단계의 TYPE 값."""
     return doc_css(text_px(), WEB_CSS, own_body=True)
 
 

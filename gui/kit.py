@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""새 디자인 시스템의 부품. 첫 화면과 웹 면접 준비 화면이 씀.
+"""새 디자인 시스템의 부품. 첫 화면, 웹 면접 준비 화면, 알고리즘 여행 화면이 씀.
 
 맨 위 위젯에 page() 로 ui="2" 속성을 주면 theme.STYLE_V2 의 색 규칙이 그 아래에만 걸림. 글자 크기와 굵기는 스타일시트가 아니라
 theme.TYPE 으로 글꼴을 직접 주고(label, para), 그 역할을 role 속성에 적어 두어 글자 크기 단계가 바뀌면 refont 가 글꼴을 다시 줌.
@@ -27,7 +27,7 @@ DOC_PX = theme.BASE_TYPE["body"][0]  # 그 글자 수를 잰 본문 크기(설�
 LINE_CHARS = 64  # 한 줄에 두는 글자 수의 상한. 설계값 DOC_CHARS 의 1.2배이고 '가'로만 채우면 48자
 GROW_FROM = 1280  # 이 창 폭부터 읽는 글의 단이 넓어짐
 DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok", "lock": "faint"}  # 상태 점의 색 토큰
-PANE_MIN = 320  # 끄는 칸 나누기에서 가로로 놓인 칸 하나의 최소 폭
+PANE_MIN = 320  # 끌어 옮기는 칸 나누기에서 가로로 놓인 칸 하나의 최소 폭
 GRIP = (4, 32)  # 칸 나누기 손잡이 가운데 무늬의 짧은 변과 긴 변
 
 
@@ -846,8 +846,8 @@ class Splitter(QSplitter):
 
 
 def splitter(orientation, key="", ratio=0.5, handle=24, settings=None):
-    """사람이 끄는 두 칸 나누기. orientation 은 Qt.Orientation, 손잡이 폭 handle 은 가로 나누기 24, 세로 나누기 16.
-    ratio 는 첫 칸의 처음 몫(0~1)이고 끈 몫은 settings(QSettings)의 key 에 0~1 값으로 남음."""
+    """사람이 끌어 옮기는 두 칸 나누기. orientation 은 Qt.Orientation, 손잡이 폭 handle 은 가로 나누기 24, 세로 나누기 16.
+    ratio 는 첫 칸의 처음 몫(0~1)이고 옮긴 몫은 settings(QSettings)의 key 에 0~1 값으로 남음."""
     return Splitter(orientation, key, ratio, handle, settings)
 
 

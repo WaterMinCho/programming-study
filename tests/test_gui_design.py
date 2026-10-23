@@ -358,8 +358,8 @@ class JourneyDesignTest(test_gui_journey.Base):
                                      "%s %s %s: %s" % (scheme, size, name, [color.name() for color in colors]))
 
     def test_top_bar_keeps_its_buttons_and_the_tag_beside_the_name(self):
-        """1024×700 위 막대(설계 10.1-26). 다섯 경우 × 글자 세 단계에서 돌아가기·칩 글자가 잘리지 않고, 꼬리표가 이름 바로 옆에
-        붙고, 상태 글은 두 줄까지이며, 화면이 1024 창을 넓히지 않음. 보통에서는 가장 긴 이름이 "저장했습니다" 옆에 다 보임."""
+        """1024×700 위 막대(설계 10.1-26). 다섯 경우와 글자 세 단계를 봄. 돌아가기·칩 글자가 잘리지 않음. 꼬리표는 이름 바로 옆에 붙음.
+        상태 글은 두 줄까지임. 화면이 1024 창을 넓히지 않음. 보통에서는 가장 긴 이름이 "저장했습니다" 옆에 다 보임."""
         for step in theme.TEXT_STEPS:
             win = self.start(step, log=[passed("p2")])
             for title, status, pid, number in TOP_CASES:

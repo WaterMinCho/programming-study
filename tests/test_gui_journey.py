@@ -747,7 +747,7 @@ class WorkFrameTest(Base):
 
     def test_the_result_card_folds_until_the_first_run(self):
         """1024×700 에서 결과 전에는 결과 카드가 머리 글만 남아 편집기가 길어지고 손잡이가 잠김. [코드 실행]을 누르는 순간 펼치고,
-        끈 몫은 0~1 값으로 남아 다시 열어도 같음. 기억한 결과가 있는 문제는 펼친 채 열림."""
+        옮긴 몫은 0~1 값으로 남아 다시 열어도 같음. 기억한 결과가 있는 문제는 펼친 채 열림."""
         win = self.small()
         win.journey.save_cases("t01", "p3", [{"args": ["ab"], "expected": "ba"}])
         page = self.open("p3")
@@ -778,7 +778,7 @@ class WorkFrameTest(Base):
         page.load("t01", "p3")
         guikit.pump()
         self.assertFalse(result.collapsed)
-        self.assertEqual(heights, (editor.height(), result.height()), "끈 몫 그대로")
+        self.assertEqual(heights, (editor.height(), result.height()), "옮긴 몫 그대로")
 
     def test_dragging_the_result_card_down_keeps_its_head(self):
         """1024×700 에서 실행 뒤 세로 손잡이를 끝까지 내려도 결과 카드 머리(headline, 막대, caption)는 제 높이를 지키고 스크롤 칸만 줄어듦."""
@@ -1223,7 +1223,7 @@ class RunGradeTest(Base):
         with mock.patch.object(page, "on_progress", progress):
             guikit.click(page.grade_btn)
         self.assertEqual([(True, False, False)], seen)
-        self.assertTrue(self.console().startswith("채점을 멈췄습니다\n이번 채점은 기록에 남지 않습니다."), self.console())
+        self.assertTrue(self.console().startswith("채점을 멈췄습니다.\n이번 채점은 기록에 남지 않습니다."), self.console())
         self.assertEqual([], self.read_log())
         self.assertIsNone(win.job)
 

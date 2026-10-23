@@ -23,7 +23,7 @@ NOT_RUN = "아직 실행하지 않았습니다."
 RUN_HINT = "[코드 실행]을 누르면 결과가 여기에 나옵니다."
 FIRST_PASS = "처음으로 통과했습니다. 해설이 열렸습니다."
 BOSS_OPENED = "보스 문제가 열렸습니다."
-NO_CODE = "코드를 불러오지 못했습니다"  # 머리 headline 이라 마침표가 없음(결과 수치 줄과 같은 꼴)
+NO_CODE = "코드를 불러오지 못했습니다."  # 머리 headline. 문장은 마침표로 끝내고 수치와 상태("100점 중 41.5점", "실행 중")는 마침표 없이 씀
 
 # 문제 화면
 SAVED = "저장했습니다"  # 위 막대 상태 글. 저장한 시각은 도움말
@@ -174,7 +174,7 @@ def tier_tip(tier, boss=False):
 def fact_line(data, lang):
     """문제 화면 지문 머리 첫 줄. "난이도 S3 / Lv2 · 시간 제한 2초" 이고 시간 제한은 lang 의 값임. data 는 서비스 problem() 의 결과."""
     limit = (data.get("time_limit_ms") or {}).get(lang)
-    parts = ["난이도 %s" % data["tier"]] + (["시간 제한 %s초" % seconds(limit)] if limit else [])  # 2500 → "2.5초", 채점 안내와 같은 꼴
+    parts = ["난이도 %s" % data["tier"]] + (["시간 제한 %s초" % seconds(limit)] if limit else [])  # 2500 → "2.5초". journey.grading.seconds 를 씀
     return " · ".join(parts)
 
 
@@ -231,7 +231,7 @@ def result_head(kind=None, result=None, done=True, best=None, mine=0, stage="", 
         if not done:
             return dict(head, title="실행 중", bar=(len(cases), total), caption="테스트 %d개 중 %d개 끝남" % (total, len(cases)))
         if result.get("cancelled"):
-            return dict(head, title="실행을 멈췄습니다", caption="끝난 테스트까지만 보입니다.")
+            return dict(head, title="실행을 멈췄습니다.", caption="끝난 테스트까지만 보입니다.")
         if result.get("fatal"):
             return dict(head, title=NO_CODE, caption=_line_hint(result["fatal"]))
         passed = result.get("passed") or 0
@@ -243,7 +243,7 @@ def result_head(kind=None, result=None, done=True, best=None, mine=0, stage="", 
         caption = stage + (" %s 지났습니다." % minutes_text(seconds) if seconds else "") if stage else "채점을 준비하는 중입니다."
         return dict(head, title="채점 중", bar="busy", caption=caption)
     if result.get("cancelled"):
-        return dict(head, title="채점을 멈췄습니다", caption="이번 채점은 기록에 남지 않습니다.")
+        return dict(head, title="채점을 멈췄습니다.", caption="이번 채점은 기록에 남지 않습니다.")
     if result.get("fatal"):
         return dict(head, title=NO_CODE, caption=" ".join(part for part in ("0점으로 기록했습니다.", _line_hint(result["fatal"])) if part))
     score = float(result.get("score") or 0.0)

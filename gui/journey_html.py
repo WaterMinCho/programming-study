@@ -5,7 +5,9 @@
 색은 본문 CSS 의 클래스(.ok .wrong .muted)로 주어 테마가 바뀌면 HTML 을 다시 넣기만 하면 됨. PyQt 를 import 하지 않아서 화면 없이 시험할 수 있음.
 
 결과가 다 오기 전에도 done=False 로 부르면 지금까지 온 줄만 그림. 진행 중에는 요약과 안내 줄을 붙이지 않음.
-결과 카드는 run_body·grade_body 로 테스트 줄과 끝의 안내 줄만 그림. 합계와 통과 여부 같은 요약은 카드 머리(journey_text.result_head)가 말함."""
+결과 카드는 run_body·grade_body 로 테스트 줄과 끝의 안내 줄만 그림. 합계와 통과 여부 같은 요약은 카드 머리(journey_text.result_head)가 말함.
+run_html·grade_html(본문 뒤에 요약 줄을 붙인 꼴)과 BOSS_LINK, STOPPED_RUN, STOPPED_GRADE 는 화면이 쓰지 않음. 요약 줄의 꼴을 시험이
+보려고 남겨 둠(tests/test_journey_html.py)."""
 import html
 import re
 
