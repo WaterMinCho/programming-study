@@ -12,12 +12,13 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
-from PyQt6.QtCore import QEvent, QObject, QPoint, QSettings, Qt  # noqa: E402
-from PyQt6.QtGui import QColor, QKeyEvent  # noqa: E402
+from PyQt6.QtCore import QBuffer, QByteArray, QEvent, QIODevice, QObject, QPoint, QSettings, Qt  # noqa: E402
+from PyQt6.QtGui import QColor, QKeyEvent, QPixmap  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 from gui import dialogs, kit, theme  # noqa: E402
+from gui.docview import FigureView  # noqa: E402
 from gui.journey_map import COLUMNS, PILL_GAP, MapView  # noqa: E402
 from journey import bank  # noqa: E402
 
@@ -345,6 +346,26 @@ class PartsTest(unittest.TestCase):
         self.assertEqual([], shown)
         self.assertEqual([True, True, True], [part.isVisible() for part in (rows.rows[0].second, rows.rows[0].end, rows.rows[0].chevron)])
         self.assertFalse(rows.rows[1].chevron.isVisible())
+
+    def test_new_parts_open_no_window_of_their_own(self):
+        """제목 있는 위 막대, 꼬리표와 메모가 있는 체크 줄, 캡션 있는 그림도 만들 때 따로 창으로 뜨지 않음."""
+        self.show()
+        shown = []
+        spy = WindowSpy(shown)
+        guikit.APP.installEventFilter(spy)
+        self.addCleanup(guikit.APP.removeEventFilter, spy)
+        picture = QPixmap(40, 20)
+        picture.fill(QColor("#336699"))
+        data = QByteArray()
+        buffer = QBuffer(data)
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        picture.save(buffer, "PNG")
+        parts = [kit.TopBar("← 처음 화면", "제목"), kit.Check("글", "필수", "accent", "메모"), FigureView("", "그림 1. 캡션", data=bytes(data))]
+        for part in parts:
+            self.box.addWidget(part)
+        guikit.pump()
+        self.assertEqual([], shown)
+        self.assertEqual([True] * 4, [part.isVisible() for part in (parts[0].title, parts[1].tag, parts[1].note, parts[2].caption)])
 
     def test_map_draws_round_nodes_name_pills_and_a_focus_ring(self):
         """던전 지도(gui/journey_map.MapView). 높이는 caption 줄 높이로 정하고(보통 370, 크게 378) 원 지름은 40. 이름 알약은 caption 줄

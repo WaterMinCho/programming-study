@@ -550,8 +550,8 @@ class FigureView(QWidget):
             self.draw()
         self.caption = kit.para(alt, "caption", "secondary")
         self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.caption.setVisible(bool(alt))
         box.addWidget(self.caption)
+        self.caption.setVisible(bool(alt))  # 부모에 붙인 뒤에 보임. 먼저 보이면 잠깐 따로 창으로 떠서 화면의 창이 초점을 잃음
 
     def _button(self, bar, text, slot):
         button = kit.button(text, "text", "s")

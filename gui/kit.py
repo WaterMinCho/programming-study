@@ -845,8 +845,8 @@ class TopBar(QFrame):
             self.back = button(back_text, "text", "m", onbg=plain)
             self.row.addWidget(self.back)
         self.title = ElideLabel(title, "headline")
-        self.title.setVisible(bool(title))
         self.row.addWidget(self.title, 1)
+        self.title.setVisible(bool(title))  # 부모에 붙인 뒤에 보임. Row 와 같은 까닭
 
     def add_right(self, widget, flush=False):
         """오른쪽 끝에 위젯을 더함. flush 면 글자 단추라 오른쪽 여백을 FLUSH 만큼 줄임."""
@@ -980,14 +980,14 @@ class Check(QFrame):
         text_row.setContentsMargins(0, 0, 0, 0)
         text_row.setSpacing(8)
         self.tag = badge(tag, tag_tone)
-        self.tag.setVisible(bool(tag))
         self.label = para(text)
         text_row.addWidget(self.tag, 0, Qt.AlignmentFlag.AlignTop)
         text_row.addWidget(self.label, 1)
         row.addLayout(text_row, 1)
         self.note = label(note, "caption", "tertiary")
-        self.note.setVisible(bool(note))
         row.addWidget(self.note, 0, Qt.AlignmentFlag.AlignTop)
+        self.tag.setVisible(bool(tag))  # 부모에 붙인 뒤에 보임. Row 와 같은 까닭
+        self.note.setVisible(bool(note))
 
     def mousePressEvent(self, event):
         self.down = event.button() == Qt.MouseButton.LeftButton
