@@ -152,7 +152,7 @@ class TrackAndDungeonTest(SessionBase):
         info = service.dungeon("t01")
         self.assertEqual([journey_text.row_line(row, info) for row in info["problems"]],
                          ["1-1 · B2 / Lv1 · 통과 · JavaScript", "1-2 · B1 / Lv1 · 준비 문제 1-1", "1-3 · B3 / Lv1 · 최고 41점",
-                          "중급 1개를 모두 통과하면 열립니다."])
+                          "중급 문제를 통과하면 열립니다."])
         opened = self.service([grade_entry("t01/p2")]).dungeon("t01")
         self.assertEqual(journey_text.row_line(opened["problems"][-1], opened), "S5 / Lv2", "보스 줄은 번호를 뺌")
 
@@ -169,10 +169,11 @@ class RowLineTest(unittest.TestCase):
                 (problem_row("1-4", "mid", "G4 / Lv3", prep=[{"pid": "p1", "no": "1-1", "title": "", "passed": False}]),
                  "1-4 · G4 / Lv3 · 준비 문제 1-1"),
                 (problem_row("1-B", "boss", "G3 / Lv3", tried=True, best={"python": 55.5}), "G3 / Lv3 · 최고 55점"),
-                (problem_row("1-B", "boss", "G3 / Lv3", locked=True), "중급 3개를 모두 통과하면 열립니다. 지금 1개 통과했습니다.")]
+                (problem_row("1-B", "boss", "G3 / Lv3", locked=True), "중급 3개 중 1개 통과 · 모두 통과하면 열립니다.")]
         for row, want in rows:
             self.assertEqual(journey_text.row_line(row, info), want)
         self.assertEqual(journey_text.row_line(rows[-1][0], {"mid_total": 3, "mid_passed": 0}), "중급 3개를 모두 통과하면 열립니다.")
+        self.assertEqual(journey_text.row_line(rows[-1][0], {"mid_total": 1, "mid_passed": 0}), "중급 문제를 통과하면 열립니다.", "중급이 하나")
 
 
 class ProblemTextTest(unittest.TestCase):

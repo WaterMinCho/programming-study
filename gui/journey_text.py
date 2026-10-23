@@ -131,10 +131,13 @@ def node_tip(row):
 
 def row_line(row, info):
     """문제 목록 줄의 둘째 줄. 번호 · 난이도 · 상태 · 준비 문제 순서이고 보스는 번호를 뺌. 잠긴 보스는 여는 조건을 씀.
+    조건은 1024 창의 글 칸에 크게 글자로 한 줄에 들도록 짧게 씀: "중급 3개 중 1개 통과 · 모두 통과하면 열립니다."
     row 는 dungeon()["problems"] 의 줄, info 는 그 dungeon() 결과."""
     if row["locked"]:
-        text = "중급 %d개를 모두 통과하면 열립니다." % info["mid_total"]
-        return text + (" 지금 %d개 통과했습니다." % info["mid_passed"] if info["mid_passed"] else "")
+        total, done = info["mid_total"], info["mid_passed"]
+        if done:
+            return "중급 %d개 중 %d개 통과 · 모두 통과하면 열립니다." % (total, done)
+        return "중급 문제를 통과하면 열립니다." if total == 1 else "중급 %d개를 모두 통과하면 열립니다." % total
     parts = [] if row["role"] == "boss" else [row["no"]]
     parts.append(row["tier"])
     if row["passed"]:

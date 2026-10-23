@@ -356,10 +356,12 @@ class MapTest(Base):
         self.assertIn("물통에 담긴 물의 양을 더하고", doc_text(page.intro))
         self.assertEqual("배열 합, 최댓값 찾기, 문자열 뒤집기", page.skills.text())
         self.assertEqual([("물통 합계", "1-1 · B2 / Lv1", "기초"), ("가장 큰 물통", "1-2 · B1 / Lv1 · 준비 문제 1-1", "중급"),
-                          ("이름 뒤집기", "1-3 · B3 / Lv1", "선택"), ("물통 정리", "중급 1개를 모두 통과하면 열립니다.", "보스")], rows_of(page))
+                          ("이름 뒤집기", "1-3 · B3 / Lv1", "선택"), ("물통 정리", "중급 문제를 통과하면 열립니다.", "보스")], rows_of(page))
         self.assertEqual(["todo", "todo", "todo", "lock"], [row.mark.state for row in page.rows.rows])
         boss = page.rows.rows[3]
         self.assertTrue(boss.inert)
+        ends = {row.end.mapTo(page, QPoint(row.end.width(), 0)).x() for row in page.rows.rows}
+        self.assertEqual(1, len(ends), "잠긴 보스의 역할도 다른 줄의 역할과 같은 열")
         self.assertTrue(boss.title.font().bold())
         self.assertFalse(page.rows.rows[0].title.font().bold())
         self.assertFalse(page.boss_new.isVisible())

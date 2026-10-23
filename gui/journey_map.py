@@ -566,6 +566,10 @@ class JourneyMapPage(QWidget):
                 dot.setToolTip("잠김")
             line = kit.Row(row["title"], row_line(row, info), row["role_label"], dot, row["id"], strong=row["role"] == "boss",
                            inert=row["locked"])
+            if row["locked"]:  # 숨긴 꺾쇠 자리를 남겨 끝 caption "보스" 가 다른 줄의 역할과 같은 열에 옴
+                policy = line.chevron.sizePolicy()
+                policy.setRetainSizeWhenHidden(True)
+                line.chevron.setSizePolicy(policy)
             line.clicked.connect(lambda pid=row["id"]: self.open_problem(pid))
             line.setEnabled(not self.busy)
             self.rows.add(line)
