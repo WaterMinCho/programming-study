@@ -1065,6 +1065,8 @@ class JourneyPage(QWidget):
         if self.data is None or self.busy:
             return
         did, pid = self.did, self.pid
+        if self.cases_dialog is not None:  # 열 때마다 새로 만들므로 닫힌 앞 창이 화면의 자식으로 쌓이지 않게 지움
+            self.cases_dialog.deleteLater()
         self.cases_dialog = CasesDialog(self, self.data, self.lang, lambda cases: self.win.journey.save_cases(did, pid, cases),
                                         self._cases_saved)
         self.cases_dialog.show()

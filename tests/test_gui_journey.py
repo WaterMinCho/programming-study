@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import QApplication, QFrame, QMainWindow, QPushButton, QSta
 import adaptive  # noqa: E402
 import study  # noqa: E402
 from gui import journey_html, journey_text, kit, theme  # noqa: E402
-from gui.cases_dialog import HINT, TITLE  # noqa: E402
+from gui.cases_dialog import HINT, TITLE, CasesDialog  # noqa: E402
 from gui.dialogs import MessageDialog  # noqa: E402
 from gui.docview import CodeView, FigureView, TextPiece  # noqa: E402
 from gui.editor import JAVASCRIPT, PYTHON  # noqa: E402
@@ -1434,6 +1434,16 @@ class CasesDialogTest(Base):
         page.cases_dialog.example_menu.actions()[0].trigger()
         self.assertEqual(['"abc"', '"cba"'], [edit.text() for edit in page.cases_dialog.rows[-1][0]])
         self.assertEqual("", page.cases_dialog.error.text())
+
+    def test_reopening_keeps_one_dialog(self):
+        """[테스트 추가]를 여러 번 열고 닫아도 문제 화면에 남는 창은 마지막 하나."""
+        self.boot()
+        page = self.open("p2")
+        for _ in range(3):
+            guikit.click(page.cases_btn)
+            page.cases_dialog.close()
+            guikit.pump()
+        self.assertEqual([page.cases_dialog], page.findChildren(CasesDialog))
 
     def test_dialog_uses_the_new_parts_and_follows_the_text_steps(self):
         self.addCleanup(theme.set_text, "normal")
