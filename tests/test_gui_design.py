@@ -21,7 +21,7 @@ from gui import journey_text, kit, theme  # noqa: E402
 from gui.docview import FigureView, TextPiece  # noqa: E402
 from gui.journey_page import NODE_BUSY  # noqa: E402
 from journey.grading import ACC_TEXT, EFF_TEXT  # noqa: E402
-from journey.service import JourneySession  # noqa: E402
+from journey.service import JourneyError, JourneySession  # noqa: E402
 from tests import test_gui_journey, test_gui_web  # noqa: E402  TestCase 를 이름으로 가져오면 discover 가 그 테스트를 한 번 더 돌림
 from tests.test_gui_journey import HAS_NODE, NO_NODE, fake_grade, fake_run, passed, run_case  # noqa: E402
 from tests.test_gui_web import WebTest, inside, scroll_to  # noqa: E402
@@ -175,7 +175,7 @@ class JourneyDesignTest(test_gui_journey.Base):
 
     def walk(self, step, check):
         """step 글자 단계의 1024×700 창에서 여행 화면의 상태를 차례로 띄우고 상태마다 check(이름, 화면, [화면 위에 뜬 창])를 부름.
-        설계 10.1-1 의 목록에 지도 바쁨, Node 창, 잠긴 보스 창, 찾기 막대, 채점 중을 더함."""
+        설계 10.1-1 의 목록에 지도 바쁨, Node 창, 잠긴 보스 창, 찾기 막대, 저장 실패, 채점 중을 더함."""
         win = self.start(step)
         home = win.journey_map
         check("지도 처음", home, [])
@@ -211,6 +211,10 @@ class JourneyDesignTest(test_gui_journey.Base):
         page.find_bar.reveal()
         check("찾기 막대", page, [])
         page.find_bar.dismiss()
+        self.type_code(test_gui_journey.MAX_SOLUTION)
+        with mock.patch.object(win.journey, "save_code", side_effect=JourneyError("코드를 저장하지 못했습니다: [Errno 13] 권한 없음")):
+            page.flush(offer=False)
+        check("저장 실패", page, [])
         with mock.patch.object(win.journey, "run", fake_run([run_case(1), run_case(2, False)], check=lambda: check("실행 중", page, []))):
             guikit.click(page.run_btn)
         check("실행 결과", page, [])
@@ -242,6 +246,7 @@ class JourneyDesignTest(test_gui_journey.Base):
         guikit.pump()
         win = self.win
         self.assertIs(win.pages.currentWidget(), page, name)
+        self.assertLessEqual(win.minimumSizeHint().height(), 480, "%s: 1366×768(125%%) 화면에 창이 다 들어옴" % name)
         for root in [page] + others:
             where = "%s %s" % (name, "" if root is page else root.windowTitle())
             self.assertEqual("2", root.property("ui"), where)

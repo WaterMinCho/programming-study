@@ -903,6 +903,31 @@ class WorkFrameTest(Base):
         self.assertTrue(page.flush())
         self.assertTrue(banner.isHidden())
         self.assertEqual(journey_text.SAVED, page.status.text())
+        self.type_code(MAX_SOLUTION)
+        with mock.patch.object(win.journey, "save_code", side_effect=JourneyError("코드를 저장하지 못했습니다: [Errno 13] 권한 없음")):
+            self.assertFalse(page.flush(offer=False))
+        page.dirty.clear()  # 창의 [저장하지 않고 나가기]가 쓰던 코드를 버림
+        win.go_journey()
+        self.open("p1")
+        self.assertEqual((True, ""), (banner.isHidden(), page.save_error), "버린 코드의 실패 띠가 다음 문제에 남지 않음")
+
+    def test_the_save_banner_keeps_the_window_small(self):
+        """저장 실패 띠가 떠도 창의 최소 높이가 480 이하라 1366×768(125%) 화면의 1053×514 창이 커지지 않음. 띠만큼 편집기가 줄어듦."""
+        self.addCleanup(theme.set_text, "normal")
+        win = self.boot()
+        win.resize(1053, 514)
+        page = self.open("p2")
+        for step in theme.TEXT_STEPS:
+            win.set_text(step)
+            self.type_code(MAX_SOLUTION if step != "large" else FIRST_SOLUTION)
+            with mock.patch.object(win.journey, "save_code", side_effect=JourneyError("코드를 저장하지 못했습니다: [Errno 13] 권한 없음")):
+                self.assertFalse(page.flush(offer=False))
+            guikit.pump()
+            self.assertTrue(page.code_panel.save_banner.isVisible(), step)
+            self.assertLessEqual(win.minimumSizeHint().height(), 480, step)
+            self.assertEqual((1053, 514), (win.width(), win.height()), step)
+            self.assertTrue(page.flush())
+            self.assertTrue(page.code_panel.save_banner.isHidden(), step)
 
     def test_the_explanation_ends_with_the_next_problem(self):
         self.boot([passed("p1")])

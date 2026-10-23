@@ -48,6 +48,7 @@ GRADE_TIP = "숨은 테스트까지 채점합니다. 결과는 기록에 남습�
 RUN_BUSY, GRADE_BUSY = "코드 실행 중", "채점 중"  # 실행·채점을 맡길 때 창에 넘기는 일 이름. 진행은 결과 카드 머리가 보이므로 위 막대에 쓰지 않음
 ESCAPE_NOTE = "Esc 를 누르면 편집기 밖으로 나갑니다."
 EDITOR_LINES = 6  # 편집기 최소 높이의 줄 수. 보통 글자(16px)에서 120
+PANE_GAP = 16  # 저장 실패 띠와 편집기 사이
 RESULT_SPLIT = 340 / 608  # 펼친 결과 카드에서 편집기가 받는 처음 몫(1280×800 에서 편집기 331, 결과 카드 261)
 TITLE_MIN, TITLE_CAP = 120, 260  # 위 막대 문제 이름의 가장 좁은 폭과 다 보이는 상한(보통 headline 22px 기준, 글자에 비례)
 STATUS_LOW, STATUS_MAX = 120, 420  # 위 막대 상태 글의 하한(보통 caption 14px 기준, 글자에 비례)과 상한. 넘으면 두 줄
@@ -287,7 +288,7 @@ class FactLine(QWidget):
 
 
 class JourneyCodePanel(QWidget):
-    """오른쪽 칸: 편집기(위에 저장 실패 띠)와 결과 카드를 세로 칸 나누기(손잡이 16)로 나눔. 끈 몫은 설정 journey/split_v 에 남음.
+    """오른쪽 칸: 편집기(위에 저장 실패 띠)와 결과 카드를 세로 칸 나누기(손잡이 16)로 나눔. 옮긴 몫은 설정 journey/split_v 에 남음.
     collapse 는 결과 카드를 머리 높이로 묶고 손잡이를 잠그며, expand 는 묶음을 풀고 기억한 몫으로 나눔.
     글이 달라졌을 때만 changed(글)를 냄. 문법 색칠을 다시 하면 글이 같아도 textChanged 가 나옴."""
     changed = pyqtSignal(object)
@@ -297,7 +298,7 @@ class JourneyCodePanel(QWidget):
         box = kit.box(self)
         self.split = kit.splitter(Qt.Orientation.Vertical, "journey/split_v", RESULT_SPLIT, 16, settings)
         self.editor_pane = QWidget()  # 찾기 막대도 여기에 떠서 실행·채점 중에 편집기를 잠가도 쓰임
-        pane_box = kit.box(self.editor_pane, spacing=16)
+        pane_box = kit.box(self.editor_pane, spacing=PANE_GAP)
         self.save_banner = kit.banner(SAVE_FAILED, "danger")
         self.save_banner.hide()
         self.editor = CodeEditor(paste=True)
@@ -328,6 +329,18 @@ class JourneyCodePanel(QWidget):
     def focus_input(self):
         self.editor.setFocus()
 
+    def show_save_error(self, message):
+        """편집기 위에 저장 실패 띠를 보이고 원문은 띠 도움말에 둠."""
+        self.save_banner.setToolTip(message)
+        if self.save_banner.isHidden():
+            self.save_banner.show()
+            self.fit_editor()
+
+    def hide_save_error(self):
+        if not self.save_banner.isHidden():
+            self.save_banner.hide()
+            self.fit_editor()
+
     def collapse(self):
         """결과 카드를 머리 글만 남은 높이로 묶고 손잡이를 잠금. 남는 높이는 편집기가 받음."""
         self.result.set_collapsed(True)
@@ -344,9 +357,24 @@ class JourneyCodePanel(QWidget):
 
     def refit(self):
         """글자 크기 단계에 따라 편집기와 결과 카드의 최소 높이, 접힌 카드의 높이를 다시 잡음. 결과 카드는 머리가 눌리지 않는 높이까지만
-        줄어듦. 편집기는 EDITOR_LINES 줄 남짓."""
-        self.editor.setMinimumHeight(round(EDITOR_LINES * 20 * theme.code_font(theme.text_px()).pixelSize() / theme.CODE_PX))
+        줄어듦."""
+        self.fit_editor()
         self.result.fit_height()
+
+    def fit_editor(self):
+        """편집기의 최소 높이. 평소에는 EDITOR_LINES 줄 남짓이고, 저장 실패 띠가 보이면 띠와 그 아래 간격만큼 빼되 한 줄은 남김.
+        띠가 칸의 최소 높이를 키우면 창의 최소 높이가 480 을 넘어 작은 노트북 화면(1366×768, 125%)에서 아래 막대가 작업 표시줄에 가려짐."""
+        line = 20 * theme.code_font(theme.text_px()).pixelSize() / theme.CODE_PX
+        lowest = round(EDITOR_LINES * line)
+        if not self.save_banner.isHidden():
+            taken = self.save_banner.heightForWidth(max(1, self.editor_pane.width())) + PANE_GAP
+            lowest = max(round(line), lowest - taken)
+        self.editor.setMinimumHeight(lowest)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if event.size().width() != event.oldSize().width() and not self.save_banner.isHidden():  # 폭이 바뀌면 띠 글의 줄 수가 바뀜
+            self.fit_editor()
 
 
 class JourneyPage(QWidget):
@@ -830,17 +858,18 @@ class JourneyPage(QWidget):
         if commit:
             QGuiApplication.inputMethod().commit()
         self.save_timer.stop()
-        if not self.dirty:
+        panel = self.code_panel
+        if not self.dirty:  # [저장하지 않고 나가기]로 쓰던 코드를 버린 뒤에도 여기로 오므로 앞의 실패 띠를 거둠
+            self.save_error = ""
+            panel.hide_save_error()
             return True
-        banner = self.code_panel.save_banner
         for key, text in list(self.dirty.items()):
             try:
                 self.win.journey.save_code(key[0], key[1], key[2], text)
             except (SessionError, OSError) as error:
                 message = str(error)
                 self.save_error = message if message.startswith(SAVE_ERROR) else "%s: %s" % (SAVE_ERROR, message)
-                banner.setToolTip(message)
-                banner.show()
+                panel.show_save_error(message)
                 if self.status.text() == SAVED:
                     self.set_status("")
                 if offer:
@@ -848,7 +877,7 @@ class JourneyPage(QWidget):
                 return False
             del self.dirty[key]
         self.save_error = ""
-        banner.hide()
+        panel.hide_save_error()
         self._saved()
         return True
 
