@@ -71,7 +71,8 @@ class Base(unittest.TestCase):
         self.home = os.path.join(self.tmp, "home")
         self.subs = os.path.join(self.tmp, "submissions")
         for target, name, value in ((study, "SUBMISSIONS_DIR", self.subs), (bank, "BANK_DIR", FIXTURE),
-                                    (checks, "_popen", FakeVitest), (service, "now", lambda: self.clock)):
+                                    (checks, "_popen", FakeVitest), (service, "now", lambda: self.clock),
+                                    (service, "today", lambda: datetime.date.fromisoformat(self.clock[:10]))):
             patcher = mock.patch.object(target, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
