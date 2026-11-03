@@ -39,9 +39,16 @@ BLUE_L, ORANGE_L, GREEN_L, RED_L, GRAY_L, HL = "#dbeafe", "#ffedd5", "#d1fae5", 
 PURPLE_L, YELLOW_L = "#ede9fe", "#fde68a"
 CODE = "D2Coding"
 # 2a 단원 색: 파랑은 0번 축, 주황은 1번 축, 초록은 numpy 배열과 배열 방식, 보라는 리스트 방식, 노랑은 대각선 자리, 빨강은 오류
-# 2c 단원 색: 파랑은 0번 축, 주황은 1번 축, 보라는 2번 축, 초록은 결과, 노랑은 따라가는 값(M의 0번 행)
-# 2d 단원 색: 파랑은 첫째 배열 a, 주황은 더하는 둘째 배열, 노랑은 곱해 더하는 행과 열, 초록은 맞는 축과 계산 결과, 빨강은 오류
+# 2b 단원 색: 파랑은 행 번호(0번 축), 주황은 열 번호(1번 축), 초록은 꺼내거나 고른 칸과 결과, 회색은 False 자리, 빨강은 오류
+# 2c 단원 색: 파랑은 0번 축, 주황은 1번 축, 보라는 2번 축, 초록은 결과, 노랑은 따라가는 값(M의 0번 행), 회색은 옮긴 원소,
+#   빨강은 오류
+# 2d 단원 색: 파랑은 첫째 배열 a, 주황은 더하는 둘째 배열, 노랑은 곱해 더하는 행과 열, 초록은 맞는 축과 계산 결과,
+#   회색은 행렬곱에서 이미 구한 칸, 빨강은 오류
+# PNG 는 64색으로 줄이면서 GRAY_L 칸이 흰색과 합쳐질 수 있음(l02-8·l02-9·l02-28 이 그럼). 캡션에 회색 뜻을 적으려면
+#   그린 PNG 를 열어 회색이 남았는지 봄
 # 2e 단원 색: 파랑은 0번 축과 axis=0, 주황은 1번 축과 axis=1, 초록은 계산 결과, 보라는 argsort의 자리 번호, 빨강은 None
+# 2f 단원 색: 파랑은 그래프에 그린 선과 점('b-' Train 포함), 빨강은 'r--' Val, 주황은 a = 2 곡선, 보라는 종류가 다른 점,
+#   초록은 난수 함수가 낼 수 있는 값. 이상치는 색 대신 동그라미, 나오지 않는 끝값은 빈 원으로 나눔
 
 # 이 차시 전체에 쓰는 예
 DATA = np.array([3, 8, 1, 6, 2, 9])
@@ -479,7 +486,7 @@ def row_mask_uses():
             ("정답으로 고르기", "정답이 1 인 데이터만"))
     for k, (head, body) in enumerate(uses):
         y = 105 + k * 88
-        c.box(640, y - 30, 450, 74, fc=GRAY_L, ec=FAINT, round_=True)
+        c.box(640, y - 30, 450, 74, fc="white", ec=FAINT, round_=True)
         c.text(660, y - 6, head, size=20, bold=True)
         c.text(660, y + 24, body, size=17, color=MUTED)
     c.text(40, 330, "행 수와 길이가 같은 마스크를 넣으면", size=18, color=MUTED)
@@ -651,7 +658,7 @@ def transpose_2d():
     c.title("1차원 배열의 .T: shape이 바뀌지 않음")
     c.text(60, 110, "data.T", size=21, code=True, bold=True)
     c.grid(60, 130, [list(DATA)], cw=60, ch=48)
-    c.text(480, 154, "shape (6,), 바뀌지 않음", size=21, code=True, color=RED)
+    c.text(480, 154, "shape (6,), 바뀌지 않음", size=21, code=True)
     c.text(60, 250, "축이 하나뿐이라 바꿀 축이 없음", size=19)
     frames.append(c.image()); ms.append(2000)
     c = Canvas(480)
@@ -1194,9 +1201,9 @@ def plot_scatter():
     for ax in (a1, a2):
         ax.set_xticks(range(6)); ax.set_ylim(0, 10)
     a3 = mpl_panel(fig, [0.71, 0.14, 0.27, 0.7], "sigmoid(x, a)")
-    a3.plot(xp, sig(xp, 1.0), color=INK, lw=2.5)
+    a3.plot(xp, sig(xp, 1.0), color=BLUE, lw=2.5)
     a3.plot(xp, sig(xp, 2.0), color=ORANGE, lw=2.5)
-    a3.text(1.0, 0.42, "a = 1", fontsize=15, color=INK)
+    a3.text(1.0, 0.42, "a = 1", fontsize=15, color=BLUE)
     a3.text(-2.9, 0.86, "a = 2", fontsize=15, color=ORANGE)
     a3.set_ylim(-0.05, 1.05)
     fig.text(0.05, 0.94, "선 그래프와 산점도, 그리고 a에 따라 달라지는 시그모이드", fontsize=19, weight="bold")
@@ -1228,8 +1235,8 @@ def anatomy():
     ax.set_ylim(0, 1.0)
     ax.tick_params(labelsize=13)
     ax.axvline(best, color=MUTED, lw=1.2, ls=":")
-    notes = (("plt.title(...)", 0.80, BLUE), ("plt.xlabel(...)", 0.70, BLUE), ("plt.ylabel(...)", 0.60, BLUE),
-             ("plt.legend()", 0.50, BLUE), ("plt.grid(True)", 0.40, BLUE), ("'b-' 파란 실선", 0.30, BLUE),
+    notes = (("plt.title(...)", 0.80, INK), ("plt.xlabel(...)", 0.70, INK), ("plt.ylabel(...)", 0.60, INK),
+             ("plt.legend()", 0.50, INK), ("plt.grid(True)", 0.40, INK), ("'b-' 파란 실선", 0.30, BLUE),
              ("'r--' 빨간 점선", 0.20, RED))
     for s, y, col in notes:
         fig.text(0.65, y, s, fontsize=16, family=CODE, color=col)
@@ -1263,11 +1270,12 @@ def scatter_patterns():
         axs[1].scatter(cx + rng.normal(0, 0.7, 15), cy + rng.normal(0, 0.7, 15), s=22, color=BLUE)
     xo = rng.uniform(0, 10, 30)
     axs[2].scatter(xo, 0.5 * xo + rng.normal(0, 0.6, 30), s=22, color=BLUE)
-    axs[2].scatter([8.5], [0.2], s=70, color=RED)
+    axs[2].scatter([8.5], [0.2], s=22, color=BLUE)
+    axs[2].scatter([8.5], [0.2], s=420, facecolor="none", edgecolor=INK, lw=1.8)
     pa = rng.normal(0, 1, (20, 2)) + [2.5, 6.5]
     pb = rng.normal(0, 1, (20, 2)) + [6.5, 2.5]
     axs[3].scatter(pa[:, 0], pa[:, 1], s=22, color=BLUE)
-    axs[3].scatter(pb[:, 0], pb[:, 1], s=22, color=ORANGE, marker="s")
+    axs[3].scatter(pb[:, 0], pb[:, 1], s=22, color=PURPLE, marker="s")
     axs[3].plot([0, 9], [0, 9], color=INK, ls="--", lw=1.5)
     fig.canvas.draw()
     buf = np.asarray(fig.canvas.buffer_rgba())
@@ -1282,26 +1290,26 @@ def random_ranges():
     c.title("numpy 난수 함수가 내는 값의 범위")
     lx0, lx1 = 430, 1060
     c.text(40, 110, "np.random.rand()", size=20, code=True, bold=True)
-    c.line([lx0, lx1], [110, 110], color=BLUE, lw=6)
-    c.ax.scatter([lx0], [110], s=170, color=BLUE, zorder=5)
-    c.ax.scatter([lx1], [110], s=170, facecolor="white", edgecolor=RED, lw=2.5, zorder=5)
-    c.text(lx0, 146, "0 포함", size=16, ha="center", color=BLUE)
-    c.text(lx1, 146, "1 빠짐", size=16, ha="center", color=RED)
+    c.line([lx0, lx1], [110, 110], color=GREEN, lw=6)
+    c.ax.scatter([lx0], [110], s=170, color=GREEN, zorder=5)
+    c.ax.scatter([lx1], [110], s=170, facecolor="white", edgecolor=GREEN, lw=2.5, zorder=5)
+    c.text(lx0, 146, "0 포함", size=16, ha="center")
+    c.text(lx1, 146, "1 빠짐", size=16, ha="center")
     c.text(40, 220, "np.random.randint(1, 10)", size=20, code=True, bold=True)
     for v in range(1, 11):
         x = lx0 + (v - 1) / 9 * (lx1 - lx0)
         if v < 10:
-            c.ax.scatter([x], [220], s=150, color=BLUE, zorder=5)
+            c.ax.scatter([x], [220], s=150, color=GREEN, zorder=5)
         else:
-            c.ax.scatter([x], [220], s=170, facecolor="white", edgecolor=RED, lw=2.5, zorder=5)
-        c.text(x, 256, str(v), size=16, ha="center", code=True, color=RED if v == 10 else INK)
+            c.ax.scatter([x], [220], s=170, facecolor="white", edgecolor=GREEN, lw=2.5, zorder=5)
+        c.text(x, 256, str(v), size=16, ha="center", code=True)
     c.text(40, 300, "1 이상 10 미만 정수", size=17, color=MUTED)
     c.text(40, 380, "np.random.randn()", size=20, code=True, bold=True)
     xs = np.linspace(-3, 3, 121)
     ys = np.exp(-xs ** 2 / 2)
     px = lx0 + (xs + 3) / 6 * (lx1 - lx0)
     py = 480 - ys * 120
-    c.line(px, py, color=BLUE, lw=2.5)
+    c.line(px, py, color=GREEN, lw=2.5)
     for v in (-1, 0, 1):
         x = lx0 + (v + 3) / 6 * (lx1 - lx0)
         c.line([x, x], [480, 480 - np.exp(-v ** 2 / 2) * 120], color=MUTED, lw=1.2, ls="--")

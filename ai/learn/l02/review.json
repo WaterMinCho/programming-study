@@ -7,7 +7,7 @@
   "assets/l02-1.png": "383f9b7b193b2b93645b7c86234d5e9c03660d11453a9d6f3a4d0abd45336ad1",
   "assets/l02-10.gif": "ae5e7246916a8f8f86ff6f2a4791efa3cb348a79ab07071be6136ed46adaebdc",
   "assets/l02-11.png": "8c9f741db073d875de325cca72b1480f5a01ef2e633b89eccbb80e8c5c329aaa",
-  "assets/l02-12.gif": "7598a26d9768415dbdf7e5f3ce2cfb0e30700288d01fc9dc4d8cc619339c2200",
+  "assets/l02-12.gif": "7d2861a8ee1bc9667364ffb66e0b25b8122fda63bb17476a690bcfd4f66ab00e",
   "assets/l02-13.gif": "86c570f64aa43a801ab0dc993f1347844c9212bd5f167c5a15c4cc3a8eae0703",
   "assets/l02-14.png": "6d6c35f11daeea2960c55cd51e095f9285acbc4eaf1a673089a76634455d58dd",
   "assets/l02-15.png": "4c5afb3b26bcbb6f2b0f1b12cd982d36620741cbe5577602927f499c73d41afc",
@@ -20,10 +20,10 @@
   "assets/l02-21.png": "874c801e9cc2867c11541f0a5b878282ce58f1426c5a17c102f3efb74bc8bb3e",
   "assets/l02-22.png": "cdb33fdf3b6970c5c14f31989187cf87cf88af728e9c159e310209ad647b28d0",
   "assets/l02-23.gif": "90e23277f6e56e5e510a4ddb199819a3e0e21959e28b882ee97846875c1e50ec",
-  "assets/l02-24.png": "5d2cd46b86fb0fcdaed4d0524f8ff09e18f2fe291fcd2afc6e71aa5c8cd16dcb",
-  "assets/l02-25.png": "bcb8720e1a3e4e91f0be4f369f8c26f46fc696326729db390e63581c3cc82a77",
-  "assets/l02-26.png": "c6bd28fe3fd625f801486367d7967382446ae76d433c88973b13ca5efbd5a9ac",
-  "assets/l02-27.png": "9bd8b63ffaec7b86938472ef0bd36bb216db1937553f2211a0fbf64cbefbec09",
+  "assets/l02-24.png": "6ef6cf306d2e51a7bce82a04ed59bc0c124851c5c4acf1182c70276a3db092b7",
+  "assets/l02-25.png": "b0c405be4fde215e3fefa157028b610e1fca78d014659b4e688374a0cda9cb34",
+  "assets/l02-26.png": "6cca00125e64e9402d1f235504823e6079492e8494aa03cc5491e5f732fe513b",
+  "assets/l02-27.png": "f2a16568d6e89102439a817a09d97f20f234da3cf14d04e227f9a5813686c399",
   "assets/l02-28.png": "3267b9979dfc89648b829a5aa03f749b01dc25f5aaffd5d0e30b1acac0070964",
   "assets/l02-29.png": "cda4135a7d0c6a62f46aa615a0601e4aeb445763b399e34336237cff11ffa66a",
   "assets/l02-3.png": "b22d5414e5cf0ed8719193d4bb2de612a98571da46113ba22384ded02ed79070",
@@ -33,10 +33,10 @@
   "assets/l02-5.png": "24a76c8cb1908e31da8ead57d362a9e201d1206ae9ad08b22e4a3e00a854916d",
   "assets/l02-6.gif": "c56383bd21da395dc7e2d6cc4e642daf59c77ab6ae1d7b417c922957138db7fa",
   "assets/l02-7.gif": "be55a85adb6b91edcb36daa6d85706499d129fe32254bd70c99994c531ea8043",
-  "assets/l02-8.png": "cb6c221cadabe4843321032a6b1196c90ed8bd9ee8d8789b44593e24ab2e5260",
+  "assets/l02-8.png": "ab3ba76071f554c2e15ad99b932b1f052f7391d9b405b491358272b6f2181c5b",
   "assets/l02-9.png": "4476e33f72b2c1122697bfd4a84fa3f21282fb52fe3e0b30ef8529d5d616e2f5",
   "meta.json": "b858b93e7e0ea2b506be4b766fc570a654866dcac8040467ccdea06fd1c828dd",
-  "page.md": "5ae1c4b7c0ddbba966fb3fbfe90c6c8fd211a2bf0b9791017b98ac3bf02e7e31"
+  "page.md": "71c325fbf8295bc5c1e35a3cb1eb1616e8e76a012310d784a84f5b1472b3b44a"
  },
  "findings": [
   "처음 배우는 사람으로 2a~2f 를 읽고 고침: 2a/5 정규분포와 표준편차를 쓰기 전에 정의함, 2d/3 장 설명과 본문에 샘플과 특징을 정의함, 2e/2 가중치 초기화를 풀어 씀, 2b/4 라벨을 정답으로 바꿈, 2f/3 에 epochs, train_loss, val_loss 설명을 더함",
@@ -47,6 +47,7 @@
   "대조 3 이 2026 흐름 세 줄을 numpy.org 소식, 2.0.0 릴리스 노트, 배열 API 표준 문서로 확인함(2026-11-04)",
   "대조 3 이 그림 31장을 장마다 열어 숫자와 2c 색 뜻을 맞추고 정정 상자 X02-01~10 이 적힌 단계에 있음을 확인함",
   "두 번째 고침: 2a·2d·2e 에서 한 색이 두 뜻이던 그림 10장(l02-1, 2, 4, 5, 15, 18, 20, 21, 22, 23)을 다시 칠하고 캡션과 장 설명에 색 뜻을 적음. 2b·2c·2f 그림의 색은 이번에 보지 않았음",
-  "대조 3 이 다시 그린 그림을 장마다 열어 숫자가 그대로임을 확인함. 검토 4 가 그림 19·20 의 1번 장과 그림 22 캡션을 고침"
+  "대조 3 이 다시 그린 그림을 장마다 열어 숫자가 그대로임을 확인함. 검토 4 가 그림 19·20 의 1번 장과 그림 22 캡션을 고침",
+  "세 번째 고침: 2a~2f 단원 머리에 노트북 셀, 과제 번호, 요약본 쪽을 적고 2b·2c·2f 그림 6장에서 두 뜻이던 색을 다시 칠했으며, 대조 3 이 빠진 위치를 더하고 검토 4 가 2f 머리와 그림 10·13·21·31 의 글을 고침"
  ]
 }

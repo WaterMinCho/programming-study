@@ -46,6 +46,22 @@ YELLOW_BG = "#fef3c7"
 MONO = "D2Coding"
 MINUS = "−"
 
+# 한 단원 안에서 한 색은 한 뜻이고, 뜻은 그 그림의 캡션이나 장 설명에 적음. 무늬 없는 옅은 파랑 칸은 그냥 텐서 칸임
+# 3a 단원 색: 주황은 축 0(바깥 대괄호), 초록은 축 1, 파랑은 가장 안쪽 대괄호, 보라는 이름표.
+#   3a-4 의 빨강·초록·파랑 판과 픽셀은 그 채널과 픽셀의 실제 색
+# 3b 단원 색: 파랑은 정수 자료형, 주황은 실수 자료형, 초록은 rand, 보라는 randn, 빨강은 오류
+# 3c 단원 색: 주황은 축 0과 dim=0, 초록은 축 1과 dim=1, 노랑은 축을 주지 않은 max 가 고른 칸, 빨강은 오류
+# 3d 단원 색: 주황은 크기 1인 축, 보라는 전치한 y 와 그 읽는 순서, 파랑은 base 와 메모리를 함께 쓰는 expand,
+#   초록은 값을 복사한 새 메모리, 노랑은 바꾼 칸, 빨강은 오류
+# 3e 단원 색: 파랑은 계산 결과, 주황은 실수가 된 결과, 노랑은 곱해 더하는 행과 열, 초록은 같아야 하는 안쪽 크기,
+#   빨강은 오류, 보라는 내적, 회색은 아직 채우지 않은 결과 칸
+# 3f 단원 색: 파랑은 미분하기 전 함수의 그래프, 주황은 기울기와 미분값, 초록은 기울기의 반대쪽, 보라는 이름표
+# 3g 단원 색: 파랑은 기록하는 계산, 회색은 기록하지 않는 계산, 주황은 기울기와 미분값, 초록은 Define-and-run,
+#   보라는 이름표와 배울 이름, 노랑은 방금 실행한 줄
+# 3h 단원 색: 보라는 GPU, 주황은 이름표 x, 빨강은 잘못 쓴 줄, 파랑은 메모리를 함께 씀, 초록은 값을 복사한 새 텐서.
+#   3h-4 는 색 대신 회색 진하기로 뽑힌 값을 나타냄
+# 64색으로 줄이면 PALE 이 PURPLE_BG 와 한 색으로 합쳐질 수 있어 보라 칸이 있는 그림(3a-1, 3d-2, 3h-1)은 PALE 대신 흰색을 씀
+
 FIGS = []
 
 
@@ -243,7 +259,7 @@ def fig_3a_1():
                             fill=lambda i, j, s=s: ["#93c5fd", "#bfdbfe", BLUE_BG][s])
             c.text(cx, 365, "shape " + shape_text(shapes[k]), size=21, mono=True, color=INK)
             if summary:
-                c.text(cx, 418, "축 %d개" % len(shapes[k]), size=22, color=ORANGE, bold=True, bg=ORANGE_BG, ec=ORANGE)
+                c.text(cx, 418, "축 %d개" % len(shapes[k]), size=22, color=INK, bold=True, bg="white", ec=MUTED)
         return c.image()
 
     frames = [draw(0), draw(1), draw(2), draw(3), draw(4), draw(4, summary=True)]
@@ -267,7 +283,7 @@ def fig_3a_2():
     for k, (code, out) in enumerate(lines):
         y = 160 + k * 72
         c.text(600, y, code, size=22, mono=True, ha="left", color=INK)
-        c.text(790, y, "→ " + out, size=22, mono=True, ha="left", color=BLUE)
+        c.text(790, y, "→ " + out, size=22, mono=True, ha="left", color=INK)
     c.text(600, 385, "축 개수 2, 축마다 크기 [2, 3]", size=20, ha="left", color=MUTED)
     return [c.image()], None
 
@@ -398,7 +414,7 @@ def fig_3a_4():
     c.title("픽셀 하나에 숫자 셋")
     picture(c, PIC1, 120, 130, hl=(0, 2))
     r, g, b = PIC1[0][2]
-    c.text(560, 190, "(R, G, B) = (%d, %d, %d)" % (r, g, b), size=24, mono=True, ha="left", bg=YELLOW_BG, ec=ORANGE)
+    c.text(560, 190, "(R, G, B) = (%d, %d, %d)" % (r, g, b), size=24, mono=True, ha="left", bg=YELLOW_BG, ec=INK)
     c.text(560, 270, "8비트 값: 0 ~ 255 (256단계)", size=21, ha="left", color=INK)
     c.text(560, 320, "0 은 어둡고 255 는 가장 밝음", size=19, ha="left", color=MUTED)
     frames.append(c.image())
@@ -432,9 +448,9 @@ def fig_3a_4():
     c.title("축 순서는 프레임워크마다 다름")
     stack(c, 90, 210, cell=34)
     stack(c, 300, 210, cell=34)
-    c.text(560, 180, "PyTorch  (N, C, H, W)", size=23, mono=True, ha="left", color=BLUE, bold=True)
+    c.text(560, 180, "PyTorch  (N, C, H, W)", size=23, mono=True, ha="left", color=INK, bold=True)
     c.text(560, 230, "         = (%d, %d, %d, %d)" % tuple(shape_of(batch)), size=23, mono=True, ha="left")
-    c.text(560, 320, "Keras    (N, H, W, C)", size=23, mono=True, ha="left", color=ORANGE, bold=True)
+    c.text(560, 320, "Keras    (N, H, W, C)", size=23, mono=True, ha="left", color=INK, bold=True)
     c.text(560, 370, "         = (%d, %d, %d, %d)" % tuple(shape_of(keras)), size=23, mono=True, ha="left")
     frames.append(c.image())
     return frames, [2000, 2200, 2400, 2000, 2200, 2500]
@@ -495,8 +511,8 @@ def fig_3b_3():
     xs = np.linspace(-3.5, 3.5, 701)
     normal = np.exp(-xs ** 2 / 2) / math.sqrt(2 * math.pi)
     assert abs(normal.max() - 1 / math.sqrt(2 * math.pi)) < 1e-6
-    ax.plot(xs, normal, color=BLUE, lw=3)
-    ax.plot([0, 0, 1, 1], [0, 1, 1, 0], color=ORANGE, lw=3)
+    ax.plot(xs, normal, color=PURPLE, lw=3)
+    ax.plot([0, 0, 1, 1], [0, 1, 1, 0], color=GREEN, lw=3)
     ax.set_xlim(-3.5, 3.5)
     ax.set_ylim(0, 1.25)
     ax.set_xticks([-2, -1, 0, 1, 2])
@@ -504,8 +520,8 @@ def fig_3b_3():
     ax.set_yticks([])
     for s in ("top", "right", "left"):
         ax.spines[s].set_visible(False)
-    ax.text(-3.4, 1.12, "rand: 0 이상 1 미만에서 고르게", color=ORANGE, fontsize=17, ha="left")
-    ax.text(-3.4, 0.62, "randn: 평균 0,\n표준편차 1", color=BLUE, fontsize=17, ha="left")
+    ax.text(-3.4, 1.12, "rand: 0 이상 1 미만에서 고르게", color=GREEN, fontsize=17, ha="left")
+    ax.text(-3.4, 0.62, "randn: 평균 0,\n표준편차 1", color=PURPLE, fontsize=17, ha="left")
     c.text(36, 440, "뽑힌 값은 실행마다 달라짐", size=17, color=MUTED, ha="left")
     return [c.image()], None
 
@@ -515,20 +531,20 @@ def fig_3b_4():
     rows, cols = shape_of(R2)
     c = Canvas(1120, 460)
     c.title("r2 = torch.tensor([[1., 5., 6.], [4., 3., 2.]])", size=20)
-    c.box(36, 80, 500, 300, fc=BLUE_BG, ec=BLUE, lw=2.5, rounded=True)
-    c.box(584, 80, 500, 300, fc=GREEN_BG, ec=GREEN, lw=2.5, rounded=True)
-    c.text(60, 112, "속성 · 괄호 없이", size=21, color=BLUE, ha="left", bold=True)
-    c.text(608, 112, "메서드 · 괄호를 붙여", size=21, color=GREEN, ha="left", bold=True)
+    c.box(36, 80, 500, 300, fc=PALE, ec=MUTED, lw=2.5, rounded=True)
+    c.box(584, 80, 500, 300, fc=PALE, ec=MUTED, lw=2.5, rounded=True)
+    c.text(60, 112, "속성 · 괄호 없이", size=21, color=INK, ha="left", bold=True)
+    c.text(608, 112, "메서드 · 괄호를 붙여", size=21, color=INK, ha="left", bold=True)
     attrs = [("r2.shape", "torch.Size([%d, %d])" % (rows, cols)), ("r2.dtype", "torch.float32"),
              ("r2.device", "cpu"), ("r2.requires_grad", "False")]
     meths = [("r2.size()", "torch.Size([%d, %d])" % (rows, cols)), ("r2.dim()", str(len(shape_of(R2)))),
              ("r2.numel()", str(rows * cols))]
     for k, (code, out) in enumerate(attrs):
         c.text(60, 170 + k * 54, code, size=19, mono=True, ha="left")
-        c.text(284, 170 + k * 54, out, size=19, mono=True, ha="left", color=BLUE)
+        c.text(284, 170 + k * 54, out, size=19, mono=True, ha="left", color=INK)
     for k, (code, out) in enumerate(meths):
         c.text(608, 170 + k * 54, code, size=19, mono=True, ha="left")
-        c.text(800, 170 + k * 54, out, size=19, mono=True, ha="left", color=GREEN)
+        c.text(800, 170 + k * 54, out, size=19, mono=True, ha="left", color=INK)
     c.text(36, 420, "r2.dtype()  → TypeError", size=21, mono=True, ha="left", color=RED, bg=RED_BG, ec=RED)
     return [c.image()], None
 
@@ -544,11 +560,11 @@ def fig_3c_1():
     for k, (code, vals, out, ok) in enumerate(rows):
         y = 95 + k * 92
         c.text(36, y + 26, code, size=19, mono=True, ha="left")
-        c.cells(500, y, vals, cw=56, ch=52, fill=lambda i, j, ok=ok: GREEN_BG if ok else RED_BG,
-                ec=GREEN if ok else RED, size=19)
+        c.cells(500, y, vals, cw=56, ch=52, fill=lambda i, j, ok=ok: "white" if ok else RED_BG,
+                ec=INK if ok else RED, size=19)
         x2 = 500 + 56 * len(vals[0]) + 24
         c.text(x2, y + 26, ".item() →", size=19, mono=True, ha="left")
-        c.text(x2 + 140, y + 26, out, size=20, mono=True, ha="left", color=GREEN if ok else RED, bold=True)
+        c.text(x2 + 140, y + 26, out, size=20, mono=True, ha="left", color=INK if ok else RED, bold=True)
     return [c.image()], None
 
 
@@ -583,7 +599,7 @@ def fig_3c_2():
     c.title("r2.max(): 전체에서 하나")
     r2_board(c, x0, y0, fill=lambda i, j: YELLOW_BG if (i, j) == (0, 2) else "white")
     c.text(520, 200, "r2.max()", size=24, mono=True, ha="left")
-    c.text(520, 260, "→ tensor(6.)", size=24, mono=True, ha="left", color=BLUE, bold=True)
+    c.text(520, 260, "→ tensor(6.)", size=24, mono=True, ha="left", color=INK, bold=True)
     frames.append(c.image())
 
     for upto in (1, 2):
@@ -691,14 +707,14 @@ def fig_3c_4():
         return ("%.1f" % v).replace("-", MINUS)
 
     c.cells(x0, y0, [[one(v) for v in row] for row in OUTPUTS], cw=cw, ch=ch,
-            fill=lambda i, j: YELLOW_BG if (i, j) in hl else "white", size=22)
+            fill=lambda i, j: GREEN_BG if (i, j) in hl else "white", size=22)
     for j in range(3):
         c.text(x0 + j * cw + cw / 2, y0 - 22, "종류 %d" % j, size=18, color=MUTED)
     for i in range(2):
         c.text(x0 - 18, y0 + i * ch + ch / 2, "데이터 %d" % i, size=18, color=MUTED, ha="right")
     c.text(590, 160, "torch.max(outputs, 1)", size=21, mono=True, ha="left")
     c.text(590, 220, "[0] 값    [%s]" % ", ".join(one(v) for v in vals), size=21, mono=True, ha="left")
-    c.text(590, 275, "[1] 위치  [%s]" % ", ".join(map(str, idx)), size=21, mono=True, ha="left", color=BLUE,
+    c.text(590, 275, "[1] 위치  [%s]" % ", ".join(map(str, idx)), size=21, mono=True, ha="left", color=GREEN,
            bold=True)
     c.text(590, 330, "위치가 예측한 종류 번호", size=19, ha="left", color=MUTED)
     return [c.image()], None
@@ -747,7 +763,7 @@ def fig_3d_1():
                                           ("a.view(3, -1)", v32, 3, 2, "-1 자리 = 6 ÷ 3 = 2")):
         c = base(title)
         c.cells(330, 190, [[str(v) for v in row] for row in grid], cw=72, ch=60, fill=lambda i, j: BLUE_BG)
-        c.text(680, 260, note, size=22, ha="left", color=ORANGE if "-1" in note else INK, mono="-1" not in note)
+        c.text(680, 260, note, size=22, ha="left", color=INK, mono="-1" not in note)
         frames.append(c.image())
     c = base("a.view(-1)")
     strip(c, 330, 220, a, fill=lambda i, j: BLUE_BG)
@@ -786,25 +802,25 @@ def fig_3d_2():
     frames.append(c.image())
 
     c = base("y = x.t(): 행과 열을 맞바꿈")
-    c.cells(120, 230, [[str(v) for v in row] for row in x], cw=72, ch=60, fill=lambda i, j: PALE)
-    c.cells(560, 200, [[str(v) for v in row] for row in y], cw=72, ch=60, fill=lambda i, j: ORANGE_BG)
+    c.cells(120, 230, [[str(v) for v in row] for row in x], cw=72, ch=60, fill=lambda i, j: "white")
+    c.cells(560, 200, [[str(v) for v in row] for row in y], cw=72, ch=60, fill=lambda i, j: PURPLE_BG)
     c.arrow(360, 290, 530, 290, color=MUTED, lw=3)
     c.text(760, 300, "shape [3, 2]", size=22, mono=True, ha="left")
     c.text(760, 350, "메모리는 그대로", size=20, ha="left", color=MUTED)
     frames.append(c.image())
 
     c = base("y 를 행마다 읽으면 메모리를 건너뜀")
-    c.cells(760, 280, [[str(v) for v in row] for row in y], cw=72, ch=60, fill=lambda i, j: ORANGE_BG)
+    c.cells(760, 280, [[str(v) for v in row] for row in y], cw=72, ch=60, fill=lambda i, j: PURPLE_BG)
     centers = {v: sx + v * cw + cw / 2 for v in mem}
     for a_, b_ in zip(read, read[1:]):
-        c.arrow(centers[a_], sy + 56, centers[b_], sy + 56, color=ORANGE, lw=2.5, rad=0.45 if b_ > a_ else -0.45,
+        c.arrow(centers[a_], sy + 56, centers[b_], sy + 56, color=PURPLE, lw=2.5, rad=0.45 if b_ > a_ else -0.45,
                 head=16)
     c.text(120, 330, "읽는 순서", size=20, ha="left", color=MUTED)
-    c.text(120, 370, " ".join(map(str, read)), size=24, mono=True, ha="left", color=ORANGE, bold=True)
+    c.text(120, 370, " ".join(map(str, read)), size=24, mono=True, ha="left", color=PURPLE, bold=True)
     frames.append(c.image())
 
     c = base("y.view(6)")
-    c.cells(560, 200, [[str(v) for v in row] for row in y], cw=72, ch=60, fill=lambda i, j: ORANGE_BG)
+    c.cells(560, 200, [[str(v) for v in row] for row in y], cw=72, ch=60, fill=lambda i, j: PURPLE_BG)
     c.text(120, 250, "RuntimeError", size=26, mono=True, ha="left", color=RED, bold=True)
     c.text(120, 300, "메모리를 그대로 두고는", size=20, ha="left", color=MUTED)
     c.text(120, 335, "한 줄로 이어 읽을 수 없음", size=20, ha="left", color=MUTED)
@@ -812,7 +828,7 @@ def fig_3d_2():
     frames.append(c.image())
 
     c = base("y.reshape(6): 새 메모리에 복사")
-    c.cells(560, 200, [[str(v) for v in row] for row in y], cw=72, ch=60, fill=lambda i, j: ORANGE_BG)
+    c.cells(560, 200, [[str(v) for v in row] for row in y], cw=72, ch=60, fill=lambda i, j: PURPLE_BG)
     strip(c, sx, 430, read, fill=lambda i, j: GREEN_BG, ec=GREEN, label="새 메모리")
     c.text(120, 250, "tensor([%s])" % ", ".join(map(str, read)), size=22, mono=True, ha="left", color=GREEN)
     frames.append(c.image())
@@ -830,8 +846,8 @@ def fig_3d_2():
 
 def shape_boxes(c, x, y, shape, fill=None, ec=None, label_idx=False, size=26, w=78, h=66, gap=16):
     for k, s in enumerate(shape):
-        fc = fill(k) if fill else (ORANGE_BG if s == 1 else BLUE_BG)
-        e = ec(k) if ec else (ORANGE if s == 1 else BLUE)
+        fc = fill(k) if fill else (ORANGE_BG if s == 1 else "white")
+        e = ec(k) if ec else (ORANGE if s == 1 else INK)
         c.box(x + k * (w + gap), y, w, h, fc=fc, ec=e, lw=2.5, rounded=True)
         c.text(x + k * (w + gap) + w / 2, y + h / 2, str(s), size=size, mono=True, bold=True)
         if label_idx:
@@ -865,7 +881,7 @@ def fig_3d_3():
         c.arrow(560, 170, 640, 170, color=MUTED, lw=3)
         shape_boxes(c, 670, 140, after, w=70, h=60, size=24)
         c.text(120, 300, shape_text(before) + " → " + shape_text(after), size=24, mono=True, ha="left", bold=True)
-        c.text(120, 360, note, size=21, ha="left", color=GREEN if before == after else INK)
+        c.text(120, 360, note, size=21, ha="left", color=INK)
         frames.append(c.image())
     return frames, [2000, 2200, 2200, 2200, 2400, 2500]
 
@@ -878,19 +894,21 @@ def fig_3d_4():
     assert rep == [4, 3, 2]
     frames = []
 
-    def block(c, x, y, vals, fc, ec, cw=40, ch=32, size=16, ls="-"):
+    def block(c, x, y, vals, fc, ec, cw=40, ch=32, size=16, ls="-", hl=()):
         for i, row in enumerate(vals):
             for j, v in enumerate(row):
-                c.box(x + j * cw, y + i * ch, cw, ch, fc=fc, ec=ec, lw=1.8, ls=ls)
+                c.box(x + j * cw, y + i * ch, cw, ch, fc=YELLOW_BG if (i, j) in hl else fc, ec=ec, lw=1.8, ls=ls)
                 c.text(x + j * cw + cw / 2, y + i * ch + ch / 2, str(v), size=size, mono=True)
 
-    def panels(c, vals_view, vals_copy, show_e=True, show_r=True, changed=False):
+    def panels(c, vals_view, vals_copy, show_e=True, show_r=True, changed=False, hl_view=False):
         c.text(70, 92, "base [3, 2]", size=19, ha="left", color=MUTED)
-        block(c, 70, 110, base if not changed else [[9, 2], [3, 4], [5, 6]], BLUE_BG, BLUE, cw=46, ch=38, size=18)
+        block(c, 70, 110, base if not changed else [[9, 2], [3, 4], [5, 6]], BLUE_BG, BLUE, cw=46, ch=38, size=18,
+              hl={(0, 0)} if changed else ())
         if show_e:
             c.text(330, 92, "expand(4, 3, 2)", size=19, mono=True, ha="left", color=BLUE)
             for k in range(4):
-                block(c, 330 + k * 112, 120, vals_view, "white", BLUE, cw=46, ch=36, size=17, ls="--")
+                block(c, 330 + k * 112, 120, vals_view, "white", BLUE, cw=46, ch=36, size=17, ls="--",
+                      hl={(0, 0)} if hl_view else ())
             c.arrow(175, 150, 325, 150, color=BLUE, lw=2.5)
             c.text(330, 252, "새 메모리 없이 base 를 4번 보여 줌", size=17, ha="left", color=BLUE)
         if show_r:
@@ -928,9 +946,7 @@ def fig_3d_4():
 
     c = Canvas(1120, 500)
     c.title("expand 쪽만 함께 바뀜")
-    panels(c, changed, base, changed=True)
-    for k in range(4):
-        c.box(328 + k * 112, 118, 50, 40, fc="none", ec=RED, lw=3.5, z=8)
+    panels(c, changed, base, changed=True, hl_view=True)
     frames.append(c.image())
 
     c = Canvas(1120, 500)
@@ -960,15 +976,12 @@ def fig_3d_5():
     assert [r[1] for r in rows] == [[[1, 2], [3, 4], [5, 6]], [[1, 2], [3, 4], [5, 6]], [[1, 2, 3, 4], [5, 6]]]
     c = Canvas(1120, 420)
     c.title("t = torch.tensor([1, 2, 3, 4, 5, 6]) 나누기", size=21)
-    fills = [BLUE_BG, ORANGE_BG, GREEN_BG]
-    edges = [BLUE, ORANGE, GREEN]
     for k, (code, parts, note) in enumerate(rows):
         y = 100 + k * 100
         c.text(36, y + 26, code, size=20, mono=True, ha="left")
         x = 330
         for p, part in enumerate(parts):
-            c.cells(x, y, [[str(v) for v in part]], cw=54, ch=52, fill=lambda i, j, p=p: fills[p], ec=edges[p],
-                    size=20)
+            c.cells(x, y, [[str(v) for v in part]], cw=54, ch=52, size=20)
             x += 54 * len(part) + 22
         c.text(730, y + 26, note, size=18, ha="left", color=MUTED)
     return [c.image()], None
@@ -1131,11 +1144,11 @@ def fig_3f_1():
 
     c, ax = base("직선의 기울기", show_curve=False)
     xs = np.linspace(-0.5, 2.5, 10)
-    ax.plot(xs, 2 * xs + 1, color=GREEN, lw=3)
+    ax.plot(xs, 2 * xs + 1, color=BLUE, lw=3)
     ax.plot([0, 1, 1], [1, 1, 3], color=ORANGE, lw=3)
     ax.text(0.5, 0.2, "1", color=ORANGE, fontsize=18, ha="center")
     ax.text(1.08, 2.0, "2", color=ORANGE, fontsize=18)
-    c.text(700, 250, "y = 2x + 1", size=22, mono=True, ha="left", color=GREEN)
+    c.text(700, 250, "y = 2x + 1", size=22, mono=True, ha="left", color=BLUE)
     c.text(700, 310, "x 가 1 늘면 y 는 2 늘어남", size=20, ha="left")
     c.text(700, 360, "직선의 기울기 = 2 (어디서나 같음)", size=20, ha="left", color=MUTED)
     frames.append(c.image())
@@ -1167,7 +1180,7 @@ def fig_3f_1():
     c, ax = base("직선의 기울기와 곡선 한 점의 미분값")
     xs = np.linspace(-0.5, 2.5, 10)
     ax.plot(xs, 4 + tangent * (xs - 1), color=ORANGE, lw=3)
-    c.text(700, 240, "직선: 어디서나 같은 기울기", size=20, ha="left", color=GREEN)
+    c.text(700, 240, "직선: 어디서나 같은 기울기", size=20, ha="left", color=BLUE)
     c.text(700, 290, "곡선: 점마다 접선의 기울기", size=20, ha="left", color=ORANGE)
     c.text(700, 340, "$y = 2x^2 + 2$ 를 미분하면 4x", size=20, ha="left")
     frames.append(c.image())
@@ -1321,32 +1334,32 @@ def fig_3g_2():
     def draw(left_state, right_n, summary=False):
         c = Canvas(1120, 500)
         c.line([560, 560], [70, 480], color=FAINT, lw=2)
-        c.text(280, 50, "Define-and-run", size=22, bold=True, color=ORANGE)
+        c.text(280, 50, "Define-and-run", size=22, bold=True, color=GREEN)
         c.text(280, 85, "그래프를 먼저 정의하고 실행", size=18, color=MUTED)
         c.text(840, 50, "Define-by-run", size=22, bold=True, color=BLUE)
         c.text(840, 85, "실행하면서 그래프가 생김", size=18, color=MUTED)
         for k, (code, v) in enumerate(nodes):
             y = 160 + k * 100
             if left_state >= 1:
-                c.box(130, y - 32, 300, 64, fc="white" if left_state == 1 else ORANGE_BG, ec=ORANGE, lw=2.5,
+                c.box(130, y - 32, 300, 64, fc="white" if left_state == 1 else GREEN_BG, ec=GREEN, lw=2.5,
                       rounded=True)
                 c.text(280, y, code if left_state == 1 else "%s → %d" % (code.split(" =")[0], v), size=19,
                        mono=True)
                 if k < 2:
-                    c.arrow(280, y + 34, 280, y + 66, color=ORANGE, lw=2.5, head=16)
+                    c.arrow(280, y + 34, 280, y + 66, color=GREEN, lw=2.5, head=16)
             if k < right_n:
                 c.box(690, y - 32, 300, 64, fc=BLUE_BG, ec=BLUE, lw=2.5, rounded=True)
                 c.text(840, y, "%s → %d" % (code, v), size=19, mono=True)
                 if k < right_n - 1:
                     c.arrow(840, y + 34, 840, y + 66, color=BLUE, lw=2.5, head=16)
         if left_state == 1 and not summary:
-            c.text(280, 455, "x 를 넣기 전에 연결부터", size=18, color=ORANGE)
+            c.text(280, 455, "x 를 넣기 전에 연결부터", size=18, color=GREEN)
         if left_state == 2 and not summary:
-            c.text(280, 455, "x = 3 을 넣음", size=18, color=ORANGE)
+            c.text(280, 455, "x = 3 을 넣음", size=18, color=GREEN)
         if 0 < right_n and not summary:
             c.text(840, 455, "코드 %d줄 실행" % right_n, size=18, color=BLUE)
         if summary:
-            c.text(280, 455, "TensorFlow 1.x", size=19, color=ORANGE, bold=True)
+            c.text(280, 455, "TensorFlow 1.x", size=19, color=GREEN, bold=True)
             c.text(840, 455, "PyTorch · TensorFlow 2.0 부터 기본", size=19, color=BLUE, bold=True)
         return c.image()
 
@@ -1369,7 +1382,7 @@ def fig_3g_3():
     for k in range(6):
         c = Canvas(1120, 520)
         c.title(titles[k], size=22)
-        chain_board(c, 4, y=200, grads=acc_list[k], gfrom=gfrom_list[k], hl=0 if k == 5 else None)
+        chain_board(c, 4, y=200, grads=acc_list[k], gfrom=gfrom_list[k])
         if k >= 1:
             c.text(560, 470, "오른쪽에서 왼쪽으로 미분값을 곱해 감", size=19, color=ORANGE)
         frames.append(c.image())
@@ -1389,13 +1402,13 @@ def fig_3g_4():
         c.title("backward 는 기울기를 더하고 zero_() 는 0 으로")
         for j, (code, _) in enumerate(seq[:k + 1]):
             c.text(40, 110 + j * 62, code, size=17, mono=True, ha="left", color=INK if j == k else MUTED,
-                   bg=YELLOW_BG if j == k else None, ec=ORANGE)
+                   bg=YELLOW_BG if j == k else None, ec=YELLOW_BG)
         v = seq[k][1]
         c.box(820, 170, 230, 130, fc=ORANGE_BG if v else PALE, ec=ORANGE, lw=3, rounded=True)
         c.text(935, 205, "x.grad", size=20, mono=True, color=MUTED)
         c.text(935, 255, "None" if v is None else num(v, True), size=32, mono=True, bold=True, color=ORANGE)
         if k == 2:
-            c.text(935, 350, "4. + 4. = 8.", size=20, mono=True, color=RED)
+            c.text(935, 350, "4. + 4. = 8.", size=20, mono=True, color=ORANGE)
         frames.append(c.image())
     c = Canvas(1120, 480)
     c.title("반복마다 지우고 다시 구함")
@@ -1420,7 +1433,7 @@ def fig_3g_5():
     c.text(608, 115, "no_grad 안", size=21, ha="left", color=MUTED, bold=True)
     c.text(608, 175, "with torch.no_grad():", size=19, mono=True, ha="left")
     c.text(640, 215, "y = 2 * x**2 + 2", size=21, mono=True, ha="left")
-    c.text(608, 275, "y.requires_grad → False", size=19, mono=True, ha="left", color=RED)
+    c.text(608, 275, "y.requires_grad → False", size=19, mono=True, ha="left", color=INK)
     c.text(608, 335, "기록하지 않아 메모리와 시간이 줄어듦", size=18, ha="left")
     return [c.image()], None
 
@@ -1435,11 +1448,11 @@ def fig_3h_1():
         c = Canvas(1120, 480)
         c.title(title, size=21)
         c.text(36, 95, device_text, size=18, mono=True, ha="left", color=MUTED)
-        c.box(80, 150, 380, 220, fc=PALE, ec=MUTED, lw=2.5, rounded=True)
+        c.box(80, 150, 380, 220, fc="white", ec=MUTED, lw=2.5, rounded=True)
         c.text(270, 180, "CPU", size=22, bold=True, color=MUTED)
-        c.box(660, 150, 380, 220, fc=GREEN_BG if gpu else "white", ec=GREEN if gpu else FAINT, lw=2.5,
+        c.box(660, 150, 380, 220, fc=PURPLE_BG if gpu else "white", ec=PURPLE if gpu else FAINT, lw=2.5,
               rounded=True, ls="-" if gpu else "--")
-        c.text(850, 180, "GPU (cuda)" if gpu else "GPU 없음", size=22, bold=True, color=GREEN if gpu else FAINT)
+        c.text(850, 180, "GPU (cuda)" if gpu else "GPU 없음", size=22, bold=True, color=PURPLE if gpu else FAINT)
         for x0, items in ((130, cpu_items), (710, gpu_items)):
             for k, label in enumerate(items):
                 c.cells(x0, 230 + k * 70, [["1.", "2.", "3."]], cw=60, ch=50, fill=lambda i, j: BLUE_BG, size=18)
@@ -1464,7 +1477,7 @@ def fig_3h_1():
     c = Canvas(1120, 480)
     c.title("장치 고르기와 옮기기")
     c.text(60, 140, dline, size=16, mono=True, ha="left")
-    c.text(60, 220, "x = x.to(device)", size=22, mono=True, ha="left", color=GREEN, bold=True)
+    c.text(60, 220, "x = x.to(device)", size=22, mono=True, ha="left", color=INK, bold=True)
     c.text(60, 275, "옮긴 텐서를 돌려주므로 받아서 씀", size=20, ha="left")
     c.text(60, 350, "x.to(device)", size=22, mono=True, ha="left", color=RED)
     c.text(60, 405, "받지 않으면 x 는 원래 장치에 남음", size=20, ha="left")
@@ -1476,10 +1489,10 @@ def fig_3h_1():
 def fig_3h_2():
     c = Canvas(1120, 460)
     c.title("텐서에서 파이썬 숫자와 numpy 배열 꺼내기")
-    rows = [("loss", "원소 1개", ".item()", "0.25 (파이썬 float)", GREEN),
+    rows = [("loss", "원소 1개", ".item()", "0.25 (파이썬 float)", INK),
             ("y", "requires_grad=True", ".numpy()", "RuntimeError", RED),
-            ("y", "requires_grad=True", ".detach().numpy()", "numpy 배열", GREEN),
-            ("r2", "requires_grad=False", ".numpy()", "numpy 배열 (float32)", GREEN)]
+            ("y", "requires_grad=True", ".detach().numpy()", "numpy 배열", INK),
+            ("r2", "requires_grad=False", ".numpy()", "numpy 배열 (float32)", INK)]
     for k, (name, note, call, out, col) in enumerate(rows):
         y = 110 + k * 80
         c.text(40, y, name, size=22, mono=True, ha="left", bold=True)
@@ -1514,7 +1527,7 @@ def fig_3h_3():
                     size=20)
             c.text(600, 352, "값을 복사한 새 텐서", size=19, ha="left", color=GREEN)
         if dtype:
-            c.text(60, 430, "float64 → .float() → float32", size=20, mono=True, ha="left", color=ORANGE)
+            c.text(60, 430, "float64 → .float() → float32", size=20, mono=True, ha="left", color=INK)
         if note:
             c.text(560, 455, note, size=19, color=INK)
         return c.image()
@@ -1531,7 +1544,7 @@ def fig_3h_3():
     c.text(60, 200, "t.numpy()            메모리를 함께 씀", size=21, ha="left", color=BLUE)
     c.text(60, 260, "torch.tensor(a)      복사", size=21, ha="left", color=GREEN)
     c.text(60, 340, "numpy 가 소수로 만드는 배열은 기본이 float64 → .float() 로 float32", size=20, ha="left",
-           color=ORANGE)
+           color=INK)
     frames.append(c.image())
     return frames, [2000, 2200, 2200, 2400, 2200, 2500]
 
@@ -1540,8 +1553,8 @@ def fig_3h_3():
 def fig_3h_4():
     c = Canvas(1120, 400)
     c.title("난수 고정")
-    pats = {"A": [BLUE, ORANGE, GREEN, PURPLE, BLUE], "B": [GREEN, GREEN, PURPLE, ORANGE, BLUE],
-            "C": [ORANGE, BLUE, BLUE, GREEN, PURPLE]}
+    g1, g2, g3, g4 = FAINT, "#9ca3af", MUTED, INK  # 뽑힌 값을 회색 진하기 네 단계로 나타냄
+    pats = {"A": [g1, g2, g3, g4, g1], "B": [g3, g3, g4, g2, g1], "C": [g2, g1, g1, g3, g4]}
     rows = [("manual_seed(123) 뒤 1번째 실행", "A"), ("manual_seed(123) 뒤 2번째 실행", "A"),
             ("시드 없이 1번째 실행", "B"), ("시드 없이 2번째 실행", "C")]
     assert pats[rows[0][1]] == pats[rows[1][1]] and pats[rows[2][1]] != pats[rows[3][1]]
@@ -1550,7 +1563,7 @@ def fig_3h_4():
         c.text(40, y, label, size=19, ha="left", color=INK if k < 2 else MUTED)
         for j, col in enumerate(pats[p]):
             c.box(500 + j * 70, y - 24, 60, 48, fc=col, ec="white", lw=2)
-        c.text(880, y, "같은 수열" if k < 2 else "매번 다른 수열", size=18, ha="left", color=GREEN if k < 2 else MUTED)
+        c.text(880, y, "같은 수열" if k < 2 else "매번 다른 수열", size=18, ha="left", color=INK if k < 2 else MUTED)
     return [c.image()], None
 
 
