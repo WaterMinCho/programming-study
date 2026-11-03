@@ -1784,7 +1784,8 @@ class WrongNotesTest(GuiTest):
             view = page.detail.viewport()  # 문항 칸은 바탕이 투명해서 카드 바탕까지 그리게 화면에서 그 자리를 찍음
             image = page.grab(QRect(view.mapTo(page, QPoint(0, 0)), view.size())).toImage()
             back = image.pixel(2, 2)
-            filled = {y for y in range(image.height()) if image.pixel(image.width() // 2, y) == band}
+            width = image.width()  # 글자 가장자리 화소가 띠 색과 같을 수 있어 오른쪽 세 군데가 모두 띠 색인 줄만 셈
+            filled = {y for y in range(image.height()) if all(image.pixel(x, y) == band for x in (width // 2, width * 3 // 4, width - 8))}
             tops = sorted(y for y in filled if y - 1 not in filled)
             bottoms = sorted(y for y in filled if y + 1 not in filled)
             ink = [y for y in range(image.height()) if y not in filled
