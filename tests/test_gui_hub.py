@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import QLabel  # noqa: E402
 import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
-from gui import errors, kit, theme  # noqa: E402
+from gui import errors, hub_page, kit, theme  # noqa: E402
 from gui.journey_page import NODE_RETRY, NODE_TITLE  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank, node, runner  # noqa: E402
@@ -235,6 +235,57 @@ class HubScreenTest(HubTest):
         guikit.click(hub.next_btn)
         self.idle()
         self.assertEqual((self.page(), win.journey_page.pid), (win.journey_page, "boss"))
+
+    def test_sections_stack_and_each_uses_the_whole_column(self):
+        """공부 트랙, 오답 노트, 최근 7일 학습은 위아래로 쌓이고 저마다 가운데 단의 폭을 다 씀. 최근 7일 카드 안에서는 폭이 넉넉하면
+        막대 칸(범례 줄과 막대) 오른쪽에 최근 채점이 오고(막대가 더 넓음), 좁으면 막대 아래로 내려감."""
+        self.graded_round()
+        win = self.boot()
+        hub = win.hub
+        parts = (hub.tracks, hub.notes, hub.week_card)
+        tops = [part.mapTo(hub, QPoint(0, 0)) for part in parts]
+        for upper, top in zip(parts, tops[1:]):
+            self.assertLess(upper.mapTo(hub, QPoint(0, upper.height())).y(), top.y())
+        self.assertEqual({top.x() for top in tops}, {tops[0].x()})
+        self.assertEqual({part.width() for part in parts}, {kit.HOME_WIDTH})
+        self.assertEqual(QLabel.text(hub.python_row.second), hub.python_row.second.full)  # 트랙 설명이 줄임표 없이 다 보임
+        week = hub.week
+        self.assertTrue(week.side)
+        chart, recent = week.plot.geometry(), week.recent_box.geometry()
+        self.assertEqual(chart.top(), recent.top())
+        self.assertGreater(recent.left(), chart.right())
+        self.assertGreater(chart.width(), recent.width())
+        total = hub.total.mapTo(week, QPoint(hub.total.width(), 0)).x()  # 채점 수는 막대 칸 오른쪽 끝에 맞아 최근 채점 칸 위로 가지 않음
+        self.assertEqual(total, hub.chart.mapTo(week, QPoint(hub.chart.width(), 0)).x())
+        self.assertLess(total, recent.left())
+        self.assertGreaterEqual(recent.width(), hub.recent.natural_width())  # 최근 채점 줄이 다 보임
+        week.resize(kit.HOME_WIDTH // 2, week.height())  # 좁으면 막대 아래로 내려가고 폭을 다 씀
+        self.assertFalse(week.side)
+        self.assertEqual(week.row.direction(), week.row.Direction.TopToBottom)
+        self.assertEqual(week.recent_box.maximumWidth(), hub_page.QWIDGETSIZE_MAX)
+        win.set_text("larger")
+        guikit.pump()
+        self.assertTrue(week.side)
+        self.assertEqual(week.recent_box.width(), min(hub.recent.natural_width(), int((week.width() - hub_page.SIDE_GAP) * hub_page.RECENT_SHARE)))
+
+    def test_wrong_note_row_opens_the_notes_and_comes_back(self):
+        """오답 노트 구역의 줄은 트랙마다 하나이고 갈래별 문항 수를 보임. 누르면 오답 노트가 그 트랙으로 열리고 돌아가기는 첫 화면으로 감."""
+        self.graded_round()  # 아무것도 적지 않고 제출해 25문항이 모두 미응답
+        win = self.boot()
+        hub = win.hub
+        self.assertEqual([(row.title.text(), row.second.text()) for _, row in hub.note_rows], [("파이썬 스터디", "미응답 문항 25개")])
+        row = hub.note_rows[0][1]
+        guikit.click(row)
+        page = win.wrong_page
+        self.assertEqual((self.page(), win.area, page.track.tid, page.back_btn.text()), (page, "hub", "python", "← 처음 화면"))
+        self.assertEqual([(fold.title.text(), fold.count.text(), fold.opened) for fold in page.list.folds], [("미응답 문항", "25", True)])
+        self.assertEqual(page.selected()["key"], page.list.rows[0].data["key"])
+        guikit.click(page.back_btn)
+        self.assertEqual((self.page(), win.area), (hub, "hub"))
+        hub.set_busy(True, "확인 중입니다.")
+        self.assertTrue(row.inert)
+        hub.set_busy(False)
+        self.assertFalse(row.inert)
 
     def test_next_card_prefers_python_when_nothing_was_graded(self):
         win = self.boot()

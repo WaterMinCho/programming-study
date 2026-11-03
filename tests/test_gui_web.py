@@ -25,6 +25,7 @@ from PyQt6.QtCore import QPoint, QRect, QSettings, Qt  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea  # noqa: E402
 
+import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
 from gui import errors, kit, theme, web_text  # noqa: E402
@@ -1306,8 +1307,8 @@ class LookTest(WebTest):
     """어두운 테마에서 밝은 조각이 남지 않고, 작은 창(1024x700)에서 단추가 창 밖으로 나가지 않음. 화면마다 한 번씩 봄."""
 
     def screens(self, win):
-        """(이름, 그 화면을 띄우는 함수, 살펴볼 단추들). 미션은 네 상태를 모두 거침."""
-        mission, drill = win.web_mission, win.web_drill
+        """(이름, 그 화면을 띄우는 함수, 살펴볼 단추들). 미션은 네 상태를 모두 거침. 오답 노트는 빈 상태와 문항이 있는 상태를 봄."""
+        mission, drill, wrong = win.web_mission, win.web_drill, win.wrong_page
 
         def mission_reading():
             guikit.click(mission.get_btn)
@@ -1342,6 +1343,17 @@ class LookTest(WebTest):
                 drill.items.rows[0].box.setChecked(True)
                 guikit.click(drill.next_btn)
 
+        def wrong_filled():  # 퀴즈만 담은 회차를 비워 둔 채 제출해서 문항이 미응답 문항 갈래에 차시별로 모임
+            sess = win.session
+            keys = sorted((key for key, item in sess.cat.items() if item["kind"] == "quiz"), key=study.natural_key)[:12]
+            rnd = {"id": "r91", "kind": "round", "focus": [], "items": keys, "retest": [], "shortages": [], "created": adaptive.now(),
+                   "tries": 0, "avg_level": 1}
+            sess.prof["rounds"].append(rnd)
+            adaptive.write_round(USER, rnd, sess.cat)
+            adaptive.save_profile(sess.prof)
+            sess.grade("r91", finalize=True)
+            win.show_wrong("python", "hub")
+
         return (("hub", win.go_hub, (win.hub.next_btn, win.hub.web_row)),
                 ("home", win.go_web, (win.web_home.next_btn, win.web_home.setup_btn, win.web_home.hub_btn)),
                 ("mission_before", lambda: self.open_mission(), (mission.get_btn, mission.folder_btn, mission.serve_btn, mission.test_btn)),
@@ -1351,7 +1363,9 @@ class LookTest(WebTest):
                 ("mission_done", mission_done, (mission.again_btn, mission.next_btn, mission.brief_btn, mission.serve_btn)),
                 ("drill_checklist", drill_checklist, (drill.next_btn, drill.give_up_btn)),
                 ("drill_end", drill_end, (drill.done_btn, drill.again_btn)),
-                ("learn", lambda: win.open_learn("l90"), (win.web_learn.back_btn,)))
+                ("learn", lambda: win.open_learn("l90"), (win.web_learn.back_btn,)),
+                ("wrong_empty", lambda: win.show_wrong("python", "hub"), (wrong.back_btn,)),
+                ("wrong", wrong_filled, (wrong.back_btn, wrong.explain_btn, wrong.retry_btn)))
 
     def test_dark_theme_leaves_no_light_patches_on_every_screen(self):
         win = self.boot()

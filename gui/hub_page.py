@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """첫 화면(허브): 위 막대(이름, ID, 글자 크기 단추 셋, 테마 단추), 제목 "오늘 할 공부", 이어서 할 일 카드 하나(화면에 하나뿐인 주 단추), 공부 트랙 줄 셋,
-최근 7일 학습 카드, 제출 줄 둘, 바닥글. 960 폭의 가운데 단에 두고 창이 작으면 스크롤함.
+오답 노트 줄(트랙마다 하나), 최근 7일 학습 카드, 제출 줄 둘, 바닥글. 구역은 위아래로 쌓아 저마다 960 폭의 가운데 단을 다 씀. 창이 작으면 스크롤함.
 
 카드의 수치는 세 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service 의 overview).
 막대의 파이썬 채점 수는 시도 기록에서 서로 다른 (회차, 시각) 쌍의 수임. 회차를 한 번 채점하면 문항마다 같은 시각의 시도가
@@ -9,14 +9,16 @@
 다음 회차임. 여행의 다음 할 일은 journey_text.next_item 이 마지막으로 연 문제부터 보고 고름. 막대와 최근 채점 줄은 칠할 때마다 지금 테마의 색을 읽음."""
 import datetime
 import html
+import math
 
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QFontMetricsF, QPainter
-from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
 
 from gui import errors, journey_text, kit, theme, web_text
 from gui.mascot import Mascot
 from gui.widgets import LinkLabel
+from gui.wrong_page import count_line
 from webprep.record import RecordError
 from webprep.service import WebError
 
@@ -31,6 +33,10 @@ TEXT_LABELS = {"normal": "보통 글자", "large": "큰 글자", "larger": "더 
 TEXT_TIP = "화면의 글자 크기를 바꿉니다. Ctrl(맥은 Cmd)과 +, -, 0 으로도 바꿀 수 있습니다."
 PYTHON_ABOUT = "파이썬 교과목 평가에 나오는 문제를 회차로 나눠 풀고 채점합니다."
 FIX_HINT = "파일을 고친 뒤 프로그램을 다시 실행해 주세요."
+SIDE_MIN = 40  # 최근 7일 카드에서 막대와 최근 채점을 나란히 두는 가장 좁은 폭(본문 글자 수). 보통 글자 680, 더 큰 글자 840
+SIDE_GAP = 32  # 나란히 둘 때 막대와 최근 채점 사이
+RECENT_SHARE = 0.45  # 나란히 둘 때 최근 채점 칸이 받는 폭의 상한(막대가 더 넓게)
+QWIDGETSIZE_MAX = 16777215  # Qt 위젯 크기의 상한. 최근 채점 칸의 고정 폭을 풀 때 씀
 
 
 def python_gradings(attempts):
@@ -88,6 +94,12 @@ class RecentList(QWidget):
     def line_height():
         return theme.TYPE["body"][1]
 
+    def natural_width(self):
+        """가장 긴 줄이 줄임표 없이 다 보이는 폭."""
+        metrics, stamp_metrics = QFontMetricsF(self.font()), QFontMetricsF(theme.font("caption"))
+        return math.ceil(max([metrics.horizontalAdvance(label) + self.GUTTER + stamp_metrics.horizontalAdvance(when)
+                              for label, when in self.rows] or [0])) + 1
+
     def paintEvent(self, event):
         painter = QPainter(self)
         stamp_font = theme.font("caption")
@@ -108,7 +120,7 @@ class RecentList(QWidget):
 class WeekChart(QWidget):
     """최근 7일의 날짜별 학습 수. 날마다 파이썬, 알고리즘, 웹 막대를 트랙 색(theme.SERIES)으로 TRACKS 순서로 나란히 그리고, 바탕은 track 색.
     기록이 없는 날의 바탕은 옅게 그리고, 7일 모두 없으면 막대 자리 가운데에 EMPTY 를 씀.
-    막대 아래에 요일과 날짜를 micro 13 으로 쓰고 오늘은 굵게 씀. 하루 칸이 좁아 날짜(10/15)끼리 붙으면 날만(15) 씀. 범례는 카드 머리줄에 있음."""
+    막대 아래에 요일과 날짜를 micro 13 으로 쓰고 오늘은 굵게 씀. 하루 칸이 좁아 날짜(10/15)끼리 붙으면 날만(15) 씀. 범례는 막대 칸의 위 줄에 있음."""
 
     def __init__(self):
         super().__init__()
@@ -165,6 +177,39 @@ class WeekChart(QWidget):
             painter.drawText(area, Qt.AlignmentFlag.AlignCenter, EMPTY)
 
 
+class WeekBody(QWidget):
+    """최근 7일 카드의 막대 칸(범례 줄과 막대)과 최근 채점 칸. 폭이 SIDE_MIN 이상이면 막대 칸 오른쪽에 최근 채점을 두고, 좁으면 막대 아래에 둠.
+    나란히 둘 때 최근 채점 칸은 가장 긴 줄이 다 보이는 폭이되 RECENT_SHARE 를 넘지 않고, 남는 폭은 막대 칸이 받음.
+    최근 채점 칸이 숨으면 막대 칸이 폭을 다 받음."""
+
+    def __init__(self, plot, recent_box, recent):
+        super().__init__()
+        self.plot, self.recent_box, self.recent = plot, recent_box, recent
+        self.row = QBoxLayout(QBoxLayout.Direction.TopToBottom, self)
+        self.row.setContentsMargins(0, 0, 0, 0)
+        self.row.addWidget(plot, 1)
+        self.row.addWidget(recent_box, 0, Qt.AlignmentFlag.AlignTop)
+        self.side = None
+        self.arrange()
+
+    def arrange(self):
+        """지금 폭과 글자 크기에 맞춰 두 칸을 나란히 두거나 위아래로 쌓음. 글자 크기나 최근 채점 줄이 바뀐 뒤에도 부름."""
+        side = self.width() >= SIDE_MIN * theme.TYPE["body"][0]
+        if side != self.side:
+            self.side = side
+            self.row.setDirection(QBoxLayout.Direction.LeftToRight if side else QBoxLayout.Direction.TopToBottom)
+            self.row.setSpacing(SIDE_GAP if side else 16)
+        if side:
+            self.recent_box.setFixedWidth(min(self.recent.natural_width(), int((self.width() - SIDE_GAP) * RECENT_SHARE)))
+        else:
+            self.recent_box.setMinimumWidth(0)
+            self.recent_box.setMaximumWidth(QWIDGETSIZE_MAX)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()
+
+
 class HubPage(QWidget):
     def __init__(self, win):
         super().__init__()
@@ -217,14 +262,9 @@ class HubPage(QWidget):
         root.addWidget(lead)
         root.addSpacing(48)
 
-        cols = QHBoxLayout()
-        cols.setContentsMargins(0, 0, 0, 0)
-        cols.setSpacing(24)
-        left = QWidget()
-        left_box = kit.box(left)
         head, _, _ = kit.section("공부 트랙")
-        left_box.addLayout(head)
-        left_box.addSpacing(12)
+        root.addLayout(head)
+        root.addSpacing(12)
         self.tracks = kit.RowList()
         self.python_row = self.tracks.add(kit.Row("파이썬 스터디", PYTHON_ABOUT, mark=kit.Dot("series_python", 8), strong=True))
         self.journey_row = self.tracks.add(kit.Row("알고리즘 여행", "", mark=kit.Dot("series_algorithm", 8), strong=True))
@@ -237,14 +277,29 @@ class HubPage(QWidget):
         for banner in (self.journey_error, self.web_error):
             banner.hide()
             stack_box.addWidget(banner)
-        left_box.addWidget(stack)
-        left_box.addStretch(1)
-        right = QWidget()
-        right_box = kit.box(right)
+        root.addWidget(stack)
+        root.addSpacing(48)
+
+        head, _, _ = kit.section("오답 노트")
+        root.addLayout(head)
+        root.addSpacing(12)
+        self.notes = kit.RowList()  # 오답 노트 트랙마다 한 줄. 누르면 오답 노트를 그 트랙으로 엶
+        self.note_rows = []  # [(공급자, 줄)]
+        series = dict(zip((tid for tid, _ in TRACKS), theme.SERIES))  # 공부 트랙 줄과 같은 점. 점 색이 없는 트랙은 점 없이 둠
+        for track in win.wrong_tracks:
+            mark = kit.Dot(series[track.tid], 8) if track.tid in series else None
+            row = self.notes.add(kit.Row(track.name, "", mark=mark, strong=True))
+            row.clicked.connect(lambda tid=track.tid: win.show_wrong(tid, "hub"))
+            self.note_rows.append((track, row))
+        root.addWidget(self.notes)
+        root.addSpacing(48)
+
         head, _, self.streak = kit.section("최근 7일 학습")
-        right_box.addLayout(head)
-        right_box.addSpacing(12)
-        week_card, box = kit.card(spacing=0)
+        root.addLayout(head)
+        root.addSpacing(12)
+        self.week_card, box = kit.card(spacing=0)
+        plot = QWidget()  # 막대 칸: 범례 줄과 막대. 채점 수가 막대의 오른쪽 끝에 맞아서 나란히 둔 최근 채점 칸의 수로 읽히지 않음
+        plot_box = kit.box(plot, spacing=8)
         legend = QHBoxLayout()
         legend.setContentsMargins(0, 0, 0, 0)
         legend.setSpacing(16)
@@ -257,21 +312,17 @@ class HubPage(QWidget):
         legend.addStretch(1)
         self.total = kit.label("", "caption", "tertiary")
         legend.addWidget(self.total)
-        box.addLayout(legend)
-        box.addSpacing(8)
+        plot_box.addLayout(legend)
         self.chart = WeekChart()
-        box.addWidget(self.chart)
+        plot_box.addWidget(self.chart, 1)
         self.recent_box = QWidget()  # 최근 채점 칸. 채점 기록이 없으면 숨겨서 카드가 막대만 보임
-        recent = kit.box(self.recent_box, (0, 16, 0, 0), 4)
+        recent = kit.box(self.recent_box, spacing=4)
         self.recent = RecentList()
         recent.addWidget(kit.label("최근 채점", "caption", "tertiary"))
         recent.addWidget(self.recent)
-        box.addWidget(self.recent_box)
-        right_box.addWidget(week_card)
-        right_box.addStretch(1)
-        cols.addWidget(left, 7)
-        cols.addWidget(right, 5)
-        root.addLayout(cols)
+        self.week = WeekBody(plot, self.recent_box, self.recent)
+        box.addWidget(self.week)
+        root.addWidget(self.week_card)
         root.addSpacing(48)
 
         head, _, _ = kit.section("제출")
@@ -320,6 +371,8 @@ class HubPage(QWidget):
         self.python_row.set_second("단원 %d개 중 %d개 숙달 · 다음은 %s" % (overview["total_units"], overview["mastered"], name))
         journey = self.show_journey()
         web = self.show_web()
+        for track, row in self.note_rows:
+            row.set_second(count_line(track.groups()))
         self.show_week(overview, journey, web)
         self.show_next(overview, journey, web)
         usable = win.gitflow is not None
@@ -458,6 +511,7 @@ class HubPage(QWidget):
         rows.sort(key=lambda row: row[0], reverse=True)
         self.recent.set_rows((label, stamp(at)) for at, label in rows[:RECENT])
         self.recent_box.setVisible(bool(rows))
+        self.week.arrange()
 
     def restyle(self):
         self.theme_btn.setText(THEME_TEXT[theme.state["mode"]])
@@ -465,12 +519,15 @@ class HubPage(QWidget):
             button.setChecked(step == theme.state["text"])
         for widget in (self.chart, self.recent):
             widget.update()
+        self.week.arrange()  # 글자 크기가 바뀌면 최근 채점 줄의 폭과 나란히 둘 폭이 바뀜
 
     def set_busy(self, busy, text=""):
         self.next_btn.setEnabled(not busy)
         kit.set_inert(self.python_row, busy)
         kit.set_inert(self.journey_row, busy or self.win.journey is None)
         kit.set_inert(self.web_row, busy or self.web_error.isVisibleTo(self))
+        for _, row in self.note_rows:
+            kit.set_inert(row, busy)
         for row in (self.git_btn, self.sync_btn):
             kit.set_inert(row, busy or self.win.gitflow is None)
         self.busy_bar.setVisible(busy)

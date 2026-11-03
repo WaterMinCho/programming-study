@@ -162,7 +162,7 @@ class HomePage(QWidget):
         root.addWidget(self.foot)
 
         self.hub_btn.clicked.connect(win.go_hub)
-        self.wrong_btn.clicked.connect(win.show_wrong)
+        self.wrong_btn.clicked.connect(lambda: win.show_wrong("python", "python"))
         self.team_btn.clicked.connect(win.show_team)
         self.theme_btn.clicked.connect(win.cycle_theme)
         self.action_btn.clicked.connect(win.start_next)

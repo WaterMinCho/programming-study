@@ -212,7 +212,6 @@ QAbstractScrollArea::corner { background: transparent; border: 0; }
 STYLE += "".join("QLabel#unit_%s { background: %%(unit_%s)s; color: %%(unit_%s_ink)s; border-radius: 4px; font-weight: 700; }\n" % (name, name, name)
                  for name in UNIT)
 STYLE += "QLabel#unit_none { border: 1px solid %(unit_none_edge)s; }\n"  # 미진단 칸은 바탕과 색이 비슷해 테두리로 구분함
-STYLE += "QListWidget#notes::item:disabled { background: %(table_head)s; color: %(heading)s; }\n"  # 오답 노트의 단원 머리 줄. 고를 수 없게 꺼 둔 줄임
 
 # 새 화면(첫 화면, 웹 면접 준비)의 규칙. 맨 위 위젯에 setProperty("ui", "2") 를 준 화면과 대화상자 아래에만 걸림(옮기지 않은 화면은 그대로).
 # 글자 크기는 여기서 주지 않고 gui/kit.py 가 TYPE 으로 글꼴을 직접 줌. 색과 단추·입력칸·체크 상자의 모양만 여기서 줌. 단추의 글자 크기(btn 은
