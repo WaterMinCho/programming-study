@@ -1024,13 +1024,16 @@ class MacAppTest(unittest.TestCase):
 
 
 def has_screen():
-    """tkinter 창을 띄울 수 있는 환경인가. Homebrew 파이썬에는 _tkinter 가 없고 리눅스 CI 에는 화면이 없음."""
+    """tkinter 창을 띄워 봐도 되는 환경인가. 사용자 화면에 창이 뜨지 않게 CI(GITHUB_ACTIONS)나 STUDY_REAL_WINDOWS=1 일 때만 띄움.
+    Homebrew 파이썬에는 _tkinter 가 없고 리눅스 CI 에는 화면이 없음."""
+    if not (os.environ.get("GITHUB_ACTIONS") or os.environ.get("STUDY_REAL_WINDOWS") == "1"):
+        return False
     if importlib.util.find_spec("_tkinter") is None:
         return False
     return sys.platform in ("win32", "darwin") or bool(os.environ.get("DISPLAY"))
 
 
-@unittest.skipUnless(has_screen(), "tkinter 와 화면이 있을 때만 준비 창을 띄워 봄")
+@unittest.skipUnless(has_screen(), "CI 나 STUDY_REAL_WINDOWS=1 에서 tkinter 와 화면이 있을 때만 준비 창을 띄워 봄")
 class SetupWindowTest(unittest.TestCase):
     """진짜 준비 창. mainloop 를 돌지 않고 update 로 한 걸음씩 넘기면서 단추를 직접 누름."""
 
