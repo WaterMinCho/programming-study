@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""4차시 생성기. 평균 제곱 오차, 경사하강법 한 걸음(새 W 와 거꾸로 W.grad), 연쇄법칙으로 한 데이터가 W.grad 에 보태는 값.
+"""4차시 생성기. 평균 제곱 오차, 경사하강법으로 한 번 갱신(새 W 와 거꾸로 W.grad), 연쇄법칙으로 한 데이터가 W.grad 에 보태는 값.
 
 표준 라이브러리와 aiprep.gen 만 씀. 실수는 Decimal 로 계산해 글로 바꿈. 모든 답이 유한소수가 되게 숫자 범위를 고름.
 """
@@ -60,28 +60,28 @@ def mse_value(r):
 @gen("i04-g02", unit="4b", level=2, tags=["경사하강법", "갱신식"], ref=["4차시 슬 p34", "5차시 슬 p20", "1차시 슬 p7"],
      step="4b/3", facts=["F04-11"], basis="lecture-formula", family="update", prio=3)
 def gd_step(r):
-    """경사하강법 한 걸음 새 W = W − 학습률 × W.grad. 틀이 둘이고 시드로 고름: 새 W 를 묻거나(정방향), 고치기 전후의 W 로
-    W.grad 를 묻거나(거꾸로). W 는 −2~3(0.5 간격), 경사는 −8~8(0.5 간격, 0 제외), 학습률 0.1·0.01."""
+    """경사하강법으로 한 번 갱신: 새 W = W − 학습률 × W.grad. 틀이 둘이고 시드로 고름: 새 W 를 묻거나(정방향), 갱신 전후의 W 로
+    W.grad 를 묻거나(거꾸로). W 는 −2~3(0.5 간격), 기울기는 −8~8(0.5 간격, 0 제외), 학습률 0.1·0.01."""
     w = Decimal(r.int(-4, 6)) / 2
     g = Decimal(r.pick([k for k in range(-16, 17) if k != 0])) / 2
     lr = Decimal(r.pick(["0.1", "0.01"]))
     new = w - lr * g
     if r.chance(0.5):
         return blank(
-            stem="W = %s, `W.grad` = %s, 학습률 %s로 경사하강법을 한 번 하면 새 W는 ____ 입니다." % (shown(w), shown(g), shown(lr)),
+            stem="W = %s, `W.grad` = %s, 학습률 %s로 경사하강법을 써서 한 번 갱신하면 새 W는 ____ 입니다." % (shown(w), shown(g), shown(lr)),
             blanks=[{"answer": [dec(new)], "mode": "number", "hint": "숫자"}],
-            explain="경사의 반대쪽으로 가므로 학습률 × 경사를 뺍니다. %s − %s × %s = %s입니다. "
-                    "빼기 대신 더하면 경사 쪽으로 간 값(%s)이 나옵니다."
+            explain="기울기의 반대쪽으로 바꾸므로 학습률 × 기울기를 뺍니다. %s − %s × %s = %s입니다. "
+                    "빼기 대신 더하면 기울기 쪽으로 바꾼 값(%s)이 나옵니다."
                     % (shown(w), shown(lr), paren(g), shown(new), shown(w + lr * g)),
             params={"ask": "new", "W": dec(w), "gW": dec(g), "lr": dec(lr)})
     return blank(
-        stem="경사하강법을 한 번 하기 전 W = %s, 한 뒤 W = %s, 학습률 = %s일 때 `W.grad`는 ____ 입니다."
+        stem="경사하강법으로 한 번 갱신하기 전 W = %s, 갱신한 뒤 W = %s, 학습률 = %s일 때 `W.grad`는 ____ 입니다."
              % (shown(w), shown(new), shown(lr)),
         blanks=[{"answer": [dec(g)], "mode": "number", "hint": "숫자"}],
         explain="새 W = W − 학습률 × `W.grad`이므로 `W.grad` = (W − 새 W) ÷ 학습률입니다. (%s − %s) ÷ %s = %s입니다. "
                 "%s"
                 % (shown(w), paren(new), shown(lr), shown(g),
-                   "W가 줄었으니 경사는 양수입니다." if new < w else "W가 커졌으니 경사는 음수입니다."),
+                   "W가 줄었으니 기울기는 양수입니다." if new < w else "W가 커졌으니 기울기는 음수입니다."),
         params={"ask": "grad", "W": dec(w), "new": dec(new), "lr": dec(lr)})
 
 

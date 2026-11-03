@@ -327,7 +327,7 @@ def lr_gif():
 @figure("1a-4")
 def traits_png():
     fig, ax = canvas(40)
-    title(ax, "학습의 세 특징", 40)
+    title(ax, "학습의 특징", 40)
     label(ax, 3, 31.5, "점진적 개선", size=22, color=BLUE, weight="bold")
     vals = [float(r[2]) for r in R1A]
     for k, v in enumerate(vals):
@@ -716,7 +716,7 @@ def central_gif():
         secant(ax, 3 - h, 3 + h, GREEN, "-")
         side(fig, [("전진 차분 %s" % dec(fw), MUTED), ("중앙 차분 %s" % dec(c), GREEN), ("접선 12", ORANGE)])
         frames.append(to_image(fig)); durs.append(ms)
-    fig, ax = base("정리: 이차 함수에서 중앙 차분은 늘 12")
+    fig, ax = base("이 함수의 x = 3 에서 중앙 차분은 h와 상관없이 12")
     for h, fw, c in DIFFS:
         secant(ax, 3, 3 + h, FAINT, "--")
     secant(ax, 2, 4, GREEN, "-")
@@ -741,7 +741,7 @@ def hog_png():
     mag, ang = math.hypot(dx, dy), math.degrees(math.atan2(dy, dx))
     assert (dx, dy, mag, round(ang, 1)) == (30, 40, 50.0, 53.1)
     fig, ax = canvas(44)
-    title(ax, "가운데 칸의 밝기 변화 구하기", 44)
+    title(ax, "가운데 픽셀의 밝기 변화 구하기", 44)
     for r in range(3):
         for c in range(3):
             v = grid[r][c]
@@ -750,7 +750,7 @@ def hog_png():
             ec = ORANGE if (r, c) in ((1, 0), (1, 2)) else BLUE if (r, c) in ((0, 1), (2, 1)) else FAINT
             box(ax, 6 + 10 * c, 26 - 10 * r, 9, 9, str(v), fc=fc, ec=ec, lw=3 if ec != FAINT else 1.5, size=24,
                 color="white" if v >= 45 else INK)
-    label(ax, 6, 3.5, "칸 숫자 = 밝기(직접 만든 예)", size=17, color=MUTED)
+    label(ax, 6, 3.5, "숫자 = 픽셀 밝기(직접 만든 예)", size=17, color=MUTED)
     label(ax, 40, 31, "dx = 오른쪽 %s 왼쪽 = 40 %s 10 = %d" % (M, M, dx), size=22, color=ORANGE)
     label(ax, 40, 24, "dy = 아래 %s 위 = 60 %s 20 = %d" % (M, M, dy), size=22, color=BLUE)
     label(ax, 40, 16, "크기 $\\sqrt{30^2 + 40^2}$ = %d" % mag, size=22, color=INK)
@@ -886,7 +886,7 @@ def sigmoid_png():
 @figure("1f-1")
 def class_png():
     fig, ax = canvas(44)
-    title(ax, "클래스(설계도) 하나로 인스턴스(실체) 여럿", 44)
+    title(ax, "클래스 Point 하나로 만든 인스턴스 둘", 44)
     box(ax, 3, 4, 34, 32, fc=BLUE_L, ec=BLUE)
     label(ax, 6, 32, "class Point", size=24, family=CODE, weight="bold", color=BLUE)
     label(ax, 6, 25.5, "속성", size=20, color=MUTED)

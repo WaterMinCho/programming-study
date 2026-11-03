@@ -281,19 +281,67 @@ class SignTest(Case):
         answers["i90-b02"] = ["zero_grad()"]
         answers["i90-b03"] = ["2.8"]
         answers["i90-b04"] = ["과대적합"]
-        order = answers["i90-c01"]["order"]
-        answers["i90-c01"]["picked"] = [order.index(0) + 1]
-        answers["i90-s05"] = {"ok": False}
-        answers["i90-s01"] = {"ok": True, "cloze": ["검증"]}
+        self.assertEqual({"picked": []}, answers["i90-c01"])
+        item = next(i for i in self.read_json("items/i90/work/items.json")["items"] if i["id"] == "i90-c01")
+        answers["i90-c01"]["picked"] = [ai_seal.option_order(item).index(0) + 1]
+        topic = self.read_json("items/i90/work/statements.json")["topics"][0]
+        tag = {s["id"]: t for t, s in ai_seal.statement_rows(topic)}
+        answers[tag["i90-s05"]] = {"ok": False, "cloze": [""]}
+        answers[tag["i90-s01"]] = {"ok": True, "cloze": ["검증"]}
+        answers[tag["i90-s02"]] = {"ok": True, "cloze": [""]}
         path = os.path.join(self.tmp, "answers.json")
         study.write_text(path, json.dumps(answers, ensure_ascii=False))
         code, out = self.verify("i90", "--answers", path)
         self.assertIn("재풀이 대조: 맞음 7 /", out)
+        self.assertIn("i90-s02 를 재풀이자가 틀렸습니다", out)
+        answers[tag["i90-s02"]]["cloze"] = "검증"
+        study.write_text(path, json.dumps(answers, ensure_ascii=False))
+        code, out = self.verify("i90", "--answers", path)
+        self.assertIn("재풀이 대조: 맞음 8 /", out)
+        answers[tag["i90-s02"]]["cloze"] = [""]
+        study.write_text(path, json.dumps(answers, ensure_ascii=False))
         code, out = self.sign("--first-pass", path, "--minutes", "40")
         self.assertEqual(0, code, out)
         review = json.loads(study.read_text(self.path("items/i90/work/review.json")))
         self.assertEqual(7, review["first_pass"]["correct"])
         self.assertEqual(40, review["first_pass"]["minutes"])
+
+    def test_old_answers_still_grade(self):
+        answers = {"i90-s05": {"ok": False}, "i90-s01": {"ok": True, "cloze": ["검증"]},
+                   "i90-c01": {"order": [3, 0, 1, 2], "picked": [2]}}
+        path = os.path.join(self.tmp, "answers.json")
+        study.write_text(path, json.dumps(answers, ensure_ascii=False))
+        code, out = self.verify("i90", "--answers", path)
+        self.assertIn("재풀이 대조: 맞음 3 / 3", out)
+
+    def test_brief_hides_which_statements_are_true(self):
+        def keep_two(data):
+            data["topics"][0]["statements"] = [s for s in data["topics"][0]["statements"] if s["id"] in ("i90-s01", "i90-s05")]
+        self.edit_json("items/i90/work/statements.json", keep_two)
+        true, false = self.read_json("items/i90/work/statements.json")["topics"][0]["statements"]
+        self.assertTrue(true["ok"] and true.get("cloze"))
+        self.assertFalse(false["ok"] or false.get("cloze"))
+        out_dir = os.path.join(self.tmp, "brief")
+        code, out = quiet(ai_seal.main, ["brief", "i90", "--out", out_dir, "--bank", self.bank])
+        self.assertEqual(0, code, out)
+        sheet = study.read_text(os.path.join(out_dir, "sheet.md"))
+        answers = study.read_json(os.path.join(out_dir, "answers.json"))
+        tags = [key for key in answers if key.startswith("i90-t01-")]
+        self.assertEqual(2, len(tags))
+        self.assertEqual({"ok": None, "cloze": [""]}, answers[tags[0]])
+        self.assertEqual(answers[tags[0]], answers[tags[1]])
+        shapes = set()
+        for statement in (true, false):
+            rows = [line for line in sheet.splitlines() if statement["text"] in line]
+            self.assertEqual(1, len(rows), sheet)
+            shape = rows[0].replace(statement["text"], "{글}")
+            for tag in tags:
+                shape = shape.replace(tag, "{꼬리표}")
+            shapes.add(shape)
+            self.assertNotIn(statement["id"], sheet + json.dumps(answers))
+        self.assertEqual({"- {꼬리표}: {글} (참/거짓)"}, shapes)
+        self.assertNotIn(true["cloze"]["text"], sheet)
+        self.assertIn(true["cloze"]["text"], study.read_text(os.path.join(out_dir, "cloze.md")))
 
 
 class SealTest(Case):

@@ -938,7 +938,7 @@ def fig_3d_4():
     c.text(70, 160, "expand(4, 3, 2)", size=23, mono=True, ha="left", color=BLUE, bold=True)
     c.text(70, 210, "원본과 메모리를 함께 씀 · 읽기만 할 때", size=21, ha="left")
     c.text(70, 310, "repeat(4, 1, 1)", size=23, mono=True, ha="left", color=GREEN, bold=True)
-    c.text(70, 360, "축마다 적은 횟수만큼 복사 · 따로 고칠 수 있음", size=21, ha="left")
+    c.text(70, 360, "축마다 적은 횟수만큼 복사 · 따로 바꿀 수 있음", size=21, ha="left")
     c.text(70, 430, "[1, 3, 2] → [1×4, 3×1, 2×1] = %s" % shape_text(rep), size=20, mono=True, ha="left", color=MUTED)
     frames.append(c.image())
     return frames, [2000, 2200, 2200, 2000, 2400, 2500]
@@ -1091,12 +1091,12 @@ def fig_3e_3():
         if ok:
             c.text(420, y, "→ (%d, %d)" % (l[0], r[1]), size=24, mono=True, ha="left", color=BLUE, bold=True)
         else:
-            c.text(420, y, "→ 오류: %d 와 %d 가 다름" % (l[1], r[0]), size=22, ha="left", color=RED, bold=True)
+            c.text(420, y, "→ 오류: 안쪽 크기가 다름", size=22, ha="left", color=RED, bold=True)
     c.text(60, 360, "1차원끼리 torch.dot: 1×4 + 2×5 + 3×6 = %d" % dot, size=21, mono=True, ha="left", color=PURPLE)
     return [c.image()], None
 
 
-# 3f 기울기, 미분, 경사
+# 3f 기울기, 미분, 편미분
 
 def curve(x):
     return 2 * x * x + 2
@@ -1114,7 +1114,7 @@ def fig_3f_1():
     def base(title, show_curve=True):
         c = Canvas(1120, 520)
         c.title(title)
-        labels_row(c, ["기울기", "미분", "편미분", "경사"], y=92)
+        labels_row(c, ["기울기", "미분", "편미분", "시그모이드"], y=92)
         ax = c.fig.add_axes([0.08, 0.13, 0.5, 0.58])
         ax.set_xlim(-0.5, 2.5)
         ax.set_ylim(0, 13)
@@ -1157,11 +1157,11 @@ def fig_3f_1():
         c.text(700, 360, "간격을 좁히면 4 에 다가감", size=20, ha="left", color=MUTED)
         frames.append(c.image())
 
-    c, ax = base("x = 1 에서의 접선: 기울기 4")
+    c, ax = base("x = 1 의 접선: 기울기 4")
     xs = np.linspace(-0.5, 2.5, 10)
     ax.plot(xs, 4 + tangent * (xs - 1), color=ORANGE, lw=3)
     c.text(700, 250, "접선의 기울기 = %s" % num(tangent), size=22, ha="left", color=ORANGE, bold=True)
-    c.text(700, 310, "이 값이 x = 1 에서의 미분", size=20, ha="left")
+    c.text(700, 310, "이 값이 x = 1 의 미분", size=20, ha="left")
     frames.append(c.image())
 
     c, ax = base("직선의 기울기와 곡선 한 점의 미분")
@@ -1181,7 +1181,7 @@ def fig_3f_2():
     z0 = 2 * a0 + 3 * b0 ** 2
     assert (ga, gb, z0) == (2.0, 12.0, 14.0)
     c = Canvas(1120, 520)
-    c.title("$z = 2a + 3b^2$ 의 경사")
+    c.title("$z = 2a + 3b^2$ 의 기울기")
     ax = c.fig.add_axes([0.06, 0.13, 0.42, 0.74])
     A, B = np.meshgrid(np.linspace(-1, 3, 201), np.linspace(-0.2, 3.8, 201))
     Z = 2 * A + 3 * B ** 2
@@ -1205,7 +1205,7 @@ def fig_3f_2():
     c.text(600, 130, "점 (a, b) = (1, 2), z = %s" % num(z0), size=21, ha="left")
     c.text(600, 200, "a 로 편미분: 2", size=21, ha="left")
     c.text(600, 250, "b 로 편미분: 6b = %s" % num(gb), size=21, ha="left")
-    c.text(600, 320, "경사 = (%s, %s)" % (num(ga), num(gb)), size=23, ha="left", color=ORANGE, bold=True)
+    c.text(600, 320, "기울기 = (%s, %s)" % (num(ga), num(gb)), size=23, ha="left", color=ORANGE, bold=True)
     c.text(600, 375, "주황: z 가 가장 빨리 커지는 쪽", size=19, ha="left", color=ORANGE)
     c.text(600, 420, "초록: 반대쪽, z 가 가장 빨리 줄어드는 쪽", size=19, ha="left", color=GREEN)
     c.text(600, 470, "회색 선: z 가 같은 점을 이은 선", size=17, ha="left", color=MUTED)
@@ -1340,9 +1340,9 @@ def fig_3g_2():
                 if k < right_n - 1:
                     c.arrow(840, y + 34, 840, y + 66, color=BLUE, lw=2.5, head=16)
         if left_state == 1 and not summary:
-            c.text(280, 455, "x 를 넣기 전에 설계도부터", size=18, color=ORANGE)
+            c.text(280, 455, "x 를 넣기 전에 연결부터", size=18, color=ORANGE)
         if left_state == 2 and not summary:
-            c.text(280, 455, "x = 3 을 흘려보냄", size=18, color=ORANGE)
+            c.text(280, 455, "x = 3 을 넣음", size=18, color=ORANGE)
         if 0 < right_n and not summary:
             c.text(840, 455, "코드 %d줄 실행" % right_n, size=18, color=BLUE)
         if summary:
@@ -1386,7 +1386,7 @@ def fig_3g_4():
     frames = []
     for k in range(len(seq)):
         c = Canvas(1120, 480)
-        c.title("backward 는 경사를 더하고 zero_() 는 0 으로")
+        c.title("backward 는 기울기를 더하고 zero_() 는 0 으로")
         for j, (code, _) in enumerate(seq[:k + 1]):
             c.text(40, 110 + j * 62, code, size=17, mono=True, ha="left", color=INK if j == k else MUTED,
                    bg=YELLOW_BG if j == k else None, ec=ORANGE)
@@ -1507,7 +1507,7 @@ def fig_3h_3():
             c.text(60, 220, "t1 = torch.from_numpy(a)", size=19, mono=True, ha="left", color=BLUE)
             for j in range(3):
                 c.arrow(370 + j * 80, 200, 370 + j * 80, 162, color=BLUE, lw=2.5, head=16)
-            c.text(600, 220, "같은 메모리를 봄", size=19, ha="left", color=BLUE)
+            c.text(600, 220, "메모리를 함께 씀", size=19, ha="left", color=BLUE)
         if t2:
             c.text(60, 300, "t2 = torch.tensor(a)", size=19, mono=True, ha="left", color=GREEN)
             c.cells(330, 325, [[num(v) for v in t2_vals]], cw=80, ch=52, fill=lambda i, j: GREEN_BG, ec=GREEN,

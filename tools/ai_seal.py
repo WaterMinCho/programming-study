@@ -9,7 +9,6 @@ tools/web_seal.py 의 함수(secrets_of, remove_plain, sealed_problem, inside)�
 import argparse
 import json
 import os
-import random
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -114,6 +113,20 @@ def _blank_answers(stem):
     return [""] * len(aibank.BLANK.findall(stem or ""))
 
 
+def option_order(item):
+    """공개본 고르기의 보기 순서(원래 번호 목록). 답안에 적어 두면 원래 0번 보기가 몇 번으로 갔는지 보여 답이 드러나므로 적지 않고
+    채점 때 같은 시드로 다시 만듦. genlib.Rng 라 파이썬 판이 달라도 같은 순서임."""
+    return genlib.Rng("%s 보기" % item["id"]).shuffle(list(range(len(item.get("options") or []))))
+
+
+def statement_rows(topic):
+    """공개본 주제 문장 [(꼬리표, 문장)]. statements.json 은 참 문장을 앞에 두고 id 도 그 순서로 매기므로 id 를 숨기고 섞은 순서에
+    '<주제 id>-<번호>' 꼬리표를 붙임. 채점 때 같은 순서를 다시 만들어 문장 id 로 되돌림."""
+    rows = sorted(topic.get("statements") or [], key=lambda statement: str(statement["id"]))
+    genlib.Rng(str(topic.get("id"))).shuffle(rows)
+    return [("%s-%d" % (topic.get("id"), n), statement) for n, statement in enumerate(rows, 1)]
+
+
 def _note_lines(bank_dir, page_id):
     """학습 노트의 먼저 풀어 보기·떠올리기(정답을 뺀 것)."""
     lines = []
@@ -134,7 +147,9 @@ def _note_lines(bank_dir, page_id):
 
 
 def brief(bank_dir, iid, out_dir):
-    """재풀이자에게 줄 공개본 sheet.md 와 빈 답안 answers.json. 정답·해설·why·facts.json 은 넣지 않음."""
+    """재풀이자에게 줄 공개본 sheet.md, cloze.md 와 빈 답안 answers.json. 정답·해설·why·facts.json 은 넣지 않음.
+    빈칸판은 참 문장에만 있어 문장 옆에 두면 판정이 드러나므로 cloze.md 로 따로 뺌. 답안의 문장 칸은 참·거짓과 상관없이 모두
+    {"ok": null, "cloze": [""]} 꼴이고, 고르기 칸에는 보기 순서를 적지 않음."""
     idir = os.path.join(bank_dir, "items", iid)
     if not os.path.isfile(os.path.join(idir, "meta.json")):
         raise SystemExit("문항 묶음의 meta.json 이 있어야 합니다: %s" % iid)
@@ -145,27 +160,27 @@ def brief(bank_dir, iid, out_dir):
     meta = study.read_json(os.path.join(idir, "meta.json"))
     items = json.loads(secrets.get("items.json", '{"items": []}')).get("items") or []
     topics = json.loads(secrets.get("statements.json", '{"topics": []}')).get("topics") or []
-    lines = ["# %s 재풀이 문제지" % iid, "", "정답을 보기 전에 풀고 answers.json 을 채우세요. 고르기는 이 문제지에 적힌 번호(1부터)를 씁니다.", ""]
-    answers = {}
+    lines = ["# %s 재풀이 문제지" % iid, "", "정답을 보기 전에 풀고 answers.json 을 채우세요. 고르기는 이 문제지에 적힌 번호(1부터)를 씁니다. "
+             "주제 문장은 ok 에 참이면 true, 거짓이면 false 를 적습니다.", ""]
+    answers, clozes = {}, []
     for item in items:
         lines += ["## %s" % item["id"], "", item.get("stem", ""), ""]
         if item.get("kind") == "choice":
-            order = list(range(len(item.get("options") or [])))
-            random.Random(item["id"]).shuffle(order)
-            lines += ["%d. %s" % (n, item["options"][k]["text"]) for n, k in enumerate(order, 1)] + [""]
-            answers[item["id"]] = {"order": order, "picked": []}
+            lines += ["%d. %s" % (n, item["options"][k]["text"]) for n, k in enumerate(option_order(item), 1)] + [""]
+            answers[item["id"]] = {"picked": []}
         else:
             answers[item["id"]] = _blank_answers(item.get("stem", ""))
     for topic in topics:
         lines += ["## 주제 %s · %s" % (topic.get("id"), topic.get("title", "")), ""]
-        for statement in topic.get("statements") or []:
-            lines.append("- %s: %s (참/거짓)" % (statement["id"], statement["text"]))
+        for tag, statement in statement_rows(topic):
+            lines.append("- %s: %s (참/거짓)" % (tag, statement["text"]))
+            answers[tag] = {"ok": None, "cloze": [""]}
             if statement.get("cloze"):
-                lines.append("  빈칸판: %s" % statement["cloze"]["text"])
-                answers[statement["id"]] = {"ok": None, "cloze": _blank_answers(statement["cloze"]["text"])}
-            else:
-                answers[statement["id"]] = {"ok": None}
+                clozes.append("- %s: %s" % (tag, statement["cloze"]["text"]))
         lines.append("")
+    if clozes:
+        lines += ["문장 판정을 answers.json 에 모두 적은 뒤에 cloze.md 를 열어 빈칸판을 풉니다. 빈칸판은 참 문장으로만 만들어서 판정 "
+                  "전에 열면 어느 문장이 참인지 드러납니다.", ""]
     aibank.load_common(bank_dir)
     for spec in genlib.load_module(os.path.join(idir, "gens.py"), "ai_brief_%s" % iid):
         lines += ["## 생성기 %s" % spec.id, "", spec.doc.strip(), ""]
@@ -184,10 +199,14 @@ def brief(bank_dir, iid, out_dir):
         lines += ["## 학습 노트의 먼저 풀어 보기와 떠올리기", ""] + notes + [""]
     os.makedirs(out_dir, exist_ok=True)
     study.write_text(os.path.join(out_dir, "sheet.md"), "\n".join(lines).rstrip() + "\n")
+    if clozes:
+        head = ["# %s 빈칸판" % iid, "", "sheet.md 의 문장 판정을 answers.json 에 모두 적은 뒤에 엽니다. 아래 꼬리표 칸의 cloze 에 빈칸에 들어갈 "
+                "말을 적고, 이미 적은 ok 는 고치지 않습니다.", ""]
+        study.write_text(os.path.join(out_dir, "cloze.md"), "\n".join(head + clozes) + "\n")
     study.write_text(os.path.join(out_dir, "answers.json"), json.dumps(answers, ensure_ascii=False, indent=1) + "\n")
-    print("공개본을 만들었습니다: %s (sheet.md, answers.json)" % out_dir)
-    print("재풀이자는 학습 노트와 sheet.md 만 보고 answers.json 을 채운 뒤 `python tools/verify_ai.py %s --answers answers.json` 으로 "
-          "대조합니다." % iid)
+    print("공개본을 만들었습니다: %s (sheet.md%s, answers.json)" % (out_dir, ", cloze.md" if clozes else ""))
+    print("재풀이자는 학습 노트와 sheet.md 만 보고 answers.json 을 채우고, 문장 판정을 다 적은 뒤에 cloze.md 를 풉니다. 그다음 "
+          "`python tools/verify_ai.py %s --answers answers.json` 으로 대조합니다." % iid)
 
 
 def main(argv=None):

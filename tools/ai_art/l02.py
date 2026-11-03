@@ -36,7 +36,9 @@ COLORS = 64
 INK, MUTED, FAINT, LINE = "#1f2937", "#6b7280", "#d1d5db", "#9ca3af"
 BLUE, ORANGE, GREEN, RED, PURPLE = "#1d4ed8", "#c2410c", "#047857", "#b91c1c", "#6d28d9"
 BLUE_L, ORANGE_L, GREEN_L, RED_L, GRAY_L, HL = "#dbeafe", "#ffedd5", "#d1fae5", "#fee2e2", "#f3f4f6", "#fef3c7"
+PURPLE_L, YELLOW_L = "#ede9fe", "#fde68a"
 CODE = "D2Coding"
+# 2c 단원 색: 파랑은 0번 축, 주황은 1번 축, 보라는 2번 축, 초록은 결과, 노랑은 따라가는 값(M의 0번 행)
 
 # 이 차시 전체에 쓰는 예
 DATA = np.array([3, 8, 1, 6, 2, 9])
@@ -163,7 +165,7 @@ def list_vs_array():
     c = Canvas(500)
     c.title("리스트와 배열(ndarray)은 값을 다르게 저장함")
     c.text(28, 92, "파이썬 리스트", size=22, bold=True)
-    c.text(250, 92, "칸에는 주소만, 값은 따로 된 객체", size=17, color=MUTED)
+    c.text(250, 92, "칸에는 주소만, 값은 따로 만든 객체", size=17, color=MUTED)
     spots = [(520, 120), (650, 215), (790, 130), (920, 230), (1030, 140), (560, 255)]
     for k, v in enumerate(DATA):
         x = 60 + k * 54
@@ -265,7 +267,7 @@ def shape_ndim():
     for j in range(6):
         c.text(40 + j * 56 + 28, 135, str(j), size=15, color=BLUE, ha="center", code=True)
     c.arrow(40, 222, 376, 222, color=BLUE)
-    c.text(40, 252, "축 0: 6칸", size=19, color=BLUE)
+    c.text(40, 252, "0번 축: 6칸", size=19, color=BLUE)
     c.text(40, 310, "shape (6,)", size=22, code=True, bold=True)
     c.text(40, 350, "ndim 1    len 6", size=22, code=True)
     c.line([480, 480], [70, 500], color=FAINT, lw=1.5)
@@ -276,9 +278,9 @@ def shape_ndim():
     for j in range(3):
         c.text(600 + j * 66 + 33, 135, str(j), size=15, color=ORANGE, ha="center", code=True)
     c.arrow(560, 150, 560, 254, color=BLUE)
-    c.text(545, 205, "축 0\n2칸", size=18, color=BLUE, ha="right")
+    c.text(545, 205, "0번 축\n2칸", size=18, color=BLUE, ha="right")
     c.arrow(600, 274, 798, 274, color=ORANGE)
-    c.text(820, 274, "축 1: 3칸", size=19, color=ORANGE)
+    c.text(820, 274, "1번 축: 3칸", size=19, color=ORANGE)
     c.text(520, 330, "shape (2, 3)", size=22, code=True, bold=True)
     c.text(520, 370, "ndim 2    len 2", size=22, code=True)
     c.text(520, 425, "np.array([[1, 2, 3]])", size=18, code=True, color=MUTED)
@@ -526,7 +528,7 @@ def reshape_order():
         else:
             c.text(x, y - 22, label, size=19, code=True, bold=True)
         cells = [[v if pos[v] < upto else "" for v in row] for row in vals]
-        c.grid(x, y, cells, cw=64, ch=48, fill=lambda i, j: BLUE_L if vals[i][j] is not None and pos[vals[i][j]] < upto else "white",
+        c.grid(x, y, cells, cw=64, ch=48, fill=lambda i, j: GREEN_L if vals[i][j] is not None and pos[vals[i][j]] < upto else "white",
                note=lambda i, j: pos[vals[i][j]] if pos[vals[i][j]] < upto else None)
 
     c = Canvas(460)
@@ -538,7 +540,7 @@ def reshape_order():
     strip(c, 3)
     shaped(c, 160, 220, r23.tolist(), "data.reshape(2, 3)", upto=3, side=True)
     for j in range(3):
-        c.arrow(160 + j * 64 + 32, 135, 160 + j * 64 + 32, 218, color=BLUE, lw=1.6)
+        c.arrow(160 + j * 64 + 32, 135, 160 + j * 64 + 32, 218, color=GREEN, lw=1.6)
     frames.append(c.image()); ms.append(2000)
     c = Canvas(460)
     c.title("reshape(2, 3): 다음 세 개가 1번 행")
@@ -554,16 +556,16 @@ def reshape_order():
     c.title("reshape(6, 1): 한 개씩 끊어 여섯 행")
     strip(c, 6)
     c.text(600, 198, "data.reshape(6, 1)", size=19, code=True, bold=True)
-    c.grid(600, 215, [[v] for v in DATA[:4]], cw=64, ch=48, fill=BLUE_L, note=lambda i, j: i)
+    c.grid(600, 215, [[v] for v in DATA[:4]], cw=64, ch=48, fill=GREEN_L, note=lambda i, j: i)
     c.text(632, 425, "…", size=22, ha="center")
     c.text(700, 300, "shape (6, 1)", size=20, code=True)
     frames.append(c.image()); ms.append(2000)
     c = Canvas(460)
-    c.title("원소 순서는 그대로, 끊는 자리만 바뀜")
+    c.title("원소 순서는 같고 끊는 자리만 바뀜")
     shaped(c, 60, 130, r23.tolist(), "reshape(2, 3)")
     shaped(c, 380, 130, r32.tolist(), "reshape(3, 2)")
     c.text(680, 108, "reshape(6, 1)", size=19, code=True, bold=True)
-    c.grid(680, 130, [[v] for v in DATA], cw=64, ch=48, fill=BLUE_L, note=lambda i, j: i)
+    c.grid(680, 130, [[v] for v in DATA], cw=64, ch=48, fill=GREEN_L, note=lambda i, j: i)
     c.text(60, 300, "원소 수 6 = 2×3 = 3×2 = 6×1", size=20)
     frames.append(c.image()); ms.append(2500)
     return frames, ms
@@ -595,7 +597,7 @@ def minus_one():
     c.line([20, 1100], [430, 430], color=FAINT, lw=1.5)
     c.text(40, 470, "np.zeros((1, 3, 1)).squeeze()", size=21, code=True, bold=True)
     c.text(560, 470, "(1, 3, 1) → (3,)", size=20, code=True)
-    c.text(790, 470, "크기 1 인 축을 지움", size=20)
+    c.text(790, 470, "길이 1 인 축을 지움", size=20)
     return c.image()
 
 
@@ -606,7 +608,7 @@ def transpose_2d():
     assert T.tolist() == [[3, 6], [8, 2], [1, 9]] and R.tolist() == [[3, 8], [1, 6], [2, 9]]
     assert DATA.T.shape == (6,) and DATA.reshape(6, 1).T.shape == (1, 6)
     row_of = {v: i for i, r in enumerate(M.tolist()) for v in r}
-    tint = (BLUE_L, ORANGE_L)
+    tint = (YELLOW_L, "white")   # M의 0번 행에서 온 값만 노랑
     frames, ms = [], []
 
     def src(c, x=60, y=110):
@@ -619,23 +621,23 @@ def transpose_2d():
         c.grid(x, y, cells, cw=64, ch=50, fill=lambda i, j: tint[row_of[vals[i][j]]] if cells[i][j] != "" else "white")
 
     c = Canvas(480)
-    c.title("M의 0번 행은 파랑, 1번 행은 주황")
+    c.title("M의 0번 행을 노랑으로 칠함")
     src(c)
     frames.append(c.image()); ms.append(1800)
     c = Canvas(480)
     c.title("M.T: 0번 행이 0번 열로")
     src(c)
     tgrid(c, 460, 110, T.tolist(), "M.T  (3, 2)", upto=1)
-    c.arrow(256, 135, 455, 135, color=BLUE, lw=1.8)
+    c.arrow(256, 135, 455, 135, color=INK, lw=1.8)
     frames.append(c.image()); ms.append(2000)
     c = Canvas(480)
     c.title("M.T: 1번 행이 1번 열로, [i, j]가 [j, i] 자리로")
     src(c)
     tgrid(c, 460, 110, T.tolist(), "M.T  (3, 2)")
-    c.arrow(256, 185, 556, 264, color=ORANGE, lw=1.8)
+    c.arrow(256, 185, 556, 264, color=INK, lw=1.8)
     frames.append(c.image()); ms.append(2200)
     c = Canvas(480)
-    c.title("같은 (3, 2) 라도 값 배치가 다름")
+    c.title("같은 (3, 2) 라도 값이 놓인 자리가 다름")
     src(c)
     tgrid(c, 460, 110, T.tolist(), "M.T")
     tgrid(c, 760, 110, R.tolist(), "M.reshape(3, 2)")
@@ -643,19 +645,19 @@ def transpose_2d():
     c.text(760, 300, "앞에서부터 두 개씩", size=18, color=MUTED)
     frames.append(c.image()); ms.append(2400)
     c = Canvas(480)
-    c.title("1차원 배열의 .T는 그대로")
+    c.title("1차원 배열의 .T: shape이 바뀌지 않음")
     c.text(60, 110, "data.T", size=21, code=True, bold=True)
     c.grid(60, 130, [list(DATA)], cw=60, ch=48)
-    c.text(480, 154, "shape (6,) 그대로", size=21, code=True, color=RED)
+    c.text(480, 154, "shape (6,), 바뀌지 않음", size=21, code=True, color=RED)
     c.text(60, 250, "축이 하나뿐이라 바꿀 축이 없음", size=19)
     frames.append(c.image()); ms.append(2000)
     c = Canvas(480)
     c.title("열벡터는 reshape(6, 1), 그 .T는 (1, 6)")
     c.text(60, 86, "data.reshape(6, 1)", size=19, code=True, bold=True)
-    c.grid(60, 100, [[v] for v in DATA], cw=56, ch=46, fill=BLUE_L)
+    c.grid(60, 100, [[v] for v in DATA], cw=56, ch=46)
     c.text(140, 260, "(6, 1)", size=20, code=True)
     c.text(400, 186, "data.reshape(6, 1).T", size=19, code=True, bold=True)
-    c.grid(400, 205, [list(DATA)], cw=56, ch=46, fill=BLUE_L)
+    c.grid(400, 205, [list(DATA)], cw=56, ch=46)
     c.text(400, 290, "(1, 6)", size=20, code=True)
     frames.append(c.image()); ms.append(2200)
     c = Canvas(480)
@@ -675,8 +677,8 @@ def transpose_3d():
     b = np.transpose(a, (1, 2, 0))
     assert np.transpose(a).shape == (4, 3, 2) and b.shape == (3, 4, 2)
     assert a[1, 2, 3] == 23 and b[2, 3, 1] == 23
-    chip_col = (BLUE, ORANGE, GREEN)
-    chip_fill = (BLUE_L, ORANGE_L, GREEN_L)
+    chip_col = (BLUE, ORANGE, PURPLE)
+    chip_fill = (BLUE_L, ORANGE_L, PURPLE_L)
     sizes = a.shape
     frames, ms = [], []
 
@@ -684,14 +686,14 @@ def transpose_3d():
         c.text(x + 3 * 150 + 10, y + 12, label, size=18, code=True, bold=True)
         for k, ax_ in enumerate(order):
             c.box(x + k * 150, y, 136, 66, fc=chip_fill[ax_], ec=chip_col[ax_], round_=True)
-            c.text(x + k * 150 + 68, y + 22, "옛 축 %d" % ax_, size=16, color=chip_col[ax_], ha="center")
+            c.text(x + k * 150 + 68, y + 22, "옛 %d번 축" % ax_, size=16, color=chip_col[ax_], ha="center")
             c.text(x + k * 150 + 68, y + 48, str(sizes[ax_]), size=22, color=INK, ha="center", code=True, bold=True)
         c.text(x + 3 * 150 + 10, y + 50, "→ (" + ", ".join(str(sizes[o]) for o in order) + ")", size=22, code=True)
 
     c = Canvas(500)
     c.title("a = np.arange(24).reshape(2, 3, 4)")
     chips(c, 60, 120, (0, 1, 2), "a.shape")
-    c.text(60, 260, "축 0 은 2개, 축 1 은 3개, 축 2 는 4개", size=20)
+    c.text(60, 260, "0번 축은 2개, 1번 축은 3개, 2번 축은 4개", size=20)
     frames.append(c.image()); ms.append(2000)
     c = Canvas(500)
     c.title("np.transpose(a): 축 순서를 뒤집음")
@@ -701,7 +703,7 @@ def transpose_3d():
         c.arrow(60 + old * 150 + 68, 190, 60 + new * 150 + 68, 298, color=chip_col[old], lw=1.8)
     frames.append(c.image()); ms.append(2200)
     c = Canvas(500)
-    c.title("np.transpose(a, (1, 2, 0)): 새 축 i에 옛 축 axes[i]")
+    c.title("np.transpose(a, (1, 2, 0)): 새 i번 축에 옛 axes[i]번 축")
     chips(c, 60, 120, (0, 1, 2), "a.shape")
     chips(c, 60, 300, (1, 2, 0), "np.transpose(a, (1, 2, 0)).shape")
     for old, new in ((1, 0), (2, 1), (0, 2)):
@@ -711,7 +713,7 @@ def transpose_3d():
     c.title("새 shape의 칸마다 옛 shape에서 가져옴")
     c.text(60, 110, "axes = (1, 2, 0)", size=22, code=True, bold=True)
     for k, ax_ in enumerate((1, 2, 0)):
-        c.text(60, 175 + k * 56, "새 축 %d ← 옛 축 %d (길이 %d)" % (k, ax_, sizes[ax_]), size=21, code=True, color=chip_col[ax_])
+        c.text(60, 175 + k * 56, "새 %d번 축 ← 옛 %d번 축 (길이 %d)" % (k, ax_, sizes[ax_]), size=21, code=True, color=chip_col[ax_])
     c.text(60, 370, "(2, 3, 4) → (3, 4, 2)", size=24, code=True, bold=True)
     frames.append(c.image()); ms.append(2200)
     c = Canvas(500)
@@ -741,17 +743,23 @@ def stacking():
     assert np.array_equal(v, np.concatenate([M, B])) and np.array_equal(h, np.concatenate([M, B], axis=1))
     c = Canvas(500)
     c.title("vstack은 위아래로, hstack은 옆으로 붙임")
-    fillv = (lambda i, j: BLUE_L if i < 2 else ORANGE_L)
+    # M 과 B 는 색 대신 이름표와 굵은 이음선으로 나눔(2c 단원에서 파랑·주황은 축 번호에만 씀)
     c.text(40, 85, "M (2, 3), B = M + 10", size=19, code=True, color=MUTED)
     c.text(40, 130, "np.vstack([M, B])", size=20, code=True, bold=True)
-    c.grid(40, 150, v.tolist(), cw=62, ch=48, fill=fillv)
+    c.grid(40, 150, v.tolist(), cw=62, ch=48)
+    c.line([40, 226], [246, 246], color=INK, lw=4, z=7)
+    c.text(242, 198, "M", size=19, code=True, color=MUTED)
+    c.text(242, 294, "B", size=19, code=True, color=MUTED)
     c.text(40, 370, "→ (4, 3)", size=21, code=True, color=GREEN)
     c.text(40, 410, "np.concatenate([M, B])와 같음", size=17, color=MUTED)
     c.text(40, 440, "(기본 axis=0)", size=17, color=MUTED)
     c.text(430, 130, "np.hstack([M, B])", size=20, code=True, bold=True)
-    c.grid(430, 150, h.tolist(), cw=62, ch=48, fill=lambda i, j: BLUE_L if j < 3 else ORANGE_L)
-    c.text(430, 280, "→ (2, 6)", size=21, code=True, color=GREEN)
-    c.text(430, 320, "np.concatenate([M, B], axis=1)과 같음", size=17, color=MUTED)
+    c.grid(430, 150, h.tolist(), cw=62, ch=48)
+    c.line([616, 616], [150, 246], color=INK, lw=4, z=7)
+    c.text(523, 268, "M", size=19, code=True, color=MUTED, ha="center")
+    c.text(709, 268, "B", size=19, code=True, color=MUTED, ha="center")
+    c.text(430, 310, "→ (2, 6)", size=21, code=True, color=GREEN)
+    c.text(430, 350, "np.concatenate([M, B], axis=1)과 같음", size=17, color=MUTED)
     return c.image()
 
 
@@ -870,7 +878,7 @@ def broadcast_both():
     c = Canvas(480)
     c.title("M (2, 3) + [100, 200] (2,)는 오류")
     shapes(c, 120, "(2, 3)", "   (2,)", (("3 과 2: 같지 않고 1 도 아님", False), ("ValueError", False)))
-    c.text(60, 300, "행마다 다른 값을 더하려 해도 (2,)는 열 축과 맞춰짐", size=19)
+    c.text(60, 300, "행마다 다른 값을 더하려 해도 (2,)는 1번 축과 맞춰짐", size=19)
     frames.append(c.image()); ms.append(2400)
     c = Canvas(480)
     c.title("(2, 1)로 바꾸면 행마다 더해짐")
@@ -921,12 +929,12 @@ def matmul():
 
     c = base("M @ W: 안쪽 길이 3 과 3 이 같아야 곱함")
     c.text(40, 330, "(2, 3) @ (3, 2) → (2, 2)", size=23, code=True)
-    c.text(40, 380, "결과의 [i, j] = M의 i 행과 W의 j 열을 곱해 더한 값", size=20)
+    c.text(40, 380, "결과의 [i, j] = M의 i번 행과 W의 j번 열을 곱해 더한 값", size=20)
     frames.append(c.image()); ms.append(2200)
     done = []
     for (i, j) in ((0, 0), (0, 1), (1, 0), (1, 1)):
         done.append((i, j))
-        c = base("[%d, %d] 칸 = %d 행 · %d 열" % (i, j, i, j), (i, j), tuple(done))
+        c = base("[%d, %d] 칸 = %d번 행 · %d번 열" % (i, j, i, j), (i, j), tuple(done))
         terms = " + ".join("%d×%d" % (M[i, k], Wm[k, j]) for k in range(3))
         c.text(40, 340, "%s = %d" % (terms, P[i, j]), size=24, code=True, color=GREEN)
         frames.append(c.image()); ms.append(2000)
@@ -988,11 +996,11 @@ def axis_sum():
 
     c = base("M의 축 둘")
     c.arrow(gx - 30, gy, gx - 30, gy + 2 * ch, color=BLUE)
-    c.text(gx - 40, gy + 2 * ch + 30, "축 0 (2개)", size=18, color=BLUE)
+    c.text(gx - 40, gy + 2 * ch + 30, "0번 축 (2개)", size=18, color=BLUE)
     c.arrow(gx, gy + 2 * ch + 70, gx + 3 * cw, gy + 2 * ch + 70, color=ORANGE)
-    c.text(gx + 3 * cw + 16, gy + 2 * ch + 70, "축 1 (3개)", size=18, color=ORANGE)
+    c.text(gx + 3 * cw + 16, gy + 2 * ch + 70, "1번 축 (3개)", size=18, color=ORANGE)
     frames.append(c.image()); ms.append(2000)
-    c = base("sum(axis=0): 위아래로 더해 축 0 이 사라짐", 0)
+    c = base("sum(axis=0): 위아래로 더해 0번 축이 사라짐", 0)
     for j in range(3):
         c.arrow(gx + j * cw + cw - 14, gy + 6, gx + j * cw + cw - 14, gy + 2 * ch + 40, color=BLUE, lw=2)
     c.grid(gx, gy + 2 * ch + 46, [s0.tolist()], cw=cw, ch=ch, fill=BLUE_L)
@@ -1001,7 +1009,7 @@ def axis_sum():
     c.text(480, 250, "(2, 3) → (3,)", size=22, code=True)
     c.line([496, 512], [262, 238], color=BLUE, lw=2.5)
     frames.append(c.image()); ms.append(2400)
-    c = base("sum(axis=1): 옆으로 더해 축 1 이 사라짐", 1)
+    c = base("sum(axis=1): 옆으로 더해 1번 축이 사라짐", 1)
     for i in range(2):
         c.arrow(gx + 6, gy + i * ch + ch - 10, gx + 3 * cw + 40, gy + i * ch + ch - 10, color=ORANGE, lw=2)
     c.grid(gx + 3 * cw + 46, gy, [[v] for v in s1.tolist()], cw=cw, ch=ch, fill=ORANGE_L)
@@ -1021,18 +1029,18 @@ def axis_sum():
     c.text(480, 150, "M.mean(axis=0)", size=22, code=True, bold=True)
     c.text(480, 200, "→ [4.5, 5, 5]", size=22, code=True, color=BLUE)
     frames.append(c.image()); ms.append(2200)
-    c = base("행이 샘플이면 axis=0 은 샘플들 사이의 집계")
+    c = base("행이 샘플이면 axis=0 은 여러 샘플 사이의 집계")
     c.text(480, 120, "행 = 샘플(데이터 한 개)", size=20)
     c.text(480, 160, "열 = 특징", size=20)
-    c.text(480, 230, "axis=0: 특징마다 샘플들을 모음", size=20, color=BLUE)
-    c.text(480, 270, "axis=1: 샘플마다 특징들을 모음", size=20, color=ORANGE)
+    c.text(480, 230, "axis=0: 특징마다 여러 샘플을 모음", size=20, color=BLUE)
+    c.text(480, 270, "axis=1: 샘플마다 여러 특징을 모음", size=20, color=ORANGE)
     frames.append(c.image()); ms.append(2400)
     c = Canvas(500)
     c.title("줄인 축의 숫자가 shape에서 빠짐")
     c.text(60, 110, "M.sum()        → 29          shape ()", size=22, code=True, color=GREEN)
     c.text(60, 170, "M.sum(axis=0)  → [9, 10, 10]  shape (3,)", size=22, code=True, color=BLUE)
     c.text(60, 230, "M.sum(axis=1)  → [12, 17]     shape (2,)", size=22, code=True, color=ORANGE)
-    c.text(60, 320, "(2, 3)에서 axis 번째 숫자를 지우면 결과 shape", size=21)
+    c.text(60, 320, "(2, 3)에서 axis번 자리의 숫자를 지우면 결과 shape", size=21)
     frames.append(c.image()); ms.append(2500)
     return frames, ms
 
@@ -1069,7 +1077,7 @@ def sort_fig():
     c.grid(330, 75, [list(DATA)], cw=64, ch=48, note=lambda i, j: j)
     c.text(40, 175, "np.sort(data)", size=20, code=True, bold=True)
     c.grid(330, 150, [srt.tolist()], cw=64, ch=48, fill=GREEN_L)
-    c.text(740, 175, "data는 그대로", size=18, color=MUTED)
+    c.text(740, 175, "data는 바뀌지 않음", size=18, color=MUTED)
     c.text(40, 250, "np.argsort(data)", size=20, code=True, bold=True)
     c.grid(330, 225, [arg.tolist()], cw=64, ch=48, fill=BLUE_L)
     c.text(740, 250, "작은 값의 자리 번호부터", size=18, color=BLUE)
@@ -1225,7 +1233,7 @@ def anatomy():
     fig.text(0.65, 0.12, "Epoch 4 뒤: Val은 오르고", fontsize=14, color=INK)
     fig.text(0.65, 0.07, "Train은 계속 내려감", fontsize=14, color=INK)
     fig.text(0.65, 0.02, "그림을 보이려고 만든 값", fontsize=13, color=MUTED)
-    fig.text(0.08, 0.93, "그래프가 스스로 설명하게 붙이는 요소", fontsize=19, weight="bold")
+    fig.text(0.08, 0.93, "그래프에 붙이는 제목, 가로축·세로축 이름, 범례, 격자", fontsize=19, weight="bold")
     fig.canvas.draw()
     buf = np.asarray(fig.canvas.buffer_rgba())
     img = Image.fromarray(buf[..., :3].copy())

@@ -76,6 +76,21 @@
    "what": "NumPy 문서 numpy.random.rand: 0 이상 1 미만",
    "url": "https://numpy.org/doc/stable/reference/random/generated/numpy.random.rand.html",
    "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 소식: 2.0.0 출시 2024-06-16, 2006년 이후 첫 큰 판. 2.5.0 출시 2026-06-21, 2.0 때 알린 사용 중단 기능을 많이 없앰",
+   "url": "https://numpy.org/news/",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "NumPy 2.0.0 릴리스 노트: 기본 이름 공간이 배열 API 표준을 지원, 64비트 Windows 기본 정수 int64, concat 별칭 추가",
+   "url": "https://numpy.org/doc/stable/release/2.0.0-notes.html",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "배열 API 표준의 목적: 배열을 만들고 쓰는 흔한 방법을 여러 배열 라이브러리가 같은 API 로 쓰게 함",
+   "url": "https://data-apis.org/array-api/latest/purpose_and_scope.html",
+   "checked": "2026-11-04"
   }
  ],
  "lesson": "i02",

@@ -43,7 +43,7 @@ def update(r):
         stem="파라미터 갱신식 Param = Param − (lr × grad) 에서 Param = %s, grad = %s, lr = %s 이면 갱신한 Param은 ____ 입니다."
              % (shown(p), shown(g), shown(lr)),
         blanks=[{"answer": [dec(right)], "mode": "number", "hint": "숫자"}],
-        explain="기울기의 반대 방향으로 학습률만큼 옮깁니다. %s − %s × %s = %s 입니다. 빼기 대신 더하기를 쓰면 기울기 쪽으로 가서 틀린 값(%s)이 나옵니다."
+        explain="Param 에서 학습률 × 기울기를 뺍니다. %s − %s × %s = %s 입니다. 빼기 대신 더하기를 쓰면 틀린 값(%s)이 나옵니다."
                 % (shown(p), shown(lr), paren(g), shown(right), shown(wrong)),
         params={"p": dec(p), "lr": dec(lr), "g": dec(g)})
 

@@ -31,7 +31,7 @@ import study  # noqa: E402
 from aiprep import bank as aibank  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
 from aiprep import grade, review  # noqa: E402
-from tools import ai_art, check_style, verify_web, web_lint  # noqa: E402
+from tools import ai_art, ai_seal, check_style, verify_web, web_lint  # noqa: E402
 from webprep import bank as webbank  # noqa: E402
 
 STEP_NAMES = {1: "목록", 2: "문항 꼴", 3: "빈칸 규칙", 4: "고르기", 5: "문장", 6: "생성기", 7: "사실 확인", 8: "노트 블록", 9: "근거",
@@ -942,33 +942,41 @@ def review_files(folder, secrets, bank_dir=None, patterns=False):
 
 
 def grade_answers(v, label, path, lessons, bank_dir):
-    """재풀이 답안을 채점함. {"cards", "correct", "wrong", "gens": {"checked", "seeds"}} 를 돌려주고 틀린 카드를 보여 줌."""
+    """재풀이 답안을 채점함. {"cards", "correct", "wrong", "gens": {"checked", "seeds"}} 를 돌려주고 틀린 카드를 보여 줌.
+    문장 칸은 공개본 꼬리표(<주제 id>-<번호>)를 ai_seal.statement_rows 로 문장 id 로 되돌림. 빈칸판이 있는 문장은 ok 와 cloze 가
+    둘 다 맞아야 맞음이고, 빈칸판이 없는 문장의 cloze 는 보지 않음. 고르기 칸에 order 가 없으면 ai_seal.option_order 로 공개본의
+    보기 순서를 다시 만듦. 예전 꼴(문장 id 를 키로 쓴 답안, order 를 적은 고르기)도 그대로 채점함."""
     try:
         answers = study.read_json(path)
     except (OSError, ValueError) as error:
         v.fail(label, 17, "답안을 읽을 수 없습니다: %s" % error)
         return None
     cards = {c["id"]: c for les in lessons for c in les.cards}
+    tags = {tag: str(s["id"]) for les in lessons for topic in les.data["topics"] for tag, s in ai_seal.statement_rows(topic)}
     terms = grade.term_map(aibank.read_terms(bank_dir))
     correct, wrong, gens, seeds = 0, [], 0, set()
-    for cid, value in sorted(answers.items()):
+    for key, value in sorted(answers.items()):
+        cid = tags.get(key, key)
         card = cards.get(cid)
         if card is None:
-            v.warn(label, 17, "답안의 %s 가 문항에 없습니다." % cid)
+            v.warn(label, 17, "답안의 %s 가 문항에 없습니다." % key)
             continue
         ok = False
         if card["kind"] == "blank":
             ok = grade.grade_item(card["item"], value, terms)["result"] == "pass"
         elif card["kind"] == "choice":
-            order = value.get("order") or list(range(len(card["item"]["options"])))
+            order = value.get("order") or ai_seal.option_order(card["item"])
             picked = [order[p - 1] for p in value.get("picked") or [] if 1 <= p <= len(order)]
             ok = grade.grade_choice(card["item"], picked)["result"] == "pass"
         elif card["kind"] == "stmt":
-            ok = value is not None and value.get("ok") is card["stmt"].get("ok")
+            got = value if isinstance(value, dict) else {}
+            ok = got.get("ok") is card["stmt"].get("ok")
             cloze = card["stmt"].get("cloze")
-            if ok and cloze and value.get("cloze") is not None:
+            if ok and cloze:
                 blank = {"answer": cloze["answer"], "mode": cloze.get("mode") or "word"}
-                ok = grade.grade_item({"stem": cloze["text"], "blanks": [blank]}, value["cloze"], terms)["result"] == "pass"
+                typed = got.get("cloze")
+                typed = [typed] if isinstance(typed, str) else typed
+                ok = grade.grade_item({"stem": cloze["text"], "blanks": [blank]}, typed, terms)["result"] == "pass"
         elif card["kind"] == "gen":
             gens += 1
             ok = True

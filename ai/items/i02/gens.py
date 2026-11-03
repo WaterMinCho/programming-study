@@ -102,30 +102,46 @@ def broadcast_shape(r):
     error_text = "ValueError가 납니다."
     if form == "bias":
         left, right = (n, m), (m,)
-        right_answer = "shape %s 인 배열이 됩니다." % _shape_text((n, m))
-        wrongs = [("shape %s 인 배열이 됩니다." % _shape_text((m, n)), "행과 열을 바꿔 생각함"),
-                  ("shape %s 인 배열이 됩니다." % _shape_text((m,)), "작은 쪽 모양을 따른다고 생각함"),
-                  (error_text, "모양이 다르면 늘 오류라고 생각함")]
+        result = _shape_text((n, m))
+        right_answer = "shape %s 인 배열이 됩니다." % result
+        wrongs = [("shape %s 인 배열이 됩니다." % _shape_text((m, n)), "행과 열을 바꿔 생각함",
+                   "%s %s 보고 0번 축만 늘어나므로 결과는 %s 입니다." % (
+                       _josa(_shape_text((m,)), "은"), _josa("(1, %d)" % m, "으로"), result)),
+                  ("shape %s 인 배열이 됩니다." % _shape_text((m,)), "작은 쪽 모양을 따른다고 생각함",
+                   "브로드캐스팅은 작은 쪽을 늘려 맞추므로 결과는 큰 쪽과 같은 %s 입니다." % result),
+                  (error_text, "모양이 다르면 늘 오류라고 생각함",
+                   "오른쪽 끝 축의 길이가 둘 다 %s 같아 오류 없이 더할 수 있습니다." % _josa(str(m), "으로"))]
         why = "오른쪽 끝 축의 길이가 둘 다 %s 같습니다. %s %s 보아 길이 1 인 축이 %s 늘어납니다." % (
             _josa(str(m), "으로"), _josa(_shape_text((m,)), "은"), _josa("(1, %d)" % m, "으로"), _josa(str(n), "으로"))
     elif form == "both":
         left, right = (n,), (m, 1)
-        right_answer = "shape %s 인 배열이 됩니다." % _shape_text((m, n))
-        wrongs = [("shape %s 인 배열이 됩니다." % _shape_text((n, m)), "축 순서를 바꿔 생각함"),
-                  ("shape %s 인 배열이 됩니다." % _shape_text((m, 1)), "한쪽만 늘어난다고 생각함"),
-                  (error_text, "모양이 다르면 늘 오류라고 생각함")]
+        result = _shape_text((m, n))
+        right_answer = "shape %s 인 배열이 됩니다." % result
+        wrongs = [("shape %s 인 배열이 됩니다." % _shape_text((n, m)), "축 순서를 바꿔 생각함",
+                   "%s %s 보므로 %s 1번 축의 길이가 되어 결과는 %s 입니다." % (
+                       _josa(_shape_text((n,)), "은"), _josa("(1, %d)" % n, "으로"), _josa(str(n), "은"), result)),
+                  ("shape %s 인 배열이 됩니다." % _shape_text((m, 1)), "한쪽만 늘어난다고 생각함",
+                   "(%d, 1)의 길이 1 인 1번 축도 %s 늘어나 결과는 %s 입니다." % (m, _josa(str(n), "으로"), result)),
+                  (error_text, "모양이 다르면 늘 오류라고 생각함",
+                   "오른쪽 끝부터 %s 1, 1 과 %s 비교하면 축마다 한쪽이 1 이라 더할 수 있습니다." % (
+                       _josa(str(n), "과"), _josa(str(m), "을")))]
         why = "%s %s 보아 아래로, %s 옆으로 늘어나 둘 다 %s 됩니다." % (
             _josa(_shape_text((n,)), "은"), _josa("(1, %d)" % n, "으로"), _josa("(%d, 1)" % m, "은"), _josa(_shape_text((m, n)), "이"))
     else:
         left, right = (n,), (m,)
         right_answer = error_text
-        wrongs = [("shape %s 인 배열이 됩니다." % _shape_text((max(n, m),)), "큰 쪽에 맞춘다고 생각함"),
-                  ("shape %s 인 배열이 됩니다." % _shape_text((n, m)), "두 길이를 축 둘로 펼친다고 생각함"),
-                  ("shape %s 인 배열이 됩니다." % _shape_text((m, n)), "두 길이를 축 둘로 펼친다고 생각함")]
+        wrongs = [("shape %s 인 배열이 됩니다." % _shape_text((max(n, m),)), "큰 쪽에 맞춘다고 생각함",
+                   "늘어나는 것은 길이가 1 인 축뿐이라 길이 %s %s 큰 쪽에 맞춰지지 않습니다." % (
+                       _josa(str(n), "과"), _josa(str(m), "은"))),
+                  ("shape %s 인 배열이 됩니다." % _shape_text((n, m)), "두 길이를 축 둘로 펼친다고 생각함",
+                   "1차원 배열 둘을 더해도 축이 새로 생기지 않아 2차원 결과는 나오지 않습니다."),
+                  ("shape %s 인 배열이 됩니다." % _shape_text((m, n)), "두 길이를 축 둘로 펼친다고 생각함",
+                   "%s %s 축이 하나씩이라 %s %d 만 비교하고, 둘이 달라 ValueError가 납니다." % (
+                       _josa(_shape_text((n,)), "과"), _josa(_shape_text((m,)), "은"), _josa(str(n), "과"), m))]
         why = "오른쪽 끝 길이 %s %s 같지 않고 어느 쪽도 1 이 아니라 맞출 수 없습니다." % (_josa(str(n), "과"), _josa(str(m), "이"))
     options = [(right_answer, True, why)]
-    for text, aim in wrongs:
-        options.append((text, False, why))
+    for text, aim, wrong_why in wrongs:
+        options.append((text, False, wrong_why))
     return choice(
         stem="shape %s 인 배열과 shape %s 인 배열을 더한 결과로 **옳은** 것을 고르세요." % (_shape_text(left), _shape_text(right)),
         options=options, pick="right",
@@ -168,7 +184,7 @@ def transpose_shape(r):
     else:
         new = [shape[k] for k in axes]
         call = "np.transpose(a, (%d, %d, %d))" % axes
-        how = "새 축 0, 1, 2 에 옛 축 %d, %d, %d의 길이가 옵니다" % axes
+        how = "새 0번, 1번, 2번 축에 옛 %d번, %d번, %d번 축의 길이가 옵니다" % axes
     return blank(
         stem="shape %s 인 배열 `a`에 `%s`를 하면 shape은 ____ 입니다." % (_shape_text(shape), call),
         blanks=[{"answer": [_shape_text(new)], "mode": "shape", "hint": "모양"}],

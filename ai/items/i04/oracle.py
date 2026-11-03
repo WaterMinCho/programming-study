@@ -22,7 +22,7 @@ def i04_g01(params):
 
 
 def i04_g02(params):
-    """경사하강법 한 걸음. ask 가 new 면 새 W, grad 면 (W − 새 W) ÷ 학습률."""
+    """경사하강법으로 한 번 갱신. ask 가 new 면 새 W, grad 면 (W − 새 W) ÷ 학습률."""
     w, lr = Decimal(params["W"]), Decimal(params["lr"])
     if params["ask"] == "new":
         return [_text(w - lr * Decimal(params["gW"]))]

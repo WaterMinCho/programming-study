@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""4차시 학습 노트 l04 의 그림(4a 선형 모델과 손실, 4b 경사와 경사하강법, 4c 연쇄법칙·역전파·학습 코드).
+"""4차시 학습 노트 l04 의 그림(4a 선형 모델과 손실, 4b 기울기와 경사하강법, 4c 연쇄법칙·역전파·학습 코드).
 
 다섯 사람의 신장·체중 예 하나를 세 단원 끝까지 씀. 그림에 찍는 숫자는 모두 이 파일에서 numpy 로 다시 계산하고 assert 로
 확인함(노트북 4차시 01 의 출력 13.3520, -19.04, 2.0, W 1.820683, B 0.3675114 와 맞춤).
@@ -65,7 +65,7 @@ def dLW(w):
     return grads(w, 1.0)[0]
 
 
-# 경사하강 500번(float64). k 번째 기록은 k 번 고친 뒤(= k 번째 반복의 갱신 전) 값으로, 노트북 history 와 같음
+# 경사하강 500번(float64). k 번째 기록은 k 번 갱신한 뒤(= k 번째 반복의 갱신 전) 값으로, 노트북 history 와 같음
 _hist = []
 _w, _b = 1.0, 1.0
 for _ep in range(500):
@@ -166,7 +166,7 @@ def names_4a():
                 va="center", arrowprops=arrow, bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"), zorder=9)
     ax.text(X[1] + 0.25, Y[1] + 0.35, "2", fontsize=16, color=MUTED, weight="bold", va="bottom")
     rows = [(BLUE, "선형 모델", "직선 Yp = W × X + B 로 예측하는 식"),
-            (INK, "파라미터", "학습하며 고쳐 가는 W 와 B"),
+            (INK, "파라미터", "학습하며 바꿔 가는 W 와 B"),
             (RED, "오차", "예측 " + M + " 정답, e = Yp " + M + " Y"),
             (INK, "손실", "틀린 정도를 나타내는 숫자 하나")]
     fig.text(0.62, 0.86, "이 단원의 이름표", fontsize=21, color=INK, weight="bold", va="center")
@@ -251,7 +251,7 @@ def center():
     frames = [draw(1, "다섯 사람의 신장과 체중"), draw(2, "신장 평균 171"), draw(3, "체중 평균 65.4"),
               draw(4, "사람 1: 166 " + M + " 171 = " + M + "5,  58.7 " + M + " 65.4 = " + M + "6.7"),
               draw(5, "사람 2: 176 " + M + " 171 = 5,  75.7 " + M + " 65.4 = 10.3"),
-              draw(6, "평균을 뺀 값 X, Y: 점의 자리 관계는 같고 숫자만 0 근처")]
+              draw(6, "평균을 뺀 X, Y: 점 사이 거리는 같고 좌표값만 0 근처로")]
     return frames, [2000, 1800, 1800, 2400, 2400, 2500]
 
 
@@ -407,11 +407,11 @@ def summary_4a():
     return image(fig)
 
 
-# 4b 경사와 경사하강법
+# 4b 기울기와 경사하강법
 
 @figure("4b-1", 560, 300)
 def slope():
-    """직선의 기울기 W 와 손실 곡선의 기울기(경사). 왼쪽 직선, 오른쪽 손실 곡선과 접선."""
+    """직선의 기울기 W 와 손실 곡선의 기울기. 왼쪽 직선, 오른쪽 손실 곡선과 접선."""
     assert abs((LW(1.2) - LW(0.8)) / 0.4 + 19.04) < 1e-9
     assert abs(LW(0.8) - 17.624) < 1e-9 and abs(LW(1.2) - 10.008) < 1e-9
     ws = np.linspace(0.4, 2.6, 200)
@@ -477,22 +477,22 @@ def slope():
         if w == 1.0:
             sub = "접선의 기울기 " + stxt + ": 이것이 W.grad"
         elif abs(s) < 1e-2:
-            sub = "접선이 평평함: 경사 0, 손실이 가장 작음"
+            sub = "접선이 평평함: 기울기 0, 손실이 가장 작음"
         elif s > 0:
-            sub = "경사 " + stxt + ": W 를 줄여야 손실이 줄어듦"
+            sub = "기울기 " + stxt + ": W 를 줄여야 손실이 줄어듦"
         else:
-            sub = "경사 " + stxt + ": W 를 키우면 손실이 줄어듦"
+            sub = "기울기 " + stxt + ": W 를 키우면 손실이 줄어듦"
         fig, ax, bx = base(w, "직선의 기울기 W = " + num(w, 4), "W = " + num(w, 4) + ": 손실 " + num(LW(w), 3))
         tangent(bx, w)
-        note(bx, 0.98, 0.96, sub, size=18, ha="right", va="top", transform=bx.transAxes)
+        note(bx, 0.98, 0.96, sub, size=17, ha="right", va="top", transform=bx.transAxes)
         frames.append(image(fig))
         dur.append(2200)
 
-    fig, ax, bx = base(1.0, "지금 W = 1", "경사 " + M + "19.04: 오른쪽이 내리막")
+    fig, ax, bx = base(1.0, "지금 W = 1", "기울기 " + M + "19.04: 음수")
     tangent(bx, 1.0)
     bx.annotate("", xy=(1.55, LW(1.55) + 1.0), xytext=(1.05, LW(1.05) + 1.5),
                 arrowprops=dict(arrowstyle="->", color=GREEN, lw=3.2, connectionstyle="arc3,rad=0.25"))
-    note(bx, 0.98, 0.96, "W 를 키우는 쪽으로", size=18, color=GREEN, ha="right", va="top", transform=bx.transAxes)
+    note(bx, 0.98, 0.96, "W 를 키우면 손실이 줄어듦", size=17, color=GREEN, ha="right", va="top", transform=bx.transAxes)
     frames.append(image(fig))
     dur.append(2500)
     return frames, dur
@@ -500,7 +500,7 @@ def slope():
 
 @figure("4b-2", 560, 300)
 def descent():
-    """손실 등고선 위의 경사하강법. 경사 화살표, 반대쪽 이동, 실제 한 걸음, 되풀이한 길."""
+    """손실 등고선 위의 경사하강법. 기울기 화살표, 반대쪽 갱신, 실제 한 번 갱신, 되풀이한 길."""
     from matplotlib.patches import Rectangle
     Wg = np.linspace(0.5, 2.4, 240)
     Bg = np.linspace(-0.45, 1.45, 240)
@@ -530,7 +530,7 @@ def descent():
         ax.scatter([wstar], [0], marker="*", s=360, color=INK, zorder=6)
         ax.scatter([1.0], [1.0], s=130, color=INK, zorder=7)
         fig.text(0.58, 0.80, "● 시작 (1, 1), 손실 13.352", fontsize=18, color=INK, va="center")
-        fig.text(0.58, 0.72, "★ 가장 낮은 곳 (1.82, 0), 손실 4.539", fontsize=18, color=INK, va="center")
+        fig.text(0.58, 0.72, "★ 손실이 가장 작은 곳 (1.82, 0): 4.539", fontsize=18, color=INK, va="center")
         if sub:
             note(fig, 0.58, 0.14, sub, size=18, va="bottom")
         return plt, fig, ax
@@ -545,16 +545,16 @@ def descent():
     plt, fig, ax = base("손실 등고선: 같은 선 위는 손실이 같음", "가로 W, 세로 B\n선 위의 숫자가 그 선의 손실")
     frames.append(image(fig))
     dur.append(1800)
-    plt, fig, ax = base("경사 (" + M + "19.04, 2.0) 가 가리키는 쪽", "주황: 손실이 가장 빨리 커지는 쪽")
-    arrow(ax, u, ORANGE, "경사", 1.12)
+    plt, fig, ax = base("기울기 (" + M + "19.04, 2.0) 가 가리키는 쪽", "주황: 손실이 가장 빨리 커지는 쪽")
+    arrow(ax, u, ORANGE, "기울기", 1.12)
     frames.append(image(fig))
     dur.append(2200)
-    plt, fig, ax = base("경사하강법은 반대쪽으로 감", "초록: 실제로 움직이는 쪽\n(화살표 길이는 늘려 그림)")
-    arrow(ax, u, ORANGE, "경사", 1.12)
-    arrow(ax, -u, GREEN, "이동", 0.89)
+    plt, fig, ax = base("경사하강법은 W, B 를 반대쪽으로 바꿈", "초록: W, B 를 실제로 바꾸는 쪽\n(화살표 길이는 늘려 그림)")
+    arrow(ax, u, ORANGE, "기울기", 1.12)
+    arrow(ax, -u, GREEN, "갱신", 0.89)
     frames.append(image(fig))
     dur.append(2400)
-    plt, fig, ax = base("한 걸음: 학습률 0.001", "W: 1 " + M + " 0.001 × (" + M + "19.04) = 1.01904\nB: 1 " + M +
+    plt, fig, ax = base("한 번 갱신: 학습률 0.001", "W: 1 " + M + " 0.001 × (" + M + "19.04) = 1.01904\nB: 1 " + M +
                         " 0.001 × 2.0 = 0.998")
     ax.add_patch(Rectangle((0.975, 0.975), 0.07, 0.05, fill=False, ec=GREEN, lw=2, zorder=9))
     ix = fig.add_axes([0.60, 0.33, 0.34, 0.30])
@@ -580,12 +580,12 @@ def descent():
     for g, grp in enumerate(marks):
         k = grp[-1]
         if k == 490:
-            sub = "500번 고친 뒤 W " + num(W_END, 4) + ", B " + num(B_END, 4) + "\nW 는 빨리, B 는 천천히 움직임"
+            sub = "500번 갱신한 뒤 W " + num(W_END, 4) + ", B " + num(B_END, 4) + "\nW 는 빨리, B 는 천천히 바뀜"
         elif k == 200:
-            sub = "W 는 " + f"{HIST[200, 1]:.2f}" + " 까지 왔고\nB 는 아직 " + f"{HIST[200, 2]:.2f}"
+            sub = "200번 갱신한 뒤 W 는 " + f"{HIST[200, 1]:.2f}" + ",\nB 는 아직 " + f"{HIST[200, 2]:.2f}"
         else:
-            sub = "%d번째 자리, 손실 %s" % (k, num(HIST[k, 3], 4))
-        plt, fig, ax = base("되풀이: %d번째 반복까지의 자리" % k, sub)
+            sub = "%d번 갱신한 뒤 손실 %s" % (k, num(HIST[k, 3], 4))
+        plt, fig, ax = base("%d번 갱신하는 동안 지나온 점" % k, sub)
         ax.plot(HIST[:k + 1, 1], HIST[:k + 1, 2], color=GREEN, lw=3, zorder=8)
         for kk in [m for gg in marks[:g + 1] for m in gg]:
             ax.scatter([HIST[kk, 1]], [HIST[kk, 2]], s=70, color=GREEN, zorder=9)
@@ -639,7 +639,7 @@ def fit():
         bx.yaxis.set_label_coords(-0.13, 0.5)
         bx.set_title("%d번째 반복: 손실 %s" % (k, num(lo, 4)), loc="left", pad=10)
         if k == 490:
-            note(bx, 0.98, 0.96, "500번 고친 뒤\nW = %s, B = %s" % (num(W_END, 4), num(B_END, 4)), size=18, ha="right",
+            note(bx, 0.98, 0.96, "500번 갱신한 뒤\nW = %s, B = %s" % (num(W_END, 4), num(B_END, 4)), size=18, ha="right",
                  va="top", transform=bx.transAxes)
         frames.append(image(fig))
         dur.append(1600 if j < len(eps) - 1 else 2500)
@@ -650,7 +650,7 @@ def fit():
 
 @figure("4b-4", 560, 280)
 def summary_4b():
-    """외울 것 그림. 경사의 반대쪽으로 한 걸음, 되풀이."""
+    """외울 것 그림. 기울기의 반대쪽으로 갱신, 되풀이."""
     plt, fig = new(560)
     bx = fig.add_axes([0.075, 0.15, 0.40, 0.72])
     tidy(bx)
@@ -668,12 +668,12 @@ def summary_4b():
     bx.set_xlabel("W (B = 1 로 고정)")
     bx.set_ylabel("손실")
     bx.yaxis.set_label_coords(-0.13, 0.5)
-    bx.set_title("경사 " + M + "19.04: W 를 키우는 쪽이 내리막", loc="left", pad=10, fontsize=19)
-    lines = [("경사는 손실이 가장 빨리 커지는 쪽", ORANGE, 19, False),
-             ("경사하강법은 그 반대쪽으로 한 걸음", GREEN, 19, False),
+    bx.set_title("기울기 " + M + "19.04: W 를 키우면 손실이 줄어듦", loc="left", pad=10, fontsize=19)
+    lines = [("기울기는 손실이 가장 빨리 커지는 쪽", ORANGE, 19, False),
+             ("경사하강법은 그 반대쪽으로 갱신", GREEN, 19, False),
              ("새 W = W " + M + " 학습률 × W.grad", INK, 19, True),
              ("1 " + M + " 0.001 × (" + M + "19.04) = 1.01904", INK, 18, False),
-             ("예측 → 손실 → 경사 계산 → 수정", BLUE, 19, True),
+             ("예측 → 손실 → 기울기 계산 → 갱신", BLUE, 19, True),
              ("500번 되풀이: W 1.8207, B 0.3675", BLUE, 18, False)]
     assert num(W_END, 4) == "1.8207" and num(B_END, 4) == "0.3675"
     yy = 0.86
@@ -748,7 +748,7 @@ def chain():
     frames = [draw(0, False, 0, "사람 2 (X = 5, Y = 10.3) 의 계산 단계", tags=True),
               draw(2, False, 0, "순전파: W = 1 에서 Yp = 1 × 5 + 1 = 6"),
               draw(5, False, 0, "순전파: 왼쪽에서 오른쪽으로 값 계산"),
-              draw(5, True, 0, "단계마다 미분: 앞 칸을 조금 바꿀 때 뒤 칸이 바뀌는 배수"),
+              draw(5, True, 0, "단계마다 미분: 뒤 칸 변화량이 앞 칸 변화량의 몇 배인지"),
               draw(5, True, 1, "역전파: L 에서 1 로 시작"),
               draw(5, True, 2, "s 까지: 1 × 0.2"),
               draw(5, True, 3, "e 까지: 0.2 × (" + M + "8.6)"),
@@ -759,7 +759,7 @@ def chain():
 
 @figure("4c-2", 560, 300)
 def backprop():
-    """다섯 사람의 역전파. 손실에서 Yp 까지 곱한 값 2e ÷ 5 를 W 쪽과 B 쪽이 나눠 씀."""
+    """다섯 사람의 역전파. 손실에서 Yp 까지 미분을 곱한 값 2e ÷ 5 를 W.grad 와 B.grad 계산에 함께 씀."""
     from matplotlib.patches import FancyBboxPatch
     e = X + 1 - Y
     g = 2 * e / N
@@ -767,7 +767,7 @@ def backprop():
     assert np.allclose(g, [1.08, -1.72, 1.72, -0.8, 1.72]) and np.allclose(wpart, [-5.4, -8.6, 0, -1.6, -3.44])
     assert abs(wpart.sum() + 19.04) < 1e-9 and abs(g.sum() - 2.0) < 1e-9
     cols = [0.75, 1.95, 3.35, 5.45, 7.75, 9.95]
-    heads = ["사람", "X", "오차 e", "Yp 까지 곱한 값\n2e ÷ 5", "W 쪽 값\n× X", "B 쪽 값\n× 1"]
+    heads = ["사람", "X", "오차 e", "2e ÷ 5", "W.grad 에\n보탤 값\n(2e ÷ 5) × X", "B.grad 에\n보탤 값\n(2e ÷ 5) × 1"]
     rows = [4.65, 4.05, 3.45, 2.85, 2.25]
 
     def draw(stage, title):
@@ -804,9 +804,9 @@ def backprop():
         return image(fig)
 
     assert [num(v, 2) for v in wpart] == [M + "5.4", M + "8.6", "0", M + "1.6", M + "3.44"]
-    frames = [draw(1, "다섯 사람의 X 와 오차 e"), draw(2, "손실에서 Yp 까지 곱한 값: 사람마다 한 번만 계산"),
-              draw(3, "W 쪽: 2e ÷ 5 에 X 를 곱함"), draw(4, "W 쪽 값을 모두 더하면 W.grad"),
-              draw(5, "B 쪽: 2e ÷ 5 에 1 을 곱함"), draw(6, "한 번 구한 값을 W 와 B 가 나눠 씀")]
+    frames = [draw(1, "다섯 사람의 X 와 오차 e"), draw(2, "손실에서 Yp 까지 미분을 곱한 값 2e ÷ 5: 사람마다 한 번만 계산"),
+              draw(3, "W.grad: 2e ÷ 5 에 X 를 곱함"), draw(4, "다섯 값을 모두 더하면 W.grad"),
+              draw(5, "B.grad: 2e ÷ 5 에 1 을 곱함"), draw(6, "한 번 구한 2e ÷ 5 를 W.grad 와 B.grad 계산에 함께 씀")]
     return frames, [1800, 2400, 2200, 2200, 2000, 2500]
 
 
@@ -863,11 +863,11 @@ def trace():
               draw("예측과 손실을 계산해도 .grad 는 None", [3, 4], ["1", "1", "13.352", "None", "None"], [2]),
               draw("backward: .grad 만 채움", [5], ["1", "1", "13.352", M + "19.04", "2.0"], [3, 4],
                    "W 와 B 는 1 에서 바뀌지 않음"),
-              draw("no_grad 안에서 W, B 수정", [6, 7, 8], ["1.0190", "0.9980", "13.352", M + "19.04", "2.0"], [0, 1],
+              draw("no_grad 안에서 W, B 갱신", [6, 7, 8], ["1.0190", "0.9980", "13.352", M + "19.04", "2.0"], [0, 1],
                    "W: 1 " + M + " 0.001 × (" + M + "19.04) = 1.01904    B: 1 " + M + " 0.001 × 2.0 = 0.998"),
-              draw("경사를 0 으로 지움", [9, 10], ["1.0190", "0.9980", "13.352", "0", "0"], [3, 4],
-                   "다음 반복의 backward 가 새 경사만 담게 함"),
-              draw("with torch.no_grad(): 없이 고치면", [7, 8], None, [],
+              draw("기울기를 0 으로 지움", [9, 10], ["1.0190", "0.9980", "13.352", "0", "0"], [3, 4],
+                   "다음 반복의 backward 가 새 기울기만 담게 함"),
+              draw("with torch.no_grad(): 없이 갱신하면", [7, 8], None, [],
                    "RuntimeError: a leaf Variable that requires grad\nis being used in an in-place operation.",
                    bad=True, dim=[6]),
               draw("zero_ 를 빼고 다음 반복에서 backward 하면", [5],
@@ -879,10 +879,10 @@ def trace():
 
 @figure("4c-4", 560, 300)
 def loop():
-    """학습 루프 한 바퀴. 왼쪽 다섯 줄, 오른쪽 그 줄 뒤의 값."""
+    """학습 루프 한 번 반복. 왼쪽 다섯 줄, 오른쪽 그 줄 뒤의 값."""
     from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
     codes = ["optimizer.zero_grad()", "Yp = pred(X)", "loss = mse(Yp, Y)", "loss.backward()", "optimizer.step()"]
-    labs = ["경사 비우기", "① 예측", "② 손실", "③ 경사 계산(역전파)", "④ 파라미터 수정"]
+    labs = ["기울기 비우기", "① 예측", "② 손실", "③ 기울기 계산(역전파)", "④ 파라미터 갱신"]
     e1, after1 = HIST[1], HIST[2]
     assert num(e1[3], 4) == "12.9897" and num(after1[1], 4) == "1.0376" and num(after1[2], 4) == "0.996"
 
@@ -910,15 +910,15 @@ def loop():
                 bbox=dict(boxstyle="round,pad=0.5", fc="#f8fafc", ec="#e5e7eb"))
         return image(fig)
 
-    st = [("epoch 0\nW.grad, B.grad 비우기", "한 바퀴: 경사 비우기"),
-          ("Yp = [" + M + "4, 6, 1, 3, " + M + "1]", "한 바퀴: ① 예측"),
-          ("loss = 13.352", "한 바퀴: ② 손실"),
-          ("W.grad = " + M + "19.04\nB.grad = 2.0", "한 바퀴: ③ 경사 계산"),
-          ("W = 1.0190\nB = 0.9980", "한 바퀴: ④ 수정")]
+    st = [("epoch 0\nW.grad, B.grad 비우기", "첫 반복: 기울기 비우기"),
+          ("Yp = [" + M + "4, 6, 1, 3, " + M + "1]", "첫 반복: ① 예측"),
+          ("loss = 13.352", "첫 반복: ② 손실"),
+          ("W.grad = " + M + "19.04\nB.grad = 2.0", "첫 반복: ③ 기울기 계산"),
+          ("W = 1.0190\nB = 0.9980", "첫 반복: ④ 갱신")]
     frames = [draw(k, c, t) for k, (c, t) in enumerate(st)]
     frames.append(draw(-1, "epoch 1\nloss = %s\nstep 뒤 W = %s\nB = %s" % (num(e1[3], 4), num(after1[1], 4),
-                                                                         "0.9960"), "둘째 바퀴: 같은 다섯 줄을 다시"))
-    frames.append(draw(-1, "500바퀴 뒤\nW = %s\nB = %s" % (num(W_END, 4), num(B_END, 4)), "500바퀴를 돈 뒤"))
+                                                                         "0.9960"), "둘째 반복: 같은 다섯 줄을 다시"))
+    frames.append(draw(-1, "500번 반복한 뒤\nW = %s\nB = %s" % (num(W_END, 4), num(B_END, 4)), "500번 반복한 뒤"))
     return frames, [1800, 1800, 1800, 1800, 1800, 2400, 2500]
 
 
@@ -946,7 +946,7 @@ def zero_grad_place():
             if row is None:
                 fig.lines.append(plt.Line2D([x0, x0 + 0.46], [yy + 0.01, yy + 0.01], transform=fig.transFigure,
                                             color=FAINT, lw=1.4, ls="--"))
-                fig.text(x0 + 0.23, yy + 0.01, "둘째 바퀴", fontsize=15, color=MUTED, ha="center", va="center",
+                fig.text(x0 + 0.23, yy + 0.01, "둘째 반복", fontsize=15, color=MUTED, ha="center", va="center",
                          bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
                 yy -= 0.07
                 continue
@@ -974,8 +974,8 @@ def summary_4c():
     ax.axis("off")
     boxes = [((2.85, 4.15), "① 예측", "Yp = W * X + B", "[" + M + "4, 6, 1, 3, " + M + "1]"),
              ((8.35, 4.15), "② 손실", "((Yp - Y)**2).mean()", "13.352"),
-             ((8.35, 1.45), "③ 경사 계산", "loss.backward()", "W.grad " + M + "19.04, B.grad 2.0"),
-             ((2.85, 1.45), "④ 수정", "optimizer.step()", "W 1.0190, B 0.9980")]
+             ((8.35, 1.45), "③ 기울기 계산", "loss.backward()", "W.grad " + M + "19.04, B.grad 2.0"),
+             ((2.85, 1.45), "④ 갱신", "optimizer.step()", "W 1.0190, B 0.9980")]
     for (cx, cy), title, code, value in boxes:
         ax.add_patch(FancyBboxPatch((cx - 2.45, cy - 1.0), 4.9, 2.0, boxstyle="round,pad=0.06", fc="#eff6ff", ec=BLUE,
                                     lw=2))
@@ -987,7 +987,7 @@ def summary_4c():
     ax.annotate("", xy=(8.35, 2.53), xytext=(8.35, 3.07), arrowprops=kw)
     ax.annotate("", xy=(5.38, 1.45), xytext=(5.82, 1.45), arrowprops=kw)
     ax.annotate("", xy=(2.85, 3.07), xytext=(2.85, 2.53), arrowprops=kw)
-    ax.text(3.05, 2.8, "경사를 지우고 500번 되풀이", fontsize=16, color=MUTED, va="center")
+    ax.text(3.05, 2.8, "기울기를 지우고 500번 되풀이", fontsize=16, color=MUTED, va="center")
     ax.text(8.55, 2.8, "연쇄법칙", fontsize=16, color=MUTED, va="center")
     return image(fig)
 

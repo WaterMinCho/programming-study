@@ -137,7 +137,7 @@ manifest 에 없는 그림은 verify_ai 가 실패로 봅니다. 가져온 그�
 python3 tools/ai_seal.py seal [i05 ...] [--keep]          work/ → sealed.json
 python3 tools/ai_seal.py unseal i05                       sealed.json → work/
 python3 tools/ai_seal.py check                            평문이 남았거나 봉인이 깨졌으면 실패
-python3 tools/ai_seal.py brief i05 --out DIR              재풀이용 문제지(sheet.md)와 빈 답안(answers.json), 저장소 밖에만
+python3 tools/ai_seal.py brief i05 --out DIR              재풀이용 문제지(sheet.md, cloze.md)와 빈 답안(answers.json), 저장소 밖에만
 python3 tools/verify_ai.py [i05 common ...]               문항 꼴, 빈칸 규칙, 고르기, 문장, 생성기 300 시드, 사실 확인, 노트 블록, 근거, 말투, 그림
 python3 tools/verify_ai.py i05 --answers DIR/answers.json 재풀이 답안을 채점
 python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4" \
@@ -164,7 +164,7 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 
 1. 출제가 factcheck·차시 분석·요약본·코드 보충을 읽고 쓸 사실을 facts.json 에 옮깁니다. 새 사실은 대조가 판정한 뒤에만 넣습니다.
 2. 출제가 work/ 평문으로 노트·문항·생성기·그림을 쓰고 verify_web, web_lint, verify_ai, ai_overlap 을 통과시킵니다.
-3. `ai_seal.py brief` 로 만든 공개본을 재풀이에게 넘깁니다. 재풀이는 answers.json 과 oracle.py, 걸린 시간, 막힌 곳을 돌려줍니다.
+3. `ai_seal.py brief` 로 만든 공개본을 재풀이에게 넘깁니다. 재풀이는 answers.json 과 oracle.py, 걸린 시간, 막힌 곳을 돌려줍니다. 문제지는 주제 문장을 섞은 순서로 꼬리표(`i05-t01-3`)만 붙여 보여 주고, 빈칸판은 참 문장에만 있어서 cloze.md 로 따로 뺍니다. 재풀이는 문장 판정을 모두 적은 뒤에 cloze.md 를 엽니다.
 4. 대조가 `verify_ai.py --answers` 로 채점하고 틀린 카드마다 원인을 하나로 정합니다(정답 틀림, 두 가지로 읽힘, 받는 답 빠짐, 공정한 함정, oracle 불일치).
 5. 검토가 아래 체크 목록을 보고, 새로 걸린 말투 문장은 `tools/check_style.py` 패턴에 더합니다.
 6. 학습 노트와 문항 묶음에 서명하고 `ai_seal.py seal`, `ai_seal.py check` 로 봉인합니다.
