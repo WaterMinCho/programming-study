@@ -38,7 +38,10 @@ BLUE, ORANGE, GREEN, RED, PURPLE = "#1d4ed8", "#c2410c", "#047857", "#b91c1c", "
 BLUE_L, ORANGE_L, GREEN_L, RED_L, GRAY_L, HL = "#dbeafe", "#ffedd5", "#d1fae5", "#fee2e2", "#f3f4f6", "#fef3c7"
 PURPLE_L, YELLOW_L = "#ede9fe", "#fde68a"
 CODE = "D2Coding"
+# 2a 단원 색: 파랑은 0번 축, 주황은 1번 축, 초록은 numpy 배열과 배열 방식, 보라는 리스트 방식, 노랑은 대각선 자리, 빨강은 오류
 # 2c 단원 색: 파랑은 0번 축, 주황은 1번 축, 보라는 2번 축, 초록은 결과, 노랑은 따라가는 값(M의 0번 행)
+# 2d 단원 색: 파랑은 첫째 배열 a, 주황은 더하는 둘째 배열, 노랑은 곱해 더하는 행과 열, 초록은 맞는 축과 계산 결과, 빨강은 오류
+# 2e 단원 색: 파랑은 0번 축과 axis=0, 주황은 1번 축과 axis=1, 초록은 계산 결과, 보라는 argsort의 자리 번호, 빨강은 None
 
 # 이 차시 전체에 쓰는 예
 DATA = np.array([3, 8, 1, 6, 2, 9])
@@ -179,9 +182,9 @@ def list_vs_array():
     c.line([20, 1100], [330, 330], color=FAINT, lw=1.5)
     c.text(28, 370, "numpy 배열 (ndarray)", size=22, bold=True)
     c.text(28, 400, "값을 연속 메모리에 바로 저장", size=17, color=MUTED)
-    c.grid(60, 425, [list(DATA)], cw=70, ch=52, fill=BLUE_L)
-    c.line([60, 60, 480, 480], [488, 494, 494, 488], color=BLUE, lw=2)
-    c.text(560, 438, "dtype: int64", size=22, code=True, color=BLUE, bold=True)
+    c.grid(60, 425, [list(DATA)], cw=70, ch=52, fill=GREEN_L)
+    c.line([60, 60, 480, 480], [488, 494, 494, 488], color=GREEN, lw=2)
+    c.text(560, 438, "dtype: int64", size=22, code=True, color=GREEN, bold=True)
     c.text(560, 472, "모든 원소가 같은 자료형", size=18, color=INK)
     return c.image()
 
@@ -203,7 +206,7 @@ def vectorize():
         c.text(28, 120, "[x * 2 for x in data]", size=19, code=True, color=MUTED)
         c.grid(390, 72, [list(DATA)], cw=62, ch=50)
         c.grid(390, 150, [[fmt(out[k]) if k < done_list else "" for k in range(6)]], cw=62, ch=50,
-               fill=lambda i, j: ORANGE_L if j < done_list else "white")
+               fill=lambda i, j: PURPLE_L if j < done_list else "white")
         c.text(375, 97, "입력", size=17, ha="right", color=MUTED)
         c.text(375, 175, "결과", size=17, ha="right", color=MUTED)
         c.line([20, 1100], [232, 232], color=FAINT, lw=1.5)
@@ -221,11 +224,11 @@ def vectorize():
     for done in (1, 3, 6):
         c = base(done, False, "리스트 방식: 파이썬이 원소마다 곱셈을 처리")
         x = 390 + (done - 1) * 62 + 31
-        c.arrow(x, 125, x, 148, color=ORANGE, lw=2.2)
-        c.text(790, 110, "파이썬이 처리한 곱셈: %d번" % done, size=20, color=ORANGE, bg="white")
+        c.arrow(x, 125, x, 148, color=PURPLE, lw=2.2)
+        c.text(790, 110, "파이썬이 처리한 곱셈: %d번" % done, size=20, color=PURPLE, bg="white")
         frames.append(c.image()); ms.append(1800 if done < 6 else 2000)
     c = base(6, True, "배열 방식: 파이썬 줄은 한 번, 반복은 C 코드가")
-    c.text(790, 110, "파이썬이 처리한 곱셈: 6번", size=20, color=ORANGE, bg="white")
+    c.text(790, 110, "파이썬이 처리한 곱셈: 6번", size=20, color=PURPLE, bg="white")
     c.text(790, 300, "파이썬이 읽은 줄: 1번", size=18, color=GREEN, bg="white")
     c.text(790, 334, "곱셈 6번은 C 코드가 처리", size=18, color=GREEN, bg="white")
     frames.append(c.image()); ms.append(2400)
@@ -234,20 +237,20 @@ def vectorize():
     c.text(28, 80, "한 컴퓨터에서 잰 값이며 컴퓨터마다 다름", size=18, color=MUTED)
     c.text(300, 140, "원소 10만 개", size=20, ha="center", bold=True)
     c.text(640, 140, "원소 100만 개", size=20, ha="center", bold=True)
-    c.text(40, 210, "리스트 방식", size=21, color=ORANGE, bold=True)
+    c.text(40, 210, "리스트 방식", size=21, color=PURPLE, bold=True)
     c.text(40, 300, "배열 방식", size=21, color=GREEN, bold=True)
     c.text(300, 210, "%sms" % fmt(VEC_LIST_MS[0]), size=24, ha="center", code=True)
     c.text(640, 210, "%sms" % fmt(VEC_LIST_MS[1]), size=24, ha="center", code=True)
     c.text(300, 300, "%sms" % fmt(VEC_ARR_MS[0]), size=24, ha="center", code=True)
     c.text(640, 300, "%sms" % fmt(VEC_ARR_MS[1]), size=24, ha="center", code=True)
-    c.arrow(390, 210, 550, 210, color=ORANGE)
+    c.arrow(390, 210, 550, 210, color=PURPLE)
     c.arrow(390, 300, 550, 300, color=GREEN)
-    c.text(800, 210, "늘어남", size=20, color=ORANGE)
+    c.text(800, 210, "늘어남", size=20, color=PURPLE)
     c.text(800, 300, "늘어남", size=20, color=GREEN)
     c.text(40, 400, "같은 개수에서 배열 방식이 훨씬 짧은 까닭은 반복을 C 코드가 맡아서임", size=19, color=INK)
     frames.append(c.image()); ms.append(2500)
     c = base(6, True, "결과는 같고, 배열 방식은 반복을 C 코드에 맡김")
-    c.text(790, 110, "파이썬이 곱셈 6번", size=20, color=ORANGE, bg="white")
+    c.text(790, 110, "파이썬이 곱셈 6번", size=20, color=PURPLE, bg="white")
     c.text(790, 317, "파이썬 줄 1번 + C 반복", size=20, color=GREEN, bg="white")
     c.text(390, 440, "data * 2 = " + arr1(out), size=21, code=True)
     frames.append(c.image()); ms.append(2500)
@@ -304,8 +307,8 @@ def fill_arrays():
     c.text(40, 330, "모양은 튜플 하나로", size=18, color=MUTED)
     c.text(430, 85, "np.eye(2, 3)", size=20, code=True, bold=True)
     c.grid(430, 105, [[fmt(v) + "." for v in r] for r in eye], cw=60, ch=48,
-           fill=lambda i, j: GREEN_L if i == j else "white")
-    c.text(430, 225, "대각선 자리만 1", size=18, color=GREEN)
+           fill=lambda i, j: YELLOW_L if i == j else "white")
+    c.text(430, 225, "대각선 자리만 1", size=18, color=INK)
     c.text(780, 85, "np.random.randn(2, 3)", size=20, code=True, bold=True)
     c.grid(780, 105, [["?"] * 3] * 2, cw=60, ch=48, fill=GRAY_L, tc=MUTED)
     c.text(780, 225, "평균 0, 표준편차 1 인", size=18, color=MUTED)
@@ -336,13 +339,13 @@ def arange_linspace():
         c.text(40, y - 52, label, size=20, code=True, bold=True)
         c.line([px(-1) - 20, px(1) + 20], [y, y], color=LINE, lw=2)
         for v in pts:
-            c.ax.scatter([px(v)], [y], s=150, color=BLUE, zorder=5)
+            c.ax.scatter([px(v)], [y], s=150, color=INK, zorder=5)
         if n == 10:
-            c.ax.scatter([px(1.0)], [y], s=170, facecolor="white", edgecolor=RED, lw=2.5, zorder=5)
-            c.text(px(1.0), y + 36, "1 빠짐", size=17, color=RED, ha="center")
+            c.ax.scatter([px(1.0)], [y], s=170, facecolor="white", edgecolor=INK, lw=2.5, zorder=5)
+            c.text(px(1.0), y + 36, "1 빠짐", size=17, color=INK, ha="center", bold=True)
         for v in (-1, 0, 1):
             c.text(px(v), y + 36 if not (n == 10 and v == 1) else y + 66, fmt(v), size=17, ha="center", code=True, color=MUTED)
-        c.text(1040, y, "%d개" % n, size=21, bold=True, color=BLUE if n == 11 else INK)
+        c.text(1040, y, "%d개" % n, size=21, bold=True, color=INK)
     c.text(40, 420, "np.arange(6)       → [0 1 2 3 4 5]", size=19, code=True)
     c.text(40, 458, "np.linspace(0, 5, 6) → [0. 1. 2. 3. 4. 5.]", size=19, code=True)
     return c.image()
@@ -777,7 +780,7 @@ def elementwise():
         c.text(x, 100, label, size=23, code=True, bold=True)
         c.grid(x, 125, vals.tolist(), cw=70, ch=54, fill=GREEN_L)
         c.text(x, 270, "shape (2, 3)", size=19, code=True, color=MUTED)
-    c.text(50, 340, "M * M은 같은 자리끼리 곱한 값(원소별 곱)", size=19)
+    c.text(50, 340, "M * M은 같은 자리 원소끼리 곱한 값", size=19)
     return c.image()
 
 
@@ -916,10 +919,10 @@ def matmul():
         c = Canvas(480)
         c.title(title)
         c.text(40, 90, "M  (2, 3)", size=20, code=True, bold=True)
-        c.grid(40, 110, M.tolist(), cw=66, ch=52, fill=lambda i, j: ORANGE_L if cell and i == cell[0] else "white")
+        c.grid(40, 110, M.tolist(), cw=66, ch=52, fill=lambda i, j: YELLOW_L if cell and i == cell[0] else "white")
         c.text(285, 162, "@", size=28, ha="center", code=True)
         c.text(330, 90, "W  (3, 2)", size=20, code=True, bold=True)
-        c.grid(330, 110, Wm.tolist(), cw=66, ch=52, fill=lambda i, j: ORANGE_L if cell and j == cell[1] else "white")
+        c.grid(330, 110, Wm.tolist(), cw=66, ch=52, fill=lambda i, j: YELLOW_L if cell and j == cell[1] else "white")
         c.text(510, 162, "=", size=28, ha="center")
         cells = [[P[i, j] if (i, j) in done else "" for j in range(2)] for i in range(2)]
         c.text(550, 90, "(2, 2)", size=20, code=True, bold=True)
@@ -1030,7 +1033,7 @@ def axis_sum():
     c.text(480, 200, "→ [4.5, 5, 5]", size=22, code=True, color=BLUE)
     frames.append(c.image()); ms.append(2200)
     c = base("행이 샘플이면 axis=0 은 여러 샘플 사이의 집계")
-    c.text(480, 120, "행 = 샘플(데이터 한 개)", size=20)
+    c.text(480, 120, "행 = 샘플", size=20)
     c.text(480, 160, "열 = 특징", size=20)
     c.text(480, 230, "axis=0: 특징마다 여러 샘플을 모음", size=20, color=BLUE)
     c.text(480, 270, "axis=1: 샘플마다 여러 특징을 모음", size=20, color=ORANGE)
@@ -1054,7 +1057,7 @@ def argmax_fig():
     c.grid(60, 90, M.tolist(), cw=70, ch=54, fill=lambda i, j: GREEN_L if (i, j) == (1, 2) else "white")
     c.text(60, 230, "펼친 순서", size=18, color=MUTED)
     c.grid(60, 245, [list(DATA)], cw=58, ch=48, fill=lambda i, j: GREEN_L if j == 5 else "white", note=lambda i, j: j)
-    c.text(60, 330, "M.max() → 9", size=21, code=True)
+    c.text(60, 330, "M.max() → 9", size=21, code=True, color=GREEN)
     c.text(60, 370, "M.argmax() → 5", size=21, code=True, color=GREEN)
     c.text(60, 410, "펼친 1차원 순서에서 5번 자리", size=18, color=MUTED)
     c.text(560, 110, "M.max(axis=0) → [6, 8, 9]", size=21, code=True, color=BLUE)
@@ -1079,8 +1082,8 @@ def sort_fig():
     c.grid(330, 150, [srt.tolist()], cw=64, ch=48, fill=GREEN_L)
     c.text(740, 175, "data는 바뀌지 않음", size=18, color=MUTED)
     c.text(40, 250, "np.argsort(data)", size=20, code=True, bold=True)
-    c.grid(330, 225, [arg.tolist()], cw=64, ch=48, fill=BLUE_L)
-    c.text(740, 250, "작은 값의 자리 번호부터", size=18, color=BLUE)
+    c.grid(330, 225, [arg.tolist()], cw=64, ch=48, fill=PURPLE_L)
+    c.text(740, 250, "작은 값의 자리 번호부터", size=18, color=PURPLE)
     for k in range(6):
         c.arrow(330 + arg[k] * 64 + 32, 126, 330 + k * 64 + 32, 148, color=LINE, lw=1.2)
     c.line([20, 1100], [310, 310], color=FAINT, lw=1.5)
@@ -1145,7 +1148,7 @@ def accuracy_minmax():
         for v, m in zip(DATA, mm):
             x1 = lx0 + (v - 1) / 8 * (lx1 - lx0)
             x2 = lx0 + m * (lx1 - lx0)
-            c.ax.scatter([x1], [120], s=140, color=BLUE, zorder=5)
+            c.ax.scatter([x1], [120], s=140, color=INK, zorder=5)
             c.ax.scatter([x2], [300], s=140, color=GREEN, zorder=5)
             c.arrow(x1, 132, x2, 288, color=LINE, lw=1.3)
             if show_vals:

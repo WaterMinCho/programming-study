@@ -100,10 +100,10 @@ def grad_quadratic(r):
     stem = "다음 코드를 실행한 뒤 `x.grad`의 값은 ____ 입니다.\n\n```python\n%s\n```" % "\n".join(code)
     slope = "2x" if a == 1 else "%dx" % (2 * a)
     if c:
-        explain = "y를 x로 미분하면 %s이고, 더한 상수는 미분에 남지 않습니다." % slope
+        explain = "y를 x로 미분하면 %s이고, 더한 상수는 미분하면 0입니다." % slope
     else:
         explain = "y를 x로 미분하면 %s입니다." % slope
-    explain += " x = %d일 때 미분은 %d입니다." % (x0, once)
+    explain += " x = %d일 때 미분값은 %d입니다." % (x0, once)
     if twice:
         explain += " 기울기를 지우지 않고 backward()를 두 번 불러 같은 값이 한 번 더 더해지므로 %d입니다." % grad
     return blank(stem=stem, blanks=[{"answer": [str(grad)], "mode": "number"}], explain=explain.replace("-", "−"),

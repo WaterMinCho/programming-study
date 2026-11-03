@@ -13,7 +13,7 @@
   "assets/3b-3.png": "280bb0575bfa22e89d457f0a5db7804a65242d18b4d91291faa0016902358a21",
   "assets/3b-4.png": "09a7d5ef3f90c2f40a401bf331f8f6904667f03b9c29baa78788205199e78ab4",
   "assets/3c-1.png": "8fb40ee3e11f6f662260947f8d0fbe5cd4ba9a93c5535d0d1af5e86047f924de",
-  "assets/3c-2.gif": "d190f3297e2be45e058e46d16ec4c65986ae1366cffe4fdd712c3889cf17aa2b",
+  "assets/3c-2.gif": "d73945c1801359a134d3bb1abf0a76e5fac5054dc48c20748cd7c726cb0c3a61",
   "assets/3c-3.gif": "c2ba10259469a5eea1ae5ebf6e19e3f33e7f7535304cf3549f0c525dd8d70ddf",
   "assets/3c-4.png": "cc9693b1ae14cb0a784d0f1e95e4bc1733813afdbfbde818c570b41446a6f24c",
   "assets/3d-1.gif": "0acafb519a3bde4f24a878136062ea78402a6798695db990c007742f9422c71d",
@@ -24,20 +24,20 @@
   "assets/3e-1.gif": "411ffc6ebf6c06e2ce2b6c6bb46712db85374dc742eee635d653e058b3451527",
   "assets/3e-2.gif": "25186faeb92a95b9dfe07bf42c369a2633c333b9cfe7b65c5dc982af8d83d958",
   "assets/3e-3.png": "8ec6816c269a5809a0ecc69581b087574b39121394569b6933afb4d11af64fe0",
-  "assets/3f-1.gif": "c6478e5a42e96be1d2636c972f27d499eece4d45654a2a0e9862fc28be3e44e3",
+  "assets/3f-1.gif": "d2bdfe624ec0b3491445a13b24fac75326c0ce29ea12c41264f15621baa0f58b",
   "assets/3f-2.png": "d828ee8c18df318302732e080d206bdab74571ee9586c88f7b50843ced50621d",
-  "assets/3f-3.png": "ba12e1901c37ed3c0f4202ed3833a93d201583256b9fc27491f06fe76c8a74cd",
+  "assets/3f-3.png": "1c40df429b89a3f0b9ae817bf649a684ac961a899d4d74f74dad5b4e14a5d080",
   "assets/3g-1.gif": "f7ff8d9190a117c79e7eeb7a4abe3dddb7b13346261549caed3af2767806635a",
   "assets/3g-2.gif": "a7fedbff6306f8eeeea8b413d164b1ec8d045b3e302cd08025808990da57ed8b",
-  "assets/3g-3.gif": "f39086d3ecf232638a2a51d4f740417c27fcfedb23952f484743ddada5820f35",
+  "assets/3g-3.gif": "b641fd6dc299864612b0144d84907a17b4c500a25b4dbee1ebff7fde38ee3030",
   "assets/3g-4.gif": "13c3c708186246cfb7134c04c93ca049694307530604e1b461d5d305c81d8c8c",
   "assets/3g-5.png": "f74548d302277ccb37c0a9f5f469b7d9adcaf02072982f02f3b6538279eef553",
   "assets/3h-1.gif": "341fcab7d5d239f2e6b420c11d8b343c5ebb267cb7ab583147c62b6f07dddd6d",
   "assets/3h-2.png": "30599343006de2949273136895306b04afa78eaf096a7a37401cbee59ee6d7ee",
-  "assets/3h-3.gif": "9d77c7c8e4e5600eeef70067dc7d8d6e83d90aa9fad89c1f94663a3a3749f229",
+  "assets/3h-3.gif": "0f0d196faedaf1954be621ddd833478f2564544523d1e5b635996fb61cc32335",
   "assets/3h-4.png": "12e1de5babd50c9f8272c694fb81c6dd6e36457fd28fe891154b17012212a90f",
-  "meta.json": "e088d098eea0a8aac4c5846ee0716e1ebad7d0053150c037d3176c7b0e564126",
-  "page.md": "a051c97507509626ad1a8de7fbe52e422bd7a8f6453ebb3f3e8384f10bd7f228"
+  "meta.json": "8e1ff2de0b661ac0872dcc036b726b9fcd7493ea3042a00402e466b7927418a8",
+  "page.md": "31d6350e7b93e4aac3c7ff6cee0dccbc24d117f17ce69c9b1faec3261b5d8394"
  },
  "findings": [
   "처음 배우는 사람으로 처음부터 읽고 5.8 체크 목록을 봄. 재풀이와 검토는 같은 검토자(꼬리표 번호 2)가 맡았음",
@@ -49,6 +49,9 @@
   "말투 검토 4 가 page.md 와 그림 글 142곳을 사람 말투로 고침. 편미분을 모은 벡터를 기울기로 부르고 3f 에 슬라이드 17·18쪽이 이 벡터를 경사라고 부른다는 문장을 둠. 3f 단원 제목을 기울기, 미분, 편미분으로 바꿈",
   "대조 3: 말투 검토가 넣은 단계 첫 문장이 11곳에서 두 번씩 들어가 한 번만 남김",
   "대조 3: 그림 3e-3 의 '3 와 2 가 다름' 은 조사가 틀려 '안쪽 크기가 다름' 으로 고쳐 다시 그림",
-  "대조 3 이 정정 상자 12개와 그림 32장의 글을 원문과 본문 숫자에 맞춤"
+  "대조 3 이 정정 상자 12개와 그림 32장의 글을 원문과 본문 숫자에 맞춤",
+  "두 번째 고침: 단원 머리 여덟 개를 예제로 하는 일 한 문장과 강의 위치(슬라이드 쪽, 노트북 셀, 과제, 요약본 쪽)로 다시 씀. 미분을 미분값·미분하면으로, 직선의 기울기는 선 이름을 붙여 맞추고 3f 제목을 '기울기, 미분값, 편미분' 으로 바꿈. 그림 3c-2·3f-1·3f-3·3g-3·3h-3 을 다시 그림",
+  "대조 3 이 단원 머리의 강의 위치를 슬라이드 PDF, 노트북 셀, 과제, 요약본에서 하나씩 맞춤. 검토 4 가 x.grad 에 담기는 값을 기울기로 부르고, 3b 머리와 3f/2 왜일까요를 고치고, 앞 내용을 '1차시 넷째 단원 3단계' 로 가리킴",
+  "서명 전 확인에서 3f/4 떠올리기 r3 를 '이 미분값은 가장 클 때 ____ 입니다' 로 고침(i03-b16 과 같은 지문)"
  ]
 }

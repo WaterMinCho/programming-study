@@ -89,22 +89,22 @@ def gd_step(r):
      step="4c/2", facts=["F04-15", "F04-65"], basis="lecture-formula", family="chain-contrib", prio=2)
 def chain_part(r):
     """데이터 n 개(n = 2, 4, 5)의 MSE 에서 한 데이터가 W.grad 에 보태는 값 (1/n) × 2e × 1 × X.
-    오차 e 는 −3~3(0.5 간격, 0 제외), X 는 −3~3 정수(0·1 제외, 1 이면 X 를 빠뜨린 값이 정답과 같아짐). 단계마다의 미분을 표로 주고 곱만 시킴."""
+    오차 e 는 −3~3(0.5 간격, 0 제외), X 는 −3~3 정수(0·1 제외, 1 이면 X 를 빠뜨린 값이 정답과 같아짐). 단계마다의 미분값을 표로 주고 곱만 시킴."""
     n = r.pick([2, 4, 5])
     e = Decimal(r.pick([k for k in range(-6, 7) if k != 0])) / 2
     x = Decimal(r.pick([-3, -2, -1, 2, 3]))
     inv = Decimal(1) / n
     part = inv * 2 * e * x
     terms = " + ".join("s%s" % sub for sub in ("₁", "₂", "₃", "₄", "₅")[:n]) if n < 5 else "s₁ + … + s₅"
-    table = ("| 단계 | 그 단계의 미분 |\n|---|---|\n"
+    table = ("| 단계 | 그 단계의 미분값 |\n|---|---|\n"
              "| L = (%s) ÷ %d | L을 s로 미분하면 %s |\n"
              "| s = e², e = %s | s를 e로 미분하면 2e |\n"
              "| e = Yp − Y | e를 Yp로 미분하면 1 |\n"
              "| Yp = W × X + B, X = %s | Yp를 W로 미분하면 X |" % (terms, n, shown(inv), shown(e), shown(x)))
     return blank(
-        stem="데이터 %d개의 MSE를 손실로 쓰는 선형 모델이 있습니다. 그중 한 데이터에 대해 단계마다의 미분을 구했습니다.\n\n%s\n\n"
+        stem="데이터 %d개의 MSE를 손실로 쓰는 선형 모델이 있습니다. 그중 한 데이터에 대해 단계마다의 미분값을 구했습니다.\n\n%s\n\n"
              "이 데이터가 `W.grad`에 보태는 값은 ____ 입니다." % (n, table),
         blanks=[{"answer": [dec(part)], "mode": "number", "hint": "숫자"}],
-        explain="연쇄법칙으로 단계마다의 미분을 곱합니다. %s × (2 × %s) × 1 × %s = %s입니다. X를 빠뜨린 값(%s)은 정답이 아닙니다."
+        explain="연쇄법칙으로 단계마다의 미분값을 곱합니다. %s × (2 × %s) × 1 × %s = %s입니다. X를 빠뜨린 값(%s)은 정답이 아닙니다."
                 % (shown(inv), paren(e), paren(x), shown(part), shown(inv * 2 * e)),
         params={"n": n, "e": dec(e), "X": dec(x)})

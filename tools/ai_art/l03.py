@@ -612,10 +612,10 @@ def fig_3c_2():
     c = Canvas(1120, 480)
     c.title("결과의 원소 수 = 남은 축의 크기")
     r2_board(c, x0, y0, cw=80, ch=64, size=22)
-    c.text(450, 150, "dim=1 → 열 축이 사라져 2개", size=21, ha="left", color=GREEN)
+    c.text(450, 150, "dim=1 → 축 1 이 사라져 2개", size=21, ha="left", color=GREEN)
     c.text(450, 195, "values [%s] · indices [%s]" % (", ".join(num(v, True) for v in v1), ", ".join(map(str, i1))),
            size=20, mono=True, ha="left")
-    c.text(450, 275, "dim=0 → 행 축이 사라져 3개", size=21, ha="left", color=ORANGE)
+    c.text(450, 275, "dim=0 → 축 0 이 사라져 3개", size=21, ha="left", color=ORANGE)
     c.text(450, 320, "values [%s] · indices [%s]" % (", ".join(num(v, True) for v in v0), ", ".join(map(str, i0))),
            size=20, mono=True, ha="left")
     c.text(450, 400, "[0] 은 values, [1] 은 indices", size=20, ha="left", color=MUTED)
@@ -1096,7 +1096,7 @@ def fig_3e_3():
     return [c.image()], None
 
 
-# 3f 기울기, 미분, 편미분
+# 3f 기울기, 미분값, 편미분
 
 def curve(x):
     return 2 * x * x + 2
@@ -1114,7 +1114,7 @@ def fig_3f_1():
     def base(title, show_curve=True):
         c = Canvas(1120, 520)
         c.title(title)
-        labels_row(c, ["기울기", "미분", "편미분", "시그모이드"], y=92)
+        labels_row(c, ["기울기", "미분값", "편미분", "시그모이드"], y=92)
         ax = c.fig.add_axes([0.08, 0.13, 0.5, 0.58])
         ax.set_xlim(-0.5, 2.5)
         ax.set_ylim(0, 13)
@@ -1137,7 +1137,7 @@ def fig_3f_1():
     ax.text(1.08, 2.0, "2", color=ORANGE, fontsize=18)
     c.text(700, 250, "y = 2x + 1", size=22, mono=True, ha="left", color=GREEN)
     c.text(700, 310, "x 가 1 늘면 y 는 2 늘어남", size=20, ha="left")
-    c.text(700, 360, "기울기 = 2 (어디서나 같음)", size=20, ha="left", color=MUTED)
+    c.text(700, 360, "직선의 기울기 = 2 (어디서나 같음)", size=20, ha="left", color=MUTED)
     frames.append(c.image())
 
     c, ax = base("곡선 $y = 2x^2 + 2$ 의 x = 1")
@@ -1161,15 +1161,15 @@ def fig_3f_1():
     xs = np.linspace(-0.5, 2.5, 10)
     ax.plot(xs, 4 + tangent * (xs - 1), color=ORANGE, lw=3)
     c.text(700, 250, "접선의 기울기 = %s" % num(tangent), size=22, ha="left", color=ORANGE, bold=True)
-    c.text(700, 310, "이 값이 x = 1 의 미분", size=20, ha="left")
+    c.text(700, 310, "이 값이 x = 1 의 미분값", size=20, ha="left")
     frames.append(c.image())
 
-    c, ax = base("직선의 기울기와 곡선 한 점의 미분")
+    c, ax = base("직선의 기울기와 곡선 한 점의 미분값")
     xs = np.linspace(-0.5, 2.5, 10)
     ax.plot(xs, 4 + tangent * (xs - 1), color=ORANGE, lw=3)
     c.text(700, 240, "직선: 어디서나 같은 기울기", size=20, ha="left", color=GREEN)
     c.text(700, 290, "곡선: 점마다 접선의 기울기", size=20, ha="left", color=ORANGE)
-    c.text(700, 340, "$y = 2x^2 + 2$ 의 미분은 4x", size=20, ha="left")
+    c.text(700, 340, "$y = 2x^2 + 2$ 를 미분하면 4x", size=20, ha="left")
     frames.append(c.image())
     return frames, [2200, 2000, 2000, 2000, 2000, 2200, 2500]
 
@@ -1220,7 +1220,7 @@ def fig_3f_3():
     grid = [-2 + 0.25 * k for k in range(17)]
     assert len(grid) == 17 and abs(sum(sigmoid(x) for x in grid) - 8.5) < 1e-9
     c = Canvas(1120, 480)
-    c.title("시그모이드 y 와 그 미분 y(1 %s y)" % MINUS)
+    c.title("시그모이드 y 와 y 를 x 로 미분한 식 y(1 %s y)" % MINUS)
     ax = c.fig.add_axes([0.08, 0.12, 0.56, 0.7])
     xs = np.linspace(-5, 5, 501)
     ys = 1 / (1 + np.exp(-xs))
@@ -1238,8 +1238,8 @@ def fig_3f_3():
         ax.spines[s].set_visible(False)
     ax.text(2.4, 0.86, "y", color=BLUE, fontsize=19)
     ax.text(2.6, 0.17, "y(1 %s y)" % MINUS, color=ORANGE, fontsize=19)
-    c.text(760, 170, "x = 0: 미분 0.25 (가장 큼)", size=19, ha="left", color=ORANGE)
-    c.text(760, 225, "x = ±2: 미분 0.105", size=19, ha="left", color=ORANGE)
+    c.text(760, 170, "x = 0: 미분값 0.25 (가장 큼)", size=19, ha="left", color=ORANGE)
+    c.text(760, 225, "x = ±2: 미분값 0.105", size=19, ha="left", color=ORANGE)
     c.text(760, 300, "y = 1 / (1 + e^(%sx))" % MINUS, size=19, ha="left", mono=True)
     return [c.image()], None
 
@@ -1276,7 +1276,7 @@ def chain_board(c, shown, y=210, grads=None, gfrom=None, hl=None, faded=False):
             c.text(xs[k], y + 95, num(g, True), size=24, mono=True, color=ORANGE, bold=True, bg=ORANGE_BG, ec=ORANGE)
     if gfrom is not None:
         for k in gfrom:
-            c.text((xs[k] + xs[k + 1]) / 2, y + 48, "미분 " + num(LOCAL[k]), size=17, color=ORANGE)
+            c.text((xs[k] + xs[k + 1]) / 2, y + 48, "미분값 " + num(LOCAL[k]), size=17, color=ORANGE)
     return xs
 
 
@@ -1359,8 +1359,8 @@ def fig_3g_2():
 def fig_3g_3():
     chain_check()
     frames = []
-    titles = ["계산: 값을 왼쪽에서 오른쪽으로 채움", "y 에서 1 로 시작", "+ 2 의 미분 1 을 곱함: 1 × 1 = 1",
-              "× 2 의 미분 2 를 곱함: 1 × 2 = 2", "제곱의 미분 2x = 2 를 곱함: 2 × 2 = 4", "x.grad = 4 = 4 × x"]
+    titles = ["계산: 값을 왼쪽에서 오른쪽으로 채움", "y 에서 1 로 시작", "+ 2 의 미분값 1 을 곱함: 1 × 1 = 1",
+              "× 2 의 미분값 2 를 곱함: 1 × 2 = 2", "제곱의 미분값 2x = 2 를 곱함: 2 × 2 = 4", "x.grad = 4 = 4 × x"]
     acc = {3: 1.0}
     acc_list = [None, {3: 1.0}, {3: 1.0, 2: 1.0}, {3: 1.0, 2: 1.0, 1: 2.0}, {3: 1.0, 2: 1.0, 1: 2.0, 0: 4.0},
                 {0: 4.0}]
@@ -1371,7 +1371,7 @@ def fig_3g_3():
         c.title(titles[k], size=22)
         chain_board(c, 4, y=200, grads=acc_list[k], gfrom=gfrom_list[k], hl=0 if k == 5 else None)
         if k >= 1:
-            c.text(560, 470, "오른쪽에서 왼쪽으로 미분을 곱해 감", size=19, color=ORANGE)
+            c.text(560, 470, "오른쪽에서 왼쪽으로 미분값을 곱해 감", size=19, color=ORANGE)
         frames.append(c.image())
     return frames, [2000, 2000, 2200, 2200, 2400, 2500]
 
@@ -1502,7 +1502,7 @@ def fig_3h_3():
         c = Canvas(1120, 480)
         c.title(title, size=21)
         c.text(60, 130, "a (numpy, float64)", size=19, ha="left", color=MUTED)
-        c.cells(330, 105, [[num(v) for v in a_vals]], cw=80, ch=52, fill=lambda i, j: PALE, size=20)
+        c.cells(330, 105, [[num(v, True) for v in a_vals]], cw=80, ch=52, fill=lambda i, j: PALE, size=20)
         if t1:
             c.text(60, 220, "t1 = torch.from_numpy(a)", size=19, mono=True, ha="left", color=BLUE)
             for j in range(3):
@@ -1510,7 +1510,7 @@ def fig_3h_3():
             c.text(600, 220, "메모리를 함께 씀", size=19, ha="left", color=BLUE)
         if t2:
             c.text(60, 300, "t2 = torch.tensor(a)", size=19, mono=True, ha="left", color=GREEN)
-            c.cells(330, 325, [[num(v) for v in t2_vals]], cw=80, ch=52, fill=lambda i, j: GREEN_BG, ec=GREEN,
+            c.cells(330, 325, [[num(v, True) for v in t2_vals]], cw=80, ch=52, fill=lambda i, j: GREEN_BG, ec=GREEN,
                     size=20)
             c.text(600, 352, "값을 복사한 새 텐서", size=19, ha="left", color=GREEN)
         if dtype:
@@ -1522,7 +1522,8 @@ def fig_3h_3():
     frames.append(draw("a = np.array([1.5, 2.5, 3.5])", a))
     frames.append(draw("torch.from_numpy(a)", a, t1=True))
     frames.append(draw("torch.tensor(a)", a, t1=True, t2=True, t2_vals=copied))
-    frames.append(draw("a[0] = 9.0 다음", shared, t1=True, t2=True, t2_vals=copied, note="t1[0] 은 9.0, t2[0] 은 1.5"))
+    assert num(shared[0], True) == "9." and num(copied[0], True) == "1.5"  # PyTorch 는 실수 텐서 9.0 을 9. 으로 찍음
+    frames.append(draw("a[0] = 9.0 다음", shared, t1=True, t2=True, t2_vals=copied, note="t1[0] → 9.    t2[0] → 1.5"))
     frames.append(draw("자료형 맞추기", shared, t1=True, t2=True, t2_vals=copied, dtype=True))
     c = Canvas(1120, 480)
     c.title("numpy 와 텐서 오가기")

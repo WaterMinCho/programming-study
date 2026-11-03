@@ -690,7 +690,7 @@ def summary_4b():
 
 @figure("4c-1", 560, 260)
 def chain():
-    """사람 2 의 연쇄법칙. 순전파로 값을 채우고 역전파로 미분을 곱해 감."""
+    """사람 2 의 연쇄법칙. 순전파로 값을 채우고 역전파로 미분값을 곱해 감."""
     from matplotlib.patches import FancyBboxPatch
     i = 1
     yp = 1 * X[i] + 1
@@ -702,7 +702,7 @@ def chain():
     vals = ["1", "6", M + "4.3", "18.49", "+3.698"]
     xs = [0.95, 3.25, 5.55, 7.85, 10.15]
     ops = ["× 5 + 1", M + " 10.3", "제곱", "÷ 5"]
-    locd = ["미분 5", "미분 1", "미분 2e\n= " + M + "8.6", "미분 1/5\n= 0.2"]
+    locd = ["미분값 5", "미분값 1", "미분값 2e\n= " + M + "8.6", "미분값 1/5\n= 0.2"]
     back = ["1 × 0.2\n= 0.2", "0.2 × (" + M + "8.6)\n= " + M + "1.72", M + "1.72 × 1\n= " + M + "1.72",
             M + "1.72 × 5\n= " + M + "8.6"]
     back_at = [3, 2, 1, 0]
@@ -730,7 +730,7 @@ def chain():
                         linespacing=1.15)
         if tags:
             ax.text(5.6, 2.45, "순전파: 왼쪽에서 오른쪽으로 값 계산 →", ha="center", va="center", fontsize=18, color=BLUE)
-            ax.text(5.6, 0.75, "← 역전파: 오른쪽에서 왼쪽으로 미분을 곱해 감", ha="center", va="center", fontsize=18,
+            ax.text(5.6, 0.75, "← 역전파: 오른쪽에서 왼쪽으로 미분값을 곱해 감", ha="center", va="center", fontsize=18,
                     color=ORANGE)
         if nback:
             ax.text(xs[4], 1.35, "1", ha="center", va="center", fontsize=19, color=ORANGE, weight="bold")
@@ -748,7 +748,7 @@ def chain():
     frames = [draw(0, False, 0, "사람 2 (X = 5, Y = 10.3) 의 계산 단계", tags=True),
               draw(2, False, 0, "순전파: W = 1 에서 Yp = 1 × 5 + 1 = 6"),
               draw(5, False, 0, "순전파: 왼쪽에서 오른쪽으로 값 계산"),
-              draw(5, True, 0, "단계마다 미분: 뒤 칸 변화량이 앞 칸 변화량의 몇 배인지"),
+              draw(5, True, 0, "단계마다 미분값: 뒤 칸 변화량이 앞 칸 변화량의 몇 배인지"),
               draw(5, True, 1, "역전파: L 에서 1 로 시작"),
               draw(5, True, 2, "s 까지: 1 × 0.2"),
               draw(5, True, 3, "e 까지: 0.2 × (" + M + "8.6)"),
@@ -759,7 +759,7 @@ def chain():
 
 @figure("4c-2", 560, 300)
 def backprop():
-    """다섯 사람의 역전파. 손실에서 Yp 까지 미분을 곱한 값 2e ÷ 5 를 W.grad 와 B.grad 계산에 함께 씀."""
+    """다섯 사람의 역전파. 손실에서 Yp 까지 미분값을 곱한 값 2e ÷ 5 를 W.grad 와 B.grad 계산에 함께 씀."""
     from matplotlib.patches import FancyBboxPatch
     e = X + 1 - Y
     g = 2 * e / N
@@ -804,7 +804,7 @@ def backprop():
         return image(fig)
 
     assert [num(v, 2) for v in wpart] == [M + "5.4", M + "8.6", "0", M + "1.6", M + "3.44"]
-    frames = [draw(1, "다섯 사람의 X 와 오차 e"), draw(2, "손실에서 Yp 까지 미분을 곱한 값 2e ÷ 5: 사람마다 한 번만 계산"),
+    frames = [draw(1, "다섯 사람의 X 와 오차 e"), draw(2, "손실에서 Yp 까지 미분값을 곱한 값 2e ÷ 5: 사람마다 한 번만 계산"),
               draw(3, "W.grad: 2e ÷ 5 에 X 를 곱함"), draw(4, "다섯 값을 모두 더하면 W.grad"),
               draw(5, "B.grad: 2e ÷ 5 에 1 을 곱함"), draw(6, "한 번 구한 2e ÷ 5 를 W.grad 와 B.grad 계산에 함께 씀")]
     return frames, [1800, 2400, 2200, 2200, 2000, 2500]

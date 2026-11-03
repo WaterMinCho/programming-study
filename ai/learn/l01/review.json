@@ -19,14 +19,14 @@
   "assets/1c-3.png": "a719ca04edf640fceb0a6be9620d4f7d7a5891b5a91a6ab01fe712994d977a7a",
   "assets/1c-4.png": "285ac60a616246f5b580fe98026e4fbe450146a1af233f906f98a291b4543638",
   "assets/1d-1.gif": "d6c6dd9962a88afd627cb5ac1884af9f76a6f43119e0e270dad31d7de4d5a2bd",
-  "assets/1d-2.png": "290dc6e03dda2b9260f6a1a023c2614f47b3f02289d55dfbc7c696afc64bc680",
+  "assets/1d-2.png": "274a1ee04c12814fecb76771d333b5d5a7ea7d81c5782a902ec0c12f9c30c053",
   "assets/1d-3.gif": "8196a29fe914fda4565bb06da1239626d5fb89484f9b81e9c3385211397eb453",
   "assets/1d-4.png": "2e6d7ed0a4f5e4672a854d6ed43af1de324aa7c1d3fbe03f603cb4d294a2d66a",
   "assets/1d-5.png": "d825382237921a253965fa602f91c9e3fb6a0601c286e40225aa9071aeddbac5",
   "assets/1e-1.png": "bc44c934bd212ea8e545804f96f560abb46cfd80c1c545f36897ab5ef25f6732",
   "assets/1e-2.png": "e67f4737867f64e5cb370851a8153b3d4f7e534e7aac19e3c7ff88ecd5c9d62a",
   "assets/1e-3.png": "24f318830fec104c57f01153a70fe5bfd6fbeb7a76abcf7af521722d603e72b6",
-  "assets/1e-4.png": "7d0d7b2116d02009b812428ca502fc0aae2416a10fcbb28ce62814fa28a0c1a0",
+  "assets/1e-4.png": "ef652bfdf18a82549b00772aefeac71c4b1bb502f43dbb04ecd5cbf040a7418f",
   "assets/1f-1.png": "61ba0d86bb5a7a89fb9464da29060f2b12a19bb2ac271fc48242033811b69884",
   "assets/1f-2.gif": "4a6f02b7b675c35beb046d6b14e057f8384f092de634bda80431eac5ee187e8f",
   "assets/1f-3.png": "d9101ea1e79860063b847e4dfe1e3464e454bb07e2f2cd691203fc462f75c28b",
@@ -37,7 +37,7 @@
   "assets/1g-4.png": "2afc82aa32341c6ba055d12d94a777fab6360b6d2ba211ccd9a46d5c25471151",
   "assets/1g-5.png": "87b6f5dee87d4a1172bfe2b0b21591a3f951e0ffbdcf5ee5b2ed518168c02103",
   "meta.json": "8fc74caad036468462322440cb89bd752de44f36359d670154329abe6008d691",
-  "page.md": "55bacdad0101cae364096b8a391209455a0dc1879a4a6d78eae463e76a591301"
+  "page.md": "709d188e68039f6e3ef72badd5e43cf802a68e3f8fb9fb2cae14b935d250cfb7"
  },
  "findings": [
   "검토 2026-11-04: 마스크를 필터로 바꿔 l02 마스크와 뜻이 겹치지 않게 함",
@@ -49,6 +49,8 @@
   "겹침 검사 2026-11-04 통과(노트북·과제·PDF), 그림 32장을 열어 글과 숫자를 맞춰 봄",
   "말투 검토 4 가 page.md 106곳과 그림 글 5곳을 사람 말투로 고침. 파라미터를 바꾸는 일은 갱신으로, gradient 는 기울기로 부름",
   "대조 3 이 말투 검토 전 사본과 한 줄씩 견줘 뜻, 숫자, 답이 그대로임을 확인하고 1b 외울 것에 남은 '고칩니다' 를 '갱신합니다' 로 고침",
-  "대조 3 이 그림 32장을 장마다 열어 본문 숫자와 맞추고 정정 상자 X01-01~12 가 적힌 단계에 있음을 확인함"
+  "대조 3 이 그림 32장을 장마다 열어 본문 숫자와 맞추고 정정 상자 X01-01~12 가 적힌 단계에 있음을 확인함",
+  "두 번째 고침: 1b/4 에 요약본 1주차 16쪽 정정 상자를 더하고(X01-13) 1b 단원 머리에 16쪽·20쪽을 적음. 미분을 명사로 쓴 세 곳과 차시 머리의 '스스로 고쳐 가는' 을 고치고 그림 1d-2·1e-4 를 다시 그림",
+  "대조 3 이 정정 상자의 숫자(backward 뒤 w 2, step 뒤 2.4)를 그림 2 와 맞추고 요약본 PDF 16·20쪽을 확인함. 검토 4 가 정정 상자, 1b/2 자동 미분 정의, 1d-2 내용 줄을 고침"
  ]
 }

@@ -11,7 +11,7 @@
     "3c": "값 꺼내기: item, max, sum",
     "3d": "모양 바꾸기: view, reshape, squeeze",
     "3e": "텐서 연산: 원소별 계산과 행렬곱",
-    "3f": "기울기, 미분, 편미분",
+    "3f": "기울기, 미분값, 편미분",
     "3g": "자동 미분: requires_grad, backward, no_grad",
     "3h": "코드 읽기: 장치, 숫자 꺼내기, numpy 오가기"
   },
