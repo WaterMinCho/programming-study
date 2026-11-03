@@ -18,7 +18,7 @@ import unittest
 from unittest import mock
 
 try:
-    from PyQt6.QtCore import QEvent, QEventLoop, QMimeData, QPoint, QPointF, QSettings, Qt, QTimer, qInstallMessageHandler
+    from PyQt6.QtCore import QEvent, QEventLoop, QMimeData, QPoint, QPointF, QRect, QSettings, Qt, QTimer, qInstallMessageHandler
     from PyQt6.QtGui import (QColor, QContextMenuEvent, QDragEnterEvent, QDropEvent, QFontDatabase, QGuiApplication, QInputMethodEvent,
                              QFontMetricsF, QKeyEvent, QKeySequence, QTextCursor, QTextDocument, qGray)
     from PyQt6.QtTest import QTest
@@ -31,7 +31,7 @@ import adaptive  # noqa: E402
 import mdlite  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
-from gui import app, dialogs, errors, icon, motion, theme, widgets  # noqa: E402
+from gui import app, dialogs, errors, icon, kit, motion, theme, widgets, window, wrong_page  # noqa: E402
 from gui.mascot import Mascot  # noqa: E402
 from gui.guard import NOTE as PASTE_NOTE  # noqa: E402
 from gui.team_page import Avatar, EmptyCard, MemberCard  # noqa: E402
@@ -1320,6 +1320,37 @@ class RoundScoreTest(GuiTest):
         self.assertEqual(result.note.text(), "첫 제출은 %d / 100점이었습니다. 숙달 판정에는 첫 제출만 반영됩니다." % first)
 
 
+class FakeNotes:
+    """오답 노트 공급자 모양만 따르는 가짜 트랙. 두 번째 트랙이 칩과 첫 화면 줄로 붙는지 봄."""
+    tid, name = "fake", "가짜 트랙"
+    empty = "가짜 트랙에는 오답이 없습니다."
+
+    def __init__(self, win):
+        self.win, self.retried = win, []
+
+    def groups(self):
+        return [{"title": "모의고사 1회", "items": [{"key": "m1/3", "label": "3번 · 모의고사 1회", "state": "wrong"},
+                                                   {"key": "m1/7", "label": "7번 · 모의고사 1회", "state": "fixed"}]}]
+
+    def detail(self, item, info):
+        tail = '<a name="answer"></a><p>해설: %s</p>' % info["text"] if info else ""
+        return item["label"], "<body><p>가짜 본문 %s</p>%s</body>" % (item["key"], tail)
+
+    def explain(self, item):
+        return {"text": "가짜 해설"}
+
+    def retry(self, item):
+        self.retried.append(item["key"])
+
+
+class ManyNotes(FakeNotes):
+    """묶음 넷에 열 문항씩. 넷째 묶음은 다시 맞힌 문항이라 목록이 스크롤할 만큼 김."""
+
+    def groups(self):
+        return [{"title": "모의고사 %d회" % n, "items": [{"key": "m%d/%d" % (n, k), "label": "%d번 · 모의고사 %d회" % (k, n),
+                                                       "state": "fixed" if n == 4 else "wrong"} for k in range(1, 11)]} for n in range(1, 5)]
+
+
 class WrongNotesTest(GuiTest):
     def submit(self, rid, keys, right=(), wrong=()):
         """고른 문항으로 회차를 만들어 화면에서 풀고 제출함. right 는 정답, wrong 은 오답을 적고 나머지는 비움."""
@@ -1333,41 +1364,88 @@ class WrongNotesTest(GuiTest):
         self.assertIs(self.page(), self.win.result_page)
 
     def open_notes(self):
+        """파이썬 스터디 홈의 [오답 노트]로 엶. 늘 파이썬 탭이고 돌아가기는 홈으로 감."""
         self.win.go_home()
         click(self.win.home.wrong_btn)
-        self.assertIs(self.page(), self.win.wrong_page)
-        return self.win.wrong_page
+        page = self.win.wrong_page
+        self.assertIs(self.page(), page)
+        self.assertEqual((page.track.tid, page.back_btn.text()), ("python", "← 파이썬 스터디"))
+        self.assertTrue(page.chips["python"].isChecked())
+        return page
 
-    def rows(self, page):
-        return [page.listw.item(row).text() for row in range(page.listw.count())]
+    def outline(self, page):
+        """목록이 보이는 모양. 갈래 머리 줄은 '갈래 이름 수'(접혔으면 앞에 +), 차시 이름은 '# 이름', 문항 줄은 글 그대로."""
+        out = []
+        for index in range(page.list.box.count()):
+            widget = page.list.box.itemAt(index).widget()
+            if isinstance(widget, wrong_page.Fold):
+                out.append("%s%s %s" % ("" if widget.opened else "+", widget.title.text(), widget.count.text()))
+            elif widget is not None and any(widget is fold.body for fold in page.list.folds) and widget.isVisibleTo(page):
+                for child in widget.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly):
+                    if isinstance(child, wrong_page.NoteRow):
+                        out.append(child.title.text())
+                    elif child.findChild(kit.ElideLabel) is not None:
+                        out.append("# " + child.findChild(kit.ElideLabel).text())
+        return out
 
-    def test_notes_list_misses_by_unit_and_open_each_item(self):
+    def row(self, page, key):
+        return page.list.row_of(key)
+
+    def ink(self, row):
+        row.title.ensurePolished()
+        return row.title.palette().color(row.title.foregroundRole()).name()
+
+    def test_notes_split_misses_into_categories_and_open_each_item(self):
         self.boot()
         choice, output, code = self.first(type="choice", multi=False), self.first(type="output"), self.first(type="return")
         cat = self.win.session.cat
         self.assertEqual([cat[key]["unit"] for key in (choice, output, code)], ["s01", "s01", "s02"])
         self.submit("r91", [choice, output, code], right=[choice], wrong=[code])
         page = self.open_notes()
-        self.assertEqual(page.summary.text(), "틀린 문항 2개 · 그 뒤에 맞힌 문항 0개")
-        self.assertFalse(page.hide_fixed.isChecked())
-        self.assertIs(page.stack.currentWidget(), page.split)
-        self.assertEqual(self.rows(page), ["1차시 · %s · 1문항" % cat[output]["unit_title"], "출력 예측 · 91회차 미니 모의고사 · 미응답",
-                                           "2차시 · %s · 1문항" % cat[code]["unit_title"], "반환값 · 91회차 미니 모의고사"])
-        for row in (0, 2):  # 단원 머리 줄은 누르거나 화살표 키로 고를 수 없음
-            self.assertFalse(page.listw.item(row).flags() & (Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled))
-            self.assertTrue(page.listw.item(row).font().bold())
-        self.assertEqual(page.listw.currentRow(), 1)
-        QTest.mouseClick(page.listw.viewport(), LEFT, pos=page.listw.visualItemRect(page.listw.item(0)).center())
-        self.assertEqual(page.listw.currentRow(), 1)
-        page.listw.setFocus()
-        QTest.keyClick(page.listw, Qt.Key.Key_Down)
-        self.assertEqual(page.listw.currentRow(), 3)
-        QTest.keyClick(page.listw, Qt.Key.Key_Up)
-        self.assertEqual(page.listw.currentRow(), 1)
-        for key, row in ((Qt.Key.Key_End, 3), (Qt.Key.Key_Home, 1), (Qt.Key.Key_PageDown, 3), (Qt.Key.Key_PageUp, 1)):
-            QTest.keyClick(page.listw, key)  # Home 과 PageUp 이 0번 단원 머리 줄을 가리키면 그 아래 문항 줄로 감
-            self.assertEqual(page.listw.currentRow(), row, key)
-        self.assertEqual([page.listw.item(row).foreground().color().name() for row in (1, 3)], [theme.color("blank"), theme.color("wrong")])
+        self.assertIs(page.stack.currentWidget(), page.filled)
+        # 상태는 갈래로만 알림. 줄에는 미응답·다시 맞힘 꼬리 글도 상태 색도 없음
+        self.assertEqual(self.outline(page), ["틀린 문항 1", "# 2차시 · %s" % cat[code]["unit_title"], "반환값 · 91회차 미니 모의고사",
+                                              "미응답 문항 1", "# 1차시 · %s" % cat[output]["unit_title"], "출력 예측 · 91회차 미니 모의고사"])
+        self.assertIsNone(page.list.fold_of("fixed"))  # 문항이 없는 갈래는 빠짐
+        self.assertEqual(page.selected()["key"], code)  # 펴 둔 갈래의 첫 문항
+        self.assertEqual(self.ink(self.row(page, output)), theme.color("ink"))
+        self.assertEqual(self.ink(self.row(page, code)), theme.color("selection_ink"))  # 고른 줄만 selection 색
+        self.assertEqual(self.row(page, output).title.font().pixelSize(), theme.TYPE["label"][0])  # 줄 글은 caption 이 아니라 본문 크기
+        for widget in page.list.rows + page.list.folds:
+            self.assertGreaterEqual(widget.height(), theme.CONTROL["row"])
+
+        # 키보드: 위·아래는 갈래 머리 줄과 차시 이름을 건너뜀. Home·End·PageUp·PageDown 도 문항 줄로만 감
+        first = self.row(page, code)
+        first.setFocus()
+        QTest.keyClick(first, Qt.Key.Key_Down)
+        self.assertEqual(page.selected()["key"], output)
+        self.assertIs(self.win.focusWidget(), self.row(page, output))  # 초점도 고른 줄로 옮김
+        for key, want in ((Qt.Key.Key_Down, output), (Qt.Key.Key_Up, code), (Qt.Key.Key_Up, code), (Qt.Key.Key_End, output),
+                          (Qt.Key.Key_Home, code), (Qt.Key.Key_PageDown, output), (Qt.Key.Key_PageUp, code)):
+            QTest.keyClick(self.win.focusWidget(), key)
+            self.assertEqual(page.selected()["key"], want, key)
+        skipped = page.list.fold_of("skipped")
+        skipped.setFocus()
+        QTest.keyClick(skipped, Qt.Key.Key_Down)  # 머리 줄에서 아래로 가면 그 갈래의 첫 문항
+        self.assertEqual(page.selected()["key"], output)
+        skipped.setFocus()
+        QTest.keyClick(skipped, Qt.Key.Key_Up)  # 위로 가면 그 위 갈래의 마지막 문항
+        self.assertEqual(page.selected()["key"], code)
+
+        # 갈래는 누르거나 Enter·Space·←·→ 로 펴고 접음. 접은 갈래의 줄은 화살표가 건너뜀. 고른 문항은 그대로
+        click(skipped)
+        self.assertFalse(skipped.opened)
+        self.assertEqual(self.outline(page)[3:], ["+미응답 문항 1"])
+        self.assertEqual(page.selected()["key"], code)
+        first.setFocus()
+        QTest.keyClick(first, Qt.Key.Key_Down)
+        self.assertEqual(page.selected()["key"], code)
+        for key, opened in ((Qt.Key.Key_Return, True), (Qt.Key.Key_Space, False), (Qt.Key.Key_Right, True), (Qt.Key.Key_Left, False)):
+            QTest.keyClick(skipped, key)
+            self.assertEqual(skipped.opened, opened, key)
+        QTest.keyClick(skipped, Qt.Key.Key_Right)
+        click(self.row(page, output))
+        self.assertEqual(page.selected()["key"], output)
 
         item = self.win.session.wrong_item("r91", adaptive.fname_of(output))
         self.assertEqual(page.item_title.text(), "출력 예측 · %s · %d점" % (cat[output]["unit_title"], adaptive.round_points([choice, output, code], cat)[output]))
@@ -1378,12 +1456,13 @@ class WrongNotesTest(GuiTest):
         self.assertIn("(작성하지 않았습니다)", text)
         self.assertNotIn("정답과 해설", text)
         self.assertTrue(page.explain_btn.isEnabled())
+        self.assertEqual([button.text() for button in kit.visible_primary_buttons(page)], ["다시 풀기"])
         click(page.explain_btn)
         self.assertIn("정답과 해설", page.detail.toPlainText())
         self.assertIn(cat[output]["q"]["answer"].strip("\n").split("\n")[0], page.detail.toPlainText())
         self.assertFalse(page.explain_btn.isEnabled())
 
-        page.listw.setCurrentRow(3)
+        click(self.row(page, code))
         self.assertIn("print('오답')", page.detail.toPlainText())
         self.assertTrue(page.item_title.text().startswith(cat[code]["spec"]["title"] + " · 반환값"))
         click(page.explain_btn)
@@ -1394,42 +1473,60 @@ class WrongNotesTest(GuiTest):
         self.assertEqual((round_page.view["id"], round_page.review, round_page.current["key"]), ("r91", True, code))
         self.assertEqual(round_page.title.text(), "91회차 미니 모의고사 · 다시 풀기")
 
-    def test_items_answered_right_later_are_marked_and_can_be_hidden(self):
+    def test_items_answered_right_later_go_to_a_folded_category(self):
         self.boot()
         output, code = self.first(type="output"), self.first(type="return")
         self.submit("r91", [output, code], wrong=[code])
         self.submit("r92", [output], right=[output])
         page = self.open_notes()
-        self.assertEqual(page.summary.text(), "틀린 문항 2개 · 그 뒤에 맞힌 문항 1개")
-        self.assertEqual(self.rows(page)[1], "출력 예측 · 91회차 미니 모의고사 · 미응답 · 다시 맞힘")
-        self.assertEqual(page.listw.item(1).foreground().color().name(), theme.color("ok"))
-        self.assertIn("그 뒤에 다시 맞힘", page.detail.toPlainText())
-        page.listw.setCurrentRow(3)
-        click(page.hide_fixed)
-        self.assertEqual(self.rows(page), ["2차시 · %s · 1문항" % self.win.session.cat[code]["unit_title"], "반환값 · 91회차 미니 모의고사"])
-        self.assertEqual(page.selected()["key"], code)  # 고르던 문항이 남아 있으면 그대로
-        click(page.hide_fixed)
-        self.assertEqual(len(self.rows(page)), 4)
+        self.assertEqual(self.outline(page), ["틀린 문항 1", "# 2차시 · %s" % self.win.session.cat[code]["unit_title"],
+                                              "반환값 · 91회차 미니 모의고사", "+다시 맞힌 문항 1"])  # 다시 맞힌 문항은 처음에 접혀 있음
         self.assertEqual(page.selected()["key"], code)
+        fixed = page.list.fold_of("fixed")
+        click(fixed)
+        self.assertEqual(self.outline(page)[4:], ["# 1차시 · %s" % self.win.session.cat[output]["unit_title"], "출력 예측 · 91회차 미니 모의고사"])
+        self.assertEqual(page.selected()["key"], code)  # 펴기만 해서는 고르지 않음
+        click(self.row(page, output))
+        self.assertNotIn("다시 맞힘", page.detail.toPlainText())  # 다시 맞힌 것은 왼쪽 분류가 알려 줌
+        self.assertNotIn('class="ok"', page.detail.toHtml())
+        self.assertEqual(self.ink(self.row(page, code)), theme.color("ink"))
+        click(self.row(page, code))
+        self.assertEqual(self.ink(self.row(page, output)), theme.color("ink"))  # 다시 맞힌 줄도 상태 색이 없음
+        click(self.row(page, output))
 
+        click(page.back_btn)  # 다시 열어도 편 갈래와 고른 문항이 남음
+        self.assertIs(self.page(), self.win.home)
+        page = self.open_notes()
+        self.assertTrue(page.list.fold_of("fixed").opened)
+        self.assertEqual(page.selected()["key"], output)
+
+        click(self.row(page, code))
+        click(page.list.fold_of("fixed"))  # 접어 둔 갈래로 옮겨 간 문항을 다시 고르면 그 갈래를 폄
+        self.assertFalse(page.list.fold_of("fixed").opened)
         click(page.retry_btn)  # 다시 풀기에서 고쳐 다시 채점하고 돌아오면 다시 맞힌 문항이 됨
         self.fill(self.win.round_page.current, right_answer(self.win.session, self.win.round_page.current))
         click(self.win.round_page.submit_btn)
         self.idle()
         page = self.open_notes()
-        self.assertEqual(page.summary.text(), "틀린 문항 2개 · 그 뒤에 맞힌 문항 2개")
-        click(page.hide_fixed)
-        self.assertIs(page.stack.currentWidget(), page.empty)
-        self.assertIn("모두 다시 맞혔습니다", page.empty_text.text())
+        self.assertEqual(self.outline(page)[0], "다시 맞힌 문항 2")
+        self.assertEqual(page.selected()["key"], code)
+        self.assertTrue(page.list.current.isVisibleTo(page))
+
+        page.keys.clear()  # 고르던 문항이 없고 펴 둔 갈래도 없으면 안내 한 줄만 보임
+        click(page.list.fold_of("fixed"))
+        page.refresh()
+        self.assertIsNone(page.selected())
+        self.assertEqual(page.detail.toPlainText(), wrong_page.ALL_FIXED)
         self.assertFalse(page.explain_btn.isEnabled() or page.retry_btn.isEnabled())
+        self.assertFalse(page.item_title.isVisibleTo(page))
 
     def test_empty_notes_say_where_misses_come_from(self):
         self.boot()
         page = self.open_notes()
         self.assertIs(page.stack.currentWidget(), page.empty)
         self.assertEqual(page.empty_text.text(), "아직 틀린 문항이 없습니다. 회차를 제출하면 틀린 문항이 여기에 모입니다.")
-        self.assertEqual(page.summary.text(), "틀린 문항 0개 · 그 뒤에 맞힌 문항 0개")
-        click(page.home_btn)
+        self.assertEqual(visible_buttons(page), ["← 파이썬 스터디"])  # 트랙이 하나라 칩은 숨고, 아래 막대도 숨음
+        click(page.back_btn)
         self.assertIs(self.page(), self.win.home)
 
     def test_explain_opens_only_after_the_round_is_submitted(self):
@@ -1440,7 +1537,7 @@ class WrongNotesTest(GuiTest):
         self.win.session.set_answer("r91", adaptive.fname_of(output), "틀린 답")
         self.win.session.grade("r91")
         page = self.open_notes()
-        self.assertEqual(self.rows(page)[1:], ["출력 예측 · 91회차 미니 모의고사"])
+        self.assertEqual(self.outline(page)[0::2], ["틀린 문항 1", "출력 예측 · 91회차 미니 모의고사"])
         click(page.explain_btn)
         self.assertIn("제출한 뒤에", self.win.dialog.text.text())
         self.choose("ok")
@@ -1459,6 +1556,8 @@ class WrongNotesTest(GuiTest):
         path = os.path.join(self.win.session.folder("r91"), "quiz.py")
         study.write_text(path, study.read_text(path) + "x = (\n")
         page = self.open_notes()
+        self.assertEqual(page.selected()["key"], code)
+        click(self.row(page, output))
         self.assertIn("답안지 복구", page.detail.toPlainText())
         self.assertFalse(page.explain_btn.isEnabled())
         click(page.retry_btn)
@@ -1473,23 +1572,46 @@ class WrongNotesTest(GuiTest):
         output, code = self.first(type="output"), self.first(type="return")
         self.submit("r91", [output, code], wrong=[code])
         page = self.open_notes()
-        page.listw.setCurrentRow(3)
         click(page.explain_btn)
+        self.assertEqual(page.selected()["key"], code)
         theme.set_mode("dark")
         pump()
-        self.assertEqual([page.listw.item(row).foreground().color().name() for row in (1, 3)], [theme.DARK["blank"], theme.DARK["wrong"]])
+        self.assertEqual((self.ink(self.row(page, code)), self.ink(self.row(page, output))), (theme.DARK["selection_ink"], theme.DARK["ink"]))
         self.assertIn(theme.DARK["ink"], page.detail.document().defaultStyleSheet())
         self.assertIn("모범 답안", page.detail.toPlainText())  # 펼친 해설은 다시 그려도 남음
-        self.assertEqual(page.hide_fixed.palette().color(page.hide_fixed.palette().ColorRole.Base).name(), theme.DARK["track"])
         self.assertEqual(bright_share(self.win), 0)
         shown = backgrounds(page.detail.document().toHtml())  # 구역 띠와 코드 상자
         self.assertTrue(shown and all(gray(value) <= 200 for value in shown), shown)
-        self.win.set_text("large")
-        self.assertIn("body { font-size: %dpx" % (14 + theme.DOC_PX + 2), page.detail.document().defaultStyleSheet())
+        self.win.set_text("larger")
+        self.assertIn("body { font-size: %dpx" % theme.TYPE["body"][0], page.detail.document().defaultStyleSheet())
+        self.assertEqual((self.row(page, output).title.font().pixelSize(), page.list.fold_of("wrong").title.font().pixelSize()),
+                         (theme.TYPE["label"][0], theme.TYPE["headline"][0]))
+        self.assertGreaterEqual(page.list.fold_of("wrong").title.height(), theme.TYPE["headline"][1])
         theme.set_mode("light")
         pump()
-        self.assertEqual(page.listw.item(3).foreground().color().name(), theme.LIGHT["wrong"])
+        self.assertEqual(self.ink(self.row(page, output)), theme.LIGHT["ink"])
         self.assertGreater(bright_share(self.win), 0.5)
+
+    def test_notes_fit_a_small_window_at_the_largest_text(self):
+        self.boot()
+        output, code = self.first(type="output"), self.first(type="return")
+        self.submit("r91", [output, code], wrong=[code])
+        self.win.resize(1024, 700)
+        self.win.set_text("larger")
+        page = self.open_notes()
+        pump()
+        self.assertEqual((self.win.width(), self.win.height()), (1024, 700))
+        self.assertLessEqual(page.minimumSizeHint().width(), 1024)
+        self.assertLessEqual(page.minimumSizeHint().height(), 700)
+        self.assertEqual([button.text() for button in kit.visible_primary_buttons(page)], ["다시 풀기"])
+        self.assertFalse(page.chip_row.isVisibleTo(page))
+        for button in (page.back_btn, page.explain_btn, page.retry_btn):
+            corner = button.mapTo(self.win, QPoint(button.width(), button.height()))
+            self.assertTrue(button.isVisible() and corner.x() <= self.win.width() and corner.y() <= self.win.height(), button.text())
+        self.assertEqual(page.retry_btn.mapTo(self.win, QPoint(page.retry_btn.width(), 0)).x(), self.win.width() - 32)
+        for widget in page.list.rows + page.list.folds:
+            self.assertGreaterEqual(widget.height(), theme.CONTROL["row"])
+            self.assertEqual(QLabel.text(widget.title), widget.title.full)  # 줄임표 없이 다 보임
 
     def test_reference_list_shows_under_the_status_line_and_the_explanation(self):
         """은행 문항에 ref 가 있으면 오답 노트의 상태 줄 아래(해설을 펴기 전에도)와 정답과 해설 아래에 참고 자료가 나옴. 없으면 띠도 없음."""
@@ -1505,6 +1627,7 @@ class WrongNotesTest(GuiTest):
             click(result.explain_btn)
             self.assertRegex(result.detail.toPlainText().split("정답과 해설")[1], shown)
             page = self.open_notes()
+            click(self.row(page, output))
             text = page.detail.toPlainText()
             self.assertNotIn("정답과 해설", text)
             self.assertRegex(text, shown + r"\s+문제\n")  # 문제 본문이 참고 자료에 이어 붙어 보이지 않게 띠로 나눔
@@ -1512,10 +1635,198 @@ class WrongNotesTest(GuiTest):
             self.assertLess(text.index("참고 자료"), text.index("내 답"))
             click(page.explain_btn)
             self.assertRegex(page.detail.toPlainText().split("정답과 해설")[1], shown)
-            page.listw.setCurrentRow(3)  # ref 가 없는 코드 문제
+            click(self.row(page, code))  # ref 가 없는 코드 문제
             click(page.explain_btn)
             self.assertIn("모범 답안", page.detail.toPlainText())
             self.assertNotIn("참고 자료", page.detail.toPlainText())
+
+    def open_with(self, *tracks):
+        """오답 노트 공급자를 tracks 로 바꾼 창을 새로 띄워 첫 화면까지 엶."""
+        self.win.close()
+        self.win.deleteLater()
+        with mock.patch.object(window, "WRONG_TRACKS", tracks):
+            self.win = MainWindow(self.settings, lambda root, user: (self.git, ""))
+        self.win.open_url = self.opened.append
+        self.win.show()
+        self.win.boot()
+        self.idle()
+
+    def in_view(self, page, row):
+        top = row.mapTo(page.list.viewport(), QPoint(0, 0)).y()
+        return top >= 0 and top + row.height() <= page.list.viewport().height()
+
+    def test_picked_row_scrolls_into_view_even_after_refresh(self):
+        """화살표로 옮기거나 다시 열 때 고른 줄이 목록 칸 안에 보임. 고른 문항이 접힌 갈래에 있으면 그 갈래를 펴고 그 줄까지 내려감."""
+        self.open_with(ManyNotes)
+        self.win.show_wrong("fake", "hub")
+        page = self.win.wrong_page
+        self.assertEqual([(fold.state, fold.count.text(), fold.opened) for fold in page.list.folds], [("wrong", "30", True), ("fixed", "10", False)])
+        QTest.keyClick(page.list.rows[0], Qt.Key.Key_End)
+        pump()
+        self.assertEqual(page.selected()["key"], "m3/10")
+        self.assertTrue(self.in_view(page, page.list.current))
+        click(page.list.fold_of("fixed"))
+        QTest.keyClick(page.list.current, Qt.Key.Key_End)
+        pump()
+        self.assertEqual(page.selected()["key"], "m4/10")
+        click(page.list.fold_of("fixed"))
+        page.list.verticalScrollBar().setValue(0)
+        page.refresh()
+        pump()
+        self.assertTrue(page.list.fold_of("fixed").opened)
+        self.assertEqual(page.selected()["key"], "m4/10")
+        self.assertTrue(self.in_view(page, page.list.current))
+
+    def test_tab_stops_once_in_the_list_before_the_buttons(self):
+        """Tab 은 돌아가기, 칩, 갈래 머리 줄과 고른 문항 줄, 문항 칸, 아래 단추 순서로 감. 다른 문항 줄은 건너뛰고, 새로 채운 목록도
+        아래 단추 뒤로 밀리지 않음. 고른 줄을 바꾸면 Tab 이 닿는 줄도 바뀜."""
+        self.open_with(wrong_page.PythonNotes, ManyNotes)
+        self.win.show_wrong("fake", "hub")
+        page = self.win.wrong_page
+        click(page.chips["python"])
+        click(page.chips["fake"])  # 목록을 한 번 더 새로 채움
+
+        def cycle():
+            page.back_btn.setFocus(Qt.FocusReason.TabFocusReason)
+            seen = []
+            while len(seen) < 60 and (not seen or seen[-1] is not page.back_btn):
+                QTest.keyClick(self.win.focusWidget(), Qt.Key.Key_Tab)
+                seen.append(self.win.focusWidget())
+            return seen
+
+        wrong, fixed = page.list.folds
+        seen = cycle()
+        self.assertIn(seen[0], page.chips.values())  # 칩은 한 묶음(QButtonGroup)이라 Tab 이 한 번 닿고 칩 사이는 화살표로 옮김
+        self.assertEqual(seen[1:], [wrong, page.list.rows[0], fixed, page.detail, page.explain_btn, page.retry_btn, page.back_btn])
+        click(page.list.rows[5])
+        self.assertIn(page.list.rows[5], cycle())
+        self.assertNotIn(page.list.rows[0], cycle())
+
+    def test_clicked_rows_get_focus_without_the_ring(self):
+        """마우스로 누른 줄은 초점을 받아 화살표로 옮길 수 있지만 초점 테두리는 그리지 않음. 화살표로 옮긴 줄에는 그림.
+        돌아가기를 누르면 줄의 초점을 놓아 첫 화면의 단추에 테두리가 생기지 않음."""
+        self.open_with(ManyNotes)
+        self.win.show_wrong("fake", "hub")
+        page = self.win.wrong_page
+
+        def ring(row):
+            return row.grab().toImage().pixelColor(1, row.height() // 2).name() == theme.color("focus")
+
+        row = page.list.rows[2]
+        click(row)
+        self.assertTrue(row.hasFocus())
+        self.assertFalse(ring(row))
+        click(page.list.folds[1])
+        self.assertFalse(ring(page.list.folds[1]))
+        click(row)
+        QTest.keyClick(row, Qt.Key.Key_Down)
+        self.assertIs(self.win.focusWidget(), page.list.rows[3])
+        self.assertTrue(ring(page.list.rows[3]))
+        click(page.back_btn)
+        self.assertIs(self.page(), self.win.hub)
+        self.assertNotIsInstance(self.win.focusWidget(), QPushButton)
+
+    def test_busy_page_keeps_the_list_and_the_tabs_still(self):
+        """창이 Node.js 를 찾는 동안 목록과 칩도 꺼져서 다른 문항을 눌러 [다시 풀기]가 다시 켜지지 않음."""
+        self.open_with(wrong_page.PythonNotes, ManyNotes)
+        self.win.show_wrong("fake", "hub")
+        page = self.win.wrong_page
+        picked = page.selected()["key"]
+        page.set_busy(True)
+        click(page.list.rows[3])
+        click(page.chips["python"])
+        self.assertEqual((page.track.tid, page.selected()["key"]), ("fake", picked))
+        page.restyle()  # 테마를 바꿔 문항을 다시 그려도 단추는 꺼진 채로 둠
+        self.assertFalse(page.back_btn.isEnabled() or page.explain_btn.isEnabled() or page.retry_btn.isEnabled())
+        page.set_busy(False)
+        self.assertTrue(page.explain_btn.isEnabled() and page.retry_btn.isEnabled())
+        click(page.list.rows[3])
+        self.assertEqual(page.selected()["key"], page.list.rows[3].data["key"])
+
+    def heads(self, fold):
+        """갈래 안 묶음 이름 글들. 화면 순서."""
+        return [child.findChild(kit.ElideLabel) for child in fold.body.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly)
+                if not isinstance(child, wrong_page.NoteRow)]
+
+    def test_group_titles_sit_with_their_rows_and_shrink_in_a_narrow_list(self):
+        """묶음 이름은 위 줄의 글보다 아래 줄의 글에 가까이 붙고, 목록 칸을 가장 좁게 끌어도 줄임표로 줄어 칸 밖으로 나가지 않음."""
+        self.open_with(ManyNotes)
+        self.win.set_text("larger")
+        self.win.show_wrong("fake", "hub")
+        page = self.win.wrong_page
+        pump()
+        head = self.heads(page.list.folds[0])[1]
+        self.assertEqual(head.text(), "모의고사 2회")
+        top, bottom = head.mapTo(page, QPoint(0, 0)).y(), head.mapTo(page, QPoint(0, head.height())).y()
+        above = top - page.list.rows[9].title.mapTo(page, QPoint(0, page.list.rows[9].title.height())).y()
+        below = page.list.rows[10].title.mapTo(page, QPoint(0, 0)).y() - bottom
+        self.assertLess(below, above)
+        title = "12차시 · statsmodels·scikit-learn·SciPy 로 하는 통계 분석"
+        page.list.fill([{"title": title, "items": [{"key": "k", "label": "빈칸 채우기 · 1회차", "state": "wrong"}]}], page.opened["fake"])
+        page.split.setSizes([0, 10000])
+        pump()
+        head = self.heads(page.list.fold_of("wrong"))[0]
+        self.assertLessEqual(page.list.sheet.width(), page.list.viewport().width())
+        self.assertTrue(QLabel.text(head).endswith("…"), QLabel.text(head))
+
+    def test_bands_sit_closer_to_their_own_text(self):
+        """문항 칸의 띠(참고 자료, 문제, 내 답)는 위 글보다 제 아래 글에 가까이 붙음. 세 글자 단계에서 그려진 화소로 봄."""
+        self.open_with(ManyNotes)
+        self.win.show_wrong("fake", "hub")
+        page = self.win.wrong_page
+        note = {"round_title": "91회차 미니 모의고사", "wrong_count": 1, "fixed": False, "skipped": False}
+        item = {"ref": ["강의 3차시 12쪽"], "body_md": "다음 중 옳은 것을 고르세요.", "answered": True, "answer": [2], "type": "choice"}
+        band = QColor(theme.color("table_head")).rgb()
+        for step in theme.TEXT_STEPS:
+            self.win.set_text(step)
+            page.detail.setHtml(wrong_page.item_html(note, item, None))
+            pump()
+            view = page.detail.viewport()  # 문항 칸은 바탕이 투명해서 카드 바탕까지 그리게 화면에서 그 자리를 찍음
+            image = page.grab(QRect(view.mapTo(page, QPoint(0, 0)), view.size())).toImage()
+            back = image.pixel(2, 2)
+            width = image.width()  # 글자 가장자리 화소가 띠 색과 같을 수 있어 오른쪽 세 군데가 모두 띠 색인 줄만 셈
+            filled = {y for y in range(image.height()) if all(image.pixel(x, y) == band for x in (width // 2, width * 3 // 4, width - 8))}
+            tops = sorted(y for y in filled if y - 1 not in filled)
+            bottoms = sorted(y for y in filled if y + 1 not in filled)
+            ink = [y for y in range(image.height()) if y not in filled
+                   and any(abs(QColor(image.pixel(x, y)).lightness() - QColor(back).lightness()) > 60 for x in range(0, image.width(), 2))]
+            self.assertEqual(len(tops), 3, step)
+            for top, bottom in zip(tops, bottoms):
+                above = top - max(y for y in ink if y < top)
+                below = min(y for y in ink if y > bottom) - bottom
+                self.assertLess(below + 8, above, (step, top, above, below))
+
+    def test_a_second_track_gets_its_own_tab_and_hub_row(self):
+        """공급자를 하나 더 등록하면 칩과 첫 화면 줄이 생기고, 트랙마다 고르던 문항을 따로 기억함."""
+        self.open_with(wrong_page.PythonNotes, FakeNotes)
+        hub = self.win.hub
+        self.assertEqual([(row.title.text(), row.second.text()) for _, row in hub.note_rows],
+                         [("파이썬 스터디", "아직 틀린 문항이 없습니다."), ("가짜 트랙", "틀린 문항 1개 · 다시 맞힌 문항 1개")])
+        click(hub.note_rows[1][1])
+        page = self.win.wrong_page
+        self.assertIs(self.page(), page)
+        self.assertEqual((page.track.tid, page.back_btn.text()), ("fake", "← 처음 화면"))
+        self.assertEqual([chip.text() for chip in page.chips.values() if chip.isChecked()], ["가짜 트랙"])
+        self.assertEqual(self.outline(page), ["틀린 문항 1", "# 모의고사 1회", "3번 · 모의고사 1회", "+다시 맞힌 문항 1"])
+        click(page.list.fold_of("fixed"))
+        click(self.row(page, "m1/7"))
+        self.assertEqual(page.detail.toPlainText(), "가짜 본문 m1/7")
+        click(page.explain_btn)
+        self.assertIn("해설: 가짜 해설", page.detail.toPlainText())
+        click(page.retry_btn)
+        self.assertEqual(page.track.retried, ["m1/7"])
+        click(page.chips["python"])
+        self.assertIs(page.stack.currentWidget(), page.empty)
+        self.assertEqual(page.empty_text.text(), wrong_page.PythonNotes.empty)
+        click(page.chips["fake"])
+        self.assertEqual(page.selected()["key"], "m1/7")  # 트랙을 오가도 고르던 문항과 편 갈래가 남음
+        self.assertTrue(page.list.fold_of("fixed").opened)
+        click(page.back_btn)
+        self.assertIs(self.page(), hub)
+
+
+def visible_buttons(page):
+    return [button.text() for button in page.findChildren(QPushButton) if button.isVisible()]
 
 
 class WidgetTest(unittest.TestCase):

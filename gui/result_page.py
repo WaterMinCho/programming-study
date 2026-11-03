@@ -25,17 +25,17 @@ def code_box(text):
             '<tr><td class="codebox"><pre>%s</pre></td></tr></table>' % html.escape(text, quote=False))
 
 
-def band(title, anchor=""):
-    """구역 제목. 문제 본문 안의 제목과 섞이지 않게 띠로 만듦."""
-    return ('<a name="%s"></a><table width="100%%" cellspacing="0" cellpadding="6" border="0" style="margin-top:14px; margin-bottom:8px;">'
-            '<tr><td class="band"><b>%s</b></td></tr></table>' % (anchor, title))
+def band(title, anchor="", space=(14, 8)):
+    """구역 제목. 문제 본문 안의 제목과 섞이지 않게 띠로 만듦. space 는 띠의 (위, 아래) 여백이고 기본값은 이 화면의 문서 규칙(doc_css)에 맞춘 것임."""
+    return ('<a name="%s"></a><table width="100%%" cellspacing="0" cellpadding="6" border="0" style="margin-top:%dpx; margin-bottom:%dpx;">'
+            '<tr><td class="band"><b>%s</b></td></tr></table>' % (anchor, space[0], space[1], title))
 
 
-def ref_html(refs):
-    """참고 자료 구역. 강의·과제 쪽수 같은 짧은 글을 한 줄로 이음. 문항에 ref 가 없으면 빈 글자를 돌려줌."""
+def ref_html(refs, space=(14, 8)):
+    """참고 자료 구역. 강의·과제 쪽수 같은 짧은 글을 한 줄로 이음. 문항에 ref 가 없으면 빈 글자를 돌려줌. space 는 band 의 여백."""
     if not refs:
         return ""
-    return band("참고 자료") + "<p>%s</p>" % " · ".join(html.escape(ref, quote=False) for ref in refs)
+    return band("참고 자료", space=space) + "<p>%s</p>" % " · ".join(html.escape(ref, quote=False) for ref in refs)
 
 
 def my_answer_html(item):
@@ -48,9 +48,9 @@ def my_answer_html(item):
     return code_box(str(answer).rstrip("\n"))
 
 
-def explain_html(item, info):
-    """정답과 해설 구역. info 는 session.explain 이 돌려준 값. 오답 노트 화면도 같이 씀."""
-    parts = [band("정답과 해설", "answer")]
+def explain_html(item, info, space=(14, 8)):
+    """정답과 해설 구역. info 는 session.explain 이 돌려준 값. 오답 노트 화면도 같이 씀. space 는 band 의 여백."""
+    parts = [band("정답과 해설", "answer", space)]
     if info["answer"]:
         parts.append("<p><b>정답: %s</b></p>" % info["answer"] if item["type"] == "choice"
                      else "<p><b>정답</b></p>" + code_box(info["answer"]))
@@ -58,9 +58,9 @@ def explain_html(item, info):
         parts.append(md_html(re.sub(r"^# [^\n]*\n", "", info["explain"], count=1)))  # 문서 첫 줄의 제목은 띠 제목과 겹쳐서 뺌
     else:  # 퀴즈 해설은 마크다운 문서가 아니라 한 문단짜리 글임
         parts.append("<p>%s</p>" % mdlite.inline_html(info["explain"]))
-    parts.append(ref_html(item["ref"]))
+    parts.append(ref_html(item["ref"], space))
     if info["solution"]:
-        parts += [band("모범 답안"), code_box(info["solution"])]
+        parts += [band("모범 답안", space=space), code_box(info["solution"])]
     return "".join(parts)
 
 

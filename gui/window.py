@@ -26,7 +26,7 @@ from gui.web_learn import WebLearnPage
 from gui.web_mission import WebMissionPage, open_folder
 from gui.widgets import Para
 from gui.worker import Job
-from gui.wrong_page import WrongPage
+from gui.wrong_page import PythonNotes, WrongPage
 from journey import node as node_finder
 from journey.service import JourneyError, JourneySession
 from session import SessionError
@@ -34,6 +34,8 @@ from webprep import service as web_service
 from webprep import stack
 from webprep.record import RecordError
 from webprep.service import WebError
+
+WRONG_TRACKS = (PythonNotes,)  # 오답 노트의 트랙 공급자. 창을 받아 만들고, 이 순서로 오답 노트의 트랙 칩과 첫 화면의 오답 노트 줄이 놓임
 
 
 def saved_text(settings):
@@ -118,6 +120,7 @@ class MainWindow(QMainWindow):
         theme.set_text(saved_text(settings))  # 화면을 만들기 전에 정해야 부품이 그 크기로 만들어짐
         theme.set_mode(settings.value("theme", "system", type=str))
 
+        self.wrong_tracks = [make(self) for make in WRONG_TRACKS]  # 허브와 오답 노트 화면이 만들 때 읽음
         self.pages = QStackedWidget()
         self.start, self.hub, self.home, self.round_page = StartPage(self), HubPage(self), HomePage(self), RoundPage(self)
         self.result_page, self.team_page, self.wrong_page = ResultPage(self), TeamPage(self), WrongPage(self)
@@ -404,8 +407,9 @@ class MainWindow(QMainWindow):
         self.team_page.refresh()
         motion.switch(self.pages, self.team_page)
 
-    def show_wrong(self):
-        self.wrong_page.refresh()
+    def show_wrong(self, tid=None, back="python"):
+        """오답 노트를 tid 트랙(없으면 지난번 트랙)으로 엶. back 은 위 막대의 돌아가기가 갈 곳(python 은 파이썬 스터디 홈, hub 는 첫 화면)."""
+        self.wrong_page.open(tid, back)
         motion.switch(self.pages, self.wrong_page)
 
     # 대화상자
