@@ -455,6 +455,7 @@ class NotesTest(Base):
         self.assertEqual((cur["card"], "wrong", True), (item["key"], item["state"], item["sure"]))
         detail = sess.wrong_item(cur["card"])
         self.assertIn("확실하다고 했지만 틀림", detail["lines"])
+        self.assertIn("1번 틀림", detail["lines"])  # 하루 안에 틀린 것이면 "1일에 걸쳐" 를 붙이지 않음
         self.assertEqual(["엉뚱"], detail["mine"])
         explain = sess.explain(cur["card"])
         self.assertTrue(explain["answer"] and explain["explain"])

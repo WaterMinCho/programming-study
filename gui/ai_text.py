@@ -370,13 +370,10 @@ def card_head(card, sess):
 BAND = (32, 4)  # gui/wrong_page.py 의 BAND 와 같은 띠 여백
 
 
-ONE_DAY_LINE = re.compile(r"^1일에 걸쳐 ")  # 엔진의 "N일에 걸쳐 M번 틀림" 이 하루면 어색해서 뗌. 엔진 문구를 고치면 지움
-
-
 def note_html(item, info, word="정답"):
     """오답 노트 문항 칸. 결과 줄, 근거, 문제, 내 답, 펴면 정답과 해설. 근거는 정답을 알려 주지 않아 파이썬 탭처럼 문제 앞에 둠.
     word 는 정답 줄 머리(answer_word)."""
-    lines = [ONE_DAY_LINE.sub("", line) for line in item["lines"]] or ["틀림"]
+    lines = item["lines"] or ["틀림"]
     parts = ['<p><b>%s</b></p>' % html.escape(" · ".join(lines))]
     if item["ref"]:
         parts += [band("근거", space=BAND), "<p>%s</p>" % html.escape(ref_text(item["ref"]))]

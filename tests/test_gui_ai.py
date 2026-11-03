@@ -359,10 +359,9 @@ class TextTest(unittest.TestCase):
         self.assertEqual((card["title"], card["line"], card["action"]), ("모의고사 1회 · 30문항 · 60분", ai_text.MOCK_LATER, ""))
 
     def test_note_html_lines(self):
-        item = {"lines": ["1일에 걸쳐 2번 틀림", "확실하다고 했지만 틀림"], "ref": [], "stem": "지문", "options": ["가", "나"], "mine": ["가"]}
+        item = {"lines": ["2번 틀림", "확실하다고 했지만 틀림"], "ref": [], "stem": "지문", "options": ["가", "나"], "mine": ["가"]}
         html_text = ai_text.note_html(item, {"answer": ["가"], "explain": "", "why": {}}, "옳지 않은 문장")
         self.assertIn("2번 틀림 · 확실하다고", html_text)
-        self.assertNotIn("1일에 걸쳐", html_text)
         self.assertIn("옳지 않은 문장: 가", html_text)
         self.assertEqual(ai_text.answer_word({"kind": "choice", "item": {"pick": "wrong"}}), "옳지 않은 문장")
         self.assertEqual(ai_text.answer_word({"kind": "blank", "item": {}}), "정답")

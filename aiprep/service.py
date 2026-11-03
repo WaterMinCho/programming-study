@@ -412,7 +412,8 @@ class AiSession(object):
             lines.append("%s에서 %s" % (self.mocks.get(mock_rows[-1].get("mock"), {}).get("title", "모의고사"),
                                      "비움" if mock_rows[-1].get("dontknow") else "틀림"))
         if note["fails"]:
-            lines.append("%d일에 걸쳐 %d번 틀림" % (len(note["days"]), sum(1 for r in rows if r["result"] != "pass")))
+            times = sum(1 for r in rows if r["result"] != "pass")
+            lines.append("%d일에 걸쳐 %d번 틀림" % (len(note["days"]), times) if len(note["days"]) > 1 else "%d번 틀림" % times)
         if note["sure"]:
             lines.append("확실하다고 했지만 틀림")
         last = self._last_wrong(key)
