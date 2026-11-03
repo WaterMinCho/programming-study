@@ -119,6 +119,12 @@ def option_order(item):
     return genlib.Rng("%s 보기" % item["id"]).shuffle(list(range(len(item.get("options") or []))))
 
 
+def gen_option_order(gid, seed, count):
+    """공개본 생성기 고르기의 보기 순서(원래 번호 목록). 생성기는 정답을 맨 앞에 두는 일이 많아 그대로 보이면 답이 드러나므로 섞고,
+    채점 때 같은 생성기 id 와 시드로 다시 만듦."""
+    return genlib.Rng("%s %s 보기" % (gid, seed)).shuffle(list(range(count)))
+
+
 def statement_rows(topic):
     """공개본 주제 문장 [(꼬리표, 문장)]. statements.json 은 참 문장을 앞에 두고 id 도 그 순서로 매기므로 id 를 숨기고 섞은 순서에
     '<주제 id>-<번호>' 꼬리표를 붙임. 채점 때 같은 순서를 다시 만들어 문장 id 로 되돌림."""
@@ -149,7 +155,8 @@ def _note_lines(bank_dir, page_id):
 def brief(bank_dir, iid, out_dir):
     """재풀이자에게 줄 공개본 sheet.md, cloze.md 와 빈 답안 answers.json. 정답·해설·why·facts.json 은 넣지 않음.
     빈칸판은 참 문장에만 있어 문장 옆에 두면 판정이 드러나므로 cloze.md 로 따로 뺌. 답안의 문장 칸은 참·거짓과 상관없이 모두
-    {"ok": null, "cloze": [""]} 꼴이고, 고르기 칸에는 보기 순서를 적지 않음."""
+    {"ok": null, "cloze": [""]} 꼴이고, 고르기 칸에는 보기 순서를 적지 않음. 생성기 표본은 params 를 빼고(form 같은 값이 답을
+    알려 줌) 고르기 보기를 gen_option_order 로 섞어 보임."""
     idir = os.path.join(bank_dir, "items", iid)
     if not os.path.isfile(os.path.join(idir, "meta.json")):
         raise SystemExit("문항 묶음의 meta.json 이 있어야 합니다: %s" % iid)
@@ -187,10 +194,11 @@ def brief(bank_dir, iid, out_dir):
         samples = {}
         for seed in range(1, SAMPLES + 1):
             made = genlib.run(spec, seed)
-            lines += ["### 시드 %d" % seed, "", made["stem"], "", "params: %s" % json.dumps(made.get("params"), ensure_ascii=False), ""]
+            lines += ["### 시드 %d" % seed, "", made["stem"], ""]
             if made["kind"] == "choice":
-                lines += ["%d. %s" % (n, o["text"]) for n, o in enumerate(made["options"], 1)] + [""]
-                samples[str(seed)] = []
+                order = gen_option_order(spec.id, seed, len(made["options"]))
+                lines += ["%d. %s" % (n, made["options"][k]["text"]) for n, k in enumerate(order, 1)] + [""]
+                samples[str(seed)] = {"picked": []}
             else:
                 samples[str(seed)] = _blank_answers(made["stem"])
         answers[spec.id] = samples

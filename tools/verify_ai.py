@@ -945,7 +945,8 @@ def grade_answers(v, label, path, lessons, bank_dir):
     """재풀이 답안을 채점함. {"cards", "correct", "wrong", "gens": {"checked", "seeds"}} 를 돌려주고 틀린 카드를 보여 줌.
     문장 칸은 공개본 꼬리표(<주제 id>-<번호>)를 ai_seal.statement_rows 로 문장 id 로 되돌림. 빈칸판이 있는 문장은 ok 와 cloze 가
     둘 다 맞아야 맞음이고, 빈칸판이 없는 문장의 cloze 는 보지 않음. 고르기 칸에 order 가 없으면 ai_seal.option_order 로 공개본의
-    보기 순서를 다시 만듦. 예전 꼴(문장 id 를 키로 쓴 답안, order 를 적은 고르기)도 그대로 채점함."""
+    보기 순서를 다시 만듦. 생성기 고르기 표본이 {"picked"} 꼴이면 ai_seal.gen_option_order 로 섞은 순서를 되돌림. 예전 꼴(문장
+    id 를 키로 쓴 답안, order 를 적은 고르기, 원래 번호를 적은 생성기 표본)도 그대로 채점함."""
     try:
         answers = study.read_json(path)
     except (OSError, ValueError) as error:
@@ -985,6 +986,10 @@ def grade_answers(v, label, path, lessons, bank_dir):
                 made = genlib.run(card["gen"], int(seed))
                 if made["kind"] == "blank":
                     good = grade.grade_item(made, got, terms)["result"] == "pass"
+                elif isinstance(got, dict):
+                    order = ai_seal.gen_option_order(card["gen"].id, seed, len(made["options"]))
+                    picked = [order[p - 1] for p in got.get("picked") or [] if isinstance(p, int) and 1 <= p <= len(order)]
+                    good = grade.grade_choice(made, picked)["result"] == "pass"
                 else:
                     picked = [p - 1 for p in got if isinstance(p, int)] if isinstance(got, list) else \
                         [n for n, o in enumerate(made["options"]) if o["text"] == str(got)]

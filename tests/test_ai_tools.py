@@ -19,6 +19,7 @@ from unittest import mock
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import study  # noqa: E402
+from aiprep import gen as genlib  # noqa: E402
 from tools import ai_art, ai_overlap, ai_seal, verify_ai, verify_web, web_lint  # noqa: E402
 
 FIXTURE = os.path.join(ROOT, "tests", "ai_bank")
@@ -342,6 +343,49 @@ class SignTest(Case):
         self.assertEqual({"- {꼬리표}: {글} (참/거짓)"}, shapes)
         self.assertNotIn(true["cloze"]["text"], sheet)
         self.assertIn(true["cloze"]["text"], study.read_text(os.path.join(out_dir, "cloze.md")))
+
+    def test_brief_shuffles_generator_options_and_hides_params(self):
+        text = study.read_text(self.path("items/i90/gens.py"))
+        self.write("items/i90/gens.py", text + '''
+
+from aiprep.gen import choice  # noqa: E402
+
+
+@gen("i90-g03", unit="90a", level=2, tags=["경사하강"], ref=["90차시 슬 p2"], facts=["F90-03"], basis="lecture-formula",
+     step="90a/2", prio=3, family="sign")
+def sign(r):
+    """기울기 부호로 W 가 어느 쪽으로 바뀌는지 고르기."""
+    g = r.pick([-3, -2, 2, 3])
+    up, down = "W 가 커집니다", "W 가 작아집니다"
+    return choice(stem="기울기가 %d 일 때 한 번 갱신하면?" % g,
+                  options=[(up if g < 0 else down, True), (down if g < 0 else up, False), ("W 가 바뀌지 않습니다", False)],
+                  params={"g": g, "form": "up" if g < 0 else "down"})
+''')
+        self.edit_json("items/i90/meta.json", lambda m: m["units"]["90a"]["gen"].append("i90-g03"))
+        out_dir = os.path.join(self.tmp, "brief")
+        code, out = quiet(ai_seal.main, ["brief", "i90", "--out", out_dir, "--bank", self.bank])
+        self.assertEqual(0, code, out)
+        sheet = study.read_text(os.path.join(out_dir, "sheet.md"))
+        answers = study.read_json(os.path.join(out_dir, "answers.json"))
+        self.assertNotIn("params", sheet)
+        self.assertNotIn("form", sheet)
+        spec = next(s for s in genlib.load_module(self.path("items/i90/gens.py"), "ai_brief_test") if s.id == "i90-g03")
+        firsts = set()
+        for seed in answers["i90-g03"]:
+            self.assertEqual({"picked": []}, answers["i90-g03"][seed])
+            made = genlib.run(spec, int(seed))
+            order = ai_seal.gen_option_order("i90-g03", seed, len(made["options"]))
+            firsts.add(order.index(0))
+            answers["i90-g03"][seed] = {"picked": [order.index(0) + 1]}
+        self.assertGreater(len(firsts), 1)
+        path = os.path.join(self.tmp, "answers.json")
+        study.write_text(path, json.dumps({"i90-g03": answers["i90-g03"]}, ensure_ascii=False))
+        code, out = self.verify("i90", "--answers", path)
+        self.assertIn("재풀이 대조: 맞음 1 / 1", out)
+        old = {seed: [1] for seed in answers["i90-g03"]}
+        study.write_text(path, json.dumps({"i90-g03": old}, ensure_ascii=False))
+        code, out = self.verify("i90", "--answers", path)
+        self.assertIn("재풀이 대조: 맞음 1 / 1", out)
 
 
 class SealTest(Case):
