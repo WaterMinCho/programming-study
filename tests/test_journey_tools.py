@@ -888,9 +888,12 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(["문제 은행 검증", "채점", "화면 테스트"], [job["name"] for job in jobs.values()])
         bank_runs = runs(jobs["bank"])
         at = bank_runs.index("python tools/verify_bank.py")
-        self.assertEqual(["python tools/journey_seal.py check", "python -m unittest discover -s tests"], bank_runs[at + 1:])
+        self.assertEqual(["python tools/journey_seal.py check", "python tools/ai_seal.py check",
+                          "python tools/verify_ai.py --require-review",
+                          "python tools/verify_web.py --bank ai --total-mb 32 --require-review",
+                          "python tools/web_lint.py --bank ai --no-external", "python -m unittest discover -s tests"], bank_runs[at + 1:])
         self.assertEqual({"STUDY_LEAN_CI": "1"}, jobs["bank"]["steps"][-1]["env"])
-        self.assertEqual(6, len(jobs["bank"]["steps"]))
+        self.assertEqual(10, len(jobs["bank"]["steps"]))
         gui = jobs["gui"]["steps"][-1]
         self.assertEqual('python -m unittest discover -s tests -p "test_gui*.py"', gui["run"])
         self.assertEqual({"QT_QPA_PLATFORM": "offscreen"}, gui["env"])

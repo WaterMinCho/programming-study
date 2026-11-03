@@ -12,7 +12,7 @@
   python tools/check_style.py --staged                        스테이지에 올린 파일 가운데 검사할 것만(pre-commit 훅)
   python tools/check_style.py --install-hooks                 tools/hooks 의 훅을 .git/hooks 에 복사
 
-검사할 파일: *.md(submissions/ 아래 제외), 저장소 맨 위와 gui/·journey/·tools/ 아래의 .py, .github/workflows/*.yml,
+검사할 파일: *.md(submissions/ 아래 제외), 저장소 맨 위와 gui/·journey/·webprep/·tools/·aiprep/·ai/ 아래의 .py, .github/workflows/*.yml,
 dungeons/<던전>/sealed.json 안의 hints.md·explain.md. tests/test_style.py 는 일부러 틀린 문장을 담은 테스트라 뺌.
 이 파일도 뺌. raw 문자열도 화면 문구처럼 글로 보는데, 패턴 표의 낱말이 거기에 걸림.
 """
@@ -33,6 +33,8 @@ HOOK_NAMES = ("pre-commit", "commit-msg")
 SEALED_NOTES = ("hints.md", "explain.md")
 CODE_SUFFIXES = (".py", ".yml", ".yaml", ".bat", ".command", ".sh")
 
+SENT = r"(^(?:\s*(?:[>*-]+|\d+\.))*\s*|[.?!]\s+)"  # 문장 첫 자리: 줄 첫머리(인용 >, 불릿, 번호 뒤 포함)나 마침표 뒤
+
 # 글 어디에 있어도 걸리는 꼴
 FIXED = {
     "em-dash(\u2014)": "\u2014",
@@ -49,6 +51,12 @@ FIXED = {
     "강조 부사": r"(^|[\s(])(정말|아주|매우|굉장히|의외로|생각보다|무려)\s",
     "이모지": r"[\U0001F300-\U0001FAFF☀-➿⭐✅]",
     "느낌표": r"[가-힣a-zA-Z)]!(\s|$)",
+    "접속부사 뒤 쉼표": SENT + r"(그러나|그리고|그런데|그러므로|그래서|따라서|하지만|또한|즉|한편|그러면|그럼),",
+    "이중 피동": r"(되어|보여|불려|잊혀|믿겨|쓰여|읽혀|짜여|나뉘어)(지[다는고며면지게기]|진|집|져|졌)",
+    "에 의해(번역투 피동)": r"에 의(해|한|하여|해서)(\s|$|,)",
+    "수사 대구": r"단순(한|히) [^.\n]{0,25}(넘어|아니라)\s",
+    "분열문": r"(중요한|주목할|주목할 만한|기억할|눈여겨볼|눈여겨보아야 할|알아야 할|주의할|핵심적인|놓치기 쉬운) (것|점)은\s|" + SENT + r"(핵심|관건)은\s|" + SENT + r"문제는 [^.\n]{0,30}(때|것|점)입니다",
+    "메타 담화": r"앞(서|에서|에서도) (설명|말|살펴|본|보았|봤|이야기)\S*\s?(것처럼|바와 같이|대로|듯이|듯)|아시다시피|아시겠지만|솔직히 말하면|결론적으로|종합하면|요약하면|말하자면|" + SENT + r"다시 말(해|하면)(서)?,? ",
 }
 END = r"(니다|세요|어요|아요|해요|돼요)\.$"
 POINTER = r"(^|\s)(그|이|그게|이게|바로 그)\s?\S{0,10}" + END  # 앞 문장을 가리키며 닫는 짧은 문장
@@ -139,6 +147,8 @@ def check(text, commit=False, path=""):
             continue
         if code and name in ("이모지", "느낌표"):  # 채점 표시와 시험용 출력 문자열
             continue
+        if code and name == "접속부사 뒤 쉼표":  # 독스트링은 문장 가운데서 줄을 바꿔 '그리고,'(그리다) 가 줄 첫머리에 올 수 있음
+            continue
         for m in re.finditer(pattern, body, re.M):
             fails.append((name, body[max(0, m.start() - 22):m.end() + 6].replace("\n", " ").strip()))
     # 긴 설명 뒤 짧은 정리문, 앞 내용을 가리키며 닫는 단문
@@ -188,7 +198,7 @@ def select(paths):
         top = p.split("/")[0]
         if p.endswith(".md"):
             picked.append(p)
-        elif p.endswith(".py") and ("/" not in p or top in ("gui", "journey", "webprep", "tools")):
+        elif p.endswith(".py") and ("/" not in p or top in ("gui", "journey", "webprep", "tools", "aiprep", "ai")):
             picked.append(p)
         elif p.startswith(".github/workflows/") and p.endswith((".yml", ".yaml")):
             picked.append(p)

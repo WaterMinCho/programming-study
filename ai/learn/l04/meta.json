@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "id": "l04",
+  "title": "4차시 AI 기초: 신경망, 역전파, 활성화 함수",
+  "lesson": "i04",
+  "defines": ["선형 모델", "오차", "평균 제곱 오차", "편미분", "경사하강법", "에폭", "역전파", "연쇄법칙", "옵티마이저"],
+  "needs": ["l01", "l02", "l03"],
+  "sections": {
+    "4a": "선형 모델과 손실",
+    "4b": "경사와 경사하강법",
+    "4c": "연쇄법칙, 역전파, 학습 코드"
+  },
+  "outputs": [],
+  "sources": [
+    {"what": "PyTorch Optimizer.zero_grad: set_to_none 기본값이 True 라 경사를 0 대신 None 으로 비움, PyTorch 2.0 에서 기본값을 바꿈", "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html", "checked": "2026-11-03"},
+    {"what": "PyTorch Tensor.backward: 잎 텐서의 .grad 에 경사를 누적함(덮어쓰지 않음)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.backward.html", "checked": "2026-11-03"},
+    {"what": "PyTorch torch.optim.SGD: momentum 0 이면 파라미터에서 lr × grad 를 뺌", "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.SGD.html", "checked": "2026-11-03"},
+    {"what": "PyTorch torch.no_grad: 블록 안 계산을 기록하지 않음, 결과 텐서는 requires_grad=False", "url": "https://docs.pytorch.org/docs/stable/generated/torch.no_grad.html", "checked": "2026-11-03"}
+  ],
+  "credits": [],
+  "units": {
+    "4a": {"minutes": 5, "key_figure": "assets/4a-4.gif", "kind": "concept"},
+    "4b": {"minutes": 6, "key_figure": "assets/4b-2.gif", "kind": "concept"},
+    "4c": {"minutes": 8, "key_figure": "assets/4c-4.gif", "kind": "concept"}
+  },
+  "later": {
+    "pr": 2,
+    "note": "4차시 나머지 단원은 PR2 에서 4d 부터 덧붙임",
+    "units": ["퍼셉트론과 XOR", "활성화 함수", "국소 최적해", "최적화 함수의 종류(모멘텀)", "모델 용량과 편향·분산", "데이터 분할", "평가 지표"]
+  }
+}

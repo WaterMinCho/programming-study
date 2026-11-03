@@ -1,0 +1,54 @@
+{
+ "format": 1,
+ "missions": [],
+ "topics": [],
+ "pages": [
+  {"id": "l01", "title": "1차시 딥러닝에 필요한 파이썬"},
+  {"id": "l02", "title": "2차시 NumPy·Matplotlib, 행렬 연산 기초"},
+  {"id": "l03", "title": "3차시 PyTorch 기본: 텐서와 자동 미분"},
+  {"id": "l04", "title": "4차시 AI 기초: 신경망, 역전파, 활성화 함수"},
+  {"id": "l05", "title": "5차시 경사하강법 구현"},
+  {"id": "l06", "title": "6차시 손실 함수 설계"},
+  {"id": "l07", "title": "7차시 선형 회귀"},
+  {"id": "l08", "title": "8차시 이진 분류와 평가 지표"},
+  {"id": "l09", "title": "9차시 다중 분류 1"},
+  {"id": "l10", "title": "10차시 다중 분류 2"},
+  {"id": "l11", "title": "11차시 CNN 이미지 분류"},
+  {"id": "l12", "title": "12차시 튜닝·최적화와 과적합 대응"},
+  {"id": "l13", "title": "13차시 사전학습 모델 1"},
+  {"id": "l14", "title": "14차시 사전학습 모델 2"},
+  {"id": "l15", "title": "15차시 사용자 데이터 분류"},
+  {"id": "l16", "title": "16차시 CNN 스크래치 구현"},
+  {"id": "l17", "title": "17차시 자연어 처리 종합 실습"},
+  {"id": "l18", "title": "상황별 코드"}
+ ],
+ "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18"],
+ "exam": {"date": "2026-12-02", "last_new": "2026-11-24", "sweep_from": "2026-11-25", "last_review": "2026-12-01"},
+ "lessons": [
+  {"id": "i01", "no": 1, "title": "딥러닝에 필요한 파이썬", "page": "l01", "date": "2026-10-19", "weight": 0.8, "units": 7, "hw_due": null},
+  {"id": "i02", "no": 2, "title": "NumPy·Matplotlib, 행렬 연산 기초", "page": "l02", "date": "2026-10-20", "weight": 0.9, "units": 6, "hw_due": null},
+  {"id": "i03", "no": 3, "title": "PyTorch 기본: 텐서와 자동 미분", "page": "l03", "date": "2026-10-21", "weight": 1.1, "units": 8, "hw_due": null},
+  {"id": "i04", "no": 4, "title": "AI 기초: 신경망, 역전파, 활성화 함수", "page": "l04", "date": "2026-10-22", "weight": 1.7, "units": 7, "hw_due": null},
+  {"id": "i05", "no": 5, "title": "경사하강법 구현", "page": "l05", "date": "2026-10-23", "weight": 1.1, "units": 7, "hw_due": null},
+  {"id": "i06", "no": 6, "title": "손실 함수 설계", "page": "l06", "date": "2026-10-26", "weight": 1.1, "units": 6, "hw_due": null},
+  {"id": "i07", "no": 7, "title": "선형 회귀", "page": "l07", "date": "2026-10-27", "weight": 0.9, "units": 7, "hw_due": null},
+  {"id": "i08", "no": 8, "title": "이진 분류와 평가 지표", "page": "l08", "date": "2026-10-28", "weight": 1.3, "units": 7, "hw_due": null},
+  {"id": "i09", "no": 9, "title": "다중 분류 1", "page": "l09", "date": "2026-10-29", "weight": 0.9, "units": 7, "hw_due": null},
+  {"id": "i10", "no": 10, "title": "다중 분류 2", "page": "l10", "date": "2026-10-30", "weight": 1.5, "units": 9, "hw_due": null},
+  {"id": "i11", "no": 11, "title": "CNN 이미지 분류", "page": "l11", "date": "2026-11-02", "weight": 1.3, "units": 7, "hw_due": null},
+  {"id": "i12", "no": 12, "title": "튜닝·최적화와 과적합 대응", "page": "l12", "date": "2026-11-03", "weight": 1.1, "units": 7, "hw_due": null},
+  {"id": "i13", "no": 13, "title": "사전학습 모델 1", "page": "l13", "date": "2026-11-04", "weight": 0.8, "units": 7, "hw_due": null},
+  {"id": "i14", "no": 14, "title": "사전학습 모델 2", "page": "l14", "date": "2026-11-05", "weight": 0.8, "units": 8, "hw_due": null},
+  {"id": "i15", "no": 15, "title": "사용자 데이터 분류", "page": "l15", "date": "2026-11-06", "weight": 0.6, "units": 5, "hw_due": null},
+  {"id": "i16", "no": 16, "title": "CNN 스크래치 구현", "page": "l16", "date": "2026-11-09", "weight": 0.8, "units": 6, "hw_due": null},
+  {"id": "i17", "no": 17, "title": "자연어 처리 종합 실습", "page": "l17", "date": "2026-11-10", "weight": 0.2, "units": 5, "hw_due": null}
+ ],
+ "patterns": [
+  {"id": "pc", "page": "l18", "title": "상황별 코드", "units": {"18a": {"after": "i05"}, "18b": {"after": "i10"}, "18c": {"after": "i07"}, "18d": {"after": "i08"}, "18e": {"after": "i09"}, "18f": {"after": "i11"}, "18g": {"after": "i15"}, "18h": {"after": "i14"}}}
+ ],
+ "mocks": [
+  {"id": "m1", "title": "모의고사 1회", "minutes": 60, "count": 30, "range": [1, 12], "window": ["2026-11-14", "2026-11-16"]},
+  {"id": "m2", "title": "모의고사 2회", "minutes": 60, "count": 30, "range": [1, 17], "window": ["2026-11-21", "2026-11-23"]},
+  {"id": "m3", "title": "모의고사 3회", "minutes": 60, "count": 30, "range": [1, 17], "window": ["2026-11-27", "2026-11-29"]}
+ ]
+}

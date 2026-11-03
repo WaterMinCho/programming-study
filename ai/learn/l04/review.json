@@ -1,0 +1,31 @@
+{
+ "format": 1,
+ "writer": "출제 1",
+ "resolver": "재풀이 2",
+ "reviewer": "검토 2",
+ "files": {
+  "assets/4a-1.png": "515853e9564b342fb3040f5cc2043d6967d1b3a3fb2d2fba2d48a53d8e5188c8",
+  "assets/4a-2.gif": "42d0acf1a2dda3a1c8102aca5b86cf1e63472a6282c99203a2dc9dd3f05b3d8b",
+  "assets/4a-3.gif": "9c1a06114aac0f9304c8e22c49f7a2a79341e34a8edbbf484f0fe61e1c7987ce",
+  "assets/4a-4.gif": "94d10ed7090eab8ba3cd7d17131463daf3cca447bed94880e74a1cac5fbab2dd",
+  "assets/4a-5.png": "98fe31f067eddc28a1c3b6a0593e6034201a364dee15b80d58072cc1a7db9926",
+  "assets/4b-1.gif": "1ca29942209abb5dc42a3021ddac3ff1bdf93bb31d7628e61cb60bcadc082103",
+  "assets/4b-2.gif": "6c7d26c2e1cf7386e64505cbd9d680a976bfc41c1eae62c905c52b267c658f65",
+  "assets/4b-3.gif": "5e5c56bf52c03d558aacb6f93c98227ebe2a360a820541961dd56e7f78725309",
+  "assets/4b-4.png": "910cac8b6c71618fde30369b7093df2c2c22f816ac65ddf9f626ef145ace26e4",
+  "assets/4c-1.gif": "4b003c509e6882ae5e6c6c940c717f16c4c9e68ccff50887fd6ec34730754773",
+  "assets/4c-2.gif": "8592daf5e29b6f1f8d36f24567179c32849ca9992c4487dc963fdd44baca420f",
+  "assets/4c-3.gif": "1f45581ebb3c1069b08a077385708334b8f55e22d4b185ae38b012dc0d2d32bd",
+  "assets/4c-4.gif": "4806b06d8dff660a9e059a5fb0028530ea2bbfb83c704d4d9f2cc677401f1d5d",
+  "assets/4c-5.png": "761f8f1161f80358bf80a5b987311e80b914e4a9322c2ea75a5691325ac91e39",
+  "assets/4c-6.png": "1ce9820cebfed65fb5c3411dd9b5f04b8a63fc3636ef0bdcd407fbb496f336fe",
+  "meta.json": "618913d6524a05c4d38555f8157efa6f18623cba7bbaec3c4baeea96529171a3",
+  "page.md": "eb2518ecaa3320396af471bd581522da5c99518c2d49a6158bdc17f2a9648299"
+ },
+ "findings": [
+  "처음 배우는 사람으로 4a~4c 를 읽고 고침: 4b 먼저 풀어 보기에 W.grad 뜻을 먼저 줌, W 의 경사와 경사(묶음)를 나눔, 학습률을 경사에 곱하는 수로 고침",
+  "'몫'(1·2차시의 나눗셈 몫)을 '보태는 값'으로 바꾸고, 4c/2 의 L 변화가 사람 2 를 거친 부분임을 밝힘, 4c/5 에 zero_grad 자리를 다음 단계로 이어 줌",
+  "4a 그림의 색을 한 뜻으로 맞춤(주황 넷, 파랑 둘): 평균은 회색, 평균 빼기는 초록, W 계단은 파랑, 오차 막대는 모두 빨강. 4c 그림의 몫 글자도 바꿈",
+  "그림·장 설명·본문 숫자를 numpy 로 다시 계산해 같음. 겹침 검사 2026-11-04 통과"
+ ]
+}

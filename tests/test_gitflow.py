@@ -223,6 +223,15 @@ class PC:
         write(os.path.join(self.folder, "journey", "d01", "p%d.%s" % (n, ext)), code)
         return self.read()
 
+    def ai(self, n, variant="a"):
+        """AI 비전 개론 기록(ai/record.json)에 답 n개를 적음. 마지막 답의 결과가 variant 마다 달라 두 컴퓨터가 n번째를 다르게
+        풀면 기록이 갈라짐. 내 폴더 내용을 돌려줌."""
+        log = [{"at": "2026-11-09T20:%02d:00" % i, "kind": "answer", "set": "s20261109-1", "card": "i05-b%02d" % i,
+                "result": "pass" if i < n or variant == "a" else "stuck", "again": 0} for i in range(1, n + 1)]
+        data = {"format": 1, "user": self.user, "created": "2026-11-09T20:00:00", "log": log}
+        write(os.path.join(self.folder, "ai", "record.json"), json.dumps(data, ensure_ascii=False, indent=1) + "\n")
+        return self.read()
+
     def read(self, outside=False):
         """내 폴더의 {저장소 기준 경로: 내용}. outside 면 내 폴더와 .git 을 뺀 나머지 작업 폴더."""
         found = {}
@@ -1303,6 +1312,12 @@ class GitFlowTest(unittest.TestCase):
         expected.update({rel: data for rel, data in journey_from.items() if "/journey/" in rel})
         return expected
 
+    def split_ai(self, profile_from, ai_from):
+        """ai/ 는 ai_from, 나머지는 profile_from 의 파일로 짠 기대 폴더."""
+        expected = {rel: data for rel, data in profile_from.items() if "/ai/" not in rel}
+        expected.update({rel: data for rel, data in ai_from.items() if "/ai/" in rel})
+        return expected
+
     def checkouts(self, pc):
         """이번까지 pc 가 부른 checkout 의 경로 지정."""
         return [line.split(" -- ", 1)[1].rsplit(" → ", 1)[0] for line in pc.flow.log if line.startswith("git checkout -q ") and " -- " in line]
@@ -1341,7 +1356,7 @@ class GitFlowTest(unittest.TestCase):
         mine = pc.journey(2)
         result = self.sync(pc, after=self.split(pc2.read(), mine))
         self.assertEqual((result["changed"], result["message"]), (True, gitflow.M_TOOK_OVER + " " + gitflow.M_LATEST))
-        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey")
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey :(exclude)submissions/alice/ai")
         self.submit(pc)
         self.merge(pc)
         self.sync(pc2, after=pc.read())
@@ -1408,7 +1423,7 @@ class GitFlowTest(unittest.TestCase):
         theirs = pc2.solve(); self.submit(pc2)
         result = self.sync(pc, after=theirs)
         self.assertEqual((result["changed"], result["message"]), (True, gitflow.M_TOOK_OVER + " " + gitflow.M_LATEST))
-        self.assertEqual((pc.status(), self.checkouts(pc)[-1]), ([], "submissions/alice :(exclude)submissions/alice/journey"))
+        self.assertEqual((pc.status(), self.checkouts(pc)[-1]), ([], "submissions/alice :(exclude)submissions/alice/journey :(exclude)submissions/alice/ai"))
         pc.solve(); self.submit(pc)
         self.merge(pc)
 
@@ -1432,6 +1447,52 @@ class GitFlowTest(unittest.TestCase):
         for rel in ("profile.json", "journey/progress.json"):
             with open(os.path.join(pc.folder, rel), "wb") as f:
                 f.write(mine["submissions/alice/" + rel])
+        self.submit()
+
+    def test_ai_record_used_on_one_computer_is_not_replaced(self):
+        """파이썬은 두 컴퓨터에서, AI 는 한 컴퓨터에서만 씀. 원격 프로필이 더 길어 받아 와도 이 컴퓨터의 ai/record.json 은 남음."""
+        pc = self.pc
+        pc.solve(); pc.ai(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.solve(); self.submit(pc2)
+        mine = pc.ai(3)
+        result = self.sync(pc, after=self.split_ai(pc2.read(), mine))
+        self.assertTrue(result["changed"])
+        self.assertEqual(self.checkouts(pc)[-1],
+                         "submissions/alice :(exclude)submissions/alice/journey :(exclude)submissions/alice/ai")
+        self.submit(pc)
+        self.merge(pc)
+        self.sync(pc2, after=pc.read())
+
+    def test_ai_diverged_takes_nothing(self):
+        pc = self.pc
+        pc.ai(1); self.submit()
+        pc2 = self.new_pc("pc2")
+        self.sync(pc2, after=pc.read())
+        pc2.ai(2); self.submit(pc2)
+        mine = pc.ai(2, variant="b")
+        tip = self.server.rev("study/alice")
+        result = self.sync(expect="diverged")
+        self.assertEqual(result["detail"], "원격(%s)의 AI 기록 2개, 이 컴퓨터 2개" % tip)
+        self.assertEqual(pc.read(), mine)
+        self.call(pc, "resolve", "ok", pc2.read(), "remote")
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice")  # 다른 영역은 양쪽 다 비어 폴더째 가져옴
+        self.on_uploaded_commit()
+
+    def test_broken_ai_record(self):
+        pc = self.pc
+        pc.solve(); pc.ai(1); self.submit()
+        tip = self.server.rev("study/alice")
+        mine = pc.ai(2)
+        path = os.path.join(pc.folder, "ai", "record.json")
+        write(path, "{")
+        result = self.submit(expect="blocked")
+        self.assertEqual(result["message"], gitflow.M_BROKEN % "ai/record.json 을 읽을 수 없습니다.")
+        self.assertEqual(self.sync(expect="blocked")["message"], gitflow.M_BROKEN_AI)
+        self.assertEqual(self.server.rev("study/alice"), tip)
+        with open(path, "wb") as f:
+            f.write(mine["submissions/alice/ai/record.json"])
         self.submit()
 
     def test_dungeon_files_on_main(self):
@@ -1487,7 +1548,7 @@ class GitFlowTest(unittest.TestCase):
         self.sync(expect="diverged")
         result = self.call(pc, "resolve", "ok", self.split(pc2.read(), mine), "remote")
         self.assertEqual(result["message"], gitflow.M_TOOK_OVER)
-        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey")
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey :(exclude)submissions/alice/ai")
         changed = pc.status(mine=True)
         self.assertTrue(changed and all("/journey/" in line for line in changed), changed)  # 아직 올리지 않은 여정만 바뀐 파일로 남음
         self.submit()
@@ -1558,7 +1619,7 @@ class GitFlowTest(unittest.TestCase):
         mine = pc.journey(2, lang="javascript")
         self.assertEqual(self.sync(expect="diverged")["detail"].count("여정 기록"), 1)
         self.keep_local(self.split(theirs, mine))
-        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey")
+        self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey :(exclude)submissions/alice/ai")
         self.assertEqual(pc.attempts(), pc2.attempts())
         self.merge()
 

@@ -202,11 +202,13 @@ class SelectTest(unittest.TestCase):
             "study.py", "gitflow.py", "gui/hub_page.py", "journey/runner.py", "tools/journey_art/d01.py", "tests/test_gui.py",
             "tests/test_style.py", "submissions/alice/README.md", "submissions/alice/journey/progress.json",
             ".github/workflows/style.yml", ".github/workflows/ci.yml", "start.bat", "gui\\window.py",
+            "aiprep/service.py", "ai/items/i05/gens.py", "ai/items/i05/sealed.json", "ai/learn/l05/page.md",
         ]
         self.assertEqual([
             "README.md", "docs/CRITERIA.md", "problems/s01/p1/problem.md", "dungeons/d01/intro.md", "dungeons/d01/p1/problem.md",
             "dungeons/d01/sealed.json", "study.py", "gitflow.py", "gui/hub_page.py", "journey/runner.py", "tools/journey_art/d01.py",
             ".github/workflows/style.yml", ".github/workflows/ci.yml", "gui/window.py",
+            "aiprep/service.py", "ai/items/i05/gens.py", "ai/learn/l05/page.md",
         ], check_style.select(paths))
 
 

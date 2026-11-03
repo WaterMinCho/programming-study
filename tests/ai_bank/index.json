@@ -1,0 +1,20 @@
+{
+ "format": 1,
+ "missions": [],
+ "topics": [],
+ "pages": [
+  {"id": "l90", "title": "90차시 시험 노트"},
+  {"id": "l91", "title": "91차시 준비 중 노트"}
+ ],
+ "order": ["l90", "l91"],
+ "exam": {"date": "2026-12-02", "last_new": "2026-11-24", "sweep_from": "2026-11-25", "last_review": "2026-12-01"},
+ "lessons": [
+  {"id": "i90", "no": 90, "title": "시험 차시", "page": "l90", "date": "2026-11-02", "weight": 1.0, "units": 2, "hw_due": null},
+  {"id": "i91", "no": 91, "title": "준비 중 차시", "page": "l91", "date": "2026-11-09", "weight": 0.5, "units": 1, "hw_due": null}
+ ],
+ "patterns": [],
+ "mocks": [
+  {"id": "m90", "title": "모의고사 1회", "minutes": 60, "count": 30, "range": [90, 90], "window": ["2026-11-14", "2026-11-16"]},
+  {"id": "m91", "title": "모의고사 2회", "minutes": 60, "count": 30, "range": [90, 91], "window": ["2026-11-21", "2026-11-23"]}
+ ]
+}

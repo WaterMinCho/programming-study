@@ -8,6 +8,7 @@
   python tools/verify_web.py w03 --sign --writer W --resolver R --reviewer V [--finding 글 ...]
                                                       검증을 통과하면 review.json 을 씀(미션·주제는 work/ 안, 페이지는 폴더에)
   python tools/verify_web.py --require-review         검토 서명이 없거나 서명 뒤에 바뀐 파일이 있으면 실패
+  python tools/verify_web.py --bank ai --total-mb 32  다른 은행(AI 비전 개론 학습 노트)을 그 은행의 그림 합계 한도로 봄
 
 그 밖의 옵션: --bank DIR(기본 web/), --root DIR(node_modules 와 .web-check 를 두는 저장소 맨 위, 기본은 이 저장소).
 단계 검사는 학습자 화면과 같은 webprep.checks 로 돌림. 템플릿과 단계별 모범 답안은 <root>/.web-check/_verify_<미션>/ 에
@@ -1074,8 +1075,10 @@ def check_total_images(v):
             assets = os.path.join(parent, name, "assets")
             if os.path.isdir(assets):
                 total += sum(os.path.getsize(os.path.join(assets, f)) for f in os.listdir(assets) if os.path.isfile(os.path.join(assets, f)))
-    if total > LIMITS["total_bytes"]:
-        v.fail("index", 10, "web/ 의 그림 합계가 %.1fMB 입니다(한도 %dMB)." % (total / KB / 1024.0, LIMITS["total_bytes"] // KB // 1024))
+    limit = int(v.opts.total_mb * 1024 * KB) if getattr(v.opts, "total_mb", None) else LIMITS["total_bytes"]
+    if total > limit:
+        v.fail("index", 10, "%s/ 의 그림 합계가 %.1fMB 입니다(한도 %gMB)." % (os.path.basename(v.bank.rstrip(os.sep)), total / KB / 1024.0,
+                                                               limit / KB / 1024.0))
 
 
 # 검토 서명
@@ -1190,6 +1193,7 @@ def parse_args(argv):
     parser.add_argument("--reviewer", help="검토자 이름표")
     parser.add_argument("--finding", action="append", help="review.json 의 findings 에 남길 한 줄(여러 번 줄 수 있음)")
     parser.add_argument("--require-review", action="store_true", help="검토 서명이 없거나 서명 뒤에 바뀐 파일이 있으면 실패")
+    parser.add_argument("--total-mb", type=float, help="은행 전체 그림 합계 한도(MB). 없으면 웹 한도(6MB)")
     return parser.parse_args(argv)
 
 
