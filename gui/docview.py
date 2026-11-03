@@ -528,15 +528,17 @@ class FigureView(QWidget):
     그림 파일은 2배 크기라 화면에는 그 절반 폭까지만 보이고, 칸이 좁으면 칸 폭에 맞춰 줄임. 줄어 보일 때는 [크게 보기]가 보이고,
     그 단추나 그림을 누르면 그린 크기(절반 폭)로 FigureDialog 를 띄움. 움직이는 그림의 단추는 넘김 줄 오른쪽 끝, 정지 그림이나 넘김 줄에
     자리가 없는 그림은 캡션 아래 오른쪽이라 캡션이 그림 바로 아래에 붙음.
-    GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 움직임이 켜져 있으면 처음 보일 때 한 번 재생하고 마지막 장에서 멈춤.
-    data 를 주면 파일을 읽지 않고 그 바이트를 씀. zoomable 이 거짓이면(그림 창 안) 줄어도 크게 보기를 두지 않음."""
+    GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 움직임이 켜져 있고 autoplay 면 처음 보일 때 한 번 재생하고 마지막 장에서 멈춤.
+    data 를 주면 파일을 읽지 않고 그 바이트를 씀. zoomable 이 거짓이면(그림 창 안) 줄어도 크게 보기를 두지 않음.
+    frame_changed 는 장을 옮긴 뒤 한 번 부르는 함수(장 번호를 받음). 뒤로 갈 때 0번 장부터 다시 넘기며 지나는 장에서는 부르지 않음."""
 
-    def __init__(self, path, alt="", parent=None, data=None, zoomable=True):
+    def __init__(self, path, alt="", parent=None, data=None, zoomable=True, autoplay=True, frame_changed=None):
         super().__init__(parent)
         if data is None:
             with open(path, "rb") as handle:
                 data = handle.read()
         self.data, self.zoomable = data, zoomable
+        self.autoplay, self.frame_changed = autoplay, frame_changed
         self.movie, self.count, self.playing, self.shown, self.drawn_width = None, 1, False, False, -1
         self.shrunk, self.down, self.dialog = False, False, None
         self.source = QPixmap()
@@ -551,12 +553,7 @@ class FigureView(QWidget):
         self.zoom_btn.clicked.connect(self.open_dialog)
         self.controls = None  # 움직이는 그림의 넘김 줄
         if data[:4] == b"GIF8":
-            self.buffer = QBuffer(self)
-            self.buffer.setData(QByteArray(data))
-            self.buffer.open(QIODevice.OpenModeFlag.ReadOnly)
-            self.movie = QMovie(self.buffer, QByteArray(b"gif"), self)
-            self.movie.setCacheMode(QMovie.CacheMode.CacheNone)  # 프레임을 모아 두지 않음. 대신 뒤로는 0번 장으로만 바로 감
-            self.movie.frameChanged.connect(self._took_frame)
+            self.open_movie()
             self.count = max(1, self.movie.frameCount())
             self.timer = QTimer(self)
             self.timer.setSingleShot(True)
@@ -592,6 +589,20 @@ class FigureView(QWidget):
             self.source.loadFromData(data)
             self.draw()
 
+    def open_movie(self):
+        """그림 바이트로 QMovie 를 새로 엶. 프레임을 모아 두지 않아서 뒤로는 0번 장으로만 바로 감. 이미 열린 것이 있으면 닫고 바꿈."""
+        old = (self.movie, self.buffer) if self.movie is not None else None
+        self.buffer = QBuffer(self)
+        self.buffer.setData(QByteArray(self.data))
+        self.buffer.open(QIODevice.OpenModeFlag.ReadOnly)
+        self.movie = QMovie(self.buffer, QByteArray(b"gif"), self)
+        self.movie.setCacheMode(QMovie.CacheMode.CacheNone)
+        self.movie.frameChanged.connect(self._took_frame)
+        if old is not None:
+            old[0].frameChanged.disconnect(self._took_frame)
+            old[0].deleteLater()
+            old[1].deleteLater()
+
     def _button(self, bar, text, slot):
         button = kit.button(text, "text", "s")
         button.clicked.connect(slot)
@@ -605,10 +616,13 @@ class FigureView(QWidget):
     def go(self, target):
         """target 번 장으로 감. 앞으로는 한 장씩 넘기고, 뒤로는 0번 장으로 돌아가 다시 넘김."""
         target = max(0, min(target, self.count - 1))
-        if target < self.frame():
+        if target < self.frame() and not self.movie.jumpToFrame(0):
+            self.open_movie()  # 가운데 장에서는 QMovie 가 0번 장으로 돌아가지 못해(마지막 장에서만 됨) 처음부터 다시 읽음
             self.movie.jumpToFrame(0)
         for _ in range(target - self.frame()):
             self.movie.jumpToNextFrame()
+        if self.frame_changed is not None:
+            self.frame_changed(self.frame())
 
     def first(self):
         self.stop()
@@ -740,7 +754,7 @@ class FigureView(QWidget):
         super().showEvent(event)
         if not self.shown:
             self.shown = True
-            if self.movie and self.count > 1 and motion.enabled:
+            if self.movie and self.count > 1 and motion.enabled and self.autoplay:
                 self.play()
 
     def hideEvent(self, event):

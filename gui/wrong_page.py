@@ -23,7 +23,7 @@ from session import SessionError
 CATEGORIES = (("wrong", "틀린 문항"), ("skipped", "미응답 문항"), ("fixed", "다시 맞힌 문항"))  # 목록의 갈래 순서와 이름
 OPENED = {"wrong": True, "skipped": True, "fixed": False}  # 갈래를 처음에 펴 두는지
 SPLIT = 0.45  # 왼쪽 목록 카드의 처음 몫. 1024 창에서 목록 카드 421, 문항 줄의 글 자리 341(크게 19px 로 "빈칸 채우기 · 12회차 미니 모의고사" 가 다 들어감)
-BACK_TEXT = {"python": "← 파이썬 스터디", "hub": "← 처음 화면"}
+BACK_TEXT = {"python": "← 파이썬 스터디", "hub": "← 처음 화면", "ai": "← AI 비전 개론"}
 PICK = "왼쪽 목록에서 문항을 고르세요."
 ALL_FIXED = "틀린 문항을 모두 다시 맞혔습니다. 왼쪽의 '다시 맞힌 문항'을 펴면 다시 볼 수 있습니다."
 NONE_YET = "아직 틀린 문항이 없습니다."
@@ -464,6 +464,8 @@ class WrongPage(QWidget):
             focus.clearFocus()
         if self.back == "hub":
             self.win.go_hub()
+        elif self.back == "ai":
+            self.win.go_ai()
         else:
             self.win.go_home()
 

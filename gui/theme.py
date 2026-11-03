@@ -46,7 +46,7 @@ LIGHT = {
     "doc_heading": "#171b22", "link": "#1d63ed", "indicator_border": "#818a95",
     "ok": "#007840", "wrong": "#c2272d", "blank": "#616a76", "up": "#1d63ed", "retry": "#a1540f",
     "ok_weak": "#e3f8e9", "wrong_weak": "#ffecec", "retry_weak": "#fff2d6", "info": "#464e59", "info_weak": "#eef1f5",
-    "series_python": "#0f9b89", "series_algorithm": "#9476ff", "series_web": "#99007a",
+    "series_python": "#0f9b89", "series_algorithm": "#9476ff", "series_web": "#99007a", "series_ai": "#b35c00",
     "unit_mastered": "#1f883d", "unit_mastered_ink": "#ffffff", "unit_level2": "#9cd0ff", "unit_level2_ink": "#1f2328",
     "unit_level1": "#f5d776", "unit_level1_ink": "#1f2328", "unit_retry": "#f0883e", "unit_retry_ink": "#1f2328",
     "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#818a95",
@@ -63,7 +63,7 @@ DARK = {
     "doc_heading": "#eaf1fa", "link": "#7aa8ff", "indicator_border": "#7b8189",
     "ok": "#5ccb89", "wrong": "#f87e77", "blank": "#9ea3ac", "up": "#7aa8ff", "retry": "#eeb154",
     "ok_weak": "#182f20", "wrong_weak": "#3e1e1c", "retry_weak": "#382810", "info": "#c5cbd4", "info_weak": "#282d34",
-    "series_python": "#0aa99b", "series_algorithm": "#8a7cfd", "series_web": "#c231ac",
+    "series_python": "#0aa99b", "series_algorithm": "#8a7cfd", "series_web": "#c231ac", "series_ai": "#e8833a",
     "unit_mastered": "#2ea043", "unit_mastered_ink": "#06120a", "unit_level2": "#58a6ff", "unit_level2_ink": "#0b1220",
     "unit_level1": "#d9b44a", "unit_level1_ink": "#0b1220", "unit_retry": "#e2673a", "unit_retry_ink": "#0b1220",
     "unit_none": "#2b323c", "unit_none_ink": "#b7c1cc", "unit_none_edge": "#7b8189",
@@ -78,8 +78,9 @@ BASE_TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 
 TYPE = dict(BASE_TYPE)
 SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 간격이 아니라 선으로 셈
 RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16}
-CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 72, "topbar": 64, "bottombar": 80, "stepper": 56}
-SERIES = ("series_python", "series_algorithm", "series_web")  # 7일 그래프와 트랙 이름 앞 점에만 쓰는 트랙 색
+CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 72, "topbar": 64, "bottombar": 80, "stepper": 56,
+           "slot": 30}  # slot 은 코드 줄 안 빈칸의 높이. 보통 글자의 코드 줄 높이 22 에 8 을 더한 값이고 글자 단계를 따라 같이 커짐(slot_height)
+SERIES = ("series_python", "series_algorithm", "series_web", "series_ai")  # 7일 그래프와 트랙 이름 앞 점에만 쓰는 트랙 색
 
 # 코드 편집기의 색. 앱 테마가 밝든 어둡든 같은 남색 바탕을 써서 문제 칸과 구분함.
 # 바탕(bg)과의 대비는 글자색이 4.5:1 이상, 주석과 줄 번호가 3:1 이상(tests/test_gui.py 의 HighlightTest 가 확인함)
@@ -305,6 +306,10 @@ QWidget[ui="2"] QPlainTextEdit { padding: 8px 15px; }
 QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QPlainTextEdit:focus { border: 2px solid %(focus)s; padding: 0 14px; }
 QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
 QWidget[ui="2"] QLineEdit[tone="danger"] { border: 2px solid %(wrong)s; padding: 0 14px; }
+QWidget[ui="2"] QLineEdit[tone="success"] { border: 2px solid %(ok)s; padding: 0 14px; }
+QWidget[ui="2"] QLineEdit[slot="true"] { min-height: %(slot)spx; max-height: %(slot)spx; padding: 0 7px; border-radius: 8px; }
+QWidget[ui="2"] QLineEdit[slot="true"]:focus, QWidget[ui="2"] QLineEdit[slot="true"][tone="danger"],
+    QWidget[ui="2"] QLineEdit[slot="true"][tone="success"] { padding: 0 6px; }
 QWidget[ui="2"] QLineEdit:disabled, QWidget[ui="2"] QPlainTextEdit:disabled { background: %(surface_alt)s; color: %(muted)s; }
 QWidget[ui="2"] QPlainTextEdit#code { border-radius: 12px; padding: 0; }
 QWidget[ui="2"] QTextBrowser#plain, QWidget[ui="2"] QPlainTextEdit#plain { border: 0; border-radius: 0; padding: 0; background: transparent; }
@@ -464,9 +469,15 @@ def _style(scheme):
 
 def style_tokens(scheme):
     """스타일시트에 채우는 값: scheme 의 색, 체크 표시 그림, 단추 글자 크기(btn 은 label, btn_s 는 caption, code 는 찾기 막대 단추),
-    꼬리표 높이(caption 줄 높이 + 2)."""
+    꼬리표 높이(caption 줄 높이 + 2), 코드 줄 안 빈칸의 테두리 안쪽 높이(slot)."""
     check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
-    return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2)
+    return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2,
+                slot=slot_height() - 2)
+
+
+def slot_height():
+    """코드 줄 안 빈칸의 높이. 지금 글자 단계의 코드 줄 높이에 CONTROL["slot"] 이 보통 단계에서 더한 만큼을 더함."""
+    return TYPE["code"][1] + CONTROL["slot"] - BASE_TYPE["code"][1]
 
 
 def set_text(step):

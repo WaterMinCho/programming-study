@@ -1,0 +1,246 @@
+# -*- coding: utf-8 -*-
+"""AI 비전 개론 홈(AiHomePage)과 차시 화면(AiLessonPage).
+
+홈: 위 막대(← 처음 화면), 제목과 소개, 낱말 풀이(복습 문항, 외운 문항), 알림 줄(시험까지 남은 날, 오늘 푼 문항, 외운 문항),
+이어서 할 일 카드(화면에 하나뿐인 주 단추), 문제집 구역(섞어 풀기, 공개된 차시마다 차시 문제집, 오답 노트), 학습 단원 구역(차시마다 한 줄,
+준비 중인 차시는 끝의 글자 단추 하나로 접음). 하루 목표는 두지 않고(2026-11-03 사용자 결정) 문제집을 원하는 만큼 풀게 함.
+문제집 줄은 외운 문항과 복습 문항을, 학습 단원 줄은 읽은 단원 수를 씀. 상황별 코드와 모의고사 구역은 그 은행이 생기면 더함(지금은 없어서 그리지 않음).
+차시 화면: 단원 줄, [전체 노트]·[외울 것], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
+from PyQt6.QtWidgets import QWidget
+
+from gui import ai_text, kit
+from gui.wrong_page import count_line
+from session import SessionError
+
+
+class AiHomePage(QWidget):
+    def __init__(self, win):
+        super().__init__()
+        kit.page(self)
+        self.setObjectName("page")
+        self.win = win
+        self.overview, self.target, self.busy, self.mixed_ready = None, None, False, False
+        self.mixed_row, self.notes_row = None, None
+        outer = kit.box(self)
+        top = kit.TopBar("← 처음 화면", plain=True)
+        self.hub_btn = top.back
+        top.row.addStretch(1)  # 제목이 없는 막대라 돌아가기를 왼쪽 끝에 붙임
+        outer.addWidget(top)
+
+        inner = QWidget()
+        root = kit.box(inner, (0, 24, 0, 48))
+        root.addWidget(kit.label(ai_text.TRACK, "title"))
+        root.addSpacing(4)
+        root.addWidget(kit.para("%s %s" % (ai_text.ABOUT, ai_text.TERMS), "body", "secondary"))  # 아래 줄이 쓰는 낱말(복습 문항, 외운 문항)을 먼저 풂
+        root.addSpacing(8)
+        self.info = kit.label("", "caption", "secondary")
+        root.addWidget(self.info)
+        root.addSpacing(16)
+        self.notice = kit.banner("", "danger")  # 기록을 읽지 못한 까닭이나 읽지 못한 차시
+        self.notice.hide()
+        root.addWidget(self.notice)
+        root.addSpacing(16)
+        self.next_card = kit.NextCard()
+        self.next_btn = self.next_card.button
+        root.addWidget(self.next_card)
+
+        root.addSpacing(48)
+        head, _, _ = kit.section("문제집")
+        root.addLayout(head)
+        root.addSpacing(12)
+        self.books = kit.RowList()
+        root.addWidget(self.books)
+
+        root.addSpacing(48)
+        head, _, self.lesson_count = kit.section("학습 단원")
+        root.addLayout(head)
+        root.addSpacing(12)
+        self.lesson_list = kit.RowList()
+        root.addWidget(self.lesson_list)
+        root.addStretch(1)
+        column = kit.column(inner)
+        column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
+        self.scroll = kit.scroll(column)
+        outer.addWidget(self.scroll, 1)
+
+        self.hub_btn.clicked.connect(lambda: self.win.go_hub())
+        self.next_btn.clicked.connect(self.open_next)
+
+    def refresh(self):
+        """서비스에서 현황을 다시 읽어 칸을 채움. 기록을 읽지 못하면 띠에 이유를 보이고 수치 줄과 목록을 비움."""
+        try:
+            overview = self.overview = self.win.ai.overview()
+        except SessionError as error:
+            self.overview = None
+            self.notice.text.setText("%s\n%s" % (error, ai_text.FIX_HINT))
+            self.notice.show()
+            self.info.setText("")
+            self.info.hide()
+            self.lesson_count.setText("")
+            self.lesson_list.clear()
+            self.next_card.hide()
+            self.show_books(None)
+            return
+        broken = [row["title"] for row in overview["lessons"] if row.get("error")]
+        self.notice.text.setText(ai_text.BROKEN % ", ".join(broken) if broken else "")
+        self.notice.setToolTip("\n".join("%s: %s" % (row["title"], row["error"]) for row in overview["lessons"] if row.get("error")))
+        self.notice.setVisible(bool(broken))
+        self.info.setText(ai_text.exam_line(overview, self.win.ai.today()))
+        self.info.setVisible(bool(self.info.text()))
+        self.show_next(overview)
+        self.show_books(overview)
+        self.show_lessons(overview)
+
+    def show_books(self, overview):
+        """문제집 구역. 섞어 풀기, 공개된 차시마다 차시 문제집, 오답 노트 순. overview 가 None 이면(기록을 읽지 못함) 줄 이름만 두고 끔."""
+        self.books.clear()
+        read = ai_text.read_counts(overview)[1] if overview else 0
+        self.mixed_ready = bool(read)
+        self.mixed_row = self.books.add(kit.Row("섞어 풀기", ai_text.mixed_line(overview) if overview else "", mark=kit.Dot(
+            "review" if overview and overview["due"] else ("progress" if read else "todo"))))
+        self.mixed_row.clicked.connect(self.open_mixed)
+        for row in (overview["lessons"] if overview else []):
+            if not row["ready"]:
+                continue
+            book = self.books.add(kit.Row(ai_text.BOOK % row["no"], ai_text.book_line(row), "예습" if row["preview"] else "",
+                                          kit.Dot(ai_text.book_dot(row)), row["id"]))
+            book.clicked.connect(lambda lid=row["id"]: self.open_book(lid))
+        groups = ai_text.AiNotes(self.win).groups() if overview else []  # 기록이 깨졌으면 빈 목록
+        self.notes_row = self.books.add(kit.Row(ai_text.NOTES_ROW, count_line(groups) if overview else "", mark=kit.Dot(
+            "review" if any(i["state"] != "fixed" for g in groups for i in g["items"]) else "todo")))
+        self.notes_row.clicked.connect(self.open_notes)
+        self.set_busy(self.busy)
+        if overview is None:
+            for row in self.books.rows:
+                kit.set_inert(row, True)
+
+    def show_next(self, overview):
+        target = self.target = ai_text.next_item(overview, self.win.ai.today())
+        self.next_card.set_item(target["title"], target["line"], target["action"])
+        self.next_card.show()
+
+    def show_lessons(self, overview):
+        self.lesson_list.clear()
+        waiting = []
+        ready = 0
+        for row in overview["lessons"]:
+            if not row["ready"]:
+                if not row.get("error"):
+                    waiting.append("%d차시 %s" % (row["no"], row["title"]))
+                continue
+            ready += 1
+            line = kit.Row("%d차시 %s" % (row["no"], row["title"]), ai_text.lesson_line(row), "예습" if row["preview"] else "",
+                           kit.Dot(ai_text.lesson_dot(row)), row["id"])
+            line.clicked.connect(lambda lid=row["id"]: self.open_lesson(lid))
+            self.lesson_list.add(line)
+        self.lesson_list.add_more(waiting, ai_text.PREPARING)
+        self.lesson_count.setText("공개된 차시 %d개" % ready if ready else "")
+
+    def open_lesson(self, lid):
+        if not self.busy:
+            self.win.open_ai_lesson(lid)
+
+    def open_book(self, lid):
+        if not self.busy:
+            self.win.open_ai_practice("lesson", lesson=lid)
+
+    def open_mixed(self):
+        if not self.busy and self.mixed_ready:
+            self.win.open_ai_practice("mixed")
+
+    def open_notes(self):
+        if not self.busy:
+            self.win.show_wrong("ai", "ai")
+
+    def open_next(self):
+        """이어서 할 일. 안 읽은 단원, 복습(오늘 틀린 문항이 맨 앞에 나옴), 다시 보기."""
+        target = self.target
+        if target is None or self.busy:
+            return
+        kind = target["kind"]
+        if kind == "unit":
+            self.win.open_ai_unit(target["lesson"], target["unit"])
+        elif kind in ("review", "again"):
+            self.win.open_ai_practice("review")
+        elif kind == "revisit":
+            self.win.open_ai_revisit()
+
+    def set_busy(self, busy, text=""):
+        """문제 받기·제출이 기록을 쓰는 동안 줄과 단추를 끔. 섞어 풀기는 끝나도 읽은 단원이 있을 때만 다시 켬."""
+        self.busy = busy
+        for widget in (self.hub_btn, self.next_btn):
+            widget.setEnabled(not busy)
+        for row in self.books.rows + self.lesson_list.rows:
+            kit.set_inert(row, busy or (row is self.mixed_row and not self.mixed_ready))
+
+    def restyle(self):
+        for widget in self.findChildren(kit.Dot) + self.findChildren(kit.Chevron):
+            widget.update()
+
+
+class AiLessonPage(QWidget):
+    """차시 화면(설계 2.3). 단원 줄을 누르면 학습 단원을 엶."""
+
+    def __init__(self, win):
+        super().__init__()
+        kit.page(self)
+        self.setObjectName("page")
+        self.win = win
+        self.lid, self.busy = None, False
+        outer = kit.box(self)
+        self.top = kit.TopBar("← AI 비전 개론", "")
+        self.back_btn, self.title = self.top.back, self.top.title
+        self.note_btn = self.top.add_right(kit.button("전체 노트", "text", "s"))
+        self.memo_btn = self.top.add_right(kit.button("외울 것", "text", "s"), flush=True)
+        self.note_btn.setToolTip("이 차시의 모든 단원을 정답을 편 채로 다시 읽습니다. 다시 읽기는 외운 문항에 넣지 않습니다.")
+        self.memo_btn.setToolTip("이 차시 모든 단원의 외울 것을 답을 가린 질문으로 모아 봅니다.")
+        outer.addWidget(self.top)
+        inner = QWidget()
+        root = kit.box(inner, (0, 24, 0, 48))
+        head, _, self.unit_count = kit.section("단원")
+        root.addLayout(head)
+        root.addSpacing(12)
+        self.unit_list = kit.RowList()
+        root.addWidget(self.unit_list)
+        root.addSpacing(16)
+        root.addWidget(kit.para(ai_text.LESSON_PRACTICE, "caption", "secondary"))
+        root.addStretch(1)
+        column = kit.column(inner)
+        column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
+        outer.addWidget(kit.scroll(column), 1)
+        self.bar = kit.BottomBar()
+        self.practice_btn = self.bar.add_action(kit.button("이 차시 풀기", "primary", "l"))
+        self.practice_btn.setToolTip(ai_text.LESSON_PRACTICE)
+        outer.addWidget(self.bar)
+        self.back_btn.clicked.connect(lambda: self.win.go_ai())
+        self.note_btn.clicked.connect(lambda: self.win.open_ai_note(self.lid))
+        self.memo_btn.clicked.connect(lambda: self.win.open_ai_note(self.lid, only_memo=True))
+        self.practice_btn.clicked.connect(lambda: self.win.open_ai_practice("lesson", lesson=self.lid))
+
+    def load(self, lid):
+        """차시를 올림. 준비 중이거나 읽지 못한 차시면 AiError."""
+        data = self.win.ai.lesson(lid)
+        self.lid = lid
+        self.title.setText("%d차시 %s" % (data["no"], data["title"]))
+        self.title.show()
+        self.unit_list.clear()
+        for unit in data["units"]:
+            row = kit.Row(unit["title"], ai_text.unit_line(unit), " · ".join(ai_text.unit_badges(unit)),
+                          kit.Dot("done" if unit["read"] else "todo"), unit["key"])
+            row.clicked.connect(lambda key=unit["key"]: self.open_unit(key))
+            self.unit_list.add(row)
+        read = sum(1 for unit in data["units"] if unit["read"])
+        self.unit_count.setText("%d개 중 %d개 읽음" % (len(data["units"]), read))
+
+    def open_unit(self, key):
+        if not self.busy:
+            self.win.open_ai_unit(self.lid, key)
+
+    def set_busy(self, busy, text=""):
+        self.busy = busy
+        for widget in (self.back_btn, self.note_btn, self.memo_btn, self.practice_btn):
+            widget.setEnabled(not busy)
+
+    def restyle(self):
+        for widget in self.findChildren(kit.Dot) + self.findChildren(kit.Chevron):
+            widget.update()

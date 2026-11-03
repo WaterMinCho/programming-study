@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-"""첫 화면(허브): 위 막대(이름, ID, 글자 크기 단추 셋, 테마 단추), 제목 "오늘 할 공부", 이어서 할 일 카드 하나(화면에 하나뿐인 주 단추), 공부 트랙 줄 셋,
+"""첫 화면(허브): 위 막대(이름, ID, 글자 크기 단추 셋, 테마 단추), 제목 "오늘 할 공부", 이어서 할 일 카드 하나(화면에 하나뿐인 주 단추), 공부 트랙 줄 넷,
 오답 노트 줄(트랙마다 하나), 최근 7일 학습 카드, 제출 줄 둘, 바닥글. 구역은 위아래로 쌓아 저마다 960 폭의 가운데 단을 다 씀. 창이 작으면 스크롤함.
 
-카드의 수치는 세 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service 의 overview).
+카드의 수치는 네 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service,
+AI 비전 개론은 aiprep.service 의 overview).
 막대의 파이썬 채점 수는 시도 기록에서 서로 다른 (회차, 시각) 쌍의 수임. 회차를 한 번 채점하면 문항마다 같은 시각의 시도가
 하나씩 남아서, 시도 수를 그대로 세면 여행 채점 한 번(1)과 견줄 수 없음.
-이어서 할 일은 웹의 진행 중 미션이나 오늘 복습이 있으면 그것, 아니면 가장 최근에 기록을 남긴 트랙의 다음 할 일, 기록이 없으면 파이썬 스터디의
+이어서 할 일은 웹의 진행 중 미션이나 오늘 복습, AI 비전 개론의 복습이 aiprep.service.REVIEW_FIRST 이상이면 그것(둘 다면 마지막 기록 순),
+아니면 가장 최근에 기록을 남긴 트랙의 다음 할 일, 기록이 없으면 파이썬 스터디의
 다음 회차임. 여행의 다음 할 일은 journey_text.next_item 이 마지막으로 연 문제부터 보고 고름. 막대와 최근 채점 줄은 칠할 때마다 지금 테마의 색을 읽음."""
 import datetime
 import html
@@ -15,17 +17,19 @@ from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QFontMetricsF, QPainter
 from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
 
-from gui import errors, journey_text, kit, theme, web_text
+from aiprep import service as ai_service
+from gui import ai_text, errors, journey_text, kit, theme, web_text
 from gui.mascot import Mascot
 from gui.widgets import LinkLabel
 from gui.wrong_page import count_line
+from session import SessionError
 from webprep.record import RecordError
 from webprep.service import WebError
 
 DAYS = 7  # 막대로 보이는 날 수(오늘 포함)
 RECENT = 5  # 최근 채점 줄 수
 WEEKDAYS = "월화수목금토일"
-TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면접"))  # 막대 순서와 범례 이름. 트랙 색(theme.SERIES)도 이 순서
+TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면접"), ("ai", "AI 비전"))  # 막대 순서와 범례 이름. 트랙 색(theme.SERIES)도 이 순서
 BAR_GAP = 2  # 한 날의 막대 사이
 EMPTY = "아직 채점한 기록이 없습니다."
 THEME_TEXT = {"system": "밝게 보기", "light": "어둡게 보기", "dark": "시스템 따르기"}  # 단추를 누르면 바뀌는 쪽(시스템 → 밝게 → 어둡게 → 시스템)
@@ -118,19 +122,20 @@ class RecentList(QWidget):
 
 
 class WeekChart(QWidget):
-    """최근 7일의 날짜별 학습 수. 날마다 파이썬, 알고리즘, 웹 막대를 트랙 색(theme.SERIES)으로 TRACKS 순서로 나란히 그리고, 바탕은 track 색.
+    """최근 7일의 날짜별 학습 수. 날마다 파이썬, 알고리즘, 웹, AI 비전 막대를 트랙 색(theme.SERIES)으로 TRACKS 순서로 나란히 그리고, 바탕은 track 색.
     기록이 없는 날의 바탕은 옅게 그리고, 7일 모두 없으면 막대 자리 가운데에 EMPTY 를 씀.
     막대 아래에 요일과 날짜를 micro 13 으로 쓰고 오늘은 굵게 씀. 하루 칸이 좁아 날짜(10/15)끼리 붙으면 날만(15) 씀. 범례는 막대 칸의 위 줄에 있음."""
 
     def __init__(self):
         super().__init__()
-        self.days = []  # [(날짜, 파이썬 채점 수, 알고리즘 채점 수, 웹 검사·드릴 수)], 오늘이 마지막
+        self.days = []  # [(날짜, 파이썬 채점 수, 알고리즘 채점 수, 웹 검사·드릴 수, AI 하루 수)], 오늘이 마지막
         self.setMinimumHeight(136)
 
     def set_days(self, days):
         self.days = list(days)
-        self.setToolTip("\n".join("%d/%d(%s) 파이썬 %d · 알고리즘 %d · 웹 %d" % (day.month, day.day, WEEKDAYS[day.weekday()], python, journey, web)
-                                  for day, python, journey, web in self.days))
+        self.setToolTip("\n".join("%d/%d(%s) 파이썬 %d · 알고리즘 %d · 웹 %d · AI %d" % (day.month, day.day, WEEKDAYS[day.weekday()], python, journey,
+                                                                                    web, ai)
+                                  for day, python, journey, web, ai in self.days))
         self.update()
 
     def paintEvent(self, event):
@@ -269,12 +274,14 @@ class HubPage(QWidget):
         self.python_row = self.tracks.add(kit.Row("파이썬 스터디", PYTHON_ABOUT, mark=kit.Dot("series_python", 8), strong=True))
         self.journey_row = self.tracks.add(kit.Row("알고리즘 여행", "", mark=kit.Dot("series_algorithm", 8), strong=True))
         self.web_row = self.tracks.add(kit.Row("웹 면접 준비", "", mark=kit.Dot("series_web", 8), strong=True))
+        self.ai_row = self.tracks.add(kit.Row(ai_text.TRACK, "", mark=kit.Dot("series_ai", 8), strong=True))
         self.journey_error = kit.banner("", "danger")  # 여행 기록을 읽지 못한 이유. 그동안 여행 줄은 눌리지 않음
         self.web_error = kit.banner("", "danger")
+        self.ai_error = kit.banner("", "danger")
         stack = QWidget()  # 목록과 띠 사이 12. 숨은 띠 옆에는 간격이 생기지 않아 띠가 없으면 구역 사이가 48 로 남음
         stack_box = kit.box(stack, spacing=12)
         stack_box.addWidget(self.tracks)
-        for banner in (self.journey_error, self.web_error):
+        for banner in (self.journey_error, self.web_error, self.ai_error):
             banner.hide()
             stack_box.addWidget(banner)
         root.addWidget(stack)
@@ -360,6 +367,7 @@ class HubPage(QWidget):
         self.python_row.clicked.connect(win.go_home)
         self.journey_row.clicked.connect(lambda: win.go_journey())
         self.web_row.clicked.connect(lambda: win.go_web())
+        self.ai_row.clicked.connect(lambda: win.go_ai())
         self.git_btn.clicked.connect(win.submit_pr)
         self.sync_btn.clicked.connect(win.fetch_problems)
 
@@ -371,10 +379,11 @@ class HubPage(QWidget):
         self.python_row.set_second("단원 %d개 중 %d개 숙달 · 다음은 %s" % (overview["total_units"], overview["mastered"], name))
         journey = self.show_journey()
         web = self.show_web()
+        ai = self.show_ai()
         for track, row in self.note_rows:
             row.set_second(count_line(track.groups()))
-        self.show_week(overview, journey, web)
-        self.show_next(overview, journey, web)
+        self.show_week(overview, journey, web, ai)
+        self.show_next(overview, journey, web, ai)
         usable = win.gitflow is not None
         for row in (self.git_btn, self.sync_btn):
             kit.set_inert(row, not usable)
@@ -431,8 +440,28 @@ class HubPage(QWidget):
         self.web_row.set_second(" · ".join(parts))
         return overview
 
-    def show_next(self, overview, journey, web):
-        """이어서 할 일 카드와 요약 문장. 웹의 진행 중 미션이나 오늘 복습이 먼저, 그다음 가장 최근 기록을 남긴 트랙, 기록이 없으면 파이썬."""
+    def show_ai(self):
+        """AI 비전 개론 줄. 기록이나 은행 목록을 읽지 못했으면 이유를 띠로 보이고 줄을 끄고 None 을, 아니면 서비스의 overview 를 돌려줌."""
+        win = self.win
+        overview, error = None, win.ai_error
+        if win.ai is not None:
+            try:
+                overview = win.ai.overview()
+            except (SessionError, RecordError) as caught:
+                error = str(caught)
+        ready = overview is not None
+        self.ai_error.setVisible(not ready)
+        kit.set_inert(self.ai_row, not ready)
+        if not ready:
+            self.ai_error.text.setText("%s\n%s" % (error, FIX_HINT))
+            self.ai_row.set_second("기록을 읽지 못했습니다.")
+            return None
+        self.ai_row.set_second(ai_text.track_line(overview))
+        return overview
+
+    def show_next(self, overview, journey, web, ai=None):
+        """이어서 할 일 카드와 요약 문장. 웹의 진행 중 미션이나 오늘 복습, AI 복습이 REVIEW_FIRST 이상이면 그것이 먼저(둘 다면 마지막 기록 순),
+        그다음 가장 최근 기록을 남긴 트랙, 기록이 없으면 파이썬."""
         running = [m for m in (web["missions"] if web else []) if m["phase"] in ("reading", "live")]
         due = [c for c in (web["today"]["chains"] if web else []) if not c["new"]]
         parts = []
@@ -440,6 +469,8 @@ class HubPage(QWidget):
             parts.append("진행 중인 미션 %d개" % len(running))
         if due:
             parts.append("오늘 복습 %d개" % len(due))
+        if ai and ai["due"]:
+            parts.append("AI 복습 %d개" % ai["due"])
         self.summary.setText("%s가 있습니다." % "와 ".join(parts) if parts else "진행 중인 미션과 오늘 복습이 없습니다.")
         web_item = web_text.next_item(web, self.win.web.missions) if web else None
         latest = []
@@ -450,8 +481,14 @@ class HubPage(QWidget):
             latest.append((str(journey["recent"][0]["at"] or ""), "journey"))
         if web and web["activity"]:
             latest.append((str(web["activity"][-1]), "web"))
-        order = ["web"] if (running or due) and web_item else []
-        order += [track for _, track in sorted(latest, reverse=True)] + ["python"]
+        if ai and ai["last_at"]:
+            latest.append((str(ai["last_at"]), "ai"))
+        ai_item = ai_text.next_item(ai, self.win.ai.today()) if ai else None
+        first = [track for _, track in sorted(latest, reverse=True)
+                 if (track == "web" and (running or due) and web_item) or (track == "ai" and ai["due"] >= ai_service.REVIEW_FIRST)]
+        if (running or due) and web_item and "web" not in first:
+            first.insert(0, "web")
+        order = first + [track for _, track in sorted(latest, reverse=True)] + ["python"]
         for track in order:
             if track == "python":
                 label, desc = self.win.next_action(overview)
@@ -468,6 +505,21 @@ class HubPage(QWidget):
                 self.set_next(web_item["title"], "웹 면접 준비 · %s" % web_item["line"], web_item["action"],
                               lambda f=opener, iid=web_item["id"]: f(iid))
                 return
+            if track == "ai" and ai_item and ai_item["action"]:
+                self.set_next(ai_item["title"], "%s · %s" % (ai_text.TRACK, ai_item["line"]), ai_item["action"],
+                              lambda item=ai_item: self.open_ai(item))
+                return
+
+    def open_ai(self, item):
+        """AI 비전 개론의 이어서 할 일을 엶. 단원·복습·다시 보기는 그 화면으로 바로 감."""
+        if item["kind"] == "unit":
+            self.win.open_ai_unit(item["lesson"], item["unit"])
+        elif item["kind"] in ("review", "again"):
+            self.win.open_ai_practice("review")
+        elif item["kind"] == "revisit":
+            self.win.open_ai_revisit()
+        else:
+            self.win.go_ai()
 
     def start_python(self):
         """파이썬 스터디 홈을 거쳐 회차를 엶. 홈을 거쳐야 area 가 python 이 되어 문제 받기 뒤에도 그쪽에 머묾."""
@@ -483,9 +535,10 @@ class HubPage(QWidget):
         if self.target is not None:
             self.target()
 
-    def show_week(self, overview, journey, web=None):
-        """막대, 연속 학습일, 최근 채점. overview 는 파이썬 쪽, journey 와 web 은 여행·웹 쪽 overview(읽지 못했으면 None).
-        웹 막대는 검사 한 번과 끝낸 사슬 하나를 1 로 세고(activity_counts), 연속 학습일은 검사나 드릴 기록이 있는 날(activity)로 셈."""
+    def show_week(self, overview, journey, web=None, ai=None):
+        """막대, 연속 학습일, 최근 채점. overview 는 파이썬 쪽, journey·web·ai 는 여행·웹·AI 쪽 overview(읽지 못했으면 None).
+        웹 막대는 검사 한 번과 끝낸 사슬 하나를 1 로 세고(activity_counts), 연속 학습일은 검사나 드릴 기록이 있는 날(activity)로 셈.
+        AI 막대는 끝낸 연습 묶음, 끝까지 읽은 단원, 제출한 모의고사를 1 로 셈(달력 날짜)."""
         gradings = python_gradings(self.win.session.prof["attempts"])
         python = {}
         for at, _ in gradings:
@@ -493,13 +546,14 @@ class HubPage(QWidget):
         activity = journey["activity"] if journey else {}
         web_days = set(web["activity"] if web else [])
         web_counts = web["activity_counts"] if web else {}
+        ai_counts = ai["activity_counts"] if ai else {}
         today = datetime.date.today()
         days = [today - datetime.timedelta(days=back) for back in range(DAYS - 1, -1, -1)]
-        self.chart.set_days((day, python.get(day.isoformat(), 0), activity.get(day.isoformat(), 0), web_counts.get(day.isoformat(), 0))
-                            for day in days)
+        self.chart.set_days((day, python.get(day.isoformat(), 0), activity.get(day.isoformat(), 0), web_counts.get(day.isoformat(), 0),
+                             ai_counts.get(day.isoformat(), 0)) for day in days)
         self.total.setText("채점 %d회" % sum(sum(values) for _, *values in self.chart.days))
         streak, day = 0, today
-        while python.get(day.isoformat()) or activity.get(day.isoformat()) or day.isoformat() in web_days:
+        while python.get(day.isoformat()) or activity.get(day.isoformat()) or day.isoformat() in web_days or ai_counts.get(day.isoformat()):
             streak += 1
             day -= datetime.timedelta(days=1)
         self.streak.setText("연속 학습 %d일" % streak)
@@ -508,6 +562,8 @@ class HubPage(QWidget):
         for entry in (journey["recent"] if journey else []):
             rows.append((str(entry["at"] or ""), "%s %s %s점" % (entry["no"], journey_text.LANG_LABEL.get(entry["lang"], entry["lang"]),
                                                                journey_text.whole_score(entry["score"]))))
+        for entry in (ai["recent"] if ai else []):
+            rows.append((str(entry["at"] or ""), ai_text.recent_label(entry)))
         rows.sort(key=lambda row: row[0], reverse=True)
         self.recent.set_rows((label, stamp(at)) for at, label in rows[:RECENT])
         self.recent_box.setVisible(bool(rows))
@@ -526,6 +582,7 @@ class HubPage(QWidget):
         kit.set_inert(self.python_row, busy)
         kit.set_inert(self.journey_row, busy or self.win.journey is None)
         kit.set_inert(self.web_row, busy or self.web_error.isVisibleTo(self))
+        kit.set_inert(self.ai_row, busy or self.ai_error.isVisibleTo(self))
         for _, row in self.note_rows:
             kit.set_inert(row, busy)
         for row in (self.git_btn, self.sync_btn):
