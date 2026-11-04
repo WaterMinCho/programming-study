@@ -358,6 +358,11 @@ class TextTest(unittest.TestCase):
         card = ai_text.next_item(mock_next, datetime.date(2026, 11, 14))
         self.assertEqual((card["title"], card["line"], card["action"]), ("모의고사 1회 · 30문항 · 60분", ai_text.MOCK_LATER, ""))
 
+    def test_same_row_labels_are_numbered_by_card(self):
+        items = ai_text.numbered([{"key": "i01-s03", "label": "고르기 · 같은 지문"}, {"key": "i01-s01", "label": "고르기 · 같은 지문"},
+                                  {"key": "i01-b01", "label": "빈칸 · 다른 지문"}])
+        self.assertEqual([i["label"] for i in items], ["고르기 · 같은 지문 (2)", "고르기 · 같은 지문 (1)", "빈칸 · 다른 지문"])
+
     def test_note_html_lines(self):
         item = {"lines": ["2번 틀림", "확실하다고 했지만 틀림"], "ref": [], "stem": "지문", "options": ["가", "나"], "mine": ["가"]}
         html_text = ai_text.note_html(item, {"answer": ["가"], "explain": "", "why": {}}, "옳지 않은 문장")

@@ -1121,7 +1121,7 @@ def card_units(bank_dir, index):
         if not aibank.is_ready(entry, bank_dir):
             continue
         try:
-            data = aibank.load_items(entry, bank_dir, with_gens=False)
+            data = aibank.load_items(entry, bank_dir)
         except aibank.AiBankError:
             continue
         for card in aibank.cards_of(entry, data):

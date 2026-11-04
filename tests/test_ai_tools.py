@@ -427,8 +427,10 @@ class LeechTest(Case):
     def test_read_day_of_the_cards_own_unit(self):
         log = [{"kind": "learn", "lesson": "i90", "unit": "90a", "at": "2026-11-01T20:00:00"},
                {"kind": "learn", "lesson": "i90", "unit": "90b", "at": "2026-11-03T20:00:00"}]
-        for day, result in (("03", "pass"), ("04", "stuck"), ("05", "pass"), ("07", "stuck"), ("08", "pass"), ("10", "stuck")):
-            log.append({"kind": "answer", "card": "i90-b04", "set": "s" + day, "result": result, "again": 0, "at": "2026-11-%sT21:00:00" % day})
+        for card in ("i90-b04", "i90-g02"):  # 두 카드 모두 90b 단원이고 g02 는 생성기
+            for day, result in (("03", "pass"), ("04", "stuck"), ("05", "pass"), ("07", "stuck"), ("08", "pass"), ("10", "stuck")):
+                log.append({"kind": "answer", "card": card, "set": "s" + day, "result": result, "again": 0, "seed": 1,
+                            "at": "2026-11-%sT21:00:00" % day})
         subs = os.path.join(self.tmp, "subs")
         study.write_text(os.path.join(subs, "alice", "ai", "record.json"), json.dumps({"format": 1, "user": "alice", "log": log}))
         with mock.patch.object(study, "SUBMISSIONS_DIR", subs):

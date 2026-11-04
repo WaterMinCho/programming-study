@@ -323,7 +323,7 @@ class AiNotes:
             groups = self.win.ai.wrong_notes()
         except SessionError:  # 깨진 기록은 허브와 홈의 띠가 알림
             return []
-        return [dict(group, items=[dict(item, label=self.label(item)) for item in group["items"]]) for group in groups]
+        return [dict(group, items=numbered([dict(item, label=self.label(item)) for item in group["items"]])) for group in groups]
 
     def label(self, item):
         kind = item["label"].split(" · ")[0]
@@ -352,6 +352,18 @@ class AiNotes:
 
     def retry(self, note):
         self.win.open_ai_practice("note", card=note["key"])
+
+
+def numbered(items):
+    """줄 글이 같은 문항이 둘 이상이면 카드 id 순서로 (1)·(2) 를 붙임. 같은 주제의 문장 카드와 같은 단원의 생성기가 겹침."""
+    keys = {}
+    for item in items:
+        keys.setdefault(item["label"], []).append(item["key"])
+    for item in items:
+        same = sorted(keys[item["label"]])
+        if len(same) > 1:
+            item["label"] = "%s (%d)" % (item["label"], same.index(item["key"]) + 1)
+    return items
 
 
 def answer_word(item):
