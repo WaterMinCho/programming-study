@@ -316,9 +316,13 @@ class AiSession(object):
         path = os.path.join(self.home, "state.json")
         try:
             data = study.read_json(path)
-            return data if isinstance(data, dict) else {}
         except (OSError, ValueError):
             return {}
+        if not isinstance(data, dict):
+            return {}
+        steps = data.get("at_step")
+        data["at_step"] = {k: v for k, v in steps.items() if type(v) is int} if isinstance(steps, dict) else {}  # 손댄 파일에 막히지 않게
+        return data
 
     def save_step(self, lid, key, step):
         """학습 단원 중간 자리(로컬 state.json, 제출에 들어가지 않음)."""
@@ -396,6 +400,11 @@ class AiSession(object):
         """[{"title", "items": [{"key", "label", "state", "sure", "leech", "deep", ...}]}]."""
         return self._state().notes()[0]
 
+    def read_today(self, key):
+        """그 카드의 단원을 오늘 처음 읽었는지. 그날의 오답은 오답 노트에 넣지 않음."""
+        state = self._state()
+        return state.read_day(key) == state.today
+
     def wrong_counts(self):
         return self._state().notes()[1]
 
@@ -417,6 +426,7 @@ class AiSession(object):
         if note["sure"]:
             lines.append("확실하다고 했지만 틀림")
         last = self._last_wrong(key)
+        view = self._static_view(card, last)
         mine = None
         if last is not None:
             if "value" in last:
@@ -424,8 +434,7 @@ class AiSession(object):
             elif last.get("dontknow"):
                 mine = ["모르겠어요"]
             elif "picked" in last:
-                mine = self._picked_text(card, last)
-        view = self._static_view(card, last)
+                mine = self._picked_text(card, last, view)
         return {"key": key, "title": state.note_title(card), "lines": lines, "stem": view["stem"], "kind": view["kind"],
                 "pick": view.get("pick"), "options": [o["text"] for o in view.get("options", [])], "mine": mine, "ref": card["ref"],
                 "lesson": card["lesson"], "step": card.get("step"), "state": note["state"]}
@@ -435,11 +444,11 @@ class AiSession(object):
         return next((e for e in reversed(self.record.log) if e.get("kind") == "answer" and e.get("card") == key
                      and e.get("result") != "pass"), None)
 
-    def _picked_text(self, card, entry):
+    def _picked_text(self, card, entry, view):
         if card["kind"] == "stmt":
             texts = {s["id"]: s["text"] for s in card["topic"].get("statements", [])}
             return [texts.get(p, p) for p in entry.get("picked") or []]
-        options = (card.get("item") or {}).get("options") or []
+        options = view.get("options") or []  # 생성기는 기록의 시드로 다시 만든 보기
         return [options[p]["text"] for p in entry.get("picked") or [] if isinstance(p, int) and p < len(options)]
 
     def _static_view(self, card, entry=None):
@@ -1292,20 +1301,25 @@ class PracticeSet(object):
         """다음 문항으로. 끝나면 set_end 를 기록하고 None."""
         if self.answered is None and self.pos < len(self.queue):
             raise AiError("답한 뒤에 넘어갈 수 있습니다.")
+        saved = (self.pos, self.answered, self._undo)
         self.pos += 1
         self.answered, self._undo = None, None
-        if self.pos >= len(self.queue):
-            self._end()
-            return None
-        return self.current()
+        try:
+            if self.pos >= len(self.queue):
+                self._end()
+                return None
+            return self.current()
+        except AiError:
+            self.pos, self.answered, self._undo = saved  # 기록을 읽거나 쓰지 못했으면 [다음]을 다시 누를 수 있게 되돌림
+            raise
 
     def _end(self):
         if self.ended:
             return
-        self.ended = True
         first_pass = sum(1 for st in self.stats.values() if st["first"] == "pass")
         self.sess._append({"kind": "set_end", "set": self.id, "n": len(self.stats), "first_pass": first_pass,
                            "answers": self.answers})
+        self.ended = True
 
     def summary(self):
         """끝 요약(설계 2.7). 상자 변화는 묶음을 시작할 때와 지금의 기록으로 셈."""

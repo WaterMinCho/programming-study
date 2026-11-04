@@ -206,7 +206,8 @@ def _json_block(kind, text):
 
 def parse_blocks(lines, folder=None):
     """단계 줄을 위에서 아래로 블록 목록으로. 글(text)은 <!-- facts --> 줄을 지운 마크다운, figure 는 figure_block,
-    ai-* 는 JSON 을 읽은 dict(kind 는 guess·reveal·recall·why·diff·rotate·memo·trend). JSON 이 깨진 블록은 error 키를 가짐."""
+    ai-* 는 JSON 을 읽은 dict(kind 는 guess·reveal·recall·why·diff·rotate·memo·trend). JSON 이 깨졌거나 이름을 모르는 블록은
+    error 키를 가짐."""
     blocks, text, fence, body = [], [], None, []
 
     def flush():
@@ -218,7 +219,7 @@ def parse_blocks(lines, folder=None):
     for line in lines:
         found = FENCE.match(line)
         if fence is None:
-            if found and found.group(2) and (found.group(2) == "figure" or found.group(2) in BLOCK_KINDS):
+            if found and found.group(2) and (found.group(2) == "figure" or found.group(2).startswith("ai-")):
                 flush()
                 fence, body = found.group(2), []
                 continue
@@ -232,6 +233,8 @@ def parse_blocks(lines, folder=None):
                 text.extend(body + [line])
             elif fence == "figure":
                 blocks.append(figure_block(body, folder))
+            elif fence not in BLOCK_KINDS:  # 이름을 잘못 쓴 블록이 정답째 코드로 보이지 않게 함
+                blocks.append({"kind": fence, "error": "모르는 블록 이름입니다: %s" % fence})
             else:
                 blocks.append(_json_block(BLOCK_KINDS[fence], "\n".join(body)))
             fence, body = None, []

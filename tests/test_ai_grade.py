@@ -45,6 +45,13 @@ class WordTest(unittest.TestCase):
         self.assertFalse(grade.grade_blank({"answer": ["과적합"], "mode": "word"}, "과소적합", TERMS))
         self.assertFalse(grade.grade_blank({"answer": ["과적합"], "mode": "word"}, "과대적합"))
 
+    def test_accept_of_another_term_works_one_way(self):
+        terms = {"terms": [{"term": "미분값", "accept": ["도함수 값", "기울기"]}, {"term": "기울기", "accept": ["경사"]}]}
+        self.assertTrue(grade.grade_blank({"answer": ["미분값"], "mode": "word"}, "기울기", terms))
+        self.assertTrue(grade.grade_blank({"answer": ["기울기"], "mode": "word"}, "경사", terms))
+        self.assertFalse(grade.grade_blank({"answer": ["기울기"], "mode": "word"}, "미분값", terms))
+        self.assertFalse(grade.grade_blank({"answer": ["기울기"], "mode": "word"}, "도함수 값", terms))
+
     def test_empty_is_wrong(self):
         self.assertFalse(ok("역전파", ""))
         self.assertFalse(ok("역전파", "   "))
@@ -84,6 +91,12 @@ class NumberTest(unittest.TestCase):
         self.assertFalse(ok("2.8", "2.80001", "number"))
         self.assertFalse(ok("2.8", "약 2.8", "number"))
 
+    def test_huge_or_deep_input_is_wrong_quickly(self):
+        for value in ("1e100000000", "1" * 5000 + "/3"):
+            self.assertFalse(ok("2.8", value, "number"))
+        self.assertFalse(ok("[1, 2]", "[1e100000000, 2]", "values"))
+        self.assertFalse(ok("[1, 2]", "[" * 3000 + "1", "values"))
+
     def test_places_round_half_up(self):
         self.assertTrue(ok("0.1429", "0.14286", "number", places=4))
         self.assertTrue(ok("0.125", "0.13", "number", places=2))
@@ -96,6 +109,10 @@ class ShapeTest(unittest.TestCase):
         for value in ("[100, 10]", "(100, 10)", "100×10", "100x10", "torch.Size([100, 10])"):
             self.assertTrue(ok("(100, 10)", value, "shape"), value)
         self.assertTrue(ok("torch.Size([])", "()", "shape"))
+        self.assertTrue(ok("torch.Size([])", "[]", "shape"))
+        self.assertTrue(ok("torch.Size([])", "torch.Size([])", "shape"))
+        for value in ("x", ",", "*", "torch.Size"):
+            self.assertFalse(ok("torch.Size([])", value, "shape"), value)
         self.assertTrue(ok("(3,)", "[3]", "shape"))
         self.assertFalse(ok("(100, 10)", "(10, 100)", "shape"))
         self.assertFalse(ok("(100, 10)", "(100, 10, a)", "shape"))

@@ -153,7 +153,7 @@ def card_schedule(events, read_day, exam, today, card=None):
             if exam.get("sweep_from") and day >= exam["sweep_from"] and result == "pass" and new_box >= MEMORISED_BOX:
                 when, finished = exam["date"] + ONE_DAY, True
             elif exam.get("last_review"):
-                when = min(when, exam["last_review"])
+                when = max(day + ONE_DAY, min(when, exam["last_review"]))  # 마지막 복습일과 시험날에 맞힌 카드는 다음 날로
         if recheck is not None and recheck > day:
             when = min(when, recheck)
         return when, finished

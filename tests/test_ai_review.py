@@ -146,6 +146,12 @@ class RuleTest(unittest.TestCase):
         got = schedule(log, D(2026, 11, 23))
         self.assertEqual((5, D(2026, 12, 1)), (got["box"], got["due"]))
 
+    def test_pass_on_last_review_or_exam_day_moves_to_the_next_day(self):
+        log = [answer("2026-11-28T20:00:00", "stuck", True), answer("2026-12-01T20:00:00", "pass", True)]
+        self.assertEqual(D(2026, 12, 2), schedule(log, D(2026, 12, 1))["due"])
+        log.append(answer("2026-12-02T20:00:00", "pass"))
+        self.assertEqual(D(2026, 12, 3), schedule(log, D(2026, 12, 2))["due"])
+
     def test_sweep_pass_to_box_four_is_done_before_exam(self):
         log = [answer("2026-11-20T20:00:00", "pass"), answer("2026-11-22T20:00:00", "pass"), answer("2026-11-26T20:00:00", "pass")]
         got = schedule(log, D(2026, 11, 26))

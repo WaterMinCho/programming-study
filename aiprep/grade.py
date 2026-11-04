@@ -51,14 +51,20 @@ def _code(text):
     return re.sub(r"\s+", "", s)
 
 
+NUMBER_MAX = 40  # 숫자 하나로 받는 입력 길이와 지수의 상한. 1e100000000 같은 입력이 화면을 멈추지 않게 함
+
+
 def _fraction(s):
+    if len(s) > NUMBER_MAX:
+        return None
     if RATIO.match(s):
         top, bottom = s.split("/")
         if int(bottom) == 0:
             return None
         return fractions.Fraction(int(top), int(bottom))
     if NUMBER.match(s):
-        return fractions.Fraction(decimal.Decimal(s))
+        number = decimal.Decimal(s)
+        return fractions.Fraction(number) if abs(number.adjusted()) <= NUMBER_MAX else None
     return None
 
 
@@ -89,6 +95,8 @@ def _shape(text):
     parts = [p for p in re.split(r"[,\s]+", s) if p]
     if not all(re.fullmatch(r"\d+", p) for p in parts):
         return None
+    if not parts and not re.fullmatch(r"(?:torch\.Size)?(?:\(\)|\[\]|\(\[\]\))", re.sub(r"\s+", "", _nfkc(text))):
+        return None  # 빈 모양은 () 나 [] 처럼 괄호를 쓴 답만 받음. x·쉼표·* 만 쓴 답은 틀림
     return tuple(int(p) for p in parts)
 
 
@@ -137,7 +145,10 @@ class _Values(object):
         kind, text = self.peek()
         if kind == "num":
             self.take()
-            return ("n", decimal.Decimal(text))
+            number = decimal.Decimal(text)
+            if abs(number.adjusted()) > NUMBER_MAX:
+                raise ValueError(text)
+            return ("n", number)
         if kind == "name":
             self.take()
             if text in ("True", "False"):
@@ -190,7 +201,7 @@ def _values(text):
         return None
     try:
         return _Values(s).parse()
-    except (ValueError, IndexError, decimal.InvalidOperation):
+    except (ValueError, IndexError, decimal.InvalidOperation, RecursionError):  # 괄호를 수백 겹 연 입력은 틀린 답
         return None
 
 
@@ -231,18 +242,25 @@ def norm(mode, text, blank=None):
 
 def term_map(terms):
     """terms.json 의 term·also·accept 를 {정규화한 꼴: 같은 낱말의 정규화한 꼴 묶음} 으로. terms 는 terms.json 내용이나
-    그 "terms" 목록. 이미 만든 사전이면 그대로 돌려줌."""
+    그 "terms" 목록. 이미 만든 사전이면 그대로 돌려줌. 다른 낱말의 term·also 인 꼴이 accept 에 있어도 그 낱말 쪽 묶음은 넓히지
+    않음(미분값의 accept 기울기가 기울기 빈칸에 미분값을 받게 하지 않음)."""
     if not terms:
         return {}
     if isinstance(terms, dict) and "terms" not in terms:
         return terms
     entries = terms["terms"] if isinstance(terms, dict) else terms
+    def heads(entry):
+        return {f for f in (_word(x) for x in [entry.get("term", "")] + list(entry.get("also") or [])) if f}
+
+    named = set().union(*[heads(entry) for entry in entries])
     out = {}
     for entry in entries:
         forms = [entry.get("term", "")] + list(entry.get("also") or []) + list(entry.get("accept") or [])
         group = frozenset(f for f in (_word(x) for x in forms) if f)
+        own = heads(entry)
         for form in group:
-            out[form] = out.get(form, frozenset()) | group
+            if form in own or form not in named:
+                out[form] = out.get(form, frozenset()) | group
     return out
 
 

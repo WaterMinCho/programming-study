@@ -1114,14 +1114,29 @@ def show_overrides(v):
         v.say("  %s: %s" % (cid, "; ".join("%s(%s)" % (value, user) for user, value in rows)))
 
 
-def show_leeches(v, exam):
+def card_units(bank_dir, index):
+    """{카드 id: (차시 id, 단원)}. 봉인을 풀지 않고 읽을 수 있는 출제된 차시만."""
+    out = {}
+    for entry in index["lessons"]:
+        if not aibank.is_ready(entry, bank_dir):
+            continue
+        try:
+            data = aibank.load_items(entry, bank_dir, with_gens=False)
+        except aibank.AiBankError:
+            continue
+        for card in aibank.cards_of(entry, data):
+            out[card["id"]] = (card["lesson"], card["unit"])
+    return out
+
+
+def show_leeches(v, exam, units):
+    """자주 틀리는 문항. units 는 card_units 결과이고 읽은 날은 그 카드의 단원 것을 씀(앱의 오답 규칙과 같음)."""
     found = {}
     for user, log in records(study.SUBMISSIONS_DIR):
         events = review.card_events(log)
         reads = review.read_days(log)
         for cid, rows in events.items():
-            lesson = "i%s" % cid[1:3] if cid.startswith("i") else None
-            read_day = next((day for (lid, _), day in reads.items() if lid == lesson), None)
+            read_day = reads.get(units[cid]) if cid in units else None
             schedule = review.card_schedule(rows, read_day, exam, rows[-1]["day"], cid)
             if review.leech(schedule):
                 found.setdefault(cid, []).append(user)
@@ -1175,7 +1190,7 @@ def main(argv=None, out=None):
         if opts.overrides:
             show_overrides(v)
         if opts.leeches:
-            show_leeches(v, review.exam_dates(index["exam"]))
+            show_leeches(v, review.exam_dates(index["exam"]), card_units(bank_dir, index))
         return 0
     try:
         terms = aibank.read_terms(bank_dir)

@@ -361,6 +361,44 @@ class RepeatTest(Base):
         self.assertEqual((["90차시", "빈칸"], False), chips["i90-b01"])
 
 
+class ReadTodayTest(Base):
+    def test_only_the_day_the_unit_was_read(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        self.assertTrue(sess.read_today("i90-b01"))
+        self.assertFalse(sess.read_today("i90-b04"))
+        self.at = "2026-11-10T20:00:00"
+        self.assertFalse(sess.read_today("i90-b01"))
+
+
+class LocalStateTest(Base):
+    def test_broken_state_file_is_ignored(self):
+        sess = self.session()
+        path = os.path.join(sess.home, "state.json")
+        for text in ('{"at_step": []}', '{"at_step": {"i90/90a": "x"}}', "[]", "{"):
+            study.write_text(path, text)
+            self.assertIsNone(sess.unit_steps("i90", "90a")["at_step"])
+            sess.save_step("i90", "90a", 2)
+            self.assertEqual(2, sess.unit_steps("i90", "90a")["at_step"])
+
+
+class FailedWriteTest(Base):
+    def test_next_can_be_pressed_again_after_a_read_or_write_error(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        ps = service.PracticeSet(sess, "s1", "unit", ["i90-b01", "i90-b02"], 1)
+        for n in range(2):
+            ps.answer(self.right(ps, ps.current()), 2, True)
+            target = "_state" if n == 0 else "_append"
+            with mock.patch.object(sess, target, side_effect=AiError("저장하지 못했습니다.")):
+                with self.assertRaises(AiError):
+                    ps.next()
+            got = ps.next()
+            if n == 0:
+                self.assertEqual("i90-b02", got["card"])
+        self.assertEqual(1, len(self.log(sess, "set_end")))
+
+
 class StatementTest(Base):
     def test_choice_form_and_also_only_open(self):
         sess = self.session()
@@ -473,6 +511,16 @@ class NotesTest(Base):
         self.assertEqual(3, len(note.queue))
         note = sess.start_set("note", card="i90-b01", seed=2)  # 고르지 않은 생성기는 작은 묶음에서 빠짐
         self.assertEqual(["i90-b01", "i90-b02"], [e["card"] for e in note.queue])
+
+    def test_generator_choice_keeps_my_answer(self):
+        sess = self.session()
+        sess.mark_read("i90", "90b")
+        ps = service.PracticeSet(sess, "s1", "unit", ["i90-g02"], 1)
+        cur = ps.current()
+        item = ps._view(ps.queue[0])["item"]
+        wrong = [o["no"] for o in cur["options"] if o["no"] not in self.right(ps, cur)][:1]
+        ps.answer(wrong, 2, False)
+        self.assertEqual([item["options"][wrong[0]]["text"]], sess.wrong_item("i90-g02")["mine"])
 
     def test_cloze_statement_is_redrawn_as_cloze(self):
         for how in ("wrong", "dk"):

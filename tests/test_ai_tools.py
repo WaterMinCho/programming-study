@@ -89,6 +89,10 @@ class VerifyTest(Case):
         self.assertEqual(0, code, out)
         self.assertIn("OK: 묶음 2개 통과", out)
 
+    def test_misspelled_block_name_fails(self):
+        self.replace("learn/l90/page.md", "```ai-recall", "```ai-recal")
+        self.assertFails("모르는 블록 이름입니다: ai-recal")
+
     def test_blank_count(self):
         self.edit_item("i90-b01", lambda item: item.update(stem=item["stem"] + " ____ 도 채우세요."))
         self.assertFails("____ 가 2개인데 blanks 가 1개입니다")
@@ -417,6 +421,20 @@ class SealTest(Case):
         code, out = quiet(ai_seal.main, [])
         self.assertEqual(2, code)
         self.assertIn("ai_seal.py seal", out)
+
+
+class LeechTest(Case):
+    def test_read_day_of_the_cards_own_unit(self):
+        log = [{"kind": "learn", "lesson": "i90", "unit": "90a", "at": "2026-11-01T20:00:00"},
+               {"kind": "learn", "lesson": "i90", "unit": "90b", "at": "2026-11-03T20:00:00"}]
+        for day, result in (("03", "pass"), ("04", "stuck"), ("05", "pass"), ("07", "stuck"), ("08", "pass"), ("10", "stuck")):
+            log.append({"kind": "answer", "card": "i90-b04", "set": "s" + day, "result": result, "again": 0, "at": "2026-11-%sT21:00:00" % day})
+        subs = os.path.join(self.tmp, "subs")
+        study.write_text(os.path.join(subs, "alice", "ai", "record.json"), json.dumps({"format": 1, "user": "alice", "log": log}))
+        with mock.patch.object(study, "SUBMISSIONS_DIR", subs):
+            code, out = self.verify("--leeches")
+        self.assertEqual(0, code, out)
+        self.assertIn("자주 틀리는 문항 0개", out)
 
 
 class OverlapTest(Case):

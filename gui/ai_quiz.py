@@ -598,12 +598,14 @@ class PracticePage(QWidget):
         self.scroll.verticalScrollBar().setValue(0)
 
     def unlisted(self):
-        """처음 답이 틀렸지만 오답 노트에 들어가지 않은 문항 수. 단원을 읽은 날의 답은 노트에 넣지 않아서(확실함으로 틀린 답은 넣음) 생김."""
+        """단원을 오늘 읽어서 처음 답이 틀렸어도 오답 노트에 들어가지 않은 문항 수(확실함으로 틀린 답은 넣음). 그날 앞 묶음에서 맞힌
+        문항이 이번에 틀린 것은 세지 않음."""
         try:
             listed = {item["key"] for group in self.win.ai.wrong_notes() for item in group["items"]}
+            return sum(1 for cid, st in self.practice.stats.items()
+                       if st["first"] not in (None, "pass") and cid not in listed and self.win.ai.read_today(cid))
         except SessionError:
             return 0
-        return sum(1 for cid, st in self.practice.stats.items() if st["first"] not in (None, "pass") and cid not in listed)
 
     def again(self):
         """[한 번 더]·[다음 단원]·[오답 노트로]. 단원 모드는 다음 안 읽은 단원을, 오답 다시 풀기는 오답 노트를, 나머지는 같은 모드의 새 묶음을 엶."""
