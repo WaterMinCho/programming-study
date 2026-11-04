@@ -176,7 +176,7 @@ def last_record(r):
                      blanks=[{"answer": [str(last)], "mode": "number", "hint": "반복 번호"}],
                      explain="epoch는 0부터 %d까지이고 %d의 배수일 때 기록합니다. 마지막 배수가 %d입니다. 그 반복에서 갱신하기 전에 잰 손실이 찍히고, "
                              "그 뒤로 %d번 더 갱신합니다. %d라고 답했다면 마지막 반복이 늘 기록된다고 본 것입니다."
-                             % (e - 1, k, last, e - 1 - last, e - 1),
+                             % (e - 1, k, last, e - last, e - 1),
                      params={"ask": "last", "E": e, "k": k})
     return blank(stem="다음 코드가 끝났을 때 `history`에 든 손실은 ____ 개입니다.\n\n%s" % code,
                  blanks=[{"answer": [str(count)], "mode": "number", "unit": "개", "hint": "숫자"}],

@@ -8,18 +8,18 @@
   "assets/6a-2.gif": "3925dbc3271a00ff4bb4bff609592b41371d495b2bac040618faeab54cb71caf",
   "assets/6a-3.png": "76d7cb5e428cd36c87fef7b21eb845fc0a0e44767b1e3fdb32a2291a54f4111c",
   "assets/6a-4.png": "9726f6c7f1ee3e8e00d7f4ef5cd6f84e176a1284ec4f2def00b8aceba4e41b5a",
-  "assets/6b-1.gif": "65e9450eb0ee392f1483c4413dd8488f4b0058e5162e6949a3c94be378610668",
-  "assets/6b-2.png": "bb30d233903e540831cc5015839a45a0768396cd2df76cebcd8ead0981a8bc5e",
-  "assets/6b-3.gif": "3a659ec08c8fcc80b0b8bd81032abab8221899697b546aa04dc4c329e7fe3960",
-  "assets/6b-4.png": "8d3178b68e50aa7261f9f54909e104eac419f52961731bad6f0107a76fa7c007",
-  "assets/6c-1.png": "6d124533f187606a3c0b886e04ead2f3c6c85a8460bfd7eae944d38ee3ae1250",
-  "assets/6c-2.gif": "ceb932a6551aad31061ed03b400b794c4a092f6e88bd12d2c3408194de6fb7c2",
+  "assets/6b-1.gif": "5b3f37380a371ab271e04470c4e5df6a42e79cb1b919d198182e772c08eb7f4d",
+  "assets/6b-2.png": "2e75b85c92c2c1163b027f05b6ee2a6223736dd18755e975d607e751f3f64d73",
+  "assets/6b-3.gif": "66bf9b11c5b954ee9794dcc03a77336ab57eca81e944c022c0fc05fc62de0957",
+  "assets/6b-4.png": "abaf1075ff75b297f2e931bdd8e4680faa70d792cec81d75d7cb69e9a77ca1f2",
+  "assets/6c-1.png": "9d14b6a4fb512363944ea21d4b4fb7d86d99afa45d67d62e6ef11533c4246426",
+  "assets/6c-2.gif": "17fa9ebace2a4088c237a100d13d9b38766743d7d66fecdf73f32494b622d250",
   "assets/6c-3.png": "13c506352ca421d9e44b13d17d546bad3b28f1b44b78a80b3c296af9e4f82be6",
   "assets/6c-4.png": "2622972beff92991eb4b073a454f8444f705a0839debd101fd9b36b2e45eb065",
   "assets/6c-5.png": "f7888d7a4340207257b35a04f02f5badf474a9c6b8143e3325a0d378d78951c8",
   "assets/6d-1.gif": "cda0c0fc2450f4b7fe7326effd7479b3fc692e8d76806760a3fc2dd1b7f79bca",
-  "assets/6d-2.png": "c87e960716cd2579be5a8053412f08893d5bb30f0ca720914bc548c96759682c",
-  "assets/6d-3.png": "cf25ad5db7a4a1c3e94ecc6fcb93df0d3f79907a43d1dec5aec72f639e41645b",
+  "assets/6d-2.png": "45aeb927d8891eef0fce56ff685c353154b15c0a946ede2cf0ec5ca069aec64f",
+  "assets/6d-3.png": "5485b4c498e726dfc8c99e6dcbbd4209324bb08819db0be6059a22902379b38e",
   "assets/6d-4.png": "7bbe07965ebde5c80ab4a7dab6d58110cac6d166117d86aa576e491d5bd6a46d",
   "assets/6e-1.png": "4ae8c10ec50eda84835492822cbfa3104061b846ba168c97ba0066f801d985d7",
   "assets/6e-2.gif": "9f038958fa12aeafabd591d269c7bfb7d19842cfa50e8507637a35bd2a933e61",
@@ -27,14 +27,16 @@
   "assets/6e-4.png": "84d6d23728605e7a6453087119ed20593187a0ce989168236359ab37b7a0591b",
   "assets/6e-5.png": "56f9afa5226ca3ea8021208d4dba72ec6041139ccd920589358c13fbcb8548b5",
   "assets/6f-1.png": "4b108bfe97dca3e6b777fcc51f8c4ae4fd37fa055e1a1da1ad2023137511d4df",
-  "assets/6f-2.png": "290d8f26e2cb0044ca95c1eaa6726f88f6cef18b66f5cbff5fb8a0bd3d515aec",
-  "assets/6f-3.png": "64912cbe8e4d0ea762bfe79731c69b5912ce9f19875fee6012ed09f0c83f226e",
+  "assets/6f-2.png": "be8b462dcc8cb8b7bc742ddb6f92d85472a78723151fb9d7f438168104515a0c",
+  "assets/6f-3.png": "976a84bc28827d0b5462a34c5f0e636dd5aad730b7e511001480b9d0584c6117",
   "assets/6f-4.png": "333d310821fe00f42aac2890dce5f3f20c13a72744cc2a6e8f76b7ac00d8ea76",
-  "meta.json": "dd46585febd788cbad711c0f6640f7fc3573b5e3a3d432ff5b11f712c55d3fa7",
-  "page.md": "27692be7ed8b9cb03cd636b1037d404d0ece30aa2cf7a4263e97072c78983e85"
+  "meta.json": "68c5ee832a596187063c6f34d2bf1d8039d9533079acb34761219de5f4a22b06",
+  "page.md": "bd7bcf54adf39dbad98f73e80b32e5ca6f33ae098e86484533942731071a7f0e"
  },
  "findings": [
   "검토 4 가 본문, 캡션, 장 설명, 블록 글을 한 문장씩 읽고 119문장을 고침. 비유 낱말과 번역투를 바꾸고 정확도와 MNIST 를 쓰기 전에 정의했으며, 그림 6e-5 의 상자 이름을 클래스 불균형으로 바꿔 다시 그림",
-  "재풀이 2 가 고친 노트를 처음부터 다시 읽고 막힌 곳이 없음을 확인함. 숫자는 대조 3 이 다시 계산한 값과 같고 강의 글 겹침은 실패 0 임"
+  "재풀이 2 가 고친 노트를 처음부터 다시 읽고 막힌 곳이 없음을 확인함. 숫자는 대조 3 이 다시 계산한 값과 같고 강의 글 겹침은 실패 0 임",
+  "사실 재검토가 6e/4 의 α 를 손실 전체에 곱하는 수에서 정답 클래스에 따라 곱하는 가중치로 고침(Lin 외 2017, 정답 1 은 α, 정답 0 은 1 − α). 0.00026 과 0.4663 은 정답이 1 인 데이터의 값으로 밝힘. 6c/4 보충 설명과 그림 3 캡션이 안정한 식을 PyTorch 문서의 식처럼 적은 것을 고침. 출처에 Focal Loss 논문을 더함",
+  "그림 6b-1·6b-2·6b-3·6b-4·6c-1·6c-2·6d-2·6d-3·6f-2·6f-3 에서 글자가 선, 막대, 다른 글자와 겹친 곳과 작은 ² 를 배치와 글자 크기만 바꿔 고침. 다른 검토자가 바뀐 장을 이전 그림과 견줘 숫자와 낱말이 그대로임을 확인함"
  ]
 }

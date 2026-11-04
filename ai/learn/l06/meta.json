@@ -38,6 +38,11 @@
   "outputs": [],
   "sources": [
     {
+      "what": "Focal Loss 논문(Lin 등, arXiv 2017년 8월): 정답이 1인 데이터에 α, 0인 데이터에 1 − α 를 곱함(α_t), 표준 설정 γ = 2, α = 0.25",
+      "url": "https://arxiv.org/abs/1708.02002",
+      "checked": "2026-11-04"
+    },
+    {
       "what": "PyTorch MSELoss: 오차 제곱의 평균, reduction 은 'none'·'mean'·'sum' 이고 기본값 'mean'",
       "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.MSELoss.html",
       "checked": "2026-11-03"

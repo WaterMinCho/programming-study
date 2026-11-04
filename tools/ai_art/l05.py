@@ -118,8 +118,8 @@ def text(ax, x, y, s, color=INK, size=18, ha="left", va="center", weight="normal
     return ax.text(x, y, s, **kw)
 
 
-def summary(title, cols, h=560, note_line=None):
-    """외울 것 요약 그림. cols 는 [(제목, [줄...], 테두리 색)] 이고 왼쪽에서 오른쪽으로 화살표로 이음."""
+def summary(title, cols, h=560, note_line=None, pad=1.6):
+    """외울 것 요약 그림. cols 는 [(제목, [줄...], 테두리 색)] 이고 왼쪽에서 오른쪽으로 화살표로 이음. pad 는 상자 안 글줄의 왼쪽 여백임."""
     plt, fig = new(h)
     ax = board(fig, h)
     text(ax, 2, h / 10 - 3.5, title, size=22, weight="bold")
@@ -135,7 +135,7 @@ def summary(title, cols, h=560, note_line=None):
         for line in lines:
             code, math = line.startswith("`"), line.startswith("§")
             body = line.strip("`").lstrip("§")
-            text(ax, x + 1.6, yy, body, size=15 if code else 17, family=CODE if code else (MATH if math else None), va="top")
+            text(ax, x + pad, yy, body, size=15 if code else 17, family=CODE if code else (MATH if math else None), va="top")
             yy -= 4.6 * (body.count("\n") + 1)
         if k < n - 1:
             arrow(ax, x + w + 0.2, (top + bottom) / 2, x + w + gap - 0.2, (top + bottom) / 2, color=LIGHT, lw=2.6)
@@ -208,7 +208,7 @@ def shapes_5a():
                 x += w + 1.0
             else:
                 body = label.split(" = ")[1].replace("(", "\n(") if "Linear" in label else label.split(" = ")[1]
-                box(ax, x, 30, 13, 8, body, fc=BLUE_L, ec=BLUE, color=BLUE, family=CODE, size=14)
+                box(ax, x, 30, 13, 8, body, fc=BLUE_L, ec=BLUE, color=BLUE, family=CODE, size=15)
                 arrow(ax, x - 1.0, 34, x + 0.1, 34, color=LIGHT, lw=1.6)
                 arrow(ax, x + 13.1, 34, x + 14.3, 34, color=LIGHT, lw=1.6)
                 x += 14.5
@@ -224,7 +224,7 @@ def shapes_5a():
         if stage == 4:
             text(ax, 2, 12, "앞 층의 출력 수 128 과 다음 층의 입력 수 128 이 같아서 이어집니다.", size=17, bg=NOTE)
         if stage == 5:
-            box(ax, x, 30, 13, 8, "nn.Linear\n(100, 10)", fc=RED_L, ec=RED, color=RED, family=CODE, size=14)
+            box(ax, x, 30, 13, 8, "nn.Linear\n(100, 10)", fc=RED_L, ec=RED, color=RED, family=CODE, size=15)
             arrow(ax, x - 1.0, 34, x + 0.1, 34, color=RED, lw=1.6)
             text(ax, x + 14.5, 34, "오류", size=20, color=RED, weight="bold")
             text(ax, 2, 12, "들어온 텐서의 마지막 축은 128 인데 이 층은 100 을 받습니다.", size=17, color=RED, bg=RED_L)
@@ -317,7 +317,7 @@ def fold_5b():
         ax.text(xv + 0.15, xv + 3 - 1.6, "(%d, %d)" % (xv, xv + 3), fontsize=17)
     ax.text(4.9, 11.0, "h1", fontsize=17, color=BLUE, ha="right")
     ax.text(4.9, -1.2, "h2", fontsize=17, color=BLUE, ha="right")
-    ax.text(4.9, 7.0, "y", fontsize=19, color=BLUE, ha="right", weight="bold")
+    ax.text(4.9, 6.5, "y", fontsize=19, color=BLUE, ha="right", weight="bold")
     bd = board(fig)
     lines = [("h1 = 2x + 1", INK), ("h2 = " + M + "x + 3", INK), ("y = h1 + h2 " + M + " 1", INK),
              ("  = (2x + 1) + (" + M + "x + 3) " + M + " 1", INK), ("  = x + 3", BLUE)]
@@ -517,9 +517,9 @@ def vanish_5c():
                 head, lines = "층마다 0.9 를 곱하면", ["§0.9¹⁰ = 0.3487", "10층 앞에서", "35% 쯤 남음"]
             elif stage == 3:
                 ax.bar(ks, r25, color=ORANGE, width=0.7)
-                for k in (1, 2, 3):
-                    ax.text(k, r25[k] + 0.08, num(r25[k], 4), ha="center", fontsize=15)
-                head, lines = "시그모이드는 많아야 0.25", ["0.25 × 0.25 = 0.0625", "§0.25⁵ = 0.00098", "앞쪽 층은 거의 0"]
+                for k, x, y, ha in ((1, 1, r25[1] + 0.08, "center"), (2, 1.72, r25[2] + 0.08, "left"), (3, 2.72, r25[3] + 0.33, "left")):
+                    ax.text(x, y, num(r25[k], 4), ha=ha, fontsize=15)
+                head, lines = "층마다 0.25 를 곱하면", ["0.25 × 0.25 = 0.0625", "§0.25⁵ = 0.00098", "0.25 는 시그모이드", "미분값의 가장 큰 값"]
             else:
                 ax.bar(ks, r11, color=ORANGE, width=0.7)
                 ax.text(10, r11[-1] + 0.08, num(r11[-1], 4), ha="center", fontsize=16)
@@ -538,9 +538,9 @@ def vanish_5c():
                 ax.set_ylim(0, 3)
                 ax.set_xticks([0, 5, 10])
                 ax.bar(ks, vals, color=ORANGE, width=0.7)
-                ax.set_title(name, fontsize=17, loc="left")
-                ax.text(0.98, 0.96, "10층 뒤\n" + num(vals[-1], 4 if r != 0.25 else 8), transform=ax.transAxes, fontsize=15,
-                        ha="right", va="top")
+                ax.set_title(name, fontsize=17, loc="left", pad=12)
+                ax.text(0.04, 0.96, "10층 뒤\n" + num(vals[-1], 4 if r != 0.25 else 8), transform=ax.transAxes, linespacing=1.5, fontsize=15,
+                        ha="left", va="top")
         return image(fig)
 
     return [draw(1), draw(2), draw(3), draw(4), draw(5)], [2000, 2200, 2400, 2200, 2500]
@@ -592,7 +592,7 @@ def init_5c():
         fig.text(0.70, yy, a, fontsize=19, color=color, weight="bold", va="center")
         fig.text(0.70, yy - 0.07, b, fontsize=17, va="center", family=MATH)
         yy -= 0.19
-    fig.text(0.70, 0.15, "세로축 값은 눈금 하나마다\n10배씩 커집니다.", fontsize=16, color=MUTED, va="center")
+    fig.text(0.70, 0.15, "세로축 값은 눈금 하나마다\n10배씩 커집니다.", linespacing=1.5, fontsize=16, color=MUTED, va="center")
     return image(fig)
 
 
@@ -658,7 +658,9 @@ def paths_5d():
         ax.set_xlabel("W")
         ax.set_ylabel("B")
         cs = ax.contour(wg, bg, Lg, levels=[4.6, 5, 6, 7.5, 10, 13], colors=LIGHT, linewidths=1.3)
-        ax.clabel(cs, fontsize=13, fmt="%g")
+        # 오른쪽 위 구석의 13 등고선은 짧아서 숫자가 축 밖으로 잘리니 왼쪽 13 에만 숫자를 붙임
+        ax.clabel(cs, fontsize=15, fmt="%g", manual=[(1.765, -0.158), (1.625, 0.129), (2.146, -0.481), (1.317, 0.153),
+                                                    (2.32, -0.265), (1.135, 0.021), (2.472, 0.738), (0.971, 0.308)])
         ax.scatter([1], [1], s=120, color=INK, zorder=6)
         ax.scatter([105.6 / 58], [0], s=320, marker="*", color=INK, zorder=6)
         for key, z, lw in (("mini", 3, 2.2), ("sgd", 4, 2.2), ("batch", 5, 3.4)):
@@ -676,7 +678,7 @@ def paths_5d():
             else:
                 fig.text(0.65, yy - 0.065, "한 에폭에 %d번 갱신" % per, fontsize=17, va="center")
             yy -= 0.19
-        fig.text(0.65, 0.17, "검은 점: 시작 (1, 1)\n별: 손실이 가장 작은 곳", fontsize=16, color=MUTED, va="center")
+        fig.text(0.65, 0.17, "검은 점: 시작 (1, 1)\n별: 손실이 가장 작은 곳", linespacing=1.5, fontsize=16, color=MUTED, va="center")
         return image(fig)
 
     frames = [draw(0, "같은 학습률 0.02 로 시작"), draw(1, "1 에폭 뒤"), draw(2, "2 에폭 뒤"), draw(5, "5 에폭 뒤"),
@@ -707,9 +709,9 @@ def batches_5d():
             last = size < b or left == size
             fc = HL if (left == size) else GREEN_L
             narrow = size * scale < 4
-            box(ax, x, y - 2.5, size * scale - 0.3, 5, "" if narrow else str(size), fc=fc, ec=GREEN, color=INK, size=14, lw=1.6)
+            box(ax, x, y - 2.5, size * scale - 0.3, 5, "" if narrow else str(size), fc=fc, ec=GREEN, color=INK, size=15, lw=1.6)
             if narrow:
-                text(ax, x + size * scale + 0.4, y, str(size), size=14)
+                text(ax, x + size * scale + 0.4, y, str(size), size=15)
             x += size * scale
             left -= size
             n += 1
@@ -760,7 +762,7 @@ def lr_5e():
         fig.text(0.015, 0.95, title, fontsize=21, weight="bold", va="center")
         fig.text(0.97, 0.95, "L = w²", fontsize=20, va="center", ha="right", family=MATH)
         for c, lr in enumerate((0.01, 0.45, 1.1)):
-            ax = fig.add_axes([0.06 + c * 0.32, 0.14, 0.27, 0.66])
+            ax = fig.add_axes([0.085 + c * 0.315, 0.14, 0.26, 0.66])
             tidy(ax)
             ax.set_xlim(-10.5, 10.5)
             ax.set_ylim(-3, 110)
@@ -773,7 +775,7 @@ def lr_5e():
             ax.set_title("학습률 %s" % num(lr, 2), fontsize=19, loc="left")
             if c == 0:
                 ax.set_ylabel("L")
-            ax.text(0.03, 0.97, "w = " + num(seq[-1], 5), transform=ax.transAxes, fontsize=17, va="top")
+            ax.text(0.5, 0.97, "w = " + num(seq[-1], 5), transform=ax.transAxes, fontsize=17, va="top", ha="center")
         return image(fig)
 
     frames = [draw(0, "w = 4 에서 시작")] + [draw(k, "%d번 갱신한 뒤" % k) for k in (1, 2, 3, 4, 5)]
@@ -899,7 +901,7 @@ def bn_5f():
 
     def draw(stage, title, lines):
         plt, fig = new(600)
-        ax = fig.add_axes([0.20, 0.10, 0.76, 0.76])
+        ax = fig.add_axes([0.16, 0.10, 0.80, 0.76])
         ax.set_xlim(-2.5, 5.5)
         ax.set_ylim(-0.5, 3.6)
         for side in ("top", "right", "left"):
@@ -911,11 +913,11 @@ def bn_5f():
             name, vals, color, mean = rows[k]
             y = 3 - k
             ax.scatter(vals, [y] * 5, s=140, color=color, zorder=5)
-            ax.plot([mean, mean], [y - 0.35, y + 0.35], color=MUTED, lw=2, ls="--")
+            ax.plot([mean, mean], [y - 0.35, y + 0.28], color=MUTED, lw=2, ls="--")
             fig.text(0.02, 0.10 + 0.76 * (y + 0.5) / 4.1, name, fontsize=19, color=color if color != LIGHT else INK,
                      weight="bold", va="center")
             for t in vals:
-                ax.text(t, y + 0.22, num(t, 3), ha="center", fontsize=13)
+                ax.text(t, y + 0.40, num(t, 3), ha="center", fontsize=14)
         fig.text(0.015, 0.95, title, fontsize=21, weight="bold", va="center")
         if lines:
             math = lines.startswith("§")
@@ -941,7 +943,7 @@ def modes_5f():
     box(ax, 2, 30, 34, 20, "", fc="white", ec=ORANGE, lw=2.6)
     text(ax, 4, 46.5, "model.train()", size=18, family=CODE, weight="bold", color=ORANGE)
     text(ax, 4, 40.5, "지금 배치의 평균·분산으로\n정규화", size=16)
-    text(ax, 4, 33.2, "이동 평균도 고침\n0.9 × 3 + 0.1 × 5 = 3.2", size=14, color=MUTED)
+    text(ax, 4, 33.6, "이동 평균도 고침\n0.9 × 3 + 0.1 × 5 = 3.2", size=15, color=MUTED)
     box(ax, 40, 30, 30, 20, "", fc="white", ec=MUTED, lw=2.6)
     text(ax, 42, 46.5, "model.eval()", size=18, family=CODE, weight="bold", color=MUTED)
     text(ax, 42, 40, "모아 둔 이동 평균·분산으로\n정규화", size=16)
@@ -1010,9 +1012,9 @@ def split_5g():
     box(ax, 83, 42, 20, 7, "테스트 200개", fc=ORANGE_L, ec=ORANGE, color=ORANGE, size=18)
     text(ax, 2, 37, "train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)", size=16, family=CODE)
     box(ax, 2, 12, 34, 19, "", fc="white", ec=BLUE, lw=2.4)
-    text(ax, 4, 27.5, "scaler.fit_transform(X_train)", size=15, family=CODE, color=BLUE)
-    text(ax, 4, 21.5, "학습 데이터 [2, 6]", size=17)
-    text(ax, 4, 16, "→ [" + M + "1, 1]", size=17)
+    text(ax, 3, 27.5, "scaler.fit_transform(X_train)", size=15, family=CODE, color=BLUE)
+    text(ax, 3, 21.5, "학습 데이터 [2, 6]", size=17)
+    text(ax, 3, 16, "→ [" + M + "1, 1]", size=17)
     box(ax, 40, 18, 26, 9, "평균 4\n표준편차 2", fc=GREEN_L, ec=GREEN, color=GREEN, size=17)
     arrow(ax, 36.3, 22.5, 39.7, 22.5, color=GREEN)
     box(ax, 70, 12, 37, 19, "", fc="white", ec=ORANGE, lw=2.4)
@@ -1082,7 +1084,7 @@ def argmax_5g():
             big = r == 2 and c == 2
             box(ax, 9 + c * 11, 38 - r * 10, 10, 9, f"{out[r, c]:.1f}", fc=HL if hot else "white", ec=INK if big else LIGHT,
                 lw=4 if big else 1.6, size=19)
-            text(ax, 9.6 + c * 11, 45.6 - r * 10, str(r * 4 + c), size=12, color=MUTED)
+            text(ax, 9.8 + c * 11, 45.3 - r * 10, str(r * 4 + c), size=14, color=MUTED)
     for c in range(4):
         text(ax, 14 + c * 11, 50, "%d열" % c, size=16, color=MUTED, ha="center")
     lines = [("out.argmax()", "tensor(10)", "한 줄로 편 위치 2 × 4 + 2"), ("out.argmax(dim=1)", "tensor([1, 0, 2])",
@@ -1134,13 +1136,13 @@ def record_5g():
         ax.scatter([ep], [val], s=170 if hot else 80, color=INK, zorder=5, edgecolor=INK)
         if hot:
             ax.scatter([ep], [val], s=520, color="#fde68a", zorder=4)
-        ax.text(ep, val + 0.55, num(val, 4), ha="center", fontsize=15)
+        ax.text(ep + (14 if ep == 50 else 0), val + 0.55, num(val, 4), ha="center", fontsize=15)
     ax.scatter([300], [after], s=150, facecolor="white", edgecolor=RED, lw=2.6, zorder=6)
     ax.text(300, after + 0.55, num(after, 4), ha="center", fontsize=15, color=RED)
     ax.annotate("", xy=(300, 6.2), xytext=(250, 6.2), arrowprops=dict(arrowstyle="<->", color=INK, lw=1.6))
     ax.text(275, 6.5, "50번 더 갱신", ha="center", fontsize=15)
     fig.text(0.015, 0.95, "history[" + M + "1] 은 250번째 반복에서 갱신하기 전에 잰 손실", fontsize=20, weight="bold", va="center")
-    fig.text(0.55, 0.80, "검은 점: 기록한 손실\n빈 원: 300번 갱신한 뒤 다시 잰 손실", fontsize=16, color=MUTED, va="center")
+    fig.text(0.55, 0.80, "검은 점: 기록한 손실\n빈 원: 300번 갱신한 뒤 다시 잰 손실", linespacing=1.5, fontsize=16, color=MUTED, va="center")
     return image(fig)
 
 
@@ -1152,4 +1154,4 @@ def memo_5g():
         ("텐서와 배치", ["`torch.FloatTensor(X_train)`", "`.unsqueeze(1)`", "[800] → [800, 1]", "`TensorDataset`", "`DataLoader`",
                     "배치 64: 13개, 마지막 32개"], PURPLE),
         ("세기와 기록", ["`epoch_loss += loss.item()`", "`tot += y.size(0)`", "`out.argmax(1)`", "기록 = 갱신 전 손실"], RED)],
-        note_line="range(300) 에서 50번마다 기록하면 마지막 기록은 250번째 반복의 갱신 전 손실입니다.")
+        note_line="range(300) 에서 50번마다 기록하면 마지막 기록은 250번째 반복의 갱신 전 손실입니다.", pad=1.0)

@@ -393,7 +393,7 @@ def outlier():
         if stage == 5:
             fig.lines.append(plt.Line2D([0.54, 0.995], [0.45, 0.45], transform=fig.transFigure, color=FAINT, lw=1.4))
             note(fig, 0.545, 0.36, "늘어난 값  MSE +719.8,  MAE +11.8", size=17, transform=fig.transFigure)
-            note(fig, 0.545, 0.22, "MSE 720.8 가운데 720 은\n넷째 하나가 보탠 60² ÷ 5", size=17, transform=fig.transFigure)
+            note(fig, 0.545, 0.22, "MSE 720.8 가운데 720 은\n넷째 하나가 보탠 60$^2$ ÷ 5", size=17, transform=fig.transFigure)
         return image(fig)
 
     frames = [draw(k) for k in range(1, 6)]
@@ -414,7 +414,7 @@ def huber_axes(fig, rect, ymax=14):
 def huber_one():
     """δ = 1 인 Huber 곡선과 0.5e², |e|. 오차 [2, −1, 5] 의 값 1.5, 0.5, 4.5."""
     plt, fig = new(600)
-    ax = huber_axes(fig, [0.08, 0.13, 0.52, 0.78], ymax=9)
+    ax = huber_axes(fig, [0.08, 0.13, 0.52, 0.76], ymax=9)
     e = np.linspace(-6, 6, 600)
     ax.axvspan(-1, 1, color=PURPLE_L, zorder=0)
     ax.plot(e, 0.5 * e ** 2, color=ORANGE, lw=2.2, ls="--", label="0.5$e^2$")
@@ -428,8 +428,9 @@ def huber_one():
         px, py, ha, va = (v + 0.25, h - 0.25, "left", "top") if v > 0 else (v + 0.12, h + 0.55, "left", "bottom")
         ax.text(px, py, num(h, 1), color=PURPLE, fontsize=18, ha=ha, va=va, zorder=8,
                 bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
-    ax.text(0, 8.4, "제곱 구간\n|e| ≤ 1", color=PURPLE, fontsize=16, ha="center", va="top")
-    ax.legend(loc="upper left", fontsize=16, frameon=False)
+    ax.text(0, 8.4, "제곱 구간\n|e| ≤ 1", color=PURPLE, linespacing=1.5, fontsize=16, ha="center", va="top")
+    # 범례는 축 위 한 줄에 둠. 축 안 왼쪽 위에 두면 0.5e² 점선이 글자를 지나감
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), fontsize=16, frameon=False, ncol=3)
     note(fig, 0.64, 0.83, "|e| ≤ δ  →  0.5$e^2$", color=PURPLE, size=19, bg="white", ec=PURPLE, transform=fig.transFigure)
     note(fig, 0.64, 0.68, "|e| > δ  →  δ(|e| " + M + " 0.5δ)", color=PURPLE, size=19, bg="white", ec=PURPLE,
          transform=fig.transFigure)
@@ -469,8 +470,9 @@ def huber_delta():
             for d in deltas:
                 ax.plot(e, huber(e, d), color=PURPLE, lw=2.4, alpha=0.35 + 0.15 * deltas.index(d))
                 xe = 5.9 if d < 5 else 4.6
+                # δ=1 글자 위로 |e| 점선이 지나가서 그 글자만 흰 바탕을 깔아 가림
                 ax.text(xe, float(huber(xe, d)) + 0.2, "δ=" + num(d, 1), color=PURPLE, fontsize=15, ha="right",
-                        va="bottom")
+                        va="bottom", bbox=dict(boxstyle="round,pad=0.1", fc="white", ec="none") if d == 1 else None)
             head(fig, "δ 가 클수록 제곱 구간이 넓어짐")
         ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), fontsize=16, frameon=False, ncol=3)
         # 오른쪽 표: 오차마다 어느 구간인지와 평균
@@ -510,7 +512,7 @@ def summary_6b():
     assert (round(r1[2], 1), round(r1[3], 1), round(r1[4], 1)) == (720.8, 12.8, 12.3)
     return memo([[(0.3, 3.3, "MSE", ["1 → 720.8", "큰 오차가 손실을 끌어올림", "RMSE = √MSE"], ORANGE, ORANGE, ()),
                   (3.8, 3.15, "MAE", ["1 → 12.8", "늘어나는 폭이 작음", "nn.L1Loss()"], GREEN, GREEN, (2,)),
-                  (7.15, 3.75, "Huber", ["0.5 → 12.3, delta 기본값 1.0", "|e| ≤ δ: 0.5e²",
+                  (7.15, 3.75, "Huber", ["0.5 → 12.3, delta 기본값 1.0", "|e| ≤ δ: 0.5$e^2$",
                                          "|e| > δ: δ(|e| " + M + " 0.5δ)"], PURPLE, PURPLE, ())]],
                 "오차 [1, " + M + "1, 1, 60, 1]: 넷째 하나만 이상치. δ 가 클수록 제곱 구간이 넓어짐")
 
@@ -534,7 +536,11 @@ def bce_curves():
     assert (fx(vals[0.9], 3), fx(vals[0.5], 3), fx(vals[0.1], 3)) == ("0.105", "0.693", "2.303")
     for pp, v in vals.items():
         ax.scatter([pp], [v], s=90, color=BLUE, zorder=6)
-        ax.text(pp + 0.02, v + 0.12, fx(v, 3), color=BLUE, fontsize=18, va="bottom")
+        # p = 0.5 의 값은 두 곡선 사이 점 바로 위에 둠. 오른쪽 위에 두면 보라 곡선이 글자를 지나감
+        if pp == 0.5:
+            ax.text(pp, v + 0.3, fx(v, 3), color=BLUE, fontsize=18, ha="center", va="bottom")
+        else:
+            ax.text(pp + 0.02, v + 0.12, fx(v, 3), color=BLUE, fontsize=18, va="bottom")
     ax.legend(loc="upper center", fontsize=17, frameon=False)
     note(fig, 0.67, 0.80, "정답이 1 인 데이터", color=BLUE, size=19, bg=None, weight="bold", transform=fig.transFigure)
     note(fig, 0.67, 0.64, "p = 0.9 → 0.105\np = 0.5 → 0.693\np = 0.1 → 2.303", size=18, transform=fig.transFigure)
@@ -569,7 +575,7 @@ def logit_to_bce():
         for r in range(3):
             color = BLUE if Y3[r] == 1 else PURPLE
             ax.axvline(Z3[r], color=color, lw=1.2, ls=":", ymax=0.06)
-            ax.text(Z3[r], 0.03, num(Z3[r], 0), color=color, fontsize=16, ha="center", va="bottom", weight="bold")
+            ax.text(Z3[r], 0.075, num(Z3[r], 0), color=color, fontsize=16, ha="center", va="bottom", weight="bold")
             if stage >= 2:
                 ax.scatter([Z3[r]], [P3[r]], s=110, color=color, zorder=6)
         for c, h in enumerate(heads):
@@ -587,11 +593,11 @@ def logit_to_bce():
             if stage >= 3:
                 fig.text(cols[4], yy, fx(B3[r], 4), fontsize=18, color=GREEN, ha="center", va="center")
                 form = (M + "log p" if Y3[r] == 1 else M + "log(1 " + M + " p)")
-                fig.text(cols[4], yy - 0.05, form, fontsize=13, color=color, ha="center", va="center")
+                fig.text(cols[4], yy - 0.05, form, fontsize=15, color=color, ha="center", va="center")
         if stage >= 4:
-            fig.lines.append(plt.Line2D([0.43, 0.99], [0.39, 0.39], transform=fig.transFigure, color=FAINT, lw=1.4))
-            fig.text(cols[3], 0.33, "평균", fontsize=18, color=INK, ha="center", va="center")
-            fig.text(cols[4], 0.33, fx(B3.mean(), 4), fontsize=19, color=GREEN, ha="center", va="center")
+            fig.lines.append(plt.Line2D([0.43, 0.99], [0.36, 0.36], transform=fig.transFigure, color=FAINT, lw=1.4))
+            fig.text(cols[3], 0.305, "평균", fontsize=18, color=INK, ha="center", va="center")
+            fig.text(cols[4], 0.305, fx(B3.mean(), 4), fontsize=19, color=GREEN, ha="center", va="center")
         if stage == 5:
             note(fig, 0.44, 0.15, "nn.BCEWithLogitsLoss()(logit, 정답) = 0.7111\n시그모이드와 BCE 를 한 번에 계산", size=16,
                  transform=fig.transFigure, bg=GREEN_L)
@@ -753,7 +759,7 @@ def ce_shapes():
         x0, y0 = 5.25, 2.55 - r * 0.9
         ax.add_patch(Rectangle((x0, y0), 0.9, 0.8, fc=GREEN_L, ec=GREEN, lw=1.8))
         ax.text(x0 + 0.45, y0 + 0.4, str(t[r]), ha="center", va="center", fontsize=20, color=INK, weight="bold")
-    ax.text(6.35, 2.95, "클래스 번호\n정수(long)", ha="left", va="center", fontsize=16, color=GREEN)
+    ax.text(6.35, 2.95, "클래스 번호\n정수(long)", ha="left", va="center", linespacing=1.5, fontsize=16, color=GREEN)
     note(ax, 7.75, 3.15, "nn.CrossEntropyLoss()", size=17, family=CODE, bg="white", ec=INK)
     note(ax, 7.75, 1.95, "데이터 1: 0.4170\n데이터 2: 0.1967\n평균 0.3069", color=GREEN, size=17, bg="white", ec=GREEN,
          va="center")
@@ -780,7 +786,7 @@ def smoothing():
         ax.text(i - 0.18, [1, 0, 0][i] + 0.02, num([1, 0, 0][i], 0), ha="center", va="bottom", fontsize=17, color=INK)
         ax.text(i + 0.18, q[i] + 0.02, fx(q[i], 3), ha="center", va="bottom", fontsize=17, color=SLATE)
     ax.set_xticks(xs)
-    ax.set_xticklabels(["클래스 0\n(정답)", "클래스 1", "클래스 2"])
+    ax.set_xticklabels(["클래스 0\n(정답)", "클래스 1", "클래스 2"], linespacing=1.4)
     ax.set_ylim(0, 1.2)
     ax.set_ylabel("목표값")
     ax.legend(loc="upper right", fontsize=16, frameon=False)
@@ -969,7 +975,7 @@ def reduction():
     for i, v in enumerate(sq):
         ax.text(xs[i], v + 0.5, num(v, 0), ha="center", va="bottom", fontsize=18)
     ax.axhline(sq.mean(), color=MUTED, lw=2.4, ls="--", zorder=4)
-    ax.text(3.45, sq.mean() + 0.6, "평균 10", color=MUTED, fontsize=17, ha="right", va="bottom")
+    ax.text(2.65, sq.mean() + 0.6, "평균 10", color=MUTED, fontsize=17, ha="right", va="bottom")
     ax.set_xlim(0.4, 3.6)
     ax.set_ylim(0, 30)
     ax.set_xticks(xs)
@@ -1011,7 +1017,7 @@ def loss_surface():
             bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
     ax.set_xlabel("W", labelpad=8)
     ax.set_ylabel("B", labelpad=8)
-    ax.set_zlabel("손실", labelpad=8)
+    ax.set_zlabel("손실", labelpad=13)
     ax.view_init(elev=28, azim=-60)
     ax.tick_params(labelsize=13)
     fig.text(0.02, 0.93, "4차시 직선 예: 파라미터 W, B 와 손실", fontsize=18, color=INK, weight="bold", va="center")
