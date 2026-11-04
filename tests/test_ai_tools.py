@@ -13,6 +13,7 @@ import shutil
 import struct
 import sys
 import tempfile
+import unicodedata
 import unittest
 from unittest import mock
 
@@ -440,6 +441,16 @@ class OverlapTest(Case):
         code = ai_overlap.main(["--lecture", os.path.join(self.bank, "lecture"), "--bank", self.bank, "--no-pdf", "l90"], out)
         self.assertEqual(1, code, out.getvalue())
         self.assertIn("코드 줄 3개가 이어 같음", out.getvalue())
+
+    def test_reads_folders_named_in_nfd(self):
+        lecture = os.path.join(self.tmp, "nfd")
+        for name in ("강의_90차시_실습", "대학원_강의안"):
+            folder = os.path.join(lecture, unicodedata.normalize("NFD", name))
+            os.makedirs(folder)
+            study.write_text(os.path.join(folder, "a.py"), "print('%s')\n" % name)
+        self.assertEqual(1, len(ai_overlap.lesson_folders(lecture, [90])))
+        found = ai_overlap.corpus(lecture, [90], use_pdf=False)["code"]
+        self.assertEqual(["print('강의_90차시_실습')\n", "print('대학원_강의안')\n"], [unicodedata.normalize("NFC", t) for t in found])
 
     def test_needs_lecture_dir(self):
         out = io.StringIO()

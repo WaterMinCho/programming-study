@@ -533,7 +533,7 @@ y.contiguous().view(6)           # tensor([0, 3, 1, 4, 2, 5])
 {"guess": "g1"}
 ```
 
-> **[정정]** 3차시 노트북 01 셀 31은 view가 연속 메모리에서만 된다고 적었습니다. 연속 메모리는 원소가 읽는 순서대로 메모리에 이어져 있는 상태입니다. PyTorch 문서가 밝힌 조건은 새 모양이 메모리 간격(stride)과 맞는지입니다. 연속인 텐서는 언제나 되고, 연속이 아니어도 되는 경우가 있습니다. 위의 전치 예는 실제로 안 되는 경우라서 노트북의 예와 결과는 맞습니다. 모를 때는 reshape를 쓰라고 문서가 권합니다.
+> **[정정]** 3차시 노트북 01 셀 31은 view가 연속 메모리에서만 된다고 적었습니다. 연속 메모리는 원소가 읽는 순서대로 메모리에 이어져 있는 상태입니다. PyTorch 문서가 밝힌 조건은 새 모양이 원래 크기와 메모리 간격(stride)에 맞는지입니다. 연속인 텐서는 언제나 되고, 연속이 아니어도 되는 경우가 있습니다. 위의 전치 예는 실제로 안 되는 경우라서 노트북의 예와 결과는 맞습니다. 모를 때는 reshape를 쓰라고 문서가 권합니다.
 
 ```ai-recall
 {"id": "r2", "q": "`y.____().view(6)`처럼 메모리를 지금 읽는 순서대로 다시 깔면 view를 쓸 수 있습니다.", "answer": ["contiguous"], "mode": "code", "why": "`contiguous()`가 값을 순서대로 다시 깐 텐서를 돌려줍니다."}
@@ -643,7 +643,7 @@ chunk의 둘째 인자는 덩어리 개수이고 split의 둘째 인자는 덩�
 
 ```ai-memo
 [{"q": "`view`에서 -1은 무엇을 뜻하나요?", "a": "원소 수에 맞게 저절로 계산되는 자리입니다. 원소 12개를 `view(3, -1)`하면 [3, 4]입니다.", "cards": ["i03-b09"]},
- {"q": "전치한 텐서에 `view(6)`을 쓰면 어떻게 되나요?", "a": "RuntimeError가 납니다. `reshape(6)`이나 `contiguous().view(6)`은 됩니다.", "cards": ["i03-c04"]},
+ {"q": "shape [2, 3]인 x를 `t()`로 전치한 y에 `view(6)`을 쓰면 어떻게 되나요?", "a": "RuntimeError가 납니다. `reshape(6)`이나 `contiguous().view(6)`은 됩니다.", "cards": ["i03-c04"]},
  {"q": "`squeeze(dim=d)`는 d번 축의 크기가 1이 아니면 어떻게 하나요?", "a": "아무것도 바꾸지 않습니다. 크기 1인 축만 지웁니다.", "cards": ["i03-b10"]},
  {"q": "인자 없는 `squeeze()`와 `unsqueeze(0)`은 각각 무엇을 하나요?", "a": "`squeeze()`는 크기 1인 축을 모두 지우고, `unsqueeze(0)`은 맨 앞에 크기 1인 축을 넣습니다.", "cards": ["i03-b10"]},
  {"q": "expand와 repeat는 무엇이 다른가요?", "a": "expand는 원본과 메모리를 함께 쓰고, repeat는 값을 복사한 새 텐서를 만듭니다.", "cards": ["i03-c05"]},
@@ -1106,7 +1106,7 @@ x = x.to(device)       # 옮긴 텐서를 다시 x로 받음
 running_total = 0.0
 running_total += loss.item()    # loss는 원소 하나짜리 텐서
 r2_np = r2.numpy()              # float32 numpy 배열
-y_np = y.detach().numpy()       # y는 requires_grad=True
+y_np = y.detach().numpy()       # y는 CPU에 있고 requires_grad=True
 ```
 
 ```figure
@@ -1117,10 +1117,10 @@ y_np = y.detach().numpy()       # y는 requires_grad=True
 
 학습 코드는 반복마다 원소 하나짜리 텐서 `loss`를 계산하고 그 값을 더해 모읍니다. `loss.item()`은 계산 기록이 없는 파이썬 숫자를 돌려줍니다. `loss` 텐서를 그대로 더하면 계산 기록이 반복마다 이어 붙어 메모리가 늘어납니다(PyTorch 문서 자주 묻는 질문).
 
-값이 여럿이면 `.numpy()`를 불러 numpy 배열로 바꿉니다(3차시 노트북 01 셀 66). `requires_grad=True`인 텐서는 바로 `.numpy()`를 부를 수 없습니다. 그래서 계산 기록에서 떼어 낸 텐서를 돌려주는 `.detach()`를 먼저 부릅니다. 강의 노트북은 `r2.data.numpy()`처럼 `.data`도 씁니다(셀 67). 두 방법 모두 값을 꺼내지만 PyTorch 문서는 `.detach()`를 권합니다.
+값이 여럿이면 `.numpy()`를 불러 numpy 배열로 바꿉니다(3차시 노트북 01 셀 66). `requires_grad=True`인 텐서는 바로 `.numpy()`를 부를 수 없습니다. 그래서 계산 기록에서 떼어 낸 텐서를 돌려주는 `.detach()`를 먼저 부릅니다. 강의 노트북은 `r2.data.numpy()`처럼 `.data`도 씁니다(셀 67). 두 방법 모두 값을 꺼내지만 PyTorch 문서는 `.detach()`를 권합니다. `.numpy()`는 CPU에 있는 텐서에만 쓸 수 있습니다. GPU에 있는 텐서는 `.cpu()`로 CPU에 옮긴 다음 `.numpy()`를 부릅니다. `requires_grad=True`이면 `y.detach().cpu().numpy()`처럼 씁니다.
 
 ```ai-recall
-{"id": "r2", "q": "requires_grad=True인 y를 numpy 배열로 바꾸는 코드는 `y.____().numpy()` 입니다.", "answer": ["detach"], "mode": "code", "why": "detach()가 계산 기록에서 떼어 낸 텐서를 돌려줍니다."}
+{"id": "r2", "q": "CPU에 있고 requires_grad=True인 y를 numpy 배열로 바꾸는 코드는 `y.____().numpy()` 입니다.", "answer": ["detach"], "mode": "code", "why": "detach()가 계산 기록에서 떼어 낸 텐서를 돌려줍니다."}
 ```
 
 ```ai-why
@@ -1188,7 +1188,7 @@ r3 = torch.randn((3, 2, 2))
 [{"q": "GPU가 있으면 cuda, 없으면 cpu를 고르는 줄은 무엇인가요?", "a": "`device = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")`입니다.", "cards": ["i03-b20"]},
  {"q": "텐서를 장치로 옮길 때 어떻게 쓰나요?", "a": "`x = x.to(device)`처럼 결과를 받습니다. 받지 않으면 x는 원래 장치에 남습니다.", "cards": ["i03-c11"]},
  {"q": "반복마다 나오는 원소 하나짜리 loss를 숫자로 모을 때 쓰는 메서드는 무엇인가요?", "a": "`loss.item()`입니다. 계산 기록 없는 파이썬 숫자를 돌려줍니다.", "cards": ["i03-b21"]},
- {"q": "requires_grad=True인 텐서를 numpy 배열로 바꾸는 코드는 무엇인가요?", "a": "`y.detach().numpy()`입니다.", "cards": ["i03-b22"]},
+ {"q": "CPU에 있고 requires_grad=True인 텐서 y를 numpy 배열로 바꾸는 코드는 무엇인가요?", "a": "`y.detach().numpy()`입니다.", "cards": ["i03-b22"]},
  {"q": "`torch.from_numpy`와 `torch.tensor`는 무엇이 다른가요?", "a": "from_numpy는 numpy 배열과 메모리를 함께 쓰고, torch.tensor는 값을 복사합니다.", "cards": ["i03-c12"]}]
 ```
 

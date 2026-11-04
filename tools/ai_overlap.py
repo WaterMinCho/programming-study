@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 글이 강의 글을 옮기지 않았는지 보는 겹침 검사(설계 8.8, 부록 A.5). 출제자 컴퓨터에서만 돌림(강의 자료는 저장소 밖).
 
-  python tools/ai_overlap.py --lecture "~/Documents/rokey/ai개론" [l05 i05 m1 ...] [--no-pdf]
+  python tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" [l05 i05 m1 ...] [--no-pdf]
 
 강의 폴더는 인자나 환경 변수 AI_LECTURE_DIR 로만 받고 저장소에 적지 않음. 말뭉치는 대상 차시와 앞뒤 한 차시 폴더의 노트북
 (markdown·code 셀, 출력 제외), docx, PDF 와 맨 위의 요약본·LectureNote.docx·대학원_강의안 전부. PDF 는 pypdf 로 읽고 pypdf 가
@@ -77,7 +77,7 @@ def lesson_folders(lecture, numbers):
         wanted |= {n - 1, n, n + 1}
     for name in sorted(os.listdir(lecture)):
         path = os.path.join(lecture, name)
-        found = re.search(r"(?<!\d)(\d{1,2})차시", name)
+        found = re.search(r"(?<!\d)(\d{1,2})차시", unicodedata.normalize("NFC", name))  # macOS 는 한글 이름을 NFD 로 줌
         if os.path.isdir(path) and found and (not numbers or int(found.group(1)) in wanted):
             out.append(path)
     return out
@@ -94,7 +94,7 @@ def corpus(lecture, numbers, use_pdf=True):
         path = os.path.join(lecture, name)
         if os.path.isfile(path):
             files.append(path)
-        elif os.path.isdir(path) and "대학원" in name:
+        elif os.path.isdir(path) and "대학원" in unicodedata.normalize("NFC", name):
             for here, _, names in os.walk(path):
                 files += [os.path.join(here, n) for n in sorted(names)]
     for path in files:
