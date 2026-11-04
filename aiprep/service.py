@@ -400,7 +400,7 @@ class AiSession(object):
         return self._state().notes()[1]
 
     def wrong_item(self, key):
-        """오답 노트 문항 하나. {"key", "title", "lines"(결과 줄), "stem", "kind", "options", "mine"(내 답 글 목록 또는 None),
+        """오답 노트 문항 하나. {"key", "title", "lines"(결과 줄), "stem", "kind", "pick", "options", "mine"(내 답 글 목록 또는 None),
         "ref", "lesson", "step"}."""
         state = self._state()
         card = self.card_info(key)
@@ -427,7 +427,7 @@ class AiSession(object):
                 mine = self._picked_text(card, last)
         view = self._static_view(card, last)
         return {"key": key, "title": state.note_title(card), "lines": lines, "stem": view["stem"], "kind": view["kind"],
-                "options": [o["text"] for o in view.get("options", [])], "mine": mine, "ref": card["ref"],
+                "pick": view.get("pick"), "options": [o["text"] for o in view.get("options", [])], "mine": mine, "ref": card["ref"],
                 "lesson": card["lesson"], "step": card.get("step"), "state": note["state"]}
 
     def _last_wrong(self, key):
@@ -443,7 +443,7 @@ class AiSession(object):
         return [options[p]["text"] for p in entry.get("picked") or [] if isinstance(p, int) and p < len(options)]
 
     def _static_view(self, card, entry=None):
-        """오답 노트에 다시 그릴 문항. 생성기는 기록의 시드로, 문장 카드는 기록의 shown 순서로 다시 만듦."""
+        """오답 노트에 다시 그릴 문항. 생성기는 기록의 시드로, 문장 카드는 기록의 shown 순서로 다시 만들고 shown 이 없으면 빈칸판."""
         entry = entry or {}
         if card["kind"] in ("blank", "choice"):
             return dict(card["item"])
@@ -457,6 +457,8 @@ class AiSession(object):
                     % (card["topic"].get("title", ""), "옳은" if statement.get("ok") else "옳지 않은"),
                     "options": [{"text": s["text"], "ok": bool(s.get("ok")), "why": s.get("why", "")} for s in shown],
                     "pick": entry.get("pick") or ("right" if statement.get("ok") else "wrong"), "explain": statement.get("why", "")}
+        if entry.get("kind") == "answer" and statement.get("cloze"):  # 고르기판 답에는 shown 이 늘 있으니 빈칸판에서 틀린 것
+            return cloze_item(statement)
         return {"kind": "choice", "stem": "다음 문장이 맞는지 고르세요.\n\n%s" % statement["text"], "options": [],
                 "explain": statement.get("why", "")}
 
@@ -464,10 +466,9 @@ class AiSession(object):
         """오답 노트 [해설 보기]. {"answer", "explain", "ref", "why"}."""
         card = self.card_info(key)
         view = self._static_view(card, self._last_wrong(key))
-        if card["kind"] == "stmt":
-            statement = card["stmt"]
-            answer = ["맞는 문장입니다." if statement.get("ok") else "틀린 문장입니다."]
-            return {"answer": answer, "explain": statement.get("why", ""), "ref": card["ref"], "why": {}}
+        if view["kind"] == "choice" and not view["options"]:  # 함께 고른 보기로만 노트에 든 문장 카드
+            answer = ["맞는 문장입니다." if card["stmt"].get("ok") else "틀린 문장입니다."]
+            return {"answer": answer, "explain": view["explain"], "ref": card["ref"], "why": {}}
         if view["kind"] == "blank":
             answer = [b["answer"][0] for b in view["blanks"]]
             return {"answer": answer, "explain": view.get("explain", ""), "ref": card["ref"], "why": {}}
@@ -852,13 +853,22 @@ def _fix_blanks(sess, state, chosen, pools, protected):
     return chosen
 
 
-def _gen_trim(sess, chosen):
-    """묶음이 작아졌을 때 생성기를 GEN_SHARE 아래로 줄임(뒤의 것부터)."""
+def cloze_item(statement):
+    """문장 카드의 빈칸판 문항."""
+    cloze = statement["cloze"]
+    return {"kind": "blank", "stem": cloze["text"],
+            "blanks": [{"answer": cloze["answer"], "mode": cloze.get("mode") or "word", "hint": cloze.get("hint", "")}],
+            "explain": statement.get("why", "")}
+
+
+def _gen_trim(sess, chosen, keep=()):
+    """묶음이 작아졌을 때 생성기를 GEN_SHARE 아래로 줄임(뒤의 것부터). keep 의 카드는 빼지 않음."""
     while True:
         gens = [n for n, (c, _) in enumerate(chosen) if sess.cards[c]["kind"] == "gen"]
-        if not gens or len(gens) <= int(len(chosen) * GEN_SHARE):
+        spare = [n for n in gens if chosen[n][0] not in keep]
+        if not spare or len(gens) <= int(len(chosen) * GEN_SHARE):
             return chosen
-        del chosen[gens[-1]]
+        del chosen[spare[-1]]
 
 
 def _arrange(sess, state, chosen, rng, pattern=None):
@@ -1015,7 +1025,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
     if len(chosen) < SET_MIN and overflow:
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
     chosen = _fix_blanks(sess, state, chosen, pools, protected)
-    chosen = _gen_trim(sess, chosen)
+    chosen = _gen_trim(sess, chosen, keep={card} if mode == "note" else ())  # [다시 풀기]로 고른 생성기는 빼지 않음
     if mode == "unit":
         return _arrange(sess, state, chosen, rng, pattern)
     lead = [c for c, pool in chosen if pool == "lead"]
@@ -1066,10 +1076,7 @@ class PracticeSet(object):
         elif card["kind"] == "gen":
             item = gen.run(card["gen"], entry["seed"])
         elif view["form"] == "blank":
-            cloze = card["stmt"]["cloze"]
-            item = {"kind": "blank", "stem": cloze["text"],
-                    "blanks": [{"answer": cloze["answer"], "mode": cloze.get("mode") or "word", "hint": cloze.get("hint", "")}],
-                    "explain": card["stmt"].get("why", "")}
+            item = cloze_item(card["stmt"])
         else:
             item = self._statement_choice(card, state, rng, entry["again"])
             view["shown"] = [o["id"] for o in item["options"]]

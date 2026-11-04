@@ -329,6 +329,9 @@ class AiNotes:
         kind = item["label"].split(" · ")[0]
         try:
             card = self.win.ai.card_info(item["key"])
+            if card["kind"] == "stmt":  # 문장 카드는 틀린 판에 따라 꼴과 첫머리가 바뀜
+                note = self.win.ai.wrong_item(item["key"])
+                return "%s · %s" % ("빈칸" if note["kind"] == "blank" else kind, stmt_head(card, note))
         except SessionError:
             return item["label"]
         return "%s · %s" % (kind, card_head(card, self.win.ai))
@@ -342,7 +345,7 @@ class AiNotes:
         unit = sess.notes.get(item.get("lesson"), {}).get("units", {}).get(sess.card_info(note["key"]).get("unit"))
         if lesson and unit:
             title = "%d차시 · %s" % (lesson["no"], unit["title"])
-        return title, note_html(item, info, answer_word(sess.card_info(note["key"])))
+        return title, note_html(item, info, answer_word(item))
 
     def explain(self, note):
         return self.win.ai.explain(note["key"])
@@ -351,19 +354,27 @@ class AiNotes:
         self.win.open_ai_practice("note", card=note["key"])
 
 
-def answer_word(card):
-    """정답 줄 머리. 옳지 않은 것을 고르는 문항의 답은 거짓 문장이라 "정답" 이라 쓰지 않음."""
-    return "옳지 않은 문장" if card.get("kind") == "choice" and (card.get("item") or {}).get("pick") == "wrong" else "정답"
+def answer_word(item):
+    """정답 줄 머리. item 은 wrong_item 결과. 옳지 않은 것을 고르는 문항의 답은 거짓 문장이라 "정답" 이라 쓰지 않음."""
+    return "옳지 않은 문장" if item.get("kind") == "choice" and item.get("pick") == "wrong" else "정답"
 
 
 def card_head(card, sess):
-    """문항 줄에 쓰는 문제 첫머리. 문장 카드는 문장, 생성기는 단원 제목, 나머지는 지문의 첫 글 줄."""
-    if card["kind"] == "stmt":
-        return plain(card["stmt"].get("text", ""))
+    """문항 줄에 쓰는 문제 첫머리. 생성기는 단원 제목, 나머지는 지문의 첫 글 줄. 문장 카드는 stmt_head."""
     if card["kind"] == "gen":
         unit = sess.notes.get(card["lesson"], {}).get("units", {}).get(card["unit"])
         return unit["title"] if unit else ""
-    stem = (card.get("item") or {}).get("stem", "")
+    return first_line((card.get("item") or {}).get("stem", ""))
+
+
+def stmt_head(card, note):
+    """문장 카드 줄의 첫머리. 문장이 곧 답인 판(빈칸판·고르기판)은 지문 첫 줄을 쓰고, 맞는지 묻는 판만 문장을 씀."""
+    if note["kind"] == "blank" or note["options"]:
+        return first_line(note["stem"])
+    return plain(card["stmt"].get("text", ""))
+
+
+def first_line(stem):
     return next((plain(line).strip() for line in stem.split("\n") if line.strip() and not bank.FENCE.match(line)), "")
 
 

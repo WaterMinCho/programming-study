@@ -462,6 +462,49 @@ class NotesTest(Base):
         note = sess.start_set("note", card=cur["card"], seed=2)
         self.assertEqual(cur["card"], note.queue[0]["card"])
 
+    def test_retry_keeps_a_generator_card_in_a_small_set(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        self.at = "2026-11-10T20:00:00"
+        for cid in ("i90-b01", "i90-b02", "i90-g01"):
+            sess._append({"kind": "answer", "set": "s1", "card": cid, "result": "stuck", "again": 0, "seed": 3})
+        note = sess.start_set("note", card="i90-g01", seed=2)
+        self.assertEqual("i90-g01", note.queue[0]["card"])
+        self.assertEqual(3, len(note.queue))
+        note = sess.start_set("note", card="i90-b01", seed=2)  # 고르지 않은 생성기는 작은 묶음에서 빠짐
+        self.assertEqual(["i90-b01", "i90-b02"], [e["card"] for e in note.queue])
+
+    def test_cloze_statement_is_redrawn_as_cloze(self):
+        for how in ("wrong", "dk"):
+            self.at = "2026-11-09T20:00:00"
+            sess = AiSession(how, home=os.path.join(self.tmp, how), root=self.root)
+            sess.mark_read("i90", "90b")
+            sess._append({"kind": "answer", "set": "s0", "card": "i90-s01", "result": "pass", "again": 0})
+            self.at = "2026-11-10T20:00:00"
+            sess._append({"kind": "answer", "set": "s1", "card": "i90-s01", "result": "pass", "again": 0})
+            cloze = sess.cards["i90-s01"]["stmt"]["cloze"]
+            ps = service.PracticeSet(sess, "s2", "unit", ["i90-s01"], 1)
+            self.assertEqual("blank", ps.current()["kind"])
+            ps.dont_know(2) if how == "dk" else ps.answer(["엉뚱"], 2, False)
+            detail = sess.wrong_item("i90-s01")
+            self.assertEqual(("blank", cloze["text"], []), (detail["kind"], detail["stem"], detail["options"]))
+            self.assertEqual(["모르겠어요"] if how == "dk" else ["엉뚱"], detail["mine"])
+            self.assertEqual(cloze["answer"][:1], sess.explain("i90-s01")["answer"])
+
+    def test_choice_statement_names_the_statement_to_pick(self):
+        sess = self.session()
+        sess.mark_read("i90", "90b")
+        ps = service.PracticeSet(sess, "s1", "unit", ["i90-s05"], 1)
+        cur = ps.current()
+        right = self.right(ps, cur)
+        ps.answer([o["no"] for o in cur["options"] if o["no"] not in right][:1], 2, False)
+        detail = sess.wrong_item("i90-s05")
+        self.assertEqual(("choice", "wrong", 4), (detail["kind"], detail["pick"], len(detail["options"])))
+        explain = sess.explain("i90-s05")
+        self.assertEqual([sess.cards["i90-s05"]["stmt"]["text"]], explain["answer"])
+        self.assertEqual(set(detail["options"]), set(explain["why"]))
+        self.assertTrue(explain["why"][detail["mine"][0]])
+
 
 if __name__ == "__main__":
     unittest.main()

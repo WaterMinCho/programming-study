@@ -363,8 +363,8 @@ class TextTest(unittest.TestCase):
         html_text = ai_text.note_html(item, {"answer": ["가"], "explain": "", "why": {}}, "옳지 않은 문장")
         self.assertIn("2번 틀림 · 확실하다고", html_text)
         self.assertIn("옳지 않은 문장: 가", html_text)
-        self.assertEqual(ai_text.answer_word({"kind": "choice", "item": {"pick": "wrong"}}), "옳지 않은 문장")
-        self.assertEqual(ai_text.answer_word({"kind": "blank", "item": {}}), "정답")
+        self.assertEqual(ai_text.answer_word({"kind": "choice", "pick": "wrong"}), "옳지 않은 문장")
+        self.assertEqual(ai_text.answer_word({"kind": "blank", "pick": None}), "정답")
         lines = ai_text.summary_lines({"first_today": 2, "again_day": 1, "up": 0, "down": 0, "memorised": 0, "sure_wrong": 0, "left": [],
                                        "next": None, "early": 0}, unlisted=1)
         self.assertEqual(lines, ["오늘 처음 푼 문항 가운데 맞힌 문항 2개", "다른 날 풀었던 문항 가운데 다시 맞힌 문항 1개",
@@ -914,6 +914,34 @@ class WrongNoteTest(AiTest):
         self.assertEqual(quiz.back_btn.text(), "← 오답 노트")
         guikit.click(quiz.back_btn)
         self.assertIs(self.page(), page)
+
+    def test_statement_rows_follow_the_form_they_were_missed_in(self):
+        win = self.boot()
+        sess = win.ai
+        self.at(2)
+        sess.mark_read("i90", "90b")
+        sess._append({"kind": "answer", "set": "s0", "card": "i90-s01", "result": "pass", "again": 0})
+        self.at(3)
+        sess._append({"kind": "answer", "set": "s1", "card": "i90-s01", "result": "pass", "again": 0})
+        self.at(4)
+        service.PracticeSet(sess, "s2", "unit", ["i90-s01"], 1).answer(["엉뚱"], 2, False)
+        choice = service.PracticeSet(sess, "s3", "unit", ["i90-s05"], 1)
+        right = grade.right_options(choice._view(choice.queue[0])["item"])
+        choice.answer([o["no"] for o in choice.current()["options"] if o["no"] not in right][:1], 2, False)
+        win.go_ai()
+        guikit.click(win.ai_home.notes_row)
+        page = win.wrong_page
+        cloze, wrong = sess.cards["i90-s01"]["stmt"], sess.cards["i90-s05"]["stmt"]
+        label = page.list.row_of("i90-s01").title.text()
+        self.assertTrue(label.startswith("빈칸 · "), label)
+        self.assertNotIn(cloze["text"], label)  # 줄에 답이 보이지 않음
+        self.assertNotIn(wrong["text"], page.list.row_of("i90-s05").title.text())
+        page.list.pick(page.list.row_of("i90-s01"))
+        guikit.click(page.explain_btn)
+        self.assertIn("정답: %s" % cloze["cloze"]["answer"][0], page.detail.toPlainText())
+        page.list.pick(page.list.row_of("i90-s05"))
+        guikit.click(page.explain_btn)
+        self.assertIn("옳지 않은 문장: %s" % wrong["text"], page.detail.toPlainText())
 
     def test_home_row_opens_the_tab_and_comes_back_home(self):
         win = self.boot()
