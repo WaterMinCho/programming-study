@@ -24,6 +24,7 @@ MOCK_ID = re.compile(r"m(\d{1,2})\Z")
 UNIT_KEY = re.compile(r"(\d{1,2})([a-i])\Z")
 CARD_ID = re.compile(r"(?:i\d{2}|pc|m\d{1,2})-[a-z]\d{2,3}\Z")
 FACTS_MARK = re.compile(r"^\s*<!--\s*facts:\s*(.*?)\s*-->\s*$")
+SKEL_MARK = re.compile(r"^\s*<!--\s*skel:\s*(S\d+)\s+(.*?)\s*-->\s*$")  # 바로 아래 코드 울타리가 그 뼈대 판과 같아야 함
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
 BLOCK_KINDS = {"ai-guess": "guess", "ai-reveal": "reveal", "ai-recall": "recall", "ai-why": "why", "ai-diff": "diff",
                "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend"}
@@ -68,7 +69,8 @@ def read_index(root=None):
                             "units": int(item.get("units", 0)), "hw_due": item.get("hw_due")})
         patterns = []
         for item in data.get("patterns") or []:
-            units = {str(k): {"after": str((v or {}).get("after", ""))} for k, v in (item.get("units") or {}).items()}
+            units = {str(k): {"after": str((v or {}).get("after", "")), "name": str((v or {}).get("name", ""))}
+                     for k, v in (item.get("units") or {}).items()}
             patterns.append({"id": str(item["id"]), "page": str(item["page"]), "title": str(item.get("title", "상황별 코드")),
                              "units": units})
         mocks = []
@@ -133,6 +135,18 @@ def is_ready(lesson, root=None):
             and has_secrets(items_dir(lesson["id"], root)))
 
 
+def pattern_ready(group, root=None):
+    """상황별 코드 무리가 출제됐는지. 학습 노트 meta.json, items/<무리 id>/meta.json, 봉인(또는 평문 작업본), patterns 폴더의
+    S*.json 하나 이상이 모두 있어야 함."""
+    try:
+        skeletons = [n for n in os.listdir(os.path.join(root or AI_DIR, "patterns")) if re.match(r"S\d+\.json\Z", n)]
+    except OSError:
+        skeletons = []
+    return (bool(skeletons) and os.path.isfile(os.path.join(page_dir(group["page"], root), "meta.json"))
+            and os.path.isfile(os.path.join(items_dir(group["id"], root), "meta.json"))
+            and has_secrets(items_dir(group["id"], root)))
+
+
 def lesson_of_unit(key):
     """단원 키 5c → i05, 18a → None(상황별 코드)."""
     found = UNIT_KEY.match(key or "")
@@ -144,8 +158,30 @@ def lesson_of_unit(key):
 # 학습 노트
 
 def strip_marks(text):
-    """단계 머리의 <!-- facts: … --> 줄을 지운 글. 화면(Doc·DocView)에 넘기기 전에 씀(mdlite 는 주석을 글로 그림)."""
-    return "\n".join(line for line in (text or "").replace("\r\n", "\n").split("\n") if not FACTS_MARK.match(line))
+    """단계 머리의 <!-- facts: … --> 줄과 울타리 위 <!-- skel: … --> 줄을 지운 글. 화면(Doc·DocView)에 넘기기 전에 씀(mdlite 는
+    주석을 글로 그림)."""
+    return "\n".join(line for line in (text or "").replace("\r\n", "\n").split("\n")
+                     if not FACTS_MARK.match(line) and not SKEL_MARK.match(line))
+
+
+def skel_fences(markdown):
+    """page.md 의 <!-- skel: S1 표준형 --> 표시와 바로 아래 코드 울타리 [{"skel", "variant", "line"(표시 줄 번호), "code"}].
+    code 는 울타리 안 줄 목록이고, 표시 아래 첫 글 줄이 울타리가 아니거나 울타리가 닫히지 않으면 None."""
+    lines = (markdown or "").replace("\r\n", "\n").split("\n")
+    out = []
+    for no, line in enumerate(lines):
+        found = SKEL_MARK.match(line)
+        if not found:
+            continue
+        row = {"skel": found.group(1), "variant": found.group(2), "line": no + 1, "code": None}
+        at = next((k for k in range(no + 1, len(lines)) if lines[k].strip()), None)
+        opened = FENCE.match(lines[at]) if at is not None else None
+        if opened and opened.group(2) and not opened.group(2).startswith("ai-") and opened.group(2) != "figure":
+            end = next((k for k in range(at + 1, len(lines)) if FENCE.match(lines[k]) and not FENCE.match(lines[k]).group(2)), None)
+            if end is not None:
+                row["code"] = lines[at + 1:end]
+        out.append(row)
+    return out
 
 
 def facts_of(lines):
@@ -325,26 +361,28 @@ def load_note(page, root=None):
     return note
 
 
-def number_blanks(stem):
-    """빈칸이 둘 이상이면 코드 블록 밖의 ____ 앞에 ①② 번호를 붙인 지문. 코드 블록 안 빈칸은 화면의 CodeSlots 가 그림."""
+def number_blanks(stem, code=False):
+    """빈칸이 둘 이상이면 코드 블록 밖의 ____ 앞에 ①② 번호를 붙인 지문. 코드 블록 안 빈칸은 화면의 CodeSlots 가 그림.
+    code 가 참이면 코드 블록 안 빈칸에도 번호를 붙임(오답 노트 HTML 처럼 CodeSlots 없이 지문을 그릴 때)."""
     count = len(BLANK.findall(stem or ""))
     if count < 2:
         return stem
     out, fence, n = [], False, 0
+
+    def mark(found):
+        nonlocal n
+        n += 1
+        return (NUMBERS[n - 1] if n <= len(NUMBERS) else "(%d)" % n) + found.group(0)
+
     for line in (stem or "").split("\n"):
         if FENCE.match(line):
             fence = not fence
             out.append(line)
             continue
-        if fence:
+        if fence and not code:
             n += len(BLANK.findall(line))
             out.append(line)
             continue
-
-        def mark(found):
-            nonlocal n
-            n += 1
-            return (NUMBERS[n - 1] if n <= len(NUMBERS) else "(%d)" % n) + found.group(0)
         out.append(BLANK.sub(mark, line))
     return "\n".join(out)
 

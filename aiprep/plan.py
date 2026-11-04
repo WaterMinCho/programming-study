@@ -77,15 +77,23 @@ def _md(day):
     return "%d월 %d일" % (day.month, day.day)
 
 
+def _unit_name(row):
+    """단원 줄 이름. 서비스가 채운 name 이 있으면 그것, 없으면 "N차시 · 단원 제목"."""
+    if row.get("name"):
+        return row["name"]
+    return "%d차시 · %s" % (row.get("no") or 0, row.get("title", ""))
+
+
 def next_card(ctx):
     """홈 NextCard 한 줄(설계 2.2 표). ctx 는 서비스가 센 값:
     today, exam, again(카드 목록), mock({"id", "title", "count", "minutes", "until"} 또는 None), due(날짜가 된 복습 수,
     12-01 에는 줄인 수), target·read_today(오늘 목표와 읽은 단원, target 이 None 이면 목표 없이 안 읽은 단원을 권함),
-    unit(pick_unit 결과에 title·minutes),
-    revisit(pick_revisit 결과에 title·no). 돌려주는 값 {"kind", "lesson", "unit", "mock", "title", "count", "why"}."""
+    unit(pick_unit 결과에 title·minutes·name), revisit(pick_revisit 결과에 title·no·name). name 은 단원 이름 한 규칙
+    ("5차시 · 기울기 소실과 폭발", "학습 루프 · 미니배치 학습 한 에폭")이고 단원·다시 보기 줄 제목에 씀. 돌려주는 값
+    {"kind", "lesson", "unit", "mock", "title", "count", "why", "name"}(name 은 unit·revisit 일 때만 단원 이름, 아니면 빈 글)."""
     today, exam = ctx["today"], ctx["exam"]
     last_day = exam.get("last_review") is not None and today == exam["last_review"]
-    out = {"kind": "none", "lesson": None, "unit": None, "mock": None, "title": "", "count": 0, "why": ""}
+    out = {"kind": "none", "lesson": None, "unit": None, "mock": None, "title": "", "count": 0, "why": "", "name": ""}
     again = ctx.get("again") or []
     if again:
         out.update(kind="again", count=len(again), title="오늘 틀린 문항 %d개가 남았습니다" % len(again),
@@ -112,8 +120,7 @@ def next_card(ctx):
             head = "오늘 수업한 차시입니다. "
         elif when == today - ONE_DAY:
             head = "어제 수업한 차시입니다. "
-        out.update(kind="unit", lesson=unit["lesson"], unit=unit["unit"],
-                   title="%d차시 · %s" % (unit["no"], unit.get("title", "")),
+        out.update(kind="unit", lesson=unit["lesson"], unit=unit["unit"], title=_unit_name(unit), name=_unit_name(unit),
                    why="%s읽은 뒤 이 단원 문항과 복습을 함께 풉니다. 약 %d분." % (head, unit.get("minutes") or 5))
         return out
     if due > 0:
@@ -121,13 +128,11 @@ def next_card(ctx):
         return out
     revisit = ctx.get("revisit")
     if revisit:
-        out.update(kind="revisit", lesson=revisit["lesson"], unit=revisit["unit"],
-                   title="다시 보기 · %d차시 %s" % (revisit.get("no", 0), revisit.get("title", "")),
-                   why="외운 것을 떠올린 뒤 섞어 풉니다.")
+        out.update(kind="revisit", lesson=revisit["lesson"], unit=revisit["unit"], title="다시 보기 · %s" % _unit_name(revisit),
+                   name=_unit_name(revisit), why="외운 것을 떠올린 뒤 섞어 풉니다.")
         return out
     if unit and not last_day:
-        out.update(kind="unit", lesson=unit["lesson"], unit=unit["unit"],
-                   title="%d차시 · %s" % (unit["no"], unit.get("title", "")),
+        out.update(kind="unit", lesson=unit["lesson"], unit=unit["unit"], title=_unit_name(unit), name=_unit_name(unit),
                    why="읽은 뒤 이 단원 문항과 복습을 함께 풉니다. 약 %d분." % (unit.get("minutes") or 5))
         return out
     out.update(title="아직 공개된 단원이 없습니다", why="새 차시가 올라오면 여기에 나옵니다.")

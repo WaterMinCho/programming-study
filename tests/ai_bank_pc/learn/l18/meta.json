@@ -1,0 +1,15 @@
+{
+ "format": 1,
+ "id": "l18",
+ "title": "상황별 코드",
+ "defines": [],
+ "needs": [],
+ "sections": {"18a": "시험 뼈대 단원"},
+ "outputs": [],
+ "sources": [],
+ "lesson": "pc",
+ "credits": [],
+ "units": {
+  "18a": {"minutes": 6, "kind": "pattern"}
+ }
+}

@@ -1,6 +1,6 @@
 # AI 비전 개론 출제 안내
 
-AI 비전 개론 트랙에 학습 노트, 연습 문항, 생성기, 그림을 넣는 사람이 보는 문서입니다. 파일 규격, 봉인·검증·서명 명령, 출제·재풀이·대조·검토를 나눠 맡는 교차 검증 순서, 쓰는 사람과 검토하는 사람이 같이 쓰는 체크 목록을 적었습니다. 학습 노트의 기본 꼴과 서명은 웹 면접 준비의 학습 페이지와 같아서 [WEB_AUTHORING.md](WEB_AUTHORING.md) 의 학습 페이지 절도 함께 읽습니다.
+AI 비전 개론 트랙에 학습 노트, 연습 문항, 생성기, 상황별 코드 뼈대, 그림을 넣는 사람이 보는 문서입니다. 파일 규격, 봉인·검증·서명 명령, 출제·재풀이·대조·검토를 나눠 맡는 교차 검증 순서, 쓰는 사람과 검토하는 사람이 같이 쓰는 체크 목록을 적었습니다. 학습 노트의 기본 꼴과 서명은 웹 면접 준비의 학습 페이지와 같아서 [WEB_AUTHORING.md](WEB_AUTHORING.md) 의 학습 페이지 절도 함께 읽습니다.
 
 이 트랙은 코드를 실행하지 않습니다. 앱, 도구, 테스트, 생성기 어느 것도 `torch` 와 `numpy` 를 import 하지 않고, 코드 지식은 코드 빈칸과 코드 고르기로만 묻습니다. 강의 자료가 맞다고 가정하지 않습니다. 문항은 사실 확인을 마친 사실(`facts.json`)로만 만들고, 강의 자료 오류는 학습 노트의 「정정」 상자와 해설에서 바로잡습니다.
 
@@ -26,6 +26,9 @@ ai/
       facts.json            확인된 사실과 강의 자료 오류
       review.json           문항 묶음 서명(verify_ai.py --sign 이 씀)
   items/common/gens.py      공용 생성기(@base). 차시마다 register 로 붙입니다
+  items/pc/                 상황별 코드. meta.json, sealed.json(facts.json 과 review.json 만)
+  patterns/S1.json          상황별 코드 뼈대. 공개라 봉인하지 않고 카드는 엔진이 여기서 만듭니다
+  learn/l18/                상황별 코드 학습 노트(단원 키 18a~18h)
   mocks/m1/                 모의고사(뒤 PR)
 tools/ai_art/
   lNN.py                    그 노트의 그림 스크립트(출제자 컴퓨터에서만)
@@ -57,6 +60,10 @@ tools/ai_art/
 | `ai-why` | `q`, `a` | 왜일까요. 답은 접어 둠 |
 | `ai-memo` | `[{"q", "a", "cards"}]` | 외울 것. 질문을 누르면 답이 펴짐 |
 | `ai-trend` | `title`, `text` | 2026 흐름. 단계 수에 넣지 않음 |
+| `ai-diff` | `skel`, `left`, `right`(판 이름) | 뼈대 두 판 나란히 보기. 다른 줄에 바탕색을 칠함 |
+| `ai-rotate` | `id`, `skel`, `variant`, 선택 `slots`(자리 id 목록) | 돌려 가며 빈칸. 자리를 하나씩 가리고 틀린 자리는 세 자리 뒤에 다시 냄. 상자는 움직이지 않음 |
+
+`ai-rotate` 의 `id` 는 먼저 풀어 보기·떠올리기 id 와 같은 단원 안에서 겹치지 않게 씁니다. 뼈대 판을 코드 울타리로 보일 때는 울타리 바로 위 줄에 `<!-- skel: S1 표준형 -->` 를 적습니다. verify_ai 가 줄 끝 `#` 주석과 빈 줄을 뗀 울타리 줄이 그 판 `lines` 와 같은지 봅니다. 이 줄도 화면에 넘기기 전에 지워집니다.
 
 외울 것의 `cards` 는 그 단원의 핵심 카드를 모두 덮어야 합니다. 정정과 보충 설명은 인용 블록 머리로 씁니다: `> **[정정]** …`, `> **[보충 설명]** …`.
 
@@ -115,11 +122,41 @@ def linear_params(r):
 
 `ref` 는 이 꼴만 받습니다: `5차시 슬 p21`, `5차시 노트북 02 [7]`, `5차시 과제 4번`, `10차시 강의노트 [3]`, `요약 1주차 p14`, `대학원 05 p15`, `공식 13차시`, `PyTorch 문서 CrossEntropyLoss`. 첫 ref 는 그 차시의 슬라이드·노트북·과제·강의노트·요약본이고, 대학원·공식만 근거인 카드는 `deep` 입니다.
 
-## 4. 사실 확인(facts.json)
+## 4. 상황별 코드 뼈대
+
+상황별 코드 단원(l18)의 카드는 `ai/patterns/S1.json` 같은 뼈대 파일에서 엔진이 만듭니다. `ai/items/pc/` 에는 단원별 카드 수를 적은 `meta.json` 과 봉인한 `facts.json`, `review.json` 만 둡니다. 사실 id 는 `F18-01`, 강의 자료 오류는 `X18-01` 이고, 차시 사실을 옮긴 것은 `from` 에 원래 id 를 적습니다.
+
+뼈대 줄은 강의 노트북 원문을 옮기지 않고 같은 API 를 이 트랙 이름(`x`, `y`, `out`, `loader`, `loss_sum`)으로 다시 씁니다. 노트북 줄을 그대로 쓰면 학습 다섯 줄만으로도 겹침 검사의 "10자 넘는 줄 셋" 규칙에 걸립니다. 빈칸 답은 API 토큰이라 이름을 바꿔도 묻는 내용은 같습니다. 변수 이름이 노트북과 다르다는 것은 학습 노트에서 한 문장으로 밝힙니다.
+
+```json
+{"format": 1, "id": "S1", "title": "미니배치 학습 한 에폭", "tags": ["학습 루프"], "prio": 3,
+ "variants": {"표준형": {"situation": "미니배치마다 파라미터를 한 번 갱신하며 한 에폭을 학습합니다.",
+                         "lines": ["model.train()", "for x, y in loader:", "    optimizer.zero_grad()", "..."]}},
+ "slots": [{"id": "pc-k01", "variant": "표준형", "line": 0, "token": "train", "answer": ["train"], "mode": "code",
+            "hint": "메서드 이름", "line_answer": ["model.train()"], "facts": ["F18-03"], "step": "18a/2", "core": true,
+            "level": 1, "ref": ["5차시 노트북 03 [23]"], "explain": "..."}],
+ "orders": [{"id": "pc-o01", "variant": "표준형", "lines": [5, 6, 7, 8, 9], "valid": [[0, 1, 2, 3, 4], [1, 0, 2, 3, 4]], "...": "..."}],
+ "picks": [{"id": "pc-p01", "variant": "표준형", "line": 10, "stem": "...",
+            "wrong": [{"text": "loss_sum += loss.item()", "aim": "배치 평균을 그대로 더함", "why": "..."}], "...": "..."}],
+ "changes": [{"id": "pc-x01", "from": "1차시 fit", "to": "표준형", "stem": "...", "back": null, "...": "..."}]}
+```
+
+- 판마다 `situation` 과 `lines` 를 둡니다. `situation` 은 가이드 말투 한두 문장이고 그 판으로 만든 카드 지문의 첫 줄이 됩니다. `lines` 는 들여쓰기 4칸이고 주석, 탭, `____` 를 넣지 않습니다. 줄 번호는 0부터 셉니다.
+- slot(`pc-k01`)은 판 전체를 보이고 그 자리를 가린 코드 빈칸, order(`pc-o01`)는 줄 순서 고르기, pick(`pc-p01`)은 그 자리에 맞는 줄 고르기, change(`pc-x01`)는 from 판을 to 판으로 바꿀 때 고칠 줄을 모두 고르는 문항입니다.
+- 모든 카드에 `facts`, `step`, `level`, `ref`, `explain` 을 적습니다. `level` 과 `ref` 는 머리에서 물려받지 않고, `tags` 와 `prio` 는 적지 않으면 머리 값을 씁니다. 첫 ref 는 그 줄을 가르친 강의 슬라이드·노트북·과제·강의노트나 요약본입니다.
+- slot 의 `token` 은 그 판 전체에서 한 번만 나와야 합니다. slot 문항은 판 전체를 보여서 같은 토큰이 다른 줄에 있으면 그 줄에서 답을 옮겨 쓸 수 있습니다. 두 번 나오는 토큰(`to`, `item`, `size`)은 pick 으로 묻습니다. `answer` 첫째는 `token` 과 같고, `line_answer` 첫째는 들여쓰기를 뺀 그 줄입니다. 같은 판 자리끼리 답이 겹치면 함께 가렸을 때 칸을 구별할 수 없어 실패입니다.
+- order 의 `valid` 는 `lines` 안 위치의 순열 목록이고 판 순서(`[0, 1, 2, 3, 4]`)를 꼭 넣습니다. 오답 보기는 엔진이 valid 하나에서 이웃 두 줄을 바꾸거나 한 줄을 옮겨 만듭니다.
+- pick 의 `wrong` 에는 오답 보기 세 개를 적고 보기마다 `text`, `aim`(노리는 착각), `why`(바른 설명)를 둡니다.
+- change 의 정답은 두 판을 difflib 로 견줬을 때 다른 줄이라 두 판은 다른 줄이 둘 이상이어야 합니다. `back` 에 반대 방향 지문을 적으면 묶음 안에서 다시 낼 때 반대 방향으로 냅니다.
+- 같은 줄이나 같은 사실을 묻는 카드는 `family` 를 같이 줍니다. 한 묶음에 family 하나만 나오고, 엔진은 같은 판 카드를 order·pick, change, slot 순서로 냅니다. change 의 같은 줄 보기에는 pick 의 답 줄이 나올 수 있고, slot 은 판 전체를 보여서 앞 카드의 답이 됩니다.
+
+slot 카드가 나올 때 엔진은 같은 판의 열린 자리 상자 평균으로 함께 가릴 자리 수(0~3)를 정하고, 상자가 낮은 자리부터 함께 가립니다. 함께 가린 칸을 틀리면 그 자리 카드가 다음 학습일 복습에 나옵니다. 함께 가릴 자리 수가 3 이고 주 자리 상자가 4 이상이면 `line_answer` 가 있는 줄은 줄 전체를 가립니다. 그래서 `line_answer` 에는 같은 동작을 하는 다른 꼴을 모두 적습니다.
+
+## 5. 사실 확인(facts.json)
 
 `facts` 의 사실마다 `id`, `from`(factcheck 의 위치), `text`(확인 기록을 바꿔 쓴 한 문장), `verdict`, `where`, `checked` 를 둡니다. `verdict` 가 틀림·확인 못 함인 사실은 문항에 쓰지 않습니다. 단순화·부분적으로 맞음이면 `ask_as` 의 표현으로만 묻습니다. `concept_only` 사실은 number·exact·values 빈칸으로 묻지 않습니다. `errata` 의 강의 자료 오류를 건드리는 카드는 해설에 "정정" 문구를 두고 모의고사에 넣지 않습니다. `sources` 에는 강의 폴더 기준 경로와 sha256 을 적습니다. 경로는 실제 폴더 이름을 그대로 써서 `강의_11기_AI개론_2차시_…/강의_11기_AI개론_2차시_01_numpy.ipynb` 꼴이고, 요약본은 맨 위 파일 이름만 씁니다. `verify_ai.py --sources` 가 이 경로로 파일을 찾습니다.
 
-## 5. 그림
+## 6. 그림
 
 학습 노트 그림은 `tools/ai_art/lNN.py` 를 출제자 파이썬(numpy·matplotlib·Pillow)으로 돌려 직접 그리고, matplotlib 는 Agg 로만 씁니다. 파일은 폭 1120px·높이 600px 이하, GIF 는 10장 이하·장마다 1,600~2,500ms·250KB 이하, PNG 는 150KB 이하입니다. 그림에 찍는 숫자는 스크립트 안에서 assert 로 확인합니다.
 
@@ -133,14 +170,16 @@ python3 -m tools.ai_art l05 --record                           그린 뒤 manife
 
 manifest 에 없는 그림은 verify_ai 가 실패로 봅니다. 가져온 그림은 이번 단계에서 쓰지 않습니다.
 
-## 6. 명령
+## 7. 명령
 
 ```
 python3 tools/ai_seal.py seal [i05 ...] [--keep]          work/ → sealed.json
 python3 tools/ai_seal.py unseal i05                       sealed.json → work/
 python3 tools/ai_seal.py check                            평문이 남았거나 봉인이 깨졌으면 실패
 python3 tools/ai_seal.py brief i05 --out DIR              재풀이용 문제지(sheet.md, cloze.md)와 빈 답안(answers.json), 저장소 밖에만
+python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, skel.md)와 빈 답안
 python3 tools/verify_ai.py [i05 common ...]               문항 꼴, 빈칸 규칙, 고르기, 문장, 생성기 300 시드, 사실 확인, 노트 블록, 근거, 말투, 그림
+python3 tools/verify_ai.py pc                             상황별 코드. 위 검사에 더해 뼈대(판, 자리, 순서 300 시드, 고르기, 고칠 줄 300 시드)
 python3 tools/verify_ai.py i05 --answers DIR/answers.json 재풀이 답안을 채점
 python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4" \
         --first-pass DIR/answers.json --minutes 95 --finding "i05-b09 지문이 두 가지로 읽혀 고침"
@@ -148,14 +187,17 @@ python3 tools/verify_ai.py --require-review               문항 묶음·common�
 python3 tools/verify_web.py --bank ai --total-mb 32 l05   학습 노트 꼴·그림·서명(--sign --writer --resolver --reviewer)
 python3 tools/web_lint.py --bank ai --no-external         학습 노트 말투와 맥락(낱말을 쓰기 전에 소개)
 python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l05 i05   강의 글 겹침(출제자 컴퓨터에서만, PDF 는 pypdf)
+python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l18       l18·pc·S1 가운데 하나만 줘도 l18, 뼈대 전부, items/pc 를 모든 차시 강의와 견줌
 python3 tools/verify_ai.py --sources "$AI_LECTURE_DIR"    강의 폴더 sha256 을 facts.json 과 견줌
 python3 tools/verify_ai.py --overrides                    [내 답도 맞음] 답 모아 보기
 python3 tools/verify_ai.py --leeches                      자주 틀리는 문항 모아 보기
 ```
 
+상황별 코드는 학습 노트 l18 을 `verify_web.py --bank ai --total-mb 32 l18 --sign …` 로, 카드를 `verify_ai.py pc --sign …` 으로 따로 서명합니다. pc 서명은 `ai/patterns/*.json` 을 모두 덮어서 뼈대를 더하거나 고치면 pc 를 다시 재풀이·대조·검토하고 서명합니다.
+
 이 컴퓨터에서는 `python3` 를 `/opt/homebrew/bin/python3` 로 씁니다. 서명은 글 파일(.py, .json, .md)을 줄 끝 LF 로 읽어 해시를 세므로 Windows 에서 받아도 맞습니다. 봉인은 내용을 바꾸지 않아 봉인 앞뒤로 서명이 맞습니다. 서명 뒤에 한 글자라도 고치면 `--require-review` 가 떨어지고, 바뀐 카드를 다시 재풀이·대조·검토한 뒤 다시 서명합니다.
 
-## 7. 교차 검증 순서
+## 8. 교차 검증 순서
 
 | 꼬리표 | 하는 일 | 겸할 수 없는 것 |
 |---|---|---|
@@ -167,13 +209,14 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 1. 출제가 factcheck·차시 분석·요약본·코드 보충을 읽고 쓸 사실을 facts.json 에 옮깁니다. 새 사실은 대조가 판정한 뒤에만 넣습니다.
 2. 출제가 work/ 평문으로 노트·문항·생성기·그림을 쓰고 verify_web, web_lint, verify_ai, ai_overlap 을 통과시킵니다.
 3. `ai_seal.py brief` 로 만든 공개본을 재풀이에게 넘깁니다. 재풀이는 answers.json 과 oracle.py, 걸린 시간, 막힌 곳을 돌려줍니다. 문제지는 주제 문장을 섞은 순서로 꼬리표(`i05-t01-3`)만 붙여 보여 주고, 빈칸판은 참 문장에만 있어서 cloze.md 로 따로 뺍니다. 재풀이는 문장 판정을 모두 적은 뒤에 cloze.md 를 엽니다.
+   상황별 코드 공개본도 문제지를 나눠 엽니다. 재풀이는 l18 을 읽기 전에 sheet.md 를 풉니다. sheet.md 에는 판마다 모든 자리를 한꺼번에 가린 판(`S1 표준형 전체`)과 순서·줄·고칠 줄 고르기가 있습니다. 그 답을 answers.json 에 다 적은 뒤에 skel.md 를 엽니다. skel.md 의 견본(`pc-k02 f0`, `f2`, `f3`)은 함께 가린 자리 수가 달라 서로의 답을 보여 줍니다. first_pass 는 sheet.md 답으로 셉니다.
 4. 대조가 `verify_ai.py --answers` 로 채점하고 틀린 카드마다 원인을 하나로 정합니다(정답 틀림, 두 가지로 읽힘, 받는 답 빠짐, 공정한 함정, oracle 불일치).
 5. 검토가 아래 체크 목록을 보고, 새로 걸린 말투 문장은 `tools/check_style.py` 패턴에 더합니다.
 6. 학습 노트와 문항 묶음에 서명하고 `ai_seal.py seal`, `ai_seal.py check` 로 봉인합니다.
 
 꼬리표는 "출제 1" 꼴로 쓰고 만든 도구 이름은 저장소 어디에도 적지 않습니다.
 
-## 8. 체크 목록
+## 9. 체크 목록
 
 쓰는 사람(출제)이 PR 전에, 검토하는 사람(재풀이·대조·검토)이 서명 전에 같은 목록을 씁니다. PR 본문에는 체크한 줄 수만 적습니다.
 
@@ -208,7 +251,7 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 
 빈칸 정답 넷: (가) 학습 노트가 정의한 낱말, (나) 지문이 쓰임을 밝힌 강의 코드의 API·인자·토큰, (다) 지문의 숫자로 계산되는 값, (라) 지문에서 따라갈 수 있는 shape.
 
-## 9. 엔진이 카드를 내는 규칙
+## 10. 엔진이 카드를 내는 규칙
 
 학습자 쪽 규칙(상자, 학습일, 묶음, 오답 노트)은 [CRITERIA.md](CRITERIA.md) 와 엔진 코드(`aiprep/`)에 있습니다. 출제에 걸리는 것만 적습니다.
 
@@ -216,4 +259,5 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 - 같은 `family` 는 한 묶음에 하나만 나오고, 외운 문항 수도 family 로 셉니다.
 - 같은 `confuse` 태그 카드는 한 문항을 사이에 두고 가까이 나옵니다.
 - 문장 카드는 상자 1 까지 고르기, 상자 2 부터 빈칸판으로 나옵니다.
+- 상황별 코드 카드는 그 단원을 읽어야 열립니다. 차시 풀기에서는 index.json patterns 의 `after` 차시 문제집에 함께 들어갑니다.
 - 하루 새 카드 상한과 오늘 목표 단원은 기본으로 꺼 두었습니다(학습자가 문제집을 원하는 만큼 풂). 켜려면 `aiprep/service.py` 의 `NEW_PER_DAY`, `DAILY_GOAL` 을 바꿉니다.

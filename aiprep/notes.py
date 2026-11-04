@@ -6,6 +6,8 @@
 모의고사(첫 풀이)의 틀린 문항은 wrong, 비운 문항은 skipped. 마지막으로 틀린 날 뒤 다른 날 첫 답을 맞히면 fixed, 그 뒤
 또 다른 날 한 번 더 맞히면 목록에서 내려감. 다시 틀리면 wrong 으로 돌아감.
 """
+from aiprep.skel import PART_CHIP
+
 STATES = ("wrong", "skipped", "fixed")
 KIND_LABEL = {"blank": "빈칸", "choice": "고르기", "stmt": "고르기", "gen": "숫자 바뀜", "skel": "코드", "mock": "모의고사"}
 
@@ -51,7 +53,7 @@ def group_title(card, lessons, mocks, patterns_title="상황별 코드"):
         mock = mocks.get(mid, {})
         return mock.get("title", mid), (0, mid)
     if cid.startswith("pc-"):
-        return patterns_title, (2, cid)
+        return patterns_title, (2, "pc")  # 상황별 코드 카드는 한 묶음(카드 id 를 키로 두면 카드마다 묶음이 갈림)
     lesson = lessons.get(card.get("lesson"), {})
     return "%d차시 %s" % (lesson.get("no", 0), lesson.get("title", "")), (1, lesson.get("no", 0))
 
@@ -75,7 +77,8 @@ def wrong_notes(events, cards, read_days, lessons, mocks, leeches=(), mock_order
         if order[0] == 0:
             order = (0, rank.get(order[1], len(rank)), order[1])
         where = "%d차시" % lessons.get(card.get("lesson"), {}).get("no", 0) if order[0] == 1 else title
-        item = {"key": cid, "label": "%s · %s" % (KIND_LABEL.get(card.get("kind"), "문항"), where), "state": note["state"],
+        kind = PART_CHIP.get(card.get("part")) if card.get("kind") == "skel" else None  # 뼈대 카드는 꼴(코드 빈칸·순서 고르기·고르기)
+        item = {"key": cid, "label": "%s · %s" % (kind or KIND_LABEL.get(card.get("kind"), "문항"), where), "state": note["state"],
                 "sure": note["sure"], "leech": cid in leeches, "deep": bool(card.get("deep")), "fails": note["fails"],
                 "days": [d.isoformat() for d in note["days"]], "at": note["at"]}
         groups.setdefault((order, title), []).append(item)

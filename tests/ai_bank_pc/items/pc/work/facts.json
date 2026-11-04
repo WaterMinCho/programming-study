@@ -1,0 +1,14 @@
+{
+ "format": 1,
+ "lesson": "pc",
+ "sources": {},
+ "facts": [
+  {"id": "F18-01", "from": "F90-02", "text": "zero_grad 는 다음 backward 전에만 부르면 됩니다.", "verdict": "맞음", "core": true, "where": ["90차시 노트북 01 [2]"], "checked": "2026-11-04"},
+  {"id": "F18-02", "from": "시험 #2", "text": "train 은 모델을 학습 모드로 바꿉니다.", "verdict": "맞음", "core": true, "where": ["90차시 노트북 01 [2]"], "checked": "2026-11-04"},
+  {"id": "F18-03", "from": "시험 #3", "text": "argmax(1) 은 1번 축에서 가장 큰 값의 위치를 고릅니다.", "verdict": "맞음", "core": true, "where": ["90차시 노트북 01 [3]"], "checked": "2026-11-04"},
+  {"id": "F18-04", "from": "시험 #4", "text": "eval 은 모델을 평가 모드로 바꿉니다.", "verdict": "맞음", "where": ["90차시 노트북 01 [2]"], "checked": "2026-11-04"}
+ ],
+ "errata": [
+  {"id": "X18-01", "from": "X90-01", "where": "90차시 노트북 01 [2]", "lecture": "평가 판에서도 step 을 부름", "right": "평가 판에서는 step 을 부르지 않습니다", "learn": "18a/2 정정 상자", "items": "정정한 사실로 연습만, 모의고사 없음"}
+ ]
+}

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 학습 단원 화면(AiLearnPage), 다시 보기 화면(RevisitPage), 차시의 전체 노트·외울 것 화면(AiNotePage), 연습 화면의
-[노트 보기] 대화상자(NoteDialog)와 그 안의 부품.
+[노트 보기] 대화상자(NoteDialog)와 그 안의 부품. 연습 화면과 같이 쓰는 코드 부품(빈칸 코드 CodeSlots, 코드 보기 CodeChoices)도 둠.
 
 한 화면에 단계 하나를 보임. 단계(StepView)는 서비스가 나눠 준 블록을 위에서 아래로 쌓음: 글은 docview.Doc(그 안의 > **[정정]**,
-> **[보충 설명]** 인용은 꼬리표를 단 상자로 뺌), 그림은 AiFigure, ai-guess·ai-reveal·ai-recall·ai-why·ai-memo·ai-trend 는 아래의 블록 위젯.
-1~4차시 노트에 ai-diff·ai-rotate 가 없어서 그 둘과 모르는 블록은 읽지 못한 블록처럼 안내 글만 둠(뼈대 카드와 같이 다음 PR).
+> **[보충 설명]** 인용은 꼬리표를 단 상자로 뺌), 그림은 AiFigure, ai-guess·ai-reveal·ai-recall·ai-why·ai-diff·ai-rotate·ai-memo·ai-trend 는
+아래의 블록 위젯. 서비스가 error 를 단 블록과 모르는 블록은 안내 글만 둠. 상황별 코드 단원(차시가 아닌 무리)은 위 막대가 홈으로 돌아감.
 
 AiFigure 는 GIF 를 1장에서 멈춘 채 열고, 지금 장의 `프레임:` 설명을 그림 바로 아래에 두어 장을 넘길 때 같이 바꿈. 설명 칸은 가장 긴 장
 설명의 높이를 지켜서 장을 넘겨도 넘김 단추가 움직이지 않음. 그림에 초점이 있으면 ←·→ 가 장을 넘김. 단계 이동은 아래 막대와 ←·→ 이고,
@@ -14,11 +14,12 @@ import html
 import re
 
 from PyQt6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QPainter, QPen, QShortcut
-from PyQt6.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QScrollArea, QSizePolicy, QWidget
+from PyQt6.QtGui import QFontMetricsF, QKeySequence, QPainter, QPen, QShortcut
+from PyQt6.QtWidgets import QDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 import mdlite
-from aiprep import bank
+from aiprep import bank, skel
+from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
 from gui.docview import Doc, FigureView, missing_figure
 from gui.widgets import Para
@@ -28,6 +29,7 @@ from session import SessionError
 BOX_LINE = re.compile(r"^\s*>\s?\*\*\[(정정|보충 설명)\]\*\*\s*")
 WIDE = 16777215  # Qt 위젯 크기의 상한. Doc 의 최대 폭(640)을 풀어 카드 폭을 따르게 함
 STEP_KEYS = (("Left", -1), ("Right", 1), ("Alt+Left", -1), ("Alt+Right", 1))
+SLOT_CHARS = 8  # 코드 칸의 처음 폭(코드 글자 수). 적는 만큼 넓어짐
 
 
 def code_span(text):
@@ -333,6 +335,192 @@ class ChoiceList(QWidget):
             row.setFocusPolicy(Qt.FocusPolicy.StrongFocus if enabled else Qt.FocusPolicy.NoFocus)
 
 
+# 코드 부품(연습 화면과 학습 단원이 같이 씀)
+
+def code_font():
+    """코드 상자의 글꼴. 연습 문항의 빈칸 코드와 같은 크기(글자 단계를 따라감)."""
+    return theme.code_font(theme.text_px() - 1)
+
+
+class Slot(QLineEdit):
+    """코드 줄 안의 빈칸. 높이는 theme.slot_height(), 폭은 SLOT_CHARS 자에서 시작해 적은 글만큼 넓어짐. 폭은 자리표시 글(hint)도 담음.
+    답한 뒤 자리표시를 지워도 폭이 그대로라 뒤 코드가 움직이지 않음."""
+
+    def __init__(self, font, hint=""):
+        super().__init__()
+        self.setProperty("slot", True)
+        self.hint = hint
+        self.setFont(font)
+        self.setPlaceholderText(hint)
+        self.setToolTip(hint)
+        self.textChanged.connect(self.fit)
+        self.fit()
+
+    def fit(self):
+        metrics = QFontMetricsF(self.font())
+        least = metrics.horizontalAdvance("M" * SLOT_CHARS)
+        want = max(least, metrics.horizontalAdvance(self.text() + "MM"), metrics.horizontalAdvance(self.hint + "M"))
+        self.setFixedWidth(int(want) + 16)
+
+
+class CodeSlots(QFrame):
+    """빈칸이 든 코드 블록. 줄마다 코드 글꼴 QLabel 과 Slot 을 가로로 놓고 줄은 바꾸지 않으며, 넘치면 가로로 스크롤함.
+    marks 는 칸마다 앞에 붙일 번호 글자(빈칸이 하나면 빈 글). result 는 답한 뒤 코드 아래에 칸마다 맞고 틀림을 쓰는 줄이고
+    부른 쪽이 카드에 놓음. 빈칸이 없는 코드도 같은 모양으로 그림(돌려 가며 빈칸의 읽기 전용 판)."""
+
+    def __init__(self, code, hints, marks):
+        super().__init__()
+        self.setObjectName("well")
+        self.code, self.hints, self.marks = code, list(hints), list(marks)
+        self.fields, self.lines = [], []
+        self.result = rich("", "body")
+        outer = kit.box(self, (16, 12, 16, 12))
+        self.area = QScrollArea()
+        self.area.setProperty("flat", True)
+        self.area.setFrameShape(QFrame.Shape.NoFrame)
+        self.area.setWidgetResizable(True)
+        self.area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.inner = QWidget()
+        self.inner.setAutoFillBackground(False)
+        self.area.setWidget(self.inner)
+        self.area.viewport().setAutoFillBackground(False)
+        outer.addWidget(self.area)
+        self.build()
+
+    def build(self):
+        font = code_font()
+        column = kit.box(self.inner)
+        count = 0
+        for line in self.code.split("\n"):
+            holder = QWidget()
+            row = QHBoxLayout(holder)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(0)
+            pieces = BLANK.split(line)
+            for n, piece in enumerate(pieces):
+                if piece:
+                    label = QLabel(piece)
+                    label.setTextFormat(Qt.TextFormat.PlainText)
+                    label.setFont(font)
+                    row.addWidget(label)
+                if n < len(pieces) - 1:
+                    mark = self.marks[count] if count < len(self.marks) else ""
+                    if mark:
+                        row.addWidget(kit.label(mark, "label", bold=True))  # 코드 밖 칸 번호와 같은 크기
+                    hint = self.hints[count] if count < len(self.hints) else ""
+                    slot = Slot(font, hint)
+                    row.addWidget(slot)
+                    self.fields.append(slot)
+                    count += 1
+            row.addStretch(1)
+            holder.setFixedHeight(theme.slot_height() if len(pieces) > 1 else theme.TYPE["code"][1])
+            column.addWidget(holder)
+            self.lines.append(holder)
+        self.fit()
+
+    def fit(self):
+        """줄 높이의 합에 가로 스크롤 막대가 필요하면 그 높이를 더함."""
+        height = sum(line.maximumHeight() for line in self.lines)
+        wide = self.inner.sizeHint().width() > max(1, self.area.viewport().width())
+        self.area.setFixedHeight(height + (self.area.horizontalScrollBar().sizeHint().height() if wide else 0))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit()
+
+    def restyle(self):
+        """글자 크기 단계가 바뀐 뒤 코드 글꼴, 칸 폭, 줄 높이를 다시 잡음."""
+        font = code_font()
+        for label in self.inner.findChildren(QLabel):
+            if label.property("role") is None:
+                label.setFont(font)
+        for field in self.fields:
+            field.setFont(font)
+            field.fit()
+        self.result.restyle()
+        for line in self.lines:
+            line.setFixedHeight(theme.slot_height() if line.findChild(Slot) else theme.TYPE["code"][1])
+        self.fit()
+
+
+class CodeLines(QFrame):
+    """여러 줄 코드 상자(코드 보기 하나). 줄마다 코드 글꼴 QLabel 이고 줄은 바꾸지 않음. 줄 높이는 지금 단계의 코드 줄 높이."""
+    PAD = 12  # 위아래 안쪽 여백. 보기 표시를 첫 줄 가운데에 둘 때 씀
+
+    def __init__(self, text):
+        super().__init__()
+        self.setObjectName("well")
+        self.labels = []
+        column = kit.box(self, (16, self.PAD, 16, self.PAD))
+        for line in str(text).split("\n"):
+            label = QLabel(line)
+            label.setTextFormat(Qt.TextFormat.PlainText)
+            column.addWidget(label)
+            self.labels.append(label)
+        self.refont()
+
+    def refont(self):
+        font = code_font()
+        for label in self.labels:
+            label.setFont(font)
+            label.setFixedHeight(theme.TYPE["code"][1])
+
+
+class CodeOptionRow(OptionRow):
+    """코드 보기 한 줄. OptionRow 의 글 자리에 CodeLines 를 두고 꼬리표(정답·내 답)는 코드 아래에 둠. 꼬리표를 옆에 두면 2×2 보기에서
+    코드 폭이 줄어서임. 표시(둥근 점·체크 상자)는 코드 첫 줄의 가운데 높이."""
+
+    def __init__(self, text, single=True):
+        super().__init__("", single)
+        text_row = self.layout().itemAt(1).layout()
+        text_row.removeWidget(self.tag)
+        text_row.removeWidget(self.label)
+        self.label.hide()
+        self.label.deleteLater()
+        self.label = self.code = CodeLines(text)
+        column = QVBoxLayout()
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(8)
+        column.addWidget(self.code)
+        column.addWidget(self.tag, 0, Qt.AlignmentFlag.AlignLeft)
+        text_row.addLayout(column, 1)
+
+    def refont(self):
+        self.box.refont()
+        self.mark.setFixedSize(20, CodeLines.PAD + (theme.TYPE["code"][1] + 20) // 2)
+
+
+class CodeChoices(ChoiceList):
+    """코드 보기 목록(뼈대 카드의 순서 고르기·맞는 줄·고칠 줄). 보기마다 CodeOptionRow 이고 grid 가 2 면 2×2 로 둠. 연습 화면이 보기
+    아래에 풀이를 쓰는 칸(whys, 처음에는 숨김)을 보기마다 하나씩 둠. ChoiceList 와 같은 rows·picked()·set_enabled()·changed."""
+
+    def __init__(self, texts, single=True, grid=1):
+        super().__init__([], single)
+        self.whys = []
+        layout = QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(16)
+        layout.setVerticalSpacing(8)
+        self.layout().addLayout(layout)
+        columns = 2 if grid == 2 else 1
+        for n, text in enumerate(texts):
+            row = CodeOptionRow(text, single)
+            row.box.toggled.connect(lambda on, row=row: self._toggled(row, on))
+            why = QWidget()
+            kit.box(why, (kit.MARK + 12, 0, 0, 8)).addWidget(rich("", "body", "secondary"))
+            cell = QWidget()
+            cell_box = kit.box(cell)
+            cell_box.addWidget(row)
+            cell_box.addWidget(why)
+            cell_box.addStretch(1)
+            why.hide()
+            layout.addWidget(cell, n // columns, n % columns)
+            self.rows.append(row)
+            self.whys.append(why)
+        for n in range(columns):
+            layout.setColumnStretch(n, 1)
+
+
 class GuessBlock(QWidget):
     """「먼저 풀어 보기」 블록. 보기를 고르는 순간 기록하고 몇 단계에서 답을 확인하는지 알림(채점하지 않음). 이 단계를 떠나기 전까지는
     다른 보기로 바꿀 수 있고 바꿀 때마다 기록함(서비스는 마지막 기록을 씀). 전에 고른 단원을 다시 열면 고른 보기를 보이고 잠금.
@@ -481,6 +669,241 @@ class RecallBlock(QWidget):
         self.verdict.setText("맞았습니다" if ok else "틀렸습니다")
         kit.set_tone(self.verdict, "success" if ok else "danger")
         self.result.show()
+
+
+class DiffLine(QWidget):
+    """나란히 보기의 한 행. texts 는 칸마다 코드 줄(없는 쪽은 None). 다른 줄(changed)이면 notice_bg 바탕을 칠하고 같은 줄은 글자를
+    secondary 색으로 흐리게 둠. 칸 글은 줄을 바꾸지 않고, 칸의 최소 폭을 잡지 않아 블록이 좁아지면 DiffBlock 이 판을 쌓음."""
+
+    def __init__(self, texts, changed, pad, gap):
+        super().__init__()
+        self.changed = changed
+        row = kit.box(self, (pad, 0, pad, 0), gap, horizontal=True)
+        self.cells = []
+        for text in texts:
+            cell = QLabel(text or "")
+            cell.setTextFormat(Qt.TextFormat.PlainText)
+            cell.setFont(code_font())
+            cell.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            if not changed:
+                cell.setProperty("tone", "secondary")
+            row.addWidget(cell, 1)
+            self.cells.append(cell)
+        self.setFixedHeight(theme.TYPE["code"][1])  # 코드 상자와 같은 줄 간격. 쌓은 표(S1 은 30행)가 짧아짐
+
+    def paintEvent(self, event):
+        if self.changed:
+            painter = QPainter(self)
+            painter.fillRect(self.rect(), theme.qcolor("notice_bg"))
+            painter.end()
+
+
+class DiffBlock(QWidget):
+    """나란히 보기(ai-diff, 설계 3.7.2). 위 caption "다른 줄 2개 · 같은 줄 13개", 아래 코드 상자. 두 판 각각의 가장 긴 줄이 지금 코드
+    글꼴로 반 폭 열에 들어가면 두 열(열 머리는 판 이름), 아니면 왼쪽 판 다음 오른쪽 판을 위아래로 쌓음. 다른 줄은 notice_bg 바탕,
+    같은 줄은 흐린 글자이고 줄은 바꾸지 않음. 코드 글자는 줄이지 않음(작은 글자를 사용자가 지적함). 폭이나 글자 단계가 바뀌면 다시
+    정함. 블록은 Doc 밖에 있어 카드 폭을 다 씀. 기록하지 않아 읽기 전용 화면에서도 같은 모양."""
+    PAD = 12  # 상자 안 좌우 여백
+    GAP = 24  # 두 열 사이
+
+    def __init__(self, block):
+        super().__init__()
+        self.block, self.rows = block, list(block.get("rows") or [])
+        self.two, self.lines = None, []
+        column = kit.box(self, spacing=8)
+        column.addWidget(kit.label(ai_text.diff_caption(block.get("different", 0), block.get("same", 0)), "caption", "secondary"))
+        self.table, self.table_box = kit.well(0, 8, 0)
+        column.addWidget(self.table)
+        self.build(False)  # 폭을 알기 전에는 쌓은 표. 처음 폭이 정해지면 resizeEvent 가 다시 정함
+
+    def need(self):
+        """두 열에서 한 열이 담아야 하는 코드 폭(px). 두 판 가운데 가장 긴 줄."""
+        metrics = QFontMetricsF(code_font())
+        texts = [row[side] for row in self.rows for side in ("left", "right") if row.get(side)]
+        return max([metrics.horizontalAdvance(text) for text in texts] or [0])
+
+    def fits(self, width):
+        """width 폭의 상자에서 두 열이 되는지."""
+        return (width - 2 * self.PAD - self.GAP) / 2.0 >= self.need()
+
+    def build(self, two):
+        """두 열(two)이나 위아래로 쌓은 표를 새로 그림."""
+        self.two = two
+        while self.table_box.count():
+            widget = self.table_box.takeAt(0).widget()
+            if widget is not None:
+                widget.hide()
+                widget.deleteLater()
+        self.lines = []
+        left, right = self.block.get("left", ""), self.block.get("right", "")
+        if two:
+            self.table_box.addWidget(self.heads([left, right]))
+            for row in self.rows:
+                self.add(DiffLine([row.get("left"), row.get("right")], not row.get("same"), self.PAD, self.GAP))
+            return
+        for n, (side, name) in enumerate((("left", left), ("right", right))):
+            self.table_box.addWidget(self.heads([name], top=8 if n else 0))
+            for row in self.rows:
+                if row.get(side) is not None:
+                    self.add(DiffLine([row[side]], not row.get("same"), self.PAD, self.GAP))
+
+    def heads(self, names, top=0):
+        out = QWidget()
+        row = kit.box(out, (self.PAD, top, self.PAD, 4), self.GAP, horizontal=True)
+        for name in names:
+            head_label = kit.label(name, "caption", "secondary", bold=True)
+            head_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            row.addWidget(head_label, 1)
+        return out
+
+    def add(self, line):
+        self.table_box.addWidget(line)
+        self.lines.append(line)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        two = self.fits(self.width())
+        if two != self.two:
+            self.build(two)
+
+    def restyle(self):
+        """글자 단계가 바뀌면 코드 폭과 줄 높이가 바뀌므로 지금 폭으로 다시 그림."""
+        self.build(self.fits(self.width()) if self.width() > 1 else False)
+
+
+class RotateBlock(QWidget):
+    """돌려 가며 빈칸(ai-rotate, 설계 3.7.1). 판 코드에서 한 번에 한 자리를 가린 CodeSlots 와 [확인]. 답하면 맞음·틀림과 정답을
+    보이고 [다음 자리]로 넘어감. 순서는 skel.rotate_next(틀린 자리는 세 자리 뒤에 다시)이고 채점과 기록은 ctx.check_rotate(상자는
+    움직이지 않음). 모든 자리를 맞히면 판 코드 전체와 끝 문구를 보임. 칸에서 Enter 는 [확인], 답한 뒤에는 [다음 자리].
+    readonly(전체 노트, [노트 보기])면 판 코드와 가리는 자리 목록만 그리고 채점하지 않음."""
+
+    def __init__(self, block, ctx):
+        super().__init__()
+        self.block, self.ctx = block, ctx
+        spots = block.get("slots") or []
+        self.spots = {spot["id"]: spot for spot in spots}
+        self.queue, self.pos, self.result_ok = [spot["id"] for spot in spots], 0, None
+        self.slots = None
+        column = kit.box(self, spacing=12)
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.addWidget(head(ai_text.ROTATE_HEAD))
+        top.addStretch(1)
+        self.count = kit.label("", "caption", "secondary")
+        top.addWidget(self.count)
+        column.addLayout(top)
+        self.holder = QWidget()
+        self.holder_box = kit.box(self.holder)
+        column.addWidget(self.holder)
+        if ctx.readonly:
+            self.count.hide()
+            self.put(CodeSlots(block.get("code", ""), [], []))
+            column.addWidget(kit.para(ai_text.ROTATE_SLOTS % " · ".join(spot["token"] for spot in spots), "body", "secondary"))
+            return
+        self.check_btn = kit.button("확인", "secondary", "l")
+        self.next_btn = kit.button(ai_text.NEXT_SLOT, "text", "l")
+        self.verdict = kit.badge("")
+        self.answer = rich("")
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(12)
+        row.addWidget(self.check_btn)
+        row.addWidget(self.verdict, 0, Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(self.answer, 1, Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(self.next_btn)
+        self.buttons = QWidget()
+        self.buttons.setLayout(row)
+        column.addWidget(self.buttons)
+        self.empty_note = kit.para(ai_text.RECALL_EMPTY, "body", "secondary")
+        column.addWidget(self.empty_note)
+        self.done = kit.para(ai_text.ROTATE_DONE, "body", "success")
+        column.addWidget(self.done)
+        self.empty_note.hide()
+        self.done.hide()
+        self.check_btn.clicked.connect(self.check)
+        self.next_btn.clicked.connect(self.advance)
+        if self.queue:
+            self.show_slot()
+        else:
+            self.finish()
+
+    def put(self, slots):
+        """코드 상자를 바꿈."""
+        if self.slots is not None:
+            self.holder_box.removeWidget(self.slots)
+            self.slots.hide()
+            self.slots.deleteLater()
+        self.slots = slots
+        self.holder_box.addWidget(slots)
+
+    def field(self):
+        return self.slots.fields[0] if self.slots is not None and self.slots.fields else None
+
+    def show_slot(self, focus=False):
+        """지금 자리만 가린 코드를 그림. focus 면 칸에 초점을 둠([다음 자리]로 넘어올 때)."""
+        spot = self.spots[self.queue[self.pos]]
+        self.put(CodeSlots(spot["code"], [spot.get("hint") or ai_text.MODE_HINT.get(spot.get("mode") or "code", "")], [""]))
+        field = self.field()
+        field.installEventFilter(ALT_PASS)
+        field.returnPressed.connect(self.enter)
+        self.result_ok = None
+        self.count.setText("%d / %d" % (self.pos + 1, len(self.queue)))
+        self.check_btn.show()
+        self.next_btn.hide()
+        self.verdict.hide()
+        self.answer.hide()
+        self.empty_note.hide()
+        if focus:
+            field.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def enter(self):
+        if self.result_ok is None:
+            self.check()
+        else:
+            self.advance()
+
+    def check(self):
+        """칸이 비면 채점하지 않고 안내만 함. 채점하지 못하면(ctx 가 알림) 그대로 둠."""
+        field = self.field()
+        if field is None or self.result_ok is not None:
+            return
+        if not field.text().strip():
+            self.empty_note.show()
+            return
+        self.empty_note.hide()
+        got = self.ctx.check_rotate(self.block, self.queue[self.pos], field.text())
+        if got is None:
+            return
+        ok = self.result_ok = bool(got["ok"])
+        field.setReadOnly(True)
+        kit.set_tone(field, "success" if ok else "danger")
+        self.verdict.setText("맞았습니다" if ok else "틀렸습니다")
+        kit.set_tone(self.verdict, "success" if ok else "danger")
+        self.answer.setText("정답: `%s`" % got["answer"])
+        self.check_btn.hide()
+        for widget in (self.verdict, self.answer, self.next_btn):
+            widget.show()
+
+    def advance(self):
+        """[다음 자리]. 틀린 자리는 세 자리 뒤에 다시 넣고 남은 자리가 없으면 끝."""
+        if self.result_ok is None:
+            return
+        self.queue, self.pos = skel.rotate_next(self.queue, self.pos, self.result_ok)
+        if self.pos >= len(self.queue):
+            self.finish()
+        else:
+            self.show_slot(focus=True)
+
+    def finish(self):
+        self.put(CodeSlots(self.block.get("code", ""), [], []))
+        self.count.setText("")
+        self.buttons.hide()
+        self.empty_note.hide()
+        self.done.show()
+
+    def restyle(self):
+        if self.slots is not None:
+            self.slots.restyle()
 
 
 class WhyBlock(QWidget):
@@ -655,6 +1078,15 @@ class Ctx:
                 return None
         return ok
 
+    def check_rotate(self, block, slot, value):
+        """돌려 가며 빈칸 한 자리의 채점 {"ok", "answer"}. 서비스가 채점과 기록을 같이 하고 readonly 면 기록하지 않음. 실패하면 알리고
+        None."""
+        try:
+            return self.win.ai.check_rotate(self.lid, self.key, block.get("id"), slot, value, readonly=self.readonly)
+        except SessionError as error:
+            self.win.ask("알림", str(error))
+            return None
+
 
 def step_title(step):
     """(꼬리표, 제목). 심화·보충 설명 같은 단계는 꼬리표가 같은 말을 하므로 제목 앞머리를 뺌."""
@@ -672,7 +1104,7 @@ class StepView(QWidget):
 
     def __init__(self, step, ctx, extra=(), title_role="headline"):
         super().__init__()
-        self.docs, self.figures = [], []
+        self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
         column = kit.box(self, spacing=24)
         badge, title = step_title(step)
         top = QWidget()
@@ -712,19 +1144,25 @@ class StepView(QWidget):
             return RecallBlock(block, ctx)
         if kind == "why":
             return WhyBlock(block, ctx)
+        if kind in ("diff", "rotate"):
+            out = DiffBlock(block) if kind == "diff" else RotateBlock(block, ctx)
+            self.codes.append(out)
+            return out
         if kind == "memo":
             return MemoBlock(block.get("items") or [], opened=ctx.readonly)
         if kind == "trend":
             out = TrendBlock(block, ctx.base_dir)
             self.docs.append(out.doc)
             return out
-        return kit.para(ai_text.BLOCK_BROKEN, "body", "secondary")  # ai-diff·ai-rotate(다음 PR)와 이 판이 모르는 블록
+        return kit.para(ai_text.BLOCK_BROKEN, "body", "secondary")  # 이 판이 모르는 블록
 
     def restyle(self):
         for piece in self.docs:
             piece.restyle(theme.web_css())
         for widget in self.figures:
             widget.draw()
+        for widget in self.codes:
+            widget.restyle()
         for widget in self.findChildren(RichPara):
             widget.restyle()
 
@@ -752,7 +1190,8 @@ def reading_column(card):
 
 
 class AiLearnPage(QWidget):
-    """학습 단원 화면. 위 막대(← N차시 · 단원 제목 · [외울 것으로]), 단계 표시, 가운데 카드 하나에 지금 단계, 아래 막대 [이전]·[다음]."""
+    """학습 단원 화면. 위 막대(← N차시 · 단원 제목 · [외울 것으로]), 단계 표시, 가운데 카드 하나에 지금 단계, 아래 막대 [이전]·[다음].
+    상황별 코드 단원은 차시 화면이 없어 위 막대가 "← AI 비전 개론" 이고 홈으로 돌아감(서비스 place 의 back)."""
 
     def __init__(self, win):
         super().__init__()
@@ -761,7 +1200,7 @@ class AiLearnPage(QWidget):
         self.setProperty("clipboard", True)
         self.win = win
         self.lid, self.key, self.steps, self.extra, self.index = None, None, [], [], 0
-        self.view, self.marked = None, False
+        self.view, self.marked, self.back = None, False, "lesson"
         root = kit.box(self)
         self.top = kit.TopBar("← AI 비전 개론", "", steps=True)
         self.back_btn, self.title = self.top.back, self.top.title
@@ -787,7 +1226,7 @@ class AiLearnPage(QWidget):
             shortcut = QShortcut(QKeySequence(keys), self)
             shortcut.activated.connect(lambda step=step: self.move(step))
             self.shortcuts.append(shortcut)
-        self.back_btn.clicked.connect(lambda: self.win.open_ai_lesson(self.lid))
+        self.back_btn.clicked.connect(self.go_back)
         self.memo_btn.clicked.connect(lambda: self.show_step(len(self.steps) - 1))
         self.prev_btn.clicked.connect(lambda: self.move(-1))
         self.next_btn.clicked.connect(self.forward)
@@ -796,9 +1235,12 @@ class AiLearnPage(QWidget):
         """단원을 올림. step 은 1부터의 단계 번호. 없으면 지난번 자리(마지막 단계였으면 처음)부터. 없는 단원이면 AiError."""
         data = self.win.ai.unit_steps(lid, key)
         read = any(unit["key"] == key and unit["read"] for unit in self.win.ai.lesson(lid)["units"])
+        place = self.win.ai.place(lid)
         self.lid, self.key, self.marked = lid, key, read  # 이미 읽은 단원은 다시 끝까지 보아도 읽기 기록을 또 남기지 않음
-        self.back_btn.setText("← %d차시" % self.win.ai.lessons[lid]["no"])
-        self.title.setText(data["title"])
+        self.back = place["back"]
+        # 차시 단원은 "← 5차시" 가 자리를 말하고, 상황별 코드 단원은 홈으로 돌아가므로 제목이 단원 이름("학습 루프 · …") 전체를 씀
+        self.back_btn.setText("← %s" % (place["label"] if self.back == "lesson" else ai_text.TRACK))
+        self.title.setText(data["title"] if self.back == "lesson" else data["name"])
         self.title.show()
         self.read(data)
         last = len(self.steps)
@@ -840,6 +1282,12 @@ class AiLearnPage(QWidget):
         self.scroll.verticalScrollBar().setValue(0)
         QTimer.singleShot(0, lambda: self.scroll.verticalScrollBar().setValue(0))  # 새 단계의 조각이 자리를 잡은 뒤에도 맨 위
         self.setFocus()  # 지운 단계의 부품이 갖던 초점이 새 단계의 첫 줄로 넘어가 초점 테두리가 그려지지 않게 화면이 받음
+
+    def go_back(self):
+        if self.back == "lesson":
+            self.win.open_ai_lesson(self.lid)
+        else:
+            self.win.go_ai()
 
     def mark_read(self):
         try:
@@ -914,8 +1362,7 @@ class RevisitPage(QWidget):
         if data is None:
             raise SessionError("다시 볼 단원이 없습니다. 단원을 하나 읽은 뒤 열어 보세요.")
         self.data = data
-        no = self.win.ai.lessons[data["lesson"]]["no"]
-        self.title.setText("%d차시 · %s" % (no, data["title"]))
+        self.title.setText(data["name"])
         self.title.show()
         while self.card_box.count():
             widget = self.card_box.takeAt(0).widget()
@@ -1081,7 +1528,7 @@ class NoteDialog(QDialog):
         data = win.ai.unit_steps(lid, key)
         steps = [s for s in data["steps"] if s["scope"] != "trend"]
         step = next((s for s in steps if str(s["no"]) == no), steps[0] if steps else None)
-        self.setWindowTitle("%d차시 · %s" % (win.ai.lessons[lid]["no"], data["title"]))
+        self.setWindowTitle(data["name"])
         box = kit.box(self, (24, 24, 24, 24), 16)
         box.addWidget(kit.para(self.windowTitle(), "caption", "secondary"))
         self.view = StepView(step, Ctx(win, lid, key, readonly=True, answers=guess_answers(data["steps"]))) if step \

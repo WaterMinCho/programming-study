@@ -206,6 +206,27 @@ class RuleTest(unittest.TestCase):
         self.assertEqual(["stuck"], [e["result"] for e in events["m1-02"]])
         self.assertTrue(events["m1-03"][0]["dontknow"])
 
+    def test_override_also_value_removes_only_that_also_row(self):
+        log = [answer("2026-11-01T20:00:00", "pass", card="pc-k01"),
+               answer("2026-11-02T20:00:00", "pass", card="pc-k03", set_id="s1", also={"pc-k01": "stuck", "pc-k02": "stuck"},
+                      also_value={"pc-k01": "eval", "pc-k02": "x"}),
+               answer("2026-11-02T20:05:00", "pass", card="pc-k03", set_id="s1", again=1, also={"pc-k01": "stuck"},
+                      also_value={"pc-k01": "eval"})]
+        events = review.card_events(log)
+        self.assertEqual(["answer", "also", "also"], [e["src"] for e in events["pc-k01"]])
+        log.append({"kind": "override", "at": "2026-11-02T20:06:00", "set": "s1", "again": 0, "card": "pc-k03",
+                    "also_value": {"pc-k01": "eval", "pc-k02": "x"}})
+        events = review.card_events(log)
+        self.assertEqual(["answer", "also"], [e["src"] for e in events["pc-k01"]])  # again 1 답의 also 는 남음
+        self.assertEqual("2026-11-02T20:05:00", events["pc-k01"][1]["at"])
+        self.assertNotIn("pc-k02", events)  # 남은 답이 없으면 답한 적 없는 카드
+        self.assertEqual(["pass", "pass"], [e["result"] for e in events["pc-k03"]])
+        index = review.EventIndex()
+        index.feed(log[:3])
+        ver = index.ver["pc-k01"]
+        index.feed(log[3:])
+        self.assertGreater(index.ver["pc-k01"], ver)
+
     def test_leech_counts_drops_on_different_days(self):
         log = [answer("2026-11-01T20:00:00", "pass"), answer("2026-11-03T20:00:00", "stuck"),
                answer("2026-11-04T20:00:00", "pass"), answer("2026-11-06T20:00:00", "stuck"),
