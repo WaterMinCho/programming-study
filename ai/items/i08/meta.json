@@ -1,0 +1,10 @@
+{"format": 1, "id": "i08", "no": 8, "page": "l08",
+ "units": {
+  "8a": {"blank": 3, "choice": 3, "stmt": 0, "gen": [], "core": 4},
+  "8b": {"blank": 4, "choice": 3, "stmt": 0, "gen": ["i08-g01"], "core": 3},
+  "8c": {"blank": 2, "choice": 4, "stmt": 0, "gen": ["i08-g04"], "core": 3},
+  "8d": {"blank": 4, "choice": 3, "stmt": 0, "gen": [], "core": 3},
+  "8e": {"blank": 4, "choice": 4, "stmt": 8, "gen": ["i08-g03"], "core": 3},
+  "8f": {"blank": 3, "choice": 4, "stmt": 8, "gen": ["i08-g02"], "core": 4},
+  "8g": {"blank": 3, "choice": 3, "stmt": 0, "gen": [], "core": 3}},
+ "sources": []}

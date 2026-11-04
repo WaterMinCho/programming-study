@@ -129,6 +129,26 @@
   {"term": "언더샘플링", "also": [], "accept": ["under-sampling", "undersampling"], "page": "l06"},
   {"term": "SMOTE", "also": [], "accept": ["Synthetic Minority Over-sampling Technique"], "page": "l06"},
   {"term": "손실 곡면", "also": [], "accept": ["loss surface", "loss landscape"], "page": "l06"},
-  {"term": "기울기 자르기", "also": [], "accept": ["gradient clipping", "그래디언트 클리핑", "기울기 클리핑"], "intro": "l05", "page": "l06"}
+  {"term": "기울기 자르기", "also": [], "accept": ["gradient clipping", "그래디언트 클리핑", "기울기 클리핑"], "intro": "l05", "page": "l06"},
+  {"term": "단순 회귀", "also": [], "accept": ["simple regression", "단순회귀", "단순 선형 회귀"], "page": "l07"},
+  {"term": "다중 회귀", "also": [], "accept": ["multiple regression", "다중회귀", "다중 선형 회귀"], "page": "l07"},
+  {"term": "잔차 제곱합", "also": [], "accept": ["residual sum of squares", "sum of squared errors", "SSE", "RSS", "SS_res", "잔차제곱합"], "page": "l07"},
+  {"term": "최소제곱법", "also": ["OLS"], "accept": ["ordinary least squares", "least squares", "최소 제곱법", "최소제곱추정량"], "page": "l07"},
+  {"term": "더미 변수", "also": [], "accept": ["dummy variable", "더미변수"], "page": "l07"},
+  {"term": "정규방정식", "also": [], "accept": ["normal equation", "정규 방정식"], "page": "l07"},
+  {"term": "다항 회귀", "also": [], "accept": ["polynomial regression", "다항회귀"], "page": "l07"},
+  {"term": "규제", "also": [], "accept": ["regularization", "정규화"], "page": "l07"},
+  {"term": "Ridge 회귀", "also": [], "accept": ["ridge regression", "Ridge", "릿지 회귀", "L2 규제"], "page": "l07"},
+  {"term": "Lasso 회귀", "also": [], "accept": ["lasso regression", "Lasso", "라쏘 회귀", "L1 규제"], "page": "l07"},
+  {"term": "ElasticNet", "also": [], "accept": ["Elastic Net", "elastic net", "엘라스틱넷"], "page": "l07"},
+  {"term": "로지스틱 회귀", "also": ["이진 로지스틱 회귀"], "accept": ["logistic regression", "로지스틱회귀"], "page": "l08"},
+  {"term": "결정 경계", "also": [], "accept": ["decision boundary", "결정경계"], "page": "l08"},
+  {"term": "초평면", "also": [], "accept": ["hyperplane"], "page": "l08"},
+  {"term": "홀드아웃", "also": [], "accept": ["hold-out", "holdout", "홀드 아웃"], "page": "l08"},
+  {"term": "부트스트래핑", "also": [], "accept": ["bootstrapping", "bootstrap", "부트스트랩", "부트스트랩핑"], "page": "l08"},
+  {"term": "계층적 샘플링", "also": [], "accept": ["stratified sampling", "층화 추출", "층화 샘플링", "stratify"], "page": "l08"},
+  {"term": "가중치 행렬", "also": [], "accept": ["weight matrix", "가중치행렬"], "page": "l09"},
+  {"term": "로그 소프트맥스", "also": [], "accept": ["log softmax", "LogSoftmax", "log_softmax", "로그소프트맥스"], "page": "l09"},
+  {"term": "KL divergence", "also": [], "accept": ["KL 발산", "쿨백-라이블러 발산", "KLD", "KL Divergence", "Kullback-Leibler divergence"], "page": "l09"}
  ]
 }

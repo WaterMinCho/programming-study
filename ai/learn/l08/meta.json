@@ -1,0 +1,182 @@
+{
+  "format": 1,
+  "id": "l08",
+  "title": "8차시 이진 분류와 평가 지표",
+  "lesson": "i08",
+  "defines": [
+    "이진 분류",
+    "로지스틱 회귀",
+    "임계값",
+    "정확도",
+    "홀드아웃",
+    "부트스트래핑",
+    "결정 경계",
+    "초평면",
+    "계층적 샘플링",
+    "혼동 행렬",
+    "정밀도",
+    "재현율",
+    "F1 점수",
+    "ROC 곡선",
+    "AUC"
+  ],
+  "needs": [
+    "l01",
+    "l02",
+    "l03",
+    "l04",
+    "l05",
+    "l06",
+    "l07"
+  ],
+  "sections": {
+    "8a": "이진 분류와 로지스틱 회귀 모델",
+    "8b": "학습 데이터, 검증 데이터와 정확도",
+    "8c": "결정 경계",
+    "8d": "BCELoss 판과 BCEWithLogitsLoss 판",
+    "8e": "사기 거래 탐지: 불균형 데이터 준비와 pos_weight",
+    "8f": "혼동 행렬로 지표 고르기",
+    "8g": "코드 읽기: 이진 분류 코드의 모양과 판정 줄"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "scikit-learn load_iris: 클래스 3개, 클래스마다 50개, 모두 150개, 특성 4개. data (150, 4), target (150,), target 0 은 setosa, 1 은 versicolor",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_iris.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn train_test_split: train_size·test_size 가 정수면 개수, 실수면 비율. stratify 는 그 라벨로 층화해 나눔",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn 사용자 안내서 Logistic regression: 이름과 달리 분류에 쓰는 선형 모델이고 양성 확률은 1 ÷ (1 + exp(−(Xw + w0)))",
+      "url": "https://scikit-learn.org/stable/modules/linear_model.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch torch.special.logit: ln(z ÷ (1 − z))",
+      "url": "https://docs.pytorch.org/docs/2.15/special.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch Sigmoid: σ(x) = 1 ÷ (1 + exp(−x)), 출력은 입력과 같은 모양",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Sigmoid.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch BCELoss: 확률을 입력으로 받고 정답은 입력과 같은 모양, log 값을 −100 에서 자름",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BCELoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch BCEWithLogitsLoss: 시그모이드 뒤 BCELoss 보다 수치적으로 안정, pos_weight 는 양성 항에만 곱함, 양성 100·음성 300 이면 pos_weight 3, 양성에 가중치를 주어 재현율과 정밀도를 맞바꿈",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BCEWithLogitsLoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch torch.where: 조건이 참인 자리는 input, 거짓인 자리는 other 를 고르고 둘은 스칼라여도 됨",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.where.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch tensor_attributes: torch.float32 는 32비트 실수, torch.*.FloatTensor 는 하위 호환으로 남긴 예전 생성자",
+      "url": "https://docs.pytorch.org/docs/2.15/tensor_attributes.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch Adam: weight_decay 는 L2 penalty(기본 0), lr 기본 1e-3",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.optim.Adam.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "NumPy unique: 정렬한 고유값을 돌려주고 return_counts=True 면 값마다의 개수도 돌려줌",
+      "url": "https://numpy.org/doc/stable/reference/generated/numpy.unique.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn make_classification: weights 는 클래스 비율, flip_y 는 클래스를 무작위로 다시 붙이는 데이터의 비율, redundant 특성은 informative 특성의 무작위 선형 결합",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_classification.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn StandardScaler: 학습 데이터의 평균과 표준편차로 z = (x − u) ÷ s, transform 은 저장한 값으로 바꿈",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn resample: replace 기본 True, n_samples 기본은 원래 데이터 수, 부트스트래핑의 한 단계",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.utils.resample.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn confusion_matrix: C[i, j] 는 정답 i 를 j 로 예측한 수, 라벨은 정렬 순서, 이진은 tn, fp, fn, tp = ravel()",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn precision_score: tp ÷ (tp + fp), average 기본 'binary', pos_label 기본 1",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn f1_score: F1 = 2 × TP ÷ (2 × TP + FP + FN), 정밀도와 재현율의 조화평균",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn roc_curve: y_score 는 양성 확률이나 자르기 전 점수, 임계값은 큰 것부터",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_curve.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn roc_auc_score: 이진이면 양성 클래스 확률이나 자르기 전 점수를 받음",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Saito·Rehmsmeier(PLOS ONE, 2015년 3월): 불균형 데이터에서 ROC 그림은 오해를 부를 수 있고 PR 그림이 더 많은 것을 알려 줌",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0118432",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "8a": {
+      "minutes": 5,
+      "key_figure": "assets/8a-4.gif",
+      "kind": "concept"
+    },
+    "8b": {
+      "minutes": 6,
+      "key_figure": "assets/8b-3.gif",
+      "kind": "concept"
+    },
+    "8c": {
+      "minutes": 5,
+      "key_figure": "assets/8c-1.gif",
+      "kind": "concept"
+    },
+    "8d": {
+      "minutes": 6,
+      "key_figure": "assets/8d-2.gif",
+      "kind": "concept"
+    },
+    "8e": {
+      "minutes": 7,
+      "key_figure": "assets/8e-2.gif",
+      "kind": "concept"
+    },
+    "8f": {
+      "minutes": 7,
+      "key_figure": "assets/8f-2.gif",
+      "kind": "concept"
+    },
+    "8g": {
+      "minutes": 6,
+      "key_figure": "assets/8g-1.png",
+      "kind": "code"
+    }
+  }
+}

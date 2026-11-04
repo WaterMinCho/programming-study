@@ -1,0 +1,149 @@
+{
+  "format": 1,
+  "id": "l09",
+  "title": "9차시 다중 분류 1",
+  "lesson": "i09",
+  "defines": [
+    "다중 분류",
+    "가중치 행렬",
+    "소프트맥스",
+    "로그 소프트맥스",
+    "KL divergence"
+  ],
+  "needs": [
+    "l03",
+    "l04",
+    "l05",
+    "l06"
+  ],
+  "sections": {
+    "9a": "다중 분류의 출력과 가중치 행렬",
+    "9b": "소프트맥스의 성질",
+    "9c": "로그 소프트맥스와 NLLLoss, CrossEntropyLoss",
+    "9d": "KL divergence",
+    "9e": "예측 클래스와 정확도",
+    "9f": "다중 분류의 혼동 행렬과 클래스별 지표",
+    "9g": "코드 읽기: 붓꽃 학습 코드와 wine 다층 신경망"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "PyTorch nn.Linear: weight 모양은 (out_features, in_features), bias 모양은 (out_features)",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Linear.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch nn.Softmax: 출력은 0~1 이고 dim 을 따라 자른 묶음마다 합이 1. NLLLoss 와 바로 쓰지 않고 LogSoftmax 를 쓰라고 적음",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Softmax.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch nn.LogSoftmax: log(Softmax(x)) 를 계산하고 값의 범위는 [−inf, 0)",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.LogSoftmax.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch F.log_softmax: log 와 softmax 를 따로 하면 느리고 수치적으로 불안정해 다른 식으로 계산함",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.functional.log_softmax.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch nn.NLLLoss: 입력은 클래스마다의 로그 확률, LogSoftmax 층으로 얻음, 정답은 [0, C−1] 클래스 번호, 기본 reduction 'mean'",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.NLLLoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch nn.CrossEntropyLoss: 입력은 정규화하지 않은 logit, 클래스 번호 정답은 [0, C) 의 long, 이 경우 LogSoftmax 뒤 NLLLoss 와 같음",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.CrossEntropyLoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch F.kl_div: input 은 로그 확률, target 은 log_target=False(기본)일 때 확률, 기본 reduction 'mean' 은 KL 값이 아니고 'batchmean' 을 쓰라고 적음, 'batchmean' 은 합을 배치 크기로 나눔",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.functional.kl_div.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch nn.KLDivLoss: reduction 'batchmean' 의 의사 코드는 loss_pointwise.sum() / input.size(0), 'mean' 은 원소 수로 나눔",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.KLDivLoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch torch.max(input, dim): (values, indices) 를 돌려주고 최댓값이 여럿이면 첫 위치를 돌려줌",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.max.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch nn.Dropout: 학습 때 원소마다 확률 p 로 0, 남은 값은 1/(1 − p) 배, 평가 때는 항등",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Dropout.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch nn.BatchNorm1d: 평가 때는 학습하며 모은 이동 평균·분산으로 정규화함",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BatchNorm1d.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn confusion_matrix: C[i, j] 는 실제가 i 이고 예측이 j 인 개수(행 실제, 열 예측)",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn precision_recall_fscore_support: 정밀도 tp/(tp+fp), 재현율 tp/(tp+fn), 다중 클래스는 클래스마다 이진 문제로 보고 average=None 이면 클래스별 값",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_recall_fscore_support.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn StandardScaler: copy 기본값 True, fit_transform 은 바꾼 배열을 돌려줌",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn train_test_split: test_size 가 비율이면 테스트 수는 ceil(test_size × 데이터 수)이고 학습 수는 나머지임(_validate_shuffle_split). 문서에는 올림 규칙이 없어 소스로 확인함",
+      "url": "https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/model_selection/_split.py",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Keras SparseCategoricalCrossentropy: 정답을 정수 클래스 번호로 받음(원-핫은 CategoricalCrossentropy)",
+      "url": "https://keras.io/api/losses/probabilistic_losses/",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "9a": {
+      "minutes": 5,
+      "key_figure": "assets/9a-2.gif",
+      "kind": "concept"
+    },
+    "9b": {
+      "minutes": 6,
+      "key_figure": "assets/9b-1.gif",
+      "kind": "concept"
+    },
+    "9c": {
+      "minutes": 7,
+      "key_figure": "assets/9c-2.gif",
+      "kind": "concept"
+    },
+    "9d": {
+      "minutes": 5,
+      "key_figure": "assets/9d-2.png",
+      "kind": "concept"
+    },
+    "9e": {
+      "minutes": 5,
+      "key_figure": "assets/9e-1.gif",
+      "kind": "concept"
+    },
+    "9f": {
+      "minutes": 6,
+      "key_figure": "assets/9f-2.gif",
+      "kind": "concept"
+    },
+    "9g": {
+      "minutes": 7,
+      "key_figure": "assets/9g-3.gif",
+      "kind": "code"
+    }
+  }
+}
