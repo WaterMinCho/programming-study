@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 화면(gui/ai_home.py, ai_learn.py, ai_quiz.py, ai_text.py)과 첫 화면의 AI 줄, 공유 오답 노트의 AI 탭.
 실제 MainWindow 를 띄우되 AI 은행은 고정 은행 tests/ai_bank(상황별 코드를 보는 클래스는 tests/ai_bank_pc 를 더한 사본, 마지막 클래스만
-저장소의 ai/ 1~6차시와 상황별 코드), 여행·웹 은행은 고정 은행, 풀이 폴더·AI 로컬 폴더·설정은 임시 폴더, 제출 모듈과 Node 찾기는 가짜를 씀.
+저장소의 ai/ 1~9차시와 상황별 코드), 여행·웹 은행은 고정 은행, 풀이 폴더·AI 로컬 폴더·설정은 임시 폴더, 제출 모듈과 Node 찾기는 가짜를 씀.
 시계는 aiprep.service.now 를 바꿔 학습일을 정함.
 
 하루 목표와 새 문항 상한은 화면에 없음(2026-11-03 사용자 결정). 모의고사 화면은 다음 PR 이라 보지 않음.
@@ -1409,18 +1409,18 @@ class DesignTest(AiTest):
 
 
 class RealLessonTest(AiTest):
-    """저장소의 1~6차시 학습 노트와 상황별 코드(공개돼 있으면). 모든 단원의 모든 단계가 오류 없이 그려지고, 숨긴 줄이 보이지 않고,
+    """저장소의 1~9차시 학습 노트와 상황별 코드(공개돼 있으면). 모든 단원의 모든 단계가 오류 없이 그려지고, 숨긴 줄이 보이지 않고,
     1024×700 에서 그림의 넘김 줄과 장 설명이 그림과 함께 스크롤 없이 한 화면에 들어감. 나란히 보기는 행이 줄을 바꾸지 않고 단계 폭을
     넘지 않음."""
     real_bank = True
 
-    def test_every_step_of_lessons_one_to_six_renders(self):
+    def test_every_step_of_lessons_one_to_nine_renders(self):
         win = self.boot((1024, 700))
         learn = win.ai_learn
         started = time.monotonic()
         figures = 0
         patterns = [g["id"] for g in win.ai.overview()["patterns"] if g["ready"]]
-        for lid in ("i01", "i02", "i03", "i04", "i05", "i06", *patterns):
+        for lid in ("i01", "i02", "i03", "i04", "i05", "i06", "i07", "i08", "i09", *patterns):
             for unit in win.ai.unit_list(lid):
                 self.assertTrue(win.open_ai_unit(lid, unit["key"], 1), (lid, unit["key"]))
                 for index in range(len(learn.steps)):
