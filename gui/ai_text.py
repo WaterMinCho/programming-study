@@ -13,10 +13,13 @@ from gui.result_page import band, code_box, md_html
 from session import SessionError
 
 TRACK = "AI 비전 개론"
-ABOUT = "차시마다 학습 단원을 읽고 빈칸·고르기 문제를 풉니다. 맞힌 문항도 며칠 간격을 두고 다시 나옵니다."
+STEPS = ("1. [학습 시작]을 눌러 단원을 읽습니다.",
+         "2. 단원 끝의 [연습 시작]을 눌러 그 단원 문항을 풉니다.",
+         "3. 다음 날부터는 전에 푼 문항이 다시 나옵니다. [복습 시작]이 보이면 복습부터 풉니다.")
 TERMS = ("복습 문항은 다시 풀 날이 된 문항입니다. 서로 다른 세 날에 그날 처음 낸 답을 연달아 맞히면 외운 문항이 됩니다. "
          "단원을 읽은 날은 세지 않습니다.")
-START_LINE = "1차시 첫 단원부터 시작합니다."
+START_LINE = "1차시 첫째 단원부터 읽습니다."
+ORDINALS = ("첫째", "둘째", "셋째", "넷째", "다섯째", "여섯째", "일곱째", "여덟째", "아홉째", "열째")
 MIXED_ABOUT = "읽은 단원의 문항을 차시를 섞어 20문항씩 냅니다. 복습 문항이 먼저 나옵니다."
 MIXED_EMPTY = "단원을 하나 읽으면 섞어 풀 수 있습니다."
 LESSON_PRACTICE = "단원을 읽지 않아도 이 차시의 모든 문항을 20문항씩 냅니다."
@@ -157,10 +160,13 @@ def read_counts(overview):
 
 
 def track_line(overview):
-    """허브의 AI 비전 개론 줄 둘째 줄. 읽은 단원이 없으면 첫 단원 안내."""
+    """허브의 AI 비전 개론 줄 둘째 줄. 읽은 단원이 없으면 이어서 할 일 카드가 권하는 단원부터 읽으라고 씀. 카드가 단원이 아니면
+    START_LINE."""
     total, read = read_counts(overview)
     if not read:
-        return START_LINE
+        item = overview["next"]
+        place = unit_place(item, overview) if item["kind"] == "unit" else ""
+        return "%s부터 읽습니다." % place if place else START_LINE
     parts = ["단원 %d개 중 %d개 읽음" % (total, read)]
     if overview["memorised"]:
         parts.append(memorised_part(overview))
@@ -252,7 +258,9 @@ def next_item(overview, today):
     elif kind == "review":
         out.update(title=due_part(item["count"]), line="며칠 전에 푼 문항을 다시 풀 날이 되었습니다.", action="복습 시작")
     elif kind == "unit":
-        out.update(title=item["title"], line=unit_why(item, overview, today), action="학습 시작")
+        title, name = unit_task(item, overview)
+        why = unit_why(item, overview, today)
+        out.update(title=title, line="「%s」\n%s" % (name, why) if name else why, action="학습 시작")
     elif kind == "revisit":  # 단원 이름(name)은 서비스가 차시·상황별 코드 모두 한 규칙으로 줌
         out.update(title=item.get("name") or item["title"], line="읽은 단원 가운데 덜 외운 단원입니다. 외울 것을 떠올려 본 뒤 섞어 풉니다.",
                    action="다시 보기")
@@ -263,12 +271,39 @@ def next_item(overview, today):
     return out
 
 
-def unit_why(item, overview, today):
-    """안 읽은 단원을 권하는 줄. 어제나 오늘 수업한 차시면 그 말을 앞에 붙임. 수업 날과 읽는 시간은 overview 의 차시 줄에서,
-    상황별 코드 단원은 patterns 줄에서 읽음(수업 날이 없음)."""
+def find_unit(item, overview):
+    """item 이 가리키는 (차시나 상황별 코드 무리 줄, 단원 줄). overview 의 lessons 와 patterns 에서 찾고 없으면 빈 dict."""
     rows = list(overview["lessons"]) + list(overview.get("patterns") or [])
     lesson = next((row for row in rows if row["id"] == item["lesson"]), {})
     unit = next((u for u in lesson.get("units", []) if u["key"] == item["unit"]), {})
+    return lesson, unit
+
+
+def unit_place(item, overview):
+    """안 읽은 단원의 자리. 차시 단원은 "1차시 첫째 단원", 상황별 코드 단원은 단원 이름 규칙의 앞머리(index 단원 name)로
+    "학습 루프 단원". 카드 제목과 허브 줄이 같이 써서 둘이 같은 단원을 말함. 단원을 찾지 못하면 빈 글."""
+    lesson, unit = find_unit(item, overview)
+    if unit.get("name"):
+        return "%s 단원" % unit["name"]
+    if lesson.get("no") and unit:
+        n = [u["key"] for u in lesson["units"]].index(item["unit"])
+        return "%d차시 %s 단원" % (lesson["no"], ORDINALS[n] if n < len(ORDINALS) else "%d번째" % (n + 1))
+    return ""
+
+
+def unit_task(item, overview):
+    """안 읽은 단원 카드의 (제목, 단원 제목). 제목은 할 일을 씀("1차시 첫째 단원 읽기"). 단원 제목은 카드 둘째 줄 맨 앞에 둠.
+    단원을 찾지 못하면 서비스가 준 단원 이름."""
+    place = unit_place(item, overview)
+    if place:
+        return "%s 읽기" % place, find_unit(item, overview)[1].get("title", "")
+    return item.get("name") or item["title"], ""
+
+
+def unit_why(item, overview, today):
+    """안 읽은 단원을 권하는 줄. 어제나 오늘 수업한 차시면 그 말을 앞에 붙임. 수업 날과 읽는 시간은 overview 의 차시 줄에서,
+    상황별 코드 단원은 patterns 줄에서 읽음(수업 날이 없음)."""
+    lesson, unit = find_unit(item, overview)
     head = ""
     try:
         held = datetime.date.fromisoformat(str(lesson.get("date") or ""))

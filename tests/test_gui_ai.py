@@ -172,7 +172,7 @@ class HubAndHomeTest(AiTest):
     def test_hub_row_week_chart_and_track_colour(self):
         win = self.boot()
         hub = win.hub
-        self.assertEqual((hub.ai_row.title.text(), hub.ai_row.second.text()), ("AI 비전 개론", ai_text.START_LINE))
+        self.assertEqual((hub.ai_row.title.text(), hub.ai_row.second.text()), ("AI 비전 개론", "90차시 첫째 단원부터 읽습니다."))  # 이어서 할 일 카드와 같은 단원
         self.assertFalse(hub.ai_row.inert)
         self.assertEqual(len(hub.chart.days[-1]), 5)  # 날짜와 트랙 넷
         self.assertEqual(theme.SERIES[-1], "series_ai")
@@ -215,8 +215,16 @@ class HubAndHomeTest(AiTest):
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(home)], ["학습 시작"])
         button = home.next_btn
         self.assertTrue(win.rect().contains(button.mapTo(win, QPoint(button.width(), button.height()))), "주 단추가 스크롤 없이 보임")
-        terms = next(w for w in home.findChildren(QLabel) if ai_text.TERMS in w.text())
-        self.assertLess(terms.mapTo(home, QPoint(0, 0)).y(), home.next_card.mapTo(home, QPoint(0, 0)).y())  # 낱말 풀이가 먼저
+        self.assertEqual((home.next_card.title.text(), home.next_card.line.text()),
+                         ("90차시 첫째 단원 읽기", "「기울기로 걸음 정하기」\n읽은 뒤 이 단원 문항부터 풉니다. 약 5분."))  # 할 일이 제목, 단원 제목은 둘째 줄
+
+        def top(widget):
+            return widget.mapTo(home, QPoint(0, 0)).y()
+        steps = next(w for w in home.findChildren(QLabel) if w.text() == "\n".join(ai_text.STEPS))
+        terms = next(w for w in home.findChildren(QLabel) if w.text() == ai_text.TERMS)
+        # 세 단계 안내, 카드, 학습 단원, 낱말 풀이, 문제집 줄 순. 낱말 풀이는 카드를 밀어내지 않고 문제집 줄 바로 위에 있음
+        self.assertEqual(sorted([steps, home.next_card, home.lesson_list, terms, home.books], key=top),
+                         [steps, home.next_card, home.lesson_list, terms, home.books])
         guikit.click(book)
         self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "90차시 풀기"))
 
@@ -230,10 +238,11 @@ class HubAndHomeTest(AiTest):
             win.go_ai()
             return home.target["kind"], home.next_card.title.text(), home.next_btn.text()
 
-        self.assertEqual(card(), ("unit", "90차시 · 기울기로 걸음 정하기", "학습 시작"))
+        self.assertEqual(card(), ("unit", "90차시 첫째 단원 읽기", "학습 시작"))
         self.at(2)
         win.ai.mark_read("i90", "90a")
-        self.assertEqual(card(), ("unit", "90차시 · 과적합 알아보기", "학습 시작"))  # 오늘 하나 읽어도 남은 단원을 권함
+        self.assertEqual(card(), ("unit", "90차시 둘째 단원 읽기", "학습 시작"))  # 오늘 하나 읽어도 남은 단원을 권함
+        self.assertTrue(home.next_card.line.text().startswith("「과적합 알아보기」\n"))
         win.open_ai_practice("unit", lesson="i90", unit="90a")
         self.answer(right=False)
         self.assertEqual(card()[0::2], ("again", "복습 시작"))  # 오늘 틀린 문항은 복습 묶음 맨 앞에 나옴
@@ -310,8 +319,8 @@ class HubAndHomeTest(AiTest):
         win.ai.mark_read("i90", "90a")
         win.go_hub()
         hub = win.hub
-        self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("90차시 · 과적합 알아보기", "학습 시작"))
-        self.assertTrue(hub.next_card.line.text().startswith("AI 비전 개론 · "))
+        self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("90차시 둘째 단원 읽기", "학습 시작"))  # 홈 카드와 같은 글
+        self.assertTrue(hub.next_card.line.text().startswith("AI 비전 개론 · 「과적합 알아보기」\n읽은 뒤 이 단원 문항부터 풉니다."))
         self.assertEqual(hub.chart.days[-1][4], 1)  # 끝까지 읽은 단원 하나
         guikit.click(hub.next_btn)
         self.assertEqual((self.page(), win.ai_learn.key), (win.ai_learn, "90b"))
@@ -363,6 +372,25 @@ class TextTest(unittest.TestCase):
         mock_next = dict(overview, next={"kind": "mock", "title": "모의고사 1회 · 30문항 · 60분", "count": 30})
         card = ai_text.next_item(mock_next, datetime.date(2026, 11, 14))
         self.assertEqual((card["title"], card["line"], card["action"]), ("모의고사 1회 · 30문항 · 60분", ai_text.MOCK_LATER, ""))
+
+    def test_unit_card_title_says_what_to_do(self):
+        """안 읽은 단원 카드 제목은 "N차시 첫째 단원 읽기"(상황별 코드는 "학습 루프 단원 읽기")이고 단원 제목은 둘째 줄 맨 앞."""
+        overview = {"lessons": [{"id": "i05", "no": 5, "date": "", "ready": True, "units_total": 2, "read": 0,
+                                 "units": [{"key": "5a", "title": "가", "minutes": 7}, {"key": "5b", "title": "나", "minutes": 4}]}],
+                    "patterns": [{"id": "pc", "units": [{"key": "18a", "name": "학습 루프", "title": "한 에폭", "minutes": 6}]}]}
+        today = datetime.date(2026, 11, 9)
+
+        def card(lesson, unit):
+            item = {"kind": "unit", "lesson": lesson, "unit": unit, "title": "엔진 제목", "name": "엔진 이름"}
+            out = ai_text.next_item(dict(overview, next=item), today)
+            return out["title"], out["line"], out["action"]
+        self.assertEqual(card("i05", "5b"), ("5차시 둘째 단원 읽기", "「나」\n읽은 뒤 이 단원 문항부터 풉니다. 약 4분.", "학습 시작"))
+        self.assertEqual(card("pc", "18a"), ("학습 루프 단원 읽기", "「한 에폭」\n읽은 뒤 이 단원 문항부터 풉니다. 약 6분.", "학습 시작"))
+        self.assertEqual(card("i05", "5z")[:2], ("엔진 이름", "읽은 뒤 이 단원 문항부터 풉니다. 약 5분."))  # 찾지 못하면 서비스가 준 이름
+        # 읽은 단원이 없을 때 허브 줄은 카드가 권하는 단원을 씀. 카드가 단원이 아니면 START_LINE
+        unit_next = dict(overview, next={"kind": "unit", "lesson": "i05", "unit": "5b"})
+        self.assertEqual(ai_text.track_line(unit_next), "5차시 둘째 단원부터 읽습니다.")
+        self.assertEqual(ai_text.track_line(dict(overview, next={"kind": "again", "count": 2})), ai_text.START_LINE)
 
     def test_same_row_labels_are_numbered_by_card(self):
         items = ai_text.numbered([{"key": "i01-s03", "label": "고르기 · 같은 지문"}, {"key": "i01-s01", "label": "고르기 · 같은 지문"},
@@ -1020,6 +1048,8 @@ class PatternTest(AiTest):
         win.go_ai()
         home = win.ai_home
         self.assertTrue(home.pattern_section.isVisibleTo(home))
+        self.idle()
+        self.assertGreater(home.pattern_section.mapTo(home, QPoint(0, 0)).y(), home.books.mapTo(home, QPoint(0, 0)).y())  # 맨 아래 구역
         self.assertEqual([(r.title.text(), r.second.text(), r.mark.state) for r in home.pattern_list.rows],
                          [(self.UNIT, "90차시 뒤에 권함 · 약 6분", "todo")])  # 권하는 차시를 읽기 전에도 열 수 있음
         self.assertEqual(home.pattern_list.more_btn.text(), "준비 중 1개 보기")
@@ -1258,8 +1288,8 @@ class PatternTest(AiTest):
         sess.mark_read("i90", "90b")
         win.go_ai()
         home = win.ai_home
-        self.assertEqual((home.target["kind"], home.next_card.title.text(), home.next_btn.text()), ("unit", self.UNIT, "학습 시작"))
-        self.assertEqual(home.next_card.line.text(), "읽은 뒤 이 단원 문항부터 풉니다. 약 6분.")  # 읽는 시간은 상황별 코드 단원 값
+        self.assertEqual((home.target["kind"], home.next_card.title.text(), home.next_btn.text()), ("unit", "학습 루프 단원 읽기", "학습 시작"))
+        self.assertEqual(home.next_card.line.text(), "「시험 뼈대 단원」\n읽은 뒤 이 단원 문항부터 풉니다. 약 6분.")  # 읽는 시간은 상황별 코드 단원 값
         guikit.click(home.next_btn)
         self.assertEqual((self.page(), win.ai_learn.lid, win.ai_learn.key), (win.ai_learn, "pc", "18a"))
         for card in sess.cards.values():

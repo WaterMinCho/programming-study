@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 홈(AiHomePage)과 차시 화면(AiLessonPage).
 
-홈: 위 막대(← 처음 화면), 제목과 소개, 낱말 풀이(복습 문항, 외운 문항), 알림 줄(시험까지 남은 날, 오늘 푼 문항, 외운 문항),
-이어서 할 일 카드(화면에 하나뿐인 주 단추), 문제집 구역(섞어 풀기, 공개된 차시마다 차시 문제집, 오답 노트), 학습 단원 구역(차시마다 한 줄,
-준비 중인 차시는 끝의 글자 단추 하나로 접음), 상황별 코드 구역(공개된 단원마다 한 줄, 준비 중 단원은 같은 꼴로 접음). 하루 목표는
-두지 않고(2026-11-03 사용자 결정) 문제집을 원하는 만큼 풀게 함. 문제집 줄은 외운 문항과 복습 문항을, 학습 단원 줄은 읽은 단원 수를,
-상황별 코드 줄은 권하는 차시와 외운 문항·복습(안 읽었으면 읽는 시간)을 씀. 상황별 코드 단원은 권하는 차시를 읽기 전에도 열 수 있음.
+홈: 위 막대(← 처음 화면), 제목과 세 단계 안내(단원 읽기, 그 단원 문항 풀기, 다음 날부터 복습), 알림 줄(시험까지 남은 날, 오늘 푼 문항,
+외운 문항), 이어서 할 일 카드(화면에 하나뿐인 주 단추), 학습 단원 구역(차시마다 한 줄, 준비 중인 차시는 끝의 글자 단추 하나로 접음),
+문제집 구역(복습 문항과 외운 문항의 낱말 풀이, 섞어 풀기, 공개된 차시마다 차시 문제집, 오답 노트), 상황별 코드 구역(공개된 단원마다 한 줄,
+준비 중 단원은 같은 꼴로 접음). 읽기가 풀기보다 먼저라 학습 단원을 문제집 위에 둠. 상황별 코드 단원은 권하는 차시를 읽은 뒤에
+읽고(학습 루프는 6차시 뒤) 이어서 할 일 카드도 그때 권하므로 맨 아래에 둠. 하루 목표는 두지 않고(2026-11-03 사용자 결정) 문제집을
+원하는 만큼 풀게 함. 문제집 줄은 외운 문항과 복습 문항을, 학습 단원 줄은 읽은 단원 수를, 상황별 코드 줄은 권하는 차시와 외운 문항·복습
+(안 읽었으면 읽는 시간)을 씀. 상황별 코드 단원은 권하는 차시를 읽기 전에도 열 수 있음.
 모의고사 구역은 그 은행이 생기면 더함(지금은 없어서 그리지 않음).
 차시 화면: 단원 줄, [전체 노트]·[외울 것], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
 from PyQt6.QtWidgets import QWidget
@@ -33,8 +35,8 @@ class AiHomePage(QWidget):
         root = kit.box(inner, (0, 24, 0, 48))
         root.addWidget(kit.label(ai_text.TRACK, "title"))
         root.addSpacing(4)
-        root.addWidget(kit.para("%s %s" % (ai_text.ABOUT, ai_text.TERMS), "body", "secondary"))  # 아래 줄이 쓰는 낱말(복습 문항, 외운 문항)을 먼저 풂
-        root.addSpacing(8)
+        root.addWidget(kit.para("\n".join(ai_text.STEPS), "body", "secondary"))
+        root.addSpacing(16)  # 알림 줄이 넷째 단계로 읽히지 않게 띄움
         self.info = kit.label("", "caption", "secondary")
         root.addWidget(self.info)
         root.addSpacing(16)
@@ -47,18 +49,20 @@ class AiHomePage(QWidget):
         root.addWidget(self.next_card)
 
         root.addSpacing(48)
-        head, _, _ = kit.section("문제집")
-        root.addLayout(head)
-        root.addSpacing(12)
-        self.books = kit.RowList()
-        root.addWidget(self.books)
-
-        root.addSpacing(48)
         head, _, self.lesson_count = kit.section("학습 단원")
         root.addLayout(head)
         root.addSpacing(12)
         self.lesson_list = kit.RowList()
         root.addWidget(self.lesson_list)
+
+        root.addSpacing(48)
+        head, _, _ = kit.section("문제집")
+        root.addLayout(head)
+        root.addSpacing(4)
+        root.addWidget(kit.para(ai_text.TERMS, "caption", "secondary"))  # 문제집 줄의 둘째 줄이 쓰는 낱말(복습 문항, 외운 문항)을 목록 바로 위에서 풂
+        root.addSpacing(12)
+        self.books = kit.RowList()
+        root.addWidget(self.books)
 
         self.pattern_section = QWidget()  # index.json 에 상황별 코드 무리가 없으면 숨김
         pattern_box = kit.box(self.pattern_section, (0, 48, 0, 0))

@@ -918,7 +918,7 @@ class BottomBar(QFrame):
 
 
 class NextCard(QFrame):
-    """홈 화면 맨 위의 이어서 할 일 카드. caption, headline 제목, body 설명 한 줄, 오른쪽 아래 주 단추 l(화면에 하나뿐인 주 단추)."""
+    """홈 화면 맨 위의 이어서 할 일 카드. caption, headline 제목, body 설명 줄(여러 줄일 수 있음), 오른쪽 아래 주 단추 l(화면에 하나뿐인 주 단추)."""
 
     def __init__(self):
         super().__init__()
@@ -937,7 +937,7 @@ class NextCard(QFrame):
         row.addWidget(self.button, 0, Qt.AlignmentFlag.AlignBottom)
 
     def set_item(self, title, line, action):
-        """제목, 설명 한 줄, 단추 글자. action 이 비면 단추를 숨김."""
+        """제목, 설명 줄(여러 줄일 수 있음), 단추 글자. action 이 비면 단추를 숨김."""
         self.title.setText(title)
         self.line.setText(line)
         self.line.setVisible(bool(line))
