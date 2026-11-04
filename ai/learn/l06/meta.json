@@ -1,0 +1,104 @@
+{
+  "format": 1,
+  "id": "l06",
+  "title": "6차시 손실 함수 설계",
+  "lesson": "i06",
+  "defines": [
+    "비용 함수",
+    "Huber 손실",
+    "이진 분류",
+    "이진 교차 엔트로피",
+    "logit",
+    "다중 분류",
+    "소프트맥스",
+    "교차 엔트로피",
+    "원-핫 벡터",
+    "라벨 스무딩",
+    "클래스 불균형",
+    "가중 교차 엔트로피",
+    "Focal Loss",
+    "오버샘플링",
+    "언더샘플링",
+    "SMOTE",
+    "손실 곡면",
+    "기울기 자르기"
+  ],
+  "needs": [
+    "l04",
+    "l05"
+  ],
+  "sections": {
+    "6a": "손실 함수와 MSE, MAE",
+    "6b": "이상치와 Huber 손실",
+    "6c": "이진 분류의 BCE와 BCEWithLogitsLoss",
+    "6d": "다중 분류의 CrossEntropyLoss와 라벨 스무딩",
+    "6e": "클래스 불균형과 가중 교차 엔트로피, Focal Loss",
+    "6f": "문제에 맞는 손실 고르기와 손실 곡면"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "PyTorch MSELoss: 오차 제곱의 평균, reduction 은 'none'·'mean'·'sum' 이고 기본값 'mean'",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.MSELoss.html",
+      "checked": "2026-11-03"
+    },
+    {
+      "what": "PyTorch L1Loss: 평균 절대 오차(MAE)를 계산함",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.L1Loss.html",
+      "checked": "2026-11-03"
+    },
+    {
+      "what": "PyTorch HuberLoss: delta 기본값 1.0, |e| < delta 에서 0.5e², 그 밖에서 delta(|e| − 0.5delta)",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.HuberLoss.html",
+      "checked": "2026-11-03"
+    },
+    {
+      "what": "PyTorch BCELoss: 확률을 받고 log 값을 −100 에서 잘라 무한대를 막음",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.BCELoss.html",
+      "checked": "2026-11-03"
+    },
+    {
+      "what": "PyTorch BCEWithLogitsLoss: 시그모이드와 BCE 를 한 클래스로 합쳐 log-sum-exp 로 안정되게 계산, 정답은 입력과 같은 모양",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html",
+      "checked": "2026-11-03"
+    },
+    {
+      "what": "PyTorch CrossEntropyLoss: 입력은 정규화하지 않은 logit (N, C), 정답은 클래스 번호(long) 또는 확률, weight·label_smoothing 인자(1.10 판부터 label_smoothing 과 확률 정답)",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html",
+      "checked": "2026-11-03"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "6a": {
+      "minutes": 5,
+      "key_figure": "assets/6a-2.gif",
+      "kind": "concept"
+    },
+    "6b": {
+      "minutes": 6,
+      "key_figure": "assets/6b-3.gif",
+      "kind": "concept"
+    },
+    "6c": {
+      "minutes": 7,
+      "key_figure": "assets/6c-2.gif",
+      "kind": "concept"
+    },
+    "6d": {
+      "minutes": 6,
+      "key_figure": "assets/6d-1.gif",
+      "kind": "concept"
+    },
+    "6e": {
+      "minutes": 6,
+      "key_figure": "assets/6e-2.gif",
+      "kind": "concept"
+    },
+    "6f": {
+      "minutes": 5,
+      "key_figure": "assets/6f-1.png",
+      "kind": "concept"
+    }
+  }
+}

@@ -28,7 +28,7 @@
   {"id": "i01", "no": 1, "title": "딥러닝에 필요한 파이썬", "page": "l01", "date": "2026-10-19", "weight": 0.8, "units": 7, "hw_due": null},
   {"id": "i02", "no": 2, "title": "NumPy·Matplotlib, 행렬 연산 기초", "page": "l02", "date": "2026-10-20", "weight": 0.9, "units": 6, "hw_due": null},
   {"id": "i03", "no": 3, "title": "PyTorch 기본: 텐서와 자동 미분", "page": "l03", "date": "2026-10-21", "weight": 1.1, "units": 8, "hw_due": null},
-  {"id": "i04", "no": 4, "title": "AI 기초: 신경망, 역전파, 활성화 함수", "page": "l04", "date": "2026-10-22", "weight": 1.7, "units": 7, "hw_due": null},
+  {"id": "i04", "no": 4, "title": "AI 기초: 신경망, 역전파, 활성화 함수", "page": "l04", "date": "2026-10-22", "weight": 1.7, "units": 8, "hw_due": null},
   {"id": "i05", "no": 5, "title": "경사하강법 구현", "page": "l05", "date": "2026-10-23", "weight": 1.1, "units": 7, "hw_due": null},
   {"id": "i06", "no": 6, "title": "손실 함수 설계", "page": "l06", "date": "2026-10-26", "weight": 1.1, "units": 6, "hw_due": null},
   {"id": "i07", "no": 7, "title": "선형 회귀", "page": "l07", "date": "2026-10-27", "weight": 0.9, "units": 7, "hw_due": null},

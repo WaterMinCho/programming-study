@@ -33,3 +33,52 @@ def i04_g03(params):
     """한 데이터가 W.grad 에 보태는 값 (1/n) × 2e × 1 × X."""
     n, e, x = Decimal(params["n"]), Decimal(params["e"]), Decimal(params["X"])
     return [_text(2 * e * x / n)]
+
+
+def i04_g04(params):
+    """퍼셉트론의 z 와 출력(z 가 0 보다 크면 1)."""
+    z = Decimal(params["w1"]) * params["x1"] + Decimal(params["w2"]) * params["x2"] + Decimal(params["b"])
+    return [_text(z), "1" if z > 0 else "0"]
+
+
+def i04_g05(params):
+    """활성화 함수의 값(f) 이나 미분값(df). relu·leaky 는 x 가 0 이 아닌 정수, sig·tanh 는 x = 0."""
+    f, x = params["f"], Decimal(params["x"])
+    fixed_zero = {"sig": "0.5", "dsig": "0.25", "tanh": "0", "dtanh": "1"}
+    if f in fixed_zero:
+        return [fixed_zero[f]]
+    a = Decimal(params.get("a") or "0")
+    if f in ("relu", "leaky"):
+        return [_text(x if x > 0 else a * x)]
+    return [_text(Decimal(1) if x > 0 else a)]
+
+
+def i04_g06(params):
+    """PyTorch 꼴 모멘텀 두 번 갱신. ask 가 v2 면 둘째 v, w2 면 둘째 갱신 뒤 W."""
+    mu, lr, w = Decimal(params["mu"]), Decimal(params["lr"]), Decimal(params["W"])
+    g1, g2 = Decimal(params["g1"]), Decimal(params["g2"])
+    v = g1
+    w = w - lr * v
+    v = mu * v + g2
+    if params["ask"] == "v2":
+        return [_text(v)]
+    return [_text(w - lr * v)]
+
+
+def i04_g07(params):
+    """강의 비율로 나눈 개수, 또는 K-Fold 의 덩어리 크기·학습에 쓰는 수·학습 횟수."""
+    if params["ask"] == "split":
+        n = params["n"]
+        share = {"학습": 8, "검증": 1, "테스트": 1} if n >= 100000 else {"학습": 6, "검증": 2, "테스트": 2}
+        return [str(n * share[params["part"]] // 10)]
+    m, k = params["m"], params["k"]
+    return [str({"fold": m // k, "train": m - m // k, "rounds": k}[params["ask"]])]
+
+
+def i04_g08(params):
+    """혼동 행렬 지표를 소수 둘째 자리로 반올림(ROUND_HALF_UP)."""
+    from decimal import ROUND_HALF_UP
+    tp, fp, fn, tn = (Decimal(params[k]) for k in ("TP", "FP", "FN", "TN"))
+    value = {"acc": (tp + tn) / (tp + fp + fn + tn), "prec": tp / (tp + fp), "rec": tp / (tp + fn),
+             "f1": 2 * tp / (2 * tp + fp + fn)}[params["metric"]]
+    return [str(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))]
