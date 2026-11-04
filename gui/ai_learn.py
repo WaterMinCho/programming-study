@@ -743,10 +743,10 @@ def step_dots(steps, index):
 
 
 def reading_column(card):
-    """카드를 읽는 글의 단(kit.doc_width + 48)에 둔 스크롤 칸. (칸, 바깥 상자)."""
+    """카드를 읽는 글의 단(kit.read_width + 48)에 둔 스크롤 칸. (칸, 바깥 상자)."""
     inner = QWidget()
     outer = kit.box(inner, (kit.MARGIN, 24, kit.MARGIN, 32))
-    outer.addWidget(kit.column(card, kit.DOC_MIN + 48))
+    outer.addWidget(kit.column(card, kit.READ_MIN + 48))
     outer.addStretch(1)
     return kit.scroll(inner), outer
 
@@ -863,7 +863,7 @@ class AiLearnPage(QWidget):
             self.move(1)
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.doc_width(self.width()) + 48)
+        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -952,7 +952,7 @@ class RevisitPage(QWidget):
             self.win.go_ai()
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.doc_width(self.width()) + 48)
+        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1052,7 +1052,7 @@ class AiNotePage(QWidget):
             self.views.append(view)
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.doc_width(self.width()) + 48)
+        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1105,4 +1105,4 @@ class NoteDialog(QDialog):
         row.addWidget(self.close_btn)
         box.addLayout(row)
         room = win.geometry()
-        self.resize(min(kit.DOC_MIN + 96, room.width() - 40), max(320, room.height() - 80))
+        self.resize(min(kit.READ_MIN + 96, room.width() - 40), max(320, room.height() - 80))

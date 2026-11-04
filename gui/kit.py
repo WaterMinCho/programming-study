@@ -20,12 +20,13 @@ FLUSH = 14  # 글자 단추의 안쪽 여백 12 과 테두리 2. 막대 가장�
 MARGIN = 32  # 창 좌우 여백
 MARK = 20  # 목록 줄 앞 상태 점의 칸 폭
 ROW_TEXT = 24 + MARK + 12  # 목록 줄의 글이 시작하는 자리(안쪽 여백, 점 칸, 점과 글 사이)
-HOME_WIDTH = 960  # 홈 화면 내용 단의 최대 폭
+HOME_WIDTH = 1120  # 홈 화면 내용 단의 최대 폭
 DOC_MIN = 640  # 1280 창까지의 읽는 글 단 폭. 17px 본문으로 약 54자(설계 문서의 실측)
 DOC_CHARS = 54  # DOC_MIN 에 들어가는 17px 본문 글자 수
 DOC_PX = theme.BASE_TYPE["body"][0]  # 그 글자 수를 잰 본문 크기(설계값 17)
 LINE_CHARS = 64  # 한 줄에 두는 글자 수의 상한. 설계값 DOC_CHARS 의 1.2배이고 '가'로만 채우면 48자
 GROW_FROM = 1280  # 이 창 폭부터 읽는 글의 단이 넓어짐
+READ_MIN = 760  # 카드 하나만 있는 읽기 화면(학습 노트, 연습 문항)의 1280 창까지 글 단 폭. 17px 본문으로 약 64자
 DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok", "lock": "faint"}  # 상태 점의 색 토큰
 PANE_MIN = 320  # 끌어 옮기는 칸 나누기에서 가로로 놓인 칸 하나의 최소 폭
 GRIP = (4, 32)  # 칸 나누기 손잡이 가운데 무늬의 짧은 변과 긴 변
@@ -35,6 +36,17 @@ def doc_max():
     """읽는 글 단 폭의 상한. 지금 본문 크기로 LINE_CHARS 자가 들어가는 폭: DOC_MIN / DOC_CHARS 가 17px 글자 하나의 폭이고
     본문이 커진 만큼 비례함. 17px 이면 759, 19px 이면 848, 21px 이면 937."""
     return round(DOC_MIN / DOC_CHARS * LINE_CHARS * theme.TYPE["body"][0] / DOC_PX)
+
+
+def read_max():
+    """카드 하나만 있는 읽기 화면의 글 단 상한. doc_max 를 READ_MIN / DOC_MIN 만큼 늘림(17px 이면 901, 19px 이면 1007)."""
+    return round(doc_max() * READ_MIN / DOC_MIN)
+
+
+def read_width(window_width):
+    """카드 하나만 있는 읽기 화면의 글 단 폭. doc_width 와 같이 넓어지되 READ_MIN 에서 시작하고 read_max 를 넘지 않음.
+    편집기와 나란히 놓인 문제 칸·미션 안내는 편집기 칸이 줄지 않게 doc_width 를 씀."""
+    return max(READ_MIN, min(read_max(), READ_MIN + (window_width - GROW_FROM) // 2))
 
 
 def doc_width(window_width):

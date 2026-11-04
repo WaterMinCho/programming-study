@@ -102,15 +102,17 @@ class DesignTest(WebTest):
                 self.assertTrue(inside(win, primaries[0]), "%s: 주 단추가 스크롤 없이 보여야 함" % name)
 
     def test_reading_measure_follows_the_window(self):
-        """읽는 글의 단은 1280 창에서 640(설계값)이고 2000 창에서는 본문 64자 폭(크게 848)까지 넓어짐. 미션의 오른쪽 카드는 480(글자 크기에 비례)까지만
-        넓어지고 그 안에서 같이 읽을 노트 줄의 제목이 잘리지 않으며, 학습 노트와 꼬리 질문 카드도 같이 넓어짐."""
+        """편집기와 나란히 놓인 글(미션 안내)의 단은 1280 창에서 640(설계값)이고 2000 창에서는 본문 64자 폭(크게 848)까지 넓어짐. 카드 하나만
+        있는 학습 노트와 꼬리 질문 카드는 1280 창에서 760 에서 시작해 같이 넓어짐. 미션의 오른쪽 카드는 480(글자 크기에 비례)까지만 넓어지고
+        그 안에서 같이 읽을 노트 줄의 제목이 잘리지 않음."""
         self.assertEqual((kit.doc_width(1024), kit.doc_width(1280), kit.doc_width(2000)), (640, 640, min(1000, kit.doc_max())))
         self.addCleanup(theme.set_text, theme.state["text"])
-        for step, widest in (("normal", 759), ("large", 848), ("larger", 937)):
+        self.assertEqual((kit.read_width(1024), kit.read_width(1280), kit.read_width(2000)), (760, 760, min(1120, kit.read_max())))
+        for step, widest, read in (("normal", 759, 901), ("large", 848, 1007), ("larger", 937, 1113)):
             theme.set_text(step)
-            self.assertEqual(kit.doc_max(), widest, step)
+            self.assertEqual((kit.doc_max(), kit.read_max()), (widest, read), step)
         theme.set_text(theme.TEXT_DEFAULT)
-        for size, low, high in (((1280, 800), 600, 640), ((2000, 1070), 800, kit.doc_max())):
+        for size, low, high, read_low, read_high in (((1280, 800), 600, 640, 720, 760), ((2000, 1070), 800, kit.doc_max(), 880, kit.read_max())):
             win = self.boot(size)
             win.open_learn("l90")
             self.idle()
@@ -118,7 +120,7 @@ class DesignTest(WebTest):
             pieces = [p for p in learn.view.findChildren(TextPiece) if shown(p, win)]
             self.assertTrue(pieces)
             for piece in pieces:
-                self.assertTrue(low <= piece.width() <= high, "%s 학습 노트 %d" % (size, piece.width()))
+                self.assertTrue(read_low <= piece.width() <= read_high, "%s 학습 노트 %d" % (size, piece.width()))
             page = self.open_mission()
             for piece in page.brief_view.findChildren(TextPiece):
                 if shown(piece, win):
@@ -129,11 +131,11 @@ class DesignTest(WebTest):
                 self.assertEqual(page.brief_view.sheet.width(), kit.doc_width(2000) + 48)
                 self.assertEqual(page.right_card.width(), round(480 * theme.TYPE["body"][0] / 17))
                 self.assertEqual(QLabel.text(row.title), row.title.full)  # 제목이 줄임표 없이 다 보임
-                self.assertEqual(learn.card.width(), kit.doc_width(2000) + 48)
-                self.assertGreater(drill.ask_card.width(), 720)
+                self.assertEqual(learn.card.width(), kit.read_width(2000) + 48)
+                self.assertGreater(drill.ask_card.width(), 840)
             else:
                 self.assertLessEqual(page.brief_view.sheet.width(), 640 + 48)
-                self.assertEqual((learn.card.width(), drill.ask_card.width()), (688, 720))
+                self.assertEqual((learn.card.width(), drill.ask_card.width()), (808, 840))
             win.close()
             win.deleteLater()
             guikit.pump()

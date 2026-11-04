@@ -27,7 +27,7 @@ STUCK_DEFAULT = "막힌 곳에서 아는 데까지 말했는지 표시하세요.
 NOTE_HELP = "다음 복습 때 지난 답으로 보입니다. 풀이를 제출하면 저장소에도 올라갑니다."
 WARN_SHARE = 0.2  # 남은 시간이 이 비율 이하면 주황
 SHORTCUT_TIP = "Ctrl+Enter (맥은 Cmd+Enter)"
-CARD_WIDTH = 720  # 1280 창까지의 카드 폭
+CARD_WIDTH = 840  # 1280 창까지의 카드 폭
 
 
 def plain(text):
@@ -260,9 +260,9 @@ class WebDrillPage(QWidget):
         return kit.scroll(inner), card, box
 
     def fit_column(self):
-        """카드 폭을 창 폭에 맞춤. 읽는 글의 단(kit.doc_width)이 640 에서 넓어진 만큼 720 에 더함."""
+        """카드 폭을 창 폭에 맞춤. 읽는 글의 단(kit.read_width)이 READ_MIN 에서 넓어진 만큼 CARD_WIDTH 에 더함."""
         for card in (self.ask_card, self.end_card):
-            card.setMaximumWidth(CARD_WIDTH + kit.doc_width(self.width()) - kit.DOC_MIN)
+            card.setMaximumWidth(CARD_WIDTH + kit.read_width(self.width()) - kit.READ_MIN)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
