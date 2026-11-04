@@ -38,11 +38,13 @@ from gui.team_page import Avatar, EmptyCard, MemberCard  # noqa: E402
 from gui.round_page import ROW_GAP  # noqa: E402
 from gui.widgets import ChoiceCard, ChoicePanel, CodeEditor, Para, TextPanel, content_height  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
+from aiprep import bank as ai_bank  # noqa: E402
 from webprep import bank as web_bank  # noqa: E402
 from webprep import stack  # noqa: E402
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 WEB_FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_bank")
+AI_FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_bank")  # 저장소 ai/ 가 바뀌어도 화면 테스트가 흔들리지 않게 고정 은행을 씀
 FAKE_NODE = {"path": "/fake/node", "version": "22.23.2", "major": 22}
 NOISE = ("propagateSizeHints", "Populating font family aliases")  # offscreen 플랫폼이 창을 띄울 때마다 찍는 안내
 qInstallMessageHandler(lambda mode, context, text: None if any(n in text for n in NOISE) else print(text, file=sys.stderr))
@@ -144,8 +146,9 @@ class GuiTest(unittest.TestCase):
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="study_gui_")
-        for patcher in (mock.patch.dict(os.environ, {"STUDY_WEB_HOME": os.path.join(self.tmp, "web_home")}),
-                        mock.patch.object(web_bank, "BANK_DIR", WEB_FIXTURE),
+        for patcher in (mock.patch.dict(os.environ, {"STUDY_WEB_HOME": os.path.join(self.tmp, "web_home"),
+                                                     "STUDY_AI_HOME": os.path.join(self.tmp, "ai_home")}),
+                        mock.patch.object(web_bank, "BANK_DIR", WEB_FIXTURE), mock.patch.object(ai_bank, "AI_DIR", AI_FIXTURE),
                         mock.patch.object(stack, "find_node", lambda saved=None, probe=False: FAKE_NODE)):
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -1525,7 +1528,7 @@ class WrongNotesTest(GuiTest):
         page = self.open_notes()
         self.assertIs(page.stack.currentWidget(), page.empty)
         self.assertEqual(page.empty_text.text(), "아직 틀린 문항이 없습니다. 회차를 제출하면 틀린 문항이 여기에 모입니다.")
-        self.assertEqual(visible_buttons(page), ["← 파이썬 스터디"])  # 트랙이 하나라 칩은 숨고, 아래 막대도 숨음
+        self.assertEqual(visible_buttons(page), ["← 파이썬 스터디", "파이썬 스터디", "AI 비전 개론"])  # 트랙 칩 둘, 아래 막대는 숨음
         click(page.back_btn)
         self.assertIs(self.page(), self.win.home)
 
@@ -1604,8 +1607,8 @@ class WrongNotesTest(GuiTest):
         self.assertLessEqual(page.minimumSizeHint().width(), 1024)
         self.assertLessEqual(page.minimumSizeHint().height(), 700)
         self.assertEqual([button.text() for button in kit.visible_primary_buttons(page)], ["다시 풀기"])
-        self.assertFalse(page.chip_row.isVisibleTo(page))
-        for button in (page.back_btn, page.explain_btn, page.retry_btn):
+        self.assertTrue(page.chip_row.isVisibleTo(page))  # 파이썬 스터디와 AI 비전 개론 칩
+        for button in (page.back_btn, page.explain_btn, page.retry_btn) + tuple(page.chips.values()):
             corner = button.mapTo(self.win, QPoint(button.width(), button.height()))
             self.assertTrue(button.isVisible() and corner.x() <= self.win.width() and corner.y() <= self.win.height(), button.text())
         self.assertEqual(page.retry_btn.mapTo(self.win, QPoint(page.retry_btn.width(), 0)).x(), self.win.width() - 32)

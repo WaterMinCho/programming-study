@@ -31,12 +31,15 @@ mdlite.py                문제 본문(마크다운)을 화면용으로 변환
 problems/<세트>/         파이썬 스터디 문제 은행
 dungeons/<던전>/         알고리즘 여행 문제 은행 (index.json 에 16개 던전 목록, 비밀 파일은 던전마다 sealed.json)
 web/                     웹 면접 준비 문제 은행 (index.json 에 미션·주제·학습 페이지 목록, 비밀 파일은 미션·주제마다 sealed.json, 검사 공통 도우미 kit/)
+ai/                      AI 비전 개론 은행 (index.json 에 차시·상황별 코드·모의고사와 시험 날짜, 학습 노트 learn/, 문항 묶음 items/ 의 sealed.json)
+aiprep/                  AI 비전 개론 엔진(은행 읽기, 채점, 생성기, 복습 상자, 오답 노트, 연습 묶음)
 package.json, package-lock.json  웹 미션 검사 도구의 고정 스택. python study.py web install 이 node_modules/ 에 설치하고, 그 폴더는 커밋하지 않음
 submissions/<ID>/        스터디원별 회차, 풀이, profile.json
 submissions/<ID>/journey/  알고리즘 여행 코드, 내가 추가한 테스트 케이스, progress.json
 submissions/<ID>/web/    웹 면접 준비의 미션 코드(missions/<미션>/)와 record.json
-docs/                    GIT_GUIDE(제출과 피드백), CRITERIA(판정 규칙), AUTHORING(이 문서), JOURNEY_AUTHORING(알고리즘 여행 출제), WEB_AUTHORING(웹 면접 준비 출제)
-tools/, tests/           출제와 CI 에 쓰는 도구, 테스트 (알고리즘 여행은 journey_seal.py, verify_journey.py, journey_art/, 웹 면접 준비는 web_seal.py, verify_web.py, web_lint.py, web_art/)
+submissions/<ID>/ai/     AI 비전 개론 기록 record.json
+docs/                    GIT_GUIDE(제출과 피드백), CRITERIA(판정 규칙), AUTHORING(이 문서), JOURNEY_AUTHORING(알고리즘 여행 출제), WEB_AUTHORING(웹 면접 준비 출제), AI_AUTHORING(AI 비전 개론 출제)
+tools/, tests/           출제와 CI 에 쓰는 도구, 테스트 (알고리즘 여행은 journey_seal.py, verify_journey.py, journey_art/, 웹 면접 준비는 web_seal.py, verify_web.py, web_lint.py, web_art/, AI 비전 개론은 ai_seal.py, verify_ai.py, ai_overlap.py, ai_art/)
 ```
 
 ## 2. 작업 순서

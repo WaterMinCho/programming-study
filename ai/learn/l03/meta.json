@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "id": "l03",
+  "title": "3차시 PyTorch 기본: 텐서와 자동 미분",
+  "lesson": "i03",
+  "defines": ["텐서", "스칼라", "벡터", "행렬", "픽셀", "채널", "배치", "자료형", "장치", "전치", "기울기", "편미분", "경사", "시그모이드", "계산 그래프", "제자리 연산", "Define-and-run", "Define-by-run", "연쇄법칙"],
+  "needs": ["l01", "l02"],
+  "sections": {
+    "3a": "텐서의 차원과 모양",
+    "3b": "텐서 만들기와 자료형",
+    "3c": "값 꺼내기: item, max, sum",
+    "3d": "모양 바꾸기: view, reshape, squeeze",
+    "3e": "텐서 연산: 원소별 계산과 행렬곱",
+    "3f": "기울기, 미분값, 편미분",
+    "3g": "자동 미분: requires_grad, backward, no_grad",
+    "3h": "코드 읽기: 장치, 숫자 꺼내기, numpy 오가기"
+  },
+  "units": {
+    "3a": {"minutes": 5, "key_figure": "assets/3a-4.gif", "kind": "concept"},
+    "3b": {"minutes": 5, "key_figure": "assets/3b-1.png", "kind": "concept"},
+    "3c": {"minutes": 5, "key_figure": "assets/3c-2.gif", "kind": "concept"},
+    "3d": {"minutes": 7, "key_figure": "assets/3d-2.gif", "kind": "concept"},
+    "3e": {"minutes": 5, "key_figure": "assets/3e-2.gif", "kind": "concept"},
+    "3f": {"minutes": 5, "key_figure": "assets/3f-1.gif", "kind": "concept"},
+    "3g": {"minutes": 7, "key_figure": "assets/3g-3.gif", "kind": "concept"},
+    "3h": {"minutes": 5, "key_figure": "assets/3h-1.gif", "kind": "code"}
+  },
+  "credits": [],
+  "outputs": [],
+  "sources": [
+    {"what": "PyTorch 2.15 문서 torch.compile: 실행하면서 그래프를 잡아 코드를 빠르게 돌림(PyTorch 2.0, 2023년 3월)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.compile.html", "checked": "2026-11-03"},
+    {"what": "PyTorch 2.15 문서 Tensor Attributes: torch.bfloat16, float8 자료형(e4m3fn 등)과 연산 제한", "url": "https://docs.pytorch.org/docs/2.15/tensor_attributes.html", "checked": "2026-11-03"},
+    {"what": "PyTorch 문서 inference_mode: no_grad 와 비슷하지만 부담이 더 적은 예측용 모드(1.9 부터)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.autograd.grad_mode.inference_mode.html", "checked": "2026-11-03"},
+    {"what": "PyTorch 문서 MPS backend: Apple 실리콘 Mac 의 mps 장치", "url": "https://docs.pytorch.org/docs/stable/notes/mps.html", "checked": "2026-11-03"}
+  ]
+}

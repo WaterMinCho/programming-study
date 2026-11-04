@@ -1,0 +1,130 @@
+{
+ "format": 1,
+ "id": "l02",
+ "title": "2차시 NumPy·Matplotlib, 행렬 연산 기초",
+ "defines": [
+  "자료형",
+  "벡터화",
+  "행렬",
+  "벡터",
+  "스칼라",
+  "마스크",
+  "불리언 인덱싱",
+  "이상치",
+  "전치",
+  "원소별 곱",
+  "브로드캐스팅",
+  "편향",
+  "행렬곱",
+  "집계",
+  "정확도",
+  "min-max 정규화",
+  "표준화",
+  "산점도",
+  "범례",
+  "과적합"
+ ],
+ "needs": [
+  "l01"
+ ],
+ "sections": {
+  "2a": "리스트를 numpy 배열로 바꾸는 까닭",
+  "2b": "인덱스와 조건으로 원소 고르기",
+  "2c": "reshape와 전치로 모양 바꾸기",
+  "2d": "브로드캐스팅과 행렬곱",
+  "2e": "합계·평균과 axis",
+  "2f": "Matplotlib으로 데이터 그리기"
+ },
+ "outputs": [],
+ "sources": [
+  {
+   "what": "NumPy 문서 numpy.arange: 끝값을 넣지 않는 반열린 구간, 실수 간격에는 linspace 권장",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.arange.html",
+   "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 문서 numpy.reshape: 한 차원만 -1 로 둘 수 있음",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.reshape.html",
+   "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 문서 Broadcasting: 오른쪽 끝 축부터 비교하는 규칙과 복사 없는 계산",
+   "url": "https://numpy.org/doc/stable/user/basics.broadcasting.html",
+   "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 문서 numpy.sum: axis 기본값 None 은 모든 원소를 더함",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.sum.html",
+   "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 문서 numpy.concat: concatenate 와 같은 함수, 기본 axis 0",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.concat.html",
+   "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 2.0.0 릴리스 노트: 스칼라를 np.int64(15) 꼴로 찍음",
+   "url": "https://numpy.org/doc/stable/release/2.0.0-notes.html",
+   "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 문서 numpy.random.randint: low 이상 high 미만, legacy 함수",
+   "url": "https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html",
+   "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 문서 numpy.random.rand: 0 이상 1 미만",
+   "url": "https://numpy.org/doc/stable/reference/random/generated/numpy.random.rand.html",
+   "checked": "2026-11-03"
+  },
+  {
+   "what": "NumPy 소식: 2.0.0 출시 2024-06-16, 2006년 이후 첫 큰 판. 2.5.0 출시 2026-06-21, 2.0 때 알린 사용 중단 기능을 많이 없앰",
+   "url": "https://numpy.org/news/",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "NumPy 2.0.0 릴리스 노트: 기본 이름 공간이 배열 API 표준을 지원, 64비트 Windows 기본 정수 int64, concat 별칭 추가",
+   "url": "https://numpy.org/doc/stable/release/2.0.0-notes.html",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "배열 API 표준의 목적: 배열을 만들고 쓰는 흔한 방법을 여러 배열 라이브러리가 같은 API 로 쓰게 함",
+   "url": "https://data-apis.org/array-api/latest/purpose_and_scope.html",
+   "checked": "2026-11-04"
+  }
+ ],
+ "lesson": "i02",
+ "credits": [],
+ "units": {
+  "2a": {
+   "minutes": 6,
+   "key_figure": "assets/l02-3.png",
+   "kind": "concept"
+  },
+  "2b": {
+   "minutes": 5,
+   "key_figure": "assets/l02-28.png",
+   "kind": "concept"
+  },
+  "2c": {
+   "minutes": 6,
+   "key_figure": "assets/l02-29.png",
+   "kind": "concept"
+  },
+  "2d": {
+   "minutes": 6,
+   "key_figure": "assets/l02-30.png",
+   "kind": "concept"
+  },
+  "2e": {
+   "minutes": 7,
+   "key_figure": "assets/l02-31.png",
+   "kind": "concept"
+  },
+  "2f": {
+   "minutes": 6,
+   "key_figure": "assets/l02-25.png",
+   "kind": "concept"
+  }
+ }
+}

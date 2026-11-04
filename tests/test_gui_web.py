@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea  # noqa: E402
 import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
+from aiprep import bank as ai_bank  # noqa: E402
 from gui import errors, kit, theme, web_text  # noqa: E402
 from gui.docview import FigureView, TextPiece  # noqa: E402
 from gui.web_home import NO_STUCK  # noqa: E402
@@ -46,6 +47,7 @@ from webprep import bank, checks, dev, service, stack  # noqa: E402
 
 FIXTURE = os.path.join(guikit.ROOT, "tests", "web_bank")
 JOURNEY_FIXTURE = os.path.join(guikit.ROOT, "tests", "journey_bank")
+AI_FIXTURE = os.path.join(guikit.ROOT, "tests", "ai_bank")
 USER = "tester"
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAMgAAAAUAQMAAADyauCJAAAAA1BMVEUlN0fhQ83WAAAAD0lEQVR42mNgGAWjgIEBAAIIAAFQMUmAAAAAAElFTkSuQmCC")
 
@@ -114,7 +116,8 @@ class WebTest(unittest.TestCase):
         for target, name, value in ((study, "SUBMISSIONS_DIR", os.path.join(self.tmp, "submissions")),
                                     (study, "USER_FILE", os.path.join(self.tmp, ".study_user")),
                                     (runner, "CACHE_DIR", os.path.join(self.tmp, "cache")), (journey_bank, "BANK_DIR", JOURNEY_FIXTURE),
-                                    (bank, "BANK_DIR", FIXTURE), (checks, "_popen", FakeVitest), (service, "now", lambda: self.clock),
+                                    (bank, "BANK_DIR", FIXTURE), (ai_bank, "AI_DIR", AI_FIXTURE), (checks, "_popen", FakeVitest),
+                                    (service, "now", lambda: self.clock),
                                     (stack, "find_node", lambda saved=None, probe=False: self.node),
                                     (service, "WebSession", lambda user, repo=None, home=None, node_path=None:
                                      real(user, repo=self.repo, home=home, node_path=node_path))):
@@ -126,6 +129,7 @@ class WebTest(unittest.TestCase):
         self.addCleanup(environ.stop)
         os.environ.pop("STUDY_USER", None)
         os.environ["STUDY_WEB_HOME"] = os.path.join(self.tmp, "web_home")
+        os.environ["STUDY_AI_HOME"] = os.path.join(self.tmp, "ai_home")
         self.addCleanup(setattr, sys, "excepthook", sys.excepthook)
         self.logs = os.path.join(self.tmp, ".study_logs")
         errors.install(self.logs)
@@ -255,7 +259,7 @@ class HubRowTest(WebTest):
         self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 2개")
         self.assertFalse(hub.web_row.inert)
         today = datetime.date.today()
-        self.assertEqual(hub.chart.days[-1], (today, 0, 0, 0))
+        self.assertEqual(hub.chart.days[-1], (today, 0, 0, 0, 0))
         self.assertEqual(hub.streak.text(), "연속 학습 0일")
         self.assertEqual(hub.summary.text(), "진행 중인 미션과 오늘 복습이 없습니다.")
         self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("진단 테스트", "시작"))  # 어느 트랙에도 기록이 없으면 파이썬
@@ -268,7 +272,7 @@ class HubRowTest(WebTest):
         web.finish_chain("90-A")
         web.show("l90")
         hub.refresh()
-        self.assertEqual(hub.chart.days[-1], (today, 0, 0, 2))  # 검사 한 번과 끝낸 사슬 하나
+        self.assertEqual(hub.chart.days[-1], (today, 0, 0, 2, 0))  # 검사 한 번과 끝낸 사슬 하나
         self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 1일", "채점 2회"))
         self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 1개")
         self.assertEqual(hub.summary.text(), "진행 중인 미션 1개가 있습니다.")

@@ -1,0 +1,7 @@
+{
+ "format": 1,
+ "files": {
+  "learn/l90/assets/90a-1.gif": {"sha256": "01a97717200539a44d8ffdd5410a189f4af699a435c4f3238fca55d6e086f939", "script": "tools/ai_art/l90.py", "fn": "step"},
+  "learn/l90/assets/90b-1.png": {"sha256": "35fef5901db6f5f08589d03fb082e0fe8cd08b86787227fa29e0da2d8b67a239", "script": "tools/ai_art/l90.py", "fn": "curves"}
+ }
+}

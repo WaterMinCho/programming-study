@@ -1,0 +1,8 @@
+{
+ "format": 1,
+ "known": [],
+ "terms": [
+  {"term": "기울기", "also": ["그래디언트"], "accept": ["gradient"], "page": "l90", "intro": "l90"},
+  {"term": "과적합", "also": ["과대적합"], "accept": ["과학습"], "page": "l90"}
+ ]
+}

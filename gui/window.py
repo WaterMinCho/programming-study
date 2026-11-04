@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """메인 창. 시작 순서(ID → 새 문제 받기 → 풀이 기록 열기 → 웹 트랙의 Node 찾기), 화면 전환, 워커, 제출 흐름, 테마를 맡음.
-첫 화면은 허브이고, 파이썬 스터디(홈 이하), 알고리즘 여행(지도·문제 화면), 웹 면접 준비(웹 홈·미션·드릴·학습 노트)로 나뉨.
+첫 화면은 허브이고, 파이썬 스터디(홈 이하), 알고리즘 여행(지도·문제 화면), 웹 면접 준비(웹 홈·미션·드릴·학습 노트),
+AI 비전 개론(홈·차시·학습 단원·노트·다시 보기·연습)으로 나뉨.
 area 가 지금 어느 쪽에 있는지 기억함. 웹 트랙의 Node 는 허브 카드가 설치 상태를 보이므로 허브를 열기 전에 워커에서 한 번 찾아 두고,
 여행의 [다시 찾기]가 기억을 버렸으면 허브나 웹 홈을 열기 전에 다시 찾음."""
 from PyQt6.QtCore import Qt, QUrl
@@ -10,7 +11,12 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QPr
 
 import session
 import study
+from aiprep import service as ai_service
 from gui import errors, journey_text, kit, motion, theme, web_text
+from gui.ai_home import AiHomePage, AiLessonPage
+from gui.ai_learn import AiLearnPage, AiNotePage, RevisitPage
+from gui.ai_quiz import PracticePage
+from gui.ai_text import AiNotes
 from gui.dialogs import IdDialog, MessageDialog
 from gui.guard import Guard
 from gui.home_page import HomePage
@@ -35,7 +41,7 @@ from webprep import stack
 from webprep.record import RecordError
 from webprep.service import WebError
 
-WRONG_TRACKS = (PythonNotes,)  # 오답 노트의 트랙 공급자. 창을 받아 만들고, 이 순서로 오답 노트의 트랙 칩과 첫 화면의 오답 노트 줄이 놓임
+WRONG_TRACKS = (PythonNotes, AiNotes)  # 오답 노트의 트랙 공급자. 창을 받아 만들고, 이 순서로 오답 노트의 트랙 칩과 첫 화면의 오답 노트 줄이 놓임
 
 
 def saved_text(settings):
@@ -108,8 +114,9 @@ class MainWindow(QMainWindow):
         self.user, self.session, self.gitflow, self.git_reason = None, None, None, ""
         self.journey, self.journey_error = None, ""  # 알고리즘 여행 서비스와 그것을 열지 못한 이유
         self.web, self.web_error = None, ""  # 웹 면접 준비 서비스와 열지 못한 이유
+        self.ai, self.ai_error = None, ""  # AI 비전 개론 서비스와 열지 못한 이유
         self.web_node_known, self.web_node_seen = False, False  # 웹 트랙의 Node 를 찾아 봤는지, 그때 node 모듈이 결과를 기억했는지
-        self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면), web(웹 홈·미션·드릴·학습 노트)
+        self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면), web(웹 홈·미션·드릴·학습 노트), ai(AI 비전 개론)
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)
         self.dialog = None  # 가장 최근에 띄운 대화상자
         self.notice = None  # 허브와 홈 위쪽에 한 줄로 보여 줄 제출 모듈의 결과
@@ -126,8 +133,11 @@ class MainWindow(QMainWindow):
         self.result_page, self.team_page, self.wrong_page = ResultPage(self), TeamPage(self), WrongPage(self)
         self.journey_map, self.journey_page = JourneyMapPage(self), JourneyPage(self)
         self.web_home, self.web_mission, self.web_drill, self.web_learn = WebHomePage(self), WebMissionPage(self), WebDrillPage(self), WebLearnPage(self)
+        self.ai_home, self.ai_lesson, self.ai_learn = AiHomePage(self), AiLessonPage(self), AiLearnPage(self)
+        self.ai_note, self.ai_revisit, self.ai_quiz = AiNotePage(self), RevisitPage(self), PracticePage(self)
         for page in (self.start, self.hub, self.home, self.round_page, self.result_page, self.team_page, self.wrong_page,
-                     self.journey_map, self.journey_page, self.web_home, self.web_mission, self.web_drill, self.web_learn):
+                     self.journey_map, self.journey_page, self.web_home, self.web_mission, self.web_drill, self.web_learn,
+                     self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz):
             self.pages.addWidget(page)
         self.setCentralWidget(self.pages)
         self.restyle()  # 스타일시트가 있으면 부모가 바뀔 때 위젯 글꼴이 초기화되므로 창에 붙인 뒤에 글꼴을 줌
@@ -142,6 +152,7 @@ class MainWindow(QMainWindow):
         self.guard = Guard(self)
         QApplication.instance().installEventFilter(self.guard)
         self.guard.blocked.connect(self.round_page.note_blocked)
+        self.guard.blocked.connect(self.ai_quiz.note_blocked)
 
     # 시작 순서
 
@@ -195,6 +206,12 @@ class MainWindow(QMainWindow):
             self.web_error = ""
         except WebError as error:
             self.web, self.web_error = None, str(error)
+        self.ai_quiz.clear()  # 옛 서비스의 묶음과 카드를 놓음
+        try:
+            self.ai = ai_service.AiSession(self.user)
+            self.ai_error = ""
+        except SessionError as error:
+            self.ai, self.ai_error = None, str(error)
         self.start.show_error("")
         go = then or self.go_hub
         if not self.web_node_first(go):
@@ -229,6 +246,8 @@ class MainWindow(QMainWindow):
             if self.pages.currentWidget() is self.web_mission and self.web_mission.reload():
                 return
             self.go_web()
+        elif self.area == "ai" and self.ai is not None:
+            self.go_ai()  # 학습·연습 화면은 새 은행으로 다시 열지 않고 홈으로 감. 연습 중이던 묶음의 남은 문항은 버림
         else:
             self.go_hub()
 
@@ -267,6 +286,45 @@ class MainWindow(QMainWindow):
         self.web_home.refresh()
         self.area = "web"
         motion.switch(self.pages, self.web_home)
+
+    def go_ai(self):
+        if not self.leave_pages(self.go_ai, "저장하지 않고 나가기"):
+            return
+        if self.ai is None:
+            self.ask("알림", self.ai_error or "AI 비전 개론 기록을 열지 못했습니다.")
+            return
+        self.ai_home.refresh()
+        self.area = "ai"
+        motion.switch(self.pages, self.ai_home)
+
+    def _open_ai(self, page, load):
+        """AI 비전 개론 화면 page 를 load() 로 채우고 엶. 서비스가 AiError 를 내면 알리고 지금 화면에 머묾."""
+        if self.ai is None:
+            self.ask("알림", self.ai_error or "AI 비전 개론 기록을 열지 못했습니다.")
+            return False
+        try:
+            load()
+        except SessionError as error:  # 준비 중인 차시, 읽지 못한 단원, 낼 문항이 없는 묶음, 쓰지 못한 기록
+            self.ask("알림", str(error))
+            return False
+        self.area = "ai"
+        motion.switch(self.pages, page)
+        return True
+
+    def open_ai_lesson(self, lid):
+        return self._open_ai(self.ai_lesson, lambda: self.ai_lesson.load(lid))
+
+    def open_ai_unit(self, lid, key, step=None):
+        return self._open_ai(self.ai_learn, lambda: self.ai_learn.load(lid, key, step))
+
+    def open_ai_note(self, lid, only_memo=False):
+        return self._open_ai(self.ai_note, lambda: self.ai_note.load(lid, only_memo))
+
+    def open_ai_revisit(self):
+        return self._open_ai(self.ai_revisit, self.ai_revisit.load)
+
+    def open_ai_practice(self, mode, lesson=None, unit=None, card=None):
+        return self._open_ai(self.ai_quiz, lambda: self.ai_quiz.load(mode, lesson, unit, card))
 
     def open_mission(self, mid):
         try:
@@ -408,7 +466,8 @@ class MainWindow(QMainWindow):
         motion.switch(self.pages, self.team_page)
 
     def show_wrong(self, tid=None, back="python"):
-        """오답 노트를 tid 트랙(없으면 지난번 트랙)으로 엶. back 은 위 막대의 돌아가기가 갈 곳(python 은 파이썬 스터디 홈, hub 는 첫 화면)."""
+        """오답 노트를 tid 트랙(없으면 지난번 트랙)으로 엶. back 은 위 막대의 돌아가기가 갈 곳(python 은 파이썬 스터디 홈, hub 는 첫 화면,
+        ai 는 AI 비전 개론 홈)."""
         self.wrong_page.open(tid, back)
         motion.switch(self.pages, self.wrong_page)
 
@@ -584,7 +643,8 @@ class MainWindow(QMainWindow):
     def restyle(self):
         """글자 크기나 테마가 바뀌면 화면마다 본문과 색을 다시 넣음."""
         for page in (self.hub, self.home, self.round_page, self.result_page, self.wrong_page, self.journey_map, self.journey_page,
-                     self.web_home, self.web_mission, self.web_drill, self.web_learn):
+                     self.web_home, self.web_mission, self.web_drill, self.web_learn,
+                     self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz):
             page.restyle()
 
     def closeEvent(self, event):

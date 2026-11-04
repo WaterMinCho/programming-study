@@ -1,0 +1,719 @@
+# -*- coding: utf-8 -*-
+"""AI 비전 개론 연습 화면(설계 2.6, 2.7). 위 막대(← AI 비전 개론 · 묶음 제목 · 7 / 20)와 얇은 진행 막대, 가운데 카드 하나, 아래 막대.
+
+카드: 머리 꼬리표(차시, 꼴, 숫자 바뀜, 다시 나온 문항 …), 답한 뒤의 판정 줄, 지문, 빈칸이나 보기, 해설·근거·정정. 코드 울타리 안의 빈칸은
+CodeSlots 가 코드 줄 사이에 입력 칸을 두어 그리고, 울타리 밖 빈칸은 지문 아래에 칸을 둠(빈칸이 둘 이상이면 지문과 칸에 ①② 번호).
+차시 꼬리표는 묶음 제목이 같은 차시를 말하면(단원·차시 묶음의 그 차시 문항) 뺌. 묶음 첫 문항에는 [확실함]·[긴가민가]가 답을 내는 단추라는
+안내를 한 번 둠. 답 단추는 [모르겠어요]·[긴가민가]·[확실함]이고 Ctrl+Enter 는 [확실함](답한 뒤에는 [다음]), Ctrl+Shift+Enter 는 [긴가민가].
+답을 읽기 전에 조합 중인 한글을 확정함(commit_input). 단축키는 초점을 옮기지 않아 마지막 글자가 빠질 수 있어서임.
+답한 뒤: 판정 줄 아래에 정답 목록, 칸 테두리 색, 빈칸이 둘 이상이면 칸마다 "맞음"·"틀림" 글(코드 칸은 코드 아래 한 줄)을 보이고, 보기는
+꼬리표와 바른 문장을 보임. 문항이 묶음 뒤에 다시 들어가면 몇 문항 뒤에 나오는지 씀. [노트 보기]는 근거 단계를 창 모달 대화상자로 엶.
+묶음이 끝나면 같은 카드에 요약을 보임. 시험처럼 복사와 붙여넣기는 막힘: 키는 gui/guard.py, 가운데 단추와 끌어다 놓기는 칸마다 PasteBlock."""
+import time
+
+from PyQt6.QtCore import QEvent, QObject, Qt
+from PyQt6.QtGui import QFontMetricsF, QGuiApplication, QKeySequence, QShortcut
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QScrollArea, QWidget
+
+from aiprep import bank
+from aiprep.grade import BLANK
+from gui import ai_text, kit, theme
+from gui.ai_learn import ChoiceList, NoteDialog, RichPara, doc, reading_column, rich
+from gui.guard import NOTE as PASTE_NOTE
+from gui.widgets import PasteBlock
+from session import SessionError
+
+SLOT_CHARS = 8  # 코드 칸의 처음 폭(코드 글자 수). 적는 만큼 넓어짐
+
+
+def commit_input():
+    """조합 중인 한글을 확정함(gui/round_page.py 의 flush 와 같음). 테스트가 가짜로 바꿈."""
+    QGuiApplication.inputMethod().commit()
+
+
+def split_stem(stem):
+    """지문을 [("text", 마크다운) | ("code", 코드 글)] 로 나눔. 빈칸이 든 코드 울타리만 따로 빼고 나머지는 글로 둠."""
+    parts, text, code, fence = [], [], None, None
+    for line in (stem or "").split("\n"):
+        mark = bank.FENCE.match(line)
+        if code is None:
+            if mark and mark.group(2) is not None:
+                code, fence = [], line
+                continue
+            text.append(line)
+            continue
+        if mark and not mark.group(2):
+            if any(BLANK.search(row) for row in code):
+                if "\n".join(text).strip():
+                    parts.append(("text", "\n".join(text)))
+                text = []
+                parts.append(("code", "\n".join(code)))
+            else:
+                text += [fence] + code + [line]
+            code = None
+            continue
+        code.append(line)
+    if code is not None:
+        text += [fence] + code
+    if "\n".join(text).strip():
+        parts.append(("text", "\n".join(text)))
+    return parts
+
+
+class Reveal(QObject):
+    """칸에 초점이 오면 그 칸이 보이게 스크롤함(Tab 으로 옮길 때). scrolls 는 안쪽부터의 스크롤 칸."""
+
+    def __init__(self, scrolls):
+        super().__init__()
+        self.scrolls = scrolls
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.FocusIn:
+            for area in self.scrolls():
+                area.ensureWidgetVisible(watched, 16, 16)
+        return False
+
+
+class Slot(QLineEdit):
+    """코드 줄 안의 빈칸. 높이는 theme.slot_height(), 폭은 SLOT_CHARS 자에서 시작해 적은 글만큼 넓어짐. 폭은 자리표시 글(hint)도 담음.
+    답한 뒤 자리표시를 지워도 폭이 그대로라 뒤 코드가 움직이지 않음."""
+
+    def __init__(self, font, hint=""):
+        super().__init__()
+        self.setProperty("slot", True)
+        self.hint = hint
+        self.setFont(font)
+        self.setPlaceholderText(hint)
+        self.setToolTip(hint)
+        self.textChanged.connect(self.fit)
+        self.fit()
+
+    def fit(self):
+        metrics = QFontMetricsF(self.font())
+        least = metrics.horizontalAdvance("M" * SLOT_CHARS)
+        want = max(least, metrics.horizontalAdvance(self.text() + "MM"), metrics.horizontalAdvance(self.hint + "M"))
+        self.setFixedWidth(int(want) + 16)
+
+
+class CodeSlots(QFrame):
+    """빈칸이 든 코드 블록. 줄마다 코드 글꼴 QLabel 과 Slot 을 가로로 놓고 줄은 바꾸지 않으며, 넘치면 가로로 스크롤함.
+    marks 는 칸마다 앞에 붙일 번호 글자(빈칸이 하나면 빈 글). result 는 답한 뒤 코드 아래에 칸마다 맞고 틀림을 쓰는 줄이고
+    부른 쪽이 카드에 놓음."""
+
+    def __init__(self, code, hints, marks):
+        super().__init__()
+        self.setObjectName("well")
+        self.code, self.hints, self.marks = code, list(hints), list(marks)
+        self.fields, self.lines = [], []
+        self.result = rich("", "body")
+        outer = kit.box(self, (16, 12, 16, 12))
+        self.area = QScrollArea()
+        self.area.setProperty("flat", True)
+        self.area.setFrameShape(QFrame.Shape.NoFrame)
+        self.area.setWidgetResizable(True)
+        self.area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.inner = QWidget()
+        self.inner.setAutoFillBackground(False)
+        self.area.setWidget(self.inner)
+        self.area.viewport().setAutoFillBackground(False)
+        outer.addWidget(self.area)
+        self.build()
+
+    def build(self):
+        font = theme.code_font(theme.text_px() - 1)
+        column = kit.box(self.inner)
+        count = 0
+        for line in self.code.split("\n"):
+            holder = QWidget()
+            row = QHBoxLayout(holder)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(0)
+            pieces = BLANK.split(line)
+            for n, piece in enumerate(pieces):
+                if piece:
+                    label = QLabel(piece)
+                    label.setTextFormat(Qt.TextFormat.PlainText)
+                    label.setFont(font)
+                    row.addWidget(label)
+                if n < len(pieces) - 1:
+                    mark = self.marks[count] if count < len(self.marks) else ""
+                    if mark:
+                        row.addWidget(kit.label(mark, "label", bold=True))  # 코드 밖 칸 번호와 같은 크기
+                    hint = self.hints[count] if count < len(self.hints) else ""
+                    slot = Slot(font, hint)
+                    row.addWidget(slot)
+                    self.fields.append(slot)
+                    count += 1
+            row.addStretch(1)
+            holder.setFixedHeight(theme.slot_height() if len(pieces) > 1 else theme.TYPE["code"][1])
+            column.addWidget(holder)
+            self.lines.append(holder)
+        self.fit()
+
+    def fit(self):
+        """줄 높이의 합에 가로 스크롤 막대가 필요하면 그 높이를 더함."""
+        height = sum(line.maximumHeight() for line in self.lines)
+        wide = self.inner.sizeHint().width() > max(1, self.area.viewport().width())
+        self.area.setFixedHeight(height + (self.area.horizontalScrollBar().sizeHint().height() if wide else 0))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit()
+
+
+class PracticePage(QWidget):
+    def __init__(self, win):
+        super().__init__()
+        kit.page(self)
+        self.setObjectName("page")
+        self.win = win
+        self.practice, self.item, self.feedback, self.dontknow = None, None, None, False
+        self.args = None  # 묶음을 만든 (mode, lesson, unit, card). [한 번 더]가 다시 씀
+        self.inputs, self.fields, self.results, self.docs, self.slots = [], [], [], [], []
+        self.choices = None
+        self.shown_at, self.clock = 0.0, time.monotonic
+        self.busy = False
+        self.reveal = Reveal(lambda: [slot.area for slot in self.slots] + [self.scroll])
+        self.paste = PasteBlock(self)  # 가운데 단추 붙여넣기와 끌어다 놓기. 붙여넣기 키는 창의 Guard 가 먼저 막음
+        self.paste.blocked.connect(self.note_blocked)
+        self.note_dialog, self.queued = None, 0
+        root = kit.box(self)
+        self.top = kit.TopBar("← AI 비전 개론", "")
+        self.back_btn, self.title = self.top.back, self.top.title
+        self.count = self.top.add_right(kit.label("", "caption", "secondary"))
+        root.addWidget(self.top)
+        self.bar_line = kit.progress(thin=True)
+        root.addWidget(self.bar_line)
+        self.card, self.card_box = kit.card(24, 24)
+        self.scroll, _ = reading_column(self.card)
+        root.addWidget(self.scroll, 1)
+        self.bar = kit.BottomBar()
+        self.dont_btn = self.bar.add_tool(kit.button("모르겠어요", "text", "l"))
+        self.note_btn = self.bar.add_tool(kit.button("노트 보기", "text", "l"))
+        self.mine_btn = self.bar.add_tool(kit.button("내 답도 맞음", "text", "l"))
+        self.home_btn = self.bar.add_action(kit.button("홈으로", "secondary", "l"))
+        self.unsure_btn = self.bar.add_action(kit.button("긴가민가", "secondary", "l"))
+        self.sure_btn = self.bar.add_action(kit.button("확실함", "primary", "l"))
+        self.next_btn = self.bar.add_action(kit.button("다음", "primary", "l"))
+        self.again_btn = self.bar.add_action(kit.button("한 번 더", "primary", "l"))
+        self.sure_btn.setToolTip(ai_text.SHORTCUTS)
+        self.unsure_btn.setToolTip(ai_text.SHORTCUTS)
+        self.note_btn.setToolTip("이 문항의 근거가 된 학습 단계를 엽니다.")
+        self.mine_btn.setToolTip("내 답이 정답과 같은 뜻인데 틀림으로 나왔으면 누르세요. 맞은 답으로 바꾸고 출제자가 모아 봅니다.")
+        root.addWidget(self.bar)
+        self.shortcuts = []
+        for keys, slot in (("Ctrl+Return", self.press_primary), ("Ctrl+Enter", self.press_primary),
+                           ("Ctrl+Shift+Return", lambda: self.press_answer(False)), ("Ctrl+Shift+Enter", lambda: self.press_answer(False))):
+            shortcut = QShortcut(QKeySequence(keys), self)
+            shortcut.activated.connect(slot)
+            self.shortcuts.append(shortcut)
+        self.back_btn.clicked.connect(self.go_back)
+        self.home_btn.clicked.connect(lambda: self.win.go_ai())
+        self.dont_btn.clicked.connect(self.dont_know)
+        self.sure_btn.clicked.connect(lambda: self.answer(True))
+        self.unsure_btn.clicked.connect(lambda: self.answer(False))
+        self.next_btn.clicked.connect(self.go_next)
+        self.note_btn.clicked.connect(self.open_note)
+        self.mine_btn.clicked.connect(self.override)
+        self.again_btn.clicked.connect(self.again)
+        self.set_buttons()  # 문항이 없으면 단추를 모두 숨김. 숨기지 않으면 막대의 최소 폭이 창의 최소 폭을 넓힘
+
+    # 불러오기
+
+    def load(self, mode, lesson=None, unit=None, card=None):
+        """묶음을 만들고 첫 문항을 보임. 낼 문항이 없거나 기록을 쓰지 못하면 AiError."""
+        practice = self.win.ai.start_set(mode, lesson=lesson, unit=unit, card=card)
+        self.practice, self.args = practice, (mode, lesson, unit, card)
+        self.title.setText(practice.title)
+        self.title.show()
+        self.back_btn.setText("← 오답 노트" if mode == "note" else "← AI 비전 개론")
+        self.show_item(practice.current())
+
+    def clear(self):
+        """문제 받기로 서비스가 바뀌면 부름. 옛 묶음과 옛 카드를 붙들지 않게 놓음."""
+        self.close_note()
+        self.practice, self.item, self.feedback = None, None, None
+        self.empty_card()
+        self.set_buttons()
+
+    def empty_card(self):
+        while self.card_box.count():
+            item = self.card_box.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.hide()
+                widget.deleteLater()
+            elif item.layout() is not None:
+                self._drop(item.layout())
+        self.inputs, self.fields, self.results, self.docs, self.slots, self.choices = [], [], [], [], [], None
+
+    def _drop(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget() is not None:
+                item.widget().hide()
+                item.widget().deleteLater()
+            elif item.layout() is not None:
+                self._drop(item.layout())
+
+    def chips(self, item):
+        """머리 꼬리표. 단원·차시 묶음에서 그 차시 문항이면 묶음 제목이 차시를 말하므로 차시 꼬리표를 뺌."""
+        chips = list(item["chips"])
+        practice = self.practice
+        if chips and practice is not None and practice.mode in ("unit", "lesson") and item.get("lesson") == practice.lesson:
+            lesson = self.win.ai.lessons.get(item.get("lesson")) if self.win.ai is not None else None
+            if lesson and chips[0] == "%d차시" % lesson["no"]:
+                chips = chips[1:]
+        return chips
+
+    def show_item(self, item):
+        """문항 하나를 그림(답하기 전 상태)."""
+        self.close_note()
+        self.empty_card()
+        self.item, self.feedback, self.dontknow = item, None, False
+        self.count.setText("%d / %d" % (item["at"], item["total"]))
+        self.bar_line.setValue(round(100 * (item["at"] - 1) / max(1, item["total"])))
+        chips = QWidget()
+        chip_row = kit.FlowLayout(chips, 8)
+        for text in self.chips(item):
+            chip_row.addWidget(kit.badge(text, "accent" if text in ("다시 나온 문항", "지난번 확실했던 문항") else ""))
+        self.card_box.addWidget(chips)
+        self.verdict = QWidget()
+        verdict_col = kit.box(self.verdict, spacing=4)
+        self.verdict_text = kit.label("", "headline")
+        self.answer_line = rich("")
+        self.requeue = kit.para("", "body", "secondary")
+        verdict_col.addWidget(self.verdict_text)
+        verdict_col.addWidget(self.answer_line)
+        verdict_col.addWidget(self.requeue)
+        self.card_box.addWidget(self.verdict)
+        self.verdict.hide()
+        if item["kind"] == "blank":
+            self.build_blanks(item)
+        else:
+            self.build_choice(item)
+        self.status = kit.para("", "body", "secondary")
+        self.card_box.addWidget(self.status)
+        self.status.hide()
+        self.guide = kit.para(ai_text.FIRST_HINT.get(item["kind"], ai_text.FIRST_HINT["blank"]) + ai_text.FIRST_HINT_TAIL, "body", "secondary")
+        self.card_box.addWidget(self.guide)
+        self.guide.setVisible(item["at"] == 1)  # 묶음 첫 문항에만
+        self.after = QWidget()
+        self.after_box = kit.box(self.after, spacing=16)
+        self.card_box.addWidget(self.after)
+        self.after.hide()
+        for widget in self.inputs:
+            widget.installEventFilter(self.reveal)
+        chain = [self.back_btn] + self.inputs + [self.dont_btn, self.unsure_btn, self.sure_btn]
+        for first, second in zip(chain, chain[1:]):
+            QWidget.setTabOrder(first, second)
+        self.set_buttons()
+        self.scroll.verticalScrollBar().setValue(0)
+        if item["kind"] == "blank" and self.inputs:
+            self.inputs[0].setFocus(Qt.FocusReason.OtherFocusReason)
+        else:
+            self.setFocus()  # 보기 줄에 초점을 두면 테두리가 고른 것처럼 보임
+        self.shown_at = self.clock()
+
+    def build_blanks(self, item):
+        """지문과 빈칸. 칸 순서는 지문에서 ____ 가 나오는 순서이고 answer 에 이 순서로 넘김."""
+        blanks = item["blanks"]
+        numbered = len(blanks) >= 2
+        stem = bank.number_blanks(item["stem"]) if numbered else item["stem"]
+        order = []  # 지문 순서대로 ("code", 칸) 또는 ("field", 칸)
+        count = 0
+        for part in split_stem(stem):
+            if part[0] == "text":
+                self.docs.append(doc(part[1], "", self.card_box))
+                count_here = len(BLANK.findall(part[1]))
+                order += [("field", None)] * count_here
+                count += count_here
+                continue
+            here = len(BLANK.findall(part[1]))
+            marks = [ai_text.number_mark(count + n + 1) if numbered else "" for n in range(here)]
+            hints = [b.get("hint") or ai_text.MODE_HINT.get(b["mode"], "") for b in blanks[count:count + here]]
+            slots = CodeSlots(part[1], hints, marks)
+            self.card_box.addWidget(slots)
+            self.card_box.addWidget(slots.result)
+            slots.result.hide()
+            for slot in slots.fields:
+                self.paste.watch(slot)
+            self.slots.append(slots)
+            order += [("code", slot) for slot in slots.fields]
+            count += here
+        fields = QWidget()
+        fields_box = kit.box(fields, spacing=16)
+        for n, (kind, widget) in enumerate(order):
+            if kind == "code":
+                self.inputs.append(widget)
+                self.results.append(None)
+                continue
+            blank = blanks[n] if n < len(blanks) else {"mode": "word", "hint": ""}
+            field = QLineEdit()
+            kit.typed(field, "body")
+            field.setPlaceholderText(blank.get("hint") or ai_text.MODE_HINT.get(blank.get("mode"), ""))
+            self.paste.watch(field)
+            block = QWidget()
+            row = kit.box(block, spacing=12, horizontal=True)
+            if numbered:  # 번호는 칸 높이의 가운데. 칸 아래 결과 줄은 칸 왼쪽 선에 맞춤
+                number = kit.label(ai_text.number_mark(n + 1), "label", bold=True, align=Qt.AlignmentFlag.AlignVCenter)
+                number.setFixedHeight(theme.CONTROL["field"])
+                row.addWidget(number, 0, Qt.AlignmentFlag.AlignTop)
+            column = QWidget()
+            column_box = kit.box(column, spacing=4)
+            column_box.addWidget(field)
+            result = rich("", "body")
+            result.hide()
+            column_box.addWidget(result)
+            row.addWidget(column, 1)
+            fields_box.addWidget(block)
+            self.inputs.append(field)
+            self.fields.append(field)
+            self.results.append(result)
+        if self.fields:
+            self.card_box.addWidget(fields)
+        else:
+            fields.deleteLater()
+
+    def build_choice(self, item):
+        self.docs.append(doc(item["stem"], "", self.card_box))
+        self.choices = ChoiceList([o["text"] for o in item["options"]], single=not item["multi"])
+        self.whys = []
+        column = self.choices.layout()
+        for n, row in enumerate(self.choices.rows):
+            why = rich("", "body", "secondary")
+            holder = QWidget()
+            kit.box(holder, (kit.MARK + 12, 0, 0, 8)).addWidget(why)
+            column.insertWidget(column.indexOf(row) + 1, holder)
+            holder.hide()
+            self.whys.append(holder)
+        self.card_box.addWidget(self.choices)
+        self.inputs = [row for row in self.choices.rows]
+
+    # 답하기
+
+    def values(self):
+        if self.item["kind"] == "blank":
+            return [widget.text() for widget in self.inputs]
+        return [self.item["options"][n]["no"] for n in self.choices.picked()]
+
+    def press_primary(self):
+        if not self.isVisible():
+            return
+        if self.sure_btn.isVisible() and self.sure_btn.isEnabled():
+            self.answer(True)
+        elif self.next_btn.isVisible() and self.next_btn.isEnabled():
+            self.go_next()
+        elif self.again_btn.isVisible() and self.again_btn.isEnabled():
+            self.again()
+
+    def press_answer(self, sure):
+        if self.isVisible() and self.unsure_btn.isVisible() and self.unsure_btn.isEnabled():
+            self.answer(sure)
+
+    def answer(self, sure):
+        """[확실함]·[긴가민가]. 조합 중인 한글을 확정한 뒤 칸을 읽음. 아무것도 적거나 고르지 않았으면 안내만 함."""
+        if self.practice is None or self.feedback is not None or self.busy:
+            return
+        commit_input()
+        value = self.values()
+        if not any(str(v).strip() for v in value):
+            self.status.setText(ai_text.EMPTY_ANSWER.get(self.item["kind"], ai_text.EMPTY_ANSWER["blank"]))
+            self.status.show()
+            return
+        secs = self.clock() - self.shown_at
+        self.queued = len(self.practice.queue)
+        try:
+            feedback = self.practice.answer(value, secs, sure)
+        except SessionError as error:
+            self.win.ask("알림", str(error))
+            return
+        self.show_feedback(feedback)
+
+    def dont_know(self):
+        if self.practice is None or self.feedback is not None or self.busy:
+            return
+        self.queued = len(self.practice.queue)
+        try:
+            feedback = self.practice.dont_know(self.clock() - self.shown_at)
+        except SessionError as error:
+            self.win.ask("알림", str(error))
+            return
+        self.dontknow = True
+        self.show_feedback(feedback)
+
+    def show_feedback(self, feedback):
+        """판정 줄, 칸과 보기의 결과, 해설·근거·정정을 그림. 판정 줄이 맨 위에 오게 스크롤함."""
+        self.feedback = feedback
+        self.status.hide()
+        self.guide.hide()
+        word, tone = ai_text.VERDICT.get(feedback["result"], ai_text.VERDICT["stuck"])
+        if feedback.get("sure_wrong"):
+            word = ai_text.SURE_WRONG
+        if self.dontknow:
+            word, tone = ai_text.DONT_KNOW, "secondary"
+        self.verdict_text.setText(word)
+        kit.set_tone(self.verdict_text, tone)
+        if self.item["kind"] == "blank":
+            self.mark_blanks(feedback["per_blank"], feedback["correct"])
+        else:
+            self.mark_choice(feedback)
+        self.show_requeue(feedback["result"] == "pass")
+        self.verdict.show()
+        self.explain(feedback)
+        self.set_buttons()
+        self.next_btn.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.scroll.verticalScrollBar().setValue(0)
+
+    def mark_blanks(self, per, correct):
+        """칸마다 테두리 색, 판정 줄 아래 정답 목록. 빈칸이 둘 이상이면 칸마다 "맞음"·"틀림" 글을 더함(글 칸은 칸 아래, 코드 칸은 코드 아래
+        한 줄). 정답은 판정 줄 아래 목록에만 씀. [모르겠어요]면 맞고 틀림을 쓰지 않고 테두리도 칠하지 않음. 답한 칸은 읽기 전용이라 자리표시를 지움."""
+        numbered = len(self.inputs) >= 2
+        marked = numbered and not self.dontknow
+        answers, words = [], []
+        for n, widget in enumerate(self.inputs):
+            ok = n < len(per) and per[n]
+            right = correct[n] if n < len(correct) else ""
+            word = "맞음" if ok else "틀림"
+            widget.setReadOnly(True)
+            widget.setPlaceholderText("")
+            kit.set_tone(widget, "" if self.dontknow else ("success" if ok else "danger"))
+            mark = ai_text.number_mark(n + 1) + " " if numbered else ""
+            answers.append("%s`%s`" % (mark, right) if self.is_code(widget) else "%s%s" % (mark, right))
+            words.append("%s%s" % (mark, word))
+            result = self.results[n] if n < len(self.results) else None
+            if result is not None:
+                result.setText(word)
+                kit.set_tone(result, "success" if ok else "danger")
+                result.setVisible(marked)
+        for slots in self.slots:
+            here = [n for n, widget in enumerate(self.inputs) if widget in slots.fields]
+            slots.result.setText(" · ".join(words[n] for n in here))
+            slots.result.setVisible(marked and bool(here))
+        self.answer_line.setText("정답: " + " · ".join(answers))
+
+    def is_code(self, widget):
+        return isinstance(widget, Slot)
+
+    def mark_choice(self, feedback):
+        """보기마다 꼬리표와 바른 문장. 옳지 않은 것을 고르는 문항의 답은 거짓 문장이라 판정 아래 줄에 "정답" 이라 쓰지 않음."""
+        right, picked = set(feedback["right"]), set(feedback["picked"])
+        self.choices.set_enabled(False)
+        shown = []
+        for n, (row, holder) in enumerate(zip(self.choices.rows, self.whys)):
+            no = self.item["options"][n]["no"]
+            if no in right and no in picked:
+                row.set_tag("정답 · 내 답", "success")
+            elif no in right:
+                row.set_tag("정답", "success")
+            elif no in picked:
+                row.set_tag("내 답", "danger")
+            why = feedback["why"].get(no) or feedback["why"].get(str(no)) or ""
+            holder.findChild(RichPara).setText(why)
+            holder.setVisible(bool(why))
+            if no in right:
+                shown.append(self.item["options"][n]["text"])
+        word = "옳지 않은 문장" if self.item.get("pick") == "wrong" else "정답"
+        self.answer_line.setText("%s: %s" % (word, " · ".join(shown)) if shown else "")
+
+    def show_requeue(self, passed):
+        """방금 답한 문항이 묶음 뒤에 다시 들어갔으면 몇 문항 뒤에 나오는지 쓰고 위 막대의 전체 문항 수를 늘림. 묶음 길이가 늘어난 까닭을 알림."""
+        practice = self.practice
+        gap = None
+        if len(practice.queue) > self.queued:
+            gap = next((j - practice.pos - 1 for j in range(practice.pos + 1, len(practice.queue))
+                        if practice.queue[j]["card"] == self.item["card"]), None)
+        self.requeue.setText(ai_text.requeue_line(passed, gap) if gap is not None else "")
+        self.requeue.setVisible(gap is not None)
+        self.count.setText("%d / %d" % (self.item["at"], len(practice.queue)))  # 늘어난 전체 문항 수를 바로 보임
+
+    def explain(self, feedback):
+        box = self.after_box
+        while box.count():
+            item = box.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+        if feedback.get("explain"):
+            box.addWidget(kit.label("해설", "label", bold=True))
+            self.docs.append(doc(feedback["explain"], "", box))
+        if feedback.get("errata"):
+            line = QWidget()
+            row = kit.box(line, spacing=12, horizontal=True)
+            row.addWidget(kit.badge("정정", "warning"), 0, Qt.AlignmentFlag.AlignTop)
+            row.addWidget(kit.para(ai_text.errata_text(feedback["errata"])), 1)
+            box.addWidget(line)
+        if feedback.get("ref"):
+            box.addWidget(kit.para("근거: %s" % ai_text.ref_text(feedback["ref"]), "caption", "secondary"))
+        self.after.setVisible(box.count() > 0)
+
+    def override(self):
+        """[내 답도 맞음]. 방금 틀린 빈칸 답을 맞음으로 바꿈."""
+        try:
+            feedback = self.practice.override()
+        except SessionError as error:
+            self.win.ask("알림", str(error))
+            return
+        self.feedback = feedback
+        self.verdict_text.setText(ai_text.OVERRIDDEN)
+        kit.set_tone(self.verdict_text, "success")
+        self.mark_blanks([True] * len(self.inputs), self.answers_of())
+        self.show_requeue(True)
+        self.set_buttons()
+
+    def answers_of(self):
+        """판정 줄 아래에 쓴 정답 목록을 다시 쓰려고 가져옴."""
+        return [str(c) for c in (self.feedback or {}).get("correct", [])]
+
+    def go_next(self):
+        if self.practice is None or self.feedback is None:
+            return
+        self.close_note()
+        try:
+            item = self.practice.next()
+        except SessionError as error:
+            self.win.ask("알림", str(error))
+            return
+        if item is None:
+            self.show_summary()
+        else:
+            self.show_item(item)
+
+    # 끝 요약
+
+    def show_summary(self):
+        summary = self.practice.summary()
+        self.close_note()
+        self.empty_card()
+        self.item, self.feedback = None, None
+        self.count.setText("끝남")
+        self.bar_line.setValue(100)
+        self.card_box.addWidget(kit.para(ai_text.summary_head(summary), "headline"))
+        lines = QWidget()
+        lines_box = kit.box(lines, spacing=8)
+        for text in ai_text.summary_lines(summary, self.unlisted()):
+            lines_box.addWidget(kit.para(text))
+        self.card_box.addWidget(lines)
+        self.card_box.addWidget(kit.para(ai_text.TRAINED, "body", "secondary"))
+        self.set_buttons()
+        self.scroll.verticalScrollBar().setValue(0)
+
+    def unlisted(self):
+        """단원을 오늘 읽어서 처음 답이 틀렸어도 오답 노트에 들어가지 않은 문항 수(확실함으로 틀린 답은 넣음). 그날 앞 묶음에서 맞힌
+        문항이 이번에 틀린 것은 세지 않음."""
+        try:
+            listed = {item["key"] for group in self.win.ai.wrong_notes() for item in group["items"]}
+            return sum(1 for cid, st in self.practice.stats.items()
+                       if st["first"] not in (None, "pass") and cid not in listed and self.win.ai.read_today(cid))
+        except SessionError:
+            return 0
+
+    def again(self):
+        """[한 번 더]·[다음 단원]·[오답 노트로]. 단원 모드는 다음 안 읽은 단원을, 오답 다시 풀기는 오답 노트를, 나머지는 같은 모드의 새 묶음을 엶."""
+        mode, lesson, unit, card = self.args
+        if mode == "note":
+            self.win.show_wrong("ai", self.win.wrong_page.back)
+            return
+        if mode == "unit":
+            target = self.next_unit()
+            if target:
+                self.win.open_ai_unit(*target)
+                return
+            mode = "mixed"
+        if mode == "mixed":  # 다시 보기 뒤 묶음도 다음 판은 보통 섞어 풀기
+            lesson, unit = None, None
+        self.win.open_ai_practice(mode, lesson=lesson, unit=unit)
+
+    def next_unit(self):
+        try:
+            item = self.win.ai.overview()["next"]
+        except SessionError:
+            return None
+        return (item["lesson"], item["unit"]) if item["kind"] == "unit" else None
+
+    # 단추
+
+    def set_buttons(self):
+        asking = self.item is not None and self.feedback is None
+        answered = self.item is not None and self.feedback is not None
+        ended = self.item is None and self.practice is not None
+        for button, on in ((self.dont_btn, asking), (self.unsure_btn, asking), (self.sure_btn, asking), (self.next_btn, answered),
+                           (self.note_btn, answered and bool(self.item and self.item.get("step"))),
+                           (self.mine_btn, answered and self.item["kind"] == "blank" and not self.dontknow
+                            and self.feedback["result"] != "pass" and not self.feedback.get("overridden")),
+                           (self.home_btn, ended), (self.again_btn, ended)):
+            button.setVisible(bool(on))
+            button.setEnabled(not self.busy)
+        if ended:
+            mode = self.args[0]
+            if mode == "note":
+                text = "오답 노트로"
+            elif mode == "unit":  # 안 읽은 단원이 없으면 again() 이 섞어 풀기를 엶
+                text = "다음 단원" if self.next_unit() else "섞어 풀기"
+            else:
+                text = "한 번 더"
+            self.again_btn.setText(text)
+
+    def open_note(self):
+        item = self.item
+        if not item or not item.get("step"):
+            return
+        self.close_note()
+        try:
+            self.note_dialog = NoteDialog(self.win, item["lesson"], item["step"])
+        except SessionError as error:
+            self.win.ask("알림", str(error))
+            return
+        self.note_dialog.open()  # 창 모달. 열어 둔 채 [다음]으로 넘어가 다시 나온 문항을 노트를 보며 풀 수 없게 함
+
+    def close_note(self):
+        """열린 [노트 보기] 창을 닫음. 문항을 바꾸거나 묶음이 끝나거나 서비스가 바뀔 때 부름."""
+        dialog, self.note_dialog = self.note_dialog, None
+        if dialog is not None:
+            try:
+                dialog.close()
+            except RuntimeError:  # 닫혀 지워진 창의 파이썬 껍데기
+                pass
+
+    def note_blocked(self):
+        """붙여넣기를 막았다는 안내. 이 화면이 보일 때만."""
+        if self.isVisible() and self.item is not None and self.feedback is None:
+            self.status.setText(PASTE_NOTE)
+            self.status.show()
+
+    def go_back(self):
+        if self.args and self.args[0] == "note":
+            self.win.show_wrong("ai", self.win.wrong_page.back)
+        else:
+            self.win.go_ai()
+
+    def fit_column(self):
+        self.card.setMaximumWidth(kit.doc_width(self.width()) + 48)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_column()
+
+    def set_busy(self, busy, text=""):
+        self.busy = busy
+        self.back_btn.setEnabled(not busy)
+        if self.practice is not None:
+            self.set_buttons()
+
+    def restyle(self):
+        self.fit_column()
+        for piece in self.docs:
+            piece.restyle(theme.web_css())
+        for widget in self.findChildren(RichPara):
+            widget.restyle()
+        font = theme.code_font(theme.text_px() - 1)
+        for slots in self.slots:
+            for label in slots.inner.findChildren(QLabel):
+                if label.property("role") is None:
+                    label.setFont(font)
+            for field in slots.fields:
+                field.setFont(font)
+                field.fit()
+            slots.result.restyle()
+            for line in slots.lines:
+                line.setFixedHeight(theme.slot_height() if line.findChild(Slot) else theme.TYPE["code"][1])
+            slots.fit()

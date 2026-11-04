@@ -1,0 +1,7 @@
+{"format": 1, "id": "i04", "no": 4, "page": "l04",
+ "units": {
+  "4a": {"blank": 4, "choice": 2, "stmt": 0, "gen": ["i04-g01"], "core": 4},
+  "4b": {"blank": 3, "choice": 4, "stmt": 0, "gen": ["i04-g02"], "core": 4},
+  "4c": {"blank": 5, "choice": 5, "stmt": 0, "gen": ["i04-g03"], "core": 4}},
+ "later": {"pr": 2, "note": "4d 부터의 단원 카드는 PR2 에서 i04-b13, i04-c12, i04-g04 부터 이어 씀"},
+ "sources": []}

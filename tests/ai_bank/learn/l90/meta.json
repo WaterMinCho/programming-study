@@ -1,0 +1,16 @@
+{
+ "format": 1,
+ "id": "l90",
+ "title": "90차시 시험 노트",
+ "defines": ["기울기", "과적합"],
+ "needs": [],
+ "sections": {"90a": "기울기로 걸음 정하기", "90b": "과적합 알아보기"},
+ "outputs": [],
+ "sources": [],
+ "lesson": "i90",
+ "credits": [],
+ "units": {
+  "90a": {"minutes": 5, "key_figure": "assets/90a-1.gif", "kind": "concept"},
+  "90b": {"minutes": 4, "key_figure": "assets/90b-1.png", "kind": "concept"}
+ }
+}

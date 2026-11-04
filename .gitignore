@@ -45,3 +45,5 @@ node_modules/
 # 웹 미션·사슬의 출제자 작업본(평문). web/<종류>/<id>/sealed.json 으로만 커밋합니다
 web/**/work/
 submissions/*/web/**/dist/
+# AI 비전 개론 문항 묶음·모의고사의 출제자 작업본(평문). ai/<items|mocks>/<id>/sealed.json 으로만 커밋합니다
+ai/**/work/

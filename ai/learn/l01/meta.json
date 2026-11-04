@@ -1,0 +1,39 @@
+{
+  "format": 1,
+  "id": "l01",
+  "title": "1차시 딥러닝에 필요한 파이썬",
+  "defines": ["순전파", "손실", "파라미터", "역전파", "기울기", "학습률", "최적점", "발산", "점진적 개선", "일반화",
+              "자동 미분", "옵티마이저", "텐서", "합성 함수", "미분값", "접선", "수치 미분", "전진 차분", "중앙 차분",
+              "고차 함수", "시그모이드", "클래스", "인스턴스", "속성", "메서드", "생성자", "상속", "재정의",
+              "슬라이스", "튜플", "딕셔너리", "f-string", "정확도", "오차", "픽셀"],
+  "needs": [],
+  "sections": {
+    "1a": "학습은 예측, 손실, 역전파, 갱신을 되풀이합니다",
+    "1b": "PyTorch의 학습 다섯 줄",
+    "1c": "대입은 값을 복사하지 않습니다",
+    "1d": "모델은 함수를 이어 붙인 합성 함수입니다",
+    "1e": "수치 미분 코드와 자동 미분",
+    "1f": "클래스로 데이터와 동작을 묶습니다",
+    "1g": "파이썬 기초와 출력 서식 읽기"
+  },
+  "outputs": [],
+  "sources": [
+    {"what": "PyTorch 문서 torch.no_grad: 안에서 계산한 결과는 requires_grad=False 가 되어 메모리를 덜 씀", "url": "https://docs.pytorch.org/docs/stable/generated/torch.no_grad.html", "checked": "2026-11-03"},
+    {"what": "PyTorch 문서 torch.Tensor.numpy: 돌려준 배열과 텐서는 저장 공간을 같이 씀", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.numpy.html", "checked": "2026-11-03"},
+    {"what": "PyTorch 문서 nn.Module.forward: forward 를 직접 부르지 말고 모듈 인스턴스를 부름(훅 실행)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html", "checked": "2026-11-03"},
+    {"what": "PyTorch 문서 torch.use_deterministic_algorithms: mode 를 인자로 받는 함수", "url": "https://docs.pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html", "checked": "2026-11-03"},
+    {"what": "Python 문서 copy 모듈: 대입은 객체를 복사하지 않고, 얕은 복사와 깊은 복사는 안쪽 객체 복사 여부로 나뉨", "url": "https://docs.python.org/3/library/copy.html", "checked": "2026-11-03"},
+    {"what": "Python 문서 서식 미니 언어: f, e, x, % 형식과 0 채움, # 옵션", "url": "https://docs.python.org/3/library/string.html#format-specification-mini-language", "checked": "2026-11-03"}
+  ],
+  "lesson": "i01",
+  "credits": [],
+  "units": {
+    "1a": {"minutes": 5, "key_figure": "assets/1a-5.png", "kind": "concept"},
+    "1b": {"minutes": 5, "key_figure": "assets/1b-5.png", "kind": "concept"},
+    "1c": {"minutes": 5, "key_figure": "assets/1c-3.png", "kind": "concept"},
+    "1d": {"minutes": 6, "key_figure": "assets/1d-5.png", "kind": "concept"},
+    "1e": {"minutes": 5, "key_figure": "assets/1e-3.png", "kind": "concept"},
+    "1f": {"minutes": 6, "key_figure": "assets/1f-4.png", "kind": "concept"},
+    "1g": {"minutes": 6, "key_figure": "assets/1g-3.png", "kind": "concept"}
+  }
+}

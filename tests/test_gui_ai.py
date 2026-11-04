@@ -1,0 +1,1069 @@
+# -*- coding: utf-8 -*-
+"""AI 비전 개론 화면(gui/ai_home.py, ai_learn.py, ai_quiz.py, ai_text.py)과 첫 화면의 AI 줄, 공유 오답 노트의 AI 탭.
+실제 MainWindow 를 띄우되 AI 은행은 고정 은행 tests/ai_bank(마지막 클래스만 저장소의 ai/ 1~4차시), 여행·웹 은행은 고정 은행,
+풀이 폴더·AI 로컬 폴더·설정은 임시 폴더, 제출 모듈과 Node 찾기는 가짜를 씀. 시계는 aiprep.service.now 를 바꿔 학습일을 정함.
+
+하루 목표와 새 문항 상한은 화면에 없음(2026-11-03 사용자 결정). 모의고사 화면과 뼈대 카드(나란히 보기, 돌려 가며 빈칸)는 다음 PR 이라 보지 않음.
+PyQt6 가 없으면 전부 건너뜀."""
+import datetime
+import json
+import os
+import shutil
+import sys
+import tempfile
+import time
+import unittest
+from unittest import mock
+
+os.environ.setdefault("STUDY_NODE_PROBE", "0")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tests import guikit  # noqa: E402
+
+from PyQt6 import sip  # noqa: E402
+from PyQt6.QtCore import QMimeData, QPoint, QPointF, QSettings, Qt  # noqa: E402
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QAbstractButton, QApplication, QLabel, QPushButton, QScrollArea, QWidget  # noqa: E402
+
+import session  # noqa: E402
+import study  # noqa: E402
+from aiprep import bank as ai_bank  # noqa: E402
+from aiprep import grade, plan, service  # noqa: E402
+from gui import ai_learn, ai_quiz, ai_text, kit, motion, theme  # noqa: E402
+from gui.docview import TextPiece  # noqa: E402
+from gui.window import MainWindow  # noqa: E402
+from journey import bank as journey_bank  # noqa: E402
+from journey import runner  # noqa: E402
+from tests.test_gui_hub import FakeGitFlow  # noqa: E402
+from tests.test_gui_kit import WindowSpy  # noqa: E402
+from webprep import bank as web_bank  # noqa: E402
+from webprep import stack  # noqa: E402
+
+AI_FIXTURE = os.path.join(guikit.ROOT, "tests", "ai_bank")
+JOURNEY_FIXTURE = os.path.join(guikit.ROOT, "tests", "journey_bank")
+WEB_FIXTURE = os.path.join(guikit.ROOT, "tests", "web_bank")
+REAL_GIF = os.path.join(guikit.ROOT, "ai", "learn", "l04", "assets", "4a-2.gif")  # 6장, 1120×600
+FAKE_NODE = {"path": "/fake/node", "version": "22.23.2", "major": 22}
+USER = "tester"
+GOAL_WORDS = ("목표", "새 문항", "상한")  # 하루 목표를 말하는 낱말. 화면 어디에도 없어야 함
+
+
+def visible_text(widget):
+    """widget 아래 보이는 글(라벨, 글 조각, 단추)을 이어 붙인 글."""
+    parts = []
+    for child in widget.findChildren(QWidget):
+        if not child.isVisible():
+            continue
+        if isinstance(child, TextPiece):
+            parts.append(child.toPlainText())
+        elif isinstance(child, (QLabel, QAbstractButton)):
+            parts.append(child.text())
+    return "\n".join(parts)
+
+
+class AiTest(unittest.TestCase):
+    real_bank = False
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="gui_ai_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.clock = "2026-11-04T20:00:00"
+        patches = [(study, "SUBMISSIONS_DIR", os.path.join(self.tmp, "submissions")), (study, "USER_FILE", os.path.join(self.tmp, ".study_user")),
+                   (runner, "CACHE_DIR", os.path.join(self.tmp, "cache")), (journey_bank, "BANK_DIR", JOURNEY_FIXTURE),
+                   (web_bank, "BANK_DIR", WEB_FIXTURE), (stack, "find_node", lambda saved=None, probe=False: FAKE_NODE),
+                   (service, "now", lambda: self.clock), (service.secrets, "randbelow", lambda n: 7)]  # 묶음 시드를 고정함
+        if not self.real_bank:
+            patches.append((ai_bank, "AI_DIR", AI_FIXTURE))
+        for target, name, value in patches:
+            patcher = mock.patch.object(target, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        environ = mock.patch.dict(os.environ)
+        environ.start()
+        self.addCleanup(environ.stop)
+        os.environ.pop("STUDY_USER", None)
+        os.environ["STUDY_WEB_HOME"] = os.path.join(self.tmp, "web_home")
+        os.environ["STUDY_AI_HOME"] = os.path.join(self.tmp, "ai_home")
+        self.addCleanup(setattr, sys, "excepthook", sys.excepthook)
+        self.logs = os.path.join(self.tmp, ".study_logs")
+        from gui import errors
+        errors.install(self.logs)
+        self.errors = errors
+        session.save_user(USER)
+        self.git = FakeGitFlow()
+        self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
+        self.win = None
+
+    def tearDown(self):
+        win = self.win
+        if win is not None:
+            guikit.wait_until(lambda: win.job is None)
+            if win.dialog is not None:
+                win.dialog.close()
+            win.close()
+            win.deleteLater()
+            guikit.pump()
+        if self.errors.state["dialog"] is not None:
+            self.errors.state["dialog"].close()
+        crashed = os.path.isdir(self.logs)
+        report = "".join(study.read_text(os.path.join(self.logs, name)) for name in os.listdir(self.logs)) if crashed else ""
+        self.assertFalse(crashed, report)
+
+    # 도우미
+
+    def boot(self, size=(1280, 800)):
+        self.win = win = MainWindow(self.settings, lambda root, user: (self.git, ""))
+        win.open_url = lambda url: None
+        win.resize(*size)
+        win.show()
+        win.activateWindow()  # 창 단축키(←·→, Ctrl+Enter)와 초점이 offscreen 에서도 돌게 함
+        win.boot()
+        self.idle()
+        return win
+
+    def idle(self):
+        guikit.pump()
+        guikit.wait_until(lambda: self.win.job is None)
+        guikit.pump()
+
+    def page(self):
+        return self.win.pages.currentWidget()
+
+    def log(self, kind=None):
+        path = os.path.join(study.SUBMISSIONS_DIR, USER, "ai", "record.json")
+        rows = study.read_json(path)["log"] if os.path.isfile(path) else []
+        return [r for r in rows if kind is None or r.get("kind") == kind]
+
+    def at(self, day, clock="20:00:00"):
+        self.clock = "2026-11-%02dT%s" % (day, clock)
+
+    def item_view(self):
+        practice = self.win.ai_quiz.practice
+        return practice._view(practice.queue[practice.pos])["item"]
+
+    def answer(self, right=True, sure=True):
+        """연습 화면의 지금 문항에 칸을 채우거나 보기를 골라 [확실함]·[긴가민가]를 누름."""
+        page = self.win.ai_quiz
+        item = self.item_view()
+        if page.item["kind"] == "blank":
+            values = [b["answer"][0] if right else "모름" for b in item["blanks"]]
+            for field, value in zip(page.inputs, values):
+                field.setText(value)
+        else:
+            good = set(grade.right_options(item))
+            rows = [n for n, option in enumerate(page.item["options"]) if (option["no"] in good) == right]
+            for n in (rows if right else rows[:1]):
+                page.choices.rows[n].box.setChecked(True)
+        guikit.click(page.sure_btn if sure else page.unsure_btn)
+
+    def read_all(self, day=2):
+        """그날 두 단원을 끝까지 읽은 기록."""
+        self.at(day)
+        for key in ("90a", "90b"):
+            self.win.ai.mark_read("i90", key)
+
+
+class HubAndHomeTest(AiTest):
+    def test_hub_row_week_chart_and_track_colour(self):
+        win = self.boot()
+        hub = win.hub
+        self.assertEqual((hub.ai_row.title.text(), hub.ai_row.second.text()), ("AI 비전 개론", ai_text.START_LINE))
+        self.assertFalse(hub.ai_row.inert)
+        self.assertEqual(len(hub.chart.days[-1]), 5)  # 날짜와 트랙 넷
+        self.assertEqual(theme.SERIES[-1], "series_ai")
+        self.assertEqual([row.title.text() for _, row in hub.note_rows], ["파이썬 스터디", "AI 비전 개론"])
+        guikit.click(hub.ai_row)
+        self.assertEqual((self.page(), win.area), (win.ai_home, "ai"))
+        guikit.click(win.ai_home.hub_btn)
+        self.assertIs(self.page(), hub)
+
+    def test_broken_record_shows_the_band_and_switches_the_row_off(self):
+        path = os.path.join(study.SUBMISSIONS_DIR, USER, "ai", "record.json")
+        study.write_text(path, "{ 깨진 기록")
+        win = self.boot()
+        hub = win.hub
+        self.assertIsNone(win.ai)
+        self.assertTrue(hub.ai_error.isVisible())
+        self.assertIn("record.json", hub.ai_error.text.text())
+        self.assertTrue(hub.ai_row.inert)
+        self.assertEqual(hub.ai_row.second.text(), "기록을 읽지 못했습니다.")
+        self.assertFalse(hub.journey_row.inert)
+
+    def test_home_has_no_daily_goal_and_shows_lessons(self):
+        win = self.boot((1024, 700))
+        win.go_ai()
+        home = win.ai_home
+        self.assertTrue(home.info.text().startswith("12월 2일 시험까지 28일"))
+        text = visible_text(home)
+        for word in GOAL_WORDS:
+            self.assertNotIn(word, text)
+        self.assertEqual([row.title.text() for row in home.lesson_list.rows], ["90차시 시험 차시"])
+        self.assertEqual(home.lesson_list.rows[0].second.text(), "단원 2개 중 0개 읽음")
+        self.assertEqual(home.lesson_list.more_btn.text(), "준비 중 1개 보기")
+        self.assertEqual([row.title.text() for row in home.books.rows], ["섞어 풀기", "90차시 문제집", "오답 노트"])
+        self.assertTrue(home.mixed_row.inert)  # 읽은 단원이 없으면 섞어 풀 문항이 없음
+        self.assertEqual(home.mixed_row.second.text(), ai_text.MIXED_EMPTY)
+        book = home.books.rows[1]
+        self.assertFalse(book.inert)  # 차시 문제집은 단원을 읽지 않아도 풂
+        self.assertRegex(book.second.text(), r"^외운 문항 0/\d+$")
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(home)], ["학습 시작"])
+        button = home.next_btn
+        self.assertTrue(win.rect().contains(button.mapTo(win, QPoint(button.width(), button.height()))), "주 단추가 스크롤 없이 보임")
+        terms = next(w for w in home.findChildren(QLabel) if ai_text.TERMS in w.text())
+        self.assertLess(terms.mapTo(home, QPoint(0, 0)).y(), home.next_card.mapTo(home, QPoint(0, 0)).y())  # 낱말 풀이가 먼저
+        guikit.click(book)
+        self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "90차시 풀기"))
+
+    def test_next_card_cases_in_order(self):
+        """오늘 틀린 문항 → 복습이 많음 → 안 읽은 단원 → 복습 → 다시 보기. 안 읽은 단원은 목표와 상관없이 권함."""
+        win = self.boot()
+        win.go_ai()
+        home = win.ai_home
+
+        def card():
+            win.go_ai()
+            return home.target["kind"], home.next_card.title.text(), home.next_btn.text()
+
+        self.assertEqual(card(), ("unit", "90차시 · 기울기로 걸음 정하기", "학습 시작"))
+        self.at(2)
+        win.ai.mark_read("i90", "90a")
+        self.assertEqual(card(), ("unit", "90차시 · 과적합 알아보기", "학습 시작"))  # 오늘 하나 읽어도 남은 단원을 권함
+        win.open_ai_practice("unit", lesson="i90", unit="90a")
+        self.answer(right=False)
+        self.assertEqual(card()[0::2], ("again", "복습 시작"))  # 오늘 틀린 문항은 복습 묶음 맨 앞에 나옴
+        self.assertTrue(home.next_card.title.text().startswith("오늘 틀린 문항 "))
+        self.at(3)
+        self.assertGreater(win.ai.overview()["due"], 0)
+        self.assertEqual(card()[0], "unit")  # 복습이 적으면 안 읽은 단원이 먼저
+        with mock.patch.object(plan, "REVIEW_FIRST", 1):
+            self.assertEqual(card()[0], "review")  # 복습이 REVIEW_FIRST 이상이면 안 읽은 단원보다 먼저
+        win.ai.mark_read("i90", "90b")
+        self.assertEqual(card()[0::2], ("review", "복습 시작"))
+        guikit.click(home.next_btn)
+        self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "복습"))
+        while win.ai_quiz.item is not None:
+            if win.ai_quiz.feedback is None:
+                self.answer()
+            guikit.click(win.ai_quiz.next_btn)
+        self.assertEqual(card()[0::2], ("revisit", "다시 보기"))
+        guikit.click(home.next_btn)
+        self.assertIs(self.page(), win.ai_revisit)
+
+    def test_hub_summary_counts_ai_review(self):
+        win = self.boot()
+        self.read_all(2)
+        win.open_ai_practice("mixed")
+        while win.ai_quiz.item is not None:
+            if win.ai_quiz.feedback is None:
+                self.answer()
+            guikit.click(win.ai_quiz.next_btn)
+        self.at(3)
+        win.go_hub()
+        due = win.ai.overview()["due"]
+        self.assertGreater(due, 0)
+        self.assertEqual(win.hub.summary.text(), "AI 복습 %d개가 있습니다." % due)
+        self.assertTrue(win.hub.ai_row.second.text().endswith("복습 %d문항" % due))
+
+    def test_home_rows_switch_off_while_busy(self):
+        """문제 받기가 기록을 쓰는 동안 문제집 줄도 모두 꺼짐. 끝나면 섞어 풀기는 읽은 단원이 있을 때만 다시 켜짐."""
+        win = self.boot()
+        win.go_ai()
+        home = win.ai_home
+        home.set_busy(True)
+        self.assertTrue(all(row.inert for row in home.books.rows + home.lesson_list.rows))
+        guikit.click(home.books.rows[1])
+        self.assertIs(self.page(), home)
+        home.set_busy(False)
+        self.assertEqual([row.inert for row in home.books.rows], [True, False, False])
+        self.read_all(4)
+        win.go_ai()
+        home.set_busy(True)
+        guikit.click(home.mixed_row)
+        self.assertIs(self.page(), home)
+        home.set_busy(False)
+        self.assertFalse(home.mixed_row.inert)
+
+    def test_broken_record_clears_the_home_numbers(self):
+        """홈을 연 뒤 기록이 깨지면 띠에 이유를 보이고, 지난 수치(알림 줄, 공개된 차시 수, 문제집 줄 둘째 줄)를 남기지 않음."""
+        win = self.boot()
+        self.read_all(4)
+        win.go_ai()
+        home = win.ai_home
+        self.assertTrue(home.info.text() and home.lesson_count.text())
+        path = os.path.join(study.SUBMISSIONS_DIR, USER, "ai", "record.json")
+        study.write_text(path, "{ 깨진 기록, 길이를 바꿔 다시 읽게 함")
+        home.refresh()
+        self.assertTrue(home.notice.isVisible())
+        self.assertFalse(home.info.isVisible())
+        self.assertEqual(home.lesson_count.text(), "")
+        self.assertTrue(home.books.rows and all(row.inert and not row.second.text() for row in home.books.rows))
+
+    def test_hub_next_card_opens_the_ai_unit_after_ai_was_used_last(self):
+        win = self.boot()
+        self.clock = "%sT21:00:00" % datetime.date.today().isoformat()  # 막대는 달력의 오늘을 봄
+        win.ai.mark_read("i90", "90a")
+        win.go_hub()
+        hub = win.hub
+        self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("90차시 · 과적합 알아보기", "학습 시작"))
+        self.assertTrue(hub.next_card.line.text().startswith("AI 비전 개론 · "))
+        self.assertEqual(hub.chart.days[-1][4], 1)  # 끝까지 읽은 단원 하나
+        guikit.click(hub.next_btn)
+        self.assertEqual((self.page(), win.ai_learn.key), (win.ai_learn, "90b"))
+
+
+class TextTest(unittest.TestCase):
+    """화면 글을 만드는 함수(gui/ai_text.py)와 글 나누기(ai_learn.split_boxes, ai_quiz.split_stem)."""
+
+    def test_refs_read_like_sentences(self):
+        cases = {"4차시 슬 p21~p22": "4차시 슬라이드 21~22쪽", "2차시 슬 p5": "2차시 슬라이드 5쪽", "1차시 노트북 02 [30]": "1차시 노트북 02 셀 30",
+                 "3차시 과제 2번": "3차시 과제 2번", "요약 1주차 p5": "강사 요약본 1주차 5쪽", "대학원 04 p26": "대학원 강의안 04 26쪽",
+                 "10차시 강의노트 [3]": "10차시 강의 노트", "공식 13차시": "공식 커리큘럼 13차시", "문서 torch.no_grad": "공식 문서 torch.no_grad",
+                 "5차시 슬 p21 그림": "5차시 슬라이드 21쪽 그림"}
+        for ref, text in cases.items():
+            self.assertEqual(ai_text.ref_one(ref), text)
+        self.assertEqual(ai_text.ref_text(["2차시 슬 p5", "요약 1주차 p5"]), "2차시 슬라이드 5쪽 · 강사 요약본 1주차 5쪽")
+        line = ai_text.errata_text([{"id": "X90-01", "where": "90차시 슬 p3", "right": "기록 말투의 출제 메모"}])
+        self.assertIn("90차시 슬라이드 3쪽", line)
+        self.assertNotIn("출제 메모", line)  # errata 의 right 는 출제 기록이라 화면에 쓰지 않음
+
+    def test_boxes_and_code_parts_are_split_out(self):
+        text = "글\n\n> **[정정]** 슬라이드는 틀렸습니다.\n> 둘째 줄\n\n```python\n> 코드 안\n```\n\n> 그냥 인용"
+        parts = ai_learn.split_boxes(text)
+        self.assertEqual([p[0] for p in parts], ["text", "box", "text"])
+        self.assertEqual(parts[1][1:], ("정정", "슬라이드는 틀렸습니다.\n둘째 줄"))
+        self.assertIn("> 코드 안", parts[2][1])
+        stem = "앞 글 `x.____`\n\n```python\nx = 1\n```\n\n```python\ny.____()\n```\n끝"
+        self.assertEqual([p[0] for p in ai_quiz.split_stem(stem)], ["text", "code", "text"])
+        self.assertIn("x = 1", ai_quiz.split_stem(stem)[0][1])  # 빈칸 없는 코드 울타리는 글에 남음
+
+    def test_counts_use_one_name_each(self):
+        """외운 문항은 "외운 문항 N/M", 복습은 "복습 N문항" 한 꼴로 씀. 학습 단원 줄은 읽은 단원 수만."""
+        row = {"units_total": 3, "read": 1, "memorised": 2, "families": 9, "due": 4, "state": "level1"}
+        self.assertEqual(ai_text.book_line(row), "외운 문항 2/9 · 복습 4문항")
+        self.assertEqual(ai_text.lesson_line(row), "단원 3개 중 1개 읽음")
+        unit = {"read": True, "memorised": 0, "families": 5, "due": 3, "minutes": 5}
+        self.assertEqual(ai_text.unit_line(unit), "읽음 · 외운 문항 0/5 · 복습 3문항 · 약 5분")
+        self.assertEqual(ai_text.recent_label({"kind": "set", "n": 3, "first_pass": 1}), "AI 비전 개론 연습 1/3")
+        self.assertEqual(ai_text.requeue_line(False, 3), "이 문항은 3문항 뒤에 다시 나옵니다.")
+        self.assertEqual(ai_text.requeue_line(False, 0), "이 문항은 바로 다음에 다시 나옵니다.")
+        self.assertTrue(ai_text.requeue_line(True, 5).startswith("한 번 더 맞히면 이 묶음에서 빠집니다."))
+
+    def test_unit_line_reads_the_lesson_date_not_the_engine_sentence(self):
+        overview = {"lessons": [{"id": "i05", "date": "2026-11-04", "units": [{"key": "5a", "minutes": 7}]}]}
+        item = {"lesson": "i05", "unit": "5a", "why": "엔진 문장이 바뀌어도 됨"}
+        self.assertEqual(ai_text.unit_why(item, overview, datetime.date(2026, 11, 5)), "어제 수업한 차시입니다. 읽은 뒤 이 단원 문항부터 풉니다. 약 7분.")
+        self.assertTrue(ai_text.unit_why(item, overview, datetime.date(2026, 11, 4)).startswith("오늘 수업한 차시입니다. "))
+        self.assertEqual(ai_text.unit_why(item, overview, datetime.date(2026, 11, 9)), "읽은 뒤 이 단원 문항부터 풉니다. 약 7분.")
+        mock_next = dict(overview, next={"kind": "mock", "title": "모의고사 1회 · 30문항 · 60분", "count": 30})
+        card = ai_text.next_item(mock_next, datetime.date(2026, 11, 14))
+        self.assertEqual((card["title"], card["line"], card["action"]), ("모의고사 1회 · 30문항 · 60분", ai_text.MOCK_LATER, ""))
+
+    def test_same_row_labels_are_numbered_by_card(self):
+        items = ai_text.numbered([{"key": "i01-s03", "label": "고르기 · 같은 지문"}, {"key": "i01-s01", "label": "고르기 · 같은 지문"},
+                                  {"key": "i01-b01", "label": "빈칸 · 다른 지문"}])
+        self.assertEqual([i["label"] for i in items], ["고르기 · 같은 지문 (2)", "고르기 · 같은 지문 (1)", "빈칸 · 다른 지문"])
+
+    def test_note_html_lines(self):
+        item = {"lines": ["2번 틀림", "확실하다고 했지만 틀림"], "ref": [], "stem": "지문", "options": ["가", "나"], "mine": ["가"]}
+        html_text = ai_text.note_html(item, {"answer": ["가"], "explain": "", "why": {}}, "옳지 않은 문장")
+        self.assertIn("2번 틀림 · 확실하다고", html_text)
+        self.assertIn("옳지 않은 문장: 가", html_text)
+        self.assertEqual(ai_text.answer_word({"kind": "choice", "pick": "wrong"}), "옳지 않은 문장")
+        self.assertEqual(ai_text.answer_word({"kind": "blank", "pick": None}), "정답")
+        lines = ai_text.summary_lines({"first_today": 2, "again_day": 1, "up": 0, "down": 0, "memorised": 0, "sure_wrong": 0, "left": [],
+                                       "next": None, "early": 0}, unlisted=1)
+        self.assertEqual(lines, ["오늘 처음 푼 문항 가운데 맞힌 문항 2개", "다른 날 풀었던 문항 가운데 다시 맞힌 문항 1개",
+                                 "단원을 읽은 날 틀린 1문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다."])
+
+    def test_track_line_has_no_daily_goal(self):
+        overview = {"lessons": [{"ready": True, "units_total": 7, "read": 3}], "memorised": 0, "due": 4,
+                    "plan": {"days_left": 28, "units_today": 7, "goal": False}, "today_answers": 0, "today_extra": 0}
+        self.assertEqual(ai_text.track_line(overview), "단원 7개 중 3개 읽음 · 복습 4문항")
+        self.assertEqual(ai_text.exam_line(overview, datetime.date(2026, 11, 4)), "12월 2일 시험까지 28일")
+
+
+class LessonAndLearnTest(AiTest):
+    def test_lesson_page_rows_and_lesson_practice(self):
+        win = self.boot()
+        win.go_ai()
+        guikit.click(win.ai_home.lesson_list.rows[0])
+        page = win.ai_lesson
+        self.assertIs(self.page(), page)
+        self.assertEqual(page.title.text(), "90차시 시험 차시")
+        rows = [(row.title.text(), row.second.text(), row.end.text()) for row in page.unit_list.rows]
+        self.assertEqual(rows, [("기울기로 걸음 정하기", "안 읽음 · 약 5분", ""), ("과적합 알아보기", "안 읽음 · 약 4분", "심화 있음")])
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["이 차시 풀기"])
+        guikit.click(page.practice_btn)
+        quiz = win.ai_quiz
+        self.assertEqual((self.page(), quiz.title.text()), (quiz, "90차시 풀기"))
+        self.assertEqual(self.log("open")[-1]["lesson"], "i90")
+        guikit.click(quiz.back_btn)
+        self.assertIs(self.page(), win.ai_home)
+
+    def open_unit(self, key="90a", step=None):
+        win = self.win
+        self.assertTrue(win.open_ai_unit("i90", key, step))
+        guikit.pump()
+        return win.ai_learn
+
+    def test_steps_blocks_and_the_last_step(self):
+        win = self.boot()
+        learn = self.open_unit()
+        self.assertEqual(learn.back_btn.text(), "← 90차시")
+        self.assertEqual(learn.title.text(), "기울기로 걸음 정하기")
+        self.assertEqual(learn.stepper.steps, [(1, "먼저", "now"), (2, "", "todo"), (3, "", "todo"), (4, "외울 것", "todo")])
+        self.assertFalse(learn.prev_btn.isEnabled())
+        guess = learn.view.findChildren(ai_learn.GuessBlock)[0]
+        self.assertIsInstance(guess.choices.rows[0].box, ai_learn.RadioMark)  # 하나 고르기는 둥근 표시
+        self.assertFalse(guess.note.isVisible())
+        guikit.click(guess.choices.rows[1])
+        self.assertEqual(guess.choices.picked(), [1])
+        self.assertEqual(guess.note.text(), "2단계에서 답을 확인합니다.")  # 고르는 순간 기록하고 알림
+        self.assertEqual(self.log("guess")[-1]["picked"], 1)
+        guikit.click(guess.choices.rows[2])
+        self.assertEqual(guess.choices.picked(), [2])  # 하나만 골라지고 단계를 떠나기 전까지 바꿀 수 있음
+        guikit.click(guess.choices.rows[2])
+        self.assertEqual(guess.choices.picked(), [2])  # 고른 보기를 다시 눌러도 꺼지지 않음
+        self.assertEqual([r["picked"] for r in self.log("guess")], [1, 2])
+        guikit.click(learn.next_btn)
+        self.assertEqual(learn.stepper.steps[0][2], "done")
+        reveal = learn.view.findChildren(ai_learn.RevealBlock)[0]
+        self.assertIn("처음 고른 답", visible_text(reveal))
+        self.assertIn("키웁니다.", visible_text(reveal))
+        recall = learn.view.findChildren(ai_learn.RecallBlock)[0]
+        guikit.click(recall.check_btn)  # 빈 칸은 채점하지 않고 안내만 함
+        self.assertTrue(recall.empty_note.isVisible())
+        self.assertFalse(recall.result.isVisible() or self.log("recall"))
+        recall.field.setText("3")
+        QTest.keyClick(recall.field, Qt.Key.Key_Return)
+        self.assertEqual(recall.verdict.text(), "틀렸습니다")
+        self.assertIn("정답: **2.8**", visible_text(recall))  # 라벨의 text() 는 넣은 마크다운 그대로
+        self.assertEqual(self.log("recall")[-1]["ok"], False)
+        self.assertEqual(recall.field.property("tone"), "danger")
+        why = learn.view.findChildren(ai_learn.WhyBlock)[0]
+        self.assertFalse(why.answer.isVisible())
+        guikit.click(why.button)
+        self.assertTrue(why.answer.isVisible())
+        self.assertEqual(why.button.text(), "답 접기")
+        guikit.click(learn.next_btn)
+        text = "\n".join(piece.toPlainText() for piece in learn.view.findChildren(TextPiece))
+        self.assertIn("optimizer.zero_grad()", text)  # python 코드 블록이 보임
+        self.assertNotIn("facts:", text)
+        self.assertNotIn("<!--", text)
+        self.assertIn("정정", [badge.text() for badge in learn.view.findChildren(QLabel)])
+        self.assertFalse(self.log("learn"))
+        guikit.click(learn.memo_btn)  # [외울 것으로]
+        self.assertEqual(learn.index, 3)
+        self.assertFalse(learn.memo_btn.isVisible())
+        self.assertEqual(learn.next_btn.text(), "연습 시작")
+        self.assertEqual([(r["lesson"], r["unit"]) for r in self.log("learn")], [("i90", "90a")])
+        memo = learn.view.findChildren(ai_learn.MemoBlock)[0]
+        answer = memo.layout().itemAt(1).widget()
+        self.assertFalse(answer.isVisible())
+        guikit.click(memo.rows[0])
+        self.assertTrue(answer.isVisible())
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(learn)], ["연습 시작"])
+        guikit.click(learn.next_btn)
+        self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "90차시 · 기울기로 걸음 정하기"))
+        self.assertEqual(len(self.log("learn")), 1)  # 마지막 단계를 다시 보아도 한 번만 기록
+        learn = self.open_unit(step=1)
+        guess = learn.view.findChildren(ai_learn.GuessBlock)[0]
+        self.assertEqual(guess.choices.picked(), [2])  # 다시 열면 고른 보기가 보이고 잠김
+        self.assertFalse(guess.choices.rows[0].box.isEnabled())
+        guikit.click(learn.memo_btn)
+        self.assertEqual(len(self.log("learn")), 1)  # 이미 읽은 단원을 다시 끝까지 보아도 읽기 기록은 하나
+
+    def test_step_keys_and_the_recall_field(self):
+        """←·→ 는 단계를 넘기되 떠올리기 칸에서는 글자 커서를 옮기고, 그때 단계는 Alt+←·→ 로만 넘김. 중간 자리는 로컬에 남음."""
+        self.boot()
+        learn = self.open_unit(step=2)
+        self.assertEqual(learn.index, 1)
+        QTest.keyClick(learn.next_btn, Qt.Key.Key_Right)
+        self.assertEqual(learn.index, 2)
+        QTest.keyClick(learn.next_btn, Qt.Key.Key_Left)
+        self.assertEqual(learn.index, 1)
+        field = learn.view.findChildren(ai_learn.RecallBlock)[0].field
+        field.setFocus()
+        field.setText("12")
+        QTest.keyClick(field, Qt.Key.Key_Left)
+        self.assertEqual((learn.index, field.cursorPosition()), (1, 1))
+        QTest.keyClick(field, Qt.Key.Key_Right, Qt.KeyboardModifier.AltModifier)
+        self.assertEqual(learn.index, 2)
+        state = json.loads(study.read_text(os.path.join(os.environ["STUDY_AI_HOME"], USER, "state.json")))
+        self.assertEqual(state["at_step"]["i90/90a"], 3)
+        learn = self.open_unit()
+        self.assertEqual(learn.index, 2)  # 지난번 자리에서 엶
+        learn = self.open_unit(step=2)
+        figure = learn.view.figures[0]
+        self.assertEqual((figure.prev_btn.text(), figure.next_btn.text()), ("이전 장", "다음 장"))  # 단계 넘김 [이전]·[다음]과 다른 이름
+        figure.setFocus()
+        QTest.keyClick(figure, Qt.Key.Key_Right)
+        self.assertEqual((learn.index, figure.frame()), (1, 1))  # 그림에 초점이 있으면 → 는 장
+        QTest.keyClick(figure, Qt.Key.Key_Left, Qt.KeyboardModifier.AltModifier)
+        self.assertEqual(learn.index, 0)  # Alt+← 는 단계
+
+    def test_boxes_scopes_and_trend(self):
+        self.boot()
+        learn = self.open_unit("90b", step=2)
+        badges = [b.text() for b in learn.view.findChildren(QLabel) if b.isVisible()]
+        self.assertEqual(badges.count("보충 설명"), 2)  # 단계 꼬리표와 인용 상자
+        self.assertEqual(learn.view.title.text(), "검증 자료를 따로 두는 까닭")  # 꼬리표가 말하는 앞머리는 뺌
+        learn.show_step(2)
+        guikit.pump()
+        self.assertIn("심화", [b.text() for b in learn.view.findChildren(QLabel) if b.isVisible()])
+        learn.show_step(3)
+        guikit.pump()
+        trend = learn.view.findChildren(ai_learn.TrendBlock)[0]
+        self.assertFalse(trend.doc.isVisible())
+        guikit.click(trend.row)
+        self.assertTrue(trend.doc.isVisible())
+
+    def test_figure_opens_still_and_moves_the_frame_line(self):
+        """그림은 움직임이 켜져 있어도 1장에서 멈춘 채 열리고, 장을 옮기면 장 설명이 같이 바뀜. 뒤로 한 장 갈 때 frame_changed 는 한 번."""
+        self.addCleanup(setattr, motion, "enabled", motion.enabled)
+        motion.enabled = True
+        frames = [{"text": "%d장 설명" % n, "ms": 2000} for n in range(1, 7)]
+        figure = ai_learn.AiFigure(REAL_GIF, "그림 2", frames)
+        holder = kit.page(QScrollArea())
+        holder.setWidget(figure)
+        holder.setWidgetResizable(True)
+        holder.resize(700, 600)
+        holder.show()
+        self.addCleanup(holder.close)
+        guikit.pump(200)
+        self.assertEqual((figure.frame(), figure.playing, figure.frame_text.text()), (0, False, "1장 설명"))
+        figure.go(5)
+        self.assertEqual((figure.counter.text(), figure.frame_text.text()), ("6 / 6", "6장 설명"))
+        calls = []
+        figure.frame_changed = lambda n: (calls.append(n), figure.show_frame(n))
+        figure.prev()
+        self.assertEqual((calls, figure.frame_text.text()), ([4], "5장 설명"))
+        figure.setFocus()
+        QTest.keyClick(figure, Qt.Key.Key_Right)
+        self.assertEqual(figure.frame(), 5)
+        self.assertEqual(figure.picture.pixmap().deviceIndependentSize().height(), 300)
+
+    def test_figure_buttons_stay_put_when_frame_lines_differ(self):
+        """장 설명 줄 수가 장마다 달라도 설명 칸이 가장 긴 설명의 높이를 지켜 넘김 줄과 캡션이 움직이지 않음. 폭이 바뀌면 다시 잼."""
+        long = "길게 쓴 장 설명입니다. " * 12
+        frames = [{"text": long if n in (0, 3) else "%d장" % (n + 1), "ms": 2000} for n in range(6)]
+        figure = ai_learn.AiFigure(REAL_GIF, "그림 2", frames)
+        holder = kit.page(QScrollArea())
+        holder.setWidget(figure)
+        holder.setWidgetResizable(True)
+        holder.resize(700, 700)
+        holder.show()
+        self.addCleanup(holder.close)
+        guikit.pump(100)
+        places = set()
+        for n in range(6):
+            figure.go(n)
+            guikit.pump(20)
+            places.add((figure.controls.y(), figure.caption.y(), figure.height()))
+        self.assertEqual(len(places), 1, places)
+        figure.go(3)
+        guikit.click(figure.prev_btn)  # 가운데 장에서 뒤로(QMovie 가 0번 장으로 못 돌아가던 곳)
+        self.assertEqual((figure.frame(), figure.counter.text()), (2, "3 / 6"))
+        guikit.click(figure.first_btn)
+        self.assertEqual(figure.frame(), 0)
+        held = figure.frame_text.height()
+        self.assertGreater(held, theme.TYPE["body"][1] * 2)  # 짧은 장에서도 긴 설명의 높이
+        holder.resize(1100, 700)
+        guikit.pump(100)
+        self.assertLess(figure.frame_text.minimumHeight(), held)  # 넓어지면 줄 수가 줄어 다시 잼
+
+    def test_full_note_marks_the_guess_answer_and_keeps_units_above_steps(self):
+        """전체 노트는 정답을 편 읽기 전용이라 먼저 풀어 보기에 고를 칸 대신 "정답" 꼬리표를 닮. 단원 이름은 단계 제목보다 큼."""
+        win = self.boot()
+        self.assertTrue(win.open_ai_note("i90"))
+        page = win.ai_note
+        guikit.pump()  # 줄이 자리를 잡은 뒤에 누름
+        unit_row = page.findChildren(ai_learn.FoldRow)[0]
+        guikit.click(unit_row)
+        guess = page.findChildren(ai_learn.GuessBlock)[0]
+        tags = [(n, row.tag.text()) for n, row in enumerate(guess.choices.rows) if row.tag.isVisible()]
+        self.assertEqual(tags, [(0, "정답")])
+        self.assertFalse(guess.choices.rows[0].box.isEnabled() or guess.note.isVisible())
+        self.assertEqual(guess.choices.picked(), [])
+        view = page.views[0]
+        self.assertEqual((unit_row.label.property("role"), view.title.property("role")), ("headline", "label"))
+        self.assertEqual(self.log(), [])  # 읽기 전용이라 기록하지 않음
+
+    def test_revisit_then_mixed_set_starts_with_that_unit(self):
+        win = self.boot()
+        self.read_all()
+        self.at(4)
+        self.assertTrue(win.open_ai_revisit())
+        page = win.ai_revisit
+        self.assertTrue(page.title.text().startswith("90차시 · "))  # 다른 화면처럼 "N차시 · 단원"
+        self.assertTrue(page.memo.rows and not page.memo.rows[0].opened)
+        unit = page.data["unit"]
+        guikit.click(page.start_btn)
+        quiz = win.ai_quiz
+        self.assertEqual((self.page(), quiz.title.text()), (quiz, "섞어 풀기"))
+        self.assertEqual(win.ai.cards[quiz.item["card"]]["unit"], unit)
+        self.assertEqual(self.log("revisit")[-1]["unit"], unit)
+
+
+class PracticeTest(AiTest):
+    def start(self, mode="lesson"):
+        win = self.boot()
+        self.at(4)
+        self.assertTrue(win.open_ai_practice(mode, lesson="i90"))
+        return win.ai_quiz
+
+    def skip_to(self, want):
+        """맞혀 넘기며 want(문항) 가 참인 문항까지 감."""
+        page = self.win.ai_quiz
+        for _ in range(40):
+            if page.item is None:
+                break
+            if want(page.item):
+                return page.item
+            self.answer()
+            guikit.click(page.next_btn)
+        self.fail("찾는 문항이 묶음에 없습니다")
+
+    def badges(self):
+        page = self.win.ai_quiz
+        return [b.text() for b in page.card.findChildren(QLabel) if b.objectName() == "badge" and b.isVisible()]
+
+    def test_wrong_blank_shows_answers_and_comes_back_three_later(self):
+        page = self.start()
+        self.assertEqual(page.count.text(), "1 / %d" % page.item["total"])
+        self.assertTrue(page.guide.isVisible())  # 묶음 첫 문항에 [확실함]·[긴가민가] 안내
+        self.assertIn("[확실함]", page.guide.text())
+        item = self.skip_to(lambda item: item["card"] == "i90-b01")
+        self.assertEqual(item["chips"][:2], ["90차시", "빈칸"])
+        self.assertNotIn("90차시", self.badges())  # 묶음 제목 "90차시 풀기" 와 같은 말이라 화면에서는 뺌
+        self.assertIn("빈칸", self.badges())
+        if item["at"] > 1:
+            self.assertFalse(page.guide.isVisible())
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["확실함"])
+        self.answer(right=False, sure=False)
+        self.assertEqual(page.verdict_text.text(), "틀렸습니다")
+        self.assertEqual(page.verdict_text.property("tone"), "danger")
+        self.assertEqual(page.answer_line.text(), "정답: 반대")  # 정답은 판정 아래 한 곳에만
+        self.assertEqual(page.fields[0].property("tone"), "danger")
+        self.assertFalse(page.results[0].isVisible())  # 칸이 하나면 테두리와 판정 줄이 말함
+        self.assertEqual(page.requeue.text(), "이 문항은 3문항 뒤에 다시 나옵니다.")  # 묶음 길이가 늘어난 까닭
+        self.assertEqual(page.count.text(), "%d / %d" % (item["at"], item["total"] + 1))
+        self.assertIn("근거: 90차시 슬라이드 2쪽", visible_text(page.after))
+        self.assertTrue(page.mine_btn.isVisible() and page.note_btn.isVisible())
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["다음"])
+        at = item["at"]
+        guikit.click(page.next_btn)
+        for _ in range(3):
+            self.assertNotEqual(page.item["card"], "i90-b01")
+            self.answer()
+            guikit.click(page.next_btn)
+        self.assertEqual((page.item["card"], page.item["at"]), ("i90-b01", at + 4))
+        self.assertIn("다시 나온 문항", page.item["chips"])
+        self.answer()
+        self.assertTrue(page.requeue.text().startswith("한 번 더 맞히면 이 묶음에서 빠집니다."))
+        seen = 2
+        guikit.click(page.next_btn)
+        while page.item is not None:
+            if page.item["card"] == "i90-b01":
+                seen += 1
+            if page.feedback is None:
+                self.answer()
+            guikit.click(page.next_btn)
+        self.assertEqual(seen, 3)  # 틀림, 맞힘, 다시 맞힘
+        self.assertRegex(visible_text(page.card), r"\d+문항 가운데 \d+문항을 처음 답에 맞혔습니다.")
+        self.assertTrue(page.again_btn.isVisible())
+        self.assertEqual(page.again_btn.text(), "한 번 더")
+        self.assertTrue(self.log("set_end"))
+        answers = [r for r in self.log("answer") if r["result"] == "pass"]
+        self.assertFalse([r for r in answers if "value" in r])  # 맞힌 답의 글은 남기지 않음
+
+    def test_sure_wrong_dont_know_and_override(self):
+        page = self.start()
+        self.skip_to(lambda item: item["kind"] == "blank" and not item["code"])
+        self.answer(right=False, sure=True)
+        self.assertEqual(page.verdict_text.text(), ai_text.SURE_WRONG)
+        self.assertTrue(self.log("answer")[-1]["sure"])
+        guikit.click(page.mine_btn)
+        self.assertEqual(page.verdict_text.text(), ai_text.OVERRIDDEN)
+        self.assertFalse(page.mine_btn.isVisible())
+        self.assertEqual(self.log("override")[-1]["card"], page.item["card"])
+        guikit.click(page.next_btn)
+        guikit.click(page.dont_btn)
+        self.assertEqual((page.verdict_text.text(), page.verdict_text.property("tone")), (ai_text.DONT_KNOW, "secondary"))
+        self.assertFalse(page.mine_btn.isVisible())
+        self.assertTrue(self.log("answer")[-1]["dontknow"])
+        for field in page.fields:  # 읽기 전용 칸에 자리표시와 틀림 색을 남기지 않음(글 칸 문항일 때)
+            self.assertEqual((field.placeholderText(), field.property("tone"), field.isReadOnly()), ("", None, True))
+        self.assertTrue(page.answer_line.text().startswith("정답: "))
+
+    def test_empty_answer_is_not_sent(self):
+        page = self.start()
+        count = len(self.log("answer"))
+        guikit.click(page.sure_btn)
+        self.assertEqual(page.status.text(), ai_text.EMPTY_ANSWER[page.item["kind"]])
+        self.assertIsNone(page.feedback)
+        self.assertEqual(len(self.log("answer")), count)
+
+    def test_code_blank_uses_slots_and_tab_moves_between_them(self):
+        page = self.start()
+        item = self.skip_to(lambda item: item["code"])
+        self.assertEqual(item["chips"][1], "코드 빈칸")
+        self.assertEqual(len(page.slots), 1)
+        slot = page.slots[0].fields[0]
+        self.assertIsInstance(slot, ai_quiz.Slot)
+        self.assertEqual(slot.height(), theme.slot_height())
+        self.assertFalse(page.fields)  # 코드 밖 칸이 없음
+        self.answer()
+        self.assertEqual(page.answer_line.text(), "정답: `zero_grad`")
+        fake = dict(page.item, stem="두 칸을 채우세요.\n\n```python\nx.____(2, 3)\ny = x.____()\n```",
+                    blanks=[{"mode": "code", "hint": "메서드"}, {"mode": "code", "hint": "메서드"}], code=True, chips=["90차시", "코드 빈칸"])
+        page.show_item(fake)
+        guikit.pump()  # 새 칸은 다음 이벤트에서 보이고 그 뒤에 초점을 받음
+        slots = page.slots[0]
+        self.assertIs(QApplication.focusWidget(), slots.fields[0])  # 문항을 열면 첫 칸에 초점
+        self.assertEqual(len(slots.fields), 2)
+        self.assertEqual([label.text() for label in slots.inner.findChildren(QLabel) if label.text() in "①②"], ["①", "②"])
+        slots.fields[0].setFocus()
+        QTest.keyClick(slots.fields[0], Qt.Key.Key_Tab)
+        self.assertIs(QApplication.focusWidget(), slots.fields[1])
+        slots.fields[1].setText("contiguous_and_long_name")
+        self.assertGreater(slots.fields[1].width(), slots.fields[0].width())  # 적은 만큼 넓어짐
+        width = slots.fields[0].width()
+        page.mark_blanks([True, False], ["view", "sum"])  # 칸마다 맞고 틀림을 색만이 아니라 글로도 보임
+        self.assertEqual(page.answer_line.text(), "정답: ① `view` · ② `sum`")
+        self.assertEqual(slots.result.text(), "① 맞음 · ② 틀림")
+        self.assertTrue(slots.result.isVisible())
+        self.assertEqual([f.property("tone") for f in slots.fields], ["success", "danger"])
+        self.assertEqual(slots.fields[0].width(), width)  # 자리표시를 지워도 칸 폭이 그대로라 뒤 코드가 움직이지 않음
+        numbers = [label for label in slots.inner.findChildren(QLabel) if label.text() in ("①", "②")]
+        self.assertEqual({label.property("role") for label in numbers}, {"label"})  # 코드 밖 칸 번호와 같은 크기
+
+    def test_drop_and_paste_leave_the_fields_alone(self):
+        """칸에 글을 끌어다 놓거나 붙여넣기 키를 눌러도 글이 들어가지 않고 안내가 나옴."""
+        page = self.start()
+        self.skip_to(lambda item: item["card"] == "i90-b01")
+        field = page.fields[0]
+        data = QMimeData()
+        data.setText("반대")
+        point = QPointF(field.width() / 2, field.height() / 2)
+        enter = QDragEnterEvent(point.toPoint(), Qt.DropAction.CopyAction, data, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+        QApplication.sendEvent(field, enter)
+        drop = QDropEvent(point, Qt.DropAction.CopyAction, data, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+        QApplication.sendEvent(field, drop)
+        self.assertEqual(field.text(), "")
+        page.status.hide()
+        field.setFocus()
+        QTest.keyClick(field, Qt.Key.Key_V, Qt.KeyboardModifier.ControlModifier)  # 키는 창의 Guard 가 막고 같은 안내를 보임
+        self.assertEqual(field.text(), "")
+        self.assertTrue(page.status.isVisible())
+
+    def test_ctrl_enter_commits_the_composing_hangul_first(self):
+        """단축키는 초점을 옮기지 않아 조합 중인 글자가 칸에 들어가기 전에 답을 읽을 수 있음. 답을 읽기 전에 commit_input 을 부름."""
+        page = self.start()
+        self.skip_to(lambda item: item["card"] == "i90-b01")
+        field = page.fields[0]
+        field.setText("반")
+
+        def commit():  # 입력기가 남은 "대" 를 칸에 넣는 것을 흉내 냄
+            field.setText(field.text() + "대")
+
+        with mock.patch.object(ai_quiz, "commit_input", commit):
+            QTest.keyClick(field, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual(page.verdict_text.text(), "맞았습니다")
+        QTest.keyClick(page, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)  # 답한 뒤에는 [다음]
+        self.assertIsNone(page.feedback)
+        self.win.open_ai_practice("lesson", lesson="i90")  # 새 묶음의 첫 빈칸에서 [긴가민가] 단축키를 봄
+        self.skip_to(lambda item: item["kind"] == "blank" and not item["code"])
+        page.fields[0].setText("모름")
+        QTest.keyClick(page.fields[0], Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+        self.assertFalse(self.log("answer")[-1]["sure"])
+
+    def test_choice_marks_every_option_and_errata(self):
+        page = self.start()
+        self.skip_to(lambda item: item["card"] == "i90-c01")
+        self.assertEqual(page.item["chips"][:2], ["90차시", "고르기"])
+        self.assertIsInstance(page.choices.rows[0].box, ai_learn.RadioMark)
+        self.answer(right=False)
+        tags = {row.tag.text() for row in page.choices.rows if row.tag.isVisible()}
+        self.assertEqual(tags, {"정답", "내 답"})  # 색만이 아니라 글로도 알림
+        self.assertTrue(all(holder.isVisible() for holder in page.whys))
+        self.assertTrue(page.answer_line.text().startswith("정답: zero_grad"))
+        text = visible_text(page.after)
+        self.assertIn("정정", text)
+        self.assertIn("90차시 슬라이드 3쪽", text)
+        self.assertFalse(page.mine_btn.isVisible())
+
+    def test_pick_wrong_item_does_not_call_the_false_statement_the_answer(self):
+        page = self.start()
+        self.skip_to(lambda item: item["kind"] == "choice" and item["pick"] == "wrong")
+        self.answer(right=False)
+        self.assertTrue(page.answer_line.text().startswith("옳지 않은 문장: "), page.answer_line.text())
+
+    def test_note_dialog_shows_the_step_read_only(self):
+        page = self.start()
+        self.skip_to(lambda item: item["card"] == "i90-b01")
+        self.answer(right=False)
+        count = len(self.log())
+        guikit.click(page.note_btn)
+        dialog = page.note_dialog
+        self.assertTrue(dialog.isVisible())
+        self.assertTrue(dialog.isModal())  # 열어 둔 채 다음 문항으로 넘어가지 못함
+        self.assertEqual(dialog.view.title.text(), "손실이 줄어드는 쪽으로 W를 옮깁니다")
+        recall = dialog.view.findChildren(ai_learn.RecallBlock)[0]
+        self.assertFalse(recall.entry.isVisibleTo(dialog))
+        self.assertTrue(recall.result.isVisibleTo(dialog))  # 정답을 편 채로
+        self.assertTrue(dialog.view.findChildren(ai_learn.WhyBlock)[0].answer.isVisibleTo(dialog))
+        dialog.close()
+        guikit.pump()
+        self.assertEqual(len(self.log()), count)  # 대화상자 안 블록은 기록하지 않음
+        self.assertIs(self.page(), page)
+        guikit.click(page.note_btn)
+        dialog = page.note_dialog
+        page.go_next()  # 단축키 같은 다른 길로 넘어가도 창이 남지 않음
+        guikit.pump()
+        self.assertTrue(sip.isdeleted(dialog) or not dialog.isVisible())
+        self.assertIsNone(page.note_dialog)
+
+    def test_unit_set_ends_with_next_unit(self):
+        win = self.boot()
+        self.at(4)
+        win.ai.mark_read("i90", "90a")
+        win.open_ai_practice("unit", lesson="i90", unit="90a")
+        page = win.ai_quiz
+        while page.item is not None:
+            if page.feedback is None:
+                self.answer()
+            guikit.click(page.next_btn)
+        self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["다음 단원"])
+        self.assertEqual(page.count.text(), "끝남")
+        guikit.click(page.again_btn)
+        self.assertEqual((self.page(), win.ai_learn.key), (win.ai_learn, "90b"))
+        win.ai.mark_read("i90", "90b")
+        win.open_ai_practice("unit", lesson="i90", unit="90b")
+        while page.item is not None:
+            if page.feedback is None:
+                self.answer()
+            guikit.click(page.next_btn)
+        self.assertEqual(page.again_btn.text(), "섞어 풀기")  # 안 읽은 단원이 없으면 단추 이름이 여는 화면을 말함
+        guikit.click(page.again_btn)
+        self.assertEqual((self.page(), page.title.text()), (page, "섞어 풀기"))
+
+    def test_unit_day_wrong_answers_are_explained_in_the_summary(self):
+        """단원을 읽은 날 처음 답을 틀린 문항은 오답 노트에 들어가지 않으므로, 끝 요약과 빈 오답 노트가 그 까닭을 말함."""
+        win = self.boot()
+        self.at(4)
+        win.ai.mark_read("i90", "90a")
+        win.open_ai_practice("unit", lesson="i90", unit="90a")
+        page = win.ai_quiz
+        self.answer(right=False, sure=False)
+        while page.item is not None:
+            if page.feedback is None:
+                self.answer()
+            guikit.click(page.next_btn)
+        self.assertEqual(win.ai.wrong_notes(), [])
+        self.assertIn("단원을 읽은 날 틀린 1문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다.", visible_text(page.card))
+        self.assertIn("단원을 읽은 날 틀린 문항은", ai_text.AiNotes.EMPTY)
+
+    def test_problem_fetch_sends_the_practice_page_home(self):
+        page = self.start()
+        self.answer()
+        self.git.replies["sync"] = {"status": "ok", "changed": True, "message": "새 문제를 받았습니다."}
+        self.win.fetch_problems()
+        self.idle()
+        if self.win.dialog is not None:
+            self.win.dialog.close()
+        self.assertEqual((self.page(), self.win.area), (self.win.ai_home, "ai"))
+        self.assertIsNone(page.practice)
+
+
+class WrongNoteTest(AiTest):
+    def make_wrong(self):
+        """11-02 에 읽고 11-03 복습에서 하나를 틀림(읽은 날의 오답은 오답 노트에 넣지 않음)."""
+        win = self.win
+        self.read_all(2)
+        win.open_ai_practice("mixed")
+        while win.ai_quiz.item is not None:
+            if win.ai_quiz.feedback is None:
+                self.answer()
+            guikit.click(win.ai_quiz.next_btn)
+        self.at(3)
+        win.open_ai_practice("review")
+        self.answer(right=False)
+        return win.ai_quiz.item["card"]
+
+    def test_ai_tab_rows_detail_and_retry(self):
+        win = self.boot()
+        card = self.make_wrong()
+        self.at(4)
+        win.go_hub()
+        hub = win.hub
+        row = dict((track.tid, r) for track, r in hub.note_rows)["ai"]
+        self.assertEqual(row.second.text(), "틀린 문항 1개")
+        guikit.click(row)
+        page = win.wrong_page
+        self.assertEqual((self.page(), page.track.tid, page.back_btn.text()), (page, "ai", "← 처음 화면"))
+        self.assertTrue(page.chip_row.isVisibleTo(page))
+        self.assertTrue(page.chips["ai"].isChecked())
+        self.assertEqual(page.selected()["key"], card)
+        label = page.list.rows[0].title.text()
+        self.assertNotIn("90차시", label)  # 묶음 이름이 차시를 말하므로 줄에는 문제 첫머리
+        self.assertTrue(page.item_title.text().startswith("90차시 · "))
+        text = page.detail.toPlainText()
+        self.assertIn("내 답", text)
+        self.assertNotIn("정답과 해설", text)
+        guikit.click(page.explain_btn)
+        self.assertIn("정답과 해설", page.detail.toPlainText())
+        guikit.click(page.retry_btn)
+        quiz = win.ai_quiz
+        self.assertEqual((self.page(), quiz.title.text(), quiz.item["card"]), (quiz, "오답 다시 풀기", card))
+        self.assertEqual(quiz.back_btn.text(), "← 오답 노트")
+        guikit.click(quiz.back_btn)
+        self.assertIs(self.page(), page)
+
+    def test_statement_rows_follow_the_form_they_were_missed_in(self):
+        win = self.boot()
+        sess = win.ai
+        self.at(2)
+        sess.mark_read("i90", "90b")
+        sess._append({"kind": "answer", "set": "s0", "card": "i90-s01", "result": "pass", "again": 0})
+        self.at(3)
+        sess._append({"kind": "answer", "set": "s1", "card": "i90-s01", "result": "pass", "again": 0})
+        self.at(4)
+        service.PracticeSet(sess, "s2", "unit", ["i90-s01"], 1).answer(["엉뚱"], 2, False)
+        choice = service.PracticeSet(sess, "s3", "unit", ["i90-s05"], 1)
+        right = grade.right_options(choice._view(choice.queue[0])["item"])
+        choice.answer([o["no"] for o in choice.current()["options"] if o["no"] not in right][:1], 2, False)
+        win.go_ai()
+        guikit.click(win.ai_home.notes_row)
+        page = win.wrong_page
+        cloze, wrong = sess.cards["i90-s01"]["stmt"], sess.cards["i90-s05"]["stmt"]
+        label = page.list.row_of("i90-s01").title.text()
+        self.assertTrue(label.startswith("빈칸 · "), label)
+        self.assertNotIn(cloze["text"], label)  # 줄에 답이 보이지 않음
+        self.assertNotIn(wrong["text"], page.list.row_of("i90-s05").title.text())
+        page.list.pick(page.list.row_of("i90-s01"))
+        guikit.click(page.explain_btn)
+        self.assertIn("정답: %s" % cloze["cloze"]["answer"][0], page.detail.toPlainText())
+        page.list.pick(page.list.row_of("i90-s05"))
+        guikit.click(page.explain_btn)
+        self.assertIn("옳지 않은 문장: %s" % wrong["text"], page.detail.toPlainText())
+
+    def test_home_row_opens_the_tab_and_comes_back_home(self):
+        win = self.boot()
+        win.go_ai()
+        home = win.ai_home
+        self.assertEqual(home.notes_row.second.text(), "아직 틀린 문항이 없습니다.")
+        guikit.click(home.notes_row)
+        page = win.wrong_page
+        self.assertEqual((self.page(), page.track.tid, page.back_btn.text()), (page, "ai", "← AI 비전 개론"))
+        self.assertIs(page.stack.currentWidget(), page.empty)
+        self.assertEqual(page.empty_text.text(), ai_text.AiNotes.EMPTY)
+        guikit.click(page.back_btn)
+        self.assertEqual((self.page(), win.area), (win.ai_home, "ai"))
+
+
+class DesignTest(AiTest):
+    def screens(self, win):
+        """(이름, 띄우는 함수). 학습 단원은 단계마다, 연습은 답하기 전과 뒤와 끝 요약."""
+        def learn(step):
+            return lambda: win.open_ai_unit("i90", "90a", step)
+
+        def practice_after():
+            self.answer(right=False)
+
+        def practice_end():
+            page = win.ai_quiz
+            while page.item is not None:
+                if page.feedback is None:
+                    self.answer()
+                guikit.click(page.next_btn)
+
+        return [("홈", win.go_ai), ("차시", lambda: win.open_ai_lesson("i90"))] + \
+            [("단원 %d단계" % n, learn(n)) for n in range(1, 5)] + \
+            [("다시 보기", win.open_ai_revisit), ("외울 것", lambda: win.open_ai_note("i90", True)),
+             ("전체 노트", lambda: win.open_ai_note("i90")),
+             ("연습", lambda: win.open_ai_practice("lesson", lesson="i90")), ("연습 답한 뒤", practice_after), ("연습 끝", practice_end)]
+
+    def test_one_primary_button_and_control_sizes(self):
+        """화면 상태마다 주 단추 하나, 단추·줄 높이, 단추 글자 8자 이하, 작업 화면 주 단추는 막대 오른쪽 끝. 부모 없는 부품이 따로 창으로
+        뜨지 않음(뜨면 창이 초점을 잃어 단축키가 듣지 않음)."""
+        win = self.boot((1024, 700))
+        self.read_all(2)
+        self.at(4)
+        shown = []
+        spy = WindowSpy(shown)
+        QApplication.instance().installEventFilter(spy)
+        self.addCleanup(QApplication.instance().removeEventFilter, spy)
+        for step in theme.TEXT_STEPS:
+            win.set_text(step)
+            for name, show in self.screens(win):
+                show()
+                self.idle()
+                page = self.page()
+                name = "%s %s" % (step, name)
+                self.assertEqual(page.property("ui"), "2", name)
+                primaries = kit.visible_primary_buttons(page)
+                self.assertLessEqual(len(primaries), 1, "%s: %s" % (name, [b.text() for b in primaries]))
+                for button in page.findChildren(QPushButton):
+                    if not (button.property("scale") and button.isVisible()):
+                        continue
+                    least = theme.CONTROL["l"] if button.objectName() == "primary" else theme.CONTROL["s"]
+                    self.assertGreaterEqual(button.height(), least, "%s: %s" % (name, button.text()))
+                    self.assertLessEqual(len(button.text().replace(" ", "")), 8, "%s: %s" % (name, button.text()))
+                for row in page.findChildren(kit.Row):
+                    if row.isVisible():
+                        self.assertGreaterEqual(row.height(), theme.CONTROL["row"], "%s: %s" % (name, row.title.text()))
+                if primaries and page is not win.ai_home:
+                    corner = primaries[0].mapTo(win, QPoint(primaries[0].width(), primaries[0].height()))
+                    self.assertEqual(corner.x(), win.width() - kit.MARGIN, "%s: %s" % (name, primaries[0].text()))
+                self.assertLessEqual(page.minimumSizeHint().width(), win.width(), name)
+                text = visible_text(page)
+                for word in GOAL_WORDS:
+                    self.assertNotIn(word, text, name)
+                self.assertEqual(shown, [], name)
+        win.set_text(theme.TEXT_DEFAULT)
+
+    def test_code_slot_tokens_and_series_colour(self):
+        self.assertEqual(theme.CONTROL["slot"], theme.BASE_TYPE["code"][1] + 8)
+        self.assertIn("series_ai", theme.LIGHT)
+        self.assertEqual((theme.LIGHT["series_ai"], theme.DARK["series_ai"]), ("#b35c00", "#e8833a"))
+
+
+class RealLessonTest(AiTest):
+    """저장소의 1~4차시 학습 노트. 모든 단원의 모든 단계가 오류 없이 그려지고, 숨긴 줄이 보이지 않고, 1024×700 에서 그림의 넘김 줄과
+    장 설명이 그림과 함께 스크롤 없이 한 화면에 들어감."""
+    real_bank = True
+
+    def test_every_step_of_lessons_one_to_four_renders(self):
+        win = self.boot((1024, 700))
+        learn = win.ai_learn
+        started = time.monotonic()
+        figures = 0
+        for lid in ("i01", "i02", "i03", "i04"):
+            for unit in win.ai.unit_list(lid):
+                self.assertTrue(win.open_ai_unit(lid, unit["key"], 1), (lid, unit["key"]))
+                for index in range(len(learn.steps)):
+                    learn.show_step(index)
+                    guikit.pump(30)
+                    where = "%s %s %d" % (lid, unit["key"], index + 1)
+                    text = "\n".join(piece.toPlainText() for piece in learn.view.findChildren(TextPiece))
+                    self.assertNotIn("<!--", text, where)
+                    self.assertNotIn(ai_text.BLOCK_BROKEN, visible_text(learn.view), where)
+                    for figure in learn.view.figures:
+                        if figure.movie is None:
+                            continue
+                        figures += 1
+                        for _ in range(2):  # 글 조각이 높이를 잡은 뒤 다시 맞춤
+                            learn.scroll.ensureWidgetVisible(figure.controls, 0, 0)
+                            guikit.pump(20)
+                        viewport = learn.scroll.viewport()
+                        top = figure.picture.mapTo(viewport, QPoint(0, 0)).y()
+                        bottom = figure.controls.mapTo(viewport, QPoint(0, figure.controls.height())).y()
+                        self.assertTrue(top >= 0 and bottom <= viewport.height(), "%s %s" % (where, (top, bottom, viewport.height())))
+                        self.assertLessEqual(figure.picture.height(), 300, where)
+        self.assertGreater(figures, 20)
+        self.assertLess(time.monotonic() - started, 600)
+
+
+if __name__ == "__main__":
+    unittest.main()

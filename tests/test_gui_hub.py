@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import QLabel  # noqa: E402
 import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
+from aiprep import bank as ai_bank  # noqa: E402
 from gui import errors, hub_page, kit, theme  # noqa: E402
 from gui.journey_page import NODE_RETRY, NODE_TITLE  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
@@ -37,6 +38,7 @@ from webprep import stack  # noqa: E402
 
 FIXTURE = os.path.join(guikit.ROOT, "tests", "journey_bank")
 WEB_FIXTURE = os.path.join(guikit.ROOT, "tests", "web_bank")
+AI_FIXTURE = os.path.join(guikit.ROOT, "tests", "ai_bank")
 FAKE_NODE = {"path": "/fake/node", "version": "22.23.2", "major": 22}
 SKIP_LEAN = unittest.skipIf(os.environ.get("STUDY_LEAN_CI"), "자식 프로세스를 띄우는 테스트는 ci.yml 의 화면 테스트 작업에서 돎")
 USER = "tester"
@@ -87,7 +89,8 @@ class HubTest(unittest.TestCase):
         for target, name, value in ((study, "SUBMISSIONS_DIR", os.path.join(self.tmp, "submissions")),
                                     (study, "USER_FILE", os.path.join(self.tmp, ".study_user")),
                                     (runner, "CACHE_DIR", os.path.join(self.tmp, "cache")), (bank, "BANK_DIR", FIXTURE),
-                                    (web_bank, "BANK_DIR", WEB_FIXTURE), (stack, "find_node", lambda saved=None, probe=False: FAKE_NODE)):
+                                    (web_bank, "BANK_DIR", WEB_FIXTURE), (ai_bank, "AI_DIR", AI_FIXTURE),
+                                    (stack, "find_node", lambda saved=None, probe=False: FAKE_NODE)):
             patcher = mock.patch.object(target, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -96,6 +99,7 @@ class HubTest(unittest.TestCase):
         self.addCleanup(environ.stop)
         os.environ.pop("STUDY_USER", None)
         os.environ["STUDY_WEB_HOME"] = os.path.join(self.tmp, "web_home")
+        os.environ["STUDY_AI_HOME"] = os.path.join(self.tmp, "ai_home")
         self.addCleanup(setattr, sys, "excepthook", sys.excepthook)
         self.logs = os.path.join(self.tmp, ".study_logs")
         errors.install(self.logs)
@@ -219,8 +223,8 @@ class HubScreenTest(HubTest):
         # 막대: 25문항 회차를 한 번 채점한 날의 파이썬 값은 1, 여행은 채점 기록 수, 웹은 기록이 없어 0. 어제도 여행 채점이 있어 연속 2일
         today = datetime.date.today()
         self.assertEqual(len([a for a in prof["attempts"] if a["round"] == "r1"]), 25)
-        self.assertEqual(hub.chart.days[-1], (today, 1, 3, 0))
-        self.assertEqual(hub.chart.days[-2], (today - datetime.timedelta(days=1), 0, 1, 0))
+        self.assertEqual(hub.chart.days[-1], (today, 1, 3, 0, 0))  # 파이썬, 알고리즘, 웹, AI
+        self.assertEqual(hub.chart.days[-2], (today - datetime.timedelta(days=1), 0, 1, 0, 0))
         self.assertEqual(len(hub.chart.days), 7)
         self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 2일", "채점 5회"))
         self.assertTrue(hub.recent_box.isVisible())
@@ -273,7 +277,7 @@ class HubScreenTest(HubTest):
         self.graded_round()  # 아무것도 적지 않고 제출해 25문항이 모두 미응답
         win = self.boot()
         hub = win.hub
-        self.assertEqual([(row.title.text(), row.second.text()) for _, row in hub.note_rows], [("파이썬 스터디", "미응답 문항 25개")])
+        self.assertEqual([(row.title.text(), row.second.text()) for _, row in hub.note_rows], [("파이썬 스터디", "미응답 문항 25개"), ("AI 비전 개론", "아직 틀린 문항이 없습니다.")])
         row = hub.note_rows[0][1]
         guikit.click(row)
         page = win.wrong_page

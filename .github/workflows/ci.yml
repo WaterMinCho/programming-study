@@ -36,6 +36,11 @@ jobs:
       - run: python tools/verify_bank.py
       # 알고리즘 여행의 평문 답 파일(dungeons/*/*/solution.py 등)이 올라오지 않았는지 봄. node 가 필요 없고 1초 안팎임
       - run: python tools/journey_seal.py check
+      # AI 비전 개론 은행: 평문 작업본, 문항 꼴·사실 확인·서명, 학습 노트 꼴·서명, 노트 말투·맥락을 봄. 모두 표준 라이브러리만 씀
+      - run: python tools/ai_seal.py check
+      - run: python tools/verify_ai.py --require-review
+      - run: python tools/verify_web.py --bank ai --total-mb 32 --require-review
+      - run: python tools/web_lint.py --bank ai --no-external
       # 세션 서비스·제출 흐름·실행기 테스트 (화면 테스트는 아래 별도 작업)
       # STUDY_LEAN_CI 가 있으면 자식 프로세스를 띄우고 시간을 기다리는 여정 테스트를 건너뜀. 그 테스트는 journey.yml 에서 돎
       - run: python -m unittest discover -s tests
