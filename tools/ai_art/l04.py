@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""4차시 학습 노트 l04 의 그림(4a 선형 모델과 손실, 4b 기울기와 경사하강법, 4c 연쇄법칙·역전파·학습 코드).
+"""4차시 학습 노트 l04 의 그림(4a 선형 모델과 손실, 4b 기울기와 경사하강법, 4c 연쇄법칙·역전파·학습 코드,
+4d~4h 퍼셉트론과 XOR, 활성화 함수, 국소 최적해와 모멘텀, 모델 용량과 데이터 나누기, 평가 지표).
 
 다섯 사람의 신장·체중 예 하나를 세 단원 끝까지 씀. 그림에 찍는 숫자는 모두 이 파일에서 numpy 로 다시 계산하고 assert 로
 확인함(노트북 4차시 01 의 출력 13.3520, -19.04, 2.0, W 1.820683, B 0.3675114 와 맞춤).
@@ -1001,6 +1002,1157 @@ def summary_4c():
     ax.annotate("", xy=(2.85, 3.07), xytext=(2.85, 2.53), arrowprops=kw)
     ax.text(3.05, 2.8, "기울기를 지우고 500번 되풀이", fontsize=16, color=MUTED, va="center")
     ax.text(8.55, 2.8, "연쇄법칙", fontsize=16, color=MUTED, va="center")
+    return image(fig)
+
+
+# 4d~4h 단원 그림(PR2). 새 단원도 한 단원 안에서 한 색은 한 뜻이고, 뜻은 그 그림의 캡션에 적음
+# 4d: 파랑은 출력 1(채운 점과 그쪽 영역), 회색 빈 점은 출력 0, 주황은 퍼셉트론이 긋는 직선, 빨강 테두리는 잘못 나뉜 점,
+#   보라는 은닉층이 만든 값과 신경망의 층이 배우는 일, 초록은 사람이 하는 일. 4d-2 는 색에 뜻이 없음(검정·회색만)
+# 4e: 파랑은 함수 값(층을 지난 출력), 주황은 미분값, 회색 띠는 미분값이 0 에 가까운 포화 구간, 회색 점선은 출력이 넘지 않는 값
+# 4f: 빨강은 손실 곡선 f(x), 파랑은 모멘텀 없는 경사하강법, 보라는 모멘텀
+# 4g: 파랑은 학습 데이터, 주황은 검증(새) 데이터, 보라는 테스트 데이터, 초록은 모델의 예측선, 빨강은 데이터 누수
+# 4h: 파랑은 직선·예측, 빨강은 오차와 틀린 판정, 초록은 맞힌 판정, 회색 점선은 임계값, 보라는 ROC 곡선, 노랑 테두리는 지표가 쓰는 칸
+PURPLE_L, RED_L, YELLOW_B = "#ede9fe", "#fee2e2", "#fde68a"
+STEP4 = [(0, 0), (0, 1), (1, 0), (1, 1)]
+
+
+def fmt2(v):
+    """소수 둘째 자리까지 0 을 남겨 찍는 숫자(빼기표 U+2212)."""
+    return f"{v:.2f}".replace("-", M)
+
+
+def step_out(z):
+    return 1 if z > 0 else 0
+
+
+def perceptron_out(w1, w2, b):
+    return [step_out(w1 * a + w2 * c + b) for a, c in STEP4]
+
+
+def boxes_axes(fig, rect=(0, 0, 1, 1), xmax=11.2, ymax=6.0):
+    ax = fig.add_axes(list(rect))
+    ax.set_xlim(0, xmax)
+    ax.set_ylim(0, ymax)
+    ax.axis("off")
+    return ax
+
+
+def card(ax, x0, y0, w, h, title, lines, edge="#9ca3af", fill="white", ink=INK, size=17, tsize=20, gap=0.52):
+    """외울 것 그림의 상자 하나. lines 는 (글, 색) 이나 글."""
+    from matplotlib.patches import FancyBboxPatch
+    ax.add_patch(FancyBboxPatch((x0, y0), w, h, boxstyle="round,pad=0.05", fc=fill, ec=edge, lw=2))
+    ax.text(x0 + 0.18, y0 + h - 0.38, title, ha="left", va="center", fontsize=tsize, weight="bold", color=ink)
+    yy = y0 + h - 0.95
+    for line in lines:
+        text, color = (line, INK) if isinstance(line, str) else line
+        ax.text(x0 + 0.22, yy, text, ha="left", va="center", fontsize=size, color=color)
+        yy -= gap
+
+
+# 4d 머신러닝, 딥러닝, 퍼셉트론과 XOR
+
+@figure("4d-1", 560, 300)
+def ai_ml_dl():
+    """인공지능 ⊃ 머신러닝 ⊃ 딥러닝(왼쪽 원 셋)과 특징을 누가 만드는지(오른쪽 두 줄)."""
+    from matplotlib.patches import Circle, FancyBboxPatch
+    plt, fig = new(600)
+    ax = fig.add_axes([0.0, 0.0, 0.47, 1.0])
+    ax.set_xlim(-1.08, 1.08)
+    ax.set_ylim(-1.08, 1.08)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    for (cx, cy, r, fc, name, ex, ty) in [(0, 0, 1.0, "#f8fafc", "인공지능", "체스, 번역기, 챗봇", 0.80),
+                                          (0, -0.16, 0.76, "#f3f4f6", "머신러닝", "스팸 필터, 다섯 사람 직선", 0.40),
+                                          (0, -0.33, 0.50, "#e5e7eb", "딥러닝", "얼굴 인식, 자율주행", -0.18)]:
+        ax.add_patch(Circle((cx, cy), r, fc=fc, ec=MUTED, lw=2.2))
+        ax.text(0, ty, name, ha="center", va="center", fontsize=21, weight="bold", color=INK)
+        ax.text(0, ty - 0.15, ex, ha="center", va="center", fontsize=16, color=INK)
+    bx = boxes_axes(fig, (0.47, 0.0, 0.53, 1.0), xmax=5.9, ymax=6.0)
+    bx.text(0.05, 5.7, "특징은 누가 만드나", fontsize=21, weight="bold", color=INK, va="center")
+    rows = [(3.75, "머신러닝", [("데이터", "신장, 체중", "white", "#9ca3af", INK),
+                              ("사람이 특징을 고름", "신장", GREEN_L, GREEN, GREEN),
+                              ("모델이 학습", "W, B", "white", "#9ca3af", INK)]),
+            (1.55, "딥러닝", [("데이터", "사진의 픽셀값", "white", "#9ca3af", INK),
+                            ("층이 특징까지 배움", "", PURPLE_L, PURPLE, PURPLE)])]
+    for y0, name, steps in rows:
+        bx.text(0.05, y0 + 0.9, name, fontsize=20, weight="bold", color=INK, va="center")
+        xs = [0.05, 1.85, 4.2] if len(steps) == 3 else [0.05, 1.85]
+        ws = [1.55, 2.1, 1.6] if len(steps) == 3 else [1.55, 3.95]
+        for (title, sub, fc, ec, ink), x0, w in zip(steps, xs, ws):
+            bx.add_patch(FancyBboxPatch((x0, y0 - 0.55), w, 1.1, boxstyle="round,pad=0.04", fc=fc, ec=ec, lw=2))
+            bx.text(x0 + w / 2, y0 + (0.18 if sub else 0), title, ha="center", va="center", fontsize=16, color=ink,
+                    weight="bold")
+            if sub:
+                bx.text(x0 + w / 2, y0 - 0.25, sub, ha="center", va="center", fontsize=15, color=INK)
+        for x0, w in zip(xs[:-1], ws[:-1]):
+            bx.annotate("", xy=(x0 + w + 0.25, y0), xytext=(x0 + w + 0.02, y0),
+                        arrowprops=dict(arrowstyle="-|>", color=MUTED, lw=2, mutation_scale=16))
+    bx.text(0.05, 0.3, "두 방법 모두 데이터로 파라미터를 찾음", fontsize=16, color=INK, va="center")
+    return image(fig)
+
+
+@figure("4d-2", 560, 300)
+def learning_types():
+    """학습 방식 넷을 2×2 칸에. 색에는 뜻이 없음."""
+    from matplotlib.patches import Ellipse, FancyBboxPatch
+    plt, fig = new(600)
+    panels = [(0.02, 0.51, "지도학습", "주는 것: 입력과 정답의 쌍"), (0.52, 0.51, "비지도학습", "주는 것: 정답 없는 데이터"),
+              (0.02, 0.01, "자기지도학습", "정답을 데이터에서 만듦"), (0.52, 0.01, "강화학습", "주는 것: 행동마다 받는 보상")]
+    for px, py, title, sub in panels:
+        fig.patches.append(FancyBboxPatch((px, py), 0.46, 0.47, boxstyle="round,pad=0.005", transform=fig.transFigure,
+                                          fc="none", ec=FAINT, lw=1.6, zorder=0))
+        fig.text(px + 0.015, py + 0.425, title, fontsize=19, weight="bold", color=INK, va="center")
+        fig.text(px + 0.015, py + 0.365, sub, fontsize=15, color=MUTED, va="center")
+    a1 = fig.add_axes([0.08, 0.61, 0.37, 0.23])
+    tidy(a1, grid=False)
+    a1.scatter(x, y, s=55, color=INK, zorder=5)
+    xs = np.array([164, 178])
+    a1.plot(xs, y.mean() + 1.820683 * (xs - 171) + 0.3675, color=MUTED, lw=2)
+    a1.set_xticks([166, 171, 176])
+    a1.set_yticks([60, 70])
+    a1.tick_params(labelsize=15)
+    a1.set_xlabel("신장 (입력)", fontsize=15, labelpad=1)
+    a1.set_ylabel("체중 (정답)", fontsize=15, labelpad=8)
+    a2 = fig.add_axes([0.55, 0.53, 0.40, 0.33])
+    a2.axis("off")
+    pts = {(-2.2, 1.0): [(0, 0), (0.35, 0.3), (-0.3, 0.25), (0.1, -0.35)], (1.6, 1.4): [(0, 0), (0.3, -0.25), (-0.25, -0.3), (0.2, 0.3)],
+           (0.0, -1.0): [(0, 0), (0.35, 0.1), (-0.3, 0.2), (0.0, -0.35)]}
+    for (cx, cy), offs in pts.items():
+        a2.scatter([cx + dx for dx, _ in offs], [cy + dy for _, dy in offs], s=55, color=INK, zorder=5)
+        a2.add_patch(Ellipse((cx, cy), 1.4, 1.25, fc="none", ec=MUTED, lw=1.8, ls="--"))
+    a2.set_xlim(-3.2, 2.6)
+    a2.set_ylim(-1.9, 2.2)
+    a2.text(2.9, -1.95, "비슷한 것끼리 묶음", fontsize=15, color=MUTED, ha="right")
+    a3 = boxes_axes(fig, (0.03, 0.03, 0.44, 0.32), xmax=5.5, ymax=3.0)
+    a3.text(0.1, 2.3, "다섯 사람의 신장과", fontsize=17, color=INK, va="center")
+    a3.add_patch(FancyBboxPatch((3.1, 1.95), 1.4, 0.7, boxstyle="round,pad=0.04", fc=NOTE, ec=INK, lw=1.6))
+    a3.text(3.8, 2.3, "(가림)", fontsize=17, color=INK, ha="center", va="center")
+    a3.annotate("", xy=(3.8, 0.95), xytext=(3.8, 1.85), arrowprops=dict(arrowstyle="-|>", color=MUTED, lw=2, mutation_scale=16))
+    a3.text(3.8, 0.6, "정답: 체중", fontsize=17, color=INK, ha="center", va="center", weight="bold")
+    a3.text(0.1, 0.6, "원래 문장에서\n정답을 얻음", linespacing=1.5, fontsize=15, color=MUTED, va="center")
+    a4 = boxes_axes(fig, (0.53, 0.03, 0.44, 0.32), xmax=5.5, ymax=3.0)
+    a4.add_patch(FancyBboxPatch((0.1, 0.9), 1.6, 1.0, boxstyle="round,pad=0.04", fc=NOTE, ec=INK, lw=1.6))
+    a4.text(0.9, 1.4, "로봇 청소기", fontsize=16, ha="center", va="center", color=INK)
+    a4.add_patch(FancyBboxPatch((3.8, 0.9), 1.5, 1.0, boxstyle="round,pad=0.04", fc=NOTE, ec=INK, lw=1.6))
+    a4.text(4.55, 1.4, "방", fontsize=16, ha="center", va="center", color=INK)
+    a4.annotate("", xy=(3.75, 1.75), xytext=(1.75, 1.75), arrowprops=dict(arrowstyle="-|>", color=INK, lw=2, mutation_scale=16))
+    a4.text(2.75, 2.1, "행동: 움직이기", fontsize=15, ha="center", va="center", color=INK)
+    a4.annotate("", xy=(1.75, 1.05), xytext=(3.75, 1.05), arrowprops=dict(arrowstyle="-|>", color=INK, lw=2, mutation_scale=16))
+    a4.text(2.75, 0.62, "상태, 보상 +1·" + M + "5", fontsize=15, ha="center", va="center", color=INK)
+    return image(fig)
+
+
+def gate_axes(fig, rect, xlabel="x1", ylabel="x2", color=INK):
+    ax = fig.add_axes(rect)
+    tidy(ax, grid=False)
+    ax.set_xlim(-0.45, 1.6)
+    ax.set_ylim(-0.45, 1.6)
+    ax.set_aspect("equal")
+    ax.set_xticks([0, 1])
+    ax.set_yticks([0, 1])
+    ax.set_xlabel(xlabel, color=color)
+    ax.set_ylabel(ylabel, color=color, rotation=0, labelpad=14)
+    return ax
+
+
+def gate_points(ax, outs, pts=STEP4, wrong=(), labels=True, left=()):
+    """left 에 든 점은 직선과 겹치지 않게 이름을 왼쪽 아래에 씀."""
+    for (a, c), o in zip(pts, outs):
+        if o:
+            ax.scatter([a], [c], s=260, color=BLUE, zorder=6)
+        else:
+            ax.scatter([a], [c], s=260, facecolor="white", edgecolor="#9ca3af", lw=2.6, zorder=6)
+    for k in wrong:
+        a, c = pts[k]
+        ax.scatter([a], [c], s=620, facecolor="none", edgecolor=RED, lw=3.2, zorder=7)
+    if labels:
+        for k, (a, c) in enumerate(pts):
+            ax.text(a + (-0.09 if k in left else 0.09), c - 0.17, "(%d, %d)" % (a, c), fontsize=15, color=MUTED, zorder=8,
+                    ha="right" if k in left else "left")
+
+
+def gate_line(ax, w1, w2, b, shade=True, color=ORANGE, fill=None):
+    """z = w1 x1 + w2 x2 + b = 0 인 직선과 z > 0 쪽 영역."""
+    xs = np.linspace(-0.45, 1.6, 50)
+    ys = -(w1 * xs + b) / w2
+    ax.plot(xs, ys, color=color, lw=3.2, zorder=4)
+    if shade:
+        top = np.full_like(xs, 1.6)
+        bottom = np.full_like(xs, -0.45)
+        if w2 > 0:
+            ax.fill_between(xs, ys, top, color=fill or "#dbeafe", zorder=1)
+        else:
+            ax.fill_between(xs, bottom, ys, color=fill or "#dbeafe", zorder=1)
+
+
+@figure("4d-3", 560, 300)
+def perceptron_and_or():
+    """퍼셉트론 하나가 평면을 직선 하나로 나눔. AND(b = −1.5)와 OR(b = −0.5)."""
+    AND, OR = perceptron_out(1, 1, -1.5), perceptron_out(1, 1, -0.5)
+    zs = [1 * a + 1 * c - 1.5 for a, c in STEP4]
+    assert AND == [0, 0, 0, 1] and OR == [0, 1, 1, 1] and zs == [-1.5, -0.5, -0.5, 0.5]
+
+    def draw(stage, title):
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        ax = gate_axes(fig, [0.06, 0.13, 0.44, 0.74])
+        outs = [None] * 4
+        if stage == 1:
+            gate_points(ax, [0, 0, 0, 0])
+        elif stage in (2, 3):
+            if stage == 3:
+                gate_line(ax, 1, 1, -1.5)
+            gate_points(ax, AND)
+            if stage == 2:
+                for (a, c), z in zip(STEP4, zs):
+                    ax.text(a - 0.08, c + 0.17, "z = " + num(z, 1), fontsize=16, color=INK, ha="left",
+                            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
+        else:
+            gate_line(ax, 1, 1, -0.5)
+            gate_points(ax, OR)
+        right = [("z = w1 × x1 + w2 × x2 + b", INK, 20, True), ("z > 0 이면 1, 아니면 0", INK, 18, False)]
+        if stage in (2, 3):
+            right += [("w1 = 1, w2 = 1, b = " + M + "1.5", INK, 18, False), ("출력 0, 0, 0, 1: AND", BLUE, 19, True)]
+        if stage == 3:
+            right += [("직선 x1 + x2 = 1.5", ORANGE, 18, False)]
+        if stage >= 4:
+            right += [("w1 = 1, w2 = 1, b = " + M + "0.5", INK, 18, False), ("출력 0, 1, 1, 1: OR", BLUE, 19, True),
+                      ("직선 x1 + x2 = 0.5", ORANGE, 18, False)]
+        if stage == 5:
+            right += [("b 를 바꾸면 직선이 옮겨 감", INK, 18, False), ("퍼셉트론 하나 = 직선 하나", INK, 19, True)]
+        yy = 0.80
+        for text, color, size, bold in right:
+            fig.text(0.56, yy, text, fontsize=size, color=color, va="center", weight="bold" if bold else "normal")
+            yy -= 0.105
+        return image(fig)
+
+    frames = [draw(1, "입력 두 개, 점 네 개"), draw(2, "z 를 계산해 0 보다 크면 1"), draw(3, "z = 0 인 직선으로 나눈 AND"),
+              draw(4, "b 만 바꾼 OR"), draw(5, "퍼셉트론 하나는 직선 하나로 나눔")]
+    return frames, [1800, 2400, 2400, 2400, 2500]
+
+
+@figure("4d-4", 560, 300)
+def xor_hidden():
+    """XOR 은 직선 하나로 나뉘지 않고, 은닉층 (h1, h2) 에서는 나뉨. 마지막 장은 신경망 그림."""
+    from matplotlib.patches import Circle
+    XOR = [0, 1, 1, 0]
+    h1s, h2s = perceptron_out(1, 1, -0.5), perceptron_out(-1, -1, 1.5)
+    hpts = list(zip(h1s, h2s))
+    ys = [step_out(a + c - 1.5) for a, c in hpts]
+    assert ys == XOR and hpts == [(0, 1), (1, 1), (1, 1), (1, 0)]
+    # 직선 하나로 XOR 를 만드는 w1, w2, b 는 없음(격자 −3~3, 0.1 간격)
+    grid = np.round(np.arange(-3, 3.01, 0.1), 2)
+    assert not any(perceptron_out(a, c, b) == XOR for a in grid for c in grid for b in grid[::5])
+    wrong2 = [k for k, (o, t) in enumerate(zip(perceptron_out(1, 1, -0.5), XOR)) if o != t]
+    wrong3 = [k for k, (o, t) in enumerate(zip(perceptron_out(-1, 1, -0.5), XOR)) if o != t]
+    assert wrong2 == [3] and wrong3 == [2]
+
+    def draw(stage, title):
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        if stage == 7:
+            ax = boxes_axes(fig, (0, 0, 1, 0.92), xmax=11.2, ymax=5.6)
+            nodes = {"x1": (1.4, 4.0), "x2": (1.4, 1.8), "h1": (5.2, 4.0), "h2": (5.2, 1.8), "y": (9.0, 2.9)}
+            for a in ("x1", "x2"):
+                for h in ("h1", "h2"):
+                    ax.plot([nodes[a][0], nodes[h][0]], [nodes[a][1], nodes[h][1]], color="#9ca3af", lw=2, zorder=1)
+            for h in ("h1", "h2"):
+                ax.plot([nodes[h][0], nodes["y"][0]], [nodes[h][1], nodes["y"][1]], color="#9ca3af", lw=2, zorder=1)
+            for name, (cx, cy) in nodes.items():
+                ec = PURPLE if name[0] == "h" else INK
+                ax.add_patch(Circle((cx, cy), 0.5, fc=PURPLE_L if name[0] == "h" else "white", ec=ec, lw=2.6, zorder=3))
+                ax.text(cx, cy, name, ha="center", va="center", fontsize=21, weight="bold", color=ec, zorder=4)
+            ax.text(5.9, 4.0, "OR", fontsize=17, color=PURPLE, va="center")
+            ax.text(5.9, 1.8, "NAND", fontsize=17, color=PURPLE, va="center")
+            ax.text(9.7, 2.9, "AND", fontsize=17, color=INK, va="center")
+            for cx, label, sub, color in [(1.4, "입력층", "특징을 받아 넘김", INK), (5.2, "은닉층", "새 값 h1, h2", PURPLE),
+                                          (9.0, "출력층", "마지막 답 y", INK)]:
+                ax.text(cx, 0.75, label, ha="center", va="center", fontsize=19, weight="bold", color=color)
+                ax.text(cx, 0.25, sub, ha="center", va="center", fontsize=16, color=INK)
+            return image(fig)
+        ax = gate_axes(fig, [0.05, 0.13, 0.42, 0.72])
+        if stage == 1:
+            gate_points(ax, XOR)
+        elif stage == 2:
+            gate_line(ax, 1, 1, -0.5)
+            gate_points(ax, XOR, wrong=wrong2)
+        elif stage == 3:
+            gate_line(ax, -1, 1, -0.5)
+            gate_points(ax, XOR, wrong=wrong3, left=(1,))
+        else:
+            xs = np.linspace(-0.45, 1.6, 50)
+            ax.fill_between(xs, np.clip(0.5 - xs, -0.45, 1.6), np.clip(1.5 - xs, -0.45, 1.6), color=PURPLE_L, zorder=1)
+            gate_line(ax, 1, 1, -0.5, shade=False)
+            gate_line(ax, 1, 1, -1.5, shade=False)
+            ax.text(-0.42, 0.7, "h1", color=PURPLE, fontsize=17, weight="bold")
+            ax.text(0.22, 1.42, "h2", color=PURPLE, fontsize=17, weight="bold")
+            gate_points(ax, XOR)
+        if stage >= 5:
+            bx = gate_axes(fig, [0.55, 0.13, 0.42, 0.72], "h1", "h2", PURPLE)
+            if stage == 6:
+                gate_line(bx, 1, 1, -1.5)
+                bx.text(1.55, 1.52, "h1 + h2 = 1.5", color=ORANGE, fontsize=15, ha="right", va="center", weight="bold")
+            for (a, c), o in zip(hpts, XOR):
+                if o:
+                    bx.scatter([a], [c], s=300, color=BLUE, zorder=6)
+                else:
+                    bx.scatter([a], [c], s=260, facecolor="white", edgecolor="#9ca3af", lw=2.6, zorder=6)
+            bx.text(1.08, 1.12, "(0, 1), (1, 0)", fontsize=15, color=BLUE, zorder=8)
+            bx.text(-0.09, 1.12, "(0, 0)", fontsize=15, color=MUTED, zorder=8, ha="right")
+            bx.text(0.92, 0.12, "(1, 1)", fontsize=15, color=MUTED, zorder=8, ha="right")
+        else:
+            notes = {1: ["XOR: 두 입력이 다를 때만 1", "출력 1 은 대각선 양 끝"],
+                     2: ["위쪽을 1 로 판정하면", "(1, 1) 이 잘못 나뉨"],
+                     3: ["직선을 돌려도", "(1, 0) 이 잘못 나뉨"],
+                     4: ["h1(OR): x1 + x2 = 0.5 위쪽", "h2(NAND): x1 + x2 = 1.5 아래쪽", "두 직선 사이만 h1 = h2 = 1"]}[stage]
+            yy = 0.78
+            for k, text in enumerate(notes):
+                fig.text(0.55, yy, text, fontsize=19, color=(PURPLE if stage == 4 else INK), va="center")
+                yy -= 0.11
+        return image(fig)
+
+    frames = [draw(1, "XOR 의 네 점"), draw(2, "직선 하나로 나누면"), draw(3, "직선을 바꿔 그어도"), draw(4, "은닉층의 두 직선"),
+              draw(5, "(h1, h2) 로 옮긴 네 점"), draw(6, "출력층은 직선 하나로 나눔"), draw(7, "입력층 → 은닉층 → 출력층")]
+    return frames, [2000, 2000, 2000, 2500, 2500, 2400, 2500]
+
+
+@figure("4d-5", 560, 280)
+def summary_4d():
+    """외울 것 그림. 포함 관계, 학습 방식, 퍼셉트론, XOR 신경망."""
+    plt, fig = new(560)
+    ax = boxes_axes(fig, ymax=5.6)
+    card(ax, 0.15, 2.95, 5.35, 2.5, "인공지능 ⊃ 머신러닝 ⊃ 딥러닝",
+         [("머신러닝: 사람이 고른 특징", GREEN), ("딥러닝: 특징까지 신경망의 층이 배움", PURPLE)], size=17)
+    card(ax, 0.15, 0.15, 5.35, 2.6, "학습 방식",
+         ["지도: 입력과 정답의 쌍", "비지도: 정답 없는 데이터", "자기지도: 데이터에서 만든 정답", "강화: 행동마다 받는 보상"], size=16,
+         gap=0.47)
+    card(ax, 5.7, 2.95, 5.35, 2.5, "퍼셉트론",
+         ["z = w1 × x1 + w2 × x2 + b, z > 0 이면 1", ("w1 = w2 = 1: b = " + M + "1.5 AND, " + M + "0.5 OR", BLUE)], size=16)
+    card(ax, 5.7, 0.15, 5.35, 2.6, "XOR 와 은닉층",
+         ["직선 하나로는 0, 1, 1, 0 을 못 나눔", ("은닉층 h1 = OR, h2 = NAND", PURPLE), "출력층 AND(h1, h2) = XOR"], size=16)
+    assert perceptron_out(1, 1, -1.5) == [0, 0, 0, 1] and perceptron_out(1, 1, -0.5) == [0, 1, 1, 1]
+    return image(fig)
+
+
+# 4e 활성화 함수와 기울기 소실
+
+def sig(v):
+    return 1.0 / (1.0 + np.exp(-v))
+
+
+def dsig(v):
+    return sig(v) * (1 - sig(v))
+
+
+def relu(v):
+    return np.maximum(0.0, v)
+
+
+@figure("4e-1", 560, 300)
+def no_activation():
+    """활성화 함수 없이 이은 두 층은 직선, ReLU 를 넣으면 꺾인 선."""
+    xs = np.linspace(-2, 2.2, 400)
+    y1 = 2 * xs + 1
+    y2 = -y1 + 3
+    bent = -relu(2 * xs + 1) + 3
+    tri = relu(xs + 1) - 2 * relu(xs) + relu(xs - 1)
+    assert np.allclose(y2, -2 * xs + 2)
+    pts2 = [(0, 2), (1, 0), (2, -2)]
+    assert all(abs((-2 * a + 2) - b) < 1e-12 for a, b in pts2)
+    ptsb = [(-1, 3.0), (1, 0.0)]
+    assert all(abs((-relu(2 * a + 1) + 3) - b) < 1e-12 for a, b in ptsb)
+    ptst = [(-1, 0.0), (0, 1.0), (1, 0.0)]
+    assert all(abs((relu(a + 1) - 2 * relu(a) + relu(a - 1)) - b) < 1e-12 for a, b in ptst)
+
+    def panel(fig, rect, curve, ghost=None, pts=(), label=None, title=None):
+        ax = fig.add_axes(rect)
+        tidy(ax)
+        ax.set_xlim(-2, 2.2)
+        ax.set_ylim(-3.5, 5.5)
+        ax.axhline(0, color=FAINT, lw=1.2)
+        ax.axvline(0, color=FAINT, lw=1.2)
+        ax.set_xlabel("x")
+        if ghost is not None:
+            ax.plot(xs, ghost, color=PALE, lw=3, zorder=2)
+        ax.plot(xs, curve, color=BLUE, lw=3.4, zorder=3)
+        for a, b in pts:
+            ax.scatter([a], [b], s=90, color=INK, zorder=5)
+            # x < 0 인 점은 오른쪽 위로 지나는 선을 피해 이름을 왼쪽 위에 씀
+            ax.text(a + (0.08 if a >= 0 else -0.08), b + 0.35, "(%s, %s)" % (num(a, 0), num(b, 0)), fontsize=15, color=INK,
+                    zorder=6, ha="left" if a >= 0 else "right", bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none"))
+        if label:
+            ax.text(-1.0, 4.9, label, fontsize=17, color=BLUE, va="center", weight="bold",
+                    bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
+        if title:
+            ax.set_title(title, fontsize=18, loc="left")
+        return ax
+
+    def draw(stage, title):
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        if stage == 5:
+            panel(fig, [0.07, 0.14, 0.40, 0.68], y2, label="y2 = " + M + "2x + 2", title="활성화 함수 없음")
+            panel(fig, [0.57, 0.14, 0.40, 0.68], bent, label="y2 = " + M + "ReLU(2x + 1) + 3", title="ReLU 를 넣음")
+            return image(fig)
+        rect = [0.08, 0.14, 0.55, 0.74]
+        if stage == 1:
+            panel(fig, rect, y1, label="y1 = 2x + 1")
+            notes = ["첫 층의 출력 y1"]
+        elif stage == 2:
+            panel(fig, rect, y2, ghost=y1, pts=pts2, label="y2 = " + M + "2x + 2")
+            notes = ["y2 = " + M + "y1 + 3", "= " + M + "(2x + 1) + 3", "= " + M + "2x + 2", "직선"]
+        elif stage == 3:
+            panel(fig, rect, bent, ghost=y2, pts=ptsb, label="y2 = " + M + "ReLU(2x + 1) + 3")
+            notes = ["ReLU(x) = max(0, x)", "x < " + M + "0.5: 2x + 1 이 음수", "→ ReLU 가 0, y2 = 3", "x = " + M + "0.5 에서 꺾임"]
+        else:
+            panel(fig, rect, tri, pts=ptst, label="ReLU 셋을 더한 모양")
+            notes = ["ReLU(x + 1)", M + " 2 × ReLU(x)", "+ ReLU(x " + M + " 1)", "x = " + M + "1, 0, 1 에서 꺾임"]
+        yy = 0.80
+        for text in notes:
+            fig.text(0.67, yy, text, fontsize=18, color=INK, va="center")
+            yy -= 0.10
+        return image(fig)
+
+    frames = [draw(1, "첫 층 y1 = 2x + 1"), draw(2, "활성화 함수 없이 둘째 층을 이으면"), draw(3, "두 층 사이에 ReLU 를 두면"),
+              draw(4, "꺾이는 자리를 여럿 두면"), draw(5, "직선과 꺾인 선")]
+    return frames, [1800, 2400, 2400, 2400, 2500]
+
+
+@figure("4e-2", 560, 300)
+def four_activations():
+    """시그모이드, tanh, ReLU, Leaky ReLU(a = 0.1)와 x = −3, 0, 2 의 값."""
+    xs = np.linspace(-4, 4, 400)
+    leaky = lambda v: np.where(v >= 0, v, 0.1 * v)
+    funcs = [("시그모이드", sig, (0, 1), (-0.15, 1.15), ["0.0474", "0.5", "0.8808"]),
+             ("tanh", np.tanh, (-1, 1), (-1.25, 1.25), [M + "0.9951", "0", "0.964"]),
+             ("ReLU", relu, (0,), (-1.0, 4.2), ["0", "0", "2"]),
+             ("Leaky ReLU (a = 0.1)", leaky, (), (-1.0, 4.2), [M + "0.3", "0", "2"])]
+    for name, fn, _, _, labels in funcs:
+        got = [num(float(fn(np.array(v))), 4) for v in (-3.0, 0.0, 2.0)]
+        assert got == labels, (name, got)
+    # 값 글자를 곡선에 닿지 않는 쪽에 둠. 적지 않은 점은 오른쪽 위
+    spots = {("시그모이드", -3.0): "above", ("시그모이드", 0.0): "left", ("시그모이드", 2.0): "below", ("tanh", 0.0): "left",
+             ("ReLU", 0.0): "left", ("ReLU", 2.0): "left", ("Leaky ReLU (a = 0.1)", 0.0): "left",
+             ("Leaky ReLU (a = 0.1)", 2.0): "left"}
+    plt, fig = new(600)
+    rects = [[0.07, 0.58, 0.40, 0.33], [0.57, 0.58, 0.40, 0.33], [0.07, 0.09, 0.40, 0.33], [0.57, 0.09, 0.40, 0.33]]
+    for rect, (name, fn, bounds, ylim, labels) in zip(rects, funcs):
+        ax = fig.add_axes(rect)
+        tidy(ax)
+        ax.set_xlim(-4, 4)
+        ax.set_ylim(*ylim)
+        for bnd in bounds:
+            ax.axhline(bnd, color=MUTED, lw=1.6, ls="--")
+        ax.plot(xs, fn(xs), color=BLUE, lw=3.2, zorder=3)
+        for v, lab in zip((-3.0, 0.0, 2.0), labels):
+            yv = float(fn(np.array(v)))
+            ax.scatter([v], [yv], s=70, color=INK, zorder=5)
+            dy = (ylim[1] - ylim[0]) * 0.1
+            spot = spots.get((name, v), "right")
+            tx, ty, ha, va = {"right": (v + 0.15, yv + dy, "left", "baseline"), "left": (v - 0.15, yv + dy, "right", "baseline"),
+                              "above": (v, yv + dy, "center", "baseline"), "below": (v + 0.15, yv - dy * 0.5, "left", "top")}[spot]
+            ax.text(tx, ty, lab, fontsize=15, color=INK, zorder=6, ha=ha, va=va,
+                    bbox=dict(boxstyle="round,pad=0.1", fc="white", ec="none"))
+        ax.set_title(name, fontsize=18, loc="left", pad=4)
+        # 눈금 글자를 키워도 눈금이 줄지 않게 정해 둠
+        ax.set_xticks(range(-4, 5))
+        ax.set_yticks({"시그모이드": [0, 0.5, 1], "tanh": [-1, -0.5, 0, 0.5, 1]}.get(name, [0, 2, 4]))
+        ax.tick_params(labelsize=15)
+    return image(fig)
+
+
+@figure("4e-3", 560, 300)
+def derivatives():
+    """활성화 함수의 미분값과 층을 지나며 곱한 값."""
+    xs = np.linspace(-6, 6, 600)
+    assert num(dsig(0.0), 4) == "0.25" and num(dsig(5.0), 4) == "0.0066"
+    dt = lambda v: 1 - np.tanh(v) ** 2
+    assert num(dt(0.0), 4) == "1" and num(dt(2.0), 4) == "0.0707"
+    prods = [0.25 ** n for n in (1, 2, 3)]
+    assert prods == [0.25, 0.0625, 0.015625]
+
+    def base(title):
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        ax = fig.add_axes([0.08, 0.14, 0.56, 0.72])
+        tidy(ax)
+        ax.set_xlim(-6, 6)
+        ax.set_xlabel("x")
+        ax.axhline(0, color=FAINT, lw=1.2)
+        return plt, fig, ax
+
+    def notes(fig, lines):
+        yy = 0.80
+        for text, color in lines:
+            fig.text(0.68, yy, text, fontsize=18, color=color, va="center")
+            yy -= 0.10
+
+    frames = []
+    for stage in (1, 2):
+        plt, fig, ax = base("시그모이드와 미분값" if stage == 1 else "양 끝은 미분값이 0 에 가까움")
+        ax.set_ylim(-0.08, 1.08)
+        if stage == 2:
+            ax.axvspan(-6, -4, color=BAND, zorder=0)
+            ax.axvspan(4, 6, color=BAND, zorder=0)
+        ax.plot(xs, sig(xs), color=BLUE, lw=3.2)
+        ax.plot(xs, dsig(xs), color=ORANGE, lw=3.2)
+        ax.scatter([0], [0.25], s=90, color=ORANGE, zorder=5)
+        ax.text(0.3, 0.31, "0.25", fontsize=17, color=ORANGE, weight="bold")
+        lines = [("σ(x)", BLUE), ("σ'(x) = σ(x)(1 " + M + " σ(x))", ORANGE), ("x = 0 에서 가장 큰 0.25", ORANGE)]
+        if stage == 2:
+            ax.scatter([5], [float(dsig(5.0))], s=90, color=ORANGE, zorder=5)
+            ax.text(4.1, 0.12, "0.0066", fontsize=17, color=ORANGE, weight="bold",
+                    bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none"))
+            lines = [("x = 5: σ'(5) = 0.0066", ORANGE), ("회색 띠: 출력이 0 이나 1 에", INK), ("가까운 포화 구간", INK)]
+        notes(fig, lines)
+        frames.append(image(fig))
+    plt, fig, ax = base("tanh 와 미분값")
+    ax.set_ylim(-1.15, 1.15)
+    ax.plot(xs, np.tanh(xs), color=BLUE, lw=3.2)
+    ax.plot(xs, dt(xs), color=ORANGE, lw=3.2)
+    ax.scatter([0, 2], [1, float(dt(2.0))], s=90, color=ORANGE, zorder=5)
+    ax.text(0.3, 1.02, "1", fontsize=17, color=ORANGE, weight="bold")
+    ax.text(2.2, 0.15, "0.0707", fontsize=17, color=ORANGE, weight="bold")
+    notes(fig, [("tanh(x)", BLUE), ("tanh'(x) = 1 " + M + " tanh(x)²", ORANGE), ("x = 0 에서 1", ORANGE)])
+    frames.append(image(fig))
+    plt, fig, ax = base("ReLU 와 미분값")
+    ax.set_ylim(-0.4, 4.2)
+    ax.plot(xs, relu(xs), color=BLUE, lw=3.2)
+    ax.plot(xs[xs < 0], np.zeros((xs < 0).sum()), color=ORANGE, lw=3.6)
+    ax.plot(xs[xs > 0], np.ones((xs > 0).sum()), color=ORANGE, lw=3.6)
+    notes(fig, [("ReLU(x) = max(0, x)", BLUE), ("미분값: x < 0 이면 0", ORANGE), ("x > 0 이면 1", ORANGE)])
+    frames.append(image(fig))
+    plt, fig = new(600)
+    head(fig, "활성화 함수의 미분값만 곱한 값", size=20)
+    ax = fig.add_axes([0.08, 0.14, 0.56, 0.72])
+    tidy(ax)
+    pos = np.arange(3)
+    ax.bar(pos - 0.2, prods, width=0.36, color=ORANGE)
+    ax.bar(pos + 0.2, [1, 1, 1], width=0.36, color="white", edgecolor=ORANGE, lw=2.6, hatch="//")
+    for p, v in zip(pos, prods):
+        # 긴 숫자는 막대 오른쪽 끝에 맞춰 옆 빗금 막대에 닿지 않게 함
+        long = len(num(v, 6)) > 6
+        ax.text(p - 0.02 if long else p - 0.2, v + 0.03, num(v, 6), ha="right" if long else "center", fontsize=15, color=INK)
+        ax.text(p + 0.2, 1.03, "1", ha="center", fontsize=15, color=INK)
+    ax.set_xticks(pos)
+    ax.set_xticklabels(["한 번", "두 번", "세 번"])
+    ax.set_ylim(0, 1.18)
+    notes(fig, [("채운 막대: 시그모이드", ORANGE), ("빗금 막대: ReLU(양수 입력)", ORANGE), ("0.25 × 0.25 × 0.25", INK),
+                ("= 0.015625", INK)])
+    frames.append(image(fig))
+    return frames, [2200, 2400, 2200, 2200, 2500]
+
+
+@figure("4e-4", 560, 280)
+def summary_4e():
+    """외울 것 그림. 활성화 함수가 하는 일, 네 함수의 범위와 값, 미분값과 기울기 소실."""
+    plt, fig = new(560)
+    ax = boxes_axes(fig, ymax=5.6)
+    card(ax, 0.15, 3.95, 10.9, 1.5, "활성화 함수가 없으면 층을 쌓아도 직선",
+         [(M + "(2x + 1) + 3 = " + M + "2x + 2,  ReLU 를 넣으면 x = " + M + "0.5 에서 꺾인 선", BLUE)], size=17)
+    card(ax, 0.15, 0.15, 6.2, 3.6, "출력 범위와 값",
+         [("시그모이드 0~1, σ(0) = 0.5", BLUE), ("tanh " + M + "1~1, tanh(0) = 0", BLUE), ("ReLU 0 이상, ReLU(2) = 2", BLUE),
+          ("Leaky ReLU(a = 0.1)는 " + M + "3 에 " + M + "0.3", BLUE)], size=17, gap=0.62)
+    card(ax, 6.55, 0.15, 4.5, 3.6, "미분값과 기울기 소실",
+         [("σ'(0) = 0.25 가 최대", ORANGE), ("tanh'(0) = 1", ORANGE), ("ReLU: 음수 0, 양수 1", ORANGE),
+          "시그모이드 세 번: 0.015625 이하"], size=17, gap=0.62)
+    assert num(0.25 ** 3, 6) == "0.015625"
+    return image(fig)
+
+
+# 4f 국소 최적해와 모멘텀
+
+def fq(v):
+    return v * (v + 1) * (v + 2) * (v - 2)
+
+
+def dfq(v):
+    return 4 * v ** 3 + 3 * v ** 2 - 8 * v - 4
+
+
+def quartic_path(start, mu=0.0, n=1000, lr=0.01):
+    xv, vel, out = start, None, [start]
+    for _ in range(n):
+        g = dfq(xv)
+        vel = g if vel is None else mu * vel + g
+        xv -= lr * vel
+        out.append(xv)
+    return out
+
+
+ROOTS = sorted(float(r) for r in np.roots([4, 3, -8, -4]).real)
+assert [num(r, 2) for r in ROOTS] == [M + "1.61", M + "0.47", "1.33"]
+
+
+def quartic_axes(fig, rect=(0.09, 0.14, 0.56, 0.74)):
+    ax = fig.add_axes(list(rect))
+    tidy(ax)
+    xs = np.linspace(-2.8, 2.2, 400)
+    ax.plot(xs, fq(xs), color=RED, lw=3)
+    ax.set_xlim(-2.8, 2.2)
+    ax.set_ylim(-8.5, 12)
+    ax.set_xlabel("x")
+    ax.set_ylabel("f(x)")
+    return ax
+
+
+def ball(ax, xv, color, label=None, dy=1.2, hollow=False, ha="center"):
+    """ha 가 left 면 곡선을 피해 글자를 공 오른쪽에서 시작함."""
+    if hollow:
+        ax.scatter([xv], [fq(xv)], s=200, facecolor="white", edgecolor=color, lw=3, zorder=7)
+    else:
+        ax.scatter([xv], [fq(xv)], s=200, color=color, zorder=7)
+    if label:
+        ax.text(xv + (0.18 if ha == "left" else 0), fq(xv) + dy, label, ha=ha, fontsize=16, color=color, weight="bold",
+                zorder=8, bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none"))
+
+
+@figure("4f-1", 560, 300)
+def local_minimum():
+    """f(x) = x(x+1)(x+2)(x−2) 에서 출발점에 따라 다른 곳에 멈추는 경사하강법(학습률 0.01)."""
+    pa, pb = quartic_path(-2.5), quartic_path(0.5)
+    assert [num(pa[k], 2) for k in (10, 20, 1000)] == [M + "1.7", M + "1.63", M + "1.61"]
+    assert [num(pb[k], 2) for k in (10, 20, 1000)] == ["1.1", "1.3", "1.33"]
+    assert num(fq(ROOTS[0]), 2) == M + "1.38" and num(fq(ROOTS[2]), 2) == M + "6.91" and num(fq(ROOTS[1]), 2) == "0.94"
+
+    def draw(k, title, final=False):
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        ax = quartic_axes(fig)
+        if k is None:
+            for r in (ROOTS[0], ROOTS[2]):
+                ax.axvline(r, color=MUTED, lw=1.4, ls=":")
+            ax.text(ROOTS[0] + 0.07, fq(ROOTS[0]) - 1.6, num(ROOTS[0], 2), ha="left", fontsize=16, color=INK)
+            ax.text(ROOTS[2] + 0.07, fq(ROOTS[2]) - 1.2, num(ROOTS[2], 2), ha="left", fontsize=16, color=INK)
+            lines = [("f(x) = x(x + 1)(x + 2)(x " + M + " 2)", RED), ("x ≈ " + M + "1.61 에서 " + M + "1.38", INK),
+                     ("x ≈ 1.33 에서 " + M + "6.91", INK), ("x ≈ " + M + "0.47 에서 0.94", INK)]
+        else:
+            if final:
+                ax.plot(pa[:k + 1], [fq(v) for v in pa[:k + 1]], color=SKY, lw=2.4, zorder=5)
+                ax.plot(pb[:k + 1], [fq(v) for v in pb[:k + 1]], color=SKY, lw=2.4, zorder=5)
+            ball(ax, pa[k], BLUE, fmt2(pa[k]), dy=1.4, ha="left" if k == 0 else "center")
+            ball(ax, pb[k], BLUE, fmt2(pb[k]), dy=1.6)
+            lines = [("학습률 0.01", INK), ("갱신 %s번 뒤" % format(k, ","), INK),
+                     ("출발 " + M + "2.5 → " + fmt2(pa[k]), BLUE), ("출발 0.5 → " + fmt2(pb[k]), BLUE)]
+            if k == 0:
+                lines = [("학습률 0.01", INK), ("출발점 " + M + "2.5 와 0.5", BLUE)]
+            if final:
+                ax.text(ROOTS[0], fq(ROOTS[0]) - 2.6, "국소 최적해", ha="center", fontsize=17, color=INK, weight="bold")
+                ax.text(ROOTS[2] - 0.35, fq(ROOTS[2]) - 0.3, "전역 최적해", ha="right", fontsize=17, color=INK, weight="bold",
+                        va="center")
+                lines = [("1.33: f 가 가장 낮은 곳", INK), ("전역 최적해", INK), (M + "1.61: 둘레에서만 낮은 곳", INK),
+                         ("국소 최적해", INK)]
+        yy = 0.80
+        for text, color in lines:
+            fig.text(0.69, yy, text, fontsize=18, color=color, va="center")
+            yy -= 0.10
+        return image(fig)
+
+    frames = [draw(None, "둘레보다 낮은 곳이 두 군데"), draw(0, "두 곳에서 출발"), draw(10, "10번 갱신한 뒤"),
+              draw(20, "20번 갱신한 뒤"), draw(1000, "1,000번 갱신한 뒤"), draw(1000, "멈춘 곳의 이름", final=True)]
+    return frames, [2000, 1800, 2000, 2000, 2400, 2500]
+
+
+@figure("4f-2", 560, 300)
+def momentum_paths():
+    """모멘텀(μ = 0.9)과 모멘텀 없는 경사하강법. −2.5 와 2.5 에서 출발."""
+    s1, m1 = quartic_path(-2.5), quartic_path(-2.5, mu=0.9)
+    s2, m2 = quartic_path(2.5), quartic_path(2.5, mu=0.9)
+    assert [num(s1[k], 2) for k in (5, 10, 1000)] == [M + "1.84", M + "1.7", M + "1.61"]
+    assert [num(m1[k], 2) for k in (5, 10, 15, 1000)] == [M + "0.81", "0.18", "1.64", "1.33"]
+    assert num(s2[1000], 2) == "1.33" and num(m2[1000], 2) == M + "1.61"
+    assert next(k for k, v in enumerate(m1) if v > ROOTS[1]) <= 10
+
+    def draw(sp, mp, k, title, lines, mdy=-2.6, mha="center"):
+        """mdy, mha 는 보라 글자가 곡선·축에 닿지 않게 놓는 자리. 파랑 글자는 곡선이 가파른 왼쪽에서 오른쪽으로 비킴."""
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        ax = quartic_axes(fig)
+        ball(ax, sp[k], BLUE, fmt2(sp[k]), dy=1.5, ha="left" if sp[k] < -1.75 else "center")
+        ball(ax, mp[k], PURPLE, fmt2(mp[k]), dy=mdy, ha=mha)
+        yy = 0.80
+        for text, color in lines:
+            fig.text(0.69, yy, text, fontsize=18, color=color, va="center")
+            yy -= 0.10
+        return image(fig)
+
+    frames = [draw(s1, m1, 0, "x = " + M + "2.5 에서 함께 출발", [("파랑: 모멘텀 없음", BLUE), ("보라: μ = 0.9", PURPLE), ("학습률 0.01", INK)],
+                   mdy=-0.4, mha="left"),
+              draw(s1, m1, 5, "5번 갱신한 뒤", [("파랑 " + M + "1.84", BLUE), ("보라 " + M + "0.81", PURPLE), ("보라는 같은 쪽", INK),
+                                            ("기울기가 쌓임", INK)]),
+              draw(s1, m1, 10, "10번 갱신한 뒤", [("파랑 " + M + "1.70", BLUE), ("보라 0.18", PURPLE), ("보라가 x ≈ " + M + "0.47 의", INK),
+                                              ("높은 곳을 넘음", INK)]),
+              draw(s1, m1, 15, "15번 갱신한 뒤", [("보라 1.64", PURPLE), ("1.33 을 지나침", INK)], mdy=-1.9, mha="left"),
+              draw(s1, m1, 1000, "1,000번 갱신한 뒤", [("파랑 " + M + "1.61 에서 멈춤", BLUE), ("보라 1.33 에서 멈춤", PURPLE)], mdy=1.5),
+              draw(s2, m2, 1000, "x = 2.5 에서 출발하면", [("파랑 1.33 에서 멈춤", BLUE), ("보라는 1.33 을 지나쳐", PURPLE),
+                                                       (M + "1.61 에서 멈춤", PURPLE)])]
+    return frames, [1800, 2400, 2400, 2200, 2400, 2500]
+
+
+def train_loss(mu, n=500, lr=0.001):
+    w, b, vw, vb, hist = 1.0, 1.0, None, None, []
+    for _ in range(n):
+        hist.append(float(L(w, b)))
+        gw, gb = grads(w, b)
+        vw = gw if vw is None else mu * vw + gw
+        vb = gb if vb is None else mu * vb + gb
+        w, b = w - lr * vw, b - lr * vb
+    return np.array(hist)
+
+
+@figure("4f-3", 560, 280)
+def momentum_curves():
+    """다섯 사람 예의 학습 곡선. 모멘텀 없는 SGD 와 momentum=0.9. 10번마다 기록한 값(노트북 01 의 39·55번 셀과 같음)."""
+    hs, hm = train_loss(0.0), train_loss(0.9)
+    assert [num(hs[k], 4) for k in (10, 20, 490)] == ["10.3855", "8.5173", "4.6796"]
+    assert [num(hm[k], 4) for k in (10, 20, 490)] == ["5.7585", "5.9541", "4.539"]
+    ep = np.arange(0, 500, 10)
+    plt, fig = new(560)
+    ax = fig.add_axes([0.08, 0.15, 0.60, 0.76])
+    tidy(ax)
+    ax.plot(ep, hs[ep], color=BLUE, lw=3, marker="o", ms=4)
+    ax.plot(ep, hm[ep], color=PURPLE, lw=3, marker="o", ms=4)
+    ax.axhline(4.539, color=MUTED, lw=1.6, ls="--")
+    ax.set_xlim(-5, 500)
+    ax.set_ylim(4, 14)
+    ax.set_xlabel("반복")
+    ax.set_ylabel("손실")
+    arrow = dict(arrowstyle="-", color=MUTED, lw=1.2, relpos=(0, 0.5))
+    ax.annotate("10번째 10.3855", (10, 10.3855), xytext=(110, 11.2), fontsize=15, color=BLUE, arrowprops=arrow, va="center")
+    ax.annotate("20번째 5.9541", (20, 5.9541), xytext=(110, 9.2), fontsize=15, color=PURPLE, arrowprops=arrow, va="center")
+    ax.annotate("10번째 5.7585", (10, 5.7585), xytext=(110, 8.0), fontsize=15, color=PURPLE, arrowprops=arrow, va="center")
+    lines = [("파랑: 모멘텀 없는 SGD", BLUE), ("보라: momentum=0.9", PURPLE), ("490번째", INK), ("4.6796 과 4.5390", INK),
+             ("회색 점선: 가장 낮은 값 4.539", MUTED)]
+    yy = 0.82
+    for text, color in lines:
+        fig.text(0.71, yy, text, fontsize=17, color=color, va="center")
+        yy -= 0.11
+    return image(fig)
+
+
+@figure("4f-4", 560, 280)
+def summary_4f():
+    """외울 것 그림. 국소 최적해, 모멘텀 식과 다섯 사람 예, 코드."""
+    w2s = 1.0 - 0.001 * (-19.04) - 0.001 * (0.9 * (-19.04) + grads(1.01904, 0.998)[0])
+    assert num(w2s, 6) == "1.054774"
+    plt, fig = new(560)
+    ax = fig.add_axes([0.05, 0.13, 0.40, 0.74])
+    tidy(ax)
+    xs = np.linspace(-2.8, 2.2, 300)
+    ax.plot(xs, fq(xs), color=RED, lw=3)
+    ax.set_xlim(-2.8, 2.2)
+    ax.set_ylim(-9.9, 12)
+    ball(ax, ROOTS[0], BLUE, "국소 " + M + "1.61", dy=-2.6)
+    ball(ax, ROOTS[2], BLUE, "전역 1.33", dy=-2.4)
+    ax.set_title("출발 " + M + "2.5 → " + M + "1.61, 0.5 → 1.33", fontsize=16, loc="left")
+    bx = boxes_axes(fig, (0.47, 0, 0.53, 1), xmax=5.9, ymax=5.6)
+    card(bx, 0.1, 2.75, 5.7, 2.7, "모멘텀(PyTorch)",
+         [("v = μ × v + 기울기", PURPLE), ("새 W = W " + M + " 학습률 × v", PURPLE), "첫 갱신은 v = 기울기",
+          "W: 1 → 1.01904 → 1.054774"], size=16, gap=0.48)
+    card(bx, 0.1, 0.15, 5.7, 2.4, "코드",
+         [("optim.SGD([W, B], lr=0.001,", INK), ("          momentum=0.9)", INK), "같은 쪽 갱신은 커지고 흔들림은 줄어듦"], size=16)
+    return image(fig)
+
+
+# 4g 모델 용량과 데이터 나누기
+
+VAL_X = np.array([170.0, 175.0, 177.0])
+VAL_Y = np.array([61.0, 70.0, 79.5])
+C4 = np.polyfit(X, Y, 4)
+
+
+def model_preds(kind, xs):
+    Xs = xs - x.mean()
+    if kind == "평균":
+        return np.full_like(xs, y.mean(), dtype=float)
+    if kind == "직선":
+        return W_END * Xs + B_END + y.mean()
+    return np.polyval(C4, Xs) + y.mean()
+
+
+def mse_of(kind, xs, ys):
+    return float(((model_preds(kind, xs) - ys) ** 2).mean())
+
+
+MODELS = [("평균", "늘 같은 값", 1), ("직선", "직선", 2), ("곡선", "네제곱 곡선", 5)]
+
+
+def mse_text(v):
+    """표에 찍는 MSE. 0 은 0, 나머지는 소수 둘째 자리까지."""
+    return "0" if abs(v) < 1e-9 else fmt2(v)
+
+
+@figure("4g-1", 560, 300)
+def capacity():
+    """파라미터 1, 2, 5개 모델을 다섯 사람(학습)과 지어낸 세 사람(새 데이터)에 맞춤."""
+    tr = [mse_of(k, x, y) for k, _, _ in MODELS]
+    va = [mse_of(k, VAL_X, VAL_Y) for k, _, _ in MODELS]
+    assert [num(v, 2) for v in tr] == ["42.99", "4.67", "0"] and [num(v, 2) for v in va] == ["79.78", "8.62", "81.5"]
+    assert num(float(model_preds("곡선", np.array([177.0]))[0]), 1) == "65.9"
+    xs = np.linspace(163.5, 178.6, 400)
+
+    def draw(stage, title):
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        ax = fig.add_axes([0.08, 0.14, 0.52, 0.74])
+        tidy(ax)
+        ax.set_xlim(163.5, 178.6)
+        ax.set_ylim(54, 84)
+        ax.set_xlabel("신장 (cm)")
+        ax.set_ylabel("체중 (kg)")
+        if 2 <= stage <= 4:
+            kind = MODELS[stage - 2][0]
+            ax.plot(xs, model_preds(kind, xs), color=GREEN, lw=3.2, zorder=3)
+            if kind == "곡선":
+                ax.scatter([177], [float(model_preds("곡선", np.array([177.0]))[0])], s=150, facecolor="white", edgecolor=GREEN,
+                           lw=3, zorder=6)
+                ax.text(176.6, 63.0, "65.9", fontsize=16, color=GREEN, ha="right", weight="bold",
+                        bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none"))
+        ax.scatter(x, y, s=90, color=BLUE, zorder=5)
+        ax.scatter(VAL_X, VAL_Y, s=110, color=ORANGE, zorder=5)
+        fig.text(0.64, 0.83, "모델", fontsize=17, color=MUTED, weight="bold")
+        fig.text(0.81, 0.83, "다섯 사람", fontsize=17, color=BLUE, weight="bold", ha="center")
+        fig.text(0.94, 0.83, "새 세 사람", fontsize=17, color=ORANGE, weight="bold", ha="center")
+        shown_rows = {1: 0, 2: 1, 3: 2, 4: 3, 5: 3}[stage]
+        for r in range(3):
+            yy = 0.72 - r * 0.12
+            name = "%s (%d)" % (MODELS[r][1], MODELS[r][2])
+            fig.text(0.64, yy, name, fontsize=16, color=INK, va="center")
+            if r < shown_rows:
+                fig.text(0.81, yy, mse_text(tr[r]), fontsize=17, color=INK, va="center", ha="center")
+                if stage == 5:
+                    fig.text(0.94, yy, mse_text(va[r]), fontsize=17, color=INK, va="center", ha="center")
+        fig.text(0.64, 0.30, "괄호는 파라미터 수, 값은 MSE", fontsize=15, color=MUTED, va="center")
+        if stage == 5:
+            fig.text(0.64, 0.20, "곡선: 다섯 사람 0, 새 세 사람 81.50", fontsize=16, color=INK, va="center")
+        return image(fig)
+
+    frames = [draw(1, "다섯 사람과 학습에 쓰지 않은 세 사람"), draw(2, "늘 65.4 kg 을 내는 모델"), draw(3, "500번 학습한 직선"),
+              draw(4, "다섯 점을 모두 지나는 네제곱 곡선"), draw(5, "두 MSE 를 함께 보기")]
+    return frames, [2000, 2200, 2200, 2400, 2500]
+
+
+@figure("4g-2", 560, 280)
+def two_errors():
+    """세 모델의 학습 데이터 MSE(파랑)와 새 데이터 MSE(주황)."""
+    tr = [mse_of(k, x, y) for k, _, _ in MODELS]
+    va = [mse_of(k, VAL_X, VAL_Y) for k, _, _ in MODELS]
+    plt, fig = new(560)
+    ax = fig.add_axes([0.08, 0.24, 0.88, 0.66])
+    tidy(ax)
+    pos = np.arange(3)
+    ax.bar(pos - 0.19, tr, width=0.36, color=BLUE)
+    ax.bar(pos + 0.19, va, width=0.36, color=ORANGE)
+    for p, a, b in zip(pos, tr, va):
+        ax.text(p - 0.19, a + 1.5, mse_text(a), ha="center", fontsize=16, color=INK)
+        ax.text(p + 0.19, b + 1.5, mse_text(b), ha="center", fontsize=16, color=INK)
+    ax.set_ylim(0, 95)
+    ax.set_ylabel("MSE")
+    ax.set_xticks(pos)
+    ax.set_xticklabels(["늘 같은 값 (파라미터 1)", "직선 (파라미터 2)", "네제곱 곡선 (파라미터 5)"])
+    for p, text in zip(pos, ["과소적합, 높은 편향", "알맞은 모델", "과적합, 높은 분산"]):
+        fig.text(0.08 + 0.88 * (p + 0.5) / 3, 0.06, text, ha="center", fontsize=17, color=INK, weight="bold")
+    fig.text(0.70, 0.92, "파랑: 다섯 사람(학습)   주황: 새 세 사람", fontsize=16, color=INK, ha="center")
+    return image(fig)
+
+
+@figure("4g-3", 560, 280)
+def three_sets():
+    """데이터 5,000개를 60/20/20 으로 나누기와 데이터 누수."""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+    parts = [(3000, "학습 데이터", BLUE, "W, B 같은 파라미터 학습"), (1000, "검증 데이터", ORANGE, "하이퍼파라미터\n고르기"),
+             (1000, "테스트 데이터", PURPLE, "마지막에\n한 번 평가")]
+    assert sum(p[0] for p in parts) == 5000 and [p[0] for p in parts] == [5000 * 6 // 10, 5000 * 2 // 10, 5000 * 2 // 10]
+    plt, fig = new(560)
+    ax = boxes_axes(fig, ymax=5.6)
+    x0 = 0.4
+    scale = 10.4 / 5000
+    centers = []
+    for n, name, color, use in parts:
+        w = n * scale
+        ax.add_patch(FancyBboxPatch((x0, 2.6), w - 0.06, 1.2, boxstyle="round,pad=0.02", fc=color, ec="white", lw=1))
+        ax.text(x0 + w / 2, 3.42, name, ha="center", va="center", fontsize=18, color="white", weight="bold")
+        ax.text(x0 + w / 2, 2.95, format(n, ",") + "개", ha="center", va="center", fontsize=17, color="white")
+        ax.text(x0 + w / 2, 2.05, use, ha="center", va="center", fontsize=16, color=INK, linespacing=1.3)
+        centers.append(x0 + w / 2)
+        x0 += w
+    ax.text(0.4, 4.95, "데이터 5,000개를 60/20/20 으로 나누기", fontsize=20, weight="bold", color=INK)
+    ax.add_patch(FancyArrowPatch((centers[2], 3.85), (centers[0], 3.85), connectionstyle="arc3,rad=0.25", arrowstyle="-|>",
+                                 mutation_scale=20, color=RED, lw=2.6))
+    ax.text((centers[0] + centers[2]) / 2, 4.55, "테스트 데이터를 학습에 쓰면 데이터 누수", ha="center", fontsize=17,
+            color=RED, weight="bold", bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
+    ax.text(0.4, 1.05, "평균 같은 전처리 값도 학습 데이터에서만 구해 세 묶음에 씀", fontsize=17, color=INK)
+    ax.text(0.4, 0.45, "강의 권장: 10만 개 이상 80/10/10, 1만 개 이하 60/20/20", fontsize=16, color=MUTED)
+    return image(fig)
+
+
+@figure("4g-4", 560, 300)
+def kfold():
+    """학습 데이터 400개로 하는 5-Fold 교차 검증. 검증 정확도 다섯의 평균 0.80."""
+    from matplotlib.patches import FancyBboxPatch
+    scores = [0.82, 0.78, 0.85, 0.80, 0.75]
+    assert abs(sum(scores) / 5 - 0.80) < 1e-12 and 400 // 5 == 80 and 400 - 80 == 320
+
+    def draw(stage, title):
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        ax = boxes_axes(fig, (0, 0, 1, 0.9), ymax=5.4)
+        w = 1.6
+        for k in range(5):
+            val = (k == stage - 2)
+            color = ORANGE if val else BLUE
+            ax.add_patch(FancyBboxPatch((0.3 + k * (w + 0.08), 3.4), w, 1.0, boxstyle="round,pad=0.02", fc=color, ec="white"))
+            ax.text(0.3 + k * (w + 0.08) + w / 2, 3.9, "80개", ha="center", va="center", fontsize=17, color="white",
+                    weight="bold")
+        ax.add_patch(FancyBboxPatch((9.0, 3.4), 1.9, 1.0, boxstyle="round,pad=0.02", fc=PURPLE, ec="white"))
+        ax.text(9.95, 3.9, "테스트 100개", ha="center", va="center", fontsize=16, color="white", weight="bold")
+        ax.text(0.3, 4.85, "학습 데이터 400개를 다섯 덩어리로", fontsize=17, color=INK)
+        if 2 <= stage <= 6:
+            k = stage - 2
+            ax.text(0.3 + k * (w + 0.08) + w / 2, 3.05, "검증", ha="center", fontsize=16, color=ORANGE, weight="bold")
+            ax.text(0.3, 2.35, "%d번째 학습: 나머지 320개로 학습, 80개로 검증" % (k + 1), fontsize=19, color=INK)
+        done = scores[:max(0, min(stage - 1, 5))]
+        line = "   ".join("%d번째 %.2f" % (j + 1, s) for j, s in enumerate(done))
+        if done:
+            ax.text(0.3, 1.45, "검증 정확도: " + line, fontsize=17, color=INK)
+        if stage == 7:
+            ax.text(0.3, 0.6, "평균 (0.82 + 0.78 + 0.85 + 0.80 + 0.75) ÷ 5 = 0.80", fontsize=20, color=INK, weight="bold")
+            ax.text(0.3, 2.35, "덩어리 다섯이 모두 한 번씩 검증에 쓰임", fontsize=19, color=INK)
+        return image(fig)
+
+    frames = [draw(1, "테스트 100개를 떼고 400개를 나눔")] + [draw(s, "%d번째 학습" % (s - 1)) for s in range(2, 7)] + \
+        [draw(7, "다섯 번의 평균이 모델의 성능")]
+    return frames, [2000, 2000, 1800, 1800, 1800, 2000, 2500]
+
+
+@figure("4g-5", 560, 280)
+def summary_4g():
+    """외울 것 그림. 과소적합·과적합, 세 묶음, K-Fold."""
+    plt, fig = new(560)
+    ax = boxes_axes(fig, ymax=5.6)
+    card(ax, 0.15, 3.0, 5.35, 2.45, "과소적합: 높은 편향", ["학습·새 데이터 오차 모두 큼", "늘 같은 값: 42.99, 79.78"], size=16)
+    card(ax, 5.7, 3.0, 5.35, 2.45, "과적합: 높은 분산", ["학습 오차 작고 새 데이터 오차 큼", "네제곱 곡선: 0, 81.50"], size=16)
+    card(ax, 0.15, 0.15, 5.35, 2.65, "세 묶음(60/20/20, 5,000개)",
+         [("학습 3,000: 파라미터", BLUE), ("검증 1,000: 하이퍼파라미터", ORANGE), ("테스트 1,000: 마지막에 한 번", PURPLE)], size=16,
+         gap=0.5)
+    card(ax, 5.7, 0.15, 5.35, 2.65, "5-Fold(학습 데이터 400개)", ["한 번에 학습 320, 검증 80", "다섯 번 학습해 성능을 평균"], size=16)
+    return image(fig)
+
+
+# 4h 평가 지표
+
+YP = W_END * X + B_END
+E = YP - Y
+CONF0 = (int(((YP > 0) & (Y > 0)).sum()), int(((YP > 0) & (Y <= 0)).sum()), int(((YP <= 0) & (Y > 0)).sum()),
+         int(((YP <= 0) & (Y <= 0)).sum()))
+assert CONF0 == (2, 1, 0, 2)
+
+
+@figure("4h-1", 560, 280)
+def regression_metrics():
+    """500번 학습한 직선의 오차와 MAE, RMSE, R²."""
+    mae, mse = float(np.abs(E).mean()), float((E ** 2).mean())
+    rmse, r2 = mse ** 0.5, 1 - mse / float((Y ** 2).mean())
+    assert [num(v, 2) for v in E] == [M + "2.04", M + "0.83", "3.67", M + "0.99", "2.03"]
+    assert num(mae, 2) == "1.91" and num(mse, 2) == "4.67" and num(rmse, 2) == "2.16" and num(r2, 2) == "0.89"
+    plt, fig = new(560)
+    ax = fig.add_axes([0.07, 0.14, 0.40, 0.76])
+    tidy(ax)
+    ax.set_xlim(-6.5, 6.5)
+    ax.set_ylim(-11, 13)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.plot([-6.5, 6.5], [W_END * -6.5 + B_END, W_END * 6.5 + B_END], color=BLUE, lw=3)
+    for i in range(5):
+        ax.plot([X[i], X[i]], [Y[i], YP[i]], color=RED, lw=3.2, zorder=4)
+        # 정답이 직선 위에 있으면 오른쪽 위로 지나는 직선을 피해 번호를 왼쪽에 씀
+        up = Y[i] > YP[i]
+        ax.text(X[i] + (-0.3 if up else 0.3), (Y[i] + YP[i]) / 2, str(i + 1), fontsize=15, color=MUTED, weight="bold",
+                ha="right" if up else "left")
+    ax.scatter(X, Y, s=80, color=INK, zorder=5)
+    ax.scatter(X, YP, s=90, facecolor="white", edgecolor=BLUE, lw=2.4, zorder=6)
+    cols = [0.56, 0.66, 0.78, 0.90]
+    for c, h in zip(cols, ["사람", "e", "$|\\,e\\,|$", "$e^2$"]):
+        fig.text(c, 0.88, h, fontsize=17, color=(RED if h != "사람" else MUTED), ha="center", weight="bold")
+    for i in range(5):
+        yy = 0.78 - i * 0.075
+        vals = [str(i + 1), num(E[i], 2), num(abs(E[i]), 2), num(E[i] ** 2, 2)]
+        for c, v in zip(cols, vals):
+            fig.text(c, yy, v, fontsize=16, color=INK, ha="center", va="center")
+    lines = ["MAE = $|\\,e\\,|$ 의 평균 = 1.91", "MSE = $e^2$ 의 평균 = 4.67", "RMSE = $\\sqrt{4.67}$ = 2.16"]
+    yy = 0.32
+    for text in lines:
+        fig.text(0.53, yy, text, fontsize=16, color=INK, va="center")
+        yy -= 0.075
+    fig.text(0.53, yy, "$R^2$", fontsize=16, color=INK, va="center")
+    fig.text(0.565, yy, "= 1 " + M + " 4.6741 ÷ 42.992 = 0.89", fontsize=16, color=INK, va="center")
+    return image(fig)
+
+
+def conf_grid(ax, x0, y0, cell, values, show=(True, True, True, True), hl=()):
+    """혼동 행렬 2×2(행 실제, 열 판정, TP 왼쪽 위). values = (TP, FN, FP, TN)."""
+    from matplotlib.patches import Rectangle
+    names = ["TP", "FN", "FP", "TN"]
+    colors = [GREEN, RED, RED, GREEN]
+    fills = [GREEN_L, RED_L, RED_L, GREEN_L]
+    for k in range(4):
+        r, c = divmod(k, 2)
+        cx, cy = x0 + c * cell, y0 + (1 - r) * cell
+        ax.add_patch(Rectangle((cx, cy), cell, cell, fc=fills[k] if show[k] else "white", ec="#9ca3af", lw=1.6, zorder=1))
+        if show[k]:
+            ax.text(cx + cell / 2, cy + cell * 0.62, names[k], ha="center", va="center", fontsize=18, color=colors[k],
+                    weight="bold", zorder=3)
+            ax.text(cx + cell / 2, cy + cell * 0.3, str(values[k]), ha="center", va="center", fontsize=22, color=INK, zorder=3)
+    for k in hl:
+        r, c = divmod(k, 2)
+        ax.add_patch(Rectangle((x0 + c * cell + 0.05, y0 + (1 - r) * cell + 0.05), cell - 0.1, cell - 0.1, fc="none",
+                               ec=YELLOW_B, lw=5, zorder=4))
+    ax.text(x0 + cell / 2, y0 + 2 * cell + 0.25, "양성 판정", ha="center", fontsize=15, color=MUTED)
+    ax.text(x0 + 1.5 * cell, y0 + 2 * cell + 0.25, "음성 판정", ha="center", fontsize=15, color=MUTED)
+    ax.text(x0 - 0.15, y0 + 1.5 * cell, "실제 양성", ha="right", va="center", fontsize=15, color=MUTED)
+    ax.text(x0 - 0.15, y0 + 0.5 * cell, "실제 음성", ha="right", va="center", fontsize=15, color=MUTED)
+
+
+@figure("4h-2", 560, 300)
+def confusion_fill():
+    """임계값 0 으로 판정해 혼동 행렬 채우기."""
+    pos = Y > 0
+    assert list(np.flatnonzero(pos) + 1) == [2, 4] and [num(v, 2) for v in YP] == [M + "8.74", "9.47", "0.37", "4.01", M + "3.27"]
+    tp, fp, fn, tn = CONF0
+    order = {3: [1, 3], 4: [2], 5: [0, 4]}
+
+    def draw(stage, title):
+        plt, fig = new(600)
+        head(fig, title, size=20)
+        ax = fig.add_axes([0.08, 0.17, 0.47, 0.70])
+        tidy(ax)
+        ax.set_ylim(-11, 12)
+        ax.set_xlim(0.4, 5.6)
+        ax.set_xticks(range(1, 6))
+        ax.set_xticklabels(["사람 %d" % k for k in range(1, 6)], fontsize=15)
+        done = [k for s in (3, 4, 5) if stage >= s for k in order[s]]
+        for i in range(5):
+            edge = "none"
+            if i in done:
+                edge = GREEN if (YP[i] > 0) == pos[i] else RED
+            ax.bar(i + 1, YP[i], width=0.6, color=BLUE, edgecolor=edge, lw=4 if edge != "none" else 0, zorder=3)
+            ax.text(i + 1, YP[i] + (0.6 if YP[i] > 0 else -1.6), num(YP[i], 2), ha="center", fontsize=15, color=INK)
+            if pos[i]:
+                ax.text(i + 1, -10.4, "양성", ha="center", fontsize=15, color=INK, weight="bold")
+        if stage >= 2:
+            ax.axhline(0, color=MUTED, lw=2, ls="--", zorder=4)
+        ax.set_ylabel("예측 Yp")
+        bx = boxes_axes(fig, (0.58, 0.05, 0.42, 0.8), xmax=4.6, ymax=5.0)
+        show = (stage >= 3, stage >= 5, stage >= 4, stage >= 5)
+        conf_grid(bx, 1.4, 1.2, 1.5, (tp, fn, fp, tn), show=show)
+        return image(fig)
+
+    frames = [draw(1, "다섯 사람의 예측 Yp"), draw(2, "임계값 0 보다 크면 양성 판정"), draw(3, "사람 2, 4: TP"), draw(4, "사람 3: FP"),
+              draw(5, "사람 1, 5: TN, FN 은 없음"), draw(6, "혼동 행렬 TP 2, FN 0, FP 1, TN 2")]
+    return frames, [2000, 2200, 2200, 2200, 2200, 2500]
+
+
+@figure("4h-3", 560, 300)
+def metric_cells():
+    """혼동 행렬의 어느 칸으로 지표를 계산하는지(노랑 테두리)."""
+    from fractions import Fraction
+    tp, fp, fn, tn = CONF0
+    acc, prec, rec = Fraction(tp + tn, 5), Fraction(tp, tp + fp), Fraction(tp, tp + fn)
+    f1 = 2 * prec * rec / (prec + rec)
+    assert (acc, prec, rec, f1) == (Fraction(4, 5), Fraction(2, 3), Fraction(1), Fraction(4, 5))
+    rows = [("정확도", (0, 3), ["(TP + TN) ÷ 전체", "(2 + 2) ÷ 5 = 0.8"]),
+            ("정밀도", (0, 2), ["TP ÷ (TP + FP)", "양성으로 판정한 열", "2 ÷ (2 + 1) = 0.667"]),
+            ("재현율", (0, 1), ["TP ÷ (TP + FN)", "실제 양성인 행", "2 ÷ (2 + 0) = 1"]),
+            ("F1", (0, 1, 2), ["2 × 정밀도 × 재현율", "÷ (정밀도 + 재현율)", "2 × 0.667 × 1 ÷ 1.667 = 0.8"])]
+    assert num(float(prec), 3) == "0.667"
+    frames = []
+    for name, hl, lines in rows:
+        plt, fig = new(600)
+        head(fig, name, size=21)
+        ax = boxes_axes(fig, (0.02, 0.05, 0.52, 0.82), xmax=5.6, ymax=5.0)
+        conf_grid(ax, 1.9, 0.9, 1.6, (tp, fn, fp, tn), hl=hl)
+        yy = 0.72
+        for text in lines:
+            fig.text(0.58, yy, text, fontsize=20, color=INK, va="center")
+            yy -= 0.13
+        frames.append(image(fig))
+    return frames, [2200, 2200, 2200, 2500]
+
+
+@figure("4h-4", 560, 300)
+def roc_curve():
+    """임계값을 내리며 (FPR, TPR) 을 찍어 ROC 곡선 그리기. AUC = 1."""
+    from fractions import Fraction
+    pos = Y > 0
+    order = np.argsort(-YP)
+    pts = [(Fraction(0), Fraction(0))]
+    for k in range(1, 6):
+        chosen = order[:k]
+        tp = int(pos[chosen].sum())
+        fp = k - tp
+        pts.append((Fraction(fp, 3), Fraction(tp, 2)))
+    assert pts == [(0, 0), (0, Fraction(1, 2)), (0, 1), (Fraction(1, 3), 1), (Fraction(2, 3), 1), (1, 1)]
+    cuts = [10.5, 6.7, 2.2, -1.5, -6.0, -9.6]
+    frame_pts = [1, 2, 3, 4, 5, 6]
+    ranked = sorted(YP, reverse=True)
+    assert cuts[0] > ranked[0] and cuts[-1] < ranked[-1]
+    assert all(ranked[k] > cuts[k + 1] > ranked[k + 1] for k in range(4))
+    titles = ["임계값이 가장 클 때 (0, 0)", "사람 2 만 양성 (0, 0.5)", "사람 2, 4 가 양성 (0, 1)", "사람 3 도 양성 (1/3, 1)",
+              "사람 5 도 양성 (2/3, 1)", "모두 양성 (1, 1)", "AUC = 1"]
+
+    def draw(stage):
+        plt, fig = new(600)
+        head(fig, titles[stage - 1], size=20)
+        ax = fig.add_axes([0.08, 0.14, 0.29, 0.72])
+        tidy(ax, grid=False)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(-11, 12)
+        ax.set_xticks([])
+        ax.set_ylabel("예측 Yp")
+        for i in range(5):
+            if pos[i]:
+                ax.scatter([0.35], [YP[i]], s=150, color=INK, zorder=5)
+            else:
+                ax.scatter([0.35], [YP[i]], s=150, facecolor="white", edgecolor=INK, lw=2.2, zorder=5)
+            ax.text(0.47, YP[i], "사람 %d%s" % (i + 1, " 양성" if pos[i] else ""), fontsize=15, va="center", color=INK)
+        ax.axhline(cuts[min(stage, 6) - 1], color=MUTED, lw=2.2, ls="--")
+        bx = fig.add_axes([0.52, 0.14, 0.40, 0.72])
+        tidy(bx)
+        bx.set_xlim(-0.03, 1.03)
+        bx.set_ylim(-0.03, 1.03)
+        bx.set_aspect("equal")
+        bx.set_xlabel("FPR")
+        bx.set_ylabel("TPR")
+        bx.plot([0, 1], [0, 1], color="#9ca3af", lw=1.8, ls="--")
+        n = frame_pts[min(stage, 6) - 1]
+        px = [float(a) for a, _ in pts[:n]]
+        py = [float(b) for _, b in pts[:n]]
+        if stage == 7:
+            bx.fill_between([0, 1], [1, 1], color=PURPLE_L, zorder=0)
+            bx.text(0.3, 0.55, "AUC = 1", fontsize=20, color=PURPLE, weight="bold", ha="center")
+            bx.text(0.78, 0.15, "무작위 0.5", fontsize=15, color=MUTED, ha="center")
+        bx.plot(px, py, color=PURPLE, lw=3.2, marker="o", ms=10, zorder=4)
+        return image(fig)
+
+    frames = [draw(s) for s in range(1, 8)]
+    return frames, [1800, 2000, 2000, 2000, 2000, 2200, 2500]
+
+
+@figure("4h-5", 560, 280)
+def summary_4h():
+    """외울 것 그림. 회귀 지표, 혼동 행렬과 식, 지표 고르기와 ROC."""
+    plt, fig = new(560)
+    ax = boxes_axes(fig, ymax=5.6)
+    card(ax, 0.15, 2.95, 3.6, 2.5, "회귀 지표", ["MAE: $|\\,e\\,|$ 의 평균", "RMSE: $\\sqrt{\\mathrm{MSE}}$, 큰 오차에 민감", "$R^2$: 1 이 최고, 음수도 됨"],
+         size=15, gap=0.48)
+    conf_grid(ax, 5.3, 3.0, 1.0, ("", "", "", ""), show=(True, True, True, True))
+    card(ax, 7.6, 2.95, 3.45, 2.5, "식", ["정밀도 TP ÷ (TP + FP)", "재현율 TP ÷ (TP + FN)", "F1 = 2PR ÷ (P + R)"], size=15,
+         gap=0.48)
+    card(ax, 0.15, 0.15, 5.35, 2.55, "어느 지표를 보나",
+         [("놓치면 안 됨(FN): 재현율", RED), ("잘못 양성이면 안 됨(FP): 정밀도", RED), "드문 양성: 정확도만 보지 않음"], size=15,
+         gap=0.5)
+    card(ax, 5.7, 0.15, 5.35, 2.55, "ROC 곡선과 AUC", ["가로 FPR, 세로 TPR", "AUC 0.5: 무작위 판정", "AUC 1: 양성 점수가 모두 음성보다 큼"], size=15,
+         gap=0.48)
     return image(fig)
 
 

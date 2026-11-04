@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "id": "l05",
+  "title": "5차시 경사하강법 구현",
+  "lesson": "i05",
+  "defines": ["레이어 함수", "비선형성", "기울기 폭발", "배치 크기", "학습률 스케줄러", "내부 공변량 변화", "이동 평균", "Layer Normalization", "기울기 자르기"],
+  "needs": ["l01", "l02", "l03", "l04"],
+  "sections": {
+    "5a": "레이어 함수와 모델",
+    "5b": "활성화 함수가 필요한 까닭",
+    "5c": "기울기 소실·폭발과 가중치 초기화",
+    "5d": "경사하강법의 세 갈래와 미니배치",
+    "5e": "학습률과 스케줄러",
+    "5f": "배치 정규화",
+    "5g": "코드 읽기: 표 데이터로 미니배치 학습"
+  },
+  "outputs": [],
+  "sources": [
+    {"what": "PyTorch nn.Linear: 입력 마지막 축이 in_features 와 같아야 하고, weight·bias 기본 초기화는 U(−1/√in, 1/√in)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.Linear.html", "checked": "2026-11-03"},
+    {"what": "PyTorch nn.init: kaiming_normal_ 의 표준편차 gain/√fan_in, xavier_normal_ 의 √(2/(fan_in+fan_out))", "url": "https://docs.pytorch.org/docs/stable/nn.init.html", "checked": "2026-11-03"},
+    {"what": "PyTorch Tensor.register_hook: hook(grad) 가 돌려준 텐서가 기울기로 쓰임", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.register_hook.html", "checked": "2026-11-03"},
+    {"what": "PyTorch BatchNorm1d: 학습 때 배치 통계(분산은 n 으로 나눔), 평가 때 running 통계, momentum 0.1, eps 1e-5", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html", "checked": "2026-11-03"},
+    {"what": "PyTorch CosineAnnealingLR, StepLR, OneCycleLR 의 학습률 식과 step() 자리", "url": "https://docs.pytorch.org/docs/stable/optim.html", "checked": "2026-11-04"},
+    {"what": "PyTorch clip_grad_norm_: .grad 를 제자리에서 줄임", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_norm_.html", "checked": "2026-11-04"},
+    {"what": "PyTorch TensorDataset·DataLoader: 첫 축으로 인덱싱, shuffle=True 는 에폭마다 섞음", "url": "https://docs.pytorch.org/docs/stable/data.html", "checked": "2026-11-04"},
+    {"what": "scikit-learn train_test_split 반환 순서와 stratify, StandardScaler 는 훈련 데이터에만 fit", "url": "https://scikit-learn.org/stable/common_pitfalls.html", "checked": "2026-11-04"}
+  ],
+  "credits": [],
+  "units": {
+    "5a": {"minutes": 5, "key_figure": "assets/5a-2.gif", "kind": "concept"},
+    "5b": {"minutes": 5, "key_figure": "assets/5b-2.gif", "kind": "concept"},
+    "5c": {"minutes": 7, "key_figure": "assets/5c-2.gif", "kind": "concept"},
+    "5d": {"minutes": 6, "key_figure": "assets/5d-1.gif", "kind": "concept"},
+    "5e": {"minutes": 6, "key_figure": "assets/5e-1.gif", "kind": "concept"},
+    "5f": {"minutes": 6, "key_figure": "assets/5f-1.gif", "kind": "concept"},
+    "5g": {"minutes": 6, "key_figure": "assets/5g-2.gif", "kind": "code"}
+  }
+}

@@ -1,0 +1,68 @@
+{
+ "format": 1,
+ "id": "i05",
+ "no": 5,
+ "page": "l05",
+ "units": {
+  "5a": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [
+    "i05-g01"
+   ],
+   "core": 4
+  },
+  "5b": {
+   "blank": 2,
+   "choice": 2,
+   "stmt": 8,
+   "gen": [],
+   "core": 3
+  },
+  "5c": {
+   "blank": 2,
+   "choice": 4,
+   "stmt": 0,
+   "gen": [
+    "i05-g02"
+   ],
+   "core": 3
+  },
+  "5d": {
+   "blank": 2,
+   "choice": 3,
+   "stmt": 8,
+   "gen": [
+    "i05-g03"
+   ],
+   "core": 3
+  },
+  "5e": {
+   "blank": 2,
+   "choice": 4,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "5f": {
+   "blank": 3,
+   "choice": 4,
+   "stmt": 0,
+   "gen": [
+    "i05-g04"
+   ],
+   "core": 4
+  },
+  "5g": {
+   "blank": 5,
+   "choice": 3,
+   "stmt": 0,
+   "gen": [
+    "i05-g05"
+   ],
+   "core": 4
+  }
+ },
+ "sources": []
+}
