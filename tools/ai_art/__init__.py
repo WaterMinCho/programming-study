@@ -3,7 +3,7 @@
 그리고 `python -m tools.ai_art lNN` 이 ai/learn/lNN/assets/ 에 씀.
 
 이 파일의 위쪽(이름 규칙, 한도, manifest, 그림 파일 검사)은 표준 라이브러리만 써서 CI 의 verify_ai 가 import 함. 아래쪽 그리기
-도우미(setup, canvas, to_image, save)는 부를 때 matplotlib·Pillow 를 import 함. 스크립트는 이렇게 씀:
+도우미(setup, canvas, to_image, quantize, save)는 부를 때 matplotlib·Pillow 를 import 함. 스크립트는 이렇게 씀:
 
     from tools.ai_art import figure, setup, canvas, to_image, COLORS
 
@@ -48,6 +48,12 @@ MANIFEST = os.path.join(ROOT, "tools", "ai_art", "manifest.json")
 FONTS = os.path.join(ROOT, "gui", "fonts")
 COLORS = {"ink": "#1f2937", "muted": "#6b7280", "faint": "#d1d5db", "grid": "#eef0f3", "blue": "#2563eb", "red": "#dc2626",
           "orange": "#ea580c", "green": "#059669", "purple": "#7c3aed", "highlight": "#fef3c7"}
+# 그림 스크립트가 쓰는 색 이름표와 글자로 적은 색. quantize() 는 그림에 있는 이 색을 팔레트에 그대로 넣음.
+# 스크립트에 새 색을 쓰면 여기에도 넣어야 tests/test_ai_tools.py 가 통과함
+FIXED = ("#ffffff",) + tuple(COLORS.values()) + (
+    "#9ca3af", "#e5e7eb", "#f3f4f6", "#f8fafc", "#fafafa", "#eff6ff", "#dbeafe", "#bfdbfe", "#93c5fd", "#3b82f6",
+    "#1d4ed8", "#fee2e2", "#b91c1c", "#ffedd5", "#c2410c", "#d1fae5", "#047857", "#ede9fe", "#6d28d9", "#fde68a",
+    "#253747", "#3d6187", "#9fb2c4", "#e0e8f0")
 MINUS = "−"
 
 _FIGURES = []
@@ -196,28 +202,62 @@ def _image(item):
     return item.convert("RGB")
 
 
+def quantize(images, colors=None):
+    """RGB 그림 목록을 팔레트 하나를 같이 쓰는 P 그림 목록으로 줄임(디더링 없음). FIXED 가운데 그림에 있는 색을 먼저
+    팔레트에 넣고, 남은 자리는 나머지 픽셀을 FASTOCTREE 로 줄인 색으로 채움. 픽셀마다 팔레트에서 가장 가까운 색을 고르므로
+    FIXED 색 픽셀은 값이 바뀌지 않음. 팔레트는 colors(기본 LIMITS["colors"]) 색 이하."""
+    import numpy as np
+    from PIL import Image
+    colors = colors or LIMITS["colors"]
+    arrays = [np.asarray(image.convert("RGB"), dtype=np.int32) for image in images]
+    pixels = np.concatenate([(a[..., 0] << 16 | a[..., 1] << 8 | a[..., 2]).ravel() for a in arrays])
+    seen = np.zeros(1 << 24, dtype=bool)
+    seen[pixels] = True
+    fixed = np.array([int(value[1:], 16) for value in FIXED])
+    palette = [int(value) for value in fixed[seen[fixed]]]
+    kept = np.zeros(1 << 24, dtype=bool)
+    kept[palette] = True
+    rest = pixels[~kept[pixels]]
+    if rest.size and len(palette) < colors:
+        strip = np.stack([rest >> 16, rest >> 8 & 255, rest & 255], axis=-1).astype(np.uint8)[None]
+        small = Image.fromarray(strip).quantize(colors - len(palette), method=Image.Quantize.FASTOCTREE,
+                                                dither=Image.Dither.NONE)
+        palette += [r << 16 | g << 8 | b for _, (r, g, b) in small.convert("RGB").getcolors()]
+    rgb = np.array([[value >> 16, value >> 8 & 255, value & 255] for value in palette])
+    unique = np.flatnonzero(seen)
+    wanted = np.stack([unique >> 16, unique >> 8 & 255, unique & 255], axis=-1)
+    lookup = np.zeros(1 << 24, dtype=np.uint8)
+    for s in range(0, len(unique), 4096):
+        lookup[unique[s:s + 4096]] = ((wanted[s:s + 4096, None] - rgb) ** 2).sum(-1).argmin(-1)
+    index = lookup[pixels]
+    flat = [int(part) for part in rgb.ravel()]
+    out, start = [], 0
+    for image in images:
+        width, height = image.size
+        frame = Image.frombytes("P", (width, height), index[start:start + width * height].tobytes())
+        frame.putpalette(flat)
+        out.append(frame)
+        start += width * height
+    return out
+
+
 def save(name, result, out_dir):
     """그림 함수가 돌려준 것을 파일로. 그림 한 장이면 PNG, (장 목록, 장 시간) 이나 장 목록이면 GIF(장 시간 2000ms).
-    팔레트는 LIMITS["colors"] 색 이하로 줄임. 쓴 경로."""
-    from PIL import Image
+    quantize() 로 줄이고 GIF 는 모든 장이 팔레트 하나를 같이 씀. 쓴 경로."""
     os.makedirs(out_dir, exist_ok=True)
     if isinstance(result, tuple) and len(result) == 2 and isinstance(result[0], (list, tuple)):
         frames, durations = [_image(f) for f in result[0]], list(result[1])
     elif isinstance(result, (list, tuple)):
         frames, durations = [_image(f) for f in result], [2000] * len(result)
     else:
-        image = _image(result)
         path = os.path.join(out_dir, name + ".png")
-        image.quantize(colors=LIMITS["colors"], method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(path, optimize=True)
+        quantize([_image(result)])[0].save(path, optimize=True)
         return path
     width, height = frames[0].size
-    sheet = Image.new("RGB", (width, height * len(frames)), "white")
     for k, frame in enumerate(frames):
         if frame.size != (width, height):
             raise ValueError("%s 의 %d번째 장 크기가 다릅니다" % (name, k + 1))
-        sheet.paste(frame, (0, height * k))
-    palette = sheet.quantize(colors=LIMITS["colors"], method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
-    quantized = [f.quantize(palette=palette, dither=Image.Dither.NONE) for f in frames]
+    quantized = quantize(frames)
     path = os.path.join(out_dir, name + ".gif")
     quantized[0].save(path, save_all=True, append_images=quantized[1:], duration=durations, loop=0, optimize=True, disposal=1)
     return path

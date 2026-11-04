@@ -23,6 +23,10 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle  # noq
 from PIL import Image  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+from tools.ai_art import quantize  # noqa: E402
+
 OUT = os.path.join(ROOT, "ai", "learn", "l02", "assets")
 FONTS = os.path.join(ROOT, "gui", "fonts")
 for _name in ("NanumGothic-Regular.ttf", "NanumGothic-Bold.ttf", "D2Coding-Regular.ttf", "D2Coding-Bold.ttf"):
@@ -32,21 +36,20 @@ plt.rcParams.update({"font.family": ["NanumGothic", "DejaVu Sans"], "axes.unicod
 
 W = 1120
 MAX_H = 600
-COLORS = 64
 INK, MUTED, FAINT, LINE = "#1f2937", "#6b7280", "#d1d5db", "#9ca3af"
 BLUE, ORANGE, GREEN, RED, PURPLE = "#1d4ed8", "#c2410c", "#047857", "#b91c1c", "#6d28d9"
 BLUE_L, ORANGE_L, GREEN_L, RED_L, GRAY_L, HL = "#dbeafe", "#ffedd5", "#d1fae5", "#fee2e2", "#f3f4f6", "#fef3c7"
 PURPLE_L, YELLOW_L = "#ede9fe", "#fde68a"
 CODE = "D2Coding"
-# 2a 단원 색: 파랑은 0번 축, 주황은 1번 축, 초록은 numpy 배열과 배열 방식, 보라는 리스트 방식, 노랑은 대각선 자리, 빨강은 오류
+# 2a 단원 색: 파랑은 0번 축, 주황은 1번 축, 초록은 numpy 배열과 배열 방식, 보라는 파이썬 리스트와 리스트 방식,
+#   노랑은 대각선 자리, 빨강은 오류. 회색 칸은 쓰지 않음
 # 2b 단원 색: 파랑은 행 번호(0번 축), 주황은 열 번호(1번 축), 초록은 꺼내거나 고른 칸과 결과, 회색은 False 자리, 빨강은 오류
 # 2c 단원 색: 파랑은 0번 축, 주황은 1번 축, 보라는 2번 축, 초록은 결과, 노랑은 따라가는 값(M의 0번 행), 회색은 옮긴 원소,
 #   빨강은 오류
 # 2d 단원 색: 파랑은 첫째 배열 a, 주황은 더하는 둘째 배열, 노랑은 곱해 더하는 행과 열, 초록은 맞는 축과 계산 결과,
 #   회색은 행렬곱에서 이미 구한 칸, 빨강은 오류
-# PNG 는 64색으로 줄이면서 GRAY_L 칸이 흰색과 합쳐질 수 있음(l02-8·l02-9·l02-28 이 그럼). 캡션에 회색 뜻을 적으려면
-#   그린 PNG 를 열어 회색이 남았는지 봄
-# 2e 단원 색: 파랑은 0번 축과 axis=0, 주황은 1번 축과 axis=1, 초록은 계산 결과, 보라는 argsort의 자리 번호, 빨강은 None
+# 2e 단원 색: 파랑은 0번 축과 axis=0, 주황은 1번 축과 axis=1, 초록은 계산 결과, 회색은 그림 27 의 False 칸,
+#   보라는 argsort의 자리 번호, 빨강은 None. 그림 27 의 True 칸은 초록과 겹치지 않게 흰 칸으로 둠
 # 2f 단원 색: 파랑은 그래프에 그린 선과 점('b-' Train 포함), 빨강은 'r--' Val, 주황은 a = 2 곡선, 보라는 종류가 다른 점,
 #   초록은 난수 함수가 낼 수 있는 값. 이상치는 색 대신 동그라미, 나오지 않는 끝값은 빈 원으로 나눔
 
@@ -154,18 +157,15 @@ def save_gif(path, frames, ms):
     assert all(1600 <= d <= 2500 for d in ms), (path, ms)
     w, h = frames[0].size
     assert w <= W and h <= MAX_H
-    sheet = Image.new("RGB", (w, h * len(frames)), "white")
-    for k, f in enumerate(frames):
+    for f in frames:
         assert f.size == (w, h)
-        sheet.paste(f, (0, h * k))
-    pal = sheet.quantize(colors=COLORS, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
-    q = [f.quantize(palette=pal, dither=Image.Dither.NONE) for f in frames]
+    q = quantize(frames)
     q[0].save(path, save_all=True, append_images=q[1:], duration=ms, loop=0, optimize=True, disposal=1)
 
 
 def save_png(path, img):
     assert img.size[0] <= W and img.size[1] <= MAX_H
-    img.quantize(colors=COLORS, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(path, optimize=True)
+    quantize([img])[0].save(path, optimize=True)
 
 
 # ---------- 2a 리스트와 배열
@@ -179,7 +179,7 @@ def list_vs_array():
     spots = [(520, 120), (650, 215), (790, 130), (920, 230), (1030, 140), (560, 255)]
     for k, v in enumerate(DATA):
         x = 60 + k * 54
-        c.box(x, 150, 54, 44, fc=GRAY_L)
+        c.box(x, 150, 54, 44, fc=PURPLE_L)
         c.text(x + 27, 172, "•", size=20, ha="center", color=MUTED)
         bx, by = spots[k]
         c.box(bx, by, 62, 48, fc="white", ec=MUTED, round_=True)
@@ -282,7 +282,7 @@ def shape_ndim():
     c.text(40, 350, "ndim 1    len 6", size=22, code=True)
     c.line([480, 480], [70, 500], color=FAINT, lw=1.5)
     c.text(510, 90, "M = np.array([[3, 8, 1], [6, 2, 9]])", size=16, code=True)
-    c.grid(600, 150, M.tolist(), cw=66, ch=52, fill=GRAY_L)
+    c.grid(600, 150, M.tolist(), cw=66, ch=52)
     for i in range(2):
         c.text(585, 150 + i * 52 + 26, str(i), size=15, color=BLUE, ha="right", code=True)
     for j in range(3):
@@ -317,7 +317,7 @@ def fill_arrays():
            fill=lambda i, j: YELLOW_L if i == j else "white")
     c.text(430, 225, "대각선 자리만 1", size=18, color=INK)
     c.text(780, 85, "np.random.randn(2, 3)", size=20, code=True, bold=True)
-    c.grid(780, 105, [["?"] * 3] * 2, cw=60, ch=48, fill=GRAY_L, tc=MUTED)
+    c.grid(780, 105, [["?"] * 3] * 2, cw=60, ch=48, tc=MUTED)
     c.text(780, 225, "평균 0, 표준편차 1 인", size=18, color=MUTED)
     c.text(780, 252, "정규분포에서 뽑은 난수", size=18, color=MUTED)
     c.text(780, 279, "모양은 정수를 따로", size=18, color=MUTED)
@@ -1126,7 +1126,7 @@ def accuracy_minmax():
         if show_eq:
             c.text(40, 246, "yt == yp", size=20, code=True, bold=True)
             c.grid(x0, 222, [["T" if e else "F" for e in eq]], cw=cw, ch=48,
-                   fill=lambda i, j: GREEN_L if eq[j] else GRAY_L, tc=lambda i, j: GREEN if eq[j] else MUTED)
+                   fill=lambda i, j: "white" if eq[j] else GRAY_L, tc=lambda i, j: INK if eq[j] else MUTED)
         return c
 
     frames.append(base("정답과 예측 여섯 개").image()); ms.append(1800)
@@ -1195,7 +1195,7 @@ def plot_scatter():
     assert sig(0.0, 1) == 0.5
     fig = plt.figure(figsize=(W / 100, 4.4), dpi=100)
     a1 = mpl_panel(fig, [0.05, 0.14, 0.26, 0.7], "plt.plot(x, data)")
-    a1.plot(x, DATA, color=BLUE, lw=2.5, marker="o")
+    a1.plot(x, DATA, color=BLUE, lw=2.5)
     a2 = mpl_panel(fig, [0.38, 0.14, 0.26, 0.7], "plt.scatter(x, data)")
     a2.scatter(x, DATA, color=BLUE, s=60)
     for ax in (a1, a2):

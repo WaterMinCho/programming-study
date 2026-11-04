@@ -27,7 +27,16 @@ INK, MUTED, FAINT, GRID = COLORS["ink"], COLORS["muted"], COLORS["faint"], COLOR
 BLUE, RED, ORANGE, GREEN, PURPLE, HL = (COLORS["blue"], COLORS["red"], COLORS["orange"], COLORS["green"],
                                         COLORS["purple"], COLORS["highlight"])
 SKY, PALE, CODEBG = "#93c5fd", "#bfdbfe", "#f8fafc"
+NOTE, BAND = "#f3f4f6", "#e5e7eb"
+GREEN_L, ORANGE_L, BLUE_L = "#d1fae5", "#ffedd5", "#eff6ff"
 CODE = "D2Coding"
+# 한 단원 안에서 한 색은 한 뜻이고, 뜻은 그 그림의 캡션이나 장 설명에 적음. 그림 안 설명 글은 회색(NOTE) 바탕에 적고 뜻이 없음
+# 4a 단원 색: 파랑은 직선과 그 예측 Yp, 옅은 파랑은 앞 장에서 구한 예측, 보라는 B, 빨강은 오차 e 와 그 제곱,
+#   초록은 평균을 뺀 값 X, Y, 노랑은 지금 계산하는 사람, 회색 점선은 평균. 검은 점은 정답
+# 4b 단원 색: 파랑은 직선, 옅은 파랑은 지금이 아닌 W 의 직선, 빨강은 손실, 주황은 접선과 기울기,
+#   초록은 W, B 를 바꾸는 쪽과 바꾼 뒤의 점, 회색 곡선은 등고선. 4b-2 의 확대 상자는 초록과 겹치지 않게 검은 테두리
+# 4c 단원 색: 파랑은 순전파, 주황은 역전파로 곱해 온 값, 초록은 W.grad 와 거기에 보태는 값, 보라는 B.grad 와 거기에
+#   보태는 값, 노랑은 실행하는 줄과 그 줄이 바꾼 값, 빨강은 잘못 쓴 코드와 그 결과, 회색 띠(BAND)는 4c-5 의 backward 바로 앞 줄
 M = MINUS
 SIZES = {"font.size": 20, "axes.titlesize": 20, "axes.labelsize": 19, "xtick.labelsize": 17, "ytick.labelsize": 17,
          "axes.linewidth": 1.2, "axes.edgecolor": "#9ca3af"}
@@ -116,7 +125,7 @@ def tidy(ax, grid=True):
         ax.set_axisbelow(True)
 
 
-def note(target, px, py, text, color=INK, size=18, bg=HL, ha="left", va="center", weight="normal", family=None,
+def note(target, px, py, text, color=INK, size=18, bg=NOTE, ha="left", va="center", weight="normal", family=None,
          transform=None, ec=None):
     """설명 글자. bg 가 있으면 둥근 바탕을 깔아 선 위에서도 읽히게 함."""
     kw = dict(color=color, fontsize=size, ha=ha, va=va, weight=weight, zorder=12, linespacing=1.35)
@@ -293,16 +302,18 @@ def line():
             ax.plot([X[i], X[i]], [-9, Yp[i]], color=c, lw=1.4, ls=":", zorder=2)
             ax.scatter([X[i]], [Yp[i]], s=140, facecolor="white", edgecolor=c, lw=2.6, zorder=6)
         if stage == 4:
-            right.append(("사람 1\n1 × (" + M + "5) + 1 = " + M + "4", INK, 20))
+            right.append(("사람 1\n1 × (" + M + "5) + 1 = " + M + "4", INK, 20, HL))
         if stage == 5:
-            right.append(("사람 2\n1 × 5 + 1 = 6", INK, 20))
+            right.append(("사람 2\n1 × 5 + 1 = 6", INK, 20, HL))
         if stage == 6:
-            right.append(("사람 3: 1, 사람 4: 3\n사람 5: " + M + "1", INK, 19))
-            right.append(("Yp = [" + ", ".join(num(v, 0) for v in Yp) + "]", INK, 20))
+            right.append(("사람 3: 1, 사람 4: 3\n사람 5: " + M + "1", INK, 19, HL))
+            right.append(("Yp = [" + ", ".join(num(v, 0) for v in Yp) + "]", INK, 20, NOTE))
         yy = 0.86
-        for text, color, size in right:
+        for item in right:
+            text, color, size = item[:3]
+            bg = item[3] if len(item) > 3 else None
             lines = text.count("\n") + 1
-            note(fig, 0.64, yy, text, color=color, size=size, bg=(HL if color == INK else None), va="top")
+            note(fig, 0.64, yy, text, color=color, size=size, bg=bg, va="top")
             yy -= 0.085 * lines + 0.05
         return image(fig)
 
@@ -371,7 +382,7 @@ def loss():
             if stage == 5:
                 note(bx, 0.5, 0.97, "합 66.76", size=18, ha="center", va="top", transform=bx.transAxes)
             if stage == 6:
-                bx.axhline(sq.mean(), color=INK, lw=2.5, ls="--", zorder=4)
+                bx.axhline(sq.mean(), color=MUTED, lw=2.5, ls="--", zorder=4)
                 note(bx, 0.5, 0.97, "평균 66.76 ÷ 5 = 13.352", size=18, ha="center", va="top", transform=bx.transAxes)
         return image(fig)
 
@@ -390,12 +401,12 @@ def summary_4a():
     ax.axis("off")
     Yp = X + 1
     assert abs(((Yp - Y) ** 2).mean() - 13.352) < 1e-9
-    boxes = [(1.85, "평균 빼기", "X = x - x.mean()", "X = [" + M + "5, 5, 0, 2, " + M + "2]"),
-             (5.6, "선형 모델", "Yp = W * X + B", "Yp = [" + M + "4, 6, 1, 3, " + M + "1]"),
-             (9.35, "손실(MSE)", "((Yp - Y)**2).mean()", "13.352")]
-    for cx, title, code, value in boxes:
-        ax.add_patch(FancyBboxPatch((cx - 1.7, 1.75), 3.4, 2.5, boxstyle="round,pad=0.06", fc="#eff6ff", ec=BLUE, lw=2))
-        ax.text(cx, 3.75, title, ha="center", va="center", fontsize=21, weight="bold", color=BLUE)
+    boxes = [(1.85, "평균 빼기", "X = x - x.mean()", "X = [" + M + "5, 5, 0, 2, " + M + "2]", GREEN, GREEN),
+             (5.6, "선형 모델", "Yp = W * X + B", "Yp = [" + M + "4, 6, 1, 3, " + M + "1]", BLUE, BLUE),
+             (9.35, "손실(MSE)", "((Yp - Y)**2).mean()", "13.352", "#9ca3af", INK)]
+    for cx, title, code, value, edge, ink in boxes:
+        ax.add_patch(FancyBboxPatch((cx - 1.7, 1.75), 3.4, 2.5, boxstyle="round,pad=0.06", fc="white", ec=edge, lw=2))
+        ax.text(cx, 3.75, title, ha="center", va="center", fontsize=21, weight="bold", color=ink)
         ax.text(cx, 2.95, code, ha="center", va="center", fontsize=17, family=CODE, color=INK)
         ax.text(cx, 2.25, value, ha="center", va="center", fontsize=18, color=INK)
     kw = dict(arrowstyle="-|>", color=MUTED, lw=2.4, mutation_scale=22)
@@ -403,7 +414,7 @@ def summary_4a():
     ax.annotate("", xy=(7.6, 3.0), xytext=(7.35, 3.0), arrowprops=kw)
     ax.text(5.6, 0.95, "오차 e = Yp " + M + " Y 를 제곱해 평균 냄. 제곱하면 양수 오차와 음수 오차가 지워지지 않음",
             ha="center", va="center", fontsize=17, color=INK,
-            bbox=dict(boxstyle="round,pad=0.35", fc=HL, ec="none"))
+            bbox=dict(boxstyle="round,pad=0.35", fc=NOTE, ec="none"))
     return image(fig)
 
 
@@ -556,11 +567,11 @@ def descent():
     dur.append(2400)
     plt, fig, ax = base("한 번 갱신: 학습률 0.001", "W: 1 " + M + " 0.001 × (" + M + "19.04) = 1.01904\nB: 1 " + M +
                         " 0.001 × 2.0 = 0.998")
-    ax.add_patch(Rectangle((0.975, 0.975), 0.07, 0.05, fill=False, ec=GREEN, lw=2, zorder=9))
+    ax.add_patch(Rectangle((0.94, 0.94), 0.12, 0.12, fill=False, ec=INK, lw=2, zorder=9))
     ix = fig.add_axes([0.60, 0.33, 0.34, 0.30])
     ix.set_facecolor("white")
     for sp in ix.spines.values():
-        sp.set_edgecolor(GREEN)
+        sp.set_edgecolor(INK)
         sp.set_linewidth(2)
     ix.set_xlim(0.994, 1.028)
     ix.set_ylim(0.9945, 1.0035)
@@ -572,7 +583,7 @@ def descent():
     ix.scatter([w1], [b1], s=70, color=GREEN, zorder=5)
     ix.text(1.0005, 1.0012, "시작 (1, 1)", fontsize=15, va="bottom")
     ix.text(1.017, 0.9968, "(1.019, 0.998)", fontsize=15, va="top", ha="center", color=GREEN)
-    ix.set_title("초록 상자 안을 크게 봄", fontsize=16, loc="left", pad=4)
+    ix.set_title("검은 상자 안을 크게 봄", fontsize=16, loc="left", pad=4)
     frames.append(image(fig))
     dur.append(2500)
 
@@ -673,15 +684,15 @@ def summary_4b():
              ("경사하강법은 그 반대쪽으로 갱신", GREEN, 19, False),
              ("새 W = W " + M + " 학습률 × W.grad", INK, 19, True),
              ("1 " + M + " 0.001 × (" + M + "19.04) = 1.01904", INK, 18, False),
-             ("예측 → 손실 → 기울기 계산 → 갱신", BLUE, 19, True),
-             ("500번 되풀이: W 1.8207, B 0.3675", BLUE, 18, False)]
+             ("예측 → 손실 → 기울기 계산 → 갱신", INK, 19, True),
+             ("500번 되풀이: W 1.8207, B 0.3675", INK, 18, False)]
     assert num(W_END, 4) == "1.8207" and num(B_END, 4) == "0.3675"
     yy = 0.86
-    for text, color, size, gap in lines:
+    for k, (text, color, size, gap) in enumerate(lines):
         if gap:
             yy -= 0.04
         fig.text(0.53, yy, text, fontsize=size, color=color, va="center",
-                 weight="bold" if color != INK else "normal")
+                 weight="bold" if color != INK or k == 4 else "normal")
         yy -= 0.115
     return image(fig)
 
@@ -740,9 +751,9 @@ def chain():
         for j in range(max(0, nback - 1)):
             k = back_at[j]
             big = (j == 3)
-            ax.text(xs[k], 1.35, back[j], ha="center", va="center", fontsize=18 if big else 16, color=ORANGE,
-                    weight="bold" if big else "normal", linespacing=1.15,
-                    bbox=dict(boxstyle="round,pad=0.25", fc=HL, ec="none") if big else None)
+            ax.text(xs[k], 1.35, back[j], ha="center", va="center", fontsize=18 if big else 16,
+                    color=GREEN if big else ORANGE, weight="bold" if big else "normal", linespacing=1.15,
+                    bbox=dict(boxstyle="round,pad=0.25", fc=GREEN_L, ec="none") if big else None)
         return image(fig)
 
     frames = [draw(0, False, 0, "사람 2 (X = 5, Y = 10.3) 의 계산 단계", tags=True),
@@ -780,27 +791,28 @@ def backprop():
         show = [True, True, True, stage >= 2, stage >= 3, stage >= 5]
         for c in range(6):
             if show[c]:
-                col = INK if c < 3 else (ORANGE if c == 3 else (BLUE if c == 4 else PURPLE))
+                col = INK if c < 3 else (ORANGE if c == 3 else (GREEN if c == 4 else PURPLE))
                 ax.text(cols[c], 5.45, heads[c], ha="center", va="center", fontsize=17, color=col, weight="bold",
                         linespacing=1.15)
         if stage >= 2:
-            ax.add_patch(FancyBboxPatch((cols[3] - 1.0, 1.95), 2.0, 2.98, boxstyle="round,pad=0.05", fc=HL, ec="none"))
+            ax.add_patch(FancyBboxPatch((cols[3] - 1.0, 1.95), 2.0, 2.98, boxstyle="round,pad=0.05", fc=ORANGE_L,
+                                        ec="none"))
         for r in range(5):
             cells = [str(r + 1), num(X[r], 0), sgn(e[r]), num(g[r], 2), num(wpart[r], 2), num(g[r], 2)]
             for c in range(6):
                 if show[c]:
-                    hot = (c == 4 and r == 2)
-                    ax.text(cols[c], rows[r], cells[c], ha="center", va="center", fontsize=19,
-                            color=(RED if hot else INK), weight="bold" if hot else "normal")
+                    hot = (c == 4 and r == 2 and stage == 3)
+                    ax.text(cols[c], rows[r], cells[c], ha="center", va="center", fontsize=19, color=INK,
+                            weight="bold" if hot else "normal")
         ax.plot([0.2, 11.0], [1.85, 1.85], color=MUTED, lw=1.2)
         if stage >= 4:
-            ax.text(cols[4], 1.3, "합 " + M + "19.04", ha="center", va="center", fontsize=20, color=BLUE, weight="bold")
-            ax.text(cols[4], 0.6, "= W.grad", ha="center", va="center", fontsize=19, color=BLUE)
+            ax.text(cols[4], 1.3, "합 " + M + "19.04", ha="center", va="center", fontsize=20, color=GREEN, weight="bold")
+            ax.text(cols[4], 0.6, "= W.grad", ha="center", va="center", fontsize=19, color=GREEN)
         if stage >= 6:
             ax.text(cols[5], 1.3, "합 2.0", ha="center", va="center", fontsize=20, color=PURPLE, weight="bold")
             ax.text(cols[5], 0.6, "= B.grad", ha="center", va="center", fontsize=19, color=PURPLE)
         if stage == 3:
-            ax.text(cols[4] + 0.7, rows[2], "X = 0 이라 0", fontsize=16, color=RED, va="center")
+            ax.text(cols[4] + 0.7, rows[2], "X = 0 이라 0", fontsize=16, color=MUTED, va="center")
         return image(fig)
 
     assert [num(v, 2) for v in wpart] == [M + "5.4", M + "8.6", "0", M + "1.6", M + "3.44"]
@@ -897,7 +909,7 @@ def loop():
         for k, yk in enumerate(ys):
             on = (k == hl)
             ax.add_patch(FancyBboxPatch((1.3, yk - 0.38), 5.2, 0.76, boxstyle="round,pad=0.05",
-                                        fc=(HL if on else "white"), ec=(INK if on else BLUE), lw=(3 if on else 1.8)))
+                                        fc=(HL if on else "white"), ec=(INK if on else "#9ca3af"), lw=(3 if on else 1.8)))
             ax.text(1.5, yk, codes[k], family=CODE, fontsize=18, ha="left", va="center")
             ax.text(6.35, yk, labs[k], fontsize=16, ha="right", va="center", color=MUTED)
             if k < 4:
@@ -939,7 +951,7 @@ def zero_grad_place():
            ("Yp, loss 다시 계산", "None", True), ("loss.backward()", second, False)]
     plt, fig = new(560)
     for title, rows, x0 in (("5차시부터: 루프 맨 앞", front, 0.02), ("4차시 노트북: 루프 맨 끝", end, 0.515)):
-        fig.text(x0, 0.93, title, fontsize=20, weight="bold", color=BLUE, va="center")
+        fig.text(x0, 0.93, title, fontsize=20, weight="bold", color=INK, va="center")
         fig.text(x0 + 0.455, 0.93, "W.grad", fontsize=17, color=MUTED, family=CODE, va="center", ha="right")
         yy = 0.84
         for row in rows:
@@ -953,12 +965,12 @@ def zero_grad_place():
             code, value, before = row
             if before:
                 fig.patches.append(Rectangle((x0 - 0.005, yy - 0.036), 0.47, 0.072, transform=fig.transFigure,
-                                             fc=HL, ec="none"))
+                                             fc=BAND, ec="none"))
             fig.text(x0 + 0.005, yy, code, family=CODE, fontsize=17, va="center", color=INK)
             fig.text(x0 + 0.455, yy, value, fontsize=18, va="center", ha="right",
-                     color=(ORANGE if value != "None" else MUTED), weight="bold" if value != "None" else "normal")
+                     color=(GREEN if value != "None" else MUTED), weight="bold" if value != "None" else "normal")
             yy -= 0.08
-    fig.text(0.5, 0.06, "노란 줄은 backward 바로 앞. 두 자리 모두 이때 W.grad 가 비어 있어 결과가 같음",
+    fig.text(0.5, 0.06, "회색 줄은 backward 바로 앞. 두 자리 모두 이때 W.grad 가 비어 있어 결과가 같음",
              fontsize=17, color=INK, ha="center", va="center")
     return image(fig)
 
@@ -972,14 +984,14 @@ def summary_4c():
     ax.set_xlim(0, 11.2)
     ax.set_ylim(0, 5.6)
     ax.axis("off")
-    boxes = [((2.85, 4.15), "① 예측", "Yp = W * X + B", "[" + M + "4, 6, 1, 3, " + M + "1]"),
-             ((8.35, 4.15), "② 손실", "((Yp - Y)**2).mean()", "13.352"),
-             ((8.35, 1.45), "③ 기울기 계산", "loss.backward()", "W.grad " + M + "19.04, B.grad 2.0"),
-             ((2.85, 1.45), "④ 갱신", "optimizer.step()", "W 1.0190, B 0.9980")]
-    for (cx, cy), title, code, value in boxes:
-        ax.add_patch(FancyBboxPatch((cx - 2.45, cy - 1.0), 4.9, 2.0, boxstyle="round,pad=0.06", fc="#eff6ff", ec=BLUE,
-                                    lw=2))
-        ax.text(cx, cy + 0.58, title, ha="center", va="center", fontsize=21, weight="bold", color=BLUE)
+    forward, backward, plain = (BLUE_L, BLUE, BLUE), (ORANGE_L, ORANGE, ORANGE), ("white", "#9ca3af", INK)
+    boxes = [((2.85, 4.15), "① 예측", "Yp = W * X + B", "[" + M + "4, 6, 1, 3, " + M + "1]", forward),
+             ((8.35, 4.15), "② 손실", "((Yp - Y)**2).mean()", "13.352", forward),
+             ((8.35, 1.45), "③ 기울기 계산", "loss.backward()", "W.grad " + M + "19.04, B.grad 2.0", backward),
+             ((2.85, 1.45), "④ 갱신", "optimizer.step()", "W 1.0190, B 0.9980", plain)]
+    for (cx, cy), title, code, value, (fc, ec, ink) in boxes:
+        ax.add_patch(FancyBboxPatch((cx - 2.45, cy - 1.0), 4.9, 2.0, boxstyle="round,pad=0.06", fc=fc, ec=ec, lw=2))
+        ax.text(cx, cy + 0.58, title, ha="center", va="center", fontsize=21, weight="bold", color=ink)
         ax.text(cx, cy, code, ha="center", va="center", fontsize=18, family=CODE)
         ax.text(cx, cy - 0.58, value, ha="center", va="center", fontsize=18)
     kw = dict(arrowstyle="-|>", color=MUTED, lw=2.4, mutation_scale=22)
