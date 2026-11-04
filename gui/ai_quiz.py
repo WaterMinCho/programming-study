@@ -687,7 +687,7 @@ class PracticePage(QWidget):
             self.win.go_ai()
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.doc_width(self.width()) + 48)
+        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

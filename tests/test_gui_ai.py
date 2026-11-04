@@ -1053,7 +1053,9 @@ class RealLessonTest(AiTest):
                         if figure.movie is None:
                             continue
                         figures += 1
-                        for _ in range(2):  # 글 조각이 높이를 잡은 뒤 다시 맞춤
+                        for _ in range(3):  # 글 조각이 높이를 잡은 뒤 다시 맞춤. 그림 위쪽을 먼저 보이고 단추까지 내림
+                            learn.scroll.ensureWidgetVisible(figure.picture, 0, 0)
+                            guikit.pump(20)
                             learn.scroll.ensureWidgetVisible(figure.controls, 0, 0)
                             guikit.pump(20)
                         viewport = learn.scroll.viewport()

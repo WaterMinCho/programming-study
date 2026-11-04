@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""학습 노트 화면: 위 막대(돌아가기 · 노트 제목)와 가운데 카드 안의 DocView 하나. 카드 폭은 읽는 글의 단 폭(kit.doc_width, 1280 창에서 640 이고
+"""학습 노트 화면: 위 막대(돌아가기 · 노트 제목)와 가운데 카드 안의 DocView 하나. 카드 폭은 읽는 글의 단 폭(kit.read_width, 1280 창에서 760 이고
 창이 넓어지면 따라 넓어짐)에 안쪽 여백 24 둘을 더한 값.
 
 figure 블록은 web_mission.figures_to_images 가 그림 줄로 바꾸고, 그림은 알고리즘 여행의 FigureView(gui/docview.py)가 그대로 그림.
@@ -69,7 +69,7 @@ class WebLearnPage(QWidget):
         next_box.addWidget(self.next_title, 1)
         self.next_row.hide()
         card_box.addWidget(self.next_row)
-        body_box.addWidget(kit.column(self.card, kit.DOC_MIN + 48), 1)
+        body_box.addWidget(kit.column(self.card, kit.READ_MIN + 48), 1)
         root.addWidget(body, 1)
         self.back_btn.clicked.connect(self.go_back)
         self.next_btn.clicked.connect(self.go_next)
@@ -126,7 +126,7 @@ class WebLearnPage(QWidget):
 
     def fit_column(self):
         """카드 폭을 창 폭에 맞춘 읽는 글의 단 폭에 맞춤."""
-        self.card.setMaximumWidth(kit.doc_width(self.width()) + 48)
+        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

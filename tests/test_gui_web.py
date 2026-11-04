@@ -1234,7 +1234,7 @@ class TextSizeTest(WebTest):
         self.assertEqual((hub.summary.font().pixelSize(), hub.summary.line, hub.next_btn.font().pixelSize()), (21, 36, 21))
         self.assertEqual(hub.theme_btn.font().pixelSize(), 18)  # 작은 글자 단추는 caption
         self.assertEqual((learn.title.font().pixelSize(), doc_sizes(learn.view)[head]), (26, 26))
-        self.assertEqual(learn.card.maximumWidth(), kit.doc_width(win.width()) + 48)
+        self.assertEqual(learn.card.maximumWidth(), kit.read_width(win.width()) + 48)
         if row is not None:
             self.assertEqual((row.title.font().pixelSize(), row.title.height()), (21, 28))
         win.activateWindow()
@@ -1276,7 +1276,7 @@ class LearnTest(WebTest):
         self.assertIn("그림 준비 중. 그림 1. 두 호출이 같은 값을 넣어", text)  # 고정 은행에는 그림 파일이 없음
         self.assertNotIn("내용:", text)
         self.assertEqual([p for p in learn.view.pieces if isinstance(p, FigureView)], [])
-        self.assertLessEqual(learn.view.width(), 640 + 2)  # 읽는 글 폭
+        self.assertLessEqual(learn.view.width(), kit.READ_MIN + 2)  # 읽는 글 폭
         self.assertEqual(len(kit.visible_primary_buttons(learn)), 0)  # 읽기 화면에는 주 단추가 없음
         self.assertEqual((learn.next_row.isVisible(), learn.next_title.text()), (True, "일반 변수는 화면을 바꾸지 못합니다"))
         guikit.click(learn.next_btn)
