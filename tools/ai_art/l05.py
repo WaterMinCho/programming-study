@@ -1155,3 +1155,269 @@ def memo_5g():
                     "배치 64: 13개, 마지막 32개"], PURPLE),
         ("세기와 기록", ["`epoch_loss += loss.item()`", "`tot += y.size(0)`", "`out.argmax(1)`", "기록 = 갱신 전 손실"], RED)],
         note_line="range(300) 에서 50번마다 기록하면 마지막 기록은 250번째 반복의 갱신 전 손실입니다.", pad=1.0)
+
+
+# 세 수준으로 다시 보기 블록 그림. 화면 520×280(파일 1040×560), 글자 22 이상은 tools/ai_art/levels.py 를 따름.
+# 그림 이름은 <단원>-<단계 번호><수준 번호>(7살 1, 15살 2, 20살 3). 색 뜻은 그 단원의 뜻을 그대로 씀.
+
+from tools.ai_art import SCALE, levels as LV  # noqa: E402
+
+
+def _lv_board():
+    """세 수준 그림 판. 좌표는 화면 논리 px(가로 0~520, 세로 0~280)."""
+    plt = setup()
+    width, height = LV.SIZE
+    fig = plt.figure(figsize=(width * SCALE / 100.0, height * SCALE / 100.0), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, width)
+    ax.set_ylim(0, height)
+    ax.axis("off")
+    return fig, ax
+
+
+def _lv_box(ax, cx, cy, w, h, s, ec=MUTED, fc="white", size=None, bold=False, lw=2.0, color=INK):
+    from matplotlib.patches import FancyBboxPatch
+    ax.add_patch(FancyBboxPatch((cx - w / 2.0, cy - h / 2.0), w, h, boxstyle="round,pad=0,rounding_size=10", fc=fc, ec=ec,
+                                lw=lw, zorder=3))
+    if s != "":
+        ax.text(cx, cy, s, ha="center", va="center", fontsize=size or LV.BIG, color=color, zorder=4,
+                weight="bold" if bold else "normal")
+
+
+def _lv_text(ax, x, y, s, color=INK, size=None, ha="center", va="center", bold=False):
+    ax.text(x, y, s, ha=ha, va=va, fontsize=size or LV.FONT, color=color, zorder=5, weight="bold" if bold else "normal")
+
+
+def _lv_arrow(ax, x0, y0, x1, y1, color=INK, lw=2.4):
+    ax.annotate("", xy=(x1, y1), xytext=(x0, y0), zorder=4,
+                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw, mutation_scale=20, shrinkA=0, shrinkB=0))
+
+
+# 5a 넷째 단계: Linear 층의 파라미터 수. 보라는 파라미터, 회색 테두리는 텐서의 값
+
+def _levels_5a(level):
+    assert 3 * 2 + 2 == 8 and (784 + 1) * 128 == 784 * 128 + 128 == 100480 and 2 * 3 + 3 == 9
+    if level == 7:
+        fig, ax = _lv_board()
+        ins, outs = [200, 140, 80], [170, 110]
+        for yi in ins:
+            for yo in outs:
+                ax.plot([110, 300], [yi, yo], color=PURPLE, lw=3, zorder=2)
+        from matplotlib.patches import Circle
+        for yi in ins:
+            ax.add_patch(Circle((110, yi), 18, fc="white", ec=MUTED, lw=2.5, zorder=3))
+        for yo in outs:
+            ax.add_patch(Circle((300, yo), 18, fc="white", ec=MUTED, lw=2.5, zorder=3))
+            ax.plot([318, 362], [yo, yo], color=MUTED, lw=2.5, zorder=2)
+            _lv_box(ax, 405, yo, 86, 40, "더할 수", ec=PURPLE, fc=PURPLE_L, size=LV.FONT, color=PURPLE)
+        _lv_text(ax, 110, 245, "입력 3개", color=MUTED)
+        _lv_text(ax, 205, 245, "선 6개", color=PURPLE, bold=True)
+        _lv_text(ax, 300, 245, "출력 2개", color=MUTED)
+        _lv_text(ax, 260, 30, "보라 선 6개와 보라 칸 2개, 모두 8개")
+        return fig
+    if level == 15:
+        xs = list(range(1, 9))
+        ys = [(x + 1) * 2 for x in xs]
+        assert ys[2] == 8 and all(b - a == 2 for a, b in zip(ys, ys[1:]))
+        fig = LV.graph(xs, [(ys, "purple", "")], "입력 수", "파라미터 수", top="파라미터 수 = (입력 수 + 1) × 2",
+                       marks=[(3, 8, "8", "purple")], xlim=(0.5, 8.6), ylim=(0, 21))
+        return fig
+    return LV.grid([["w", "w", "w", "b"], ["w", "w", "w", "b"]], col_names=["입력 1", "입력 2", "입력 3", "bias"],
+                   row_names=["출력 1", "출력 2"], marks=[(r, c) for r in range(2) for c in range(4)], color="purple",
+                   top="weight [2, 3], bias [2]", code=True)
+
+
+@figure("5a-41", *LV.SIZE)
+def levels_5a_7():
+    return _levels_5a(7)
+
+
+@figure("5a-42", *LV.SIZE)
+def levels_5a_15():
+    return _levels_5a(15)
+
+
+@figure("5a-43", *LV.SIZE)
+def levels_5a_20():
+    return _levels_5a(20)
+
+
+# 5b 셋째 단계: 비선형성. 초록은 ReLU 를 지난 값과 선
+
+def _relu(z):
+    return np.maximum(z, 0.0)
+
+
+def _levels_5b(level):
+    if level == 7:
+        h1, h2 = 2 * -2 + 1, -(-2) + 3
+        assert (h1, h2) == (-3, 5) and _relu(h1) + _relu(h2) - 1 == 4
+        fig, ax = _lv_board()
+        top, low, mid = 180, 100, 140
+        _lv_box(ax, 60, mid, 70, 52, num(-2))
+        _lv_box(ax, 185, top, 70, 52, num(h1))
+        _lv_box(ax, 185, low, 70, 52, num(h2))
+        _lv_box(ax, 315, top, 70, 52, "0", ec=GREEN, fc=GREEN_L, bold=True, lw=3)
+        _lv_box(ax, 315, low, 70, 52, num(h2))
+        _lv_box(ax, 445, mid, 70, 52, "4", bold=True)
+        for y in (top, low):
+            _lv_arrow(ax, 97, mid + (12 if y == top else -12), 148, y)
+            _lv_arrow(ax, 222, y, 278, y)
+            _lv_arrow(ax, 352, y, 408, mid + (12 if y == top else -12))
+        for x, s in ((60, "입력"), (185, "두 상자"), (315, "바꾼 수"), (445, "나온 수")):
+            _lv_text(ax, x, 240, s, color=MUTED)
+        _lv_text(ax, 260, 32, "0보다 작으면 0, 둘을 더하고 1 빼기")
+        return fig
+    if level == 15:
+        xs = np.linspace(-3, 5, 161)
+        ys = _relu(2 * xs + 1) + _relu(-xs + 3) - 1
+        assert abs(ys[0] - 5) < 1e-12 and abs(ys[-1] - 10) < 1e-12
+        fig = LV.graph(list(xs), [(list(ys), "green", "")], "x", "y", top="y = ReLU(2x + 1) + ReLU(" + M + "x + 3) " + M + " 1",
+                       marks=[(-0.5, 2.5, "", "green"), (3, 6, "", "green")], xlim=(-3.3, 5.6), ylim=(0, 11.5))
+        ax = fig.axes[0]
+        for x, y, s in ((-2.0, 6.6, M + "x + 2"), (1.2, 6.3, "x + 3"), (3.7, 9.4, "2x")):
+            ax.text(x, y, s, ha="center", va="center", fontsize=LV.FONT, color=GREEN, family=LV.MATH_FONT)
+        return fig
+    x = np.array([-2.0, 1.0, 4.0])
+    h1, h2 = 2 * x + 1, -x + 3
+    line, bent = h1 + h2 - 1, _relu(h1) + _relu(h2) - 1
+    assert line.tolist() == [1, 4, 7] and bent.tolist() == [4, 4, 8]
+    rows = [["%g" % v for v in row] for row in zip(h1, h2, line, bent)]  # 코드 출력처럼 빼기표는 ASCII
+    return LV.grid(rows, col_names=["h1", "h2", "ReLU 없이", "ReLU 넣음"],
+                   row_names=["x = " + num(v) for v in x], marks=[(0, 3), (2, 3)], color="green",
+                   top="relu(h1) + relu(h2) - 1", code=True)
+
+
+@figure("5b-31", *LV.SIZE)
+def levels_5b_7():
+    return _levels_5b(7)
+
+
+@figure("5b-32", *LV.SIZE)
+def levels_5b_15():
+    return _levels_5b(15)
+
+
+@figure("5b-33", *LV.SIZE)
+def levels_5b_20():
+    return _levels_5b(20)
+
+
+# 5d 둘째 단계: 배치·확률적·미니배치. 파랑 배치, 주황 SGD, 초록 미니배치, 노랑 마지막 배치
+
+def fmt3(v):
+    """소수 셋째 자리 고정, 빼기표는 코드 출력처럼 ASCII."""
+    return f"{v:.3f}"
+
+
+def _sgd_steps(lr=0.02):
+    """사람 1부터 한 명씩 갱신할 때 (W, B, 다섯 사람 손실) 목록. 처음 값을 맨 앞에 둠."""
+    W, B = 1.0, 1.0
+    rows = [(W, B, float(_loss5(W, B)))]
+    for i in range(5):
+        e = W * X5[i] + B - Y5[i]
+        W, B = W - lr * 2 * e * X5[i], B - lr * 2 * e
+        rows.append((W, B, float(_loss5(W, B))))
+    return rows
+
+
+def _levels_5d(level):
+    if level == 7:
+        fig, ax = _lv_board()
+        dots = [150, 200, 250, 300, 350]
+        plans = [("한꺼번에", [[0, 1, 2, 3, 4]], BLUE, BLUE_L), ("한 사람씩", [[0], [1], [2], [3], [4]], ORANGE, ORANGE_L),
+                 ("두 사람씩", [[0, 1], [2, 3], [4]], GREEN, GREEN_L)]
+        assert [len(p[1]) for p in plans] == [1, 5, 3]
+        for n, (name, groups, ec, fc) in enumerate(plans):
+            y = 210 - 70 * n
+            _lv_text(ax, 62, y, name)
+            for k, group in enumerate(groups):
+                last = n == 2 and k == len(groups) - 1
+                x0, x1 = dots[group[0]] - 20, dots[group[-1]] + 20
+                _lv_box(ax, (x0 + x1) / 2.0, y, x1 - x0, 44, "", ec=ec, fc=HL if last else fc, lw=2.5)
+            for x in dots:
+                ax.plot([x], [y], "o", ms=13, color=INK, zorder=5)
+            _lv_text(ax, 440, y, "%d번" % len(groups), size=LV.BIG, bold=True, color=ec)
+        _lv_text(ax, 250, 262, "다섯 사람", color=MUTED)
+        _lv_text(ax, 440, 262, "갱신", color=MUTED)
+        return fig
+    e = 1.0 * X5 + 1.0 - Y5
+    gW, gB = 2 * e * X5, 2 * e
+    assert np.allclose(gW, [-27, -43, 0, -8, -17.2]) and np.allclose(gB, [5.4, -8.6, 8.6, -4, 8.6])
+    assert abs(gW.mean() + 19.04) < 1e-9 and abs(gB.mean() - 2.0) < 1e-9
+    if level == 15:
+        rows = [[num(a, 1), num(b, 1), num(c, 1)] for a, b, c in zip(e, gW, gB)] + [["", num(gW.mean(), 2), num(gB.mean(), 1)]]
+        return LV.grid(rows, col_names=["e", "W의 기울기", "B의 기울기"],
+                       row_names=["사람 %d" % k for k in range(1, 6)] + ["평균"], marks=[(5, 1), (5, 2)], color="blue",
+                       top="W의 기울기 = (다섯 사람 값의 합) ÷ 5")
+    steps = _sgd_steps()
+    assert f"{steps[0][2]:.3f}" == "13.352" and f"{steps[-1][2]:.2f}" == "5.95"
+    assert steps[4][2] > steps[3][2] and all(steps[k][2] < steps[k - 1][2] for k in (1, 2, 3))
+    rows = [[fmt3(w), fmt3(b), fmt3(l)] for w, b, l in steps]
+    return LV.grid(rows, col_names=["W", "B", "다섯 사람 손실"], row_names=["처음"] + ["사람 %d" % k for k in range(1, 6)],
+                   top="W -= 0.02 * W.grad", code=True)
+
+
+@figure("5d-21", *LV.SIZE)
+def levels_5d_7():
+    return _levels_5d(7)
+
+
+@figure("5d-22", *LV.SIZE)
+def levels_5d_15():
+    return _levels_5d(15)
+
+
+@figure("5d-23", *LV.SIZE)
+def levels_5d_20():
+    return _levels_5d(20)
+
+
+# 5f 넷째 단계: train 모드와 eval 모드. 파랑은 원래 값 x, 주황은 지금 배치의 평균, 회색은 이동 평균
+
+def _levels_5f(level):
+    assert abs(0.9 * 3 + 0.1 * 5 - 3.2) < 1e-12 and np.mean([1, 2, 3, 4, 5]) == 3 and np.mean([3, 4, 5, 6, 7]) == 5
+    if level == 7:
+        fig, ax = _lv_board()
+        top, low = 185, 80
+        _lv_text(ax, 58, top, "학습할 때")
+        _lv_text(ax, 58, low, "평가할 때")
+        for k, v in enumerate([1, 2, 3, 4, 5]):
+            _lv_box(ax, 118 + 36 * k, top, 32, 46, str(v), ec=BLUE if v == 3 else MUTED, fc=BLUE_L if v == 3 else "white",
+                    bold=v == 3)
+        _lv_arrow(ax, 290, top, 322, top)
+        _lv_box(ax, 372, top, 90, 46, "3", ec=ORANGE, fc=ORANGE_L, bold=True)
+        _lv_text(ax, 372, top + 40, "평균", color=ORANGE)
+        _lv_text(ax, 470, top, "차이 0", bold=True)
+        _lv_box(ax, 190, low, 32, 46, "3", ec=BLUE, fc=BLUE_L, bold=True)
+        _lv_arrow(ax, 214, low, 322, low)
+        _lv_box(ax, 372, low, 90, 46, "3.2", ec=MUTED, fc=NOTE, bold=True)
+        _lv_text(ax, 372, low + 40, "모아 둔 수", color=MUTED)
+        _lv_text(ax, 470, low, "0.2 작음", bold=True)
+        return fig
+    if level == 15:
+        rows = [["3", "0"], ["5", M + "2"], ["3.2", M + "0.2"], ["3.2", M + "0.2"]]
+        assert 3 - 3 == 0 and 3 - 5 == -2 and abs((3 - 3.2) + 0.2) < 1e-12
+        return LV.grid(rows, col_names=["빼는 값", "3의 결과"],
+                       row_names=["학습 모드, 배치 1~5", "학습 모드, 배치 3~7", "평가 모드, 배치 1~5", "평가 모드, 배치 3~7"],
+                       marks=[(0, 0), (1, 0)], color="orange", top="평가 모드는 이동 평균 3.2를 뺌")
+    rm = 0.9 * 0.0 + 0.1 * 3.0
+    assert abs(rm - 0.3) < 1e-12
+    rows = [["True", "0"], ["True", "0.3"], ["False", "0.3"], ["False", "0.3"]]
+    return LV.grid(rows, col_names=["training", "running_mean"], row_names=["만든 뒤", "bn(x)", "bn.eval()", "bn(x[2:3])"],
+                   top="bn = nn.BatchNorm1d(1)", code=True)
+
+
+@figure("5f-41", *LV.SIZE)
+def levels_5f_7():
+    return _levels_5f(7)
+
+
+@figure("5f-42", *LV.SIZE)
+def levels_5f_15():
+    return _levels_5f(15)
+
+
+@figure("5f-43", *LV.SIZE)
+def levels_5f_20():
+    return _levels_5f(20)

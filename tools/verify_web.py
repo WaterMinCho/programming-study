@@ -1059,6 +1059,8 @@ def figures(v, label, markdown, folder, kind, owner, sections):
         referenced.add(rel.split("/")[-1])
         if not os.path.isfile(os.path.join(folder, *rel.split("/"))):
             v.fail(label, 10, "![…](%s) 가 가리키는 그림이 없습니다." % rel)
+    fenced = "\n".join(re.findall(r"^```ai-[\w-]+\n(.*?)^```", markdown, re.M | re.S))
+    referenced |= set(re.findall(r'"assets/([^"/]+)"', fenced))  # ai-* 블록 JSON 이 가리키는 그림(세 수준 블록)
     if os.path.isdir(assets):
         for name in sorted(os.listdir(assets)):
             if os.path.isfile(os.path.join(assets, name)) and name not in referenced and not name.startswith("."):

@@ -121,7 +121,8 @@ def corpus(lecture, numbers, use_pdf=True):
 # 우리 글
 
 def split_markdown(text):
-    """마크다운을 (산문, 코드) 로. figure 의 캡션·프레임 줄과 ai-* 블록의 글 값은 산문에 넣음."""
+    """마크다운을 (산문, 코드) 로. figure 의 캡션·프레임 줄과 ai-* 블록의 글 값은 산문에 넣음. ai-levels 블록의 수준 code 는 코드 쪽으로
+    보내 120자·세 줄 규칙으로 봄."""
     prose, code, fence, lines = [], [], None, []
     for line in (text or "").replace("\r\n", "\n").split("\n"):
         found = FENCE.match(line)
@@ -139,9 +140,15 @@ def split_markdown(text):
                 prose += [re.sub(r"^\s*(캡션:|내용:|\d+\.)\s*", "", ln) for ln in lines if not ln.strip().startswith(("파일:", "프레임:"))]
             elif fence.startswith("ai-"):
                 try:
-                    prose += list(_strings(json.loads(body)))
+                    data = json.loads(body)
                 except ValueError:
                     prose.append(body)
+                else:
+                    if fence == "ai-levels" and isinstance(data, dict) and isinstance(data.get("levels"), list):
+                        levels = [dict(level) for level in data["levels"] if isinstance(level, dict)]
+                        code += [str(level.pop("code")) for level in levels if "code" in level]
+                        data = dict(data, levels=levels)
+                    prose += list(_strings(data))
             else:
                 code.append(body)
             fence = None

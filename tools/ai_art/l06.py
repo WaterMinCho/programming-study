@@ -1049,6 +1049,260 @@ def summary_6f():
                 "정답 꼴: 회귀와 이진 분류는 실수 [N, 1], 다중 분류는 클래스 번호 [N]")
 
 
+
+# 세 수준으로 다시 보기 블록 그림. 화면 520×280(파일 1040×560), 글자 22 이상은 tools/ai_art/levels.py 를 따름.
+# 그림 이름은 <단원>-<단계 번호><수준 번호>(7살 1, 15살 2, 20살 3). 색 뜻은 그 단원의 뜻을 그대로 씀.
+
+from tools.ai_art import SCALE, levels as LV  # noqa: E402
+
+
+def _lv_board():
+    """세 수준 그림 판. 좌표는 화면 논리 px(가로 0~520, 세로 0~280)."""
+    plt = setup()
+    width, height = LV.SIZE
+    fig = plt.figure(figsize=(width * SCALE / 100.0, height * SCALE / 100.0), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, width)
+    ax.set_ylim(0, height)
+    ax.axis("off")
+    return fig, ax
+
+
+def _lv_box(ax, cx, cy, w, h, s, ec=MUTED, fc="white", size=None, bold=False, lw=2.0, color=INK):
+    from matplotlib.patches import FancyBboxPatch
+    ax.add_patch(FancyBboxPatch((cx - w / 2.0, cy - h / 2.0), w, h, boxstyle="round,pad=0,rounding_size=10", fc=fc, ec=ec,
+                                lw=lw, zorder=3))
+    if s != "":
+        ax.text(cx, cy, s, ha="center", va="center", fontsize=size or LV.BIG, color=color, zorder=4,
+                weight="bold" if bold else "normal")
+
+
+def _lv_text(ax, x, y, s, color=INK, size=None, ha="center", va="center", bold=False):
+    ax.text(x, y, s, ha=ha, va=va, fontsize=size or LV.FONT, color=color, zorder=5, weight="bold" if bold else "normal")
+
+
+def _lv_arrow(ax, x0, y0, x1, y1, color=INK, lw=2.4):
+    ax.annotate("", xy=(x1, y1), xytext=(x0, y0), zorder=4,
+                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw, mutation_scale=20, shrinkA=0, shrinkB=0))
+
+
+# 6b 셋째 단계: Huber 손실. 보라는 Huber 손실, 옅은 보라는 제곱 구간
+
+def _levels_6b(level):
+    assert huber(E, 1.0).tolist() == [1.5, 0.5, 4.5] and f"{huber(E, 1.0).mean():.4f}" == "2.1667"
+    if level == 7:
+        fig, ax = _lv_board()
+        for n, (d, rule) in enumerate(((1, "두 번 곱해 절반"), (2, "0.5 빼기"), (5, "0.5 빼기"))):
+            y = 200 - 68 * n
+            small = d <= 1
+            _lv_box(ax, 80, y, 70, 50, str(d), ec=PURPLE if small else MUTED, fc=LV.PALE["purple"] if small else "white")
+            _lv_arrow(ax, 122, y, 350, y)
+            _lv_text(ax, 236, y + 18, rule, color=MUTED)
+            _lv_box(ax, 405, y, 90, 50, num(float(huber(d, 1.0)), 1), ec=PURPLE, color=PURPLE, bold=True, lw=2.5)
+        _lv_text(ax, 80, 255, "차이", color=MUTED)
+        _lv_text(ax, 405, 255, "나오는 수", color=MUTED)
+        return fig
+    if level == 15:
+        es = [1, 2, 3, 4, 5]
+        sq, hub = [0.5 * e * e for e in es], [float(huber(e, 1.0)) for e in es]
+        assert hub == [e - 0.5 for e in es] and sq == [0.5, 2, 4.5, 8, 12.5]
+        rows = [[str(e) for e in es], [num(v, 1) for v in sq], [num(v, 1) for v in hub]]
+        fig = LV.grid(rows, row_names=["|e|", "0.5 × e²", "Huber"], marks=[(2, c) for c in range(5)], color="purple",
+                      top="|e| > 1 이면 Huber = |e| " + M + " 0.5")
+        for t in fig.axes[0].texts:  # 나눔고딕의 ² 가 작아서 이 머리만 식 글꼴로 씀
+            if t.get_text() == "0.5 × e²":
+                t.set_fontfamily(LV.MATH_FONT)
+        return fig
+    pred, true = np.array([12, 19, 35.0]), np.array([10, 20, 30.0])
+    diff = np.abs(pred - true)
+    small = diff <= 1.0
+    sq, lin = 0.5 * diff ** 2, 1.0 * (diff - 0.5)
+    each = np.where(small, sq, lin)
+    assert diff.tolist() == [2, 1, 5] and each.tolist() == [1.5, 0.5, 4.5] and sq.tolist() == [2, 0.5, 12.5]
+    rows = [["%g" % v for v in diff], [str(bool(v)) for v in small], ["%g" % v for v in sq], ["%g" % v for v in lin],
+            ["%g" % v for v in each]]
+    return LV.grid(rows, col_names=["데이터 1", "데이터 2", "데이터 3"],
+                   row_names=["diff", "small", "0.5 * diff**2", "diff - 0.5", "each"],
+                   marks=[(2, 1), (3, 0), (3, 2)], color="purple", top="torch.where(small, a, b)", code=True)
+
+
+@figure("6b-31", *LV.SIZE)
+def levels_6b_7():
+    return _levels_6b(7)
+
+
+@figure("6b-32", *LV.SIZE)
+def levels_6b_15():
+    return _levels_6b(15)
+
+
+@figure("6b-33", *LV.SIZE)
+def levels_6b_20():
+    return _levels_6b(20)
+
+
+# 6c 둘째 단계: 이진 교차 엔트로피. 파랑은 정답이 1인 데이터, 보라는 정답이 0인 데이터
+
+def _levels_6c(level):
+    nl = lambda p: -math.log(p)  # noqa: E731
+    assert [f"{nl(p):.3f}" for p in (0.9, 0.5, 0.1)] == ["0.105", "0.693", "2.303"]
+    if level == 7:
+        from matplotlib.patches import Rectangle
+        fig, ax = _lv_board()
+        base, top = 72, 150.0
+        for x, p in ((70, 0.9), (150, 0.5), (230, 0.1)):
+            h = top * nl(p) / nl(0.1)
+            ax.add_patch(Rectangle((x - 24, base), 48, h, fc=LV.PALE["blue"], ec=BLUE, lw=2.5, zorder=3))
+            _lv_text(ax, x, base + h + 16, f"{nl(p):.3f}", color=BLUE, bold=True)
+            _lv_text(ax, x, base - 20, str(p))
+        ax.plot([30, 270], [base, base], color=MUTED, lw=2)
+        _lv_text(ax, 150, 22, "모델이 낸 수", color=MUTED)
+        _lv_text(ax, 150, 262, "정답 1", color=BLUE)
+        _lv_text(ax, 395, 262, "정답 0", color=PURPLE)
+        _lv_box(ax, 370, 205, 84, 46, "0.9", ec=PURPLE)
+        _lv_box(ax, 370, 128, 84, 46, "0.1", ec=PURPLE)
+        _lv_box(ax, 370, 51, 100, 46, f"{nl(1 - 0.9):.3f}", ec=PURPLE, fc=LV.PALE["purple"], bold=True, color=PURPLE)
+        _lv_arrow(ax, 370, 180, 370, 153)
+        _lv_arrow(ax, 370, 103, 370, 76)
+        _lv_text(ax, 420, 166, "1에서 빼기", color=MUTED, ha="left")
+        return fig
+    if level == 15:
+        vals = [nl(p) for p in (1.0, 0.1, 0.01)]
+        assert abs(vals[2] - 2 * vals[1]) < 1e-12 and f"{vals[2]:.4f}" == "4.6052" == f"{2 * 2.3026:.4f}"
+        rows = [["1", "0", ""], ["0.1", f"{vals[1]:.4f}", f"{vals[1]:.4f}"], ["0.01", f"{vals[2]:.4f}", f"{vals[2] - vals[1]:.4f}"]]
+        return LV.grid(rows, col_names=["p", "BCE", "늘어난 양"], marks=[(1, 2), (2, 2)], color="blue",
+                       top="정답 1 이면 BCE = " + M + "log p")
+    ps = np.array([0.9, 0.5, 0.1], dtype=np.float32)
+    ln, l10 = np.log(ps), np.log10(ps)
+    rows = [[f"{v:.4f}" for v in ln], [f"{-v:.4f}" for v in ln], [f"{v:.4f}".rstrip("0").rstrip(".") for v in l10]]
+    assert rows[1] == ["0.1054", "0.6931", "2.3026"] and rows[2] == ["-0.0458", "-0.301", "-1"]
+    return LV.grid(rows, col_names=["p = 0.9", "p = 0.5", "p = 0.1"], row_names=["torch.log", "BCE", "torch.log10"],
+                   marks=[(1, 0), (1, 1), (1, 2)], color="blue", top="p = torch.tensor([0.9, 0.5, 0.1])", code=True)
+
+
+@figure("6c-21", *LV.SIZE)
+def levels_6c_7():
+    return _levels_6c(7)
+
+
+@figure("6c-22", *LV.SIZE)
+def levels_6c_15():
+    return _levels_6c(15)
+
+
+@figure("6c-23", *LV.SIZE)
+def levels_6c_20():
+    return _levels_6c(20)
+
+
+# 6d 둘째 단계: 소프트맥스와 교차 엔트로피. 파랑은 logit, 주황은 소프트맥스 확률, 초록은 정답 클래스와 손실
+
+def _levels_6d(level):
+    z = np.array([2.0, 1.0, 0.1])
+    p = np.exp(z) / np.exp(z).sum()
+    loss = -np.log(p)
+    lse = math.log(np.exp(z).sum())
+    assert [f"{v:.3f}" for v in p] == ["0.659", "0.242", "0.099"] and [f"{v:.3f}" for v in loss] == ["0.417", "1.417", "2.317"]
+    assert np.allclose(lse - z, loss) and abs(p.sum() - 1) < 1e-12
+    if level == 7:
+        fig, ax = _lv_board()
+        ys = [200, 135, 70]
+        for k, y in enumerate(ys):
+            _lv_box(ax, 80, y, 84, 48, f"{z[k]:.1f}", ec=BLUE, fc=LV.PALE["blue"])
+            _lv_arrow(ax, 126, y, 202, y)
+            right = k == 0
+            _lv_box(ax, 255, y, 96, 48, f"{p[k]:.3f}", ec=GREEN if right else ORANGE, fc=LV.PALE["orange"], lw=3.5 if right else 2,
+                    bold=right)
+        _lv_arrow(ax, 307, ys[0], 383, ys[0], color=GREEN)
+        _lv_box(ax, 435, ys[0], 96, 48, f"{loss[0]:.3f}", ec=GREEN, fc=LV.PALE["green"], bold=True)
+        _lv_text(ax, 80, 255, "모델이 낸 수", color=MUTED)
+        _lv_text(ax, 255, 255, "바꾼 수", color=MUTED)
+        _lv_text(ax, 435, 255, "정답 칸", color=GREEN)
+        _lv_text(ax, 255, 26, "모두 더하면 1", color=ORANGE)
+        return fig
+    if level == 15:
+        rows = [[f"{z[k]:.1f}", f"{loss[k]:.3f}", num(loss[k] - loss[0], 1)] for k in range(3)]
+        assert [r[2] for r in rows] == ["0", "1", "1.9"]
+        rows[1][2] = "1.0"
+        return LV.grid(rows, col_names=["logit", "손실", "정답 0과 차이"], row_names=["정답 0", "정답 1", "정답 2"],
+                       marks=[(1, 2), (2, 2)], color="green", top="손실 차이 = logit 차이")
+    dim0 = np.exp(z) / np.exp(z)
+    rows = [[f"{v:.4f}" for v in p], ["%g" % v for v in dim0], [f"{v:.4f}" for v in lse - z]]
+    assert rows[0] == ["0.6590", "0.2424", "0.0986"] and rows[1] == ["1", "1", "1"]
+    return LV.grid(rows, col_names=["클래스 0", "클래스 1", "클래스 2"], row_names=["softmax dim=1", "softmax dim=0", "logsumexp " + M + " z"],
+                   marks=[(2, 0), (2, 1), (2, 2)], color="green", top="z = torch.tensor([[2.0, 1.0, 0.1]])", code=True)
+
+
+@figure("6d-21", *LV.SIZE)
+def levels_6d_7():
+    return _levels_6d(7)
+
+
+@figure("6d-22", *LV.SIZE)
+def levels_6d_15():
+    return _levels_6d(15)
+
+
+@figure("6d-23", *LV.SIZE)
+def levels_6d_20():
+    return _levels_6d(20)
+
+
+# 6e 셋째 단계: 가중 교차 엔트로피. 파랑은 정상, 빨강은 질병, 노랑은 손실 객체가 내는 값
+
+def _levels_6e(level):
+    N, K = 10000, 2
+    w = lambda n: N / (K * n)  # noqa: E731
+    assert f"{w(9900):.3f}" == "0.505" and w(100) == 50 and abs(w(100) / w(9900) - 99) < 1e-9
+    if level == 7:
+        fig, ax = _lv_board()
+        _lv_box(ax, 100, 185, 160, 54, "정상 9,900명", ec=BLUE, fc=LV.PALE["blue"], size=LV.FONT)
+        _lv_box(ax, 100, 100, 160, 54, "질병 100명", ec=RED, fc=LV.PALE["red"], size=LV.FONT)
+        _lv_arrow(ax, 192, 142, 330, 142, color=RED)
+        _lv_text(ax, 261, 175, "한 명을", color=RED)
+        _lv_text(ax, 261, 112, "99명처럼", color=RED)
+        _lv_box(ax, 420, 185, 130, 54, "9,900", ec=BLUE, fc=LV.PALE["blue"], bold=True)
+        _lv_box(ax, 420, 100, 130, 54, "9,900", ec=RED, fc=LV.PALE["red"], bold=True)
+        _lv_text(ax, 100, 250, "한 명씩 세기", color=MUTED)
+        _lv_text(ax, 420, 250, "다시 센 수", color=MUTED)
+        _lv_text(ax, 260, 32, "두 쪽이 같아집니다")
+        return fig
+    if level == 15:
+        xs = list(np.linspace(100, 9900, 300))
+        ys = [5000.0 / x for x in xs]
+        assert w(2000) == 2.5 and w(5000) == 1 and w(1000) == 5
+        fig = LV.graph(xs, [(ys, "ink", "")], "클래스의 데이터 수 n", "가중치", top="가중치 = 10,000 ÷ (2 × n) = 5,000 ÷ n",
+                       marks=[(100, 50, "", "red"), (1000, 5, "5", "ink"), (5000, 1, "1", "ink"), (9900, w(9900), "0.505", "blue")],
+                       xlim=(0, 10400), ylim=(0, 60))
+        fig.axes[0].text(500, 50, "50", ha="left", va="center", fontsize=LV.FONT, color=RED)  # 세로축 숫자와 겹치지 않게 오른쪽에 씀
+        return fig
+    zl = np.array([2.0, 0.0])
+    pl = np.exp(zl) / np.exp(zl).sum()
+    l0, l1 = -math.log(pl[0]), -math.log(pl[1])
+    wt = (0.505, 50.0)
+    top_sum = wt[0] * l0 + wt[1] * l1
+    val = top_sum / (wt[0] + wt[1])
+    assert f"{l0:.4f}" == "0.1269" and f"{l1:.4f}" == "2.1269" and f"{val:.4f}" == "2.1069"
+    rows = [[f"{l0:.4f}", "0.505", f"{wt[0] * l0:.4f}"], [f"{l1:.4f}", "50", f"{wt[1] * l1:.2f}"],
+            ["", "50.505", f"{top_sum:.2f}"], ["", "", f"{val:.4f}"]]
+    return LV.grid(rows, col_names=[M + "log p", "가중치", "곱"], row_names=["정상", "질병", "합", "나눈 값"],
+                   marks=[(3, 2)], color="highlight", top="criterion(z, torch.tensor([0, 1]))", code=True)
+
+
+@figure("6e-31", *LV.SIZE)
+def levels_6e_7():
+    return _levels_6e(7)
+
+
+@figure("6e-32", *LV.SIZE)
+def levels_6e_15():
+    return _levels_6e(15)
+
+
+@figure("6e-33", *LV.SIZE)
+def levels_6e_20():
+    return _levels_6e(20)
+
 if __name__ == "__main__":
     from tools.ai_art.__main__ import main as _main
     sys.exit(_main(["l06"] + sys.argv[1:]))

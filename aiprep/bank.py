@@ -3,7 +3,8 @@
 
 index.json 은 웹 꼴(missions·topics·pages·order)에 exam, lessons, patterns, mocks 를 더한 것이라 웹 키는 webprep.bank 가
 그대로 읽고 나머지를 여기서 읽음. 학습 노트 ai/learn/lNN/ 은 웹 학습 노트 꼴(meta.json, page.md, assets/)이고 page.md 의
-## 는 단원, ### 는 단계, 울타리 figure·ai-* 는 블록임(8.3). 문항 묶음 ai/items/iNN/ 은 공개 meta.json·gens.py·oracle.py 와
+## 는 단원, ### 는 단계, 울타리 figure·ai-* 는 블록임(8.3). ai-levels 는 단계 끝의 「세 수준으로 다시 보기」이고 수준 7·15·20
+마다 글, 그림, 확인 물음을 가짐(_levels_block). 문항 묶음 ai/items/iNN/ 은 공개 meta.json·gens.py·oracle.py 와
 봉인된 work/items.json·statements.json·facts.json·review.json 임. 차시가 "출제됨"이라는 것은 학습 노트 meta.json, 문항
 meta.json, 봉인(또는 평문 작업본 work/)이 모두 있다는 것임. 경로 상수는 쓸 때 bank.AI_DIR 로 읽음(테스트가 바꿔 끼움).
 """
@@ -13,7 +14,7 @@ import re
 
 import study
 from aiprep import gen as genlib
-from aiprep.grade import BLANK
+from aiprep.grade import BLANK, MODES
 from webprep import bank as webbank
 
 AI_DIR = os.path.join(study.ROOT, "ai")
@@ -27,7 +28,13 @@ FACTS_MARK = re.compile(r"^\s*<!--\s*facts:\s*(.*?)\s*-->\s*$")
 SKEL_MARK = re.compile(r"^\s*<!--\s*skel:\s*(S\d+)\s+(.*?)\s*-->\s*$")  # 바로 아래 코드 울타리가 그 뼈대 판과 같아야 함
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
 BLOCK_KINDS = {"ai-guess": "guess", "ai-reveal": "reveal", "ai-recall": "recall", "ai-why": "why", "ai-diff": "diff",
-               "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend"}
+               "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend", "ai-levels": "levels"}
+LEVELS = (7, 15, 20)
+LEVEL_KEYS = ("level", "text", "figure", "q", "answer", "mode", "places", "unit", "why")
+LEVEL_KEYS_20 = LEVEL_KEYS + ("code", "mistake", "where")  # 20살만 쓰는 키
+LEVEL_TEXTS = ("text", "q", "why", "code", "mistake", "where")
+LEVEL_PARTS = ("text", "caption", "content", "code", "mistake", "where", "q", "why")  # level_parts 가 돌려주는 순서
+LEVEL_FIGURE = re.compile(r"assets/[^/]+\.png\Z")
 SCOPES = (("심화", "deep"), ("보충 설명", "support"), ("더 알아보기", "extra"), ("2026 흐름", "trend"), ("외울 것", "memo"))
 NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩"
 
@@ -240,10 +247,128 @@ def _json_block(kind, text):
     return out
 
 
+def _levels_block(text, folder=None):
+    """ai-levels 울타리 안 JSON 을 {"kind": "levels", "id", "concept", "levels": [수준 셋]} 으로. 수준은 {"level", "id"(블록 id),
+    "text", "q", "answer", "mode", "places"(없으면 None), "unit"(없으면 ""), "why", "code", "mistake", "where", "figure"} 이고 figure 는
+    None 이나 figure 블록 꼴(path 는 folder 기준). 꼴이 맞지 않으면 {"kind": "levels", "error"} 하나(키 이름을 잘못 쓴 블록이 조용히
+    버려지지 않게 함)."""
+    def broken(message):
+        return {"kind": "levels", "error": message}
+
+    try:
+        data = json.loads(text)
+    except ValueError as error:
+        return broken("JSON 을 읽을 수 없습니다: %s" % error)
+    if not isinstance(data, dict):
+        return broken("ai-levels 는 JSON 객체여야 합니다.")
+    unknown = sorted(set(data) - {"id", "concept", "levels"})
+    if unknown:
+        return broken("ai-levels 에 모르는 키가 있습니다: %s" % ", ".join(unknown))
+    concept = data.get("concept", "")
+    if not isinstance(concept, str):
+        return broken("ai-levels 의 concept 는 글이어야 합니다.")
+    levels = data.get("levels")
+    if not isinstance(levels, list) or len(levels) != len(LEVELS) or not all(isinstance(x, dict) for x in levels) \
+            or [x.get("level") for x in levels] != list(LEVELS) or not all(type(x.get("level")) is int for x in levels):
+        return broken("levels 는 level 7·15·20 순서의 객체 셋이어야 합니다.")
+    bid = "" if data.get("id") is None else str(data["id"])
+    rows, texts = [], [concept]
+    for level in levels:
+        no = level["level"]
+        unknown = sorted(set(level) - set(LEVEL_KEYS_20 if no == 20 else LEVEL_KEYS))
+        if unknown:
+            return broken("%d살 수준에 쓸 수 없는 키가 있습니다: %s" % (no, ", ".join(unknown)))
+        row = {"level": no, "id": bid}
+        for key in LEVEL_TEXTS:
+            row[key] = level.get(key, "")
+            if not isinstance(row[key], str):
+                return broken("%d살 수준의 %s 는 글이어야 합니다." % (no, key))
+        row["mode"] = level.get("mode", "word")
+        if not isinstance(row["mode"], str):
+            return broken("%d살 수준의 mode 는 글이어야 합니다." % no)
+        if row["mode"] not in MODES:
+            return broken("%d살 수준의 mode 를 모릅니다: %s" % (no, row["mode"]))
+        row["places"], row["unit"] = level.get("places"), level.get("unit", "")
+        if row["places"] is not None and (type(row["places"]) is not int or row["places"] < 0):
+            return broken("%d살 수준의 places 는 0 이상의 정수여야 합니다." % no)
+        if not isinstance(row["unit"], str):
+            return broken("%d살 수준의 unit 는 글이어야 합니다." % no)
+        answer = level.get("answer")
+        if not isinstance(answer, list) or not answer or not all(isinstance(a, str) for a in answer):
+            return broken("%d살 수준의 answer 는 비지 않은 글 목록이어야 합니다." % no)
+        row["answer"] = list(answer)
+        row["figure"] = None
+        if "figure" in level:
+            fig = level["figure"]
+            if not isinstance(fig, dict) or set(fig) != {"file", "caption", "content"} \
+                    or not all(isinstance(fig[k], str) for k in ("file", "caption", "content")):
+                return broken("%d살 수준의 figure 는 {\"file\", \"caption\", \"content\"} 글 객체여야 합니다." % no)
+            if not LEVEL_FIGURE.match(fig["file"]):
+                return broken("%d살 수준의 그림은 assets/ 아래 .png 여야 합니다: %s" % (no, fig["file"]))
+            row["figure"] = {"kind": "figure", "file": fig["file"], "path": os.path.join(folder, *fig["file"].split("/")) if folder else "",
+                             "caption": fig["caption"], "content": fig["content"], "frames": []}
+            texts += [fig["caption"], fig["content"]]
+        texts += [row[key] for key in LEVEL_TEXTS] + row["answer"]
+        rows.append(row)
+    if any("```" in value or "~~~" in value for value in texts):  # 화면의 mdlite 는 ~~~ 도 코드 울타리로 읽음
+        return broken("ai-levels 글 안에는 ``` 나 ~~~ 를 쓰지 않습니다. 코드는 20살 수준의 code 에 둡니다.")
+    return {"kind": "levels", "id": bid, "concept": concept, "levels": rows}
+
+
+def level_parts(level):
+    """수준 하나의 글을 [(이름, 글)] 로. 이름은 text, caption, content, code, mistake, where, q, why 순이고 빈 글은 뺌.
+    검사, 재풀이 공개본, 말투 덤프가 같이 씀."""
+    figure = level.get("figure") or {}
+    values = dict(level, caption=figure.get("caption", ""), content=figure.get("content", ""))
+    return [(name, values.get(name) or "") for name in LEVEL_PARTS if (values.get(name) or "").strip()]
+
+
+def split_levels(markdown, sections=None):
+    """page.md 를 위에서부터 ("main", 글, 시작 줄) 과 ("levels", 블록, 울타리 줄) 로 나눔. 블록은 _levels_block 결과이고
+    sections(meta.json 의 {키: 단원 제목})를 주면 블록에 "unit"(단원 키)과 "step"(parse_page 와 같은 단계 번호)을 더함.
+    본문 글에는 다른 울타리가 그대로 남음."""
+    by_title = {title: key for key, title in (sections or {}).items()}
+    out, text, start = [], [], 1
+    fence, body, at = None, [], 0
+    unit, step = None, 0
+    for no, line in enumerate((markdown or "").replace("\r\n", "\n").split("\n"), 1):
+        found = FENCE.match(line)
+        if fence == "ai-levels":
+            if found and not found.group(2):
+                block = _levels_block("\n".join(body))
+                if sections is not None:
+                    block.update(unit=unit, step=step)
+                out.append(("levels", block, at))
+                fence, start = None, no + 1
+            else:
+                body.append(line)
+            continue
+        if fence is None and found and found.group(2) == "ai-levels":
+            if text:
+                out.append(("main", "\n".join(text), start))
+            text, fence, body, at = [], "ai-levels", [], no
+            continue
+        text.append(line)
+        if found:
+            fence = found.group(2) or "code" if fence is None else (None if not found.group(2) else fence)
+        elif fence is None and line.startswith("## "):
+            unit, step = by_title.get(line[3:].strip()), 0
+        elif fence is None and line.startswith("### ") and scope_of(line[4:].strip()) != "trend":
+            step += 1
+    if fence == "ai-levels":
+        block = {"kind": "levels", "error": "울타리가 닫히지 않았습니다."}
+        if sections is not None:
+            block.update(unit=unit, step=step)
+        out.append(("levels", block, at))
+    elif text:
+        out.append(("main", "\n".join(text), start))
+    return out
+
+
 def parse_blocks(lines, folder=None):
     """단계 줄을 위에서 아래로 블록 목록으로. 글(text)은 <!-- facts --> 줄을 지운 마크다운, figure 는 figure_block,
-    ai-* 는 JSON 을 읽은 dict(kind 는 guess·reveal·recall·why·diff·rotate·memo·trend). JSON 이 깨졌거나 이름을 모르는 블록은
-    error 키를 가짐."""
+    ai-* 는 JSON 을 읽은 dict(kind 는 guess·reveal·recall·why·diff·rotate·memo·trend·levels, levels 는 _levels_block 꼴).
+    JSON 이 깨졌거나 이름을 모르는 블록은 error 키를 가짐."""
     blocks, text, fence, body = [], [], None, []
 
     def flush():
@@ -271,6 +396,8 @@ def parse_blocks(lines, folder=None):
                 blocks.append(figure_block(body, folder))
             elif fence not in BLOCK_KINDS:  # 이름을 잘못 쓴 블록이 정답째 코드로 보이지 않게 함
                 blocks.append({"kind": fence, "error": "모르는 블록 이름입니다: %s" % fence})
+            elif fence == "ai-levels":
+                blocks.append(_levels_block("\n".join(body), folder))
             else:
                 blocks.append(_json_block(BLOCK_KINDS[fence], "\n".join(body)))
             fence, body = None, []

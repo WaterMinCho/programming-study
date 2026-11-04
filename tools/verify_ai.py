@@ -5,6 +5,7 @@
   python tools/verify_ai.py [i05 common pc ...]        출제된 문항 묶음 전부(또는 적은 것)를 봄. pc 는 상황별 코드(뼈대 카드)
   python tools/verify_ai.py i05 --seeds 50             생성기를 50 시드만 돌림(기본 300)
   python tools/verify_ai.py i05 --answers FILE         재풀이 답안(ai_seal.py brief 가 만든 answers.json)을 채점함
+  python tools/verify_ai.py --levels-answers FILE      세 수준 물음 재풀이 답안(ai_seal.py levels 가 만든 levels_answers.json)을 채점함
   python tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4"
                             [--first-pass FILE] [--finding 글 ...]
                                                        검증을 통과하면 work/review.json 을 씀(그 뒤 ai_seal.py seal)
@@ -14,6 +15,8 @@
 
 그 밖의 옵션: --bank DIR(기본 ai/), --manifest FILE(기본 tools/ai_art/manifest.json). 학습 노트의 글 꼴·말투·맥락과 서명은
 verify_web.py --bank ai 와 web_lint.py --bank ai 가 보고, 여기서는 ai-* 블록·프레임 줄·단계 사실 줄·그림 한도와 manifest 를 봄.
+세 수준 블록(ai-levels)은 web_lint 가 울타리 안을 건너뛰므로 꼴·수준 규칙·말투는 check_levels, 맥락은 check_levels_context, 그림은
+check_level_figure 가 여기서 봄.
 검사 번호와 이름은 STEP_NAMES 에 있음. 표준 라이브러리만 씀.
 
 상황별 코드(pc)는 차시와 같은 흐름을 탐. 학습 노트 l18, items/pc 의 facts.json, ai/patterns/S*.json 에서 만든 뼈대 카드를 Lesson
@@ -69,6 +72,16 @@ FULL_SEEDS = 100  # 서로 다른 지문 수는 시드를 이만큼 이상 돌�
 STYLE_SAMPLES = 20
 IMAGE_REF = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
 SKEL_COMMENT = re.compile(r"(^|\s)#")
+LEVEL_DIGIT = {7: 1, 15: 2, 20: 3}  # 블록 그림 이름 <단원>-<단계 번호><수준 번호> 의 수준 번호
+LEVEL_CHARS = {7: 300, 15: 450, 20: 450}  # 수준 글(코드 뺌) 길이 경고선
+LEVEL_PNG = {"bytes": 30 * 1024, "size": (1040, 560)}  # 블록 그림 경고선
+SEVEN_SIGNS = re.compile(r"[=×÷+/^√∂Σ²³*<>]|\d\s*[−-]\s*\d")  # 숫자 앞에 붙은 − 는 됨(−4)
+LIBRARY = re.compile(r"torch|numpy|(?<![A-Za-z])(?:nn|np)(?![A-Za-z])", re.I)
+POLITE = re.compile(r"(?<!세)요\.(?=\s|$)|볼까요|해 봐요")
+NUMBER_TEXT = re.compile(r"\d+(?:\.\d+)?")
+NUMBER_WORD = re.compile(r"-?\d+(?:\.\d+)?\Z")
+FIGURE_NO = re.compile(r"^그림\s*\d")
+LEVELS_KEY = re.compile(r"(l\d{2}) (\d{1,2}[a-i])/(\d+) (\S+) (7|15|20)\Z")
 
 
 class Verifier(object):
@@ -578,12 +591,14 @@ def check_counts(v, les):
             v.fail(label, 2, "%s 단원의 핵심 문항이 %d개입니다(3~4개)." % (key, got["core"]))
 
 
-def check_note_blocks(v, les):
-    """학습 노트의 ai-* 블록, 단계 수, 단계 사실 줄, 프레임 줄."""
+def check_note_blocks(v, les, terms=None):
+    """학습 노트의 ai-* 블록, 단계 수, 단계 사실 줄, 프레임 줄. 세 수준 블록은 자리와 수를 여기서, 안은 check_levels 로 봄."""
     label = les.id
     note = les.note
     if note is None:
         return
+    terms = terms or {"known": [], "terms": []}
+    level_blocks = 0
     unit_cards = {}
     for card in les.cards:
         unit_cards.setdefault(card["unit"], {})[card["id"]] = card
@@ -614,7 +629,7 @@ def check_note_blocks(v, les):
                     v.fail(label, 8, "%s 의 %s 블록: %s" % (spot, kind, block["error"]))
                     continue
                 bid = block.get("id")
-                if kind in ("guess", "recall", "rotate"):
+                if kind in ("guess", "recall", "rotate", "levels"):
                     if not bid:
                         v.fail(label, 8, "%s 의 %s 블록에 id 가 없습니다." % (spot, kind))
                     elif bid in ids:
@@ -673,13 +688,192 @@ def check_note_blocks(v, les):
                         v.style(label, "%s 그림 %s 프레임 %d" % (spot, block["file"], n), frame["text"])
                 elif kind in ("diff", "rotate"):
                     skel_block(v, les, spot, block)
+                elif kind == "levels":
+                    check_levels(v, les, unit, step, block, spot, terms)
+            spots = [n for n, b in enumerate(step["blocks"]) if b["kind"] == "levels"]
+            level_blocks += len(spots)
+            if len(spots) > 1:
+                v.fail(label, 8, "%s 단계에 세 수준 블록이 %d개입니다(한 단계에 하나)." % (spot, len(spots)))
+            if spots and spots[-1] != len(step["blocks"]) - 1:
+                v.fail(label, 8, "%s 의 세 수준 블록이 단계의 마지막 블록이 아닙니다." % spot)
+            if spots and (step["scope"] in ("memo", "trend") or step["no"] == 1 or any(b["kind"] == "guess" for b in step["blocks"])):
+                v.fail(label, 8, "%s 단계에는 세 수준 블록을 두지 않습니다(먼저 풀어 보기·외울 것·2026 흐름 단계)." % spot)
         missing = sorted(cid for cid, card in mine.items() if card["core"] and cid not in covered)
         if missing:
             v.fail(label, 8, "%s 의 외울 것이 핵심 카드를 덮지 않습니다: %s" % (where, verify_web.listing(missing)))
         meta = note["unit_meta"].get(key, {})
         if meta.get("key_figure") and not os.path.isfile(os.path.join(note["dir"], *str(meta["key_figure"]).split("/"))):
             v.warn(label, 13, "%s 의 key_figure 파일이 아직 없습니다: %s" % (where, meta["key_figure"]))
+    if les.group is None and not 3 <= level_blocks <= 5:
+        v.warn(label, 8, "%s 의 세 수준 블록이 %d개입니다(차시마다 3~5개)." % (note["id"], level_blocks))
     skel_fences(v, les)
+
+
+def _has_word(text, word):
+    """word 가 text 에 낱말로 나오는지. 숫자는 앞뒤가 다른 숫자에 붙지 않을 때, 영문은 앞뒤가 영문·숫자가 아닐 때, 한글은 들어 있으면."""
+    text, word = text.replace("−", "-"), word.strip().replace("−", "-")
+    if not word:
+        return False
+    if NUMBER_WORD.match(word):
+        return bool(re.search(r"(?<![\d.])%s(?!\d|\.\d)" % re.escape(word), text))
+    if re.match(r"[A-Za-z0-9_]", word):
+        return bool(re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(word), text))
+    return word in text
+
+
+def step_numbers(step):
+    """단계 글·그림 캡션·내용·프레임 줄에 나온 숫자 집합. 캡션 앞의 "그림 N." 은 뺌."""
+    pieces = []
+    for block in step["blocks"]:
+        if block["kind"] == "text":
+            pieces.append(block["markdown"])
+        elif block["kind"] == "figure":
+            pieces += [re.sub(r"^그림\s*\d+\.?\s*", "", block["caption"]), block["content"]] + [f["text"] for f in block["frames"]]
+    return set(NUMBER_TEXT.findall("\n".join(pieces)))
+
+
+def check_levels(v, les, unit, step, block, spot, terms):
+    """세 수준 블록 하나(plan 2.3 표). concept, 수준마다 글·그림·물음 꼴과 수준 규칙(7살 낱말·식 기호, 15살 라이브러리·행렬 표기,
+    20살 코드·착각·위치), 말투. 그림 파일은 check_level_figure, 맥락은 check_levels_context 가 봄."""
+    label = les.id
+    tag = "%s %s" % (spot, block.get("id") or "?")
+    concept = block.get("concept") or ""
+    v.style(label, "%s concept" % tag, concept)  # 접힌 줄 제목으로 늘 보임
+    if not concept.strip():
+        v.fail(label, 8, "%s 세 수준 블록에 concept 가 없습니다." % tag)
+    elif len(concept) > 20:
+        v.fail(label, 8, "%s 의 concept 가 %d자입니다(20자 이하): %s" % (tag, len(concept), concept))
+    else:
+        for term in terms["terms"]:
+            if concept in [term["term"]] + list(term.get("also") or []) and les.note["id"] not in (term.get("page"), term.get("intro")):
+                v.warn(label, 8, "%s 의 concept '%s' 는 terms.json 낱말인데 이 노트가 그 낱말의 intro·page 가 아닙니다." % (tag, concept))
+        shown = step["title"] + "\n" + "\n".join(b["markdown"] for b in step["blocks"] if b["kind"] == "text")
+        if concept not in shown:
+            v.warn(label, 8, "%s 의 concept '%s' 가 단계 글에 없습니다." % (tag, concept))
+    recall_q = {str(b.get("q", "")).strip() for s in unit["steps"] for b in s["blocks"] if b["kind"] == "recall"}
+    recall_a = {str(a).strip() for b in step["blocks"] if b["kind"] == "recall" for a in b.get("answer") or []}
+    numbers = step_numbers(step)
+    finder = web_lint.Terms(terms)
+    known = set(terms.get("known") or [])
+    levels = block["levels"]
+    for n, level in enumerate(levels):
+        no = level["level"]
+        where = "%s %d살" % (tag, no)
+        parts = aibank.level_parts(level)
+        texts = dict(parts)
+        if not level["text"].strip():
+            v.fail(label, 8, "%s 에 text 가 없습니다." % where)
+        if not level.get("figure"):
+            v.fail(label, 8, "%s 에 figure 가 없습니다." % where)
+        if len(aibank.BLANK.findall(level["q"])) != 1:
+            v.fail(label, 8, "%s 의 q 에는 ____ 가 하나 있어야 합니다." % where)
+        if not any(a.strip() for a in level["answer"]):
+            v.fail(label, 8, "%s 의 answer 가 비었습니다." % where)
+        blank = {"answer": level["answer"], "mode": level["mode"], "places": level["places"], "unit": level["unit"]}
+        for answer in level["answer"]:
+            if answer.strip() and not grade.grade_blank(blank, answer):
+                v.fail(label, 8, "%s 의 answer '%s' 를 mode %s 로 채점하면 맞음이 되지 않습니다." % (where, answer, level["mode"]))
+        if not level["why"].strip():
+            v.fail(label, 8, "%s 에 why 가 없습니다." % where)
+        if any(line.lstrip().startswith(("#", ">")) for line in level["text"].split("\n")):
+            v.fail(label, 8, "%s 의 text 에 제목이나 인용 줄이 있습니다." % where)
+        if level["q"].strip() in recall_q:
+            v.fail(label, 8, "%s 의 q 가 같은 단원 떠올리기 q 와 같습니다." % where)
+        for key, text in parts:
+            found = POLITE.search(text) if key != "code" else None
+            if found:
+                v.fail(label, 10, "%s 의 %s 에 '%s' 가 있습니다. ~니다 체로 씁니다." % (where, key, found.group(0)))
+        if numbers and not numbers & set(NUMBER_TEXT.findall("\n".join(t for _, t in parts))):
+            v.warn(label, 8, "%s 가 단계 글·캡션의 숫자를 하나도 쓰지 않습니다." % where)
+        if len(level["text"]) > LEVEL_CHARS[no]:
+            v.warn(label, 8, "%s 의 text 가 %d자입니다(%d자 이하로)." % (where, len(level["text"]), LEVEL_CHARS[no]))
+        same = sorted({a.strip() for a in level["answer"]} & recall_a)
+        if same:
+            v.warn(label, 8, "%s 의 answer 가 같은 단계 떠올리기 answer 와 같습니다: %s" % (where, ", ".join(same)))
+        if level["mode"] == "word" and len(level["answer"]) < 2:
+            v.warn(label, 8, "%s 의 mode 가 word 이면 받는 답을 둘 이상 둡니다." % where)
+        for lower in levels[:n]:  # 세 수준이 한 화면에 같이 펴지므로 물음 전에 보이는 글·캡션·코드를 봄
+            for answer in lower["answer"]:
+                for key in ("text", "caption", "code"):
+                    if _has_word(texts.get(key, ""), answer):
+                        v.warn(label, 8, "%s 의 %s 에 %d살 물음의 답 '%s' 가 나옵니다." % (where, key, lower["level"], answer))
+        for key in ("text", "caption", "q", "why", "mistake", "where"):  # web_lint 가 울타리 안을 건너뛰어서 여기서 봄
+            flat = web_lint.plain(texts.get(key, ""))
+            for found in web_lint.SPACED.finditer(flat):
+                v.fail(label, 10, "%s %s: 띄어 쓴 조사: 영어 낱말이나 코드 뒤의 조사는 붙여 씁니다: %s"
+                       % (where, key, web_lint.shown(flat[max(0, found.start() - 12):found.end()].strip())))
+        shown = [(key, texts[key]) for key in ("text", "q", "why", "caption", "content") if key in texts]
+        if no == 7:
+            shown += [("answer", answer) for answer in level["answer"]]
+            for key, text in shown:
+                if "`" in text:
+                    v.fail(label, 8, "%s 의 %s 에 인라인 코드가 있습니다(7살은 코드 없이)." % (where, key))
+                found = SEVEN_SIGNS.search(text)
+                if found:
+                    v.fail(label, 8, "%s 의 %s 에 식 기호 '%s' 가 있습니다(7살은 식 없이)." % (where, key, found.group(0)))
+                words = sorted({term for term, _, _ in finder.find(text) if term not in known})
+                if words:
+                    v.fail(label, 8, "%s 의 %s 에 낱말 %s 가 나옵니다(7살은 terms.json 낱말 없이)." % (where, key, ", ".join(words)))
+                if re.search(r"[A-Za-z]", text):
+                    v.warn(label, 8, "%s 의 %s 에 영문자가 있습니다." % (where, key))
+        elif no == 15:
+            for key, text in shown:
+                if "`" in text:
+                    v.fail(label, 8, "%s 의 %s 에 인라인 코드가 있습니다(15살은 코드 없이)." % (where, key))
+                for found in (LIBRARY.search(text), re.search(r"[∂Σ@]|\[\[", text)):
+                    if found:
+                        v.fail(label, 8, "%s 의 %s 에 '%s' 가 있습니다(15살은 라이브러리 이름·편미분 기호·행렬 표기 없이)."
+                               % (where, key, found.group(0)))
+            if not any("=" in text for _, text in shown):
+                v.warn(label, 8, "%s 에 = 가 든 계산이 없습니다." % where)
+        else:
+            lines = [line for line in level["code"].split("\n") if line.strip()]
+            if not 2 <= len(lines) <= 8:
+                v.fail(label, 8, "%s 의 code 가 %d줄입니다(2~8줄)." % (where, len(lines)))
+            if not level["mistake"].strip():
+                v.fail(label, 8, "%s 에 mistake 가 없습니다." % where)
+            if "차시" not in level["where"]:
+                v.fail(label, 8, "%s 의 where 에 강의 위치(N차시 …)가 없습니다." % where)
+        v.style(label, "%s text" % where, level["text"], markdown=True)
+        for key in ("caption", "content", "q", "why", "mistake", "where"):
+            v.style(label, "%s %s" % (where, key), texts.get(key, ""))
+
+
+def check_levels_context(v, les, bank_dir, terms):
+    """세 수준 블록 글의 terms 낱말이 블록 자리까지 정의됐는지(11). page.md 를 split_levels 로 본문 조각과 수준 조각으로 나눠 순서대로
+    web_lint.context_check 에 넘기고 블록 꼬리표가 든 줄만 남김. allowed 는 web_lint.lint_item 의 page 갈래와 같음. 본문 줄은
+    web_lint.py --bank ai 가 보므로 버림."""
+    note = les.note
+    if note is None:
+        return
+    parts = aibank.split_levels(note.get("markdown", ""), note.get("sections"))
+    tags, texts = [], []
+    for kind, value, line in parts:
+        if kind == "main":
+            texts.append(("page.md", "\n" * (line - 1) + value))  # 본문 줄 번호를 page.md 줄 번호와 맞춤
+            continue
+        if value.get("error"):
+            continue
+        for level in value["levels"]:
+            name = "page.md %s/%s %s %d살" % (value.get("unit"), value.get("step"), value.get("id") or "?", level["level"])
+            tags.append(name)
+            texts.append((name, "\n\n".join(text for key, text in aibank.level_parts(level) if key != "code")))
+    if not tags:
+        return
+    report = web_lint.Report(les.id)
+    allowed = set(terms.get("known") or [])
+    try:
+        index = webbank.read_index(bank_dir)
+        for pid in note.get("needs") or []:
+            allowed |= web_lint.page_defines(pid, bank_dir, index, report)
+    except webbank.BankError as error:
+        v.fail(les.id, 11, "needs 페이지를 읽지 못했습니다: %s" % error)
+        return
+    listed = set(note.get("defines") or [])
+    web_lint.context_check(texts, web_lint.Terms(terms, listed), allowed | listed, listed, report)
+    for level, where, rule, text in report.rows:
+        if any(tag in where or tag in text for tag in tags):
+            (v.fail if level == "error" else v.warn)(les.id, 11, "%s: %s: %s" % (where, rule, text))
 
 
 def skel_block(v, les, spot, block):
@@ -940,7 +1134,8 @@ def check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, seeds):
     if unused:
         v.warn(label, 7, "어느 카드도 쓰지 않는 핵심 사실: %s" % verify_web.listing(unused))
     check_counts(v, les)
-    check_note_blocks(v, les)
+    check_note_blocks(v, les, terms)
+    check_levels_context(v, les, bank_dir, terms)
     check_context(v, les, terms, pages_no)
     before = git_ids(bank_dir, les.id)
     if before is not None:
@@ -1227,6 +1422,12 @@ def check_figures(v, bank_dir, index, manifest):
                 v.fail(label, 13, "%s 의 credits 는 author·url 과 허용 라이선스(%s)가 있어야 합니다." % (block["file"], ", ".join(ALLOWED_LICENSES)))
             elif "출처" not in block["caption"] and not any(h == "그림 출처" for h, _ in parsed["extra"]):
                 v.fail(label, 13, "%s 는 가져온 그림인데 캡션이나 「그림 출처」 절에 출처가 없습니다." % block["file"])
+        for key in parsed["order"]:
+            for step in parsed["units"][key]["steps"]:
+                for block in step["blocks"]:
+                    if block["kind"] == "levels" and not block.get("error"):
+                        for level in block["levels"]:
+                            check_level_figure(v, label, data, page["id"], key, step, block, level)
         assets = os.path.join(pdir, "assets")
         size = sum(os.path.getsize(os.path.join(assets, f)) for f in os.listdir(assets)) if os.path.isdir(assets) else 0
         if size > ai_art.LIMITS["note_bytes"]:
@@ -1236,6 +1437,47 @@ def check_figures(v, bank_dir, index, manifest):
         v.fail("index", 14, "그림 합계가 %.1fMB 입니다(%dMB 이하)." % (total / 1048576.0, ai_art.LIMITS["total_bytes"] // 1048576))
     elif total > ai_art.LIMITS["warn_bytes"]:
         v.warn("index", 14, "그림 합계가 %.1fMB 입니다. 비중이 낮은 차시의 GIF 를 PNG 로 바꾸세요." % (total / 1048576.0))
+
+
+def check_level_figure(v, label, manifest, pid, key, step, block, level):
+    """세 수준 블록 그림 하나(13). 이름이 <단원>-<단계 번호><수준 번호>(7살 1, 15살 2, 20살 3)이고 PNG, 캡션("그림 N." 으로
+    시작하지 않음)·내용이 있고, 파일이 있고 한도 안이고 manifest 해시와 같아야 함. 그림이 없는 것은 8 노트 블록에서 봄."""
+    fig = level.get("figure")
+    if not fig:
+        return
+    where = "%s/%s %s %d살" % (key, step["no"], block.get("id") or "?", level["level"])
+    name = "%s-%s%d" % (key, step["no"], LEVEL_DIGIT[level["level"]])
+    if fig["file"] != "assets/%s.png" % name:
+        v.fail(label, 13, "%s 그림 이름은 블록 자리와 수준을 따라 assets/%s.png 여야 합니다: %s" % (where, name, fig["file"]))
+    if not fig["caption"].strip():
+        v.fail(label, 13, "%s 그림에 caption 이 없습니다." % where)
+    elif FIGURE_NO.match(fig["caption"]):
+        v.fail(label, 13, "%s 그림 caption 은 \"그림 N.\" 으로 시작하지 않습니다: %s" % (where, clip(fig["caption"], 40)))
+    if not fig["content"].strip():
+        v.fail(label, 13, "%s 그림에 content 가 없습니다." % where)
+    path = fig["path"]
+    if not os.path.isfile(path):
+        v.fail(label, 13, "%s 그림 파일이 없습니다: %s" % (where, fig["file"]))
+        return
+    with open(path, "rb") as handle:
+        if handle.read(8) != b"\x89PNG\r\n\x1a\n":
+            v.fail(label, 13, "%s 그림 %s 가 PNG 가 아닙니다." % (where, fig["file"]))
+            return
+    for problem in ai_art.image_problems(path):
+        v.fail(label, 13, "%s: %s" % (fig["file"], problem))
+    entry = manifest["files"].get("learn/%s/%s" % (pid, fig["file"]))
+    if entry is None:
+        v.fail(label, 13, "manifest 에 없는 그림입니다: %s. 그린 뒤 `python -m tools.ai_art %s --record` 로 적습니다." % (fig["file"], pid))
+    elif entry.get("sha256") != ai_art.file_sha(path):
+        v.fail(label, 13, "%s 가 manifest 의 해시와 다릅니다. 다시 그렸으면 `python -m tools.ai_art %s --record` 로 적으세요." % (fig["file"], pid))
+    try:
+        info = ai_art.image_info(path)
+    except ValueError:
+        return
+    if info["bytes"] > LEVEL_PNG["bytes"]:
+        v.warn(label, 13, "%s 가 %.1fKB 입니다(%dKB 이하로)." % (fig["file"], info["bytes"] / 1024.0, LEVEL_PNG["bytes"] // 1024))
+    if (info["width"], info["height"]) != LEVEL_PNG["size"]:
+        v.warn(label, 13, "%s 가 %d×%d 입니다(%d×%d 로)." % ((fig["file"], info["width"], info["height"]) + LEVEL_PNG["size"]))
 
 
 def check_secrets(v, bank_dir):
@@ -1395,6 +1637,62 @@ def grade_answers(v, label, path, lessons, bank_dir, first=False):
         v.warn(label, 17, "%s 를 재풀이자가 틀렸습니다. 원인을 하나로 정해 findings 에 적으세요(정답 틀림, 두 가지로 읽힘, 받는 답 빠짐, "
                           "공정한 함정, oracle 불일치)." % cid)
     return {"cards": correct + len(wrong), "correct": correct, "wrong": wrong, "gens": {"checked": gens, "seeds": len(seeds)}}
+
+
+def note_levels(pid, note):
+    """학습 노트의 세 수준 물음을 {"l04 4b/3 v1 7": 수준} 으로(ai_seal.py levels 의 답안 키와 같은 꼴)."""
+    out = {}
+    for key in (note or {}).get("order", []):
+        for step in note["units"][key]["steps"]:
+            for block in step["blocks"]:
+                if block["kind"] == "levels" and not block.get("error"):
+                    for level in block["levels"]:
+                        out["%s %s/%s %s %d" % (pid, key, step["no"], block["id"], level["level"])] = level
+    return out
+
+
+def grade_levels(v, path, bank_dir, index):
+    """세 수준 물음 재풀이 답안(ai_seal.py levels 의 levels_answers.json)을 채점함. 답안 키에 나온 노트의 모든 수준 물음을 그 수준의
+    answer·mode·places·unit 으로 grade_blank 하고 "세 수준 물음 재풀이: 맞음 a / b" 줄을 찍음. 빈 칸, 글이 아닌 값, 답안에 없는 키는
+    틀림. 문항 재풀이(--answers)와 섞지 않음. {"levels", "correct", "wrong"} 를 돌려줌."""
+    label = "levels"
+    v.head(label, "세 수준 물음 재풀이")
+    try:
+        answers = study.read_json(path)
+    except (OSError, ValueError) as error:
+        v.fail(label, 17, "답안을 읽을 수 없습니다: %s" % error)
+        return None
+    if not isinstance(answers, dict):
+        v.fail(label, 17, "답안은 {\"l04 4b/3 v1 7\": \"답\"} 꼴의 JSON 객체여야 합니다.")
+        return None
+    terms = grade.term_map(aibank.read_terms(bank_dir))
+    pages = {p["id"]: p for p in index["pages"]}
+    asked = {}
+    for pid in sorted({found.group(1) for found in map(LEVELS_KEY.match, answers) if found and found.group(1) in pages}):
+        try:
+            asked.update(note_levels(pid, aibank.load_note(pages[pid], bank_dir)))
+        except aibank.AiBankError as error:
+            v.fail(label, 17, str(error))
+    for key in sorted(set(answers) - set(asked)):
+        v.warn(label, 17, "답안의 %s 가 세 수준 물음에 없습니다." % key)
+    correct, wrong = 0, []
+    for key, level in sorted(asked.items()):
+        value = answers.get(key)
+        if key not in answers:
+            v.warn(label, 17, "답안에 %s 가 없습니다. ai_seal.py levels 로 답안 파일을 다시 만들고 그 물음을 풉니다." % key)
+        elif not isinstance(value, str):
+            v.warn(label, 17, "답안의 %s 값이 글이 아닙니다. 숫자도 \"2.4\" 처럼 따옴표로 적습니다." % key)
+        elif grade.grade_blank({"answer": level["answer"], "mode": level["mode"], "places": level["places"], "unit": level["unit"]},
+                               value, terms):
+            correct += 1
+            continue
+        wrong.append(key)
+    v.note(label, "세 수준 물음 재풀이: 맞음 %d / %d%s" % (correct, correct + len(wrong),
+                                                       (", 틀림 " + verify_web.listing(wrong, 12)) if wrong else ""))
+    for key in wrong:
+        v.warn(label, 17, "%s 를 재풀이자가 틀렸습니다. 원인을 하나로 정해 서명 --finding 에 적으세요(그 수준 글만으로 못 풂, 받는 답 빠짐, "
+                          "정답 틀림)." % key)
+    return {"levels": correct + len(wrong), "correct": correct, "wrong": wrong}
 
 
 def review_target(folder):
@@ -1567,6 +1865,7 @@ def parse_args(argv):
     parser.add_argument("--manifest", default=ai_art.MANIFEST)
     parser.add_argument("--seeds", type=int, default=300)
     parser.add_argument("--answers")
+    parser.add_argument("--levels-answers", dest="levels_answers")
     parser.add_argument("--sign", action="store_true")
     parser.add_argument("--writer")
     parser.add_argument("--resolver")
@@ -1595,6 +1894,10 @@ def main(argv=None, out=None):
         if opts.leeches:
             show_leeches(v, review.exam_dates(index["exam"]), card_units(bank_dir, index))
         return 0
+    if opts.levels_answers:  # 학습 노트 블록만 보는 채점이라 문항 묶음 검사를 돌리지 않음
+        grade_levels(v, os.path.abspath(opts.levels_answers), bank_dir, index)
+        v.say("실패 %d개, 경고 %d개" % (len(v.failures), len(v.warnings)))
+        return 1 if v.failures else 0
     try:
         terms = aibank.read_terms(bank_dir)
         retired = aibank.read_retired(bank_dir)

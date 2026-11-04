@@ -1318,6 +1318,326 @@ def random_ranges():
     return c.image()
 
 
+# ---------- 세 수준으로 다시 보기 블록 그림
+# 크기·글자·여백은 tools/ai_art/levels.py 를 따름(화면 520×280, 파일 1040×560, 글자 22 이상). 단원 그림과 같은 이 파일의 색을 씀.
+# 좌표는 논리 px(왼쪽 아래 0, 0). 글자가 캔버스 밖으로 나가거나 서로 겹치는지, 칸 글이 칸을 넘는지 lv_image 가 봄
+
+from tools.ai_art import levels as LV  # noqa: E402
+
+LV_W, LV_H = LV.SIZE
+LV_FONT, LV_BIG, LV_PAD = LV.FONT, LV.BIG, LV.PAD
+LV_CODE, LV_MATH = LV.CODE_FONT, LV.MATH_FONT
+LV_NAME = {7: 1, 15: 2, 20: 3}  # 그림 이름의 수준 번호
+MINUS = "−"
+
+
+def lv_num(v):
+    """그림에 찍는 숫자. 빼기는 U+2212."""
+    return fmt(v).replace("-", MINUS)
+
+
+def lv_canvas():
+    fig = plt.figure(figsize=(LV_W * 2 / 100, LV_H * 2 / 100), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, LV_W)
+    ax.set_ylim(0, LV_H)
+    ax.axis("off")
+    return fig, ax
+
+
+def lv_text(ax, x, y, text, size=LV_FONT, color=INK, ha="center", va="center", family=None, weight="normal"):
+    kw = {"family": family} if family else {}
+    return ax.text(x, y, text, ha=ha, va=va, fontsize=size, color=color, weight=weight, zorder=4, **kw)
+
+
+def lv_cell(ax, x, y, w, h, text="", fc="white", ec=LINE, color=INK, size=LV_FONT, lw=1.6, ls="-", family=None,
+            weight="normal"):
+    """칸 하나와 가운데 글. 글이 칸 안에 드는지는 lv_image 가 봄."""
+    ax.add_patch(Rectangle((x, y), w, h, fc=fc, ec=ec, lw=lw, ls=ls, zorder=2))
+    if text == "":
+        return None
+    t = lv_text(ax, x + w / 2, y + h / 2, str(text), size=size, color=color, family=family, weight=weight)
+    t.lv_box = (x, y, w, h)
+    return t
+
+
+def lv_grid(ax, x, top, vals, cw, ch, fill=None, ec=LINE, tone=None, size=LV_FONT, family=None, ls="-", lw=1.6):
+    """2차원 값을 칸으로. fill·tone 은 (i, j) 를 받는 함수. top 은 0번 행의 위 변."""
+    for i, row in enumerate(vals):
+        for j, v in enumerate(row):
+            lv_cell(ax, x + j * cw, top - (i + 1) * ch, cw, ch, v, fc=fill(i, j) if fill else "white", ec=ec,
+                    color=tone(i, j) if tone else INK, size=size, family=family, ls=ls, lw=lw)
+
+
+def lv_arrow(ax, x1, y1, x2, y2, color=INK, lw=2.5, ls="-"):
+    ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="-|>", mutation_scale=20, color=color, lw=lw, linestyle=ls,
+                                 zorder=3))
+
+
+def lv_width(fig, text, size=LV_FONT, family=None):
+    kw = {"family": family} if family else {}
+    piece = fig.text(0, 0, text, fontsize=size, **kw)
+    width = piece.get_window_extent(fig.canvas.get_renderer()).width / 2.0
+    piece.remove()
+    return width
+
+
+def lv_table(fig, ax, top, header, rows, row_h=46, tone=None, fill=None, family=None, size=LV_FONT):
+    """표. header 는 열 머리(첫 칸은 행 머리 열의 머리), rows 의 첫 칸은 행 머리. tone(r, c)·fill(r, c) 는 값 칸(c 는 1부터)의
+    글 색과 바탕. 칸 폭은 그 열에서 가장 긴 글 + 24. 가로 가운데, top 에서 아래로 그림."""
+    table = [header] + rows
+    widths = [max(max(lv_width(fig, str(row[c]), size, family) for row in table) + 24, 64) for c in range(len(header))]
+    total = sum(widths)
+    assert total <= LV_W - 2 * LV_PAD, (header, total)
+    assert top - len(table) * row_h >= LV_PAD - 6, (header, top - len(table) * row_h)
+    left = (LV_W - total) / 2.0
+    for r, row in enumerate(table):
+        x = left
+        for c, text in enumerate(row):
+            head = r == 0 or c == 0
+            fc = GRAY_L if head else (fill(r - 1, c) if fill else "white")
+            color = MUTED if head else (tone(r - 1, c) if tone else INK)
+            lv_cell(ax, x, top - (r + 1) * row_h, widths[c], row_h, text, fc=fc, ec=FAINT, color=color, size=size, lw=1.5,
+                    family=family)
+            x += widths[c]
+    return left, total
+
+
+def lv_image(name, fig):
+    """글자 잘림·겹침과 칸 넘침을 본 뒤 Pillow 그림으로. 파일 1040×560."""
+    from matplotlib.text import Text
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    width, height = fig.canvas.get_width_height()
+    boxes = []
+    for t in fig.findobj(Text):
+        if not t.get_visible() or not t.get_text().strip():
+            continue
+        b = t.get_window_extent(renderer)
+        assert b.x0 >= 4 and b.y0 >= 4 and b.x1 <= width - 4 and b.y1 <= height - 4, (name, "잘림", t.get_text())
+        cell = getattr(t, "lv_box", None)
+        if cell:
+            x, y, w, h = cell
+            (cx0, cy0), (cx1, cy1) = t.axes.transData.transform([(x, y), (x + w, y + h)])
+            assert b.x0 >= cx0 + 3 and b.x1 <= cx1 - 3 and b.y0 >= cy0 + 1 and b.y1 <= cy1 - 1, (name, "칸 넘침", t.get_text())
+        boxes.append((t.get_text(), b))
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            a, b = boxes[i][1], boxes[j][1]
+            if a.x0 < b.x1 - 1 and b.x0 < a.x1 - 1 and a.y0 < b.y1 - 1 and b.y0 < a.y1 - 1:
+                raise AssertionError((name, "겹침", boxes[i][0], boxes[j][0]))
+    buf = np.asarray(fig.canvas.buffer_rgba())
+    img = Image.fromarray(buf[..., :3].copy())
+    plt.close(fig)
+    assert img.size == (LV_W * 2, LV_H * 2), (name, img.size)
+    return img
+
+
+# 2d/3 블록 브로드캐스팅. 2d 단원 색: 파랑은 첫째 배열, 주황은 더하는 둘째 배열, 초록은 계산 결과
+
+def lv_broadcast(level):
+    b = np.array([10, 20, 30])
+    r = M + b
+    assert r.tolist() == [[13, 28, 31], [16, 22, 39]] and r[1, 2] == 39  # 7살 물음
+    fig, ax = lv_canvas()
+    if level == 7:
+        cw, ch = 44, 46
+        top = 176
+        xs = (LV_PAD, LV_PAD + 170, LV_PAD + 340)
+        for x0, head in zip(xs, ("두 줄", "칸마다 더하는 줄", "더한 결과")):
+            lv_text(ax, x0 + 66, 216, head)
+        lv_grid(ax, xs[0], top, M.tolist(), cw, ch, size=26)
+        lv_grid(ax, xs[1], top, [b.tolist()], cw, ch, fill=lambda i, j: ORANGE_L, ec=ORANGE, size=26)
+        lv_grid(ax, xs[1], top - ch, [b.tolist()], cw, ch, ec=ORANGE, tone=lambda i, j: ORANGE, ls="--", size=26)
+        lv_grid(ax, xs[2], top, [r[0].tolist()], cw, ch, fill=lambda i, j: GREEN_L, ec=GREEN, size=26)
+        lv_grid(ax, xs[2], top - ch, [[""] * 3], cw, ch)
+        lv_arrow(ax, xs[1] + 3 * cw + 6, top - ch, xs[2] - 6, top - ch)
+    elif level == 15:
+        n3 = np.vstack([M, [4, 5, 6]]) + b
+        assert n3[2].tolist() == [14, 25, 36] and int(n3[2].sum()) == 75  # 15살 물음
+        lv_text(ax, LV_W / 2, 256, "0번 행: 3 + 10 = 13, 8 + 20 = 28, 1 + 30 = 31", family=LV_MATH)
+        rows = [["M의 0번 행"] + M[0].tolist(), ["M의 1번 행"] + M[1].tolist(), ["b"] + b.tolist(), ["결과 0번 행"] + r[0].tolist()]
+        lv_table(fig, ax, 230, ["", "0번 열", "1번 열", "2번 열"], rows, row_h=38,
+                 tone=lambda i, j: ORANGE if i == 2 else (GREEN if i == 3 else INK),
+                 fill=lambda i, j: ORANGE_L if i == 2 else (GREEN_L if i == 3 else "white"))
+    else:
+        pred = np.array([[13], [16]])
+        target = np.array([13, 16])
+        assert pred[:, 0].tolist() == r[:, 0].tolist()
+        d = pred - target
+        assert d.shape == (2, 2) and d.tolist() == [[0, -3], [3, 0]] and float((d ** 2).mean()) == 4.5
+        assert float(((pred.reshape(-1) - target) ** 2).mean()) == 0.0
+        assert (np.array([[1], [2], [3]]) - np.array([1, 2, 3])).shape == (3, 3)  # 20살 물음
+        cw, ch = 52, 46
+        top = 210
+        lv_text(ax, 64, 238, "pred (2, 1)", family=LV_CODE)
+        lv_grid(ax, 38, top, pred.tolist(), cw, ch, fill=lambda i, j: BLUE_L, ec=BLUE, family=LV_CODE)
+        lv_text(ax, 112, top - ch, MINUS, size=LV_BIG)
+        lv_text(ax, 188, 238, "target (2,)", family=LV_CODE)
+        lv_grid(ax, 136, top - ch / 2, [target.tolist()], cw, ch, fill=lambda i, j: ORANGE_L, ec=ORANGE, family=LV_CODE)
+        lv_text(ax, 264, top - ch, "=", size=LV_BIG)
+        lv_text(ax, 360, 238, "결과 (2, 2)", family=LV_CODE)
+        lv_grid(ax, 308, top, [[lv_num(v) for v in row] for row in d.tolist()], cw, ch, fill=lambda i, j: GREEN_L, ec=GREEN,
+                family=LV_CODE)
+        lv_text(ax, 360, top - 2 * ch - 22, "제곱 평균 4.5", family=LV_CODE)
+        lv_text(ax, LV_W / 2, 44, "pred.reshape(-1) - target → 0 0, 제곱 평균 0.0", family=LV_CODE)
+    return lv_image("2d-3%d" % LV_NAME[level], fig)
+
+
+@figure("2d-31", "png")
+def lv_2d31():
+    return lv_broadcast(7)
+
+
+@figure("2d-32", "png")
+def lv_2d32():
+    return lv_broadcast(15)
+
+
+@figure("2d-33", "png")
+def lv_2d33():
+    return lv_broadcast(20)
+
+
+# 2d/5 블록 행렬곱. 2d 단원 색: 노랑은 곱해 더하는 행과 열, 초록은 계산 결과
+
+def lv_matmul(level):
+    W2 = np.array([[1, 0], [0, 1], [1, 1]])
+    mw = M @ W2
+    assert mw.tolist() == [[4, 9], [15, 11]]
+    assert [int(v) for v in M[0] * W2[:, 0]] == [3, 0, 1] and int(M[1] @ W2[:, 1]) == 11  # 7살 글과 물음
+    fig, ax = lv_canvas()
+    if level == 7:
+        cw = 40
+        lv_grid(ax, LV_PAD, 200, M.tolist(), cw, cw, fill=lambda i, j: HL if i == 0 else "white", size=24)
+        lv_grid(ax, 174, 220, W2.tolist(), cw, cw, fill=lambda i, j: HL if j == 0 else "white", size=24)
+        lv_grid(ax, 284, 200, [["4", ""], ["", ""]], cw, cw, fill=lambda i, j: GREEN_L if (i, j) == (0, 0) else "white",
+                tone=lambda i, j: GREEN, size=24)
+        lv_text(ax, 384, 200, "곱한 수", ha="left")
+        lv_text(ax, 384, 168, "3, 0, 1", ha="left", color=GREEN, size=24)
+        lv_text(ax, 384, 124, "모두 더한 수", ha="left")
+        lv_text(ax, 384, 92, "4", ha="left", color=GREEN, size=24, weight="bold")
+    elif level == 15:
+        mm = M @ M.T
+        assert mm.tolist() == [[74, 43], [43, 121]] and 3 * 6 + 8 * 2 + 1 * 9 == 43 and mm[1, 1] == 121  # 15살 물음
+        lv_text(ax, LV_W / 2, 256, "[0, 1] 칸 = 3 × 6 + 8 × 2 + 1 × 9 = 43", family=LV_MATH)
+        cw, ch = 44, 40
+        lv_text(ax, LV_PAD + 66, 222, "M")
+        lv_grid(ax, LV_PAD, 200, M.tolist(), cw, ch, fill=lambda i, j: HL if i == 0 else "white")
+        lv_text(ax, 240, 222, "M의 전치")
+        lv_grid(ax, 196, 200, M.T.tolist(), cw, ch, fill=lambda i, j: HL if j == 1 else "white")
+        lv_text(ax, 380, 222, "결과")
+        lv_grid(ax, 336, 200, [["", "43"], ["", ""]], cw, ch, fill=lambda i, j: GREEN_L if (i, j) == (0, 1) else "white",
+                tone=lambda i, j: GREEN)
+    else:
+        A = np.array([[1, 2], [3, 4]])
+        assert (A * A).tolist() == [[1, 4], [9, 16]] and (A @ A).tolist() == [[7, 10], [15, 22]]
+        assert (W2 @ M).shape == (3, 3) and int((W2 @ M)[2, 2]) == 10  # 20살 물음
+        lv_text(ax, LV_W / 2, 252, "A = np.array([[1, 2], [3, 4]])", family=LV_CODE)
+        cw, ch = 54, 48
+        for x0, head, vals in ((70, "A * A", A * A), (290, "A @ A", A @ A)):
+            lv_text(ax, x0 + cw, 214, head, family=LV_CODE)
+            lv_grid(ax, x0, 194, vals.tolist(), cw, ch, fill=lambda i, j: GREEN_L, ec=GREEN, family=LV_CODE)
+        lv_text(ax, 70 + cw, 68, "같은 자리끼리 곱함")
+        lv_text(ax, 290 + cw, 68, "[0, 0] = 1 × 1 + 2 × 3 = 7", family=LV_MATH)
+    return lv_image("2d-5%d" % LV_NAME[level], fig)
+
+
+@figure("2d-51", "png")
+def lv_2d51():
+    return lv_matmul(7)
+
+
+@figure("2d-52", "png")
+def lv_2d52():
+    return lv_matmul(15)
+
+
+@figure("2d-53", "png")
+def lv_2d53():
+    return lv_matmul(20)
+
+
+# 2e/3 블록 axis. 2e 단원 색: 파랑은 0번 축과 axis=0, 주황은 1번 축과 axis=1, 초록은 계산 결과
+
+def lv_axis(level):
+    s0, s1 = M.sum(axis=0), M.sum(axis=1)
+    assert s0.tolist() == [9, 10, 10] and s1.tolist() == [12, 17] and int(M.sum()) == 29
+    assert np.ones((3, 5)).sum(axis=0).shape == (5,)  # 7살 물음
+    fig, ax = lv_canvas()
+    if level == 7:
+        cw, ch = 48, 44
+        x0, top = 150, 214
+        lv_grid(ax, x0, top, M.tolist(), cw, ch, size=26)
+        for j in range(3):
+            lv_arrow(ax, x0 + j * cw + cw / 2, top - 2 * ch - 6, x0 + j * cw + cw / 2, top - 2 * ch - 34, color=BLUE)
+        lv_grid(ax, x0, top - 2 * ch - 40, [s0.tolist()], cw, 42, fill=lambda i, j: GREEN_L, ec=GREEN, size=26)
+        for i in range(2):
+            y = top - i * ch - ch / 2
+            lv_arrow(ax, x0 + 3 * cw + 6, y, x0 + 3 * cw + 40, y, color=ORANGE)
+        lv_grid(ax, x0 + 3 * cw + 46, top, [[v] for v in s1.tolist()], cw, ch, fill=lambda i, j: GREEN_L, ec=GREEN, size=26)
+        lv_text(ax, x0 - 12, top - 2 * ch - 61, "위아래로 더하기", ha="right")
+        lv_text(ax, x0 + 3 * cw + 46 + cw + 12, top - ch, "옆으로 더하기", ha="left")
+    elif level == 15:
+        assert float(M.mean(axis=0)[0]) == 4.5 and float(M.mean(axis=1)[0]) == 4.0  # 15살 물음 4
+        lv_text(ax, LV_W / 2, 256, "9 + 10 + 10 = 29 = 12 + 17", family=LV_MATH)
+        rows = [["0번 행"] + M[0].tolist() + [int(s1[0])], ["1번 행"] + M[1].tolist() + [int(s1[1])],
+                ["axis=0 합"] + s0.tolist() + [int(M.sum())]]
+
+        def tone(i, j):
+            if (i, j) == (2, 4):
+                return GREEN
+            return BLUE if i == 2 else (ORANGE if j == 4 else INK)
+
+        def fill(i, j):
+            if (i, j) == (2, 4):
+                return GREEN_L
+            return BLUE_L if i == 2 else (ORANGE_L if j == 4 else "white")
+
+        lv_table(fig, ax, 222, ["", "0번 열", "1번 열", "2번 열", "axis=1 합"], rows, row_h=48, tone=tone, fill=fill)
+    else:
+        k = M.sum(axis=1, keepdims=True)
+        assert k.shape == (2, 1) and M.sum(axis=0, keepdims=True).shape == (1, 3)  # 20살 물음
+        try:
+            M / s1
+            raise AssertionError("ValueError 가 나야 함")
+        except ValueError:
+            pass
+        ratio = (M / k).round(2)
+        assert ratio.tolist() == [[0.25, 0.67, 0.08], [0.35, 0.12, 0.53]]
+        assert np.allclose((M / k).sum(axis=1), 1)
+        lv_text(ax, LV_W / 2, 256, "s = M.sum(axis=1)   k = M.sum(axis=1, keepdims=True)", family=LV_CODE)
+        cw, ch = 48, 40
+        lv_text(ax, LV_PAD, 196, "s (2,)", ha="left", family=LV_CODE)
+        lv_grid(ax, 112, 216, [s1.tolist()], cw, ch, fill=lambda i, j: ORANGE_L, ec=ORANGE, family=LV_CODE)
+        lv_arrow(ax, 216, 196, 266, 196)
+        lv_text(ax, 241, 216, "M / s", family=LV_CODE)
+        lv_text(ax, 276, 196, "ValueError", ha="left", family=LV_CODE)
+        lv_text(ax, LV_PAD, 100, "k (2, 1)", ha="left", family=LV_CODE)
+        lv_grid(ax, 124, 140, [[v] for v in s1.tolist()], cw, ch, fill=lambda i, j: ORANGE_L, ec=ORANGE, family=LV_CODE)
+        lv_arrow(ax, 180, 100, 238, 100)
+        lv_text(ax, 209, 120, "M / k", family=LV_CODE)
+        lv_grid(ax, 246, 140, [[fmt(v) for v in row] for row in ratio.tolist()], 56, ch, fill=lambda i, j: GREEN_L, ec=GREEN,
+                family=LV_CODE)
+        lv_text(ax, 246 + 3 * 56 / 2, 42, "행마다 합이 1")
+    return lv_image("2e-3%d" % LV_NAME[level], fig)
+
+
+@figure("2e-31", "png")
+def lv_2e31():
+    return lv_axis(7)
+
+
+@figure("2e-32", "png")
+def lv_2e32():
+    return lv_axis(15)
+
+
+@figure("2e-33", "png")
+def lv_2e33():
+    return lv_axis(20)
+
+
 # ---------- 외울 것 그림(GIF 마지막 장을 PNG로)
 
 LAST_FRAME = {"l02-28": "l02-7", "l02-29": "l02-10", "l02-30": "l02-17", "l02-31": "l02-20"}

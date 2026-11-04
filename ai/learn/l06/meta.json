@@ -71,6 +71,36 @@
       "what": "PyTorch CrossEntropyLoss: 입력은 정규화하지 않은 logit (N, C), 정답은 클래스 번호(long) 또는 확률, weight·label_smoothing 인자(1.10 판부터 label_smoothing 과 확률 정답)",
       "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html",
       "checked": "2026-11-03"
+    },
+    {
+      "what": "PyTorch HuberLoss: delta 가 1 이면 SmoothL1Loss 와 같고, 그 밖에는 delta(SmoothL1 의 beta) 배만큼 다름",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.HuberLoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch SmoothL1Loss: |x − y| < beta 이면 0.5(x − y)² ÷ beta, 아니면 |x − y| − 0.5beta, beta 기본값 1.0",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.SmoothL1Loss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch torch.log 는 자연로그, torch.log10 은 밑이 10 인 로그",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.log.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch CrossEntropyLoss: 손실은 −w_y log(exp(x_y) ÷ Σ exp(x_c)), weight 를 주면 reduction='mean' 은 정답 클래스 가중치의 합으로 나눔",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch torch.nn.functional.softmax: dim 으로 준 축을 따라 합이 1 이 되게 바꿈",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.softmax.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch torch.logsumexp: dim 축을 따라 log Σ exp(x) 를 계산",
+      "url": "https://docs.pytorch.org/docs/stable/generated/torch.logsumexp.html",
+      "checked": "2026-11-05"
     }
   ],
   "credits": [],

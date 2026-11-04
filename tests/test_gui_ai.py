@@ -31,7 +31,7 @@ import study  # noqa: E402
 from aiprep import bank as ai_bank  # noqa: E402
 from aiprep import grade, plan, service  # noqa: E402
 from gui import ai_learn, ai_quiz, ai_text, kit, motion, theme  # noqa: E402
-from gui.docview import TextPiece  # noqa: E402
+from gui.docview import MISSING_TEXT, TextPiece  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank as journey_bank  # noqa: E402
 from journey import runner  # noqa: E402
@@ -657,6 +657,141 @@ class LessonAndLearnTest(AiTest):
         self.assertEqual((self.page(), quiz.title.text()), (quiz, "섞어 풀기"))
         self.assertEqual(win.ai.cards[quiz.item["card"]]["unit"], unit)
         self.assertEqual(self.log("revisit")[-1]["unit"], unit)
+
+
+class LevelsTest(AiTest):
+    """세 수준으로 다시 보기(90a 2단계 끝). 접힌 채 비어 있다가 펴면 수준 셋을 그리고, 확인 물음은 떠올리기처럼 기록에 수준을 남김.
+    전체 노트와 [노트 보기]에서는 접힌 채 시작하고 펴면 정답을 편 채로 기록하지 않음."""
+
+    def levels(self, view):
+        found = view.findChildren(ai_learn.LevelsBlock)
+        self.assertEqual(1, len(found))
+        return found[0]
+
+    def open_block(self, block):
+        guikit.click(block.row)
+        guikit.pump()
+        self.assertTrue(block.row.opened and block.body.isVisible())
+        return block.body.findChildren(ai_learn.RecallBlock)
+
+    def test_folded_then_three_levels_and_recall_with_level(self):
+        self.boot()
+        self.assertTrue(self.win.open_ai_unit("i90", "90a", 2))
+        guikit.pump()
+        learn = self.win.ai_learn
+        block = self.levels(learn.view)
+        self.assertIs(learn.view.layout().itemAt(learn.view.layout().count() - 1).widget(), block)  # 단계 맨 아래
+        self.assertEqual("well", block.layout().itemAt(0).widget().objectName())
+        self.assertEqual(block.row.label.plain, "세 수준으로 다시 보기 · 기울기")
+        self.assertFalse(block.row.opened or block.body.isVisible())
+        self.assertEqual((0, []), (block.body_box.count(), block.body.findChildren(ai_learn.RecallBlock)))  # 접힌 동안 비어 있음
+        self.assertEqual(learn.view.findChildren(ai_learn.RecallBlock)[0].block["id"], "r1")
+        recalls = self.open_block(block)
+        self.assertEqual(3, block.body_box.count())
+        text = visible_text(block)
+        for name in ai_text.LEVEL_NAMES.values():
+            self.assertIn(name, text)
+        for word in (ai_text.LEVEL_CHECK, ai_text.LEVEL_MISTAKE, ai_text.LEVEL_WHERE, "90차시 슬라이드 3쪽"):
+            self.assertIn(word, text)
+        self.assertEqual(3, len(block.figures))
+        self.assertTrue(all(isinstance(f, ai_learn.AiFigure) for f in block.figures))
+        self.assertLessEqual(max(f.picture.height() for f in block.figures), 300)
+        code = "\n".join(piece.toPlainText() for piece in block.findChildren(TextPiece))
+        self.assertIn("w = w - lr * grad", code)
+        self.assertEqual([7, 15, 20], [r.block["level"] for r in recalls])
+        self.assertTrue(all(r.entry.isVisible() and not r.result.isVisible() for r in recalls))
+        guikit.click(recalls[1].check_btn)  # 빈 칸은 채점하지 않음
+        self.assertTrue(recalls[1].empty_note.isVisible())
+        self.assertEqual([], self.log("recall"))
+        recalls[1].field.setText("2.4")
+        guikit.click(recalls[1].check_btn)
+        self.assertEqual(recalls[1].verdict.text(), "맞았습니다")
+        recalls[0].field.setText("4")
+        QTest.keyClick(recalls[0].field, Qt.Key.Key_Return)
+        self.assertEqual([("90a", "v1", 15, True), ("90a", "v1", 7, False)],
+                         [(r["unit"], r["id"], r["level"], r["ok"]) for r in self.log("recall")])
+        self.assertEqual(learn.index, 1)
+        recalls[2].field.setFocus()
+        QTest.keyClick(recalls[2].field, Qt.Key.Key_Right, Qt.KeyboardModifier.AltModifier)
+        self.assertEqual(learn.index, 2)  # 물음 칸에서도 Alt+→ 는 단계를 넘김
+
+    def tab_through(self, block):
+        """접힌 줄에서 Enter 로 펴고 Tab 을 눌러 가며 블록 안에서 초점을 받은 부품 목록. 블록을 벗어나면 멈춤."""
+        block.row.setFocus()
+        QTest.keyClick(block.row, Qt.Key.Key_Return)
+        guikit.pump()
+        self.assertTrue(block.row.opened)
+        seen = []
+        for _ in range(40):
+            QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_Tab)
+            guikit.pump(10)
+            widget = QApplication.focusWidget()
+            if not block.isAncestorOf(widget):
+                break
+            seen.append(widget)
+        return seen
+
+    def test_tab_goes_through_the_opened_block_in_order(self):
+        win = self.boot()
+        self.assertTrue(win.open_ai_unit("i90", "90a", 2))
+        guikit.pump()
+        block = self.levels(win.ai_learn.view)
+        seen = self.tab_through(block)
+        recalls = block.body.findChildren(ai_learn.RecallBlock)
+        fields = [r.field for r in recalls]
+        self.assertTrue(seen and isinstance(seen[0], TextPiece), seen)  # 접힌 줄 다음은 7살 글
+        self.assertEqual(fields, [w for w in seen if w in fields])
+        self.assertLess(seen.index(fields[0]), seen.index(recalls[0].check_btn))
+        win.open_ai_note("i90")
+        page = win.ai_note
+        guikit.pump()
+        guikit.click(page.findChildren(ai_learn.FoldRow)[0])
+        block = self.levels(page)
+        self.assertGreaterEqual(len(self.tab_through(block)), 3)  # 전체 노트에서도 다음 단계로 건너뛰지 않고 블록 안 글로 감
+
+    def test_restyle_while_open(self):
+        win = self.boot()
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        self.assertTrue(win.open_ai_unit("i90", "90a", 2))
+        guikit.pump()
+        block = self.levels(win.ai_learn.view)
+        self.open_block(block)
+        sizes = []
+        for step in theme.TEXT_STEPS:
+            win.set_text(step)
+            guikit.pump()
+            sizes.append(block.docs[0].css)
+            self.assertEqual(3, len(block.findChildren(ai_learn.RecallBlock)))
+        win.set_text(theme.TEXT_DEFAULT)
+        self.assertEqual(len(set(sizes)), len(theme.TEXT_STEPS))  # 펼친 블록의 글도 글자 단계를 따름
+        for scheme in ("dark", "light"):
+            theme.set_mode(scheme)
+            win.restyle()
+            guikit.pump()
+            self.assertEqual(3, len(block.figures))
+
+    def test_full_note_and_note_dialog_start_folded_and_keep_no_record(self):
+        win = self.boot()
+        self.assertTrue(win.open_ai_note("i90"))
+        page = win.ai_note
+        guikit.pump()
+        guikit.click(page.findChildren(ai_learn.FoldRow)[0])
+        block = self.levels(page)
+        self.assertFalse(block.row.opened or block.body_box.count())
+        recalls = self.open_block(block)
+        self.assertEqual(3, len(recalls))
+        self.assertTrue(all(r.result.isVisibleTo(page) and not r.entry.isVisibleTo(page) for r in recalls))  # 정답과 까닭을 편 채로
+        self.assertIn("정답: **2.4**", visible_text(recalls[1]))
+        dialog = ai_learn.NoteDialog(win, "i90", "90a/2")
+        dialog.show()
+        guikit.pump()
+        block = self.levels(dialog.view)
+        self.assertFalse(block.row.opened)
+        recalls = self.open_block(block)
+        self.assertTrue(all(r.result.isVisibleTo(dialog) and not r.entry.isVisibleTo(dialog) for r in recalls))
+        dialog.close()
+        guikit.pump()
+        self.assertEqual([], self.log())
 
 
 class PracticeTest(AiTest):
@@ -1329,7 +1464,7 @@ class DesignTest(AiTest):
     pc = True  # 홈의 상황별 코드 구역, 나란히 보기·돌려 가며 빈칸, 코드 보기 연습도 봄
 
     def screens(self, win):
-        """(이름, 띄우는 함수). 학습 단원은 단계마다, 연습은 답하기 전과 뒤와 끝 요약. 상황별 코드는 단원 단계마다, 돌려 가며 빈칸을
+        """(이름, 띄우는 함수). 학습 단원은 단계마다와 세 수준 블록을 펴서 답한 뒤, 연습은 답하기 전과 뒤와 끝 요약. 상황별 코드는 단원 단계마다, 돌려 가며 빈칸을
         채점한 뒤, 순서 고르기(2×2) 문항의 답하기 전과 뒤."""
         def learn(lid, key, step):
             return lambda: win.open_ai_unit(lid, key, step)
@@ -1344,6 +1479,14 @@ class DesignTest(AiTest):
                     self.answer()
                 guikit.click(page.next_btn)
 
+        def levels_open():
+            win.open_ai_unit("i90", "90a", 2)
+            block = win.ai_learn.view.findChildren(ai_learn.LevelsBlock)[0]
+            block.row.set_opened(True)
+            recall = block.body.findChildren(ai_learn.RecallBlock)[1]
+            recall.field.setText("2.4")
+            recall.check()
+
         def rotate_after():
             win.open_ai_unit("pc", "18a", 3)
             block = win.ai_learn.view.findChildren(ai_learn.RotateBlock)[0]
@@ -1355,7 +1498,7 @@ class DesignTest(AiTest):
             win.open_ai_practice("unit", lesson="pc", unit="18a")
 
         return [("홈", win.go_ai), ("차시", lambda: win.open_ai_lesson("i90"))] + \
-            [("단원 %d단계" % n, learn("i90", "90a", n)) for n in range(1, 5)] + \
+            [("단원 %d단계" % n, learn("i90", "90a", n)) for n in range(1, 5)] + [("세 수준 펼쳐 답한 뒤", levels_open)] + \
             [("다시 보기", win.open_ai_revisit), ("외울 것", lambda: win.open_ai_note("i90", True)),
              ("전체 노트", lambda: win.open_ai_note("i90")),
              ("연습", lambda: win.open_ai_practice("lesson", lesson="i90")), ("연습 답한 뒤", practice_after), ("연습 끝", practice_end)] + \
@@ -1411,7 +1554,7 @@ class DesignTest(AiTest):
 class RealLessonTest(AiTest):
     """저장소의 1~9차시 학습 노트와 상황별 코드(공개돼 있으면). 모든 단원의 모든 단계가 오류 없이 그려지고, 숨긴 줄이 보이지 않고,
     1024×700 에서 그림의 넘김 줄과 장 설명이 그림과 함께 스크롤 없이 한 화면에 들어감. 나란히 보기는 행이 줄을 바꾸지 않고 단계 폭을
-    넘지 않음."""
+    넘지 않음. 세 수준 블록은 차시마다 3~5개이고, 수준마다 첫 답이 화면 채점에서 맞으며, [노트 보기]에서는 정답을 편 채로 그려짐."""
     real_bank = True
 
     def test_every_step_of_lessons_one_to_nine_renders(self):
@@ -1419,6 +1562,7 @@ class RealLessonTest(AiTest):
         learn = win.ai_learn
         started = time.monotonic()
         figures = 0
+        levels = {}
         patterns = [g["id"] for g in win.ai.overview()["patterns"] if g["ready"]]
         for lid in ("i01", "i02", "i03", "i04", "i05", "i06", "i07", "i08", "i09", *patterns):
             for unit in win.ai.unit_list(lid):
@@ -1430,6 +1574,32 @@ class RealLessonTest(AiTest):
                     text = "\n".join(piece.toPlainText() for piece in learn.view.findChildren(TextPiece))
                     self.assertNotIn("<!--", text, where)
                     self.assertNotIn(ai_text.BLOCK_BROKEN, visible_text(learn.view), where)
+                    for block in learn.view.findChildren(ai_learn.LevelsBlock):  # 세 수준 블록은 펴서 봄
+                        block.row.set_opened(True)
+                        guikit.pump(30)
+                        levels[lid] = levels.get(lid, 0) + 1
+                        for recall in block.body.findChildren(ai_learn.RecallBlock):
+                            recall.field.setText(recall.block["answer"][0])
+                            recall.check()
+                            self.assertEqual("맞았습니다", recall.verdict.text(), "%s %d살" % (where, recall.block["level"]))
+                        dialog = ai_learn.NoteDialog(win, lid, "%s/%s" % (unit["key"], learn.steps[index]["no"]))
+                        dialog.show()
+                        guikit.pump(30)
+                        shown = dialog.view.findChildren(ai_learn.LevelsBlock)[0]
+                        shown.row.set_opened(True)
+                        guikit.pump(30)
+                        recalls = shown.body.findChildren(ai_learn.RecallBlock)
+                        self.assertEqual(3, len(recalls), where)
+                        self.assertTrue(all(r.result.isVisibleTo(dialog) and not r.entry.isVisibleTo(dialog) for r in recalls), where)
+                        self.assertNotIn(ai_text.BLOCK_BROKEN, visible_text(shown), where)
+                        dialog.close()
+                        guikit.pump()
+                        shown = visible_text(block) + "\n".join(piece.toPlainText() for piece in block.findChildren(TextPiece))
+                        for bad in (ai_text.BLOCK_BROKEN, "<!--", "그림 준비 중", MISSING_TEXT):
+                            self.assertNotIn(bad, shown, where)
+                        self.assertEqual(3, len(block.figures), where)
+                        for figure in block.figures:
+                            self.assertLessEqual(figure.picture.height(), 300, where)
                     for block in learn.view.findChildren(ai_learn.DiffBlock):
                         self.assertEqual({line.height() for line in block.lines}, {theme.TYPE["code"][1]}, where)
                         self.assertLessEqual(learn.view.minimumSizeHint().width(), learn.view.width(), where)
@@ -1450,6 +1620,8 @@ class RealLessonTest(AiTest):
                         self.assertTrue(top >= 0 and bottom <= viewport.height(), "%s %s" % (where, (top, bottom, viewport.height())))
                         self.assertLessEqual(figure.picture.height(), 300, where)
         self.assertGreater(figures, 20)
+        lessons = ("i01", "i02", "i03", "i04", "i05", "i06")
+        self.assertEqual({lid: True for lid in lessons}, {lid: 3 <= levels.get(lid, 0) <= 5 for lid in lessons}, levels)  # 차시마다 3~5개
         self.assertLess(time.monotonic() - started, 600)
 
 

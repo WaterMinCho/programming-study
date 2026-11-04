@@ -2,6 +2,9 @@
  "format": 1,
  "files": {
   "learn/l90/assets/90a-1.gif": {"sha256": "01a97717200539a44d8ffdd5410a189f4af699a435c4f3238fca55d6e086f939", "script": "tools/ai_art/l90.py", "fn": "step"},
+  "learn/l90/assets/90a-21.png": {"sha256": "8c286d5e186f9c59fc26a4081a435329adc45e9d55634998493dbda83275473c", "script": "tools/ai_art/l90.py", "fn": "levels_seven"},
+  "learn/l90/assets/90a-22.png": {"sha256": "c8eeb0b38cdcf43482dd77cafa67b3d3fcf87ff61d6358940da38e4fdca1490f", "script": "tools/ai_art/l90.py", "fn": "levels_fifteen"},
+  "learn/l90/assets/90a-23.png": {"sha256": "5d4b9a1b305b1e705315fd5ad787ef9c30ba47366b1879c00e1e1457ef686e9a", "script": "tools/ai_art/l90.py", "fn": "levels_twenty"},
   "learn/l90/assets/90b-1.png": {"sha256": "35fef5901db6f5f08589d03fb082e0fe8cd08b86787227fa29e0da2d8b67a239", "script": "tools/ai_art/l90.py", "fn": "curves"}
  }
 }

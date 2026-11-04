@@ -1572,6 +1572,259 @@ def fig_3h_4():
     return [c.image()], None
 
 
+# 세 수준으로 다시 보기(ai-levels 블록) 그림. 블록마다 수준(7, 15, 20)을 받는 함수 하나와 이름마다 얇은 등록 함수 셋을 둠.
+# 크기는 화면 520×280(파일 1040×560), 글자는 22pt 이상. 7살 그림에는 식 기호와 코드 글꼴을 쓰지 않음.
+# 색 뜻은 그 단원 것을 따름. 3d 는 보라가 전치한 y 와 읽는 순서, 초록이 복사한 새 줄, 빨강이 오류이고 회색 선은 x.
+# 3f 는 파랑이 함수 그래프, 주황이 기울기·미분값. 3g 는 주황이 x.grad 값, 노랑이 방금 실행한 줄, 빨강이 오류
+
+LV = (1040, 560)
+
+
+def lv_table(c, x0, y0, rows, widths, ch=58, head=True, fills=None, colors=None, size=22, mono_cols=()):
+    """Canvas 위 표. rows[0] 이 머리(head 면 회색 칸). fills(r, c)·colors(r, c) 는 칸 바탕색과 글자색(없으면 None)."""
+    for r, row in enumerate(rows):
+        x = x0
+        for j, text in enumerate(row):
+            hd = head and r == 0
+            fc = PALE if hd else ((fills(r, j) if fills else None) or "white")
+            c.box(x, y0 + r * ch, widths[j], ch, fc=fc, ec=FAINT, lw=1.5)
+            col = MUTED if hd else ((colors(r, j) if colors else None) or INK)
+            c.text(x + widths[j] / 2, y0 + r * ch + ch / 2, text, size=size, color=col,
+                   mono=(j in mono_cols and not hd))
+            x += widths[j]
+
+
+def lv_axes(c, rect):
+    ax = c.fig.add_axes(rect)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    ax.grid(True, color="#eef0f3", lw=1.2)
+    ax.set_axisbelow(True)
+    ax.tick_params(labelsize=22, colors=MUTED)
+    return ax
+
+
+def levels_3d3(level):
+    """3d/3 view 와 reshape. x = arange(6).view(2, 3), y = x.t() 의 읽는 순서와 메모리 자리."""
+    x = view(list(range(6)), 2, 3)
+    y = transpose(x)
+    read = [v for row in y for v in row]
+    assert read == [0, 3, 1, 4, 2, 5]
+    c = Canvas(*LV)
+    if level == 7:
+        strip(c, 330, 40, list(range(6)), cw=72, ch=62, size=26)
+        c.text(300, 71, "처음 줄", size=24, ha="right", color=MUTED)
+        c.cells(330, 170, [[str(v) for v in row] for row in x], cw=90, ch=72, size=28)
+        c.arrow(306, 180, 306, 306, color=PURPLE, lw=4, head=24, z=8)
+        c.text(640, 206, "왼쪽 세로줄부터", size=24, ha="left", color=PURPLE)
+        c.text(640, 250, "위에서 아래로 읽기", size=24, ha="left", color=PURPLE)
+        strip(c, 330, 410, read, cw=72, ch=62, fill=lambda i, j: GREEN_BG, ec=GREEN, size=26)
+        c.text(300, 441, "새 줄", size=24, ha="right", color=GREEN)
+        return c.image()
+    if level == 15:
+        slot_x = [3 * i + 1 * j for i in range(2) for j in range(3)]
+        slot_y = [1 * i + 3 * j for i in range(3) for j in range(2)]
+        assert slot_x == list(range(6)) and slot_y == read
+        c.text(520, 40, "y 의 i행 j열 자리 = 1 × i + 3 × j", size=24)
+        ax = lv_axes(c, [0.14, 0.18, 0.62, 0.66])
+        k = list(range(1, 7))
+        ax.plot(k, slot_x, "-o", color=MUTED, lw=3, ms=10)
+        ax.plot(k, slot_y, "-o", color=PURPLE, lw=3.5, ms=11)
+        ax.set_xlim(0.6, 6.4)
+        ax.set_ylim(-0.6, 5.6)
+        ax.set_xticks(k)
+        ax.set_yticks(range(6))
+        ax.set_xlabel("읽는 차례", fontsize=22, color=INK)
+        ax.set_ylabel("메모리 자리", fontsize=22, color=INK)
+        ax.annotate("+3", (1.5, 1.5), fontsize=22, color=PURPLE, ha="right", va="center", xytext=(-8, 0),
+                    textcoords="offset points")
+        c.text(830, 190, "x", size=26, ha="left", color=MUTED, bold=True)
+        c.text(870, 190, "곧은 선", size=22, ha="left", color=MUTED)
+        c.text(830, 250, "y", size=26, ha="left", color=PURPLE, bold=True)
+        c.text(870, 250, "꺾인 선", size=22, ha="left", color=PURPLE)
+        return c.image()
+    # 20살: shape, stride, view(6) 조건
+    xs, ys = (3, 1), (1, 3)
+    assert xs[0] == xs[1] * 3 and ys[0] != ys[1] * 2 and ys[1] * 2 == 6
+    c.text(520, 50, "x = torch.arange(6).view(2, 3);  y = x.t()", size=22, mono=True)
+    rows = [["텐서", "shape", "stride()", "view(6) 조건"],
+            ["x", "[2, 3]", "(3, 1)", "3 = 1 × 3"],
+            ["y", "[3, 2]", "(1, 3)", "1 ≠ 3 × 2"]]
+    widths = [140, 190, 200, 330]
+    lv_table(c, (LV[0] - sum(widths)) / 2, 130, rows, widths, ch=74, size=24, mono_cols=(1, 2),
+             fills=lambda r, j: RED_BG if (r, j) == (2, 3) else None,
+             colors=lambda r, j: RED if (r, j) == (2, 3) else (PURPLE if r == 2 and j == 0 else None))
+    c.text(520, 400, "조건: stride[0] = stride[1] × size[1]", size=22, mono=True, color=INK)
+    c.text(520, 470, "y.view(6) → RuntimeError,  y.reshape(6) → 복사", size=22, color=MUTED)
+    return c.image()
+
+
+@figure("3d-31", 520, 280)
+def fig_3d_31():
+    return [levels_3d3(7)], None
+
+
+@figure("3d-32", 520, 280)
+def fig_3d_32():
+    return [levels_3d3(15)], None
+
+
+@figure("3d-33", 520, 280)
+def fig_3d_33():
+    return [levels_3d3(20)], None
+
+
+def levels_3f3(level):
+    """3f/3 편미분. z = 2a + 3b², 점 (1, 2)."""
+    def zf(a, b):
+        return 2 * a + 3 * b ** 2
+
+    assert zf(1, 2) == 14
+    c = Canvas(*LV)
+    if level == 7:
+        za, zb = zf(1.001, 2), zf(1, 2.001)
+        assert num(za) == "14.002" and "%.6f" % zb == "14.012003"
+        c.box(40, 225, 190, 110, fc="white", ec=INK, lw=2.5, rounded=True)
+        c.text(135, 280, "1 과 2", size=28, bold=True)
+        c.text(135, 200, "두 수", size=24, color=MUTED)
+        c.arrow(240, 280, 330, 280, lw=3)
+        c.box(340, 225, 170, 110, fc="white", ec=INK, lw=2.5, rounded=True)
+        c.text(425, 280, "14", size=30, bold=True)
+        c.arrow(520, 255, 660, 135, lw=3)
+        c.arrow(520, 305, 660, 425, lw=3)
+        c.box(670, 80, 320, 110, fc="white", ec=INK, lw=2.5, rounded=True)
+        c.text(830, 135, "14.002", size=30, bold=True)
+        c.box(670, 370, 320, 110, fc="white", ec=INK, lw=2.5, rounded=True)
+        c.text(830, 425, "14.012003", size=30, bold=True)
+        c.text(830, 40, "첫째 수만 1.001", size=24, color=INK)
+        c.text(830, 220, "0.002 커짐", size=24, color=ORANGE, bold=True)
+        c.text(830, 515, "둘째 수만 2.001", size=24, color=INK)
+        return c.image()
+    if level == 15:
+        c.text(520, 36, "$z = 2a + 3b^2$", size=26)
+        ax1 = lv_axes(c, [0.10, 0.17, 0.36, 0.62])
+        a = np.linspace(0, 2, 50)
+        ax1.plot(a, zf(a, 2), color=BLUE, lw=3.5)
+        ax1.plot([1], [14], "o", color=INK, ms=11, zorder=5)
+        ax1.set_xlabel("a", fontsize=22)
+        ax1.set_ylabel("z", fontsize=22, rotation=0, labelpad=14)
+        ax1.set_ylim(10, 18)
+        ax1.set_xticks([0, 1, 2])
+        ax1.set_title("b 를 2 로 둠", fontsize=22, color=INK)
+        ax1.text(1.1, 13.2, "직선의 기울기 2", fontsize=22, color=ORANGE, ha="left", va="top")
+        ax2 = lv_axes(c, [0.60, 0.17, 0.36, 0.62])
+        b = np.linspace(0, 3, 80)
+        ax2.plot(b, zf(1, b), color=BLUE, lw=3.5)
+        tb = np.linspace(1.3, 2.7, 10)
+        ax2.plot(tb, 14 + 12 * (tb - 2), color=ORANGE, lw=3)
+        ax2.plot([2], [14], "o", color=INK, ms=11, zorder=5)
+        ax2.set_xlabel("b", fontsize=22)
+        ax2.set_ylabel("z", fontsize=22, rotation=0, labelpad=14)
+        ax2.set_ylim(0, 30)
+        ax2.set_xticks([0, 1, 2, 3])
+        ax2.set_title("a 를 1 로 둠", fontsize=22, color=INK)
+        ax2.text(0.15, 25, "접선의 기울기 12", fontsize=22, color=ORANGE, ha="left")
+        assert 6 * 2 == 12
+        return c.image()
+    # 20살: h 를 줄이며 b 쪽과 a 쪽 차이를 h 로 나눈 값
+    from fractions import Fraction as Fr
+    rows = [["h", "b 쪽", "a 쪽"]]
+    for h, want in (("1", "15"), ("0.1", "12.3"), ("0.01", "12.03"), ("0.001", "12.003")):
+        rb = (zf(1, 2 + Fr(h)) - zf(1, 2)) / Fr(h)
+        ra = (zf(1 + Fr(h), 2) - zf(1, 2)) / Fr(h)
+        assert rb == Fr(want) and ra == 2
+        rows.append([h, want, "2"])
+    rows.append(["0 에 가깝게", "12", "2"])
+    c.text(520, 36, "(z(1, 2 + h) − 14) ÷ h  와  (z(1 + h, 2) − 14) ÷ h", size=22)
+    widths = [240, 220, 160]
+    lv_table(c, (LV[0] - sum(widths)) / 2, 80, rows, widths, ch=74, size=24,
+             fills=lambda r, j: ORANGE_BG if r == 5 and j > 0 else None,
+             colors=lambda r, j: ORANGE if r == 5 and j > 0 else (RED if (r, j) == (1, 1) else None))
+    return c.image()
+
+
+@figure("3f-31", 520, 280)
+def fig_3f_31():
+    return [levels_3f3(7)], None
+
+
+@figure("3f-32", 520, 280)
+def fig_3f_32():
+    return [levels_3f3(15)], None
+
+
+@figure("3f-33", 520, 280)
+def fig_3f_33():
+    return [levels_3f3(20)], None
+
+
+def levels_3g5(level):
+    """3g/5 기울기 누적. x = 1.0, y = 2x² + 2 를 부를 때마다 x.grad 에 4 가 더해짐."""
+    c = Canvas(*LV)
+    if level == 7:
+        vals = [4, 8]
+        assert vals == [4 * 1, 4 * 2]
+        xs = [60, 420, 780]
+        for k, x0 in enumerate(xs):
+            last = k == 2
+            c.box(x0, 210, 200, 130, fc=ORANGE_BG if not last else "white", ec=ORANGE, lw=3, rounded=True)
+            c.text(x0 + 100, 275, "?" if last else str(vals[k]), size=34, bold=True, color=ORANGE if not last else INK)
+            c.text(x0 + 100, 175, ("한 번", "두 번", "세 번")[k], size=24, color=MUTED)
+        for k in range(2):
+            c.arrow(xs[k] + 212, 290, xs[k + 1] - 12, 290, lw=3)
+            c.text((xs[k] + 200 + xs[k + 1]) / 2, 250, "4 더함", size=24, color=INK)
+        c.text(520, 440, "칸을 지우지 않고 거꾸로 따라간 횟수", size=24, color=MUTED)
+        return c.image()
+    if level == 15:
+        xg = np.arange(-2, 2.1, 0.25)
+        assert len(xg) == 17 and 2 * 4 * xg[0] == -16 and 1 * 4 * xg[0] == -8
+        c.text(520, 36, "n 번 부른 뒤 x.grad = n × 4x", size=24)
+        ax = lv_axes(c, [0.14, 0.17, 0.60, 0.68])
+        ax.plot(xg, 4 * xg, "-o", color=ORANGE, lw=3, ms=6)
+        ax.plot(xg, 8 * xg, "--o", color=ORANGE, lw=3, ms=6)
+        ax.plot([-2], [-16], "o", color=INK, ms=11, zorder=5)
+        ax.text(-1.9, -16, "  −16", fontsize=22, color=INK, va="center", ha="left")
+        ax.plot([-2], [-8], "o", color=INK, ms=11, zorder=5)
+        ax.text(-1.85, -10.6, "−8", fontsize=22, color=INK, va="center", ha="left")
+        ax.set_xlabel("x", fontsize=22)
+        ax.set_ylabel("x.grad", fontsize=22)
+        ax.set_xticks([-2, -1, 0, 1, 2])
+        ax.set_xticklabels([num(v) for v in (-2, -1, 0, 1, 2)])
+        ax.set_yticks([-16, -8, 0, 8, 16])
+        ax.set_yticklabels([num(v) for v in (-16, -8, 0, 8, 16)])
+        c.text(810, 230, "실선: 한 번", size=22, ha="left", color=ORANGE)
+        c.text(810, 290, "점선: 두 번", size=22, ha="left", color=ORANGE)
+        return c.image()
+    # 20살: 줄마다 x.grad
+    assert 4 * 1.0 + 3 * 1.0 ** 2 == 7
+    rows = [["실행한 줄", "x.grad"],
+            ["x = torch.tensor(1.0, requires_grad=True)", "None"],
+            ["(2 * x**2 + 2).backward()", "tensor(4.)"],
+            ["(x**3).backward()", "tensor(7.)"],
+            ["x.grad.zero_()", "tensor(0.)"],
+            ["새 x 에 바로 x.grad.zero_()", "AttributeError"]]
+    widths = [730, 270]
+    lv_table(c, (LV[0] - sum(widths)) / 2, 70, rows, widths, ch=72, size=22, mono_cols=(0, 1),
+             fills=lambda r, j: ORANGE_BG if (r, j) == (3, 1) else (RED_BG if r == 5 else None),
+             colors=lambda r, j: ORANGE if (r, j) == (3, 1) else (RED if r == 5 else None))
+    return c.image()
+
+
+@figure("3g-51", 520, 280)
+def fig_3g_51():
+    return [levels_3g5(7)], None
+
+
+@figure("3g-52", 520, 280)
+def fig_3g_52():
+    return [levels_3g5(15)], None
+
+
+@figure("3g-53", 520, 280)
+def fig_3g_53():
+    return [levels_3g5(20)], None
+
+
 # 저장
 
 def save(name, frames, ms):

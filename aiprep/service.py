@@ -397,9 +397,13 @@ class AiSession(object):
         self._unit(lid, key)
         return self._append({"kind": "guess", "lesson": lid, "unit": key, "id": str(gid), "picked": int(picked)})
 
-    def save_recall(self, lid, key, rid, ok):
+    def save_recall(self, lid, key, rid, ok, level=None):
+        """떠올리기 결과 한 줄. level 은 세 수준 블록의 확인 물음일 때 수준(7·15·20)이고 기록에 "level" 로 남음."""
         self._unit(lid, key)
-        return self._append({"kind": "recall", "lesson": lid, "unit": key, "id": str(rid), "ok": bool(ok)})
+        entry = {"kind": "recall", "lesson": lid, "unit": key, "id": str(rid), "ok": bool(ok)}
+        if level is not None:
+            entry["level"] = int(level)
+        return self._append(entry)
 
     def check_rotate(self, lid, key, rid, slot, value, readonly=False):
         """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 판 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
@@ -423,9 +427,10 @@ class AiSession(object):
         return {"ok": ok, "answer": answers[0] if answers else ""}
 
     def check_recall(self, block, value):
-        """떠올리기 칸 하나를 채점함(기록은 save_recall 이 함). block 은 unit_steps 의 recall 블록."""
-        return grade.grade_blank({"answer": block.get("answer") or [], "mode": block.get("mode") or "word"}, value,
-                                 self.term_map)
+        """떠올리기 칸 하나를 채점함(기록은 save_recall 이 함). block 은 unit_steps 의 recall 블록이나 세 수준 블록의 수준 하나이고
+        places·unit 이 있으면 같이 넘김."""
+        return grade.grade_blank({"answer": block.get("answer") or [], "mode": block.get("mode") or "word",
+                                  "places": block.get("places"), "unit": block.get("unit")}, value, self.term_map)
 
     def _local(self):
         path = os.path.join(self.home, "state.json")

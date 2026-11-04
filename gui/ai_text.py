@@ -59,6 +59,11 @@ ROTATE_HEAD = "돌려 가며 빈칸"
 ROTATE_DONE = "모든 자리를 맞혔습니다."
 ROTATE_SLOTS = "가리는 자리: %s"
 NEXT_SLOT = "다음 자리"
+LEVELS_HEAD = "세 수준으로 다시 보기"
+LEVEL_NAMES = {7: "7살 수준 · 숫자와 그림", 15: "15살 수준 · 계산과 식", 20: "20살 수준 · 정의와 코드"}
+LEVEL_CHECK = "확인 물음"
+LEVEL_MISTAKE = "자주 하는 착각"
+LEVEL_WHERE = "다루는 곳"
 NUMBERS = bank.NUMBERS
 
 
