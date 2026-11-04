@@ -22,6 +22,10 @@ import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+from tools.ai_art import quantize  # noqa: E402
+
 OUT = os.path.join(ROOT, "ai", "learn", "l03", "assets")
 for _font in ("NanumGothic-Regular.ttf", "NanumGothic-Bold.ttf", "D2Coding-Regular.ttf", "D2Coding-Bold.ttf"):
     font_manager.fontManager.addfont(os.path.join(ROOT, "gui", "fonts", _font))
@@ -34,7 +38,6 @@ SCALE = 2  # 논리 픽셀 하나를 파일에서 2픽셀로 그림
 DPI = 100
 KB = 1024
 LIMIT = {"gif": 250 * KB, "png": 150 * KB, "frames": 10, "ms_min": 1600, "ms_max": 2500, "width": 1120, "height": 600}
-COLORS = 64  # GIF 팔레트 색 수
 
 INK, MUTED, FAINT, PALE = "#1f2937", "#6b7280", "#d1d5db", "#f3f4f6"
 BLUE, BLUE_BG = "#1d4ed8", "#dbeafe"
@@ -48,7 +51,7 @@ MINUS = "−"
 
 # 한 단원 안에서 한 색은 한 뜻이고, 뜻은 그 그림의 캡션이나 장 설명에 적음. 무늬 없는 옅은 파랑 칸은 그냥 텐서 칸임
 # 3a 단원 색: 주황은 축 0(바깥 대괄호), 초록은 축 1, 파랑은 가장 안쪽 대괄호, 보라는 이름표.
-#   3a-4 의 빨강·초록·파랑 판과 픽셀은 그 채널과 픽셀의 실제 색
+#   3a-4 는 픽셀 그림만 이미지의 실제 색이고, 채널 판은 회색 판에 R·G·B 글자로 나눔(초록·파랑이 축 뜻과 겹치지 않게)
 # 3b 단원 색: 파랑은 정수 자료형, 주황은 실수 자료형, 초록은 rand, 보라는 randn, 빨강은 오류
 # 3c 단원 색: 주황은 축 0과 dim=0, 초록은 축 1과 dim=1, 노랑은 축을 주지 않은 max 가 고른 칸, 빨강은 오류
 # 3d 단원 색: 주황은 크기 1인 축, 보라는 전치한 y 와 그 읽는 순서, 파랑은 base 와 메모리를 함께 쓰는 expand,
@@ -60,7 +63,7 @@ MINUS = "−"
 #   보라는 이름표와 배울 이름, 노랑은 방금 실행한 줄
 # 3h 단원 색: 보라는 GPU, 주황은 이름표 x, 빨강은 잘못 쓴 줄, 파랑은 메모리를 함께 씀, 초록은 값을 복사한 새 텐서.
 #   3h-4 는 색 대신 회색 진하기로 뽑힌 값을 나타냄
-# 64색으로 줄이면 PALE 이 PURPLE_BG 와 한 색으로 합쳐질 수 있어 보라 칸이 있는 그림(3a-1, 3d-2, 3h-1)은 PALE 대신 흰색을 씀
+# 보라 칸이 있는 그림(3a-1, 3d-2, 3h-1)은 PALE 대신 흰색을 씀
 
 FIGS = []
 
@@ -387,18 +390,21 @@ def fig_3a_4():
             i, j = hl
             c.box(x + j * cell - 3, y + i * cell - 3, cell + 6, cell + 6, fc="none", ec=INK, lw=5, z=5)
 
-    def sheet(c, vals, x, y, name, color, bg, cell=40):
-        c.text(x + 2 * cell, y - 24, name, size=21, color=color, bold=True)
-        c.cells(x, y, vals, cw=cell, ch=cell, fill=lambda i, j: bg, ec=color, size=16, lw=1.5)
+    def sheet(c, vals, x, y, name, cell=40):
+        c.text(x + 2 * cell, y - 24, name, size=21, color=INK, bold=True)
+        c.cells(x, y, vals, cw=cell, ch=cell, fill=lambda i, j: PALE, ec=INK, size=16, lw=1.5)
 
-    def stack(c, x, y, cell=26, label=None, pics=PIC1):
-        cols = [RED, GREEN, BLUE]
-        bgs = [RED_BG, GREEN_BG, BLUE_BG]
+    def stack(c, x, y, cell=26, label=None):
+        """채널 판 세 장. 앞에서부터 R, G, B 이고 판마다 오른쪽 위 모서리에 글자를 적음."""
+        gap = round(cell * 0.8)
+        fills = [PALE, "#e5e7eb", FAINT]
         for k in (2, 1, 0):
-            off = k * 18
-            c.box(x + off, y - off, 4 * cell, 4 * cell, fc=bgs[k], ec=cols[k], lw=2.5, z=2 + (2 - k))
+            px, py = x + k * gap, y - k * gap
+            c.box(px, py, 4 * cell, 4 * cell, fc=fills[k], ec=INK, lw=2, z=2 + 2 * (2 - k))
+            c.text(px + 4 * cell - gap / 2, py + gap / 2, "RGB"[k], size=round(gap * 0.75), color=INK, bold=True,
+                   z=3 + 2 * (2 - k))
         if label:
-            c.text(x + 2 * cell + 18, y + 4 * cell + 30, label, size=18, color=MUTED)
+            c.text(x + 2 * cell + gap, y + 4 * cell + 30, label, size=18, color=MUTED)
 
     frames = []
     c = Canvas(W, H)
@@ -414,7 +420,7 @@ def fig_3a_4():
     c.title("픽셀 하나에 숫자 셋")
     picture(c, PIC1, 120, 130, hl=(0, 2))
     r, g, b = PIC1[0][2]
-    c.text(560, 190, "(R, G, B) = (%d, %d, %d)" % (r, g, b), size=24, mono=True, ha="left", bg=YELLOW_BG, ec=INK)
+    c.text(560, 190, "(R, G, B) = (%d, %d, %d)" % (r, g, b), size=24, mono=True, ha="left", bg=PALE, ec=INK)
     c.text(560, 270, "8비트 값: 0 ~ 255 (256단계)", size=21, ha="left", color=INK)
     c.text(560, 320, "0 은 어둡고 255 는 가장 밝음", size=19, ha="left", color=MUTED)
     frames.append(c.image())
@@ -422,9 +428,8 @@ def fig_3a_4():
     c = Canvas(W, H)
     c.title("색깔별로 나눈 판 세 장")
     picture(c, PIC1, 40, 170, cell=44)
-    names = [("R 채널", RED, RED_BG), ("G 채널", GREEN, GREEN_BG), ("B 채널", BLUE, BLUE_BG)]
-    for k, (name, col, bg) in enumerate(names):
-        sheet(c, [[str(v) for v in row] for row in chs[k]], 300 + k * 262, 170, name, col, bg, cell=58)
+    for k, name in enumerate(("R 채널", "G 채널", "B 채널")):
+        sheet(c, [[str(v) for v in row] for row in chs[k]], 300 + k * 262, 170, name, cell=58)
     c.arrow(222, 258, 286, 258, color=MUTED, lw=3)
     frames.append(c.image())
 
@@ -1575,7 +1580,7 @@ def save(name, frames, ms):
     assert w <= LIMIT["width"] and h <= LIMIT["height"], (name, w, h)
     if ms is None:
         assert len(frames) == 1
-        img = frames[0].quantize(colors=COLORS, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
+        img = quantize(frames)[0]
         path = os.path.join(OUT, name + ".png")
         img.save(path, optimize=True)
         assert os.path.getsize(path) <= LIMIT["png"], (name, os.path.getsize(path))
@@ -1586,11 +1591,7 @@ def save(name, frames, ms):
         assert f.size == (w, h), (name, f.size)
     for a, b in zip(frames, frames[1:]):
         assert a.tobytes() != b.tobytes(), "%s 에 같은 장이 이어짐" % name
-    sheet = Image.new("RGB", (w, h * len(frames)), "white")
-    for k, f in enumerate(frames):
-        sheet.paste(f, (0, h * k))
-    pal = sheet.quantize(colors=COLORS, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
-    q = [f.quantize(palette=pal, dither=Image.Dither.NONE) for f in frames]
+    q = quantize(frames)
     path = os.path.join(OUT, name + ".gif")
     q[0].save(path, save_all=True, append_images=q[1:], duration=ms, loop=0, optimize=False, disposal=1)
     with Image.open(path) as check:

@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 출제 도구 테스트. tools/ai_seal.py(봉인·해제·검사·공개본), tools/verify_ai.py(일부러 망가뜨린 사본마다 실패,
-서명·--require-review·--answers), tools/ai_overlap.py(가짜 강의 말뭉치), tools/ai_art(manifest·한도), verify_web --bank·--total-mb,
+서명·--require-review·--answers), tools/ai_overlap.py(가짜 강의 말뭉치), tools/ai_art(manifest·한도·팔레트), verify_web --bank·--total-mb,
 web_lint --bank 를 봄. 고정 은행 tests/ai_bank 를 임시 폴더에 복사해서 고침.
 
 실행: python -m unittest tests.test_ai_tools
+numpy·matplotlib·Pillow 가 없으면 팔레트 그리기 테스트를 건너뜀.
 """
 import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import struct
 import sys
@@ -22,6 +24,13 @@ sys.path.insert(0, ROOT)
 import study  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
 from tools import ai_art, ai_overlap, ai_seal, verify_ai, verify_web, web_lint  # noqa: E402
+
+try:
+    import matplotlib  # noqa: F401
+    import numpy
+    from PIL import Image
+except ImportError:
+    numpy = Image = None
 
 FIXTURE = os.path.join(ROOT, "tests", "ai_bank")
 DASH = "\u2014"
@@ -506,6 +515,47 @@ class ArtTest(Case):
         self.assertEqual(["learn/l90/assets/90a-1.gif", "learn/l90/assets/90b-1.png"], done)
         data = ai_art.read_manifest(manifest)
         self.assertEqual(ai_art.file_sha(self.path("learn/l90/assets/90a-1.gif")), data["files"][done[0]]["sha256"])
+
+
+class ArtPaletteTest(unittest.TestCase):
+    def test_fixed_has_every_script_color(self):
+        folder = os.path.join(ROOT, "tools", "ai_art")
+        for name in sorted(os.listdir(folder)):
+            if name.endswith(".py"):
+                with open(os.path.join(folder, name), encoding="utf-8") as f:
+                    for value in re.findall(r'"(#[0-9a-fA-F]{6})"', f.read()):
+                        self.assertIn(value.lower(), ai_art.FIXED, name)
+
+    @unittest.skipUnless(Image, "numpy·matplotlib·Pillow 없음")
+    def test_pale_fills_stay_apart(self):
+        from matplotlib.patches import Rectangle
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder)
+        gray, purple = "#f3f4f6", "#ede9fe"
+        frames = []
+        for k in range(2):
+            ai_art.setup()
+            fig, ax = ai_art.canvas(560, 300)
+            ax.set_xlim(0, 2)
+            ax.set_ylim(0, 1)
+            ax.add_patch(Rectangle((0, 0), 1, 1, fc=gray, ec="none"))
+            ax.add_patch(Rectangle((1, 0), 1, 1, fc=purple, ec="none"))
+            for n, color in enumerate(list(ai_art.COLORS.values()) * 3):
+                ax.text(0.02 + 0.2 * (n % 10), 0.55 + 0.12 * (n // 10) + 0.05 * k, "W = 0.%d" % n, color=color)
+            frames.append(ai_art.to_image(fig))
+        png = ai_art.save("l90-1", frames[0], folder)
+        gif = ai_art.save("l90-2", (frames, [2000, 2000]), folder)
+        for path, drawn in ((png, frames[:1]), (gif, frames)):
+            with Image.open(path) as image:
+                for k, raw in enumerate(drawn):
+                    image.seek(k)
+                    saved = numpy.asarray(image.convert("RGB"))
+                    raw = numpy.asarray(raw)
+                    for value in (gray, purple):
+                        rgb = [int(value[i:i + 2], 16) for i in (1, 3, 5)]
+                        mask = (raw == rgb).all(-1)
+                        self.assertGreater(mask.sum(), 10000, value)
+                        self.assertTrue((saved[mask] == rgb).all(), "%s %d번째 장의 %s" % (os.path.basename(path), k + 1, value))
 
 
 class WebToolTest(Case):

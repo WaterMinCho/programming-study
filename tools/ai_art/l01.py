@@ -23,6 +23,10 @@ import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+from tools.ai_art import quantize  # noqa: E402
+
 OUT = os.path.join(ROOT, "ai", "learn", "l01", "assets")
 FONTS = os.path.join(ROOT, "gui", "fonts")
 for name in ("NanumGothic-Regular.ttf", "NanumGothic-Bold.ttf", "D2Coding-Regular.ttf", "D2Coding-Bold.ttf"):
@@ -37,7 +41,22 @@ plt.rcParams.update({
 INK, MUTED, FAINT, GRID = "#1f2937", "#6b7280", "#d1d5db", "#eef0f3"
 BLUE, RED, ORANGE, GREEN, PURPLE = "#2563eb", "#dc2626", "#ea580c", "#059669", "#7c3aed"
 BLUE_L, RED_L, ORANGE_L, GREEN_L, GRAY_L, HL = "#dbeafe", "#fee2e2", "#ffedd5", "#d1fae5", "#f3f4f6", "#fef3c7"
+PURPLE_L = "#ede9fe"
 CODE = ["D2Coding", "DejaVu Sans Mono"]
+# 한 단원 안에서 한 색은 한 뜻이고, 뜻은 그 그림의 캡션이나 장 설명에 적음. 검정과 회색은 뜻 없는 글자, 선, 바탕임
+# 1a 단원 색: 파랑은 순전파와 예측, 빨강은 손실 계산과 손실, 주황은 역전파와 기울기, 초록은 갱신과 갱신한 w.
+#   1a-3 은 세 칸 모두 갱신한 w 를 초록으로 찍고 학습률은 칸 제목으로 나눔
+# 1b 단원 색: 초록은 w 와 w 를 바꾸는 step, 주황은 w 의 기울기와 그 칸을 채우는 backward, 파랑은 예측, 빨강은 손실,
+#   노랑은 실행한 줄이 다룬 칸, 보라는 노트북 01 이 미리 보여 주는 단계. 진한 코드 칸의 밝은 줄은 지금 실행하는 줄
+# 1c 단원 색: 파랑은 numpy 배열(1c-1), 보라는 같은 상자를 함께 가리키는 이름(y = x 의 y, x2), 초록은 copy() 가 만든
+#   새 상자와 그 이름, 노랑은 값을 바꾼 칸. 처음 만든 이름 x, x1 은 검정
+# 1d 단원 색: 파랑은 순전파, 주황은 기울기(접선의 기울기)와 그것을 구하는 역전파, 초록은 중앙 차분, 회색 점선은 전진 차분,
+#   노랑은 출력, 빨강은 가로 변화 dx, 보라는 세로 변화 dy. 1d-4 의 픽셀 칸은 밝기 값이 클수록 밝은 회색
+# 1e 단원 색: 보라는 수치 미분(fdiff)과 그 오차, 초록은 fdiff 가 돌려준 함수 diff, 파랑은 자동 미분(backward),
+#   주황은 기울기, 빨강은 오차가 가장 작은 h. 함수 곡선은 검정
+# 1f 단원 색: 보라는 클래스 Point, 파랑은 __call__, 초록은 forward, 노랑은 결과, 주황은 자식 draw 가 그린 원.
+#   검은 점은 Point 의 점이고, 1f-2 의 회색 점은 p 가 있던 자리
+# 1g 단원 색: 파랑은 몫, 주황은 나머지, 초록은 코드가 고르거나 돌려준 결과, 빨강은 오류, 보라는 f-string 의 서식 .4f
 M = "−"  # 빼기표
 WIDTH = 1120
 MAX_H = 600
@@ -123,12 +142,9 @@ def save_gif(name, frames, durations):
     assert 2 <= len(frames) <= 10 and len(frames) == len(durations), name
     assert all(1600 <= d <= 2500 for d in durations), name
     w, h = frames[0].size
-    sheet = Image.new("RGB", (w, h * len(frames)), "white")
-    for k, f in enumerate(frames):
+    for f in frames:
         assert f.size == (w, h)
-        sheet.paste(f, (0, h * k))
-    pal = sheet.quantize(colors=64, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-    q = [f.quantize(palette=pal, dither=Image.Dither.NONE) for f in frames]
+    q = quantize(frames)
     path = os.path.join(OUT, name + ".gif")
     q[0].save(path, save_all=True, append_images=q[1:], duration=durations, loop=0, optimize=False, disposal=1)
     size = os.path.getsize(path)
@@ -139,7 +155,7 @@ def save_gif(name, frames, durations):
 
 
 def save_png(name, img):
-    q = img.quantize(colors=64, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    q = quantize([img])[0]
     path = os.path.join(OUT, name + ".png")
     q.save(path, optimize=True)
     size = os.path.getsize(path)
@@ -240,7 +256,8 @@ def cycle_gif():
         ("손실 계산", [("w = 2", INK), ("예측 4", BLUE), ("손실 = $(4 - 5)^2$ = %s" % dec(r1[2]), RED)], 2000),
         ("역전파", [("w = 2", INK), ("예측 4, 손실 1", MUTED), ("w의 기울기 = %s" % dec(r1[3]), ORANGE)], 2200),
         ("갱신", [("w = 2 %s 0.1 × (%s)" % (M, dec(r1[3])), GREEN), ("   = %s" % dec(r1[4]), GREEN), ("기울기가 음수라 w가 커집니다", MUTED)], 2400),
-        (None, [("둘째 바퀴", INK), ("예측 %s, 손실 %s" % (dec(r2[1]), dec(r2[2])), BLUE), ("기울기 %s" % dec(r2[3]), ORANGE), ("새 w = %s" % dec(r2[4]), GREEN)], 2400),
+        (None, [("둘째 바퀴", INK), ("예측 %s" % dec(r2[1]), BLUE), ("손실 %s" % dec(r2[2]), RED), ("기울기 %s" % dec(r2[3]), ORANGE),
+                ("새 w = %s" % dec(r2[4]), GREEN)], 2400),
     ]
     for on, lines, ms in steps:
         fig, ax = canvas(50)
@@ -305,20 +322,19 @@ def lr_gif():
             ax.set_xticks([0, 1, 2, 2.5, 4])
             ax.set_xticklabels(["0", "1", "2", "", "4"])
             ax.set_yticks([0, 5, 10, 15])
-            ax.set_title("학습률 %s" % dec(lr), fontsize=22, color=[BLUE, GREEN, RED][p], pad=6)
+            ax.set_title("학습률 %s" % dec(lr), fontsize=22, color=INK, pad=6)
             ax.axvline(2.5, color=FAINT, lw=1.5, ls="--")
             xs = [float(w) for w in path[:upto + 1]]
             ys = [float(L(w)) for w in path[:upto + 1]]
-            col = [BLUE, GREEN, RED][p]
-            ax.plot(xs, ys, color=col, lw=2, marker="o", ms=9, zorder=4)
-            ax.plot(xs[-1:], ys[-1:], marker="o", ms=14, color=col, zorder=5)
+            ax.plot(xs, ys, color=GREEN, lw=2, marker="o", ms=9, zorder=4)
+            ax.plot(xs[-1:], ys[-1:], marker="o", ms=14, color=GREEN, zorder=5)
             w_now = path[upto]
             loss_now = L(w_now)
             loss_txt = "0.0001 미만" if loss_now < Fraction(1, 10000) else dec(loss_now, 4 if p == 1 else 2)
-            ax.set_xlabel("w = %s,  손실 %s" % (dec(w_now, 4 if p == 1 else 2), loss_txt), fontsize=20, color=col)
+            ax.set_xlabel("w = %s,  손실 %s" % (dec(w_now, 4 if p == 1 else 2), loss_txt), fontsize=20, color=INK)
             if k == 5:
-                ax.text(2.2, 12.5, ["느림", "최적점에 닿음", "발산"][p], fontsize=24, color=col, weight="bold", ha="center",
-                        bbox={"boxstyle": "round,pad=0.3", "fc": "white", "ec": col})
+                ax.text(2.2, 12.5, ["느림", "최적점에 닿음", "발산"][p], fontsize=24, color=INK, weight="bold", ha="center",
+                        bbox={"boxstyle": "round,pad=0.3", "fc": "white", "ec": FAINT})
         frames.append(to_image(fig))
         durs.append(2500 if k == 5 else 2400 if k == 4 else 2200)
     return save_gif("1a-3", frames, durs)
@@ -328,19 +344,19 @@ def lr_gif():
 def traits_png():
     fig, ax = canvas(40)
     title(ax, "학습의 특징", 40)
-    label(ax, 3, 31.5, "점진적 개선", size=22, color=BLUE, weight="bold")
+    label(ax, 3, 31.5, "점진적 개선", size=22, weight="bold")
     vals = [float(r[2]) for r in R1A]
     for k, v in enumerate(vals):
         hgt = max(0.4, 18 * v)
-        ax.add_patch(Rectangle((5 + 10 * k, 6), 6, hgt, color=BLUE, zorder=2))
+        ax.add_patch(Rectangle((5 + 10 * k, 6), 6, hgt, color=RED, zorder=2))
         label(ax, 8 + 10 * k, 6 + hgt + 1.6, dec(R1A[k][2]), size=19, ha="center", color=INK)
         label(ax, 8 + 10 * k, 3.5, "%d바퀴" % (k + 1), size=17, ha="center", color=MUTED)
-    label(ax, 39, 31.5, "자동화", size=22, color=GREEN, weight="bold")
+    label(ax, 39, 31.5, "자동화", size=22, weight="bold")
     box(ax, 39, 17, 34, 9, "사람이 정하는 것\n모델, 손실, 학습률", fc=GRAY_L, ec=FAINT, size=18)
-    box(ax, 39, 5, 34, 9, "컴퓨터가 하는 것\n기울기 계산, 갱신", fc=GREEN_L, ec=GREEN, size=18, color=GREEN)
-    label(ax, 77, 31.5, "일반화", size=22, color=PURPLE, weight="bold")
+    box(ax, 39, 5, 34, 9, "컴퓨터가 하는 것\n기울기 계산, 갱신", fc="white", ec=INK, size=18)
+    label(ax, 77, 31.5, "일반화", size=22, weight="bold")
     box(ax, 77, 17, 32, 9, "학습에 쓴 데이터\n손실을 줄이며 학습", fc=GRAY_L, ec=FAINT, size=18)
-    box(ax, 77, 5, 32, 9, "처음 보는 데이터\n잘 맞히는지 따로 확인", fc="white", ec=PURPLE, size=18, color=PURPLE)
+    box(ax, 77, 5, 32, 9, "처음 보는 데이터\n잘 맞히는지 따로 확인", fc="white", ec=INK, size=18)
     return save_png("1a-4", to_image(fig))
 
 
@@ -350,12 +366,12 @@ def traits_png():
 def roles_png():
     fig, ax = canvas(40)
     title(ax, "누가 무엇을 맡나", 40)
-    box(ax, 3, 3, 40, 29, fc=GRAY_L, ec=FAINT)
+    box(ax, 3, 3, 42, 29, fc=GRAY_L, ec=FAINT)
     label(ax, 6, 28, "사람이 정하는 것", size=22, weight="bold")
     for k, t in enumerate(["모델 구조(층을 몇 개, 어떻게)", "손실 함수 고르기", "학습률"]):
         label(ax, 7, 22 - 6 * k, "· " + t, size=20)
-    box(ax, 48, 3, 61, 29, fc=BLUE_L, ec=BLUE)
-    label(ax, 51, 28, "PyTorch가 맡는 것", size=22, weight="bold", color=BLUE)
+    box(ax, 48, 3, 61, 29, fc="white", ec=INK)
+    label(ax, 51, 28, "PyTorch가 맡는 것", size=22, weight="bold")
     for k, t in enumerate(["자동 미분(Autograd): 기울기 계산", "손실 함수와 옵티마이저 모듈",
                            "텐서 연산(numpy와 비슷한 문법)", "GPU 가속"]):
         label(ax, 52, 22 - 5.2 * k, "· " + t, size=20)
@@ -407,7 +423,7 @@ def five_gif():
     fig, ax = canvas(50)
     title(ax, "다음 바퀴도 같은 다섯 줄", 50, size=22)
     five_lines(ax, None)
-    cells(ax, [dec(r2[4]), dec(r2[3]), dec(r2[1]), dec(r2[2])], ["예측", "손실"])
+    cells(ax, [dec(r2[4]), dec(r2[3]), dec(r2[1]), dec(r2[2])], ["w", "w의 기울기", "예측", "손실"])
     frames.append(to_image(fig))
     durs.append(2500)
     out = save_gif("1b-2", frames, durs)
@@ -421,24 +437,25 @@ def five_gif():
 def train_eval_png():
     fig, ax = canvas(40)
     title(ax, "학습할 때와 평가할 때", 40)
-    label(ax, 3, 28, "학습", size=22, weight="bold", color=GREEN)
+    label(ax, 3, 28, "학습", size=22, weight="bold")
     names = ["zero_grad", "model", "fn", "backward", "step"]
+    fills = {3: (ORANGE_L, ORANGE), 4: (GREEN_L, GREEN)}
     for k, n in enumerate(names):
-        box(ax, 14 + 19 * k, 24.5, 16, 7, n, fc=GREEN_L if k in (3, 4) else GRAY_L, ec=GREEN if k in (3, 4) else FAINT,
-            size=20, family=CODE)
+        fc, ec = fills.get(k, (GRAY_L, FAINT))
+        box(ax, 14 + 19 * k, 24.5, 16, 7, n, fc=fc, ec=ec, size=20, family=CODE)
         if k:
             arrow(ax, 14 + 19 * k - 3, 28, 14 + 19 * k - 0.4, 28, lw=2)
     label(ax, 14, 21, "기울기 기록을 켜 두고 다섯 줄을 모두 실행", size=18, color=MUTED)
-    label(ax, 3, 11, "평가", size=22, weight="bold", color=BLUE)
-    box(ax, 13, 4, 55, 13, fc=BLUE_L, ec=BLUE, ls="--")
-    label(ax, 15, 14.5, "with torch.no_grad():", size=19, family=CODE, color=BLUE)
+    label(ax, 3, 11, "평가", size=22, weight="bold")
+    box(ax, 13, 4, 55, 13, fc=GRAY_L, ec=INK, ls="--")
+    label(ax, 15, 14.5, "with torch.no_grad():", size=19, family=CODE)
     box(ax, 17, 5.5, 18, 6, "model", fc="white", ec=FAINT, size=20, family=CODE)
     arrow(ax, 35.5, 8.5, 39, 8.5, lw=2)
     box(ax, 39.5, 5.5, 26, 6, "정확도 계산", fc="white", ec=FAINT, size=20)
     for k, n in enumerate(["backward", "step"]):
         box(ax, 73 + 18 * k, 7, 15, 6, n, fc="white", ec=FAINT, size=19, family=CODE, color=FAINT)
-        ax.plot([73 + 18 * k, 88 + 18 * k], [7, 13], color=RED, lw=2.5, zorder=4)
-    label(ax, 73, 3, "평가에서는 부르지 않는 줄", size=18, color=RED)
+        ax.plot([73 + 18 * k, 88 + 18 * k], [7, 13], color=INK, lw=2.5, zorder=4)
+    label(ax, 73, 3, "평가에서는 부르지 않는 줄", size=18, color=MUTED)
     return save_png("1b-3", to_image(fig))
 
 
@@ -455,8 +472,8 @@ def dev_order_png():
         x = 3 + col * 22 if row == 0 else 3 + (col + 0.5) * 22
         y = 30 if row == 0 else 9
         lit = s in notes
-        box(ax, x, y, 18, 7, s, fc=BLUE_L if lit else GRAY_L, ec=BLUE if lit else FAINT, size=20,
-            color=BLUE if lit else INK, weight="bold" if s == "학습" else "normal")
+        box(ax, x, y, 18, 7, s, fc=PURPLE_L if lit else GRAY_L, ec=PURPLE if lit else FAINT, size=20,
+            color=PURPLE if lit else INK, weight="bold" if s == "학습" else "normal")
         if lit:
             label(ax, x + 9, y - 4.2, notes[s], size=16, color=MUTED, ha="center", va="center")
         if k % 5 != 0 and not (row == 1 and col == 0):
@@ -464,7 +481,7 @@ def dev_order_png():
             arrow(ax, px, y + 3.5, x - 0.4, y + 3.5, lw=2)
     ax.plot([100, 100, 25], [30, 20, 20], color=MUTED, lw=2, zorder=2)
     arrow(ax, 25, 20, 25, 16.4, color=MUTED, lw=2)
-    label(ax, 64, 2.5, "파란 칸: 노트북 01 이 미리 보여 주는 부분", size=18, color=BLUE)
+    label(ax, 64, 2.5, "보라 칸: 노트북 01 이 미리 보여 주는 부분", size=18, color=PURPLE)
     return save_png("1b-4", to_image(fig))
 
 
@@ -494,7 +511,7 @@ def plus_png():
     label(ax, 64.5, 10, "→", size=26, ha="center")
     total = [a + b for a, b in zip([1, 2, 3], [4, 5, 6])]
     assert total == [5, 7, 9]
-    cells_row(ax, 68, 7, total, fc=HL, ec=BLUE)
+    cells_row(ax, 68, 7, total, fc=BLUE_L, ec=BLUE)
     label(ax, 68, 3.5, "같은 자리끼리 더하기: 1+4, 2+5, 3+6", size=18, color=MUTED)
     return save_png("1c-1", to_image(fig))
 
@@ -513,11 +530,15 @@ def alias_gif():
     b2 = list(a2)
     a2[0] = 100
     assert (a2, b2) == ([100, 7, 9], [5, 7, 9])
+    x = np.array([5, 7, 9])
+    y = x
+    x[0] = 100
+    assert str(y) == "[100   7   9]"  # print(y) 가 찍는 글
     states = [
         ("x = np.array([5, 7, 9])", [5, 7, 9], None, False, None, 2200),
         ("y = x", [5, 7, 9], None, True, None, 2200),
         ("x[0] = 100", [100, 7, 9], None, True, 0, 2000),
-        ("print(y)  →  [100, 7, 9]", [100, 7, 9], None, True, None, 2400),
+        ("print(y)  →  [100   7   9]", [100, 7, 9], None, True, None, 2400),
         ("y = x.copy()", [5, 7, 9], [5, 7, 9], False, None, 2400),
         ("x[0] = 100", [100, 7, 9], [5, 7, 9], False, 0, 2400),
     ]
@@ -527,14 +548,14 @@ def alias_gif():
         label(ax, 3, 41, code, size=26, family=CODE, color=INK, weight="bold", bg=GRAY_L)
         label(ax, 60, 34, "메모리", size=20, color=MUTED)
         box(ax, 58, 3, 51, 28, fc="#fafafa", ec=FAINT, ls="--")
-        tag(ax, 6, 22, "x", BLUE)
+        tag(ax, 6, 22, "x", INK)
         cells_row(ax, 66, 21, box_a, w=10, h=7, lit=lit, size=24)
-        arrow(ax, 15.5, 25, 65.5, 24.5, color=BLUE, lw=3)
-        if shared or box_b is not None:
-            tag(ax, 6, 8, "y", GREEN)
+        arrow(ax, 15.5, 25, 65.5, 24.5, color=INK, lw=3)
         if shared:
-            arrow(ax, 15.5, 11, 65.5, 22.5, color=GREEN, lw=3)
+            tag(ax, 6, 8, "y", PURPLE)
+            arrow(ax, 15.5, 11, 65.5, 22.5, color=PURPLE, lw=3)
         if box_b is not None:
+            tag(ax, 6, 8, "y", GREEN)
             cells_row(ax, 66, 7, box_b, w=10, h=7, size=24, fc=GREEN_L, ec=GREEN)
             arrow(ax, 15.5, 11, 65.5, 10.5, color=GREEN, lw=3)
             label(ax, 97, 4.5, "새 상자", size=18, color=GREEN)
@@ -549,17 +570,17 @@ def assign_copy_png():
     title(ax, "x[0] = 100 을 실행한 뒤", 40)
     for side, (code, shared) in enumerate((("y = x", True), ("y = x.copy()", False))):
         ox = 3 + side * 56
-        box(ax, ox, 3, 52, 30, fc=GRAY_L if shared else GREEN_L, ec=FAINT)
+        box(ax, ox, 3, 52, 30, fc=GRAY_L, ec=FAINT)
         label(ax, ox + 2, 29, code, size=24, family=CODE, weight="bold")
-        tag(ax, ox + 2, 17, "x", BLUE)
-        tag(ax, ox + 2, 6, "y", GREEN)
+        tag(ax, ox + 2, 17, "x", INK)
+        tag(ax, ox + 2, 6, "y", PURPLE if shared else GREEN)
         cells_row(ax, ox + 22, 17, [100, 7, 9], w=8, h=6, lit=0, size=22)
-        arrow(ax, ox + 11.5, 20, ox + 21.5, 20, color=BLUE, lw=3)
+        arrow(ax, ox + 11.5, 20, ox + 21.5, 20, color=INK, lw=3)
         if shared:
-            arrow(ax, ox + 11.5, 9, ox + 21.5, 18.5, color=GREEN, lw=3)
-            label(ax, ox + 22, 9, "y도 [100, 7, 9]", size=20, color=GREEN)
+            arrow(ax, ox + 11.5, 9, ox + 21.5, 18.5, color=PURPLE, lw=3)
+            label(ax, ox + 22, 9, "y도 [100, 7, 9]", size=20, color=PURPLE)
         else:
-            cells_row(ax, ox + 22, 6, [5, 7, 9], w=8, h=6, size=22, fc="white", ec=GREEN)
+            cells_row(ax, ox + 22, 6, [5, 7, 9], w=8, h=6, size=22, fc=GREEN_L, ec=GREEN)
             arrow(ax, ox + 11.5, 9, ox + 21.5, 9, color=GREEN, lw=3)
     return save_png("1c-3", to_image(fig))
 
@@ -573,10 +594,10 @@ def tensor_share_png():
     x3 = list(x1)  # .copy() 는 새 메모리
     x1[1] = -1.0
     assert x2 == [1.0, -1.0, 1.0, 1.0, 1.0] and x3 == [1.0] * 5
-    box(ax, 3, 18, 15, 6, "x1 (텐서)", fc="white", ec=BLUE, size=19, color=BLUE)
+    box(ax, 3, 18, 15, 6, "x1 (텐서)", fc="white", ec=INK, size=19, color=INK)
     box(ax, 3, 9, 15, 6, "x2", fc="white", ec=PURPLE, size=20, color=PURPLE, family=CODE)
     cells_row(ax, 30, 14, ["1.", "-1.", "1.", "1.", "1."], w=9, h=6, lit=1, size=22)
-    arrow(ax, 18.5, 21, 29.5, 18, color=BLUE, lw=3)
+    arrow(ax, 18.5, 21, 29.5, 18, color=INK, lw=3)
     arrow(ax, 18.5, 12, 29.5, 16, color=PURPLE, lw=3)
     label(ax, 30, 24, "같은 메모리: x1[1] = −1 이 x2에도 보임", size=18, color=MUTED)
     label(ax, 30, 10.5, "x2 = x1.data.numpy()", size=18, family=CODE, color=PURPLE)
@@ -622,8 +643,8 @@ def compose_gif():
         if k == 3:
             label(ax, 22, 7, "입력에서 출력 쪽으로 차례로 계산: 순전파", size=20, color=BLUE)
         if k == 4:
-            box(ax, 19, 10, 69, 18, fc="none", ec=PURPLE, lw=3, ls="--")
-            label(ax, 22, 6, "세 상자를 묶은 함수  f(x) = $2x^2 + 2$,  f(3) = 20", size=21, color=PURPLE)
+            box(ax, 20.5, 10, 67.5, 18, fc="none", ec=INK, lw=3, ls="--")
+            label(ax, 22, 6, "세 상자를 묶은 함수  f(x) = $2x^2 + 2$,  f(3) = 20", size=21, color=INK)
         if k == 5:
             arrow(ax, 102, 9, 9, 9, color=ORANGE, lw=3.5)
             label(ax, 55, 5, "역전파: 출력에서 입력 쪽으로 거슬러 가기", size=20, color=ORANGE, ha="center")
@@ -745,21 +766,21 @@ def hog_png():
     for r in range(3):
         for c in range(3):
             v = grid[r][c]
-            shade = 1 - v / 80
+            shade = 0.30 + 0.65 * (v - 10) / 50  # 밝기 값이 클수록 밝은 회색
             fc = (shade, shade, shade)
-            ec = ORANGE if (r, c) in ((1, 0), (1, 2)) else BLUE if (r, c) in ((0, 1), (2, 1)) else FAINT
+            ec = RED if (r, c) in ((1, 0), (1, 2)) else PURPLE if (r, c) in ((0, 1), (2, 1)) else FAINT
             box(ax, 6 + 10 * c, 26 - 10 * r, 9, 9, str(v), fc=fc, ec=ec, lw=3 if ec != FAINT else 1.5, size=24,
-                color="white" if v >= 45 else INK)
+                color="white" if shade < 0.5 else INK)
     label(ax, 6, 3.5, "숫자 = 픽셀 밝기(직접 만든 예)", size=17, color=MUTED)
-    label(ax, 40, 31, "dx = 오른쪽 %s 왼쪽 = 40 %s 10 = %d" % (M, M, dx), size=22, color=ORANGE)
-    label(ax, 40, 24, "dy = 아래 %s 위 = 60 %s 20 = %d" % (M, M, dy), size=22, color=BLUE)
+    label(ax, 40, 31, "dx = 오른쪽 %s 왼쪽 = 40 %s 10 = %d" % (M, M, dx), size=22, color=RED)
+    label(ax, 40, 24, "dy = 아래 %s 위 = 60 %s 20 = %d" % (M, M, dy), size=22, color=PURPLE)
     label(ax, 40, 16, "크기 $\\sqrt{30^2 + 40^2}$ = %d" % mag, size=22, color=INK)
     label(ax, 40, 9, "방향 arctan(40 ÷ 30) ≈ %.1f°" % ang, size=22, color=INK)
     label(ax, 40, 3.5, "[%s1, 0, 1] 필터 = 중앙 차분의 분자" % M, size=19, color=GREEN)
-    ox, oy, s = 96, 6, 0.24
-    arrow(ax, ox, oy, ox + dx * s, oy, color=ORANGE, lw=3)
-    arrow(ax, ox + dx * s, oy, ox + dx * s, oy + dy * s, color=BLUE, lw=3)
-    arrow(ax, ox, oy, ox + dx * s, oy + dy * s, color=INK, lw=3.5)
+    ox, oy, s = 96, 18, 0.24  # 왼쪽 격자처럼 아래쪽을 dy 의 + 방향으로 그림
+    arrow(ax, ox, oy, ox + dx * s, oy, color=RED, lw=3)
+    arrow(ax, ox + dx * s, oy, ox + dx * s, oy - dy * s, color=PURPLE, lw=3)
+    arrow(ax, ox, oy, ox + dx * s, oy - dy * s, color=INK, lw=3.5)
     return save_png("1d-4", to_image(fig))
 
 
@@ -782,7 +803,7 @@ def fdiff_png():
     title(ax, "fdiff는 함수를 받아 함수를 돌려줍니다", 36)
     box(ax, 3, 18, 22, 8, "함수 f\n$2x^2 + 2$", fc=GRAY_L, ec=FAINT, size=20)
     arrow(ax, 25.5, 22, 32.5, 22)
-    box(ax, 33, 17, 20, 10, "fdiff", fc=BLUE_L, ec=BLUE, size=26, family=CODE, color=BLUE, weight="bold")
+    box(ax, 33, 17, 20, 10, "fdiff", fc=PURPLE_L, ec=PURPLE, size=26, family=CODE, color=PURPLE, weight="bold")
     arrow(ax, 53.5, 22, 60.5, 22)
     box(ax, 61, 18, 22, 8, "함수 diff", fc=GREEN_L, ec=GREEN, size=22, color=GREEN)
     label(ax, 3, 13, "함수를 넣으면 함수가 나옵니다", size=19, color=MUTED)
@@ -806,11 +827,11 @@ def h_error_png():
     fig = plt.figure(figsize=(11.2, 5.0), dpi=100)
     ax = fig.add_axes([0.11, 0.16, 0.58, 0.72])
     tidy(ax)
-    ax.loglog(HS, ERRS, "o-", color=BLUE, lw=2.5, ms=9)
+    ax.loglog(HS, ERRS, "o-", color=PURPLE, lw=2.5, ms=9)
     ax.invert_xaxis()
     ax.set_xlabel("h (오른쪽으로 갈수록 작음)")
     ax.set_title("$x^3$ 의 x = 1 에서 중앙 차분 오차", loc="left", fontsize=22)
-    ax.plot([HS[5]], [ERRS[5]], "o", color=ORANGE, ms=14, zorder=5)
+    ax.plot([HS[5]], [ERRS[5]], "o", color=RED, ms=14, zorder=5)
     ax.set_ylim(1e-12, 1)
     ax.xaxis.set_major_locator(FixedLocator([10.0 ** -e for e in (1, 3, 6, 9, 12)]))
     ax.yaxis.set_major_locator(FixedLocator([10.0 ** -e for e in (0, 3, 6, 9, 12)]))
@@ -820,11 +841,11 @@ def h_error_png():
     ax.xaxis.set_major_formatter(tick)
     ax.yaxis.set_major_formatter(tick)
     rows = [("h", "오차", MUTED), ("0.1", sign("%.1e" % ERRS[0]), INK), ("1e%s4" % M, sign("%.1e" % ERRS[3]), INK),
-            ("1e%s6" % M, sign("%.1e" % ERRS[5]), ORANGE), ("1e%s12" % M, sign("%.1e" % ERRS[11]), INK)]
+            ("1e%s6" % M, sign("%.1e" % ERRS[5]), RED), ("1e%s12" % M, sign("%.1e" % ERRS[11]), INK)]
     for k, (a, b, c) in enumerate(rows):
         fig.text(0.73, 0.82 - 0.09 * k, a, fontsize=20, color=c, family=CODE)
         fig.text(0.84, 0.82 - 0.09 * k, b, fontsize=20, color=c, family=CODE)
-    fig.text(0.73, 0.30, "1e%s6 근처에서 가장 작고" % M, fontsize=19, color=ORANGE)
+    fig.text(0.73, 0.30, "1e%s6 근처에서 가장 작고" % M, fontsize=19, color=RED)
     fig.text(0.73, 0.21, "더 줄이면 반올림 오차로", fontsize=19)
     fig.text(0.73, 0.12, "다시 커집니다", fontsize=19)
     return save_png("1e-2", to_image(fig))
@@ -834,10 +855,10 @@ def h_error_png():
 def compare_png():
     fig, ax = canvas(52)
     title(ax, "같은 기울기를 구하는 두 방법 (f(x) = $2x^2 + 2$, x = 3)", 52, size=22)
-    box(ax, 3, 30, 51, 15, fc=GRAY_L, ec=FAINT)
-    label(ax, 6, 41.5, "수치 미분 (fdiff)", size=22, weight="bold")
+    box(ax, 3, 30, 51, 15, fc=PURPLE_L, ec=PURPLE)
+    label(ax, 6, 41.5, "수치 미분 (fdiff)", size=22, weight="bold", color=PURPLE)
     label(ax, 6, 36.5, "f(3 + h)와 f(3 %s h)를 두 번 계산" % M, size=19, color=MUTED)
-    label(ax, 6, 32.5, repr(FD), size=22, family=CODE)
+    label(ax, 6, 32.5, repr(FD), size=22, family=CODE, color=PURPLE)
     box(ax, 58, 30, 51, 15, fc=BLUE_L, ec=BLUE)
     label(ax, 61, 41.5, "자동 미분 (backward)", size=22, weight="bold", color=BLUE)
     label(ax, 61, 36.5, "계산 기록을 거꾸로 따라가며 미분 규칙", size=19, color=MUTED)
@@ -849,7 +870,7 @@ def compare_png():
     for k, (a, b, c) in enumerate(rows):
         y = 23 - 5.4 * k
         label(ax, 4, y, a, size=19, weight="bold", color=MUTED)
-        label(ax, 16, y, b, size=19)
+        label(ax, 16, y, b, size=19, color=PURPLE)
         label(ax, 61, y, c, size=19, color=BLUE)
     return save_png("1e-3", to_image(fig))
 
@@ -864,15 +885,17 @@ def sigmoid_png():
     tidy(ax)
     xs = np.linspace(-6, 6, 300)
     ys = sig(xs)
-    ax.plot(xs, ys, color=BLUE, lw=3, label="g(x)")
-    ax.plot(xs, ys * (1 - ys), color=ORANGE, lw=3, label="기울기")
+    grads = np.array([fdiff(sig)(float(v)) for v in xs])  # 캡션대로 fdiff 로 구함
+    assert np.max(np.abs(grads - ys * (1 - ys))) < 1e-8 and round(float(fdiff(sig)(2.0)), 3) == 0.105
+    ax.plot(xs, ys, color=INK, lw=3, label="g(x)")
+    ax.plot(xs, grads, color=ORANGE, lw=3, label="기울기")
     ax.plot([0], [0.25], "o", color=ORANGE, ms=11)
     ax.plot([2, 2], [y2, y2 * (1 - y2)], "o", color=INK, ms=9)
     ax.annotate("x = 0 에서 0.25", (0, 0.25), xytext=(-5.8, 0.36), fontsize=20, color=ORANGE)
     ax.set_ylim(-0.05, 1.05)
     ax.set_xlabel("x")
     ax.set_title("시그모이드와 그 기울기", loc="left", fontsize=22)
-    fig.text(0.71, 0.80, "파란 선 g(x): 0 과 1 사이", fontsize=19, color=BLUE)
+    fig.text(0.71, 0.80, "검은 선 g(x): 0 과 1 사이", fontsize=19, color=INK)
     fig.text(0.71, 0.70, "주황 선: 기울기 y(1 %s y)" % M, fontsize=19, color=ORANGE)
     fig.text(0.71, 0.52, "x = 0: y = 0.5", fontsize=20)
     fig.text(0.71, 0.43, "  0.5 × 0.5 = 0.25", fontsize=20, color=ORANGE)
@@ -887,8 +910,8 @@ def sigmoid_png():
 def class_png():
     fig, ax = canvas(44)
     title(ax, "클래스 Point 하나로 만든 인스턴스 둘", 44)
-    box(ax, 3, 4, 34, 32, fc=BLUE_L, ec=BLUE)
-    label(ax, 6, 32, "class Point", size=24, family=CODE, weight="bold", color=BLUE)
+    box(ax, 3, 4, 34, 32, fc=PURPLE_L, ec=PURPLE)
+    label(ax, 6, 32, "class Point", size=24, family=CODE, weight="bold", color=PURPLE)
     label(ax, 6, 25.5, "속성", size=20, color=MUTED)
     label(ax, 6, 21, "x, y", size=22, family=CODE)
     label(ax, 6, 14.5, "메서드", size=20, color=MUTED)
@@ -899,7 +922,7 @@ def class_png():
         box(ax, 45, oy, 30, 12, fc="white", ec=INK)
         label(ax, 47, oy + 8.5, "%s = Point(%s, %s)" % (name, sign(x), sign(y)), size=20, family=CODE)
         label(ax, 47, oy + 3.5, "x = %s, y = %s" % (sign(x), sign(y)), size=20, color=MUTED)
-        arrow(ax, 37.5, 20, 44.5, oy + 6, color=BLUE)
+        arrow(ax, 37.5, 20, 44.5, oy + 6, color=PURPLE)
     label(ax, 45, 3, "인스턴스마다 자기 속성 값", size=18, color=MUTED)
     gx, gy, s = 92, 20, 3.2
     ax.plot([gx - 4 * s, gx + 4 * s], [gy, gy], color=FAINT, lw=1.5)
@@ -934,11 +957,11 @@ def point_gif():
         ax.set_aspect("equal")
         for t in trail:
             ax.plot(*t, "o", color=FAINT, ms=12)
-        ax.plot(px, py, "o", color=BLUE, ms=16, zorder=5)
-        ax.annotate("(%d, %d)" % (px, py), (px, py), xytext=(10, 10), textcoords="offset points", fontsize=21, color=BLUE)
+        ax.plot(px, py, "o", color=INK, ms=16, zorder=5)
+        ax.annotate("(%d, %d)" % (px, py), (px, py), xytext=(10, 10), textcoords="offset points", fontsize=21, color=INK)
         fig.text(0.55, 0.80, code.replace("-", M), fontsize=26, family=CODE, weight="bold",
                  bbox={"boxstyle": "round,pad=0.3", "fc": GRAY_L, "ec": GRAY_L})
-        fig.text(0.55, 0.60, note.replace("-", M), fontsize=24, color=GREEN)
+        fig.text(0.55, 0.60, note.replace("-", M), fontsize=24, color=INK)
         fig.text(0.55, 0.36, "속성", fontsize=20, color=MUTED)
         fig.text(0.55, 0.24, "p.x = %d,  p.y = %d" % (px, py), fontsize=24, family=CODE)
         trail.append((px, py))
@@ -962,13 +985,13 @@ def override_png():
         for s in ax.spines.values():
             s.set_color(FAINT)
         if circ:
-            ax.add_patch(Circle((1, 0), 2, fc=BLUE_L, ec=BLUE, lw=2.5))
+            ax.add_patch(Circle((1, 0), 2, fc=ORANGE_L, ec=ORANGE, lw=2.5))
         if dot:
             ax.plot(1, 0, "o", color=INK, ms=12, zorder=5)
         fig.text(0.04 + 0.33 * k, 0.88, name, fontsize=24, family=CODE, weight="bold")
         fig.text(0.04 + 0.33 * k, 0.77, how, fontsize=19, color=MUTED)
         res = "점만" if dot and not circ else "원만" if circ and not dot else "점과 원"
-        fig.text(0.04 + 0.33 * k + 0.2, 0.88, res, fontsize=22, color=GREEN)
+        fig.text(0.04 + 0.33 * k + 0.2, 0.88, res, fontsize=22, color=INK)
     return save_png("1f-3", to_image(fig))
 
 
@@ -1000,7 +1023,7 @@ def notebook_png():
     fig, ax = canvas(50)
     box(ax, 3, 43, 106, 5, "", fc=GRAY_L, ec=FAINT)
     label(ax, 5, 45.5, "노트북 (.ipynb)", size=20, weight="bold")
-    label(ax, 106, 45.5, "런타임 유형: GPU", size=18, color=GREEN, ha="right")
+    label(ax, 106, 45.5, "런타임 유형: GPU", size=18, color=MUTED, ha="right")
     cells = [("글 셀", "파이썬 입문", "white", None, None),
              ("코드 셀", "print(1 + 2)", "#f8fafc", "3", None),
              ("코드 셀", "!pip install matplotlib", "#f8fafc", None, "! 줄: 셸 명령"),
@@ -1015,7 +1038,7 @@ def notebook_png():
         if out:
             label(ax, 18, y - 1.2, "출력  " + out, size=18, family=CODE, color=MUTED)
         if note:
-            label(ax, 78, y + 3, note, size=17, color=ORANGE)
+            label(ax, 78, y + 3, note, size=17, color=INK)
         y -= hh + 2
     assert 1 + 2 == 3
     return save_png("1g-1", to_image(fig))
@@ -1080,8 +1103,8 @@ def tuple_dict_png():
     label(ax, 40, 27, "딕셔너리", size=21, weight="bold")
     for k, (key, val) in enumerate(scores.items()):
         y = 18 - 8 * k
-        box(ax, 40, y, 12, 6, "'%s'" % key, fc=BLUE_L, ec=BLUE, size=20)
-        arrow(ax, 52.5, y + 3, 57.5, y + 3, color=BLUE)
+        box(ax, 40, y, 12, 6, "'%s'" % key, fc=GRAY_L, ec=INK, size=20)
+        arrow(ax, 52.5, y + 3, 57.5, y + 3, color=INK)
         box(ax, 58, y, 9, 6, str(val), fc="white", ec=INK, size=21)
     label(ax, 40, 6, "키 → 값", size=17, color=MUTED)
     label(ax, 75, 27, "scores.items()", size=21, weight="bold", family=CODE)
@@ -1100,15 +1123,15 @@ def fstring_png():
     fig, ax = canvas(46)
     title(ax, "f-string 서식 읽기", 46)
     cw = 2.09  # D2Coding 30pt 한 글자 폭(칸)
-    parts = [("f'{", INK), ("a1", BLUE), (":", MUTED), (".4", GREEN), ("f", ORANGE), ("}'", INK)]
+    parts = [("f'{", INK), ("a1", INK), (":", MUTED), (".4", PURPLE), ("f", PURPLE), ("}'", INK)]
     i = 0
     for text, color in parts:
         for ch in text:
             label(ax, 6 + i * cw, 32.5, ch, size=30, family=CODE, weight="bold", color=color)
             i += 1
     assert "".join(t for t, _ in parts) == "f'{a1:.4f}'"
-    for x, text, color in ((6, "a1: 끼워 넣을 값", BLUE), (32, "콜론: 서식 시작", MUTED), (56, ".4: 소수점 아래 네 자리", GREEN),
-                           (88, "f: 고정소수점", ORANGE)):
+    for x, text, color in ((6, "a1: 끼워 넣을 값", INK), (32, "콜론: 서식 시작", MUTED), (56, ".4: 소수점 아래 네 자리", PURPLE),
+                           (88, "f: 고정소수점", PURPLE)):
         label(ax, x, 26, text, size=18, color=color)
     label(ax, 40, 32.5, "a1 = 1 / 7 = 0.142857…,  a2 = 123", size=20, color=MUTED)
     for k, (spec, out, var) in enumerate(rows):

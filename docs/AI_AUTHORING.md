@@ -123,6 +123,8 @@ def linear_params(r):
 
 학습 노트 그림은 `tools/ai_art/lNN.py` 를 출제자 파이썬(numpy·matplotlib·Pillow)으로 돌려 직접 그리고, matplotlib 는 Agg 로만 씁니다. 파일은 폭 1120px·높이 600px 이하, GIF 는 10장 이하·장마다 1,600~2,500ms·250KB 이하, PNG 는 150KB 이하입니다. 그림에 찍는 숫자는 스크립트 안에서 assert 로 확인합니다.
 
+저장할 때는 `tools/ai_art` 의 `quantize()` 로 64색 팔레트를 만듭니다. `FIXED` 에 적힌 색은 팔레트에 먼저 들어가서 옅은 회색과 옅은 보라처럼 가까운 두 색도 서로 합쳐지지 않습니다. 스크립트에 새 색을 쓰면 `FIXED` 에도 넣어야 tests/test_ai_tools.py 가 통과합니다.
+
 ```
 python3 -m tools.ai_art l05                                    @figure 함수를 그려 assets/ 에 쓰고 manifest 를 고칩니다
 python3 tools/ai_art/l05.py                                    자기 명령줄로 그리는 스크립트
