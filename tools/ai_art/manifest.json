@@ -935,6 +935,26 @@
    "sha256": "333d310821fe00f42aac2890dce5f3f20c13a72744cc2a6e8f76b7ac00d8ea76",
    "script": "tools/ai_art/l06.py",
    "fn": "6f-4"
+  },
+  "learn/l18/assets/18a-1.png": {
+   "sha256": "b17768a6adf7d043e3f5b2852dd7cf9586fe7db18a05c4f4e98ec52d7dc4a267",
+   "script": "tools/ai_art/l18.py",
+   "fn": "18a-1"
+  },
+  "learn/l18/assets/18a-2.gif": {
+   "sha256": "68b5e09af226321746f6188217d38e1c38937429d43ee45baa03fc60449d92b0",
+   "script": "tools/ai_art/l18.py",
+   "fn": "18a-2"
+  },
+  "learn/l18/assets/18a-3.gif": {
+   "sha256": "462ff6b95e0fc8766a9d9aeb023b31ce41287554f562e8c91fa15eee2e1aa5cd",
+   "script": "tools/ai_art/l18.py",
+   "fn": "18a-3"
+  },
+  "learn/l18/assets/18a-4.png": {
+   "sha256": "a53b43203d2a9dd0a64118bf437e0d56a96cd702f6c98d8e3cbc7403bea1f16d",
+   "script": "tools/ai_art/l18.py",
+   "fn": "18a-4"
   }
  }
 }

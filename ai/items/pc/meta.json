@@ -1,0 +1,19 @@
+{
+ "format": 1,
+ "id": "pc",
+ "page": "l18",
+ "units": {
+  "18a": {
+   "slot": 6,
+   "order": 1,
+   "pick": 4,
+   "change": 1,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  }
+ },
+ "sources": []
+}

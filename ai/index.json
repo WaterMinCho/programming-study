@@ -44,7 +44,7 @@
   {"id": "i17", "no": 17, "title": "자연어 처리 종합 실습", "page": "l17", "date": "2026-11-10", "weight": 0.2, "units": 5, "hw_due": null}
  ],
  "patterns": [
-  {"id": "pc", "page": "l18", "title": "상황별 코드", "units": {"18a": {"after": "i05"}, "18b": {"after": "i10"}, "18c": {"after": "i07"}, "18d": {"after": "i08"}, "18e": {"after": "i09"}, "18f": {"after": "i11"}, "18g": {"after": "i15"}, "18h": {"after": "i14"}}}
+  {"id": "pc", "page": "l18", "title": "상황별 코드", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}}
  ],
  "mocks": [
   {"id": "m1", "title": "모의고사 1회", "minutes": 60, "count": 30, "range": [1, 12], "window": ["2026-11-14", "2026-11-16"]},

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 화면(gui/ai_home.py, ai_learn.py, ai_quiz.py, ai_text.py)과 첫 화면의 AI 줄, 공유 오답 노트의 AI 탭.
-실제 MainWindow 를 띄우되 AI 은행은 고정 은행 tests/ai_bank(마지막 클래스만 저장소의 ai/ 1~6차시), 여행·웹 은행은 고정 은행,
-풀이 폴더·AI 로컬 폴더·설정은 임시 폴더, 제출 모듈과 Node 찾기는 가짜를 씀. 시계는 aiprep.service.now 를 바꿔 학습일을 정함.
+실제 MainWindow 를 띄우되 AI 은행은 고정 은행 tests/ai_bank(상황별 코드를 보는 클래스는 tests/ai_bank_pc 를 더한 사본, 마지막 클래스만
+저장소의 ai/ 1~6차시와 상황별 코드), 여행·웹 은행은 고정 은행, 풀이 폴더·AI 로컬 폴더·설정은 임시 폴더, 제출 모듈과 Node 찾기는 가짜를 씀.
+시계는 aiprep.service.now 를 바꿔 학습일을 정함.
 
-하루 목표와 새 문항 상한은 화면에 없음(2026-11-03 사용자 결정). 모의고사 화면과 뼈대 카드(나란히 보기, 돌려 가며 빈칸)는 다음 PR 이라 보지 않음.
+하루 목표와 새 문항 상한은 화면에 없음(2026-11-03 사용자 결정). 모의고사 화면은 다음 PR 이라 보지 않음.
 PyQt6 가 없으면 전부 건너뜀."""
 import datetime
 import json
@@ -17,7 +18,7 @@ from unittest import mock
 
 os.environ.setdefault("STUDY_NODE_PROBE", "0")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from tests import guikit  # noqa: E402
+from tests import aifix, guikit  # noqa: E402
 
 from PyQt6 import sip  # noqa: E402
 from PyQt6.QtCore import QMimeData, QPoint, QPointF, QSettings, Qt  # noqa: E402
@@ -63,6 +64,7 @@ def visible_text(widget):
 
 class AiTest(unittest.TestCase):
     real_bank = False
+    pc = False  # 참이면 상황별 코드(뼈대 S90, 노트 l18, 묶음 pc)를 더한 고정 은행 사본을 씀
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="gui_ai_")
@@ -72,7 +74,10 @@ class AiTest(unittest.TestCase):
                    (runner, "CACHE_DIR", os.path.join(self.tmp, "cache")), (journey_bank, "BANK_DIR", JOURNEY_FIXTURE),
                    (web_bank, "BANK_DIR", WEB_FIXTURE), (stack, "find_node", lambda saved=None, probe=False: FAKE_NODE),
                    (service, "now", lambda: self.clock), (service.secrets, "randbelow", lambda n: 7)]  # 묶음 시드를 고정함
-        if not self.real_bank:
+        if self.pc:
+            self.root = aifix.pc_bank(os.path.join(self.tmp, "ai_bank"))
+            patches.append((ai_bank, "AI_DIR", self.root))
+        elif not self.real_bank:
             patches.append((ai_bank, "AI_DIR", AI_FIXTURE))
         for target, name, value in patches:
             patcher = mock.patch.object(target, name, value)
@@ -200,6 +205,7 @@ class HubAndHomeTest(AiTest):
         self.assertEqual([row.title.text() for row in home.lesson_list.rows], ["90차시 시험 차시"])
         self.assertEqual(home.lesson_list.rows[0].second.text(), "단원 2개 중 0개 읽음")
         self.assertEqual(home.lesson_list.more_btn.text(), "준비 중 1개 보기")
+        self.assertFalse(home.pattern_section.isVisibleTo(home))  # 상황별 코드 무리가 없는 은행이면 구역을 그리지 않음
         self.assertEqual([row.title.text() for row in home.books.rows], ["섞어 풀기", "90차시 문제집", "오답 노트"])
         self.assertTrue(home.mixed_row.inert)  # 읽은 단원이 없으면 섞어 풀 문항이 없음
         self.assertEqual(home.mixed_row.second.text(), ai_text.MIXED_EMPTY)
@@ -374,6 +380,26 @@ class TextTest(unittest.TestCase):
                                        "next": None, "early": 0}, unlisted=1)
         self.assertEqual(lines, ["오늘 처음 푼 문항 가운데 맞힌 문항 2개", "다른 날 풀었던 문항 가운데 다시 맞힌 문항 1개",
                                  "단원을 읽은 날 틀린 1문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다."])
+
+    def test_pattern_texts(self):
+        """상황별 코드 줄, 나란히 보기 caption, 함께 가린 칸 줄, 뼈대 카드 오답 노트 줄과 코드 보기 HTML, 단원 이름을 쓰는 이어서 할 일."""
+        unit = {"after_no": 6, "read": False, "minutes": 6, "memorised": 0, "families": 8, "due": 0}
+        self.assertEqual(ai_text.pattern_line(unit), "6차시 뒤에 권함 · 약 6분")
+        self.assertEqual(ai_text.pattern_line(dict(unit, read=True, due=2)), "6차시 뒤에 권함 · 외운 문항 0/8 · 복습 2문항")
+        self.assertEqual(ai_text.diff_caption(2, 13), "다른 줄 2개 · 같은 줄 13개")
+        self.assertEqual(ai_text.also_line([1, 3]), "①·③ 칸은 틀렸습니다. 그 칸을 묻는 문항이 내일 복습에 나옵니다.")
+        self.assertEqual(ai_text.card_head({"kind": "skel", "head": "opt.____()"}, None), "opt.____()")
+        today = datetime.date(2026, 11, 9)
+        overview = {"lessons": [], "patterns": [{"id": "pc", "units": [{"key": "18a", "minutes": 6}]}],
+                    "next": {"kind": "revisit", "lesson": "pc", "unit": "18a", "title": "다시 보기 · 학습 루프 · 한 에폭", "name": "학습 루프 · 한 에폭"}}
+        self.assertEqual(ai_text.next_item(overview, today)["title"], "학습 루프 · 한 에폭")
+        self.assertEqual(ai_text.unit_why({"lesson": "pc", "unit": "18a"}, overview, today), "읽은 뒤 이 단원 문항부터 풉니다. 약 6분.")
+        item = {"lines": [], "ref": [], "stem": "```python\na.____()\nb.____()\n```", "options": ["x = 1\ny = 2", "y = 2\nx = 1"],
+                "mine": ["y = 2\nx = 1"], "code_options": True}
+        html_text = ai_text.note_html(item, {"answer": ["x = 1\ny = 2"], "explain": "", "why": {"y = 2\nx = 1": "순서가 거꾸로입니다."}})
+        self.assertIn("a.①____()\nb.②____()", html_text)  # 울타리 안 빈칸에도 번호
+        self.assertEqual(html_text.count('class="codebox"'), 5)  # 지문, 보기 둘, 내 답, 정답
+        self.assertIn("<p>2번: 순서가 거꾸로입니다.</p>", html_text)
 
     def test_track_line_has_no_daily_goal(self):
         overview = {"lessons": [{"ready": True, "units_total": 7, "read": 3}], "memorised": 0, "due": 4,
@@ -962,11 +988,321 @@ class WrongNoteTest(AiTest):
         self.assertEqual((self.page(), win.area), (win.ai_home, "ai"))
 
 
+class PatternTest(AiTest):
+    """상황별 코드(고정 은행에 tests/ai_bank_pc 를 더한 사본): 홈 구역, 학습 단원의 나란히 보기·돌려 가며 빈칸, 뼈대 카드 연습(코드 보기,
+    함께 가린 칸), [노트 보기], 이어서 할 일과 다시 보기, 오답 노트."""
+    pc = True
+    UNIT = "학습 루프 · 시험 뼈대 단원"
+
+    def open_unit(self, step=None):
+        self.assertTrue(self.win.open_ai_unit("pc", "18a", step))
+        guikit.pump()
+        return self.win.ai_learn
+
+    def opened_slots(self):
+        """18a 를 11-09 에 읽고 k01·k03 을 맞혀 11-10 에 k02 를 내면 점차 지우기 f = 1 이라 k01 을 함께 가림(test_ai_service 의
+        PatternBase.opened_slots 와 같은 기록)."""
+        sess = self.win.ai
+        self.at(9)
+        sess.mark_read("pc", "18a")
+        for cid in ("pc-k01", "pc-k03"):
+            sess._append({"kind": "answer", "set": "s9", "card": cid, "result": "pass", "again": 0})
+        self.at(10)
+        sess._append({"kind": "answer", "set": "s10", "card": "pc-k03", "result": "pass", "again": 0})
+        self.at(10, "21:00:00")
+
+    def badges(self):
+        page = self.win.ai_quiz
+        return [b.text() for b in page.card.findChildren(QLabel) if b.objectName() == "badge" and b.isVisible()]
+
+    def test_home_section_opens_the_unit_and_comes_back_home(self):
+        win = self.boot((1024, 700))
+        win.go_ai()
+        home = win.ai_home
+        self.assertTrue(home.pattern_section.isVisibleTo(home))
+        self.assertEqual([(r.title.text(), r.second.text(), r.mark.state) for r in home.pattern_list.rows],
+                         [(self.UNIT, "90차시 뒤에 권함 · 약 6분", "todo")])  # 권하는 차시를 읽기 전에도 열 수 있음
+        self.assertEqual(home.pattern_list.more_btn.text(), "준비 중 1개 보기")
+        guikit.click(home.pattern_list.more_btn)
+        self.assertIn("평가 루프", visible_text(home.pattern_list))
+        home.set_busy(True)
+        self.assertTrue(home.pattern_list.rows[0].inert)
+        home.set_busy(False)
+        guikit.click(home.pattern_list.rows[0])
+        learn = win.ai_learn
+        self.assertEqual((self.page(), learn.lid, learn.back_btn.text(), learn.title.text()), (learn, "pc", "← AI 비전 개론", self.UNIT))
+        guikit.click(learn.back_btn)
+        self.assertEqual((self.page(), win.area), (home, "ai"))
+        win.ai.mark_read("pc", "18a")
+        win.go_ai()
+        row = home.pattern_list.rows[0]
+        self.assertEqual((row.second.text(), row.mark.state), ("90차시 뒤에 권함 · 외운 문항 0/7", "done"))
+
+    def test_broken_skeleton_shows_the_band_and_keeps_the_lessons(self):
+        study.write_text(os.path.join(self.root, "patterns", "S90.json"), "{깨진 뼈대")
+        win = self.boot()
+        win.go_ai()
+        home = win.ai_home
+        self.assertTrue(home.notice.isVisible())
+        self.assertEqual(home.notice.text.text(), ai_text.PATTERN_BROKEN % "상황별 코드")
+        self.assertFalse(home.pattern_section.isVisibleTo(home))
+        self.assertEqual([row.title.text() for row in home.lesson_list.rows], ["90차시 시험 차시"])
+
+    def test_every_step_renders_without_hidden_lines(self):
+        self.boot((1024, 700))
+        learn = self.open_unit(1)
+        for index in range(len(learn.steps)):
+            learn.show_step(index)
+            guikit.pump()
+            text = "\n".join(piece.toPlainText() for piece in learn.view.findChildren(TextPiece))
+            self.assertNotIn("<!--", text, index)
+            self.assertNotIn(ai_text.BLOCK_BROKEN, visible_text(learn.view), index)
+        learn.show_step(0)
+        guikit.pump()
+        self.assertIn("    opt.zero_grad()", "\n".join(piece.toPlainText() for piece in learn.view.findChildren(TextPiece)))
+
+    def test_diff_block_draws_two_columns_without_wrapping(self):
+        """1024×700 기본 글자에서 고정 뼈대(가장 긴 줄 26자)는 두 열이고, 다른 줄만 칠하고 같은 줄은 흐린 글자. 행 높이는 모두 코드 한 줄."""
+        self.boot((1024, 700))
+        learn = self.open_unit(2)
+        block = learn.view.findChildren(ai_learn.DiffBlock)[0]
+        self.assertTrue(block.two)
+        text = visible_text(block)
+        self.assertIn(ai_text.diff_caption(2, 6), text)
+        self.assertIn("가\n나", text)  # 열 머리는 판 이름
+        changed = [[cell.text() for cell in line.cells] for line in block.lines if line.changed]
+        self.assertEqual(changed, [["net.train()", "net.eval()"], ["    n += c.argmax(1).sum()", "    n += c.argmax(0).sum()"]])
+        same = [cell for line in block.lines if not line.changed for cell in line.cells]
+        self.assertEqual({cell.property("tone") for cell in same}, {"secondary"})
+        self.assertEqual({line.height() for line in block.lines}, {theme.TYPE["code"][1]})
+        self.assertLessEqual(learn.view.minimumSizeHint().width(), learn.view.width())
+
+    def test_diff_block_stacks_when_a_column_cannot_hold_the_longest_line(self):
+        """한 열이 가장 긴 줄을 코드 글자 그대로 담지 못하면(글자 단계를 키우거나 폭이 좁으면) 왼쪽 판 다음 오른쪽 판을 쌓고, 다시 넓어지면
+        두 열로 돌아감. 코드 글자를 줄이지 않음."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        rows = [{"left": "a" * 44, "right": "b" * 44, "same": False}, {"left": "같은 줄", "right": "같은 줄", "same": True},
+                {"left": None, "right": "c = 1", "same": False}]
+        block = ai_learn.DiffBlock({"left": "가", "right": "나", "different": 2, "same": 1, "rows": rows})
+        holder = kit.page(QWidget())
+        kit.box(holder).addWidget(block)
+        holder.resize(760, 600)
+        holder.show()
+        self.addCleanup(holder.close)
+        for step, two in (("normal", True), ("large", False), ("larger", False), ("normal", True)):
+            theme.set_text(step)
+            block.restyle()
+            guikit.pump()
+            self.assertEqual(block.two, two, step)
+            self.assertEqual(ai_learn.code_font().pixelSize(), theme.CODE_PX + theme.text_px() - 1)
+        holder.resize(600, 600)
+        guikit.pump()
+        self.assertFalse(block.two)
+        self.assertEqual([[cell.text() for cell in line.cells] for line in block.lines], [["a" * 44], ["같은 줄"], ["b" * 44], ["같은 줄"], ["c = 1"]])
+        self.assertEqual([line.changed for line in block.lines], [True, False, True, False, True])
+        holder.resize(760, 600)
+        guikit.pump()
+        self.assertTrue(block.two)
+
+    def test_rotate_block_moves_on_and_brings_a_wrong_slot_back_three_later(self):
+        win = self.boot((1024, 700))
+        learn = self.open_unit(3)
+        block = learn.view.findChildren(ai_learn.RotateBlock)[0]
+        self.assertEqual(block.count.text(), "1 / 6")
+        field = block.field()
+        self.assertEqual(field.placeholderText(), "메서드 이름")
+        guikit.click(block.check_btn)  # 빈 칸은 채점하지 않고 안내만
+        self.assertTrue(block.empty_note.isVisible())
+        self.assertEqual(self.log("recall"), [])
+        field.setFocus()
+        field.setText("eval")
+        QTest.keyClick(field, Qt.Key.Key_Left)
+        self.assertEqual((learn.index, field.cursorPosition()), (2, 3))  # 칸 안의 ← 는 글자 커서
+        QTest.keyClick(field, Qt.Key.Key_Return)
+        self.assertEqual((block.verdict.text(), block.answer.text(), field.property("tone")), ("틀렸습니다", "정답: `train`", "danger"))
+        self.assertTrue(block.next_btn.isVisible())
+        self.assertFalse(block.check_btn.isVisible())
+        self.assertEqual([(r["unit"], r["id"], r["slot"], r["ok"]) for r in self.log("recall")], [("18a", "t1", "pc-k01", False)])
+        QTest.keyClick(field, Qt.Key.Key_Return)  # 답한 뒤 Enter 는 [다음 자리]
+        self.assertEqual(block.count.text(), "2 / 7")
+        self.assertEqual(block.queue, ["pc-k01", "pc-k02", "pc-k03", "pc-k04", "pc-k01", "pc-k05", "pc-k06"])
+        self.assertIs(QApplication.focusWidget(), block.field())
+        tokens = {spot["id"]: spot["token"] for spot in block.block["slots"]}
+        for _ in range(10):
+            if block.done.isVisible():
+                break
+            block.field().setText(tokens[block.queue[block.pos]])
+            guikit.click(block.check_btn)
+            self.assertEqual(block.verdict.text(), "맞았습니다")
+            guikit.click(block.next_btn)
+        self.assertTrue(block.done.isVisible())
+        self.assertEqual(block.done.text(), ai_text.ROTATE_DONE)
+        self.assertFalse(block.buttons.isVisible())
+        self.assertEqual(block.slots.fields, [])  # 끝나면 가린 곳 없는 판 전체
+        self.assertEqual(len(self.log("recall")), 7)
+        self.assertIsNone(win.ai._state().box("pc-k01"))  # 상자는 움직이지 않음
+        learn = self.open_unit(3)
+        field = learn.view.findChildren(ai_learn.RotateBlock)[0].field()
+        field.setFocus()
+        QTest.keyClick(field, Qt.Key.Key_Right, Qt.KeyboardModifier.AltModifier)
+        self.assertEqual(learn.index, 3)  # Alt+→ 는 단계
+
+    def test_unit_set_draws_code_options(self):
+        """순서 고르기는 2×2 이고 1024×700 에서 스크롤 없이 보임. 코드 보기는 판정 아래 정답 줄 없이 꼬리표만. 단원 묶음은 제목이 자리를
+        말해 자리 꼬리표를 뺌."""
+        win = self.boot((1024, 700))
+        self.at(9)
+        win.ai.mark_read("pc", "18a")
+        self.assertTrue(win.open_ai_practice("unit", lesson="pc", unit="18a"))
+        page = win.ai_quiz
+        self.assertEqual((page.title.text(), page.item["card"]), (self.UNIT, "pc-o01"))
+        self.assertEqual(page.item["chips"][:2], ["학습 루프", "순서 고르기"])
+        self.assertEqual(self.badges(), ["순서 고르기"])
+        choices = page.choices
+        self.assertIsInstance(choices, ai_learn.CodeChoices)
+        self.assertIsInstance(choices.rows[0].box, ai_learn.RadioMark)
+        corners = [row.mapTo(choices, QPoint(0, 0)) for row in choices.rows]
+        self.assertEqual(corners[0].y(), corners[1].y())
+        self.assertLess(corners[0].x(), corners[1].x())
+        self.assertGreater(corners[2].y(), corners[0].y())
+        self.assertEqual(corners[0].x(), corners[2].x())
+        viewport = page.scroll.viewport()
+        self.assertLessEqual(choices.mapTo(viewport, QPoint(0, choices.height())).y(), viewport.height())
+        self.assertEqual(len(choices.rows[0].code.labels), 5)  # 보기마다 줄을 지킨 코드
+        self.answer(right=False)
+        self.assertEqual({row.tag.text() for row in choices.rows if row.tag.isVisible()}, {"정답", "내 답"})
+        self.assertFalse(page.answer_line.isVisible())
+        self.assertFalse(any(holder.isVisible() for holder in page.whys))  # 순서 보기는 풀이 글이 없음
+        guikit.click(page.next_btn)
+        self.assertEqual(page.item["card"], "pc-p01")
+        self.assertEqual(len({row.mapTo(page.choices, QPoint(0, 0)).x() for row in page.choices.rows}), 1)  # 한 열
+        self.answer(right=False)
+        self.assertTrue(any(holder.isVisible() for holder in page.whys))
+        self.assertNotIn("정답:", visible_text(page.verdict))
+        guikit.click(page.next_btn)
+        self.assertEqual(page.item["card"], "pc-k01")
+        self.assertEqual((len(page.slots), len(page.inputs)), (1, 1))
+        self.answer()
+        self.assertEqual(page.answer_line.text(), "정답: `train`")
+        self.assertFalse(page.also_text.isVisible() or page.mine_btn.isVisible())
+
+    def test_change_card_picks_several_lines_and_note_dialog_shows_the_diff(self):
+        win = self.boot((1024, 700))
+        self.at(9)
+        win.ai.mark_read("pc", "18a")
+        self.assertTrue(win.open_ai_practice("note", card="pc-x01"))
+        page = win.ai_quiz
+        self.assertEqual(self.badges()[:2], ["학습 루프", "고르기"])
+        self.assertNotIsInstance(page.choices.rows[0].box, ai_learn.RadioMark)  # 여러 개 고르기는 네모 상자
+        self.answer()
+        self.assertEqual(page.verdict_text.text(), "맞았습니다")
+        self.assertEqual({row.tag.text() for row in page.choices.rows if row.tag.isVisible()}, {"정답 · 내 답"})
+        self.assertIn("정정", visible_text(page.after))
+        count = len(self.log())
+        guikit.click(page.note_btn)
+        dialog = page.note_dialog
+        self.assertEqual(dialog.windowTitle(), self.UNIT)
+        self.assertTrue(dialog.view.findChildren(ai_learn.DiffBlock))
+        dialog.close()
+        guikit.pump()
+        rotate = ai_learn.NoteDialog(win, "pc", "18a/3")
+        rotate.open()
+        guikit.pump()
+        block = rotate.view.findChildren(ai_learn.RotateBlock)[0]
+        self.assertFalse(hasattr(block, "check_btn"))  # 읽기 전용은 판 코드와 가리는 자리만
+        self.assertEqual(block.slots.fields, [])
+        self.assertIn(ai_text.ROTATE_SLOTS % "train · zero_grad · backward · step · argmax · sum", visible_text(rotate))
+        self.assertEqual(len(self.log()), count)
+        rotate.close()
+
+    def test_shared_blank_wrong_shows_a_line_and_override_marks_every_blank(self):
+        """주 자리를 맞히고 함께 가린 칸을 틀리면 판정은 맞음이고 그 칸 번호를 한 줄 더 씀. [내 답도 맞음]이 보이고 누르면 두 칸 모두 맞음."""
+        win = self.boot((1024, 700))
+        self.opened_slots()
+        self.assertTrue(win.open_ai_practice("note", card="pc-k02"))
+        page = win.ai_quiz
+        slots = page.slots[0]
+        self.assertEqual(len(page.inputs), 2)
+        self.assertEqual([label.text() for label in slots.inner.findChildren(QLabel) if label.text() in "①②"], ["①", "②"])
+        page.inputs[0].setFocus()
+        QTest.keyClick(page.inputs[0], Qt.Key.Key_Tab)
+        self.assertIs(QApplication.focusWidget(), page.inputs[1])
+        page.inputs[0].setText("eval")
+        page.inputs[1].setText("zero_grad")
+        guikit.click(page.sure_btn)
+        self.assertEqual(page.verdict_text.text(), "맞았습니다")
+        self.assertEqual(page.answer_line.text(), "정답: ① `train` · ② `zero_grad`")
+        self.assertEqual(slots.result.text(), "① 틀림 · ② 맞음")
+        self.assertEqual(page.also_text.text(), ai_text.also_line([1]))
+        self.assertTrue(page.also_text.isVisible() and page.mine_btn.isVisible())
+        guikit.click(page.mine_btn)
+        self.assertEqual(page.verdict_text.text(), ai_text.OVERRIDDEN)
+        self.assertEqual([field.property("tone") for field in page.inputs], ["success", "success"])
+        self.assertFalse(page.also_text.isVisible() or page.mine_btn.isVisible())
+        self.assertEqual((self.log("override")[-1]["card"], self.log("override")[-1]["also_value"]), ("pc-k02", {"pc-k01": "eval"}))
+
+    def test_lesson_set_keeps_the_place_chip_of_pattern_cards(self):
+        """차시 묶음에 섞인 상황별 코드 문항은 자리가 달라 첫 꼬리표를 남김."""
+        win = self.boot()
+        self.at(4)
+        self.assertTrue(win.open_ai_practice("lesson", lesson="i90"))
+        page = win.ai_quiz
+        self.assertEqual(page.chips({"chips": ["90차시", "빈칸"], "lesson": "i90"}), ["빈칸"])
+        self.assertEqual(page.chips({"chips": ["학습 루프", "고르기"], "lesson": "pc"}), ["학습 루프", "고르기"])
+
+    def test_next_card_and_revisit_use_the_unit_name(self):
+        win = self.boot()
+        sess = win.ai
+        self.at(2)
+        sess.mark_read("i90", "90a")
+        sess.mark_read("i90", "90b")
+        win.go_ai()
+        home = win.ai_home
+        self.assertEqual((home.target["kind"], home.next_card.title.text(), home.next_btn.text()), ("unit", self.UNIT, "학습 시작"))
+        self.assertEqual(home.next_card.line.text(), "읽은 뒤 이 단원 문항부터 풉니다. 약 6분.")  # 읽는 시간은 상황별 코드 단원 값
+        guikit.click(home.next_btn)
+        self.assertEqual((self.page(), win.ai_learn.lid, win.ai_learn.key), (win.ai_learn, "pc", "18a"))
+        for card in sess.cards.values():
+            if card["lesson"] == "i90" and card["core"]:
+                sess._append({"kind": "answer", "set": "s2", "card": card["id"], "result": "pass", "again": 0})
+        sess.mark_read("pc", "18a")
+        win.go_ai()
+        self.assertEqual((home.target["kind"], home.next_card.title.text(), home.next_btn.text()), ("revisit", self.UNIT, "다시 보기"))
+        guikit.click(home.next_btn)
+        self.assertEqual((self.page(), win.ai_revisit.title.text()), (win.ai_revisit, self.UNIT))
+
+    def test_wrong_note_rows_and_code_boxes(self):
+        win = self.boot()
+        self.opened_slots()
+        sess = win.ai
+        service.PracticeSet(sess, "s10a", "unit", ["pc-k02"], 1).answer(["eval", "step"], 2, False)
+        order = service.PracticeSet(sess, "s10b", "unit", ["pc-o01"], 1)
+        right = grade.right_options(order._view(order.queue[0])["item"])
+        order.answer([o["no"] for o in order.current()["options"] if o["no"] not in right][:1], 2, False)
+        win.go_ai()
+        guikit.click(win.ai_home.notes_row)
+        page = win.wrong_page
+        self.assertEqual((page.list.row_of("pc-k02").title.text(), page.list.row_of("pc-o01").title.text()),
+                         ("코드 빈칸 · opt.____()", "순서 고르기 · 줄 순서로 옳은 것 고르기"))
+        page.list.pick(page.list.row_of("pc-o01"))
+        self.assertEqual(page.item_title.text(), self.UNIT)
+        guikit.click(page.explain_btn)
+        self.assertGreaterEqual(page.detail.toHtml().count("<pre"), 6)  # 보기 넷과 내 답, 정답이 줄을 지킨 코드 상자
+        self.assertIn("1번", page.detail.toPlainText())
+        page.list.pick(page.list.row_of("pc-k02"))
+        text = page.detail.toPlainText()
+        self.assertIn("net.①____()", text)  # 코드 울타리 안 빈칸에도 번호
+        self.assertIn("opt.②____()", text)
+
+
 class DesignTest(AiTest):
+    pc = True  # 홈의 상황별 코드 구역, 나란히 보기·돌려 가며 빈칸, 코드 보기 연습도 봄
+
     def screens(self, win):
-        """(이름, 띄우는 함수). 학습 단원은 단계마다, 연습은 답하기 전과 뒤와 끝 요약."""
-        def learn(step):
-            return lambda: win.open_ai_unit("i90", "90a", step)
+        """(이름, 띄우는 함수). 학습 단원은 단계마다, 연습은 답하기 전과 뒤와 끝 요약. 상황별 코드는 단원 단계마다, 돌려 가며 빈칸을
+        채점한 뒤, 순서 고르기(2×2) 문항의 답하기 전과 뒤."""
+        def learn(lid, key, step):
+            return lambda: win.open_ai_unit(lid, key, step)
 
         def practice_after():
             self.answer(right=False)
@@ -978,11 +1314,24 @@ class DesignTest(AiTest):
                     self.answer()
                 guikit.click(page.next_btn)
 
+        def rotate_after():
+            win.open_ai_unit("pc", "18a", 3)
+            block = win.ai_learn.view.findChildren(ai_learn.RotateBlock)[0]
+            block.field().setText("eval")
+            block.check()
+
+        def pattern_set():
+            win.ai.mark_read("pc", "18a")
+            win.open_ai_practice("unit", lesson="pc", unit="18a")
+
         return [("홈", win.go_ai), ("차시", lambda: win.open_ai_lesson("i90"))] + \
-            [("단원 %d단계" % n, learn(n)) for n in range(1, 5)] + \
+            [("단원 %d단계" % n, learn("i90", "90a", n)) for n in range(1, 5)] + \
             [("다시 보기", win.open_ai_revisit), ("외울 것", lambda: win.open_ai_note("i90", True)),
              ("전체 노트", lambda: win.open_ai_note("i90")),
-             ("연습", lambda: win.open_ai_practice("lesson", lesson="i90")), ("연습 답한 뒤", practice_after), ("연습 끝", practice_end)]
+             ("연습", lambda: win.open_ai_practice("lesson", lesson="i90")), ("연습 답한 뒤", practice_after), ("연습 끝", practice_end)] + \
+            [("상황별 단원 %d단계" % n, learn("pc", "18a", n)) for n in range(1, 5)] + \
+            [("돌려 가며 빈칸 채점 뒤", rotate_after), ("상황별 연습", pattern_set), ("상황별 연습 답한 뒤", practice_after),
+             ("상황별 연습 끝", practice_end)]
 
     def test_one_primary_button_and_control_sizes(self):
         """화면 상태마다 주 단추 하나, 단추·줄 높이, 단추 글자 8자 이하, 작업 화면 주 단추는 막대 오른쪽 끝. 부모 없는 부품이 따로 창으로
@@ -1030,8 +1379,9 @@ class DesignTest(AiTest):
 
 
 class RealLessonTest(AiTest):
-    """저장소의 1~6차시 학습 노트. 모든 단원의 모든 단계가 오류 없이 그려지고, 숨긴 줄이 보이지 않고, 1024×700 에서 그림의 넘김 줄과
-    장 설명이 그림과 함께 스크롤 없이 한 화면에 들어감."""
+    """저장소의 1~6차시 학습 노트와 상황별 코드(공개돼 있으면). 모든 단원의 모든 단계가 오류 없이 그려지고, 숨긴 줄이 보이지 않고,
+    1024×700 에서 그림의 넘김 줄과 장 설명이 그림과 함께 스크롤 없이 한 화면에 들어감. 나란히 보기는 행이 줄을 바꾸지 않고 단계 폭을
+    넘지 않음."""
     real_bank = True
 
     def test_every_step_of_lessons_one_to_six_renders(self):
@@ -1039,7 +1389,8 @@ class RealLessonTest(AiTest):
         learn = win.ai_learn
         started = time.monotonic()
         figures = 0
-        for lid in ("i01", "i02", "i03", "i04", "i05", "i06"):
+        patterns = [g["id"] for g in win.ai.overview()["patterns"] if g["ready"]]
+        for lid in ("i01", "i02", "i03", "i04", "i05", "i06", *patterns):
             for unit in win.ai.unit_list(lid):
                 self.assertTrue(win.open_ai_unit(lid, unit["key"], 1), (lid, unit["key"]))
                 for index in range(len(learn.steps)):
@@ -1049,6 +1400,11 @@ class RealLessonTest(AiTest):
                     text = "\n".join(piece.toPlainText() for piece in learn.view.findChildren(TextPiece))
                     self.assertNotIn("<!--", text, where)
                     self.assertNotIn(ai_text.BLOCK_BROKEN, visible_text(learn.view), where)
+                    for block in learn.view.findChildren(ai_learn.DiffBlock):
+                        self.assertEqual({line.height() for line in block.lines}, {theme.TYPE["code"][1]}, where)
+                        self.assertLessEqual(learn.view.minimumSizeHint().width(), learn.view.width(), where)
+                    for block in learn.view.findChildren(ai_learn.RotateBlock):
+                        self.assertEqual(block.count.text(), "1 / %d" % len(block.queue), where)
                     for figure in learn.view.figures:
                         if figure.movie is None:
                             continue

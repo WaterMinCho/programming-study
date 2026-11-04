@@ -3,8 +3,10 @@
 
 홈: 위 막대(← 처음 화면), 제목과 소개, 낱말 풀이(복습 문항, 외운 문항), 알림 줄(시험까지 남은 날, 오늘 푼 문항, 외운 문항),
 이어서 할 일 카드(화면에 하나뿐인 주 단추), 문제집 구역(섞어 풀기, 공개된 차시마다 차시 문제집, 오답 노트), 학습 단원 구역(차시마다 한 줄,
-준비 중인 차시는 끝의 글자 단추 하나로 접음). 하루 목표는 두지 않고(2026-11-03 사용자 결정) 문제집을 원하는 만큼 풀게 함.
-문제집 줄은 외운 문항과 복습 문항을, 학습 단원 줄은 읽은 단원 수를 씀. 상황별 코드와 모의고사 구역은 그 은행이 생기면 더함(지금은 없어서 그리지 않음).
+준비 중인 차시는 끝의 글자 단추 하나로 접음), 상황별 코드 구역(공개된 단원마다 한 줄, 준비 중 단원은 같은 꼴로 접음). 하루 목표는
+두지 않고(2026-11-03 사용자 결정) 문제집을 원하는 만큼 풀게 함. 문제집 줄은 외운 문항과 복습 문항을, 학습 단원 줄은 읽은 단원 수를,
+상황별 코드 줄은 권하는 차시와 외운 문항·복습(안 읽었으면 읽는 시간)을 씀. 상황별 코드 단원은 권하는 차시를 읽기 전에도 열 수 있음.
+모의고사 구역은 그 은행이 생기면 더함(지금은 없어서 그리지 않음).
 차시 화면: 단원 줄, [전체 노트]·[외울 것], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
 from PyQt6.QtWidgets import QWidget
 
@@ -57,6 +59,15 @@ class AiHomePage(QWidget):
         root.addSpacing(12)
         self.lesson_list = kit.RowList()
         root.addWidget(self.lesson_list)
+
+        self.pattern_section = QWidget()  # index.json 에 상황별 코드 무리가 없으면 숨김
+        pattern_box = kit.box(self.pattern_section, (0, 48, 0, 0))
+        head, _, _ = kit.section("상황별 코드")
+        pattern_box.addLayout(head)
+        pattern_box.addSpacing(12)
+        self.pattern_list = kit.RowList()
+        pattern_box.addWidget(self.pattern_list)
+        root.addWidget(self.pattern_section)
         root.addStretch(1)
         column = kit.column(inner)
         column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
@@ -78,18 +89,24 @@ class AiHomePage(QWidget):
             self.info.hide()
             self.lesson_count.setText("")
             self.lesson_list.clear()
+            self.pattern_list.clear()
+            self.pattern_section.hide()
             self.next_card.hide()
             self.show_books(None)
             return
         broken = [row["title"] for row in overview["lessons"] if row.get("error")]
-        self.notice.text.setText(ai_text.BROKEN % ", ".join(broken) if broken else "")
-        self.notice.setToolTip("\n".join("%s: %s" % (row["title"], row["error"]) for row in overview["lessons"] if row.get("error")))
-        self.notice.setVisible(bool(broken))
+        lines = [ai_text.BROKEN % ", ".join(broken)] if broken else []
+        lines += [ai_text.PATTERN_BROKEN % group["title"] for group in overview["patterns"] if group.get("error")]
+        self.notice.text.setText("\n".join(lines))
+        self.notice.setToolTip("\n".join("%s: %s" % (row["title"], row["error"]) for row in overview["lessons"] + overview["patterns"]
+                                         if row.get("error")))
+        self.notice.setVisible(bool(lines))
         self.info.setText(ai_text.exam_line(overview, self.win.ai.today()))
         self.info.setVisible(bool(self.info.text()))
         self.show_next(overview)
         self.show_books(overview)
         self.show_lessons(overview)
+        self.show_patterns(overview)
 
     def show_books(self, overview):
         """문제집 구역. 섞어 풀기, 공개된 차시마다 차시 문제집, 오답 노트 순. overview 가 None 이면(기록을 읽지 못함) 줄 이름만 두고 끔."""
@@ -136,6 +153,30 @@ class AiHomePage(QWidget):
         self.lesson_list.add_more(waiting, ai_text.PREPARING)
         self.lesson_count.setText("공개된 차시 %d개" % ready if ready else "")
 
+    def show_patterns(self, overview):
+        """상황별 코드 구역. 공개된 단원은 한 줄(제목은 단원 이름 "학습 루프 · 미니배치 학습 한 에폭", 점은 읽음 체크·안 읽음 빈 원),
+        준비 중 단원은 끝의 글자 단추로 접음. 무리를 읽지 못했으면 그 무리 줄은 그리지 않고 띠가 까닭을 알림(차시와 같음).
+        그릴 줄이 없으면 구역을 숨김."""
+        self.pattern_list.clear()
+        waiting = []
+        for group in overview["patterns"]:
+            if group.get("error"):
+                continue
+            for unit in group["units"]:
+                if not unit["ready"]:
+                    waiting.append(unit["label"])
+                    continue
+                row = kit.Row(unit["label"], ai_text.pattern_line(unit), mark=kit.Dot("done" if unit["read"] else "todo"),
+                              data=(group["id"], unit["key"]))
+                row.clicked.connect(lambda lid=group["id"], key=unit["key"]: self.open_unit(lid, key))
+                self.pattern_list.add(row)
+        self.pattern_list.add_more(waiting, ai_text.PREPARING)
+        self.pattern_section.setVisible(bool(self.pattern_list.rows or waiting))
+
+    def open_unit(self, lid, key):
+        if not self.busy:
+            self.win.open_ai_unit(lid, key)
+
     def open_lesson(self, lid):
         if not self.busy:
             self.win.open_ai_lesson(lid)
@@ -170,7 +211,7 @@ class AiHomePage(QWidget):
         self.busy = busy
         for widget in (self.hub_btn, self.next_btn):
             widget.setEnabled(not busy)
-        for row in self.books.rows + self.lesson_list.rows:
+        for row in self.books.rows + self.lesson_list.rows + self.pattern_list.rows:
             kit.set_inert(row, busy or (row is self.mixed_row and not self.mixed_ready))
 
     def restyle(self):

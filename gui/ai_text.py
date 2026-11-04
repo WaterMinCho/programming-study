@@ -9,7 +9,7 @@ import re
 
 import mdlite
 from aiprep import bank
-from gui.result_page import band, md_html
+from gui.result_page import band, code_box, md_html
 from session import SessionError
 
 TRACK = "AI 비전 개론"
@@ -24,6 +24,7 @@ PREPARING = "준비 중"
 BOOK = "%d차시 문제집"
 NOTES_ROW = "오답 노트"
 BROKEN = "읽지 못한 차시가 있습니다: %s. [새 문제 받기]로 최신 판을 받은 뒤 다시 열어 보세요."
+PATTERN_BROKEN = "%s를 읽지 못했습니다. [새 문제 받기]로 최신 판을 받은 뒤 다시 열어 보세요."
 FIX_HINT = "파일을 고친 뒤 프로그램을 다시 실행해 주세요."
 GUESS_LATER = "%d단계에서 답을 확인합니다."
 RECALL_HEAD = "떠올리기"
@@ -51,6 +52,10 @@ SURE_WRONG = "확실하다고 했지만 틀렸습니다"
 DONT_KNOW = "모르는 문항으로 넘겼습니다"
 OVERRIDDEN = "맞은 답으로 바꿨습니다"
 MOCK_LATER = "모의고사 화면은 아직 없습니다. [새 문제 받기]로 새 판을 받으면 열립니다."
+ROTATE_HEAD = "돌려 가며 빈칸"
+ROTATE_DONE = "모든 자리를 맞혔습니다."
+ROTATE_SLOTS = "가리는 자리: %s"
+NEXT_SLOT = "다음 자리"
 NUMBERS = bank.NUMBERS
 
 
@@ -62,6 +67,17 @@ def plain(text):
 def number_mark(n):
     """빈칸 번호 글자. 1 → ①."""
     return NUMBERS[n - 1] if 1 <= n <= len(NUMBERS) else "(%d)" % n
+
+
+def also_line(numbers):
+    """뼈대 빈칸에서 함께 가린 칸이 틀렸을 때 정답 줄 아래 한 줄. numbers 는 1부터의 칸 번호. 그 칸 자리를 묻는 문항은 틀린
+    것으로 기록돼 다음 학습일 복습에 나옴."""
+    return "%s 칸은 틀렸습니다. 그 칸을 묻는 문항이 내일 복습에 나옵니다." % "·".join(number_mark(n) for n in numbers)
+
+
+def diff_caption(different, same):
+    """나란히 보기 위 caption. "다른 줄 2개 · 같은 줄 13개"."""
+    return "다른 줄 %d개 · 같은 줄 %d개" % (different, same)
 
 
 # 근거 표기(설계 3.8)
@@ -194,6 +210,19 @@ def unit_line(unit):
     return " · ".join(parts)
 
 
+def pattern_line(unit):
+    """상황별 코드 구역의 단원 줄 둘째 줄. 읽은 단원은 "6차시 뒤에 권함 · 외운 문항 0/8 · 복습 2문항", 안 읽은 단원은
+    "6차시 뒤에 권함 · 약 6분". 권하는 차시는 그 차시를 읽기 전에도 열 수 있다는 뜻이라 늘 앞에 둠."""
+    parts = ["%d차시 뒤에 권함" % unit["after_no"]] if unit.get("after_no") else []
+    if unit["read"]:
+        parts.append(memorised_part(unit))
+        if unit["due"]:
+            parts.append(due_part(unit["due"]))
+    else:
+        parts.append("약 %d분" % unit["minutes"])
+    return " · ".join(parts)
+
+
 def unit_badges(unit):
     out = []
     if unit.get("kind") == "code":
@@ -224,11 +253,9 @@ def next_item(overview, today):
         out.update(title=due_part(item["count"]), line="며칠 전에 푼 문항을 다시 풀 날이 되었습니다.", action="복습 시작")
     elif kind == "unit":
         out.update(title=item["title"], line=unit_why(item, overview, today), action="학습 시작")
-    elif kind == "revisit":
-        lesson = next((row for row in overview["lessons"] if row["id"] == item["lesson"]), None)
-        unit = next((u for u in (lesson or {}).get("units", []) if u["key"] == item["unit"]), None)
-        name = "%d차시 · %s" % (lesson["no"], unit["title"]) if lesson and unit else item["title"]
-        out.update(title=name, line="읽은 단원 가운데 덜 외운 단원입니다. 외울 것을 떠올려 본 뒤 섞어 풉니다.", action="다시 보기")
+    elif kind == "revisit":  # 단원 이름(name)은 서비스가 차시·상황별 코드 모두 한 규칙으로 줌
+        out.update(title=item.get("name") or item["title"], line="읽은 단원 가운데 덜 외운 단원입니다. 외울 것을 떠올려 본 뒤 섞어 풉니다.",
+                   action="다시 보기")
     elif kind == "mock":  # 모의고사 화면이 생기기 전에 엔진이 회차를 권하면 할 일 단추 없이 안내만 둠
         out.update(title=item["title"], line=MOCK_LATER)
     else:
@@ -237,8 +264,10 @@ def next_item(overview, today):
 
 
 def unit_why(item, overview, today):
-    """안 읽은 단원을 권하는 줄. 어제나 오늘 수업한 차시면 그 말을 앞에 붙임. 수업 날과 읽는 시간은 overview 의 차시 줄에서 읽음."""
-    lesson = next((row for row in overview["lessons"] if row["id"] == item["lesson"]), {})
+    """안 읽은 단원을 권하는 줄. 어제나 오늘 수업한 차시면 그 말을 앞에 붙임. 수업 날과 읽는 시간은 overview 의 차시 줄에서,
+    상황별 코드 단원은 patterns 줄에서 읽음(수업 날이 없음)."""
+    rows = list(overview["lessons"]) + list(overview.get("patterns") or [])
+    lesson = next((row for row in rows if row["id"] == item["lesson"]), {})
     unit = next((u for u in lesson.get("units", []) if u["key"] == item["unit"]), {})
     head = ""
     try:
@@ -337,15 +366,9 @@ class AiNotes:
         return "%s · %s" % (kind, card_head(card, self.win.ai))
 
     def detail(self, note, info):
-        """(제목, 본문 HTML). 제목은 그 문항이 나온 단원. 읽지 못하면 AiError(SessionError)."""
-        sess = self.win.ai
-        item = sess.wrong_item(note["key"])
-        title = item["title"]
-        lesson = sess.lessons.get(item.get("lesson"))
-        unit = sess.notes.get(item.get("lesson"), {}).get("units", {}).get(sess.card_info(note["key"]).get("unit"))
-        if lesson and unit:
-            title = "%d차시 · %s" % (lesson["no"], unit["title"])
-        return title, note_html(item, info, answer_word(item))
+        """(제목, 본문 HTML). 제목은 그 문항이 나온 단원의 이름("5차시 · 단원", "학습 루프 · 단원"). 읽지 못하면 AiError(SessionError)."""
+        item = self.win.ai.wrong_item(note["key"])
+        return item.get("name") or item["title"], note_html(item, info, answer_word(item))
 
     def explain(self, note):
         return self.win.ai.explain(note["key"])
@@ -372,7 +395,10 @@ def answer_word(item):
 
 
 def card_head(card, sess):
-    """문항 줄에 쓰는 문제 첫머리. 생성기는 단원 제목, 나머지는 지문의 첫 글 줄. 문장 카드는 stmt_head."""
+    """문항 줄에 쓰는 문제 첫머리. 생성기는 단원 제목, 뼈대 카드는 서비스가 만든 head(빈칸은 주 자리 줄을 가린 꼴
+    `opt.____()`, 고르기는 지문 첫 줄), 나머지는 지문의 첫 글 줄. 문장 카드는 stmt_head."""
+    if card["kind"] == "skel":
+        return card.get("head", "")
     if card["kind"] == "gen":
         unit = sess.notes.get(card["lesson"], {}).get("units", {}).get(card["unit"])
         return unit["title"] if unit else ""
@@ -395,25 +421,39 @@ BAND = (32, 4)  # gui/wrong_page.py 의 BAND 와 같은 띠 여백
 
 def note_html(item, info, word="정답"):
     """오답 노트 문항 칸. 결과 줄, 근거, 문제, 내 답, 펴면 정답과 해설. 근거는 정답을 알려 주지 않아 파이썬 탭처럼 문제 앞에 둠.
-    word 는 정답 줄 머리(answer_word)."""
+    word 는 정답 줄 머리(answer_word). 지문은 코드 울타리 안 빈칸에도 ①② 를 붙임(이 칸에는 CodeSlots 가 없어 어느 칸이 어느
+    답인지 번호로만 알 수 있음). 보기가 코드(code_options, 뼈대 고르기 카드)면 보기·내 답·정답을 줄을 지킨 코드 상자로 그리고 보기
+    풀이는 보기 번호로 이음."""
     lines = item["lines"] or ["틀림"]
+    code = bool(item.get("code_options"))
+    options = item["options"]
     parts = ['<p><b>%s</b></p>' % html.escape(" · ".join(lines))]
     if item["ref"]:
         parts += [band("근거", space=BAND), "<p>%s</p>" % html.escape(ref_text(item["ref"]))]
-    parts += [band("문제", space=BAND), md_html(bank.number_blanks(item["stem"]))]
-    if item["options"]:
-        parts.append("<p>%s</p>" % "<br/>".join("%d. %s" % (n + 1, mdlite.inline_html(text)) for n, text in enumerate(item["options"])))
+    parts += [band("문제", space=BAND), md_html(bank.number_blanks(item["stem"], code=True))]
+    if options and code:
+        parts += ["<p>%d번</p>%s" % (n + 1, code_box(text)) for n, text in enumerate(options)]
+    elif options:
+        parts.append("<p>%s</p>" % "<br/>".join("%d. %s" % (n + 1, mdlite.inline_html(text)) for n, text in enumerate(options)))
     parts.append(band("내 답", space=BAND))
     if item["mine"] is None:
         parts.append("<p>이 컴퓨터에 남은 답이 없습니다.</p>")
+    elif code:  # 고른 보기는 코드 상자, [모르겠어요] 같은 글은 문단
+        parts += [code_box(text) if text in options else "<p>%s</p>" % html.escape(text) for text in item["mine"]] or ["<p>(비움)</p>"]
     else:
         parts.append("<p>%s</p>" % "<br/>".join(mdlite.inline_html(text) or "(비움)" for text in item["mine"]))
     if info is not None:
         parts.append(band("정답과 해설", "answer", BAND))
-        parts.append("<p><b>%s: %s</b></p>" % (word, ", ".join(mdlite.inline_html(a) for a in info["answer"])))
+        if code:
+            parts += ["<p><b>%s</b></p>" % word] + [code_box(a) for a in info["answer"]]
+        else:
+            parts.append("<p><b>%s: %s</b></p>" % (word, ", ".join(mdlite.inline_html(a) for a in info["answer"])))
         if info.get("explain"):
             parts.append("<p>%s</p>" % mdlite.inline_html(info["explain"]))
         whys = [(text, why) for text, why in (info.get("why") or {}).items() if why]
-        if whys:
+        if whys and code:
+            parts.append("<p>%s</p>" % "<br/>".join("%d번: %s" % (options.index(text) + 1, mdlite.inline_html(why))
+                                                     for text, why in whys if text in options))
+        elif whys:
             parts.append("<p>%s</p>" % "<br/>".join("%s: %s" % (mdlite.inline_html(text), mdlite.inline_html(why)) for text, why in whys))
     return "<body>%s</body>" % "".join(parts)

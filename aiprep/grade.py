@@ -350,6 +350,18 @@ def grade_item(item, value, terms=None):
     return {"result": result, "per_blank": per}
 
 
+def grade_skel(view, values, terms=None):
+    """뼈대 빈칸 채점(설계 3.7.1). view 는 skel.slot_view 결과(칸마다 slot·main). 칸마다 grade_item 규칙(빈칸 좌우 문맥 떼기)으로
+    채점하고 result 는 주 자리(main) 칸만으로 pass·stuck 을 정함. 주 자리가 아닌 틀린 칸은 also 에 {자리 id: "stuck"} 로 넣음.
+    빈 값은 그 칸 틀림이고 partial 은 없음. 첫 인자가 카드가 아니라 view 인 것은 함께 가린 칸이 view 마다 달라서임."""
+    graded = grade_item(view, values, terms)
+    blanks = view.get("blanks") or []
+    per = graded["per_blank"]
+    mains = [ok for blank, ok in zip(blanks, per) if blank.get("main")]
+    also = {str(blank["slot"]): "stuck" for blank, ok in zip(blanks, per) if not blank.get("main") and not ok and blank.get("slot")}
+    return {"result": "pass" if mains and all(mains) else "stuck", "per_blank": per, "also": also}
+
+
 def right_options(item):
     """고르기 문항의 답 보기 번호(원래 순서, 0부터). pick 이 right 면 ok 가 참인 보기, wrong 이면 거짓인 보기."""
     want = (item.get("pick") or "right") == "right"

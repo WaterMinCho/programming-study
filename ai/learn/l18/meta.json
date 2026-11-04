@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "id": "l18",
+  "title": "상황별 코드",
+  "lesson": "pc",
+  "defines": [],
+  "needs": ["l01", "l03", "l04", "l05", "l06"],
+  "sections": {
+    "18a": "미니배치 학습 한 에폭"
+  },
+  "outputs": [],
+  "sources": [
+    {"what": "PyTorch MSELoss: reduction 기본값 'mean' 은 출력 원소의 합을 원소 수로 나눔", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.MSELoss.html", "checked": "2026-11-04"},
+    {"what": "PyTorch CrossEntropyLoss: reduction 기본값 'mean', weight 를 주면 정답 클래스 가중치의 합으로 나눈 가중 평균", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html", "checked": "2026-11-04"},
+    {"what": "PyTorch torch.max·torch.argmax: dim 을 주면 (values, indices), argmax 는 그 indices 와 같고 같은 값이 여럿이면 첫 위치", "url": "https://docs.pytorch.org/docs/stable/generated/torch.argmax.html", "checked": "2026-11-04"},
+    {"what": "PyTorch Tensor.item·torch.sum: item 은 원소가 하나인 텐서에서 파이썬 수를 꺼내고, sum 은 텐서를 돌려줌", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.item.html", "checked": "2026-11-04"},
+    {"what": "PyTorch Optimizer.zero_grad: set_to_none 기본값 True, 기울기가 None 인 파라미터는 step 이 건너뜀", "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html", "checked": "2026-11-04"},
+    {"what": "PyTorch nn.Module.train·eval: eval() 은 train(False) 와 같고 Dropout·BatchNorm 같은 층에만 영향", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html", "checked": "2026-11-04"},
+    {"what": "PyTorch Tensor.to·cpu·detach: to 는 옮긴 텐서를 돌려주고(같은 장치면 자기 자신), detach 는 같은 저장소를 쓰는 텐서를 돌려줌", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.to.html", "checked": "2026-11-04"}
+  ],
+  "credits": [],
+  "units": {
+    "18a": {"minutes": 6, "key_figure": "assets/18a-4.png", "kind": "pattern"}
+  }
+}

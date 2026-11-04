@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 출제 도구 테스트. tools/ai_seal.py(봉인·해제·검사·공개본), tools/verify_ai.py(일부러 망가뜨린 사본마다 실패,
 서명·--require-review·--answers), tools/ai_overlap.py(가짜 강의 말뭉치), tools/ai_art(manifest·한도·팔레트), verify_web --bank·--total-mb,
-web_lint --bank 를 봄. 고정 은행 tests/ai_bank 를 임시 폴더에 복사해서 고침.
+web_lint --bank 를 봄. 고정 은행 tests/ai_bank 를 임시 폴더에 복사해서 고침. Pattern 으로 시작하는 클래스는 tests/aifix.pc_bank 로
+상황별 코드(뼈대 S90, l18, pc)를 더한 사본에서 뼈대 검사, 서명, 두 단계 공개본, 겹침 대상을 봄.
 
 실행: python -m unittest tests.test_ai_tools
 numpy·matplotlib·Pillow 가 없으면 팔레트 그리기 테스트를 건너뜀.
@@ -23,6 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import study  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
+from tests import aifix  # noqa: E402
 from tools import ai_art, ai_overlap, ai_seal, verify_ai, verify_web, web_lint  # noqa: E402
 
 try:
@@ -567,6 +569,270 @@ class WebToolTest(Case):
         self.assertIn("bank/ 의 그림 합계", out.getvalue())
         out = io.StringIO()
         self.assertEqual(0, web_lint.main(["--bank", self.bank, "--no-external"], out=out), out.getvalue())
+
+
+class PatternCase(Case):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ai_tools_pc_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.bank = aifix.pc_bank(os.path.join(self.tmp, "bank"))
+
+    def edit_skeleton(self, fn):
+        self.edit_json("patterns/S90.json", fn)
+
+    def edit_entry(self, key, cid, fn):
+        def change(data):
+            for entry in data[key]:
+                if entry["id"] == cid:
+                    fn(entry)
+        self.edit_skeleton(change)
+
+    def assertFailsPc(self, needle):
+        self.assertFails(needle, "pc")
+
+
+class PatternVerifyTest(PatternCase):
+    def test_fixture_passes(self):
+        code, out = self.verify()
+        self.assertEqual(0, code, out)
+        self.assertIn("OK: 묶음 3개 통과", out)
+        self.assertIn("[pc] 상황별 코드", out)
+
+    def test_slot_rules(self):
+        self.edit_entry("slots", "pc-k01", lambda e: e.update(token="eval", answer=["eval"]))
+        self.assertFailsPc("토큰 'eval' 가 0번 줄에 없습니다")
+
+    def test_token_must_appear_once_in_the_variant(self):
+        self.edit_entry("slots", "pc-k04", lambda e: e.update(token="opt", answer=["opt"], line_answer=None))
+        self.assertFailsPc("판 전체에 2번 나옵니다")
+
+    def test_answers_of_one_variant_must_not_overlap(self):
+        self.edit_entry("slots", "pc-k03", lambda e: e["answer"].append("zero_grad"))
+        self.assertFailsPc("pc-k02 와 pc-k03 의 answer 가 겹칩니다")
+
+    def test_line_out_of_range_and_line_answer(self):
+        self.edit_entry("slots", "pc-k02", lambda e: e.update(line_answer=["opt.zero_grad( )"]))
+        self.assertFailsPc("line_answer 첫째는 들여쓰기를 뺀 2번 줄")
+        self.edit_entry("slots", "pc-k02", lambda e: e.update(line=99))
+        self.assertFailsPc("줄 번호가 판 밖입니다")
+
+    def test_order_valid(self):
+        self.edit_entry("orders", "pc-o01", lambda e: e.update(valid=[[0, 1, 2, 3, 3]]))
+        self.assertFailsPc("순열 목록")
+        self.edit_entry("orders", "pc-o01", lambda e: e.update(valid=[[1, 0, 2, 3, 4]]))
+        self.assertFailsPc("판 순서 [0, 1, 2, 3, 4] 가 없습니다")
+
+    def test_pick_options(self):
+        self.edit_entry("picks", "pc-p01", lambda e: e["wrong"][0].update(text="n += c.argmax(1).sum( )"))
+        self.assertFailsPc("코드로 같습니다")
+        self.edit_entry("picks", "pc-p01", lambda e: e["wrong"][0].update(text="n += c.argmax(0).sum()", aim=""))
+        self.assertFailsPc("1번 오답의 aim 칸이 비었습니다")
+
+    def test_change_needs_two_different_lines(self):
+        self.edit_skeleton(lambda d: d["variants"]["나"]["lines"].__setitem__(7, "    n += c.argmax(1).sum()"))
+        self.assertFailsPc("다른 줄이 1개입니다")
+
+    def test_level_ref_and_first_ref(self):
+        self.edit_entry("slots", "pc-k03", lambda e: e.pop("level"))
+        self.assertFailsPc("pc-k03 의 level 은 1~3")
+        self.edit_entry("slots", "pc-k03", lambda e: e.update(level=2, ref=[]))
+        self.assertFailsPc("pc-k03 에 ref 가 없습니다")
+        self.edit_entry("slots", "pc-k03", lambda e: e.update(ref=["PyTorch 문서 Tensor.backward"]))
+        self.assertFailsPc("첫 ref 는 그 줄을 가르친")
+
+    def test_note_blocks_and_marked_fence(self):
+        self.replace("learn/l18/page.md", '"right": "나"', '"right": "다"')
+        self.assertFailsPc("판 '다' 이 뼈대 S90 에 없습니다")
+        self.replace("learn/l18/page.md", '"right": "다"', '"right": "나"')
+        self.replace("learn/l18/page.md", '"variant": "가"}', '"variant": "가", "slots": ["pc-k09"]}')
+        self.assertFailsPc("ai-rotate: 뼈대 S90 의 가 판에 자리 pc-k09 가 없습니다")
+        self.replace("learn/l18/page.md", ', "slots": ["pc-k09"]}', "}")
+        self.replace("learn/l18/page.md", "    e.backward()\n    opt.step()", "    opt.step()\n    e.backward()")
+        self.assertFailsPc("울타리가 뼈대 S90 가 판과 다릅니다(6번째 줄부터)")
+
+    def test_facts_steps_and_errata(self):
+        self.edit_entry("slots", "pc-k03", lambda e: e.update(facts=["F18-09"]))
+        self.assertFailsPc("사실 F18-09 가 facts.json 에 없습니다")
+        self.edit_entry("slots", "pc-k03", lambda e: e.update(facts=["F18-01"], step="18a/2"))
+        self.assertFailsPc("pc-k03 의 facts 가 step 18a/2 단계의")
+        self.edit_entry("slots", "pc-k03", lambda e: e.update(step="18a/1"))
+        self.edit_entry("changes", "pc-x01", lambda e: e.update(explain="모드 줄과 축 줄이 다릅니다."))
+        self.assertFailsPc("pc-x01 는 errata 가 있는데 해설에 정정 문구가 없습니다")
+
+    def test_ids_retired_and_counts(self):
+        self.edit_entry("slots", "pc-k06", lambda e: e.update(id="pc-q06"))
+        self.assertFailsPc("id 꼴이")
+        self.edit_entry("slots", "pc-q06", lambda e: e.update(id="pc-k06"))
+        self.write("retired.json", json.dumps({"format": 1, "ids": ["i90-b99", "pc-k06"]}))
+        self.assertFailsPc("retired.json 에 있는 지운 id 를 다시 썼습니다: pc-k06")
+        self.write("retired.json", json.dumps({"format": 1, "ids": ["i90-b99"]}))
+        self.edit_json("items/pc/meta.json", lambda d: d["units"]["18a"].update(slot=5))
+        self.assertFailsPc("meta.json 의 18a slot 수 5 가 봉인 안 수 6 와 다릅니다")
+
+    def test_tone_memo_and_index_name(self):
+        self.edit_skeleton(lambda d: d["variants"]["가"].update(situation="묶음마다 %s 파라미터를 바꿉니다." % DASH))
+        self.assertFailsPc("em-dash")
+        self.edit_skeleton(lambda d: d["variants"]["가"].update(situation="묶음마다 파라미터를 한 번 바꾸며 학습합니다."))
+        self.replace("learn/l18/page.md", '"cards": ["pc-p01"]', '"cards": ["pc-k03"]')
+        self.assertFailsPc("외울 것이 핵심 카드를 덮지 않습니다: pc-p01")
+        self.replace("learn/l18/page.md", '"cards": ["pc-k03"]', '"cards": ["pc-p01"]')
+        self.edit_json("index.json", lambda d: d["patterns"][0]["units"]["18a"].update(name=""))
+        self.assertFailsPc("18a 단원에 name 이 없습니다")
+
+    @unittest.skipUnless(shutil.which("git"), "git 이 있어야 함")
+    def test_pattern_id_that_disappears_from_the_last_commit(self):
+        import subprocess
+        env = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid"}
+        with mock.patch.dict(os.environ, env):
+            quiet(ai_seal.main, ["seal", "--bank", self.bank])
+            for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "chore: 시작"]):
+                subprocess.run(["git"] + args, cwd=self.bank, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.edit_skeleton(lambda d: d.update(slots=[e for e in d["slots"] if e["id"] != "pc-k06"]))
+            self.edit_json("items/pc/meta.json", lambda d: d["units"]["18a"].update(slot=5))
+            self.assertFailsPc("직전 커밋에 있던 id 가 retired.json 없이 사라졌습니다: pc-k06")
+            self.write("retired.json", '{"format": 1, "ids": ["i90-b99", "pc-k06"]}\n')
+            code, out = self.verify("pc")
+            self.assertEqual(0, code, out)
+
+    def test_static_cards_are_not_allowed(self):
+        self.write("items/pc/work/items.json", json.dumps({"format": 1, "items": []}))
+        self.assertFailsPc("뼈대에서 만듭니다: items.json")
+
+
+class PatternSignTest(PatternCase):
+    def test_signature_covers_patterns(self):
+        self.assertFails("검토 서명(review.json)이 없습니다", "pc", "--require-review")
+        code, out = self.verify("pc", "--sign", *NAMES)
+        self.assertEqual(0, code, out)
+        review = json.loads(study.read_text(self.path("items/pc/work/review.json")))
+        self.assertIn("patterns/S90.json", review["files"])
+        self.assertIn("work/facts.json", review["files"])
+        code, out = self.verify("pc", "--require-review")
+        self.assertEqual(0, code, out)
+        self.edit_entry("slots", "pc-k03", lambda e: e.update(hint="메서드"))
+        self.assertFails("검토 뒤에 바뀐 파일: patterns/S90.json", "pc", "--require-review")
+
+    def brief(self):
+        out_dir = os.path.join(self.tmp, "brief")
+        code, out = quiet(ai_seal.main, ["brief", "pc", "--out", out_dir, "--bank", self.bank])
+        self.assertEqual(0, code, out)
+        read = lambda name: study.read_text(os.path.join(out_dir, name))  # noqa: E731
+        return read("sheet.md"), read("skel.md"), study.read_json(os.path.join(out_dir, "answers.json"))
+
+    def test_brief_has_two_stages_and_no_answers(self):
+        sheet, samples, answers = self.brief()
+        self.assertIn("## S90 가 전체", sheet)
+        self.assertLess(sheet.index("## S90 가 전체"), sheet.index("## pc-o01 시드 1"))
+        for key in ("pc-o01 시드 1", "pc-o01 시드 3", "pc-p01", "pc-x01 시드 2"):
+            self.assertIn("## %s" % key, sheet)
+            self.assertEqual({"picked": []}, answers[key])
+        self.assertNotIn(" f0", sheet)
+        self.assertNotIn("## S90 나 전체", sheet)  # 나 판에는 자리가 없음
+        for hidden in ("set_to_none", "valid", "0번 축이 아니라", "축을 0번으로 씀", "F18-", "정정"):
+            self.assertNotIn(hidden, sheet + samples)
+        self.assertEqual([""] * 6, answers["S90 가 전체"])
+        self.assertIn("net.①____()", sheet)
+        self.assertIn("## pc-k02 f0", samples)
+        self.assertIn("## pc-k06 f3", samples)
+        self.assertEqual(18, len([k for k in answers if ai_seal.SAMPLE_KEY.match(k)]))
+        self.assertIn("학습 모드로 바꾸는 메서드 이름은 ____ 입니다.", sheet)  # 노트의 떠올리기
+
+    def fill(self, answers, wrong=()):
+        cards = {c["id"]: c for c in ai_seal.pattern_cards(self.bank, aifix.PATTERNS)[1]}
+        skeleton = verify_ai.skel.load_patterns(self.bank)["S90"]
+        for key in answers:
+            whole = ai_seal.WHOLE_KEY.match(key)
+            sample = ai_seal.SAMPLE_KEY.match(key)
+            seed = ai_seal.SEED_KEY.match(key)
+            if whole:
+                view = ai_seal.whole_view(skeleton, "가", list(cards.values()))
+                answers[key] = [b["answer"][0] for b in view["blanks"]]
+            elif sample:
+                view = dict(ai_seal.skel_samples(cards[sample.group(1)], skeleton, list(cards.values())))[sample.group(2)]
+                answers[key] = [b["answer"][-1] for b in view["blanks"]]
+            else:
+                card = cards[seed.group(1) if seed else key]
+                view = ai_seal.skel_choice(card, skeleton, int(seed.group(2)) if seed else None)
+                order = ai_seal.skel_option_order(card, len(view["options"]))
+                right = [order.index(n) + 1 for n, o in enumerate(view["options"]) if o["ok"]]
+                answers[key] = {"picked": [p % len(order) + 1 for p in right] if key in wrong else right}
+        return answers
+
+    def test_answers_grade_and_first_pass_counts_stage_one(self):
+        _, _, answers = self.brief()
+        path = os.path.join(self.tmp, "answers.json")
+        study.write_text(path, json.dumps(self.fill(answers), ensure_ascii=False))
+        code, out = self.verify("pc", "--answers", path)
+        total = len(answers)
+        self.assertIn("재풀이 대조: 맞음 %d / %d" % (total, total), out)
+        answers = self.fill(answers, wrong=("pc-o01 시드 2",))
+        answers["pc-k02 f2"][0] = "eval"
+        study.write_text(path, json.dumps(answers, ensure_ascii=False))
+        code, out = self.verify("pc", "--answers", path)
+        self.assertIn("재풀이 대조: 맞음 %d / %d" % (total - 2, total), out)
+        self.assertIn("pc-o01 시드 2 를 재풀이자가 틀렸습니다", out)
+        self.assertIn("pc-k02 f2(pc-k01)", out)
+        code, out = self.verify("pc", "--sign", *(NAMES + ["--first-pass", path]))
+        self.assertEqual(0, code, out)
+        review = json.loads(study.read_text(self.path("items/pc/work/review.json")))
+        stage_one = total - 18
+        self.assertEqual((stage_one, stage_one - 1), (review["first_pass"]["cards"], review["first_pass"]["correct"]))
+
+
+class PatternOverlapTest(PatternCase):
+    def lecture(self, folder, name, text):
+        path = os.path.join(self.tmp, "lecture", folder, name)
+        study.write_text(path, text)
+        return os.path.join(self.tmp, "lecture")
+
+    def run_overlap(self, *targets):
+        out = io.StringIO()
+        code = ai_overlap.main(["--lecture", os.path.join(self.tmp, "lecture"), "--bank", self.bank, "--no-pdf"] + list(targets), out)
+        return code, out.getvalue()
+
+    def test_one_target_brings_every_pattern_file_and_folder(self):
+        self.lecture("강의_03차시_실습", "a.py", "print('다른 코드입니다')\n")
+        code, out = self.run_overlap("l18")
+        self.assertEqual(0, code, out)
+        self.assertIn("대상 17곳", out)
+        names = [t[0] for t in ai_overlap.targets(self.bank, ["S90"])]
+        self.assertIn("l18 page.md", names)
+        self.assertIn("patterns/S90.json 가 판", names)
+        self.assertIn("patterns/S90.json pc-p01", names)
+        self.assertIn("pc facts F18-02", names)
+        self.assertIn("pc errata X18-01", names)
+        self.assertEqual(names, [t[0] for t in ai_overlap.targets(self.bank, ["pc"])])
+
+    def test_skeleton_lines_copied_from_any_lesson_fail(self):
+        self.lecture("강의_03차시_실습", "a.py", "net.train()\nfor a, b in data:\n    opt.zero_grad()\n")
+        code, out = self.run_overlap("l18")
+        self.assertEqual(1, code, out)
+        self.assertIn("실패 patterns/S90.json 가 판: 10자 넘는 코드 줄 3개가 이어 같음", out)
+        self.assertNotIn("net.train()", out)
+
+    def test_pattern_fact_copied_from_lecture_fails(self):
+        sentence = "학습 모드로 바꾸면 배치 정규화 층은 지금 배치의 평균과 분산으로 정규화합니다."
+        self.edit_json("items/pc/work/facts.json", lambda d: d["facts"][1].update(text=sentence))
+        self.lecture("강의_05차시_실습", "note.md", "# 노트\n\n%s\n" % sentence)
+        code, out = self.run_overlap("pc")
+        self.assertEqual(1, code, out)
+        self.assertIn("실패 pc facts F18-02: 산문 20자 이상 같음", out)
+
+
+class PatternOverridesTest(PatternCase):
+    def test_also_value_is_listed_by_slot(self):
+        log = [{"kind": "override", "set": "s1", "again": 0, "card": "pc-k02", "also_value": {"pc-k01": "eval()"},
+                "at": "2026-11-10T20:00:00"},
+               {"kind": "override", "set": "s1", "again": 0, "card": "i90-b01", "value": ["반대쪽"], "at": "2026-11-10T20:01:00"}]
+        subs = os.path.join(self.tmp, "subs")
+        study.write_text(os.path.join(subs, "alice", "ai", "record.json"), json.dumps({"format": 1, "user": "alice", "log": log}))
+        with mock.patch.object(study, "SUBMISSIONS_DIR", subs):
+            code, out = self.verify("--overrides")
+        self.assertEqual(0, code, out)
+        self.assertIn("[내 답도 맞음] 답 2개 문항", out)
+        self.assertIn("pc-k01: eval()(alice)", out)
+        self.assertNotIn("pc-k02:", out)
 
 
 if __name__ == "__main__":

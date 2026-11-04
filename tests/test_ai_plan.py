@@ -102,7 +102,28 @@ class NextCardTest(unittest.TestCase):
         got = plan.next_card(self.ctx(due=12, read_today=7))
         self.assertEqual(("review", "오늘 날짜가 된 문항입니다."), (got["kind"], got["why"]))
         got = plan.next_card(self.ctx(due=0, read_today=7))
-        self.assertEqual(("revisit", "다시 보기 · 5차시 기울기 소실과 폭발"), (got["kind"], got["title"]))
+        self.assertEqual(("revisit", "다시 보기 · 5차시 · 기울기 소실과 폭발"), (got["kind"], got["title"]))
+
+    def test_unit_name_is_the_title(self):
+        unit = dict(self.UNIT, lesson="pc", unit="18a", no=6, date=None, name="학습 루프 · 미니배치 학습 한 에폭")
+        got = plan.next_card(self.ctx(due=0, unit=unit))
+        self.assertEqual(("unit", "학습 루프 · 미니배치 학습 한 에폭", "학습 루프 · 미니배치 학습 한 에폭"), (got["kind"], got["title"], got["name"]))
+        revisit = dict(self.REVISIT, lesson="pc", unit="18a", no=None, name="학습 루프 · 미니배치 학습 한 에폭")
+        got = plan.next_card(self.ctx(due=0, read_today=7, unit=None, revisit=revisit))
+        self.assertEqual(("다시 보기 · 학습 루프 · 미니배치 학습 한 에폭", "학습 루프 · 미니배치 학습 한 에폭"), (got["title"], got["name"]))
+        self.assertEqual("", plan.next_card(self.ctx(due=50))["name"])
+
+    def test_pattern_unit_after_its_lesson(self):
+        today = D(2026, 11, 20)
+        units = [{"lesson": "i07", "no": 7, "date": D(2026, 11, 3), "unit": "7a", "order": 0},
+                 {"lesson": "pc", "no": 6, "date": None, "unit": "18a", "order": 100},
+                 {"lesson": "i06", "no": 6, "date": D(2026, 11, 2), "unit": "6b", "order": 1}]
+        order = []
+        while units:
+            got = plan.pick_unit(units, today)
+            order.append(got["unit"])
+            units.remove(got)
+        self.assertEqual(["6b", "18a", "7a"], order)  # 상황별 코드 단원은 권하는 차시 단원 뒤, 다음 차시 앞
 
     def test_no_goal_keeps_suggesting_units(self):
         got = plan.next_card(self.ctx(due=12, read_today=30, target=None))

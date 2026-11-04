@@ -9,6 +9,7 @@ tools/web_seal.py 의 함수(secrets_of, remove_plain, sealed_problem, inside)�
 import argparse
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +17,7 @@ sys.path.insert(0, ROOT)
 import study  # noqa: E402
 from aiprep import bank as aibank  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
+from aiprep import skel  # noqa: E402
 from tools import web_seal  # noqa: E402
 from webprep import bank  # noqa: E402
 
@@ -23,6 +25,11 @@ NOTE = ("AI 비전 개론의 문항·문장·사실 목록·검토 서명 묶음
         "공개 저장소에 들어간 봉인은 누구나 풀 수 있으니 과제 마감 전 과제 근거 문항은 올리지 않습니다.")
 PARENTS = ("items", "mocks")
 SAMPLES = 10
+SKEL_SEEDS = (1, 2, 3)  # 순서·고칠 줄 카드 견본 시드
+SKEL_FADES = (("f0", None), ("f2", 2), ("f3", 4))  # 뼈대 빈칸 견본 이름과 같은 판 자리 모두에 줄 상자
+WHOLE_KEY = re.compile(r"(S\d+) (.+) 전체\Z")
+SEED_KEY = re.compile(r"(pc-[ox]\d{2,3}) 시드 (\d+)\Z")
+SAMPLE_KEY = re.compile(r"(pc-k\d{2,3}) (f\d)\Z")
 USAGE = """AI 비전 개론 봉인 도구 (출제자용)
 
 문항 묶음(ai/items/<id>/work/)과 모의고사(ai/mocks/<id>/work/)의 평문은 커밋하지 않고 폴더마다 sealed.json 하나로 묶어
@@ -32,6 +39,7 @@ USAGE = """AI 비전 개론 봉인 도구 (출제자용)
   python tools/ai_seal.py unseal [i05 ...]             sealed.json → work/ (고칠 때)
   python tools/ai_seal.py check                        봉인 안 된 평문이 있거나 sealed.json 이 깨졌으면 실패
   python tools/ai_seal.py brief i05 --out DIR          재풀이자에게 줄 공개본(정답 없음)을 저장소 밖 DIR 에 만듦
+  python tools/ai_seal.py brief pc --out DIR           상황별 코드 공개본. sheet.md 를 다 푼 뒤에 skel.md 를 엽니다
 
 --bank DIR 로 은행 폴더를 바꿀 수 있습니다(기본 ai/).
 """
@@ -133,6 +141,104 @@ def statement_rows(topic):
     return [("%s-%d" % (topic.get("id"), n), statement) for n, statement in enumerate(rows, 1)]
 
 
+# 상황별 코드 공개본(뼈대 카드)
+
+def pattern_cards(bank_dir, group):
+    """무리 하나의 뼈대와 공개 단원 카드 (skeletons, cards). l18 meta 의 units 에 적은 단원만."""
+    skeletons = skel.load_patterns(bank_dir)
+    note = aibank.load_note({"id": group["page"], "title": group["title"]}, bank_dir)
+    units = {key: {"after": info["after"], "name": info["name"], "title": note["units"][key]["title"]}
+             for key, info in group["units"].items() if key in note["visible"]}
+    return skeletons, skel.cards(group, skeletons, units)
+
+
+def _slot_cards(cards, pattern, variant):
+    return [c for c in cards if c.get("part") == "slot" and c["pattern"] == pattern and c["variant"] == variant]
+
+
+def whole_view(skeleton, variant, cards):
+    """판 하나의 모든 slot 카드 자리를 한꺼번에 토큰으로 가린 견본(1단계, 키 "S1 표준형 전체"). 카드가 없으면 None.
+    칸은 코드 위치 순이고 칸마다 slot 이 그 자리 id 임."""
+    mine = _slot_cards(cards, skeleton["id"], variant)
+    if not mine:
+        return None
+    return skel.slot_view(mine[0], skeleton, {}, masked=[c["id"] for c in mine[1:]], whole=False)
+
+
+def skel_samples(card, skeleton, cards):
+    """slot 카드 하나의 점차 지우기 견본 [(이름, view)](2단계). 같은 판 slot 카드 모두에 같은 상자를 줘서 f0·f2·f3 판을 만듦."""
+    ids = [c["id"] for c in _slot_cards(cards, card["pattern"], card["variant"])]
+    return [(name, skel.slot_view(card, skeleton, {sid: box for sid in ids})) for name, box in SKEL_FADES]
+
+
+def skel_option_order(card, count):
+    """공개본 뼈대 고르기의 보기 순서(원래 번호 목록). pick 은 정답 줄이 맨 앞이라 Rng 로 섞고, order 는 view 가 이미 섞었고
+    change 는 코드 순서 그대로 보임."""
+    order = list(range(count))
+    if card.get("part") == "pick":
+        genlib.Rng("%s 보기" % card["id"]).shuffle(order)
+    return order
+
+
+def skel_choice(card, skeleton, seed=None):
+    """공개본 고르기 견본의 view. pick 은 시드가 없고 order·change 는 시드로 보기를 만듦."""
+    if card["part"] == "pick":
+        return skel.pick_view(card, skeleton)
+    return skel.view(card, skeleton, seed)
+
+
+def brief_patterns(bank_dir, group, out_dir):
+    """상황별 코드 공개본. sheet.md 에는 판마다 모든 자리를 한꺼번에 가린 판과 순서·줄·고칠 줄 고르기를 두고,
+    skel.md 에는 slot 카드마다 f0·f2·f3 견본을 둠. skel.md 는 sheet.md 답을 answers.json 에 다 적은 뒤에 엶(뼈대 빈칸 견본끼리 서로의 답을 보여 줌).
+    line_answer·valid·wrong why·aim·facts.json 은 넣지 않음."""
+    skeletons, cards = pattern_cards(bank_dir, group)
+    gid = group["id"]
+    lines = ["# %s 재풀이 문제지" % gid, "",
+             "%s 을 읽기 전에 위에서부터 풀고 answers.json 을 채웁니다. 다 적은 뒤에 skel.md 를 엽니다. 빈칸은 ①② 순서대로 칸마다 "
+             "글을 적고, 고르기는 이 문제지에 적힌 번호(1부터)를 씁니다." % group["page"], ""]
+    answers = {}
+    for sid in sorted(skeletons, key=lambda k: int(k[1:])):
+        for variant in skeletons[sid]["variants"]:
+            view = whole_view(skeletons[sid], variant, cards)
+            if view is None:
+                continue
+            key = "%s %s 전체" % (sid, variant)
+            lines += ["## %s" % key, "", aibank.number_blanks(view["stem"], code=True), ""]
+            answers[key] = [""] * len(view["blanks"])
+    for card in cards:
+        if card["part"] == "slot":
+            continue
+        skeleton = skeletons[card["pattern"]]
+        seeds = [None] if card["part"] == "pick" else list(SKEL_SEEDS)
+        for seed in seeds:
+            view = skel_choice(card, skeleton, seed)
+            key = card["id"] if seed is None else "%s 시드 %d" % (card["id"], seed)
+            lines += ["## %s" % key, "", view["stem"], "", "모두 고르기입니다." if view.get("multi") else "하나를 고릅니다.", ""]
+            for n, k in enumerate(skel_option_order(card, len(view["options"])), 1):
+                lines += ["%d." % n, "", "```python", view["options"][k]["text"], "```", ""]
+            answers[key] = {"picked": []}
+    notes = _note_lines(bank_dir, group["page"])
+    if notes:
+        lines += ["## 학습 노트의 먼저 풀어 보기와 떠올리기", ""] + notes + [""]
+    samples = ["# %s 뼈대 빈칸 견본" % gid, "",
+               "sheet.md 의 답을 answers.json 에 모두 적은 뒤에 엽니다. 견본마다 가린 자리가 다르고 서로의 답을 보여 주므로 위에서부터 "
+               "풀고, 이미 적은 답은 고치지 않습니다. 견본 이름의 f0·f2·f3 은 함께 가린 자리 수입니다.", ""]
+    for card in cards:
+        if card["part"] != "slot":
+            continue
+        for name, view in skel_samples(card, skeletons[card["pattern"]], cards):
+            key = "%s %s" % (card["id"], name)
+            samples += ["## %s" % key, "", aibank.number_blanks(view["stem"], code=True), ""]
+            answers[key] = [""] * len(view["blanks"])
+    os.makedirs(out_dir, exist_ok=True)
+    study.write_text(os.path.join(out_dir, "sheet.md"), "\n".join(lines).rstrip() + "\n")
+    study.write_text(os.path.join(out_dir, "skel.md"), "\n".join(samples).rstrip() + "\n")
+    study.write_text(os.path.join(out_dir, "answers.json"), json.dumps(answers, ensure_ascii=False, indent=1) + "\n")
+    print("공개본을 만들었습니다: %s (sheet.md, skel.md, answers.json)" % out_dir)
+    print("재풀이자는 %s 을 읽기 전에 sheet.md 를 풀어 answers.json 에 적고, 그 뒤에 skel.md 를 엽니다. 그다음 "
+          "`python tools/verify_ai.py %s --answers answers.json` 으로 대조합니다." % (group["page"], gid))
+
+
 def _note_lines(bank_dir, page_id):
     """학습 노트의 먼저 풀어 보기·떠올리기(정답을 뺀 것)."""
     lines = []
@@ -163,6 +269,10 @@ def brief(bank_dir, iid, out_dir):
     for folder in (ROOT, bank_dir):
         if web_seal.inside(out_dir, folder):
             raise SystemExit("공개본은 저장소 밖에 만들어 주세요. 저장소 안에 두면 커밋에 섞일 수 있습니다: %s" % out_dir)
+    group = next((g for g in aibank.read_index(bank_dir)["patterns"] if g["id"] == iid), None)
+    if group is not None:
+        brief_patterns(bank_dir, group, out_dir)
+        return
     secrets = web_seal.secrets_of(idir, iid)
     meta = study.read_json(os.path.join(idir, "meta.json"))
     items = json.loads(secrets.get("items.json", '{"items": []}')).get("items") or []

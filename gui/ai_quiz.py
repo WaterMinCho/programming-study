@@ -8,22 +8,22 @@ CodeSlots 가 코드 줄 사이에 입력 칸을 두어 그리고, 울타리 밖
 답을 읽기 전에 조합 중인 한글을 확정함(commit_input). 단축키는 초점을 옮기지 않아 마지막 글자가 빠질 수 있어서임.
 답한 뒤: 판정 줄 아래에 정답 목록, 칸 테두리 색, 빈칸이 둘 이상이면 칸마다 "맞음"·"틀림" 글(코드 칸은 코드 아래 한 줄)을 보이고, 보기는
 꼬리표와 바른 문장을 보임. 문항이 묶음 뒤에 다시 들어가면 몇 문항 뒤에 나오는지 씀. [노트 보기]는 근거 단계를 창 모달 대화상자로 엶.
+뼈대 카드: 빈칸은 판 전체 코드의 CodeSlots 이고, 함께 가린 칸이 틀리면 정답 줄 아래에 그 칸 번호를 한 줄 더 씀([내 답도 맞음]도 보임).
+고르기는 보기가 코드라 CodeChoices(순서 고르기는 2×2)로 그리고 판정 아래 정답 줄 없이 보기 꼬리표만 씀.
 묶음이 끝나면 같은 카드에 요약을 보임. 시험처럼 복사와 붙여넣기는 막힘: 키는 gui/guard.py, 가운데 단추와 끌어다 놓기는 칸마다 PasteBlock."""
 import time
 
 from PyQt6.QtCore import QEvent, QObject, Qt
-from PyQt6.QtGui import QFontMetricsF, QGuiApplication, QKeySequence, QShortcut
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QScrollArea, QWidget
+from PyQt6.QtGui import QGuiApplication, QKeySequence, QShortcut
+from PyQt6.QtWidgets import QLineEdit, QWidget
 
 from aiprep import bank
 from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
-from gui.ai_learn import ChoiceList, NoteDialog, RichPara, doc, reading_column, rich
+from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, rich
 from gui.guard import NOTE as PASTE_NOTE
 from gui.widgets import PasteBlock
 from session import SessionError
-
-SLOT_CHARS = 8  # 코드 칸의 처음 폭(코드 글자 수). 적는 만큼 넓어짐
 
 
 def commit_input():
@@ -72,93 +72,6 @@ class Reveal(QObject):
             for area in self.scrolls():
                 area.ensureWidgetVisible(watched, 16, 16)
         return False
-
-
-class Slot(QLineEdit):
-    """코드 줄 안의 빈칸. 높이는 theme.slot_height(), 폭은 SLOT_CHARS 자에서 시작해 적은 글만큼 넓어짐. 폭은 자리표시 글(hint)도 담음.
-    답한 뒤 자리표시를 지워도 폭이 그대로라 뒤 코드가 움직이지 않음."""
-
-    def __init__(self, font, hint=""):
-        super().__init__()
-        self.setProperty("slot", True)
-        self.hint = hint
-        self.setFont(font)
-        self.setPlaceholderText(hint)
-        self.setToolTip(hint)
-        self.textChanged.connect(self.fit)
-        self.fit()
-
-    def fit(self):
-        metrics = QFontMetricsF(self.font())
-        least = metrics.horizontalAdvance("M" * SLOT_CHARS)
-        want = max(least, metrics.horizontalAdvance(self.text() + "MM"), metrics.horizontalAdvance(self.hint + "M"))
-        self.setFixedWidth(int(want) + 16)
-
-
-class CodeSlots(QFrame):
-    """빈칸이 든 코드 블록. 줄마다 코드 글꼴 QLabel 과 Slot 을 가로로 놓고 줄은 바꾸지 않으며, 넘치면 가로로 스크롤함.
-    marks 는 칸마다 앞에 붙일 번호 글자(빈칸이 하나면 빈 글). result 는 답한 뒤 코드 아래에 칸마다 맞고 틀림을 쓰는 줄이고
-    부른 쪽이 카드에 놓음."""
-
-    def __init__(self, code, hints, marks):
-        super().__init__()
-        self.setObjectName("well")
-        self.code, self.hints, self.marks = code, list(hints), list(marks)
-        self.fields, self.lines = [], []
-        self.result = rich("", "body")
-        outer = kit.box(self, (16, 12, 16, 12))
-        self.area = QScrollArea()
-        self.area.setProperty("flat", True)
-        self.area.setFrameShape(QFrame.Shape.NoFrame)
-        self.area.setWidgetResizable(True)
-        self.area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.inner = QWidget()
-        self.inner.setAutoFillBackground(False)
-        self.area.setWidget(self.inner)
-        self.area.viewport().setAutoFillBackground(False)
-        outer.addWidget(self.area)
-        self.build()
-
-    def build(self):
-        font = theme.code_font(theme.text_px() - 1)
-        column = kit.box(self.inner)
-        count = 0
-        for line in self.code.split("\n"):
-            holder = QWidget()
-            row = QHBoxLayout(holder)
-            row.setContentsMargins(0, 0, 0, 0)
-            row.setSpacing(0)
-            pieces = BLANK.split(line)
-            for n, piece in enumerate(pieces):
-                if piece:
-                    label = QLabel(piece)
-                    label.setTextFormat(Qt.TextFormat.PlainText)
-                    label.setFont(font)
-                    row.addWidget(label)
-                if n < len(pieces) - 1:
-                    mark = self.marks[count] if count < len(self.marks) else ""
-                    if mark:
-                        row.addWidget(kit.label(mark, "label", bold=True))  # 코드 밖 칸 번호와 같은 크기
-                    hint = self.hints[count] if count < len(self.hints) else ""
-                    slot = Slot(font, hint)
-                    row.addWidget(slot)
-                    self.fields.append(slot)
-                    count += 1
-            row.addStretch(1)
-            holder.setFixedHeight(theme.slot_height() if len(pieces) > 1 else theme.TYPE["code"][1])
-            column.addWidget(holder)
-            self.lines.append(holder)
-        self.fit()
-
-    def fit(self):
-        """줄 높이의 합에 가로 스크롤 막대가 필요하면 그 높이를 더함."""
-        height = sum(line.maximumHeight() for line in self.lines)
-        wide = self.inner.sizeHint().width() > max(1, self.area.viewport().width())
-        self.area.setFixedHeight(height + (self.area.horizontalScrollBar().sizeHint().height() if wide else 0))
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.fit()
 
 
 class PracticePage(QWidget):
@@ -257,13 +170,12 @@ class PracticePage(QWidget):
                 self._drop(item.layout())
 
     def chips(self, item):
-        """머리 꼬리표. 단원·차시 묶음에서 그 차시 문항이면 묶음 제목이 차시를 말하므로 차시 꼬리표를 뺌."""
+        """머리 꼬리표. 첫 꼬리표는 늘 자리(차시 "5차시", 상황별 코드 "학습 루프")이고, 단원·차시 묶음에서 그 묶음의 문항이면 묶음
+        제목이 자리를 말하므로 뺌. 차시 묶음에 섞인 상황별 코드 문항은 자리가 달라 남김."""
         chips = list(item["chips"])
         practice = self.practice
         if chips and practice is not None and practice.mode in ("unit", "lesson") and item.get("lesson") == practice.lesson:
-            lesson = self.win.ai.lessons.get(item.get("lesson")) if self.win.ai is not None else None
-            if lesson and chips[0] == "%d차시" % lesson["no"]:
-                chips = chips[1:]
+            chips = chips[1:]
         return chips
 
     def show_item(self, item):
@@ -282,10 +194,13 @@ class PracticePage(QWidget):
         verdict_col = kit.box(self.verdict, spacing=4)
         self.verdict_text = kit.label("", "headline")
         self.answer_line = rich("")
+        self.also_text = kit.para("", "body", "secondary")  # 뼈대 빈칸에서 함께 가린 칸이 틀렸을 때
         self.requeue = kit.para("", "body", "secondary")
         verdict_col.addWidget(self.verdict_text)
         verdict_col.addWidget(self.answer_line)
+        verdict_col.addWidget(self.also_text)
         verdict_col.addWidget(self.requeue)
+        self.also_text.hide()
         self.card_box.addWidget(self.verdict)
         self.verdict.hide()
         if item["kind"] == "blank":
@@ -376,8 +291,16 @@ class PracticePage(QWidget):
             fields.deleteLater()
 
     def build_choice(self, item):
+        """지문과 보기. 보기가 코드(뼈대 카드)면 CodeChoices 이고 grid 가 2 면 2×2. 보기 아래 풀이 칸(whys)은 보기마다 하나."""
         self.docs.append(doc(item["stem"], "", self.card_box))
-        self.choices = ChoiceList([o["text"] for o in item["options"]], single=not item["multi"])
+        texts = [o["text"] for o in item["options"]]
+        if item.get("code_options"):
+            self.choices = CodeChoices(texts, single=not item["multi"], grid=item.get("grid") or 1)
+            self.whys = self.choices.whys
+            self.card_box.addWidget(self.choices)
+            self.inputs = list(self.choices.rows)
+            return
+        self.choices = ChoiceList(texts, single=not item["multi"])
         self.whys = []
         column = self.choices.layout()
         for n, row in enumerate(self.choices.rows):
@@ -458,6 +381,9 @@ class PracticePage(QWidget):
             self.mark_blanks(feedback["per_blank"], feedback["correct"])
         else:
             self.mark_choice(feedback)
+        also = [row["blank"] + 1 for row in feedback.get("also") or []]
+        self.also_text.setText(ai_text.also_line(also) if also else "")
+        self.also_text.setVisible(bool(also))
         self.show_requeue(feedback["result"] == "pass")
         self.verdict.show()
         self.explain(feedback)
@@ -514,7 +440,10 @@ class PracticePage(QWidget):
             if no in right:
                 shown.append(self.item["options"][n]["text"])
         word = "옳지 않은 문장" if self.item.get("pick") == "wrong" else "정답"
+        if self.item.get("code_options"):  # 여러 줄 코드를 한 줄에 이으면 읽을 수 없어 보기 꼬리표만 씀
+            shown = []
         self.answer_line.setText("%s: %s" % (word, " · ".join(shown)) if shown else "")
+        self.answer_line.setVisible(bool(shown))
 
     def show_requeue(self, passed):
         """방금 답한 문항이 묶음 뒤에 다시 들어갔으면 몇 문항 뒤에 나오는지 쓰고 위 막대의 전체 문항 수를 늘림. 묶음 길이가 늘어난 까닭을 알림."""
@@ -547,7 +476,8 @@ class PracticePage(QWidget):
         self.after.setVisible(box.count() > 0)
 
     def override(self):
-        """[내 답도 맞음]. 방금 틀린 빈칸 답을 맞음으로 바꿈."""
+        """[내 답도 맞음]. 방금 틀린 빈칸 답을 맞음으로 바꿈. 뼈대 빈칸은 서비스가 함께 가린 칸까지 틀린 칸 모두를 한 번에 바꾸므로
+        화면도 모든 칸을 맞음으로 칠하고 함께 가린 칸 줄을 지움."""
         try:
             feedback = self.practice.override()
         except SessionError as error:
@@ -557,6 +487,7 @@ class PracticePage(QWidget):
         self.verdict_text.setText(ai_text.OVERRIDDEN)
         kit.set_tone(self.verdict_text, "success")
         self.mark_blanks([True] * len(self.inputs), self.answers_of())
+        self.also_text.hide()
         self.show_requeue(True)
         self.set_buttons()
 
@@ -639,7 +570,7 @@ class PracticePage(QWidget):
         for button, on in ((self.dont_btn, asking), (self.unsure_btn, asking), (self.sure_btn, asking), (self.next_btn, answered),
                            (self.note_btn, answered and bool(self.item and self.item.get("step"))),
                            (self.mine_btn, answered and self.item["kind"] == "blank" and not self.dontknow
-                            and self.feedback["result"] != "pass" and not self.feedback.get("overridden")),
+                            and (self.feedback["result"] != "pass" or self.feedback.get("also")) and not self.feedback.get("overridden")),
                            (self.home_btn, ended), (self.again_btn, ended)):
             button.setVisible(bool(on))
             button.setEnabled(not self.busy)
@@ -705,15 +636,5 @@ class PracticePage(QWidget):
             piece.restyle(theme.web_css())
         for widget in self.findChildren(RichPara):
             widget.restyle()
-        font = theme.code_font(theme.text_px() - 1)
         for slots in self.slots:
-            for label in slots.inner.findChildren(QLabel):
-                if label.property("role") is None:
-                    label.setFont(font)
-            for field in slots.fields:
-                field.setFont(font)
-                field.fit()
-            slots.result.restyle()
-            for line in slots.lines:
-                line.setFixedHeight(theme.slot_height() if line.findChild(Slot) else theme.TYPE["code"][1])
-            slots.fit()
+            slots.restyle()

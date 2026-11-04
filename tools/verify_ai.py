@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 문항 묶음·학습 노트 블록·그림·서명 검증(설계 4.6, 8.7). 실패가 하나라도 있으면 1 로 끝남.
 
-  python tools/verify_ai.py [i05 common ...]           출제된 문항 묶음 전부(또는 적은 것)를 봄
+  python tools/verify_ai.py [i05 common pc ...]        출제된 문항 묶음 전부(또는 적은 것)를 봄. pc 는 상황별 코드(뼈대 카드)
   python tools/verify_ai.py i05 --seeds 50             생성기를 50 시드만 돌림(기본 300)
   python tools/verify_ai.py i05 --answers FILE         재풀이 답안(ai_seal.py brief 가 만든 answers.json)을 채점함
   python tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4"
@@ -15,6 +15,9 @@
 그 밖의 옵션: --bank DIR(기본 ai/), --manifest FILE(기본 tools/ai_art/manifest.json). 학습 노트의 글 꼴·말투·맥락과 서명은
 verify_web.py --bank ai 와 web_lint.py --bank ai 가 보고, 여기서는 ai-* 블록·프레임 줄·단계 사실 줄·그림 한도와 manifest 를 봄.
 검사 번호와 이름은 STEP_NAMES 에 있음. 표준 라이브러리만 씀.
+
+상황별 코드(pc)는 차시와 같은 흐름을 탐. 학습 노트 l18, items/pc 의 facts.json, ai/patterns/S*.json 에서 만든 뼈대 카드를 Lesson
+하나로 묶어 check_lesson 을 돌리고, 19 뼈대 검사로 판·자리·순서·고르기·고칠 줄을 봄. pc 서명은 ai/patterns/*.json 을 모두 덮음.
 """
 import argparse
 import json
@@ -30,13 +33,13 @@ sys.path.insert(0, ROOT)
 import study  # noqa: E402
 from aiprep import bank as aibank  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
-from aiprep import grade, review  # noqa: E402
+from aiprep import grade, review, skel  # noqa: E402
 from tools import ai_art, ai_seal, check_style, verify_web, web_lint  # noqa: E402
 from webprep import bank as webbank  # noqa: E402
 
 STEP_NAMES = {1: "목록", 2: "문항 꼴", 3: "빈칸 규칙", 4: "고르기", 5: "문장", 6: "생성기", 7: "사실 확인", 8: "노트 블록", 9: "근거",
               10: "말투", 11: "맥락", 12: "모의고사", 13: "그림", 14: "한도", 15: "비밀 값", 16: "검토 서명", 17: "재풀이 대조",
-              18: "강의 파일"}
+              18: "강의 파일", 19: "뼈대"}
 VERDICTS = ("맞음", "단순화", "부분적으로 맞음", "버전 차이", "틀림", "확인 못 함")
 BAD_VERDICTS = ("틀림", "확인 못 함")
 ASK_AS = ("단순화", "부분적으로 맞음")
@@ -65,6 +68,7 @@ MIN_STEMS = 20
 FULL_SEEDS = 100  # 서로 다른 지문 수는 시드를 이만큼 이상 돌릴 때만 봄
 STYLE_SAMPLES = 20
 IMAGE_REF = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
+SKEL_COMMENT = re.compile(r"(^|\s)#")
 
 
 class Verifier(object):
@@ -187,6 +191,8 @@ class Lesson(object):
         self.entry, self.note, self.data, self.cards = entry, note, data, cards
         self.id = entry["id"]
         self.units = note["units"] if note else {}
+        self.group = None  # 상황별 코드면 index.json patterns 항목
+        self.skeletons = {}  # 노트의 ai-diff·ai-rotate·skel 울타리와 뼈대 카드가 쓰는 뼈대
 
 
 def ref_kind(ref):
@@ -208,7 +214,9 @@ def first_ref_ok(ref, no):
 
 
 def card_texts(card):
-    """카드에서 학습자에게 보이는 글 [(어디, 글, 마크다운인지)]."""
+    """카드에서 학습자에게 보이는 글 [(어디, 글, 마크다운인지)]. 뼈대 카드는 skel.card_texts."""
+    if card["kind"] == "skel":
+        return skel.card_texts(card)
     out = []
     cid = card["id"]
     if card["kind"] in ("blank", "choice"):
@@ -248,7 +256,10 @@ def check_alt(v, les, card):
 
 def check_card_common(v, les, card, ids, retired):
     cid, label = card["id"], les.id
-    kind_letter = {"blank": "b", "choice": "c", "stmt": "s", "gen": "g"}[card["kind"]]
+    if card["kind"] == "skel":
+        kind_letter = skel.PART_LETTER[card["part"]]
+    else:
+        kind_letter = {"blank": "b", "choice": "c", "stmt": "s", "gen": "g"}[card["kind"]]
     if not re.match(r"%s-%s\d{2,3}\Z" % (les.id, kind_letter), cid):
         v.fail(label, 2, "%s 의 id 꼴이 %s-%s07 이 아닙니다." % (cid, les.id, kind_letter))
     if cid in ids:
@@ -259,6 +270,8 @@ def check_card_common(v, les, card, ids, retired):
     unit = les.units.get(card["unit"])
     if unit is None:
         v.fail(label, 2, "%s 의 unit %s 가 학습 노트 sections 에 없습니다." % (cid, card["unit"]))
+    if les.group is not None and card["unit"] not in les.group["units"]:
+        v.fail(label, 2, "%s 의 unit %s 가 index.json patterns 단원에 없습니다." % (cid, card["unit"]))
     step = card.get("step")
     found = re.match(r"(\w+)/(\d+)\Z", str(step or ""))
     if not found or found.group(1) != card["unit"]:
@@ -289,7 +302,10 @@ def check_refs(v, les, card):
     for ref in refs:
         if ref_kind(ref)[0] is None:
             v.fail(label, 9, "%s 의 ref 꼴이 3.8 표에 없습니다: %s" % (cid, ref))
-    if not first_ref_ok(refs[0], lesson_no(les.id)):
+    if card["kind"] == "skel":  # 상황별 코드는 차시 번호를 견주지 않고 강의 꼴이나 요약본이면 됨
+        if ref_kind(refs[0])[0] not in ("lecture", "summary"):
+            v.fail(label, 9, "%s 의 첫 ref 는 그 줄을 가르친 강의 슬·노트북·과제·강의노트나 요약본이어야 합니다: %s" % (cid, refs[0]))
+    elif not first_ref_ok(refs[0], lesson_no(les.id)):
         v.fail(label, 9, "%s 의 첫 ref 는 %d차시의 슬·노트북·과제·강의노트·요약본이어야 합니다: %s" % (cid, lesson_no(les.id), refs[0]))
     kinds = {ref_kind(r)[0] for r in refs}
     if kinds and kinds <= {"graduate", "official"} and not card["deep"]:
@@ -317,6 +333,8 @@ def check_facts(v, les, card, used):
             v.fail(label, 7, "%s 가 개념 문항으로만 쓰는 사실 %s 를 값 빈칸으로 묻습니다." % (cid, fid))
     if card["errata"]:
         explain = (card.get("item") or {}).get("explain", "") if card["kind"] != "stmt" else card["stmt"].get("why", "")
+        if card["kind"] == "skel":
+            explain = " ".join(text for where, text, _ in skel.card_texts(card) if where.endswith(":explain"))
         if card["kind"] == "gen":
             explain = "정정" if "정정" in card["gen"].doc else ""
         if "정정" not in explain:
@@ -534,20 +552,24 @@ def check_counts(v, les):
     label = les.id
     meta_units = les.data["meta"].get("units") or {}
     actual = {}
+    zero = {"blank": 0, "choice": 0, "stmt": 0, "gen": [], "core": 0, "slot": 0, "order": 0, "pick": 0, "change": 0}
     for card in les.cards:
-        row = actual.setdefault(card["unit"], {"blank": 0, "choice": 0, "stmt": 0, "gen": [], "core": 0})
+        row = actual.setdefault(card["unit"], json.loads(json.dumps(zero)))
         if card["kind"] == "gen":
             row["gen"].append(card["id"])
+        elif card["kind"] == "skel":
+            row[card["part"]] += 1
         else:
             row[card["kind"]] += 1
         row["core"] += int(card["core"])
+    names = ("blank", "choice", "stmt", "core") + (tuple(skel.PART_LETTER) if les.group is not None else ())
     for key in sorted(set(meta_units) | set(actual)):
         want = meta_units.get(key)
-        got = actual.get(key, {"blank": 0, "choice": 0, "stmt": 0, "gen": [], "core": 0})
+        got = actual.get(key, zero)
         if want is None:
             v.fail(label, 2, "items meta.json units 에 %s 단원이 없습니다." % key)
         else:
-            for name in ("blank", "choice", "stmt", "core"):
+            for name in names:
                 if int(want.get(name, 0)) != got[name]:
                     v.fail(label, 2, "meta.json 의 %s %s 수 %s 가 봉인 안 수 %d 와 다릅니다." % (key, name, want.get(name, 0), got[name]))
             if sorted(want.get("gen") or []) != sorted(got["gen"]):
@@ -592,7 +614,7 @@ def check_note_blocks(v, les):
                     v.fail(label, 8, "%s 의 %s 블록: %s" % (spot, kind, block["error"]))
                     continue
                 bid = block.get("id")
-                if kind in ("guess", "recall"):
+                if kind in ("guess", "recall", "rotate"):
                     if not bid:
                         v.fail(label, 8, "%s 의 %s 블록에 id 가 없습니다." % (spot, kind))
                     elif bid in ids:
@@ -649,17 +671,63 @@ def check_note_blocks(v, les):
                 elif kind == "figure":
                     for n, frame in enumerate(block["frames"], 1):
                         v.style(label, "%s 그림 %s 프레임 %d" % (spot, block["file"], n), frame["text"])
+                elif kind in ("diff", "rotate"):
+                    skel_block(v, les, spot, block)
         missing = sorted(cid for cid, card in mine.items() if card["core"] and cid not in covered)
         if missing:
             v.fail(label, 8, "%s 의 외울 것이 핵심 카드를 덮지 않습니다: %s" % (where, verify_web.listing(missing)))
         meta = note["unit_meta"].get(key, {})
         if meta.get("key_figure") and not os.path.isfile(os.path.join(note["dir"], *str(meta["key_figure"]).split("/"))):
             v.warn(label, 13, "%s 의 key_figure 파일이 아직 없습니다: %s" % (where, meta["key_figure"]))
+    skel_fences(v, les)
+
+
+def skel_block(v, les, spot, block):
+    """ai-diff 는 뼈대와 두 판이, ai-rotate 는 뼈대·판과 slots 의 자리가 있어야 함."""
+    label = les.id
+    skeleton = les.skeletons.get(str(block.get("skel")))
+    if skeleton is None:
+        v.fail(label, 8, "%s 의 ai-%s 뼈대 %s 가 ai/patterns 에 없습니다." % (spot, block["kind"], block.get("skel")))
+        return
+    variants = skeleton.get("variants") or {}
+    sides = ("left", "right") if block["kind"] == "diff" else ("variant",)
+    for side in sides:
+        if block.get(side) not in variants:
+            v.fail(label, 8, "%s 의 ai-%s %s 판 %r 이 뼈대 %s 에 없습니다." % (spot, block["kind"], side, block.get(side), skeleton["id"]))
+            return
+    if block["kind"] == "rotate":
+        try:
+            skel.rotate_block(skeleton, block["variant"], block.get("slots") if isinstance(block.get("slots"), list) else None)
+        except aibank.AiBankError as error:
+            v.fail(label, 8, "%s 의 ai-rotate: %s" % (spot, error))
+
+
+def skel_fences(v, les):
+    """<!-- skel: S1 표준형 --> 표시 바로 아래 코드 울타리가 그 판 lines 와 같은지. 줄 끝 # 주석과 끝 공백, 빈 줄은 뗌."""
+    for fence in aibank.skel_fences(les.note.get("markdown", "")):
+        where = "%s %d번 줄" % (les.note["id"], fence["line"])
+        skeleton = les.skeletons.get(fence["skel"])
+        if skeleton is None or fence["variant"] not in (skeleton.get("variants") or {}):
+            v.fail(les.id, 8, "%s 의 skel 표시가 없는 뼈대·판을 가리킵니다: %s %s" % (where, fence["skel"], fence["variant"]))
+            continue
+        if fence["code"] is None:
+            v.fail(les.id, 8, "%s 의 skel 표시 바로 아래에 닫힌 코드 울타리가 없습니다." % where)
+            continue
+        got = []
+        for line in fence["code"]:
+            line = re.sub(r"\s+#.*$", "", line).rstrip()
+            if line.strip() and not line.lstrip().startswith("#"):
+                got.append(line)
+        want = [line.rstrip() for line in skel.lines_of(skeleton, fence["variant"])]
+        if got != want:
+            at = next((n for n, (a, b) in enumerate(zip(got, want)) if a != b), min(len(got), len(want)))
+            v.fail(les.id, 8, "%s 의 울타리가 뼈대 %s %s 판과 다릅니다(%d번째 줄부터)." % (where, fence["skel"], fence["variant"], at + 1))
 
 
 def check_context(v, les, terms, pages_no):
-    """문항 글의 terms 낱말이 이 차시까지 소개됐는지(page·intro 차시가 이 차시보다 뒤면 실패)."""
-    label, no = les.id, lesson_no(les.id)
+    """문항 글의 terms 낱말이 이 차시까지 소개됐는지(page·intro 차시가 이 차시보다 뒤면 실패). 상황별 코드 카드는 권하는
+    차시(after)까지로 봄."""
+    label = les.id
     forms = []
     for term in terms["terms"]:
         first = [pages_no.get(p) for p in (term.get("intro"), term.get("page")) if pages_no.get(p) is not None]
@@ -668,6 +736,9 @@ def check_context(v, les, terms, pages_no):
                 forms.append((form, term["term"], min(first)))
     forms.sort(key=lambda f: -len(f[0]))
     for card in les.cards:
+        no = lesson_no(card.get("after")) if card["kind"] == "skel" else lesson_no(les.id)
+        if no is None:
+            continue
         for where, text, _ in card_texts(card):
             plain = re.sub(r"```.*?```", "", str(text), flags=re.S)
             for form, term, at in forms:
@@ -696,11 +767,10 @@ def intro_definitions(v, bank_dir, terms, index):
             v.fail("terms", 11, "'%s'의 intro 페이지 %s 에 한 문장 정의가 없습니다." % (term["term"], pid))
 
 
-def git_ids(bank_dir, lid):
-    """직전 커밋(HEAD)의 그 차시 카드·문장 id. git 이 없거나 그 커밋에 없으면 None."""
-    folder = aibank.items_dir(lid, bank_dir)
+def git_root(bank_dir):
+    """은행이 든 git 저장소 맨 위 폴더. git 저장소 밖(임시 사본)이거나 git 이 없으면 None."""
     here = os.path.abspath(bank_dir)
-    while not os.path.exists(os.path.join(here, ".git")):  # git 저장소 밖(임시 사본)이면 git 을 부르지 않음
+    while not os.path.exists(os.path.join(here, ".git")):  # git 저장소 밖이면 git 을 부르지 않음
         parent = os.path.dirname(here)
         if parent == here:
             return None
@@ -710,15 +780,43 @@ def git_ids(bank_dir, lid):
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8")
     except OSError:
         return None
-    if top.returncode != 0:
+    return top.stdout.strip() if top.returncode == 0 else None
+
+
+def git_pattern_ids(bank_dir, root):
+    """직전 커밋(HEAD)의 ai/patterns/S*.json 카드 id. 그 커밋에 폴더가 없으면 None."""
+    rel = os.path.relpath(os.path.realpath(os.path.join(bank_dir, "patterns")), os.path.realpath(root)).replace(os.sep, "/")
+    listed = subprocess.run(["git", "ls-tree", "--name-only", "HEAD", rel + "/"], cwd=root, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    names = [n for n in listed.stdout.decode("utf-8", "replace").split("\n") if re.search(r"/S\d+\.json\Z", n)]
+    if listed.returncode != 0 or not names:
         return None
-    root = top.stdout.strip()
+    ids = set()
+    for name in names:
+        shown = subprocess.run(["git", "show", "HEAD:%s" % name], cwd=root, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.DEVNULL)
+        try:
+            data = json.loads(shown.stdout.decode("utf-8"))
+            ids |= {str(e["id"]) for key in skel.PART_KEY.values() for e in data.get(key) or []}
+        except (ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return ids
+
+
+def git_ids(bank_dir, lid):
+    """직전 커밋(HEAD)의 그 차시 카드·문장 id. 상황별 코드(pc)는 ai/patterns 뼈대 카드 id 도 더함. git 이 없거나 그 커밋에
+    없으면 None."""
+    folder = aibank.items_dir(lid, bank_dir)
+    root = git_root(bank_dir)
+    if root is None:
+        return None
     rel = os.path.relpath(os.path.realpath(folder), os.path.realpath(root)).replace(os.sep, "/")
     ids = set()
+    patterns = git_pattern_ids(bank_dir, root) if lid == "pc" else None
     shown = subprocess.run(["git", "show", "HEAD:%s/sealed.json" % rel], cwd=root, stdin=subprocess.DEVNULL,
                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if shown.returncode != 0:
-        return None
+        return patterns
     try:
         files = study.unseal_blob(json.loads(shown.stdout.decode("utf-8"))["blob"])
         for item in json.loads(files.get("items.json", '{"items": []}')).get("items") or []:
@@ -731,7 +829,7 @@ def git_ids(bank_dir, lid):
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if gens.returncode == 0:
         ids |= set(re.findall(r"""(?:@gen|register)\(\s*['"]([\w-]+)['"]""", gens.stdout.decode("utf-8", "replace")))
-    return ids
+    return ids | (patterns or set())
 
 
 def load_lesson(v, bank_dir, entry):
@@ -754,9 +852,55 @@ def load_lesson(v, bank_dir, entry):
     return Lesson(entry, note, data, aibank.cards_of(entry, data))
 
 
+def load_pattern_group(v, bank_dir, group, skeletons):
+    """상황별 코드 무리 하나를 Lesson 꼴로. entry {"id", "no": None, "page", "title"}, note(l18), data(items/<무리>, facts·review
+    만), cards(공개 단원의 뼈대 카드). 정적 카드(items.json·statements.json)가 있으면 실패(엔진이 읽지 않음)."""
+    label = group["id"]
+    entry = {"id": label, "no": None, "page": group["page"], "title": group["title"]}
+    note = None
+    if os.path.isfile(os.path.join(aibank.page_dir(group["page"], bank_dir), "meta.json")):
+        try:
+            note = aibank.load_note({"id": group["page"], "title": group["title"]}, bank_dir)
+        except aibank.AiBankError as error:
+            v.fail(label, 8, str(error))
+    else:
+        v.fail(label, 2, "학습 노트 %s/meta.json 이 없습니다." % group["page"])
+    try:
+        data = aibank.load_items({"id": label}, bank_dir, with_gens=False)
+    except aibank.AiBankError as error:
+        v.fail(label, 2, str(error))
+        return None
+    if not data["facts"]:
+        v.fail(label, 7, "봉인 안 facts.json 이 없거나 사실이 비었습니다.")
+    try:
+        extra = sorted(set(webbank.load_secrets(data["dir"])) - {"facts.json", "review.json"})
+    except webbank.BankError:
+        extra = []
+    extra += [name for name in ("gens.py", "oracle.py") if os.path.isfile(os.path.join(data["dir"], name))]
+    if extra:
+        v.fail(label, 2, "items/%s 에는 facts.json 과 review.json 만 둡니다. 카드는 ai/patterns 뼈대에서 만듭니다: %s"
+               % (label, ", ".join(extra)))
+    units = {}
+    for key, info in group["units"].items():
+        if note is None or key not in note["visible"]:
+            continue
+        if not info["name"]:
+            v.fail(label, 1, "index.json patterns 의 %s 단원에 name 이 없습니다." % key)
+        units[key] = {"after": info["after"], "name": info["name"], "title": note["units"][key]["title"]}
+    try:
+        cards = skel.cards(group, skeletons, units)
+    except (KeyError, TypeError, ValueError, AttributeError) as error:
+        v.fail(label, 19, "뼈대 카드를 만들 수 없습니다: %s" % error)
+        cards = []
+    les = Lesson(entry, note, data, cards)
+    les.group, les.skeletons = group, skeletons
+    return les
+
+
 def check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, seeds):
     label = les.id
-    v.head(label, "%d차시 %s" % (les.entry["no"], les.entry["title"]))
+    no = les.entry.get("no")
+    v.head(label, "%d차시 %s" % (no, les.entry["title"]) if no is not None else les.entry["title"])
     oracles = {}
     try:
         oracles = genlib.load_oracle(os.path.join(les.data["dir"], "oracle.py"))
@@ -767,6 +911,7 @@ def check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, seeds):
     for fact in les.data["facts"].values():
         if fact.get("verdict") not in VERDICTS:
             v.fail(label, 7, "사실 %s 의 verdict 를 모릅니다: %r" % (fact.get("id"), fact.get("verdict")))
+    styled = set()
     for card in les.cards:
         check_card_common(v, les, card, ids, retired)
         check_alt(v, les, card)
@@ -779,6 +924,10 @@ def check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, seeds):
         elif card["kind"] == "gen":
             check_gen(v, les, card, oracles, seeds)
         for where, text, markdown in card_texts(card):
+            if card["kind"] == "skel":  # 판 상황 글은 카드마다 같아 한 번만 봄
+                if (text, markdown) in styled:
+                    continue
+                styled.add((text, markdown))
             v.style(label, where, text, markdown)
     for topic in les.data["topics"]:
         check_topic(v, les, topic, les.data["topics"])
@@ -796,6 +945,8 @@ def check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, seeds):
     before = git_ids(bank_dir, les.id)
     if before is not None:
         now_ids = {c["id"] for c in les.cards}
+        if les.group is not None:  # 공개 전 단원의 뼈대 카드는 카드로 만들지 않아도 파일에 남아 있음
+            now_ids |= {str(e.get("id")) for sk in les.skeletons.values() for key in skel.PART_KEY.values() for e in sk.get(key) or []}
         gone = sorted(before - now_ids - retired)
         if gone:
             v.fail(label, 2, "직전 커밋에 있던 id 가 retired.json 없이 사라졌습니다: %s" % verify_web.listing(gone))
@@ -804,6 +955,197 @@ def check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, seeds):
             for ref in IMAGE_REF.findall(str(text)):
                 if not ref.startswith(("assets/", "../")):
                     v.fail(label, 13, "%s 의 그림 %s 은 직접 그린 그림이어야 합니다." % (where, ref))
+
+
+# 19. 뼈대
+
+def _entry_where(skeleton, part, entry):
+    return "%s %s" % (skeleton.get("id"), entry.get("id"))
+
+
+def check_skeletons(v, les, seeds):
+    """ai/patterns 뼈대 파일(설계 3.7, 계획 8.1). 판의 situation·lines, slot 의 토큰과 답, order 의 valid 와 시드마다 오답 보기,
+    pick 보기, change 의 다른 줄, 카드마다 level·ref·facts·step, 카드 id 꼴과 겹침."""
+    label = les.id
+    seen = {}
+    for sid in sorted(les.skeletons, key=lambda k: int(k[1:])):
+        skeleton = les.skeletons[sid]
+        if skeleton.get("format") != 1:
+            v.fail(label, 19, "%s 의 format 은 1 이어야 합니다." % sid)
+        if not str(skeleton.get("title") or "").strip():
+            v.fail(label, 19, "%s 에 title 을 적어야 합니다." % sid)
+        variants = skeleton.get("variants") or {}
+        for name, variant in variants.items():
+            if not str(variant.get("situation") or "").strip():
+                v.fail(label, 19, "%s 의 %s 판에 situation 이 없습니다." % (sid, name))
+            elif aibank.BLANK.search(variant["situation"]):
+                v.fail(label, 19, "%s 의 %s 판 situation 에 ____ 가 있습니다." % (sid, name))
+            for n, line in enumerate(variant.get("lines") or []):
+                if "\t" in line or aibank.BLANK.search(line) or SKEL_COMMENT.search(line):
+                    v.fail(label, 19, "%s 의 %s 판 %d번 줄에 탭·____·# 주석이 있습니다: %s" % (sid, name, n, clip(line, 40)))
+        for part, key in skel.PART_KEY.items():
+            for entry in skeleton.get(key) or []:
+                cid = str(entry.get("id"))
+                where = _entry_where(skeleton, part, entry)
+                if not re.match(r"pc-%s\d{2,3}\Z" % skel.PART_LETTER[part], cid):
+                    v.fail(label, 19, "%s 의 id 꼴이 pc-%s01 이 아닙니다." % (where, skel.PART_LETTER[part]))
+                if cid in seen:
+                    v.fail(label, 19, "카드 id 가 두 뼈대에 있습니다: %s (%s, %s)" % (cid, seen[cid], sid))
+                seen[cid] = sid
+                if entry.get("level") not in (1, 2, 3):
+                    v.fail(label, 19, "%s 의 level 은 1~3 이어야 합니다(카드마다 적음)." % where)
+                if not entry.get("ref"):
+                    v.fail(label, 19, "%s 에 ref 가 없습니다(카드마다 적음)." % where)
+                if not entry.get("facts") or not entry.get("step"):
+                    v.fail(label, 19, "%s 에 facts 와 step 을 적어야 합니다." % where)
+                check_skel_entry(v, label, skeleton, part, entry, seeds)
+
+
+def check_skel_entry(v, label, skeleton, part, entry, seeds):
+    where = _entry_where(skeleton, part, entry)
+    variants = skeleton.get("variants") or {}
+    names = [entry.get("from"), entry.get("to")] if part == "change" else [entry.get("variant")]
+    missing = [n for n in names if n not in variants]
+    if missing:
+        v.fail(label, 19, "%s 의 판 %s 가 뼈대에 없습니다." % (where, ", ".join(map(repr, missing))))
+        return
+    card = {"id": str(entry.get("id")), "part": part, "entry": entry}
+    try:
+        if part == "slot":
+            check_skel_slot(v, label, skeleton, entry, card)
+        elif part == "order":
+            check_skel_order(v, label, skeleton, entry, card, seeds)
+        elif part == "pick":
+            check_skel_pick(v, label, skeleton, entry, card)
+        else:
+            check_skel_change(v, label, skeleton, entry, card, seeds)
+    except (aibank.AiBankError, KeyError, IndexError, TypeError, ValueError) as error:
+        v.fail(label, 19, "%s 로 문항을 만들 수 없습니다: %s" % (where, error))
+
+
+def check_skel_slot(v, label, skeleton, entry, card):
+    where = _entry_where(skeleton, "slot", entry)
+    lines = skel.lines_of(skeleton, entry["variant"])
+    no, token = entry.get("line"), str(entry.get("token") or "")
+    if not isinstance(no, int) or not 0 <= no < len(lines):
+        v.fail(label, 19, "%s 의 줄 번호가 판 밖입니다: %r" % (where, no))
+        return
+    if not token or not skel.token_re(token).search(lines[no]):
+        v.fail(label, 19, "%s 의 토큰 %r 가 %d번 줄에 없습니다." % (where, token, no))
+        return
+    count = sum(len(skel.token_re(token).findall(line)) for line in lines)
+    if count != 1:
+        v.fail(label, 19, "%s 의 토큰 %r 가 판 전체에 %d번 나옵니다(한 번이어야 함, 판 전체가 보여 답이 됨)." % (where, token, count))
+    answers = entry.get("answer")
+    if not isinstance(answers, list) or not answers or not all(isinstance(a, str) and a.strip() for a in answers):
+        v.fail(label, 19, "%s 의 answer 는 글 목록이어야 합니다." % where)
+        return
+    if answers[0] != token:
+        v.fail(label, 19, "%s 의 answer 첫째는 token 과 같아야 합니다: %r" % (where, answers[0]))
+    mode = entry.get("mode") or "code"
+    if mode not in grade.MODES:
+        v.fail(label, 19, "%s 의 mode 를 모릅니다: %s" % (where, mode))
+        return
+    for answer in answers:
+        if any(api in answer for api in LONG_API):
+            v.fail(label, 19, "%s 의 정답 %s 는 철자 시험이 되는 긴 API 이름이라 고르기로만 냅니다." % (where, answer))
+    line_answer = entry.get("line_answer")
+    if line_answer is not None:
+        if not isinstance(line_answer, list) or not line_answer or line_answer[0] != lines[no].strip():
+            v.fail(label, 19, "%s 의 line_answer 첫째는 들여쓰기를 뺀 %d번 줄이어야 합니다." % (where, no))
+            line_answer = None
+    for other in skeleton.get("slots") or []:
+        if other is entry or other.get("variant") != entry["variant"]:
+            continue
+        if other.get("line") == no and other.get("line_answer") is not None and line_answer is not None \
+                and other.get("line_answer") != line_answer:
+            v.fail(label, 19, "%s 와 %s 는 같은 줄이라 line_answer 가 같거나 없어야 합니다." % (where, other.get("id")))
+        if str(other.get("id")) > card["id"]:
+            mine = {json.dumps(grade.norm(mode, a), default=str) for a in answers}
+            theirs = {json.dumps(grade.norm(other.get("mode") or "code", a), default=str) for a in other.get("answer") or []}
+            if mine & theirs:
+                v.fail(label, 19, "%s 와 %s 의 answer 가 겹칩니다(함께 가리면 칸을 구별할 수 없음)." % (where, other.get("id")))
+    view = skel.slot_view(card, skeleton, {})
+    for answer in answers:
+        if grade.grade_skel(view, [answer])["result"] != "pass":
+            v.fail(label, 19, "%s 의 정답 %r 를 채점기가 받지 않습니다." % (where, answer))
+    if line_answer:
+        whole = skel.slot_view(card, skeleton, {}, masked=[], whole=True)
+        for answer in line_answer:
+            if grade.grade_skel(whole, [answer])["result"] != "pass":
+                v.fail(label, 19, "%s 의 줄 정답 %r 를 채점기가 받지 않습니다." % (where, answer))
+
+
+def check_skel_order(v, label, skeleton, entry, card, seeds):
+    where = _entry_where(skeleton, "order", entry)
+    lines = skel.lines_of(skeleton, entry["variant"])
+    picked = entry.get("lines") or []
+    if len(picked) < 3 or len(set(picked)) != len(picked) or not all(isinstance(k, int) and 0 <= k < len(lines) for k in picked):
+        v.fail(label, 19, "%s 의 lines 는 판 안의 서로 다른 줄 번호 셋 이상이어야 합니다." % where)
+        return
+    valid = entry.get("valid") or []
+    every = list(range(len(picked)))
+    if not all(sorted(p) == every for p in valid if isinstance(p, list)) or not all(isinstance(p, list) for p in valid):
+        v.fail(label, 19, "%s 의 valid 는 lines 안 위치의 순열 목록이어야 합니다." % where)
+        return
+    if every not in valid:
+        v.fail(label, 19, "%s 의 valid 에 판 순서 %s 가 없습니다." % (where, every))
+    for seed in range(1, seeds + 1):
+        view = skel.order_view(card, skeleton, seed)
+        texts = [o["text"] for o in view["options"]]
+        if len(set(texts)) != 4 or sum(1 for o in view["options"] if o["ok"]) != 1:
+            v.fail(label, 19, "%s 시드 %d 의 보기가 서로 다른 넷이 아니거나 정답이 하나가 아닙니다." % (where, seed))
+            break
+    v.style(label, "%s stem" % where, entry.get("stem", ""), markdown=True)
+
+
+def check_skel_pick(v, label, skeleton, entry, card):
+    where = _entry_where(skeleton, "pick", entry)
+    if not str(entry.get("stem") or "").strip():
+        v.fail(label, 19, "%s 에 stem 을 적어야 합니다." % where)
+    wrong = entry.get("wrong") or []
+    if len(wrong) != 3 or not all(isinstance(w, dict) for w in wrong):
+        v.fail(label, 19, "%s 의 wrong 은 {text, aim, why} 셋이어야 합니다." % where)
+        return
+    for n, item in enumerate(wrong, 1):
+        for key in ("text", "aim", "why"):
+            if not str(item.get(key) or "").strip():
+                v.fail(label, 19, "%s 의 %d번 오답의 %s 칸이 비었습니다." % (where, n, key))
+    view = skel.pick_view(card, skeleton)
+    seen = {}
+    for n, option in enumerate(view["options"], 1):
+        key = grade.norm("code", option["text"])
+        if key in seen:
+            v.fail(label, 19, "%s 의 %d번과 %d번 보기가 코드로 같습니다." % (where, seen[key], n))
+        seen[key] = n
+
+
+def check_skel_change(v, label, skeleton, entry, card, seeds):
+    where = _entry_where(skeleton, "change", entry)
+    if entry.get("from") == entry.get("to"):
+        v.fail(label, 19, "%s 의 from 과 to 가 같은 판입니다." % where)
+        return
+    if not str(entry.get("stem") or "").strip():
+        v.fail(label, 19, "%s 에 stem 을 적어야 합니다." % where)
+    back = entry.get("back")
+    if back is not None and not (isinstance(back, str) and back.strip()):
+        v.fail(label, 19, "%s 의 back 은 null 이나 지문 글이어야 합니다." % where)
+        back = None
+    for reverse in ([False, True] if back else [False]):
+        src, dst = (entry["to"], entry["from"]) if reverse else (entry["from"], entry["to"])
+        left, right = skel.lines_of(skeleton, src), skel.lines_of(skeleton, dst)
+        differ = {left[i].strip() for i, _, same in skel._pairs(left, right) if not same and i is not None}
+        if len(differ) < 2:
+            v.fail(label, 19, "%s 의 %s → %s 다른 줄이 %d개입니다(2개 이상)." % (where, src, dst, len(differ)))
+            continue
+        for seed in range(1, seeds + 1):
+            view = skel.change_view(card, skeleton, seed, reverse)
+            texts = [o["text"] for o in view["options"]]
+            oks = {o["text"] for o in view["options"] if o["ok"]}
+            if not 4 <= len(texts) <= 5 or not 2 <= len(oks) <= 3 or oks != {t for t in texts if t in differ} \
+                    or len(set(texts)) != len(texts):
+                v.fail(label, 19, "%s 시드 %d(%s → %s)의 보기가 4~5개·정답 2~3개·정답 = 다른 줄이 아닙니다." % (where, seed, src, dst))
+                break
 
 
 # 12. 모의고사
@@ -941,8 +1283,48 @@ def review_files(folder, secrets, bank_dir=None, patterns=False):
     return files
 
 
-def grade_answers(v, label, path, lessons, bank_dir):
+def grade_skel_answer(key, value, lessons, terms):
+    """상황별 코드 공개본 답안 칸 하나. (맞았는지, 틀린 꼬리표) 를 돌려주고 뼈대 키가 아니면 None. 키는 "S1 표준형 전체"(판의
+    모든 자리, 칸마다 글), "pc-o01 시드 1"·"pc-x01 시드 1"(고르기, {"picked": [문제지 번호]}), "pc-p01"(맞는 줄 고르기),
+    "pc-k02 f2"(뼈대 빈칸 견본, 칸마다 글). 빈칸은 모든 칸이 맞아야 맞음이고 틀린 칸은 자리 id 로 보임."""
+    groups = [les for les in lessons if les.group is not None]
+    cards = {c["id"]: c for les in groups for c in les.cards}
+    skeletons = next((les.skeletons for les in groups), {})
+
+    def blanks(view):
+        values = value if isinstance(value, list) else [value]
+        per = grade.grade_item(view, values, terms)["per_blank"]
+        bad = [b["slot"] for b, ok in zip(view["blanks"], per) if not ok]
+        return not bad, "%s(%s)" % (key, ", ".join(bad)) if bad else key
+
+    def choice(card, view):
+        order = ai_seal.skel_option_order(card, len(view["options"]))
+        got = value.get("picked") if isinstance(value, dict) else value
+        picked = [order[p - 1] for p in got or [] if isinstance(p, int) and 1 <= p <= len(order)]
+        return grade.grade_choice(view, picked)["result"] == "pass", key
+
+    found = ai_seal.WHOLE_KEY.match(key)
+    if found and found.group(1) in skeletons:
+        view = ai_seal.whole_view(skeletons[found.group(1)], found.group(2), list(cards.values()))
+        return blanks(view) if view else None
+    found = ai_seal.SAMPLE_KEY.match(key)
+    if found and found.group(1) in cards:
+        card = cards[found.group(1)]
+        samples = dict(ai_seal.skel_samples(card, skeletons[card["pattern"]], list(cards.values())))
+        return blanks(samples[found.group(2)]) if found.group(2) in samples else None
+    found = ai_seal.SEED_KEY.match(key)
+    if found and found.group(1) in cards:
+        card = cards[found.group(1)]
+        return choice(card, ai_seal.skel_choice(card, skeletons[card["pattern"]], int(found.group(2))))
+    card = cards.get(key)
+    if card is not None and card["part"] == "pick":
+        return choice(card, ai_seal.skel_choice(card, skeletons[card["pattern"]]))
+    return None
+
+
+def grade_answers(v, label, path, lessons, bank_dir, first=False):
     """재풀이 답안을 채점함. {"cards", "correct", "wrong", "gens": {"checked", "seeds"}} 를 돌려주고 틀린 카드를 보여 줌.
+    상황별 코드 키는 grade_skel_answer 가 채점하고, first 면(서명의 first_pass) 2단계 견본(skel.md 의 "pc-k02 f2")은 세지 않음.
     문장 칸은 공개본 꼬리표(<주제 id>-<번호>)를 ai_seal.statement_rows 로 문장 id 로 되돌림. 빈칸판이 있는 문장은 ok 와 cloze 가
     둘 다 맞아야 맞음이고, 빈칸판이 없는 문장의 cloze 는 보지 않음. 고르기 칸에 order 가 없으면 ai_seal.option_order 로 공개본의
     보기 순서를 다시 만듦. 생성기 고르기 표본이 {"picked"} 꼴이면 ai_seal.gen_option_order 로 섞은 순서를 되돌림. 예전 꼴(문장
@@ -957,6 +1339,15 @@ def grade_answers(v, label, path, lessons, bank_dir):
     terms = grade.term_map(aibank.read_terms(bank_dir))
     correct, wrong, gens, seeds = 0, [], 0, set()
     for key, value in sorted(answers.items()):
+        if first and ai_seal.SAMPLE_KEY.match(key):
+            continue
+        graded = grade_skel_answer(key, value, lessons, terms)
+        if graded is not None:
+            if graded[0]:
+                correct += 1
+            else:
+                wrong.append(graded[1])
+            continue
         cid = tags.get(key, key)
         card = cards.get(cid)
         if card is None:
@@ -1079,7 +1470,7 @@ def signature_step(v, bank_dir, label, folder, lessons=None, patterns=False):
         if v.failed(label):
             v.fail(label, 16, "실패가 있어 서명하지 않았습니다.")
         else:
-            first = grade_answers(v, label, o.first_pass, lessons or [], bank_dir) if o.first_pass else None
+            first = grade_answers(v, label, o.first_pass, lessons or [], bank_dir, first=True) if o.first_pass else None
             if first is not None and o.minutes:
                 first["minutes"] = o.minutes
             sign(v, label, folder, secrets, first, files)
@@ -1104,11 +1495,15 @@ def records(subs_dir):
 
 
 def show_overrides(v):
+    """[내 답도 맞음] 답을 문항별로. 뼈대 빈칸에서 함께 가린 칸을 바꾼 답(also_value)은 그 자리 카드 id 로 모음."""
     found = {}
     for user, log in records(study.SUBMISSIONS_DIR):
         for entry in log:
             if entry.get("kind") == "override" and entry.get("card"):
-                found.setdefault(entry["card"], []).append((user, " / ".join(str(x) for x in entry.get("value") or [])))
+                if entry.get("value"):
+                    found.setdefault(entry["card"], []).append((user, " / ".join(str(x) for x in entry["value"])))
+                for slot, text in sorted((entry.get("also_value") or {}).items()):
+                    found.setdefault(str(slot), []).append((user, str(text)))
     v.say("[내 답도 맞음] 답 %d개 문항" % len(found))
     for cid, rows in sorted(found.items()):
         v.say("  %s: %s" % (cid, "; ".join("%s(%s)" % (value, user) for user, value in rows)))
@@ -1126,6 +1521,14 @@ def card_units(bank_dir, index):
             continue
         for card in aibank.cards_of(entry, data):
             out[card["id"]] = (card["lesson"], card["unit"])
+    for group in index["patterns"]:
+        if not aibank.pattern_ready(group, bank_dir):
+            continue
+        try:
+            for card in ai_seal.pattern_cards(bank_dir, group)[1]:
+                out[card["id"]] = (card["lesson"], card["unit"])
+        except (aibank.AiBankError, KeyError, TypeError, ValueError):
+            continue
     return out
 
 
@@ -1202,6 +1605,11 @@ def main(argv=None, out=None):
         aibank.load_common(bank_dir)
     except aibank.AiBankError as error:
         v.fail("common", 6, str(error))
+    skeletons, skeleton_error = {}, None
+    try:
+        skeletons = skel.load_patterns(bank_dir)
+    except aibank.AiBankError as error:
+        skeleton_error = str(error)
     pages_no = {p["id"]: int(p["id"][1:]) for p in index["pages"] if aibank.PAGE_ID.match(p["id"])}
     entries = [e for e in index["lessons"] if os.path.isfile(os.path.join(aibank.items_dir(e["id"], bank_dir), "meta.json"))]
     mocks = [m for m in index["mocks"] if os.path.isfile(os.path.join(aibank.mock_dir(m["id"], bank_dir), "meta.json"))]
@@ -1229,6 +1637,7 @@ def main(argv=None, out=None):
         les = load_lesson(v, bank_dir, entry)
         if les is None:
             continue
+        les.skeletons = skeletons
         lessons.append(les)
         check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, opts.seeds)
         signature_step(v, bank_dir, les.id, les.data["dir"], [les])
@@ -1236,9 +1645,21 @@ def main(argv=None, out=None):
         v.head("common", "공용 생성기")
         check_imports(v, "common", common)
         signature_step(v, bank_dir, "common", common)
-    if has_pc:  # 상황별 코드 카드(뼈대 카드는 PR2). 서명이 ai/patterns/*.json 을 같이 덮음
+    if has_pc:  # 상황별 코드 뼈대 카드. 서명이 ai/patterns/*.json 을 같이 덮음
         v.head("pc", "상황별 코드")
-        signature_step(v, bank_dir, "pc", patterns, patterns=True)
+        group = next((g for g in index["patterns"] if g["id"] == "pc"), None)
+        les = None
+        if skeleton_error:
+            v.fail("pc", 19, skeleton_error)
+        elif group is None:
+            v.fail("pc", 1, "index.json patterns 에 pc 가 없습니다.")
+        else:
+            les = load_pattern_group(v, bank_dir, group, skeletons)
+        if les is not None:
+            lessons.append(les)
+            check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, opts.seeds)
+            check_skeletons(v, les, opts.seeds)
+        signature_step(v, bank_dir, "pc", patterns, [les] if les else [], patterns=True)
     for mock in mocks:
         check_mock(v, bank_dir, mock, ids)
         signature_step(v, bank_dir, mock["id"], aibank.mock_dir(mock["id"], bank_dir))
@@ -1246,7 +1667,7 @@ def main(argv=None, out=None):
         grade_answers(v, "answers", opts.answers, lessons, bank_dir)
     if opts.sources:
         check_sources(v, lessons, os.path.abspath(os.path.expanduser(opts.sources)))
-    count = len(lessons) + len(mocks) + int(has_common) + int(has_pc)
+    count = sum(1 for les in lessons if les.group is None) + len(mocks) + int(has_common) + int(has_pc)
     if v.failures:
         v.say("실패 %d개, 경고 %d개 (묶음 %d개)" % (len(v.failures), len(v.warnings), count))
         return 1

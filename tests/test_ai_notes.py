@@ -98,6 +98,16 @@ class GroupTest(unittest.TestCase):
         keys = [i["key"] for g in groups for i in g["items"]]
         self.assertEqual(len(keys), len(set(keys)))
 
+    def test_pattern_cards_share_one_group_with_part_labels(self):
+        log = [dict(ans(12, "stuck"), card=cid) for cid in ("pc-k01", "pc-o01", "pc-x01")]
+        cards = {"pc-k01": {"id": "pc-k01", "kind": "skel", "part": "slot", "lesson": "pc"},
+                 "pc-o01": {"id": "pc-o01", "kind": "skel", "part": "order", "lesson": "pc"},
+                 "pc-x01": {"id": "pc-x01", "kind": "skel", "part": "change", "lesson": "pc"}}
+        groups, _ = notes.wrong_notes(review.card_events(log), cards, {}, {}, {})
+        self.assertEqual(["상황별 코드"], [g["title"] for g in groups])
+        labels = {i["key"]: i["label"] for i in groups[0]["items"]}
+        self.assertEqual({"pc-k01": "코드 빈칸 · 상황별 코드", "pc-o01": "순서 고르기 · 상황별 코드", "pc-x01": "고르기 · 상황별 코드"}, labels)
+
 
 if __name__ == "__main__":
     unittest.main()
