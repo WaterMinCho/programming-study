@@ -268,6 +268,15 @@ class MockServiceTest(Base):
         self.assertEqual('i90', sess.wrong_item('m90-02')['lesson'])
         self.assertEqual('90a/1', sess.wrong_item('m90-02')['step'])
         self.assertEqual(['4'], sess.wrong_item('m90-02')['mine'])
+        log_before = self.log(sess)
+        target = sess.note_target('m90-02')
+        self.assertEqual(('i90', '90a/1'), (target['lesson'], target['step']))
+        self.assertNotIn('ref', target)
+        self.assertEqual(log_before, self.log(sess))
+        card = sess.card_info('m90-02')
+        card['after'] = 'missing'
+        self.assertIsNone(sess.note_target(card['id']))
+        card['after'] = 'i90'
         self.at = '2026-11-10T20:00:00'
         self.assertEqual(3, sess.overview()['due'])
         practice = sess.start_set('review', seed=7)
