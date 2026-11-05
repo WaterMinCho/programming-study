@@ -332,7 +332,8 @@ class LearningStateTest(unittest.TestCase):
         viewport = self.page.scroll.viewport()
         self.assertEqual((field.text(), field.cursorPosition(), field.selectionStart(), field.selectedText()), expected)
         self.assertTrue(field.hasFocus())
-        self.assertTrue(viewport.rect().contains(QRect(field.mapTo(viewport, QPoint()), field.size())))
+        field_rect = QRect(field.mapTo(viewport, QPoint()), field.size())
+        self.assertTrue(viewport.rect().contains(field_rect), (field_rect, viewport.rect()))
         self.assertFalse([call for call in self.win.ai.calls if call[0] != "step"])
 
     def test_return_after_resize_uses_the_reading_block_in_the_new_layout(self):

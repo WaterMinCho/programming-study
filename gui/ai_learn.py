@@ -1557,7 +1557,14 @@ class AiLearnPage(QWidget):
         self.scroll.verticalScrollBar().setValue(value)
         field = _view_widget(self.view, anchor[2]) if anchor is not None else None
         if isinstance(field, QLineEdit) and field.hasFocus():
-            self.scroll.ensureWidgetVisible(field, 16, 16)  # 크기를 바꾸기 전에 보이던 활성 칸은 계속 보이게 함
+            viewport = self.scroll.viewport()
+            top = field.mapTo(viewport, QPoint()).y()
+            bar = self.scroll.verticalScrollBar()
+            bottom = top + field.height() + 16 - viewport.height()
+            if bottom > 0:
+                bar.setValue(bar.value() + bottom)
+            elif top < 16:
+                bar.setValue(bar.value() + top - 16)  # 입력 칸 전체가 보이게 실제 좌표로 맞춤
 
     def position_changed(self, *_):
         if self.pending_position is not None:
