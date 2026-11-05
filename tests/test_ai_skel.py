@@ -287,7 +287,7 @@ class PickChangeTest(unittest.TestCase):
             self.assertEqual(set(oks), {t for t in texts if t in differ})
             self.assertEqual(sorted(texts, key=order.index), texts)
             self.assertEqual(len(set(texts)), len(texts))
-        self.assertEqual((True, True, True, {"part": "change", "seed": 4, "back": False}),
+        self.assertEqual((True, True, True, {"part": "change", "seed": 4, "back": False, "change_rev": 2}),
                          (view["multi"], view["keep_order"], view["code_options"], skel.change_view(card, self.skeleton, 4)["skel"]))
 
     def test_change_back(self):
