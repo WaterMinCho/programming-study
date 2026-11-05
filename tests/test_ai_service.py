@@ -914,8 +914,8 @@ class PatternSetTest(PatternBase):
         sess.mark_read("pc", "18a")
         for cid in ("pc-k01", "pc-o01", "pc-p01", "i90-b01"):
             self.answer(sess, cid, result="stuck")
-        self.at = "2026-11-10T20:00:00"
-        for mode in ("mixed", "review"):
+        for mode, at in (("mixed", "2026-11-10T20:00:00"), ("review", "2026-11-12T20:00:00")):
+            self.at = at
             ps = sess.start_set(mode, seed=7)
             self.assertTrue(any(e["card"].startswith("pc-") for e in ps.queue), mode)
             self.play(ps, lambda cur: "pass")
