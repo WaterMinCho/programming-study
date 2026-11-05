@@ -25,7 +25,7 @@ def schedule(r):
 def unfreeze(r):
     """첫 구간은 fc만, 이후 최대 네 블록을 해제함. 에폭 번호는 1부터 셈."""
     k=r.int(2,9); epoch=r.int(1,k*6); count=min(4,(epoch-1)//k)
-    return blank(stem=f'에폭은 1부터 셉니다. 첫 {k}에폭은 fc만 학습하고 이후 {k}에폭마다 백본 블록 하나를 추가로 해제합니다. 백본은 총 4블록입니다. {epoch}번 에폭에 해제한 백본 블록은 ____ 개입니다. fc는 세지 않습니다.',
+    return blank(stem=f'에폭은 1부터 셉니다. 1~{k}에폭은 fc만 학습하고 {k+1}번 에폭 시작에 백본 블록 하나를 해제합니다. 이후 {k}에폭마다 한 블록씩 추가로 해제하며 백본은 총 4블록입니다. {epoch}번 에폭 시작에 해제된 백본 블록은 ____ 개입니다. fc는 세지 않습니다.',
                  blanks=[{'answer':[str(count)],'mode':'number','unit':'개'}],explain=f'해제 수는 min(4,({epoch}-1)//{k})={count}입니다. 첫 구간에는 백본을 해제하지 않습니다.',params=dict(k=k,epoch=epoch))
 
 

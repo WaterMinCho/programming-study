@@ -137,6 +137,8 @@ tools/ai_art/
 
 문장 묶음(`statements.json`)은 주제마다 참 4·거짓 4 이상입니다. 참 문장에는 상자 2 부터 나오는 빈칸판 `cloze`(`____` 하나와 `answer`)를 둡니다. 상자는 문장마다 따로 셉니다.
 
+같은 보기 묶음 안의 문장을 다른 단원에서 배운다면 그 문장에 `unit`과 `step`을 함께 적습니다. 주제의 `unit`을 따르는 다른 문장은 그대로 둡니다. `facts`와 `ref`, `meta.json`의 단원별 `stmt` 수도 실제 학습 위치와 맞춥니다. 보기 묶음을 유지하더라도 읽기 기록과 복습 노트는 문장이 지정한 단원을 따릅니다.
+
 생성기는 `gens.py` 에 씁니다. 표준 라이브러리만 쓰고 `basis` 는 `lecture-example` 이나 `lecture-formula` 입니다.
 
 ```python

@@ -9,8 +9,7 @@
     "미세 조정",
     "적응형 평균 풀링",
     "전역 평균 풀링",
-    "Top-k 오차",
-    "분류기 교체"
+    "Top-k 오차"
   ],
   "needs": [
     "l06",
@@ -86,7 +85,7 @@
     },
     {
       "what": "AlexNet 원 논문의 5개 합성곱·3개 완전 연결 층",
-      "url": "https://papers.nips.cc/paper_files/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf",
+      "url": "https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks",
       "checked": "2026-11-05"
     }
   ],

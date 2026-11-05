@@ -423,7 +423,7 @@ for m in self.f:
 
 `self.f`는 노트북 02의 모델이 `__init__`에서 층을 차례로 담아 둔 `nn.Sequential`입니다. `for m in self.f:`는 그 안의 층을 하나씩 꺼내 m에 넣습니다. `isinstance(m, nn.Linear)`는 m이 `nn.Linear`의 인스턴스인지 묻습니다. 노트북 02는 모델 안의 층을 하나씩 보며 Linear 층이면 weight를 `nn.init.kaiming_normal_`로, bias를 `nn.init.zeros_`로 채웁니다. `kaiming_normal_`은 기본 설정이 ReLU에 맞춘 값이라 인자 없이 써도 He 초기화입니다. Xavier 초기화는 `nn.init.xavier_normal_`로 합니다. 초기화 줄을 쓰지 않아도 `nn.Linear`는 만들 때 weight와 bias를 −1/√n_in부터 1/√n_in 사이의 값으로 채웁니다.
 
-> **[정정]** 5차시 슬라이드 23쪽은 Xavier를 tanh와 sigmoid 같은 대칭 활성화 함수용으로 적었습니다. 시그모이드는 0이 아니라 0.5를 중심으로 하는 함수라 Xavier가 가정한 0 중심 대칭에 맞지 않습니다. 24쪽의 `LSTM`·`GRU` 예 `nn.init.orthogonal_(layer.weight)`는 `nn.LSTM`에 `weight`라는 이름의 파라미터가 없어 이 줄대로는 실행되지 않습니다. LSTM은 weight를 여러 개로 나눠 다른 이름으로 담습니다(PyTorch 문서 LSTM).
+> **[정정]** 5차시 슬라이드 23쪽은 Xavier를 tanh와 sigmoid 같은 대칭 활성화 함수용으로 적었습니다. 시그모이드는 0이 아니라 0.5를 중심으로 하는 함수라 Xavier가 가정한 0 중심 대칭에 맞지 않습니다. 24쪽의 `LSTM`·`GRU` 예 `nn.init.orthogonal_(layer.weight)`는 `nn.LSTM`에 `weight`라는 이름의 파라미터가 없어 이 줄대로는 실행되지 않습니다. `nn.LSTM`은 weight를 여러 개로 나눠 다른 이름으로 담습니다(PyTorch 문서 `nn.LSTM`).
 
 ```ai-reveal
 {"guess": "g2"}

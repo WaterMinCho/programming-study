@@ -6,8 +6,7 @@
   "defines": [
     "ImageFolder",
     "class_to_idx",
-    "CenterCrop",
-    "사용자 Dataset"
+    "CenterCrop"
   ],
   "needs": [
     "l06",

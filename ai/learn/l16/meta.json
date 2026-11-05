@@ -4,9 +4,7 @@
   "title": "16차시 작은 CNN을 만들며 모양과 수를 검산합니다",
   "lesson": "i16",
   "defines": [
-    "이동 등변성",
-    "CNN Flatten",
-    "CNN 파라미터"
+    "이동 등변성"
   ],
   "needs": [
     "l05",
