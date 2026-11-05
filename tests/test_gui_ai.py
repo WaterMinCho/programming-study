@@ -1620,7 +1620,7 @@ class RealLessonTest(AiTest):
                         self.assertTrue(top >= 0 and bottom <= viewport.height(), "%s %s" % (where, (top, bottom, viewport.height())))
                         self.assertLessEqual(figure.picture.height(), 300, where)
         self.assertGreater(figures, 20)
-        lessons = ("i01", "i02", "i03", "i04", "i05", "i06")
+        lessons = ("i01", "i02", "i03", "i04", "i05", "i06", "i07", "i08", "i09")
         self.assertEqual({lid: True for lid in lessons}, {lid: 3 <= levels.get(lid, 0) <= 5 for lid in lessons}, levels)  # 차시마다 3~5개
         self.assertLess(time.monotonic() - started, 600)
 
