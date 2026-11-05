@@ -318,7 +318,7 @@ def check_refs(v, les, card):
     for ref in refs:
         if ref_kind(ref)[0] is None:
             v.fail(label, 9, "%s 의 ref 꼴이 3.8 표에 없습니다: %s" % (cid, ref))
-    if card["kind"] == "skel":  # 상황별 코드는 차시 번호를 견주지 않고 강의 꼴이나 요약본이면 됨
+    if les.group is not None:  # 상황별 코드는 차시 번호를 견주지 않고 강의 꼴이나 요약본이면 됨
         if ref_kind(refs[0])[0] not in ("lecture", "summary"):
             v.fail(label, 9, "%s 의 첫 ref 는 그 줄을 가르친 강의 슬·노트북·과제·강의노트나 요약본이어야 합니다: %s" % (cid, refs[0]))
     elif not first_ref_ok(refs[0], lesson_no(les.id)):
@@ -926,21 +926,21 @@ def check_context(v, les, terms, pages_no):
     """문항 글의 terms 낱말이 이 차시까지 소개됐는지(page·intro 차시가 이 차시보다 뒤면 실패). 상황별 코드 카드는 권하는
     차시(after)까지로 봄."""
     label = les.id
-    forms = []
+    introduced = {}
     for term in terms["terms"]:
         first = [pages_no.get(p) for p in (term.get("intro"), term.get("page")) if pages_no.get(p) is not None]
         if first:
-            for form in [term["term"]] + term["also"]:
-                forms.append((form, term["term"], min(first)))
-    forms.sort(key=lambda f: -len(f[0]))
+            introduced[term["term"]] = min(first)
+    finder = web_lint.Terms(terms)
     for card in les.cards:
-        no = lesson_no(card.get("after")) if card["kind"] == "skel" else lesson_no(les.id)
+        no = lesson_no(card.get("after")) if les.group is not None else lesson_no(les.id)
         if no is None:
             continue
         for where, text, _ in card_texts(card):
             plain = re.sub(r"```.*?```", "", str(text), flags=re.S)
-            for form, term, at in forms:
-                if form in plain and at > no:
+            for term, form, _ in finder.find(plain):
+                at = introduced.get(term)
+                if at is not None and at > no:
                     v.fail(label, 11, "%s 에 %d차시에서 소개하는 낱말 '%s'가 나옵니다." % (where, at, term))
                     break
 
@@ -1052,7 +1052,7 @@ def load_lesson(v, bank_dir, entry):
 
 def load_pattern_group(v, bank_dir, group, skeletons):
     """상황별 코드 무리 하나를 Lesson 꼴로. entry {"id", "no": None, "page", "title"}, note(l18), data(items/<무리>, facts·review
-    만), cards(공개 단원의 뼈대 카드). 정적 카드(items.json·statements.json)가 있으면 실패(엔진이 읽지 않음)."""
+    와 생성기), cards(공개 단원의 뼈대·수치 문항). 정적 카드(items.json·statements.json)가 있으면 실패(엔진이 읽지 않음)."""
     label = group["id"]
     entry = {"id": label, "no": None, "page": group["page"], "title": group["title"]}
     note = None
@@ -1064,7 +1064,7 @@ def load_pattern_group(v, bank_dir, group, skeletons):
     else:
         v.fail(label, 2, "학습 노트 %s/meta.json 이 없습니다." % group["page"])
     try:
-        data = aibank.load_items({"id": label}, bank_dir, with_gens=False)
+        data = aibank.load_items({"id": label}, bank_dir)
     except aibank.AiBankError as error:
         v.fail(label, 2, str(error))
         return None
@@ -1074,9 +1074,8 @@ def load_pattern_group(v, bank_dir, group, skeletons):
         extra = sorted(set(webbank.load_secrets(data["dir"])) - {"facts.json", "review.json"})
     except webbank.BankError:
         extra = []
-    extra += [name for name in ("gens.py", "oracle.py") if os.path.isfile(os.path.join(data["dir"], name))]
     if extra:
-        v.fail(label, 2, "items/%s 에는 facts.json 과 review.json 만 둡니다. 카드는 ai/patterns 뼈대에서 만듭니다: %s"
+        v.fail(label, 2, "items/%s 의 봉인에는 facts.json 과 review.json 만 둡니다. 코드 카드는 ai/patterns 뼈대에서 만듭니다: %s"
                % (label, ", ".join(extra)))
     units = {}
     for key, info in group["units"].items():
@@ -1087,6 +1086,7 @@ def load_pattern_group(v, bank_dir, group, skeletons):
         units[key] = {"after": info["after"], "name": info["name"], "title": note["units"][key]["title"]}
     try:
         cards = skel.cards(group, skeletons, units)
+        cards.extend(aibank.pattern_gen_cards(group, data, units))
     except (KeyError, TypeError, ValueError, AttributeError) as error:
         v.fail(label, 19, "뼈대 카드를 만들 수 없습니다: %s" % error)
         cards = []
@@ -1333,7 +1333,7 @@ def check_skel_change(v, label, skeleton, entry, card, seeds):
     for reverse in ([False, True] if back else [False]):
         src, dst = (entry["to"], entry["from"]) if reverse else (entry["from"], entry["to"])
         left, right = skel.lines_of(skeleton, src), skel.lines_of(skeleton, dst)
-        differ = {left[i].strip() for i, _, same in skel._pairs(left, right) if not same and i is not None}
+        differ = {skel._change_line(left, i) for i, _, same in skel._pairs(left, right) if not same and i is not None}
         if len(differ) < 2:
             v.fail(label, 19, "%s 의 %s → %s 다른 줄이 %d개입니다(2개 이상)." % (where, src, dst, len(differ)))
             continue
@@ -1416,7 +1416,7 @@ class _MockSources:
                 for statement in topic.get("statements", []):
                     add(str(statement.get("id")), dict(topic, **statement))
             path = os.path.join(folder, "gens.py")
-            if os.path.isfile(path):
+            if os.path.isfile(path) and lid not in {g["id"] for g in self.index["patterns"]}:
                 if IMPORT_BAD.search(study.read_text(path)):
                     raise ValueError("%s의 생성기에 numpy·torch import가 있어 견본을 만들지 않았습니다." % lid)
                 for spec in genlib.load_module(path):
@@ -1428,6 +1428,18 @@ class _MockSources:
             folder = aibank.items_dir(group["id"], self.bank_dir)
             if not os.path.isfile(os.path.join(folder, "meta.json")):
                 continue
+            path = os.path.join(folder, "gens.py")
+            if os.path.isfile(path):
+                if IMPORT_BAD.search(study.read_text(path)):
+                    raise ValueError("%s의 생성기에 numpy·torch import가 있어 견본을 만들지 않았습니다." % group["id"])
+                data = aibank.load_items({"id": group["id"]}, self.bank_dir)
+                note = aibank.load_note({"id": group["page"], "title": group["title"]}, self.bank_dir)
+                units = {key: info for key, info in group["units"].items() if key in note["visible"]}
+                for card in aibank.pattern_gen_cards(group, data, units):
+                    if card["errata"]:
+                        self.errata_facts.update(card["facts"])
+                    for seed in range(self.seeds):
+                        add("%s@%d" % (card["id"], seed), genlib.run(card["gen"], seed))
             skeletons, cards = ai_seal.pattern_cards(self.bank_dir, group)
             for card in cards:
                 skeleton = skeletons[card["pattern"]]
@@ -1779,7 +1791,7 @@ def grade_skel_answer(key, value, lessons, terms):
     모든 자리, 칸마다 글), "pc-o01 시드 1"·"pc-x01 시드 1"(고르기, {"picked": [문제지 번호]}), "pc-p01"(맞는 줄 고르기),
     "pc-k02 f2"(뼈대 빈칸 견본, 칸마다 글). 빈칸은 모든 칸이 맞아야 맞음이고 틀린 칸은 자리 id 로 보임."""
     groups = [les for les in lessons if les.group is not None]
-    cards = {c["id"]: c for les in groups for c in les.cards}
+    cards = {c["id"]: c for les in groups for c in les.cards if c["kind"] == "skel"}
     skeletons = next((les.skeletons for les in groups), {})
 
     def blanks(view):
@@ -2109,7 +2121,12 @@ def card_units(bank_dir, index):
         if not aibank.pattern_ready(group, bank_dir):
             continue
         try:
-            for card in ai_seal.pattern_cards(bank_dir, group)[1]:
+            cards = ai_seal.pattern_cards(bank_dir, group)[1]
+            data = aibank.load_items({"id": group["id"]}, bank_dir)
+            note = aibank.load_note({"id": group["page"], "title": group["title"]}, bank_dir)
+            units = {key: info for key, info in group["units"].items() if key in note["visible"]}
+            cards.extend(aibank.pattern_gen_cards(group, data, units))
+            for card in cards:
                 out[card["id"]] = (card["lesson"], card["unit"])
         except (aibank.AiBankError, KeyError, TypeError, ValueError):
             continue

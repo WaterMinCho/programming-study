@@ -41,15 +41,15 @@
   "assets/4e-42.png": "9b55b907afefa97b1da72559ec2ecf48722604e594526fb21d0870873fecef95",
   "assets/4e-43.png": "9f507bf3a73b4d9a11ccce1d5cd8bff7772617b6a26dd8741754ff3b751978cd",
   "assets/4f-1.gif": "077d79a80191d9c50d2bcc6f12d32fdce1ffcd42806907578f211f5ad1ca4e01",
-  "assets/4f-2.gif": "a5454c8b429ebe9b831e4e2ad9df1c33139902ac1e72c27786fc2f64c01c35d7",
+  "assets/4f-2.gif": "d4b04a25342494837408a46eb40310af75cefa2055059d2ca73f396cc9856799",
   "assets/4f-3.png": "705cefda89a43b657aef9f8612be417d9240f072d15650c23b87ddee5420761b",
-  "assets/4f-4.png": "65896e633cbccfed1b921393ea72f011de807f4b9495eecd702a68e1702682e2",
+  "assets/4f-4.png": "80ae3a0ea04e8362eb3fc3cfc1902a2c2281c400268806051155c43b654820be",
   "assets/4g-1.gif": "288bc13248c2572de89029ecf9acb41e426db07566f068b182edc02c26c58fb9",
   "assets/4g-2.png": "0443585dcc93f5fcbbd18f3abe34e301d472ad9743ea7af1861a9e7b02fa3b3d",
   "assets/4g-3.png": "10d4bbd4608a8c2bc7af04a436cbb7a783e7bc60a5b6239bacb50879c4d1bc57",
   "assets/4g-4.gif": "2b39a24c2e6d0f950c1cdba078f0e60945c1503fdf3ab0ef85fa34d6f14a3b87",
   "assets/4g-5.png": "3978a19951bd0ad0c05fee2071a259b1717d36f6089a873e6c5af3b185ed0061",
-  "assets/4h-1.png": "d9fef020378141fdd34bb055857a5693793fbaa12052cbb9a7c47bf6f131868d",
+  "assets/4h-1.png": "54d5813960bf110fc2e300b2df13fe33965612b2fec027061ab7c72229b2a850",
   "assets/4h-2.gif": "6ad5cdb3eeb169ae952f314c2926e9d55776232992179863601e0c92fb76763c",
   "assets/4h-3.gif": "e59ea6ee7161afd8d48e297477ae6e8a4fbc26792efc3adb69681f9f747fdd1a",
   "assets/4h-4.gif": "7585d864351aff5f63779e0cdc7c0df5e9097440b6aa4b4e40d27a78d2b1248f",
@@ -57,8 +57,8 @@
   "assets/4h-42.png": "cc8ed02bc0c190dcfa054e9672c2d3865ccc7b34c8c113d990ecb03fdc913eca",
   "assets/4h-43.png": "53b005e3e27262a517543df77def1963bccc264eacd3711b791cf0294caf289d",
   "assets/4h-5.png": "e71210a34069cf9c7d5f7ed1f64aa9810c6404d3bf2826a59538986ab6ed4c02",
-  "meta.json": "afc6ee81fba940e9fe4455fd82f7a4e5b41b76eea6e29a3cb70fbce0276bd556",
-  "page.md": "74145f13f82305bcaabd16c3a7132e63ea4c326f7b5d0f333d6f8275187f6a3c"
+  "meta.json": "a94788054f46025be350657bdbb228034c668d0dde2c2806e843e4f7f6935d74",
+  "page.md": "d333ac4b1f1cb27761413c8bb8e7ac79e8f8af2141086e5d009370e2fa9abe31"
  },
  "findings": [
   "처음 배우는 사람으로 4a~4c 를 읽고 고침: 4b 먼저 풀어 보기에 W.grad 뜻을 먼저 줌, W 의 경사와 경사(묶음)를 나눔, 학습률을 경사에 곱하는 수로 고침",
@@ -87,6 +87,7 @@
   "바깥 말투 검토 제안 32건 가운데 31건을 반영하고 같은 문제 44곳을 더 고침. 대조 3 이 바뀐 문장마다 뜻·숫자·식·코드·정답·강의 위치가 그대로임을 확인함",
   "대조 3 이 모멘텀 문장 둘을 계산으로 다시 고침. 4f/3 의 f 예는 x ≈ −0.47 을 넘을 때 |v| 가 19.25 로 처음 기울기 27.75 보다 작아서 'v의 절댓값이 커져서' 를 '기울기의 부호가 바뀐 뒤에도 v가 음수로 남아서' 로 바꿈. 그림 4f-2 2번 장은 넷째·다섯째 갱신의 기울기가 양수라 '계속 더해서' 를 '처음 세 번 갱신할 때 … 더해서' 로 바꿈. 4g/2 의 '값은 한 가지입니다' 는 개수 세기 꼴이라 원래 문장 '값이 한 가지 있습니다' 로 되돌림. 확인 스크립트 pr6/checks/l04_tone_cross3.py",
   "2026-11-05 본문과 복습 물음의 조건을 원자료·공식 문서와 대조하고 문장과 그림을 확인했음. 새 수준 물음 36개와 수정한 독립 지문 12개 및 마지막 반복 번호 물음의 재풀이 기록을 따로 보존했음.",
-  "학습 문장의 외부 위치를 덜고 단원 도입과 참조를 대조했음. 기존 물음·답·수치와 그림 파일을 보존했음."
+  "학습 문장의 외부 위치를 덜고 단원 도입과 참조를 대조했음. 기존 물음·답·수치와 그림 파일을 보존했음.",
+  "기울기 전달의 조건과 용어를 대조하고 수식 기호와 음수 눈금, 그림 안의 글자를 확인했음. 물음과 정답은 유지했음."
  ]
 }

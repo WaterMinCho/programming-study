@@ -153,6 +153,25 @@ def image_problems(path):
 
 # 그리기 도우미(출제자 컴퓨터에서만)
 
+def math_symbols(fig):
+    """수식 기호와 음수 눈금에 맞는 글꼴을 쓰며 한글 설명 글꼴은 유지함."""
+    from matplotlib.text import Text
+    from matplotlib.ticker import FuncFormatter, ScalarFormatter
+    for ax in fig.axes:
+        for axis in (ax.xaxis, ax.yaxis):
+            formatter = axis.get_major_formatter()
+            if isinstance(formatter, ScalarFormatter) and min(axis.get_view_interval()) < 0:
+                axis.set_major_formatter(FuncFormatter(lambda value, _: format(value, "g").replace("-", MINUS)))
+                for label in axis.get_ticklabels():
+                    label.set_fontfamily("DejaVu Sans")
+    for text in fig.findobj(match=Text):
+        value = text.get_text()
+        if "$" in value:
+            text.set_math_fontfamily("dejavusans")
+        elif any(char in value for char in ("μ", "γ", "α", "δ", "√", "−")):
+            text.set_fontfamily(["DejaVu Sans", "NanumGothic"])
+
+
 def setup():
     """matplotlib 을 Agg 로 켜고 gui/fonts 의 나눔고딕·D2Coding 을 등록한 pyplot. 창을 띄우지 않음."""
     import matplotlib

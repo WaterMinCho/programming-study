@@ -27,6 +27,7 @@ ORDER_STEM = "줄의 순서로 **옳은** 것을 고르세요."
 ORDER_HEAD = "줄 순서로 옳은 것 고르기"
 LINE_HINT = "코드 한 줄"
 SAME_WHY = "고친 뒤의 코드에도 같은 줄이 있어 고치지 않습니다."
+CHANGE_REV = 2  # 반복 줄을 원본 위치와 블록으로 구분하는 보기 판
 
 
 def token_re(token):
@@ -343,7 +344,8 @@ def pick_view(card, skeleton):
     line = lines_of(skeleton, entry.get("variant"))[entry["line"]].strip()
     options = [{"text": line, "ok": True, "why": ""}]
     for wrong in entry.get("wrong") or []:
-        options.append({"text": str(wrong.get("text", "")), "ok": False, "why": str(wrong.get("why", "")),
+        text = "\n".join(dedent(str(wrong.get("text", "")).splitlines()))
+        options.append({"text": text, "ok": False, "why": str(wrong.get("why", "")),
                         "aim": str(wrong.get("aim", ""))})
     return {"kind": "choice", "stem": _stem(skeleton, entry.get("variant"), str(entry.get("stem") or "")), "options": options,
             "pick": "right", "multi": False, "explain": str(entry.get("explain") or ""), "code_options": True, "grid": 1,
@@ -372,42 +374,66 @@ def _pairs(left, right):
     return out
 
 
-def change_view(card, skeleton, seed, back=False):
+def _change_line(lines, at):
+    """같은 대입문이 여러 곳에 있으면 원본 위치와 감싼 블록을 함께 보여 줌."""
+    text = lines[at].strip()
+    if sum(line.strip() == text for line in lines) < 2:
+        return text
+    context = [lines[at]]
+    indent = len(lines[at]) - len(lines[at].lstrip())
+    for line in reversed(lines[:at]):
+        depth = len(line) - len(line.lstrip())
+        if line.strip() and depth < indent:
+            context.insert(0, line)
+            indent = depth
+            if not indent:
+                break
+    return "# 원본 %d번째 줄\n%s" % (at + 1, "\n".join(dedent(context)))
+
+
+def change_view(card, skeleton, seed, back=False, revision=CHANGE_REV):
     """고칠 줄 모두 고르기. from 판(back 이면 to 판) 줄 가운데 diff 의 다른 줄 k 개(2~3, 다른 줄 수 이하)를 정답으로 하고 같은 줄을
-    더해 보기 4~5개를 코드 순서로 둠. 글이 같은 줄은 하나만 씀. Rng("<id> <seed>[ back]")."""
+    더해 보기 4~5개를 코드 순서로 둠. 1판은 같은 글의 줄을 합치고 2판은 위치와 블록으로 구분함. 난수 키는 id·seed·back임."""
+    if revision not in (1, CHANGE_REV):
+        raise bank.AiBankError("고칠 줄 보기 판을 읽을 수 없습니다: %r" % revision)
     entry = card["entry"]
     src, dst = (entry.get("to"), entry.get("from")) if back else (entry.get("from"), entry.get("to"))
     left, right = lines_of(skeleton, src), lines_of(skeleton, dst)
+
+    def line_text(at):
+        return left[at].strip() if revision == 1 else _change_line(left, at)
+
     pairs = _pairs(left, right)
     seen, differ = set(), []
     for i, _, same in pairs:
-        if not same and i is not None and left[i].strip() and left[i].strip() not in seen:
-            seen.add(left[i].strip())
+        if not same and i is not None and left[i].strip() and line_text(i) not in seen:
+            seen.add(line_text(i))
             differ.append(i)
     if len(differ) < 2:
         raise bank.AiBankError("%s 의 두 판은 다른 줄이 %d개입니다(2개 이상)." % (card["id"], len(differ)))
     rng = Rng("%s %d%s" % (card["id"], int(seed), " back" if back else ""))
     k = rng.int(2, min(3, len(differ)))
     chosen = rng.sample(differ, k)
-    taken = {left[i].strip() for i in chosen}
+    taken = {line_text(i) for i in chosen}
     pool = []
     for i, _, same in pairs:
-        text = left[i].strip() if i is not None else ""
+        text = line_text(i) if i is not None else ""
         if same and text and text not in taken:
             taken.add(text)
             pool.append(i)
     want = min(len(pool), rng.int(max(0, 4 - k), 5 - k))
     rows = sorted(chosen + rng.sample(pool, want))
-    options = [{"text": left[i].strip(), "ok": i in chosen, "why": "" if i in chosen else SAME_WHY} for i in rows]
+    options = [{"text": line_text(i), "ok": i in chosen, "why": "" if i in chosen else SAME_WHY} for i in rows]
     text = entry.get("back") if back else entry.get("stem")
     return {"kind": "choice", "stem": _stem(skeleton, src, str(text or "")), "options": options, "pick": "right", "multi": True,
             "explain": str(entry.get("explain") or ""), "code_options": True, "grid": 1, "keep_order": True,
-            "skel": {"part": "change", "seed": int(seed), "back": bool(back)}}
+            "skel": {"part": "change", "seed": int(seed), "back": bool(back), "change_rev": revision}}
 
 
 def view(card, skeleton, seed, boxes=None, again=0, record=None):
     """카드 한 장의 문항. record 는 기록의 답 줄(오답 노트가 다시 그릴 때)이고 slot 은 masked·whole·fade, order·change 는
-    seed·back 을 그대로 씀. record 가 없고 boxes 도 없으면 slot 은 f = 0. change 는 again ≥ 1 이고 back 지문이 있으면 반대 방향."""
+    seed·back 을 그대로 씀. change_rev가 없는 기록은 1판으로 복원함. 새 change는 2판이며 again ≥ 1이고 back 지문이 있으면
+    반대 방향으로 냄. record와 boxes가 모두 없으면 slot은 f = 0임."""
     part = card.get("part")
     if part == "slot":
         if record is not None:
@@ -426,9 +452,11 @@ def view(card, skeleton, seed, boxes=None, again=0, record=None):
     if part == "change":
         if record is not None:
             back = bool(record.get("back"))
+            revision = int(record.get("change_rev", 1))
         else:
             back = int(again) >= 1 and bool(card["entry"].get("back"))
-        return change_view(card, skeleton, seed, back)
+            revision = CHANGE_REV
+        return change_view(card, skeleton, seed, back, revision)
     raise bank.AiBankError("모르는 뼈대 카드 꼴입니다: %r" % part)
 
 
