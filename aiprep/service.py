@@ -5,7 +5,7 @@
 기록은 submissions/<ID>/ai/record.json 에 덧붙기만 하고(AiRecord), 상자·날짜·오늘 목표·오답 갈래는 기록에서 그때그때
 계산해 (파일 mtime_ns, 크기, 줄 수, 학습일) 키로 캐시함. 학습 단원의 중간 자리(at_step)는 ~/.rokey-study/ai/<ID>/state.json
 (STUDY_AI_HOME 으로 바꿈)에 둬서 제출에 들어가지 않음. 묶음은 secrets.randbelow 로 고른 시드 하나의 random.Random 으로 만들고
-set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 나옴. 모의고사(PR5)는 아직 없음.
+set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 나옴. 모의고사는 제출 전 답안을 로컬에만 두고 첫 제출의 오답을 복습에 넣음.
 
 상황별 코드(index.json patterns, 무리 id pc)는 차시처럼 학습 노트(l18)와 문항 묶음(items/pc, facts·review 만)을 갖고, 카드는
 ai/patterns/S*.json 뼈대에서 skel.cards 가 만듦. 카드 lesson 은 무리 id, after 는 권하는 차시이고, 차시를 묻는 곳(정렬, 무게,
@@ -22,7 +22,7 @@ import threading
 import adaptive
 import session
 import study
-from aiprep import bank, gen, grade, notes, plan, review, skel
+from aiprep import bank, gen, grade, mock, notes, plan, review, skel
 from webprep import record
 
 SET_SIZE = 20
@@ -167,6 +167,76 @@ class AiSession(object):
         self._cache_key, self._cache = None, None
         self._index, self._index_log = None, None
         self._gen_kind = {}
+        self._mock_loaded = set()
+        self._mock_exams = {}
+        self._recover_mocks()
+
+    def _recover_mocks(self):
+        """제출하지 않은 로컬 회차를 복구함. 시간이 지난 회차는 홈을 그리기 전에 제출함."""
+        done = {(row.get('mock'), int(row.get('try') or 1)) for row in self.record.log if row.get('kind') == 'mock_submit'}
+        starts = {}
+        for row in self.record.log:
+            if row.get('kind') == 'mock_start':
+                starts[row.get('mock')] = row
+        for mid, row in starts.items():
+            if mid not in self.mocks or (mid, int(row.get('try') or 1)) in done:
+                continue
+            try:
+                self._mock_exams[mid] = mock.MockExam(self, mid, clock=lambda: now())
+            except mock.MockError as error:
+                self.errors[mid] = str(error)
+
+    def expire_mocks(self):
+        """열지 않은 회차도 시간이 다 됐으면 제출함. 화면 ticker가 부름."""
+        for mid, exam in self._mock_exams.items():
+            if exam.result is None and exam.remaining() == 0:
+                try:
+                    exam.submit(auto=True)
+                    self.errors.pop(mid, None)
+                except mock.MockError as error:
+                    self.errors[mid] = str(error)
+
+    def mock_info(self, mid):
+        """시작 전 안내용 회차 정보. 이 조회는 시작 기록을 만들지 않음."""
+        if mid not in self.mocks:
+            raise AiError('모의고사를 찾을 수 없습니다.')
+        try:
+            items, _ = mock.load_items(self.root, self.mocks[mid])
+            rows = mock.submissions(self.record.reload(), mid)
+        except (mock.MockError, record.RecordError) as error:
+            raise AiError(str(error)) from error
+        exam = self._mock_exams.get(mid)
+        return dict(self.mocks[mid], blanks=sum(item['kind'] == 'blank' for item in items.values()),
+                    choices=sum(item['kind'] == 'choice' for item in items.values()), taken=bool(rows),
+                    first_score=rows[0]['score'] if rows else None, last_score=rows[-1]['score'] if rows else None,
+                    active=exam is not None and exam.result is None,
+                    remaining=exam.remaining() if exam is not None and exam.result is None else None)
+
+    def mock_state(self, mid):
+        """홈에 보일 진행 상태. 회차의 문항을 다시 읽거나 새 풀이를 시작하지 않음."""
+        self._state()
+        first = self._index.mocks.get(mid)
+        exam = self._mock_exams.get(mid)
+        active = exam is not None and exam.result is None
+        return {'first_score': first['score'] if first else None, 'active': active,
+                'remaining': exam.remaining() if active else None, 'error': self.errors.get(mid, '')}
+
+    def _load_mock_reviews(self):
+        """첫 제출에서 틀리거나 비운 문항만 복습 카드로 읽음. 미제출 회차의 문항은 연습에 넣지 않음."""
+        for mid, row in self._index.mocks.items():
+            if mid in self._mock_loaded or mid not in self.mocks:
+                continue
+            try:
+                items, _ = mock.load_items(self.root, self.mocks[mid])
+                cards = bank.cards_of({'id': mid}, {'items': list(items.values()), 'topics': [], 'gens': []})
+                for card in cards:
+                    if row.get('results', {}).get(card['id']) not in ('stuck', 'blank', 'partial'):
+                        continue
+                    card['mock'], card['after'] = mid, card['item'].get('lesson')
+                    self.cards[card['id']] = card
+            except mock.MockError as error:
+                self.errors[mid] = str(error)
+            self._mock_loaded.add(mid)
 
     def _load_pattern(self, group):
         """상황별 코드 무리 하나를 읽음. 학습 노트, items/<무리>(facts·review 만 쓰고 정적 카드는 읽지 않음), 공개 단원의 뼈대 카드.
@@ -215,6 +285,8 @@ class AiSession(object):
             name = self.patterns[lid]["units"].get(key, {}).get("name", "")
             return "%s · %s" % (name, title) if name and title else (name or title)
         entry = self.lessons.get(lid)
+        if lid in self.mocks:
+            return self.mocks[lid]['title']
         return "%d차시 · %s" % (entry["no"], title) if entry else title
 
     def _home(self, card):
@@ -237,7 +309,10 @@ class AiSession(object):
             log = self.record.log
             if self._index is None or self._index_log is not log or self._index.n > len(log):
                 self._index, self._index_log = _LogIndex(), log  # 파일을 다시 읽었으면 처음부터
+                self.cards = {cid: card for cid, card in self.cards.items() if not card.get('mock')}
+                self._mock_loaded.clear()
             self._index.feed(log[self._index.n:])
+            self._load_mock_reviews()
             key = (self.record.version, self.today())
             if key == self._cache_key and self._cache is not None:
                 return self._cache
@@ -483,6 +558,17 @@ class AiSession(object):
 
     # 연습
 
+    def start_mock(self, mid, repeat=False, seed=None, clock=None, monotonic=None):
+        """회차를 시작하거나 로컬 초안을 이어 엶. 제출한 회차는 결과를 열고 repeat이면 새 풀이를 시작함."""
+        try:
+            if not repeat and mid in self._mock_exams:
+                return self._mock_exams[mid]
+            exam = mock.MockExam(self, mid, repeat=repeat, seed=seed, clock=clock or (lambda: now()), monotonic=monotonic)
+            self._mock_exams[mid] = exam
+            return exam
+        except mock.MockError as error:
+            raise AiError(str(error)) from error
+
     def start_set(self, mode, lesson=None, unit=None, mock=None, card=None, seed=None):
         """연습 묶음을 만들고 set 기록을 남김. 카드가 하나도 없으면 AiError."""
         if mode not in MODES:
@@ -567,10 +653,21 @@ class AiSession(object):
                            and key in (e.get("also_value") or {})), None)
             if shared is not None:
                 mine = [str(shared["also_value"][key])]
+        elif card.get('mock'):
+            try:
+                path = os.path.join(self.home, 'mocks', '%s-1.json' % card['mock'])
+                saved = study.read_json(path).get('answers', {}).get(key)
+                if isinstance(saved, list):
+                    if card['kind'] == 'blank' and all(isinstance(value, str) for value in saved):
+                        mine = list(saved)
+                    elif card['kind'] == 'choice' and all(type(value) is int and 0 <= value < len(view['options']) for value in saved):
+                        mine = [view['options'][value]['text'] for value in saved]
+            except (OSError, ValueError, AttributeError, TypeError):
+                pass  # 다른 기기에 없는 로컬 답안은 빈 상태로 둠
         return {"key": key, "title": state.note_title(card), "name": self.unit_name(card["lesson"], card["unit"]),
                 "lines": lines, "stem": view["stem"], "kind": view["kind"], "pick": view.get("pick"),
                 "options": [o["text"] for o in view.get("options", [])], "code_options": bool(view.get("code_options")),
-                "mine": mine, "ref": card["ref"], "lesson": card["lesson"], "step": card.get("step"), "state": note["state"]}
+                "mine": mine, "ref": card["ref"], "lesson": card.get('after') if card.get('mock') else card["lesson"], "step": card.get("step"), "state": note["state"]}
 
     def _last_wrong(self, key):
         """그 카드의 마지막 틀린 답 기록(생성기 시드와 문장 카드 shown 을 다시 쓰려고). 없으면 None."""
@@ -641,6 +738,8 @@ class _LogIndex(object):
         self.reads, self.opened, self.guesses, self.revisits = {}, set(), {}, set()
         self.day_cards = {}
         self.sched, self.start_due = {}, {}
+        self.mocks = {}
+        self.related = []
         self.n = 0
 
     def feed(self, entries):
@@ -659,6 +758,10 @@ class _LogIndex(object):
                 self.revisits.add(where + (day,))
             elif kind == "answer" and e.get("card") and day is not None:
                 self.day_cards.setdefault(day, set()).add(str(e["card"]))
+            elif kind == 'mock_submit' and int(e.get('try') or 1) == 1:
+                self.mocks.setdefault(e.get('mock'), e)
+                if day is not None:
+                    self.related += [(cid, day + datetime.timedelta(days=1)) for cid in e.get('related') or [] if isinstance(cid, str)]
         self.n += len(entries)
 
 
@@ -675,6 +778,10 @@ class _State(object):
         self.revisited_today = {(lesson, unit) for lesson, unit, day in index.revisits if day == today}
         self.sched = {}
         self._overview, self._overview_key = None, None
+        self.related_due = {}
+        for cid, day in index.related:
+            if cid in sess.cards and not any(row['src'] == 'answer' and row['day'] >= day for row in self.events.get(cid, [])):
+                self.related_due[cid] = min(day, self.related_due.get(cid, day))
         for cid, rows in self.events.items():
             read = self.read_day(cid)
             key = (index.events.ver.get(cid), today, read)
@@ -685,7 +792,7 @@ class _State(object):
             self.sched[cid] = hit[1]
         self.leeches = {cid for cid, s in self.sched.items() if review.leech(s)}
         self.new_today = sum(1 for cid, s in self.sched.items()
-                             if s and s["first"] == today and cid in sess.cards and not sess.cards[cid]["core"])
+                             if s and s["first"] == today and cid in sess.cards and not sess.cards[cid]["core"] and not sess.cards[cid].get('mock'))
         todays = {cid: self.events[cid] for cid in index.day_cards.get(today, ()) if cid in self.events}
         self.again = plan.again_cards(todays, today)
         self._notes = None
@@ -714,7 +821,7 @@ class _State(object):
         return all((self.box(c["id"]) or 0) >= 2 for c in core)
 
     def is_open(self, card):
-        return card["id"] in self.events or (card["core"] and self.unlocked(card))
+        return card["id"] in self.events or card['id'] in self.related_due or (card["core"] and self.unlocked(card))
 
     def new_cap_left(self):
         """오늘 더 열 수 있는 비핵심 새 카드 수. NEW_PER_DAY 가 None 이면 상한 없음."""
@@ -725,7 +832,7 @@ class _State(object):
     def eligible_new(self, card):
         """아직 답한 적 없고 오늘 새로 낼 수 있는 카드인지. 차시 풀기로 연 차시(문제집)는 모든 카드, 읽은 단원은 핵심 카드와
         핵심이 모두 상자 2 이상인 단원의 비핵심 카드(last_new 뒤에는 비핵심을 새로 열지 않음). 비핵심 하루 상한은 묶음을 만들 때 셈."""
-        if card["id"] in self.events or not self.unlocked(card):
+        if card["id"] in self.events or card['id'] in self.related_due or not self.unlocked(card):
             return False
         if card["core"] or card["lesson"] in self.opened:
             return True
@@ -736,11 +843,14 @@ class _State(object):
 
     def due_day(self, cid):
         card = self.sess.cards.get(cid)
+        extra = self.related_due.get(cid)
         if cid not in self.sched:
             if card and card["core"] and self.unlocked(card) and review.in_sweep(self.exam, self.today):
-                return review.sweep_day(cid, self.exam)
-            return None
-        return review.due_on(self.sched[cid], cid, self.exam, self.today)
+                day = review.sweep_day(cid, self.exam)
+                return min(day, extra) if extra is not None else day
+            return extra
+        day = review.due_on(self.sched[cid], cid, self.exam, self.today)
+        return min(day, extra) if day is not None and extra is not None else (day or extra)
 
     def sure_wrong(self, cid):
         """확신 오답을 다시 보는 기간(확실함으로 틀린 다음 날부터 7일 뒤 다시 볼 날까지)인지."""
@@ -1401,7 +1511,7 @@ class PracticeSet(object):
         form = item.get("kind") or view["form"]
         code = form == "blank" and bank.blanks_in_code(item.get("stem", ""))
         chips = []
-        lesson = self.sess.lessons.get(card["lesson"])
+        lesson = self.sess.lessons.get(card.get('after') if card.get('mock') else card["lesson"])
         if lesson:
             chips.append("%d차시" % lesson["no"])
         elif card["kind"] == "skel":
@@ -1422,7 +1532,7 @@ class PracticeSet(object):
         return {"card": card["id"], "kind": form, "chips": chips, "stem": item.get("stem", ""),
                 "blanks": [{"mode": b.get("mode") or "word", "hint": b.get("hint", "")} for b in item.get("blanks") or []],
                 "options": options, "multi": bool(item.get("multi")), "pick": item.get("pick", "right"), "code": code,
-                "code_options": bool(item.get("code_options")), "grid": int(item.get("grid") or 1), "again": entry["again"], "step": card.get("step"), "lesson": card["lesson"], "at": self.pos + 1,
+                "code_options": bool(item.get("code_options")), "grid": int(item.get("grid") or 1), "again": entry["again"], "step": card.get("step"), "lesson": card.get('after') if card.get('mock') else card["lesson"], "at": self.pos + 1,
                 "total": len(self.queue), "answered": self.answered is not None}
 
     # 답하기
