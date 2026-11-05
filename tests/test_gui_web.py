@@ -146,6 +146,7 @@ class WebTest(unittest.TestCase):
             for dialog in (win.dialog, win.web_home.setup_dialog, win.web_mission.setup_dialog):
                 if dialog is not None:
                     dialog.close()
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()
@@ -734,6 +735,7 @@ class MissionTest(WebTest):
             self.tick(seconds=10)
             page.tick()
             self.assertEqual(page.timer_label.text(), "+" + ticked)
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()
@@ -1247,6 +1249,7 @@ class TextSizeTest(WebTest):
         QTest.keyClick(win, Qt.Key.Key_0, Qt.KeyboardModifier.ControlModifier)
         self.assertEqual((theme.state["text"], hub.summary.font().pixelSize()), ("large", 19))
         win.set_text("larger")
+        guikit.wait_until(lambda: win.pending_job is None)
         win.close()
         win.deleteLater()
         guikit.pump()
@@ -1261,6 +1264,7 @@ class TextSizeTest(WebTest):
             self.settings.setValue("zoom", zoom)
             win = self.boot()
             self.assertEqual((theme.state["text"], self.settings.value("text"), self.settings.contains("zoom")), (step, step, False), zoom)
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()

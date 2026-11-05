@@ -242,7 +242,7 @@ class TextPiece(QTextBrowser):
             if first is None or last is None:
                 continue
             rect = self.code_box(frame)
-            above = math.ceil(rect.top() - last.bottom())
+            above = math.ceil(rect.top() - last.bottom()) - 1
             below = math.floor(first.top() - rect.bottom()) - 1
             box = frame.format()
             box.setBottomMargin(box.bottomMargin() + above - below)
