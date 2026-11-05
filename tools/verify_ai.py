@@ -23,12 +23,14 @@ check_level_figure 가 여기서 봄.
 하나로 묶어 check_lesson 을 돌리고, 19 뼈대 검사로 판·자리·순서·고르기·고칠 줄을 봄. pc 서명은 ai/patterns/*.json 을 모두 덮음.
 """
 import argparse
+import ast
 import json
 import math
 import os
 import re
 import subprocess
 import sys
+import textwrap
 import time
 import unicodedata
 
@@ -38,7 +40,7 @@ import study  # noqa: E402
 from aiprep import bank as aibank  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
 from aiprep import grade, review, skel  # noqa: E402
-from tools import ai_art, ai_seal, check_style, lecture_locations, verify_web, web_lint  # noqa: E402
+from tools import ai_art, ai_mock_rules, ai_seal, check_style, lecture_locations, verify_web, web_lint  # noqa: E402
 from webprep import bank as webbank  # noqa: E402
 
 STEP_NAMES = {1: "목록", 2: "문항 꼴", 3: "빈칸 규칙", 4: "고르기", 5: "문장", 6: "생성기", 7: "사실 확인", 8: "노트 블록", 9: "근거",
@@ -1347,36 +1349,281 @@ def check_skel_change(v, label, skeleton, entry, card, seeds):
 
 # 12. 모의고사
 
-def check_mock(v, bank_dir, mock, ids):
-    """모의고사 묶음의 꼴(문항 수, 꼴, 칸 수, errata 없음, deep 2 이하). 회차 청사진·자카드는 PR5 에서 더함."""
-    label = mock["id"]
-    folder = aibank.mock_dir(mock["id"], bank_dir)
+def _mock_payload(bank_dir, mid):
+    folder = aibank.mock_dir(mid, bank_dir)
+    meta = study.read_json(os.path.join(folder, "meta.json"))
+    secrets = webbank.load_secrets(folder)
+    data = json.loads(secrets.get("items.json", '{"items": []}'))
+    if not isinstance(meta, dict) or not isinstance(data, dict) or not isinstance(data.get("items"), list):
+        raise ValueError("meta는 객체이며 items.items는 목록이어야 합니다.")
+    return meta, data["items"]
+
+
+class _MockSources:
+    """모의고사 검사에서 차시 근거·연습 견본·다른 회차를 읽어 재사용함."""
+
+    def __init__(self, bank_dir, index, seeds, skeletons):
+        self.bank_dir, self.index = bank_dir, index
+        self.seeds, self.skeletons = max(1, seeds), skeletons
+        self.entries = {entry["id"]: entry for entry in index["lessons"] if 1 <= entry["no"] <= 17}
+        self.entries.update({group["id"]: group for group in index["patterns"]})
+        self.data, self.notes = {}, {}
+        self.practice, self.exams = None, None
+        self.errata_facts = set()
+
+    def source(self, lid):
+        if lid not in self.entries:
+            raise ValueError("출제 범위의 차시나 상황별 코드 묶음이 없습니다: %s" % lid)
+        if lid not in self.data:
+            self.data[lid] = aibank.load_items(self.entries[lid], self.bank_dir, with_gens=False)
+        return self.data[lid]
+
+    def note(self, lid):
+        if lid not in self.notes:
+            entry = self.entries[lid]
+            self.notes[lid] = aibank.load_note({"id": entry["page"], "title": entry["title"]}, self.bank_dir)
+        return self.notes[lid]
+
+    def practice_stems(self):
+        if self.practice is not None:
+            return self.practice
+        practice = []
+
+        def add(cid, item):
+            if not isinstance(item, dict):
+                raise ValueError("연습 문항은 객체여야 합니다: %s" % cid)
+            alt = item.get("alt") if isinstance(item.get("alt"), dict) else {}
+            cloze = item.get("cloze") if isinstance(item.get("cloze"), dict) else {}
+            for stem in (item.get("stem"), item.get("text"), alt.get("stem"), cloze.get("text")):
+                if isinstance(stem, str) and stem.strip():
+                    practice.append((cid, ai_mock_rules.tokens(stem)))
+            if item.get("errata"):
+                self.errata_facts.update(fid for fid in (item.get("facts") or []) if isinstance(fid, str))
+
+        for lid in self.entries:
+            folder = aibank.items_dir(lid, self.bank_dir)
+            if not os.path.isfile(os.path.join(folder, "meta.json")) or not aibank.has_secrets(folder):
+                continue
+            data = self.source(lid)
+            for fid, fact in data["facts"].items():
+                if fact.get("errata"):
+                    self.errata_facts.add(fid)
+            for erratum in data["errata"].values():
+                self.errata_facts.update(fid for fid in (erratum.get("facts") or []) if isinstance(fid, str))
+            for item in data["items"]:
+                add(str(item.get("id")) if isinstance(item, dict) else lid, item)
+            for topic in data["topics"]:
+                for statement in topic.get("statements", []):
+                    add(str(statement.get("id")), dict(topic, **statement))
+            path = os.path.join(folder, "gens.py")
+            if os.path.isfile(path):
+                if IMPORT_BAD.search(study.read_text(path)):
+                    raise ValueError("%s의 생성기에 numpy·torch import가 있어 견본을 만들지 않았습니다." % lid)
+                for spec in genlib.load_module(path):
+                    if spec.meta.get("errata"):
+                        self.errata_facts.update(spec.meta.get("facts") or [])
+                    for seed in range(self.seeds):
+                        add("%s@%d" % (spec.id, seed), genlib.run(spec, seed))
+        for group in self.index["patterns"]:
+            folder = aibank.items_dir(group["id"], self.bank_dir)
+            if not os.path.isfile(os.path.join(folder, "meta.json")):
+                continue
+            skeletons, cards = ai_seal.pattern_cards(self.bank_dir, group)
+            for card in cards:
+                skeleton = skeletons[card["pattern"]]
+                if card["part"] == "slot":
+                    for name, view in ai_seal.skel_samples(card, skeleton, cards):
+                        add("%s %s" % (card["id"], name), view)
+                else:
+                    for seed in range(3):
+                        add("%s@%d" % (card["id"], seed), ai_seal.skel_choice(card, skeleton, seed))
+                if card["errata"]:
+                    self.errata_facts.update(card["facts"])
+        self.practice = practice
+        return practice
+
+    def other_exams(self):
+        if self.exams is None:
+            exams = {}
+            for entry in self.index["mocks"]:
+                mid = entry["id"]
+                if mid not in ai_mock_rules.LESSON_COUNTS or not os.path.isfile(os.path.join(
+                        aibank.mock_dir(mid, self.bank_dir), "meta.json")):
+                    continue
+                _, items = _mock_payload(self.bank_dir, mid)
+                if not all(isinstance(item, dict) for item in items):
+                    raise ValueError("%s의 비교 문항에 객체가 아닌 값이 있습니다." % mid)
+                exams[mid] = items
+            self.exams = exams
+        return self.exams
+
+
+def _mock_code(v, label, item):
+    """코드 울타리와 등록 답으로 채운 빈칸 코드의 구문을 확인함. 실행하지 않음."""
+    cid = item["id"]
+    for where, text, _ in card_texts({"id": cid, "kind": item["kind"], "item": item}):
+        if ai_mock_rules.code_blocks(text)[1]:
+            v.fail(label, 12, "%s의 %s에 닫히지 않은 코드 울타리가 있습니다." % (cid, where))
+    if item["kind"] != "blank":
+        return
+    answers = iter((blank.get("answer") or ["____"])[0] if isinstance(blank.get("answer"), list)
+                   else "____" for blank in item.get("blanks", []))
+    filled = aibank.BLANK.sub(lambda found: str(next(answers, found.group())), item.get("stem", ""))
+    for language, source in ai_mock_rules.code_blocks(filled)[0]:
+        if language in ("", "py", "python"):
+            try:
+                ast.parse(textwrap.dedent(source))
+            except (SyntaxError, ValueError) as error:
+                v.fail(label, 12, "%s의 등록 답을 채운 코드 구문을 읽지 못합니다: %s" % (cid, error))
+
+
+def _mock_evidence(v, label, item, sources):
+    cid, lid = item["id"], item.get("lesson")
+    if not isinstance(lid, str) or lid not in sources.entries or not aibank.LESSON_ID.fullmatch(lid):
+        v.fail(label, 12, "%s의 lesson이 출제 범위의 차시가 아닙니다: %r" % (cid, lid))
+        return
+    try:
+        data, note = sources.source(lid), sources.note(lid)
+        facts, errata = dict(data["facts"]), dict(data["errata"])
+        if isinstance(item.get("pattern"), str) and item["pattern"] in sources.skeletons:
+            for group in sources.index["patterns"]:
+                extra = sources.source(group["id"])
+                facts.update(extra["facts"])
+                errata.update(extra["errata"])
+                if item.get("unit") in group["units"]:
+                    note = sources.note(group["id"])
+        fids, refs = item.get("facts"), item.get("ref")
+        if not isinstance(fids, list) or not fids or not all(isinstance(fid, str) and fid for fid in fids):
+            v.fail(label, 12, "%s의 facts는 비어 있지 않은 사실 ID 목록이어야 합니다." % cid)
+            fids = []
+        unit, step = item.get("unit"), item.get("step")
+        current = note["units"].get(unit) if isinstance(unit, str) else None
+        match = re.fullmatch(r"(\w+)/(\d+)", str(step or ""))
+        if current is None or not match or match.group(1) != unit:
+            v.fail(label, 12, "%s의 unit·step이 실제 학습 단계가 아닙니다: %r / %r" % (cid, unit, step))
+        else:
+            steps = [part for part in current["steps"] if part["no"]]
+            number = int(match.group(2))
+            if not 1 <= number <= len(steps):
+                v.fail(label, 12, "%s의 step %s가 없습니다." % (cid, step))
+            elif not set(steps[number - 1]["facts"]) & set(fids):
+                v.fail(label, 12, "%s의 facts가 step %s의 사실 줄과 겹치지 않습니다." % (cid, step))
+        if not isinstance(refs, list) or not refs or not all(isinstance(ref, str) and ref for ref in refs):
+            v.fail(label, 12, "%s의 ref는 비어 있지 않은 근거 목록이어야 합니다." % cid)
+        else:
+            for ref in refs:
+                if ref_kind(ref)[0] is None:
+                    v.fail(label, 9, "%s의 ref 형식을 읽지 못합니다: %s" % (cid, ref))
+            if not first_ref_ok(refs[0], lesson_no(lid)):
+                v.fail(label, 9, "%s의 첫 ref는 %s의 강의·과제·요약 근거여야 합니다." % (cid, lid))
+        les = Lesson({"id": label}, None, {"facts": facts, "errata": errata}, [])
+        card = {"id": cid, "kind": item["kind"], "item": item, "facts": fids, "errata": item.get("errata") or []}
+        check_facts(v, les, card, set())
+        for fid in fids:
+            fact = facts.get(fid) or {}
+            if fact and fact.get("verdict") not in VERDICTS:
+                v.fail(label, 7, "%s의 사실 %s의 verdict를 모릅니다: %r" % (cid, fid, fact.get("verdict")))
+            if fid in sources.errata_facts or fact.get("errata"):
+                v.fail(label, 12, "%s가 정정 근거 사실 %s를 사용합니다." % (cid, fid))
+            if fact.get("concept_only") and (
+                    (item["kind"] == "blank" and any(ai_mock_rules.numeric_blank(b) for b in item["blanks"])) or
+                    (item["kind"] == "choice" and ai_mock_rules.numeric_choices(item))):
+                v.fail(label, 12, "%s가 concept_only 사실 %s를 숫자·모양으로 묻습니다." % (cid, fid))
+    except (aibank.AiBankError, ValueError, TypeError, KeyError) as error:
+        v.fail(label, 12, "%s의 차시 근거를 읽지 못합니다: %s" % (cid, error))
+
+
+def check_mock(v, bank_dir, mock, ids, sources=None):
+    """작은 회차의 기본 꼴과 m1~m3의 배분·근거·연습 및 회차 간 겹침을 확인함."""
+    label, strict = mock["id"], mock["id"] in ai_mock_rules.LESSON_COUNTS
     v.head(label, mock["title"])
     try:
-        secrets = webbank.load_secrets(folder)
-        items = json.loads(secrets.get("items.json", '{"items": []}')).get("items") or []
-    except (webbank.BankError, ValueError) as error:
-        v.fail(label, 12, "items.json 을 읽을 수 없습니다: %s" % error)
-        return
-    if len(items) != mock["count"]:
-        v.fail(label, 12, "문항이 %d개입니다(%d개)." % (len(items), mock["count"]))
-    deep = 0
-    for item in items:
-        mid = str(item.get("id"))
-        if mid in ids:
-            v.fail(label, 12, "id 가 두 번 쓰였습니다: %s" % mid)
-        ids[mid] = label
-        if item.get("kind") not in ("blank", "choice"):
-            v.fail(label, 12, "%s 는 빈칸이나 고르기여야 합니다." % mid)
+        meta, raw_items = _mock_payload(bank_dir, label)
+    except (OSError, webbank.BankError, ValueError, AttributeError) as error:
+        v.fail(label, 12, "items.json을 읽을 수 없습니다: %s" % error)
+        return None
+    if len(raw_items) != mock["count"]:
+        v.fail(label, 12, "문항이 %d개입니다(%d개)." % (len(raw_items), mock["count"]))
+    items = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            v.fail(label, 12, "문항은 객체여야 합니다.")
+            continue
+        cid, kind = item.get("id"), item.get("kind")
+        if not isinstance(cid, str) or not re.fullmatch(re.escape(label) + r"-\d{2,3}", cid):
+            v.fail(label, 12, "문항 id는 %s-01 형식이어야 합니다: %r" % (label, cid))
+            continue
+        if cid in ids:
+            v.fail(label, 12, "id 가 두 번 쓰였습니다: %s" % cid)
+        ids[cid] = label
+        if kind not in ("blank", "choice"):
+            v.fail(label, 12, "%s는 빈칸이나 고르기여야 합니다." % cid)
+            continue
         if item.get("errata"):
-            v.fail(label, 12, "%s 는 정정 주제(errata)라 모의고사에 넣지 않습니다." % mid)
-        if len(item.get("blanks") or []) > 2:
-            v.fail(label, 12, "%s 에 빈칸이 셋 넘게 있습니다(문항마다 1~2칸)." % mid)
-        if item.get("kind") == "choice" and item.get("multi") and len(grade.right_options(item)) != 2:
-            v.fail(label, 12, "%s 는 모두 고르기인데 답이 2개가 아닙니다." % mid)
-        deep += bool(item.get("deep"))
-    if deep > 2:
-        v.fail(label, 12, "deep 문항이 %d개입니다(2개 이하)." % deep)
+            v.fail(label, 12, "%s 는 정정 주제(errata)라 모의고사에 넣지 않습니다." % cid)
+        if not isinstance(item.get("stem"), str) or not item["stem"].strip():
+            v.fail(label, 12, "%s의 stem은 비어 있지 않은 글이어야 합니다." % cid)
+            continue
+        if strict and (not isinstance(item.get("explain"), str) or not item["explain"].strip()):
+            v.fail(label, 12, "%s의 explain은 비어 있지 않은 글이어야 합니다." % cid)
+        les = Lesson({"id": label}, None, {}, [])
+        card = {"id": cid, "kind": kind, "item": item}
+        if kind == "blank":
+            blanks = item.get("blanks")
+            if not isinstance(blanks, list) or not all(isinstance(b, dict) for b in blanks):
+                v.fail(label, 12, "%s의 blanks는 빈칸 객체 목록이어야 합니다." % cid)
+                continue
+            if not 1 <= len(blanks) <= 2:
+                v.fail(label, 12, "%s의 빈칸 수는 1~2개여야 합니다." % cid)
+            check_blank(v, les, card)
+        else:
+            options = item.get("options")
+            if not isinstance(options, list) or not all(isinstance(option, dict) for option in options):
+                v.fail(label, 12, "%s의 options는 보기 객체 목록이어야 합니다." % cid)
+                continue
+            if any(type(option.get("ok")) is not bool for option in options):
+                v.fail(label, 12, "%s의 보기 ok는 bool이어야 합니다." % cid)
+            if any(not isinstance(option.get("text"), str) or not option["text"].strip() for option in options):
+                v.fail(label, 12, "%s의 보기 text는 비어 있지 않은 글이어야 합니다." % cid)
+            check_choice(v, les, card, [])
+            if item.get("multi") and len(grade.right_options(item)) != 2:
+                v.fail(label, 12, "%s 는 모두 고르기인데 답이 2개가 아닙니다." % cid)
+        if strict:
+            if type(item.get("level")) is not int or item["level"] not in (1, 2, 3):
+                v.fail(label, 12, "%s의 level은 1~3 정수여야 합니다." % cid)
+            _mock_code(v, label, item)
+            for where, text, markdown in card_texts(card):
+                v.style(label, where, text, markdown)
+        items.append(item)
+    if sum(bool(item.get("deep")) for item in items) > 2:
+        v.fail(label, 12, "deep 문항은 2개 이하여야 합니다.")
+    if strict:
+        if sources is None:
+            try:
+                sources = _MockSources(bank_dir, aibank.read_index(bank_dir), v.opts.seeds, skel.load_patterns(bank_dir))
+                aibank.load_common(bank_dir)
+            except (aibank.AiBankError, ValueError) as error:
+                v.fail(label, 12, "모의고사 비교 자료를 읽지 못합니다: %s" % error)
+                return None
+        for message in ai_mock_rules.exam_problems(label, mock, meta, items, sources.skeletons):
+            v.fail(label, 12, message)
+        try:
+            practice = sources.practice_stems()
+            for message in ai_mock_rules.practice_problems(items, practice):
+                v.fail(label, 12, message)
+            for message in ai_mock_rules.cross_problems(label, sources.other_exams()):
+                v.fail(label, 12, message)
+        except (aibank.AiBankError, genlib.GenError, OSError, ValueError, TypeError, KeyError) as error:
+            v.fail(label, 12, "모의고사 비교 자료를 읽지 못합니다: %s" % error)
+        for item in items:
+            _mock_evidence(v, label, item, sources)
+    data = {"dir": aibank.mock_dir(label, bank_dir), "items": items, "topics": [], "facts": {}, "errata": {}, "sources": {}, "gens": []}
+    try:
+        return Lesson({"id": label}, None, data, aibank.cards_of({"id": label}, data))
+    except (TypeError, ValueError, KeyError) as error:
+        v.fail(label, 12, "모의고사 채점 카드를 읽지 못합니다: %s" % error)
+        return None
+
 
 
 # 13~15. 그림, 한도, 비밀 값
@@ -1805,6 +2052,9 @@ def signature_step(v, bank_dir, label, folder, lessons=None, patterns=False):
                     return
             else:
                 first = grade_answers(v, label, o.first_pass, lessons or [], bank_dir, first=True) if o.first_pass else None
+            if v.failed(label):
+                v.fail(label, 16, "첫 재풀이를 읽지 못해 서명하지 않았습니다.")
+                return
             if first is not None and o.minutes:
                 first["minutes"] = o.minutes
             sign(v, label, folder, secrets, first, files)
@@ -2006,11 +2256,15 @@ def main(argv=None, out=None):
             check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, opts.seeds)
             check_skeletons(v, les, opts.seeds)
         signature_step(v, bank_dir, "pc", patterns, [les] if les else [], patterns=True)
+    mock_sources = _MockSources(bank_dir, index, opts.seeds, skeletons) if mocks else None
+    mock_lessons = []
     for mock in mocks:
-        check_mock(v, bank_dir, mock, ids)
-        signature_step(v, bank_dir, mock["id"], aibank.mock_dir(mock["id"], bank_dir))
+        les = check_mock(v, bank_dir, mock, ids, mock_sources)
+        if les is not None:
+            mock_lessons.append(les)
+        signature_step(v, bank_dir, mock["id"], aibank.mock_dir(mock["id"], bank_dir), [les] if les else [])
     if opts.answers and not opts.sign:
-        grade_answers(v, "answers", opts.answers, lessons, bank_dir)
+        grade_answers(v, "answers", opts.answers, lessons + mock_lessons, bank_dir)
     if opts.sources:
         check_sources(v, lessons, os.path.abspath(os.path.expanduser(opts.sources)))
     count = sum(1 for les in lessons if les.group is None) + len(mocks) + int(has_common) + int(has_pc)
