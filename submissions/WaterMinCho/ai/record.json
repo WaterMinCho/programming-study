@@ -1,0 +1,53 @@
+{
+ "format": 1,
+ "user": "WaterMinCho",
+ "created": "2026-11-04T23:02:37",
+ "log": [
+  {
+   "at": "2026-11-04T23:02:37",
+   "kind": "open",
+   "lesson": "i01"
+  },
+  {
+   "at": "2026-11-04T23:02:37",
+   "kind": "set",
+   "set": "s20261104-1",
+   "mode": "lesson",
+   "n": 20,
+   "seed": 1012729024,
+   "lesson": "i01"
+  },
+  {
+   "at": "2026-11-05T10:10:22",
+   "kind": "guess",
+   "lesson": "i01",
+   "unit": "1a",
+   "id": "g1",
+   "picked": 3
+  },
+  {
+   "at": "2026-11-05T10:10:25",
+   "kind": "guess",
+   "lesson": "i01",
+   "unit": "1a",
+   "id": "g2",
+   "picked": 0
+  },
+  {
+   "at": "2026-11-05T10:10:34",
+   "kind": "guess",
+   "lesson": "i01",
+   "unit": "1a",
+   "id": "g2",
+   "picked": 2
+  },
+  {
+   "at": "2026-11-05T10:11:47",
+   "kind": "recall",
+   "lesson": "i01",
+   "unit": "1a",
+   "id": "r1",
+   "ok": false
+  }
+ ]
+}
