@@ -382,7 +382,7 @@ def step_brief(pid, key, step):
 
 
 def level_brief(pid, key, step, block, level):
-    """수준 하나의 공개본. 글, 그림, (20살) 코드·자주 하는 착각·다루는 곳, 물음. answer·why 는 넣지 않음."""
+    """수준 하나의 공개본. 글, 그림, (20살) 코드·자주 하는 착각, 물음. answer·why는 넣지 않음."""
     lines = ["# %s %s/%s %s %d살 수준" % (pid, key, step["no"], block["id"], level["level"]), "",
              "세 수준으로 다시 보기%s" % (" · " + block["concept"] if block.get("concept") else ""), ""]
     if level.get("figure"):
@@ -392,8 +392,6 @@ def level_brief(pid, key, step, block, level):
         lines += ["```python", level["code"], "```", ""]
     if level.get("mistake"):
         lines += ["자주 하는 착각: %s" % level["mistake"], ""]
-    if level.get("where"):
-        lines += ["다루는 곳: %s" % level["where"], ""]
     lines += ["## 확인 물음", "", level["q"], ""]
     return "\n".join(lines).rstrip() + "\n"
 
