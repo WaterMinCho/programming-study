@@ -347,7 +347,7 @@ class WrongPage(QWidget):
         self.list = NoteList()
         list_card, list_box = kit.card(0, 0)
         list_box.addWidget(self.list)
-        detail_card, detail_box = kit.card(24, 16)
+        detail_card, detail_box = kit.card(24, theme.GAP["title_description"])
         self.item_title = kit.para("", "headline")  # 긴 코드 문제 제목은 줄을 바꿈
         self.detail = QTextBrowser()
         self.detail.setObjectName("plain")

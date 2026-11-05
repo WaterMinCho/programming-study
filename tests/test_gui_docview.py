@@ -527,8 +527,7 @@ class FigureViewTest(unittest.TestCase):
         self.assertFalse(figure.zoom_row.isVisible())
         self.assertLessEqual(figure.zoom_btn.geometry().right(), figure.width())
         self.assertGreater(figure.zoom_btn.x(), figure.counter.geometry().right())
-        narrow = figure.controls.sizeHint().width() - 10
-        figure.resize(narrow, 800)  # 좁은 폭에서 캡션이 여러 줄이 되어도 다 들어가는 높이
+        figure.resize(320, 800)  # 줄바꿈하는 넘김 줄의 최소 힌트 폭과 별개로 좁은 그림 칸을 검사함.
         guikit.pump()
         self.assertIs(figure.zoom_btn.parentWidget(), figure.zoom_row)  # 넘김 줄에 자리가 없으면 그림 아래 줄로 내려감
         self.assertTrue(figure.zoom_row.isVisible() and figure.zoom_btn.isVisible())

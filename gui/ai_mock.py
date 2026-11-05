@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QLineEdit, QWidget
 from aiprep import bank
 from aiprep.grade import BLANK
 from aiprep.mock import MockError
-from gui import ai_text, kit
+from gui import ai_text, kit, theme
 from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, doc, reading_column
 from gui.ai_quiz import commit_input, split_stem
 from gui.widgets import PasteBlock
@@ -33,7 +33,7 @@ class MockPage(QWidget):
         self.top.back.clicked.connect(self.go_back)
         root.addWidget(self.top)
         body = QWidget()
-        self.body = kit.box(body, spacing=20)
+        self.body = kit.box(body, spacing=theme.GAP["group"])
         self.notice = kit.banner('', 'danger')
         self.notice.hide()
         self.body.addWidget(self.notice)
@@ -46,7 +46,7 @@ class MockPage(QWidget):
         self.numbers = QWidget()
         self.number_row = kit.FlowLayout(self.numbers, 8)
         self.body.addWidget(self.numbers)
-        self.card, self.card_box = kit.card(24, 20)
+        self.card, self.card_box = kit.card(24, theme.GAP["group"])
         self.body.addWidget(self.card)
         self.scroll, _ = reading_column(body)
         root.addWidget(self.scroll, 1)

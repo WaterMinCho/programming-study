@@ -246,6 +246,18 @@ def spaced(*items, spacing=4):
     return out
 
 
+def heading(title, description):
+    """제목과 설명을 묶음. 설명이 숨으면 두 글 사이 간격도 남기지 않음."""
+    if isinstance(title, QLayout):
+        row = QWidget()
+        row.setLayout(title)
+        title = row
+    out = spaced(title, description, spacing=theme.GAP["title_description"])
+    out.title, out.description = title, description
+    out.setProperty("spacing_role", "title_description")
+    return out
+
+
 def banner(text="", tone="", lead="", action=""):
     """안내·주의·오류·완료 띠. 글 Para 는 out.text, 앞 낱말은 out.word. lead 가 없으면 tone 에 맞는 앞 낱말을 씀.
     action 이 있으면 글 오른쪽에 그 이름의 보조 단추 m 을 두고 out.action 으로 돌려줌(없으면 None). 띠 안 단추의 바탕은
@@ -410,7 +422,7 @@ class Chevron(QWidget):
 
 class Row(QFrame):
     """목록 줄. 왼쪽 상태 점(없을 수 있음), 제목과 둘째 줄, 오른쪽 caption 과 꺾쇠. 줄 전체를 한 번 누르면 clicked 가 남.
-    한 줄이면 최소 높이 56, 둘째 줄이 있으면 72. wrap 이면 긴 글을 줄바꿈하고 그 높이를 더함. 나머지는 줄임표로 줄임.
+    한 줄이면 최소 높이 56, 둘째 줄이 있으면 80을 확보함. wrap이면 긴 글을 줄바꿈하고 그 높이를 더함. 나머지는 줄임표로 줄임.
     올리면 hover 색, 누르면 surface_alt, 키보드 초점은 안쪽 2px 테두리.
     꺼지면 글이 faint 색이 되고 꺾쇠를 그리지 않음(theme.STYLE_V2, Chevron)."""
     clicked = pyqtSignal()
@@ -427,11 +439,10 @@ class Row(QFrame):
         if mark is not None:
             row.addWidget(mark, 0, Qt.AlignmentFlag.AlignVCenter)
         text = QWidget()
-        column_box = box(text, (0, 12, 0, 12), 0)
+        column_box = box(text, (0, 12, 0, 12), theme.GAP["detail"])
         if wrap:
             self.title = para(title, "label", bold=strong)
             self.second = para(second, "caption", "secondary")
-            column_box.setSpacing(4)
         else:
             self.title = ElideLabel(title, "label", bold=strong)
             self.second = ElideLabel(second, "caption", "secondary")
@@ -472,7 +483,7 @@ class Row(QFrame):
                         - (self.end.sizeHint().width() + 12 if self.end.text() else 0))
             text_height = self.title.heightForWidth(width)
             if self.second.text():
-                text_height += 4 + self.second.heightForWidth(width)
+                text_height += theme.GAP["detail"] + self.second.heightForWidth(width)
             height = max(height, text_height + 24)
         if self.wrap:
             self.setFixedHeight(height)
@@ -999,13 +1010,12 @@ class NextCard(QFrame):
         self.row.setContentsMargins(32, 32, 32, 32)
         self.row.setSpacing(24)
         self.text_box = QWidget()
-        column_box = box(self.text_box, spacing=4)
+        column_box = box(self.text_box, spacing=theme.GAP["detail"])
         self.caption = label("이어서 할 일", "caption", "tertiary")
         self.title = para("", "headline")
         self.line = para("", "body", "secondary")
         column_box.addWidget(self.caption)
-        column_box.addWidget(self.title)
-        column_box.addWidget(self.line)
+        column_box.addWidget(heading(self.title, self.line))
         self.row.addWidget(self.text_box, 1)
         self.button = button("", "primary", "l")
         self.row.addWidget(self.button, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)

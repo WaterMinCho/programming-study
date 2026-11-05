@@ -103,6 +103,7 @@ class ResultPage(QWidget):
         right = QWidget()
         right_box = QVBoxLayout(right)
         right_box.setContentsMargins(0, 0, 0, 0)
+        right_box.setSpacing(theme.GAP["title_description"])
         top = QHBoxLayout()
         self.item_title = kit.ElideLabel("", "headline")
         self.explain_btn = kit.button("해설 보기", "secondary")

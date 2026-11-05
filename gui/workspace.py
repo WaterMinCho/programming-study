@@ -20,6 +20,7 @@ class SubjectTile(kit.Row):
         kit.typed(self.second, "body")
         self.second.setProperty("tone", "secondary")
         text_box = self.title.parentWidget().layout()
+        text_box.setSpacing(theme.GAP["title_description"])
         self.metric = kit.label("", "caption", "secondary")
         self.meter = kit.progress(thin=True)
         self.meter.setProperty("series", token)

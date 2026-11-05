@@ -1181,7 +1181,7 @@ class StepView(QWidget):
         super().__init__()
         self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
         self.levels = []  # 세 수준 블록. 펼 때 만든 글 조각과 그림을 restyle 때 다시 그림
-        column = kit.box(self, spacing=24)
+        column = kit.box(self, spacing=theme.GAP["group"])
         badge, title = step_title(step)
         top = QWidget()
         top_box = kit.box(top, spacing=8)
@@ -1193,11 +1193,17 @@ class StepView(QWidget):
             top_box.addLayout(tag_row)
         self.title = kit.para(title, title_role, bold=True if title_role != "headline" else None)
         top_box.addWidget(self.title)
-        column.addWidget(top)
-        for block in list(step["blocks"]) + list(extra):
+        content = []
+        for index, block in enumerate(list(step["blocks"]) + list(extra)):
             widget = self.block(block, ctx)
             if widget is not None:
-                column.addWidget(widget)
+                if index == 0 and block.get("kind") == "text":
+                    top = kit.heading(top, widget)
+                else:
+                    content.append(widget)
+        column.addWidget(top)
+        for widget in content:
+            column.addWidget(widget)
 
     def block(self, block, ctx):
         kind = block.get("kind")
@@ -1457,9 +1463,7 @@ class RevisitPage(QWidget):
                 self.card_box.addWidget(missing_figure(data["figure"]))
             else:
                 self.card_box.addWidget(self.figure)
-        intro = QWidget()
-        kit.box(intro, spacing=4).addWidget(kit.label("외울 것", "headline"))
-        intro.layout().addWidget(kit.para(ai_text.MEMO_HINT, "body", "secondary"))
+        intro = kit.heading(kit.label("외울 것", "headline"), kit.para(ai_text.MEMO_HINT, "body", "secondary"))
         self.card_box.addWidget(intro)
         self.memo = MemoBlock(data["memo"])
         self.card_box.addWidget(self.memo)

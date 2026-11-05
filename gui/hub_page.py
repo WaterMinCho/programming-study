@@ -304,27 +304,25 @@ class HubPage(QWidget):
 
         inner = QWidget()
         root = kit.box(inner, (0, 16, 0, 48))
-        root.addWidget(kit.label("내 학습 현황", "title"))
-        root.addSpacing(4)
         self.summary = kit.para("", "body", "secondary")
-        root.addWidget(self.summary)
-        root.addSpacing(16)
+        root.addWidget(kit.heading(kit.label("내 학습 현황", "title"), self.summary))
+        root.addSpacing(theme.GAP["description_content"])
         self.notice_banner, self.notice = kit.link_banner("warning")  # refresh 가 html.escape 한 글을 넣음
         self.notice.linkActivated.connect(lambda _: win.show_notice_detail())
         self.notice_banner.hide()
         self.next_card = kit.NextCard()
         self.next_card.row.setContentsMargins(24, 16, 24, 16)
         self.next_btn = self.next_card.button
-        lead = QWidget()  # 알림 띠가 보이면 카드와 16 띄움. 숨은 띠 옆에는 간격이 생기지 않음
-        lead_box = kit.box(lead, spacing=16)
+        lead = QWidget()  # 숨은 알림 자리를 비우고 다음 행동까지 묶음.
+        lead_box = kit.box(lead, spacing=theme.GAP["group"])
         lead_box.addWidget(self.notice_banner)
         lead_box.addWidget(self.next_card)
         root.addWidget(lead)
-        root.addSpacing(24)
+        root.addSpacing(theme.GAP["section"])
 
         head, _, _ = kit.section("과목별 학습")
         root.addLayout(head)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.tracks = SubjectGrid()
         self.python_row = self.tracks.add(SubjectTile("파이썬 스터디", "series_python"))
         self.journey_row = self.tracks.add(SubjectTile("알고리즘 여행", "series_algorithm"))
@@ -340,11 +338,11 @@ class HubPage(QWidget):
             banner.hide()
             stack_box.addWidget(banner)
         root.addWidget(stack)
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
 
         head, _, _ = kit.section("오답 노트")
         root.addLayout(head)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.notes = kit.RowList()  # 오답 노트 트랙마다 한 줄. 누르면 오답 노트를 그 트랙으로 엶
         self.note_rows = []  # [(공급자, 줄)]
         series = dict(zip((tid for tid, _ in TRACKS), theme.SERIES))  # 공부 트랙 줄과 같은 점. 점 색이 없는 트랙은 점 없이 둠
@@ -354,11 +352,11 @@ class HubPage(QWidget):
             row.clicked.connect(lambda tid=track.tid: win.show_wrong(tid, "hub"))
             self.note_rows.append((track, row))
         root.addWidget(self.notes)
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
 
         head, _, self.streak = kit.section("최근 7일 학습")
         root.addLayout(head)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.week_card, box = kit.card(spacing=0)
         plot = QWidget()  # 막대 칸: 범례 줄과 막대. 채점 수가 막대의 오른쪽 끝에 맞아서 나란히 둔 최근 채점 칸의 수로 읽히지 않음
         plot_box = kit.box(plot, spacing=8)
@@ -385,7 +383,7 @@ class HubPage(QWidget):
         self.week = WeekBody(plot, self.recent_box, self.recent)
         box.addWidget(self.week)
         root.addWidget(self.week_card)
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
 
         self.git_hint = kit.banner("", "warning")  # 제출을 쓸 수 없는 이유. 그동안 두 줄은 눌리지 않음
         self.git_hint.hide()

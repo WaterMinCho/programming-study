@@ -77,8 +77,9 @@ BASE_TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 
              "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400)}
 TYPE = dict(BASE_TYPE)
 SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 간격이 아니라 선으로 셈
+GAP = {"detail": 8, "title_description": 12, "paragraph": 16, "description_content": 24, "group": 24, "section": 48}
 RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16}
-CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 72, "topbar": 64, "bottombar": 80, "stepper": 56,
+CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 80, "topbar": 64, "bottombar": 80, "stepper": 56,
            "slot": 30}  # slot 은 코드 줄 안 빈칸의 높이. 보통 글자의 코드 줄 높이 22 에 8 을 더한 값이고 글자 단계를 따라 같이 커짐(slot_height)
 SERIES = ("series_python", "series_algorithm", "series_web", "series_ai")  # 7일 그래프와 트랙 이름 앞 점에만 쓰는 트랙 색
 
@@ -394,10 +395,10 @@ td.band { background-color: %(table_head)s; }
 # 줄 높이는 px 로 고정함. 비율로 주면 화면 글꼴에 없어 다른 글꼴로 그리는 글자(−)가 든 문단은 줄마다 그 글꼴의 높이로 벌어짐
 WEB_CSS = """
 body { font-size: %(wbody)spx; }
-p { margin-bottom: 16px; line-height: %(wline)spx; }
-p.h1 { font-size: %(wh1)spx; margin-top: 0px; margin-bottom: 8px; line-height: %(wh1line)spx; color: %(ink)s; }
-p.h2 { font-size: %(wbody)spx; margin-top: 24px; margin-bottom: 8px; line-height: %(wline)spx; color: %(ink)s; }
-p.h3 { font-size: %(wbody)spx; margin-top: 8px; margin-bottom: 4px; line-height: %(wline)spx; color: %(ink)s; }
+p { margin-bottom: %(paragraph_gap)spx; line-height: %(wline)spx; }
+p.h1 { font-size: %(wh1)spx; margin-top: 0px; margin-bottom: %(heading_gap)spx; line-height: %(wh1line)spx; color: %(ink)s; }
+p.h2 { font-size: %(wbody)spx; margin-top: %(group_gap)spx; margin-bottom: %(heading_gap)spx; line-height: %(wline)spx; color: %(ink)s; }
+p.h3 { font-size: %(wbody)spx; margin-top: %(group_gap)spx; margin-bottom: %(heading_gap)spx; line-height: %(wline)spx; color: %(ink)s; }
 hr { background-color: %(track)s; margin-top: 16px; margin-bottom: 16px; }
 ul, ol { margin-top: 0px; margin-bottom: 8px; }
 li { margin-bottom: 8px; line-height: %(wline)spx; }
@@ -556,7 +557,8 @@ def doc_css(zoom=0, extra="", own_body=False):
     base = re.sub(r"(?m)^(body \{[^}]*?)font-size: \d+px; ?", r"\1", mdlite.CSS) if own_body else mdlite.CSS
     css = (base + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE),
                                                 wbody=TYPE["body"][0] - DOC_PX - zoom, wline=TYPE["body"][1], wh1=TYPE["headline"][0] - DOC_PX - zoom,
-                                                wh1line=TYPE["headline"][1], wcode=TYPE["code"][0] - DOC_PX - zoom, wcodeline=TYPE["code"][1])
+                                                wh1line=TYPE["headline"][1], wcode=TYPE["code"][0] - DOC_PX - zoom, wcodeline=TYPE["code"][1],
+                                                heading_gap=GAP["title_description"], group_gap=GAP["group"], paragraph_gap=GAP["paragraph"])
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
     families = ", ".join("'%s'" % name for name in code_families())
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)
