@@ -139,7 +139,7 @@ jobs:
           import unittest
 
           faulthandler.dump_traceback_later(480, repeat=True)
-          suite = unittest.defaultTestLoader.discover("tests", pattern="test_gui*.py")
+          suite = unittest.defaultTestLoader.discover("tests", pattern="test_gui*.py", top_level_dir=".")
           result = unittest.TextTestRunner(verbosity=2).run(suite)
           faulthandler.cancel_dump_traceback_later()
           sys.exit(not result.wasSuccessful())
