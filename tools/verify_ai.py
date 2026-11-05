@@ -926,21 +926,21 @@ def check_context(v, les, terms, pages_no):
     """문항 글의 terms 낱말이 이 차시까지 소개됐는지(page·intro 차시가 이 차시보다 뒤면 실패). 상황별 코드 카드는 권하는
     차시(after)까지로 봄."""
     label = les.id
-    forms = []
+    introduced = {}
     for term in terms["terms"]:
         first = [pages_no.get(p) for p in (term.get("intro"), term.get("page")) if pages_no.get(p) is not None]
         if first:
-            for form in [term["term"]] + term["also"]:
-                forms.append((form, term["term"], min(first)))
-    forms.sort(key=lambda f: -len(f[0]))
+            introduced[term["term"]] = min(first)
+    finder = web_lint.Terms(terms)
     for card in les.cards:
-        no = lesson_no(card.get("after")) if card["kind"] == "skel" else lesson_no(les.id)
+        no = lesson_no(card.get("after")) if les.group is not None else lesson_no(les.id)
         if no is None:
             continue
         for where, text, _ in card_texts(card):
             plain = re.sub(r"```.*?```", "", str(text), flags=re.S)
-            for form, term, at in forms:
-                if form in plain and at > no:
+            for term, form, _ in finder.find(plain):
+                at = introduced.get(term)
+                if at is not None and at > no:
                     v.fail(label, 11, "%s 에 %d차시에서 소개하는 낱말 '%s'가 나옵니다." % (where, at, term))
                     break
 

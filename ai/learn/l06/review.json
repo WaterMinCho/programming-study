@@ -14,7 +14,7 @@
   "assets/6b-31.png": "79a3e621b3175e4b8e58cfa6658275e03ac0dcef20b502b12bbcd75d2bf569e4",
   "assets/6b-32.png": "9a3f8eeff6452b5cb141ee40f813f61d434aebcc121172a4f8592938b7216d61",
   "assets/6b-33.png": "002f868411289382233d5cd84a7b1fa980558b79b027f391b8b54d4e7fc4809a",
-  "assets/6b-4.png": "abaf1075ff75b297f2e931bdd8e4680faa70d792cec81d75d7cb69e9a77ca1f2",
+  "assets/6b-4.png": "487b78f2813c06a3e472bf1515dc695c6842ef2f96f32004aeffab6c4d3bd857",
   "assets/6c-1.png": "9d14b6a4fb512363944ea21d4b4fb7d86d99afa45d67d62e6ef11533c4246426",
   "assets/6c-2.gif": "17fa9ebace2a4088c237a100d13d9b38766743d7d66fecdf73f32494b622d250",
   "assets/6c-21.png": "f988ed1b142a08d5bae3dbcc2841454cdf0f505c335f925fc29041d279f33824",
@@ -32,12 +32,12 @@
   "assets/6d-4.png": "6e2889597bb1a26e74e4b34df1ab338ff503c9d638fc5b8a61f8cd52274e7a46",
   "assets/6e-1.png": "4ae8c10ec50eda84835492822cbfa3104061b846ba168c97ba0066f801d985d7",
   "assets/6e-2.gif": "9f038958fa12aeafabd591d269c7bfb7d19842cfa50e8507637a35bd2a933e61",
-  "assets/6e-3.png": "97ee638916455fc5db7ff99814eaa3f71d6b963a7aa06dc3843bc7bd23afc576",
+  "assets/6e-3.png": "ec38c8ea5704c7c865f661b5c9b37f7b1a232a7f96681e17a1856eeee63cb854",
   "assets/6e-31.png": "9cb8a8a87e16a57d519b68ce3d038427c900d2c3ee4da4e2420148ad5ec83d99",
   "assets/6e-32.png": "e68ff5a5801e9f1317cc7366da6c1554513dc372d422e5eae310017e9e5cbc6b",
   "assets/6e-33.png": "5f8bac2672b5f2282c27dd389ac8c6cd4fe3cf21de3555ff83deea73a6ed0f02",
   "assets/6e-4.png": "84d6d23728605e7a6453087119ed20593187a0ce989168236359ab37b7a0591b",
-  "assets/6e-5.png": "56f9afa5226ca3ea8021208d4dba72ec6041139ccd920589358c13fbcb8548b5",
+  "assets/6e-5.png": "ec1ab7dbeb0907ed25c5a806de321fdf0b5bb23342f939975a82b646a3c8f05b",
   "assets/6f-1.png": "4b108bfe97dca3e6b777fcc51f8c4ae4fd37fa055e1a1da1ad2023137511d4df",
   "assets/6f-2.png": "be8b462dcc8cb8b7bc742ddb6f92d85472a78723151fb9d7f438168104515a0c",
   "assets/6f-3.png": "976a84bc28827d0b5462a34c5f0e636dd5aad730b7e511001480b9d0584c6117",
@@ -58,6 +58,7 @@
   "검사: check_doc_tone 막음 0 경고 0, check_style, verify_ai i06(경고는 대조 3 이 받아들인 것), web_lint, verify_web(--total-mb 32), ai_overlap(l05·l06 331곳 실패 0), 수준 테스트 33개와 화면 LevelsTest 4개 통과. 블록 그림 12장을 열어 글자 겹침과 잘림이 없음을 봄",
   "말투 검토 반영: 바깥 말투 검토 제안 28건 가운데 28건 반영(11건은 고쳐 반영), 같은 문제 26곳 더 고치고 그림 6d-3·6d-4 의 이름표를 글과 맞춰 다시 그림. 대조 3 이 기준 판 0987502 와 바뀐 52줄을 한 줄씩 견줘 뜻·숫자·코드·답·강의 위치 107곳이 그대로임을 확인함(숫자 15개 다시 계산, 틀림 0). 대조 3 이 6d/4 의 'α는 낮출 양' 이 바로 아래 계산과 맞지 않아(K = 3, α = 0.1 이면 정답 칸은 0.0667 만 낮아짐) '정답 칸에서 덜어 내 모든 칸에 고르게 나눠 주는 양' 으로 고침. check_doc_tone(막음 0, 경고 0, 블록 글 경고 4 는 기존 자리), check_style, web_lint, verify_web(--total-mb 32), verify_ai i06(기존 경고 2), ai_overlap(151곳 실패 0)을 통과함",
   "2026-11-05 본문과 복습 물음의 조건을 원자료·공식 문서와 대조하고 문장과 그림을 확인했음. 새 수준 물음 36개와 수정한 독립 지문 12개 및 마지막 반복 번호 물음의 재풀이 기록을 따로 보존했음.",
-  "학습 문장의 외부 위치를 덜고 단원 도입과 참조를 대조했음. 기존 물음·답·수치와 그림 파일을 보존했음."
+  "학습 문장의 외부 위치를 덜고 단원 도입과 참조를 대조했음. 기존 물음·답·수치와 그림 파일을 보존했음.",
+  "용어 소개와 수식 기호, 그림 안의 글자와 음수 눈금을 대조했음. 물음과 정답은 유지했음."
  ]
 }
