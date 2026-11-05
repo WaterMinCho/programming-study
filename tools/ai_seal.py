@@ -197,6 +197,22 @@ def _blank_hints(view):
     return ["%d번 칸 · %s" % (n, blank["hint"]) for n, blank in enumerate(view.get("blanks") or [], 1) if blank.get("hint")] + [""]
 
 
+def _generator_brief(spec):
+    """생성 문항의 지문과 빈 답안만 돌려줌. params와 정답 필드는 공개하지 않음."""
+    lines = ["## 생성기 %s" % spec.id, "", spec.doc.strip(), ""]
+    samples = {}
+    for seed in range(1, SAMPLES + 1):
+        made = genlib.run(spec, seed)
+        lines += ["### 시드 %d" % seed, "", made["stem"], ""]
+        if made["kind"] == "choice":
+            order = gen_option_order(spec.id, seed, len(made["options"]))
+            lines += ["%d. %s" % (n, made["options"][k]["text"]) for n, k in enumerate(order, 1)] + [""]
+            samples[str(seed)] = {"picked": []}
+        else:
+            samples[str(seed)] = _blank_answers(made["stem"])
+    return lines, samples
+
+
 def _note_answers(bank_dir, page_id):
     """학습 노트 물음의 빈 답안만 만듦. 문제지와 별도 파일에 둠."""
     folder = aibank.page_dir(page_id, bank_dir)
@@ -246,6 +262,12 @@ def brief_patterns(bank_dir, group, out_dir):
             for n, k in enumerate(skel_option_order(card, len(view["options"])), 1):
                 lines += ["%d." % n, "", "```python", view["options"][k]["text"], "```", ""]
             answers[key] = {"picked": []}
+    data = aibank.load_items({"id": gid}, bank_dir)
+    note = aibank.load_note({"id": group["page"], "title": group["title"]}, bank_dir)
+    units = {key: info for key, info in group["units"].items() if key in note["visible"]}
+    for card in aibank.pattern_gen_cards(group, data, units):
+        rows, answers[card["id"]] = _generator_brief(card["gen"])
+        lines += rows
     notes = _note_lines(bank_dir, group["page"])
     if notes:
         lines += ["## 학습 노트의 먼저 풀어 보기와 떠올리기", ""] + notes + [""]
@@ -332,18 +354,8 @@ def brief(bank_dir, iid, out_dir):
                   "전에 열면 어느 문장이 참인지 드러납니다.", ""]
     aibank.load_common(bank_dir)
     for spec in genlib.load_module(os.path.join(idir, "gens.py"), "ai_brief_%s" % iid):
-        lines += ["## 생성기 %s" % spec.id, "", spec.doc.strip(), ""]
-        samples = {}
-        for seed in range(1, SAMPLES + 1):
-            made = genlib.run(spec, seed)
-            lines += ["### 시드 %d" % seed, "", made["stem"], ""]
-            if made["kind"] == "choice":
-                order = gen_option_order(spec.id, seed, len(made["options"]))
-                lines += ["%d. %s" % (n, made["options"][k]["text"]) for n, k in enumerate(order, 1)] + [""]
-                samples[str(seed)] = {"picked": []}
-            else:
-                samples[str(seed)] = _blank_answers(made["stem"])
-        answers[spec.id] = samples
+        rows, answers[spec.id] = _generator_brief(spec)
+        lines += rows
     notes = _note_lines(bank_dir, str(meta.get("page", "")))
     if notes:
         lines += ["## 학습 노트의 먼저 풀어 보기와 떠올리기", ""] + notes + [""]
