@@ -901,7 +901,8 @@ class _State(object):
 
     def overview(self):
         key = (tuple(os.path.isfile(os.path.join(bank.mock_dir(mid, self.sess.root), "meta.json"))
-                     for mid in self.sess.mocks), tuple(sorted(self.sess.errors.items())))
+                     for mid in self.sess.mocks), tuple(sorted(self.sess.errors.items())),
+               plan.REVIEW_FIRST, plan.BACKLOG_HALF, NEW_PER_DAY, BACKLOG_HALF, DAILY_GOAL)
         if self._overview is None or self._overview_key != key:
             self._overview = self._make_overview()
             self._overview_key = key

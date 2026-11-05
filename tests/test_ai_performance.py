@@ -5,9 +5,10 @@ import json
 import os
 import random
 import shutil
+from unittest import mock
 
 import study
-from aiprep import service
+from aiprep import plan, service
 from tests.test_ai_service import Base, FIXTURE
 
 
@@ -69,6 +70,16 @@ class CachedStateTest(Base):
         self.assertTrue(next(row for row in sess.overview()['mocks'] if row['id'] == mid)['ready'])
         sess.errors['i91'] = '자료를 읽을 수 없습니다.'
         self.assertEqual(sess.errors, sess.overview()['errors'])
+
+    def test_overview_updates_after_recommendation_policy_changes(self):
+        sess = self.session()
+        sess.record.append({'kind': 'learn', 'lesson': 'i90', 'unit': '90a'}, at='2026-11-08T20:00:00')
+        sess.record.append({'kind': 'answer', 'card': 'i90-b01', 'result': 'stuck', 'again': 0, 'sure': False},
+                           at='2026-11-08T20:00:00')
+        self.assertEqual('unit', sess.overview()['next']['kind'])
+        with mock.patch.object(plan, 'REVIEW_FIRST', 1):
+            self.assertEqual('review', sess.overview()['next']['kind'])
+        self.assertEqual('unit', sess.overview()['next']['kind'])
 
     def test_record_replacement_with_same_size_and_mtime_is_reloaded(self):
         sess = self.session()
