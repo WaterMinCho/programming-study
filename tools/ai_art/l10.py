@@ -332,7 +332,7 @@ PANELS = {'10a-1': {'type': 'chain', 'values': ['28', '28'], 'labels': ['높이'
            'top': '',
            'marks': (),
            'color': 'blue'},
- '10i-5': {'type': 'chain', 'values': ['샘플', '배치', '평가'], 'labels': (), 'note': ''}}
+ '10i-5': {'type': 'chain', 'values': ['전체 자료', '미니배치', '정확도'], 'labels': (), 'note': ''}}
 
 def draw(spec):
     data = dict(spec)

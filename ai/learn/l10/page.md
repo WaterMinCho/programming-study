@@ -220,11 +220,27 @@ Compose는 적은 순서대로 실행합니다. Lambda는 전달한 작은 함�
 
 ### 샘플 수와 배치 수를 따로 셉니다
 
-<!-- facts: F10-07 F10-08 F10-09 -->
+<!-- facts: F10-07 F10-08 F10-09 F10-28 -->
 
 ```ai-reveal
 {"guess": "g1"}
 ```
+
+앞 단원의 prepare를 Dataset의 transform에 넘기면 이미지를 읽을 때 같은 변환을 적용합니다. root는 데이터 폴더이고 train=True는 훈련 분할, train=False는 테스트 분할을 고릅니다. download=False는 이미 준비한 파일만 사용합니다. 파일이 없다면 이 설정에서는 오류가 납니다. download=True는 필요한 파일을 받는 설정입니다.
+
+```python
+from torchvision import datasets
+from torch.utils.data import DataLoader
+
+train_data = datasets.MNIST(
+    root="data", train=True, download=False, transform=prepare)
+test_data = datasets.MNIST(
+    root="data", train=False, download=False, transform=prepare)
+train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+test_loader = DataLoader(test_data, batch_size=32, shuffle=False)
+```
+
+Fashion-MNIST도 같은 인자를 씁니다. 위 두 생성자에서 datasets.MNIST를 datasets.FashionMNIST로 바꾸면 옷 이미지의 훈련·테스트 분할을 읽습니다. 두 자료 모두 prepare 뒤에는 한 장이 [784], 한 배치가 [배치, 784]입니다. 첫 Linear의 입력 784개와 마지막 출력 10개인 기존 FC 구성을 재사용할 수 있습니다. 모델 선택과 온도 보정에 쓸 검증 자료는 훈련 자료에서 따로 떼어 두며 테스트 분할은 마지막 평가에 사용합니다.
 
 Dataset은 번호로 샘플 하나를 읽는 객체입니다. DataLoader는 Dataset에서 샘플을 읽어 미니배치로 묶습니다. 샘플 5개를 2개씩 묶으면 2개, 2개, 1개인 배치가 나옵니다. 마지막 배치의 크기는 1입니다. 기본 설정인 `drop_last=False`는 이 1개도 사용합니다. `len(loader.dataset)`은 샘플 수 5를 세고 `len(loader)`는 배치 수 3을 셉니다. `drop_last=True`면 마지막 불완전 배치를 버려 배치는 2개가 됩니다.
 
@@ -523,6 +539,17 @@ model.load_state_dict(best_state)
 ```
 
 
+지표 값 하나를 구할 때는 precision_score 같은 함수를 씁니다. average='macro'는 클래스별 값을 같은 무게로 평균냅니다. recall_score와 f1_score도 average를 받습니다. classification_report는 클래스별 지표와 여러 평균 행을 한 표로 보여 주며 average 인자를 받지 않습니다.
+
+```python
+from sklearn.metrics import precision_score, recall_score, f1_score
+
+macro_precision = precision_score(
+    truth, guess, average="macro", zero_division=0)
+```
+
+
+
 ### 합산할지 평균낼지 구분해 결과를 읽습니다
 
 <!-- facts: F10-16 F10-17 F10-18 -->
@@ -595,9 +622,6 @@ micro는 모든 클래스의 TP·FP·FN을 먼저 합친 뒤 지표를 계산합
 {"id": "r2", "q": "10개 중 6개를 맞혔다면 관측 비율은 ____ 입니다.", "answer": ["0.6"], "mode": "number"}
 ```
 
-```ai-why
-{"q": "T를 키워도 argmax가 바뀌지 않는 이유는 무엇일까요?", "a": "모든 logit을 같은 양수로 나눠 대소관계를 유지합니다. 소프트맥스도 그 순서를 유지합니다."}
-```
 
 
 ### 온도 하나로 확률 분포를 조절합니다
@@ -614,6 +638,10 @@ logit을 양수 T로 나눈 뒤 소프트맥스를 적용하는 방법을 온도
 
 ```ai-recall
 {"id": "r3", "q": "양수 온도만 바꿀 때 가장 큰 logit의 클래스 순위는 ____ 됩니다.", "answer": ["유지", "보존"], "mode": "word"}
+```
+
+```ai-why
+{"q": "T를 키워도 argmax가 바뀌지 않는 이유는 무엇일까요?", "a": "모든 logit을 같은 양수로 나눠 대소관계를 유지합니다. 소프트맥스도 그 순서를 유지합니다."}
 ```
 
 ```ai-levels
@@ -820,13 +848,15 @@ model.eval()
 
 클래스 불균형의 대응 원리는 6차시 6e/5 「불균형 대응 방법을 적용하는 때」에 있습니다. 샘플 세 개의 추출 가중치를 [1, 3, 1]로 두면 가운데 샘플을 양쪽 샘플보다 세 배의 무게로 뽑습니다.
 
+tiny_train은 위 샘플 세 개만 담은 별도 훈련 Dataset입니다.
+
 ```python
 weights = [1.0, 3.0, 1.0]
-sampler = WeightedRandomSampler(weights, num_samples=3, replacement=True)
-loader = DataLoader(dataset, batch_size=2, sampler=sampler)
+train_sampler = WeightedRandomSampler(weights, num_samples=3, replacement=True)
+train_loader = DataLoader(tiny_train, batch_size=2, sampler=train_sampler)
 ```
 
-WeightedRandomSampler는 샘플마다 뽑힐 가중치를 받습니다. num_samples는 한 번 순회할 때 뽑을 개수이고 replacement=True는 같은 샘플을 다시 뽑는 것을 허용합니다. 이번에 어느 샘플이 몇 번 나올지는 무작위입니다. sampler가 순서를 정하므로 shuffle=True는 함께 지정하지 않습니다. 스케줄러 호출 위치는 5차시 5e/5 「scheduler.step()의 자리」를 적용합니다.
+WeightedRandomSampler는 샘플마다 뽑힐 가중치를 받습니다. num_samples는 한 번 순회할 때 뽑을 개수이고 replacement=True는 같은 샘플을 다시 뽑는 것을 허용합니다. 이번에 어느 샘플이 몇 번 나올지는 무작위입니다. train_sampler가 순서를 정하므로 shuffle=True는 함께 지정하지 않습니다. 전체 평가는 별도 test_loader에서 중복 없이 모든 샘플을 읽습니다. 복원 추출한 훈련 배치를 모두 읽어도 원자료의 샘플을 모두 읽었다고 보장할 수 없습니다. 스케줄러 호출 위치는 5차시 5e/5 「scheduler.step()의 자리」를 적용합니다.
 
 ```figure
 파일: assets/10i-4.png
@@ -845,8 +875,8 @@ WeightedRandomSampler는 샘플마다 뽑힐 가중치를 받습니다. num_samp
 
 ```figure
 파일: assets/10i-5.png
-캡션: 그림 10i-5. 샘플 선택과 묶기 뒤에 전체 평가를 수행합니다.
-내용: 샘플 선택과 묶기 뒤에 전체 평가를 수행합니다.
+캡션: 그림 10i-5. 훈련용 복원 추출과 별도로 평가 자료 전체를 한 번씩 읽습니다.
+내용: 훈련용 복원 추출과 별도로 평가 자료 전체를 한 번씩 읽습니다.
 ```
 
 ```ai-memo

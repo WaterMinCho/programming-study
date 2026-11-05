@@ -24,9 +24,11 @@ def batches(r):
     """마지막 불완전 배치를 포함할 때 배치 수를 구함."""
     n, size = r.int(7, 95), r.int(2, 12)
     count = (n + size - 1) // size
+    detail = ('완전한 배치 %d개만 있습니다.' % (n // size) if n % size == 0
+              else '완전한 배치 %d개에 나머지 %d개를 담는 배치 하나를 더 셉니다.' % (n // size, n % size))
     return blank(stem='샘플 %d개를 batch_size=%d, drop_last=False로 읽으면 한 에폭의 배치 수는 ____ 개입니다.' % (n, size),
         blanks=[{'answer':[str(count)],'mode':'number'}],
-        explain='완전한 배치 %d개에 나머지 %d개가 있으면 마지막 배치 하나를 더 셉니다. 전체 배치 수는 %d개입니다.' % (n//size,n%size,count),
+        explain=detail + ' 전체 배치 수는 %d개입니다.' % count,
         params={'n':n,'size':size})
 
 

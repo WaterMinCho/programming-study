@@ -1756,6 +1756,716 @@
    "script": "tools/ai_art/l09.py",
    "fn": "9g-5"
   },
+  "learn/l10/assets/10a-1.png": {
+   "sha256": "e6c307a903a11a2b237b620dfc8a3125e30abe134be9f6a5885d8ee03a837852",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10a-1"
+  },
+  "learn/l10/assets/10a-2.png": {
+   "sha256": "bddfcb0ce767ee5f07f3aad543dd4535b9d710573faf6a815d1c7116ad083851",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10a-2"
+  },
+  "learn/l10/assets/10a-3.png": {
+   "sha256": "a7f74f6e0c46d101e1f6b5a5c611773dee48ad25a34a23a26402a30b789d8d76",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10a-3"
+  },
+  "learn/l10/assets/10a-4.png": {
+   "sha256": "0124c2395940cdaf5824e8d11e5589182bc73f961bed89aec0a8a65e5e9f445b",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10a-4"
+  },
+  "learn/l10/assets/10b-1.png": {
+   "sha256": "7918ac075dad8ac2be6e4001118688715bbfbb2792ed761c0145b602f24b2c53",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10b-1"
+  },
+  "learn/l10/assets/10b-2.png": {
+   "sha256": "64f1d55da084ed747447eec91702755fa32db73ceba34a4578bba58c8fbbbc5a",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10b-2"
+  },
+  "learn/l10/assets/10b-3.png": {
+   "sha256": "53a599e702f1518b97d92c926d2b47e15c76291561fe4b96057211e64f361c5f",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10b-3"
+  },
+  "learn/l10/assets/10b-31.png": {
+   "sha256": "957e1c6d228630da566fec7e78e40746693ae2df8f04b5f76cd3ea974379efd5",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10b-31"
+  },
+  "learn/l10/assets/10b-32.png": {
+   "sha256": "e635100df2a61a02ec81cfe6b0793b9186a648ed3d665ed5cbcbb23824b526ef",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10b-32"
+  },
+  "learn/l10/assets/10b-33.png": {
+   "sha256": "e2bb54e81317012b526d0a0d82c300068b561ca6841860aca9d9a8321fb1fcba",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10b-33"
+  },
+  "learn/l10/assets/10b-4.png": {
+   "sha256": "4c2bb33bdab322cff91c20e9eab28e8f3724a4a7fd8cbeb917cab6faa14f7a9c",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10b-4"
+  },
+  "learn/l10/assets/10b-5.png": {
+   "sha256": "ed6fdf641bc0963113c173152b9090f5c74921787c884e0bcdbf8d9cecf003c6",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10b-5"
+  },
+  "learn/l10/assets/10c-1.png": {
+   "sha256": "930b56c766664bf646c5e15cc0842624f8b62b3bb8208597da0a1b3a17a4301e",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10c-1"
+  },
+  "learn/l10/assets/10c-2.gif": {
+   "sha256": "ec08db0f75ca27a30619f8ec52caf0313c499b228521bfc58415eab68fd0e8f5",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10c-2"
+  },
+  "learn/l10/assets/10c-21.png": {
+   "sha256": "c9db848c859cb5f315171464af782409554482090d24105514e8b58e0d4812cc",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10c-21"
+  },
+  "learn/l10/assets/10c-22.png": {
+   "sha256": "6a8bcbd8f5280d237f05464373fe42018a754e87c2cae85cd5c296ab37c185bb",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10c-22"
+  },
+  "learn/l10/assets/10c-23.png": {
+   "sha256": "b20e4cdb84e01f4ef32a531b5e90780680ff30f0a1e776ecb877981a10d4c172",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10c-23"
+  },
+  "learn/l10/assets/10c-3.png": {
+   "sha256": "474e9f45bb7d6c9267179b4833267da255d14fa97a349802797b75612c841c78",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10c-3"
+  },
+  "learn/l10/assets/10c-4.png": {
+   "sha256": "12365b356c54fbaf36d40dd0a71b595da47aae9f922e93eb729c14aeb0e7461c",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10c-4"
+  },
+  "learn/l10/assets/10d-1.png": {
+   "sha256": "3c3538ee82e234a4aaad02144a9e4e8f6ce8fd4529774b65a374436f01cb9e2e",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10d-1"
+  },
+  "learn/l10/assets/10d-2.gif": {
+   "sha256": "79ea1300f4d0c7ea348fcef695d87f4baaff21ef70cbb79785a2e4ecab5f457b",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10d-2"
+  },
+  "learn/l10/assets/10d-21.png": {
+   "sha256": "5b67f99b67036d4b88800e7bc7350ddc80af444f38a925536be499cf521c754a",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10d-21"
+  },
+  "learn/l10/assets/10d-22.png": {
+   "sha256": "d423b259239834231e9e08a7bcd0f14943a04f1bb789f75bac3f414671b897e2",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10d-22"
+  },
+  "learn/l10/assets/10d-23.png": {
+   "sha256": "bdc0738ca128c4797c8c84645b9c0a21b03dc39d3284a0bddb85cc93b339a1e5",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10d-23"
+  },
+  "learn/l10/assets/10d-3.png": {
+   "sha256": "77383fe50289fbc58bd6e32efa67e95836ddcc98af2fe538211d691457006dc6",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10d-3"
+  },
+  "learn/l10/assets/10d-4.png": {
+   "sha256": "75ace63230916df1d895adcd639f68fcb5f40e36d6a3c719794f4260b44c110c",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10d-4"
+  },
+  "learn/l10/assets/10e-1.png": {
+   "sha256": "bb46ac3d1d59729105b27ee6d1b2c9e94869e07a094ae0d0b2aeb0a18cabbde5",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10e-1"
+  },
+  "learn/l10/assets/10e-2.png": {
+   "sha256": "f631d21935e4d3607fefb0156ceefb0b732f962b75996f460127e9456dcd871d",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10e-2"
+  },
+  "learn/l10/assets/10e-3.png": {
+   "sha256": "1f1b0a5b9749d4aa231960b93ca021d1dd6da55fd35e5d796e6b36b2b91219e6",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10e-3"
+  },
+  "learn/l10/assets/10e-4.png": {
+   "sha256": "210ed368de708a6a16a4cd0bded86955d4a7a1f8e4939b7efce2a2c6d74224e0",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10e-4"
+  },
+  "learn/l10/assets/10e-5.png": {
+   "sha256": "5dcb43c702453817d403eb269d3bcc209d5fbc196b03154b64d604a0165d0519",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10e-5"
+  },
+  "learn/l10/assets/10f-1.png": {
+   "sha256": "67ca24f318f06e8b5d1616899a5b523a51bd278701edd00664656813e45dc3d5",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10f-1"
+  },
+  "learn/l10/assets/10f-2.gif": {
+   "sha256": "70bda69c6d4b792ca4480e77e10e88d5155438efcc468c1ee253b3be43e0e8bc",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10f-2"
+  },
+  "learn/l10/assets/10f-3.png": {
+   "sha256": "f246b2edf8cabd392b01efa15812fe4fedf60d6f58653961e453b24928083eba",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10f-3"
+  },
+  "learn/l10/assets/10f-4.png": {
+   "sha256": "762c749f5551b0b88c5fc8bea85d275f926b68194607cef4b1bfa194b9725f0b",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10f-4"
+  },
+  "learn/l10/assets/10g-1.png": {
+   "sha256": "50b312d51ec67fd2217044b443a59abe83ba8a6ba292128fe405b6f3699a3635",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10g-1"
+  },
+  "learn/l10/assets/10g-2.png": {
+   "sha256": "649798b8161d98e6d1573c4b648a9ecc4e809f0b15fde914bf6c9cf21867ddc2",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10g-2"
+  },
+  "learn/l10/assets/10g-3.png": {
+   "sha256": "572d8f0450f5a70a4bf123bcd93cf7f80d0a72b04a4d4581581fb604f7aa1dd1",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10g-3"
+  },
+  "learn/l10/assets/10g-31.png": {
+   "sha256": "42d9707ecd6506c4a100c20cdd70e002dc5d6dfdab28b3c06b1e0f6bcd74a94d",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10g-31"
+  },
+  "learn/l10/assets/10g-32.png": {
+   "sha256": "470d7bfba9bd97903dab2069d3b71a69777c1559f68563873c24a5bffe122fbc",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10g-32"
+  },
+  "learn/l10/assets/10g-33.png": {
+   "sha256": "4db232c28ad9d0f6feff196116c88fd9f458182fb65debdf83e1089382413dc9",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10g-33"
+  },
+  "learn/l10/assets/10g-4.png": {
+   "sha256": "ac27fe50cbf3849281b2ed503517606d69e1121b199b093864a6c9de9a62c3d8",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10g-4"
+  },
+  "learn/l10/assets/10h-1.png": {
+   "sha256": "5a4ee4951070f9bf20f3d83d347975a25ebf6fcb262002b146aca2f470dc3183",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10h-1"
+  },
+  "learn/l10/assets/10h-2.png": {
+   "sha256": "f36b9e8d9e45b7024152e0975d7d8bbfd016d1296446df5c69116182668e327a",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10h-2"
+  },
+  "learn/l10/assets/10h-3.png": {
+   "sha256": "309dccd9e1eb636a0a2f35d289de43d29d16d49283a5179e79d73aa2c120e317",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10h-3"
+  },
+  "learn/l10/assets/10h-4.png": {
+   "sha256": "0b9848fa0a52d528eda713b49bfd5239d4550bbf969506c32e6d2e54ddeb705d",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10h-4"
+  },
+  "learn/l10/assets/10h-5.png": {
+   "sha256": "e0edba33835b5b0f98431e10e853dd32aaab7bd39a536563de04928acecbdf88",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10h-5"
+  },
+  "learn/l10/assets/10i-1.png": {
+   "sha256": "6f8ae6965438ab883ae19786b7fa86e71422b7e8c71a462410917eff1602c200",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10i-1"
+  },
+  "learn/l10/assets/10i-2.png": {
+   "sha256": "293ecc3d139f14e7f942f323b15ebccacdb4f6a079a208f4021ac3dd8918311a",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10i-2"
+  },
+  "learn/l10/assets/10i-3.png": {
+   "sha256": "190812fc5feafd340de1a8c1717e927fa0c1e95b84f5ea20b330907374de8a5a",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10i-3"
+  },
+  "learn/l10/assets/10i-4.png": {
+   "sha256": "591a054ae63af99ec61c2b1cb4989f19b2d68f524fc976859437b3df0cf5c3d1",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10i-4"
+  },
+  "learn/l10/assets/10i-5.png": {
+   "sha256": "dbb743cb442c6e42a4e0686898ab33ef9447c8a010c1936c8e9374a99ba31a16",
+   "script": "tools/ai_art/l10.py",
+   "fn": "10i-5"
+  },
+  "learn/l11/assets/11a-1.png": {
+   "sha256": "1d2b10f7c0a3ff447ea278a118dc2a60d93140fbf88e0fb6d5f4a75d1730026e",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11a-2.gif": {
+   "sha256": "7adf8e9c339148eb1c4c8fb0bb4f01c30e2d299891529f9c8910774505c92080",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11a-21.png": {
+   "sha256": "29c1ae303cfc09f856c9dd8c49cab034703b70bbb7d13846df0a8c59f6361c53",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11a-22.png": {
+   "sha256": "00f848441a4dbd2507338b20e1aa9b94e4225a0578df997c48b49cf754125f5c",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11a-23.png": {
+   "sha256": "2c432741319dca8f0ff9fe3281bbf701aeaca176ce4058e79ddd205b1bd6c90b",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11a-3.png": {
+   "sha256": "a4f573354bd2888422d6318d590d788d38470b33172dc1cbc08463e94063b03f",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11a-4.png": {
+   "sha256": "26fd38e2168b3ec5a5469e0777f885e9f53ed43d29d8b7e2eb6487c7d0cba7a2",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11a-5.png": {
+   "sha256": "01dc922e50081a2783c264228b3d939b3224198c641b9e1bc1e15520437421c9",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11b-1.png": {
+   "sha256": "f7250208fe0a987c6fab73ee8becd8970962446b403a11969e84251b740aec1a",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11b-2.png": {
+   "sha256": "736d109671360c89393dd64f443d00d61714cb2574aaeff0621e205de59578a0",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11b-3.gif": {
+   "sha256": "6481cfed69da3ae980f308a66b75ba7bf90e640c45632e403c4f70d0348d008e",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11b-31.png": {
+   "sha256": "cc29166683219de0d559ccf80e7d93a1f98a7bd15471ea1c62ef022bd11fc0f1",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11b-32.png": {
+   "sha256": "d17170c1eb84a8e52322692d33c671cbbe67f2a6a328aac839cbe2329cd5209a",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11b-33.png": {
+   "sha256": "2577340e5bfe1d9c37612af2e66663d3322fea1a6d4a658dda3aea93abe711ae",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11b-4.png": {
+   "sha256": "b5f1c5526b444576ace52d7a607ae749772e83e8db95c1f1f890d944c414bbd6",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11c-1.png": {
+   "sha256": "e78342fe18ae9d58caadebadf5bd6babb11ac0041f54042b73cdd79a3860339b",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11c-2.png": {
+   "sha256": "a6035fcb6004ef0ab6ebee35866c37615a1f2202a388c7ab42293ff4064cce5d",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11c-3.png": {
+   "sha256": "3e0f887516c154e0a2a2663edbee6472bc03dc5fb6f9848298b601f17134d627",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11c-31.png": {
+   "sha256": "7d2fca00c4187c28f5caa4b8c9e332f6efa80f97e0d3b2d404acfee1251ab8a7",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11c-32.png": {
+   "sha256": "a3b3481fc4fdc027a3494db6355aef96405f418081d62674eccace63e589542c",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11c-33.png": {
+   "sha256": "d4387dc2dffe9d22a476398d8225e881c72e61215220c9fd97800ce66b1b4915",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11c-4.png": {
+   "sha256": "7eff5af54c8795eb33d0ec6a700a714158ea6526a9e6c2ccc5b2465ac94df1bf",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11d-1.png": {
+   "sha256": "4d93f0a48c61ee7886aead06362c233f41e871c420621760053982bb18333df7",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11d-2.png": {
+   "sha256": "08dadf53503995e602bf09a71af0288257d632f7de4927bda9a669663633f61b",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11d-3.png": {
+   "sha256": "a8d35ca7a40b31480d894e3f623f91cfd61e53083f464f8e55368bdc78b17bb2",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11d-4.png": {
+   "sha256": "6b1a91c1b6d87529d543dc2ec7bfc529001dbcfc4e54265526885e83ce9c10a6",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11e-1.png": {
+   "sha256": "1c135e9d1c70695dcfce418adcac097bc9449ee41824ebaad30d60b92b71bbca",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11e-2.png": {
+   "sha256": "9e1c9949e1c1a6733f383b6b1dfd9c24450d28c00b8f5170c1a399aca8eb54fb",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11e-21.png": {
+   "sha256": "13aabc68a3d9efa5c6fb767b60b73188d04200cceca6f7c80bf3d3abdbbbada7",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11e-22.png": {
+   "sha256": "0079f875d81e33a2caf2671b8fb7b2b65c955b3f9e5bc78312f4b3da230326f4",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11e-23.png": {
+   "sha256": "11b94831b8628541b03fcd1126c7a076040d471367b7f01b98ff9fde087cfdf0",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11e-3.gif": {
+   "sha256": "f2d7ed673e02cefa63a5f4fe56302155fc6bd01aa5b607f88112f246bbd9f027",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11e-4.png": {
+   "sha256": "3d158dc7aa8ddd452069352aef70ce9cf2c05b02673d3d199774a4ae3534f399",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11f-1.png": {
+   "sha256": "c15364eb3fd5c18d81b577cf9baf6c3d67cad19e171814d7017dd36234d4176e",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11f-2.png": {
+   "sha256": "72525d39b24e3c520333b1a969333d162da2743d8ee623850514ee1a547f93ad",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11f-3.png": {
+   "sha256": "683e9777652db65a42697626930c5b9abf6ec6038f3bf8a4ff6b5e5d5560ba0d",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11f-4.png": {
+   "sha256": "4ac04e0ee5905f3b5486aa98d57fa260a475aed33e4e9d38a51000b8551db6df",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11f-5.png": {
+   "sha256": "452785af0185e2897142a792f131dc85916463907a1e2c9065c5a05a991d2e48",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11g-1.png": {
+   "sha256": "842a48cb5127008a1d6e888fa301abd8768b45d0af8fd45b72ff18c0469a210d",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11g-2.png": {
+   "sha256": "4c19a3f9ef84d3582f42d851f9b40d17f99fb14cc7d04cd5abd94d90e0b9738d",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11g-3.png": {
+   "sha256": "39483bf6bf935e066523a5c0ace2d69ebe76fe00003dcec20c5eac65c1ffa04c",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11g-4.png": {
+   "sha256": "b512f29b980424d1f7490bca20fc5697075f42613cb1d2ad0739a1fa693a5398",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11g-5.png": {
+   "sha256": "8e0943956342d9fe0ae542eb579b5f20a34870511e632854e16383bda7a6f137",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11g-6.png": {
+   "sha256": "1227608ce116068cf3e5b98b1fa62e703ad88da3b1f738d0eb053832928b4085",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l11/assets/11g-7.png": {
+   "sha256": "897baba9df9f0a9714d79092fbc988be6a54ead076d177a340b7949407271a2d",
+   "script": "tools/ai_art/l11.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12a-1.png": {
+   "sha256": "fcd1616505ea8cc4fda9b6a284d842b013482e36197759ae92833556da74ef58",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12a-2.png": {
+   "sha256": "c547fe1aa64f1647a439b7175d5aeea840fc64fd0d23437e785c8b994e4eb873",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12a-3.png": {
+   "sha256": "3cdb1afb4a2e3f0c3cdd901346fd091d84e900ed9b0cdffd414c13274ff5ebaf",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12a-4.png": {
+   "sha256": "d46aabc6d5bc602e80a64a6bf2fbc9fd3eaf9e9cf8568feac35e5ebe5a171050",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-1.png": {
+   "sha256": "60403941d6a2c4d522a72fcf1e89775061158bfbf146c80d7f0fba249ddbcf43",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-2.png": {
+   "sha256": "d9232defbaefc4fd29eae54bec0fbeab16c83f08b83be4e942bc5d27694b7268",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-3.png": {
+   "sha256": "a13bdb52a9f2eeb71b7f9c18818edb2f2ddd917834836d63103502fa86f8301d",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-31.png": {
+   "sha256": "50913ee163f5e27b6517ca8eb68924cd71db62642a670994cb7a7e5cd9c19656",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-32.png": {
+   "sha256": "51bc35b368592c0e03cea3ab0642762f32429d7fa4c0c65e22977aa24f5ee0eb",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-33.png": {
+   "sha256": "e0863caed9419ecedc8a4457a676b199d64ed2e594f3f04262ed0c59e00e6cf0",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-4.png": {
+   "sha256": "5362162aa95bfb832001c0e03b79a72b38087218fd2139851004da6e7beb298f",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-5.png": {
+   "sha256": "4a6649e0d3b1eb73483a2c70f7085bcbdc116430c60e2dfc10c58e79d9b53443",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-6.gif": {
+   "sha256": "c7f57b45d32dd1d9338de484ea53208216166be47d93075cd4e65a3e4d295214",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12b-7.png": {
+   "sha256": "f70973d6b0e42787b7f63dc3150dac88bec1052f11cbab620d2845da7eb9be5c",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12c-1.png": {
+   "sha256": "df5aed35b7b792e132e44004a7f1d7ebe2a37cdcefab0d33de25a1dfa1bee083",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12c-2.gif": {
+   "sha256": "5892a67f402150ab3f6c91e19bdabbfeb8b1059aa060992d8d703238cc793bc7",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12c-21.png": {
+   "sha256": "097ad386bfb771d826ada1e0cc12a31fb55c15848e94928b734d0a1f05588c81",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12c-22.png": {
+   "sha256": "2a7f9ffb3db854832d09f5a32329718065ac549fff140bb9908285ff4b9ca289",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12c-23.png": {
+   "sha256": "5b5b466462f743f80a1a2831222fd8adf2d3f9284aa49026b1066f5abc22b522",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12c-3.png": {
+   "sha256": "9a6286d8379e68cae82054cadc5924b8e825e2ff85dea711aba45b4097db82ad",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12c-4.png": {
+   "sha256": "7037e7268c99a6a0fbaf70e55898990c79089e7350c0d5b2bad669f137b7f093",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12d-1.png": {
+   "sha256": "c1a4176345717ea75ba36f15c90f7748447539204c109c980602d02bbf1d4aaa",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12d-2.png": {
+   "sha256": "2a2de6b33794c9314bf6367f65e4c5f3c68abe422f7383d1d02ff2f9cfbf349b",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12d-3.png": {
+   "sha256": "e39357d0b2f91ca6ead701087cc57ea5874def930fdb8cb1d559a090a6fc10ff",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12d-31.png": {
+   "sha256": "f72e488a5c443061b69890bb25216ad09b1f0c63da34c6da678cace0acd67dbf",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12d-32.png": {
+   "sha256": "3800e4b8da3cadd47f1da5e18afc7ba90e6c5d91883ad51d0f411b07a5645ba9",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12d-33.png": {
+   "sha256": "15e1c98155531d39f2e3c65c540317fbe6dc8a7389e2551e8f0138b845eec81b",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12d-4.png": {
+   "sha256": "e36929e7d456dfa2bdea5425b78ce8e86521d29cebb5a95a5c78260d382e216c",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12e-1.png": {
+   "sha256": "79abb21bf2d91f7eda0472e52defef84f0b1a95cef15d1bdcdae5c180f78b360",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12e-2.gif": {
+   "sha256": "5de4f6154f4cca77771dbb77d829b1a5caa0c76a80bad0eb9f54c88e296f99ad",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12e-3.png": {
+   "sha256": "650db6136bcdc31cc79a7582d7d7c1fd6f6dc271af39c103eed29a948ccdddde",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12e-31.png": {
+   "sha256": "20cd391db6e83d70d089b92f2229a3666de0d6fca45a29fd33674c6c89ab6633",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12e-32.png": {
+   "sha256": "eba8c0af3ea0076ccfc1025af255c643049bd65162180b8e587063984904a54c",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12e-33.png": {
+   "sha256": "54115a6af5c28db8e997dd8f46e2f3c159342eefa60f4d8fa7e6a458f63cb33c",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12e-4.png": {
+   "sha256": "7dea71e837d28713b4c54719e9be77485186c36d40a184536f887e76e853d025",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12f-1.png": {
+   "sha256": "89459f1599aedf9a3546b516db396c818a915d5c1903c403532d4863db5cb048",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12f-2.png": {
+   "sha256": "02e150a5b10b9af164a5b5aedf054be51ad6ec14b64310b79bdda0726378957c",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12f-3.png": {
+   "sha256": "446064e97eb08f5996ca725e0a4bef4228e53f7485a3bada5cfae6721e1f965c",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12f-4.png": {
+   "sha256": "ddeeeab0384c4d76d7a2b5dabccc6cae5d56b31f2c542948b796f243b04166f6",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12g-1.png": {
+   "sha256": "0cfd81e29f070f738eac8b7aaa2b2e4659a40349e861d554752a2a6c31dc2a53",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12g-2.png": {
+   "sha256": "a6c2ded605338e7888050d54425fe20838caa2f5920ab5b51c3d522b235e5312",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12g-3.png": {
+   "sha256": "595d1beedd51ab753528ad9d7205abeff6fd53bc71056636d8cad483f776cc92",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12g-4.png": {
+   "sha256": "2ce278b46d595392b9519b609084afb7349d8eba73d77ba0a0745ae7d67c835a",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12g-5.png": {
+   "sha256": "c3f90d42319ca2d0e3fcf86c00efa47a281052198b242d018f6064a088dcba57",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
+  "learn/l12/assets/12g-6.png": {
+   "sha256": "47ac99ca46fa5e74c6e6b4e2760fdc4a940de4d95116f48d68a93a6561b3f69d",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
   "learn/l18/assets/18a-1.png": {
    "sha256": "b17768a6adf7d043e3f5b2852dd7cf9586fe7db18a05c4f4e98ec52d7dc4a267",
    "script": "tools/ai_art/l18.py",

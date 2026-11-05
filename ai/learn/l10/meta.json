@@ -78,6 +78,21 @@
       "what": "온도 스케일링과 별도 검증 자료",
       "url": "https://proceedings.mlr.press/v70/guo17a.html",
       "checked": "2026-11-05"
+    },
+    {
+      "what": "Fashion-MNIST의 데이터 분할과 변환",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.datasets.FashionMNIST.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "precision_score의 average 인자",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "classification_report의 출력과 호출 인자",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.classification_report.html",
+      "checked": "2026-11-05"
     }
   ],
   "credits": [],
