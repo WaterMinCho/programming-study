@@ -1,10 +1,10 @@
 def weather(temp):
     if temp >= 28:
-        ____ "hot"
+        return "hot"
     elif temp <= 5:
-        ____ "cold"
+        return "cold"
     return "mild"
 
 t = int(input())
-result = ____
+result = weather(t)
 print(t, "->", result)

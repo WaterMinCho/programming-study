@@ -1,6 +1,6 @@
 menu = ["bibimbap", "ramen", "gimbap", "sushi"]
-it = ____(menu)
+it = iter(menu)
 print(type(it))
-print("first:", ____(it))
+print("first:", next(it))
 for food in it:
     print("next:", food)
