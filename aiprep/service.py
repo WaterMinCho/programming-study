@@ -1120,6 +1120,23 @@ def recent_lines(log, most=5):
 
 # 묶음 만들기
 
+def _overlapping_pattern_answers(sess, first, second):
+    """같은 판의 줄 고르기와 고칠 줄 문항이 같은 답 줄을 보여주는지 확인함."""
+    a, b = sess.cards[first], sess.cards[second]
+    if a.get("kind") != "skel" or b.get("kind") != "skel" or a["pattern"] != b["pattern"]:
+        return False
+    if {a["part"], b["part"]} != {"pick", "change"}:
+        return False
+    pick, change = (a, b) if a["part"] == "pick" else (b, a)
+    skeleton = sess.skeletons[pick["pattern"]]
+    target = skel.lines_of(skeleton, pick["variant"])[pick["entry"]["line"]].strip()
+    entry = change["entry"]
+    if pick["variant"] not in (entry["from"], entry["to"]):
+        return False
+    rows = skel.diff(skeleton, entry["from"], entry["to"])["rows"]
+    return any(not row["same"] and target in {(row["left"] or "").strip(), (row["right"] or "").strip()} for row in rows)
+
+
 def _choose(sess, state, pools, size, rng, taken=()):
     """pools 의 순서대로 카드를 고름. family 하나, 생성기 GEN_SHARE·심화 DEEP_SHARE 상한, 심화 짝을 지킴. [(카드 id, 풀 이름)].
     taken 은 이미 고른 [(카드 id, 풀 이름)](상한과 family 를 이어 셈)."""
@@ -1133,6 +1150,9 @@ def _choose(sess, state, pools, size, rng, taken=()):
     def can(cid):
         card = sess.cards[cid]
         if cid in seen or card["family"] in families:
+            return False
+        if card["kind"] == "skel" and any(_overlapping_pattern_answers(sess, cid, other) for other, _ in chosen
+                                          if sess.cards[other]["kind"] == "skel"):
             return False
         if card["kind"] == "gen" and gens >= gen_cap:
             return False
