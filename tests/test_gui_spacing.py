@@ -131,6 +131,8 @@ class SpacingTest(unittest.TestCase):
                 kit.refont(figure)
                 for mode in ("light", "dark"):
                     theme.set_mode(mode)
+                    kit.refont(figure)
+                    guikit.pump()
                     metrics = QFontMetricsF(figure.counter.font())
                     short = metrics.horizontalAdvance("1 / 10")
                     longest = max(metrics.horizontalAdvance("%d / 10" % n) for n in range(1, 11))
@@ -150,7 +152,10 @@ class SpacingTest(unittest.TestCase):
                                 guikit.pump()
                                 self.assertEqual(positions(), before)
                                 self.assertEqual(figure.counter.text(), "%d / 10" % (frame + 1))
-                                self.assertGreaterEqual(figure.counter.width(), longest)
+                                current_metrics = QFontMetricsF(figure.counter.font())
+                                current_widest = max(current_metrics.horizontalAdvance("%d / 10" % n)
+                                                     for n in range(1, 11))
+                                self.assertGreaterEqual(figure.counter.width(), current_widest)
                                 for button in buttons:
                                     self.assertGreaterEqual(button.width(), button.sizeHint().width())
                                     self.assertTrue(figure.controls.rect().contains(button.geometry()))
