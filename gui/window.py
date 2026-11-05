@@ -16,6 +16,7 @@ from gui import errors, journey_text, kit, motion, theme, web_text
 from gui.ai_home import AiHomePage, AiLessonPage
 from gui.ai_learn import AiLearnPage, AiNotePage, RevisitPage
 from gui.ai_quiz import PracticePage
+from gui.ai_mock import MockPage
 from gui.ai_text import AiNotes
 from gui.dialogs import IdDialog, MessageDialog
 from gui.guard import Guard
@@ -140,9 +141,10 @@ class MainWindow(QMainWindow):
         self.web_home, self.web_mission, self.web_drill, self.web_learn = WebHomePage(self), WebMissionPage(self), WebDrillPage(self), WebLearnPage(self)
         self.ai_home, self.ai_lesson, self.ai_learn = AiHomePage(self), AiLessonPage(self), AiLearnPage(self)
         self.ai_note, self.ai_revisit, self.ai_quiz = AiNotePage(self), RevisitPage(self), PracticePage(self)
+        self.ai_mock = MockPage(self)
         for page in (self.start, self.hub, self.home, self.round_page, self.result_page, self.team_page, self.wrong_page,
                      self.journey_map, self.journey_page, self.web_home, self.web_mission, self.web_drill, self.web_learn,
-                     self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz):
+                     self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz, self.ai_mock):
             self.pages.addWidget(page)
         self.workspace = Workspace(self, self.pages)
         self.result_page.git_btn.hide()
@@ -168,6 +170,7 @@ class MainWindow(QMainWindow):
         QApplication.instance().installEventFilter(self.guard)
         self.guard.blocked.connect(self.round_page.note_blocked)
         self.guard.blocked.connect(self.ai_quiz.note_blocked)
+        self.guard.blocked.connect(self.ai_mock.note_blocked)
 
     # 시작 순서
 
@@ -222,6 +225,7 @@ class MainWindow(QMainWindow):
         except WebError as error:
             self.web, self.web_error = None, str(error)
         self.ai_quiz.clear()  # 옛 서비스의 묶음과 카드를 놓음
+        self.ai_mock.clear()
         try:
             self.ai = ai_service.AiSession(self.user)
             self.ai_error = ""
@@ -341,6 +345,9 @@ class MainWindow(QMainWindow):
     def open_ai_practice(self, mode, lesson=None, unit=None, card=None):
         return self._open_ai(self.ai_quiz, lambda: self.ai_quiz.load(mode, lesson, unit, card))
 
+    def open_ai_mock(self, mid):
+        return self._open_ai(self.ai_mock, lambda: self.ai_mock.load(mid))
+
     def open_mission(self, mid):
         try:
             self.web_mission.load(mid)
@@ -393,6 +400,8 @@ class MainWindow(QMainWindow):
 
     def leave_pages(self, then, leave):
         """회차 화면의 답과 문제 화면의 코드를 모두 저장했으면 True. 인자는 leave_round 와 같음."""
+        if not self.ai_mock.persist():
+            return False
         return self.leave_round(then, leave) and self.leave_journey(then, leave)
 
     def leave_round(self, then, leave):
@@ -703,7 +712,7 @@ class MainWindow(QMainWindow):
         """글자 크기나 테마가 바뀌면 화면마다 본문과 색을 다시 넣음."""
         for page in (self.hub, self.home, self.round_page, self.result_page, self.wrong_page, self.journey_map, self.journey_page,
                      self.web_home, self.web_mission, self.web_drill, self.web_learn,
-                     self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz):
+                     self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz, self.ai_mock):
             page.restyle()
 
     def closeEvent(self, event):

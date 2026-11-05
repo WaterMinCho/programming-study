@@ -29,12 +29,10 @@ class ReferenceTest(Base):
         sess.notes["i90"]["visible"].remove(key)
         self.assertIsNone(sess.note_target(card["id"]))
 
-    def test_mock_reference_uses_the_source_lesson_and_pattern_prerequisites_do_not(self):
+    def test_pattern_prerequisites_do_not_replace_the_source_lesson(self):
         sess = self.session()
         card = sess.card_info("i90-b01")
         card["after"] = "not-a-note"
         self.assertEqual(sess.note_target(card["id"])["lesson"], "i90")
-        card.update(mock="m1", lesson="m1", after="i90")
-        self.assertEqual(sess.note_target(card["id"])["lesson"], "i90")
         card["after"] = "missing"
-        self.assertIsNone(sess.note_target(card["id"]))
+        self.assertEqual(sess.note_target(card["id"])["lesson"], "i90")

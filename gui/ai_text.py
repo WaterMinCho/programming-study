@@ -264,8 +264,9 @@ def next_item(overview, today):
     elif kind == "revisit":  # 단원 이름(name)은 서비스가 차시·상황별 코드 모두 한 규칙으로 줌
         out.update(title=item.get("name") or item["title"], line="읽은 단원 가운데 덜 외운 단원입니다. 외울 것을 떠올려 본 뒤 섞어 풉니다.",
                    action="다시 보기")
-    elif kind == "mock":  # 모의고사 화면이 생기기 전에 엔진이 회차를 권하면 할 일 단추 없이 안내만 둠
-        out.update(title=item["title"], line=MOCK_LATER)
+    elif kind == "mock":
+        out.update(title=item["title"], line='제출한 뒤 정답과 해설을 확인합니다. 중간에 나가도 시간은 계속 흐릅니다.',
+                   action='모의고사 열기', mock=item['mock'])
     else:
         out.update(kind="none", title="아직 공개된 단원이 없습니다", line="새 차시가 올라오면 여기에 나옵니다.")
     return out
