@@ -1,0 +1,137 @@
+{
+  "format": 1,
+  "id": "l12",
+  "title": "12차시 튜닝·최적화와 과적합 대응",
+  "lesson": "i12",
+  "defines": [
+    "옵티마이저",
+    "SGD",
+    "모멘텀",
+    "RMSprop",
+    "Adam",
+    "Adagrad",
+    "Nesterov",
+    "지수 이동 평균",
+    "과적합",
+    "데이터 증강",
+    "가중치 감쇠",
+    "AdamW"
+  ],
+  "needs": [
+    "l04",
+    "l05",
+    "l06",
+    "l10",
+    "l11"
+  ],
+  "sections": {
+    "12a": "층의 깊이와 공간 크기를 함께 정합니다",
+    "12b": "갱신에 쓸 기록을 옵티마이저마다 구분합니다",
+    "12c": "훈련과 검증 곡선을 함께 보고 멈춥니다",
+    "12d": "드롭아웃을 배치하고 정규화 층의 상태를 나눕니다",
+    "12e": "정답을 유지하는 변형만 훈련 자료에 적용합니다",
+    "12f": "가중치 감쇠와 실험 조건을 따로 확인합니다",
+    "12g": "코드 읽기에서 모드와 변환의 적용 시점을 나눕니다"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "SGD와 모멘텀·Nesterov의 갱신",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.optim.SGD.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "RMSprop의 제곱 이동 평균과 eps",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.optim.RMSprop.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Adam의 두 기록·편향 보정·기본값",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.optim.Adam.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Adagrad의 제곱 누적",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.optim.Adagrad.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "AdamW의 분리 감쇠",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.optim.AdamW.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Adam 원 논문의 알고리즘",
+      "url": "https://arxiv.org/abs/1412.6980",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "분리 가중치 감쇠 원 논문",
+      "url": "https://arxiv.org/abs/1711.05101",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "BatchNorm2d의 학습 파라미터와 running 통계",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BatchNorm2d.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "모드 전환과 training 속성",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "좌우 반전의 기본 확률",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomHorizontalFlip.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "사각형 가리기의 자료형·넓이 비율",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomErasing.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "RandomErasing의 높이·너비 계산",
+      "url": "https://github.com/pytorch/vision/blob/main/torchvision/transforms/transforms.py",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "12a": {
+      "minutes": 5,
+      "key_figure": "assets/12a-2.png",
+      "kind": "concept"
+    },
+    "12b": {
+      "minutes": 5,
+      "key_figure": "assets/12b-2.png",
+      "kind": "concept"
+    },
+    "12c": {
+      "minutes": 5,
+      "key_figure": "assets/12c-2.gif",
+      "kind": "concept"
+    },
+    "12d": {
+      "minutes": 5,
+      "key_figure": "assets/12d-2.png",
+      "kind": "concept"
+    },
+    "12e": {
+      "minutes": 5,
+      "key_figure": "assets/12e-2.gif",
+      "kind": "concept"
+    },
+    "12f": {
+      "minutes": 5,
+      "key_figure": "assets/12f-2.png",
+      "kind": "concept"
+    },
+    "12g": {
+      "minutes": 5,
+      "key_figure": "assets/12g-2.png",
+      "kind": "code"
+    }
+  }
+}

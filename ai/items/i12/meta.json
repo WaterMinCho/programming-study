@@ -1,0 +1,68 @@
+{
+  "format": 1,
+  "id": "i12",
+  "no": 12,
+  "page": "l12",
+  "units": {
+    "12a": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [
+        "i12-g01"
+      ],
+      "core": 3
+    },
+    "12b": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [
+        "i12-g02"
+      ],
+      "core": 3
+    },
+    "12c": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 8,
+      "gen": [
+        "i12-g03"
+      ],
+      "core": 3
+    },
+    "12d": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [
+        "i12-g04"
+      ],
+      "core": 3
+    },
+    "12e": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [
+        "i12-g05"
+      ],
+      "core": 3
+    },
+    "12f": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [],
+      "core": 3
+    },
+    "12g": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 8,
+      "gen": [],
+      "core": 3
+    }
+  },
+  "sources": []
+}
