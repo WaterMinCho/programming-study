@@ -69,6 +69,7 @@ class SubjectGrid(QWidget):
 
     def add(self, tile):
         self.rows.append(tile)
+        self.columns = 0
         self.arrange()
         return tile
 

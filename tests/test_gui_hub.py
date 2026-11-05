@@ -195,6 +195,16 @@ class HubTest(unittest.TestCase):
 
 
 class HubScreenTest(HubTest):
+    def test_first_open_places_all_four_subjects_in_the_grid(self):
+        win = self.boot()
+        grid = win.hub.tracks.grid
+        self.assertEqual(grid.count(), 4)
+        for row, expected in zip(win.hub.tracks.rows, ((0, 0), (0, 1), (1, 0), (1, 1))):
+            self.assertEqual(grid.getItemPosition(grid.indexOf(row))[:2], expected)
+            self.assertTrue(row.isVisible())
+            self.assertGreater(row.geometry().width(), 100)
+            self.assertTrue(win.hub.tracks.rect().contains(row.geometry()))
+
     def test_submission_notice_only_for_pending_changes_and_fixed_while_scrolling(self):
         from PyQt6.QtWidgets import QScrollArea
         win = self.boot()
