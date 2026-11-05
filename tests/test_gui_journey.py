@@ -187,7 +187,6 @@ class Base(unittest.TestCase):
             self.win.dialog.close()
         if self.win.journey_page.cases_dialog is not None:
             self.win.journey_page.cases_dialog.close()
-        guikit.wait_until(lambda: self.win.pending_job is None)
         self.win.close()
         self.win.deleteLater()
         guikit.pump()
