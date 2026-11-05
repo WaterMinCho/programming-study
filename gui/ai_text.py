@@ -63,7 +63,6 @@ LEVELS_HEAD = "세 수준으로 다시 보기"
 LEVEL_NAMES = {7: "7살 수준 · 숫자와 그림", 15: "15살 수준 · 계산과 식", 20: "20살 수준 · 정의와 코드"}
 LEVEL_CHECK = "확인 물음"
 LEVEL_MISTAKE = "자주 하는 착각"
-LEVEL_WHERE = "다루는 곳"
 NUMBERS = bank.NUMBERS
 
 
@@ -118,12 +117,8 @@ def ref_text(refs):
 
 
 def errata_text(errata):
-    """정정 한 줄. 강의 자료의 어느 곳을 바로잡았는지만 쓰고 바른 내용은 해설이 말함."""
-    places = [ref_one(e["where"]) for e in errata if e.get("where")]
-    where = " · ".join(dict.fromkeys(places))
-    if where:
-        return "강의 자료(%s)에 틀린 곳이 있어 바로잡은 내용으로 냈습니다. 해설을 보고 외우세요." % where
-    return "강의 자료에 틀린 곳이 있어 바로잡은 내용으로 냈습니다. 해설을 보고 외우세요."
+    """자료 오류를 고친 문항임을 알림. 위치는 검증 기록에 남기고 바른 내용은 해설에서 다룸."""
+    return "학습 자료의 오류를 바로잡은 문항입니다. 해설에서 이유를 확인하세요."
 
 
 # 날짜
@@ -408,7 +403,16 @@ class AiNotes:
     def detail(self, note, info):
         """(제목, 본문 HTML). 제목은 그 문항이 나온 단원의 이름("5차시 · 단원", "학습 루프 · 단원"). 읽지 못하면 AiError(SessionError)."""
         item = self.win.ai.wrong_item(note["key"])
+        item["note_target"] = self.win.ai.note_target(note["key"])
         return item.get("name") or item["title"], note_html(item, info, answer_word(item))
+
+    def open_reference(self, note):
+        from gui.ai_learn import NoteDialog
+        target = self.win.ai.note_target(note["key"])
+        if target is None:
+            return
+        self.reference_dialog = NoteDialog(self.win, target["lesson"], target["step"])
+        self.reference_dialog.open()
 
     def explain(self, note):
         return self.win.ai.explain(note["key"])
@@ -468,8 +472,8 @@ def note_html(item, info, word="정답"):
     code = bool(item.get("code_options"))
     options = item["options"]
     parts = ['<p><b>%s</b></p>' % html.escape(" · ".join(lines))]
-    if item["ref"]:
-        parts += [band("근거", space=BAND), "<p>%s</p>" % html.escape(ref_text(item["ref"]))]
+    if item.get("note_target"):
+        parts += [band("참고", space=BAND), '<p><a href="study-note">%s</a></p>' % html.escape(item["note_target"]["label"])]
     parts += [band("문제", space=BAND), md_html(bank.number_blanks(item["stem"], code=True))]
     if options and code:
         parts += ["<p>%d번</p>%s" % (n + 1, code_box(text)) for n, text in enumerate(options)]

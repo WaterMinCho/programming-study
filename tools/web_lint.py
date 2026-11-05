@@ -28,7 +28,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import study  # noqa: E402
-from tools import check_style  # noqa: E402
+from tools import check_style, lecture_locations  # noqa: E402
 from webprep import bank  # noqa: E402
 
 EXTERNAL_ENV = "STUDY_TONE_CHECKER"
@@ -451,14 +451,24 @@ def style_check(report, tools, md_files, strings):
     """md_files 는 [(이름, 글)] 로 통째로, strings 는 [(어디, 한 줄, 문장인지)] 로 검사기에 넘김. 문장인 줄(검사 이름, 표 칸,
     캡션)이 마침표 없이 끝나면 마침표를 붙여서 ~함/~음 으로 끝나는 꼴도 잡히게 함. 제목은 그대로 둠."""
     for name, text in md_files:
+        locations = lecture_locations.find(text, markdown=True)
+        located = {found for _, found in locations}
+        for no, found in locations:
+            report.error("%s:%d" % (name, no), lecture_locations.RULE, found)
         for rule, where in style_fails(text, name if name.endswith(".md") else name + ".md", tools):
-            report.error(name, "말투 " + rule, where)
+            if rule != lecture_locations.RULE or where not in located:
+                report.error(name, "말투 " + rule, where)
     for where, line, sentence in strings:
+        locations = lecture_locations.find(line)
+        located = {found for _, found in locations}
+        for _, found in locations:
+            report.error(where, lecture_locations.RULE, found)
         probe = line.strip()
         if sentence and probe and not re.search(r"[.?!]\s*$", probe):
             probe += "."
         for rule, found in style_fails(probe, "strings.md", tools):
-            report.error(where, "말투 " + rule, found)
+            if rule != lecture_locations.RULE or found not in located:
+                report.error(where, "말투 " + rule, found)
 
 
 def lint_item(kind, entry, bank_dir, index, tools, parts=("style", "context", "extra")):
