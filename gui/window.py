@@ -123,6 +123,7 @@ class MainWindow(QMainWindow):
         self.pending_submission = {"status": "checking", "pending": False, "count": 0}
         self.pending_job = None
         self.pending_again, self.pending_stopped, self.pending_version = False, False, 0
+        self.pending_close = False
         self.dialog = None  # 가장 최근에 띄운 대화상자
         self.notice = None  # 허브와 홈 위쪽에 한 줄로 보여 줄 제출 모듈의 결과
         self.restart, self.close_pending = False, False
@@ -582,9 +583,9 @@ class MainWindow(QMainWindow):
     def check_pending_submission(self, *_):
         """로컬의 제출 여부만 작업 스레드에서 확인함. 풀이 화면에서는 자동 저장과 경쟁하지 않음."""
         flow = self.gitflow
-        if self.pending_stopped or self.job is not None or flow is None or self.session is None:
+        if self.pending_stopped or self.pending_close or self.job is not None or flow is None or self.session is None:
             return
-        if self.pages.currentWidget() not in (self.hub, self.home, self.result_page):
+        if self.pages.currentWidget() not in self.workspace.submission_pages:
             return
         if self.pending_job is not None:
             self.pending_again = True
@@ -600,6 +601,11 @@ class MainWindow(QMainWindow):
         def done(result):
             job.wait()
             self.pending_job = None
+            if self.pending_close:
+                self.pending_close, self.pending_again = False, False
+                self.workspace.refresh()
+                self.close()
+                return
             if self.pending_stopped:
                 return
             if self.gitflow is flow and self.pending_version == version:
@@ -717,7 +723,10 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         if self.pending_job is not None:
-            self.pending_job.wait()
+            self.pending_close = True
+            self.workspace.refresh()
+            event.ignore()
+            return
         if not self.leave_pages(self.close, "저장하지 않고 닫기"):
             event.ignore()
             return

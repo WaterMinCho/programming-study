@@ -195,6 +195,47 @@ class HubTest(unittest.TestCase):
 
 
 class HubScreenTest(HubTest):
+    def test_submission_actions_remain_available_on_all_subject_overviews(self):
+        win = self.boot()
+        bar = win.workspace.submissions
+        for open_page in (win.go_home, win.go_journey, win.go_web, win.go_ai,
+                          lambda: win.open_ai_lesson("i90"), win.go_hub):
+            open_page()
+            self.idle()
+            guikit.wait_until(lambda: win.pending_job is None)
+            self.assertTrue(bar.isVisible())
+            self.assertTrue(bar.submit.isVisible())
+            self.assertTrue(bar.sync.isVisible())
+            self.assertTrue(win.rect().contains(bar.mapTo(win, QPoint(bar.width() - 1, bar.height() - 1))))
+        win.open_ai_unit("i90", "90a")
+        self.idle()
+        self.assertFalse(bar.isVisible())
+
+    def test_closing_during_submission_check_keeps_events_running(self):
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        started, release = threading.Event(), threading.Event()
+
+        def pending():
+            started.set()
+            release.wait(3)
+            return {"status": "ok", "pending": False, "count": 0}
+
+        self.git.pending = pending
+        win.check_pending_submission()
+        guikit.wait_until(started.is_set)
+        try:
+            win.close()
+            self.assertTrue(win.isVisible())
+            self.assertTrue(win.pending_close)
+            guikit.pump()
+            self.assertTrue(win.pending_job.isRunning())
+        finally:
+            release.set()
+        guikit.wait_until(lambda: not win.isVisible())
+        self.assertIsNone(win.pending_job)
+
     def test_first_open_places_all_four_subjects_in_the_grid(self):
         win = self.boot()
         grid = win.hub.tracks.grid

@@ -155,6 +155,8 @@ class Workspace(QWidget):
     def __init__(self, win, pages):
         super().__init__()
         self.win, self.pages = win, pages
+        self.overview_pages = (win.hub, win.home, win.journey_map, win.web_home, win.ai_home, win.ai_lesson)
+        self.submission_pages = (*self.overview_pages, win.result_page)
         self.setObjectName("page")
         outer = kit.box(self, horizontal=True)
         outer.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
@@ -204,18 +206,17 @@ class Workspace(QWidget):
 
     def refresh(self, *_):
         started = self.win.session is not None and self.pages.currentWidget() is not self.win.start
-        overview = self.pages.currentWidget() in (self.win.hub, self.win.home, self.win.journey_map,
-                                                  self.win.web_home, self.win.ai_home, self.win.ai_lesson)
+        overview = self.pages.currentWidget() in self.overview_pages
         self.rail.setVisible(started and overview and self.width() >= 1120)
         self.compact.setVisible(started and overview and self.width() < 1120)
-        self.submissions.setVisible(started and self.pages.currentWidget() in (self.win.hub, self.win.home, self.win.result_page))
+        self.submissions.setVisible(started and self.pages.currentWidget() in self.submission_pages)
         for index, (tid, _, _) in enumerate(SUBJECTS):
             self.buttons[tid].setChecked(self.win.area == tid)
             if self.win.area == tid:
                 blocker = QSignalBlocker(self.compact)
                 self.compact.setCurrentIndex(index)
                 del blocker
-        busy = self.win.job is not None
+        busy = self.win.job is not None or self.win.pending_close
         self.rail.setEnabled(not busy)
         self.compact.setEnabled(not busy)
         self.submissions.refresh(self.win.pending_submission, self.win.gitflow is not None, busy)

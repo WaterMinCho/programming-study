@@ -1672,6 +1672,35 @@ class GitFlowTest(unittest.TestCase):
         self.merge()
 
 
+@unittest.skipIf(git_version() < (2, 38), "git 2.38 이상이 필요함")
+class PendingReferenceTest(unittest.TestCase):
+    def test_answer_reverted_to_old_main_is_still_pending_after_submit_or_restart(self):
+        with tempfile.TemporaryDirectory(prefix="pending_reverted_") as root:
+            git(root, "init", "-b", "main")
+            git(root, "config", "user.name", "tester")
+            git(root, "config", "user.email", "tester@example.invalid")
+            path = os.path.join(root, "submissions", "learner", "quiz.py")
+            write(path, "Q1 = None\n")
+            git(root, "add", ".")
+            git(root, "commit", "-m", "test: 빈 답")
+            main = git(root, "rev-parse", "HEAD").stdout.strip()
+            git(root, "update-ref", gitflow.MAIN, main)
+            write(path, "Q1 = 2\n")
+            git(root, "commit", "-am", "test: 제출한 답")
+            submitted = git(root, "rev-parse", "HEAD").stdout.strip()
+            git(root, "update-ref", "refs/remotes/origin/study/learner", submitted)
+            for in_same_run in (True, False):
+                with self.subTest(in_same_run=in_same_run):
+                    flow = gitflow.GitFlow(root, "learner")
+                    flow._submitted = submitted if in_same_run else ""
+                    write(path, "Q1 = 2\n")
+                    self.assertFalse(flow.pending()["pending"])
+                    write(path, "Q1 = None\n")
+                    before = git(root, "status", "--porcelain").stdout
+                    self.assertEqual(flow.pending(), {"status": "ok", "pending": True, "count": 1})
+                    self.assertEqual(git(root, "status", "--porcelain").stdout, before)
+
+
 class CiReportTest(unittest.TestCase):
     def report(self, files, present):
         """changed_files 가 files 를 돌려주는 PR 에서 ci_report 를 돌려 (모듈, report.md 내용, 표준 출력) 을 돌려줌. present 는 PR 을 합친 결과에 남은 파일."""
