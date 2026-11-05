@@ -795,7 +795,10 @@ class GitFlow:
             self._reconcile(keep_diverged=force)
             snap = self._snapshot("풀이 제출: %s" % self.user)
             mine = self._folder_tree(snap)
-            if mine == self._folder_tree(self._base):
+            same_as_main = mine == self._folder_tree(self._base)
+            pending_remote = self._tip and not self._is_ancestor(self._tip, self._base) \
+                and mine != self._folder_tree(self._tip)
+            if same_as_main and not pending_remote:
                 if mine and not dev:  # 개발 중인 폴더의 브랜치와, 올린 적 없는 풀이를 지운 표시는 그대로 둠
                     self._settle(self._base)
                 return self._result("nothing", M_NOTHING if mine else M_EMPTY)

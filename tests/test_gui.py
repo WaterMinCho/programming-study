@@ -171,7 +171,7 @@ class GuiTest(unittest.TestCase):
 
     def tearDown(self):
         wait_until(lambda: self.win.job is None)
-        guikit.wait_until(lambda: self.win.pending_job is None)
+        wait_until(lambda: self.win.pending_job is None)
         self.win.close()
         self.win.deleteLater()
         pump()
@@ -1650,7 +1650,7 @@ class WrongNotesTest(GuiTest):
 
     def open_with(self, *tracks):
         """오답 노트 공급자를 tracks 로 바꾼 창을 새로 띄워 첫 화면까지 엶."""
-        guikit.wait_until(lambda: self.win.pending_job is None)
+        wait_until(lambda: self.win.pending_job is None)
         self.win.close()
         self.win.deleteLater()
         with mock.patch.object(window, "WRONG_TRACKS", tracks):

@@ -364,6 +364,26 @@ class GitFlowTest(unittest.TestCase):
         with mock.patch.object(self.pc.flow, "_commit_of", side_effect=OSError("읽기 실패")):
             self.assertEqual(self.pc.flow.pending(), {"status": "error", "pending": False, "count": 0})
 
+    def test_reverting_an_open_submission_to_main_updates_the_remote(self):
+        self.server.add_files({"submissions/alice/legacy.py": "Q1 = None\n"}, "빈 풀이를 등록함")
+        self.call(self.pc, "sync", "ok", {"submissions/alice/legacy.py": b"Q1 = None\n"})
+        pc = self.pc
+        path = os.path.join(pc.folder, "legacy.py")
+        write(path, "Q1 = 2\n")
+        self.submit()
+        old = self.server.rev("study/alice")
+        pc.open_pr = OPEN_PR
+        write(path, "Q1 = None\n")
+        self.assertTrue(pc.flow.pending()["pending"])
+        result = self.call(pc, "submit", "ok")
+        self.server.refresh()
+        self.assertEqual(result["pr_url"], OPEN_PR)
+        self.assertNotEqual(self.server.rev("study/alice"), old)
+        self.assertEqual(self.server.folder("study/alice", pc.user), digest(pc.read()))
+        self.assertEqual(self.server.pr_files("study/alice"), [])
+        self.assertFalse(pc.flow.pending()["pending"])
+        self.on_uploaded_commit()
+
     def test_pending_does_not_repeat_a_submission_received_from_another_computer(self):
         self.sync()
         self.pc.solve()
