@@ -13,14 +13,22 @@
   "l07",
   "l08",
   "l09",
-  "l10"
+  "l10",
+  "l11",
+  "l13",
+  "l14",
+  "l15",
+  "l16"
  ],
  "sections": {
   "18a": "미니배치 학습 한 에폭",
   "18b": "학습 뒤 평가하고 최고 상태를 되돌립니다",
   "18c": "회귀 출력과 정답을 같은 모양으로 맞춥니다",
   "18d": "이진 분류의 출력과 손실을 함께 바꿉니다",
-  "18e": "다중 분류의 로짓과 로그확률을 구별합니다"
+  "18e": "다중 분류의 로짓과 로그확률을 구별합니다",
+  "18f": "CNN의 층과 모양을 연결합니다",
+  "18g": "항목을 읽고 배치로 묶습니다",
+  "18h": "학습할 파라미터와 상태를 고릅니다"
  },
  "outputs": [],
  "sources": [
@@ -103,6 +111,66 @@
    "what": "[2,1]과 [2]의 브로드캐스팅",
    "url": "https://docs.pytorch.org/docs/2.15/notes/broadcasting.html",
    "checked": "2026-11-05"
+  },
+  {
+   "what": "nn.Module의 등록과 호출",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "Conv2d 입력 채널과 출력 크기",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Conv2d.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "MaxPool2d의 내림 및 기본 인자",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.MaxPool2d.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "배치 축을 남기는 flatten",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.flatten.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "Dataset·DataLoader·TensorDataset·기본 collate",
+   "url": "https://docs.pytorch.org/docs/2.15/data.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "ToTensor의 RGB PIL 변환",
+   "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.ToTensor.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "ImageFolder 클래스 폴더",
+   "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.datasets.ImageFolder.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "ImageFolder 클래스 이름의 정렬과 번호",
+   "url": "https://docs.pytorch.org/vision/stable/_modules/torchvision/datasets/folder.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "requires_grad의 부분 동결",
+   "url": "https://docs.pytorch.org/docs/2.15/notes/autograd.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "BatchNorm2d의 이동 통계와 평가",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BatchNorm2d.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "ResNet-18 가중치와 전처리",
+   "url": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "분류기 교체와 optimizer 대상",
+   "url": "https://docs.pytorch.org/tutorials/beginner/transfer_learning_tutorial.html",
+   "checked": "2026-11-05"
   }
  ],
  "credits": [],
@@ -130,6 +198,21 @@
   "18e": {
    "minutes": 8,
    "key_figure": "assets/18e-4.png",
+   "kind": "pattern"
+  },
+  "18f": {
+   "minutes": 9,
+   "key_figure": "assets/18f-5.png",
+   "kind": "pattern"
+  },
+  "18g": {
+   "minutes": 9,
+   "key_figure": "assets/18g-5.png",
+   "kind": "pattern"
+  },
+  "18h": {
+   "minutes": 9,
+   "key_figure": "assets/18h-5.png",
    "kind": "pattern"
   }
  }

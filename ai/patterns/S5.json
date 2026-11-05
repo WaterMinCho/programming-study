@@ -1,0 +1,243 @@
+{
+ "format": 1,
+ "id": "S5",
+ "title": "항목을 읽고 배치로 묶기",
+ "tags": [
+  "데이터 읽기"
+ ],
+ "prio": 3,
+ "ref": [
+  "10차시 노트북 02 [4]",
+  "15차시 노트북 01 [17]",
+  "15차시 노트북 01 [21]",
+  "문서 torch.utils.data"
+ ],
+ "variants": {
+  "직접 읽기": {
+   "situation": "files는 실제로 읽을 수 있는 8×8 PNG 이미지 경로 3개이며 labels는 [0, 2, 1] 정수 목록입니다. 같은 위치끼리 한 데이터입니다. PIL.Image·Dataset·DataLoader·transforms를 사용할 수 있고 기본 실수 자료형은 float32입니다. 데이터를 원래 순서대로 묶고 마지막 이미지도 사용합니다.",
+   "lines": [
+    "class PictureData(Dataset):",
+    "    def __init__(self, files, labels, transform):",
+    "        self.files = files",
+    "        self.labels = labels",
+    "        self.transform = transform",
+    "    def __len__(self):",
+    "        return len(self.files)",
+    "    def __getitem__(self, index):",
+    "        with Image.open(self.files[index]) as image:",
+    "            x = self.transform(image.convert(\"RGB\"))",
+    "        return x, int(self.labels[index])",
+    "transform = transforms.ToTensor()",
+    "data = PictureData(files, labels, transform)",
+    "loader = DataLoader(data, batch_size=2, shuffle=False, drop_last=False, num_workers=0)"
+   ]
+  },
+  "텐서": {
+   "situation": "images는 CPU float32[3, 3, 8, 8]이고 labels_t는 long[3]의 [0, 2, 1]입니다. 같은 0번 축 위치끼리 이미지와 정답을 짝지으며 원래 순서를 유지합니다.",
+   "lines": [
+    "data = TensorDataset(images, labels_t)",
+    "loader = DataLoader(data, batch_size=2, shuffle=False, drop_last=False, num_workers=0)"
+   ]
+  },
+  "폴더": {
+   "situation": "root 아래 클래스 폴더 a·b·c에 읽을 수 있는 8×8 RGB PNG가 한 장씩 있습니다. 기본 실수 자료형은 float32이며 클래스 이름의 정렬 순서로 정답 번호를 정해 원래 순서대로 묶습니다.",
+   "lines": [
+    "transform = transforms.ToTensor()",
+    "data = datasets.ImageFolder(root, transform=transform)",
+    "loader = DataLoader(data, batch_size=2, shuffle=False, drop_last=False, num_workers=0)"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "variant": "직접 읽기",
+   "line": 5,
+   "token": "__len__",
+   "answer": [
+    "__len__"
+   ],
+   "mode": "code",
+   "hint": "개수를 돌려주는 메서드",
+   "line_answer": [
+    "def __len__(self):"
+   ],
+   "id": "pc-k21",
+   "step": "18g/2",
+   "facts": [
+    "F18-41"
+   ],
+   "explain": "len(data)가 호출할 메서드입니다. 이 예는 self.files의 이미지 경로 수인 3을 돌려줍니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-k21",
+   "ref": [
+    "10차시 노트북 02 [4]",
+    "15차시 노트북 01 [17]",
+    "15차시 노트북 01 [21]",
+    "문서 torch.utils.data"
+   ]
+  },
+  {
+   "variant": "직접 읽기",
+   "line": 7,
+   "token": "__getitem__",
+   "answer": [
+    "__getitem__"
+   ],
+   "mode": "code",
+   "hint": "한 항목을 읽는 메서드",
+   "line_answer": [
+    "def __getitem__(self, index):"
+   ],
+   "id": "pc-k22",
+   "step": "18g/3",
+   "facts": [
+    "F18-42"
+   ],
+   "explain": "data[index]가 호출할 메서드입니다. 같은 index의 이미지와 정답을 한 쌍으로 돌려줍니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-k22",
+   "ref": [
+    "10차시 노트북 02 [4]",
+    "15차시 노트북 01 [17]",
+    "15차시 노트북 01 [21]",
+    "문서 torch.utils.data"
+   ]
+  },
+  {
+   "variant": "직접 읽기",
+   "line": 11,
+   "token": "ToTensor",
+   "answer": [
+    "ToTensor"
+   ],
+   "mode": "code",
+   "hint": "텐서 변환 이름",
+   "line_answer": [
+    "transform = transforms.ToTensor()"
+   ],
+   "id": "pc-k23",
+   "step": "18g/3",
+   "facts": [
+    "F18-43"
+   ],
+   "explain": "RGB PIL 이미지를 채널 우선 [3, 8, 8] 실수 텐서로 바꿉니다. 기본 float32에서 0~255 값은 0~1로 바뀝니다.",
+   "core": false,
+   "level": 2,
+   "family": "pc-k23",
+   "ref": [
+    "10차시 노트북 02 [4]",
+    "15차시 노트북 01 [17]",
+    "15차시 노트북 01 [21]",
+    "문서 torch.utils.data"
+   ]
+  },
+  {
+   "variant": "텐서",
+   "line": 0,
+   "token": "TensorDataset",
+   "answer": [
+    "TensorDataset"
+   ],
+   "mode": "code",
+   "hint": "텐서를 묶는 클래스",
+   "line_answer": [
+    "data = TensorDataset(images, labels_t)"
+   ],
+   "id": "pc-k24",
+   "step": "18g/5",
+   "facts": [
+    "F18-45"
+   ],
+   "explain": "이미 준비한 이미지 텐서와 정답 텐서를 같은 0번 축 위치끼리 묶습니다. 두 텐서의 첫 축 길이는 모두 3입니다.",
+   "core": false,
+   "level": 2,
+   "family": "pc-k24",
+   "ref": [
+    "10차시 노트북 02 [4]",
+    "15차시 노트북 01 [17]",
+    "15차시 노트북 01 [21]",
+    "문서 torch.utils.data"
+   ]
+  }
+ ],
+ "orders": [],
+ "changes": [],
+ "picks": [
+  {
+   "variant": "직접 읽기",
+   "line": 13,
+   "stem": "data에는 원래 순서대로 이미지 3개가 있습니다. 최대 2개씩 묶으며 순서도 유지하고 마지막 한 개도 사용하려 합니다. DataLoader 정의로 옳은 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "loader = DataLoader(data, batch_size=2, shuffle=True, drop_last=False, num_workers=0)",
+     "aim": "항목 순서가 유지된다고 봅니다.",
+     "why": "shuffle=True는 항목 순서를 섞습니다. 이 문제는 원래 순서 유지까지 요구합니다."
+    },
+    {
+     "text": "loader = DataLoader(data, batch_size=2, shuffle=False, drop_last=True, num_workers=0)",
+     "aim": "작은 마지막 배치를 빼도 된다고 봅니다.",
+     "why": "크기 2를 채우지 못한 마지막 이미지 한 개를 제외합니다. 이 문제는 그 이미지도 사용합니다."
+    },
+    {
+     "text": "loader = DataLoader(data, batch_size=3, shuffle=False, drop_last=False, num_workers=0)",
+     "aim": "배치 크기를 전체 데이터 수로 정합니다.",
+     "why": "한 배치에 이미지 3개를 넣습니다. 이 문제는 최대 2개씩 묶습니다."
+    }
+   ],
+   "id": "pc-p16",
+   "step": "18g/4",
+   "facts": [
+    "F18-44"
+   ],
+   "explain": "shuffle=False가 원래 항목 순서를 유지합니다. drop_last=False가 크기 2를 채우지 못한 마지막 이미지 한 개도 배치로 돌려줍니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-p16",
+   "ref": [
+    "10차시 노트북 02 [4]",
+    "15차시 노트북 01 [17]",
+    "15차시 노트북 01 [21]",
+    "문서 torch.utils.data"
+   ]
+  },
+  {
+   "variant": "폴더",
+   "line": 1,
+   "stem": "root 아래 a·b·c 클래스 폴더에 PNG 이미지가 한 장씩 있습니다. transform은 ToTensor입니다. 클래스 폴더 이름으로 정답을 붙이고 기본 DataLoader로 묶을 수 있게 이미지도 텐서로 반환하는 줄을 고르세요.",
+   "wrong": [
+    {
+     "text": "data = TensorDataset(root)",
+     "aim": "폴더 경로를 텐서로 봅니다.",
+     "why": "TensorDataset은 같은 첫 축 길이의 텐서를 받습니다. 폴더 경로를 이미지 데이터로 읽지 않습니다."
+    },
+    {
+     "text": "data = datasets.ImageFolder(root)",
+     "aim": "이미지를 텐서로 바꾸는 줄을 빼도 된다고 봅니다.",
+     "why": "이미지와 정답을 찾지만 기본 반환 이미지는 PIL 이미지입니다. 이 예의 기본 배치 묶기는 텐서가 필요합니다."
+    },
+    {
+     "text": "data = DataLoader(root, batch_size=2)",
+     "aim": "경로 문자열을 이미지 목록으로 봅니다.",
+     "why": "DataLoader는 제공받은 데이터를 묶습니다. 이 줄이 클래스 폴더의 이미지를 찾아 정답을 붙이지는 않습니다."
+    }
+   ],
+   "id": "pc-p17",
+   "step": "18g/5",
+   "facts": [
+    "F18-46"
+   ],
+   "explain": "클래스 이름별 폴더에서 이미지를 읽을 때 ImageFolder를 사용합니다. 정답 번호는 data.class_to_idx로 확인합니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-p17",
+   "ref": [
+    "10차시 노트북 02 [4]",
+    "15차시 노트북 01 [17]",
+    "15차시 노트북 01 [21]",
+    "문서 torch.utils.data"
+   ]
+  }
+ ]
+}

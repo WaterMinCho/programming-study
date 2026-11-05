@@ -753,3 +753,492 @@ with torch.no_grad():
  {"q":"로그확률과 클래스 번호에서 정답 열의 손실을 구하는 함수는 무엇인가요?","a":"NLLLoss입니다.","cards":["pc-p13"]},
  {"q":"CrossEntropyLoss판을 NLLLoss판으로 바꿀 때 무엇을 함께 고치나요?","a":"모델 끝에 LogSoftmax(dim=1)를 붙이고 손실을 NLLLoss로 바꿉니다.","cards":["pc-x03"]}]
 ```
+
+
+## CNN의 층과 모양을 연결합니다
+
+### 먼저 풀어 보기
+<!-- facts: F18-39 -->
+
+```ai-guess
+{"id":"g1","q":"이미지 두 개에서 각각 특징 값 32개를 얻었습니다. 이미지 구분을 유지한 채 한 이미지의 값을 한 행에 놓으면 모양은 무엇일까요?","options":["[2, 32]","[64]","[32, 2]","[2, 8, 4]"],"answer":0,"reveal_step":4,"cards":["pc-p14"]}
+```
+
+### 층을 등록하고 입력이 지나는 순서를 정합니다
+<!-- facts: F18-36 F18-37 -->
+
+이번에는 8×8 흑백 이미지 두 개를 클래스 0·1·2로 분류합니다. 입력 `x`는 CPU의 float32 텐서이며 모양은 `[2, 1, 8, 8]`입니다. 축은 이미지 수, 채널 수, 높이, 너비 순서입니다. 정답은 클래스 번호를 담은 long `[2]`입니다.
+
+직접 모델 클래스를 만들 때는 파이토치가 층과 파라미터를 관리하는 `nn.Module`을 상속합니다. 생성할 층은 `__init__`에 등록하고 입력이 지나는 순서는 `forward`에 적습니다. `self`는 지금 만든 모델을 가리킵니다. 기반 클래스의 준비를 마치는 `super().__init__()`을 먼저 호출한 뒤 층을 `self`에 붙입니다. 한 이미지의 수를 한 행으로 펼칠 때는 `torch.flatten`을 사용합니다. `start_dim=1`로 0번 이미지 축을 남깁니다.
+
+<!-- skel: S4 한 층 -->
+```python
+class PixelNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(64, 3)
+    def forward(self, x):
+        x = torch.flatten(x, start_dim=1)
+        return self.fc(x)
+```
+
+`self.fc`는 한 이미지의 수 64개를 받아 클래스별 점수 3개를 냅니다. `torch.flatten` 줄은 이미지마다 `1 × 8 × 8 = 64`개를 한 행에 놓아 `[2, 64]`를 만듭니다. 모델을 사용할 때는 `model(x)`로 호출합니다. 이 호출이 등록한 처리와 `forward`를 연결합니다.
+
+```figure
+파일: assets/18f-1.png
+캡션: 그림 22. 모델이 관리할 층과 입력이 지나는 순서를 구별합니다.
+내용: __init__는 기반 초기화 뒤 Linear(64,3)을 등록합니다. forward는 [2,1,8,8]을 [2,64]로 펼친 뒤 [2,3] 로짓을 냅니다.
+```
+
+```ai-recall
+{"id":"r1","q":"입력이 지나갈 계산 순서를 정의하는 메서드 이름은 ____ 입니다.","answer":["forward"],"mode":"code","why":"__init__에서 층을 등록하고 forward에서 층을 호출할 순서를 적습니다."}
+```
+
+### 합성곱과 풀링으로 이미지의 특징을 구합니다
+<!-- facts: F18-36 F18-37 F18-38 -->
+
+같은 이미지에 합성곱을 적용하는 모델을 만듭니다. 합성곱 층 `Conv2d`는 입력 채널 수, 출력 채널 수, 커널 크기를 받습니다. 이 예의 커널은 3×3이며 가장자리에 0을 한 칸씩 덧댑니다. 이 덧붙임을 `padding=1`로 지정합니다. 한 칸씩 이동하는 `stride=1`과 커널 칸 사이의 간격을 늘리지 않는 `dilation=1`을 쓰면 높이와 너비를 유지합니다. 합성곱의 계산은 11차시 첫째 단원에서 다뤘습니다.
+
+음수를 0으로 바꾸는 `ReLU` 뒤에는 `MaxPool2d`를 둡니다. 이 풀링은 채널마다 2×2 영역의 최댓값을 고르고 두 칸씩 이동합니다. 높이 8은 4가 되고 다음 풀링에서 2가 됩니다. 아래에서는 층을 적은 순서대로 호출하는 `nn.Sequential`로 이 과정을 묶습니다.
+
+<!-- skel: S4 CNN -->
+```python
+class PatchNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 4, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, stride=2),
+            nn.Conv2d(4, 8, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, stride=2),
+        )
+        self.fc = nn.Linear(8 * 2 * 2, 3)
+    def forward(self, x):
+        x = self.features(x)
+        x = torch.flatten(x, start_dim=1)
+        return self.fc(x)
+```
+
+첫 합성곱은 흑백 채널 1개에서 특징 채널 4개를 냅니다. 다음 합성곱의 입력 채널도 4로 맞춥니다. 둘째 합성곱은 특징 채널 8개를 냅니다. `self.features(x)`를 지난 모양은 `[2, 8, 2, 2]`입니다. 마지막 층은 이미지 하나의 특징 `8 × 2 × 2 = 32`개를 받습니다.
+
+```figure
+파일: assets/18f-2.png
+캡션: 그림 23. 앞 층의 출력 채널을 다음 층의 입력 채널에 맞춥니다.
+내용: 합성곱의 채널은 1에서 4, 4에서 8로 바뀝니다. 공간 크기는 합성곱에서 8과 4를 유지하고 풀링에서 8에서 4, 4에서 2로 줄어듭니다.
+```
+
+```ai-recall
+{"id":"r2","q":"첫 Conv2d가 출력 채널 4개를 내면 다음 Conv2d의 입력 채널 수는 ____ 입니다.","answer":["4"],"mode":"number","why":"다음 층은 앞 층이 낸 특징 채널 4개를 입력으로 받습니다."}
+```
+
+### 배치 축을 남기고 한 이미지의 특징만 펼칩니다
+<!-- facts: F18-38 F18-39 -->
+
+```ai-reveal
+{"guess":"g1"}
+```
+
+특징 `[2, 8, 2, 2]`에서 맨 앞 2는 이미지 수입니다. 뒤의 `8 × 2 × 2`만 합쳐 `[2, 32]`로 만듭니다. 인자를 생략한 `torch.flatten(x)`는 배치 축까지 합쳐 `[64]`로 만듭니다. 이 값에는 두 이미지를 나누는 축이 남지 않습니다.
+
+아래 코드는 앞 단계의 `PatchNet` 모델을 사용합니다. 합성곱은 stride 1·padding 1·dilation 1입니다. 풀링은 kernel 2·stride 2·padding 0·dilation 1이며 `ceil_mode=False`로 내림합니다.
+
+<!-- skel: S8 배치 유지 -->
+```python
+x = model.features(x)
+x = torch.flatten(x, start_dim=1)
+out = model.fc(x)
+```
+
+첫 줄은 특징 모양 `[2, 8, 2, 2]`를 만듭니다. 둘째 줄은 배치 축을 남겨 `[2, 32]`로 펼칩니다. 셋째 줄은 이미지마다 점수 3개를 내어 `[2, 3]`을 만듭니다. 높이 8에 양쪽 패딩 한 칸씩을 더하면 10칸입니다. 길이 3인 커널을 한 칸씩 옮겨 출력 위치 8개를 얻습니다. 높이와 너비에 이 규칙을 각각 적용합니다.
+
+```figure
+파일: assets/18f-3.gif
+캡션: 그림 24. 이미지 수 2를 유지하며 공간 크기와 특징 수를 계산합니다.
+프레임:
+1. 입력 [2,1,8,8]에 첫 합성곱을 적용해 [2,4,8,8]을 만듭니다. (1800ms)
+2. 첫 풀링 뒤 모양은 [2,4,4,4]입니다. (1800ms)
+3. 둘째 합성곱 뒤 모양은 [2,8,4,4]입니다. (1800ms)
+4. 둘째 풀링 뒤 모양은 [2,8,2,2]입니다. (1800ms)
+5. 배치 축을 남겨 [2,32]로 펼칩니다. (1800ms)
+6. 입력부터 로짓 [2,3]까지 모양을 순서대로 놓습니다. (2200ms)
+내용: 공간 크기는 8,4,4,2이고 마지막 특징 수는 8×2×2=32입니다. 배치 크기는 모든 단계에서 2입니다.
+```
+
+```ai-recall
+{"id":"r3","q":"[2, 8, 2, 2]를 배치 축을 남겨 펼치면 한 이미지의 특징 수는 ____ 입니다.","answer":["32"],"mode":"number","why":"한 이미지의 채널·높이·너비를 곱해 8 × 2 × 2 = 32입니다."}
+```
+
+### 특징을 분류기에 주고 클래스별 점수를 돌려줍니다
+<!-- facts: F18-37 F18-40 -->
+
+```ai-diff
+{"skel":"S4","left":"한 층","right":"CNN"}
+```
+
+한 층 모델은 원래 이미지의 수 64개를 바로 분류기에 줍니다. CNN은 합성곱과 풀링으로 구한 특징 32개를 분류기에 줍니다. 앞에서 바뀐 특징 수에 맞춰 `Linear`의 입력 수를 64에서 32로 바꿉니다. 클래스는 같은 0·1·2를 사용하므로 출력 수 3을 유지합니다.
+
+CNN의 마지막 `return self.fc(x)`는 `[2, 3]` 로짓을 돌려줍니다. 이 점수를 `CrossEntropyLoss`에 전달하고 long `[2]` 클래스 번호와 비교합니다. 예측할 때만 `argmax(1)`로 번호를 고릅니다. 손실과 예측 줄의 차이는 앞 단원 18e의 2~4단계에서 다뤘습니다.
+
+```figure
+파일: assets/18f-4.png
+캡션: 그림 25. 모델마다 분류기에 주는 특징 수를 맞춥니다.
+내용: 한 층 모델은 이미지마다 64개, CNN은 이미지마다 32개를 분류기에 줍니다. 두 모델 모두 클래스 3개의 로짓을 내며 정답은 long[2]입니다.
+```
+
+```ai-recall
+{"id":"r4","q":"이 CNN이 CrossEntropyLoss에 주는 softmax 전 점수를 부르는 이름은 ____ 입니다.","answer":["로짓","logit","logits"],"mode":"word","why":"손실에는 argmax로 고른 번호를 주지 않고 [2, 3]의 실수 점수를 줍니다."}
+```
+
+### 외울 것
+<!-- facts: F18-36 F18-37 F18-39 F18-40 -->
+
+```figure
+파일: assets/18f-5.png
+캡션: 그림 26. 층 등록부터 클래스별 출력까지 연결합니다.
+내용: nn.Module을 상속하고 기반 초기화 뒤 층을 등록합니다. forward에서 특징을 구하고 배치 축을 남겨 펼친 뒤 fc의 로짓을 돌려줍니다.
+```
+
+```ai-memo
+[{"q":"층과 파라미터를 관리하는 모델의 기반 클래스는 무엇인가요?","a":"nn.Module입니다.","cards":["pc-k18"]},
+ {"q":"입력이 지나갈 순서를 정의하는 메서드는 무엇인가요?","a":"forward입니다.","cards":["pc-k20"]},
+ {"q":"torch.flatten에서 0번 배치 축을 남기려면 어떤 시작 축을 지정하나요?","a":"start_dim=1을 지정합니다.","cards":["pc-p14"]},
+ {"q":"이 CNN은 CrossEntropyLoss에 줄 무엇을 마지막에 돌려주나요?","a":"self.fc(x)가 낸 클래스별 로짓을 돌려줍니다.","cards":["pc-p15"]}]
+```
+
+
+## 항목을 읽고 배치로 묶습니다
+
+### 먼저 풀어 보기
+<!-- facts: F18-41 F18-44 -->
+
+```ai-guess
+{"id":"g1","q":"이미지 3개를 최대 2개씩 묶으며 마지막 이미지도 사용합니다. 한 번 모두 읽을 때 배치 수는 몇 개일까요?","options":["2개","1개","3개","0개"],"answer":0,"reveal_step":4,"cards":["pc-p16"]}
+```
+
+### 전체 항목 수와 한 항목을 읽는 규칙을 나눕니다
+<!-- facts: F18-41 F18-42 -->
+
+이번 예에는 8×8 이미지 경로 3개와 정답 목록 `[0, 2, 1]`이 있습니다. 두 목록의 같은 위치끼리 한 데이터입니다. 예를 들어 인덱스 1은 두 번째 이미지와 정답 2를 가리킵니다. 데이터는 실제로 읽을 수 있는 PNG이며 목록의 길이는 같고 비어 있지 않습니다.
+
+항목을 인덱스로 읽을 수 있도록 `Dataset` 클래스를 상속합니다. `__len__`은 전체 항목 수를 돌려주고 `__getitem__`은 지정한 항목 하나를 돌려줍니다. `len(data)`는 전자를 호출하고 `data[1]`은 후자를 호출합니다. 다음 단계에서는 이 항목을 이미지 텐서와 정수 라벨의 쌍으로 만듭니다.
+
+```python
+def __len__(self):
+    return len(self.files)
+```
+
+이 메서드는 이미지 경로 수 3을 돌려줍니다. 한 번에 묶을 수는 아직 정하지 않았습니다. 배치 수는 항목 수와 배치 규칙을 함께 보고 계산합니다.
+
+```figure
+파일: assets/18g-1.png
+캡션: 그림 27. 같은 인덱스의 이미지 경로와 정답을 짝짓습니다.
+내용: 인덱스 0·1·2의 정답은 0·2·1입니다. __len__은 항목 수 3을 돌려주고 __getitem__(1)은 두 번째 이미지와 정답 2를 읽습니다.
+```
+
+```ai-recall
+{"id":"r1","q":"이 Dataset에서 len(data)가 돌려줄 항목 수는 ____ 입니다.","answer":["3"],"mode":"number","why":"self.files에는 이미지 경로 3개가 있습니다. 배치 수와 구별합니다."}
+```
+
+### 같은 인덱스의 이미지와 정답을 돌려줍니다
+<!-- facts: F18-42 F18-43 -->
+
+파일의 이미지를 여는 `Image.open`을 사용합니다. 이미지를 연 문맥을 벗어나면 파일을 닫도록 `with` 안에서 읽습니다. `convert("RGB")`는 색 채널을 RGB 3개로 맞춥니다. `ToTensor`는 이 RGB PIL 이미지를 `[3, 8, 8]` 텐서로 바꿉니다. 여기서는 기본 실수 자료형 float32를 사용하며 이미지 값 0~255는 0~1로 바뀝니다.
+
+이 변환을 `transform`이라는 인자로 받아 저장합니다. `PictureData`를 만들 때 실제 경로 목록 `files`, 정수 목록 `labels`, 변환을 전달합니다. 아래에서 `Dataset`과 `DataLoader`는 `torch.utils.data`, `Image`는 PIL, `transforms`는 torchvision에서 가져온 이름입니다.
+
+<!-- skel: S5 직접 읽기 -->
+```python
+class PictureData(Dataset):
+    def __init__(self, files, labels, transform):
+        self.files = files
+        self.labels = labels
+        self.transform = transform
+    def __len__(self):
+        return len(self.files)
+    def __getitem__(self, index):
+        with Image.open(self.files[index]) as image:
+            x = self.transform(image.convert("RGB"))
+        return x, int(self.labels[index])
+transform = transforms.ToTensor()
+data = PictureData(files, labels, transform)
+loader = DataLoader(data, batch_size=2, shuffle=False, drop_last=False, num_workers=0)
+```
+
+`self.files[index]`와 `self.labels[index]`는 같은 인덱스를 사용합니다. 변환한 `x`와 파이썬 정수 라벨 하나를 반환합니다. 이미지 변환을 파일 안에서 마친 뒤에는 텐서를 이용하므로 파일을 닫아도 읽은 값을 사용할 수 있습니다. 마지막 줄의 묶기 규칙은 다음 단계에서 확인합니다.
+
+```figure
+파일: assets/18g-2.png
+캡션: 그림 28. 항목 하나를 읽어 채널 우선 텐서와 라벨을 만듭니다.
+내용: 인덱스 1의 8×8 이미지를 RGB로 맞추고 ToTensor로 float32[3,8,8]을 만듭니다. 같은 인덱스의 라벨은 정수 2입니다.
+```
+
+```ai-recall
+{"id":"r2","q":"data[1]은 두 번째 이미지와 정답 ____ 를 함께 돌려줍니다.","answer":["2"],"mode":"number","why":"labels가 [0, 2, 1]이므로 인덱스 1의 라벨은 2입니다."}
+```
+
+### 마지막에 남은 항목도 한 배치로 묶습니다
+<!-- facts: F18-44 -->
+
+```ai-reveal
+{"guess":"g1"}
+```
+
+`DataLoader`는 Dataset이 돌려준 항목을 배치로 묶습니다. `batch_size=2`는 한 배치에 최대 2개를 넣습니다. `shuffle=False`는 원래 항목 순서를 유지합니다. 이번 예에서는 같은 인덱스 순서를 따라 보려고 이 값을 씁니다. 학습 순서를 섞을 때와 평가할 때의 선택은 5차시 넷째 단원에서 다뤘습니다.
+
+책을 두 권씩 꺼내도 남은 한 권이 없어지지는 않습니다. `drop_last=False`는 크기 2를 채우지 못한 마지막 항목 하나도 배치로 돌려줍니다. `num_workers=0`은 별도 작업 프로세스를 만들지 않고 현재 프로세스에서 읽습니다.
+
+```python
+loader = DataLoader(data, batch_size=2, shuffle=False, drop_last=False, num_workers=0)
+```
+
+기본 묶기 함수는 이미지 텐서 앞에 배치 축을 추가합니다. 첫 배치의 `x`는 `[2, 3, 8, 8]`이고 파이썬 정수 라벨은 long `[2]`의 `[0, 2]`로 모입니다. 마지막 배치의 `x`는 `[1, 3, 8, 8]`이며 `y`는 long `[1]`의 `[1]`입니다. 원래 이미지 수 3과 배치 수 2를 구별합니다.
+
+```figure
+파일: assets/18g-3.gif
+캡션: 그림 29. 항목 3개를 크기 2와 1인 배치로 묶습니다.
+프레임:
+1. 항목 0·1·2와 정답 0·2·1을 순서대로 놓습니다. (1800ms)
+2. 첫 배치에 항목 0과 1을 넣습니다. (1800ms)
+3. 첫 배치의 x [2,3,8,8]과 y [2]를 확인합니다. (1800ms)
+4. 남은 항목 2를 마지막 배치에 넣습니다. (1800ms)
+5. 마지막 배치의 x [1,3,8,8]과 y [1]을 확인합니다. (1800ms)
+6. 전체 항목 3개와 배치 2개를 나란히 놓습니다. (2200ms)
+내용: shuffle=False·drop_last=False에서 배치별 정답은 [0,2]와 [1]입니다. 이미지 수 3을 두 배치에서 모두 사용합니다.
+```
+
+```ai-recall
+{"id":"r3","q":"항목 3개를 batch_size=2와 drop_last=False로 모두 읽으면 마지막 배치의 이미지 수는 ____ 입니다.","answer":["1"],"mode":"number","why":"첫 배치에 두 개를 넣고 남은 한 개를 마지막 배치에 넣습니다."}
+```
+
+### 데이터의 저장 방식에 맞춰 Dataset을 고릅니다
+<!-- facts: F18-45 F18-46 -->
+
+이미 텐서로 준비했다면 파일을 다시 여는 클래스를 만들 필요가 없습니다. `TensorDataset`은 첫 축의 같은 위치끼리 텐서를 묶습니다. 아래 `images`는 float32 `[3, 3, 8, 8]`이고 `labels_t`는 long `[3]`입니다. 첫 축의 길이는 모두 3입니다.
+
+<!-- skel: S5 텐서 -->
+```python
+data = TensorDataset(images, labels_t)
+loader = DataLoader(data, batch_size=2, shuffle=False, drop_last=False, num_workers=0)
+```
+
+첫 줄은 이미지와 정답을 같은 첫 축 위치로 읽게 합니다. 둘째 줄의 배치 크기와 마지막 배치 규칙은 직접 읽기판과 같습니다.
+
+```ai-diff
+{"skel":"S5","left":"텐서","right":"직접 읽기"}
+```
+
+클래스 이름으로 폴더를 나눠 저장했다면 `ImageFolder`가 폴더 이름으로 라벨을 붙입니다. 예를 들어 `root` 아래 a·b·c 폴더에 PNG를 한 장씩 놓습니다. 기본 ImageFolder는 클래스 폴더를 이름순으로 정렬해 번호 0·1·2를 붙입니다. 앞에서 만든 임의 경로 목록의 정답 순서를 이 폴더 예에 옮기지는 않습니다.
+
+<!-- skel: S5 폴더 -->
+```python
+transform = transforms.ToTensor()
+data = datasets.ImageFolder(root, transform=transform)
+loader = DataLoader(data, batch_size=2, shuffle=False, drop_last=False, num_workers=0)
+```
+
+`transform`을 전달해 읽은 이미지도 텐서로 반환합니다. 클래스 이름과 실제 번호의 연결은 `data.class_to_idx`에서 확인합니다. 학습·검증 폴더를 따로 읽을 때는 이 연결이 서로 같은지도 확인합니다. 폴더 구성과 이미지 변환의 선택은 15차시 첫째·둘째 단원에서 다뤘습니다.
+
+```ai-diff
+{"skel":"S5","left":"직접 읽기","right":"폴더"}
+```
+
+```figure
+파일: assets/18g-4.png
+캡션: 그림 30. 이미 저장한 형태에 맞춰 데이터를 읽습니다.
+내용: 텐서는 TensorDataset, 경로와 라벨 목록은 직접 만든 Dataset, 클래스 폴더는 ImageFolder를 사용합니다. 세 경우 모두 한 이미지와 라벨을 반환해 DataLoader에 전달합니다.
+```
+
+```ai-recall
+{"id":"r4","q":"클래스 이름별 폴더에서 이미지와 정답을 읽는 Dataset 이름은 ____ 입니다.","answer":["ImageFolder"],"mode":"code","why":"ImageFolder는 클래스 폴더의 정렬 순서로 라벨을 붙이며 class_to_idx로 연결을 확인합니다."}
+```
+
+### 외울 것
+<!-- facts: F18-41 F18-42 F18-44 F18-46 -->
+
+```figure
+파일: assets/18g-5.png
+캡션: 그림 31. 한 항목을 읽는 규칙과 배치로 묶는 규칙을 연결합니다.
+내용: __len__은 항목 수, __getitem__은 한 항목의 이미지·라벨, DataLoader는 배치 크기와 마지막 배치 규칙을 맡습니다. 클래스 폴더는 ImageFolder로 읽습니다.
+```
+
+```ai-memo
+[{"q":"직접 만든 Dataset에서 전체 항목 수를 돌려주는 메서드는 무엇인가요?","a":"__len__입니다.","cards":["pc-k21"]},
+ {"q":"같은 인덱스의 이미지와 라벨 한 쌍을 돌려주는 메서드는 무엇인가요?","a":"__getitem__입니다.","cards":["pc-k22"]},
+ {"q":"원래 순서를 유지하며 작은 마지막 배치도 쓰려면 어떤 인자를 지정하나요?","a":"shuffle=False와 drop_last=False를 지정합니다.","cards":["pc-p16"]},
+ {"q":"클래스 폴더에서 이미지를 읽고 정답 번호를 붙이는 클래스는 무엇인가요?","a":"datasets.ImageFolder입니다.","cards":["pc-p17"]}]
+```
+
+
+## 학습할 파라미터와 상태를 고릅니다
+
+### 먼저 풀어 보기
+<!-- facts: F18-49 F18-51 -->
+
+```ai-guess
+{"id":"g1","q":"모든 파라미터가 기울기를 계산하지만 최적화 객체 opt에는 마지막 fc의 파라미터만 전달했습니다. opt.step()이 갱신 대상으로 삼는 부분은 어디일까요?","options":["fc만","모든 파라미터","layer4와 fc","어느 부분도 없습니다."],"answer":0,"reveal_step":3,"cards":["pc-p19"]}
+```
+
+### 마지막 층을 바꾼 뒤 학습할 파라미터를 고릅니다
+<!-- facts: F18-47 F18-48 -->
+
+이미 학습한 가중치로 새 분류 문제를 시작하는 전이 학습을 구성합니다. 이번 문제의 전체 클래스는 0·1·2입니다. torchvision의 ResNet-18에서 마지막 분류기는 `fc`이며 그 층이 받는 특징 수는 `model.fc.in_features`로 읽습니다. 모델과 가중치의 선택은 13차시 둘째 단원과 14차시 둘째 단원에서 다뤘습니다.
+
+파라미터의 기울기 계산을 끄는 설정을 동결이라고 합니다. `model.parameters()`는 모델 파라미터를 하나씩 꺼낼 수 있게 합니다. 새 모델의 파라미터를 먼저 동결한 뒤 마지막 층을 교체합니다. 여기서는 이전 기울기나 최적화 객체를 재사용하지 않습니다. `models.ResNet18_Weights.DEFAULT`로 사전학습 가중치를 선택하고 `models.resnet18`에 전달해 모델을 만듭니다.
+
+```python
+weights = models.ResNet18_Weights.DEFAULT
+model = models.resnet18(weights=weights)
+for p in model.parameters():
+    p.requires_grad = False
+model.fc = nn.Linear(model.fc.in_features, 3)
+```
+
+첫 줄은 사용할 가중치를 선택합니다. 둘째 줄은 그 가중치를 읽어 모델을 만듭니다. 반복문은 원래 파라미터의 기울기 계산을 끕니다. 마지막 줄은 원래 분류기의 입력 특징 수를 읽어 출력이 3개인 새 층으로 바꿉니다. 새 층의 파라미터는 기본적으로 `requires_grad=True`로 생깁니다. 교체 뒤에 전체를 다시 동결하면 새 층도 기울기를 계산하지 않습니다.
+
+```figure
+파일: assets/18h-1.png
+캡션: 그림 32. 본체를 동결한 뒤 새 분류기를 붙입니다.
+내용: 새 모델의 원래 파라미터를 동결한 다음 fc의 입력 특징 수를 읽어 출력 수 3인 층으로 교체합니다. 새 fc의 기울기 계산은 켜져 있습니다.
+```
+
+```ai-recall
+{"id":"r1","q":"새 분류기의 입력 특징 수를 읽는 속성은 model.fc.____ 입니다.","answer":["in_features"],"mode":"code","why":"기존 분류기가 받던 특징 수를 읽어 새 Linear의 입력 수로 씁니다."}
+```
+
+### 기울기를 계산할 부분을 최적화 대상에도 넣습니다
+<!-- facts: F18-49 F18-50 -->
+
+```ai-reveal
+{"guess":"g1"}
+```
+
+기울기를 계산하는 설정과 최적화 객체에 전달한 목록을 함께 확인합니다. `opt.step()`은 자신이 받은 파라미터를 갱신 대상으로 삼습니다. 본체에서 기울기를 구해도 `opt`가 그 파라미터를 받지 않았다면 이 최적화 객체는 본체를 갱신하지 않습니다.
+
+마지막 분류기만 학습할 때는 `fc`만 전달합니다. 마지막 블록 `layer4`도 학습하려면 그 부분의 기울기 계산을 켜고 파라미터 목록에도 더합니다. `list`는 반복으로 꺼내는 파라미터를 목록으로 모읍니다. 두 목록을 `+`로 이어 layer4와 fc를 함께 전달합니다.
+
+```python
+for p in model.layer4.parameters():
+    p.requires_grad = True
+params = list(model.layer4.parameters()) + list(model.fc.parameters())
+opt = optim.SGD(params, lr=0.001)
+```
+
+첫 반복은 앞 단계에서 동결한 layer4를 해제합니다. `params`에는 layer4와 새 fc의 파라미터만 모읍니다. 그 뒤에 최적화 객체를 만들어 해제한 부분이 모두 갱신 대상에 들어가게 합니다. 전체를 학습하는 판에서는 모든 파라미터의 기울기 계산을 켜고 `list(model.parameters())`를 전달합니다.
+
+```ai-diff
+{"skel":"S6","left":"마지막 층","right":"일부 해제"}
+```
+
+```ai-diff
+{"skel":"S6","left":"일부 해제","right":"전체 학습"}
+```
+
+> **[정정]** 14차시 노트북 02 셀 33은 모든 파라미터의 기울기 계산을 켜지만 최적화 객체에는 `fc`만 전달합니다. 전체 학습을 하려면 본체 파라미터도 최적화 대상에 넣습니다.
+
+```figure
+파일: assets/18h-2.png
+캡션: 그림 33. 학습할 부분과 최적화 객체가 받은 부분을 맞춥니다.
+내용: 마지막 층 판은 fc, 일부 해제판은 layer4와 fc, 전체 학습판은 모든 파라미터를 기울기 계산과 최적화 대상으로 넣습니다.
+```
+
+```ai-recall
+{"id":"r2","q":"layer4와 fc를 학습하는 판에서 opt에 fc만 전달하면 갱신 대상에서 빠지는 부분은 ____ 입니다.","answer":["layer4"],"mode":"code","why":"기울기를 계산하더라도 opt에 layer4 파라미터를 전달하지 않으면 그 opt가 갱신하지 않습니다."}
+```
+
+### 동결한 배치 정규화의 이동 통계도 구별합니다
+<!-- facts: F18-51 F18-52 -->
+
+배치 정규화는 파라미터 이외에 이동 평균과 분산을 버퍼로 관리합니다. 기본 `track_running_stats=True`에서는 학습 모드의 순전파마다 이 통계를 갱신합니다. `requires_grad=False`는 이 버퍼의 갱신을 멈추지 않습니다. 버퍼와 파라미터의 차이는 18b의 4단계, 배치 정규화는 5차시 여섯째 단원에서 다뤘습니다.
+
+예를 들어 이동 평균이 0이고 이번 배치 평균은 2라고 놓습니다. 배치 정규화의 `momentum=0.1`을 적용하면 새 이동 평균은 `0.9 × 0 + 0.1 × 2 = 0.2`입니다. 이 층을 평가 모드로 두면 저장한 통계를 사용하고 이동 평균 0을 유지합니다. 이 수치는 동작을 따라 보기 위한 예이며 이 모델의 학습 결과는 아닙니다.
+
+모델 안의 모든 층은 `model.modules()`로 읽습니다. `isinstance`로 배치 정규화 층인지 확인한 뒤 그 층의 파라미터 가운데 기울기를 계산하는 것이 있는지 `any`로 검사합니다. 아래 코드는 기울기 계산을 모두 끈 배치 정규화 층만 평가 모드로 돌립니다.
+
+```python
+model.train()
+for layer in model.modules():
+    if isinstance(layer, nn.BatchNorm2d):
+        if not any(p.requires_grad for p in layer.parameters()):
+            layer.eval()
+```
+
+`model.train()`은 안쪽 층도 학습 모드로 바꿉니다. 그 뒤에 동결한 층의 `eval()`을 다시 적용합니다. 이 순서를 매 에폭에서 지킵니다. 일부 해제판의 layer4 배치 정규화는 파라미터가 학습 대상이어서 이 조건에 들지 않고 학습 모드를 유지합니다. 이 코드는 기본 BatchNorm2d가 있는 ResNet-18에 맞췄으며 모든 모델의 버퍼를 고정하는 함수는 아닙니다.
+
+```figure
+파일: assets/18h-3.gif
+캡션: 그림 34. 파라미터 동결과 이동 평균의 갱신을 나누어 확인합니다.
+프레임:
+1. 동결한 BatchNorm2d의 이동 평균 0과 이번 배치 평균 2를 놓습니다. (1800ms)
+2. 학습 모드에서는 기울기 계산을 꺼도 이동 평균을 갱신합니다. (1800ms)
+3. momentum 0.1을 적용한 새 이동 평균은 0.2입니다. (1800ms)
+4. 같은 초기 상태에서 eval 모드로 두면 이동 평균 0을 유지합니다. (1800ms)
+5. 매 에폭 model.train 뒤에 동결한 BatchNorm2d만 eval로 되돌립니다. (1800ms)
+6. 학습 모드의 0.2와 평가 모드의 0을 같은 초기 상태에서 비교합니다. (2200ms)
+내용: 파라미터의 requires_grad는 두 경우 모두 False입니다. track_running_stats=True에서 층의 모드에 따라 이동 통계 갱신 여부가 달라집니다.
+```
+
+```ai-recall
+{"id":"r3","q":"매 에폭 model.train 뒤에 동결한 BatchNorm2d의 이동 통계도 고정하려면 그 층에 layer.____()을 호출합니다.","answer":["eval"],"mode":"code","why":"기본 track_running_stats=True인 이 층은 평가 모드에서 저장한 이동 통계를 사용하고 갱신하지 않습니다."}
+```
+
+### 에폭이 시작할 때 모드를 정하고 배치를 학습합니다
+<!-- facts: F18-47 F18-48 F18-49 F18-51 -->
+
+마지막 분류기만 학습하는 전체 코드를 연결합니다. `models`, `nn`, `optim`은 torchvision 모델·파이토치 층·최적화 모듈입니다. CPU에서 시작한 새 모델이며 시작할 때 기울기는 없습니다. 비어 있지 않은 `loader`의 각 `x`는 float32 `[2, 3, 224, 224]`, `y`는 0~2의 long `[2]`입니다. 이미지는 선택한 가중치의 `weights.transforms()`와 같은 전처리를 마쳤습니다.
+
+<!-- skel: S6 마지막 층 -->
+```python
+weights = models.ResNet18_Weights.DEFAULT
+model = models.resnet18(weights=weights)
+for p in model.parameters():
+    p.requires_grad = False
+model.fc = nn.Linear(model.fc.in_features, 3)
+for p in model.layer4.parameters():
+    p.requires_grad = False
+model = model.to("cpu")
+params = list(model.fc.parameters())
+opt = optim.SGD(params, lr=0.001)
+criterion = nn.CrossEntropyLoss()
+for epoch in range(2):
+    model.train()
+    for layer in model.modules():
+        if isinstance(layer, nn.BatchNorm2d):
+            if not any(p.requires_grad for p in layer.parameters()):
+                layer.eval()
+    for x, y in loader:
+        opt.zero_grad()
+        out = model(x)
+        loss = criterion(out, y)
+        loss.backward()
+        opt.step()
+```
+
+준비 단계에서 파라미터를 고르고 최적화 객체를 만듭니다. 매 에폭에서는 전체 모델의 학습 모드를 켠 뒤 동결한 배치 정규화만 평가 모드로 돌립니다. 다음 배치 반복은 앞 단원 18a의 기울기 비우기·순전파·손실·역전파·갱신 순서를 사용합니다. 이 코드 안에서 다시 `train_one_epoch()`을 호출하지 않습니다. 그 함수가 `model.train()`을 또 부르면 앞에서 정한 배치 정규화 모드를 바꿀 수 있습니다. 평가 함수와 최고 상태 복원은 18b의 3~5단계로 연결합니다.
+
+```figure
+파일: assets/18h-4.png
+캡션: 그림 35. 준비 단계와 매 에폭의 모드 설정을 구별합니다.
+내용: 새 모델의 동결·분류기 교체·최적화 대상 선택을 마친 뒤 매 에폭 train을 부르고 동결한 BatchNorm2d를 eval로 둡니다. 그 다음에 배치를 학습합니다.
+```
+
+```ai-recall
+{"id":"r4","q":"동결한 BatchNorm2d의 eval 설정은 전체 model.train() 호출의 앞과 뒤 중 ____ 에 적용합니다.","answer":["뒤"],"mode":"word","why":"model.train()은 안쪽 배치 정규화도 학습 모드로 바꾸므로 그 뒤에 원하는 층의 eval을 적용합니다."}
+```
+
+### 외울 것
+<!-- facts: F18-48 F18-49 F18-50 F18-51 -->
+
+```figure
+파일: assets/18h-5.png
+캡션: 그림 36. 입력 특징 수·최적화 대상·이동 통계 설정을 연결합니다.
+내용: fc.in_features로 새 분류기를 만들고 학습할 파라미터를 opt에도 전달합니다. 매 train 뒤에 동결한 BatchNorm2d의 eval 설정을 적용합니다.
+```
+
+```ai-memo
+[{"q":"분류기를 교체할 때 입력 특징 수는 어디서 읽나요?","a":"model.fc.in_features에서 읽습니다.","cards":["pc-k26"]},
+ {"q":"일부 해제판에서 opt에 전달할 부분은 어디인가요?","a":"layer4와 새 fc의 파라미터를 모두 전달합니다.","cards":["pc-p18"]},
+ {"q":"전체 모델을 학습하려면 기울기 설정 뒤 opt에 어떤 파라미터를 전달하나요?","a":"model.parameters()로 모든 파라미터를 전달합니다.","cards":["pc-p19"]},
+ {"q":"기본 BatchNorm2d를 동결하고 이동 통계도 유지하려면 매 model.train 뒤에 무엇을 하나요?","a":"동결한 그 층에 layer.eval()을 적용합니다.","cards":["pc-p20"]}]
+```

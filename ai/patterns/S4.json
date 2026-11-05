@@ -1,0 +1,205 @@
+{
+ "format": 1,
+ "id": "S4",
+ "title": "한 층 모델과 CNN 정의",
+ "tags": [
+  "CNN 정의"
+ ],
+ "prio": 3,
+ "ref": [
+  "11차시 노트북 02 [65]",
+  "16차시 노트북 01 [8]",
+  "문서 Conv2d"
+ ],
+ "variants": {
+  "한 층": {
+   "situation": "x는 CPU float32[2, 1, 8, 8] 흑백 이미지입니다. 기본 float32로 만든 모델은 이미지마다 클래스 0·1·2의 로짓을 내며 정답은 long[2]입니다.",
+   "lines": [
+    "class PixelNet(nn.Module):",
+    "    def __init__(self):",
+    "        super().__init__()",
+    "        self.fc = nn.Linear(64, 3)",
+    "    def forward(self, x):",
+    "        x = torch.flatten(x, start_dim=1)",
+    "        return self.fc(x)"
+   ]
+  },
+  "CNN": {
+   "situation": "x는 CPU float32[2, 1, 8, 8] 흑백 이미지입니다. 합성곱은 stride=1·dilation=1·groups=1이며 풀링은 padding=0·dilation=1·ceil_mode=False입니다. 기본 float32 모델은 [2, 3] 로짓을 내고 기본 CrossEntropyLoss와 long[2] 정답을 씁니다.",
+   "lines": [
+    "class PatchNet(nn.Module):",
+    "    def __init__(self):",
+    "        super().__init__()",
+    "        self.features = nn.Sequential(",
+    "            nn.Conv2d(1, 4, kernel_size=3, padding=1),",
+    "            nn.ReLU(),",
+    "            nn.MaxPool2d(2, stride=2),",
+    "            nn.Conv2d(4, 8, kernel_size=3, padding=1),",
+    "            nn.ReLU(),",
+    "            nn.MaxPool2d(2, stride=2),",
+    "        )",
+    "        self.fc = nn.Linear(8 * 2 * 2, 3)",
+    "    def forward(self, x):",
+    "        x = self.features(x)",
+    "        x = torch.flatten(x, start_dim=1)",
+    "        return self.fc(x)"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "variant": "CNN",
+   "line": 0,
+   "token": "Module",
+   "answer": [
+    "Module"
+   ],
+   "mode": "code",
+   "hint": "기반 클래스",
+   "line_answer": [
+    "class PatchNet(nn.Module):"
+   ],
+   "id": "pc-k18",
+   "step": "18f/2",
+   "facts": [
+    "F18-36"
+   ],
+   "explain": "nn.Module을 상속해 층을 모델에 등록하고 parameters와 train·eval 같은 메서드를 사용합니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-k18",
+   "ref": [
+    "11차시 노트북 02 [65]",
+    "16차시 노트북 01 [8]",
+    "문서 Conv2d"
+   ]
+  },
+  {
+   "variant": "CNN",
+   "line": 2,
+   "token": "super",
+   "answer": [
+    "super"
+   ],
+   "mode": "code",
+   "hint": "기반 클래스 접근 함수",
+   "line_answer": [
+    "super().__init__()",
+    "super(PatchNet, self).__init__()",
+    "nn.Module.__init__(self)"
+   ],
+   "id": "pc-k19",
+   "step": "18f/2",
+   "facts": [
+    "F18-36"
+   ],
+   "explain": "층을 self에 붙이기 전에 기반 클래스의 초기화 메서드를 호출합니다.",
+   "core": false,
+   "level": 2,
+   "family": "pc-k19",
+   "ref": [
+    "11차시 노트북 02 [65]",
+    "16차시 노트북 01 [8]",
+    "문서 Conv2d"
+   ]
+  },
+  {
+   "variant": "CNN",
+   "line": 12,
+   "token": "forward",
+   "answer": [
+    "forward"
+   ],
+   "mode": "code",
+   "hint": "순전파 정의 이름",
+   "line_answer": [
+    "def forward(self, x):"
+   ],
+   "id": "pc-k20",
+   "step": "18f/3",
+   "facts": [
+    "F18-37"
+   ],
+   "explain": "forward는 입력이 층을 지나는 순서를 정의합니다. 모델을 사용할 때는 model(x)로 부릅니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-k20",
+   "ref": [
+    "11차시 노트북 02 [65]",
+    "16차시 노트북 01 [8]",
+    "문서 Conv2d"
+   ]
+  }
+ ],
+ "orders": [
+  {
+   "variant": "CNN",
+   "lines": [
+    13,
+    14,
+    15
+   ],
+   "valid": [
+    [
+     0,
+     1,
+     2
+    ]
+   ],
+   "id": "pc-o04",
+   "step": "18f/4",
+   "facts": [
+    "F18-37",
+    "F18-39"
+   ],
+   "explain": "이미지에서 특징을 구한 뒤 배치 축을 남겨 펼치고 마지막 층으로 로짓을 구합니다.",
+   "core": false,
+   "level": 2,
+   "family": "pc-o04",
+   "ref": [
+    "11차시 노트북 02 [65]",
+    "16차시 노트북 01 [8]",
+    "문서 Conv2d"
+   ]
+  }
+ ],
+ "picks": [
+  {
+   "variant": "CNN",
+   "line": 15,
+   "stem": "이 모델은 long[2] 클래스 번호와 기본 CrossEntropyLoss로 학습합니다. 앞 줄의 x가 float32[2, 32]일 때 세 클래스 로짓을 돌려주는 줄로 옳은 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "        return x",
+     "aim": "분류 전 특징을 출력으로 씁니다.",
+     "why": "이 값은 [2, 32] 특징입니다. 세 클래스 점수를 내는 self.fc를 아직 지나지 않았습니다."
+    },
+    {
+     "text": "        return self.fc(x).argmax(1)",
+     "aim": "클래스 번호를 손실에 전달합니다.",
+     "why": "argmax는 long[2] 예측 번호를 만듭니다. 이 손실은 클래스별 실수 로짓을 받습니다."
+    },
+    {
+     "text": "        return torch.softmax(self.fc(x), dim=1)",
+     "aim": "손실 앞에서 확률로 바꿉니다.",
+     "why": "이 판은 softmax 전 점수를 기본 CrossEntropyLoss에 전달합니다. 모델 끝에서 확률로 바꾸지 않습니다."
+    }
+   ],
+   "id": "pc-p15",
+   "step": "18f/5",
+   "facts": [
+    "F18-40"
+   ],
+   "explain": "앞 줄까지의 x는 [2, 32] 특징입니다. self.fc가 이를 [2, 3] 로짓으로 바꾸어 기본 CrossEntropyLoss에 전달합니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-p15",
+   "ref": [
+    "11차시 노트북 02 [65]",
+    "16차시 노트북 01 [8]",
+    "문서 Conv2d"
+   ]
+  }
+ ],
+ "changes": []
+}

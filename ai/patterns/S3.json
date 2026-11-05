@@ -13,7 +13,7 @@
  ],
  "variants": {
   "회귀": {
-   "situation": "x는 CPU의 float32[2, 2]이고 연속값 정답 y는 float32[2]입니다. 데이터 2개를 매번 함께 학습하며 최종 prediction도 [2, 1]의 연속값으로 얻습니다.",
+   "situation": "x는 CPU의 float32[2, 2]이고 연속값 정답 y는 float32[2]입니다. 데이터 2개를 매번 함께 학습하며 최종 prediction도 [2, 1]의 연속값으로 얻습니다. 출력과 정답의 제곱 차이를 모든 원소에 대해 평균합니다.",
    "lines": [
     "model = nn.Linear(2, 1)",
     "criterion = nn.MSELoss()",
@@ -33,7 +33,7 @@
    ]
   },
   "이진 확률": {
-   "situation": "x는 CPU의 float32[2, 2]이고 y는 0 또는 1인 float32[2]입니다. 모델의 마지막에서 확률을 만들며 0.5 이상을 클래스 1로 판정합니다.",
+   "situation": "x는 CPU의 float32[2, 2]이고 y는 0 또는 1인 float32[2]입니다. 모델의 마지막에서 확률을 만들며 0.5 이상을 클래스 1로 판정합니다. 정답 0·1에 대한 이진 교차 엔트로피를 평균하는 손실을 사용합니다.",
    "lines": [
     "model = nn.Sequential(nn.Linear(2, 1), nn.Sigmoid())",
     "criterion = nn.BCELoss()",
@@ -53,7 +53,7 @@
    ]
   },
   "이진 로짓": {
-   "situation": "x는 CPU의 float32[2, 2]이고 y는 0 또는 1인 float32[2]입니다. 모델은 변환 전 로짓을 내며 0 이상을 클래스 1로 판정합니다.",
+   "situation": "x는 CPU의 float32[2, 2]이고 y는 0 또는 1인 float32[2]입니다. 모델은 변환 전 로짓을 내며 0 이상을 클래스 1로 판정합니다. Sigmoid 변환과 이진 교차 엔트로피를 하나의 손실에서 계산합니다.",
    "lines": [
     "model = nn.Linear(2, 1)",
     "criterion = nn.BCEWithLogitsLoss()",
@@ -73,7 +73,7 @@
    ]
   },
   "다중 로짓": {
-   "situation": "전체 클래스는 0·1·2이고 x는 CPU의 float32[2, 2], 정답 y는 long[2]의 [0, 2]입니다. 모델은 [2, 3] 로짓을 내며 각 행에서 가장 큰 클래스 번호를 고릅니다.",
+   "situation": "전체 클래스는 0·1·2이고 x는 CPU의 float32[2, 2], 정답 y는 long[2]의 [0, 2]입니다. 모델은 [2, 3] 로짓을 내며 각 행에서 가장 큰 클래스 번호를 고릅니다. 클래스 번호 정답에 대한 교차 엔트로피 손실을 사용합니다.",
    "lines": [
     "model = nn.Linear(2, 3)",
     "criterion = nn.CrossEntropyLoss()",
@@ -93,7 +93,7 @@
    ]
   },
   "다중 로그확률": {
-   "situation": "전체 클래스는 0·1·2이고 x는 CPU의 float32[2, 2], 정답 y는 long[2]의 [0, 2]입니다. 모델의 마지막에서 [2, 3] 로그확률을 만들며 각 행에서 가장 큰 클래스 번호를 고릅니다.",
+   "situation": "전체 클래스는 0·1·2이고 x는 CPU의 float32[2, 2], 정답 y는 long[2]의 [0, 2]입니다. 모델의 마지막에서 [2, 3] 로그확률을 만들며 각 행에서 가장 큰 클래스 번호를 고릅니다. 로그확률에서 정답 클래스 열을 골라 부호를 바꾸고 배치 평균을 구합니다.",
    "lines": [
     "model = nn.Sequential(nn.Linear(2, 3), nn.LogSoftmax(dim=1))",
     "criterion = nn.NLLLoss()",

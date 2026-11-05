@@ -623,6 +623,205 @@ def memo_18e():
                         "두 판 모두 argmax(1)로 예측 클래스 번호를 고릅니다.", widths=[32, 42, 32])
 
 
+# 18f~18h는 배치 축·항목 묶기·학습 대상을 같은 예로 확인함.
+
+def _shapes_18f():
+    def conv(n):
+        return (n + 2 * 1 - 1 * (3 - 1) - 1) // 1 + 1
+    def pool(n):
+        return (n - 2) // 2 + 1
+    shapes = [(2, 1, 8, 8), (2, 4, conv(8), conv(8)), (2, 4, pool(8), pool(8)),
+              (2, 8, conv(4), conv(4)), (2, 8, pool(4), pool(4))]
+    assert shapes == [(2, 1, 8, 8), (2, 4, 8, 8), (2, 4, 4, 4), (2, 8, 4, 4), (2, 8, 2, 2)]
+    assert math.prod(shapes[-1][1:]) == 32
+    assert math.prod(shapes[-1]) == 64
+    return [str(list(s)).replace(' ', '') for s in shapes]
+
+
+@figure('18f-1', 560, 280)
+def module_18f():
+    assert 1 * 8 * 8 == 64 and len([0, 1, 2]) == 3
+    return _phase_flow('층을 등록한 뒤 입력이 지나는 순서를 적습니다', [
+        ('__init__', ['`super().__init__()`', '`self.fc = nn.Linear(64,3)`', '기반 초기화 → 층 등록']),
+        ('forward', ['입력 [2,1,8,8]', '펼친 값 [2,64]', '로짓 [2,3]'])], '실제 사용은 model(x)로 호출합니다.', arrows=False)
+
+
+@figure('18f-2', 560, 280)
+def conv_pool_18f():
+    shapes = _shapes_18f()
+    return _phase_table('앞 층의 채널과 다음 층의 입력을 맞춥니다', ['층', '채널', '공간 크기', '출력 모양'],
+                        [['첫 합성곱', '1 → 4', '8 → 8', shapes[1]], ['첫 풀링', '4 유지', '8 → 4', shapes[2]],
+                         ['둘째 합성곱', '4 → 8', '4 → 4', shapes[3]], ['둘째 풀링', '8 유지', '4 → 2', shapes[4]]],
+                        '합성곱: kernel 3·padding 1·stride 1 | 풀링: kernel 2·stride 2', widths=[25, 20, 24, 37])
+
+
+@figure('18f-3', 560, 280)
+def shape_flow_18f():
+    shapes = _shapes_18f()
+    rows = list(zip(['첫 합성곱', '첫 풀링', '둘째 합성곱', '둘째 풀링'], shapes[:-1], shapes[1:]))
+    frames = []
+    for n in range(4):
+        visible = [list(row) if i <= n else [row[0], '·', '·'] for i, row in enumerate(rows)]
+        frames.append(_phase_table('이미지 두 개의 모양을 차례로 계산합니다', ['층', '입력', '출력'], visible,
+                                   '0번 축의 이미지 수 2를 유지합니다.', widths=[28, 39, 39], marked=[(n, 2)]))
+    frames.append(_phase_table('한 이미지의 특징만 한 행으로 펼칩니다', ['대상', '모양', '한 이미지의 특징 수'],
+                               [['특징 추출 뒤', shapes[-1], '8 × 2 × 2 = 32'], ['flatten 시작 축 1', '[2,32]', 32]],
+                               '기본 flatten 시작 축 0은 이미지까지 합쳐 [64]로 만듭니다.', widths=[34, 31, 41]))
+    frames.append(_phase_flow('이미지 구분을 유지한 채 클래스별 점수를 냅니다', [
+        ('입력 이미지', [shapes[0], '이미지 2개', '8×8 흑백']),
+        ('특징', [shapes[-1], '[2,32]로 펼침', '한 이미지당 32개']),
+        ('분류기', ['`Linear(32,3)`', '로짓 [2,3]', '클래스 0·1·2'])]))
+    return frames, [1800] * 5 + [2200]
+
+
+@figure('18f-4', 560, 280)
+def classifier_18f():
+    assert 1 * 8 * 8 == 64 and 8 * 2 * 2 == 32
+    return _phase_table('특징 수에 맞춰 분류기 입력을 정합니다', ['모델', '한 이미지의 특징', '분류기', '로짓'],
+                        [['한 층', 64, 'Linear(64,3)', '[2,3]'], ['CNN', 32, 'Linear(32,3)', '[2,3]']],
+                        '두 모델 모두 정답은 long[2] | CrossEntropyLoss에는 로짓을 전달합니다.', widths=[20, 30, 34, 22])
+
+
+@figure('18f-5', 560, 280)
+def memo_18f():
+    _shapes_18f()
+    return _phase_flow('등록한 층을 지나 클래스별 로짓을 돌려줍니다', [
+        ('층 등록', ['`nn.Module`', '`super().__init__()`', 'self에 층을 붙임']),
+        ('계산 순서', ['`forward`', '특징 추출', '배치 축을 남겨 펼침']),
+        ('출력', ['`self.fc(x)`', '로짓 [2,3]', '클래스별 점수'])])
+
+
+def _batches_18g():
+    labels = [0, 2, 1]
+    indices = [list(range(i, min(i + 2, len(labels)))) for i in range(0, len(labels), 2)]
+    values = [[labels[i] for i in batch] for batch in indices]
+    assert indices == [[0, 1], [2]] and values == [[0, 2], [1]]
+    assert sum(map(len, indices)) == 3 and len(indices) == 2
+    return indices, values
+
+
+@figure('18g-1', 560, 280)
+def pairs_18g():
+    _, values = _batches_18g()
+    assert values[0][1] == 2
+    return _phase_table('같은 인덱스의 이미지와 정답을 읽습니다', ['인덱스', '이미지 경로 위치', '정답'],
+                        [[0, '첫 번째', 0], [1, '두 번째', 2], [2, '세 번째', 1]],
+                        'len(data)는 항목 수 3 | data[1]은 두 번째 이미지와 정답 2', marked=[(1, 1), (1, 2)])
+
+
+@figure('18g-2', 560, 280)
+def image_item_18g():
+    assert 3 * 8 * 8 == 192
+    return _phase_flow('한 이미지와 같은 인덱스의 라벨을 반환합니다', [
+        ('이미지 읽기', ['인덱스 1', '8×8 PNG', 'RGB 채널로 맞춤']),
+        ('텐서 변환', ['`ToTensor()`', '[3,8,8]', 'float32·0~1']),
+        ('항목 반환', ['이미지 텐서 x', '정수 라벨 2', '`return x, 2`'])], 'RGB 이미지의 0~255 값을 0~1로 바꿉니다.')
+
+
+@figure('18g-3', 560, 280)
+def batch_flow_18g():
+    indices, values = _batches_18g()
+    frames = [
+        _phase_table('항목 세 개를 원래 순서대로 놓습니다', ['항목 인덱스', '정답', '배치 배정'],
+                     [[0, 0, '·'], [1, 2, '·'], [2, 1, '·']], 'batch_size=2 | shuffle=False | drop_last=False'),
+        _phase_table('항목 두 개를 첫 배치에 넣습니다', ['항목 인덱스', '정답', '배치 배정'],
+                     [[0, 0, '첫 배치'], [1, 2, '첫 배치'], [2, 1, '아직 남음']], '첫 배치 인덱스: [0,1]', marked=[(0, 2), (1, 2)]),
+        _phase_table('앞에 배치 축을 더해 두 항목을 모읍니다', ['항목', '모양', '자료형·값'],
+                     [['이미지 x', '[2,3,8,8]', 'float32'], ['정답 y', '[2]', 'long·[0,2]']], '이미지 두 개와 정답 두 개를 함께 사용합니다.'),
+        _phase_table('남은 항목도 마지막 배치에 넣습니다', ['항목 인덱스', '정답', '배치 배정'],
+                     [[0, 0, '첫 배치'], [1, 2, '첫 배치'], [2, 1, '마지막 배치']], 'drop_last=False가 남은 한 항목을 사용합니다.', marked=[(2, 2)]),
+        _phase_table('마지막 배치의 축 길이는 1입니다', ['항목', '모양', '자료형·값'],
+                     [['이미지 x', '[1,3,8,8]', 'float32'], ['정답 y', '[1]', 'long·[1]']], '배치 크기를 채우지 못해도 항목을 제외하지 않습니다.'),
+        _phase_table('전체 항목 수와 배치 수를 구별합니다', ['배치', '항목 인덱스', '정답', '항목 수'],
+                     [['첫 배치', str(indices[0]), str(values[0]), 2], ['마지막 배치', str(indices[1]), str(values[1]), 1]],
+                     '전체 항목: 2 + 1 = 3 | 전체 배치: 2개')]
+    return frames, [1800] * 5 + [2200]
+
+
+@figure('18g-4', 560, 280)
+def dataset_forms_18g():
+    assert len(['TensorDataset', 'PictureData', 'ImageFolder']) == 3
+    return _phase_table('저장한 형태에 맞춰 한 항목을 읽습니다', ['준비한 데이터', '읽는 클래스', '한 항목 반환'],
+                        [['이미지·라벨 텐서', 'TensorDataset', '같은 첫 축의 쌍'], ['경로·라벨 목록', 'PictureData', '같은 인덱스의 쌍'],
+                         ['클래스 이름 폴더', 'ImageFolder', '이미지·폴더 라벨']],
+                        'ImageFolder의 실제 클래스 번호는 data.class_to_idx에서 확인합니다.', widths=[34, 35, 37])
+
+
+@figure('18g-5', 560, 280)
+def memo_18g():
+    _batches_18g()
+    return _phase_flow('항목을 읽은 뒤 배치 규칙으로 묶습니다', [
+        ('Dataset', ['`__len__`', '항목 수 3', '`__getitem__`', '이미지·라벨 한 쌍']),
+        ('DataLoader', ['최대 2개씩', '순서를 유지함', '마지막 1개도 사용함', '배치 수 2']),
+        ('클래스 폴더', ['`ImageFolder`', '폴더 이름 → 번호', '`class_to_idx`'])], arrows=False)
+
+
+def _running_mean_18h():
+    old, batch, momentum = 0.0, 2.0, 0.1
+    updated = (1 - momentum) * old + momentum * batch
+    assert math.isclose(updated, 0.2)
+    return old, batch, momentum, updated
+
+
+@figure('18h-1', 560, 280)
+def replace_head_18h():
+    assert len([0, 1, 2]) == 3
+    return _phase_flow('본체를 동결한 다음 새 분류기를 만듭니다', [
+        ('새 모델 동결', ['`parameters()`', '원래 파라미터 순회', '`requires_grad=False`']),
+        ('fc 교체', ['`fc.in_features`', '입력 특징 수를 읽음', '새 출력 수 3']),
+        ('새 fc', ['기울기 계산 켜짐', '`fc.parameters()`', '이 파라미터로 opt 생성'])])
+
+
+@figure('18h-2', 560, 280)
+def strategy_18h():
+    chosen = [set(['fc']), set(['layer4', 'fc']), set(['stem', 'layer1', 'layer2', 'layer3', 'layer4', 'fc'])]
+    assert chosen[0] < chosen[1] < chosen[2]
+    return _phase_table('기울기 계산과 최적화 대상을 함께 맞춥니다', ['판', '기울기를 계산할 부분', 'opt가 받을 부분'],
+                        [['마지막 층', 'fc', 'fc'], ['일부 해제', 'layer4 + fc', 'layer4 + fc'], ['전체 학습', '모든 파라미터', '모든 파라미터']],
+                        '기울기를 구해도 opt가 받지 않은 파라미터는 그 opt가 갱신하지 않습니다.', widths=[26, 40, 40])
+
+
+@figure('18h-3', 560, 280)
+def batchnorm_mode_18h():
+    old, batch, momentum, updated = _running_mean_18h()
+    frames = [
+        _phase_table('동결한 층의 이동 평균을 따로 확인합니다', ['대상', '시작 값', '설정'],
+                     [['저장한 이동 평균', num(old, 1), 'track_running_stats=True'], ['이번 배치 평균', num(batch, 1), 'momentum=0.1']],
+                     '예의 파라미터 requires_grad=False | 모델의 실제 측정값이 아닙니다.', widths=[36, 20, 50]),
+        _phase_table('학습 모드에서는 이동 통계도 갱신합니다', ['파라미터 기울기', '층 모드', '이동 평균 갱신'],
+                     [['False', 'train', '갱신함']], '파라미터 동결은 버퍼의 갱신을 멈추지 않습니다.'),
+        _phase_flow('이번 배치 평균을 0.1만큼 반영합니다', [
+            ('기존 평균 몫', ['0.9 × 0', '= 0']), ('이번 평균 몫', ['0.1 × 2', '= 0.2']),
+            ('새 이동 평균', [num(updated, 1), '두 몫을 더함'])], '새 이동 평균: 0.9 × 0 + 0.1 × 2 = 0.2', arrows=False),
+        _phase_table('같은 시작 값에서 평가 모드로 비교합니다', ['시작 이동 평균', '층 모드', '순전파 뒤 이동 평균'],
+                     [[num(old, 1), 'eval', num(old, 1)]], '저장한 통계를 사용하고 이동 통계를 갱신하지 않습니다.'),
+        _phase_flow('매 에폭 동결한 층의 모드를 다시 정합니다', [
+            ('전체 모델', ['`model.train()`', '안쪽 층도 학습 모드']),
+            ('동결한 BatchNorm2d', ['`layer.eval()`', '저장한 통계 사용'])], '기울기를 계산할 BatchNorm2d는 학습 모드를 유지합니다.'),
+        _phase_table('같은 초기 상태에서 층 모드만 비교합니다', ['requires_grad', '층 모드', '시작 평균', '순전파 뒤 평균'],
+                     [['False', 'train', 0, num(updated, 1)], ['False', 'eval', 0, num(old, 1)]],
+                     'track_running_stats=True | 배치 평균 2·momentum 0.1', widths=[29, 20, 24, 33])]
+    return frames, [1800] * 5 + [2200]
+
+
+@figure('18h-4', 560, 280)
+def epoch_mode_18h():
+    assert list(range(2)) == [0, 1]
+    return _phase_flow('준비 뒤 매 에폭에서 모드와 배치를 처리합니다', [
+        ('처음 준비', ['본체 동결', 'fc 교체', '학습할 params 선택', 'opt 생성']),
+        ('매 에폭 시작', ['`model.train()`', '동결한 BatchNorm2d', '`layer.eval()`']),
+        ('배치 반복', ['기울기 비우기', '순전파 → 손실', '역전파 → 갱신'])], 'model.train을 다시 부르면 동결한 층의 eval도 그 뒤에 적용합니다.')
+
+
+@figure('18h-5', 560, 280)
+def memo_18h():
+    _running_mean_18h()
+    return _phase_table('분류기 입력과 학습할 부분을 확인합니다', ['확인할 부분', '이 예의 코드·선택'],
+                        [['새 fc의 입력 수', 'model.fc.in_features'], ['일부 해제의 최적화 대상', 'layer4 + fc'],
+                         ['전체 학습의 최적화 대상', 'model.parameters()'], ['동결한 BatchNorm2d', '매 train 뒤 layer.eval()']], widths=[45, 61])
+
+
+
 if __name__ == "__main__":
     from tools.ai_art.__main__ import main
     sys.exit(main(["l18"] + sys.argv[1:]))
