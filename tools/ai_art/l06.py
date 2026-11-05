@@ -780,8 +780,8 @@ def smoothing():
     ax = fig.add_axes([0.08, 0.14, 0.50, 0.74])
     tidy(ax)
     xs = np.arange(3)
-    ax.bar(xs - 0.18, [1, 0, 0], width=0.34, color=GRAY, label="원-핫 목표", zorder=3)
-    ax.bar(xs + 0.18, q, width=0.34, color=SLATE, label="스무딩 목표", zorder=3)
+    ax.bar(xs - 0.18, [1, 0, 0], width=0.34, color=GRAY, label="원-핫 벡터", zorder=3)
+    ax.bar(xs + 0.18, q, width=0.34, color=SLATE, label="라벨 스무딩 목표", zorder=3)
     for i in range(3):
         ax.text(i - 0.18, [1, 0, 0][i] + 0.02, num([1, 0, 0][i], 0), ha="center", va="bottom", fontsize=17, color=INK)
         ax.text(i + 0.18, q[i] + 0.02, fx(q[i], 3), ha="center", va="bottom", fontsize=17, color=SLATE)
@@ -806,7 +806,7 @@ def summary_6d():
     assert fx(-LG[0], 3) == "0.417" and fx(-LG[2], 3) == "2.317"
     return memo([[(0.3, 10.6, "CrossEntropyLoss", ["logit [2.0, 1.0, 0.1] → 소프트맥스 → log → 정답 칸 고르기 → 부호 바꿈",
                                                    "정답 0: 0.417,  정답 2: 2.317"], GREEN, GREEN, ())],
-                 [(0.3, 5.15, "넣는 꼴", ["logit [배치, 클래스 수]", "정답 [배치], 클래스 번호"], BLUE, BLUE, ()),
+                 [(0.3, 5.15, "넣는 꼴", ["logit [N, 클래스 수]", "정답 [N], 클래스 번호"], BLUE, BLUE, ()),
                   (5.75, 5.15, "라벨 스무딩", ["label_smoothing=0.1", "K = 3: 0.933, 0.033, 0.033"], SLATE, SLATE, (0,))]],
                 "모델 끝에 소프트맥스를 두지 않음. 정답은 원-핫 벡터가 아닌 클래스 번호")
 

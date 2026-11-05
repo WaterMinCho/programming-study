@@ -106,6 +106,26 @@
       "what": "Keras SparseCategoricalCrossentropy: 정답을 정수 클래스 번호로 받음(원-핫은 CategoricalCrossentropy)",
       "url": "https://keras.io/api/losses/probabilistic_losses/",
       "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch nn.NLLLoss: reduction 'none' 의 값은 l_n = −w_{y_n} x_{n, y_n}, 'mean' 은 정답 클래스 weight 의 합으로 나눈 평균(weight 를 주지 않으면 데이터 수로 나눔), 'sum' 은 더하기만 함",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.NLLLoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "PyTorch torch.max: dim 을 주지 않으면 모든 원소의 최댓값 하나를 돌려주고, dim 을 주면 그 축을 따라 namedtuple (values, indices) 를 돌려줌",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.max.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn precision_score·recall_score: average 기본값 'binary' 는 정답과 예측이 이진일 때만 쓰고, None 이면 클래스마다 값을 배열로 돌려줌",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn _check_set_wise_labels: average='binary' 인데 정답이 이진이 아니면 ValueError(\"Target is multiclass but average='binary'. …\")를 냄(1.9.1 소스)",
+      "url": "https://github.com/scikit-learn/scikit-learn/blob/1.9.1/sklearn/metrics/_classification.py",
+      "checked": "2026-11-05"
     }
   ],
   "credits": [],
