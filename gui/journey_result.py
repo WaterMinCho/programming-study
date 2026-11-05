@@ -141,7 +141,11 @@ class JourneyResult(QFrame):
             self.setMinimumHeight(height)
             self.setMaximumHeight(height)
         else:
-            self.setMinimumHeight(self.head.sizeHint().height() + self.box.spacing() + 1)
+            self.head.layout().invalidate()
+            height = self.head.heightForWidth(max(1, self.width()))
+            if height < 0:
+                height = self.head.sizeHint().height()
+            self.setMinimumHeight(height + self.box.spacing() + 1)
             self.setMaximumHeight(16777215)
 
     def resizeEvent(self, event):
