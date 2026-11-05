@@ -588,7 +588,7 @@ class SessionTest(unittest.TestCase):
         mine = self.sess.overview()
         self.assertEqual((rows[0]["readiness"], rows[0]["mastered"], rows[0]["units"]), (mine["readiness"], mine["mastered"], mine["units"]))
 
-    def test_dashboard_draws_from_the_same_summary_as_the_team_screen(self):
+    def test_dashboard_has_each_subject_and_keeps_the_legacy_summary_api(self):
         self.other_member("tester", 20)
         spec = importlib.util.spec_from_file_location("dashboard", os.path.join(study.ROOT, "tools", "dashboard.py"))
         dashboard = importlib.util.module_from_spec(spec)
@@ -597,10 +597,13 @@ class SessionTest(unittest.TestCase):
         with mock.patch.object(sys, "argv", ["dashboard.py", "--out", out]), contextlib.redirect_stdout(io.StringIO()):
             dashboard.main()
         row = session.Session("tester").team()[0]
-        self.assertIn("| tester | %s %d%% | %d/%d |" % (dashboard.bar(row["readiness"] / 100), row["readiness"], row["mastered"], row["total"]),
-                      study.read_text(os.path.join(out, "DASHBOARD.md")))
-        self.assertIn("준비도 %d%% · 숙달 %d/%d · 회차 %d" % (row["readiness"], row["mastered"], row["total"], row["rounds"]),
-                      study.read_text(os.path.join(out, "dashboard.svg")))
+        self.assertIn("readiness", row)
+        for name in ("DASHBOARD.md", "dashboard.svg"):
+            text = study.read_text(os.path.join(out, name))
+            for subject in ("파이썬 스터디", "알고리즘 여행", "웹 면접 준비", "AI 비전 개론"):
+                self.assertIn(subject, text)
+            self.assertNotIn("준비도", text)
+            self.assertNotIn("숙달", text)
 
     def test_path_on_another_drive_is_shown_in_full(self):
         """Windows 에서 임시 폴더(C:)와 저장소(D:)처럼 드라이브가 다르면 상대 경로를 만들 수 없음. 안내를 찍다가 멈추지 않고 절대 경로를 보여 줌."""

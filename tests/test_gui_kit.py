@@ -477,7 +477,7 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(kit.splitter(Qt.Orientation.Horizontal, ratio=0.4).ratio, 0.4)  # 설정이 없으면 기억하지 않음
 
     def test_banner_action_sits_right_of_the_text(self):
-        """띠의 행동 단추는 글 오른쪽의 보조 단추 m 임(높이 40, 크게에서도 40 이고 글자 19). 바탕은 띠 바탕과 구분되는 surface 이고
+        """띠의 행동 단추는 글 오른쪽의 보조 단추 m 임. 높이는 보통 글자에서 40, 큰 글자에서 44임. 바탕은 띠 바탕과 구분되는 surface 이고
         꺼지면 띠가 비치며 글만 faint 가 됨. 글이 한 줄이면 단추와 같은 가운데 높이에 옴. 두 줄이면 앞 낱말이 첫 줄에 붙고 글이 잘리지 않음.
         단추가 없는 띠의 action 은 None."""
         plain = kit.banner("단추 없는 띠입니다.", "warning")
@@ -511,7 +511,7 @@ class PartsTest(unittest.TestCase):
         theme.set_text("large")
         kit.refont(self.root)
         guikit.pump()
-        self.assertEqual((one.action.height(), one.action.font().pixelSize()), (40, 19))
+        self.assertEqual((one.action.height(), one.action.font().pixelSize()), (44, 19))
 
     def test_chips_on_the_background_and_switched_off(self):
         """바탕 위 칩(onbg)은 높이 40 이고 평소에는 바탕이 비치며 고르면 흰 알약(surface)이 됨. 꺼진 칩은 고른 알약을 남기고 글만

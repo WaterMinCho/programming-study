@@ -1645,8 +1645,10 @@ class CiReportTest(unittest.TestCase):
         """여정 파일만 바꾼 풀이 PR 에서도 보고서가 빈 글이 아님. 빈 본문이면 gh pr comment 가 실패함."""
         files = ["submissions/alice/journey/progress.json", "submissions/alice/journey/d01/p1.py"]
         ci_report, report, out = self.report(files, files)
-        self.assertEqual(report, ci_report.JOURNEY_ONLY)
-        self.assertEqual(out.strip(), ci_report.JOURNEY_ONLY.strip())
+        for subject in ("파이썬 스터디", "알고리즘 여행", "웹 면접 준비", "AI 비전 개론"):
+            self.assertIn(subject, report)
+        self.assertIn("확인 불가", report)  # 이 시험의 progress.json은 log가 없는 잘못된 기록임
+        self.assertEqual(out.strip(), report.strip())
 
     def test_deleted_folder_pr_has_a_report(self):
         """풀이 폴더를 지운 PR 은 여정 안내 대신 채점할 풀이가 없다는 한 줄을 씀."""

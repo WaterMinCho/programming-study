@@ -1566,7 +1566,7 @@ class CasesDialogTest(Base):
             guikit.pump()
             self.assertEqual(theme.TYPE["code"][0], edits[0].font().pixelSize(), step)
             heights = [button.height() for button in (dialog.save_btn, close, dialog.add_btn, dialog.example_btn, remove)]
-            self.assertEqual([48, 48, 40, 40, 32], heights, step)
+            self.assertEqual([48, 48, 40, 40, 32] if step == 'normal' else [48, 48, 44, 44, 32], heights, step)
             self.assertEqual(48, edits[0].height(), step)
             self.assertEqual("삭제", remove.text())
             self.assertEqual(("primary", "", "text", "text", "danger_text"),

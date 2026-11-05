@@ -262,14 +262,14 @@ QWidget[ui="2"] QFrame#row[picked="true"] { background: %(selection)s; }
 QWidget[ui="2"] QFrame#row[picked="true"] QLabel { color: %(selection_ink)s; }
 QWidget[ui="2"] QFrame#row QLabel:disabled { color: %(faint)s; }
 QWidget[ui="2"] QFrame#rowline { background: %(line)s; border: 0; }
-QWidget[ui="2"] QPushButton { font-size: %(btn)spx; font-weight: 700; border-radius: 12px; padding: 0 20px; min-height: 36px; max-height: 36px;
+QWidget[ui="2"] QPushButton { font-size: %(btn)spx; font-weight: 700; border-radius: 12px; padding: 0 20px; min-height: %(button_m)spx; max-height: %(button_m)spx;
     min-width: 48px; border: 2px solid transparent; background: %(surface_alt)s; color: %(ink)s; }
 QWidget[ui="2"] QPushButton:hover { background: %(track)s; }
 QWidget[ui="2"] QPushButton:pressed { background: %(border)s; }
 QWidget[ui="2"] QPushButton:focus { border-color: %(focus)s; }
 QWidget[ui="2"] QPushButton:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
-QWidget[ui="2"] QPushButton[scale="l"] { min-height: 44px; max-height: 44px; padding: 0 24px; min-width: 72px; }
-QWidget[ui="2"] QPushButton[scale="s"] { min-height: 28px; max-height: 28px; padding: 0 12px; min-width: 32px; font-size: %(btn_s)spx; border-radius: 8px; }
+QWidget[ui="2"] QPushButton[scale="l"] { min-height: %(button_l)spx; max-height: %(button_l)spx; padding: 0 24px; min-width: 72px; }
+QWidget[ui="2"] QPushButton[scale="s"] { min-height: %(button_s)spx; max-height: %(button_s)spx; padding: 0 12px; min-width: 32px; font-size: %(btn_s)spx; border-radius: 8px; }
 QWidget[ui="2"] QPushButton#primary { background: %(primary)s; color: %(primary_ink)s; border: 2px solid transparent; }
 QWidget[ui="2"] QPushButton#primary:hover, QWidget[ui="2"] QPushButton#primary:pressed { background: %(primary_hover)s; }
 QWidget[ui="2"] QPushButton#primary:focus { border-color: %(surface)s; }
@@ -472,7 +472,13 @@ def style_tokens(scheme):
     꼬리표 높이(caption 줄 높이 + 2), 코드 줄 안 빈칸의 테두리 안쪽 높이(slot)."""
     check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
     return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2,
-                slot=slot_height() - 2)
+                slot=slot_height() - 2, **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
+
+
+def control_height(scale):
+    """단추의 최소 높이. 글자 단계를 키우면 줄 높이와 위아래 여백도 확보함."""
+    role, padding = ("caption", 8) if scale == "s" else ("label", 16)
+    return max(CONTROL[scale], TYPE[role][1] + padding)
 
 
 def slot_height():
