@@ -23,9 +23,7 @@ SCALE = 2  # 그림 파일은 화면에 보일 크기의 2배로 그려 둠
 NARROW_CSS = "pre { white-space: pre-wrap; }"  # 글 조각은 가로 스크롤이 없으므로 긴 코드 줄을 조각 폭에서 줄바꿈함
 RULED = (2, 3)  # 앞에 가로줄을 넣는 제목 단계. 지문·해설의 구역 제목은 2단계, 힌트 제목은 3단계임
 CODE_RADIUS = theme.RADIUS["control"]  # 코드 상자와 해설 그림의 모서리 반지름(12)
-CODE_MARGIN = (16, 10)  # 코드 상자 위·아래의 바깥 여백. mdlite 가 표에 style 로 적은 여백은 CSS 로 덮지 못해 문서를 읽은 뒤 바꿈.
-# 위 16 은 문단 사이와 같음. Qt 는 표 뒤에 빈 줄을 두어 상자 아래가 CODE_SPILL 만큼 더 벌어지고, 고정 줄 높이의 넓힌 간격은 다음 문단 글자
-# 위에 생김. 아래를 10 으로 줄여야 상자 위와 아래에 보이는 간격이 같아짐(세 글자 단계에서 화소로 재어 1px 안).
+CODE_MARGIN = (16, 10)  # 코드 상자의 초기 바깥 여백. 문단 사이 간격은 실제 글꼴과 줄 위치로 보정함.
 # 문단의 아래 여백은 다음 블록의 위 여백과 겹치지만 표의 여백은 더해지므로, 상자 뒤 블록에 위 여백(제목의 24)이 있으면 그만큼 아래 여백을 뺌
 CODE_SPILL = 4  # 그 빈 줄이 상자 아래로 삐져나오는 높이. 조각 끝 상자는 아래 여백을 이만큼 당겨 조각이 상자 끝에서 끝나게 함
 PAD = 24  # DocView 의 안쪽 여백
@@ -175,7 +173,6 @@ class TextPiece(QTextBrowser):
             box.setTopMargin(CODE_MARGIN[0])
             box.setBottomMargin(max(0, CODE_MARGIN[1] - following.get(frame, 0)))
             frame.setFormat(box)
-            self.center_code(frame)
         self.trim_ends()
         self.spread_width = None
         self.fit()
@@ -198,18 +195,58 @@ class TextPiece(QTextBrowser):
         return out
 
     def center_code(self, frame):
-        """코드 상자 칸의 위아래 안쪽 여백을 글 줄에 맞춰 고침. 고정 줄 높이(pre 의 line-height)는 넓힌 간격을 줄 위에 두어 칸 안의 글이
-        그만큼 아래로 내려앉음. 그 간격만큼 위 여백을 줄이고 아래 여백을 늘려 상자 크기와 자리는 그대로 두고 글 줄을 가운데에 둠."""
+        """글자의 위아래 경계로 코드 여백을 맞춤. 줄 높이만 쓰면 글꼴에 따라 글자가 아래로 치우칠 수 있음."""
         cell = frame.cellAt(0, 0)
-        block = cell.firstCursorPosition().block()
-        self.document().documentLayout().blockBoundingRect(block)  # 줄을 앉혀야 줄 자리를 읽음
-        if block.layout().lineCount() == 0:
+        first = self.ink_bounds(cell.firstCursorPosition().block())
+        last = self.ink_bounds(cell.lastCursorPosition().block(), last=True)
+        if first is None or last is None:
             return
-        spill = block.layout().lineAt(0).y()
+        rect = self.code_box(frame)
+        shift = ((rect.bottom() - last.bottom()) - (first.top() - rect.top())) / 2
         pad = cell.format().toTableCellFormat()
-        pad.setTopPadding(pad.topPadding() - spill)
-        pad.setBottomPadding(pad.bottomPadding() + spill)
+        pad.setTopPadding(pad.topPadding() + shift)
+        pad.setBottomPadding(pad.bottomPadding() - shift)
         cell.setFormat(pad)
+
+    def ink_bounds(self, block, last=False):
+        """첫 줄이나 끝 줄의 글자 경계를 문서 좌표로 구함. Qt의 문자 위치는 UTF-16 기준임."""
+        origin = self.document().documentLayout().blockBoundingRect(block).topLeft()
+        layout = block.layout()
+        if not block.text().strip() or not layout.lineCount():
+            return None
+        line = layout.lineAt(layout.lineCount() - 1 if last else 0)
+        encoded = block.text().encode("utf-16-le")
+        text = encoded[2 * line.textStart():2 * (line.textStart() + line.textLength())].decode("utf-16-le")
+        font = block.charFormat().font().resolve(self.document().defaultFont())
+        rect = QFontMetricsF(font).tightBoundingRect(text)
+        return rect.translated(origin + QPointF(line.x(), line.y() + line.ascent()))
+
+    def balance_code_gaps(self):
+        """일반 문단 사이 코드 상자의 앞뒤 간격을 맞춤. 제목에 지정한 위 여백은 따로 유지함."""
+        items, part = [], self.document().rootFrame().begin()
+        while not part.atEnd():
+            item = part.currentFrame() or part.currentBlock()
+            if isinstance(item, QTextFrame) or item.text():
+                items.append(item)
+            part += 1
+        codes = self.code_frames()
+        for index, frame in enumerate(items[1:-1], 1):
+            if not isinstance(frame, QTextFrame) or frame not in codes:
+                continue
+            before, after = items[index - 1], items[index + 1]
+            if isinstance(before, QTextFrame) or isinstance(after, QTextFrame):
+                continue
+            if before.blockFormat().bottomMargin() != GAP or after.blockFormat().topMargin():
+                continue
+            first, last = self.ink_bounds(after), self.ink_bounds(before, last=True)
+            if first is None or last is None:
+                continue
+            rect = self.code_box(frame)
+            above = math.ceil(rect.top() - last.bottom()) - 1
+            below = math.floor(first.top() - rect.bottom()) - 1
+            box = frame.format()
+            box.setBottomMargin(box.bottomMargin() + above - below)
+            frame.setFormat(box)
 
     def trim_ends(self):
         """조각 맨 위와 맨 아래의 바깥 여백을 없앰. 조각 앞뒤 간격은 DocView 의 안쪽 여백과 조각 사이가 줌. 맨 위가 절 제목이면 CSS 의
@@ -245,6 +282,9 @@ class TextPiece(QTextBrowser):
             self.spread_width = width
             for table in self.grid_tables():
                 spread(table, width)
+            for frame in self.code_frames():
+                self.center_code(frame)
+            self.balance_code_gaps()
         self.setFixedHeight(math.ceil(self.document().size().height()))
         self.verticalScrollBar().setRange(0, 0)
 
@@ -278,16 +318,17 @@ class TextPiece(QTextBrowser):
     def code_boxes(self):
         """코드 상자마다 화면 위의 사각형. 칸 안 첫 블록과 끝 블록의 사각형에 칸 여백을 더해 셈. 블록 사각형은 줄 위의 넓힌 간격을
         넣고 끝 줄 아래 끝까지는 넣지 않으므로, center_code 가 고친 여백을 더하면 글 줄 위아래가 같은 12 가 됨."""
-        layout, rects = self.document().documentLayout(), []
-        for frame in self.code_frames():
-            cell = frame.cellAt(0, 0)
-            pad = cell.format().toTableCellFormat()
-            top = layout.blockBoundingRect(cell.firstCursorPosition().block())
-            bottom = layout.blockBoundingRect(cell.lastCursorPosition().block())
-            rects.append(QRectF(top.left() - pad.leftPadding(), top.top() - pad.topPadding(),
-                                top.width() + pad.leftPadding() + pad.rightPadding(),
-                                bottom.bottom() - top.top() + pad.topPadding() + pad.bottomPadding()))
-        return rects
+        return [self.code_box(frame) for frame in self.code_frames()]
+
+    def code_box(self, frame):
+        layout = self.document().documentLayout()
+        cell = frame.cellAt(0, 0)
+        pad = cell.format().toTableCellFormat()
+        top = layout.blockBoundingRect(cell.firstCursorPosition().block())
+        bottom = layout.blockBoundingRect(cell.lastCursorPosition().block())
+        return QRectF(top.left() - pad.leftPadding(), top.top() - pad.topPadding(),
+                      top.width() + pad.leftPadding() + pad.rightPadding(),
+                      bottom.bottom() - top.top() + pad.topPadding() + pad.bottomPadding())
 
     def paintEvent(self, event):
         """Qt 의 표는 모서리를 둥글게 그리지 못해서 코드 상자의 바탕을 글보다 먼저 그림. 상자는 테두리 없이 surface_alt 로 채움.

@@ -136,6 +136,7 @@ class DesignTest(WebTest):
             else:
                 self.assertLessEqual(page.brief_view.sheet.width(), 640 + 48)
                 self.assertEqual((learn.card.width(), drill.ask_card.width()), (808, 840))
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()

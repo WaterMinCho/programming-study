@@ -21,6 +21,7 @@ class HubLayoutTest(test_gui_hub.HubTest):
     def test_header_controls_fit_all_text_steps_and_both_themes(self):
         win = self.boot()
         hub = win.hub
+        hub.settings_btn.setChecked(True)
         self.addCleanup(theme.set_mode, theme.state["mode"])
         for step in theme.TEXT_STEPS:
             win.set_text(step)
@@ -36,7 +37,7 @@ class HubLayoutTest(test_gui_hub.HubTest):
                         self.assertLessEqual(win.minimumSizeHint().height(), 480)
                         controls = [*hub.text_buttons.values(), hub.theme_btn]
                         for button in controls:
-                            self.assertTrue(hub.top.rect().contains(bounds(button, hub.top)), button.text())
+                            self.assertTrue(hub.settings_panel.rect().contains(bounds(button, hub.settings_panel)), button.text())
                             self.assertGreaterEqual(button.width(), button.sizeHint().width(), button.text())
                             self.assertGreaterEqual(button.height(), theme.control_height("s"))
                         for left, right in zip(controls, controls[1:]):
