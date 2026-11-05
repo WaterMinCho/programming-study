@@ -132,6 +132,8 @@
   {"term": "기울기 자르기", "also": [], "accept": ["gradient clipping", "그래디언트 클리핑", "기울기 클리핑"], "intro": "l05", "page": "l06"},
   {"term": "단순 회귀", "also": [], "accept": ["simple regression", "단순회귀", "단순 선형 회귀"], "page": "l07"},
   {"term": "다중 회귀", "also": [], "accept": ["multiple regression", "다중회귀", "다중 선형 회귀"], "page": "l07"},
+  {"term": "잔차", "also": [], "accept": ["residual"], "page": "l07"},
+  {"term": "잔차 연결", "also": [], "accept": ["residual connection"], "intro": "l04", "page": "l14"},
   {"term": "잔차 제곱합", "also": [], "accept": ["residual sum of squares", "sum of squared errors", "SSE", "RSS", "SS_res", "잔차제곱합"], "page": "l07"},
   {"term": "최소제곱법", "also": ["OLS"], "accept": ["ordinary least squares", "least squares", "최소 제곱법", "최소제곱추정량"], "page": "l07"},
   {"term": "더미 변수", "also": [], "accept": ["dummy variable", "더미변수"], "page": "l07"},

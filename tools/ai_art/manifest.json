@@ -812,9 +812,9 @@
    "fn": "4f-1"
   },
   "learn/l04/assets/4f-2.gif": {
-   "sha256": "a5454c8b429ebe9b831e4e2ad9df1c33139902ac1e72c27786fc2f64c01c35d7",
+   "sha256": "d4b04a25342494837408a46eb40310af75cefa2055059d2ca73f396cc9856799",
    "script": "tools/ai_art/l04.py",
-   "fn": "4f-2"
+   "fn": "momentum_paths"
   },
   "learn/l04/assets/4f-3.png": {
    "sha256": "705cefda89a43b657aef9f8612be417d9240f072d15650c23b87ddee5420761b",
@@ -822,9 +822,9 @@
    "fn": "4f-3"
   },
   "learn/l04/assets/4f-4.png": {
-   "sha256": "65896e633cbccfed1b921393ea72f011de807f4b9495eecd702a68e1702682e2",
+   "sha256": "80ae3a0ea04e8362eb3fc3cfc1902a2c2281c400268806051155c43b654820be",
    "script": "tools/ai_art/l04.py",
-   "fn": "4f-4"
+   "fn": "summary_4f"
   },
   "learn/l04/assets/4g-1.gif": {
    "sha256": "288bc13248c2572de89029ecf9acb41e426db07566f068b182edc02c26c58fb9",
@@ -852,9 +852,9 @@
    "fn": "4g-5"
   },
   "learn/l04/assets/4h-1.png": {
-   "sha256": "d9fef020378141fdd34bb055857a5693793fbaa12052cbb9a7c47bf6f131868d",
+   "sha256": "54d5813960bf110fc2e300b2df13fe33965612b2fec027061ab7c72229b2a850",
    "script": "tools/ai_art/l04.py",
-   "fn": "4h-1"
+   "fn": "regression_metrics"
   },
   "learn/l04/assets/4h-2.gif": {
    "sha256": "6ad5cdb3eeb169ae952f314c2926e9d55776232992179863601e0c92fb76763c",
@@ -889,7 +889,7 @@
   "learn/l04/assets/4h-5.png": {
    "sha256": "e71210a34069cf9c7d5f7ed1f64aa9810c6404d3bf2826a59538986ab6ed4c02",
    "script": "tools/ai_art/l04.py",
-   "fn": "4h-5"
+   "fn": "summary_4h"
   },
   "learn/l05/assets/5a-1.png": {
    "sha256": "7e830c576ca807d55332aedb04904ade17bf0dd94ad942340162f86c9f4642c9",
@@ -1142,9 +1142,9 @@
    "fn": "6b-33"
   },
   "learn/l06/assets/6b-4.png": {
-   "sha256": "abaf1075ff75b297f2e931bdd8e4680faa70d792cec81d75d7cb69e9a77ca1f2",
+   "sha256": "487b78f2813c06a3e472bf1515dc695c6842ef2f96f32004aeffab6c4d3bd857",
    "script": "tools/ai_art/l06.py",
-   "fn": "6b-4"
+   "fn": "summary_6b"
   },
   "learn/l06/assets/6c-1.png": {
    "sha256": "9d14b6a4fb512363944ea21d4b4fb7d86d99afa45d67d62e6ef11533c4246426",
@@ -1232,9 +1232,9 @@
    "fn": "6e-2"
   },
   "learn/l06/assets/6e-3.png": {
-   "sha256": "97ee638916455fc5db7ff99814eaa3f71d6b963a7aa06dc3843bc7bd23afc576",
+   "sha256": "ec38c8ea5704c7c865f661b5c9b37f7b1a232a7f96681e17a1856eeee63cb854",
    "script": "tools/ai_art/l06.py",
-   "fn": "6e-3"
+   "fn": "focal"
   },
   "learn/l06/assets/6e-31.png": {
    "sha256": "9cb8a8a87e16a57d519b68ce3d038427c900d2c3ee4da4e2420148ad5ec83d99",
@@ -1257,9 +1257,9 @@
    "fn": "6e-4"
   },
   "learn/l06/assets/6e-5.png": {
-   "sha256": "56f9afa5226ca3ea8021208d4dba72ec6041139ccd920589358c13fbcb8548b5",
+   "sha256": "ec1ab7dbeb0907ed25c5a806de321fdf0b5bb23342f939975a82b646a3c8f05b",
    "script": "tools/ai_art/l06.py",
-   "fn": "6e-5"
+   "fn": "summary_6e"
   },
   "learn/l06/assets/6f-1.png": {
    "sha256": "4b108bfe97dca3e6b777fcc51f8c4ae4fd37fa055e1a1da1ad2023137511d4df",
