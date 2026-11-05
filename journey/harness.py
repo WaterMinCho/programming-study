@@ -178,7 +178,17 @@ def recursion_note(error, source):
 
 
 def peak_memory():
-    """피크 메모리(바이트). POSIX 는 ru_maxrss(macOS 바이트, Linux KB), Windows 는 PeakWorkingSetSize."""
+    """피크 메모리(바이트). Linux 는 /proc/self/status 의 VmHWM, macOS 는 ru_maxrss(바이트), Windows 는 PeakWorkingSetSize.
+    Linux 의 ru_maxrss 는 이 프로세스를 띄운 부모의 메모리까지 exec 뒤에도 이어받아서, 메모리를 많이 쓰는 프로세스가
+    채점을 띄우면 메모리 초과로 잘못 나옴. VmHWM 은 exec 뒤 새로 셈."""
+    if sys.platform.startswith("linux"):
+        try:
+            with opener("/proc/self/status", encoding="ascii") as f:
+                for line in f:
+                    if line.startswith("VmHWM:"):
+                        return int(line.split()[1]) * 1024
+        except (OSError, ValueError, IndexError):
+            pass
     if sys.platform == "win32":
         import ctypes
 
