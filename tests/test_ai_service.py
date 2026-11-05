@@ -135,6 +135,81 @@ class LearnTest(Base):
         self.assertEqual(2, len(found["memo"]))
 
 
+class LevelsServiceTest(Base):
+    """세 수준 블록(90a 2단계 끝). 서비스는 블록을 그대로 넘기고, 확인 물음은 떠올리기처럼 채점·기록하며 상자와 외울 것에 들어가지 않음."""
+
+    def test_unit_steps_check_and_record(self):
+        sess = self.session()
+        step = sess.unit_steps("i90", "90a")["steps"][1]
+        block = step["blocks"][-1]
+        self.assertEqual(("levels", "v1", [7, 15, 20]), (block["kind"], block["id"], [x["level"] for x in block["levels"]]))
+        fifteen = block["levels"][1]
+        self.assertTrue(os.path.isfile(fifteen["figure"]["path"]))
+        self.assertTrue(fifteen["figure"]["path"].endswith(os.path.join("l90", "assets", "90a-22.png")))
+        self.assertTrue(sess.check_recall(fifteen, "2.40"))
+        self.assertFalse(sess.check_recall(fifteen, "2.8"))
+        before = {key: sess.overview()[key] for key in ("due", "memorised", "cards")}
+        sess.save_recall("i90", "90a", fifteen["id"], True, level=fifteen["level"])
+        sess.save_recall("i90", "90a", "r1", False)
+        rows = self.log(sess, "recall")
+        self.assertEqual([("v1", 15, True), ("r1", None, False)], [(r["id"], r.get("level"), r["ok"]) for r in rows])
+        self.assertNotIn("level", rows[1])
+        self.assertEqual(before, {key: sess.overview()[key] for key in ("due", "memorised", "cards")})  # 상자는 움직이지 않음
+
+    def test_check_recall_rounds_places_and_takes_unit(self):
+        sess = self.session()
+        self.assertTrue(sess.check_recall({"answer": ["1.417"], "mode": "number", "places": 3}, "1.41703"))
+        self.assertFalse(sess.check_recall({"answer": ["1.417"], "mode": "number", "places": 3}, "1.42"))
+        self.assertTrue(sess.check_recall({"answer": ["90"], "mode": "number", "unit": "%"}, "90%"))
+        fifteen = dict(sess.unit_steps("i90", "90a")["steps"][1]["blocks"][-1]["levels"][1], places=1)
+        self.assertTrue(sess.check_recall(fifteen, "2.43"))
+
+    def test_note_memo_and_revisit_leave_the_block_out(self):
+        sess = self.session()
+        full = sess.note("i90")
+        self.assertEqual(["levels"], [b["kind"] for u in full["units"] for s in u["steps"] for b in s["blocks"] if b["kind"] == "levels"])
+        memo = sess.note("i90", only_memo=True)
+        self.assertEqual({"memo"}, {b["kind"] for u in memo["units"] for s in u["steps"] for b in s["blocks"]})
+        sess.mark_read("i90", "90a")
+        found = sess.revisit()
+        self.assertEqual("90a", found["unit"])
+        self.assertTrue(found["figure"].endswith("90a-1.gif"))  # 블록 그림을 고르지 않음
+        self.assertEqual(3, len(found["memo"]))
+
+
+class RealLevelsTest(Base):
+    """저장소의 1~6차시 노트. 세 수준 확인 물음의 받는 답은 모두 화면 채점에서 맞음이 되고, 떠올리기와 확인 물음의 끝나지 않는 소수는
+    더 자세히 적어도 맞음(places·unit 을 채점에 넘김)."""
+
+    def setUp(self):
+        super().setUp()
+        self.root = bank.AI_DIR
+
+    def blocks(self, sess, lid, key, no, kind, bid):
+        step = next(s for s in sess.unit_steps(lid, key)["steps"] if s["no"] == no)
+        return next(b for b in step["blocks"] if b["kind"] == kind and b.get("id") == bid)
+
+    def test_every_level_answer_grades_right(self):
+        sess = self.session()
+        count = 0
+        for lid in ("i01", "i02", "i03", "i04", "i05", "i06"):
+            for unit in sess.unit_list(lid):
+                for step in sess.unit_steps(lid, unit["key"])["steps"]:
+                    for level in (x for b in step["blocks"] if b["kind"] == "levels" for x in b["levels"]):
+                        count += 1
+                        for answer in level["answer"]:
+                            self.assertTrue(sess.check_recall(level, answer), (lid, unit["key"], step["no"], level["level"], answer))
+        self.assertGreaterEqual(count, 3 * 3 * 6)
+
+    def test_longer_decimals_and_units(self):
+        sess = self.session()
+        levels = {(key, no): self.blocks(sess, "i06", key, no, "levels", "v1")["levels"] for key, no in (("6c", 2), ("6d", 2), ("6e", 3))}
+        for (key, no, level), value in {("6c", 2, 0): "0.10536", ("6d", 2, 2): "0.41703", ("6e", 3, 2): "0.12693"}.items():
+            self.assertTrue(sess.check_recall(levels[(key, no)][level], value), (key, no, value))
+        for key, no, value in (("6c", 2, "2.30259"), ("6d", 2, "1.41703"), ("6e", 2, "90%")):
+            self.assertTrue(sess.check_recall(self.blocks(sess, "i06", key, no, "recall", "r1"), value), (key, no, value))
+
+
 class SetTest(Base):
     def test_unit_mode_starts_with_new_cards_and_mixes(self):
         sess = self.session()

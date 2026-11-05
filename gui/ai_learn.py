@@ -3,8 +3,9 @@
 [노트 보기] 대화상자(NoteDialog)와 그 안의 부품. 연습 화면과 같이 쓰는 코드 부품(빈칸 코드 CodeSlots, 코드 보기 CodeChoices)도 둠.
 
 한 화면에 단계 하나를 보임. 단계(StepView)는 서비스가 나눠 준 블록을 위에서 아래로 쌓음: 글은 docview.Doc(그 안의 > **[정정]**,
-> **[보충 설명]** 인용은 꼬리표를 단 상자로 뺌), 그림은 AiFigure, ai-guess·ai-reveal·ai-recall·ai-why·ai-diff·ai-rotate·ai-memo·ai-trend 는
-아래의 블록 위젯. 서비스가 error 를 단 블록과 모르는 블록은 안내 글만 둠. 상황별 코드 단원(차시가 아닌 무리)은 위 막대가 홈으로 돌아감.
+> **[보충 설명]** 인용은 꼬리표를 단 상자로 뺌), 그림은 AiFigure, ai-guess·ai-reveal·ai-recall·ai-why·ai-diff·ai-rotate·ai-memo·ai-trend·
+ai-levels 는 아래의 블록 위젯. 서비스가 error 를 단 블록과 모르는 블록은 안내 글만 둠. 상황별 코드 단원(차시가 아닌 무리)은 위 막대가
+홈으로 돌아감.
 
 AiFigure 는 GIF 를 1장에서 멈춘 채 열고, 지금 장의 `프레임:` 설명을 그림 바로 아래에 두어 장을 넘길 때 같이 바꿈. 설명 칸은 가장 긴 장
 설명의 높이를 지켜서 장을 넘겨도 넘김 단추가 움직이지 않음. 그림에 초점이 있으면 ←·→ 가 장을 넘김. 단계 이동은 아래 막대와 ←·→ 이고,
@@ -609,13 +610,13 @@ ALT_PASS = AltPass()
 
 class RecallBlock(QWidget):
     """떠올리기. 빈칸 한 칸과 [확인]. 바로 채점해 맞음·틀림, 정답, 한 줄 까닭을 보임. 틀려도 막지 않고 상자는 움직이지 않음.
-    readonly 면 입력 칸 없이 정답을 편 채로 그림."""
+    readonly 면 입력 칸 없이 정답을 편 채로 그림. title 은 머리 글이고 세 수준 블록의 확인 물음이 바꿔 씀."""
 
-    def __init__(self, block, ctx):
+    def __init__(self, block, ctx, title=ai_text.RECALL_HEAD):
         super().__init__()
         self.block, self.ctx = block, ctx
         column = kit.box(self, spacing=12)
-        column.addWidget(head(ai_text.RECALL_HEAD))
+        column.addWidget(head(title))
         column.addWidget(rich(block.get("q", "")))
         self.field = QLineEdit()
         kit.typed(self.field, "body")
@@ -1043,6 +1044,81 @@ class TrendBlock(QWidget):
         fold(self.row, body)
 
 
+class Sheet(QWidget):
+    """회색 칸(well) 안에 두는 흰 칸. 단추와 입력 칸이 단계 본문과 같은 바탕에 놓여 회색 바탕의 보조 단추가 바탕에 묻히지 않음.
+    색은 그릴 때마다 테마에서 읽어 테마를 바꿔도 따라감."""
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(theme.qcolor("surface"))
+        painter.drawRoundedRect(QRectF(self.rect()), theme.RADIUS["control"], theme.RADIUS["control"])
+
+
+class LevelsBlock(QWidget):
+    """「세 수준으로 다시 보기」. 회색 칸 안의 접힌 줄 하나이고 처음 펼 때 한 번만 수준 셋을 그림(접힌 동안 안이 비어 있음). 수준마다
+    흰 칸(Sheet) 하나에 머리 줄, 그림, 글(20살은 끝에 코드), 20살의 자주 하는 착각과 다루는 곳, 확인 물음. 확인 물음은
+    떠올리기(RecallBlock)를 그대로 쓰고 Ctx 가 수준을 같이 기록함. readonly 면 확인 물음이 정답과 까닭을 편 채로 그려짐.
+    docs·figures 는 restyle 때 다시 그릴 부품."""
+
+    def __init__(self, block, ctx):
+        super().__init__()
+        self.block, self.ctx = block, ctx
+        self.docs, self.figures = [], []
+        box, inner = kit.well(16, 16, 8)
+        kit.box(self).addWidget(box)
+        concept = block.get("concept") or ""
+        self.row = FoldRow("%s · %s" % (ai_text.LEVELS_HEAD, concept) if concept else ai_text.LEVELS_HEAD, "label", bold=True)
+        self.body = QWidget()
+        self.body_box = kit.box(self.body, (0, 8, 0, 0), 16)
+        inner.addWidget(self.row)
+        inner.addWidget(self.body)
+        self.row.toggled.connect(lambda on: on and self.build())
+        fold(self.row, self.body)
+
+    def build(self):
+        if self.body_box.count():
+            return
+        for level in self.block.get("levels") or []:
+            part = Sheet()
+            self.body_box.addWidget(part)  # 붙인 뒤에 채움. 부모 없는 글 조각이 잠깐 따로 창으로 뜨지 않게 함
+            self.fill(part, level)
+        last = self.row  # 펼 때 만든 부품은 창 초점 순서 끝에 붙으므로 접힌 줄 바로 뒤로 옮김
+        for widget in self.body.findChildren(QWidget):
+            if widget.focusPolicy().value & Qt.FocusPolicy.TabFocus.value:
+                QWidget.setTabOrder(last, widget)
+                last = widget
+
+    def fill(self, part, level):
+        column = kit.box(part, (16, 16, 16, 16), 24)
+        column.addWidget(kit.label(ai_text.LEVEL_NAMES.get(level.get("level"), ""), "label", bold=True))
+        if level.get("figure"):
+            picture = figure(level["figure"])
+            column.addWidget(picture)
+            if isinstance(picture, AiFigure):
+                self.figures.append(picture)
+        text = level.get("text") or ""
+        if level.get("code"):
+            text += "\n\n```python\n%s\n```" % level["code"]
+        if text.strip():
+            self.docs.append(doc(text, self.ctx.base_dir, column))
+        for name, key in ((ai_text.LEVEL_MISTAKE, "mistake"), (ai_text.LEVEL_WHERE, "where")):
+            if level.get(key):
+                note = QWidget()
+                note_box = kit.box(note, spacing=4)
+                note_box.addWidget(head(name))
+                note_box.addWidget(rich(level[key]))
+                column.addWidget(note)
+        column.addWidget(RecallBlock(level, self.ctx, ai_text.LEVEL_CHECK))
+
+    def restyle(self):
+        for piece in self.docs:
+            piece.restyle(theme.web_css())
+        for widget in self.figures:
+            widget.draw()
+
+
 def guess_answers(steps):
     """{짐작 id: 정답 번호}. 서비스는 먼저 풀어 보기 블록에서 정답을 빼고 주므로 같은 단원의 짐작 확인 블록에서 모음(읽기 전용 화면용)."""
     return {str(b.get("guess")): b["answer"] for step in steps for b in step["blocks"]
@@ -1068,11 +1144,11 @@ class Ctx:
         return True
 
     def check_recall(self, block, value):
-        """채점 결과(bool). 기록하지 못하면 알리고 None."""
+        """채점 결과(bool). 기록하지 못하면 알리고 None. 세 수준 블록의 확인 물음이면 block 의 level 을 같이 기록함."""
         ok = bool(self.win.ai.check_recall(block, value))
         if not self.readonly:
             try:
-                self.win.ai.save_recall(self.lid, self.key, block.get("id"), ok)
+                self.win.ai.save_recall(self.lid, self.key, block.get("id"), ok, level=block.get("level"))
             except SessionError as error:
                 self.win.ask("알림", str(error))
                 return None
@@ -1105,6 +1181,7 @@ class StepView(QWidget):
     def __init__(self, step, ctx, extra=(), title_role="headline"):
         super().__init__()
         self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
+        self.levels = []  # 세 수준 블록. 펼 때 만든 글 조각과 그림을 restyle 때 다시 그림
         column = kit.box(self, spacing=24)
         badge, title = step_title(step)
         top = QWidget()
@@ -1154,6 +1231,10 @@ class StepView(QWidget):
             out = TrendBlock(block, ctx.base_dir)
             self.docs.append(out.doc)
             return out
+        if kind == "levels":
+            out = LevelsBlock(block, ctx)
+            self.levels.append(out)
+            return out
         return kit.para(ai_text.BLOCK_BROKEN, "body", "secondary")  # 이 판이 모르는 블록
 
     def restyle(self):
@@ -1161,7 +1242,7 @@ class StepView(QWidget):
             piece.restyle(theme.web_css())
         for widget in self.figures:
             widget.draw()
-        for widget in self.codes:
+        for widget in self.codes + self.levels:
             widget.restyle()
         for widget in self.findChildren(RichPara):
             widget.restyle()

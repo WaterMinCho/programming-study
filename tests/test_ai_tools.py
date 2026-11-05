@@ -514,7 +514,8 @@ class ArtTest(Case):
         with self.assertRaises(ValueError):
             ai_art.record("l90", self.bank, manifest)
         done = ai_art.record("l90", self.bank, manifest, script="tools/ai_art/__init__.py")
-        self.assertEqual(["learn/l90/assets/90a-1.gif", "learn/l90/assets/90b-1.png"], done)
+        self.assertEqual(["learn/l90/assets/90a-1.gif", "learn/l90/assets/90a-21.png", "learn/l90/assets/90a-22.png",
+                          "learn/l90/assets/90a-23.png", "learn/l90/assets/90b-1.png"], done)
         data = ai_art.read_manifest(manifest)
         self.assertEqual(ai_art.file_sha(self.path("learn/l90/assets/90a-1.gif")), data["files"][done[0]]["sha256"])
 
@@ -567,8 +568,284 @@ class WebToolTest(Case):
         out = io.StringIO()
         self.assertEqual(1, verify_web.main(["--bank", self.bank, "--total-mb", "0.001"], out=out))
         self.assertIn("bank/ 의 그림 합계", out.getvalue())
+        self.assertNotIn("가리키지 않습니다", out.getvalue())  # 세 수준 블록 JSON 이 가리키는 그림도 셈
         out = io.StringIO()
         self.assertEqual(0, web_lint.main(["--bank", self.bank, "--no-external"], out=out), out.getvalue())
+
+
+PAGE = "learn/l90/page.md"
+SEVEN_FIGURE = ('"figure": {"file": "assets/90a-21.png", "caption": "같은 만큼씩 두 번 옮기면 2 가 2.8 을 거쳐 3.6 이 됩니다.", '
+                '"content": "상자 셋에 2, 2.8, 3.6 이 있고 상자 사이 화살표 위에 0.8 이 적혀 있습니다."},\n   ')
+
+
+class LevelsVerifyTest(Case):
+    """세 수준 블록 검사(verify_ai 8·10·11·13). 고정 자료 l90 90a 2단계 끝 블록을 몇 곳씩 망가뜨려 한 번에 봄."""
+
+    def edit(self, *pairs):
+        for old, new in zip(pairs[::2], pairs[1::2]):
+            self.replace(PAGE, old, new)
+
+    def assertAll(self, out, *needles):
+        for needle in needles:
+            self.assertIn(needle, out)
+
+    def block(self):
+        text = study.read_text(self.path(PAGE))
+        return "```ai-levels" + text.split("```ai-levels", 1)[1].split("\n```", 1)[0] + "\n```"
+
+    def test_block_place_id_and_concept(self):
+        self.edit('"concept": "기울기",', '"concept": "기울기를 한 번 옮길 때 바뀌는 양과 그 방향",', '{"id": "v1"', '{"id": "r1"')
+        self.replace(PAGE, "### 학습 루프의 세 줄", "덧붙인 글입니다.\n\n### 학습 루프의 세 줄")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 r1 의 concept 가 25자입니다(20자 이하)", "블록 id r1 가 단원 안에서 겹칩니다",
+                       "90a/2 의 세 수준 블록이 단계의 마지막 블록이 아닙니다")
+
+    def test_two_in_a_step_and_in_the_memo_step(self):
+        block = self.block()
+        self.replace(PAGE, block, block + "\n\n" + block.replace('{"id": "v1"', '{"id": "v2"'))
+        self.write(PAGE, study.read_text(self.path(PAGE)).rstrip("\n") + "\n\n" + block.replace('{"id": "v1"', '{"id": "v3"') + "\n")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 단계에 세 수준 블록이 2개입니다(한 단계에 하나)",
+                       "90b/4 단계에는 세 수준 블록을 두지 않습니다(먼저 풀어 보기·외울 것·2026 흐름 단계)",
+                       "90b/4 v3 7살 그림 이름은 블록 자리와 수준을 따라 assets/90b-41.png 여야 합니다")
+
+    def test_every_level_needs_text_figure_one_blank_and_why(self):
+        self.edit(SEVEN_FIGURE, "", '"text": "기울기가 −8 이고 학습률이 0.1 이면 W는 2 − 0.1 × (−8) = 2 + 0.8 = 2.8 이 됩니다. 기울기가 음수라서 곱한 값을 빼면 W가 커집니다."',
+                  '"text": ""', '"q": "lr을 0.5 로', '"q": "____ 을 0.5 로',
+                  '"why": "2.8 에 0.8 을 더하면 3.6 입니다."', '"why": ""')
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 v1 7살 에 figure 가 없습니다", "90a/2 v1 15살 에 text 가 없습니다",
+                       "90a/2 v1 20살 의 q 에는 ____ 가 하나 있어야 합니다",
+                       "90a/2 v1 7살 에 why 가 없습니다")
+
+    def test_heading_line_recall_question_and_polite_endings(self):
+        self.edit('"text": "학습률은', '"text": "# 제목\\n학습률은', '"q": "기울기가 −4 이면 옮긴 W는 ____ 입니다."',
+                  '"q": "W가 2, 기울기가 −8, 학습률이 0.1이면 한 번 옮긴 W는 ____ 입니다."',
+                  "한 번 옮길 때 0.8 만큼 커집니다.", "한 번 옮길 때 0.8 만큼 커져요.", '"why": "2 − 0.5 × (−8) = 6 입니다."',
+                  '"why": "다시 계산해 볼까요?"')
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 v1 20살 의 text 에 제목이나 인용 줄이 있습니다", "90a/2 v1 15살 의 q 가 같은 단원 떠올리기 q 와 같습니다",
+                       "90a/2 v1 7살 의 text 에 '요.' 가 있습니다", "90a/2 v1 20살 의 why 에 '볼까요' 가 있습니다")
+
+    def test_seven_has_no_code_signs_or_terms(self):
+        self.edit("지금 값은 2 입니다.", "지금 `w` 는 2 이고 −4 가 아닙니다.", '"why": "2.8 에 0.8 을 더하면 3.6 입니다."',
+                  '"why": "2.8 + 0.8 = 3.6 입니다."', "같은 만큼씩 두 번 옮기면", "기울기만큼 두 번 옮기면",
+                  "상자 사이 화살표 위에", "3 − 1 개 화살표 위에")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 v1 7살 의 text 에 인라인 코드가 있습니다", "90a/2 v1 7살 의 why 에 식 기호 '+' 가 있습니다",
+                       "90a/2 v1 7살 의 content 에 식 기호 '3 − 1' 가 있습니다", "90a/2 v1 7살 의 caption 에 낱말 기울기 가 나옵니다",
+                       "경고 8 노트 블록: 90a/2 v1 7살 의 text 에 영문자가 있습니다")
+        self.assertNotIn("7살 의 text 에 식 기호", out)  # 숫자 앞에 붙은 −4 는 됨
+
+    def test_fifteen_has_no_library_matrix_or_inline_code(self):
+        self.edit("기울기가 음수라서 곱한 값을 빼면 W가 커집니다.", "기울기가 음수라서 곱한 값을 빼면 W가 커집니다. torch 로도 셉니다.",
+                  "기울기가 −8 일 때와 −4 일 때 옮긴 W를 견줍니다.", "[[−8, 0.8]] 을 견줍니다.",
+                  '"why": "2 − 0.1 × (−4) = 2.4 입니다."', '"why": "2 − 0.1 × (−4) = 2.4 이고 a @ b 와 다릅니다."',
+                  "표의 행은 기울기 −8 과 −4 이고", "`표`의 행은 기울기 −8 과 −4 이고")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 v1 15살 의 text 에 'torch' 가 있습니다", "90a/2 v1 15살 의 caption 에 '[[' 가 있습니다",
+                       "90a/2 v1 15살 의 why 에 '@' 가 있습니다", "90a/2 v1 15살 의 content 에 인라인 코드가 있습니다")
+
+    def test_seven_answer_and_more_signs(self):
+        self.edit('"answer": ["3.6"], "mode": "number", "why": "2.8 에 0.8 을 더하면 3.6 입니다."',
+                  '"answer": ["기울기", "2.8 + 0.8"], "mode": "word", "why": "4 * 0.2 만큼 더 갑니다."',
+                  "한 번 옮길 때 0.8 만큼 커집니다.", "한 번 옮길 때 2.8-2 만큼 커집니다.",
+                  "같은 만큼씩 두 번 옮기면", "3.6 > 2.8 이라 같은 만큼씩 두 번 옮기면", "상자 셋에 2,", "2 < 3 인 상자 셋에 2,")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 v1 7살 의 answer 에 낱말 기울기 가 나옵니다", "90a/2 v1 7살 의 answer 에 식 기호 '+' 가 있습니다",
+                       "90a/2 v1 7살 의 text 에 식 기호 '8-2' 가 있습니다", "90a/2 v1 7살 의 why 에 식 기호 '*' 가 있습니다",
+                       "90a/2 v1 7살 의 caption 에 식 기호 '>' 가 있습니다", "90a/2 v1 7살 의 content 에 식 기호 '<' 가 있습니다")
+
+    def test_fifteen_np_lower_answer_in_caption_and_code_and_answer_mode(self):
+        self.edit("기울기가 음수라서 곱한 값을 빼면 W가 커집니다.", "기울기가 음수라서 곱한 값을 빼면 W가 커집니다. np.subtract 로도 셉니다.",
+                  "기울기가 −8 일 때와 −4 일 때 옮긴 W를 견줍니다.", "기울기가 −8 일 때와 −4 일 때 옮긴 W를 견줍니다. 한 번 더 옮기면 3.6 입니다.",
+                  "print(w)  # 2.8", "print(w)  # 2.8\\nprint(w + 0.8)  # 3.6", '"answer": ["2.4"], "mode": "number"', '"answer": ["약 2.4"], "mode": "number"')
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 v1 15살 의 text 에 'np' 가 있습니다", "90a/2 v1 15살 의 caption 에 7살 물음의 답 '3.6' 가 나옵니다",
+                       "90a/2 v1 20살 의 code 에 7살 물음의 답 '3.6' 가 나옵니다",
+                       "90a/2 v1 15살 의 answer '약 2.4' 를 mode number 로 채점하면 맞음이 되지 않습니다")
+
+    def test_concept_and_spaced_particle_in_shown_text(self):
+        self.edit('"concept": "기울기",', '"concept": "기울기 \u2014 정리하면",', "빼면 W가 커집니다.", "빼면 W 가 커집니다.",
+                  "코드 줄마다 바뀌는 값을", "코드 줄마다 바뀌는 w 의 값을", "열은 줄과 그 줄 뒤의 값입니다.", "열은 줄과 그 줄 뒤의 w 의 값입니다.")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "실패 10 말투: 90a/2 v1 concept", "실패 10 말투: 90a/2 v1 15살 text: 띄어 쓴 조사",
+                       "실패 10 말투: 90a/2 v1 20살 caption: 띄어 쓴 조사")
+        self.assertNotIn("20살 content: 띄어 쓴 조사", out)  # 그림 내용 글은 화면에 보이지 않음
+
+    def test_twenty_needs_code_mistake_and_where(self):
+        self.edit('w = 2.0\\ngrad = -8.0\\nlr = 0.1\\nw = w - lr * grad\\nprint(w)  # 2.8', "w = 2.0",
+                  '"mistake": "기울기를 더하면 W가 손실이 커지는 쪽으로 갑니다. 기울기에 학습률을 곱한 값을 뺍니다."', '"mistake": ""',
+                  "90차시 슬라이드 3쪽, 90차시 첫째 단원 2단계", "슬라이드 3쪽")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 v1 20살 의 code 가 1줄입니다(2~8줄)", "90a/2 v1 20살 에 mistake 가 없습니다",
+                       "90a/2 v1 20살 의 where 에 강의 위치(N차시 …)가 없습니다")
+
+    def test_warnings(self):
+        self.edit('"answer": ["3.6"]', '"answer": ["2.8"]', '"answer": ["2.4"], "mode": "number"', '"answer": ["2.4"], "mode": "word"',
+                  " = 2 + 0.8 = 2.8 이 됩니다", "에서 2.8 이 됩니다", '"why": "2 − 0.1 × (−4) = 2.4 입니다."',
+                  '"why": "2 − 0.1 × (−4)의 값은 2.4 입니다."', "한 번 옮길 때 0.8 만큼 커집니다.", "한 번 옮길 때 0.8 만큼 커집니다." + " 그래서 옮깁니다." * 30,
+                  '"concept": "기울기"', '"concept": "옮기는 양"')
+        code, out = self.verify()
+        self.assertEqual(0, code, out)
+        self.assertAll(out, "90a/2 v1 7살 의 answer 가 같은 단계 떠올리기 answer 와 같습니다: 2.8",
+                       "90a/2 v1 15살 의 text 에 7살 물음의 답 '2.8' 가 나옵니다", "90a/2 v1 15살 의 mode 가 word 이면 받는 답을 둘 이상 둡니다",
+                       "90a/2 v1 15살 에 = 가 든 계산이 없습니다", "90a/2 v1 7살 의 text 가 ", "90a/2 v1 의 concept '옮기는 양' 가 단계 글에 없습니다")
+        self.edit('"concept": "옮기는 양"', '"concept": "걸음"')
+        self.edit_json("terms.json", lambda d: d["terms"].append({"term": "걸음", "also": [], "page": "l91"}))
+        code, out = self.verify()
+        self.assertIn("90a/2 v1 의 concept '걸음' 는 terms.json 낱말인데 이 노트가 그 낱말의 intro·page 가 아닙니다", out)
+
+    def test_step_numbers_skip_the_figure_number(self):
+        from aiprep import bank as aibank
+        note = aibank.load_note({"id": "l90", "title": "90차시 시험 노트"}, self.bank)
+        found = verify_ai.step_numbers(note["units"]["90a"]["steps"][1])
+        self.assertTrue({"2", "2.8", "0.1", "8"} <= found, found)
+        self.assertNotIn("1", found)  # 캡션의 "그림 1." 은 세지 않음
+
+    def test_context_of_level_text(self):
+        self.edit_json("terms.json", lambda d: d["terms"].append({"term": "역전파", "also": [], "page": "l91"}))
+        self.edit("기울기가 음수라서 곱한 값을 빼면 W가 커집니다.", "기울기가 음수라서 곱한 값을 빼면 W가 커집니다. 기울기는 역전파로 구합니다.",
+                  "아래 코드는 W를 기울기의 반대쪽으로 한 번 옮깁니다.", "아래 코드는 W를 기울기의 반대쪽으로 한 번 옮겨 과적합을 늦춥니다.")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertRegex(out, r"실패 11 맥락: page\.md 90a/2 v1 15살:\d+: 정의 전 사용: 소개되기 전에 나온 낱말: '역전파'")
+        self.assertRegex(out, r"실패 11 맥락: page\.md:\d+: 정의가 사용 뒤에 옴: 낱말 '과적합'의 정의가 첫 사용\(page\.md 90a/2 v1 20살:\d+\)")
+
+    def test_block_figures(self):
+        with open(self.path("learn/l90/assets/90a-1.gif"), "rb") as f:
+            gif = f.read()
+        with open(self.path("learn/l90/assets/90a-21.png"), "wb") as f:
+            f.write(gif)
+        self.edit("같은 만큼씩 두 번 옮기면", "그림 3. 같은 만큼씩 두 번 옮기면",
+                  '"content": "표의 행은 기울기 −8 과 −4 이고 열은 기울기, 곱한 값, 옮긴 W 입니다. −8 행의 옮긴 W 2.8 을 칠했습니다."', '"content": ""')
+
+        def change(data):
+            del data["files"]["learn/l90/assets/90a-22.png"]
+            data["files"]["learn/l90/assets/90a-23.png"]["sha256"] = "0" * 64
+        self.edit_json("art_manifest.json", change)
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertAll(out, "90a/2 v1 7살 그림 caption 은 \"그림 N.\" 으로 시작하지 않습니다", "90a/2 v1 7살 그림 assets/90a-21.png 가 PNG 가 아닙니다",
+                       "90a/2 v1 15살 그림에 content 가 없습니다", "manifest 에 없는 그림입니다: assets/90a-22.png",
+                       "assets/90a-23.png 가 manifest 의 해시와 다릅니다")
+
+    def test_block_figure_name_missing_file_and_size(self):
+        self.edit("assets/90a-23.png", "assets/90a-31.png")
+        shutil.copy(self.path("learn/l90/assets/90b-1.png"), self.path("learn/l90/assets/90a-22.png"))
+        self.edit_json("art_manifest.json", lambda d: d["files"]["learn/l90/assets/90a-22.png"].update(
+            sha256=ai_art.file_sha(self.path("learn/l90/assets/90a-22.png"))))
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        info = ai_art.image_info(self.path("learn/l90/assets/90a-22.png"))
+        self.assertAll(out, "90a/2 v1 20살 그림 이름은 블록 자리와 수준을 따라 assets/90a-23.png 여야 합니다: assets/90a-31.png",
+                       "90a/2 v1 20살 그림 파일이 없습니다: assets/90a-31.png",
+                       "assets/90a-22.png 가 %d×%d 입니다(1040×560 로)" % (info["width"], info["height"]))
+
+    def test_broken_block_fails(self):
+        self.edit('"level": 7,', '"level": 7, "code": "x = 1",')
+        self.assertFails("90a/2 의 levels 블록: 7살 수준에 쓸 수 없는 키가 있습니다: code")
+
+
+class LevelsToolTest(Case):
+    def test_brief_answers_and_grading(self):
+        out_dir = os.path.join(self.tmp, "levels")
+        code, text = quiet(ai_seal.main, ["levels", "l90", "--bank", self.bank, "--out", out_dir])
+        self.assertEqual(0, code, text)
+        self.assertIn("1_l7.md 의 물음 답을 levels_answers.json 에 적은 뒤에 2_l15.md 를 엽니다", text)
+        folder = os.path.join(out_dir, "l90_90a2_v1")
+        self.assertEqual(["0_step.md", "1_l7.md", "2_l15.md", "3_l20.md"], sorted(os.listdir(folder)))
+        step = study.read_text(os.path.join(folder, "0_step.md"))
+        self.assertIn("기울기라고 합니다", step)
+        self.assertIn(self.path("learn/l90/assets/90a-1.gif"), step)
+        for hidden in ("____", "기울기가 음수이면 W가 커질 때", "ai-", "<!--"):
+            self.assertNotIn(hidden, step)
+        seven = study.read_text(os.path.join(folder, "1_l7.md"))
+        self.assertIn("2.8 에서 0.8 만큼 한 번 더 옮기면 값은 ____ 입니다.", seven)
+        self.assertIn(self.path("learn/l90/assets/90a-21.png"), seven)
+        for hidden in ("2.8 에 0.8 을 더하면 3.6 입니다.", "3.6\"", "기울기가 −8 이고", "상자 셋에"):
+            self.assertNotIn(hidden, seven)  # 까닭·답·다음 수준 글·그림 내용 글은 없음
+        twenty = study.read_text(os.path.join(folder, "3_l20.md"))
+        for shown in ("w = w - lr * grad", "자주 하는 착각: 기울기를 더하면", "다루는 곳: 90차시 슬라이드 3쪽", "print(w)가 찍는 값은 ____ 입니다."):
+            self.assertIn(shown, twenty)
+        self.assertNotIn("2 − 0.5 × (−8) = 6 입니다.", twenty)
+        target = os.path.join(out_dir, "levels_answers.json")
+        answers = study.read_json(target)
+        self.assertEqual({"l90 90a/2 v1 7": "", "l90 90a/2 v1 15": "", "l90 90a/2 v1 20": ""}, answers)
+        answers.update({"l90 90a/2 v1 7": "3.6", "l90 90a/2 v1 15": "2.40"})
+        study.write_text(target, json.dumps(answers, ensure_ascii=False))
+        quiet(ai_seal.main, ["levels", "l90", "--bank", self.bank, "--out", out_dir])
+        self.assertEqual("3.6", study.read_json(target)["l90 90a/2 v1 7"])  # 다시 만들어도 적은 답은 남음
+        answers["l90 9z/1 v1 7"] = "1"
+        study.write_text(target, json.dumps(answers, ensure_ascii=False))
+        code, out = self.verify("--levels-answers", target)
+        self.assertEqual(0, code, out)
+        self.assertIn("세 수준 물음 재풀이: 맞음 2 / 3, 틀림 l90 90a/2 v1 20", out)
+        self.assertIn("l90 90a/2 v1 20 를 재풀이자가 틀렸습니다", out)
+        self.assertIn("답안의 l90 9z/1 v1 7 가 세 수준 물음에 없습니다", out)
+        self.assertNotIn("묶음", out)  # 문항 묶음 검사와 섞지 않음
+        code, out = quiet(ai_seal.main, ["levels", "l90", "--bank", self.bank, "--out", os.path.join(self.bank, "levels")])
+        self.assertIn("저장소 밖", str(code))
+
+    def test_levels_answers_count_missing_keys_text_and_places(self):
+        out_dir = os.path.join(self.tmp, "levels")
+        quiet(ai_seal.main, ["levels", "l90", "--bank", self.bank, "--out", out_dir])
+        target = os.path.join(out_dir, "levels_answers.json")
+        study.write_text(target, json.dumps({"l90 90a/2 v1 7": "3.6"}))
+        code, out = self.verify("--levels-answers", target)
+        self.assertIn("세 수준 물음 재풀이: 맞음 1 / 3", out)  # 답안에서 지운 15·20 도 셈
+        self.assertIn("답안에 l90 90a/2 v1 15 가 없습니다", out)
+        study.write_text(target, json.dumps({"l90 90a/2 v1 7": "3.6", "l90 90a/2 v1 15": 2.4, "l90 90a/2 v1 20": "6"}))
+        code, out = self.verify("--levels-answers", target)
+        self.assertIn("맞음 2 / 3", out)
+        self.assertIn("답안의 l90 90a/2 v1 15 값이 글이 아닙니다", out)
+        self.replace(PAGE, '"answer": ["2.4"], "mode": "number"', '"answer": ["2.4"], "mode": "number", "places": 1')
+        study.write_text(target, json.dumps({"l90 90a/2 v1 7": "3.6", "l90 90a/2 v1 15": "2.43", "l90 90a/2 v1 20": "6"}))
+        code, out = self.verify("--levels-answers", target)
+        self.assertEqual(0, code, out)
+        self.assertIn("세 수준 물음 재풀이: 맞음 3 / 3", out)  # places 로 반올림해 채점함
+
+    def test_overlap_puts_level_code_on_the_code_side(self):
+        prose, code = ai_overlap.split_markdown(study.read_text(self.path(PAGE)))
+        self.assertIn("w = w - lr * grad", code)
+        self.assertNotIn("w = w - lr * grad", prose)
+        self.assertIn("학습률은 파라미터를 한 번에 얼마나 바꿀지 정하는 값입니다.", prose)
+
+    def test_levels_helper_does_not_import_matplotlib(self):
+        import subprocess
+        probe = "import sys; sys.path.insert(0, %r); import tools.ai_art.levels; print('matplotlib' in sys.modules)" % ROOT
+        done = subprocess.run([sys.executable, "-c", probe], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertEqual(("False", 0), (done.stdout.strip(), done.returncode), done.stderr)
+
+    @unittest.skipUnless(Image, "numpy·matplotlib·Pillow 없음")
+    def test_levels_helper_draws_and_refuses_overflow(self):
+        from tools.ai_art import levels
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder)
+        figs = [levels.chain(["2", "2.8"], labels=["지금", "한 번"], arrows=["0.8"], mark=1, note="한 번 옮깁니다"),
+                levels.grid([["−8", "2.8"]], col_names=["기울기", "옮긴 W"], marks=[(0, 1)], top="W − 0.1 × 기울기"),
+                levels.graph([0, 1, 2], [([4, 1, 0], "blue", "")], "W", "손실", top="손실 = (W − 2)²")]
+        for n, fig in enumerate(figs):
+            info = ai_art.image_info(ai_art.save("90a-2%d" % (n + 1), fig, folder))
+            self.assertEqual((1040, 560), (info["width"], info["height"]))
+        with self.assertRaises(ValueError):
+            levels.grid([["긴 칸 글을 여기에 넣어 너비를 넘깁니다", "1", "2", "3"]], col_names=["가", "나", "다", "라"])
+        with self.assertRaises(ValueError):
+            levels.chain(["1", "2", "3", "4", "5"])
+        with self.assertRaisesRegex(ValueError, "그림 밖"):
+            levels.graph([0, 1, 2], [([4, 1, 0], "blue", "")], "W", "손실", top="손실 = (W − 2)² 이고 W가 2 에서 멀어질수록 손실이 빠르게 커지며 W = 0 이면 4, W = 1 이면 1 입니다")
+        with self.assertRaisesRegex(ValueError, "그림 밖"):
+            levels.graph([0, 1, 2], [([4, 1, 0], "blue", "W가 커질수록 줄어드는 손실")], "W", "손실")
 
 
 class PatternCase(Case):

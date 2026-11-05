@@ -31,6 +31,15 @@
     {"what": "PyTorch 2.15 문서 torch.compile: 실행하면서 그래프를 잡아 코드를 빠르게 돌림(PyTorch 2.0, 2023년 3월)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.compile.html", "checked": "2026-11-03"},
     {"what": "PyTorch 2.15 문서 Tensor Attributes: torch.bfloat16, float8 자료형(e4m3fn 등)과 연산 제한", "url": "https://docs.pytorch.org/docs/2.15/tensor_attributes.html", "checked": "2026-11-03"},
     {"what": "PyTorch 문서 inference_mode: no_grad 와 비슷하지만 부담이 더 적은 예측용 모드(1.9 부터)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.autograd.grad_mode.inference_mode.html", "checked": "2026-11-03"},
-    {"what": "PyTorch 문서 MPS backend: Apple 실리콘 Mac 의 mps 장치", "url": "https://docs.pytorch.org/docs/stable/notes/mps.html", "checked": "2026-11-03"}
+    {"what": "PyTorch 문서 MPS backend: Apple 실리콘 Mac 의 mps 장치", "url": "https://docs.pytorch.org/docs/stable/notes/mps.html", "checked": "2026-11-03"},
+    {"what": "PyTorch 2.15 Tensor.view: 새 모양이 원래 크기와 stride 에 맞아야 view 가 되고 이어 붙는 축은 stride[i] = stride[i+1] × size[i+1] 이어야 함, 모를 때는 reshape 를 권함(세 수준 3d/3)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.view.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 2.15 Tensor.stride: 한 축에서 다음 원소로 가려고 건너뛰는 양, [[1..5],[6..10]] 의 stride 는 (5, 1)(세 수준 3d/3)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.stride.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 2.15 Tensor Views: t()·transpose()·view() 는 원본과 데이터를 함께 쓰는 view 이고 연속 텐서의 전치는 연속이 아닐 수 있음(세 수준 3d/3)", "url": "https://docs.pytorch.org/docs/2.15/tensor_view.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 2.15 Tensor.is_contiguous: 메모리에 정해진 순서대로 이어져 있으면 True(세 수준 3d/3)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.is_contiguous.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 2.15 torch.reshape: 되면 view, 아니면 복사이고 복사하는지에 기대지 말라고 적음(세 수준 3d/3)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.reshape.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 2.15 torch.clone: input 의 복사본을 돌려줌(세 수준 3d/3)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.clone.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 2.15 Tensor.backward: 잎 텐서에 기울기를 누적하므로 .grad 를 0 이나 None 으로 비워야 할 수 있음(세 수준 3g/5)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.backward.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 2.15 Tensor.grad: 처음에는 None 이고 backward() 가 처음 기울기를 계산할 때 텐서가 됨(세 수준 3g/5)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.grad.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 2.15 torch.set_printoptions: 실수 출력 자릿수 기본값 4(세 수준 코드의 출력 주석)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.set_printoptions.html", "checked": "2026-11-05"}
   ]
 }

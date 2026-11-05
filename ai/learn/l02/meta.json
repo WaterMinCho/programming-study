@@ -91,6 +91,21 @@
    "what": "배열 API 표준의 목적: 배열을 만들고 쓰는 흔한 방법을 여러 배열 라이브러리가 같은 API 로 쓰게 함",
    "url": "https://data-apis.org/array-api/latest/purpose_and_scope.html",
    "checked": "2026-11-04"
+  },
+  {
+   "what": "NumPy 문서 Broadcasting: 결과의 축 길이는 두 배열 가운데 큰 쪽이고, 맞지 않으면 ValueError: operands could not be broadcast together",
+   "url": "https://numpy.org/doc/stable/user/basics.broadcasting.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "NumPy 문서 numpy.matmul: @ 는 ndarray 에서 np.matmul 의 줄임, 스칼라 곱은 * 로 함",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.matmul.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "NumPy 문서 numpy.sum: keepdims=True 면 줄인 축을 길이 1 로 남겨 결과가 입력과 브로드캐스팅됨",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.sum.html",
+   "checked": "2026-11-05"
   }
  ],
  "lesson": "i02",

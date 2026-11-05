@@ -30,6 +30,8 @@ SKEL_FADES = (("f0", None), ("f2", 2), ("f3", 4))  # 뼈대 빈칸 견본 이름
 WHOLE_KEY = re.compile(r"(S\d+) (.+) 전체\Z")
 SEED_KEY = re.compile(r"(pc-[ox]\d{2,3}) 시드 (\d+)\Z")
 SAMPLE_KEY = re.compile(r"(pc-k\d{2,3}) (f\d)\Z")
+LEVEL_FILES = {7: "1_l7.md", 15: "2_l15.md", 20: "3_l20.md"}  # 세 수준 공개본의 수준 파일. 이 순서로 엶
+LEVELS_ANSWERS = "levels_answers.json"
 USAGE = """AI 비전 개론 봉인 도구 (출제자용)
 
 문항 묶음(ai/items/<id>/work/)과 모의고사(ai/mocks/<id>/work/)의 평문은 커밋하지 않고 폴더마다 sealed.json 하나로 묶어
@@ -40,6 +42,9 @@ USAGE = """AI 비전 개론 봉인 도구 (출제자용)
   python tools/ai_seal.py check                        봉인 안 된 평문이 있거나 sealed.json 이 깨졌으면 실패
   python tools/ai_seal.py brief i05 --out DIR          재풀이자에게 줄 공개본(정답 없음)을 저장소 밖 DIR 에 만듦
   python tools/ai_seal.py brief pc --out DIR           상황별 코드 공개본. sheet.md 를 다 푼 뒤에 skel.md 를 엽니다
+  python tools/ai_seal.py levels l04 [l05 ...] --out DIR
+                                                       학습 노트의 세 수준 블록 재풀이 공개본. 블록마다 폴더 하나이고
+                                                       수준 파일을 하나씩 열며 levels_answers.json 을 채웁니다
 
 --bank DIR 로 은행 폴더를 바꿀 수 있습니다(기본 ai/).
 """
@@ -327,9 +332,85 @@ def brief(bank_dir, iid, out_dir):
           "`python tools/verify_ai.py %s --answers answers.json` 으로 대조합니다." % iid)
 
 
+# 세 수준 블록 공개본(학습 노트 기준, 봉인과 상관없음)
+
+def _figure_lines(figure):
+    """공개본의 그림 줄. 그림은 절대 경로, 캡션과 장 설명은 화면에 보이는 그대로. 내용(content)은 화면에 없어서 넣지 않음."""
+    lines = ["그림: %s" % os.path.abspath(figure["path"]) if figure.get("path") else "그림: %s" % figure.get("file", "")]
+    if figure.get("caption"):
+        lines.append("캡션: %s" % figure["caption"])
+    lines += ["장 %d: %s" % (n, frame["text"]) for n, frame in enumerate(figure.get("frames") or [], 1) if frame.get("text")]
+    return lines
+
+
+def step_brief(pid, key, step):
+    """단계 글(ai-* 블록을 뺀 글과 그림). 떠올리기·왜일까요는 답이 들어 있어 넣지 않음."""
+    lines = ["# %s %s/%s %s" % (pid, key, step["no"], step["title"]), ""]
+    for block in step["blocks"]:
+        if block["kind"] == "text":
+            lines += [aibank.strip_marks(block["markdown"]), ""]
+        elif block["kind"] == "figure":
+            lines += _figure_lines(block) + [""]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def level_brief(pid, key, step, block, level):
+    """수준 하나의 공개본. 글, 그림, (20살) 코드·자주 하는 착각·다루는 곳, 물음. answer·why 는 넣지 않음."""
+    lines = ["# %s %s/%s %s %d살 수준" % (pid, key, step["no"], block["id"], level["level"]), "",
+             "세 수준으로 다시 보기%s" % (" · " + block["concept"] if block.get("concept") else ""), ""]
+    if level.get("figure"):
+        lines += _figure_lines(level["figure"]) + [""]
+    lines += [level["text"], ""]
+    if level.get("code"):
+        lines += ["```python", level["code"], "```", ""]
+    if level.get("mistake"):
+        lines += ["자주 하는 착각: %s" % level["mistake"], ""]
+    if level.get("where"):
+        lines += ["다루는 곳: %s" % level["where"], ""]
+    lines += ["## 확인 물음", "", level["q"], ""]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def levels(bank_dir, pages, out_dir):
+    """세 수준 블록 재풀이 공개본. 블록마다 폴더 <노트>_<단원><단계>_<id>/ 에 0_step.md(단계 글)와 수준 파일 셋, 맨 위에 빈 답안
+    levels_answers.json({"l04 4b/3 v1 7": ""}). 답안이 이미 있으면 적힌 답은 그대로 두고 키만 더함. page.md 는 블록 JSON 에 정답이
+    있어 재풀이자가 열지 않음."""
+    for folder in (ROOT, bank_dir):
+        if web_seal.inside(out_dir, folder):
+            raise SystemExit("공개본은 저장소 밖에 만들어 주세요. 저장소 안에 두면 커밋에 섞일 수 있습니다: %s" % out_dir)
+    known = {p["id"]: p for p in aibank.read_index(bank_dir)["pages"]}
+    target = os.path.join(out_dir, LEVELS_ANSWERS)
+    answers = study.read_json(target) if os.path.isfile(target) else {}
+    made = []
+    for pid in pages:
+        if pid not in known:
+            raise SystemExit("학습 노트가 없습니다: %s (은행 %s)" % (pid, bank_dir))
+        note = aibank.load_note(known[pid], bank_dir)
+        for key in note["order"]:
+            for step in note["units"][key]["steps"]:
+                for block in step["blocks"]:
+                    if block["kind"] != "levels":
+                        continue
+                    if block.get("error"):
+                        raise SystemExit("%s %s/%s 의 세 수준 블록을 읽지 못했습니다: %s" % (pid, key, step["no"], block["error"]))
+                    folder = os.path.join(out_dir, "%s_%s%s_%s" % (pid, key, step["no"], block["id"]))
+                    study.write_text(os.path.join(folder, "0_step.md"), step_brief(pid, key, step))
+                    for level in block["levels"]:
+                        study.write_text(os.path.join(folder, LEVEL_FILES[level["level"]]), level_brief(pid, key, step, block, level))
+                        answers.setdefault("%s %s/%s %s %d" % (pid, key, step["no"], block["id"], level["level"]), "")
+                    made.append(os.path.basename(folder))
+    os.makedirs(out_dir, exist_ok=True)
+    study.write_text(target, json.dumps(answers, ensure_ascii=False, indent=1) + "\n")
+    print("세 수준 공개본을 만들었습니다: %s (블록 %d개: %s)" % (out_dir, len(made), ", ".join(made) or "없음"))
+    print("재풀이자는 블록 폴더마다 0_step.md 를 읽고, 1_l7.md 의 물음 답을 %s 에 적은 뒤에 2_l15.md 를 엽니다. 같은 방식으로 "
+          "3_l20.md 까지 갑니다. 이미 적은 답은 고치지 않고 page.md 는 열지 않습니다(블록 JSON 에 정답이 있음). 다 적은 뒤 "
+          "`python tools/verify_ai.py --levels-answers %s` 로 대조합니다." % (LEVELS_ANSWERS, target))
+    return made
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    if not argv or argv[0] not in ("seal", "unseal", "check", "brief"):
+    if not argv or argv[0] not in ("seal", "unseal", "check", "brief", "levels"):
         print(USAGE)
         return 2
     parser = argparse.ArgumentParser(prog="ai_seal.py %s" % argv[0])
@@ -346,6 +427,11 @@ def main(argv=None):
         if len(opts.targets) != 1 or not opts.out:
             raise SystemExit("쓰는 법: python tools/ai_seal.py brief i05 --out DIR")
         brief(bank_dir, opts.targets[0], os.path.abspath(opts.out))
+        return 0
+    if command == "levels":
+        if not opts.targets or not opts.out:
+            raise SystemExit("쓰는 법: python tools/ai_seal.py levels l04 [l05 ...] --out DIR")
+        levels(bank_dir, opts.targets, os.path.abspath(opts.out))
         return 0
     for iid, idir in targets(bank_dir, opts.targets):
         if command == "seal":

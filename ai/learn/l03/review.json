@@ -19,6 +19,9 @@
   "assets/3d-1.gif": "cc3ee08cf041a2abb230c11749c530859881b2a75a628d5167cafc1b971ea90f",
   "assets/3d-2.gif": "2267569d58985f4015194ed63212ee72565a92dfcf25a39adce275c8b043eafb",
   "assets/3d-3.gif": "d454b396ef1060b0fd2b032f1753d2b212b4ee53479a91ff5709eb84ecbe71f2",
+  "assets/3d-31.png": "1dad25fd9ad4ef1f8b3bf3193393ffa1b5733981c5693abf9da900972759cdab",
+  "assets/3d-32.png": "300d551be6b62ba0589d19c3392d4c6406fda0ce4e4bea6a70bc4584edd22aed",
+  "assets/3d-33.png": "0c803181a8d1e40a0dd19603c3d1f08470d6d77bbde290ce7282f935a2505293",
   "assets/3d-4.gif": "e9e1ac322efaf5b33f8f5c77dd1131bdb6bfcd51ffaa11a411538d5268c5d097",
   "assets/3d-5.png": "e39e019cb20c808726efcabcc84ebd197948a0cd3acce45e29755a3c4d47d824",
   "assets/3e-1.gif": "6279694f2050689c79ae8c55d04e1a1437bab48946d7022cda79091509147b8e",
@@ -27,17 +30,23 @@
   "assets/3f-1.gif": "764409ff24a09a408a8f90bbbb872fc82570bf37d5e8aaef14048efdbeef5bb7",
   "assets/3f-2.png": "eb2e4d08078102656dc18fcca874edaa875e7840daabeffbddd8a96f9725af19",
   "assets/3f-3.png": "58608a4dc796d00d96b8d6204eada337d9dd7c2230da49a768d10c9096935605",
+  "assets/3f-31.png": "aa8b2f742b393f0cd1264edacd88ba4d910fdd52e46ee8bda86c7a14b9663cf4",
+  "assets/3f-32.png": "1237230e44b0bf119c2ac225af2963f0478d5af196b868c604ce3daf002d677c",
+  "assets/3f-33.png": "c9018b08dccf6255505ce07547bc48d25f7eefb69d3309be4de89efec7b7ce8e",
   "assets/3g-1.gif": "c2fa85c22030a4e5772e036e465b96e65a5acebffaf299281c0198d2dc7c79da",
   "assets/3g-2.gif": "d05cfab67da3d9ad1735c0bbb737beaa99d31652ef2eebc167f611df273568f6",
   "assets/3g-3.gif": "99a4abd823c2efe3ccf2385cc10c0c33d722414208d620c3799e43a84b7f11ae",
   "assets/3g-4.gif": "0249aa9c00629ea04ee02cea8e55577b2ab64f21c239b6442a7c89cd1c627d48",
   "assets/3g-5.png": "d7535dd4e3ce77189325e6191effc804e29f3281150adb68822c807f1df00b4b",
+  "assets/3g-51.png": "8683c52689b43b9471302a9c0ef4495ee48f3dc46fea10223e4f4008bd71b584",
+  "assets/3g-52.png": "a54ab3793fbccf865beac230ddd93c767316e80a59e2e1c050443191bcc83686",
+  "assets/3g-53.png": "e06f7bfd84bab027737f549662f162bab2445d9be755840227a91bfc79a45aa7",
   "assets/3h-1.gif": "7efa9674afdc7e9ee20f35870bd2eb8fa587dd20ec7d0c3bcaeca049f5b5105f",
   "assets/3h-2.png": "ef04626f119b6775cf40b063593ba87bfee9c1a953f2df288cd8e9c930af0aac",
   "assets/3h-3.gif": "2347ff5b644e0e9f4f9ad20a53534f06737f6c16e7bd85018ba952dc9e90d64b",
   "assets/3h-4.png": "b298f2c2934d3c3f0b4845c3260827d294acb84f7e6346f37b9bfa287f33ea29",
-  "meta.json": "8e1ff2de0b661ac0872dcc036b726b9fcd7493ea3042a00402e466b7927418a8",
-  "page.md": "73f7a749317b378a1090b807af652df6ec63dd5294b2cb792b5038ae99d1436e"
+  "meta.json": "04e950671f965ff31844faf06fafd2df916c450d8e78e21b3b719493b33258b0",
+  "page.md": "cd5e0eeecb74dfaba3fb901929eb49538dd12a89b965b8ef2fd460f153065747"
  },
  "findings": [
   "처음 배우는 사람으로 처음부터 읽고 5.8 체크 목록을 봄. 재풀이와 검토는 같은 검토자(꼬리표 번호 2)가 맡았음",
@@ -58,6 +67,11 @@
   "최종 확인 뒤 3h/3 의 detach 설명과 떠올리기 r2, 외울 것 카드에 CPU 에 있는 텐서라는 조건을 넣고 GPU 텐서는 .cpu() 로 옮긴 다음 .numpy() 를 부른다는 문장을 더함",
   "3d 정정 상자의 view 조건을 원래 크기와 메모리 간격(stride)으로 고치고 외울 것 카드에 shape [2, 3] 을 적음. 재풀이 2 가 바뀐 줄을 PyTorch 문서와 대조하고 읽어 봄",
   "네 번째 고침: 정해 둔 색을 바꾸지 않는 팔레트로 그림 32장을 다시 그리면서 3a-4 의 채널 판을 회색 판과 R·G·B 글자로 바꿔 축 색과 겹치지 않게 하고, 3b 머리의 견주고를 비교하고로 고침",
-  "AI 비전 개론 첫 판이 main 에 합쳐진 뒤 그림 색 고침을 그 위로 옮기며 3d·3h 의 글 고침과 함께 다시 서명함. 두 쪽 고침이 겹친 줄은 없음"
+  "AI 비전 개론 첫 판이 main 에 합쳐진 뒤 그림 색 고침을 그 위로 옮기며 3d·3h 의 글 고침과 함께 다시 서명함. 두 쪽 고침이 겹친 줄은 없음",
+  "세 수준으로 다시 보기 블록 셋을 더함(3d/3 view와 reshape, 3f/3 편미분, 3g/5 기울기 누적). 수준마다 새 그림 하나와 확인 물음이 있고 그림 9장(3d-31~33, 3f-31~33, 3g-51~53)을 새로 그림. 메타에 20살 글의 근거인 PyTorch 2.15 문서 9줄을 더함",
+  "재풀이 2 가 첫 공개본으로 l03 물음 9개를 모두 맞힘(3g/5 7살 답 12 는 풀기 전에 설계 문서에서 봤음). 대조 3 이 블록 숫자를 따로 계산하고 view·stride·grad 를 PyTorch 2.15 문서와 3차시 노트북 셀 31~40·85~87 로 확인했으며 l03 블록은 고치지 않음",
+  "말투 검토 4 가 l03 블록 문장 16곳을 고침. 세 수준이 모두 '이 단계의' 로 열리던 것을 블록마다 하나로 줄이고, 3d/3 7살의 '같은 방법으로 읽습니다' 를 읽는 수로 풀어 쓰고, 3d/3 착각 칸의 메모리 간격을 stride 로 맞추고, 3f/3 20살에 z.backward() 를 채움",
+  "재풀이 2 가 말투 검토 뒤 공개본으로 다시 풀어 l03 물음 9개를 모두 맞힘(l03·l04 합쳐 24 / 24). 다시 풀기 전에 첫 풀이 답 파일을 봤으므로 공개본 글과 그림만으로 다시 계산해 맞음을 확인한 것이고 블라인드로 세지 않음. l03 물음은 첫 풀이 뒤에 바뀌지 않음",
+  "검사: guard 통과(l03 지운 줄 0), check_doc_tone 막음 0 경고 0, check_style, tone_measure, verify_ai i03(경고는 대조 3 이 받아들인 것), verify_web(--total-mb 32), web_lint, ai_overlap(l03·l04 328곳 실패 0), 수준 테스트 59개와 RealLessonTest 통과. 블록 그림 9장을 열어 글자 겹침과 잘림이 없음을 봄"
  ]
 }

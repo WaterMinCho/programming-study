@@ -23,7 +23,17 @@
     {"what": "PyTorch 문서 nn.Module.forward: forward 를 직접 부르지 말고 모듈 인스턴스를 부름(훅 실행)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html", "checked": "2026-11-03"},
     {"what": "PyTorch 문서 torch.use_deterministic_algorithms: mode 를 인자로 받는 함수", "url": "https://docs.pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html", "checked": "2026-11-03"},
     {"what": "Python 문서 copy 모듈: 대입은 객체를 복사하지 않고, 얕은 복사와 깊은 복사는 안쪽 객체 복사 여부로 나뉨", "url": "https://docs.python.org/3/library/copy.html", "checked": "2026-11-03"},
-    {"what": "Python 문서 서식 미니 언어: f, e, x, % 형식과 0 채움, # 옵션", "url": "https://docs.python.org/3/library/string.html#format-specification-mini-language", "checked": "2026-11-03"}
+    {"what": "Python 문서 서식 미니 언어: f, e, x, % 형식과 0 채움, # 옵션", "url": "https://docs.python.org/3/library/string.html#format-specification-mini-language", "checked": "2026-11-03"},
+    {"what": "PyTorch 문서 Optimizer.zero_grad: set_to_none 기본값 True 는 .grad 를 0 대신 None 으로 비우고, 기울기가 None 인 파라미터는 옵티마이저가 step 을 건너뜀", "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 문서 Tensor.backward: 그래프 잎 텐서의 기울기를 계산해 .grad 에 더함", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.backward.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 문서 Tensor.is_leaf: requires_grad=True 인 텐서는 연산 결과가 아니라 사용자가 직접 만들었을 때 잎 텐서이고, backward 때 .grad 가 채워지는 것은 잎 텐서뿐임", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.is_leaf.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 문서 Tensor.grad: 기본값 None 이고 backward 가 처음 기울기를 계산할 때 텐서가 됨", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.grad.html", "checked": "2026-11-05"},
+    {"what": "PyTorch 문서 torch.optim.SGD: momentum·weight_decay 가 0 이면 θ ← θ − γg 로 갱신", "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.SGD.html", "checked": "2026-11-05"},
+    {"what": "NumPy 빠른 시작 Basic operations: += 와 *= 는 새 배열을 만들지 않고 있는 배열을 바꿈. 단순 대입은 복사하지 않음", "url": "https://numpy.org/doc/stable/user/quickstart.html", "checked": "2026-11-05"},
+    {"what": "Python 언어 문서 Identity comparisons: x is y 는 x 와 y 가 같은 객체일 때만 참", "url": "https://docs.python.org/3/reference/expressions.html#identity-comparisons", "checked": "2026-11-05"},
+    {"what": "Python 튜토리얼 9.3 클래스: x.f() 는 MyClass.f(x) 와 같고 인스턴스가 첫 인자로 넘어감. 데이터 속성은 처음 대입할 때 생김", "url": "https://docs.python.org/3/tutorial/classes.html#method-objects", "checked": "2026-11-05"},
+    {"what": "Goodfellow·Bengio·Courville, Deep Learning(2016) 4.3절: 미분값은 그 점의 기울기이고 f(x + ε) ≈ f(x) + εf′(x)", "url": "https://www.deeplearningbook.org/contents/numerical.html", "checked": "2026-11-05"},
+    {"what": "OpenStax Calculus Volume 1 3.1절: f′(a) = lim (h → 0) (f(a + h) − f(a)) / h", "url": "https://openstax.org/books/calculus-volume-1/pages/3-1-defining-the-derivative", "checked": "2026-11-05"}
   ],
   "lesson": "i01",
   "credits": [],

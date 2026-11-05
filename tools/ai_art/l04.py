@@ -2156,6 +2156,528 @@ def summary_4h():
     return image(fig)
 
 
+# 세 수준으로 다시 보기(ai-levels 블록) 그림. 블록마다 수준(7, 15, 20)을 받는 함수 하나와 이름마다 얇은 등록 함수 셋을 둠.
+# 크기는 화면 520×280(파일 1040×560), 글자는 22pt 이상. 7살 그림에는 식 기호와 코드 글꼴을 쓰지 않음. 색 뜻은 그 단원 것을
+# 따름(4b·4c·4d·4e·4h 단원 색 주석). 숫자는 위의 단계 상수(X, Y, L, grads, W_END, YP)에서 다시 계산하고 assert 함
+LV_W, LV_H = 1040, 560
+LV_FONT = 22
+BLUE_P = "#dbeafe"
+
+
+def lv_fig():
+    """(pyplot, Figure). 파일 1040×560 의 빈 Figure."""
+    plt = setup()
+    plt.rcParams.update(SIZES)
+    return plt, plt.figure(figsize=(LV_W / 100.0, LV_H / 100.0), dpi=100)
+
+
+def lv_canvas():
+    """(Figure, Axes). Axes 는 그림 전체를 덮고 좌표는 파일 픽셀(왼쪽 위 0, 0)."""
+    plt = setup()
+    plt.rcParams.update(SIZES)
+    fig = plt.figure(figsize=(LV_W / 100.0, LV_H / 100.0), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, LV_W)
+    ax.set_ylim(LV_H, 0)
+    ax.axis("off")
+    return fig, ax
+
+
+def lv_text(ax, x, y, s, size=LV_FONT, color=INK, ha="center", va="center", bold=False, mono=False, math=False):
+    """math 면 위 첨자(², ³)가 큰 DejaVu Sans 로 쓰고 한글만 나눔고딕으로 씀."""
+    kw = dict(fontsize=size, color=color, ha=ha, va=va, weight="bold" if bold else "normal", zorder=6)
+    if mono:
+        kw["family"] = CODE
+    elif math:
+        kw["family"] = ["DejaVu Sans", "NanumGothic"]
+    return ax.text(x, y, s, **kw)
+
+
+def lv_box(ax, x, y, w, h, fc="white", ec=INK, lw=2.5, rounded=True):
+    from matplotlib.patches import FancyBboxPatch, Rectangle
+    if rounded:
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=12", fc=fc, ec=ec, lw=lw, zorder=2))
+    else:
+        ax.add_patch(Rectangle((x, y), w, h, fc=fc, ec=ec, lw=lw, zorder=2))
+
+
+def lv_arrow(ax, x1, y1, x2, y2, color=INK, lw=3, ls="-"):
+    from matplotlib.patches import FancyArrowPatch
+    ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="-|>", mutation_scale=24, color=color, lw=lw, zorder=4,
+                                 shrinkA=0, shrinkB=0, linestyle=ls))
+
+
+def lv_table(ax, x0, y0, rows, widths, ch=64, fills=None, colors=None, mono_cols=(), size=LV_FONT, head=True):
+    """표. rows[0] 은 머리(회색 칸). fills(r, c)·colors(r, c) 는 칸 바탕색과 글자색(없으면 None)."""
+    for r, row in enumerate(rows):
+        x = x0
+        for j, text in enumerate(row):
+            hd = head and r == 0
+            fc = NOTE if hd else ((fills(r, j) if fills else None) or "white")
+            lv_box(ax, x, y0 + r * ch, widths[j], ch, fc=fc, ec=FAINT, lw=1.5, rounded=False)
+            col = MUTED if hd else ((colors(r, j) if colors else None) or INK)
+            lv_text(ax, x + widths[j] / 2, y0 + r * ch + ch / 2, text, size=size, color=col, mono=(j in mono_cols and not hd))
+            x += widths[j]
+
+
+def lv_axes(fig, rect):
+    ax = fig.add_axes(rect)
+    tidy(ax)
+    ax.tick_params(labelsize=LV_FONT, colors=MUTED)
+    return ax
+
+
+def lv_ticks(ax, xs=None, ys=None, nd=4):
+    """눈금 글을 빼기표 U+2212 로 적음."""
+    if xs is not None:
+        ax.set_xticks(xs)
+        ax.set_xticklabels([num(v, nd) for v in xs])
+    if ys is not None:
+        ax.set_yticks(ys)
+        ax.set_yticklabels([num(v, nd) for v in ys])
+
+
+# 4b/3 경사하강법
+
+def levels_4b3(level):
+    gw = {w: grads(w, 1.0)[0] for w in (0.6, 1.0, 1.4, 2.2)}
+    assert [round(gw[w], 2) for w in (0.6, 1.0, 1.4, 2.2)] == [-28.32, -19.04, -9.76, 8.8]
+    w_best = float((X * Y).sum() / (X * X).sum())
+    assert num(w_best) == "1.8207" and abs(grads(w_best, 1.0)[0]) < 1e-9
+    if level == 7:
+        assert num(2.2 - 0.001 * gw[2.2]) == "2.1912"
+        plt, fig = lv_fig()
+        ax = fig.add_axes([0.06, 0.16, 0.88, 0.78])
+        for side in ("top", "right", "left"):
+            ax.spines[side].set_visible(False)
+        ws = np.linspace(0.4, 2.6, 120)
+        ax.plot(ws, [LW(w) for w in ws], color=RED, lw=4)
+        for w in (1.0, 2.2):
+            ax.plot([w], [LW(w)], "o", color=INK, ms=14, zorder=5)
+        ax.annotate("", xy=(1.42, LW(1.0) + 1.6), xytext=(1.02, LW(1.0) + 1.6),
+                    arrowprops=dict(arrowstyle="-|>", color=GREEN, lw=4, mutation_scale=28))
+        ax.text(1.03, LW(1.0) + 2.6, "W를 키움", fontsize=24, color=GREEN, ha="left", va="bottom")
+        ax.set_xlim(0.35, 2.65)
+        ax.set_ylim(3, 22)
+        ax.set_yticks([])
+        ax.set_xticks([1.0, 2.2])
+        ax.set_xticklabels(["1", "2.2"])
+        ax.tick_params(labelsize=24, colors=INK)
+        ax.set_xlabel("W", fontsize=24, color=INK)
+        return image(fig)
+    if level == 15:
+        plt, fig = lv_fig()
+        fig.text(0.5, 0.94, "W가 바뀌는 양 = " + M + " 학습률 × W.grad", fontsize=24, color=INK, ha="center", va="center")
+        ax = lv_axes(fig, [0.16, 0.17, 0.78, 0.66])
+        ws = np.linspace(0.4, 2.6, 50)
+        mv = [-0.001 * grads(w, 1.0)[0] for w in ws]
+        ax.axhline(0, color=MUTED, lw=1.5)
+        ax.plot(ws, mv, color=GREEN, lw=3.5)
+        pts = [(0.6, "0.02832", 0.07, 0.003, "left", "bottom"), (1.0, "0.01904", 0.07, 0.003, "left", "bottom"),
+               (w_best, "W 1.8207 에서 0", 0.06, 0.004, "left", "bottom"),
+               (2.2, M + "0.0088", -0.07, -0.0018, "right", "top")]
+        for w, label, dx, dy, ha, va in pts:
+            v = -0.001 * grads(w, 1.0)[0]
+            assert label.endswith(num(v, 5)), (w, v)
+            ax.plot([w], [v], "o", color=GREEN, ms=12, zorder=5)
+            ax.text(w + dx, v + dy, label, fontsize=LV_FONT, color=INK, ha=ha, va=va)
+        ax.set_xlim(0.35, 2.65)
+        ax.set_ylim(-0.016, 0.036)
+        lv_ticks(ax, xs=[0.6, 1.0, 1.4, 2.2], ys=[-0.01, 0, 0.01, 0.02, 0.03], nd=2)
+        ax.set_xlabel("W", fontsize=LV_FONT, color=INK)
+        ax.set_ylabel("W가 바뀌는 양", fontsize=LV_FONT, color=INK)
+        return image(fig)
+    # 20살: 학습률마다 어림한 변화와 실제 변화
+    g0w, g0b = grads(1.0, 1.0)
+    sq = g0w ** 2 + g0b ** 2
+    rows = [["학습률", "어림한 변화", "실제 변화", "갱신 뒤 손실"]]
+    want = {0.001: (M + "0.3665", M + "0.3623", "12.9897"), 0.01: (M + "3.6652", M + "3.2443", "10.1077"),
+            0.1: (M + "36.6522", "+5.4403", "18.7923")}
+    for lr in (0.001, 0.01, 0.1):
+        w2, b2 = 1 - lr * g0w, 1 - lr * g0b
+        est, act, after = -lr * sq, float(L(w2, b2)) - 13.352, float(L(w2, b2))
+        got = (num(est), ("+" if act > 0 else "") + num(act), num(after))
+        assert got == want[lr], (lr, got)
+        rows.append([num(lr)] + list(got))
+    fig, ax = lv_canvas()
+    lv_text(ax, LV_W / 2, 48, "W, B = 1 - lr * (-19.04), 1 - lr * 2.0", mono=True)
+    widths = [170, 250, 230, 250]
+    lv_table(ax, (LV_W - sum(widths)) / 2, 100, rows, widths, ch=72,
+             fills=lambda r, j: RED_L if (r, j) == (3, 2) else None,
+             colors=lambda r, j: ORANGE if j == 1 and r > 0 else (RED if j in (2, 3) and r > 0 else None))
+    lv_text(ax, LV_W / 2, 440, "어림한 변화 = " + M + "학습률 × (W.grad² + B.grad²)", color=ORANGE, math=True)
+    lv_text(ax, LV_W / 2, 500, "학습률 0.1 이면 W가 2.904로 1.8207을 지나침", color=MUTED)
+    return image(fig)
+
+
+@figure("4b-31", 520, 280)
+def levels_4b3_7():
+    return levels_4b3(7)
+
+
+@figure("4b-32", 520, 280)
+def levels_4b3_15():
+    return levels_4b3(15)
+
+
+@figure("4b-33", 520, 280)
+def levels_4b3_20():
+    return levels_4b3(20)
+
+
+# 4c/2 연쇄법칙
+
+def person2(w, xp=5.0, yt=10.3):
+    yp = w * xp + 1
+    e = yp - yt
+    s = e * e
+    return yp, e, s, s / 5
+
+
+def levels_4c2(level):
+    base = person2(1.0)
+    assert [num(v, 4) for v in base] == ["6", M + "4.3", "18.49", "3.698"]
+    if level == 7:
+        new_ = person2(1.01)
+        d = [n - b for n, b in zip(new_, base)]
+        assert [num(v, 4) for v in d] == ["0.05", "0.05", M + "0.4275", M + "0.0855"]
+        fig, ax = lv_canvas()
+        vals = ["W 1", "6", M + "4.3", "18.49", "3.698"]
+        widths = [130, 150, 150, 150, 150]
+        gap = 62
+        x = (LV_W - sum(widths) - gap * 4) / 2
+        xs = []
+        for k, (v, w) in enumerate(zip(vals, widths)):
+            lv_box(ax, x, 200, w, 96, fc=BLUE_L if k else "white", ec=BLUE if k else INK)
+            lv_text(ax, x + w / 2, 248, v, size=28, bold=True)
+            xs.append((x, w))
+            x += w + gap
+        mult = ["5배", "1배", M + "8.6배", "0.2배"]
+        for k in range(4):
+            x1 = xs[k][0] + xs[k][1] + 6
+            x2 = xs[k + 1][0] - 6
+            lv_arrow(ax, x1, 248, x2, 248)
+            lv_text(ax, (x1 + x2) / 2, 160, mult[k], size=24, color=ORANGE, bold=True)
+        under = ["0.01\n키움", "0.05\n커짐", "0.05\n커짐", "약 0.43\n작아짐", "약 0.086\n작아짐"]
+        for (x0, w), t in zip(xs, under):
+            lv_text(ax, x0 + w / 2, 370, t, size=24, color=BLUE, va="center")
+        lv_text(ax, LV_W / 2, 486, "사람 2의 네 칸", size=24, color=MUTED)
+        return image(fig)
+    if level == 15:
+        from fractions import Fraction as Fr
+
+        def contrib(h):
+            return ((5 * (1 + Fr(h)) + 1 - Fr("10.3")) ** 2) / 5
+
+        ratio = {h: (contrib(h) - contrib(0)) / Fr(h) for h in ("0.1", "0.05", "0.01", "0.001")}
+        assert ratio["0.1"] == Fr("-8.1") and ratio["0.05"] == Fr("-8.35") and ratio["0.01"] == Fr("-8.55")
+        assert ratio["0.001"] == Fr("-8.595") and contrib("0.1") == Fr("2.888")
+        plt, fig = lv_fig()
+        fig.text(0.5, 0.94, "사람 2가 보태는 값 = (5 × W + 1 " + M + " 10.3)² ÷ 5", fontsize=24, color=INK, ha="center",
+                 va="center", family=["DejaVu Sans", "NanumGothic"])
+        ax = lv_axes(fig, [0.15, 0.17, 0.80, 0.66])
+        hs = np.linspace(0, 0.11, 20)
+        ax.plot(hs, -8.6 + 5 * hs, color=GREEN, lw=3.5)
+        ax.axhline(-8.6, color=MUTED, lw=2.5, ls="--")
+        ax.text(0.106, -8.585, "곱으로 구한 " + M + "8.6", fontsize=LV_FONT, color=MUTED, ha="right", va="bottom")
+        for h, label in ((0.1, M + "8.1"), (0.05, M + "8.35"), (0.001, None)):
+            v = -8.6 + 5 * h
+            ax.plot([h], [v], "o", color=GREEN, ms=12, zorder=5)
+            if label:
+                ax.text(h - 0.004, v + 0.02, label, fontsize=LV_FONT, color=INK, ha="right", va="bottom")
+        ax.set_xlim(-0.004, 0.112)
+        ax.set_ylim(-8.68, -7.98)
+        lv_ticks(ax, xs=[0, 0.05, 0.1], ys=[-8.6, -8.4, -8.2, -8.0], nd=2)
+        ax.set_xlabel("W를 키운 양 h", fontsize=LV_FONT, color=INK)
+        ax.set_ylabel("변화량 ÷ h", fontsize=LV_FONT, color=INK)
+        return image(fig)
+    # 20살: backward 뒤 .grad (float32 출력은 checks 스크립트에서 확인)
+    g_yp = 2 * base[1] / 5
+    assert num(g_yp, 4) == M + "1.72" and num(g_yp * 5, 4) == M + "8.6"
+    fig, ax = lv_canvas()
+    lv_text(ax, LV_W / 2, 48, "Yp = W * 5 + 1;  L2 = (Yp - 10.3)**2 / 5", mono=True)
+    rows = [["텐서", "retain_grad() 없이", "retain_grad() 뒤"],
+            ["W", "tensor(-8.6000)", "tensor(-8.6000)"],
+            ["Yp", "None", "tensor(-1.7200)"]]
+    widths = [140, 380, 380]
+    lv_table(ax, (LV_W - sum(widths)) / 2, 110, rows, widths, ch=80, mono_cols=(1, 2),
+             fills=lambda r, j: GREEN_L if r == 1 and j > 0 else (RED_L if (r, j) == (2, 1) else
+                                                                   (ORANGE_L if (r, j) == (2, 2) else None)),
+             colors=lambda r, j: GREEN if r == 1 and j > 0 else (RED if (r, j) == (2, 1) else
+                                                                 (ORANGE if (r, j) == (2, 2) else None)))
+    lv_text(ax, LV_W / 2, 420, "Yp.grad " + M + "1.72 = 1 × 0.2 × (" + M + "8.6) × 1", color=ORANGE)
+    lv_text(ax, LV_W / 2, 480, "W.grad " + M + "8.6 = " + M + "1.72 × 5", color=GREEN)
+    return image(fig)
+
+
+@figure("4c-21", 520, 280)
+def levels_4c2_7():
+    return levels_4c2(7)
+
+
+@figure("4c-22", 520, 280)
+def levels_4c2_15():
+    return levels_4c2(15)
+
+
+@figure("4c-23", 520, 280)
+def levels_4c2_20():
+    return levels_4c2(20)
+
+
+# 4d/5 XOR 와 은닉층
+
+def levels_4d5(level):
+    xor = [0, 1, 1, 0]
+    assert [a ^ c for a, c in STEP4] == xor
+    if level == 7:
+        plt, fig = lv_fig()
+        for k, rect in enumerate(([0.05, 0.08, 0.40, 0.74], [0.55, 0.08, 0.40, 0.74])):
+            ax = fig.add_axes(rect)
+            ax.set_xlim(-0.45, 1.45)
+            ax.set_ylim(-0.45, 1.45)
+            ax.set_aspect("equal")
+            ax.axis("off")
+            if k == 0:
+                xs_ = np.array([-0.45, 1.45])
+                ax.plot(xs_, 0.5 - xs_, color=ORANGE, lw=4)
+                ax.plot([1], [1], "o", ms=46, mfc="none", mec=RED, mew=4, zorder=6)
+                fig.text(0.25, 0.9, "직선 하나", fontsize=24, color=INK, ha="center")
+            else:
+                xs_ = np.array([-0.45, 1.45])
+                ax.fill_between(xs_, 0.5 - xs_, 1.5 - xs_, color=BLUE_P, zorder=0)
+                ax.plot(xs_, 0.5 - xs_, color=ORANGE, lw=4)
+                ax.plot(xs_, 1.5 - xs_, color=ORANGE, lw=4)
+                fig.text(0.75, 0.9, "직선 둘", fontsize=24, color=INK, ha="center")
+            for (a, c), out in zip(STEP4, xor):
+                if out:
+                    ax.plot([a], [c], "o", ms=30, color=BLUE, zorder=5)
+                else:
+                    ax.plot([a], [c], "o", ms=30, mfc="white", mec=MUTED, mew=3.5, zorder=5)
+                ax.text(a, c, str(out), fontsize=24, color="white" if out else INK, ha="center", va="center", zorder=7,
+                        weight="bold")
+        return image(fig)
+    if level == 15:
+        plt, fig = lv_fig()
+        fig.text(0.5, 0.95, "s = x1 + x2", fontsize=24, color=INK, ha="center", va="center")
+        ss = np.linspace(-0.3, 2.3, 400)
+        rows = [("h1", (ss - 0.5 > 0).astype(float), PURPLE), ("h2", (-ss + 1.5 > 0).astype(float), PURPLE),
+                ("y", (((ss - 0.5 > 0).astype(float) + (-ss + 1.5 > 0).astype(float)) - 1.5 > 0).astype(float), BLUE)]
+        for k, (name, vals, col) in enumerate(rows):
+            ax = fig.add_axes([0.14, 0.66 - k * 0.245, 0.80, 0.17])
+            for side in ("top", "right"):
+                ax.spines[side].set_visible(False)
+            ax.plot(ss, vals, color=col, lw=4)
+            for s in (0, 1, 2):
+                v = {"h1": int(s - 0.5 > 0), "h2": int(-s + 1.5 > 0), "y": int(s == 1)}[name]
+                ax.plot([s], [v], "o", color=col, ms=12, zorder=5)
+            for t in (0.5, 1.5):
+                ax.axvline(t, color=ORANGE, lw=2.5, ls="--")
+            ax.set_xlim(-0.3, 2.3)
+            ax.set_ylim(-0.3, 1.4)
+            ax.set_yticks([0, 1])
+            ax.tick_params(labelsize=LV_FONT, colors=MUTED)
+            ax.set_xticks([0, 0.5, 1, 1.5, 2] if k == 2 else [])
+            if k == 2:
+                ax.set_xticklabels(["0", "0.5", "1", "1.5", "2"])
+                ax.set_xlabel("s", fontsize=LV_FONT, color=INK, labelpad=2)
+            fig.text(0.06, 0.66 - k * 0.245 + 0.085, name, fontsize=24, color=col, ha="center", va="center", weight="bold")
+        assert [int(s == 1) for s in (0, 1, 2)] == [0, 1, 0]
+        return image(fig)
+    # 20살: 입력 네 개를 한 번에
+    P = np.array(STEP4, float)
+    W1 = np.array([[1.0, 1.0], [-1.0, -1.0]])
+    b1 = np.array([-0.5, 1.5])
+    z1 = P @ W1.T + b1
+    h = (z1 > 0).astype(int)
+    yv = (h.sum(1) - 1.5 > 0).astype(int)
+    assert yv.tolist() == xor and h.tolist() == [[0, 1], [1, 1], [1, 1], [1, 0]]
+    rows = [["x", "z", "h", "y"]]
+    for i in range(4):
+        rows.append(["%d, %d" % STEP4[i], ", ".join(num(v) for v in z1[i]), "%d, %d" % tuple(h[i]), str(yv[i])])
+    assert rows[1][1] == M + "0.5, 1.5" and rows[4][1] == "1.5, " + M + "0.5"
+    fig, ax = lv_canvas()
+    lv_text(ax, LV_W / 2, 44, "h = (x @ W1.t() + b1 > 0).float()", mono=True)
+    widths = [170, 260, 170, 110]
+    lv_table(ax, (LV_W - sum(widths)) / 2, 90, rows, widths, ch=72,
+             fills=lambda r, j: PURPLE_L if j == 2 and r > 0 else (BLUE_P if j == 3 and r > 0 and rows[r][3] == "1" else None),
+             colors=lambda r, j: PURPLE if j == 2 and r > 0 else (BLUE if j == 3 and r > 0 and rows[r][3] == "1" else None))
+    lv_text(ax, LV_W / 2, 480, "x [4, 2]  @  W1.t() [2, 2]  →  z, h [4, 2]  →  y [4]", color=MUTED)
+    return image(fig)
+
+
+@figure("4d-51", 520, 280)
+def levels_4d5_7():
+    return levels_4d5(7)
+
+
+@figure("4d-52", 520, 280)
+def levels_4d5_15():
+    return levels_4d5(15)
+
+
+@figure("4d-53", 520, 280)
+def levels_4d5_20():
+    return levels_4d5(20)
+
+
+# 4e/4 기울기 소실
+
+def levels_4e4(level):
+    assert dsig(0) == 0.25 and num(float(dsig(2)), 4) == "0.105"
+    if level == 7:
+        vals = [1, 0.25, 0.0625, 0.015625]
+        assert all(abs(vals[k] - 0.25 ** k) < 1e-15 for k in range(4)) and 0.25 ** 4 < 0.01 < 0.25 ** 3
+        plt, fig = lv_fig()
+        ax = fig.add_axes([0.06, 0.14, 0.88, 0.80])
+        for side in ("top", "right", "left"):
+            ax.spines[side].set_visible(False)
+        ax.bar(range(4), vals, width=0.6, color=ORANGE_L, edgecolor=ORANGE, lw=2.5)
+        for k, v in enumerate(vals):
+            ax.text(k, v + 0.03, num(v, 6), fontsize=24, color=INK, ha="center", va="bottom")
+        ax.text(4, 0.16, "?", fontsize=34, color=INK, ha="center", va="bottom", weight="bold")
+        ax.axhline(0.01, color=MUTED, lw=2.5, ls="--")
+        ax.text(4.48, 0.03, "0.01", fontsize=24, color=MUTED, ha="right", va="bottom")
+        ax.set_xlim(-0.5, 4.5)
+        ax.set_ylim(0, 1.18)
+        ax.set_yticks([])
+        ax.set_xticks(range(5))
+        ax.set_xticklabels(["처음", "한 번", "두 번", "세 번", "네 번"])
+        ax.tick_params(labelsize=24, colors=INK)
+        return image(fig)
+    if level == 15:
+        d2 = 0.1050
+        rows = [["", "시그모이드 x = 0", "시그모이드 x = 2", "ReLU x = 2"]]
+        for n, name in ((1, "한 번"), (2, "두 번"), (3, "세 번")):
+            rows.append([name, num(0.25 ** n, 6), "%.4f" % (d2 ** n), "1"])
+        assert [r[2] for r in rows[1:]] == ["0.1050", "0.0110", "0.0012"]
+        assert [r[1] for r in rows[1:]] == ["0.25", "0.0625", "0.015625"]
+        fig, ax = lv_canvas()
+        fig.text(0.5, 0.92, "곱 = (첫째 미분값) × (둘째 미분값) × … × (n째 미분값)", fontsize=LV_FONT, color=INK, ha="center",
+                 va="center")
+        widths = [130, 280, 280, 200]
+        lv_table(ax, (LV_W - sum(widths)) / 2, 110, rows, widths, ch=76,
+                 colors=lambda r, j: ORANGE if r > 0 and j > 0 else None)
+        lv_text(ax, LV_W / 2, 470, "모든 층의 입력이 같다고 두고 가중치는 뺌", color=MUTED)
+        return image(fig)
+    # 20살: x = 0 에서 시그모이드 세 번
+    v = 0.0
+    rows = [["층", "입력", "σ(입력)", "σ'(입력)", "곱"]]
+    prod = 1.0
+    for k in range(3):
+        s_, d_ = float(sig(v)), float(dsig(v))
+        prod *= d_
+        rows.append([str(k + 1), num(v, 4), num(s_, 4), "%.4f" % d_ if k else num(d_, 4), num(prod, 4)])
+        v = s_
+    assert [r[4] for r in rows[1:]] == ["0.25", "0.0588", "0.0134"] and [r[3] for r in rows[1:]] == ["0.25", "0.2350", "0.2273"]
+    assert prod < 0.25 ** 3
+    fig, ax = lv_canvas()
+    lv_text(ax, LV_W / 2, 44, "for _ in range(3): h = torch.sigmoid(h)", mono=True)
+    widths = [100, 170, 200, 200, 170]
+    lv_table(ax, (LV_W - sum(widths)) / 2, 90, rows, widths, ch=72,
+             fills=lambda r, j: ORANGE_L if (r, j) == (3, 4) else None,
+             colors=lambda r, j: BLUE if j == 2 and r > 0 else (ORANGE if j in (3, 4) and r > 0 else None))
+    lv_text(ax, LV_W / 2, 430, "상한 0.25³ = 0.015625", color=MUTED, math=True)
+    lv_text(ax, LV_W / 2, 490, "x.grad = tensor(0.0134)", color=ORANGE, mono=True)
+    return image(fig)
+
+
+@figure("4e-41", 520, 280)
+def levels_4e4_7():
+    return levels_4e4(7)
+
+
+@figure("4e-42", 520, 280)
+def levels_4e4_15():
+    return levels_4e4(15)
+
+
+@figure("4e-43", 520, 280)
+def levels_4e4_20():
+    return levels_4e4(20)
+
+
+# 4h/4 정밀도와 재현율
+
+def levels_4h4(level):
+    y_true = (Y > 0).astype(int)
+    y_pred = (YP > 0).astype(int)
+    assert y_true.tolist() == [0, 1, 0, 1, 0] and y_pred.tolist() == [0, 1, 1, 1, 0]
+    tp = int((y_true * y_pred).sum())
+    assert tp == 2 and y_pred.sum() == 3 and y_true.sum() == 2
+    if level == 7:
+        fig, ax = lv_canvas()
+        xs = [140 + k * 190 for k in range(5)]
+        lv_box(ax, xs[1] - 85, 150, xs[3] - xs[1] + 170, 200, fc="white", ec=YELLOW_B, lw=5)
+        lv_text(ax, (xs[1] + xs[3]) / 2, 112, "직선이 무겁다고 고른 사람", size=24, color=INK)
+        from matplotlib.patches import Circle
+        for k, x0 in enumerate(xs):
+            heavy = bool(y_true[k])
+            ax.add_patch(Circle((x0, 250), 58, fc=INK if heavy else "white", ec=INK, lw=3, zorder=3))
+            lv_text(ax, x0, 250, "사람 %d" % (k + 1), size=22, color="white" if heavy else INK, bold=heavy)
+            if heavy:
+                lv_text(ax, x0, 400, "실제로\n무거움", size=24, color=INK)
+        return image(fig)
+    if level == 15:
+        plt, fig = lv_fig()
+        fig.text(0.5, 0.94, "정밀도 = TP ÷ (TP + FP),  재현율 = TP ÷ (TP + FN)", fontsize=LV_FONT, color=INK, ha="center",
+                 va="center")
+        ax = lv_axes(fig, [0.12, 0.14, 0.64, 0.68])
+        prec, rec = tp / 3, tp / 2
+        assert num(prec, 3) == "0.667" and rec == 1
+        ax.bar([0 - 0.18, 1 - 0.18], [prec, rec], width=0.32, color=BLUE)
+        ax.bar([1 + 0.18], [1.0], width=0.32, color="#9ca3af")
+        ax.text(0 + 0.18, 0.06, "?", fontsize=34, color=INK, ha="center", va="bottom", weight="bold")
+        ax.text(-0.18, prec + 0.03, "0.667", fontsize=LV_FONT, color=INK, ha="center", va="bottom")
+        ax.text(1 - 0.18, rec + 0.03, "1", fontsize=LV_FONT, color=INK, ha="center", va="bottom")
+        ax.text(1 + 0.18, 1.03, "1", fontsize=LV_FONT, color=INK, ha="center", va="bottom")
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["정밀도", "재현율"])
+        ax.set_ylim(0, 1.22)
+        ax.set_xlim(-0.6, 1.6)
+        lv_ticks(ax, ys=[0, 0.5, 1], nd=1)
+        fig.text(0.79, 0.62, "직선", fontsize=LV_FONT, color=BLUE, ha="left", weight="bold")
+        fig.text(0.79, 0.50, "모두 양성", fontsize=LV_FONT, color=MUTED, ha="left", weight="bold")
+        return image(fig)
+    # 20살: 사람마다 y_true, y_pred, 곱
+    fig, ax = lv_canvas()
+    lv_text(ax, LV_W / 2, 44, "tp = (y_pred * y_true).sum()", mono=True)
+    prod = (y_pred * y_true).tolist()
+    rows = [["", "1", "2", "3", "4", "5", "합"],
+            ["y_true"] + [str(v) for v in y_true] + [str(int(y_true.sum()))],
+            ["y_pred"] + [str(v) for v in y_pred] + [str(int(y_pred.sum()))],
+            ["곱"] + [str(v) for v in prod] + [str(tp)]]
+    widths = [170, 100, 100, 100, 100, 100, 110]
+
+    def fill(r, j):
+        if r == 3 and 1 <= j <= 5 and prod[j - 1]:
+            return GREEN_L
+        if r == 2 and j == 3:
+            return RED_L
+        return None
+
+    lv_table(ax, (LV_W - sum(widths)) / 2, 90, rows, widths, ch=70, fills=fill, mono_cols=(0,),
+             colors=lambda r, j: GREEN if fill(r, j) == GREEN_L else (RED if fill(r, j) == RED_L else None))
+    lv_text(ax, LV_W / 2, 420, "정밀도 tp / y_pred.sum() = 2 ÷ 3 = 0.6667", color=INK)
+    lv_text(ax, LV_W / 2, 480, "재현율 tp / y_true.sum() = 2 ÷ 2 = 1", color=INK)
+    return image(fig)
+
+
+@figure("4h-41", 520, 280)
+def levels_4h4_7():
+    return levels_4h4(7)
+
+
+@figure("4h-42", 520, 280)
+def levels_4h4_15():
+    return levels_4h4(15)
+
+
+@figure("4h-43", 520, 280)
+def levels_4h4_20():
+    return levels_4h4(20)
+
+
 if __name__ == "__main__":
     from tools.ai_art import render
     rows = render("l04", sys.argv[1:] or None)

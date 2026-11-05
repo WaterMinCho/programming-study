@@ -1144,6 +1144,418 @@ def fstring_png():
     return save_png("1g-5", to_image(fig))
 
 
+# 세 수준으로 다시 보기 블록 그림. 크기·글자·여백은 tools/ai_art/levels.py 를 따름(화면 520×280, 파일 1040×560, 글자 22 이상).
+# levels 의 그리기 함수는 setup() 으로 rcParams 를 바꾸므로 같은 크기의 캔버스를 여기서 만들어, 같은 실행에서 그리는 단원 그림이
+# 바뀌지 않게 함. 좌표는 논리 px(왼쪽 아래 0, 0). 글자가 캔버스 밖으로 나가거나 서로 겹치는지, 칸 글이 칸을 넘는지 lv_save 가 봄
+
+from tools.ai_art import levels as LV  # noqa: E402
+
+LV_W, LV_H = LV.SIZE
+LV_FONT, LV_BIG, LV_PAD = LV.FONT, LV.BIG, LV.PAD
+LV_CODE, LV_MATH = LV.CODE_FONT, LV.MATH_FONT
+LV_NAME = {7: 1, 15: 2, 20: 3}  # 그림 이름의 수준 번호
+
+
+def lv_canvas():
+    fig = plt.figure(figsize=(LV_W * 2 / 100, LV_H * 2 / 100), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, LV_W)
+    ax.set_ylim(0, LV_H)
+    ax.axis("off")
+    return fig, ax
+
+
+def lv_text(ax, x, y, text, size=LV_FONT, color=INK, ha="center", va="center", family=None, weight="normal"):
+    kw = {"family": family} if family else {}
+    return ax.text(x, y, text, ha=ha, va=va, fontsize=size, color=color, weight=weight, zorder=4, **kw)
+
+
+def lv_cell(ax, x, y, w, h, text="", fc="white", ec=FAINT, color=INK, size=LV_FONT, lw=2.0, ls="-", family=None,
+            weight="normal"):
+    """둥근 칸 하나와 가운데 글. 글이 칸 안에 드는지는 lv_save 가 봄."""
+    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=6", fc=fc, ec=ec, lw=lw, ls=ls, zorder=2))
+    if text == "":
+        return None
+    t = lv_text(ax, x + w / 2, y + h / 2, str(text), size=size, color=color, family=family, weight=weight)
+    t.lv_box = (x, y, w, h)
+    return t
+
+
+def lv_arrow(ax, x1, y1, x2, y2, color=INK, lw=2.5):
+    ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="-|>", mutation_scale=20, color=color, lw=lw, zorder=3))
+
+
+def lv_width(fig, text, size=LV_FONT, family=None):
+    kw = {"family": family} if family else {}
+    piece = fig.text(0, 0, text, fontsize=size, **kw)
+    width = piece.get_window_extent(fig.canvas.get_renderer()).width / 2.0
+    piece.remove()
+    return width
+
+
+def lv_table(fig, ax, top, header, rows, row_h=46, tone=None, fill=None, family=None, size=LV_FONT):
+    """표. header 는 열 머리(첫 칸은 행 머리 열의 머리), rows 의 첫 칸은 행 머리. tone(r, c)·fill(r, c) 는 값 칸(c 는 1부터)의
+    글 색과 바탕. 칸 폭은 그 열에서 가장 긴 글 + 24. 가로 가운데, top 에서 아래로 그림."""
+    table = [header] + rows
+    widths = [max(max(lv_width(fig, str(row[c]), size, family) for row in table) + 24, 64) for c in range(len(header))]
+    total = sum(widths)
+    assert total <= LV_W - 2 * LV_PAD, (header, total)
+    assert top - len(table) * row_h >= LV_PAD - 6, (header, top - len(table) * row_h)
+    left = (LV_W - total) / 2.0
+    for r, row in enumerate(table):
+        x = left
+        for c, text in enumerate(row):
+            head = r == 0 or c == 0
+            fc = GRAY_L if head else (fill(r - 1, c) if fill else "white")
+            color = MUTED if head else (tone(r - 1, c) if tone else INK)
+            lv_cell(ax, x, top - (r + 1) * row_h, widths[c], row_h, text, fc=fc, ec=FAINT, color=color, size=size, lw=1.5,
+                    family=family)
+            x += widths[c]
+    return left, total
+
+
+def lv_save(name, fig):
+    """글자 잘림·겹침과 칸 넘침을 본 뒤 PNG 로 씀. 파일 1040×560."""
+    from matplotlib.text import Text
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    width, height = fig.canvas.get_width_height()
+    boxes = []
+    for t in fig.findobj(Text):
+        if not t.get_visible() or not t.get_text().strip():
+            continue
+        b = t.get_window_extent(renderer)
+        assert b.x0 >= 4 and b.y0 >= 4 and b.x1 <= width - 4 and b.y1 <= height - 4, (name, "잘림", t.get_text())
+        cell = getattr(t, "lv_box", None)
+        if cell:
+            x, y, w, h = cell
+            (cx0, cy0), (cx1, cy1) = t.axes.transData.transform([(x, y), (x + w, y + h)])
+            assert b.x0 >= cx0 + 3 and b.x1 <= cx1 - 3 and b.y0 >= cy0 + 1 and b.y1 <= cy1 - 1, (name, "칸 넘침", t.get_text())
+        boxes.append((t.get_text(), b))
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            a, b = boxes[i][1], boxes[j][1]
+            if a.x0 < b.x1 - 1 and b.x0 < a.x1 - 1 and a.y0 < b.y1 - 1 and b.y0 < a.y1 - 1:
+                raise AssertionError((name, "겹침", boxes[i][0], boxes[j][0]))
+    buf = np.asarray(fig.canvas.buffer_rgba())
+    img = Image.fromarray(buf[..., :3].copy())
+    plt.close(fig)
+    assert img.size == (LV_W * 2, LV_H * 2), (name, img.size)
+    return save_png(name, img)
+
+
+# 1b/4 블록 backward 와 step. 1b 단원 색: 초록은 w, 주황은 기울기, 빨강은 손실, 노랑은 그 줄이 바꾼 칸
+
+def lv_backward_step(level):
+    w0, _, loss0, grad0, w1 = R1A[0]
+    assert (dec(w0), dec(grad0), dec(w1), dec(loss0)) == ("2", M + "4", "2.4", "1")
+    assert w0 - LR1A * grad0 == w1
+    assert (dec(R1A[2][0]), dec(R1A[2][3])) == ("2.48", M + "0.16")  # 7살 물음의 셋째 바퀴
+    fig, ax = lv_canvas()
+    if level == 7:
+        groups = [("처음", dec(w0), "빈 칸", None), ("넷째 줄 뒤", dec(w0), dec(grad0), "grad"),
+                  ("다섯째 줄 뒤", dec(w1), dec(grad0), "w")]
+        gw = 132
+        gap = (LV_W - 2 * LV_PAD - 3 * gw) / 2.0
+        for i, (head, wv, gv, lit) in enumerate(groups):
+            left = LV_PAD + i * (gw + gap)
+            lv_text(ax, left + gw / 2, 238, head)
+            lv_cell(ax, left + 16, 140, 100, 62, wv, fc=HL if lit == "w" else GREEN_L, ec=GREEN, lw=3.5 if lit == "w" else 2.5,
+                    size=LV_BIG, weight="bold" if lit == "w" else "normal")
+            empty = gv == "빈 칸"
+            lv_cell(ax, left + 16, 56, 100, 62, gv, fc=HL if lit == "grad" else ("white" if empty else ORANGE_L), ec=ORANGE,
+                    lw=3.5 if lit == "grad" else 2.5, size=LV_FONT if empty else LV_BIG, color=MUTED if empty else INK,
+                    weight="bold" if lit == "grad" else "normal")
+            if i < 2:
+                lv_arrow(ax, left + gw + 4, 129, left + gw + gap - 4, 129)
+    elif level == 15:
+        lv_text(ax, LV_W / 2, 250, "새 w = 2 %s 0.1 × (%s4) = 2.4" % (M, M), family=LV_MATH)
+        rows = [["다섯 줄 모두 · w"] + [dec(r[0]) for r in R1A],
+                ["다섯 줄 모두 · 손실"] + [dec(r[2]) for r in R1A],
+                ["넷째 줄까지 · w"] + [dec(w0)] * 3]  # 다섯째 줄을 빼면 w 는 바뀌지 않고 손실은 바퀴마다 1(15살 물음)
+        assert rows[0][1:] == ["2", "2.4", "2.48"] and rows[1][1:] == ["1", "0.04", "0.0016"]
+        assert (X1A * w0 - T1A) ** 2 == 1
+        lv_table(fig, ax, 222, ["", "1바퀴", "2바퀴", "3바퀴"], rows, row_h=46, tone=lambda r, c: RED if r == 1 else GREEN)
+    else:
+        lv_text(ax, LV_W / 2, 250, "한 바퀴 안에서 zero_grad() 를 두는 자리", family=LV_CODE)
+        rows = [["맨 앞", dec(grad0), dec(w1)], ["step() 뒤", dec(grad0), dec(w1)], ["backward()와 step() 사이", "None", dec(w0)]]
+        lv_table(fig, ax, 222, ["zero_grad() 자리", "step() 때 w.grad", "바퀴 뒤 w"], rows, row_h=46, family=LV_CODE,
+                 tone=lambda r, c: MUTED if rows[r][c] == "None" else (ORANGE if c == 1 else GREEN))
+    return lv_save("1b-4%d" % LV_NAME[level], fig)
+
+
+@figure("1b-41")
+def lv_1b41():
+    return lv_backward_step(7)
+
+
+@figure("1b-42")
+def lv_1b42():
+    return lv_backward_step(15)
+
+
+@figure("1b-43")
+def lv_1b43():
+    return lv_backward_step(20)
+
+
+# 1c/3 블록 참조. 1c 단원 색: 보라는 x 와 같은 배열을 가리키는 이름 y 와 y 로 읽은 값, 노랑은 바뀐 칸. 처음 만든 이름 x 는 검정
+
+def lv_reference(level):
+    x = np.array([5, 7, 9])
+    y = x
+    before = x.tolist()
+    x[0] = 100
+    assert y is x and y.tolist() == [100, 7, 9] and before == [5, 7, 9]
+    assert sum(before) == 21 and sum(y.tolist()) == 116
+    fig, ax = lv_canvas()
+    if level == 7:
+        z = np.array([5, 7, 9])
+        z2 = z
+        z2[1] = 0
+        assert z.tolist()[1] == 0  # 7살 물음
+        pw = 228
+        gap = LV_W - 2 * LV_PAD - 2 * pw
+        for i, (head, vals) in enumerate((("바꾸기 전", before), ("바꾼 뒤", y.tolist()))):
+            x0 = LV_PAD + i * (pw + gap)
+            ax.add_patch(FancyBboxPatch((x0, 24), pw, 196, boxstyle="round,pad=0,rounding_size=8", fc=GRAY_L, ec=FAINT, lw=1.5,
+                                        zorder=1))
+            lv_text(ax, x0 + pw / 2, 244, head)
+            lv_cell(ax, x0 + 12, 150, 70, 44, "이름표", fc="white", ec=INK, lw=2.5)
+            lv_cell(ax, x0 + 12, 62, 70, 44, "이름표", fc="white", ec=PURPLE, color=PURPLE, lw=2.5)
+            for k, v in enumerate(vals):
+                lv_cell(ax, x0 + 104 + 38 * k, 103, 38, 54, str(v), fc=HL if (i == 1 and k == 0) else "white", ec=INK, lw=2.0,
+                        size=24)
+            lv_arrow(ax, x0 + 84, 168, x0 + 102, 144, color=INK)
+            lv_arrow(ax, x0 + 84, 88, x0 + 102, 116, color=PURPLE)
+    elif level == 15:
+        z = np.array([5, 7, 9])
+        z2 = z
+        z3 = z2
+        z3[1] = 0
+        assert int(z.sum()) == 14  # 15살 물음
+        lv_text(ax, LV_W / 2, 250, "y의 합 = 100 + 7 + 9 = 116", family=LV_MATH)
+        rows = [["x에 5, 7, 9 를 담음", "1", "1", "없음"], ["y = x", "1", "2", str(sum(before))],
+                ["x로 첫 칸을 100 으로", "1", "2", str(sum(y.tolist()))]]
+        lv_table(fig, ax, 222, ["실행한 줄", "배열 수", "이름 수", "y로 구한 합"], rows, row_h=48,
+                 tone=lambda r, c: (MUTED if rows[r][c] == "없음" else PURPLE) if c == 3 else INK,
+                 fill=lambda r, c: HL if (r, c) == (2, 3) else "white")
+    else:
+        x = np.array([5, 7, 9])
+        y = x
+        rows = [["y = x", str(y is x), " ".join(map(str, x)), " ".join(map(str, y))]]
+        y += 1
+        rows.append(["y += 1", str(y is x), " ".join(map(str, x)), " ".join(map(str, y))])
+        y = y + 1
+        rows.append(["y = y + 1", str(y is x), " ".join(map(str, x)), " ".join(map(str, y))])
+        assert rows == [["y = x", "True", "5 7 9", "5 7 9"], ["y += 1", "True", "6 8 10", "6 8 10"],
+                        ["y = y + 1", "False", "6 8 10", "7 9 11"]]
+        x2 = np.array([5, 7, 9])
+        y2 = x2
+        y2 *= 2
+        assert x2[0] == 10  # 20살 물음
+        lv_text(ax, LV_W / 2, 250, "x = np.array([5, 7, 9])", family=LV_CODE)
+        changed = {(1, 2), (1, 3), (2, 3)}
+        lv_table(fig, ax, 222, ["실행한 줄", "y is x", "x", "y"], rows, row_h=48, family=LV_CODE,
+                 tone=lambda r, c: PURPLE if (c == 3 and r < 2) else INK, fill=lambda r, c: HL if (r, c) in changed else "white")
+    return lv_save("1c-3%d" % LV_NAME[level], fig)
+
+
+@figure("1c-31")
+def lv_1c31():
+    return lv_reference(7)
+
+
+@figure("1c-32")
+def lv_1c32():
+    return lv_reference(15)
+
+
+@figure("1c-33")
+def lv_1c33():
+    return lv_reference(20)
+
+
+# 1d/3 블록 미분값. 1d 단원 색: 파랑은 순전파(넣는 수에서 나오는 수로), 주황은 기울기와 접선, 노랑은 출력
+
+def lv_loss(w):
+    """1a 단원의 손실 (2w − 5)^2."""
+    return (X1A * w - T1A) ** 2
+
+
+def lv_derivative(level):
+    a, b = Fraction(3), Fraction(3001, 1000)
+    assert f2x(a) == 20 and f2x(b) == Fraction(20012002, 1000000)
+    assert round(float((f2x(b) - f2x(a)) / (b - a)), 3) == 12.002
+    assert round(float((f2x(Fraction(2001, 1000)) - f2x(2)) / Fraction(1, 1000)), 3) == 8.002  # 7살 물음 약 8
+    assert lv_loss(2) == 1 and lv_loss(Fraction(2001, 1000)) == Fraction(996004, 1000000)
+    fig, ax = lv_canvas()
+    if level == 7:
+        assert dec(f2x(b), 3) == "20.012"
+        lv_text(ax, LV_PAD, 196, "넣는 수", ha="left")
+        lv_text(ax, LV_PAD, 84, "나오는 수", ha="left")
+        lv_cell(ax, 128, 170, 74, 52, "3", ec=INK, size=LV_BIG)
+        lv_cell(ax, 250, 170, 100, 52, dec(b), ec=INK, size=LV_BIG)
+        lv_cell(ax, 128, 58, 74, 52, "20", fc=HL, ec=INK, size=LV_BIG)
+        lv_cell(ax, 250, 58, 100, 52, dec(f2x(b), 3), fc=HL, ec=INK, size=LV_BIG)
+        lv_arrow(ax, 206, 196, 246, 196)
+        lv_arrow(ax, 206, 84, 246, 84)
+        lv_arrow(ax, 165, 166, 165, 114, color=BLUE)
+        lv_arrow(ax, 300, 166, 300, 114, color=BLUE)
+        lv_text(ax, 362, 196, "0.001 커짐", ha="left")
+        lv_text(ax, 362, 84, "0.012 커짐", ha="left")
+        lv_arrow(ax, 368, 180, 368, 100, color=ORANGE)
+        lv_text(ax, 380, 140, "12배쯤", ha="left", color=ORANGE, weight="bold")
+    elif level == 15:
+        assert lv_loss(Fraction(21, 10)) == Fraction(64, 100) and 1 + (-4) * Fraction(1, 10) == Fraction(6, 10)
+        assert 1 - lv_loss(Fraction(21, 10)) == Fraction(36, 100)
+        assert (-4) * Fraction(5, 100) == Fraction(-2, 10) and 1 - lv_loss(Fraction(205, 100)) == Fraction(19, 100)  # 15살 물음
+        lv_text(ax, LV_W / 2, 256, "손실이 바뀌는 양 ≈ %s4 × 0.1 = %s0.4" % (M, M), family=LV_MATH)
+        g = fig.add_axes([0.2, 0.2, 0.72, 0.6])
+        ws = np.linspace(1.9, 2.25, 120)
+        g.plot(ws, (2 * ws - 5) ** 2, color=INK, lw=3)
+        tw = np.array([1.93, 2.2])
+        g.plot(tw, 1 - 4 * (tw - 2), color=ORANGE, lw=3)
+        g.plot([2], [1], "o", ms=11, color=INK, zorder=5)
+        g.plot([2.1], [0.64], "o", ms=11, color=INK, zorder=5)
+        g.plot([2.1], [0.6], "o", ms=11, color=ORANGE, zorder=5)
+        g.annotate("w = 2, 손실 1", (2, 1), xytext=(14, 8), textcoords="offset points", ha="left", va="bottom", fontsize=LV_FONT,
+                   color=INK)
+        g.annotate("실제 0.64", (2.1, 0.64), xytext=(14, 4), textcoords="offset points", ha="left", va="bottom",
+                   fontsize=LV_FONT, color=INK)
+        g.annotate("어림 0.6", (2.1, 0.6), xytext=(-14, -6), textcoords="offset points", ha="right", va="top",
+                   fontsize=LV_FONT, color=ORANGE)
+        g.set_xlim(1.88, 2.27)
+        g.set_ylim(0, 1.6)
+        g.xaxis.set_major_locator(FixedLocator([1.9, 2.0, 2.1, 2.2]))
+        g.yaxis.set_major_locator(FixedLocator([0, 0.5, 1.0, 1.5]))
+        g.xaxis.set_major_formatter(FuncFormatter(lambda v, _: dec(v, 2)))
+        g.yaxis.set_major_formatter(FuncFormatter(lambda v, _: dec(v, 2)))
+        g.tick_params(labelsize=LV_FONT, colors=MUTED)
+        g.set_xlabel("w", fontsize=LV_FONT, color=INK, labelpad=2)
+        g.set_ylabel("손실", fontsize=LV_FONT, color=INK, labelpad=8)
+        tidy(g)
+    else:
+        rows = []
+        for h in (Fraction(1), Fraction(1, 10), Fraction(1, 100), Fraction(1, 1000)):
+            ratio = (lv_loss(2 + h) - lv_loss(2)) / h
+            assert ratio == 4 * h - 4
+            rows.append([dec(h), dec(ratio)])
+        assert [r[1] for r in rows] == ["0", M + "3.6", M + "3.96", M + "3.996"]
+        assert f2x(4) - f2x(3) == 14  # 20살 물음
+        rows.append(["0 에 다가감", M + "4 에 다가감"])
+        lv_text(ax, LV_W / 2, 252, "(L(2 + h) - L(2)) / h", family=LV_CODE)
+        lv_table(fig, ax, 232, ["h", "비율"], rows, row_h=34, family=LV_CODE, tone=lambda r, c: ORANGE if r == 4 else INK)
+    return lv_save("1d-3%d" % LV_NAME[level], fig)
+
+
+@figure("1d-31")
+def lv_1d31():
+    return lv_derivative(7)
+
+
+@figure("1d-32")
+def lv_1d32():
+    return lv_derivative(15)
+
+
+@figure("1d-33")
+def lv_1d33():
+    return lv_derivative(20)
+
+
+# 1f/3 블록 __init__과 self. 1f 단원 색: 검은 점은 지금 자리, 노랑은 결과로 바뀐 값, 빨강은 오류(이 블록에서 더함)
+
+class LvPoint:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def move(self, dx, dy):
+        self.x += dx
+        self.y += dy
+
+    def coord(self):
+        return (self.x, self.y)
+
+
+class LvBad:
+    """착각 칸의 __init__. self.x 대신 지역 이름 x 에 대입함."""
+
+    def __init__(self, x, y):
+        x = x  # noqa: F841
+        self.y = y
+
+    def move(self, dx, dy):
+        self.x += dx
+        self.y += dy
+
+
+def lv_self(level):
+    p, q = LvPoint(2, 3), LvPoint(2, 3)
+    p.move(1, -1)
+    assert p.coord() == (3, 2) and q.coord() == (2, 3)
+    fig, ax = lv_canvas()
+    if level == 7:
+        q.move(1, -1)
+        assert p.coord() == (3, 2)  # 7살 물음: 둘째 점을 옮긴 뒤 첫째 점의 가로 3
+        g = fig.add_axes([0.3, 0.17, 0.42, 0.78])
+        g.set_xlim(-0.4, 4.6)
+        g.set_ylim(-0.4, 4.6)
+        g.xaxis.set_major_locator(FixedLocator(range(5)))
+        g.yaxis.set_major_locator(FixedLocator(range(5)))
+        g.tick_params(labelsize=LV_FONT, colors=MUTED)
+        g.set_xlabel("가로", fontsize=LV_FONT, color=INK, labelpad=2)
+        g.set_ylabel("세로", fontsize=LV_FONT, color=INK, labelpad=6)
+        tidy(g)
+        g.add_patch(FancyArrowPatch((2, 3), (3, 2), arrowstyle="-|>", mutation_scale=20, color=INK, lw=2.5, shrinkA=9, shrinkB=9,
+                                    zorder=4))
+        g.plot([2, 3], [3, 2], "o", ms=13, color=INK, zorder=5)
+        g.annotate("둘째 점", (2, 3), xytext=(-12, 8), textcoords="offset points", ha="right", va="bottom", fontsize=LV_FONT,
+                   color=INK)
+        g.annotate("첫째 점", (3, 2), xytext=(12, -4), textcoords="offset points", ha="left", va="top", fontsize=LV_FONT,
+                   color=INK)
+    elif level == 15:
+        p.move(1, -1)
+        q.move(-2, 4)
+        assert q.y == 7  # 15살 물음
+        lv_text(ax, LV_W / 2, 250, "p의 x = 2 + 1 = 3, p의 y = 3 + (%s1) = 2" % M, family=LV_MATH)
+        rows = [["p", "2, 3", "3, 2"], ["q", "2, 3", "2, 3"]]
+        lv_table(fig, ax, 206, ["", "만든 뒤 x, y", "p로 move를 부른 뒤 x, y"], rows, row_h=54,
+                 fill=lambda r, c: HL if (r, c) == (0, 2) else "white")
+    else:
+        q3 = LvPoint(2, 3)
+        LvPoint.move(q3, 0, 5)
+        assert q3.coord() == (2, 8)  # 20살 물음
+        bad = LvBad(2, 3)
+        assert not hasattr(bad, "x") and bad.y == 3
+        try:
+            bad.move(1, -1)
+            raise AssertionError("AttributeError 가 나야 함")
+        except AttributeError as error:
+            assert str(error) == "'LvBad' object has no attribute 'x'"
+        lv_text(ax, LV_W / 2, 250, "__init__ 첫 줄에 따른 결과", family=LV_CODE)
+        rows = [["Point(2, 3) 뒤 속성", "x 2, y 3", "y 3"], ["move(1, -1)", "(3, 2)", "AttributeError"]]
+        lv_table(fig, ax, 214, ["", "self.x = x", "x = x"], rows, row_h=56, family=LV_CODE,
+                 tone=lambda r, c: RED if rows[r][c] == "AttributeError" else INK)
+    return lv_save("1f-3%d" % LV_NAME[level], fig)
+
+
+@figure("1f-31")
+def lv_1f31():
+    return lv_self(7)
+
+
+@figure("1f-32")
+def lv_1f32():
+    return lv_self(15)
+
+
+@figure("1f-33")
+def lv_1f33():
+    return lv_self(20)
+
+
 def main(argv):
     os.makedirs(OUT, exist_ok=True)
     names = argv or sorted(FIGS)
