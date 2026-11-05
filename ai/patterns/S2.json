@@ -1,0 +1,195 @@
+{
+  "format": 1,
+  "id": "S2",
+  "title": "학습과 평가 루프",
+  "tags": [
+    "평가 루프"
+  ],
+  "prio": 3,
+  "ref": [
+    "10차시 노트북 01 [16]",
+    "14차시 노트북 02 [19]"
+  ],
+  "variants": {
+    "평가": {
+      "situation": "loader는 비어 있지 않고, x와 y는 모델과 다른 장치에서 들어옵니다. 각 배치에서 x는 float32[배치, 특징], y는 0~2의 long[배치]입니다. 모델은 device에 있고 [배치, 3] 로짓을 내며 criterion은 가중치와 무시할 라벨을 쓰지 않는 CrossEntropyLoss입니다.",
+      "lines": [
+        "def evaluate(model, loader):",
+        "    model.eval()",
+        "    loss_sum, correct, total = 0.0, 0, 0",
+        "    with torch.no_grad():",
+        "        for x, y in loader:",
+        "            x = x.to(device)",
+        "            y = y.to(device)",
+        "            out = model(x)",
+        "            loss = criterion(out, y)",
+        "            loss_sum += loss.item() * y.size(0)",
+        "            correct += (out.argmax(1) == y).sum().item()",
+        "            total += y.size(0)",
+        "    return loss_sum / total, correct / total"
+      ]
+    },
+    "학습": {
+      "situation": "비어 있지 않은 loader의 x는 float32[배치, 특징], y는 0~2의 long[배치]입니다. 모델은 device에서 [배치, 3] 로짓을 내고 criterion은 기본 CrossEntropyLoss이며 opt는 모델 파라미터로 만든 최적화 객체입니다.",
+      "lines": [
+        "def train_one_epoch(model, loader):",
+        "    model.train()",
+        "    loss_sum, correct, total = 0.0, 0, 0",
+        "    for x, y in loader:",
+        "        x = x.to(device)",
+        "        y = y.to(device)",
+        "        opt.zero_grad()",
+        "        out = model(x)",
+        "        loss = criterion(out, y)",
+        "        loss.backward()",
+        "        opt.step()",
+        "        loss_sum += loss.item() * y.size(0)",
+        "        correct += (out.argmax(1) == y).sum().item()",
+        "        total += y.size(0)",
+        "    return loss_sum / total, correct / total"
+      ]
+    }
+  },
+  "slots": [
+    {
+      "variant": "평가",
+      "line": 1,
+      "token": "eval",
+      "answer": [
+        "eval"
+      ],
+      "mode": "code",
+      "hint": "메서드 이름",
+      "line_answer": [
+        "model.eval()",
+        "model.train(False)",
+        "model.train(mode=False)"
+      ],
+      "id": "pc-k07",
+      "step": "18b/2",
+      "facts": [
+        "F18-17"
+      ],
+      "explain": "`eval()`은 Dropout과 배치 정규화를 평가할 때의 동작으로 바꿉니다. 기울기 기록을 끄는 일은 `no_grad()`가 맡습니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-k07",
+      "ref": [
+        "10차시 노트북 01 [16]",
+        "문서 Module.eval"
+      ]
+    },
+    {
+      "variant": "평가",
+      "line": 3,
+      "token": "no_grad",
+      "answer": [
+        "no_grad"
+      ],
+      "mode": "code",
+      "hint": "기울기 기록 문맥",
+      "line_answer": [
+        "with torch.no_grad():"
+      ],
+      "id": "pc-k08",
+      "step": "18b/2",
+      "facts": [
+        "F18-18"
+      ],
+      "explain": "이 평가에서는 역전파하지 않습니다. `no_grad()` 안에서 순전파를 계산하면 역전파용 계산 기록을 만들지 않습니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-k08",
+      "ref": [
+        "10차시 노트북 01 [16]",
+        "문서 Module.eval"
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "variant": "평가",
+      "lines": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "valid": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          0,
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          2,
+          1,
+          3,
+          4
+        ]
+      ],
+      "id": "pc-o02",
+      "step": "18b/3",
+      "facts": [
+        "F18-19"
+      ],
+      "explain": "x를 옮긴 뒤 모델을 부릅니다. 손실을 계산하려면 out과 y가 모두 준비되어야 하며 손실을 구한 뒤에 합에 더합니다.",
+      "core": false,
+      "level": 2,
+      "family": "pc-o02",
+      "ref": [
+        "10차시 노트북 01 [16]",
+        "문서 Module.eval"
+      ]
+    }
+  ],
+  "picks": [
+    {
+      "variant": "평가",
+      "line": 9,
+      "stem": "criterion은 기본 평균을 내는 CrossEntropyLoss이고 클래스 가중치와 무시할 라벨은 없습니다. 배치 크기가 4와 2로 다를 때 데이터 하나당 평균 손실을 구하도록 합을 모으는 줄로 옳은 것을 고르세요.",
+      "wrong": [
+        {
+          "text": "loss_sum += loss.item()",
+          "aim": "배치 평균을 합으로 봅니다",
+          "why": "배치 평균이 0.3과 0.9인 예에서는 그대로 더하면 1.2입니다. 이를 데이터 수 6으로 나누면 0.2입니다. 각 배치의 데이터 수를 곱해 합을 모은 뒤 전체 수로 나눕니다."
+        },
+        {
+          "text": "loss_sum += loss.item() / y.size(0)",
+          "aim": "평균을 한 번 더 나눕니다",
+          "why": "loss.item()은 이미 배치 평균입니다. 데이터 수를 곱해 합을 복구합니다."
+        },
+        {
+          "text": "loss_sum = loss.item() * y.size(0)",
+          "aim": "이전 배치의 합을 지웁니다",
+          "why": "대입하면 마지막 배치의 합만 남습니다. +=로 앞 배치의 합에 이어 더합니다."
+        }
+      ],
+      "id": "pc-p05",
+      "step": "18b/3",
+      "facts": [
+        "F18-19"
+      ],
+      "explain": "배치 평균에 그 배치의 데이터 수를 곱해 손실 합을 모읍니다. 크기가 4와 2인 배치의 평균이 0.3과 0.9이면 전체 평균은 (0.3 × 4 + 0.9 × 2) ÷ 6 = 0.5입니다.",
+      "core": false,
+      "level": 2,
+      "family": "pc-p05",
+      "ref": [
+        "10차시 노트북 01 [16]",
+        "문서 Module.eval"
+      ]
+    }
+  ],
+  "changes": []
+}
