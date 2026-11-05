@@ -255,7 +255,7 @@ def places_18a():
             dot(ax, 5.5, y, PURPLE if ok else RED, r=1.0)
             ax.plot([7.5, 50], [y, y], color=PURPLE if ok else RED, lw=1.4, ls=(0, (4, 3)), zorder=2)
         box(ax, 60, 26, 48, 18, "보라 점 네 곳: 둘 수 있음\n빨간 점: 둘 수 없음", fc="white", ec=LIGHT, size=18, lw=2.0)
-        text(ax, 60, 18, "이번 backward() 앞에서\n지난 기울기가 지워져 있으면 됩니다.", size=16, va="top")
+        text(ax, 60, 18, "이번 backward() 앞에서\n지난 배치의 기울기가 지워져 있으면 됩니다.", size=16, va="top")
         return image(fig)
 
     frames = [frame(*c) for c in cases] + [places()]

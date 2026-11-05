@@ -1,555 +1,556 @@
 {
- "format": 1,
- "id": "S3",
- "title": "전체 배치 학습과 출력·정답·손실",
- "tags": [
-  "전체 배치"
- ],
- "prio": 3,
- "ref": [
-  "7차시 노트북 01 [82]",
-  "8차시 노트북 01 [60]",
-  "9차시 노트북 01 [41]"
- ],
- "variants": {
-  "회귀": {
-   "situation": "x는 CPU의 float32[2, 2]이고 연속값 정답 y는 float32[2]입니다. 데이터 2개를 매번 함께 학습하며 최종 prediction도 [2, 1]의 연속값으로 얻습니다. 출력과 정답의 제곱 차이를 모든 원소에 대해 평균합니다.",
-   "lines": [
-    "model = nn.Linear(2, 1)",
-    "criterion = nn.MSELoss()",
-    "target = y.float().view(-1, 1)",
-    "opt = optim.SGD(model.parameters(), lr=0.05)",
-    "model.train()",
-    "for epoch in range(3):",
-    "    opt.zero_grad()",
-    "    out = model(x)",
-    "    loss = criterion(out, target)",
-    "    loss.backward()",
-    "    opt.step()",
-    "model.eval()",
-    "with torch.no_grad():",
-    "    out = model(x)",
-    "    prediction = out"
-   ]
-  },
-  "이진 확률": {
-   "situation": "x는 CPU의 float32[2, 2]이고 y는 0 또는 1인 float32[2]입니다. 모델의 마지막에서 확률을 만들며 0.5 이상을 클래스 1로 판정합니다. 정답 0·1에 대한 이진 교차 엔트로피를 평균하는 손실을 사용합니다.",
-   "lines": [
-    "model = nn.Sequential(nn.Linear(2, 1), nn.Sigmoid())",
-    "criterion = nn.BCELoss()",
-    "target = y.float().view(-1, 1)",
-    "opt = optim.SGD(model.parameters(), lr=0.05)",
-    "model.train()",
-    "for epoch in range(3):",
-    "    opt.zero_grad()",
-    "    out = model(x)",
-    "    loss = criterion(out, target)",
-    "    loss.backward()",
-    "    opt.step()",
-    "model.eval()",
-    "with torch.no_grad():",
-    "    out = model(x)",
-    "    prediction = (out >= 0.5).long()"
-   ]
-  },
-  "이진 로짓": {
-   "situation": "x는 CPU의 float32[2, 2]이고 y는 0 또는 1인 float32[2]입니다. 모델은 변환 전 로짓을 내며 0 이상을 클래스 1로 판정합니다. Sigmoid 변환과 이진 교차 엔트로피를 하나의 손실에서 계산합니다.",
-   "lines": [
-    "model = nn.Linear(2, 1)",
-    "criterion = nn.BCEWithLogitsLoss()",
-    "target = y.float().view(-1, 1)",
-    "opt = optim.SGD(model.parameters(), lr=0.05)",
-    "model.train()",
-    "for epoch in range(3):",
-    "    opt.zero_grad()",
-    "    out = model(x)",
-    "    loss = criterion(out, target)",
-    "    loss.backward()",
-    "    opt.step()",
-    "model.eval()",
-    "with torch.no_grad():",
-    "    out = model(x)",
-    "    prediction = (out >= 0).long()"
-   ]
-  },
-  "다중 로짓": {
-   "situation": "전체 클래스는 0·1·2이고 x는 CPU의 float32[2, 2], 정답 y는 long[2]의 [0, 2]입니다. 모델은 [2, 3] 로짓을 내며 각 행에서 가장 큰 클래스 번호를 고릅니다. 클래스 번호 정답에 대한 교차 엔트로피 손실을 사용합니다.",
-   "lines": [
-    "model = nn.Linear(2, 3)",
-    "criterion = nn.CrossEntropyLoss()",
-    "target = y.long()",
-    "opt = optim.SGD(model.parameters(), lr=0.05)",
-    "model.train()",
-    "for epoch in range(3):",
-    "    opt.zero_grad()",
-    "    out = model(x)",
-    "    loss = criterion(out, target)",
-    "    loss.backward()",
-    "    opt.step()",
-    "model.eval()",
-    "with torch.no_grad():",
-    "    out = model(x)",
-    "    prediction = out.argmax(1)"
-   ]
-  },
-  "다중 로그확률": {
-   "situation": "전체 클래스는 0·1·2이고 x는 CPU의 float32[2, 2], 정답 y는 long[2]의 [0, 2]입니다. 모델의 마지막에서 [2, 3] 로그확률을 만들며 각 행에서 가장 큰 클래스 번호를 고릅니다. 로그확률에서 정답 클래스 열을 골라 부호를 바꾸고 배치 평균을 구합니다.",
-   "lines": [
-    "model = nn.Sequential(nn.Linear(2, 3), nn.LogSoftmax(dim=1))",
-    "criterion = nn.NLLLoss()",
-    "target = y.long()",
-    "opt = optim.SGD(model.parameters(), lr=0.05)",
-    "model.train()",
-    "for epoch in range(3):",
-    "    opt.zero_grad()",
-    "    out = model(x)",
-    "    loss = criterion(out, target)",
-    "    loss.backward()",
-    "    opt.step()",
-    "model.eval()",
-    "with torch.no_grad():",
-    "    out = model(x)",
-    "    prediction = out.argmax(1)"
-   ]
-  }
- },
- "slots": [
-  {
-   "variant": "회귀",
-   "line": 1,
-   "token": "MSELoss",
-   "answer": [
-    "MSELoss"
-   ],
-   "mode": "code",
-   "hint": "손실 클래스",
-   "line_answer": [
-    "criterion = nn.MSELoss()",
-    "criterion = nn.MSELoss(reduction='mean')",
-    "criterion = nn.MSELoss(reduction=\"mean\")"
-   ],
-   "id": "pc-k11",
-   "step": "18c/2",
-   "facts": [
-    "F18-25"
-   ],
-   "explain": "연속값 출력과 정답의 차이를 제곱해 평균합니다. 이 회귀판의 마지막 층은 확률로 바꾸지 않은 수 하나를 냅니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-k11",
-   "ref": [
+  "format": 1,
+  "id": "S3",
+  "title": "전체 배치 학습과 출력·정답·손실",
+  "tags": [
+    "전체 배치"
+  ],
+  "prio": 3,
+  "ref": [
     "7차시 노트북 01 [82]",
-    "문서 MSELoss"
-   ]
-  },
-  {
-   "variant": "회귀",
-   "line": 2,
-   "token": "view",
-   "answer": [
-    "view"
-   ],
-   "mode": "code",
-   "hint": "메서드 이름",
-   "line_answer": [
-    "target = y.float().view(-1, 1)",
-    "target = y.float().reshape(-1, 1)",
-    "target = y.float().unsqueeze(1)"
-   ],
-   "id": "pc-k12",
-   "step": "18c/3",
-   "facts": [
-    "F18-26"
-   ],
-   "explain": "길이 2인 y를 [2, 1]로 맞춰 같은 데이터끼리 비교합니다. [2, 1] 출력에서 [2] 정답을 빼면 이 예에서는 [2, 2]로 늘어나 다른 데이터끼리도 비교합니다.",
-   "core": false,
-   "level": 2,
-   "family": "pc-p08",
-   "ref": [
-    "7차시 노트북 01 [82]",
-    "문서 MSELoss"
-   ]
-  },
-  {
-   "variant": "이진 로짓",
-   "line": 1,
-   "token": "BCEWithLogitsLoss",
-   "answer": [
-    "BCEWithLogitsLoss"
-   ],
-   "mode": "code",
-   "hint": "손실 클래스",
-   "line_answer": [
-    "criterion = nn.BCEWithLogitsLoss()",
-    "criterion = nn.BCEWithLogitsLoss(reduction='mean')",
-    "criterion = nn.BCEWithLogitsLoss(reduction=\"mean\")"
-   ],
-   "id": "pc-k13",
-   "step": "18d/3",
-   "facts": [
-    "F18-30"
-   ],
-   "explain": "이 손실은 모델이 낸 로짓을 받습니다. 모델 끝에 Sigmoid를 붙이지 않고 손실 안에서 변환과 계산을 함께 처리합니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-k13",
-   "ref": [
     "8차시 노트북 01 [60]",
-    "문서 BCEWithLogitsLoss"
-   ]
-  },
-  {
-   "variant": "이진 확률",
-   "line": 1,
-   "token": "BCELoss",
-   "answer": [
-    "BCELoss"
-   ],
-   "mode": "code",
-   "hint": "손실 클래스",
-   "line_answer": [
-    "criterion = nn.BCELoss()",
-    "criterion = nn.BCELoss(reduction='mean')",
-    "criterion = nn.BCELoss(reduction=\"mean\")"
-   ],
-   "id": "pc-k14",
-   "step": "18d/2",
-   "facts": [
-    "F18-29"
-   ],
-   "explain": "모델이 이미 Sigmoid로 확률을 만들었습니다. BCELoss는 이 확률과 같은 모양의 실수 정답을 받습니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-k14",
-   "ref": [
-    "8차시 노트북 01 [43]",
-    "문서 BCELoss"
-   ]
-  },
-  {
-   "variant": "다중 로짓",
-   "line": 1,
-   "token": "CrossEntropyLoss",
-   "answer": [
-    "CrossEntropyLoss"
-   ],
-   "mode": "code",
-   "hint": "손실 클래스",
-   "line_answer": [
-    "criterion = nn.CrossEntropyLoss()",
-    "criterion = nn.CrossEntropyLoss(reduction='mean')",
-    "criterion = nn.CrossEntropyLoss(reduction=\"mean\")"
-   ],
-   "id": "pc-k15",
-   "step": "18e/2",
-   "facts": [
-    "F18-33"
-   ],
-   "explain": "정답은 클래스 번호이고 모델은 변환 전 로짓을 냅니다. CrossEntropyLoss에 로짓과 long 클래스 번호를 줍니다.",
-   "core": false,
-   "level": 2,
-   "family": "pc-p12",
-   "ref": [
-    "9차시 노트북 01 [41]",
-    "문서 CrossEntropyLoss"
-   ]
-  },
-  {
-   "variant": "다중 로짓",
-   "line": 2,
-   "token": "long",
-   "answer": [
-    "long"
-   ],
-   "mode": "code",
-   "hint": "자료형 변환 이름",
-   "line_answer": [
-    "target = y.long()",
-    "target = y.to(torch.long)",
-    "target = y.to(dtype=torch.long)"
-   ],
-   "id": "pc-k16",
-   "step": "18e/2",
-   "facts": [
-    "F18-33"
-   ],
-   "explain": "클래스 번호 하나로 정답을 나타내는 판에서는 long[배치]를 씁니다. 클래스별 확률을 정답으로 주는 판과 구별합니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-k16",
-   "ref": [
-    "9차시 노트북 01 [41]",
-    "문서 CrossEntropyLoss"
-   ]
-  },
-  {
-   "variant": "다중 로그확률",
-   "line": 1,
-   "token": "NLLLoss",
-   "answer": [
-    "NLLLoss"
-   ],
-   "mode": "code",
-   "hint": "손실 클래스",
-   "line_answer": [
-    "criterion = nn.NLLLoss()",
-    "criterion = nn.NLLLoss(reduction='mean')",
-    "criterion = nn.NLLLoss(reduction=\"mean\")"
-   ],
-   "id": "pc-k17",
-   "step": "18e/3",
-   "facts": [
-    "F18-34"
-   ],
-   "explain": "LogSoftmax를 통과한 로그확률에서 정답 클래스의 값을 골라 부호를 바꾸고 평균합니다.",
-   "core": false,
-   "level": 2,
-   "family": "pc-p13",
-   "ref": [
-    "9차시 노트북 01 [79]",
-    "문서 NLLLoss"
-   ]
-  }
- ],
- "orders": [
-  {
-   "variant": "회귀",
-   "lines": [
-    6,
-    7,
-    8,
-    9,
-    10
-   ],
-   "valid": [
-    [
-     0,
-     1,
-     2,
-     3,
-     4
-    ],
-    [
-     1,
-     0,
-     2,
-     3,
-     4
-    ],
-    [
-     1,
-     2,
-     0,
-     3,
-     4
-    ],
-    [
-     1,
-     2,
-     3,
-     4,
-     0
-    ]
-   ],
-   "id": "pc-o03",
-   "step": "18c/4",
-   "facts": [
-    "F18-01",
-    "F18-27"
-   ],
-   "explain": "순전파 뒤에 손실을 계산하고 손실에서 역전파한 뒤 파라미터를 갱신합니다. 새 모델로 시작하며 기울기를 비우는 줄은 이번 backward 앞 또는 step 뒤에 둘 수 있습니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-o03",
-   "ref": [
-    "7차시 노트북 01 [82]",
-    "문서 MSELoss"
-   ]
-  }
- ],
- "picks": [
-  {
-   "variant": "회귀",
-   "line": 2,
-   "stem": "out은 float32[2, 1]이고 y는 float32[2]입니다. 출력과 같은 모양의 정답을 만들어 같은 데이터끼리 MSE를 계산하는 줄로 옳은 것을 고르세요.",
-   "wrong": [
-    {
-     "text": "target = y.float()",
-     "aim": "정답의 축을 추가하지 않습니다",
-     "why": "[2, 1]과 [2]는 이 예에서 [2, 2]로 늘어나므로 다른 데이터의 값끼리도 비교합니다."
+    "9차시 노트북 01 [41]"
+  ],
+  "variants": {
+    "회귀": {
+      "situation": "x는 CPU의 float32[2, 2]이고 연속값 정답 y는 float32[2]입니다. 데이터 2개를 매번 함께 학습하며 최종 prediction도 [2, 1]의 연속값으로 얻습니다. 출력과 정답의 제곱 차이를 모든 원소에 대해 평균합니다.",
+      "lines": [
+        "model = nn.Linear(2, 1)",
+        "criterion = nn.MSELoss()",
+        "target = y.float().view(-1, 1)",
+        "opt = optim.SGD(model.parameters(), lr=0.05)",
+        "model.train()",
+        "for epoch in range(3):",
+        "    opt.zero_grad()",
+        "    out = model(x)",
+        "    loss = criterion(out, target)",
+        "    loss.backward()",
+        "    opt.step()",
+        "model.eval()",
+        "with torch.no_grad():",
+        "    out = model(x)",
+        "    prediction = out"
+      ]
     },
-    {
-     "text": "target = y.float().view(1, -1)",
-     "aim": "행과 열을 반대로 맞춥니다",
-     "why": "정답이 [1, 2]가 됩니다. 출력 [2, 1]과 같은 모양으로 맞추려면 한 열로 놓습니다."
+    "이진 확률": {
+      "situation": "x는 CPU의 float32[2, 2]이고 y는 0 또는 1인 float32[2]입니다. 모델의 마지막에서 확률을 만들며 0.5 이상을 클래스 1로 판정합니다. 정답 0·1에 대한 이진 교차 엔트로피를 평균하는 손실을 사용합니다.",
+      "lines": [
+        "model = nn.Sequential(nn.Linear(2, 1), nn.Sigmoid())",
+        "criterion = nn.BCELoss()",
+        "target = y.float().view(-1, 1)",
+        "opt = optim.SGD(model.parameters(), lr=0.05)",
+        "model.train()",
+        "for epoch in range(3):",
+        "    opt.zero_grad()",
+        "    out = model(x)",
+        "    loss = criterion(out, target)",
+        "    loss.backward()",
+        "    opt.step()",
+        "model.eval()",
+        "with torch.no_grad():",
+        "    out = model(x)",
+        "    prediction = (out >= 0.5).long()"
+      ]
     },
-    {
-     "text": "target = y.float().repeat(2, 1)",
-     "aim": "모든 정답을 데이터마다 반복합니다",
-     "why": "정답이 [2, 2]가 되어 데이터 하나에 정답 둘을 비교합니다. 정답 수를 늘릴 필요는 없습니다."
+    "이진 로짓": {
+      "situation": "x는 CPU의 float32[2, 2]이고 y는 0 또는 1인 float32[2]입니다. 모델은 변환 전 로짓을 내며 0 이상을 클래스 1로 판정합니다. Sigmoid 변환과 이진 교차 엔트로피를 하나의 손실에서 계산합니다.",
+      "lines": [
+        "model = nn.Linear(2, 1)",
+        "criterion = nn.BCEWithLogitsLoss()",
+        "target = y.float().view(-1, 1)",
+        "opt = optim.SGD(model.parameters(), lr=0.05)",
+        "model.train()",
+        "for epoch in range(3):",
+        "    opt.zero_grad()",
+        "    out = model(x)",
+        "    loss = criterion(out, target)",
+        "    loss.backward()",
+        "    opt.step()",
+        "model.eval()",
+        "with torch.no_grad():",
+        "    out = model(x)",
+        "    prediction = (out >= 0).long()"
+      ]
+    },
+    "다중 로짓": {
+      "situation": "전체 클래스는 0·1·2이고 x는 CPU의 float32[2, 2], 정답 y는 long[2]의 [0, 2]입니다. 모델은 [2, 3] 로짓을 내며 각 행에서 가장 큰 클래스 번호를 고릅니다. 클래스 번호 정답에 대한 교차 엔트로피 손실을 사용합니다.",
+      "lines": [
+        "model = nn.Linear(2, 3)",
+        "criterion = nn.CrossEntropyLoss()",
+        "target = y.long()",
+        "opt = optim.SGD(model.parameters(), lr=0.05)",
+        "model.train()",
+        "for epoch in range(3):",
+        "    opt.zero_grad()",
+        "    out = model(x)",
+        "    loss = criterion(out, target)",
+        "    loss.backward()",
+        "    opt.step()",
+        "model.eval()",
+        "with torch.no_grad():",
+        "    out = model(x)",
+        "    prediction = out.argmax(1)"
+      ]
+    },
+    "다중 로그확률": {
+      "situation": "전체 클래스는 0·1·2이고 x는 CPU의 float32[2, 2], 정답 y는 long[2]의 [0, 2]입니다. 모델의 마지막에서 [2, 3] 로그확률을 만들며 각 행에서 가장 큰 클래스 번호를 고릅니다. 로그확률에서 정답 클래스 열을 골라 부호를 바꾸고 배치 평균을 구합니다.",
+      "lines": [
+        "model = nn.Sequential(nn.Linear(2, 3), nn.LogSoftmax(dim=1))",
+        "criterion = nn.NLLLoss()",
+        "target = y.long()",
+        "opt = optim.SGD(model.parameters(), lr=0.05)",
+        "model.train()",
+        "for epoch in range(3):",
+        "    opt.zero_grad()",
+        "    out = model(x)",
+        "    loss = criterion(out, target)",
+        "    loss.backward()",
+        "    opt.step()",
+        "model.eval()",
+        "with torch.no_grad():",
+        "    out = model(x)",
+        "    prediction = out.argmax(1)"
+      ]
     }
-   ],
-   "id": "pc-p08",
-   "step": "18c/3",
-   "facts": [
-    "F18-26"
-   ],
-   "explain": "모델 출력은 [2, 1]입니다. 정답도 [2, 1]로 맞추면 각 데이터의 출력과 정답을 한 번씩 비교합니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-p08",
-   "ref": [
-    "7차시 노트북 01 [82]",
-    "문서 MSELoss"
-   ]
   },
-  {
-   "variant": "회귀",
-   "line": 14,
-   "stem": "회귀 모델의 out은 [2, 1]이고 값은 [[2.0], [4.0]]입니다. 같은 모양으로 연속값을 prediction에 남기는 줄로 옳은 것을 고르세요.",
-   "wrong": [
+  "slots": [
     {
-     "text": "prediction = (out >= 0.5).long()",
-     "aim": "회귀 예측을 이진 번호로 바꿉니다",
-     "why": "이 줄은 [[1], [1]]로 바꿉니다. 회귀에서 예측한 2와 4를 보관하지 않습니다."
+      "variant": "회귀",
+      "line": 1,
+      "token": "MSELoss",
+      "answer": [
+        "MSELoss"
+      ],
+      "mode": "code",
+      "hint": "손실 클래스",
+      "line_answer": [
+        "criterion = nn.MSELoss()",
+        "criterion = nn.MSELoss(reduction='mean')",
+        "criterion = nn.MSELoss(reduction=\"mean\")"
+      ],
+      "id": "pc-k11",
+      "step": "18c/2",
+      "facts": [
+        "F18-25"
+      ],
+      "explain": "연속값 출력과 정답의 차이를 제곱해 평균합니다. 이 회귀판의 마지막 층은 확률로 바꾸지 않은 수 하나를 냅니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-k11",
+      "ref": [
+        "7차시 노트북 01 [82]",
+        "문서 MSELoss"
+      ]
     },
     {
-     "text": "prediction = out.argmax(1)",
-     "aim": "한 출력에서 클래스 위치를 고릅니다",
-     "why": "한 열뿐이므로 각 행에서 0번 열을 고릅니다. 연속값 예측은 out을 사용합니다."
+      "variant": "회귀",
+      "line": 2,
+      "token": "view",
+      "answer": [
+        "view",
+        "reshape"
+      ],
+      "mode": "code",
+      "hint": "메서드 이름",
+      "line_answer": [
+        "target = y.float().view(-1, 1)",
+        "target = y.float().reshape(-1, 1)",
+        "target = y.float().unsqueeze(1)"
+      ],
+      "id": "pc-k12",
+      "step": "18c/3",
+      "facts": [
+        "F18-26"
+      ],
+      "explain": "길이 2인 y를 [2, 1]로 맞춰 같은 데이터끼리 비교합니다. [2, 1] 출력에서 [2] 정답을 빼면 이 예에서는 [2, 2]로 늘어나 다른 데이터끼리도 비교합니다.",
+      "core": false,
+      "level": 2,
+      "family": "pc-p08",
+      "ref": [
+        "7차시 노트북 01 [82]",
+        "문서 MSELoss"
+      ]
     },
     {
-     "text": "prediction = torch.softmax(out, dim=1)",
-     "aim": "연속값을 한 클래스 확률로 바꿉니다",
-     "why": "열이 하나라 각 행의 확률이 1입니다. 이 회귀판은 확률을 예측하지 않습니다."
+      "variant": "이진 로짓",
+      "line": 1,
+      "token": "BCEWithLogitsLoss",
+      "answer": [
+        "BCEWithLogitsLoss"
+      ],
+      "mode": "code",
+      "hint": "손실 클래스",
+      "line_answer": [
+        "criterion = nn.BCEWithLogitsLoss()",
+        "criterion = nn.BCEWithLogitsLoss(reduction='mean')",
+        "criterion = nn.BCEWithLogitsLoss(reduction=\"mean\")"
+      ],
+      "id": "pc-k13",
+      "step": "18d/3",
+      "facts": [
+        "F18-30"
+      ],
+      "explain": "이 손실은 모델이 낸 로짓을 받습니다. 모델 끝에 Sigmoid를 붙이지 않고 손실 안에서 변환과 계산을 함께 처리합니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-k13",
+      "ref": [
+        "8차시 노트북 01 [60]",
+        "문서 BCEWithLogitsLoss"
+      ]
+    },
+    {
+      "variant": "이진 확률",
+      "line": 1,
+      "token": "BCELoss",
+      "answer": [
+        "BCELoss"
+      ],
+      "mode": "code",
+      "hint": "손실 클래스",
+      "line_answer": [
+        "criterion = nn.BCELoss()",
+        "criterion = nn.BCELoss(reduction='mean')",
+        "criterion = nn.BCELoss(reduction=\"mean\")"
+      ],
+      "id": "pc-k14",
+      "step": "18d/2",
+      "facts": [
+        "F18-29"
+      ],
+      "explain": "모델이 이미 Sigmoid로 확률을 만들었습니다. BCELoss는 이 확률과 같은 모양의 실수 정답을 받습니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-k14",
+      "ref": [
+        "8차시 노트북 01 [43]",
+        "문서 BCELoss"
+      ]
+    },
+    {
+      "variant": "다중 로짓",
+      "line": 1,
+      "token": "CrossEntropyLoss",
+      "answer": [
+        "CrossEntropyLoss"
+      ],
+      "mode": "code",
+      "hint": "손실 클래스",
+      "line_answer": [
+        "criterion = nn.CrossEntropyLoss()",
+        "criterion = nn.CrossEntropyLoss(reduction='mean')",
+        "criterion = nn.CrossEntropyLoss(reduction=\"mean\")"
+      ],
+      "id": "pc-k15",
+      "step": "18e/2",
+      "facts": [
+        "F18-33"
+      ],
+      "explain": "정답은 클래스 번호이고 모델은 변환 전 로짓을 냅니다. CrossEntropyLoss에 로짓과 long 클래스 번호를 줍니다.",
+      "core": false,
+      "level": 2,
+      "family": "pc-p12",
+      "ref": [
+        "9차시 노트북 01 [41]",
+        "문서 CrossEntropyLoss"
+      ]
+    },
+    {
+      "variant": "다중 로짓",
+      "line": 2,
+      "token": "long",
+      "answer": [
+        "long"
+      ],
+      "mode": "code",
+      "hint": "자료형 변환 이름",
+      "line_answer": [
+        "target = y.long()",
+        "target = y.to(torch.long)",
+        "target = y.to(dtype=torch.long)"
+      ],
+      "id": "pc-k16",
+      "step": "18e/2",
+      "facts": [
+        "F18-33"
+      ],
+      "explain": "클래스 번호 하나로 정답을 나타내는 판에서는 long[배치]를 씁니다. 클래스별 확률을 정답으로 주는 판과 구별합니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-k16",
+      "ref": [
+        "9차시 노트북 01 [41]",
+        "문서 CrossEntropyLoss"
+      ]
+    },
+    {
+      "variant": "다중 로그확률",
+      "line": 1,
+      "token": "NLLLoss",
+      "answer": [
+        "NLLLoss"
+      ],
+      "mode": "code",
+      "hint": "손실 클래스",
+      "line_answer": [
+        "criterion = nn.NLLLoss()",
+        "criterion = nn.NLLLoss(reduction='mean')",
+        "criterion = nn.NLLLoss(reduction=\"mean\")"
+      ],
+      "id": "pc-k17",
+      "step": "18e/3",
+      "facts": [
+        "F18-34"
+      ],
+      "explain": "LogSoftmax를 통과한 로그확률에서 정답 클래스의 값을 골라 부호를 바꾸고 평균합니다.",
+      "core": false,
+      "level": 2,
+      "family": "pc-p13",
+      "ref": [
+        "9차시 노트북 01 [79]",
+        "문서 NLLLoss"
+      ]
     }
-   ],
-   "id": "pc-p09",
-   "step": "18c/4",
-   "facts": [
-    "F18-28"
-   ],
-   "explain": "회귀에서는 2와 4처럼 연속값을 예측합니다. 출력에 클래스 경계나 argmax를 적용하지 않습니다.",
-   "core": false,
-   "level": 2,
-   "family": "pc-p09",
-   "ref": [
-    "7차시 노트북 01 [82]",
-    "문서 MSELoss"
-   ]
-  },
-  {
-   "variant": "이진 로짓",
-   "line": 0,
-   "stem": "정답 target은 float32[2, 1]이고 criterion은 BCEWithLogitsLoss입니다. 이 손실에 줄 로짓 하나를 데이터마다 내는 모델 정의로 옳은 것을 고르세요.",
-   "wrong": [
+  ],
+  "orders": [
     {
-     "text": "model = nn.Sequential(nn.Linear(2, 1), nn.Sigmoid())",
-     "aim": "확률을 로짓 손실에 전달합니다",
-     "why": "모델에서 Sigmoid를 적용한 값이 손실에 다시 들어갑니다. 이 판은 원래 로짓을 손실에 전달합니다."
-    },
-    {
-     "text": "model = nn.Linear(2, 2)",
-     "aim": "이진 문제라 출력도 둘로 정합니다",
-     "why": "이 판의 정답은 [2, 1]입니다. 이 손실의 입력도 같은 모양이어야 합니다."
-    },
-    {
-     "text": "model = nn.Sequential(nn.Linear(2, 1), nn.Softmax(dim=1))",
-     "aim": "한 열을 소프트맥스로 바꿉니다",
-     "why": "한 열의 소프트맥스는 항상 1입니다. 변환 전 점수 하나가 필요합니다."
+      "variant": "회귀",
+      "lines": [
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "valid": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          0,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          0,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          3,
+          4,
+          0
+        ]
+      ],
+      "id": "pc-o03",
+      "step": "18c/4",
+      "facts": [
+        "F18-01",
+        "F18-27"
+      ],
+      "explain": "순전파 뒤에 손실을 계산하고 손실에서 역전파한 뒤 파라미터를 갱신합니다. 새 모델로 시작하며 기울기를 비우는 줄은 이번 backward 앞 또는 step 뒤에 둘 수 있습니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-o03",
+      "ref": [
+        "7차시 노트북 01 [82]",
+        "문서 MSELoss"
+      ]
     }
-   ],
-   "id": "pc-p10",
-   "step": "18d/3",
-   "facts": [
-    "F18-30"
-   ],
-   "explain": "BCEWithLogitsLoss에는 변환 전 로짓을 줍니다. 모델의 마지막에서 Sigmoid를 적용하지 않습니다.",
-   "core": false,
-   "level": 2,
-   "family": "pc-p10",
-   "ref": [
-    "8차시 노트북 01 [60]",
-    "문서 BCEWithLogitsLoss"
-   ]
-  },
-  {
-   "variant": "이진 로짓",
-   "line": 14,
-   "stem": "out은 [2, 1] 로짓 [[−0.2], [0.2]]입니다. 확률 0.5 이상을 클래스 1로 정한 규칙과 맞는 예측 줄을 고르세요. 경계값도 클래스 1에 넣습니다.",
-   "wrong": [
+  ],
+  "picks": [
     {
-     "text": "prediction = (out >= 0.5).long()",
-     "aim": "로짓에 확률 경계를 그대로 씁니다",
-     "why": "로짓 0.2도 확률은 0.5보다 큽니다. 로짓에 쓸 경계는 0입니다."
+      "variant": "회귀",
+      "line": 2,
+      "stem": "out은 float32[2, 1]이고 y는 float32[2]입니다. 출력과 같은 모양의 정답을 만들어 같은 데이터끼리 MSE를 계산하는 줄로 옳은 것을 고르세요.",
+      "wrong": [
+        {
+          "text": "target = y.float()",
+          "aim": "정답의 축을 추가하지 않습니다",
+          "why": "[2, 1]과 [2]는 이 예에서 [2, 2]로 늘어나므로 다른 데이터의 값끼리도 비교합니다."
+        },
+        {
+          "text": "target = y.float().view(1, -1)",
+          "aim": "행과 열을 반대로 맞춥니다",
+          "why": "정답이 [1, 2]가 됩니다. 출력 [2, 1]과 같은 모양으로 맞추려면 한 열로 놓습니다."
+        },
+        {
+          "text": "target = y.float().repeat(2, 1)",
+          "aim": "모든 정답을 데이터마다 반복합니다",
+          "why": "정답이 [2, 2]가 되어 데이터 하나에 정답 둘을 비교합니다. 정답 수를 늘릴 필요는 없습니다."
+        }
+      ],
+      "id": "pc-p08",
+      "step": "18c/3",
+      "facts": [
+        "F18-26"
+      ],
+      "explain": "모델 출력은 [2, 1]입니다. 정답도 [2, 1]로 맞추면 각 데이터의 출력과 정답을 한 번씩 비교합니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-p08",
+      "ref": [
+        "7차시 노트북 01 [82]",
+        "문서 MSELoss"
+      ]
     },
     {
-     "text": "prediction = (out < 0).long()",
-     "aim": "클래스 번호를 반대로 붙입니다",
-     "why": "음수 로짓을 1로 바꾸므로 예측이 [1, 0]이 됩니다. 양수 로짓에 클래스 1을 붙입니다."
+      "variant": "회귀",
+      "line": 14,
+      "stem": "회귀 모델의 out은 [2, 1]이고 값은 [[2.0], [4.0]]입니다. 같은 모양으로 연속값을 prediction에 남기는 줄로 옳은 것을 고르세요.",
+      "wrong": [
+        {
+          "text": "prediction = (out >= 0.5).long()",
+          "aim": "회귀 예측을 이진 번호로 바꿉니다",
+          "why": "이 줄은 [[1], [1]]로 바꿉니다. 회귀에서 예측한 2와 4를 보관하지 않습니다."
+        },
+        {
+          "text": "prediction = out.argmax(1)",
+          "aim": "한 출력에서 클래스 위치를 고릅니다",
+          "why": "한 열뿐이므로 각 행에서 0번 열을 고릅니다. 연속값 예측은 out을 사용합니다."
+        },
+        {
+          "text": "prediction = torch.softmax(out, dim=1)",
+          "aim": "연속값을 한 클래스 확률로 바꿉니다",
+          "why": "열이 하나라 각 행의 확률이 1입니다. 이 회귀판은 확률을 예측하지 않습니다."
+        }
+      ],
+      "id": "pc-p09",
+      "step": "18c/4",
+      "facts": [
+        "F18-28"
+      ],
+      "explain": "회귀에서는 2와 4처럼 연속값을 예측합니다. 출력에 클래스 경계나 argmax를 적용하지 않습니다.",
+      "core": false,
+      "level": 2,
+      "family": "pc-p09",
+      "ref": [
+        "7차시 노트북 01 [82]",
+        "문서 MSELoss"
+      ]
     },
     {
-     "text": "prediction = out.argmax(1)",
-     "aim": "한 열에서 가장 큰 위치를 고릅니다",
-     "why": "각 행의 열이 하나여서 [0, 0]을 냅니다. 두 로짓의 부호를 판정합니다."
+      "variant": "이진 로짓",
+      "line": 0,
+      "stem": "정답 target은 float32[2, 1]이고 criterion은 BCEWithLogitsLoss입니다. 이 손실에 줄 로짓 하나를 데이터마다 내는 모델 정의로 옳은 것을 고르세요.",
+      "wrong": [
+        {
+          "text": "model = nn.Sequential(nn.Linear(2, 1), nn.Sigmoid())",
+          "aim": "확률을 로짓 손실에 전달합니다",
+          "why": "모델에서 Sigmoid를 적용한 값이 손실에 다시 들어갑니다. 이 판은 원래 로짓을 손실에 전달합니다."
+        },
+        {
+          "text": "model = nn.Linear(2, 2)",
+          "aim": "이진 문제라 출력도 둘로 정합니다",
+          "why": "이 판의 정답은 [2, 1]입니다. 이 손실의 입력도 같은 모양이어야 합니다."
+        },
+        {
+          "text": "model = nn.Sequential(nn.Linear(2, 1), nn.Softmax(dim=1))",
+          "aim": "한 열을 소프트맥스로 바꿉니다",
+          "why": "한 열의 소프트맥스는 항상 1입니다. 변환 전 점수 하나가 필요합니다."
+        }
+      ],
+      "id": "pc-p10",
+      "step": "18d/3",
+      "facts": [
+        "F18-30"
+      ],
+      "explain": "BCEWithLogitsLoss에는 변환 전 로짓을 줍니다. 모델의 마지막에서 Sigmoid를 적용하지 않습니다.",
+      "core": false,
+      "level": 2,
+      "family": "pc-p10",
+      "ref": [
+        "8차시 노트북 01 [60]",
+        "문서 BCEWithLogitsLoss"
+      ]
+    },
+    {
+      "variant": "이진 로짓",
+      "line": 14,
+      "stem": "out은 [2, 1] 로짓 [[−0.2], [0.2]]입니다. 확률 0.5 이상을 클래스 1로 정한 규칙과 맞는 예측 줄을 고르세요. 경계값도 클래스 1에 넣습니다.",
+      "wrong": [
+        {
+          "text": "prediction = (out >= 0.5).long()",
+          "aim": "로짓에 확률 경계를 그대로 씁니다",
+          "why": "로짓 0.2도 확률은 0.5보다 큽니다. 로짓에 쓸 경계는 0입니다."
+        },
+        {
+          "text": "prediction = (out < 0).long()",
+          "aim": "클래스 번호를 반대로 붙입니다",
+          "why": "음수 로짓을 1로 바꾸므로 예측이 [1, 0]이 됩니다. 양수 로짓에 클래스 1을 붙입니다."
+        },
+        {
+          "text": "prediction = out.argmax(1)",
+          "aim": "한 열에서 가장 큰 위치를 고릅니다",
+          "why": "각 행의 열이 하나여서 [0, 0]을 냅니다. 두 로짓의 부호를 판정합니다."
+        }
+      ],
+      "id": "pc-p11",
+      "step": "18d/4",
+      "facts": [
+        "F18-31",
+        "F18-32"
+      ],
+      "explain": "Sigmoid 확률 0.5는 로짓 0에 해당합니다. 이 판은 0도 클래스 1에 넣으므로 >= 0을 씁니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-p11",
+      "ref": [
+        "8차시 노트북 01 [60]",
+        "문서 BCEWithLogitsLoss"
+      ]
     }
-   ],
-   "id": "pc-p11",
-   "step": "18d/4",
-   "facts": [
-    "F18-31",
-    "F18-32"
-   ],
-   "explain": "Sigmoid 확률 0.5는 로짓 0에 해당합니다. 이 판은 0도 클래스 1에 넣으므로 >= 0을 씁니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-p11",
-   "ref": [
-    "8차시 노트북 01 [60]",
-    "문서 BCEWithLogitsLoss"
-   ]
-  }
- ],
- "changes": [
-  {
-   "from": "이진 확률",
-   "to": "이진 로짓",
-   "stem": "확률판을 로짓판으로 바꾸려 합니다. 원래 확률 0.5 이상을 클래스 1로 고르던 규칙을 유지할 때 고칠 줄을 모두 고르세요.",
-   "back": "로짓판을 확률판으로 바꾸려 합니다. 같은 예측 규칙을 유지할 때 고칠 줄을 모두 고르세요.",
-   "id": "pc-x02",
-   "step": "18d/3",
-   "facts": [
-    "F18-29",
-    "F18-30",
-    "F18-31"
-   ],
-   "explain": "확률판에서 로짓판으로 바꾸면 모델 끝의 Sigmoid를 없애고 손실을 BCEWithLogitsLoss로 바꿉니다. 예측할 때 비교하는 경계도 0.5에서 0으로 바꿉니다. 정답 모양은 유지합니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-x02",
-   "ref": [
-    "8차시 노트북 01 [60]",
-    "문서 BCEWithLogitsLoss"
-   ]
-  },
-  {
-   "from": "다중 로짓",
-   "to": "다중 로그확률",
-   "stem": "로짓을 내는 CrossEntropyLoss판에서 로그확률을 내는 NLLLoss판으로 바꿀 때 고칠 줄을 모두 고르세요.",
-   "back": "로그확률을 내는 NLLLoss판에서 로짓을 내는 CrossEntropyLoss판으로 바꿀 때 고칠 줄을 모두 고르세요.",
-   "id": "pc-x03",
-   "step": "18e/3",
-   "facts": [
-    "F18-34"
-   ],
-   "explain": "모델 끝에 LogSoftmax(dim=1)를 붙이면 손실도 NLLLoss로 바꿉니다. 클래스 번호의 long 자료형과 [배치] 모양은 유지합니다.",
-   "core": true,
-   "level": 2,
-   "family": "pc-x03",
-   "ref": [
-    "9차시 노트북 01 [79]",
-    "문서 NLLLoss"
-   ]
-  }
- ]
+  ],
+  "changes": [
+    {
+      "from": "이진 확률",
+      "to": "이진 로짓",
+      "stem": "확률판을 로짓판으로 바꾸려 합니다. 원래 확률 0.5 이상을 클래스 1로 고르던 규칙을 유지할 때 고칠 줄을 모두 고르세요.",
+      "back": "로짓판을 확률판으로 바꾸려 합니다. 같은 예측 규칙을 유지할 때 고칠 줄을 모두 고르세요.",
+      "id": "pc-x02",
+      "step": "18d/3",
+      "facts": [
+        "F18-29",
+        "F18-30",
+        "F18-31"
+      ],
+      "explain": "확률판에서 로짓판으로 바꾸면 모델 끝의 Sigmoid를 없애고 손실을 BCEWithLogitsLoss로 바꿉니다. 예측할 때 비교하는 경계도 0.5에서 0으로 바꿉니다. 정답 모양은 유지합니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-x02",
+      "ref": [
+        "8차시 노트북 01 [60]",
+        "문서 BCEWithLogitsLoss"
+      ]
+    },
+    {
+      "from": "다중 로짓",
+      "to": "다중 로그확률",
+      "stem": "로짓을 내는 CrossEntropyLoss판에서 로그확률을 내는 NLLLoss판으로 바꿀 때 고칠 줄을 모두 고르세요.",
+      "back": "로그확률을 내는 NLLLoss판에서 로짓을 내는 CrossEntropyLoss판으로 바꿀 때 고칠 줄을 모두 고르세요.",
+      "id": "pc-x03",
+      "step": "18e/3",
+      "facts": [
+        "F18-34"
+      ],
+      "explain": "모델 끝에 LogSoftmax(dim=1)를 붙이면 손실도 NLLLoss로 바꿉니다. 클래스 번호의 long 자료형과 [배치] 모양은 유지합니다.",
+      "core": true,
+      "level": 2,
+      "family": "pc-x03",
+      "ref": [
+        "9차시 노트북 01 [79]",
+        "문서 NLLLoss"
+      ]
+    }
+  ]
 }
