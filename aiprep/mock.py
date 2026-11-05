@@ -76,7 +76,7 @@ def submissions(log, mid):
 class MockExam:
     """회차 하나. question·save_answer·move·toggle_flag는 초안만 다루고 submit에서 채점함."""
 
-    def __init__(self, session, mid, repeat=False, seed=None, clock=None, monotonic=None):
+    def __init__(self, session, mid, repeat=False, seed=None, clock=None, monotonic=None, submit_expired=True):
         self.sess, self.id = session, mid
         self.clock, self.monotonic = clock or _now, monotonic or time.monotonic
         self.lock = getattr(session, "_lock", None) or threading.RLock()
@@ -126,7 +126,7 @@ class MockExam:
                     raise MockError(str(error)) from error
             self._anchor = self.monotonic()
             self._budget = self._wall_remaining()
-            if self.result is None and self.remaining() <= 0:
+            if submit_expired and self.result is None and self.remaining() <= 0:
                 self.submit(auto=True)
 
     def _path(self):

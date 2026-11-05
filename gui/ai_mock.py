@@ -164,10 +164,12 @@ class MockPage(QWidget):
                 self.fail(error)
 
     def persist(self):
-        if self.exam is None or self.item is None or self.exam.result is not None or not self.dirty:
+        if self.exam is None or self.item is None or self.exam.result is not None:
             return True
         try:
             commit_input()
+            if not self.dirty:
+                return True
             self.exam.save_answer(self.values(), self.item['card'])
             self.dirty = False
             self.save_timer.stop()

@@ -172,7 +172,7 @@ class AiSession(object):
         self._recover_mocks()
 
     def _recover_mocks(self):
-        """제출하지 않은 로컬 회차를 복구함. 시간이 지난 회차는 홈을 그리기 전에 제출함."""
+        """미제출 회차를 먼저 보관함. 만료 회차는 홈을 그리기 전에 제출하며 실패하면 다음 tick에서 다시 시도함."""
         done = {(row.get('mock'), int(row.get('try') or 1)) for row in self.record.log if row.get('kind') == 'mock_submit'}
         starts = {}
         for row in self.record.log:
@@ -182,9 +182,10 @@ class AiSession(object):
             if mid not in self.mocks or (mid, int(row.get('try') or 1)) in done:
                 continue
             try:
-                self._mock_exams[mid] = mock.MockExam(self, mid, clock=lambda: now())
+                self._mock_exams[mid] = mock.MockExam(self, mid, clock=lambda: now(), submit_expired=False)
             except mock.MockError as error:
                 self.errors[mid] = str(error)
+        self.expire_mocks()
 
     def expire_mocks(self):
         """열지 않은 회차도 시간이 다 됐으면 제출함. 화면 ticker가 부름."""
@@ -227,7 +228,9 @@ class AiSession(object):
             if mid in self._mock_loaded or mid not in self.mocks:
                 continue
             try:
-                items, _ = mock.load_items(self.root, self.mocks[mid])
+                items, fingerprint = mock.load_items(self.root, self.mocks[mid])
+                if row.get('fingerprint') != fingerprint:
+                    raise mock.MockError('제출한 뒤 문제 자료가 바뀌었습니다. 이전 결과와 답안은 보존했습니다.')
                 cards = bank.cards_of({'id': mid}, {'items': list(items.values()), 'topics': [], 'gens': []})
                 for card in cards:
                     if row.get('results', {}).get(card['id']) not in ('stuck', 'blank', 'partial'):
@@ -656,7 +659,11 @@ class AiSession(object):
         elif card.get('mock'):
             try:
                 path = os.path.join(self.home, 'mocks', '%s-1.json' % card['mock'])
-                saved = study.read_json(path).get('answers', {}).get(key)
+                draft = study.read_json(path)
+                first = state.index.mocks.get(card['mock'], {})
+                saved = None
+                if first.get('fingerprint') and draft.get('fingerprint') == first['fingerprint']:
+                    saved = draft.get('answers', {}).get(key)
                 if isinstance(saved, list):
                     if card['kind'] == 'blank' and all(isinstance(value, str) for value in saved):
                         mine = list(saved)
@@ -858,14 +865,15 @@ class _State(object):
         return bool(s) and s["recheck"] is not None and s["recheck"] >= self.today
 
     def due_cards(self):
-        """날짜가 된 복습 카드(상대 지연 큰 순). 12-01 에는 상자 1·확신 오답·자주 틀리는 문항만."""
+        """날짜가 된 복습 카드(상대 지연 큰 순). 마지막 복습일에는 상자 1·확신 오답·자주 틀리는 문항과
+        모의고사 관련 연습 카드를 남김."""
         last_day = self.exam.get("last_review") is not None and self.today == self.exam["last_review"]
         rows = []
         for cid, card in self.sess.cards.items():
             day = self.due_day(cid)
             if day is None or day > self.today:
                 continue
-            if last_day and not (self.box(cid) == 1 or self.sure_wrong(cid) or cid in self.leeches):
+            if last_day and cid not in self.related_due and not (self.box(cid) == 1 or self.sure_wrong(cid) or cid in self.leeches):
                 continue
             rows.append(cid)
         rows.sort(key=lambda c: (-review.relative_delay(self.sched.get(c), self.today), c))

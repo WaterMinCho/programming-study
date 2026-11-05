@@ -12,6 +12,7 @@ from unittest import mock
 
 from aiprep import grade, review
 from aiprep.mock import MockError, MockExam
+from aiprep.service import AiError
 from webprep.record import Record, RecordError
 from tests.test_ai_service import Base, FIXTURE
 import shutil
@@ -292,6 +293,83 @@ class MockServiceTest(Base):
         self.assertEqual(0, sess.overview()['due'])
         self.assertFalse(any(cid.startswith('m90-') for cid in sess.cards))
 
+    def test_wrong_notes_reject_changed_bank(self):
+        sess = self.session()
+        exam = sess.start_mock('m90', seed=1)
+        exam.save_answer(['4'], 'm90-01')
+        exam.submit()
+        record_before = Path(sess.record.path).read_bytes()
+        draft_before = Path(exam.path).read_bytes()
+        self.mock_items[0]['stem'] = '새 숫자를 쓰세요: ____'
+        self.mock_items[0]['blanks'][0]['answer'] = ['9']
+        path = Path(self.root) / 'mocks/m90/work/items.json'
+        path.write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False))
+
+        restored = self.session()
+        self.assertEqual(0, restored.overview()['due'])
+        self.assertIn('문제 자료가 바뀌었습니다', restored.errors.get('m90', ''))
+        self.assertFalse(any(cid.startswith('m90-') for cid in restored.cards))
+        with self.assertRaises(AiError):
+            restored.wrong_item('m90-01')
+        self.assertEqual(0, restored.mock_state('m90')['first_score'])
+        self.assertEqual(record_before, Path(sess.record.path).read_bytes())
+        self.assertEqual(draft_before, Path(exam.path).read_bytes())
+
+    def test_wrong_note_ignores_draft_from_another_version(self):
+        sess = self.session()
+        exam = sess.start_mock('m90', seed=1)
+        exam.save_answer(['4'], 'm90-01')
+        exam.submit()
+        self.assertEqual(['4'], sess.wrong_item('m90-01')['mine'])
+        record_before = Path(sess.record.path).read_bytes()
+        draft = study.read_json(exam.path)
+        for fingerprint in ('another-version', None):
+            with self.subTest(fingerprint=fingerprint):
+                draft['fingerprint'] = fingerprint
+                study.write_text(exam.path, json.dumps(draft, ensure_ascii=False))
+                before = Path(exam.path).read_bytes()
+                note = sess.wrong_item('m90-01')
+                self.assertIsNone(note['mine'])
+                self.assertEqual(self.mock_items[0]['stem'], note['stem'])
+                self.assertEqual(before, Path(exam.path).read_bytes())
+        self.assertEqual(record_before, Path(sess.record.path).read_bytes())
+
+    def recover_after_write_failure(self, target):
+        sess = self.session()
+        exam = sess.start_mock('m90', seed=1)
+        exam.save_answer(['3'], 'm90-01')
+        before = Path(exam.path).read_bytes()
+        self.at = '2026-11-09T21:01:00'
+        path = exam.path if target == 'draft' else sess.record.path
+        original = study.write_text
+
+        def fail(path_to_write, text):
+            if path_to_write == path:
+                raise OSError('temporary write failure')
+            return original(path_to_write, text)
+
+        with mock.patch('aiprep.mock.study.write_text', side_effect=fail):
+            restored = self.session()
+        restored.record.reload()
+        self.assertEqual([], self.log(restored, 'mock_submit'))
+        self.assertIn('m90', restored.errors)
+        self.assertEqual(before, Path(exam.path).read_bytes())
+        restored.expire_mocks()
+        submitted = self.log(restored, 'mock_submit')
+        self.assertEqual(1, len(submitted))
+        self.assertEqual((True, 1, 3600), (submitted[0]['auto'], submitted[0]['score'], submitted[0]['secs']))
+        self.assertNotIn('m90', restored.errors)
+        self.assertFalse(restored.mock_state('m90')['active'])
+        restored.expire_mocks()
+        self.assertEqual(1, len(self.log(restored, 'mock_submit')))
+        self.assertEqual(['3'], study.read_json(exam.path)['answers']['m90-01'])
+
+    def test_expired_recovery_retries_draft_write(self):
+        self.recover_after_write_failure('draft')
+
+    def test_expired_recovery_retries_record_write(self):
+        self.recover_after_write_failure('record')
+
     def test_expired_draft_is_submitted_when_the_session_is_loaded(self):
         self.session().start_mock('m90')
         self.at = '2026-11-09T21:01:00'
@@ -312,6 +390,27 @@ class MockServiceTest(Base):
         self.assertEqual(0, sess.overview()['due'])
         self.assertEqual([], [row for row in sess.record.log if row['kind'] == 'answer'])
         self.at = '2026-11-10T20:00:00'
+        self.assertEqual(5, sess.overview()['due'])
+        practice = sess.start_set('review', seed=7)
+        self.assertIn('i90-b01', [row['card'] for row in practice.queue])
+        self.play(practice, lambda _: 'pass')
+        self.assertNotIn('i90-b01', sess._state().related_due)
+
+    def test_related_card_is_due_on_last_review_day(self):
+        self.mock_items[0]['tags'] = ['공유 주제']
+        path = Path(self.root) / 'mocks/m90/work/items.json'
+        path.write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False))
+        sess = self.session()
+        last_day = sess.exam['last_review']
+        self.at = (last_day - datetime.timedelta(days=1)).isoformat() + 'T20:00:00'
+        sess.cards['i90-b01']['tags'] = ['공유 주제']
+        result = sess.start_mock('m90', seed=1).submit()
+        self.assertEqual(['i90-b01'], result['related'])
+        self.assertEqual(0, sess.overview()['due'])
+        self.assertEqual([], self.log(sess, 'answer'))
+
+        self.at = last_day.isoformat() + 'T20:00:00'
+        self.assertEqual(last_day, sess._state().related_due['i90-b01'])
         self.assertEqual(5, sess.overview()['due'])
         practice = sess.start_set('review', seed=7)
         self.assertIn('i90-b01', [row['card'] for row in practice.queue])

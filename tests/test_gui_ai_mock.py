@@ -7,7 +7,10 @@ from pathlib import Path
 from unittest import mock
 
 from tests.test_gui_ai import AI_FIXTURE, AiTest, visible_text
+from PyQt6.QtGui import QInputMethodEvent
+from PyQt6.QtWidgets import QApplication
 from aiprep import bank
+from aiprep.mock import MockError
 from gui import kit, theme
 from tests import guikit
 import study
@@ -51,6 +54,53 @@ class MockPageTest(AiTest):
             win.ai_mock.begin()
         self.idle()
         return win.ai_mock
+
+    def composing_answer(self):
+        """첫 글자의 조합과 확정 이벤트를 나눠 보냄."""
+        page = self.open_mock()
+        pos = page.exam.draft['order'].index('m90-01')
+        page.go(pos)
+        field = page.inputs[0]
+        field.setFocus()
+        QApplication.sendEvent(field, QInputMethodEvent('가', []))
+        self.assertEqual('', field.text())
+        self.assertFalse(page.dirty)
+        pending = ['가']
+
+        def commit():
+            if pending:
+                event = QInputMethodEvent()
+                event.setCommitString(pending.pop())
+                QApplication.sendEvent(field, event)
+
+        return page, pos, commit
+
+    def test_first_hangul_is_saved_on_navigation(self):
+        page, pos, commit = self.composing_answer()
+        with mock.patch('gui.ai_mock.commit_input', side_effect=commit):
+            guikit.click(page.nav[(pos + 1) % len(page.nav)])
+        self.assertNotEqual('m90-01', page.item['card'])
+        self.assertEqual(['가'], study.read_json(page.exam.path)['answers'].get('m90-01'))
+
+    def test_first_hangul_is_saved_on_close(self):
+        page, _, commit = self.composing_answer()
+        with mock.patch('gui.ai_mock.commit_input', side_effect=commit):
+            self.assertTrue(self.win.close())
+        self.assertEqual(['가'], study.read_json(page.exam.path)['answers'].get('m90-01'))
+
+    def test_composing_save_failure_blocks_leaving(self):
+        page, pos, commit = self.composing_answer()
+        with mock.patch('gui.ai_mock.commit_input', side_effect=commit), \
+                mock.patch.object(page.exam, '_write_draft', side_effect=MockError('save failed')):
+            page.go((pos + 1) % len(page.nav))
+            self.win.go_ai()
+            self.assertFalse(self.win.close())
+        self.assertIs(self.win.pages.currentWidget(), page)
+        self.assertEqual('m90-01', page.item['card'])
+        self.assertEqual('가', page.inputs[0].text())
+        self.assertTrue(page.dirty)
+        self.assertTrue(page.persist())
+        self.assertEqual(['가'], study.read_json(page.exam.path)['answers']['m90-01'])
 
     def test_answer_is_saved_and_restored_without_showing_feedback(self):
         page = self.open_mock()
