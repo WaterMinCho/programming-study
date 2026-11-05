@@ -7,7 +7,7 @@ from unittest import mock
 
 from tests import guikit
 
-from PyQt6.QtCore import QPoint, QRect, Qt
+from PyQt6.QtCore import QPoint, QRect, Qt, QTimer
 from PyQt6.QtWidgets import QWidget
 
 from gui import ai_learn, kit, theme
@@ -307,6 +307,33 @@ class LearningStateTest(unittest.TestCase):
         self.assertEqual((field.cursorPosition(), field.selectionStart(), field.selectedText()), expected)
         viewport = self.page.scroll.viewport()
         self.assertTrue(viewport.rect().intersects(QRect(field.mapTo(viewport, QPoint()), field.size())))
+
+    def test_return_keeps_the_active_input_visible_after_a_queued_reflow(self):
+        theme.set_text("larger")
+        kit.refont(self.win)
+        self.page.restyle()
+        self.win.resize(760, 480)
+        self.settle()
+        field = self.field()
+        field.setText("계속 적던 문장")
+        field.setFocus()
+        field.setSelection(5, -3)
+        self.page.scroll.ensureWidgetVisible(field, 16, 16)
+        self.settle()
+        expected = field.text(), field.cursorPosition(), field.selectionStart(), field.selectedText()
+        self.page.show_step(2)
+        self.settle()
+        self.page.show_step(1)
+        title = self.page.view.title
+        QTimer.singleShot(0, lambda: title.setMinimumHeight(title.sizeHint().height() + 36))
+        self.settle()
+        guikit.pump(80)
+        field = self.field()
+        viewport = self.page.scroll.viewport()
+        self.assertEqual((field.text(), field.cursorPosition(), field.selectionStart(), field.selectedText()), expected)
+        self.assertTrue(field.hasFocus())
+        self.assertTrue(viewport.rect().contains(QRect(field.mapTo(viewport, QPoint()), field.size())))
+        self.assertFalse([call for call in self.win.ai.calls if call[0] != "step"])
 
     def test_return_after_resize_uses_the_reading_block_in_the_new_layout(self):
         piece = self.page.view.findChildren(TextPiece)[0]

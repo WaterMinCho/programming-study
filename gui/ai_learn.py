@@ -1337,6 +1337,7 @@ class AiLearnPage(QWidget):
         self.view, self.marked, self.back = None, False, "lesson"
         self.view_states, self.view_key, self.state_unit = {}, None, None
         self.pending_position = None
+        self.position_geometry = None
         self.position_timer = QTimer(self)
         self.position_timer.setSingleShot(True)
         self.position_timer.timeout.connect(self.restore_position)
@@ -1518,6 +1519,7 @@ class AiLearnPage(QWidget):
         """창에 딸린 타이머 하나만 씀. 빠르게 단계를 바꿔도 예전 단계의 복원이 남지 않음."""
         self.position_timer.stop()
         self.pending_position = self.view, anchor, focus
+        self.position_geometry = None
         self.position_timer.start(0)
 
     def hold_reading(self, viewport_height=None):
@@ -1534,11 +1536,21 @@ class AiLearnPage(QWidget):
         self.card_box.activate()
         if anchor is not None and inner.height() < inner.minimumSizeHint().height():
             return  # 글 조각의 높이가 전해진 뒤 Resize·rangeChanged에서 다시 부름
-        self.pending_position = None
         target = _view_widget(self.view, focus)
+        piece = _view_widget(self.view, anchor[0]) if anchor is not None else None
+        geometry = (inner.size(), inner.minimumSizeHint(), self.view.size(), self.scroll.viewport().size(),
+                    piece.mapTo(inner, QPoint()).y() if piece is not None else None,
+                    piece.height() if piece is not None else None,
+                    target.mapTo(inner, QPoint()).y() if target is not None else None,
+                    self.scroll.verticalScrollBar().maximum())
+        if geometry != self.position_geometry:
+            self.position_geometry = geometry
+            self.position_timer.start(0)  # 중첩 글의 줄바꿈이 다음 배치 요청에 전해질 때까지 복원 기준을 보관함
+            return
+        self.pending_position = None
+        self.position_geometry = None
         if target is not None and self.isVisible() and self.window().focusWidget() is self:
             target.setFocus(Qt.FocusReason.OtherFocusReason)
-        piece = _view_widget(self.view, anchor[0]) if anchor is not None else None
         value = piece.mapTo(inner, QPoint()).y() + round(anchor[1] * piece.height()) if piece is not None else 0
         self.scroll.verticalScrollBar().setValue(value)
         field = _view_widget(self.view, anchor[2]) if anchor is not None else None
@@ -1547,6 +1559,7 @@ class AiLearnPage(QWidget):
 
     def position_changed(self, *_):
         if self.pending_position is not None:
+            self.position_geometry = None
             self.position_timer.start(0)
 
     def eventFilter(self, watched, event):
