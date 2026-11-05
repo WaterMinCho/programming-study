@@ -493,7 +493,7 @@ class AiSession(object):
     def check_rotate(self, lid, key, rid, slot, value, readonly=False):
         """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 판 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
         문맥 떼기를 씀. readonly 가 아니면 {"kind": "recall", "lesson", "unit", "id", "slot", "ok"} 를 한 번 기록하고 상자는
-        움직이지 않음. {"ok", "answer"(첫 답)}. 모르는 블록·자리면 AiError."""
+        움직이지 않음. {"ok", "answer"(첫 답), "explain"(같은 자리의 기존 해설)}. 모르는 블록·자리면 AiError."""
         unit = self._unit(lid, key)
         block = next((b for s in unit["steps"] for b in s["blocks"] if b["kind"] == "rotate" and str(b.get("id")) == str(rid)), None)
         if block is None or block.get("error"):
@@ -504,12 +504,13 @@ class AiSession(object):
         spot = next((s for s in made["slots"] if s["id"] == slot), None)
         if spot is None:
             raise AiError("돌려 가며 빈칸에 없는 자리입니다: %s" % slot)
-        answers = [str(a) for a in skel.entry_of(self.skeletons[str(block["skel"])], "slot", slot).get("answer") or []]
+        entry = skel.entry_of(self.skeletons[str(block["skel"])], "slot", slot)
+        answers = [str(a) for a in entry.get("answer") or []]
         item = {"stem": "```python\n%s\n```" % spot["code"], "blanks": [{"answer": answers, "mode": spot["mode"]}]}
         ok = grade.grade_item(item, [value], self.term_map)["result"] == "pass"
         if not readonly:
             self._append({"kind": "recall", "lesson": lid, "unit": key, "id": str(rid), "slot": str(slot), "ok": ok})
-        return {"ok": ok, "answer": answers[0] if answers else ""}
+        return {"ok": ok, "answer": answers[0] if answers else "", "explain": str(entry.get("explain") or "")}
 
     def check_recall(self, block, value):
         """떠올리기 칸 하나를 채점함(기록은 save_recall 이 함). block 은 unit_steps 의 recall 블록이나 세 수준 블록의 수준 하나이고

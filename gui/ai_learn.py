@@ -774,8 +774,9 @@ class DiffBlock(QWidget):
 
 class RotateBlock(QWidget):
     """돌려 가며 빈칸(ai-rotate, 설계 3.7.1). 판 코드에서 한 번에 한 자리를 가린 CodeSlots 와 [확인]. 답하면 맞음·틀림과 정답을
-    보이고 [다음 자리]로 넘어감. 순서는 skel.rotate_next(틀린 자리는 세 자리 뒤에 다시)이고 채점과 기록은 ctx.check_rotate(상자는
-    움직이지 않음). 모든 자리를 맞히면 판 코드 전체와 끝 문구를 보임. 칸에서 Enter 는 [확인], 답한 뒤에는 [다음 자리].
+    보이고 정답 아래에 같은 자리의 해설을 붙임. [다음 자리]로 넘어가면 해설을 비움. 순서는 skel.rotate_next(틀린 자리는 세 자리 뒤에
+    다시)이고 채점과 기록은 ctx.check_rotate(상자는 움직이지 않음). 모든 자리를 맞히면 판 코드 전체와 끝 문구를 보임.
+    칸에서 Enter 는 [확인], 답한 뒤에는 [다음 자리].
     readonly(전체 노트, [노트 보기])면 판 코드와 가리는 자리 목록만 그리고 채점하지 않음."""
 
     def __init__(self, block, ctx):
@@ -815,6 +816,9 @@ class RotateBlock(QWidget):
         self.buttons = QWidget()
         self.buttons.setLayout(row)
         column.addWidget(self.buttons)
+        self.explanation = rich("", "body", "secondary")
+        column.addWidget(self.explanation)
+        self.explanation.hide()
         self.empty_note = kit.para(ai_text.RECALL_EMPTY, "body", "secondary")
         column.addWidget(self.empty_note)
         self.done = kit.para(ai_text.ROTATE_DONE, "body", "success")
@@ -853,6 +857,8 @@ class RotateBlock(QWidget):
         self.next_btn.hide()
         self.verdict.hide()
         self.answer.hide()
+        self.explanation.setText("")
+        self.explanation.hide()
         self.empty_note.hide()
         if focus:
             field.setFocus(Qt.FocusReason.OtherFocusReason)
@@ -884,6 +890,8 @@ class RotateBlock(QWidget):
         self.check_btn.hide()
         for widget in (self.verdict, self.answer, self.next_btn):
             widget.show()
+        self.explanation.setText(got.get("explain") or "")
+        self.explanation.setVisible(bool(self.explanation.text()))
 
     def advance(self):
         """[다음 자리]. 틀린 자리는 세 자리 뒤에 다시 넣고 남은 자리가 없으면 끝."""
@@ -899,6 +907,8 @@ class RotateBlock(QWidget):
         self.put(CodeSlots(self.block.get("code", ""), [], []))
         self.count.setText("")
         self.buttons.hide()
+        self.explanation.setText("")
+        self.explanation.hide()
         self.empty_note.hide()
         self.done.show()
 
