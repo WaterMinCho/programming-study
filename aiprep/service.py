@@ -7,7 +7,7 @@
 (STUDY_AI_HOME 으로 바꿈)에 둬서 제출에 들어가지 않음. 묶음은 secrets.randbelow 로 고른 시드 하나의 random.Random 으로 만들고
 set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 나옴. 모의고사는 제출 전 답안을 로컬에만 두고 첫 제출의 오답을 복습에 넣음.
 
-상황별 코드(index.json patterns, 무리 id pc)는 차시처럼 학습 노트(l18)와 문항 묶음(items/pc, facts·review 만)을 갖고, 카드는
+상황별 코드(index.json patterns, 무리 id pc)는 학습 노트(l18), 사실·검토 기록과 수치 생성기(items/pc)를 가짐. 코드 카드는
 ai/patterns/S*.json 뼈대에서 skel.cards 가 만듦. 카드 lesson 은 무리 id, after 는 권하는 차시이고, 차시를 묻는 곳(정렬, 무게,
 차시 풀기)은 after 차시를 씀. 단원 이름은 unit_name 한 규칙("5차시 · 단원 제목", "학습 루프 · 단원 제목")을 모든 화면값이 씀.
 """
@@ -243,12 +243,12 @@ class AiSession(object):
             self._mock_loaded.add(mid)
 
     def _load_pattern(self, group):
-        """상황별 코드 무리 하나를 읽음. 학습 노트, items/<무리>(facts·review 만 쓰고 정적 카드는 읽지 않음), 공개 단원의 뼈대 카드.
+        """상황별 코드 무리 하나를 읽음. 학습 노트, 사실·검토 기록과 수치 생성기, 공개 단원의 뼈대 카드.
         카드마다 시드 1 문항을 한 번 만들어 보고, 깨진 뼈대면 그 무리를 빼고 errors 에 이유를 둠."""
         gid = group["id"]
         try:
             note = bank.load_note({"id": group["page"], "title": group["title"]}, self.root)
-            data = bank.load_items({"id": gid}, self.root, with_gens=False)
+            data = bank.load_items({"id": gid}, self.root)
             units = {key: {"after": info["after"], "name": info["name"], "title": note["units"][key]["title"]}
                      for key, info in group["units"].items() if key in note["visible"]}
             made = skel.cards(group, self.skeletons, units)
@@ -256,10 +256,14 @@ class AiSession(object):
                 if card["pattern"] not in self.skeletons:
                     raise bank.AiBankError("뼈대 %s 를 찾을 수 없습니다." % card["pattern"])
                 skel.view(card, self.skeletons[card["pattern"]], 1)
+            generated = bank.pattern_gen_cards(group, data, units)
+            for card in generated:
+                gen.run(card["gen"], 1)
+            made.extend(generated)
         except bank.AiBankError as error:
             self.errors[gid] = str(error)
             return
-        except (KeyError, TypeError, ValueError, AttributeError, IndexError) as error:
+        except (gen.GenError, KeyError, TypeError, ValueError, AttributeError, IndexError) as error:
             self.errors[gid] = "뼈대 카드를 만들 수 없습니다: %s" % error
             return
         self.notes[gid], self.items[gid] = note, data
@@ -709,16 +713,19 @@ class AiSession(object):
         """오답 노트에 다시 그릴 문항. 생성기는 기록의 시드로, 문장 카드는 기록의 shown 순서로 다시 만들고 shown 이 없으면 빈칸판.
         뼈대 카드는 기록의 답 줄(seed, masked, whole, fade, back)로 다시 만들고 기록이 없으면 f = 0 판."""
         entry = entry or {}
+        seed = entry.get("seed")
+        if seed is None:
+            seed = 1
         if card["kind"] in ("blank", "choice"):
             return dict(card["item"])
         if card["kind"] == "skel":
             record = entry if entry.get("kind") == "answer" else None
             try:
-                return skel.view(card, self.skeletons[card["pattern"]], int(entry.get("seed") or 1), record=record)
+                return skel.view(card, self.skeletons[card["pattern"]], int(seed), record=record)
             except (bank.AiBankError, KeyError) as error:
                 raise AiError("문항을 다시 만들 수 없습니다: %s" % error)
         if card["kind"] == "gen":
-            return gen.run(card["gen"], int(entry.get("seed") or 1))
+            return gen.run(card["gen"], int(seed))
         statement = card["stmt"]
         texts = {s["id"]: s for s in card["topic"].get("statements", [])}
         shown = [texts[i] for i in entry.get("shown") or [] if i in texts]
@@ -1559,7 +1566,7 @@ class PracticeSet(object):
         lesson = self.sess.lessons.get(card.get('after') if card.get('mock') else card["lesson"])
         if lesson:
             chips.append("%d차시" % lesson["no"])
-        elif card["kind"] == "skel":
+        elif card["lesson"] in self.sess.patterns:
             chips.append(card.get("name") or self.sess.place(card["lesson"])["label"])
         if card["kind"] == "skel":
             chips.append(skel.PART_CHIP[card["part"]])
@@ -1653,14 +1660,16 @@ class PracticeSet(object):
 
     @staticmethod
     def _skel_row(card, item, row):
-        """뼈대 카드 답 줄에 다시 그릴 값을 더함. slot 은 fade·masked·whole, 반대 방향으로 낸 고칠 줄은 back."""
+        """답 줄에 다시 그릴 값을 더함. slot은 fade·masked·whole, change는 보기 판과 반대 방향 여부를 남김."""
         if card["kind"] != "skel":
             return
         made = item.get("skel") or {}
         if made.get("part") == "slot":
             row.update(fade=int(made.get("fade") or 0), masked=list(made.get("masked") or []), whole=bool(made.get("whole")))
-        elif made.get("back"):
-            row["back"] = True
+        elif made.get("part") == "change":
+            row["change_rev"] = made["change_rev"]
+            if made.get("back"):
+                row["back"] = True
 
     def _also(self, card, view, picked, graded):
         """문장 카드에서 고른 다른 보기. 그 보기가 열린 카드면 그 카드에도 stuck(설계 3.5, 열리지 않은 카드는 남기지 않음)."""

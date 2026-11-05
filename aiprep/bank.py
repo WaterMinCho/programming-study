@@ -595,3 +595,11 @@ def cards_of(lesson, data):
     for spec in data["gens"]:
         add(spec.id, "gen", spec.meta, gen=spec, family=str(spec.meta.get("family") or spec.id))
     return cards
+
+
+def pattern_gen_cards(group, data, units):
+    """공개된 상황별 코드 단원의 생성 문항에 권장 차시와 이름을 붙임."""
+    source = {"items": [], "topics": [], "gens": data["gens"]}
+    cards = cards_of({"id": group["id"]}, source)
+    return [dict(card, after=units[card["unit"]]["after"], name=units[card["unit"]]["name"])
+            for card in cards if card["unit"] in units]
