@@ -1161,14 +1161,14 @@ class PatternSignTest(PatternCase):
         self.assertTrue(note_answers)
         self.assertTrue(all(value == [""] or value == {"picked": []} for value in note_answers.values()))
         self.assertTrue(all(key.startswith("l18 ") for key in note_answers))
-        self.assertTrue(any(key.endswith("why briefwhy") for key in note_answers))
+        self.assertTrue(any("why briefwhy@" in key for key in note_answers))
         self.assertIn("기울기를 먼저 비우는 까닭", sheet)
         self.assertNotIn("비밀 답 표식", sheet + whole + samples + json.dumps(note_answers, ensure_ascii=False))
         graded = study.read_json(os.path.join(folder, "answers.json"))
         self.assertFalse(set(note_answers) & set(graded))
 
-    def test_anonymous_note_questions_keep_distinct_empty_answers(self):
-        parts = [{"kind": "why", "q": "첫 조건은 무엇인가요?", "a": "첫 비밀 답"},
+    def test_named_and_anonymous_note_questions_keep_distinct_empty_answers(self):
+        parts = [{"kind": "why", "id": "b2", "q": "첫 조건은 무엇인가요?", "a": "첫 비밀 답"},
                  {"kind": "why", "q": "다음 조건은 무엇인가요?", "a": "둘째 비밀 답"}]
         parsed = {"order": ["18a"], "units": {"18a": {"steps": [{"no": 1, "blocks": parts}]}}}
         with mock.patch.object(ai_seal.aibank, "parse_page", return_value=parsed):

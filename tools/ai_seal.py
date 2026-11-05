@@ -41,7 +41,7 @@ USAGE = """AI 비전 개론 봉인 도구 (출제자용)
   python tools/ai_seal.py unseal [i05 ...]             sealed.json → work/ (고칠 때)
   python tools/ai_seal.py check                        봉인 안 된 평문이 있거나 sealed.json 이 깨졌으면 실패
   python tools/ai_seal.py brief i05 --out DIR          재풀이자에게 줄 공개본(정답 없음)을 저장소 밖 DIR 에 만듦
-  python tools/ai_seal.py brief pc --out DIR           상황별 코드 공개본. sheet.md 를 다 푼 뒤에 skel.md 를 엽니다
+  python tools/ai_seal.py brief pc --out DIR           상황별 코드 공개본. sheet.md, whole.md, skel.md를 순서대로 풉니다
   python tools/ai_seal.py levels l04 [l05 ...] --out DIR
                                                        학습 노트의 세 수준 블록 재풀이 공개본. 블록마다 폴더 하나이고
                                                        수준 파일을 하나씩 열며 levels_answers.json 을 채웁니다
@@ -210,7 +210,7 @@ def _note_answers(bank_dir, page_id):
             for block_no, block in enumerate(step["blocks"], 1):
                 if block["kind"] not in ("guess", "recall", "why"):
                     continue
-                tag = "%s %s/%s %s %s" % (page_id, key, step["no"], block["kind"], block.get("id") or "b%d" % block_no)
+                tag = "%s %s/%s %s %s" % (page_id, key, step["no"], block["kind"], "%s@%d" % (block.get("id") or "q", block_no))
                 answers[tag] = {"picked": []} if block["kind"] == "guess" else [""] * max(1, len(aibank.BLANK.findall(block.get("q", ""))))
     return answers
 
@@ -282,11 +282,11 @@ def _note_lines(bank_dir, page_id):
         for step in parsed["units"][key]["steps"]:
             for block_no, block in enumerate(step["blocks"], 1):
                 if block["kind"] == "guess":
-                    lines.append("- %s/%s 먼저 풀어 보기 %s: %s" % (key, step["no"], (block.get("id") or "b%d" % block_no), block.get("q", "")))
+                    lines.append("- %s/%s 먼저 풀어 보기 %s: %s" % (key, step["no"], ("%s@%d" % (block.get("id") or "q", block_no)), block.get("q", "")))
                     lines += ["  %d. %s" % (n, text) for n, text in enumerate(block.get("options") or [], 1)]
                 elif block["kind"] in ("recall", "why"):
                     name = "떠올리기" if block["kind"] == "recall" else "왜일까요"
-                    lines.append("- %s/%s %s %s: %s" % (key, step["no"], name, (block.get("id") or "b%d" % block_no), block.get("q", "")))
+                    lines.append("- %s/%s %s %s: %s" % (key, step["no"], name, ("%s@%d" % (block.get("id") or "q", block_no)), block.get("q", "")))
     return lines
 
 
@@ -355,7 +355,8 @@ def brief(bank_dir, iid, out_dir):
         study.write_text(os.path.join(out_dir, "cloze.md"), "\n".join(head + clozes) + "\n")
     study.write_text(os.path.join(out_dir, "answers.json"), json.dumps(answers, ensure_ascii=False, indent=1) + "\n")
     study.write_text(os.path.join(out_dir, "note-answers.json"), json.dumps(_note_answers(bank_dir, str(meta.get("page", ""))), ensure_ascii=False, indent=1) + "\n")
-    print("공개본을 만들었습니다: %s (sheet.md%s, answers.json)" % (out_dir, ", cloze.md" if clozes else ""))
+    print("공개본을 만들었습니다: %s (sheet.md%s, answers.json, note-answers.json)" % (out_dir, ", cloze.md" if clozes else ""))
+    print("노트 물음의 답은 note-answers.json에 따로 적고 본문과 대조합니다.")
     print("재풀이자는 학습 노트와 sheet.md 만 보고 answers.json 을 채우고, 문장 판정을 다 적은 뒤에 cloze.md 를 풉니다. 그다음 "
           "`python tools/verify_ai.py %s --answers answers.json` 으로 대조합니다." % iid)
 
