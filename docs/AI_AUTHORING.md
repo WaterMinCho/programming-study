@@ -226,6 +226,8 @@ python3 tools/verify_ai.py i05 --answers DIR/answers.json 재풀이 답안을 �
 python3 tools/verify_ai.py --levels-answers DIR/levels_answers.json   세 수준 물음 재풀이 답안을 채점(문항 재풀이와 따로 셈)
 python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4" \
         --first-pass DIR/answers.json --minutes 95 --finding "i05-b09 지문이 두 가지로 읽혀 고침"
+python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4" \
+        --keep-first-pass --finding "문장을 고치고 다시 대조함"
 python3 tools/verify_ai.py --require-review               문항 묶음·common·모의고사 서명 확인(CI)
 python3 tools/verify_web.py --bank ai --total-mb 32 l05   학습 노트 꼴·그림·서명(--sign --writer --resolver --reviewer)
 python3 tools/web_lint.py --bank ai --no-external         학습 노트 말투와 맥락(낱말을 쓰기 전에 소개)
@@ -239,6 +241,8 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 상황별 코드는 학습 노트 l18 을 `verify_web.py --bank ai --total-mb 32 l18 --sign …` 로, 카드를 `verify_ai.py pc --sign …` 으로 따로 서명합니다. pc 서명은 `ai/patterns/*.json` 을 모두 덮어서 뼈대를 더하거나 고치면 pc 를 다시 재풀이·대조·검토하고 서명합니다.
 
 이 컴퓨터에서는 `python3` 를 `/opt/homebrew/bin/python3` 로 씁니다. 서명은 글 파일(.py, .json, .md)을 줄 끝 LF 로 읽어 해시를 세므로 Windows 에서 받아도 맞습니다. 봉인은 내용을 바꾸지 않아 봉인 앞뒤로 서명이 맞습니다. 서명 뒤에 한 글자라도 고치면 `--require-review` 가 떨어지고, 바뀐 카드를 다시 재풀이·대조·검토한 뒤 다시 서명합니다.
+
+첫 재풀이 뒤 문장만 고쳐 다시 서명할 때는 `--keep-first-pass`로 이전 기록을 보존합니다. 이 옵션은 맞힌 수, 틀린 문항, 시간과 나머지 기록을 함께 보존합니다. `--first-pass`나 `--minutes`와 함께 쓰지 않습니다. 이전 기록을 읽을 수 없으면 서명하지 않습니다.
 
 ## 8. 교차 검증 순서
 

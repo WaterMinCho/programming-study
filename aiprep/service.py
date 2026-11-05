@@ -11,6 +11,7 @@ set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 
 ai/patterns/S*.json 뼈대에서 skel.cards 가 만듦. 카드 lesson 은 무리 id, after 는 권하는 차시이고, 차시를 묻는 곳(정렬, 무게,
 차시 풀기)은 after 차시를 씀. 단원 이름은 unit_name 한 규칙("5차시 · 단원 제목", "학습 루프 · 단원 제목")을 모든 화면값이 씀.
 """
+import copy
 import datetime
 import json
 import os
@@ -63,7 +64,8 @@ class AiError(session.SessionError):
 
 class AiRecord(record.Record):
     """record.Record 와 같은 파일 꼴. 자기가 마지막으로 읽거나 쓴 파일의 (mtime_ns, 크기)가 그대로면 다시 읽지 않고
-    메모리의 기록에 덧붙여 씀(4주 기록 1MB 안팎을 답마다 다시 읽지 않으려는 것). 다른 창이나 문제 받기로 파일이 바뀌면
+    메모리의 기록에 덧붙여 씀(4주 기록 1MB 안팎을 답마다 다시 읽지 않으려는 것). 파일 식별값과 변경 시각도 비교해서
+    크기와 수정 시각이 같은 파일 교체를 감지함. 다른 창이나 문제 받기로 파일이 바뀌면
     지금처럼 다시 읽음."""
 
     def __init__(self, path, user, label=LABEL):
@@ -75,7 +77,7 @@ class AiRecord(record.Record):
             info = os.stat(self.path)
         except OSError:
             return None
-        return (info.st_mtime_ns, info.st_size)
+        return (info.st_mtime_ns, info.st_size, info.st_ino, info.st_ctime_ns)
 
     def load(self):
         key = self.stamp()
@@ -689,6 +691,7 @@ class _State(object):
         self.guesses = index.guesses
         self.revisited_today = {(lesson, unit) for lesson, unit, day in index.revisits if day == today}
         self.sched = {}
+        self._overview, self._overview_key = None, None
         for cid, rows in self.events.items():
             read = self.read_day(cid)
             key = (index.events.ver.get(cid), today, read)
@@ -914,6 +917,15 @@ class _State(object):
         return out
 
     def overview(self):
+        key = (tuple(os.path.isfile(os.path.join(bank.mock_dir(mid, self.sess.root), "meta.json"))
+                     for mid in self.sess.mocks), tuple(sorted(self.sess.errors.items())),
+               plan.REVIEW_FIRST, plan.BACKLOG_HALF, NEW_PER_DAY, BACKLOG_HALF, DAILY_GOAL)
+        if self._overview is None or self._overview_key != key:
+            self._overview = self._make_overview()
+            self._overview_key = key
+        return copy.deepcopy(self._overview)
+
+    def _make_overview(self):
         sess = self.sess
         due = self.due_cards()
         lessons = []
@@ -1223,18 +1235,20 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
 
     def weighted(ids):
         pool = list(ids)
+        weights = [sess._home(cards[c])["weight"] * cards[c]["prio"] * (6 - (state.box(c) or 0)) for c in pool]
         out = []
         while pool:
-            weights = [sess._home(cards[c])["weight"] * cards[c]["prio"] * (6 - (state.box(c) or 0)) for c in pool]
             total = sum(weights)
             mark, acc = rng.random() * total, 0.0
             for n, w in enumerate(weights):
                 acc += w
                 if acc >= mark:
                     out.append(pool.pop(n))
+                    weights.pop(n)
                     break
             else:
                 out.append(pool.pop())
+                weights.pop()
         return out
 
     size = SET_SIZE
