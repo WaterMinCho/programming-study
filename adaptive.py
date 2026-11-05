@@ -663,23 +663,9 @@ def user_summary(user, cat):
     }
 
 
-def user_analysis_markdown(user, cat):
-    prof = load_profile(user)
-    states = all_states(prof, cat)
-    lines = ["### `%s` 학습 분석" % user, "",
-             "| 단원 | 상태 | 정답률 | 시도 |", "|---|---|---|---|"]
-    for st in states:
-        acc = "-" if st["accuracy"] is None else "%d%%" % round(st["accuracy"] * 100)
-        lines.append("| %s %s | %s | %s | %d |" % (st["unit"], cat_unit_title(cat, st["unit"]), state_label(st), acc, st["attempted"]))
-    mastered = sum(1 for st in states if st["mastered"])
-    lines += ["", "시험 준비도 %d%% · 숙달 %d/%d 단원 · 회차 %d회 · 시도 %d문항" % (readiness(states), mastered, len(states), len(prof["rounds"]), len(first_attempts(prof)))]
-    tags = weak_tags(prof, cat)
-    if tags:
-        lines.append("약한 개념: " + ", ".join(tags))
-    shortages = collect_shortages([prof])
-    if shortages:
-        lines.append("부족한 문항: " + ", ".join("%s 레벨%d %d문항" % (u, L, n) for (u, L), n in sorted(shortages.items())))
-    return "\n".join(lines) + "\n"
+def user_analysis_markdown(user, cat=None):
+    import subject_analysis
+    return subject_analysis.markdown([subject_analysis.collect_user(user, cat)])
 
 
 def collect_shortages(profiles):
@@ -692,37 +678,26 @@ def collect_shortages(profiles):
     return total
 
 
-def team_analysis_markdown(cat):
-    users = users_with_profile()
-    if not users:
-        return "### 학습 현황\n\n아직 진단 테스트를 한 사람이 없습니다.\n", {}
-    unit_ids = [s["id"] for s in units()]
-    lines = ["### 학습 현황 (단원별 상태)", "",
-             "| 이름 | 준비도 | 숙달 | " + " | ".join(unit_ids) + " |", "|---|---|---|" + "---|" * len(unit_ids)]
-    weak_count = {u: 0 for u in unit_ids}
+def team_analysis_markdown(cat=None):
+    import subject_analysis
+    team = subject_analysis.collect_team(cat)
+    rows = team.users
     profiles = []
-    for user in users:
-        prof = load_profile(user)
-        profiles.append(prof)
-        states = {st["unit"]: st for st in all_states(prof, cat)}
-        cells = []
-        for u in unit_ids:
-            st = states[u]
-            if st["mastered"]:
-                cells.append("✅")
-            elif not st["tested"]:
-                cells.append("·")
-            else:
-                cells.append("L%d%s" % (st["level"], "!" if st["retry"] else ""))
-                weak_count[u] += (4 - st["level"]) + (2 if st["retry"] else 0)  # 낮은 레벨·재도전일수록 약함
-        lines.append("| %s | %d%% | %d/%d | %s |" % (user, readiness(list(states.values())), sum(1 for s in states.values() if s["mastered"]), len(unit_ids), " | ".join(cells)))
-    weakest = sorted(weak_count.items(), key=lambda x: -x[1])[:5]
-    lines += ["", "L1~L3 = 진행 중인 레벨, ! = 재도전, · = 미진단", "",
-              "팀 전체 약한 단원(약한 순): " + ", ".join(u for u, n in weakest if n)]
-    shortages = collect_shortages(profiles)
-    if shortages:
-        lines += ["", "부족한 문항: " + ", ".join("%s 레벨%d %d문항" % (u, L, n) for (u, L), n in sorted(shortages.items()))]
-    return "\n".join(lines) + "\n", shortages
+    for row in rows:
+        if row.subjects[0].status == "unavailable" or not os.path.isfile(profile_path(row.user)):
+            continue
+        try:
+            profiles.append(load_profile(row.user))
+        except (OSError, ValueError):
+            continue
+    try:
+        raw = collect_shortages(profiles)
+        known = {item["unit"] for item in (cat if cat is not None else catalog()).values()}
+        shortages = {(u, level): count for (u, level), count in raw.items()
+                     if u in known and type(level) is int and level in (1, 2, 3) and type(count) is int and count > 0}
+    except (OSError, ValueError, TypeError, KeyError):
+        shortages = {}
+    return subject_analysis.markdown(rows, unavailable=team.status == "unavailable"), shortages
 
 
 def shortage_request_markdown(shortages, cat):

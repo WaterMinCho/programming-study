@@ -1313,9 +1313,307 @@ def record_timing():
 
 @figure("8g-5", 560, 250)
 def memo_8g():
-    return memo([[(0.2, 5.35, "모양과 판정 줄", ["[N, 1] == [N] → [N, N]", "정답은 view(" + M + "1, 1) 로 [N, 1]",
+    return memo([[(0.2, 5.25, "모양과 판정 줄", ["[N, 1] == [N] → [N, N]", "정답은 view(" + M + "1, 1) 로 [N, 1]",
                                              "nn.Sigmoid() 층, torch.sigmoid() 함수"], INK, INK, (0,)),
-                  (5.65, 5.35, "scikit-learn 과 기록", [".cpu().numpy().astype(int).flatten()",
+                  (5.75, 5.25, "scikit-learn 과 기록", [".cpu().numpy().astype(int).flatten()",
                                                    "confusion_matrix(정답, 예측)", "step() 뒤 검증 손실은 갱신 뒤 값"],
                    PURPLE, INK, (0,))]],
                 "정확도가 1 보다 크면 모양부터 확인합니다 · 두 인자를 바꾸면 FP 칸과 FN 칸이 바뀝니다")
+
+
+# 세 수준으로 다시 보기 블록 그림. 화면 520×280(파일 1040×560), 글자 22 이상은 tools/ai_art/levels.py 를 따름.
+# 그림 이름은 <단원>-<단계 번호><수준 번호>(7살 1, 15살 2, 20살 3)이고 색 뜻은 그 단원의 뜻을 그대로 씀.
+# 칸마다 바탕색이 다른 표가 필요해서 levels.grid 와 같은 크기 규칙으로 _lv_table 을 둠.
+
+from tools.ai_art import SCALE, levels as LV  # noqa: E402
+
+
+def _lv_board():
+    """세 수준 그림 판. 좌표는 화면 논리 px(가로 0~520, 세로 0~280)."""
+    plt = setup()
+    width, height = LV.SIZE
+    fig = plt.figure(figsize=(width * SCALE / 100.0, height * SCALE / 100.0), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, width)
+    ax.set_ylim(0, height)
+    ax.axis("off")
+    return fig, ax
+
+
+def _lv_text(ax, x, y, s, color=INK, size=None, ha="center", va="center", bold=False, rotation=0):
+    ax.text(x, y, s, ha=ha, va=va, fontsize=size or LV.FONT, color=color, zorder=6, weight="bold" if bold else "normal",
+            rotation=rotation, linespacing=1.3)
+
+
+def _lv_box(ax, cx, cy, w, h, s, ec=MUTED, fc="white", size=None, bold=False, lw=2.0, color=INK):
+    from matplotlib.patches import FancyBboxPatch
+    ax.add_patch(FancyBboxPatch((cx - w / 2.0, cy - h / 2.0), w, h, boxstyle="round,pad=0,rounding_size=10", fc=fc, ec=ec,
+                                lw=lw, zorder=3))
+    if s != "":
+        _lv_text(ax, cx, cy, s, color=color, size=size or LV.BIG, bold=bold)
+
+
+def _lv_arrow(ax, x0, y0, x1, y1, color=INK, lw=2.4):
+    ax.annotate("", xy=(x1, y1), xytext=(x0, y0), zorder=4,
+                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw, mutation_scale=20, shrinkA=0, shrinkB=0))
+
+
+def _lv_table(rows, col_names=(), row_names=(), fills=None, top="", code=False, pad=28, min_w=72.0, row_tone="muted",
+              col_tone="muted"):
+    """levels.grid 와 같은 판·글자 크기의 표. fills 는 {(행, 열): levels.PALE 색 이름이나 FIXED 색}(머리 빼고 0부터)이고
+    칠한 칸 글은 굵게 씀. pad 는 칸 글 좌우 여백 합, min_w 는 칸 폭 하한(논리 px). 표나 위 글이 그림 폭을 넘으면 ValueError."""
+    from matplotlib.patches import Rectangle
+    fills = fills or {}
+    fig, ax = LV._canvas()
+    room = LV.SIZE[0] - 2 * LV.PAD
+    if top and LV._width(fig, top, code=True if code else LV.MATH_FONT) > room:
+        raise ValueError("표 위 글 %r 가 그림 폭을 넘습니다." % top)
+    LV._top(ax, top, code)
+    head_rows = 1 if col_names else 0
+    total = len(rows) + head_rows
+    if total > 7:
+        raise ValueError("표는 머리를 넣어 7행 이하여야 합니다: %d행" % total)
+    room_h = LV.SIZE[1] - 2 * LV.PAD - (56 if top else 0)
+    cell_h = min(56.0, room_h / total)
+    head_w = max([LV._width(fig, n) + pad for n in row_names] + [min_w]) if row_names else 0
+    widths = []
+    for c in range(len(rows[0])):
+        need = [LV._width(fig, row[c], code=code, bold=(r, c) in fills) + pad for r, row in enumerate(rows)]
+        if c < len(col_names):
+            need.append(LV._width(fig, col_names[c]) + pad)
+        widths.append(max(need + [min_w]))
+    table_w = head_w + sum(widths)
+    if table_w > room:
+        raise ValueError("표 폭 %.0f 가 그림 폭 %d 를 넘습니다." % (table_w, room))
+    left = (LV.SIZE[0] - table_w) / 2.0
+    upper = LV.PAD + (room_h + cell_h * total) / 2.0
+
+    def cell(r, c, text, fill, bold=False, tone="ink", mono=False):
+        x = left + (head_w + sum(widths[:c]) if c >= 0 else 0)
+        y = upper - (r + 1) * cell_h
+        w = head_w if c < 0 else widths[c]
+        ax.add_patch(Rectangle((x, y), w, cell_h, fc=fill, ec=COLORS["faint"], lw=1.5))
+        ax.text(x + w / 2, y + cell_h / 2, str(text), ha="center", va="center", fontsize=LV.FONT, color=COLORS[tone],
+                weight="bold" if bold else "normal", family=LV.CODE_FONT if mono else None)
+
+    for c, name in enumerate(col_names):
+        cell(0, c, name, LV.PALE["gray"], tone=col_tone)
+    for r, row in enumerate(rows):
+        if row_names:
+            cell(r + head_rows, -1, row_names[r] if r < len(row_names) else "", LV.PALE["gray"], tone=row_tone)
+        for c, text in enumerate(row):
+            hit = (r, c) in fills
+            cell(r + head_rows, c, text, LV.PALE.get(fills[(r, c)], fills[(r, c)]) if hit else "white", bold=hit, mono=code)
+    return fig
+
+
+# 8c 셋째 단계: 결정 경계. 파랑 바탕은 0, 주황 바탕은 1로 예측하는 쪽, 노랑은 따라가는 꽃, 회색은 경계 위의 점
+
+def _z8c(x1, x2):
+    return W_NB[0] * x1 + W_NB[1] * x2 + B_NB
+
+
+def _levels_8c(level):
+    y48 = boundary_x2(4.8, W_NB, B_NB)
+    assert fx(y48, 3) == "2.749" and FLOWER[1] > y48
+    assert sum(w > y48 for w in (3.2, 3.0, 2.9, 2.6)) == 3  # 7살 물음의 답
+    if level == 7:
+        fig, ax = _lv_board()
+        lo, hi, y0, y1 = 2.3, 3.7, 24.0, 228.0
+        ypx = lambda w: y0 + (w - lo) / (hi - lo) * (y1 - y0)  # noqa: E731
+        from matplotlib.patches import Rectangle
+        ax.add_patch(Rectangle((150, ypx(y48)), 346, y1 - ypx(y48), fc=LV.PALE["blue"], ec="none", zorder=1))
+        ax.add_patch(Rectangle((150, y0), 346, ypx(y48) - y0, fc=LV.PALE["orange"], ec="none", zorder=1))
+        ax.plot([150, 150], [y0, y1], color=MUTED, lw=2, zorder=2)
+        for w in (2.5, 3.0, 3.5):
+            ax.plot([144, 150], [ypx(w)] * 2, color=MUTED, lw=2, zorder=2)
+            _lv_text(ax, 138, ypx(w), fx(w, 1), color=MUTED, ha="right")
+        _lv_text(ax, 48, (y0 + y1) / 2, "꽃받침 폭", color=MUTED, rotation=90)
+        ax.plot([150, 496], [ypx(y48)] * 2, color=INK, lw=3.5, zorder=4)
+        _lv_text(ax, 486, ypx(y48) + 6, "검은 선이 지나는 폭 2.749", ha="right", va="bottom")
+        ax.scatter([190], [ypx(FLOWER[1])], s=420, color=YELLOW, edgecolors=INK, linewidths=1.5, zorder=5)
+        _lv_text(ax, 214, ypx(FLOWER[1]), "첫 단원의 꽃, 폭 3.4", ha="left")
+        _lv_text(ax, 486, ypx(3.05), "품종 0으로 예측", color=BLUE, ha="right", bold=True)
+        _lv_text(ax, 486, ypx(2.5), "품종 1로 예측", color=ORANGE, ha="right", bold=True)
+        _lv_text(ax, 260, 258, "꽃받침 길이가 4.8인 자리")
+        return fig
+    if level == 15:
+        xs2 = [3.4, 3.0, y48, 2.5]
+        zs = [_z8c(4.8, w) for w in xs2]
+        assert [fx(z, 2) for z in zs] == [M + "3.33", M + "1.28", M + "0.00", "1.27"]
+        rows = [["3.4", num(zs[0], 2), "0"], ["3.0", num(zs[1], 2), "0"], ["2.749", "0", "경계"], ["2.5", num(zs[3], 2), "1"]]
+        fills = {(0, c): "blue" for c in range(3)}
+        fills.update({(1, c): "blue" for c in range(3)})
+        fills.update({(2, c): BAND for c in range(3)})
+        fills.update({(3, c): "orange" for c in range(3)})
+        return _lv_table(rows, col_names=["x2", "z", "예측"], fills=fills, min_w=110,
+                         top="z = 2.951 × 4.8 " + M + " 5.115 × x2 " + M + " 0.1045")
+    rows = [["w.shape", "(1, 2)"], ["w[0, 0]", "2.9509459"], ["w[0, 1]", "-5.114985"], ["w[1]", "IndexError"]]
+    return _lv_table(rows, col_names=["코드", "결과"], fills={(3, 0): "red", (3, 1): "red"},
+                     top="w = net.fc.weight.data.numpy()", code=True)
+
+
+@figure("8c-31", *LV.SIZE)
+def levels_8c_7():
+    return _levels_8c(7)
+
+
+@figure("8c-32", *LV.SIZE)
+def levels_8c_15():
+    return _levels_8c(15)
+
+
+@figure("8c-33", *LV.SIZE)
+def levels_8c_20():
+    return _levels_8c(20)
+
+
+# 8d 셋째 단계: BCEWithLogitsLoss 판의 기준. 주황은 1 예측, 빨강은 logit 에 0.5 기준을 잘못 쓴 판정, 회색 곡선은 시그모이드,
+# 보라는 시그모이드를 두 번 거친 값(이 그림에서만 씀)
+
+def _levels_8d(level):
+    zs = np.array([-1.2, 0.3, 2.0])
+    ps = sigmoid(zs)
+    assert [fx(p, 4) for p in ps] == ["0.2315", "0.5744", "0.8808"]
+    if level == 7:
+        assert sum(v > 0 for v in (0.1, -0.4, 0.45, 1.5)) == 3  # 7살 물음의 답
+        fig, ax = _lv_board()
+        for y, word, out, color, fill in ((178, "0과 견줌", "1", ORANGE, LV.PALE["orange"]),
+                                          (68, "0.5와 견줌", "0", RED, LV.PALE["red"])):
+            _lv_box(ax, 92, y, 110, 62, "0.3")
+            _lv_arrow(ax, 152, y, 330, y, color=color if color == RED else INK)
+            _lv_text(ax, 241, y + 8, word, color=color if color == RED else INK, va="bottom")
+            _lv_box(ax, 400, y, 110, 62, out, ec=color, fc=fill, bold=True, lw=3)
+        _lv_text(ax, 92, 238, "모델이 낸 수", color=MUTED)
+        _lv_text(ax, 400, 238, "예측", color=MUTED)
+        return fig
+    if level == 15:
+        assert fx(sigmoid(0.5), 4) == "0.6225" and sigmoid(0.0) == 0.5
+        p15 = np.array([0.52, 0.6, 0.7])
+        assert int((np.log(p15 / (1 - p15)) < 0.5).sum()) == 2  # 15살 물음의 답
+        xs = np.linspace(-2.2, 2.6, 121)
+        fig = LV.graph(list(xs), [(list(sigmoid(xs)), GRAY, "")], "logit z", "p", top="p = 1 ÷ (1 + e^(" + M + "z))",
+                       marks=[(0.0, 0.5, "", "ink"), (0.3, float(ps[1]), "", "orange"), (0.5, float(sigmoid(0.5)), "", "red")],
+                       xlim=(-2.3, 2.7), ylim=(0, 1.0))
+        ax = fig.axes[0]
+        ax.axvspan(0.0, 0.5, color=LV.PALE["red"], zorder=0)
+        for p, color in ((0.5, INK), (float(sigmoid(0.5)), RED)):
+            ax.plot([-2.3, 0.5 if color == RED else 0.0], [p, p], color=color, lw=1.6, ls=":", zorder=1)
+        ax.text(-2.15, 0.5, "0.5", ha="left", va="top", fontsize=LV.FONT, color=INK)
+        ax.text(-2.15, float(sigmoid(0.5)) + 0.02, "0.6225", ha="left", va="bottom", fontsize=LV.FONT, color=RED)
+        LV._inside(fig)
+        return fig
+    p2 = sigmoid(ps)
+    assert [fx(p, 4) for p in p2] == ["0.5576", "0.6398", "0.7070"] and all(0.5 < p < sigmoid(1.0) for p in p2)
+    y = np.array([0.0, 1.0, 1.0])
+    once, twice = bce_logit(zs, y), bce_logit(ps, y)
+    assert fx(once, 4) == "0.3149" and fx(twice, 4) == "0.5363"
+    rows = [[f"{z:.1f}", fx(p, 4), fx(q, 4)] for z, p, q in zip(zs, ps, p2)] + [["", fx(once, 4), fx(twice, 4)]]
+    return _lv_table(rows, col_names=["z_out", "한 번", "두 번"], row_names=["데이터 1", "데이터 2", "데이터 3", "손실"],
+                     fills={(r, 2): "purple" for r in range(4)}, top="torch.sigmoid(torch.sigmoid(z_out))", code=True)
+
+
+@figure("8d-31", *LV.SIZE)
+def levels_8d_7():
+    return _levels_8d(7)
+
+
+@figure("8d-32", *LV.SIZE)
+def levels_8d_15():
+    return _levels_8d(15)
+
+
+@figure("8d-33", *LV.SIZE)
+def levels_8d_20():
+    return _levels_8d(20)
+
+
+# 8f 둘째 단계: 혼동 행렬. 초록은 맞힌 칸, 빨강은 틀린 칸
+
+def _levels_8f2(level):
+    if level == 7:
+        fig, ax = _lv_board()
+        for y, name, count, cells in ((150, "실제 정상", TN + FP, ((TN, "green"), (FP, "red"))),
+                                      (62, "실제 사기", FN + TP, ((FN, "red"), (TP, "green")))):
+            _lv_box(ax, 96, y, 144, 70, "")
+            _lv_text(ax, 96, y + 13, name)
+            _lv_text(ax, 96, y - 15, comma(count) + "건", bold=True)
+            _lv_arrow(ax, 172, y, 206, y)
+            for x, (value, tone) in zip((278, 420), cells):
+                _lv_box(ax, x, y, 136, 70, comma(value), ec=COLORS[tone], fc=LV.PALE[tone], bold=True, lw=2.5)
+        _lv_text(ax, 278, 222, "정상이라고 답함", color=MUTED)
+        _lv_text(ax, 420, 222, "사기라고 답함", color=MUTED)
+        return fig
+    if level == 15:
+        assert FN + TP == 108 and TN + FP == 1892 and FP + TP == 132  # 132 는 15살 물음의 답
+        rows = [["TN " + comma(TN), "FP " + str(FP), comma(TN + FP)], ["FN " + str(FN), "TP " + str(TP), str(FN + TP)]]
+        return _lv_table(rows, col_names=["예측 0", "예측 1", "행의 합"], row_names=["실제 0", "실제 1"],
+                         fills={(0, 0): "green", (0, 1): "red", (1, 0): "red", (1, 1): "green", (1, 2): "highlight"},
+                         top="실제 사기 수 = FN + TP = 19 + 89 = 108")
+    cm, cm_p = [TN, FP, FN, TP], [TP, FN, FP, TN]  # labels=[1, 0] 이면 ravel 순서가 TP, FN, FP, TN
+    wrong = dict(zip(("tn", "fp", "fn", "tp"), cm_p))
+    assert fx(wrong["tp"] / (wrong["tp"] + wrong["fp"]), 4) == "0.9898"  # 20살 물음: 1849 ÷ 1868
+    rows = [[name, str(a), str(b)] for name, a, b in zip(("tn", "fp", "fn", "tp"), cm, cm_p)]
+    return _lv_table(rows, col_names=["이름", "cm", "cm_p"], fills={(r, 2): "red" for r in range(4)},
+                     top="tn, fp, fn, tp = M.ravel()", code=True, min_w=110)
+
+
+@figure("8f-21", *LV.SIZE)
+def levels_8f2_7():
+    return _levels_8f2(7)
+
+
+@figure("8f-22", *LV.SIZE)
+def levels_8f2_15():
+    return _levels_8f2(15)
+
+
+@figure("8f-23", *LV.SIZE)
+def levels_8f2_20():
+    return _levels_8f2(20)
+
+
+# 8f 다섯째 단계: AUC. 초록은 사기 쪽 점수가 큰 짝, 빨강은 정상 쪽 점수가 큰 짝, 회색은 같은 짝
+
+def _levels_8f5(level):
+    if level == 7:
+        assert sum(p > n for p in (0.8, 0.4) for n in (0.6, 0.3, 0.1)) == 5  # 7살 물음의 답
+        fills = {(r, c): "green" if p > n else "red" for r, p in enumerate(SC_POS) for c, n in enumerate(SC_NEG)}
+        assert sum(v == "green" for v in fills.values()) == PAIRS == 18
+        rows = [[""] * len(SC_NEG) for _ in SC_POS]
+        return _lv_table(rows, col_names=[f"{n:.2f}" for n in SC_NEG], row_names=[f"{p:.2f}" for p in SC_POS], fills=fills,
+                         top="왼쪽은 사기 거래, 위는 정상 거래의 점수", pad=14, min_w=40, row_tone="orange", col_tone="blue")
+    if level == 15:
+        cut = lambda xs: [1 if s >= 0.5 else 0 for s in xs]  # noqa: E731
+        pc, nc = cut(SC_POS), cut(SC_NEG)
+        big = sum(p > n for p in pc for n in nc)
+        same = sum(p == n for p in pc for n in nc)
+        small = sum(p < n for p in pc for n in nc)
+        assert (big, same, small) == (12, 8, 1) and abs((big + 0.5 * same) / 21 - AUC_01) < 1e-12
+        rows = [["같음 2짝", "큼 12짝"], ["작음 1짝", "같음 6짝"]]
+        return _lv_table(rows, col_names=["정상 1, 1건", "정상 0, 6건"], row_names=["사기 1, 2건", "사기 0, 1건"],
+                         fills={(0, 0): BAND, (0, 1): "green", (1, 0): "red", (1, 1): BAND}, min_w=130,
+                         top="AUC = (12 + 8 × 0.5) ÷ 21 ≈ 0.762")
+    lg = lambda xs: [math.log(s / (1 - s)) for s in xs]  # noqa: E731
+    assert abs(area(roc_points(lg(SC_POS), lg(SC_NEG))) - AUC_P) < 1e-12
+    flip = area(roc_points([1 - s for s in SC_POS], [1 - s for s in SC_NEG]))
+    neg = area(roc_points([-s for s in SC_POS], [-s for s in SC_NEG]))
+    assert abs(flip - 3 / 21) < 1e-12 and abs(neg - flip) < 1e-12 and fx(flip, 3) == "0.143"
+    rows = [["p", fx(AUC_P, 3)], ["np.log(p / (1 - p))", fx(AUC_P, 3)], ["1 - p", fx(flip, 3)]]
+    return _lv_table(rows, col_names=["둘째 인자", "AUC"], fills={(2, 0): "red", (2, 1): "red"},
+                     top="roc_auc_score(y_true, 둘째 인자)", code=True)
+
+
+@figure("8f-51", *LV.SIZE)
+def levels_8f5_7():
+    return _levels_8f5(7)
+
+
+@figure("8f-52", *LV.SIZE)
+def levels_8f5_15():
+    return _levels_8f5(15)
+
+
+@figure("8f-53", *LV.SIZE)
+def levels_8f5_20():
+    return _levels_8f5(20)

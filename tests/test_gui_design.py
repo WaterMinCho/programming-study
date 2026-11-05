@@ -253,7 +253,7 @@ class JourneyDesignTest(test_gui_journey.Base):
                 label = "%s: %s" % (where, button.text())
                 scale = button.property("scale")
                 self.assertIn(scale, ("l", "m", "s"), "kit 단추가 아님 " + label)
-                want = theme.CONTROL["l"] if button.objectName() == "tab" else theme.CONTROL[scale]  # 탭은 아래 선까지 48
+                want = theme.CONTROL["l"] if button.objectName() == "tab" else theme.control_height(scale)  # 탭은 아래 선까지 48
                 self.assertEqual(want, button.height(), label)
                 if button.objectName() != "chip":  # 칩은 언어 이름이라 길이 규칙에서 뺌
                     self.assertLessEqual(len(button.text().replace(" ", "")), 8, label)
