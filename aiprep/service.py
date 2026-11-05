@@ -493,7 +493,7 @@ class AiSession(object):
     def check_rotate(self, lid, key, rid, slot, value, readonly=False):
         """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 판 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
         문맥 떼기를 씀. readonly 가 아니면 {"kind": "recall", "lesson", "unit", "id", "slot", "ok"} 를 한 번 기록하고 상자는
-        움직이지 않음. {"ok", "answer"(첫 답)}. 모르는 블록·자리면 AiError."""
+        움직이지 않음. {"ok", "answer"(첫 답), "explain"(같은 자리의 기존 해설)}. 모르는 블록·자리면 AiError."""
         unit = self._unit(lid, key)
         block = next((b for s in unit["steps"] for b in s["blocks"] if b["kind"] == "rotate" and str(b.get("id")) == str(rid)), None)
         if block is None or block.get("error"):
@@ -504,12 +504,13 @@ class AiSession(object):
         spot = next((s for s in made["slots"] if s["id"] == slot), None)
         if spot is None:
             raise AiError("돌려 가며 빈칸에 없는 자리입니다: %s" % slot)
-        answers = [str(a) for a in skel.entry_of(self.skeletons[str(block["skel"])], "slot", slot).get("answer") or []]
+        entry = skel.entry_of(self.skeletons[str(block["skel"])], "slot", slot)
+        answers = [str(a) for a in entry.get("answer") or []]
         item = {"stem": "```python\n%s\n```" % spot["code"], "blanks": [{"answer": answers, "mode": spot["mode"]}]}
         ok = grade.grade_item(item, [value], self.term_map)["result"] == "pass"
         if not readonly:
             self._append({"kind": "recall", "lesson": lid, "unit": key, "id": str(rid), "slot": str(slot), "ok": ok})
-        return {"ok": ok, "answer": answers[0] if answers else ""}
+        return {"ok": ok, "answer": answers[0] if answers else "", "explain": str(entry.get("explain") or "")}
 
     def check_recall(self, block, value):
         """떠올리기 칸 하나를 채점함(기록은 save_recall 이 함). block 은 unit_steps 의 recall 블록이나 세 수준 블록의 수준 하나이고
@@ -582,6 +583,10 @@ class AiSession(object):
 
     # 연습
 
+    def review_status(self):
+        """자동 복습 후보 유무와 다음 복습 날짜를 돌려줌. 기록은 남기지 않음."""
+        return self._state().review_status()
+
     def start_mock(self, mid, repeat=False, seed=None, clock=None, monotonic=None):
         """회차를 시작하거나 로컬 초안을 이어 엶. 제출한 회차는 결과를 열고 repeat이면 새 풀이를 시작함."""
         try:
@@ -611,6 +616,8 @@ class AiSession(object):
         state = self._state()
         picked = build_set(self, state, mode, random.Random(seed), lesson=lesson, unit=unit, card=card)
         if not picked:
+            if mode in ("review", "sweep"):
+                raise AiError("지금 복습할 문항이 없습니다.")
             raise AiError("지금 풀 문항이 없습니다. 단원을 먼저 읽어 주세요.")
         day = state.today
         count = sum(1 for e in self.record.log if e.get("kind") == "set" and review.study_day(e.get("at")) == day)
@@ -826,6 +833,7 @@ class _State(object):
                              if s and s["first"] == today and cid in sess.cards and not sess.cards[cid]["core"] and not sess.cards[cid].get('mock'))
         todays = {cid: self.events[cid] for cid in index.day_cards.get(today, ()) if cid in self.events}
         self.again = plan.again_cards(todays, today)
+        self.completed_today = set(todays) - set(self.again)
         self._notes = None
         self._units = {}
         for card in sess.cards.values():
@@ -904,6 +912,12 @@ class _State(object):
         return rows
 
     # 묶음
+
+    def review_status(self):
+        """자동 복습과 같은 후보 규칙으로 낼 문항이 있는지 확인함. 다음 날짜는 전체 카드에서 셈."""
+        days = sorted(day for day in (self.due_day(cid) for cid in self.sess.cards) if day is not None and day > self.today)
+        upcoming = {"date": days[0].isoformat(), "text": _md(days[0]), "count": days.count(days[0])} if days else None
+        return {"available": bool(build_set(self.sess, self, "review", random.Random(0))), "next": upcoming}
 
     def is_preview(self, lesson):
         day = review.parse_day(lesson.get("date"))
@@ -1408,9 +1422,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
         overflow = [("new", fresh[UNIT_NEW:]), ("due", due[UNIT_REVIEW:])]  # 묶음이 SET_MIN 보다 작을 때만 씀
         pattern = "NNR"
     elif mode in ("review", "sweep"):
-        low = sorted([c for c in read_cards() if c not in due and c not in again and (state.box(c) or 0) <= 2],
+        low = sorted([c for c in read_cards() if c not in due and c not in again and c not in state.completed_today
+                      and (state.box(c) or 0) <= 2],
                      key=lambda c: (state.box(c) or 0, str(state.due_day(c)), c))
-        gens = [c for c in read_cards() if cards[c]["kind"] == "gen" and c not in due]
+        gens = [c for c in read_cards() if cards[c]["kind"] == "gen" and c not in due and c not in state.completed_today]
         rng.shuffle(gens)
         pools = [("again", again), ("due", due), ("low", low), ("gen", gens)]
     elif mode in ("mixed", "lesson"):
@@ -1446,7 +1461,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
     if len(chosen) < SET_MIN and overflow:
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
     chosen = _fix_blanks(sess, state, chosen, pools, protected)
-    chosen = _gen_trim(sess, chosen, keep={card} if mode == "note" else ())  # [다시 풀기]로 고른 생성기는 빼지 않음
+    keep = {card} if mode == "note" else set()
+    if mode in ("review", "sweep"):
+        keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
+    chosen = _gen_trim(sess, chosen, keep=keep)  # 직접 고른 문항과 예정일·미해결 생성기는 비율로 빼지 않음
     if mode == "unit":
         return _arrange(sess, state, chosen, rng, pattern)
     lead = [c for c, pool in chosen if pool == "lead"]

@@ -278,7 +278,7 @@ class MockPage(QWidget):
                 self.lesson_results.clear()
                 for lid, counts in rows:
                     entry = self.win.ai.lessons.get(lid, {})
-                    title = '%s차시 %s' % (entry.get('no', lid), entry.get('title', ''))
+                    title = ai_text.lesson_title(entry.get('no', lid), entry.get('title', ''))
                     self.lesson_results.add(kit.Row(title.strip(), end='%d / %d' % (counts['correct'], counts['total']), inert=True))
                 self.summary_key = summary_key
             self.heading.setText('%d / %d문항 맞음 · 걸린 시간 %d분 %d초\n처음 점수 %d / %d\n틀리거나 비운 문항은 첫 풀이 결과를 기준으로 다음 날부터 복습합니다.' %

@@ -767,8 +767,10 @@ class PatternStepsTest(PatternBase):
 
     def test_check_rotate(self):
         sess = self.session()
-        self.assertEqual({"ok": True, "answer": "zero_grad"}, sess.check_rotate("pc", "18a", "t1", "pc-k02", "opt.zero_grad()"))
-        self.assertEqual({"ok": False, "answer": "argmax"}, sess.check_rotate("pc", "18a", "t1", "pc-k05", "max"))
+        self.assertEqual({"ok": True, "answer": "zero_grad", "explain": "zero_grad 는 앞 묶음에서 쌓인 값을 비웁니다."},
+                         sess.check_rotate("pc", "18a", "t1", "pc-k02", "opt.zero_grad()"))
+        self.assertEqual({"ok": False, "answer": "argmax", "explain": "argmax(1) 은 1번 축에서 가장 큰 값의 위치를 고릅니다."},
+                         sess.check_rotate("pc", "18a", "t1", "pc-k05", "max"))
         self.assertTrue(sess.check_rotate("pc", "18a", "t1", "pc-k05", "argmax(1)")["ok"])
         rows = self.log(sess, "recall")
         self.assertEqual([("t1", "pc-k02", True), ("t1", "pc-k05", False), ("t1", "pc-k05", True)],
@@ -914,8 +916,8 @@ class PatternSetTest(PatternBase):
         sess.mark_read("pc", "18a")
         for cid in ("pc-k01", "pc-o01", "pc-p01", "i90-b01"):
             self.answer(sess, cid, result="stuck")
-        self.at = "2026-11-10T20:00:00"
-        for mode in ("mixed", "review"):
+        for mode, at in (("mixed", "2026-11-10T20:00:00"), ("review", "2026-11-12T20:00:00")):
+            self.at = at
             ps = sess.start_set(mode, seed=7)
             self.assertTrue(any(e["card"].startswith("pc-") for e in ps.queue), mode)
             self.play(ps, lambda cur: "pass")

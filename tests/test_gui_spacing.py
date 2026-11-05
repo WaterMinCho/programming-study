@@ -75,6 +75,37 @@ class SpacingTest(unittest.TestCase):
         self.assertGreaterEqual(row.second.height(), row.second.heightForWidth(row.second.width()))
         self.assertLessEqual(row.second.mapTo(row, row.second.rect().bottomRight()).y(), row.height() - 12)
 
+    def test_frame_caption_remeasures_after_the_actual_font_is_applied(self):
+        theme.set_text("normal")
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(docview, "SCALE", 0.125):
+            path = Path(tmp, "three.gif")
+            path.write_bytes(GIF)
+            root = kit.page(QWidget())
+            column = kit.box(root)
+            figure = AiFigure(os.fspath(path), "그림 설명", frames=[
+                {"text": "첫 장"}, {"text": "설명이 길어도 넘김 단추 자리를 유지합니다. " * 3}, {"text": "마지막 장"}])
+            figure.setMaximumWidth(520)
+            column.addWidget(figure)
+            column.addStretch()
+            root.resize(760, 600)
+            root.show()
+            self.addCleanup(root.deleteLater)
+            self.addCleanup(root.close)
+            kit.refont(figure)
+            figure.draw()
+            guikit.pump()
+            theme.set_text("larger")
+            figure.draw()  # 글꼴 갱신 전에 온 크기 변경도 처리함.
+            kit.refont(figure)
+            figure.draw()
+            figure.first()
+            guikit.pump()
+            before = figure.controls.geometry()
+            figure.go(1)
+            guikit.pump()
+            self.assertEqual(figure.controls.geometry(), before)
+            self.assertGreaterEqual(figure.frame_text.height(), figure.frame_text.heightForWidth(figure.frame_text.width()))
+
     def test_narrow_figure_controls_keep_text_and_actions_after_refont(self):
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(docview, "SCALE", 0.125):
             path = Path(tmp, "three.gif")

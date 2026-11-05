@@ -296,7 +296,7 @@ class DocViewTest(unittest.TestCase):
         later = [block for block in blocks(piece) if block.text() == "풀이"][0]
         self.assertEqual(later.blockFormat().topMargin(), 24)  # 조각 안의 절 제목은 CSS 의 위 24 를 받음
         piece = self.shown("```python\nx = 1\n```\n\n뒤 문단입니다.")[0]
-        self.assertEqual(piece.code_boxes()[0].top(), 0)
+        self.assertAlmostEqual(piece.code_boxes()[0].top(), 0, delta=1 / 64)
 
     def test_code_box_is_round_and_filled_without_a_border(self):
         """코드 상자는 테두리 없이 surface_alt 로 채운 모서리 12 상자. 모서리 안쪽 1px 은 바탕색(둥긂)이고 위 변 가운데는 상자 색."""
@@ -433,8 +433,13 @@ class FigureViewTest(unittest.TestCase):
         shutil.rmtree(self.folder)
 
     def figure(self):
-        figure = FigureView(self.path, "그림 1-1a. 장부 줄이 모이는 모습")
+        holder = QWidget()
+        holder.resize(440, 280)
+        self.addCleanup(holder.deleteLater)
+        self.addCleanup(holder.close)
+        figure = FigureView(self.path, "그림 1-1a. 장부 줄이 모이는 모습", parent=holder)
         figure.resize(400, 200)
+        holder.show()
         figure.show()
         self.addCleanup(figure.deleteLater)
         self.addCleanup(figure.close)

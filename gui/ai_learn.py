@@ -14,7 +14,7 @@ AiFigure 는 GIF 를 1장에서 멈춘 채 열고, 지금 장의 `프레임:` �
 import html
 import re
 
-from PyQt6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QKeySequence, QPainter, QPen, QShortcut
 from PyQt6.QtWidgets import QDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
@@ -22,7 +22,7 @@ import mdlite
 from aiprep import bank, skel
 from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
-from gui.docview import Doc, FigureView, missing_figure
+from gui.docview import Doc, FigureView, TextPiece, missing_figure
 from gui.widgets import Para
 from gui.wrong_page import Arrow
 from session import SessionError
@@ -156,7 +156,7 @@ class AiFigure(FigureView):
     def __init__(self, path, caption="", frames=(), last=False):
         super().__init__(path, caption, autoplay=False, frame_changed=self.show_frame)
         self.frames = list(frames or [])
-        self.held = None  # 설명 칸 높이를 잰 (폭, 본문 글자 크기)
+        self.held = None  # 설명 칸 높이를 잰 폭·실제 글꼴·줄 높이
         self.frame_text = rich("", "body", "secondary")
         self.frame_text.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         self.layout().insertWidget(1, self.frame_text)
@@ -175,7 +175,8 @@ class AiFigure(FigureView):
     def hold_frames(self):
         """설명 칸의 최소 높이를 지금 폭에서 가장 긴 장 설명의 높이로 둠. 폭이나 글자 크기가 바뀔 때만 다시 잼(장을 넘길 때마다 draw 가 불림)."""
         width = self.width()
-        key = (width, theme.TYPE["body"][0])
+        self.frame_text.ensurePolished()
+        key = (width, self.frame_text.font().toString(), self.frame_text.line)
         if not self.frame_text.isVisibleTo(self) or width <= 1 or key == self.held:
             return
         shown, tallest = self.frame_text.plain, 0
@@ -774,8 +775,9 @@ class DiffBlock(QWidget):
 
 class RotateBlock(QWidget):
     """돌려 가며 빈칸(ai-rotate, 설계 3.7.1). 판 코드에서 한 번에 한 자리를 가린 CodeSlots 와 [확인]. 답하면 맞음·틀림과 정답을
-    보이고 [다음 자리]로 넘어감. 순서는 skel.rotate_next(틀린 자리는 세 자리 뒤에 다시)이고 채점과 기록은 ctx.check_rotate(상자는
-    움직이지 않음). 모든 자리를 맞히면 판 코드 전체와 끝 문구를 보임. 칸에서 Enter 는 [확인], 답한 뒤에는 [다음 자리].
+    보이고 정답 아래에 같은 자리의 해설을 붙임. [다음 자리]로 넘어가면 해설을 비움. 순서는 skel.rotate_next(틀린 자리는 세 자리 뒤에
+    다시)이고 채점과 기록은 ctx.check_rotate(상자는 움직이지 않음). 모든 자리를 맞히면 판 코드 전체와 끝 문구를 보임.
+    칸에서 Enter 는 [확인], 답한 뒤에는 [다음 자리].
     readonly(전체 노트, [노트 보기])면 판 코드와 가리는 자리 목록만 그리고 채점하지 않음."""
 
     def __init__(self, block, ctx):
@@ -815,6 +817,9 @@ class RotateBlock(QWidget):
         self.buttons = QWidget()
         self.buttons.setLayout(row)
         column.addWidget(self.buttons)
+        self.explanation = rich("", "body", "secondary")
+        column.addWidget(self.explanation)
+        self.explanation.hide()
         self.empty_note = kit.para(ai_text.RECALL_EMPTY, "body", "secondary")
         column.addWidget(self.empty_note)
         self.done = kit.para(ai_text.ROTATE_DONE, "body", "success")
@@ -853,6 +858,8 @@ class RotateBlock(QWidget):
         self.next_btn.hide()
         self.verdict.hide()
         self.answer.hide()
+        self.explanation.setText("")
+        self.explanation.hide()
         self.empty_note.hide()
         if focus:
             field.setFocus(Qt.FocusReason.OtherFocusReason)
@@ -884,6 +891,8 @@ class RotateBlock(QWidget):
         self.check_btn.hide()
         for widget in (self.verdict, self.answer, self.next_btn):
             widget.show()
+        self.explanation.setText(got.get("explain") or "")
+        self.explanation.setVisible(bool(self.explanation.text()))
 
     def advance(self):
         """[다음 자리]. 틀린 자리는 세 자리 뒤에 다시 넣고 남은 자리가 없으면 끝."""
@@ -899,6 +908,8 @@ class RotateBlock(QWidget):
         self.put(CodeSlots(self.block.get("code", ""), [], []))
         self.count.setText("")
         self.buttons.hide()
+        self.explanation.setText("")
+        self.explanation.hide()
         self.empty_note.hide()
         self.done.show()
 
@@ -1275,6 +1286,43 @@ def reading_column(card):
     return kit.scroll(inner), outer
 
 
+def _step_content(value):
+    """짐작의 고른 번호만 뺀 내용 판. 공개 답은 새 서비스 값으로 그리고 입력 초안은 같은 내용에서만 복원함."""
+    if isinstance(value, dict):
+        return tuple((key, _step_content(part)) for key, part in sorted(value.items())
+                     if key != "picked" or value.get("kind") not in ("guess", "reveal"))
+    if isinstance(value, list):
+        return tuple(_step_content(part) for part in value)
+    return value
+
+
+def _view_path(widget, root):
+    """중첩된 같은 id의 입력도 구별하는 부모별 같은 종류의 자식 순서. 지운 위젯을 보관하지 않음."""
+    path = []
+    while widget is not root:
+        if widget is None or widget.parentWidget() is None:
+            return None
+        parent = widget.parentWidget()
+        kind = type(widget).__name__
+        children = [child for child in parent.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly)
+                    if type(child).__name__ == kind]
+        path.append((kind, children.index(widget)))
+        widget = parent
+    return tuple(reversed(path))
+
+
+def _view_widget(root, path):
+    if path is None:
+        return None
+    for kind, index in path:
+        children = [child for child in root.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly)
+                    if type(child).__name__ == kind]
+        if index >= len(children):
+            return None
+        root = children[index]
+    return root
+
+
 class AiLearnPage(QWidget):
     """학습 단원 화면. 위 막대(← N차시 · 단원 제목 · [외울 것으로]), 단계 표시, 가운데 카드 하나에 지금 단계, 아래 막대 [이전]·[다음].
     상황별 코드 단원은 차시 화면이 없어 위 막대가 "← AI 비전 개론" 이고 홈으로 돌아감(서비스 place 의 back)."""
@@ -1287,6 +1335,12 @@ class AiLearnPage(QWidget):
         self.win = win
         self.lid, self.key, self.steps, self.extra, self.index = None, None, [], [], 0
         self.view, self.marked, self.back = None, False, "lesson"
+        self.view_states, self.view_key, self.state_unit = {}, None, None
+        self.pending_position = None
+        self.position_geometry = None
+        self.position_timer = QTimer(self)
+        self.position_timer.setSingleShot(True)
+        self.position_timer.timeout.connect(self.restore_position)
         root = kit.box(self)
         self.top = kit.TopBar("← AI 비전 개론", "", steps=True)
         self.back_btn, self.title = self.top.back, self.top.title
@@ -1300,6 +1354,9 @@ class AiLearnPage(QWidget):
         root.addWidget(stepper_frame)
         self.card, self.card_box = kit.card(24, 0)
         self.scroll, _ = reading_column(self.card)
+        self.scroll.viewport().installEventFilter(self)
+        self.scroll.widget().installEventFilter(self)
+        self.scroll.verticalScrollBar().rangeChanged.connect(self.position_changed)
         root.addWidget(self.scroll, 1)
         self.bar = kit.BottomBar()
         self.prev_btn = self.bar.add_action(kit.button("이전", "secondary", "l"))
@@ -1322,6 +1379,7 @@ class AiLearnPage(QWidget):
         data = self.win.ai.unit_steps(lid, key)
         read = any(unit["key"] == key and unit["read"] for unit in self.win.ai.lesson(lid)["units"])
         place = self.win.ai.place(lid)
+        self.clear_view_state((self.win.ai, lid, key))
         self.lid, self.key, self.marked = lid, key, read  # 이미 읽은 단원은 다시 끝까지 보아도 읽기 기록을 또 남기지 않음
         self.back = place["back"]
         # 차시 단원은 "← 5차시" 가 자리를 말하고, 상황별 코드 단원은 홈으로 돌아가므로 제목이 단원 이름("학습 루프 · …") 전체를 씀
@@ -1349,14 +1407,32 @@ class AiLearnPage(QWidget):
         except SessionError as error:
             self.win.ask("알림", str(error))
             return
+        unit = (self.win.ai, self.lid, self.key)
+        if self.state_unit != unit:
+            self.clear_view_state(unit)
+        self.remember_view()
+        self.position_timer.stop()
+        self.pending_position = None
         self.index = index = max(0, min(index, len(self.steps) - 1))
+        last = index == len(self.steps) - 1
+        extra = self.extra if last else ()
+        number = self.steps[index]["no"]
+        content = _step_content([self.steps[index], list(extra)])
+        saved = self.view_states.get(number)
+        state = saved[1] if saved is not None and saved[0] == content else None
+        self.view_states.pop(number, None)
+        self.setFocus()  # 지운 입력 칸의 초점이 새 단계 첫 부품으로 넘어가지 않게 함
         if self.view is not None:
+            self.view.removeEventFilter(self)
             self.card_box.removeWidget(self.view)
             self.view.hide()
             self.view.deleteLater()
-        last = index == len(self.steps) - 1
-        self.view = StepView(self.steps[index], Ctx(self.win, self.lid, self.key), self.extra if last else ())
+        self.view = StepView(self.steps[index], Ctx(self.win, self.lid, self.key), extra)
+        self.view.installEventFilter(self)
+        self.view_key = number, content
         self.card_box.addWidget(self.view)
+        if state is not None:
+            self.restore_fields(state)
         self.stepper.set_steps(step_dots(self.steps, index))
         self.stepper.setToolTip("\n".join("%d %s" % (n + 1, s["title"]) for n, s in enumerate(self.steps)))
         self.prev_btn.setEnabled(index > 0)
@@ -1365,9 +1441,152 @@ class AiLearnPage(QWidget):
         self.win.ai.save_step(self.lid, self.key, index + 1)
         if last and not self.marked:
             self.mark_read()
-        self.scroll.verticalScrollBar().setValue(0)
-        QTimer.singleShot(0, lambda: self.scroll.verticalScrollBar().setValue(0))  # 새 단계의 조각이 자리를 잡은 뒤에도 맨 위
-        self.setFocus()  # 지운 단계의 부품이 갖던 초점이 새 단계의 첫 줄로 넘어가 초점 테두리가 그려지지 않게 화면이 받음
+        if state is not None:
+            self.queue_position(state["anchor"], state["focus"])
+        else:
+            self.queue_position(None)
+
+    def clear_view_state(self, unit):
+        """단원을 다시 열거나 서비스가 바뀌면 화면 상태와 대기 중 복원을 버림."""
+        self.position_timer.stop()
+        self.pending_position = None
+        self.view_states, self.view_key, self.state_unit = {}, None, unit
+
+    def remember_view(self):
+        if self.view is None or self.view_key is None:
+            return
+        focus = _view_path(self.window().focusWidget(), self.view)
+        anchor = self.reading_position()
+        if self.pending_position is not None and self.pending_position[0] is self.view:
+            _, anchor, pending_focus = self.pending_position
+            if self.window().focusWidget() is self:
+                focus = pending_focus
+        state = {"anchor": anchor, "focus": focus, "fields": {}, "figures": {}, "levels": {}}
+        for block in self.view.findChildren(LevelsBlock):
+            if block.body_box.count():
+                state["levels"][_view_path(block, self.view)] = block.row.opened
+        for block in self.view.findChildren(RecallBlock):
+            field = block.field
+            if not field.isReadOnly():
+                state["fields"][_view_path(block, self.view)] = (field.text(), field.cursorPosition(),
+                                                               field.selectionStart(), field.selectionLength())
+        for figure in self.view.findChildren(AiFigure):
+            state["figures"][_view_path(figure, self.view)] = figure.frame()
+        number, content = self.view_key
+        self.view_states[number] = content, state
+
+    def restore_fields(self, state):
+        """접힌 중첩 카드의 칸도 만든 뒤 초안만 복원함. 채점·읽음 기록을 남기지 않음."""
+        for path, opened in sorted(state["levels"].items()):
+            block = _view_widget(self.view, path)
+            if isinstance(block, LevelsBlock):
+                block.build()
+                block.row.set_opened(opened)
+        for path, entry in state["fields"].items():
+            block = _view_widget(self.view, path)
+            if isinstance(block, RecallBlock):
+                text, cursor, start, length = entry
+                block.field.setText(text)
+                if start >= 0:
+                    block.field.setSelection(start + length if cursor == start else start, -length if cursor == start else length)
+                else:
+                    block.field.setCursorPosition(cursor)
+        for path, frame in state["figures"].items():
+            figure = _view_widget(self.view, path)
+            if isinstance(figure, AiFigure) and figure.movie:
+                figure.go(frame)
+
+    def reading_position(self, viewport_height=None):
+        """읽던 글 조각과 그 안의 상대 위치. 줄바꿈으로 높이가 달라져도 옛 절대 스크롤 값을 쓰지 않음."""
+        value = self.scroll.verticalScrollBar().value()
+        pieces = self.view.findChildren(TextPiece) + self.view.findChildren(RichPara) + self.view.findChildren(AiFigure)
+        visible = [(piece, piece.mapTo(self.scroll.widget(), QPoint()).y()) for piece in pieces if piece.isVisibleTo(self.view)]
+        inside = [(piece, top) for piece, top in visible if top <= value < top + piece.height()]
+        if inside:
+            piece, top = min(inside, key=lambda item: item[0].height())
+        elif visible:
+            piece, top = min(visible, key=lambda item: abs(item[1] - value))
+        else:
+            piece, top = self.view, self.view.mapTo(self.scroll.widget(), QPoint()).y()
+        focus = self.window().focusWidget()
+        visible_focus = None
+        if isinstance(focus, QLineEdit) and self.view.isAncestorOf(focus):
+            y = focus.mapTo(self.scroll.viewport(), QPoint()).y()
+            height = self.scroll.viewport().height() if viewport_height is None else viewport_height
+            if y < height and y + focus.height() > 0:
+                visible_focus = _view_path(focus, self.view)
+        return _view_path(piece, self.view), (value - top) / max(1, piece.height()), visible_focus
+
+    def queue_position(self, anchor, focus=None):
+        """창에 딸린 타이머 하나만 씀. 빠르게 단계를 바꿔도 예전 단계의 복원이 남지 않음."""
+        self.position_timer.stop()
+        self.pending_position = self.view, anchor, focus
+        self.position_geometry = None
+        self.position_timer.start(0)
+
+    def hold_reading(self, viewport_height=None):
+        if self.view is not None and self.view_key is not None and self.pending_position is None:
+            self.queue_position(self.reading_position(viewport_height))
+
+    def restore_position(self):
+        pending = self.pending_position
+        if pending is None or pending[0] is not self.view:
+            return
+        _, anchor, focus = pending
+        inner = self.scroll.widget()
+        inner.layout().activate()
+        self.card_box.activate()
+        if anchor is not None and inner.height() < inner.minimumSizeHint().height():
+            return  # 글 조각의 높이가 전해진 뒤 Resize·rangeChanged에서 다시 부름
+        target = _view_widget(self.view, focus)
+        piece = _view_widget(self.view, anchor[0]) if anchor is not None else None
+        geometry = (inner.size(), inner.minimumSizeHint(), self.view.size(), self.scroll.viewport().size(),
+                    piece.mapTo(inner, QPoint()).y() if piece is not None else None,
+                    piece.height() if piece is not None else None,
+                    target.mapTo(inner, QPoint()).y() if target is not None else None,
+                    self.scroll.verticalScrollBar().maximum())
+        if geometry != self.position_geometry:
+            self.position_geometry = geometry
+            self.position_timer.start(0)  # 중첩 글의 줄바꿈이 다음 배치 요청에 전해질 때까지 복원 기준을 보관함
+            return
+        self.pending_position = None
+        self.position_geometry = None
+        if target is not None and self.isVisible() and self.window().focusWidget() is self:
+            target.setFocus(Qt.FocusReason.OtherFocusReason)
+        value = piece.mapTo(inner, QPoint()).y() + round(anchor[1] * piece.height()) if piece is not None else 0
+        self.scroll.verticalScrollBar().setValue(value)
+        field = _view_widget(self.view, anchor[2]) if anchor is not None else None
+        if isinstance(field, QLineEdit) and field.hasFocus():
+            viewport = self.scroll.viewport()
+            top = field.mapTo(viewport, QPoint()).y()
+            bar = self.scroll.verticalScrollBar()
+            bottom = top + field.height() + 16 - viewport.height()
+            if bottom > 0:
+                bar.setValue(bar.value() + bottom)
+            elif top < 16:
+                bar.setValue(bar.value() + top - 16)  # 입력 칸 전체가 보이게 실제 좌표로 맞춤
+
+    def position_changed(self, *_):
+        if self.pending_position is not None:
+            self.position_geometry = None
+            self.position_timer.start(0)
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.Resize:
+            if watched is self.scroll.viewport():
+                self.hold_reading(event.oldSize().height())
+            self.position_changed()
+        elif event.type() == QEvent.Type.LayoutRequest:
+            if watched is self.view:
+                self.hold_reading()  # 자식 글 높이가 부모 배치에 반영되기 전에 읽던 위치를 보관함
+            self.position_changed()
+        return super().eventFilter(watched, event)
+
+    def hideEvent(self, event):
+        self.remember_view()
+        self.position_timer.stop()
+        self.pending_position = None
+        super().hideEvent(event)
 
     def go_back(self):
         if self.back == "lesson":
@@ -1400,6 +1619,7 @@ class AiLearnPage(QWidget):
         self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
 
     def resizeEvent(self, event):
+        self.hold_reading()
         super().resizeEvent(event)
         self.fit_column()
 
@@ -1410,6 +1630,7 @@ class AiLearnPage(QWidget):
             self.prev_btn.setEnabled(self.index > 0)
 
     def restyle(self):
+        self.hold_reading()
         self.fit_column()
         if self.view is not None:
             self.view.restyle()

@@ -36,7 +36,9 @@ REVEAL_HEAD = "짐작 확인"
 MEMO_HINT = "답을 떠올린 뒤 질문을 눌러 맞춰 보세요."
 RECALL_EMPTY = "답을 적은 뒤 [확인]을 누르세요."
 BLOCK_BROKEN = "이 부분을 읽지 못했습니다. [새 문제 받기]로 최신 판을 받아 보세요."
-TRAINED = "다시 읽기보다 문제를 풀 때 1주 뒤에 더 많이 기억합니다."
+TRAINED = "다음 복습에서는 해설을 보기 전에 답을 먼저 떠올려 보세요."
+SET_FIRST = "이번 묶음의 첫 답"
+REVIEW_COMPLETE = "지금 복습할 문항이 없습니다."
 EARLY = "복습 날짜 전에 맞힌 %d문항은 날짜가 되면 다시 확인합니다."
 EMPTY_ANSWER = {"blank": "답을 적은 뒤 [확실함]이나 [긴가민가]를 누르세요. 모르면 [모르겠어요]를 누르세요.",
                 "choice": "보기를 고른 뒤 [확실함]이나 [긴가민가]를 누르세요. 모르면 [모르겠어요]를 누르세요."}
@@ -64,6 +66,13 @@ LEVEL_NAMES = {7: "7살 수준 · 숫자와 그림", 15: "15살 수준 · 계산
 LEVEL_CHECK = "확인 물음"
 LEVEL_MISTAKE = "자주 하는 착각"
 NUMBERS = bank.NUMBERS
+
+
+def lesson_title(no, title):
+    """자료에 같은 차시 번호가 있으면 화면에서 한 번만 씀."""
+    prefix = "%s차시" % no
+    title = title.strip()
+    return title if title == prefix or title.startswith(prefix + " ") else (prefix + " " + title).strip()
 
 
 def plain(text):
@@ -328,6 +337,13 @@ def recent_label(entry):
 
 # 연습 묶음 끝 요약(설계 2.7)
 
+def review_next(upcoming):
+    """빈 자동 복습의 다음 날짜나 직접 더 연습할 길을 안내함."""
+    if upcoming:
+        return "다음 복습: %s %d문항" % (upcoming["text"], upcoming["count"])
+    return "차시 문제집이나 섞어 풀기에서 더 연습할 수 있습니다."
+
+
 def summary_head(summary):
     return "%d문항 가운데 %d문항을 처음 답에 맞혔습니다." % (summary["n"], summary["first_pass"])
 
@@ -336,9 +352,9 @@ def summary_lines(summary, unlisted=0):
     """끝 요약의 글 줄들(위에서 아래로). unlisted 는 처음 답이 틀렸지만 단원을 읽은 날이라 오답 노트에 넣지 않은 문항 수."""
     lines = []
     if summary["first_today"]:
-        lines.append("오늘 처음 푼 문항 가운데 맞힌 문항 %d개" % summary["first_today"])
+        lines.append("오늘 새로 접한 문항 중 이번 묶음에서 마친 문항 %d개" % summary["first_today"])
     if summary["again_day"]:
-        lines.append("다른 날 풀었던 문항 가운데 다시 맞힌 문항 %d개" % summary["again_day"])
+        lines.append("이전 학습일에 풀었던 문항 중 이번 첫 답에 맞힌 문항 %d개" % summary["again_day"])
     if summary["up"] or summary["down"]:
         lines.append("복습 간격이 늘어난 문항 %d개 · 줄어든 문항 %d개" % (summary["up"], summary["down"]))
     if summary["memorised"]:

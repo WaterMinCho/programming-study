@@ -3057,7 +3057,7 @@ class FindTest(GuiTest):
         pump()
         self.assertEqual((find_marks(editor), [mark[2] for mark in marks]), (marks, [False, False, True, False, False]))
         strip = editor.numbers.grab().toImage()
-        self.assertEqual(strip.pixelColor(2, strip.height() - 4).name(), theme.EDITOR["gutter"])
+        self.assertEqual(strip.pixelColor(strip.width() // 2, strip.height() - 4).name(), theme.EDITOR["gutter"])
         self.assertEqual(bright_share(self.win), 0)
         width = editor.numbers.width()
         self.win.set_text("larger")  # 글자를 키우면 줄 번호 칸이 넓어지고 막대는 제자리를 따라감
