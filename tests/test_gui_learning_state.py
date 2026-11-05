@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""학습 단계 왕복의 화면 상태를 확인함. 은행·사용자 기록 대신 메모리 서비스를 쓰며 창은 offscreen에서만 그림."""
+"""학습 단계 왕복의 화면 상태를 확인함. 메모리 서비스를 쓰며 기본 offscreen과 지정한 Windows 플랫폼에서 그림."""
 import copy
 import os
 import unittest
@@ -91,7 +91,7 @@ class LearningWindow(QWidget):
 
 class LearningStateTest(unittest.TestCase):
     def setUp(self):
-        self.assertEqual(guikit.APP.platformName(), "offscreen")
+        self.assertIn(guikit.APP.platformName(), ("offscreen", "windows") if os.name == "nt" else ("offscreen",))
         self.addCleanup(theme.set_text, theme.state["text"])
         self.addCleanup(theme.set_mode, theme.state["mode"])
         self.win = LearningWindow()
