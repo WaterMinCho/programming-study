@@ -29,7 +29,7 @@ ai/
   items/pc/                 상황별 코드. meta.json, sealed.json(facts.json 과 review.json 만)
   patterns/S1.json          상황별 코드 뼈대. 공개라 봉인하지 않고 카드는 엔진이 여기서 만듭니다
   learn/l18/                상황별 코드 학습 노트(단원 키 18a~18h)
-  mocks/m1/                 모의고사(뒤 PR)
+  mocks/m1/                 모의고사
 tools/ai_art/
   lNN.py                    그 노트의 그림 스크립트(출제자 컴퓨터에서만)
   manifest.json             스크립트로 그린 그림의 sha256
@@ -220,7 +220,7 @@ python3 tools/ai_seal.py seal [i05 ...] [--keep]          work/ → sealed.json
 python3 tools/ai_seal.py unseal i05                       sealed.json → work/
 python3 tools/ai_seal.py check                            평문이 남았거나 봉인이 깨졌으면 실패
 python3 tools/ai_seal.py brief i05 --out DIR              재풀이용 문제지(sheet.md, cloze.md)와 빈 답안(answers.json), 저장소 밖에만
-python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, skel.md)와 빈 답안
+python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, whole.md, skel.md)와 빈 답안·노트 답안
 python3 tools/ai_seal.py levels l04 [l05 ...] --out DIR   세 수준 블록 재풀이 공개본(블록마다 0_step.md 와 수준 파일 셋)과 빈 답안 levels_answers.json
 python3 tools/verify_ai.py [i05 common ...]               문항 꼴, 빈칸 규칙, 고르기, 문장, 생성기 300 시드, 사실 확인, 노트 블록, 근거, 말투, 그림
 python3 tools/verify_ai.py pc                             상황별 코드. 위 검사에 더해 뼈대(판, 자리, 순서 300 시드, 고르기, 고칠 줄 300 시드)
@@ -258,7 +258,7 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 1. 출제가 factcheck·차시 분석·요약본·코드 보충을 읽고 쓸 사실을 facts.json 에 옮깁니다. 새 사실은 대조가 판정한 뒤에만 넣습니다.
 2. 출제가 work/ 평문으로 노트·문항·생성기·그림을 쓰고 verify_web, web_lint, verify_ai, ai_overlap 을 통과시킵니다.
 3. `ai_seal.py brief` 로 만든 공개본을 재풀이에게 넘깁니다. 재풀이는 answers.json 과 oracle.py, 걸린 시간, 막힌 곳을 돌려줍니다. 문제지는 주제 문장을 섞은 순서로 꼬리표(`i05-t01-3`)만 붙여 보여 주고, 빈칸판은 참 문장에만 있어서 cloze.md 로 따로 뺍니다. 재풀이는 문장 판정을 모두 적은 뒤에 cloze.md 를 엽니다.
-   상황별 코드 공개본도 문제지를 나눠 엽니다. 재풀이는 l18 을 읽기 전에 sheet.md 를 풉니다. sheet.md 에는 판마다 모든 자리를 한꺼번에 가린 판(`S1 표준형 전체`)과 순서·줄·고칠 줄 고르기가 있습니다. 그 답을 answers.json 에 다 적은 뒤에 skel.md 를 엽니다. skel.md 의 견본(`pc-k02 f0`, `f2`, `f3`)은 함께 가린 자리 수가 달라 서로의 답을 보여 줍니다. first_pass 는 sheet.md 답으로 셉니다.
+   상황별 코드 공개본은 l18을 읽기 전에 sheet.md부터 풉니다. 순서·줄·고칠 줄 고르기의 첫 답을 저장한 뒤 whole.md를 엽니다. whole.md에는 판마다 모든 자리를 함께 가린 코드가 있습니다. 이 답도 저장한 뒤 skel.md의 부분 빈칸 견본을 풉니다. 앞에서 기록한 답은 고치지 않습니다. 코드 한 줄을 받는 칸은 그 입력 범위를 표시합니다. first_pass는 sheet.md와 whole.md의 첫 답으로 셉니다. 노트 물음은 note-answers.json에 별도로 적고 검토자가 본문과 대조합니다.
    세 수준 블록은 `ai_seal.py levels` 공개본으로 따로 풉니다. 블록 폴더마다 0_step.md 를 읽고, 1_l7.md 의 물음 답을 levels_answers.json 에 적은 뒤에 2_l15.md 를 열고, 같은 방식으로 3_l20.md 까지 갑니다. page.md 는 블록 JSON 에 정답이 있어 열지 않습니다. 결과는 학습 노트 서명의 `--finding` 에 적습니다.
 4. 대조가 `verify_ai.py --answers` 로 채점하고 틀린 카드마다 원인을 하나로 정합니다(정답 틀림, 두 가지로 읽힘, 받는 답 빠짐, 공정한 함정, oracle 불일치).
 5. 검토가 아래 체크 목록을 보고, 새로 걸린 말투 문장은 `tools/check_style.py` 패턴에 더합니다.
@@ -317,3 +317,48 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 - 문장 카드는 상자 1 까지 고르기, 상자 2 부터 빈칸판으로 나옵니다.
 - 상황별 코드 카드는 그 단원을 읽어야 열립니다. 차시 풀기에서는 index.json patterns 의 `after` 차시 문제집에 함께 들어갑니다.
 - 하루 새 카드 상한과 오늘 목표 단원은 기본으로 꺼 두었습니다(학습자가 문제집을 원하는 만큼 풂). 켜려면 `aiprep/service.py` 의 `NEW_PER_DAY`, `DAILY_GOAL` 을 바꿉니다.
+
+## 모의고사를 검증합니다
+
+`python3 tools/verify_ai.py m1 m2 m3`는 실제 회차의 30문항·60분 구성과 차시별 배분을 검사합니다. m1·m2·m3는 문항 수를 작게 적어도 이 검사를 받습니다. m90 같은 작은 검증용 회차에는 기존 문항 꼴·빈칸·보기·정정 제외·deep 수 검사를 적용합니다.
+
+모의고사 폴더의 meta.json에는 format=1, id, count=30, minutes=60과 blueprint를 적습니다. blueprint는 `{"i01": 1, "i02": 2, ...}`처럼 차시별 문항 수를 담습니다. 0개인 차시는 생략할 수 있습니다. index.json의 count·minutes·range도 함께 대조합니다. m1의 range는 `[1, 12]`이고 m2·m3는 `[1, 17]`입니다. meta에 range를 쓰면 같은 값을 적습니다.
+
+| 차시 | m1 | m2 | m3 |
+|---|---:|---:|---:|
+| i01 | 1 | 1 | 2 |
+| i02 | 2 | 2 | 1 |
+| i03 | 2 | 2 | 2 |
+| i04 | 4 | 3 | 2 |
+| i05 | 2 | 2 | 2 |
+| i06 | 2 | 2 | 2 |
+| i07 | 2 | 1 | 2 |
+| i08 | 3 | 2 | 2 |
+| i09 | 2 | 2 | 1 |
+| i10 | 4 | 2 | 2 |
+| i11 | 3 | 2 | 2 |
+| i12 | 3 | 2 | 1 |
+| i13 | 0 | 2 | 2 |
+| i14 | 0 | 2 | 2 |
+| i15 | 0 | 1 | 2 |
+| i16 | 0 | 2 | 2 |
+| i17 | 0 | 0 | 1 |
+| 합계 | 30 | 30 | 30 |
+
+실제 문항의 lesson을 세어 표와 대조합니다. meta의 blueprint만 맞추고 실제 문항 배분을 바꾸면 실패합니다. 두 차시에서 다룬 주제에는 처음 다룬 차시를 적습니다. 어느 차시에서 처음 소개했는지는 대조자가 원강의에서 확인합니다.
+
+문항은 id, lesson, unit, step, facts, ref, level, topic, kind, stem, explain을 사용합니다. lesson에는 iNN을 적고 topic에는 실제 개념명을 적습니다. 같은 topic은 한 회에 두 문항까지이며 공백·구분 기호·대소문자를 정규화해 셉니다. 같은 개념에 다른 이름을 붙인 경우는 대조자가 확인합니다. facts는 해당 차시의 사실 ID를 사용합니다. unit·step은 해당 학습 페이지에 존재하고 그 단계의 사실 줄과 facts가 겹쳐야 합니다. 첫 ref에는 집계 차시의 강의·과제·요약 근거를 적습니다.
+
+kind=blank는 blanks를 사용하며 한 문항의 칸은 1~2개입니다. kind=choice는 options·pick을 사용합니다. multi를 생략하면 false이고 값을 적으면 bool을 사용합니다. 보기는 네 개이며 multi=true의 정답은 정확히 두 개입니다. 구성은 빈칸 14개와 고르기 16개입니다. 고르기는 right 단일 답 7개, wrong 단일 답 6개, multi 3개입니다. level 1/2/3은 8/15/7개입니다.
+
+빈칸 문항은 범주 하나에만 넣습니다. 숫자·shape·values 칸이나 숫자만 답하는 칸이 하나라도 있으면 계산·모양 문항으로 셉니다. 숫자 상수·숫자 배열·숫자끼리의 산술식을 code 모드로 적어도 코드 수에 넣지 않습니다. 남은 문항에 word·exact 칸이 섞이면 낱말 문항으로 셉니다. 모든 칸이 실제 코드 토큰을 묻는 code 모드일 때만 코드 문항으로 셉니다. True·False·None은 코드 토큰으로 다룹니다. 코드 문항은 6개 이상, 계산·모양은 5개 이상, 낱말은 3개 이하입니다.
+
+실제 과제형 코드 빈칸에는 assignment=true를 적습니다. 생략하면 false이고 값을 적으면 bool을 사용합니다. 이 표시는 코드 문항이며 Python 코드 울타리 안에 빈칸이 있을 때만 과제형 수에 포함합니다. 한 회에 과제형 코드 빈칸을 5개 이상 넣습니다. 상황별 코드 문항에는 pattern에 존재하는 S1 같은 뼈대 ID를 적고 해당하지 않으면 생략합니다. pattern 문항은 3개 이상이며 상황별 코드의 학습 단계와 사실 ID도 사용할 수 있습니다. assignment·pattern 표시와 수는 실제 과제·뼈대와의 대응을 증명하지 않습니다. 대조자가 지문과 원자료를 읽어 확인합니다.
+
+errata가 붙은 문항과 기존 연습에서 정정 근거로 함께 쓴 사실 ID를 제외합니다. 사실 자체에 errata 표시가 있어도 제외합니다. deep은 bool이며 한 회에 두 문항까지입니다. concept_only 사실은 숫자·모양 빈칸과 숫자 보기로 묻지 않습니다. 등록 답이나 보기 하나라도 숫자·숫자 배열·산술식 형태를 쓰면 값으로 묻는 문항으로 봅니다. 긴 문장 안의 계산 요구나 기록에 연결하지 않은 정정 주제는 대조자가 확인합니다.
+
+같은 사실은 세 회 중 두 회까지만 사용합니다. 같은 회에서 그 사실을 여러 번 써도 회차 사용은 한 번으로 셉니다. 다른 ID로 같은 사실을 새로 등록해 제한을 피하지 않도록 원래 사실 ID를 사용합니다. 다른 회차의 파일이 있으면 m1만 선택해도 회차 간 중복과 사실 사용을 함께 검사합니다. ID나 화면 지문·보기가 같은 문항을 여러 회에 넣으면 실패합니다. 보기 순서와 답·해설·근거만 바꾼 문항도 같은 문항으로 봅니다.
+
+연습 지문은 정적 지문·대체 지문·참거짓·cloze·생성기 견본과 상황별 코드 공개 견본을 비교합니다. 생성기 견본은 --seeds 수만큼 시드 0부터 만듭니다. NFKC·casefold로 정규화한 어절·식별자·숫자의 집합을 만들고 빈칸 표시는 뺍니다. 교집합 크기를 합집합 크기로 나눈 자카드 값이 0.6 이상이면 실패합니다. 이 검사는 가능한 생성기 출력 전체를 대조하지 않습니다.
+
+학습자에게 보이는 문장의 말투와 코드 울타리의 짝도 검사합니다. 빈칸에는 첫 등록 답을 채워 Python 코드 구문을 분석합니다. 코드의 실행 결과와 정답 사실은 대조자가 확인합니다. 고르기에 의도적으로 넣은 오류 코드는 구문 분석을 강제하지 않습니다. 검사를 통과한 회차는 기존 --answers·--first-pass·--keep-first-pass·--require-review 경로로 채점·기록·서명을 확인합니다. 첫 재풀이 파일을 읽지 못하면 서명을 중단하고 이전 기록을 보존합니다.

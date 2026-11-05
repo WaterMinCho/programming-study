@@ -41,7 +41,7 @@ USAGE = """AI 비전 개론 봉인 도구 (출제자용)
   python tools/ai_seal.py unseal [i05 ...]             sealed.json → work/ (고칠 때)
   python tools/ai_seal.py check                        봉인 안 된 평문이 있거나 sealed.json 이 깨졌으면 실패
   python tools/ai_seal.py brief i05 --out DIR          재풀이자에게 줄 공개본(정답 없음)을 저장소 밖 DIR 에 만듦
-  python tools/ai_seal.py brief pc --out DIR           상황별 코드 공개본. sheet.md 를 다 푼 뒤에 skel.md 를 엽니다
+  python tools/ai_seal.py brief pc --out DIR           상황별 코드 공개본. sheet.md, whole.md, skel.md를 순서대로 풉니다
   python tools/ai_seal.py levels l04 [l05 ...] --out DIR
                                                        학습 노트의 세 수준 블록 재풀이 공개본. 블록마다 폴더 하나이고
                                                        수준 파일을 하나씩 열며 levels_answers.json 을 채웁니다
@@ -192,15 +192,39 @@ def skel_choice(card, skeleton, seed=None):
     return skel.view(card, skeleton, seed)
 
 
+def _blank_hints(view):
+    """빈칸별 입력 범위를 답 없이 표시함."""
+    return ["%d번 칸 · %s" % (n, blank["hint"]) for n, blank in enumerate(view.get("blanks") or [], 1) if blank.get("hint")] + [""]
+
+
+def _note_answers(bank_dir, page_id):
+    """학습 노트 물음의 빈 답안만 만듦. 문제지와 별도 파일에 둠."""
+    folder = aibank.page_dir(page_id, bank_dir)
+    if not os.path.isfile(os.path.join(folder, "page.md")):
+        return {}
+    meta = study.read_json(os.path.join(folder, "meta.json"))
+    parsed = aibank.parse_page(study.read_text(os.path.join(folder, "page.md")), meta.get("sections") or {})
+    answers = {}
+    for key in parsed["order"]:
+        for step in parsed["units"][key]["steps"]:
+            for block_no, block in enumerate(step["blocks"], 1):
+                if block["kind"] not in ("guess", "recall", "why"):
+                    continue
+                tag = "%s %s/%s %s %s" % (page_id, key, step["no"], block["kind"], "%s@%d" % (block.get("id") or "q", block_no))
+                answers[tag] = {"picked": []} if block["kind"] == "guess" else [""] * max(1, len(aibank.BLANK.findall(block.get("q", ""))))
+    return answers
+
+
 def brief_patterns(bank_dir, group, out_dir):
-    """상황별 코드 공개본. sheet.md 에는 판마다 모든 자리를 한꺼번에 가린 판과 순서·줄·고칠 줄 고르기를 두고,
-    skel.md 에는 slot 카드마다 f0·f2·f3 견본을 둠. skel.md 는 sheet.md 답을 answers.json 에 다 적은 뒤에 엶(뼈대 빈칸 견본끼리 서로의 답을 보여 줌).
+    """상황별 코드 공개본. sheet.md에는 순서·줄·고칠 줄 고르기, whole.md에는 모든 자리를 가린 판을 둠.
+    skel.md 에는 slot 카드마다 f0·f2·f3 견본을 둠. whole.md는 sheet.md 답을 다 적은 뒤, skel.md는 whole.md 답을 다 적은 뒤에 엶(뼈대 빈칸 견본끼리 서로의 답을 보여 줌).
     line_answer·valid·wrong why·aim·facts.json 은 넣지 않음."""
     skeletons, cards = pattern_cards(bank_dir, group)
     gid = group["id"]
     lines = ["# %s 재풀이 문제지" % gid, "",
-             "%s 을 읽기 전에 위에서부터 풀고 answers.json 을 채웁니다. 다 적은 뒤에 skel.md 를 엽니다. 빈칸은 ①② 순서대로 칸마다 "
+             "%s 을 읽기 전에 위에서부터 풀고 answers.json 을 채웁니다. 다 적은 뒤에 whole.md를 풀고 마지막에 skel.md를 엽니다. 앞에서 쓴 답은 고치지 않습니다. 빈칸은 ①② 순서대로 칸마다 "
              "글을 적고, 고르기는 이 문제지에 적힌 번호(1부터)를 씁니다." % group["page"], ""]
+    whole = ["# %s 전체 코드 빈칸" % gid, "", "sheet.md의 답을 먼저 저장한 뒤 풉니다. 모든 답을 기록한 뒤 skel.md를 엽니다.", ""]
     answers = {}
     for sid in sorted(skeletons, key=lambda k: int(k[1:])):
         for variant in skeletons[sid]["variants"]:
@@ -208,7 +232,7 @@ def brief_patterns(bank_dir, group, out_dir):
             if view is None:
                 continue
             key = "%s %s 전체" % (sid, variant)
-            lines += ["## %s" % key, "", aibank.number_blanks(view["stem"], code=True), ""]
+            whole += ["## %s" % key, "", aibank.number_blanks(view["stem"], code=True), ""] + _blank_hints(view)
             answers[key] = [""] * len(view["blanks"])
     for card in cards:
         if card["part"] == "slot":
@@ -226,26 +250,28 @@ def brief_patterns(bank_dir, group, out_dir):
     if notes:
         lines += ["## 학습 노트의 먼저 풀어 보기와 떠올리기", ""] + notes + [""]
     samples = ["# %s 뼈대 빈칸 견본" % gid, "",
-               "sheet.md 의 답을 answers.json 에 모두 적은 뒤에 엽니다. 견본마다 가린 자리가 다르고 서로의 답을 보여 주므로 위에서부터 "
+               "sheet.md와 whole.md의 답을 answers.json에 모두 적은 뒤에 엽니다. 견본마다 가린 자리가 다르고 서로의 답을 보여 주므로 위에서부터 "
                "풀고, 이미 적은 답은 고치지 않습니다. 견본 이름의 f0·f2·f3 은 함께 가린 자리 수입니다.", ""]
     for card in cards:
         if card["part"] != "slot":
             continue
         for name, view in skel_samples(card, skeletons[card["pattern"]], cards):
             key = "%s %s" % (card["id"], name)
-            samples += ["## %s" % key, "", aibank.number_blanks(view["stem"], code=True), ""]
+            samples += ["## %s" % key, "", aibank.number_blanks(view["stem"], code=True), ""] + _blank_hints(view)
             answers[key] = [""] * len(view["blanks"])
     os.makedirs(out_dir, exist_ok=True)
     study.write_text(os.path.join(out_dir, "sheet.md"), "\n".join(lines).rstrip() + "\n")
+    study.write_text(os.path.join(out_dir, "whole.md"), "\n".join(whole).rstrip() + "\n")
     study.write_text(os.path.join(out_dir, "skel.md"), "\n".join(samples).rstrip() + "\n")
     study.write_text(os.path.join(out_dir, "answers.json"), json.dumps(answers, ensure_ascii=False, indent=1) + "\n")
-    print("공개본을 만들었습니다: %s (sheet.md, skel.md, answers.json)" % out_dir)
-    print("재풀이자는 %s 을 읽기 전에 sheet.md 를 풀어 answers.json 에 적고, 그 뒤에 skel.md 를 엽니다. 그다음 "
+    study.write_text(os.path.join(out_dir, "note-answers.json"), json.dumps(_note_answers(bank_dir, group["page"]), ensure_ascii=False, indent=1) + "\n")
+    print("공개본을 만들었습니다: %s (sheet.md, whole.md, skel.md, answers.json, note-answers.json)" % out_dir)
+    print("재풀이자는 %s 을 읽기 전에 sheet.md 를 풀어 answers.json 에 적고, 그 뒤에 whole.md와 skel.md를 차례로 엽니다. 그다음 "
           "`python tools/verify_ai.py %s --answers answers.json` 으로 대조합니다." % (group["page"], gid))
 
 
 def _note_lines(bank_dir, page_id):
-    """학습 노트의 먼저 풀어 보기·떠올리기(정답을 뺀 것)."""
+    """학습 노트의 물음만 표시함. 정답은 포함하지 않음."""
     lines = []
     pdir = aibank.page_dir(page_id, bank_dir)
     if not os.path.isfile(os.path.join(pdir, "page.md")):
@@ -254,12 +280,13 @@ def _note_lines(bank_dir, page_id):
     parsed = aibank.parse_page(study.read_text(os.path.join(pdir, "page.md")), meta.get("sections") or {})
     for key in parsed["order"]:
         for step in parsed["units"][key]["steps"]:
-            for block in step["blocks"]:
+            for block_no, block in enumerate(step["blocks"], 1):
                 if block["kind"] == "guess":
-                    lines.append("- %s/%s 먼저 풀어 보기 %s: %s" % (key, step["no"], block.get("id"), block.get("q", "")))
+                    lines.append("- %s/%s 먼저 풀어 보기 %s: %s" % (key, step["no"], ("%s@%d" % (block.get("id") or "q", block_no)), block.get("q", "")))
                     lines += ["  %d. %s" % (n, text) for n, text in enumerate(block.get("options") or [], 1)]
-                elif block["kind"] == "recall":
-                    lines.append("- %s/%s 떠올리기 %s: %s" % (key, step["no"], block.get("id"), block.get("q", "")))
+                elif block["kind"] in ("recall", "why"):
+                    name = "떠올리기" if block["kind"] == "recall" else "왜일까요"
+                    lines.append("- %s/%s %s %s: %s" % (key, step["no"], name, ("%s@%d" % (block.get("id") or "q", block_no)), block.get("q", "")))
     return lines
 
 
@@ -327,7 +354,9 @@ def brief(bank_dir, iid, out_dir):
                 "말을 적고, 이미 적은 ok 는 고치지 않습니다.", ""]
         study.write_text(os.path.join(out_dir, "cloze.md"), "\n".join(head + clozes) + "\n")
     study.write_text(os.path.join(out_dir, "answers.json"), json.dumps(answers, ensure_ascii=False, indent=1) + "\n")
-    print("공개본을 만들었습니다: %s (sheet.md%s, answers.json)" % (out_dir, ", cloze.md" if clozes else ""))
+    study.write_text(os.path.join(out_dir, "note-answers.json"), json.dumps(_note_answers(bank_dir, str(meta.get("page", ""))), ensure_ascii=False, indent=1) + "\n")
+    print("공개본을 만들었습니다: %s (sheet.md%s, answers.json, note-answers.json)" % (out_dir, ", cloze.md" if clozes else ""))
+    print("노트 물음의 답은 note-answers.json에 따로 적고 본문과 대조합니다.")
     print("재풀이자는 학습 노트와 sheet.md 만 보고 answers.json 을 채우고, 문장 판정을 다 적은 뒤에 cloze.md 를 풉니다. 그다음 "
           "`python tools/verify_ai.py %s --answers answers.json` 으로 대조합니다." % iid)
 

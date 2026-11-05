@@ -372,9 +372,9 @@ class TextTest(unittest.TestCase):
         self.assertEqual(ai_text.unit_why(item, overview, datetime.date(2026, 11, 5)), "어제 수업한 차시입니다. 읽은 뒤 이 단원 문항부터 풉니다. 약 7분.")
         self.assertTrue(ai_text.unit_why(item, overview, datetime.date(2026, 11, 4)).startswith("오늘 수업한 차시입니다. "))
         self.assertEqual(ai_text.unit_why(item, overview, datetime.date(2026, 11, 9)), "읽은 뒤 이 단원 문항부터 풉니다. 약 7분.")
-        mock_next = dict(overview, next={"kind": "mock", "title": "모의고사 1회 · 30문항 · 60분", "count": 30})
+        mock_next = dict(overview, next={"kind": "mock", "mock": "m1", "title": "모의고사 1회 · 30문항 · 60분", "count": 30})
         card = ai_text.next_item(mock_next, datetime.date(2026, 11, 14))
-        self.assertEqual((card["title"], card["line"], card["action"]), ("모의고사 1회 · 30문항 · 60분", ai_text.MOCK_LATER, ""))
+        self.assertEqual((card["title"], card["action"], card['mock']), ("모의고사 1회 · 30문항 · 60분", '모의고사 열기', 'm1'))
 
     def test_unit_card_title_says_what_to_do(self):
         """안 읽은 단원 카드 제목은 "N차시 첫째 단원 읽기"(상황별 코드는 "학습 루프 단원 읽기")이고 단원 제목은 둘째 줄 맨 앞."""

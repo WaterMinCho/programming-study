@@ -1,0 +1,146 @@
+{
+  "format": 1,
+  "id": "l10",
+  "title": "10차시 다중 분류 2",
+  "lesson": "i10",
+  "defines": [
+    "MNIST",
+    "Fashion-MNIST",
+    "정규화",
+    "Dataset",
+    "DataLoader",
+    "배치",
+    "드롭아웃",
+    "조기 종료",
+    "macro",
+    "micro",
+    "weighted",
+    "support",
+    "확률 보정",
+    "온도 스케일링"
+  ],
+  "needs": [
+    "l03",
+    "l04",
+    "l05",
+    "l06",
+    "l09"
+  ],
+  "sections": {
+    "10a": "숫자 이미지에 맞춰 입력과 출력 수를 정합니다",
+    "10b": "밝기와 모양을 순서대로 바꿉니다",
+    "10c": "샘플을 배치로 묶고 마지막 묶음을 셉니다",
+    "10d": "드롭아웃은 학습 중 일부 값을 0으로 만듭니다",
+    "10e": "검증 손실을 보고 멈춘 뒤 좋은 상태를 복원합니다",
+    "10f": "다중 클래스 지표를 목적에 맞게 평균냅니다",
+    "10g": "확률을 실제 비율과 맞춰 해석합니다",
+    "10h": "코드 읽기에서 입력의 모양과 장치를 맞춥니다",
+    "10i": "코드 읽기에서 평가와 저장을 끝까지 잇습니다"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "이미지 텐서 변환과 채널별 정규화",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.ToTensor.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Normalize의 채널별 식",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.Normalize.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "MNIST 데이터와 train 선택",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.datasets.MNIST.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Dataset·DataLoader·마지막 배치·샘플러",
+      "url": "https://docs.pytorch.org/docs/2.15/data.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Dropout의 학습 배율과 평가 동작",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Dropout.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "최고 상태의 deepcopy와 state_dict 저장·복원",
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "macro·micro·weighted·support의 정의",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_recall_fscore_support.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "온도 스케일링과 별도 검증 자료",
+      "url": "https://proceedings.mlr.press/v70/guo17a.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Fashion-MNIST의 데이터 분할과 변환",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.datasets.FashionMNIST.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "precision_score의 average 인자",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "classification_report의 출력과 호출 인자",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.classification_report.html",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "10a": {
+      "minutes": 5,
+      "key_figure": "assets/10a-2.png",
+      "kind": "concept"
+    },
+    "10b": {
+      "minutes": 5,
+      "key_figure": "assets/10b-2.png",
+      "kind": "concept"
+    },
+    "10c": {
+      "minutes": 5,
+      "key_figure": "assets/10c-2.gif",
+      "kind": "concept"
+    },
+    "10d": {
+      "minutes": 5,
+      "key_figure": "assets/10d-2.gif",
+      "kind": "concept"
+    },
+    "10e": {
+      "minutes": 5,
+      "key_figure": "assets/10e-2.png",
+      "kind": "concept"
+    },
+    "10f": {
+      "minutes": 5,
+      "key_figure": "assets/10f-2.gif",
+      "kind": "concept"
+    },
+    "10g": {
+      "minutes": 5,
+      "key_figure": "assets/10g-2.png",
+      "kind": "concept"
+    },
+    "10h": {
+      "minutes": 5,
+      "key_figure": "assets/10h-2.png",
+      "kind": "code"
+    },
+    "10i": {
+      "minutes": 5,
+      "key_figure": "assets/10i-2.png",
+      "kind": "code"
+    }
+  }
+}

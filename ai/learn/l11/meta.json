@@ -1,0 +1,134 @@
+{
+  "format": 1,
+  "id": "l11",
+  "title": "11차시 CNN 이미지 분류",
+  "lesson": "i11",
+  "defines": [
+    "합성곱",
+    "CNN",
+    "커널",
+    "특징 맵",
+    "가중치 공유",
+    "HOG",
+    "스트라이드",
+    "패딩",
+    "채널",
+    "최대 풀링",
+    "평균 풀링",
+    "Flatten",
+    "Sequential",
+    "CIFAR-10",
+    "LazyLinear"
+  ],
+  "needs": [
+    "l04",
+    "l05",
+    "l09",
+    "l10"
+  ],
+  "sections": {
+    "11a": "작은 필터로 이웃한 픽셀을 함께 계산합니다",
+    "11b": "패딩과 이동 간격으로 출력 크기를 정합니다",
+    "11c": "입력 채널을 합쳐 출력 채널을 만듭니다",
+    "11d": "최대 풀링은 구역마다 큰 값을 남깁니다",
+    "11e": "배치 축을 남기고 특징만 펼칩니다",
+    "11f": "CIFAR 이미지를 특징 추출부와 분류부에 통과시킵니다",
+    "11g": "코드 읽기에서 축과 호출 순서를 확인합니다"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "Conv2d의 교차상관·공간 크기·가중치 모양",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Conv2d.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "최대 풀링의 stride 기본값과 내림",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.MaxPool2d.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Flatten의 기본 축과 모양",
+      "url": "https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/flatten.py",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Sequential의 순차 호출",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Sequential.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "LazyLinear의 최초 입력 추론",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.LazyLinear.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "CIFAR-10의 크기·훈련·테스트 구성",
+      "url": "https://cave.cs.toronto.edu/kriz/cifar.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "HOG의 기울기와 중앙 차분 필터",
+      "url": "https://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "결정적 연산 설정의 제한",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.use_deterministic_algorithms.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "텐서 축의 순서를 바꾸는 permute",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.permute.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "진행을 표시하는 iterable 래퍼",
+      "url": "https://tqdm.github.io/docs/tqdm/",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "표시할 값의 범위를 제한하는 clip",
+      "url": "https://numpy.org/doc/stable/reference/generated/numpy.clip.html",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "11a": {
+      "minutes": 5,
+      "key_figure": "assets/11a-2.gif",
+      "kind": "concept"
+    },
+    "11b": {
+      "minutes": 5,
+      "key_figure": "assets/11b-2.png",
+      "kind": "concept"
+    },
+    "11c": {
+      "minutes": 5,
+      "key_figure": "assets/11c-2.png",
+      "kind": "concept"
+    },
+    "11d": {
+      "minutes": 5,
+      "key_figure": "assets/11d-2.png",
+      "kind": "concept"
+    },
+    "11e": {
+      "minutes": 5,
+      "key_figure": "assets/11e-2.png",
+      "kind": "concept"
+    },
+    "11f": {
+      "minutes": 5,
+      "key_figure": "assets/11f-2.png",
+      "kind": "concept"
+    },
+    "11g": {
+      "minutes": 5,
+      "key_figure": "assets/11g-2.png",
+      "kind": "code"
+    }
+  }
+}
