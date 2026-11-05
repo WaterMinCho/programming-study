@@ -409,7 +409,7 @@ class TextTest(unittest.TestCase):
         self.assertEqual(ai_text.answer_word({"kind": "blank", "pick": None}), "정답")
         lines = ai_text.summary_lines({"first_today": 2, "again_day": 1, "up": 0, "down": 0, "memorised": 0, "sure_wrong": 0, "left": [],
                                        "next": None, "early": 0}, unlisted=1)
-        self.assertEqual(lines, ["오늘 처음 푼 문항 가운데 맞힌 문항 2개", "다른 날 풀었던 문항 가운데 다시 맞힌 문항 1개",
+        self.assertEqual(lines, ["오늘 새로 접한 문항 중 이번 묶음에서 마친 문항 2개", "이전 학습일에 풀었던 문항 중 이번 첫 답에 맞힌 문항 1개",
                                  "단원을 읽은 날 틀린 1문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다."])
 
     def test_pattern_texts(self):

@@ -83,6 +83,20 @@ class ReviewCompletionTest(Base):
             with self.subTest(mode=mode):
                 self.assertIn("i90-b01", self.picked(sess, mode, **kwargs))
 
+    def test_same_day_sets_keep_their_own_first_answer_and_completion_counts(self):
+        sess = self.history(["i90-b01"])
+        first = sess.start_set("lesson", lesson="i90", seed=2)
+        self.play(first, lambda cur: "fail" if cur["again"] == 0 else "pass")
+        self.assertEqual((0, 1, 0), tuple(first.summary()[key] for key in ("first_pass", "first_today", "again_day")))
+        second = sess.start_set("lesson", lesson="i90", seed=3)
+        self.play(second, lambda cur: "pass")
+        self.assertEqual((1, 1, 0), tuple(second.summary()[key] for key in ("first_pass", "first_today", "again_day")))
+        self.assertEqual([0, 1], [row["first_pass"] for row in self.log(sess, "set_end")])
+        self.at = "2026-11-10T20:00:00"
+        review = sess.start_set("review", seed=4)
+        self.play(review, lambda cur: "pass")
+        self.assertEqual((1, 0, 1), tuple(review.summary()[key] for key in ("first_pass", "first_today", "again_day")))
+
     def test_review_status_reports_completion_without_writing(self):
         sess = self.history(["i90-b01"])
         self.complete(sess, "i90-b01")

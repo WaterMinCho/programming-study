@@ -352,9 +352,9 @@ def summary_lines(summary, unlisted=0):
     """끝 요약의 글 줄들(위에서 아래로). unlisted 는 처음 답이 틀렸지만 단원을 읽은 날이라 오답 노트에 넣지 않은 문항 수."""
     lines = []
     if summary["first_today"]:
-        lines.append("오늘 처음 푼 문항 가운데 맞힌 문항 %d개" % summary["first_today"])
+        lines.append("오늘 새로 접한 문항 중 이번 묶음에서 마친 문항 %d개" % summary["first_today"])
     if summary["again_day"]:
-        lines.append("다른 날 풀었던 문항 가운데 다시 맞힌 문항 %d개" % summary["again_day"])
+        lines.append("이전 학습일에 풀었던 문항 중 이번 첫 답에 맞힌 문항 %d개" % summary["again_day"])
     if summary["up"] or summary["down"]:
         lines.append("복습 간격이 늘어난 문항 %d개 · 줄어든 문항 %d개" % (summary["up"], summary["down"]))
     if summary["memorised"]:
