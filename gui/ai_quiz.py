@@ -192,7 +192,7 @@ class PracticePage(QWidget):
             chip_row.addWidget(kit.badge(text, "accent" if text in ("다시 나온 문항", "지난번 확실했던 문항") else ""))
         self.card_box.addWidget(chips)
         self.verdict = QWidget()
-        verdict_col = kit.box(self.verdict, spacing=4)
+        verdict_col = kit.box(self.verdict, spacing=theme.GAP["title_description"])
         self.verdict_text = kit.label("", "headline")
         self.answer_line = rich("")
         self.also_text = kit.para("", "body", "secondary")  # 뼈대 빈칸에서 함께 가린 칸이 틀렸을 때
@@ -523,12 +523,12 @@ class PracticePage(QWidget):
         self.item, self.feedback = None, None
         self.count.setText("끝남")
         self.bar_line.setValue(100)
-        self.card_box.addWidget(kit.para(ai_text.summary_head(summary), "headline"))
+        title = kit.para(ai_text.summary_head(summary), "headline")
         lines = QWidget()
         lines_box = kit.box(lines, spacing=8)
         for text in ai_text.summary_lines(summary, self.unlisted()):
             lines_box.addWidget(kit.para(text))
-        self.card_box.addWidget(lines)
+        self.card_box.addWidget(kit.heading(title, lines))
         self.card_box.addWidget(kit.para(ai_text.TRAINED, "body", "secondary"))
         self.set_buttons()
         self.scroll.verticalScrollBar().setValue(0)

@@ -9,9 +9,10 @@ from gui import errors, kit, theme
 from gui.widgets import LinkLabel, UnitStrip
 
 
-def card(title):
-    frame, box = kit.card()
-    box.addWidget(kit.label(title, "headline"))
+def card(title, description=None):
+    frame, box = kit.card(spacing=theme.GAP["group"])
+    title = kit.label(title, "headline")
+    box.addWidget(kit.heading(title, description) if description is not None else title)
     return frame, box
 
 
@@ -50,21 +51,19 @@ class HomePage(QWidget):
         self.ready = kit.label("", "display")
         self.mastered = kit.label("", "caption", "secondary")
         self.ready_bar = kit.progress()
-        box.addWidget(self.ready)
-        box.addWidget(self.mastered)
+        box.addWidget(kit.spaced(self.ready, self.mastered, spacing=theme.GAP["detail"]))
         box.addWidget(self.ready_bar)
         self.strip = UnitStrip()
         self.weak = kit.para("", "body", "secondary")
         box.addWidget(self.strip)
         box.addWidget(self.weak)
         root.addWidget(units_card)
-        rounds_card, box = card("지난 회차")
+        self.rounds_hint = kit.para("", "caption", "secondary")
+        rounds_card, box = card("지난 회차", self.rounds_hint)
         self.rounds = QListWidget()
         self.rounds.setObjectName("plain")
         self.rounds.setCursor(Qt.CursorShape.PointingHandCursor)
         self.rounds.setMinimumHeight(160)
-        self.rounds_hint = kit.para("", "caption", "secondary")
-        box.addWidget(self.rounds_hint)
         box.addWidget(self.rounds)
         root.addWidget(rounds_card)
         self.git_hint = kit.para("", "caption", "secondary")

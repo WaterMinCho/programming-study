@@ -27,7 +27,7 @@ CODE_MARGIN = (16, 10)  # 코드 상자의 초기 바깥 여백. 문단 사이 �
 # 문단의 아래 여백은 다음 블록의 위 여백과 겹치지만 표의 여백은 더해지므로, 상자 뒤 블록에 위 여백(제목의 24)이 있으면 그만큼 아래 여백을 뺌
 CODE_SPILL = 4  # 그 빈 줄이 상자 아래로 삐져나오는 높이. 조각 끝 상자는 아래 여백을 이만큼 당겨 조각이 상자 끝에서 끝나게 함
 PAD = 24  # DocView 의 안쪽 여백
-GAP = 16  # DocView 의 조각 사이. 문단 사이와 같은 값
+GAP = theme.GAP["paragraph"]  # DocView 조각 사이를 문단 간격으로 띄움.
 TIGHT_WIDTH = 500  # 칸이 이보다 좁으면(1024 폭 창의 왼쪽 칸) 표 칸과 코드 상자의 가로 여백을 줄임
 TIGHT_CSS = "table.grid th { padding: 8px 8px; } table.grid td { padding: 4px 8px 8px 8px; } td.codebox { padding: 12px 12px; }"
 MISSING_TEXT = "그림을 불러오지 못했습니다."  # 없는 그림 자리의 안내. 경로는 도움말에 둠
@@ -600,16 +600,14 @@ class FigureView(QWidget):
             self.timer.setSingleShot(True)
             self.timer.timeout.connect(self._tick)
             self.controls = QWidget()
-            bar = kit.box(self.controls, spacing=8, horizontal=True)
-            bar.addStretch(1)
+            bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"])
             self.first_btn = self._button(bar, "처음", self.first)
             self.prev_btn = self._button(bar, "이전", self.prev)
             self.play_btn = self._button(bar, "재생", self.toggle)
             self.next_btn = self._button(bar, "다음", self.next)
             self.counter = kit.label("", "caption", "secondary")
             bar.addWidget(self.counter)
-            bar.addStretch(1)
-            # 칸을 단추 줄보다 좁히면 단추가 잘림. 단추 줄의 폭을 따르면 칸 전체가 넓어져 글이 오른쪽 밖으로 밀림
+            # 단추는 글자 폭을 유지하고 남는 폭이 없으면 다음 줄로 넘김. 그림 칸의 폭은 늘리지 않음
             self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
             box.addWidget(self.controls)  # 부모에 붙인 뒤에 숨김을 정함. 먼저 보이게 하면 잠깐 따로 창으로 뜨고 그 폭이 최소 폭으로 남음
             self.controls.setVisible(self.count > 1)
@@ -625,6 +623,7 @@ class FigureView(QWidget):
         box.addWidget(self.zoom_row)
         self.zoom_row.hide()
         if self.movie:
+            self.refont()
             self.movie.jumpToFrame(0)
         else:
             self.source.loadFromData(data)
@@ -717,6 +716,28 @@ class FigureView(QWidget):
         self.next_btn.setEnabled(frame < self.count - 1)
         self.play_btn.setText("멈춤" if self.playing else "재생")
 
+    def refont(self):
+        """장 번호와 재생 문구가 바뀌어도 넘김 줄의 폭을 유지함."""
+        if not self.controls:
+            return
+        self.counter.setFont(theme.font("caption"))
+        metrics = QFontMetricsF(self.counter.font())
+        numbers = ["%d / %d" % (number, self.count) for number in range(1, self.count + 1)]
+        widest = max(numbers, key=metrics.horizontalAdvance)
+        self.counter.setMinimumWidth(math.ceil(metrics.horizontalAdvance(widest)))
+        self.counter.setProperty("measure", widest)
+        self.play_btn.ensurePolished()
+        current = self.play_btn.text()
+        self.play_btn.setMinimumWidth(0)
+        widths = []
+        for text in ("재생", "멈춤"):
+            self.play_btn.setText(text)
+            widths.append(self.play_btn.sizeHint().width())
+        self.play_btn.setText(current)
+        self.play_btn.setMinimumWidth(max(widths))
+        self.controls.layout().invalidate()
+        self.controls.updateGeometry()
+
     def draw(self):
         """지금 장을 칸 폭에 맞춰 화면 배율로 부드럽게 줄이고, 모서리를 코드 상자처럼 둥글게 깎고 테두리를 둘러 보여 줌.
         테두리는 어두운 테마에서 남색 그림과 카드의 경계를 그림."""
@@ -793,6 +814,7 @@ class FigureView(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        self.refont()
         if not self.shown:
             self.shown = True
             if self.movie and self.count > 1 and motion.enabled and self.autoplay:

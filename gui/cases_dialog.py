@@ -43,10 +43,8 @@ class CasesDialog(QDialog):
         box = QVBoxLayout(self)
         box.setContentsMargins(32, 32, 32, 24)
         box.setSpacing(0)
-        box.addWidget(kit.para(TITLE, "headline"))
-        box.addSpacing(4)
-        box.addWidget(kit.para(HINT, "caption", "secondary"))
-        box.addSpacing(16)
+        box.addWidget(kit.heading(kit.para(TITLE, "headline"), kit.para(HINT, "caption", "secondary")))
+        box.addSpacing(theme.GAP["description_content"])
 
         inner = QWidget()
         self.grid = QGridLayout(inner)

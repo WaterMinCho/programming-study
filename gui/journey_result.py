@@ -27,8 +27,8 @@ class JourneyResult(QFrame):
         self.head = QWidget()
         head_box = kit.box(self.head, (PAD, PAD, PAD, 0))
         self.title = kit.para("", "headline")
-        self.gap = QWidget()  # 막대가 없을 때 headline 과 caption 사이 4
-        self.gap.setFixedHeight(4)
+        self.gap = QWidget()  # 막대가 없을 때 제목과 설명 사이를 띄움.
+        self.gap.setFixedHeight(theme.GAP["title_description"])
         self.bar_box = QWidget()  # 막대와 그 위 12, 아래 8
         self.bar = kit.progress()
         kit.box(self.bar_box, (0, 12, 0, 8)).addWidget(self.bar)
@@ -150,10 +150,10 @@ class JourneyResult(QFrame):
             self.fit_height()
 
     def folded_height(self):
-        """접힌 카드의 높이: 위 24, headline, 4, caption, 아래 24. 글의 줄바꿈은 지금 카드 폭으로 잼."""
+        """접힌 카드의 높이를 제목·설명 사이 간격과 위아래 여백까지 더해 구함."""
         width = max(1, (self.width() if self.width() > 2 * PAD else self.sizeHint().width()) - 2 * PAD)
         lines = sum(label.heightForWidth(width) for label in (self.title, self.caption) if label.text())
-        return 2 * PAD + 4 + lines
+        return 2 * PAD + theme.GAP["title_description"] + lines
 
     # 글자 크기 · 테마
 

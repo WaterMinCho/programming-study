@@ -88,7 +88,7 @@ class MemberCard(QFrame):
         accuracy = "-" if row["accuracy"] is None else "%d%%" % round(row["accuracy"] * 100)
         self.facts = muted("회차 %d · 정답률 %s · 마지막 풀이 %s" % (row["rounds"], accuracy, row["last"] or "-"))
         who = QVBoxLayout()
-        who.setSpacing(2)
+        who.setSpacing(theme.GAP["title_description"])
         who.addLayout(name)
         who.addWidget(self.facts)
         ready_name = QLabel("숙달 단원")
@@ -140,8 +140,8 @@ class EmptyCard(QFrame):
         self.text.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         box.addStretch(1)
         box.addWidget(Mascot(88), 0, Qt.AlignmentFlag.AlignHCenter)
-        box.addWidget(self.title, 0, Qt.AlignmentFlag.AlignHCenter)
-        box.addWidget(self.text)
+        self.title.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        box.addWidget(kit.heading(self.title, self.text))
         box.addStretch(1)
 
 

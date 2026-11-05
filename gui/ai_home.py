@@ -12,7 +12,7 @@
 차시 화면: 단원 줄, [전체 노트]·[외울 것], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
 from PyQt6.QtWidgets import QWidget
 
-from gui import ai_text, kit
+from gui import ai_text, kit, theme
 from gui.wrong_page import count_line
 from session import SessionError
 
@@ -33,50 +33,48 @@ class AiHomePage(QWidget):
 
         inner = QWidget()
         root = kit.box(inner, (0, 24, 0, 48))
-        root.addWidget(kit.label(ai_text.TRACK, "title"))
-        root.addSpacing(4)
-        root.addWidget(kit.para("\n".join(ai_text.STEPS), "body", "secondary"))
-        root.addSpacing(16)  # 알림 줄이 넷째 단계로 읽히지 않게 띄움
+        root.addWidget(kit.heading(kit.label(ai_text.TRACK, "title"),
+                                   kit.para("\n".join(ai_text.STEPS), "body", "secondary")))
+        root.addSpacing(theme.GAP["description_content"])
+        lead = QWidget()
+        lead_box = kit.box(lead, spacing=theme.GAP["group"])
         self.info = kit.label("", "caption", "secondary")
-        root.addWidget(self.info)
-        root.addSpacing(16)
+        lead_box.addWidget(self.info)
         self.notice = kit.banner("", "danger")  # 기록을 읽지 못한 까닭이나 읽지 못한 차시
         self.notice.hide()
-        root.addWidget(self.notice)
-        root.addSpacing(16)
+        lead_box.addWidget(self.notice)
         self.next_card = kit.NextCard()
         self.next_btn = self.next_card.button
-        root.addWidget(self.next_card)
+        lead_box.addWidget(self.next_card)
+        root.addWidget(lead)
 
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
         head, _, self.lesson_count = kit.section("학습 단원")
         root.addLayout(head)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.lesson_list = kit.RowList()
         root.addWidget(self.lesson_list)
 
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
         head, _, _ = kit.section("문제집")
-        root.addLayout(head)
-        root.addSpacing(4)
-        root.addWidget(kit.para(ai_text.TERMS, "caption", "secondary"))  # 문제집 줄의 둘째 줄이 쓰는 낱말(복습 문항, 외운 문항)을 목록 바로 위에서 풂
-        root.addSpacing(12)
+        root.addWidget(kit.heading(head, kit.para(ai_text.TERMS, "caption", "secondary")))
+        root.addSpacing(theme.GAP["description_content"])
         self.books = kit.RowList()
         root.addWidget(self.books)
 
         self.pattern_section = QWidget()  # index.json 에 상황별 코드 무리가 없으면 숨김
-        pattern_box = kit.box(self.pattern_section, (0, 48, 0, 0))
+        pattern_box = kit.box(self.pattern_section, (0, theme.GAP["section"], 0, 0))
         head, _, _ = kit.section("상황별 코드")
         pattern_box.addLayout(head)
-        pattern_box.addSpacing(12)
+        pattern_box.addSpacing(theme.GAP["description_content"])
         self.pattern_list = kit.RowList()
         pattern_box.addWidget(self.pattern_list)
         root.addWidget(self.pattern_section)
         self.mock_section = QWidget()
-        mock_box = kit.box(self.mock_section, (0, 48, 0, 0))
+        mock_box = kit.box(self.mock_section, (0, theme.GAP["section"], 0, 0))
         head, _, _ = kit.section('모의고사')
-        mock_box.addLayout(head)
-        mock_box.addWidget(kit.para('제한 시간 동안 풀고 제출한 뒤 정답과 해설을 확인합니다. 중간에 나가도 시간은 계속 흐릅니다.', 'caption', 'secondary'))
+        mock_box.addWidget(kit.heading(head, kit.para('제한 시간 동안 풀고 제출한 뒤 정답과 해설을 확인합니다. 중간에 나가도 시간은 계속 흐릅니다.', 'caption', 'secondary')))
+        mock_box.addSpacing(theme.GAP["description_content"])
         self.mock_list = kit.RowList()
         mock_box.addWidget(self.mock_list)
         root.addWidget(self.mock_section)
@@ -275,7 +273,7 @@ class AiLessonPage(QWidget):
         root = kit.box(inner, (0, 24, 0, 48))
         head, _, self.unit_count = kit.section("단원")
         root.addLayout(head)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.unit_list = kit.RowList()
         root.addWidget(self.unit_list)
         root.addSpacing(16)

@@ -216,14 +216,14 @@ class PartsTest(unittest.TestCase):
         self.assertEqual((plain.height(), text.height()), (40, 32))
         self.assertEqual(buttons["l"].objectName(), "primary")
 
-    def test_rows_are_56_or_72_high_and_open_on_one_click(self):
+    def test_rows_are_56_or_80_high_and_open_on_one_click(self):
         rows = kit.RowList()
         one = rows.add(kit.Row("한 줄", mark=kit.Dot("todo"), data="a"))
         two = rows.add(kit.Row("두 줄", "둘째 줄", "끝", kit.Dot("done"), data="b"))
         inert = rows.add(kit.Row("누를 수 없음", inert=True))
         self.box.addWidget(rows)
         self.show()
-        self.assertEqual((one.height(), two.height()), (56, 72))
+        self.assertEqual((one.height(), two.height()), (56, 80))
         opened = []
         two.clicked.connect(lambda: opened.append(two.data))
         guikit.click(two)
