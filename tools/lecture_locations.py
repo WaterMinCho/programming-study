@@ -6,11 +6,11 @@ import re
 import unicodedata
 
 RULE = "강의 위치 노출"
-MATERIAL = r"(?:슬라이드|슬(?![가-힣])|노트북|강사\s*요약본|요약본?|대학원|LectureNote|강의\s*(?:자료|노트))"
-PLACE = r"(?:p\.?\s*\d+|\d+\s*(?:쪽|페이지)|(?:셀|cell)\s*\d+|\[\s*\d+\s*\])"
+MATERIAL = r"(?:슬라이드|슬(?![가-힣])|노트북|강사\s*요약본|요약본?|대학원(?:\s*강의안)?|LectureNote|강의\s*(?:자료|노트))"
+PLACE = r"(?:p\.?\s*\d+|\d+\s*(?:쪽|페이지|번?\s*셀)|(?:셀|cell)\s*\d+|\[\s*\d+\s*\])"
 LOCATOR = re.compile(
     r"\d+\s*차시\s*(?:슬라이드|슬(?![가-힣])|노트북|과제|강의\s*노트|LectureNote)"
-    r"|" + MATERIAL + r"\s*(?:\d+\s*(?:주차)?\s*)?" + PLACE
+    r"|" + MATERIAL + r"\s*(?:\d+\s*(?:주차)?\s*)?(?:의\s*)?" + PLACE
     + r"|\d+\s*주차\s*(?:과제|요약본?)\s*(?:\d+\s*차시\s*)?" + PLACE,
     re.I)
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})([^\s]*)\s*$")

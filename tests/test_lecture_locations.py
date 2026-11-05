@@ -12,7 +12,8 @@ class LocationTest(unittest.TestCase):
         for text in ("4차시 슬라이드 8쪽", "4차시슬p8", "(노트북 01 셀 18)", "노트북01[18]",
                      "노트북 셀2", "강사 요약본 1주차 16쪽", "요약 1주차 p5", "대학원02 p22",
                      "LectureNote 01 p3", "4차시 과제 2번", "강의 자료 3쪽", "슬라이드3쪽",
-                     "1주차 과제 5차시 p2", "4차시 **슬라이드** `8쪽`"):
+                     "1주차 과제 5차시 p2", "4차시 **슬라이드** `8쪽`",
+                     "노트북 01의 77번 셀", "노트북 02의 43번 셀", "대학원 강의안 02의 22쪽"):
             with self.subTest(text=text):
                 self.assertTrue(lecture_locations.find(text), text)
                 self.assertTrue(lecture_locations.find(unicodedata.normalize("NFD", text)), text)
