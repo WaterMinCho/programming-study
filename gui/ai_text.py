@@ -37,6 +37,8 @@ MEMO_HINT = "답을 떠올린 뒤 질문을 눌러 맞춰 보세요."
 RECALL_EMPTY = "답을 적은 뒤 [확인]을 누르세요."
 BLOCK_BROKEN = "이 부분을 읽지 못했습니다. [새 문제 받기]로 최신 판을 받아 보세요."
 TRAINED = "다시 읽기보다 문제를 풀 때 1주 뒤에 더 많이 기억합니다."
+SET_FIRST = "이번 묶음의 첫 답"
+REVIEW_COMPLETE = "지금 복습할 문항이 없습니다."
 EARLY = "복습 날짜 전에 맞힌 %d문항은 날짜가 되면 다시 확인합니다."
 EMPTY_ANSWER = {"blank": "답을 적은 뒤 [확실함]이나 [긴가민가]를 누르세요. 모르면 [모르겠어요]를 누르세요.",
                 "choice": "보기를 고른 뒤 [확실함]이나 [긴가민가]를 누르세요. 모르면 [모르겠어요]를 누르세요."}
@@ -334,6 +336,13 @@ def recent_label(entry):
 
 
 # 연습 묶음 끝 요약(설계 2.7)
+
+def review_next(upcoming):
+    """빈 자동 복습의 다음 날짜나 직접 더 연습할 길을 안내함."""
+    if upcoming:
+        return "다음 복습: %s %d문항" % (upcoming["text"], upcoming["count"])
+    return "차시 문제집이나 섞어 풀기에서 더 연습할 수 있습니다."
+
 
 def summary_head(summary):
     return "%d문항 가운데 %d문항을 처음 답에 맞혔습니다." % (summary["n"], summary["first_pass"])

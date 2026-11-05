@@ -82,6 +82,7 @@ class PracticePage(QWidget):
         self.setObjectName("page")
         self.win = win
         self.practice, self.item, self.feedback, self.dontknow = None, None, None, False
+        self.review_state = None
         self.args = None  # 묶음을 만든 (mode, lesson, unit, card). [한 번 더]가 다시 씀
         self.inputs, self.fields, self.results, self.docs, self.slots = [], [], [], [], []
         self.choices = None
@@ -135,18 +136,25 @@ class PracticePage(QWidget):
     # 불러오기
 
     def load(self, mode, lesson=None, unit=None, card=None):
-        """묶음을 만들고 첫 문항을 보임. 낼 문항이 없거나 기록을 쓰지 못하면 AiError."""
-        practice = self.win.ai.start_set(mode, lesson=lesson, unit=unit, card=card)
+        """첫 문항을 보임. 자동 복습 후보가 없으면 다음 날짜와 홈 복귀를 보임."""
+        status = self.win.ai.review_status() if mode in ("review", "sweep") else None
+        practice = None if status is not None and not status["available"] else \
+            self.win.ai.start_set(mode, lesson=lesson, unit=unit, card=card)
         self.practice, self.args = practice, (mode, lesson, unit, card)
-        self.title.setText(practice.title)
+        self.review_state = status
+        self.title.setText(practice.title if practice else self.win.ai.title_of(mode))
         self.title.show()
         self.back_btn.setText("← 오답 노트" if mode == "note" else "← AI 비전 개론")
-        self.show_item(practice.current())
+        if practice is None:
+            self.show_review_complete()
+        else:
+            self.show_item(practice.current())
 
     def clear(self):
         """문제 받기로 서비스가 바뀌면 부름. 옛 묶음과 옛 카드를 붙들지 않게 놓음."""
         self.close_note()
         self.practice, self.item, self.feedback = None, None, None
+        self.review_state = None
         self.empty_card()
         self.set_buttons()
 
@@ -516,21 +524,45 @@ class PracticePage(QWidget):
 
     # 끝 요약
 
-    def show_summary(self):
-        summary = self.practice.summary()
+    def show_review_complete(self):
         self.close_note()
         self.empty_card()
         self.item, self.feedback = None, None
         self.count.setText("끝남")
         self.bar_line.setValue(100)
-        title = kit.para(ai_text.summary_head(summary), "headline")
+        self.card_box.addWidget(kit.heading(kit.para(ai_text.REVIEW_COMPLETE, "headline"),
+                                           kit.para(ai_text.review_next(self.review_state["next"]))))
+        self.set_buttons()
+        self.home_btn.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.scroll.verticalScrollBar().setValue(0)
+
+    def show_summary(self):
+        summary = self.practice.summary()
+        if self.practice.mode in ("review", "sweep"):
+            self.review_state = self.win.ai.review_status()
+        complete = self.review_state is not None and not self.review_state["available"]
+        if complete:
+            summary = dict(summary, next=self.review_state["next"])
+        self.close_note()
+        self.empty_card()
+        self.item, self.feedback = None, None
+        self.count.setText("끝남")
+        self.bar_line.setValue(100)
+        title = kit.heading(kit.para(ai_text.SET_FIRST, "caption", "secondary"),
+                            kit.para(ai_text.summary_head(summary), "headline"))
         lines = QWidget()
         lines_box = kit.box(lines, spacing=8)
         for text in ai_text.summary_lines(summary, self.unlisted()):
             lines_box.addWidget(kit.para(text))
+        if complete:
+            lines_box.addWidget(kit.para(ai_text.REVIEW_COMPLETE))
+            if self.review_state["next"] is None:
+                lines_box.addWidget(kit.para(ai_text.review_next(None)))
         self.card_box.addWidget(kit.heading(title, lines))
         self.card_box.addWidget(kit.para(ai_text.TRAINED, "body", "secondary"))
         self.set_buttons()
+        if complete:
+            self.home_btn.setFocus(Qt.FocusReason.OtherFocusReason)
         self.scroll.verticalScrollBar().setValue(0)
 
     def unlisted(self):
@@ -572,11 +604,12 @@ class PracticePage(QWidget):
         asking = self.item is not None and self.feedback is None
         answered = self.item is not None and self.feedback is not None
         ended = self.item is None and self.practice is not None
+        complete = self.item is None and self.review_state is not None and not self.review_state["available"]
         for button, on in ((self.dont_btn, asking), (self.unsure_btn, asking), (self.sure_btn, asking), (self.next_btn, answered),
                            (self.note_btn, answered and self.note_reference() is not None),
                            (self.mine_btn, answered and self.item["kind"] == "blank" and not self.dontknow
                             and (self.feedback["result"] != "pass" or self.feedback.get("also")) and not self.feedback.get("overridden")),
-                           (self.home_btn, ended), (self.again_btn, ended)):
+                           (self.home_btn, ended or complete), (self.again_btn, ended and not complete)):
             button.setVisible(bool(on))
             button.setEnabled(not self.busy)
         if ended:

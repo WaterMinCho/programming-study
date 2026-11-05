@@ -582,6 +582,10 @@ class AiSession(object):
 
     # 연습
 
+    def review_status(self):
+        """자동 복습 후보 유무와 다음 복습 날짜를 돌려줌. 기록은 남기지 않음."""
+        return self._state().review_status()
+
     def start_mock(self, mid, repeat=False, seed=None, clock=None, monotonic=None):
         """회차를 시작하거나 로컬 초안을 이어 엶. 제출한 회차는 결과를 열고 repeat이면 새 풀이를 시작함."""
         try:
@@ -611,6 +615,8 @@ class AiSession(object):
         state = self._state()
         picked = build_set(self, state, mode, random.Random(seed), lesson=lesson, unit=unit, card=card)
         if not picked:
+            if mode in ("review", "sweep"):
+                raise AiError("지금 복습할 문항이 없습니다.")
             raise AiError("지금 풀 문항이 없습니다. 단원을 먼저 읽어 주세요.")
         day = state.today
         count = sum(1 for e in self.record.log if e.get("kind") == "set" and review.study_day(e.get("at")) == day)
@@ -826,6 +832,7 @@ class _State(object):
                              if s and s["first"] == today and cid in sess.cards and not sess.cards[cid]["core"] and not sess.cards[cid].get('mock'))
         todays = {cid: self.events[cid] for cid in index.day_cards.get(today, ()) if cid in self.events}
         self.again = plan.again_cards(todays, today)
+        self.completed_today = set(todays) - set(self.again)
         self._notes = None
         self._units = {}
         for card in sess.cards.values():
@@ -904,6 +911,12 @@ class _State(object):
         return rows
 
     # 묶음
+
+    def review_status(self):
+        """자동 복습과 같은 후보 규칙으로 낼 문항이 있는지 확인함. 다음 날짜는 전체 카드에서 셈."""
+        days = sorted(day for day in (self.due_day(cid) for cid in self.sess.cards) if day is not None and day > self.today)
+        upcoming = {"date": days[0].isoformat(), "text": _md(days[0]), "count": days.count(days[0])} if days else None
+        return {"available": bool(build_set(self.sess, self, "review", random.Random(0))), "next": upcoming}
 
     def is_preview(self, lesson):
         day = review.parse_day(lesson.get("date"))
@@ -1408,9 +1421,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
         overflow = [("new", fresh[UNIT_NEW:]), ("due", due[UNIT_REVIEW:])]  # 묶음이 SET_MIN 보다 작을 때만 씀
         pattern = "NNR"
     elif mode in ("review", "sweep"):
-        low = sorted([c for c in read_cards() if c not in due and c not in again and (state.box(c) or 0) <= 2],
+        low = sorted([c for c in read_cards() if c not in due and c not in again and c not in state.completed_today
+                      and (state.box(c) or 0) <= 2],
                      key=lambda c: (state.box(c) or 0, str(state.due_day(c)), c))
-        gens = [c for c in read_cards() if cards[c]["kind"] == "gen" and c not in due]
+        gens = [c for c in read_cards() if cards[c]["kind"] == "gen" and c not in due and c not in state.completed_today]
         rng.shuffle(gens)
         pools = [("again", again), ("due", due), ("low", low), ("gen", gens)]
     elif mode in ("mixed", "lesson"):
