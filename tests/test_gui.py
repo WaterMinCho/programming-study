@@ -124,6 +124,9 @@ class FakeGitFlow:
     def sync(self):
         return self._reply("sync")
 
+    def pending(self):
+        return {"status": "ok", "pending": True, "count": 1}
+
     def submit(self):
         return self._reply("submit")
 
@@ -292,7 +295,7 @@ class FirstRunTest(GuiTest):
         self.assertEqual(self.git.calls, ["sync"])
         self.assertIs(self.page(), home)
         self.assertEqual(home.action_btn.text(), "진단 테스트 시작")
-        self.assertEqual(home.ready.text(), "0%")
+        self.assertEqual(home.ready.text(), "0 / %d" % len(adaptive.units()))
         self.assertEqual(home.strip.cells.count(), len(adaptive.units()))
         first_unit = adaptive.units()[0]
         self.assertEqual(home.strip.cells.itemAt(0).widget().toolTip(),
@@ -336,14 +339,14 @@ class FirstRunTest(GuiTest):
         self.assertEqual(self.attempts(), [])
         self.submit_round()
 
-        # 결과: 점수 · 준비도 · 문항별 결과 · 해설
+        # 결과: 점수·숙달 단원·문항별 결과·해설
         size = len(page.view["items"])
         self.assertIs(self.page(), result)
         self.assertEqual(len(self.attempts()), size)
         self.assertEqual(sum(1 for a in self.attempts() if a["ok"]), size - 2)
         self.assertEqual(result.listw.count(), size + 1)
         self.assertIn("진단 테스트 결과", result.title.text())
-        self.assertNotEqual(result.ready.text(), "시험 준비도 0%")
+        self.assertIn("숙달한 단원", result.ready.text())
         self.assertIn("미응답 2문항", result.detail.toPlainText())
         self.assertFalse(result.explain_btn.isEnabled())
         result.listw.setCurrentRow(2)  # 비워 둔 2번
@@ -390,13 +393,14 @@ class FirstRunTest(GuiTest):
         self.assertIn("모범 답안", result.detail.toPlainText())
         self.assertIn(win.session.explain("r01", code["id"])["solution"].split("\n")[0], result.detail.toPlainText())
 
-        # 홈: 준비도와 지난 회차 목록
+        # 홈: 숙달 단원과 지난 회차 목록
         click(result.home_btn)
         self.assertIs(self.page(), home)
         self.assertEqual(home.rounds.count(), 2)
         self.assertIn("진단 테스트", home.rounds.item(1).text())
         self.assertEqual(home.action_btn.text(), "2회차 시작")
-        self.assertNotEqual(home.ready.text(), "0%")
+        overview = win.session.overview()
+        self.assertEqual(home.ready.text(), "%d / %d" % (overview["mastered"], overview["total_units"]))
         self.assertIn("정답률", home.strip.cells.itemAt(0).widget().toolTip())
 
         # 지난 회차를 눌러 결과 보기 → 틀린 문항 다시 풀기 → 다시 채점(연습)
@@ -1240,7 +1244,7 @@ class TeamTest(GuiTest):
         self.assertEqual(len({avatar.back.name() for avatar in team.findChildren(Avatar)}), 3)
         self.assertIsNone(team.empty)
         for card, row in zip(team.cards, rows):
-            self.assertEqual((card.ready.text(), card.bar.value()), ("%d%%" % row["readiness"], row["readiness"]))
+            self.assertEqual((card.ready.text(), card.bar.value()), ("%d / %d" % (row["mastered"], row["total"]), row["mastered"]))
             self.assertEqual(card.mastered.text(), "숙달한 단원 %d / %d" % (row["mastered"], len(adaptive.units())))
             self.assertEqual(card.facts.text(), "회차 %d · 정답률 %d%% · 마지막 풀이 %s" % (row["rounds"], round(row["accuracy"] * 100), row["last"]))
             self.assertEqual(card.strip.cells.count(), len(adaptive.units()))
@@ -3492,11 +3496,13 @@ class MotionTest(GuiTest):
         self.assertLessEqual(motion.BLINK_MS, 400)
         self.boot()
         win, page = self.win, self.win.round_page
-        bot, lids = win.home.findChild(Mascot), []
+        win.go_hub()
+        bot, lids = win.hub.findChild(Mascot), []
         with mock.patch.object(bot, "_lid", side_effect=lambda t, real=bot._lid: (lids.append(t), real(t))):
             bot.blink()
             wait_until(lambda: lids and lids[-1] == 1.0, 5)
         self.assertTrue(len(lids) > 2 and bot.open == 1.0)  # 감았다가 다시 뜬 눈으로 끝남
+        win.go_home()
         click(win.home.action_btn)
         item = self.select(lambda it: it["type"] == "choice" and not it["multi"])  # 복수 정답이면 아래에서 둘 다 골라진 채로 남음
         cards = page.choice_panel.buttons

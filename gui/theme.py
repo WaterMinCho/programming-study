@@ -32,10 +32,10 @@ BRAND = ("#2f6bff", "#7b5cff", "#ffffff")  # 아이콘의 바탕 그라데이션
 AVATARS = ("#2a62f0", "#6d4df2", "#0b7f6a", "#b4530a", "#b83280", "#0e7490")  # 팀 현황의 이니셜 원. 글자는 BRAND 의 글자 색
 
 # 글자와 바탕의 대비는 4.5:1 이상으로 맞춤(tests/test_gui.py 의 ThemeTest 가 확인함).
-# 회색은 밝게 9개, 어둡게 11개만 쓰고 같은 값을 뜻이 다른 토큰이 나눠 씀(bg·surface_alt·hover·primary_off·info_weak 는 밝게에서 모두 같음).
+# 같은 색 값을 뜻이 다른 토큰이 나눠 씀(surface_alt·hover·primary_off·info_weak는 밝게에서 같음).
 # 파란색은 누를 수 있는 것, 고른 것, 진행에만 쓰고 제목(heading·doc_heading)은 글자색과 같음
 LIGHT = {
-    "bg": "#eef1f5", "surface": "#ffffff", "surface_alt": "#eef1f5", "hover": "#eef1f5", "surface_raised": "#ffffff",
+    "bg": "#f6f7f9", "surface": "#ffffff", "surface_alt": "#eef1f5", "hover": "#eef1f5", "surface_raised": "#ffffff",
     "border": "#cdd3db", "border_strong": "#818a95", "field_edge": "#818a95", "line": "#e0e5eb", "track": "#e0e5eb",
     "scroll": "#cdd3db", "scroll_hover": "#a9b0ba", "focus": "#1d63ed",
     "ink": "#171b22", "heading": "#171b22", "muted": "#464e59", "placeholder": "#616a76", "faint": "#616a76",
@@ -52,7 +52,7 @@ LIGHT = {
     "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#818a95",
 }
 DARK = {
-    "bg": "#0e1217", "surface": "#1d2228", "surface_alt": "#282d34", "hover": "#252a30", "surface_raised": "#252a30",
+    "bg": "#121418", "surface": "#1d2228", "surface_alt": "#282d34", "hover": "#252a30", "surface_raised": "#252a30",
     "border": "#42474d", "border_strong": "#7b8189", "field_edge": "#7b8189", "line": "#33373d", "track": "#33373d",
     "scroll": "#42474d", "scroll_hover": "#595e65", "focus": "#7aa8ff",
     "ink": "#eaf1fa", "heading": "#eaf1fa", "muted": "#c5cbd4", "placeholder": "#9ea3ac", "faint": "#9ea3ac",
@@ -357,6 +357,24 @@ QFrame#find QPushButton#tool:hover { background: %(bar_edge)s; }
 QFrame#find QPushButton#tool:pressed { background: %(scroll_hover)s; }
 QFrame#find QPushButton#tool:disabled { background: transparent; color: %(faint)s; }
 """ % EDITOR
+
+STYLE_V2 += """
+QFrame#navigation { background: %(surface)s; border-right: 1px solid %(line)s; }
+QWidget[ui="2"] QPushButton[navigation="true"] { text-align: left; padding: 0 16px; }
+QWidget[ui="2"] QPushButton[navigation="true"]:checked { background: %(selection)s; color: %(selection_ink)s; }
+QFrame#submissionbar { background: %(surface)s; border-top: 1px solid %(line)s; }
+QWidget[ui="2"] QPushButton#submit_work { background: %(selection)s; color: %(selection_ink)s; border: 2px solid %(primary)s; }
+QWidget[ui="2"] QPushButton#submit_work:hover { background: %(text_selection)s; }
+QWidget[ui="2"] QPushButton#submit_work:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; border-color: %(border)s; }
+QWidget[ui="2"] QFrame#row[subject="true"] { background: %(surface)s; border: 1px solid %(line)s; border-radius: 16px; }
+QWidget[ui="2"] QFrame#row[subject="true"][over="true"] { background: %(surface)s; border-color: %(border_strong)s; }
+QWidget[ui="2"] QFrame#row[subject="true"][down="true"] { background: %(surface_alt)s; }
+QComboBox#subject_picker { background: %(surface)s; color: %(ink)s; border: 0; border-bottom: 1px solid %(line)s;
+    padding: 0 24px; font-size: %(btn)spx; }
+QComboBox#subject_picker QAbstractItemView { background: %(surface)s; color: %(ink)s;
+    selection-background-color: %(selection)s; selection-color: %(selection_ink)s; }
+"""
+STYLE_V2 += "".join('QWidget[ui="2"] QProgressBar[series="%s"]::chunk { background: %%(%s)s; }\n' % (name, name) for name in SERIES)
 
 # 본문 CSS(mdlite.CSS)에 화면이 더하는 것: 결과·판정 글자색과 결과 화면의 구역 띠
 DOC_CSS = """

@@ -329,6 +329,54 @@ class GitFlowTest(unittest.TestCase):
         self.pcs.append(pc)
         return pc
 
+    def test_pending_looks_only_at_my_folder_without_writing(self):
+        self.sync()
+        pc = self.pc
+        before = (pc.read(), pc.state(), git(pc.path, "rev-parse", "HEAD").stdout)
+        self.assertEqual(pc.flow.pending(), {"status": "ok", "pending": False, "count": 0})
+        self.assertEqual((pc.read(), pc.state(), git(pc.path, "rev-parse", "HEAD").stdout), before)
+        write(os.path.join(pc.path, "README.md"), "도구 설명을 고침\n")
+        write(os.path.join(pc.path, "submissions", "bob", "answer.txt"), "다른 사람의 풀이\n")
+        self.assertFalse(pc.flow.pending()["pending"])
+        pc.solve()
+        before = (pc.read(), pc.state(), git(pc.path, "rev-parse", "HEAD").stdout)
+        start = len(pc.flow.log)
+        result = pc.flow.pending()
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(result["pending"])
+        self.assertGreater(result["count"], 0)
+        self.assertEqual((pc.read(), pc.state(), git(pc.path, "rev-parse", "HEAD").stdout), before)
+        self.assertFalse(any(re.search(r"git (fetch|push|add|checkout|update-ref)\b", line) for line in pc.flow.log[start:]))
+
+    def test_pending_clears_after_submit_and_returns_for_new_answers(self):
+        self.sync()
+        pc = self.pc
+        pc.solve()
+        self.assertTrue(pc.flow.pending()["pending"])
+        self.submit()
+        self.assertEqual(pc.flow.pending(), {"status": "ok", "pending": False, "count": 0})
+        path = os.path.join(pc.folder, "profile.json")
+        write(path, study.read_text(path) + "\n")
+        git(pc.path, "add", "--", "submissions/alice/profile.json")
+        self.assertTrue(pc.flow.pending()["pending"])
+
+    def test_pending_failure_is_not_an_empty_submission(self):
+        with mock.patch.object(self.pc.flow, "_commit_of", side_effect=OSError("읽기 실패")):
+            self.assertEqual(self.pc.flow.pending(), {"status": "error", "pending": False, "count": 0})
+
+    def test_pending_does_not_repeat_a_submission_received_from_another_computer(self):
+        self.sync()
+        self.pc.solve()
+        self.submit()
+        self.server.merge(self.pc.flow.branch, delete=True)
+        other = self.new_pc("pc2")
+        self.sync(other)
+        other.solve(correct=True)
+        self.submit(other)
+        self.server.merge(other.flow.branch, delete=True)
+        self.sync(after=other.read())
+        self.assertEqual(self.pc.flow.pending(), {"status": "ok", "pending": False, "count": 0})
+
     # 동작 + 검사
 
     def call(self, pc, what, expect, after=None, *args):

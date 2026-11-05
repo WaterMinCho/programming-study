@@ -183,6 +183,7 @@ class GitFlow:
         self._gitdir_path = None
         self._op, self._notes, self._backup, self._changed = "sync", [], None, False
         self._url = self._base = self._tip = ""  # origin 주소, 받아 온 main 과 원격의 내 브랜치 끝(커밋 해시, 없으면 "")
+        self._submitted = ""  # 이번 실행에서 올린 마지막 커밋. 다음 알림에서 방금 올린 풀이를 다시 세지 않음
 
     # 공개 메서드
 
@@ -227,6 +228,24 @@ class GitFlow:
         """내 폴더를 study/<ID> 에 올리고 PR 주소를 돌려줌. 올린 뒤 이 컴퓨터의 브랜치와 인덱스를 올린 풀이에 맞춤(_settle).
         파일은 멈춘 git 작업이 있거나 원격에 더 새 판이 있을 때만 바꾸고, 그때는 문구와 backup 으로 알림."""
         return self._run("submit", self._submit)
+
+    def pending(self):
+        """받아 둔 제출 기준과 내 폴더를 비교함. 네트워크·인덱스·작업 파일을 바꾸지 않음.
+        count는 바뀐 파일 수이며 문항 수가 아님. 오류는 빈 풀이와 구분함."""
+        try:
+            refs = list(dict.fromkeys(ref for ref in (self._submitted, self._commit_of(self.tip_ref), self._commit_of(MAIN)) if ref))
+            if not refs:
+                return {"status": "unknown", "pending": False, "count": 0}
+            fresh = set(self._paths("ls-files", "-z", "--others", "--exclude-standard", "--", self.rel))
+            counts = []
+            for base in refs:
+                changed = fresh | set(self._paths("diff", "--no-ext-diff", "--name-only", "-z", base, "--", self.rel))
+                if not changed:
+                    return {"status": "ok", "pending": False, "count": 0}
+                counts.append(len(changed))
+            return {"status": "ok", "pending": True, "count": counts[0]}
+        except (OSError, GitError):
+            return {"status": "error", "pending": False, "count": 0}
 
     def resolve(self, choice):
         """"diverged" 로 멈춘 뒤 사용자가 고른 쪽을 적용함.
@@ -785,6 +804,7 @@ class GitFlow:
             before = self._pulls() if pushed else {}
             kind, text = self._push(snap) if pushed else ("ok", "")
             if kind == "ok":
+                self._submitted = snap
                 if not dev:
                     self._settle(snap)
                 url, state = self._pr(snap, pushed, before)

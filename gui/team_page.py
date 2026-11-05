@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""팀 현황 화면: 풀이 기록이 있는 사람마다 카드 하나. 준비도가 높은 순으로 두 열에 놓음."""
+"""팀 현황 화면: 풀이 기록이 있는 사람마다 숙달 단원과 실제 학습 기록을 보여 줌."""
 import re
 
 from PyQt6.QtCore import QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QPainter
-from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QScrollArea, QVBoxLayout, QWidget
 
-from gui import motion, theme
+from gui import kit, theme
 from gui.home_page import muted
 from gui.mascot import Mascot
 from gui.widgets import UnitStrip, unit_legend
@@ -78,7 +78,7 @@ class MemberCard(QFrame):
         name = QHBoxLayout()
         name.setSpacing(8)
         self.user = ElideLabel(row["user"])
-        self.user.setObjectName("h2")
+        kit.typed(self.user, "headline")
         name.addWidget(self.user)
         if row["me"]:
             self.me = QLabel("나")
@@ -91,10 +91,11 @@ class MemberCard(QFrame):
         who.setSpacing(2)
         who.addLayout(name)
         who.addWidget(self.facts)
-        ready_name = QLabel("준비도")
-        ready_name.setObjectName("muted")
-        self.ready = QLabel("%d%%" % row["readiness"])
-        self.ready.setObjectName("ready")
+        ready_name = QLabel("숙달 단원")
+        kit.typed(ready_name, "caption")
+        ready_name.setProperty("tone", "secondary")
+        self.ready = QLabel("%d / %d" % (row["mastered"], row["total"]))
+        kit.typed(self.ready, "headline")
         head.addWidget(Avatar(row["user"], tone))
         head.addLayout(who, 1)
         head.addWidget(ready_name, 0, Qt.AlignmentFlag.AlignBottom)
@@ -104,9 +105,9 @@ class MemberCard(QFrame):
         line = QHBoxLayout()
         line.setSpacing(12)
         self.bar = QProgressBar()
-        self.bar.setRange(0, 100)
+        self.bar.setRange(0, max(1, row["total"]))
         self.bar.setTextVisible(False)
-        self.mastered = QLabel("숙달한 단원 %d / %d" % (row["mastered"], row["total"]))
+        self.mastered = kit.label("숙달한 단원 %d / %d" % (row["mastered"], row["total"]), "caption", "secondary")
         line.addWidget(self.bar, 1)
         line.addWidget(self.mastered)
         box.addLayout(line)
@@ -120,7 +121,7 @@ class MemberCard(QFrame):
         box.addWidget(self.weak)
         box.addWidget(self.strong)
         box.addStretch(1)
-        motion.count(self.bar, row["readiness"], self.bar.setValue)
+        self.bar.setValue(row["mastered"])
 
 
 class EmptyCard(QFrame):
@@ -147,21 +148,16 @@ class EmptyCard(QFrame):
 class TeamPage(QWidget):
     def __init__(self, win):
         super().__init__()
-        self.setObjectName("page")
+        kit.page(self)
         self.win = win
         self.cards, self.empty = [], None
-        root = QVBoxLayout(self)
-        root.setContentsMargins(24, 12, 24, 12)
-        root.setSpacing(10)
-        head = QHBoxLayout()
-        self.home_btn = QPushButton("홈으로")
-        title = QLabel("팀 현황")
-        title.setObjectName("h1")
-        head.addWidget(self.home_btn)
-        head.addSpacing(8)
-        head.addWidget(title)
-        head.addStretch(1)
-        root.addLayout(head)
+        outer = kit.box(self)
+        top = kit.TopBar("파이썬 스터디", "팀 현황")
+        self.home_btn = top.back
+        outer.addWidget(top)
+        body = QWidget()
+        root = kit.box(body, (24, 24, 24, 24), 16)
+        outer.addWidget(body, 1)
         root.addWidget(muted(NOTE))
         root.addLayout(unit_legend())
 
@@ -174,7 +170,7 @@ class TeamPage(QWidget):
         column = QVBoxLayout(inner)
         column.setContentsMargins(0, 0, 0, 0)
         self.grid = QGridLayout()
-        self.grid.setSpacing(12)
+        self.grid.setSpacing(16)
         for n in range(COLUMNS):
             self.grid.setColumnStretch(n, 1)
         column.addLayout(self.grid)
@@ -189,8 +185,22 @@ class TeamPage(QWidget):
         rows = self.win.session.team()
         order = sorted(row["user"].lower() for row in rows)  # 색은 ID 순으로 돌려 써서 옆 사람과 겹치지 않게 함
         self.cards = [MemberCard(row, order.index(row["user"].lower())) for row in rows]
-        for n, card in enumerate(self.cards):
-            self.grid.addWidget(card, n // COLUMNS, n % COLUMNS)
         self.empty = None if any(not row["me"] for row in rows) else EmptyCard(alone=bool(rows))
+        self.arrange()
+
+    def arrange(self):
+        if not hasattr(self, "grid"):
+            return
+        columns = COLUMNS if self.width() >= theme.TYPE["body"][0] * 48 else 1
+        for n, card in enumerate(self.cards):
+            self.grid.addWidget(card, n // columns, n % columns)
         if self.empty:
-            self.grid.addWidget(self.empty, len(rows) // COLUMNS, len(rows) % COLUMNS, 1, 1 if rows else COLUMNS)
+            self.grid.addWidget(self.empty, len(self.cards) // columns, len(self.cards) % columns, 1, 1 if self.cards else columns)
+        self.grid.setColumnStretch(1, int(columns == COLUMNS))
+
+    def refont(self):
+        self.arrange()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()

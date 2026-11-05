@@ -62,6 +62,10 @@ class FakeGitFlow:
 
     def __init__(self):
         self.calls, self.replies, self.before_submit = [], {}, None
+        self.has_pending = True
+
+    def pending(self):
+        return {"status": "ok", "pending": self.has_pending, "count": int(self.has_pending)}
 
     def _reply(self, name):
         self.calls.append(name)
@@ -191,6 +195,46 @@ class HubTest(unittest.TestCase):
 
 
 class HubScreenTest(HubTest):
+    def test_submission_notice_only_for_pending_changes_and_fixed_while_scrolling(self):
+        from PyQt6.QtWidgets import QScrollArea
+        win = self.boot()
+        self.git.has_pending = False
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        bar = win.workspace.submissions
+        self.assertTrue(bar.submit.isHidden())
+        self.assertTrue(bar.sync.isVisible())
+        self.assertIn("변경이 없습니다", bar.message.text())
+        self.git.has_pending = True
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertTrue(bar.submit.isVisible())
+        self.assertEqual(bar.message.text(), "제출할 풀이가 있습니다.")
+        before = bar.geometry()
+        scroll = win.hub.findChild(QScrollArea).verticalScrollBar()
+        scroll.setValue(scroll.maximum())
+        guikit.pump()
+        self.assertEqual(bar.geometry(), before)
+        self.assertTrue(bar.submit.isVisible())
+
+    def test_subject_navigation_fits_a_small_window_at_the_largest_text_size(self):
+        win = self.boot()
+        self.assertTrue(win.workspace.rail.isVisible())
+        self.assertEqual(win.hub.tracks.columns, 2)
+        win.set_text("larger")
+        win.resize(800, 800)
+        guikit.pump()
+        self.assertEqual(win.width(), 800)
+        self.assertFalse(win.workspace.rail.isVisible())
+        self.assertTrue(win.workspace.compact.isVisible())
+        bar = win.workspace.submissions
+        self.assertLessEqual(bar.submit.geometry().right(), bar.width())
+        self.assertLessEqual(bar.sync.geometry().right(), bar.width())
+        win.workspace.compact.activated.emit(1)
+        guikit.pump()
+        self.assertEqual((win.pages.currentWidget(), win.area), (win.home, "python"))
+
     def test_starts_at_the_hub_and_the_rows_show_their_numbers(self):
         prof = self.graded_round()
         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat(timespec="seconds")
@@ -207,10 +251,12 @@ class HubScreenTest(HubTest):
 
         # 파이썬 줄: 서비스가 낸 값을 그대로 보임
         overview = win.session.overview()
-        self.assertEqual(hub.python_row.second.text(), "단원 %d개 중 %d개 숙달 · 다음은 2회차" % (overview["total_units"], overview["mastered"]))
+        self.assertEqual(hub.python_row.second.text(), "다음은 2회차")
+        self.assertEqual(hub.python_row.metric.text(), "숙달 단원 %d / %d" % (overview["mastered"], overview["total_units"]))
 
         # 여행 줄: 1-1·1-2 를 통과해 보스가 열리고 다음은 보스
-        self.assertEqual(hub.journey_row.second.text(), "4문제 중 2개 통과 · 다음은 물통 정리")
+        self.assertEqual(hub.journey_row.second.text(), "다음은 물통 정리")
+        self.assertEqual(hub.journey_row.metric.text(), "통과한 문제 2 / 4")
         self.assertFalse(hub.journey_row.inert)
         self.assertFalse(hub.journey_error.isVisible())
 
@@ -218,7 +264,7 @@ class HubScreenTest(HubTest):
         self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
                          ("물통 정리", "알고리즘 여행 · 던전 1 「시험 마을」", "문제 풀기"))
         self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
-        self.assertEqual(hub.summary.text(), "이어서 할 공부를 시작하거나 아래에서 트랙을 고르세요.")
+        self.assertEqual(hub.summary.text(), "공부할 과목을 고르거나 이어서 진행하세요.")
 
         # 막대: 25문항 회차를 한 번 채점한 날의 파이썬 값은 1, 여행은 채점 기록 수, 웹은 기록이 없어 0. 어제도 여행 채점이 있어 연속 2일
         today = datetime.date.today()
@@ -251,7 +297,8 @@ class HubScreenTest(HubTest):
         for upper, top in zip(parts, tops[1:]):
             self.assertLess(upper.mapTo(hub, QPoint(0, upper.height())).y(), top.y())
         self.assertEqual({top.x() for top in tops}, {tops[0].x()})
-        self.assertEqual({part.width() for part in parts}, {kit.HOME_WIDTH})
+        self.assertEqual(len({part.width() for part in parts}), 1)
+        self.assertLessEqual(parts[0].width(), kit.HOME_WIDTH)
         second = hub.python_row.second
         self.assertGreaterEqual(second.height(), second.heightForWidth(second.width()))  # 트랙 설명이 줄바꿈한 높이만큼 다 보임
         week = hub.week
@@ -314,7 +361,8 @@ class HubScreenTest(HubTest):
         self.settings.setValue("journey/last", "t03/p1")
         win = self.boot()
         hub = win.hub
-        self.assertEqual(hub.journey_row.second.text(), "8문제 중 1개 통과 · 다음은 물통 합계")
+        self.assertEqual(hub.journey_row.second.text(), "다음은 물통 합계")
+        self.assertEqual(hub.journey_row.metric.text(), "통과한 문제 1 / 8")
         self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
                          ("물통 합계", "알고리즘 여행 · 던전 3 「준비 중 던전 3」", "문제 풀기"))
         guikit.click(hub.journey_row)
@@ -334,7 +382,7 @@ class HubScreenTest(HubTest):
             self.settings.setValue("journey/last", last)
             hub.refresh()
             self.assertEqual((hub.journey_row.second.text(), hub.next_card.title.text(), hub.next_card.line.text()),
-                             ("8문제 중 1개 통과 · 다음은 가장 큰 물통", "가장 큰 물통", "알고리즘 여행 · 던전 1 「시험 마을」"), last)
+                             ("다음은 가장 큰 물통", "가장 큰 물통", "알고리즘 여행 · 던전 1 「시험 마을」"), last)
             win.journey_map.refresh()
             self.assertEqual((win.journey_map.view.selected, win.journey_map.next_card.title.text()), ("t01", "가장 큰 물통"), last)
 
@@ -370,7 +418,7 @@ class HubScreenTest(HubTest):
 
     def test_hub_submit_writes_unsaved_journey_code_first(self):
         win = self.boot()
-        self.assertFalse(win.hub.git_btn.inert)
+        self.assertTrue(win.hub.git_btn.isEnabled())
         guikit.click(win.hub.git_btn)
         self.idle()
         self.assertEqual(self.git.calls, ["sync", "submit"])
@@ -436,9 +484,9 @@ class HubScreenTest(HubTest):
         self.assertEqual(win.home.action_btn.text(), "진단 테스트 시작")
         guikit.click(win.home.hub_btn)
         hub.set_busy(True, "확인 중입니다.")
-        self.assertTrue(hub.python_row.inert and hub.git_btn.inert and not hub.next_btn.isEnabled())
+        self.assertTrue(hub.python_row.inert and not hub.git_btn.isEnabled() and not hub.next_btn.isEnabled())
         hub.set_busy(False)
-        self.assertFalse(hub.python_row.inert or hub.git_btn.inert)
+        self.assertFalse(hub.python_row.inert or not hub.git_btn.isEnabled())
         self.assertTrue(hub.journey_row.inert)  # 잠금이 풀려도 여행 줄은 꺼진 채로 남음
 
     def test_dark_theme_leaves_no_light_patches(self):

@@ -4,7 +4,7 @@
 AI 비전 개론(홈·차시·학습 단원·노트·다시 보기·연습)으로 나뉨.
 area 가 지금 어느 쪽에 있는지 기억함. 웹 트랙의 Node 는 허브 카드가 설치 상태를 보이므로 허브를 열기 전에 워커에서 한 번 찾아 두고,
 여행의 [다시 찾기]가 기억을 버렸으면 허브나 웹 홈을 열기 전에 다시 찾음."""
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import QTimer, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QProgressBar, QPushButton, QStackedWidget, QVBoxLayout,
                              QWidget)
@@ -32,6 +32,7 @@ from gui.web_learn import WebLearnPage
 from gui.web_mission import WebMissionPage, open_folder
 from gui.widgets import Para
 from gui.worker import Job
+from gui.workspace import Workspace
 from gui.wrong_page import PythonNotes, WrongPage
 from journey import node as node_finder
 from journey.service import JourneyError, JourneySession
@@ -118,6 +119,9 @@ class MainWindow(QMainWindow):
         self.web_node_known, self.web_node_seen = False, False  # 웹 트랙의 Node 를 찾아 봤는지, 그때 node 모듈이 결과를 기억했는지
         self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면), web(웹 홈·미션·드릴·학습 노트), ai(AI 비전 개론)
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)
+        self.pending_submission = {"status": "checking", "pending": False, "count": 0}
+        self.pending_job = None
+        self.pending_again, self.pending_stopped, self.pending_version = False, False, 0
         self.dialog = None  # 가장 최근에 띄운 대화상자
         self.notice = None  # 허브와 홈 위쪽에 한 줄로 보여 줄 제출 모듈의 결과
         self.restart, self.close_pending = False, False
@@ -139,7 +143,17 @@ class MainWindow(QMainWindow):
                      self.journey_map, self.journey_page, self.web_home, self.web_mission, self.web_drill, self.web_learn,
                      self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz):
             self.pages.addWidget(page)
-        self.setCentralWidget(self.pages)
+        self.workspace = Workspace(self, self.pages)
+        self.result_page.git_btn.hide()
+        self.hub.git_btn = self.home.git_btn = self.workspace.submissions.submit
+        self.result_page.git_btn = self.workspace.submissions.submit
+        self.hub.sync_btn = self.home.sync_btn = self.workspace.submissions.sync
+        self.setCentralWidget(self.workspace)
+        self.pages.currentChanged.connect(self.check_pending_submission)
+        self.pending_timer = QTimer(self)
+        self.pending_timer.setInterval(15000)
+        self.pending_timer.timeout.connect(self.check_pending_submission)
+        self.pending_timer.start()
         self.restyle()  # 스타일시트가 있으면 부모가 바뀔 때 위젯 글꼴이 초기화되므로 창에 붙인 뒤에 글꼴을 줌
         theme.signals.changed.connect(self.restyle)
         room = self.screen().availableGeometry()  # 작은 노트북 화면에서 아래쪽 버튼이 화면 밖으로 나가지 않게
@@ -519,6 +533,8 @@ class MainWindow(QMainWindow):
         page.set_busy(True, text)
         job = Job(fn, progress=on_progress is not None)
         self.job = (job, page, on_done, on_fail)
+        self.pending_version += 1
+        self.workspace.refresh()
         if on_progress is not None:
             job.progress.connect(on_progress)
         job.done.connect(self._job_done)
@@ -531,11 +547,13 @@ class MainWindow(QMainWindow):
         job.wait()
         self.job = None
         page.set_busy(False)
+        self.workspace.refresh()
         return on_done, on_fail
 
     def _job_done(self, result):
         on_done, _ = self._job_end()
         on_done(result)
+        self.check_pending_submission()
         if self.close_pending:
             self.close()
 
@@ -551,6 +569,40 @@ class MainWindow(QMainWindow):
             self.close()
 
     # 제출 · 문제 받기
+
+    def check_pending_submission(self, *_):
+        """로컬의 제출 여부만 작업 스레드에서 확인함. 풀이 화면에서는 자동 저장과 경쟁하지 않음."""
+        flow = self.gitflow
+        if self.pending_stopped or self.job is not None or flow is None or self.session is None:
+            return
+        if self.pages.currentWidget() not in (self.hub, self.home, self.result_page):
+            return
+        if self.pending_job is not None:
+            self.pending_again = True
+            return
+        if not hasattr(flow, "pending"):
+            self.pending_submission = {"status": "unknown", "pending": False, "count": 0}
+            self.workspace.refresh()
+            return
+        job = Job(flow.pending)
+        self.pending_job = job
+        version = self.pending_version
+
+        def done(result):
+            job.wait()
+            self.pending_job = None
+            if self.pending_stopped:
+                return
+            if self.gitflow is flow and self.pending_version == version:
+                self.pending_submission = result
+                self.workspace.refresh()
+            again, self.pending_again = self.pending_again, False
+            if again:
+                QTimer.singleShot(0, self.check_pending_submission)
+
+        job.done.connect(done)
+        job.failed.connect(lambda *_: done({"status": "error", "pending": False, "count": 0}))
+        job.start()
 
     def submit_pr(self):
         if self.round_page.flush() and self.journey_page.flush():  # 쓰다 만 답과 코드가 빠진 채 올라가지 않게
@@ -569,6 +621,7 @@ class MainWindow(QMainWindow):
         self._git_done("문제 받기", result)
 
     def _git_done(self, title, result):
+        self.check_pending_submission()
         if result.get("restart"):
             self._restart(result)
             return
@@ -654,10 +707,14 @@ class MainWindow(QMainWindow):
             self.job[1].set_busy(True, "하던 작업이 끝나면 창을 닫습니다.")
             event.ignore()
             return
+        if self.pending_job is not None:
+            self.pending_job.wait()
         if not self.leave_pages(self.close, "저장하지 않고 닫기"):
             event.ignore()
             return
         if self.web is not None:
             self.web.stop_serving()  # 미션 화면의 [화면 띄우기]로 띄운 서버가 프로그램보다 오래 남지 않게 끔
+        self.pending_stopped = True
+        self.pending_timer.stop()
         self.settings.setValue("geometry", self.saveGeometry())
         event.accept()

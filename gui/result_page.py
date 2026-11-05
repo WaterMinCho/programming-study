@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
-"""결과 화면: 점수 · 준비도 · 단원별 판정 · 문항별 결과와 해설."""
+"""결과 화면: 점수·숙달 단원·단원별 판정·문항별 결과와 해설을 보여 줌."""
 import html
 import re
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QProgressBar, QPushButton, QSplitter, QTextBrowser,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import QHBoxLayout, QListWidget, QSplitter, QTextBrowser, QVBoxLayout, QWidget
 
 import mdlite
-from gui import motion, theme
+from gui import kit, motion, theme
 from gui.mascot import Mascot
-from gui.widgets import Para, centered
 
 PARTY_RATIO = 90  # 득점률이 이 이상이면 마스코트가 웃고, 방금 제출한 회차면 색종이가 떨어짐
 
@@ -67,50 +65,35 @@ def explain_html(item, info, space=(14, 8)):
 class ResultPage(QWidget):
     def __init__(self, win):
         super().__init__()
-        self.setObjectName("page")
+        kit.page(self)
         self.win = win
         self.view, self.verdicts, self.revealed, self.busy = None, None, set(), False
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(14, 12, 14, 0)
-        head = QHBoxLayout()
-        self.home_btn = QPushButton("홈으로")
-        self.title = QLabel()
-        self.title.setObjectName("h1")
-        head.addWidget(self.home_btn)
-        head.addSpacing(8)
-        head.addWidget(self.title, 1)
-        root.addLayout(head)
-
-        card = QFrame()
-        card.setObjectName("card")
-        card_box = QHBoxLayout(card)
-        card_box.setContentsMargins(20, 10, 20, 10)
+        root = kit.box(self)
+        top = kit.TopBar("파이썬 스터디")
+        self.home_btn, self.title = top.back, top.title
+        root.addWidget(top)
+        card, card_box = kit.card()
+        scores = QWidget()
+        score_box = kit.box(scores, spacing=16, horizontal=True)
         self.mascot = Mascot(52)
-        self.score = QLabel()
-        self.score.setObjectName("big")
-        self.ratio = QLabel()
-        self.ratio.setObjectName("h2")
-        self.note = Para(name="muted")
+        self.score = kit.label("", "display")
+        self.ratio = kit.label("", "caption", "secondary")
+        self.note = kit.para("", "caption", "secondary")
         ready_box = QVBoxLayout()
-        self.ready = QLabel()
-        self.ready.setObjectName("h2")
-        self.ready_bar = QProgressBar()
-        self.ready_bar.setRange(0, 100)
-        self.ready_bar.setTextVisible(False)
-        self.ready_bar.setFixedWidth(260)
-        ready_box.addStretch(1)
+        self.ready = kit.label("", "label")
+        self.ready_bar = kit.progress()
+        self.ready_bar.setMaximumWidth(260)
+        self.ready_bar.setMinimumWidth(120)
         ready_box.addWidget(self.ready)
         ready_box.addWidget(self.ready_bar)
-        ready_box.addStretch(1)
-        card_box.addWidget(self.mascot)
-        card_box.addSpacing(10)
-        card_box.addWidget(self.score)
-        card_box.addSpacing(14)
-        card_box.addWidget(self.ratio)
-        card_box.addSpacing(14)
-        card_box.addLayout(centered(self.note), 1)
-        card_box.addLayout(ready_box)
+        score_box.addWidget(self.mascot)
+        score_box.addWidget(self.score)
+        score_box.addWidget(self.ratio)
+        score_box.addStretch(1)
+        score_box.addLayout(ready_box)
+        card_box.addWidget(scores)
+        card_box.addWidget(self.note)
         root.addWidget(card)
 
         split = QSplitter(Qt.Orientation.Horizontal)
@@ -121,10 +104,9 @@ class ResultPage(QWidget):
         right_box = QVBoxLayout(right)
         right_box.setContentsMargins(0, 0, 0, 0)
         top = QHBoxLayout()
-        self.item_title = QLabel()
-        self.item_title.setObjectName("h2")
-        self.explain_btn = QPushButton("해설 보기")
-        self.retry_btn = QPushButton("다시 풀기")
+        self.item_title = kit.ElideLabel("", "headline")
+        self.explain_btn = kit.button("해설 보기", "secondary")
+        self.retry_btn = kit.button("다시 풀기", "secondary")
         top.addWidget(self.item_title, 1)
         top.addWidget(self.explain_btn)
         top.addWidget(self.retry_btn)
@@ -141,25 +123,19 @@ class ResultPage(QWidget):
         split.setChildrenCollapsible(False)
         root.addWidget(split, 1)
 
-        bar = QFrame()
-        bar.setObjectName("bar")
-        bar_box = QHBoxLayout(bar)
-        bar_box.setContentsMargins(4, 8, 4, 8)
-        self.status = QLabel("")
-        self.status.setObjectName("muted")
-        self.busy_bar = QProgressBar()
+        self.bar = kit.BottomBar()
+        self.status = kit.label("", "caption", "secondary")
+        self.busy_bar = kit.progress()
         self.busy_bar.setRange(0, 0)
-        self.busy_bar.setTextVisible(False)
         self.busy_bar.setFixedWidth(140)
         self.busy_bar.hide()
-        self.git_btn = QPushButton("제출(PR 올리기)")
-        self.next_btn = QPushButton()
-        self.next_btn.setObjectName("primary")
-        bar_box.addWidget(self.status, 1)
-        bar_box.addWidget(self.busy_bar)
-        bar_box.addWidget(self.git_btn)
-        bar_box.addWidget(self.next_btn)
-        root.addWidget(bar)
+        self.git_btn = kit.button("풀이 제출", "secondary", "l")
+        self.next_btn = kit.button("", "primary", "l")
+        self.bar.add_tool(self.status)
+        self.bar.add_tool(self.busy_bar)
+        self.bar.add_action(self.git_btn)
+        self.bar.add_action(self.next_btn)
+        root.addWidget(self.bar)
 
         self.listw.currentRowChanged.connect(self.show_row)
         self.explain_btn.clicked.connect(self.reveal)
@@ -192,8 +168,9 @@ class ResultPage(QWidget):
         first = view["first_score"]
         self.note.setText("첫 제출은 %s점이었습니다. 숙달 판정에는 첫 제출만 반영됩니다." % first.replace("/", " / ")
                           if first and first != "%d/%d" % (earned, total) else "")
-        self.ready.setText("시험 준비도 %d%%" % overview["readiness"])
-        motion.count(self.ready_bar, overview["readiness"], self.ready_bar.setValue)
+        self.ready.setText("숙달한 단원 %d / %d" % (overview["mastered"], overview["total_units"]))
+        self.ready_bar.setRange(0, max(1, overview["total_units"]))
+        self.ready_bar.setValue(overview["mastered"])
         self.next_btn.setText(self.win.next_action(overview)[0])
         self.git_btn.setEnabled(self.win.gitflow is not None)
         self.git_btn.setToolTip(self.win.git_reason)
