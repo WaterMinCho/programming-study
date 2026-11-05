@@ -233,17 +233,15 @@ class GitFlow:
         """받아 둔 제출 기준과 내 폴더를 비교함. 네트워크·인덱스·작업 파일을 바꾸지 않음.
         count는 바뀐 파일 수이며 문항 수가 아님. 오류는 빈 풀이와 구분함."""
         try:
-            refs = list(dict.fromkeys(ref for ref in (self._submitted, self._commit_of(self.tip_ref), self._commit_of(MAIN)) if ref))
-            if not refs:
+            tip, main = self._commit_of(self.tip_ref), self._commit_of(MAIN)
+            base = self._submitted or tip or main
+            if not self._submitted and tip and main and self._is_ancestor(tip, main):
+                base = main
+            if not base:
                 return {"status": "unknown", "pending": False, "count": 0}
             fresh = set(self._paths("ls-files", "-z", "--others", "--exclude-standard", "--", self.rel))
-            counts = []
-            for base in refs:
-                changed = fresh | set(self._paths("diff", "--no-ext-diff", "--name-only", "-z", base, "--", self.rel))
-                if not changed:
-                    return {"status": "ok", "pending": False, "count": 0}
-                counts.append(len(changed))
-            return {"status": "ok", "pending": True, "count": counts[0]}
+            changed = fresh | set(self._paths("diff", "--no-ext-diff", "--name-only", "-z", base, "--", self.rel))
+            return {"status": "ok", "pending": bool(changed), "count": len(changed)}
         except (OSError, GitError):
             return {"status": "error", "pending": False, "count": 0}
 
@@ -415,6 +413,7 @@ class GitFlow:
         self._base = self._out("rev-parse", MAIN + "^{commit}")
         self._tip = self._commit_of(self.tip_ref)
         self._check_spelling()
+        self._submitted = ""  # 새 제출 참조를 받은 뒤에는 이전 실행 중 기준을 쓰지 않음
 
     def _check_spelling(self):
         """내 ID 와 대소문자만 다른 풀이 폴더가 이 컴퓨터나 main 에 있으면 아무것도 바꾸기 전에 멈춤.
