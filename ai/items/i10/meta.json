@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "id": "i10",
+  "no": 10,
+  "page": "l10",
+  "units": {
+    "10a": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [],
+      "core": 3
+    },
+    "10b": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [
+        "i10-g01"
+      ],
+      "core": 3
+    },
+    "10c": {
+      "blank": 4,
+      "choice": 2,
+      "stmt": 8,
+      "gen": [
+        "i10-g02"
+      ],
+      "core": 3
+    },
+    "10d": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 8,
+      "gen": [
+        "i10-g03"
+      ],
+      "core": 3
+    },
+    "10e": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [
+        "i10-g04"
+      ],
+      "core": 3
+    },
+    "10f": {
+      "blank": 4,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [
+        "i10-g05"
+      ],
+      "core": 3
+    },
+    "10g": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [],
+      "core": 3
+    },
+    "10h": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [],
+      "core": 3
+    },
+    "10i": {
+      "blank": 4,
+      "choice": 2,
+      "stmt": 0,
+      "gen": [],
+      "core": 3
+    }
+  },
+  "sources": []
+}
