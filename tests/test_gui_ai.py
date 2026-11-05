@@ -106,6 +106,7 @@ class AiTest(unittest.TestCase):
             guikit.wait_until(lambda: win.job is None)
             if win.dialog is not None:
                 win.dialog.close()
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()

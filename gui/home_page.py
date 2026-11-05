@@ -1,188 +1,107 @@
 # -*- coding: utf-8 -*-
-"""파이썬 스터디 홈: 시험 준비도 · 단원 띠 · 지금 할 일 · 지난 회차 · 제출. 머리줄에서 허브로 돌아가고, 오답 노트와 팀 현황을 열고 테마를 바꿈."""
+"""파이썬의 다음 회차·숙달 단원·지난 회차를 모음. 제출은 창 아래 공통 영역에서 다룸."""
 import html
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QProgressBar, QPushButton, QScrollArea,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QWidget
 
-from gui import errors, motion, theme
-from gui.mascot import Mascot
-from gui.widgets import LinkLabel, Para, UnitStrip
+from gui import errors, kit, theme
+from gui.widgets import LinkLabel, UnitStrip
 
 
 def card(title):
-    frame = QFrame()
-    frame.setObjectName("card")
-    box = QVBoxLayout(frame)
-    box.setContentsMargins(18, 12, 18, 12)
-    box.setSpacing(6)
-    head = QLabel(title)
-    head.setObjectName("h2")
-    box.addWidget(head)
+    frame, box = kit.card()
+    box.addWidget(kit.label(title, "headline"))
     return frame, box
 
 
 def muted(text=""):
-    return Para(text, "muted")
+    return kit.para(text, "body", "secondary")
 
 
 class HomePage(QWidget):
     def __init__(self, win):
         super().__init__()
-        self.setObjectName("page")
+        kit.page(self)
         self.win = win
+        outer = kit.box(self)
+        top = kit.TopBar("학습 현황", "파이썬 스터디")
+        self.hub_btn = top.back
+        self.wrong_btn = top.add_right(kit.button("오답 노트", "text"))
+        self.team_btn = top.add_right(kit.button("팀 현황", "text"))
+        self.team_btn.setToolTip("팀원들의 숙달 단원과 학습 기록을 봅니다.")
+        self.theme_btn = top.add_right(kit.button("", "text"))
+        outer.addWidget(top)
         inner = QWidget()
-        inner.setObjectName("page")
-        scroll = QScrollArea()  # 창이 작으면 내용을 찌그러뜨리지 않고 스크롤함
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidget(inner)
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.addWidget(scroll)
-        root = QVBoxLayout(inner)
-        root.setContentsMargins(24, 16, 24, 12)
-        root.setSpacing(10)
-
-        head = QHBoxLayout()
-        self.hub_btn = QPushButton("처음으로")
-        title = QLabel("파이썬 스터디")
-        title.setObjectName("h1")
-        self.user = QLabel()  # 한 줄이고 단추와 나란히 놓여서 줄 간격을 넓히지 않음
-        self.user.setObjectName("muted")
-        self.wrong_btn = QPushButton("오답 노트")
-        self.wrong_btn.setToolTip("첫 제출에서 틀렸거나 비워 둔 문항을 차시별로 모아 봅니다.")
-        self.team_btn = QPushButton("팀 현황")
-        self.team_btn.setToolTip("팀원들의 준비도와 단원별 상태를 봅니다.")
-        self.theme_btn = QPushButton()
-        self.theme_btn.setObjectName("quiet")
-        self.theme_btn.setToolTip("누를 때마다 시스템 → 밝게 → 어둡게 순서로 바뀝니다. 시스템은 운영체제 설정을 따릅니다.")
-        head.addWidget(self.hub_btn)
-        head.addSpacing(8)
-        head.addWidget(Mascot(34))
-        head.addSpacing(4)
-        head.addWidget(title)
-        head.addStretch(1)
-        head.addWidget(self.user)
-        head.addSpacing(8)
-        head.addWidget(self.wrong_btn)
-        head.addWidget(self.team_btn)
-        head.addWidget(self.theme_btn)
-        root.addLayout(head)
+        root = kit.box(inner, (0, 24, 0, 32), 24)
+        self.user = kit.label("", "caption", "tertiary")
+        root.addWidget(self.user)
         self.notice = LinkLabel()
-        self.notice.setObjectName("notice")  # refresh 가 html.escape 한 글을 넣음
+        kit.typed(self.notice, "body")
+        self.notice.setObjectName("notice")
         self.notice.linkActivated.connect(lambda _: win.show_notice_detail())
         self.notice.hide()
         root.addWidget(self.notice)
-
-        top = QHBoxLayout()
-        top.setSpacing(10)
-        ready_card, box = card("시험 준비도")
-        line = QHBoxLayout()
-        self.ready = QLabel()
-        self.ready.setObjectName("big")
-        side = QVBoxLayout()
-        self.ready_bar = QProgressBar()
-        self.ready_bar.setRange(0, 100)
-        self.ready_bar.setTextVisible(False)
-        self.mastered = QLabel()
-        side.addStretch(1)
-        side.addWidget(self.ready_bar)
-        side.addWidget(self.mastered)
-        side.addStretch(1)
-        line.addWidget(self.ready)
-        line.addSpacing(16)
-        line.addLayout(side, 1)
-        box.addLayout(line)
-        box.addWidget(muted("단원별 준비도를 시험 비중에 맞춰 평균한 값입니다. 회차를 제출할 때마다 바뀝니다."))
-        action_card, box = card("지금 할 일")
-        self.action_desc = muted()
-        self.action_btn = QPushButton()
-        self.action_btn.setObjectName("primary")
-        self.action_btn.setProperty("big", True)
-        self.action_btn.setMinimumHeight(52)
-        box.addWidget(self.action_desc)
-        box.addStretch(1)
-        box.addWidget(self.action_btn)
-        top.addWidget(ready_card, 3)
-        top.addWidget(action_card, 2)
-        root.addLayout(top)
-
-        units_card, box = card("단원별 상태")
+        self.next_card = kit.NextCard()
+        self.next_card.caption.setText("다음 회차")
+        self.action_desc, self.action_btn = self.next_card.line, self.next_card.button
+        root.addWidget(self.next_card)
+        units_card, box = card("단원별 학습")
+        self.ready = kit.label("", "display")
+        self.mastered = kit.label("", "caption", "secondary")
+        self.ready_bar = kit.progress()
+        box.addWidget(self.ready)
+        box.addWidget(self.mastered)
+        box.addWidget(self.ready_bar)
         self.strip = UnitStrip()
-        self.weak = muted()
+        self.weak = kit.para("", "body", "secondary")
         box.addWidget(self.strip)
         box.addWidget(self.weak)
         root.addWidget(units_card)
-
-        bottom = QHBoxLayout()
-        bottom.setSpacing(10)
         rounds_card, box = card("지난 회차")
         self.rounds = QListWidget()
         self.rounds.setObjectName("plain")
         self.rounds.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.rounds_hint = muted()
+        self.rounds.setMinimumHeight(160)
+        self.rounds_hint = kit.para("", "caption", "secondary")
         box.addWidget(self.rounds_hint)
-        box.addWidget(self.rounds, 1)
-        column = QVBoxLayout()
-        column.setSpacing(10)
-        git_card, box = card("제출")
-        row = QHBoxLayout()
-        self.git_btn = QPushButton("제출(PR 올리기)")
-        self.sync_btn = QPushButton("문제 받기")
-        for button in (self.git_btn, self.sync_btn):
-            button.setMinimumHeight(40)  # 첫 화면의 제출 카드와 같은 높이
-            row.addWidget(button, 1)
-        self.git_hint = muted()
-        self.status = muted()
-        self.busy_bar = QProgressBar()
+        box.addWidget(self.rounds)
+        root.addWidget(rounds_card)
+        self.git_hint = kit.para("", "caption", "secondary")
+        root.addWidget(self.git_hint)
+        self.status = kit.para("", "caption", "secondary")
+        self.busy_bar = kit.progress()
         self.busy_bar.setRange(0, 0)
-        self.busy_bar.setTextVisible(False)
         self.busy_bar.hide()
-        box.addLayout(row)
-        box.addWidget(self.git_hint)
-        box.addWidget(self.status)
-        box.addWidget(self.busy_bar)
-        guide_card, box = card("사용 순서")
-        box.addWidget(muted("1. '지금 할 일'의 버튼을 눌러 문제를 풉니다. 답은 자동으로 저장되므로 창은 언제 닫아도 됩니다.\n"
-                            "2. 다 풀면 '회차 제출'을 누릅니다. 채점 결과와 해설이 나오고 다음 회차가 준비됩니다.\n"
-                            "3. '제출(PR 올리기)'를 누르면 풀이가 올라가고 브라우저에 PR 페이지가 열립니다."))
-        box.addStretch(1)
-        column.addWidget(git_card)
-        column.addWidget(guide_card, 1)
-        bottom.addWidget(rounds_card, 3)
-        bottom.addLayout(column, 2)
-        root.addLayout(bottom, 1)
-
-        self.foot = LinkLabel("모의고사: 전 단원을 숙달한 뒤 터미널에서 <code>python study.py start m1</code>(2회는 <code>m2</code>, 3회는 <code>m3</code>) · 글자 크기: Ctrl(맥은 Cmd) 과 +, -, 0 · "
-                              '<a href="%s">불편한 점 신고하기</a>' % errors.ISSUE_URL)
-        self.foot.setObjectName("muted")
+        root.addWidget(self.status)
+        root.addWidget(self.busy_bar)
+        self.foot = LinkLabel('<a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL)
+        kit.typed(self.foot, "caption")
         self.foot.setOpenExternalLinks(True)
         root.addWidget(self.foot)
-
+        column = kit.column(inner)
+        column.layout().setContentsMargins(32, 0, 32, 0)
+        outer.addWidget(kit.scroll(column), 1)
         self.hub_btn.clicked.connect(win.go_hub)
         self.wrong_btn.clicked.connect(lambda: win.show_wrong("python", "python"))
         self.team_btn.clicked.connect(win.show_team)
         self.theme_btn.clicked.connect(win.cycle_theme)
         self.action_btn.clicked.connect(win.start_next)
-        self.git_btn.clicked.connect(win.submit_pr)
-        self.sync_btn.clicked.connect(win.fetch_problems)
         self.rounds.itemClicked.connect(lambda item: win.show_result(item.data(Qt.ItemDataRole.UserRole)))
 
     def refresh(self):
         win = self.win
         overview = win.session.overview()
         self.user.setText("ID: %s" % overview["user"])
-        motion.count_text(self.ready, "%d%%", overview["readiness"])
-        motion.count(self.ready_bar, overview["readiness"], self.ready_bar.setValue)
-        self.mastered.setText("숙달한 단원 %d / %d" % (overview["mastered"], overview["total_units"]))
+        self.ready.setText("%d / %d" % (overview["mastered"], overview["total_units"]))
+        self.mastered.setText("숙달한 단원 / 전체 단원")
+        self.ready_bar.setRange(0, max(1, overview["total_units"]))
+        self.ready_bar.setValue(overview["mastered"])
         self.strip.set_units(overview["units"])
         tags = overview["weak_tags"]
-        self.weak.setText("약한 개념: " + (", ".join(tags) if tags else "아직 틀린 문항이 없습니다."))
+        self.weak.setText("다시 볼 개념: " + ", ".join(tags) if tags else ("아직 틀린 문항이 없습니다." if win.session.prof["attempts"] else "문제를 풀면 다시 볼 개념을 모아 보여 줍니다."))
         label, desc = win.next_action(overview)
-        self.action_btn.setText(label)
-        self.action_desc.setText(desc)
+        self.next_card.set_item(label.removesuffix(" 시작").removesuffix(" 이어 풀기"), desc, label)
         self.rounds.clear()
         done = [r for r in overview["rounds"] if r["completed"]]
         for r in reversed(done):
@@ -192,10 +111,8 @@ class HomePage(QWidget):
             self.rounds.addItem(item)
         self.rounds_hint.setText("회차를 누르면 결과와 해설을 다시 볼 수 있습니다. 목록에는 첫 제출 때 받은 점수가 나옵니다." if done else "아직 제출한 회차가 없습니다.")
         usable = win.gitflow is not None
-        self.git_btn.setEnabled(usable)
-        self.sync_btn.setEnabled(usable)
-        self.git_hint.setText("제출: 내 풀이 폴더를 올리고 브라우저에서 PR 페이지를 엽니다.\n문제 받기: 새로 올라온 문제를 내려받습니다. 내 풀이는 바꾸지 않습니다."
-                              if usable else "지금은 제출과 문제 받기를 쓸 수 없습니다. 풀이와 채점은 계속할 수 있습니다.\n" + win.git_reason)
+        self.git_hint.setVisible(not usable)
+        self.git_hint.setText("" if usable else "지금은 제출과 문제 받기를 쓸 수 없습니다.\n" + win.git_reason)
         note = win.notice
         self.notice.setVisible(bool(note))
         if note:
@@ -208,7 +125,5 @@ class HomePage(QWidget):
     def set_busy(self, busy, text=""):
         for widget in (self.action_btn, self.rounds, self.team_btn, self.wrong_btn, self.hub_btn):
             widget.setEnabled(not busy)
-        for widget in (self.git_btn, self.sync_btn):
-            widget.setEnabled(not busy and self.win.gitflow is not None)
         self.busy_bar.setVisible(busy)
         self.status.setText(text if busy else "")
