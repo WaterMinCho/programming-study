@@ -66,6 +66,13 @@ REF_FORMS = (
 DEEP_MAX = {"i13": 5, "i14": 5, "i16": 5}
 DEEP_DEFAULT = 3
 ALLOWED_LICENSES = ("CC0", "PD", "Public Domain", "퍼블릭 도메인", "CC BY 4.0", "CC BY-SA 4.0", "MIT", "BSD-3-Clause")
+QUOTED_CLIP_LICENSE = "3Blue1Brown FAQ clip permission (under 60 seconds)"
+QUOTED_CLIP_AUTHOR = "3Blue1Brown · Grant Sanderson"
+QUOTED_CLIP_PERMISSION = "https://www.3blue1brown.com/about/"
+QUOTED_CLIP_URLS = (
+    "https://storage.googleapis.com/3blue1brown-website-bucket/lessons/2017/neural-networks/network-propagation.mp4",
+    "https://storage.googleapis.com/3blue1brown-website-bucket/lessons/2017/neural-networks/number-line-squish.mp4",
+)
 SECRET = re.compile(r"sk-[A-Za-z0-9]{8,}|hf_[A-Za-z0-9]{8,}|api_key\s*=|KAGGLE_KEY|(?<![0-9a-fA-F])[0-9a-fA-F]{32,}(?![0-9a-fA-F])")
 IMPORT_BAD = re.compile(r"^\s*(?:import|from)\s+(numpy|torch)\b", re.M)
 TEXT_EXT = (".py", ".json", ".md", ".txt")
@@ -1640,19 +1647,44 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
 
 # 13~15. 그림, 한도, 비밀 값
 
+def quoted_clip_problems(credit):
+    """확인한 원작자와 공식 자산 두 개의 짧은 인용 조건만 검사함."""
+    problems = []
+    for key, wanted in (("author", QUOTED_CLIP_AUTHOR), ("permission_url", QUOTED_CLIP_PERMISSION)):
+        if credit.get(key) != wanted:
+            problems.append("%s는 %s여야 합니다." % (key, wanted))
+    if credit.get("url") not in QUOTED_CLIP_URLS:
+        problems.append("url은 확인한 공식 MP4 두 개 가운데 하나여야 합니다.")
+    seconds = credit.get("source_seconds")
+    if type(seconds) not in (int, float) or not 0 < seconds < 60 or not math.isfinite(seconds):
+        problems.append("source_seconds는 0보다 크고 60보다 작은 유한한 수여야 합니다.")
+    return problems
+
+
 def check_figures(v, bank_dir, index, manifest):
     data = ai_art.read_manifest(manifest)
     total = 0
+    quoted_seconds = []
     for page in index["pages"]:
         pdir = aibank.page_dir(page["id"], bank_dir)
-        if not os.path.isfile(os.path.join(pdir, "page.md")):
-            continue
         label = page["id"]
         try:
             meta = study.read_json(os.path.join(pdir, "meta.json"))
         except (OSError, ValueError):
             continue
-        credits = {str(c.get("file")): c for c in meta.get("credits") or [] if isinstance(c, dict)}
+        credit_rows = [c for c in meta.get("credits") or [] if isinstance(c, dict)]
+        credits = {str(c.get("file")): c for c in credit_rows}
+        for credit in credit_rows:
+            if credit.get("url") in QUOTED_CLIP_URLS and credit.get("license") != QUOTED_CLIP_LICENSE:
+                v.fail(label, 13, "%s의 공식 MP4 인용은 확인한 짧은 인용 허락 이름으로 적습니다." % credit.get("file", "?"))
+            if credit.get("license") == QUOTED_CLIP_LICENSE:
+                problems = quoted_clip_problems(credit)
+                for problem in problems:
+                    v.fail(label, 13, "%s의 짧은 인용 허락: %s" % (credit.get("file", "?"), problem))
+                if not problems:
+                    quoted_seconds.append(credit["source_seconds"])
+        if not os.path.isfile(os.path.join(pdir, "page.md")):
+            continue
         parsed = aibank.parse_page(study.read_text(os.path.join(pdir, "page.md")), meta.get("sections") or {}, pdir)
         blocks = [b for key in parsed["order"] for s in parsed["units"][key]["steps"] for b in s["blocks"] if b["kind"] == "figure"]
         for block in blocks:
@@ -1670,16 +1702,18 @@ def check_figures(v, bank_dir, index, manifest):
                 if frames is not None and frames != len(block["frames"]):
                     v.fail(label, 13, "%s 의 장이 %d개인데 프레임 줄이 %d개입니다." % (block["file"], frames, len(block["frames"])))
             entry = data["files"].get(rel)
+            credit = credits.get(block["file"])
             if entry is not None:
+                if credit and credit.get("license") == QUOTED_CLIP_LICENSE:
+                    v.fail(label, 13, "%s는 인용 자산이므로 직접 그린 그림의 manifest에 등록하지 않습니다." % block["file"])
                 if entry.get("sha256") != ai_art.file_sha(path):
                     v.fail(label, 13, "%s 가 manifest 의 해시와 다릅니다. 다시 그렸으면 `python -m tools.ai_art %s --record` 로 적으세요."
                            % (block["file"], page["id"]))
                 continue
-            credit = credits.get(block["file"])
             if credit is None:
                 v.fail(label, 13, "manifest 에 없는 그림입니다: %s. 직접 그린 그림은 manifest 에 적고, 가져온 그림은 meta.json credits 에 "
                                   "출처를 적습니다." % block["file"])
-            elif credit.get("license") not in ALLOWED_LICENSES or not credit.get("author") or not credit.get("url"):
+            elif credit.get("license") != QUOTED_CLIP_LICENSE and (credit.get("license") not in ALLOWED_LICENSES or not credit.get("author") or not credit.get("url")):
                 v.fail(label, 13, "%s 의 credits 는 author·url 과 허용 라이선스(%s)가 있어야 합니다." % (block["file"], ", ".join(ALLOWED_LICENSES)))
             elif "출처" not in block["caption"] and not any(h == "그림 출처" for h, _ in parsed["extra"]):
                 v.fail(label, 13, "%s 는 가져온 그림인데 캡션이나 「그림 출처」 절에 출처가 없습니다." % block["file"])
@@ -1694,6 +1728,8 @@ def check_figures(v, bank_dir, index, manifest):
         if size > ai_art.LIMITS["note_bytes"]:
             v.fail(label, 14, "그림 합계가 %.1fMB 입니다(학습 노트 하나 %.1fMB 이하)." % (size / 1048576.0, ai_art.LIMITS["note_bytes"] / 1048576.0))
         total += size
+    if math.fsum(quoted_seconds) >= 60:
+        v.fail("index", 13, "이 원작자의 짧은 인용 credits 전체 source_seconds 합계는 60초 미만이어야 합니다.")
     if total > ai_art.LIMITS["total_bytes"]:
         v.fail("index", 14, "그림 합계가 %.1fMB 입니다(%dMB 이하)." % (total / 1048576.0, ai_art.LIMITS["total_bytes"] // 1048576))
     elif total > ai_art.LIMITS["warn_bytes"]:

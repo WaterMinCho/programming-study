@@ -13,6 +13,85 @@
    "stmt": 0,
    "gen": [],
    "core": 4
+  },
+  "18b": {
+   "slot": 4,
+   "order": 1,
+   "pick": 3,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "18c": {
+   "slot": 2,
+   "order": 1,
+   "pick": 2,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "18d": {
+   "slot": 2,
+   "order": 0,
+   "pick": 2,
+   "change": 1,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "18e": {
+   "slot": 3,
+   "order": 0,
+   "pick": 2,
+   "change": 1,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "18f": {
+   "slot": 3,
+   "order": 1,
+   "pick": 2,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [
+    "pc-g01"
+   ],
+   "core": 4
+  },
+  "18g": {
+   "slot": 4,
+   "order": 0,
+   "pick": 2,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "18h": {
+   "slot": 2,
+   "order": 0,
+   "pick": 3,
+   "change": 1,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
   }
  },
  "sources": []
