@@ -218,7 +218,7 @@ class HubScreenTest(HubTest):
         self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
                          ("물통 정리", "알고리즘 여행 · 던전 1 「시험 마을」", "문제 풀기"))
         self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
-        self.assertEqual(hub.summary.text(), "진행 중인 미션과 오늘 복습이 없습니다.")
+        self.assertEqual(hub.summary.text(), "이어서 할 공부를 시작하거나 아래에서 트랙을 고르세요.")
 
         # 막대: 25문항 회차를 한 번 채점한 날의 파이썬 값은 1, 여행은 채점 기록 수, 웹은 기록이 없어 0. 어제도 여행 채점이 있어 연속 2일
         today = datetime.date.today()
@@ -252,7 +252,8 @@ class HubScreenTest(HubTest):
             self.assertLess(upper.mapTo(hub, QPoint(0, upper.height())).y(), top.y())
         self.assertEqual({top.x() for top in tops}, {tops[0].x()})
         self.assertEqual({part.width() for part in parts}, {kit.HOME_WIDTH})
-        self.assertEqual(QLabel.text(hub.python_row.second), hub.python_row.second.full)  # 트랙 설명이 줄임표 없이 다 보임
+        second = hub.python_row.second
+        self.assertGreaterEqual(second.height(), second.heightForWidth(second.width()))  # 트랙 설명이 줄바꿈한 높이만큼 다 보임
         week = hub.week
         self.assertTrue(week.side)
         chart, recent = week.plot.geometry(), week.recent_box.geometry()

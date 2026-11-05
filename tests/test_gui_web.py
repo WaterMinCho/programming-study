@@ -261,7 +261,7 @@ class HubRowTest(WebTest):
         today = datetime.date.today()
         self.assertEqual(hub.chart.days[-1], (today, 0, 0, 0, 0))
         self.assertEqual(hub.streak.text(), "연속 학습 0일")
-        self.assertEqual(hub.summary.text(), "진행 중인 미션과 오늘 복습이 없습니다.")
+        self.assertEqual(hub.summary.text(), "이어서 할 공부를 시작하거나 아래에서 트랙을 고르세요.")
         self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("진단 테스트", "시작"))  # 어느 트랙에도 기록이 없으면 파이썬
         self.assertTrue(hub.next_card.line.text().startswith("파이썬 스터디 · "), hub.next_card.line.text())
         self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)

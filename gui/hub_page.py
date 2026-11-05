@@ -13,7 +13,7 @@ import datetime
 import html
 import math
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QEvent, QRectF, Qt
 from PyQt6.QtGui import QFontMetricsF, QPainter
 from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
 
@@ -31,7 +31,7 @@ RECENT = 5  # 최근 채점 줄 수
 WEEKDAYS = "월화수목금토일"
 TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면접"), ("ai", "AI 비전"))  # 막대 순서와 범례 이름. 트랙 색(theme.SERIES)도 이 순서
 BAR_GAP = 2  # 한 날의 막대 사이
-EMPTY = "아직 채점한 기록이 없습니다."
+EMPTY = "최근 7일 학습 기록이 없습니다.\n공부 트랙에서 시작할 수 있습니다."
 THEME_TEXT = {"system": "밝게 보기", "light": "어둡게 보기", "dark": "시스템 따르기"}  # 단추를 누르면 바뀌는 쪽(시스템 → 밝게 → 어둡게 → 시스템)
 TEXT_LABELS = {"normal": "보통 글자", "large": "큰 글자", "larger": "더 큰 글자"}  # 글자 크기 단추. 지금 단계가 고른 모양으로 보임
 TEXT_TIP = "화면의 글자 크기를 바꿉니다. Ctrl(맥은 Cmd)과 +, -, 0 으로도 바꿀 수 있습니다."
@@ -41,6 +41,7 @@ SIDE_MIN = 40  # 최근 7일 카드에서 막대와 최근 채점을 나란히 �
 SIDE_GAP = 32  # 나란히 둘 때 막대와 최근 채점 사이
 RECENT_SHARE = 0.45  # 나란히 둘 때 최근 채점 칸이 받는 폭의 상한(막대가 더 넓게)
 QWIDGETSIZE_MAX = 16777215  # Qt 위젯 크기의 상한. 최근 채점 칸의 고정 폭을 풀 때 씀
+ACCOUNT_WIDTH = 240  # ID 는 이 폭까지 보이고 긴 이름은 도움말에 남김
 
 
 def python_gradings(attempts):
@@ -174,12 +175,13 @@ class WeekChart(QWidget):
         if self.days and not any(any(values) for _, *values in self.days):
             painter.setFont(theme.font("caption"))
             area = QRectF(0, top, self.width(), span)
-            text = QFontMetricsF(theme.font("caption")).boundingRect(area, Qt.AlignmentFlag.AlignCenter, EMPTY)
+            flags = Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap
+            text = QFontMetricsF(theme.font("caption")).boundingRect(area, flags, EMPTY)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(theme.qcolor("surface"))
             painter.drawRoundedRect(text.adjusted(-16, -8, 16, 8), 8, 8)  # 바탕 막대 위에 글이 겹치지 않게 바탕색 알약을 깔음
             painter.setPen(theme.qcolor("muted"))
-            painter.drawText(area, Qt.AlignmentFlag.AlignCenter, EMPTY)
+            painter.drawText(area, flags, EMPTY)
 
 
 class WeekBody(QWidget):
@@ -215,6 +217,48 @@ class WeekBody(QWidget):
         self.arrange()
 
 
+class HubBar(kit.TopBar):
+    """앱 이름과 ID, 글자 크기와 테마 도구를 담음. 폭이 모자라면 도구를 아래 줄에 둠."""
+
+    def __init__(self):
+        super().__init__(plain=True)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.row.removeWidget(self.title)
+        self.identity = QWidget()
+        self.identity_row = kit.box(self.identity, spacing=12, horizontal=True)
+        self.controls = QWidget()
+        self.control_row = kit.box(self.controls, spacing=8, horizontal=True)
+        self.row.setContentsMargins(32, 16, kit.MARGIN - kit.FLUSH, 16)
+        self.row.setSpacing(8)
+        self.row.addWidget(self.identity, 1)
+        self.row.addWidget(self.controls, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+    def add_right(self, widget, flush=False):
+        self.control_row.addWidget(widget)
+        return widget
+
+    def arrange(self):
+        left, top, right, bottom = self.row.getContentsMargins()
+        identity, controls = self.identity_row.sizeHint(), self.control_row.sizeHint()
+        stacked = identity.width() + 24 + controls.width() > self.width() - left - right
+        self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
+        height = identity.height() + 8 + controls.height() if stacked else max(identity.height(), controls.height())
+        self.setFixedHeight(max(theme.CONTROL["topbar"], top + height + bottom))
+
+    def refont(self):
+        self.arrange()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.arrange()
+        return result
+
+
 class HubPage(QWidget):
     def __init__(self, win):
         super().__init__()
@@ -225,15 +269,16 @@ class HubPage(QWidget):
         self.journey_next = None  # 여행의 이어서 할 일(journey_text.next_item). 여행 줄과 카드가 같은 문제를 말함
         outer = kit.box(self)
 
-        top = kit.TopBar(plain=True)
+        self.top = top = HubBar()
         self.theme_btn = kit.button("", "text", "s", onbg=True)
         self.theme_btn.setToolTip("누를 때마다 시스템 → 밝게 → 어둡게 순서로 바뀝니다. 시스템은 운영체제 설정을 따릅니다.")
-        self.user = kit.label("", "caption", "tertiary")
-        top.row.addWidget(Mascot(32))
-        top.row.addWidget(kit.label("프로그래밍 스터디", "headline"))
-        top.row.addStretch(1)
-        top.row.addWidget(self.user)
-        top.row.addSpacing(12)
+        self.user = kit.ElideLabel("", "caption", "tertiary")
+        self.user.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        self.user.setMaximumWidth(ACCOUNT_WIDTH)
+        top.identity_row.addWidget(Mascot(32))
+        top.identity_row.addWidget(kit.label("프로그래밍 스터디", "headline"))
+        top.identity_row.addStretch(1)
+        top.identity_row.addWidget(self.user)
         self.text_buttons = {}  # 글자 크기 단계 → 단추. 테마 단추와 같은 모양이고 지금 단계는 고른 모양
         self.text_group = QButtonGroup(self)
         self.text_group.setExclusive(True)
@@ -244,7 +289,6 @@ class HubPage(QWidget):
             button.clicked.connect(lambda checked=False, step=step: win.set_text(step))
             self.text_group.addButton(button)
             self.text_buttons[step] = top.add_right(button)
-        top.row.addSpacing(12)
         top.add_right(self.theme_btn, flush=True)
         outer.addWidget(top)
 
@@ -271,10 +315,10 @@ class HubPage(QWidget):
         root.addLayout(head)
         root.addSpacing(12)
         self.tracks = kit.RowList()
-        self.python_row = self.tracks.add(kit.Row("파이썬 스터디", PYTHON_ABOUT, mark=kit.Dot("series_python", 8), strong=True))
-        self.journey_row = self.tracks.add(kit.Row("알고리즘 여행", "", mark=kit.Dot("series_algorithm", 8), strong=True))
-        self.web_row = self.tracks.add(kit.Row("웹 면접 준비", "", mark=kit.Dot("series_web", 8), strong=True))
-        self.ai_row = self.tracks.add(kit.Row(ai_text.TRACK, "", mark=kit.Dot("series_ai", 8), strong=True))
+        self.python_row = self.tracks.add(kit.Row("파이썬 스터디", PYTHON_ABOUT, mark=kit.Dot("series_python", 8), strong=True, wrap=True))
+        self.journey_row = self.tracks.add(kit.Row("알고리즘 여행", "", mark=kit.Dot("series_algorithm", 8), strong=True, wrap=True))
+        self.web_row = self.tracks.add(kit.Row("웹 면접 준비", "", mark=kit.Dot("series_web", 8), strong=True, wrap=True))
+        self.ai_row = self.tracks.add(kit.Row(ai_text.TRACK, "", mark=kit.Dot("series_ai", 8), strong=True, wrap=True))
         self.journey_error = kit.banner("", "danger")  # 여행 기록을 읽지 못한 이유. 그동안 여행 줄은 눌리지 않음
         self.web_error = kit.banner("", "danger")
         self.ai_error = kit.banner("", "danger")
@@ -295,7 +339,7 @@ class HubPage(QWidget):
         series = dict(zip((tid for tid, _ in TRACKS), theme.SERIES))  # 공부 트랙 줄과 같은 점. 점 색이 없는 트랙은 점 없이 둠
         for track in win.wrong_tracks:
             mark = kit.Dot(series[track.tid], 8) if track.tid in series else None
-            row = self.notes.add(kit.Row(track.name, "", mark=mark, strong=True))
+            row = self.notes.add(kit.Row(track.name, "", mark=mark, strong=True, wrap=True))
             row.clicked.connect(lambda tid=track.tid: win.show_wrong(tid, "hub"))
             self.note_rows.append((track, row))
         root.addWidget(self.notes)
@@ -336,14 +380,14 @@ class HubPage(QWidget):
         root.addLayout(head)
         root.addSpacing(12)
         self.git = kit.RowList()
-        self.git_btn = self.git.add(kit.Row("풀이 제출", "풀이 폴더를 올리고 브라우저에서 PR 페이지를 엽니다."))
-        self.sync_btn = self.git.add(kit.Row("새 문제 받기", "새로 올라온 문제를 받습니다. 내 풀이는 바뀌지 않습니다."))
+        self.git_btn = self.git.add(kit.Row("풀이 제출", "풀이 폴더를 올리고 브라우저에서 PR 페이지를 엽니다.", wrap=True))
+        self.sync_btn = self.git.add(kit.Row("새 문제 받기", "새로 올라온 문제를 받습니다. 내 풀이는 바뀌지 않습니다.", wrap=True))
         root.addWidget(self.git)
         self.git_hint = kit.banner("", "warning")  # 제출을 쓸 수 없는 이유. 그동안 두 줄은 눌리지 않음
         self.git_hint.hide()
         root.addSpacing(12)
         root.addWidget(self.git_hint)
-        self.status = kit.label("", "caption", "secondary")
+        self.status = kit.para("", "caption", "secondary")
         self.status.hide()
         self.busy_bar = kit.progress()
         self.busy_bar.setRange(0, 0)
@@ -471,7 +515,7 @@ class HubPage(QWidget):
             parts.append("오늘 복습 %d개" % len(due))
         if ai and ai["due"]:
             parts.append("AI 복습 %d개" % ai["due"])
-        self.summary.setText("%s가 있습니다." % "와 ".join(parts) if parts else "진행 중인 미션과 오늘 복습이 없습니다.")
+        self.summary.setText("%s가 있습니다." % "와 ".join(parts) if parts else "이어서 할 공부를 시작하거나 아래에서 트랙을 고르세요.")
         web_item = web_text.next_item(web, self.win.web.missions) if web else None
         latest = []
         gradings = python_gradings(self.win.session.prof["attempts"])
@@ -570,6 +614,7 @@ class HubPage(QWidget):
         self.week.arrange()
 
     def restyle(self):
+        self.user.setFixedWidth(min(ACCOUNT_WIDTH, self.user.sizeHint().width()))
         self.theme_btn.setText(THEME_TEXT[theme.state["mode"]])
         for step, button in self.text_buttons.items():
             button.setChecked(step == theme.state["text"])
