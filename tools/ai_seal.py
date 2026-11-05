@@ -207,10 +207,10 @@ def _note_answers(bank_dir, page_id):
     answers = {}
     for key in parsed["order"]:
         for step in parsed["units"][key]["steps"]:
-            for block in step["blocks"]:
-                if block["kind"] not in ("guess", "recall"):
+            for block_no, block in enumerate(step["blocks"], 1):
+                if block["kind"] not in ("guess", "recall", "why"):
                     continue
-                tag = "%s %s/%s %s %s" % (page_id, key, step["no"], block["kind"], block.get("id", ""))
+                tag = "%s %s/%s %s %s" % (page_id, key, step["no"], block["kind"], block.get("id") or "b%d" % block_no)
                 answers[tag] = {"picked": []} if block["kind"] == "guess" else [""] * max(1, len(aibank.BLANK.findall(block.get("q", ""))))
     return answers
 
@@ -271,7 +271,7 @@ def brief_patterns(bank_dir, group, out_dir):
 
 
 def _note_lines(bank_dir, page_id):
-    """학습 노트의 먼저 풀어 보기·떠올리기(정답을 뺀 것)."""
+    """학습 노트의 물음만 표시함. 정답은 포함하지 않음."""
     lines = []
     pdir = aibank.page_dir(page_id, bank_dir)
     if not os.path.isfile(os.path.join(pdir, "page.md")):
@@ -280,12 +280,13 @@ def _note_lines(bank_dir, page_id):
     parsed = aibank.parse_page(study.read_text(os.path.join(pdir, "page.md")), meta.get("sections") or {})
     for key in parsed["order"]:
         for step in parsed["units"][key]["steps"]:
-            for block in step["blocks"]:
+            for block_no, block in enumerate(step["blocks"], 1):
                 if block["kind"] == "guess":
-                    lines.append("- %s/%s 먼저 풀어 보기 %s: %s" % (key, step["no"], block.get("id"), block.get("q", "")))
+                    lines.append("- %s/%s 먼저 풀어 보기 %s: %s" % (key, step["no"], (block.get("id") or "b%d" % block_no), block.get("q", "")))
                     lines += ["  %d. %s" % (n, text) for n, text in enumerate(block.get("options") or [], 1)]
-                elif block["kind"] == "recall":
-                    lines.append("- %s/%s 떠올리기 %s: %s" % (key, step["no"], block.get("id"), block.get("q", "")))
+                elif block["kind"] in ("recall", "why"):
+                    name = "떠올리기" if block["kind"] == "recall" else "왜일까요"
+                    lines.append("- %s/%s %s %s: %s" % (key, step["no"], name, (block.get("id") or "b%d" % block_no), block.get("q", "")))
     return lines
 
 

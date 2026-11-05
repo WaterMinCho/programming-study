@@ -1145,6 +1145,8 @@ class PatternSignTest(PatternCase):
         self.assertIn("학습 모드로 바꾸는 메서드 이름은 ____ 입니다.", sheet)  # 노트의 떠올리기
 
     def test_choices_precede_whole_code_and_note_answers_are_separate(self):
+        fence = chr(96) * 3
+        self.replace("learn/l18/page.md", fence + "ai-recall", fence + 'ai-why\n{"id":"briefwhy","q":"기울기를 먼저 비우는 까닭은 무엇인가요?","a":"비밀 답 표식입니다."}\n' + fence + "\n\n" + fence + "ai-recall")
         self.brief()
         folder = os.path.join(self.tmp, "brief")
         sheet = study.read_text(os.path.join(folder, "sheet.md"))
@@ -1159,8 +1161,23 @@ class PatternSignTest(PatternCase):
         self.assertTrue(note_answers)
         self.assertTrue(all(value == [""] or value == {"picked": []} for value in note_answers.values()))
         self.assertTrue(all(key.startswith("l18 ") for key in note_answers))
+        self.assertTrue(any(key.endswith("why briefwhy") for key in note_answers))
+        self.assertIn("기울기를 먼저 비우는 까닭", sheet)
+        self.assertNotIn("비밀 답 표식", sheet + whole + samples + json.dumps(note_answers, ensure_ascii=False))
         graded = study.read_json(os.path.join(folder, "answers.json"))
         self.assertFalse(set(note_answers) & set(graded))
+
+    def test_anonymous_note_questions_keep_distinct_empty_answers(self):
+        parts = [{"kind": "why", "q": "첫 조건은 무엇인가요?", "a": "첫 비밀 답"},
+                 {"kind": "why", "q": "다음 조건은 무엇인가요?", "a": "둘째 비밀 답"}]
+        parsed = {"order": ["18a"], "units": {"18a": {"steps": [{"no": 1, "blocks": parts}]}}}
+        with mock.patch.object(ai_seal.aibank, "parse_page", return_value=parsed):
+            answers = ai_seal._note_answers(self.bank, "l18")
+            shown = ai_seal._note_lines(self.bank, "l18")
+        self.assertEqual(2, len(answers))
+        self.assertTrue(all(value == [""] for value in answers.values()))
+        self.assertNotIn("비밀 답", json.dumps(answers, ensure_ascii=False) + "\n".join(shown))
+        self.assertNotIn("None", "\n".join(shown))
 
     def fill(self, answers, wrong=()):
         cards = {c["id"]: c for c in ai_seal.pattern_cards(self.bank, aifix.PATTERNS)[1]}
