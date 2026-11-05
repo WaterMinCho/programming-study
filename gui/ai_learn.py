@@ -1103,13 +1103,12 @@ class LevelsBlock(QWidget):
             text += "\n\n```python\n%s\n```" % level["code"]
         if text.strip():
             self.docs.append(doc(text, self.ctx.base_dir, column))
-        for name, key in ((ai_text.LEVEL_MISTAKE, "mistake"), (ai_text.LEVEL_WHERE, "where")):
-            if level.get(key):
-                note = QWidget()
-                note_box = kit.box(note, spacing=4)
-                note_box.addWidget(head(name))
-                note_box.addWidget(rich(level[key]))
-                column.addWidget(note)
+        if level.get("mistake"):
+            note = QWidget()
+            note_box = kit.box(note, spacing=4)
+            note_box.addWidget(head(ai_text.LEVEL_MISTAKE))
+            note_box.addWidget(rich(level['mistake']))
+            column.addWidget(note)
         column.addWidget(RecallBlock(level, self.ctx, ai_text.LEVEL_CHECK))
 
     def restyle(self):

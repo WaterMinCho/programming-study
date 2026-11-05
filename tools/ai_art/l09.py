@@ -1058,3 +1058,240 @@ def summary_9g():
                   (5.85, 5.05, "wine 코드", ["13-64-32-3 = 3,075개", "분할 106, 36, 36", "model.eval(), torch.no_grad()",
                                            "x_train = scaler.fit_transform(...)"], INK, INK, (2, 3))]],
                 "forward 에서 부르지 않은 Dropout 은 계산에 쓰이지 않음")
+
+
+# 세 수준으로 다시 보기 블록 그림. 화면 520×280(파일 1040×560), 글자 22 이상은 tools/ai_art/levels.py 를 따름.
+# 그림 이름은 <단원>-<단계 번호><수준 번호>(7살 1, 15살 2, 20살 3). 색 뜻은 그 단원의 뜻을 그대로 씀.
+
+from tools.ai_art import SCALE, levels as LV  # noqa: E402
+
+
+def _lv_board():
+    """세 수준 그림 판. 좌표는 화면 논리 px(가로 0~520, 세로 0~280)."""
+    plt = setup()
+    width, height = LV.SIZE
+    fig = plt.figure(figsize=(width * SCALE / 100.0, height * SCALE / 100.0), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, width)
+    ax.set_ylim(0, height)
+    ax.axis("off")
+    return fig, ax
+
+
+def _lv_box(ax, cx, cy, w, h, s, ec=MUTED, fc="white", size=None, bold=False, lw=2.0, color=INK):
+    from matplotlib.patches import FancyBboxPatch
+    ax.add_patch(FancyBboxPatch((cx - w / 2.0, cy - h / 2.0), w, h, boxstyle="round,pad=0,rounding_size=8", fc=fc, ec=ec,
+                                lw=lw, zorder=3))
+    if s != "":
+        ax.text(cx, cy, s, ha="center", va="center", fontsize=size or LV.FONT, color=color, zorder=4,
+                weight="bold" if bold else "normal")
+
+
+def _lv_text(ax, x, y, s, color=INK, size=None, ha="center", va="center", bold=False):
+    ax.text(x, y, s, ha=ha, va=va, fontsize=size or LV.FONT, color=color, zorder=5, weight="bold" if bold else "normal")
+
+
+def _lv_arrow(ax, x0, y0, x1, y1, color=INK, lw=2.4):
+    ax.annotate("", xy=(x1, y1), xytext=(x0, y0), zorder=4,
+                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw, mutation_scale=20, shrinkA=0, shrinkB=0))
+
+
+# 9b 셋째 단계: 확률의 비. 파랑은 logit, 주황은 소프트맥스 확률
+
+def _levels_9b3(level):
+    if level == 7:
+        rows = [([2, 1, 0], 1), ([4, 2, 0], 2), ([12, 11, 10], 1)]
+        fig, ax = _lv_board()
+        _lv_text(ax, 95, 252, "모델이 낸 수", color=MUTED)
+        _lv_text(ax, 320, 252, "바뀐 수", color=MUTED)
+        _lv_text(ax, 470, 252, "차이", color=MUTED)
+        for k, (zs, gap) in enumerate(rows):
+            y = 200 - 62 * k
+            ps = softmax(zs)
+            assert all(b - a == -gap for a, b in zip(zs, zs[1:]))
+            for n, z in enumerate(zs):
+                _lv_box(ax, 45 + 50 * n, y, 44, 44, str(z), ec=BLUE, fc=BLUE_L)
+            _lv_arrow(ax, 176, y, 214, y)
+            for n, v in enumerate(ps):
+                _lv_box(ax, 255 + 66 * n, y, 60, 44, fx(v, 3), ec=ORANGE, fc=ORANGE_L)
+            _lv_text(ax, 470, y, "%d씩" % gap, bold=gap == 1, color=INK if gap == 1 else MUTED)
+        assert np.allclose(softmax([12, 11, 10]), P) and [fx(v, 3) for v in softmax([4, 2, 0])] == ["0.867", "0.117", "0.016"]
+        return fig
+    if level == 15:
+        xs = list(np.linspace(0, 2.5, 101))
+        ys = [math.exp(x) for x in xs]
+        assert fx(math.e, 3) == "2.718" and fx(math.e ** 2, 3) == "7.389" and fx(ys[-1], 1) == "12.2"
+        return LV.graph(xs, [(ys, "orange", "")], "두 logit의 차이", "두 확률의 비", top="두 확률의 비 = e^(두 logit의 차이)",
+                        marks=[(1, math.e, "2.718", "orange"), (2, math.e ** 2, "7.389", "orange")], xlim=(0, 2.6), ylim=(0, 14))
+    rows = []
+    for zs in ([2.0, 1.0, 0.0], [12.0, 11.0, 10.0], [4.0, 2.0, 0.0]):
+        ps = softmax(zs)
+        rows.append([fx(zs[0] - zs[1], 0), fx(ps[0] / ps[1], 4), fx(ps[0] / ps[2], 4)])
+    assert rows == [["1", "2.7183", "7.3891"], ["1", "2.7183", "7.3891"], ["2", "7.3891", "54.5982"]]
+    return LV.grid(rows, col_names=["z[0]-z[1]", "p[0]/p[1]", "p[0]/p[2]"], row_names=["z", "z + 10", "z * 2"],
+                   marks=[(r, c) for r in range(3) for c in (1, 2)], color="orange", top="p = torch.softmax(z, dim=0)",
+                   code=True)
+
+
+@figure("9b-31", *LV.SIZE)
+def levels_9b3_7():
+    return _levels_9b3(7)
+
+
+@figure("9b-32", *LV.SIZE)
+def levels_9b3_15():
+    return _levels_9b3(15)
+
+
+@figure("9b-33", *LV.SIZE)
+def levels_9b3_20():
+    return _levels_9b3(20)
+
+
+# 9c 셋째 단계: NLLLoss. 초록 테두리는 정답 칸과 손실
+
+ONE12 = np.arange(1.0, 13.0).reshape(4, 3)
+LAB12 = np.array([0, 1, 2, 0])
+
+
+def _levels_9c3(level):
+    pick = ONE12[np.arange(4), LAB12]
+    lp = log_softmax(ONE12)[np.arange(4), LAB12]
+    assert pick.tolist() == [1, 5, 9, 10] and -pick.mean() == -6.25 and -pick.sum() == -25
+    assert fx(-lp.mean(), 4) == "1.6576" and fx(-lp.sum(), 4) == "6.6304"
+    if level == 7:
+        fig, ax = _lv_board()
+        ys = [212, 170, 128, 86]
+        for r in range(4):
+            for c in range(3):
+                hit = c == LAB12[r]
+                _lv_box(ax, 40 + 40 * c, ys[r], 36, 34, "%d" % ONE12[r, c], ec=GREEN if hit else FAINT,
+                        lw=3.2 if hit else 1.6, bold=hit)
+            _lv_box(ax, 222, ys[r], 46, 34, "%d" % pick[r], ec=GREEN, lw=2.4)
+            _lv_box(ax, 318, ys[r], 60, 34, M + "%d" % pick[r])
+        _lv_arrow(ax, 150, 149, 190, 149)
+        _lv_arrow(ax, 252, 149, 282, 149)
+        _lv_arrow(ax, 354, 149, 386, 149)
+        _lv_box(ax, 448, 149, 104, 56, fx(-pick.mean(), 2), ec=GREEN, lw=3, size=LV.BIG, bold=True)
+        _lv_text(ax, 80, 252, "넣은 수", color=MUTED)
+        _lv_text(ax, 222, 252, "고른 수", color=MUTED)
+        _lv_text(ax, 318, 252, "빼기표 바꿈", color=MUTED)
+        _lv_text(ax, 448, 200, "평균", color=MUTED)
+        return fig
+    if level == 15:
+        rows = [["%d" % LAB12[r], "%d" % pick[r], fx(lp[r], 4)] for r in range(4)]
+        rows.append(["", fx(-pick.mean(), 2), fx(-lp.mean(), 4)])
+        assert [r[2] for r in rows[:4]] == [M + "2.4076", M + "1.4076", M + "0.4076", M + "2.4076"]
+        return LV.grid(rows, col_names=["정답 칸", "그대로", "로그 소프트맥스"],
+                       row_names=["데이터 %d" % k for k in range(1, 5)] + ["NLLLoss"], marks=[(4, 1), (4, 2)], color="green",
+                       top="NLLLoss = " + M + "(정답 칸 값의 합) ÷ 4")
+    rows = [["-6.2500", "1.6576"], ["-25.", "6.6304"]]  # 코드 출력처럼 빼기표는 ASCII
+    assert float(rows[0][0]) == -pick.mean() and float(rows[1][0]) == -pick.sum()
+    return LV.grid(rows, col_names=["x 그대로", "F.log_softmax(x, dim=1)"], row_names=["'mean'", "'sum'"],
+                   marks=[(0, 1), (1, 1)], color="green", top="nn.NLLLoss(reduction=r)(입력, y)", code=True)
+
+
+@figure("9c-31", *LV.SIZE)
+def levels_9c3_7():
+    return _levels_9c3(7)
+
+
+@figure("9c-32", *LV.SIZE)
+def levels_9c3_15():
+    return _levels_9c3(15)
+
+
+@figure("9c-33", *LV.SIZE)
+def levels_9c3_20():
+    return _levels_9c3(20)
+
+
+# 9e 둘째 단계: 예측 클래스. 파랑은 logit, 노랑은 가장 큰 칸
+
+def _levels_9e2(level):
+    if level == 7:
+        row = OUT4[3]
+        assert row.tolist() == [1.5, 1.8, 0.4] and row.argmax() == 1
+        fig, ax = _lv_board()
+        xs = [170, 280, 390]
+        for n, v in enumerate(row):
+            top = n == row.argmax()
+            _lv_text(ax, xs[n], 238, "%d번 칸" % n, color=MUTED)
+            _lv_box(ax, xs[n], 188, 90, 56, fx(v, 1), ec=BLUE, fc=YELLOW if top else BLUE_L, size=LV.BIG, bold=top)
+        _lv_text(ax, 62, 188, "넷째 줄")
+        _lv_arrow(ax, 280, 158, 280, 104)
+        _lv_box(ax, 280, 72, 90, 56, "1", ec=INK, size=LV.BIG, bold=True)
+        _lv_text(ax, 190, 72, "예측")
+        return fig
+    if level == 15:
+        assert OUT4.argmax(1).tolist() == [0, 1, 2, 1] and OUT4.max(0).tolist() == [2.0, 2.5, 3.0]
+        rows = [["4", "열 번호 0, 1, 2, 1"], ["3", "값 2.0, 2.5, 3.0"]]
+        return LV.grid(rows, col_names=["나온 수", "나온 것"], row_names=["행마다", "열마다"], marks=[(0, 0), (0, 1)],
+                       color="highlight", top="예측 클래스 = 행마다 logit이 가장 큰 열 번호")
+    assert np.asarray(OUT4.max()).shape == () and OUT4.argmax(0).shape == (3,) and OUT4.argmax(1).shape == (4,)
+    rows = [["[]", "전체에서 가장 큰 값"], ["[4]", "행마다 가장 큰 값"], ["[4]", "행마다 그 열 번호"], ["[3]", "열마다 그 행 번호"]]
+    return LV.grid(rows, col_names=["모양", "돌려주는 것"],
+                   row_names=["max(outputs)", "max(outputs, 1)[0]", "max(outputs, 1)[1]", "max(outputs, 0)[1]"],
+                   marks=[(2, 0), (2, 1)], color="highlight", top="outputs 모양 [4, 3]")
+
+
+@figure("9e-21", *LV.SIZE)
+def levels_9e2_7():
+    return _levels_9e2(7)
+
+
+@figure("9e-22", *LV.SIZE)
+def levels_9e2_15():
+    return _levels_9e2(15)
+
+
+@figure("9e-23", *LV.SIZE)
+def levels_9e2_20():
+    return _levels_9e2(20)
+
+
+# 9f 셋째 단계: 클래스별 정밀도와 재현율. 초록은 맞힌 칸, 빨강은 틀린 칸
+
+def _levels_9f3(level):
+    tp = np.diag(CM)
+    fp, fn = CM.sum(0) - tp, CM.sum(1) - tp
+    tn = CM.sum() - tp - fp - fn
+    assert tp.tolist() == [20, 16, 18] and fp.tolist() == [0, 2, 4] and fn.tolist() == [0, 4, 2] and tn[1] == 38
+    if level == 7:
+        from matplotlib.patches import Circle
+        fig, ax = _lv_board()
+        for left, total, wrong, title in ((30, CM[:, 1].sum(), fp[1], "고른 쪽 18송이"), (275, CM[1].sum(), fn[1], "실제 쪽 20송이")):
+            assert total - wrong == 16
+            _lv_box(ax, left + 107, 132, 214, 170, "", ec=MUTED, lw=2)
+            _lv_text(ax, left + 107, 245, title, bold=True)
+            for k in range(total):
+                cx, cy = left + 35 + 36 * (k % 5), 192 - 38 * (k // 5)
+                ax.add_patch(Circle((cx, cy), 12, fc=GREEN if k < 16 else RED, ec="white", lw=1.5, zorder=5))
+        assert CM[:, 1].sum() == 18 and CM[1].sum() == 20
+        return fig
+    if level == 15:
+        assert 60 - 16 - 4 - 2 == 38 and fx(16 / 18, 3) == "0.889"
+        rows = [["TP 16", "FN 4"], ["FP 2", "TN 38"]]
+        return LV.grid(rows, col_names=["예측 양성", "예측 음성"], row_names=["실제 양성", "실제 음성"], marks=[(0, 0)],
+                       color="green", top="정밀도 = 16 ÷ (16 + 2) = 0.889")
+    prec, rec = tp / (tp + fp), tp / (tp + fn)
+    rows = [["%d" % v for v in tp], ["%d" % v for v in fp], ["%d" % v for v in fn], [num(v, 3) for v in prec],
+            [num(v, 3) for v in rec]]
+    assert rows[3] == ["1", "0.889", "0.818"] and rows[4] == ["1", "0.8", "0.9"]
+    return LV.grid(rows, col_names=["클래스 0", "클래스 1", "클래스 2"], row_names=["TP", "FP", "FN", "정밀도", "재현율"],
+                   marks=[(0, c) for c in range(3)], color="green", top="average=None은 클래스마다 값 하나")
+
+
+@figure("9f-31", *LV.SIZE)
+def levels_9f3_7():
+    return _levels_9f3(7)
+
+
+@figure("9f-32", *LV.SIZE)
+def levels_9f3_15():
+    return _levels_9f3(15)
+
+
+@figure("9f-33", *LV.SIZE)
+def levels_9f3_20():
+    return _levels_9f3(20)

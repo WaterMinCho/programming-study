@@ -172,7 +172,7 @@ def last_record(r):
             "    with torch.no_grad():\n        W -= lr * W.grad\n    W.grad.zero_()\n    if epoch %% %d == 0:\n"
             "        history.append(loss.item())\nprint(history[-1])\n```" % (e, k))
     if r.chance(0.6):
-        return blank(stem="다음 코드의 마지막 줄이 찍는 값은 ____ 번째 반복에서 갱신하기 전에 잰 손실입니다.\n\n%s" % code,
+        return blank(stem="다음 코드의 마지막 줄은 `epoch` 값이 ____ 일 때 갱신하기 전에 잰 손실을 찍습니다.\n\n%s" % code,
                      blanks=[{"answer": [str(last)], "mode": "number", "hint": "반복 번호"}],
                      explain="epoch는 0부터 %d까지이고 %d의 배수일 때 기록합니다. 마지막 배수가 %d입니다. 그 반복에서 갱신하기 전에 잰 손실이 찍히고, "
                              "그 뒤로 %d번 더 갱신합니다. %d라고 답했다면 마지막 반복이 늘 기록된다고 본 것입니다."
@@ -180,6 +180,6 @@ def last_record(r):
                      params={"ask": "last", "E": e, "k": k})
     return blank(stem="다음 코드가 끝났을 때 `history`에 든 손실은 ____ 개입니다.\n\n%s" % code,
                  blanks=[{"answer": [str(count)], "mode": "number", "unit": "개", "hint": "숫자"}],
-                 explain="epoch가 0, %d, %d, …, %d일 때 기록하므로 %d ÷ %d의 소수점 아래를 버린 %d에 0번째 기록 하나를 더해 %d개입니다."
+                 explain="epoch가 0, %d, %d, …, %d일 때 기록하므로 %d ÷ %d의 소수점 아래를 버린 %d에 epoch가 0일 때 남긴 기록 하나를 더해 %d개입니다."
                          % (k, 2 * k, last, e - 1, k, (e - 1) // k, count),
                  params={"ask": "count", "E": e, "k": k})

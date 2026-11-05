@@ -25,7 +25,7 @@ CONSENT_HEIGHT = (200, 280)  # 동의 글 상자의 높이 범위. 글이 짧으
 WIDTH = 560  # 대화상자 폭(설계 5.14 의 최대). 경로가 긴 동의 글이 들어가야 함
 CONFIRM_REMOVE = "검사 도구(node_modules)를 지웁니다. 미션의 [검사하기]를 다시 쓰려면 다시 설치해야 합니다."
 BUSY_ELSEWHERE = "다른 작업이 끝난 뒤 다시 눌러 주세요."
-FAILED = "검사 도구를 설치하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 설치하세요."
+FAILED = "검사 도구를 설치하지 못했습니다. 아래 로그를 확인한 뒤 다시 시도하세요."
 
 
 def log_tail(path, lines=TAIL_LINES):
@@ -246,7 +246,8 @@ class SetupDialog(QDialog):
         text = result.get("message") or FAILED
         if log and log not in text:
             text += "\n설치 로그: %s" % log
-        self.say(text, "error")
+        self.say(FAILED, "error")
+        self.result.text.setToolTip(text)
 
     def _failed(self):
         self.failed = True
@@ -260,6 +261,7 @@ class SetupDialog(QDialog):
         kit.set_tone(self.result, tone)
         self.result.word.setText("오류" if name == "error" else "완료")
         self.result.text.setText(text)
+        self.result.text.setToolTip("")
         self.result.show()
         self.fit()
 
