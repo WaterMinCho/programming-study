@@ -1461,7 +1461,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
     if len(chosen) < SET_MIN and overflow:
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
     chosen = _fix_blanks(sess, state, chosen, pools, protected)
-    chosen = _gen_trim(sess, chosen, keep={card} if mode == "note" else ())  # [다시 풀기]로 고른 생성기는 빼지 않음
+    keep = {card} if mode == "note" else set()
+    if mode in ("review", "sweep"):
+        keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
+    chosen = _gen_trim(sess, chosen, keep=keep)  # 직접 고른 문항과 예정일·미해결 생성기는 비율로 빼지 않음
     if mode == "unit":
         return _arrange(sess, state, chosen, rng, pattern)
     lead = [c for c, pool in chosen if pool == "lead"]

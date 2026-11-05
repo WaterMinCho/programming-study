@@ -48,6 +48,32 @@ class ReviewCompletionTest(Base):
         self.assertIn("i90-b01", sess._state().due_cards())
         self.assertEqual(["i90-b01"], self.picked(sess, "review"))
 
+    def pending_generator(self, again=False):
+        static = ("i90-b01", "i90-b02", "i90-c01", "i90-b04", "i90-c02", "i90-s01")
+        sess = self.history(["i90-g01", *static])
+        self.at = "2026-11-08T21:00:00"
+        sess._append({"kind": "answer", "set": "yesterday", "card": "i90-g01", "result": "stuck", "again": 0, "seed": 3})
+        self.at = "2026-11-09T20:00:00"
+        for cid in static:
+            sess._append({"kind": "answer", "set": "completed", "card": cid, "result": "pass", "again": 0})
+        if again:
+            sess._append({"kind": "answer", "set": "unfinished", "card": "i90-g01", "result": "stuck", "again": 0, "seed": 3})
+        return sess
+
+    def test_due_generator_survives_after_static_fillers_are_completed(self):
+        sess = self.pending_generator()
+        self.assertEqual(["i90-g01"], sess._state().due_cards())
+        for mode in ("review", "sweep"):
+            self.assertEqual(["i90-g01"], self.picked(sess, mode), mode)
+        self.assertTrue(sess.review_status()["available"])
+
+    def test_unfinished_generator_survives_after_static_fillers_are_completed(self):
+        sess = self.pending_generator(again=True)
+        self.assertIn("i90-g01", sess._state().again)
+        for mode in ("review", "sweep"):
+            self.assertEqual(["i90-g01"], self.picked(sess, mode), mode)
+        self.assertTrue(sess.review_status()["available"])
+
     def test_due_card_and_unfinished_wrong_card_remain(self):
         sess = self.history(["i90-b01", "i90-b02"])
         self.at = "2026-11-08T21:00:00"

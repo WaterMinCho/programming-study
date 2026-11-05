@@ -64,3 +64,22 @@ class ReviewCompletionPageTest(AiTest):
             guikit.click(page.again_btn)
         self.assertIs(self.page(), page)
         self.assertEqual("i90-b02", page.item["card"])
+
+    def test_due_generator_is_opened_after_static_cards_are_completed(self):
+        win = self.boot()
+        sess = win.ai
+        static = ("i90-b01", "i90-b02", "i90-c01", "i90-b04", "i90-c02", "i90-s01")
+        sess.cards = {cid: sess.cards[cid] for cid in ("i90-g01", *static)}
+        self.at(3)
+        for unit in ("90a", "90b"):
+            sess.mark_read("i90", unit)
+        sess._append({"kind": "answer", "set": "yesterday", "card": "i90-g01", "result": "stuck", "again": 0, "seed": 3})
+        self.at(4)
+        for cid in static:
+            sess._append({"kind": "answer", "set": "completed", "card": cid, "result": "pass", "again": 0})
+        win.open_ai_practice("review")
+        page = win.ai_quiz
+        self.assertIs(self.page(), page)
+        self.assertIsNotNone(page.practice)
+        self.assertEqual("i90-g01", page.item["card"])
+        self.assertNotIn("지금 복습할 문항이 없습니다", visible_text(page.card))
