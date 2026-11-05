@@ -66,6 +66,13 @@ LEVEL_MISTAKE = "자주 하는 착각"
 NUMBERS = bank.NUMBERS
 
 
+def lesson_title(no, title):
+    """자료에 같은 차시 번호가 있으면 화면에서 한 번만 씀."""
+    prefix = "%s차시" % no
+    title = title.strip()
+    return title if title == prefix or title.startswith(prefix + " ") else (prefix + " " + title).strip()
+
+
 def plain(text):
     """인라인 마크다운(`코드`, **굵게**)을 꾸밈 없는 글자로."""
     return mdlite.inline_plain(text or "")

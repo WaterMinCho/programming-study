@@ -174,10 +174,10 @@ class AiHomePage(QWidget):
         for row in overview["lessons"]:
             if not row["ready"]:
                 if not row.get("error"):
-                    waiting.append("%d차시 %s" % (row["no"], row["title"]))
+                    waiting.append(ai_text.lesson_title(row["no"], row["title"]))
                 continue
             ready += 1
-            line = kit.Row("%d차시 %s" % (row["no"], row["title"]), ai_text.lesson_line(row), "예습" if row["preview"] else "",
+            line = kit.Row(ai_text.lesson_title(row["no"], row["title"]), ai_text.lesson_line(row), "예습" if row["preview"] else "",
                            kit.Dot(ai_text.lesson_dot(row)), row["id"])
             line.clicked.connect(lambda lid=row["id"]: self.open_lesson(lid))
             self.lesson_list.add(line)
@@ -295,7 +295,7 @@ class AiLessonPage(QWidget):
         """차시를 올림. 준비 중이거나 읽지 못한 차시면 AiError."""
         data = self.win.ai.lesson(lid)
         self.lid = lid
-        self.title.setText("%d차시 %s" % (data["no"], data["title"]))
+        self.title.setText(ai_text.lesson_title(data["no"], data["title"]))
         self.title.show()
         self.unit_list.clear()
         for unit in data["units"]:
