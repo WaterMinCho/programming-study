@@ -588,7 +588,7 @@ def cards_of(lesson, data):
             add(str(item["id"]), kind, item, item=item)
     for topic in data["topics"]:
         for statement in topic.get("statements") or []:
-            source = dict(topic, **{k: v for k, v in statement.items() if k in ("facts", "core", "family", "confuse", "step",
+            source = dict(topic, **{k: v for k, v in statement.items() if k in ("unit", "facts", "core", "family", "confuse", "step",
                                                                                    "errata", "ref", "deep", "prio", "level")})
             source.setdefault("step", topic.get("step"))
             add(str(statement["id"]), "stmt", source, stmt=statement, topic=topic)

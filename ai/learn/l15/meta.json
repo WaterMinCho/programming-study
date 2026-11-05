@@ -1,0 +1,80 @@
+{
+  "format": 1,
+  "id": "l15",
+  "title": "15차시 이미지 파일을 학습 배치로 연결합니다",
+  "lesson": "i15",
+  "defines": [
+    "ImageFolder",
+    "class_to_idx",
+    "CenterCrop"
+  ],
+  "needs": [
+    "l06",
+    "l09",
+    "l13",
+    "l14"
+  ],
+  "sections": {
+    "15a": "폴더 이름과 클래스 번호를 맞춥니다",
+    "15b": "비율을 맞춘 뒤 중앙 영역을 자릅니다",
+    "15c": "픽셀 범위와 표시용 축을 되돌립니다",
+    "15d": "데이터셋의 원소를 배치로 묶습니다",
+    "15e": "사용자 자료를 같은 학습 계약에 연결합니다"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "클래스 정렬과 기본 RGB 로더·확장자",
+      "url": "https://docs.pytorch.org/vision/stable/_modules/torchvision/datasets/folder.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Resize의 정수와 두 변 인수",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.Resize.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "ToTensor의 uint8 값·축 변환",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.ToTensor.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Dataset과 기본 DataLoader collate",
+      "url": "https://docs.pytorch.org/docs/2.15/data.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "NumPy transpose의 축 순서",
+      "url": "https://numpy.org/doc/stable/reference/generated/numpy.transpose.html",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "15a": {
+      "minutes": 6,
+      "key_figure": "assets/15a-1.png",
+      "kind": "concept"
+    },
+    "15b": {
+      "minutes": 6,
+      "key_figure": "assets/15b-1.png",
+      "kind": "concept"
+    },
+    "15c": {
+      "minutes": 6,
+      "key_figure": "assets/15c-1.png",
+      "kind": "concept"
+    },
+    "15d": {
+      "minutes": 6,
+      "key_figure": "assets/15d-1.png",
+      "kind": "concept"
+    },
+    "15e": {
+      "minutes": 6,
+      "key_figure": "assets/15e-1.png",
+      "kind": "concept"
+    }
+  }
+}

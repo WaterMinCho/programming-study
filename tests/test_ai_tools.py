@@ -581,6 +581,19 @@ class LeechTest(Case):
 
 
 class OverlapTest(Case):
+    def test_standard_training_calls_alone_do_not_claim_copied_code(self):
+        block = "loss.backward()\noptimizer.step()\nmodel.eval()\nwith torch.no_grad():"
+        source = {"prose": [], "code": [block]}
+        self.assertEqual([], ai_overlap.overlaps([("공통 호출", "", block)], source)["fail"])
+        repeated = block + "\n" + block + "\n" + block
+        found = ai_overlap.overlaps([("긴 동일 코드", "", repeated)], {"prose": [], "code": [repeated]})
+        self.assertTrue(any("120자" in row[2] for row in found["fail"]))
+
+    def test_training_calls_with_a_custom_line_still_find_overlap(self):
+        block = "total_loss += loss.item() * batch_count\noptimizer.step()\nmodel.eval()"
+        found = ai_overlap.overlaps([("직접 쓴 계산", "", block)], {"prose": [], "code": [block]})
+        self.assertTrue(any("코드 줄 3개" in row[2] for row in found["fail"]))
+
     def test_fake_corpus(self):
         lecture = os.path.join(self.bank, "lecture")
         out = io.StringIO()

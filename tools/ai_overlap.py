@@ -32,6 +32,7 @@ from webprep import bank as webbank  # noqa: E402
 
 PROSE_MIN, PROSE_HANGUL, NEAR_MIN, NEAR_SHOWN = 20, 10, 14, 10
 CODE_MIN, LINE_MIN, LINE_RUN = 120, 10, 3
+COMMON_TRAINING_LINES = frozenset(("loss.backward()", "optimizer.step()", "model.eval()", "withtorch.no_grad():"))
 GEN_SAMPLES = 5
 HANGUL = re.compile("[가-힣]")
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
@@ -296,7 +297,8 @@ def overlaps(our, lecture):
     for text in lecture["code"]:
         lines = [code_norm(ln) for ln in text.split("\n")]
         lines = [ln for ln in lines if len(ln) > LINE_MIN]
-        runs |= {tuple(lines[k:k + LINE_RUN]) for k in range(len(lines) - LINE_RUN + 1)}
+        runs |= {tuple(lines[k:k + LINE_RUN]) for k in range(len(lines) - LINE_RUN + 1)
+                 if not set(lines[k:k + LINE_RUN]) <= COMMON_TRAINING_LINES}
     for n, (_, _, code) in enumerate(our):
         lines = [code_norm(ln) for ln in code.split("\n")]
         lines = [ln for ln in lines if len(ln) > LINE_MIN]

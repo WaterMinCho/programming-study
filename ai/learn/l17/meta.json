@@ -1,0 +1,108 @@
+{
+  "format": 1,
+  "id": "l17",
+  "title": "17차시 토큰에서 문장 분류까지 연결합니다",
+  "lesson": "i17",
+  "defines": [
+    "토큰화",
+    "어휘",
+    "PAD",
+    "UNK",
+    "Embedding",
+    "LSTM",
+    "Self-Attention",
+    "TF-IDF",
+    "DF",
+    "CBOW"
+  ],
+  "needs": [
+    "l05",
+    "l06",
+    "l09",
+    "l12",
+    "l15"
+  ],
+  "sections": {
+    "17a": "문장을 나누고 번호와 길이를 맞춥니다",
+    "17b": "토큰 번호로 학습할 벡터의 행을 찾습니다",
+    "17c": "양방향 LSTM의 마지막 상태를 연결합니다",
+    "17d": "사전학습 언어 모델의 조건과 비용을 비교합니다",
+    "17e": "빈도 벡터와 학습한 단어 벡터를 구분합니다"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "Embedding의 정수 입력·모양·padding_idx",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Embedding.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "LSTM의 상태·축·두 방향·weight 모양",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.LSTM.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "실제 길이와 CPU lengths 조건",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.utils.rnn.pack_padded_sequence.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "기본 동적 패딩의 longest와 추가 옵션",
+      "url": "https://huggingface.co/docs/transformers/main_classes/data_collator",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Self-Attention 원 논문의 가중합과 마스크",
+      "url": "https://arxiv.org/html/1706.03762v7",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "DistilBERT 원 논문의 GLUE 범위·파라미터·CPU 조건",
+      "url": "https://arxiv.org/html/1910.01108v4",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "scikit-learn의 IDF 식과 L2 정규화",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfTransformer.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Word2Vec의 cbow_mean·vector_size·min_count",
+      "url": "https://radimrehurek.com/gensim/models/word2vec.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "CBOW 원 논문",
+      "url": "https://arxiv.org/html/1301.3781v3",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "17a": {
+      "minutes": 6,
+      "key_figure": "assets/17a-1.png",
+      "kind": "concept"
+    },
+    "17b": {
+      "minutes": 6,
+      "key_figure": "assets/17b-1.png",
+      "kind": "concept"
+    },
+    "17c": {
+      "minutes": 6,
+      "key_figure": "assets/17c-1.png",
+      "kind": "concept"
+    },
+    "17d": {
+      "minutes": 6,
+      "key_figure": "assets/17d-1.png",
+      "kind": "concept"
+    },
+    "17e": {
+      "minutes": 6,
+      "key_figure": "assets/17e-1.png",
+      "kind": "concept"
+    }
+  }
+}
