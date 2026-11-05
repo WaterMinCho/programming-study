@@ -10,7 +10,7 @@ import math
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
+from PyQt6.QtWidgets import (QBoxLayout, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
                              QSizePolicy, QSplitter, QSplitterHandle, QVBoxLayout, QWidget, QWidgetItem)
 
 from gui import theme
@@ -410,14 +410,16 @@ class Chevron(QWidget):
 
 class Row(QFrame):
     """목록 줄. 왼쪽 상태 점(없을 수 있음), 제목과 둘째 줄, 오른쪽 caption 과 꺾쇠. 줄 전체를 한 번 누르면 clicked 가 남.
-    한 줄이면 높이 56, 둘째 줄이 있으면 72. 올리면 hover 색, 누르면 surface_alt, 키보드 초점은 안쪽 2px 테두리.
+    한 줄이면 최소 높이 56, 둘째 줄이 있으면 72. wrap 이면 긴 글을 줄바꿈하고 그 높이를 더함. 나머지는 줄임표로 줄임.
+    올리면 hover 색, 누르면 surface_alt, 키보드 초점은 안쪽 2px 테두리.
     꺼지면 글이 faint 색이 되고 꺾쇠를 그리지 않음(theme.STYLE_V2, Chevron)."""
     clicked = pyqtSignal()
 
-    def __init__(self, title, second="", end="", mark=None, data=None, strong=False, inert=False):
+    def __init__(self, title, second="", end="", mark=None, data=None, strong=False, inert=False, wrap=False):
         super().__init__()
         self.setObjectName("row")
         self.data, self.inert, self.down = data, inert, False
+        self.wrap = wrap
         self.setMinimumHeight(theme.CONTROL["row2"] if second else theme.CONTROL["row"])
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)  # 남는 자리를 줄이 나눠 갖지 않음
         row = box(self, (24, 0, 24, 0), 12, horizontal=True)
@@ -426,10 +428,15 @@ class Row(QFrame):
             row.addWidget(mark, 0, Qt.AlignmentFlag.AlignVCenter)
         text = QWidget()
         column_box = box(text, (0, 12, 0, 12), 0)
-        self.title = ElideLabel(title, "label", bold=strong)  # 긴 제목은 줄임표로 줄이고 전체는 도움말에 둠
-        self.second = ElideLabel(second, "caption", "secondary")
-        self.title.setFixedHeight(theme.TYPE["label"][1])  # 글꼴의 줄 높이가 글자 크기와 같아 두 줄이 닿지 않게 줄 높이를 줌
-        self.second.setFixedHeight(theme.TYPE["caption"][1])
+        if wrap:
+            self.title = para(title, "label", bold=strong)
+            self.second = para(second, "caption", "secondary")
+            column_box.setSpacing(4)
+        else:
+            self.title = ElideLabel(title, "label", bold=strong)
+            self.second = ElideLabel(second, "caption", "secondary")
+            self.title.setFixedHeight(theme.TYPE["label"][1])
+            self.second.setFixedHeight(theme.TYPE["caption"][1])
         column_box.addWidget(self.title)
         column_box.addWidget(self.second)
         row.addWidget(text, 1, Qt.AlignmentFlag.AlignVCenter)
@@ -448,12 +455,33 @@ class Row(QFrame):
     def set_second(self, text):
         self.second.setText(text)
         self.second.setVisible(bool(text))
-        self.setMinimumHeight(theme.CONTROL["row2"] if text else theme.CONTROL["row"])
+        self.fit_height()
 
     def refont(self):
         """글자 크기 단계가 바뀐 뒤 두 줄의 높이를 지금 줄 높이로."""
-        self.title.setFixedHeight(theme.TYPE["label"][1])
-        self.second.setFixedHeight(theme.TYPE["caption"][1])
+        if not self.wrap:
+            self.title.setFixedHeight(theme.TYPE["label"][1])
+            self.second.setFixedHeight(theme.TYPE["caption"][1])
+        self.fit_height()
+
+    def fit_height(self):
+        """줄바꿈한 글과 안쪽 여백이 들어갈 높이를 확보함. 짧은 글로 바꾸면 높이도 줄임."""
+        height = theme.CONTROL["row2"] if self.second.text() else theme.CONTROL["row"]
+        if self.wrap:
+            width = max(1, self.width() - 48 - 12 - MARK - (MARK + 12 if self.mark is not None else 0)
+                        - (self.end.sizeHint().width() + 12 if self.end.text() else 0))
+            text_height = self.title.heightForWidth(width)
+            if self.second.text():
+                text_height += 4 + self.second.heightForWidth(width)
+            height = max(height, text_height + 24)
+        if self.wrap:
+            self.setFixedHeight(height)
+        else:
+            self.setMinimumHeight(height)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_height()
 
     def _flag(self, name, on):
         if self.property(name) != on:
@@ -894,27 +922,71 @@ class TopBar(QFrame):
 
 
 class BottomBar(QFrame):
-    """작업 화면 아래 막대(높이 80). 왼쪽 끝 파괴 글자 단추, 24 띄워 도구 글자 단추들, 오른쪽 끝 주 단추와 그 왼쪽 8 에 보조 단추."""
+    """작업 화면 아래 막대. 최소 높이 80이고 좁은 창에서는 도구를 위로 옮김. 주 단추는 오른쪽 끝에 둠."""
 
     def __init__(self):
         super().__init__()
         self.setObjectName("bottombar")
-        self.setFixedHeight(theme.CONTROL["bottombar"])
-        self.row = box(self, (MARGIN - FLUSH, 0, MARGIN, 0), 8, horizontal=True)
-        self.tools = QHBoxLayout()
-        self.tools.setContentsMargins(0, 0, 0, 0)
-        self.tools.setSpacing(24)
-        self.row.addLayout(self.tools)
-        self.row.addStretch(1)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self.row.setContentsMargins(MARGIN - FLUSH, 16, MARGIN, 16)
+        self.row.setSpacing(8)
+        self.tool_box = QWidget()
+        self.tools = FlowLayout(self.tool_box, spacing=24)
+        self.actions = QWidget()
+        self.action_row = box(self.actions, spacing=8, horizontal=True)
+        self.row.addWidget(self.tool_box, 1)
+        self.row.addWidget(self.actions, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.setMinimumHeight(theme.CONTROL["bottombar"])
 
     def add_tool(self, widget):
         self.tools.addWidget(widget)
+        self.arrange()
         return widget
 
     def add_action(self, widget):
         """오른쪽 묶음에 더함. 주 단추를 마지막에 더해 오른쪽 끝이 되게 함."""
-        self.row.addWidget(widget)
+        self.action_row.addWidget(widget)
+        self.arrange()
         return widget
+
+    def arrange(self):
+        """도구와 행동 단추가 한 줄에 안 들어가면 도구를 윗줄로 옮김. 주 단추는 오른쪽 끝에 둠."""
+        if not self.isVisible():
+            self.setFixedHeight(theme.CONTROL["bottombar"])
+            return
+        left, top, right, bottom = self.row.getContentsMargins()
+        width = max(1, self.width() - left - right)
+        tools = [item for item in self.tools.items if not item.isEmpty()]
+        self.tool_box.setVisible(bool(tools))
+        tool_width = sum(item.sizeHint().width() for item in tools) + max(0, len(tools) - 1) * self.tools.spacing()
+        action = self.action_row.sizeHint()
+        stacked = bool(tools) and tool_width + 24 + action.width() > width
+        self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
+        tool_height = self.tools.heightForWidth(width if stacked else max(1, width - action.width() - 8)) if tools else 0
+        height = tool_height + 8 + action.height() if stacked else max(tool_height, action.height())
+        self.setFixedHeight(max(theme.CONTROL["bottombar"], top + height + bottom))
+
+    def refont(self):
+        self.arrange()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.arrange()
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self.arrange()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.arrange()
+        return result
 
 
 class NextCard(QFrame):
@@ -923,18 +995,20 @@ class NextCard(QFrame):
     def __init__(self):
         super().__init__()
         self.setObjectName("card")
-        row = box(self, (32, 32, 32, 32), 24, horizontal=True)
-        text = QWidget()
-        column_box = box(text, spacing=4)
+        self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self.row.setContentsMargins(32, 32, 32, 32)
+        self.row.setSpacing(24)
+        self.text_box = QWidget()
+        column_box = box(self.text_box, spacing=4)
         self.caption = label("이어서 할 일", "caption", "tertiary")
         self.title = para("", "headline")
         self.line = para("", "body", "secondary")
         column_box.addWidget(self.caption)
         column_box.addWidget(self.title)
         column_box.addWidget(self.line)
-        row.addWidget(text, 1)
+        self.row.addWidget(self.text_box, 1)
         self.button = button("", "primary", "l")
-        row.addWidget(self.button, 0, Qt.AlignmentFlag.AlignBottom)
+        self.row.addWidget(self.button, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
 
     def set_item(self, title, line, action):
         """제목, 설명 줄(여러 줄일 수 있음), 단추 글자. action 이 비면 단추를 숨김."""
@@ -943,6 +1017,20 @@ class NextCard(QFrame):
         self.line.setVisible(bool(line))
         self.button.setText(action)
         self.button.setVisible(bool(action))
+        self.arrange()
+
+    def arrange(self):
+        """좁은 카드에서는 단추를 글 아래에 둬 제목과 설명의 폭을 확보함."""
+        room = self.width() - 64 - self.button.sizeHint().width() - 24
+        stacked = not self.button.isHidden() and room < 24 * theme.TYPE["body"][0]
+        self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
+
+    def refont(self):
+        self.arrange()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()
 
 
 class CheckMark(QWidget):
