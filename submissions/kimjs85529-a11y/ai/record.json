@@ -1,0 +1,396 @@
+{
+ "format": 1,
+ "user": "kimjs85529-a11y",
+ "created": "2026-11-06T02:21:37",
+ "log": [
+  {
+   "at": "2026-11-06T02:21:37",
+   "kind": "guess",
+   "lesson": "i13",
+   "unit": "13a",
+   "id": "g1",
+   "picked": 0
+  },
+  {
+   "at": "2026-11-06T02:22:04",
+   "kind": "recall",
+   "lesson": "i13",
+   "unit": "13a",
+   "id": "r1",
+   "ok": true
+  },
+  {
+   "at": "2026-11-06T02:22:33",
+   "kind": "recall",
+   "lesson": "i13",
+   "unit": "13a",
+   "id": "r2",
+   "ok": true
+  },
+  {
+   "at": "2026-11-06T02:22:44",
+   "kind": "learn",
+   "lesson": "i13",
+   "unit": "13a"
+  },
+  {
+   "at": "2026-11-06T02:23:31",
+   "kind": "set",
+   "set": "s20261105-1",
+   "mode": "unit",
+   "n": 1,
+   "seed": 1402913074,
+   "lesson": "i13",
+   "unit": "13a"
+  },
+  {
+   "at": "2026-11-06T02:23:48",
+   "kind": "answer",
+   "set": "s20261105-1",
+   "card": "i13-b01",
+   "sure": true,
+   "secs": 17.1,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:23:53",
+   "kind": "set_end",
+   "set": "s20261105-1",
+   "n": 1,
+   "first_pass": 1,
+   "answers": 1
+  },
+  {
+   "at": "2026-11-06T02:24:57",
+   "kind": "open",
+   "lesson": "i01"
+  },
+  {
+   "at": "2026-11-06T02:24:57",
+   "kind": "set",
+   "set": "s20261105-2",
+   "mode": "lesson",
+   "n": 20,
+   "seed": 651541804,
+   "lesson": "i01"
+  },
+  {
+   "at": "2026-11-06T02:25:31",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b19",
+   "sure": true,
+   "secs": 34.1,
+   "again": 0,
+   "value": [
+    "MyModel"
+   ],
+   "result": "stuck"
+  },
+  {
+   "at": "2026-11-06T02:26:23",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-c09",
+   "sure": true,
+   "secs": 40.2,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:27:36",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-c12",
+   "sure": true,
+   "secs": 71.0,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:28:02",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-c01",
+   "sure": true,
+   "secs": 24.1,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:28:32",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b19",
+   "sure": true,
+   "secs": 28.1,
+   "again": 1,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:28:55",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b11",
+   "sure": true,
+   "secs": 22.4,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:29:06",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b01",
+   "sure": true,
+   "secs": 9.9,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:29:18",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b12",
+   "sure": false,
+   "secs": 10.7,
+   "again": 0,
+   "value": [
+    "2h"
+   ],
+   "result": "stuck"
+  },
+  {
+   "at": "2026-11-06T02:29:50",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b04",
+   "sure": true,
+   "secs": 23.8,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:30:17",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b14",
+   "sure": true,
+   "secs": 26.8,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:30:27",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b19",
+   "sure": true,
+   "secs": 8.8,
+   "again": 2,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:30:32",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b12",
+   "sure": true,
+   "secs": 4.5,
+   "again": 1,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:31:12",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-c04",
+   "sure": false,
+   "secs": 38.7,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:31:47",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b05",
+   "sure": true,
+   "secs": 28.8,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:32:22",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b02",
+   "sure": true,
+   "secs": 34.2,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:33:04",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b08",
+   "sure": false,
+   "secs": 41.2,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:33:32",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b21",
+   "sure": true,
+   "secs": 26.7,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:33:39",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b12",
+   "sure": true,
+   "secs": 5.5,
+   "again": 2,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:33:48",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b07",
+   "sure": true,
+   "secs": 8.3,
+   "again": 0,
+   "value": [
+    "[2, 4, 6]"
+   ],
+   "result": "stuck"
+  },
+  {
+   "at": "2026-11-06T02:34:22",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-c15",
+   "sure": true,
+   "secs": 25.5,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:34:52",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-c07",
+   "result": "stuck",
+   "dontknow": true,
+   "secs": 29.4,
+   "again": 0
+  },
+  {
+   "at": "2026-11-06T02:36:00",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b15",
+   "result": "stuck",
+   "dontknow": true,
+   "secs": 19.8,
+   "again": 0
+  },
+  {
+   "at": "2026-11-06T02:36:14",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b07",
+   "sure": true,
+   "secs": 10.3,
+   "again": 1,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:36:45",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b22",
+   "sure": true,
+   "secs": 29.5,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:36:51",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-c07",
+   "sure": true,
+   "secs": 8.4,
+   "again": 1,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:36:58",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b15",
+   "sure": true,
+   "secs": 5.4,
+   "again": 1,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:37:56",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b18",
+   "sure": false,
+   "secs": 57.0,
+   "again": 0,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:38:26",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b07",
+   "sure": true,
+   "secs": 29.4,
+   "again": 2,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:38:33",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-c07",
+   "sure": true,
+   "secs": 6.4,
+   "again": 2,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:38:39",
+   "kind": "answer",
+   "set": "s20261105-2",
+   "card": "i01-b15",
+   "sure": true,
+   "secs": 4.9,
+   "again": 2,
+   "result": "pass"
+  },
+  {
+   "at": "2026-11-06T02:38:40",
+   "kind": "set_end",
+   "set": "s20261105-2",
+   "n": 20,
+   "first_pass": 15,
+   "answers": 30
+  }
+ ]
+}
