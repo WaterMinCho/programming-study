@@ -1423,10 +1423,12 @@ class AiLearnPage(QWidget):
         self.view_states.pop(number, None)
         self.setFocus()  # 지운 입력 칸의 초점이 새 단계 첫 부품으로 넘어가지 않게 함
         if self.view is not None:
+            self.view.removeEventFilter(self)
             self.card_box.removeWidget(self.view)
             self.view.hide()
             self.view.deleteLater()
         self.view = StepView(self.steps[index], Ctx(self.win, self.lid, self.key), extra)
+        self.view.installEventFilter(self)
         self.view_key = number, content
         self.card_box.addWidget(self.view)
         if state is not None:
@@ -1568,6 +1570,8 @@ class AiLearnPage(QWidget):
                 self.hold_reading(event.oldSize().height())
             self.position_changed()
         elif event.type() == QEvent.Type.LayoutRequest:
+            if watched is self.view:
+                self.hold_reading()  # 자식 글 높이가 부모 배치에 반영되기 전에 읽던 위치를 보관함
             self.position_changed()
         return super().eventFilter(watched, event)
 
