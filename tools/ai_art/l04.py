@@ -1069,7 +1069,7 @@ def ai_ml_dl():
         ax.text(0, ty - 0.15, ex, ha="center", va="center", fontsize=16, color=INK)
     bx = boxes_axes(fig, (0.47, 0.0, 0.53, 1.0), xmax=5.9, ymax=6.0)
     bx.text(0.05, 5.7, "특징은 누가 만드나", fontsize=21, weight="bold", color=INK, va="center")
-    rows = [(3.75, "머신러닝", [("데이터", "신장, 체중", "white", "#9ca3af", INK),
+    rows = [(3.75, "직선 모델 예", [("데이터", "신장, 체중", "white", "#9ca3af", INK),
                               ("사람이 특징을 고름", "신장", GREEN_L, GREEN, GREEN),
                               ("모델이 학습", "W, B", "white", "#9ca3af", INK)]),
             (1.55, "딥러닝", [("데이터", "사진의 픽셀값", "white", "#9ca3af", INK),
@@ -1322,7 +1322,7 @@ def summary_4d():
     plt, fig = new(560)
     ax = boxes_axes(fig, ymax=5.6)
     card(ax, 0.15, 2.95, 5.35, 2.5, "인공지능 ⊃ 머신러닝 ⊃ 딥러닝",
-         [("머신러닝: 사람이 고른 특징", GREEN), ("딥러닝: 특징까지 신경망의 층이 배움", PURPLE)], size=17)
+         [("직선 모델 예: 사람이 고른 특징", GREEN), ("딥러닝: 특징까지 신경망의 층이 배움", PURPLE)], size=17)
     card(ax, 0.15, 0.15, 5.35, 2.6, "학습 방식",
          ["지도: 입력과 정답의 쌍", "비지도: 정답 없는 데이터", "자기지도: 데이터에서 만든 정답", "강화: 행동마다 받는 보상"], size=16,
          gap=0.47)

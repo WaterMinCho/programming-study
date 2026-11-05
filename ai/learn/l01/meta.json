@@ -33,8 +33,9 @@
     {"what": "Python 언어 문서 Identity comparisons: x is y 는 x 와 y 가 같은 객체일 때만 참", "url": "https://docs.python.org/3/reference/expressions.html#identity-comparisons", "checked": "2026-11-05"},
     {"what": "Python 튜토리얼 9.3 클래스: x.f() 는 MyClass.f(x) 와 같고 인스턴스가 첫 인자로 넘어감. 데이터 속성은 처음 대입할 때 생김", "url": "https://docs.python.org/3/tutorial/classes.html#method-objects", "checked": "2026-11-05"},
     {"what": "Goodfellow·Bengio·Courville, Deep Learning(2016) 4.3절: 미분값은 그 점의 기울기이고 f(x + ε) ≈ f(x) + εf′(x)", "url": "https://www.deeplearningbook.org/contents/numerical.html", "checked": "2026-11-05"},
-    {"what": "OpenStax Calculus Volume 1 3.1절: f′(a) = lim (h → 0) (f(a + h) − f(a)) / h", "url": "https://openstax.org/books/calculus-volume-1/pages/3-1-defining-the-derivative", "checked": "2026-11-05"}
-  ],
+    {"what": "OpenStax Calculus Volume 1 3.1절: f′(a) = lim (h → 0) (f(a + h) − f(a)) / h", "url": "https://openstax.org/books/calculus-volume-1/pages/3-1-defining-the-derivative", "checked": "2026-11-05"},
+  {"what": "Python super는 메서드 탐색 순서에서 다음 구현으로 호출을 넘김. 이 단일 상속 예제에서는 부모 Point의 __init__을 부름", "url": "https://docs.python.org/3/library/functions.html#super", "checked": "2026-11-05"}
+ ],
   "lesson": "i01",
   "credits": [],
   "units": {

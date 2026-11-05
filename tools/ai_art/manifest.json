@@ -732,9 +732,9 @@
    "fn": "4c-6"
   },
   "learn/l04/assets/4d-1.png": {
-   "sha256": "67cb4116c630d26ffaf5e5244dac436b375a0043aaf44afc4dbadd38837eebd9",
+   "sha256": "4cd759fb6f3e5dfffbbf1bf8300c56a0ba7940a6cf44e438c0aa7c8c8fa0051b",
    "script": "tools/ai_art/l04.py",
-   "fn": "4d-1"
+   "fn": "ai_ml_dl"
   },
   "learn/l04/assets/4d-2.png": {
    "sha256": "170e017f593339808abc94cd7c034882b89026a111f1140daa4b7a9add65a215",
@@ -752,9 +752,9 @@
    "fn": "4d-4"
   },
   "learn/l04/assets/4d-5.png": {
-   "sha256": "f353ac49b8ad5c866015a35f8c5b911e2e185fc9788ae8e3ce35d244f2921ce6",
+   "sha256": "c8eb8f9da1c176088bf082fa1972e772f1c97a9ed95c4a9a4209c682498658ae",
    "script": "tools/ai_art/l04.py",
-   "fn": "4d-5"
+   "fn": "summary_4d"
   },
   "learn/l04/assets/4d-51.png": {
    "sha256": "62188a8c667389dc6bc95fd1c783870c8e03db8d30e89db6a714f136e1b13629",
@@ -1007,7 +1007,7 @@
    "fn": "5d-23"
   },
   "learn/l05/assets/5d-3.png": {
-   "sha256": "f426b7cdd6131a4069554f941d6f0324b0acfffe81cf2c950ca48d845ce2b12f",
+   "sha256": "ce58320b7d746a64aebcdd54660e8c3c653680f4d90d92f48cbbe64f868e0653",
    "script": "tools/ai_art/l05.py",
    "fn": "5d-3"
   },
@@ -1082,14 +1082,14 @@
    "fn": "5g-3"
   },
   "learn/l05/assets/5g-4.png": {
-   "sha256": "ce768aaf1c2ee60d42aa2cf837799be502eb3f98f92c33f4c4ab28b2f300fa7e",
+   "sha256": "cacd510f2333b399fab5706d81326e91102248a51a140d490010231ecfacaafb",
    "script": "tools/ai_art/l05.py",
-   "fn": "5g-4"
+   "fn": "record_5g"
   },
   "learn/l05/assets/5g-5.png": {
-   "sha256": "c39ff29749b9a5cb62c96b1062a1426ba5938e5d1dbcbfc73ed19b435a252666",
+   "sha256": "d856b3150f3a707725c834f505f04a20c2217400cb6ba8516bc72cf535726d61",
    "script": "tools/ai_art/l05.py",
-   "fn": "5g-5"
+   "fn": "memo_5g"
   },
   "learn/l06/assets/6a-1.png": {
    "sha256": "6e2df490079b6d508c24c62b13d635c69ee43c4cb6146022cfbb5cda35a7d50c",
@@ -1212,12 +1212,12 @@
    "fn": "6d-23"
   },
   "learn/l06/assets/6d-3.png": {
-   "sha256": "5485b4c498e726dfc8c99e6dcbbd4209324bb08819db0be6059a22902379b38e",
+   "sha256": "ed288b2d6e33a444908bb90497afdb4db98adeab0671c4ba7cecc4d5935166ed",
    "script": "tools/ai_art/l06.py",
    "fn": "6d-3"
   },
   "learn/l06/assets/6d-4.png": {
-   "sha256": "7bbe07965ebde5c80ab4a7dab6d58110cac6d166117d86aa576e491d5bd6a46d",
+   "sha256": "6e2889597bb1a26e74e4b34df1ab338ff503c9d638fc5b8a61f8cd52274e7a46",
    "script": "tools/ai_art/l06.py",
    "fn": "6d-4"
   },
@@ -1311,6 +1311,21 @@
    "script": "tools/ai_art/l07.py",
    "fn": "7b-2"
   },
+  "learn/l07/assets/7b-21.png": {
+   "sha256": "0d68098158c6f62a82c5b61cb6d3a4cc468908d1adc3752b7e65269f684a31a1",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7b-21"
+  },
+  "learn/l07/assets/7b-22.png": {
+   "sha256": "7bb88e1c052debb2187f9874c887b9875e99251f839d2c014f00dfad2fc96d93",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7b-22"
+  },
+  "learn/l07/assets/7b-23.png": {
+   "sha256": "1769d6f5b4364856b2455e0f2b804e161470b503bd5020f9afcef8e82e6eef52",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7b-23"
+  },
   "learn/l07/assets/7b-3.png": {
    "sha256": "ee79345739baff1da3780c6d1e4bdf495a59deb3a4782aa1268decabf13cddd8",
    "script": "tools/ai_art/l07.py",
@@ -1336,6 +1351,21 @@
    "script": "tools/ai_art/l07.py",
    "fn": "7c-3"
   },
+  "learn/l07/assets/7c-31.png": {
+   "sha256": "c902f059223a80051ca7364f380699adf5c48d65bf50889475f2d1ab6f3e27e0",
+   "script": "tools/ai_art/l07.py",
+   "fn": "levels_7c_7"
+  },
+  "learn/l07/assets/7c-32.png": {
+   "sha256": "8d47a8f3680d0328de6fa26771728fbdccfe5f069d425cf38d4495fd2fc4bab0",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7c-32"
+  },
+  "learn/l07/assets/7c-33.png": {
+   "sha256": "951803e8511341624658242dbc553f1b3b85c461661eb4c9cde5e40bcfef483a",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7c-33"
+  },
   "learn/l07/assets/7c-4.png": {
    "sha256": "59810d36b29a18f13851620772ef4e3f91f20b99126da3fa61fc11f9cdf348ec",
    "script": "tools/ai_art/l07.py",
@@ -1347,7 +1377,7 @@
    "fn": "7d-1"
   },
   "learn/l07/assets/7d-2.gif": {
-   "sha256": "04bb90d88b633b7d0e50d3a38a1af88bf2bb2540d1b6720a0724e4570ad4a291",
+   "sha256": "87dbbc6164a48a806e8f693b1c103caad7a57d15f093f36a8696b2e748090104",
    "script": "tools/ai_art/l07.py",
    "fn": "7d-2"
   },
@@ -1357,7 +1387,7 @@
    "fn": "7d-3"
   },
   "learn/l07/assets/7d-4.png": {
-   "sha256": "ad61a9d9823c9b612c691f376f42b0b8fcd1f23a36b60305ba2339132a07a028",
+   "sha256": "0d2291c7e1803f956485719ab38f4fa2306375f16b5df0eb92bbcec021197ea2",
    "script": "tools/ai_art/l07.py",
    "fn": "7d-4"
   },
@@ -1370,6 +1400,21 @@
    "sha256": "ec5fe9d9d1c5bff612c13a6c95e45cc712e27ba0a823ddf3ae577ddd0e5d3736",
    "script": "tools/ai_art/l07.py",
    "fn": "7e-2"
+  },
+  "learn/l07/assets/7e-21.png": {
+   "sha256": "877412e80cf05573f5202b28dbd3056c38abc2f717fb6b44ebd78fb3f79d1218",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7e-21"
+  },
+  "learn/l07/assets/7e-22.png": {
+   "sha256": "565f806077a8da2a069689e8b06072880e2746a86a4fd9910870b3b5f9edd19a",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7e-22"
+  },
+  "learn/l07/assets/7e-23.png": {
+   "sha256": "20b58ee92485cdcd7c2d4ed2c1b53491c266b178a0b7c8e07c54c1648e8b7f2a",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7e-23"
   },
   "learn/l07/assets/7e-3.png": {
    "sha256": "7ef4b8f8aa1b68cf7546bbbcc1dde40c675e49c6aadb74f7a49cd24fef5fff32",
@@ -1405,6 +1450,21 @@
    "sha256": "f1cc0050588d94b5c6d836d35a350c7f2316f31fa734709f57f2f169e59b65e5",
    "script": "tools/ai_art/l07.py",
    "fn": "7f-4"
+  },
+  "learn/l07/assets/7f-41.png": {
+   "sha256": "3b65ec0e2e005a142d7b1a61316f9fdd64fbfa89bc233bed8b8bd5b9a0c48bc1",
+   "script": "tools/ai_art/l07.py",
+   "fn": "levels_7f_7"
+  },
+  "learn/l07/assets/7f-42.png": {
+   "sha256": "684ae997021a4606a9af6d8584e5ca67e1c38805c8287bd6fa86892c0c605a33",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7f-42"
+  },
+  "learn/l07/assets/7f-43.png": {
+   "sha256": "de0573239c29494c703909bb923ae526fac0fdf0ee8b67853dfaff63bb588b76",
+   "script": "tools/ai_art/l07.py",
+   "fn": "7f-43"
   },
   "learn/l07/assets/7g-1.gif": {
    "sha256": "aabf65da37ba0e949ec9f920a4208d4ee8ff1ab9f1e9f8766387d0f176a4a235",
@@ -1491,6 +1551,21 @@
    "script": "tools/ai_art/l08.py",
    "fn": "8c-3"
   },
+  "learn/l08/assets/8c-31.png": {
+   "sha256": "740f23e27e386c8756055eb81e1d35a439634d6cc603556454de72a2273f30e6",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8c-31"
+  },
+  "learn/l08/assets/8c-32.png": {
+   "sha256": "ced541670cb65fbf21ff18ff924d83c53a3ea1b0ea74f2d744e3e72fa29e4629",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8c-32"
+  },
+  "learn/l08/assets/8c-33.png": {
+   "sha256": "b3cb0dcaef7f9e52a1688b5a9c1b887fe3ece3d3484bb61d433985aa3e22ebae",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8c-33"
+  },
   "learn/l08/assets/8c-4.png": {
    "sha256": "50721dbf5ef935d58173934470984d0a88e87f6bbeee5b2b4795f608d2b757d9",
    "script": "tools/ai_art/l08.py",
@@ -1515,6 +1590,21 @@
    "sha256": "1e61cd77a42742eb09a5af90691e0331b93e60a6dfa10cb020311f354871396c",
    "script": "tools/ai_art/l08.py",
    "fn": "8d-3"
+  },
+  "learn/l08/assets/8d-31.png": {
+   "sha256": "9b205175bbce07bb335d0bc434f8c9995e4f99428f4907455856c575a2d4676e",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8d-31"
+  },
+  "learn/l08/assets/8d-32.png": {
+   "sha256": "f66c95d76096b3e07a9e3ff8bcbb2cb446775d0999d0f5c18ee1bec060beab06",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8d-32"
+  },
+  "learn/l08/assets/8d-33.png": {
+   "sha256": "454ee2a9dae221ac36f48ef17d92d8952224083acdfeb35ca07fca6129ae3e5a",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8d-33"
   },
   "learn/l08/assets/8d-4.png": {
    "sha256": "e0e87ac3244118bc73b8d08514236062f83faf87341f30eb41822ece4201818c",
@@ -1561,6 +1651,21 @@
    "script": "tools/ai_art/l08.py",
    "fn": "8f-2"
   },
+  "learn/l08/assets/8f-21.png": {
+   "sha256": "fff18b76f453d19545009e8c76395a8af6f0331bde1f8efa84e6bbe5cda5b270",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8f-21"
+  },
+  "learn/l08/assets/8f-22.png": {
+   "sha256": "d824133a478f0f7cb8bb606a4edfb9193392f12ee0b18857ec8f52da08468d42",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8f-22"
+  },
+  "learn/l08/assets/8f-23.png": {
+   "sha256": "b64f6f0644176e771b873ae72d199e106b905f7d37e2ea650844f49bf65b66b8",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8f-23"
+  },
   "learn/l08/assets/8f-3.png": {
    "sha256": "be2d58738f026f66d39471f51c0e7de40d0ed425c1ebdcbec4c2621123a697ab",
    "script": "tools/ai_art/l08.py",
@@ -1575,6 +1680,21 @@
    "sha256": "816eb7b5906684ace1e0f6def6cb29b83190d3a95aa4523acab0900bf9531862",
    "script": "tools/ai_art/l08.py",
    "fn": "8f-5"
+  },
+  "learn/l08/assets/8f-51.png": {
+   "sha256": "5c5849df5a6ef8491088e697667c1aae2779689612b80b9446a626f446af23d4",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8f-51"
+  },
+  "learn/l08/assets/8f-52.png": {
+   "sha256": "d9e1db2bc86d4825e65e17cce001872b032c27019ba3e55bda906221c34ce5d2",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8f-52"
+  },
+  "learn/l08/assets/8f-53.png": {
+   "sha256": "563d1acce552b2d2acf56c74495b01cd6f3cc9bbcad0b543e5cc925c07a5068d",
+   "script": "tools/ai_art/l08.py",
+   "fn": "8f-53"
   },
   "learn/l08/assets/8g-1.png": {
    "sha256": "201b3bafa488e746a644fd178c51a6bd9838593746d6c60725ff42f9c4764ace",
@@ -1597,7 +1717,7 @@
    "fn": "8g-4"
   },
   "learn/l08/assets/8g-5.png": {
-   "sha256": "fc8637daf25e51a0d41fbd73df4b97ec51a64e25aec48bd53193cb6414988ef9",
+   "sha256": "da01bf814efed51822f2238fb754a14f5e019780679f08295f46394d7d0fd232",
    "script": "tools/ai_art/l08.py",
    "fn": "8g-5"
   },
@@ -1636,6 +1756,21 @@
    "script": "tools/ai_art/l09.py",
    "fn": "9b-3"
   },
+  "learn/l09/assets/9b-31.png": {
+   "sha256": "02293ce0d9f22102ee437140a84807117b60025c1cb7bccb6dbe90aa6ea2bdda",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9b-31"
+  },
+  "learn/l09/assets/9b-32.png": {
+   "sha256": "1826a706a5d7fcb1c43d8fce2190448c592b9e997fc702c19d3276bd1bad30f4",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9b-32"
+  },
+  "learn/l09/assets/9b-33.png": {
+   "sha256": "9ba0c5ea7c1a6aec234bcca0f098a6a2ba9370e57da26de475b04bcf9a155d15",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9b-33"
+  },
   "learn/l09/assets/9b-4.gif": {
    "sha256": "fee0e1061096d254e4f316da39b184d5d61988e2fbc931d8e87cbf9331cd0d7a",
    "script": "tools/ai_art/l09.py",
@@ -1660,6 +1795,21 @@
    "sha256": "a2222a6f7aaa98c51163b7c3900096be91260bb08e349c0541ed547b39f9b4d7",
    "script": "tools/ai_art/l09.py",
    "fn": "9c-3"
+  },
+  "learn/l09/assets/9c-31.png": {
+   "sha256": "1378b3011a504ec5aa2192ef2b98d5407d4b17323e11fedebc57f53eb4c53a40",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9c-31"
+  },
+  "learn/l09/assets/9c-32.png": {
+   "sha256": "11ca0c018086c3d6f40cc54b0d8a56ee979fc1cf0f19314d1637e0a0a7cf9a2f",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9c-32"
+  },
+  "learn/l09/assets/9c-33.png": {
+   "sha256": "9c3b6f47cd75dc21ba7a78f0c46d6e04c8f993a13b103d20bcfe394c6978ba5c",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9c-33"
   },
   "learn/l09/assets/9c-4.png": {
    "sha256": "84774f31786e9edc894021ed273e4e210e1e9644101f1f5799bd3a9c190111af",
@@ -1701,6 +1851,21 @@
    "script": "tools/ai_art/l09.py",
    "fn": "9e-2"
   },
+  "learn/l09/assets/9e-21.png": {
+   "sha256": "dd557c662e4c2151a750bdab4be6c0fb8b7e48d1b25895a64ab921ad4716c249",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9e-21"
+  },
+  "learn/l09/assets/9e-22.png": {
+   "sha256": "a015b3cea528a8c96442e0bcb599964baaf9c1f43d63dd2fddddea6ba90ded05",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9e-22"
+  },
+  "learn/l09/assets/9e-23.png": {
+   "sha256": "f7361480b1eb557765ef984d7ab184c5e56a5acfe91b92c884d5f9af1ae18be0",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9e-23"
+  },
   "learn/l09/assets/9e-3.png": {
    "sha256": "53a0c4e5ed81cd81e12db5cb581dff922d294e5de7bb80f94bd7558e8a004b19",
    "script": "tools/ai_art/l09.py",
@@ -1725,6 +1890,21 @@
    "sha256": "0d6a35bd5e1e26d966dce9708aab032129595f9614479a388a0cf24ffee0d050",
    "script": "tools/ai_art/l09.py",
    "fn": "9f-3"
+  },
+  "learn/l09/assets/9f-31.png": {
+   "sha256": "9da1e5c2317733bb9a0d858d9837c4fa1ad26dac641286f300b9e2b00d204ee0",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9f-31"
+  },
+  "learn/l09/assets/9f-32.png": {
+   "sha256": "43427132284ab36143a62ef58bf32885b810a19823e643dd0d3afcd71925327e",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9f-32"
+  },
+  "learn/l09/assets/9f-33.png": {
+   "sha256": "aa5407c9712fafcdc49cf4e1e9899ef4f0e57ed61460a67abc164cff9ab737b7",
+   "script": "tools/ai_art/l09.py",
+   "fn": "9f-33"
   },
   "learn/l09/assets/9f-4.png": {
    "sha256": "54bbbd16bdb66f2e83761a19364180c8c8010db4f12a8f89ef4d04d45d1c2248",

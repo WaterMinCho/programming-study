@@ -178,7 +178,7 @@ class LevelsServiceTest(Base):
 
 
 class RealLevelsTest(Base):
-    """저장소의 1~6차시 노트. 세 수준 확인 물음의 받는 답은 모두 화면 채점에서 맞음이 되고, 떠올리기와 확인 물음의 끝나지 않는 소수는
+    """저장소의 1~9차시 노트. 세 수준 확인 물음의 받는 답은 모두 화면 채점에서 맞음이 되고, 떠올리기와 확인 물음의 끝나지 않는 소수는
     더 자세히 적어도 맞음(places·unit 을 채점에 넘김)."""
 
     def setUp(self):
@@ -192,14 +192,14 @@ class RealLevelsTest(Base):
     def test_every_level_answer_grades_right(self):
         sess = self.session()
         count = 0
-        for lid in ("i01", "i02", "i03", "i04", "i05", "i06"):
+        for lid in ("i01", "i02", "i03", "i04", "i05", "i06", "i07", "i08", "i09"):
             for unit in sess.unit_list(lid):
                 for step in sess.unit_steps(lid, unit["key"])["steps"]:
                     for level in (x for b in step["blocks"] if b["kind"] == "levels" for x in b["levels"]):
                         count += 1
                         for answer in level["answer"]:
                             self.assertTrue(sess.check_recall(level, answer), (lid, unit["key"], step["no"], level["level"], answer))
-        self.assertGreaterEqual(count, 3 * 3 * 6)
+        self.assertGreaterEqual(count, 3 * 3 * 9)
 
     def test_longer_decimals_and_units(self):
         sess = self.session()

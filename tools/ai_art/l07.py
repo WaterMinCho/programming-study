@@ -695,8 +695,8 @@ def call_path():
     frames, ms = [], [2000, 2400, 2000, 2200, 2500]
     boxes = [("net(inputs)", 0.2, INK, True), ("nn.Module\n__call__", 2.42, INK, False), ("forward(x)", 4.64, GREEN, True),
              ("self.l1(x)\n1 × 1 + 1 = 2", 6.86, GREEN, False), ("outputs\n[100, 1]\n모두 2", 9.08, INK, False)]
-    tips = ["net 은 nn.Module 을 물려받은 인스턴스", "등록된 hook 이 있으면 __call__ 이 함께 실행",
-            "__call__ 이 클래스에 적은 forward 를 부름", "forward 안의 층이 계산", "forward 를 직접 부르면 hook 을 건너뜀"]
+    tips = ["net 은 nn.Module 을 물려받은 인스턴스", "net 에 건 hook 이 있으면 __call__ 이 함께 실행",
+            "__call__ 이 클래스에 적은 forward 를 부름", "forward 안의 층이 계산", "forward 를 직접 부르면 net 에 건 hook 을 건너뜀"]
     for k in range(5):
         plt, fig, ax = board(520)
         for j, (t, x0, col, code) in enumerate(boxes):
@@ -755,7 +755,7 @@ def half_loss():
 def memo_7d():
     return memo([[(0.3, 3.6, "__init__", ["n_input, n_output", "self.l1 = nn.Linear", "constant_ 로 1",
                                           "l1.weight, l1.bias"], BLUE, BLUE, ()),
-                  (4.1, 3.45, "호출", ["net(inputs)", "→ __call__ → forward", "직접 forward 는", "hook 을 건너뜀"], GREEN,
+                  (4.1, 3.45, "호출", ["net(inputs)", "→ __call__ → forward", "직접 forward 는 net 에", "건 hook 을 건너뜀"], GREEN,
                    GREEN, (0,)),
                   (7.75, 3.15, "손실", ["출력 2, 정답 0", "MSE 4, 기울기 4", "÷ 2: 2, 기울기 2", "가장 작은 곳 같음"], RED,
                    RED, ())]],
@@ -1180,3 +1180,283 @@ def memo_7g():
                                          ".cpu().numpy()"], BLUE, BLUE, (1, 3)),
                   (7.9, 3.0, "노트북 02", ["fit 은 학습 데이터", "zero_grad 는", "backward 전이면", "어디든"], GRAY, INK, ())]],
                 "기록한 마지막 손실은 갱신 전에 잰 값이라 학습을 마친 모델의 손실이 아님")
+
+
+# 세 수준으로 다시 보기 블록 그림. 화면 520×280(파일 1040×560), 글자 22 이상은 tools/ai_art/levels.py 를 따름.
+# 그림 이름은 <단원>-<단계 번호><수준 번호>(7살 1, 15살 2, 20살 3). 색 뜻은 그 단원의 뜻을 그대로 씀.
+# 숫자는 이 파일의 단계 상수에서 다시 계산하고 assert 함(출제 기록 pr6/checks/l07_levels.py 와 같은 값).
+
+from tools.ai_art import SCALE, levels as LV  # noqa: E402
+
+
+def _lv_board():
+    """세 수준 그림 판. 좌표는 화면 논리 px(가로 0~520, 세로 0~280)."""
+    plt = setup()
+    width, height = LV.SIZE
+    fig = plt.figure(figsize=(width * SCALE / 100.0, height * SCALE / 100.0), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, width)
+    ax.set_ylim(0, height)
+    ax.axis("off")
+    return fig, ax
+
+
+def _lv_box(ax, cx, cy, w, h, s, ec=MUTED, fc="white", size=None, bold=False, lw=2.0, color=INK):
+    from matplotlib.patches import FancyBboxPatch
+    ax.add_patch(FancyBboxPatch((cx - w / 2.0, cy - h / 2.0), w, h, boxstyle="round,pad=0,rounding_size=10", fc=fc, ec=ec,
+                                lw=lw, zorder=3))
+    if s != "":
+        ax.text(cx, cy, s, ha="center", va="center", fontsize=size or LV.BIG, color=color, zorder=4,
+                weight="bold" if bold else "normal")
+
+
+def _lv_text(ax, x, y, s, color=INK, size=None, ha="center", va="center", bold=False):
+    ax.text(x, y, s, ha=ha, va=va, fontsize=size or LV.FONT, color=color, zorder=5, weight="bold" if bold else "normal")
+
+
+def _lv_arrow(ax, x0, y0, x1, y1, color=INK, lw=2.4):
+    ax.annotate("", xy=(x1, y1), xytext=(x0, y0), zorder=4,
+                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw, mutation_scale=20, shrinkA=0, shrinkB=0))
+
+
+# 7b 둘째 단계: 최소제곱법. 검은 점은 다섯 사람, 파랑은 직선, 빨강은 잔차와 잔차 제곱합
+
+def _levels_7b(level):
+    first = YP - (XP + 1)
+    assert np.allclose(first, [-2.7, 4.3, -4.3, 2.0, -4.3]) and abs((first ** 2).sum() - 66.76) < 1e-9
+    if level == 7:
+        fig, ax0 = _lv_board()
+        ax = fig.add_axes([0.04, 0.2, 0.92, 0.76])
+        ax.axis("off")
+        ax.set_xlim(-7.5, 7.5)
+        ax.set_ylim(-8.5, 12.5)
+        xx = np.array([-6.5, 6.5])
+        ax.plot(xx, xx + 1, color=BLUE, lw=3, zorder=2)
+        for k, (x, y) in enumerate(zip(XP, YP)):
+            bold = k in (1, 2)
+            ax.plot([x, x], [y, x + 1], color=RED, lw=4 if bold else 2.2, zorder=3)
+            ax.plot([x], [y], "o", ms=12, color=INK, zorder=5)
+        ax.text(XP[1] - 0.35, (YP[1] + XP[1] + 1) / 2 + 0.4, "사람 2\n4.3", ha="right", va="center", fontsize=LV.FONT,
+                color=RED, linespacing=1.15, zorder=6)
+        ax.text(XP[2] + 0.35, (YP[2] + XP[2] + 1) / 2, "사람 3\n" + M + "4.3", ha="left", va="center", fontsize=LV.FONT,
+                color=RED, linespacing=1.15, zorder=6)
+        _lv_text(ax0, 260, 26, "4.3과 " + M + "4.3을 그냥 더하면 0")
+        return fig
+    if level == 15:
+        r = YP - 2 * XP
+        assert np.allclose(r, [3.3, 0.3, -3.3, 1.0, -1.3]) and abs((r ** 2).sum() - 24.56) < 1e-9
+        rows = [[num(x, 1), num(y, 1), num(e, 1), num(e * e, 2)] for x, y, e in zip(XP, YP, r)]
+        rows.append(["", "", "", num((r ** 2).sum(), 2)])
+        return LV.grid(rows, col_names=["X", "Y", "잔차", "잔차 제곱"], row_names=["사람 %d" % k for k in range(1, 6)] + ["합"],
+                       marks=[(0, 3), (2, 3), (5, 3)], color="red", top="잔차 = Y " + M + " 2 × X")
+    x_code = np.array([-5, 5, 0, 2, -2])
+    y_code = np.array([-6.7, 10.3, -3.3, 5.0, -5.3])  # 블록 코드와 같은 배열이라 r.sum().round(4) 가 0.0 으로 찍힘
+    assert np.allclose(x_code, XP) and np.allclose(y_code, YP)
+    rows = []
+    for w, b in ((0.6, 0), (2.6, 0), (1, 1)):
+        e = y_code - (w * x_code + b)
+        rows.append([str(e.sum().round(4)), str((e ** 2).sum().round(2))])
+    assert rows == [["0.0", "109.12"], ["0.0", "57.92"], ["-5.0", "66.76"]], rows
+    return LV.grid(rows, col_names=["r.sum()", "(r ** 2).sum()"], row_names=["W 0.6, B 0", "W 2.6, B 0", "W 1, B 1"],
+                   marks=[(0, 0), (1, 0)], color="red", top="r = Y - (W * X + B)", code=True)
+
+
+@figure("7b-21", *LV.SIZE)
+def levels_7b_7():
+    return _levels_7b(7)
+
+
+@figure("7b-22", *LV.SIZE)
+def levels_7b_15():
+    return _levels_7b(15)
+
+
+@figure("7b-23", *LV.SIZE)
+def levels_7b_20():
+    return _levels_7b(20)
+
+
+# 7c 셋째 단계: 차수와 곡선 모양. 초록은 다항식 곡선, 주황은 극값, 검은 점선은 미분한 식
+
+def _levels_7c(level):
+    if level == 7:
+        assert [len(extrema(d)) for d in (1, 2, 3, 4)] == [0, 1, 2, 3]
+        return LV.chain(["0곳", "1곳", "2곳", "3곳"], labels=["수 1개", "수 2개", "수 3개", "수 4개"],
+                        note="오르다 내려가거나 내려가다 오르는 곳은 많아야 이만큼")
+    if level == 15:
+        xs = np.linspace(-2.5, 2.5, 201)
+        cubic = np.polynomial.Polynomial(POLYS[3])
+        slope = cubic.deriv()
+        assert np.allclose(slope.coef, [-2.4, 0, 1.8])
+        roots = sorted(float(v) for v in slope.roots())
+        assert [fx(v, 4) for v in roots] == [M + "1.1547", "1.1547"]
+        assert [fx(cubic(v), 4) for v in roots] == ["1.8475", M + "1.8475"]
+        fig = LV.graph(list(xs), [(list(cubic(xs)), "green", ""), (list(slope(xs)), "ink", "")], "x", "y",
+                       top="극값의 수 ≤ 차수 " + M + " 1", marks=[(v, cubic(v), "", "orange") for v in roots],
+                       xlim=(-2.7, 2.7), ylim=(-4.2, 9.6))
+        ax = fig.axes[0]
+        ax.lines[1].set_linestyle("--")
+        ax.axhline(0, color=COLORS["faint"], lw=2, zorder=1)
+        for v in roots:
+            ax.plot([v, v], [0, cubic(v)], color=MUTED, lw=1.5, ls=":", zorder=2)
+            ax.plot([v], [0], "o", ms=10, color=INK, zorder=6)
+        minus_ticks(ax)
+        ax.text(-1.9, 7.6, "미분한 식", ha="left", va="center", fontsize=LV.FONT, color=INK)
+        ax.text(1.6, -3.2, "곡선", ha="left", va="center", fontsize=LV.FONT, color=GREEN)
+        LV._inside(fig)
+        return fig
+    five = np.polynomial.Polynomial(POLYS[5]).deriv()
+    roots = sorted(float(v.real) for v in five.roots() if abs(v.imag) < 1e-12)
+    assert [fx(v, 4) for v in roots] == [M + "1.8173", M + "0.6562", "0.6562", "1.8173"]
+    signs = [("+" if five(v - 1e-3) > 0 else "-", "+" if five(v + 1e-3) > 0 else "-") for v in roots]
+    assert signs == [("+", "-"), ("-", "+"), ("+", "-"), ("-", "+")]
+    cube = np.polynomial.Polynomial([0, 0, 0, 1]).deriv()
+    assert cube(-1e-3) > 0 and cube(1e-3) > 0
+    rows = [["%.4f" % v, "%s → %s" % s, "예"] for v, s in zip(roots, signs)] + [["0, 0", "+ → +", "아님"]]
+    return LV.grid(rows, col_names=["근", "부호", "극값"], row_names=["f5"] * 4 + ["$x^{3}$"], marks=[(k, 2) for k in range(4)],
+                   color="orange", top="np.roots(np.polyder(f))", code=True)
+
+
+@figure("7c-31", *LV.SIZE)
+def levels_7c_7():
+    return _levels_7c(7)
+
+
+@figure("7c-32", *LV.SIZE)
+def levels_7c_15():
+    return _levels_7c(15)
+
+
+@figure("7c-33", *LV.SIZE)
+def levels_7c_20():
+    return _levels_7c(20)
+
+
+# 7e 둘째 단계: 정답 모양. 파랑은 출력, 초록은 정답, 빨강은 뺀 값과 손실
+
+def _levels_7e(level):
+    out = np.array([[1.0], [2.0], [3.0]])
+    ans = np.array([1.0, 2.0, 3.0])
+    assert (out - ans).shape == (3, 3) and abs(((out - ans) ** 2).mean() - 4 / 3) < 1e-12
+    if level == 7:
+        two = np.array([[1.0], [2.0]]) - np.array([1.0, 2.0])
+        assert two.tolist() == [[0, -1], [1, 0]]
+        fig, ax = _lv_board()
+        right_rows = [(185, "1", "1", "0"), (143, "1", "2", M + "1"), (101, "2", "1", "1"), (59, "2", "2", "0")]
+        left_rows = [(164, "1", "1", "0"), (80, "2", "2", "0")]
+        for rows, left, right, title in ((left_rows, 55, 185, "같은 데이터끼리"), (right_rows, 335, 465, "모든 짝")):
+            _lv_text(ax, (left + right) / 2.0, 255, title, bold=True)
+            _lv_text(ax, left, 222, "모델", color=BLUE)
+            _lv_text(ax, right, 222, "정답", color=GREEN)
+            for y, a, b, d in rows:
+                _lv_box(ax, left, y, 46, 34, a, ec=BLUE, fc=BLUE_L, size=LV.FONT)
+                _lv_box(ax, right, y, 46, 34, b, ec=GREEN, fc=GREEN_L, size=LV.FONT)
+                _lv_arrow(ax, left + 28, y, right - 28, y, color=RED, lw=2.2)
+                _lv_text(ax, (left + right) / 2.0, y + 11, d, color=RED, bold=True, va="bottom")
+        _lv_text(ax, 260, 20, "모든 짝을 빼면 뺄셈이 네 번")
+        return fig
+    if level == 15:
+        cs = np.linspace(0, 4, 201)
+        loss = [float(((c - ans) ** 2).mean()) for c in cs]
+        assert fx(min(loss), 4) == "0.6667" and abs(cs[int(np.argmin(loss))] - 2) < 1e-12
+        assert fx(loss[0], 4) == "4.6667" and fx(loss[-1], 4) == "4.6667"
+        fig = LV.graph(list(cs), [(loss, "red", "")], "세 출력에 똑같이 낸 수", "틀린 손실",
+                       top="틀린 손실 = (아홉 칸 제곱의 합) ÷ 9", marks=[(2, 2 / 3.0, "", "red")],
+                       xlim=(-0.1, 4.1), ylim=(0, 5.2))
+        ax = fig.axes[0]
+        ax.axhline(4 / 3.0, color=RED, lw=2.4, ls="--", zorder=2)
+        ax.text(1.85, 0.42, "0.6667", ha="right", va="center", fontsize=LV.FONT, color=RED)
+        ax.text(2, 4 / 3.0 + 0.2, "[1, 2, 3]: 1.3333", ha="center", va="bottom", fontsize=LV.FONT, color=RED)
+        LV._inside(fig)
+        return fig
+    rows = []
+    for name, target in (("y", ans), ("unsqueeze(0)", ans[None, :]), ("unsqueeze(1)", ans[:, None])):
+        diff = out - target
+        shape = "[%s]" % ", ".join(str(n) for n in target.shape)
+        rows.append([shape, "[%s]" % ", ".join(str(n) for n in diff.shape), "%.4f" % (diff ** 2).mean()])
+    rows[2][2] = "0"
+    assert rows == [["[3]", "[3, 3]", "1.3333"], ["[1, 3]", "[3, 3]", "1.3333"], ["[3, 1]", "[3, 1]", "0"]], rows
+    return LV.grid(rows, col_names=["정답", "뺀 모양", "손실"], row_names=["y", "unsqueeze(0)", "unsqueeze(1)"],
+                   marks=[(0, 2), (1, 2)], color="red", top="out: [3, 1]", code=True)
+
+
+@figure("7e-21", *LV.SIZE)
+def levels_7e_7():
+    return _levels_7e(7)
+
+
+@figure("7e-22", *LV.SIZE)
+def levels_7e_15():
+    return _levels_7e(15)
+
+
+@figure("7e-23", *LV.SIZE)
+def levels_7e_20():
+    return _levels_7e(20)
+
+
+# 7f 넷째 단계: Lasso 회귀. 주황은 Lasso, 보라는 Ridge
+
+def _lasso_a(a, lam):
+    return float(np.sign(a) * max(abs(a) - lam / 2.0, 0.0))
+
+
+def _levels_7f(level):
+    if level == 7:
+        lams = [0, 0.3, 0.6, 0.9]
+        lasso = [lasso_w(v) for v in lams]
+        ridge = [ridge_w(v) for v in lams]
+        assert [fx(v, 4) for v in lasso] == ["0.3000", "0.1500", "0.0000", "0.0000"]
+        assert [fx(v, 4) for v in ridge] == ["0.3000", "0.2308", "0.1875", "0.1579"]
+        fig, ax = _lv_board()
+        xs = [80, 200, 320, 440]
+        _lv_text(ax, 260, 264, "벌점에 곱하는 수", color=MUTED)
+        for x, lam in zip(xs, lams):
+            _lv_text(ax, x, 225, num(lam, 1), color=MUTED)
+        for k, (x, v) in enumerate(zip(xs, lasso)):
+            zero = v == 0
+            _lv_box(ax, x, 175, 92, 50, num(v, 4), ec=ORANGE, fc=ORANGE_L if zero else "white", size=LV.FONT, bold=zero,
+                    lw=3 if zero else 2)
+            if k < 3:
+                _lv_arrow(ax, x + 48, 175, x + 72, 175, color=ORANGE, lw=2)
+        for k, (x, v) in enumerate(zip(xs, ridge)):
+            _lv_box(ax, x, 95, 92, 50, num(v, 4), ec=PURPLE, fc="white", size=LV.FONT)
+            if k < 3:
+                _lv_arrow(ax, x + 48, 95, x + 72, 95, color=PURPLE, lw=2)
+        _lv_text(ax, 260, 30, "위 줄은 0이 된 뒤 0에 머묾")
+        return fig
+    if level == 15:
+        ws = np.linspace(0, 0.4, 81)
+        low, high = 2 * (ws - 0.3) + 0.3, 2 * (ws - 0.3) + 0.9
+        assert abs(ws[int(np.argmin(np.abs(low)))] - 0.15) < 1e-12 and high.min() >= 0.3 - 1e-12
+        fig = LV.graph(list(ws), [(list(low), "orange", "λ = 0.3"), (list(high), "orange", "λ = 0.9")], "w", "기울기",
+                       top="기울기 = 2(w " + M + " 0.3) + λ", marks=[(0.15, 0.0, "", "ink")], xlim=(0, 0.56), ylim=(-0.45, 1.3))
+        ax = fig.axes[0]
+        ax.lines[1].set_linestyle("--")
+        ax.axhline(0, color=COLORS["faint"], lw=2.2, zorder=1)
+        ax.text(0.15, -0.08, "w = 0.15", ha="left", va="top", fontsize=LV.FONT, color=INK)
+        LV._inside(fig)
+        return fig
+    a = [0.3, -0.5, 0.08]
+    lasso = [_lasso_a(v, 0.2) for v in a]
+    ridge = [v / 1.2 for v in a]
+    assert [fx(v, 4) for v in lasso] == ["0.2000", M + "0.4000", "0.0000"]
+    assert [fx(v, 4) for v in ridge] == ["0.2500", M + "0.4167", "0.0667"]
+    rows = [["0.2", "0.25"], ["-0.4", "-0.4167"], ["0", "0.0667"]]  # 코드 출력처럼 빼기표는 ASCII
+    return LV.grid(rows, col_names=["lasso", "ridge"], row_names=["a = 0.3", "a = " + M + "0.5", "a = 0.08"], marks=[(2, 0)],
+                   color="orange", top="lam = 0.2", code=True)
+
+
+@figure("7f-41", *LV.SIZE)
+def levels_7f_7():
+    return _levels_7f(7)
+
+
+@figure("7f-42", *LV.SIZE)
+def levels_7f_15():
+    return _levels_7f(15)
+
+
+@figure("7f-43", *LV.SIZE)
+def levels_7f_20():
+    return _levels_7f(20)
