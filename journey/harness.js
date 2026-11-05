@@ -21,6 +21,10 @@ const writeFileSync = fs.writeFileSync;
 const renameSync = fs.renameSync;
 const readFileSync = fs.readFileSync;
 const resourceUsage = process.resourceUsage.bind(process);
+const onLinux = process.platform === "linux";
+const strIndexOf = Function.prototype.call.bind(String.prototype.indexOf);
+const strSlice = Function.prototype.call.bind(String.prototype.slice);
+const toInt = parseInt;
 const realExit = process.exit.bind(process);
 const MapProto = Map.prototype;
 const SetProto = Set.prototype;
@@ -65,6 +69,26 @@ function writeFile(file, text) {
             atomicsWait(sleepCell, 0, 0, 5);
         }
     }
+}
+
+// 피크 메모리(바이트). Linux 는 /proc/self/status 의 VmHWM 을 읽음. maxRSS 는 이 프로세스를 띄운 부모의 메모리까지 exec 뒤에도
+// 이어받아서, 메모리를 많이 쓰는 프로세스가 채점을 띄우면 메모리 초과로 잘못 나옴. VmHWM 은 exec 뒤 새로 셈
+function peakBytes() {
+    if (onLinux) {
+        try {
+            const text = readFileSync("/proc/self/status", "utf8");
+            const at = strIndexOf(text, "VmHWM:");
+            if (at >= 0) {
+                const kb = toInt(strSlice(text, at + 6), 10);
+                if (kb === kb) {  // NaN 이 아니면
+                    return kb * 1024;
+                }
+            }
+        } catch (error) {
+            // 읽지 못하면 아래 maxRSS 로 셈
+        }
+    }
+    return resourceUsage().maxRSS * 1024;
 }
 
 // 출력 모으기. console.log 는 write 의 예외를 삼키므로 한도를 넘으면 표시만 남기고 호출이 끝난 뒤 판정함
@@ -198,7 +222,7 @@ function main(jobPath) {
         error: "", note: "", fatal: null, failed_call: null};
 
     function finish() {
-        result.peak = resourceUsage().maxRSS * 1024;
+        result.peak = peakBytes();
         const text = printedText();
         if (text.length > PRINT_KEEP) {
             result.printed = text.slice(0, PRINT_KEEP);

@@ -134,6 +134,15 @@ class PythonRunnerTest(RunnerCase):
         wrong = self.run_one("def solution(a, b):\n    return a - b\n", [[1, 2]], 3)
         self.assertEqual((wrong["status"], wrong["values"]), ("wrong", ["-1"]))
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "ru_maxrss 가 부모 메모리를 이어받는 것은 Linux 에서만 생김")
+    def test_a_large_parent_is_not_counted_as_the_peak(self):
+        ballast = bytearray(600 * 1024 * 1024)
+        for i in range(0, len(ballast), 4096):
+            ballast[i] = 1
+        result = self.assertPasses("def solution(a, b):\n    return a + b\n", [[1, 2]], 3)
+        self.assertLess(result["peak_mb"], 200)
+        del ballast
+
     def test_sha_expected_and_bool_int_difference(self):
         text = "def solution(a):\n    return [a > 0, a]\n"
         case = self.case([[1]], expected_sha=values.digest("[true,1]"))
@@ -403,6 +412,15 @@ class NodeRunnerTest(RunnerCase):
         self.assertIsNotNone(result["peak_mb"])
         self.assertEqual(self.run_one("const solution = (a, b) => a - b;\n", [[1, 2]], 3)["status"], "wrong")
         self.assertEqual(self.run_one("let solution = function (a) { return [a, 'x', true]; };\n", [[1]], [1, "x", True])["status"], "pass")
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "maxRSS 가 부모 메모리를 이어받는 것은 Linux 에서만 생김")
+    def test_a_large_parent_is_not_counted_as_the_peak(self):
+        ballast = bytearray(600 * 1024 * 1024)
+        for i in range(0, len(ballast), 4096):
+            ballast[i] = 1
+        result = self.assertPasses("function solution(a, b) {\n    return a + b;\n}\n", [[1, 2]], 3)
+        self.assertLess(result["peak_mb"], 200)
+        del ballast
 
     def test_runtime_error_has_line_number(self):
         result = self.run_one("function solution(a) {\n    let x = 1;\n    return a.b.c;\n}\n", [[1]], 1)
