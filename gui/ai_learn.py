@@ -156,7 +156,7 @@ class AiFigure(FigureView):
     def __init__(self, path, caption="", frames=(), last=False):
         super().__init__(path, caption, autoplay=False, frame_changed=self.show_frame)
         self.frames = list(frames or [])
-        self.held = None  # 설명 칸 높이를 잰 (폭, 본문 글자 크기)
+        self.held = None  # 설명 칸 높이를 잰 폭·실제 글꼴·줄 높이
         self.frame_text = rich("", "body", "secondary")
         self.frame_text.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         self.layout().insertWidget(1, self.frame_text)
@@ -175,7 +175,8 @@ class AiFigure(FigureView):
     def hold_frames(self):
         """설명 칸의 최소 높이를 지금 폭에서 가장 긴 장 설명의 높이로 둠. 폭이나 글자 크기가 바뀔 때만 다시 잼(장을 넘길 때마다 draw 가 불림)."""
         width = self.width()
-        key = (width, theme.TYPE["body"][0])
+        self.frame_text.ensurePolished()
+        key = (width, self.frame_text.font().toString(), self.frame_text.line)
         if not self.frame_text.isVisibleTo(self) or width <= 1 or key == self.held:
             return
         shown, tallest = self.frame_text.plain, 0
