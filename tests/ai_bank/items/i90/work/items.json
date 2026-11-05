@@ -28,7 +28,7 @@
     {"text": "step 을 부르면 쌓인 값이 비워집니다.", "ok": false, "aim": "step 이 비운다는 착각", "why": "step 은 파라미터를 옮기기만 하고 값을 비우지 않습니다."},
     {"text": "backward 를 부르면 파라미터가 옮겨집니다.", "ok": false, "aim": "backward 가 갱신한다는 착각", "why": "backward 는 값을 계산해 쌓기만 합니다."},
     {"text": "zero_grad 는 파라미터를 0으로 만듭니다.", "ok": false, "aim": "값과 파라미터를 헷갈림", "why": "zero_grad 는 파라미터가 아니라 쌓인 값을 비웁니다."}],
-   "explain": "zero_grad 가 backward 앞에 있으면 이번 값만 남기 때문입니다. 정정: 시험 슬라이드 3쪽처럼 맨 끝에 두어도 다음 반복 전에 비워지므로 결과가 같습니다.",
+   "explain": "zero_grad 가 backward 앞에 있으면 이번 값만 남기 때문입니다. 정정: 맨 끝에 두어도 다음 반복 전에 비워지므로 결과가 같습니다.",
    "ref": ["90차시 노트북 01 [2]", "90차시 슬 p3"]},
   {"id": "i90-b04", "kind": "blank", "unit": "90b", "step": "90b/1", "facts": ["F90-04"], "core": true, "prio": 3, "level": 1,
    "tags": ["과적합"],

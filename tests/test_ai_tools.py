@@ -100,6 +100,74 @@ class VerifyTest(Case):
         self.assertEqual(0, code, out)
         self.assertIn("OK: 묶음 2개 통과", out)
 
+    def test_visible_lecture_locations_fail_in_card_fields(self):
+        suffix = " 슬라이드 3쪽을 봅니다."
+        self.edit_item("i90-b01", lambda item: item.update(stem=item["stem"] + suffix, explain=item["explain"] + suffix,
+                       alt={"stem": item["stem"] + suffix, "explain": suffix}))
+        self.edit_item("i90-c01", lambda item: item["options"][0].update(text=item["options"][0]["text"] + suffix,
+                       why=item["options"][0].get("why", "") + suffix))
+        def statements(data):
+            row = data["topics"][0]["statements"][0]
+            row.update(text=row["text"] + suffix, why=row["why"] + suffix)
+            row["cloze"]["text"] += suffix
+        self.edit_json("items/i90/work/statements.json", statements)
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        for field in ("i90-b01:stem", "i90-b01:explain", "i90-b01:alt stem", "i90-b01:alt explain",
+                      "i90-c01:보기1", "i90-c01:보기1 why", "i90-s01:text", "i90-s01:why", "i90-s01:cloze"):
+            self.assertRegex(out, re.escape(field) + r"(?::1)?: 강의 위치 노출")
+
+    def test_note_locations_fail_in_body_blocks_captions_and_frames(self):
+        path = "learn/l90/page.md"
+        text = study.read_text(self.path(path))
+        text += '\n본문(슬라이드 3쪽).\n\n```ai-why\n{"q":"노트북 셀 2", "a":"슬라이드 3쪽"}\n```\n'
+        text += '\n```figure\n파일: assets/90b-1.png\n캡션: 슬라이드 3쪽\n내용: 노트북 셀 2\n프레임:\n1. 대학원 02 p22 (1000ms)\n```\n'
+        text = text.replace('"concept": "기울기"', '"concept": "기울기 슬라이드 3쪽"', 1)
+        self.write(path, text)
+        self.assertFails("page.md:")
+        self.assertFails("강의 위치 노출")
+
+    def test_metadata_sources_stay_available_to_verification(self):
+        self.edit_item("i90-b01", lambda item: item.update(ref=["90차시 슬 p3"]))
+        self.edit_json("items/i90/work/facts.json", lambda data: data["facts"][0].update(where=["90차시 노트북 01 [2]"]))
+        self.edit_json("learn/l90/meta.json", lambda data: data.update(sources=[{"title": "90차시 슬라이드 3쪽", "url": "https://example.org/course"}]))
+        code, out = self.verify()
+        self.assertEqual(0, code, out)
+        self.assertNotIn("강의 위치 노출", out)
+
+    def test_verify_and_web_lint_allow_both_quote_sentences_and_reject_location_parentheses(self):
+        path = "learn/l90/page.md"
+        original = study.read_text(self.path(path))
+        for kind in ("정정", "보충 설명"):
+            for parenthesized in (False, True):
+                quote = ("> **[%s]** 값을 확인합니다(90차시 슬라이드 3쪽)." if parenthesized else
+                         "> **[%s]** 90차시 슬라이드 3쪽은 이 값을 적었습니다.") % kind
+                self.write(path, original + "\n" + quote + "\n")
+                self.edit_item("i90-b01", lambda item: item.update(explain=quote))
+                code, out = self.verify()
+                self.assertEqual(int(parenthesized), code, out)
+                self.assertEqual(parenthesized, "강의 위치 노출" in out)
+                report = web_lint.Report("quote")
+                web_lint.style_check(report, [], [("page.md", quote)], [])
+                self.assertEqual(parenthesized, bool(report.errors), report.rows)
+
+    def test_generated_choice_sample_options_and_reasons_are_checked(self):
+        real_run = genlib.run
+        def choice_sample(spec, seed):
+            made = real_run(spec, seed)
+            if spec.id == "i90-g01":
+                made.update(kind="choice", pick="right", options=[
+                    {"text": "슬라이드 3쪽을 봅니다.", "ok": True},
+                    {"text": "노트북 셀 2를 봅니다.", "ok": False, "why": "대학원 02 p22를 봅니다."},
+                    {"text": "W를 유지합니다.", "ok": False, "why": "기울기를 곱합니다."},
+                    {"text": "W에 기울기를 더합니다.", "ok": False, "why": "학습률을 곱합니다."}])
+            return made
+        with mock.patch.object(genlib, "run", side_effect=choice_sample), mock.patch.object(genlib, "load_oracle", return_value={}):
+            code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("시드 1:보기1: 강의 위치 노출", out)
+        self.assertIn("시드 1:보기2 why: 강의 위치 노출", out)
+
     def test_misspelled_block_name_fails(self):
         self.replace("learn/l90/page.md", "```ai-recall", "```ai-recal")
         self.assertFails("모르는 블록 이름입니다: ai-recal")
@@ -682,14 +750,12 @@ class LevelsVerifyTest(Case):
                        "실패 10 말투: 90a/2 v1 20살 caption: 띄어 쓴 조사")
         self.assertNotIn("20살 content: 띄어 쓴 조사", out)  # 그림 내용 글은 화면에 보이지 않음
 
-    def test_twenty_needs_code_mistake_and_where(self):
+    def test_twenty_needs_code_and_mistake(self):
         self.edit('w = 2.0\\ngrad = -8.0\\nlr = 0.1\\nw = w - lr * grad\\nprint(w)  # 2.8', "w = 2.0",
-                  '"mistake": "기울기를 더하면 W가 손실이 커지는 쪽으로 갑니다. 기울기에 학습률을 곱한 값을 뺍니다."', '"mistake": ""',
-                  "90차시 슬라이드 3쪽, 90차시 첫째 단원 2단계", "슬라이드 3쪽")
+                  '"mistake": "기울기를 더하면 W가 손실이 커지는 쪽으로 갑니다. 기울기에 학습률을 곱한 값을 뺍니다."', '"mistake": ""')
         code, out = self.verify()
         self.assertEqual(1, code, out)
-        self.assertAll(out, "90a/2 v1 20살 의 code 가 1줄입니다(2~8줄)", "90a/2 v1 20살 에 mistake 가 없습니다",
-                       "90a/2 v1 20살 의 where 에 강의 위치(N차시 …)가 없습니다")
+        self.assertAll(out, "90a/2 v1 20살 의 code 가 1줄입니다(2~8줄)", "90a/2 v1 20살 에 mistake 가 없습니다")
 
     def test_warnings(self):
         self.edit('"answer": ["3.6"]', '"answer": ["2.8"]', '"answer": ["2.4"], "mode": "number"', '"answer": ["2.4"], "mode": "word"',
@@ -776,8 +842,9 @@ class LevelsToolTest(Case):
         for hidden in ("2.8 에 0.8 을 더하면 3.6 입니다.", "3.6\"", "기울기가 −8 이고", "상자 셋에"):
             self.assertNotIn(hidden, seven)  # 까닭·답·다음 수준 글·그림 내용 글은 없음
         twenty = study.read_text(os.path.join(folder, "3_l20.md"))
-        for shown in ("w = w - lr * grad", "자주 하는 착각: 기울기를 더하면", "다루는 곳: 90차시 슬라이드 3쪽", "print(w)가 찍는 값은 ____ 입니다."):
+        for shown in ("w = w - lr * grad", "자주 하는 착각: 기울기를 더하면", "print(w)가 찍는 값은 ____ 입니다."):
             self.assertIn(shown, twenty)
+        self.assertNotIn("다루는 곳", twenty)
         self.assertNotIn("2 − 0.5 × (−8) = 6 입니다.", twenty)
         target = os.path.join(out_dir, "levels_answers.json")
         answers = study.read_json(target)

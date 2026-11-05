@@ -15,6 +15,7 @@ import datetime
 import json
 import os
 import random
+import re
 import secrets
 import threading
 
@@ -478,6 +479,22 @@ class AiSession(object):
         if card is None:
             raise AiError("문항을 찾을 수 없습니다: %s" % cid)
         return card
+
+    def note_target(self, cid):
+        """실제로 공개된 학습 단계만 참고 대상으로 돌려줌. 외부 자료 위치는 포함하지 않음."""
+        self._state()
+        card = self.cards.get(cid)
+        if card is None:
+            return None
+        lid = card.get("after") if card.get("mock") else card.get("lesson")
+        note = self.notes.get(lid)
+        found = re.fullmatch(r"([0-9]{1,2}[a-i])/([1-9][0-9]*)", str(card.get("step") or ""))
+        if note is None or found is None:
+            return None
+        key, number = found.group(1), int(found.group(2))
+        if key not in note["visible"] or not any(s["no"] == number for s in note["units"][key]["steps"]):
+            return None
+        return {"lesson": lid, "step": "%s/%d" % (key, number), "label": "%s %d단계" % (self.unit_name(lid, key), number)}
 
     # 연습
 

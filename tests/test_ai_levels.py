@@ -46,14 +46,14 @@ class BankLevelsTest(unittest.TestCase):
         self.assertEqual(("levels", "v1", "기울기"), (block["kind"], block["id"], block["concept"]))
         self.assertEqual([7, 15, 20], [level["level"] for level in block["levels"]])
         self.assertEqual(["v1"] * 3, [level["id"] for level in block["levels"]])  # 떠올리기처럼 block.get("id") 로 기록함
-        keys = {"level", "id", "text", "q", "answer", "mode", "places", "unit", "why", "code", "mistake", "where", "figure"}
+        keys = {"level", "id", "text", "q", "answer", "mode", "places", "unit", "why", "code", "mistake", "figure"}
         for level in block["levels"]:
             self.assertEqual(keys, set(level))
             self.assertEqual("figure", level["figure"]["kind"])
             self.assertTrue(os.path.isfile(level["figure"]["path"]), level["figure"]["path"])
         seven, fifteen, twenty = block["levels"]
-        self.assertEqual(("", "", ""), (seven["code"], seven["mistake"], seven["where"]))
-        self.assertEqual(("", "", ""), (fifteen["code"], fifteen["mistake"], fifteen["where"]))
+        self.assertEqual(("", ""), (seven["code"], seven["mistake"]))
+        self.assertEqual(("", ""), (fifteen["code"], fifteen["mistake"]))
         self.assertEqual(5, len(twenty["code"].split("\n")))
         self.assertEqual((["3.6"], "number", None, ""), (seven["answer"], seven["mode"], seven["places"], seven["unit"]))
 
@@ -124,9 +124,13 @@ class BankLevelsTest(unittest.TestCase):
     def test_level_parts_order(self):
         twenty = self.parse()["levels"][2]
         names = [name for name, _ in bank.level_parts(twenty)]
-        self.assertEqual(["text", "caption", "content", "code", "mistake", "where", "q", "why"], names)
+        self.assertEqual(["text", "caption", "content", "code", "mistake", "q", "why"], names)
         seven = dict(self.parse()["levels"][0], why="", figure=None)
         self.assertEqual(["text", "q"], [name for name, _ in bank.level_parts(seven)])
+
+    def test_twenty_rejects_legacy_where(self):
+        self.assertIn("20살 수준에 쓸 수 없는 키가 있습니다: where",
+                      self.broken(lambda data: data["levels"][2].update(where="90차시 슬라이드3쪽")))
 
 
 if __name__ == "__main__":

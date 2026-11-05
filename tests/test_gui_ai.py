@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import aifix, guikit  # noqa: E402
 
 from PyQt6 import sip  # noqa: E402
-from PyQt6.QtCore import QMimeData, QPoint, QPointF, QSettings, Qt  # noqa: E402
+from PyQt6.QtCore import QMimeData, QPoint, QPointF, QSettings, Qt, QUrl  # noqa: E402
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QAbstractButton, QApplication, QLabel, QPushButton, QScrollArea, QWidget  # noqa: E402
@@ -31,6 +31,7 @@ import study  # noqa: E402
 from aiprep import bank as ai_bank  # noqa: E402
 from aiprep import grade, plan, service  # noqa: E402
 from gui import ai_learn, ai_quiz, ai_text, kit, motion, theme  # noqa: E402
+from gui.widgets import LinkLabel  # noqa: E402
 from gui.docview import MISSING_TEXT, TextPiece  # noqa: E402
 from gui.window import MainWindow  # noqa: E402
 from journey import bank as journey_bank  # noqa: E402
@@ -338,7 +339,8 @@ class TextTest(unittest.TestCase):
             self.assertEqual(ai_text.ref_one(ref), text)
         self.assertEqual(ai_text.ref_text(["2차시 슬 p5", "요약 1주차 p5"]), "2차시 슬라이드 5쪽 · 강사 요약본 1주차 5쪽")
         line = ai_text.errata_text([{"id": "X90-01", "where": "90차시 슬 p3", "right": "기록 말투의 출제 메모"}])
-        self.assertIn("90차시 슬라이드 3쪽", line)
+        self.assertIn("오류를 바로잡은 문항", line)
+        self.assertNotIn("슬라이드", line)
         self.assertNotIn("출제 메모", line)  # errata 의 right 는 출제 기록이라 화면에 쓰지 않음
 
     def test_boxes_and_code_parts_are_split_out(self):
@@ -691,8 +693,10 @@ class LevelsTest(AiTest):
         text = visible_text(block)
         for name in ai_text.LEVEL_NAMES.values():
             self.assertIn(name, text)
-        for word in (ai_text.LEVEL_CHECK, ai_text.LEVEL_MISTAKE, ai_text.LEVEL_WHERE, "90차시 슬라이드 3쪽"):
+        for word in (ai_text.LEVEL_CHECK, ai_text.LEVEL_MISTAKE):
             self.assertIn(word, text)
+        self.assertNotIn('다루는 곳', text)
+        self.assertNotIn('90차시 슬라이드 3쪽', text)
         self.assertEqual(3, len(block.figures))
         self.assertTrue(all(isinstance(f, ai_learn.AiFigure) for f in block.figures))
         self.assertLessEqual(max(f.picture.height() for f in block.figures), 300)
@@ -837,7 +841,9 @@ class PracticeTest(AiTest):
         self.assertFalse(page.results[0].isVisible())  # 칸이 하나면 테두리와 판정 줄이 말함
         self.assertEqual(page.requeue.text(), "이 문항은 3문항 뒤에 다시 나옵니다.")  # 묶음 길이가 늘어난 까닭
         self.assertEqual(page.count.text(), "%d / %d" % (item["at"], item["total"] + 1))
-        self.assertIn("근거: 90차시 슬라이드 2쪽", visible_text(page.after))
+        self.assertIn("참고:", visible_text(page.after))
+        self.assertIn("단계", visible_text(page.after))
+        self.assertNotIn("슬라이드", visible_text(page.after))
         self.assertTrue(page.mine_btn.isVisible() and page.note_btn.isVisible())
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["다음"])
         at = item["at"]
@@ -979,7 +985,8 @@ class PracticeTest(AiTest):
         self.assertTrue(page.answer_line.text().startswith("정답: zero_grad"))
         text = visible_text(page.after)
         self.assertIn("정정", text)
-        self.assertIn("90차시 슬라이드 3쪽", text)
+        self.assertIn("오류를 바로잡은 문항", text)
+        self.assertNotIn("슬라이드", text)
         self.assertFalse(page.mine_btn.isVisible())
 
     def test_pick_wrong_item_does_not_call_the_false_statement_the_answer(self):
@@ -1012,6 +1019,32 @@ class PracticeTest(AiTest):
         guikit.pump()
         self.assertTrue(sip.isdeleted(dialog) or not dialog.isVisible())
         self.assertIsNone(page.note_dialog)
+
+    def test_reference_link_opens_only_the_current_visible_step(self):
+        page = self.start()
+        self.skip_to(lambda item: item["card"] == "i90-b01")
+        self.answer(right=False)
+        count = len(self.log())
+        link = page.after.findChildren(LinkLabel)[0]
+        link.linkActivated.emit("https://example.org/not-a-note")
+        self.assertIsNone(page.note_dialog)
+        QTest.mouseClick(link, Qt.MouseButton.LeftButton, pos=QPoint(16, link.height() // 2))
+        guikit.pump()
+        self.assertTrue(page.note_dialog.isVisible())
+        self.assertEqual(page.note_dialog.view.title.text(), "손실이 줄어드는 쪽으로 W를 옮깁니다")
+        page.close_note()
+        card = self.win.ai.card_info(page.item["card"])
+        for step in ("90a/999", "90a/../../other", "90z/2", ""):
+            card["step"] = step
+            page.set_buttons()
+            self.assertFalse(page.note_btn.isVisible())
+            link.linkActivated.emit("study-note")
+            self.assertIsNone(page.note_dialog)
+        card["step"] = "90a/2"
+        self.win.ai.notes["i90"]["visible"].remove("90a")
+        link.linkActivated.emit("study-note")
+        self.assertIsNone(page.note_dialog)
+        self.assertEqual(count, len(self.log()))
 
     def test_unit_set_ends_with_next_unit(self):
         win = self.boot()
@@ -1108,6 +1141,44 @@ class WrongNoteTest(AiTest):
         self.assertEqual(quiz.back_btn.text(), "← 오답 노트")
         guikit.click(quiz.back_btn)
         self.assertIs(self.page(), page)
+
+    def test_wrong_note_reference_click_checks_the_target_without_writing_records(self):
+        win = self.boot()
+        card = self.make_wrong()
+        self.at(4)
+        win.go_ai()
+        guikit.click(win.ai_home.notes_row)
+        page = win.wrong_page
+        count = len(self.log())
+        html = page.detail.toHtml()
+        self.assertIn('href="study-note"', html)
+        self.assertNotIn("슬라이드", page.detail.toPlainText())
+        target = win.ai.note_target(card)
+        cursor = page.detail.document().find(target["label"])
+        self.assertFalse(cursor.isNull())
+        cursor.setPosition(cursor.selectionStart())
+        page.detail.setTextCursor(cursor)
+        page.detail.ensureCursorVisible()
+        point = page.detail.cursorRect(cursor).center() + QPoint(3, 0)
+        self.assertEqual("study-note", page.detail.anchorAt(point))
+        with mock.patch.object(page.track, "open_reference", wraps=page.track.open_reference) as opened:
+            page.detail.anchorClicked.emit(QUrl("https://example.org/not-a-note"))
+            opened.assert_not_called()
+            QTest.mouseClick(page.detail.viewport(), Qt.MouseButton.LeftButton, pos=point)
+            guikit.pump()
+            opened.assert_called_once()
+        dialog = page.track.reference_dialog
+        self.assertTrue(dialog.isVisible())
+        key, number = target["step"].split("/")
+        step = win.ai.notes[target["lesson"]]["units"][key]["steps"][int(number) - 1]
+        self.assertEqual(dialog.view.title.text(), step["title"])
+        dialog.close()
+        guikit.pump()
+        win.ai.card_info(card)["step"] = "90a/999"
+        with mock.patch.object(ai_learn, "NoteDialog") as note:
+            page.detail.anchorClicked.emit(QUrl("study-note"))
+            note.assert_not_called()
+        self.assertEqual(count, len(self.log()))
 
     def test_statement_rows_follow_the_form_they_were_missed_in(self):
         win = self.boot()
