@@ -22,7 +22,7 @@ from tests import aifix, guikit  # noqa: E402
 
 from PyQt6 import sip  # noqa: E402
 from PyQt6.QtCore import QMimeData, QPoint, QPointF, QSettings, Qt, QUrl  # noqa: E402
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent  # noqa: E402
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QFontMetricsF  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QAbstractButton, QApplication, QLabel, QPushButton, QScrollArea, QWidget  # noqa: E402
 
@@ -1323,7 +1323,12 @@ class PatternTest(AiTest):
         block = ai_learn.DiffBlock({"left": "가", "right": "나", "different": 2, "same": 1, "rows": rows})
         holder = kit.page(QWidget())
         kit.box(holder).addWidget(block)
-        holder.resize(760, 600)
+        widths = []
+        for step in ("normal", "large"):
+            theme.set_text(step)
+            widths.append(QFontMetricsF(ai_learn.code_font()).horizontalAdvance("a" * 44))
+        boundary = round(sum(widths) + 2 * block.PAD + block.GAP)
+        holder.resize(boundary, 600)
         holder.show()
         self.addCleanup(holder.close)
         for step, two in (("normal", True), ("large", False), ("larger", False), ("normal", True)):
@@ -1337,7 +1342,7 @@ class PatternTest(AiTest):
         self.assertFalse(block.two)
         self.assertEqual([[cell.text() for cell in line.cells] for line in block.lines], [["a" * 44], ["같은 줄"], ["b" * 44], ["같은 줄"], ["c = 1"]])
         self.assertEqual([line.changed for line in block.lines], [True, False, True, False, True])
-        holder.resize(760, 600)
+        holder.resize(boundary, 600)
         guikit.pump()
         self.assertTrue(block.two)
 
