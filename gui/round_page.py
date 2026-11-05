@@ -6,14 +6,14 @@ import textwrap
 
 from PyQt6.QtCore import QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPen, QPixmap, QTextCursor
-from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QProgressBar, QPushButton, QSplitter,
-                             QStackedWidget, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QTextBrowser, QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QSplitter, QStackedWidget, QStyle, QStyledItemDelegate,
+                             QStyleOptionViewItem, QTextBrowser, QVBoxLayout, QWidget)
 
 import mdlite
 import study
-from gui import theme
+from gui import kit, theme
 from gui.guard import NOTE
-from gui.widgets import ChoicePanel, CodePanel, FindBar, Para, PasteBlock, TextPanel
+from gui.widgets import ChoicePanel, CodePanel, FindBar, PasteBlock, TextPanel
 from session import SessionError
 
 SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
@@ -105,32 +105,23 @@ class RowDelegate(QStyledItemDelegate):
 class RoundPage(QWidget):
     def __init__(self, win):
         super().__init__()
-        self.setObjectName("page")
+        kit.page(self)
         self.win = win
         self.view, self.current, self.review = None, None, False
         self.dirty = {}  # 아직 파일에 쓰지 않은 답 {문항 ID: 값}
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(14, 12, 14, 0)
-        head = QHBoxLayout()
-        self.home_btn = QPushButton("홈으로")
-        self.title = QLabel()
-        self.title.setObjectName("h1")
-        self.progress = QLabel()
-        self.progress.setObjectName("muted")
-        self.back_btn = QPushButton("결과로 돌아가기")
-        head.addWidget(self.home_btn)
-        head.addSpacing(8)
-        head.addWidget(self.title)
-        head.addStretch(1)
-        head.addWidget(self.progress)
-        head.addWidget(self.back_btn)
-        root.addLayout(head)
+        root = kit.box(self)
+        top = kit.TopBar("파이썬 스터디")
+        self.home_btn, self.title = top.back, top.title
+        self.progress = top.add_right(kit.label("", "caption", "secondary"))
+        self.back_btn = top.add_right(kit.button("결과로 돌아가기", "text"))
+        root.addWidget(top)
         self.banner = QLabel("다시 풀기는 연습이라 숙달 판정에는 첫 제출만 반영됩니다. 고친 뒤 '다시 채점'을 누르면 점수만 다시 계산합니다.")
         self.banner.setObjectName("notice")
         root.addWidget(self.banner)
 
         split = QSplitter(Qt.Orientation.Horizontal)
+        split.setContentsMargins(24, 16, 24, 16)
         self.listw = QListWidget()
         self.listw.setMinimumWidth(200)
         self.listw.setIconSize(QSize(DOT_PX, DOT_PX))
@@ -139,7 +130,7 @@ class RoundPage(QWidget):
         mid = QWidget()
         mid_box = QVBoxLayout(mid)
         mid_box.setContentsMargins(0, 0, 0, 0)
-        self.item_title = Para(name="h2")
+        self.item_title = kit.para("", "headline")
         self.body = QTextBrowser()
         self.body.setOpenLinks(False)
         self.body.document().setDocumentMargin(14)
@@ -148,8 +139,7 @@ class RoundPage(QWidget):
         right = QWidget()
         right_box = QVBoxLayout(right)
         right_box.setContentsMargins(0, 0, 0, 0)
-        self.pane_title = QLabel("답안")
-        self.pane_title.setObjectName("h2")
+        self.pane_title = kit.label("답안", "headline")
         self.stack = QStackedWidget()
         self.choice_panel, self.text_panel, self.code_panel = ChoicePanel(), TextPanel(), CodePanel()
         for panel in (self.choice_panel, self.text_panel, self.code_panel):
@@ -170,36 +160,27 @@ class RoundPage(QWidget):
         split.setChildrenCollapsible(False)
         root.addWidget(split, 1)
 
-        bar = QFrame()
-        bar.setObjectName("bar")
-        bar_box = QHBoxLayout(bar)
-        bar_box.setContentsMargins(4, 8, 4, 8)
-        self.prev_btn = QPushButton("이전")
-        self.next_btn = QPushButton("다음")
-        self.status = QLabel("")
-        self.status.setObjectName("muted")
-        self.paste_note = QLabel(NOTE)  # 자동 저장 문구가 곧바로 덮지 않게 상태 글과 따로 둠
-        self.paste_note.setObjectName("warn")
-        self.paste_note.setMinimumWidth(1)  # 창이 좁으면 창을 넓히지 않고 글이 잘림
+        self.bar = kit.BottomBar()
+        self.prev_btn = kit.button("이전", "secondary", "l")
+        self.next_btn = kit.button("다음", "secondary", "l")
+        self.status = kit.ElideLabel("", "caption", "secondary")
+        self.status.setFixedWidth(10 * theme.TYPE["caption"][0])  # 자동 저장 안내가 생겨도 답안 칸 높이가 바뀌지 않게 자리를 남김
+        self.paste_note = kit.label(NOTE, "caption", "warning")
+        self.paste_note.setMinimumWidth(1)
         self.paste_note.hide()
-        self.busy_bar = QProgressBar()
-        self.busy_bar.setRange(0, 0)  # 끝을 모르는 진행 표시
-        self.busy_bar.setTextVisible(False)
+        self.busy_bar = kit.progress()
+        self.busy_bar.setRange(0, 0)
         self.busy_bar.setFixedWidth(140)
         self.busy_bar.hide()
-        self.run_btn = QPushButton("코드 실행")
-        self.submit_btn = QPushButton("회차 제출")
-        self.submit_btn.setObjectName("primary")
-        bar_box.addWidget(self.status, 1)
-        bar_box.addWidget(self.paste_note)
-        bar_box.addWidget(self.busy_bar)
-        bar_box.addWidget(self.run_btn)
-        bar_box.addSpacing(16)
-        bar_box.addWidget(self.prev_btn)  # 답 칸 가까이에 둠. 코드 실행 버튼이 숨어도 자리가 움직이지 않게 그 오른쪽에 놓음
-        bar_box.addWidget(self.next_btn)
-        bar_box.addSpacing(16)  # 문항 이동과 제출을 떼어 놓아 잘못 누르지 않게 함
-        bar_box.addWidget(self.submit_btn)
-        root.addWidget(bar)
+        self.run_btn = kit.button("코드 실행", "text", "l")
+        self.submit_btn = kit.button("회차 제출", "primary", "l")
+        for widget in (self.status, self.paste_note, self.busy_bar, self.run_btn):
+            self.bar.add_tool(widget)
+        self.bar.add_action(self.prev_btn)
+        self.bar.add_action(self.next_btn)
+        self.bar.action_row.addSpacing(16)
+        self.bar.add_action(self.submit_btn)
+        root.addWidget(self.bar)
 
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)

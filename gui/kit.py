@@ -1022,7 +1022,8 @@ class NextCard(QFrame):
     def arrange(self):
         """좁은 카드에서는 단추를 글 아래에 둬 제목과 설명의 폭을 확보함."""
         room = self.width() - 64 - self.button.sizeHint().width() - 24
-        stacked = not self.button.isHidden() and room < 24 * theme.TYPE["body"][0]
+        minimum = 24 * theme.TYPE["body"][0] if self.line.isVisibleTo(self) else 12 * theme.TYPE["headline"][0]
+        stacked = not self.button.isHidden() and room < minimum
         self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
 
     def refont(self):

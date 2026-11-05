@@ -329,6 +329,74 @@ class GitFlowTest(unittest.TestCase):
         self.pcs.append(pc)
         return pc
 
+    def test_pending_looks_only_at_my_folder_without_writing(self):
+        self.sync()
+        pc = self.pc
+        before = (pc.read(), pc.state(), git(pc.path, "rev-parse", "HEAD").stdout)
+        self.assertEqual(pc.flow.pending(), {"status": "ok", "pending": False, "count": 0})
+        self.assertEqual((pc.read(), pc.state(), git(pc.path, "rev-parse", "HEAD").stdout), before)
+        write(os.path.join(pc.path, "README.md"), "도구 설명을 고침\n")
+        write(os.path.join(pc.path, "submissions", "bob", "answer.txt"), "다른 사람의 풀이\n")
+        self.assertFalse(pc.flow.pending()["pending"])
+        pc.solve()
+        before = (pc.read(), pc.state(), git(pc.path, "rev-parse", "HEAD").stdout)
+        start = len(pc.flow.log)
+        result = pc.flow.pending()
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(result["pending"])
+        self.assertGreater(result["count"], 0)
+        self.assertEqual((pc.read(), pc.state(), git(pc.path, "rev-parse", "HEAD").stdout), before)
+        self.assertFalse(any(re.search(r"git (fetch|push|add|checkout|update-ref)\b", line) for line in pc.flow.log[start:]))
+
+    def test_pending_clears_after_submit_and_returns_for_new_answers(self):
+        self.sync()
+        pc = self.pc
+        pc.solve()
+        self.assertTrue(pc.flow.pending()["pending"])
+        self.submit()
+        self.assertEqual(pc.flow.pending(), {"status": "ok", "pending": False, "count": 0})
+        path = os.path.join(pc.folder, "profile.json")
+        write(path, study.read_text(path) + "\n")
+        git(pc.path, "add", "--", "submissions/alice/profile.json")
+        self.assertTrue(pc.flow.pending()["pending"])
+
+    def test_pending_failure_is_not_an_empty_submission(self):
+        with mock.patch.object(self.pc.flow, "_commit_of", side_effect=OSError("읽기 실패")):
+            self.assertEqual(self.pc.flow.pending(), {"status": "error", "pending": False, "count": 0})
+
+    def test_reverting_an_open_submission_to_main_updates_the_remote(self):
+        self.server.add_files({"submissions/alice/legacy.py": "Q1 = None\n"}, "빈 풀이를 등록함")
+        self.call(self.pc, "sync", "ok", {"submissions/alice/legacy.py": b"Q1 = None\n"})
+        pc = self.pc
+        path = os.path.join(pc.folder, "legacy.py")
+        write(path, "Q1 = 2\n")
+        self.submit()
+        old = self.server.rev("study/alice")
+        pc.open_pr = OPEN_PR
+        write(path, "Q1 = None\n")
+        self.assertTrue(pc.flow.pending()["pending"])
+        result = self.call(pc, "submit", "ok")
+        self.server.refresh()
+        self.assertEqual(result["pr_url"], OPEN_PR)
+        self.assertNotEqual(self.server.rev("study/alice"), old)
+        self.assertEqual(self.server.folder("study/alice", pc.user), digest(pc.read()))
+        self.assertEqual(self.server.pr_files("study/alice"), [])
+        self.assertFalse(pc.flow.pending()["pending"])
+        self.on_uploaded_commit()
+
+    def test_pending_does_not_repeat_a_submission_received_from_another_computer(self):
+        self.sync()
+        self.pc.solve()
+        self.submit()
+        self.server.merge(self.pc.flow.branch, delete=True)
+        other = self.new_pc("pc2")
+        self.sync(other)
+        other.solve(correct=True)
+        self.submit(other)
+        self.server.merge(other.flow.branch, delete=True)
+        self.sync(after=other.read())
+        self.assertEqual(self.pc.flow.pending(), {"status": "ok", "pending": False, "count": 0})
+
     # 동작 + 검사
 
     def call(self, pc, what, expect, after=None, *args):
@@ -1622,6 +1690,35 @@ class GitFlowTest(unittest.TestCase):
         self.assertEqual(self.checkouts(pc)[-1], "submissions/alice :(exclude)submissions/alice/journey :(exclude)submissions/alice/ai")
         self.assertEqual(pc.attempts(), pc2.attempts())
         self.merge()
+
+
+@unittest.skipIf(git_version() < (2, 38), "git 2.38 이상이 필요함")
+class PendingReferenceTest(unittest.TestCase):
+    def test_answer_reverted_to_old_main_is_still_pending_after_submit_or_restart(self):
+        with tempfile.TemporaryDirectory(prefix="pending_reverted_") as root:
+            git(root, "init", "-b", "main")
+            git(root, "config", "user.name", "tester")
+            git(root, "config", "user.email", "tester@example.invalid")
+            path = os.path.join(root, "submissions", "learner", "quiz.py")
+            write(path, "Q1 = None\n")
+            git(root, "add", ".")
+            git(root, "commit", "-m", "test: 빈 답")
+            main = git(root, "rev-parse", "HEAD").stdout.strip()
+            git(root, "update-ref", gitflow.MAIN, main)
+            write(path, "Q1 = 2\n")
+            git(root, "commit", "-am", "test: 제출한 답")
+            submitted = git(root, "rev-parse", "HEAD").stdout.strip()
+            git(root, "update-ref", "refs/remotes/origin/study/learner", submitted)
+            for in_same_run in (True, False):
+                with self.subTest(in_same_run=in_same_run):
+                    flow = gitflow.GitFlow(root, "learner")
+                    flow._submitted = submitted if in_same_run else ""
+                    write(path, "Q1 = 2\n")
+                    self.assertFalse(flow.pending()["pending"])
+                    write(path, "Q1 = None\n")
+                    before = git(root, "status", "--porcelain").stdout
+                    self.assertEqual(flow.pending(), {"status": "ok", "pending": True, "count": 1})
+                    self.assertEqual(git(root, "status", "--porcelain").stdout, before)
 
 
 class CiReportTest(unittest.TestCase):

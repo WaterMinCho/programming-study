@@ -11,6 +11,7 @@ CodeSlots 가 코드 줄 사이에 입력 칸을 두어 그리고, 울타리 밖
 뼈대 카드: 빈칸은 판 전체 코드의 CodeSlots 이고, 함께 가린 칸이 틀리면 정답 줄 아래에 그 칸 번호를 한 줄 더 씀([내 답도 맞음]도 보임).
 고르기는 보기가 코드라 CodeChoices(순서 고르기는 2×2)로 그리고 판정 아래 정답 줄 없이 보기 꼬리표만 씀.
 묶음이 끝나면 같은 카드에 요약을 보임. 시험처럼 복사와 붙여넣기는 막힘: 키는 gui/guard.py, 가운데 단추와 끌어다 놓기는 칸마다 PasteBlock."""
+import html
 import time
 
 from PyQt6.QtCore import QEvent, QObject, Qt
@@ -22,7 +23,7 @@ from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
 from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, rich
 from gui.guard import NOTE as PASTE_NOTE
-from gui.widgets import PasteBlock
+from gui.widgets import LinkLabel, PasteBlock
 from session import SessionError
 
 
@@ -471,8 +472,12 @@ class PracticePage(QWidget):
             row.addWidget(kit.badge("정정", "warning"), 0, Qt.AlignmentFlag.AlignTop)
             row.addWidget(kit.para(ai_text.errata_text(feedback["errata"])), 1)
             box.addWidget(line)
-        if feedback.get("ref"):
-            box.addWidget(kit.para("근거: %s" % ai_text.ref_text(feedback["ref"]), "caption", "secondary"))
+        target = self.note_reference()
+        if target:
+            link = kit.typed(LinkLabel('<a href="study-note">참고: %s</a>' % html.escape(target["label"]),
+                                       line=theme.TYPE["caption"][1], font=theme.font("caption")), "caption")
+            link.linkActivated.connect(self.open_reference)
+            box.addWidget(link)
         self.after.setVisible(box.count() > 0)
 
     def override(self):
@@ -568,7 +573,7 @@ class PracticePage(QWidget):
         answered = self.item is not None and self.feedback is not None
         ended = self.item is None and self.practice is not None
         for button, on in ((self.dont_btn, asking), (self.unsure_btn, asking), (self.sure_btn, asking), (self.next_btn, answered),
-                           (self.note_btn, answered and bool(self.item and self.item.get("step"))),
+                           (self.note_btn, answered and self.note_reference() is not None),
                            (self.mine_btn, answered and self.item["kind"] == "blank" and not self.dontknow
                             and (self.feedback["result"] != "pass" or self.feedback.get("also")) and not self.feedback.get("overridden")),
                            (self.home_btn, ended), (self.again_btn, ended)):
@@ -584,13 +589,25 @@ class PracticePage(QWidget):
                 text = "한 번 더"
             self.again_btn.setText(text)
 
+    def note_reference(self):
+        if not self.item or self.win.ai is None:
+            return None
+        try:
+            return self.win.ai.note_target(self.item.get("card"))
+        except SessionError:
+            return None
+
+    def open_reference(self, url):
+        if url == "study-note":
+            self.open_note()
+
     def open_note(self):
-        item = self.item
-        if not item or not item.get("step"):
+        target = self.note_reference()
+        if target is None:
             return
         self.close_note()
         try:
-            self.note_dialog = NoteDialog(self.win, item["lesson"], item["step"])
+            self.note_dialog = NoteDialog(self.win, target["lesson"], target["step"])
         except SessionError as error:
             self.win.ask("알림", str(error))
             return

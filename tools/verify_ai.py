@@ -38,7 +38,7 @@ import study  # noqa: E402
 from aiprep import bank as aibank  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
 from aiprep import grade, review, skel  # noqa: E402
-from tools import ai_art, ai_seal, check_style, verify_web, web_lint  # noqa: E402
+from tools import ai_art, ai_seal, check_style, lecture_locations, verify_web, web_lint  # noqa: E402
 from webprep import bank as webbank  # noqa: E402
 
 STEP_NAMES = {1: "목록", 2: "문항 꼴", 3: "빈칸 규칙", 4: "고르기", 5: "문장", 6: "생성기", 7: "사실 확인", 8: "노트 블록", 9: "근거",
@@ -542,8 +542,9 @@ def check_gen(v, les, card, oracles, seeds):
                     break
         if len(stems) > styled and styled < STYLE_SAMPLES:
             styled = len(stems)
-            v.style(label, "%s 시드 %d stem" % (cid, seed), made.get("stem", ""), markdown=True)
-            v.style(label, "%s 시드 %d explain" % (cid, seed), made.get("explain", ""), markdown=True)
+            sample = {"id": "%s 시드 %d" % (cid, seed), "kind": made["kind"], "item": made}
+            for where, text, markdown in card_texts(sample):
+                v.style(label, where, text, markdown)
     for problem in problems:
         v.fail(label, 6, "%s %s" % (cid, problem))
     if not problems:
@@ -598,6 +599,8 @@ def check_note_blocks(v, les, terms=None):
     note = les.note
     if note is None:
         return
+    for no, found in lecture_locations.find(note["markdown"], markdown=True):
+        v.fail(label, 10, "page.md:%d: %s: %s" % (no, lecture_locations.RULE, found))
     terms = terms or {"known": [], "terms": []}
     level_blocks = 0
     unit_cards = {}
@@ -798,7 +801,7 @@ def check_levels(v, les, unit, step, block, spot, terms):
                 for key in ("text", "caption", "code"):
                     if _has_word(texts.get(key, ""), answer):
                         v.warn(label, 8, "%s 의 %s 에 %d살 물음의 답 '%s' 가 나옵니다." % (where, key, lower["level"], answer))
-        for key in ("text", "caption", "q", "why", "mistake", "where"):  # web_lint 가 울타리 안을 건너뛰어서 여기서 봄
+        for key in ("text", "caption", "q", "why", "mistake"):  # web_lint 가 울타리 안을 건너뛰어서 여기서 봄
             flat = web_lint.plain(texts.get(key, ""))
             for found in web_lint.SPACED.finditer(flat):
                 v.fail(label, 10, "%s %s: 띄어 쓴 조사: 영어 낱말이나 코드 뒤의 조사는 붙여 씁니다: %s"
@@ -833,10 +836,8 @@ def check_levels(v, les, unit, step, block, spot, terms):
                 v.fail(label, 8, "%s 의 code 가 %d줄입니다(2~8줄)." % (where, len(lines)))
             if not level["mistake"].strip():
                 v.fail(label, 8, "%s 에 mistake 가 없습니다." % where)
-            if "차시" not in level["where"]:
-                v.fail(label, 8, "%s 의 where 에 강의 위치(N차시 …)가 없습니다." % where)
         v.style(label, "%s text" % where, level["text"], markdown=True)
-        for key in ("caption", "content", "q", "why", "mistake", "where"):
+        for key in ("caption", "content", "q", "why", "mistake"):
             v.style(label, "%s %s" % (where, key), texts.get(key, ""))
 
 
