@@ -588,10 +588,18 @@ def cards_of(lesson, data):
             add(str(item["id"]), kind, item, item=item)
     for topic in data["topics"]:
         for statement in topic.get("statements") or []:
-            source = dict(topic, **{k: v for k, v in statement.items() if k in ("facts", "core", "family", "confuse", "step",
+            source = dict(topic, **{k: v for k, v in statement.items() if k in ("unit", "facts", "core", "family", "confuse", "step",
                                                                                    "errata", "ref", "deep", "prio", "level")})
             source.setdefault("step", topic.get("step"))
             add(str(statement["id"]), "stmt", source, stmt=statement, topic=topic)
     for spec in data["gens"]:
         add(spec.id, "gen", spec.meta, gen=spec, family=str(spec.meta.get("family") or spec.id))
     return cards
+
+
+def pattern_gen_cards(group, data, units):
+    """공개된 상황별 코드 단원의 생성 문항에 권장 차시와 이름을 붙임."""
+    source = {"items": [], "topics": [], "gens": data["gens"]}
+    cards = cards_of({"id": group["id"]}, source)
+    return [dict(card, after=units[card["unit"]]["after"], name=units[card["unit"]]["name"])
+            for card in cards if card["unit"] in units]

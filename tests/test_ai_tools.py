@@ -581,6 +581,19 @@ class LeechTest(Case):
 
 
 class OverlapTest(Case):
+    def test_standard_training_calls_alone_do_not_claim_copied_code(self):
+        block = "loss.backward()\noptimizer.step()\nmodel.eval()\nwith torch.no_grad():"
+        source = {"prose": [], "code": [block]}
+        self.assertEqual([], ai_overlap.overlaps([("공통 호출", "", block)], source)["fail"])
+        repeated = block + "\n" + block + "\n" + block
+        found = ai_overlap.overlaps([("긴 동일 코드", "", repeated)], {"prose": [], "code": [repeated]})
+        self.assertTrue(any("120자" in row[2] for row in found["fail"]))
+
+    def test_training_calls_with_a_custom_line_still_find_overlap(self):
+        block = "total_loss += loss.item() * batch_count\noptimizer.step()\nmodel.eval()"
+        found = ai_overlap.overlaps([("직접 쓴 계산", "", block)], {"prose": [], "code": [block]})
+        self.assertTrue(any("코드 줄 3개" in row[2] for row in found["fail"]))
+
     def test_fake_corpus(self):
         lecture = os.path.join(self.bank, "lecture")
         out = io.StringIO()
@@ -1124,12 +1137,12 @@ class PatternSignTest(PatternCase):
         code, out = quiet(ai_seal.main, ["brief", "pc", "--out", out_dir, "--bank", self.bank])
         self.assertEqual(0, code, out)
         read = lambda name: study.read_text(os.path.join(out_dir, name))  # noqa: E731
-        return read("sheet.md"), read("skel.md"), study.read_json(os.path.join(out_dir, "answers.json"))
+        return read("sheet.md") + read("whole.md"), read("skel.md"), study.read_json(os.path.join(out_dir, "answers.json"))
 
-    def test_brief_has_two_stages_and_no_answers(self):
+    def test_brief_has_three_stages_and_no_answers(self):
         sheet, samples, answers = self.brief()
         self.assertIn("## S90 가 전체", sheet)
-        self.assertLess(sheet.index("## S90 가 전체"), sheet.index("## pc-o01 시드 1"))
+        self.assertLess(sheet.index("## pc-o01 시드 1"), sheet.index("## S90 가 전체"))
         for key in ("pc-o01 시드 1", "pc-o01 시드 3", "pc-p01", "pc-x01 시드 2"):
             self.assertIn("## %s" % key, sheet)
             self.assertEqual({"picked": []}, answers[key])
@@ -1143,6 +1156,41 @@ class PatternSignTest(PatternCase):
         self.assertIn("## pc-k06 f3", samples)
         self.assertEqual(18, len([k for k in answers if ai_seal.SAMPLE_KEY.match(k)]))
         self.assertIn("학습 모드로 바꾸는 메서드 이름은 ____ 입니다.", sheet)  # 노트의 떠올리기
+
+    def test_choices_precede_whole_code_and_note_answers_are_separate(self):
+        fence = chr(96) * 3
+        self.replace("learn/l18/page.md", fence + "ai-recall", fence + 'ai-why\n{"id":"briefwhy","q":"기울기를 먼저 비우는 까닭은 무엇인가요?","a":"비밀 답 표식입니다."}\n' + fence + "\n\n" + fence + "ai-recall")
+        self.brief()
+        folder = os.path.join(self.tmp, "brief")
+        sheet = study.read_text(os.path.join(folder, "sheet.md"))
+        whole = study.read_text(os.path.join(folder, "whole.md"))
+        samples = study.read_text(os.path.join(folder, "skel.md"))
+        self.assertNotIn("## S90 가 전체", sheet)
+        self.assertIn("## S90 가 전체", whole)
+        self.assertNotIn("## pc-p01", whole)
+        self.assertIn("코드 한 줄", samples)
+        self.assertIn("whole.md", sheet)
+        note_answers = study.read_json(os.path.join(folder, "note-answers.json"))
+        self.assertTrue(note_answers)
+        self.assertTrue(all(value == [""] or value == {"picked": []} for value in note_answers.values()))
+        self.assertTrue(all(key.startswith("l18 ") for key in note_answers))
+        self.assertTrue(any("why briefwhy@" in key for key in note_answers))
+        self.assertIn("기울기를 먼저 비우는 까닭", sheet)
+        self.assertNotIn("비밀 답 표식", sheet + whole + samples + json.dumps(note_answers, ensure_ascii=False))
+        graded = study.read_json(os.path.join(folder, "answers.json"))
+        self.assertFalse(set(note_answers) & set(graded))
+
+    def test_named_and_anonymous_note_questions_keep_distinct_empty_answers(self):
+        parts = [{"kind": "why", "id": "b2", "q": "첫 조건은 무엇인가요?", "a": "첫 비밀 답"},
+                 {"kind": "why", "q": "다음 조건은 무엇인가요?", "a": "둘째 비밀 답"}]
+        parsed = {"order": ["18a"], "units": {"18a": {"steps": [{"no": 1, "blocks": parts}]}}}
+        with mock.patch.object(ai_seal.aibank, "parse_page", return_value=parsed):
+            answers = ai_seal._note_answers(self.bank, "l18")
+            shown = ai_seal._note_lines(self.bank, "l18")
+        self.assertEqual(2, len(answers))
+        self.assertTrue(all(value == [""] for value in answers.values()))
+        self.assertNotIn("비밀 답", json.dumps(answers, ensure_ascii=False) + "\n".join(shown))
+        self.assertNotIn("None", "\n".join(shown))
 
     def fill(self, answers, wrong=()):
         cards = {c["id"]: c for c in ai_seal.pattern_cards(self.bank, aifix.PATTERNS)[1]}

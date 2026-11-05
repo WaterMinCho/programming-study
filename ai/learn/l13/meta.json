@@ -1,0 +1,130 @@
+{
+  "format": 1,
+  "id": "l13",
+  "title": "13차시 사전학습한 특징을 새 분류에 사용합니다",
+  "lesson": "i13",
+  "defines": [
+    "전이 학습",
+    "고정 특징 추출",
+    "미세 조정",
+    "적응형 평균 풀링",
+    "전역 평균 풀링",
+    "Top-k 오차"
+  ],
+  "needs": [
+    "l06",
+    "l09",
+    "l11",
+    "l12"
+  ],
+  "sections": {
+    "13a": "학습한 특징을 새 분류에 가져옵니다",
+    "13b": "공간 평균으로 채널마다 숫자를 남깁니다",
+    "13c": "마지막 분류기를 새 클래스 수에 맞춥니다",
+    "13d": "풀링 횟수에서 VGG의 입력 길이를 계산합니다",
+    "13e": "Top-k 오차와 비교 조건을 함께 읽습니다",
+    "13f": "CNN이 깊어질 때 연결 방식도 바뀝니다",
+    "13g": "새 분류기와 전처리를 학습 전에 준비합니다"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "전이 학습의 범위와 고정 뒤 새 분류기를 만드는 순서",
+      "url": "https://docs.pytorch.org/tutorials/beginner/transfer_learning_tutorial.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "적응형 평균 풀링의 공간 크기와 채널 유지",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.AdaptiveAvgPool2d.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Linear의 weight와 bias 모양",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Linear.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "ResNet-18의 가중치·파라미터 수·권장 전처리",
+      "url": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "VGG-19-BN의 구성과 가중치",
+      "url": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.vgg19_bn.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "MobileNetV2의 V1·V2 전처리 차이",
+      "url": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.mobilenet_v2.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "VGG 구현의 features·avgpool·classifier",
+      "url": "https://raw.githubusercontent.com/pytorch/vision/main/torchvision/models/vgg.py",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "ResNet 구현의 fc와 공간 평균",
+      "url": "https://raw.githubusercontent.com/pytorch/vision/main/torchvision/models/resnet.py",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "MobileNetV2 구현의 마지막 분류기",
+      "url": "https://raw.githubusercontent.com/pytorch/vision/main/torchvision/models/mobilenetv2.py",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "VGG 원 논문의 3×3 층",
+      "url": "https://arxiv.org/html/1409.1556v6",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "GoogLeNet의 갈래와 평균 풀링 뒤 선형 층",
+      "url": "https://arxiv.org/html/1409.4842v1",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "AlexNet 원 논문의 5개 합성곱·3개 완전 연결 층",
+      "url": "https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "13a": {
+      "minutes": 6,
+      "key_figure": "assets/13a-1.png",
+      "kind": "concept"
+    },
+    "13b": {
+      "minutes": 6,
+      "key_figure": "assets/13b-1.gif",
+      "kind": "concept"
+    },
+    "13c": {
+      "minutes": 6,
+      "key_figure": "assets/13c-1.png",
+      "kind": "concept"
+    },
+    "13d": {
+      "minutes": 6,
+      "key_figure": "assets/13d-1.png",
+      "kind": "concept"
+    },
+    "13e": {
+      "minutes": 6,
+      "key_figure": "assets/13e-1.png",
+      "kind": "concept"
+    },
+    "13f": {
+      "minutes": 6,
+      "key_figure": "assets/13f-1.png",
+      "kind": "concept"
+    },
+    "13g": {
+      "minutes": 6,
+      "key_figure": "assets/13g-1.png",
+      "kind": "code"
+    }
+  }
+}

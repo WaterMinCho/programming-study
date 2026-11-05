@@ -830,6 +830,26 @@ class PatternPlanTest(PatternBase):
 
 
 class PatternSetTest(PatternBase):
+    def test_choose_separates_pick_from_a_change_that_reveals_its_line(self):
+        sess = self.session()
+        state = sess._state()
+        for ids in (["pc-p01", "pc-x01"], ["pc-x01", "pc-p01"]):
+            chosen = service._choose(sess, state, [("rest", ids)], 20, random.Random(7))
+            self.assertEqual([(ids[0], "rest")], chosen)
+        chosen = service._choose(sess, state, [("rest", ["pc-x01", "i90-b01"])], 20, random.Random(7),
+                                 taken=[("pc-p01", "lead")])
+        self.assertEqual([("pc-p01", "lead"), ("i90-b01", "rest")], chosen)
+
+    def test_choose_keeps_pick_when_the_change_edits_other_lines(self):
+        path = os.path.join(self.root, "patterns", "S90.json")
+        data = study.read_json(path)
+        data["variants"]["나"]["lines"][7] = data["variants"]["가"]["lines"][7]
+        data["variants"]["나"]["lines"][5] = "    e.backward(retain_graph=True)"
+        study.write_text(path, json.dumps(data, ensure_ascii=False))
+        sess = self.session()
+        chosen = service._choose(sess, sess._state(), [("rest", ["pc-p01", "pc-x01"])], 20, random.Random(7))
+        self.assertEqual([("pc-p01", "rest"), ("pc-x01", "rest")], chosen)
+
     def test_locked_until_read_then_core_first(self):
         sess = self.session()
         with self.assertRaises(AiError):

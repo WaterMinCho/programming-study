@@ -1,0 +1,38 @@
+{
+ "format": 1,
+ "writer": "출제 1",
+ "resolver": "재풀이 2",
+ "reviewer": "검토 4",
+ "files": {
+  "assets/17a-1.png": "435c768b0e5e2a29e1be4dd513fa0f49dcdfc937375c4486c264ed60ae6a1637",
+  "assets/17a-2.png": "d4bd5a0f5eb8595e72fe91914b08555a8cc831f4e319cf81a0dc31082b94dc2f",
+  "assets/17a-3.png": "58f3f0d9928e32a2fea801298edb2939b5f2699b044c4a7c08a2da1d4cfd1263",
+  "assets/17a-31.png": "827caf73962dab8de2863af5d37830c0e65acd68402ba46a11c1668e0e7a677c",
+  "assets/17a-32.png": "1684360248c19c9f91fe73a4713d718a3804989ba9cc839dd88ab17d222fdf42",
+  "assets/17a-33.png": "1c1ec624720a3b10ffe8b9a8a68f993e4aee4c1a5a20e34dbcda211bb4b3d067",
+  "assets/17b-1.png": "d533d5b0c44d1a73204a8806d1e9ee573a6fa528a85289fffe3ac549e327f204",
+  "assets/17b-2.png": "04055be9f4baf525c6311ccb7407186c87afd40596208c72ad78df16de337072",
+  "assets/17b-3.png": "688d5f7ef6285deb1a40dd0366f2abac86e81b69456c4c88896d336925f87fed",
+  "assets/17b-31.png": "f3ef63b7ee35790c1fb83842dc38ba0a3ea36c45df79b40e42ebaaf1e55b07b5",
+  "assets/17b-32.png": "1684360248c19c9f91fe73a4713d718a3804989ba9cc839dd88ab17d222fdf42",
+  "assets/17b-33.png": "c43095524bdf0d3d044c7b402c64bee40e71fda7b2f58f8577e05e3c65347aa5",
+  "assets/17c-1.png": "335abea2b07439eaf1c6564c7ae4514d0e9d15ab89f9ad7bb8aada45f7f9bcb2",
+  "assets/17c-2.png": "227ee45293805fb5ca05446b8a1cdd9461cba2569cc53595a36f1dd40e69daea",
+  "assets/17c-3.png": "6ac5540b307095ba74874318f89a33bbbecf6ac3e0c92d90969786b093b80369",
+  "assets/17c-31.png": "82cb6db9b24e6ef6fd2ca1b9d5b0c33eeb97cd9cd9acf03cedb232288e54309a",
+  "assets/17c-32.png": "1dced0be86c95d138624574bf3d295b00eba17e972e86c57213a6051cbbd2e38",
+  "assets/17c-33.png": "1ec71b1ecacf9de1518a95705efd85adb65e95ba5bd4d085be0c8a6d7869d477",
+  "assets/17d-1.png": "fde116eef4448b8a2ea03d045f49bd96e3425499e79843d32d44ed84e416d6be",
+  "assets/17d-2.png": "acce2cc251a894b375f6855bb398737db01ffac9111ddb784551258b54547aaa",
+  "assets/17d-3.png": "c510301434ce89fb45fecddd10f11bcd133f5279b39a0a355f91170de526c21a",
+  "assets/17e-1.png": "443b13932f94d8a65b3fa8821038fb5593a42155d5d84846831ed928fb64ebe3",
+  "assets/17e-2.png": "34fb0112b5706921b4319d9067c28991659fe58e43974540ac3075a892a58df5",
+  "assets/17e-3.png": "ec230f33bbb0a607cae9decc21126be9bb60243703645619f6b61b849bf8dda6",
+  "assets/17e-4.png": "acdc3dc5f0fdf73f174d837d9499ef3b02ad38d0c124bb9fa7307ff312fce31e",
+  "meta.json": "6353344b773fcbfbe4790a614218112241cf877dcd3b3424dabb31c6115380a1",
+  "page.md": "6fc64321a5a4ed125f1537eb05dbd980e6d8dbb1a8b7bcdb293549a5b642b6ac"
+ },
+ "findings": [
+  "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음."
+ ]
+}
