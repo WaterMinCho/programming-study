@@ -1,0 +1,124 @@
+{
+  "format": 1,
+  "id": "l14",
+  "title": "14차시 학습할 범위와 실행 조건을 맞춥니다",
+  "lesson": "i14",
+  "defines": [
+    "차등 학습률",
+    "파라미터 그룹",
+    "점진적 해제",
+    "잔차 연결",
+    "투영 경로"
+  ],
+  "needs": [
+    "l11",
+    "l12",
+    "l13"
+  ],
+  "sections": {
+    "14a": "학습할 범위를 검증 자료로 선택합니다",
+    "14b": "기울기 설정과 실제 갱신 대상을 대조합니다",
+    "14c": "학습률 그룹에서 빠지거나 겹친 대상을 찾습니다",
+    "14d": "초기 학습률에 에폭별 배수를 곱합니다",
+    "14e": "해제할 에폭과 optimizer 등록을 같이 정합니다",
+    "14f": "증강의 크기 조건과 입력 형식을 맞춥니다",
+    "14g": "같은 모양의 두 경로를 더합니다",
+    "14h": "학습 함수가 모델의 모드를 바꾸는지 읽습니다"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "옵티마이저 그룹별 기본값과 등록 대상",
+      "url": "https://docs.pytorch.org/docs/2.15/optim.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "LambdaLR의 초기값 기준 배수와 함수 목록",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.optim.lr_scheduler.LambdaLR.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "LambdaLR의 초기 step과 호출 순서 구현",
+      "url": "https://raw.githubusercontent.com/pytorch/pytorch/v2.15.0/torch/optim/lr_scheduler.py",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "RandomResizedCrop의 면적 scale과 ratio",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomResizedCrop.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "RandomErasing의 Tensor 입력 조건",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomErasing.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "크롭 후보 탐색의 정수 반올림과 중앙 크롭 복귀",
+      "url": "https://raw.githubusercontent.com/pytorch/vision/main/torchvision/transforms/transforms.py",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "잔차 연결과 모양 변경 투영",
+      "url": "https://arxiv.org/html/1512.03385",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "ResNet stem과 블록의 실제 구현",
+      "url": "https://raw.githubusercontent.com/pytorch/vision/main/torchvision/models/resnet.py",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "BatchNorm의 모드와 이동 통계",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BatchNorm2d.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "no_grad의 기록 중단 범위",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.no_grad.html",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "14a": {
+      "minutes": 6,
+      "key_figure": "assets/14a-1.png",
+      "kind": "concept"
+    },
+    "14b": {
+      "minutes": 6,
+      "key_figure": "assets/14b-1.png",
+      "kind": "concept"
+    },
+    "14c": {
+      "minutes": 6,
+      "key_figure": "assets/14c-1.png",
+      "kind": "concept"
+    },
+    "14d": {
+      "minutes": 6,
+      "key_figure": "assets/14d-1.png",
+      "kind": "concept"
+    },
+    "14e": {
+      "minutes": 6,
+      "key_figure": "assets/14e-1.gif",
+      "kind": "concept"
+    },
+    "14f": {
+      "minutes": 6,
+      "key_figure": "assets/14f-1.png",
+      "kind": "concept"
+    },
+    "14g": {
+      "minutes": 6,
+      "key_figure": "assets/14g-1.png",
+      "kind": "concept"
+    },
+    "14h": {
+      "minutes": 6,
+      "key_figure": "assets/14h-1.png",
+      "kind": "code"
+    }
+  }
+}
