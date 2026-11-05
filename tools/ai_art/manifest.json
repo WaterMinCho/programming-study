@@ -2041,20 +2041,20 @@
    "script": "tools/ai_art/l10.py",
    "fn": "10d-2"
   },
-  "learn/l10/assets/10d-21.png": {
+  "learn/l10/assets/10d-31.png": {
    "sha256": "5b67f99b67036d4b88800e7bc7350ddc80af444f38a925536be499cf521c754a",
    "script": "tools/ai_art/l10.py",
-   "fn": "10d-21"
+   "fn": "10d-31"
   },
-  "learn/l10/assets/10d-22.png": {
+  "learn/l10/assets/10d-32.png": {
    "sha256": "d423b259239834231e9e08a7bcd0f14943a04f1bb789f75bac3f414671b897e2",
    "script": "tools/ai_art/l10.py",
-   "fn": "10d-22"
+   "fn": "10d-32"
   },
-  "learn/l10/assets/10d-23.png": {
+  "learn/l10/assets/10d-33.png": {
    "sha256": "bdc0738ca128c4797c8c84645b9c0a21b03dc39d3284a0bddb85cc93b339a1e5",
    "script": "tools/ai_art/l10.py",
-   "fn": "10d-23"
+   "fn": "10d-33"
   },
   "learn/l10/assets/10d-3.png": {
    "sha256": "77383fe50289fbc58bd6e32efa67e95836ddcc98af2fe538211d691457006dc6",
