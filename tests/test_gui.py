@@ -171,7 +171,7 @@ class GuiTest(unittest.TestCase):
 
     def tearDown(self):
         wait_until(lambda: self.win.job is None)
-        guikit.wait_until(lambda: self.win.pending_job is None)
+        wait_until(lambda: self.win.pending_job is None)
         self.win.close()
         self.win.deleteLater()
         pump()
@@ -573,6 +573,7 @@ class HomeAndGitTest(GuiTest):
         item = self.select(lambda it: it["type"] == "choice")
         click(self.win.round_page.choice_panel.buttons[0])
         self.win.close()
+        wait_until(lambda: not self.win.isVisible(), 5)
         self.assertFalse(self.win.isVisible())
         self.assertEqual(self.saved_quiz("d1")[item["id"]], 1)
 
@@ -694,11 +695,12 @@ class HomeAndGitTest(GuiTest):
         self.win.resize(760, 680)
         size = self.win.size()
         self.win.close()
+        wait_until(lambda: not self.win.isVisible(), 5)
         self.assertEqual(self.settings.value("text"), "larger")
         again = MainWindow(self.settings, lambda root, user: (self.git, ""))
+        self.addCleanup(again.deleteLater)
         self.assertEqual((again.zoom, theme.state["text"]), (4, "larger"))
         self.assertEqual(again.size(), size)
-        again.deleteLater()
 
     def test_closing_while_a_job_runs_waits_for_it(self):
         self.boot()
@@ -1650,8 +1652,9 @@ class WrongNotesTest(GuiTest):
 
     def open_with(self, *tracks):
         """오답 노트 공급자를 tracks 로 바꾼 창을 새로 띄워 첫 화면까지 엶."""
-        guikit.wait_until(lambda: self.win.pending_job is None)
+        wait_until(lambda: self.win.pending_job is None)
         self.win.close()
+        wait_until(lambda: not self.win.isVisible(), 5)
         self.win.deleteLater()
         with mock.patch.object(window, "WRONG_TRACKS", tracks):
             self.win = MainWindow(self.settings, lambda root, user: (self.git, ""))

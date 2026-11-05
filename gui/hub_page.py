@@ -484,10 +484,10 @@ class HubPage(QWidget):
             return None
         due = [c for c in overview["today"]["chains"] if not c["new"]]
         fresh = len(overview["today"]["chains"]) - len(due)
-        parts = ["오늘 복습 %d개" % len(due) if due or not fresh else "새 사슬 %d개" % fresh]
+        parts = ["복습 %d개" % len(due) if due or not fresh else "새 학습 %d개" % fresh]
         state, text = web_text.stack_status(overview["stack"])
         if state != "ready":
-            parts.append(text)
+            parts.append("설정 필요")
         self.web_row.set_second(" · ".join(parts))
         self.web_row.set_metric(overview["done_missions"], overview["ready_missions"], "완료한 미션")
         return overview

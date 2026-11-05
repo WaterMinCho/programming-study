@@ -323,6 +323,68 @@ class SignTest(Case):
         self.assertEqual(7, review["first_pass"]["correct"])
         self.assertEqual(40, review["first_pass"]["minutes"])
 
+    def test_keep_first_pass_preserves_values_and_findings(self):
+        self.sign("--finding", "첫 재풀이를 기록함")
+        first = {"cards": 12, "correct": 9, "wrong": ["i90-b02"], "minutes": 40,
+                 "source": {"clock": "file_time"}}
+        self.edit_json("items/i90/work/review.json", lambda data: data.update(first_pass=first))
+        code, out = self.sign("--keep-first-pass", "--finding", "문장을 고치고 다시 대조함")
+        self.assertEqual(0, code, out)
+        review = self.read_json("items/i90/work/review.json")
+        self.assertEqual(first, review["first_pass"])
+        self.assertEqual(["첫 재풀이를 기록함", "문장을 고치고 다시 대조함"], review["findings"])
+        self.assertEqual(0, self.verify("i90", "--require-review")[0])
+
+    def test_keep_first_pass_rejects_missing_or_invalid_record(self):
+        self.assertFails("이전 첫 재풀이 기록을 읽을 수 없어", "i90", "--sign", *NAMES, "--keep-first-pass")
+        self.assertFalse(os.path.exists(self.path("items/i90/work/review.json")))
+        for value in (None, [], "기록 없음"):
+            with self.subTest(value=value):
+                self.sign()
+                self.edit_json("items/i90/work/review.json", lambda data: data.update(first_pass=value))
+                before = study.read_text(self.path("items/i90/work/review.json"))
+                self.assertFails("이전 첫 재풀이 기록을 읽을 수 없어", "i90", "--sign", *NAMES, "--keep-first-pass")
+                self.assertEqual(before, study.read_text(self.path("items/i90/work/review.json")))
+
+    def test_keep_first_pass_preserves_empty_record(self):
+        self.sign()
+        code, out = self.sign("--keep-first-pass")
+        self.assertEqual(0, code, out)
+        self.assertEqual({}, self.read_json("items/i90/work/review.json")["first_pass"])
+
+    def test_damaged_first_pass_fields_do_not_replace_the_review(self):
+        self.sign()
+        valid = self.read_json('items/i90/work/review.json')
+        for value in ({'cards': '12'}, {'cards': True}, {'correct': -1}, {'cards': 2, 'correct': 3},
+                      {'wrong': 'i90-b01'}, {'wrong': [7]}, {'minutes': '40'}, {'minutes': float('nan')},
+                      {'gens': []}, {'gens': {'checked': -1}}, {'gens': {'seeds': '10'}}):
+            with self.subTest(value=value):
+                self.write('items/i90/work/review.json', json.dumps(dict(valid, first_pass=value), ensure_ascii=False))
+                before = study.read_text(self.path('items/i90/work/review.json'))
+                self.assertFails('이전 첫 재풀이 기록을 읽을 수 없어', 'i90', '--sign', *NAMES, '--keep-first-pass')
+                self.assertEqual(before, study.read_text(self.path('items/i90/work/review.json')))
+
+    def test_damaged_findings_block_signing_without_overwriting_record(self):
+        self.sign()
+        valid = self.read_json("items/i90/work/review.json")
+        valid["first_pass"] = {"cards": 12, "correct": 9, "minutes": 40}
+        for value in (7, {"note": "기록"}, "기록", [7]):
+            for extra in ([], ["--keep-first-pass"]):
+                with self.subTest(value=value, extra=extra):
+                    damaged = dict(valid, findings=value)
+                    self.write("items/i90/work/review.json", json.dumps(damaged, ensure_ascii=False))
+                    before = study.read_text(self.path("items/i90/work/review.json"))
+                    self.assertFails("이전 검토 메모를 읽을 수 없어", "i90", "--sign", *NAMES, *extra)
+                    self.assertEqual(before, study.read_text(self.path("items/i90/work/review.json")))
+
+    def test_keep_first_pass_option_conflicts(self):
+        for args in (("--keep-first-pass",), ("--keep-first-pass", "--sign", "--minutes", "20"),
+                     ("--keep-first-pass", "--first-pass", "answers.json")):
+            with self.subTest(args=args), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as error:
+                    verify_ai.parse_args(list(args))
+                self.assertEqual(2, error.exception.code)
+
     def test_old_answers_still_grade(self):
         answers = {"i90-s05": {"ok": False}, "i90-s01": {"ok": True, "cloze": ["검증"]},
                    "i90-c01": {"order": [3, 0, 1, 2], "picked": [2]}}

@@ -7,7 +7,7 @@
   python tools/verify_ai.py i05 --answers FILE         재풀이 답안(ai_seal.py brief 가 만든 answers.json)을 채점함
   python tools/verify_ai.py --levels-answers FILE      세 수준 물음 재풀이 답안(ai_seal.py levels 가 만든 levels_answers.json)을 채점함
   python tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4"
-                            [--first-pass FILE] [--finding 글 ...]
+                            [--first-pass FILE | --keep-first-pass] [--finding 글 ...]
                                                        검증을 통과하면 work/review.json 을 씀(그 뒤 ai_seal.py seal)
   python tools/verify_ai.py --require-review           문항 묶음·공용 생성기·모의고사 서명이 없거나 서명 뒤 바뀐 파일이 있으면 실패
   python tools/verify_ai.py --overrides | --leeches    submissions 기록에서 [내 답도 맞음] 답과 자주 틀리는 문항을 모아 보임
@@ -24,6 +24,7 @@ check_level_figure 가 여기서 봄.
 """
 import argparse
 import json
+import math
 import os
 import re
 import subprocess
@@ -1699,6 +1700,27 @@ def review_target(folder):
     return os.path.join(folder, webbank.WORK_DIR, "review.json")
 
 
+def valid_first_pass(value):
+    """기존 첫 재풀이의 알려진 필드가 읽을 수 있는 형식인지 봄. 빈 기록과 추가 메타데이터는 그대로 허용함."""
+    if not isinstance(value, dict):
+        return False
+    for key in ('cards', 'correct'):
+        if key in value and (type(value[key]) is not int or value[key] < 0):
+            return False
+    if 'cards' in value and 'correct' in value and value['correct'] > value['cards']:
+        return False
+    if 'wrong' in value and (not isinstance(value['wrong'], list) or not all(isinstance(cid, str) for cid in value['wrong'])):
+        return False
+    if 'minutes' in value and (type(value['minutes']) not in (int, float) or not math.isfinite(value['minutes']) or value['minutes'] < 0):
+        return False
+    if 'gens' in value:
+        if not isinstance(value['gens'], dict):
+            return False
+        if any(key in value['gens'] and (type(value['gens'][key]) is not int or value['gens'][key] < 0) for key in ('checked', 'seeds')):
+            return False
+    return True
+
+
 def sign(v, label, folder, secrets, first_pass, files):
     o = v.opts
     names = {"writer": o.writer, "resolver": o.resolver, "checker": o.checker, "reviewer": o.reviewer}
@@ -1717,9 +1739,13 @@ def sign(v, label, folder, secrets, first_pass, files):
     old = secrets.get("review.json")
     if old:
         try:
-            findings = list(json.loads(old).get("findings") or [])
-        except (ValueError, AttributeError):
-            findings = []
+            findings = json.loads(old).get("findings", [])
+            if not isinstance(findings, list) or not all(isinstance(text, str) for text in findings):
+                raise ValueError("findings")
+            findings = list(findings)
+        except (ValueError, AttributeError, TypeError):
+            v.fail(label, 16, "이전 검토 메모를 읽을 수 없어 서명하지 않았습니다.")
+            return
     findings += [text for text in (o.finding or []) if text.strip()]
     data = {"format": 1, "id": label}
     data.update(names)
@@ -1768,7 +1794,16 @@ def signature_step(v, bank_dir, label, folder, lessons=None, patterns=False):
         if v.failed(label):
             v.fail(label, 16, "실패가 있어 서명하지 않았습니다.")
         else:
-            first = grade_answers(v, label, o.first_pass, lessons or [], bank_dir, first=True) if o.first_pass else None
+            if o.keep_first_pass:
+                try:
+                    first = json.loads(secrets.get("review.json", "{}"))["first_pass"]
+                    if not valid_first_pass(first):
+                        raise ValueError("first_pass")
+                except (ValueError, KeyError, TypeError):
+                    v.fail(label, 16, "이전 첫 재풀이 기록을 읽을 수 없어 서명하지 않았습니다.")
+                    return
+            else:
+                first = grade_answers(v, label, o.first_pass, lessons or [], bank_dir, first=True) if o.first_pass else None
             if first is not None and o.minutes:
                 first["minutes"] = o.minutes
             sign(v, label, folder, secrets, first, files)
@@ -1871,14 +1906,21 @@ def parse_args(argv):
     parser.add_argument("--resolver")
     parser.add_argument("--checker")
     parser.add_argument("--reviewer")
-    parser.add_argument("--first-pass", dest="first_pass")
+    first_pass = parser.add_mutually_exclusive_group()
+    first_pass.add_argument("--first-pass", dest="first_pass")
+    first_pass.add_argument("--keep-first-pass", action="store_true", help="이전 서명의 첫 재풀이 기록을 보존합니다")
     parser.add_argument("--minutes", type=int)
     parser.add_argument("--finding", action="append")
     parser.add_argument("--require-review", action="store_true")
     parser.add_argument("--overrides", action="store_true")
     parser.add_argument("--leeches", action="store_true")
     parser.add_argument("--sources")
-    return parser.parse_args(argv)
+    opts = parser.parse_args(argv)
+    if opts.keep_first_pass and not opts.sign:
+        parser.error("--keep-first-pass 는 --sign 과 함께 씁니다.")
+    if opts.keep_first_pass and opts.minutes is not None:
+        parser.error("--keep-first-pass 는 기록한 시간을 보존하므로 --minutes 와 함께 쓰지 않습니다.")
+    return opts
 
 
 def main(argv=None, out=None):
