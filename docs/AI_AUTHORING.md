@@ -216,7 +216,7 @@ python3 tools/ai_seal.py seal [i05 ...] [--keep]          work/ → sealed.json
 python3 tools/ai_seal.py unseal i05                       sealed.json → work/
 python3 tools/ai_seal.py check                            평문이 남았거나 봉인이 깨졌으면 실패
 python3 tools/ai_seal.py brief i05 --out DIR              재풀이용 문제지(sheet.md, cloze.md)와 빈 답안(answers.json), 저장소 밖에만
-python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, skel.md)와 빈 답안
+python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, whole.md, skel.md)와 빈 답안·노트 답안
 python3 tools/ai_seal.py levels l04 [l05 ...] --out DIR   세 수준 블록 재풀이 공개본(블록마다 0_step.md 와 수준 파일 셋)과 빈 답안 levels_answers.json
 python3 tools/verify_ai.py [i05 common ...]               문항 꼴, 빈칸 규칙, 고르기, 문장, 생성기 300 시드, 사실 확인, 노트 블록, 근거, 말투, 그림
 python3 tools/verify_ai.py pc                             상황별 코드. 위 검사에 더해 뼈대(판, 자리, 순서 300 시드, 고르기, 고칠 줄 300 시드)
@@ -254,7 +254,7 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 1. 출제가 factcheck·차시 분석·요약본·코드 보충을 읽고 쓸 사실을 facts.json 에 옮깁니다. 새 사실은 대조가 판정한 뒤에만 넣습니다.
 2. 출제가 work/ 평문으로 노트·문항·생성기·그림을 쓰고 verify_web, web_lint, verify_ai, ai_overlap 을 통과시킵니다.
 3. `ai_seal.py brief` 로 만든 공개본을 재풀이에게 넘깁니다. 재풀이는 answers.json 과 oracle.py, 걸린 시간, 막힌 곳을 돌려줍니다. 문제지는 주제 문장을 섞은 순서로 꼬리표(`i05-t01-3`)만 붙여 보여 주고, 빈칸판은 참 문장에만 있어서 cloze.md 로 따로 뺍니다. 재풀이는 문장 판정을 모두 적은 뒤에 cloze.md 를 엽니다.
-   상황별 코드 공개본도 문제지를 나눠 엽니다. 재풀이는 l18 을 읽기 전에 sheet.md 를 풉니다. sheet.md 에는 판마다 모든 자리를 한꺼번에 가린 판(`S1 표준형 전체`)과 순서·줄·고칠 줄 고르기가 있습니다. 그 답을 answers.json 에 다 적은 뒤에 skel.md 를 엽니다. skel.md 의 견본(`pc-k02 f0`, `f2`, `f3`)은 함께 가린 자리 수가 달라 서로의 답을 보여 줍니다. first_pass 는 sheet.md 답으로 셉니다.
+   상황별 코드 공개본은 l18을 읽기 전에 sheet.md부터 풉니다. 순서·줄·고칠 줄 고르기의 첫 답을 저장한 뒤 whole.md를 엽니다. whole.md에는 판마다 모든 자리를 함께 가린 코드가 있습니다. 이 답도 저장한 뒤 skel.md의 부분 빈칸 견본을 풉니다. 앞에서 기록한 답은 고치지 않습니다. 코드 한 줄을 받는 칸은 그 입력 범위를 표시합니다. first_pass는 sheet.md와 whole.md의 첫 답으로 셉니다. 노트 물음은 note-answers.json에 별도로 적고 검토자가 본문과 대조합니다.
    세 수준 블록은 `ai_seal.py levels` 공개본으로 따로 풉니다. 블록 폴더마다 0_step.md 를 읽고, 1_l7.md 의 물음 답을 levels_answers.json 에 적은 뒤에 2_l15.md 를 열고, 같은 방식으로 3_l20.md 까지 갑니다. page.md 는 블록 JSON 에 정답이 있어 열지 않습니다. 결과는 학습 노트 서명의 `--finding` 에 적습니다.
 4. 대조가 `verify_ai.py --answers` 로 채점하고 틀린 카드마다 원인을 하나로 정합니다(정답 틀림, 두 가지로 읽힘, 받는 답 빠짐, 공정한 함정, oracle 불일치).
 5. 검토가 아래 체크 목록을 보고, 새로 걸린 말투 문장은 `tools/check_style.py` 패턴에 더합니다.

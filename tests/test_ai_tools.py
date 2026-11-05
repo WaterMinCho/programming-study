@@ -1057,12 +1057,12 @@ class PatternSignTest(PatternCase):
         code, out = quiet(ai_seal.main, ["brief", "pc", "--out", out_dir, "--bank", self.bank])
         self.assertEqual(0, code, out)
         read = lambda name: study.read_text(os.path.join(out_dir, name))  # noqa: E731
-        return read("sheet.md"), read("skel.md"), study.read_json(os.path.join(out_dir, "answers.json"))
+        return read("sheet.md") + read("whole.md"), read("skel.md"), study.read_json(os.path.join(out_dir, "answers.json"))
 
-    def test_brief_has_two_stages_and_no_answers(self):
+    def test_brief_has_three_stages_and_no_answers(self):
         sheet, samples, answers = self.brief()
         self.assertIn("## S90 가 전체", sheet)
-        self.assertLess(sheet.index("## S90 가 전체"), sheet.index("## pc-o01 시드 1"))
+        self.assertLess(sheet.index("## pc-o01 시드 1"), sheet.index("## S90 가 전체"))
         for key in ("pc-o01 시드 1", "pc-o01 시드 3", "pc-p01", "pc-x01 시드 2"):
             self.assertIn("## %s" % key, sheet)
             self.assertEqual({"picked": []}, answers[key])
@@ -1076,6 +1076,24 @@ class PatternSignTest(PatternCase):
         self.assertIn("## pc-k06 f3", samples)
         self.assertEqual(18, len([k for k in answers if ai_seal.SAMPLE_KEY.match(k)]))
         self.assertIn("학습 모드로 바꾸는 메서드 이름은 ____ 입니다.", sheet)  # 노트의 떠올리기
+
+    def test_choices_precede_whole_code_and_note_answers_are_separate(self):
+        self.brief()
+        folder = os.path.join(self.tmp, "brief")
+        sheet = study.read_text(os.path.join(folder, "sheet.md"))
+        whole = study.read_text(os.path.join(folder, "whole.md"))
+        samples = study.read_text(os.path.join(folder, "skel.md"))
+        self.assertNotIn("## S90 가 전체", sheet)
+        self.assertIn("## S90 가 전체", whole)
+        self.assertNotIn("## pc-p01", whole)
+        self.assertIn("코드 한 줄", samples)
+        self.assertIn("whole.md", sheet)
+        note_answers = study.read_json(os.path.join(folder, "note-answers.json"))
+        self.assertTrue(note_answers)
+        self.assertTrue(all(value == [""] or value == {"picked": []} for value in note_answers.values()))
+        self.assertTrue(all(key.startswith("l18 ") for key in note_answers))
+        graded = study.read_json(os.path.join(folder, "answers.json"))
+        self.assertFalse(set(note_answers) & set(graded))
 
     def fill(self, answers, wrong=()):
         cards = {c["id"]: c for c in ai_seal.pattern_cards(self.bank, aifix.PATTERNS)[1]}
