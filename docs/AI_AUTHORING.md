@@ -211,7 +211,7 @@ python3 tools/ai_art/l05.py                                    자기 명령줄�
 python3 -m tools.ai_art l05 --record                           그린 뒤 manifest 만 고칩니다(표준 라이브러리)
 ```
 
-manifest 에 없는 그림은 verify_ai 가 실패로 봅니다. 가져온 그림은 이번 단계에서 쓰지 않습니다.
+직접 그린 그림은 manifest에 등록합니다. 가져온 그림은 `meta.credits`에 출처를 적습니다. 이번에 확인한 3Blue1Brown 공식 글의 MP4 두 개는 원작자 FAQ의 짧은 인용 허락으로 사용합니다. 허락 이름은 `3Blue1Brown FAQ clip permission (under 60 seconds)`이며 author는 `3Blue1Brown · Grant Sanderson`, permission_url은 `https://www.3blue1brown.com/about/`, url은 해당 공식 MP4 주소로 적습니다. source_seconds에는 사용한 원본 구간의 초수를 적으며 전체 해당 credits의 합도 60초 미만으로 둡니다. 직접 그린 그림의 manifest나 CC 라이선스로 등록하지 않습니다. 화면마다 저작자와 공식 글 링크를 읽을 수 있게 두고 원본 장면과 추가 한글 설명을 구별합니다. 캡션과 주변 본문에는 대표 장면 발췌와 느린 표시임을 밝힙니다. 표시 시간과 원본 사용 시간을 구별하고 시그모이드의 입력 0·출력 0.5와 출력 범위를 다른 활성화 함수로 넓히지 않습니다. 검증기는 확인한 원작자·허락 URL·공식 자산 URL·기재한 시간 조건을 검사하며 주변 설명과 실제 원본 사용 범위는 별도로 대조합니다. 가져온 GIF에도 기존 크기·장 수·색 수·용량 한도를 적용합니다.
 
 세 수준 블록 그림은 수준마다 새 PNG 하나이고 이름은 `<단원>-<단계 번호><수준 번호>`(7살 1, 15살 2, 20살 3)입니다. 4b 셋째 단계 블록이면 `4b-31`, `4b-32`, `4b-33` 입니다. 화면 520×280(파일 1040×560)이고 글자는 matplotlib 22 이상, 30KB 안팎으로 둡니다. 캡션은 "그림 N." 으로 시작하지 않는 문장 하나이고 `content` 에 그림에 무엇이 있는지 적습니다. `tools/ai_art/levels.py` 의 `chain`(7살 상자와 화살표), `grid`(괄호 없는 숫자 칸 표), `graph`(좌표 그래프)가 크기와 글자를 맞춘 Figure 를 돌려주고, 글이 칸을 넘으면 ValueError 를 냅니다. 블록마다 함수 하나가 수준을 인자로 받아 그리게 그 차시 스크립트에 둡니다.
 
