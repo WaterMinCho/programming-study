@@ -1,25 +1,136 @@
 {
-  "format": 1,
-  "id": "l18",
-  "title": "상황별 코드",
-  "lesson": "pc",
-  "defines": [],
-  "needs": ["l01", "l03", "l04", "l05", "l06"],
-  "sections": {
-    "18a": "미니배치 학습 한 에폭"
+ "format": 1,
+ "id": "l18",
+ "title": "상황별 코드",
+ "lesson": "pc",
+ "defines": [],
+ "needs": [
+  "l01",
+  "l03",
+  "l04",
+  "l05",
+  "l06",
+  "l07",
+  "l08",
+  "l09",
+  "l10"
+ ],
+ "sections": {
+  "18a": "미니배치 학습 한 에폭",
+  "18b": "학습 뒤 평가하고 최고 상태를 되돌립니다",
+  "18c": "회귀 출력과 정답을 같은 모양으로 맞춥니다",
+  "18d": "이진 분류의 출력과 손실을 함께 바꿉니다",
+  "18e": "다중 분류의 로짓과 로그확률을 구별합니다"
+ },
+ "outputs": [],
+ "sources": [
+  {
+   "what": "PyTorch MSELoss: reduction 기본값 'mean' 은 출력 원소의 합을 원소 수로 나눔",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.MSELoss.html",
+   "checked": "2026-11-04"
   },
-  "outputs": [],
-  "sources": [
-    {"what": "PyTorch MSELoss: reduction 기본값 'mean' 은 출력 원소의 합을 원소 수로 나눔", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.MSELoss.html", "checked": "2026-11-04"},
-    {"what": "PyTorch CrossEntropyLoss: reduction 기본값 'mean', weight 를 주면 정답 클래스 가중치의 합으로 나눈 가중 평균", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html", "checked": "2026-11-04"},
-    {"what": "PyTorch torch.max·torch.argmax: dim 을 주면 (values, indices), argmax 는 그 indices 와 같고 같은 값이 여럿이면 첫 위치", "url": "https://docs.pytorch.org/docs/stable/generated/torch.argmax.html", "checked": "2026-11-04"},
-    {"what": "PyTorch Tensor.item·torch.sum: item 은 원소가 하나인 텐서에서 파이썬 수를 꺼내고, sum 은 텐서를 돌려줌", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.item.html", "checked": "2026-11-04"},
-    {"what": "PyTorch Optimizer.zero_grad: set_to_none 기본값 True, 기울기가 None 인 파라미터는 step 이 건너뜀", "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html", "checked": "2026-11-04"},
-    {"what": "PyTorch nn.Module.train·eval: eval() 은 train(False) 와 같고 Dropout·BatchNorm 같은 층에만 영향", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html", "checked": "2026-11-04"},
-    {"what": "PyTorch Tensor.to·cpu·detach: to 는 옮긴 텐서를 돌려주고(같은 장치면 자기 자신), detach 는 같은 저장소를 쓰는 텐서를 돌려줌", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.to.html", "checked": "2026-11-04"}
-  ],
-  "credits": [],
-  "units": {
-    "18a": {"minutes": 6, "key_figure": "assets/18a-4.png", "kind": "pattern"}
+  {
+   "what": "PyTorch CrossEntropyLoss: reduction 기본값 'mean', weight 를 주면 정답 클래스 가중치의 합으로 나눈 가중 평균",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "PyTorch torch.max·torch.argmax: dim 을 주면 (values, indices), argmax 는 그 indices 와 같고 같은 값이 여럿이면 첫 위치",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.argmax.html",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "PyTorch Tensor.item·torch.sum: item 은 원소가 하나인 텐서에서 파이썬 수를 꺼내고, sum 은 텐서를 돌려줌",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.item.html",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "PyTorch Optimizer.zero_grad: set_to_none 기본값 True, 기울기가 None 인 파라미터는 step 이 건너뜀",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "PyTorch nn.Module.train·eval: eval() 은 train(False) 와 같고 Dropout·BatchNorm 같은 층에만 영향",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "PyTorch Tensor.to·cpu·detach: to 는 옮긴 텐서를 돌려주고(같은 장치면 자기 자신), detach 는 같은 저장소를 쓰는 텐서를 돌려줌",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.to.html",
+   "checked": "2026-11-04"
+  },
+  {
+   "what": "Module.eval과 state_dict의 참조",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "평가 순전파의 기울기 기록과 factory 예외",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.no_grad.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "최고 상태를 별도로 보관하는 deepcopy",
+   "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "출력과 정답의 같은 모양 및 기본 평균",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.MSELoss.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "확률과 실수 정답",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BCELoss.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "로짓과 같은 모양의 실수 정답",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BCEWithLogitsLoss.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "로짓과 클래스 번호 및 LogSoftmax·NLL 등가식",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.CrossEntropyLoss.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "로그확률과 long 클래스 번호",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.NLLLoss.html",
+   "checked": "2026-11-05"
+  },
+  {
+   "what": "[2,1]과 [2]의 브로드캐스팅",
+   "url": "https://docs.pytorch.org/docs/2.15/notes/broadcasting.html",
+   "checked": "2026-11-05"
   }
+ ],
+ "credits": [],
+ "units": {
+  "18a": {
+   "minutes": 6,
+   "key_figure": "assets/18a-4.png",
+   "kind": "pattern"
+  },
+  "18b": {
+   "minutes": 9,
+   "key_figure": "assets/18b-5.png",
+   "kind": "pattern"
+  },
+  "18c": {
+   "minutes": 8,
+   "key_figure": "assets/18c-4.png",
+   "kind": "pattern"
+  },
+  "18d": {
+   "minutes": 8,
+   "key_figure": "assets/18d-4.png",
+   "kind": "pattern"
+  },
+  "18e": {
+   "minutes": 8,
+   "key_figure": "assets/18e-4.png",
+   "kind": "pattern"
+  }
+ }
 }

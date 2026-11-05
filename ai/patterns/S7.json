@@ -1,0 +1,104 @@
+{
+ "format": 1,
+ "id": "S7",
+ "title": "출력과 손실의 짝",
+ "tags": [
+  "손실 짝"
+ ],
+ "prio": 3,
+ "ref": [
+  "9차시 노트북 01 [41]",
+  "9차시 노트북 01 [79]"
+ ],
+ "variants": {
+  "다중 로짓": {
+   "situation": "out은 변환 전 float32[2, 3] 로짓이고 target은 long[2]의 클래스 번호 [0, 2]입니다. 가중치와 무시할 라벨 없이 데이터별 손실의 평균을 구합니다.",
+   "lines": [
+    "criterion = nn.CrossEntropyLoss()",
+    "loss = criterion(out, target)"
+   ]
+  },
+  "다중 로그확률": {
+   "situation": "out은 LogSoftmax(dim=1)로 만든 float32[2, 3] 로그확률이고 target은 long[2]의 [0, 2]입니다. 정답 열의 로그확률에 마이너스를 붙여 평균합니다.",
+   "lines": [
+    "criterion = nn.NLLLoss()",
+    "loss = criterion(out, target)"
+   ]
+  }
+ },
+ "slots": [],
+ "orders": [],
+ "changes": [],
+ "picks": [
+  {
+   "variant": "다중 로짓",
+   "line": 0,
+   "stem": "out은 변환 전 [2, 3] 로짓이고 target은 long[2]의 [0, 2]입니다. 로짓에서 클래스 번호의 교차 엔트로피를 계산할 손실로 옳은 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "criterion = nn.NLLLoss()",
+     "aim": "원래 점수를 로그확률로 봅니다",
+     "why": "NLLLoss는 이미 로그확률인 입력에서 정답 값을 고릅니다. 이 out에는 LogSoftmax를 적용하지 않았습니다."
+    },
+    {
+     "text": "criterion = nn.BCEWithLogitsLoss()",
+     "aim": "클래스 번호 정답을 이진 손실에 줌",
+     "why": "이진 손실은 입력과 같은 모양의 실수 정답을 받습니다. 이 판은 클래스 번호 [2]와 점수 [2, 3]을 씁니다."
+    },
+    {
+     "text": "criterion = nn.MSELoss()",
+     "aim": "클래스 번호를 연속값 목표로 봅니다",
+     "why": "이 판의 클래스 번호는 각 행의 정답 열을 지정합니다. 점수 행렬과 클래스 번호의 제곱 차이를 구하는 문제가 아닙니다."
+    }
+   ],
+   "id": "pc-p12",
+   "step": "18e/2",
+   "facts": [
+    "F18-33"
+   ],
+   "explain": "이 판의 모델은 변환 전 점수를 내고 정답은 클래스 번호입니다. CrossEntropyLoss가 로짓에서 정답 클래스의 손실을 계산합니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-p12",
+   "ref": [
+    "9차시 노트북 01 [41]",
+    "문서 CrossEntropyLoss"
+   ]
+  },
+  {
+   "variant": "다중 로그확률",
+   "line": 0,
+   "stem": "out은 LogSoftmax(dim=1)로 만든 [2, 3] 로그확률이고 target은 long[2]의 [0, 2]입니다. 정답 열에서 고른 로그확률의 부호를 바꿔 평균하는 손실을 고르세요.",
+   "wrong": [
+    {
+     "text": "criterion = nn.BCELoss()",
+     "aim": "로그확률을 0~1 확률로 봅니다",
+     "why": "BCELoss의 입력은 확률입니다. 이 out은 클래스별 로그확률이고 정답도 이진 값 행렬이 아닙니다."
+    },
+    {
+     "text": "criterion = nn.BCEWithLogitsLoss()",
+     "aim": "다중 로그확률을 독립 이진 로짓으로 봅니다",
+     "why": "이 판은 각 데이터의 정답 클래스 번호 하나를 씁니다. 입력과 같은 모양의 이진 정답을 쓰는 문제가 아닙니다."
+    },
+    {
+     "text": "criterion = nn.MSELoss()",
+     "aim": "정답 열 선택을 숫자 차이로 바꿉니다",
+     "why": "클래스 번호는 로그확률에서 고를 열을 가리킵니다. 로그확률 행렬에서 클래스 번호를 빼는 계산을 하지 않습니다."
+    }
+   ],
+   "id": "pc-p13",
+   "step": "18e/3",
+   "facts": [
+    "F18-34"
+   ],
+   "explain": "LogSoftmax로 만든 로그확률을 NLLLoss에 줍니다. 같은 로짓을 쓴 CrossEntropyLoss와 같은 정답 클래스의 손실을 계산합니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-p13",
+   "ref": [
+    "9차시 노트북 01 [79]",
+    "문서 NLLLoss"
+   ]
+  }
+ ]
+}

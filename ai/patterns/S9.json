@@ -1,0 +1,173 @@
+{
+ "format": 1,
+ "id": "S9",
+ "title": "검증 손실과 최고 상태",
+ "tags": [
+  "조기 종료"
+ ],
+ "prio": 3,
+ "ref": [
+  "10차시 노트북 01 [18]",
+  "문서 Module.state_dict"
+ ],
+ "variants": {
+  "최고 상태": {
+   "situation": "train_one_epoch은 한 에폭을 학습하고 evaluate는 평균 검증 손실과 정확도를 돌려줍니다. 검증 손실은 유한한 수이며 앞서 기록한 최저 손실보다 작을 때만 개선으로 셉니다.",
+   "lines": [
+    "import copy",
+    "best_loss = float('inf')",
+    "best_state = None",
+    "waiting = 0",
+    "patience = 2",
+    "for epoch in range(6):",
+    "    train_one_epoch(model, train_loader)",
+    "    val_loss, val_acc = evaluate(model, valid_loader)",
+    "    if val_loss < best_loss:",
+    "        best_loss = val_loss",
+    "        best_state = copy.deepcopy(model.state_dict())",
+    "        waiting = 0",
+    "    else:",
+    "        waiting += 1",
+    "    if waiting >= patience:",
+    "        break",
+    "if best_state is not None:",
+    "    model.load_state_dict(best_state)"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "variant": "최고 상태",
+   "line": 10,
+   "token": "deepcopy",
+   "answer": [
+    "deepcopy"
+   ],
+   "mode": "code",
+   "hint": "복사 함수",
+   "line_answer": [
+    "best_state = copy.deepcopy(model.state_dict())"
+   ],
+   "id": "pc-k09",
+   "step": "18b/4",
+   "facts": [
+    "F18-21"
+   ],
+   "explain": "[정정] state_dict의 값은 현재 모델의 저장소를 가리킵니다. `copy.deepcopy()`로 개선한 시점의 값도 따로 보관합니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-k09",
+   "ref": [
+    "10차시 노트북 01 [18]",
+    "문서 Module.state_dict"
+   ],
+   "errata": [
+    "X18-02"
+   ]
+  },
+  {
+   "variant": "최고 상태",
+   "line": 17,
+   "token": "load_state_dict",
+   "answer": [
+    "load_state_dict"
+   ],
+   "mode": "code",
+   "hint": "메서드 이름",
+   "line_answer": [
+    "model.load_state_dict(best_state)",
+    "model.load_state_dict(best_state, strict=True)"
+   ],
+   "id": "pc-k10",
+   "step": "18b/5",
+   "facts": [
+    "F18-23"
+   ],
+   "explain": "이름과 모양이 같은 모델에 저장한 파라미터와 버퍼를 읽어 넣습니다. 모델 상태 사전에는 opt의 내부 상태가 들어 있지 않습니다.",
+   "core": false,
+   "level": 2,
+   "family": "pc-k10",
+   "ref": [
+    "10차시 노트북 01 [18]",
+    "문서 Module.state_dict"
+   ]
+  }
+ ],
+ "orders": [],
+ "picks": [
+  {
+   "variant": "최고 상태",
+   "line": 10,
+   "stem": "검증 손실이 개선된 시점의 모델 값을 학습 뒤에도 보관하려고 합니다. 그 시점의 파라미터와 버퍼를 독립적으로 저장하는 줄로 옳은 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "best_state = model.state_dict().copy()",
+     "aim": "바깥 사전 복사와 값 복사를 혼동합니다",
+     "why": "dict.copy()는 바깥 사전만 복사합니다. 저장한 값이 현재 모델의 저장소를 계속 가리킵니다."
+    },
+    {
+     "text": "best_state = model.state_dict()",
+     "aim": "현재 상태의 참조를 고정된 값으로 봅니다",
+     "why": "반환한 사전의 값은 현재 파라미터와 버퍼를 가리킵니다. 다음 갱신의 영향을 피할 복사가 필요합니다."
+    },
+    {
+     "text": "best_state = model.parameters()",
+     "aim": "파라미터 순회 객체를 상태 사전으로 봅니다",
+     "why": "parameters()는 파라미터를 순회할 객체입니다. 이름과 버퍼까지 담은 상태 사전을 보관하지 않습니다."
+    }
+   ],
+   "id": "pc-p06",
+   "step": "18b/4",
+   "facts": [
+    "F18-21"
+   ],
+   "explain": "[정정] 바깥 사전만 복사하면 파라미터와 버퍼의 값은 학습 중에도 같은 저장소를 가리킵니다. 깊은 복사로 개선한 시점의 값을 따로 보관합니다.",
+   "core": false,
+   "level": 2,
+   "family": "pc-k09",
+   "ref": [
+    "10차시 노트북 01 [18]",
+    "문서 Module.state_dict"
+   ],
+   "errata": [
+    "X18-02"
+   ]
+  },
+  {
+   "variant": "최고 상태",
+   "line": 14,
+   "stem": "patience는 2이고 개선이 없었던 평가 횟수를 waiting에 셉니다. 개선 없는 평가가 연속 두 번이면 멈추는 조건으로 옳은 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "if waiting > patience:",
+     "aim": "두 번을 넘긴 뒤에 멈춥니다",
+     "why": "이 조건은 waiting이 3이 되어야 참입니다. 두 번에 멈추려면 >=를 씁니다."
+    },
+    {
+     "text": "if waiting < patience:",
+     "aim": "대기 횟수가 적을 때 멈춥니다",
+     "why": "개선 직후의 waiting은 0이라 이 조건도 참입니다. 기다린 횟수가 patience에 이르렀는지 비교합니다."
+    },
+    {
+     "text": "if waiting >= 1:",
+     "aim": "한 번을 기다리고 멈춥니다",
+     "why": "patience는 2입니다. 한 번의 미개선 뒤에는 다음 평가를 더 기다립니다."
+    }
+   ],
+   "id": "pc-p07",
+   "step": "18b/5",
+   "facts": [
+    "F18-22"
+   ],
+   "explain": "개선이 없을 때 waiting을 1씩 더합니다. patience가 2이면 waiting이 2에 이른 평가 뒤에 멈춥니다.",
+   "core": true,
+   "level": 2,
+   "family": "pc-p07",
+   "ref": [
+    "10차시 노트북 01 [18]",
+    "문서 Module.state_dict"
+   ]
+  }
+ ],
+ "changes": []
+}

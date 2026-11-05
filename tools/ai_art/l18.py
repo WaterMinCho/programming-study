@@ -16,6 +16,7 @@ numpy·matplotlib·Pillow 가 있는 출제자 파이썬에서만 돌림. matplo
   초록은 맞힌 수, 보라는 optimizer.zero_grad() 와 그 줄을 둘 수 있는 자리, 빨강은 둘 수 없는 자리, 노랑은 지금 꺼낸 배치
 """
 import json
+import math
 import os
 import sys
 
@@ -339,6 +340,287 @@ def memo_18a():
         ("맞힌 수와 정확도", ["`(out.argmax(1) == y)`", "`    .sum().item()`", "3 + 2 + 1 = 6", "6 ÷ 10 = 0.6",
                        ".item()이 없으면 텐서"], GREEN)],
         h=560, note_line="1차시 fit은 배치 평균의 합 3.5를 데이터 수 10으로 나눠 0.35를 찍습니다.", pad=1.0)
+
+
+# 18b~18e는 같은 숫자로 출력·정답·손실과 상태 변화를 비교함.
+
+def _phase_table(title, heads, rows, foot="", widths=None, marked=()):
+    """같은 항목의 행을 비교하는 표를 그림. marked는 강조할 (행, 열) 위치임."""
+    plt, fig = new(560)
+    ax = board(fig, 560)
+    text(ax, 3, 51.5, title, size=22, weight="bold")
+    widths = widths or [106 / len(heads)] * len(heads)
+    assert len(widths) == len(heads) and abs(sum(widths) - 106) < 0.01
+    assert all(len(row) == len(heads) for row in rows)
+    x = 3
+    for head, width in zip(heads, widths):
+        box(ax, x, 39, width, 7, head, fc=NOTE, ec=GRID, size=18)
+        x += width
+    for r, row in enumerate(rows):
+        x = 3
+        for c, (value, width) in enumerate(zip(row, widths)):
+            label = str(value).replace("-", MINUS) if isinstance(value, (int, float)) else str(value)
+            box(ax, x, 32 - 7 * r, width, 7, label, fc=BLUE_L if (r, c) in marked else "white", ec=GRID, size=19)
+            x += width
+    if foot:
+        text(ax, 3, 5, foot, size=17, va="center", bg=NOTE)
+    return image(fig)
+
+
+def _phase_flow(title, blocks, foot="", arrows=True):
+    """コード와 숫자를 큰 글자 칸으로 연결함. blocks는 (제목, 줄 목록)임."""
+    plt, fig = new(560)
+    ax = board(fig, 560)
+    text(ax, 3, 51.5, title, size=22, weight="bold")
+    gap = 4
+    width = (106 - gap * (len(blocks) - 1)) / len(blocks)
+    for n, (head, lines) in enumerate(blocks):
+        assert len(lines) <= 5
+        x = 3 + n * (width + gap)
+        box(ax, x, 11, width, 35, fc="white", ec=BLUE, lw=2)
+        text(ax, x + width / 2, 41.5, head, size=20, ha="center", color=BLUE, weight="bold")
+        for k, line in enumerate(lines):
+            code = line.startswith("`")
+            text(ax, x + width / 2, 35 - k * 4.7, line.strip("`"), size=18, ha="center", family=CODE if code else None)
+        if arrows and n + 1 < len(blocks):
+            arrow(ax, x + width + 0.3, 28, x + width + gap - 0.3, 28, color=LIGHT)
+    if foot:
+        text(ax, 3, 5, foot, size=17, bg=NOTE)
+    return image(fig)
+
+
+@figure("18b-1", 560, 280)
+def eval_modes_18b():
+    return _phase_table("층의 동작과 계산 기록을 따로 정합니다", ["호출", "층의 동작", "기울기 기록"],
+                        [["model.train()", "학습용", "바꾸지 않음"], ["model.eval()", "평가용", "바꾸지 않음"],
+                         ["no_grad()", "바꾸지 않음", "끄기"], ["eval + no_grad", "평가용", "끄기"]],
+                        "평가에서는 backward와 step을 호출하지 않습니다.", marked=[(3, 1), (3, 2)])
+
+
+@figure("18b-2", 560, 280)
+def eval_mean_18b():
+    sizes, means = [4, 2], [0.3, 0.9]
+    sums = [n * mean for n, mean in zip(sizes, means)]
+    total, mean = sum(sizes), sum(sums) / sum(sizes)
+    assert total == 6 and math.isclose(sum(sums), 3) and math.isclose(mean, 0.5)
+    return _phase_table("배치 평균을 데이터별 평균으로 모읍니다", ["배치 데이터 수", "배치 평균", "손실 합"],
+                        [[4, "0.3", "1.2"], [2, "0.9", "1.8"], [6, "전체 평균 0.5", "합 3.0"]],
+                        "(0.3 × 4 + 0.9 × 2) ÷ 6 = 0.5", marked=[(2, 1)])
+
+
+@figure("18b-3", 560, 280)
+def copy_state_18b():
+    from copy import deepcopy
+    state = {"w": [2]}
+    shallow, separate = state.copy(), deepcopy(state)
+    state["w"][0] = 3
+    assert shallow["w"][0] == 3 and separate["w"][0] == 2
+    return _phase_table("사전만 복사할 때와 값도 복사할 때를 비교합니다", ["모델 변화", "사전만 복사", "값도 복사"],
+                        [["보관 시점: 2", 2, 2], ["다음 갱신: 3", 3, 2]],
+                        "dict.copy()는 같은 저장소를 가리키고 deepcopy는 값을 따로 보관합니다.", marked=[(1, 2)])
+
+
+def _best_trace_18b():
+    losses = [0.8, 0.5, 0.6, 0.7]
+    best, best_epoch, waiting = math.inf, None, 0
+    trace = []
+    for epoch, loss in enumerate(losses):
+        if loss < best:
+            best, best_epoch, waiting = loss, epoch, 0
+        else:
+            waiting += 1
+        trace.append((epoch, loss, waiting, best_epoch))
+        if waiting >= 2:
+            break
+    assert [row[2] for row in trace] == [0, 0, 1, 2]
+    assert trace[-1][0] == 3 and best_epoch == 1 and best == 0.5
+    return trace
+
+
+@figure("18b-4", 560, 280)
+def best_restore_18b():
+    trace = _best_trace_18b()
+    weights = [1, 2, 3, 4]
+    assert weights[trace[-1][3]] == 2
+    frames = []
+    for stage in range(6):
+        shown = min(stage, 3)
+        rows = [[epoch, num(loss, 1) if epoch <= shown else "·", waiting if epoch <= shown else "·",
+                 best_epoch if epoch <= shown else "·"] for epoch, loss, waiting, best_epoch in trace]
+        if stage < 4:
+            title = "개선하면 보관하고 개선이 없으면 횟수를 셉니다"
+            current = trace[stage]
+            foot = "epoch %d | waiting %d | 보관한 가중치 %d" % (current[0], current[2], weights[current[3]])
+            marked = [(stage, c) for c in range(4)]
+        elif stage == 4:
+            title = "보관한 최고 모델 값을 다시 읽어 넣습니다"
+            foot, marked = "load_state_dict(best_state): epoch 1의 가중치 2", [(1, c) for c in range(4)]
+        else:
+            title = "중단한 시점과 보관한 시점을 구별합니다"
+            foot, marked = "중단: epoch 3 | 보관: epoch 1 | 되돌린 가중치: 2", [(1, c) for c in range(4)]
+        frames.append(_phase_table(title, ["epoch", "검증 손실", "waiting", "최고 epoch"], rows, foot, marked=marked))
+    return frames, [1800] * 5 + [2200]
+
+
+@figure("18b-5", 560, 280)
+def memo_18b():
+    _best_trace_18b()
+    assert math.isclose((4 * 0.3 + 2 * 0.9) / 6, 0.5)
+    return _phase_flow("평가하고 개선한 상태를 보관합니다", [
+        ("평가", ["`model.eval()`", "`no_grad()`", "역전파·갱신 없음"]),
+        ("손실 합과 개수", ["1.2 + 1.8 = 3.0", "4 + 2 = 6", "3.0 ÷ 6 = 0.5"]),
+        ("최고 상태", ["`deepcopy`", "patience 2", "epoch 1 값으로 복원"])])
+
+
+@figure("18c-1", 560, 280)
+def regression_pairs_18c():
+    errors = [(out - target) ** 2 for out, target in zip([2, 4], [1, 5])]
+    assert errors == [1, 1] and sum(errors) / 2 == 1
+    return _phase_table("같은 데이터의 출력과 정답을 비교합니다", ["데이터", "예측", "정답", "제곱 차이"],
+                        [[0, 2, 1, 1], [1, 4, 5, 1]], "(1 + 1) ÷ 2 = 1", marked=[(0, 3), (1, 3)])
+
+
+@figure("18c-2", 560, 280)
+def broadcast_pairs_18c():
+    outputs, targets = [2, 4], [1, 5]
+    correct = [(a - b) ** 2 for a, b in zip(outputs, targets)]
+    all_pairs = [(a - b) ** 2 for a in outputs for b in targets]
+    assert correct == [1, 1] and all_pairs == [1, 9, 9, 1]
+    assert sum(correct) / 2 == 1 and sum(all_pairs) / 4 == 5
+    frames = [
+        _phase_table("예측값을 두 행에 놓습니다", ["데이터", "예측", "정답"], [[0, 2, "·"], [1, 4, "·"]], "out: [2, 1]"),
+        _phase_table("정답도 같은 두 행에 놓습니다", ["데이터", "예측", "정답"], [[0, 2, 1], [1, 4, 5]], "target: [2, 1]"),
+        _phase_table("같은 행의 차이를 제곱합니다", ["예측 − 정답", "제곱 차이", "비교한 수"], [["2 − 1", 1, 1], ["4 − 5", 1, 1]], "평균: (1 + 1) ÷ 2 = 1"),
+        _phase_table("정답 [2]를 두면 모든 짝으로 늘어납니다", ["예측", "정답", "비교한 짝"], [[2, 1, "2와 1"], [2, 5, "2와 5"], [4, 1, "4와 1"], [4, 5, "4와 5"]], "뺄셈 결과: [2, 2]"),
+        _phase_table("다른 데이터의 정답까지 비교합니다", ["예측", "정답", "제곱 차이"], [[2, 1, 1], [2, 5, 9], [4, 1, 9], [4, 5, 1]], "평균: (1 + 9 + 9 + 1) ÷ 4 = 5"),
+        _phase_table("모양이 바뀌면 비교한 짝도 바뀝니다", ["정답 모양", "비교", "평균 손실"], [["[2, 1]", "같은 데이터끼리", 1], ["[2]", "모든 짝", 5]], "출력과 정답을 [2, 1]로 맞춥니다.", marked=[(0, 2)])]
+    return frames, [1800] * 5 + [2200]
+
+
+@figure("18c-3", 560, 280)
+def full_batch_18c():
+    epochs = list(range(3))
+    assert epochs == [0, 1, 2] and len(epochs) == 3
+    return _phase_flow("같은 두 행으로 반복하고 최종 출력을 구합니다", [
+        ("epoch 0", ["x [2, 2]", "target [2, 1]", "갱신 1회"]),
+        ("epoch 1", ["x [2, 2]", "target [2, 1]", "갱신 1회"]),
+        ("epoch 2", ["x [2, 2]", "target [2, 1]", "갱신 1회"])], "갱신 3회 뒤 model(x)를 다시 계산해 prediction에 넣습니다.")
+
+
+@figure("18c-4", 560, 280)
+def memo_18c():
+    assert sum([(2 - 1) ** 2, (4 - 5) ** 2]) / 2 == 1
+    return _phase_flow("출력과 정답을 맞춘 뒤 전체 배치를 갱신합니다", [
+        ("연속값", ["`Linear(2, 1)`", "`MSELoss()`", "확률 변환 없음"]),
+        ("같은 데이터끼리", ["out [2, 1]", "target [2, 1]", "한 열로 비교"]),
+        ("전체 배치", ["두 행 함께 사용", "출력 → 손실", "역전파 → 갱신"])])
+
+
+def _binary_values_18d():
+    logits = [-0.2, 0.0, 0.2]
+    probs = [1 / (1 + math.exp(-z)) for z in logits]
+    assert [int(z >= 0) for z in logits] == [0, 1, 1]
+    assert [int(p >= 0.5) for p in probs] == [0, 1, 1]
+    assert math.isclose(probs[1], 0.5)
+    assert math.isclose(math.log1p(math.exp(-0.2)), 0.5981388693815918)
+    return logits, probs
+
+
+@figure("18d-1", 560, 280)
+def binary_probs_18d():
+    logits, probs = _binary_values_18d()
+    rows = [[num(logits[n], 1), num(probs[n], 4), int(probs[n] >= 0.5)] for n in [0, 2]]
+    return _phase_table("Sigmoid 확률을 BCELoss에 전달합니다", ["로짓", "확률", "예측"], rows,
+                        "출력과 정답: float32[2, 1] | 정답: 0·1", marked=[(0, 1), (1, 1)])
+
+
+@figure("18d-2", 560, 280)
+def binary_pair_18d():
+    _binary_values_18d()
+    return _phase_flow("모델의 마지막과 손실을 함께 바꿉니다", [
+        ("확률판", ["`Linear(2, 1)`", "`Sigmoid()`", "`BCELoss()`"]),
+        ("로짓판", ["`Linear(2, 1)`", "Sigmoid를 뺌", "`BCEWithLogitsLoss()`"])], "두 판의 target은 float32[2, 1]입니다.", arrows=False)
+
+
+@figure("18d-3", 560, 280)
+def binary_threshold_18d():
+    logits, probs = _binary_values_18d()
+    return _phase_table("경계값 0도 클래스 1에 넣습니다", ["로짓", "Sigmoid 확률", "예측 클래스"],
+                        [[num(z, 1), num(p, 4), int(z >= 0)] for z, p in zip(logits, probs)],
+                        "로짓 ≥ 0  ↔  확률 ≥ 0.5", marked=[(1, 0), (1, 1), (1, 2)])
+
+
+@figure("18d-4", 560, 280)
+def memo_18d():
+    _binary_values_18d()
+    return _phase_table("출력·손실·예측 경계를 함께 기억합니다", ["모델 마지막", "손실", "예측 경계"],
+                        [["Sigmoid 확률", "BCELoss", "0.5 이상 → 1"], ["Linear 로짓", "BCEWithLogitsLoss", "0 이상 → 1"]],
+                        "정답은 두 판 모두 float32[배치, 1]입니다.", widths=[30, 46, 30])
+
+
+def _multi_values_18e():
+    scores, labels = [[1, 0, -1], [-1, 0, 2]], [0, 2]
+    probabilities, logs, losses = [], [], []
+    for row, label in zip(scores, labels):
+        maximum = max(row)
+        logsum = maximum + math.log(sum(math.exp(x - maximum) for x in row))
+        logrow = [x - logsum for x in row]
+        logs.append(logrow)
+        probabilities.append([math.exp(value) for value in logrow])
+        losses.append(-logrow[label])
+    mean = sum(losses) / 2
+    assert [row.index(max(row)) for row in scores] == labels
+    assert math.isclose(mean, 0.2887259920013329)
+    assert math.isclose(sum(probabilities[0]), 1) and math.isclose(sum(probabilities[1]), 1)
+    return scores, labels, probabilities, logs, losses, mean
+
+
+@figure("18e-1", 560, 280)
+def multiclass_rows_18e():
+    scores, labels, _, _, _, _ = _multi_values_18e()
+    rows = [[n] + row + [labels[n]] for n, row in enumerate(scores)]
+    return _phase_table("각 행에서 정답 클래스 열을 지정합니다", ["데이터", "클래스 0", "클래스 1", "클래스 2", "정답"], rows,
+                        "출력 [2, 3] | 정답 long[2]의 [0, 2]", widths=[16, 24, 24, 24, 18], marked=[(0, 1), (1, 3)])
+
+
+@figure("18e-2", 560, 280)
+def multiclass_loss_18e():
+    scores, labels, probs, logs, losses, mean = _multi_values_18e()
+    heads, widths, marked = ["데이터", "클래스 0", "클래스 1", "클래스 2", "정답"], [16, 24, 24, 24, 18], [(0, 1), (1, 3)]
+    frames = []
+    for title, values, foot in [
+            ("같은 로짓과 정답 번호를 준비합니다", scores, "첫 행은 0번 열, 둘째 행은 2번 열을 고릅니다."),
+            ("정답 열의 확률을 확인합니다", probs, "정답 확률: 약 0.6652·0.8438"),
+            ("로그확률에서 정답 열을 고릅니다", logs, "정답 로그확률: 약 −0.4076·−0.1698")]:
+        rows = [[n] + [num(v, 4) for v in row] + [labels[n]] for n, row in enumerate(values)]
+        frames.append(_phase_table(title, heads, rows, foot, widths=widths, marked=marked))
+    frames.append(_phase_table("정답 로그확률의 부호를 바꿉니다", ["데이터", "정답 로그확률", "손실"],
+                               [[n, num(logs[n][labels[n]], 4), num(losses[n], 4)] for n in range(2)], "마이너스를 붙여 데이터별 손실을 구합니다."))
+    frames.append(_phase_table("데이터 두 개의 손실을 평균합니다", ["데이터 0 손실", "데이터 1 손실", "평균"],
+                               [[num(losses[0], 4), num(losses[1], 4), num(mean, 4)]], "반올림 전 값으로 평균합니다.", marked=[(0, 2)]))
+    frames.append(_phase_flow("같은 로짓을 손실 두 판에서 사용합니다", [
+        ("로짓", ["`CrossEntropyLoss`", "평균 손실 0.2887"]),
+        ("로그확률", ["`LogSoftmax(dim=1)`", "`NLLLoss`", "평균 손실 0.2887"])], "target은 두 판 모두 long[2]의 [0, 2]입니다.", arrows=False))
+    assert len(frames) == 6
+    return frames, [1800] * 5 + [2200]
+
+
+@figure("18e-3", 560, 280)
+def multiclass_shapes_18e():
+    scores, labels, _, _, _, _ = _multi_values_18e()
+    assert len(scores) == 2 and len(scores[0]) == 3 and len(labels) == 2
+    return _phase_flow("클래스 열을 고르면 데이터별 번호가 남습니다", [
+        ("입력", ["x [2, 2]", "데이터 2개"]),
+        ("출력", ["out [2, 3]", "클래스 열 3개"]),
+        ("예측", ["`argmax(1)`", "번호 [0, 2]", "모양 [2]"])], "이번 배치에 1번 정답이 없어도 모델의 출력 열은 3개입니다.")
+
+
+@figure("18e-4", 560, 280)
+def memo_18e():
+    _multi_values_18e()
+    return _phase_table("모델의 마지막과 손실을 짝지어 기억합니다", ["모델 마지막", "손실", "정답"],
+                        [["Linear 로짓", "CrossEntropyLoss", "long[배치]"], ["LogSoftmax(1)", "NLLLoss", "long[배치]"]],
+                        "두 판 모두 argmax(1)로 예측 클래스 번호를 고릅니다.", widths=[32, 42, 32])
 
 
 if __name__ == "__main__":
