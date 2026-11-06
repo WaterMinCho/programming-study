@@ -1282,7 +1282,7 @@ class LearnTest(WebTest):
         self.assertIn("그림 준비 중. 그림 1. 두 호출이 같은 값을 넣어", text)  # 고정 은행에는 그림 파일이 없음
         self.assertNotIn("내용:", text)
         self.assertEqual([p for p in learn.view.pieces if isinstance(p, FigureView)], [])
-        self.assertLessEqual(learn.view.width(), kit.READ_MIN + 2)  # 읽는 글 폭
+        self.assertLessEqual(learn.view.width(), kit.read_width(win.width()) + 2)  # 창에 맞춘 읽는 글 폭
         self.assertEqual(len(kit.visible_primary_buttons(learn)), 0)  # 읽기 화면에는 주 단추가 없음
         self.assertEqual((learn.next_row.isVisible(), learn.next_title.text()), (True, "일반 변수는 화면을 바꾸지 못합니다"))
         guikit.click(learn.next_btn)

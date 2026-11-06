@@ -363,7 +363,7 @@ class HubScreenTest(HubTest):
         self.assertEqual(total, hub.chart.mapTo(week, QPoint(hub.chart.width(), 0)).x())
         self.assertLess(total, recent.left())
         self.assertGreaterEqual(recent.width(), hub.recent.natural_width())  # 최근 채점 줄이 다 보임
-        week.resize(kit.HOME_WIDTH // 2, week.height())  # 좁으면 막대 아래로 내려가고 폭을 다 씀
+        week.resize(560, week.height())  # 좁으면 막대 아래로 내려가고 폭을 다 씀
         self.assertFalse(week.side)
         self.assertEqual(week.row.direction(), week.row.Direction.TopToBottom)
         self.assertEqual(week.recent_box.maximumWidth(), hub_page.QWIDGETSIZE_MAX)
