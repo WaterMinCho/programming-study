@@ -154,7 +154,7 @@ class RotateFeedbackGuiTest(RotateFeedbackBase):
                     explanation = block.explanation
                     self.assertEqual(existing, explanation.text())
                     self.assertTrue(explanation.wordWrap())
-                    self.assertEqual(theme.TYPE["body"][0], explanation.font().pixelSize())
+                    self.assertEqual(theme.TYPE["learn_body"][0], explanation.font().pixelSize())
                     self.assertGreaterEqual(explanation.height(), explanation.heightForWidth(explanation.width()))
                     viewport = self.scroll.viewport()
                     self.assertLessEqual(explanation.width(), viewport.width())

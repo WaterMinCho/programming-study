@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import aifix, guikit  # noqa: E402
 
 from PyQt6 import sip  # noqa: E402
-from PyQt6.QtCore import QMimeData, QPoint, QPointF, QSettings, Qt, QUrl  # noqa: E402
+from PyQt6.QtCore import QMimeData, QPoint, QPointF, QRect, QSettings, Qt, QUrl  # noqa: E402
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QFontMetricsF  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QAbstractButton, QApplication, QLabel, QPushButton, QScrollArea, QWidget  # noqa: E402
@@ -598,7 +598,9 @@ class LessonAndLearnTest(AiTest):
         figure.setFocus()
         QTest.keyClick(figure, Qt.Key.Key_Right)
         self.assertEqual(figure.frame(), 5)
-        self.assertEqual(figure.picture.pixmap().deviceIndependentSize().height(), 300)
+        shown = figure.picture.pixmap().deviceIndependentSize()
+        self.assertGreater(shown.height(), 300)
+        self.assertAlmostEqual(shown.width() / shown.height(), figure.source.width() / figure.source.height(), delta=0.01)
 
     def test_figure_buttons_stay_put_when_frame_lines_differ(self):
         """장 설명 줄 수가 장마다 달라도 설명 칸이 가장 긴 설명의 높이를 지켜 넘김 줄과 캡션이 움직이지 않음. 폭이 바뀌면 다시 잼."""
@@ -643,7 +645,7 @@ class LessonAndLearnTest(AiTest):
         self.assertFalse(guess.choices.rows[0].box.isEnabled() or guess.note.isVisible())
         self.assertEqual(guess.choices.picked(), [])
         view = page.views[0]
-        self.assertEqual((unit_row.label.property("role"), view.title.property("role")), ("headline", "label"))
+        self.assertGreater(unit_row.label.font().pixelSize(), view.title.font().pixelSize())
         self.assertEqual(self.log(), [])  # 읽기 전용이라 기록하지 않음
 
     def test_revisit_then_mixed_set_starts_with_that_unit(self):
@@ -700,7 +702,8 @@ class LevelsTest(AiTest):
         self.assertNotIn('90차시 슬라이드 3쪽', text)
         self.assertEqual(3, len(block.figures))
         self.assertTrue(all(isinstance(f, ai_learn.AiFigure) for f in block.figures))
-        self.assertLessEqual(max(f.picture.height() for f in block.figures), 300)
+        for figure in block.figures:
+            self.assertLessEqual(figure.picture.pixmap().deviceIndependentSize().width(), figure.width())
         code = "\n".join(piece.toPlainText() for piece in block.findChildren(TextPiece))
         self.assertIn("w = w - lr * grad", code)
         self.assertEqual([7, 15, 20], [r.block["level"] for r in recalls])
@@ -822,6 +825,21 @@ class PracticeTest(AiTest):
         page = self.win.ai_quiz
         return [b.text() for b in page.card.findChildren(QLabel) if b.objectName() == "badge" and b.isVisible()]
 
+    def test_practice_keeps_learning_text_and_input_sizes_after_scaling(self):
+        self.addCleanup(theme.set_text, theme.state["text"])
+        page = self.start()
+        self.skip_to(lambda item: item["card"] == "i90-b01")
+        for step in ("large", "larger"):
+            self.win.set_text(step)
+            self.idle()
+            piece = next(p for doc in page.docs for p in doc.findChildren(TextPiece) if p.toPlainText().strip())
+            fragment = piece.document().begin().begin().fragment()
+            font = fragment.charFormat().font().resolve(piece.document().defaultFont())
+            self.assertEqual(QFontMetricsF(font).height(), QFontMetricsF(theme.font("learn_body")).height())
+            self.assertEqual(page.fields[0].font().pixelSize(), theme.TYPE["learn_body"][0])
+        self.answer()
+        self.assertEqual(page.fields[0].font().pixelSize(), theme.TYPE["learn_body"][0])
+
     def test_wrong_blank_shows_answers_and_comes_back_three_later(self):
         page = self.start()
         self.assertEqual(page.count.text(), "1 / %d" % page.item["total"])
@@ -907,9 +925,13 @@ class PracticeTest(AiTest):
         self.assertEqual(len(page.slots), 1)
         slot = page.slots[0].fields[0]
         self.assertIsInstance(slot, ai_quiz.Slot)
-        self.assertEqual(slot.height(), theme.slot_height())
+        self.assertEqual(slot.height(), theme.learning_slot_height())
         self.assertFalse(page.fields)  # 코드 밖 칸이 없음
+        self.addCleanup(theme.set_text, theme.state["text"])
+        self.win.set_text("larger")
+        self.idle()
         self.answer()
+        self.assertEqual(slot.font().pixelSize(), theme.TYPE["learn_code"][0])
         self.assertEqual(page.answer_line.text(), "정답: `zero_grad`")
         fake = dict(page.item, stem="두 칸을 채우세요.\n\n```python\nx.____(2, 3)\ny = x.____()\n```",
                     blanks=[{"mode": "code", "hint": "메서드"}, {"mode": "code", "hint": "메서드"}], code=True, chips=["90차시", "코드 빈칸"])
@@ -1311,7 +1333,7 @@ class PatternTest(AiTest):
         self.assertEqual(changed, [["net.train()", "net.eval()"], ["    n += c.argmax(1).sum()", "    n += c.argmax(0).sum()"]])
         same = [cell for line in block.lines if not line.changed for cell in line.cells]
         self.assertEqual({cell.property("tone") for cell in same}, {"secondary"})
-        self.assertEqual({line.height() for line in block.lines}, {theme.TYPE["code"][1]})
+        self.assertEqual({line.height() for line in block.lines}, {theme.TYPE["learn_code"][1]})
         self.assertLessEqual(learn.view.minimumSizeHint().width(), learn.view.width())
 
     def test_diff_block_stacks_when_a_column_cannot_hold_the_longest_line(self):
@@ -1336,7 +1358,7 @@ class PatternTest(AiTest):
             block.restyle()
             guikit.pump()
             self.assertEqual(block.two, two, step)
-            self.assertEqual(ai_learn.code_font().pixelSize(), theme.CODE_PX + theme.text_px() - 1)
+            self.assertEqual(ai_learn.code_font().pixelSize(), theme.TYPE["learn_code"][0])
         holder.resize(600, 600)
         guikit.pump()
         self.assertFalse(block.two)
@@ -1350,6 +1372,9 @@ class PatternTest(AiTest):
         win = self.boot((1024, 700))
         learn = self.open_unit(3)
         block = learn.view.findChildren(ai_learn.RotateBlock)[0]
+        self.addCleanup(theme.set_text, theme.state["text"])
+        win.set_text("larger")
+        self.idle()
         self.assertEqual(block.count.text(), "1 / 6")
         field = block.field()
         self.assertEqual(field.placeholderText(), "메서드 이름")
@@ -1362,6 +1387,7 @@ class PatternTest(AiTest):
         self.assertEqual((learn.index, field.cursorPosition()), (2, 3))  # 칸 안의 ← 는 글자 커서
         QTest.keyClick(field, Qt.Key.Key_Return)
         self.assertEqual((block.verdict.text(), block.answer.text(), field.property("tone")), ("틀렸습니다", "정답: `train`", "danger"))
+        self.assertEqual(field.font().pixelSize(), theme.TYPE["learn_code"][0])
         self.assertTrue(block.next_btn.isVisible())
         self.assertFalse(block.check_btn.isVisible())
         self.assertEqual([(r["unit"], r["id"], r["slot"], r["ok"]) for r in self.log("recall")], [("18a", "t1", "pc-k01", False)])
@@ -1630,7 +1656,7 @@ class DesignTest(AiTest):
 
 class RealLessonTest(AiTest):
     """저장소의 1~9차시 학습 노트와 상황별 코드(공개돼 있으면). 모든 단원의 모든 단계가 오류 없이 그려지고, 숨긴 줄이 보이지 않고,
-    1024×700 에서 그림의 넘김 줄과 장 설명이 그림과 함께 스크롤 없이 한 화면에 들어감. 나란히 보기는 행이 줄을 바꾸지 않고 단계 폭을
+    1024×700 에서 큰 그림과 넘김 줄을 각각 스크롤로 볼 수 있음. 나란히 보기는 행이 줄을 바꾸지 않고 단계 폭을
     넘지 않음. 세 수준 블록은 차시마다 3~5개이고, 수준마다 첫 답이 화면 채점에서 맞으며, [노트 보기]에서는 정답을 편 채로 그려짐."""
     real_bank = True
 
@@ -1676,9 +1702,9 @@ class RealLessonTest(AiTest):
                             self.assertNotIn(bad, shown, where)
                         self.assertEqual(3, len(block.figures), where)
                         for figure in block.figures:
-                            self.assertLessEqual(figure.picture.height(), 300, where)
+                            self.assertLessEqual(figure.picture.pixmap().deviceIndependentSize().width(), figure.width(), where)
                     for block in learn.view.findChildren(ai_learn.DiffBlock):
-                        self.assertEqual({line.height() for line in block.lines}, {theme.TYPE["code"][1]}, where)
+                        self.assertEqual({line.height() for line in block.lines}, {theme.TYPE["learn_code"][1]}, where)
                         self.assertLessEqual(learn.view.minimumSizeHint().width(), learn.view.width(), where)
                     for block in learn.view.findChildren(ai_learn.RotateBlock):
                         self.assertEqual(block.count.text(), "1 / %d" % len(block.queue), where)
@@ -1692,10 +1718,16 @@ class RealLessonTest(AiTest):
                             learn.scroll.ensureWidgetVisible(figure.controls, 0, 0)
                             guikit.pump(20)
                         viewport = learn.scroll.viewport()
-                        top = figure.picture.mapTo(viewport, QPoint(0, 0)).y()
-                        bottom = figure.controls.mapTo(viewport, QPoint(0, figure.controls.height())).y()
-                        self.assertTrue(top >= 0 and bottom <= viewport.height(), "%s %s" % (where, (top, bottom, viewport.height())))
-                        self.assertLessEqual(figure.picture.height(), 300, where)
+                        controls = QRect(figure.controls.mapTo(viewport, QPoint()), figure.controls.size())
+                        self.assertTrue(viewport.rect().contains(controls), where)
+                        learn.scroll.ensureWidgetVisible(figure.picture, 0, 0)
+                        guikit.pump(20)
+                        picture = QRect(figure.picture.mapTo(viewport, QPoint()), figure.picture.size())
+                        if picture.height() <= viewport.height():
+                            self.assertTrue(viewport.rect().contains(picture), where)
+                        else:
+                            self.assertTrue(viewport.rect().intersects(picture), where)
+                        self.assertLessEqual(figure.picture.pixmap().deviceIndependentSize().width(), figure.width(), where)
         self.assertGreater(figures, 20)
         lessons = ("i01", "i02", "i03", "i04", "i05", "i06", "i07", "i08", "i09")
         self.assertEqual({lid: True for lid in lessons}, {lid: 3 <= levels.get(lid, 0) <= 5 for lid in lessons}, levels)  # 차시마다 3~5개

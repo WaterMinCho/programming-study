@@ -74,10 +74,13 @@ TOKENS = {"light": LIGHT, "dark": DARK}
 # 한 화면 상태에서 쓰는 크기는 넷 이하. micro 는 직접 그리는 그래프 눈금에만 씀. BASE_TYPE 은 보통 단계의 설계값이고
 # TYPE 은 지금 단계의 값(set_text 가 바꿈). 화면 코드는 TYPE 을 읽음
 BASE_TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 30, 700), "body": (17, 28, 400), "label": (17, 24, 400),
-             "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400)}
+             "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400),
+             "learn_body": (20, 36, 400), "learn_heading": (24, 36, 700), "learn_caption": (16, 28, 400),
+             "learn_code": (18, 30, 400)}
 TYPE = dict(BASE_TYPE)
 SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 간격이 아니라 선으로 셈
 GAP = {"detail": 8, "title_description": 12, "paragraph": 16, "description_content": 24, "group": 24, "section": 48}
+LEARN_GAP = {"detail": 16, "title_description": 16, "paragraph": 24, "group": 48}
 RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16}
 CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 80, "topbar": 64, "bottombar": 80, "stepper": 56,
            "slot": 30}  # slot 은 코드 줄 안 빈칸의 높이. 보통 글자의 코드 줄 높이 22 에 8 을 더한 값이고 글자 단계를 따라 같이 커짐(slot_height)
@@ -309,6 +312,7 @@ QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
 QWidget[ui="2"] QLineEdit[tone="danger"] { border: 2px solid %(wrong)s; padding: 0 14px; }
 QWidget[ui="2"] QLineEdit[tone="success"] { border: 2px solid %(ok)s; padding: 0 14px; }
 QWidget[ui="2"] QLineEdit[slot="true"] { min-height: %(slot)spx; max-height: %(slot)spx; padding: 0 7px; border-radius: 8px; }
+QWidget[ui="2"] QLineEdit[slot="true"][learning="true"] { min-height: %(learn_slot)spx; max-height: %(learn_slot)spx; }
 QWidget[ui="2"] QLineEdit[slot="true"]:focus, QWidget[ui="2"] QLineEdit[slot="true"][tone="danger"],
     QWidget[ui="2"] QLineEdit[slot="true"][tone="success"] { padding: 0 6px; }
 QWidget[ui="2"] QLineEdit:disabled, QWidget[ui="2"] QPlainTextEdit:disabled { background: %(surface_alt)s; color: %(muted)s; }
@@ -400,9 +404,9 @@ p.h1 { font-size: %(wh1)spx; margin-top: 0px; margin-bottom: %(heading_gap)spx; 
 p.h2 { font-size: %(wbody)spx; margin-top: %(group_gap)spx; margin-bottom: %(heading_gap)spx; line-height: %(wline)spx; color: %(ink)s; }
 p.h3 { font-size: %(wbody)spx; margin-top: %(group_gap)spx; margin-bottom: %(heading_gap)spx; line-height: %(wline)spx; color: %(ink)s; }
 hr { background-color: %(track)s; margin-top: 16px; margin-bottom: 16px; }
-ul, ol { margin-top: 0px; margin-bottom: 8px; }
-li { margin-bottom: 8px; line-height: %(wline)spx; }
-li p { margin-bottom: 8px; }
+ul, ol { margin-top: 0px; margin-bottom: %(item_gap)spx; }
+li { margin-bottom: %(item_gap)spx; line-height: %(wline)spx; }
+li p { margin-bottom: %(item_gap)spx; }
 code { font-size: %(wcode)spx; background-color: %(track)s; }  /* doc_css 의 line 은 줄 간격 값이라 색은 track 으로 씀 */
 pre { font-size: %(wcode)spx; line-height: %(wcodeline)spx; }
 td.codebox { background-color: transparent; border: 0px; padding: 12px 16px; }  /* 둥근 바탕은 TextPiece.paintEvent 가 칠함 */
@@ -491,7 +495,8 @@ def style_tokens(scheme):
     꼬리표 높이(caption 줄 높이 + 2), 코드 줄 안 빈칸의 테두리 안쪽 높이(slot)."""
     check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
     return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2,
-                slot=slot_height() - 2, **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
+                slot=slot_height() - 2, learn_slot=learning_slot_height() - 2,
+                **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
 
 
 def control_height(scale):
@@ -503,6 +508,11 @@ def control_height(scale):
 def slot_height():
     """코드 줄 안 빈칸의 높이. 지금 글자 단계의 코드 줄 높이에 CONTROL["slot"] 이 보통 단계에서 더한 만큼을 더함."""
     return TYPE["code"][1] + CONTROL["slot"] - BASE_TYPE["code"][1]
+
+
+def learning_slot_height():
+    """학습 코드의 빈칸 높이. 커진 코드 줄 위아래에 기존 빈칸과 같은 8px를 더함."""
+    return TYPE["learn_code"][1] + GAP["detail"]
 
 
 def set_text(step):
@@ -550,15 +560,20 @@ def code_font(zoom=0):
     return font
 
 
-def doc_css(zoom=0, extra="", own_body=False):
+def doc_css(zoom=0, extra="", own_body=False, learning=False):
     """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈.
     extra 는 본문 CSS 뒤에 붙일 규칙(WEB_CSS). own_body 면 mdlite 의 body 글자 크기를 빼서 extra 의 body 크기가 먹게 함.
     Qt 리치 텍스트는 body 의 font-size 가 둘이면 앞의 것을 씀. WEB_CSS 의 크기는 지금 단계의 TYPE 값이라 확대 단계를 미리 뺌."""
+    types, gaps = TYPE, GAP
+    if learning:
+        types = dict(TYPE, body=TYPE["learn_body"], headline=TYPE["learn_heading"], code=TYPE["learn_code"])
+        gaps = dict(GAP, **LEARN_GAP)
     base = re.sub(r"(?m)^(body \{[^}]*?)font-size: \d+px; ?", r"\1", mdlite.CSS) if own_body else mdlite.CSS
     css = (base + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE),
-                                                wbody=TYPE["body"][0] - DOC_PX - zoom, wline=TYPE["body"][1], wh1=TYPE["headline"][0] - DOC_PX - zoom,
-                                                wh1line=TYPE["headline"][1], wcode=TYPE["code"][0] - DOC_PX - zoom, wcodeline=TYPE["code"][1],
-                                                heading_gap=GAP["title_description"], group_gap=GAP["group"], paragraph_gap=GAP["paragraph"])
+                                                wbody=types["body"][0] - DOC_PX - zoom, wline=types["body"][1], wh1=types["headline"][0] - DOC_PX - zoom,
+                                                wh1line=types["headline"][1], wcode=types["code"][0] - DOC_PX - zoom, wcodeline=types["code"][1],
+                                                heading_gap=gaps["title_description"], group_gap=gaps["group"], paragraph_gap=gaps["paragraph"],
+                                                item_gap=gaps["detail"])
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
     families = ", ".join("'%s'" % name for name in code_families())
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)
@@ -567,6 +582,11 @@ def doc_css(zoom=0, extra="", own_body=False):
 def web_css():
     """새 규칙(ui="2") 화면의 문서용 CSS. doc_css 에 WEB_CSS 를 더함. 크기는 지금 글자 크기 단계의 TYPE 값."""
     return doc_css(text_px(), WEB_CSS, own_body=True)
+
+
+def learning_css():
+    """AI 학습 본문·표·코드의 큰 글자와 여유 있는 줄·문단 간격을 적용함."""
+    return doc_css(text_px(), WEB_CSS, own_body=True, learning=True)
 
 
 def journey_css():

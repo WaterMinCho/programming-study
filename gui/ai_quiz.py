@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import QLineEdit, QWidget
 from aiprep import bank
 from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
-from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, rich
+from gui.ai_learn import CARD_PAD, ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, reading_width, rich
 from gui.guard import NOTE as PASTE_NOTE
 from gui.widgets import LinkLabel, PasteBlock
 from session import SessionError
@@ -99,7 +99,7 @@ class PracticePage(QWidget):
         root.addWidget(self.top)
         self.bar_line = kit.progress(thin=True)
         root.addWidget(self.bar_line)
-        self.card, self.card_box = kit.card(24, 24)
+        self.card, self.card_box = kit.card(CARD_PAD, 32)
         self.scroll, _ = reading_column(self.card)
         root.addWidget(self.scroll, 1)
         self.bar = kit.BottomBar()
@@ -274,7 +274,7 @@ class PracticePage(QWidget):
                 continue
             blank = blanks[n] if n < len(blanks) else {"mode": "word", "hint": ""}
             field = QLineEdit()
-            kit.typed(field, "body")
+            kit.typed(field, "learn_body")
             field.setPlaceholderText(blank.get("hint") or ai_text.MODE_HINT.get(blank.get("mode"), ""))
             self.paste.watch(field)
             block = QWidget()
@@ -410,9 +410,11 @@ class PracticePage(QWidget):
             ok = n < len(per) and per[n]
             right = correct[n] if n < len(correct) else ""
             word = "맞음" if ok else "틀림"
+            font = widget.font()
             widget.setReadOnly(True)
             widget.setPlaceholderText("")
             kit.set_tone(widget, "" if self.dontknow else ("success" if ok else "danger"))
+            widget.setFont(font)
             mark = ai_text.number_mark(n + 1) + " " if numbered else ""
             answers.append("%s`%s`" % (mark, right) if self.is_code(widget) else "%s%s" % (mark, right))
             words.append("%s%s" % (mark, word))
@@ -668,7 +670,7 @@ class PracticePage(QWidget):
             self.win.go_ai()
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
+        self.card.setMaximumWidth(reading_width(self.width()) + 2 * CARD_PAD)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -683,7 +685,7 @@ class PracticePage(QWidget):
     def restyle(self):
         self.fit_column()
         for piece in self.docs:
-            piece.restyle(theme.web_css())
+            piece.restyle(theme.learning_css())
         for widget in self.findChildren(RichPara):
             widget.restyle()
         for slots in self.slots:
