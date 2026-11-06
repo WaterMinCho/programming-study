@@ -1,24 +1,25 @@
 {
  "format": 1,
- "writer": "본문 수정 1",
- "resolver": "변경 물음 재풀이 2",
- "reviewer": "본문 검토 2",
+ "writer": "내용 보완 0",
+ "resolver": "전체 재풀이 1",
+ "reviewer": "교차 검토 2",
  "files": {
   "assets/13a-1.png": "02e7999b97570dc5e028c02714a2886adaaf0e84b6a0ace24e447aefada72500",
   "assets/13a-2.png": "ef619b3fb63524513e15919414c65e80d9f2af23f4373d578e42272b0311bca4",
   "assets/13a-3.png": "895a07ab0ee8b46e29ab9814b91411b3e31310791643630bb0272192f4f8cf40",
+  "assets/13a-8.gif": "fa6bb4b318dbb71f56124e5ca786495e0991a7fc02f6bca7d7a45211f38d7a6e",
   "assets/13b-1.gif": "3caf124846720e42489fa835fd4ba44641f633571d21d0cd6c56563a8c7e1552",
   "assets/13b-2.png": "8b0073b50b6ea16fdac1c9a99c39d1e25cc177f9a9d701b5bd4660ba53add663",
   "assets/13b-3.png": "8d931e9226bc4358b90110dabe5f8744b01bec4becba8f53210a2db9fb9249d0",
   "assets/13b-31.png": "68709b62a8a868f35145d1fe1c68935f07660d40cd0e07cef1e64fa96673c0a3",
-  "assets/13b-32.png": "68709b62a8a868f35145d1fe1c68935f07660d40cd0e07cef1e64fa96673c0a3",
+  "assets/13b-32.png": "fffd99fa97b0e9a2f1a92899921067a39bcba4b0bbe3d1838c91cb0c47515a61",
   "assets/13b-33.png": "b671634978f0011f39f94c790c0af33e6961e753ce6a9027707a614dc9f0dbf8",
   "assets/13c-1.png": "133549e341ffd65c8e3bab02acfa976c68f85ae43ff552976a9e9976b2bda535",
   "assets/13c-2.png": "5e349b193441aa8cafd20a6881ebe2d4b859132099ad6ba43876d7beb128e55f",
   "assets/13c-3.png": "e125ff51b3e4f3ac983053981225cfe9f07aa88e592ed6beeea9cb02c8dc0173",
   "assets/13c-31.png": "3d16bf817d25274d18210aa4f4a33e2c72e2585ed7f42728aef90d4c7e2cb64c",
   "assets/13c-32.png": "2b77fcac439376ba805eaacb1cb7b52d30081886e03062b23b4fd269f7ba893e",
-  "assets/13c-33.png": "2b77fcac439376ba805eaacb1cb7b52d30081886e03062b23b4fd269f7ba893e",
+  "assets/13c-33.png": "1198bf474fbcdb97870dd4ebd2c8c4967f6f0ef1c1d0c7727204038834465133",
   "assets/13d-1.png": "1f5f5c9dbe1bbaa186bc85f7439642ba9c0f1769ddc766a56917ec7a3d4d7aa9",
   "assets/13d-2.png": "d88c26ac4da8365693234aaaeea07cd16e2ebccf47136cc3f0af3fd54019af5e",
   "assets/13d-3.png": "7bd8263946e078ee1fa989b74d2ea8d80b41d88dc707703f2e01d21b60dadca7",
@@ -38,11 +39,12 @@
   "assets/13g-2.png": "4903a33220c44637d399961de40e54b644492395e218024f453156c9b5a535a3",
   "assets/13g-3.png": "893ea0225226024017215c64870439dbb75d904a0364ee30f74e82dd50682aa0",
   "meta.json": "1c4ea97cfe277c77a8bc696d4314c881859948d6ec9890fb1237bb7159f40e26",
-  "page.md": "e826d8f3874dff6be9d9a662601b537e8d215545b5aec8fa83d5aaa42bd6d0b7"
+  "page.md": "14c9b89f8565615a4c1aab19144512e7ffeb2ffcb26da7748f93f17cbb556ae2"
  },
  "findings": [
   "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
   "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
-  "본문과 예제·변경 물음을 독립 대조함. 전체 학습 과정의 단원 연결을 확인함."
+  "본문과 예제·변경 물음을 독립 대조함. 전체 학습 과정의 단원 연결을 확인함.",
+  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음."
  ]
 }

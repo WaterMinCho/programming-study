@@ -218,8 +218,8 @@ def split_count(r):
             rule = "1만 개 이하라 60/20/20 비율"
         which = r.pick(["학습", "검증", "테스트"])
         count = n * parts[which] // 10
-        return blank(stem="강의가 권한 비율대로 데이터 %s개를 학습·검증·테스트 데이터로 나누면 %s 데이터는 ____ 개입니다."
-                          % (num(n), which),
+        return blank(stem="데이터 %s개를 학습·검증·테스트 순서로 %s 비율로 나눕니다. %s 데이터는 ____ 개입니다."
+                          % (num(n), "80%·10%·10%" if parts["학습"] == 8 else "60%·20%·20%", which),
                      blanks=[{"answer": [str(count)], "mode": "number", "unit": "개", "hint": "개수"}],
                      explain="%s로 나눕니다. %s × %d%% = %s개입니다. 이 비율은 자주 쓰는 값이고 정해진 규칙은 아닙니다."
                              % (rule, num(n), parts[which] * 10, num(count)),

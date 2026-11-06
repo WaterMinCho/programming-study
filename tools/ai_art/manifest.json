@@ -2682,9 +2682,9 @@
    "fn": "fig_5"
   },
   "learn/l13/assets/13b-32.png": {
-   "sha256": "68709b62a8a868f35145d1fe1c68935f07660d40cd0e07cef1e64fa96673c0a3",
-   "script": "tools/ai_art/l13.py",
-   "fn": "fig_6"
+   "sha256": "fffd99fa97b0e9a2f1a92899921067a39bcba4b0bbe3d1838c91cb0c47515a61",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "13b-32"
   },
   "learn/l13/assets/13b-33.png": {
    "sha256": "b671634978f0011f39f94c790c0af33e6961e753ce6a9027707a614dc9f0dbf8",
@@ -2717,9 +2717,9 @@
    "fn": "fig_12"
   },
   "learn/l13/assets/13c-33.png": {
-   "sha256": "2b77fcac439376ba805eaacb1cb7b52d30081886e03062b23b4fd269f7ba893e",
-   "script": "tools/ai_art/l13.py",
-   "fn": "fig_13"
+   "sha256": "1198bf474fbcdb97870dd4ebd2c8c4967f6f0ef1c1d0c7727204038834465133",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "13c-33"
   },
   "learn/l13/assets/13d-1.png": {
    "sha256": "1f5f5c9dbe1bbaa186bc85f7439642ba9c0f1769ddc766a56917ec7a3d4d7aa9",
@@ -2857,9 +2857,9 @@
    "fn": "fig_11"
   },
   "learn/l14/assets/14c-31.png": {
-   "sha256": "4ee68379ce78a19df77fd4f04238d23af363e1bde7c42a8aba9fc8b7bdc17eb6",
-   "script": "tools/ai_art/l14.py",
-   "fn": "fig_8"
+   "sha256": "382f14137609fe0647d8816c22588832bedb6befceb0d46f49d354b03c093d54",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "14c-31"
   },
   "learn/l14/assets/14c-32.png": {
    "sha256": "76b2fdf8e095dac4d2b65db7c53a5be20913d92836be1c2f135a2b9171694fac",
@@ -2867,9 +2867,9 @@
    "fn": "fig_9"
   },
   "learn/l14/assets/14c-33.png": {
-   "sha256": "71b4da976f1b4e6c62f73f9d9fe56574e18854a1dd772a925c01ee40842b21b1",
-   "script": "tools/ai_art/l14.py",
-   "fn": "fig_10"
+   "sha256": "ee60b5e927355883ffef8246d0efb9f7986d72d4ca52e42f0e5b5bfbd6d7127e",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "14c-33"
   },
   "learn/l14/assets/14d-1.png": {
    "sha256": "d866c78356151fbd395b550fca299eb6bc04810934dc5860f71f9175fb034e21",
@@ -2887,9 +2887,9 @@
    "fn": "fig_17"
   },
   "learn/l14/assets/14d-31.png": {
-   "sha256": "e6f3dc6bc660ccb90714613a4b0ea603d63baaf245f60e6f598236275a989c7c",
-   "script": "tools/ai_art/l14.py",
-   "fn": "fig_14"
+   "sha256": "4fa2edfaaa9853149b962c463a277fde7f8dca07d3b71031a41b085aeaaffbaf",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "14d-31"
   },
   "learn/l14/assets/14d-32.png": {
    "sha256": "0979bd1f504b720fd79a6d0bdeeaeb1bca5b65d57ec573b44326e5178b1e51b2",
@@ -2897,9 +2897,9 @@
    "fn": "fig_15"
   },
   "learn/l14/assets/14d-33.png": {
-   "sha256": "1943abba308f45f92b7f1914ca8dd504dd5defe07bf381300202ae4ec87ca86c",
-   "script": "tools/ai_art/l14.py",
-   "fn": "fig_16"
+   "sha256": "5262532cf5d5f8a897cf563e37d1f88e805b194f3e25c7e6b981a3d71e269244",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "14d-33"
   },
   "learn/l14/assets/14e-1.gif": {
    "sha256": "a81f6fa242ecf7a70d3b8142904ad29bc129b29761816ef6d4bd96a31515d0d3",
@@ -2927,9 +2927,9 @@
    "fn": "fig_21"
   },
   "learn/l14/assets/14e-33.png": {
-   "sha256": "919ebf85feeae91ccebe37a670daf6fb747223514697d692a83dda71b74e9f8a",
-   "script": "tools/ai_art/l14.py",
-   "fn": "fig_22"
+   "sha256": "02c9797e5d6e8c0a5e15b14b5069eba926b436e3f0b6adfa91a757ce1eb4527d",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "14e-33"
   },
   "learn/l14/assets/14f-1.png": {
    "sha256": "6d455e5e512b925e0cd4b15370ba2deacb7329095fdd783062da2b9953b97adb",
@@ -3032,9 +3032,9 @@
    "fn": "fig_6"
   },
   "learn/l15/assets/15b-33.png": {
-   "sha256": "4316b423b26abd02133d56e7e002d98128852701be09e2d91da25c27534e4740",
-   "script": "tools/ai_art/l15.py",
-   "fn": "fig_7"
+   "sha256": "59d33d34bf3337a113029773e494c0171569ca5b075af2fb578affa5d5e7194c",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "15b-33"
   },
   "learn/l15/assets/15c-1.png": {
    "sha256": "4751c9f3ffaab79f918bf30d2fa9f5fe42e2af79b0870f2ce6a205729d45cc9a",
@@ -3062,9 +3062,9 @@
    "fn": "fig_12"
   },
   "learn/l15/assets/15c-33.png": {
-   "sha256": "2cca2a9f7f80764f8950dd5ac2952de54ad452873c77e532b020c08df97398b2",
-   "script": "tools/ai_art/l15.py",
-   "fn": "fig_13"
+   "sha256": "733cc1d563a51f58df6b5a94563a5ba646b928ca24fe93ceaaa64820dc08c7f0",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "15c-33"
   },
   "learn/l15/assets/15d-1.png": {
    "sha256": "0e36481743d42012cd6e6cc87434729d056aa8de11ab6d223ad4a6e5c3d970f8",
@@ -3092,9 +3092,9 @@
    "fn": "fig_18"
   },
   "learn/l15/assets/15d-33.png": {
-   "sha256": "8abb9e34e9b9d54d8fdf27c7eca707835d42d228084aee9507ed7f6bec218b51",
-   "script": "tools/ai_art/l15.py",
-   "fn": "fig_19"
+   "sha256": "c9b34f35182e59752e74614ce2ac0495079ab4ab7ec7c39ae7c13a7b18bb3639",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "15d-33"
   },
   "learn/l15/assets/15e-1.png": {
    "sha256": "74e8055545e10b23512954c4bf36a4f76b59149687d54c25011c6620a67e1034",
@@ -3112,9 +3112,9 @@
    "fn": "fig_23"
   },
   "learn/l16/assets/16a-1.png": {
-   "sha256": "f288893c16542c0779646e0006ca9583e125df6fc51d9c12e495ac00bce7b2a4",
-   "script": "tools/ai_art/l16.py",
-   "fn": "fig_0"
+   "sha256": "c5c0fe10727c08cc300d4d1fd9a98767cc5f4d07ae2c2ae286452120ad1ad43f",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "16a-1"
   },
   "learn/l16/assets/16a-2.png": {
    "sha256": "7161efe15fea563e27739a6a81712b1a9eb4dc87bfe1f33d283a9c883da4d5bc",
@@ -3142,9 +3142,9 @@
    "fn": "fig_8"
   },
   "learn/l16/assets/16b-31.png": {
-   "sha256": "3994ec9cb012af87c342d0c00f999a03c5cfb1cac72b9b70d3428f2d488d948c",
-   "script": "tools/ai_art/l16.py",
-   "fn": "fig_5"
+   "sha256": "4db3416ef47c1783bdde5c0504d580ffb2f89f2df1dc30671f76dab3bbb8d46f",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "16b-31"
   },
   "learn/l16/assets/16b-32.png": {
    "sha256": "490ed6325af03dc90d6e6377e11a14caaea3cbefda1e078698ad7c75ca2c9705",
@@ -3152,9 +3152,9 @@
    "fn": "fig_6"
   },
   "learn/l16/assets/16b-33.png": {
-   "sha256": "c865f2caf58950ef64e26c88c86256095309e8f2db7c0621a3082c6224f6ab3c",
-   "script": "tools/ai_art/l16.py",
-   "fn": "fig_7"
+   "sha256": "241d30bebbe417e1c4dd59a692758684b40159f307cf1929cfad6b4d254271f9",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "16b-33"
   },
   "learn/l16/assets/16c-1.png": {
    "sha256": "0515d5e90cd86352074e629dfd2f43dd552ac34621bb567f60ad12c69acd7457",
@@ -3182,9 +3182,9 @@
    "fn": "fig_12"
   },
   "learn/l16/assets/16c-33.png": {
-   "sha256": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
-   "script": "tools/ai_art/l16.py",
-   "fn": "fig_13"
+   "sha256": "bead08290024784ca0be48650867b97b27d0a581ef57ebf4af540901a1cd7637",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "16c-33"
   },
   "learn/l16/assets/16d-1.png": {
    "sha256": "94f4cfc8d92f2a0557632cc5f0c2227fbe722cf5cc5bdb70336f1457d80a0f9c",
@@ -3202,9 +3202,9 @@
    "fn": "fig_20"
   },
   "learn/l16/assets/16d-31.png": {
-   "sha256": "ecd803df21f30b376c972d1f8df54c1bb61e67b09e48e6d5d7577ab37add2fef",
-   "script": "tools/ai_art/l16.py",
-   "fn": "fig_17"
+   "sha256": "386be3b276f7c324ca85b7c52668ba32d2cd42a654aa2adc52c7f6a6e199a09a",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "16d-31"
   },
   "learn/l16/assets/16d-32.png": {
    "sha256": "2807c11628ce83be65533da919013cf6470811a48a7e1dcddb99244241e433ac",
@@ -3212,9 +3212,9 @@
    "fn": "fig_18"
   },
   "learn/l16/assets/16d-33.png": {
-   "sha256": "efaa52ca06e67c101511c84bddf06e4f54590c4394d4f70a378ecb57ec03f639",
-   "script": "tools/ai_art/l16.py",
-   "fn": "fig_19"
+   "sha256": "8d18d7b5cc72891d04afde896844a0ecea6f18e3b83de90d8e323d2838098062",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "16d-33"
   },
   "learn/l16/assets/16e-1.png": {
    "sha256": "d5f2e4bce60a42e83750a37613284b5f12c19c61881e1ffea337af0d136172c2",
@@ -3272,9 +3272,9 @@
    "fn": "fig_3"
   },
   "learn/l17/assets/17a-33.png": {
-   "sha256": "1c1ec624720a3b10ffe8b9a8a68f993e4aee4c1a5a20e34dbcda211bb4b3d067",
-   "script": "tools/ai_art/l17.py",
-   "fn": "fig_4"
+   "sha256": "b5663a05f46034414a0c2a44ba390627dd2dd5bebfcc31ba9136f224023a5379",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "17a-33"
   },
   "learn/l17/assets/17b-1.png": {
    "sha256": "d533d5b0c44d1a73204a8806d1e9ee573a6fa528a85289fffe3ac549e327f204",
@@ -3332,9 +3332,9 @@
    "fn": "fig_15"
   },
   "learn/l17/assets/17c-33.png": {
-   "sha256": "1ec71b1ecacf9de1518a95705efd85adb65e95ba5bd4d085be0c8a6d7869d477",
-   "script": "tools/ai_art/l17.py",
-   "fn": "fig_16"
+   "sha256": "0208e6f3321d77e33a18695ae380e606063088372bfaf456a17677455ab3d5cc",
+   "script": "tools/ai_art/level_repairs_qt.py",
+   "fn": "17c-33"
   },
   "learn/l17/assets/17d-1.png": {
    "sha256": "fde116eef4448b8a2ea03d045f49bd96e3425499e79843d32d44ed84e416d6be",
@@ -3565,6 +3565,46 @@
    "sha256": "04b57b9e7bae7d2455954732280523a8f9b8d55aa981a55200a8cb93ecd33641",
    "script": "tools/ai_art/l01_training_qt.py",
    "fn": "development_flow"
+  },
+  "learn/l10/assets/10a-8.gif": {
+   "sha256": "deac2c6c038c84aec9133a6436877fdeaba0b7d2cd35acf6d1b610520ff7706d",
+   "script": "tools/ai_art/lesson_bridges_qt.py",
+   "fn": "bridge_10"
+  },
+  "learn/l11/assets/11a-8.gif": {
+   "sha256": "83d8aec4a76c57a666d437eca4e0d726daaedf68fe3ad49a9a33eb7188ad0f25",
+   "script": "tools/ai_art/lesson_bridges_qt.py",
+   "fn": "bridge_11"
+  },
+  "learn/l12/assets/12a-8.gif": {
+   "sha256": "d2f383466a724037c33ae7eacaf26e091ab3e8e3203b449d9a4d0e35258e7e68",
+   "script": "tools/ai_art/lesson_bridges_qt.py",
+   "fn": "bridge_12"
+  },
+  "learn/l13/assets/13a-8.gif": {
+   "sha256": "fa6bb4b318dbb71f56124e5ca786495e0991a7fc02f6bca7d7a45211f38d7a6e",
+   "script": "tools/ai_art/lesson_bridges_qt.py",
+   "fn": "bridge_13"
+  },
+  "learn/l14/assets/14a-8.gif": {
+   "sha256": "2fa1955b633751a6bfc645d0d811dac9c0008e67b40425e096079e7704571df2",
+   "script": "tools/ai_art/lesson_bridges_qt.py",
+   "fn": "bridge_14"
+  },
+  "learn/l15/assets/15a-8.gif": {
+   "sha256": "24fd19457db172dfd89df93f8138baad82fc29caf60c866a49af3a3e8c6a74ef",
+   "script": "tools/ai_art/lesson_bridges_qt.py",
+   "fn": "bridge_15"
+  },
+  "learn/l16/assets/16a-8.gif": {
+   "sha256": "e9cc7f6d4a0cb2ec23b67c59a3dcac8a8d2e1d5a270c424fe279fce9a7d42498",
+   "script": "tools/ai_art/lesson_bridges_qt.py",
+   "fn": "bridge_16"
+  },
+  "learn/l17/assets/17a-8.gif": {
+   "sha256": "aa6f260cf2db2d3a41e13de2709dfa19ea4cd2d798dd4f52356ffb2a051f8724",
+   "script": "tools/ai_art/lesson_bridges_qt.py",
+   "fn": "bridge_17"
   }
  }
 }

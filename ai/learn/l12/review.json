@@ -1,13 +1,14 @@
 {
  "format": 1,
- "writer": "본문 수정 1",
- "resolver": "변경 물음 재풀이 2",
- "reviewer": "추가 문장 대조 0",
+ "writer": "내용 보완 0",
+ "resolver": "전체 재풀이 1",
+ "reviewer": "교차 검토 2",
  "files": {
   "assets/12a-1.png": "fcd1616505ea8cc4fda9b6a284d842b013482e36197759ae92833556da74ef58",
   "assets/12a-2.png": "c547fe1aa64f1647a439b7175d5aeea840fc64fd0d23437e785c8b994e4eb873",
   "assets/12a-3.png": "3cdb1afb4a2e3f0c3cdd901346fd091d84e900ed9b0cdffd414c13274ff5ebaf",
   "assets/12a-4.png": "d46aabc6d5bc602e80a64a6bf2fbc9fd3eaf9e9cf8568feac35e5ebe5a171050",
+  "assets/12a-8.gif": "d2f383466a724037c33ae7eacaf26e091ab3e8e3203b449d9a4d0e35258e7e68",
   "assets/12b-1.png": "60403941d6a2c4d522a72fcf1e89775061158bfbf146c80d7f0fba249ddbcf43",
   "assets/12b-2.png": "d9232defbaefc4fd29eae54bec0fbeab16c83f08b83be4e942bc5d27694b7268",
   "assets/12b-3.png": "a13bdb52a9f2eeb71b7f9c18818edb2f2ddd917834836d63103502fa86f8301d",
@@ -50,11 +51,12 @@
   "assets/12g-5.png": "c3f90d42319ca2d0e3fcf86c00efa47a281052198b242d018f6064a088dcba57",
   "assets/12g-6.png": "47ac99ca46fa5e74c6e6b4e2760fdc4a940de4d95116f48d68a93a6561b3f69d",
   "meta.json": "b08f8d20504ce92d3f5fbfbe4fff77f6579040cd9970aad74ffde74bc736f97f",
-  "page.md": "b810fee885f580127c88d5e72e27acbc558a07d5c949c9d97ce468613576de08"
+  "page.md": "64ae9cbe58ffb44da98a9ae8ad53e6151a3b17dd491568263a48e10ed047c8a4"
  },
  "findings": [
   "물음의 입력을 설명 예시와 구분하고 그림·계산·학습 흐름을 대조했음. 변경한 물음은 새 공개본으로 다시 풀어 확인했음.",
   "본문과 예제·변경 물음을 독립 대조함. 전체 학습 과정의 단원 연결을 확인함.",
-  "추가된 용어의 첫 사용과 정의 순서를 대조함. 불필요한 예고 용어는 쉬운 말로 바꾸고 문항·코드·정답은 보존함."
+  "추가된 용어의 첫 사용과 정의 순서를 대조함. 불필요한 예고 용어는 쉬운 말로 바꾸고 문항·코드·정답은 보존함.",
+  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음."
  ]
 }

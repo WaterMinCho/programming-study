@@ -1,33 +1,34 @@
 {
  "format": 1,
- "writer": "본문 수정 2",
- "resolver": "변경 물음 재풀이 3",
- "reviewer": "추가 문장 대조 0",
+ "writer": "내용 보완 0",
+ "resolver": "전체 재풀이 1",
+ "reviewer": "교차 검토 2",
  "files": {
   "assets/14a-1.png": "76e0a15a8b649243f630a471f6a55049d3474c07b50b0b32d372d601ba34b6e6",
   "assets/14a-2.png": "edcd910b97af1534d4e610faa88be7447e47bcb6ff7138e1a6a6c7a548204fe1",
   "assets/14a-3.png": "9c8e9880875e68544cf4a83fd7a3fa530827fef11ca501ade41517c1d84869ce",
+  "assets/14a-8.gif": "2fa1955b633751a6bfc645d0d811dac9c0008e67b40425e096079e7704571df2",
   "assets/14b-1.png": "94edc09d8d89d9735cb14b76b0808de3960f58adc460ead54c4085114e8d35c5",
   "assets/14b-2.png": "72cc1d957ed84e71fc153c32e0dca0173820acb4b45a032c87544cb5dfe09783",
   "assets/14b-3.png": "174fb531e2c37128efa64ce0bd024c576d4a2e25f5ac53e0a583c0ddf7dad459",
   "assets/14c-1.png": "8436a8d01253b99b70ce5b6f5d0a7c3d16505808b3fe8b50899364297c07ae09",
   "assets/14c-2.png": "4c15e6761a7b3669a66b17060634c7591304c83a277042976e7c0e87bd11fafc",
   "assets/14c-3.png": "fb5d7a64a0595f7c35a03190d539b4a222c41f78cc97719dd7a48d9a234296af",
-  "assets/14c-31.png": "4ee68379ce78a19df77fd4f04238d23af363e1bde7c42a8aba9fc8b7bdc17eb6",
+  "assets/14c-31.png": "382f14137609fe0647d8816c22588832bedb6befceb0d46f49d354b03c093d54",
   "assets/14c-32.png": "76b2fdf8e095dac4d2b65db7c53a5be20913d92836be1c2f135a2b9171694fac",
-  "assets/14c-33.png": "71b4da976f1b4e6c62f73f9d9fe56574e18854a1dd772a925c01ee40842b21b1",
+  "assets/14c-33.png": "ee60b5e927355883ffef8246d0efb9f7986d72d4ca52e42f0e5b5bfbd6d7127e",
   "assets/14d-1.png": "d866c78356151fbd395b550fca299eb6bc04810934dc5860f71f9175fb034e21",
   "assets/14d-2.png": "c9a7c4da1c2ba57adb2d36f8adb874e5720c722dd95757a263650fb922281991",
   "assets/14d-3.png": "7d8ee104504ccf835593971fcd8403e05c1ac12bd25c24dd260d1aca9e7aadd4",
-  "assets/14d-31.png": "e6f3dc6bc660ccb90714613a4b0ea603d63baaf245f60e6f598236275a989c7c",
+  "assets/14d-31.png": "4fa2edfaaa9853149b962c463a277fde7f8dca07d3b71031a41b085aeaaffbaf",
   "assets/14d-32.png": "0979bd1f504b720fd79a6d0bdeeaeb1bca5b65d57ec573b44326e5178b1e51b2",
-  "assets/14d-33.png": "1943abba308f45f92b7f1914ca8dd504dd5defe07bf381300202ae4ec87ca86c",
+  "assets/14d-33.png": "5262532cf5d5f8a897cf563e37d1f88e805b194f3e25c7e6b981a3d71e269244",
   "assets/14e-1.gif": "a81f6fa242ecf7a70d3b8142904ad29bc129b29761816ef6d4bd96a31515d0d3",
   "assets/14e-2.png": "2392211d2d9e20f882643c66ebbac06e6cf02f0ba9b2678f37acfa24bb6285ae",
   "assets/14e-3.png": "6d5403d750acf0998195cb819bdda9270a0d4e19d7401d6f3d8b08d5a15ee9cb",
   "assets/14e-31.png": "82eff2967f82610541433616e39f9cca2f9b6d0bd09e21e4d3c362924b2e980b",
   "assets/14e-32.png": "49d2f76e74149adbaded4b71a4718418ac31b2cd7fd2666e75faaa4f343aa551",
-  "assets/14e-33.png": "919ebf85feeae91ccebe37a670daf6fb747223514697d692a83dda71b74e9f8a",
+  "assets/14e-33.png": "02c9797e5d6e8c0a5e15b14b5069eba926b436e3f0b6adfa91a757ce1eb4527d",
   "assets/14f-1.png": "6d455e5e512b925e0cd4b15370ba2deacb7329095fdd783062da2b9953b97adb",
   "assets/14f-2.png": "61adc916e0e1221267ed93c20e53b3c315d1125a47ee4305675f0b003aa24984",
   "assets/14f-3.png": "537cef9df3e415fb4fa50ab26e6c312ea3b7cda46cd8548dc8322586311ec30b",
@@ -41,12 +42,13 @@
   "assets/14h-2.png": "fb7c04d9ca22cdf5db1bfac79922b76e5a43205d2558c8c1a996aec3b269b626",
   "assets/14h-3.png": "3c6e136964e5a16a80e05dc17297239ed73004a5da6d80f14a6741b1d5086e92",
   "meta.json": "7ad711174d2de3f83fc9cec692f540c0e527a99ce49ef1928329426e749f4130",
-  "page.md": "4c188b15ebe5c24562d09ce668fd752ebbd74aa6fe9150fbe874d3ff4824aa9f"
+  "page.md": "173f11e34e372c3c89f98c88fd19200ebdc789e62a0dc1f46893ecee8d835c10"
  },
  "findings": [
   "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
   "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
   "본문·예제·변경 물음의 조건을 독립 대조함. int64와 long의 같은 dtype 이름을 허용하고 파일 별칭을 설명에서 덜어냄.",
-  "추가된 용어의 첫 사용과 정의 순서를 대조함. 불필요한 예고 용어는 쉬운 말로 바꾸고 문항·코드·정답은 보존함."
+  "추가된 용어의 첫 사용과 정의 순서를 대조함. 불필요한 예고 용어는 쉬운 말로 바꾸고 문항·코드·정답은 보존함.",
+  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음."
  ]
 }
