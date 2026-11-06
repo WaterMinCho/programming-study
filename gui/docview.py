@@ -107,16 +107,9 @@ def spread(table, width):
     table.setFormat(box)
 
 
-def missing_figure(src):
-    """없는 그림 자리에 두는 안내 글. 그림 경로는 도움말."""
-    note = kit.para(MISSING_TEXT, "caption", "secondary")
-    note.setToolTip(src)
-    return note
-
-
 def parts_of(text, base_dir, lang):
     """마크다운을 쌓을 차례대로 나눠 내놓음. 그림 줄 사이의 블록들은 한 목록으로, 그림 줄은 그림 조각(FigureView)으로 내놓고
-    그림 파일을 읽지 못하면 그 자리에 안내 글을 내놓음. 이미지 줄의 경로는 base_dir 에서 찾음. DocView 와 Doc 이 같이 씀."""
+    그림 파일을 읽지 못하면 설명과 재시도를 보임. 이미지 줄의 경로는 base_dir 에서 찾음. DocView 와 Doc 이 같이 씀."""
     run = []
     for block in keep_lang(mdlite.parse(text), lang):
         if block["t"] != "image":
@@ -125,10 +118,9 @@ def parts_of(text, base_dir, lang):
         if run:
             yield run
         run = []
-        try:
-            yield FigureView(os.path.join(base_dir, block["src"]), block["alt"])
-        except OSError:  # 없는 파일, 읽을 권한이 없는 파일, [문제 받기]가 바꾸는 중인 파일
-            yield missing_figure(block["src"])
+        figure = FigureView(os.path.join(base_dir, block["src"]), block["alt"])
+        figure.error_box.setToolTip(block["src"])
+        yield figure
     if run:
         yield run
 
@@ -571,14 +563,15 @@ class FigureView(QWidget):
     자리가 없는 그림은 캡션 아래 오른쪽이라 캡션이 그림 바로 아래에 붙음.
     GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 움직임이 켜져 있고 autoplay 면 처음 보일 때 한 번 재생하고 마지막 장에서 멈춤.
     data 를 주면 파일을 읽지 않고 그 바이트를 씀. zoomable 이 거짓이면(그림 창 안) 줄어도 크게 보기를 두지 않음.
-    frame_changed 는 장을 옮긴 뒤 한 번 부르는 함수(장 번호를 받음). 뒤로 갈 때 0번 장부터 다시 넘기며 지나는 장에서는 부르지 않음."""
+    frame_changed 는 장을 옮긴 뒤 한 번 부르는 함수(장 번호를 받음). 뒤로 갈 때 0번 장부터 다시 넘기며 지나는 장에서는 부르지 않음.
+    파일이 없거나 해독되지 않으면 캡션·description과 재시도를 보임. 다시 읽을 때 위젯을 교체하지 않음."""
 
-    def __init__(self, path, alt="", parent=None, data=None, zoomable=True, autoplay=True, frame_changed=None):
+    reloading = pyqtSignal()
+
+    def __init__(self, path, alt="", parent=None, data=None, zoomable=True, autoplay=True, frame_changed=None, description=""):
         super().__init__(parent)
-        if data is None:
-            with open(path, "rb") as handle:
-                data = handle.read()
-        self.data, self.zoomable = data, zoomable
+        self.path, self.data, self.zoomable = path, b"", zoomable
+        self.description, self.available = description, False
         self.autoplay, self.frame_changed = autoplay, frame_changed
         self.movie, self.count, self.playing, self.shown, self.drawn_width = None, 1, False, False, -1
         self.shrunk, self.down, self.dialog = False, False, None
@@ -593,24 +586,20 @@ class FigureView(QWidget):
         self.zoom_btn = kit.button("크게 보기", "text", "s")
         self.zoom_btn.clicked.connect(self.open_dialog)
         self.controls = None  # 움직이는 그림의 넘김 줄
-        if data[:4] == b"GIF8":
-            self.open_movie()
-            self.count = max(1, self.movie.frameCount())
-            self.timer = QTimer(self)
-            self.timer.setSingleShot(True)
-            self.timer.timeout.connect(self._tick)
-            self.controls = QWidget()
-            bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"])
-            self.first_btn = self._button(bar, "처음", self.first)
-            self.prev_btn = self._button(bar, "이전", self.prev)
-            self.play_btn = self._button(bar, "재생", self.toggle)
-            self.next_btn = self._button(bar, "다음", self.next)
-            self.counter = kit.label("", "caption", "secondary")
-            bar.addWidget(self.counter)
-            # 단추는 글자 폭을 유지하고 남는 폭이 없으면 다음 줄로 넘김. 그림 칸의 폭은 늘리지 않음
-            self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-            box.addWidget(self.controls)  # 부모에 붙인 뒤에 숨김을 정함. 먼저 보이게 하면 잠깐 따로 창으로 뜨고 그 폭이 최소 폭으로 남음
-            self.controls.setVisible(self.count > 1)
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self._tick)
+        self.error_box, error_layout = kit.well(16, 16, theme.GAP["description_content"])
+        self.error_note = kit.para(MISSING_TEXT, "caption", "secondary")
+        self.error_description = kit.para("", "body", "secondary")
+        error_layout.addWidget(kit.heading(self.error_note, self.error_description))
+        self.retry_btn = kit.button("다시 시도", "secondary", "s")
+        self.retry_btn.setAccessibleName("그림 다시 불러오기")
+        self.retry_btn.clicked.connect(lambda: self.reload())
+        error_layout.addWidget(self.retry_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        box.addWidget(self.error_box)
+        self.error_box.setToolTip(os.fsdecode(path))
+        self.error_box.hide()
         self.caption = kit.para(alt, "caption", "secondary")
         self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         box.addWidget(self.caption)
@@ -622,12 +611,90 @@ class FigureView(QWidget):
         self.zoom_row.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)  # 넘김 줄과 같은 까닭
         box.addWidget(self.zoom_row)
         self.zoom_row.hide()
-        if self.movie:
+        self._read(data)
+
+    def _clear_movie(self):
+        self.timer.stop()
+        self.playing = False
+        if self.movie is not None:
+            self.movie.stop()
+            self.movie.deleteLater()
+            self.buffer.deleteLater()
+            self.movie = None
+
+    def _unavailable(self):
+        """그림을 읽지 못해도 캡션과 대체 설명을 남기고 같은 자리에서 다시 읽도록 함."""
+        self._clear_movie()
+        self.available, self.count, self.shrunk = False, 1, False
+        self.source = QPixmap()
+        self.picture.clear()
+        self.picture.hide()
+        self.caption.hide()
+        if self.controls is not None:
+            self.controls.hide()
+        self.place_zoom(False)
+        parts = [text.strip() for text in (self.caption.text(), self.description) if text and text.strip()]
+        self.error_description.setText("\n\n".join(dict.fromkeys(parts)))
+        self.error_description.setVisible(bool(parts))
+        self.error_box.show()
+        return False
+
+    def _read(self, data=None):
+        """바이트를 한 번 읽고 첫 그림까지 해독함. 실패하면 이전 그림이나 재생 단추를 남기지 않음."""
+        self._clear_movie()
+        self.data, self.source, self.count = b"", QPixmap(), 1
+        try:
+            if data is None:
+                with open(self.path, "rb") as handle:
+                    data = handle.read()
+        except OSError:
+            return self._unavailable()
+        self.data = data
+        if data[:4] == b"GIF8":
+            self.open_movie()
+            if not self.movie.isValid():
+                return self._unavailable()
+            self.count = max(1, self.movie.frameCount())
+            if self.controls is None:
+                self.controls = QWidget()
+                bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"])
+                self.first_btn = self._button(bar, "처음", self.first)
+                self.prev_btn = self._button(bar, "이전", self.prev)
+                self.play_btn = self._button(bar, "재생", self.toggle)
+                self.next_btn = self._button(bar, "다음", self.next)
+                self.counter = kit.label("", "caption", "secondary")
+                bar.addWidget(self.counter)
+                self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+                self.layout().insertWidget(self.layout().indexOf(self.caption), self.controls)
             self.refont()
-            self.movie.jumpToFrame(0)
-        else:
-            self.source.loadFromData(data)
-            self.draw()
+            if not self.movie.jumpToFrame(0) or self.source.isNull():
+                return self._unavailable()
+        elif not self.source.loadFromData(data):
+            return self._unavailable()
+        self.available = True
+        self.error_box.hide()
+        self.picture.show()
+        self.caption.setVisible(bool(self.caption.text()))
+        if self.controls is not None:
+            self.controls.setVisible(self.movie is not None and self.count > 1)
+        self.draw()
+        return True
+
+    def reload(self):
+        """같은 그림 위젯에서 파일만 다시 읽음. 단원·문항이나 학습 기록을 다시 열지 않음."""
+        focused = self.retry_btn.hasFocus()
+        self.reloading.emit()
+        if focused:
+            # 숨길 단추의 초점이 다른 입력 칸으로 잠깐 옮겨가 선택 범위를 지우지 않게 함
+            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
+        loaded = self._read()
+        if self.frame_changed is not None:
+            self.frame_changed(self.frame())
+        self.draw()
+        if not loaded and focused:
+            self.retry_btn.setFocus(Qt.FocusReason.OtherFocusReason)
+        return loaded
 
     def open_movie(self):
         """그림 바이트로 QMovie 를 새로 엶. 프레임을 모아 두지 않아서 뒤로는 0번 장으로만 바로 감. 이미 열린 것이 있으면 닫고 바꿈."""

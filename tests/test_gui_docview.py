@@ -205,17 +205,24 @@ class DocViewTest(unittest.TestCase):
         self.assertEqual(python.toPlainText(), "def solution(records, k):\n    return len(records)")
 
     def test_missing_figure_shows_a_notice(self):
-        """없는 그림 자리는 caption 글 한 줄이고 경로는 도움말에 있음."""
+        """읽지 못한 그림은 원래 설명과 재시도를 남기고 경로는 도움말에 둠."""
         pieces = self.shown("앞 글\n\n![없는 그림](assets/none.gif)\n")
         self.assertEqual(len(pieces), 2)
-        self.assertIsInstance(pieces[1], Para)
-        self.assertEqual((pieces[1].text(), pieces[1].toolTip()), ("그림을 불러오지 못했습니다.", "assets/none.gif"))
-        self.assertEqual((pieces[1].property("role"), pieces[1].property("tone")), ("caption", "secondary"))
-        self.assertEqual(pieces[1].font().pixelSize(), theme.TYPE["caption"][0])
+        figure = pieces[1]
+        self.assertIsInstance(figure, FigureView)
+        self.assertFalse(figure.available)
+        self.assertEqual((figure.error_note.text(), figure.error_box.toolTip()),
+                         ("그림을 불러오지 못했습니다.", "assets/none.gif"))
+        self.assertEqual(figure.error_description.text(), "없는 그림")
+        self.assertEqual((figure.error_note.property("role"), figure.error_note.property("tone")), ("caption", "secondary"))
+        self.assertEqual(figure.error_note.font().pixelSize(), theme.TYPE["caption"][0])
+        self.assertTrue(figure.retry_btn.isVisible())
         os.makedirs(os.path.join(self.folder, "assets", "folder.gif"))  # 있지만 열 수 없는 자리. 읽기 권한이 없는 파일처럼 OSError 가 남
         pieces = self.shown("![폴더](assets/folder.gif)")
-        self.assertIsInstance(pieces[0], Para)
-        self.assertEqual((pieces[0].text(), pieces[0].toolTip()), ("그림을 불러오지 못했습니다.", "assets/folder.gif"))
+        self.assertIsInstance(pieces[0], FigureView)
+        self.assertEqual((pieces[0].error_note.text(), pieces[0].error_box.toolTip()),
+                         ("그림을 불러오지 못했습니다.", "assets/folder.gif"))
+        self.assertEqual(pieces[0].error_description.text(), "폴더")
 
     def test_narrow_column_keeps_text_inside(self):
         """GIF 단추 줄보다 좁은 칸에서도 바탕이 칸보다 넓어지지 않아 글이 오른쪽 밖으로 밀리지 않음."""

@@ -132,7 +132,28 @@ class LearnTest(Base):
         found = sess.revisit()
         self.assertEqual(("i90", "90b"), (found["lesson"], found["unit"]))
         self.assertTrue(found["figure"].endswith("90b-1.png"))
+        self.assertEqual(found["figure_info"]["path"], found["figure"])
         self.assertEqual(2, len(found["memo"]))
+
+    def test_revisit_keeps_the_selected_figure_explanations_without_writing(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        before = list(self.log(sess))
+        figures = [block for step in sess.notes["i90"]["units"]["90a"]["steps"]
+                   for block in step["blocks"] if block["kind"] == "figure"]
+        chosen = figures[0]
+        for key_figure in (chosen["file"], None):
+            with self.subTest(key_figure=key_figure):
+                sess.notes["i90"]["unit_meta"].setdefault("90a", {})["key_figure"] = key_figure
+                found = sess.revisit()
+                self.assertEqual(found["figure"], chosen["path"])
+                self.assertEqual(found["figure_info"], chosen)
+                self.assertEqual(self.log(sess), before)
+        sess.notes["i90"]["unit_meta"]["90a"]["key_figure"] = "assets/other.png"
+        found = sess.revisit()
+        self.assertTrue(found["figure"].endswith("other.png"))
+        self.assertIsNone(found["figure_info"])
+        self.assertEqual(self.log(sess), before)
 
 
 class LevelsServiceTest(Base):
