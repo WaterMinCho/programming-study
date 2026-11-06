@@ -191,3 +191,23 @@ class FigureRecoveryTest(unittest.TestCase):
         self.assertTrue(page.view.findChildren(ai_learn.AiFigure)[0].reload())
         self.settle(page)
         self.assertAlmostEqual(piece.mapTo(page.scroll.viewport(), QPoint()).y(), before, delta=2)
+
+    def test_retry_button_does_not_pass_focus_through_the_recall_input(self):
+        win = self.learning()
+        page = win.page
+        field = page.view.findChildren(ai_learn.RecallBlock)[0].field
+        figure = page.view.findChildren(ai_learn.AiFigure)[0]
+        field.setText("입력한 문장 일부를 선택했습니다.")
+        field.setSelection(13, -7)
+        page.scroll.ensureWidgetVisible(figure.retry_btn, 12, 16)
+        figure.retry_btn.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.settle(page)
+        expected = field.text(), field.cursorPosition(), field.selectionStart(), field.selectedText()
+        guikit.click(figure.retry_btn)
+        self.settle(page)
+        self.assertTrue(figure.retry_btn.hasFocus())
+        self.write(GIF)
+        guikit.click(figure.retry_btn)
+        self.settle(page)
+        self.assertTrue(figure.available and figure.hasFocus())
+        self.assertEqual((field.text(), field.cursorPosition(), field.selectionStart(), field.selectedText()), expected)

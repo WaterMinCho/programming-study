@@ -684,13 +684,16 @@ class FigureView(QWidget):
         """같은 그림 위젯에서 파일만 다시 읽음. 단원·문항이나 학습 기록을 다시 열지 않음."""
         focused = self.retry_btn.hasFocus()
         self.reloading.emit()
+        if focused:
+            # 숨길 단추의 초점이 다른 입력 칸으로 잠깐 옮겨가 선택 범위를 지우지 않게 함
+            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
         loaded = self._read()
         if self.frame_changed is not None:
             self.frame_changed(self.frame())
         self.draw()
-        if loaded and focused:
-            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-            self.setFocus(Qt.FocusReason.OtherFocusReason)
+        if not loaded and focused:
+            self.retry_btn.setFocus(Qt.FocusReason.OtherFocusReason)
         return loaded
 
     def open_movie(self):
