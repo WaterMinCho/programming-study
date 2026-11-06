@@ -145,7 +145,8 @@ class FigureRecoveryTest(unittest.TestCase):
         return win
 
     def settle(self, page):
-        guikit.wait_until(lambda: page.pending_position is None and not page.position_timer.isActive())
+        guikit.wait_until(lambda: page.pending_position is None and not page.position_timer.isActive()
+                         and page.scroll.widget().height() >= page.scroll.widget().minimumSizeHint().height())
         guikit.pump(80)
 
     def test_recovery_keeps_draft_focus_and_separate_frame_positions_on_return(self):
@@ -219,34 +220,37 @@ class FigureRecoveryTest(unittest.TestCase):
                     if os.path.exists(self.path):
                         os.remove(self.path)
                     win = LearningWindow()
-                    self.addCleanup(self.close, win)
-                    level = dict(recall(), level=7, text=PROSE, figure=self.block())
-                    win.ai.units["one"][1]["blocks"] = [
-                        {"kind": "levels", "concept": "그림 복구", "levels": [level]},
-                        {"kind": "text", "markdown": PROSE}]
-                    win.resize(760, 480)
-                    win.show()
-                    win.activateWindow()
-                    page = win.page
-                    page.load("test", "one", 2)
-                    self.settle(page)
-                    page.view.findChildren(ai_learn.LevelsBlock)[0].row.set_opened(True)
-                    self.settle(page)
-                    if returned:
-                        page.move(1)
+                    try:
+                        level = dict(recall(), level=7, text=PROSE, figure=self.block())
+                        win.ai.units["one"][1]["blocks"] = [
+                            {"kind": "levels", "concept": "그림 복구", "levels": [level]},
+                            {"kind": "text", "markdown": PROSE}]
+                        win.resize(760, 480)
+                        win.show()
+                        win.activateWindow()
+                        page = win.page
+                        page.load("test", "one", 2)
                         self.settle(page)
-                        page.move(-1)
+                        page.view.findChildren(ai_learn.LevelsBlock)[0].row.set_opened(True)
                         self.settle(page)
-                    block = page.view.findChildren(ai_learn.LevelsBlock)[0]
-                    piece = block.findChildren(TextPiece)[0]
-                    top = piece.mapTo(page.scroll.widget(), QPoint()).y()
-                    page.scroll.verticalScrollBar().setValue(top + round(piece.height() * 0.4))
-                    page.setFocus(Qt.FocusReason.OtherFocusReason)
-                    self.settle(page)
-                    before = piece.mapTo(page.scroll.viewport(), QPoint()).y()
-                    calls = list(win.ai.calls)
-                    self.write(data)
-                    self.assertTrue(block.findChildren(ai_learn.AiFigure)[0].reload())
-                    self.settle(page)
-                    self.assertAlmostEqual(piece.mapTo(page.scroll.viewport(), QPoint()).y(), before, delta=2)
-                    self.assertEqual(win.ai.calls, calls)
+                        if returned:
+                            page.move(1)
+                            self.settle(page)
+                            page.move(-1)
+                            self.settle(page)
+                        block = page.view.findChildren(ai_learn.LevelsBlock)[0]
+                        piece = block.findChildren(TextPiece)[0]
+                        top = piece.mapTo(page.scroll.widget(), QPoint()).y()
+                        page.scroll.verticalScrollBar().setValue(top + round(piece.height() * 0.4))
+                        page.setFocus(Qt.FocusReason.OtherFocusReason)
+                        self.settle(page)
+                        before = piece.mapTo(page.scroll.viewport(), QPoint()).y()
+                        self.assertLess(before, 0)
+                        calls = list(win.ai.calls)
+                        self.write(data)
+                        self.assertTrue(block.findChildren(ai_learn.AiFigure)[0].reload())
+                        self.settle(page)
+                        self.assertAlmostEqual(piece.mapTo(page.scroll.viewport(), QPoint()).y(), before, delta=2)
+                        self.assertEqual(win.ai.calls, calls)
+                    finally:
+                        self.close(win)
