@@ -20,39 +20,33 @@ FLUSH = 14  # 글자 단추의 안쪽 여백 12 과 테두리 2. 막대 가장�
 MARGIN = 32  # 창 좌우 여백
 MARK = 20  # 목록 줄 앞 상태 점의 칸 폭
 ROW_TEXT = 24 + MARK + 12  # 목록 줄의 글이 시작하는 자리(안쪽 여백, 점 칸, 점과 글 사이)
-HOME_WIDTH = 1120  # 홈 화면 내용 단의 최대 폭
-DOC_MIN = 640  # 1280 창까지의 읽는 글 단 폭. 17px 본문으로 약 54자(설계 문서의 실측)
-DOC_CHARS = 54  # DOC_MIN 에 들어가는 17px 본문 글자 수
-DOC_PX = theme.BASE_TYPE["body"][0]  # 그 글자 수를 잰 본문 크기(설계값 17)
-LINE_CHARS = 64  # 한 줄에 두는 글자 수의 상한. 설계값 DOC_CHARS 의 1.2배이고 '가'로만 채우면 48자
-GROW_FROM = 1280  # 이 창 폭부터 읽는 글의 단이 넓어짐
-READ_MIN = 760  # 카드 하나만 있는 읽기 화면(학습 노트, 연습 문항)의 1280 창까지 글 단 폭. 17px 본문으로 약 64자
+HOME_WIDTH = 1600  # 홈 화면 내용 단의 최대 폭
+DOC_MIN = 880  # 편집기 옆 글 단의 시작 폭. 실제 칸이 좁으면 가용 폭을 따름
+DOC_PX = theme.BASE_TYPE["body"][0]  # 읽기 폭을 비례해 넓힐 때 쓰는 본문 크기
+READ_MIN = 1120  # 카드 하나로 읽는 화면의 시작 폭. 작은 창에서는 가용 폭을 따름
 DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok", "lock": "faint"}  # 상태 점의 색 토큰
 PANE_MIN = 320  # 끌어 옮기는 칸 나누기에서 가로로 놓인 칸 하나의 최소 폭
 GRIP = (4, 32)  # 칸 나누기 손잡이 가운데 무늬의 짧은 변과 긴 변
 
 
 def doc_max():
-    """읽는 글 단 폭의 상한. 지금 본문 크기로 LINE_CHARS 자가 들어가는 폭: DOC_MIN / DOC_CHARS 가 17px 글자 하나의 폭이고
-    본문이 커진 만큼 비례함. 17px 이면 759, 19px 이면 848, 21px 이면 937."""
-    return round(DOC_MIN / DOC_CHARS * LINE_CHARS * theme.TYPE["body"][0] / DOC_PX)
+    """편집기 옆 글 단의 상한. 본문 글자가 커진 만큼 폭도 넓힘."""
+    return round(1200 * theme.TYPE["body"][0] / DOC_PX)
 
 
 def read_max():
-    """카드 하나만 있는 읽기 화면의 글 단 상한. doc_max 를 READ_MIN / DOC_MIN 만큼 늘림(17px 이면 901, 19px 이면 1007)."""
-    return round(doc_max() * READ_MIN / DOC_MIN)
+    """카드 하나만 있는 읽기 화면의 글 단 상한."""
+    return round(1600 * theme.TYPE["body"][0] / DOC_PX)
 
 
 def read_width(window_width):
-    """카드 하나만 있는 읽기 화면의 글 단 폭. doc_width 와 같이 넓어지되 READ_MIN 에서 시작하고 read_max 를 넘지 않음.
-    편집기와 나란히 놓인 문제 칸·미션 안내는 편집기 칸이 줄지 않게 doc_width 를 씀."""
-    return max(READ_MIN, min(read_max(), READ_MIN + (window_width - GROW_FROM) // 2))
+    """읽기 카드의 바깥 여백을 남기고 창 폭을 사용함. 실제 칸이 좁으면 레이아웃이 가용 폭에 맞춤."""
+    return max(READ_MIN, min(read_max(), window_width - 2 * MARGIN - 48))
 
 
 def doc_width(window_width):
-    """창 폭에 맞춘 읽는 글의 단 폭. 1280 창까지는 DOC_MIN 이고, 창이 그보다 넓어진 폭의 반만큼 넓어지되 doc_max 를 넘지 않음.
-    2000 창이면 640 + 360 = 1000 에서 상한으로 자름(17px 본문 759, 19px 848)."""
-    return max(DOC_MIN, min(doc_max(), DOC_MIN + (window_width - GROW_FROM) // 2))
+    """편집기와 나란히 놓이는 글 단도 창의 남는 폭을 사용하되 상한을 둠."""
+    return max(DOC_MIN, min(doc_max(), window_width - 2 * MARGIN - 48))
 
 
 def page(widget):

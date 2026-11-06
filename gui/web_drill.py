@@ -27,7 +27,7 @@ STUCK_DEFAULT = "막힌 곳에서 아는 데까지 말했는지 표시하세요.
 NOTE_HELP = "다음 복습 때 지난 답으로 보입니다. 풀이를 제출하면 저장소에도 올라갑니다."
 WARN_SHARE = 0.2  # 남은 시간이 이 비율 이하면 주황
 SHORTCUT_TIP = "Ctrl+Enter (맥은 Cmd+Enter)"
-CARD_WIDTH = 840  # 1280 창까지의 카드 폭
+CARD_WIDTH = 1200  # 읽기 카드의 시작 폭. 작은 창에서는 가용 폭을 따름
 
 
 def plain(text):

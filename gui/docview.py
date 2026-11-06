@@ -125,6 +125,27 @@ def parts_of(text, base_dir, lang):
         yield run
 
 
+def stacked_tables(blocks):
+    """좁은 표를 열별 설명으로 바꿈. 첫 열의 항목 이름과 각 열의 값을 같은 문단에 둠."""
+    out = []
+    for block in blocks:
+        if block["t"] == "table" and len(block["head"]) > 2:
+            first, *heads = block["head"]
+            for column, title in enumerate(heads, 1):
+                out.append({"t": "heading", "level": 2, "text": "%s · %s" % (first, title) if first else title})
+                for row in block["rows"]:
+                    label = row[0] if row else ""
+                    value = row[column] if column < len(row) else ""
+                    out.append({"t": "para", "text": "%s: %s" % (label, value) if label else value})
+        elif "blocks" in block:
+            out.append(dict(block, blocks=stacked_tables(block["blocks"])))
+        elif "items" in block:
+            out.append(dict(block, items=[stacked_tables(item) for item in block["items"]]))
+        else:
+            out.append(block)
+    return out
+
+
 class Sheet(QWidget):
     """조각을 얹는 바탕. 칠할 때마다 지금 테마의 surface 색을 읽어서 테마를 바꿔도 따로 다시 칠할 일이 없음.
     flat 이면 칠하지 않음. 카드 안에 둔 칸은 카드가 면과 둥근 모서리를 그림."""
@@ -141,9 +162,13 @@ class Sheet(QWidget):
 class TextPiece(QTextBrowser):
     """글 조각. 폭이 바뀌면 높이를 내용에 맞춤. 휠은 바깥 스크롤로 넘겨서 Ctrl+휠로 이 조각만 글자가 커지는 일도 없음."""
 
-    def __init__(self, markup, css):
+    def __init__(self, markup, css, blocks=None):
         super().__init__()
         self.markup = markup
+        self.blocks = blocks
+        self.compact = False
+        self.table_width = 0
+        self.fitting = False
         self.spread_width = None  # 표의 열 폭을 나눈 조각 폭. 폭이 바뀌면 다시 나눔
         self.setOpenLinks(False)
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -157,7 +182,19 @@ class TextPiece(QTextBrowser):
     def restyle(self, css):
         """CSS 는 다음에 넣는 HTML 부터 적용되므로 HTML 을 다시 넣음."""
         self.document().setDefaultStyleSheet(css + NARROW_CSS)
-        self.setHtml(self.markup)
+        self.compact = False
+        self.table_width = 0
+        self.render_markup(self.markup)
+        self.table_width = max((sum(max(word_width(table.cellAt(row, col))
+            + table.cellAt(row, col).format().toTableCellFormat().leftPadding()
+            + table.cellAt(row, col).format().toTableCellFormat().rightPadding()
+            for row in range(table.rows())) + 4 for col in range(table.columns()))
+            for table in self.grid_tables() if table.columns() > 2), default=0) if self.blocks else 0
+        self.fit()
+
+    def render_markup(self, markup):
+        """문서를 다시 넣고 코드 상자의 여백을 적용함."""
+        self.setHtml(markup)
         self.document().setTextWidth(max(1, self.viewport().width()))  # 폭이 없으면 줄을 앉히지 않아 center_code 가 줄 자리를 못 읽음
         following = self.following_margins()
         for frame in self.code_frames():
@@ -167,7 +204,6 @@ class TextPiece(QTextBrowser):
             frame.setFormat(box)
         self.trim_ends()
         self.spread_width = None
-        self.fit()
 
     def following_margins(self):
         """문서 맨 바깥의 표마다 그 뒤 첫 글 블록의 위 여백 {표: 여백}. Qt 가 표 바로 뒤에 두는 빈 블록은 건너뜀."""
@@ -268,17 +304,27 @@ class TextPiece(QTextBrowser):
         키로 움직일 때 첫 줄이 위로 밀림. 보이기 전에는 QTextBrowser 가 문서 폭을 정하지 않아 줄이 앉지 않으므로 폭을 먼저 줌.
         이미 자리 잡은 칸에 새로 들어온 조각은 보일 때의 resizeEvent 안에서 높이를 바꾸는데, 이 높이 변경은 resizeEvent 로 다시
         오지 않아 스크롤 범위가 만들 때의 낮은 높이 기준으로 남음. 조각은 안에서 스크롤하지 않으므로 범위를 0 으로 둠."""
-        width = self.viewport().width()
-        self.document().setTextWidth(width)
-        if width != self.spread_width:
-            self.spread_width = width
-            for table in self.grid_tables():
-                spread(table, width)
-            for frame in self.code_frames():
-                self.center_code(frame)
-            self.balance_code_gaps()
-        self.setFixedHeight(math.ceil(self.document().size().height()))
-        self.verticalScrollBar().setRange(0, 0)
+        if self.fitting:
+            return
+        self.fitting = True
+        try:
+            width = self.viewport().width()
+            compact = bool(self.blocks and width + 1 < self.table_width)
+            if compact != self.compact:
+                self.compact = compact
+                self.render_markup(mdlite.blocks_html(stacked_tables(self.blocks)) if compact else self.markup)
+            self.document().setTextWidth(width)
+            if width != self.spread_width:
+                self.spread_width = width
+                for table in self.grid_tables():
+                    spread(table, width)
+                for frame in self.code_frames():
+                    self.center_code(frame)
+                self.balance_code_gaps()
+            self.setFixedHeight(math.ceil(self.document().size().height()))
+            self.verticalScrollBar().setRange(0, 0)
+        finally:
+            self.fitting = False
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -488,7 +534,8 @@ class DocView(QScrollArea):
 
     def _add_blocks(self, blocks):
         if blocks:
-            self._add_piece(mdlite.blocks_html(self._ruled(blocks)))
+            blocks = self._ruled(blocks)
+            self._add_piece(mdlite.blocks_html(blocks), blocks)
 
     def _ruled(self, blocks):
         """맨 바깥의 구역 제목 앞에 가로줄 블록을 넣은 목록. 칸 맨 위에 오는 제목에는 넣지 않음."""
@@ -499,8 +546,8 @@ class DocView(QScrollArea):
             out.append(block)
         return out
 
-    def _add_piece(self, markup):
-        piece = TextPiece(markup, self.sheet_css())
+    def _add_piece(self, markup, blocks=None):
+        piece = TextPiece(markup, self.sheet_css(), blocks)
         piece.anchorClicked.connect(lambda url: self.linked.emit(url.toString()))
         self._add(piece)
 
@@ -539,7 +586,7 @@ class Doc(QWidget):
 
     def _add_blocks(self, blocks):
         if blocks:
-            piece = TextPiece(mdlite.blocks_html(blocks), self.css)
+            piece = TextPiece(mdlite.blocks_html(blocks), self.css, blocks)
             self._add(piece)
 
     def _add(self, widget):

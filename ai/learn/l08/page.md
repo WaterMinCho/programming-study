@@ -777,7 +777,11 @@ pos_weight = torch.tensor([counts[0] / counts[1]])        # 9461 ÷ 539 ≈ 17.5
 criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 ```
 
-`counts`는 2단계에서 `np.unique`가 돌려준 개수 배열입니다. `pos_weight`는 `nn.BCEWithLogitsLoss()`의 인자입니다. 정답이 1인 데이터의 손실 항에만 이 수를 곱합니다. 식으로 쓰면 −[pw × y × log σ(z) + (1 − y) × log(1 − σ(z))]이고 pw가 pos_weight입니다(PyTorch 문서 BCEWithLogitsLoss). 문서도 양성 100개, 음성 300개이면 pos_weight를 300 ÷ 100 = 3으로 두는 예를 듭니다.
+`counts`는 2단계에서 `np.unique`가 돌려준 개수 배열입니다. 클래스가 [0, 1] 순서라 `counts[0]`은 정상 거래 9,461건이고 `counts[1]`은 사기 거래 539건입니다. 코드의 나눗셈은 음성 수를 양성 수로 나눕니다.
+
+`pos_weight`는 `nn.BCEWithLogitsLoss()`의 인자입니다. 정답이 1인 데이터의 손실 항에만 이 수를 곱합니다. 식으로 쓰면 −[pw × y × log σ(z) + (1 − y) × log(1 − σ(z))]이고 pw가 pos_weight입니다(PyTorch 문서 BCEWithLogitsLoss).
+
+같은 순서로 양성 100개, 음성 300개이면 pos_weight를 300 ÷ 100 = 3으로 둡니다. 공식 문서도 이 예를 듭니다.
 
 ```figure
 파일: assets/8e-3.png
@@ -785,7 +789,9 @@ criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 내용: 왼쪽은 데이터 하나의 손실. 사기 거래 z = −1 의 손실 1.3133 이 17.55 를 곱해 23.05, 정상 거래 z = 1 의 손실 1.3133. 오른쪽은 클래스별 무게. 사기 539 × pos_weight = 9,461 과 정상 9,461 이 같은 높이.
 ```
 
-사기 거래 하나의 logit이 z = −1이면 손실은 −log σ(−1) = log(1 + e) ≈ 1.3133입니다. pos_weight를 곱하면 1.3133 × 17.55 ≈ 23.05입니다. 정상 거래의 logit이 z = 1이면 손실은 같은 1.3133이고 pos_weight를 곱하지 않습니다. pos_weight는 9,461 ÷ 539라서 사기 거래 539건에 곱하면 539 × (9,461 ÷ 539) = 9,461입니다. 그래서 사기 거래 539건이 정상 거래 9,461건과 같은 무게로 손실에 들어갑니다.
+사기 거래 하나의 logit이 z = −1이면 손실은 −log σ(−1) = log(1 + e) ≈ 1.3133입니다. pos_weight를 곱하면 1.3133 × 17.55 ≈ 23.05입니다. 정상 거래의 logit이 z = 1이면 손실은 같은 1.3133이고 pos_weight를 곱하지 않습니다.
+
+pos_weight를 음성 수 ÷ 양성 수로 정한 이유를 전체 건수로도 볼 수 있습니다. 사기 거래 539건에 곱하면 539 × (9,461 ÷ 539) = 9,461입니다. 사기 거래 539건이 정상 거래 9,461건과 같은 무게로 손실에 들어갑니다.
 
 6차시 다섯째 단원의 `nn.CrossEntropyLoss(weight=…)`는 클래스마다 가중치를 줍니다. `pos_weight`는 양성 클래스에만 가중치를 줍니다. optimizer는 `optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-3)`입니다. Adam은 12차시에서 배우는 optimizer입니다. `weight_decay`는 4차시 일곱째 단원에서 과적합을 줄이는 방법으로 든 L2 정규화를 넣는 인자입니다(PyTorch 문서 Adam).
 
