@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "본문 수정 1",
- "resolver": "변경 물음 재풀이 2",
- "reviewer": "본문 검토 2",
+ "writer": "내용 보완 0",
+ "resolver": "전체 재풀이 1",
+ "reviewer": "교차 검토 2",
  "files": {
   "assets/11a-1.png": "1d2b10f7c0a3ff447ea278a118dc2a60d93140fbf88e0fb6d5f4a75d1730026e",
   "assets/11a-2.gif": "7adf8e9c339148eb1c4c8fb0bb4f01c30e2d299891529f9c8910774505c92080",
@@ -12,6 +12,7 @@
   "assets/11a-3.png": "a4f573354bd2888422d6318d590d788d38470b33172dc1cbc08463e94063b03f",
   "assets/11a-4.png": "26fd38e2168b3ec5a5469e0777f885e9f53ed43d29d8b7e2eb6487c7d0cba7a2",
   "assets/11a-5.png": "01dc922e50081a2783c264228b3d939b3224198c641b9e1bc1e15520437421c9",
+  "assets/11a-8.gif": "83d8aec4a76c57a666d437eca4e0d726daaedf68fe3ad49a9a33eb7188ad0f25",
   "assets/11b-1.png": "f7250208fe0a987c6fab73ee8becd8970962446b403a11969e84251b740aec1a",
   "assets/11b-2.png": "736d109671360c89393dd64f443d00d61714cb2574aaeff0621e205de59578a0",
   "assets/11b-3.gif": "6481cfed69da3ae980f308a66b75ba7bf90e640c45632e403c4f70d0348d008e",
@@ -50,10 +51,11 @@
   "assets/11g-6.png": "1227608ce116068cf3e5b98b1fa62e703ad88da3b1f738d0eb053832928b4085",
   "assets/11g-7.png": "897baba9df9f0a9714d79092fbc988be6a54ead076d177a340b7949407271a2d",
   "meta.json": "a278977270b004f71d574615aed58df45c8b8448aacfc68e1437151b864b1ad0",
-  "page.md": "874d242024399ac646dbbc8f8d7d46f2133269d8921069228ebd14260b88fa83"
+  "page.md": "9166a1a799a61f7de2a11328373ebf6477e9c8bb03868eed69d235598cf2250f"
  },
  "findings": [
   "물음의 입력을 설명 예시와 구분하고 그림·계산·학습 흐름을 대조했음. 변경한 물음은 새 공개본으로 다시 풀어 확인했음.",
-  "본문과 예제·변경 물음을 독립 대조함. 전체 학습 과정의 단원 연결을 확인함."
+  "본문과 예제·변경 물음을 독립 대조함. 전체 학습 과정의 단원 연결을 확인함.",
+  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음."
  ]
 }

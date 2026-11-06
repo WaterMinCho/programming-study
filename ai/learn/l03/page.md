@@ -974,7 +974,7 @@ x = 1.0으로 y = 2x² + 2를 계산하며 남긴 기록을 PyTorch가 거꾸로
 {"id": "g2", "q": "`x = torch.tensor(1.0, requires_grad=True)`로 시작합니다. `x.grad`를 비우지 않고 `y = 2 * x**2 + 2`를 매번 새로 계산해 `y.backward()`를 두 번 부릅니다. 두 번째 호출 뒤 `x.grad`는 첫 번째 뒤와 비교해 어떻게 될까요?", "options": ["같습니다", "두 배가 됩니다", "0이 됩니다", "오류가 납니다"], "answer": 1, "reveal_step": 5, "cards": ["i03-b19"]}
 ```
 
-### requires_grad=True인 텐서는 계산을 기록합니다
+### 기울기 기록이 켜져 있으면 미분 가능한 계산을 기록합니다
 <!-- facts: F03-42 F03-43 F03-48 -->
 
 앞 단원에서 손으로 구한 미분값을 PyTorch로 구합니다. 먼저 x = 1.0 에서 y = 2x² + 2를 계산한 과정을 기록합니다.
@@ -985,7 +985,7 @@ y = 2 * x**2 + 2
 y    # tensor(4., grad_fn=<AddBackward0>)
 ```
 
-- `torch.tensor(1.0, requires_grad=True)`는 x가 들어간 계산을 기록하도록 텐서를 만듭니다.
+- `torch.tensor(1.0, requires_grad=True)`는 x의 기울기를 구하도록 텐서를 만듭니다. 기울기 기록이 켜져 있고 미분 가능한 연산이면 계산 과정을 기록합니다. `no_grad()`에서 기록을 끄는 방법은 뒤 단계에서 배웁니다.
 - `y = 2 * x**2 + 2`를 실행하면 제곱, 곱셈, 덧셈의 기록이 이어집니다. 이 기록을 화살표로 이은 것을 <mark>계산 그래프</mark>라고 부릅니다.
 - 결과 y의 `grad_fn`에는 y를 만든 마지막 계산인 덧셈이 적힙니다.
 
@@ -1164,7 +1164,7 @@ y.requires_grad     # False
 설명을 읽기 전에 짐작으로 골라 보세요. 채점하지 않습니다.
 
 ```ai-guess
-{"id": "g1", "q": "device가 cuda일 때 `x.to(device)`만 쓰고 `x =`로 받지 않으면 x는 어디에 있을까요?", "options": ["원래 있던 CPU에 그대로 있습니다", "GPU로 옮겨집니다", "오류가 나서 사라집니다", "CPU와 GPU 두 곳에 함께 있습니다"], "answer": 0, "reveal_step": 2, "cards": ["i03-c11"]}
+{"id": "g1", "q": "텐서 x는 CPU에 있고 device는 cuda입니다. CUDA를 사용할 수 있을 때 `x.to(device)`만 쓰고 `x =`로 받지 않으면 원래 x는 어디에 있을까요?", "options": ["원래 있던 CPU에 그대로 있습니다", "GPU로 옮겨집니다", "오류가 나서 사라집니다", "CPU와 GPU 두 곳에 함께 있습니다"], "answer": 0, "reveal_step": 2, "cards": ["i03-c11"]}
 ```
 
 ```ai-guess

@@ -273,7 +273,7 @@ def brief_patterns(bank_dir, group, out_dir):
         lines += ["## 학습 노트의 먼저 풀어 보기와 떠올리기", ""] + notes + [""]
     samples = ["# %s 뼈대 빈칸 견본" % gid, "",
                "sheet.md와 whole.md의 답을 answers.json에 모두 적은 뒤에 엽니다. 견본마다 가린 자리가 다르고 서로의 답을 보여 주므로 위에서부터 "
-               "풀고, 이미 적은 답은 고치지 않습니다. 견본 이름의 f0·f2·f3 은 함께 가린 자리 수입니다.", ""]
+               "풀고, 이미 적은 답은 고치지 않습니다. f0·f2·f3은 가림 단계의 이름이며 실제 빈칸 수와 같지는 않습니다. 각 견본에 표시한 빈칸을 모두 채웁니다.", ""]
     for card in cards:
         if card["part"] != "slot":
             continue

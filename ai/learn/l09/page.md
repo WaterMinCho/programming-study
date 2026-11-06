@@ -564,7 +564,7 @@ F.kl_div(torch.log(Q), P, reduction='sum')   # tensor(0.3567)
 `reduction='mean'`은 합을 원소 수로 나누고 `'batchmean'`은 입력의 0번 축 크기로 나눕니다. 입력이 `[배치, 클래스]`이면 `'batchmean'`으로 데이터마다 구한 KL divergence의 평균을 냅니다. 이 단원의 P와 Q는 클래스 3개만 있는 1차원 배열이므로 데이터 하나의 KL divergence를 구할 때 `'sum'`을 씁니다.
 
 ```ai-recall
-{"id": "r3", "q": "`F.kl_div(torch.log(Q), P, reduction='sum')`에서 정답 분포는 ____ 번째 인자입니다.", "answer": ["2", "둘"], "mode": "word", "why": "첫째 인자는 예측 분포의 로그 확률, 둘째 인자가 정답 분포 P입니다."}
+{"id": "r3", "q": "`F.kl_div(torch.log(Q), P, reduction='sum')`에서 정답 분포는 ____ 번째 인자입니다.", "answer": ["2", "둘", "두"], "mode": "word", "why": "첫째 인자는 예측 분포의 로그 확률, 둘째 인자가 정답 분포 P입니다."}
 ```
 
 ### 외울 것
