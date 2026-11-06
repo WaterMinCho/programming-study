@@ -667,7 +667,7 @@ def mse_vs_bce_grad():
     note(fig, 0.67, 0.78, "p = 0.01: 정답 1 인데\n0 에 가깝게 확신하고 틀림", size=18, transform=fig.transFigure)
     note(fig, 0.67, 0.50, "BCE 기울기 0.99", color=GREEN, size=19, bg="white", ec=GREEN, transform=fig.transFigure)
     note(fig, 0.67, 0.35, "MSE 기울기 0.0196", color=ORANGE, size=19, bg="white", ec=ORANGE, transform=fig.transFigure)
-    note(fig, 0.67, 0.15, "기울기가 작으면\n파라미터가 거의 안 바뀜", size=17, transform=fig.transFigure)
+    note(fig, 0.67, 0.15, "p가 0에 가까우면\nMSE의 logit 기울기도\n작아집니다", size=17, transform=fig.transFigure)
     return image(fig)
 
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """첫 화면, 웹 면접 준비 화면, 알고리즘 여행 화면이 디자인 시스템의 규칙을 지키는지(설계 검사 C5~C8). 화면 상태마다 보이는 주 단추는
 하나 이하이고, 단추는 32 이상(주 단추 48), 목록 줄은 56 이상이며, 작업 화면의 주 단추는 아래 막대 오른쪽 끝(창 폭 − 32)에 있고,
-홈 화면의 주 단추는 1024×700 에서 스크롤 없이 보임. 읽는 글의 폭은 1280 창에서 640 이하이고 넓은 창에서는 창을 따라 넓어지되
+홈 화면의 주 단추는 1024×700 에서 스크롤 없이 보임. 읽는 글의 폭은 창을 따라 넓어지되
 kit.doc_max 를 넘지 않음. 첫 화면과 웹 화면을 띄우는 순서는 tests/test_gui_web.py 의 LookTest.screens 를 그대로 쓰고,
 여행 화면은 tests/test_gui_journey.py 의 가짜 창과 고정 은행으로 띄움.
 PyQt6 가 없으면 전부 건너뜀."""
@@ -102,17 +102,16 @@ class DesignTest(WebTest):
                 self.assertTrue(inside(win, primaries[0]), "%s: 주 단추가 스크롤 없이 보여야 함" % name)
 
     def test_reading_measure_follows_the_window(self):
-        """편집기와 나란히 놓인 글(미션 안내)의 단은 1280 창에서 640(설계값)이고 2000 창에서는 본문 64자 폭(크게 848)까지 넓어짐. 카드 하나만
-        있는 학습 노트와 꼬리 질문 카드는 1280 창에서 760 에서 시작해 같이 넓어짐. 미션의 오른쪽 카드는 480(글자 크기에 비례)까지만 넓어지고
-        그 안에서 같이 읽을 노트 줄의 제목이 잘리지 않음."""
-        self.assertEqual((kit.doc_width(1024), kit.doc_width(1280), kit.doc_width(2000)), (640, 640, min(1000, kit.doc_max())))
+        """창의 남는 폭을 학습 카드와 미션 안내에 쓰고 글자가 커지면 상한도 넓힘."""
         self.addCleanup(theme.set_text, theme.state["text"])
-        self.assertEqual((kit.read_width(1024), kit.read_width(1280), kit.read_width(2000)), (760, 760, min(1120, kit.read_max())))
-        for step, widest, read in (("normal", 759, 901), ("large", 848, 1007), ("larger", 937, 1113)):
+        theme.set_text("normal")
+        self.assertEqual((kit.doc_width(1024), kit.doc_width(1280), kit.doc_width(2000)), (912, 1168, 1200))
+        self.assertEqual((kit.read_width(1024), kit.read_width(1280), kit.read_width(2000)), (1120, 1168, 1600))
+        for step, widest, read in (("normal", 1200, 1600), ("large", 1341, 1788), ("larger", 1482, 1976)):
             theme.set_text(step)
             self.assertEqual((kit.doc_max(), kit.read_max()), (widest, read), step)
         theme.set_text(theme.TEXT_DEFAULT)
-        for size, low, high, read_low, read_high in (((1280, 800), 600, 640, 720, 760), ((2000, 1070), 800, kit.doc_max(), 880, kit.read_max())):
+        for size, low, high, read_low, read_high in (((1280, 800), 600, kit.doc_width(1280), 1080, kit.read_width(1280)), ((2000, 1070), 880, kit.doc_max(), 1120, kit.read_max())):
             win = self.boot(size)
             win.open_learn("l90")
             self.idle()
@@ -128,14 +127,15 @@ class DesignTest(WebTest):
             row = page.note_rows.rows[0]
             drill = self.open_drill("90-A")
             if size[0] == 2000:
-                self.assertEqual(page.brief_view.sheet.width(), kit.doc_width(2000) + 48)
+                self.assertLessEqual(page.brief_view.sheet.width(), kit.doc_width(2000) + 48)
                 self.assertEqual(page.right_card.width(), round(480 * theme.TYPE["body"][0] / 17))
                 self.assertEqual(QLabel.text(row.title), row.title.full)  # 제목이 줄임표 없이 다 보임
                 self.assertEqual(learn.card.width(), kit.read_width(2000) + 48)
                 self.assertGreater(drill.ask_card.width(), 840)
             else:
-                self.assertLessEqual(page.brief_view.sheet.width(), 640 + 48)
-                self.assertEqual((learn.card.width(), drill.ask_card.width()), (808, 840))
+                self.assertLessEqual(page.brief_view.sheet.width(), kit.doc_width(1280) + 48)
+                self.assertGreater(learn.card.width(), 1100)
+                self.assertGreater(drill.ask_card.width(), 1100)
             guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()

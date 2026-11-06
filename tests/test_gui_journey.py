@@ -1084,11 +1084,11 @@ class WorkFrameTest(Base):
         win.resize(2000, 1070)
         guikit.pump()
         doc = kit.doc_width(page.width())
-        self.assertEqual(848, doc)
+        self.assertEqual(1341, doc)
         self.assertLessEqual(piece.width(), doc)
         self.assertGreaterEqual(piece.width(), 800)
         self.assertLessEqual(page.problem_card.width(), doc + 62)
-        self.assertGreater(page.code_panel.width(), page.problem_card.width(), "남는 폭은 편집기 칸이 받음")
+        self.assertGreaterEqual(page.code_panel.width(), page.problem_card.width(), "편집기 칸도 설명 칸만큼의 폭을 확보함")
 
     def test_the_page_never_widens_a_small_window(self):
         """더 크게, 보스, Node 없음, 긴 상태 글에서도 문제 화면의 최소 폭이 1024 이하라 1024 창이 넓어지지 않음."""

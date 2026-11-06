@@ -31,14 +31,14 @@ BOX_LINE = re.compile(r"^\s*>\s?\*\*\[(정정|보충 설명)\]\*\*\s*")
 WIDE = 16777215  # Qt 위젯 크기의 상한. Doc 의 최대 폭(640)을 풀어 카드 폭을 따르게 함
 STEP_KEYS = (("Left", -1), ("Right", 1), ("Alt+Left", -1), ("Alt+Right", 1))
 SLOT_CHARS = 8  # 코드 칸의 처음 폭(코드 글자 수). 적는 만큼 넓어짐
-READ_WIDTH = 880  # 기본 학습 본문의 폭. 작은 창에서는 바깥 스크롤 칸의 가용 폭을 따름
+READ_WIDTH = 1200  # 기본 학습 본문의 폭. 작은 창에서는 바깥 스크롤 칸의 가용 폭을 따름
 CARD_PAD = 32
 READ_ROLES = {"body": "learn_body", "label": "learn_body", "caption": "learn_caption", "headline": "learn_heading"}
 
 
 def reading_width(window_width):
-    """넓은 창의 학습 본문을 880~1040px로 두고 긴 문장을 화면 끝까지 늘이지 않음."""
-    return max(READ_WIDTH, min(1040, READ_WIDTH + (window_width - kit.GROW_FROM) // 2))
+    """학습 본문을 1200~1600px까지 넓히고 창의 바깥 여백을 남김."""
+    return max(READ_WIDTH, min(1600, window_width - 2 * kit.MARGIN - 2 * CARD_PAD))
 
 
 def learning_texts(root):
@@ -1605,16 +1605,21 @@ class AiLearnPage(QWidget):
             return
         _, anchor, focus = pending
         inner = self.scroll.widget()
+        for widget in reversed([self.view] + self.view.findChildren(QWidget)):
+            if widget.layout() is not None:
+                widget.layout().activate()
         inner.layout().activate()
         self.card_box.activate()
         if anchor is not None and inner.height() < inner.minimumSizeHint().height():
             return  # 글 조각의 높이가 전해진 뒤 Resize·rangeChanged에서 다시 부름
         target = _view_widget(self.view, focus)
+        field = _view_widget(self.view, anchor[2]) if anchor is not None else None
         piece = _view_widget(self.view, anchor[0]) if anchor is not None else None
         geometry = (inner.size(), inner.minimumSizeHint(), self.view.size(), self.scroll.viewport().size(),
                     piece.mapTo(inner, QPoint()).y() if piece is not None else None,
                     piece.height() if piece is not None else None,
                     target.mapTo(inner, QPoint()).y() if target is not None else None,
+                    field.mapTo(inner, QPoint()).y() if field is not None else None,
                     self.scroll.verticalScrollBar().maximum())
         if geometry != self.position_geometry:
             self.position_geometry = geometry
@@ -1626,7 +1631,6 @@ class AiLearnPage(QWidget):
             target.setFocus(Qt.FocusReason.OtherFocusReason)
         value = piece.mapTo(inner, QPoint()).y() + round(anchor[1] * piece.height()) if piece is not None else 0
         self.scroll.verticalScrollBar().setValue(value)
-        field = _view_widget(self.view, anchor[2]) if anchor is not None else None
         if isinstance(field, QLineEdit) and field.hasFocus():
             viewport = self.scroll.viewport()
             top = field.mapTo(viewport, QPoint()).y()

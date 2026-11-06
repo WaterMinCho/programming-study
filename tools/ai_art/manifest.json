@@ -1177,9 +1177,9 @@
    "fn": "6c-3"
   },
   "learn/l06/assets/6c-4.png": {
-   "sha256": "2622972beff92991eb4b073a454f8444f705a0839debd101fd9b36b2e45eb065",
+   "sha256": "82d28784b95f6727ee3485182c94e584f9a7f2d5bffe4a5afff831ed4854ee3f",
    "script": "tools/ai_art/l06.py",
-   "fn": "6c-4"
+   "fn": "mse_vs_bce_grad"
   },
   "learn/l06/assets/6c-5.png": {
    "sha256": "f7888d7a4340207257b35a04f02f5badf474a9c6b8143e3325a0d378d78951c8",
