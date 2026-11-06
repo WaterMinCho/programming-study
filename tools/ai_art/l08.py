@@ -1012,16 +1012,17 @@ def train_eval_loop():
             if k < len(steps) - 1:
                 arrow(ax, x + w - 0.24, y0, x + w - 0.02, y0, color=edge, lw=1.8)
             x += w
-    arrow(ax, 10.5, 3.45, 10.5, 2.05, color=MUTED)
+    ax.plot([10.5, 10.5, 2.125], [3.45, 2.65, 2.65], color=MUTED, lw=2)
+    arrow(ax, 2.125, 2.65, 2.125, 2.05, color=MUTED)
     note(ax, 5.6, 0.45, "1,000번 되풀이 · BCEWithLogitsLoss 판이라 기준 0.0", size=16, ha="center")
     return image(fig)
 
 
 @figure("8e-5", 560, 250)
 def memo_8e():
-    return memo([[(0.2, 5.35, "데이터 준비", ["정상 9,461건, 사기 539건", "np.unique(y, return_counts=True)",
+    return memo([[(0.2, 5.35, "전체 분포의 산술 예", ["정상 9,461건, 사기 539건", "np.unique(y, return_counts=True)",
                                           "stratify=y: 비율 5.39% · 5.40%"], SLATE, INK, (1,)),
-                  (5.65, 5.35, "손실과 학습", ["pos_weight = 음성 수 ÷ 양성 수 ≈ 17.55",
+                  (5.65, 5.35, "훈련 라벨로 가중치 계산", ["pos_weight = 훈련 음성 수 ÷ 훈련 양성 수",
                                            "정답 1 인 항에만 곱함", "평가는 model.eval() + no_grad()"], INK, INK, ())]],
                 "테스트 데이터는 학습 데이터로 fit 한 scaler 로 transform 만 · 마지막 Linear(8, 1) 출력은 logit")
 

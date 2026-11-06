@@ -33,8 +33,15 @@ class AiHomePage(QWidget):
 
         inner = QWidget()
         root = kit.box(inner, (0, 24, 0, 48))
+        from gui import ai_guide
+        guide_line = QWidget()
+        guide_row = kit.box(guide_line, horizontal=True)
+        self.guide_btn = kit.button("학습·사용 안내")
+        self.guide_btn.clicked.connect(lambda: ai_guide.open_guide(self))
+        guide_row.addWidget(self.guide_btn)
+        guide_row.addStretch(1)
         root.addWidget(kit.heading(kit.label(ai_text.TRACK, "title"),
-                                   kit.para("\n".join(ai_text.STEPS), "body", "secondary")))
+                                   guide_line))
         root.addSpacing(theme.GAP["description_content"])
         lead = QWidget()
         lead_box = kit.box(lead, spacing=theme.GAP["group"])
@@ -197,8 +204,10 @@ class AiHomePage(QWidget):
                 if not unit["ready"]:
                     waiting.append(unit["label"])
                     continue
-                row = kit.Row(unit["label"], ai_text.pattern_line(unit), mark=kit.Dot("done" if unit["read"] else "todo"),
-                              data=(group["id"], unit["key"]))
+                dot = "done" if unit.get("practiced") else "progress" if unit["read"] else "todo"
+                row = kit.Row(unit["label"], ai_text.pattern_line(unit), mark=kit.Dot(dot),
+                              data=(group["id"], unit["key"]), wrap=True)
+                row.setToolTip(ai_text.TERMS)
                 row.clicked.connect(lambda lid=group["id"], key=unit["key"]: self.open_unit(lid, key))
                 self.pattern_list.add(row)
         self.pattern_list.add_more(waiting, ai_text.PREPARING)
@@ -225,13 +234,15 @@ class AiHomePage(QWidget):
             self.win.show_wrong("ai", "ai")
 
     def open_next(self):
-        """이어서 할 일. 안 읽은 단원, 복습(오늘 틀린 문항이 맨 앞에 나옴), 다시 보기."""
+        """마지막 학습 단계나 미완료 연습 묶음을 엶."""
         target = self.target
         if target is None or self.busy:
             return
         kind = target["kind"]
         if kind == "unit":
-            self.win.open_ai_unit(target["lesson"], target["unit"])
+            self.win.open_ai_unit(target["lesson"], target["unit"], target.get("step"))
+        elif kind == "practice":
+            self.win.open_ai_practice(target["mode"], lesson=target.get("lesson"), unit=target.get("unit"), card=target.get("card"))
         elif kind in ("review", "again"):
             self.win.open_ai_practice("review")
         elif kind == "revisit":
@@ -266,13 +277,13 @@ class AiLessonPage(QWidget):
         self.back_btn, self.title = self.top.back, self.top.title
         self.note_btn = self.top.add_right(kit.button("전체 노트", "text", "s"))
         self.memo_btn = self.top.add_right(kit.button("외울 것", "text", "s"), flush=True)
-        self.note_btn.setToolTip("이 차시의 모든 단원을 정답을 편 채로 다시 읽습니다. 다시 읽기는 외운 문항에 넣지 않습니다.")
+        self.note_btn.setToolTip("이 차시의 모든 단원을 정답을 편 채로 다시 읽습니다. 다시 읽기는 복습 확인 기록으로 세지 않습니다.")
         self.memo_btn.setToolTip("이 차시 모든 단원의 외울 것을 답을 가린 질문으로 모아 봅니다.")
         outer.addWidget(self.top)
         inner = QWidget()
         root = kit.box(inner, (0, 24, 0, 48))
         head, _, self.unit_count = kit.section("단원")
-        root.addLayout(head)
+        root.addWidget(kit.heading(head, kit.para("읽기·단원 연습·날짜를 띄운 복습 확인 기록을 따로 표시합니다.", "caption", "secondary")))
         root.addSpacing(theme.GAP["description_content"])
         self.unit_list = kit.RowList()
         root.addWidget(self.unit_list)
@@ -299,8 +310,10 @@ class AiLessonPage(QWidget):
         self.title.show()
         self.unit_list.clear()
         for unit in data["units"]:
+            dot = "done" if unit.get("practiced") else "progress" if unit["read"] else "todo"
             row = kit.Row(unit["title"], ai_text.unit_line(unit), " · ".join(ai_text.unit_badges(unit)),
-                          kit.Dot("done" if unit["read"] else "todo"), unit["key"])
+                          kit.Dot(dot), unit["key"], wrap=True)
+            row.setToolTip(ai_text.TERMS)
             row.clicked.connect(lambda key=unit["key"]: self.open_unit(key))
             self.unit_list.add(row)
         read = sum(1 for unit in data["units"] if unit["read"])

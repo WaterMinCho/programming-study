@@ -63,9 +63,15 @@ class FakeGitFlow:
     def __init__(self):
         self.calls, self.replies, self.before_submit = [], {}, None
         self.has_pending = True
+        self.has_updates = False
+        self.update_checks = 0
 
     def pending(self):
         return {"status": "ok", "pending": self.has_pending, "count": int(self.has_pending)}
+
+    def updates(self):
+        self.update_checks += 1
+        return {"status": "ok", "available": self.has_updates, "count": int(self.has_updates)}
 
     def _reply(self, name):
         self.calls.append(name)
@@ -197,6 +203,7 @@ class HubTest(unittest.TestCase):
 
 class HubScreenTest(HubTest):
     def test_submission_actions_remain_available_on_all_subject_overviews(self):
+        self.git.has_updates = True
         win = self.boot()
         bar = win.workspace.submissions
         for open_page in (win.go_home, win.go_journey, win.go_web, win.go_ai,
@@ -256,19 +263,76 @@ class HubScreenTest(HubTest):
         guikit.wait_until(lambda: win.pending_job is None)
         bar = win.workspace.submissions
         self.assertTrue(bar.submit.isHidden())
-        self.assertTrue(bar.sync.isVisible())
-        self.assertIn("변경이 없습니다", bar.message.text())
+        self.assertTrue(bar.isHidden())
+        self.assertTrue(bar.sync.isHidden())
+        self.assertTrue(win.hub.manual_sync.isVisible())
+        page_geometry = win.pages.geometry()
+        scroll = win.hub.findChild(QScrollArea).verticalScrollBar()
+        scroll.setValue(scroll.maximum() // 2)
+        position, maximum = scroll.value(), scroll.maximum()
         self.git.has_pending = True
         win.check_pending_submission()
         guikit.wait_until(lambda: win.pending_job is None)
         self.assertTrue(bar.submit.isVisible())
         self.assertEqual(bar.message.text(), "제출할 풀이가 있습니다.")
+        self.assertTrue(bar.sync.isHidden())
+        self.assertEqual(win.pages.geometry(), page_geometry)
+        self.assertEqual((scroll.value(), scroll.maximum()), (position, maximum))
         before = bar.geometry()
-        scroll = win.hub.findChild(QScrollArea).verticalScrollBar()
         scroll.setValue(scroll.maximum())
         guikit.pump()
         self.assertEqual(bar.geometry(), before)
         self.assertTrue(bar.submit.isVisible())
+
+    def test_new_material_reminder_is_throttled_and_clears_after_receiving(self):
+        self.git.has_pending, self.git.has_updates = False, True
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        bar = win.workspace.submissions
+        self.assertTrue(bar.isVisible())
+        self.assertTrue(bar.submit.isHidden())
+        self.assertTrue(bar.sync.isVisible())
+        self.assertEqual(bar.message.text(), "새 학습 자료가 있습니다.")
+        checks = self.git.update_checks
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertEqual(self.git.update_checks, checks)
+        self.git.has_updates = False
+        QTest.mouseClick(bar.sync, Qt.MouseButton.LeftButton)
+        self.idle()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertIn("sync", self.git.calls)
+        self.assertTrue(bar.isHidden())
+
+    def test_update_failure_keeps_a_known_reminder_and_retry_stays_available(self):
+        self.git.has_pending, self.git.has_updates = False, True
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        self.git.updates = lambda: {"status": "error", "available": False, "count": 0}
+        win.next_update_check = 0
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertTrue(win.workspace.submissions.sync.isVisible())
+        self.assertTrue(win.hub.manual_sync.isEnabled())
+
+    def test_hiding_a_keyboard_focused_reminder_keeps_the_reading_position(self):
+        from PyQt6.QtWidgets import QScrollArea
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        scroll = win.hub.findChild(QScrollArea).verticalScrollBar()
+        scroll.setValue(scroll.maximum() // 2)
+        win.workspace.submissions.submit.setFocus(Qt.FocusReason.TabFocusReason)
+        guikit.pump()
+        before = scroll.value()
+        self.git.has_pending = False
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertTrue(win.workspace.submissions.isHidden())
+        self.assertTrue(win.workspace.hasFocus())
+        self.assertEqual(scroll.value(), before)
 
     def test_subject_navigation_fits_a_small_window_at_the_largest_text_size(self):
         win = self.boot()

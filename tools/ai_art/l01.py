@@ -333,7 +333,7 @@ def lr_gif():
             loss_txt = "0.0001 미만" if loss_now < Fraction(1, 10000) else dec(loss_now, 4 if p == 1 else 2)
             ax.set_xlabel("w = %s,  손실 %s" % (dec(w_now, 4 if p == 1 else 2), loss_txt), fontsize=20, color=INK)
             if k == 5:
-                ax.text(2.2, 12.5, ["느림", "최적점에 닿음", "발산"][p], fontsize=24, color=INK, weight="bold", ha="center",
+                ax.text(2.2, 12.5, ["느림", "최적점에 가까워짐", "발산"][p], fontsize=24, color=INK, weight="bold", ha="center",
                         bbox={"boxstyle": "round,pad=0.3", "fc": "white", "ec": FAINT})
         frames.append(to_image(fig))
         durs.append(2500 if k == 5 else 2400 if k == 4 else 2200)

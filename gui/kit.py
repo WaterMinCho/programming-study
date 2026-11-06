@@ -9,7 +9,7 @@ theme.TYPE 으로 글꼴을 직접 주고(label, para), 그 역할을 role 속�
 import math
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen, QTextDocument
 from PyQt6.QtWidgets import (QBoxLayout, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
                              QSizePolicy, QSplitter, QSplitterHandle, QVBoxLayout, QWidget, QWidgetItem)
 
@@ -123,6 +123,76 @@ def badge(text="", tone=""):
         out.setProperty("tone", tone)
     out.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     return out
+
+
+class FirstLine(QWidget):
+    """꼬리표와 본문 첫 줄의 중심을 맞춤. 줄바꿈 높이나 큰 행간에 따라 꼬리표가 뜨지 않게 함."""
+
+    aligned = pyqtSignal()
+
+    def __init__(self, mark, text, spacing=12, anchor=None):
+        super().__init__()
+        self.mark, self.text, self.anchor = mark, text, anchor or text
+        self.center = 0
+        row = box(self, spacing=spacing, horizontal=True)
+        self.mark_holder, self.text_holder = QWidget(), QWidget()
+        self.mark_box, self.text_box = box(self.mark_holder), box(self.text_holder)
+        self.mark_box.addWidget(mark, 0, Qt.AlignmentFlag.AlignTop)
+        self.text_box.addWidget(text, 0, Qt.AlignmentFlag.AlignTop)
+        row.addWidget(self.mark_holder, 0, Qt.AlignmentFlag.AlignTop)
+        row.addWidget(self.text_holder, 1, Qt.AlignmentFlag.AlignTop)
+        self.setProperty("first_line_pair", True)
+        mark.installEventFilter(self)
+        if isinstance(text, FirstLine):
+            text.aligned.connect(self.refont)
+
+    def text_center(self):
+        anchor = self.anchor
+        if callable(anchor):
+            return anchor()
+        if isinstance(anchor, FirstLine):
+            return anchor.center
+        if isinstance(anchor, QLabel):
+            key = (anchor.font().toString(), QLabel.text(anchor), anchor.width())
+            top = anchor.mapTo(self.text, QPoint(0, 0)).y() if anchor is not self.text else 0
+            if getattr(self, "center_key", None) == key:
+                return top + self.glyph_center
+            document = QTextDocument()
+            document.setDefaultFont(anchor.font())
+            document.setDocumentMargin(0)
+            document.setHtml(QLabel.text(anchor))
+            document.setTextWidth(max(1, anchor.width()))
+            document.documentLayout().documentSize()
+            block = document.begin()
+            line = block.layout().lineAt(0)
+            if line.isValid():
+                self.center_key = key
+                self.glyph_center = line.y() + (line.ascent() + line.descent()) / 2
+                return top + self.glyph_center
+        return anchor.sizeHint().height() / 2
+
+    def refont(self):
+        self.mark.ensurePolished()
+        visible = not self.mark.isHidden()
+        self.mark_holder.setVisible(visible)
+        text = self.text_center()
+        mark = max(self.mark.minimumHeight(), self.mark.sizeHint().height(), 0) / 2 if visible else 0
+        previous, self.center = self.center, max(mark, text)
+        self.mark_box.setContentsMargins(0, math.floor(self.center - mark), 0, 0)
+        self.text_box.setContentsMargins(0, math.floor(self.center - text), 0, 0)
+        if previous != self.center:
+            self.aligned.emit()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest and hasattr(self, "mark"):
+            self.refont()
+        return result
+
+    def eventFilter(self, watched, event):
+        if watched is self.mark and event.type() in (QEvent.Type.ShowToParent, QEvent.Type.HideToParent):
+            self.refont()
+        return super().eventFilter(watched, event)
 
 
 def button(text="", kind="secondary", scale="m", onbg=False):
@@ -269,8 +339,8 @@ def banner(text="", tone="", lead="", action=""):
         holder = QWidget()
         line = box(holder, spacing=8, horizontal=True)
         row.addWidget(holder, 1, Qt.AlignmentFlag.AlignVCenter)
-    line.addWidget(word, 0, Qt.AlignmentFlag.AlignTop)
-    line.addWidget(text_label, 1)
+    out.pair = FirstLine(word, text_label, spacing=8)
+    line.addWidget(out.pair, 1)
     out.text = text_label
     out.word = word
     out.action = None
@@ -549,7 +619,8 @@ def link_banner(tone=""):
     """링크가 든 글을 담는 띠. banner 의 글 자리에 LinkLabel 을 둠. (띠, LinkLabel)."""
     out = banner("", tone)
     link = typed(LinkLabel("", line=theme.TYPE["body"][1], font=theme.font("body")), "body")
-    out.layout().replaceWidget(out.text, link)
+    out.pair.text_box.replaceWidget(out.text, link)
+    out.pair.text = out.pair.anchor = link
     out.text.hide()
     out.text.deleteLater()
     out.text = link
@@ -1096,23 +1167,19 @@ class Check(QFrame):
     """체크 목록 한 줄: 상자(box) 20, 꼬리표(필수·보충, 없을 수 있음), 줄바꿈되는 글, 오른쪽 caption 메모. 줄 전체를 누르거나 Space 를
     치면 상자가 바뀜. 상자의 왼쪽 끝은 위 본문의 왼쪽 끝과 같은 선에 둠(바깥 여백 0). 상자를 끄면(box.setEnabled) 글은 그대로 읽힘."""
 
-    def __init__(self, text, tag="", tag_tone="", note=""):
+    def __init__(self, text, tag="", tag_tone="", note="", text_widget=None, mark_widget=None):
         super().__init__()
         self.setObjectName("row")
         self.down = False  # 최소 높이 48 은 상자 28 과 위아래 여백 12 가 만듦. 최소 높이를 따로 주면 줄바꿈한 글의 높이가 상자에 전해지지 않음
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         row = box(self, (0, 12, 0, 12), 12, horizontal=True)
-        self.box = CheckMark()
-        row.addWidget(self.box, 0, Qt.AlignmentFlag.AlignTop)
-        text_row = QHBoxLayout()
-        text_row.setContentsMargins(0, 0, 0, 0)
-        text_row.setSpacing(8)
+        self.box = mark_widget or CheckMark()
         self.tag = badge(tag, tag_tone)
-        self.label = para(text)
-        text_row.addWidget(self.tag, 0, Qt.AlignmentFlag.AlignTop)
-        text_row.addWidget(self.label, 1)
-        row.addLayout(text_row, 1)
+        self.label = text_widget or para(text)
+        self.text_line = FirstLine(self.tag, self.label, spacing=8)
+        self.content_line = FirstLine(self.box, self.text_line)
+        row.addWidget(self.content_line, 1, Qt.AlignmentFlag.AlignTop)
         self.note = label(note, "caption", "tertiary")
         row.addWidget(self.note, 0, Qt.AlignmentFlag.AlignTop)
         self.tag.setVisible(bool(tag))  # 부모에 붙인 뒤에 보임. Row 와 같은 까닭

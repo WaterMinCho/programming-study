@@ -1070,11 +1070,11 @@ def ridge_vs_lasso():
 
 @figure("7f-4", 560, 300)
 def memo_7f():
-    return memo([[(0.3, 3.7, "R²", ["1 " + M + " SS_res ÷ SS_tot", M + "∞ < R² ≤ 1", "평균만 내면 0", "인과를 보여 주지 않음"],
+    return memo([[(0.3, 3.7, "R²", ["SS_tot > 0일 때", "1 " + M + " SS_res ÷ SS_tot", M + "∞ < R² ≤ 1", "인과를 보여 주지 않음"],
                    GRAY, INK, ()),
-                  (4.2, 3.4, "Ridge", ["MSE + λ × 제곱의 합", "0 에 가깝게, 0 은 아님", "weight_decay"], PURPLE, PURPLE, (2,)),
-                  (7.8, 3.1, "Lasso", ["MSE + λ × 절댓값 합", "정확히 0", "손실에 직접 더함"], ORANGE, ORANGE, ())]],
-                "R² 는 평가 지표, MSE 는 손실, Ridge·Lasso 는 규제")
+                  (4.2, 3.4, "Ridge", ["MSE=(w−0.3)²인 예", "벌점 λw², 유한 λ≥0", "최적의 w=0.3/(1+λ)"], PURPLE, PURPLE, ()),
+                  (7.8, 3.1, "Lasso", ["같은 MSE에 λ|w| 추가", "λ≥0.6이면 w=0", "손실에 직접 더함"], ORANGE, ORANGE, ())]],
+                "SGD weight_decay=λ는 손실 벌점 (λ/2)w²에 해당합니다.")
 
 
 # 7g 학습 기록과 회귀 직선

@@ -147,7 +147,7 @@ class LearningStateTest(unittest.TestCase):
         self.round_trip()
         self.assertAlmostEqual(bar.value(), expected, delta=2)
 
-    def test_new_unit_and_reopened_unit_start_without_old_drafts(self):
+    def test_new_unit_is_empty_and_reopening_the_same_unit_keeps_its_draft(self):
         self.field().setText("이전 단원의 초안")
         self.page.view.figures[0].go(3)
         self.page.load("test", "two", 2)
@@ -161,7 +161,7 @@ class LearningStateTest(unittest.TestCase):
         self.field().setText("다시 열기 전 초안")
         self.page.load("test", "one", 2)
         self.settle()
-        self.assertEqual(self.field().text(), "")
+        self.assertEqual(self.field().text(), "다시 열기 전 초안")
 
     def test_changed_service_discards_the_old_window_state(self):
         self.field().setText("이전 서비스의 초안")
@@ -249,6 +249,10 @@ class LearningStateTest(unittest.TestCase):
         self.assertEqual(self.field().text(), "")  # 제출한 칸의 판정과 완성 상태는 복원 범위 밖임
         self.page.show_step(3)
         self.settle()
+        self.assertEqual([call[0] for call in self.win.ai.calls if call[0] != "step"], ["recall"])
+        with mock.patch.object(self.win, "open_ai_practice", create=True) as practice:
+            self.page.forward()
+        practice.assert_called_once_with("unit", lesson="test", unit="one")
         self.assertEqual([call[0] for call in self.win.ai.calls if call[0] != "step"], ["recall", "learn"])
 
     def test_read_failure_leaves_the_current_draft_in_place(self):

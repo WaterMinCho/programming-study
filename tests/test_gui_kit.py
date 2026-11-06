@@ -501,7 +501,9 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(one.height(), 12 + 40 + 12)
         self.assertGreaterEqual(two.text.height(), two.text.heightForWidth(two.text.width()))
         self.assertGreater(two.text.height(), 40)
-        self.assertEqual(two.word.mapTo(two, QPoint(0, 0)).y(), two.text.mapTo(two, QPoint(0, 0)).y())
+        mark_center = two.word.mapTo(two.pair, QPoint()).y() + two.word.sizeHint().height() / 2
+        text_center = two.text.mapTo(two.pair, QPoint()).y() + two.pair.text_center()
+        self.assertLessEqual(abs(mark_center - text_center), 1)
         one.action.setEnabled(False)
         guikit.pump()
         image = one.grab().toImage()

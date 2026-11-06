@@ -281,6 +281,9 @@ class HubPage(QWidget):
         top.identity_row.addStretch(1)
         top.identity_row.addWidget(self.user)
         self.settings_btn = kit.button("화면 설정", "text", "s", onbg=True)
+        self.manual_sync = kit.button("새 문제 받기", "text", "s", onbg=True)
+        self.manual_sync.clicked.connect(win.fetch_problems)
+        top.add_right(self.manual_sync)
         self.settings_panel = QWidget()
         setting_box = kit.FlowLayout(self.settings_panel, spacing=8)
         self.text_buttons = {}  # 글자 크기 단계 → 단추. 테마 단추와 같은 모양이고 지금 단계는 고른 모양
@@ -508,12 +511,12 @@ class HubPage(QWidget):
             self.ai_row.set_metric(None, None, "")
             return None
         self.ai_row.set_second(ai_text.track_line(overview))
-        self.ai_row.set_metric(overview["memorised"], overview["families"], "외운 문항")
+        self.ai_row.set_metric(overview["memorised"], overview["families"], "복습 확인")
         return overview
 
     def show_next(self, overview, journey, web, ai=None):
-        """이어서 할 일 카드와 요약 문장. 웹의 진행 중 미션이나 오늘 복습, AI 복습이 REVIEW_FIRST 이상이면 그것이 먼저(둘 다면 마지막 기록 순),
-        그다음 가장 최근 기록을 남긴 트랙, 기록이 없으면 파이썬."""
+        """이어서 할 일 카드와 요약을 채움. 마지막 활동이 AI이면 저장한 학습·연습을 먼저 엶.
+        다른 경우에는 웹의 진행 중 미션·복습과 최근 트랙 순서를 따름."""
         running = [m for m in (web["missions"] if web else []) if m["phase"] in ("reading", "live")]
         due = [c for c in (web["today"]["chains"] if web else []) if not c["new"]]
         parts = []
@@ -537,10 +540,13 @@ class HubPage(QWidget):
             latest.append((str(ai["last_at"]), "ai"))
         ai_item = ai_text.next_item(ai, self.win.ai.today()) if ai else None
         first = [track for _, track in sorted(latest, reverse=True)
-                 if (track == "web" and (running or due) and web_item) or (track == "ai" and ai["due"] >= ai_service.REVIEW_FIRST)]
+                 if (track == "web" and (running or due) and web_item)
+                 or (track == "ai" and "continuation" not in ai and ai["due"] >= ai_service.REVIEW_FIRST)]
         if (running or due) and web_item and "web" not in first:
             first.insert(0, "web")
         order = first + [track for _, track in sorted(latest, reverse=True)] + ["python"]
+        if latest and max(latest)[1] == "ai" and ai_item and ai_item["action"]:
+            order.insert(0, "ai")
         for track in order:
             if track == "python":
                 label, desc = self.win.next_action(overview)
@@ -563,9 +569,11 @@ class HubPage(QWidget):
                 return
 
     def open_ai(self, item):
-        """AI 비전 개론의 이어서 할 일을 엶. 단원·복습·다시 보기는 그 화면으로 바로 감."""
+        """저장한 AI 학습 단계나 연습 묶음을 엶. 예전 추천 값도 기존 화면으로 연결함."""
         if item["kind"] == "unit":
-            self.win.open_ai_unit(item["lesson"], item["unit"])
+            self.win.open_ai_unit(item["lesson"], item["unit"], item.get("step"))
+        elif item["kind"] == "practice":
+            self.win.open_ai_practice(item["mode"], lesson=item.get("lesson"), unit=item.get("unit"), card=item.get("card"))
         elif item["kind"] in ("review", "again"):
             self.win.open_ai_practice("review")
         elif item["kind"] == "revisit":
@@ -638,7 +646,7 @@ class HubPage(QWidget):
         kit.set_inert(self.ai_row, busy or self.ai_error.isVisibleTo(self))
         for _, row in self.note_rows:
             kit.set_inert(row, busy)
-        for button in (self.git_btn, self.sync_btn):
+        for button in (self.git_btn, self.sync_btn, self.manual_sync):
             button.setEnabled(not busy and self.win.gitflow is not None)
         self.busy_bar.setVisible(busy)
         self.status.setVisible(busy and bool(text))

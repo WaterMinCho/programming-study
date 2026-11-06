@@ -458,8 +458,8 @@ class WebDrillPage(QWidget):
         for question, result in zip(self.chain["questions"], done["per_question"]):
             row = QWidget()
             line = kit.box(row, (0, 12, 0, 12), 12, horizontal=True)
-            line.addWidget(kit.badge(result_label(result), result_tone(result)), 0, Qt.AlignmentFlag.AlignTop)
-            line.addWidget(kit.para(plain(question["ask"])), 1)
+            line.addWidget(kit.FirstLine(kit.badge(result_label(result), result_tone(result)),
+                                         kit.para(plain(question["ask"]))), 1)
             self.results_col.addWidget(row)
             self.result_rows.append(row)
         weak = done["weak"]

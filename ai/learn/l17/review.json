@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제 1",
- "resolver": "재풀이 2",
- "reviewer": "검토 4",
+ "writer": "본문 수정 2",
+ "resolver": "변경 물음 재풀이 3",
+ "reviewer": "본문 검토 3",
  "files": {
   "assets/17a-1.png": "435c768b0e5e2a29e1be4dd513fa0f49dcdfc937375c4486c264ed60ae6a1637",
   "assets/17a-2.png": "d4bd5a0f5eb8595e72fe91914b08555a8cc831f4e319cf81a0dc31082b94dc2f",
@@ -30,9 +30,10 @@
   "assets/17e-3.png": "ec230f33bbb0a607cae9decc21126be9bb60243703645619f6b61b849bf8dda6",
   "assets/17e-4.png": "acdc3dc5f0fdf73f174d837d9499ef3b02ad38d0c124bb9fa7307ff312fce31e",
   "meta.json": "6353344b773fcbfbe4790a614218112241cf877dcd3b3424dabb31c6115380a1",
-  "page.md": "6fc64321a5a4ed125f1537eb05dbd980e6d8dbb1a8b7bcdb293549a5b642b6ac"
+  "page.md": "5e966b36b23d4f962fab4bfbc96de1f745053d807308aa0547d07dae81d9245a"
  },
  "findings": [
-  "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음."
+  "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
+  "본문·예제·변경 물음의 조건을 독립 대조함. int64와 long의 같은 dtype 이름을 허용하고 파일 별칭을 설명에서 덜어냄."
  ]
 }

@@ -1753,7 +1753,7 @@ def summary_4f():
          [("v = μ × v + 기울기", PURPLE), ("새 W = W " + M + " 학습률 × v", PURPLE), "첫 갱신은 v = 기울기",
           "W: 1 → 1.01904 → 1.054774"], size=16, gap=0.48)
     card(bx, 0.1, 0.15, 5.7, 2.4, "코드",
-         [("optim.SGD([W, B], lr=0.001,", INK), ("          momentum=0.9)", INK), "같은 쪽 갱신은 커지고 흔들림은 줄어듦"], size=16)
+         [("optim.SGD([W, B], lr=0.001,", INK), ("          momentum=0.9)", INK), "흔들림 감소를 항상 보장하지 않음"], size=16)
     return image(fig, symbols=True)
 
 
@@ -1885,7 +1885,7 @@ def three_sets():
     ax.text((centers[0] + centers[2]) / 2, 4.55, "테스트 데이터를 학습에 쓰면 데이터 누수", ha="center", fontsize=17,
             color=RED, weight="bold", bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
     ax.text(0.4, 1.05, "평균 같은 전처리 값도 학습 데이터에서만 구해 세 묶음에 씀", fontsize=17, color=INK)
-    ax.text(0.4, 0.45, "강의 권장: 10만 개 이상 80/10/10, 1만 개 이하 60/20/20", fontsize=16, color=MUTED)
+    ax.text(0.4, 0.45, "이 예는 5,000개를 60/20/20으로 나눕니다.", fontsize=16, color=MUTED)
     return image(fig)
 
 

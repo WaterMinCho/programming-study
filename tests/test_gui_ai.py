@@ -213,7 +213,7 @@ class HubAndHomeTest(AiTest):
         self.assertEqual(home.mixed_row.second.text(), ai_text.MIXED_EMPTY)
         book = home.books.rows[1]
         self.assertFalse(book.inert)  # 차시 문제집은 단원을 읽지 않아도 풂
-        self.assertRegex(book.second.text(), r"^외운 문항 0/\d+$")
+        self.assertRegex(book.second.text(), r"^복습 확인 전 · 전체 \d+묶음$")
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(home)], ["학습 시작"])
         button = home.next_btn
         self.assertTrue(win.rect().contains(button.mapTo(win, QPoint(button.width(), button.height()))), "주 단추가 스크롤 없이 보임")
@@ -222,16 +222,16 @@ class HubAndHomeTest(AiTest):
 
         def top(widget):
             return widget.mapTo(home, QPoint(0, 0)).y()
-        steps = next(w for w in home.findChildren(QLabel) if w.text() == "\n".join(ai_text.STEPS))
+        steps = home.guide_btn
         terms = next(w for w in home.findChildren(QLabel) if w.text() == ai_text.TERMS)
-        # 세 단계 안내, 카드, 학습 단원, 낱말 풀이, 문제집 줄 순. 낱말 풀이는 카드를 밀어내지 않고 문제집 줄 바로 위에 있음
+        # 사용 안내 단추, 카드, 학습 단원, 낱말 풀이, 문제집 줄 순임.
         self.assertEqual(sorted([steps, home.next_card, home.lesson_list, terms, home.books], key=top),
                          [steps, home.next_card, home.lesson_list, terms, home.books])
         guikit.click(book)
         self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "90차시 풀기"))
 
     def test_next_card_cases_in_order(self):
-        """오늘 틀린 문항 → 복습이 많음 → 안 읽은 단원 → 복습 → 다시 보기. 안 읽은 단원은 목표와 상관없이 권함."""
+        """이어서에는 중단한 단원·연습을 두고 날짜별 복습 추천은 별도로 유지함."""
         win = self.boot()
         win.go_ai()
         home = win.ai_home
@@ -242,29 +242,31 @@ class HubAndHomeTest(AiTest):
 
         self.assertEqual(card(), ("unit", "90차시 첫째 단원 읽기", "학습 시작"))
         self.at(2)
+        win.ai.save_step("i90", "90a", 4)
         win.ai.mark_read("i90", "90a")
-        self.assertEqual(card(), ("unit", "90차시 둘째 단원 읽기", "학습 시작"))  # 오늘 하나 읽어도 남은 단원을 권함
-        self.assertTrue(home.next_card.line.text().startswith("「과적합 알아보기」\n"))
+        self.assertEqual(card(), ("unit", "90차시 첫째 단원 읽기", "이어서 학습"))
+        self.assertEqual(home.target["step"], 4)
         win.open_ai_practice("unit", lesson="i90", unit="90a")
         self.answer(right=False)
-        self.assertEqual(card()[0::2], ("again", "복습 시작"))  # 오늘 틀린 문항은 복습 묶음 맨 앞에 나옴
-        self.assertTrue(home.next_card.title.text().startswith("오늘 틀린 문항 "))
+        self.assertEqual(card()[0::2], ("practice", "이어서 풀기"))
+        self.assertEqual(win.ai.overview()["next"]["kind"], "again")
         self.at(3)
         self.assertGreater(win.ai.overview()["due"], 0)
-        self.assertEqual(card()[0], "unit")  # 복습이 적으면 안 읽은 단원이 먼저
+        self.assertEqual(card()[0], "practice")
         with mock.patch.object(plan, "REVIEW_FIRST", 1):
-            self.assertEqual(card()[0], "review")  # 복습이 REVIEW_FIRST 이상이면 안 읽은 단원보다 먼저
+            self.assertEqual(card()[0], "practice")
+            self.assertEqual(win.ai.overview()["next"]["kind"], "review")
         win.ai.mark_read("i90", "90b")
-        self.assertEqual(card()[0::2], ("review", "복습 시작"))
+        self.assertEqual(card()[0::2], ("practice", "이어서 풀기"))
         guikit.click(home.next_btn)
-        self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "복습"))
+        self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "90차시 · 기울기로 걸음 정하기"))
         while win.ai_quiz.item is not None:
             if win.ai_quiz.feedback is None:
                 self.answer()
             guikit.click(win.ai_quiz.next_btn)
-        self.assertEqual(card()[0::2], ("revisit", "다시 보기"))
+        self.assertEqual(card(), ("unit", "90차시 둘째 단원 읽기", "학습 시작"))
         guikit.click(home.next_btn)
-        self.assertIs(self.page(), win.ai_revisit)
+        self.assertEqual((self.page(), win.ai_learn.key), (win.ai_learn, "90b"))
 
     def test_hub_summary_counts_ai_review(self):
         win = self.boot()
@@ -321,11 +323,12 @@ class HubAndHomeTest(AiTest):
         win.ai.mark_read("i90", "90a")
         win.go_hub()
         hub = win.hub
-        self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("90차시 둘째 단원 읽기", "학습 시작"))  # 홈 카드와 같은 글
-        self.assertTrue(hub.next_card.line.text().startswith("AI 비전 개론 · 「과적합 알아보기」\n읽은 뒤 이 단원 문항부터 풉니다."))
+        self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("90차시 첫째 단원 읽기", "이어서 학습"))  # 중단한 단원이 먼저임.
+        self.assertIn("기울기로 걸음 정하기", hub.next_card.line.text())
+        self.assertTrue(hub.next_card.line.text().startswith("AI 비전 개론 · "))
         self.assertEqual(hub.chart.days[-1][4], 1)  # 끝까지 읽은 단원 하나
         guikit.click(hub.next_btn)
-        self.assertEqual((self.page(), win.ai_learn.key), (win.ai_learn, "90b"))
+        self.assertEqual((self.page(), win.ai_learn.key), (win.ai_learn, "90a"))
 
 
 class TextTest(unittest.TestCase):
@@ -357,10 +360,13 @@ class TextTest(unittest.TestCase):
     def test_counts_use_one_name_each(self):
         """외운 문항은 "외운 문항 N/M", 복습은 "복습 N문항" 한 꼴로 씀. 학습 단원 줄은 읽은 단원 수만."""
         row = {"units_total": 3, "read": 1, "memorised": 2, "families": 9, "due": 4, "state": "level1"}
-        self.assertEqual(ai_text.book_line(row), "외운 문항 2/9 · 복습 4문항")
+        self.assertEqual(ai_text.book_line(row), "복습 확인 2/9묶음 · 복습 4문항")
         self.assertEqual(ai_text.lesson_line(row), "단원 3개 중 1개 읽음")
         unit = {"read": True, "memorised": 0, "families": 5, "due": 3, "minutes": 5}
-        self.assertEqual(ai_text.unit_line(unit), "읽음 · 외운 문항 0/5 · 복습 3문항 · 약 5분")
+        self.assertEqual(ai_text.unit_line(unit), "읽기 마침 · 복습 확인 전 · 전체 5묶음 · 복습 3문항 · 약 5분")
+        self.assertIn("단원 연습 미완료", ai_text.unit_line(dict(unit, practiced=False)))
+        self.assertIn("단원 연습 마침", ai_text.unit_line(dict(unit, practiced=True)))
+        self.assertIn("복습 확인 전", ai_text.unit_line(dict(unit, practiced=True)))
         self.assertEqual(ai_text.recent_label({"kind": "set", "n": 3, "first_pass": 1}), "AI 비전 개론 연습 1/3")
         self.assertEqual(ai_text.requeue_line(False, 3), "이 문항은 3문항 뒤에 다시 나옵니다.")
         self.assertEqual(ai_text.requeue_line(False, 0), "이 문항은 바로 다음에 다시 나옵니다.")
@@ -416,7 +422,7 @@ class TextTest(unittest.TestCase):
         """상황별 코드 줄, 나란히 보기 caption, 함께 가린 칸 줄, 뼈대 카드 오답 노트 줄과 코드 보기 HTML, 단원 이름을 쓰는 이어서 할 일."""
         unit = {"after_no": 6, "read": False, "minutes": 6, "memorised": 0, "families": 8, "due": 0}
         self.assertEqual(ai_text.pattern_line(unit), "6차시 뒤에 권함 · 약 6분")
-        self.assertEqual(ai_text.pattern_line(dict(unit, read=True, due=2)), "6차시 뒤에 권함 · 외운 문항 0/8 · 복습 2문항")
+        self.assertEqual(ai_text.pattern_line(dict(unit, read=True, due=2)), "6차시 뒤에 권함 · 읽기 마침 · 복습 확인 전 · 전체 8묶음 · 복습 2문항")
         self.assertEqual(ai_text.diff_caption(2, 13), "다른 줄 2개 · 같은 줄 13개")
         self.assertEqual(ai_text.also_line([1, 3]), "①·③ 칸은 틀렸습니다. 그 칸을 묻는 문항이 내일 복습에 나옵니다.")
         self.assertEqual(ai_text.card_head({"kind": "skel", "head": "opt.____()"}, None), "opt.____()")
@@ -448,7 +454,8 @@ class LessonAndLearnTest(AiTest):
         self.assertIs(self.page(), page)
         self.assertEqual(page.title.text(), "90차시 시험 차시")
         rows = [(row.title.text(), row.second.text(), row.end.text()) for row in page.unit_list.rows]
-        self.assertEqual(rows, [("기울기로 걸음 정하기", "안 읽음 · 약 5분", ""), ("과적합 알아보기", "안 읽음 · 약 4분", "심화 있음")])
+        self.assertEqual(rows, [("기울기로 걸음 정하기", "읽기 전 · 단원 연습 미완료 · 약 5분", ""),
+                                ("과적합 알아보기", "읽기 전 · 단원 연습 미완료 · 약 4분", "심화 있음")])
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["이 차시 풀기"])
         guikit.click(page.practice_btn)
         quiz = win.ai_quiz
@@ -507,13 +514,13 @@ class LessonAndLearnTest(AiTest):
         self.assertIn("optimizer.zero_grad()", text)  # python 코드 블록이 보임
         self.assertNotIn("facts:", text)
         self.assertNotIn("<!--", text)
-        self.assertIn("정정", [badge.text() for badge in learn.view.findChildren(QLabel)])
+        self.assertNotIn("정정", [badge.text() for badge in learn.view.findChildren(QLabel)])
         self.assertFalse(self.log("learn"))
         guikit.click(learn.memo_btn)  # [외울 것으로]
         self.assertEqual(learn.index, 3)
         self.assertFalse(learn.memo_btn.isVisible())
         self.assertEqual(learn.next_btn.text(), "연습 시작")
-        self.assertEqual([(r["lesson"], r["unit"]) for r in self.log("learn")], [("i90", "90a")])
+        self.assertFalse(self.log("learn"))
         memo = learn.view.findChildren(ai_learn.MemoBlock)[0]
         answer = memo.layout().itemAt(1).widget()
         self.assertFalse(answer.isVisible())
@@ -604,6 +611,8 @@ class LessonAndLearnTest(AiTest):
 
     def test_figure_buttons_stay_put_when_frame_lines_differ(self):
         """장 설명 줄 수가 장마다 달라도 설명 칸이 가장 긴 설명의 높이를 지켜 넘김 줄과 캡션이 움직이지 않음. 폭이 바뀌면 다시 잼."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text("large")
         long = "길게 쓴 장 설명입니다. " * 12
         frames = [{"text": long if n in (0, 3) else "%d장" % (n + 1), "ms": 2000} for n in range(6)]
         figure = ai_learn.AiFigure(REAL_GIF, "그림 2", frames)
@@ -687,7 +696,7 @@ class LevelsTest(AiTest):
         block = self.levels(learn.view)
         self.assertIs(learn.view.layout().itemAt(learn.view.layout().count() - 1).widget(), block)  # 단계 맨 아래
         self.assertEqual("well", block.layout().itemAt(0).widget().objectName())
-        self.assertEqual(block.row.label.plain, "세 수준으로 다시 보기 · 기울기")
+        self.assertEqual(block.row.label.plain, "세 단계로 다시 보기 · 기울기")
         self.assertFalse(block.row.opened or block.body.isVisible())
         self.assertEqual((0, []), (block.body_box.count(), block.body.findChildren(ai_learn.RecallBlock)))  # 접힌 동안 비어 있음
         self.assertEqual(learn.view.findChildren(ai_learn.RecallBlock)[0].block["id"], "r1")
@@ -746,16 +755,28 @@ class LevelsTest(AiTest):
         block = self.levels(win.ai_learn.view)
         seen = self.tab_through(block)
         recalls = block.body.findChildren(ai_learn.RecallBlock)
-        fields = [r.field for r in recalls]
-        self.assertTrue(seen and isinstance(seen[0], TextPiece), seen)  # 접힌 줄 다음은 7살 글
-        self.assertEqual(fields, [w for w in seen if w in fields])
-        self.assertLess(seen.index(fields[0]), seen.index(recalls[0].check_btn))
+        self.assertEqual((3, 3, 3), (len(block.figures), len(block.docs), len(recalls)))
+        expected = []
+        for figure, doc, recall in zip(block.figures, block.docs, recalls):
+            self.assertTrue(figure.zoom_btn.isVisibleTo(block))
+            pieces = doc.findChildren(TextPiece)
+            self.assertTrue(pieces)
+            expected.extend([figure.zoom_btn, *pieces, recall.field, recall.check_btn])
+        self.assertEqual(expected, seen)
         win.open_ai_note("i90")
         page = win.ai_note
         guikit.pump()
         guikit.click(page.findChildren(ai_learn.FoldRow)[0])
         block = self.levels(page)
-        self.assertGreaterEqual(len(self.tab_through(block)), 3)  # 전체 노트에서도 다음 단계로 건너뛰지 않고 블록 안 글로 감
+        seen = self.tab_through(block)
+        self.assertEqual((3, 3), (len(block.figures), len(block.docs)))
+        expected = []
+        for figure, doc in zip(block.figures, block.docs):
+            self.assertTrue(figure.zoom_btn.isVisibleTo(block))
+            pieces = doc.findChildren(TextPiece)
+            self.assertTrue(pieces)
+            expected.extend([figure.zoom_btn, *pieces])
+        self.assertEqual(expected, seen)
 
     def test_restyle_while_open(self):
         win = self.boot()
@@ -1007,8 +1028,8 @@ class PracticeTest(AiTest):
         self.assertTrue(all(holder.isVisible() for holder in page.whys))
         self.assertTrue(page.answer_line.text().startswith("정답: zero_grad"))
         text = visible_text(page.after)
-        self.assertIn("정정", text)
-        self.assertIn("오류를 바로잡은 문항", text)
+        self.assertNotIn("정정", text)
+        self.assertIn("맨 끝에 두어도 다음 반복 전에 비워지므로 결과가 같습니다", text)
         self.assertNotIn("슬라이드", text)
         self.assertFalse(page.mine_btn.isVisible())
 
@@ -1295,7 +1316,8 @@ class PatternTest(AiTest):
         win.ai.mark_read("pc", "18a")
         win.go_ai()
         row = home.pattern_list.rows[0]
-        self.assertEqual((row.second.text(), row.mark.state), ("90차시 뒤에 권함 · 외운 문항 0/7", "done"))
+        self.assertEqual((row.second.text(), row.mark.state),
+                         ("90차시 뒤에 권함 · 읽기 마침 · 단원 연습 미완료 · 복습 확인 전 · 전체 7묶음", "progress"))
 
     def test_broken_skeleton_shows_the_band_and_keeps_the_lessons(self):
         study.write_text(os.path.join(self.root, "patterns", "S90.json"), "{깨진 뼈대")
@@ -1465,7 +1487,7 @@ class PatternTest(AiTest):
         self.answer()
         self.assertEqual(page.verdict_text.text(), "맞았습니다")
         self.assertEqual({row.tag.text() for row in page.choices.rows if row.tag.isVisible()}, {"정답 · 내 답"})
-        self.assertIn("정정", visible_text(page.after))
+        self.assertNotIn("정정", visible_text(page.after))
         count = len(self.log())
         guikit.click(page.note_btn)
         dialog = page.note_dialog
@@ -1524,6 +1546,10 @@ class PatternTest(AiTest):
         self.at(2)
         sess.mark_read("i90", "90a")
         sess.mark_read("i90", "90b")
+        for key in ("90a", "90b"):
+            sid = "finished-%s" % key
+            sess._append({"kind": "set", "set": sid, "mode": "unit", "lesson": "i90", "unit": key})
+            sess._append({"kind": "set_end", "set": sid, "n": 1, "first_pass": 1, "answers": 1})
         win.go_ai()
         home = win.ai_home
         self.assertEqual((home.target["kind"], home.next_card.title.text(), home.next_btn.text()), ("unit", "학습 루프 단원 읽기", "학습 시작"))
@@ -1535,8 +1561,11 @@ class PatternTest(AiTest):
                 sess._append({"kind": "answer", "set": "s2", "card": card["id"], "result": "pass", "again": 0})
         sess.mark_read("pc", "18a")
         win.go_ai()
-        self.assertEqual((home.target["kind"], home.next_card.title.text(), home.next_btn.text()), ("revisit", self.UNIT, "다시 보기"))
+        self.assertEqual((home.target["kind"], home.next_card.title.text(), home.next_btn.text()),
+                         ("unit", "학습 루프 단원 읽기", "이어서 학습"))
         guikit.click(home.next_btn)
+        self.assertEqual((self.page(), win.ai_learn.key), (win.ai_learn, "18a"))
+        win.open_ai_revisit()
         self.assertEqual((self.page(), win.ai_revisit.title.text()), (win.ai_revisit, self.UNIT))
 
     def test_wrong_note_rows_and_code_boxes(self):
@@ -1659,6 +1688,39 @@ class RealLessonTest(AiTest):
     1024×700 에서 큰 그림과 넘김 줄을 각각 스크롤로 볼 수 있음. 나란히 보기는 행이 줄을 바꾸지 않고 단계 폭을
     넘지 않음. 세 수준 블록은 차시마다 3~5개이고, 수준마다 첫 답이 화면 채점에서 맞으며, [노트 보기]에서는 정답을 편 채로 그려짐."""
     real_bank = True
+
+    def test_focusing_a_recall_reveals_the_whole_field_at_the_largest_size(self):
+        from PyQt6.QtCore import QRect
+        win = self.boot((760, 480))
+        win.set_text("larger")
+        win.open_ai_unit("i01", "1a", 2)
+        learn = win.ai_learn
+        guikit.wait_until(lambda: learn.pending_position is None)
+        recall = learn.view.findChildren(ai_learn.RecallBlock)[0]
+        recall.field.setText("draft")
+        recall.field.setSelection(1, 3)
+        recall.field.setFocus(Qt.FocusReason.TabFocusReason)
+        guikit.wait_until(lambda: not win.input_timer.isActive() and win.focused_input is None and learn.pending_position is None)
+        viewport = learn.scroll.viewport()
+        for widget in (recall.field, recall.check_btn):
+            self.assertTrue(viewport.rect().contains(QRect(widget.mapTo(viewport, QPoint()), widget.size())))
+            self.assertTrue(widget.visibleRegion().contains(widget.rect()),
+                            (widget.size(), widget.visibleRegion().boundingRect()))
+        self.assertEqual(recall.field.selectedText(), "raf")
+
+    def test_recall_input_remains_unclipped_after_reducing_the_font(self):
+        win = self.boot((1280, 900))
+        win.set_text("larger")
+        win.open_ai_unit("i01", "1a", 2)
+        learn = win.ai_learn
+        guikit.wait_until(lambda: learn.pending_position is None)
+        win.set_text("normal")
+        guikit.wait_until(lambda: learn.pending_position is None)
+        recall = learn.view.findChildren(ai_learn.RecallBlock)[0]
+        recall.field.setFocus()
+        guikit.wait_until(lambda: not win.input_timer.isActive() and win.focused_input is None)
+        self.assertTrue(recall.field.visibleRegion().contains(recall.field.rect()),
+                        (recall.field.geometry(), recall.entry.geometry(), recall.field.visibleRegion().boundingRect()))
 
     def test_every_step_of_lessons_one_to_nine_renders(self):
         win = self.boot((1024, 700))
