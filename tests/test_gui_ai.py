@@ -825,6 +825,21 @@ class PracticeTest(AiTest):
         page = self.win.ai_quiz
         return [b.text() for b in page.card.findChildren(QLabel) if b.objectName() == "badge" and b.isVisible()]
 
+    def test_practice_keeps_learning_text_and_input_sizes_after_scaling(self):
+        self.addCleanup(theme.set_text, theme.state["text"])
+        page = self.start()
+        self.skip_to(lambda item: item["card"] == "i90-b01")
+        for step in ("large", "larger"):
+            self.win.set_text(step)
+            self.idle()
+            piece = next(p for doc in page.docs for p in doc.findChildren(TextPiece) if p.toPlainText().strip())
+            fragment = piece.document().begin().begin().fragment()
+            font = fragment.charFormat().font().resolve(piece.document().defaultFont())
+            self.assertEqual(QFontMetricsF(font).height(), QFontMetricsF(theme.font("learn_body")).height())
+            self.assertEqual(page.fields[0].font().pixelSize(), theme.TYPE["learn_body"][0])
+        self.answer()
+        self.assertEqual(page.fields[0].font().pixelSize(), theme.TYPE["learn_body"][0])
+
     def test_wrong_blank_shows_answers_and_comes_back_three_later(self):
         page = self.start()
         self.assertEqual(page.count.text(), "1 / %d" % page.item["total"])
@@ -912,7 +927,11 @@ class PracticeTest(AiTest):
         self.assertIsInstance(slot, ai_quiz.Slot)
         self.assertEqual(slot.height(), theme.learning_slot_height())
         self.assertFalse(page.fields)  # 코드 밖 칸이 없음
+        self.addCleanup(theme.set_text, theme.state["text"])
+        self.win.set_text("larger")
+        self.idle()
         self.answer()
+        self.assertEqual(slot.font().pixelSize(), theme.TYPE["learn_code"][0])
         self.assertEqual(page.answer_line.text(), "정답: `zero_grad`")
         fake = dict(page.item, stem="두 칸을 채우세요.\n\n```python\nx.____(2, 3)\ny = x.____()\n```",
                     blanks=[{"mode": "code", "hint": "메서드"}, {"mode": "code", "hint": "메서드"}], code=True, chips=["90차시", "코드 빈칸"])
@@ -1353,6 +1372,9 @@ class PatternTest(AiTest):
         win = self.boot((1024, 700))
         learn = self.open_unit(3)
         block = learn.view.findChildren(ai_learn.RotateBlock)[0]
+        self.addCleanup(theme.set_text, theme.state["text"])
+        win.set_text("larger")
+        self.idle()
         self.assertEqual(block.count.text(), "1 / 6")
         field = block.field()
         self.assertEqual(field.placeholderText(), "메서드 이름")
@@ -1365,6 +1387,7 @@ class PatternTest(AiTest):
         self.assertEqual((learn.index, field.cursorPosition()), (2, 3))  # 칸 안의 ← 는 글자 커서
         QTest.keyClick(field, Qt.Key.Key_Return)
         self.assertEqual((block.verdict.text(), block.answer.text(), field.property("tone")), ("틀렸습니다", "정답: `train`", "danger"))
+        self.assertEqual(field.font().pixelSize(), theme.TYPE["learn_code"][0])
         self.assertTrue(block.next_btn.isVisible())
         self.assertFalse(block.check_btn.isVisible())
         self.assertEqual([(r["unit"], r["id"], r["slot"], r["ok"]) for r in self.log("recall")], [("18a", "t1", "pc-k01", False)])

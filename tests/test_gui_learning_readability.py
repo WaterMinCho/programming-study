@@ -46,6 +46,9 @@ class LearningReadabilityTest(unittest.TestCase):
         guikit.pump(80)
         self.assertGreater(recall.field.font().pixelSize(), reading)
         self.assertGreater(recall.findChildren(ai_learn.RichPara)[0].line, recall.field.font().pixelSize())
+        recall.field.setText("정답")
+        recall.check()
+        self.assertEqual(recall.field.font().pixelSize(), theme.TYPE["learn_body"][0])
 
     def test_learning_picture_grows_with_text_and_zoom_preserves_the_larger_size(self):
         theme.set_text("normal")

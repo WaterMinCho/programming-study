@@ -274,7 +274,7 @@ class PracticePage(QWidget):
                 continue
             blank = blanks[n] if n < len(blanks) else {"mode": "word", "hint": ""}
             field = QLineEdit()
-            kit.typed(field, "body")
+            kit.typed(field, "learn_body")
             field.setPlaceholderText(blank.get("hint") or ai_text.MODE_HINT.get(blank.get("mode"), ""))
             self.paste.watch(field)
             block = QWidget()
@@ -410,9 +410,11 @@ class PracticePage(QWidget):
             ok = n < len(per) and per[n]
             right = correct[n] if n < len(correct) else ""
             word = "맞음" if ok else "틀림"
+            font = widget.font()
             widget.setReadOnly(True)
             widget.setPlaceholderText("")
             kit.set_tone(widget, "" if self.dontknow else ("success" if ok else "danger"))
+            widget.setFont(font)
             mark = ai_text.number_mark(n + 1) + " " if numbered else ""
             answers.append("%s`%s`" % (mark, right) if self.is_code(widget) else "%s%s" % (mark, right))
             words.append("%s%s" % (mark, word))
@@ -683,7 +685,7 @@ class PracticePage(QWidget):
     def restyle(self):
         self.fit_column()
         for piece in self.docs:
-            piece.restyle(theme.web_css())
+            piece.restyle(theme.learning_css())
         for widget in self.findChildren(RichPara):
             widget.restyle()
         for slots in self.slots:

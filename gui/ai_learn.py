@@ -718,9 +718,11 @@ class RecallBlock(QWidget):
         ok = self.ctx.check_recall(self.block, self.field.text())
         if ok is None:
             return
+        font = self.field.font()
         self.field.setReadOnly(True)
         self.check_btn.setEnabled(False)
         kit.set_tone(self.field, "success" if ok else "danger")
+        self.field.setFont(font)
         self.verdict.setText("맞았습니다" if ok else "틀렸습니다")
         kit.set_tone(self.verdict, "success" if ok else "danger")
         self.result.show()
@@ -936,8 +938,10 @@ class RotateBlock(QWidget):
         if got is None:
             return
         ok = self.result_ok = bool(got["ok"])
+        font = field.font()
         field.setReadOnly(True)
         kit.set_tone(field, "success" if ok else "danger")
+        field.setFont(font)
         self.verdict.setText("맞았습니다" if ok else "틀렸습니다")
         kit.set_tone(self.verdict, "success" if ok else "danger")
         self.answer.setText("정답: `%s`" % got["answer"])
