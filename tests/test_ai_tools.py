@@ -100,6 +100,74 @@ class VerifyTest(Case):
         self.assertEqual(0, code, out)
         self.assertIn("OK: 묶음 2개 통과", out)
 
+    def test_visible_lecture_locations_fail_in_card_fields(self):
+        suffix = " 슬라이드 3쪽을 봅니다."
+        self.edit_item("i90-b01", lambda item: item.update(stem=item["stem"] + suffix, explain=item["explain"] + suffix,
+                       alt={"stem": item["stem"] + suffix, "explain": suffix}))
+        self.edit_item("i90-c01", lambda item: item["options"][0].update(text=item["options"][0]["text"] + suffix,
+                       why=item["options"][0].get("why", "") + suffix))
+        def statements(data):
+            row = data["topics"][0]["statements"][0]
+            row.update(text=row["text"] + suffix, why=row["why"] + suffix)
+            row["cloze"]["text"] += suffix
+        self.edit_json("items/i90/work/statements.json", statements)
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        for field in ("i90-b01:stem", "i90-b01:explain", "i90-b01:alt stem", "i90-b01:alt explain",
+                      "i90-c01:보기1", "i90-c01:보기1 why", "i90-s01:text", "i90-s01:why", "i90-s01:cloze"):
+            self.assertRegex(out, re.escape(field) + r"(?::1)?: 강의 위치 노출")
+
+    def test_note_locations_fail_in_body_blocks_captions_and_frames(self):
+        path = "learn/l90/page.md"
+        text = study.read_text(self.path(path))
+        text += '\n본문(슬라이드 3쪽).\n\n```ai-why\n{"q":"노트북 셀 2", "a":"슬라이드 3쪽"}\n```\n'
+        text += '\n```figure\n파일: assets/90b-1.png\n캡션: 슬라이드 3쪽\n내용: 노트북 셀 2\n프레임:\n1. 대학원 02 p22 (1000ms)\n```\n'
+        text = text.replace('"concept": "기울기"', '"concept": "기울기 슬라이드 3쪽"', 1)
+        self.write(path, text)
+        self.assertFails("page.md:")
+        self.assertFails("강의 위치 노출")
+
+    def test_metadata_sources_stay_available_to_verification(self):
+        self.edit_item("i90-b01", lambda item: item.update(ref=["90차시 슬 p3"]))
+        self.edit_json("items/i90/work/facts.json", lambda data: data["facts"][0].update(where=["90차시 노트북 01 [2]"]))
+        self.edit_json("learn/l90/meta.json", lambda data: data.update(sources=[{"title": "90차시 슬라이드 3쪽", "url": "https://example.org/course"}]))
+        code, out = self.verify()
+        self.assertEqual(0, code, out)
+        self.assertNotIn("강의 위치 노출", out)
+
+    def test_verify_and_web_lint_allow_both_quote_sentences_and_reject_location_parentheses(self):
+        path = "learn/l90/page.md"
+        original = study.read_text(self.path(path))
+        for kind in ("정정", "보충 설명"):
+            for parenthesized in (False, True):
+                quote = ("> **[%s]** 값을 확인합니다(90차시 슬라이드 3쪽)." if parenthesized else
+                         "> **[%s]** 90차시 슬라이드 3쪽은 이 값을 적었습니다.") % kind
+                self.write(path, original + "\n" + quote + "\n")
+                self.edit_item("i90-b01", lambda item: item.update(explain=quote))
+                code, out = self.verify()
+                self.assertEqual(int(parenthesized), code, out)
+                self.assertEqual(parenthesized, "강의 위치 노출" in out)
+                report = web_lint.Report("quote")
+                web_lint.style_check(report, [], [("page.md", quote)], [])
+                self.assertEqual(parenthesized, bool(report.errors), report.rows)
+
+    def test_generated_choice_sample_options_and_reasons_are_checked(self):
+        real_run = genlib.run
+        def choice_sample(spec, seed):
+            made = real_run(spec, seed)
+            if spec.id == "i90-g01":
+                made.update(kind="choice", pick="right", options=[
+                    {"text": "슬라이드 3쪽을 봅니다.", "ok": True},
+                    {"text": "노트북 셀 2를 봅니다.", "ok": False, "why": "대학원 02 p22를 봅니다."},
+                    {"text": "W를 유지합니다.", "ok": False, "why": "기울기를 곱합니다."},
+                    {"text": "W에 기울기를 더합니다.", "ok": False, "why": "학습률을 곱합니다."}])
+            return made
+        with mock.patch.object(genlib, "run", side_effect=choice_sample), mock.patch.object(genlib, "load_oracle", return_value={}):
+            code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("시드 1:보기1: 강의 위치 노출", out)
+        self.assertIn("시드 1:보기2 why: 강의 위치 노출", out)
+
     def test_misspelled_block_name_fails(self):
         self.replace("learn/l90/page.md", "```ai-recall", "```ai-recal")
         self.assertFails("모르는 블록 이름입니다: ai-recal")
@@ -323,6 +391,68 @@ class SignTest(Case):
         self.assertEqual(7, review["first_pass"]["correct"])
         self.assertEqual(40, review["first_pass"]["minutes"])
 
+    def test_keep_first_pass_preserves_values_and_findings(self):
+        self.sign("--finding", "첫 재풀이를 기록함")
+        first = {"cards": 12, "correct": 9, "wrong": ["i90-b02"], "minutes": 40,
+                 "source": {"clock": "file_time"}}
+        self.edit_json("items/i90/work/review.json", lambda data: data.update(first_pass=first))
+        code, out = self.sign("--keep-first-pass", "--finding", "문장을 고치고 다시 대조함")
+        self.assertEqual(0, code, out)
+        review = self.read_json("items/i90/work/review.json")
+        self.assertEqual(first, review["first_pass"])
+        self.assertEqual(["첫 재풀이를 기록함", "문장을 고치고 다시 대조함"], review["findings"])
+        self.assertEqual(0, self.verify("i90", "--require-review")[0])
+
+    def test_keep_first_pass_rejects_missing_or_invalid_record(self):
+        self.assertFails("이전 첫 재풀이 기록을 읽을 수 없어", "i90", "--sign", *NAMES, "--keep-first-pass")
+        self.assertFalse(os.path.exists(self.path("items/i90/work/review.json")))
+        for value in (None, [], "기록 없음"):
+            with self.subTest(value=value):
+                self.sign()
+                self.edit_json("items/i90/work/review.json", lambda data: data.update(first_pass=value))
+                before = study.read_text(self.path("items/i90/work/review.json"))
+                self.assertFails("이전 첫 재풀이 기록을 읽을 수 없어", "i90", "--sign", *NAMES, "--keep-first-pass")
+                self.assertEqual(before, study.read_text(self.path("items/i90/work/review.json")))
+
+    def test_keep_first_pass_preserves_empty_record(self):
+        self.sign()
+        code, out = self.sign("--keep-first-pass")
+        self.assertEqual(0, code, out)
+        self.assertEqual({}, self.read_json("items/i90/work/review.json")["first_pass"])
+
+    def test_damaged_first_pass_fields_do_not_replace_the_review(self):
+        self.sign()
+        valid = self.read_json('items/i90/work/review.json')
+        for value in ({'cards': '12'}, {'cards': True}, {'correct': -1}, {'cards': 2, 'correct': 3},
+                      {'wrong': 'i90-b01'}, {'wrong': [7]}, {'minutes': '40'}, {'minutes': float('nan')},
+                      {'gens': []}, {'gens': {'checked': -1}}, {'gens': {'seeds': '10'}}):
+            with self.subTest(value=value):
+                self.write('items/i90/work/review.json', json.dumps(dict(valid, first_pass=value), ensure_ascii=False))
+                before = study.read_text(self.path('items/i90/work/review.json'))
+                self.assertFails('이전 첫 재풀이 기록을 읽을 수 없어', 'i90', '--sign', *NAMES, '--keep-first-pass')
+                self.assertEqual(before, study.read_text(self.path('items/i90/work/review.json')))
+
+    def test_damaged_findings_block_signing_without_overwriting_record(self):
+        self.sign()
+        valid = self.read_json("items/i90/work/review.json")
+        valid["first_pass"] = {"cards": 12, "correct": 9, "minutes": 40}
+        for value in (7, {"note": "기록"}, "기록", [7]):
+            for extra in ([], ["--keep-first-pass"]):
+                with self.subTest(value=value, extra=extra):
+                    damaged = dict(valid, findings=value)
+                    self.write("items/i90/work/review.json", json.dumps(damaged, ensure_ascii=False))
+                    before = study.read_text(self.path("items/i90/work/review.json"))
+                    self.assertFails("이전 검토 메모를 읽을 수 없어", "i90", "--sign", *NAMES, *extra)
+                    self.assertEqual(before, study.read_text(self.path("items/i90/work/review.json")))
+
+    def test_keep_first_pass_option_conflicts(self):
+        for args in (("--keep-first-pass",), ("--keep-first-pass", "--sign", "--minutes", "20"),
+                     ("--keep-first-pass", "--first-pass", "answers.json")):
+            with self.subTest(args=args), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as error:
+                    verify_ai.parse_args(list(args))
+                self.assertEqual(2, error.exception.code)
+
     def test_old_answers_still_grade(self):
         answers = {"i90-s05": {"ok": False}, "i90-s01": {"ok": True, "cloze": ["검증"]},
                    "i90-c01": {"order": [3, 0, 1, 2], "picked": [2]}}
@@ -451,6 +581,19 @@ class LeechTest(Case):
 
 
 class OverlapTest(Case):
+    def test_standard_training_calls_alone_do_not_claim_copied_code(self):
+        block = "loss.backward()\noptimizer.step()\nmodel.eval()\nwith torch.no_grad():"
+        source = {"prose": [], "code": [block]}
+        self.assertEqual([], ai_overlap.overlaps([("공통 호출", "", block)], source)["fail"])
+        repeated = block + "\n" + block + "\n" + block
+        found = ai_overlap.overlaps([("긴 동일 코드", "", repeated)], {"prose": [], "code": [repeated]})
+        self.assertTrue(any("120자" in row[2] for row in found["fail"]))
+
+    def test_training_calls_with_a_custom_line_still_find_overlap(self):
+        block = "total_loss += loss.item() * batch_count\noptimizer.step()\nmodel.eval()"
+        found = ai_overlap.overlaps([("직접 쓴 계산", "", block)], {"prose": [], "code": [block]})
+        self.assertTrue(any("코드 줄 3개" in row[2] for row in found["fail"]))
+
     def test_fake_corpus(self):
         lecture = os.path.join(self.bank, "lecture")
         out = io.StringIO()
@@ -682,14 +825,12 @@ class LevelsVerifyTest(Case):
                        "실패 10 말투: 90a/2 v1 20살 caption: 띄어 쓴 조사")
         self.assertNotIn("20살 content: 띄어 쓴 조사", out)  # 그림 내용 글은 화면에 보이지 않음
 
-    def test_twenty_needs_code_mistake_and_where(self):
+    def test_twenty_needs_code_and_mistake(self):
         self.edit('w = 2.0\\ngrad = -8.0\\nlr = 0.1\\nw = w - lr * grad\\nprint(w)  # 2.8', "w = 2.0",
-                  '"mistake": "기울기를 더하면 W가 손실이 커지는 쪽으로 갑니다. 기울기에 학습률을 곱한 값을 뺍니다."', '"mistake": ""',
-                  "90차시 슬라이드 3쪽, 90차시 첫째 단원 2단계", "슬라이드 3쪽")
+                  '"mistake": "기울기를 더하면 W가 손실이 커지는 쪽으로 갑니다. 기울기에 학습률을 곱한 값을 뺍니다."', '"mistake": ""')
         code, out = self.verify()
         self.assertEqual(1, code, out)
-        self.assertAll(out, "90a/2 v1 20살 의 code 가 1줄입니다(2~8줄)", "90a/2 v1 20살 에 mistake 가 없습니다",
-                       "90a/2 v1 20살 의 where 에 강의 위치(N차시 …)가 없습니다")
+        self.assertAll(out, "90a/2 v1 20살 의 code 가 1줄입니다(2~8줄)", "90a/2 v1 20살 에 mistake 가 없습니다")
 
     def test_warnings(self):
         self.edit('"answer": ["3.6"]', '"answer": ["2.8"]', '"answer": ["2.4"], "mode": "number"', '"answer": ["2.4"], "mode": "word"',
@@ -776,8 +917,9 @@ class LevelsToolTest(Case):
         for hidden in ("2.8 에 0.8 을 더하면 3.6 입니다.", "3.6\"", "기울기가 −8 이고", "상자 셋에"):
             self.assertNotIn(hidden, seven)  # 까닭·답·다음 수준 글·그림 내용 글은 없음
         twenty = study.read_text(os.path.join(folder, "3_l20.md"))
-        for shown in ("w = w - lr * grad", "자주 하는 착각: 기울기를 더하면", "다루는 곳: 90차시 슬라이드 3쪽", "print(w)가 찍는 값은 ____ 입니다."):
+        for shown in ("w = w - lr * grad", "자주 하는 착각: 기울기를 더하면", "print(w)가 찍는 값은 ____ 입니다."):
             self.assertIn(shown, twenty)
+        self.assertNotIn("다루는 곳", twenty)
         self.assertNotIn("2 − 0.5 × (−8) = 6 입니다.", twenty)
         target = os.path.join(out_dir, "levels_answers.json")
         answers = study.read_json(target)
@@ -995,12 +1137,12 @@ class PatternSignTest(PatternCase):
         code, out = quiet(ai_seal.main, ["brief", "pc", "--out", out_dir, "--bank", self.bank])
         self.assertEqual(0, code, out)
         read = lambda name: study.read_text(os.path.join(out_dir, name))  # noqa: E731
-        return read("sheet.md"), read("skel.md"), study.read_json(os.path.join(out_dir, "answers.json"))
+        return read("sheet.md") + read("whole.md"), read("skel.md"), study.read_json(os.path.join(out_dir, "answers.json"))
 
-    def test_brief_has_two_stages_and_no_answers(self):
+    def test_brief_has_three_stages_and_no_answers(self):
         sheet, samples, answers = self.brief()
         self.assertIn("## S90 가 전체", sheet)
-        self.assertLess(sheet.index("## S90 가 전체"), sheet.index("## pc-o01 시드 1"))
+        self.assertLess(sheet.index("## pc-o01 시드 1"), sheet.index("## S90 가 전체"))
         for key in ("pc-o01 시드 1", "pc-o01 시드 3", "pc-p01", "pc-x01 시드 2"):
             self.assertIn("## %s" % key, sheet)
             self.assertEqual({"picked": []}, answers[key])
@@ -1014,6 +1156,41 @@ class PatternSignTest(PatternCase):
         self.assertIn("## pc-k06 f3", samples)
         self.assertEqual(18, len([k for k in answers if ai_seal.SAMPLE_KEY.match(k)]))
         self.assertIn("학습 모드로 바꾸는 메서드 이름은 ____ 입니다.", sheet)  # 노트의 떠올리기
+
+    def test_choices_precede_whole_code_and_note_answers_are_separate(self):
+        fence = chr(96) * 3
+        self.replace("learn/l18/page.md", fence + "ai-recall", fence + 'ai-why\n{"id":"briefwhy","q":"기울기를 먼저 비우는 까닭은 무엇인가요?","a":"비밀 답 표식입니다."}\n' + fence + "\n\n" + fence + "ai-recall")
+        self.brief()
+        folder = os.path.join(self.tmp, "brief")
+        sheet = study.read_text(os.path.join(folder, "sheet.md"))
+        whole = study.read_text(os.path.join(folder, "whole.md"))
+        samples = study.read_text(os.path.join(folder, "skel.md"))
+        self.assertNotIn("## S90 가 전체", sheet)
+        self.assertIn("## S90 가 전체", whole)
+        self.assertNotIn("## pc-p01", whole)
+        self.assertIn("코드 한 줄", samples)
+        self.assertIn("whole.md", sheet)
+        note_answers = study.read_json(os.path.join(folder, "note-answers.json"))
+        self.assertTrue(note_answers)
+        self.assertTrue(all(value == [""] or value == {"picked": []} for value in note_answers.values()))
+        self.assertTrue(all(key.startswith("l18 ") for key in note_answers))
+        self.assertTrue(any("why briefwhy@" in key for key in note_answers))
+        self.assertIn("기울기를 먼저 비우는 까닭", sheet)
+        self.assertNotIn("비밀 답 표식", sheet + whole + samples + json.dumps(note_answers, ensure_ascii=False))
+        graded = study.read_json(os.path.join(folder, "answers.json"))
+        self.assertFalse(set(note_answers) & set(graded))
+
+    def test_named_and_anonymous_note_questions_keep_distinct_empty_answers(self):
+        parts = [{"kind": "why", "id": "b2", "q": "첫 조건은 무엇인가요?", "a": "첫 비밀 답"},
+                 {"kind": "why", "q": "다음 조건은 무엇인가요?", "a": "둘째 비밀 답"}]
+        parsed = {"order": ["18a"], "units": {"18a": {"steps": [{"no": 1, "blocks": parts}]}}}
+        with mock.patch.object(ai_seal.aibank, "parse_page", return_value=parsed):
+            answers = ai_seal._note_answers(self.bank, "l18")
+            shown = ai_seal._note_lines(self.bank, "l18")
+        self.assertEqual(2, len(answers))
+        self.assertTrue(all(value == [""] for value in answers.values()))
+        self.assertNotIn("비밀 답", json.dumps(answers, ensure_ascii=False) + "\n".join(shown))
+        self.assertNotIn("None", "\n".join(shown))
 
     def fill(self, answers, wrong=()):
         cards = {c["id"]: c for c in ai_seal.pattern_cards(self.bank, aifix.PATTERNS)[1]}

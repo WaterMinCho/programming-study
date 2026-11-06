@@ -11,6 +11,7 @@ CodeSlots 가 코드 줄 사이에 입력 칸을 두어 그리고, 울타리 밖
 뼈대 카드: 빈칸은 판 전체 코드의 CodeSlots 이고, 함께 가린 칸이 틀리면 정답 줄 아래에 그 칸 번호를 한 줄 더 씀([내 답도 맞음]도 보임).
 고르기는 보기가 코드라 CodeChoices(순서 고르기는 2×2)로 그리고 판정 아래 정답 줄 없이 보기 꼬리표만 씀.
 묶음이 끝나면 같은 카드에 요약을 보임. 시험처럼 복사와 붙여넣기는 막힘: 키는 gui/guard.py, 가운데 단추와 끌어다 놓기는 칸마다 PasteBlock."""
+import html
 import time
 
 from PyQt6.QtCore import QEvent, QObject, Qt
@@ -20,9 +21,9 @@ from PyQt6.QtWidgets import QLineEdit, QWidget
 from aiprep import bank
 from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
-from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, rich
+from gui.ai_learn import CARD_PAD, ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, reading_width, rich
 from gui.guard import NOTE as PASTE_NOTE
-from gui.widgets import PasteBlock
+from gui.widgets import LinkLabel, PasteBlock
 from session import SessionError
 
 
@@ -81,6 +82,7 @@ class PracticePage(QWidget):
         self.setObjectName("page")
         self.win = win
         self.practice, self.item, self.feedback, self.dontknow = None, None, None, False
+        self.review_state = None
         self.args = None  # 묶음을 만든 (mode, lesson, unit, card). [한 번 더]가 다시 씀
         self.inputs, self.fields, self.results, self.docs, self.slots = [], [], [], [], []
         self.choices = None
@@ -97,7 +99,7 @@ class PracticePage(QWidget):
         root.addWidget(self.top)
         self.bar_line = kit.progress(thin=True)
         root.addWidget(self.bar_line)
-        self.card, self.card_box = kit.card(24, 24)
+        self.card, self.card_box = kit.card(CARD_PAD, 32)
         self.scroll, _ = reading_column(self.card)
         root.addWidget(self.scroll, 1)
         self.bar = kit.BottomBar()
@@ -134,18 +136,37 @@ class PracticePage(QWidget):
     # 불러오기
 
     def load(self, mode, lesson=None, unit=None, card=None):
-        """묶음을 만들고 첫 문항을 보임. 낼 문항이 없거나 기록을 쓰지 못하면 AiError."""
-        practice = self.win.ai.start_set(mode, lesson=lesson, unit=unit, card=card)
+        """같은 미완료 묶음이 있으면 입력·판정을 복원함. 없으면 새 묶음이나 복습 완료 안내를 보임."""
+        practice = self.win.ai.resume_set(mode, lesson, unit, card)
+        if practice is not None and practice is self.practice:
+            self.win.ai.save_practice(practice, activate=True)
+            return
+        if practice is not None:
+            self.practice, self.args = practice, (mode, lesson, unit, card)
+            self.review_state = None
+            self.title.setText(practice.title)
+            self.title.show()
+            self.back_btn.setText("← 오답 노트" if mode == "note" else "← AI 비전 개론")
+            self.show_item(practice.current())
+            return
+        status = self.win.ai.review_status() if mode in ("review", "sweep") else None
+        practice = None if status is not None and not status["available"] else \
+            self.win.ai.start_set(mode, lesson=lesson, unit=unit, card=card)
         self.practice, self.args = practice, (mode, lesson, unit, card)
-        self.title.setText(practice.title)
+        self.review_state = status
+        self.title.setText(practice.title if practice else self.win.ai.title_of(mode))
         self.title.show()
         self.back_btn.setText("← 오답 노트" if mode == "note" else "← AI 비전 개론")
-        self.show_item(practice.current())
+        if practice is None:
+            self.show_review_complete()
+        else:
+            self.show_item(practice.current())
 
     def clear(self):
         """문제 받기로 서비스가 바뀌면 부름. 옛 묶음과 옛 카드를 붙들지 않게 놓음."""
         self.close_note()
         self.practice, self.item, self.feedback = None, None, None
+        self.review_state = None
         self.empty_card()
         self.set_buttons()
 
@@ -191,7 +212,7 @@ class PracticePage(QWidget):
             chip_row.addWidget(kit.badge(text, "accent" if text in ("다시 나온 문항", "지난번 확실했던 문항") else ""))
         self.card_box.addWidget(chips)
         self.verdict = QWidget()
-        verdict_col = kit.box(self.verdict, spacing=4)
+        verdict_col = kit.box(self.verdict, spacing=theme.GAP["title_description"])
         self.verdict_text = kit.label("", "headline")
         self.answer_line = rich("")
         self.also_text = kit.para("", "body", "secondary")  # 뼈대 빈칸에서 함께 가린 칸이 틀렸을 때
@@ -229,6 +250,36 @@ class PracticePage(QWidget):
         else:
             self.setFocus()  # 보기 줄에 초점을 두면 테두리가 고른 것처럼 보임
         self.shown_at = self.clock()
+        draft = self.practice.draft
+        values = draft.get("values") or []
+        if item["kind"] == "blank":
+            for widget, value in zip(self.inputs, values):
+                widget.setText(str(value))
+        else:
+            for row, option in zip(self.choices.rows, item["options"]):
+                row.box.setChecked(option["no"] in values)
+        # 이번 문항이 답한 상태일 때만 저장한 판정을 복원함.
+        if item.get("answered") and self.practice.answered is not None:
+            self.dontknow = bool(draft.get("dontknow"))
+            self.queued = int(draft.get("queued") or len(self.practice.queue))
+            self.show_feedback(self.practice.answered)
+        if item["kind"] == "blank":
+            for widget in self.inputs:
+                widget.textEdited.connect(self.save_progress)
+        else:
+            self.choices.changed.connect(self.save_progress)
+        self.win.ai.save_practice(self.practice, activate=True)
+
+    def save_progress(self, *_):
+        """제출 전 입력과 답한 뒤 상태를 로컬에 남김."""
+        if self.practice is None or self.item is None:
+            return
+        self.practice.draft = {"values": self.values(), "dontknow": self.dontknow, "queued": self.queued}
+        self.win.ai.save_practice(self.practice)
+
+    def hideEvent(self, event):
+        self.save_progress()
+        super().hideEvent(event)
 
     def build_blanks(self, item):
         """지문과 빈칸. 칸 순서는 지문에서 ____ 가 나오는 순서이고 answer 에 이 순서로 넘김."""
@@ -265,7 +316,7 @@ class PracticePage(QWidget):
                 continue
             blank = blanks[n] if n < len(blanks) else {"mode": "word", "hint": ""}
             field = QLineEdit()
-            kit.typed(field, "body")
+            kit.typed(field, "learn_body")
             field.setPlaceholderText(blank.get("hint") or ai_text.MODE_HINT.get(blank.get("mode"), ""))
             self.paste.watch(field)
             block = QWidget()
@@ -390,6 +441,7 @@ class PracticePage(QWidget):
         self.set_buttons()
         self.next_btn.setFocus(Qt.FocusReason.OtherFocusReason)
         self.scroll.verticalScrollBar().setValue(0)
+        self.save_progress()
 
     def mark_blanks(self, per, correct):
         """칸마다 테두리 색, 판정 줄 아래 정답 목록. 빈칸이 둘 이상이면 칸마다 "맞음"·"틀림" 글을 더함(글 칸은 칸 아래, 코드 칸은 코드 아래
@@ -401,9 +453,11 @@ class PracticePage(QWidget):
             ok = n < len(per) and per[n]
             right = correct[n] if n < len(correct) else ""
             word = "맞음" if ok else "틀림"
+            font = widget.font()
             widget.setReadOnly(True)
             widget.setPlaceholderText("")
             kit.set_tone(widget, "" if self.dontknow else ("success" if ok else "danger"))
+            widget.setFont(font)
             mark = ai_text.number_mark(n + 1) + " " if numbered else ""
             answers.append("%s`%s`" % (mark, right) if self.is_code(widget) else "%s%s" % (mark, right))
             words.append("%s%s" % (mark, word))
@@ -434,7 +488,7 @@ class PracticePage(QWidget):
                 row.set_tag("정답", "success")
             elif no in picked:
                 row.set_tag("내 답", "danger")
-            why = feedback["why"].get(no) or feedback["why"].get(str(no)) or ""
+            why = ai_text.teaching_text(feedback["why"].get(no) or feedback["why"].get(str(no)) or "")
             holder.findChild(RichPara).setText(why)
             holder.setVisible(bool(why))
             if no in right:
@@ -464,15 +518,13 @@ class PracticePage(QWidget):
                 item.widget().deleteLater()
         if feedback.get("explain"):
             box.addWidget(kit.label("해설", "label", bold=True))
-            self.docs.append(doc(feedback["explain"], "", box))
-        if feedback.get("errata"):
-            line = QWidget()
-            row = kit.box(line, spacing=12, horizontal=True)
-            row.addWidget(kit.badge("정정", "warning"), 0, Qt.AlignmentFlag.AlignTop)
-            row.addWidget(kit.para(ai_text.errata_text(feedback["errata"])), 1)
-            box.addWidget(line)
-        if feedback.get("ref"):
-            box.addWidget(kit.para("근거: %s" % ai_text.ref_text(feedback["ref"]), "caption", "secondary"))
+            self.docs.append(doc(ai_text.teaching_text(feedback["explain"]), "", box))
+        target = self.note_reference()
+        if target:
+            link = kit.typed(LinkLabel('<a href="study-note">참고: %s</a>' % html.escape(target["label"]),
+                                       line=theme.TYPE["caption"][1], font=theme.font("caption")), "caption")
+            link.linkActivated.connect(self.open_reference)
+            box.addWidget(link)
         self.after.setVisible(box.count() > 0)
 
     def override(self):
@@ -511,21 +563,45 @@ class PracticePage(QWidget):
 
     # 끝 요약
 
-    def show_summary(self):
-        summary = self.practice.summary()
+    def show_review_complete(self):
         self.close_note()
         self.empty_card()
         self.item, self.feedback = None, None
         self.count.setText("끝남")
         self.bar_line.setValue(100)
-        self.card_box.addWidget(kit.para(ai_text.summary_head(summary), "headline"))
+        self.card_box.addWidget(kit.heading(kit.para(ai_text.REVIEW_COMPLETE, "headline"),
+                                           kit.para(ai_text.review_next(self.review_state["next"]))))
+        self.set_buttons()
+        self.home_btn.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.scroll.verticalScrollBar().setValue(0)
+
+    def show_summary(self):
+        summary = self.practice.summary()
+        if self.practice.mode in ("review", "sweep"):
+            self.review_state = self.win.ai.review_status()
+        complete = self.review_state is not None and not self.review_state["available"]
+        if complete:
+            summary = dict(summary, next=self.review_state["next"])
+        self.close_note()
+        self.empty_card()
+        self.item, self.feedback = None, None
+        self.count.setText("끝남")
+        self.bar_line.setValue(100)
+        title = kit.heading(kit.para(ai_text.SET_FIRST, "caption", "secondary"),
+                            kit.para(ai_text.summary_head(summary), "headline"))
         lines = QWidget()
         lines_box = kit.box(lines, spacing=8)
         for text in ai_text.summary_lines(summary, self.unlisted()):
             lines_box.addWidget(kit.para(text))
-        self.card_box.addWidget(lines)
+        if complete:
+            lines_box.addWidget(kit.para(ai_text.REVIEW_COMPLETE))
+            if self.review_state["next"] is None:
+                lines_box.addWidget(kit.para(ai_text.review_next(None)))
+        self.card_box.addWidget(kit.heading(title, lines))
         self.card_box.addWidget(kit.para(ai_text.TRAINED, "body", "secondary"))
         self.set_buttons()
+        if complete:
+            self.home_btn.setFocus(Qt.FocusReason.OtherFocusReason)
         self.scroll.verticalScrollBar().setValue(0)
 
     def unlisted(self):
@@ -556,7 +632,7 @@ class PracticePage(QWidget):
 
     def next_unit(self):
         try:
-            item = self.win.ai.overview()["next"]
+            item = self.win.ai.continuation()
         except SessionError:
             return None
         return (item["lesson"], item["unit"]) if item["kind"] == "unit" else None
@@ -567,11 +643,12 @@ class PracticePage(QWidget):
         asking = self.item is not None and self.feedback is None
         answered = self.item is not None and self.feedback is not None
         ended = self.item is None and self.practice is not None
+        complete = self.item is None and self.review_state is not None and not self.review_state["available"]
         for button, on in ((self.dont_btn, asking), (self.unsure_btn, asking), (self.sure_btn, asking), (self.next_btn, answered),
-                           (self.note_btn, answered and bool(self.item and self.item.get("step"))),
+                           (self.note_btn, answered and self.note_reference() is not None),
                            (self.mine_btn, answered and self.item["kind"] == "blank" and not self.dontknow
                             and (self.feedback["result"] != "pass" or self.feedback.get("also")) and not self.feedback.get("overridden")),
-                           (self.home_btn, ended), (self.again_btn, ended)):
+                           (self.home_btn, ended or complete), (self.again_btn, ended and not complete)):
             button.setVisible(bool(on))
             button.setEnabled(not self.busy)
         if ended:
@@ -584,13 +661,25 @@ class PracticePage(QWidget):
                 text = "한 번 더"
             self.again_btn.setText(text)
 
+    def note_reference(self):
+        if not self.item or self.win.ai is None:
+            return None
+        try:
+            return self.win.ai.note_target(self.item.get("card"))
+        except SessionError:
+            return None
+
+    def open_reference(self, url):
+        if url == "study-note":
+            self.open_note()
+
     def open_note(self):
-        item = self.item
-        if not item or not item.get("step"):
+        target = self.note_reference()
+        if target is None:
             return
         self.close_note()
         try:
-            self.note_dialog = NoteDialog(self.win, item["lesson"], item["step"])
+            self.note_dialog = NoteDialog(self.win, target["lesson"], target["step"])
         except SessionError as error:
             self.win.ask("알림", str(error))
             return
@@ -618,7 +707,7 @@ class PracticePage(QWidget):
             self.win.go_ai()
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
+        self.card.setMaximumWidth(reading_width(self.width()) + 2 * CARD_PAD)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -633,7 +722,7 @@ class PracticePage(QWidget):
     def restyle(self):
         self.fit_column()
         for piece in self.docs:
-            piece.restyle(theme.web_css())
+            piece.restyle(theme.learning_css())
         for widget in self.findChildren(RichPara):
             widget.restyle()
         for slots in self.slots:

@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제 1",
- "resolver": "재풀이 2",
- "reviewer": "검토 4",
+ "writer": "본문 수정 3·조건과 도형 수정 0",
+ "resolver": "변경 물음 재풀이 1",
+ "reviewer": "본문 검토 1·그림 검토 2·3",
  "files": {
   "assets/5a-1.png": "7e830c576ca807d55332aedb04904ade17bf0dd94ad942340162f86c9f4642c9",
   "assets/5a-2.gif": "6cc22eb5c5404dfd70ef4c9e88e2629f675e1933cca8ecbb86a5ba38e1c578c8",
@@ -27,7 +27,7 @@
   "assets/5d-21.png": "0ea3469e309da0e312cd9d3ec4add656eb9b0428c900a2d579e2aca7b85b7bc9",
   "assets/5d-22.png": "fc1876cddb7ce847517cbef8e6c1cc8f007ddd991e36d1e5e7bf55323c3dd3a8",
   "assets/5d-23.png": "016c556f873f295fd87a0018d3c8a3c6288f02ee4ff9db08d43772e7a58e602c",
-  "assets/5d-3.png": "f426b7cdd6131a4069554f941d6f0324b0acfffe81cf2c950ca48d845ce2b12f",
+  "assets/5d-3.png": "ce58320b7d746a64aebcdd54660e8c3c653680f4d90d92f48cbbe64f868e0653",
   "assets/5e-1.gif": "6b078a7e0a5302265f2c521751be9d8b48d304bbd1c341ba8cf850b28a2d893e",
   "assets/5e-2.png": "79d3907eb22eae32514e12fef495c9cce6cfcbc7beee9fdebc0c9fa5823bdbe8",
   "assets/5e-3.png": "904aee812f3b83a356f33d71a4ade3677870ba88a21e16307870d31002491367",
@@ -35,17 +35,17 @@
   "assets/5f-1.gif": "473643d4834abc536b5df8a6db7ad2817da737a3cf902768856569eca1140481",
   "assets/5f-2.png": "4162b217e0a19e39bece85a245f21bf8536646088b973975f237bd461e0eea5c",
   "assets/5f-3.png": "68c951773ba4a03a8e1a8a1fa201e7dbcf919232cc26840a447bb200a8da2032",
-  "assets/5f-4.png": "615a584ed5a68da57eefd94e120f4ce047d52fcfe9bc92342eb41d789c49c1da",
+  "assets/5f-4.png": "76201c6648d2cad963b7aee0d4c39df9afe0f369b8f31bda78a08ba09c7f6fe7",
   "assets/5f-41.png": "69273ef86f3d65ad9f534db5aad87ae3715385308b464be5b83219be790798b8",
   "assets/5f-42.png": "6cf660c420d0e622ae3d2492b40ea1fc9d7f27da719e9ad59672a63808a1a594",
   "assets/5f-43.png": "867a6172d2ab98a1d85c8c1c445e7b0f5c31ad48cc154df065bae028ee5b1ed0",
   "assets/5g-1.png": "6d22c6626bc87f8a0c9fe47bec3d2096137782c3bad073323f87138ca5b28b60",
   "assets/5g-2.gif": "411f95cd33643c87f05b8814561822c7b780655da67c3feaf2ac6547fbb45758",
   "assets/5g-3.png": "b6d935e9c85be43437b49a822572d8e0d2da7c3eab3e2036b350c0ac7385ecc6",
-  "assets/5g-4.png": "ce768aaf1c2ee60d42aa2cf837799be502eb3f98f92c33f4c4ab28b2f300fa7e",
-  "assets/5g-5.png": "c39ff29749b9a5cb62c96b1062a1426ba5938e5d1dbcbfc73ed19b435a252666",
+  "assets/5g-4.png": "cacd510f2333b399fab5706d81326e91102248a51a140d490010231ecfacaafb",
+  "assets/5g-5.png": "d856b3150f3a707725c834f505f04a20c2217400cb6ba8516bc72cf535726d61",
   "meta.json": "9e8c405f5ed21fec1e136956f398c2563788fa7bafc25b3804a9567259a1effe",
-  "page.md": "7f50ae72acdaa9f648c3de06494242688c95417124268d6160a669f940120c20"
+  "page.md": "c9af86f2a8c8ba9eed00e25c4de73d49dc6d5abc47bfb70ac3622c5da6eb0773"
  },
  "findings": [
   "재풀이 2 가 말투 검토 뒤의 노트를 처음부터 다시 읽고 바뀐 떠올리기, 왜일까요, 외울 것, 먼저 풀어 보기를 모두 풀어 봄. 숫자와 정답이 본문과 맞음",
@@ -57,6 +57,17 @@
   "대조 3 이 l05·l06 숫자 82개를 따로 계산하고 Linear·BatchNorm1d 를 PyTorch 문서와 소스로 확인함",
   "말투 검토 4 가 블록 글 39곳을 고침. 쉼표로 이은 문장을 나누고 그림 내용에 이름표를 더했으며, 5b/3 20살 글을 표와 맞게 x = 1에서만 같은 값을 낸다고 고치고 5f/4 20살 글에 0.9 × 0 + 0.1 × 3 = 0.3 계산을 더함",
   "재풀이 2 가 마지막 판 공개본으로 다시 풀어 l05 물음 12개를 모두 맞힘(l05·l06 합쳐 24 / 24). 다시 풀기 전에 첫 재풀이 답 파일과 말투 기록에 적힌 5b/3 15살 답을 봤으므로, l05 12개는 공개본 글과 그림만으로 다시 계산해 맞음을 확인한 것이고 블라인드 재풀이로 세지 않음",
-  "검사: check_doc_tone 막음 0 경고 0, check_style, verify_ai i05(경고는 대조 3 이 받아들인 것), web_lint, verify_web(--total-mb 32), ai_overlap(l05·l06 331곳 실패 0), 수준 테스트 33개와 화면 LevelsTest 4개 통과. 블록 그림 12장을 열어 글자 겹침과 잘림이 없음을 봄"
+  "검사: check_doc_tone 막음 0 경고 0, check_style, verify_ai i05(경고는 대조 3 이 받아들인 것), web_lint, verify_web(--total-mb 32), ai_overlap(l05·l06 331곳 실패 0), 수준 테스트 33개와 화면 LevelsTest 4개 통과. 블록 그림 12장을 열어 글자 겹침과 잘림이 없음을 봄",
+  "바깥 말투 검토 제안 30건 가운데 30건 반영, 같은 문제 30곳 더 고침, 대조 3 이 뜻·숫자·코드가 그대로임을 확인함",
+  "대조 3 이 바뀐 50줄을 기준 0987502 와 줄마다 견주고 바뀐 문장의 숫자 29묶음을 다시 계산해 같음을 확인함. 5e/2 학습률 0.45 불릿의 어순을 앞 불릿과 같게 고침",
+  "2026-11-05 본문과 복습 물음의 조건을 원자료·공식 문서와 대조하고 문장과 그림을 확인했음. 새 수준 물음 36개와 수정한 독립 지문 12개 및 마지막 반복 번호 물음의 재풀이 기록을 따로 보존했음.",
+  "학습 문장의 외부 위치를 덜고 단원 도입과 참조를 대조했음. 기존 물음·답·수치와 그림 파일을 보존했음.",
+  "초기 배치 정규화 값과 평균·분산이 같은 조건을 구분했음. γ=-1일 때도 분산이 1인 반례를 대조했음.",
+  "기울기 전달의 조건과 용어를 대조하고 수식 기호와 음수 눈금, 그림 안의 글자를 확인했음. 물음과 정답은 유지했음.",
+  "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
+  "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
+  "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
+  "2026-11-06 수정 설명과 예제 연결을 별도 검토함. 해당 단계 확인 물음의 답은 별도 재풀이 기록에 보존했으며 기존 문항·정답·첫 풀이 기록은 유지함.",
+  "본문·접힌 설명·문항 연결을 대조하고 변경 물음만 별도로 재풀이함. 1~9차시의 참조 그림은 모든 장면을 대조함."
  ]
 }

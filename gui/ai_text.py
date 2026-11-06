@@ -2,7 +2,7 @@
 """AI 비전 개론 화면의 글. 서비스(aiprep.service)가 준 값을 화면 글로 바꾸고, 공유 오답 노트 화면에 붙는 공급자 AiNotes 를 둠.
 
 하루 목표, 목표 단원 수, 새 문항 상한은 화면에 쓰지 않음(2026-11-03 사용자 결정: 문제집을 원하는 만큼 푸는 꼴). 복습 날짜가 된 문항 수와
-외운 문항 수는 알림으로만 씀. 내부 id(i05, 5c, 상자 3)는 화면에 쓰지 않음."""
+복습 확인 수는 알림으로만 씀. 내부 id(i05, 5c, 상자 3)는 화면에 쓰지 않음."""
 import datetime
 import html
 import re
@@ -12,12 +12,17 @@ from aiprep import bank
 from gui.result_page import band, code_box, md_html
 from session import SessionError
 
+
+def teaching_text(text):
+    """옛 해설의 출처 대조 머리말만 뺌. 정확한 조건과 설명은 그대로 남김."""
+    return re.sub(r"(^|(?<=[.!?])\s+|\n)정정:\s*", r"\1", text)
+
 TRACK = "AI 비전 개론"
 STEPS = ("1. [학습 시작]을 눌러 단원을 읽습니다.",
          "2. 단원 끝의 [연습 시작]을 눌러 그 단원 문항을 풉니다.",
          "3. 다음 날부터는 전에 푼 문항이 다시 나옵니다. [복습 시작]이 보이면 복습부터 풉니다.")
-TERMS = ("복습 문항은 다시 풀 날이 된 문항입니다. 서로 다른 세 날에 그날 처음 낸 답을 연달아 맞히면 외운 문항이 됩니다. "
-         "단원을 읽은 날은 세지 않습니다.")
+TERMS = ("읽기·단원 연습·복습 확인은 따로 기록합니다. 복습 확인은 예정된 복습에서 각 날의 첫 답을 세 번 연속 맞힌 문항 묶음입니다. "
+         "읽은 날은 제외합니다. 같은 내용을 묻는 여러 형태는 한 묶음으로 세며, 이미 풀어본 형태가 모두 기준을 충족해야 확인한 것으로 셉니다.")
 START_LINE = "1차시 첫째 단원부터 읽습니다."
 ORDINALS = ("첫째", "둘째", "셋째", "넷째", "다섯째", "여섯째", "일곱째", "여덟째", "아홉째", "열째")
 MIXED_ABOUT = "읽은 단원의 문항을 차시를 섞어 20문항씩 냅니다. 복습 문항이 먼저 나옵니다."
@@ -36,7 +41,9 @@ REVEAL_HEAD = "짐작 확인"
 MEMO_HINT = "답을 떠올린 뒤 질문을 눌러 맞춰 보세요."
 RECALL_EMPTY = "답을 적은 뒤 [확인]을 누르세요."
 BLOCK_BROKEN = "이 부분을 읽지 못했습니다. [새 문제 받기]로 최신 판을 받아 보세요."
-TRAINED = "다시 읽기보다 문제를 풀 때 1주 뒤에 더 많이 기억합니다."
+TRAINED = "다음 복습에서는 해설을 보기 전에 답을 먼저 떠올려 보세요."
+SET_FIRST = "이번 묶음의 첫 답"
+REVIEW_COMPLETE = "지금 복습할 문항이 없습니다."
 EARLY = "복습 날짜 전에 맞힌 %d문항은 날짜가 되면 다시 확인합니다."
 EMPTY_ANSWER = {"blank": "답을 적은 뒤 [확실함]이나 [긴가민가]를 누르세요. 모르면 [모르겠어요]를 누르세요.",
                 "choice": "보기를 고른 뒤 [확실함]이나 [긴가민가]를 누르세요. 모르면 [모르겠어요]를 누르세요."}
@@ -59,12 +66,19 @@ ROTATE_HEAD = "돌려 가며 빈칸"
 ROTATE_DONE = "모든 자리를 맞혔습니다."
 ROTATE_SLOTS = "가리는 자리: %s"
 NEXT_SLOT = "다음 자리"
-LEVELS_HEAD = "세 수준으로 다시 보기"
-LEVEL_NAMES = {7: "7살 수준 · 숫자와 그림", 15: "15살 수준 · 계산과 식", 20: "20살 수준 · 정의와 코드"}
+LEVELS_HEAD = "세 단계로 다시 보기"
+LEVEL_NAMES = {7: "초급", 15: "중급", 20: "심화"}
+LEVEL_DESCRIPTIONS = {7: "숫자와 그림으로 뜻을 잡습니다.", 15: "계산과 식으로 원리를 확인합니다.", 20: "정의와 코드를 연결해 적용합니다."}
 LEVEL_CHECK = "확인 물음"
 LEVEL_MISTAKE = "자주 하는 착각"
-LEVEL_WHERE = "다루는 곳"
 NUMBERS = bank.NUMBERS
+
+
+def lesson_title(no, title):
+    """자료에 같은 차시 번호가 있으면 화면에서 한 번만 씀."""
+    prefix = "%s차시" % no
+    title = title.strip()
+    return title if title == prefix or title.startswith(prefix + " ") else (prefix + " " + title).strip()
 
 
 def plain(text):
@@ -118,12 +132,8 @@ def ref_text(refs):
 
 
 def errata_text(errata):
-    """정정 한 줄. 강의 자료의 어느 곳을 바로잡았는지만 쓰고 바른 내용은 해설이 말함."""
-    places = [ref_one(e["where"]) for e in errata if e.get("where")]
-    where = " · ".join(dict.fromkeys(places))
-    if where:
-        return "강의 자료(%s)에 틀린 곳이 있어 바로잡은 내용으로 냈습니다. 해설을 보고 외우세요." % where
-    return "강의 자료에 틀린 곳이 있어 바로잡은 내용으로 냈습니다. 해설을 보고 외우세요."
+    """자료 오류를 고친 문항임을 알림. 위치는 검증 기록에 남기고 바른 내용은 해설에서 다룸."""
+    return "학습 자료의 오류를 바로잡은 문항입니다. 해설에서 이유를 확인하세요."
 
 
 # 날짜
@@ -133,7 +143,7 @@ def md(day):
 
 
 def exam_line(overview, today):
-    """홈 제목 아래 알림 줄. 시험까지 남은 날, 오늘 푼 문항, 외운 문항."""
+    """홈 제목 아래 알림 줄. 시험까지 남은 날, 오늘 푼 문항, 복습 확인 수."""
     parts = []
     days = overview["plan"].get("days_left")
     if days is not None and days >= 0:
@@ -148,8 +158,10 @@ def exam_line(overview, today):
 
 
 def memorised_part(row):
-    """외운 문항 조각("외운 문항 3/52"). 허브·홈·문제집·단원 줄이 모두 이 꼴로 씀."""
-    return "외운 문항 %d/%d" % (row["memorised"], row["families"])
+    """같은 원리의 문항을 묶어 복습 기준을 충족한 수를 표시함."""
+    if not row["memorised"]:
+        return "복습 확인 전 · 전체 %d묶음" % row["families"]
+    return "복습 확인 %d/%d묶음" % (row["memorised"], row["families"])
 
 
 def due_part(count):
@@ -169,7 +181,7 @@ def track_line(overview):
     START_LINE."""
     total, read = read_counts(overview)
     if not read:
-        item = overview["next"]
+        item = overview.get("continuation", overview["next"])
         place = unit_place(item, overview) if item["kind"] == "unit" else ""
         return "%s부터 읽습니다." % place if place else START_LINE
     parts = ["단원 %d개 중 %d개 읽음" % (total, read)]
@@ -181,7 +193,7 @@ def track_line(overview):
 
 
 def lesson_line(row):
-    """학습 단원 구역의 차시 줄 둘째 줄. 읽은 단원 수만 쓰고 외운 문항과 복습은 문제집 줄이 씀."""
+    """학습 단원 구역의 차시 줄 둘째 줄. 읽은 단원 수를 표시함."""
     return "단원 %d개 중 %d개 읽음" % (row["units_total"], row["read"])
 
 
@@ -193,7 +205,7 @@ def lesson_dot(row):
 
 
 def book_line(row):
-    """문제집 구역의 차시 문제집 줄 둘째 줄. "외운 문항 3/52 · 복습 6문항"."""
+    """문제집 구역의 차시 줄 둘째 줄. 복습 확인과 예정 문항을 표시함."""
     parts = [memorised_part(row)]
     if row["due"]:
         parts.append(due_part(row["due"]))
@@ -211,9 +223,11 @@ def book_dot(row):
 
 
 def unit_line(unit):
-    """단원 줄 둘째 줄. "읽음 · 외운 문항 3/9 · 복습 2문항 · 약 5분" 또는 "안 읽음 · 약 5분"."""
-    parts = ["읽음" if unit["read"] else "안 읽음"]
-    if unit["read"]:
+    """읽기·단원 연습·복습 확인을 나누어 표시함."""
+    parts = ["읽기 마침" if unit["read"] else "읽기 전"]
+    if "practiced" in unit:
+        parts.append("단원 연습 마침" if unit["practiced"] else "단원 연습 미완료")
+    if unit["read"] or unit.get("practiced"):
         parts.append(memorised_part(unit))
         if unit["due"]:
             parts.append(due_part(unit["due"]))
@@ -222,10 +236,12 @@ def unit_line(unit):
 
 
 def pattern_line(unit):
-    """상황별 코드 구역의 단원 줄 둘째 줄. 읽은 단원은 "6차시 뒤에 권함 · 외운 문항 0/8 · 복습 2문항", 안 읽은 단원은
-    "6차시 뒤에 권함 · 약 6분". 권하는 차시는 그 차시를 읽기 전에도 열 수 있다는 뜻이라 늘 앞에 둠."""
+    """상황별 코드의 권장 순서와 읽기·연습·복습 기록을 표시함."""
     parts = ["%d차시 뒤에 권함" % unit["after_no"]] if unit.get("after_no") else []
     if unit["read"]:
+        parts.append("읽기 마침")
+        if "practiced" in unit:
+            parts.append("단원 연습 마침" if unit["practiced"] else "단원 연습 미완료")
         parts.append(memorised_part(unit))
         if unit["due"]:
             parts.append(due_part(unit["due"]))
@@ -254,9 +270,22 @@ def mixed_line(overview):
 
 def next_item(overview, today):
     """이어서 할 일 카드 {"kind", "title", "line", "action", "lesson", "unit"}. 할 일이 없으면 action 이 빈 글. today 는 학습일."""
-    item = overview["next"]
+    item = overview.get("continuation", overview["next"])
     kind = item["kind"]
     out = {"kind": kind, "lesson": item.get("lesson"), "unit": item.get("unit"), "title": "", "line": "", "action": ""}
+    if "continuation" in overview:
+        if kind == "practice":
+            out.update(title=item["title"], line="풀던 묶음과 입력을 이어서 엽니다.", action="이어서 풀기",
+                       mode=item["mode"], card=item.get("card"))
+        elif kind == "unit":
+            title, name = unit_task(item, overview)
+            line = "읽다가 멈춘 %d단계부터 이어서 읽습니다." % item["step"] if item.get("resuming") else \
+                "읽은 뒤 이 단원 문항부터 풉니다. 약 %d분." % (item.get("minutes") or 5)
+            out.update(title=title, line="「%s」\n%s" % (name, line) if name else line,
+                       action="이어서 학습" if item.get("resuming") else "학습 시작", step=item["step"])
+        else:
+            out.update(title="이어서 열 단원이 없습니다", line="문제집이나 복습에서 더 연습할 수 있습니다.")
+        return out
     if kind == "again":
         out.update(title="오늘 틀린 문항 %d개가 남았습니다" % item["count"],
                    line="복습 묶음 맨 앞에 나옵니다. 두 번 이어 맞히면 오늘은 더 나오지 않습니다.", action="복습 시작")
@@ -269,8 +298,9 @@ def next_item(overview, today):
     elif kind == "revisit":  # 단원 이름(name)은 서비스가 차시·상황별 코드 모두 한 규칙으로 줌
         out.update(title=item.get("name") or item["title"], line="읽은 단원 가운데 덜 외운 단원입니다. 외울 것을 떠올려 본 뒤 섞어 풉니다.",
                    action="다시 보기")
-    elif kind == "mock":  # 모의고사 화면이 생기기 전에 엔진이 회차를 권하면 할 일 단추 없이 안내만 둠
-        out.update(title=item["title"], line=MOCK_LATER)
+    elif kind == "mock":
+        out.update(title=item["title"], line='제출한 뒤 정답과 해설을 확인합니다. 중간에 나가도 시간은 계속 흐릅니다.',
+                   action='모의고사 열기', mock=item['mock'])
     else:
         out.update(kind="none", title="아직 공개된 단원이 없습니다", line="새 차시가 올라오면 여기에 나옵니다.")
     return out
@@ -332,6 +362,13 @@ def recent_label(entry):
 
 # 연습 묶음 끝 요약(설계 2.7)
 
+def review_next(upcoming):
+    """빈 자동 복습의 다음 날짜나 직접 더 연습할 길을 안내함."""
+    if upcoming:
+        return "다음 복습: %s %d문항" % (upcoming["text"], upcoming["count"])
+    return "차시 문제집이나 섞어 풀기에서 더 연습할 수 있습니다."
+
+
 def summary_head(summary):
     return "%d문항 가운데 %d문항을 처음 답에 맞혔습니다." % (summary["n"], summary["first_pass"])
 
@@ -340,13 +377,13 @@ def summary_lines(summary, unlisted=0):
     """끝 요약의 글 줄들(위에서 아래로). unlisted 는 처음 답이 틀렸지만 단원을 읽은 날이라 오답 노트에 넣지 않은 문항 수."""
     lines = []
     if summary["first_today"]:
-        lines.append("오늘 처음 푼 문항 가운데 맞힌 문항 %d개" % summary["first_today"])
+        lines.append("오늘 새로 접한 문항 중 이번 묶음에서 마친 문항 %d개" % summary["first_today"])
     if summary["again_day"]:
-        lines.append("다른 날 풀었던 문항 가운데 다시 맞힌 문항 %d개" % summary["again_day"])
+        lines.append("이전 학습일에 풀었던 문항 중 이번 첫 답에 맞힌 문항 %d개" % summary["again_day"])
     if summary["up"] or summary["down"]:
         lines.append("복습 간격이 늘어난 문항 %d개 · 줄어든 문항 %d개" % (summary["up"], summary["down"]))
     if summary["memorised"]:
-        lines.append("새로 외운 문항 %d개" % summary["memorised"])
+        lines.append("복습 기준을 충족한 묶음 %d개" % summary["memorised"])
     if summary["sure_wrong"]:
         lines.append("확실하다고 했지만 틀린 문항 %d개" % summary["sure_wrong"])
     if summary["left"]:
@@ -408,7 +445,16 @@ class AiNotes:
     def detail(self, note, info):
         """(제목, 본문 HTML). 제목은 그 문항이 나온 단원의 이름("5차시 · 단원", "학습 루프 · 단원"). 읽지 못하면 AiError(SessionError)."""
         item = self.win.ai.wrong_item(note["key"])
+        item["note_target"] = self.win.ai.note_target(note["key"])
         return item.get("name") or item["title"], note_html(item, info, answer_word(item))
+
+    def open_reference(self, note):
+        from gui.ai_learn import NoteDialog
+        target = self.win.ai.note_target(note["key"])
+        if target is None:
+            return
+        self.reference_dialog = NoteDialog(self.win, target["lesson"], target["step"])
+        self.reference_dialog.open()
 
     def explain(self, note):
         return self.win.ai.explain(note["key"])
@@ -468,8 +514,8 @@ def note_html(item, info, word="정답"):
     code = bool(item.get("code_options"))
     options = item["options"]
     parts = ['<p><b>%s</b></p>' % html.escape(" · ".join(lines))]
-    if item["ref"]:
-        parts += [band("근거", space=BAND), "<p>%s</p>" % html.escape(ref_text(item["ref"]))]
+    if item.get("note_target"):
+        parts += [band("참고", space=BAND), '<p><a href="study-note">%s</a></p>' % html.escape(item["note_target"]["label"])]
     parts += [band("문제", space=BAND), md_html(bank.number_blanks(item["stem"], code=True))]
     if options and code:
         parts += ["<p>%d번</p>%s" % (n + 1, code_box(text)) for n, text in enumerate(options)]
@@ -489,8 +535,8 @@ def note_html(item, info, word="정답"):
         else:
             parts.append("<p><b>%s: %s</b></p>" % (word, ", ".join(mdlite.inline_html(a) for a in info["answer"])))
         if info.get("explain"):
-            parts.append("<p>%s</p>" % mdlite.inline_html(info["explain"]))
-        whys = [(text, why) for text, why in (info.get("why") or {}).items() if why]
+            parts.append("<p>%s</p>" % mdlite.inline_html(teaching_text(info["explain"])))
+        whys = [(text, teaching_text(why)) for text, why in (info.get("why") or {}).items() if why]
         if whys and code:
             parts.append("<p>%s</p>" % "<br/>".join("%d번: %s" % (options.index(text) + 1, mdlite.inline_html(why))
                                                      for text, why in whys if text in options))

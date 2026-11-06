@@ -2,7 +2,7 @@
 """오답 노트 화면: 위 막대(← 돌아갈 화면 · 오답 노트 · 트랙이 둘 이상이면 트랙 칩), 왼쪽 목록 카드와 오른쪽 문항 카드(칸 나누기), 아래 막대([해설 보기] · [다시 풀기]).
 
 트랙마다 공급자 하나가 오답을 줌. 창(gui/window.py)의 WRONG_TRACKS 에 적은 순서로 칩과 첫 화면의 줄이 놓이고, 공급자는 PythonNotes 와 같은 모양임:
-tid·name·empty(오답이 없을 때의 안내), groups() 는 [{"title": 묶음 이름, "items": [문항]}] 이고 문항은 key·label·state 를 가진 dict,
+tid·name·empty(오답이 없을 때의 안내), groups() 는 [{"title": 묶음 이름, "items": [문항]}] 이고 문항 dict에 key·label·state를 둠.
 detail(문항, 해설) 은 (제목, 본문 HTML)이고 해설 구역 앞에 answer 닻을 둠, explain(문항) 은 detail 에 다시 넘길 해설 값, retry(문항) 은
 다시 푸는 화면을 엶. 읽지 못한 것은 SessionError 로 알리고 groups() 는 예외를 내지 않음. state 는 wrong·skipped·fixed 가운데 하나.
 
@@ -235,7 +235,7 @@ class NoteList(QScrollArea):
             self.order.append(fold)
             fold.body = QWidget()
             body_box = kit.box(fold.body, (0, 0, 0, 8))
-            for title, items in parts:  # 묶음 이름은 위를 넓게 띄워 아래 줄들과 묶여 보이게 하고, 목록 칸이 좁으면 줄임표로 줄임
+            for title, items in parts:  # 묶음 이름 위를 넓게 띄워 아래 줄과 묶음. 목록 칸이 좁으면 줄임표로 줄임
                 head = QWidget()
                 kit.box(head, (kit.ROW_TEXT, 20, 24, 0)).addWidget(kit.ElideLabel(title, "caption", "secondary", bold=True))
                 body_box.addWidget(head)
@@ -347,11 +347,12 @@ class WrongPage(QWidget):
         self.list = NoteList()
         list_card, list_box = kit.card(0, 0)
         list_box.addWidget(self.list)
-        detail_card, detail_box = kit.card(24, 16)
+        detail_card, detail_box = kit.card(24, theme.GAP["title_description"])
         self.item_title = kit.para("", "headline")  # 긴 코드 문제 제목은 줄을 바꿈
         self.detail = QTextBrowser()
         self.detail.setObjectName("plain")
         self.detail.setOpenLinks(False)
+        self.detail.anchorClicked.connect(self.open_reference)
         self.detail.document().setDocumentMargin(0)
         detail_box.addWidget(self.item_title)
         detail_box.addWidget(self.detail, 1)
@@ -457,6 +458,16 @@ class WrongPage(QWidget):
 
     def retry(self):
         self.track.retry(self.selected())
+
+    def open_reference(self, url):
+        """현재 문항의 학습 단계만 엶. 문서 속 외부 주소는 따라가지 않음."""
+        item = self.selected()
+        if url.toString() != "study-note" or item is None or not hasattr(self.track, "open_reference"):
+            return
+        try:
+            self.track.open_reference(item)
+        except SessionError as error:
+            self.win.ask("알림", str(error))
 
     def go_back(self):
         focus = QApplication.focusWidget()

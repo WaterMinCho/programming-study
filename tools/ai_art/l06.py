@@ -70,10 +70,13 @@ def new(h=600):
     return plt, plt.figure(figsize=(11.2, h / 100.0), dpi=100)
 
 
-def image(fig):
+def image(fig, symbols=False):
     """Figure 를 RGB 그림으로 바꾸고 닫음."""
     from PIL import Image
     import matplotlib.pyplot as plt
+    if symbols:
+        from tools.ai_art import math_symbols
+        math_symbols(fig)
     fig.canvas.draw()
     data = np.asarray(fig.canvas.buffer_rgba())
     img = Image.fromarray(data[..., :3].copy())
@@ -132,7 +135,7 @@ def card(ax, x0, y0, w, h, title, lines, edge, ink=INK, fill="white", size=17, t
         yy -= 0.5
 
 
-def memo(specs, foot):
+def memo(specs, foot, symbols=False):
     """외울 것 그림. specs 는 줄마다 [(x0, w, title, lines, edge, ink, code_lines)] 이고 위 줄부터 그림. 상자 높이는 줄 수로
     정하고 그림 높이도 그에 맞춤. foot 은 맨 아래 회색 바탕 한 줄."""
     heights = [0.75 + 0.5 * max(len(c[3]) for c in row) for row in specs]
@@ -146,7 +149,7 @@ def memo(specs, foot):
         top -= rh + 0.25
     ax.text(5.6, 0.45, foot, ha="center", va="center", fontsize=16, color=INK,
             bbox=dict(boxstyle="round,pad=0.3", fc=NOTE, ec="none"))
-    return image(fig)
+    return image(fig, symbols=symbols)
 
 
 # 공용 계산
@@ -510,11 +513,11 @@ def summary_6b():
     r0, r1 = reg5(39), reg5(100)
     assert (round(r1[2] - r0[2], 1), round(r1[3] - r0[3], 1), round(r1[4] - r0[4], 1)) == (719.8, 11.8, 11.8)
     assert (round(r1[2], 1), round(r1[3], 1), round(r1[4], 1)) == (720.8, 12.8, 12.3)
-    return memo([[(0.3, 3.3, "MSE", ["1 → 720.8", "큰 오차가 손실을 끌어올림", "RMSE = √MSE"], ORANGE, ORANGE, ()),
+    return memo([[(0.3, 3.3, "MSE", ["1 → 720.8", "큰 오차가 손실을 끌어올림", r"RMSE = $\sqrt{\mathrm{MSE}}$"], ORANGE, ORANGE, ()),
                   (3.8, 3.15, "MAE", ["1 → 12.8", "늘어나는 폭이 작음", "nn.L1Loss()"], GREEN, GREEN, (2,)),
                   (7.15, 3.75, "Huber", ["0.5 → 12.3, delta 기본값 1.0", "|e| ≤ δ: 0.5$e^2$",
                                          "|e| > δ: δ(|e| " + M + " 0.5δ)"], PURPLE, PURPLE, ())]],
-                "오차 [1, " + M + "1, 1, 60, 1]: 넷째 하나만 이상치. δ 가 클수록 제곱 구간이 넓어짐")
+                "오차 [1, " + M + "1, 1, 60, 1]: 넷째 하나만 이상치. δ 가 클수록 제곱 구간이 넓어짐", symbols=True)
 
 
 # 6c 이진 분류: BCE 와 BCEWithLogitsLoss
@@ -664,7 +667,7 @@ def mse_vs_bce_grad():
     note(fig, 0.67, 0.78, "p = 0.01: 정답 1 인데\n0 에 가깝게 확신하고 틀림", size=18, transform=fig.transFigure)
     note(fig, 0.67, 0.50, "BCE 기울기 0.99", color=GREEN, size=19, bg="white", ec=GREEN, transform=fig.transFigure)
     note(fig, 0.67, 0.35, "MSE 기울기 0.0196", color=ORANGE, size=19, bg="white", ec=ORANGE, transform=fig.transFigure)
-    note(fig, 0.67, 0.15, "기울기가 작으면\n파라미터가 거의 안 바뀜", size=17, transform=fig.transFigure)
+    note(fig, 0.67, 0.15, "p가 0에 가까우면\nMSE의 logit 기울기도\n작아집니다", size=17, transform=fig.transFigure)
     return image(fig)
 
 
@@ -780,8 +783,8 @@ def smoothing():
     ax = fig.add_axes([0.08, 0.14, 0.50, 0.74])
     tidy(ax)
     xs = np.arange(3)
-    ax.bar(xs - 0.18, [1, 0, 0], width=0.34, color=GRAY, label="원-핫 목표", zorder=3)
-    ax.bar(xs + 0.18, q, width=0.34, color=SLATE, label="스무딩 목표", zorder=3)
+    ax.bar(xs - 0.18, [1, 0, 0], width=0.34, color=GRAY, label="원-핫 벡터", zorder=3)
+    ax.bar(xs + 0.18, q, width=0.34, color=SLATE, label="라벨 스무딩 목표", zorder=3)
     for i in range(3):
         ax.text(i - 0.18, [1, 0, 0][i] + 0.02, num([1, 0, 0][i], 0), ha="center", va="bottom", fontsize=17, color=INK)
         ax.text(i + 0.18, q[i] + 0.02, fx(q[i], 3), ha="center", va="bottom", fontsize=17, color=SLATE)
@@ -806,7 +809,7 @@ def summary_6d():
     assert fx(-LG[0], 3) == "0.417" and fx(-LG[2], 3) == "2.317"
     return memo([[(0.3, 10.6, "CrossEntropyLoss", ["logit [2.0, 1.0, 0.1] → 소프트맥스 → log → 정답 칸 고르기 → 부호 바꿈",
                                                    "정답 0: 0.417,  정답 2: 2.317"], GREEN, GREEN, ())],
-                 [(0.3, 5.15, "넣는 꼴", ["logit [배치, 클래스 수]", "정답 [배치], 클래스 번호"], BLUE, BLUE, ()),
+                 [(0.3, 5.15, "넣는 꼴", ["logit [N, 클래스 수]", "정답 [N], 클래스 번호"], BLUE, BLUE, ()),
                   (5.75, 5.15, "라벨 스무딩", ["label_smoothing=0.1", "K = 3: 0.933, 0.033, 0.033"], SLATE, SLATE, (0,))]],
                 "모델 끝에 소프트맥스를 두지 않음. 정답은 원-핫 벡터가 아닌 클래스 번호")
 
@@ -902,13 +905,13 @@ def focal():
                 arrowprops=dict(arrowstyle="->", color=SLATE, lw=1.6),
                 bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
     ax.legend(loc="upper right", fontsize=16, frameon=False)
-    note(fig, 0.67, 0.80, M + "α(1 " + M + " p)^γ log p", color=SLATE, size=19, bg="white", ec=SLATE,
+    note(fig, 0.67, 0.80, r"$-\alpha(1-p)^{\gamma}\log p$", color=SLATE, size=19, bg="white", ec=SLATE,
          transform=fig.transFigure)
     note(fig, 0.67, 0.60, "γ = 2 일 때 교차 엔트로피에\n곱하는 수\np = 0.9 → 0.01\np = 0.1 → 0.81", size=17,
          transform=fig.transFigure)
     note(fig, 0.67, 0.33, "쉬운 샘플(p 큼)의\n손실을 크게 줄임", size=17, transform=fig.transFigure)
     note(fig, 0.67, 0.13, "이 그림은 α = 1", size=16, transform=fig.transFigure)
-    return image(fig)
+    return image(fig, symbols=True)
 
 
 @figure("6e-4", 560, 270)
@@ -932,9 +935,9 @@ def summary_6e():
     return memo([[(0.3, 3.2, "클래스 불균형", ["9,900 : 100", "모두 정상 → 99%", "질병은 0 명 찾음"], RED, RED, ()),
                   (3.75, 3.65, "가중 교차 엔트로피", ["전체 ÷ (클래스 수 × n_c)", "0.505 와 50", "weight=weights"], INK,
                    INK, (2,)),
-                  (7.65, 3.25, "Focal Loss", [M + "α(1 " + M + " p)^γ log p", "γ = 2, α = 0.25", "p 0.9 → × 0.01"],
+                  (7.65, 3.25, "Focal Loss", [r"$-\alpha(1-p)^{\gamma}\log p$", "γ = 2, α = 0.25", "p 0.9 → × 0.01"],
                    SLATE, SLATE, ())]],
-                "학습 전 데이터: 오버샘플링, 언더샘플링, SMOTE.  학습할 때 손실: 가중 교차 엔트로피, Focal Loss")
+                "학습 전 데이터: 오버샘플링, 언더샘플링, SMOTE.  학습할 때 손실: 가중 교차 엔트로피, Focal Loss", symbols=True)
 
 
 # 6f 문제 유형별 손실, reduction, 손실 곡면

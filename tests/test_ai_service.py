@@ -132,7 +132,28 @@ class LearnTest(Base):
         found = sess.revisit()
         self.assertEqual(("i90", "90b"), (found["lesson"], found["unit"]))
         self.assertTrue(found["figure"].endswith("90b-1.png"))
+        self.assertEqual(found["figure_info"]["path"], found["figure"])
         self.assertEqual(2, len(found["memo"]))
+
+    def test_revisit_keeps_the_selected_figure_explanations_without_writing(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        before = list(self.log(sess))
+        figures = [block for step in sess.notes["i90"]["units"]["90a"]["steps"]
+                   for block in step["blocks"] if block["kind"] == "figure"]
+        chosen = figures[0]
+        for key_figure in (chosen["file"], None):
+            with self.subTest(key_figure=key_figure):
+                sess.notes["i90"]["unit_meta"].setdefault("90a", {})["key_figure"] = key_figure
+                found = sess.revisit()
+                self.assertEqual(found["figure"], chosen["path"])
+                self.assertEqual(found["figure_info"], chosen)
+                self.assertEqual(self.log(sess), before)
+        sess.notes["i90"]["unit_meta"]["90a"]["key_figure"] = "assets/other.png"
+        found = sess.revisit()
+        self.assertTrue(found["figure"].endswith("other.png"))
+        self.assertIsNone(found["figure_info"])
+        self.assertEqual(self.log(sess), before)
 
 
 class LevelsServiceTest(Base):
@@ -178,7 +199,7 @@ class LevelsServiceTest(Base):
 
 
 class RealLevelsTest(Base):
-    """저장소의 1~6차시 노트. 세 수준 확인 물음의 받는 답은 모두 화면 채점에서 맞음이 되고, 떠올리기와 확인 물음의 끝나지 않는 소수는
+    """저장소의 1~9차시 노트. 세 수준 확인 물음의 받는 답은 모두 화면 채점에서 맞음이 되고, 떠올리기와 확인 물음의 끝나지 않는 소수는
     더 자세히 적어도 맞음(places·unit 을 채점에 넘김)."""
 
     def setUp(self):
@@ -192,14 +213,14 @@ class RealLevelsTest(Base):
     def test_every_level_answer_grades_right(self):
         sess = self.session()
         count = 0
-        for lid in ("i01", "i02", "i03", "i04", "i05", "i06"):
+        for lid in ("i01", "i02", "i03", "i04", "i05", "i06", "i07", "i08", "i09"):
             for unit in sess.unit_list(lid):
                 for step in sess.unit_steps(lid, unit["key"])["steps"]:
                     for level in (x for b in step["blocks"] if b["kind"] == "levels" for x in b["levels"]):
                         count += 1
                         for answer in level["answer"]:
                             self.assertTrue(sess.check_recall(level, answer), (lid, unit["key"], step["no"], level["level"], answer))
-        self.assertGreaterEqual(count, 3 * 3 * 6)
+        self.assertGreaterEqual(count, 3 * 3 * 9)
 
     def test_longer_decimals_and_units(self):
         sess = self.session()
@@ -767,8 +788,10 @@ class PatternStepsTest(PatternBase):
 
     def test_check_rotate(self):
         sess = self.session()
-        self.assertEqual({"ok": True, "answer": "zero_grad"}, sess.check_rotate("pc", "18a", "t1", "pc-k02", "opt.zero_grad()"))
-        self.assertEqual({"ok": False, "answer": "argmax"}, sess.check_rotate("pc", "18a", "t1", "pc-k05", "max"))
+        self.assertEqual({"ok": True, "answer": "zero_grad", "explain": "zero_grad 는 앞 묶음에서 쌓인 값을 비웁니다."},
+                         sess.check_rotate("pc", "18a", "t1", "pc-k02", "opt.zero_grad()"))
+        self.assertEqual({"ok": False, "answer": "argmax", "explain": "argmax(1) 은 1번 축에서 가장 큰 값의 위치를 고릅니다."},
+                         sess.check_rotate("pc", "18a", "t1", "pc-k05", "max"))
         self.assertTrue(sess.check_rotate("pc", "18a", "t1", "pc-k05", "argmax(1)")["ok"])
         rows = self.log(sess, "recall")
         self.assertEqual([("t1", "pc-k02", True), ("t1", "pc-k05", False), ("t1", "pc-k05", True)],
@@ -830,6 +853,26 @@ class PatternPlanTest(PatternBase):
 
 
 class PatternSetTest(PatternBase):
+    def test_choose_separates_pick_from_a_change_that_reveals_its_line(self):
+        sess = self.session()
+        state = sess._state()
+        for ids in (["pc-p01", "pc-x01"], ["pc-x01", "pc-p01"]):
+            chosen = service._choose(sess, state, [("rest", ids)], 20, random.Random(7))
+            self.assertEqual([(ids[0], "rest")], chosen)
+        chosen = service._choose(sess, state, [("rest", ["pc-x01", "i90-b01"])], 20, random.Random(7),
+                                 taken=[("pc-p01", "lead")])
+        self.assertEqual([("pc-p01", "lead"), ("i90-b01", "rest")], chosen)
+
+    def test_choose_keeps_pick_when_the_change_edits_other_lines(self):
+        path = os.path.join(self.root, "patterns", "S90.json")
+        data = study.read_json(path)
+        data["variants"]["나"]["lines"][7] = data["variants"]["가"]["lines"][7]
+        data["variants"]["나"]["lines"][5] = "    e.backward(retain_graph=True)"
+        study.write_text(path, json.dumps(data, ensure_ascii=False))
+        sess = self.session()
+        chosen = service._choose(sess, sess._state(), [("rest", ["pc-p01", "pc-x01"])], 20, random.Random(7))
+        self.assertEqual([("pc-p01", "rest"), ("pc-x01", "rest")], chosen)
+
     def test_locked_until_read_then_core_first(self):
         sess = self.session()
         with self.assertRaises(AiError):
@@ -894,8 +937,8 @@ class PatternSetTest(PatternBase):
         sess.mark_read("pc", "18a")
         for cid in ("pc-k01", "pc-o01", "pc-p01", "i90-b01"):
             self.answer(sess, cid, result="stuck")
-        self.at = "2026-11-10T20:00:00"
-        for mode in ("mixed", "review"):
+        for mode, at in (("mixed", "2026-11-10T20:00:00"), ("review", "2026-11-12T20:00:00")):
+            self.at = at
             ps = sess.start_set(mode, seed=7)
             self.assertTrue(any(e["card"].startswith("pc-") for e in ps.queue), mode)
             self.play(ps, lambda cur: "pass")

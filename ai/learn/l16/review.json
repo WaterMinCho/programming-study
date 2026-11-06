@@ -1,0 +1,42 @@
+{
+ "format": 1,
+ "writer": "본문 수정 2",
+ "resolver": "변경 물음 재풀이 3",
+ "reviewer": "본문 검토 3",
+ "files": {
+  "assets/16a-1.png": "f288893c16542c0779646e0006ca9583e125df6fc51d9c12e495ac00bce7b2a4",
+  "assets/16a-2.png": "7161efe15fea563e27739a6a81712b1a9eb4dc87bfe1f33d283a9c883da4d5bc",
+  "assets/16a-3.png": "0634b4d9523a0a7e524f96a13f3ec9bb85fabfe598fb87bd1225e8d718c6acfb",
+  "assets/16b-1.png": "755c0e575b7ccf800496216837f1b4ce0174e1524a08964b2054069094a3c2d4",
+  "assets/16b-2.png": "07ff43b5d2175441534f9e58be8e027b1c8f35c08d1aa5a9c6d633a033244e6e",
+  "assets/16b-3.png": "636362074f995b19efb75cb66ec20a06eacbba8d6c51513268b02cfb365d46b7",
+  "assets/16b-31.png": "3994ec9cb012af87c342d0c00f999a03c5cfb1cac72b9b70d3428f2d488d948c",
+  "assets/16b-32.png": "490ed6325af03dc90d6e6377e11a14caaea3cbefda1e078698ad7c75ca2c9705",
+  "assets/16b-33.png": "c865f2caf58950ef64e26c88c86256095309e8f2db7c0621a3082c6224f6ab3c",
+  "assets/16c-1.png": "0515d5e90cd86352074e629dfd2f43dd552ac34621bb567f60ad12c69acd7457",
+  "assets/16c-2.png": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
+  "assets/16c-3.png": "fef09c786e5032ae3a7bd699728f3bf45975e1f434db09732a256df43842a7e3",
+  "assets/16c-31.png": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
+  "assets/16c-32.png": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
+  "assets/16c-33.png": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
+  "assets/16d-1.png": "94f4cfc8d92f2a0557632cc5f0c2227fbe722cf5cc5bdb70336f1457d80a0f9c",
+  "assets/16d-2.png": "ba984be59e834375acc476050664ed96dcdbb2601c0ffa8885b8f74c0f83e9d5",
+  "assets/16d-3.png": "baa4add99d7a877bc5442ce9f4e27da39e1bdfdbf36f99b44d66d0606c376506",
+  "assets/16d-31.png": "ecd803df21f30b376c972d1f8df54c1bb61e67b09e48e6d5d7577ab37add2fef",
+  "assets/16d-32.png": "2807c11628ce83be65533da919013cf6470811a48a7e1dcddb99244241e433ac",
+  "assets/16d-33.png": "efaa52ca06e67c101511c84bddf06e4f54590c4394d4f70a378ecb57ec03f639",
+  "assets/16e-1.png": "d5f2e4bce60a42e83750a37613284b5f12c19c61881e1ffea337af0d136172c2",
+  "assets/16e-2.png": "6d1ce4dc138f44e8141435e3e8c9cfa174b590ad74ddb4983468ca6ec60d5947",
+  "assets/16e-3.png": "9accae8d16b6a492de48005569781b112aa8e8616fba037b1d5429ec14ecd9bc",
+  "assets/16f-1.png": "bbf93ed671b0b3e3f27e091fa4aa65247f0be27100f5168860dcded11ded5449",
+  "assets/16f-2.png": "916a200546d6e95833a074578f30313ef0f8a7558711276716018784e4518fd2",
+  "assets/16f-3.png": "409a7dff9400092f212bbf6d07ecf1daea632b2b251727e49d63b2fadc8a904e",
+  "meta.json": "08ac2034f7d80ca94e64f92545eed67a60c9d9ccf973970f3b843c32a445c5e8",
+  "page.md": "4d2d2d7b30e0972e336db313241cd6ff0c5cf6985ee1a9ab7cd41d515dc18189"
+ },
+ "findings": [
+  "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
+  "창 안의 평균 풀링 문항을 공식 AvgPool2d 문서와 다시 대조해 meta 출처를 보완했음. 본문·기존 문항·그림은 유지했음.",
+  "본문·예제·변경 물음의 조건을 독립 대조함. int64와 long의 같은 dtype 이름을 허용하고 파일 별칭을 설명에서 덜어냄."
+ ]
+}

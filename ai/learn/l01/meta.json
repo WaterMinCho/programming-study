@@ -5,11 +5,11 @@
   "defines": ["순전파", "손실", "파라미터", "역전파", "기울기", "학습률", "최적점", "발산", "점진적 개선", "일반화",
               "자동 미분", "옵티마이저", "텐서", "합성 함수", "미분값", "접선", "수치 미분", "전진 차분", "중앙 차분",
               "고차 함수", "시그모이드", "클래스", "인스턴스", "속성", "메서드", "생성자", "상속", "재정의",
-              "슬라이스", "튜플", "딕셔너리", "f-string", "정확도", "오차", "픽셀"],
+              "슬라이스", "튜플", "딕셔너리", "f-string", "정확도", "오차", "픽셀", "손실 곡면", "배치", "채널"],
   "needs": [],
   "sections": {
     "1a": "학습은 예측, 손실, 역전파, 갱신을 되풀이합니다",
-    "1b": "PyTorch의 학습 다섯 줄",
+    "1b": "PyTorch의 학습 기본 패턴",
     "1c": "대입은 값을 복사하지 않습니다",
     "1d": "모델은 함수를 이어 붙인 합성 함수입니다",
     "1e": "수치 미분 코드와 자동 미분",
@@ -33,8 +33,9 @@
     {"what": "Python 언어 문서 Identity comparisons: x is y 는 x 와 y 가 같은 객체일 때만 참", "url": "https://docs.python.org/3/reference/expressions.html#identity-comparisons", "checked": "2026-11-05"},
     {"what": "Python 튜토리얼 9.3 클래스: x.f() 는 MyClass.f(x) 와 같고 인스턴스가 첫 인자로 넘어감. 데이터 속성은 처음 대입할 때 생김", "url": "https://docs.python.org/3/tutorial/classes.html#method-objects", "checked": "2026-11-05"},
     {"what": "Goodfellow·Bengio·Courville, Deep Learning(2016) 4.3절: 미분값은 그 점의 기울기이고 f(x + ε) ≈ f(x) + εf′(x)", "url": "https://www.deeplearningbook.org/contents/numerical.html", "checked": "2026-11-05"},
-    {"what": "OpenStax Calculus Volume 1 3.1절: f′(a) = lim (h → 0) (f(a + h) − f(a)) / h", "url": "https://openstax.org/books/calculus-volume-1/pages/3-1-defining-the-derivative", "checked": "2026-11-05"}
-  ],
+    {"what": "OpenStax Calculus Volume 1 3.1절: f′(a) = lim (h → 0) (f(a + h) − f(a)) / h", "url": "https://openstax.org/books/calculus-volume-1/pages/3-1-defining-the-derivative", "checked": "2026-11-05"},
+  {"what": "Python super는 메서드 탐색 순서에서 다음 구현으로 호출을 넘김. 이 단일 상속 예제에서는 부모 Point의 __init__을 부름", "url": "https://docs.python.org/3/library/functions.html#super", "checked": "2026-11-05"}
+ ],
   "lesson": "i01",
   "credits": [],
   "units": {

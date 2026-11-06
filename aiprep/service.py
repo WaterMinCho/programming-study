@@ -5,23 +5,26 @@
 기록은 submissions/<ID>/ai/record.json 에 덧붙기만 하고(AiRecord), 상자·날짜·오늘 목표·오답 갈래는 기록에서 그때그때
 계산해 (파일 mtime_ns, 크기, 줄 수, 학습일) 키로 캐시함. 학습 단원의 중간 자리(at_step)는 ~/.rokey-study/ai/<ID>/state.json
 (STUDY_AI_HOME 으로 바꿈)에 둬서 제출에 들어가지 않음. 묶음은 secrets.randbelow 로 고른 시드 하나의 random.Random 으로 만들고
-set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 나옴. 모의고사(PR5)는 아직 없음.
+set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 나옴. 모의고사는 제출 전 답안을 로컬에만 두고 첫 제출의 오답을 복습에 넣음.
 
-상황별 코드(index.json patterns, 무리 id pc)는 차시처럼 학습 노트(l18)와 문항 묶음(items/pc, facts·review 만)을 갖고, 카드는
+상황별 코드(index.json patterns, 무리 id pc)는 학습 노트(l18), 사실·검토 기록과 수치 생성기(items/pc)를 가짐. 코드 카드는
 ai/patterns/S*.json 뼈대에서 skel.cards 가 만듦. 카드 lesson 은 무리 id, after 는 권하는 차시이고, 차시를 묻는 곳(정렬, 무게,
 차시 풀기)은 after 차시를 씀. 단원 이름은 unit_name 한 규칙("5차시 · 단원 제목", "학습 루프 · 단원 제목")을 모든 화면값이 씀.
 """
+import copy
 import datetime
+import hashlib
 import json
 import os
 import random
+import re
 import secrets
 import threading
 
 import adaptive
 import session
 import study
-from aiprep import bank, gen, grade, notes, plan, review, skel
+from aiprep import bank, gen, grade, mock, notes, plan, review, skel
 from webprep import record
 
 SET_SIZE = 20
@@ -62,7 +65,8 @@ class AiError(session.SessionError):
 
 class AiRecord(record.Record):
     """record.Record 와 같은 파일 꼴. 자기가 마지막으로 읽거나 쓴 파일의 (mtime_ns, 크기)가 그대로면 다시 읽지 않고
-    메모리의 기록에 덧붙여 씀(4주 기록 1MB 안팎을 답마다 다시 읽지 않으려는 것). 다른 창이나 문제 받기로 파일이 바뀌면
+    메모리의 기록에 덧붙여 씀(4주 기록 1MB 안팎을 답마다 다시 읽지 않으려는 것). 파일 식별값과 변경 시각도 비교해서
+    크기와 수정 시각이 같은 파일 교체를 감지함. 다른 창이나 문제 받기로 파일이 바뀌면
     지금처럼 다시 읽음."""
 
     def __init__(self, path, user, label=LABEL):
@@ -74,7 +78,7 @@ class AiRecord(record.Record):
             info = os.stat(self.path)
         except OSError:
             return None
-        return (info.st_mtime_ns, info.st_size)
+        return (info.st_mtime_ns, info.st_size, info.st_ino, info.st_ctime_ns)
 
     def load(self):
         key = self.stamp()
@@ -165,14 +169,88 @@ class AiSession(object):
         self._cache_key, self._cache = None, None
         self._index, self._index_log = None, None
         self._gen_kind = {}
+        self._active_set = None
+        self._mock_loaded = set()
+        self._mock_exams = {}
+        self._recover_mocks()
+
+    def _recover_mocks(self):
+        """미제출 회차를 먼저 보관함. 만료 회차는 홈을 그리기 전에 제출하며 실패하면 다음 tick에서 다시 시도함."""
+        done = {(row.get('mock'), int(row.get('try') or 1)) for row in self.record.log if row.get('kind') == 'mock_submit'}
+        starts = {}
+        for row in self.record.log:
+            if row.get('kind') == 'mock_start':
+                starts[row.get('mock')] = row
+        for mid, row in starts.items():
+            if mid not in self.mocks or (mid, int(row.get('try') or 1)) in done:
+                continue
+            try:
+                self._mock_exams[mid] = mock.MockExam(self, mid, clock=lambda: now(), submit_expired=False)
+            except mock.MockError as error:
+                self.errors[mid] = str(error)
+        self.expire_mocks()
+
+    def expire_mocks(self):
+        """열지 않은 회차도 시간이 다 됐으면 제출함. 화면 ticker가 부름."""
+        for mid, exam in self._mock_exams.items():
+            if exam.result is None and exam.remaining() == 0:
+                try:
+                    exam.submit(auto=True)
+                    self.errors.pop(mid, None)
+                except mock.MockError as error:
+                    self.errors[mid] = str(error)
+
+    def mock_info(self, mid):
+        """시작 전 안내용 회차 정보. 이 조회는 시작 기록을 만들지 않음."""
+        if mid not in self.mocks:
+            raise AiError('모의고사를 찾을 수 없습니다.')
+        try:
+            items, _ = mock.load_items(self.root, self.mocks[mid])
+            rows = mock.submissions(self.record.reload(), mid)
+        except (mock.MockError, record.RecordError) as error:
+            raise AiError(str(error)) from error
+        exam = self._mock_exams.get(mid)
+        return dict(self.mocks[mid], blanks=sum(item['kind'] == 'blank' for item in items.values()),
+                    choices=sum(item['kind'] == 'choice' for item in items.values()), taken=bool(rows),
+                    first_score=rows[0]['score'] if rows else None, last_score=rows[-1]['score'] if rows else None,
+                    active=exam is not None and exam.result is None,
+                    remaining=exam.remaining() if exam is not None and exam.result is None else None)
+
+    def mock_state(self, mid):
+        """홈에 보일 진행 상태. 회차의 문항을 다시 읽거나 새 풀이를 시작하지 않음."""
+        self._state()
+        first = self._index.mocks.get(mid)
+        exam = self._mock_exams.get(mid)
+        active = exam is not None and exam.result is None
+        return {'first_score': first['score'] if first else None, 'active': active,
+                'remaining': exam.remaining() if active else None, 'error': self.errors.get(mid, '')}
+
+    def _load_mock_reviews(self):
+        """첫 제출에서 틀리거나 비운 문항만 복습 카드로 읽음. 미제출 회차의 문항은 연습에 넣지 않음."""
+        for mid, row in self._index.mocks.items():
+            if mid in self._mock_loaded or mid not in self.mocks:
+                continue
+            try:
+                items, fingerprint = mock.load_items(self.root, self.mocks[mid])
+                if row.get('fingerprint') != fingerprint:
+                    raise mock.MockError('제출한 뒤 문제 자료가 바뀌었습니다. 이전 결과와 답안은 보존했습니다.')
+                cards = bank.cards_of({'id': mid}, {'items': list(items.values()), 'topics': [], 'gens': []})
+                for card in cards:
+                    if row.get('results', {}).get(card['id']) not in ('stuck', 'blank', 'partial'):
+                        continue
+                    card['mock'], card['after'] = mid, card['item'].get('lesson')
+                    self.cards[card['id']] = card
+            except mock.MockError as error:
+                self.errors[mid] = str(error)
+            self._mock_loaded.add(mid)
 
     def _load_pattern(self, group):
-        """상황별 코드 무리 하나를 읽음. 학습 노트, items/<무리>(facts·review 만 쓰고 정적 카드는 읽지 않음), 공개 단원의 뼈대 카드.
+        """상황별 코드 무리 하나를 읽음. 학습 노트, 사실·검토 기록과 수치 생성기, 공개 단원의 뼈대 카드.
         카드마다 시드 1 문항을 한 번 만들어 보고, 깨진 뼈대면 그 무리를 빼고 errors 에 이유를 둠."""
         gid = group["id"]
         try:
             note = bank.load_note({"id": group["page"], "title": group["title"]}, self.root)
-            data = bank.load_items({"id": gid}, self.root, with_gens=False)
+            data = bank.load_items({"id": gid}, self.root)
             units = {key: {"after": info["after"], "name": info["name"], "title": note["units"][key]["title"]}
                      for key, info in group["units"].items() if key in note["visible"]}
             made = skel.cards(group, self.skeletons, units)
@@ -180,10 +258,14 @@ class AiSession(object):
                 if card["pattern"] not in self.skeletons:
                     raise bank.AiBankError("뼈대 %s 를 찾을 수 없습니다." % card["pattern"])
                 skel.view(card, self.skeletons[card["pattern"]], 1)
+            generated = bank.pattern_gen_cards(group, data, units)
+            for card in generated:
+                gen.run(card["gen"], 1)
+            made.extend(generated)
         except bank.AiBankError as error:
             self.errors[gid] = str(error)
             return
-        except (KeyError, TypeError, ValueError, AttributeError, IndexError) as error:
+        except (gen.GenError, KeyError, TypeError, ValueError, AttributeError, IndexError) as error:
             self.errors[gid] = "뼈대 카드를 만들 수 없습니다: %s" % error
             return
         self.notes[gid], self.items[gid] = note, data
@@ -213,6 +295,8 @@ class AiSession(object):
             name = self.patterns[lid]["units"].get(key, {}).get("name", "")
             return "%s · %s" % (name, title) if name and title else (name or title)
         entry = self.lessons.get(lid)
+        if lid in self.mocks:
+            return self.mocks[lid]['title']
         return "%d차시 · %s" % (entry["no"], title) if entry else title
 
     def _home(self, card):
@@ -235,7 +319,10 @@ class AiSession(object):
             log = self.record.log
             if self._index is None or self._index_log is not log or self._index.n > len(log):
                 self._index, self._index_log = _LogIndex(), log  # 파일을 다시 읽었으면 처음부터
+                self.cards = {cid: card for cid, card in self.cards.items() if not card.get('mock')}
+                self._mock_loaded.clear()
             self._index.feed(log[self._index.n:])
+            self._load_mock_reviews()
             key = (self.record.version, self.today())
             if key == self._cache_key and self._cache is not None:
                 return self._cache
@@ -356,7 +443,7 @@ class AiSession(object):
         return {"lesson": lid, "title": self.lessons[lid]["title"], "units": units, "leeches": leeches}
 
     def revisit(self):
-        """다시 볼 단원. {"lesson", "unit", "title", "name"(단원 이름), "figure", "memo"} 이나 없으면 None."""
+        """다시 볼 단원. {"lesson", "unit", "title", "name"(단원 이름), "figure", "figure_info", "memo"} 이나 없으면 None."""
         state = self._state()
         found = state.revisit_pick()
         if found is None:
@@ -364,17 +451,18 @@ class AiSession(object):
         lid, key = found["lesson"], found["unit"]
         unit = self.notes[lid]["units"][key]
         meta = self.notes[lid]["unit_meta"].get(key, {})
-        figure = None
+        figure, figure_info = None, None
+        figures = [block for step in unit["steps"] for block in step["blocks"] if block["kind"] == "figure"]
         if meta.get("key_figure"):
             figure = os.path.join(self.notes[lid]["dir"], *str(meta["key_figure"]).split("/"))
-        else:
-            for step in unit["steps"]:
-                fig = next((b for b in step["blocks"] if b["kind"] == "figure"), None)
-                if fig:
-                    figure = fig["path"]
-                    break
+            figure_info = next((block for block in figures
+                                if os.path.normpath(block["path"]) == os.path.normpath(figure)), None)
+        elif figures:
+            figure_info = figures[0]
+            figure = figure_info["path"]
         memo = [item for step in unit["steps"] for b in step["blocks"] if b["kind"] == "memo" for item in b.get("items", [])]
-        return {"lesson": lid, "unit": key, "title": unit["title"], "name": self.unit_name(lid, key), "figure": figure, "memo": memo}
+        return {"lesson": lid, "unit": key, "title": unit["title"], "name": self.unit_name(lid, key), "figure": figure,
+                "figure_info": dict(figure_info) if figure_info else None, "memo": memo}
 
     # 기록
 
@@ -385,7 +473,7 @@ class AiSession(object):
             raise AiError(str(error))
 
     def mark_read(self, lid, key):
-        """마지막 단계를 보인 순간. 그 단원 핵심 카드가 열림."""
+        """마지막 단계에서 연습 시작을 누르면 기록함. 단원 연습 완료와 외운 문항 수는 따로 셈."""
         self._unit(lid, key)
         return self._append({"kind": "learn", "lesson": lid, "unit": key})
 
@@ -408,7 +496,7 @@ class AiSession(object):
     def check_rotate(self, lid, key, rid, slot, value, readonly=False):
         """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 판 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
         문맥 떼기를 씀. readonly 가 아니면 {"kind": "recall", "lesson", "unit", "id", "slot", "ok"} 를 한 번 기록하고 상자는
-        움직이지 않음. {"ok", "answer"(첫 답)}. 모르는 블록·자리면 AiError."""
+        움직이지 않음. {"ok", "answer"(첫 답), "explain"(같은 자리의 기존 해설)}. 모르는 블록·자리면 AiError."""
         unit = self._unit(lid, key)
         block = next((b for s in unit["steps"] for b in s["blocks"] if b["kind"] == "rotate" and str(b.get("id")) == str(rid)), None)
         if block is None or block.get("error"):
@@ -419,12 +507,13 @@ class AiSession(object):
         spot = next((s for s in made["slots"] if s["id"] == slot), None)
         if spot is None:
             raise AiError("돌려 가며 빈칸에 없는 자리입니다: %s" % slot)
-        answers = [str(a) for a in skel.entry_of(self.skeletons[str(block["skel"])], "slot", slot).get("answer") or []]
+        entry = skel.entry_of(self.skeletons[str(block["skel"])], "slot", slot)
+        answers = [str(a) for a in entry.get("answer") or []]
         item = {"stem": "```python\n%s\n```" % spot["code"], "blanks": [{"answer": answers, "mode": spot["mode"]}]}
         ok = grade.grade_item(item, [value], self.term_map)["result"] == "pass"
         if not readonly:
             self._append({"kind": "recall", "lesson": lid, "unit": key, "id": str(rid), "slot": str(slot), "ok": ok})
-        return {"ok": ok, "answer": answers[0] if answers else ""}
+        return {"ok": ok, "answer": answers[0] if answers else "", "explain": str(entry.get("explain") or "")}
 
     def check_recall(self, block, value):
         """떠올리기 칸 하나를 채점함(기록은 save_recall 이 함). block 은 unit_steps 의 recall 블록이나 세 수준 블록의 수준 하나이고
@@ -448,10 +537,94 @@ class AiSession(object):
         """학습 단원 중간 자리(로컬 state.json, 제출에 들어가지 않음)."""
         data = self._local()
         data.setdefault("at_step", {})["%s/%s" % (lid, key)] = int(step)
+        data["last_unit"] = [lid, key]
+        data["continuation"] = {"kind": "unit", "lesson": lid, "unit": key, "at": now()}
+        self._save_local(data)
+
+    def _save_local(self, data):
+        """제출 기록과 분리한 중간 상태를 저장함. 기존 키는 남김."""
         try:
             study.write_text(os.path.join(self.home, "state.json"), json.dumps(data, ensure_ascii=False, indent=1) + "\n")
         except OSError:
             pass  # 중간 자리는 편의라 못 써도 학습은 이어감
+
+    def completed_units(self):
+        """끝낸 단원 연습 묶음을 셈. 읽기 기록이나 마지막 단계 진입으로 완료를 추정하지 않음."""
+        return set(self._state().practice_completed)
+
+    def continuation(self):
+        """로컬의 마지막 학습 자리나 미완료 연습을 돌려줌. 예전 at_step과 제출 기록을 덮어쓰지 않음."""
+        self._state()
+        data = self._local()
+        cursor = data.get("continuation")
+        cursor = cursor if isinstance(cursor, dict) else {}
+        if cursor.get("kind") == "practice":
+            practice = self.resume_set()
+            if practice is not None:
+                return {"kind": "practice", "lesson": practice.lesson, "unit": practice.unit, "mode": practice.mode,
+                        "card": practice.card, "title": practice.title, "count": len(practice.queue), "at": cursor.get("at")}
+        rows = []
+        for entry in self.index["lessons"]:
+            lid = entry["id"]
+            if lid in self.notes:
+                rows += [dict(u, lesson=lid, unit=u["key"], no=entry["no"], order=i, name=self.unit_name(lid, u["key"]))
+                         for i, u in enumerate(self.unit_list(lid))]
+        for lid in self.patterns:
+            if lid in self.notes:
+                rows += [dict(u, lesson=lid, unit=u["key"], no=999, order=i, name=self.unit_name(lid, u["key"]))
+                         for i, u in enumerate(self.unit_list(lid))]
+        valid = {(r["lesson"], r["unit"]) for r in rows}
+        saved = data.get("last_unit")
+        last = tuple(saved) if isinstance(saved, list) and len(saved) == 2 and all(isinstance(v, str) for v in saved) else None
+        if last not in valid:
+            candidates = [tuple(k.split("/")) for k in data.get("at_step", {}) if len(k.split("/")) == 2]
+            last = next((key for key in reversed(candidates) if key in valid), None)
+        if last is None:
+            last = next(((e.get("lesson"), e.get("unit")) for e in reversed(self.record.log)
+                         if (e.get("lesson"), e.get("unit")) in valid), None)
+        completed = self.completed_units()
+        if cursor.get("kind") == "unit":
+            completed.discard(last)  # 완료한 단원을 직접 다시 읽는 중이면 그 자리를 이어 엶
+        target = plan.continue_unit(rows, last, completed)
+        if target is None:
+            return {"kind": "none", "at": cursor.get("at")}
+        target = dict(target, kind="unit", at=cursor.get("at"))
+        target["step"] = max(1, min(target["steps"], data.get("at_step", {}).get("%s/%s" % (target["lesson"], target["unit"]), 1)))
+        target["resuming"] = (target["lesson"], target["unit"]) == last
+        return target
+
+    def resume_set(self, mode=None, lesson=None, unit=None, card=None):
+        """미완료 묶음을 기록 추가 없이 복원함. 문항이나 답 기록이 달라졌으면 복원하지 않음."""
+        saved = self._local().get("practice")
+        if not isinstance(saved, dict):
+            return None
+        args = (saved.get("mode"), saved.get("lesson"), saved.get("unit"), saved.get("card"))
+        if mode is not None and args != (mode, lesson, unit, card):
+            return None
+        self._state()
+        rows = [e for e in self.record.log if e.get("set") == saved.get("id")]
+        if saved.get("set_records") != rows:
+            return None
+        if self._active_set is not None and self._active_set.id == saved.get("id"):
+            return None if self._active_set.ended else self._active_set
+        try:
+            practice = PracticeSet.restore(self, saved)
+        except (KeyError, TypeError, ValueError, IndexError):
+            return None
+        self._active_set = practice
+        return practice
+
+    def save_practice(self, practice, activate=False):
+        """현재 묶음과 입력 초안을 로컬에 저장함. 숨길 때 저장한 초안으로 새 학습 자리를 덮지 않음."""
+        if self._active_set is not practice:
+            return
+        data = self._local()
+        data["practice"] = practice.snapshot()
+        if activate:
+            data["continuation"] = {"kind": "practice", "at": now()}
+            if practice.lesson and practice.unit:
+                data["last_unit"] = [practice.lesson, practice.unit]
+        self._save_local(data)
 
     # 카드
 
@@ -479,7 +652,38 @@ class AiSession(object):
             raise AiError("문항을 찾을 수 없습니다: %s" % cid)
         return card
 
+    def note_target(self, cid):
+        """실제로 공개된 학습 단계만 참고 대상으로 돌려줌. 외부 자료 위치는 포함하지 않음."""
+        self._state()
+        card = self.cards.get(cid)
+        if card is None:
+            return None
+        lid = card.get("after") if card.get("mock") else card.get("lesson")
+        note = self.notes.get(lid)
+        found = re.fullmatch(r"([0-9]{1,2}[a-i])/([1-9][0-9]*)", str(card.get("step") or ""))
+        if note is None or found is None:
+            return None
+        key, number = found.group(1), int(found.group(2))
+        if key not in note["visible"] or not any(s["no"] == number for s in note["units"][key]["steps"]):
+            return None
+        return {"lesson": lid, "step": "%s/%d" % (key, number), "label": "%s %d단계" % (self.unit_name(lid, key), number)}
+
     # 연습
+
+    def review_status(self):
+        """자동 복습 후보 유무와 다음 복습 날짜를 돌려줌. 기록은 남기지 않음."""
+        return self._state().review_status()
+
+    def start_mock(self, mid, repeat=False, seed=None, clock=None, monotonic=None):
+        """회차를 시작하거나 로컬 초안을 이어 엶. 제출한 회차는 결과를 열고 repeat이면 새 풀이를 시작함."""
+        try:
+            if not repeat and mid in self._mock_exams:
+                return self._mock_exams[mid]
+            exam = mock.MockExam(self, mid, repeat=repeat, seed=seed, clock=clock or (lambda: now()), monotonic=monotonic)
+            self._mock_exams[mid] = exam
+            return exam
+        except mock.MockError as error:
+            raise AiError(str(error)) from error
 
     def start_set(self, mode, lesson=None, unit=None, mock=None, card=None, seed=None):
         """연습 묶음을 만들고 set 기록을 남김. 카드가 하나도 없으면 AiError."""
@@ -499,6 +703,8 @@ class AiSession(object):
         state = self._state()
         picked = build_set(self, state, mode, random.Random(seed), lesson=lesson, unit=unit, card=card)
         if not picked:
+            if mode in ("review", "sweep"):
+                raise AiError("지금 복습할 문항이 없습니다.")
             raise AiError("지금 풀 문항이 없습니다. 단원을 먼저 읽어 주세요.")
         day = state.today
         count = sum(1 for e in self.record.log if e.get("kind") == "set" and review.study_day(e.get("at")) == day)
@@ -508,7 +714,11 @@ class AiSession(object):
             if value:
                 entry[name] = value
         self._append(entry)
-        return PracticeSet(self, set_id, mode, picked, seed, lesson=lesson, unit=unit)
+        practice = PracticeSet(self, set_id, mode, picked, seed, lesson=lesson, unit=unit)
+        practice.card = card
+        self._active_set = practice
+        self.save_practice(practice, activate=True)
+        return practice
 
     def title_of(self, mode, lesson=None, unit=None):
         """연습 화면 제목(설계 2.6)."""
@@ -565,10 +775,25 @@ class AiSession(object):
                            and key in (e.get("also_value") or {})), None)
             if shared is not None:
                 mine = [str(shared["also_value"][key])]
+        elif card.get('mock'):
+            try:
+                path = os.path.join(self.home, 'mocks', '%s-1.json' % card['mock'])
+                draft = study.read_json(path)
+                first = state.index.mocks.get(card['mock'], {})
+                saved = None
+                if first.get('fingerprint') and draft.get('fingerprint') == first['fingerprint']:
+                    saved = draft.get('answers', {}).get(key)
+                if isinstance(saved, list):
+                    if card['kind'] == 'blank' and all(isinstance(value, str) for value in saved):
+                        mine = list(saved)
+                    elif card['kind'] == 'choice' and all(type(value) is int and 0 <= value < len(view['options']) for value in saved):
+                        mine = [view['options'][value]['text'] for value in saved]
+            except (OSError, ValueError, AttributeError, TypeError):
+                pass  # 다른 기기에 없는 로컬 답안은 빈 상태로 둠
         return {"key": key, "title": state.note_title(card), "name": self.unit_name(card["lesson"], card["unit"]),
                 "lines": lines, "stem": view["stem"], "kind": view["kind"], "pick": view.get("pick"),
                 "options": [o["text"] for o in view.get("options", [])], "code_options": bool(view.get("code_options")),
-                "mine": mine, "ref": card["ref"], "lesson": card["lesson"], "step": card.get("step"), "state": note["state"]}
+                "mine": mine, "ref": card["ref"], "lesson": card.get('after') if card.get('mock') else card["lesson"], "step": card.get("step"), "state": note["state"]}
 
     def _last_wrong(self, key):
         """그 카드의 마지막 틀린 답 기록(생성기 시드와 문장 카드 shown 을 다시 쓰려고). 없으면 None."""
@@ -586,16 +811,19 @@ class AiSession(object):
         """오답 노트에 다시 그릴 문항. 생성기는 기록의 시드로, 문장 카드는 기록의 shown 순서로 다시 만들고 shown 이 없으면 빈칸판.
         뼈대 카드는 기록의 답 줄(seed, masked, whole, fade, back)로 다시 만들고 기록이 없으면 f = 0 판."""
         entry = entry or {}
+        seed = entry.get("seed")
+        if seed is None:
+            seed = 1
         if card["kind"] in ("blank", "choice"):
             return dict(card["item"])
         if card["kind"] == "skel":
             record = entry if entry.get("kind") == "answer" else None
             try:
-                return skel.view(card, self.skeletons[card["pattern"]], int(entry.get("seed") or 1), record=record)
+                return skel.view(card, self.skeletons[card["pattern"]], int(seed), record=record)
             except (bank.AiBankError, KeyError) as error:
                 raise AiError("문항을 다시 만들 수 없습니다: %s" % error)
         if card["kind"] == "gen":
-            return gen.run(card["gen"], int(entry.get("seed") or 1))
+            return gen.run(card["gen"], int(seed))
         statement = card["stmt"]
         texts = {s["id"]: s for s in card["topic"].get("statements", [])}
         shown = [texts[i] for i in entry.get("shown") or [] if i in texts]
@@ -627,7 +855,10 @@ class AiSession(object):
 
     def overview(self):
         """홈과 허브의 현황(설계 2.13)."""
-        return self._state().overview()
+        result = self._state().overview()
+        result["continuation"] = self.continuation()
+        result["last_at"] = max(str(result.get("last_at") or ""), str(result["continuation"].get("at") or "")) or None
+        return result
 
 
 class _LogIndex(object):
@@ -639,6 +870,8 @@ class _LogIndex(object):
         self.reads, self.opened, self.guesses, self.revisits = {}, set(), {}, set()
         self.day_cards = {}
         self.sched, self.start_due = {}, {}
+        self.mocks = {}
+        self.related = []
         self.n = 0
 
     def feed(self, entries):
@@ -657,6 +890,10 @@ class _LogIndex(object):
                 self.revisits.add(where + (day,))
             elif kind == "answer" and e.get("card") and day is not None:
                 self.day_cards.setdefault(day, set()).add(str(e["card"]))
+            elif kind == 'mock_submit' and int(e.get('try') or 1) == 1:
+                self.mocks.setdefault(e.get('mock'), e)
+                if day is not None:
+                    self.related += [(cid, day + datetime.timedelta(days=1)) for cid in e.get('related') or [] if isinstance(cid, str)]
         self.n += len(entries)
 
 
@@ -666,12 +903,21 @@ class _State(object):
     def __init__(self, sess, index, today):
         self.sess, self.today, self.exam, self.index = sess, today, sess.exam, index
         self.log = sess.record.log
+        starts = {e.get("set"): (e.get("lesson"), e.get("unit")) for e in self.log
+                  if e.get("kind") == "set" and e.get("mode") == "unit"}
+        self.practice_completed = {starts[e.get("set")] for e in self.log
+                                   if e.get("kind") == "set_end" and e.get("set") in starts}
         self.events = index.events.events
         self.reads = index.reads
         self.opened = index.opened
         self.guesses = index.guesses
         self.revisited_today = {(lesson, unit) for lesson, unit, day in index.revisits if day == today}
         self.sched = {}
+        self._overview, self._overview_key = None, None
+        self.related_due = {}
+        for cid, day in index.related:
+            if cid in sess.cards and not any(row['src'] == 'answer' and row['day'] >= day for row in self.events.get(cid, [])):
+                self.related_due[cid] = min(day, self.related_due.get(cid, day))
         for cid, rows in self.events.items():
             read = self.read_day(cid)
             key = (index.events.ver.get(cid), today, read)
@@ -682,9 +928,10 @@ class _State(object):
             self.sched[cid] = hit[1]
         self.leeches = {cid for cid, s in self.sched.items() if review.leech(s)}
         self.new_today = sum(1 for cid, s in self.sched.items()
-                             if s and s["first"] == today and cid in sess.cards and not sess.cards[cid]["core"])
+                             if s and s["first"] == today and cid in sess.cards and not sess.cards[cid]["core"] and not sess.cards[cid].get('mock'))
         todays = {cid: self.events[cid] for cid in index.day_cards.get(today, ()) if cid in self.events}
         self.again = plan.again_cards(todays, today)
+        self.completed_today = set(todays) - set(self.again)
         self._notes = None
         self._units = {}
         for card in sess.cards.values():
@@ -711,7 +958,7 @@ class _State(object):
         return all((self.box(c["id"]) or 0) >= 2 for c in core)
 
     def is_open(self, card):
-        return card["id"] in self.events or (card["core"] and self.unlocked(card))
+        return card["id"] in self.events or card['id'] in self.related_due or (card["core"] and self.unlocked(card))
 
     def new_cap_left(self):
         """오늘 더 열 수 있는 비핵심 새 카드 수. NEW_PER_DAY 가 None 이면 상한 없음."""
@@ -722,7 +969,7 @@ class _State(object):
     def eligible_new(self, card):
         """아직 답한 적 없고 오늘 새로 낼 수 있는 카드인지. 차시 풀기로 연 차시(문제집)는 모든 카드, 읽은 단원은 핵심 카드와
         핵심이 모두 상자 2 이상인 단원의 비핵심 카드(last_new 뒤에는 비핵심을 새로 열지 않음). 비핵심 하루 상한은 묶음을 만들 때 셈."""
-        if card["id"] in self.events or not self.unlocked(card):
+        if card["id"] in self.events or card['id'] in self.related_due or not self.unlocked(card):
             return False
         if card["core"] or card["lesson"] in self.opened:
             return True
@@ -733,11 +980,14 @@ class _State(object):
 
     def due_day(self, cid):
         card = self.sess.cards.get(cid)
+        extra = self.related_due.get(cid)
         if cid not in self.sched:
             if card and card["core"] and self.unlocked(card) and review.in_sweep(self.exam, self.today):
-                return review.sweep_day(cid, self.exam)
-            return None
-        return review.due_on(self.sched[cid], cid, self.exam, self.today)
+                day = review.sweep_day(cid, self.exam)
+                return min(day, extra) if extra is not None else day
+            return extra
+        day = review.due_on(self.sched[cid], cid, self.exam, self.today)
+        return min(day, extra) if day is not None and extra is not None else (day or extra)
 
     def sure_wrong(self, cid):
         """확신 오답을 다시 보는 기간(확실함으로 틀린 다음 날부터 7일 뒤 다시 볼 날까지)인지."""
@@ -745,20 +995,27 @@ class _State(object):
         return bool(s) and s["recheck"] is not None and s["recheck"] >= self.today
 
     def due_cards(self):
-        """날짜가 된 복습 카드(상대 지연 큰 순). 12-01 에는 상자 1·확신 오답·자주 틀리는 문항만."""
+        """날짜가 된 복습 카드(상대 지연 큰 순). 마지막 복습일에는 상자 1·확신 오답·자주 틀리는 문항과
+        모의고사 관련 연습 카드를 남김."""
         last_day = self.exam.get("last_review") is not None and self.today == self.exam["last_review"]
         rows = []
         for cid, card in self.sess.cards.items():
             day = self.due_day(cid)
             if day is None or day > self.today:
                 continue
-            if last_day and not (self.box(cid) == 1 or self.sure_wrong(cid) or cid in self.leeches):
+            if last_day and cid not in self.related_due and not (self.box(cid) == 1 or self.sure_wrong(cid) or cid in self.leeches):
                 continue
             rows.append(cid)
         rows.sort(key=lambda c: (-review.relative_delay(self.sched.get(c), self.today), c))
         return rows
 
     # 묶음
+
+    def review_status(self):
+        """자동 복습과 같은 후보 규칙으로 낼 문항이 있는지 확인함. 다음 날짜는 전체 카드에서 셈."""
+        days = sorted(day for day in (self.due_day(cid) for cid in self.sess.cards) if day is not None and day > self.today)
+        upcoming = {"date": days[0].isoformat(), "text": _md(days[0]), "count": days.count(days[0])} if days else None
+        return {"available": bool(build_set(self.sess, self, "review", random.Random(0))), "next": upcoming}
 
     def is_preview(self, lesson):
         day = review.parse_day(lesson.get("date"))
@@ -769,7 +1026,7 @@ class _State(object):
         memorised = families_memorised(cards, self.sched)
         due = sum(1 for c in cards if (self.due_day(c["id"]) or datetime.date.max) <= self.today)
         return {"read": (lid, key) in self.reads, "cards": len(cards), "memorised": memorised,
-                "families": len({c["family"] for c in cards}), "due": due}
+                "families": len({c["family"] for c in cards}), "due": due, "practiced": (lid, key) in self.practice_completed}
 
     def revisit_pick(self):
         rows = []
@@ -897,6 +1154,15 @@ class _State(object):
         return out
 
     def overview(self):
+        key = (tuple(os.path.isfile(os.path.join(bank.mock_dir(mid, self.sess.root), "meta.json"))
+                     for mid in self.sess.mocks), tuple(sorted(self.sess.errors.items())),
+               plan.REVIEW_FIRST, plan.BACKLOG_HALF, NEW_PER_DAY, BACKLOG_HALF, DAILY_GOAL)
+        if self._overview is None or self._overview_key != key:
+            self._overview = self._make_overview()
+            self._overview_key = key
+        return copy.deepcopy(self._overview)
+
+    def _make_overview(self):
         sess = self.sess
         due = self.due_cards()
         lessons = []
@@ -973,6 +1239,23 @@ def recent_lines(log, most=5):
 
 # 묶음 만들기
 
+def _overlapping_pattern_answers(sess, first, second):
+    """같은 판의 줄 고르기와 고칠 줄 문항이 같은 답 줄을 보여주는지 확인함."""
+    a, b = sess.cards[first], sess.cards[second]
+    if a.get("kind") != "skel" or b.get("kind") != "skel" or a["pattern"] != b["pattern"]:
+        return False
+    if {a["part"], b["part"]} != {"pick", "change"}:
+        return False
+    pick, change = (a, b) if a["part"] == "pick" else (b, a)
+    skeleton = sess.skeletons[pick["pattern"]]
+    target = skel.lines_of(skeleton, pick["variant"])[pick["entry"]["line"]].strip()
+    entry = change["entry"]
+    if pick["variant"] not in (entry["from"], entry["to"]):
+        return False
+    rows = skel.diff(skeleton, entry["from"], entry["to"])["rows"]
+    return any(not row["same"] and target in {(row["left"] or "").strip(), (row["right"] or "").strip()} for row in rows)
+
+
 def _choose(sess, state, pools, size, rng, taken=()):
     """pools 의 순서대로 카드를 고름. family 하나, 생성기 GEN_SHARE·심화 DEEP_SHARE 상한, 심화 짝을 지킴. [(카드 id, 풀 이름)].
     taken 은 이미 고른 [(카드 id, 풀 이름)](상한과 family 를 이어 셈)."""
@@ -986,6 +1269,9 @@ def _choose(sess, state, pools, size, rng, taken=()):
     def can(cid):
         card = sess.cards[cid]
         if cid in seen or card["family"] in families:
+            return False
+        if card["kind"] == "skel" and any(_overlapping_pattern_answers(sess, cid, other) for other, _ in chosen
+                                          if sess.cards[other]["kind"] == "skel"):
             return False
         if card["kind"] == "gen" and gens >= gen_cap:
             return False
@@ -1206,18 +1492,20 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
 
     def weighted(ids):
         pool = list(ids)
+        weights = [sess._home(cards[c])["weight"] * cards[c]["prio"] * (6 - (state.box(c) or 0)) for c in pool]
         out = []
         while pool:
-            weights = [sess._home(cards[c])["weight"] * cards[c]["prio"] * (6 - (state.box(c) or 0)) for c in pool]
             total = sum(weights)
             mark, acc = rng.random() * total, 0.0
             for n, w in enumerate(weights):
                 acc += w
                 if acc >= mark:
                     out.append(pool.pop(n))
+                    weights.pop(n)
                     break
             else:
                 out.append(pool.pop())
+                weights.pop()
         return out
 
     size = SET_SIZE
@@ -1232,9 +1520,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
         overflow = [("new", fresh[UNIT_NEW:]), ("due", due[UNIT_REVIEW:])]  # 묶음이 SET_MIN 보다 작을 때만 씀
         pattern = "NNR"
     elif mode in ("review", "sweep"):
-        low = sorted([c for c in read_cards() if c not in due and c not in again and (state.box(c) or 0) <= 2],
+        low = sorted([c for c in read_cards() if c not in due and c not in again and c not in state.completed_today
+                      and (state.box(c) or 0) <= 2],
                      key=lambda c: (state.box(c) or 0, str(state.due_day(c)), c))
-        gens = [c for c in read_cards() if cards[c]["kind"] == "gen" and c not in due]
+        gens = [c for c in read_cards() if cards[c]["kind"] == "gen" and c not in due and c not in state.completed_today]
         rng.shuffle(gens)
         pools = [("again", again), ("due", due), ("low", low), ("gen", gens)]
     elif mode in ("mixed", "lesson"):
@@ -1270,7 +1559,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
     if len(chosen) < SET_MIN and overflow:
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
     chosen = _fix_blanks(sess, state, chosen, pools, protected)
-    chosen = _gen_trim(sess, chosen, keep={card} if mode == "note" else ())  # [다시 풀기]로 고른 생성기는 빼지 않음
+    keep = {card} if mode == "note" else set()
+    if mode in ("review", "sweep"):
+        keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
+    chosen = _gen_trim(sess, chosen, keep=keep)  # 직접 고른 문항과 예정일·미해결 생성기는 비율로 빼지 않음
     if mode == "unit":
         return _arrange(sess, state, chosen, rng, pattern)
     lead = [c for c, pool in chosen if pool == "lead"]
@@ -1304,6 +1596,56 @@ class PracticeSet(object):
         self.memorised_before = families_memorised([sess.cards[c] for c in cards], state.sched)
         self.title = sess.title_of(mode, lesson, unit)
         self.ended = False
+        self.card, self.draft = None, {}
+
+    def fingerprint(self):
+        """묶음의 문항·용어·뼈대가 바뀌었는지 비교할 해시를 구함."""
+        def generator(value):
+            if not isinstance(value, gen.GenSpec):
+                raise TypeError(type(value).__name__)
+            sources = []
+            for path in (value.path, os.path.join(self.sess.root, "items", "common", "gens.py")):
+                try:
+                    with open(path, "rb") as stream:
+                        sources.append(hashlib.sha256(stream.read()).hexdigest())
+                except OSError:
+                    sources.append(None)
+            return {"id": value.id, "meta": value.meta, "doc": value.doc, "sources": sources}
+
+        content = {"cards": [self.sess.cards[c] for c in self.stats], "terms": self.sess.terms,
+                   "skeletons": self.sess.skeletons}
+        return hashlib.sha256(json.dumps(content, ensure_ascii=False, sort_keys=True, default=generator).encode("utf-8")).hexdigest()
+
+    def snapshot(self):
+        """큐·현재 문항·답한 뒤 상태·입력 초안을 로컬 JSON 값으로 만듦."""
+        names = ("id", "mode", "lesson", "unit", "card", "queue", "pos", "stats", "answered", "_undo", "answers",
+                 "before", "had_before", "memorised_before", "title", "ended", "draft")
+        data = {name: getattr(self, name) for name in names}
+        data.update(rng=self.rng.getstate(), sure_before=sorted(self.sure_before),
+                    before_due={k: d.isoformat() if d else None for k, d in self.before_due.items()},
+                    fingerprint=self.fingerprint(), set_records=[e for e in self.sess.record.log if e.get("set") == self.id])
+        return data
+
+    @classmethod
+    def restore(cls, sess, saved):
+        """저장한 묶음의 시드와 답 상태를 이어 씀. 다시 채점하거나 set 기록을 추가하지 않음."""
+        if saved["ended"] or saved["mode"] not in MODES:
+            raise ValueError("끝난 묶음")
+        result = cls.__new__(cls)
+        result.sess = sess
+        for key in ("id", "mode", "lesson", "unit", "card", "queue", "pos", "stats", "answered", "_undo", "answers",
+                    "before", "had_before", "memorised_before", "title", "ended", "draft"):
+            setattr(result, key, copy.deepcopy(saved[key]))
+        if not 0 <= result.pos < len(result.queue) or any(e["card"] not in sess.cards for e in result.queue):
+            raise ValueError("문항이 바뀐 묶음")
+        if saved["fingerprint"] != result.fingerprint():
+            raise ValueError("문항이 바뀐 묶음")
+        result.before_due = {k: datetime.date.fromisoformat(d) if d else None for k, d in saved["before_due"].items()}
+        result.sure_before = set(saved["sure_before"])
+        result.rng = random.Random()
+        state = saved["rng"]
+        result.rng.setstate((state[0], tuple(state[1]), state[2]))
+        return result
 
     # 문항 보이기
 
@@ -1387,10 +1729,10 @@ class PracticeSet(object):
         form = item.get("kind") or view["form"]
         code = form == "blank" and bank.blanks_in_code(item.get("stem", ""))
         chips = []
-        lesson = self.sess.lessons.get(card["lesson"])
+        lesson = self.sess.lessons.get(card.get('after') if card.get('mock') else card["lesson"])
         if lesson:
             chips.append("%d차시" % lesson["no"])
-        elif card["kind"] == "skel":
+        elif card["lesson"] in self.sess.patterns:
             chips.append(card.get("name") or self.sess.place(card["lesson"])["label"])
         if card["kind"] == "skel":
             chips.append(skel.PART_CHIP[card["part"]])
@@ -1408,7 +1750,7 @@ class PracticeSet(object):
         return {"card": card["id"], "kind": form, "chips": chips, "stem": item.get("stem", ""),
                 "blanks": [{"mode": b.get("mode") or "word", "hint": b.get("hint", "")} for b in item.get("blanks") or []],
                 "options": options, "multi": bool(item.get("multi")), "pick": item.get("pick", "right"), "code": code,
-                "code_options": bool(item.get("code_options")), "grid": int(item.get("grid") or 1), "again": entry["again"], "step": card.get("step"), "lesson": card["lesson"], "at": self.pos + 1,
+                "code_options": bool(item.get("code_options")), "grid": int(item.get("grid") or 1), "again": entry["again"], "step": card.get("step"), "lesson": card.get('after') if card.get('mock') else card["lesson"], "at": self.pos + 1,
                 "total": len(self.queue), "answered": self.answered is not None}
 
     # 답하기
@@ -1484,14 +1826,16 @@ class PracticeSet(object):
 
     @staticmethod
     def _skel_row(card, item, row):
-        """뼈대 카드 답 줄에 다시 그릴 값을 더함. slot 은 fade·masked·whole, 반대 방향으로 낸 고칠 줄은 back."""
+        """답 줄에 다시 그릴 값을 더함. slot은 fade·masked·whole, change는 보기 판과 반대 방향 여부를 남김."""
         if card["kind"] != "skel":
             return
         made = item.get("skel") or {}
         if made.get("part") == "slot":
             row.update(fade=int(made.get("fade") or 0), masked=list(made.get("masked") or []), whole=bool(made.get("whole")))
-        elif made.get("back"):
-            row["back"] = True
+        elif made.get("part") == "change":
+            row["change_rev"] = made["change_rev"]
+            if made.get("back"):
+                row["back"] = True
 
     def _also(self, card, view, picked, graded):
         """문장 카드에서 고른 다른 보기. 그 보기가 열린 카드면 그 카드에도 stuck(설계 3.5, 열리지 않은 카드는 남기지 않음)."""
@@ -1534,6 +1878,7 @@ class PracticeSet(object):
         self._undo = (snapshot, entry, row)
         self._apply(entry, row["result"])
         self.answered = feedback
+        self.sess.save_practice(self, activate=True)
         return feedback
 
     def _apply(self, entry, result):
@@ -1585,6 +1930,7 @@ class PracticeSet(object):
         self._apply(entry, "pass")
         self.answered = dict(self.answered, result="pass", overridden=True, also=[])
         self._undo = None
+        self.sess.save_practice(self, activate=True)
         return self.answered
 
     def next(self):
@@ -1597,8 +1943,12 @@ class PracticeSet(object):
         try:
             if self.pos >= len(self.queue):
                 self._end()
+                self.sess.save_practice(self, activate=True)
                 return None
-            return self.current()
+            self.draft = {}
+            item = self.current()
+            self.sess.save_practice(self, activate=True)
+            return item
         except AiError:
             self.pos, self.answered, self._undo = saved  # 기록을 읽거나 쓰지 못했으면 [다음]을 다시 누를 수 있게 되돌림
             raise

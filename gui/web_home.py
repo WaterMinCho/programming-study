@@ -6,13 +6,13 @@
 바로 열리고 미리 고른 줄은 없음. 화면 낱말은 gui/web_text.py 가 만듦."""
 from PyQt6.QtWidgets import QButtonGroup, QWidget
 
-from gui import kit
+from gui import kit, theme
 from gui.web_setup import SetupDialog
 from gui.web_text import chain_line, date_text, gui_text, mission_line, next_item, ordinal, stack_status
 from webprep.record import RecordError
 from webprep.service import WebError
 
-ABOUT = "프런트엔드 채용의 라이브 코딩 미션과 직무 면접 꼬리 질문을 연습합니다."
+ABOUT = "프론트엔드 채용의 라이브 코딩 미션과 직무 면접 꼬리 질문을 연습합니다."
 REVIEW_ABOUT = "한 번 푼 꼬리 질문을 정해진 날에 다시 풀고, 아직 풀지 않은 사슬을 하루 몇 개씩 더합니다."
 NO_TODAY = "오늘 복습할 사슬이 없습니다."
 NO_STUCK = "'막혀도 끝까지 말함'은 꼬리 질문에서 필수 항목을 빠뜨린 뒤부터 셉니다."
@@ -53,49 +53,44 @@ class WebHomePage(QWidget):
 
         inner = QWidget()
         root = kit.box(inner, (0, 24, 0, 48))
-        root.addWidget(kit.label("웹 면접 준비", "title"))
-        root.addSpacing(4)
-        root.addWidget(kit.para(ABOUT, "body", "secondary"))
-        root.addSpacing(16)
+        root.addWidget(kit.heading(kit.label("웹 면접 준비", "title"), kit.para(ABOUT, "body", "secondary")))
+        root.addSpacing(theme.GAP["description_content"])
         self.notice = kit.banner("", "danger")  # 기록을 읽지 못한 까닭(오류), 읽지 못한 미션·주제·노트(주의)
         self.notice.hide()
         self.problem = kit.banner("", "warning")  # 검사 도구나 Node 가 없을 때의 안내
         self.problem.hide()
-        banners = QWidget()  # 띠 둘이 같이 보이면 8 띄움. 숨은 띠 옆에는 간격이 생기지 않음
-        banner_box = kit.box(banners, spacing=8)
+        banners = QWidget()  # 숨은 알림 자리를 비우고 다음 행동까지 묶음.
+        banner_box = kit.box(banners, spacing=theme.GAP["group"])
         banner_box.addWidget(self.notice)
         banner_box.addWidget(self.problem)
         root.addWidget(banners)
-        root.addSpacing(16)
         self.next_card = kit.NextCard()
         self.next_btn = self.next_card.button
         self.next_note = kit.para("", "body", "secondary")  # 할 일이 없을 때 카드 대신 보이는 한 줄
         self.next_note.hide()
-        root.addWidget(self.next_card)
-        root.addWidget(self.next_note)
+        banner_box.addWidget(self.next_card)
+        banner_box.addWidget(self.next_note)
 
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
         row, _, self.today_minutes = kit.section("오늘 복습")
-        root.addLayout(row)
-        root.addSpacing(4)
-        root.addWidget(kit.label(REVIEW_ABOUT, "caption", "secondary"))
-        root.addSpacing(12)
+        root.addWidget(kit.heading(row, kit.para(REVIEW_ABOUT, "caption", "secondary")))
+        root.addSpacing(theme.GAP["description_content"])
         self.today_list = kit.RowList()
         self.today_empty = kit.para(NO_TODAY, "body", "secondary")
         root.addWidget(self.today_list)
         root.addWidget(self.today_empty)
 
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
         row, _, self.mission_count = kit.section("라이브 코딩 미션")
         root.addLayout(row)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.mission_list = kit.RowList()
         root.addWidget(self.mission_list)
 
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
         row, _, self.topic_count = kit.section("꼬리 질문")
         root.addLayout(row)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.topic_card, card_box = kit.card(pad=0, spacing=0)
         card_box.setContentsMargins(0, 24, 0, 0)
         chips_holder = QWidget()
@@ -125,10 +120,10 @@ class WebHomePage(QWidget):
         self.talked = kit.label("", "caption", "secondary")
         root.addWidget(self.talked)
 
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
         row, _, self.page_count = kit.section("학습 노트")
         root.addLayout(row)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.page_list = kit.RowList()
         root.addWidget(self.page_list)
 

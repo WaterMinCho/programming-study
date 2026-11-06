@@ -146,6 +146,7 @@ class WebTest(unittest.TestCase):
             for dialog in (win.dialog, win.web_home.setup_dialog, win.web_mission.setup_dialog):
                 if dialog is not None:
                     dialog.close()
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()
@@ -256,12 +257,13 @@ class HubRowTest(WebTest):
         win = self.boot()
         hub = win.hub
         self.assertTrue(win.web_node_known)
-        self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 2개")
+        self.assertEqual(hub.web_row.second.text(), "새 학습 2개")
+        self.assertEqual(hub.web_row.metric.text(), "완료한 미션 0 / 1")
         self.assertFalse(hub.web_row.inert)
         today = datetime.date.today()
         self.assertEqual(hub.chart.days[-1], (today, 0, 0, 0, 0))
         self.assertEqual(hub.streak.text(), "연속 학습 0일")
-        self.assertEqual(hub.summary.text(), "이어서 할 공부를 시작하거나 아래에서 트랙을 고르세요.")
+        self.assertEqual(hub.summary.text(), "공부할 과목을 고르거나 이어서 진행하세요.")
         self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), ("진단 테스트", "시작"))  # 어느 트랙에도 기록이 없으면 파이썬
         self.assertTrue(hub.next_card.line.text().startswith("파이썬 스터디 · "), hub.next_card.line.text())
         self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
@@ -274,7 +276,7 @@ class HubRowTest(WebTest):
         hub.refresh()
         self.assertEqual(hub.chart.days[-1], (today, 0, 0, 2, 0))  # 검사 한 번과 끝낸 사슬 하나
         self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 1일", "채점 2회"))
-        self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 1개")
+        self.assertEqual(hub.web_row.second.text(), "새 학습 1개")
         self.assertEqual(hub.summary.text(), "진행 중인 미션 1개가 있습니다.")
         self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), (win.web.missions["x01"]["title"], "이어 하기"))
         self.assertTrue(hub.next_card.line.text().startswith("웹 면접 준비 · 라이브 코딩 미션 · 1단계 · "), hub.next_card.line.text())
@@ -284,7 +286,7 @@ class HubRowTest(WebTest):
         win.go_hub()
         self.node = None
         hub.refresh()
-        self.assertEqual(hub.web_row.second.text(), "미션 1개 중 0개 끝남 · 새 사슬 1개 · Node.js 없음")
+        self.assertEqual(hub.web_row.second.text(), "새 학습 1개 · 설정 필요")
 
     def test_broken_web_record_disables_the_row_and_the_other_tracks_still_work(self):
         study.write_text(self.record_path(), '{"log": [<<<<')
@@ -510,7 +512,8 @@ class HomeTest(WebTest):
         with mock.patch.object(stack, "install", return_value=failed):
             guikit.click(dialog.again_btn)
             self.idle()
-        self.assertEqual(dialog.result.text.text(), failed["message"])
+        self.assertIn("아래 로그를 확인", dialog.result.text.text())
+        self.assertEqual(dialog.result.text.toolTip(), failed["message"])
         self.assertEqual(dialog.result.property("tone"), "danger")
         self.assertIn("added 240 packages", dialog.log.toPlainText())
         self.assertTrue(dialog.log.isVisible())
@@ -732,6 +735,7 @@ class MissionTest(WebTest):
             self.tick(seconds=10)
             page.tick()
             self.assertEqual(page.timer_label.text(), "+" + ticked)
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()
@@ -1245,6 +1249,7 @@ class TextSizeTest(WebTest):
         QTest.keyClick(win, Qt.Key.Key_0, Qt.KeyboardModifier.ControlModifier)
         self.assertEqual((theme.state["text"], hub.summary.font().pixelSize()), ("large", 19))
         win.set_text("larger")
+        guikit.wait_until(lambda: win.pending_job is None)
         win.close()
         win.deleteLater()
         guikit.pump()
@@ -1259,6 +1264,7 @@ class TextSizeTest(WebTest):
             self.settings.setValue("zoom", zoom)
             win = self.boot()
             self.assertEqual((theme.state["text"], self.settings.value("text"), self.settings.contains("zoom")), (step, step, False), zoom)
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()
@@ -1276,7 +1282,7 @@ class LearnTest(WebTest):
         self.assertIn("그림 준비 중. 그림 1. 두 호출이 같은 값을 넣어", text)  # 고정 은행에는 그림 파일이 없음
         self.assertNotIn("내용:", text)
         self.assertEqual([p for p in learn.view.pieces if isinstance(p, FigureView)], [])
-        self.assertLessEqual(learn.view.width(), kit.READ_MIN + 2)  # 읽는 글 폭
+        self.assertLessEqual(learn.view.width(), kit.read_width(win.width()) + 2)  # 창에 맞춘 읽는 글 폭
         self.assertEqual(len(kit.visible_primary_buttons(learn)), 0)  # 읽기 화면에는 주 단추가 없음
         self.assertEqual((learn.next_row.isVisible(), learn.next_title.text()), (True, "일반 변수는 화면을 바꾸지 못합니다"))
         guikit.click(learn.next_btn)
@@ -1295,7 +1301,9 @@ class LearnTest(WebTest):
         figures = [p for p in learn.view.pieces if isinstance(p, FigureView)]
         self.assertEqual(len(figures), 1)
         self.assertEqual(figures[0].caption.text(), "그림 1. 두 호출이 같은 값을 넣어 숫자가 1 만 오릅니다.")
-        buttons = figures[0].findChildren(QPushButton)  # 그림의 단추는 여행 화면과 같은 kit 글자 단추 s
+        self.assertFalse(figures[0].error_box.isVisible())
+        buttons = [b for b in figures[0].findChildren(QPushButton)
+                   if not figures[0].error_box.isAncestorOf(b)]  # 오류 안내를 뺀 그림 조작은 여행 화면과 같은 kit 글자 단추 s
         self.assertTrue(buttons)
         self.assertEqual({(b.objectName(), b.property("scale")) for b in buttons}, {("text", "s")})
         self.assertEqual(learn.section, "90b")

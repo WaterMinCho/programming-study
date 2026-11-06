@@ -8,11 +8,11 @@
 읽고(학습 루프는 6차시 뒤) 이어서 할 일 카드도 그때 권하므로 맨 아래에 둠. 하루 목표는 두지 않고(2026-11-03 사용자 결정) 문제집을
 원하는 만큼 풀게 함. 문제집 줄은 외운 문항과 복습 문항을, 학습 단원 줄은 읽은 단원 수를, 상황별 코드 줄은 권하는 차시와 외운 문항·복습
 (안 읽었으면 읽는 시간)을 씀. 상황별 코드 단원은 권하는 차시를 읽기 전에도 열 수 있음.
-모의고사 구역은 그 은행이 생기면 더함(지금은 없어서 그리지 않음).
+모의고사 구역은 문항이 공개된 회차만 보임.
 차시 화면: 단원 줄, [전체 노트]·[외울 것], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
 from PyQt6.QtWidgets import QWidget
 
-from gui import ai_text, kit
+from gui import ai_text, kit, theme
 from gui.wrong_page import count_line
 from session import SessionError
 
@@ -33,45 +33,58 @@ class AiHomePage(QWidget):
 
         inner = QWidget()
         root = kit.box(inner, (0, 24, 0, 48))
-        root.addWidget(kit.label(ai_text.TRACK, "title"))
-        root.addSpacing(4)
-        root.addWidget(kit.para("\n".join(ai_text.STEPS), "body", "secondary"))
-        root.addSpacing(16)  # 알림 줄이 넷째 단계로 읽히지 않게 띄움
+        from gui import ai_guide
+        guide_line = QWidget()
+        guide_row = kit.box(guide_line, horizontal=True)
+        self.guide_btn = kit.button("학습·사용 안내")
+        self.guide_btn.clicked.connect(lambda: ai_guide.open_guide(self))
+        guide_row.addWidget(self.guide_btn)
+        guide_row.addStretch(1)
+        root.addWidget(kit.heading(kit.label(ai_text.TRACK, "title"),
+                                   guide_line))
+        root.addSpacing(theme.GAP["description_content"])
+        lead = QWidget()
+        lead_box = kit.box(lead, spacing=theme.GAP["group"])
         self.info = kit.label("", "caption", "secondary")
-        root.addWidget(self.info)
-        root.addSpacing(16)
+        lead_box.addWidget(self.info)
         self.notice = kit.banner("", "danger")  # 기록을 읽지 못한 까닭이나 읽지 못한 차시
         self.notice.hide()
-        root.addWidget(self.notice)
-        root.addSpacing(16)
+        lead_box.addWidget(self.notice)
         self.next_card = kit.NextCard()
         self.next_btn = self.next_card.button
-        root.addWidget(self.next_card)
+        lead_box.addWidget(self.next_card)
+        root.addWidget(lead)
 
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
         head, _, self.lesson_count = kit.section("학습 단원")
         root.addLayout(head)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.lesson_list = kit.RowList()
         root.addWidget(self.lesson_list)
 
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
         head, _, _ = kit.section("문제집")
-        root.addLayout(head)
-        root.addSpacing(4)
-        root.addWidget(kit.para(ai_text.TERMS, "caption", "secondary"))  # 문제집 줄의 둘째 줄이 쓰는 낱말(복습 문항, 외운 문항)을 목록 바로 위에서 풂
-        root.addSpacing(12)
+        root.addWidget(kit.heading(head, kit.para(ai_text.TERMS, "caption", "secondary")))
+        root.addSpacing(theme.GAP["description_content"])
         self.books = kit.RowList()
         root.addWidget(self.books)
 
         self.pattern_section = QWidget()  # index.json 에 상황별 코드 무리가 없으면 숨김
-        pattern_box = kit.box(self.pattern_section, (0, 48, 0, 0))
+        pattern_box = kit.box(self.pattern_section, (0, theme.GAP["section"], 0, 0))
         head, _, _ = kit.section("상황별 코드")
         pattern_box.addLayout(head)
-        pattern_box.addSpacing(12)
+        pattern_box.addSpacing(theme.GAP["description_content"])
         self.pattern_list = kit.RowList()
         pattern_box.addWidget(self.pattern_list)
         root.addWidget(self.pattern_section)
+        self.mock_section = QWidget()
+        mock_box = kit.box(self.mock_section, (0, theme.GAP["section"], 0, 0))
+        head, _, _ = kit.section('모의고사')
+        mock_box.addWidget(kit.heading(head, kit.para('제한 시간 동안 풀고 제출한 뒤 정답과 해설을 확인합니다. 중간에 나가도 시간은 계속 흐릅니다.', 'caption', 'secondary')))
+        mock_box.addSpacing(theme.GAP["description_content"])
+        self.mock_list = kit.RowList()
+        mock_box.addWidget(self.mock_list)
+        root.addWidget(self.mock_section)
         root.addStretch(1)
         column = kit.column(inner)
         column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
@@ -95,6 +108,7 @@ class AiHomePage(QWidget):
             self.lesson_list.clear()
             self.pattern_list.clear()
             self.pattern_section.hide()
+            self.mock_section.hide()
             self.next_card.hide()
             self.show_books(None)
             return
@@ -111,6 +125,26 @@ class AiHomePage(QWidget):
         self.show_books(overview)
         self.show_lessons(overview)
         self.show_patterns(overview)
+        self.show_mocks(overview)
+
+    def show_mocks(self, overview):
+        self.mock_list.clear()
+        rows = [row for row in overview['mocks'] if row['ready']]
+        self.mock_section.setVisible(bool(rows))
+        for spec in rows:
+            state = self.win.ai.mock_state(spec['id'])
+            end = '풀기 전'
+            if state['error']:
+                end = '자료 확인 필요'
+            elif state['active']:
+                end = '남은 시간 %d분' % ((state['remaining'] + 59) // 60)
+            elif state['first_score'] is not None:
+                end = '%d / %d' % (state['first_score'], spec['count'])
+            row = self.mock_list.add(kit.Row(spec['title'], '%d문항 · %d분 · %d~%d차시' %
+                                            (spec['count'], spec['minutes'], spec['range'][0], spec['range'][1]), end=end))
+            if state['error']:
+                row.setToolTip(state['error'])
+            row.clicked.connect(lambda checked=False, mid=spec['id']: self.win.open_ai_mock(mid))
 
     def show_books(self, overview):
         """문제집 구역. 섞어 풀기, 공개된 차시마다 차시 문제집, 오답 노트 순. overview 가 None 이면(기록을 읽지 못함) 줄 이름만 두고 끔."""
@@ -147,10 +181,10 @@ class AiHomePage(QWidget):
         for row in overview["lessons"]:
             if not row["ready"]:
                 if not row.get("error"):
-                    waiting.append("%d차시 %s" % (row["no"], row["title"]))
+                    waiting.append(ai_text.lesson_title(row["no"], row["title"]))
                 continue
             ready += 1
-            line = kit.Row("%d차시 %s" % (row["no"], row["title"]), ai_text.lesson_line(row), "예습" if row["preview"] else "",
+            line = kit.Row(ai_text.lesson_title(row["no"], row["title"]), ai_text.lesson_line(row), "예습" if row["preview"] else "",
                            kit.Dot(ai_text.lesson_dot(row)), row["id"])
             line.clicked.connect(lambda lid=row["id"]: self.open_lesson(lid))
             self.lesson_list.add(line)
@@ -170,8 +204,10 @@ class AiHomePage(QWidget):
                 if not unit["ready"]:
                     waiting.append(unit["label"])
                     continue
-                row = kit.Row(unit["label"], ai_text.pattern_line(unit), mark=kit.Dot("done" if unit["read"] else "todo"),
-                              data=(group["id"], unit["key"]))
+                dot = "done" if unit.get("practiced") else "progress" if unit["read"] else "todo"
+                row = kit.Row(unit["label"], ai_text.pattern_line(unit), mark=kit.Dot(dot),
+                              data=(group["id"], unit["key"]), wrap=True)
+                row.setToolTip(ai_text.TERMS)
                 row.clicked.connect(lambda lid=group["id"], key=unit["key"]: self.open_unit(lid, key))
                 self.pattern_list.add(row)
         self.pattern_list.add_more(waiting, ai_text.PREPARING)
@@ -198,24 +234,28 @@ class AiHomePage(QWidget):
             self.win.show_wrong("ai", "ai")
 
     def open_next(self):
-        """이어서 할 일. 안 읽은 단원, 복습(오늘 틀린 문항이 맨 앞에 나옴), 다시 보기."""
+        """마지막 학습 단계나 미완료 연습 묶음을 엶."""
         target = self.target
         if target is None or self.busy:
             return
         kind = target["kind"]
         if kind == "unit":
-            self.win.open_ai_unit(target["lesson"], target["unit"])
+            self.win.open_ai_unit(target["lesson"], target["unit"], target.get("step"))
+        elif kind == "practice":
+            self.win.open_ai_practice(target["mode"], lesson=target.get("lesson"), unit=target.get("unit"), card=target.get("card"))
         elif kind in ("review", "again"):
             self.win.open_ai_practice("review")
         elif kind == "revisit":
             self.win.open_ai_revisit()
+        elif kind == 'mock':
+            self.win.open_ai_mock(target['mock'])
 
     def set_busy(self, busy, text=""):
         """문제 받기·제출이 기록을 쓰는 동안 줄과 단추를 끔. 섞어 풀기는 끝나도 읽은 단원이 있을 때만 다시 켬."""
         self.busy = busy
         for widget in (self.hub_btn, self.next_btn):
             widget.setEnabled(not busy)
-        for row in self.books.rows + self.lesson_list.rows + self.pattern_list.rows:
+        for row in self.books.rows + self.lesson_list.rows + self.pattern_list.rows + self.mock_list.rows:
             kit.set_inert(row, busy or (row is self.mixed_row and not self.mixed_ready))
 
     def restyle(self):
@@ -237,14 +277,14 @@ class AiLessonPage(QWidget):
         self.back_btn, self.title = self.top.back, self.top.title
         self.note_btn = self.top.add_right(kit.button("전체 노트", "text", "s"))
         self.memo_btn = self.top.add_right(kit.button("외울 것", "text", "s"), flush=True)
-        self.note_btn.setToolTip("이 차시의 모든 단원을 정답을 편 채로 다시 읽습니다. 다시 읽기는 외운 문항에 넣지 않습니다.")
+        self.note_btn.setToolTip("이 차시의 모든 단원을 정답을 편 채로 다시 읽습니다. 다시 읽기는 복습 확인 기록으로 세지 않습니다.")
         self.memo_btn.setToolTip("이 차시 모든 단원의 외울 것을 답을 가린 질문으로 모아 봅니다.")
         outer.addWidget(self.top)
         inner = QWidget()
         root = kit.box(inner, (0, 24, 0, 48))
         head, _, self.unit_count = kit.section("단원")
-        root.addLayout(head)
-        root.addSpacing(12)
+        root.addWidget(kit.heading(head, kit.para("읽기·단원 연습·날짜를 띄운 복습 확인 기록을 따로 표시합니다.", "caption", "secondary")))
+        root.addSpacing(theme.GAP["description_content"])
         self.unit_list = kit.RowList()
         root.addWidget(self.unit_list)
         root.addSpacing(16)
@@ -266,12 +306,14 @@ class AiLessonPage(QWidget):
         """차시를 올림. 준비 중이거나 읽지 못한 차시면 AiError."""
         data = self.win.ai.lesson(lid)
         self.lid = lid
-        self.title.setText("%d차시 %s" % (data["no"], data["title"]))
+        self.title.setText(ai_text.lesson_title(data["no"], data["title"]))
         self.title.show()
         self.unit_list.clear()
         for unit in data["units"]:
+            dot = "done" if unit.get("practiced") else "progress" if unit["read"] else "todo"
             row = kit.Row(unit["title"], ai_text.unit_line(unit), " · ".join(ai_text.unit_badges(unit)),
-                          kit.Dot("done" if unit["read"] else "todo"), unit["key"])
+                          kit.Dot(dot), unit["key"], wrap=True)
+            row.setToolTip(ai_text.TERMS)
             row.clicked.connect(lambda key=unit["key"]: self.open_unit(key))
             self.unit_list.add(row)
         read = sum(1 for unit in data["units"] if unit["read"])

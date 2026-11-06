@@ -110,10 +110,10 @@ def imbalance_count(r):
     if r.chance(0.5):
         weight = dec(Fraction(neg, pos), 2)
         return blank(
-            stem="정상 거래 %s건, 사기 거래 %s건입니다. 노트북 02처럼 음성 수 ÷ 양성 수로 정한 `pos_weight`는 ____ 입니다."
+            stem="별도의 훈련 데이터에 정상 거래 %s건, 사기 거래 %s건이 있습니다. 이 훈련 정답의 음성 수 ÷ 양성 수로 정한 `pos_weight`는 ____ 입니다."
                  % (num(neg), num(pos)),
             blanks=[{"answer": [weight], "mode": "number", "hint": "숫자"}],
-            explain="사기 거래가 양성이라 %s ÷ %s = %s입니다. 사기 거래 손실에 이 수를 곱하면 %s × %s = %s로 정상 거래 수와 같은 무게가 됩니다."
+            explain="사기 거래가 양성이므로 훈련 음성 수 ÷ 훈련 양성 수 = %s ÷ %s = %s입니다. 가중한 양성 건수 %s × %s = %s는 음성 건수와 같습니다. 실제 손실 합은 각 예측값에도 달려 있습니다."
                     % (num(neg), num(pos), weight, num(pos), weight, num(neg)),
             params={"neg": neg, "pos": pos, "ask": "weight"})
     value = Fraction(neg, neg + pos)

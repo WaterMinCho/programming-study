@@ -12,7 +12,7 @@
 같은 곳. 14~19자 근접 구간은 10개까지 검토자에게 보임. 결과에는 우리 글 쪽 위치와 앞 30자만 적고 강의 글은 찍지 않음.
 대상은 학습 노트(글, 캡션, 프레임 줄, ai-* 블록 글), 문항(지문, 보기, why, 해설), 문장, facts.json 의 text, 생성기 견본 5개, 모의고사,
 상황별 코드 뼈대(ai/patterns/S*.json 의 판 줄과 고르기 오답 줄은 코드, 상황·지문·해설·why·aim·hint 는 산문)와 items/pc 의
-facts·errata 글. 뼈대는 노트북 원문을 옮기지 않고 같은 API 를 이 트랙 이름(x, y, out, loader)으로 써서 겹침 규칙을 면제 없이
+facts·errata 글과 공개 단원의 생성기 견본. 뼈대는 노트북 원문을 옮기지 않고 같은 API 를 이 트랙 이름(x, y, out, loader)으로 써서 겹침 규칙을 면제 없이
 통과시킴. 대상에 l18·pc·S1 가운데 하나라도 있으면 l18 노트, 뼈대 전부, items/pc 가 함께 대상이 되고 말뭉치에 모든 차시 폴더를 넣음.
 """
 import argparse
@@ -32,6 +32,7 @@ from webprep import bank as webbank  # noqa: E402
 
 PROSE_MIN, PROSE_HANGUL, NEAR_MIN, NEAR_SHOWN = 20, 10, 14, 10
 CODE_MIN, LINE_MIN, LINE_RUN = 120, 10, 3
+COMMON_TRAINING_LINES = frozenset(("loss.backward()", "optimizer.step()", "model.eval()", "withtorch.no_grad():"))
 GEN_SAMPLES = 5
 HANGUL = re.compile("[가-힣]")
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
@@ -191,6 +192,15 @@ def pattern_targets(bank_dir, index):
         idir = aibank.items_dir(group["id"], bank_dir)
         if not os.path.isfile(os.path.join(idir, "meta.json")):
             continue
+        data = aibank.load_items({"id": group["id"]}, bank_dir)
+        note = aibank.load_note({"id": group["page"], "title": group["title"]}, bank_dir)
+        units = {key: info for key, info in group["units"].items() if key in note["visible"]}
+        for card in aibank.pattern_gen_cards(group, data, units):
+            spec = card["gen"]
+            for seed in range(1, GEN_SAMPLES + 1):
+                made = genlib.run(spec, seed)
+                prose, code = split_markdown(made.get("stem", "") + "\n" + made.get("explain", ""))
+                out.append(("%s %s 시드 %d" % (group["id"], spec.id, seed), prose, code))
         facts = json.loads(webbank.load_secrets(idir).get("facts.json", '{"facts": []}'))
         for fact in facts.get("facts") or []:
             out.append(("%s facts %s" % (group["id"], fact.get("id")), str(fact.get("text") or ""), ""))
@@ -287,7 +297,8 @@ def overlaps(our, lecture):
     for text in lecture["code"]:
         lines = [code_norm(ln) for ln in text.split("\n")]
         lines = [ln for ln in lines if len(ln) > LINE_MIN]
-        runs |= {tuple(lines[k:k + LINE_RUN]) for k in range(len(lines) - LINE_RUN + 1)}
+        runs |= {tuple(lines[k:k + LINE_RUN]) for k in range(len(lines) - LINE_RUN + 1)
+                 if not set(lines[k:k + LINE_RUN]) <= COMMON_TRAINING_LINES}
     for n, (_, _, code) in enumerate(our):
         lines = [code_norm(ln) for ln in code.split("\n")]
         lines = [ln for ln in lines if len(ln) > LINE_MIN]

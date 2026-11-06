@@ -4,7 +4,8 @@
 지원: 제목(#), 문단, 펜스 코드 블록(목록 안 들여쓴 것·`1. ```python` 꼴 포함), 번호/글머리 목록(중첩),
       인용(>), 표(| a | b |, 셀 안 <br>, \\| 이스케이프), 인라인 `코드`·``코드``·**굵게**,
       이미지(한 줄 전체 `![캡션](경로)`. 문단·목록·인용 안의 것은 글자 그대로 보여 줌).
-지원하지 않는 것(은행에 없음): 링크, 기울임, 취소선, HTML 태그(문자 그대로 보여 줌).
+정확한 쌍으로 닫힌 <mark>강조</mark>·<u>밑줄</u>도 지원함. 다른 HTML 태그는 문자 그대로 보여 줌.
+지원하지 않는 것(은행에 없음): 링크, 기울임, 취소선.
 """
 import html
 import re
@@ -15,7 +16,7 @@ OL_RE = re.compile(r"^(\s*)(\d+)([.)])(\s+)(.*)$")
 UL_RE = re.compile(r"^(\s*)([-*+])(\s+)(.*)$")
 SEP_RE = re.compile(r"^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$")
 IMAGE_RE = re.compile(r"^!\[([^\]]*)\]\(([^)\s]+)\)\s*$")
-INLINE_RE = re.compile(r"(``.+?``|`[^`\n]*`|\*\*.+?\*\*|<br\s*/?>|\\[\\`*_|<>#\[\]()-])")
+INLINE_RE = re.compile(r"(``.+?``|`[^`\n]*`|<mark>[\s\S]+?</mark>|<u>[\s\S]+?</u>|\*\*.+?\*\*|<br\s*/?>|\\[\\`*_|<>#\[\]()-])")
 
 
 def indent_of(line):
@@ -173,6 +174,10 @@ def inline_tokens(text):
             out.append(("code", part[1:-1]))
         elif part.startswith("**") and part.endswith("**") and len(part) > 4:
             out.append(("bold", inline_tokens(part[2:-2])))
+        elif part.startswith("<mark>") and part.endswith("</mark>"):
+            out.append(("mark", inline_tokens(part[6:-7])))
+        elif part.startswith("<u>") and part.endswith("</u>"):
+            out.append(("underline", inline_tokens(part[3:-4])))
         elif re.fullmatch(r"<br\s*/?>", part):
             out.append(("br", ""))
         elif len(part) == 2 and part[0] == "\\":
@@ -190,6 +195,10 @@ def inline_html(text):
                 buf.append("<code>%s</code>" % html.escape(val, quote=False))
             elif kind == "bold":
                 buf.append("<b>%s</b>" % render(val))
+            elif kind == "mark":
+                buf.append('<span class="highlight"><b>%s</b></span>' % render(val))
+            elif kind == "underline":
+                buf.append("<u>%s</u>" % render(val))
             elif kind == "br":
                 buf.append("<br/>")
             else:
@@ -200,7 +209,7 @@ def inline_html(text):
 
 def inline_plain(text):
     def render(tokens):
-        return "".join("\n" if k == "br" else (render(v) if k == "bold" else v) for k, v in tokens)
+        return "".join("\n" if k == "br" else (render(v) if k in ("bold", "mark", "underline") else v) for k, v in tokens)
     return render(inline_tokens(text))
 
 
@@ -280,16 +289,18 @@ def expected(text):
                 if kind == "code":
                     exp["inline_code"].append(val)
                     exp["plain"].append(val)
-                elif kind == "bold":
+                elif kind in ("bold", "mark"):
                     if not in_heading and not in_th:
                         exp["bold"].append(inline_plain_tokens(val))
                     rec(val, True)
+                elif kind == "underline":
+                    rec(val, bold)
                 elif kind == "text":
                     exp["plain"].append(val)
         rec(inline_tokens(text))
 
     def inline_plain_tokens(tokens):
-        return "".join(v if k in ("text", "code") else "" for k, v in tokens)
+        return "".join(v if k in ("text", "code") else inline_plain_tokens(v) if k != "br" else "\n" for k, v in tokens)
 
     def walk(blocks):
         for b in blocks:

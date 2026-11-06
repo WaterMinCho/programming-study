@@ -1,0 +1,518 @@
+{
+ "format": 1,
+ "stages": {
+  "tools": {
+   "title": "기초 도구",
+   "output": "학습 계산을 표현할 코드",
+   "question": "지금 배운 도구는 학습 흐름에서 어떤 값을 다룰 때 쓸 수 있을까요?",
+   "answer": "배열·텐서와 파이썬 문법은 입력, 정답, 파라미터, 예측, 기울기를 저장하고 계산하는 데 씁니다. 이 단원의 예에서 어떤 값이 들어오고 나가는지 짚어보세요."
+  },
+  "data": {
+   "title": "입력 준비",
+   "output": "입력과 그에 대응하는 정답",
+   "question": "입력의 모양이나 정답의 대응이 어긋나면 뒤의 계산을 믿을 수 있을까요?",
+   "answer": "모델이 받는 모양과 자료형을 맞추고 각 입력에 올바른 정답을 연결해야 합니다. 어긋나면 계산 오류가 나거나 의도한 문제와 다른 기준으로 학습할 수 있습니다."
+  },
+  "predict": {
+   "title": "예측",
+   "output": "현재 파라미터로 계산한 모델 출력",
+   "question": "모델이 예측을 한 번 만들면 파라미터도 바뀔까요?",
+   "answer": "일반적인 순전파는 현재 파라미터로 출력을 계산합니다. 학습 가능한 파라미터의 갱신은 기울기를 구한 뒤 옵티마이저가 맡습니다. 학습 모드의 정규화 통계 등은 별도로 변할 수 있습니다."
+  },
+  "loss": {
+   "title": "손실",
+   "output": "예측과 정답의 차이를 나타내는 값",
+   "question": "손실값 하나를 아는 것과 파라미터를 바꿀 방향을 아는 것은 어떻게 다를까요?",
+   "answer": "손실은 예측이 정답과 얼마나 다른지를 정한 기준으로 계산한 값입니다. 각 파라미터를 조금 바꿀 때 손실이 어떻게 변하는지는 그 파라미터에 대한 기울기로 구합니다."
+  },
+  "gradient": {
+   "title": "기울기",
+   "output": "각 파라미터에 대한 손실의 변화율",
+   "question": "backward()로 기울기를 구했다면, 파라미터를 바꾸려면 무엇이 더 필요할까요?",
+   "answer": "기울기 계산과 파라미터 갱신은 다른 과정입니다. 보통 backward()는 기울기를 저장하고, optimizer.step()이 등록된 파라미터를 갱신합니다."
+  },
+  "update": {
+   "title": "갱신",
+   "output": "옵티마이저가 갱신한 파라미터",
+   "question": "파라미터를 갱신한 뒤 새 예측과 새 손실을 보려면 무엇을 다시 계산해야 할까요?",
+   "answer": "새 파라미터로 순전파와 손실 계산을 다시 해야 합니다. 앞에서 계산해 둔 예측이나 loss 변수가 step() 호출만으로 새 값으로 바뀌지는 않습니다."
+  },
+  "evaluate": {
+   "title": "평가",
+   "output": "별도 자료에서 확인한 예측·손실·지표",
+   "question": "검증 결과를 보고 모델이나 설정을 골랐다면 최종 성능은 어떤 자료로 확인할까요?",
+   "answer": "선택에 쓰지 않은 테스트 자료를 남겨 최종 성능을 확인합니다. 일반적인 평가는 model.eval()과 no_grad() 등을 사용하며 파라미터 갱신은 하지 않습니다."
+  }
+ },
+ "units": {
+  "1a": [
+   "predict",
+   "loss",
+   "gradient",
+   "update"
+  ],
+  "1b": [
+   "predict",
+   "loss",
+   "gradient",
+   "update"
+  ],
+  "1c": [
+   "tools",
+   "data"
+  ],
+  "1d": [
+   "predict",
+   "gradient"
+  ],
+  "1e": [
+   "gradient"
+  ],
+  "1f": [
+   "tools",
+   "predict"
+  ],
+  "1g": [
+   "tools"
+  ],
+  "2a": [
+   "tools",
+   "data"
+  ],
+  "2b": [
+   "data"
+  ],
+  "2c": [
+   "data",
+   "predict"
+  ],
+  "2d": [
+   "predict"
+  ],
+  "2e": [
+   "data",
+   "loss",
+   "evaluate"
+  ],
+  "2f": [
+   "data",
+   "evaluate"
+  ],
+  "3a": [
+   "tools",
+   "data"
+  ],
+  "3b": [
+   "tools",
+   "data"
+  ],
+  "3c": [
+   "tools",
+   "evaluate"
+  ],
+  "3d": [
+   "data",
+   "predict"
+  ],
+  "3e": [
+   "predict"
+  ],
+  "3f": [
+   "gradient"
+  ],
+  "3g": [
+   "gradient"
+  ],
+  "3h": [
+   "tools",
+   "data",
+   "evaluate"
+  ],
+  "4a": [
+   "predict",
+   "loss"
+  ],
+  "4b": [
+   "gradient",
+   "update"
+  ],
+  "4c": [
+   "gradient",
+   "update"
+  ],
+  "4d": [
+   "predict"
+  ],
+  "4e": [
+   "predict",
+   "gradient"
+  ],
+  "4f": [
+   "update"
+  ],
+  "4g": [
+   "data",
+   "evaluate"
+  ],
+  "4h": [
+   "evaluate"
+  ],
+  "5a": [
+   "predict"
+  ],
+  "5b": [
+   "predict"
+  ],
+  "5c": [
+   "gradient"
+  ],
+  "5d": [
+   "data",
+   "update"
+  ],
+  "5e": [
+   "update"
+  ],
+  "5f": [
+   "predict",
+   "evaluate"
+  ],
+  "5g": [
+   "data",
+   "predict",
+   "loss",
+   "gradient",
+   "update"
+  ],
+  "6a": [
+   "loss"
+  ],
+  "6b": [
+   "loss",
+   "gradient"
+  ],
+  "6c": [
+   "predict",
+   "loss"
+  ],
+  "6d": [
+   "predict",
+   "loss"
+  ],
+  "6e": [
+   "loss"
+  ],
+  "6f": [
+   "loss",
+   "update"
+  ],
+  "7a": [
+   "predict"
+  ],
+  "7b": [
+   "loss",
+   "predict"
+  ],
+  "7c": [
+   "predict"
+  ],
+  "7d": [
+   "predict",
+   "loss"
+  ],
+  "7e": [
+   "data",
+   "predict",
+   "loss",
+   "gradient",
+   "update"
+  ],
+  "7f": [
+   "loss",
+   "evaluate"
+  ],
+  "7g": [
+   "predict",
+   "evaluate"
+  ],
+  "8a": [
+   "predict"
+  ],
+  "8b": [
+   "data",
+   "evaluate"
+  ],
+  "8c": [
+   "predict"
+  ],
+  "8d": [
+   "predict",
+   "loss"
+  ],
+  "8e": [
+   "data",
+   "loss",
+   "evaluate"
+  ],
+  "8f": [
+   "evaluate"
+  ],
+  "8g": [
+   "data",
+   "predict",
+   "loss",
+   "evaluate"
+  ],
+  "9a": [
+   "predict"
+  ],
+  "9b": [
+   "predict"
+  ],
+  "9c": [
+   "predict",
+   "loss"
+  ],
+  "9d": [
+   "loss"
+  ],
+  "9e": [
+   "evaluate"
+  ],
+  "9f": [
+   "evaluate"
+  ],
+  "9g": [
+   "data",
+   "predict",
+   "loss",
+   "gradient",
+   "update",
+   "evaluate"
+  ],
+  "10a": [
+   "data",
+   "predict"
+  ],
+  "10b": [
+   "data"
+  ],
+  "10c": [
+   "data"
+  ],
+  "10d": [
+   "predict",
+   "evaluate"
+  ],
+  "10e": [
+   "update",
+   "evaluate"
+  ],
+  "10f": [
+   "evaluate"
+  ],
+  "10g": [
+   "evaluate"
+  ],
+  "10h": [
+   "data",
+   "predict"
+  ],
+  "10i": [
+   "evaluate"
+  ],
+  "11a": [
+   "predict"
+  ],
+  "11b": [
+   "predict"
+  ],
+  "11c": [
+   "predict"
+  ],
+  "11d": [
+   "predict"
+  ],
+  "11e": [
+   "predict"
+  ],
+  "11f": [
+   "predict"
+  ],
+  "11g": [
+   "data",
+   "predict"
+  ],
+  "12a": [
+   "predict"
+  ],
+  "12b": [
+   "update"
+  ],
+  "12c": [
+   "update",
+   "evaluate"
+  ],
+  "12d": [
+   "predict",
+   "evaluate"
+  ],
+  "12e": [
+   "data"
+  ],
+  "12f": [
+   "update",
+   "evaluate"
+  ],
+  "12g": [
+   "data",
+   "predict",
+   "evaluate"
+  ],
+  "13a": [
+   "predict",
+   "update"
+  ],
+  "13b": [
+   "predict"
+  ],
+  "13c": [
+   "predict"
+  ],
+  "13d": [
+   "predict"
+  ],
+  "13e": [
+   "evaluate"
+  ],
+  "13f": [
+   "predict"
+  ],
+  "13g": [
+   "data",
+   "predict",
+   "update"
+  ],
+  "14a": [
+   "update",
+   "evaluate"
+  ],
+  "14b": [
+   "gradient",
+   "update"
+  ],
+  "14c": [
+   "update"
+  ],
+  "14d": [
+   "update"
+  ],
+  "14e": [
+   "gradient",
+   "update"
+  ],
+  "14f": [
+   "data"
+  ],
+  "14g": [
+   "predict"
+  ],
+  "14h": [
+   "predict",
+   "evaluate"
+  ],
+  "15a": [
+   "data"
+  ],
+  "15b": [
+   "data"
+  ],
+  "15c": [
+   "data"
+  ],
+  "15d": [
+   "data"
+  ],
+  "15e": [
+   "data",
+   "predict",
+   "loss",
+   "gradient",
+   "update",
+   "evaluate"
+  ],
+  "16a": [
+   "predict"
+  ],
+  "16b": [
+   "predict"
+  ],
+  "16c": [
+   "predict"
+  ],
+  "16d": [
+   "predict"
+  ],
+  "16e": [
+   "predict"
+  ],
+  "16f": [
+   "predict",
+   "evaluate"
+  ],
+  "17a": [
+   "data"
+  ],
+  "17b": [
+   "predict",
+   "update"
+  ],
+  "17c": [
+   "predict"
+  ],
+  "17d": [
+   "predict",
+   "update"
+  ],
+  "17e": [
+   "data",
+   "predict"
+  ],
+  "18a": [
+   "data",
+   "predict",
+   "loss",
+   "gradient",
+   "update"
+  ],
+  "18b": [
+   "evaluate"
+  ],
+  "18c": [
+   "predict",
+   "loss"
+  ],
+  "18d": [
+   "predict",
+   "loss"
+  ],
+  "18e": [
+   "predict",
+   "loss"
+  ],
+  "18f": [
+   "predict"
+  ],
+  "18g": [
+   "data"
+  ],
+  "18h": [
+   "gradient",
+   "update"
+  ]
+ },
+ "sources": [
+  "https://docs.pytorch.org/tutorials/beginner/basics/optimization_tutorial.html",
+  "https://ies.ed.gov/ncee/wwc/PracticeGuide/1"
+ ]
+}

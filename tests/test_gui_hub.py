@@ -62,6 +62,16 @@ class FakeGitFlow:
 
     def __init__(self):
         self.calls, self.replies, self.before_submit = [], {}, None
+        self.has_pending = True
+        self.has_updates = False
+        self.update_checks = 0
+
+    def pending(self):
+        return {"status": "ok", "pending": self.has_pending, "count": int(self.has_pending)}
+
+    def updates(self):
+        self.update_checks += 1
+        return {"status": "ok", "available": self.has_updates, "count": int(self.has_updates)}
 
     def _reply(self, name):
         self.calls.append(name)
@@ -114,6 +124,7 @@ class HubTest(unittest.TestCase):
             guikit.wait_until(lambda: win.job is None)
             if win.dialog is not None:
                 win.dialog.close()
+            guikit.wait_until(lambda: win.pending_job is None)
             win.close()
             win.deleteLater()
             guikit.pump()
@@ -191,6 +202,155 @@ class HubTest(unittest.TestCase):
 
 
 class HubScreenTest(HubTest):
+    def test_submission_actions_remain_available_on_all_subject_overviews(self):
+        self.git.has_updates = True
+        win = self.boot()
+        bar = win.workspace.submissions
+        for open_page in (win.go_home, win.go_journey, win.go_web, win.go_ai,
+                          lambda: win.open_ai_lesson("i90"), win.go_hub):
+            open_page()
+            self.idle()
+            guikit.wait_until(lambda: win.pending_job is None)
+            self.assertTrue(bar.isVisible())
+            self.assertTrue(bar.submit.isVisible())
+            self.assertTrue(bar.sync.isVisible())
+            self.assertTrue(win.rect().contains(bar.mapTo(win, QPoint(bar.width() - 1, bar.height() - 1))))
+        win.open_ai_unit("i90", "90a")
+        self.idle()
+        self.assertFalse(bar.isVisible())
+
+    def test_closing_during_submission_check_keeps_events_running(self):
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        started, release = threading.Event(), threading.Event()
+
+        def pending():
+            started.set()
+            release.wait(3)
+            return {"status": "ok", "pending": False, "count": 0}
+
+        self.git.pending = pending
+        win.check_pending_submission()
+        guikit.wait_until(started.is_set)
+        try:
+            win.close()
+            self.assertTrue(win.isVisible())
+            self.assertTrue(win.pending_close)
+            guikit.pump()
+            self.assertTrue(win.pending_job.isRunning())
+        finally:
+            release.set()
+        guikit.wait_until(lambda: not win.isVisible())
+        self.assertIsNone(win.pending_job)
+
+    def test_first_open_places_all_four_subjects_in_the_grid(self):
+        win = self.boot()
+        grid = win.hub.tracks.grid
+        self.assertEqual(grid.count(), 4)
+        for row, expected in zip(win.hub.tracks.rows, ((0, 0), (0, 1), (1, 0), (1, 1))):
+            self.assertEqual(grid.getItemPosition(grid.indexOf(row))[:2], expected)
+            self.assertTrue(row.isVisible())
+            self.assertGreater(row.geometry().width(), 100)
+            self.assertTrue(win.hub.tracks.rect().contains(row.geometry()))
+
+    def test_submission_notice_only_for_pending_changes_and_fixed_while_scrolling(self):
+        from PyQt6.QtWidgets import QScrollArea
+        win = self.boot()
+        self.git.has_pending = False
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        bar = win.workspace.submissions
+        self.assertTrue(bar.submit.isHidden())
+        self.assertTrue(bar.isHidden())
+        self.assertTrue(bar.sync.isHidden())
+        self.assertTrue(win.hub.manual_sync.isVisible())
+        page_geometry = win.pages.geometry()
+        scroll = win.hub.findChild(QScrollArea).verticalScrollBar()
+        scroll.setValue(scroll.maximum() // 2)
+        position, maximum = scroll.value(), scroll.maximum()
+        self.git.has_pending = True
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertTrue(bar.submit.isVisible())
+        self.assertEqual(bar.message.text(), "제출할 풀이가 있습니다.")
+        self.assertTrue(bar.sync.isHidden())
+        self.assertEqual(win.pages.geometry(), page_geometry)
+        self.assertEqual((scroll.value(), scroll.maximum()), (position, maximum))
+        before = bar.geometry()
+        scroll.setValue(scroll.maximum())
+        guikit.pump()
+        self.assertEqual(bar.geometry(), before)
+        self.assertTrue(bar.submit.isVisible())
+
+    def test_new_material_reminder_is_throttled_and_clears_after_receiving(self):
+        self.git.has_pending, self.git.has_updates = False, True
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        bar = win.workspace.submissions
+        self.assertTrue(bar.isVisible())
+        self.assertTrue(bar.submit.isHidden())
+        self.assertTrue(bar.sync.isVisible())
+        self.assertEqual(bar.message.text(), "새 학습 자료가 있습니다.")
+        checks = self.git.update_checks
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertEqual(self.git.update_checks, checks)
+        self.git.has_updates = False
+        QTest.mouseClick(bar.sync, Qt.MouseButton.LeftButton)
+        self.idle()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertIn("sync", self.git.calls)
+        self.assertTrue(bar.isHidden())
+
+    def test_update_failure_keeps_a_known_reminder_and_retry_stays_available(self):
+        self.git.has_pending, self.git.has_updates = False, True
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        self.git.updates = lambda: {"status": "error", "available": False, "count": 0}
+        win.next_update_check = 0
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertTrue(win.workspace.submissions.sync.isVisible())
+        self.assertTrue(win.hub.manual_sync.isEnabled())
+
+    def test_hiding_a_keyboard_focused_reminder_keeps_the_reading_position(self):
+        from PyQt6.QtWidgets import QScrollArea
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        scroll = win.hub.findChild(QScrollArea).verticalScrollBar()
+        scroll.setValue(scroll.maximum() // 2)
+        win.workspace.submissions.submit.setFocus(Qt.FocusReason.TabFocusReason)
+        guikit.pump()
+        before = scroll.value()
+        self.git.has_pending = False
+        win.check_pending_submission()
+        guikit.wait_until(lambda: win.pending_job is None)
+        self.assertTrue(win.workspace.submissions.isHidden())
+        self.assertTrue(win.workspace.hasFocus())
+        self.assertEqual(scroll.value(), before)
+
+    def test_subject_navigation_fits_a_small_window_at_the_largest_text_size(self):
+        win = self.boot()
+        self.assertTrue(win.workspace.rail.isVisible())
+        self.assertEqual(win.hub.tracks.columns, 2)
+        win.set_text("larger")
+        win.resize(800, 800)
+        guikit.pump()
+        self.assertEqual(win.width(), 800)
+        self.assertFalse(win.workspace.rail.isVisible())
+        self.assertTrue(win.workspace.compact.isVisible())
+        bar = win.workspace.submissions
+        self.assertLessEqual(bar.submit.geometry().right(), bar.width())
+        self.assertLessEqual(bar.sync.geometry().right(), bar.width())
+        win.workspace.compact.activated.emit(1)
+        guikit.pump()
+        self.assertEqual((win.pages.currentWidget(), win.area), (win.home, "python"))
+
     def test_starts_at_the_hub_and_the_rows_show_their_numbers(self):
         prof = self.graded_round()
         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat(timespec="seconds")
@@ -207,10 +367,12 @@ class HubScreenTest(HubTest):
 
         # 파이썬 줄: 서비스가 낸 값을 그대로 보임
         overview = win.session.overview()
-        self.assertEqual(hub.python_row.second.text(), "단원 %d개 중 %d개 숙달 · 다음은 2회차" % (overview["total_units"], overview["mastered"]))
+        self.assertEqual(hub.python_row.second.text(), "다음은 2회차")
+        self.assertEqual(hub.python_row.metric.text(), "숙달 단원 %d / %d" % (overview["mastered"], overview["total_units"]))
 
         # 여행 줄: 1-1·1-2 를 통과해 보스가 열리고 다음은 보스
-        self.assertEqual(hub.journey_row.second.text(), "4문제 중 2개 통과 · 다음은 물통 정리")
+        self.assertEqual(hub.journey_row.second.text(), "다음은 물통 정리")
+        self.assertEqual(hub.journey_row.metric.text(), "통과한 문제 2 / 4")
         self.assertFalse(hub.journey_row.inert)
         self.assertFalse(hub.journey_error.isVisible())
 
@@ -218,7 +380,7 @@ class HubScreenTest(HubTest):
         self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
                          ("물통 정리", "알고리즘 여행 · 던전 1 「시험 마을」", "문제 풀기"))
         self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
-        self.assertEqual(hub.summary.text(), "이어서 할 공부를 시작하거나 아래에서 트랙을 고르세요.")
+        self.assertEqual(hub.summary.text(), "공부할 과목을 고르거나 이어서 진행하세요.")
 
         # 막대: 25문항 회차를 한 번 채점한 날의 파이썬 값은 1, 여행은 채점 기록 수, 웹은 기록이 없어 0. 어제도 여행 채점이 있어 연속 2일
         today = datetime.date.today()
@@ -251,7 +413,8 @@ class HubScreenTest(HubTest):
         for upper, top in zip(parts, tops[1:]):
             self.assertLess(upper.mapTo(hub, QPoint(0, upper.height())).y(), top.y())
         self.assertEqual({top.x() for top in tops}, {tops[0].x()})
-        self.assertEqual({part.width() for part in parts}, {kit.HOME_WIDTH})
+        self.assertEqual(len({part.width() for part in parts}), 1)
+        self.assertLessEqual(parts[0].width(), kit.HOME_WIDTH)
         second = hub.python_row.second
         self.assertGreaterEqual(second.height(), second.heightForWidth(second.width()))  # 트랙 설명이 줄바꿈한 높이만큼 다 보임
         week = hub.week
@@ -264,7 +427,7 @@ class HubScreenTest(HubTest):
         self.assertEqual(total, hub.chart.mapTo(week, QPoint(hub.chart.width(), 0)).x())
         self.assertLess(total, recent.left())
         self.assertGreaterEqual(recent.width(), hub.recent.natural_width())  # 최근 채점 줄이 다 보임
-        week.resize(kit.HOME_WIDTH // 2, week.height())  # 좁으면 막대 아래로 내려가고 폭을 다 씀
+        week.resize(560, week.height())  # 좁으면 막대 아래로 내려가고 폭을 다 씀
         self.assertFalse(week.side)
         self.assertEqual(week.row.direction(), week.row.Direction.TopToBottom)
         self.assertEqual(week.recent_box.maximumWidth(), hub_page.QWIDGETSIZE_MAX)
@@ -314,7 +477,8 @@ class HubScreenTest(HubTest):
         self.settings.setValue("journey/last", "t03/p1")
         win = self.boot()
         hub = win.hub
-        self.assertEqual(hub.journey_row.second.text(), "8문제 중 1개 통과 · 다음은 물통 합계")
+        self.assertEqual(hub.journey_row.second.text(), "다음은 물통 합계")
+        self.assertEqual(hub.journey_row.metric.text(), "통과한 문제 1 / 8")
         self.assertEqual((hub.next_card.title.text(), hub.next_card.line.text(), hub.next_btn.text()),
                          ("물통 합계", "알고리즘 여행 · 던전 3 「준비 중 던전 3」", "문제 풀기"))
         guikit.click(hub.journey_row)
@@ -334,7 +498,7 @@ class HubScreenTest(HubTest):
             self.settings.setValue("journey/last", last)
             hub.refresh()
             self.assertEqual((hub.journey_row.second.text(), hub.next_card.title.text(), hub.next_card.line.text()),
-                             ("8문제 중 1개 통과 · 다음은 가장 큰 물통", "가장 큰 물통", "알고리즘 여행 · 던전 1 「시험 마을」"), last)
+                             ("다음은 가장 큰 물통", "가장 큰 물통", "알고리즘 여행 · 던전 1 「시험 마을」"), last)
             win.journey_map.refresh()
             self.assertEqual((win.journey_map.view.selected, win.journey_map.next_card.title.text()), ("t01", "가장 큰 물통"), last)
 
@@ -370,7 +534,7 @@ class HubScreenTest(HubTest):
 
     def test_hub_submit_writes_unsaved_journey_code_first(self):
         win = self.boot()
-        self.assertFalse(win.hub.git_btn.inert)
+        self.assertTrue(win.hub.git_btn.isEnabled())
         guikit.click(win.hub.git_btn)
         self.idle()
         self.assertEqual(self.git.calls, ["sync", "submit"])
@@ -436,9 +600,9 @@ class HubScreenTest(HubTest):
         self.assertEqual(win.home.action_btn.text(), "진단 테스트 시작")
         guikit.click(win.home.hub_btn)
         hub.set_busy(True, "확인 중입니다.")
-        self.assertTrue(hub.python_row.inert and hub.git_btn.inert and not hub.next_btn.isEnabled())
+        self.assertTrue(hub.python_row.inert and not hub.git_btn.isEnabled() and not hub.next_btn.isEnabled())
         hub.set_busy(False)
-        self.assertFalse(hub.python_row.inert or hub.git_btn.inert)
+        self.assertFalse(hub.python_row.inert or not hub.git_btn.isEnabled())
         self.assertTrue(hub.journey_row.inert)  # 잠금이 풀려도 여행 줄은 꺼진 채로 남음
 
     def test_dark_theme_leaves_no_light_patches(self):

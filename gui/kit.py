@@ -9,7 +9,7 @@ theme.TYPE 으로 글꼴을 직접 주고(label, para), 그 역할을 role 속�
 import math
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen, QTextDocument
 from PyQt6.QtWidgets import (QBoxLayout, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
                              QSizePolicy, QSplitter, QSplitterHandle, QVBoxLayout, QWidget, QWidgetItem)
 
@@ -20,39 +20,33 @@ FLUSH = 14  # 글자 단추의 안쪽 여백 12 과 테두리 2. 막대 가장�
 MARGIN = 32  # 창 좌우 여백
 MARK = 20  # 목록 줄 앞 상태 점의 칸 폭
 ROW_TEXT = 24 + MARK + 12  # 목록 줄의 글이 시작하는 자리(안쪽 여백, 점 칸, 점과 글 사이)
-HOME_WIDTH = 1120  # 홈 화면 내용 단의 최대 폭
-DOC_MIN = 640  # 1280 창까지의 읽는 글 단 폭. 17px 본문으로 약 54자(설계 문서의 실측)
-DOC_CHARS = 54  # DOC_MIN 에 들어가는 17px 본문 글자 수
-DOC_PX = theme.BASE_TYPE["body"][0]  # 그 글자 수를 잰 본문 크기(설계값 17)
-LINE_CHARS = 64  # 한 줄에 두는 글자 수의 상한. 설계값 DOC_CHARS 의 1.2배이고 '가'로만 채우면 48자
-GROW_FROM = 1280  # 이 창 폭부터 읽는 글의 단이 넓어짐
-READ_MIN = 760  # 카드 하나만 있는 읽기 화면(학습 노트, 연습 문항)의 1280 창까지 글 단 폭. 17px 본문으로 약 64자
+HOME_WIDTH = 1600  # 홈 화면 내용 단의 최대 폭
+DOC_MIN = 880  # 편집기 옆 글 단의 시작 폭. 실제 칸이 좁으면 가용 폭을 따름
+DOC_PX = theme.BASE_TYPE["body"][0]  # 읽기 폭을 비례해 넓힐 때 쓰는 본문 크기
+READ_MIN = 1120  # 카드 하나로 읽는 화면의 시작 폭. 작은 창에서는 가용 폭을 따름
 DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok", "lock": "faint"}  # 상태 점의 색 토큰
 PANE_MIN = 320  # 끌어 옮기는 칸 나누기에서 가로로 놓인 칸 하나의 최소 폭
 GRIP = (4, 32)  # 칸 나누기 손잡이 가운데 무늬의 짧은 변과 긴 변
 
 
 def doc_max():
-    """읽는 글 단 폭의 상한. 지금 본문 크기로 LINE_CHARS 자가 들어가는 폭: DOC_MIN / DOC_CHARS 가 17px 글자 하나의 폭이고
-    본문이 커진 만큼 비례함. 17px 이면 759, 19px 이면 848, 21px 이면 937."""
-    return round(DOC_MIN / DOC_CHARS * LINE_CHARS * theme.TYPE["body"][0] / DOC_PX)
+    """편집기 옆 글 단의 상한. 본문 글자가 커진 만큼 폭도 넓힘."""
+    return round(1200 * theme.TYPE["body"][0] / DOC_PX)
 
 
 def read_max():
-    """카드 하나만 있는 읽기 화면의 글 단 상한. doc_max 를 READ_MIN / DOC_MIN 만큼 늘림(17px 이면 901, 19px 이면 1007)."""
-    return round(doc_max() * READ_MIN / DOC_MIN)
+    """카드 하나만 있는 읽기 화면의 글 단 상한."""
+    return round(1600 * theme.TYPE["body"][0] / DOC_PX)
 
 
 def read_width(window_width):
-    """카드 하나만 있는 읽기 화면의 글 단 폭. doc_width 와 같이 넓어지되 READ_MIN 에서 시작하고 read_max 를 넘지 않음.
-    편집기와 나란히 놓인 문제 칸·미션 안내는 편집기 칸이 줄지 않게 doc_width 를 씀."""
-    return max(READ_MIN, min(read_max(), READ_MIN + (window_width - GROW_FROM) // 2))
+    """읽기 카드의 바깥 여백을 남기고 창 폭을 사용함. 실제 칸이 좁으면 레이아웃이 가용 폭에 맞춤."""
+    return max(READ_MIN, min(read_max(), window_width - 2 * MARGIN - 48))
 
 
 def doc_width(window_width):
-    """창 폭에 맞춘 읽는 글의 단 폭. 1280 창까지는 DOC_MIN 이고, 창이 그보다 넓어진 폭의 반만큼 넓어지되 doc_max 를 넘지 않음.
-    2000 창이면 640 + 360 = 1000 에서 상한으로 자름(17px 본문 759, 19px 848)."""
-    return max(DOC_MIN, min(doc_max(), DOC_MIN + (window_width - GROW_FROM) // 2))
+    """편집기와 나란히 놓이는 글 단도 창의 남는 폭을 사용하되 상한을 둠."""
+    return max(DOC_MIN, min(doc_max(), window_width - 2 * MARGIN - 48))
 
 
 def page(widget):
@@ -129,6 +123,76 @@ def badge(text="", tone=""):
         out.setProperty("tone", tone)
     out.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     return out
+
+
+class FirstLine(QWidget):
+    """꼬리표와 본문 첫 줄의 중심을 맞춤. 줄바꿈 높이나 큰 행간에 따라 꼬리표가 뜨지 않게 함."""
+
+    aligned = pyqtSignal()
+
+    def __init__(self, mark, text, spacing=12, anchor=None):
+        super().__init__()
+        self.mark, self.text, self.anchor = mark, text, anchor or text
+        self.center = 0
+        row = box(self, spacing=spacing, horizontal=True)
+        self.mark_holder, self.text_holder = QWidget(), QWidget()
+        self.mark_box, self.text_box = box(self.mark_holder), box(self.text_holder)
+        self.mark_box.addWidget(mark, 0, Qt.AlignmentFlag.AlignTop)
+        self.text_box.addWidget(text, 0, Qt.AlignmentFlag.AlignTop)
+        row.addWidget(self.mark_holder, 0, Qt.AlignmentFlag.AlignTop)
+        row.addWidget(self.text_holder, 1, Qt.AlignmentFlag.AlignTop)
+        self.setProperty("first_line_pair", True)
+        mark.installEventFilter(self)
+        if isinstance(text, FirstLine):
+            text.aligned.connect(self.refont)
+
+    def text_center(self):
+        anchor = self.anchor
+        if callable(anchor):
+            return anchor()
+        if isinstance(anchor, FirstLine):
+            return anchor.center
+        if isinstance(anchor, QLabel):
+            key = (anchor.font().toString(), QLabel.text(anchor), anchor.width())
+            top = anchor.mapTo(self.text, QPoint(0, 0)).y() if anchor is not self.text else 0
+            if getattr(self, "center_key", None) == key:
+                return top + self.glyph_center
+            document = QTextDocument()
+            document.setDefaultFont(anchor.font())
+            document.setDocumentMargin(0)
+            document.setHtml(QLabel.text(anchor))
+            document.setTextWidth(max(1, anchor.width()))
+            document.documentLayout().documentSize()
+            block = document.begin()
+            line = block.layout().lineAt(0)
+            if line.isValid():
+                self.center_key = key
+                self.glyph_center = line.y() + (line.ascent() + line.descent()) / 2
+                return top + self.glyph_center
+        return anchor.sizeHint().height() / 2
+
+    def refont(self):
+        self.mark.ensurePolished()
+        visible = not self.mark.isHidden()
+        self.mark_holder.setVisible(visible)
+        text = self.text_center()
+        mark = max(self.mark.minimumHeight(), self.mark.sizeHint().height(), 0) / 2 if visible else 0
+        previous, self.center = self.center, max(mark, text)
+        self.mark_box.setContentsMargins(0, math.floor(self.center - mark), 0, 0)
+        self.text_box.setContentsMargins(0, math.floor(self.center - text), 0, 0)
+        if previous != self.center:
+            self.aligned.emit()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest and hasattr(self, "mark"):
+            self.refont()
+        return result
+
+    def eventFilter(self, watched, event):
+        if watched is self.mark and event.type() in (QEvent.Type.ShowToParent, QEvent.Type.HideToParent):
+            self.refont()
+        return super().eventFilter(watched, event)
 
 
 def button(text="", kind="secondary", scale="m", onbg=False):
@@ -246,6 +310,18 @@ def spaced(*items, spacing=4):
     return out
 
 
+def heading(title, description):
+    """제목과 설명을 묶음. 설명이 숨으면 두 글 사이 간격도 남기지 않음."""
+    if isinstance(title, QLayout):
+        row = QWidget()
+        row.setLayout(title)
+        title = row
+    out = spaced(title, description, spacing=theme.GAP["title_description"])
+    out.title, out.description = title, description
+    out.setProperty("spacing_role", "title_description")
+    return out
+
+
 def banner(text="", tone="", lead="", action=""):
     """안내·주의·오류·완료 띠. 글 Para 는 out.text, 앞 낱말은 out.word. lead 가 없으면 tone 에 맞는 앞 낱말을 씀.
     action 이 있으면 글 오른쪽에 그 이름의 보조 단추 m 을 두고 out.action 으로 돌려줌(없으면 None). 띠 안 단추의 바탕은
@@ -263,8 +339,8 @@ def banner(text="", tone="", lead="", action=""):
         holder = QWidget()
         line = box(holder, spacing=8, horizontal=True)
         row.addWidget(holder, 1, Qt.AlignmentFlag.AlignVCenter)
-    line.addWidget(word, 0, Qt.AlignmentFlag.AlignTop)
-    line.addWidget(text_label, 1)
+    out.pair = FirstLine(word, text_label, spacing=8)
+    line.addWidget(out.pair, 1)
     out.text = text_label
     out.word = word
     out.action = None
@@ -410,7 +486,7 @@ class Chevron(QWidget):
 
 class Row(QFrame):
     """목록 줄. 왼쪽 상태 점(없을 수 있음), 제목과 둘째 줄, 오른쪽 caption 과 꺾쇠. 줄 전체를 한 번 누르면 clicked 가 남.
-    한 줄이면 최소 높이 56, 둘째 줄이 있으면 72. wrap 이면 긴 글을 줄바꿈하고 그 높이를 더함. 나머지는 줄임표로 줄임.
+    한 줄이면 최소 높이 56, 둘째 줄이 있으면 80을 확보함. wrap이면 긴 글을 줄바꿈하고 그 높이를 더함. 나머지는 줄임표로 줄임.
     올리면 hover 색, 누르면 surface_alt, 키보드 초점은 안쪽 2px 테두리.
     꺼지면 글이 faint 색이 되고 꺾쇠를 그리지 않음(theme.STYLE_V2, Chevron)."""
     clicked = pyqtSignal()
@@ -427,11 +503,10 @@ class Row(QFrame):
         if mark is not None:
             row.addWidget(mark, 0, Qt.AlignmentFlag.AlignVCenter)
         text = QWidget()
-        column_box = box(text, (0, 12, 0, 12), 0)
+        column_box = box(text, (0, 12, 0, 12), theme.GAP["detail"])
         if wrap:
             self.title = para(title, "label", bold=strong)
             self.second = para(second, "caption", "secondary")
-            column_box.setSpacing(4)
         else:
             self.title = ElideLabel(title, "label", bold=strong)
             self.second = ElideLabel(second, "caption", "secondary")
@@ -472,7 +547,7 @@ class Row(QFrame):
                         - (self.end.sizeHint().width() + 12 if self.end.text() else 0))
             text_height = self.title.heightForWidth(width)
             if self.second.text():
-                text_height += 4 + self.second.heightForWidth(width)
+                text_height += theme.GAP["detail"] + self.second.heightForWidth(width)
             height = max(height, text_height + 24)
         if self.wrap:
             self.setFixedHeight(height)
@@ -544,7 +619,8 @@ def link_banner(tone=""):
     """링크가 든 글을 담는 띠. banner 의 글 자리에 LinkLabel 을 둠. (띠, LinkLabel)."""
     out = banner("", tone)
     link = typed(LinkLabel("", line=theme.TYPE["body"][1], font=theme.font("body")), "body")
-    out.layout().replaceWidget(out.text, link)
+    out.pair.text_box.replaceWidget(out.text, link)
+    out.pair.text = out.pair.anchor = link
     out.text.hide()
     out.text.deleteLater()
     out.text = link
@@ -999,13 +1075,12 @@ class NextCard(QFrame):
         self.row.setContentsMargins(32, 32, 32, 32)
         self.row.setSpacing(24)
         self.text_box = QWidget()
-        column_box = box(self.text_box, spacing=4)
+        column_box = box(self.text_box, spacing=theme.GAP["detail"])
         self.caption = label("이어서 할 일", "caption", "tertiary")
         self.title = para("", "headline")
         self.line = para("", "body", "secondary")
         column_box.addWidget(self.caption)
-        column_box.addWidget(self.title)
-        column_box.addWidget(self.line)
+        column_box.addWidget(heading(self.title, self.line))
         self.row.addWidget(self.text_box, 1)
         self.button = button("", "primary", "l")
         self.row.addWidget(self.button, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
@@ -1022,7 +1097,8 @@ class NextCard(QFrame):
     def arrange(self):
         """좁은 카드에서는 단추를 글 아래에 둬 제목과 설명의 폭을 확보함."""
         room = self.width() - 64 - self.button.sizeHint().width() - 24
-        stacked = not self.button.isHidden() and room < 24 * theme.TYPE["body"][0]
+        minimum = 24 * theme.TYPE["body"][0] if self.line.isVisibleTo(self) else 12 * theme.TYPE["headline"][0]
+        stacked = not self.button.isHidden() and room < minimum
         self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
 
     def refont(self):
@@ -1091,23 +1167,19 @@ class Check(QFrame):
     """체크 목록 한 줄: 상자(box) 20, 꼬리표(필수·보충, 없을 수 있음), 줄바꿈되는 글, 오른쪽 caption 메모. 줄 전체를 누르거나 Space 를
     치면 상자가 바뀜. 상자의 왼쪽 끝은 위 본문의 왼쪽 끝과 같은 선에 둠(바깥 여백 0). 상자를 끄면(box.setEnabled) 글은 그대로 읽힘."""
 
-    def __init__(self, text, tag="", tag_tone="", note=""):
+    def __init__(self, text, tag="", tag_tone="", note="", text_widget=None, mark_widget=None):
         super().__init__()
         self.setObjectName("row")
         self.down = False  # 최소 높이 48 은 상자 28 과 위아래 여백 12 가 만듦. 최소 높이를 따로 주면 줄바꿈한 글의 높이가 상자에 전해지지 않음
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         row = box(self, (0, 12, 0, 12), 12, horizontal=True)
-        self.box = CheckMark()
-        row.addWidget(self.box, 0, Qt.AlignmentFlag.AlignTop)
-        text_row = QHBoxLayout()
-        text_row.setContentsMargins(0, 0, 0, 0)
-        text_row.setSpacing(8)
+        self.box = mark_widget or CheckMark()
         self.tag = badge(tag, tag_tone)
-        self.label = para(text)
-        text_row.addWidget(self.tag, 0, Qt.AlignmentFlag.AlignTop)
-        text_row.addWidget(self.label, 1)
-        row.addLayout(text_row, 1)
+        self.label = text_widget or para(text)
+        self.text_line = FirstLine(self.tag, self.label, spacing=8)
+        self.content_line = FirstLine(self.box, self.text_line)
+        row.addWidget(self.content_line, 1, Qt.AlignmentFlag.AlignTop)
         self.note = label(note, "caption", "tertiary")
         row.addWidget(self.note, 0, Qt.AlignmentFlag.AlignTop)
         self.tag.setVisible(bool(tag))  # 부모에 붙인 뒤에 보임. Row 와 같은 까닭

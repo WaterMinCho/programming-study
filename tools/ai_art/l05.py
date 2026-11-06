@@ -738,7 +738,7 @@ def memo_5d():
         ("한 에폭의 갱신 횟수", ["N ÷ 배치 크기를 올림", "800 ÷ 32 = 25", "800 ÷ 128 → 7", "마지막 배치 32개"], GREEN),
         ("코드", ["`TensorDataset(x, y)`", "`DataLoader(dataset,`", "`  batch_size=32,`", "`  shuffle=True)`",
                  "`len(dataloader) == 25`"], INK)],
-        note_line="같은 에폭 수면 배치가 작을수록 갱신을 더 많이 합니다(배치 8: 500번, 512: 10번).")
+        note_line="같은 에폭 수면 배치 크기가 작을수록 갱신을 더 많이 합니다(배치 크기 8: 500번, 512: 10번).")
 
 
 # 5e 학습률과 스케줄러
@@ -991,10 +991,10 @@ def axes_5f():
 @figure("5f-4", 560, 280)
 def memo_5f():
     return summary("배치 정규화", [
-        ("계산", ["§μ = 3, σ² = 2", "§x̂ = (x " + M + " μ) ÷ √σ²", "§y = γx̂ + β", "§γ, β", "학습하며 바뀌는 파라미터"], GREEN),
+        ("계산", ["§μ = 3, σ² = 2", "§x̂ = (x " + M + " μ) ÷ √(σ²+ε)", "§y = γx̂ + β", "§γ, β", "학습하며 바뀌는 파라미터"], GREEN),
         ("자리와 코드", ["Linear → BN → ReLU", "`nn.Linear(20, 64)`", "`nn.BatchNorm1d(64)`", "`nn.ReLU()`"], INK),
-        ("모드", ["train: 배치 평균·분산", "eval: 이동 평균·분산", "평가 전 model.eval()", "RNN 은 LayerNorm"], ORANGE)],
-        note_line="효과: 층마다 기울기가 고름, 큰 학습률, 초기화에 덜 민감, 과적합을 줄이는 흔들림.")
+        ("기본 모드", ["train: 배치 평균·분산", "eval: 이동 평균·분산", "평가 전 model.eval()", "RNN 도 통계 축을 확인"], ORANGE)],
+        note_line="학습률과 일반화에 미치는 효과는 모델·데이터에 따라 달라집니다.")
 
 
 # 5g 코드 읽기
@@ -1141,7 +1141,7 @@ def record_5g():
     ax.text(300, after + 0.55, num(after, 4), ha="center", fontsize=15, color=RED)
     ax.annotate("", xy=(300, 6.2), xytext=(250, 6.2), arrowprops=dict(arrowstyle="<->", color=INK, lw=1.6))
     ax.text(275, 6.5, "50번 더 갱신", ha="center", fontsize=15)
-    fig.text(0.015, 0.95, "history[" + M + "1] 은 250번째 반복에서 갱신하기 전에 잰 손실", fontsize=20, weight="bold", va="center")
+    fig.text(0.015, 0.95, "history[" + M + "1] 은 epoch가 250일 때 갱신하기 전에 잰 손실", fontsize=20, weight="bold", va="center")
     fig.text(0.55, 0.80, "검은 점: 기록한 손실\n빈 원: 300번 갱신한 뒤 다시 잰 손실", linespacing=1.5, fontsize=16, color=MUTED, va="center")
     return image(fig)
 
@@ -1151,10 +1151,10 @@ def memo_5g():
     return summary("코드 읽기: 표 데이터로 미니배치 학습", [
         ("나누고 표준화", ["`train_test_split(…, `", "`  test_size=0.2, stratify=y)`", "`scaler.fit_transform(X_train)`",
                      "`scaler.transform(X_test)`"], BLUE),
-        ("텐서와 배치", ["`torch.FloatTensor(X_train)`", "`.unsqueeze(1)`", "[800] → [800, 1]", "`TensorDataset`", "`DataLoader`",
-                    "배치 64: 13개, 마지막 32개"], PURPLE),
+        ("텐서와 배치", ["`torch.FloatTensor(X_train)`", "`.unsqueeze(1)`", "[800] → [800, 1]", "`TensorDataset, DataLoader`",
+                    "배치 크기 64: 13개", "마지막 배치 32개"], PURPLE),
         ("세기와 기록", ["`epoch_loss += loss.item()`", "`tot += y.size(0)`", "`out.argmax(1)`", "기록 = 갱신 전 손실"], RED)],
-        note_line="range(300) 에서 50번마다 기록하면 마지막 기록은 250번째 반복의 갱신 전 손실입니다.", pad=1.0)
+        note_line="range(300) 에서 50번마다 기록하면 마지막 기록은 epoch 250의 갱신 전 손실입니다.", pad=1.0)
 
 
 # 세 수준으로 다시 보기 블록 그림. 화면 520×280(파일 1040×560), 글자 22 이상은 tools/ai_art/levels.py 를 따름.

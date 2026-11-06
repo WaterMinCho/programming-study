@@ -30,9 +30,7 @@ class MessageDialog(QDialog):
         head = kit.para(title, "headline")
         self.text = kit.para(text)
         self.text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        box.addWidget(head)
-        box.addSpacing(12)
-        box.addWidget(self.text)
+        box.addWidget(kit.heading(head, self.text))
         if link:
             self.link = kit.typed(LinkLabel('<a href="%s">%s</a>' % (link, link), line=theme.TYPE["body"][1], font=theme.font("body")), "body")
             self.link.linkActivated.connect(lambda url: parent.open_url(url))
@@ -127,7 +125,7 @@ class IdDialog(QDialog):
         self.asked = ""  # 풀이 기록이 이미 있다고 알린 ID
         box = QVBoxLayout(self)
         box.setContentsMargins(22, 20, 22, 16)
-        box.setSpacing(10)
+        box.setSpacing(theme.GAP["description_content"])
         head = QLabel("깃허브 ID 를 입력해 주세요")
         head.setObjectName("h2")
         why = Para("깃허브 주소 github.com/ 뒤에 나오는 이름입니다(메일 주소나 실명이 아닙니다). "
@@ -143,7 +141,8 @@ class IdDialog(QDialog):
         row = QHBoxLayout()
         row.addStretch(1)
         row.addWidget(self.ok)
-        for widget in (head, why, self.edit, self.error):
+        box.addWidget(kit.heading(head, why))
+        for widget in (self.edit, self.error):
             box.addWidget(widget)
         box.addLayout(row)
         self.edit.textChanged.connect(self.check)
@@ -209,7 +208,9 @@ class ErrorDialog(QDialog):
         row.addWidget(self.copy)
         row.addStretch(1)
         row.addWidget(close)
-        for widget in (head, note, self.view, where):
+        box.setSpacing(theme.GAP["group"])
+        box.addWidget(kit.heading(head, note))
+        for widget in (self.view, where):
             box.addWidget(widget)
         box.addLayout(row)
 

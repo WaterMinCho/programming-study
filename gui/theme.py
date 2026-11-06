@@ -32,10 +32,11 @@ BRAND = ("#2f6bff", "#7b5cff", "#ffffff")  # 아이콘의 바탕 그라데이션
 AVATARS = ("#2a62f0", "#6d4df2", "#0b7f6a", "#b4530a", "#b83280", "#0e7490")  # 팀 현황의 이니셜 원. 글자는 BRAND 의 글자 색
 
 # 글자와 바탕의 대비는 4.5:1 이상으로 맞춤(tests/test_gui.py 의 ThemeTest 가 확인함).
-# 회색은 밝게 9개, 어둡게 11개만 쓰고 같은 값을 뜻이 다른 토큰이 나눠 씀(bg·surface_alt·hover·primary_off·info_weak 는 밝게에서 모두 같음).
+# 같은 색 값을 뜻이 다른 토큰이 나눠 씀(surface_alt·hover·primary_off·info_weak는 밝게에서 같음).
 # 파란색은 누를 수 있는 것, 고른 것, 진행에만 쓰고 제목(heading·doc_heading)은 글자색과 같음
 LIGHT = {
-    "bg": "#eef1f5", "surface": "#ffffff", "surface_alt": "#eef1f5", "hover": "#eef1f5", "surface_raised": "#ffffff",
+    "highlight_bg": "#ffe8a3", "highlight_ink": "#252016",
+    "bg": "#f6f7f9", "surface": "#ffffff", "surface_alt": "#eef1f5", "hover": "#eef1f5", "surface_raised": "#ffffff",
     "border": "#cdd3db", "border_strong": "#818a95", "field_edge": "#818a95", "line": "#e0e5eb", "track": "#e0e5eb",
     "scroll": "#cdd3db", "scroll_hover": "#a9b0ba", "focus": "#1d63ed",
     "ink": "#171b22", "heading": "#171b22", "muted": "#464e59", "placeholder": "#616a76", "faint": "#616a76",
@@ -52,7 +53,8 @@ LIGHT = {
     "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#818a95",
 }
 DARK = {
-    "bg": "#0e1217", "surface": "#1d2228", "surface_alt": "#282d34", "hover": "#252a30", "surface_raised": "#252a30",
+    "highlight_bg": "#57461b", "highlight_ink": "#fff1b8",
+    "bg": "#121418", "surface": "#1d2228", "surface_alt": "#282d34", "hover": "#252a30", "surface_raised": "#252a30",
     "border": "#42474d", "border_strong": "#7b8189", "field_edge": "#7b8189", "line": "#33373d", "track": "#33373d",
     "scroll": "#42474d", "scroll_hover": "#595e65", "focus": "#7aa8ff",
     "ink": "#eaf1fa", "heading": "#eaf1fa", "muted": "#c5cbd4", "placeholder": "#9ea3ac", "faint": "#9ea3ac",
@@ -74,11 +76,15 @@ TOKENS = {"light": LIGHT, "dark": DARK}
 # 한 화면 상태에서 쓰는 크기는 넷 이하. micro 는 직접 그리는 그래프 눈금에만 씀. BASE_TYPE 은 보통 단계의 설계값이고
 # TYPE 은 지금 단계의 값(set_text 가 바꿈). 화면 코드는 TYPE 을 읽음
 BASE_TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 30, 700), "body": (17, 28, 400), "label": (17, 24, 400),
-             "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400)}
+             "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400),
+             "learn_body": (22, 40, 400), "learn_heading": (30, 44, 700), "learn_caption": (18, 30, 400),
+             "learn_activity": (24, 36, 700), "learn_code": (20, 32, 400)}
 TYPE = dict(BASE_TYPE)
 SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 간격이 아니라 선으로 셈
+GAP = {"detail": 8, "title_description": 12, "paragraph": 16, "description_content": 24, "group": 24, "section": 48}
+LEARN_GAP = {"detail": 16, "title_description": 16, "paragraph": 24, "group": 48}
 RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16}
-CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 72, "topbar": 64, "bottombar": 80, "stepper": 56,
+CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 80, "topbar": 64, "bottombar": 80, "stepper": 56,
            "slot": 30}  # slot 은 코드 줄 안 빈칸의 높이. 보통 글자의 코드 줄 높이 22 에 8 을 더한 값이고 글자 단계를 따라 같이 커짐(slot_height)
 SERIES = ("series_python", "series_algorithm", "series_web", "series_ai")  # 7일 그래프와 트랙 이름 앞 점에만 쓰는 트랙 색
 
@@ -274,6 +280,10 @@ QWidget[ui="2"] QPushButton#primary { background: %(primary)s; color: %(primary_
 QWidget[ui="2"] QPushButton#primary:hover, QWidget[ui="2"] QPushButton#primary:pressed { background: %(primary_hover)s; }
 QWidget[ui="2"] QPushButton#primary:focus { border-color: %(surface)s; }
 QWidget[ui="2"] QPushButton#primary:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
+QWidget[ui="2"] QPushButton[figureplay="true"] { background: %(surface)s; color: %(primary)s; border: 2px solid %(primary)s; }
+QWidget[ui="2"] QPushButton[figureplay="true"]:hover, QWidget[ui="2"] QPushButton[figureplay="true"]:pressed { background: %(selection)s; }
+QWidget[ui="2"] QPushButton[figureplay="true"]:focus { border-color: %(focus)s; }
+QWidget[ui="2"] QPushButton[figureplay="true"]:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; border-color: %(border)s; }
 QWidget[ui="2"] QPushButton#text { background: transparent; color: %(muted)s; padding: 0 12px; }
 QWidget[ui="2"] QPushButton#text:hover { background: %(hover)s; color: %(ink)s; }
 QWidget[ui="2"] QPushButton#text[onbg="true"]:hover { background: %(line)s; }
@@ -302,12 +312,14 @@ QWidget[ui="2"] QLineEdit, QWidget[ui="2"] QPlainTextEdit, QWidget[ui="2"] QText
     border: 1px solid %(field_edge)s; border-radius: 12px; padding: 0 15px; selection-background-color: %(text_selection)s; selection-color: %(ink)s;
     placeholder-text-color: %(faint)s; }
 QWidget[ui="2"] QLineEdit { min-height: 46px; max-height: 46px; }
+QWidget[ui="2"] QLineEdit[role="learn_body"] { max-height: 16777200px; }
 QWidget[ui="2"] QPlainTextEdit { padding: 8px 15px; }
 QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QPlainTextEdit:focus { border: 2px solid %(focus)s; padding: 0 14px; }
 QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
 QWidget[ui="2"] QLineEdit[tone="danger"] { border: 2px solid %(wrong)s; padding: 0 14px; }
 QWidget[ui="2"] QLineEdit[tone="success"] { border: 2px solid %(ok)s; padding: 0 14px; }
 QWidget[ui="2"] QLineEdit[slot="true"] { min-height: %(slot)spx; max-height: %(slot)spx; padding: 0 7px; border-radius: 8px; }
+QWidget[ui="2"] QLineEdit[slot="true"][learning="true"] { min-height: %(learn_slot)spx; max-height: %(learn_slot)spx; }
 QWidget[ui="2"] QLineEdit[slot="true"]:focus, QWidget[ui="2"] QLineEdit[slot="true"][tone="danger"],
     QWidget[ui="2"] QLineEdit[slot="true"][tone="success"] { padding: 0 6px; }
 QWidget[ui="2"] QLineEdit:disabled, QWidget[ui="2"] QPlainTextEdit:disabled { background: %(surface_alt)s; color: %(muted)s; }
@@ -358,6 +370,27 @@ QFrame#find QPushButton#tool:pressed { background: %(scroll_hover)s; }
 QFrame#find QPushButton#tool:disabled { background: transparent; color: %(faint)s; }
 """ % EDITOR
 
+STYLE_V2 += """
+QFrame#navigation { background: %(surface)s; border-right: 1px solid %(line)s; }
+QWidget[ui="2"] QPushButton[navigation="true"] { text-align: left; padding: 0 16px; }
+QWidget[ui="2"] QPushButton[navigation="true"]:checked { background: %(selection)s; color: %(selection_ink)s; }
+QFrame#submissionbar { background: %(surface)s; border: 1px solid %(border)s; border-radius: 16px; }
+QFrame#figure_controls { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 12px; }
+QFrame#learning_activity { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
+QFrame#learning_context { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
+QWidget[ui="2"] QPushButton#submit_work { background: %(selection)s; color: %(selection_ink)s; border: 2px solid %(primary)s; }
+QWidget[ui="2"] QPushButton#submit_work:hover { background: %(text_selection)s; }
+QWidget[ui="2"] QPushButton#submit_work:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; border-color: %(border)s; }
+QWidget[ui="2"] QFrame#row[subject="true"] { background: %(surface)s; border: 1px solid %(line)s; border-radius: 16px; }
+QWidget[ui="2"] QFrame#row[subject="true"][over="true"] { background: %(surface)s; border-color: %(border_strong)s; }
+QWidget[ui="2"] QFrame#row[subject="true"][down="true"] { background: %(surface_alt)s; }
+QComboBox#subject_picker { background: %(surface)s; color: %(ink)s; border: 0; border-bottom: 1px solid %(line)s;
+    padding: 0 24px; font-size: %(btn)spx; }
+QComboBox#subject_picker QAbstractItemView { background: %(surface)s; color: %(ink)s;
+    selection-background-color: %(selection)s; selection-color: %(selection_ink)s; }
+"""
+STYLE_V2 += "".join('QWidget[ui="2"] QProgressBar[series="%s"]::chunk { background: %%(%s)s; }\n' % (name, name) for name in SERIES)
+
 # 본문 CSS(mdlite.CSS)에 화면이 더하는 것: 결과·판정 글자색과 결과 화면의 구역 띠
 DOC_CSS = """
 .muted { color: %(muted)s; }
@@ -376,14 +409,14 @@ td.band { background-color: %(table_head)s; }
 # 줄 높이는 px 로 고정함. 비율로 주면 화면 글꼴에 없어 다른 글꼴로 그리는 글자(−)가 든 문단은 줄마다 그 글꼴의 높이로 벌어짐
 WEB_CSS = """
 body { font-size: %(wbody)spx; }
-p { margin-bottom: 16px; line-height: %(wline)spx; }
-p.h1 { font-size: %(wh1)spx; margin-top: 0px; margin-bottom: 8px; line-height: %(wh1line)spx; color: %(ink)s; }
-p.h2 { font-size: %(wbody)spx; margin-top: 24px; margin-bottom: 8px; line-height: %(wline)spx; color: %(ink)s; }
-p.h3 { font-size: %(wbody)spx; margin-top: 8px; margin-bottom: 4px; line-height: %(wline)spx; color: %(ink)s; }
+p { margin-bottom: %(paragraph_gap)spx; line-height: %(wline)spx; }
+p.h1 { font-size: %(wh1)spx; margin-top: 0px; margin-bottom: %(heading_gap)spx; line-height: %(wh1line)spx; color: %(ink)s; }
+p.h2 { font-size: %(wbody)spx; margin-top: %(group_gap)spx; margin-bottom: %(heading_gap)spx; line-height: %(wline)spx; color: %(ink)s; }
+p.h3 { font-size: %(wbody)spx; margin-top: %(group_gap)spx; margin-bottom: %(heading_gap)spx; line-height: %(wline)spx; color: %(ink)s; }
 hr { background-color: %(track)s; margin-top: 16px; margin-bottom: 16px; }
-ul, ol { margin-top: 0px; margin-bottom: 8px; }
-li { margin-bottom: 8px; line-height: %(wline)spx; }
-li p { margin-bottom: 8px; }
+ul, ol { margin-top: 0px; margin-bottom: %(item_gap)spx; }
+li { margin-bottom: %(item_gap)spx; line-height: %(wline)spx; }
+li p { margin-bottom: %(item_gap)spx; }
 code { font-size: %(wcode)spx; background-color: %(track)s; }  /* doc_css 의 line 은 줄 간격 값이라 색은 track 으로 씀 */
 pre { font-size: %(wcode)spx; line-height: %(wcodeline)spx; }
 td.codebox { background-color: transparent; border: 0px; padding: 12px 16px; }  /* 둥근 바탕은 TextPiece.paintEvent 가 칠함 */
@@ -472,7 +505,8 @@ def style_tokens(scheme):
     꼬리표 높이(caption 줄 높이 + 2), 코드 줄 안 빈칸의 테두리 안쪽 높이(slot)."""
     check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
     return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2,
-                slot=slot_height() - 2, **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
+                slot=slot_height() - 2, learn_slot=learning_slot_height() - 2,
+                **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
 
 
 def control_height(scale):
@@ -484,6 +518,11 @@ def control_height(scale):
 def slot_height():
     """코드 줄 안 빈칸의 높이. 지금 글자 단계의 코드 줄 높이에 CONTROL["slot"] 이 보통 단계에서 더한 만큼을 더함."""
     return TYPE["code"][1] + CONTROL["slot"] - BASE_TYPE["code"][1]
+
+
+def learning_slot_height():
+    """학습 코드의 빈칸 높이. 커진 코드 줄 위아래에 기존 빈칸과 같은 8px를 더함."""
+    return TYPE["learn_code"][1] + GAP["detail"]
 
 
 def set_text(step):
@@ -531,14 +570,20 @@ def code_font(zoom=0):
     return font
 
 
-def doc_css(zoom=0, extra="", own_body=False):
+def doc_css(zoom=0, extra="", own_body=False, learning=False):
     """문제 본문용 CSS. 지금 테마의 색을 채우고, 글자 크기를 확대 단계만큼 키우고, 코드 글꼴을 설치된 글꼴로 바꿈.
     extra 는 본문 CSS 뒤에 붙일 규칙(WEB_CSS). own_body 면 mdlite 의 body 글자 크기를 빼서 extra 의 body 크기가 먹게 함.
     Qt 리치 텍스트는 body 의 font-size 가 둘이면 앞의 것을 씀. WEB_CSS 의 크기는 지금 단계의 TYPE 값이라 확대 단계를 미리 뺌."""
+    types, gaps = TYPE, GAP
+    if learning:
+        types = dict(TYPE, body=TYPE["learn_body"], headline=TYPE["learn_heading"], code=TYPE["learn_code"])
+        gaps = dict(GAP, **LEARN_GAP)
     base = re.sub(r"(?m)^(body \{[^}]*?)font-size: \d+px; ?", r"\1", mdlite.CSS) if own_body else mdlite.CSS
     css = (base + DOC_CSS + extra) % dict(TOKENS[state["scheme"]], line=line_pct(DOC_LINE),
-                                                wbody=TYPE["body"][0] - DOC_PX - zoom, wline=TYPE["body"][1], wh1=TYPE["headline"][0] - DOC_PX - zoom,
-                                                wh1line=TYPE["headline"][1], wcode=TYPE["code"][0] - DOC_PX - zoom, wcodeline=TYPE["code"][1])
+                                                wbody=types["body"][0] - DOC_PX - zoom, wline=types["body"][1], wh1=types["headline"][0] - DOC_PX - zoom,
+                                                wh1line=types["headline"][1], wcode=types["code"][0] - DOC_PX - zoom, wcodeline=types["code"][1],
+                                                heading_gap=gaps["title_description"], group_gap=gaps["group"], paragraph_gap=gaps["paragraph"],
+                                                item_gap=gaps["detail"])
     css = re.sub(r"font-size: (\d+)px", lambda m: "font-size: %dpx" % (int(m.group(1)) + DOC_PX + zoom), css)
     families = ", ".join("'%s'" % name for name in code_families())
     return re.sub(r"font-family: [^;]+;", "font-family: %s;" % families, css)
@@ -547,6 +592,13 @@ def doc_css(zoom=0, extra="", own_body=False):
 def web_css():
     """새 규칙(ui="2") 화면의 문서용 CSS. doc_css 에 WEB_CSS 를 더함. 크기는 지금 글자 크기 단계의 TYPE 값."""
     return doc_css(text_px(), WEB_CSS, own_body=True)
+
+
+def learning_css():
+    """AI 학습 본문·표·코드의 큰 글자와 여유 있는 줄·문단 간격을 적용함."""
+    return doc_css(text_px(), WEB_CSS, own_body=True, learning=True) + (
+        "span.highlight { background-color: %s; color: %s; font-weight: 700; }" %
+        (color("highlight_bg"), color("highlight_ink")))
 
 
 def journey_css():

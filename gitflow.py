@@ -183,6 +183,7 @@ class GitFlow:
         self._gitdir_path = None
         self._op, self._notes, self._backup, self._changed = "sync", [], None, False
         self._url = self._base = self._tip = ""  # origin 주소, 받아 온 main 과 원격의 내 브랜치 끝(커밋 해시, 없으면 "")
+        self._submitted = ""  # 이번 실행에서 올린 마지막 커밋. 다음 알림에서 방금 올린 풀이를 다시 세지 않음
 
     # 공개 메서드
 
@@ -227,6 +228,40 @@ class GitFlow:
         """내 폴더를 study/<ID> 에 올리고 PR 주소를 돌려줌. 올린 뒤 이 컴퓨터의 브랜치와 인덱스를 올린 풀이에 맞춤(_settle).
         파일은 멈춘 git 작업이 있거나 원격에 더 새 판이 있을 때만 바꾸고, 그때는 문구와 backup 으로 알림."""
         return self._run("submit", self._submit)
+
+    def updates(self):
+        """원격 학습 자료와 현재 판을 비교함. 참조·인덱스·작업 파일은 바꾸지 않음.
+        새 객체만 받아 비교하며 count는 문항 수가 아닌 파일 수임."""
+        try:
+            deadline = time.monotonic() + self.fetch_timeout
+            remote = self._out("ls-remote", "origin", "refs/heads/main", timeout=self.fetch_timeout).split()
+            if not remote or not re.fullmatch(r"[0-9a-f]{40,64}", remote[0]):
+                return {"status": "error", "available": False, "count": 0}
+            tip = remote[0]
+            if not self._commit_of(tip):
+                self._git("fetch", "--no-write-fetch-head", "--no-tags", "--refmap=", "origin", "refs/heads/main",
+                          timeout=max(0.1, deadline - time.monotonic()))
+            paths = self._paths("diff", "--name-only", "-z", "--diff-filter=AMR", "HEAD", tip, "--",
+                                "problems/", "dungeons/", "web/", "ai/")
+            return {"status": "ok", "available": bool(paths), "count": len(paths)}
+        except (OSError, GitError):
+            return {"status": "error", "available": False, "count": 0}
+
+    def pending(self):
+        """받아 둔 제출 기준과 내 폴더를 비교함. 네트워크·인덱스·작업 파일을 바꾸지 않음.
+        count는 바뀐 파일 수이며 문항 수가 아님. 오류는 빈 풀이와 구분함."""
+        try:
+            tip, main = self._commit_of(self.tip_ref), self._commit_of(MAIN)
+            base = self._submitted or tip or main
+            if not self._submitted and tip and main and self._is_ancestor(tip, main):
+                base = main
+            if not base:
+                return {"status": "unknown", "pending": False, "count": 0}
+            fresh = set(self._paths("ls-files", "-z", "--others", "--exclude-standard", "--", self.rel))
+            changed = fresh | set(self._paths("diff", "--no-ext-diff", "--name-only", "-z", base, "--", self.rel))
+            return {"status": "ok", "pending": bool(changed), "count": len(changed)}
+        except (OSError, GitError):
+            return {"status": "error", "pending": False, "count": 0}
 
     def resolve(self, choice):
         """"diverged" 로 멈춘 뒤 사용자가 고른 쪽을 적용함.
@@ -396,6 +431,7 @@ class GitFlow:
         self._base = self._out("rev-parse", MAIN + "^{commit}")
         self._tip = self._commit_of(self.tip_ref)
         self._check_spelling()
+        self._submitted = ""  # 새 제출 참조를 받은 뒤에는 이전 실행 중 기준을 쓰지 않음
 
     def _check_spelling(self):
         """내 ID 와 대소문자만 다른 풀이 폴더가 이 컴퓨터나 main 에 있으면 아무것도 바꾸기 전에 멈춤.
@@ -777,7 +813,10 @@ class GitFlow:
             self._reconcile(keep_diverged=force)
             snap = self._snapshot("풀이 제출: %s" % self.user)
             mine = self._folder_tree(snap)
-            if mine == self._folder_tree(self._base):
+            same_as_main = mine == self._folder_tree(self._base)
+            pending_remote = self._tip and not self._is_ancestor(self._tip, self._base) \
+                and mine != self._folder_tree(self._tip)
+            if same_as_main and not pending_remote:
                 if mine and not dev:  # 개발 중인 폴더의 브랜치와, 올린 적 없는 풀이를 지운 표시는 그대로 둠
                     self._settle(self._base)
                 return self._result("nothing", M_NOTHING if mine else M_EMPTY)
@@ -785,6 +824,7 @@ class GitFlow:
             before = self._pulls() if pushed else {}
             kind, text = self._push(snap) if pushed else ("ok", "")
             if kind == "ok":
+                self._submitted = snap
                 if not dev:
                     self._settle(snap)
                 url, state = self._pr(snap, pushed, before)

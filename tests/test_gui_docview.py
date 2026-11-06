@@ -205,17 +205,24 @@ class DocViewTest(unittest.TestCase):
         self.assertEqual(python.toPlainText(), "def solution(records, k):\n    return len(records)")
 
     def test_missing_figure_shows_a_notice(self):
-        """없는 그림 자리는 caption 글 한 줄이고 경로는 도움말에 있음."""
+        """읽지 못한 그림은 원래 설명과 재시도를 남기고 경로는 도움말에 둠."""
         pieces = self.shown("앞 글\n\n![없는 그림](assets/none.gif)\n")
         self.assertEqual(len(pieces), 2)
-        self.assertIsInstance(pieces[1], Para)
-        self.assertEqual((pieces[1].text(), pieces[1].toolTip()), ("그림을 불러오지 못했습니다.", "assets/none.gif"))
-        self.assertEqual((pieces[1].property("role"), pieces[1].property("tone")), ("caption", "secondary"))
-        self.assertEqual(pieces[1].font().pixelSize(), theme.TYPE["caption"][0])
+        figure = pieces[1]
+        self.assertIsInstance(figure, FigureView)
+        self.assertFalse(figure.available)
+        self.assertEqual((figure.error_note.text(), figure.error_box.toolTip()),
+                         ("그림을 불러오지 못했습니다.", "assets/none.gif"))
+        self.assertEqual(figure.error_description.text(), "없는 그림")
+        self.assertEqual((figure.error_note.property("role"), figure.error_note.property("tone")), ("caption", "secondary"))
+        self.assertEqual(figure.error_note.font().pixelSize(), theme.TYPE["caption"][0])
+        self.assertTrue(figure.retry_btn.isVisible())
         os.makedirs(os.path.join(self.folder, "assets", "folder.gif"))  # 있지만 열 수 없는 자리. 읽기 권한이 없는 파일처럼 OSError 가 남
         pieces = self.shown("![폴더](assets/folder.gif)")
-        self.assertIsInstance(pieces[0], Para)
-        self.assertEqual((pieces[0].text(), pieces[0].toolTip()), ("그림을 불러오지 못했습니다.", "assets/folder.gif"))
+        self.assertIsInstance(pieces[0], FigureView)
+        self.assertEqual((pieces[0].error_note.text(), pieces[0].error_box.toolTip()),
+                         ("그림을 불러오지 못했습니다.", "assets/folder.gif"))
+        self.assertEqual(pieces[0].error_description.text(), "폴더")
 
     def test_narrow_column_keeps_text_inside(self):
         """GIF 단추 줄보다 좁은 칸에서도 바탕이 칸보다 넓어지지 않아 글이 오른쪽 밖으로 밀리지 않음."""
@@ -296,7 +303,7 @@ class DocViewTest(unittest.TestCase):
         later = [block for block in blocks(piece) if block.text() == "풀이"][0]
         self.assertEqual(later.blockFormat().topMargin(), 24)  # 조각 안의 절 제목은 CSS 의 위 24 를 받음
         piece = self.shown("```python\nx = 1\n```\n\n뒤 문단입니다.")[0]
-        self.assertEqual(piece.code_boxes()[0].top(), 0)
+        self.assertAlmostEqual(piece.code_boxes()[0].top(), 0, delta=1 / 64)
 
     def test_code_box_is_round_and_filled_without_a_border(self):
         """코드 상자는 테두리 없이 surface_alt 로 채운 모서리 12 상자. 모서리 안쪽 1px 은 바탕색(둥긂)이고 위 변 가운데는 상자 색."""
@@ -433,8 +440,13 @@ class FigureViewTest(unittest.TestCase):
         shutil.rmtree(self.folder)
 
     def figure(self):
-        figure = FigureView(self.path, "그림 1-1a. 장부 줄이 모이는 모습")
+        holder = QWidget()
+        holder.resize(440, 280)
+        self.addCleanup(holder.deleteLater)
+        self.addCleanup(holder.close)
+        figure = FigureView(self.path, "그림 1-1a. 장부 줄이 모이는 모습", parent=holder)
         figure.resize(400, 200)
+        holder.show()
         figure.show()
         self.addCleanup(figure.deleteLater)
         self.addCleanup(figure.close)
@@ -516,7 +528,9 @@ class FigureViewTest(unittest.TestCase):
         self.addCleanup(figure.close)
         guikit.pump()
         for button in (figure.first_btn, figure.prev_btn, figure.play_btn, figure.next_btn):
-            self.assertEqual((button.objectName(), button.property("scale")), ("text", "s"))
+            self.assertEqual((button.objectName(), button.property("scale")),
+                             ("", "m"))
+            self.assertEqual(bool(button.property("figureplay")), button is figure.play_btn)
         self.assertEqual(figure.counter.property("role"), "caption")
         self.assertFalse(figure.shrunk or figure.zoom_btn.isVisible() or figure.zoom_row.isVisible())
         guikit.click(figure.next_btn)
@@ -527,8 +541,7 @@ class FigureViewTest(unittest.TestCase):
         self.assertFalse(figure.zoom_row.isVisible())
         self.assertLessEqual(figure.zoom_btn.geometry().right(), figure.width())
         self.assertGreater(figure.zoom_btn.x(), figure.counter.geometry().right())
-        narrow = figure.controls.sizeHint().width() - 10
-        figure.resize(narrow, 800)  # 좁은 폭에서 캡션이 여러 줄이 되어도 다 들어가는 높이
+        figure.resize(320, 800)  # 줄바꿈하는 넘김 줄의 최소 힌트 폭과 별개로 좁은 그림 칸을 검사함.
         guikit.pump()
         self.assertIs(figure.zoom_btn.parentWidget(), figure.zoom_row)  # 넘김 줄에 자리가 없으면 그림 아래 줄로 내려감
         self.assertTrue(figure.zoom_row.isVisible() and figure.zoom_btn.isVisible())

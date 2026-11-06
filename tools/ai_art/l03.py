@@ -1471,13 +1471,13 @@ def fig_3h_1():
         return c.image()
 
     dline = 'device = torch.device("cuda" if torch.cuda.is_available() else "cpu")'
-    frames.append(draw("GPU 가 있으면 device 는 cuda", [], [], None, dline, "is_available() 이 True → cuda"))
+    frames.append(draw("CUDA를 사용할 수 있으면 device는 cuda", [], [], None, dline, "is_available() 이 True → cuda"))
     frames.append(draw("x 는 처음에 CPU 에", ["원본"], [], "cpu", "x = torch.tensor([1., 2., 3.])"))
     frames.append(draw("x.to(device) 만 쓰면", ["원본"], ["옮긴 사본"], "cpu", "x.to(device)",
                        "사본은 생겼지만 x 는 여전히 CPU 텐서"))
     frames.append(draw("x = x.to(device) 로 받으면", ["원본"], ["옮긴 사본"], "gpu", "x = x.to(device)",
                        "이제 x 가 GPU 텐서"))
-    frames.append(draw("GPU 가 없는 컴퓨터", ["원본"], [], "cpu", "device = cpu", "이미 cpu 라 x.to(device) 는 x 자신",
+    frames.append(draw("CUDA를 사용할 수 없는 컴퓨터", ["원본"], [], "cpu", "device = cpu", "이미 cpu 라 x.to(device) 는 x 자신",
                        gpu=False))
     c = Canvas(1120, 480)
     c.title("장치 고르기와 옮기기")

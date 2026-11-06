@@ -380,27 +380,24 @@ class JourneyMapPage(QWidget):
 
         inner = QWidget()
         root = kit.box(inner, (0, 24, 0, 48))
-        root.addWidget(kit.label("알고리즘 여행", "title"))
-        root.addSpacing(4)
         self.about = kit.para(ABOUT % 16, "body", "secondary")
-        root.addWidget(self.about)
-        root.addSpacing(16)
+        root.addWidget(kit.heading(kit.label("알고리즘 여행", "title"), self.about))
+        root.addSpacing(theme.GAP["description_content"])
         self.node_banner = kit.banner(NODE_TEXT, "warning", action="Node 찾기")
         self.bank_banner = kit.banner("", "warning")  # 읽지 못한 던전. 서비스가 남긴 원문은 도움말에만
-        banners = QWidget()  # 띠 둘이 같이 보이면 8 띄움. 숨은 띠 옆에는 간격이 생기지 않음
-        banner_box = kit.box(banners, spacing=8)
+        banners = QWidget()  # 숨은 알림 자리를 비우고 다음 행동까지 묶음.
+        banner_box = kit.box(banners, spacing=theme.GAP["group"])
         for banner in (self.node_banner, self.bank_banner):
             banner.hide()
             banner_box.addWidget(banner)
         root.addWidget(banners)
-        root.addSpacing(16)
         self.next_card = kit.NextCard()
         self.next_btn = self.next_card.button
         self.next_note = kit.para("", "body", "secondary")  # 이어서 할 일이 없을 때 카드 대신 보이는 한 줄
         self.next_note.hide()
-        root.addWidget(self.next_card)
-        root.addWidget(self.next_note)
-        root.addSpacing(48)
+        banner_box.addWidget(self.next_card)
+        banner_box.addWidget(self.next_note)
+        root.addSpacing(theme.GAP["section"])
 
         cols = QHBoxLayout()
         cols.setContentsMargins(0, 0, 0, 0)
@@ -409,7 +406,7 @@ class JourneyMapPage(QWidget):
         left_box = kit.box(left)
         head, _, self.passed = kit.section("던전 지도")
         left_box.addLayout(head)
-        left_box.addSpacing(12)
+        left_box.addSpacing(theme.GAP["description_content"])
         self.map_card, map_box = kit.card(pad=0)
         map_box.setContentsMargins(0, 24, 0, 24)
         self.view = MapView()
@@ -423,7 +420,7 @@ class JourneyMapPage(QWidget):
         right_box = kit.box(right)
         head, self.title, self.count = kit.section("")
         right_box.addLayout(head)
-        right_box.addSpacing(12)
+        right_box.addSpacing(theme.GAP["description_content"])
         self.card, card_box = kit.card(0, 0)
         lines = QWidget()
         lines_box = kit.box(lines, (24, 24, 24, 8), 4)
@@ -440,9 +437,9 @@ class JourneyMapPage(QWidget):
         self.intro = Doc()
         self.skills = kit.para()
         self.boss_new = kit.para()
-        self.intro_box = kit.spaced(kit.label("던전 소개", "caption", "tertiary"), self.intro, spacing=8)
-        self.skills_box = kit.spaced(kit.label("익히는 기술", "caption", "tertiary"), self.skills)
-        self.boss_box = kit.spaced(kit.label("보스에서 익힌 기술", "caption", "tertiary"), self.boss_new)
+        self.intro_box = kit.heading(kit.label("던전 소개", "caption", "tertiary"), self.intro)
+        self.skills_box = kit.heading(kit.label("익히는 기술", "caption", "tertiary"), self.skills)
+        self.boss_box = kit.heading(kit.label("보스에서 익힌 기술", "caption", "tertiary"), self.boss_new)
         self.about_box = QWidget()
         about_box = kit.box(self.about_box, (24, 24, 24, 24), 24)  # 묶음 사이 24 는 소개 글의 문단 사이(16)보다 넓게 둠
         for widget in (self.intro_box, self.skills_box, self.boss_box):

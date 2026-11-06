@@ -3,7 +3,7 @@
   "id": "l04",
   "title": "4차시 AI 기초: 신경망, 역전파, 활성화 함수",
   "lesson": "i04",
-  "defines": ["선형 모델", "오차", "평균 제곱 오차", "경사하강법", "에폭", "역전파", "연쇄법칙", "옵티마이저", "인공지능", "머신러닝", "지도학습", "비지도학습", "자기지도학습", "강화학습", "퍼셉트론", "활성화 함수", "입력층", "출력층", "은닉층", "다층 퍼셉트론", "ReLU", "Leaky ReLU", "기울기 소실", "전역 최적해", "국소 최적해", "모멘텀", "모델 용량", "과소적합", "하이퍼파라미터", "검증 데이터", "테스트 데이터", "데이터 누수", "K-Fold 교차 검증", "평균 절대 오차", "평균 제곱근 오차", "결정계수", "임계값", "혼동 행렬", "정밀도", "재현율", "F1 점수", "ROC 곡선", "AUC"],
+  "defines": ["선형 모델", "오차", "평균 제곱 오차", "경사하강법", "에폭", "역전파", "연쇄법칙", "옵티마이저", "인공지능", "머신러닝", "지도학습", "비지도학습", "자기지도학습", "강화학습", "퍼셉트론", "활성화 함수", "입력층", "출력층", "은닉층", "다층 퍼셉트론", "ReLU", "Leaky ReLU", "기울기 소실", "잔차 연결", "전역 최적해", "국소 최적해", "모멘텀", "모델 용량", "과소적합", "하이퍼파라미터", "검증 데이터", "테스트 데이터", "데이터 누수", "K-Fold 교차 검증", "평균 절대 오차", "평균 제곱근 오차", "결정계수", "임계값", "혼동 행렬", "정밀도", "재현율", "F1 점수", "ROC 곡선", "AUC"],
   "needs": ["l01", "l02", "l03"],
   "sections": {
     "4a": "선형 모델과 손실",
@@ -20,7 +20,7 @@
     {"what": "ViT 논문(Dosovitskiy 등, arXiv 2020년 10월): 정답 붙은 이미지로 사전학습, 4.6절에 패치 가리기 자기지도 예비 실험(지도 사전학습보다 4%p 낮음)", "url": "https://arxiv.org/abs/2010.11929", "checked": "2026-11-04"},
     {"what": "ResNet 논문(He 등, arXiv 2015년 12월): 깊은 평범한 망의 학습 오차가 커지는 문제를 풀려고 잔차 연결을 둠, 원인을 기울기 소실로 보지 않음(1절, 4.1절)", "url": "https://arxiv.org/abs/1512.03385", "checked": "2026-11-04"},
     {"what": "Masked Autoencoder 논문(He 등, arXiv 2021년 11월): 이미지 조각을 가리고 맞혀 ViT 를 자기지도학습함", "url": "https://arxiv.org/abs/2111.06377", "checked": "2026-11-04"},
-    {"what": "Identity Mappings in Deep Residual Networks(He 등, arXiv 2016년 3월): 항등 지름길로 기울기가 그대로 전해져 사라지지 않음", "url": "https://arxiv.org/abs/1603.05027", "checked": "2026-11-04"},
+    {"what": "Identity Mappings in Deep Residual Networks(He 등, arXiv 2016년 3월): 입력을 직접 더하는 구조와 역전파에서 두 경로의 기울기를 더해 전달하는 식을 제시함(2절)", "url": "https://arxiv.org/abs/1603.05027", "checked": "2026-11-05"},
     {"what": "PyTorch Optimizer.zero_grad: set_to_none 기본값이 True 라 경사를 0 대신 None 으로 비움, PyTorch 2.0 에서 기본값을 바꿈", "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html", "checked": "2026-11-03"},
     {"what": "PyTorch Tensor.backward: 잎 텐서의 .grad 에 경사를 누적함(덮어쓰지 않음)", "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.backward.html", "checked": "2026-11-03"},
     {"what": "PyTorch torch.optim.SGD: momentum 0 이면 파라미터에서 lr × grad 를 뺌", "url": "https://docs.pytorch.org/docs/stable/generated/torch.optim.SGD.html", "checked": "2026-11-03"},
@@ -38,7 +38,10 @@
     {"what": "PyTorch 2.15 torch.div: rounding_mode 가 None 이면 정수끼리도 기본 실수 자료형으로 바꿔 참 나눗셈을 함(세 수준 4h/4)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.div.html", "checked": "2026-11-05"},
     {"what": "PyTorch 2.15 torch.set_printoptions: 실수 출력 자릿수 기본값 4(세 수준 코드의 출력 주석)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.set_printoptions.html", "checked": "2026-11-05"}
   ],
-  "credits": [],
+  "credits": [
+    {"file": "assets/4d-6.gif", "license": "3Blue1Brown FAQ clip permission (under 60 seconds)", "author": "3Blue1Brown · Grant Sanderson", "url": "https://storage.googleapis.com/3blue1brown-website-bucket/lessons/2017/neural-networks/network-propagation.mp4", "permission_url": "https://www.3blue1brown.com/about/", "source_seconds": 7.073733},
+    {"file": "assets/4e-5.gif", "license": "3Blue1Brown FAQ clip permission (under 60 seconds)", "author": "3Blue1Brown · Grant Sanderson", "url": "https://storage.googleapis.com/3blue1brown-website-bucket/lessons/2017/neural-networks/number-line-squish.mp4", "permission_url": "https://www.3blue1brown.com/about/", "source_seconds": 2.5025}
+  ],
   "units": {
     "4a": {"minutes": 5, "key_figure": "assets/4a-4.gif", "kind": "concept"},
     "4b": {"minutes": 6, "key_figure": "assets/4b-2.gif", "kind": "concept"},

@@ -1,0 +1,102 @@
+{
+  "format": 1,
+  "id": "l16",
+  "title": "16차시 작은 CNN을 만들며 모양과 수를 검산합니다",
+  "lesson": "i16",
+  "defines": [
+    "이동 등변성"
+  ],
+  "needs": [
+    "l05",
+    "l06",
+    "l09",
+    "l11",
+    "l13",
+    "l14",
+    "l15"
+  ],
+  "sections": {
+    "16a": "같은 필터로 위치별 특징 값을 계산합니다",
+    "16b": "커널과 간격으로 출력 공간을 계산합니다",
+    "16c": "활성화와 풀링을 거쳐 남은 공간을 셉니다",
+    "16d": "직접 만든 특징 추출기를 분류기에 연결합니다",
+    "16e": "층별 파라미터 수에서 큰 항목을 찾습니다",
+    "16f": "모양과 평가 조건을 작은 검사로 확인합니다"
+  },
+  "outputs": [],
+  "sources": [
+    {
+      "what": "Conv2d 계산·축·출력 크기·groups 조건",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Conv2d.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "MaxPool2d의 내림과 창 크기",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.MaxPool2d.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Flatten의 기본 시작 축",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Flatten.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "Linear의 파라미터 모양",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Linear.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "정수 클래스 정답과 logit 손실",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.CrossEntropyLoss.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "no_grad와 그래프 기록",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.no_grad.html",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "잔차 연결의 모양 조건",
+      "url": "https://arxiv.org/html/1512.03385",
+      "checked": "2026-11-05"
+    },
+    {
+      "what": "AvgPool2d의 고정 창 평균과 출력 크기",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.AvgPool2d.html",
+      "checked": "2026-11-05"
+    }
+  ],
+  "credits": [],
+  "units": {
+    "16a": {
+      "minutes": 6,
+      "key_figure": "assets/16a-1.png",
+      "kind": "concept"
+    },
+    "16b": {
+      "minutes": 6,
+      "key_figure": "assets/16b-1.png",
+      "kind": "concept"
+    },
+    "16c": {
+      "minutes": 6,
+      "key_figure": "assets/16c-1.png",
+      "kind": "concept"
+    },
+    "16d": {
+      "minutes": 6,
+      "key_figure": "assets/16d-1.png",
+      "kind": "concept"
+    },
+    "16e": {
+      "minutes": 6,
+      "key_figure": "assets/16e-1.png",
+      "kind": "concept"
+    },
+    "16f": {
+      "minutes": 6,
+      "key_figure": "assets/16f-1.png",
+      "kind": "code"
+    }
+  }
+}

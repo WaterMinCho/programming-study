@@ -31,9 +31,9 @@ BLOCK_KINDS = {"ai-guess": "guess", "ai-reveal": "reveal", "ai-recall": "recall"
                "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend", "ai-levels": "levels"}
 LEVELS = (7, 15, 20)
 LEVEL_KEYS = ("level", "text", "figure", "q", "answer", "mode", "places", "unit", "why")
-LEVEL_KEYS_20 = LEVEL_KEYS + ("code", "mistake", "where")  # 20살만 쓰는 키
-LEVEL_TEXTS = ("text", "q", "why", "code", "mistake", "where")
-LEVEL_PARTS = ("text", "caption", "content", "code", "mistake", "where", "q", "why")  # level_parts 가 돌려주는 순서
+LEVEL_KEYS_20 = LEVEL_KEYS + ("code", "mistake")  # 20살만 쓰는 키
+LEVEL_TEXTS = ("text", "q", "why", "code", "mistake")
+LEVEL_PARTS = ("text", "caption", "content", "code", "mistake", "q", "why")  # level_parts 가 돌려주는 순서
 LEVEL_FIGURE = re.compile(r"assets/[^/]+\.png\Z")
 SCOPES = (("심화", "deep"), ("보충 설명", "support"), ("더 알아보기", "extra"), ("2026 흐름", "trend"), ("외울 것", "memo"))
 NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩"
@@ -249,7 +249,7 @@ def _json_block(kind, text):
 
 def _levels_block(text, folder=None):
     """ai-levels 울타리 안 JSON 을 {"kind": "levels", "id", "concept", "levels": [수준 셋]} 으로. 수준은 {"level", "id"(블록 id),
-    "text", "q", "answer", "mode", "places"(없으면 None), "unit"(없으면 ""), "why", "code", "mistake", "where", "figure"} 이고 figure 는
+    "text", "q", "answer", "mode", "places"(없으면 None), "unit"(없으면 ""), "why", "code", "mistake", "figure"} 이고 figure 는
     None 이나 figure 블록 꼴(path 는 folder 기준). 꼴이 맞지 않으면 {"kind": "levels", "error"} 하나(키 이름을 잘못 쓴 블록이 조용히
     버려지지 않게 함)."""
     def broken(message):
@@ -316,7 +316,7 @@ def _levels_block(text, folder=None):
 
 
 def level_parts(level):
-    """수준 하나의 글을 [(이름, 글)] 로. 이름은 text, caption, content, code, mistake, where, q, why 순이고 빈 글은 뺌.
+    """수준 하나의 글을 [(이름, 글)] 로. 이름은 text, caption, content, code, mistake, q, why 순이고 빈 글은 뺌.
     검사, 재풀이 공개본, 말투 덤프가 같이 씀."""
     figure = level.get("figure") or {}
     values = dict(level, caption=figure.get("caption", ""), content=figure.get("content", ""))
@@ -588,10 +588,18 @@ def cards_of(lesson, data):
             add(str(item["id"]), kind, item, item=item)
     for topic in data["topics"]:
         for statement in topic.get("statements") or []:
-            source = dict(topic, **{k: v for k, v in statement.items() if k in ("facts", "core", "family", "confuse", "step",
+            source = dict(topic, **{k: v for k, v in statement.items() if k in ("unit", "facts", "core", "family", "confuse", "step",
                                                                                    "errata", "ref", "deep", "prio", "level")})
             source.setdefault("step", topic.get("step"))
             add(str(statement["id"]), "stmt", source, stmt=statement, topic=topic)
     for spec in data["gens"]:
         add(spec.id, "gen", spec.meta, gen=spec, family=str(spec.meta.get("family") or spec.id))
     return cards
+
+
+def pattern_gen_cards(group, data, units):
+    """공개된 상황별 코드 단원의 생성 문항에 권장 차시와 이름을 붙임."""
+    source = {"items": [], "topics": [], "gens": data["gens"]}
+    cards = cards_of({"id": group["id"]}, source)
+    return [dict(card, after=units[card["unit"]]["after"], name=units[card["unit"]]["name"])
+            for card in cards if card["unit"] in units]

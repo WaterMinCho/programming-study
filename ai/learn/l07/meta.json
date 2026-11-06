@@ -3,7 +3,7 @@
   "id": "l07",
   "title": "7차시 선형 회귀",
   "lesson": "i07",
-  "defines": ["단순 회귀", "다중 회귀", "잔차 제곱합", "최소제곱법", "더미 변수", "정규방정식", "다항 회귀", "규제", "Ridge 회귀", "Lasso 회귀", "ElasticNet"],
+  "defines": ["단순 회귀", "다중 회귀", "잔차", "잔차 제곱합", "최소제곱법", "더미 변수", "정규방정식", "다항 회귀", "규제", "Ridge 회귀", "Lasso 회귀", "ElasticNet"],
   "needs": ["l04", "l05", "l06"],
   "sections": {
     "7a": "회귀와 nn.Linear",
@@ -33,7 +33,14 @@
     {"what": "PyTorch Tensor.register_hook: 텐서에 건 hook 은 그 텐서에 대한 기울기를 계산할 때마다 불림", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.register_hook.html", "checked": "2026-11-05"},
     {"what": "PyTorch 소스 nn.Module: hook 은 그 모듈의 __call__(_call_impl)이 실행하므로 net.forward 를 직접 불러도 forward 안에서 부른 안쪽 층의 hook 은 실행됨", "url": "https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py", "checked": "2026-11-05"},
     {"what": "mlbench BostonHousing 문서: Housing data for 506 census tracts of Boston from the 1970 census, 고친 자료의 town 은 마을 이름, tract 는 인구조사 구역", "url": "https://rdrr.io/cran/mlbench/man/BostonHousing.html", "checked": "2026-11-05"},
-    {"what": "PyTorch CrossEntropyLoss: 입력은 클래스마다 정규화하지 않은 logit 이어야 함", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.CrossEntropyLoss.html", "checked": "2026-11-05"}
+    {"what": "PyTorch CrossEntropyLoss: 입력은 클래스마다 정규화하지 않은 logit 이어야 함", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.CrossEntropyLoss.html", "checked": "2026-11-05"},
+    {"what": "PyTorch Broadcasting semantics: 뒤쪽 축부터 크기가 같거나 한쪽이 1이거나 없으면 브로드캐스팅되고, 축 수가 적은 쪽 앞에 크기 1 축을 붙인 뒤 축마다 큰 크기를 씀", "url": "https://docs.pytorch.org/docs/2.15/notes/broadcasting.html", "checked": "2026-11-05"},
+    {"what": "PyTorch torch.unsqueeze: 지정한 자리에 크기 1인 축을 넣은 텐서를 돌려줌. 길이 4 텐서에 0을 주면 (1, 4), 1을 주면 (4, 1)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.unsqueeze.html", "checked": "2026-11-05"},
+    {"what": "Python warnings.warn: category 를 주지 않으면 UserWarning", "url": "https://docs.python.org/3/library/warnings.html", "checked": "2026-11-05"},
+    {"what": "PyTorch torch.sign: 원소마다 부호를 돌려주고 0 은 0", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.sign.html", "checked": "2026-11-05"},
+    {"what": "PyTorch torch.clamp: 원소를 [min, max] 로 자르고 min 만 주면 아래쪽만 자름", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.clamp.html", "checked": "2026-11-05"},
+    {"what": "NumPy polyder: 계수 리스트를 다항식으로 보고 미분한 계수를 돌려줌(높은 차수부터)", "url": "https://numpy.org/doc/stable/reference/generated/numpy.polyder.html", "checked": "2026-11-05"},
+    {"what": "NumPy roots: 높은 차수부터 적은 계수 p 의 다항식 근을 돌려줌", "url": "https://numpy.org/doc/stable/reference/generated/numpy.roots.html", "checked": "2026-11-05"}
   ],
   "credits": [],
   "units": {

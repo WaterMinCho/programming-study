@@ -23,13 +23,11 @@ SCALE = 2  # 그림 파일은 화면에 보일 크기의 2배로 그려 둠
 NARROW_CSS = "pre { white-space: pre-wrap; }"  # 글 조각은 가로 스크롤이 없으므로 긴 코드 줄을 조각 폭에서 줄바꿈함
 RULED = (2, 3)  # 앞에 가로줄을 넣는 제목 단계. 지문·해설의 구역 제목은 2단계, 힌트 제목은 3단계임
 CODE_RADIUS = theme.RADIUS["control"]  # 코드 상자와 해설 그림의 모서리 반지름(12)
-CODE_MARGIN = (16, 10)  # 코드 상자 위·아래의 바깥 여백. mdlite 가 표에 style 로 적은 여백은 CSS 로 덮지 못해 문서를 읽은 뒤 바꿈.
-# 위 16 은 문단 사이와 같음. Qt 는 표 뒤에 빈 줄을 두어 상자 아래가 CODE_SPILL 만큼 더 벌어지고, 고정 줄 높이의 넓힌 간격은 다음 문단 글자
-# 위에 생김. 아래를 10 으로 줄여야 상자 위와 아래에 보이는 간격이 같아짐(세 글자 단계에서 화소로 재어 1px 안).
+CODE_MARGIN = (16, 10)  # 코드 상자의 초기 바깥 여백. 문단 사이 간격은 실제 글꼴과 줄 위치로 보정함.
 # 문단의 아래 여백은 다음 블록의 위 여백과 겹치지만 표의 여백은 더해지므로, 상자 뒤 블록에 위 여백(제목의 24)이 있으면 그만큼 아래 여백을 뺌
 CODE_SPILL = 4  # 그 빈 줄이 상자 아래로 삐져나오는 높이. 조각 끝 상자는 아래 여백을 이만큼 당겨 조각이 상자 끝에서 끝나게 함
 PAD = 24  # DocView 의 안쪽 여백
-GAP = 16  # DocView 의 조각 사이. 문단 사이와 같은 값
+GAP = theme.GAP["paragraph"]  # DocView 조각 사이를 문단 간격으로 띄움.
 TIGHT_WIDTH = 500  # 칸이 이보다 좁으면(1024 폭 창의 왼쪽 칸) 표 칸과 코드 상자의 가로 여백을 줄임
 TIGHT_CSS = "table.grid th { padding: 8px 8px; } table.grid td { padding: 4px 8px 8px 8px; } td.codebox { padding: 12px 12px; }"
 MISSING_TEXT = "그림을 불러오지 못했습니다."  # 없는 그림 자리의 안내. 경로는 도움말에 둠
@@ -109,16 +107,9 @@ def spread(table, width):
     table.setFormat(box)
 
 
-def missing_figure(src):
-    """없는 그림 자리에 두는 안내 글. 그림 경로는 도움말."""
-    note = kit.para(MISSING_TEXT, "caption", "secondary")
-    note.setToolTip(src)
-    return note
-
-
 def parts_of(text, base_dir, lang):
     """마크다운을 쌓을 차례대로 나눠 내놓음. 그림 줄 사이의 블록들은 한 목록으로, 그림 줄은 그림 조각(FigureView)으로 내놓고
-    그림 파일을 읽지 못하면 그 자리에 안내 글을 내놓음. 이미지 줄의 경로는 base_dir 에서 찾음. DocView 와 Doc 이 같이 씀."""
+    그림 파일을 읽지 못하면 설명과 재시도를 보임. 이미지 줄의 경로는 base_dir 에서 찾음. DocView 와 Doc 이 같이 씀."""
     run = []
     for block in keep_lang(mdlite.parse(text), lang):
         if block["t"] != "image":
@@ -127,12 +118,32 @@ def parts_of(text, base_dir, lang):
         if run:
             yield run
         run = []
-        try:
-            yield FigureView(os.path.join(base_dir, block["src"]), block["alt"])
-        except OSError:  # 없는 파일, 읽을 권한이 없는 파일, [문제 받기]가 바꾸는 중인 파일
-            yield missing_figure(block["src"])
+        figure = FigureView(os.path.join(base_dir, block["src"]), block["alt"])
+        figure.error_box.setToolTip(block["src"])
+        yield figure
     if run:
         yield run
+
+
+def stacked_tables(blocks):
+    """좁은 표를 열별 설명으로 바꿈. 첫 열의 항목 이름과 각 열의 값을 같은 문단에 둠."""
+    out = []
+    for block in blocks:
+        if block["t"] == "table" and len(block["head"]) > 2:
+            first, *heads = block["head"]
+            for column, title in enumerate(heads, 1):
+                out.append({"t": "heading", "level": 2, "text": "%s · %s" % (first, title) if first else title})
+                for row in block["rows"]:
+                    label = row[0] if row else ""
+                    value = row[column] if column < len(row) else ""
+                    out.append({"t": "para", "text": "%s: %s" % (label, value) if label else value})
+        elif "blocks" in block:
+            out.append(dict(block, blocks=stacked_tables(block["blocks"])))
+        elif "items" in block:
+            out.append(dict(block, items=[stacked_tables(item) for item in block["items"]]))
+        else:
+            out.append(block)
+    return out
 
 
 class Sheet(QWidget):
@@ -151,9 +162,13 @@ class Sheet(QWidget):
 class TextPiece(QTextBrowser):
     """글 조각. 폭이 바뀌면 높이를 내용에 맞춤. 휠은 바깥 스크롤로 넘겨서 Ctrl+휠로 이 조각만 글자가 커지는 일도 없음."""
 
-    def __init__(self, markup, css):
+    def __init__(self, markup, css, blocks=None):
         super().__init__()
         self.markup = markup
+        self.blocks = blocks
+        self.compact = False
+        self.table_width = 0
+        self.fitting = False
         self.spread_width = None  # 표의 열 폭을 나눈 조각 폭. 폭이 바뀌면 다시 나눔
         self.setOpenLinks(False)
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -167,7 +182,19 @@ class TextPiece(QTextBrowser):
     def restyle(self, css):
         """CSS 는 다음에 넣는 HTML 부터 적용되므로 HTML 을 다시 넣음."""
         self.document().setDefaultStyleSheet(css + NARROW_CSS)
-        self.setHtml(self.markup)
+        self.compact = False
+        self.table_width = 0
+        self.render_markup(self.markup)
+        self.table_width = max((sum(max(word_width(table.cellAt(row, col))
+            + table.cellAt(row, col).format().toTableCellFormat().leftPadding()
+            + table.cellAt(row, col).format().toTableCellFormat().rightPadding()
+            for row in range(table.rows())) + 4 for col in range(table.columns()))
+            for table in self.grid_tables() if table.columns() > 2), default=0) if self.blocks else 0
+        self.fit()
+
+    def render_markup(self, markup):
+        """문서를 다시 넣고 코드 상자의 여백을 적용함."""
+        self.setHtml(markup)
         self.document().setTextWidth(max(1, self.viewport().width()))  # 폭이 없으면 줄을 앉히지 않아 center_code 가 줄 자리를 못 읽음
         following = self.following_margins()
         for frame in self.code_frames():
@@ -175,10 +202,8 @@ class TextPiece(QTextBrowser):
             box.setTopMargin(CODE_MARGIN[0])
             box.setBottomMargin(max(0, CODE_MARGIN[1] - following.get(frame, 0)))
             frame.setFormat(box)
-            self.center_code(frame)
         self.trim_ends()
         self.spread_width = None
-        self.fit()
 
     def following_margins(self):
         """문서 맨 바깥의 표마다 그 뒤 첫 글 블록의 위 여백 {표: 여백}. Qt 가 표 바로 뒤에 두는 빈 블록은 건너뜀."""
@@ -198,18 +223,58 @@ class TextPiece(QTextBrowser):
         return out
 
     def center_code(self, frame):
-        """코드 상자 칸의 위아래 안쪽 여백을 글 줄에 맞춰 고침. 고정 줄 높이(pre 의 line-height)는 넓힌 간격을 줄 위에 두어 칸 안의 글이
-        그만큼 아래로 내려앉음. 그 간격만큼 위 여백을 줄이고 아래 여백을 늘려 상자 크기와 자리는 그대로 두고 글 줄을 가운데에 둠."""
+        """글자의 위아래 경계로 코드 여백을 맞춤. 줄 높이만 쓰면 글꼴에 따라 글자가 아래로 치우칠 수 있음."""
         cell = frame.cellAt(0, 0)
-        block = cell.firstCursorPosition().block()
-        self.document().documentLayout().blockBoundingRect(block)  # 줄을 앉혀야 줄 자리를 읽음
-        if block.layout().lineCount() == 0:
+        first = self.ink_bounds(cell.firstCursorPosition().block())
+        last = self.ink_bounds(cell.lastCursorPosition().block(), last=True)
+        if first is None or last is None:
             return
-        spill = block.layout().lineAt(0).y()
+        rect = self.code_box(frame)
+        shift = ((rect.bottom() - last.bottom()) - (first.top() - rect.top())) / 2
         pad = cell.format().toTableCellFormat()
-        pad.setTopPadding(pad.topPadding() - spill)
-        pad.setBottomPadding(pad.bottomPadding() + spill)
+        pad.setTopPadding(pad.topPadding() + shift)
+        pad.setBottomPadding(pad.bottomPadding() - shift)
         cell.setFormat(pad)
+
+    def ink_bounds(self, block, last=False):
+        """첫 줄이나 끝 줄의 글자 경계를 문서 좌표로 구함. Qt의 문자 위치는 UTF-16 기준임."""
+        origin = self.document().documentLayout().blockBoundingRect(block).topLeft()
+        layout = block.layout()
+        if not block.text().strip() or not layout.lineCount():
+            return None
+        line = layout.lineAt(layout.lineCount() - 1 if last else 0)
+        encoded = block.text().encode("utf-16-le")
+        text = encoded[2 * line.textStart():2 * (line.textStart() + line.textLength())].decode("utf-16-le")
+        font = block.charFormat().font().resolve(self.document().defaultFont())
+        rect = QFontMetricsF(font).tightBoundingRect(text)
+        return rect.translated(origin + QPointF(line.x(), line.y() + line.ascent()))
+
+    def balance_code_gaps(self):
+        """일반 문단 사이 코드 상자의 앞뒤 간격을 맞춤. 제목에 지정한 위 여백은 따로 유지함."""
+        items, part = [], self.document().rootFrame().begin()
+        while not part.atEnd():
+            item = part.currentFrame() or part.currentBlock()
+            if isinstance(item, QTextFrame) or item.text():
+                items.append(item)
+            part += 1
+        codes = self.code_frames()
+        for index, frame in enumerate(items[1:-1], 1):
+            if not isinstance(frame, QTextFrame) or frame not in codes:
+                continue
+            before, after = items[index - 1], items[index + 1]
+            if isinstance(before, QTextFrame) or isinstance(after, QTextFrame):
+                continue
+            if before.blockFormat().bottomMargin() != GAP or after.blockFormat().topMargin():
+                continue
+            first, last = self.ink_bounds(after), self.ink_bounds(before, last=True)
+            if first is None or last is None:
+                continue
+            rect = self.code_box(frame)
+            above = math.ceil(rect.top() - last.bottom()) - 1
+            below = math.floor(first.top() - rect.bottom()) - 1
+            box = frame.format()
+            box.setBottomMargin(box.bottomMargin() + above - below)
+            frame.setFormat(box)
 
     def trim_ends(self):
         """조각 맨 위와 맨 아래의 바깥 여백을 없앰. 조각 앞뒤 간격은 DocView 의 안쪽 여백과 조각 사이가 줌. 맨 위가 절 제목이면 CSS 의
@@ -239,14 +304,27 @@ class TextPiece(QTextBrowser):
         키로 움직일 때 첫 줄이 위로 밀림. 보이기 전에는 QTextBrowser 가 문서 폭을 정하지 않아 줄이 앉지 않으므로 폭을 먼저 줌.
         이미 자리 잡은 칸에 새로 들어온 조각은 보일 때의 resizeEvent 안에서 높이를 바꾸는데, 이 높이 변경은 resizeEvent 로 다시
         오지 않아 스크롤 범위가 만들 때의 낮은 높이 기준으로 남음. 조각은 안에서 스크롤하지 않으므로 범위를 0 으로 둠."""
-        width = self.viewport().width()
-        self.document().setTextWidth(width)
-        if width != self.spread_width:
-            self.spread_width = width
-            for table in self.grid_tables():
-                spread(table, width)
-        self.setFixedHeight(math.ceil(self.document().size().height()))
-        self.verticalScrollBar().setRange(0, 0)
+        if self.fitting:
+            return
+        self.fitting = True
+        try:
+            width = self.viewport().width()
+            compact = bool(self.blocks and width + 1 < self.table_width)
+            if compact != self.compact:
+                self.compact = compact
+                self.render_markup(mdlite.blocks_html(stacked_tables(self.blocks)) if compact else self.markup)
+            self.document().setTextWidth(width)
+            if width != self.spread_width:
+                self.spread_width = width
+                for table in self.grid_tables():
+                    spread(table, width)
+                for frame in self.code_frames():
+                    self.center_code(frame)
+                self.balance_code_gaps()
+            self.setFixedHeight(math.ceil(self.document().size().height()))
+            self.verticalScrollBar().setRange(0, 0)
+        finally:
+            self.fitting = False
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -278,16 +356,17 @@ class TextPiece(QTextBrowser):
     def code_boxes(self):
         """코드 상자마다 화면 위의 사각형. 칸 안 첫 블록과 끝 블록의 사각형에 칸 여백을 더해 셈. 블록 사각형은 줄 위의 넓힌 간격을
         넣고 끝 줄 아래 끝까지는 넣지 않으므로, center_code 가 고친 여백을 더하면 글 줄 위아래가 같은 12 가 됨."""
-        layout, rects = self.document().documentLayout(), []
-        for frame in self.code_frames():
-            cell = frame.cellAt(0, 0)
-            pad = cell.format().toTableCellFormat()
-            top = layout.blockBoundingRect(cell.firstCursorPosition().block())
-            bottom = layout.blockBoundingRect(cell.lastCursorPosition().block())
-            rects.append(QRectF(top.left() - pad.leftPadding(), top.top() - pad.topPadding(),
-                                top.width() + pad.leftPadding() + pad.rightPadding(),
-                                bottom.bottom() - top.top() + pad.topPadding() + pad.bottomPadding()))
-        return rects
+        return [self.code_box(frame) for frame in self.code_frames()]
+
+    def code_box(self, frame):
+        layout = self.document().documentLayout()
+        cell = frame.cellAt(0, 0)
+        pad = cell.format().toTableCellFormat()
+        top = layout.blockBoundingRect(cell.firstCursorPosition().block())
+        bottom = layout.blockBoundingRect(cell.lastCursorPosition().block())
+        return QRectF(top.left() - pad.leftPadding(), top.top() - pad.topPadding(),
+                      top.width() + pad.leftPadding() + pad.rightPadding(),
+                      bottom.bottom() - top.top() + pad.topPadding() + pad.bottomPadding())
 
     def paintEvent(self, event):
         """Qt 의 표는 모서리를 둥글게 그리지 못해서 코드 상자의 바탕을 글보다 먼저 그림. 상자는 테두리 없이 surface_alt 로 채움.
@@ -455,7 +534,8 @@ class DocView(QScrollArea):
 
     def _add_blocks(self, blocks):
         if blocks:
-            self._add_piece(mdlite.blocks_html(self._ruled(blocks)))
+            blocks = self._ruled(blocks)
+            self._add_piece(mdlite.blocks_html(blocks), blocks)
 
     def _ruled(self, blocks):
         """맨 바깥의 구역 제목 앞에 가로줄 블록을 넣은 목록. 칸 맨 위에 오는 제목에는 넣지 않음."""
@@ -466,8 +546,8 @@ class DocView(QScrollArea):
             out.append(block)
         return out
 
-    def _add_piece(self, markup):
-        piece = TextPiece(markup, self.sheet_css())
+    def _add_piece(self, markup, blocks=None):
+        piece = TextPiece(markup, self.sheet_css(), blocks)
         piece.anchorClicked.connect(lambda url: self.linked.emit(url.toString()))
         self._add(piece)
 
@@ -506,7 +586,7 @@ class Doc(QWidget):
 
     def _add_blocks(self, blocks):
         if blocks:
-            piece = TextPiece(mdlite.blocks_html(blocks), self.css)
+            piece = TextPiece(mdlite.blocks_html(blocks), self.css, blocks)
             self._add(piece)
 
     def _add(self, widget):
@@ -530,14 +610,16 @@ class FigureView(QWidget):
     자리가 없는 그림은 캡션 아래 오른쪽이라 캡션이 그림 바로 아래에 붙음.
     GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 움직임이 켜져 있고 autoplay 면 처음 보일 때 한 번 재생하고 마지막 장에서 멈춤.
     data 를 주면 파일을 읽지 않고 그 바이트를 씀. zoomable 이 거짓이면(그림 창 안) 줄어도 크게 보기를 두지 않음.
-    frame_changed 는 장을 옮긴 뒤 한 번 부르는 함수(장 번호를 받음). 뒤로 갈 때 0번 장부터 다시 넘기며 지나는 장에서는 부르지 않음."""
+    frame_changed 는 장을 옮긴 뒤 한 번 부르는 함수(장 번호를 받음). 뒤로 갈 때 0번 장부터 다시 넘기며 지나는 장에서는 부르지 않음.
+    파일이 없거나 해독되지 않으면 캡션·description과 재시도를 보임. 다시 읽을 때 위젯을 교체하지 않음."""
 
-    def __init__(self, path, alt="", parent=None, data=None, zoomable=True, autoplay=True, frame_changed=None):
+    reloading = pyqtSignal()
+
+    def __init__(self, path, alt="", parent=None, data=None, zoomable=True, autoplay=True, frame_changed=None, description="", scale=None):
         super().__init__(parent)
-        if data is None:
-            with open(path, "rb") as handle:
-                data = handle.read()
-        self.data, self.zoomable = data, zoomable
+        self.path, self.data, self.zoomable = path, b"", zoomable
+        self.description, self.available = description, False
+        self.scale = scale
         self.autoplay, self.frame_changed = autoplay, frame_changed
         self.movie, self.count, self.playing, self.shown, self.drawn_width = None, 1, False, False, -1
         self.shrunk, self.down, self.dialog = False, False, None
@@ -552,26 +634,20 @@ class FigureView(QWidget):
         self.zoom_btn = kit.button("크게 보기", "text", "s")
         self.zoom_btn.clicked.connect(self.open_dialog)
         self.controls = None  # 움직이는 그림의 넘김 줄
-        if data[:4] == b"GIF8":
-            self.open_movie()
-            self.count = max(1, self.movie.frameCount())
-            self.timer = QTimer(self)
-            self.timer.setSingleShot(True)
-            self.timer.timeout.connect(self._tick)
-            self.controls = QWidget()
-            bar = kit.box(self.controls, spacing=8, horizontal=True)
-            bar.addStretch(1)
-            self.first_btn = self._button(bar, "처음", self.first)
-            self.prev_btn = self._button(bar, "이전", self.prev)
-            self.play_btn = self._button(bar, "재생", self.toggle)
-            self.next_btn = self._button(bar, "다음", self.next)
-            self.counter = kit.label("", "caption", "secondary")
-            bar.addWidget(self.counter)
-            bar.addStretch(1)
-            # 칸을 단추 줄보다 좁히면 단추가 잘림. 단추 줄의 폭을 따르면 칸 전체가 넓어져 글이 오른쪽 밖으로 밀림
-            self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-            box.addWidget(self.controls)  # 부모에 붙인 뒤에 숨김을 정함. 먼저 보이게 하면 잠깐 따로 창으로 뜨고 그 폭이 최소 폭으로 남음
-            self.controls.setVisible(self.count > 1)
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self._tick)
+        self.error_box, error_layout = kit.well(16, 16, theme.GAP["description_content"])
+        self.error_note = kit.para(MISSING_TEXT, "caption", "secondary")
+        self.error_description = kit.para("", "body", "secondary")
+        error_layout.addWidget(kit.heading(self.error_note, self.error_description))
+        self.retry_btn = kit.button("다시 시도", "secondary", "s")
+        self.retry_btn.setAccessibleName("그림 다시 불러오기")
+        self.retry_btn.clicked.connect(lambda: self.reload())
+        error_layout.addWidget(self.retry_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        box.addWidget(self.error_box)
+        self.error_box.setToolTip(os.fsdecode(path))
+        self.error_box.hide()
         self.caption = kit.para(alt, "caption", "secondary")
         self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         box.addWidget(self.caption)
@@ -583,11 +659,94 @@ class FigureView(QWidget):
         self.zoom_row.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)  # 넘김 줄과 같은 까닭
         box.addWidget(self.zoom_row)
         self.zoom_row.hide()
-        if self.movie:
-            self.movie.jumpToFrame(0)
-        else:
-            self.source.loadFromData(data)
-            self.draw()
+        self._read(data)
+
+    def _clear_movie(self):
+        self.timer.stop()
+        self.playing = False
+        if self.movie is not None:
+            self.movie.stop()
+            self.movie.deleteLater()
+            self.buffer.deleteLater()
+            self.movie = None
+
+    def _unavailable(self):
+        """그림을 읽지 못해도 캡션과 대체 설명을 남기고 같은 자리에서 다시 읽도록 함."""
+        self._clear_movie()
+        self.available, self.count, self.shrunk = False, 1, False
+        self.source = QPixmap()
+        self.picture.clear()
+        self.picture.hide()
+        self.caption.hide()
+        if self.controls is not None:
+            self.controls.hide()
+        self.place_zoom(False)
+        parts = [text.strip() for text in (self.caption.text(), self.description) if text and text.strip()]
+        self.error_description.setText("\n\n".join(dict.fromkeys(parts)))
+        self.error_description.setVisible(bool(parts))
+        self.error_box.show()
+        return False
+
+    def _read(self, data=None):
+        """바이트를 한 번 읽고 첫 그림까지 해독함. 실패하면 이전 그림이나 재생 단추를 남기지 않음."""
+        self._clear_movie()
+        self.data, self.source, self.count = b"", QPixmap(), 1
+        try:
+            if data is None:
+                with open(self.path, "rb") as handle:
+                    data = handle.read()
+        except OSError:
+            return self._unavailable()
+        self.data = data
+        if data[:4] == b"GIF8":
+            self.open_movie()
+            if not self.movie.isValid():
+                return self._unavailable()
+            self.count = max(1, self.movie.frameCount())
+            if self.controls is None:
+                self.controls = QFrame()
+                self.controls.setObjectName("figure_controls")
+                bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"])
+                bar.setContentsMargins(16, 12, 16, 12)
+                self.controls_heading = kit.label("그림 넘기기", "caption", "secondary", bold=True)
+                bar.addWidget(self.controls_heading)
+                self.first_btn = self._button(bar, "처음", self.first)
+                self.prev_btn = self._button(bar, "이전 장", self.prev)
+                self.play_btn = self._button(bar, "재생", self.toggle)
+                self.next_btn = self._button(bar, "다음 장", self.next)
+                self.counter = kit.label("", "caption", "secondary")
+                bar.addWidget(self.counter)
+                self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+                self.layout().insertWidget(self.layout().indexOf(self.caption), self.controls)
+            self.refont()
+            if not self.movie.jumpToFrame(0) or self.source.isNull():
+                return self._unavailable()
+        elif not self.source.loadFromData(data):
+            return self._unavailable()
+        self.available = True
+        self.error_box.hide()
+        self.picture.show()
+        self.caption.setVisible(bool(self.caption.text()))
+        if self.controls is not None:
+            self.controls.setVisible(self.movie is not None and self.count > 1)
+        self.draw()
+        return True
+
+    def reload(self):
+        """같은 그림 위젯에서 파일만 다시 읽음. 단원·문항이나 학습 기록을 다시 열지 않음."""
+        focused = self.retry_btn.hasFocus()
+        self.reloading.emit()
+        if focused:
+            # 숨길 단추의 초점이 다른 입력 칸으로 잠깐 옮겨가 선택 범위를 지우지 않게 함
+            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
+        loaded = self._read()
+        if self.frame_changed is not None:
+            self.frame_changed(self.frame())
+        self.draw()
+        if not loaded and focused:
+            self.retry_btn.setFocus(Qt.FocusReason.OtherFocusReason)
+        return loaded
 
     def open_movie(self):
         """그림 바이트로 QMovie 를 새로 엶. 프레임을 모아 두지 않아서 뒤로는 0번 장으로만 바로 감. 이미 열린 것이 있으면 닫고 바꿈."""
@@ -604,7 +763,9 @@ class FigureView(QWidget):
             old[1].deleteLater()
 
     def _button(self, bar, text, slot):
-        button = kit.button(text, "text", "s")
+        button = kit.button(text, "secondary", "m")
+        if text == "재생":
+            button.setProperty("figureplay", True)
         button.clicked.connect(slot)
         bar.addWidget(button)
         return button
@@ -676,6 +837,39 @@ class FigureView(QWidget):
         self.next_btn.setEnabled(frame < self.count - 1)
         self.play_btn.setText("멈춤" if self.playing else "재생")
 
+    def refont(self):
+        """장 번호와 재생 문구가 바뀌어도 넘김 줄의 폭을 유지함."""
+        if not self.controls:
+            return
+        self.counter.setFont(theme.font(self.counter.property("role") or "caption"))
+        metrics = QFontMetricsF(self.counter.font())
+        numbers = ["%d / %d" % (number, self.count) for number in range(1, self.count + 1)]
+        widest = max(numbers, key=metrics.horizontalAdvance)
+        self.counter.setMinimumWidth(math.ceil(metrics.horizontalAdvance(widest)))
+        self.counter.setProperty("measure", widest)
+        self.play_btn.ensurePolished()
+        current = self.play_btn.text()
+        self.play_btn.setMinimumWidth(0)
+        widths = []
+        for text in ("재생", "멈춤"):
+            self.play_btn.setText(text)
+            widths.append(self.play_btn.sizeHint().width())
+        self.play_btn.setText(current)
+        self.play_btn.setMinimumWidth(max(widths))
+        self.controls.layout().invalidate()
+        self.controls.updateGeometry()
+        self.place_zoom(self.shrunk and self.zoomable)
+
+    def display_scale(self):
+        """그림 원본과 표시 크기의 비율. 학습 그림은 본문 크기에 맞춰 바꿀 수 있음."""
+        return SCALE if self.scale is None else self.scale
+
+    def display_width(self):
+        return min(self.source.width() / self.display_scale(), max(1, self.width()))
+
+    def zoom_scale(self):
+        return self.display_scale()
+
     def draw(self):
         """지금 장을 칸 폭에 맞춰 화면 배율로 부드럽게 줄이고, 모서리를 코드 상자처럼 둥글게 깎고 테두리를 둘러 보여 줌.
         테두리는 어두운 테마에서 남색 그림과 카드의 경계를 그림."""
@@ -683,7 +877,7 @@ class FigureView(QWidget):
         if self.source.isNull():
             return
         ratio = self.devicePixelRatioF()
-        width = min(self.source.width() / SCALE, max(1, self.width()))
+        width = self.display_width()
         pixmap = self.source.scaledToWidth(max(1, round(width * ratio)), Qt.TransformationMode.SmoothTransformation)
         pixmap.setDevicePixelRatio(ratio)
         framed = QPixmap(pixmap.size())
@@ -701,7 +895,7 @@ class FigureView(QWidget):
         painter.drawPath(path)
         painter.end()
         self.picture.setPixmap(framed)
-        self.shrunk = width < self.source.width() / SCALE
+        self.shrunk = width < self.source.width() / self.display_scale()
         zoom = self.shrunk and self.zoomable
         self.picture.setCursor(Qt.CursorShape.PointingHandCursor if zoom else Qt.CursorShape.ArrowCursor)
         self.place_zoom(zoom)
@@ -719,8 +913,15 @@ class FigureView(QWidget):
 
     def bar_room(self):
         """넘김 줄에서 단추·장 번호와 그 사이 간격을 뺀 남는 폭."""
-        parts = (self.first_btn, self.prev_btn, self.play_btn, self.next_btn, self.counter)
-        return self.width() - sum(part.sizeHint().width() for part in parts) - self.controls.layout().spacing() * len(parts)
+        parts = (self.controls_heading, self.first_btn, self.prev_btn, self.play_btn, self.next_btn, self.counter)
+        self.controls.ensurePolished()
+        for part in parts:
+            part.ensurePolished()
+        layout = self.controls.layout()
+        left, _, right, _ = layout.getContentsMargins()
+        frame = self.controls.contentsMargins()
+        return self.width() - frame.left() - frame.right() - left - right - \
+            sum(part.sizeHint().width() for part in parts) - layout.spacing() * len(parts)
 
     def open_dialog(self):
         """지금 장을 그린 크기로 보는 창을 띄움."""
@@ -752,6 +953,7 @@ class FigureView(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        self.refont()
         if not self.shown:
             self.shown = True
             if self.movie and self.count > 1 and motion.enabled and self.autoplay:
@@ -774,12 +976,12 @@ class FigureDialog(QDialog):
         box = kit.box(self, (24, 24, 24, 24), 16)
         if title:
             box.addWidget(kit.para(title, "headline"))
-        self.view = FigureView("", parent=None, data=figure.data, zoomable=False)
+        self.view = FigureView("", parent=None, data=figure.data, zoomable=False, scale=figure.zoom_scale())
         self.view.shown = True
         if self.view.movie:
             self.view.go(figure.frame())
         self.picture = self.view.picture
-        drawn = math.ceil(figure.source.width() / SCALE)
+        drawn = math.ceil(figure.source.width() / figure.zoom_scale())
         self.view.setMinimumWidth(drawn)  # 창이 좁으면 그림을 줄이지 않고 스크롤함
         scroll = QScrollArea()
         scroll.setFrameShape(QFrame.Shape.NoFrame)

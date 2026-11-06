@@ -107,10 +107,13 @@ def new(h=600):
     return plt, plt.figure(figsize=(11.2, h / 100.0), dpi=100)
 
 
-def image(fig):
+def image(fig, symbols=False):
     """Figure 를 RGB 그림으로 바꾸고 닫음."""
     from PIL import Image
     import matplotlib.pyplot as plt
+    if symbols:
+        from tools.ai_art import math_symbols
+        math_symbols(fig)
     fig.canvas.draw()
     data = np.asarray(fig.canvas.buffer_rgba())
     img = Image.fromarray(data[..., :3].copy())
@@ -1069,7 +1072,7 @@ def ai_ml_dl():
         ax.text(0, ty - 0.15, ex, ha="center", va="center", fontsize=16, color=INK)
     bx = boxes_axes(fig, (0.47, 0.0, 0.53, 1.0), xmax=5.9, ymax=6.0)
     bx.text(0.05, 5.7, "특징은 누가 만드나", fontsize=21, weight="bold", color=INK, va="center")
-    rows = [(3.75, "머신러닝", [("데이터", "신장, 체중", "white", "#9ca3af", INK),
+    rows = [(3.75, "직선 모델 예", [("데이터", "신장, 체중", "white", "#9ca3af", INK),
                               ("사람이 특징을 고름", "신장", GREEN_L, GREEN, GREEN),
                               ("모델이 학습", "W, B", "white", "#9ca3af", INK)]),
             (1.55, "딥러닝", [("데이터", "사진의 픽셀값", "white", "#9ca3af", INK),
@@ -1322,7 +1325,7 @@ def summary_4d():
     plt, fig = new(560)
     ax = boxes_axes(fig, ymax=5.6)
     card(ax, 0.15, 2.95, 5.35, 2.5, "인공지능 ⊃ 머신러닝 ⊃ 딥러닝",
-         [("머신러닝: 사람이 고른 특징", GREEN), ("딥러닝: 특징까지 신경망의 층이 배움", PURPLE)], size=17)
+         [("직선 모델 예: 사람이 고른 특징", GREEN), ("딥러닝: 특징까지 신경망의 층이 배움", PURPLE)], size=17)
     card(ax, 0.15, 0.15, 5.35, 2.6, "학습 방식",
          ["지도: 입력과 정답의 쌍", "비지도: 정답 없는 데이터", "자기지도: 데이터에서 만든 정답", "강화: 행동마다 받는 보상"], size=16,
          gap=0.47)
@@ -1674,7 +1677,7 @@ def momentum_paths():
         for text, color in lines:
             fig.text(0.69, yy, text, fontsize=18, color=color, va="center")
             yy -= 0.10
-        return image(fig)
+        return image(fig, symbols=True)
 
     frames = [draw(s1, m1, 0, "x = " + M + "2.5 에서 함께 출발", [("파랑: 모멘텀 없음", BLUE), ("보라: μ = 0.9", PURPLE), ("학습률 0.01", INK)],
                    mdy=-0.4, mha="left"),
@@ -1750,8 +1753,8 @@ def summary_4f():
          [("v = μ × v + 기울기", PURPLE), ("새 W = W " + M + " 학습률 × v", PURPLE), "첫 갱신은 v = 기울기",
           "W: 1 → 1.01904 → 1.054774"], size=16, gap=0.48)
     card(bx, 0.1, 0.15, 5.7, 2.4, "코드",
-         [("optim.SGD([W, B], lr=0.001,", INK), ("          momentum=0.9)", INK), "같은 쪽 갱신은 커지고 흔들림은 줄어듦"], size=16)
-    return image(fig)
+         [("optim.SGD([W, B], lr=0.001,", INK), ("          momentum=0.9)", INK), "흔들림 감소를 항상 보장하지 않음"], size=16)
+    return image(fig, symbols=True)
 
 
 # 4g 모델 용량과 데이터 나누기
@@ -1882,7 +1885,7 @@ def three_sets():
     ax.text((centers[0] + centers[2]) / 2, 4.55, "테스트 데이터를 학습에 쓰면 데이터 누수", ha="center", fontsize=17,
             color=RED, weight="bold", bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none"))
     ax.text(0.4, 1.05, "평균 같은 전처리 값도 학습 데이터에서만 구해 세 묶음에 씀", fontsize=17, color=INK)
-    ax.text(0.4, 0.45, "강의 권장: 10만 개 이상 80/10/10, 1만 개 이하 60/20/20", fontsize=16, color=MUTED)
+    ax.text(0.4, 0.45, "이 예는 5,000개를 60/20/20으로 나눕니다.", fontsize=16, color=MUTED)
     return image(fig)
 
 
@@ -1962,6 +1965,7 @@ def regression_metrics():
     ax.set_ylim(-11, 13)
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
+    ax.yaxis.set_label_coords(-0.10, 0.5)
     ax.plot([-6.5, 6.5], [W_END * -6.5 + B_END, W_END * 6.5 + B_END], color=BLUE, lw=3)
     for i in range(5):
         ax.plot([X[i], X[i]], [Y[i], YP[i]], color=RED, lw=3.2, zorder=4)
@@ -1986,7 +1990,7 @@ def regression_metrics():
         yy -= 0.075
     fig.text(0.53, yy, "$R^2$", fontsize=16, color=INK, va="center")
     fig.text(0.565, yy, "= 1 " + M + " 4.6741 ÷ 42.992 = 0.89", fontsize=16, color=INK, va="center")
-    return image(fig)
+    return image(fig, symbols=True)
 
 
 def conf_grid(ax, x0, y0, cell, values, show=(True, True, True, True), hl=()):
@@ -2153,7 +2157,7 @@ def summary_4h():
          gap=0.5)
     card(ax, 5.7, 0.15, 5.35, 2.55, "ROC 곡선과 AUC", ["가로 FPR, 세로 TPR", "AUC 0.5: 무작위 판정", "AUC 1: 양성 점수가 모두 음성보다 큼"], size=15,
          gap=0.48)
-    return image(fig)
+    return image(fig, symbols=True)
 
 
 # 세 수준으로 다시 보기(ai-levels 블록) 그림. 블록마다 수준(7, 15, 20)을 받는 함수 하나와 이름마다 얇은 등록 함수 셋을 둠.

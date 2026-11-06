@@ -40,6 +40,9 @@
     {"what": "PyTorch 2.15 torch.clone: input 의 복사본을 돌려줌(세 수준 3d/3)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.clone.html", "checked": "2026-11-05"},
     {"what": "PyTorch 2.15 Tensor.backward: 잎 텐서에 기울기를 누적하므로 .grad 를 0 이나 None 으로 비워야 할 수 있음(세 수준 3g/5)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.backward.html", "checked": "2026-11-05"},
     {"what": "PyTorch 2.15 Tensor.grad: 처음에는 None 이고 backward() 가 처음 기울기를 계산할 때 텐서가 됨(세 수준 3g/5)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.grad.html", "checked": "2026-11-05"},
-    {"what": "PyTorch 2.15 torch.set_printoptions: 실수 출력 자릿수 기본값 4(세 수준 코드의 출력 주석)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.set_printoptions.html", "checked": "2026-11-05"}
-  ]
+    {"what": "PyTorch 2.15 torch.set_printoptions: 실수 출력 자릿수 기본값 4(세 수준 코드의 출력 주석)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.set_printoptions.html", "checked": "2026-11-05"},
+  {"what": "torch.autograd는 부동소수점형과 복소수형 텐서의 자동 미분을 지원함", "url": "https://docs.pytorch.org/docs/2.15/autograd.html", "checked": "2026-11-05"},
+  {"what": "autograd의 기본 gradient 생성은 출력의 numel이1인지와 부동소수점형인지 확인함. 축의 개수는 조건이 아님", "url": "https://raw.githubusercontent.com/pytorch/pytorch/main/torch/autograd/__init__.py", "checked": "2026-11-05"},
+  {"what": "no_grad는 연산 기록을 끄지만 새 텐서 생성 때 requires_grad를 직접 지정하는 함수에는 적용되지 않음", "url": "https://raw.githubusercontent.com/pytorch/pytorch/main/torch/autograd/grad_mode.py", "checked": "2026-11-05"}
+ ]
 }

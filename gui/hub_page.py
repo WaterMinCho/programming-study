@@ -21,6 +21,7 @@ from aiprep import service as ai_service
 from gui import ai_text, errors, journey_text, kit, theme, web_text
 from gui.mascot import Mascot
 from gui.widgets import LinkLabel
+from gui.workspace import SubjectGrid, SubjectTile
 from gui.wrong_page import count_line
 from session import SessionError
 from webprep.record import RecordError
@@ -279,6 +280,12 @@ class HubPage(QWidget):
         top.identity_row.addWidget(kit.label("프로그래밍 스터디", "headline"))
         top.identity_row.addStretch(1)
         top.identity_row.addWidget(self.user)
+        self.settings_btn = kit.button("화면 설정", "text", "s", onbg=True)
+        self.manual_sync = kit.button("새 문제 받기", "text", "s", onbg=True)
+        self.manual_sync.clicked.connect(win.fetch_problems)
+        top.add_right(self.manual_sync)
+        self.settings_panel = QWidget()
+        setting_box = kit.FlowLayout(self.settings_panel, spacing=8)
         self.text_buttons = {}  # 글자 크기 단계 → 단추. 테마 단추와 같은 모양이고 지금 단계는 고른 모양
         self.text_group = QButtonGroup(self)
         self.text_group.setExclusive(True)
@@ -288,37 +295,42 @@ class HubPage(QWidget):
             button.setToolTip(TEXT_TIP)
             button.clicked.connect(lambda checked=False, step=step: win.set_text(step))
             self.text_group.addButton(button)
-            self.text_buttons[step] = top.add_right(button)
-        top.add_right(self.theme_btn, flush=True)
+            setting_box.addWidget(button)
+            self.text_buttons[step] = button
+        setting_box.addWidget(self.theme_btn)
+        top.add_right(self.settings_btn, flush=True)
         outer.addWidget(top)
+        outer.addWidget(self.settings_panel)
+        self.settings_panel.hide()
+        self.settings_btn.setCheckable(True)
+        self.settings_btn.toggled.connect(self.settings_panel.setVisible)
 
         inner = QWidget()
-        root = kit.box(inner, (0, 24, 0, 48))
-        root.addWidget(kit.label("오늘 할 공부", "title"))
-        root.addSpacing(4)
+        root = kit.box(inner, (0, 16, 0, 48))
         self.summary = kit.para("", "body", "secondary")
-        root.addWidget(self.summary)
-        root.addSpacing(32)
+        root.addWidget(kit.heading(kit.label("내 학습 현황", "title"), self.summary))
+        root.addSpacing(theme.GAP["description_content"])
         self.notice_banner, self.notice = kit.link_banner("warning")  # refresh 가 html.escape 한 글을 넣음
         self.notice.linkActivated.connect(lambda _: win.show_notice_detail())
         self.notice_banner.hide()
         self.next_card = kit.NextCard()
+        self.next_card.row.setContentsMargins(24, 16, 24, 16)
         self.next_btn = self.next_card.button
-        lead = QWidget()  # 알림 띠가 보이면 카드와 16 띄움. 숨은 띠 옆에는 간격이 생기지 않음
-        lead_box = kit.box(lead, spacing=16)
+        lead = QWidget()  # 숨은 알림 자리를 비우고 다음 행동까지 묶음.
+        lead_box = kit.box(lead, spacing=theme.GAP["group"])
         lead_box.addWidget(self.notice_banner)
         lead_box.addWidget(self.next_card)
         root.addWidget(lead)
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
 
-        head, _, _ = kit.section("공부 트랙")
+        head, _, _ = kit.section("과목별 학습")
         root.addLayout(head)
-        root.addSpacing(12)
-        self.tracks = kit.RowList()
-        self.python_row = self.tracks.add(kit.Row("파이썬 스터디", PYTHON_ABOUT, mark=kit.Dot("series_python", 8), strong=True, wrap=True))
-        self.journey_row = self.tracks.add(kit.Row("알고리즘 여행", "", mark=kit.Dot("series_algorithm", 8), strong=True, wrap=True))
-        self.web_row = self.tracks.add(kit.Row("웹 면접 준비", "", mark=kit.Dot("series_web", 8), strong=True, wrap=True))
-        self.ai_row = self.tracks.add(kit.Row(ai_text.TRACK, "", mark=kit.Dot("series_ai", 8), strong=True, wrap=True))
+        root.addSpacing(theme.GAP["description_content"])
+        self.tracks = SubjectGrid()
+        self.python_row = self.tracks.add(SubjectTile("파이썬 스터디", "series_python"))
+        self.journey_row = self.tracks.add(SubjectTile("알고리즘 여행", "series_algorithm"))
+        self.web_row = self.tracks.add(SubjectTile("웹 면접 준비", "series_web"))
+        self.ai_row = self.tracks.add(SubjectTile(ai_text.TRACK, "series_ai"))
         self.journey_error = kit.banner("", "danger")  # 여행 기록을 읽지 못한 이유. 그동안 여행 줄은 눌리지 않음
         self.web_error = kit.banner("", "danger")
         self.ai_error = kit.banner("", "danger")
@@ -329,11 +341,11 @@ class HubPage(QWidget):
             banner.hide()
             stack_box.addWidget(banner)
         root.addWidget(stack)
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
 
         head, _, _ = kit.section("오답 노트")
         root.addLayout(head)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.notes = kit.RowList()  # 오답 노트 트랙마다 한 줄. 누르면 오답 노트를 그 트랙으로 엶
         self.note_rows = []  # [(공급자, 줄)]
         series = dict(zip((tid for tid, _ in TRACKS), theme.SERIES))  # 공부 트랙 줄과 같은 점. 점 색이 없는 트랙은 점 없이 둠
@@ -343,11 +355,11 @@ class HubPage(QWidget):
             row.clicked.connect(lambda tid=track.tid: win.show_wrong(tid, "hub"))
             self.note_rows.append((track, row))
         root.addWidget(self.notes)
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
 
         head, _, self.streak = kit.section("최근 7일 학습")
         root.addLayout(head)
-        root.addSpacing(12)
+        root.addSpacing(theme.GAP["description_content"])
         self.week_card, box = kit.card(spacing=0)
         plot = QWidget()  # 막대 칸: 범례 줄과 막대. 채점 수가 막대의 오른쪽 끝에 맞아서 나란히 둔 최근 채점 칸의 수로 읽히지 않음
         plot_box = kit.box(plot, spacing=8)
@@ -374,15 +386,8 @@ class HubPage(QWidget):
         self.week = WeekBody(plot, self.recent_box, self.recent)
         box.addWidget(self.week)
         root.addWidget(self.week_card)
-        root.addSpacing(48)
+        root.addSpacing(theme.GAP["section"])
 
-        head, _, _ = kit.section("제출")
-        root.addLayout(head)
-        root.addSpacing(12)
-        self.git = kit.RowList()
-        self.git_btn = self.git.add(kit.Row("풀이 제출", "풀이 폴더를 올리고 브라우저에서 PR 페이지를 엽니다.", wrap=True))
-        self.sync_btn = self.git.add(kit.Row("새 문제 받기", "새로 올라온 문제를 받습니다. 내 풀이는 바뀌지 않습니다.", wrap=True))
-        root.addWidget(self.git)
         self.git_hint = kit.banner("", "warning")  # 제출을 쓸 수 없는 이유. 그동안 두 줄은 눌리지 않음
         self.git_hint.hide()
         root.addSpacing(12)
@@ -412,15 +417,14 @@ class HubPage(QWidget):
         self.journey_row.clicked.connect(lambda: win.go_journey())
         self.web_row.clicked.connect(lambda: win.go_web())
         self.ai_row.clicked.connect(lambda: win.go_ai())
-        self.git_btn.clicked.connect(win.submit_pr)
-        self.sync_btn.clicked.connect(win.fetch_problems)
 
     def refresh(self):
         win = self.win
         overview = win.session.overview()
         self.user.setText("ID: %s" % overview["user"])
         name, _ = split_action(win.next_action(overview)[0])
-        self.python_row.set_second("단원 %d개 중 %d개 숙달 · 다음은 %s" % (overview["total_units"], overview["mastered"], name))
+        self.python_row.set_second("다음은 %s" % name)
+        self.python_row.set_metric(overview["mastered"], overview["total_units"], "숙달 단원")
         journey = self.show_journey()
         web = self.show_web()
         ai = self.show_ai()
@@ -428,9 +432,10 @@ class HubPage(QWidget):
             row.set_second(count_line(track.groups()))
         self.show_week(overview, journey, web, ai)
         self.show_next(overview, journey, web, ai)
+        self.next_card.setToolTip(self.next_card.line.text())
+        self.next_card.line.hide()
+        self.next_card.arrange()
         usable = win.gitflow is not None
-        for row in (self.git_btn, self.sync_btn):
-            kit.set_inert(row, not usable)
         self.git_hint.setVisible(not usable)
         self.git_hint.text.setText("" if usable else "지금은 제출과 문제 받기를 쓸 수 없습니다. 풀이와 채점은 계속할 수 있습니다.\n" + win.git_reason)
         note = win.notice
@@ -451,11 +456,14 @@ class HubPage(QWidget):
         if not ready:
             self.journey_error.text.setText("%s\n%s" % (win.journey_error, FIX_HINT))
             self.journey_row.set_second("기록을 읽지 못했습니다.")
+            self.journey_row.set_metric(None, None, "")
             return None
         overview = win.journey.overview()
         last = win.settings.value("journey/last", "", type=str)
         self.journey_next = journey_text.next_item(win.journey, last, overview)
-        self.journey_row.set_second(journey_text.track_line(overview, self.journey_next))
+        detail = journey_text.track_line(overview, self.journey_next)
+        self.journey_row.set_second(detail.partition(" · ")[2] or detail)
+        self.journey_row.set_metric(overview["passed"], overview["total"], "통과한 문제")
         return overview
 
     def show_web(self):
@@ -473,15 +481,16 @@ class HubPage(QWidget):
         if not ready:
             self.web_error.text.setText("%s\n%s" % (error, FIX_HINT))
             self.web_row.set_second("기록을 읽지 못했습니다.")
+            self.web_row.set_metric(None, None, "")
             return None
         due = [c for c in overview["today"]["chains"] if not c["new"]]
         fresh = len(overview["today"]["chains"]) - len(due)
-        parts = ["미션 %d개 중 %d개 끝남" % (overview["ready_missions"], overview["done_missions"]),
-                 "오늘 복습 %d개" % len(due) if due or not fresh else "새 사슬 %d개" % fresh]
+        parts = ["복습 %d개" % len(due) if due or not fresh else "새 학습 %d개" % fresh]
         state, text = web_text.stack_status(overview["stack"])
         if state != "ready":
-            parts.append(text)
+            parts.append("설정 필요")
         self.web_row.set_second(" · ".join(parts))
+        self.web_row.set_metric(overview["done_missions"], overview["ready_missions"], "완료한 미션")
         return overview
 
     def show_ai(self):
@@ -499,13 +508,15 @@ class HubPage(QWidget):
         if not ready:
             self.ai_error.text.setText("%s\n%s" % (error, FIX_HINT))
             self.ai_row.set_second("기록을 읽지 못했습니다.")
+            self.ai_row.set_metric(None, None, "")
             return None
         self.ai_row.set_second(ai_text.track_line(overview))
+        self.ai_row.set_metric(overview["memorised"], overview["families"], "복습 확인")
         return overview
 
     def show_next(self, overview, journey, web, ai=None):
-        """이어서 할 일 카드와 요약 문장. 웹의 진행 중 미션이나 오늘 복습, AI 복습이 REVIEW_FIRST 이상이면 그것이 먼저(둘 다면 마지막 기록 순),
-        그다음 가장 최근 기록을 남긴 트랙, 기록이 없으면 파이썬."""
+        """이어서 할 일 카드와 요약을 채움. 마지막 활동이 AI이면 저장한 학습·연습을 먼저 엶.
+        다른 경우에는 웹의 진행 중 미션·복습과 최근 트랙 순서를 따름."""
         running = [m for m in (web["missions"] if web else []) if m["phase"] in ("reading", "live")]
         due = [c for c in (web["today"]["chains"] if web else []) if not c["new"]]
         parts = []
@@ -515,7 +526,7 @@ class HubPage(QWidget):
             parts.append("오늘 복습 %d개" % len(due))
         if ai and ai["due"]:
             parts.append("AI 복습 %d개" % ai["due"])
-        self.summary.setText("%s가 있습니다." % "와 ".join(parts) if parts else "이어서 할 공부를 시작하거나 아래에서 트랙을 고르세요.")
+        self.summary.setText("%s가 있습니다." % "와 ".join(parts) if parts else "공부할 과목을 고르거나 이어서 진행하세요.")
         web_item = web_text.next_item(web, self.win.web.missions) if web else None
         latest = []
         gradings = python_gradings(self.win.session.prof["attempts"])
@@ -529,10 +540,13 @@ class HubPage(QWidget):
             latest.append((str(ai["last_at"]), "ai"))
         ai_item = ai_text.next_item(ai, self.win.ai.today()) if ai else None
         first = [track for _, track in sorted(latest, reverse=True)
-                 if (track == "web" and (running or due) and web_item) or (track == "ai" and ai["due"] >= ai_service.REVIEW_FIRST)]
+                 if (track == "web" and (running or due) and web_item)
+                 or (track == "ai" and "continuation" not in ai and ai["due"] >= ai_service.REVIEW_FIRST)]
         if (running or due) and web_item and "web" not in first:
             first.insert(0, "web")
         order = first + [track for _, track in sorted(latest, reverse=True)] + ["python"]
+        if latest and max(latest)[1] == "ai" and ai_item and ai_item["action"]:
+            order.insert(0, "ai")
         for track in order:
             if track == "python":
                 label, desc = self.win.next_action(overview)
@@ -555,9 +569,11 @@ class HubPage(QWidget):
                 return
 
     def open_ai(self, item):
-        """AI 비전 개론의 이어서 할 일을 엶. 단원·복습·다시 보기는 그 화면으로 바로 감."""
+        """저장한 AI 학습 단계나 연습 묶음을 엶. 예전 추천 값도 기존 화면으로 연결함."""
         if item["kind"] == "unit":
-            self.win.open_ai_unit(item["lesson"], item["unit"])
+            self.win.open_ai_unit(item["lesson"], item["unit"], item.get("step"))
+        elif item["kind"] == "practice":
+            self.win.open_ai_practice(item["mode"], lesson=item.get("lesson"), unit=item.get("unit"), card=item.get("card"))
         elif item["kind"] in ("review", "again"):
             self.win.open_ai_practice("review")
         elif item["kind"] == "revisit":
@@ -630,8 +646,8 @@ class HubPage(QWidget):
         kit.set_inert(self.ai_row, busy or self.ai_error.isVisibleTo(self))
         for _, row in self.note_rows:
             kit.set_inert(row, busy)
-        for row in (self.git_btn, self.sync_btn):
-            kit.set_inert(row, busy or self.win.gitflow is None)
+        for button in (self.git_btn, self.sync_btn, self.manual_sync):
+            button.setEnabled(not busy and self.win.gitflow is not None)
         self.busy_bar.setVisible(busy)
         self.status.setVisible(busy and bool(text))
         self.status.setText(text if busy else "")
