@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import QLineEdit, QWidget
 from aiprep import bank
 from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
-from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, rich
+from gui.ai_learn import CARD_PAD, ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, reading_width, rich
 from gui.guard import NOTE as PASTE_NOTE
 from gui.widgets import LinkLabel, PasteBlock
 from session import SessionError
@@ -99,7 +99,7 @@ class PracticePage(QWidget):
         root.addWidget(self.top)
         self.bar_line = kit.progress(thin=True)
         root.addWidget(self.bar_line)
-        self.card, self.card_box = kit.card(24, 24)
+        self.card, self.card_box = kit.card(CARD_PAD, 32)
         self.scroll, _ = reading_column(self.card)
         root.addWidget(self.scroll, 1)
         self.bar = kit.BottomBar()
@@ -668,7 +668,7 @@ class PracticePage(QWidget):
             self.win.go_ai()
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
+        self.card.setMaximumWidth(reading_width(self.width()) + 2 * CARD_PAD)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

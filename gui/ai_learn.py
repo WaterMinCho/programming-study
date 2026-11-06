@@ -31,6 +31,34 @@ BOX_LINE = re.compile(r"^\s*>\s?\*\*\[(정정|보충 설명)\]\*\*\s*")
 WIDE = 16777215  # Qt 위젯 크기의 상한. Doc 의 최대 폭(640)을 풀어 카드 폭을 따르게 함
 STEP_KEYS = (("Left", -1), ("Right", 1), ("Alt+Left", -1), ("Alt+Right", 1))
 SLOT_CHARS = 8  # 코드 칸의 처음 폭(코드 글자 수). 적는 만큼 넓어짐
+READ_WIDTH = 880  # 기본 학습 본문의 폭. 작은 창에서는 바깥 스크롤 칸의 가용 폭을 따름
+CARD_PAD = 32
+READ_ROLES = {"body": "learn_body", "label": "learn_body", "caption": "learn_caption", "headline": "learn_heading"}
+
+
+def reading_width(window_width):
+    """넓은 창의 학습 본문을 880~1040px로 두고 긴 문장을 화면 끝까지 늘이지 않음."""
+    return max(READ_WIDTH, min(1040, READ_WIDTH + (window_width - kit.GROW_FROM) // 2))
+
+
+def learning_texts(root):
+    """학습 내용의 글·입력에 읽기용 크기를 줌. 위아래 작업 막대의 단추 크기는 별도로 둠."""
+    for widget in [root] + root.findChildren(QWidget):
+        current = widget.property("role")
+        role = READ_ROLES.get(current, current if current in READ_ROLES.values() else None)
+        if role and isinstance(widget, (QLabel, QLineEdit)):
+            widget.ensurePolished()
+            kit.typed(widget, role, widget.property("bold"))
+            if isinstance(widget, Para):
+                widget.line = theme.TYPE[role][1]
+                widget.setText(widget.text())
+
+
+def reading_heading(title, description):
+    """학습 제목과 설명 사이에 읽기용 간격을 적용함."""
+    group = kit.heading(title, description)
+    group.layout().setSpacing(theme.LEARN_GAP["title_description"])
+    return group
 
 
 def code_span(text):
@@ -77,6 +105,7 @@ class RichPara(Para):
 
 
 def rich(text="", role="body", tone="", bold=None):
+    role = READ_ROLES.get(role, role)
     out = kit.typed(RichPara(text, line=theme.TYPE[role][1], font=theme.font(role, bold)), role, bold)
     if tone:
         out.setProperty("tone", tone)
@@ -114,6 +143,8 @@ def split_boxes(markdown):
 def doc(markdown, base_dir, layout):
     """layout 에 붙인 뒤 글을 넣은 Doc. Doc.set_markdown 이 보이기를 정하는데 부모가 없으면 잠깐 따로 창으로 떠서 창이 초점을 잃음."""
     out = Doc()
+    out.css = theme.learning_css()
+    out.box.setSpacing(theme.LEARN_GAP["paragraph"])
     out.setMaximumWidth(WIDE)
     layout.addWidget(out)
     out.set_markdown(markdown, base_dir, "python")
@@ -122,7 +153,7 @@ def doc(markdown, base_dir, layout):
 
 def head(text):
     """블록 머리의 작은 이름(떠올리기, 왜일까요?)."""
-    return kit.label(text, "caption", "tertiary", bold=True)
+    return kit.label(text, "learn_caption", "secondary", bold=True)
 
 
 class TextBlock(QWidget):
@@ -131,13 +162,13 @@ class TextBlock(QWidget):
     def __init__(self, markdown, base_dir):
         super().__init__()
         self.docs = []
-        column = kit.box(self, spacing=16)
+        column = kit.box(self, spacing=theme.LEARN_GAP["paragraph"])
         for part in split_boxes(markdown):
             if part[0] == "text":
                 self.docs.append(doc(part[1], base_dir, column))
                 continue
             word, tone = ai_text.BOXES[part[1]]
-            box, inner = kit.well(16, 16, 8)
+            box, inner = kit.well(24, 24, theme.LEARN_GAP["detail"])
             tag_row = QHBoxLayout()
             tag_row.setContentsMargins(0, 0, 0, 0)
             tag_row.addWidget(kit.badge(word, tone))
@@ -170,14 +201,21 @@ class AiFigure(FigureView):
         if last and self.movie:
             self.go(self.count - 1)
         self.show_frame(self.frame())
+        learning_texts(self)
+        self.draw()
 
     def show_frame(self, number):
         self.frame_text.setText(self.frames[number]["text"] if number < len(self.frames) else "")
         self.frame_text.setVisible(self.available and any(frame.get("text") for frame in self.frames))
 
+    def display_scale(self):
+        return super().display_scale() * theme.BASE_TYPE["body"][0] / theme.TYPE["learn_body"][0]
+
     def reload(self):
         loaded = super().reload()
         if loaded and self.movie:
+            learning_texts(self)
+            self.refont()
             self.prev_btn.setText("이전 장")
             self.next_btn.setText("다음 장")
             self.setFocusPolicy(Qt.FocusPolicy.StrongFocus if self.count > 1 else Qt.FocusPolicy.NoFocus)
@@ -304,7 +342,7 @@ class OptionRow(kit.Check):
 
     def refont(self):
         self.box.refont()
-        self.mark.setFixedSize(20, theme.TYPE["body"][1])
+        self.mark.setFixedSize(20, self.label.line)
 
     def event(self, event):
         if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) \
@@ -355,7 +393,7 @@ class ChoiceList(QWidget):
 
 def code_font():
     """코드 상자의 글꼴. 연습 문항의 빈칸 코드와 같은 크기(글자 단계를 따라감)."""
-    return theme.code_font(theme.text_px() - 1)
+    return theme.code_font(theme.TYPE["learn_code"][0] - theme.CODE_PX)
 
 
 class Slot(QLineEdit):
@@ -365,6 +403,7 @@ class Slot(QLineEdit):
     def __init__(self, font, hint=""):
         super().__init__()
         self.setProperty("slot", True)
+        self.setProperty("learning", True)
         self.hint = hint
         self.setFont(font)
         self.setPlaceholderText(hint)
@@ -429,7 +468,7 @@ class CodeSlots(QFrame):
                     self.fields.append(slot)
                     count += 1
             row.addStretch(1)
-            holder.setFixedHeight(theme.slot_height() if len(pieces) > 1 else theme.TYPE["code"][1])
+            holder.setFixedHeight(theme.learning_slot_height() if len(pieces) > 1 else theme.TYPE["learn_code"][1])
             column.addWidget(holder)
             self.lines.append(holder)
         self.fit()
@@ -455,7 +494,7 @@ class CodeSlots(QFrame):
             field.fit()
         self.result.restyle()
         for line in self.lines:
-            line.setFixedHeight(theme.slot_height() if line.findChild(Slot) else theme.TYPE["code"][1])
+            line.setFixedHeight(theme.learning_slot_height() if line.findChild(Slot) else theme.TYPE["learn_code"][1])
         self.fit()
 
 
@@ -479,7 +518,7 @@ class CodeLines(QFrame):
         font = code_font()
         for label in self.labels:
             label.setFont(font)
-            label.setFixedHeight(theme.TYPE["code"][1])
+            label.setFixedHeight(theme.TYPE["learn_code"][1])
 
 
 class CodeOptionRow(OptionRow):
@@ -503,7 +542,7 @@ class CodeOptionRow(OptionRow):
 
     def refont(self):
         self.box.refont()
-        self.mark.setFixedSize(20, CodeLines.PAD + (theme.TYPE["code"][1] + 20) // 2)
+        self.mark.setFixedSize(20, CodeLines.PAD + (theme.TYPE["learn_code"][1] + 20) // 2)
 
 
 class CodeChoices(ChoiceList):
@@ -634,7 +673,7 @@ class RecallBlock(QWidget):
         column.addWidget(head(title))
         column.addWidget(rich(block.get("q", "")))
         self.field = QLineEdit()
-        kit.typed(self.field, "body")
+        kit.typed(self.field, "learn_body")
         self.field.setPlaceholderText(ai_text.MODE_HINT.get(block.get("mode") or "word", ""))
         self.field.installEventFilter(ALT_PASS)
         self.check_btn = kit.button("확인", "secondary", "l")
@@ -705,7 +744,7 @@ class DiffLine(QWidget):
                 cell.setProperty("tone", "secondary")
             row.addWidget(cell, 1)
             self.cells.append(cell)
-        self.setFixedHeight(theme.TYPE["code"][1])  # 코드 상자와 같은 줄 간격. 쌓은 표(S1 은 30행)가 짧아짐
+        self.setFixedHeight(theme.TYPE["learn_code"][1])  # 같은 줄의 코드가 겹치지 않게 학습 코드 줄 높이를 사용함
 
     def paintEvent(self, event):
         if self.changed:
@@ -967,7 +1006,7 @@ class FoldRow(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         row = kit.box(self, (0, 12, 0, 12), 12, horizontal=True)
-        self.role = role
+        self.role = READ_ROLES.get(role, role)
         self.arrow = Arrow()
         self.arrow.set_opened(False)
         self.mark = QWidget()  # 꺾쇠를 글 첫 줄 글자의 가운데 높이에 두는 칸. px 줄 높이는 넓힌 간격을 글자 위에 두어 아래에 붙임
@@ -1098,7 +1137,7 @@ class LevelsBlock(QWidget):
         concept = block.get("concept") or ""
         self.row = FoldRow("%s · %s" % (ai_text.LEVELS_HEAD, concept) if concept else ai_text.LEVELS_HEAD, "label", bold=True)
         self.body = QWidget()
-        self.body_box = kit.box(self.body, (0, 8, 0, 0), 16)
+        self.body_box = kit.box(self.body, (0, 16, 0, 0), 32)
         inner.addWidget(self.row)
         inner.addWidget(self.body)
         self.row.toggled.connect(lambda on: on and self.build())
@@ -1120,8 +1159,8 @@ class LevelsBlock(QWidget):
                 last = widget
 
     def fill(self, part, level):
-        column = kit.box(part, (16, 16, 16, 16), 24)
-        column.addWidget(kit.label(ai_text.LEVEL_NAMES.get(level.get("level"), ""), "label", bold=True))
+        column = kit.box(part, (24, 24, 24, 24), 32)
+        column.addWidget(kit.label(ai_text.LEVEL_NAMES.get(level.get("level"), ""), "learn_body", bold=True))
         if level.get("figure"):
             picture = figure(level["figure"])
             column.addWidget(picture)
@@ -1139,10 +1178,11 @@ class LevelsBlock(QWidget):
             note_box.addWidget(rich(level['mistake']))
             column.addWidget(note)
         column.addWidget(RecallBlock(level, self.ctx, ai_text.LEVEL_CHECK))
+        learning_texts(part)
 
     def restyle(self):
         for piece in self.docs:
-            piece.restyle(theme.web_css())
+            piece.restyle(theme.learning_css())
         for widget in self.figures:
             widget.draw()
 
@@ -1212,29 +1252,30 @@ class StepView(QWidget):
         super().__init__()
         self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
         self.levels = []  # 세 수준 블록. 펼 때 만든 글 조각과 그림을 restyle 때 다시 그림
-        column = kit.box(self, spacing=theme.GAP["group"])
+        column = kit.box(self, spacing=theme.LEARN_GAP["group"])
         badge, title = step_title(step)
         top = QWidget()
-        top_box = kit.box(top, spacing=8)
+        top_box = kit.box(top, spacing=theme.LEARN_GAP["detail"])
         if badge:
             tag_row = QHBoxLayout()
             tag_row.setContentsMargins(0, 0, 0, 0)
             tag_row.addWidget(kit.badge(badge, "accent"))
             tag_row.addStretch(1)
             top_box.addLayout(tag_row)
-        self.title = kit.para(title, title_role, bold=True if title_role != "headline" else None)
+        self.title = kit.para(title, READ_ROLES.get(title_role, title_role), bold=True if title_role != "headline" else None)
         top_box.addWidget(self.title)
         content = []
         for index, block in enumerate(list(step["blocks"]) + list(extra)):
             widget = self.block(block, ctx)
             if widget is not None:
                 if index == 0 and block.get("kind") == "text":
-                    top = kit.heading(top, widget)
+                    top = reading_heading(top, widget)
                 else:
                     content.append(widget)
         column.addWidget(top)
         for widget in content:
             column.addWidget(widget)
+        learning_texts(self)
         for image in self.findChildren(FigureView):
             image.reloading.connect(self.reloading)
         for level in self.levels:
@@ -1279,7 +1320,7 @@ class StepView(QWidget):
 
     def restyle(self):
         for piece in self.docs:
-            piece.restyle(theme.web_css())
+            piece.restyle(theme.learning_css())
         for widget in self.figures:
             widget.draw()
         for widget in self.codes + self.levels:
@@ -1302,10 +1343,10 @@ def step_dots(steps, index):
 
 
 def reading_column(card):
-    """카드를 읽는 글의 단(kit.read_width + 48)에 둔 스크롤 칸. (칸, 바깥 상자)."""
+    """카드를 읽기용 폭과 안쪽 여백에 둔 스크롤 칸. (칸, 바깥 상자)."""
     inner = QWidget()
-    outer = kit.box(inner, (kit.MARGIN, 24, kit.MARGIN, 32))
-    outer.addWidget(kit.column(card, kit.READ_MIN + 48))
+    outer = kit.box(inner, (kit.MARGIN, 32, kit.MARGIN, 48))
+    outer.addWidget(kit.column(card, READ_WIDTH + 2 * CARD_PAD))
     outer.addStretch(1)
     return kit.scroll(inner), outer
 
@@ -1376,7 +1417,7 @@ class AiLearnPage(QWidget):
         self.stepper = kit.Stepper()
         kit.box(stepper_frame, (kit.MARGIN, 0, kit.MARGIN, 0), horizontal=True).addWidget(self.stepper)
         root.addWidget(stepper_frame)
-        self.card, self.card_box = kit.card(24, 0)
+        self.card, self.card_box = kit.card(CARD_PAD, 0)
         self.scroll, _ = reading_column(self.card)
         self.scroll.viewport().installEventFilter(self)
         self.scroll.widget().installEventFilter(self)
@@ -1456,6 +1497,7 @@ class AiLearnPage(QWidget):
         self.view.reloading.connect(self.hold_reading)
         self.view_key = number, content
         self.card_box.addWidget(self.view)
+        learning_texts(self.view)  # 부모의 스타일이 적용된 뒤에도 읽기용 실제 글꼴을 유지함
         if state is not None:
             self.restore_fields(state)
         self.stepper.set_steps(step_dots(self.steps, index))
@@ -1641,7 +1683,7 @@ class AiLearnPage(QWidget):
             self.move(1)
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
+        self.card.setMaximumWidth(reading_width(self.width()) + 2 * CARD_PAD)
 
     def resizeEvent(self, event):
         self.hold_reading()
@@ -1676,7 +1718,7 @@ class RevisitPage(QWidget):
         self.top = kit.TopBar("← AI 비전 개론", "")
         self.back_btn, self.title = self.top.back, self.top.title
         root.addWidget(self.top)
-        self.card, self.card_box = kit.card(24, 24)
+        self.card, self.card_box = kit.card(CARD_PAD, 32)
         self.scroll, _ = reading_column(self.card)
         root.addWidget(self.scroll, 1)
         self.bar = kit.BottomBar()
@@ -1705,10 +1747,11 @@ class RevisitPage(QWidget):
         if data["figure"]:
             self.figure = figure(data.get("figure_info") or {"path": data["figure"]}, last=True)
             self.card_box.addWidget(self.figure)
-        intro = kit.heading(kit.label("외울 것", "headline"), kit.para(ai_text.MEMO_HINT, "body", "secondary"))
+        intro = reading_heading(kit.label("외울 것", "learn_heading"), rich(ai_text.MEMO_HINT, "body", "secondary"))
         self.card_box.addWidget(intro)
         self.memo = MemoBlock(data["memo"])
         self.card_box.addWidget(self.memo)
+        learning_texts(self.card)
         self.scroll.verticalScrollBar().setValue(0)
         self.setFocus()
 
@@ -1725,7 +1768,7 @@ class RevisitPage(QWidget):
             self.win.go_ai()
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
+        self.card.setMaximumWidth(reading_width(self.width()) + 2 * CARD_PAD)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1758,7 +1801,7 @@ class AiNotePage(QWidget):
         self.top = kit.TopBar("← AI 비전 개론", "")
         self.back_btn, self.title = self.top.back, self.top.title
         root.addWidget(self.top)
-        self.card, self.card_box = kit.card(24, 8)
+        self.card, self.card_box = kit.card(CARD_PAD, 16)
         self.scroll, _ = reading_column(self.card)
         root.addWidget(self.scroll, 1)
         self.back_btn.clicked.connect(lambda: self.win.open_ai_lesson(self.lid))
@@ -1776,7 +1819,7 @@ class AiNotePage(QWidget):
                 item.widget().hide()
                 item.widget().deleteLater()
         if only_memo:
-            self.card_box.addWidget(kit.para(ai_text.MEMO_HINT, "body", "secondary"))
+            self.card_box.addWidget(rich(ai_text.MEMO_HINT, "body", "secondary"))
             if data["leeches"]:
                 self.card_box.addWidget(self.leeches(data["leeches"]))
         for unit in data["units"]:
@@ -1784,7 +1827,7 @@ class AiNotePage(QWidget):
                 continue
             row = FoldRow(unit["title"], "headline", bold=True)  # 펼친 단계 제목(label 굵게)보다 크게 둬 단원 경계가 보이게 함
             body = QWidget()
-            body_box = kit.box(body, (kit.MARK + 12, 0, 0, 24), 24)
+            body_box = kit.box(body, (kit.MARK + 12, 16, 0, 32), theme.LEARN_GAP["group"])
             if only_memo:
                 for step in unit["steps"]:
                     for block in step["blocks"]:
@@ -1822,10 +1865,11 @@ class AiNotePage(QWidget):
                 continue
             view = StepView(step, ctx, title_role="label")
             body_box.addWidget(view)
+            learning_texts(view)
             self.views.append(view)
 
     def fit_column(self):
-        self.card.setMaximumWidth(kit.read_width(self.width()) + 48)
+        self.card.setMaximumWidth(reading_width(self.width()) + 2 * CARD_PAD)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1871,6 +1915,7 @@ class NoteDialog(QDialog):
         scroll.viewport().setAutoFillBackground(False)
         holder.setAutoFillBackground(False)
         box.addWidget(scroll, 1)
+        learning_texts(self.view)
         row = QHBoxLayout()
         row.addStretch(1)
         self.close_btn = kit.button("닫기", "secondary", "l")
@@ -1878,4 +1923,4 @@ class NoteDialog(QDialog):
         row.addWidget(self.close_btn)
         box.addLayout(row)
         room = win.geometry()
-        self.resize(min(kit.READ_MIN + 96, room.width() - 40), max(320, room.height() - 80))
+        self.resize(min(READ_WIDTH + 96, room.width() - 40), max(320, room.height() - 80))

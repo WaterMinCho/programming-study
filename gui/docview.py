@@ -568,10 +568,11 @@ class FigureView(QWidget):
 
     reloading = pyqtSignal()
 
-    def __init__(self, path, alt="", parent=None, data=None, zoomable=True, autoplay=True, frame_changed=None, description=""):
+    def __init__(self, path, alt="", parent=None, data=None, zoomable=True, autoplay=True, frame_changed=None, description="", scale=None):
         super().__init__(parent)
         self.path, self.data, self.zoomable = path, b"", zoomable
         self.description, self.available = description, False
+        self.scale = scale
         self.autoplay, self.frame_changed = autoplay, frame_changed
         self.movie, self.count, self.playing, self.shown, self.drawn_width = None, 1, False, False, -1
         self.shrunk, self.down, self.dialog = False, False, None
@@ -787,7 +788,7 @@ class FigureView(QWidget):
         """장 번호와 재생 문구가 바뀌어도 넘김 줄의 폭을 유지함."""
         if not self.controls:
             return
-        self.counter.setFont(theme.font("caption"))
+        self.counter.setFont(theme.font(self.counter.property("role") or "caption"))
         metrics = QFontMetricsF(self.counter.font())
         numbers = ["%d / %d" % (number, self.count) for number in range(1, self.count + 1)]
         widest = max(numbers, key=metrics.horizontalAdvance)
@@ -805,6 +806,10 @@ class FigureView(QWidget):
         self.controls.layout().invalidate()
         self.controls.updateGeometry()
 
+    def display_scale(self):
+        """그림 원본과 표시 크기의 비율. 학습 그림은 본문 크기에 맞춰 바꿀 수 있음."""
+        return SCALE if self.scale is None else self.scale
+
     def draw(self):
         """지금 장을 칸 폭에 맞춰 화면 배율로 부드럽게 줄이고, 모서리를 코드 상자처럼 둥글게 깎고 테두리를 둘러 보여 줌.
         테두리는 어두운 테마에서 남색 그림과 카드의 경계를 그림."""
@@ -812,7 +817,7 @@ class FigureView(QWidget):
         if self.source.isNull():
             return
         ratio = self.devicePixelRatioF()
-        width = min(self.source.width() / SCALE, max(1, self.width()))
+        width = min(self.source.width() / self.display_scale(), max(1, self.width()))
         pixmap = self.source.scaledToWidth(max(1, round(width * ratio)), Qt.TransformationMode.SmoothTransformation)
         pixmap.setDevicePixelRatio(ratio)
         framed = QPixmap(pixmap.size())
@@ -830,7 +835,7 @@ class FigureView(QWidget):
         painter.drawPath(path)
         painter.end()
         self.picture.setPixmap(framed)
-        self.shrunk = width < self.source.width() / SCALE
+        self.shrunk = width < self.source.width() / self.display_scale()
         zoom = self.shrunk and self.zoomable
         self.picture.setCursor(Qt.CursorShape.PointingHandCursor if zoom else Qt.CursorShape.ArrowCursor)
         self.place_zoom(zoom)
@@ -904,12 +909,12 @@ class FigureDialog(QDialog):
         box = kit.box(self, (24, 24, 24, 24), 16)
         if title:
             box.addWidget(kit.para(title, "headline"))
-        self.view = FigureView("", parent=None, data=figure.data, zoomable=False)
+        self.view = FigureView("", parent=None, data=figure.data, zoomable=False, scale=figure.display_scale())
         self.view.shown = True
         if self.view.movie:
             self.view.go(figure.frame())
         self.picture = self.view.picture
-        drawn = math.ceil(figure.source.width() / SCALE)
+        drawn = math.ceil(figure.source.width() / figure.display_scale())
         self.view.setMinimumWidth(drawn)  # 창이 좁으면 그림을 줄이지 않고 스크롤함
         scroll = QScrollArea()
         scroll.setFrameShape(QFrame.Shape.NoFrame)
