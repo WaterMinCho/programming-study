@@ -1301,7 +1301,9 @@ class LearnTest(WebTest):
         figures = [p for p in learn.view.pieces if isinstance(p, FigureView)]
         self.assertEqual(len(figures), 1)
         self.assertEqual(figures[0].caption.text(), "그림 1. 두 호출이 같은 값을 넣어 숫자가 1 만 오릅니다.")
-        buttons = figures[0].findChildren(QPushButton)  # 그림의 단추는 여행 화면과 같은 kit 글자 단추 s
+        self.assertFalse(figures[0].error_box.isVisible())
+        buttons = [b for b in figures[0].findChildren(QPushButton)
+                   if not figures[0].error_box.isAncestorOf(b)]  # 오류 안내를 뺀 그림 조작은 여행 화면과 같은 kit 글자 단추 s
         self.assertTrue(buttons)
         self.assertEqual({(b.objectName(), b.property("scale")) for b in buttons}, {("text", "s")})
         self.assertEqual(learn.section, "90b")
