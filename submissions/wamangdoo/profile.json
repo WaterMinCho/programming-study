@@ -544,8 +544,155 @@
    ],
    "shortages": [],
    "created": "2026-10-16T01:51:29",
+   "tries": 1,
+   "avg_level": 1.5,
+   "results": {
+    "s01/Q22": "wrong",
+    "s02/Q16": "ok",
+    "s04/Q1": "wrong",
+    "s08/Q3": "ok",
+    "s12/Q5": "ok",
+    "s13/Q15": "ok",
+    "s17/Q8": "wrong",
+    "s18/Q3": "ok",
+    "s19/Q21": "ok",
+    "s20/Q4": "ok",
+    "s20/Q6": "ok",
+    "s06/p05": "ok",
+    "s07/p08": "ok",
+    "s11/p03": "skipped",
+    "s13/p03": "ok",
+    "s14/p05": "skipped",
+    "s15/p01": "ok",
+    "s15/p17": "ok"
+   },
+   "last_graded": "2026-10-16T11:43:19",
+   "score": "42/59",
+   "unanswered": 0,
+   "completed_at": "2026-10-16T11:43:19",
+   "first_score": "42/59"
+  },
+  {
+   "id": "r05",
+   "kind": "round",
+   "size_reason": "보강할 단원 17개",
+   "focus": [
+    {
+     "unit": "s06",
+     "level": 2,
+     "count": 5
+    },
+    {
+     "unit": "s08",
+     "level": 2,
+     "count": 3
+    },
+    {
+     "unit": "s11",
+     "level": 1,
+     "count": 3
+    },
+    {
+     "unit": "s14",
+     "level": 2,
+     "count": 3
+    },
+    {
+     "unit": "s02",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s04",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s07",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s12",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s13",
+     "level": 2,
+     "count": 2
+    },
+    {
+     "unit": "s09",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s10",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s15",
+     "level": 2,
+     "count": 1
+    },
+    {
+     "unit": "s17",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s18",
+     "level": 1,
+     "count": 1
+    },
+    {
+     "unit": "s19",
+     "level": 2,
+     "count": 1
+    }
+   ],
+   "items": [
+    "s02/Q6",
+    "s04/Q11",
+    "s06/Q6",
+    "s06/Q9",
+    "s07/Q7",
+    "s07/Q10",
+    "s08/Q4",
+    "s08/Q7",
+    "s09/Q9",
+    "s11/Q9",
+    "s11/Q19",
+    "s11/Q20",
+    "s12/Q10",
+    "s13/Q6",
+    "s13/Q16",
+    "s15/Q22",
+    "s18/Q24",
+    "s19/Q14",
+    "s02/p09",
+    "s04/p06",
+    "s06/p06",
+    "s06/p07",
+    "s06/p08",
+    "s08/p08",
+    "s10/p05",
+    "s12/p03",
+    "s14/p06",
+    "s14/p07",
+    "s14/p08",
+    "s17/p05"
+   ],
+   "retest": [
+    "s06/p06",
+    "s14/p08"
+   ],
+   "shortages": [],
+   "created": "2026-10-16T11:43:19",
    "tries": 0,
-   "avg_level": 1.5
+   "avg_level": 1.83
   }
  ],
  "attempts": [
@@ -1197,6 +1344,134 @@
    "ok": false,
    "at": "2026-10-16T01:51:29",
    "skipped": true
+  },
+  {
+   "round": "r04",
+   "item": "s01/Q22",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s02/Q16",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s04/Q1",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s08/Q3",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s12/Q5",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s13/Q15",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s17/Q8",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s18/Q3",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s19/Q21",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s20/Q4",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s20/Q6",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s06/p05",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s07/p08",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s11/p03",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T11:43:19",
+   "skipped": true
+  },
+  {
+   "round": "r04",
+   "item": "s13/p03",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s14/p05",
+   "try": 1,
+   "ok": false,
+   "at": "2026-10-16T11:43:19",
+   "skipped": true
+  },
+  {
+   "round": "r04",
+   "item": "s15/p01",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
+  },
+  {
+   "round": "r04",
+   "item": "s15/p17",
+   "try": 1,
+   "ok": true,
+   "at": "2026-10-16T11:43:19"
   }
  ]
 }
