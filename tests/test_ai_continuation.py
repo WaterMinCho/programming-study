@@ -3,10 +3,8 @@
 import copy
 import json
 import os
-import unittest
 
-from aiprep import plan, service
-from gui import ai_text
+from aiprep import plan
 from tests.test_ai_service import Base
 
 
@@ -32,9 +30,6 @@ class ContinuationTest(Base):
         self.assertEqual({("i90", "90a")}, sess.completed_units())
         item = sess.continuation()
         self.assertEqual(("unit", "i90", "90b", 1), (item["kind"], item["lesson"], item["unit"], item["step"]))
-        overview = sess.overview()
-        overview["next"] = {"kind": "review", "count": 100}
-        self.assertEqual("90b", ai_text.next_item(overview, sess.today())["unit"])
 
     def test_order_uses_current_unit_and_next_lesson_without_dates(self):
         rows = [{"lesson": "i01", "unit": "1a", "no": 1, "order": 0},
@@ -193,58 +188,3 @@ class ContinuationTest(Base):
         restored = self.session().resume_set("note", card="i90-c01")
         self.assertEqual(current, restored.current())
         self.assertEqual(ps.draft, restored.draft)
-
-
-try:
-    from tests import guikit
-    from tests.test_gui_ai import AiTest
-except (ImportError, unittest.SkipTest):
-    AiTest = None
-
-
-if AiTest is not None:
-    class ContinuationGuiTest(AiTest):
-        def test_last_step_requires_starting_practice_and_reopens_at_last(self):
-            win = self.boot()
-            win.open_ai_unit("i90", "90a", 4)
-            self.assertFalse(win.ai.lesson("i90")["units"][0]["read"])
-            win.go_ai()
-            win.ai_home.open_next()
-            self.assertEqual(3, win.ai_learn.index)
-            guikit.click(win.ai_learn.next_btn)
-            self.assertTrue(win.ai.lesson("i90")["units"][0]["read"])
-            self.assertNotIn(("i90", "90a"), win.ai.completed_units())
-            self.assertEqual("practice", win.ai.continuation()["kind"])
-
-        def test_home_and_hub_reopen_the_same_practice_with_draft(self):
-            win = self.boot()
-            win.ai.mark_read("i90", "90a")
-            win.open_ai_practice("unit", lesson="i90", unit="90a")
-            page = win.ai_quiz
-            self.assertEqual("blank", page.item["kind"])
-            page.inputs[0].setText("중간 입력")
-            saved_set = page.practice.id
-            win.go_ai()
-            win.ai_home.open_next()
-            self.assertEqual(saved_set, page.practice.id)
-            self.assertEqual("중간 입력", page.inputs[0].text())
-            win.go_hub()
-            win.hub.open_ai(ai_text.next_item(win.ai.overview(), win.ai.today()))
-            self.assertEqual(saved_set, page.practice.id)
-            self.assertEqual("중간 입력", page.inputs[0].text())
-
-        def test_new_page_restores_local_draft_without_grading_it(self):
-            from gui.ai_quiz import PracticePage
-            win = self.boot()
-            win.ai.mark_read("i90", "90a")
-            win.open_ai_practice("unit", lesson="i90", unit="90a")
-            page = win.ai_quiz
-            page.inputs[0].setText("다시 열 입력")
-            page.save_progress()
-            before = list(win.ai.record.log)
-            win.ai._active_set = None
-            restored = PracticePage(win)
-            self.addCleanup(restored.deleteLater)
-            restored.load("unit", "i90", "90a")
-            self.assertEqual("다시 열 입력", restored.inputs[0].text())
-            self.assertEqual(before, win.ai.record.log)

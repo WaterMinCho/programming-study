@@ -755,16 +755,28 @@ class LevelsTest(AiTest):
         block = self.levels(win.ai_learn.view)
         seen = self.tab_through(block)
         recalls = block.body.findChildren(ai_learn.RecallBlock)
-        fields = [r.field for r in recalls]
-        self.assertTrue(seen and isinstance(seen[0], TextPiece), seen)  # 접힌 줄 다음은 7살 글
-        self.assertEqual(fields, [w for w in seen if w in fields])
-        self.assertLess(seen.index(fields[0]), seen.index(recalls[0].check_btn))
+        self.assertEqual((3, 3, 3), (len(block.figures), len(block.docs), len(recalls)))
+        expected = []
+        for figure, doc, recall in zip(block.figures, block.docs, recalls):
+            self.assertTrue(figure.zoom_btn.isVisibleTo(block))
+            pieces = doc.findChildren(TextPiece)
+            self.assertTrue(pieces)
+            expected.extend([figure.zoom_btn, *pieces, recall.field, recall.check_btn])
+        self.assertEqual(expected, seen)
         win.open_ai_note("i90")
         page = win.ai_note
         guikit.pump()
         guikit.click(page.findChildren(ai_learn.FoldRow)[0])
         block = self.levels(page)
-        self.assertGreaterEqual(len(self.tab_through(block)), 3)  # 전체 노트에서도 다음 단계로 건너뛰지 않고 블록 안 글로 감
+        seen = self.tab_through(block)
+        self.assertEqual((3, 3), (len(block.figures), len(block.docs)))
+        expected = []
+        for figure, doc in zip(block.figures, block.docs):
+            self.assertTrue(figure.zoom_btn.isVisibleTo(block))
+            pieces = doc.findChildren(TextPiece)
+            self.assertTrue(pieces)
+            expected.extend([figure.zoom_btn, *pieces])
+        self.assertEqual(expected, seen)
 
     def test_restyle_while_open(self):
         win = self.boot()
