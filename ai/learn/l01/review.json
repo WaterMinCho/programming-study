@@ -1,12 +1,12 @@
 {
  "format": 1,
- "writer": "출제 1",
- "resolver": "재풀이 2",
- "reviewer": "검토 4",
+ "writer": "본문 작성 2·도형 수정 0",
+ "resolver": "내용 대조 1",
+ "reviewer": "검토 1",
  "files": {
   "assets/1a-1.png": "eeab4fe61fdabc999edc282a30b0f1c24824e179526053db8be1c5fd500b97f3",
   "assets/1a-2.gif": "5ffa1add2b6db57e0d924bdd9d5f1c82f291bb576829adc14b8b7c28bd43b4b0",
-  "assets/1a-3.gif": "4e6a282cc4282534e2330e0524a9d4944274cba8a1da87bffc79566530ec7e6c",
+  "assets/1a-3.gif": "2f0e2d8015d5df732c23cd49de6cbd070a0e1ce0a21fbce580a11e3efe9f0234",
   "assets/1a-4.png": "24f8243df80738e11444fe5d4bc8689bab153e99f91e3c3717fa92843d419bc8",
   "assets/1a-5.png": "852b0b72a8b7a07f603fb6f3a503c60241de6073dd6b38864308a772045c4fe9",
   "assets/1b-1.png": "53d5b4ad9f125030243fcc71bf52aba82b64de8d4aeacfc1cdcec40f1d70dca0",
@@ -17,6 +17,9 @@
   "assets/1b-42.png": "62906f29c2dec253d1645a5cf4303470b9a8cfb58cfb213770992e4e20b5ca6b",
   "assets/1b-43.png": "aa6b3c07ddb8c2ff3dc6accd0cbc72adb209723d6688b94b0f13fad01de8daf0",
   "assets/1b-5.png": "1faa578cffca2f8c99ac02a1320e6559e3c70da4694dccf4adaef6e0f8191967",
+  "assets/1b-6.gif": "2f2fd74972f29901600f58c91dff6f5417a680b4aca23f9d04a8c0faabe467fa",
+  "assets/1b-7.gif": "b4ffca35b8628a56549ea49f36b4f9f12ef4f94413665c3a17ea7b379c5dc6bb",
+  "assets/1b-8.gif": "8d8c437335f6be392452cd4bfc49095c5f43e81f7d496d7d8afe120e46898eb3",
   "assets/1c-1.png": "cbbc02d1c0ec8dd5ebed1fb572ff6fda7111cd7038e44487da71f58c700fda6a",
   "assets/1c-2.gif": "23dbee09949e38f6e7c70684377fec0db23c5844dc1932d8fedb67f9e645734e",
   "assets/1c-3.png": "bdd323f63719685ad91ec3a8b62d3701ae93402475ca631ee74509688acfa321",
@@ -48,8 +51,8 @@
   "assets/1g-3.png": "3e2db4216f1464d69899996b8c746c0deeec8c48a66172d4fedcba70230c5536",
   "assets/1g-4.png": "4eb7d99528d8d2f1cc77328969f5f82e2d9af857d0ef50bae0489ab4bfc49c74",
   "assets/1g-5.png": "55f515c2d877899893093e67c797c6cc4ccf95e491490656610e000168d2f45d",
-  "meta.json": "7f0571f8f0502fe4aaa1bfc322091f3c307061a8f2e0c91545f5ee3115f7c0d3",
-  "page.md": "9c63c0338d50234a439c12171b649751e36711ed79242b00384c885da50fdfe1"
+  "meta.json": "b7de1505982aebe191bc54eb08310f5c9c47e40436f8fc4e122cfe9d105378df",
+  "page.md": "cc43859e68fdb0e449e8b226d9d47271eaf8601c4bdc93360b742f2aa0ac766c"
  },
  "findings": [
   "검토 2026-11-04: 마스크를 필터로 바꿔 l02 마스크와 뜻이 겹치지 않게 함",
@@ -72,6 +75,7 @@
   "재풀이 2 는 다시 풀기 전에 대조 3 기록에서 1d/3 15살 물음의 새 정답을 봤음. 이 물음은 블록 글과 그림만으로 다시 계산해 맞음을 확인했고 블라인드 재풀이로 세지 않음",
   "검사: check_doc_tone ✗ 0 △ 0, check_style, verify_ai i01(경고는 대조 3 이 받아들인 것), web_lint, ai_overlap(l01·l02 270곳 실패 0), 테스트 162개와 RealLessonTest 통과. 블록 그림 12장을 원래 크기로 열어 글자 겹침과 잘림이 없음을 봄",
   "2026-11-05 본문과 복습 물음의 조건을 원자료·공식 문서와 대조하고 문장과 그림을 확인했음. 새 수준 물음 36개와 수정한 독립 지문 12개 및 마지막 반복 번호 물음의 재풀이 기록을 따로 보존했음.",
-  "학습 문장의 외부 위치를 덜고 단원 도입과 참조를 대조했음. 기존 물음·답·수치와 그림 파일을 보존했음."
+  "학습 문장의 외부 위치를 덜고 단원 도입과 참조를 대조했음. 기존 물음·답·수치와 그림 파일을 보존했음.",
+  "본문·새 물음과 학습 패턴 수치, 개발 흐름, 참조 그림을 대조함."
  ]
 }

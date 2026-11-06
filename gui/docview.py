@@ -704,12 +704,16 @@ class FigureView(QWidget):
                 return self._unavailable()
             self.count = max(1, self.movie.frameCount())
             if self.controls is None:
-                self.controls = QWidget()
+                self.controls = QFrame()
+                self.controls.setObjectName("figure_controls")
                 bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"])
+                bar.setContentsMargins(16, 12, 16, 12)
+                self.controls_heading = kit.label("그림 넘기기", "caption", "secondary", bold=True)
+                bar.addWidget(self.controls_heading)
                 self.first_btn = self._button(bar, "처음", self.first)
-                self.prev_btn = self._button(bar, "이전", self.prev)
+                self.prev_btn = self._button(bar, "이전 장", self.prev)
                 self.play_btn = self._button(bar, "재생", self.toggle)
-                self.next_btn = self._button(bar, "다음", self.next)
+                self.next_btn = self._button(bar, "다음 장", self.next)
                 self.counter = kit.label("", "caption", "secondary")
                 bar.addWidget(self.counter)
                 self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
@@ -759,7 +763,7 @@ class FigureView(QWidget):
             old[1].deleteLater()
 
     def _button(self, bar, text, slot):
-        button = kit.button(text, "text", "s")
+        button = kit.button(text, "primary" if text == "재생" else "secondary", "m")
         button.clicked.connect(slot)
         bar.addWidget(button)
         return button
@@ -857,6 +861,12 @@ class FigureView(QWidget):
         """그림 원본과 표시 크기의 비율. 학습 그림은 본문 크기에 맞춰 바꿀 수 있음."""
         return SCALE if self.scale is None else self.scale
 
+    def display_width(self):
+        return min(self.source.width() / self.display_scale(), max(1, self.width()))
+
+    def zoom_scale(self):
+        return self.display_scale()
+
     def draw(self):
         """지금 장을 칸 폭에 맞춰 화면 배율로 부드럽게 줄이고, 모서리를 코드 상자처럼 둥글게 깎고 테두리를 둘러 보여 줌.
         테두리는 어두운 테마에서 남색 그림과 카드의 경계를 그림."""
@@ -864,7 +874,7 @@ class FigureView(QWidget):
         if self.source.isNull():
             return
         ratio = self.devicePixelRatioF()
-        width = min(self.source.width() / self.display_scale(), max(1, self.width()))
+        width = self.display_width()
         pixmap = self.source.scaledToWidth(max(1, round(width * ratio)), Qt.TransformationMode.SmoothTransformation)
         pixmap.setDevicePixelRatio(ratio)
         framed = QPixmap(pixmap.size())
@@ -900,8 +910,10 @@ class FigureView(QWidget):
 
     def bar_room(self):
         """넘김 줄에서 단추·장 번호와 그 사이 간격을 뺀 남는 폭."""
-        parts = (self.first_btn, self.prev_btn, self.play_btn, self.next_btn, self.counter)
-        return self.width() - sum(part.sizeHint().width() for part in parts) - self.controls.layout().spacing() * len(parts)
+        parts = (self.controls_heading, self.first_btn, self.prev_btn, self.play_btn, self.next_btn, self.counter)
+        layout = self.controls.layout()
+        left, _, right, _ = layout.getContentsMargins()
+        return self.width() - left - right - sum(part.sizeHint().width() for part in parts) - layout.spacing() * len(parts)
 
     def open_dialog(self):
         """지금 장을 그린 크기로 보는 창을 띄움."""
@@ -956,12 +968,12 @@ class FigureDialog(QDialog):
         box = kit.box(self, (24, 24, 24, 24), 16)
         if title:
             box.addWidget(kit.para(title, "headline"))
-        self.view = FigureView("", parent=None, data=figure.data, zoomable=False, scale=figure.display_scale())
+        self.view = FigureView("", parent=None, data=figure.data, zoomable=False, scale=figure.zoom_scale())
         self.view.shown = True
         if self.view.movie:
             self.view.go(figure.frame())
         self.picture = self.view.picture
-        drawn = math.ceil(figure.source.width() / figure.display_scale())
+        drawn = math.ceil(figure.source.width() / figure.zoom_scale())
         self.view.setMinimumWidth(drawn)  # 창이 좁으면 그림을 줄이지 않고 스크롤함
         scroll = QScrollArea()
         scroll.setFrameShape(QFrame.Shape.NoFrame)

@@ -12,9 +12,9 @@
    "fn": "1a-2"
   },
   "learn/l01/assets/1a-3.gif": {
-   "sha256": "4e6a282cc4282534e2330e0524a9d4944274cba8a1da87bffc79566530ec7e6c",
-   "script": "tools/ai_art/l01.py",
-   "fn": "1a-3"
+   "sha256": "2f0e2d8015d5df732c23cd49de6cbd070a0e1ce0a21fbce580a11e3efe9f0234",
+   "script": "tools/ai_art/conditions_qt.py",
+   "fn": "learning_rates"
   },
   "learn/l01/assets/1a-4.png": {
    "sha256": "24f8243df80738e11444fe5d4bc8689bab153e99f91e3c3717fa92843d419bc8",
@@ -607,9 +607,9 @@
    "fn": "3g-53"
   },
   "learn/l03/assets/3h-1.gif": {
-   "sha256": "7efa9674afdc7e9ee20f35870bd2eb8fa587dd20ec7d0c3bcaeca049f5b5105f",
-   "script": "tools/ai_art/l03.py",
-   "fn": "3h-1"
+   "sha256": "59c2af6fc0ad6d9e917f2512c48bc031a48f04f1e7b7107172e6888f827324fb",
+   "script": "tools/ai_art/conditions_qt.py",
+   "fn": "device_transfer"
   },
   "learn/l03/assets/3h-2.png": {
    "sha256": "ef04626f119b6775cf40b063593ba87bfee9c1a953f2df288cd8e9c930af0aac",
@@ -822,9 +822,9 @@
    "fn": "4f-3"
   },
   "learn/l04/assets/4f-4.png": {
-   "sha256": "80ae3a0ea04e8362eb3fc3cfc1902a2c2281c400268806051155c43b654820be",
-   "script": "tools/ai_art/l04.py",
-   "fn": "summary_4f"
+   "sha256": "4f594801b039c3ce9802e4a6c98a1717fdbb3fdf98747d0db08af97ecd0343c2",
+   "script": "tools/ai_art/conditions_qt.py",
+   "fn": "momentum_conditions"
   },
   "learn/l04/assets/4g-1.gif": {
    "sha256": "288bc13248c2572de89029ecf9acb41e426db07566f068b182edc02c26c58fb9",
@@ -837,9 +837,9 @@
    "fn": "4g-2"
   },
   "learn/l04/assets/4g-3.png": {
-   "sha256": "10d4bbd4608a8c2bc7af04a436cbb7a783e7bc60a5b6239bacb50879c4d1bc57",
-   "script": "tools/ai_art/l04.py",
-   "fn": "4g-3"
+   "sha256": "73ea12953add532b9c8fd17384909c0f8f4ceaeea5c3e7f2349eaed3dc869b96",
+   "script": "tools/ai_art/conditions_qt.py",
+   "fn": "split_example"
   },
   "learn/l04/assets/4g-4.gif": {
    "sha256": "2b39a24c2e6d0f950c1cdba078f0e60945c1503fdf3ab0ef85fa34d6f14a3b87",
@@ -1047,9 +1047,9 @@
    "fn": "5f-3"
   },
   "learn/l05/assets/5f-4.png": {
-   "sha256": "615a584ed5a68da57eefd94e120f4ce047d52fcfe9bc92342eb41d789c49c1da",
-   "script": "tools/ai_art/l05.py",
-   "fn": "5f-4"
+   "sha256": "76201c6648d2cad963b7aee0d4c39df9afe0f369b8f31bda78a08ba09c7f6fe7",
+   "script": "tools/ai_art/conditions_qt.py",
+   "fn": "batch_norm"
   },
   "learn/l05/assets/5f-41.png": {
    "sha256": "69273ef86f3d65ad9f534db5aad87ae3715385308b464be5b83219be790798b8",
@@ -1447,9 +1447,9 @@
    "fn": "7f-3"
   },
   "learn/l07/assets/7f-4.png": {
-   "sha256": "f1cc0050588d94b5c6d836d35a350c7f2316f31fa734709f57f2f169e59b65e5",
-   "script": "tools/ai_art/l07.py",
-   "fn": "7f-4"
+   "sha256": "9a9a9cf460c949e128d7a66077b0f7780401fe0940c8ff4e2f4be0742adf61bd",
+   "script": "tools/ai_art/conditions_qt.py",
+   "fn": "regression_conditions"
   },
   "learn/l07/assets/7f-41.png": {
    "sha256": "3b65ec0e2e005a142d7b1a61316f9fdd64fbfa89bc233bed8b8bd5b9a0c48bc1",
@@ -1632,14 +1632,14 @@
    "fn": "8e-3"
   },
   "learn/l08/assets/8e-4.png": {
-   "sha256": "effda4eed3ce4394e6b7c1c3b5b6bce12cf327f3f5d88d8710f4e244b0fa8014",
-   "script": "tools/ai_art/l08.py",
-   "fn": "8e-4"
+   "sha256": "f45f3c3687a3992b6982b48db5b91c027487d94cc220141da563c0f01a08a0fa",
+   "script": "tools/ai_art/conditions_qt.py",
+   "fn": "training_then_evaluation"
   },
   "learn/l08/assets/8e-5.png": {
-   "sha256": "d0592c325e2a4bfdb838aab936aee3c38ec382aaf33e836d2c64b50ad9137179",
-   "script": "tools/ai_art/l08.py",
-   "fn": "8e-5"
+   "sha256": "db6e56a3b04f7e5c702ae048f1b53bb2e210dd212459fff2ddb28dbaf686946c",
+   "script": "tools/ai_art/conditions_qt.py",
+   "fn": "training_weight"
   },
   "learn/l08/assets/8f-1.gif": {
    "sha256": "56c6518f8b66c50f67548b025f62376c50f09e60bf1642dcdd99e283e7f66497",
@@ -3550,6 +3550,21 @@
    "sha256": "7c5f86571dc7a0692fd90a9871a91dcf47aba4e35cb53e01c79136d68bd95dd9",
    "script": "tools/ai_art/l18.py",
    "fn": "18h-5"
+  },
+  "learn/l01/assets/1b-6.gif": {
+   "sha256": "2f2fd74972f29901600f58c91dff6f5417a680b4aca23f9d04a8c0faabe467fa",
+   "script": "tools/ai_art/l01_training_qt.py",
+   "fn": "training_overview"
+  },
+  "learn/l01/assets/1b-7.gif": {
+   "sha256": "b4ffca35b8628a56549ea49f36b4f9f12ef4f94413665c3a17ea7b379c5dc6bb",
+   "script": "tools/ai_art/l01_training_qt.py",
+   "fn": "training_steps"
+  },
+  "learn/l01/assets/1b-8.gif": {
+   "sha256": "8d8c437335f6be392452cd4bfc49095c5f43e81f7d496d7d8afe120e46898eb3",
+   "script": "tools/ai_art/l01_training_qt.py",
+   "fn": "development_flow"
   }
  }
 }

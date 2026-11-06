@@ -28,6 +28,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import study  # noqa: E402
+import mdlite  # noqa: E402
 from tools import check_style, lecture_locations  # noqa: E402
 from webprep import bank  # noqa: E402
 
@@ -123,8 +124,12 @@ def units_of(markdown):
 
 
 def plain(text):
-    """인라인 코드를 CODE_MARK 로 바꾼 글."""
-    return INLINE_CODE.sub(CODE_MARK, text)
+    """표시되는 글에서 강조 태그는 빼고 인라인 코드는 CODE_MARK로 가림."""
+    text = re.sub(r"(?m)^\s*(?:>\s*)?\*\*\[(?:정정|보충 설명)\]\*\*\s*", "", text)
+    def render(tokens):
+        return "".join(CODE_MARK if kind == "code" else render(value) if kind in ("bold", "mark", "underline")
+                       else " " if kind == "br" else value for kind, value in tokens)
+    return render(mdlite.inline_tokens(text))
 
 
 def sentences(text):

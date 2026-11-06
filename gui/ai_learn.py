@@ -52,6 +52,8 @@ def learning_texts(root):
             if isinstance(widget, Para):
                 widget.line = theme.TYPE[role][1]
                 widget.setText(widget.text())
+            elif isinstance(widget, QLineEdit):
+                widget.setMinimumHeight(theme.TYPE[role][1] + 24)
 
 
 def reading_heading(title, description):
@@ -76,6 +78,11 @@ def inline_markup(text):
                 out.append(code_span(value))
             elif kind == "bold":
                 out.append("<b>%s</b>" % render(value))
+            elif kind == "mark":
+                out.append('<span style="background-color: %s; color: %s; font-weight: 700;">%s</span>' %
+                           (theme.color("highlight_bg"), theme.color("highlight_ink"), render(value)))
+            elif kind == "underline":
+                out.append("<u>%s</u>" % render(value))
             elif kind == "br":
                 out.append("<br/>")
             else:
@@ -153,7 +160,7 @@ def doc(markdown, base_dir, layout):
 
 def head(text):
     """블록 머리의 작은 이름(떠올리기, 왜일까요?)."""
-    return kit.label(text, "learn_caption", "secondary", bold=True)
+    return kit.para(text, "learn_activity", bold=True)
 
 
 class TextBlock(QWidget):
@@ -166,6 +173,9 @@ class TextBlock(QWidget):
         for part in split_boxes(markdown):
             if part[0] == "text":
                 self.docs.append(doc(part[1], base_dir, column))
+                continue
+            if part[1] == "정정":
+                self.docs.append(doc(part[2], base_dir, column))
                 continue
             word, tone = ai_text.BOXES[part[1]]
             box, inner = kit.well(24, 24, theme.LEARN_GAP["detail"])
@@ -210,6 +220,13 @@ class AiFigure(FigureView):
 
     def display_scale(self):
         return super().display_scale() * theme.BASE_TYPE["body"][0] / theme.TYPE["learn_body"][0]
+
+    def display_width(self):
+        """학습 그림은 본문 폭까지 넓히되 원본 폭의 1.5배 안에서 비율을 유지함."""
+        return min(max(1, self.width()), self.source.width() * 1.5)
+
+    def zoom_scale(self):
+        return min(1, self.display_scale())
 
     def reload(self):
         loaded = super().reload()
@@ -321,28 +338,15 @@ class OptionRow(kit.Check):
     생기므로, 표시를 첫 줄 높이 칸의 아래에 붙여 글자와 같은 높이에 둠. single 이면 표시가 둥근 RadioMark 임."""
 
     def __init__(self, text, single=True):
-        super().__init__("")
-        row = self.layout()
-        text_row = row.itemAt(1).layout()
-        old = self.label
-        self.label = rich(text)
-        text_row.replaceWidget(old, self.label)
-        old.hide()
-        old.deleteLater()
-        square = self.box
-        self.mark = QWidget()
-        row.replaceWidget(square, self.mark)
-        if single:
-            self.box = RadioMark()
-            square.hide()
-            square.deleteLater()
+        super().__init__("", text_widget=rich(text), mark_widget=RadioMark() if single else kit.CheckMark())
+        self.mark = self.content_line.mark_holder
         self.box.refont = lambda: self.box.setFixedSize(20, 20)
-        kit.box(self.mark).addWidget(self.box, 0, Qt.AlignmentFlag.AlignBottom)
         self.refont()
 
     def refont(self):
         self.box.refont()
-        self.mark.setFixedSize(20, self.label.line)
+        self.text_line.refont()
+        self.content_line.refont()
 
     def event(self, event):
         if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) \
@@ -527,22 +531,26 @@ class CodeOptionRow(OptionRow):
 
     def __init__(self, text, single=True):
         super().__init__("", single)
-        text_row = self.layout().itemAt(1).layout()
-        text_row.removeWidget(self.tag)
-        text_row.removeWidget(self.label)
+        self.content_line.text_box.removeWidget(self.text_line)
         self.label.hide()
-        self.label.deleteLater()
         self.label = self.code = CodeLines(text)
-        column = QVBoxLayout()
+        content = QWidget()
+        column = QVBoxLayout(content)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(8)
         column.addWidget(self.code)
         column.addWidget(self.tag, 0, Qt.AlignmentFlag.AlignLeft)
-        text_row.addLayout(column, 1)
+        self.text_line.hide()
+        self.text_line.deleteLater()
+        self.content_line.text = content
+        self.content_line.anchor = lambda: CodeLines.PAD + theme.TYPE["learn_code"][1] / 2
+        self.content_line.text_box.addWidget(content, 0, Qt.AlignmentFlag.AlignTop)
+        self.refont()
 
     def refont(self):
         self.box.refont()
-        self.mark.setFixedSize(20, CodeLines.PAD + (theme.TYPE["learn_code"][1] + 20) // 2)
+        if hasattr(self, "code"):
+            self.content_line.refont()
 
 
 class CodeChoices(ChoiceList):
@@ -642,11 +650,7 @@ class RevealBlock(QWidget):
 
     @staticmethod
     def line(word, tone, text):
-        out = QWidget()
-        row = kit.box(out, spacing=12, horizontal=True)
-        row.addWidget(kit.badge(word, tone), 0, Qt.AlignmentFlag.AlignTop)
-        row.addWidget(rich(text), 1)
-        return out
+        return kit.FirstLine(kit.badge(word, tone), rich(text))
 
 
 class AltPass(QObject):
@@ -662,14 +666,15 @@ class AltPass(QObject):
 ALT_PASS = AltPass()
 
 
-class RecallBlock(QWidget):
+class RecallBlock(QFrame):
     """떠올리기. 빈칸 한 칸과 [확인]. 바로 채점해 맞음·틀림, 정답, 한 줄 까닭을 보임. 틀려도 막지 않고 상자는 움직이지 않음.
     readonly 면 입력 칸 없이 정답을 편 채로 그림. title 은 머리 글이고 세 수준 블록의 확인 물음이 바꿔 씀."""
 
     def __init__(self, block, ctx, title=ai_text.RECALL_HEAD):
         super().__init__()
+        self.setObjectName("learning_activity")
         self.block, self.ctx = block, ctx
-        column = kit.box(self, spacing=12)
+        column = kit.box(self, (32, 32, 32, 32), spacing=24)
         column.addWidget(head(title))
         column.addWidget(rich(block.get("q", "")))
         self.field = QLineEdit()
@@ -699,7 +704,7 @@ class RecallBlock(QWidget):
         answers = block.get("answer") or [""]
         result_col.addWidget(rich("정답: `%s`" % answers[0] if block.get("mode") == "code" else "정답: **%s**" % answers[0]))
         if block.get("why"):
-            result_col.addWidget(rich(block["why"], "body", "secondary"))
+            result_col.addWidget(rich(ai_text.teaching_text(block["why"]), "body", "secondary"))
         column.addWidget(self.result)
         self.check_btn.clicked.connect(self.check)
         self.field.returnPressed.connect(self.check)
@@ -975,16 +980,17 @@ class RotateBlock(QWidget):
             self.slots.restyle()
 
 
-class WhyBlock(QWidget):
+class WhyBlock(QFrame):
     """왜일까요? 질문 한 줄과 접힌 답. readonly 면 펴 둠."""
 
     def __init__(self, block, ctx):
         super().__init__()
-        column = kit.box(self, spacing=8)
+        self.setObjectName("learning_activity")
+        column = kit.box(self, (32, 32, 32, 32), spacing=24)
         column.addWidget(head(ai_text.WHY_HEAD))
         column.addWidget(rich(block.get("q", "")))
         self.answer = rich(block.get("a", ""), "body", "secondary")
-        self.button = kit.button("답 보기", "secondary", "s")
+        self.button = kit.button("답 보기", "secondary", "l")
         self.button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         column.addWidget(self.button)
         column.addWidget(self.answer)
@@ -1013,15 +1019,14 @@ class FoldRow(QFrame):
         self.role = READ_ROLES.get(role, role)
         self.arrow = Arrow()
         self.arrow.set_opened(False)
-        self.mark = QWidget()  # 꺾쇠를 글 첫 줄 글자의 가운데 높이에 두는 칸. px 줄 높이는 넓힌 간격을 글자 위에 두어 아래에 붙임
-        kit.box(self.mark).addWidget(self.arrow, 0, Qt.AlignmentFlag.AlignBottom)
         self.label = rich(text, role, bold=bold)
-        row.addWidget(self.mark, 0, Qt.AlignmentFlag.AlignTop)
-        row.addWidget(self.label, 1)
+        self.pair = kit.FirstLine(self.arrow, self.label)
+        self.mark = self.pair.mark_holder
+        row.addWidget(self.pair, 1)
         self.refont()
 
     def refont(self):
-        self.mark.setFixedHeight(theme.TYPE[self.role][1])
+        self.pair.refont()
 
     def set_opened(self, opened):
         self.opened = opened
@@ -1136,12 +1141,12 @@ class LevelsBlock(QWidget):
         super().__init__()
         self.block, self.ctx = block, ctx
         self.docs, self.figures = [], []
-        box, inner = kit.well(16, 16, 8)
+        box, inner = kit.well(24, 24, theme.LEARN_GAP["detail"])
         kit.box(self).addWidget(box)
         concept = block.get("concept") or ""
         self.row = FoldRow("%s · %s" % (ai_text.LEVELS_HEAD, concept) if concept else ai_text.LEVELS_HEAD, "label", bold=True)
         self.body = QWidget()
-        self.body_box = kit.box(self.body, (0, 16, 0, 0), 32)
+        self.body_box = kit.box(self.body, (0, 24, 0, 0), theme.LEARN_GAP["group"])
         inner.addWidget(self.row)
         inner.addWidget(self.body)
         self.row.toggled.connect(lambda on: on and self.build())
@@ -1163,8 +1168,9 @@ class LevelsBlock(QWidget):
                 last = widget
 
     def fill(self, part, level):
-        column = kit.box(part, (24, 24, 24, 24), 32)
-        column.addWidget(kit.label(ai_text.LEVEL_NAMES.get(level.get("level"), ""), "learn_body", bold=True))
+        column = kit.box(part, (32, 32, 32, 32), theme.LEARN_GAP["group"])
+        column.addWidget(kit.heading(kit.para(ai_text.LEVEL_NAMES.get(level.get("level"), ""), "learn_activity", bold=True),
+                                    kit.para(ai_text.LEVEL_DESCRIPTIONS.get(level.get("level"), ""), "learn_caption", "secondary")))
         if level.get("figure"):
             picture = figure(level["figure"])
             column.addWidget(picture)
@@ -1257,6 +1263,14 @@ class StepView(QWidget):
         self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
         self.levels = []  # 세 수준 블록. 펼 때 만든 글 조각과 그림을 restyle 때 다시 그림
         column = kit.box(self, spacing=theme.LEARN_GAP["group"])
+        if not ctx.readonly:
+            from gui.learning_context import LearningContext, unit_context
+            context = unit_context(ctx.win.ai.root, ctx.key) if ctx.win.ai is not None else None
+            if context is not None:
+                self.context = LearningContext(*context, reflect=step["scope"] == "memo",
+                                               expanded=step["no"] == 1 or step["scope"] == "memo")
+                self.context.reloading.connect(self.reloading)
+                column.addWidget(self.context)
         badge, title = step_title(step)
         top = QWidget()
         top_box = kit.box(top, spacing=theme.LEARN_GAP["detail"])
@@ -1395,6 +1409,7 @@ def _view_widget(root, path):
 class AiLearnPage(QWidget):
     """학습 단원 화면. 위 막대(← N차시 · 단원 제목 · [외울 것으로]), 단계 표시, 가운데 카드 하나에 지금 단계, 아래 막대 [이전]·[다음].
     상황별 코드 단원은 차시 화면이 없어 위 막대가 "← AI 비전 개론" 이고 홈으로 돌아감(서비스 place 의 back)."""
+    position_restored = pyqtSignal()
 
     def __init__(self, win):
         super().__init__()
@@ -1444,11 +1459,13 @@ class AiLearnPage(QWidget):
         self.next_btn.clicked.connect(self.forward)
 
     def load(self, lid, key, step=None):
-        """단원을 올림. step 은 1부터의 단계 번호. 없으면 지난번 자리(마지막 단계였으면 처음)부터. 없는 단원이면 AiError."""
+        """단원을 올림. step이 없으면 마지막 단계도 저장한 자리부터 엶."""
         data = self.win.ai.unit_steps(lid, key)
         read = any(unit["key"] == key and unit["read"] for unit in self.win.ai.lesson(lid)["units"])
         place = self.win.ai.place(lid)
-        self.clear_view_state((self.win.ai, lid, key))
+        unit = (self.win.ai, lid, key)
+        if self.state_unit != unit:
+            self.clear_view_state(unit)
         self.lid, self.key, self.marked = lid, key, read  # 이미 읽은 단원은 다시 끝까지 보아도 읽기 기록을 또 남기지 않음
         self.back = place["back"]
         # 차시 단원은 "← 5차시" 가 자리를 말하고, 상황별 코드 단원은 홈으로 돌아가므로 제목이 단원 이름("학습 루프 · …") 전체를 씀
@@ -1458,8 +1475,6 @@ class AiLearnPage(QWidget):
         self.read(data)
         last = len(self.steps)
         at = step or data.get("at_step") or 1
-        if step is None and at >= last:
-            at = 1
         self.show_step(max(1, min(last, at)) - 1)
 
     def read(self, data):
@@ -1510,8 +1525,6 @@ class AiLearnPage(QWidget):
         self.next_btn.setText("연습 시작" if last else "다음")
         self.memo_btn.setVisible(not last)
         self.win.ai.save_step(self.lid, self.key, index + 1)
-        if last and not self.marked:
-            self.mark_read()
         if state is not None:
             self.queue_position(state["anchor"], state["focus"])
         else:
@@ -1532,7 +1545,11 @@ class AiLearnPage(QWidget):
             _, anchor, pending_focus = self.pending_position
             if self.window().focusWidget() is self:
                 focus = pending_focus
-        state = {"anchor": anchor, "focus": focus, "fields": {}, "figures": {}, "levels": {}}
+        state = {"anchor": anchor, "focus": focus, "fields": {}, "figures": {}, "levels": {}, "contexts": {}}
+        from gui.learning_context import LearningContext
+        for block in self.view.findChildren(LearningContext):
+            state["contexts"][_view_path(block, self.view)] = (
+                block.flow_btn.isChecked(), block.toggle.isChecked() if hasattr(block, "toggle") else False)
         for block in self.view.findChildren(LevelsBlock):
             if block.body_box.count():
                 state["levels"][_view_path(block, self.view)] = block.row.opened
@@ -1548,6 +1565,13 @@ class AiLearnPage(QWidget):
 
     def restore_fields(self, state):
         """접힌 중첩 카드의 칸도 만든 뒤 초안만 복원함. 채점·읽음 기록을 남기지 않음."""
+        from gui.learning_context import LearningContext
+        for path, (diagram, answer) in state.get("contexts", {}).items():
+            block = _view_widget(self.view, path)
+            if isinstance(block, LearningContext):
+                block.flow_btn.setChecked(diagram)
+                if hasattr(block, "toggle"):
+                    block.toggle.setChecked(answer)
         for path, opened in sorted(state["levels"].items()):
             block = _view_widget(self.view, path)
             if isinstance(block, LevelsBlock):
@@ -1640,6 +1664,7 @@ class AiLearnPage(QWidget):
                 bar.setValue(bar.value() + bottom)
             elif top < 16:
                 bar.setValue(bar.value() + top - 16)  # 입력 칸 전체가 보이게 실제 좌표로 맞춤
+        self.position_restored.emit()
 
     def position_changed(self, *_):
         if self.pending_position is not None:
@@ -1686,6 +1711,10 @@ class AiLearnPage(QWidget):
 
     def forward(self):
         if self.index == len(self.steps) - 1:
+            if not self.marked:
+                self.mark_read()
+                if not self.marked:
+                    return
             self.win.open_ai_practice("unit", lesson=self.lid, unit=self.key)
         else:
             self.move(1)

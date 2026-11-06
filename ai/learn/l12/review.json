@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제 1",
- "resolver": "재풀이 2",
- "reviewer": "검토 4",
+ "writer": "본문 수정 1",
+ "resolver": "변경 물음 재풀이 2",
+ "reviewer": "본문 검토 2",
  "files": {
   "assets/12a-1.png": "fcd1616505ea8cc4fda9b6a284d842b013482e36197759ae92833556da74ef58",
   "assets/12a-2.png": "c547fe1aa64f1647a439b7175d5aeea840fc64fd0d23437e785c8b994e4eb873",
@@ -50,9 +50,10 @@
   "assets/12g-5.png": "c3f90d42319ca2d0e3fcf86c00efa47a281052198b242d018f6064a088dcba57",
   "assets/12g-6.png": "47ac99ca46fa5e74c6e6b4e2760fdc4a940de4d95116f48d68a93a6561b3f69d",
   "meta.json": "b08f8d20504ce92d3f5fbfbe4fff77f6579040cd9970aad74ffde74bc736f97f",
-  "page.md": "3d360e3ccafc77b957b080279466d54f7f7a63dde2caba9445a8d37442988fb6"
+  "page.md": "7de28f890487fdbe6e25b72191ba52eb7aef9cf82e7b50ec59ad069a4a077595"
  },
  "findings": [
-  "물음의 입력을 설명 예시와 구분하고 그림·계산·학습 흐름을 대조했음. 변경한 물음은 새 공개본으로 다시 풀어 확인했음."
+  "물음의 입력을 설명 예시와 구분하고 그림·계산·학습 흐름을 대조했음. 변경한 물음은 새 공개본으로 다시 풀어 확인했음.",
+  "본문과 예제·변경 물음을 독립 대조함. 전체 학습 과정의 단원 연결을 확인함."
  ]
 }

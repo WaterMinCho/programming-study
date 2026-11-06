@@ -4,9 +4,11 @@
 AI 비전 개론(홈·차시·학습 단원·노트·다시 보기·연습)으로 나뉨.
 area 가 지금 어느 쪽에 있는지 기억함. 웹 트랙의 Node 는 허브 카드가 설치 상태를 보이므로 허브를 열기 전에 워커에서 한 번 찾아 두고,
 여행의 [다시 찾기]가 기억을 버렸으면 허브나 웹 홈을 열기 전에 다시 찾음."""
-from PyQt6.QtCore import QTimer, Qt, QUrl
+import time
+
+from PyQt6.QtCore import QPoint, QTimer, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
-from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QMainWindow, QProgressBar, QPushButton, QStackedWidget, QVBoxLayout,
+from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QLineEdit, QMainWindow, QProgressBar, QPushButton, QScrollArea, QStackedWidget, QVBoxLayout,
                              QWidget)
 
 import session
@@ -121,6 +123,8 @@ class MainWindow(QMainWindow):
         self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면), web(웹 홈·미션·드릴·학습 노트), ai(AI 비전 개론)
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)
         self.pending_submission = {"status": "checking", "pending": False, "count": 0}
+        self.problem_updates = {"status": "checking", "available": False, "count": 0}
+        self.next_update_check = 0
         self.pending_job = None
         self.pending_again, self.pending_stopped, self.pending_version = False, False, 0
         self.pending_close = False
@@ -157,6 +161,12 @@ class MainWindow(QMainWindow):
         self.pending_timer.setInterval(15000)
         self.pending_timer.timeout.connect(self.check_pending_submission)
         self.pending_timer.start()
+        self.focused_input = None
+        self.input_timer = QTimer(self)
+        self.input_timer.setSingleShot(True)
+        self.input_timer.timeout.connect(self.reveal_input)
+        QApplication.instance().focusChanged.connect(self.input_changed)
+        self.ai_learn.position_restored.connect(self.reveal_input)
         self.restyle()  # 스타일시트가 있으면 부모가 바뀔 때 위젯 글꼴이 초기화되므로 창에 붙인 뒤에 글꼴을 줌
         theme.signals.changed.connect(self.restyle)
         room = self.screen().availableGeometry()  # 작은 노트북 화면에서 아래쪽 버튼이 화면 밖으로 나가지 않게
@@ -580,8 +590,36 @@ class MainWindow(QMainWindow):
 
     # 제출 · 문제 받기
 
+    def input_changed(self, old, current):
+        self.focused_input = current if isinstance(current, QLineEdit) and self.isAncestorOf(current) else None
+        if self.focused_input is not None:
+            self.input_timer.start(0)
+
+    def reveal_input(self):
+        """커서만 보이게 옮기는 기본 동작 뒤에 입력 칸 전체를 보임. 입력·선택·초점은 바꾸지 않음."""
+        field = self.focused_input
+        if field is None or QApplication.focusWidget() is not field:
+            self.focused_input = None
+            return
+        if self.pages.currentWidget() is self.ai_learn and self.ai_learn.pending_position is not None:
+            return
+        self.focused_input = None
+        parent = field.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QScrollArea):
+                viewport = parent.viewport()
+                point = field.mapTo(viewport, QPoint())
+                for position, extent, room, bar in ((point.y(), field.height(), viewport.height(), parent.verticalScrollBar()),
+                                                    (point.x(), field.width(), viewport.width(), parent.horizontalScrollBar())):
+                    if position + extent + 16 > room:
+                        bar.setValue(bar.value() + position + extent + 16 - room)
+                    elif position < 16:
+                        bar.setValue(bar.value() + position - 16)
+                return
+            parent = parent.parentWidget()
+
     def check_pending_submission(self, *_):
-        """로컬의 제출 여부만 작업 스레드에서 확인함. 풀이 화면에서는 자동 저장과 경쟁하지 않음."""
+        """제출 여부와 5분마다 새 자료를 확인함. 풀이 화면에서는 자동 저장과 경쟁하지 않음."""
         flow = self.gitflow
         if self.pending_stopped or self.pending_close or self.job is not None or flow is None or self.session is None:
             return
@@ -594,7 +632,14 @@ class MainWindow(QMainWindow):
             self.pending_submission = {"status": "unknown", "pending": False, "count": 0}
             self.workspace.refresh()
             return
-        job = Job(flow.pending)
+        check_updates = hasattr(flow, "updates") and time.monotonic() >= self.next_update_check
+        if check_updates:
+            self.next_update_check = time.monotonic() + 300
+
+        def work():
+            return flow.pending(), flow.updates() if check_updates else None
+
+        job = Job(work)
         self.pending_job = job
         version = self.pending_version
 
@@ -609,14 +654,18 @@ class MainWindow(QMainWindow):
             if self.pending_stopped:
                 return
             if self.gitflow is flow and self.pending_version == version:
-                self.pending_submission = result
+                self.pending_submission, updates = result
+                if updates is not None and updates.get("status") == "ok":
+                    self.problem_updates = updates
                 self.workspace.refresh()
+            elif check_updates:
+                self.next_update_check = 0
             again, self.pending_again = self.pending_again, False
             if again:
                 QTimer.singleShot(0, self.check_pending_submission)
 
         job.done.connect(done)
-        job.failed.connect(lambda *_: done({"status": "error", "pending": False, "count": 0}))
+        job.failed.connect(lambda *_: done(({"status": "error", "pending": False, "count": 0}, None)))
         job.start()
 
     def submit_pr(self):
@@ -630,12 +679,17 @@ class MainWindow(QMainWindow):
     def _fetched(self, result):
         if self.web_node_first(lambda: self._fetched(result)):
             return
+        if result.get("status") in ("ok", "nothing"):
+            self.problem_updates = {"status": "ok", "available": False, "count": 0}
+            self.next_update_check = 0
         self.notice = None  # 시작할 때 받지 못했다는 알림은 방금 결과가 대신함
         self.home.refresh()
         self.hub.refresh()
         self._git_done("문제 받기", result)
 
     def _git_done(self, title, result):
+        if result.get("status") in ("ok", "nothing"):
+            self.next_update_check = 0
         self.check_pending_submission()
         if result.get("restart"):
             self._restart(result)
@@ -734,5 +788,6 @@ class MainWindow(QMainWindow):
             self.web.stop_serving()  # 미션 화면의 [화면 띄우기]로 띄운 서버가 프로그램보다 오래 남지 않게 끔
         self.pending_stopped = True
         self.pending_timer.stop()
+        self.input_timer.stop()
         self.settings.setValue("geometry", self.saveGeometry())
         event.accept()

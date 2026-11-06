@@ -136,7 +136,19 @@ class PracticePage(QWidget):
     # 불러오기
 
     def load(self, mode, lesson=None, unit=None, card=None):
-        """첫 문항을 보임. 자동 복습 후보가 없으면 다음 날짜와 홈 복귀를 보임."""
+        """같은 미완료 묶음이 있으면 입력·판정을 복원함. 없으면 새 묶음이나 복습 완료 안내를 보임."""
+        practice = self.win.ai.resume_set(mode, lesson, unit, card)
+        if practice is not None and practice is self.practice:
+            self.win.ai.save_practice(practice, activate=True)
+            return
+        if practice is not None:
+            self.practice, self.args = practice, (mode, lesson, unit, card)
+            self.review_state = None
+            self.title.setText(practice.title)
+            self.title.show()
+            self.back_btn.setText("← 오답 노트" if mode == "note" else "← AI 비전 개론")
+            self.show_item(practice.current())
+            return
         status = self.win.ai.review_status() if mode in ("review", "sweep") else None
         practice = None if status is not None and not status["available"] else \
             self.win.ai.start_set(mode, lesson=lesson, unit=unit, card=card)
@@ -238,6 +250,35 @@ class PracticePage(QWidget):
         else:
             self.setFocus()  # 보기 줄에 초점을 두면 테두리가 고른 것처럼 보임
         self.shown_at = self.clock()
+        draft = self.practice.draft
+        values = draft.get("values") or []
+        if item["kind"] == "blank":
+            for widget, value in zip(self.inputs, values):
+                widget.setText(str(value))
+        else:
+            for row, option in zip(self.choices.rows, item["options"]):
+                row.box.setChecked(option["no"] in values)
+        if self.practice.answered is not None:
+            self.dontknow = bool(draft.get("dontknow"))
+            self.queued = int(draft.get("queued") or len(self.practice.queue))
+            self.show_feedback(self.practice.answered)
+        if item["kind"] == "blank":
+            for widget in self.inputs:
+                widget.textEdited.connect(self.save_progress)
+        else:
+            self.choices.changed.connect(self.save_progress)
+        self.win.ai.save_practice(self.practice, activate=True)
+
+    def save_progress(self, *_):
+        """제출 전 입력과 답한 뒤 상태를 로컬에 남김."""
+        if self.practice is None or self.item is None:
+            return
+        self.practice.draft = {"values": self.values(), "dontknow": self.dontknow, "queued": self.queued}
+        self.win.ai.save_practice(self.practice)
+
+    def hideEvent(self, event):
+        self.save_progress()
+        super().hideEvent(event)
 
     def build_blanks(self, item):
         """지문과 빈칸. 칸 순서는 지문에서 ____ 가 나오는 순서이고 answer 에 이 순서로 넘김."""
@@ -399,6 +440,7 @@ class PracticePage(QWidget):
         self.set_buttons()
         self.next_btn.setFocus(Qt.FocusReason.OtherFocusReason)
         self.scroll.verticalScrollBar().setValue(0)
+        self.save_progress()
 
     def mark_blanks(self, per, correct):
         """칸마다 테두리 색, 판정 줄 아래 정답 목록. 빈칸이 둘 이상이면 칸마다 "맞음"·"틀림" 글을 더함(글 칸은 칸 아래, 코드 칸은 코드 아래
@@ -445,7 +487,7 @@ class PracticePage(QWidget):
                 row.set_tag("정답", "success")
             elif no in picked:
                 row.set_tag("내 답", "danger")
-            why = feedback["why"].get(no) or feedback["why"].get(str(no)) or ""
+            why = ai_text.teaching_text(feedback["why"].get(no) or feedback["why"].get(str(no)) or "")
             holder.findChild(RichPara).setText(why)
             holder.setVisible(bool(why))
             if no in right:
@@ -475,13 +517,7 @@ class PracticePage(QWidget):
                 item.widget().deleteLater()
         if feedback.get("explain"):
             box.addWidget(kit.label("해설", "label", bold=True))
-            self.docs.append(doc(feedback["explain"], "", box))
-        if feedback.get("errata"):
-            line = QWidget()
-            row = kit.box(line, spacing=12, horizontal=True)
-            row.addWidget(kit.badge("정정", "warning"), 0, Qt.AlignmentFlag.AlignTop)
-            row.addWidget(kit.para(ai_text.errata_text(feedback["errata"])), 1)
-            box.addWidget(line)
+            self.docs.append(doc(ai_text.teaching_text(feedback["explain"]), "", box))
         target = self.note_reference()
         if target:
             link = kit.typed(LinkLabel('<a href="study-note">참고: %s</a>' % html.escape(target["label"]),
@@ -595,7 +631,7 @@ class PracticePage(QWidget):
 
     def next_unit(self):
         try:
-            item = self.win.ai.overview()["next"]
+            item = self.win.ai.continuation()
         except SessionError:
             return None
         return (item["lesson"], item["unit"]) if item["kind"] == "unit" else None

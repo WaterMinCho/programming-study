@@ -24,6 +24,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from pathlib import Path
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -328,6 +329,31 @@ class GitFlowTest(unittest.TestCase):
         pc = PC(self.tmp, self.origin, name, clone_options=clone_options)
         self.pcs.append(pc)
         return pc
+
+    def test_updates_fetches_only_objects_and_preserves_the_checkout(self):
+        self.sync()
+        pc = self.pc
+        self.assertEqual(pc.flow.updates(), {"status": "ok", "available": False, "count": 0})
+        pc.solve()
+        git(pc.path, "add", "--", "submissions/alice")
+        self.server.add_files({"web/learn/l99/page.md": "# 새 학습 자료\n"}, "자료를 추가함")
+        before = (pc.read(), pc.read(outside=True), pc.state(), git(pc.path, "show-ref").stdout,
+                  Path(pc.gitdir("index")).read_bytes(), Path(pc.gitdir("FETCH_HEAD")).read_bytes())
+        self.assertEqual(pc.flow.updates(), {"status": "ok", "available": True, "count": 1})
+        after = (pc.read(), pc.read(outside=True), pc.state(), git(pc.path, "show-ref").stdout,
+                 Path(pc.gitdir("index")).read_bytes(), Path(pc.gitdir("FETCH_HEAD")).read_bytes())
+        self.assertEqual(after, before)
+        self.sync()
+        self.assertFalse(pc.flow.updates()["available"])
+
+    def test_updates_distinguishes_material_from_code_and_network_failure(self):
+        self.sync()
+        self.server.add_files({"gui/app.py": "# 화면 변경\n"}, "화면을 고침")
+        self.assertFalse(self.pc.flow.updates()["available"])
+        self.server.add_files({"problems/s01/quiz.md": "# 고친 문제\n"}, "문항을 고침")
+        self.assertTrue(self.pc.flow.updates()["available"])
+        self.pc.offline()
+        self.assertEqual(self.pc.flow.updates(), {"status": "error", "available": False, "count": 0})
 
     def test_pending_looks_only_at_my_folder_without_writing(self):
         self.sync()

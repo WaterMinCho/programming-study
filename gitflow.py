@@ -229,6 +229,24 @@ class GitFlow:
         파일은 멈춘 git 작업이 있거나 원격에 더 새 판이 있을 때만 바꾸고, 그때는 문구와 backup 으로 알림."""
         return self._run("submit", self._submit)
 
+    def updates(self):
+        """원격 학습 자료와 현재 판을 비교함. 참조·인덱스·작업 파일은 바꾸지 않음.
+        새 객체만 받아 비교하며 count는 문항 수가 아닌 파일 수임."""
+        try:
+            deadline = time.monotonic() + self.fetch_timeout
+            remote = self._out("ls-remote", "origin", "refs/heads/main", timeout=self.fetch_timeout).split()
+            if not remote or not re.fullmatch(r"[0-9a-f]{40,64}", remote[0]):
+                return {"status": "error", "available": False, "count": 0}
+            tip = remote[0]
+            if not self._commit_of(tip):
+                self._git("fetch", "--no-write-fetch-head", "--no-tags", "--refmap=", "origin", "refs/heads/main",
+                          timeout=max(0.1, deadline - time.monotonic()))
+            paths = self._paths("diff", "--name-only", "-z", "--diff-filter=AMR", "HEAD", tip, "--",
+                                "problems/", "dungeons/", "web/", "ai/")
+            return {"status": "ok", "available": bool(paths), "count": len(paths)}
+        except (OSError, GitError):
+            return {"status": "error", "available": False, "count": 0}
+
     def pending(self):
         """받아 둔 제출 기준과 내 폴더를 비교함. 네트워크·인덱스·작업 파일을 바꾸지 않음.
         count는 바뀐 파일 수이며 문항 수가 아님. 오류는 빈 풀이와 구분함."""

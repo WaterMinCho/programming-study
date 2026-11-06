@@ -64,6 +64,19 @@ def pick_unit(units, today):
     return sorted(units, key=key)[0]
 
 
+def continue_unit(units, last=None, completed=()):
+    """중단한 단원을 돌려주고 완료했으면 같은 차시의 다음 단원부터 찾음. 수업일과 복습일은 쓰지 않음."""
+    rows = sorted(units, key=lambda row: (row["no"], row["order"]))
+    done = set(completed)
+    start = next((i for i, row in enumerate(rows) if (row["lesson"], row["unit"]) == last), None)
+    if start is not None and last not in done:
+        return rows[start]
+    for row in rows[start + 1:] if start is not None else rows:
+        if (row["lesson"], row["unit"]) not in done:
+            return row
+    return None
+
+
 def pick_revisit(units, seen_today=()):
     """다시 볼 단원. units 는 읽은 단원 [{"lesson", "unit", "core_box"(핵심 카드 평균 상자), "read"(읽은 날)}].
     평균 상자가 가장 낮고 같으면 오래전에 읽은 단원. 오늘 이미 다시 본 단원은 뺌."""

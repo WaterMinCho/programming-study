@@ -35,6 +35,7 @@ AVATARS = ("#2a62f0", "#6d4df2", "#0b7f6a", "#b4530a", "#b83280", "#0e7490")  # 
 # 같은 색 값을 뜻이 다른 토큰이 나눠 씀(surface_alt·hover·primary_off·info_weak는 밝게에서 같음).
 # 파란색은 누를 수 있는 것, 고른 것, 진행에만 쓰고 제목(heading·doc_heading)은 글자색과 같음
 LIGHT = {
+    "highlight_bg": "#ffe8a3", "highlight_ink": "#252016",
     "bg": "#f6f7f9", "surface": "#ffffff", "surface_alt": "#eef1f5", "hover": "#eef1f5", "surface_raised": "#ffffff",
     "border": "#cdd3db", "border_strong": "#818a95", "field_edge": "#818a95", "line": "#e0e5eb", "track": "#e0e5eb",
     "scroll": "#cdd3db", "scroll_hover": "#a9b0ba", "focus": "#1d63ed",
@@ -52,6 +53,7 @@ LIGHT = {
     "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#818a95",
 }
 DARK = {
+    "highlight_bg": "#57461b", "highlight_ink": "#fff1b8",
     "bg": "#121418", "surface": "#1d2228", "surface_alt": "#282d34", "hover": "#252a30", "surface_raised": "#252a30",
     "border": "#42474d", "border_strong": "#7b8189", "field_edge": "#7b8189", "line": "#33373d", "track": "#33373d",
     "scroll": "#42474d", "scroll_hover": "#595e65", "focus": "#7aa8ff",
@@ -75,8 +77,8 @@ TOKENS = {"light": LIGHT, "dark": DARK}
 # TYPE 은 지금 단계의 값(set_text 가 바꿈). 화면 코드는 TYPE 을 읽음
 BASE_TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 30, 700), "body": (17, 28, 400), "label": (17, 24, 400),
              "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400),
-             "learn_body": (20, 36, 400), "learn_heading": (24, 36, 700), "learn_caption": (16, 28, 400),
-             "learn_code": (18, 30, 400)}
+             "learn_body": (22, 40, 400), "learn_heading": (30, 44, 700), "learn_caption": (18, 30, 400),
+             "learn_activity": (24, 36, 700), "learn_code": (20, 32, 400)}
 TYPE = dict(BASE_TYPE)
 SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 간격이 아니라 선으로 셈
 GAP = {"detail": 8, "title_description": 12, "paragraph": 16, "description_content": 24, "group": 24, "section": 48}
@@ -306,6 +308,7 @@ QWidget[ui="2"] QLineEdit, QWidget[ui="2"] QPlainTextEdit, QWidget[ui="2"] QText
     border: 1px solid %(field_edge)s; border-radius: 12px; padding: 0 15px; selection-background-color: %(text_selection)s; selection-color: %(ink)s;
     placeholder-text-color: %(faint)s; }
 QWidget[ui="2"] QLineEdit { min-height: 46px; max-height: 46px; }
+QWidget[ui="2"] QLineEdit[role="learn_body"] { max-height: 16777200px; }
 QWidget[ui="2"] QPlainTextEdit { padding: 8px 15px; }
 QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QPlainTextEdit:focus { border: 2px solid %(focus)s; padding: 0 14px; }
 QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
@@ -367,7 +370,10 @@ STYLE_V2 += """
 QFrame#navigation { background: %(surface)s; border-right: 1px solid %(line)s; }
 QWidget[ui="2"] QPushButton[navigation="true"] { text-align: left; padding: 0 16px; }
 QWidget[ui="2"] QPushButton[navigation="true"]:checked { background: %(selection)s; color: %(selection_ink)s; }
-QFrame#submissionbar { background: %(surface)s; border-top: 1px solid %(line)s; }
+QFrame#submissionbar { background: %(surface)s; border: 1px solid %(border)s; border-radius: 16px; }
+QFrame#figure_controls { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 12px; }
+QFrame#learning_activity { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
+QFrame#learning_context { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
 QWidget[ui="2"] QPushButton#submit_work { background: %(selection)s; color: %(selection_ink)s; border: 2px solid %(primary)s; }
 QWidget[ui="2"] QPushButton#submit_work:hover { background: %(text_selection)s; }
 QWidget[ui="2"] QPushButton#submit_work:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; border-color: %(border)s; }
@@ -586,7 +592,9 @@ def web_css():
 
 def learning_css():
     """AI 학습 본문·표·코드의 큰 글자와 여유 있는 줄·문단 간격을 적용함."""
-    return doc_css(text_px(), WEB_CSS, own_body=True, learning=True)
+    return doc_css(text_px(), WEB_CSS, own_body=True, learning=True) + (
+        "span.highlight { background-color: %s; color: %s; font-weight: 700; }" %
+        (color("highlight_bg"), color("highlight_ink")))
 
 
 def journey_css():

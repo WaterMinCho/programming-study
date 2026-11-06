@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """과목 이동, 과목별 현황 카드와 제출 작업 영역을 공통으로 배치함."""
-from PyQt6.QtCore import QEvent, QSignalBlocker, QSize
-from PyQt6.QtWidgets import QComboBox, QFrame, QGridLayout, QLayout, QSizePolicy, QWidget
+from PyQt6.QtCore import QEvent, QPoint, QSignalBlocker, QSize, Qt
+from PyQt6.QtWidgets import QApplication, QComboBox, QFrame, QGridLayout, QLayout, QScrollArea, QSizePolicy, QWidget
 
 from gui import kit, theme
 
@@ -93,15 +93,17 @@ class SubjectGrid(QWidget):
 
 
 class SubmissionBar(QFrame):
-    """화면을 스크롤해도 제출 버튼과 알림을 같은 위치에 둠."""
+    """제출할 변경이나 받을 자료가 있을 때만 하단에 알림을 띄움."""
 
     def __init__(self, win):
         super().__init__()
         self.setObjectName("submissionbar")
         self.setProperty("ui", "2")
         self.row = kit.box(self, (24, 16, 24, 16), 16, horizontal=True)
-        self.message = kit.para("제출할 내용을 확인하고 있습니다.", "caption", "secondary")
+        self.message = kit.para("", "caption", "secondary")
         self.row.addWidget(self.message, 1)
+        self.actions = QWidget()
+        buttons = kit.box(self.actions, spacing=12, horizontal=True)
         self.submit = kit.button("풀이 제출", "secondary", "l")
         self.submit.setObjectName("submit_work")
         self.submit.setAccessibleDescription("아직 올리지 않은 풀이와 학습 기록을 제출합니다.")
@@ -109,37 +111,35 @@ class SubmissionBar(QFrame):
         self.submit.hide()
         self.sync = kit.button("새 문제 받기", "secondary", "l")
         self.sync.clicked.connect(win.fetch_problems)
-        self.row.addWidget(self.submit)
-        self.row.addWidget(self.sync)
+        buttons.addWidget(self.submit)
+        buttons.addWidget(self.sync)
+        self.row.addWidget(self.actions)
         self.state, self.busy, self.usable = {}, False, False
 
-    def refresh(self, state, usable, busy=False):
+    def refresh(self, state, updates, usable, busy=False):
         self.state, self.usable, self.busy = state, usable, busy
         pending = state.get("status") == "ok" and state.get("pending", False)
+        available = updates.get("status") == "ok" and updates.get("available", False)
         self.submit.setVisible(usable and pending)
+        self.sync.setVisible(usable and available)
         self.submit.setEnabled(usable and not busy)
         self.sync.setEnabled(usable and not busy)
-        if not usable:
-            text = "제출과 문제 받기를 사용할 수 없습니다."
-        elif busy:
+        if busy:
             text = "작업이 끝나면 제출 현황을 갱신합니다."
+        elif pending and available:
+            text = "제출할 풀이와 새 학습 자료가 있습니다."
         elif pending:
             text = "제출할 풀이가 있습니다."
-        elif state.get("status") == "ok":
-            text = "아직 제출하지 않은 변경이 없습니다."
-        elif state.get("status") == "checking":
-            text = "제출할 내용을 확인하고 있습니다."
         else:
-            text = "제출할 내용을 확인하지 못했습니다. 새 문제를 받은 뒤 다시 확인합니다."
+            text = "새 학습 자료가 있습니다."
         self.message.setText(text)
         kit.set_tone(self.message, "accent" if pending else "secondary")
         self.arrange()
+        self.setVisible(usable and (pending or available))
 
     def arrange(self):
-        need = self.message.minimumSizeHint().width() + self.sync.sizeHint().width() + 80
-        if not self.submit.isHidden():
-            need += self.submit.sizeHint().width() + 16
-        vertical = self.width() < max(680, need)
+        need = self.message.sizeHint().width() + self.actions.sizeHint().width() + 64
+        vertical = self.width() < max(800, need)
         self.row.setDirection(self.row.Direction.TopToBottom if vertical else self.row.Direction.LeftToRight)
 
     def resizeEvent(self, event):
@@ -156,6 +156,7 @@ class Workspace(QWidget):
     def __init__(self, win, pages):
         super().__init__()
         self.win, self.pages = win, pages
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.overview_pages = (win.hub, win.home, win.journey_map, win.web_home, win.ai_home, win.ai_lesson)
         self.submission_pages = (*self.overview_pages, win.result_page)
         self.setObjectName("page")
@@ -179,9 +180,9 @@ class Workspace(QWidget):
             nav.addWidget(button)
         nav.addStretch(1)
         outer.addWidget(self.rail)
-        body = QWidget()
-        body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        box = kit.box(body)
+        self.body = QWidget()
+        self.body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        box = kit.box(self.body)
         self.compact = QComboBox()
         self.compact.setObjectName("subject_picker")
         self.compact.setAccessibleName("학습 과목 이동")
@@ -192,8 +193,23 @@ class Workspace(QWidget):
         box.addWidget(self.compact)
         box.addWidget(pages, 1)
         self.submissions = SubmissionBar(win)
-        box.addWidget(self.submissions)
-        outer.addWidget(body, 1)
+        self.submissions.setParent(self.body)
+        self.reminder_padding = []
+        self.reminder_viewports = []
+        for page in self.submission_pages:
+            scrolls = page.findChildren(QScrollArea)
+            if scrolls:
+                for scroll in scrolls:
+                    self.reminder_viewports.append(scroll.viewport())
+                    scroll.viewport().installEventFilter(self)
+                    layout = scroll.widget().layout() if scroll.widget() else None
+                    if layout:
+                        self.reminder_padding.append((layout, layout.getContentsMargins()))
+            else:
+                self.reminder_padding.append((page.layout(), page.layout().getContentsMargins()))
+        self.body.installEventFilter(self)
+        QApplication.instance().focusChanged.connect(self.reveal_focus)
+        outer.addWidget(self.body, 1)
         pages.currentChanged.connect(self.refresh)
         self.refresh()
 
@@ -210,7 +226,6 @@ class Workspace(QWidget):
         overview = self.pages.currentWidget() in self.overview_pages
         self.rail.setVisible(started and overview and self.width() >= 1120)
         self.compact.setVisible(started and overview and self.width() < 1120)
-        self.submissions.setVisible(started and self.pages.currentWidget() in self.submission_pages)
         for index, (tid, _, _) in enumerate(SUBJECTS):
             self.buttons[tid].setChecked(self.win.area == tid)
             if self.win.area == tid:
@@ -220,7 +235,51 @@ class Workspace(QWidget):
         busy = self.win.job is not None or self.win.pending_close
         self.rail.setEnabled(not busy)
         self.compact.setEnabled(not busy)
-        self.submissions.refresh(self.win.pending_submission, self.win.gitflow is not None, busy)
+        usable = started and self.pages.currentWidget() in self.submission_pages and self.win.gitflow is not None
+        pending = self.win.pending_submission.get("status") == "ok" and self.win.pending_submission.get("pending", False)
+        available = self.win.problem_updates.get("status") == "ok" and self.win.problem_updates.get("available", False)
+        focused = QApplication.focusWidget()
+        if ((focused is self.submissions.submit and not (usable and pending)) or
+                (focused is self.submissions.sync and not (usable and available))):
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.submissions.refresh(self.win.pending_submission, self.win.problem_updates, usable, busy)
+        self.position_reminder()
+
+    def position_reminder(self):
+        """알림이 나타나도 본문은 그대로 두고, 마지막 조작부까지 스크롤할 여백을 남김."""
+        bar = self.submissions
+        width = max(1, min(960, self.body.width() - 32))
+        bar.setFixedWidth(width)
+        bar.arrange()
+        bar.layout().activate()
+        height = max(bar.sizeHint().height(), bar.layout().heightForWidth(width))
+        bottom = self.body.height()
+        scrolls = [area for area in self.pages.currentWidget().findChildren(QScrollArea) if area.isVisible()]
+        if scrolls:
+            area = max(scrolls, key=lambda area: area.width() * area.height())
+            bottom = area.viewport().mapTo(self.body, QPoint(0, area.viewport().height())).y()
+        bar.setGeometry((self.body.width() - width) // 2, bottom - height - 16, width, height)
+        bar.raise_()
+        # 상태 변경으로 스크롤 범위가 달라지지 않도록 두 동작의 높이를 항상 남김.
+        reserve = 48 + 2 * theme.TYPE["caption"][1] + bar.submit.sizeHint().height()
+        for layout, (left, top, right, bottom) in self.reminder_padding:
+            layout.setContentsMargins(left, top, right, bottom + reserve)
+
+    def eventFilter(self, watched, event):
+        if (watched is self.body or watched in self.reminder_viewports) and event.type() == QEvent.Type.Resize:
+            self.position_reminder()
+        return super().eventFilter(watched, event)
+
+    def reveal_focus(self, old, current):
+        """키보드로 옮긴 초점은 떠 있는 알림 위까지 스크롤함. 알림 표시 자체로 읽던 위치를 옮기지 않음."""
+        if current is None or not self.submissions.isVisible() or not self.pages.isAncestorOf(current):
+            return
+        parent = current.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QScrollArea):
+                parent.ensureWidgetVisible(current, 8, self.submissions.height() + 24)
+                return
+            parent = parent.parentWidget()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
