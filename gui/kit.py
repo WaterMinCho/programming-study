@@ -331,7 +331,7 @@ def banner(text="", tone="", lead="", action=""):
     if tone:
         out.setProperty("tone", tone)
     row = box(out, (16, 12, 16, 12), 8, horizontal=True)
-    word = para(lead or words.get(tone, "안내"), "body", bold=True)
+    word = label(lead or words.get(tone, "안내"), "body", bold=True)
     word.setObjectName("lead")
     text_label = para(text)
     line = row
