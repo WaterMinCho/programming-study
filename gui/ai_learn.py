@@ -22,7 +22,7 @@ import mdlite
 from aiprep import bank, skel
 from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
-from gui.docview import Doc, FigureView, TextPiece, missing_figure
+from gui.docview import Doc, FigureView, TextPiece
 from gui.widgets import Para
 from gui.wrong_page import Arrow
 from session import SessionError
@@ -153,14 +153,16 @@ class AiFigure(FigureView):
     달라도 넘김 줄과 캡션이 제자리에 있음. 넘김 단추는 단계 넘김 [이전]·[다음]과 헷갈리지 않게 [이전 장]·[다음 장]으로 씀.
     초점이 있으면 ←·→ 가 장을 넘기고(Alt 가 붙으면 단계 넘김으로 보냄) 그림 둘레에 초점 테두리를 그림. last 면 마지막 장에서 엶."""
 
-    def __init__(self, path, caption="", frames=(), last=False):
-        super().__init__(path, caption, autoplay=False, frame_changed=self.show_frame)
+    def __init__(self, path, caption="", frames=(), last=False, description=""):
+        details = [description] if description else []
+        details.extend("%d. %s" % (n + 1, frame["text"]) for n, frame in enumerate(frames or []) if frame.get("text"))
+        super().__init__(path, caption, autoplay=False, frame_changed=self.show_frame, description="\n\n".join(details))
         self.frames = list(frames or [])
+        self.start_last = last
         self.held = None  # 설명 칸 높이를 잰 폭·실제 글꼴·줄 높이
         self.frame_text = rich("", "body", "secondary")
         self.frame_text.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        self.layout().insertWidget(1, self.frame_text)
-        self.frame_text.setVisible(any(f.get("text") for f in self.frames))  # 설명이 없는 장도 자리를 지켜 단추가 움직이지 않게 함
+        self.layout().insertWidget(self.layout().indexOf(self.picture) + 1, self.frame_text)
         if self.movie:
             self.prev_btn.setText("이전 장")
             self.next_btn.setText("다음 장")
@@ -171,6 +173,18 @@ class AiFigure(FigureView):
 
     def show_frame(self, number):
         self.frame_text.setText(self.frames[number]["text"] if number < len(self.frames) else "")
+        self.frame_text.setVisible(self.available and any(frame.get("text") for frame in self.frames))
+
+    def reload(self):
+        loaded = super().reload()
+        if loaded and self.movie:
+            self.prev_btn.setText("이전 장")
+            self.next_btn.setText("다음 장")
+            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus if self.count > 1 else Qt.FocusPolicy.NoFocus)
+            if self.start_last:
+                self.go(self.count - 1)
+            self.draw()
+        return loaded
 
     def hold_frames(self):
         """설명 칸의 최소 높이를 지금 폭에서 가장 긴 장 설명의 높이로 둠. 폭이나 글자 크기가 바뀔 때만 다시 잼(장을 넘길 때마다 draw 가 불림)."""
@@ -231,12 +245,12 @@ class AiFigure(FigureView):
             painter.drawRoundedRect(rect.adjusted(-3, -3, 3, 3), theme.RADIUS["control"], theme.RADIUS["control"])
 
 
-def figure(block):
-    """figure 블록의 그림. 파일을 읽지 못하면 안내 글."""
-    try:
-        return AiFigure(block["path"], block.get("caption", ""), block.get("frames"))
-    except OSError:
-        return missing_figure(block.get("file", ""))
+def figure(block, last=False):
+    """figure 블록의 그림. 읽지 못하면 캡션·대체 내용·장별 설명과 재시도를 보임."""
+    out = AiFigure(block["path"], block.get("caption", ""), block.get("frames"), last=last,
+                   description=block.get("content", ""))
+    out.error_box.setToolTip(block.get("file") or block["path"])
+    return out
 
 
 class RadioMark(kit.CheckMark):
@@ -1429,6 +1443,8 @@ class AiLearnPage(QWidget):
             self.view.deleteLater()
         self.view = StepView(self.steps[index], Ctx(self.win, self.lid, self.key), extra)
         self.view.installEventFilter(self)
+        for image in self.view.findChildren(FigureView):
+            image.reloading.connect(self.hold_reading)
         self.view_key = number, content
         self.card_box.addWidget(self.view)
         if state is not None:
@@ -1678,12 +1694,8 @@ class RevisitPage(QWidget):
                 widget.deleteLater()
         self.figure = None
         if data["figure"]:
-            try:
-                self.figure = AiFigure(data["figure"], last=True)
-            except OSError:
-                self.card_box.addWidget(missing_figure(data["figure"]))
-            else:
-                self.card_box.addWidget(self.figure)
+            self.figure = figure(data.get("figure_info") or {"path": data["figure"]}, last=True)
+            self.card_box.addWidget(self.figure)
         intro = kit.heading(kit.label("외울 것", "headline"), kit.para(ai_text.MEMO_HINT, "body", "secondary"))
         self.card_box.addWidget(intro)
         self.memo = MemoBlock(data["memo"])

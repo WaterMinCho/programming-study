@@ -441,7 +441,7 @@ class AiSession(object):
         return {"lesson": lid, "title": self.lessons[lid]["title"], "units": units, "leeches": leeches}
 
     def revisit(self):
-        """다시 볼 단원. {"lesson", "unit", "title", "name"(단원 이름), "figure", "memo"} 이나 없으면 None."""
+        """다시 볼 단원. {"lesson", "unit", "title", "name"(단원 이름), "figure", "figure_info", "memo"} 이나 없으면 None."""
         state = self._state()
         found = state.revisit_pick()
         if found is None:
@@ -449,17 +449,18 @@ class AiSession(object):
         lid, key = found["lesson"], found["unit"]
         unit = self.notes[lid]["units"][key]
         meta = self.notes[lid]["unit_meta"].get(key, {})
-        figure = None
+        figure, figure_info = None, None
+        figures = [block for step in unit["steps"] for block in step["blocks"] if block["kind"] == "figure"]
         if meta.get("key_figure"):
             figure = os.path.join(self.notes[lid]["dir"], *str(meta["key_figure"]).split("/"))
-        else:
-            for step in unit["steps"]:
-                fig = next((b for b in step["blocks"] if b["kind"] == "figure"), None)
-                if fig:
-                    figure = fig["path"]
-                    break
+            figure_info = next((block for block in figures
+                                if os.path.normpath(block["path"]) == os.path.normpath(figure)), None)
+        elif figures:
+            figure_info = figures[0]
+            figure = figure_info["path"]
         memo = [item for step in unit["steps"] for b in step["blocks"] if b["kind"] == "memo" for item in b.get("items", [])]
-        return {"lesson": lid, "unit": key, "title": unit["title"], "name": self.unit_name(lid, key), "figure": figure, "memo": memo}
+        return {"lesson": lid, "unit": key, "title": unit["title"], "name": self.unit_name(lid, key), "figure": figure,
+                "figure_info": dict(figure_info) if figure_info else None, "memo": memo}
 
     # 기록
 
