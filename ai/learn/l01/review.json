@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "본문 작성 2·도형 수정 0",
- "resolver": "내용 대조 1",
- "reviewer": "검토 1",
+ "writer": "본문 수정 2·3 및 도형 수정 0",
+ "resolver": "변경 물음 재풀이 1",
+ "reviewer": "내용 검토 1",
  "files": {
   "assets/1a-1.png": "eeab4fe61fdabc999edc282a30b0f1c24824e179526053db8be1c5fd500b97f3",
   "assets/1a-2.gif": "5ffa1add2b6db57e0d924bdd9d5f1c82f291bb576829adc14b8b7c28bd43b4b0",
@@ -19,7 +19,7 @@
   "assets/1b-5.png": "1faa578cffca2f8c99ac02a1320e6559e3c70da4694dccf4adaef6e0f8191967",
   "assets/1b-6.gif": "2f2fd74972f29901600f58c91dff6f5417a680b4aca23f9d04a8c0faabe467fa",
   "assets/1b-7.gif": "b4ffca35b8628a56549ea49f36b4f9f12ef4f94413665c3a17ea7b379c5dc6bb",
-  "assets/1b-8.gif": "8d8c437335f6be392452cd4bfc49095c5f43e81f7d496d7d8afe120e46898eb3",
+  "assets/1b-8.gif": "04b57b9e7bae7d2455954732280523a8f9b8d55aa981a55200a8cb93ecd33641",
   "assets/1c-1.png": "cbbc02d1c0ec8dd5ebed1fb572ff6fda7111cd7038e44487da71f58c700fda6a",
   "assets/1c-2.gif": "23dbee09949e38f6e7c70684377fec0db23c5844dc1932d8fedb67f9e645734e",
   "assets/1c-3.png": "bdd323f63719685ad91ec3a8b62d3701ae93402475ca631ee74509688acfa321",
@@ -51,8 +51,8 @@
   "assets/1g-3.png": "3e2db4216f1464d69899996b8c746c0deeec8c48a66172d4fedcba70230c5536",
   "assets/1g-4.png": "4eb7d99528d8d2f1cc77328969f5f82e2d9af857d0ef50bae0489ab4bfc49c74",
   "assets/1g-5.png": "55f515c2d877899893093e67c797c6cc4ccf95e491490656610e000168d2f45d",
-  "meta.json": "b7de1505982aebe191bc54eb08310f5c9c47e40436f8fc4e122cfe9d105378df",
-  "page.md": "cc43859e68fdb0e449e8b226d9d47271eaf8601c4bdc93360b742f2aa0ac766c"
+  "meta.json": "093af35f42e8f462d3ae571dbcc169512a8173b053625286695256453b45e60a",
+  "page.md": "d1dea87836b253807b6e32cc8551c1965824125b0abf290c003b5ca1a4162e16"
  },
  "findings": [
   "검토 2026-11-04: 마스크를 필터로 바꿔 l02 마스크와 뜻이 겹치지 않게 함",
@@ -76,6 +76,8 @@
   "검사: check_doc_tone ✗ 0 △ 0, check_style, verify_ai i01(경고는 대조 3 이 받아들인 것), web_lint, ai_overlap(l01·l02 270곳 실패 0), 테스트 162개와 RealLessonTest 통과. 블록 그림 12장을 원래 크기로 열어 글자 겹침과 잘림이 없음을 봄",
   "2026-11-05 본문과 복습 물음의 조건을 원자료·공식 문서와 대조하고 문장과 그림을 확인했음. 새 수준 물음 36개와 수정한 독립 지문 12개 및 마지막 반복 번호 물음의 재풀이 기록을 따로 보존했음.",
   "학습 문장의 외부 위치를 덜고 단원 도입과 참조를 대조했음. 기존 물음·답·수치와 그림 파일을 보존했음.",
-  "본문·새 물음과 학습 패턴 수치, 개발 흐름, 참조 그림을 대조함."
+  "본문·새 물음과 학습 패턴 수치, 개발 흐름, 참조 그림을 대조함.",
+  "추가된 용어의 첫 사용과 정의 순서를 대조함. 불필요한 예고 용어는 쉬운 말로 바꾸고 문항·코드·정답은 보존함.",
+  "용어의 첫 등장과 정의를 추가 대조함. 개발 과정 그림의 클래스 표현을 정답 종류로 풀어 쓴 세 장면도 본문과 맞춰 확인함."
  ]
 }

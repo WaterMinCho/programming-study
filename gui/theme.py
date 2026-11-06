@@ -280,6 +280,10 @@ QWidget[ui="2"] QPushButton#primary { background: %(primary)s; color: %(primary_
 QWidget[ui="2"] QPushButton#primary:hover, QWidget[ui="2"] QPushButton#primary:pressed { background: %(primary_hover)s; }
 QWidget[ui="2"] QPushButton#primary:focus { border-color: %(surface)s; }
 QWidget[ui="2"] QPushButton#primary:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
+QWidget[ui="2"] QPushButton[figureplay="true"] { background: %(surface)s; color: %(primary)s; border: 2px solid %(primary)s; }
+QWidget[ui="2"] QPushButton[figureplay="true"]:hover, QWidget[ui="2"] QPushButton[figureplay="true"]:pressed { background: %(selection)s; }
+QWidget[ui="2"] QPushButton[figureplay="true"]:focus { border-color: %(focus)s; }
+QWidget[ui="2"] QPushButton[figureplay="true"]:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; border-color: %(border)s; }
 QWidget[ui="2"] QPushButton#text { background: transparent; color: %(muted)s; padding: 0 12px; }
 QWidget[ui="2"] QPushButton#text:hover { background: %(hover)s; color: %(ink)s; }
 QWidget[ui="2"] QPushButton#text[onbg="true"]:hover { background: %(line)s; }

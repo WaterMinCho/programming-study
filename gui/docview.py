@@ -763,7 +763,9 @@ class FigureView(QWidget):
             old[1].deleteLater()
 
     def _button(self, bar, text, slot):
-        button = kit.button(text, "primary" if text == "재생" else "secondary", "m")
+        button = kit.button(text, "secondary", "m")
+        if text == "재생":
+            button.setProperty("figureplay", True)
         button.clicked.connect(slot)
         bar.addWidget(button)
         return button
@@ -856,6 +858,7 @@ class FigureView(QWidget):
         self.play_btn.setMinimumWidth(max(widths))
         self.controls.layout().invalidate()
         self.controls.updateGeometry()
+        self.place_zoom(self.shrunk and self.zoomable)
 
     def display_scale(self):
         """그림 원본과 표시 크기의 비율. 학습 그림은 본문 크기에 맞춰 바꿀 수 있음."""
@@ -911,9 +914,14 @@ class FigureView(QWidget):
     def bar_room(self):
         """넘김 줄에서 단추·장 번호와 그 사이 간격을 뺀 남는 폭."""
         parts = (self.controls_heading, self.first_btn, self.prev_btn, self.play_btn, self.next_btn, self.counter)
+        self.controls.ensurePolished()
+        for part in parts:
+            part.ensurePolished()
         layout = self.controls.layout()
         left, _, right, _ = layout.getContentsMargins()
-        return self.width() - left - right - sum(part.sizeHint().width() for part in parts) - layout.spacing() * len(parts)
+        frame = self.controls.contentsMargins()
+        return self.width() - frame.left() - frame.right() - left - right - \
+            sum(part.sizeHint().width() for part in parts) - layout.spacing() * len(parts)
 
     def open_dialog(self):
         """지금 장을 그린 크기로 보는 창을 띄움."""

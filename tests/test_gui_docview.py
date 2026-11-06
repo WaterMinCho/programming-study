@@ -529,7 +529,8 @@ class FigureViewTest(unittest.TestCase):
         guikit.pump()
         for button in (figure.first_btn, figure.prev_btn, figure.play_btn, figure.next_btn):
             self.assertEqual((button.objectName(), button.property("scale")),
-                             ("primary" if button is figure.play_btn else "", "m"))
+                             ("", "m"))
+            self.assertEqual(bool(button.property("figureplay")), button is figure.play_btn)
         self.assertEqual(figure.counter.property("role"), "caption")
         self.assertFalse(figure.shrunk or figure.zoom_btn.isVisible() or figure.zoom_row.isVisible())
         guikit.click(figure.next_btn)

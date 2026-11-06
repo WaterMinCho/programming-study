@@ -3562,7 +3562,7 @@
    "fn": "training_steps"
   },
   "learn/l01/assets/1b-8.gif": {
-   "sha256": "8d8c437335f6be392452cd4bfc49095c5f43e81f7d496d7d8afe120e46898eb3",
+   "sha256": "04b57b9e7bae7d2455954732280523a8f9b8d55aa981a55200a8cb93ecd33641",
    "script": "tools/ai_art/l01_training_qt.py",
    "fn": "development_flow"
   }

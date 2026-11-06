@@ -78,7 +78,7 @@ layer.bias.shape           # torch.Size([3])
 {"guess": "g2"}
 ```
 
-소프트맥스는 모든 클래스의 logit을 함께 써서 확률을 만듭니다. logit 하나가 바뀌면 다른 클래스의 확률도 달라질 수 있습니다.
+각 클래스의 확률을 구할 때는 다른 클래스의 logit도 함께 씁니다. logit 하나가 바뀌면 다른 클래스의 확률도 달라질 수 있습니다.
 
 ```ai-recall
 {"id": "r2", "q": "`nn.Linear(4, 3)`의 학습 파라미터는 4 × 3 + 3 = ____ 개입니다.", "answer": ["15"], "mode": "number", "why": "weight가 [3, 4]라 12개이고 bias가 3개입니다."}

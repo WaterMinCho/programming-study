@@ -219,11 +219,14 @@ class AiFigure(FigureView):
         self.frame_text.setVisible(self.available and any(frame.get("text") for frame in self.frames))
 
     def display_scale(self):
-        return super().display_scale() * theme.BASE_TYPE["body"][0] / theme.TYPE["learn_body"][0]
+        largest = theme.scaled_type(theme.TEXT_STEPS[-1])["learn_body"][0]
+        return largest / theme.TYPE["learn_body"][0] / 1.5
 
     def display_width(self):
-        """학습 그림은 본문 폭까지 넓히되 원본 폭의 1.5배 안에서 비율을 유지함."""
-        return min(max(1, self.width()), self.source.width() * 1.5)
+        """글자가 커지면 그림도 키우며 최대 글자에서 가용 폭과 원본 1.5배 상한까지 씀."""
+        largest = theme.scaled_type(theme.TEXT_STEPS[-1])["learn_body"][0]
+        text_scale = theme.TYPE["learn_body"][0] / largest
+        return min(max(1, self.width()), self.source.width() * 1.5) * text_scale
 
     def zoom_scale(self):
         return min(1, self.display_scale())
@@ -1265,7 +1268,8 @@ class StepView(QWidget):
         column = kit.box(self, spacing=theme.LEARN_GAP["group"])
         if not ctx.readonly:
             from gui.learning_context import LearningContext, unit_context
-            context = unit_context(ctx.win.ai.root, ctx.key) if ctx.win.ai is not None else None
+            root = getattr(ctx.win.ai, "root", None)
+            context = unit_context(root, ctx.key) if root else None
             if context is not None:
                 self.context = LearningContext(*context, reflect=step["scope"] == "memo",
                                                expanded=step["no"] == 1 or step["scope"] == "memo")
@@ -1531,7 +1535,7 @@ class AiLearnPage(QWidget):
             self.queue_position(None)
 
     def clear_view_state(self, unit):
-        """단원을 다시 열거나 서비스가 바뀌면 화면 상태와 대기 중 복원을 버림."""
+        """단원이나 서비스가 바뀌면 화면 상태와 대기 중 복원을 버림."""
         self.position_timer.stop()
         self.pending_position = None
         self.view_states, self.view_key, self.state_unit = {}, None, unit

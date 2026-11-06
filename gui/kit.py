@@ -178,8 +178,8 @@ class FirstLine(QWidget):
         text = self.text_center()
         mark = max(self.mark.minimumHeight(), self.mark.sizeHint().height(), 0) / 2 if visible else 0
         previous, self.center = self.center, max(mark, text)
-        self.mark_box.setContentsMargins(0, round(self.center - mark), 0, 0)
-        self.text_box.setContentsMargins(0, round(self.center - text), 0, 0)
+        self.mark_box.setContentsMargins(0, math.floor(self.center - mark), 0, 0)
+        self.text_box.setContentsMargins(0, math.floor(self.center - text), 0, 0)
         if previous != self.center:
             self.aligned.emit()
 

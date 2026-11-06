@@ -258,7 +258,8 @@ class PracticePage(QWidget):
         else:
             for row, option in zip(self.choices.rows, item["options"]):
                 row.box.setChecked(option["no"] in values)
-        if self.practice.answered is not None:
+        # 이번 문항이 답한 상태일 때만 저장한 판정을 복원함.
+        if item.get("answered") and self.practice.answered is not None:
             self.dontknow = bool(draft.get("dontknow"))
             self.queued = int(draft.get("queued") or len(self.practice.queue))
             self.show_feedback(self.practice.answered)

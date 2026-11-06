@@ -611,6 +611,8 @@ class LessonAndLearnTest(AiTest):
 
     def test_figure_buttons_stay_put_when_frame_lines_differ(self):
         """장 설명 줄 수가 장마다 달라도 설명 칸이 가장 긴 설명의 높이를 지켜 넘김 줄과 캡션이 움직이지 않음. 폭이 바뀌면 다시 잼."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text("large")
         long = "길게 쓴 장 설명입니다. " * 12
         frames = [{"text": long if n in (0, 3) else "%d장" % (n + 1), "ms": 2000} for n in range(6)]
         figure = ai_learn.AiFigure(REAL_GIF, "그림 2", frames)
