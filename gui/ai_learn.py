@@ -1087,6 +1087,8 @@ class LevelsBlock(QWidget):
     떠올리기(RecallBlock)를 그대로 쓰고 Ctx 가 수준을 같이 기록함. readonly 면 확인 물음이 정답과 까닭을 편 채로 그려짐.
     docs·figures 는 restyle 때 다시 그릴 부품."""
 
+    reloading = pyqtSignal()
+
     def __init__(self, block, ctx):
         super().__init__()
         self.block, self.ctx = block, ctx
@@ -1109,6 +1111,8 @@ class LevelsBlock(QWidget):
             part = Sheet()
             self.body_box.addWidget(part)  # 붙인 뒤에 채움. 부모 없는 글 조각이 잠깐 따로 창으로 뜨지 않게 함
             self.fill(part, level)
+        for image in self.body.findChildren(FigureView):
+            image.reloading.connect(self.reloading)
         last = self.row  # 펼 때 만든 부품은 창 초점 순서 끝에 붙으므로 접힌 줄 바로 뒤로 옮김
         for widget in self.body.findChildren(QWidget):
             if widget.focusPolicy().value & Qt.FocusPolicy.TabFocus.value:
@@ -1202,6 +1206,8 @@ class StepView(QWidget):
     """단계 하나: 머리(꼬리표와 제목)와 블록들. 글자 크기나 테마가 바뀌면 restyle. title_role 은 제목 글자 역할이고 전체 노트는
     단원 이름(headline)보다 작게 label 굵게를 줌."""
 
+    reloading = pyqtSignal()
+
     def __init__(self, step, ctx, extra=(), title_role="headline"):
         super().__init__()
         self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
@@ -1229,6 +1235,10 @@ class StepView(QWidget):
         column.addWidget(top)
         for widget in content:
             column.addWidget(widget)
+        for image in self.findChildren(FigureView):
+            image.reloading.connect(self.reloading)
+        for level in self.levels:
+            level.reloading.connect(self.reloading)
 
     def block(self, block, ctx):
         kind = block.get("kind")
@@ -1443,8 +1453,7 @@ class AiLearnPage(QWidget):
             self.view.deleteLater()
         self.view = StepView(self.steps[index], Ctx(self.win, self.lid, self.key), extra)
         self.view.installEventFilter(self)
-        for image in self.view.findChildren(FigureView):
-            image.reloading.connect(self.hold_reading)
+        self.view.reloading.connect(self.hold_reading)
         self.view_key = number, content
         self.card_box.addWidget(self.view)
         if state is not None:
