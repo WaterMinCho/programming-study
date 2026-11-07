@@ -177,6 +177,7 @@ class Database:
                 db.execute("BEGIN")
                 for row in db.execute("SELECT payload FROM events ORDER BY participant, track, sequence"):
                     value = json.loads(row[0])
+                    value.setdefault("synthetic", False)
                     if not include_answers:
                         value["data"].pop("response", None)
                     line = packed(value) + "\n"

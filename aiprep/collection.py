@@ -10,10 +10,13 @@ import sqlite3
 import tempfile
 import uuid
 
+from aiprep import goals
+
 FORMAT = 1
-NOTICE = "2026-11-08-v1"
+NOTICE = "2026-11-08-v2"
 FILENAME = "learning-data.sqlite3"
 SYNC_FILENAME = "learning-data-sharing.json"
+CURRENT_CONTEXT = object()
 
 
 class CollectionError(Exception):
@@ -112,14 +115,16 @@ class Collection:
                 conn.close()
 
     def status(self):
-        out = {"enabled": False, "events": 0, "items": 0, "path": self.path, "error": self.error, "missed": self.missed}
+        out = {"enabled": False, "events": 0, "items": 0, "path": self.path, "error": self.error,
+               "missed": self.missed, "goal": goals.unselected()}
         if not os.path.exists(self.path):
             return out
         try:
             with self._connect() as conn:
                 meta = dict(conn.execute("SELECT key, value FROM meta"))
                 out.update(enabled=meta.get("enabled") == "1", participant=meta.get("participant"), epoch=meta.get("epoch"), notice=meta.get("notice"),
-                           events=conn.execute("SELECT count(*) FROM events WHERE kind NOT IN ('consent', 'withdraw')").fetchone()[0],
+                           goal=json.loads(meta["goal"]) if "goal" in meta else goals.unselected(),
+                           events=conn.execute("SELECT count(*) FROM events WHERE kind NOT IN ('consent', 'withdraw', 'goal_changed')").fetchone()[0],
                            items=conn.execute("SELECT count(*) FROM items").fetchone()[0])
         except CollectionError as error:
             out["error"] = str(error)
@@ -129,26 +134,76 @@ class Collection:
         if not enabled and not os.path.exists(self.path):
             return
         with self._connect(create=not os.path.exists(self.path)) as conn:
+            if not conn.in_transaction:
+                conn.execute("BEGIN IMMEDIATE")
             previous = conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone()
             if previous == ("1" if enabled else "0",):
                 return
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('enabled', ?)", ("1" if enabled else "0",))
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('notice', ?)", (NOTICE,))
+            goal = goals.unselected()
+            conn.execute("INSERT OR REPLACE INTO meta VALUES ('goal', ?)", (packed(goal),))
             if enabled:
                 conn.execute("INSERT OR REPLACE INTO meta VALUES ('epoch', ?)", (str(uuid.uuid4()),))
             conn.execute("INSERT INTO events(event_id, at, kind, payload) VALUES (?, ?, ?, ?)",
-                         (str(uuid.uuid4()), stamp(), "consent" if enabled else "withdraw", packed({"notice": NOTICE})))
+                         (str(uuid.uuid4()), stamp(), "consent" if enabled else "withdraw", packed({"notice": NOTICE, "goal": goal})))
 
-    def emit(self, kind, payload, item=None, key=None, at=None):
+    def set_goal(self, goal_id):
+        """동의 중에만 선택을 저장함. 같은 목표도 저장할 때마다 현재 로드맵 판을 읽음."""
+        if not os.path.exists(self.path):
+            raise CollectionError("추가 데이터 수집에 동의한 뒤 희망 직무를 저장해 주세요.")
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone() != ("1",):
+                raise CollectionError("추가 데이터 수집에 동의한 뒤 희망 직무를 저장해 주세요.")
+            goal = goals.selection(goal_id, goals.catalog(self.repository), stamp())
+            conn.execute("INSERT OR REPLACE INTO meta VALUES ('goal', ?)", (packed(goal),))
+            conn.execute("INSERT INTO events(event_id, at, kind, payload) VALUES (?, ?, 'goal_changed', ?)",
+                         (str(uuid.uuid4()), goal["selected_at"], packed({"goal": goal})))
+        return goal
+
+    def observation_context(self):
+        """한 읽기 트랜잭션에서 동의 차수·목표·관찰 시각을 함께 읽음."""
+        if not os.path.exists(self.path):
+            return None
+        try:
+            with self._connect() as conn:
+                conn.execute("BEGIN")
+                meta = dict(conn.execute("SELECT key, value FROM meta"))
+                if meta.get("enabled") != "1":
+                    return None
+                return {"epoch": meta.get("epoch"),
+                        "goal": json.loads(meta["goal"]) if "goal" in meta else goals.unselected(),
+                        "observed_at": stamp()}
+        except CollectionError as error:
+            self.error = str(error)
+            return None
+
+    def emit(self, kind, payload, item=None, key=None, at=None, *, observation_context=CURRENT_CONTEXT):
         """수집 실패가 채점·학습을 막지 않게 함. 실패 수와 까닭을 관리 화면에 남김."""
         if not os.path.exists(self.path):
             return False
         try:
             with self._connect() as conn:
+                conn.execute("BEGIN IMMEDIATE")
                 meta = dict(conn.execute("SELECT key, value FROM meta"))
                 if meta.get("enabled") != "1":
                     return False
                 payload = dict(payload)
+                if observation_context is CURRENT_CONTEXT:
+                    payload["goal"] = json.loads(meta["goal"]) if "goal" in meta else goals.unselected()
+                else:
+                    if kind not in ("mock_answer", "mock_submit"):
+                        raise ValueError("관찰 문맥은 모의고사 기록에만 지정할 수 있습니다.")
+                    context = observation_context or {}
+                    payload["goal"] = context.get("goal")
+                    payload["observed_at"] = context.get("observed_at")
+                    if context.get("epoch") != meta.get("epoch"):
+                        if kind == "mock_submit":
+                            return False
+                        payload.update(response=None, goal=None, observed_at=None)
+                        if payload.get("result") != "blank":
+                            payload["result"] = "not_collected"
                 if at is not None:
                     payload["source_at"] = at
                 eid = str(uuid.uuid5(uuid.UUID(meta["participant"]), key)) if key else str(uuid.uuid4())
@@ -169,7 +224,7 @@ class Collection:
             conn.execute("BEGIN")
             meta = dict(conn.execute("SELECT key, value FROM meta"))
             header = {"kind": "manifest", "format": FORMAT, "track": "ai", "participant": meta["participant"],
-                      "exported_at": stamp(), "include_answers": bool(include_answers), "notice": meta.get("notice")}
+                      "exported_at": stamp(), "include_answers": bool(include_answers), "notice": meta.get("notice"), "synthetic": False}
             sql = "SELECT seq, event_id, at, kind, payload, item_revision FROM events WHERE seq>? ORDER BY seq"
             params = (after,)
             if limit is not None:

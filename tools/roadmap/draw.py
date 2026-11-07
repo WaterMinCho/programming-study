@@ -9,7 +9,6 @@
 import json
 import math
 import os
-import re
 
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
@@ -130,6 +129,17 @@ def natural_w(text, size, bold, tag=None):
     return tw(text, size, bold) + (TAG_GAP + tag_w(tag) if tag else 0)
 
 
+def course_status(item):
+    return item["course"]["status"]
+
+
+def course_rows(item, size, bold, color, width):
+    rows = rows_for(item["label"], size, bold, color, width, item.get("track"))
+    labels = {"taught": "11기 수업", "partial": "11기 일부", "extra": "추가 학습", "unverified": "확인 대기"}
+    rows += rows_for(labels[course_status(item)], 12, True, MUTED, width)
+    return rows
+
+
 class Box:
     def __init__(self, x, y, w, h, rows, fill, status=None, verify=False, corner="left",
                  shadow=True, align="center", pad=14):
@@ -232,7 +242,6 @@ def draw_tag(cv, x, cy, tag, st):
 
 def draw_badge(cv, cx, cy, color):
     cv.circle(cx, cy, BADGE_R, fill=color, outline="white", width=1.5)
-    cv.line([(cx - 4.6, cy + 0.2), (cx - 1.5, cy + 3.4), (cx + 4.8, cy - 3.8)], "white", 2.3)
 
 
 def draw_verify(cv, cx, cy, text):
@@ -334,11 +343,9 @@ def path_page(data, p):
     verify_used = any(i.get("verify") for i in everything)
     lw, lh, draw_legend = legend(data, verify_used, used_tracks(data, everything))
 
-    basis = re.match(r"^(.*?) 공고", data["postings_basis"]).group(1)
-    po = p["postings"]
-    info_rows = [Row("채용 공고 %d건" % po["count"], 16, True),
-                 Row("%d개사, 신입 가능 %d건" % (po["companies"], po["entry"]), 14),
-                 Row("%s 기준" % basis, 13, False, MUTED)]
+    info_rows = [Row(data["updated"] + " 대조", 15, True),
+                 Row("필수·우대·지원 조건 구분", 13),
+                 Row("전체 채용 시장의 통계 아님", 12, False, MUTED)]
     info_w = max(r.width for r in info_rows) + 36
     info = Box(W - MARGIN - info_w, 20, info_w, sum(r.height for r in info_rows) + 30, info_rows, "white",
                shadow=False)
@@ -365,22 +372,22 @@ def path_page(data, p):
         cx = CENTER + (MAIN_SHIFT if i % 2 else -MAIN_SHIFT)
         mw = max(MAIN_MIN, min(MAIN_MAX, natural_w(n["label"], 17, True, n.get("track"))
                                + (2 * VERIFY_ROOM if n.get("verify") else 40)))
-        mrows = rows_for(n["label"], 17, True, INK, mw - 36, n.get("track"))
+        mrows = course_rows(n, 17, True, INK, mw - 36)
         mh = max(MAIN_H, sum(r.height for r in mrows) + 18)
 
         side = {}
         for key in ("left", "right"):
             stack = []
             for s in n.get(key, []):
-                rows = rows_for(s["label"], 15, False, INK, sub_w - 28, s.get("track"))
+                rows = course_rows(s, 15, False, INK, sub_w - 28)
                 fill = st["alt_fill"] if s["status"] == "alt" else st["sub_fill"]
                 stack.append(Box(0, 0, sub_w, max(SUB_H, sum(r.height for r in rows) + 12), rows, fill,
-                                 s["status"], s.get("verify"), key))
+                                 course_status(s), False, key))
             side[key] = stack
         stack_h = {k: sum(b.h for b in v) + STACK_GAP * max(0, len(v) - 1) for k, v in side.items()}
         core = max(mh, stack_h["left"], stack_h["right"])
         mid = y + core / 2
-        main = Box(cx - mw / 2, mid - mh / 2, mw, mh, mrows, st["main_fill"], n["status"], n.get("verify"))
+        main = Box(cx - mw / 2, mid - mh / 2, mw, mh, mrows, st["main_fill"], course_status(n))
         mains.append(main)
         bottom = y + core
         for key, stack in side.items():
@@ -474,10 +481,10 @@ def intro_page(data):
     boxes = []
     y = 56
     for c in data["common"]:
-        rows = rows_for(c["label"], 15, True, INK, col_w - 28, c.get("track"))
+        rows = course_rows(c, 15, True, INK, col_w - 28)
         rows += rows_for(c["evidence"], 13, False, MUTED, col_w - 28)
         h = sum(r.height for r in rows) + 18
-        boxes.append(Box(MARGIN, y, col_w, h, rows, st["main_fill"], c["status"], c.get("verify")))
+        boxes.append(Box(MARGIN, y, col_w, h, rows, st["main_fill"], course_status(c)))
         y += h + 14
     _, lh, draw_legend = legend(data, any(c.get("verify") for c in data["common"]),
                                  used_tracks(data, data["common"]))
@@ -510,7 +517,7 @@ def intro_page(data):
         p = paths[pid]
         rows = rows_for(p["title"], 16, True, INK, box_w - 24)
         rows += rows_for(p["subtitle"], 13, False, MUTED, box_w - 24)
-        rows.append(Row("공고 %d건, 신입 가능 %d건" % (p["postings"]["count"], p["postings"]["entry"]), 13, False, MUTED))
+        rows += rows_for(p["deliverable_short"], 12, False, MUTED, box_w - 24)
         path_rows[pid] = rows
     box_h = max(sum(r.height for r in rows) for rows in path_rows.values()) + 20
     row_gap = 84

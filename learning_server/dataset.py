@@ -11,7 +11,30 @@ import uuid
 from aiprep.collection import inside, packed
 
 
-def prepare(events):
+def source_events(events, synthetic=None):
+    """입력의 출처 표시를 유지하고 서로 다른 출처의 혼합을 거절함."""
+    if synthetic is not None and type(synthetic) is not bool:
+        raise ValueError("합성 여부는 참·거짓 또는 미표시로 지정해 주세요.")
+    events = list(events)
+    markers = {row["synthetic"] for row in events
+               if row.get("kind") == "manifest" and type(row.get("synthetic")) is bool}
+    if len(markers) > 1:
+        raise ValueError("출처가 다른 입력은 따로 내보내 주세요.")
+    fallback = next(iter(markers)) if markers else synthetic
+    output = []
+    for row in events:
+        if row.get("kind") == "manifest":
+            continue
+        marker = row.get("synthetic") if type(row.get("synthetic")) is bool else fallback
+        origin = "unmarked" if marker is None else "synthetic" if marker else "recorded"
+        output.append(dict(row, synthetic=marker, data_source=origin))
+    if len({row["data_source"] for row in output}) > 1:
+        raise ValueError("합성·기록·출처 미표시 입력은 따로 내보내 주세요.")
+    return output
+
+
+def prepare(events, synthetic=None):
+    events = source_events(events, synthetic)
     events = sorted(events, key=lambda row: (row["participant"], row["track"], row["sequence"]))
     results = ("pass", "stuck", "ok", "wrong")
     def answer_key(row):
@@ -60,6 +83,8 @@ def prepare(events):
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
                            "sequence": row["sequence"], "at": row["at"], "session": session, "question_id": card,
                            "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
+                           "goal": data.get("goal"),
+                           "synthetic": row["synthetic"], "data_source": row["data_source"],
                            "features": {"observed_history": before}, "target": target})
         observed[answer_key(row)] = tags
         updates = [(tags, target, row["at"])]
@@ -105,7 +130,7 @@ def synthetic_events():
         participant = str(uuid.uuid5(uuid.NAMESPACE_URL, "study-synthetic-person-%d" % person))
         for track in ("ai", "python"):
             for day in range(1, 7):
-                rows.append({"participant": participant, "track": track, "sequence": day,
+                rows.append({"participant": participant, "track": track, "sequence": day, "synthetic": True,
                              "event_id": str(uuid.uuid5(uuid.UUID(participant), "%s-%d" % (track, day))),
                              "at": "2026-01-%02dT10:00:00+00:00" % day, "kind": "answer", "item_revision": "0" * 64,
                              "item": {"card": track + "-demo", "tags": ["demo"]},
@@ -120,16 +145,17 @@ def write_private(path, text):
         output.write(text)
 
 
-def write_dataset(events, destination, synthetic=False, source_sha256=None):
+def write_dataset(events, destination, synthetic=None, source_sha256=None):
     root = Path(__file__).resolve().parent.parent
     if inside(destination, root):
         raise ValueError("학습 자료는 공개 저장소 밖에 저장해 주세요.")
-    records = prepare(events)
+    records = prepare(events, synthetic=synthetic)
     parts = {track: split([row for row in records if row["track"] == track]) for track in sorted({row["track"] for row in records})}
     if not parts:
         raise ValueError("사용할 첫 시도 답안이 없습니다.")
     os.mkdir(destination, mode=0o700)
-    manifest = {"format": 1, "synthetic": synthetic, "source_sha256": source_sha256, "files": {}}
+    manifest = {"format": 1, "synthetic": records[0]["synthetic"], "source": records[0]["data_source"],
+                "source_sha256": source_sha256, "files": {}}
     for track, groups in parts.items():
         for name, rows in groups.items():
             path = Path(destination) / (track + "-" + name + ".jsonl")
@@ -152,7 +178,8 @@ def main():
     try:
         raw = Path(args.input).read_bytes() if args.input else None
         events = [json.loads(line) for line in raw.splitlines()] if raw is not None else synthetic_events()
-        result = write_dataset(events, args.out, args.synthetic, hashlib.sha256(raw).hexdigest() if raw is not None else None)
+        result = write_dataset(events, args.out, True if args.synthetic else None,
+                               hashlib.sha256(raw).hexdigest() if raw is not None else None)
         print("과목별 학습 자료를 저장하고 다시 읽어 확인했습니다. %s" % args.out)
         print(packed(result))
     except (OSError, ValueError, KeyError, TypeError) as error:

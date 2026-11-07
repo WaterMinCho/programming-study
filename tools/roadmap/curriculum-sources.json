@@ -1,0 +1,452 @@
+{
+  "checked": "2026-11-08",
+  "numbering": "PDF 첫 페이지를 1쪽으로 셈",
+  "sources": [
+    {
+      "id": "C1",
+      "sha256": "d511a081ce5fb5ddbc6518d5ad441cbb138f693916fd860e7bc7e2dfe3cc59a2",
+      "page_count": 2,
+      "content_review_pages": [
+        1,
+        2
+      ],
+      "visual_review_pages": [],
+      "page_numbering": "PDF 첫 페이지를 1쪽으로 세는 통쪽 번호를 사용함",
+      "file": "ROKEY-11기_파이썬_커리큘럼.pdf"
+    },
+    {
+      "id": "C2",
+      "sha256": "e6b0e7323b50e806e2b5c901da1fce4c8397bbc4399d6f580b1ac810760013e4",
+      "page_count": 2,
+      "content_review_pages": [
+        1,
+        2
+      ],
+      "visual_review_pages": [
+        2
+      ],
+      "page_numbering": "PDF 첫 페이지를 1쪽으로 세는 통쪽 번호를 사용함",
+      "file": "ROKEY-11기_AI(Computer_Vision)_커리큘럼.pdf"
+    },
+    {
+      "id": "C3",
+      "sha256": "de292a3450d30704ee439e0ef61119941eb82a6eb9ef2ac6adf590b7cd98c2dc",
+      "page_count": 4,
+      "content_review_pages": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "visual_review_pages": [
+        4
+      ],
+      "page_numbering": "PDF 첫 페이지를 1쪽으로 세는 통쪽 번호를 사용함",
+      "file": "ROKEY-11기_ROS2_프로그래밍_커리큘럼.pdf"
+    },
+    {
+      "id": "C4",
+      "sha256": "154ff31d63141dd16209fb81effaf9b2f2b844fc1cf2915dc1481bf141e20977",
+      "page_count": 1,
+      "content_review_pages": [
+        1
+      ],
+      "visual_review_pages": [],
+      "page_numbering": "PDF 첫 페이지를 1쪽으로 세는 통쪽 번호를 사용함",
+      "file": "ROKEY-11기_DevOps_커리큘럼.pdf"
+    },
+    {
+      "id": "L1",
+      "sha256": "dc853858b1d43c0d7a7aba52bae77168aa366b0944b44541966490dd1c1d1b0b",
+      "page_count": 17,
+      "content_review_pages": [
+        2,
+        3,
+        6
+      ],
+      "visual_review_pages": [
+        3
+      ],
+      "page_numbering": "PDF 첫 페이지를 1쪽으로 세는 통쪽 번호를 사용함",
+      "file": "매뉴얼_ROKEY_Life_Guide_11기.pdf"
+    }
+  ],
+  "evidence": {
+    "py_basic": {
+      "source_id": "C1",
+      "page": 1,
+      "lesson": "1~10",
+      "support_text": "클래스 구성 및 정의",
+      "supported_scope": "문법·함수·클래스·모듈·상속 기초를 다룸",
+      "content_support_verified": true
+    },
+    "py_algo1": {
+      "source_id": "C1",
+      "page": 1,
+      "lesson": "8",
+      "support_text": "선택 정렬",
+      "supported_scope": "최댓값 탐색·선택 정렬을 다룸",
+      "content_support_verified": true
+    },
+    "py_algo2": {
+      "source_id": "C1",
+      "page": 2,
+      "lesson": "16~17",
+      "support_text": "BFS(Breadth First Search)",
+      "supported_scope": "스택·큐·덱·DFS·BFS를 다룸",
+      "content_support_verified": true
+    },
+    "py_gui": {
+      "source_id": "C1",
+      "page": 2,
+      "lesson": "11",
+      "support_text": "tkinter",
+      "supported_scope": "공식 계획의 GUI 도구는 tkinter로 명시함",
+      "content_support_verified": true
+    },
+    "py_file": {
+      "source_id": "C1",
+      "page": 2,
+      "lesson": "12",
+      "support_text": "파일 쓰기와 읽기",
+      "supported_scope": "파일 읽기·쓰기·추가를 다룸",
+      "content_support_verified": true
+    },
+    "py_regex": {
+      "source_id": "C1",
+      "page": 2,
+      "lesson": "13~15",
+      "support_text": "정규식 활용 문자열 검색",
+      "supported_scope": "예외·문자열·정규표현식·이터레이터·제너레이터를 다룸",
+      "content_support_verified": true
+    },
+    "py_data": {
+      "source_id": "C1",
+      "page": 2,
+      "lesson": "18~20",
+      "support_text": "scikit-learn 패키지 활용",
+      "supported_scope": "pandas·NumPy·Matplotlib·statsmodels·scikit-learn·SciPy·seaborn·OpenCV를 다룸",
+      "content_support_verified": true
+    },
+    "py_api": {
+      "source_id": "C1",
+      "page": 2,
+      "lesson": "21",
+      "support_text": "JSON과 API 활용 기초",
+      "supported_scope": "공식 목차에서 파일 자동화·Excel·JSON·API 활용을 확인함. 21차시 강의와 코드는 열지 않았음",
+      "content_support_verified": true
+    },
+    "ai_matrix": {
+      "source_id": "C2",
+      "page": 1,
+      "lesson": "개론 2",
+      "support_text": "행렬 구조/연산",
+      "supported_scope": "행렬·전치·NumPy 연산·요약통계·시각화 기초를 다룸",
+      "content_support_verified": true
+    },
+    "ai_tensor": {
+      "source_id": "C2",
+      "page": 1,
+      "lesson": "개론 3",
+      "support_text": "Gradient 계산",
+      "supported_scope": "텐서·모양 변경·requires_grad·기울기 계산을 다룸",
+      "content_support_verified": true
+    },
+    "ai_grad": {
+      "source_id": "C2",
+      "page": 1,
+      "lesson": "개론 4~6",
+      "support_text": "오차 역전파 과정",
+      "supported_scope": "연쇄법칙·활성화함수·GD/SGD/Mini-batch·MSE/BCE/CE를 다룸",
+      "content_support_verified": true
+    },
+    "ai_class": {
+      "source_id": "C2",
+      "page": 1,
+      "lesson": "개론 7~9",
+      "support_text": "ACC/Recall/Precision/F1",
+      "supported_scope": "회귀·이진/다중 분류·분류 지표를 다룸",
+      "content_support_verified": true
+    },
+    "ai_loader": {
+      "source_id": "C2",
+      "page": 1,
+      "lesson": "개론 10~11",
+      "support_text": "DataLoader 미니배치",
+      "supported_scope": "Torchvision·Transforms·DataLoader·CNN·학습/평가 함수화를 다룸",
+      "content_support_verified": true
+    },
+    "ai_tune": {
+      "source_id": "C2",
+      "page": 1,
+      "lesson": "개론 12",
+      "support_text": "Dropout/BN/Aug 적용",
+      "supported_scope": "SGD/NAG/RMSProp/Adam·Dropout·BatchNorm·증강을 다룸",
+      "content_support_verified": true
+    },
+    "ai_transfer": {
+      "source_id": "C2",
+      "page": 1,
+      "lesson": "개론 13~16",
+      "support_text": "VGG16/19(2014)",
+      "supported_scope": "AlexNet·GoogleNet·VGG·ResNet·파인튜닝·사용자 데이터·ResNet 구현을 다룸. VGG/ResNet은 14차시이며 직접 구현은 16차시임",
+      "content_support_verified": true
+    },
+    "ai_review": {
+      "source_id": "C2",
+      "page": 1,
+      "lesson": "개론 17",
+      "support_text": "오분류 케이스 분석",
+      "supported_scope": "공식 목차는 CNN·사전학습 모델·직접 구현 ResNet의 성능 비교와 코드 리뷰로 명시함",
+      "content_support_verified": true
+    },
+    "cv_image": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 1~3",
+      "support_text": "Affine 변환/동차좌표",
+      "supported_scope": "색공간·필터·2D 영상 기하 변환·에지·윤곽선·웹캠 처리를 다룸",
+      "content_support_verified": true
+    },
+    "cv_track": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 4",
+      "support_text": "MeanShift 추적",
+      "supported_scope": "MeanShift·CamShift·LK/Dense Optical Flow·RAFT 개요를 다룸",
+      "content_support_verified": true
+    },
+    "cv_mobile": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 5",
+      "support_text": "MobileNet 구조",
+      "supported_scope": "MobileNet·사용자 데이터·학습/추론 클래스를 다룸",
+      "content_support_verified": true
+    },
+    "cv_gen": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 6~8",
+      "support_text": "Generator/Discriminator Loss",
+      "supported_scope": "스타일 변환·GAN/VAE·CNN-LSTM 이미지 캡셔닝을 다룸",
+      "content_support_verified": true
+    },
+    "cv_3d": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 9",
+      "support_text": "Multivariate Gaussian",
+      "supported_scope": "NeRF·TinyNeRF·Gaussian Splatting·다변량 가우시안의 3D 비전 사용을 다룸",
+      "content_support_verified": true
+    },
+    "cv_xai": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 10",
+      "support_text": "Grad-CAM 개념",
+      "supported_scope": "XAI·Grad-CAM·DICOM·의료영상 윤리의 개요를 다룸",
+      "content_support_verified": true
+    },
+    "cv_detect": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 11~12",
+      "support_text": "YOLO / SSD 구조 비교",
+      "supported_scope": "Faster R-CNN·NMS·Mask R-CNN·YOLO/SSD·앵커 박스·OpenCV DNN을 다룸",
+      "content_support_verified": true
+    },
+    "cv_advanced": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 13",
+      "support_text": "모델 경량화 개요",
+      "supported_scope": "ViT·Detection/Segmentation·경량화 개요·추론 속도 최적화·GPU 활용 전략을 다룸",
+      "content_support_verified": true
+    },
+    "cv_pipeline": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 14",
+      "support_text": "Dataset → Model → Train → Inference",
+      "supported_scope": "코드 구조화·Config 분리·Logging·실험 관리의 교육용 파이프라인을 다룸",
+      "content_support_verified": true
+    },
+    "cv_rl": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 15",
+      "support_text": "Bellman Equation",
+      "supported_scope": "Gym·MDP·Reward/State/Policy·가치 함수·벨만·FrozenLake/CartPole 기초를 다룸",
+      "content_support_verified": true
+    },
+    "cv_yolo": {
+      "source_id": "C2",
+      "page": 2,
+      "lesson": "응용 16",
+      "support_text": "Custom YOLO 학습",
+      "supported_scope": "ViT/YOLO 연계·Roboflow 라벨링/Export·커스텀 YOLO 학습을 다룸",
+      "content_support_verified": true
+    },
+    "ros_linux": {
+      "source_id": "C3",
+      "page": 2,
+      "lesson": "기초 1",
+      "support_text": "리눅스 CLI 실습",
+      "supported_scope": "컴퓨터 구조·운영체계·Linux CLI 기초를 다룸",
+      "content_support_verified": true
+    },
+    "ros_net": {
+      "source_id": "C3",
+      "page": 2,
+      "lesson": "기초 2",
+      "support_text": "소켓 프로그래밍 실습",
+      "supported_scope": "네트워크·통신·소켓을 명시함. TCP/UDP라는 개별 프로토콜명은 확인하지 못했음",
+      "content_support_verified": true
+    },
+    "ros_sensor": {
+      "source_id": "C3",
+      "page": 2,
+      "lesson": "기초 3",
+      "support_text": "로봇 기초와 좌표계",
+      "supported_scope": "센서·로봇 구성·좌표계·ROS2 소개를 다룸. 구체적 센서 종류는 명시하지 않음",
+      "content_support_verified": true
+    },
+    "ros_package": {
+      "source_id": "C3",
+      "page": 3,
+      "lesson": "입문 1~3",
+      "support_text": "토픽, 서비스, 패키지 생성 및 실습",
+      "supported_scope": "Python 패키지·인터페이스 설계·토픽·서비스를 다룸",
+      "content_support_verified": true
+    },
+    "ros_executor": {
+      "source_id": "C3",
+      "page": 3,
+      "lesson": "입문 4",
+      "support_text": "Executor",
+      "supported_scope": "rclpy·MultiThread·Executor를 다룸",
+      "content_support_verified": true
+    },
+    "ros_action": {
+      "source_id": "C3",
+      "page": 3,
+      "lesson": "입문 5",
+      "support_text": "액션 패키지및 실습, Parameters 생성",
+      "supported_scope": "액션·파라미터를 다룸",
+      "content_support_verified": true
+    },
+    "ros_bag": {
+      "source_id": "C3",
+      "page": 3,
+      "lesson": "입문 8",
+      "support_text": "ROS2 bag 이해 및 사용법",
+      "supported_scope": "ROS2 bag 사용을 다룸. 시연 수집과 데이터 품질 관리 전체를 뜻하지 않음",
+      "content_support_verified": true
+    },
+    "ros_colcon": {
+      "source_id": "C3",
+      "page": 1,
+      "lesson": "전체 구성",
+      "support_text": "Colcon build",
+      "supported_scope": "전체 구성표에 Colcon build를 명시함",
+      "content_support_verified": true
+    },
+    "ros_cli": {
+      "source_id": "C3",
+      "page": 4,
+      "lesson": "실습 1~3",
+      "support_text": "DDS의 QoS",
+      "supported_scope": "CLI·DDS QoS·RQT Plugin을 다룸",
+      "content_support_verified": true
+    },
+    "ros_model": {
+      "source_id": "C3",
+      "page": 4,
+      "lesson": "실습 4",
+      "support_text": "Urdf, tf2",
+      "supported_scope": "URDF·tf2를 다룸",
+      "content_support_verified": true
+    },
+    "ros_nav": {
+      "source_id": "C3",
+      "page": 4,
+      "lesson": "실습 5",
+      "support_text": "Gazebo, SLAM, Nav2 실습",
+      "supported_scope": "Gazebo·SLAM·Nav2 실습을 명시함. 차원·필터·플래너·행동 트리까지 명시하지 않음",
+      "content_support_verified": true
+    },
+    "ros_cv": {
+      "source_id": "C3",
+      "page": 4,
+      "lesson": "실습 6",
+      "support_text": "Lane detect 구현 및 ROS2 통합 실습",
+      "supported_scope": "차선 검출과 ROS2 통합 실습을 다룸",
+      "content_support_verified": true
+    },
+    "ros_3d": {
+      "source_id": "C3",
+      "page": 4,
+      "lesson": "실습 7",
+      "support_text": "Point Cloud Open3D 두산로봇 시뮬레이션",
+      "supported_scope": "Point Cloud·Open3D·두산로봇 시뮬레이션을 명시함. RViz라는 도구명은 없음",
+      "content_support_verified": true
+    },
+    "dev_sql": {
+      "source_id": "C4",
+      "page": 1,
+      "lesson": "1~2",
+      "support_text": "SQL 문 DML, TCL 소개 및 활용",
+      "supported_scope": "DDL/DML/TCL·JOIN·Python DB 연동·CRUD 기초를 다룸",
+      "content_support_verified": true
+    },
+    "dev_git": {
+      "source_id": "C4",
+      "page": 1,
+      "lesson": "3~4",
+      "support_text": "팀 협업 시나리오 및 충돌(Conflict) 해결 실습",
+      "supported_scope": "Git·브랜치·push/pull·PR·충돌 해결을 다룸",
+      "content_support_verified": true
+    },
+    "dev_docker": {
+      "source_id": "C4",
+      "page": 1,
+      "lesson": "5~6",
+      "support_text": "도커 Compose 활용 컨테이너 관리",
+      "supported_scope": "Docker 명령·이미지·Dockerfile·build/배포·Compose 기초를 다룸",
+      "content_support_verified": true
+    },
+    "course_level": {
+      "source_id": "L1",
+      "page": 2,
+      "lesson": "과정 개요",
+      "support_text": "입문/초급",
+      "supported_scope": "과정 목표를 로봇 프로그래밍과 영상처리 딥러닝의 기초 역량으로 명시함",
+      "content_support_verified": true
+    },
+    "projects": {
+      "source_id": "L1",
+      "page": 3,
+      "lesson": "3~4단계",
+      "support_text": "협동로봇 프로그래밍 실습 (심화)",
+      "supported_scope": "협동로봇 기초 72시간·심화 168시간, 지능형로봇 기초 24시간·심화 56시간의 교과목 존재를 확인함. 수행 항목의 상세 목차는 없음",
+      "content_support_verified": true
+    },
+    "schedule": {
+      "source_id": "L1",
+      "page": 6,
+      "lesson": "전체 학사 일정",
+      "support_text": "2027.03.19.(금)",
+      "supported_scope": "과정표와 일정표의 프로젝트 2 교과목명 및 마지막 재량교과 날짜가 맞지 않는 부분을 보존함",
+      "content_support_verified": true
+    }
+  },
+  "rules": {
+    "taught": "공식 상세 목차에 해당 주제 이름 또는 직접 대응하는 학습 활동이 명시된 범위에 적용함. 입문·개요·실습의 깊이를 보존함",
+    "partial": "필요 주제의 일부 또는 기초·인접 개념만 확인한 경우에 적용함. 포함 범위와 미확인 범위를 함께 적음",
+    "extra": "공식 상세 목차에서 직접 수업 근거를 확인하지 못해 별도 학습으로 분류함. 실제 수업에서 배제됐다는 단정으로 사용하지 않음",
+    "unverified": "상위 교과·프로젝트명만 있거나 구체적인 도구·장치·실습 범위가 모호한 경우에 판정을 보류함",
+    "parent_child": "부모 표시를 자식에게 자동 상속하지 않음. 선택 도구·학습 순서·앱 연습 제공과 교과 포함 여부를 분리함"
+  },
+  "limits": "공식 계획의 포함 범위임. 실제 운영 변경과 학습 성과·실무 역량을 확정하지 않음."
+}

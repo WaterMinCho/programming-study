@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""추가 수집 화면의 명시적 동의와 작은 창에서의 동작을 확인함."""
+"""추가 수집 화면의 명시적 동의와 작은 창의 동작을 확인함."""
 import json
 import threading
 from pathlib import Path
@@ -51,7 +51,7 @@ class AiDataTest(AiTest):
             guikit.pump()
             self.assertLessEqual(dialog.width(), 760)
             self.assertLessEqual(dialog.height(), 480)
-            for button in (dialog.toggle, dialog.export_button, dialog.delete_button, dialog.send_button, dialog.remote_delete):
+            for button in (dialog.toggle, dialog.goal_save, dialog.export_button, dialog.delete_button, dialog.send_button, dialog.remote_delete):
                 dialog.scroll.ensureWidgetVisible(button)
                 guikit.pump()
                 self.assertGreaterEqual(button.width(), QFontMetricsF(button.font()).horizontalAdvance(button.text()) + 24)
@@ -61,6 +61,33 @@ class AiDataTest(AiTest):
                 self.assertLessEqual(point.x() + button.width(), dialog.scroll.viewport().width())
                 self.assertLessEqual(point.y() + button.height(), dialog.scroll.viewport().height())
             dialog.close()
+
+    def test_goal_selection_consent_reset_and_export(self):
+        win = self.boot(size=(760, 480))
+        win.go_ai()
+        dialog = LearningDataDialog(win, win.ai.collection)
+        dialog.show()
+        guikit.pump()
+        self.assertFalse(dialog.goal_save.isEnabled())
+        guikit.click(dialog.toggle)
+        dialog.goal_combo.setCurrentIndex(dialog.goal_combo.findData("vision"))
+        dialog.scroll.ensureWidgetVisible(dialog.goal_save)
+        guikit.pump()
+        guikit.click(dialog.goal_save)
+        win.ai.mark_read("i90", "90a")
+        destination = Path(self.tmp) / "goal-export.jsonl"
+        dialog.export_to(str(destination))
+        rows = [json.loads(line) for line in destination.read_text(encoding="utf-8").splitlines()]
+        learned = next(r for r in rows if r["kind"] == "learn")
+        self.assertEqual("vision", learned["data"]["goal"]["goal_id"])
+        self.assertEqual(64, len(learned["data"]["goal"]["roadmap_revision"]))
+        for _ in range(2):
+            dialog.scroll.ensureWidgetVisible(dialog.toggle)
+            guikit.pump()
+            guikit.click(dialog.toggle)
+        self.assertIsNone(dialog.goal_combo.currentData())
+        self.assertIsNone(win.ai.collection.status()["goal"]["goal_id"])
+        dialog.close()
 
     def test_remote_job_does_not_close_the_dialog_or_lose_controls(self):
         win = self.boot(size=(760, 480))

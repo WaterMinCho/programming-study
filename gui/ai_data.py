@@ -2,9 +2,10 @@
 """추가 학습 데이터의 동의·중단·내보내기·삭제를 다룸."""
 import os
 
-from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QLineEdit, QWidget
+from PyQt6.QtWidgets import QCheckBox, QComboBox, QDialog, QFileDialog, QLineEdit, QWidget
 
 from aiprep.collection import CollectionError
+from aiprep import goals
 from aiprep.sharing import Sharing
 from gui import dialogs, kit, theme
 
@@ -34,10 +35,34 @@ class LearningDataDialog(QDialog):
         self.toggle = kit.button("", "primary", "l")
         self.toggle.clicked.connect(self.change_consent)
         body.addWidget(self.toggle)
+        body.addWidget(kit.heading(kit.label("희망 직무 선택", "headline"),
+                                   kit.para("직접 고른 진로 목표로 풀이 경향을 살펴봅니다. 능력 등급이나 적합도를 판단하지 않습니다. "
+                                            "미선택으로 두어도 됩니다. 수집을 다시 시작하면 새로 골라 주세요.", "body", "secondary")))
+        self.goal_combo = QComboBox()
+        self.goal_combo.setAccessibleName("희망 직무")
+        self.goal_combo.setProperty("role", "body")
+        self.goal_combo.setFont(theme.font("body"))
+        self.goal_combo.setMinimumHeight(theme.control_height("l"))
+        self.goal_combo.addItem("미선택", None)
+        self.goal_error = ""
+        try:
+            for goal_id, title in goals.catalog(collection.repository)["options"]:
+                self.goal_combo.addItem(title, goal_id)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            self.goal_error = "희망 직무 목록을 읽지 못했습니다. %s" % error
+        body.addWidget(self.goal_combo)
+        goal_actions = QWidget()
+        goal_flow = kit.FlowLayout(goal_actions, spacing=theme.GAP["detail"])
+        self.goal_save = kit.button("희망 직무 저장", scale="l")
+        self.goal_save.clicked.connect(self.save_goal)
+        goal_flow.addWidget(self.goal_save)
+        body.addWidget(goal_actions)
+        self.goal_status = kit.para("", "caption", "secondary")
+        body.addWidget(self.goal_status)
         self.with_answers = QCheckBox("내보낼 때 입력 답안 포함")
         body.addWidget(self.with_answers)
         body.addWidget(kit.para("기본 내보내기는 입력 답안을 제외합니다. 문항·채점 결과·시간·가명 구분값은 포함합니다. "
-                                "가명 구분값을 써도 완전한 익명 자료는 아닙니다.", "caption", "secondary"))
+                                "희망 직무와 선택 당시 로드맵 판도 포함합니다. 가명 구분값을 써도 완전한 익명 자료는 아닙니다.", "caption", "secondary"))
         self.export_button = kit.button("파일로 내보내기", scale="l")
         self.export_button.clicked.connect(self.choose_file)
         body.addWidget(self.export_button)
@@ -59,7 +84,8 @@ class LearningDataDialog(QDialog):
         self.share_answers = QCheckBox("서버에 입력 답안도 보내기")
         body.addWidget(self.share_answers)
         body.addWidget(kit.para("전송 자료에는 가명 구분값, 문항, 채점 결과, 시간과 동의 기록이 포함됩니다. "
-                                "입력 답안은 위 항목을 선택했을 때만 포함합니다. 팀에서 파이썬·AI 개론 문제 추천 모델을 연구하는 데 사용합니다. "
+                                "희망 직무와 선택 당시 로드맵 판도 전송합니다. 입력 답안은 위 항목을 선택했을 때만 포함합니다. "
+                                "팀에서 파이썬·AI 개론 문제 추천 모델과 희망 직무별 풀이 경향을 연구하는 데 사용합니다. "
                                 "서버에서 내 풀이 데이터를 삭제할 수 있습니다.", "caption", "secondary"))
         self.send_button = kit.button("동의하고 서버에 보내기", scale="l")
         self.send_button.clicked.connect(self.send)
@@ -93,6 +119,19 @@ class LearningDataDialog(QDialog):
         self.toggle.setText("수집 중단" if status["enabled"] else "동의하고 수집 시작")
         self.export_button.setEnabled(os.path.exists(self.collection.path) and not status["error"])
         self.delete_button.setEnabled(os.path.exists(self.collection.path))
+        goal = status.get("goal") or goals.unselected()
+        self.goal_combo.setCurrentIndex(max(0, self.goal_combo.findData(goal["goal_id"])))
+        self.goal_combo.setEnabled(status["enabled"] and not status["error"] and not self.goal_error)
+        self.goal_save.setEnabled(self.goal_combo.isEnabled())
+        self.goal_status.setText(self.goal_error or ("저장한 희망 직무: %s" % self.goal_combo.currentText()))
+
+    def save_goal(self):
+        try:
+            self.collection.set_goal(self.goal_combo.currentData())
+            self.message.setText("희망 직무와 현재 로드맵 판을 저장했습니다. 이후 기록부터 적용합니다.")
+        except CollectionError as error:
+            self.message.setText(str(error))
+        self.refresh()
 
     def run_remote(self, fn):
         def guarded():
@@ -110,7 +149,7 @@ class LearningDataDialog(QDialog):
                                                          else "서버에 %d건을 보내 저장 확인을 받았습니다." % result["sent"]))
             self.refresh()
         controls = (self.toggle, self.export_button, self.delete_button, self.send_button, self.remote_delete,
-                    self.server_url, self.invite, self.share_answers, self.close_button)
+                    self.server_url, self.invite, self.share_answers, self.close_button, self.goal_combo, self.goal_save)
         self.working = True
         for widget in controls:
             widget.setEnabled(False)
