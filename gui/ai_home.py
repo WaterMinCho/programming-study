@@ -38,8 +38,13 @@ class AiHomePage(QWidget):
         guide_row = kit.box(guide_line, horizontal=True)
         self.guide_btn = kit.button("학습·사용 안내")
         self.guide_btn.clicked.connect(lambda: ai_guide.open_guide(self))
-        guide_row.addWidget(self.guide_btn)
-        guide_row.addStretch(1)
+        self.data_btn = kit.button("학습 데이터")
+        self.data_btn.clicked.connect(self.open_data)
+        guide_flow = QWidget()
+        flow = kit.FlowLayout(guide_flow, spacing=12)
+        flow.addWidget(self.guide_btn)
+        flow.addWidget(self.data_btn)
+        guide_row.addWidget(guide_flow, 1)
         root.addWidget(kit.heading(kit.label(ai_text.TRACK, "title"),
                                    guide_line))
         root.addSpacing(theme.GAP["description_content"])
@@ -115,6 +120,9 @@ class AiHomePage(QWidget):
         broken = [row["title"] for row in overview["lessons"] if row.get("error")]
         lines = [ai_text.BROKEN % ", ".join(broken)] if broken else []
         lines += [ai_text.PATTERN_BROKEN % group["title"] for group in overview["patterns"] if group.get("error")]
+        collection_error = self.win.ai.collection.status()["error"]
+        if collection_error:
+            lines.append(collection_error)
         self.notice.text.setText("\n".join(lines))
         self.notice.setToolTip("\n".join("%s: %s" % (row["title"], row["error"]) for row in overview["lessons"] + overview["patterns"]
                                          if row.get("error")))
@@ -217,6 +225,13 @@ class AiHomePage(QWidget):
         if not self.busy:
             self.win.open_ai_unit(lid, key)
 
+    def open_data(self):
+        if self.busy:
+            return
+        from gui.ai_data import LearningDataDialog
+        self.data_dialog = LearningDataDialog(self, self.win.ai.collection, host=self.win)
+        self.data_dialog.show()
+
     def open_lesson(self, lid):
         if not self.busy:
             self.win.open_ai_lesson(lid)
@@ -253,7 +268,7 @@ class AiHomePage(QWidget):
     def set_busy(self, busy, text=""):
         """문제 받기·제출이 기록을 쓰는 동안 줄과 단추를 끔. 섞어 풀기는 끝나도 읽은 단원이 있을 때만 다시 켬."""
         self.busy = busy
-        for widget in (self.hub_btn, self.next_btn):
+        for widget in (self.hub_btn, self.next_btn, self.data_btn):
             widget.setEnabled(not busy)
         for row in self.books.rows + self.lesson_list.rows + self.pattern_list.rows + self.mock_list.rows:
             kit.set_inert(row, busy or (row is self.mixed_row and not self.mixed_ready))
