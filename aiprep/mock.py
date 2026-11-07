@@ -16,7 +16,7 @@ import time
 
 import study
 import session
-from aiprep import bank, grade
+from aiprep import bank, collection, grade
 from webprep import bank as webbank
 from webprep import record
 
@@ -120,10 +120,12 @@ class MockExam:
                 self.result = None
                 self._write_draft()
                 try:
-                    session.record.append({"kind": "mock_start", "mock": mid, "try": self.attempt,
-                                           "seed": self.draft["seed"], 'fingerprint': self.fingerprint}, at=started.isoformat())
+                    started_row = session.record.append({"kind": "mock_start", "mock": mid, "try": self.attempt,
+                                                          "seed": self.draft["seed"], 'fingerprint': self.fingerprint}, at=started.isoformat())
                 except record.RecordError as error:
                     raise MockError(str(error)) from error
+                if hasattr(session, "_collect_record"):
+                    session._collect_record(started_row)
             self._anchor = self.monotonic()
             self._budget = self._wall_remaining()
             if submit_expired and self.result is None and self.remaining() <= 0:
@@ -227,6 +229,11 @@ class MockExam:
             cid = cid or self.draft["order"][self.draft["current"]]
             self._validate_answer(cid, value)
             previous = self.draft["answers"].get(cid)
+            epochs = self.draft.setdefault("collection_epochs", {})
+            previous_epoch = epochs.get(cid)
+            if previous != list(value) and hasattr(self.sess, "collection"):
+                consent = self.sess.collection.status()
+                epochs[cid] = consent.get("epoch") if consent["enabled"] else None
             self.draft["answers"][cid] = list(value)
             try:
                 if flush:
@@ -236,6 +243,7 @@ class MockExam:
                     self.draft["answers"].pop(cid, None)
                 else:
                     self.draft["answers"][cid] = previous
+                epochs[cid] = previous_epoch
                 raise
             return True
 
@@ -278,6 +286,13 @@ class MockExam:
             raise MockError("문항 번호가 맞지 않습니다.")
         cid = self.draft["order"][position]
         item = self.items[cid]
+        if self.result is None and hasattr(self.sess, "collect_event"):
+            self.sess.collect_event("mock_question_returned", {"mock": self.id, "try": self.attempt, "card": cid, "position": position},
+                                    item=lambda: collection.question(item, card=cid, lesson=item.get("lesson"),
+                                                                     family=item.get("family"), tags=item.get("tags") or [],
+                                                                     option_order=self.draft["shuffle"][cid],
+                                                                     terms_revision=getattr(self.sess, "collection_terms_revision", None)),
+                                    key="mock-question:%s:%d:%s:%s" % (self.id, self.attempt, self.fingerprint, cid))
         return {"card": cid, "kind": item["kind"], "stem": item["stem"], "lesson": item.get("lesson"),
                 "step": item.get("step"), "at": position + 1, "total": len(self.items), "code": "```" in item["stem"],
                 "code_options": bool(item.get("code_options")), "grid": int(item.get("grid") or 1),
@@ -339,6 +354,26 @@ class MockExam:
                 self.result = self.sess.record.append(event, at=_moment(self.clock()).isoformat())
             except record.RecordError as error:
                 raise MockError(str(error)) from error
+            if hasattr(self.sess, "_collect_record"):
+                consent = self.sess.collection.status()
+                included = {cid for cid in self.draft["order"] if not self.draft["answers"].get(cid)
+                            or consent.get("epoch") and self.draft.get("collection_epochs", {}).get(cid) == consent["epoch"]}
+                partial = dict(self.result, results={cid: results[cid] for cid in included}, of=len(included),
+                               score=sum(results[cid] == "pass" for cid in included), scope="current_consent",
+                               omitted_before_consent=len(results) - len(included), related=[])
+                self.sess._collect_record(partial)
+                for position, cid in enumerate(self.draft["order"]):
+                    item = self.items[cid]
+                    self.sess.collect_event("mock_answer", {"mock": self.id, "try": self.attempt, "card": cid, "position": position,
+                                                           "response": list(self.draft["answers"].get(cid) or []) if cid in included else None,
+                                                           "result": results[cid] if cid in included else "not_collected",
+                                                           "secs": None, "auto": event["auto"]},
+                                            item=lambda item=item, cid=cid: collection.question(item, card=cid, lesson=item.get("lesson"),
+                                                                                               family=item.get("family"), tags=item.get("tags") or [],
+                                                                                               option_order=self.draft["shuffle"][cid],
+                                                                                               terms_revision=getattr(self.sess, "collection_terms_revision", None)),
+                                            key="mock-answer:%s:%d:%s:%s" % (self.id, self.attempt, self.fingerprint, cid),
+                                            at=self.result["at"])
             return dict(self.result)
 
     def summary(self):

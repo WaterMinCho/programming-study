@@ -1229,7 +1229,7 @@ class Ctx:
         ok = bool(self.win.ai.check_recall(block, value))
         if not self.readonly:
             try:
-                self.win.ai.save_recall(self.lid, self.key, block.get("id"), ok, level=block.get("level"))
+                self.win.ai.save_recall(self.lid, self.key, block.get("id"), ok, level=block.get("level"), value=value, block=block)
             except SessionError as error:
                 self.win.ask("알림", str(error))
                 return None

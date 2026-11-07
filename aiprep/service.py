@@ -24,7 +24,7 @@ import threading
 import adaptive
 import session
 import study
-from aiprep import bank, gen, grade, mock, notes, plan, review, skel
+from aiprep import bank, collection, gen, grade, mock, notes, plan, review, skel
 from webprep import record
 
 SET_SIZE = 20
@@ -125,6 +125,7 @@ class AiSession(object):
         self.root = root or bank.AI_DIR
         self.folder = os.path.join(study.SUBMISSIONS_DIR, user, "ai")
         self.home = os.path.join(home or home_dir(), user)
+        self.collection = collection.Collection(self.home, study.ROOT)
         self._lock = threading.RLock()
         try:
             self.record = AiRecord(os.path.join(self.folder, "record.json"), user)
@@ -137,6 +138,7 @@ class AiSession(object):
             raise AiError("AI 비전 개론 목록을 읽을 수 없습니다. %s" % error)
         self.exam = review.exam_dates(self.index["exam"])
         self.term_map = grade.term_map(self.terms)
+        self.collection_terms_revision = collection.digest(self.terms)
         self.lessons = {e["id"]: e for e in self.index["lessons"]}
         self.mocks = {e["id"]: e for e in self.index["mocks"]}
         self.notes, self.items, self.cards, self.errors = {}, {}, {}, {}
@@ -466,11 +468,36 @@ class AiSession(object):
 
     # 기록
 
-    def _append(self, entry):
+    def collect_event(self, kind, data, item=None, key=None, at=None):
+        """동의한 뒤의 추가 데이터만 저장함. 과거 제출 기록은 가져오지 않음."""
+        if not os.path.exists(self.collection.path):
+            return
         try:
-            return self.record.append(entry, now())
+            status = self.collection.status()
+            if status["enabled"]:
+                self.collection.emit(kind, data, item() if callable(item) else item, key=key, at=at)
+            elif status["error"]:
+                self.collection.emit(kind, data, key=key, at=at)
+        except (ValueError, KeyError, TypeError, OSError, collection.CollectionError) as error:
+            self.collection.error = "추가 학습 데이터의 문항 정보를 저장하지 못했습니다. %s" % error
+            self.collection.missed += 1
+
+    def _collect_record(self, row, private=None, item=None):
+        data = {key: value for key, value in row.items() if key not in ("at", "value", "picked", "also_value")}
+        response = {key: row[key] for key in ("value", "picked", "also_value") if key in row}
+        if response:
+            data["response"] = response
+        data.update(private or {})
+        key = "record:%d:%s" % (len(self.record.log), collection.digest(row))
+        self.collect_event(row["kind"], data, item=item, key=key, at=row.get("at"))
+
+    def _append(self, entry, private=None, item=None):
+        try:
+            row = self.record.append(entry, now())
         except record.RecordError as error:
             raise AiError(str(error))
+        self._collect_record(row, private=private, item=item)
+        return row
 
     def mark_read(self, lid, key):
         """마지막 단계에서 연습 시작을 누르면 기록함. 단원 연습 완료와 외운 문항 수는 따로 셈."""
@@ -482,16 +509,21 @@ class AiSession(object):
         return self._append({"kind": "revisit", "lesson": lid, "unit": key})
 
     def save_guess(self, lid, key, gid, picked):
-        self._unit(lid, key)
-        return self._append({"kind": "guess", "lesson": lid, "unit": key, "id": str(gid), "picked": int(picked)})
+        unit = self._unit(lid, key)
+        block = next((b for step in unit["steps"] for b in step["blocks"] if b["kind"] == "guess" and str(b.get("id")) == str(gid)), None)
+        item = (lambda: collection.question({"stem": block.get("q", ""), "options": [{"text": text} for text in block["options"]]},
+                                            lesson=lid, unit=key, terms_revision=self.collection_terms_revision)) if block else None
+        return self._append({"kind": "guess", "lesson": lid, "unit": key, "id": str(gid), "picked": int(picked)}, item=item)
 
-    def save_recall(self, lid, key, rid, ok, level=None):
+    def save_recall(self, lid, key, rid, ok, level=None, value=None, block=None):
         """떠올리기 결과 한 줄. level 은 세 수준 블록의 확인 물음일 때 수준(7·15·20)이고 기록에 "level" 로 남음."""
         self._unit(lid, key)
         entry = {"kind": "recall", "lesson": lid, "unit": key, "id": str(rid), "ok": bool(ok)}
         if level is not None:
             entry["level"] = int(level)
-        return self._append(entry)
+        item = (lambda: collection.question(dict(block, stem=block.get("q", "")), lesson=lid, unit=key,
+                                            terms_revision=self.collection_terms_revision)) if block else None
+        return self._append(entry, private={"response": value}, item=item)
 
     def check_rotate(self, lid, key, rid, slot, value, readonly=False):
         """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 판 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
@@ -512,7 +544,9 @@ class AiSession(object):
         item = {"stem": "```python\n%s\n```" % spot["code"], "blanks": [{"answer": answers, "mode": spot["mode"]}]}
         ok = grade.grade_item(item, [value], self.term_map)["result"] == "pass"
         if not readonly:
-            self._append({"kind": "recall", "lesson": lid, "unit": key, "id": str(rid), "slot": str(slot), "ok": ok})
+            self._append({"kind": "recall", "lesson": lid, "unit": key, "id": str(rid), "slot": str(slot), "ok": ok},
+                         private={"response": value}, item=lambda: collection.question(item, lesson=lid, unit=key, slot=slot,
+                                                                                     terms_revision=self.collection_terms_revision))
         return {"ok": ok, "answer": answers[0] if answers else "", "explain": str(entry.get("explain") or "")}
 
     def check_recall(self, block, value):
@@ -713,7 +747,8 @@ class AiSession(object):
         for name, value in (("lesson", lesson), ("unit", unit), ("card", card)):
             if value:
                 entry[name] = value
-        self._append(entry)
+        self._append(entry, private={"selection": {"policy": "rules-v1", "selected": list(picked),
+                                                   "candidate_ids": None, "selection_probability": None}})
         practice = PracticeSet(self, set_id, mode, picked, seed, lesson=lesson, unit=unit)
         practice.card = card
         self._active_set = practice
@@ -1649,6 +1684,14 @@ class PracticeSet(object):
 
     # 문항 보이기
 
+    def _collection_item(self, entry):
+        card = self.sess.cards[entry["card"]]
+        view = self._view(entry)
+        return collection.question(view["item"], card=card["id"], lesson=card["lesson"], unit=card["unit"],
+                                   family=card.get("family"), tags=card.get("tags") or [], step=card.get("step"),
+                                   seed=entry["seed"], option_order=view["order"], form=view["form"],
+                                   terms_revision=self.sess.collection_terms_revision)
+
     def _view(self, entry):
         if "view" in entry:
             return entry["view"]
@@ -1747,6 +1790,10 @@ class PracticeSet(object):
         if card["deep"]:
             chips.append("심화")
         options = [{"no": n, "text": item["options"][n]["text"]} for n in view["order"]]
+        self.sess.collect_event("question_returned", {"set": self.id, "card": card["id"], "position": self.pos,
+                                                     "again": entry["again"], "mode": self.mode},
+                                item=lambda: self._collection_item(entry),
+                                key="question:%s:%d:%s:%d" % (self.id, self.pos, card["id"], entry["seed"]))
         return {"card": card["id"], "kind": form, "chips": chips, "stem": item.get("stem", ""),
                 "blanks": [{"mode": b.get("mode") or "word", "hint": b.get("hint", "")} for b in item.get("blanks") or []],
                 "options": options, "multi": bool(item.get("multi")), "pick": item.get("pick", "right"), "code": code,
@@ -1822,7 +1869,7 @@ class PracticeSet(object):
                 row["picked"] = picked
         row["result"] = graded["result"]
         feedback["sure_wrong"] = bool(sure) and graded["result"] != "pass"
-        return self._settle(entry, row, feedback)
+        return self._settle(entry, row, feedback, response=list(value or []))
 
     @staticmethod
     def _skel_row(card, item, row):
@@ -1871,8 +1918,10 @@ class PracticeSet(object):
             graded = {"result": "stuck", "right": grade.right_options(item)}
         return self._settle(entry, row, self._feedback(card, view, graded))
 
-    def _settle(self, entry, row, feedback):
-        self.sess._append(row)
+    def _settle(self, entry, row, feedback, response=None):
+        self.sess._append(row, private={"response": response, "position": self.pos,
+                                       "first_in_set": self.stats[entry["card"]]["first"] is None,
+                                       "feedback_returned": True}, item=lambda: self._collection_item(entry))
         self.answers += 1
         snapshot = (list(self.queue), {k: dict(v) for k, v in self.stats.items()})
         self._undo = (snapshot, entry, row)

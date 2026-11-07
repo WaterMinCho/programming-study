@@ -47,3 +47,9 @@ web/**/work/
 submissions/*/web/**/dist/
 # AI 비전 개론 문항 묶음·모의고사의 출제자 작업본(평문). ai/<items|mocks>/<id>/sealed.json 으로만 커밋합니다
 ai/**/work/
+
+# 추가 학습 데이터와 서버 인증 값은 저장소 밖에 보관합니다
+*.sqlite3
+*.sqlite3-*
+*.sqlite3.key
+learning-data-sharing.json
