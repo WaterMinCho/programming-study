@@ -5,12 +5,13 @@ import threading
 from pathlib import Path
 from unittest import mock
 
+from tests import guikit
+
 from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QFontMetricsF
 
 from gui import theme
 from gui.ai_data import LearningDataDialog
-from tests import guikit
 from tests.test_gui_ai import AiTest
 
 
