@@ -1,8 +1,8 @@
 {
  "format": 1,
  "writer": "내용 보완 0",
- "resolver": "전체 재풀이 1",
- "reviewer": "교차 검토 2",
+ "resolver": "변경 검토 1",
+ "reviewer": "변경 검토 1",
  "files": {
   "assets/7a-1.png": "e47e2cdb36d0c32ec305d8e3cef062cf95e50ac9dbe47a94110e3a9af367e4d0",
   "assets/7a-2.gif": "ef506a79aa27b4f37ccc85936879f9ae93a0aa51f29ed612a85010bb4107db0f",
@@ -25,15 +25,15 @@
   "assets/7d-1.png": "0f42c8f7378adfb29300555ec1c4d293547819eb37dd0150e64448782d9b2d8b",
   "assets/7d-2.gif": "87dbbc6164a48a806e8f693b1c103caad7a57d15f093f36a8696b2e748090104",
   "assets/7d-3.png": "59705986fe36c70d7328ded8573d646679f5f2ba035bd6b61d50702dfc3dca4e",
-  "assets/7d-4.png": "0d2291c7e1803f956485719ab38f4fa2306375f16b5df0eb92bbcec021197ea2",
+  "assets/7d-4.png": "10c56355267505194f552e3a9d5abd5794f1c7c6e1ec1bdbd911562da10eb958",
   "assets/7e-1.gif": "99e65f5acea38a02108d63e95dcd25e9b50844aebc64e83ea63faf5bd8bc4a65",
-  "assets/7e-2.png": "ec5fe9d9d1c5bff612c13a6c95e45cc712e27ba0a823ddf3ae577ddd0e5d3736",
+  "assets/7e-2.png": "c857c15c1fb5afb1c2ed98c1a2fcba658b5609880d214678ea3ee32a04459fc5",
   "assets/7e-21.png": "877412e80cf05573f5202b28dbd3056c38abc2f717fb6b44ebd78fb3f79d1218",
   "assets/7e-22.png": "565f806077a8da2a069689e8b06072880e2746a86a4fd9910870b3b5f9edd19a",
   "assets/7e-23.png": "20b58ee92485cdcd7c2d4ed2c1b53491c266b178a0b7c8e07c54c1648e8b7f2a",
-  "assets/7e-3.png": "7ef4b8f8aa1b68cf7546bbbcc1dde40c675e49c6aadb74f7a49cd24fef5fff32",
+  "assets/7e-3.png": "7e60a69b5d54170fd4d3eb54481d29a0dc68d66b3f77c123088b522b5fe8297a",
   "assets/7e-4.gif": "0792d087a62afa6a5ae819832ff5916e7458ceeac7db6b6d48e1fef459566361",
-  "assets/7e-5.png": "4688bee439e9ba8a0c26b04a698093841b676bbeb3b8ee6c1e23d5bf7d4267f1",
+  "assets/7e-5.png": "8d70c5539396534bfed745d24fd860177ecc6df04b21b2c7af1e039aba782408",
   "assets/7f-1.png": "d580cdaee24090d60b9a5469469903a6d5abfb3dfd7ba9e7dcf642527cbf7538",
   "assets/7f-2.png": "324caacda5009947d3d654e4256e6b7386084337e5cb100acf63474440d74b49",
   "assets/7f-3.gif": "0cb23aca404894544303342487d42d85a3b76e52ff4885432f842ff462502a21",
@@ -44,9 +44,9 @@
   "assets/7g-1.gif": "aabf65da37ba0e949ec9f920a4208d4ee8ff1ab9f1e9f8766387d0f176a4a235",
   "assets/7g-2.png": "f0e106eeee726b4d51ce87ccb986ebd9682aaa4dcedc76532b192437487877c1",
   "assets/7g-3.png": "20aa284a06562df1bf72920efef4ecc51372f4f72bceef7b03c23e9e62d043bd",
-  "assets/7g-4.png": "1de97b61d40f183bc463cccced4d33d0ad8c2c2fcff1ee1db5493a186c469790",
+  "assets/7g-4.png": "ef7c51555242c9fbd4c176b68e866b307fcea10bd5cac1c40f66ad3d2b2ee630",
   "meta.json": "e13dcff63abfbcd895750549f09340349fae6d400eb5f68ed435fde5d7d71fd9",
-  "page.md": "aa67dba0bb0490632cf653bef605985bffbd71ac3df4412bdc5691b51f1d742a"
+  "page.md": "35d2f385005d68b8072416ce95112f6b175b17572d639c9b21d2845a92588a34"
  },
  "findings": [
   "검토 4 가 본문, 정정·보충 설명 상자, 블록 글, 캡션, 장 설명, 표를 한 문장씩 읽고 50문장을 고침. 나눗셈으로 읽히던 '곱으로 나눌 수 없습니다'를 '곱해 더한 꼴로 쓸 수 없습니다'로, 7f/3 첫 문장을 앞 단계의 음수 R² 에서 시작하게, 기울기가 이긴다는 비유를 두 기울기의 합이 0 이 되는 w 로 바꾸고 단위행렬을 역행렬 앞에서 정의함. 숫자, 식, 코드, 강의 위치는 그대로임",
@@ -60,6 +60,7 @@
   "용어 소개와 수식 기호, 그림 안의 글자와 음수 눈금을 대조했음. 물음과 정답은 유지했음.",
   "2026-11-06 수정 설명과 예제 연결을 별도 검토함. 해당 단계 확인 물음의 답은 별도 재풀이 기록에 보존했으며 기존 문항·정답·첫 풀이 기록은 유지함.",
   "본문·접힌 설명·문항 연결을 대조하고 변경 물음만 별도로 재풀이함. 1~9차시의 참조 그림은 모든 장면을 대조함.",
-  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음."
+  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음.",
+  "변경 물음의 첫 답을 보존하고 본문 문맥·그림 10장·새 조건을 독립 대조했음. 테스트 예측 표기와 저장 대상 버퍼·채널 수의 범위를 바로잡았음."
  ]
 }

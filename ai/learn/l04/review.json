@@ -1,8 +1,8 @@
 {
  "format": 1,
  "writer": "내용 보완 0",
- "resolver": "전체 재풀이 1",
- "reviewer": "교차 검토 2",
+ "resolver": "변경 검토 1",
+ "reviewer": "변경 검토 1",
  "files": {
   "assets/4a-1.png": "3883301ade99f23edfbb3bc8299fafcfda2afa142e7133a7fe01a68e327fa17e",
   "assets/4a-2.gif": "54b019edd6a633a97e6614c20dae01d90799c513a008481ec163d7d469610721",
@@ -23,7 +23,7 @@
   "assets/4c-23.png": "f687172e47119b12b6b0b929e58feefd81fba6b4d969fba7abadb2af88a53819",
   "assets/4c-3.gif": "bf19386427af3de4731b46d724b3c105780b5fcc6f0e096ab5547cbbb5d6c3fb",
   "assets/4c-4.gif": "4c616ac198f02dd97e4aa242ecb61f72252421cc53dffce57e634be7428e29a9",
-  "assets/4c-5.png": "5c76d168c16fcc767d880f62f3ec48b81dae91fc170e9e2b16f9a0e94f0c4041",
+  "assets/4c-5.png": "b6b78778bb1bfff64ce03c0d45dbe1541b7914e40900d6d278a156b6b9ffd765",
   "assets/4c-6.png": "8f3c69de28f3977df0c776c173c8ca4b79e0e114ef062943a80de3c1e3214f9e",
   "assets/4d-1.png": "4cd759fb6f3e5dfffbbf1bf8300c56a0ba7940a6cf44e438c0aa7c8c8fa0051b",
   "assets/4d-2.png": "170e017f593339808abc94cd7c034882b89026a111f1140daa4b7a9add65a215",
@@ -60,7 +60,7 @@
   "assets/4h-43.png": "53b005e3e27262a517543df77def1963bccc264eacd3711b791cf0294caf289d",
   "assets/4h-5.png": "e71210a34069cf9c7d5f7ed1f64aa9810c6404d3bf2826a59538986ab6ed4c02",
   "meta.json": "d9719b0a9121181c3b7b6853ea1ba5e52b4f9ce1ef26e31005d23b42424eb02f",
-  "page.md": "c08d2807a80ee45c3b11a02851e567664f40084e21c0f2bfde6d628b6b062ef7"
+  "page.md": "803a41f0ce7e7c5b5eca08f31891bdac3f0df22b6ba727e32c4db52af9077365"
  },
  "findings": [
   "처음 배우는 사람으로 4a~4c 를 읽고 고침: 4b 먼저 풀어 보기에 W.grad 뜻을 먼저 줌, W 의 경사와 경사(묶음)를 나눔, 학습률을 경사에 곱하는 수로 고침",
@@ -95,6 +95,7 @@
   "정확한 사용 시간은 메타데이터에 유지하고 화면의 초수는 약값으로 표기했음. 캡션의 반복 설명을 줄였으며 두 변경을 독립 대조했음.",
   "주변 본문에 둔 원본 길이와 느린 표시 설명을 유지했음. 기존 그림 번호를 보존하며 새 인용 그림에 연결 번호를 붙였음.",
   "본문·접힌 설명·참조 그림을 대조함. 모멘텀 성립 조건과 분할 비율의 계산 예를 연결 문항에도 반영함.",
-  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음."
+  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음.",
+  "변경 물음의 첫 답을 보존하고 본문 문맥·그림 10장·새 조건을 독립 대조했음. 테스트 예측 표기와 저장 대상 버퍼·채널 수의 범위를 바로잡았음."
  ]
 }

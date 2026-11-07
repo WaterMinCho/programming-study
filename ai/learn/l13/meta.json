@@ -87,6 +87,11 @@
       "what": "AlexNet 원 논문의 5개 합성곱·3개 완전 연결 층",
       "url": "https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks",
       "checked": "2026-11-05"
+    },
+    {
+      "what": "VGG19 최소 입력과 가중치별 권장 추론 전처리",
+      "url": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.vgg19.html",
+      "checked": "2026-11-08"
     }
   ],
   "credits": [],
