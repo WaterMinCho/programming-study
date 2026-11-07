@@ -722,9 +722,9 @@
    "fn": "4c-4"
   },
   "learn/l04/assets/4c-5.png": {
-   "sha256": "5c76d168c16fcc767d880f62f3ec48b81dae91fc170e9e2b16f9a0e94f0c4041",
-   "script": "tools/ai_art/l04.py",
-   "fn": "4c-5"
+   "sha256": "b6b78778bb1bfff64ce03c0d45dbe1541b7914e40900d6d278a156b6b9ffd765",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "zero_grad"
   },
   "learn/l04/assets/4c-6.png": {
    "sha256": "8f3c69de28f3977df0c776c173c8ca4b79e0e114ef062943a80de3c1e3214f9e",
@@ -1022,9 +1022,9 @@
    "fn": "5e-2"
   },
   "learn/l05/assets/5e-3.png": {
-   "sha256": "904aee812f3b83a356f33d71a4ade3677870ba88a21e16307870d31002491367",
-   "script": "tools/ai_art/l05.py",
-   "fn": "5e-3"
+   "sha256": "5ee5fe1dfe5851af583ef671c73974a59defdcbc48c7edd8054f7612deaefae4",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "schedules"
   },
   "learn/l05/assets/5e-4.png": {
    "sha256": "d1f2f4092c04b99aed6077a1e7ce56074148bc5549f95c6ce816f96122aea744",
@@ -1387,9 +1387,9 @@
    "fn": "7d-3"
   },
   "learn/l07/assets/7d-4.png": {
-   "sha256": "0d2291c7e1803f956485719ab38f4fa2306375f16b5df0eb92bbcec021197ea2",
-   "script": "tools/ai_art/l07.py",
-   "fn": "7d-4"
+   "sha256": "10c56355267505194f552e3a9d5abd5794f1c7c6e1ec1bdbd911562da10eb958",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "model_loss"
   },
   "learn/l07/assets/7e-1.gif": {
    "sha256": "99e65f5acea38a02108d63e95dcd25e9b50844aebc64e83ea63faf5bd8bc4a65",
@@ -1397,9 +1397,9 @@
    "fn": "7e-1"
   },
   "learn/l07/assets/7e-2.png": {
-   "sha256": "ec5fe9d9d1c5bff612c13a6c95e45cc712e27ba0a823ddf3ae577ddd0e5d3736",
-   "script": "tools/ai_art/l07.py",
-   "fn": "7e-2"
+   "sha256": "c857c15c1fb5afb1c2ed98c1a2fcba658b5609880d214678ea3ee32a04459fc5",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "first_step"
   },
   "learn/l07/assets/7e-21.png": {
    "sha256": "877412e80cf05573f5202b28dbd3056c38abc2f717fb6b44ebd78fb3f79d1218",
@@ -1417,9 +1417,9 @@
    "fn": "7e-23"
   },
   "learn/l07/assets/7e-3.png": {
-   "sha256": "7ef4b8f8aa1b68cf7546bbbcc1dde40c675e49c6aadb74f7a49cd24fef5fff32",
-   "script": "tools/ai_art/l07.py",
-   "fn": "7e-3"
+   "sha256": "7e60a69b5d54170fd4d3eb54481d29a0dc68d66b3f77c123088b522b5fe8297a",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "loss_checkpoints"
   },
   "learn/l07/assets/7e-4.gif": {
    "sha256": "0792d087a62afa6a5ae819832ff5916e7458ceeac7db6b6d48e1fef459566361",
@@ -1427,9 +1427,9 @@
    "fn": "7e-4"
   },
   "learn/l07/assets/7e-5.png": {
-   "sha256": "4688bee439e9ba8a0c26b04a698093841b676bbeb3b8ee6c1e23d5bf7d4267f1",
-   "script": "tools/ai_art/l07.py",
-   "fn": "7e-5"
+   "sha256": "8d70c5539396534bfed745d24fd860177ecc6df04b21b2c7af1e039aba782408",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "regression_summary"
   },
   "learn/l07/assets/7f-1.png": {
    "sha256": "d580cdaee24090d60b9a5469469903a6d5abfb3dfd7ba9e7dcf642527cbf7538",
@@ -1482,9 +1482,9 @@
    "fn": "7g-3"
   },
   "learn/l07/assets/7g-4.png": {
-   "sha256": "1de97b61d40f183bc463cccced4d33d0ad8c2c2fcff1ee1db5493a186c469790",
-   "script": "tools/ai_art/l07.py",
-   "fn": "7g-4"
+   "sha256": "ef7c51555242c9fbd4c176b68e866b307fcea10bd5cac1c40f66ad3d2b2ee630",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "code_summary"
   },
   "learn/l08/assets/8a-1.png": {
    "sha256": "b0590d26e07c3560c841be144a4f588884c9946e5a0d4024e239041b883f1342",
@@ -1572,9 +1572,9 @@
    "fn": "8c-4"
   },
   "learn/l08/assets/8c-5.png": {
-   "sha256": "8b53206a1e01019ed68c2babbdb57be5b2e399cc0786fed3b61677f1d41607a5",
-   "script": "tools/ai_art/l08.py",
-   "fn": "8c-5"
+   "sha256": "55b9820ad1495ab321fb935918b0ad572e5e261038e44377ff768607011f29f8",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "boundary_summary"
   },
   "learn/l08/assets/8d-1.png": {
    "sha256": "fec8dc25cbb41b24110b7a3f48bdd6db0243fc5a01901f1d4a37ff06146bce43",
@@ -1917,9 +1917,9 @@
    "fn": "9g-1"
   },
   "learn/l09/assets/9g-2.png": {
-   "sha256": "41292b55d0945dcbd237a77db94b007e1ac86af7c59dbcb35867d5353fb2caee",
-   "script": "tools/ai_art/l09.py",
-   "fn": "9g-2"
+   "sha256": "74ccf60895cbc2325f42eaa03abedc900bd55754fb28cc97ce689d087bcb7ae5",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "validation_bars"
   },
   "learn/l09/assets/9g-3.gif": {
    "sha256": "3676041a9f76b6b128aa371674dcfa71482c7b30e2fc5e9514d03601abb8c2f2",
@@ -3605,6 +3605,11 @@
    "sha256": "aa6f260cf2db2d3a41e13de2709dfa19ea4cd2d798dd4f52356ffb2a051f8724",
    "script": "tools/ai_art/lesson_bridges_qt.py",
    "fn": "bridge_17"
+  },
+  "learn/l15/assets/15e-4.png": {
+   "sha256": "1fc8426c16569aa008866788386c308a64978ca2b1465419c50a4145f4997b68",
+   "script": "tools/ai_art/independent_examples_qt.py",
+   "fn": "checkpoint"
   }
  }
 }
