@@ -1,0 +1,32 @@
+name: Roadmap goals Windows
+on:
+  push:
+    branches: [codex/roadmap-goals]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    env:
+      QT_QPA_PLATFORM: windows
+      STUDY_NODE_PROBE: '0'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: >-
+          python -m pip install --only-binary=:all: PyQt6==6.12.0 PyQt6-Qt6==6.12.0 PyQt6_sip==13.13.0
+      - name: Goal and dialog checks
+        run: python -B -m unittest tests.test_learning_goals.GoalTest tests.test_gui_ai_data
+      - name: Native layout
+        run: python -B qa/capture_roadmap_goal.py qa/captures
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: roadmap-goals-windows
+          path: qa/captures
+          retention-days: 7
