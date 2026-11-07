@@ -587,8 +587,8 @@ for epoch in range(500):
 
 ```figure
 파일: assets/4c-5.png
-캡션: 그림 5. zero_grad를 루프 맨 앞에 둘 때와 맨 끝에 둘 때. 회색으로 칠한 줄은 backward 바로 앞 줄이고, 초록 숫자는 W.grad에 담긴 기울기입니다.
-내용: 두 열. 왼쪽은 zero_grad 를 맨 앞에 둔 루프, 오른쪽은 맨 끝에 둔 루프. 줄마다 그 줄 뒤의 W.grad(None, −19.04, 둘째 반복 −18.598). backward 바로 앞 줄을 회색으로 칠해 두 자리 모두 그때 W.grad 가 None 임을 보임.
+캡션: 그림 5. 기울기를 지우는 두 위치를 비교합니다. 파랑은 역전파 전 초기화, 초록은 갱신 뒤 초기화입니다.
+내용: 왼쪽은 zero_grad(), 예측과 손실, backward()와 step() 순서입니다. 오른쪽은 예측과 손실, backward()와 step(), zero_grad() 순서입니다. 오른쪽은 첫 역전파 전에도 이전 기울기가 없는지 확인합니다. 두 방식 모두 이번 backward() 전에 이전 기울기가 없어야 한다고 적었습니다.
 ```
 
 PyTorch 2.0부터 `optimizer.zero_grad()`는 기울기를 0으로 채우지 않고 `None`으로 비웁니다(기본값 `set_to_none=True`). 그래서 PyTorch 2.x에서 `optimizer.zero_grad()` 직후 `print(W.grad)`를 하면 `None`이 찍힙니다. 0으로 채우는 것은 1.x의 기본 동작입니다. 앞에서 본 `W.grad.zero_()`는 0을 채워 `tensor(0.)`가 찍힙니다. 이 설정으로 루프 마지막에 기울기를 비우면 `None`으로 찍힙니다.
