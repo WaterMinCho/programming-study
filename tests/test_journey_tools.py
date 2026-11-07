@@ -895,9 +895,13 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual({"STUDY_LEAN_CI": "1"}, jobs["bank"]["steps"][-1]["env"])
         self.assertEqual(10, len(jobs["bank"]["steps"]))
         gui = jobs["gui"]["steps"][-1]
-        self.assertEqual('python -m unittest discover -s tests -p "test_gui*.py"', gui["run"])
+        self.assertIn('unittest.defaultTestLoader.discover("tests", pattern="test_gui*.py", top_level_dir=".")', gui["run"])
+        self.assertIn('sys.exit(not result.wasSuccessful())', gui["run"])
+        self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', gui["run"])
         self.assertEqual({"QT_QPA_PLATFORM": "offscreen"}, gui["env"])
-        self.assertEqual("3.13", jobs["gui"]["steps"][1]["with"]["python-version"])
+        setup = next(step for step in jobs["gui"]["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
+        self.assertEqual("3.13", setup["with"]["python-version"])
+        self.assertEqual("steps.scope.outputs.gui == 'true'", gui["if"])
         self.assertEqual([], check_style.check(text, path=".github/workflows/ci.yml"))
 
     def test_style_workflow_reads_as_yaml(self):

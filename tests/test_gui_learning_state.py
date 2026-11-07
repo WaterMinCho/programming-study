@@ -74,7 +74,7 @@ class LearningService:
     def check_recall(self, block, value):
         return value == "정답"
 
-    def save_recall(self, lid, key, rid, ok, level=None):
+    def save_recall(self, lid, key, rid, ok, level=None, value=None, block=None):
         self.calls.append(("recall", key, rid, ok, level))
 
 
