@@ -13,42 +13,66 @@ from aiprep.collection import inside, packed
 
 def prepare(events):
     events = sorted(events, key=lambda row: (row["participant"], row["track"], row["sequence"]))
-    corrected = {(row["participant"], row["track"], row["data"].get("set"), row["data"].get("card"), row["data"].get("again"))
-                 for row in events if row["kind"] == "override"}
-    history, moments, output = {}, {}, []
+    results = ("pass", "stuck", "ok", "wrong")
+    def answer_key(row):
+        data = row["data"]
+        return (row["participant"], row["track"], data.get("set"), data.get("card"), data.get("again"))
+    def mock_key(row):
+        return (row["participant"], row["track"], row["data"].get("mock"), row["data"].get("try"))
+    corrected = {answer_key(row) for row in events if row["kind"] == "override"}
+    mock_last = {}
+    for row in events:
+        if row["kind"] == "mock_answer" and row["data"].get("result") in results:
+            mock_last[mock_key(row)] = row["sequence"]
+    history, moments, observed, mock_before, pending, output = {}, {}, {}, {}, {}, []
+    blank = {"attempts": 0, "correct": 0, "last_at": None, "overrides": 0}
     for row in events:
         data, item = row["data"], row.get("item") or {}
-        if row["kind"] not in ("answer", "mock_answer") or data.get("result") not in ("pass", "stuck", "ok", "wrong"):
+        key = (row["participant"], row["track"])
+        at = datetime.datetime.fromisoformat(row["at"])
+        if at.tzinfo is None:
+            raise ValueError("학습 자료의 시각에 시간대가 없습니다.")
+        if key in moments and at < moments[key]:
+            raise ValueError("수집 순서와 시각이 맞지 않습니다. 시계가 바뀐 구간을 확인해 주세요.")
+        moments[key] = at
+        prior = history.setdefault(key, {})
+        if row["kind"] in ("mock_start", "mock_question_returned"):
+            mock_before.setdefault(mock_key(row), {tag: dict(value) for tag, value in prior.items()})
             continue
-        if (row["participant"], row["track"], data.get("set"), data.get("card"), data.get("again")) in corrected:
+        if row["kind"] == "override":
+            for tag in observed.get(answer_key(row), []):
+                prior[tag]["overrides"] += 1
+            continue
+        if row["kind"] not in ("answer", "mock_answer") or data.get("result") not in results:
             continue
         if row["kind"] == "answer" and (data.get("again", 0) or data.get("first_in_set") is False):
             continue
         card = item.get("card") or data.get("card")
         if not card:
             continue
-        at = datetime.datetime.fromisoformat(row["at"])
-        if at.tzinfo is None:
-            raise ValueError("학습 자료의 시각에 시간대가 없습니다.")
         tags = item.get("tags") or [item.get("family") or card]
-        key = (row["participant"], row["track"])
-        if key in moments and at < moments[key]:
-            raise ValueError("수집 순서와 시각이 맞지 않습니다. 시계가 바뀐 구간을 확인해 주세요.")
-        moments[key] = at
-        prior = history.setdefault(key, {})
-        before = {tag: dict(prior.get(tag, {"attempts": 0, "correct": 0, "last_at": None})) for tag in tags}
+        is_mock = row["kind"] == "mock_answer"
+        source = mock_before.get(mock_key(row)) if is_mock else prior
+        before = {tag: dict(source.get(tag, blank)) for tag in tags} if source is not None else None
         session = data.get("set") or "%s:%s" % (data.get("mock"), data.get("try"))
-        output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
-                       "sequence": row["sequence"], "at": row["at"], "session": session, "question_id": card,
-                       "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
-                       "features": {"observed_history": before}, "target": int(data["result"] in ("pass", "ok"))})
-        for tag in tags:
-            current = prior.setdefault(tag, {"attempts": 0, "correct": 0, "last_at": None})
-            current["attempts"] += 1
-            current["correct"] += int(data["result"] in ("pass", "ok"))
-            current["last_at"] = row["at"]
+        target = int(data["result"] in ("pass", "ok"))
+        if answer_key(row) not in corrected and before is not None:
+            output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
+                           "sequence": row["sequence"], "at": row["at"], "session": session, "question_id": card,
+                           "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
+                           "features": {"observed_history": before}, "target": target})
+        observed[answer_key(row)] = tags
+        updates = [(tags, target, row["at"])]
+        if is_mock:
+            pending.setdefault(mock_key(row), []).extend(updates)
+            updates = pending.pop(mock_key(row)) if row["sequence"] == mock_last[mock_key(row)] else []
+        for update_tags, update_target, update_at in updates:
+            for tag in update_tags:
+                current = prior.setdefault(tag, dict(blank))
+                current["attempts"] += 1
+                current["correct"] += update_target
+                current["last_at"] = update_at
     return output
-
 
 def split(records):
     days = sorted({datetime.datetime.fromisoformat(row["at"]).astimezone(datetime.timezone.utc).date() for row in records})
@@ -90,6 +114,12 @@ def synthetic_events():
     return rows
 
 
+def write_private(path, text):
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as output:
+        output.write(text)
+
+
 def write_dataset(events, destination, synthetic=False, source_sha256=None):
     root = Path(__file__).resolve().parent.parent
     if inside(destination, root):
@@ -98,17 +128,17 @@ def write_dataset(events, destination, synthetic=False, source_sha256=None):
     parts = {track: split([row for row in records if row["track"] == track]) for track in sorted({row["track"] for row in records})}
     if not parts:
         raise ValueError("사용할 첫 시도 답안이 없습니다.")
-    os.mkdir(destination)
+    os.mkdir(destination, mode=0o700)
     manifest = {"format": 1, "synthetic": synthetic, "source_sha256": source_sha256, "files": {}}
     for track, groups in parts.items():
         for name, rows in groups.items():
             path = Path(destination) / (track + "-" + name + ".jsonl")
-            path.write_text("".join(packed(row) + "\n" for row in rows), encoding="utf-8", newline="\n")
+            write_private(path, "".join(packed(row) + "\n" for row in rows))
             readback = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
             if readback != rows:
                 raise ValueError("학습용 파일을 다시 읽어 확인하지 못했습니다.")
             manifest["files"][path.name] = {"rows": len(rows), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
-    (Path(destination) / "manifest.json").write_text(packed(manifest) + "\n", encoding="utf-8")
+    write_private(Path(destination) / "manifest.json", packed(manifest) + "\n")
     return manifest
 
 
