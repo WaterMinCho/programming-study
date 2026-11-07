@@ -1,0 +1,289 @@
+{
+  "checked_at": "2026-11-08T01:51:04.166180+09:00",
+  "scope": "Purposive official-posting sample for six existing roadmap roles; not a market census. Requirements, preferences, job level remain separate.",
+  "postings": [
+    {
+      "id": "naver-30005559",
+      "company": "NAVER LABS",
+      "title": "Robotics ML Research Engineer",
+      "url": "https://recruit.naverlabs.com/rcrt/view.do?annoId=30005559&lang=ko",
+      "checked": "2026-11-08",
+      "paths": [
+        "physical",
+        "platform"
+      ],
+      "required": [
+        "Python 프로덕션 개발",
+        "데이터·학습·평가·배포",
+        "로봇정책·ML시스템·데이터·시뮬레이션 중 하나 이상"
+      ],
+      "preferred": [
+        "분산학습·ML플랫폼",
+        "실제 로봇 평가"
+      ],
+      "conditions": "관련 석박사 또는 동등 실무경험",
+      "excerpt_sha256": "9aee489c76289fb31e13000c8b35f29af5d268fed3a43efd7c6915f197d41633"
+    },
+    {
+      "id": "naver-30005567",
+      "company": "NAVER LABS",
+      "title": "Computer Vision & 3D Recon. Research Engineer",
+      "url": "https://recruit.naverlabs.com/rcrt/view.do?annoId=30005567&lang=ko",
+      "checked": "2026-11-08",
+      "paths": [
+        "vision"
+      ],
+      "required": [
+        "Computer Vision·Deep Learning",
+        "NVS 연구·실무 1년 이상"
+      ],
+      "preferred": [
+        "Geometry·Mesh·Point Cloud",
+        "대용량 영상 분산처리"
+      ],
+      "conditions": "박사 또는 관련 실무경력5년 이상",
+      "excerpt_sha256": "af978629b3a8330f2f8ff378e9d6b1084e9f6ef21974c02da3b7fb214ce26bb5"
+    },
+    {
+      "id": "naver-30005566",
+      "company": "NAVER LABS",
+      "title": "Panoptic Segmentation Research Engineer",
+      "url": "https://recruit.naverlabs.com/rcrt/view.do?annoId=30005566&lang=ko",
+      "checked": "2026-11-08",
+      "paths": [
+        "vision"
+      ],
+      "required": [
+        "Panoptic·Semantic·Instance Segmentation 연구개발2년 이상"
+      ],
+      "preferred": [
+        "3D Mesh 연계",
+        "대규모 파이프라인",
+        "Zero-shot·Domain Adaptation"
+      ],
+      "conditions": "박사 또는 관련실무5년 이상. 목록 무관과 본문 조건을 구분함",
+      "excerpt_sha256": "05fbe85258fcc6b18727052ebc2b869a0ae994d84f9d0d09dd6227f4399c9212"
+    },
+    {
+      "id": "naver-30005660",
+      "company": "NAVER LABS",
+      "title": "Linux System Software Engineer",
+      "url": "https://recruit.naverlabs.com/rcrt/view.do?annoId=30005660&lang=ko",
+      "checked": "2026-11-08",
+      "paths": [
+        "arm"
+      ],
+      "required": [
+        "Linux C/C++",
+        "커널·드라이버 또는 BSP",
+        "빌드시스템·부트로더",
+        "Git·CI/CD·리뷰"
+      ],
+      "preferred": [
+        "Jetson·ROS2통합",
+        "OTA·프로파일링",
+        "Python/Shell테스트"
+      ],
+      "conditions": "관련경력2년 이상",
+      "excerpt_sha256": "fcf2368303631dd183d5da7beeed671f5cab1d9eecdb15f2b0047624be2b678e"
+    },
+    {
+      "id": "naver-30005658",
+      "company": "NAVER LABS",
+      "title": "Robot Embedded System Firmware Engineer",
+      "url": "https://recruit.naverlabs.com/rcrt/view.do?annoId=30005658&lang=ko",
+      "checked": "2026-11-08",
+      "paths": [
+        "arm"
+      ],
+      "required": [
+        "C/C++ 임베디드",
+        "RTOS",
+        "SPI·I2C·USB·CAN·Ethernet",
+        "회로·계측기"
+      ],
+      "preferred": [
+        "모터제어",
+        "제어시스템·양산"
+      ],
+      "conditions": "신입·경력,신입연내입사가능",
+      "excerpt_sha256": "a12d11f9895e71008951848b250b6879eb464e08b9302636e3fba9a5b496d39d"
+    },
+    {
+      "id": "rainbow-170",
+      "company": "레인보우로보틱스",
+      "title": "펌웨어 개발(책임 연구원급)",
+      "url": "https://rainbow-robotics.com/%EC%B1%84%EC%9A%A9/%EC%B1%84%EC%9A%A9%EA%B3%B5%EA%B3%A0/?mod=document&uid=170",
+      "checked": "2026-11-08",
+      "paths": [
+        "arm"
+      ],
+      "required": [
+        "C기반MCU·모터제어",
+        "실시간통신",
+        "HW–SW디버깅·양산"
+      ],
+      "preferred": [
+        "기능안전·OTA",
+        "CI/CD"
+      ],
+      "conditions": "석사이상·경력6~10년이상; 전자·메카트로닉스·임베디드 관련 전공",
+      "excerpt_sha256": "5e238c1e0436e8138a2c896c438cf984a35be517a8cb6e45c65e437283462173"
+    },
+    {
+      "id": "rainbow-157",
+      "company": "레인보우로보틱스",
+      "title": "양팔로봇 AI/SW",
+      "url": "https://rainbow-robotics.com/%EC%B1%84%EC%9A%A9/%EC%B1%84%EC%9A%A9%EA%B3%B5%EA%B3%A0/?mod=document&uid=157",
+      "checked": "2026-11-08",
+      "paths": [
+        "physical"
+      ],
+      "required": [
+        "C++또는Python·Linux",
+        "Robotics또는AI/ML",
+        "ROS/ROS2 기본"
+      ],
+      "preferred": [
+        "Isaac Sim/Lab/MuJoCo",
+        "강화학습·VLA",
+        "실제로봇정책적용"
+      ],
+      "conditions": "학위·연차조합본문불명확:원문확인필요; AI 전공",
+      "excerpt_sha256": "fdc43e0d6a22fb396c5e24cc90b7e813539c1e9be3d512f3e6380e76fdebca36"
+    },
+    {
+      "id": "rainbow-158",
+      "company": "레인보우로보틱스",
+      "title": "양팔로봇 CS",
+      "url": "https://rainbow-robotics.com/%EC%B1%84%EC%9A%A9/%EC%B1%84%EC%9A%A9%EA%B3%B5%EA%B3%A0/?mod=document&uid=158",
+      "checked": "2026-11-08",
+      "paths": [
+        "field"
+      ],
+      "required": [
+        "로봇HW/SW·Linux",
+        "문제분석·고객대응",
+        "기술문서"
+      ],
+      "preferred": [
+        "ROS/ROS2",
+        "HW유지보수·영어"
+      ],
+      "conditions": "학사이상·경력2~6년; 로봇 관련 전공",
+      "excerpt_sha256": "771e1a81abb0b08c1b42380d4d143ced8134cb4035aca3c5cef6db41e0312a2b"
+    },
+    {
+      "id": "rainbow-154",
+      "company": "레인보우로보틱스",
+      "title": "글로벌 고객지원",
+      "url": "https://rainbow-robotics.com/%EC%B1%84%EC%9A%A9/%EC%B1%84%EC%9A%A9%EA%B3%B5%EA%B3%A0/?mod=document&uid=154",
+      "checked": "2026-11-08",
+      "paths": [
+        "field"
+      ],
+      "required": [
+        "영어기술소통",
+        "출장·운전·현장업무조건"
+      ],
+      "preferred": [
+        "로봇자동화AS·CS"
+      ],
+      "conditions": "학사이상·경력4년이하,신입가능; 로봇 관련 전공",
+      "excerpt_sha256": "48a36c42681801e3fa1777f990434bb564289d19a8fafe51a63f49a727ba6577"
+    },
+    {
+      "id": "rainbow-146",
+      "company": "레인보우로보틱스",
+      "title": "AI 플랫폼 백엔드 개발",
+      "url": "https://rainbow-robotics.com/%EC%B1%84%EC%9A%A9/%EC%B1%84%EC%9A%A9%EA%B3%B5%EA%B3%A0/?mod=document&uid=146",
+      "checked": "2026-11-08",
+      "paths": [
+        "platform"
+      ],
+      "required": [
+        "Python백엔드·API·DB·비동기",
+        "수집·변환·저장·조회파이프라인",
+        "Docker·Linux·Git",
+        "모듈연결운영"
+      ],
+      "preferred": [
+        "MLOps",
+        "ROS2·Zenoh·시뮬레이션",
+        "클라우드·온프레미스"
+      ],
+      "conditions": "학사이상·관련경력3년이상",
+      "excerpt_sha256": "4760919cf7e7f4453ae97c78d1f260307976cab7c7a765d0ccff0a81768b4807"
+    },
+    {
+      "id": "rainbow-145",
+      "company": "레인보우로보틱스",
+      "title": "Vision AI 개발",
+      "url": "https://rainbow-robotics.com/%EC%B1%84%EC%9A%A9/%EC%B1%84%EC%9A%A9%EA%B3%B5%EA%B3%A0/?mod=document&uid=145",
+      "checked": "2026-11-08",
+      "paths": [
+        "vision"
+      ],
+      "required": [
+        "CV·DL개발",
+        "PyTorch·OpenCV",
+        "모델구조수정적용"
+      ],
+      "preferred": [
+        "Detection·Segmentation·Pose",
+        "3DVision·ROS2연동",
+        "ONNX·TensorRT"
+      ],
+      "conditions": "관련석사이상·본문신입가능,목록경력과불일치",
+      "excerpt_sha256": "75863b44086674377616bfb216b3160487e06048ca283e80a1ca7adedb1e29b5"
+    },
+    {
+      "id": "rainbow-129",
+      "company": "레인보우로보틱스",
+      "title": "자율주행SW 엔지니어",
+      "url": "https://rainbow-robotics.com/%EC%B1%84%EC%9A%A9/%EC%B1%84%EC%9A%A9%EA%B3%B5%EA%B3%A0/?mod=document&uid=129",
+      "checked": "2026-11-08",
+      "paths": [
+        "nav"
+      ],
+      "required": [
+        "C/C++·실시간시스템",
+        "실제로봇통합·실환경검증",
+        "Linux"
+      ],
+      "preferred": [
+        "실패감지·복구",
+        "Python분석·자동검사",
+        "A*·Dijkstra·RRT"
+      ],
+      "conditions": "학사이상·관련경력4년이상; 전산·컴퓨터·로봇·제어·전자 등 관련 전공",
+      "excerpt_sha256": "f60aa0530c9bb8b72e23e7e005c0b6d70b9924f9c9e8e365d14b6d86dd97230f"
+    },
+    {
+      "id": "rainbow-128",
+      "company": "레인보우로보틱스",
+      "title": "멀티로봇SW 엔지니어",
+      "url": "https://rainbow-robotics.com/%EC%B1%84%EC%9A%A9/%EC%B1%84%EC%9A%A9%EA%B3%B5%EA%B3%A0/?mod=document&uid=128",
+      "checked": "2026-11-08",
+      "paths": [
+        "nav",
+        "platform"
+      ],
+      "required": [
+        "C/C++·Linux",
+        "로그·운영데이터로문제분석"
+      ],
+      "preferred": [
+        "다중로봇경로·할당·스케줄링",
+        "Fleet·배포·장애분석"
+      ],
+      "conditions": "학사이상·경력2년이상; 전산·컴퓨터·로봇·제어·전자 등 관련 전공",
+      "excerpt_sha256": "c850f4a1ce13b1963fc8680ad05e820194e6cc3635b76fcf63a42922abd06b06"
+    }
+  ],
+  "not_verified": [
+    "Neubility and Hyundai Autoever Greeting pages returned403",
+    "Clobot listing had no readable vacancy details",
+    "Velog returned no readable content"
+  ]
+}

@@ -4,6 +4,8 @@ import copy
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -52,6 +54,55 @@ class DatasetTest(unittest.TestCase):
         self.assertEqual(next(r["features"] for r in before if r["event_id"] == second),
                          next(r["features"] for r in after if r["event_id"] == second))
         self.assertNotIn(events[0]["event_id"], [r["event_id"] for r in after])
+
+    def test_marked_synthetic_input_preserves_all_24_rows_without_flag(self):
+        with tempfile.TemporaryDirectory() as root:
+            output = Path(root) / "dataset"
+            manifest = dataset.write_dataset(dataset.synthetic_events(), str(output))
+            rows = [json.loads(line) for path in output.glob("*.jsonl") for line in path.read_text().splitlines()]
+            self.assertEqual(24, len(rows))
+            self.assertIs(manifest["synthetic"], True)
+            self.assertEqual("synthetic", manifest["source"])
+            self.assertTrue(all(row["synthetic"] is True and row["data_source"] == "synthetic" for row in rows))
+
+    def test_unmarked_and_recorded_sources_are_not_inferred_as_each_other(self):
+        for marker, expected in ((None, "unmarked"), (False, "recorded")):
+            events = dataset.synthetic_events()
+            for row in events:
+                row.pop("synthetic")
+            if marker is not None:
+                events.insert(0, {"kind": "manifest", "synthetic": marker})
+            with tempfile.TemporaryDirectory() as root:
+                manifest = dataset.write_dataset(events, str(Path(root) / "dataset"))
+                self.assertIs(manifest["synthetic"], marker)
+                self.assertEqual(expected, manifest["source"])
+
+    def test_mixed_sources_are_rejected_before_output_creation(self):
+        for marker in (False, None):
+            events = dataset.synthetic_events()
+            if marker is None:
+                events[0].pop("synthetic")
+            else:
+                events[0]["synthetic"] = marker
+            with tempfile.TemporaryDirectory() as root:
+                output = Path(root) / "dataset"
+                with self.assertRaises(ValueError):
+                    dataset.write_dataset(events, str(output))
+                self.assertFalse(output.exists())
+
+    def test_cli_preserves_marked_input_and_synthetic_generator(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            source = root / "input.jsonl"
+            source.write_text("".join(json.dumps(row) + "\n" for row in dataset.synthetic_events()), encoding="utf-8")
+            for name, args in (("input", ["--input", str(source)]), ("generated", ["--synthetic"])):
+                output = root / name
+                result = subprocess.run([sys.executable, "-m", "learning_server.dataset", *args, "--out", str(output)],
+                                        cwd=Path(__file__).resolve().parent.parent, capture_output=True, text=True)
+                self.assertEqual(0, result.returncode, result.stderr)
+                manifest = json.loads((output / "manifest.json").read_text())
+                self.assertIs(manifest["synthetic"], True)
+                self.assertEqual("synthetic", manifest["source"])
 
     def test_mock_answers_use_pre_exam_history_together(self):
         events = dataset.synthetic_events()[:3]

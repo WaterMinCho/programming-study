@@ -468,28 +468,29 @@ class AiSession(object):
 
     # 기록
 
-    def collect_event(self, kind, data, item=None, key=None, at=None):
+    def collect_event(self, kind, data, item=None, key=None, at=None, *, observation_context=collection.CURRENT_CONTEXT):
         """동의한 뒤의 추가 데이터만 저장함. 과거 제출 기록은 가져오지 않음."""
         if not os.path.exists(self.collection.path):
             return
         try:
             status = self.collection.status()
             if status["enabled"]:
-                self.collection.emit(kind, data, item() if callable(item) else item, key=key, at=at)
+                self.collection.emit(kind, data, item() if callable(item) else item, key=key, at=at,
+                                     observation_context=observation_context)
             elif status["error"]:
-                self.collection.emit(kind, data, key=key, at=at)
+                self.collection.emit(kind, data, key=key, at=at, observation_context=observation_context)
         except (ValueError, KeyError, TypeError, OSError, collection.CollectionError) as error:
             self.collection.error = "추가 학습 데이터의 문항 정보를 저장하지 못했습니다. %s" % error
             self.collection.missed += 1
 
-    def _collect_record(self, row, private=None, item=None):
+    def _collect_record(self, row, private=None, item=None, *, observation_context=collection.CURRENT_CONTEXT):
         data = {key: value for key, value in row.items() if key not in ("at", "value", "picked", "also_value")}
         response = {key: row[key] for key in ("value", "picked", "also_value") if key in row}
         if response:
             data["response"] = response
         data.update(private or {})
         key = "record:%d:%s" % (len(self.record.log), collection.digest(row))
-        self.collect_event(row["kind"], data, item=item, key=key, at=row.get("at"))
+        self.collect_event(row["kind"], data, item=item, key=key, at=row.get("at"), observation_context=observation_context)
 
     def _append(self, entry, private=None, item=None):
         try:

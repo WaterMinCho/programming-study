@@ -1,42 +1,35 @@
 {
-  "updated": "2026-10-20",
+  "updated": "2026-11-08",
   "memo": [
-    "status 의 rokey 는 11기 교과별 커리큘럼 PDF 와 Life Guide 교육과정 표에 이름이 나온 것에만 씀. src 에 교과와 차시를 적음.",
-    "self 는 교과표에 이름이 없는 것임. 수업에서 잠깐 다룰 수는 있음.",
-    "alt 는 같은 자리에 쓰는 다른 도구임. 하나만 골라 배우면 됨.",
-    "any 는 순서와 상관없이 필요할 때 배우는 것임. 상자 안의 하위 항목은 따로 rokey 로 표시할 수 있음.",
-    "verify 가 붙은 상자는 공식 표의 이름과 바로 맞지 않음. 그림에서는 배지 옆에 verify_mark 를 붙이고, 실무 프로젝트 차시별 목차가 나오면 rokey 나 self 로 다시 맞춤.",
-    "notes 의 수는 final_groups.json 의 분류에 공고 본문 정규식을 대어 센 값임(2026-10-20 재검산). 머신비전은 '머신 ?비전|machine vision', 생성·응용은 'style transfer|스타일 ?변환|GAN\\b|VAE|diffusion|캡셔닝|caption|XAI|grad-?cam|생성 ?모델|generative' 로 셈(대소문자 무시).",
-    "ros2_control(로봇 SW 공고 46건 중 0건), 다중 로봇(자율주행 65건 중 3건), 화면 품질(관제 27건 중 접근성 0건)은 공고 근거가 약해 any 로 둠.",
-    "MoveIt 2, Isaac Sim, 디지털 트윈, 웹 관제 화면, 테스트 설계는 2026-08 지원서에만 나오고 11기 공식 자료에는 없음.",
-    "실무 프로젝트 2 의 교과명은 학사 일정표(협동로봇 기초)와 교육과정 표(지능형로봇 기초)가 어긋남. 교육과정 표를 따름.",
-    "공고 수는 2026-10-20 점핏·원티드에 열려 있던 공고를 여섯 분류로 나눈 값임(329건, 161개사). 다시 세면 notes 의 숫자도 같이 고침.",
-    "common 은 329건 가운데 30% 넘게 나온 기술(Python, C++, Linux, Git, ROS2, 영어·논문)과 코딩 테스트, 그 바탕인 자료구조·알고리즘임.",
-    "자료구조·알고리즘은 공고 본문에 자료구조라고 적은 곳이 329건 중 10건뿐임. 알고리즘이라는 말은 대부분 SLAM·인식 알고리즘 같은 직무 기술이라 근거로 쓰지 않음. 대신 전형 절차를 적은 94건(37개사) 중 25건(10개사)이 코딩 테스트나 기술 과제를 봄.",
-    "intro.groups 의 paths 순서가 첫 그림의 자리임. 길이 셋 이상인 묶음은 두 칸씩 왼쪽 위부터 채움. links 화살표가 다른 상자를 지나지 않게 순서를 골랐음.",
-    "그림은 tools/roadmap/draw.py 가 이 파일을 읽어 docs/roadmap 에 그림. 고친 뒤 다시 실행함.",
-    "intro.side 의 'AI 개론', 'AI 응용' 은 교과명 AI(Computer Vision) 개론·응용을 줄인 이름임. 띠 한 칸에 교과명이 다 들어가지 않음.",
-    "notes 의 text 에 \\n 을 넣으면 그 자리에서 줄이 바뀜. 낱말 단위로 자르면 '데이터 / 수집' 처럼 어색하게 끊기는 글에만 씀."
+    "교과 포함과 도구 선택·학습 순서를 구분함. course.status는 공식11기목차 대조 결과임.",
+    "taught는 계획된 수업 범위이며 실무 역량·실제 수행을 증명하지 않음.",
+    "partial은 관련 기초·일부만 확인함. extra는 검토 목차에 직접 근거가 없어 추가학습으로 둠.",
+    "unverified는 상위 교과·프로젝트 이름만으로 세부 내용을 확정하지 않음.",
+    "교과 근거는 curriculum-sources.json, 채용 근거는 docs/roadmap/hiring-20261108.json에 기록함.",
+    "2026-10-20 공고329건 집계는 당시 판 이력으로 보존함. 현재 수치·빈도 순위에 재사용하지 않음.",
+    "이번 채용 대조는 공식 공고13건·2개사의 목적 표본임. 요건·우대·경력·학위 조건을 분리함.",
+    "희망 직무는 자기신고 목표임. 사용자의 능력 등급이나 취업 적합도를 뜻하지 않음.",
+    "원본 데이터 변경 뒤 draw.py로 그림을 다시 생성함."
   ],
   "legend": [
     {
-      "status": "rokey",
-      "label": "ROKEY 수업에서 배움",
+      "status": "taught",
+      "label": "11기 수업",
       "color": "#7048E8"
     },
     {
-      "status": "self",
-      "label": "스스로 더 공부",
-      "color": "#F76707"
+      "status": "partial",
+      "label": "11기 일부",
+      "color": "#1C7ED6"
     },
     {
-      "status": "alt",
-      "label": "골라서 하나",
-      "color": "#2F9E44"
+      "status": "extra",
+      "label": "추가 학습",
+      "color": "#D96B10"
     },
     {
-      "status": "any",
-      "label": "순서 상관없음",
+      "status": "unverified",
+      "label": "확인 대기",
       "color": "#868E96"
     }
   ],
@@ -48,24 +41,25 @@
   "tracks": [
     "파이썬 스터디",
     "알고리즘 여행",
-    "웹 면접 준비"
+    "웹 면접 준비",
+    "AI 비전 개론"
   ],
   "style": {
-    "main_fill": "#FFFF00",
-    "sub_fill": "#FFE599",
-    "alt_fill": "#CED4DA",
-    "border": "#212529",
-    "spine": "#1C7ED6",
-    "dots": "#1C7ED6",
+    "main_fill": "#EEF2FF",
+    "sub_fill": "#FFFFFF",
+    "alt_fill": "#F1F5F9",
+    "border": "#475569",
+    "spine": "#7C3AED",
+    "dots": "#94A3B8",
     "track_tag_fill": "#D0EBFF",
     "track_tag_text": "#1864AB"
   },
-  "postings_basis": "2026-10-20 점핏·원티드 공고 329건(161개사)",
+  "postings_basis": "2026-11-08 공식 공고13건 대조",
   "intro": {
     "title": "로봇·AI 개발자 로드맵",
-    "caption": "ROKEY 11기 과정과 2026년 10월 채용 공고 기준",
+    "caption": "ROKEY 11기 공식 교과·2026-11-08 채용 조건 대조",
     "question": "길을 골라 보세요",
-    "common_title": "모든 경로에 필수 사항",
+    "common_title": "공통 기초와 실습",
     "paths": [
       "arm",
       "nav",
@@ -76,7 +70,7 @@
     ],
     "groups": [
       {
-        "label": "ROKEY 수업과 많이 겹치는 길",
+        "label": "수업 기초와 연결하는 진로",
         "paths": [
           "arm",
           "nav",
@@ -85,35 +79,14 @@
         ]
       },
       {
-        "label": "혼자 채울 것이 많은 길",
+        "label": "추가 전문 학습이 필요한 진로",
         "paths": [
           "platform",
           "physical"
         ]
       }
     ],
-    "links": [
-      {
-        "from": "field",
-        "to": "arm",
-        "label": "현장 경력 뒤"
-      },
-      {
-        "from": "field",
-        "to": "nav",
-        "label": "현장 경력 뒤"
-      },
-      {
-        "from": "field",
-        "to": "physical",
-        "label": "현장 경력 뒤"
-      },
-      {
-        "from": "vision",
-        "to": "physical",
-        "label": "비전 다음"
-      }
-    ],
+    "links": [],
     "side": {
       "title": "ROKEY 11기 과정 순서",
       "items": [
@@ -161,48 +134,117 @@
       "status": "rokey",
       "src": "파이썬 1~21",
       "track": "파이썬 스터디",
-      "evidence": "329건 중 216건"
+      "evidence": "기초 문법·자료 처리와 실습",
+      "course": {
+        "status": "taught",
+        "evidence": [
+          "py_basic",
+          "py_algo1",
+          "py_algo2",
+          "py_file",
+          "py_regex",
+          "py_data",
+          "py_api"
+        ],
+        "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+      }
     },
     {
       "label": "C++",
       "status": "self",
-      "evidence": "329건 중 205건"
+      "evidence": "로봇 SW·장치 제어에 활용",
+      "course": {
+        "status": "extra",
+        "evidence": [],
+        "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+      }
     },
     {
       "label": "자료구조·알고리즘",
       "status": "rokey",
       "src": "파이썬 8·16·17",
       "track": "파이썬 스터디",
-      "evidence": "코딩 테스트의 바탕"
+      "evidence": "문제 해결과 코딩 평가 준비",
+      "course": {
+        "status": "partial",
+        "evidence": [
+          "py_algo1",
+          "py_algo2"
+        ],
+        "scope": "선택 정렬·스택·큐·덱·DFS·BFS를 다룸. 코딩 테스트 알고리즘 전체를 뜻하지 않음"
+      }
     },
     {
       "label": "코딩 테스트",
       "status": "self",
       "track": "알고리즘 여행",
-      "evidence": "전형 절차를 적은 94건 중 25건, 과정 중 PCCE·PCCP 응시 지원"
+      "evidence": "공고별 전형을 확인",
+      "course": {
+        "status": "extra",
+        "evidence": [],
+        "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+      }
     },
     {
       "label": "Linux·터미널",
       "status": "rokey",
       "src": "ROS 기초 1",
-      "evidence": "329건 중 104건"
+      "evidence": "개발 환경과 장치 문제 분석",
+      "course": {
+        "status": "taught",
+        "evidence": [
+          "ros_linux"
+        ],
+        "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+      }
     },
     {
       "label": "Git·GitHub",
       "status": "rokey",
       "src": "DevOps 3~4",
-      "evidence": "329건 중 106건"
+      "evidence": "변경·리뷰·재현 기록",
+      "course": {
+        "status": "taught",
+        "evidence": [
+          "dev_git"
+        ],
+        "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+      }
     },
     {
       "label": "ROS2",
       "status": "rokey",
       "src": "ROS 기초 3~5",
-      "evidence": "329건 중 124건"
+      "evidence": "로봇 데이터와 명령 연결",
+      "course": {
+        "status": "taught",
+        "evidence": [
+          "ros_package",
+          "ros_executor",
+          "ros_action"
+        ],
+        "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+      }
     },
     {
       "label": "영어 문서 읽기",
       "status": "self",
-      "evidence": "329건 중 113건(영어·논문)"
+      "evidence": "문서·논문·기술 소통",
+      "course": {
+        "status": "extra",
+        "evidence": [],
+        "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+      }
+    },
+    {
+      "label": "테스트와 로그",
+      "status": "self",
+      "course": {
+        "status": "extra",
+        "evidence": [],
+        "scope": "실패 조건을 재현하고 운영 기록으로 원인을 확인하는 교과는 상세 목차에서 확인하지 못했음."
+      },
+      "evidence": "변경 전후 결과와 실패 재현을 남김"
     }
   ],
   "paths": [
@@ -210,11 +252,6 @@
       "id": "arm",
       "title": "로봇 SW·제어 엔지니어",
       "subtitle": "매니퓰레이터·ROS2",
-      "postings": {
-        "count": 46,
-        "companies": 37,
-        "entry": 7
-      },
       "nodes": [
         {
           "id": "cpp",
@@ -223,23 +260,48 @@
           "left": [
             {
               "label": "Modern C++",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "STL 컨테이너",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "CMake 빌드",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "멀티스레드",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "frames",
@@ -249,20 +311,46 @@
           "left": [
             {
               "label": "회전 행렬",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "쿼터니언",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "동차 변환",
               "status": "rokey",
-              "src": "AI 응용 2"
+              "src": "AI 응용 2",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "cv_image",
+                  "ros_sensor"
+                ],
+                "scope": "2D 영상 동차좌표와 로봇 좌표계 기초만 확인함. 로봇 3D 동차변환 전체는 확인하지 못했음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_sensor",
+              "cv_image"
+            ],
+            "scope": "2D 영상 변환과 로봇 좌표계 입문을 로봇 3D 변환·회전·쿼터니언 전체로 확대하지 않음"
+          }
         },
         {
           "id": "ros2",
@@ -273,35 +361,86 @@
             {
               "label": "노드와 토픽",
               "status": "rokey",
-              "src": "ROS 입문 3"
+              "src": "ROS 입문 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_package",
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "서비스",
               "status": "rokey",
-              "src": "ROS 입문 3"
+              "src": "ROS 입문 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_package",
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "액션",
               "status": "rokey",
-              "src": "ROS 입문 5"
+              "src": "ROS 입문 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "인터페이스",
               "status": "rokey",
-              "src": "ROS 입문 2"
+              "src": "ROS 입문 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_package",
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "파라미터",
               "status": "rokey",
-              "src": "ROS 입문 5"
+              "src": "ROS 입문 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "launch 파일",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ros_package",
+              "ros_action"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "client",
@@ -312,25 +451,59 @@
             {
               "label": "rclpy",
               "status": "rokey",
-              "src": "ROS 입문 4"
+              "src": "ROS 입문 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_executor"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "Executor·멀티스레드",
               "status": "rokey",
-              "src": "ROS 입문 4"
+              "src": "ROS 입문 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_executor"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "rclcpp",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "colcon 빌드",
               "status": "rokey",
-              "src": "ROS 입문 구성표"
+              "src": "ROS 입문 구성표",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_colcon"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_executor",
+              "ros_colcon"
+            ],
+            "scope": "rclpy·Executor·MultiThread·Colcon은 확인함. rclcpp/C++ 노드 구현은 추가 학습 범위임"
+          }
         },
         {
           "id": "tools",
@@ -341,32 +514,76 @@
             {
               "label": "ros2 CLI",
               "status": "rokey",
-              "src": "ROS 실습 1"
+              "src": "ROS 실습 1",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_cli"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "rosbag",
               "status": "rokey",
-              "src": "ROS 입문 8"
+              "src": "ROS 입문 8",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_bag"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "RQt",
               "status": "rokey",
-              "src": "ROS 실습 3"
+              "src": "ROS 실습 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_cli"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "RViz",
               "status": "rokey",
               "src": "ROS 실습 7",
-              "verify": true
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "ros_3d"
+                ],
+                "scope": "3차원 시각화라는 상위 주제만 확인함. RViz 도구명은 확인 대기함"
+              }
             },
             {
               "label": "Docker 개발 환경",
               "status": "rokey",
-              "src": "DevOps 5~6"
+              "src": "DevOps 5~6",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_docker"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_bag",
+              "ros_cli",
+              "ros_3d",
+              "dev_docker"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "model",
@@ -377,20 +594,46 @@
             {
               "label": "URDF",
               "status": "rokey",
-              "src": "ROS 실습 4"
+              "src": "ROS 실습 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_model"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "xacro",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "tf2",
               "status": "rokey",
-              "src": "ROS 실습 4"
+              "src": "ROS 실습 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_model"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_model"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "kinematics",
@@ -399,23 +642,48 @@
           "left": [
             {
               "label": "정기구학",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "역기구학",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "자코비안",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "DH 파라미터",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "sim",
@@ -426,21 +694,47 @@
             {
               "label": "Gazebo",
               "status": "rokey",
-              "src": "ROS 실습 5"
+              "src": "ROS 실습 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_nav"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "두산로봇 시뮬레이션",
               "status": "rokey",
-              "src": "ROS 실습 7"
+              "src": "ROS 실습 7",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_3d"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "Isaac Sim",
               "status": "alt",
-              "verify": true
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ros_nav",
+              "ros_3d"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "cobot",
@@ -452,43 +746,94 @@
               "label": "로봇 동작 명령",
               "status": "rokey",
               "src": "협동로봇 실습",
-              "verify": true
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "프로젝트명·시간만 확인함. 장치 명령의 상세 목차는 없음"
+              }
             },
             {
               "label": "그리퍼·I/O 제어",
               "status": "rokey",
               "src": "협동로봇 실습",
-              "verify": true
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "프로젝트명으로 그리퍼·I/O 제어 수업을 확정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "성공률·사이클타임",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "projects"
+            ],
+            "scope": "협동로봇 실습 240시간의 교과목 존재만 확인함. 티칭·명령·그리퍼·I/O·직무 역량 충족은 확인하지 못했음"
+          }
         },
         {
           "id": "moveit",
           "label": "MoveIt 2",
           "status": "self",
-          "verify": true,
           "left": [
             {
               "label": "모션 플래닝",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "충돌 회피",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
           ],
           "right": [
             {
               "label": "Pick and Place",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "unverified",
+            "evidence": [
+              "projects"
+            ],
+            "scope": "상위 프로젝트명만 확인함. 세부 목차가 없어 이 주제의 포함 여부는 확인 대기함"
+          }
         },
         {
           "id": "vision",
@@ -499,26 +844,57 @@
             {
               "label": "YOLO 물체 검출",
               "status": "rokey",
-              "src": "AI 응용 12"
+              "src": "AI 응용 12",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_detect"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "포인트 클라우드",
               "status": "rokey",
-              "src": "ROS 실습 7"
+              "src": "ROS 실습 7",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_3d"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "카메라 캘리브레이션",
               "status": "self",
-              "verify": true
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "핸드-아이 캘리브레이션",
               "status": "self",
-              "verify": true
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "cv_detect",
+              "ros_cv",
+              "ros_3d"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "control",
@@ -527,15 +903,30 @@
           "left": [
             {
               "label": "하드웨어 인터페이스",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "컨트롤러 설정",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "comm",
@@ -546,28 +937,65 @@
             {
               "label": "TCP·UDP 소켓",
               "status": "rokey",
-              "src": "ROS 기초 2"
+              "src": "ROS 기초 2",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "ros_net"
+                ],
+                "scope": "소켓 프로그래밍만 명시함. TCP와 UDP를 모두 다루는지는 확인 대기함"
+              }
             },
             {
               "label": "DDS QoS",
               "status": "rokey",
-              "src": "ROS 실습 2"
+              "src": "ROS 실습 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_cli"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "실시간 리눅스",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "EtherCAT·CAN",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Modbus·PLC",
-              "status": "any"
+              "status": "any",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_net",
+              "ros_cli"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "force",
@@ -576,37 +1004,53 @@
           "left": [
             {
               "label": "궤적 생성",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "임피던스 제어",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         }
       ],
       "notes": [
         {
           "near": "client",
-          "text": "수업은 rclpy로 합니다. 로봇 SW 공고 46건 중 41건이 C++를 적어서 rclcpp도 익혀 두세요."
+          "text": "ROS2 기초 뒤 C++·장치 통신을 익힙니다. 임베디드 직무의 RTOS·회로 조건은 별도로 확인하세요."
         },
         {
           "near": "cobot",
-          "text": "협동로봇 실습 결과를 성공률과 사이클타임 같은 수치로 남겨 두세요."
+          "text": "좌표와 동작 조건을 기록하고 오류를 재현해 수정 결과를 확인하세요."
         }
+      ],
+      "deliverable_short": "장치·제어 오류 재현",
+      "hiring_evidence": [
+        "naver-30005660",
+        "naver-30005658",
+        "rainbow-170"
       ]
     },
     {
       "id": "nav",
       "title": "자율주행 로봇 엔지니어",
       "subtitle": "SLAM·Nav2",
-      "postings": {
-        "count": 65,
-        "companies": 35,
-        "entry": 9
-      },
       "nodes": [
         {
           "id": "cpp",
@@ -615,19 +1059,39 @@
           "left": [
             {
               "label": "Modern C++",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "CMake 빌드",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Eigen 행렬 연산",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "prob",
@@ -637,23 +1101,55 @@
             {
               "label": "행렬 연산",
               "status": "rokey",
-              "src": "AI 개론 2"
+              "src": "AI 개론 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_matrix"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "가우시안 분포",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "cv_3d"
+                ],
+                "scope": "3D 비전의 다변량 가우시안 사용을 명시함. 위치 추정용 확률·베이즈 추론 수업으로 확대하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "공분산",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "베이즈 갱신",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ai_matrix",
+              "cv_3d"
+            ],
+            "scope": "행렬 기초와 3D 비전의 분포 사용을 위치 추정용 확률·공분산·베이즈 추론 전체로 확대하지 않음"
+          }
         },
         {
           "id": "search",
@@ -665,25 +1161,54 @@
               "label": "BFS·DFS",
               "status": "rokey",
               "src": "파이썬 17",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_algo2"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "다익스트라",
               "status": "self",
-              "track": "알고리즘 여행"
+              "track": "알고리즘 여행",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "우선순위 큐",
               "status": "self",
-              "track": "알고리즘 여행"
+              "track": "알고리즘 여행",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "A*",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "py_algo2"
+            ],
+            "scope": "BFS·DFS는 명시함. 다익스트라·A*·우선순위 큐는 명시하지 않음"
+          }
         },
         {
           "id": "ros2",
@@ -694,25 +1219,61 @@
             {
               "label": "노드와 토픽",
               "status": "rokey",
-              "src": "ROS 입문 3"
+              "src": "ROS 입문 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_package",
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "서비스·액션",
               "status": "rokey",
-              "src": "ROS 입문 3·5"
+              "src": "ROS 입문 3·5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_package",
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "파라미터",
               "status": "rokey",
-              "src": "ROS 입문 5"
+              "src": "ROS 입문 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "launch 파일",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ros_package",
+              "ros_action"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "tf",
@@ -723,20 +1284,46 @@
             {
               "label": "tf2",
               "status": "rokey",
-              "src": "ROS 실습 4"
+              "src": "ROS 실습 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_model"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "URDF",
               "status": "rokey",
-              "src": "ROS 실습 4"
+              "src": "ROS 실습 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_model"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "map·odom·base_link",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_model"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "sensor",
@@ -748,24 +1335,55 @@
               "label": "LiDAR·IMU·카메라",
               "status": "rokey",
               "src": "ROS 기초 3",
-              "verify": true
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "ros_sensor"
+                ],
+                "scope": "센서 기초만 명시함. 이 센서 종류와 장치 실습은 확인 대기함"
+              }
             },
             {
               "label": "포인트 클라우드",
               "status": "rokey",
-              "src": "ROS 실습 7"
+              "src": "ROS 실습 7",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_3d"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "휠 오도메트리",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "센서 시간 동기화",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_sensor",
+              "ros_3d"
+            ],
+            "scope": "센서 기초·Point Cloud를 명시함. 구체적 장치·시간 동기화·휠 오도메트리는 확인하지 못했음"
+          }
         },
         {
           "id": "sim",
@@ -776,16 +1394,84 @@
             {
               "label": "Gazebo",
               "status": "rokey",
-              "src": "ROS 실습 5"
+              "src": "ROS 실습 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_nav"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Isaac Sim",
               "status": "alt",
-              "verify": true
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ros_nav"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
+        },
+        {
+          "id": "loc",
+          "label": "위치 추정",
+          "status": "self",
+          "left": [
+            {
+              "label": "AMCL",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            },
+            {
+              "label": "robot_localization",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "right": [
+            {
+              "label": "칼만 필터",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            },
+            {
+              "label": "파티클 필터",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "slam",
@@ -796,45 +1482,43 @@
             {
               "label": "지도 작성",
               "status": "rokey",
-              "src": "ROS 실습 5"
+              "src": "ROS 실습 5",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "ros_nav"
+                ],
+                "scope": "SLAM 실습은 명시함. 2D/3D 방식과 지도 품질 평가 범위는 확인하지 못했음"
+              }
             }
           ],
           "right": [
             {
               "label": "slam_toolbox",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Cartographer",
-              "status": "alt"
-            }
-          ]
-        },
-        {
-          "id": "loc",
-          "label": "위치 추정",
-          "status": "self",
-          "left": [
-            {
-              "label": "AMCL",
-              "status": "self",
-              "verify": true
-            },
-            {
-              "label": "robot_localization",
-              "status": "self"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
-          "right": [
-            {
-              "label": "칼만 필터",
-              "status": "self"
-            },
-            {
-              "label": "파티클 필터",
-              "status": "self"
-            }
-          ]
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_nav"
+            ],
+            "scope": "SLAM 실습만 명시함. 2D 여부와 slam_toolbox·Cartographer 선택은 확인하지 못했음"
+          }
         },
         {
           "id": "nav2",
@@ -845,21 +1529,80 @@
             {
               "label": "목표 지점 주행",
               "status": "rokey",
-              "src": "ROS 실습 5"
+              "src": "ROS 실습 5",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "ros_nav"
+                ],
+                "scope": "Nav2 실습은 명시함. 구체적 주행 미션과 평가 조건은 확인하지 못했음"
+              }
             },
             {
               "label": "코스트맵 설정",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "플래너·컨트롤러",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "행동 트리",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_nav"
+            ],
+            "scope": "Nav2 실습만 명시함. 코스트맵·플래너·컨트롤러·행동 트리는 확인하지 못했음"
+          }
+        },
+        {
+          "label": "주행 실패 복구",
+          "status": "self",
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "SLAM·Nav2의 입문 실습과 장애 복구·안전한 재시도 학습을 구분함."
+          },
+          "id": "recovery",
+          "left": [
+            {
+              "label": "실패 감지",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "SLAM·Nav2의 입문 실습과 장애 복구·안전한 재시도 학습을 구분함."
+              }
+            },
+            {
+              "label": "안전한 재시도",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "SLAM·Nav2의 입문 실습과 장애 복구·안전한 재시도 학습을 구분함."
+              }
             }
           ]
         },
@@ -872,25 +1615,60 @@
             {
               "label": "차선 검출",
               "status": "rokey",
-              "src": "ROS 실습 6"
+              "src": "ROS 실습 6",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_cv"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "YOLO 물체 검출",
               "status": "rokey",
-              "src": "AI 응용 12"
+              "src": "AI 응용 12",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_detect"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Open3D",
               "status": "rokey",
-              "src": "ROS 실습 7"
+              "src": "ROS 실습 7",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_3d"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "PCL",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ros_cv",
+              "ros_3d",
+              "cv_detect"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "slam3d",
@@ -899,19 +1677,39 @@
           "left": [
             {
               "label": "LiDAR SLAM",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Visual SLAM",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "팩터 그래프",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "fleet",
@@ -920,15 +1718,30 @@
           "left": [
             {
               "label": "Fleet 관리",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Open-RMF",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "board",
@@ -937,37 +1750,52 @@
           "left": [
             {
               "label": "Jetson",
-              "status": "any"
+              "status": "any",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "micro-ROS",
-              "status": "any"
+              "status": "any",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         }
       ],
       "notes": [
         {
           "near": "nav2",
-          "text": "수업은 ROS 실습 5차시 하루에 Gazebo, SLAM, Nav2를 함께 다룹니다. 위치 추정과 튜닝은 따로 익히세요."
+          "text": "SLAM·Nav2 입문 뒤 위치 추정과 주행 실패·복구를 같은 조건에서 비교하세요."
         },
         {
           "near": "slam3d",
-          "text": "신입 가능 공고 9건 중 6건이 자격 요건에 석사나 박사를 적었습니다."
+          "text": "3D SLAM은 추가 전문 분야입니다. 해당 공고의 연구·실무 조건을 확인하세요."
         }
+      ],
+      "deliverable_short": "주행 실패·복구 비교",
+      "hiring_evidence": [
+        "rainbow-129",
+        "rainbow-128"
       ]
     },
     {
       "id": "vision",
       "title": "비전 AI 엔지니어",
       "subtitle": "인식·3D·엣지 배포",
-      "postings": {
-        "count": 105,
-        "companies": 83,
-        "entry": 19
-      },
       "nodes": [
         {
           "id": "data",
@@ -980,13 +1808,27 @@
               "label": "NumPy",
               "status": "rokey",
               "src": "파이썬 18",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_data"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "pandas",
               "status": "rokey",
               "src": "파이썬 18",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_data"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
@@ -994,15 +1836,37 @@
               "label": "Matplotlib",
               "status": "rokey",
               "src": "파이썬 18",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_data"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "OpenCV 기초",
               "status": "rokey",
               "src": "파이썬 20",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_data"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "py_data",
+              "ai_matrix"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "math",
@@ -1013,26 +1877,62 @@
             {
               "label": "행렬 연산",
               "status": "rokey",
-              "src": "AI 개론 2"
+              "src": "AI 개론 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_matrix"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "미분과 역전파",
               "status": "rokey",
-              "src": "AI 개론 4"
+              "src": "AI 개론 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_grad"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "경사 하강법",
               "status": "rokey",
-              "src": "AI 개론 5"
+              "src": "AI 개론 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_grad"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "손실 함수",
               "status": "rokey",
-              "src": "AI 개론 6"
+              "src": "AI 개론 6",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_grad"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ai_matrix",
+              "ai_grad"
+            ],
+            "scope": "행렬·연쇄법칙·기울기 하강·손실함수 기초를 다룸. 딥러닝 수학 전반을 뜻하지 않음"
+          }
         },
         {
           "id": "torch",
@@ -1043,40 +1943,98 @@
             {
               "label": "텐서와 자동 미분",
               "status": "rokey",
-              "src": "AI 개론 3"
+              "src": "AI 개론 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_tensor",
+                  "ai_loader"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "학습 루프",
               "status": "rokey",
-              "src": "AI 개론 5"
+              "src": "AI 개론 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_loader"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "DataLoader",
               "status": "rokey",
-              "src": "AI 개론 10"
+              "src": "AI 개론 10",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_loader"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "회귀",
               "status": "rokey",
-              "src": "AI 개론 7"
+              "src": "AI 개론 7",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_class"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "이진·다중 분류",
               "status": "rokey",
-              "src": "AI 개론 8~10"
+              "src": "AI 개론 8~10",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_class"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "정밀도·재현율",
               "status": "rokey",
-              "src": "AI 개론 8"
+              "src": "AI 개론 8",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_class"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "TensorFlow",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ai_tensor",
+              "ai_class",
+              "ai_loader"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          },
+          "track": "AI 비전 개론"
         },
         {
           "id": "cnn",
@@ -1087,21 +2045,51 @@
             {
               "label": "CNN 구조",
               "status": "rokey",
-              "src": "AI 개론 11"
+              "src": "AI 개론 11",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_loader"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "VGG·ResNet",
               "status": "rokey",
-              "src": "AI 개론 13·14"
+              "src": "AI 개론 13·14",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_transfer"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "ResNet 직접 구현",
               "status": "rokey",
-              "src": "AI 개론 16"
+              "src": "AI 개론 16",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_transfer"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ai_loader",
+              "ai_transfer"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          },
+          "track": "AI 비전 개론"
         },
         {
           "id": "tune",
@@ -1112,25 +2100,59 @@
             {
               "label": "옵티마이저",
               "status": "rokey",
-              "src": "AI 개론 12"
+              "src": "AI 개론 12",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_tune"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "드롭아웃·배치 정규화",
               "status": "rokey",
-              "src": "AI 개론 12"
+              "src": "AI 개론 12",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_tune"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "데이터 증강",
               "status": "rokey",
-              "src": "AI 개론 12"
+              "src": "AI 개론 12",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_tune"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "학습률 스케줄",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ai_tune"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          },
+          "track": "AI 비전 개론"
         },
         {
           "id": "transfer",
@@ -1141,26 +2163,63 @@
             {
               "label": "사전 학습 모델",
               "status": "rokey",
-              "src": "AI 개론 13·14"
+              "src": "AI 개론 13·14",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_transfer"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "파인 튜닝",
               "status": "rokey",
-              "src": "AI 개론 13·15"
+              "src": "AI 개론 13·15",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_transfer"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Custom Dataset",
               "status": "rokey",
-              "src": "AI 개론 15"
+              "src": "AI 개론 15",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_transfer"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "MobileNet",
               "status": "rokey",
-              "src": "AI 응용 5"
+              "src": "AI 응용 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_mobile"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ai_transfer",
+              "cv_mobile"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          },
+          "track": "AI 비전 개론"
         },
         {
           "id": "opencv",
@@ -1171,26 +2230,61 @@
             {
               "label": "색 공간·히스토그램",
               "status": "rokey",
-              "src": "AI 응용 1"
+              "src": "AI 응용 1",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_image"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "필터·기하 변환",
               "status": "rokey",
-              "src": "AI 응용 2"
+              "src": "AI 응용 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_image"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "에지·윤곽선",
               "status": "rokey",
-              "src": "AI 응용 3"
+              "src": "AI 응용 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_image"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "웹캠 실시간 처리",
               "status": "rokey",
-              "src": "AI 응용 3"
+              "src": "AI 응용 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_image"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "cv_image"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "detect",
@@ -1201,38 +2295,95 @@
             {
               "label": "YOLO",
               "status": "rokey",
-              "src": "AI 응용 12·16"
+              "src": "AI 응용 12·16",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_detect"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "Faster R-CNN",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_detect"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "SSD",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_detect"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "NMS·앵커 박스",
               "status": "rokey",
-              "src": "AI 응용 11·12"
+              "src": "AI 응용 11·12",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_detect"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "Roboflow 라벨링",
               "status": "rokey",
-              "src": "AI 응용 16"
+              "src": "AI 응용 16",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_advanced",
+                  "cv_yolo"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "커스텀 YOLO 학습",
               "status": "rokey",
-              "src": "AI 응용 16"
+              "src": "AI 응용 16",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_advanced",
+                  "cv_yolo"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "mAP·IoU 평가",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "cv_detect",
+              "cv_yolo"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "segtrack",
@@ -1243,75 +2394,50 @@
             {
               "label": "Mask R-CNN",
               "status": "rokey",
-              "src": "AI 응용 11"
+              "src": "AI 응용 11",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_detect"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Optical Flow",
               "status": "rokey",
-              "src": "AI 응용 4"
+              "src": "AI 응용 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_track"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "MeanShift·CamShift",
               "status": "rokey",
-              "src": "AI 응용 4"
-            }
-          ]
-        },
-        {
-          "id": "vit",
-          "label": "트랜스포머 비전",
-          "status": "rokey",
-          "src": "AI 응용 13·16",
-          "left": [
-            {
-              "label": "ViT",
-              "status": "rokey",
-              "src": "AI 응용 13·16"
-            },
-            {
-              "label": "YOLO와 ViT 연결",
-              "status": "rokey",
-              "src": "AI 응용 16"
+              "src": "AI 응용 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_track"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
-          "right": [
-            {
-              "label": "SAM 분할 모델",
-              "status": "self"
-            }
-          ]
-        },
-        {
-          "id": "extra",
-          "label": "생성·응용 모델",
-          "status": "any",
-          "src": "AI 응용 6~10",
-          "left": [
-            {
-              "label": "스타일 변환",
-              "status": "rokey",
-              "src": "AI 응용 6"
-            },
-            {
-              "label": "GAN·VAE",
-              "status": "rokey",
-              "src": "AI 응용 7"
-            }
-          ],
-          "right": [
-            {
-              "label": "이미지 캡셔닝",
-              "status": "rokey",
-              "src": "AI 응용 8"
-            },
-            {
-              "label": "XAI·의료 영상",
-              "status": "rokey",
-              "src": "AI 응용 10"
-            }
-          ]
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "cv_detect",
+              "cv_track"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "pipeline",
@@ -1322,78 +2448,49 @@
             {
               "label": "설정 파일 분리",
               "status": "rokey",
-              "src": "AI 응용 14"
+              "src": "AI 응용 14",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_pipeline"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "로그·실험 관리",
               "status": "rokey",
-              "src": "AI 응용 14"
+              "src": "AI 응용 14",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_pipeline"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "데이터에서 추론까지",
               "status": "rokey",
-              "src": "AI 응용 14"
-            }
-          ]
-        },
-        {
-          "id": "three_d",
-          "label": "3D 비전",
-          "status": "rokey",
-          "src": "AI 응용 9, ROS 실습 7",
-          "left": [
-            {
-              "label": "카메라 캘리브레이션",
-              "status": "self"
-            },
-            {
-              "label": "깊이 카메라",
-              "status": "self"
+              "src": "AI 응용 14",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_pipeline"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
-          "right": [
-            {
-              "label": "포인트 클라우드",
-              "status": "rokey",
-              "src": "ROS 실습 7"
-            },
-            {
-              "label": "NeRF·Gaussian Splatting",
-              "status": "rokey",
-              "src": "AI 응용 9"
-            },
-            {
-              "label": "6D 포즈 추정",
-              "status": "self"
-            }
-          ]
-        },
-        {
-          "id": "machine",
-          "label": "머신비전 장비",
-          "status": "any",
-          "left": [
-            {
-              "label": "산업용 카메라·렌즈",
-              "status": "self"
-            },
-            {
-              "label": "조명",
-              "status": "self"
-            }
-          ],
-          "right": [
-            {
-              "label": "검사 설비 연동",
-              "status": "self"
-            },
-            {
-              "label": "C#·MFC",
-              "status": "self"
-            }
-          ]
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "cv_pipeline"
+            ],
+            "scope": "교육용 데이터부터 추론까지 설정·로그·실험 관리 범위를 다룸. 운영 MLOps 역량 충족을 뜻하지 않음"
+          }
         },
         {
           "id": "deploy",
@@ -1403,32 +2500,72 @@
           "left": [
             {
               "label": "ONNX",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "TensorRT",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "양자화",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Jetson",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "OpenCV DNN",
               "status": "rokey",
-              "src": "AI 응용 12"
+              "src": "AI 응용 12",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_detect"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "C++ 추론",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "cv_advanced",
+              "cv_detect"
+            ],
+            "scope": "경량화 개요·속도 최적화·OpenCV DNN은 명시함. ONNX·TensorRT·양자화·Jetson·C++ 추론은 확인하지 못했음"
+          }
         },
         {
           "id": "ros",
@@ -1439,42 +2576,305 @@
             {
               "label": "카메라 토픽 구독",
               "status": "rokey",
-              "src": "ROS 실습 6"
+              "src": "ROS 실습 6",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "ros_package",
+                  "ros_cv"
+                ],
+                "scope": "토픽과 차선 검출 통합을 각각 명시함. 카메라 메시지 구독은 상세 표에 직접 적혀 있지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "검출 결과 발행",
               "status": "rokey",
-              "src": "ROS 실습 6"
+              "src": "ROS 실습 6",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "ros_package",
+                  "ros_cv"
+                ],
+                "scope": "토픽과 차선 검출 통합을 각각 명시함. 결과 메시지 발행 구현은 확인하지 못했음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_cv",
+              "ros_package"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
+        },
+        {
+          "id": "three_d",
+          "label": "3D 비전",
+          "status": "rokey",
+          "src": "AI 응용 9, ROS 실습 7",
+          "left": [
+            {
+              "label": "카메라 캘리브레이션",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            },
+            {
+              "label": "깊이 카메라",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "right": [
+            {
+              "label": "포인트 클라우드",
+              "status": "rokey",
+              "src": "ROS 실습 7",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_3d"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
+            },
+            {
+              "label": "NeRF·Gaussian Splatting",
+              "status": "rokey",
+              "src": "AI 응용 9",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_3d"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
+            },
+            {
+              "label": "6D 포즈 추정",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "cv_3d",
+              "ros_3d"
+            ],
+            "scope": "NeRF·Gaussian Splatting·Point Cloud·Open3D를 명시함. 캘리브레이션·깊이 카메라·6D 포즈는 확인하지 못했음"
+          }
+        },
+        {
+          "id": "vit",
+          "label": "트랜스포머 비전",
+          "status": "rokey",
+          "src": "AI 응용 13·16",
+          "left": [
+            {
+              "label": "ViT",
+              "status": "rokey",
+              "src": "AI 응용 13·16",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_advanced",
+                  "cv_yolo"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
+            },
+            {
+              "label": "YOLO와 ViT 연결",
+              "status": "rokey",
+              "src": "AI 응용 16",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_advanced",
+                  "cv_yolo"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
+            }
+          ],
+          "right": [
+            {
+              "label": "SAM 분할 모델",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "cv_advanced",
+              "cv_yolo"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
+        },
+        {
+          "id": "extra",
+          "label": "생성·응용 모델",
+          "status": "any",
+          "src": "AI 응용 6~10",
+          "left": [
+            {
+              "label": "스타일 변환",
+              "status": "rokey",
+              "src": "AI 응용 6",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_gen"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
+            },
+            {
+              "label": "GAN·VAE",
+              "status": "rokey",
+              "src": "AI 응용 7",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_gen"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
+            }
+          ],
+          "right": [
+            {
+              "label": "이미지 캡셔닝",
+              "status": "rokey",
+              "src": "AI 응용 8",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_gen"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
+            },
+            {
+              "label": "XAI·의료 영상",
+              "status": "rokey",
+              "src": "AI 응용 10",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_xai"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
+            }
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "cv_gen",
+              "cv_xai"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
+        },
+        {
+          "id": "machine",
+          "label": "머신비전 장비",
+          "status": "any",
+          "left": [
+            {
+              "label": "산업용 카메라·렌즈",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            },
+            {
+              "label": "조명",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "right": [
+            {
+              "label": "검사 설비 연동",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            },
+            {
+              "label": "C#·MFC",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         }
       ],
       "notes": [
         {
-          "near": "extra",
-          "text": "생성 모델, 스타일 변환, 캡셔닝, XAI는 비전 공고 105건 중 6건에만 나옵니다."
-        },
-        {
-          "near": "machine",
-          "text": "비전 공고 105건 중 25건, 신입 가능 공고\n19건 중 6건이 머신비전을 적었습니다.\n제조 검사 장비 회사에 지원할 때 익히세요."
+          "near": "pipeline",
+          "text": "학습·검증 분할과 실패 사례를 먼저 기록합니다. 로그·모델·설정의 판을 연결하세요."
         },
         {
           "near": "deploy",
-          "text": "비전 공고 105건 중 36건이 TensorRT 나 ONNX를 적었습니다. 학습한 모델을 장비에 올려 속도까지 재 보세요."
+          "text": "ONNX·TensorRT는 일부 공고의 우대 항목입니다. 실제 장치에서 속도·메모리를 확인하세요."
+        },
+        {
+          "near": "vit",
+          "text": "3D·트랜스포머·생성 모델은 목표 직무에 맞춰 고릅니다. 모두의 필수 선행 과정으로 두지 않습니다."
         }
+      ],
+      "deliverable_short": "검증·실패·배포 측정",
+      "hiring_evidence": [
+        "naver-30005567",
+        "naver-30005566",
+        "rainbow-145"
       ]
     },
     {
       "id": "field",
       "title": "로봇 현장·통합 엔지니어",
       "subtitle": "설치·통합·QA",
-      "postings": {
-        "count": 34,
-        "companies": 26,
-        "entry": 8
-      },
       "nodes": [
         {
           "id": "linux",
@@ -1484,23 +2884,50 @@
           "left": [
             {
               "label": "셸 스크립트",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "서비스·로그 확인",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "권한·패키지 관리",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "ssh 원격 접속",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_linux"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "net",
@@ -1511,19 +2938,43 @@
             {
               "label": "소켓 통신",
               "status": "rokey",
-              "src": "ROS 기초 2"
+              "src": "ROS 기초 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_net"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "IP·포트 설정",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "패킷 확인",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_net"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "py",
@@ -1536,13 +2987,27 @@
               "label": "파일 처리",
               "status": "rokey",
               "src": "파이썬 12",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_file"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "정규표현식",
               "status": "rokey",
               "src": "파이썬 14",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_regex"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
@@ -1550,19 +3015,48 @@
               "label": "os·shutil",
               "status": "rokey",
               "src": "파이썬 21",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_api"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "GUI 기초",
               "status": "rokey",
               "src": "파이썬 11",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_gui"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "로그 파싱",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "py_gui",
+              "py_file",
+              "py_regex",
+              "py_api"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "hw",
@@ -1573,23 +3067,52 @@
             {
               "label": "센서 종류",
               "status": "rokey",
-              "src": "ROS 기초 3"
+              "src": "ROS 기초 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_sensor"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "모터·드라이버",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "전원·배선",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "시리얼 통신",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_sensor"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "diag",
@@ -1600,60 +3123,122 @@
             {
               "label": "ros2 CLI",
               "status": "rokey",
-              "src": "ROS 실습 1"
+              "src": "ROS 실습 1",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_cli"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "rosbag",
               "status": "rokey",
-              "src": "ROS 입문 8"
+              "src": "ROS 입문 8",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_bag"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "RQt",
               "status": "rokey",
-              "src": "ROS 실습 3"
+              "src": "ROS 실습 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_cli"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "RViz",
               "status": "rokey",
               "src": "ROS 실습 7",
-              "verify": true
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "ros_3d"
+                ],
+                "scope": "3차원 시각화라는 상위 주제만 확인함. RViz 도구명은 확인 대기함"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_bag",
+              "ros_cli",
+              "ros_3d"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "cobot",
           "label": "협동로봇 셋업",
           "status": "rokey",
           "src": "협동로봇 실습",
-          "verify": true,
           "left": [
             {
               "label": "티칭",
               "status": "rokey",
               "src": "협동로봇 실습",
-              "verify": true
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "협동로봇 프로젝트의 세부 티칭 범위는 확인 대기함"
+              }
             },
             {
               "label": "그리퍼·I/O 연결",
               "status": "rokey",
               "src": "협동로봇 실습",
-              "verify": true
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "프로젝트의 장치 연결 상세 목차는 확인하지 못했음"
+              }
             }
           ],
           "right": [
             {
               "label": "안전 설정",
               "status": "self",
-              "verify": true
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "툴 좌표 설정",
               "status": "self",
-              "verify": true
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "projects"
+            ],
+            "scope": "프로젝트명·시간만 확인함. 티칭·I/O·안전·툴 좌표 설정의 세부 포함 여부는 확인 대기함"
+          }
         },
         {
           "id": "amr",
@@ -1664,41 +3249,92 @@
             {
               "label": "지도 작성",
               "status": "rokey",
-              "src": "ROS 실습 5"
+              "src": "ROS 실습 5",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "ros_nav"
+                ],
+                "scope": "SLAM 실습은 명시함. 2D/3D 방식과 지도 품질 평가 범위는 확인하지 못했음"
+              }
             }
           ],
           "right": [
             {
               "label": "구역·경로 설정",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "주행 파라미터 조정",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_nav"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "calib",
           "label": "캘리브레이션",
           "status": "self",
-          "verify": true,
           "left": [
             {
               "label": "카메라 캘리브레이션",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "핸드-아이 캘리브레이션",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
           ],
           "right": [
             {
               "label": "LiDAR·카메라 정렬",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "unverified",
+            "evidence": [
+              "projects"
+            ],
+            "scope": "상위 프로젝트명만 확인함. 세부 목차가 없어 이 주제의 포함 여부는 확인 대기함"
+          }
         },
         {
           "id": "plc",
@@ -1707,19 +3343,39 @@
           "left": [
             {
               "label": "Modbus TCP",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "디지털 I/O",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "로봇·비전·PLC 연동",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "trouble",
@@ -1728,21 +3384,76 @@
           "left": [
             {
               "label": "로그 분석",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "재현 절차",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "원인 보고",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "원격 지원",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
+        },
+        {
+          "label": "기술문서 작성",
+          "status": "self",
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "설치·장애 재현·조치·인수 문서의 독립 교과는 확인하지 못했음."
+          },
+          "id": "document",
+          "left": [
+            {
+              "label": "설치·점검 절차",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "설치·장애 재현·조치·인수 문서의 독립 교과는 확인하지 못했음."
+              }
+            },
+            {
+              "label": "장애 재현·인수 기록",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "설치·장애 재현·조치·인수 문서의 독립 교과는 확인하지 못했음."
+              }
             }
           ]
         },
@@ -1750,27 +3461,61 @@
           "id": "test",
           "label": "테스트 설계",
           "status": "self",
-          "verify": true,
           "left": [
             {
               "label": "테스트 케이스",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "단위·통합 테스트",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
           ],
           "right": [
             {
               "label": "V-Model",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "현장 인수 시험",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "unverified",
+            "evidence": [
+              "projects"
+            ],
+            "scope": "상위 프로젝트명만 확인함. 세부 목차가 없어 이 주제의 포함 여부는 확인 대기함"
+          }
         },
         {
           "id": "deploy",
@@ -1781,20 +3526,46 @@
             {
               "label": "Docker",
               "status": "rokey",
-              "src": "DevOps 5"
+              "src": "DevOps 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_docker"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "Compose",
               "status": "rokey",
-              "src": "DevOps 6"
+              "src": "DevOps 6",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_docker"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "원격 업데이트",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "dev_docker"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "poc",
@@ -1803,24 +3574,58 @@
           "left": [
             {
               "label": "요구 정리",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "성공 기준 정의",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
           ],
           "right": [
             {
               "label": "성공률·사이클타임",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "결과 보고서",
               "status": "self",
-              "verify": true
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "unverified",
+            "evidence": [
+              "projects"
+            ],
+            "scope": "상위 프로젝트명만 확인함. 세부 목차가 없어 이 주제의 포함 여부는 확인 대기함"
+          }
         },
         {
           "id": "data",
@@ -1829,42 +3634,66 @@
           "left": [
             {
               "label": "텔레오퍼레이션",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "rosbag 기록",
               "status": "rokey",
-              "src": "ROS 입문 8"
+              "src": "ROS 입문 8",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_bag"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "학습 데이터 관리",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_bag"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         }
       ],
       "notes": [
         {
           "near": "linux",
-          "text": "공고 34건 중 석사를 요구한 곳이 없고, 학사 신입 공고 비율이 여섯 길 가운데 가장 높습니다."
+          "text": "설치·점검·장애 대응과 기술 문서를 연결합니다. 학위·출장·언어 조건은 공고별로 다릅니다."
         },
         {
           "near": "cobot",
-          "text": "공고 34건 중 17건이 출장이나 현장 근무를 적었습니다."
+          "text": "고객이 다시 따라 할 수 있도록 재현 조건과 조치 절차를 남기세요."
         }
+      ],
+      "deliverable_short": "설치·조치·기술 문서",
+      "hiring_evidence": [
+        "rainbow-158",
+        "rainbow-154"
       ]
     },
     {
       "id": "physical",
       "title": "Physical AI 엔지니어",
       "subtitle": "시뮬레이션·로봇 학습",
-      "postings": {
-        "count": 52,
-        "companies": 34,
-        "entry": 16
-      },
       "nodes": [
         {
           "id": "math",
@@ -1873,24 +3702,63 @@
           "left": [
             {
               "label": "선형대수",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "ai_matrix"
+                ],
+                "scope": "행렬·전치·연산 기초를 다룸. 선형대수 전체 범위를 뜻하지 않음"
+              }
             },
             {
               "label": "확률",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "ai_matrix",
+                  "cv_3d"
+                ],
+                "scope": "요약통계와 비전의 분포 사용만 확인함. 확률론 전체는 확인하지 못했음"
+              }
             }
           ],
           "right": [
             {
               "label": "최적화",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "ai_grad",
+                  "ai_tune"
+                ],
+                "scope": "기울기 하강과 딥러닝 옵티마이저 범위를 다룸. 수치 최적화 전반은 확인하지 못했음"
+              }
             },
             {
               "label": "미분",
               "status": "rokey",
-              "src": "AI 개론 4·5"
+              "src": "AI 개론 4·5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_grad"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ai_matrix",
+              "ai_grad",
+              "cv_3d"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "torch",
@@ -1901,26 +3769,66 @@
             {
               "label": "텐서와 학습 루프",
               "status": "rokey",
-              "src": "AI 개론 3·5"
+              "src": "AI 개론 3·5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_tensor",
+                  "ai_loader"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "CNN",
               "status": "rokey",
-              "src": "AI 개론 11"
+              "src": "AI 개론 11",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_loader"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "전이 학습",
               "status": "rokey",
-              "src": "AI 개론 13~15"
+              "src": "AI 개론 13~15",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ai_transfer"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "트랜스포머(ViT)",
               "status": "rokey",
-              "src": "AI 응용 13"
+              "src": "AI 응용 13",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_advanced",
+                  "cv_yolo"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "ai_tensor",
+              "ai_loader",
+              "ai_transfer",
+              "cv_advanced"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "robot",
@@ -1931,20 +3839,48 @@
             {
               "label": "토픽·서비스",
               "status": "rokey",
-              "src": "ROS 입문 3"
+              "src": "ROS 입문 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_package",
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "URDF·tf2",
               "status": "rokey",
-              "src": "ROS 실습 4"
+              "src": "ROS 실습 4",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_model"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "로봇 기구학",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_package",
+              "ros_model"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "sim",
@@ -1955,28 +3891,61 @@
             {
               "label": "Gazebo",
               "status": "rokey",
-              "src": "ROS 실습 5"
+              "src": "ROS 실습 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_nav"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "Isaac Sim",
               "status": "self",
-              "verify": true
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "MuJoCo",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "URDF를 USD로 변환",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "물리 파라미터",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_nav"
+            ],
+            "scope": "Gazebo 실습을 확인함. Isaac Sim/Lab·MuJoCo·USD 변환·물리 파라미터 보정은 확인하지 못했음"
+          }
         },
         {
           "id": "rl",
@@ -1987,26 +3956,61 @@
             {
               "label": "MDP",
               "status": "rokey",
-              "src": "AI 응용 15"
+              "src": "AI 응용 15",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_rl"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "가치 함수",
               "status": "rokey",
-              "src": "AI 응용 15"
+              "src": "AI 응용 15",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_rl"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "벨만 방정식",
               "status": "rokey",
-              "src": "AI 응용 15"
+              "src": "AI 응용 15",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_rl"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "Gym 환경",
               "status": "rokey",
-              "src": "AI 응용 15"
+              "src": "AI 응용 15",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "cv_rl"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "cv_rl"
+            ],
+            "scope": "MDP·가치 함수·벨만·Gym·예제 환경의 입문 범위를 다룸. 정책 학습과 로봇 정책 평가까지 뜻하지 않음"
+          }
         },
         {
           "id": "rlalgo",
@@ -2015,23 +4019,48 @@
           "left": [
             {
               "label": "PPO",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "SAC",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "보상 설계",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Isaac Lab 병렬 학습",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "data",
@@ -2040,24 +4069,53 @@
           "left": [
             {
               "label": "텔레오퍼레이션",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "rosbag 기록",
               "status": "rokey",
-              "src": "ROS 입문 8"
+              "src": "ROS 입문 8",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_bag"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "데이터셋 형식",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "데이터 품질 점검",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_bag"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "imitation",
@@ -2066,23 +4124,48 @@
           "left": [
             {
               "label": "Behavior Cloning",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "ACT",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Diffusion Policy",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "LeRobot",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "vla",
@@ -2091,15 +4174,30 @@
           "left": [
             {
               "label": "비전·언어·행동 모델",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "VLA 파인 튜닝",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "sim2real",
@@ -2108,17 +4206,67 @@
           "left": [
             {
               "label": "도메인 랜덤화",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "시스템 식별",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "실물 로봇 검증",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
+            }
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
+        },
+        {
+          "label": "로봇 정책 평가",
+          "status": "self",
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "강화학습 개요와 성공·실패·일반화·실물 평가를 구분함."
+          },
+          "id": "evaluation",
+          "left": [
+            {
+              "label": "시드·설정 보존",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "강화학습 개요와 성공·실패·일반화·실물 평가를 구분함."
+              }
+            },
+            {
+              "label": "성공·실패 조건",
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "강화학습 개요와 성공·실패·일반화·실물 평가를 구분함."
+              }
             }
           ]
         },
@@ -2126,23 +4274,50 @@
           "id": "twin",
           "label": "디지털 트윈",
           "status": "self",
-          "verify": true,
           "left": [
             {
               "label": "Omniverse",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "USD 장면 구성",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
           ],
           "right": [
             {
               "label": "합성 데이터 생성",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "unverified",
+            "evidence": [
+              "projects"
+            ],
+            "scope": "상위 프로젝트명만 확인함. 세부 목차가 없어 이 주제의 포함 여부는 확인 대기함"
+          }
         },
         {
           "id": "paper",
@@ -2151,37 +4326,52 @@
           "left": [
             {
               "label": "논문 재현",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "다중 GPU 학습",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         }
       ],
       "notes": [
         {
           "near": "math",
-          "text": "신입 가능 공고 16건 중 13건이 자격 요건에 석사나 박사를 적었습니다."
+          "text": "연구·로봇 학습 공고의 학위와 실무 경험 조건을 확인하세요."
         },
         {
-          "near": "data",
-          "text": "학사로 지원할 수 있는 자리는 인턴,\n데이터 수집, 배포 직무에 있습니다."
+          "near": "sim2real",
+          "text": "시뮬레이션 점수와 실제 장치 결과를 구분하고 실패 조건을 남깁니다."
         }
+      ],
+      "deliverable_short": "정책 평가·재현 실험",
+      "hiring_evidence": [
+        "naver-30005559",
+        "rainbow-157"
       ]
     },
     {
       "id": "platform",
       "title": "로봇 관제 개발자",
       "subtitle": "웹·백엔드",
-      "postings": {
-        "count": 27,
-        "companies": 18,
-        "entry": 2
-      },
       "nodes": [
         {
           "id": "web",
@@ -2190,24 +4380,49 @@
           "left": [
             {
               "label": "HTML·CSS",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "HTTP 요청·응답",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "REST API",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "CORS·캐시",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "js",
@@ -2218,25 +4433,50 @@
             {
               "label": "이벤트 루프",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Promise·async",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "클로저·this",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "DOM 다루기",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "ts",
@@ -2247,16 +4487,31 @@
             {
               "label": "타입 좁히기",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "제네릭",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "react",
@@ -2267,25 +4522,50 @@
             {
               "label": "렌더링과 key",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "state와 effect",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "서버 상태",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Vue",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "quality",
@@ -2296,21 +4576,41 @@
             {
               "label": "브라우저 렌더링",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "웹 성능 측정",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "화면 테스트",
               "status": "self",
-              "track": "웹 면접 준비"
+              "track": "웹 면접 준비",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "db",
@@ -2321,26 +4621,61 @@
             {
               "label": "DDL·DML",
               "status": "rokey",
-              "src": "DevOps 1·2"
+              "src": "DevOps 1·2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_sql"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "JOIN",
               "status": "rokey",
-              "src": "DevOps 2"
+              "src": "DevOps 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_sql"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "트랜잭션",
               "status": "rokey",
-              "src": "DevOps 2"
+              "src": "DevOps 2",
+              "course": {
+                "status": "partial",
+                "evidence": [
+                  "dev_sql"
+                ],
+                "scope": "TCL 소개·활용을 명시함. 격리 수준·동시성·장애 복구는 확인하지 못했음"
+              }
             },
             {
               "label": "파이썬 DB 연동",
               "status": "rokey",
-              "src": "DevOps 2"
+              "src": "DevOps 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_sql"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "dev_sql"
+            ],
+            "scope": "SQL·JOIN·TCL·DB 연동·CRUD 기초를 다룸. 운영 DB 설계·동시성 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "api",
@@ -2349,29 +4684,64 @@
           "left": [
             {
               "label": "FastAPI",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "JSON·API 호출",
               "status": "rokey",
               "src": "파이썬 21",
-              "track": "파이썬 스터디"
+              "track": "파이썬 스터디",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "py_api"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Django",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Node.js",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Spring",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "py_api",
+              "dev_sql"
+            ],
+            "scope": "JSON/API 활용과 DB 연동 기초는 확인함. 서버 API 설계·인증·백엔드 프레임워크 운영은 확인하지 못했음"
+          }
         },
         {
           "id": "realtime",
@@ -2380,19 +4750,39 @@
           "left": [
             {
               "label": "WebSocket",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "MQTT",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "gRPC",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         },
         {
           "id": "ros",
@@ -2403,24 +4793,57 @@
             {
               "label": "토픽·서비스",
               "status": "rokey",
-              "src": "ROS 입문 3"
+              "src": "ROS 입문 3",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_package",
+                  "ros_action"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "DDS QoS",
               "status": "rokey",
-              "src": "ROS 실습 2"
+              "src": "ROS 실습 2",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "ros_cli"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "rosbridge",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Foxglove",
-              "status": "alt"
+              "status": "alt",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "partial",
+            "evidence": [
+              "ros_package",
+              "ros_cli"
+            ],
+            "scope": "인용한 교과가 상자의 일부 또는 기초 주제를 다룸. 자식 항목의 판정과 미확인 범위를 함께 확인함"
+          }
         },
         {
           "id": "container",
@@ -2431,51 +4854,120 @@
             {
               "label": "Docker 명령",
               "status": "rokey",
-              "src": "DevOps 5"
+              "src": "DevOps 5",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_docker"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             },
             {
               "label": "Dockerfile",
               "status": "rokey",
-              "src": "DevOps 6"
+              "src": "DevOps 6",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_docker"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Compose",
               "status": "rokey",
-              "src": "DevOps 6"
+              "src": "DevOps 6",
+              "course": {
+                "status": "taught",
+                "evidence": [
+                  "dev_docker"
+                ],
+                "scope": "공식 상세 목차의 해당 주제 또는 직접 대응하는 기초 활동을 확인함. 실제 수행 능력의 증명으로 사용하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "taught",
+            "evidence": [
+              "dev_docker"
+            ],
+            "scope": "인용한 교과의 명시된 기초·개요·실습 범위에서 이 상자의 주제를 다룸. 전문 직무 역량 전체를 뜻하지 않음"
+          }
         },
         {
           "id": "console",
           "label": "관제 화면",
           "status": "self",
-          "verify": true,
           "left": [
             {
               "label": "지도 위 위치 표시",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "상태 대시보드",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
           ],
           "right": [
             {
               "label": "작업 배정(FMS)",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "Open-RMF",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             },
             {
               "label": "Three.js 3D 뷰",
-              "status": "any"
+              "status": "any",
+              "course": {
+                "status": "unverified",
+                "evidence": [
+                  "projects"
+                ],
+                "scope": "상위 프로젝트의 세부 목차가 없어 이 하위 주제의 포함 여부는 확인 대기함"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "unverified",
+            "evidence": [
+              "projects"
+            ],
+            "scope": "상위 프로젝트명만 확인함. 세부 목차가 없어 이 주제의 포함 여부는 확인 대기함"
+          }
         },
         {
           "id": "ops",
@@ -2484,35 +4976,67 @@
           "left": [
             {
               "label": "AWS",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "GitHub Actions",
-              "status": "self"
+              "status": "self",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
           ],
           "right": [
             {
               "label": "Kubernetes",
-              "status": "any"
+              "status": "any",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             },
             {
               "label": "Prometheus·Grafana",
-              "status": "any"
+              "status": "any",
+              "course": {
+                "status": "extra",
+                "evidence": [],
+                "scope": "검토한 공식 상세 목차에 이 주제를 명시한 근거를 찾지 못해 추가 학습으로 분류함. 실제 수업에서 배제됐다고 단정하지 않음"
+              }
             }
-          ]
+          ],
+          "course": {
+            "status": "extra",
+            "evidence": [],
+            "scope": "검토한 공식 상세 목차에서 직접 수업 근거를 확인하지 못해 추가 학습으로 분류함"
+          }
         }
       ],
       "notes": [
         {
-          "near": "web",
-          "text": "웹 기초는 developer-roadmap의 프론트엔드·백엔드 그림을 함께 보세요."
+          "near": "api",
+          "text": "관제는 화면뿐 아니라 API·DB·비동기 처리·실시간 상태와 복구를 함께 다룹니다."
         },
         {
-          "near": "console",
-          "text": "로봇 관제 공고 27건 중 21건이\n경력 3년 이상을 요구합니다."
+          "near": "ops",
+          "text": "직무마다 경력 조건이 다릅니다. 운영 로그와 끊김·복구를 재현하는 실습으로 보완하세요."
         }
+      ],
+      "deliverable_short": "연결 복구·운영 로그",
+      "hiring_evidence": [
+        "naver-30005559",
+        "rainbow-146",
+        "rainbow-128"
       ]
     }
-  ]
+  ],
+  "version": "2026-11-08-v2"
 }

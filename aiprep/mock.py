@@ -4,6 +4,7 @@
 입력은 로컬 home/mocks에 문항 id로 보관하고 제출 기록에는 판정만 남김. 남은 시간은
 시작 시각과 경과 시간을 함께 써서 화면 이동이나 재시작 뒤에도 이어 셈.
 """
+import copy
 import datetime
 import hashlib
 import json
@@ -228,22 +229,19 @@ class MockExam:
                 return False
             cid = cid or self.draft["order"][self.draft["current"]]
             self._validate_answer(cid, value)
+            previous_draft = copy.deepcopy(self.draft)
             previous = self.draft["answers"].get(cid)
-            epochs = self.draft.setdefault("collection_epochs", {})
-            previous_epoch = epochs.get(cid)
             if previous != list(value) and hasattr(self.sess, "collection"):
-                consent = self.sess.collection.status()
-                epochs[cid] = consent.get("epoch") if consent["enabled"] else None
+                context = self.sess.collection.observation_context()
+                self.draft.setdefault("collection_epochs", {})[cid] = context.get("epoch") if context else None
+                self.draft.setdefault("collection_observations", {})[cid] = context
             self.draft["answers"][cid] = list(value)
             try:
                 if flush:
                     self._write_draft()
             except MockError:
-                if previous is None:
-                    self.draft["answers"].pop(cid, None)
-                else:
-                    self.draft["answers"][cid] = previous
-                epochs[cid] = previous_epoch
+                self.draft.clear()
+                self.draft.update(previous_draft)
                 raise
             return True
 
@@ -355,15 +353,19 @@ class MockExam:
             except record.RecordError as error:
                 raise MockError(str(error)) from error
             if hasattr(self.sess, "_collect_record"):
-                consent = self.sess.collection.status()
+                consent = self.sess.collection.observation_context() or {}
                 included = {cid for cid in self.draft["order"] if not self.draft["answers"].get(cid)
                             or consent.get("epoch") and self.draft.get("collection_epochs", {}).get(cid) == consent["epoch"]}
                 partial = dict(self.result, results={cid: results[cid] for cid in included}, of=len(included),
                                score=sum(results[cid] == "pass" for cid in included), scope="current_consent",
                                omitted_before_consent=len(results) - len(included), related=[])
-                self.sess._collect_record(partial)
+                self.sess._collect_record(partial, observation_context=consent)
                 for position, cid in enumerate(self.draft["order"]):
                     item = self.items[cid]
+                    context = self.draft.get("collection_observations", {}).get(cid)
+                    if context is None:
+                        context = {"epoch": self.draft.get("collection_epochs", {}).get(cid),
+                                   "goal": None, "observed_at": None}
                     self.sess.collect_event("mock_answer", {"mock": self.id, "try": self.attempt, "card": cid, "position": position,
                                                            "response": list(self.draft["answers"].get(cid) or []) if cid in included else None,
                                                            "result": results[cid] if cid in included else "not_collected",
@@ -373,7 +375,7 @@ class MockExam:
                                                                                                option_order=self.draft["shuffle"][cid],
                                                                                                terms_revision=getattr(self.sess, "collection_terms_revision", None)),
                                             key="mock-answer:%s:%d:%s:%s" % (self.id, self.attempt, self.fingerprint, cid),
-                                            at=self.result["at"])
+                                            at=self.result["at"], observation_context=context)
             return dict(self.result)
 
     def summary(self):
