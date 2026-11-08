@@ -37,6 +37,9 @@ class HomePage(QWidget):
         root = kit.box(inner, (0, 24, 0, 32), 24)
         self.user = kit.label("", "caption", "tertiary")
         root.addWidget(self.user)
+        self.data_btn = kit.button("학습 데이터")
+        self.data_btn.clicked.connect(self.show_data)
+        root.addWidget(self.data_btn)
         self.notice = LinkLabel()
         kit.typed(self.notice, "body")
         self.notice.setObjectName("notice")
@@ -88,9 +91,15 @@ class HomePage(QWidget):
         self.action_btn.clicked.connect(win.start_next)
         self.rounds.itemClicked.connect(lambda item: win.show_result(item.data(Qt.ItemDataRole.UserRole)))
 
+    def show_data(self):
+        from gui.ai_data import LearningDataDialog
+        self.data_dialog = LearningDataDialog(self, self.win.session.collection, host=self.win)
+        self.data_dialog.show()
+
     def refresh(self):
         win = self.win
         overview = win.session.overview()
+        self.data_btn.setText("학습 데이터 · 저장 확인 필요" if win.session.collection.error else "학습 데이터")
         self.user.setText("ID: %s" % overview["user"])
         self.ready.setText("%d / %d" % (overview["mastered"], overview["total_units"]))
         self.mastered.setText("숙달한 단원 / 전체 단원")
@@ -122,7 +131,7 @@ class HomePage(QWidget):
         self.theme_btn.setText("테마: %s" % theme.MODES[theme.state["mode"]])
 
     def set_busy(self, busy, text=""):
-        for widget in (self.action_btn, self.rounds, self.team_btn, self.wrong_btn, self.hub_btn):
+        for widget in (self.action_btn, self.rounds, self.team_btn, self.wrong_btn, self.hub_btn, self.data_btn):
             widget.setEnabled(not busy)
         self.busy_bar.setVisible(busy)
         self.status.setText(text if busy else "")

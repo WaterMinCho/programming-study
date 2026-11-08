@@ -1,0 +1,69 @@
+# 기존 풀이 기록으로 모델 개발을 시작합니다
+
+새 데이터가 쌓일 때까지 기다릴 필요는 없습니다. 기존 파이썬 풀이 기록과 현재 문제의 개념 정보를 공통 형식으로 바꿉니다. 이후 파이썬·AI 개론의 새 수집 자료도 같은 도구로 준비합니다. WaterMinCho가 자료를 준비하고 세 팀원은 같은 파일로 모델을 비교합니다.
+
+## 기존 파이썬 기록을 변환합니다
+
+저장소 루트에서 실행합니다. 다른 사람의 기록은 연구 사용 동의를 받은 뒤 지정합니다. 아래 시간대는 한국 시간으로 해석한다는 가정이며 원래 시각도 따로 남깁니다.
+
+```sh
+python -m learning_server.starter --profile submissions/WaterMinCho/profile.json --agree --timezone +09:00 --out ../learning-profile-v1
+```
+
+기존 파일은 수정하지 않습니다. 결과는 공개 저장소 밖의 새 폴더에 저장하고 다시 읽어 확인합니다. 같은 폴더를 덮어쓰지 않으므로 다시 만들 때는 다른 이름을 지정합니다. 원본 답안·GitHub ID·이름은 복사하지 않으며 새 가명 구분값을 만듭니다.
+
+기존 기록에는 채점 시각과 결과가 있습니다. 실제로 문제를 읽은 시각과 답을 입력한 시각, 당시 문제 버전은 알 수 없습니다. 과거 문항 판은 `null`로 남기고 개념은 현재 문제 목록에서 연결했다는 출처를 보존합니다. 예전 풀이에 나중에 고른 희망 직무를 붙이지 않습니다.
+
+예측 기준 시각은 기록에 남은 회차 생성 시각입니다. 그보다 먼저 공개된 채점 결과만 입력에 넣습니다. 같은 시각의 결과는 보수적으로 제외합니다. 회차 생성 시각이 없으면 풀이 간격은 미확인으로 남깁니다. 사용하지 못한 문항·시각·건너뛰기는 `legacy-provenance.json`에서 확인합니다. 이 자료만으로 새 학습자에게도 잘 맞는다고 판단하지 않습니다.
+
+## 새 수집 자료와 연습 자료도 준비합니다
+
+이미 내보낸 수집 JSONL 파일은 다음과 같이 준비합니다.
+
+```sh
+python -m learning_server.starter --input ../learning-events.jsonl --out ../learning-recorded-v1
+```
+
+실제 기록을 전달받기 전에는 기존 합성 예제로 입력 모양을 확인합니다. 이 작은 예제의 점수를 실제 학습자 성능으로 쓰지 않습니다.
+
+```sh
+python -m learning_server.starter --synthetic --out ../learning-demo-v1
+python -m learning_server.input_example --dataset ../learning-demo-v1 --track python --batch-size 4 --length 32
+python -m learning_server.input_example --dataset ../learning-demo-v1 --track ai --batch-size 4 --length 32
+```
+
+추가 라이브러리 설치나 모델 학습 없이 실행할 수 있습니다. 자료에 있는 과목만 선택합니다. 기존 파이썬 프로필로 만든 자료에는 파이썬만 들어 있습니다.
+
+## 세 모델이 같은 입력을 사용합니다
+
+```python
+from learning_server.input_example import load, batch
+
+rows, vocabulary = load("../learning-profile-v1", "python", "train")
+example = batch(rows[:4], vocabulary, length=32)
+inputs = example["inputs"]
+targets = example["targets"]
+```
+
+| 항목 | 모델에 전달하는 값 |
+|---|---|
+| `questions`, `results` | 이전 문제 번호와 정오답입니다. 모양은 `[묶음 크기, 이력 길이]`입니다. |
+| `concepts` | 이전 문제의 개념을 표시합니다. 모양은 `[묶음 크기, 이력 길이, 개념 수]`입니다. |
+| `mask`, `lengths` | 실제 풀이가 있는 자리와 개수입니다. 이력이 없는 학습자는 길이가 0입니다. |
+| `query_question`, `query_concepts` | 앞으로 예측할 문제와 개념입니다. 현재 정답은 포함하지 않습니다. |
+| `query_gap_seconds`, `query_gap_known` | 같은 개념의 마지막 채점 이후 지난 시간과 시각 확인 여부입니다. 모양은 `[묶음 크기, 개념 수]`입니다. |
+| `targets` | 이번 시도의 정오답입니다. 입력과 분리하며 1은 정답, 0은 오답입니다. |
+
+문제·개념 번호는 학습 자료만으로 정합니다. 이후 처음 등장한 값은 1번인 미확인 값으로 처리하고 0번은 빈 자리로 씁니다. 정오답의 0은 오답이므로 빈 자리 구분에는 반드시 `mask`를 사용합니다. 풀이 이력은 최근 128개까지 보관합니다.
+
+시각을 알 수 없는 항목은 `query_gap_known=False`로 표시합니다. 함께 들어 있는 숫자 0을 당일 복습으로 해석하지 않습니다. 새 파이썬 수집에서는 실제 화면에 선택한 문항의 표시 시각을 사용합니다. 외부 편집기나 터미널에서 풀어 표시 시각을 모르면 간격을 추정하지 않습니다.
+
+michae18과 wamangdoo는 간격 입력을 제외한 같은 자료로 LSTM과 Transformer를 비교합니다. kimjs85529-a11y는 같은 LSTM에 간격과 확인 여부를 추가합니다. 입력을 비우는 처리와 미래 기록을 가리는 처리는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.
+
+## 비교 결과와 파일 버전을 확인합니다
+
+`records/`에는 과목별 `train`·`validation`·`test` 파일과 목록이 있습니다. 같은 풀이 묶음을 서로 다른 구간에 나누지 않습니다. 평가할 예측 시점이 앞 구간의 채점 결과보다 이르면 해당 묶음을 제외합니다. 제외한 행 수는 자료 목록의 `excluded_split_rows`에 남깁니다. `vocabulary.json`은 학습 자료의 번호표이고 `manifest.json`은 원본과 결과 파일의 해시를 기록합니다. 입력 예제는 해시가 달라진 파일을 읽지 않습니다.
+
+`baseline.json`에는 과거 개념별 정답 비율로 예측한 결과가 있습니다. 정오답 구분 점수인 ROC-AUC와 확률 오차인 Brier·로그 손실을 같은 자료에서 비교합니다. 맞힌 답이나 틀린 답 한쪽만 있으면 ROC-AUC는 `null`로 남깁니다. 딥러닝 모델의 설정은 검증 자료로 고른 뒤 마지막 평가 자료로 비교합니다.
+
+실제 기록과 모델 파일은 비공개로 전달합니다. 새로 고른 기록을 다시 변환하면 가명 구분값도 바뀌므로, 비교 실험에서는 WaterMinCho가 한 번 준비한 같은 자료와 파일 해시를 사용합니다. 이 도구는 모델을 학습하거나 앱의 추천을 바꾸지 않습니다.

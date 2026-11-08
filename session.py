@@ -17,6 +17,7 @@ import threading
 import adaptive
 import mdlite
 import study
+import python_collection
 
 UNSAFE_RE = re.compile("[\x00\ud800-\udfff]")  # 파일에 쓸 수 없는 글자(NUL, 짝 없는 서러게이트)
 LABEL_RE = re.compile(r"\*\*(\d+)번\*\*")
@@ -161,10 +162,11 @@ def salvage_quiz(text, names):
 # 세션
 
 class Session:
-    def __init__(self, user):
+    def __init__(self, user, home=None):
         if not valid_user(user):
             raise SessionError("ID 가 올바르지 않습니다: %r" % (user,))
         self.user = user
+        self.collection = python_collection.PythonCollection(os.path.join(home or python_collection.home_dir(), user), study.ROOT)
         self._lock = threading.RLock()  # 화면 스레드와 채점 워커가 프로필을 동시에 건드리지 않게 함
         adaptive.clear_cache()  # 문제 받기 뒤에 새로 만든 세션은 은행을 다시 읽음
         self.cat = adaptive.catalog()
@@ -354,14 +356,21 @@ class Session:
                 text = clean_text(value or "")
                 if text and not text.endswith("\n"):
                     text += "\n"
-                study.write_text(self._code_path(rnd["id"], item_id), text)
+                path = self._code_path(rnd["id"], item_id)
+                previous = study.read_text(path) if os.path.isfile(path) else None
+                study.write_text(path, text)
+                if previous != text:
+                    self.collection.observe(rnd, it, text)
                 return
             answers = self._quiz_answers(rnd["id"])
+            previous = answers.get(item_id)
             try:
                 answers[item_id] = clean_quiz_value(it["type"], value)
             except (TypeError, ValueError):
                 raise SessionError("답 형식이 올바르지 않습니다: %r" % (value,))
             self._write_quiz(rnd, answers)
+            if previous != answers[item_id]:
+                self.collection.observe(rnd, it, answers[item_id])
 
     def _write_quiz(self, rnd, answers):
         lines = ["# %s 퀴즈 답안지입니다. 문제는 같은 폴더의 README.md 에 있습니다." % adaptive.round_title(rnd),
@@ -383,7 +392,11 @@ class Session:
             raise SessionError("코드 문제만 되돌릴 수 있습니다.")
         starter = study.read_text(os.path.join(it["spec"]["dir"], "starter.py"))
         with self._lock:
+            path = self._code_path(rnd["id"], item_id)
+            previous = study.read_text(path) if os.path.isfile(path) else None
             study.write_text(self._code_path(rnd["id"], item_id), starter)
+            if previous != starter:
+                self.collection.observe(rnd, it, starter)
         return starter
 
     # 코드 실행 (예시만, 기록 없음)
@@ -432,6 +445,7 @@ class Session:
             self._reload()
         rnd = self._round(rid)
         self._quiz_answers(rnd["id"])  # 깨진 답안지를 '전부 오답'으로 기록하지 않음
+        snapshot = self.collection.before_grade(self, rnd)
         items = adaptive.grade_round(self.user, rnd, self.cat)  # 코드 실행은 오래 걸려서 잠금 밖에서 함
         untouched = all(it["state"] == "blank" for it in items) and not rnd.get("results")
         if untouched and not finalize:
@@ -454,6 +468,7 @@ class Session:
             except OSError as error:
                 self._reload()  # 저장하지 못한 채점 결과를 메모리에 두면 해설이 열리고, 그 뒤의 다시 채점이 첫 제출로 기록됨
                 raise SessionError("채점 결과를 저장하지 못했습니다. 기록은 바뀌지 않았으니 잠시 뒤 다시 눌러 주세요.\n%s" % error)
+            self.collection.after_grade(self, rnd, items, snapshot)
         return self._result(rnd, items, completed_now=completed_now, next_round=next_id)
 
     def _result(self, rnd, items, untouched=False, completed_now=False, next_round=None):

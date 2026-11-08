@@ -18,16 +18,20 @@ class LearningDataDialog(QDialog):
         self.host = host or parent.window()
         self.sharing = Sharing(collection)
         self.working = False
-        self.setWindowTitle("학습 데이터")
+        title = "파이썬 학습 데이터" if collection.track == "python" else "학습 데이터"
+        self.setWindowTitle(title)
         self.setModal(True)
         self.resize(640, 420)
         outer = kit.box(self, (24, 24, 24, 24), spacing=theme.GAP["group"])
-        outer.addWidget(kit.heading(kit.label("학습 데이터", "headline"),
+        outer.addWidget(kit.heading(kit.label(title, "headline"),
                                    kit.para("문제 추천 연구에 쓸 풀이 과정을 이 기기에 추가로 보관합니다.", "body", "secondary")))
         content = QWidget()
         body = kit.box(content, spacing=theme.GAP["group"])
-        body.addWidget(kit.para("수집을 시작한 뒤의 연습·모의고사 답안과 채점 결과, 문항을 연 순서, 응답 시간, 확신 여부를 보관합니다. "
-                                "학습 중의 짐작·떠올리기·코드 빈칸 결과도 포함합니다. 과거 풀이를 가져오지 않습니다."))
+        notice = ("수집을 시작한 뒤 프로그램에서 변경해 저장한 퀴즈·코드 입력과 채점 결과, 문항과 개념을 보관합니다. "
+                  "외부 편집기의 입력 시각이나 문항을 읽은 시간은 추정하지 않습니다. 과거 풀이를 자동으로 가져오지 않습니다.") if collection.track == "python" else (
+                                "수집을 시작한 뒤의 연습·모의고사 답안과 채점 결과, 문항을 연 순서, 응답 시간, 확신 여부를 보관합니다. "
+                                "학습 중의 짐작·떠올리기·코드 빈칸 결과도 포함합니다. 과거 풀이를 가져오지 않습니다.")
+        body.addWidget(kit.para(notice))
         body.addWidget(kit.para("기본은 이 컴퓨터에만 저장하며 GitHub 풀이 제출에는 포함하지 않습니다. "
                                 "파일을 내보내거나 아래 서버 전송에 따로 동의해 공유할 수 있습니다. 수집에 동의하지 않아도 모든 학습 기능을 사용할 수 있습니다."))
         self.status_text = kit.para()

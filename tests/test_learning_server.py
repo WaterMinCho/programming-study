@@ -118,6 +118,23 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(local, Path(store.path).read_bytes())
             self.assertEqual(0, self.count())
 
+    def test_python_client_uses_python_envelope_and_redacts_answers(self):
+        store = collection.Collection(str(self.root / "python-client"), str(self.root / "repo"), track="python")
+        store.set_enabled(True)
+        store.emit("answer", {"response": "개인 코드", "result": "ok"})
+        def transport(base, path, data=None, token=None, method="POST"):
+            status, result = self.call(path, data, token, method)
+            self.assertEqual(200, status)
+            return result
+        client = sharing.Sharing(store)
+        with mock.patch.object(sharing, "request", side_effect=transport):
+            self.assertEqual(2, client.sync("https://collector.example", self.db.invites()[0])["sent"])
+            self.assertEqual(0, client.sync("https://collector.example")["sent"])
+        with self.db.connect() as db:
+            rows = list(db.execute("SELECT track, payload FROM events"))
+        self.assertEqual({"python"}, {row[0] for row in rows})
+        self.assertNotIn("개인 코드", "".join(row[1] for row in rows))
+
     def test_no_network_without_local_consent_and_no_http_remote(self):
         store = collection.Collection(str(self.root / "client"), str(self.root / "repo"))
         with mock.patch.object(sharing, "request") as network:

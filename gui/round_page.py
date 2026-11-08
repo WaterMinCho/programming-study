@@ -267,6 +267,8 @@ class RoundPage(QWidget):
         self.run_btn.setVisible(item["kind"] == "code")
         self.prev_btn.setEnabled(row > 0)
         self.next_btn.setEnabled(row < len(self.view["items"]) - 1)
+        if not self.review and hasattr(self.win.session, "collection"):
+            self.win.session.collection.returned(self.win.session, self.view["id"], item["id"])
 
     @staticmethod
     def body_html(item):

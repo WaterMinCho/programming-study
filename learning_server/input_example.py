@@ -1,0 +1,90 @@
+# -*- coding: utf-8 -*-
+"""파일 해시를 확인하고 딥러닝 모델에 넘길 배열을 표준 라이브러리로 준비함."""
+import argparse
+import datetime
+import hashlib
+import json
+from pathlib import Path
+
+from learning_server.starter import question_token
+
+
+def load(folder, track, part):
+    root = Path(folder)
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    if track not in manifest["tracks"] or part not in ("train", "validation", "test"):
+        raise ValueError("자료의 과목과 분할 이름을 확인해 주세요.")
+    def verified(path, checksum):
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != checksum:
+            raise ValueError("자료가 바뀌었습니다. 파일 해시를 확인해 주세요.")
+        return raw
+    records = json.loads(verified(root / "records/manifest.json", manifest["records_manifest_sha256"]))
+    vocabulary = json.loads(verified(root / "vocabulary.json", manifest["files"]["vocabulary.json"]))[track]
+    name = track + "-" + part + ".jsonl"
+    rows = [json.loads(line) for line in verified(root / "records" / name, records["files"][name]["sha256"]).splitlines()]
+    return rows, vocabulary
+
+
+def batch(rows, vocabulary, length=32):
+    if not 1 <= length <= 128:
+        raise ValueError("풀이 이력 길이는 1~128로 지정해 주세요.")
+    questions = {value: n for n, value in enumerate(vocabulary["questions"])}
+    concepts = {value: n for n, value in enumerate(vocabulary["concepts"])}
+    width = len(concepts)
+    def multi_hot(names):
+        values = [0] * width
+        for name in names:
+            values[concepts.get(name, 1)] = 1
+        return values
+    inputs = {name: [] for name in ("questions", "concepts", "results", "mask", "lengths", "query_question",
+                                    "query_concepts", "query_gap_seconds", "query_gap_known")}
+    for row in rows:
+        history = row["features"]["sequence_history"][-length:]
+        size = len(history)
+        inputs["questions"].append([questions.get(question_token(past), 1) for past in history] + [0] * (length-size))
+        inputs["concepts"].append([multi_hot(past["concepts"]) for past in history] + [[0]*width for _ in range(length-size)])
+        inputs["results"].append([past["result"] for past in history] + [0] * (length-size))
+        inputs["mask"].append([True]*size + [False]*(length-size))
+        inputs["lengths"].append(size)
+        inputs["query_question"].append(questions.get(question_token(row), 1))
+        inputs["query_concepts"].append(multi_hot(row["concepts"]))
+        gaps, known = [0.0]*width, [False]*width
+        now = datetime.datetime.fromisoformat(row["prediction_at"]) if row.get("prediction_at") else None
+        grouped = {}
+        for name, previous in row["features"]["observed_history"].items():
+            if now is not None and previous["last_at"] is not None:
+                elapsed = (now - datetime.datetime.fromisoformat(previous["last_at"])).total_seconds()
+                if elapsed < 0:
+                    raise ValueError("풀이 간격이 음수입니다. 원본 시각을 확인해 주세요.")
+                index = concepts.get(name, 1)
+                grouped.setdefault(index, []).append(elapsed)
+        for index, values in grouped.items():
+            gaps[index], known[index] = min(values), True
+        inputs["query_gap_seconds"].append(gaps)
+        inputs["query_gap_known"].append(known)
+    return {"inputs": inputs, "targets": [row["target"] for row in rows],
+            "event_ids": [row["event_id"] for row in rows]}
+
+
+def main():
+    parser = argparse.ArgumentParser(description="공통 입력의 모양과 예를 확인합니다.")
+    parser.add_argument("--dataset", required=True)
+    parser.add_argument("--track", choices=("ai", "python"), required=True)
+    parser.add_argument("--split", choices=("train", "validation", "test"), default="train")
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--length", type=int, default=32)
+    args = parser.parse_args()
+    try:
+        if args.batch_size < 1:
+            raise ValueError("묶음 크기는 1 이상으로 지정해 주세요.")
+        rows, vocabulary = load(args.dataset, args.track, args.split)
+        result = batch(rows[:args.batch_size], vocabulary, args.length)
+        print(json.dumps({"batch": len(result["targets"]), "history_length": args.length,
+                          "concept_width": len(vocabulary["concepts"]), "example": result}, ensure_ascii=False))
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        parser.exit(1, "오류: %s\n" % error)
+
+
+if __name__ == "__main__":
+    main()

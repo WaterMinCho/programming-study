@@ -35,12 +35,16 @@ def digest(value):
     return hashlib.sha256(packed(value).encode("utf-8")).hexdigest()
 
 
-@functools.lru_cache(maxsize=1)
-def runtime_revision():
+@functools.lru_cache(maxsize=2)
+def runtime_revision(track="ai"):
     paths = ("collection.py", "service.py", "mock.py", "grade.py", "gen.py", "skel.py")
     values = {}
+    folder = os.path.dirname(__file__)
+    if track == "python":
+        folder = os.path.dirname(folder)
+        paths = ("session.py", "python_collection.py", "adaptive.py", "study.py", "aiprep/collection.py")
     for name in paths:
-        with open(os.path.join(os.path.dirname(__file__), name), "rb") as source:
+        with open(os.path.join(folder, name), "rb") as source:
             values[name] = hashlib.sha256(source.read()).hexdigest()
     return digest(values)
 
@@ -58,14 +62,17 @@ def question(item, **metadata):
     visible = {key: item[key] for key in ("stem", "kind", "pick", "multi") if key in item}
     visible["blanks"] = [{key: b[key] for key in ("mode", "hint", "slot") if key in b} for b in item.get("blanks") or []]
     visible["options"] = [{"no": n, "text": item["options"][n]["text"]} for n in order]
-    metadata["runtime_revision"] = runtime_revision()
+    metadata["runtime_revision"] = runtime_revision(metadata.pop("track", "ai"))
     visible.update(metadata)
     revision = digest({"item": item, "metadata": metadata, "order": order})
     return {"revision": revision, "content": visible}
 
 
 class Collection:
-    def __init__(self, home, repository):
+    def __init__(self, home, repository, track="ai"):
+        if track not in ("ai", "python"):
+            raise ValueError("수집 과목을 확인해 주세요.")
+        self.track = track
         self.path = os.path.join(home, FILENAME)
         self.repository = repository
         self.error = ""
@@ -79,7 +86,7 @@ class Collection:
     def _connect(self, create=False):
         self._check_path()
         if create:
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            os.makedirs(os.path.dirname(self.path), mode=0o700, exist_ok=True)
         conn = None
         try:
             if create:
@@ -100,12 +107,16 @@ class Collection:
                 """)
                 conn.execute("INSERT OR IGNORE INTO meta VALUES ('format', ?)", (str(FORMAT),))
                 conn.execute("INSERT OR IGNORE INTO meta VALUES ('participant', ?)", (str(uuid.uuid4()),))
+                conn.execute("INSERT OR IGNORE INTO meta VALUES ('track', ?)", (self.track,))
             else:
                 from pathlib import Path
                 conn = sqlite3.connect(Path(self.path).absolute().as_uri() + "?mode=rw", uri=True, timeout=0.2)
             version = conn.execute("SELECT value FROM meta WHERE key='format'").fetchone()
             if version != (str(FORMAT),):
                 raise CollectionError("학습 데이터의 파일 형식을 확인해 주세요.")
+            saved_track = conn.execute("SELECT value FROM meta WHERE key='track'").fetchone()
+            if (saved_track[0] if saved_track else "ai") != self.track:
+                raise CollectionError("학습 데이터 파일의 과목이 맞지 않습니다.")
             with conn:
                 yield conn
         except (OSError, sqlite3.Error, TypeError, ValueError) as error:
@@ -193,13 +204,13 @@ class Collection:
                 if observation_context is CURRENT_CONTEXT:
                     payload["goal"] = json.loads(meta["goal"]) if "goal" in meta else goals.unselected()
                 else:
-                    if kind not in ("mock_answer", "mock_submit"):
-                        raise ValueError("관찰 문맥은 모의고사 기록에만 지정할 수 있습니다.")
+                    if kind not in ("mock_answer", "mock_submit") and not (self.track == "python" and kind in ("answer", "python_input", "question_returned")):
+                        raise ValueError("관찰 문맥을 지정할 수 없는 기록입니다.")
                     context = observation_context or {}
                     payload["goal"] = context.get("goal")
                     payload["observed_at"] = context.get("observed_at")
                     if context.get("epoch") != meta.get("epoch"):
-                        if kind == "mock_submit":
+                        if kind in ("mock_submit", "python_input", "question_returned"):
                             return False
                         payload.update(response=None, goal=None, observed_at=None)
                         if payload.get("result") != "blank":
@@ -223,7 +234,7 @@ class Collection:
         with self._connect() as conn:
             conn.execute("BEGIN")
             meta = dict(conn.execute("SELECT key, value FROM meta"))
-            header = {"kind": "manifest", "format": FORMAT, "track": "ai", "participant": meta["participant"],
+            header = {"kind": "manifest", "format": FORMAT, "track": self.track, "participant": meta["participant"],
                       "exported_at": stamp(), "include_answers": bool(include_answers), "notice": meta.get("notice"), "synthetic": False}
             sql = "SELECT seq, event_id, at, kind, payload, item_revision FROM events WHERE seq>? ORDER BY seq"
             params = (after,)
@@ -236,7 +247,7 @@ class Collection:
                 if not include_answers:
                     data.pop("response", None)
                 item = conn.execute("SELECT payload FROM items WHERE revision=?", (revision,)).fetchone() if revision else None
-                rows.append({"format": FORMAT, "track": "ai", "participant": meta["participant"], "sequence": seq,
+                rows.append({"format": FORMAT, "track": self.track, "participant": meta["participant"], "sequence": seq,
                              "event_id": eid, "at": at, "kind": kind, "data": data,
                              "item_revision": revision, "item": json.loads(item[0]) if item else None})
         return rows
@@ -287,9 +298,13 @@ class Collection:
 
 def command(args):
     import study
-    from aiprep.service import home_dir
     user = study.current_user(args)
-    store = Collection(os.path.join(home_dir(), user), study.ROOT)
+    if getattr(args, "track", "ai") == "python":
+        from python_collection import PythonCollection, home_dir
+        store = PythonCollection(os.path.join(home_dir(), user), study.ROOT)
+    else:
+        from aiprep.service import home_dir
+        store = Collection(os.path.join(home_dir(), user), study.ROOT)
     try:
         if args.action in ("enable", "delete") and not args.agree:
             raise CollectionError("수집 항목은 README의 학습 데이터 안내에서 확인해 주세요. 동의한 뒤 --agree를 붙여 실행해 주세요.")
