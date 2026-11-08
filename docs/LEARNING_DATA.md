@@ -64,4 +64,4 @@ python study.py ai-data delete --agree
 
 현재 앱의 추가 수집은 AI 비전 개론에 연결돼 있습니다. 서버는 `ai`와 `python`을 별도 과목으로 받을 수 있습니다. 파이썬의 기존 기록을 자동으로 업로드하지 않습니다. 파이썬 수집 연결과 배포 운영은 프로그램 담당 작업이며 팀원 딥러닝 미션에 넘기지 않습니다.
 
-서버 설치와 수강생 확대는 [수집 서버 운영](LEARNING_SERVER.md), 네 명의 모델 개발은 [딥러닝 미션](LEARNING_MISSIONS.md)을 참고하세요.
+서버 설치와 수강생 확대는 [수집 서버 운영](LEARNING_SERVER.md), 프로그램 담당과 세 팀원의 개발 분담은 [딥러닝 미션](LEARNING_MISSIONS.md)을 참고하세요.
