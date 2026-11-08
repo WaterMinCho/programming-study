@@ -1030,13 +1030,14 @@ def build_parser():
     sub.add_parser("web", help="웹 면접 준비: python study.py web --help", add_help=False)
 
     from aiprep.collection import command as data_command
-    p = sub.add_parser("ai-data", help="AI 비전 개론 추가 학습 데이터 관리")
-    p.add_argument("action", choices=("status", "enable", "disable", "export", "delete"), nargs="?", default="status")
-    p.add_argument("--user")
-    p.add_argument("--agree", action="store_true", help="수집 안내에 동의하거나 추가 데이터 삭제를 확인합니다")
-    p.add_argument("--out", help="공개 저장소 밖의 새 JSONL 파일")
-    p.add_argument("--include-answers", action="store_true", help="내보낼 때 입력 답안도 포함합니다")
-    p.set_defaults(func=data_command)
+    for name, title, track in (("ai-data", "AI 비전 개론", "ai"), ("python-data", "파이썬", "python")):
+        p = sub.add_parser(name, help=title + " 추가 학습 데이터 관리")
+        p.add_argument("action", choices=("status", "enable", "disable", "export", "delete"), nargs="?", default="status")
+        p.add_argument("--user")
+        p.add_argument("--agree", action="store_true", help="수집 안내에 동의하거나 추가 데이터 삭제를 확인합니다")
+        p.add_argument("--out", help="공개 저장소 밖의 새 JSONL 파일")
+        p.add_argument("--include-answers", action="store_true", help="내보낼 때 입력 답안도 포함합니다")
+        p.set_defaults(func=data_command, track=track)
 
     p = sub.add_parser("go", help="터미널 모드로 다음 할 일 이어 가기: 진단 → 풀기 → 채점 → 다음 회차")
     p.add_argument("--user")

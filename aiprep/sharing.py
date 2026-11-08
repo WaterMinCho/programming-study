@@ -111,7 +111,8 @@ class Sharing:
             rows = self.collection.snapshot(after=config["sequence"], limit=100, include_answers=include_answers)[1:]
             if not rows:
                 return {"sent": sent, "last_sequence": config["sequence"]}
-            data = {"participant": status["participant"], "notice": NOTICE, "format": FORMAT, "track": "ai", "events": rows}
+            data = {"participant": status["participant"], "notice": NOTICE, "format": FORMAT,
+                    "track": self.collection.track, "events": rows}
             while len(packed(data).encode("utf-8")) > MAX_BODY and len(rows) > 1:
                 rows = rows[:len(rows) // 2]
                 data["events"] = rows

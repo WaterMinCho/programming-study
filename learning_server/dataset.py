@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import uuid
+from collections import deque
 
 from aiprep.collection import inside, packed
 
@@ -41,13 +42,21 @@ def prepare(events, synthetic=None):
         data = row["data"]
         return (row["participant"], row["track"], data.get("set"), data.get("card"), data.get("again"))
     def mock_key(row):
-        return (row["participant"], row["track"], row["data"].get("mock"), row["data"].get("try"))
+        data = row["data"]
+        if data.get("batch"):
+            return (row["participant"], row["track"], "batch", data["batch"])
+        return (row["participant"], row["track"], data.get("mock"), data.get("try"))
+    def eligible(row):
+        data = row["data"]
+        return row["kind"] in ("answer", "mock_answer") and data.get("result") in results and not (
+            row["kind"] == "answer" and (data.get("again", 0) or data.get("first_in_set") is False))
     corrected = {answer_key(row) for row in events if row["kind"] == "override"}
     mock_last = {}
     for row in events:
-        if row["kind"] == "mock_answer" and row["data"].get("result") in results:
+        if eligible(row) and (row["kind"] == "mock_answer" or row["data"].get("batch")):
             mock_last[mock_key(row)] = row["sequence"]
     history, moments, observed, mock_before, pending, output = {}, {}, {}, {}, {}, []
+    sequences, group_sequences = {}, {}
     blank = {"attempts": 0, "correct": 0, "last_at": None, "overrides": 0}
     for row in events:
         data, item = row["data"], row.get("item") or {}
@@ -59,25 +68,39 @@ def prepare(events, synthetic=None):
             raise ValueError("수집 순서와 시각이 맞지 않습니다. 시계가 바뀐 구간을 확인해 주세요.")
         moments[key] = at
         prior = history.setdefault(key, {})
-        if row["kind"] in ("mock_start", "mock_question_returned"):
+        sequence = sequences.setdefault(key, deque(maxlen=128))
+        if row["kind"] in ("mock_start", "mock_question_returned", "batch_start"):
             mock_before.setdefault(mock_key(row), {tag: dict(value) for tag, value in prior.items()})
+            group_sequences.setdefault(mock_key(row), list(sequence))
             continue
         if row["kind"] == "override":
             for tag in observed.get(answer_key(row), []):
                 prior[tag]["overrides"] += 1
             continue
-        if row["kind"] not in ("answer", "mock_answer") or data.get("result") not in results:
-            continue
-        if row["kind"] == "answer" and (data.get("again", 0) or data.get("first_in_set") is False):
+        if not eligible(row):
             continue
         card = item.get("card") or data.get("card")
         if not card:
             continue
         tags = item.get("tags") or [item.get("family") or card]
-        is_mock = row["kind"] == "mock_answer"
+        is_mock = row["kind"] == "mock_answer" or bool(data.get("batch"))
         source = mock_before.get(mock_key(row)) if is_mock else prior
         before = {tag: dict(source.get(tag, blank)) for tag in tags} if source is not None else None
         session = data.get("set") or "%s:%s" % (data.get("mock"), data.get("try"))
+        sequence_before = list(group_sequences.get(mock_key(row), [])) if is_mock else list(sequence)
+        prediction_at = data.get("prediction_at")
+        if prediction_at is not None:
+            cutoff = datetime.datetime.fromisoformat(prediction_at)
+            if cutoff.tzinfo is None or cutoff > at:
+                raise ValueError("예측 시점의 시각과 시간대를 확인해 주세요.")
+            sequence_before = [past for past in sequence_before if datetime.datetime.fromisoformat(past["at"]) < cutoff]
+            if before is not None:
+                before = {tag: dict(blank) for tag in tags}
+                for past in sequence_before:
+                    for tag in set(past["concepts"]) & set(tags):
+                        before[tag]["attempts"] += 1
+                        before[tag]["correct"] += past["result"]
+                        before[tag]["last_at"] = past["at"]
         target = int(data["result"] in ("pass", "ok"))
         if answer_key(row) not in corrected and before is not None:
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
@@ -85,13 +108,20 @@ def prepare(events, synthetic=None):
                            "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
                            "goal": data.get("goal"),
                            "synthetic": row["synthetic"], "data_source": row["data_source"],
-                           "features": {"observed_history": before}, "target": target})
+                           "provenance": data.get("provenance", "collected"),
+                           "prediction_at": prediction_at,
+                           "features": {"observed_history": before,
+                                        "sequence_history": sequence_before},
+                           "target": target})
         observed[answer_key(row)] = tags
-        updates = [(tags, target, row["at"])]
+        entry = {"event_id": row["event_id"], "question_id": card, "question_revision": row.get("item_revision"),
+                 "concepts": tags, "result": target, "at": row["at"]}
+        updates = [(tags, target, row["at"], entry)]
         if is_mock:
             pending.setdefault(mock_key(row), []).extend(updates)
             updates = pending.pop(mock_key(row)) if row["sequence"] == mock_last[mock_key(row)] else []
-        for update_tags, update_target, update_at in updates:
+        for update_tags, update_target, update_at, entry in updates:
+            sequence.append(entry)
             for tag in update_tags:
                 current = prior.setdefault(tag, dict(blank))
                 current["attempts"] += 1
@@ -118,6 +148,14 @@ def split(records):
     for row in records:
         if len(groups[(row["participant"], row["track"], row["session"])]) == 1:
             parts[part(row)].append(row)
+    for name, prior in (("validation", ("train",)), ("test", ("train", "validation"))):
+        available = [datetime.datetime.fromisoformat(row["at"]) for group in prior for row in parts[group]]
+        if not available:
+            continue
+        cutoff = max(available)
+        invalid = {(row["participant"], row["track"], row["session"]) for row in parts[name]
+                   if row.get("prediction_at") and datetime.datetime.fromisoformat(row["prediction_at"]) < cutoff}
+        parts[name] = [row for row in parts[name] if (row["participant"], row["track"], row["session"]) not in invalid]
     if not all(parts.values()):
         raise ValueError("풀이 묶음을 나누지 않고 평가할 관찰 기록이 더 필요합니다.")
     return parts
@@ -135,7 +173,8 @@ def synthetic_events():
                              "at": "2026-01-%02dT10:00:00+00:00" % day, "kind": "answer", "item_revision": "0" * 64,
                              "item": {"card": track + "-demo", "tags": ["demo"]},
                              "data": {"set": "demo-%d" % day, "card": track + "-demo", "again": 0,
-                                      "result": "pass" if (person + day) % 3 else "stuck", "first_in_set": True}})
+                                      "result": "pass" if (person + day) % 3 else "stuck", "first_in_set": True,
+                                      "prediction_at": "2026-01-%02dT10:00:00+00:00" % day}})
     return rows
 
 
@@ -155,7 +194,9 @@ def write_dataset(events, destination, synthetic=None, source_sha256=None):
         raise ValueError("사용할 첫 시도 답안이 없습니다.")
     os.mkdir(destination, mode=0o700)
     manifest = {"format": 1, "synthetic": records[0]["synthetic"], "source": records[0]["data_source"],
-                "source_sha256": source_sha256, "files": {}}
+                "source_sha256": source_sha256, "eligible_rows": len(records),
+                "excluded_split_rows": len(records) - sum(len(rows) for groups in parts.values() for rows in groups.values()),
+                "files": {}}
     for track, groups in parts.items():
         for name, rows in groups.items():
             path = Path(destination) / (track + "-" + name + ".jsonl")
