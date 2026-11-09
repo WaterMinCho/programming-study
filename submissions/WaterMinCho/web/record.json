@@ -1,0 +1,188 @@
+{
+ "format": 1,
+ "user": "WaterMinCho",
+ "created": "2026-10-22T22:27:11",
+ "log": [
+  {
+   "at": "2026-10-22T22:27:11",
+   "kind": "learn",
+   "page": "l20"
+  },
+  {
+   "at": "2026-10-22T22:28:19",
+   "kind": "learn",
+   "page": "l07"
+  },
+  {
+   "at": "2026-10-22T23:40:16",
+   "kind": "drill",
+   "chain": "3-A",
+   "q": 1,
+   "secs": 63,
+   "need": [
+    0,
+    1
+   ],
+   "extra": [
+    0
+   ],
+   "talked": 0,
+   "note": "실제로 요청을 보내고 나서 응답이 오는 시점과 set되는 시점이 다르기 때문입니다.\nset은 비동기기 때문"
+  },
+  {
+   "at": "2026-10-22T23:41:38",
+   "kind": "drill",
+   "chain": "3-A",
+   "q": 2,
+   "secs": 16,
+   "need": [
+    0,
+    0,
+    0
+   ],
+   "extra": [
+    0
+   ],
+   "talked": 0,
+   "note": ""
+  },
+  {
+   "at": "2026-10-22T23:42:06",
+   "kind": "drill",
+   "chain": "3-A",
+   "q": 3,
+   "secs": 9,
+   "need": [
+    0,
+    0
+   ],
+   "extra": [
+    0,
+    0
+   ],
+   "talked": 0,
+   "note": "catch입니다."
+  },
+  {
+   "at": "2026-10-22T23:43:02",
+   "kind": "drill",
+   "chain": "3-A",
+   "q": 4,
+   "secs": 36,
+   "need": [
+    0,
+    0
+   ],
+   "extra": [
+    0,
+    0
+   ],
+   "talked": 0,
+   "note": "useEffect 안에서 React Query를 사용하는 것은 지양해야하기 때문에 effect 밖에서 사용해야합니다."
+  },
+  {
+   "at": "2026-10-22T23:43:02",
+   "kind": "chain",
+   "chain": "3-A",
+   "result": "stuck"
+  },
+  {
+   "at": "2026-10-22T23:45:34",
+   "kind": "drill",
+   "chain": "7-A",
+   "q": 1,
+   "secs": 96,
+   "need": [
+    0,
+    0
+   ],
+   "extra": [
+    0
+   ],
+   "talked": 0,
+   "note": "아뇨 둘 필요가 없습니다. filter대신 query내에서 데이터 필터링이 가능하기 때문에 해당 결과로 나온 리턴값을 매핑시키면 됩니다."
+  },
+  {
+   "at": "2026-10-22T23:47:26",
+   "kind": "drill",
+   "chain": "7-A",
+   "q": 2,
+   "secs": 28,
+   "need": [
+    0,
+    0
+   ],
+   "extra": [
+    0,
+    0
+   ],
+   "talked": 0,
+   "note": "query에서 페이지네이션을 요청합니다."
+  },
+  {
+   "at": "2026-10-22T23:48:58",
+   "kind": "drill",
+   "chain": "7-A",
+   "q": 3,
+   "secs": 29,
+   "need": [
+    0,
+    0
+   ],
+   "extra": [
+    0
+   ],
+   "talked": 0,
+   "note": "products 내부의 값이 바뀔 때 사용해야합니다."
+  },
+  {
+   "at": "2026-10-22T23:50:31",
+   "kind": "drill",
+   "chain": "7-A",
+   "q": 4,
+   "secs": 31,
+   "need": [
+    0,
+    0
+   ],
+   "extra": [
+    0
+   ],
+   "talked": 1,
+   "note": "effect가 실행될 때 한번, query에서 요청값이 들어와 visible이 set될 때 한 번 입니다."
+  },
+  {
+   "at": "2026-10-22T23:51:28",
+   "kind": "drill",
+   "chain": "7-A",
+   "q": 5,
+   "secs": 30,
+   "need": [
+    0,
+    0
+   ],
+   "extra": [
+    0,
+    0
+   ],
+   "talked": 0,
+   "note": "useref로 막으면 서버에서 값이 변경됐을 때 align이 맞지 않는 현상이 발생합니다."
+  },
+  {
+   "at": "2026-10-22T23:51:28",
+   "kind": "chain",
+   "chain": "7-A",
+   "result": "stuck"
+  },
+  {
+   "at": "2026-10-22T23:51:36",
+   "kind": "learn",
+   "page": "l21"
+  },
+  {
+   "at": "2026-10-22T23:51:54",
+   "kind": "learn",
+   "page": "l01"
+  }
+ ]
+}
