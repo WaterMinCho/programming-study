@@ -26,17 +26,41 @@
 </g>
 <g data-subject="web"><rect x="24" y="429" width="508" height="279" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="40" y="458" font-size="18" font-weight="700" fill="#0f172a">웹 면접 준비</text>
-<text x="392" y="458" font-size="15" font-weight="600" fill="#64748b">제출 기록 없음</text>
+<text x="392" y="458" font-size="15" font-weight="600" fill="#2563eb">제출 기록 있음</text>
 <text x="40" y="479" font-size="13" font-weight="400" fill="#64748b">제출된 파일</text>
-<text x="40" y="507" font-size="15" font-weight="400" fill="#64748b">제출본에서 집계할 기록을 찾지 못했습니다.</text>
-<text x="40" y="654" font-size="14" font-weight="400" fill="#64748b">학습 중인 기기의 기록을 확인하세요.</text>
+<text x="40" y="505" font-size="15" font-weight="400" fill="#334155">열어 본 노트 4/7개</text>
+<title>연 기록이 있는 공개 학습 페이지를 한 번씩 셉니다.</title>
+<text x="40" y="526" font-size="15" font-weight="400" fill="#334155">완료 상태 미션 0/2개</text>
+<title>미션별 마지막 시도의 상태가 끝남인 미션을 셉니다. 다시 받으면 새 시도의 상태를 따릅니다.</title>
+<text x="40" y="547" font-size="15" font-weight="400" fill="#334155">풀이한 사슬 2/13개</text>
+<title>끝까지 답하고 판정을 남긴 공개 말하기 사슬을 한 번씩 셉니다. 통과 여부와 구분합니다.</title>
+<text x="40" y="568" font-size="15" font-weight="400" fill="#334155">미션 검사 0회</text>
+<title>제출 기록에 남은 미션 검사 횟수를 셉니다.</title>
+<text x="40" y="589" font-size="15" font-weight="400" fill="#334155">말하기 응답 9회</text>
+<title>제출 기록에 남은 사슬 질문별 응답을 셉니다. 로컬 경력 답변은 읽지 않습니다.</title>
+<text x="40" y="610" font-size="15" font-weight="400" fill="#334155">복습할 사슬 2개</text>
+<title>이미 푼 사슬 중 복습 날짜가 오늘이거나 지났고 지금 열려 있는 사슬을 셉니다.</title>
+<text x="40" y="654" font-size="14" font-weight="400" fill="#2563eb">3-A 사슬을 복습하세요.</text>
 </g>
 <g data-subject="ai"><rect x="548" y="429" width="508" height="279" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="564" y="458" font-size="18" font-weight="700" fill="#0f172a">AI 비전 개론</text>
-<text x="916" y="458" font-size="15" font-weight="600" fill="#64748b">제출 기록 없음</text>
+<text x="916" y="458" font-size="15" font-weight="600" fill="#2563eb">제출 기록 있음</text>
 <text x="564" y="479" font-size="13" font-weight="400" fill="#64748b">제출된 파일</text>
-<text x="564" y="507" font-size="15" font-weight="400" fill="#64748b">제출본에서 집계할 기록을 찾지 못했습니다.</text>
-<text x="564" y="654" font-size="14" font-weight="400" fill="#64748b">학습 중인 기기의 기록을 확인하세요.</text>
+<text x="564" y="505" font-size="15" font-weight="400" fill="#334155">끝까지 연 단원 3/125개</text>
+<title>마지막 단계까지 연 기록이 있는 공개 단원을 한 번씩 셉니다.</title>
+<text x="564" y="526" font-size="15" font-weight="400" fill="#334155">답한 문항 13/986개</text>
+<title>답을 판정한 공개 연습 문항을 한 번씩 셉니다. 보기나 함께 가린 칸에서 판정한 문장도 포함합니다.</title>
+<text x="564" y="547" font-size="15" font-weight="400" fill="#334155">직접 응답 27회</text>
+<title>연습 문항에 직접 답한 기록을 셉니다. 보기의 동반 판정이나 정답 인정 요청은 별도 응답으로 더하지 않습니다.</title>
+<text x="564" y="568" font-size="15" font-weight="400" fill="#334155">반복 응답 14회</text>
+<title>같은 연습 문항에 두 번째 이후로 직접 답한 기록을 셉니다.</title>
+<text x="564" y="589" font-size="15" font-weight="400" fill="#334155">노트 확인 물음 11회</text>
+<title>노트의 떠올리기·세 수준 확인 물음·돌려 가며 빈칸에 답한 기록을 셉니다.</title>
+<text x="564" y="610" font-size="15" font-weight="400" fill="#334155">노트 다시 보기 0회</text>
+<title>공개 단원을 다시 보기로 연 기록을 셉니다. 같은 단원을 여러 번 열면 각각 셉니다.</title>
+<text x="564" y="631" font-size="15" font-weight="400" fill="#334155">복습할 문항 13개</text>
+<title>학습일과 기존 복습 규칙으로 정한 오늘 복습 목록의 공개 문항을 셉니다. 학습일은 새벽 4시에 바뀝니다.</title>
+<text x="564" y="654" font-size="14" font-weight="400" fill="#2563eb">i01/1c 단원을 읽어 보세요.</text>
 </g>
 <text x="24" y="733" font-size="20" font-weight="700" fill="#0f172a">kimjs85529-a11y</text>
 <g data-subject="python"><rect x="24" y="752" width="508" height="279" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
