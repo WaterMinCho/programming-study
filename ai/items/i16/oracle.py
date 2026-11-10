@@ -54,3 +54,25 @@ def i16_g04(p):
 
 def i16_g05(p):
     return [str(g05_conv_parameters(p['ci'],p['co'],p['k'],p['bias']))]
+
+
+def i16_g06(p):
+    side = int(p["side"])
+    channels = int(p["channels"])
+    form = p["form"]
+    if side not in (24, 32, 40, 48, 56):
+        raise ValueError("side must be one of 24, 32, 40, 48, 56")
+    if channels <= 0:
+        raise ValueError("channels must be positive")
+    s = side
+    for _ in range(3):
+        s = s // 2
+    feat = s * s * channels
+    if form == "features":
+        return [str(feat)]
+    if form == "linear":
+        hidden = int(p["hidden"])
+        if hidden <= 0:
+            raise ValueError("hidden must be positive")
+        return [str(feat * hidden + hidden)]
+    raise ValueError("form must be features or linear")

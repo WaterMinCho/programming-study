@@ -21,7 +21,8 @@
     "16c": "활성화와 풀링을 거쳐 남은 공간을 셉니다",
     "16d": "직접 만든 특징 추출기를 분류기에 연결합니다",
     "16e": "층별 파라미터 수에서 큰 항목을 찾습니다",
-    "16f": "모양과 평가 조건을 작은 검사로 확인합니다"
+    "16f": "모양과 평가 조건을 작은 검사로 확인합니다",
+    "16g": "새 숫자 이미지에 맞춰 CNN과 실험 조건을 점검합니다"
   },
   "outputs": [],
   "sources": [
@@ -64,6 +65,31 @@
       "what": "AvgPool2d의 고정 창 평균과 출력 크기",
       "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.AvgPool2d.html",
       "checked": "2026-11-05"
+    },
+    {
+      "what": "Module의 모듈 목록·forward hook·해제",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html",
+      "checked": "2026-11-10"
+    },
+    {
+      "what": "학습·평가 모드의 Dropout",
+      "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Dropout.html",
+      "checked": "2026-11-10"
+    },
+    {
+      "what": "네 변의 padding과 자르기",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomCrop.html",
+      "checked": "2026-11-10"
+    },
+    {
+      "what": "SVHN 클래스와 라벨",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.datasets.SVHN.html",
+      "checked": "2026-11-10"
+    },
+    {
+      "what": "검증 선택과 최종 테스트 분리",
+      "url": "https://scikit-learn.org/stable/modules/cross_validation.html",
+      "checked": "2026-11-10"
     }
   ],
   "credits": [],
@@ -96,6 +122,11 @@
     "16f": {
       "minutes": 6,
       "key_figure": "assets/16f-1.png",
+      "kind": "code"
+    },
+    "16g": {
+      "minutes": 8,
+      "key_figure": "assets/16g-1.png",
       "kind": "code"
     }
   }

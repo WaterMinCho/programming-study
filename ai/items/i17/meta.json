@@ -46,6 +46,15 @@
         "i17-g04"
       ],
       "core": 3
+    },
+    "17f": {
+      "blank": 3,
+      "choice": 2,
+      "stmt": 8,
+      "gen": [
+        "i17-g05"
+      ],
+      "core": 4
     }
   },
   "sources": []

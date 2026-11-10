@@ -40,8 +40,8 @@
   {"id": "i13", "no": 13, "title": "13차시 사전학습한 특징을 새 분류에 사용합니다", "page": "l13", "date": "2026-11-04", "weight": 0.8, "units": 7, "hw_due": null},
   {"id": "i14", "no": 14, "title": "14차시 학습할 범위와 실행 조건을 맞춥니다", "page": "l14", "date": "2026-11-05", "weight": 0.8, "units": 8, "hw_due": null},
   {"id": "i15", "no": 15, "title": "15차시 이미지 파일을 학습 배치로 연결합니다", "page": "l15", "date": "2026-11-06", "weight": 0.6, "units": 5, "hw_due": null},
-  {"id": "i16", "no": 16, "title": "16차시 작은 CNN을 만들며 모양과 수를 검산합니다", "page": "l16", "date": "2026-11-09", "weight": 0.8, "units": 6, "hw_due": null},
-  {"id": "i17", "no": 17, "title": "17차시 토큰에서 문장 분류까지 연결합니다", "page": "l17", "date": "2026-11-10", "weight": 0.2, "units": 5, "hw_due": null}
+  {"id": "i16", "no": 16, "title": "16차시 작은 CNN을 만들며 모양과 수를 검산합니다", "page": "l16", "date": "2026-11-09", "weight": 0.8, "units": 7, "hw_due": null},
+  {"id": "i17", "no": 17, "title": "17차시 토큰에서 문장 분류까지 연결합니다", "page": "l17", "date": "2026-11-10", "weight": 0.2, "units": 6, "hw_due": null}
  ],
  "patterns": [
   {"id": "pc", "page": "l18", "title": "상황별 코드", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}}

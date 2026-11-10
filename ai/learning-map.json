@@ -460,6 +460,11 @@
    "predict",
    "evaluate"
   ],
+  "16g": [
+   "data",
+   "predict",
+   "evaluate"
+  ],
   "17a": [
    "data"
   ],
@@ -477,6 +482,14 @@
   "17e": [
    "data",
    "predict"
+  ],
+  "17f": [
+   "data",
+   "predict",
+   "loss",
+   "gradient",
+   "update",
+   "evaluate"
   ],
   "18a": [
    "data",

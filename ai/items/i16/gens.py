@@ -37,3 +37,25 @@ def parameters(r):
     """groups=1인 Conv의 bias 포함 여부를 지문에 지정함."""
     ci=r.int(1,16);co=r.int(2,32);k=r.pick([1,3,5]);bias=r.pick([True,False]);ans=ci*co*k*k+(co if bias else 0)
     return blank(stem=f'Conv2d({ci},{co},kernel_size={k},groups=1,bias={bias})의 학습 파라미터 수는 ____ 개입니다. 입력 높이와 너비는 충분히 크다고 가정합니다.',blanks=[{'answer':[str(ans)],'mode':'number','unit':'개'}],explain=f'weight {ci*co*k*k}개와 bias {co if bias else 0}개를 합하면 {ans}개입니다.',params=dict(ci=ci,co=co,k=k,bias=bias))
+
+
+@gen('i16-g06', unit='16g', tags=['SVHN CNN'], ref=['16차시 노트북 02 [11]'], facts=['F16-701', 'F16-702'],
+     step='16g/2', basis='lecture-formula', family='three-pool-classifier')
+def svhn_classifier(r):
+    """공간 유지 Conv와 세 번의 풀링 뒤 특징 수 또는 첫 Linear 원소 수를 계산함."""
+    side = r.pick([24, 32, 40, 48, 56])
+    channels = r.pick([32, 64, 96, 128])
+    hidden = r.pick([64, 128, 256, 512])
+    form = r.pick(['features', 'linear'])
+    width = side // 8
+    features = channels * width * width
+    answer = features if form == 'features' else (features + 1) * hidden
+    condition = (f'입력 공간은 {side}×{side}입니다. 공간을 유지하는 Conv 뒤에 padding=0, ceil_mode=False인 '
+                 f'MaxPool2d(2,2)를 세 번 적용하고 마지막 채널 수는 {channels}입니다. ')
+    question = ('이미지 하나의 Flatten 길이' if form == 'features' else
+                f'펼친 특징을 받는 첫 Linear의 출력 수가 {hidden}일 때 bias 포함 파라미터 수')
+    return blank(stem=condition + question + '는 ____ 입니다.',
+                 blanks=[{'answer': [str(answer)], 'mode': 'number'}],
+                 explain=f'공간 한 변은 {width}, 특징 수는 {channels}×{width}×{width}={features}입니다. '
+                         + (f'첫 Linear는 {features}×{hidden}+{hidden}={answer}개입니다.' if form == 'linear' else '배치 수는 곱하지 않습니다.'),
+                 params=dict(side=side, channels=channels, hidden=hidden, form=form))
