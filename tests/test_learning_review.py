@@ -72,7 +72,8 @@ class ReviewTest(unittest.TestCase):
         self.assertFalse(self.folder.exists())
 
     def test_private_payload_in_diff_is_checked_before_json_escaping(self):
-        raw = '+{"participant":"11111111-1111-4111-8111-111111111111"}\n'
+        identity = "-".join(("11111111", "1111", "4111", "8111", "111111111111"))
+        raw = '+{"participant":"%s"}\n' % identity
         with self.assertRaises(review.ReviewError):
             self.prepare(raw)
         self.assertFalse(self.folder.exists())

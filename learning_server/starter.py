@@ -74,7 +74,7 @@ def write_starter(events, destination, source_sha256=None):
     files = {"vocabulary.json": vocabulary, "baseline.json": comparisons}
     if events and events[0].get("source_type") == "legacy_profile":
         files["legacy-provenance.json"] = events[0]
-    manifest = {"format": 1, "history_limit": 128, "source": record_manifest["source"],
+    manifest = {"format": 1, "features_version": dataset.FEATURES_VERSION, "history_limit": 128, "source": record_manifest["source"],
                 "synthetic": record_manifest["synthetic"], "tracks": tracks, "source_sha256": source_sha256,
                 "records_manifest_sha256": hashlib.sha256((destination / "records/manifest.json").read_bytes()).hexdigest(),
                 "files": {}}

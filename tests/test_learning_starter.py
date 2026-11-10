@@ -2,6 +2,7 @@
 """기존 기록의 누락·시각 가정과 공통 입력의 미래 정보 배제를 확인함."""
 import copy
 import datetime
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -60,6 +61,39 @@ class StarterTest(unittest.TestCase):
         events[2]["data"]["prediction_at"] = override["at"]
         row = dataset.prepare(events[:2] + [override, events[2]])[-1]
         self.assertEqual(0, row["features"]["observed_history"]["demo"]["overrides"])
+
+    def test_batch_labels_are_available_only_after_whole_batch_is_released(self):
+        events = [copy.deepcopy(dataset.synthetic_events()[0]) for _ in range(5)]
+        for n, row in enumerate(events):
+            row.update(sequence=n+1, event_id="event-%d" % n, at="2026-01-01T10:%02d:00+00:00" % n)
+        events[0].update(kind="batch_start", data={"batch": "b", "set": "r"})
+        for row in (events[1], events[3]):
+            row["data"].update(batch="b", set="r", prediction_at=events[0]["at"])
+        events[2]["data"].update(set="other", prediction_at=events[2]["at"])
+        events[4]["data"].update(set="after", prediction_at=events[2]["at"])
+        rows = dataset.prepare(events)
+        self.assertEqual(0, rows[-1]["features"]["observed_history"]["demo"]["attempts"])
+        self.assertEqual([], rows[-1]["features"]["sequence_history"])
+        events[-1]["data"]["prediction_at"] = events[-1]["at"]
+        row = dataset.prepare(events)[-1]
+        self.assertEqual(3, row["features"]["observed_history"]["demo"]["attempts"])
+        self.assertEqual(events[3]["at"], row["features"]["observed_history"]["demo"]["last_at"])
+
+    def test_old_feature_bundle_is_rejected_even_when_its_hashes_match(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "starter"
+            starter.write_starter(dataset.synthetic_events(), root)
+            record_path = root / "records/manifest.json"
+            records = json.loads(record_path.read_text())
+            records.pop("features_version")
+            record_path.write_text(json.dumps(records), encoding="utf-8")
+            manifest_path = root / "manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            manifest.pop("features_version")
+            manifest["records_manifest_sha256"] = hashlib.sha256(record_path.read_bytes()).hexdigest()
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "이전 이력 집계"):
+                input_example.load(root, "python", "train")
 
     def test_shared_files_roundtrip_unknown_tokens_padding_and_tamper(self):
         events = dataset.synthetic_events()

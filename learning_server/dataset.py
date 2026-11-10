@@ -11,6 +11,8 @@ from collections import deque
 
 from aiprep.collection import inside, packed
 
+FEATURES_VERSION = 2
+
 
 def source_events(events, synthetic=None):
     """입력의 출처 표시를 유지하고 서로 다른 출처의 혼합을 거절함."""
@@ -80,7 +82,7 @@ def prepare(events, synthetic=None):
             tags = observed.get(answer_key(row), [])
             for tag in tags:
                 prior[tag]["overrides"] += 1
-            released.append((tags, None, row["at"], None))
+            released.append((tags, None, row["at"], None, row["at"]))
             continue
         if not eligible(row):
             continue
@@ -99,18 +101,20 @@ def prepare(events, synthetic=None):
             if cutoff.tzinfo is None or cutoff > at:
                 raise ValueError("예측 시점의 시각과 시간대를 확인해 주세요.")
             available = released[:group_history_lengths.get(mock_key(row), 0)] if is_mock else released
-            available = [past for past in available if datetime.datetime.fromisoformat(past[2]) < cutoff]
+            available = [past for past in available if datetime.datetime.fromisoformat(past[4]) < cutoff]
             sequence_before = [past[3] for past in available if past[3] is not None][-128:]
             if before is not None:
                 before = {tag: dict(blank) for tag in tags}
-                for past_tags, result, at, _ in available:
+                for past_tags, result, answered_at, _, _ in available:
                     for tag in set(past_tags) & set(tags):
                         if result is None:
                             before[tag]["overrides"] += 1
                         else:
                             before[tag]["attempts"] += 1
                             before[tag]["correct"] += result
-                            before[tag]["last_at"] = at
+                            previous_at = before[tag]["last_at"]
+                            if previous_at is None or datetime.datetime.fromisoformat(answered_at) > datetime.datetime.fromisoformat(previous_at):
+                                before[tag]["last_at"] = answered_at
         target = int(data["result"] in ("pass", "ok"))
         if answer_key(row) not in corrected and before is not None:
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
@@ -131,13 +135,14 @@ def prepare(events, synthetic=None):
             pending.setdefault(mock_key(row), []).extend(updates)
             updates = pending.pop(mock_key(row)) if row["sequence"] == mock_last[mock_key(row)] else []
         for update_tags, update_target, update_at, entry in updates:
-            released.append((update_tags, update_target, update_at, entry))
+            released.append((update_tags, update_target, update_at, entry, row["at"]))
             sequence.append(entry)
             for tag in update_tags:
                 current = prior.setdefault(tag, dict(blank))
                 current["attempts"] += 1
                 current["correct"] += update_target
-                current["last_at"] = update_at
+                if current["last_at"] is None or datetime.datetime.fromisoformat(update_at) > datetime.datetime.fromisoformat(current["last_at"]):
+                    current["last_at"] = update_at
     return output
 
 def split(records):
@@ -204,7 +209,7 @@ def write_dataset(events, destination, synthetic=None, source_sha256=None):
     if not parts:
         raise ValueError("사용할 첫 시도 답안이 없습니다.")
     os.mkdir(destination, mode=0o700)
-    manifest = {"format": 1, "synthetic": records[0]["synthetic"], "source": records[0]["data_source"],
+    manifest = {"format": 1, "features_version": FEATURES_VERSION, "synthetic": records[0]["synthetic"], "source": records[0]["data_source"],
                 "source_sha256": source_sha256, "eligible_rows": len(records),
                 "excluded_split_rows": len(records) - sum(len(rows) for groups in parts.values() for rows in groups.values()),
                 "files": {}}
