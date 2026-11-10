@@ -3,6 +3,7 @@
 import argparse
 import sqlite3
 
+from aiprep.collection import CollectionError, packed
 from learning_server.app import Database, application
 
 
@@ -13,18 +14,45 @@ def main():
     serve = sub.add_parser("serve")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
+    serve.add_argument("--production", action="store_true", help="Waitress로 운영용 서버를 실행합니다.")
     invite = sub.add_parser("invite")
     invite.add_argument("--count", type=int, default=1)
     invite.add_argument("--days", type=int, default=7)
     export = sub.add_parser("export")
     export.add_argument("--out", required=True)
     export.add_argument("--include-answers", action="store_true")
+    pilot = sub.add_parser("pilot", help="네 명에게 과목별 개인 초대를 파일로 발급합니다.")
+    pilot.add_argument("--url", required=True, help="참가자가 접속할 HTTPS 주소")
+    pilot.add_argument("--out", required=True, help="저장소와 데이터 폴더 밖의 새 폴더")
+    pilot.add_argument("--days", type=int, default=7)
+    sub.add_parser("status", help="기존 DB의 무결성과 과목별 기록 수를 확인합니다.")
+    backup = sub.add_parser("backup", help="기존 DB와 인증 키를 함께 백업합니다.")
+    backup.add_argument("--out", required=True)
+    restore = sub.add_parser("restore", help="검증한 백업을 새 폴더에 복구합니다.")
+    restore.add_argument("--from", dest="source", required=True)
+    restore.add_argument("--out", required=True)
+    check = sub.add_parser("check", help="참가자가 쓰는 주소로 서버 상태를 확인합니다.")
+    check.add_argument("--url", required=True)
     cohorts = sub.add_parser("cohorts", help="희망 직무별 풀이 경향을 비공개로 집계합니다.")
     cohorts.add_argument("--input", help="내보낸 JSONL 파일")
     cohorts.add_argument("--out", required=True, help="원본·저장소 밖의 새 폴더")
     cohorts.add_argument("--synthetic", action="store_true", help="합성 입력임을 명시합니다.")
     args = parser.parse_args()
     try:
+        if args.command in ("check", "restore", "status", "backup"):
+            from learning_server import operations
+            if args.command == "check":
+                result = operations.check(args.url)
+            elif args.command == "restore":
+                result = operations.restore(args.source, args.out)
+            elif not args.db:
+                raise ValueError("기존 서버 데이터 파일을 --db로 지정해 주세요.")
+            elif args.command == "status":
+                result = operations.status(args.db)
+            else:
+                result = operations.backup(args.db, args.out)
+            print(packed(result))
+            return
         if args.command == "cohorts":
             from learning_server.cohorts import export as export_cohorts
             if bool(args.input) == bool(args.db):
@@ -41,12 +69,24 @@ def main():
         elif args.command == "export":
             result = db.export(args.out, include_answers=args.include_answers)
             print("학습용 파일을 다시 읽어 %d건을 확인했습니다. %s\nSHA-256: %s" % (result["events"], args.out, result["sha256"]))
+        elif args.command == "pilot":
+            from learning_server.operations import pilot
+            pilot(db, args.out, args.url, args.days)
+            print("네 명의 개인 초대 파일을 저장하고 다시 읽어 확인했습니다. 초대 코드는 화면에 출력하지 않습니다.")
+        elif args.production:
+            try:
+                from waitress import serve
+            except ImportError:
+                raise ValueError("learning_server/requirements.txt의 운영 패키지를 먼저 설치해 주세요.") from None
+            print("운영용 수집 서버를 시작했습니다. 외부 연결은 HTTPS 프록시에서 처리해 주세요.")
+            serve(application(db), host=args.host, port=args.port, threads=4,
+                  max_request_body_size=1024 * 1024, channel_timeout=30, expose_tracebacks=False)
         else:
             from wsgiref.simple_server import make_server
             with make_server(args.host, args.port, application(db)) as server:
                 print("개발용 수집 서버를 시작했습니다. 종료하려면 Ctrl+C를 누르세요.")
                 server.serve_forever()
-    except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
+    except (OSError, ValueError, KeyError, TypeError, sqlite3.Error, CollectionError) as error:
         parser.exit(1, "오류: %s\n" % error)
 
 

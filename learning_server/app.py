@@ -34,7 +34,7 @@ class Database:
         if inside(path, REPOSITORY):
             raise ValueError("수집 서버의 데이터 파일은 공개 저장소 밖에 지정해 주세요.")
         self.path = os.path.abspath(path)
-        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.path).parent.mkdir(parents=True, mode=0o700, exist_ok=True)
         keyfile = self.path + ".key"
         try:
             fd = os.open(keyfile, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -81,6 +81,10 @@ class Database:
         with self.connect() as db:
             db.executemany("INSERT INTO invites VALUES (?, ?, NULL)", [(hashed(code), expires) for code in codes])
         return codes
+
+    def health(self):
+        with contextlib.closing(sqlite3.connect(Path(self.path).as_uri() + "?mode=ro", uri=True)) as db:
+            db.execute("SELECT 1 FROM participants LIMIT 1").fetchone()
 
     def enroll(self, data):
         participant = identifier(data.get("participant"))
@@ -214,6 +218,7 @@ def application(database):
         try:
             method, path = environ.get("REQUEST_METHOD"), environ.get("PATH_INFO")
             if method == "GET" and path == "/health":
+                database.health()
                 result = {"status": "ok", "format": FORMAT}
             elif method == "POST" and path in ("/v1/enroll", "/v1/events"):
                 length = int(environ.get("CONTENT_LENGTH") or 0)
