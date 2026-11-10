@@ -4,14 +4,20 @@
 
 ## 외부 무료 호스팅을 고릅니다
 
-2026년 11월 10일에 확인한 조건입니다.
+2026년 11월 10일에 확인한 조건입니다. 이번 네 명의 시범 운영은 PythonAnywhere Beginner로 선택합니다. 기존 Python 서버와 로컬 SQLite 파일을 유지하며 월 0달러 플랜을 쓸 수 있는 점을 우선했습니다. 계정 생성·배포와 실제 전송 결과는 아직 확인하지 않았습니다.
 
 | 서비스 | 기존 서버를 배포할 때 확인한 내용 | 시범 운영 판단 |
 |---|---|---|
-| PythonAnywhere Beginner | 월 0달러, 웹앱 1개·작업자 1개, 개인 파일 공간 512MiB, HTTPS 지원, 무료 웹앱 만료 기간 1개월 | 기존 WSGI 서버와 SQLite를 연결할 후보입니다. 월별 연장과 파일 백업이 필요합니다. |
+| PythonAnywhere Beginner | 월 0달러, 웹앱 1개·작업자 1개, 개인 파일 공간 512MiB, HTTPS 지원, 무료 웹앱 만료 기간 1개월 | 네 명의 시범 운영에 선택합니다. 월별 연장과 파일 백업이 필요합니다. |
 | Render Free | 로컬 파일을 재배포·재시작·유휴 종료 때 잃으며 무료 영구 디스크를 제공하지 않습니다. 무료 Postgres도 생성 후 30일에 만료됩니다. | 현재 SQLite 서버의 풀이 보관 장소로 사용하지 않습니다. |
+| Koyeb Free | 무료 인스턴스에는 영구 저장 볼륨을 붙일 수 없습니다. | 현재 SQLite 파일을 보관할 대상으로 선택하지 않습니다. |
+| Railway Free | 최초 체험 후 월 1달러 크레딧과 볼륨 최대 0.5GB를 제공합니다. 체험 중 만든 볼륨에는 크레딧 만료 후 삭제 조건도 있습니다. | 계속 무료로 유지할 수 있는지는 실제 사용량과 볼륨 보존 조건을 더 확인해야 하므로 이번에는 선택하지 않습니다. |
+| Oracle Always Free | 무료 VM과 블록 저장소를 제공하지만 가입 시 카드 인증이 필요합니다. 유휴 인스턴스 회수와 무료 VM 용량 부족 조건이 있습니다. | 서버·HTTPS를 직접 관리하는 부담까지 고려해 이번 시범 운영에서는 제외합니다. |
+| Cloudflare Workers·D1 Free | D1은 전체 5GB, 하루 읽기 500만 행·쓰기 10만 행 한도가 있으며 초과하면 쿼리를 거절합니다. | 현재 파일 DB 코드를 D1 연결로 바꿔야 합니다. 이번에는 기존 서버로 시작하며 별도 이전 작업은 추가하지 않습니다. |
 
 근거는 [PythonAnywhere 요금](https://www.pythonanywhere.com/pricing/), [무료 계정 기능](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/), [Render 무료 제한](https://render.com/docs/free)입니다. PythonAnywhere의 100 CPU초는 콘솔·작업에 적용하며 웹앱 요청의 실행 한도와 구분합니다. 새 무료 계정에는 예약 작업이 없으므로 자동 백업을 등록했다고 안내하지 않습니다.
+
+추가 비교는 [Koyeb 무료 인스턴스](https://www.koyeb.com/docs/reference/instances#free-instances), [Railway 무료 플랜](https://docs.railway.com/pricing/plans)과 [체험 자료 보존 조건](https://docs.railway.com/pricing/free-trial), [Oracle 무료 자원](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)과 [가입 조건](https://www.oracle.com/cloud/free/faq/), [D1 무료 한도](https://developers.cloudflare.com/d1/platform/pricing/)를 대조했습니다. D1 연결 변경과 서버 관리 부담은 현재 코드·운영 절차를 대조한 선택 판단입니다. 각 서비스에서 실제 수강생 전송을 시험했다는 뜻은 아닙니다.
 
 PythonAnywhere는 파일을 보존하지만 네트워크 파일 시스템을 사용합니다. 운영사는 [SQLite의 간헐적 잠금과 운영 서비스 사용 제한](https://www.pythonanywhere.com/forums/topic/35474/)을 안내했습니다. 이 후보에서는 네 명의 전송·재전송·복구를 먼저 확인하고, 문제가 반복되면 영구 저장소가 있는 다른 서버나 별도 DB를 검토합니다. 앱은 전송에 실패해도 로컬 기록을 보존합니다. 아직 다른 수강생에게 배포하거나 수집 성능을 측정한 결과는 없습니다.
 
