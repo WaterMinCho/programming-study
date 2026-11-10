@@ -3,6 +3,7 @@
 from PyQt6.QtCore import QEvent, QPoint, QSignalBlocker, QSize, Qt
 from PyQt6.QtWidgets import QApplication, QComboBox, QFrame, QGridLayout, QLayout, QScrollArea, QSizePolicy, QWidget
 
+import study
 from gui import kit, theme
 
 SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home"),
@@ -156,6 +157,7 @@ class Workspace(QWidget):
     def __init__(self, win, pages):
         super().__init__()
         self.win, self.pages = win, pages
+        self.subjects = tuple(row for row in SUBJECTS if row[0] == "hub" or row[0] in study.ENTRY_TRACKS)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.overview_pages = (win.hub, win.home, win.journey_map, win.web_home, win.ai_home, win.ai_lesson)
         self.submission_pages = (*self.overview_pages, win.result_page)
@@ -171,7 +173,7 @@ class Workspace(QWidget):
         nav.addSpacing(32)
         nav.addWidget(kit.label("내 공부", "caption", "tertiary"))
         self.buttons = {}
-        for tid, title, action in SUBJECTS:
+        for tid, title, action in self.subjects:
             button = kit.button(title, "text", "l")
             button.setProperty("navigation", True)
             button.setCheckable(True)
@@ -186,7 +188,7 @@ class Workspace(QWidget):
         self.compact = QComboBox()
         self.compact.setObjectName("subject_picker")
         self.compact.setAccessibleName("학습 과목 이동")
-        for tid, title, action in SUBJECTS:
+        for tid, title, action in self.subjects:
             self.compact.addItem(title, action)
         self.compact.setMinimumHeight(48)
         self.compact.activated.connect(lambda index: self.navigate(self.compact.itemData(index)))
@@ -226,7 +228,7 @@ class Workspace(QWidget):
         overview = self.pages.currentWidget() in self.overview_pages
         self.rail.setVisible(started and overview and self.width() >= 1120)
         self.compact.setVisible(started and overview and self.width() < 1120)
-        for index, (tid, _, _) in enumerate(SUBJECTS):
+        for index, (tid, _, _) in enumerate(self.subjects):
             self.buttons[tid].setChecked(self.win.area == tid)
             if self.win.area == tid:
                 blocker = QSignalBlocker(self.compact)

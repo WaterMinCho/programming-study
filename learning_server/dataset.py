@@ -57,6 +57,7 @@ def prepare(events, synthetic=None):
             mock_last[mock_key(row)] = row["sequence"]
     history, moments, observed, mock_before, pending, output = {}, {}, {}, {}, {}, []
     sequences, group_sequences = {}, {}
+    released_history, group_history_lengths = {}, {}
     blank = {"attempts": 0, "correct": 0, "last_at": None, "overrides": 0}
     for row in events:
         data, item = row["data"], row.get("item") or {}
@@ -69,13 +70,17 @@ def prepare(events, synthetic=None):
         moments[key] = at
         prior = history.setdefault(key, {})
         sequence = sequences.setdefault(key, deque(maxlen=128))
+        released = released_history.setdefault(key, [])
         if row["kind"] in ("mock_start", "mock_question_returned", "batch_start"):
             mock_before.setdefault(mock_key(row), {tag: dict(value) for tag, value in prior.items()})
             group_sequences.setdefault(mock_key(row), list(sequence))
+            group_history_lengths.setdefault(mock_key(row), len(released))
             continue
         if row["kind"] == "override":
-            for tag in observed.get(answer_key(row), []):
+            tags = observed.get(answer_key(row), [])
+            for tag in tags:
                 prior[tag]["overrides"] += 1
+            released.append((tags, None, row["at"], None))
             continue
         if not eligible(row):
             continue
@@ -93,14 +98,19 @@ def prepare(events, synthetic=None):
             cutoff = datetime.datetime.fromisoformat(prediction_at)
             if cutoff.tzinfo is None or cutoff > at:
                 raise ValueError("예측 시점의 시각과 시간대를 확인해 주세요.")
-            sequence_before = [past for past in sequence_before if datetime.datetime.fromisoformat(past["at"]) < cutoff]
+            available = released[:group_history_lengths.get(mock_key(row), 0)] if is_mock else released
+            available = [past for past in available if datetime.datetime.fromisoformat(past[2]) < cutoff]
+            sequence_before = [past[3] for past in available if past[3] is not None][-128:]
             if before is not None:
                 before = {tag: dict(blank) for tag in tags}
-                for past in sequence_before:
-                    for tag in set(past["concepts"]) & set(tags):
-                        before[tag]["attempts"] += 1
-                        before[tag]["correct"] += past["result"]
-                        before[tag]["last_at"] = past["at"]
+                for past_tags, result, at, _ in available:
+                    for tag in set(past_tags) & set(tags):
+                        if result is None:
+                            before[tag]["overrides"] += 1
+                        else:
+                            before[tag]["attempts"] += 1
+                            before[tag]["correct"] += result
+                            before[tag]["last_at"] = at
         target = int(data["result"] in ("pass", "ok"))
         if answer_key(row) not in corrected and before is not None:
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
@@ -121,6 +131,7 @@ def prepare(events, synthetic=None):
             pending.setdefault(mock_key(row), []).extend(updates)
             updates = pending.pop(mock_key(row)) if row["sequence"] == mock_last[mock_key(row)] else []
         for update_tags, update_target, update_at, entry in updates:
+            released.append((update_tags, update_target, update_at, entry))
             sequence.append(entry)
             for tag in update_tags:
                 current = prior.setdefault(tag, dict(blank))

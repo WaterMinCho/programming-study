@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """기존 기록의 누락·시각 가정과 공통 입력의 미래 정보 배제를 확인함."""
 import copy
+import datetime
 import json
 from pathlib import Path
 import tempfile
@@ -29,6 +30,36 @@ class StarterTest(unittest.TestCase):
         row = dataset.prepare(events)[-1]
         self.assertEqual([events[0]["event_id"]], [past["event_id"] for past in row["features"]["sequence_history"]])
         self.assertEqual(1, row["features"]["observed_history"]["demo"]["attempts"])
+
+    def test_query_aggregate_keeps_older_concepts_beyond_model_history_limit(self):
+        template = dataset.synthetic_events()[0]
+        events = []
+        for n in range(132):
+            row = copy.deepcopy(template)
+            at = (datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc) + datetime.timedelta(minutes=n)).isoformat()
+            row.update(sequence=n+1, event_id="event-%d" % n, at=at)
+            row["item"]["tags"] = ["old"] if n in (0, 131) else ["other"]
+            row["data"].update(set="s%d" % n, prediction_at=at)
+            events.append(row)
+        row = dataset.prepare(events)[-1]
+        self.assertEqual(128, len(row["features"]["sequence_history"]))
+        self.assertEqual(1, row["features"]["observed_history"]["old"]["attempts"])
+        self.assertEqual(events[0]["at"], row["features"]["observed_history"]["old"]["last_at"])
+        events[-1]["data"]["prediction_at"] = events[2]["at"]
+        old_query = dataset.prepare(events)[-1]
+        self.assertEqual(["event-0", "event-1"], [past["event_id"] for past in old_query["features"]["sequence_history"]])
+
+    def test_query_cutoff_counts_only_already_revealed_overrides(self):
+        events = dataset.synthetic_events()[:3]
+        override = copy.deepcopy(events[0])
+        override.update(kind="override", sequence=3, at=events[1]["at"])
+        events[2]["sequence"] = 4
+        events[2]["data"]["prediction_at"] = events[2]["at"]
+        row = dataset.prepare(events[:2] + [override, events[2]])[-1]
+        self.assertEqual(1, row["features"]["observed_history"]["demo"]["overrides"])
+        events[2]["data"]["prediction_at"] = override["at"]
+        row = dataset.prepare(events[:2] + [override, events[2]])[-1]
+        self.assertEqual(0, row["features"]["observed_history"]["demo"]["overrides"])
 
     def test_shared_files_roundtrip_unknown_tokens_padding_and_tamper(self):
         events = dataset.synthetic_events()

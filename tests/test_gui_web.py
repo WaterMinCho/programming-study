@@ -105,6 +105,9 @@ def layout_height(dialog):
 
 class WebTest(unittest.TestCase):
     def setUp(self):
+        entries = mock.patch.object(study, "ENTRY_TRACKS", study.ENTRY_TRACKS + ("web",))
+        entries.start()
+        self.addCleanup(entries.stop)
         self.tmp = tempfile.mkdtemp(prefix="gui_web_")
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = os.path.join(self.tmp, "repo")

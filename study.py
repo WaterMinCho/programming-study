@@ -28,6 +28,11 @@ PROBLEMS_DIR = os.path.join(ROOT, "problems")
 SUBMISSIONS_DIR = os.path.join(ROOT, "submissions")
 USER_FILE = os.path.join(ROOT, ".study_user")
 
+ENTRY_TRACKS = (
+    "python", "journey", "ai",
+    # "web",  # 진입을 다시 열 때 복원하고 기본 숨김 상태 검사도 함께 갱신함.
+)
+
 PASS_RATIO = 0.8  # 세트 통과 기준(득점률)
 DEFAULT_TIMEOUT = 5  # 문제 1개(모든 테스트 합계)의 제한 시간(초)
 MEMORY_LIMIT_MB = 512  # 문제 1개를 채점하는 프로세스가 쓸 수 있는 메모리
@@ -1027,7 +1032,8 @@ def build_parser():
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("gui", help="(기본) 화면(창)으로 열기: 문제 받기 · 풀기 · 실행 · 채점 · 해설 · 제출")
-    sub.add_parser("web", help="웹 면접 준비: python study.py web --help", add_help=False)
+    if "web" in ENTRY_TRACKS:
+        sub.add_parser("web", help="웹 면접 준비: python study.py web --help", add_help=False)
 
     from aiprep.collection import command as data_command
     for name, title, track in (("ai-data", "AI 비전 개론", "ai"), ("python-data", "파이썬", "python")):
@@ -1112,7 +1118,7 @@ def main(argv=None):
             stream.reconfigure(encoding="utf-8", errors="replace")
         except Exception:
             pass
-    if argv and argv[0] == "web":  # 웹 면접 준비 명령은 webprep.cli 가 받음
+    if "web" in ENTRY_TRACKS and argv and argv[0] == "web":  # 웹 면접 준비 명령은 webprep.cli 가 받음
         from webprep import cli
         sys.exit(cli.main(argv[1:]))
     parser = build_parser()

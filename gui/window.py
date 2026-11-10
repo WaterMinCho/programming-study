@@ -285,7 +285,7 @@ class MainWindow(QMainWindow):
     def go_hub(self):
         if not self.leave_pages(self.go_hub, "저장하지 않고 나가기"):
             return
-        if self.web_node_first(self.go_hub):
+        if "web" in study.ENTRY_TRACKS and self.web_node_first(self.go_hub):
             return
         self.hub.refresh()
         self.area = "hub"
@@ -308,6 +308,8 @@ class MainWindow(QMainWindow):
         motion.switch(self.pages, self.journey_map)
 
     def go_web(self):
+        if "web" not in study.ENTRY_TRACKS:
+            return self.go_hub()
         if not self.leave_pages(self.go_web, "저장하지 않고 나가기"):
             return
         if self.web_node_first(self.go_web):

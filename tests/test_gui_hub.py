@@ -202,7 +202,33 @@ class HubTest(unittest.TestCase):
 
 
 class HubScreenTest(HubTest):
+    def test_commented_web_entry_is_absent_from_hub_and_both_navigation_layouts(self):
+        self.assertNotIn("web", study.ENTRY_TRACKS)
+        win = self.boot()
+        self.assertNotIn(win.hub.web_row, win.hub.tracks.rows)
+        self.assertFalse(win.hub.web_row.isVisible())
+        self.assertNotIn("web", [row[0] for row in win.workspace.subjects])
+        self.assertNotIn("go_web", [win.workspace.compact.itemData(i) for i in range(win.workspace.compact.count())])
+        with mock.patch.object(win.web, "overview", side_effect=AssertionError("숨긴 과목을 조회했음")):
+            win.hub.refresh()
+        win.hub.show_next(win.session.overview(), None, {"missions": [{"phase": "live"}], "activity": ["2099-12-31"]})
+        self.assertNotIn("웹 면접", win.hub.next_card.line.text())
+        with mock.patch.object(win, "open_mission") as mission, mock.patch.object(win, "open_learn") as learn, \
+                mock.patch.object(win, "open_drill") as drill:
+            win.hub.open_next()
+            mission.assert_not_called()
+            learn.assert_not_called()
+            drill.assert_not_called()
+        with mock.patch.object(win.web_home, "refresh") as refresh:
+            win.go_web()
+            refresh.assert_not_called()
+        self.assertEqual("hub", win.area)
+        self.assertFalse(win.hub.web_error.isVisible())
+
     def test_submission_actions_remain_available_on_all_subject_overviews(self):
+        entries = mock.patch.object(study, "ENTRY_TRACKS", study.ENTRY_TRACKS + ("web",))
+        entries.start()
+        self.addCleanup(entries.stop)
         self.git.has_updates = True
         win = self.boot()
         bar = win.workspace.submissions
@@ -245,6 +271,9 @@ class HubScreenTest(HubTest):
         self.assertIsNone(win.pending_job)
 
     def test_first_open_places_all_four_subjects_in_the_grid(self):
+        entries = mock.patch.object(study, "ENTRY_TRACKS", study.ENTRY_TRACKS + ("web",))
+        entries.start()
+        self.addCleanup(entries.stop)
         win = self.boot()
         grid = win.hub.tracks.grid
         self.assertEqual(grid.count(), 4)
@@ -701,6 +730,9 @@ class NodeLookupTest(HubTest):
 
     def setUp(self):
         super().setUp()
+        entries = mock.patch.object(study, "ENTRY_TRACKS", study.ENTRY_TRACKS + ("web",))
+        entries.start()
+        self.addCleanup(entries.stop)
         self.threads = {"search": [], "check": []}  # 부른 스레드가 화면 스레드였는지
         self.found = None
 
