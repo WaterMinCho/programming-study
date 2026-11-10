@@ -69,6 +69,8 @@ class StarterTest(unittest.TestCase):
         events[0].update(kind="batch_start", data={"batch": "b", "set": "r"})
         for row in (events[1], events[3]):
             row["data"].update(batch="b", set="r", prediction_at=events[0]["at"])
+        for row in (events[1], events[2], events[4]):
+            row["item"]["tags"] = ["demo", "earlier"]
         events[2]["data"].update(set="other", prediction_at=events[2]["at"])
         events[4]["data"].update(set="after", prediction_at=events[2]["at"])
         rows = dataset.prepare(events)
@@ -78,6 +80,7 @@ class StarterTest(unittest.TestCase):
         row = dataset.prepare(events)[-1]
         self.assertEqual(3, row["features"]["observed_history"]["demo"]["attempts"])
         self.assertEqual(events[3]["at"], row["features"]["observed_history"]["demo"]["last_at"])
+        self.assertEqual(events[2]["at"], row["features"]["observed_history"]["earlier"]["last_at"])
 
     def test_old_feature_bundle_is_rejected_even_when_its_hashes_match(self):
         with tempfile.TemporaryDirectory() as folder:
