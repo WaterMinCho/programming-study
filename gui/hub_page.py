@@ -13,6 +13,8 @@ import datetime
 import html
 import math
 
+import study
+
 from PyQt6.QtCore import QEvent, QRectF, Qt
 from PyQt6.QtGui import QFontMetricsF, QPainter
 from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
@@ -329,7 +331,12 @@ class HubPage(QWidget):
         self.tracks = SubjectGrid()
         self.python_row = self.tracks.add(SubjectTile("파이썬 스터디", "series_python"))
         self.journey_row = self.tracks.add(SubjectTile("알고리즘 여행", "series_algorithm"))
-        self.web_row = self.tracks.add(SubjectTile("웹 면접 준비", "series_web"))
+        self.web_row = SubjectTile("웹 면접 준비", "series_web")
+        if "web" in study.ENTRY_TRACKS:
+            self.tracks.add(self.web_row)
+        else:
+            self.web_row.setParent(self.tracks)
+            self.web_row.hide()
         self.ai_row = self.tracks.add(SubjectTile(ai_text.TRACK, "series_ai"))
         self.journey_error = kit.banner("", "danger")  # 여행 기록을 읽지 못한 이유. 그동안 여행 줄은 눌리지 않음
         self.web_error = kit.banner("", "danger")
@@ -415,7 +422,8 @@ class HubPage(QWidget):
         self.next_btn.clicked.connect(self.open_next)
         self.python_row.clicked.connect(win.go_home)
         self.journey_row.clicked.connect(lambda: win.go_journey())
-        self.web_row.clicked.connect(lambda: win.go_web())
+        if "web" in study.ENTRY_TRACKS:
+            self.web_row.clicked.connect(lambda: win.go_web())
         self.ai_row.clicked.connect(lambda: win.go_ai())
 
     def refresh(self):
@@ -469,6 +477,9 @@ class HubPage(QWidget):
     def show_web(self):
         """웹 면접 준비 줄. 웹 기록을 읽지 못했으면 이유를 띠로 보이고 줄을 끄고 None 을, 아니면 웹 서비스의 overview 를 돌려줌."""
         win = self.win
+        if "web" not in study.ENTRY_TRACKS:
+            self.web_error.hide()
+            return None
         overview, error = None, win.web_error
         if win.web is not None:
             try:
@@ -517,6 +528,8 @@ class HubPage(QWidget):
     def show_next(self, overview, journey, web, ai=None):
         """이어서 할 일 카드와 요약을 채움. 마지막 활동이 AI이면 저장한 학습·연습을 먼저 엶.
         다른 경우에는 웹의 진행 중 미션·복습과 최근 트랙 순서를 따름."""
+        if "web" not in study.ENTRY_TRACKS:
+            web = None
         running = [m for m in (web["missions"] if web else []) if m["phase"] in ("reading", "live")]
         due = [c for c in (web["today"]["chains"] if web else []) if not c["new"]]
         parts = []

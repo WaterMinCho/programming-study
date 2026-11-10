@@ -288,11 +288,21 @@ class StatusInstallCliTest(CliBase):
         self.assertEqual("learn", self.kinds("bob")[-1])
 
     def test_study_main_routes_web_to_cli(self):
-        with mock.patch.object(cli, "main", return_value=0) as fake:
+        with mock.patch.object(cli, "main", return_value=0) as fake, \
+                mock.patch.object(study, "ENTRY_TRACKS", study.ENTRY_TRACKS + ("web",)):
             with self.assertRaises(SystemExit) as stop:
                 study.main(["web", "status", "--user", "alice"])
         self.assertEqual(0, stop.exception.code)
         self.assertEqual((["status", "--user", "alice"],), fake.call_args[0])
+
+    def test_commented_web_entry_is_absent_from_help_and_does_not_dispatch(self):
+        self.assertNotIn("web", study.ENTRY_TRACKS)
+        self.assertNotIn("웹 면접 준비:", study.build_parser().format_help())
+        with mock.patch.object(cli, "main") as dispatch, mock.patch("sys.stderr", io.StringIO()):
+            with self.assertRaises(SystemExit) as stopped:
+                study.main(["web", "status"])
+        self.assertEqual(2, stopped.exception.code)
+        dispatch.assert_not_called()
 
 
 class FollowCliTest(CliBase):

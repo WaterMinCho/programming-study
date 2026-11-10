@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from learning_server.starter import question_token
+from learning_server.dataset import FEATURES_VERSION
 
 
 def load(folder, track, part):
@@ -20,6 +21,8 @@ def load(folder, track, part):
             raise ValueError("자료가 바뀌었습니다. 파일 해시를 확인해 주세요.")
         return raw
     records = json.loads(verified(root / "records/manifest.json", manifest["records_manifest_sha256"]))
+    if manifest.get("features_version") != FEATURES_VERSION or records.get("features_version") != FEATURES_VERSION:
+        raise ValueError("이전 이력 집계로 만든 자료입니다. 원본을 보존하고 새 폴더에 공통 자료를 다시 준비해 주세요.")
     vocabulary = json.loads(verified(root / "vocabulary.json", manifest["files"]["vocabulary.json"]))[track]
     name = track + "-" + part + ".jsonl"
     rows = [json.loads(line) for line in verified(root / "records" / name, records["files"][name]["sha256"]).splitlines()]
