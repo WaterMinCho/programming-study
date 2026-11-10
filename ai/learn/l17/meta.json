@@ -20,14 +20,16 @@
     "l06",
     "l09",
     "l12",
-    "l15"
+    "l15",
+    "l08"
   ],
   "sections": {
     "17a": "문장을 나누고 번호와 길이를 맞춥니다",
     "17b": "토큰 번호로 학습할 벡터의 행을 찾습니다",
     "17c": "양방향 LSTM의 마지막 상태를 연결합니다",
     "17d": "사전학습 언어 모델의 조건과 비용을 비교합니다",
-    "17e": "빈도 벡터와 학습한 단어 벡터를 구분합니다"
+    "17e": "빈도 벡터와 학습한 단어 벡터를 구분합니다",
+    "17f": "문장 분류의 전처리·학습·평가를 연결합니다"
   },
   "outputs": [],
   "sources": [
@@ -75,6 +77,26 @@
       "what": "CBOW 원 논문",
       "url": "https://arxiv.org/html/1301.3781v3",
       "checked": "2026-11-05"
+    },
+    {
+      "what": "Trainer의 자료 연결·체크포인트·전략 조건",
+      "url": "https://huggingface.co/docs/transformers/en/main_classes/trainer",
+      "checked": "2026-11-10"
+    },
+    {
+      "what": "문장 분류 전처리와 동적 패딩",
+      "url": "https://huggingface.co/docs/transformers/en/tasks/sequence_classification",
+      "checked": "2026-11-10"
+    },
+    {
+      "what": "이진 F1의 정의와 분모 조건",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html",
+      "checked": "2026-11-10"
+    },
+    {
+      "what": "검증 선택과 최종 테스트 분리",
+      "url": "https://scikit-learn.org/stable/modules/cross_validation.html",
+      "checked": "2026-11-10"
     }
   ],
   "credits": [],
@@ -103,6 +125,11 @@
       "minutes": 6,
       "key_figure": "assets/17e-1.png",
       "kind": "concept"
+    },
+    "17f": {
+      "minutes": 8,
+      "key_figure": "assets/17f-1.png",
+      "kind": "code"
     }
   }
 }

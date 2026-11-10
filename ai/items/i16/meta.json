@@ -55,6 +55,15 @@
       "stmt": 0,
       "gen": [],
       "core": 3
+    },
+    "16g": {
+      "blank": 2,
+      "choice": 3,
+      "stmt": 8,
+      "gen": [
+        "i16-g06"
+      ],
+      "core": 4
     }
   },
   "sources": []

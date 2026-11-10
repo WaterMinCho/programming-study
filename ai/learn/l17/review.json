@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "내용 보완 0",
- "resolver": "전체 재풀이 1",
- "reviewer": "교차 검토 2",
+ "writer": "자료 갱신 출제 1",
+ "resolver": "공개본 재풀이 2",
+ "reviewer": "자료 대조 3",
  "files": {
   "assets/17a-1.png": "435c768b0e5e2a29e1be4dd513fa0f49dcdfc937375c4486c264ed60ae6a1637",
   "assets/17a-2.png": "d4bd5a0f5eb8595e72fe91914b08555a8cc831f4e319cf81a0dc31082b94dc2f",
@@ -30,12 +30,17 @@
   "assets/17e-2.png": "34fb0112b5706921b4319d9067c28991659fe58e43974540ac3075a892a58df5",
   "assets/17e-3.png": "ec230f33bbb0a607cae9decc21126be9bb60243703645619f6b61b849bf8dda6",
   "assets/17e-4.png": "acdc3dc5f0fdf73f174d837d9499ef3b02ad38d0c124bb9fa7307ff312fce31e",
-  "meta.json": "6353344b773fcbfbe4790a614218112241cf877dcd3b3424dabb31c6115380a1",
-  "page.md": "faae55da49d5cb6cfb0b121a350948f889b22c67e2c549fa7ef2c450335ad9d2"
+  "assets/17f-1.png": "308a2335667c552ba593a60eb9153071447ac9537524a25ec79ee3ccca3799e8",
+  "assets/17f-2.png": "ecddc077ceaf3aea84b549348e6bb52f87e0e3334c46b57ac86d19fe211813c6",
+  "assets/17f-3.png": "c9175cb120b6296c1326ea06993f42de44a6a8f06a1fba687aea365f2c4ba4ae",
+  "assets/17f-4.png": "6c9c7af54c07953c739b3804976a524b54a9eef1cdc0ed9bc23c5ff7af511bc0",
+  "meta.json": "54dc7d4858d984b9240a418eef565b2d980986d3f2914f978363fc1da8280083",
+  "page.md": "d807b3dd8b9bb2b1f76b477c0b0076130e9137eab2fb7de1519669a68f46f61c"
  },
  "findings": [
   "원자료와 설명·문항·그림을 대조했음. 수정한 물음은 별도 공개본으로 다시 풀었으며 앞선 첫 답과 시간 기록을 유지했음.",
   "본문·예제·변경 물음의 조건을 독립 대조함. int64와 long의 같은 dtype 이름을 허용하고 파일 별칭을 설명에서 덜어냄.",
-  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음."
+  "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음.",
+  "2026-11-10 추가 단원과 기존 연결 문장을 대조했음. 먼저 풀기·떠올리기·왜일까요 총 45개를 독립 답과 대조했으며 세 단계 수준 물음은 이번에 재풀이하지 않았음. 새 그림 9장과 PDF 근거 9쪽을 시각 대조했음. 900×700·1500×950 화면과 가장 큰 글자·두 테마를 offscreen에서 확인했고 네이티브 Windows 검사는 이번 범위에 포함하지 않았음."
  ]
 }
