@@ -292,7 +292,7 @@ class HubPage(QWidget):
         self.text_group = QButtonGroup(self)
         self.text_group.setExclusive(True)
         for step in theme.TEXT_STEPS:
-            button = kit.button(TEXT_LABELS[step], "text", "s", onbg=True)
+            button = kit.typed(kit.button(TEXT_LABELS[step], "text", "s", onbg=True), "caption", True)
             button.setCheckable(True)
             button.setToolTip(TEXT_TIP)
             button.clicked.connect(lambda checked=False, step=step: win.set_text(step))
@@ -651,6 +651,10 @@ class HubPage(QWidget):
         self.theme_btn.setText(THEME_TEXT[theme.state["mode"]])
         for step, button in self.text_buttons.items():
             button.setChecked(step == theme.state["text"])
+            button.ensurePolished()
+        width = max(button.sizeHint().width() for button in self.text_buttons.values())
+        for button in self.text_buttons.values():
+            button.setFixedWidth(width)
         for widget in (self.chart, self.recent):
             widget.update()
         self.week.arrange()  # 글자 크기가 바뀌면 최근 채점 줄의 폭과 나란히 둘 폭이 바뀜

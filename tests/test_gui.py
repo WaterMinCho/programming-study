@@ -2408,6 +2408,37 @@ class ThemeTest(GuiTest):
         for back in ("bg", "surface"):  # 판과 입력칸의 테두리가 바탕에서 보임
             self.assertGreaterEqual(contrast(dark["border"], dark[back]), 1.5, back)
 
+    def test_text_size_options_share_font_and_geometry(self):
+        """글자 크기를 왕복해도 설정 단추 셋의 글꼴·폭·높이를 맞추고 고른 단계만 표시함."""
+        self.boot()
+        self.win.go_hub()
+        self.win.resize(760, 480)
+        hub = self.win.hub
+        click(hub.settings_btn)
+        widths = {}
+        for scheme in ("light", "dark"):
+            theme.set_mode(scheme)
+            for step in ("normal", "large", "larger", "normal"):
+                with self.subTest(scheme=scheme, step=step):
+                    click(hub.text_buttons[step])
+                    buttons = list(hub.text_buttons.values())
+                    self.assertTrue(all(button.isVisible() for button in buttons))
+                    self.assertEqual({button.font().pixelSize() for button in buttons}, {theme.TYPE["caption"][0]})
+                    self.assertEqual(len({button.font().family() for button in buttons}), 1)
+                    self.assertEqual({button.font().weight() for button in buttons}, {700})
+                    self.assertEqual(len({button.width() for button in buttons}), 1)
+                    self.assertEqual({button.height() for button in buttons}, {theme.control_height("s")})
+                    self.assertEqual([key for key, button in hub.text_buttons.items() if button.isChecked()], [step])
+                    for button in buttons:
+                        self.assertGreaterEqual(button.width(), button.fontMetrics().horizontalAdvance(button.text()) + 28)
+                        self.assertTrue(hub.settings_panel.rect().contains(button.geometry()))
+                    if step in widths:
+                        self.assertEqual(buttons[0].width(), widths[step])
+                    widths[step] = buttons[0].width()
+            click(hub.settings_btn)
+            click(hub.settings_btn)
+            self.assertTrue(all(button.isVisible() for button in hub.text_buttons.values()))
+
     def test_button_cycles_system_light_dark_and_the_choice_is_remembered(self):
         self.boot()
         home = self.win.home
