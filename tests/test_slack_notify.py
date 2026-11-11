@@ -231,11 +231,22 @@ class NotificationTest(unittest.TestCase):
     def test_message_uses_native_blocks_with_accessible_fallback(self):
         payload = notify.card("새 PR", "변경 내용을 확인해 주세요.", PR,
                               fields=[("작성자", "student")],
-                              buttons=[("PR 보기", f"{notify.WEB}/pull/123")])
+                              links=[("PR 보기", f"{notify.WEB}/pull/123")])
         self.assertNotIn("attachments", payload)
         self.assertEqual("header", payload["blocks"][0]["type"])
         self.assertIn("작성자: student", payload["text"])
         self.assertIn(f"{notify.WEB}/pull/123", payload["text"])
+
+    def test_navigation_uses_links_without_interactive_buttons(self):
+        payload = notify.card("검사 완료", "결과를 확인해 주세요.", PR,
+                              links=[("PR 보기", f"{notify.WEB}/pull/123"),
+                                     ("검사 결과", f"{notify.WEB}/actions/runs/7")])
+        self.assertFalse(any(block["type"] == "actions" for block in payload["blocks"]))
+        elements = payload["blocks"][-1]["elements"][0]["elements"]
+        links = [element for element in elements if element["type"] == "link"]
+        self.assertEqual(["PR 보기 ↗", "검사 결과 ↗"], [link["text"] for link in links])
+        self.assertEqual([f"{notify.WEB}/pull/123", f"{notify.WEB}/actions/runs/7"],
+                         [link["url"] for link in links])
 
     def test_missing_webhook_skips_without_network(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(notify, "send") as send:
