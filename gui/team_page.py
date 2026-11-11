@@ -100,6 +100,7 @@ class MemberCard(QFrame):
         head.addLayout(who, 1)
         head.addWidget(ready_name, 0, Qt.AlignmentFlag.AlignBottom)
         head.addWidget(self.ready, 0, Qt.AlignmentFlag.AlignBottom)
+        kit.baseline(ready_name, self.ready)
         box.addLayout(head)
 
         line = QHBoxLayout()

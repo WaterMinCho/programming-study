@@ -208,9 +208,7 @@ class ImageDialog(QDialog):
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         box = kit.box(self, (24, 24, 24, 24), theme.GAP["paragraph"])
-        heading = kit.label(step["title"], "headline")
-        heading.setWordWrap(True)
-        heading.setTextFormat(Qt.TextFormat.PlainText)
+        heading = kit.para(step["title"], "headline")
         box.addWidget(heading)
         self.view = ScreenshotView(step, fit=False)
         self.scroll = QScrollArea()
@@ -258,9 +256,7 @@ class GuideDialog(QDialog):
         except GuideError as error:
             self.steps, self.error = [], str(error)
         box = kit.box(self, (24, 24, 24, 24), theme.GAP["description_content"])
-        self.heading = kit.label("학습·사용 안내", "headline")
-        self.heading.setWordWrap(True)
-        self.heading.setTextFormat(Qt.TextFormat.PlainText)
+        self.heading = kit.para("학습·사용 안내", "headline")
         box.addWidget(self.heading)
         self.content = QWidget()
         self.content_box = kit.box(self.content, spacing=theme.GAP["paragraph"])
@@ -298,9 +294,7 @@ class GuideDialog(QDialog):
         self.image = None
         if self.steps:
             step = self.steps[position]
-            title = kit.label(step["title"], "title")
-            title.setWordWrap(True)
-            title.setTextFormat(Qt.TextFormat.PlainText)
+            title = kit.para(step["title"], "title")
             self.content_box.addWidget(kit.heading(title, kit.para(step["description"], "body")))
             self.image = ScreenshotView(step)
             self.content_box.addWidget(self.image)

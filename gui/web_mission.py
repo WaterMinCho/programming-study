@@ -20,7 +20,7 @@ import time
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut, QSyntaxHighlighter, QTextCharFormat
-from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QPlainTextEdit, QScrollArea, QSizePolicy, QStackedWidget, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QPlainTextEdit, QScrollArea, QSizePolicy, QStackedWidget, QWidget
 
 import mdlite
 import study
@@ -367,8 +367,8 @@ class ResultPanel(Column):
                     text_box.addWidget(raw)
                     self.labels.append(raw)
             took = kit.label("%.1f초" % (test["ms"] / 1000.0), "caption", "tertiary")
-            row_box.addWidget(kit.FirstLine(tag, text, anchor=title), 1)
-            row_box.addWidget(took, 0, Qt.AlignmentFlag.AlignTop)
+            content = kit.FirstLine(tag, text, anchor=title)
+            row_box.addWidget(kit.FirstLine(took, content, trailing=True), 1)
             self._add(row)
             line = kit.frame("rowline")
             line.setFixedHeight(1)
@@ -547,24 +547,21 @@ class WebMissionPage(QWidget):
         self.stack_banner = kit.banner("", "warning")
         self.stack_banner.hide()
         self.info_grid = QWidget()
-        grid = QGridLayout(self.info_grid)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(24)
-        grid.setVerticalSpacing(8)
+        grid = kit.box(self.info_grid, spacing=8)
         self.info_values = {}
-        for number, name in enumerate(("난이도", "시간", "단계")):
-            grid.addWidget(kit.label(name, "caption", "tertiary"), number, 0, Qt.AlignmentFlag.AlignTop)
+        for name in ("난이도", "시간", "단계"):
+            caption = kit.label(name, "caption", "tertiary")
+            caption.setProperty("measure", "난이도")
+            caption.setMinimumWidth(caption.fontMetrics().horizontalAdvance("난이도"))
             value = kit.para("")
             self.info_values[name] = value
-            grid.addWidget(value, number, 1)
-        grid.setColumnStretch(1, 1)
+            grid.addWidget(kit.FirstLine(caption, value, spacing=24))
         self.get_note = kit.para(GET_NOTE, "body", "secondary")
         self.notes_caption = kit.label("같이 읽을 노트", "caption", "tertiary")
         self.note_rows = kit.RowList(flush=True)
         self.ready_caption = kit.label("실전 전 확인", "caption", "tertiary")
         self.ai_box = kit.Check(AI_TEXT)
-        self.ai_note = kit.label(AI_NOTE, "caption", "secondary")
-        self.ai_note.setWordWrap(True)
+        self.ai_note = kit.para(AI_NOTE, "caption", "secondary")
         box.addWidget(self.stack_banner)
         box.addSpacing(16)
         box.addWidget(kit.label("미션 정보", "headline"))
@@ -590,7 +587,9 @@ class WebMissionPage(QWidget):
         count_row.setSpacing(12)
         self.passed_count = kit.label("", "display")
         count_row.addWidget(self.passed_count, 0, Qt.AlignmentFlag.AlignBottom)
-        count_row.addWidget(kit.label("통과한 단계", "caption", "secondary"), 0, Qt.AlignmentFlag.AlignBottom)
+        count_caption = kit.label("통과한 단계", "caption", "secondary")
+        count_row.addWidget(count_caption, 0, Qt.AlignmentFlag.AlignBottom)
+        kit.baseline(self.passed_count, count_caption)
         count_row.addStretch(1)
         self.summary = kit.para("", "body", "secondary")
         self.next_rows = kit.RowList(flush=True)
