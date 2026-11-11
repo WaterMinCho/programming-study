@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """과정 전환·심화 창·새 그림의 작은 창 배치를 확인함."""
 from pathlib import Path
+import datetime
 
 from tests import guikit
 from tests.test_gui_ai import AiTest
+from PyQt6.QtCore import Qt
+from PyQt6.QtTest import QTest
 from gui import ai_learn, theme
 from gui.docview import FigureView
 
@@ -91,3 +94,51 @@ class CourseGuiTest(AiTest):
         self.assertEqual("intro", win.ai.course)
         self.assertTrue(win.ai_home.course_tabs.buttons[0].isChecked())
         self.assertFalse(win.ai_home.course_tabs.buttons[1].isChecked())
+
+    def test_cached_popup_fits_smaller_parent_and_escape_returns_focus(self):
+        win = self.boot((1280, 800))
+        win.go_ai()
+        win.set_text('larger')
+        win.open_ai_unit('i04', '4c', 2)
+        guikit.pump()
+        level = win.ai_learn.view.findChildren(ai_learn.LevelsBlock)[0]
+        level.open_deep()
+        guikit.pump()
+        popup = level.deep_dialog
+        guikit.click(level.deep_close)
+        win.resize(760, 480)
+        guikit.pump()
+        for mode in ('light', 'dark'):
+            theme.set_mode(mode)
+            win.restyle()
+            win.ai_learn.scroll.ensureWidgetVisible(level.deep_btn)
+            guikit.pump()
+            at = win.ai_learn.scroll.verticalScrollBar().value()
+            guikit.click(level.deep_btn)
+            guikit.pump()
+            self.assertIs(popup, level.deep_dialog)
+            self.assertLessEqual(popup.width(), win.width())
+            self.assertLessEqual(popup.height(), win.height())
+            self.assertTrue(win.screen().availableGeometry().contains(popup.frameGeometry()))
+            QTest.keyClick(popup, Qt.Key.Key_Escape)
+            guikit.pump()
+            self.assertFalse(popup.isVisible())
+            self.assertIs(win.focusWidget(), level.deep_btn)
+            self.assertEqual(at, win.ai_learn.scroll.verticalScrollBar().value())
+
+    def test_hub_keeps_intro_activity_when_application_is_selected(self):
+        win = self.boot((760, 480))
+        win.go_ai()
+        self.clock = datetime.datetime.now().isoformat(timespec='seconds')
+        win.ai.mark_read('i01', '1a')
+        win.switch_ai_course('app')
+        self.assertFalse(win.ai.overview()['activity_counts'])
+        win.go_hub()
+        self.assertTrue(win.hub.ai_row.second.text().startswith('응용 · '))
+        for _ in range(2):
+            days = {row[0]: row[-1] for row in win.hub.chart.days}
+            self.assertEqual(1, days[datetime.date.today()])
+            self.assertEqual(1, sum(days.values()))
+            win.hub.refresh()
+        ai_notes = dict((track.tid, row) for track, row in win.hub.note_rows)['ai']
+        self.assertTrue(ai_notes.second.text().startswith('응용 · '))

@@ -267,8 +267,12 @@ class AiFigure(FigureView):
             self.hold_frames()
 
     def _play_if_visible(self):
-        if self.isVisible() and self.visibleRegion().intersects(self.picture.geometry()):
-            self.play()
+        if not motion.enabled:
+            return
+        if not self.isVisible() or not self.visibleRegion().intersects(self.picture.geometry()):
+            self.autoplay_pending = True
+            return
+        self.play()
 
     def event(self, event):
         if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) and self.movie \
@@ -1208,11 +1212,20 @@ class LevelsBlock(QWidget):
             self.deep_close = kit.button("닫기", "secondary", "l")
             self.deep_close.clicked.connect(dialog.close)
             outer.addWidget(self.deep_close, 0, Qt.AlignmentFlag.AlignRight)
-            room = self.ctx.win.geometry()
-            dialog.resize(max(320, min(1000, room.width()-40)), max(320, room.height()-80))
             dialog.finished.connect(lambda _: self.deep_btn.setFocus(Qt.FocusReason.OtherFocusReason))
         self.restyle()
-        self.deep_dialog.show()
+        owner, dialog = self.ctx.win, self.deep_dialog
+        screen = owner.screen().availableGeometry()
+        dialog.resize(max(320, min(1000, owner.width()-40, screen.width()-48)),
+                      max(320, min(owner.height()-80, screen.height()-80)))
+        def place():
+            frame = dialog.frameGeometry()
+            frame.moveCenter(owner.frameGeometry().center())
+            dialog.move(max(screen.left(), min(frame.left(), screen.right()-frame.width()+1)),
+                        max(screen.top(), min(frame.top(), screen.bottom()-frame.height()+1)))
+        place()
+        dialog.show()
+        place()
 
     def fill(self, part, level, check=True):
         column = kit.box(part, (32, 32, 32, 32), theme.LEARN_GAP["group"])
