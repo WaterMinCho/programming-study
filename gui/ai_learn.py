@@ -1216,8 +1216,9 @@ class LevelsBlock(QWidget):
 
     def fill(self, part, level, check=True):
         column = kit.box(part, (32, 32, 32, 32), theme.LEARN_GAP["group"])
-        column.addWidget(kit.heading(kit.para(ai_text.LEVEL_NAMES.get(level.get("level"), ""), "learn_activity", bold=True),
-                                    kit.para(ai_text.LEVEL_DESCRIPTIONS.get(level.get("level"), ""), "learn_caption", "secondary")))
+        if check:
+            column.addWidget(kit.heading(kit.para(ai_text.LEVEL_NAMES.get(level.get("level"), ""), "learn_activity", bold=True),
+                                        kit.para(ai_text.LEVEL_DESCRIPTIONS.get(level.get("level"), ""), "learn_caption", "secondary")))
         if level.get("figure"):
             picture = figure(level["figure"])
             column.addWidget(picture)
