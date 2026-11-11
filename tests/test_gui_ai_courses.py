@@ -37,6 +37,7 @@ class CourseGuiTest(AiTest):
         win.open_ai_unit('i04', '4c', 2)
         guikit.pump()
         level = win.ai_learn.view.findChildren(ai_learn.LevelsBlock)[0]
+        level.block = dict(level.block, concept="배치·확률적·미니배치 경사하강법")
         win.ai_learn.scroll.ensureWidgetVisible(level.deep_btn)
         guikit.pump()
         old_scroll = win.ai_learn.scroll.verticalScrollBar().value()

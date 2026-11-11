@@ -1196,7 +1196,7 @@ class LevelsBlock(QWidget):
             title = (self.block.get("concept") or "개념") + " 심화 설명"
             dialog.setWindowTitle(title)
             outer = kit.box(dialog, (24, 24, 24, 24), theme.GAP["group"])
-            outer.addWidget(kit.label(title, "headline"))
+            outer.addWidget(kit.para(title, "headline"))
             holder = QWidget()
             content = kit.box(holder)
             part = Sheet()
