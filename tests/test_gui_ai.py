@@ -174,7 +174,7 @@ class HubAndHomeTest(AiTest):
     def test_hub_row_week_chart_and_track_colour(self):
         win = self.boot()
         hub = win.hub
-        self.assertEqual((hub.ai_row.title.text(), hub.ai_row.second.text()), ("AI", "90차시 첫째 단원부터 읽습니다."))  # 이어서 할 일 카드와 같은 단원
+        self.assertEqual((hub.ai_row.title.text(), hub.ai_row.second.text()), ("AI", "개론 · 90차시 첫째 단원부터 읽습니다."))  # 이어서 할 일 카드와 같은 단원
         self.assertFalse(hub.ai_row.inert)
         self.assertEqual(len(hub.chart.days[-1]), 5)  # 날짜와 트랙 넷
         self.assertEqual(theme.SERIES[-1], "series_ai")
@@ -604,6 +604,48 @@ class LessonAndLearnTest(AiTest):
         holder.ensureWidgetVisible(figure.picture)
         guikit.pump(100)
         self.assertTrue(figure.playing)
+
+    def test_queued_autoplay_rechecks_visibility_and_reduced_motion(self):
+        self.addCleanup(setattr, motion, "enabled", motion.enabled)
+        for interrupted in ("scroll", "reduced_motion"):
+            with self.subTest(interrupted=interrupted):
+                motion.enabled = True
+                content = QWidget()
+                column = kit.box(content)
+                spacer = QWidget()
+                spacer.setFixedHeight(1000)
+                column.addWidget(spacer)
+                image = ai_learn.AiFigure(REAL_GIF, "그림", [{"text":"설명", "ms":2000}] * 6)
+                column.addWidget(image)
+                holder = QScrollArea()
+                holder.setWidget(content)
+                holder.setWidgetResizable(True)
+                holder.resize(700, 600)
+                holder.show()
+                self.addCleanup(holder.close)
+                guikit.pump(30)
+                queued = []
+                with mock.patch.object(ai_learn, "QTimer") as timer:
+                    timer.singleShot.side_effect = lambda delay, callback: queued.append(callback)
+                    holder.ensureWidgetVisible(image.picture)
+                    guikit.pump(30)
+                self.assertTrue(queued)
+                if interrupted == "scroll":
+                    holder.verticalScrollBar().setValue(0)
+                    guikit.pump(30)
+                else:
+                    motion.enabled = False
+                for callback in queued:
+                    callback()
+                self.assertFalse(image.playing)
+                self.assertEqual(0, image.frame())
+                if interrupted == "scroll":
+                    holder.ensureWidgetVisible(image.picture)
+                    guikit.pump(30)
+                    self.assertTrue(image.playing)
+                    self.assertFalse(image.autoplay_pending)
+                holder.close()
+                guikit.pump(20)
 
     def test_figure_autoplays_once_and_moves_the_frame_line(self):
         """그림은 한 번 재생한 뒤 멈추고, 수동으로 장을 옮기면 장 설명도 바뀜. 뒤로 한 장 갈 때 frame_changed 는 한 번."""
@@ -1196,7 +1238,7 @@ class WrongNoteTest(AiTest):
         win.go_hub()
         hub = win.hub
         row = dict((track.tid, r) for track, r in hub.note_rows)["ai"]
-        self.assertEqual(row.second.text(), "틀린 문항 1개")
+        self.assertEqual(row.second.text(), "개론 · 틀린 문항 1개")
         guikit.click(row)
         page = win.wrong_page
         self.assertEqual((self.page(), page.track.tid, page.back_btn.text()), (page, "ai", "← 처음 화면"))

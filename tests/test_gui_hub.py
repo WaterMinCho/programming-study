@@ -417,7 +417,7 @@ class HubScreenTest(HubTest):
         self.assertEqual(hub.chart.days[-1], (today, 1, 3, 0, 0))  # 파이썬, 알고리즘, 웹, AI
         self.assertEqual(hub.chart.days[-2], (today - datetime.timedelta(days=1), 0, 1, 0, 0))
         self.assertEqual(len(hub.chart.days), 7)
-        self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 2일", "채점 5회"))
+        self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 2일", "기록된 활동 5회"))
         self.assertTrue(hub.recent_box.isVisible())
         self.assertEqual(len(hub.recent.rows), 5)  # 다섯 줄까지. 줄마다 (무엇을 채점했는지, 시각)
         labels, stamps = zip(*hub.recent.rows)
@@ -470,7 +470,7 @@ class HubScreenTest(HubTest):
         self.graded_round()  # 아무것도 적지 않고 제출해 25문항이 모두 미응답
         win = self.boot()
         hub = win.hub
-        self.assertEqual([(row.title.text(), row.second.text()) for _, row in hub.note_rows], [("파이썬 스터디", "미응답 문항 25개"), ("AI", "아직 틀린 문항이 없습니다.")])
+        self.assertEqual([(row.title.text(), row.second.text()) for _, row in hub.note_rows], [("파이썬 스터디", "미응답 문항 25개"), ("AI", "개론 · 아직 틀린 문항이 없습니다.")])
         row = hub.note_rows[0][1]
         guikit.click(row)
         page = win.wrong_page

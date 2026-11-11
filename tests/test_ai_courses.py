@@ -49,6 +49,29 @@ class CourseTest(unittest.TestCase):
     def session(self, course):
         return service.AiSession('alice', home=str(self.root / 'home'), root=str(self.bank), course=course)
 
+    def test_hub_history_combines_courses_without_changing_course_progress(self):
+        intro, app = self.session('intro'), self.session('app')
+        intro.mark_read('i90', '90a')
+        intro._append({'kind':'set_end', 'n':2, 'first_pass':1})
+        app.mark_read('a90', 'a90a')
+        app._append({'kind':'set_end', 'n':3, 'first_pass':2})
+        before = Path(app.record.path).read_bytes()
+        scoped, hub = app.overview(), app.hub_overview()
+        self.assertEqual(2, sum(scoped['activity_counts'].values()))
+        self.assertEqual(4, sum(hub['activity_counts'].values()))
+        self.assertEqual(['app', 'intro'], [r['course'] for r in hub['recent']])
+        self.assertEqual(scoped['continuation'], hub['continuation'])
+        self.assertEqual(scoped['families'], hub['families'])
+        hub['activity_counts'].clear()
+        hub['recent'][0]['course'] = 'changed'
+        self.assertEqual(4, sum(app.hub_overview()['activity_counts'].values()))
+        self.assertEqual('app', app.hub_overview()['recent'][0]['course'])
+        self.assertEqual(before, Path(app.record.path).read_bytes())
+        intro._append({'kind':'set_end', 'n':1, 'first_pass':1})
+        self.assertEqual(5, sum(app.hub_overview()['activity_counts'].values()))
+        self.assertEqual(5, sum(app.hub_overview()['activity_counts'].values()))
+        self.assertEqual(2, sum(app.overview()['activity_counts'].values()))
+
     def test_same_number_has_distinct_cards_and_old_progress_survives(self):
         intro = self.session('intro')
         intro.mark_read('i90', '90a')

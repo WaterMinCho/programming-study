@@ -267,8 +267,12 @@ class AiFigure(FigureView):
             self.hold_frames()
 
     def _play_if_visible(self):
-        if self.isVisible() and self.visibleRegion().intersects(self.picture.geometry()):
-            self.play()
+        if not motion.enabled:
+            return
+        if not self.isVisible() or not self.visibleRegion().intersects(self.picture.geometry()):
+            self.autoplay_pending = True
+            return
+        self.play()
 
     def event(self, event):
         if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) and self.movie \
@@ -1208,11 +1212,20 @@ class LevelsBlock(QWidget):
             self.deep_close = kit.button("닫기", "secondary", "l")
             self.deep_close.clicked.connect(dialog.close)
             outer.addWidget(self.deep_close, 0, Qt.AlignmentFlag.AlignRight)
-            room = self.ctx.win.geometry()
-            dialog.resize(max(320, min(1000, room.width()-40)), max(320, room.height()-80))
             dialog.finished.connect(lambda _: self.deep_btn.setFocus(Qt.FocusReason.OtherFocusReason))
         self.restyle()
-        self.deep_dialog.show()
+        owner, dialog = self.ctx.win, self.deep_dialog
+        screen = owner.screen().availableGeometry()
+        dialog.resize(max(320, min(1000, owner.width()-40, screen.width()-48)),
+                      max(320, min(owner.height()-80, screen.height()-80)))
+        def place():
+            frame = dialog.frameGeometry()
+            frame.moveCenter(owner.frameGeometry().center())
+            dialog.move(max(screen.left(), min(frame.left(), screen.right()-frame.width()+1)),
+                        max(screen.top(), min(frame.top(), screen.bottom()-frame.height()+1)))
+        place()
+        dialog.show()
+        place()
 
     def fill(self, part, level, check=True):
         column = kit.box(part, (32, 32, 32, 32), theme.LEARN_GAP["group"])
@@ -1645,7 +1658,8 @@ class AiLearnPage(QWidget):
         """읽던 글 조각과 그 안의 상대 위치. 줄바꿈으로 높이가 달라져도 옛 절대 스크롤 값을 쓰지 않음."""
         value = self.scroll.verticalScrollBar().value()
         pieces = self.view.findChildren(TextPiece) + self.view.findChildren(RichPara) + self.view.findChildren(AiFigure)
-        visible = [(piece, piece.mapTo(self.scroll.widget(), QPoint()).y()) for piece in pieces if piece.isVisibleTo(self.view)]
+        visible = [(piece, piece.mapTo(self.scroll.widget(), QPoint()).y()) for piece in pieces
+                   if piece.window() is self.window() and piece.isVisibleTo(self.view)]
         inside = [(piece, top) for piece, top in visible if top <= value < top + piece.height()]
         if inside:
             piece, top = min(inside, key=lambda item: item[0].height())
@@ -1679,7 +1693,8 @@ class AiLearnPage(QWidget):
             return
         _, anchor, focus = pending
         inner = self.scroll.widget()
-        for widget in reversed([self.view] + self.view.findChildren(QWidget)):
+        widgets = [self.view] + [widget for widget in self.view.findChildren(QWidget) if widget.window() is self.window()]
+        for widget in reversed(widgets):
             if widget.layout() is not None:
                 widget.layout().activate()
         inner.layout().activate()

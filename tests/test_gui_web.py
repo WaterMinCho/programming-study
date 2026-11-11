@@ -278,7 +278,7 @@ class HubRowTest(WebTest):
         web.show("l90")
         hub.refresh()
         self.assertEqual(hub.chart.days[-1], (today, 0, 0, 2, 0))  # 검사 한 번과 끝낸 사슬 하나
-        self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 1일", "채점 2회"))
+        self.assertEqual((hub.streak.text(), hub.total.text()), ("연속 학습 1일", "기록된 활동 2회"))
         self.assertEqual(hub.web_row.second.text(), "새 학습 1개")
         self.assertEqual(hub.summary.text(), "진행 중인 미션 1개가 있습니다.")
         self.assertEqual((hub.next_card.title.text(), hub.next_btn.text()), (win.web.missions["x01"]["title"], "이어 하기"))
