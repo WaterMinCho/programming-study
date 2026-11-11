@@ -928,6 +928,14 @@ class AiSession(object):
         result["last_at"] = max(str(result.get("last_at") or ""), str(result["continuation"].get("at") or "")) or None
         return result
 
+    def hub_overview(self):
+        """과정별 진도·이어갈 위치와 두 과정의 실제 활동 기록을 허브에 줌."""
+        result = dict(self.overview())
+        counts = dict(self._index.all_activity)
+        result.update(activity_counts=counts, activity=sorted(counts),
+                      recent=[dict(row) for row in self._index.all_recent])
+        return result
+
 
 class _LogIndex(object):
     """기록을 덧붙는 만큼만 이어 읽는 색인. 카드별 답(review.EventIndex), 처음 읽은 날, 연 차시, 짐작, 다시 보기, 날마다 답한
@@ -941,10 +949,14 @@ class _LogIndex(object):
         self.sched, self.start_due = {}, {}
         self.mocks = {}
         self.related = []
+        self.all_activity, self.all_recent = {}, []
         self.n = 0
 
     def feed(self, entries):
         self.n += len(entries)
+        for day, count in activity_counts(entries).items():
+            self.all_activity[day] = self.all_activity.get(day, 0) + count
+        self.all_recent = (recent_lines(entries, with_course=True) + self.all_recent)[:5]
         entries = [e for e in entries if e.get("course", bank.course_of(e.get("lesson") or e.get("card"))) == self.course]
         self.events.feed(entries)
         for e in entries:
@@ -1294,7 +1306,7 @@ def activity_counts(log):
     return counts
 
 
-def recent_lines(log, most=5):
+def recent_lines(log, most=5, with_course=False):
     """허브 최근 채점 줄 [{"at", "kind", "n", "first_pass", "score", "of", "mock"}] (최근 순)."""
     out = []
     for e in reversed(log):
@@ -1302,6 +1314,10 @@ def recent_lines(log, most=5):
             out.append({"at": e.get("at"), "kind": "set", "n": e.get("n"), "first_pass": e.get("first_pass")})
         elif e.get("kind") == "mock_submit" and int(e.get("try") or 1) == 1:
             out.append({"at": e.get("at"), "kind": "mock", "mock": e.get("mock"), "score": e.get("score"), "of": e.get("of")})
+        else:
+            continue
+        if with_course:
+            out[-1]["course"] = e.get("course", bank.course_of(e.get("lesson") or e.get("card")))
         if len(out) >= most:
             break
     return out

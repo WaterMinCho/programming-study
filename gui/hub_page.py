@@ -437,7 +437,10 @@ class HubPage(QWidget):
         web = self.show_web()
         ai = self.show_ai()
         for track, row in self.note_rows:
-            row.set_second(count_line(track.groups()))
+            detail = count_line(track.groups())
+            if track.tid == "ai" and ai:
+                detail = "%s · %s" % (ai_text.COURSES[ai["course"]], detail)
+            row.set_second(detail)
         self.show_week(overview, journey, web, ai)
         self.show_next(overview, journey, web, ai)
         self.next_card.setToolTip(self.next_card.line.text())
@@ -510,7 +513,7 @@ class HubPage(QWidget):
         overview, error = None, win.ai_error
         if win.ai is not None:
             try:
-                overview = win.ai.overview()
+                overview = win.ai.hub_overview()
             except (SessionError, RecordError) as caught:
                 error = str(caught)
         ready = overview is not None
@@ -624,7 +627,8 @@ class HubPage(QWidget):
         days = [today - datetime.timedelta(days=back) for back in range(DAYS - 1, -1, -1)]
         self.chart.set_days((day, python.get(day.isoformat(), 0), activity.get(day.isoformat(), 0), web_counts.get(day.isoformat(), 0),
                              ai_counts.get(day.isoformat(), 0)) for day in days)
-        self.total.setText("채점 %d회" % sum(sum(values) for _, *values in self.chart.days))
+        self.total.setText("기록된 활동 %d회" % sum(sum(values) for _, *values in self.chart.days))
+        self.total.setToolTip("채점 기록과 AI 단원 읽기·연습·모의고사 완료를 셉니다.")
         streak, day = 0, today
         while python.get(day.isoformat()) or activity.get(day.isoformat()) or day.isoformat() in web_days or ai_counts.get(day.isoformat()):
             streak += 1

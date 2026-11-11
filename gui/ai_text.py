@@ -18,6 +18,7 @@ def teaching_text(text):
     return re.sub(r"(^|(?<=[.!?])\s+|\n)정정:\s*", r"\1", text)
 
 TRACK = "AI"
+COURSES = {"intro": "개론", "app": "응용"}
 STEPS = ("1. [학습 시작]을 눌러 단원을 읽습니다.",
          "2. 단원 끝의 [연습 시작]을 눌러 그 단원 문항을 풉니다.",
          "3. 다음 날부터는 전에 푼 문항이 다시 나옵니다. [복습 시작]이 보이면 복습부터 풉니다.")
@@ -177,19 +178,21 @@ def read_counts(overview):
 
 
 def track_line(overview):
-    """허브의 AI 비전 개론 줄 둘째 줄. 읽은 단원이 없으면 이어서 할 일 카드가 권하는 단원부터 읽으라고 씀. 카드가 단원이 아니면
-    START_LINE."""
+    """허브의 진도와 복습 수에 선택한 과정을 표시함."""
     total, read = read_counts(overview)
     if not read:
         item = overview.get("continuation", overview["next"])
         place = unit_place(item, overview) if item["kind"] == "unit" else ""
-        return "%s부터 읽습니다." % place if place else START_LINE
-    parts = ["단원 %d개 중 %d개 읽음" % (total, read)]
-    if overview["memorised"]:
-        parts.append(memorised_part(overview))
-    if overview["due"]:
-        parts.append(due_part(overview["due"]))
-    return " · ".join(parts)
+        detail = "%s부터 읽습니다." % place if place else START_LINE
+    else:
+        parts = ["단원 %d개 중 %d개 읽음" % (total, read)]
+        if overview["memorised"]:
+            parts.append(memorised_part(overview))
+        if overview["due"]:
+            parts.append(due_part(overview["due"]))
+        detail = " · ".join(parts)
+    course = COURSES.get(overview.get("course"))
+    return "%s · %s" % (course, detail) if course else detail
 
 
 def lesson_line(row):
@@ -355,9 +358,10 @@ def unit_why(item, overview, today):
 
 def recent_label(entry):
     """허브 최근 채점 줄. 연습은 처음 답에 맞힌 수 / 문항 수로 모의고사 줄과 같은 꼴."""
+    label = "%s %s" % (TRACK, COURSES[entry["course"]]) if entry.get("course") in COURSES else TRACK
     if entry["kind"] == "set":
-        return "%s 연습 %d/%d" % (TRACK, entry.get("first_pass") or 0, entry.get("n") or 0)
-    return "%s 모의고사 %s/%s" % (TRACK, entry.get("score"), entry.get("of"))
+        return "%s 연습 %d/%d" % (label, entry.get("first_pass") or 0, entry.get("n") or 0)
+    return "%s 모의고사 %s/%s" % (label, entry.get("score"), entry.get("of"))
 
 
 # 연습 묶음 끝 요약(설계 2.7)
