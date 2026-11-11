@@ -14,11 +14,26 @@ AI 학습과 풀이 기록, 화면 사용법의 변경 내용을 확인합니다
 
 ## [학습 로드맵](docs/roadmap/README.md#학습-로드맵)
 
-ROKEY 11기 수업과 여섯 직무의 학습 순서를 그림으로 확인합니다.
+어떤 일을 하고 싶은지 골라 보세요. 직무별로 배울 순서, ROKEY 11기 수업에 포함된 범위, 직접 만들어 볼 결과물을 그림으로 확인합니다.
+
+[![직무별 학습 로드맵 보기: 공통 기초, 직무별 학습, 실습 결과](docs/roadmap/preview.png)](docs/roadmap/README.md#직무별-로드맵)
 
 ### [그림 읽는 법](docs/roadmap/README.md#그림-읽는-법)
 
-### [여섯 길](docs/roadmap/README.md#여섯-길)
+<a id="여섯-길"></a>
+
+### [직무별 로드맵](docs/roadmap/README.md#직무별-로드맵)
+
+**아래 직무를 누르고 ‘로드맵 펼쳐보기’에서 학습 순서를 확인하세요.**
+
+| 직무별 로드맵 | 하는 일과 배울 내용 |
+| --- | --- |
+| [**로봇 SW·제어 엔지니어**](docs/roadmap/README.md#arm) | 로봇 팔과 장치를 제어합니다. C++·ROS2·장치 통신을 익힙니다. |
+| [**자율주행 로봇 엔지니어**](docs/roadmap/README.md#nav) | 이동 로봇이 목적지까지 주행하게 만듭니다. 지도 작성·위치 추정·경로 계획을 익힙니다. |
+| [**비전 AI 엔지니어**](docs/roadmap/README.md#vision) | 영상 모델을 학습하고 실패 원인을 분석합니다. PyTorch·OpenCV·모델 배포를 익힙니다. |
+| [**로봇 현장·통합 엔지니어**](docs/roadmap/README.md#field) | 로봇과 장비를 연결하고 현장 문제를 해결합니다. 설치·점검·통신·기술 문서를 익힙니다. |
+| [**Physical AI 엔지니어**](docs/roadmap/README.md#physical) | 로봇이 동작을 배우도록 학습시킵니다. 시뮬레이션·모방학습·강화학습을 익힙니다. |
+| [**로봇 관제 개발자**](docs/roadmap/README.md#platform) | 여러 로봇의 상태를 화면과 서버로 모읍니다. 웹 화면·API·데이터베이스·연결 복구를 익힙니다. |
 
 ### [이 프로그램에서 연습할 수 있는 부분](docs/roadmap/README.md#이-프로그램에서-연습할-수-있는-부분)
 
