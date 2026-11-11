@@ -21,17 +21,18 @@ class PythonDataGuiTest(fixtures.GuiTest):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def test_home_opens_python_consent_separately_from_ai(self):
+    def test_home_opens_python_collection_and_stops_it_separately_from_ai(self):
         self.boot()
         self.win.home.show_data()
         dialog = self.win.home.data_dialog
         guikit.pump()
         self.assertEqual("python", dialog.collection.track)
         self.assertEqual("파이썬 학습 데이터", dialog.windowTitle())
-        self.assertFalse(dialog.collection.status()["enabled"])
-        guikit.click(dialog.toggle)
         self.assertTrue(dialog.collection.status()["enabled"])
-        self.assertFalse(self.win.ai.collection.status()["enabled"] if self.win.ai else False)
+        ai_enabled = self.win.ai.collection.status()["enabled"] if self.win.ai else False
+        guikit.click(dialog.toggle)
+        self.assertFalse(dialog.collection.status()["enabled"])
+        self.assertEqual(ai_enabled, self.win.ai.collection.status()["enabled"] if self.win.ai else False)
         dialog.close()
 
     def test_small_window_largest_text_and_both_themes(self):

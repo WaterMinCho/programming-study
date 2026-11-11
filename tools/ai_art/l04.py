@@ -2717,4 +2717,3 @@ if __name__ == "__main__":
     rows = render("l04", sys.argv[1:] or None)
     for row in rows:
         print(row["name"], os.path.relpath(row["path"], ROOT), "; ".join(row["problems"]))
-
