@@ -3,7 +3,16 @@
 각자 fork의 `experiments/본인GitHubID/`에서 모델을 만들고 작은 PR로 공유합니다. 아래는 앞으로 진행할 순서이며 팀원이 이미 완료했다는 표시가 아닙니다. 실제 진행 상태와 다음 할 일은 [스터디 보드](https://github.com/users/WaterMinCho/projects/2/views/1)의 담당 이슈에서 확인합니다.
 
 ```mermaid
-flowchart LR
+---
+config:
+  htmlLabels: false
+  flowchart:
+    padding: 20
+    wrappingWidth: 240
+    nodeSpacing: 32
+    rankSpacing: 36
+---
+flowchart TD
     A["입력 확인"] --> B["작은 예측"]
     B --> C["학습·평가"]
     C --> D["저장·불러오기"]

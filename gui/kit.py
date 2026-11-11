@@ -795,7 +795,7 @@ class FlowLayout(QLayout):
         for item in self.items:
             if item.widget() is not None and not item.widget().isVisibleTo(item.widget().parentWidget()):
                 continue
-            hint = item.sizeHint()
+            hint = item.sizeHint().expandedTo(item.minimumSize())
             if x > area.x() and x + hint.width() > area.right() + 1:
                 place_line()
                 x, y, line = area.x(), y + line + gap, 0
@@ -1088,7 +1088,7 @@ class BottomBar(QFrame):
         width = max(1, self.width() - left - right)
         tools = [item for item in self.tools.items if not item.isEmpty()]
         self.tool_box.setVisible(bool(tools))
-        tool_width = sum(item.sizeHint().width() for item in tools) + max(0, len(tools) - 1) * self.tools.spacing()
+        tool_width = sum(item.sizeHint().expandedTo(item.minimumSize()).width() for item in tools) + max(0, len(tools) - 1) * self.tools.spacing()
         action = self.action_row.sizeHint()
         stacked = bool(tools) and tool_width + 24 + action.width() > width
         self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
