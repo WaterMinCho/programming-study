@@ -493,7 +493,7 @@ class CodePanel(QWidget):
 
     def arrange(self):
         need = self.hint.minimumSizeHint().width() + self.reset_btn.sizeHint().width() + self.top.spacing()
-        vertical = self.width() < need
+        vertical = self.isVisible() and self.width() < need
         self.top.setDirection(self.top.Direction.TopToBottom if vertical else self.top.Direction.LeftToRight)
         self.top.setStretch(0, 0 if vertical else 1)
 
@@ -503,7 +503,7 @@ class CodePanel(QWidget):
 
     def event(self, event):
         result = super().event(event)
-        if event.type() == QEvent.Type.LayoutRequest and hasattr(self, "top"):
+        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Show, QEvent.Type.Hide) and hasattr(self, "top"):
             self.arrange()
         return result
 

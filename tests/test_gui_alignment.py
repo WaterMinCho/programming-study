@@ -24,7 +24,7 @@ def first_ink_rows(label, suffix=""):
             if pixel.alpha() >= 128 and max(abs(pixel.red() - color.red()), abs(pixel.green() - color.green()),
                                              abs(pixel.blue() - color.blue())) < 50:
                 count += 1
-        if count >= 3:
+        if count >= (1 if suffix else 3):
             if rows and y - rows[-1] > 3:
                 break
             rows.append(y)
