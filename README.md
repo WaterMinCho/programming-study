@@ -124,6 +124,8 @@ AI 학습과 풀이 기록, 화면 사용법의 변경 내용을 확인합니다
 
 팀원은 [각자 fork에서 첫 PR까지](docs/LEARNING_WORKFLOW.md)를 먼저 읽습니다. [담당별 미션](docs/LEARNING_MISSIONS.md)에서 세 모델의 차이를, [모델 개발 로드맵](docs/LEARNING_ROADMAP.md)에서 남길 산출물과 다음 학습을 확인합니다.
 
+PR 등록·CI 결과·새 리뷰는 [Slack 알림](docs/SLACK_NOTIFICATIONS.md)에서 바로가기로 확인할 수 있습니다.
+
 ---
 
 ## [Node.js 설치](tools/README.md#nodejs-설치)
