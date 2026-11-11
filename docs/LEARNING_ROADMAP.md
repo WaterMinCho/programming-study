@@ -8,6 +8,7 @@ config:
   htmlLabels: false
   flowchart:
     padding: 20
+    wrappingWidth: 240
     nodeSpacing: 32
     rankSpacing: 36
 ---
