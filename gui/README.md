@@ -45,7 +45,7 @@ git clone https://github.com/WaterMinCho/programming-study.git
 
 ### 프로그램을 켜고 ID를 입력합니다
 
-1. Windows는 받은 폴더의 **`start.bat`**을 더블클릭합니다. 확장자가 안 보이면 탐색기에서 파일 확장명 표시를 켜서 확인합니다. `start.pyw`로 열어도 됩니다. macOS는 `start.command`를 열거나 그 폴더의 터미널에서 `python3 study.py`를 실행합니다. `ROKEY.app`이 실행되는 환경에서는 그 파일로 열어도 됩니다.
+1. Windows는 받은 폴더의 `start.bat`을 더블클릭합니다. 확장자가 안 보이면 탐색기에서 파일 확장명 표시를 켜서 확인합니다. `start.pyw`로 열어도 됩니다. macOS는 `start.command`를 열거나 그 폴더의 터미널에서 `python3 study.py`를 실행합니다. `ROKEY.app`이 실행되는 환경에서는 그 파일로 열어도 됩니다.
 2. 처음 실행할 때 ‘프로그래밍 스터디 준비’ 창이 나오면 [설치]를 누릅니다. 화면 도구인 PyQt6를 내려받아 이 컴퓨터의 `~/.rokey-study/venv`에 설치합니다. 이미 사용할 수 있는 PyQt6가 있으면 이 과정을 건너뜁니다. 인터넷이 필요합니다.
 3. ‘처음 실행’ 창에는 **내 GitHub ID**를 적고 [시작]을 누릅니다. `github.com/gildong-hong`이 내 주소라면 `gildong-hong`을 적습니다. GitHub 계정이 없다면 [GitHub 가입](https://github.com/signup)으로 ID를 정할 수 있습니다. 실명이나 이메일을 적는 칸이 아닙니다. 여기서 ID를 입력하는 것과 GitHub에 로그인하는 것은 별개입니다.
 4. **학습 현황** 화면이 열리면 아래 안내에 따라 과목을 고릅니다. AI나 알고리즘부터 시작해도 됩니다.
