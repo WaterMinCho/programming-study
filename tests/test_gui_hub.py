@@ -365,6 +365,9 @@ class HubScreenTest(HubTest):
 
     def test_subject_navigation_fits_a_small_window_at_the_largest_text_size(self):
         win = self.boot()
+        # 첫 show에서 화면 크기에 맞춰 줄어든 창도 넓은 배치부터 대조함.
+        win.resize(1280, 800)
+        guikit.pump()
         self.assertTrue(win.workspace.rail.isVisible())
         self.assertEqual(win.hub.tracks.columns, 2)
         win.set_text("larger")
