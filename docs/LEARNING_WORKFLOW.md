@@ -80,7 +80,7 @@ Git과 Python이 필요합니다. 처음 설치하는 사람은 [프로그램 �
 공통 입력은 **본인 계정의 fork를 받은 폴더**에서 읽습니다. 이 폴더는 첫 PR에서도 사용합니다. 프로그램으로 문제를 풀던 기존 폴더는 별도로 두고, 2단계의 `model-study` 안에 준비합니다.
 
 1. GitHub에서 [공통 저장소](https://github.com/WaterMinCho/programming-study)를 열고 **Fork → Create fork**로 본인 계정에 복사합니다. 이미 fork가 있으면 그 저장소를 사용합니다.
-2. 화면 왼쪽 위가 `본인ID/programming-study`인지 확인하고 **Code → HTTPS** 주소를 복사합니다. 기존 fork는 작업 전 `main`에서 **Sync fork**의 상태를 확인합니다. 충돌 안내가 나오면 내용을 지우거나 강제로 맞추지 않고 담당 이슈에 남깁니다.
+2. 화면 왼쪽 위가 `본인ID/programming-study`인지 확인하고 **Code → HTTPS** 주소를 복사합니다. 기존 fork는 `main`에서 **Sync fork**를 열어 원본의 변경을 확인하고, 받을 변경이 있으면 **Update branch**로 반영합니다. 충돌 안내가 나오면 내용을 지우거나 강제로 맞추지 않고 담당 이슈에 남깁니다.
 3. SourceTree의 **Clone(복제)**에서 본인 fork 주소를 넣고 `model-study/programming-study`로 받습니다. 이미 모델 작업용으로 받은 폴더가 있으면 다시 받지 않고 그 폴더를 엽니다.
 
 터미널에서는 `model-study` 폴더에서 다음 두 줄을 실행합니다. SourceTree로 이미 받았다면 `git clone`을 반복하지 않습니다.
