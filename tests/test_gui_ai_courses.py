@@ -14,6 +14,7 @@ class CourseGuiTest(AiTest):
     def test_course_switch_keeps_participant_old_cursor_and_scoped_lists(self):
         win = self.boot((760, 480))
         win.go_ai()
+        self.assertEqual('AI', win.workspace.compact.currentText())
         win.ai.save_step('i01', '1a', 2)
         participant = win.ai.collection.status()['participant']
         guikit.click(win.ai_home.course_tabs.buttons[1])

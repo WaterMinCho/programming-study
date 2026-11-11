@@ -1535,7 +1535,7 @@ class WrongNotesTest(GuiTest):
         page = self.open_notes()
         self.assertIs(page.stack.currentWidget(), page.empty)
         self.assertEqual(page.empty_text.text(), "아직 틀린 문항이 없습니다. 회차를 제출하면 틀린 문항이 여기에 모입니다.")
-        self.assertEqual(visible_buttons(page), ["← 파이썬 스터디", "파이썬 스터디", "AI 비전 개론"])  # 트랙 칩 둘, 아래 막대는 숨음
+        self.assertEqual(visible_buttons(page), ["← 파이썬 스터디", "파이썬 스터디", "AI"])  # 트랙 칩 둘, 아래 막대는 숨음
         click(page.back_btn)
         self.assertIs(self.page(), self.win.home)
 

@@ -178,7 +178,7 @@ class HubAndHomeTest(AiTest):
         self.assertFalse(hub.ai_row.inert)
         self.assertEqual(len(hub.chart.days[-1]), 5)  # 날짜와 트랙 넷
         self.assertEqual(theme.SERIES[-1], "series_ai")
-        self.assertEqual([row.title.text() for _, row in hub.note_rows], ["파이썬 스터디", "AI 비전 개론"])
+        self.assertEqual([row.title.text() for _, row in hub.note_rows], ["파이썬 스터디", "AI"])
         guikit.click(hub.ai_row)
         self.assertEqual((self.page(), win.area), (win.ai_home, "ai"))
         guikit.click(win.ai_home.hub_btn)
@@ -1291,7 +1291,7 @@ class WrongNoteTest(AiTest):
         self.assertEqual(home.notes_row.second.text(), "아직 틀린 문항이 없습니다.")
         guikit.click(home.notes_row)
         page = win.wrong_page
-        self.assertEqual((self.page(), page.track.tid, page.back_btn.text()), (page, "ai", "← AI 비전 개론"))
+        self.assertEqual((self.page(), page.track.tid, page.back_btn.text()), (page, "ai", "← AI"))
         self.assertIs(page.stack.currentWidget(), page.empty)
         self.assertEqual(page.empty_text.text(), ai_text.AiNotes.EMPTY)
         guikit.click(page.back_btn)
@@ -1342,7 +1342,7 @@ class PatternTest(AiTest):
         home.set_busy(False)
         guikit.click(home.pattern_list.rows[0])
         learn = win.ai_learn
-        self.assertEqual((self.page(), learn.lid, learn.back_btn.text(), learn.title.text()), (learn, "pc", "← AI 비전 개론", self.UNIT))
+        self.assertEqual((self.page(), learn.lid, learn.back_btn.text(), learn.title.text()), (learn, "pc", "← AI", self.UNIT))
         guikit.click(learn.back_btn)
         self.assertEqual((self.page(), win.area), (home, "ai"))
         win.ai.mark_read("pc", "18a")

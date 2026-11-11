@@ -7,7 +7,7 @@ import study
 from gui import kit, theme
 
 SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home"),
-            ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI 비전", "go_ai"))
+            ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI", "go_ai"))
 
 
 class SubjectTile(kit.Row):
