@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1130" viewBox="0 0 1200 1130" role="img" aria-labelledby="title desc">
+<title id="title">팀원 모델의 입력과 출력 및 담당 범위</title>
+<desc id="desc">공통 입력에서 세 팀원의 LSTM, Transformer, 풀이 간격을 추가한 LSTM으로 갈라집니다. 같은 형식의 예측 결과를 WaterMinCho가 같은 조건에서 비교하고 이후 후보별 예측과 앱 추천에 연결합니다. 모델과 앱 연결은 예정입니다.</desc>
+<rect width="1200" height="1130" fill="#fff"/>
+<text x="48" y="49" font-family="NanumGothic, sans-serif" font-size="34" font-weight="700" fill="#18263d">내 모델은 전체 구조의 어디에 들어가나요?</text>
+<text x="48" y="87" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#516176">세 모델은 각자의 실습 환경에서 만듭니다. 프로그램·서버·공통 자료는 WaterMinCho가 맡습니다.</text>
+<rect x="48" y="125" width="1104" height="154" rx="20" fill="#f5fbf8" stroke="#b8c6d7" stroke-width="2" />
+<text x="76" y="166" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#17694e">공통 입력 준비 · 구현됨</text>
+<text x="76" y="206" font-family="NanumGothic, sans-serif" font-size="25" font-weight="700" fill="#18263d">이전 풀이 이력 + 이번 문제·개념 정보</text>
+<text x="76" y="246" font-family="NanumGothic, sans-serif" font-size="21" font-weight="400" fill="#516176">learning_server/input_example.py · 이번 정답은 inputs와 분리한 targets에 둡니다.</text>
+<polyline points="600,279 600,306 220,306 220,330" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="220,330 214.78041359066523,319.1946347717679 225.21958640933477,319.1946347717679" fill="#3658b9"/>
+<polyline points="220,662 220,692 600,692 600,716" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="600,716 594.7804135906653,705.1946347717678 605.2195864093347,705.1946347717678" fill="#3658b9"/>
+<polyline points="600,279 600,306 600,306 600,330" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="600,330 594.7804135906653,319.1946347717679 605.2195864093347,319.1946347717679" fill="#3658b9"/>
+<polyline points="600,662 600,692 600,692 600,716" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="600,716 594.7804135906653,705.1946347717678 605.2195864093347,705.1946347717678" fill="#3658b9"/>
+<polyline points="600,279 600,306 980,306 980,330" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="980,330 974.7804135906653,319.1946347717679 985.2195864093347,319.1946347717679" fill="#3658b9"/>
+<polyline points="980,662 980,692 600,692 600,716" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="600,716 594.7804135906653,705.1946347717678 605.2195864093347,705.1946347717678" fill="#3658b9"/>
+<rect x="48" y="342" width="344" height="320" rx="20" fill="#fafbff" stroke="#6350a6" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="72" y="380" font-family="NanumGothic, sans-serif" font-size="23" font-weight="700" fill="#6350a6">michae18</text>
+<text x="72" y="425" font-family="NanumGothic, sans-serif" font-size="28" font-weight="700" fill="#18263d">LSTM</text>
+<text x="72" y="466" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#18263d">기록을 순서대로 읽고</text>
+<text x="72" y="499" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#18263d">풀이 상태를 갱신합니다.</text>
+<rect x="72" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#6350a6" stroke-width="2" />
+<text x="83" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#6350a6">정답</text>
+<polyline points="153,546 170,546" fill="none" stroke="#6350a6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="170,546 159.19463477176788,551.2195864093347 159.19463477176788,540.7804135906653" fill="#6350a6"/>
+<rect x="172" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#6350a6" stroke-width="2" />
+<text x="183" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#6350a6">오답</text>
+<polyline points="253,546 270,546" fill="none" stroke="#6350a6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="270,546 259.1946347717679,551.2195864093347 259.1946347717679,540.7804135906653" fill="#6350a6"/>
+<rect x="272" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#6350a6" stroke-width="2" />
+<text x="283" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#6350a6">정답</text>
+<text x="72" y="620" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#6350a6">풀이 상태를 순서대로 갱신</text>
+<rect x="428" y="342" width="344" height="320" rx="20" fill="#fafbff" stroke="#3658b9" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="452" y="380" font-family="NanumGothic, sans-serif" font-size="23" font-weight="700" fill="#3658b9">wamangdoo</text>
+<text x="452" y="425" font-family="NanumGothic, sans-serif" font-size="28" font-weight="700" fill="#18263d">Transformer</text>
+<text x="452" y="466" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#18263d">과거 기록들을 비교해</text>
+<text x="452" y="499" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#18263d">참고할 비중을 계산합니다.</text>
+<rect x="452" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#3658b9" stroke-width="2" />
+<text x="463" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#3658b9">정답</text>
+<polyline points="533,546 550,546" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="550,546 539.1946347717678,551.2195864093347 539.1946347717678,540.7804135906653" fill="#3658b9"/>
+<rect x="552" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#3658b9" stroke-width="2" />
+<text x="563" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#3658b9">오답</text>
+<polyline points="633,546 650,546" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="650,546 639.1946347717678,551.2195864093347 639.1946347717678,540.7804135906653" fill="#3658b9"/>
+<rect x="652" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#3658b9" stroke-width="2" />
+<text x="663" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#3658b9">정답</text>
+<text x="452" y="620" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#3658b9">순서 정보 + 기록 사이의 관계</text>
+<rect x="808" y="342" width="344" height="320" rx="20" fill="#fafbff" stroke="#17694e" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="832" y="380" font-family="NanumGothic, sans-serif" font-size="23" font-weight="700" fill="#17694e">kimjs85529-a11y</text>
+<text x="832" y="425" font-family="NanumGothic, sans-serif" font-size="28" font-weight="700" fill="#18263d">LSTM + 풀이 간격</text>
+<text x="832" y="466" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#18263d">michae18의 LSTM을 받아</text>
+<text x="832" y="499" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#18263d">간격·확인 여부를 더합니다.</text>
+<rect x="832" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#17694e" stroke-width="2" />
+<text x="843" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#17694e">정답</text>
+<polyline points="913,546 930,546" fill="none" stroke="#17694e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="930,546 919.1946347717678,551.2195864093347 919.1946347717678,540.7804135906653" fill="#17694e"/>
+<rect x="932" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#17694e" stroke-width="2" />
+<text x="943" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#17694e">오답</text>
+<polyline points="1013,546 1030,546" fill="none" stroke="#17694e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="1030,546 1019.1946347717678,551.2195864093347 1019.1946347717678,540.7804135906653" fill="#17694e"/>
+<rect x="1032" y="526" width="80" height="40" rx="8" fill="#fff" stroke="#17694e" stroke-width="2" />
+<text x="1043" y="553" font-family="NanumGothic, sans-serif" font-size="20" font-weight="700" fill="#17694e">정답</text>
+<text x="832" y="620" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#17694e">같은 개념 풀이 후 2분 / 7일</text>
+<rect x="445" y="515" width="310" height="65" rx="0" fill="#fafbff" stroke="none" stroke-width="2" />
+<rect x="452" y="518" width="80" height="40" rx="8" fill="#fff" stroke="#3658b9" stroke-width="2" />
+<text x="461" y="545" font-family="NanumGothic, sans-serif" font-size="18" font-weight="700" fill="#3658b9">기록 1</text>
+<polyline points="492,559 600,586" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<rect x="552" y="518" width="80" height="40" rx="8" fill="#fff" stroke="#3658b9" stroke-width="2" />
+<text x="561" y="545" font-family="NanumGothic, sans-serif" font-size="18" font-weight="700" fill="#3658b9">기록 2</text>
+<polyline points="592,559 600,586" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<rect x="652" y="518" width="80" height="40" rx="8" fill="#fff" stroke="#3658b9" stroke-width="2" />
+<text x="661" y="545" font-family="NanumGothic, sans-serif" font-size="18" font-weight="700" fill="#3658b9">기록 3</text>
+<polyline points="692,559 600,586" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<circle cx="600" cy="586" r="5" fill="#3658b9"/>
+<rect x="48" y="728" width="1104" height="120" rx="20" fill="#f5f7ff" stroke="#3658b9" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="76" y="770" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">모든 모델이 같은 형식으로 결과를 냅니다</text>
+<text x="76" y="810" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#516176">예시 번호(event_id) · 정답일 확률(probability) · 모델 판(model_version)</text>
+<polyline points="600,848 600,876 308,876 308,897" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="308,897 302.78041359066526,886.1946347717678 313.21958640933474,886.1946347717678" fill="#3658b9"/>
+<polyline points="568,972 618,972" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="618,972 607.1946347717678,977.2195864093347 607.1946347717678,966.7804135906653" fill="#3658b9"/>
+<rect x="48" y="910" width="520" height="144" rx="20" fill="#f5f7ff" stroke="#3658b9" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="76" y="952" font-family="NanumGothic, sans-serif" font-size="26" font-weight="700" fill="#3658b9">WaterMinCho · 같은 조건으로 비교</text>
+<text x="76" y="994" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#18263d">기준 방법과 예측 오차를 비교합니다.</text>
+<text x="76" y="1031" font-family="NanumGothic, sans-serif" font-size="21" font-weight="400" fill="#516176">팀원은 실행 근거와 선택 이유를 남깁니다.</text>
+<rect x="632" y="910" width="520" height="144" rx="20" fill="#f5f7ff" stroke="#3658b9" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="660" y="952" font-family="NanumGothic, sans-serif" font-size="26" font-weight="700" fill="#3658b9">WaterMinCho · 앱 추천 연결</text>
+<text x="660" y="994" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#18263d">후보별 확률 + 복습 시점·목표</text>
+<text x="660" y="1031" font-family="NanumGothic, sans-serif" font-size="21" font-weight="400" fill="#516176">앱에서 풀 다음 문제를 고릅니다.</text>
+<text x="48" y="1098" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#516176">점선 영역은 앞으로 구현합니다. 첫 PR은 공통 입력을 읽고 설명하는 것부터 시작합니다.</text>
+</svg>

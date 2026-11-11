@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1060" viewBox="0 0 1200 1060" role="img" aria-labelledby="title desc">
+<title id="title">프로젝트 전체 구조</title>
+<desc id="desc">문제와 학습 자료, PC 프로그램, 기기의 학습 기록을 연결합니다. 풀이 제출은 GitHub로, 수집 기록 전송은 비공개 서버로 나뉩니다. 공통 자료 이후 세 모델의 학습·비교와 앱 추천 연결은 예정입니다.</desc>
+<rect width="1200" height="1060" fill="#fff"/>
+<text x="48" y="49" font-family="NanumGothic, sans-serif" font-size="34" font-weight="700" fill="#18263d">프로그램과 모델 스터디는 이렇게 연결됩니다</text>
+<text x="48" y="86" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#516176">학습 화면에서 남긴 기록을 모아 모델을 비교하고, 이후 추천 기능에 연결합니다.</text>
+<rect x="48" y="106" width="118" height="33" rx="16" fill="#e6f5ed" stroke="none" stroke-width="2" />
+<text x="62" y="129" font-family="NanumGothic, sans-serif" font-size="18" font-weight="700" fill="#17694e">현재 기능</text>
+<text x="184" y="130" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">실선으로 연결</text>
+<rect x="350" y="106" width="130" height="33" rx="16" fill="#edf2ff" stroke="none" stroke-width="2" />
+<text x="364" y="129" font-family="NanumGothic, sans-serif" font-size="18" font-weight="700" fill="#3658b9">앞으로 연결</text>
+<text x="498" y="130" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">점선으로 연결</text>
+<polyline points="368,242 426,242" fill="none" stroke="#6b7e95" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="426,242 415.1946347717679,247.21958640933477 415.1946347717679,236.78041359066523" fill="#6b7e95"/>
+<polyline points="760,242 818,242" fill="none" stroke="#6b7e95" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="818,242 807.1946347717678,247.21958640933477 807.1946347717678,236.78041359066523" fill="#6b7e95"/>
+<polyline points="832,292 798,292 798,348 208,348 208,382" fill="none" stroke="#6b7e95" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="208,382 202.78041359066523,371.1946347717679 213.21958640933477,371.1946347717679" fill="#6b7e95"/>
+<polyline points="992,324 992,382" fill="none" stroke="#6b7e95" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="992,382 986.7804135906653,371.1946347717679 997.2195864093347,371.1946347717679" fill="#6b7e95"/>
+<polyline points="368,477 426,477" fill="none" stroke="#6b7e95" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polygon points="426,477 415.1946347717679,482.21958640933474 415.1946347717679,471.78041359066526" fill="#6b7e95"/>
+<polyline points="600,580 600,640" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="600,640 594.7804135906653,629.1946347717678 605.2195864093347,629.1946347717678" fill="#3658b9"/>
+<polyline points="1042,650 1042,590" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="1042,590 1047.2195864093349,600.8053652282322 1036.7804135906651,600.8053652282322" fill="#3658b9"/>
+<polyline points="600,810 600,854" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="600,854 594.7804135906653,843.1946347717678 605.2195864093347,843.1946347717678" fill="#3658b9"/>
+<polyline points="1152,920 1178,920 1178,156 600,156 600,176" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+<polygon points="600,176 594.7804135906653,165.19463477176788 605.2195864093347,165.19463477176788" fill="#3658b9"/>
+<rect x="48" y="180" width="320" height="144" rx="20" fill="#f8faff" stroke="#b8c6d7" stroke-width="2" />
+<rect x="440" y="180" width="320" height="144" rx="20" fill="#f8faff" stroke="#b8c6d7" stroke-width="2" />
+<rect x="832" y="180" width="320" height="144" rx="20" fill="#f8faff" stroke="#b8c6d7" stroke-width="2" />
+<rect x="75" y="202" width="29" height="36" rx="4" fill="none" stroke="#3658b9" stroke-width="2" />
+<polyline points="82,214 97,214" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polyline points="82,222 97,222" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polyline points="82,230 97,230" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<text x="124" y="232" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">문제와 학습 자료</text>
+<text x="72" y="272" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">파이썬 · 알고리즘 · AI</text>
+<text x="72" y="304" font-family="NanumGothic, sans-serif" font-size="18" font-weight="400" fill="#516176">problems/ · dungeons/ · ai/</text>
+<rect x="464" y="202" width="38" height="27" rx="4" fill="none" stroke="#3658b9" stroke-width="2" />
+<polyline points="483,229 483,238" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polyline points="473,238 493,238" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<text x="516" y="232" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">PC 학습 프로그램</text>
+<text x="464" y="272" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">문제 풀기 · 채점 · 해설</text>
+<text x="464" y="304" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">gui/ + 과목별 서비스</text>
+<path d="M856,209 C856,200 892,200 892,209 V232 C892,243 856,243 856,232 Z" fill="none" stroke="#3658b9" stroke-width="2.5"/>
+<ellipse cx="874" cy="209" rx="18" ry="7" fill="none" stroke="#3658b9" stroke-width="2.5"/>
+<text x="908" y="232" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">기기의 학습 기록</text>
+<text x="856" y="272" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">답안 · 채점 결과 · 진도</text>
+<text x="856" y="304" font-family="NanumGothic, sans-serif" font-size="18" font-weight="400" fill="#516176">별도 수집 기록: 파이썬·AI</text>
+<text x="285" y="342" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">[서버에 보내기]를 누를 때 · 파이썬·AI만 HTTPS 전송</text>
+<text x="1015" y="365" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">[풀이 제출]</text>
+<rect x="48" y="396" width="320" height="184" rx="20" fill="#f5fbf8" stroke="#b8c6d7" stroke-width="2" />
+<path d="M72,425 C72,416 108,416 108,425 V448 C108,459 72,459 72,448 Z" fill="none" stroke="#17694e" stroke-width="2.5"/>
+<ellipse cx="90" cy="425" rx="18" ry="7" fill="none" stroke="#17694e" stroke-width="2.5"/>
+<text x="124" y="448" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">비공개 수집 서버</text>
+<text x="72" y="490" font-family="NanumGothic, sans-serif" font-size="21" font-weight="400" fill="#18263d">PythonAnywhere · SQLite</text>
+<text x="72" y="525" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#516176">운영자가 파일로 내보냅니다.</text>
+<text x="72" y="558" font-family="NanumGothic, sans-serif" font-size="17" font-weight="400" fill="#516176">WaterMinCho · learning_server/</text>
+<rect x="440" y="396" width="320" height="184" rx="20" fill="#f5fbf8" stroke="#b8c6d7" stroke-width="2" />
+<rect x="467" y="418" width="29" height="36" rx="4" fill="none" stroke="#17694e" stroke-width="2" />
+<polyline points="474,430 489,430" fill="none" stroke="#17694e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polyline points="474,438 489,438" fill="none" stroke="#17694e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polyline points="474,446 489,446" fill="none" stroke="#17694e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<text x="516" y="448" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">공통 자료 준비</text>
+<text x="464" y="490" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">학습 · 검증 · 평가 분리</text>
+<text x="464" y="525" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#516176">기존 풀이도 변환해 사용</text>
+<text x="464" y="558" font-family="NanumGothic, sans-serif" font-size="17" font-weight="400" fill="#516176">WaterMinCho · learning_server/</text>
+<rect x="832" y="396" width="320" height="184" rx="20" fill="#f8faff" stroke="#b8c6d7" stroke-width="2" />
+<polyline points="863,421 863,452" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<polyline points="863,444 884,431 884,421" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+<circle cx="863" cy="421" r="5" fill="white" stroke="#3658b9" stroke-width="2.5"/>
+<circle cx="863" cy="452" r="5" fill="white" stroke="#3658b9" stroke-width="2.5"/>
+<circle cx="884" cy="421" r="5" fill="white" stroke="#3658b9" stroke-width="2.5"/>
+<text x="908" y="448" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">GitHub에서 공유</text>
+<text x="856" y="490" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">풀이 PR · 모델 코드 PR</text>
+<text x="856" y="525" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#516176">CI 검사 · 리뷰</text>
+<text x="856" y="558" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#516176">개발 PR 소식은 Slack 알림</text>
+<text x="620" y="621" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#3658b9">같은 공통 자료로 시작</text>
+<text x="1062" y="623" font-family="NanumGothic, sans-serif" font-size="18" font-weight="400" fill="#3658b9">코드 PR</text>
+<rect x="48" y="650" width="1104" height="160" rx="20" fill="#f5f7ff" stroke="#3658b9" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="76" y="687" font-family="NanumGothic, sans-serif" font-size="26" font-weight="700" fill="#18263d">팀원은 이 부분을 직접 만듭니다</text>
+<rect x="994" y="665" width="130" height="33" rx="16" fill="#edf2ff" stroke="none" stroke-width="2" />
+<text x="1008" y="688" font-family="NanumGothic, sans-serif" font-size="18" font-weight="700" fill="#3658b9">구현 예정</text>
+<line x1="410" y1="712" x2="410" y2="788" stroke="#cbd5ee" stroke-width="2"/>
+<line x1="790" y1="712" x2="790" y2="788" stroke="#cbd5ee" stroke-width="2"/>
+<text x="76" y="735" font-family="NanumGothic, sans-serif" font-size="22" font-weight="700" fill="#3658b9">michae18</text>
+<text x="76" y="774" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">LSTM · 풀이 순서</text>
+<text x="442" y="735" font-family="NanumGothic, sans-serif" font-size="22" font-weight="700" fill="#3658b9">wamangdoo</text>
+<text x="442" y="774" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">Transformer · 기록 관계</text>
+<text x="822" y="735" font-family="NanumGothic, sans-serif" font-size="22" font-weight="700" fill="#3658b9">kimjs85529-a11y</text>
+<text x="822" y="774" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">같은 LSTM + 풀이 간격</text>
+<rect x="48" y="866" width="1104" height="132" rx="20" fill="#f5f7ff" stroke="#3658b9" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="76" y="903" font-family="NanumGothic, sans-serif" font-size="25" font-weight="700" fill="#3658b9">평가·앱 연결 · 예정</text>
+<text x="76" y="941" font-family="NanumGothic, sans-serif" font-size="24" font-weight="400" fill="#18263d">WaterMinCho: 같은 조건으로 비교 → 후보별 정답 확률 계산 → 다음 문제 추천</text>
+<text x="76" y="977" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#516176">팀원의 모델은 각자 fork의 experiments/본인ID/에서 개발하고 PR로 공유합니다.</text>
+<text x="48" y="1034" font-family="NanumGothic, sans-serif" font-size="21" font-weight="400" fill="#516176">AI에는 개론·응용을 모두 포함합니다. 현재 앱은 기존 규칙으로 문제를 고릅니다.</text>
+</svg>
