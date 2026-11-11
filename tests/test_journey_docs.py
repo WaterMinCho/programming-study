@@ -105,7 +105,8 @@ class ExistingBlocksTest(unittest.TestCase):
         self.assertEqual([b["src"] for b in blocks if b["t"] == "image"], ["assets/%d.png" % n for n in range(len(PIECES))])
 
     def test_python_bank_has_no_image_blocks(self):
-        files = glob.glob(os.path.join(ROOT, "problems", "**", "*.md"), recursive=True)
+        # 루트 README는 사용 안내이므로 회차 폴더 안의 문제·해설만 검사함.
+        files = glob.glob(os.path.join(ROOT, "problems", "*", "**", "*.md"), recursive=True)
         self.assertTrue(files)
         for path in files:
             with open(path, encoding="utf-8") as handle:
