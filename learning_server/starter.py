@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import math
+import numbers
 import os
 from pathlib import Path
 
@@ -16,9 +17,27 @@ def question_token(row):
 
 
 def metrics(targets, probabilities):
+    def scalar(value):
+        if getattr(value, "ndim", None) == 0:
+            try:
+                return value.item()
+            except (AttributeError, TypeError, ValueError):
+                pass
+        return value
+
     size = len(targets)
+    if size != len(probabilities):
+        raise ValueError("정답과 예측값을 같은 개수로 전달해 주세요.")
+    targets, probabilities = [scalar(value) for value in targets], [scalar(value) for value in probabilities]
+    for index, target in enumerate(targets, 1):
+        if not isinstance(target, numbers.Real) or target not in (0, 1):
+            raise ValueError("%d번째 정답에는 숫자 0 또는 1을 넣어 주세요." % index)
+    for index, probability in enumerate(probabilities, 1):
+        if not isinstance(probability, numbers.Real) or not 0 <= probability <= 1 or not math.isfinite(probability):
+            raise ValueError("%d번째 예측값에는 0 이상 1 이하의 유한한 숫자를 넣어 주세요." % index)
     if not size:
         return {"rows": 0, "brier": None, "log_loss": None, "roc_auc": None}
+    targets, probabilities = [int(value) for value in targets], [float(value) for value in probabilities]
     brier = sum((p - y) ** 2 for y, p in zip(targets, probabilities)) / size
     loss = -sum(y * math.log(max(1e-12, p)) + (1-y) * math.log(max(1e-12, 1-p)) for y, p in zip(targets, probabilities)) / size
     positive = sum(targets)

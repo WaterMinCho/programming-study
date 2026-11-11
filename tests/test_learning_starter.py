@@ -4,6 +4,7 @@ import copy
 import datetime
 import hashlib
 import json
+import math
 from pathlib import Path
 import tempfile
 import unittest
@@ -158,3 +159,47 @@ class StarterTest(unittest.TestCase):
         self.assertEqual(0.5, starter.metrics([0,1], [0.5,0.5])["roc_auc"])
         self.assertAlmostEqual(0.01, starter.metrics([0,1], [0.1,0.9])["brier"])
         self.assertIsNone(starter.metrics([1,1], [0.5,0.5])["roc_auc"])
+
+    def test_metrics_reject_mismatched_rows_before_computing_or_empty_result(self):
+        for targets, probabilities in (([0, 1], [.2]), ([1], [.1, .8]), ([], [.5]), ([1], [])):
+            with self.subTest(targets=targets, probabilities=probabilities):
+                with self.assertRaises(ValueError):
+                    starter.metrics(targets, probabilities)
+        self.assertEqual({"rows": 0, "brier": None, "log_loss": None, "roc_auc": None}, starter.metrics([], []))
+
+    def test_metrics_reject_invalid_probabilities_and_labels(self):
+        for probability in (float("nan"), float("inf"), -float("inf"), -.01, 1.01, None, "0.5", 2 ** 10000, 1j):
+            with self.subTest(probability=probability):
+                with self.assertRaises(ValueError):
+                    starter.metrics([0, 1], [probability, .9])
+        for target in (-1, 2, .5, float("nan"), float("inf"), None, "1", 1j):
+            with self.subTest(target=target):
+                with self.assertRaises(ValueError):
+                    starter.metrics([0, target], [.1, .9])
+
+    def test_metrics_keep_probability_boundaries_finite_and_inputs_unchanged(self):
+        targets, probabilities = [0, 1], [1., 0.]
+        result = starter.metrics(targets, probabilities)
+        self.assertEqual(1., result["brier"])
+        self.assertEqual(0., result["roc_auc"])
+        self.assertTrue(math.isfinite(result["log_loss"]))
+        self.assertGreaterEqual(result["log_loss"], 0.)
+        self.assertEqual([0, 1], targets)
+        self.assertEqual([1., 0.], probabilities)
+
+    def test_metrics_accept_zero_dimensional_scalars_but_not_array_rows(self):
+        class Scalar:
+            ndim = 0
+            def __init__(self, value):
+                self.value = value
+            def item(self):
+                return self.value
+
+        self.assertEqual(starter.metrics([False, True], [.2, .8]),
+                         starter.metrics([Scalar(False), Scalar(True)], [Scalar(.2), Scalar(.8)]))
+        for value in (Scalar(float("nan")), Scalar(1j), Scalar([.5])):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    starter.metrics([0], [value])
+        with self.assertRaises(ValueError):
+            starter.metrics([[0]], [.2])
