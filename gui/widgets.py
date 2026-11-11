@@ -471,7 +471,7 @@ class CodePanel(QWidget):
         super().__init__(parent)
         box = QVBoxLayout(self)
         box.setContentsMargins(0, 0, 0, 0)
-        self.top = QVBoxLayout()
+        self.top = QHBoxLayout()
         self.top.setSpacing(theme.GAP["detail"])
         self.hint = hint_label()
         self.reset_btn = QPushButton("시작 코드 복원")
