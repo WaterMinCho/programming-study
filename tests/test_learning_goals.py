@@ -29,13 +29,14 @@ class GoalTest(unittest.TestCase):
         self.roadmap.write_text(json.dumps(data), encoding="utf-8")
         self.store = collection.Collection(str(self.root / "source/private"), str(self.repo))
 
-    def test_default_off_never_creates_files(self):
+    def test_default_off_creates_only_a_stop_marker_when_stopped(self):
         self.assertFalse(self.store.status()["enabled"])
         self.store.set_enabled(False)
         self.assertFalse(self.store.emit("answer", {}))
         with self.assertRaises(collection.CollectionError):
             self.store.set_goal("arm")
-        self.assertFalse((self.root / "source").exists())
+        self.assertFalse(Path(self.store.path).exists())
+        self.assertTrue(Path(self.store.stop_path).exists())
 
     def test_selection_revision_and_past_snapshots(self):
         self.store.set_enabled(True)

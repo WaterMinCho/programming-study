@@ -2682,12 +2682,6 @@ def levels_4h4_20():
     return levels_4h4(20)
 
 
-if __name__ == "__main__":
-    from tools.ai_art import render
-    rows = render("l04", sys.argv[1:] or None)
-    for row in rows:
-        print(row["name"], os.path.relpath(row["path"], ROOT), "; ".join(row["problems"]))
-
 
 @figure("4e-6",560,300)
 def relu_gradient_rule():
@@ -2703,17 +2697,24 @@ def relu_gradient_rule():
         (0,"입력 0",["수학적 미분값 하나 없음", "PyTorch 기울기 규칙: 0"]) ]):
         im=Image.new("RGB",(1120,600),"white");d=ImageDraw.Draw(im)
         d.rounded_rectangle((24,24,1096,576),radius=24,outline="#e5e7eb",width=2)
-        d.text((52,48),"ReLU의 미분과 역전파 계산 규칙",font=f(40),fill="#111827")
+        d.text((52,48),"ReLU의 미분과 역전파 계산 규칙",font=f(40),fill="#1f2937")
         d.line((65,440,605,440),fill="#9ca3af",width=3)
         d.line((335,165,335,480),fill="#9ca3af",width=3)
         d.line((65,440,335,440,585,190),fill="#2563eb",width=7)
-        for x in (-2,-1,0,1,2):d.text((325+x*125,465),str(x),font=f(26),fill="#111827")
-        d.text((578,405),"x",font=f(28),fill="#111827")
-        d.text((65,165),"ReLU(x)",font=f(28),fill="#111827")
+        for x in (-2,-1,0,1,2):d.text((325+x*125,465),str(x),font=f(26),fill="#1f2937")
+        d.text((578,405),"x",font=f(28),fill="#1f2937")
+        d.text((65,165),"ReLU(x)",font=f(28),fill="#1f2937")
         px=335+xval*125;py=440-max(0,xval)*125
-        d.ellipse((px-12,py-12,px+12,py+12),fill="#f97316",outline="#111827",width=2)
+        d.ellipse((px-12,py-12,px+12,py+12),fill="#ea580c",outline="#1f2937",width=2)
         d.text((660,195),title,font=f(38),fill="#2563eb")
-        for k,line in enumerate(lines):d.text((660,285+k*65),line,font=f(29),fill="#111827")
-        d.text((52,530),"기울기를 계산하는 규칙과 파라미터 갱신을 구분합니다.",font=f(29),fill="#4b5563")
+        for k,line in enumerate(lines):d.text((660,285+k*65),line,font=f(29),fill="#1f2937")
+        d.text((52,530),"기울기를 계산하는 규칙과 파라미터 갱신을 구분합니다.",font=f(29),fill="#6b7280")
         frames.append(im)
     return frames,[2200]*3
+
+if __name__ == "__main__":
+    from tools.ai_art import render
+    rows = render("l04", sys.argv[1:] or None)
+    for row in rows:
+        print(row["name"], os.path.relpath(row["path"], ROOT), "; ".join(row["problems"]))
+

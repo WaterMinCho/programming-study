@@ -490,7 +490,7 @@ class VerifyStaticTest(BankCase):
         self.replace(page, "파일: assets/l90-1.png", "파일: pictures/l90-1.png")
         self.assertFails("파일은 assets/<이름>.gif 나 .png 여야 합니다", "l90", steps={10})
         self.replace(page, "파일: pictures/l90-1.png", "파일: assets/x-1.png")
-        self.assertFails("그림 이름 x-1 가 l01-1, 3a-1, w03-1 꼴이 아닙니다", "l90", steps={10})
+        self.assertFails("그림 이름 x-1 가 l01-1, 3a-1, w03-1, al01-1, a1a-1 꼴이 아닙니다", "l90", steps={10})
         self.replace(page, "파일: assets/x-1.png", "파일: assets/l91-1.png")
         self.assertFails("그림 이름 l91-1 는 이 페이지(l90-1)나 그 절(90a-1, 90b-1)의 꼴이 아닙니다", "l90", steps={10})
         self.replace(page, "파일: assets/l91-1.png", "파일: assets/90a-1.gif")

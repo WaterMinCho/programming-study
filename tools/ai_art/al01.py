@@ -5,7 +5,7 @@ from pathlib import Path
 from tools.ai_art import figure, FONTS
 
 W, H = 1120, 600
-INK, BLUE, PALE, LINE = '#111827', '#2563eb', '#dbeafe', '#e5e7eb'
+INK, BLUE, PALE, LINE = '#1f2937', '#2563eb', '#dbeafe', '#e5e7eb'
 
 
 def font(size=32, bold=False):
@@ -27,7 +27,7 @@ def base(title, subtitle='입력 준비 → 모델 → 예측 → 평가'):
     d.rounded_rectangle((24, 24, W-24, H-24), radius=24, outline=LINE, width=2)
     text(d, (52, 47), 'AI 응용 · 입력 준비', 26, BLUE, True)
     text(d, (52, 97), title, 40, bold=True)
-    text(d, (52, 529), subtitle, 27, '#4b5563')
+    text(d, (52, 529), subtitle, 27, '#6b7280')
     return im, d
 
 
