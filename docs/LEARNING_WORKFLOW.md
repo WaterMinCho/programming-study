@@ -50,6 +50,10 @@ LSTM과 Transformer는 같은 비시간 입력으로 비교합니다. 간격 담
 
 ## 운영 구성을 고른 근거입니다
 
-[GitHub 공식 Projects 안내](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects)의 보드·담당자·이슈 연결을 사용합니다. [Notion 공식 Projects & Tasks 템플릿](https://www.notion.com/templates/notion-projects-and-tasks)은 확인했지만, 작업 상태를 두 번 관리하지 않도록 Notion은 안내와 기록에 사용합니다. [GitHub 동기화 DB](https://www.notion.com/help/github)는 유료 조건이 있어 사용하지 않습니다.
+[GitHub 공식 Projects 안내][projects-guide]의 보드·담당자·이슈 연결을 사용합니다. [Notion 공식 Projects & Tasks 템플릿](https://www.notion.com/templates/notion-projects-and-tasks)은 확인했지만, 작업 상태를 두 번 관리하지 않도록 Notion은 안내와 기록에 사용합니다. [GitHub 동기화 DB](https://www.notion.com/help/github)는 유료 조건이 있어 사용하지 않습니다.
 
-[ML Zoomcamp 프로젝트 안내](https://github.com/DataTalksClub/machine-learning-zoomcamp/blob/9bb19da5777191f0dc0a038f93ef1b429db5a2bb/projects/README.md)의 실행법·재현 코드·문서 기준을 참고했습니다. 각자 코드와 판단, 오류 분석, 피드백 반영을 남깁니다. 합성 실행 점수를 실제 학습자 성능이나 취업 성과로 설명하지 않습니다. 공식 자료는 2026년 11월 11일에 확인했습니다.
+[ML Zoomcamp 프로젝트 안내][zoomcamp-projects]의 실행법·재현 코드·문서 기준을 참고했습니다. 각자 코드와 판단, 오류 분석, 피드백 반영을 남깁니다. 합성 실행 점수를 실제 학습자 성능이나 취업 성과로 설명하지 않습니다. 공식 자료는 2026년 11월 11일에 확인했습니다.
+
+[projects-guide]: https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects
+
+[zoomcamp-projects]: https://github.com/DataTalksClub/machine-learning-zoomcamp/blob/9bb19da5777191f0dc0a038f93ef1b429db5a2bb/projects/README.md
