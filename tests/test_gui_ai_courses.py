@@ -44,13 +44,16 @@ class CourseGuiTest(AiTest):
         level.block = dict(level.block, concept="배치·확률적·미니배치 경사하강법")
         win.ai_learn.scroll.ensureWidgetVisible(level.deep_btn)
         guikit.pump()
-        old_scroll = win.ai_learn.scroll.verticalScrollBar().value()
         old_step = win.ai_learn.index
         path = Path(win.ai.record.path)
         before = path.read_bytes() if path.exists() else None
         for mode in ('light', 'dark'):
             theme.set_mode(mode)
             win.restyle()
+            guikit.wait_until(lambda: win.ai_learn.pending_position is None)
+            win.ai_learn.scroll.ensureWidgetVisible(level.deep_btn)
+            guikit.pump()
+            old_scroll = win.ai_learn.scroll.verticalScrollBar().value()
             guikit.click(level.deep_btn)
             guikit.pump()
             popup = level.deep_dialog
