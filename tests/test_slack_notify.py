@@ -224,9 +224,18 @@ class NotificationTest(unittest.TestCase):
         pr["title"] = "<!channel> <https://evil.example|click> & *title*"
         payload = notify.card("새 PR", "설명", pr)
         self.assertNotIn("<!channel>", payload["text"])
-        blocks = payload["attachments"][0]["blocks"]
+        blocks = payload["blocks"]
         self.assertEqual("plain_text", blocks[1]["text"]["type"])
         self.assertTrue(all(block.get("text", {}).get("type") != "mrkdwn" for block in blocks))
+
+    def test_message_uses_native_blocks_with_accessible_fallback(self):
+        payload = notify.card("새 PR", "변경 내용을 확인해 주세요.", PR,
+                              fields=[("작성자", "student")],
+                              buttons=[("PR 보기", f"{notify.WEB}/pull/123")])
+        self.assertNotIn("attachments", payload)
+        self.assertEqual("header", payload["blocks"][0]["type"])
+        self.assertIn("작성자: student", payload["text"])
+        self.assertIn(f"{notify.WEB}/pull/123", payload["text"])
 
     def test_missing_webhook_skips_without_network(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(notify, "send") as send:

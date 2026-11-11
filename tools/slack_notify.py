@@ -45,7 +45,7 @@ def positive(value):
     return value
 
 
-def card(title, description, pr=None, fields=(), buttons=(), footer="", color="#4758D6"):
+def card(title, description, pr=None, fields=(), buttons=(), footer=""):
     blocks = [{"type": "header", "text": {"type": "plain_text", "text": title}}]
     if pr:
         blocks.append({"type": "section", "text": {
@@ -67,7 +67,7 @@ def card(title, description, pr=None, fields=(), buttons=(), footer="", color="#
     fallback += "\n" + escaped(description)
     fallback += "".join(f"\n{escaped(label)}: {escaped(value)}" for label, value in fields)
     fallback += "".join(f"\n{label}: {url}" for label, url in buttons)
-    return {"text": fallback, "attachments": [{"color": color, "blocks": blocks}],
+    return {"text": fallback, "blocks": blocks,
             "unfurl_links": False, "unfurl_media": False}
 
 
@@ -198,7 +198,7 @@ def relay_card(run, github):
         return card("💬 코드 리뷰가 도착했습니다", f"{plain(actor)}님이 {status}을 남겼습니다.", pr,
                     [("리뷰 상태", status), ("검토자", actor)],
                     [("리뷰 보기", f"{url}#pullrequestreview-{review['id']}"), ("PR 보기", url)],
-                    "리뷰 의견과 PR 머지는 별도로 확인합니다.", color="#6947BF")
+                    "리뷰 의견과 PR 머지는 별도로 확인합니다.")
     if run["event"] == "pull_request_review_comment" and action == "created":
         comment = github.get(endpoint(f"pulls/comments/{positive(data['review_comment'])}"))
         if (not comment.get("in_reply_to_id") or comment["user"].get("type") == "Bot"
@@ -207,8 +207,7 @@ def relay_card(run, github):
             return None
         return card("💬 코드 리뷰에 답글이 달렸습니다", "리뷰 대화에서 답글을 확인해 주세요.", pr,
                     [("작성자", actor)],
-                    [("답글 보기", f"{url}#discussion_r{positive(comment['id'])}"), ("PR 보기", url)],
-                    color="#6947BF")
+                    [("답글 보기", f"{url}#discussion_r{positive(comment['id'])}"), ("PR 보기", url)])
     if run["event"] != "pull_request" or action not in {"opened", "closed", "reopened", "ready_for_review"}:
         return None
     if action == "opened":
@@ -228,8 +227,7 @@ def relay_card(run, github):
         else:
             title = "🔎 PR 검토를 준비했습니다" if action == "ready_for_review" else "📝 PR이 다시 열렸습니다"
             description = "변경 내용과 남아 있는 피드백을 확인해 주세요."
-    return card(title, description, pr, fields, [("PR 보기", url)],
-                color="#16804A" if action == "closed" and pr["merged"] else "#4758D6")
+    return card(title, description, pr, fields, [("PR 보기", url)])
 
 
 def ci_card(run, github):
@@ -253,8 +251,7 @@ def ci_card(run, github):
     return card(title, description, pr, fields,
                 [("검사 결과", f"{WEB}/actions/runs/{run['id']}/attempts/{run['run_attempt']}"),
                  ("PR 보기", f"{WEB}/pull/{pr['number']}")],
-                f"이번 실행 결과만 표시합니다. 전체 머지 조건은 PR에서 확인해 주세요. · 실행 {run['run_attempt']}회차",
-                color="#16804A" if run["conclusion"] == "success" else "#B76E00")
+                f"이번 실행 결과만 표시합니다. 전체 머지 조건은 PR에서 확인해 주세요. · 실행 {run['run_attempt']}회차")
 
 
 def notification(event_name, event, github):
