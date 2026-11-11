@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""추가 수집 화면의 명시적 동의와 작은 창의 동작을 확인함."""
+"""배포 시 동의를 받은 수집 화면과 작은 창의 동작을 확인함."""
 import json
 import threading
 from pathlib import Path
@@ -21,6 +21,8 @@ class AiDataTest(AiTest):
         win.go_ai()
         guikit.click(win.ai_home.data_btn)
         dialog = win.ai_home.data_dialog
+        self.assertTrue(win.ai.collection.status()["enabled"])
+        guikit.click(dialog.toggle)
         self.assertFalse(win.ai.collection.status()["enabled"])
         guikit.click(dialog.toggle)
         self.assertTrue(win.ai.collection.status()["enabled"])
@@ -68,8 +70,7 @@ class AiDataTest(AiTest):
         dialog = LearningDataDialog(win, win.ai.collection)
         dialog.show()
         guikit.pump()
-        self.assertFalse(dialog.goal_save.isEnabled())
-        guikit.click(dialog.toggle)
+        self.assertTrue(dialog.goal_save.isEnabled())
         dialog.goal_combo.setCurrentIndex(dialog.goal_combo.findData("vision"))
         dialog.scroll.ensureWidgetVisible(dialog.goal_save)
         guikit.pump()

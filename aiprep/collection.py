@@ -125,6 +125,42 @@ class Collection:
             if conn is not None:
                 conn.close()
 
+    @property
+    def stop_path(self):
+        return self.path + ".stopped"
+
+    def _remember_stop(self, stopped):
+        self._check_path()
+        try:
+            if stopped:
+                os.makedirs(os.path.dirname(self.path), mode=0o700, exist_ok=True)
+                try:
+                    fd = os.open(self.stop_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                except FileExistsError:
+                    return
+                os.close(fd)
+            elif os.path.exists(self.stop_path):
+                os.unlink(self.stop_path)
+        except OSError as error:
+            raise CollectionError("수집 중단 설정을 저장하지 못했습니다. %s" % error) from error
+
+    def initialize_distribution(self):
+        """배포 시 동의를 받은 참가자의 새 수집부만 시작함. 이전 중단·삭제는 유지함."""
+        if os.path.exists(self.stop_path):
+            return
+        with self._connect(create=True) as conn:
+            if not conn.in_transaction:
+                conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone() is not None:
+                return
+            goal = goals.unselected()
+            conn.executemany("INSERT OR REPLACE INTO meta VALUES (?, ?)",
+                             [("enabled", "1"), ("notice", NOTICE), ("goal", packed(goal)),
+                              ("epoch", str(uuid.uuid4())), ("consent_basis", "distribution-2026-11-11")])
+            conn.execute("INSERT INTO events(event_id, at, kind, payload) VALUES (?, ?, 'consent', ?)",
+                         (str(uuid.uuid4()), stamp(), packed({"notice": NOTICE, "goal": goal,
+                          "basis": "distribution-2026-11-11", "consent_at": None})))
+
     def status(self):
         out = {"enabled": False, "events": 0, "items": 0, "path": self.path, "error": self.error,
                "missed": self.missed, "goal": goals.unselected()}
@@ -133,7 +169,7 @@ class Collection:
         try:
             with self._connect() as conn:
                 meta = dict(conn.execute("SELECT key, value FROM meta"))
-                out.update(enabled=meta.get("enabled") == "1", participant=meta.get("participant"), epoch=meta.get("epoch"), notice=meta.get("notice"),
+                out.update(enabled=meta.get("enabled") == "1" and not os.path.exists(self.stop_path), participant=meta.get("participant"), epoch=meta.get("epoch"), notice=meta.get("notice"),
                            goal=json.loads(meta["goal"]) if "goal" in meta else goals.unselected(),
                            events=conn.execute("SELECT count(*) FROM events WHERE kind NOT IN ('consent', 'withdraw', 'goal_changed')").fetchone()[0],
                            items=conn.execute("SELECT count(*) FROM items").fetchone()[0])
@@ -142,6 +178,8 @@ class Collection:
         return out
 
     def set_enabled(self, enabled):
+        if not enabled:
+            self._remember_stop(True)
         if not enabled and not os.path.exists(self.path):
             return
         with self._connect(create=not os.path.exists(self.path)) as conn:
@@ -149,6 +187,8 @@ class Collection:
                 conn.execute("BEGIN IMMEDIATE")
             previous = conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone()
             if previous == ("1" if enabled else "0",):
+                if enabled:
+                    self._remember_stop(False)
                 return
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('enabled', ?)", ("1" if enabled else "0",))
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('notice', ?)", (NOTICE,))
@@ -159,14 +199,17 @@ class Collection:
             conn.execute("INSERT INTO events(event_id, at, kind, payload) VALUES (?, ?, ?, ?)",
                          (str(uuid.uuid4()), stamp(), "consent" if enabled else "withdraw", packed({"notice": NOTICE, "goal": goal})))
 
+        if enabled:
+            self._remember_stop(False)
+
     def set_goal(self, goal_id):
         """동의 중에만 선택을 저장함. 같은 목표도 저장할 때마다 현재 로드맵 판을 읽음."""
         if not os.path.exists(self.path):
-            raise CollectionError("추가 데이터 수집에 동의한 뒤 희망 직무를 저장해 주세요.")
+            raise CollectionError("추가 데이터 수집을 다시 시작한 뒤 희망 직무를 저장해 주세요.")
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            if conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone() != ("1",):
-                raise CollectionError("추가 데이터 수집에 동의한 뒤 희망 직무를 저장해 주세요.")
+            if os.path.exists(self.stop_path) or conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone() != ("1",):
+                raise CollectionError("추가 데이터 수집을 다시 시작한 뒤 희망 직무를 저장해 주세요.")
             goal = goals.selection(goal_id, goals.catalog(self.repository), stamp())
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('goal', ?)", (packed(goal),))
             conn.execute("INSERT INTO events(event_id, at, kind, payload) VALUES (?, ?, 'goal_changed', ?)",
@@ -175,7 +218,7 @@ class Collection:
 
     def observation_context(self):
         """한 읽기 트랜잭션에서 동의 차수·목표·관찰 시각을 함께 읽음."""
-        if not os.path.exists(self.path):
+        if not os.path.exists(self.path) or os.path.exists(self.stop_path):
             return None
         try:
             with self._connect() as conn:
@@ -192,7 +235,7 @@ class Collection:
 
     def emit(self, kind, payload, item=None, key=None, at=None, *, observation_context=CURRENT_CONTEXT):
         """수집 실패가 채점·학습을 막지 않게 함. 실패 수와 까닭을 관리 화면에 남김."""
-        if not os.path.exists(self.path):
+        if not os.path.exists(self.path) or os.path.exists(self.stop_path):
             return False
         try:
             with self._connect() as conn:
@@ -284,6 +327,7 @@ class Collection:
     def delete(self):
         """수집을 중단하고 이 기기의 추가 데이터 파일을 지움. 제출·학습 기록은 건드리지 않음."""
         self._check_path()
+        self._remember_stop(True)
         if os.path.exists(self.path):
             try:
                 self.set_enabled(False)

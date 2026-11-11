@@ -44,8 +44,12 @@ def baseline(rows):
         predictions.append({"event_id": row["event_id"], "question_id": row["question_id"],
                             "question_revision": row["question_revision"], "probability": probability,
                             "model_version": "past-concept-ratio-v1"})
+    groups = sorted({row.get("course") or "unrecorded" for row in rows})
+    by_course = {course: metrics([row["target"] for row in rows if (row.get("course") or "unrecorded") == course],
+                                [p["probability"] for row, p in zip(rows, predictions) if (row.get("course") or "unrecorded") == course])
+                 for course in groups}
     return {"metrics": metrics([r["target"] for r in rows], [p["probability"] for p in predictions]),
-            "predictions": predictions}
+            "by_course": by_course, "predictions": predictions}
 
 
 def write_starter(events, destination, source_sha256=None):
@@ -64,12 +68,16 @@ def write_starter(events, destination, source_sha256=None):
         train = rows["train"]
         questions = {question_token(r) for r in train}
         concepts = {c for r in train for c in r["concepts"]}
+        courses = {r["course"] for r in train if r.get("course") is not None}
         for row in train:
             for past in row["features"]["sequence_history"]:
                 questions.add(question_token(past))
                 concepts.update(past["concepts"])
+                if past.get("course") is not None:
+                    courses.add(past["course"])
         vocabulary[track] = {"questions": ["<PAD>", "<UNK>"] + sorted(questions),
-                             "concepts": ["<PAD>", "<UNK>"] + sorted(concepts)}
+                             "concepts": ["<PAD>", "<UNK>"] + sorted(concepts),
+                             "courses": ["<PAD>", "<UNK>"] + sorted(courses)}
         comparisons[track] = {part: baseline(part_rows) for part, part_rows in rows.items()}
     files = {"vocabulary.json": vocabulary, "baseline.json": comparisons}
     if events and events[0].get("source_type") == "legacy_profile":

@@ -7,7 +7,7 @@
 ai-levels 는 아래의 블록 위젯. 서비스가 error 를 단 블록과 모르는 블록은 안내 글만 둠. 상황별 코드 단원(차시가 아닌 무리)은 위 막대가
 홈으로 돌아감.
 
-AiFigure 는 GIF 를 1장에서 멈춘 채 열고, 지금 장의 `프레임:` 설명을 그림 바로 아래에 두어 장을 넘길 때 같이 바꿈. 설명 칸은 가장 긴 장
+AiFigure 는 GIF 를 처음 열면 한 번 재생하고 마지막 장에서 멈추며, 지금 장의 `프레임:` 설명을 그림 바로 아래에 두어 장을 넘길 때 같이 바꿈. 설명 칸은 가장 긴 장
 설명의 높이를 지켜서 장을 넘겨도 넘김 단추가 움직이지 않음. 그림에 초점이 있으면 ←·→ 가 장을 넘김. 단계 이동은 아래 막대와 ←·→ 이고,
 입력 칸·그림·외울 것 줄에 초점이 있으면 그쪽이 ←·→ 를 쓰므로 Alt+←·→ 로만 넘김.
 마지막 단계를 보인 순간 단원을 읽은 것으로 기록하고, 단계를 옮길 때마다 중간 자리를 로컬에 남김. 읽기 화면이라 복사를 막지 않음."""
@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import QDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, Q
 import mdlite
 from aiprep import bank, skel
 from aiprep.grade import BLANK
-from gui import ai_text, kit, theme
+from gui import motion, ai_text, kit, theme
 from gui.docview import Doc, FigureView, TextPiece
 from gui.widgets import Para
 from gui.wrong_page import Arrow
@@ -189,7 +189,7 @@ class TextBlock(QWidget):
 
 
 class AiFigure(FigureView):
-    """학습 단원 그림. 자동 재생하지 않고 1장에서 멈춘 채 열림. frames 는 figure 블록의 `프레임:` 줄([{"text", "ms"}])이고 지금 장의
+    """학습 단원 그림. 처음 열면 한 번 재생하고 마지막 장에서 멈춤. frames 는 figure 블록의 `프레임:` 줄([{"text", "ms"}])이고 지금 장의
     설명을 그림 바로 아래(넘김 줄 위)에 가운데 맞춰 둠. 설명 칸의 최소 높이는 지금 폭에서 가장 긴 장 설명의 높이라 장마다 설명 줄 수가
     달라도 넘김 줄과 캡션이 제자리에 있음. 넘김 단추는 단계 넘김 [이전]·[다음]과 헷갈리지 않게 [이전 장]·[다음 장]으로 씀.
     초점이 있으면 ←·→ 가 장을 넘기고(Alt 가 붙으면 단계 넘김으로 보냄) 그림 둘레에 초점 테두리를 그림. last 면 마지막 장에서 엶."""
@@ -200,6 +200,7 @@ class AiFigure(FigureView):
         super().__init__(path, caption, autoplay=False, frame_changed=self.show_frame, description="\n\n".join(details))
         self.frames = list(frames or [])
         self.start_last = last
+        self.autoplay_pending = not last
         self.held = None  # 설명 칸 높이를 잰 폭·실제 글꼴·줄 높이
         self.frame_text = rich("", "body", "secondary")
         self.frame_text.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
@@ -265,6 +266,10 @@ class AiFigure(FigureView):
         if hasattr(self, "frame_text"):
             self.hold_frames()
 
+    def _play_if_visible(self):
+        if self.isVisible() and self.visibleRegion().intersects(self.picture.geometry()):
+            self.play()
+
     def event(self, event):
         if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) and self.movie \
                 and not event.modifiers() & Qt.KeyboardModifier.AltModifier:
@@ -292,6 +297,10 @@ class AiFigure(FigureView):
     def paintEvent(self, event):
         """초점 테두리는 그림 둘레에만 그림. 그림 칸은 폭을 다 쓰고 그림은 가운데라 칸이 아니라 그림 크기로 잼."""
         super().paintEvent(event)
+        if self.autoplay_pending and self.movie and self.count > 1 and self.visibleRegion().intersects(self.picture.geometry()):
+            self.autoplay_pending = False
+            if motion.enabled:
+                QTimer.singleShot(0, self._play_if_visible)
         pixmap = self.picture.pixmap()
         if self.hasFocus() and pixmap is not None and not pixmap.isNull():
             size = pixmap.deviceIndependentSize()
@@ -1151,7 +1160,13 @@ class LevelsBlock(QWidget):
         self.body = QWidget()
         self.body_box = kit.box(self.body, (0, 24, 0, 0), theme.LEARN_GAP["group"])
         inner.addWidget(self.row)
+        self.deep_dialog = None
+        self.deep_btn = kit.button("심화 설명", "secondary", "l")
+        self.deep_btn.setToolTip("그림과 코드로 이 개념의 심화 설명을 별도 창에서 봅니다.")
+        self.deep_btn.clicked.connect(self.open_deep)
         inner.addWidget(self.body)
+        inner.addWidget(self.deep_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        self.deep_btn.setVisible(any(level.get("level") == 20 for level in block.get("levels") or []))
         self.row.toggled.connect(lambda on: on and self.build())
         fold(self.row, self.body)
 
@@ -1170,7 +1185,36 @@ class LevelsBlock(QWidget):
                 QWidget.setTabOrder(last, widget)
                 last = widget
 
-    def fill(self, part, level):
+    def open_deep(self):
+        if self.deep_dialog is None:
+            level = next((v for v in self.block.get("levels") or [] if v.get("level") == 20), None)
+            if level is None:
+                return
+            dialog = self.deep_dialog = QDialog(self)
+            kit.page(dialog)
+            dialog.setModal(True)
+            title = (self.block.get("concept") or "개념") + " 심화 설명"
+            dialog.setWindowTitle(title)
+            outer = kit.box(dialog, (24, 24, 24, 24), theme.GAP["group"])
+            outer.addWidget(kit.label(title, "headline"))
+            holder = QWidget()
+            content = kit.box(holder)
+            part = Sheet()
+            content.addWidget(part)
+            content.addStretch(1)
+            self.fill(part, level, check=False)
+            self.deep_scroll = kit.scroll(holder)
+            outer.addWidget(self.deep_scroll, 1)
+            self.deep_close = kit.button("닫기", "secondary", "l")
+            self.deep_close.clicked.connect(dialog.close)
+            outer.addWidget(self.deep_close, 0, Qt.AlignmentFlag.AlignRight)
+            room = self.ctx.win.geometry()
+            dialog.resize(max(320, min(1000, room.width()-40)), max(320, room.height()-80))
+            dialog.finished.connect(lambda _: self.deep_btn.setFocus(Qt.FocusReason.OtherFocusReason))
+        self.restyle()
+        self.deep_dialog.show()
+
+    def fill(self, part, level, check=True):
         column = kit.box(part, (32, 32, 32, 32), theme.LEARN_GAP["group"])
         column.addWidget(kit.heading(kit.para(ai_text.LEVEL_NAMES.get(level.get("level"), ""), "learn_activity", bold=True),
                                     kit.para(ai_text.LEVEL_DESCRIPTIONS.get(level.get("level"), ""), "learn_caption", "secondary")))
@@ -1190,7 +1234,8 @@ class LevelsBlock(QWidget):
             note_box.addWidget(head(ai_text.LEVEL_MISTAKE))
             note_box.addWidget(rich(level['mistake']))
             column.addWidget(note)
-        column.addWidget(RecallBlock(level, self.ctx, ai_text.LEVEL_CHECK))
+        if check:
+            column.addWidget(RecallBlock(level, self.ctx, ai_text.LEVEL_CHECK))
         learning_texts(part)
 
     def restyle(self):
@@ -1851,8 +1896,8 @@ class AiNotePage(QWidget):
         data = self.win.ai.note(lid, only_memo)
         self.lid, self.only_memo, self.views = lid, only_memo, []
         no = self.win.ai.lessons[lid]["no"]
-        self.back_btn.setText("← %d차시" % no)
-        self.title.setText("%d차시 %s" % (no, "외울 것" if only_memo else "전체 노트"))
+        self.back_btn.setText("← " + self.win.ai.place(lid)["label"])
+        self.title.setText("%s %s" % (self.win.ai.place(lid)["label"], "외울 것" if only_memo else "전체 노트"))
         self.title.show()
         while self.card_box.count():
             item = self.card_box.takeAt(0)

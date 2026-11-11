@@ -167,6 +167,10 @@ class Session:
             raise SessionError("ID 가 올바르지 않습니다: %r" % (user,))
         self.user = user
         self.collection = python_collection.PythonCollection(os.path.join(home or python_collection.home_dir(), user), study.ROOT)
+        try:
+            self.collection.initialize_distribution()
+        except python_collection.CollectionError as error:
+            self.collection.error = str(error)
         self._lock = threading.RLock()  # 화면 스레드와 채점 워커가 프로필을 동시에 건드리지 않게 함
         adaptive.clear_cache()  # 문제 받기 뒤에 새로 만든 세션은 은행을 다시 읽음
         self.cat = adaptive.catalog()

@@ -14,8 +14,8 @@ from tools.journey_art import LIMITS as _JOURNEY_LIMITS
 LIMITS = dict(_JOURNEY_LIMITS, total_bytes=6 * 1024 * KB)  # web/ 전체 그림 합계
 
 NAMES = {
-    "page": re.compile(r"^l\d{2}-\d{1,2}\Z"),  # 학습 페이지 그림. l01-1
-    "section": re.compile(r"^\d{1,2}[a-z]-\d{1,2}\Z"),  # 사슬 절 그림. 3a-1
+    "page": re.compile(r"^a?l\d{2}-\d{1,2}\Z"),  # 학습 페이지 그림. l01-1, al01-1
+    "section": re.compile(r"^a?\d{1,2}[a-z]-\d{1,2}\Z"),  # 사슬 절 그림. 3a-1, a1a-1
     "mission": re.compile(r"^w\d{2}-\d{1,2}\Z"),  # 미션 해설 그림. w03-1
 }
 

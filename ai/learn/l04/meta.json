@@ -36,7 +36,8 @@
     {"what": "PyTorch 2.15 torch.nn.functional.relu: 원소마다 ReLU 를 적용함(세 수준 4e/4 물음)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.functional.relu.html", "checked": "2026-11-05"},
     {"what": "PyTorch 2.15 Tensor.long: self.to(torch.int64) 와 같음(세 수준 4h/4)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.Tensor.long.html", "checked": "2026-11-05"},
     {"what": "PyTorch 2.15 torch.div: rounding_mode 가 None 이면 정수끼리도 기본 실수 자료형으로 바꿔 참 나눗셈을 함(세 수준 4h/4)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.div.html", "checked": "2026-11-05"},
-    {"what": "PyTorch 2.15 torch.set_printoptions: 실수 출력 자릿수 기본값 4(세 수준 코드의 출력 주석)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.set_printoptions.html", "checked": "2026-11-05"}
+    {"what": "PyTorch 2.15 torch.set_printoptions: 실수 출력 자릿수 기본값 4(세 수준 코드의 출력 주석)", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.set_printoptions.html", "checked": "2026-11-05"},
+    {"what": "미분 불가능한 지점의 역방향 규칙과 ReLU 0의 최소 노름 부분기울기", "url": "https://docs.pytorch.org/docs/2.15/notes/autograd.html#gradients-for-non-differentiable-functions", "checked": "2026-11-11"}
   ],
   "credits": [
     {"file": "assets/4d-6.gif", "license": "3Blue1Brown FAQ clip permission (under 60 seconds)", "author": "3Blue1Brown · Grant Sanderson", "url": "https://storage.googleapis.com/3blue1brown-website-bucket/lessons/2017/neural-networks/network-propagation.mp4", "permission_url": "https://www.3blue1brown.com/about/", "source_seconds": 7.073733},

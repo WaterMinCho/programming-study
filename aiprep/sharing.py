@@ -96,7 +96,7 @@ class Sharing:
         if config and (config.get("url") != base or config.get("participant") != status["participant"]):
             raise CollectionError("이미 연결한 서버와 참가자 정보를 확인해 주세요. 다른 서버로 바꾸기 전 기존 연결을 정리해 주세요.")
         if config and config.get("include_answers") != bool(include_answers):
-            raise CollectionError("전송 중에는 답안 포함 설정을 바꿀 수 없습니다. 기존 서버 데이터를 삭제한 뒤 새로 동의해 주세요.")
+            raise CollectionError("전송 중에는 답안 포함 설정을 바꿀 수 없습니다. 기존 서버 데이터를 삭제한 뒤 다시 연결해 주세요.")
         if not config:
             enrolled = request(base, "/v1/enroll", {"participant": status["participant"], "invite": invite, "notice": NOTICE})
             if enrolled.get("participant") != status["participant"] or not isinstance(enrolled.get("token"), str):

@@ -29,11 +29,11 @@ class LearningDataDialog(QDialog):
         body = kit.box(content, spacing=theme.GAP["group"])
         notice = ("수집을 시작한 뒤 프로그램에서 변경해 저장한 퀴즈·코드 입력과 채점 결과, 문항과 개념을 보관합니다. "
                   "외부 편집기의 입력 시각이나 문항을 읽은 시간은 추정하지 않습니다. 과거 풀이를 자동으로 가져오지 않습니다.") if collection.track == "python" else (
-                                "수집을 시작한 뒤의 연습·모의고사 답안과 채점 결과, 문항을 연 순서, 응답 시간, 확신 여부를 보관합니다. "
+                                "AI 개론·응용에서 수집을 시작한 뒤의 연습·모의고사 답안과 채점 결과, 문항을 연 순서, 응답 시간, 확신 여부를 보관합니다. "
                                 "학습 중의 짐작·떠올리기·코드 빈칸 결과도 포함합니다. 과거 풀이를 가져오지 않습니다.")
         body.addWidget(kit.para(notice))
         body.addWidget(kit.para("기본은 이 컴퓨터에만 저장하며 GitHub 풀이 제출에는 포함하지 않습니다. "
-                                "파일을 내보내거나 아래 서버 전송에 따로 동의해 공유할 수 있습니다. 수집에 동의하지 않아도 모든 학습 기능을 사용할 수 있습니다."))
+                                "파일을 내보내거나 아래 버튼으로 서버에 보낼 수 있습니다. 수집을 중단해도 모든 학습 기능을 사용할 수 있습니다."))
         self.status_text = kit.para()
         body.addWidget(self.status_text)
         self.toggle = kit.button("", "primary", "l")
@@ -87,11 +87,11 @@ class LearningDataDialog(QDialog):
         body.addWidget(self.invite)
         self.share_answers = QCheckBox("서버에 입력 답안도 보내기")
         body.addWidget(self.share_answers)
-        body.addWidget(kit.para("전송 자료에는 가명 구분값, 문항, 채점 결과, 시간과 동의 기록이 포함됩니다. "
+        body.addWidget(kit.para("전송 자료에는 가명 구분값, 문항, 채점 결과, 시간과 수집 설정이 포함됩니다. "
                                 "희망 직무와 선택 당시 로드맵 판도 전송합니다. 입력 답안은 위 항목을 선택했을 때만 포함합니다. "
-                                "팀에서 파이썬·AI 개론 문제 추천 모델과 희망 직무별 풀이 경향을 연구하는 데 사용합니다. "
+                                "팀에서 파이썬·AI 개론·응용 문제 추천 모델과 희망 직무별 풀이 경향을 연구하는 데 사용합니다. "
                                 "서버에서 내 풀이 데이터를 삭제할 수 있습니다.", "caption", "secondary"))
-        self.send_button = kit.button("동의하고 서버에 보내기", scale="l")
+        self.send_button = kit.button("서버에 보내기", scale="l")
         self.send_button.clicked.connect(self.send)
         body.addWidget(self.send_button)
         self.remote_delete = kit.button("서버의 내 풀이 삭제", "danger_text", "l")
@@ -120,7 +120,7 @@ class LearningDataDialog(QDialog):
         if status["error"]:
             text += "\n" + status["error"]
         self.status_text.setText(text)
-        self.toggle.setText("수집 중단" if status["enabled"] else "동의하고 수집 시작")
+        self.toggle.setText("수집 중단" if status["enabled"] else "수집 다시 시작")
         self.export_button.setEnabled(os.path.exists(self.collection.path) and not status["error"])
         self.delete_button.setEnabled(os.path.exists(self.collection.path))
         goal = status.get("goal") or goals.unselected()

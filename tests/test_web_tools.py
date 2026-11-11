@@ -747,7 +747,9 @@ class WebArtTest(unittest.TestCase):
         self.assertEqual(("page", "l01"), web_art.owner_of("l01-1"))
         self.assertEqual(("section", "3a"), web_art.owner_of("3a-12"))
         self.assertEqual(("mission", "w03"), web_art.owner_of("w03-4"))
-        for bad in ("1-1a", "l1-1", "3A-1", "w03_1", "l01-1.gif"):
+        self.assertEqual(("page", "al01"), web_art.owner_of("al01-1"))
+        self.assertEqual(("section", "a1a"), web_art.owner_of("a1a-12"))
+        for bad in ("1-1a", "l1-1", "3A-1", "w03_1", "l01-1.gif", "aal01-1", "al1-1", "a1A-1"):
             self.assertIsNone(web_art.name_kind(bad), bad)
         self.assertEqual(6 * 1024 * 1024, web_art.LIMITS["total_bytes"])
         self.assertEqual(300 * 1024, web_art.LIMITS["gif_bytes"])

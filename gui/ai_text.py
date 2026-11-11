@@ -17,7 +17,7 @@ def teaching_text(text):
     """옛 해설의 출처 대조 머리말만 뺌. 정확한 조건과 설명은 그대로 남김."""
     return re.sub(r"(^|(?<=[.!?])\s+|\n)정정:\s*", r"\1", text)
 
-TRACK = "AI 비전 개론"
+TRACK = "AI"
 STEPS = ("1. [학습 시작]을 눌러 단원을 읽습니다.",
          "2. 단원 끝의 [연습 시작]을 눌러 그 단원 문항을 풉니다.",
          "3. 다음 날부터는 전에 푼 문항이 다시 나옵니다. [복습 시작]이 보이면 복습부터 풉니다.")
@@ -74,9 +74,9 @@ LEVEL_MISTAKE = "자주 하는 착각"
 NUMBERS = bank.NUMBERS
 
 
-def lesson_title(no, title):
+def lesson_title(no, title, course="intro"):
     """자료에 같은 차시 번호가 있으면 화면에서 한 번만 씀."""
-    prefix = "%s차시" % no
+    prefix = ("응용 %s차시" if course == "app" else "%s차시") % no
     title = title.strip()
     return title if title == prefix or title.startswith(prefix + " ") else (prefix + " " + title).strip()
 
@@ -322,7 +322,7 @@ def unit_place(item, overview):
         return "%s 단원" % unit["name"]
     if lesson.get("no") and unit:
         n = [u["key"] for u in lesson["units"]].index(item["unit"])
-        return "%d차시 %s 단원" % (lesson["no"], ORDINALS[n] if n < len(ORDINALS) else "%d번째" % (n + 1))
+        return "%s %s 단원" % (lesson_title(lesson["no"], "", lesson.get("course", "intro")), ORDINALS[n] if n < len(ORDINALS) else "%d번째" % (n + 1))
     return ""
 
 

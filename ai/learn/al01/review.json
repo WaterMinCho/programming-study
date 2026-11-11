@@ -1,0 +1,26 @@
+{
+ "format": 1,
+ "writer": "학습 글 작성 1",
+ "resolver": "공개본 재풀이 2",
+ "reviewer": "자료·그림 대조 3",
+ "files": {
+  "assets/a1a-1.gif": "27bcdffae6f35c08f811b8803217b91380abe62c354ca07d7c4891ecb9baa072",
+  "assets/a1a-2.png": "728b7516ba4f0e1bafdf5403fa7ab4c60741916deef927fbf747cea4c95abb41",
+  "assets/a1a-3.png": "e0e26ade33d1eed30d812ac569ea9f93148adee4ddcd1aab9773f6dcf222bf42",
+  "assets/a1b-1.gif": "efc38cde27f4324edf213d0e36e705819c64d6c7b1edec2bd3bc87736cc8e781",
+  "assets/a1b-2.png": "9cbcde5b4f2d3d0654f142c7cf068755b1fd0fd32b808364ac7bae7bd033bfab",
+  "assets/a1b-3.png": "f2140b3ec37157bc35e5247fdeb38323db63f442b43de5439dd0d19b15dbee25",
+  "assets/a1b-31.png": "fb196a970ea195c333af68681b77c72ad5a3f6e03e5cf6f1eee2ce605a886128",
+  "assets/a1b-32.png": "beeba59fe4993e82da9797a21bcc6b7357b6e9821b2de706fea1199f965d46a3",
+  "assets/a1b-33.png": "1e99c15a1613194964f942431d45dbb4f51f1042dc238869c4083b74014b419c",
+  "assets/a1c-1.gif": "934df5c9a11ae8486bbb3c650f33cf2bd891467aceb5e83255844a0acf125a77",
+  "assets/a1c-2.png": "408451ed64a1b7ad1f3e4771feaeb498f1bc7fcde313bb5de924171662e88959",
+  "assets/a1c-3.png": "15d418b3fb2467a08df1811d6e7e2dd70bc3d65f0db27025fae1d28c65761c79",
+  "assets/a1d-1.gif": "65dbcebd23a4004781185d640111e42c6cfd8cffda52c54c290f46e8e250f75a",
+  "assets/a1d-2.png": "f3d2079223c36c60a3d5e4ad475919a02ec4c093aea356e089079034f012bb47",
+  "assets/a1d-3.png": "623b29cb6eb85bfb5df24db00bd038f446576b17f0f147ac642c9dd1fb19cfd4",
+  "meta.json": "38e18fea4c9786a587b77be0f0de502d75af5dca177f8acbb0f76c3e76f37413",
+  "page.md": "aa499d7f2f29086058aa8eb9c6dccaf771c8f31ffaeb36cc10321fad84049c44"
+ },
+ "findings": []
+}

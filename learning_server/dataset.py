@@ -11,7 +11,7 @@ from collections import deque
 
 from aiprep.collection import inside, packed
 
-FEATURES_VERSION = 2
+FEATURES_VERSION = 3
 
 
 def source_events(events, synthetic=None):
@@ -34,6 +34,25 @@ def source_events(events, synthetic=None):
     if len({row["data_source"] for row in output}) > 1:
         raise ValueError("합성·기록·출처 미표시 입력은 따로 내보내 주세요.")
     return output
+
+
+def course_fields(track, item, data):
+    """수집한 과정 이름과 옛 기록의 id로 추정한 값을 나눔."""
+    if track != "ai":
+        return {"course": None, "course_inferred": None, "course_inferred_from": None}
+    course = item.get("course", data.get("course"))
+    if course is not None and course not in ("intro", "app"):
+        raise ValueError("학습 자료의 AI 과정 구분을 확인해 주세요.")
+    if item.get("course") is not None and data.get("course") is not None and item["course"] != data["course"]:
+        raise ValueError("문항과 풀이의 AI 과정 구분이 다릅니다.")
+    lesson = item.get("lesson")
+    inferred = None
+    if isinstance(lesson, str) and len(lesson) == 3 and lesson[0] in "ia" and lesson[1:].isdigit():
+        inferred = "app" if lesson[0] == "a" else "intro"
+    if course is not None and inferred is not None and course != inferred:
+        raise ValueError("차시와 AI 과정 구분이 다릅니다.")
+    return {"course": course, "course_inferred": inferred if course is None else None,
+            "course_inferred_from": "item.lesson" if course is None and inferred is not None else None}
 
 
 def prepare(events, synthetic=None):
@@ -120,7 +139,7 @@ def prepare(events, synthetic=None):
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
                            "sequence": row["sequence"], "at": row["at"], "session": session, "question_id": card,
                            "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
-                           "goal": data.get("goal"),
+                           "goal": data.get("goal"), **course_fields(row["track"], item, data),
                            "synthetic": row["synthetic"], "data_source": row["data_source"],
                            "provenance": data.get("provenance", "collected"),
                            "prediction_at": prediction_at,
@@ -129,7 +148,7 @@ def prepare(events, synthetic=None):
                            "target": target})
         observed[answer_key(row)] = tags
         entry = {"event_id": row["event_id"], "question_id": card, "question_revision": row.get("item_revision"),
-                 "concepts": tags, "result": target, "at": row["at"]}
+                 "concepts": tags, "result": target, "at": row["at"], **course_fields(row["track"], item, data)}
         updates = [(tags, target, row["at"], entry)]
         if is_mock:
             pending.setdefault(mock_key(row), []).extend(updates)

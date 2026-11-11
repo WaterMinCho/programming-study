@@ -522,10 +522,28 @@
   "18h": [
    "gradient",
    "update"
+  ],
+  "a1a": [
+   "data"
+  ],
+  "a1b": [
+   "data"
+  ],
+  "a1c": [
+   "data"
+  ],
+  "a1d": [
+   "data"
   ]
  },
  "sources": [
   "https://docs.pytorch.org/tutorials/beginner/basics/optimization_tutorial.html",
   "https://ies.ed.gov/ncee/wwc/PracticeGuide/1"
- ]
+ ],
+ "unit_notes": {
+  "a1a": "지금은 모델에 넣기 전 이미지를 준비합니다. 픽셀·색·크기를 바꾸는 이 연산은 모델의 가중치를 학습하지 않습니다.",
+  "a1b": "지금은 모델에 넣기 전 이미지를 준비합니다. 픽셀·색·크기를 바꾸는 이 연산은 모델의 가중치를 학습하지 않습니다.",
+  "a1c": "지금은 모델에 넣기 전 이미지를 준비합니다. 픽셀·색·크기를 바꾸는 이 연산은 모델의 가중치를 학습하지 않습니다.",
+  "a1d": "지금은 모델에 넣기 전 이미지를 준비합니다. 픽셀·색·크기를 바꾸는 이 연산은 모델의 가중치를 학습하지 않습니다."
+ }
 }

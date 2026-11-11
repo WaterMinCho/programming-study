@@ -116,16 +116,25 @@ def _md(day):
 
 
 class AiSession(object):
-    def __init__(self, user, home=None, root=None):
+    def __init__(self, user, home=None, root=None, course="intro"):
         """은행과 record.json 을 읽음. index.json·terms.json 이나 기록이 깨졌으면 AiError. 차시 하나가 깨지면 그 차시만 빼고
         errors 에 이유를 둠."""
         if not session.valid_user(user):
             raise AiError("ID 가 올바르지 않습니다: %r" % (user,))
+        if course not in bank.COURSES:
+            raise AiError("학습 과정을 찾을 수 없습니다.")
+        self.course = course
         self.user = user
         self.root = root or bank.AI_DIR
         self.folder = os.path.join(study.SUBMISSIONS_DIR, user, "ai")
         self.home = os.path.join(home or home_dir(), user)
         self.collection = collection.Collection(self.home, study.ROOT)
+        try:
+            self.collection.initialize_distribution()
+        except collection.CollectionError as error:
+            self.collection.error = str(error)
+        if course != "intro":
+            self.home = os.path.join(self.home, course)
         self._lock = threading.RLock()
         try:
             self.record = AiRecord(os.path.join(self.folder, "record.json"), user)
@@ -136,6 +145,10 @@ class AiSession(object):
             self.terms = bank.read_terms(self.root)
         except bank.AiBankError as error:
             raise AiError("AI 비전 개론 목록을 읽을 수 없습니다. %s" % error)
+        self.index["lessons"] = [e for e in self.index["lessons"] if e["course"] == course]
+        if course != "intro":
+            self.index["patterns"], self.index["mocks"] = [], []
+            self.index["exam"] = {}
         self.exam = review.exam_dates(self.index["exam"])
         self.term_map = grade.term_map(self.terms)
         self.collection_terms_revision = collection.digest(self.terms)
@@ -281,12 +294,19 @@ class AiSession(object):
         "title"("5차시 경사하강법 구현"|"상황별 코드"), "back"("lesson"|"home", 학습 단원 화면의 뒤로 가기)}. 모르는 id 는 AiError."""
         if lid in self.lessons:
             entry = self.lessons[lid]
-            return {"id": lid, "kind": "lesson", "no": entry["no"], "label": "%d차시" % entry["no"],
-                    "title": "%d차시 %s" % (entry["no"], entry["title"]), "back": "lesson"}
+            return {"id": lid, "kind": "lesson", "no": entry["no"], "label": self.lesson_label(entry),
+                    "title": "%s %s" % (self.lesson_label(entry), entry["title"]), "back": "lesson"}
         if lid in self.patterns:
             title = self.patterns[lid]["title"]
             return {"id": lid, "kind": "pattern", "no": None, "label": title, "title": title, "back": "home"}
         raise AiError("차시를 찾을 수 없습니다: %s" % lid)
+
+    def lesson_label(self, entry):
+        return ("응용 %d차시" if entry.get("course") == "app" else "%d차시") % entry["no"]
+
+    def course_log(self):
+        """원본 기록을 보존하고 현재 과정의 계산용 줄만 고름."""
+        return [e for e in self.record.log if e.get("course", bank.course_of(e.get("lesson") or e.get("card"))) == self.course]
 
     def unit_name(self, lid, key):
         """단원 이름 한 규칙. 차시는 "5차시 · 단원 제목", 상황별 코드는 "학습 루프 · 단원 제목"(index 단원 name). 단원 제목을
@@ -299,7 +319,7 @@ class AiSession(object):
         entry = self.lessons.get(lid)
         if lid in self.mocks:
             return self.mocks[lid]['title']
-        return "%d차시 · %s" % (entry["no"], title) if entry else title
+        return "%s · %s" % (self.lesson_label(entry), title) if entry else title
 
     def _home(self, card):
         """카드의 차시 index 항목. 차시 카드는 그 차시, 상황별 코드 카드는 권하는 차시(after). 없으면 맨 뒤 차시처럼 둠."""
@@ -320,7 +340,7 @@ class AiSession(object):
                 raise AiError(str(error))
             log = self.record.log
             if self._index is None or self._index_log is not log or self._index.n > len(log):
-                self._index, self._index_log = _LogIndex(), log  # 파일을 다시 읽었으면 처음부터
+                self._index, self._index_log = _LogIndex(self.course), log  # 파일을 다시 읽었으면 처음부터
                 self.cards = {cid: card for cid, card in self.cards.items() if not card.get('mock')}
                 self._mock_loaded.clear()
             self._index.feed(log[self._index.n:])
@@ -475,7 +495,16 @@ class AiSession(object):
         try:
             status = self.collection.status()
             if status["enabled"]:
-                self.collection.emit(kind, data, item() if callable(item) else item, key=key, at=at,
+                data = dict(data, course=self.course)
+                item = item() if callable(item) else item
+                if item is not None:
+                    item = copy.deepcopy(item)
+                    content = item["content"]
+                    content["course"] = self.course
+                    content["course_no"] = self.lessons.get(content.get("lesson"), {}).get("no")
+                    item["revision"] = collection.digest({"revision": item["revision"], "course": self.course,
+                                                          "course_no": content["course_no"]})
+                self.collection.emit(kind, data, item, key=key, at=at,
                                      observation_context=observation_context)
             elif status["error"]:
                 self.collection.emit(kind, data, key=key, at=at, observation_context=observation_context)
@@ -494,6 +523,9 @@ class AiSession(object):
 
     def _append(self, entry, private=None, item=None):
         try:
+            entry = dict(entry)
+            if self.course != "intro":
+                entry["course"] = self.course
             row = self.record.append(entry, now())
         except record.RecordError as error:
             raise AiError(str(error))
@@ -761,7 +793,7 @@ class AiSession(object):
         if mode == "unit" and lesson in self.notes and unit in self.notes[lesson]["units"]:
             return self.unit_name(lesson, unit)
         if mode == "lesson" and lesson in self.lessons:
-            return "%d차시 풀기" % self.lessons[lesson]["no"]
+            return "%s 풀기" % self.lesson_label(self.lessons[lesson])
         return MODE_TITLE.get(mode, "연습")
 
     # 오답 노트
@@ -901,7 +933,8 @@ class _LogIndex(object):
     """기록을 덧붙는 만큼만 이어 읽는 색인. 카드별 답(review.EventIndex), 처음 읽은 날, 연 차시, 짐작, 다시 보기, 날마다 답한
     카드와 카드별 일정 캐시를 둠. 4주 기록(7,000줄 안팎)을 답마다 처음부터 다시 계산하지 않으려는 것임."""
 
-    def __init__(self):
+    def __init__(self, course="intro"):
+        self.course = course
         self.events = review.EventIndex()
         self.reads, self.opened, self.guesses, self.revisits = {}, set(), {}, set()
         self.day_cards = {}
@@ -911,6 +944,8 @@ class _LogIndex(object):
         self.n = 0
 
     def feed(self, entries):
+        self.n += len(entries)
+        entries = [e for e in entries if e.get("course", bank.course_of(e.get("lesson") or e.get("card"))) == self.course]
         self.events.feed(entries)
         for e in entries:
             kind = e.get("kind")
@@ -930,7 +965,6 @@ class _LogIndex(object):
                 self.mocks.setdefault(e.get('mock'), e)
                 if day is not None:
                     self.related += [(cid, day + datetime.timedelta(days=1)) for cid in e.get('related') or [] if isinstance(cid, str)]
-        self.n += len(entries)
 
 
 class _State(object):
@@ -938,7 +972,7 @@ class _State(object):
 
     def __init__(self, sess, index, today):
         self.sess, self.today, self.exam, self.index = sess, today, sess.exam, index
-        self.log = sess.record.log
+        self.log = sess.course_log()
         starts = {e.get("set"): (e.get("lesson"), e.get("unit")) for e in self.log
                   if e.get("kind") == "set" and e.get("mode") == "unit"}
         self.practice_completed = {starts[e.get("set")] for e in self.log
@@ -1203,7 +1237,7 @@ class _State(object):
         due = self.due_cards()
         lessons = []
         for entry in sess.index["lessons"]:
-            row = {"id": entry["id"], "no": entry["no"], "title": entry["title"], "date": entry["date"], "weight": entry["weight"],
+            row = {"course": sess.course, "id": entry["id"], "no": entry["no"], "title": entry["title"], "date": entry["date"], "weight": entry["weight"],
                    "ready": entry["id"] in sess.notes, "error": sess.errors.get(entry["id"]), "preview": self.is_preview(entry),
                    "units": [], "read": 0, "units_total": 0, "cards": 0, "memorised": 0, "families": 0, "due": 0,
                    "state": "none"}
@@ -1220,7 +1254,7 @@ class _State(object):
                 row["units_total"] = len(row["units"])
                 row["state"] = plan.lesson_state(row["read"], row["units_total"], core_marks)
             lessons.append(row)
-        today_rows = [e for e in sess.record.log if e.get("kind") == "answer" and review.study_day(e.get("at")) == self.today]
+        today_rows = [e for e in self.log if e.get("kind") == "answer" and review.study_day(e.get("at")) == self.today]
         moved = 0
         for cid, s in self.sched.items():
             if s and any(day == self.today and flag for day, _, flag in s["days"]):
@@ -1232,7 +1266,7 @@ class _State(object):
                   "window": m["window"], "ready": os.path.isfile(os.path.join(bank.mock_dir(m["id"], sess.root), "meta.json"))}
                  for m in sess.index["mocks"]]
         last_at = max((str(e.get("at") or "") for e in self.log), default=None) or None
-        return {"lessons": lessons, "patterns": self.pattern_rows(), "mocks": mocks, "due": len(due), "again": len(self.again),
+        return {"course": sess.course, "lessons": lessons, "patterns": self.pattern_rows(), "mocks": mocks, "due": len(due), "again": len(self.again),
                 "today_answers": moved, "today_extra": max(0, len(today_rows) - moved),
                 "memorised": families_memorised(list(sess.cards.values()), self.sched), "cards": len(sess.cards),
                 "families": len({c["family"] for c in sess.cards.values()}), "plan": plan_row, "next": self.next(plan_row, len(due)),
@@ -1775,7 +1809,7 @@ class PracticeSet(object):
         chips = []
         lesson = self.sess.lessons.get(card.get('after') if card.get('mock') else card["lesson"])
         if lesson:
-            chips.append("%d차시" % lesson["no"])
+            chips.append(self.sess.lesson_label(lesson))
         elif card["lesson"] in self.sess.patterns:
             chips.append(card.get("name") or self.sess.place(card["lesson"])["label"])
         if card["kind"] == "skel":
