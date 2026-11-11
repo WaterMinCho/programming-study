@@ -177,10 +177,12 @@ flowchart TD
 
 ## 작은 PR부터 산출물을 쌓습니다
 
-개인 코드와 공개할 설명은 `experiments/<GitHub ID>/`에 모으는 것을 권합니다. 아래는 팀원이 만들 파일의 예시이며 아직 실행 가능한 공통 모델 코드는 아닙니다.
+모델 코드는 각자 소유한 저장소에 남기고 공통 프로젝트의 PR에 고정 커밋과 실행 근거를 연결합니다. [스터디 작업 보드와 개인 저장소 사용법](LEARNING_WORKFLOW.md)에서 담당 이슈와 첫 기여 방법을 확인합니다. [실험 기록 양식](LEARNING_EXPERIMENT_TEMPLATE.md)은 개인 README나 실험 노트로 복사해 사용합니다.
+
+공통 프로젝트에 남길 연결 코드와 공개 설명은 `experiments/<GitHub ID>/`에 모을 수 있습니다. 아래는 개인 모델 저장소의 파일 예시이며 아직 실행 가능한 공통 모델 코드는 아닙니다.
 
 ```text
-experiments/<GitHub ID>/
+개인 모델 저장소/
   README.md          실행 순서와 본인이 설명할 수 있는 내용
   train.py           모델 학습
   evaluate.py        같은 평가 자료로 비교
