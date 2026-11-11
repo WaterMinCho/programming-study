@@ -961,6 +961,12 @@ class FigureView(QWidget):
         self.zoom_btn.setVisible(zoom)
         if self.zoom_row.isHidden() == (zoom and not inline):
             self.zoom_row.setVisible(zoom and not inline)
+        if self.controls is not None:
+            frame = self.controls.contentsMargins()
+            width = max(1, self.width() - frame.left() - frame.right())
+            height = self.controls.layout().heightForWidth(width) + frame.top() + frame.bottom()
+            if self.controls.minimumHeight() != height or self.controls.maximumHeight() != height:
+                self.controls.setFixedHeight(height)
 
     def bar_room(self):
         """넘김 줄에서 단추·장 번호와 그 사이 간격을 뺀 남는 폭."""

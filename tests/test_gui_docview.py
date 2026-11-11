@@ -655,6 +655,7 @@ class FigureViewTest(unittest.TestCase):
                                 lines.append([top, bottom, [ink]])
                         if width == 1100:
                             self.assertEqual((len(lines), len(lines[0][2])), (1, 4))
+                            self.assertLessEqual(figure.controls.height(), figure.next_btn.height() + 2 * theme.GAP["title_description"] + 4)
                         for _, _, positions in lines:
                             self.assertLessEqual(max(positions) - min(positions), 1.5, (mode, step, width))
                         self.assertEqual(figure.play_btn.width(), figure.play_btn.height())
