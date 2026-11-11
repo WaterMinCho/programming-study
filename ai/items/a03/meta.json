@@ -1,0 +1,44 @@
+{
+ "format": 1,
+ "id": "a03",
+ "no": 3,
+ "page": "al03",
+ "units": {
+  "a3a": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a3b": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a3c": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a3d": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a3e": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  }
+ },
+ "sources": []
+}

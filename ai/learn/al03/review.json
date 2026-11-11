@@ -1,0 +1,39 @@
+{
+ "format": 1,
+ "writer": "출제-응용23",
+ "resolver": "재풀이-응용23",
+ "reviewer": "대조검토-응용23",
+ "files": {
+  "assets/a3a-1.gif": "f469f403b717820a61a8cc0e64c69e764ddf0c8e7ed28d8f2272f2ad7135a0fc",
+  "assets/a3a-2.png": "a2cb5fe21f94ec45a8f3b8591f410772c1872c2217e2a92bd2925a78b7c8dac8",
+  "assets/a3a-3.png": "fe9e34c4f530aaca5155b192a0fdccd716ac3736a13c567741c1253b0ad39ad5",
+  "assets/a3a-4.png": "5d49d7a3565e9669a00db440b19ee9a574eea935a3cbcb940ff8ebde6c29239b",
+  "assets/a3a-41.png": "35b30a25e127932d256235bd1c59c0bcb99faf21249f5b1723e26275190b3b1e",
+  "assets/a3a-42.png": "4dd0df6b5edfe5ad0bcdc518bfc33bd5922e8390f260aac984bab3f268d0a58e",
+  "assets/a3a-43.png": "2c7ced76603e8a5b0432977d9b7a79dda1055b409fe3e0fbf437d35fbe28637f",
+  "assets/a3b-1.gif": "4c3366023d2b224aef16e3715b4085901d00236ee5bd3401a7ab4ddb372a7a95",
+  "assets/a3b-2.png": "e3d379cfc1461a58c58852d3f239e7f511e748cef48895acbdffbdb28a735bd5",
+  "assets/a3b-3.png": "fe0a0183f0f4b089c1a69ad28e0f3d353fc9e1d576aa215d72a0871faffa9248",
+  "assets/a3b-31.png": "69f9b68bd0e28ecadde40fabe0163184fe58d235e37a79d857b9358219ff16d2",
+  "assets/a3b-32.png": "17d1b17627c8c19c475fb63aeeb2a0400cfee8f5bdee6b7a9c7fc11f0350433d",
+  "assets/a3b-33.png": "7e37cce4beae102681f9e6f28837461a47ed64fb6154d55f3cce89c8e29443f2",
+  "assets/a3c-1.gif": "c79dffb9a8aaab504142b57b6100fe8612b6c451790f7f33421bb8e23d93772c",
+  "assets/a3c-2.png": "67f402ef514dd0deab45b26f5731a9c1ce9e1006ed47f0ce257616effccb4067",
+  "assets/a3c-3.png": "12e58c436d7873e3bf2fe0f2dc6f0e41ae3756ee12fce983dac2e6353fd8db4a",
+  "assets/a3d-1.gif": "a46c06beb228237cfa6e979df5a26b7fd0dcb6b0c1e6ce7ce62dea5bcbf72d62",
+  "assets/a3d-2.png": "7b689c014ba53adda0d42759205c38d4a5ea031b5a43d7452d333dfff076f21c",
+  "assets/a3d-3.png": "7de55c83d64bac9b2dd152cd0fbf7a3797717830dc81e0ca191eb842a2494d08",
+  "assets/a3e-1.gif": "c73e93a3e3efcf6f21aaa85bb3be2970f0df4badb7bac2e2df4ed7dbee366c3b",
+  "assets/a3e-2.png": "95273c67ad95bc525de40921ebda8a5f3adb0188c500b640b4b6eb2a5c4a7bd2",
+  "assets/a3e-3.png": "bed18ab4c147a0df02a767b4e94b085af89da15c8f65b9ad346559acc7c6a4ff",
+  "assets/a3e-41.png": "dd7346e914bcf6c83abf4ffc4cc454ad5a563bee100855d78abfa158f9f50be7",
+  "assets/a3e-42.png": "5c3c9ac201785ab8a45cc3fe01b237e49ac819529060222e080a8dc4dd59c94e",
+  "assets/a3e-43.png": "86d83753acb0ef7797158e971952d511fc3f76bbff5db1ae5d0298d3dc123a2e",
+  "meta.json": "21e2bc2b083d466bd77fcf6c582e2a3b0579537a5195aaf58be01633e2e32286",
+  "page.md": "ffd9be95cec37b74efef096d90a09578e451f5afc6ffb74c4fd603420e47b768"
+ },
+ "findings": [
+  "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함.",
+  "rho·theta 대체 표기를 적용한 뒤 글자 폭으로 가운데 정렬을 계산함. 수치·물음은 유지함."
+ ]
+}

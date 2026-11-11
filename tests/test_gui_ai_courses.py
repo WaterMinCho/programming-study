@@ -22,7 +22,7 @@ class CourseGuiTest(AiTest):
         participant = win.ai.collection.status()['participant']
         guikit.click(win.ai_home.course_tabs.buttons[1])
         self.assertEqual('app', win.ai.course)
-        self.assertEqual(['a01'], list(win.ai.lessons))
+        self.assertEqual(['a01', 'a02', 'a03'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
         self.assertFalse(win.ai_home.mock_section.isVisible())
@@ -76,16 +76,19 @@ class CourseGuiTest(AiTest):
         for mode in ('light', 'dark'):
             theme.set_mode(mode)
             win.restyle()
-            for unit in ('a1a','a1b','a1c','a1d'):
-                for number in range(1, 6):
-                    win.open_ai_unit('a01', unit, number)
-                    guikit.pump(20)
-                    self.assertLessEqual(win.width(), 760)
-                    for image in win.ai_learn.view.findChildren(ai_learn.AiFigure):
-                        self.assertTrue(image.available)
-                        shown = image.picture.pixmap().deviceIndependentSize()
-                        self.assertAlmostEqual(shown.width()/shown.height(), image.source.width()/image.source.height(), delta=.01)
-                        self.assertEqual(0, win.ai_learn.scroll.horizontalScrollBar().maximum())
+            for lesson, units in [('a01', ('a1a','a1b','a1c','a1d')),
+                                  ('a02', ('a2a','a2b','a2c','a2d','a2e')),
+                                  ('a03', ('a3a','a3b','a3c','a3d','a3e'))]:
+                for unit in units:
+                    for number in range(1, 7 if unit == 'a3a' else 6):
+                        win.open_ai_unit(lesson, unit, number)
+                        guikit.pump(20)
+                        self.assertLessEqual(win.width(), 760)
+                        for image in win.ai_learn.view.findChildren(ai_learn.AiFigure):
+                            self.assertTrue(image.available)
+                            shown = image.picture.pixmap().deviceIndependentSize()
+                            self.assertAlmostEqual(shown.width()/shown.height(), image.source.width()/image.source.height(), delta=.01)
+                            self.assertEqual(0, win.ai_learn.scroll.horizontalScrollBar().maximum())
 
     def test_failed_course_open_restores_the_selected_tab(self):
         win = self.boot((760,480))

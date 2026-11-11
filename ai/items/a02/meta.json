@@ -1,0 +1,44 @@
+{
+ "format": 1,
+ "id": "a02",
+ "no": 2,
+ "page": "al02",
+ "units": {
+  "a2a": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a2b": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a2c": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a2d": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a2e": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  }
+ },
+ "sources": []
+}

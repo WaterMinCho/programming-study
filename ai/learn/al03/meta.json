@@ -1,0 +1,92 @@
+{
+ "format": 1,
+ "id": "al03",
+ "lesson": "a03",
+ "title": "응용 3차시 프레임에서 경계와 영역의 위치를 찾습니다",
+ "defines": [
+  "프레임",
+  "특징",
+  "Sobel",
+  "Canny",
+  "비최대 억제",
+  "허프 변환",
+  "법선",
+  "관심 영역",
+  "모멘트",
+  "기울기",
+  "손실",
+  "임계값",
+  "파라미터"
+ ],
+ "needs": [
+  "al02"
+ ],
+ "sections": {
+  "a3a": "프레임을 읽고 실패하면 멈춥니다",
+  "a3b": "공간의 밝기 변화와 시간 변화를 구분합니다",
+  "a3c": "Canny로 얇고 이어진 경계를 고릅니다",
+  "a3d": "경계점의 표를 모아 직선을 찾습니다",
+  "a3e": "선택한 영역의 중심을 원본 좌표로 옮깁니다"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "동영상 읽기·해제·재생",
+   "url": "https://docs.opencv.org/4.13.0/dd/d43/tutorial_py_video_display.html",
+   "checked": "2026-11-11"
+  },
+  {
+   "what": "Sobel과 Laplacian",
+   "url": "https://docs.opencv.org/4.13.0/d4/d86/group__imgproc__filter.html",
+   "checked": "2026-11-11"
+  },
+  {
+   "what": "Canny의 기울기 방향·연결성",
+   "url": "https://docs.opencv.org/4.13.0/da/d22/tutorial_py_canny.html",
+   "checked": "2026-11-11"
+  },
+  {
+   "what": "허프 직선의 매개변수",
+   "url": "https://docs.opencv.org/4.13.0/dd/d1a/group__imgproc__feature.html",
+   "checked": "2026-11-11"
+  },
+  {
+   "what": "윤곽선의 면적·모멘트·중심",
+   "url": "https://docs.opencv.org/4.13.0/dd/d49/tutorial_py_contour_features.html",
+   "checked": "2026-11-11"
+  },
+  {
+   "what": "역이진화와 임계값",
+   "url": "https://docs.opencv.org/4.13.0/d7/d1b/group__imgproc__misc.html",
+   "checked": "2026-11-11"
+  }
+ ],
+ "units": {
+  "a3a": {
+   "minutes": 8,
+   "key_figure": "assets/a3a-1.gif",
+   "kind": "concept"
+  },
+  "a3b": {
+   "minutes": 8,
+   "key_figure": "assets/a3b-1.gif",
+   "kind": "concept"
+  },
+  "a3c": {
+   "minutes": 8,
+   "key_figure": "assets/a3c-1.gif",
+   "kind": "concept"
+  },
+  "a3d": {
+   "minutes": 8,
+   "key_figure": "assets/a3d-1.gif",
+   "kind": "concept"
+  },
+  "a3e": {
+   "minutes": 8,
+   "key_figure": "assets/a3e-1.gif",
+   "kind": "concept"
+  }
+ }
+}
