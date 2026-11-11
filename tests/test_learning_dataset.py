@@ -13,6 +13,57 @@ from learning_server import dataset
 
 
 class DatasetTest(unittest.TestCase):
+    def shown_answer(self, mock=False):
+        answer = copy.deepcopy(dataset.synthetic_events()[0])
+        answer["sequence"] = 2
+        answer["data"].pop("prediction_at")
+        answer["data"].update(position=0, course="intro")
+        if mock:
+            answer["kind"] = "mock_answer"
+            answer["data"].update(mock="exam", try_=1)
+            answer["data"]["try"] = answer["data"].pop("try_")
+        shown = copy.deepcopy(answer)
+        shown.update(kind="mock_question_returned" if mock else "question_returned",
+                     event_id="returned", sequence=1, at="2026-01-01T09:00:00+00:00")
+        shown["data"].pop("result")
+        return shown, answer
+
+    def test_ai_return_time_is_linked_without_rewriting_original_events(self):
+        for mock in (False, True):
+            shown, answer = self.shown_answer(mock)
+            original = copy.deepcopy([shown, answer])
+            row = dataset.prepare([shown, answer])[0]
+            self.assertEqual(shown["at"], row["prediction_at"])
+            self.assertEqual(shown["kind"] + ".at", row["prediction_source"])
+            self.assertEqual(shown["event_id"], row["prediction_event"])
+            self.assertEqual(original, [shown, answer])
+
+    def test_ai_return_join_rejects_mismatch_ambiguity_and_collection_restart(self):
+        for field, value in (("item_revision", "1" * 64), ("position", 1), ("course", "app")):
+            shown, answer = self.shown_answer()
+            (shown if field == "item_revision" else shown["data"])[field] = value
+            self.assertIsNone(dataset.prepare([shown, answer])[0]["prediction_at"])
+        for kind in ("withdraw", "consent", "question_returned"):
+            shown, answer = self.shown_answer()
+            middle = copy.deepcopy(shown)
+            middle.update(kind=kind, event_id="middle", sequence=2)
+            answer["sequence"] = 3
+            self.assertIsNone(dataset.prepare([shown, middle, answer])[0]["prediction_at"])
+        shown, answer = self.shown_answer()
+        shown["data"].pop("position")
+        self.assertIsNone(dataset.prepare([shown, answer])[0]["prediction_at"])
+        self.assertIsNone(dataset.prepare([answer])[0]["prediction_at"])
+
+    def test_ai_return_cutoff_excludes_results_released_while_question_was_open(self):
+        shown, answer = self.shown_answer()
+        other = copy.deepcopy(answer)
+        other.update(event_id="other", sequence=2, at="2026-01-01T09:30:00+00:00")
+        other["data"]["set"] = "another"
+        answer["sequence"] = 3
+        row = dataset.prepare([shown, other, answer])[-1]
+        self.assertEqual([], row["features"]["sequence_history"])
+        self.assertEqual(0, row["features"]["observed_history"]["demo"]["attempts"])
+
     def test_current_and_future_labels_do_not_change_current_features(self):
         original = dataset.synthetic_events()
         changed = copy.deepcopy(original)

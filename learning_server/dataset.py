@@ -11,7 +11,18 @@ from collections import deque
 
 from aiprep.collection import inside, packed
 
-FEATURES_VERSION = 3
+FEATURES_VERSION = 4
+
+
+def question_key(row):
+    """실제로 반환한 같은 문항 판·풀이 위치만 연결함."""
+    data, item = row["data"], row.get("item") or {}
+    mock = row["kind"] in ("mock_question_returned", "mock_answer")
+    fields = ("mock", "try", "card", "position") if mock else ("set", "card", "position", "again")
+    if not row.get("item_revision") or any(data.get(name) is None for name in fields):
+        return None
+    return (row["participant"], row["track"], mock, item.get("course", data.get("course")),
+            row["item_revision"], *(data[name] for name in fields))
 
 
 def source_events(events, synthetic=None):
@@ -78,7 +89,7 @@ def prepare(events, synthetic=None):
             mock_last[mock_key(row)] = row["sequence"]
     history, moments, observed, mock_before, pending, output = {}, {}, {}, {}, {}, []
     sequences, group_sequences = {}, {}
-    released_history, group_history_lengths = {}, {}
+    released_history, group_history_lengths, questions = {}, {}, {}
     blank = {"attempts": 0, "correct": 0, "last_at": None, "overrides": 0}
     for row in events:
         data, item = row["data"], row.get("item") or {}
@@ -92,6 +103,14 @@ def prepare(events, synthetic=None):
         prior = history.setdefault(key, {})
         sequence = sequences.setdefault(key, deque(maxlen=128))
         released = released_history.setdefault(key, [])
+        if row["kind"] in ("consent", "withdraw"):
+            questions.pop(key, None)
+        if row["track"] == "ai" and row["kind"] in ("question_returned", "mock_question_returned"):
+            shown_key = question_key(row)
+            if shown_key is not None:
+                shown = questions.setdefault(key, {})
+                # 같은 위치의 반환 기록이 여럿이면 관찰 시각을 임의로 고르지 않음.
+                shown[shown_key] = row if shown_key not in shown else None
         if row["kind"] in ("mock_start", "mock_question_returned", "batch_start"):
             mock_before.setdefault(mock_key(row), {tag: dict(value) for tag, value in prior.items()})
             group_sequences.setdefault(mock_key(row), list(sequence))
@@ -115,6 +134,14 @@ def prepare(events, synthetic=None):
         session = data.get("set") or "%s:%s" % (data.get("mock"), data.get("try"))
         sequence_before = list(group_sequences.get(mock_key(row), [])) if is_mock else list(sequence)
         prediction_at = data.get("prediction_at")
+        prediction_source = "data.prediction_at" if prediction_at is not None else None
+        prediction_event = None
+        if prediction_at is None and row["track"] == "ai":
+            shown = questions.get(key, {}).get(question_key(row))
+            if shown is not None:
+                prediction_at = shown["at"]
+                prediction_source = shown["kind"] + ".at"
+                prediction_event = shown["event_id"]
         if prediction_at is not None:
             cutoff = datetime.datetime.fromisoformat(prediction_at)
             if cutoff.tzinfo is None or cutoff > at:
@@ -143,6 +170,7 @@ def prepare(events, synthetic=None):
                            "synthetic": row["synthetic"], "data_source": row["data_source"],
                            "provenance": data.get("provenance", "collected"),
                            "prediction_at": prediction_at,
+                           "prediction_source": prediction_source, "prediction_event": prediction_event,
                            "features": {"observed_history": before,
                                         "sequence_history": sequence_before},
                            "target": target})

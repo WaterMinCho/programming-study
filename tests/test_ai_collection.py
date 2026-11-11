@@ -2,6 +2,7 @@
 """추가 수집의 동의·보존·중복·내보내기와 실제 채점 연결을 확인함."""
 import json
 import os
+import random
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -172,6 +173,36 @@ class CollectionIntegrationTest(Base):
         self.assertNotIn("participant", study.read_text(sess.record.path))
         self.assertEqual(list(ps.stats), self.events(sess, "set")[0]["selection"]["selected"])
 
+    def test_selection_trace_keeps_seeded_choices_and_actual_candidate_pools(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        state = sess._state()
+        for mode in ("unit", "mixed", "lesson", "review", "sweep"):
+            kwargs = {"lesson": "i90", "unit": "90a"}
+            expected = service.build_set(sess, state, mode, random.Random(4), **kwargs)
+            trace = {}
+            actual = service.build_set(sess, state, mode, random.Random(4), trace=trace, **kwargs)
+            self.assertEqual(expected, actual)
+            self.assertEqual(actual, trace["selected"])
+            self.assertTrue(set(actual) <= set(trace["candidate_ids"]))
+            self.assertEqual(list(dict.fromkeys(cid for pool in trace["candidate_pools"] for cid in pool["ids"])),
+                             trace["candidate_ids"])
+            self.assertIsNone(trace["selection_probability"])
+
+    def test_real_practice_events_link_first_return_time_after_restore(self):
+        from learning_server.dataset import prepare
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        ps = sess.start_set("unit", lesson="i90", unit="90a", seed=4)
+        current = ps.current()
+        first = next(row for row in sess.collection.snapshot() if row["kind"] == "question_returned")
+        ps = service.PracticeSet.restore(sess, ps.snapshot())
+        ps.current()
+        ps.answer(self.right(ps, current), 3, False)
+        row = prepare(sess.collection.snapshot())[0]
+        self.assertEqual(first["at"], row["prediction_at"])
+        self.assertEqual(first["event_id"], row["prediction_event"])
+
     def test_mock_submission_records_missing_and_answered_items_once(self):
         helper = mock_tests.MockServiceTest("test_unsubmitted_questions_do_not_enter_practice")
         helper.setUp()
@@ -190,6 +221,23 @@ class CollectionIntegrationTest(Base):
         self.assertEqual(3, sum(row["result"] == "blank" for row in rows))
         self.assertTrue(all(row["secs"] is None for row in rows))
         self.assertEqual(1, len(self.events(sess, "mock_question_returned")))
+
+    def test_real_mock_events_link_return_time_without_same_exam_labels(self):
+        from learning_server.dataset import prepare
+        helper = mock_tests.MockServiceTest("test_unsubmitted_questions_do_not_enter_practice")
+        helper.setUp()
+        self.addCleanup(helper.doCleanups)
+        sess = helper.session()
+        exam = sess.start_mock("m90", seed=1)
+        first = exam.question(0)
+        exam.save_answer(["3"], first["card"])
+        exam.submit()
+        raw = sess.collection.snapshot()
+        shown = next(row for row in raw if row["kind"] == "mock_question_returned")
+        row = next(row for row in prepare(raw) if row["question_id"] == first["card"])
+        self.assertEqual(shown["at"], row["prediction_at"])
+        self.assertEqual(shown["event_id"], row["prediction_event"])
+        self.assertEqual([], row["features"]["sequence_history"])
 
     def test_mock_input_before_consent_is_not_copied_on_later_submit(self):
         helper = mock_tests.MockServiceTest("test_unsubmitted_questions_do_not_enter_practice")

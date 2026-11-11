@@ -768,7 +768,8 @@ class AiSession(object):
             raise AiError("다시 풀 문항을 골라 주세요.")
         seed = int(seed) if seed is not None else secrets.randbelow(2 ** 31)
         state = self._state()
-        picked = build_set(self, state, mode, random.Random(seed), lesson=lesson, unit=unit, card=card)
+        selection = {}
+        picked = build_set(self, state, mode, random.Random(seed), lesson=lesson, unit=unit, card=card, trace=selection)
         if not picked:
             if mode in ("review", "sweep"):
                 raise AiError("지금 복습할 문항이 없습니다.")
@@ -780,8 +781,7 @@ class AiSession(object):
         for name, value in (("lesson", lesson), ("unit", unit), ("card", card)):
             if value:
                 entry[name] = value
-        self._append(entry, private={"selection": {"policy": "rules-v1", "selected": list(picked),
-                                                   "candidate_ids": None, "selection_probability": None}})
+        self._append(entry, private={"selection": selection})
         practice = PracticeSet(self, set_id, mode, picked, seed, lesson=lesson, unit=unit)
         practice.card = card
         self._active_set = practice
@@ -1550,7 +1550,7 @@ def _arrange(sess, state, chosen, rng, pattern=None):
     return seq
 
 
-def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
+def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=None):
     """모드별 묶음 카드 id 목록(설계 2.9). 화면 순서까지 정해서 돌려줌."""
     cards = sess.cards
     today = state.today
@@ -1641,6 +1641,13 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
         size = NOTE_MAX
     else:
         raise AiError("모르는 연습 모드입니다: %s" % mode)
+    if trace is not None:
+        trace.update(policy="rules-v1", source="learner_choice" if mode == "note" else "rules",
+                     candidate_scope="mode_pools_before_choose",
+                     candidate_pools=[{"name": name, "ids": list(ids), "overflow": extra}
+                                      for extra, groups in ((False, pools), (True, overflow)) for name, ids in groups],
+                     candidate_ids=list(dict.fromkeys(cid for _, ids in pools + overflow for cid in ids)),
+                     selection_probability=None)
     chosen = _choose(sess, state, pools, size, rng)
     if len(chosen) < SET_MIN and overflow:
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
@@ -1650,12 +1657,18 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None):
         keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
     chosen = _gen_trim(sess, chosen, keep=keep)  # 직접 고른 문항과 예정일·미해결 생성기는 비율로 빼지 않음
     if mode == "unit":
-        return _arrange(sess, state, chosen, rng, pattern)
+        selected = _arrange(sess, state, chosen, rng, pattern)
+        if trace is not None:
+            trace["selected"] = list(selected)
+        return selected
     lead = [c for c, pool in chosen if pool == "lead"]
     rest = [(c, pool) for c, pool in chosen if pool != "lead"]
     if mode == "mixed":  # [다시 풀기](note)의 lead 는 학습자가 고른 카드라 옮기지 않음
         lead, rest = _hold_lead(sess, lead, rest)
-    return lead + _arrange(sess, state, rest, rng)
+    selected = lead + _arrange(sess, state, rest, rng)
+    if trace is not None:
+        trace["selected"] = list(selected)
+    return selected
 
 
 # 연습 묶음

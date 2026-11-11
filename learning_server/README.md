@@ -15,6 +15,7 @@
 | 수집 항목·시작·중단·내보내기·삭제 | [풀이 데이터 안내](../docs/LEARNING_DATA.md) |
 | 서버 실행·초대 발급·다른 수강생 배포 계획 | [수집 서버 운영](../docs/LEARNING_SERVER.md) |
 | 네 명의 외부 무료 호스팅 시범 운영 | [초대·점검·백업·복구](../docs/LEARNING_PILOT.md) |
+| 전체 배포 전 수집 누락·용량·참가자 접근 조건 | [수집 범위와 배포 점검](../docs/LEARNING_READINESS.md) |
 | 파이썬·AI 개론·응용 데이터 준비와 세 팀원의 딥러닝 미션 | [개발 분담](../docs/LEARNING_MISSIONS.md) |
 | 기존 풀이 기록 변환과 모델 입력 예제 | [공통 학습 자료 준비](../docs/LEARNING_STARTER.md) |
 
