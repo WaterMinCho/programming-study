@@ -122,7 +122,7 @@ AI 학습과 풀이 기록, 화면 사용법의 변경 내용을 확인합니다
 
 풀이 기록을 모으고, 각자 모델을 만들어 같은 자료로 비교합니다. 모델 학습과 추천 연결은 앞으로 진행합니다.
 
-팀원은 [개인 저장소부터 첫 PR까지](docs/LEARNING_WORKFLOW.md)를 먼저 읽습니다. [담당별 미션](docs/LEARNING_MISSIONS.md)에서 세 모델의 차이와 남길 결과물을 확인합니다.
+팀원은 [각자 fork에서 첫 PR까지](docs/LEARNING_WORKFLOW.md)를 먼저 읽습니다. [담당별 미션](docs/LEARNING_MISSIONS.md)에서 세 모델의 차이와 남길 결과물을 확인합니다.
 
 ---
 
