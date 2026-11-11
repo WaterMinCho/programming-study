@@ -39,7 +39,7 @@ class CourseGuiTest(AiTest):
         win.go_ai()
         win.set_text('larger')
         win.open_ai_unit('i04', '4c', 2)
-        guikit.pump()
+        guikit.wait_until(lambda: win.ai_learn.pending_position is None)
         level = win.ai_learn.view.findChildren(ai_learn.LevelsBlock)[0]
         level.block = dict(level.block, concept="배치·확률적·미니배치 경사하강법")
         win.ai_learn.scroll.ensureWidgetVisible(level.deep_btn)
@@ -100,17 +100,18 @@ class CourseGuiTest(AiTest):
         win.go_ai()
         win.set_text('larger')
         win.open_ai_unit('i04', '4c', 2)
-        guikit.pump()
+        guikit.wait_until(lambda: win.ai_learn.pending_position is None)
         level = win.ai_learn.view.findChildren(ai_learn.LevelsBlock)[0]
         level.open_deep()
         guikit.pump()
         popup = level.deep_dialog
         guikit.click(level.deep_close)
         win.resize(760, 480)
-        guikit.pump()
+        guikit.wait_until(lambda: win.ai_learn.pending_position is None)
         for mode in ('light', 'dark'):
             theme.set_mode(mode)
             win.restyle()
+            guikit.wait_until(lambda: win.ai_learn.pending_position is None)
             win.ai_learn.scroll.ensureWidgetVisible(level.deep_btn)
             guikit.pump()
             at = win.ai_learn.scroll.verticalScrollBar().value()
