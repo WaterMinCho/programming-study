@@ -2,22 +2,24 @@
 import unittest
 
 from tests import guikit
+from tests.test_gui import GuiTest
 from gui import kit, theme
 from gui.ai_learn import OptionRow
 from gui.widgets import CodePanel
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QFontMetricsF, QPalette
-from PyQt6.QtWidgets import QLineEdit, QWidget
+from PyQt6.QtWidgets import QLineEdit, QScrollArea, QWidget
 
 
-def first_ink_center(label):
+def first_ink_rows(label, suffix=""):
     """투명한 배경을 제외하고 실제로 그린 첫 글줄의 위아래 끝을 읽음."""
     image = label.grab().toImage()
+    start = round(QFontMetricsF(label.font()).horizontalAdvance(label.text()[:-len(suffix)]) * image.devicePixelRatio()) if suffix else 0
     color = label.palette().color(QPalette.ColorRole.WindowText)
     rows = []
     for y in range(image.height()):
         count = 0
-        for x in range(image.width()):
+        for x in range(start, image.width()):
             pixel = image.pixelColor(x, y)
             if pixel.alpha() >= 128 and max(abs(pixel.red() - color.red()), abs(pixel.green() - color.green()),
                                              abs(pixel.blue() - color.blue())) < 50:
@@ -28,7 +30,12 @@ def first_ink_center(label):
             rows.append(y)
     if not rows:
         raise AssertionError("첫 글줄을 찾지 못했음")
-    return (rows[0] + rows[-1]) / (2 * image.devicePixelRatio())
+    return [y / image.devicePixelRatio() for y in rows]
+
+
+def first_ink_center(label):
+    rows = first_ink_rows(label)
+    return (rows[0] + rows[-1]) / 2
 
 
 class AlignmentTest(unittest.TestCase):
@@ -39,7 +46,7 @@ class AlignmentTest(unittest.TestCase):
         self.box = kit.box(self.root, (24, 24, 24, 24), 24)
         self.addCleanup(self.root.close)
 
-    def show(self, width=680, height=900):
+    def show(self, width=680, height=600):
         self.box.addStretch(1)
         self.root.resize(width, height)
         self.root.show()
@@ -60,7 +67,7 @@ class AlignmentTest(unittest.TestCase):
             theme.set_text(step)
             kit.refont(self.root)
             for width in (680, 310):
-                self.root.resize(width, 900)
+                self.root.resize(width, 600)
                 guikit.pump()
                 self.assertLessEqual(abs(label.geometry().center().y() - button.geometry().center().y()), 1)
                 self.assertLessEqual(other.geometry().bottom(), host.height())
@@ -106,7 +113,7 @@ class AlignmentTest(unittest.TestCase):
 
     def test_mixed_fonts_keep_the_same_text_baseline_after_refont(self):
         number = kit.label("12", "display")
-        caption = kit.label("완료한 단계", "caption")
+        caption = kit.label("완료한 단계 12", "caption")
         row = kit.box(None, spacing=12, horizontal=True)
         for label in (number, caption):
             row.addWidget(label, 0, Qt.AlignmentFlag.AlignBottom)
@@ -125,11 +132,14 @@ class AlignmentTest(unittest.TestCase):
                 top = label.mapTo(self.root, rect.topLeft()).y()
                 baselines.append(top + (rect.height() - metrics.height()) / 2 + metrics.ascent())
             self.assertLessEqual(abs(baselines[0] - baselines[1]), 1)
+            painted = [label.mapTo(self.root, QPoint()).y() + first_ink_rows(label, "12")[-1] for label in (number, caption)]
+            self.assertLessEqual(abs(painted[0] - painted[1]), 1.5)
 
     def test_input_focus_and_verdicts_keep_the_outer_height(self):
         fields = []
-        for slot, learning in ((False, False), (True, False), (True, True)):
-            field = kit.typed(QLineEdit("값"), "learn_body")
+        for slot, learning, role in ((False, False, "body"), (False, False, "learn_body"),
+                                     (True, False, "learn_body"), (True, True, "learn_body")):
+            field = kit.typed(QLineEdit("값"), role)
             if slot:
                 field.setProperty("slot", True)
             if learning:
@@ -171,3 +181,32 @@ class AlignmentTest(unittest.TestCase):
             self.assertGreater(button.y(), panel.hint.geometry().bottom())
             self.assertGreaterEqual(button.width(), button.sizeHint().width())
             self.assertTrue(panel.rect().contains(button.geometry()))
+        self.root.resize(1000, 600)
+        guikit.pump()
+        self.assertLessEqual(abs(panel.hint.geometry().center().y() - panel.reset_btn.geometry().center().y()), 1)
+        self.assertLess(panel.hint.geometry().right(), panel.reset_btn.x())
+
+
+class ResultAlignmentTest(GuiTest):
+    def test_pending_submission_does_not_compress_the_score_or_actions(self):
+        self.addCleanup(theme.set_text, theme.state["text"])
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        self.boot()
+        self.make_round("r999", [self.first(type="choice", multi=False)])
+        self.win.show_result("r999", self.win.session.grade("r999", finalize=True))
+        page = self.win.result_page
+        self.win.resize(760, 480)
+        for scheme in ("light", "dark"):
+            theme.set_mode(scheme)
+            for step in theme.TEXT_STEPS:
+                theme.set_text(step)
+                kit.refont(self.win)
+                self.win.workspace.refresh()
+                guikit.pump()
+                self.assertGreaterEqual(page.score.height(), page.score.sizeHint().height())
+                self.assertGreaterEqual(page.ratio.height(), page.ratio.sizeHint().height())
+                area = page.findChildren(QScrollArea)[0]
+                area.verticalScrollBar().setValue(area.verticalScrollBar().maximum())
+                guikit.pump()
+                self.assertTrue(page.rect().contains(page.next_btn.mapTo(page, QPoint())))
+                self.assertEqual(self.win.size().width(), 760)

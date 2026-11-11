@@ -311,7 +311,7 @@ QWidget[ui="2"] QPushButton#tab:focus { border-bottom-color: %(focus)s; }
 QWidget[ui="2"] QLineEdit, QWidget[ui="2"] QPlainTextEdit, QWidget[ui="2"] QTextBrowser { background: %(surface)s; color: %(ink)s;
     border: 1px solid %(field_edge)s; border-radius: 12px; padding: 0 15px; selection-background-color: %(text_selection)s; selection-color: %(ink)s;
     placeholder-text-color: %(faint)s; }
-QWidget[ui="2"] QLineEdit { min-height: 46px; max-height: 46px; }
+QWidget[ui="2"] QLineEdit { min-height: %(field_height)spx; max-height: %(field_height)spx; }
 QWidget[ui="2"] QLineEdit[role="learn_body"] { max-height: 16777200px; }
 QWidget[ui="2"] QPlainTextEdit { padding: 8px 15px; }
 QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QPlainTextEdit:focus { border: 2px solid %(focus)s; padding: 0 14px; }
@@ -319,7 +319,7 @@ QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
 QWidget[ui="2"] QLineEdit[tone="danger"] { border: 2px solid %(wrong)s; padding: 0 14px; }
 QWidget[ui="2"] QLineEdit[tone="success"] { border: 2px solid %(ok)s; padding: 0 14px; }
 QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QLineEdit[tone="danger"], QWidget[ui="2"] QLineEdit[tone="success"] {
-    min-height: 44px; max-height: 44px; }
+    min-height: %(field_focus)spx; max-height: %(field_focus)spx; }
 QWidget[ui="2"] QLineEdit[role="learn_body"]:focus, QWidget[ui="2"] QLineEdit[role="learn_body"][tone="danger"],
 QWidget[ui="2"] QLineEdit[role="learn_body"][tone="success"] { max-height: 16777200px; }
 QWidget[ui="2"] QLineEdit[slot="true"] { min-height: %(slot)spx; max-height: %(slot)spx; padding: 0 7px; border-radius: 8px; }
@@ -515,6 +515,7 @@ def style_tokens(scheme):
     return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2,
                 slot=slot_height() - 2, learn_slot=learning_slot_height() - 2,
                 slot_focus=slot_height() - 4, learn_slot_focus=learning_slot_height() - 4,
+                field_height=CONTROL["field"] - 2, field_focus=CONTROL["field"] - 4,
                 **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
 
 

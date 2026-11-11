@@ -471,13 +471,13 @@ class CodePanel(QWidget):
         super().__init__(parent)
         box = QVBoxLayout(self)
         box.setContentsMargins(0, 0, 0, 0)
-        top = QVBoxLayout()
-        top.setSpacing(theme.GAP["detail"])
+        self.top = QVBoxLayout()
+        self.top.setSpacing(theme.GAP["detail"])
         self.hint = hint_label()
         self.reset_btn = QPushButton("시작 코드 복원")
-        top.addWidget(self.hint)
-        top.addWidget(self.reset_btn, 0, Qt.AlignmentFlag.AlignRight)
-        box.addLayout(top)
+        self.top.addWidget(self.hint, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.top.addWidget(self.reset_btn, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        box.addLayout(self.top)
         split = QSplitter(Qt.Orientation.Vertical)
         self.editor = CodeEditor(lang=lang or PYTHON, paste=paste)
         self.console = QTextBrowser()
@@ -490,6 +490,22 @@ class CodePanel(QWidget):
         self.editor.textChanged.connect(self._edited)
         self.code = ""  # 바로 앞에 알린 글
         self.console_html = ""
+
+    def arrange(self):
+        need = self.hint.minimumSizeHint().width() + self.reset_btn.sizeHint().width() + self.top.spacing()
+        vertical = self.width() < need
+        self.top.setDirection(self.top.Direction.TopToBottom if vertical else self.top.Direction.LeftToRight)
+        self.top.setStretch(0, 0 if vertical else 1)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest and hasattr(self, "top"):
+            self.arrange()
+        return result
 
     def set_item(self, item):
         self.hint.setText("빈칸(____)만 채우세요. 다른 부분은 고치지 않습니다." if item["type"] == "fill" else "아래에 코드를 작성하세요.")
