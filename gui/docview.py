@@ -896,7 +896,12 @@ class FigureView(QWidget):
         widest = max(numbers, key=metrics.horizontalAdvance)
         self.counter.setMinimumWidth(math.ceil(metrics.horizontalAdvance(widest)))
         self.counter.setProperty("measure", widest)
-        self.play_btn.setFixedWidth(theme.control_height("m"))
+        height = theme.control_height("m")
+        self.controls_heading.setFixedHeight(height)
+        self.counter.setFixedHeight(height)
+        self.play_btn.ensurePolished()
+        kit.repolish(self.play_btn)  # 페이지에 붙인 뒤의 스타일로 아이콘 단추 크기를 다시 잼
+        self.play_btn.setFixedWidth(height)
         self.play_btn.setIconSize(QSize(theme.TYPE["learn_caption"][0] + 2, theme.TYPE["learn_caption"][0] + 2))
         self._playback()
         self.controls.layout().invalidate()

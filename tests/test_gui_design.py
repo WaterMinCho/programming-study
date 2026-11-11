@@ -274,13 +274,16 @@ class JourneyDesignTest(test_gui_journey.Base):
 
     def check_type(self, name, page, others):
         """그려진 글자 크기(설계 10.1-22). 보이는 글과 단추의 글자 크기가 screen_sizes() 안에 듦. 코드 글꼴 부품, 찾기 막대 단추,
-        글 없이 그림만 담은 칸(그림 조각)은 뺌."""
+        글 없이 그림만 담은 칸(그림 조각)은 뺌. GIF 조작부는 읽기용 캡션 크기로 확인함."""
         allowed, code = screen_sizes(), theme.code_font(0).family()
         for root in [page] + others:
             for widget in root.findChildren(QLabel) + root.findChildren(QPushButton):
                 if not own(widget, root) or not widget.text() or widget.objectName() == "tool" or widget.font().family() == code:
                     continue
-                self.assertIn(widget.font().pixelSize(), allowed, "%s %s: %s" % (theme.state["text"], name, widget.text()[:20]))
+                if widget.property("figurecontrol") or widget.parentWidget().objectName() == "figure_controls":
+                    self.assertEqual(widget.font().pixelSize(), theme.TYPE["learn_caption"][0])
+                else:
+                    self.assertIn(widget.font().pixelSize(), allowed, "%s %s: %s" % (theme.state["text"], name, widget.text()[:20]))
 
     def check_fits(self, name, page, others):
         """작은 창(설계 10.1-1 의 규칙에 더해): 화면이 창을 넓히지 않고, 보이는 단추와 목록 줄은 스크롤하면 창 안에 다 들어옴.

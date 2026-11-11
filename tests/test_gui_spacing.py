@@ -193,10 +193,10 @@ class SpacingTest(unittest.TestCase):
                             figure.first()
                             guikit.pump()
                             figure.play_btn.click()
-                            self.assertEqual(figure.play_btn.text(), "멈춤")
+                            self.assertEqual(figure.play_btn.accessibleName(), "일시 정지")
                             self.assertEqual(positions(), before)
                             figure.play_btn.click()
-                            self.assertEqual(figure.play_btn.text(), "재생")
+                            self.assertEqual(figure.play_btn.accessibleName(), "재생")
                             self.assertEqual(positions(), before)
 
 
