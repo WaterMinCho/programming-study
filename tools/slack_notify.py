@@ -142,7 +142,8 @@ def association(run, github):
 
 def metadata(run, github):
     artifacts = github.get(endpoint(f"actions/runs/{positive(run['id'])}/artifacts"))["artifacts"]
-    matches = [a for a in artifacts if a["name"] == "study-notification" and not a["expired"]]
+    name = f"study-notification-{positive(run['run_attempt'])}"
+    matches = [a for a in artifacts if a["name"] == name and not a["expired"]]
     if len(matches) != 1 or matches[0]["size_in_bytes"] > 16384:
         raise ValueError("이벤트 번호 파일이 없거나 크기가 올바르지 않음")
     raw = github.get(endpoint(f"actions/artifacts/{positive(matches[0]['id'])}/zip"), binary=True)
@@ -154,6 +155,8 @@ def metadata(run, github):
     positive(data["pr"])
     if data.get("review") is not None:
         positive(data["review"])
+    if data.get("review_comment") is not None:
+        positive(data["review_comment"])
     return data
 
 
@@ -167,9 +170,17 @@ def near(value, run):
 
 def relay_card(run, github):
     data = metadata(run, github)
-    if data["pr"] not in {p["number"] for p in association(run, github)}:
-        return None
     pr = github.get(endpoint(f"pulls/{data['pr']}"))
+    associated = data["pr"] in {p["number"] for p in association(run, github)}
+    # 닫힌 미머지 PR은 커밋 연결 목록에서 빠져 실행의 head를 직접 대조함
+    closed_head = (run["event"] == "pull_request" and data["action"] == "closed"
+                   and run["head_sha"] == pr["head"]["sha"]
+                   and run["head_branch"] == pr["head"]["ref"]
+                   and run.get("head_repository", {}).get("full_name")
+                   == (pr["head"].get("repo") or {}).get("full_name")
+                   and bool(pr["head"].get("repo")))
+    if not associated and not closed_head:
+        return None
     if not development(pr, github):
         return None
     actor = run["actor"]["login"]
@@ -178,7 +189,8 @@ def relay_card(run, github):
     action = data["action"]
     if run["event"] == "pull_request_review" and action == "submitted":
         review = github.get(endpoint(f"pulls/{pr['number']}/reviews/{positive(data['review'])}"))
-        if review["user"]["login"] != actor or not near(review["submitted_at"], run):
+        if (review["user"].get("type") == "Bot" or review["user"]["login"] != actor
+                or not near(review["submitted_at"], run)):
             return None
         status = {"approved": "승인 의견", "changes_requested": "수정 요청",
                   "commented": "검토 의견"}.get(review["state"].lower())
@@ -188,6 +200,16 @@ def relay_card(run, github):
                     [("리뷰 상태", status), ("검토자", actor)],
                     [("리뷰 보기", f"{url}#pullrequestreview-{review['id']}"), ("PR 보기", url)],
                     "리뷰 의견과 PR 머지는 별도로 확인합니다.", color="#6947BF")
+    if run["event"] == "pull_request_review_comment" and action == "created":
+        comment = github.get(endpoint(f"pulls/comments/{positive(data['review_comment'])}"))
+        if (not comment.get("in_reply_to_id") or comment["user"].get("type") == "Bot"
+                or comment["user"]["login"] != actor or not near(comment["created_at"], run)
+                or comment["pull_request_url"] != "https://api.github.com" + endpoint(f"pulls/{pr['number']}")):
+            return None
+        return card("💬 코드 리뷰에 답글이 달렸습니다", "리뷰 대화에서 답글을 확인해 주세요.", pr,
+                    [("작성자", actor)],
+                    [("답글 보기", f"{url}#discussion_r{positive(comment['id'])}"), ("PR 보기", url)],
+                    color="#6947BF")
     if run["event"] != "pull_request" or action not in {"opened", "closed", "reopened", "ready_for_review"}:
         return None
     if action == "opened":
@@ -261,7 +283,11 @@ def notification(event_name, event, github):
     if event_name != "workflow_run" or event.get("action") != "completed":
         return None
     # 전달받은 본문 대신 GitHub에 저장된 실행을 다시 조회함
-    run = github.get(endpoint(f"actions/runs/{positive(event['workflow_run']['id'])}"))
+    number = positive(event["workflow_run"]["id"])
+    attempt = positive(event["workflow_run"]["run_attempt"])
+    run = github.get(endpoint(f"actions/runs/{number}/attempts/{attempt}"))
+    if run.get("run_attempt") != attempt:
+        return None
     if run.get("repository", {}).get("full_name") != REPO or run["status"] != "completed":
         return None
     path = run["path"].split("@")[0]

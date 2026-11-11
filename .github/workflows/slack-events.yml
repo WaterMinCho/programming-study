@@ -5,13 +5,17 @@ on:
     types: [opened, reopened, closed, ready_for_review]
   pull_request_review:
     types: [submitted]
+  pull_request_review_comment:
+    types: [created]
 
 # 포크의 코드와 비밀 값을 읽지 않고 이벤트 번호만 전달함
 permissions: {}
 
 jobs:
   relay:
-    if: github.repository == 'WaterMinCho/programming-study'
+    if: >-
+      github.repository == 'WaterMinCho/programming-study' &&
+      (github.event_name != 'pull_request_review_comment' || github.event.comment.in_reply_to_id)
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -26,11 +30,13 @@ jobs:
           data = {'pr': event['pull_request']['number'], 'action': event['action']}
           if event.get('review'):
               data['review'] = event['review']['id']
+          if event.get('comment'):
+              data['review_comment'] = event['comment']['id']
           Path('notification.json').write_text(json.dumps(data), encoding='utf-8')
           PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: study-notification
+          name: study-notification-${{ github.run_attempt }}
           path: notification.json
           retention-days: 1
           if-no-files-found: error

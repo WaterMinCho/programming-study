@@ -16,7 +16,7 @@ SHA = "a" * 40
 PR = {
     "number": 123, "title": "모델 입력 확인", "draft": False, "merged": False,
     "created_at": "2026-11-12T00:00:00Z", "user": {"login": "student"},
-    "head": {"ref": "model/student-first", "sha": SHA},
+    "head": {"ref": "model/student-first", "sha": SHA, "repo": {"full_name": "student/programming-study"}},
     "base": {"repo": {"full_name": notify.REPO}},
 }
 
@@ -27,6 +27,7 @@ def run(event="pull_request", path=notify.RELAY):
         "status": "completed", "head_sha": SHA, "head_branch": "model/student-first",
         "created_at": "2026-11-12T00:00:02Z", "actor": {"login": "student"},
         "repository": {"full_name": notify.REPO}, "run_attempt": 1,
+        "head_repository": {"full_name": "student/programming-study"},
         "pull_requests": [],
     }
 
@@ -50,12 +51,12 @@ class FakeGitHub:
         tail = path.removeprefix(f"/repos/{notify.REPO}/")
         if tail == "pulls/123":
             return self.pr
-        if tail == "actions/runs/7":
+        if tail in {"actions/runs/7/attempts/1", "actions/runs/7/attempts/2"}:
             return self.source
         if tail == f"commits/{SHA}/pulls?per_page=100":
             return self.associated
         if tail == "actions/runs/7/artifacts":
-            return {"artifacts": [{"id": 8, "name": "study-notification", "expired": False,
+            return {"artifacts": [{"id": 8, "name": "study-notification-1", "expired": False,
                                     "size_in_bytes": 200}]}
         if tail == "actions/artifacts/8/zip":
             output = io.BytesIO()
@@ -64,6 +65,10 @@ class FakeGitHub:
             return output.getvalue()
         if tail == "pulls/123/reviews/55":
             return self.review
+        if tail == "pulls/comments/66":
+            return {"id": 66, "user": {"login": "student", "type": "User"},
+                    "in_reply_to_id": 55, "created_at": PR["created_at"],
+                    "pull_request_url": f"https://api.github.com/repos/{notify.REPO}/pulls/123"}
         if tail.startswith("actions/runs/7/attempts/1/jobs?"):
             return {"jobs": self.jobs}
         raise AssertionError(path)
@@ -78,7 +83,7 @@ class FakeGitHub:
 
 def event(source):
     return {"repository": {"full_name": notify.REPO}, "action": "completed",
-            "workflow_run": {"id": source["id"]}}
+            "workflow_run": {"id": source["id"], "run_attempt": source["run_attempt"]}}
 
 
 class NotificationTest(unittest.TestCase):
@@ -121,6 +126,16 @@ class NotificationTest(unittest.TestCase):
                             "actor": {"login": "student"}}]
         self.assertIn("머지", notify.relay_card(run(), github)["text"])
 
+    def test_closed_unmerged_fork_checks_source_head_without_association(self):
+        github = FakeGitHub(data={"pr": 123, "action": "closed"})
+        github.associated = []
+        github.timeline = [{"event": "closed", "created_at": PR["created_at"],
+                            "actor": {"login": "student"}}]
+        self.assertIn("머지 없이", notify.relay_card(run(), github)["text"])
+        source = run()
+        source["head_repository"]["full_name"] = "another/programming-study"
+        self.assertIsNone(notify.relay_card(source, github))
+
     def test_review_uses_authoritative_id_author_and_time(self):
         source = run(event="pull_request_review")
         github = FakeGitHub(data={"pr": 123, "action": "submitted", "review": 55})
@@ -131,6 +146,17 @@ class NotificationTest(unittest.TestCase):
         github.review["user"]["login"] = "student"
         github.review["submitted_at"] = "2026-11-01T00:00:00Z"
         self.assertIsNone(notify.relay_card(source, github))
+
+    def test_review_bots_are_excluded(self):
+        github = FakeGitHub(data={"pr": 123, "action": "submitted", "review": 55})
+        github.review["user"]["type"] = "Bot"
+        self.assertIsNone(notify.relay_card(run(event="pull_request_review"), github))
+
+    def test_review_thread_reply_uses_dedicated_comment_event(self):
+        github = FakeGitHub(data={"pr": 123, "action": "created", "review_comment": 66})
+        payload = notify.relay_card(run(event="pull_request_review_comment"), github)
+        self.assertIn("답글", payload["text"])
+        self.assertIn("#discussion_r66", payload["text"])
 
     def test_ci_separates_job_results_from_merge_conditions(self):
         source = run(path=".github/workflows/ci.yml")
@@ -157,6 +183,16 @@ class NotificationTest(unittest.TestCase):
     def test_unknown_workflow_cannot_loop(self):
         source = run(path=".github/workflows/slack-notify.yml")
         self.assertIsNone(notify.notification("workflow_run", event(source), FakeGitHub(source=source)))
+
+    def test_event_attempt_cannot_be_replaced_by_newer_result(self):
+        source = run(path=".github/workflows/ci.yml")
+        original = event(source)
+        source["run_attempt"] = 2
+        github = FakeGitHub(source=source)
+        self.assertIsNone(notify.notification("workflow_run", original, github))
+        github.source["run_attempt"] = 1
+        payload = notify.notification("workflow_run", original, github)
+        self.assertIn("/attempts/1", payload["text"])
 
     def test_comment_has_link_but_no_body_and_bot_is_excluded(self):
         body = {"repository": {"full_name": notify.REPO}, "action": "created",
