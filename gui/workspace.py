@@ -169,7 +169,7 @@ class Workspace(QWidget):
         self.rail.setProperty("ui", "2")
         self.rail.setFixedWidth(188)
         nav = kit.box(self.rail, (16, 24, 16, 24), 8)
-        nav.addWidget(kit.label("프로그래밍\n스터디", "headline", bold=True))
+        nav.addWidget(kit.para("프로그래밍\n스터디", "headline", bold=True))
         nav.addSpacing(32)
         nav.addWidget(kit.label("내 공부", "caption", "tertiary"))
         self.buttons = {}

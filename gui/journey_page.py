@@ -293,7 +293,7 @@ class FactLine(QWidget):
                 link = kit.typed(PrepLink(ref["pid"], "%s %s" % (ref["no"], ref["title"])), "caption")
                 link.linkActivated.connect(self.opened.emit)
                 self.links.append(link)
-                self.second_box.addWidget(link)
+                self.second_box.addWidget(link, 0, Qt.AlignmentFlag.AlignVCenter)
                 if ref["passed"]:
                     self.second_box.addWidget(kit.badge("통과", "success"))
             self.second_box.addStretch(1)

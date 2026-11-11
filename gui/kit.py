@@ -8,7 +8,7 @@ theme.TYPE 으로 글꼴을 직접 주고(label, para), 그 역할을 role 속�
 직접 그리는 위젯이고 칠할 때마다 지금 테마의 색을 읽음."""
 import math
 
-from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen, QTextDocument
 from PyQt6.QtWidgets import (QBoxLayout, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLayout, QProgressBar, QPushButton, QScrollArea,
                              QSizePolicy, QSplitter, QSplitterHandle, QVBoxLayout, QWidget, QWidgetItem)
@@ -114,6 +114,44 @@ def para(text="", role="body", tone="", bold=None):
     return out
 
 
+class _Baseline(QObject):
+    """크기가 다른 한 줄 라벨의 기준선을 맞춤. 글꼴의 아래 여유가 상자 아랫변 정렬에 섞이지 않게 함."""
+
+    def __init__(self, labels):
+        super().__init__(labels[0])
+        self.labels = labels
+        self.margins = [label.contentsMargins() for label in labels]
+        self.updating = False
+        for label in labels:
+            label.installEventFilter(self)
+        self.refresh()
+
+    def refresh(self):
+        if self.updating:
+            return
+        self.updating = True
+        try:
+            for label in self.labels:
+                label.ensurePolished()
+            descents = [QFontMetricsF(label.font()).descent() for label in self.labels]
+            lowest = max(descents)
+            for label, margins, descent in zip(self.labels, self.margins, descents):
+                label.setContentsMargins(margins.left(), margins.top(), margins.right(),
+                                         margins.bottom() + round(lowest - descent))
+        finally:
+            self.updating = False
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange, QEvent.Type.Polish):
+            self.refresh()
+        return super().eventFilter(watched, event)
+
+
+def baseline(*labels):
+    """AlignBottom으로 놓은 한 줄 라벨들을 같은 글자 기준선에 맞춤."""
+    _Baseline(labels)
+
+
 def badge(text="", tone=""):
     """누를 수 없는 꼬리표. 높이 24, 글자 caption 700. tone 은 accent·success·warning·danger, 없으면 회색."""
     out = typed(QLabel(text), "caption", True)
@@ -130,7 +168,7 @@ class FirstLine(QWidget):
 
     aligned = pyqtSignal()
 
-    def __init__(self, mark, text, spacing=12, anchor=None):
+    def __init__(self, mark, text, spacing=12, anchor=None, trailing=False):
         super().__init__()
         self.mark, self.text, self.anchor = mark, text, anchor or text
         self.center = 0
@@ -139,8 +177,12 @@ class FirstLine(QWidget):
         self.mark_box, self.text_box = box(self.mark_holder), box(self.text_holder)
         self.mark_box.addWidget(mark, 0, Qt.AlignmentFlag.AlignTop)
         self.text_box.addWidget(text, 0, Qt.AlignmentFlag.AlignTop)
-        row.addWidget(self.mark_holder, 0, Qt.AlignmentFlag.AlignTop)
-        row.addWidget(self.text_holder, 1, Qt.AlignmentFlag.AlignTop)
+        if trailing:
+            row.addWidget(self.text_holder, 1, Qt.AlignmentFlag.AlignTop)
+            row.addWidget(self.mark_holder, 0, Qt.AlignmentFlag.AlignTop)
+        else:
+            row.addWidget(self.mark_holder, 0, Qt.AlignmentFlag.AlignTop)
+            row.addWidget(self.text_holder, 1, Qt.AlignmentFlag.AlignTop)
         self.setProperty("first_line_pair", True)
         mark.installEventFilter(self)
         if isinstance(text, FirstLine):
@@ -295,9 +337,10 @@ def section(title, caption=""):
     row.setSpacing(12)
     head = label(title, "headline")
     note = label(caption, "caption", "secondary")
-    row.addWidget(head)
+    row.addWidget(head, 0, Qt.AlignmentFlag.AlignBottom)
     row.addStretch(1)
     row.addWidget(note, 0, Qt.AlignmentFlag.AlignBottom)
+    baseline(head, note)
     return row, head, note
 
 
@@ -371,6 +414,7 @@ def clock(caption_text="남은 시간"):
     num.setMinimumWidth(math.ceil(QFontMetricsF(num.font()).horizontalAdvance("88:88")))
     row.addWidget(cap, 0, Qt.AlignmentFlag.AlignBottom)
     row.addWidget(num, 0, Qt.AlignmentFlag.AlignBottom)
+    baseline(cap, num)
     return out, cap, num
 
 
@@ -741,16 +785,25 @@ class FlowLayout(QLayout):
         area = rect.adjusted(left, top, -right, -bottom)
         x, y, line = area.x(), area.y(), 0
         gap = self.spacing()
+        pending = []
+
+        def place_line():
+            if move:
+                for child, start, size in pending:
+                    child.setGeometry(QRect(QPoint(start, y + (line - size.height()) // 2), size))
+
         for item in self.items:
             if item.widget() is not None and not item.widget().isVisibleTo(item.widget().parentWidget()):
                 continue
             hint = item.sizeHint()
             if x > area.x() and x + hint.width() > area.right() + 1:
+                place_line()
                 x, y, line = area.x(), y + line + gap, 0
-            if move:
-                item.setGeometry(QRect(QPoint(x, y), hint))
+                pending = []
+            pending.append((item, x, hint))
             x += hint.width() + gap
             line = max(line, hint.height())
+        place_line()
         return y + line - rect.y() + bottom
 
 
@@ -1011,7 +1064,7 @@ class BottomBar(QFrame):
         self.tools = FlowLayout(self.tool_box, spacing=24)
         self.actions = QWidget()
         self.action_row = box(self.actions, spacing=8, horizontal=True)
-        self.row.addWidget(self.tool_box, 1)
+        self.row.addWidget(self.tool_box, 1, Qt.AlignmentFlag.AlignVCenter)
         self.row.addWidget(self.actions, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.setMinimumHeight(theme.CONTROL["bottombar"])
 
@@ -1179,9 +1232,9 @@ class Check(QFrame):
         self.label = text_widget or para(text)
         self.text_line = FirstLine(self.tag, self.label, spacing=8)
         self.content_line = FirstLine(self.box, self.text_line)
-        row.addWidget(self.content_line, 1, Qt.AlignmentFlag.AlignTop)
         self.note = label(note, "caption", "tertiary")
-        row.addWidget(self.note, 0, Qt.AlignmentFlag.AlignTop)
+        self.line = FirstLine(self.note, self.content_line, trailing=True)
+        row.addWidget(self.line, 1, Qt.AlignmentFlag.AlignTop)
         self.tag.setVisible(bool(tag))  # 부모에 붙인 뒤에 보임. Row 와 같은 까닭
         self.note.setVisible(bool(note))
 
