@@ -1238,7 +1238,7 @@ class WrongNoteTest(AiTest):
         win.go_hub()
         hub = win.hub
         row = dict((track.tid, r) for track, r in hub.note_rows)["ai"]
-        self.assertEqual(row.second.text(), "틀린 문항 1개")
+        self.assertEqual(row.second.text(), "개론 · 틀린 문항 1개")
         guikit.click(row)
         page = win.wrong_page
         self.assertEqual((self.page(), page.track.tid, page.back_btn.text()), (page, "ai", "← 처음 화면"))

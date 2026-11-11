@@ -1658,7 +1658,8 @@ class AiLearnPage(QWidget):
         """읽던 글 조각과 그 안의 상대 위치. 줄바꿈으로 높이가 달라져도 옛 절대 스크롤 값을 쓰지 않음."""
         value = self.scroll.verticalScrollBar().value()
         pieces = self.view.findChildren(TextPiece) + self.view.findChildren(RichPara) + self.view.findChildren(AiFigure)
-        visible = [(piece, piece.mapTo(self.scroll.widget(), QPoint()).y()) for piece in pieces if piece.isVisibleTo(self.view)]
+        visible = [(piece, piece.mapTo(self.scroll.widget(), QPoint()).y()) for piece in pieces
+                   if piece.window() is self.window() and piece.isVisibleTo(self.view)]
         inside = [(piece, top) for piece, top in visible if top <= value < top + piece.height()]
         if inside:
             piece, top = min(inside, key=lambda item: item[0].height())
@@ -1692,7 +1693,8 @@ class AiLearnPage(QWidget):
             return
         _, anchor, focus = pending
         inner = self.scroll.widget()
-        for widget in reversed([self.view] + self.view.findChildren(QWidget)):
+        widgets = [self.view] + [widget for widget in self.view.findChildren(QWidget) if widget.window() is self.window()]
+        for widget in reversed(widgets):
             if widget.layout() is not None:
                 widget.layout().activate()
         inner.layout().activate()

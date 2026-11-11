@@ -5,7 +5,7 @@ import datetime
 
 from tests import guikit
 from tests.test_gui_ai import AiTest
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtTest import QTest
 from gui import ai_learn, theme
 from gui.docview import FigureView
@@ -142,3 +142,24 @@ class CourseGuiTest(AiTest):
             win.hub.refresh()
         ai_notes = dict((track.tid, row) for track, row in win.hub.note_rows)['ai']
         self.assertTrue(ai_notes.second.text().startswith('응용 · '))
+
+    def test_main_reading_anchor_does_not_follow_popup_content(self):
+        win = self.boot((760, 480))
+        win.go_ai()
+        win.set_text('larger')
+        win.open_ai_unit('i04', '4c', 2)
+        guikit.pump()
+        page = win.ai_learn
+        level = page.view.findChildren(ai_learn.LevelsBlock)[0]
+        level.open_deep()
+        guikit.pump()
+        popup = level.deep_dialog
+        parts = popup.findChildren(ai_learn.RichPara) + popup.findChildren(FigureView)
+        self.assertTrue(parts)
+        for part in parts:
+            top = part.mapTo(page.scroll.widget(), QPoint()).y()
+            page.scroll.verticalScrollBar().setValue(top+2)
+            path = page.reading_position()[0]
+            anchor = ai_learn._view_widget(page.view, path)
+            self.assertIs(anchor.window(), win)
+        guikit.click(level.deep_close)
