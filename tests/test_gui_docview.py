@@ -17,7 +17,7 @@ from tests import guikit  # noqa: E402
 
 from PyQt6 import sip  # noqa: E402
 from PyQt6.QtCore import QPoint, Qt  # noqa: E402
-from PyQt6.QtGui import QColor, QPixmap, QRegion, qGray  # noqa: E402
+from PyQt6.QtGui import QColor, QFontMetricsF, QPalette, QPixmap, QRegion, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QLabel, QPushButton, QWidget  # noqa: E402
 
@@ -517,7 +517,7 @@ class FigureViewTest(unittest.TestCase):
         self.assertTrue(second.isVisible())
 
     def test_moving_figure_keeps_its_buttons_in_the_dialog(self):
-        """움직이는 그림의 넘김 단추는 kit 글자 단추 s 이고, 줄어 보일 때 [크게 보기]는 넘김 줄에 자리가 있으면 그 오른쪽 끝에, 없으면
+        """움직이는 그림의 넘김 단추는 kit 단추 m 이고, 줄어 보일 때 [크게 보기]는 넘김 줄에 자리가 있으면 그 오른쪽 끝에, 없으면
         그림 아래 줄에 있어 글자가 잘리지 않음. 그림 창은 누른 때의 장과 넘김 단추를 가지고 저절로 재생하지 않음."""
         self.addCleanup(setattr, docview, "SCALE", docview.SCALE)
         docview.SCALE = 0.125  # 80 폭 시험 그림을 640 폭으로 그려 넘김 줄이 들어가는 폭에서도 줄어 보이게 함
@@ -531,7 +531,7 @@ class FigureViewTest(unittest.TestCase):
             self.assertEqual((button.objectName(), button.property("scale")),
                              ("", "m"))
             self.assertEqual(bool(button.property("figureplay")), button is figure.play_btn)
-        self.assertEqual(figure.counter.property("role"), "caption")
+        self.assertEqual(figure.counter.property("role"), "learn_caption")
         self.assertFalse(figure.shrunk or figure.zoom_btn.isVisible() or figure.zoom_row.isVisible())
         guikit.click(figure.next_btn)
         figure.resize(600, 400)
@@ -561,7 +561,7 @@ class FigureViewTest(unittest.TestCase):
         guikit.pump(400)  # 세 장을 다 넘기고도 남는 시간
         self.assertEqual(figure.counter.text(), "1 / 3")
         self.assertFalse(figure.playing or figure.timer.isActive())
-        self.assertEqual(figure.play_btn.text(), "재생")
+        self.assertEqual(figure.play_btn.accessibleName(), "재생")
 
     def test_plays_once_and_stops_on_the_last_frame(self):
         motion.enabled = True
@@ -570,11 +570,11 @@ class FigureViewTest(unittest.TestCase):
         guikit.wait_until(lambda: not figure.playing, timeout=10)
         self.assertEqual(figure.counter.text(), "3 / 3")
         self.assertTrue(green_at(figure, 2))
-        self.assertEqual(figure.play_btn.text(), "재생")
+        self.assertEqual(figure.play_btn.accessibleName(), "재생")
         guikit.click(figure.play_btn)  # 마지막 장에서 누르면 처음부터 다시 재생함
         self.assertTrue(figure.playing)
         self.assertEqual(figure.counter.text(), "1 / 3")
-        self.assertEqual(figure.play_btn.text(), "멈춤")
+        self.assertEqual(figure.play_btn.accessibleName(), "일시 정지")
         figure.hide()  # 가려지면 멈춤
         self.assertFalse(figure.playing or figure.timer.isActive())
 
@@ -590,6 +590,102 @@ class FigureViewTest(unittest.TestCase):
         self.assertTrue(green_at(figure, 1))
         guikit.click(figure.first_btn)
         self.assertTrue(green_at(figure, 0))
+
+    def test_playback_icon_names_keyboard_and_pause_keep_the_frame(self):
+        self.addCleanup(setattr, motion, "enabled", motion.enabled)
+        motion.enabled = False
+        figure = self.figure()
+        button = figure.play_btn
+        self.assertEqual(button.text(), "")
+        self.assertFalse(button.icon().isNull())
+        self.assertEqual((button.accessibleName(), button.toolTip()), ("재생", "재생"))
+        play = button.icon().cacheKey()
+        bounds = button.geometry()
+        button.setFocus(Qt.FocusReason.TabFocusReason)
+        QTest.keyClick(button, Qt.Key.Key_Space)
+        self.assertTrue(figure.playing and figure.timer.isActive())
+        self.assertEqual((button.accessibleName(), button.toolTip()), ("일시 정지", "일시 정지"))
+        self.assertNotEqual(button.icon().cacheKey(), play)
+        QTest.keyClick(button, Qt.Key.Key_Space)
+        frame = figure.frame()
+        self.assertFalse(figure.playing or figure.timer.isActive())
+        guikit.pump(150)
+        self.assertEqual(figure.frame(), frame)
+        self.assertEqual(button.geometry(), bounds)
+        self.assertEqual(button.icon().cacheKey(), play)
+
+    def test_movie_controls_share_the_painted_text_line_in_learning_and_explanations(self):
+        from gui.ai_learn import AiFigure
+
+        self.addCleanup(theme.set_text, theme.state["text"])
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        self.addCleanup(setattr, motion, "enabled", motion.enabled)
+        motion.enabled = False
+        path = os.path.join(guikit.ROOT, "ai", "learn", "l04", "assets", "4a-2.gif")
+        for make in (lambda: FigureView(path, scale=0.5, autoplay=False), lambda: AiFigure(path)):
+            root = kit.page(QWidget())
+            column = kit.box(root, (24, 24, 24, 24))
+            figure = make()
+            column.addWidget(figure)
+            column.addStretch(1)
+            self.addCleanup(root.close)
+            root.show()
+            for mode in ("light", "dark"):
+                theme.set_mode(mode)
+                for step in theme.TEXT_STEPS:
+                    theme.set_text(step)
+                    kit.refont(root)
+                    for width in (1100, 760, 440):
+                        root.resize(width, 650)
+                        guikit.pump()
+                        entries = []
+                        for widget in (figure.controls_heading, figure.next_btn, figure.counter, figure.zoom_btn):
+                            if not widget.isVisibleTo(figure):
+                                continue
+                            self.assertEqual(widget.font().pixelSize(), theme.TYPE["learn_caption"][0])
+                            top = widget.mapTo(root, QPoint()).y()
+                            entries.append((top, top + widget.height(), painted_text_bottom(widget) + top))
+                        lines = []
+                        for top, bottom, ink in sorted(entries):
+                            if lines and top < lines[-1][1]:
+                                lines[-1][0] = max(lines[-1][0], top)
+                                lines[-1][1] = min(lines[-1][1], bottom)
+                                lines[-1][2].append(ink)
+                            else:
+                                lines.append([top, bottom, [ink]])
+                        if width == 1100:
+                            self.assertEqual((len(lines), len(lines[0][2])), (1, 4))
+                            self.assertLessEqual(figure.controls.height(), figure.next_btn.height() + 2 * theme.GAP["title_description"] + 4)
+                        for _, _, positions in lines:
+                            self.assertLessEqual(max(positions) - min(positions), 1.5, (mode, step, width))
+                        self.assertEqual(figure.play_btn.width(), figure.play_btn.height())
+                        self.assertEqual(figure.play_btn.height(), figure.next_btn.height())
+                        self.assertEqual(figure.zoom_btn.height(), figure.next_btn.height())
+                        center = figure.play_btn.grab().toImage()
+                        self.assertTrue(guikit.near(center.pixelColor(center.width() // 2, center.height() // 2), "primary"))
+                        for button in (figure.next_btn, figure.zoom_btn):
+                            self.assertGreaterEqual(button.width(), button.sizeHint().width())
+            root.close()
+
+
+def painted_text_bottom(widget):
+    """단추의 테두리를 빼고 한 줄 글의 실제 아랫끝을 읽음. 가는 숫자 획도 포함함."""
+    image = widget.grab().toImage()
+    ratio = image.devicePixelRatio()
+    button = isinstance(widget, QPushButton)
+    role = QPalette.ColorRole.ButtonText if button else QPalette.ColorRole.WindowText
+    color = widget.palette().color(role)
+    width = QFontMetricsF(widget.font()).horizontalAdvance(widget.text())
+    start = max(0, round((widget.width() - width) / 2 * ratio) - 1) if button else 0
+    end = min(image.width(), round((widget.width() + width) / 2 * ratio) + 1) if button else image.width()
+    inset = round(8 * ratio) if button else 0
+    rows = [y for y in range(inset, image.height() - inset) if any(
+        image.pixelColor(x, y).alpha() >= 128 and max(abs(image.pixelColor(x, y).red() - color.red()),
+        abs(image.pixelColor(x, y).green() - color.green()), abs(image.pixelColor(x, y).blue() - color.blue())) < 40
+        for x in range(start, end))]
+    if not rows:
+        raise AssertionError("글자 화소를 찾지 못했음")
+    return max(rows) / ratio
 
 
 def size(block):

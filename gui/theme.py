@@ -280,7 +280,8 @@ QWidget[ui="2"] QPushButton#primary { background: %(primary)s; color: %(primary_
 QWidget[ui="2"] QPushButton#primary:hover, QWidget[ui="2"] QPushButton#primary:pressed { background: %(primary_hover)s; }
 QWidget[ui="2"] QPushButton#primary:focus { border-color: %(surface)s; }
 QWidget[ui="2"] QPushButton#primary:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
-QWidget[ui="2"] QPushButton[figureplay="true"] { background: %(surface)s; color: %(primary)s; border: 2px solid %(primary)s; }
+QWidget[ui="2"] QPushButton[figurecontrol="true"] { font-size: %(figure_label)spx; }
+QWidget[ui="2"] QPushButton[figureplay="true"] { background: %(surface)s; color: %(primary)s; border: 2px solid %(primary)s; padding: 0; min-width: 0; }
 QWidget[ui="2"] QPushButton[figureplay="true"]:hover, QWidget[ui="2"] QPushButton[figureplay="true"]:pressed { background: %(selection)s; }
 QWidget[ui="2"] QPushButton[figureplay="true"]:focus { border-color: %(focus)s; }
 QWidget[ui="2"] QPushButton[figureplay="true"]:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; border-color: %(border)s; }
@@ -512,7 +513,7 @@ def style_tokens(scheme):
     """스타일시트에 채우는 값: scheme 의 색, 체크 표시 그림, 단추 글자 크기(btn 은 label, btn_s 는 caption, code 는 찾기 막대 단추),
     꼬리표 높이(caption 줄 높이 + 2), 코드 줄 안 빈칸의 테두리 안쪽 높이(slot)."""
     check = os.path.join(ICON_DIR, "check_%s.svg" % scheme).replace("\\", "/")  # 스타일시트의 url() 은 / 로 적음
-    return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2,
+    return dict(TOKENS[scheme], check=check, btn=TYPE["label"][0], btn_s=TYPE["caption"][0], figure_label=TYPE["learn_caption"][0], code=TYPE["code"][0], badge=TYPE["caption"][1] + 2,
                 slot=slot_height() - 2, learn_slot=learning_slot_height() - 2,
                 slot_focus=slot_height() - 4, learn_slot_focus=learning_slot_height() - 4,
                 field_height=CONTROL["field"] - 2, field_focus=CONTROL["field"] - 4,

@@ -9,9 +9,10 @@ DocView 는 마크다운을 글 조각(QTextBrowser)과 그림 조각으로 나�
 import html
 import math
 import os
+from functools import lru_cache
 
-from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QFontMetricsF, QMovie, QPainter, QPainterPath, QPen, QPixmap, QTextCursor, QTextFrame, QTextLength, QTextTable
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QRectF, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QColor, QFontMetricsF, QIcon, QMovie, QPainter, QPainterPath, QPen, QPixmap, QTextCursor, QTextFrame, QTextLength, QTextTable
 from PyQt6.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QTextBrowser, QVBoxLayout, QWidget
 
 import mdlite
@@ -603,6 +604,33 @@ class Doc(QWidget):
                 piece.draw()
 
 
+@lru_cache(maxsize=8)
+def playback_icon(playing, normal, disabled):
+    """테마별 재생·일시정지 그림을 높은 해상도로 그려 재사용함."""
+    icon = QIcon()
+    for mode, color in ((QIcon.Mode.Normal, normal), (QIcon.Mode.Disabled, disabled)):
+        pixmap = QPixmap(96, 96)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.scale(4, 4)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(color))
+        if playing:
+            painter.drawRoundedRect(QRectF(5, 4, 5, 16), 1, 1)
+            painter.drawRoundedRect(QRectF(14, 4, 5, 16), 1, 1)
+        else:
+            path = QPainterPath()
+            path.moveTo(7, 3)
+            path.lineTo(22, 12)
+            path.lineTo(7, 21)
+            path.closeSubpath()
+            painter.drawPath(path)
+        painter.end()
+        icon.addPixmap(pixmap, mode)
+    return icon
+
+
 class FigureView(QWidget):
     """해설 그림 하나와 캡션. 파일은 처음에 한 번 바이트로 읽고 열어 두지 않아서, 보이는 동안에도 [문제 받기]가 파일을 바꾸거나 지울 수 있음.
     그림 파일은 2배 크기라 화면에는 그 절반 폭까지만 보이고, 칸이 좁으면 칸 폭에 맞춰 줄임. 줄어 보일 때는 [크게 보기]가 보이고,
@@ -708,13 +736,13 @@ class FigureView(QWidget):
                 self.controls.setObjectName("figure_controls")
                 bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"])
                 bar.setContentsMargins(16, 12, 16, 12)
-                self.controls_heading = kit.label("그림 넘기기", "caption", "secondary", bold=True)
+                self.controls_heading = kit.label("그림 넘기기", "learn_caption", "secondary", bold=True)
                 bar.addWidget(self.controls_heading)
                 self.first_btn = self._button(bar, "처음", self.first)
                 self.prev_btn = self._button(bar, "이전 장", self.prev)
                 self.play_btn = self._button(bar, "재생", self.toggle)
                 self.next_btn = self._button(bar, "다음 장", self.next)
-                self.counter = kit.label("", "caption", "secondary")
+                self.counter = kit.label("", "learn_caption", "secondary", bold=True)
                 bar.addWidget(self.counter)
                 self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
                 self.layout().insertWidget(self.layout().indexOf(self.caption), self.controls)
@@ -764,7 +792,9 @@ class FigureView(QWidget):
 
     def _button(self, bar, text, slot):
         button = kit.button(text, "secondary", "m")
+        button.setProperty("figurecontrol", True)
         if text == "재생":
+            button.setText("")
             button.setProperty("figureplay", True)
         button.clicked.connect(slot)
         bar.addWidget(button)
@@ -835,27 +865,45 @@ class FigureView(QWidget):
         self.first_btn.setEnabled(frame > 0)
         self.prev_btn.setEnabled(frame > 0)
         self.next_btn.setEnabled(frame < self.count - 1)
-        self.play_btn.setText("멈춤" if self.playing else "재생")
+        self._playback()
+
+    def _playback(self):
+        name = "일시 정지" if self.playing else "재생"
+        if self.play_btn.accessibleName() != name:
+            self.play_btn.setAccessibleName(name)
+            self.play_btn.setToolTip(name)
+        icon = playback_icon(self.playing, theme.color("primary"), theme.color("primary_off_ink"))
+        if self.play_btn.icon().cacheKey() != icon.cacheKey():
+            self.play_btn.setIcon(icon)
+
+    def _zoom_style(self):
+        moving = self.movie is not None and self.count > 1
+        scale = "m" if moving else "s"
+        if self.zoom_btn.property("scale") != scale:
+            self.zoom_btn.setProperty("scale", scale)
+            self.zoom_btn.setProperty("figurecontrol", moving)
+            kit.repolish(self.zoom_btn)
+            self.zoom_btn.updateGeometry()
 
     def refont(self):
-        """장 번호와 재생 문구가 바뀌어도 넘김 줄의 폭을 유지함."""
+        """장 번호와 재생 상태가 바뀌어도 넘김 줄의 폭을 유지함."""
+        self._zoom_style()
         if not self.controls:
             return
-        self.counter.setFont(theme.font(self.counter.property("role") or "caption"))
+        self.counter.setFont(theme.font("learn_caption", True))
         metrics = QFontMetricsF(self.counter.font())
         numbers = ["%d / %d" % (number, self.count) for number in range(1, self.count + 1)]
         widest = max(numbers, key=metrics.horizontalAdvance)
         self.counter.setMinimumWidth(math.ceil(metrics.horizontalAdvance(widest)))
         self.counter.setProperty("measure", widest)
+        height = theme.control_height("m")
+        self.controls_heading.setFixedHeight(height)
+        self.counter.setFixedHeight(height)
         self.play_btn.ensurePolished()
-        current = self.play_btn.text()
-        self.play_btn.setMinimumWidth(0)
-        widths = []
-        for text in ("재생", "멈춤"):
-            self.play_btn.setText(text)
-            widths.append(self.play_btn.sizeHint().width())
-        self.play_btn.setText(current)
-        self.play_btn.setMinimumWidth(max(widths))
+        kit.repolish(self.play_btn)  # 페이지에 붙인 뒤의 스타일로 아이콘 단추 크기를 다시 잼
+        self.play_btn.setFixedWidth(height)
+        self.play_btn.setIconSize(QSize(theme.TYPE["learn_caption"][0] + 2, theme.TYPE["learn_caption"][0] + 2))
+        self._playback()
         self.controls.layout().invalidate()
         self.controls.updateGeometry()
         self.place_zoom(self.shrunk and self.zoomable)
@@ -874,6 +922,9 @@ class FigureView(QWidget):
         """지금 장을 칸 폭에 맞춰 화면 배율로 부드럽게 줄이고, 모서리를 코드 상자처럼 둥글게 깎고 테두리를 둘러 보여 줌.
         테두리는 어두운 테마에서 남색 그림과 카드의 경계를 그림."""
         self.drawn_width = self.width()
+        self._zoom_style()
+        if self.controls is not None:
+            self._playback()
         if self.source.isNull():
             return
         ratio = self.devicePixelRatioF()
@@ -910,6 +961,12 @@ class FigureView(QWidget):
         self.zoom_btn.setVisible(zoom)
         if self.zoom_row.isHidden() == (zoom and not inline):
             self.zoom_row.setVisible(zoom and not inline)
+        if self.controls is not None:
+            frame = self.controls.contentsMargins()
+            width = max(1, self.width() - frame.left() - frame.right())
+            height = self.controls.layout().heightForWidth(width) + frame.top() + frame.bottom()
+            if self.controls.minimumHeight() != height or self.controls.maximumHeight() != height:
+                self.controls.setFixedHeight(height)
 
     def bar_room(self):
         """넘김 줄에서 단추·장 번호와 그 사이 간격을 뺀 남는 폭."""
