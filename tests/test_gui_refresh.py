@@ -150,6 +150,27 @@ class CommonLayoutTest(unittest.TestCase):
         guikit.pump()
         self.assertEqual(bar.height(), theme.CONTROL["bottombar"])
 
+    def test_fixed_width_status_does_not_cover_the_run_button(self):
+        bar = kit.BottomBar()
+        status = kit.ElideLabel("예시 실행을 마쳤습니다.", "caption")
+        status.setFixedWidth(160)
+        bar.add_tool(status)
+        run = bar.add_tool(kit.button("코드 실행", "text", "l"))
+        action = bar.add_action(kit.button("회차 제출", "primary", "l"))
+        self.layout.addWidget(bar)
+        for step in theme.TEXT_STEPS:
+            theme.set_text(step)
+            kit.refont(self.root)
+            for mode in ("light", "dark"):
+                theme.set_mode(mode)
+                for width in (800, 1440):
+                    with self.subTest(step=step, mode=mode, width=width):
+                        self.show(width)
+                        for widget in (status, run, action):
+                            self.assertTrue(bar.rect().contains(bounds(widget, bar)))
+                        self.assertFalse(bounds(status, bar).intersects(bounds(run, bar)))
+                        self.assertFalse(bounds(run, bar).intersects(bounds(action, bar)))
+
     def test_button_focus_changes_the_border_in_both_themes(self):
         for kind in ("primary", "secondary", "text"):
             button = kit.button("계속하기", kind, "l")

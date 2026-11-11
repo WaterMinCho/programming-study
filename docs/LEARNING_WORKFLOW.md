@@ -5,12 +5,20 @@
 Git 작업은 SourceTree 또는 터미널 중 편한 방법으로 진행합니다. 파일은 컴퓨터의 편집기에서 고칩니다. SourceTree에서는 변경 확인·브랜치·커밋·푸시를 하고, fork와 PR은 GitHub 웹에서 만듭니다.
 
 ```mermaid
-flowchart LR
-    A["본인 계정으로 fork"] --> B["컴퓨터로 clone"]
-    B --> C["모델 작업 브랜치"]
-    C --> D["공통 입력 확인 · 첫 PR"]
-    D --> E["같은 fork에서 모델 구현"]
-    E --> F["코드와 실험을 PR로 검토"]
+---
+config:
+  htmlLabels: false
+  flowchart:
+    padding: 20
+    nodeSpacing: 32
+    rankSpacing: 36
+---
+flowchart TD
+    A["내 계정으로 fork"] --> B["컴퓨터로 clone"]
+    B --> C["모델 작업용<br/>브랜치 만들기"]
+    C --> D["공통 입력 확인<br/>첫 PR 보내기"]
+    D --> E["같은 fork에서<br/>모델 구현"]
+    E --> F["코드·실험을<br/>PR로 검토"]
 ```
 
 ## 어디에 무엇을 남기나요
