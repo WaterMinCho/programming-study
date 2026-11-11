@@ -45,7 +45,7 @@ def positive(value):
     return value
 
 
-def card(title, description, pr=None, fields=(), buttons=(), footer=""):
+def card(title, description, pr=None, fields=(), links=(), footer=""):
     blocks = [{"type": "header", "text": {"type": "plain_text", "text": title}}]
     if pr:
         blocks.append({"type": "section", "text": {
@@ -55,18 +55,22 @@ def card(title, description, pr=None, fields=(), buttons=(), footer=""):
         blocks.append({"type": "section", "fields": [
             {"type": "plain_text", "text": f"{label}\n{plain(value, 300)}"}
             for label, value in fields]})
-    if buttons:
-        blocks.append({"type": "actions", "elements": [
-            {"type": "button", "text": {"type": "plain_text", "text": label},
-             "url": url, **({"style": "primary"} if i == 0 else {})}
-            for i, (label, url) in enumerate(buttons)]})
+    if links:
+        elements = []
+        for label, url in links:
+            if elements:
+                elements.append({"type": "text", "text": "   ·   "})
+            elements.append({"type": "link", "text": label + " ↗", "url": url,
+                             "style": {"bold": True}})
+        blocks.append({"type": "rich_text", "elements": [
+            {"type": "rich_text_section", "elements": elements}]})
     if footer:
         blocks.append({"type": "context", "elements": [
             {"type": "plain_text", "text": footer}]})
     fallback = title + (f" · #{pr['number']} {escaped(pr['title'])}" if pr else "")
     fallback += "\n" + escaped(description)
     fallback += "".join(f"\n{escaped(label)}: {escaped(value)}" for label, value in fields)
-    fallback += "".join(f"\n{label}: {url}" for label, url in buttons)
+    fallback += "".join(f"\n{label}: {url}" for label, url in links)
     return {"text": fallback, "blocks": blocks,
             "unfurl_links": False, "unfurl_media": False}
 
@@ -261,7 +265,7 @@ def notification(event_name, event, github):
         return card("🔔 스터디 알림 연결을 확인합니다",
                     "PR 등록·머지, CI 결과, 리뷰 소식을 이 채널에서 확인할 수 있습니다.",
                     fields=[("대상", "모델·프로그램 개발 PR"), ("알림 언어", "한국어")],
-                    buttons=[("PR 목록 보기", f"{WEB}/pulls")],
+                    links=[("PR 목록 보기", f"{WEB}/pulls")],
                     footer="연결 확인용 메시지입니다. 실제 PR이나 검사 결과가 아닙니다.")
     if event_name == "issue_comment":
         if event.get("action") != "created" or not event["issue"].get("pull_request"):
