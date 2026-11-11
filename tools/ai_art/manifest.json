@@ -76,6 +76,251 @@
    "script": "tools/ai_art/al01.py",
    "fn": "normalization"
   },
+  "learn/al02/assets/a2a-1.gif": {
+   "sha256": "ab6b8f0b62342489fef5c240740f1ce0b8999f184940c4ff3747b54dcb5f0964",
+   "script": "tools/ai_art/al02.py",
+   "fn": "mean"
+  },
+  "learn/al02/assets/a2a-2.png": {
+   "sha256": "c9dcb12268a3e08ccfc7dcbe28de928da098d943db3fd9e52bb279f325b2ebaa",
+   "script": "tools/ai_art/al02.py",
+   "fn": "median"
+  },
+  "learn/al02/assets/a2a-21.png": {
+   "sha256": "f62b201cc0b466553f6fb28d31aa1d8b231f7b097a85c60d644ce16f41a28a46",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2a_level_1"
+  },
+  "learn/al02/assets/a2a-22.png": {
+   "sha256": "5d4ae46e609394f8f7f240f50fe512da8131c368c5a57069b81265ffb02fbf6a",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2a_level_2"
+  },
+  "learn/al02/assets/a2a-23.png": {
+   "sha256": "d122ce62f710ab99f2ba3b9b05daedd3bbc447299aaefab4fa975de820d73113",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2a_level_3"
+  },
+  "learn/al02/assets/a2a-3.png": {
+   "sha256": "78507d4dc50d70b4110c8c128cc9cab29dce6b96342c04b1321dee2bde283f5d",
+   "script": "tools/ai_art/al02.py",
+   "fn": "kernel"
+  },
+  "learn/al02/assets/a2b-1.gif": {
+   "sha256": "d16dbd9edd1395dd1848012c6f745e410ad3918d0b6f51b4c3d7f9eff8381603",
+   "script": "tools/ai_art/al02.py",
+   "fn": "erode"
+  },
+  "learn/al02/assets/a2b-2.png": {
+   "sha256": "165c9824697756a098dce237400942769b3292d2de0c97fd9f55bf19451aa778",
+   "script": "tools/ai_art/al02.py",
+   "fn": "dilate"
+  },
+  "learn/al02/assets/a2b-3.png": {
+   "sha256": "78f43b25e5145229835931d683461256cd0be1af77ae002176a60a05e6a7ae6c",
+   "script": "tools/ai_art/al02.py",
+   "fn": "morph"
+  },
+  "learn/al02/assets/a2c-1.gif": {
+   "sha256": "3166a820fb5c76979f19cbe1747ebab7c9f10c923adfa2e8fd1e099e934e61c7",
+   "script": "tools/ai_art/al02.py",
+   "fn": "resize"
+  },
+  "learn/al02/assets/a2c-2.png": {
+   "sha256": "9e48c65d6dcfbf0d2dadd2e9b5551a7926361858979a156a0f96885b6e9279b8",
+   "script": "tools/ai_art/al02.py",
+   "fn": "interpolate"
+  },
+  "learn/al02/assets/a2c-3.png": {
+   "sha256": "bd32840638507e6fe65f05a4f79c37cb80b6109531e7853076c9a8ff317753ff",
+   "script": "tools/ai_art/al02.py",
+   "fn": "maskresize"
+  },
+  "learn/al02/assets/a2c-31.png": {
+   "sha256": "b6357b6c663fb623f59e6fdf87f44d9cf214243126aab79c97ae91a40d856abf",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2c_level_1"
+  },
+  "learn/al02/assets/a2c-32.png": {
+   "sha256": "db957148ec1b5e8f224d9ec6a978dc31e7b365e6325290f2b5739419fac5686f",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2c_level_2"
+  },
+  "learn/al02/assets/a2c-33.png": {
+   "sha256": "87052234b1bf258ddb31590bca13973a9b266820768ed014d7ae63a308f18ca5",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2c_level_3"
+  },
+  "learn/al02/assets/a2d-1.gif": {
+   "sha256": "6ac2cd2b5f433ae24a1f6391d64b31d7a548bf268958d0d77b8ab2c050a71c57",
+   "script": "tools/ai_art/al02.py",
+   "fn": "translate"
+  },
+  "learn/al02/assets/a2d-2.png": {
+   "sha256": "c9a8f0f9eb0262551a47f636aea80c6bd03d129f134609fc077ce3cd6ad6c5dd",
+   "script": "tools/ai_art/al02.py",
+   "fn": "inverse"
+  },
+  "learn/al02/assets/a2d-3.png": {
+   "sha256": "6c3f5b5b0d251988b113d4d63e12833a74f75b2dbc8fdabfa548105467935189",
+   "script": "tools/ai_art/al02.py",
+   "fn": "rotate"
+  },
+  "learn/al02/assets/a2e-1.gif": {
+   "sha256": "1018424fd799d668ca695d3a1da73dd0169db135b4aecc75a521ffa83374f19d",
+   "script": "tools/ai_art/al02.py",
+   "fn": "corners"
+  },
+  "learn/al02/assets/a2e-2.png": {
+   "sha256": "bd298d8f1b2838c017b1f09d23c98bd58d22d9a10c2273aaa363af423505a3a7",
+   "script": "tools/ai_art/al02.py",
+   "fn": "divide"
+  },
+  "learn/al02/assets/a2e-3.png": {
+   "sha256": "43fa0137fe2333104557873e35c33ee0bc1db910fe93d58daa755b497e90284e",
+   "script": "tools/ai_art/al02.py",
+   "fn": "bridge"
+  },
+  "learn/al02/assets/a2e-31.png": {
+   "sha256": "99a676da2112bcb6d2073bcc9d236676cd51e8eaa3b4abeb99010e465f1f96af",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2e_level_1"
+  },
+  "learn/al02/assets/a2e-32.png": {
+   "sha256": "a990b9c2459951b1bde95617a80e33296911151428b60596112333b4a98dcfd3",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2e_level_2"
+  },
+  "learn/al02/assets/a2e-33.png": {
+   "sha256": "0b5008acdc75e8149a758d89df11f1f667cb5cf26c2ed808c22c4b02db01a263",
+   "script": "tools/ai_art/al02.py",
+   "fn": "a2e_level_3"
+  },
+  "learn/al03/assets/a3a-1.gif": {
+   "sha256": "f469f403b717820a61a8cc0e64c69e764ddf0c8e7ed28d8f2272f2ad7135a0fc",
+   "script": "tools/ai_art/al03.py",
+   "fn": "frames"
+  },
+  "learn/al03/assets/a3a-2.png": {
+   "sha256": "a2cb5fe21f94ec45a8f3b8591f410772c1872c2217e2a92bd2925a78b7c8dac8",
+   "script": "tools/ai_art/al03.py",
+   "fn": "read"
+  },
+  "learn/al03/assets/a3a-3.png": {
+   "sha256": "fe9e34c4f530aaca5155b192a0fdccd716ac3736a13c567741c1253b0ad39ad5",
+   "script": "tools/ai_art/al03.py",
+   "fn": "fps"
+  },
+  "learn/al03/assets/a3a-4.png": {
+   "sha256": "5d49d7a3565e9669a00db440b19ee9a574eea935a3cbcb940ff8ebde6c29239b",
+   "script": "tools/ai_art/al03.py",
+   "fn": "release"
+  },
+  "learn/al03/assets/a3a-41.png": {
+   "sha256": "35b30a25e127932d256235bd1c59c0bcb99faf21249f5b1723e26275190b3b1e",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3a_level_1"
+  },
+  "learn/al03/assets/a3a-42.png": {
+   "sha256": "4dd0df6b5edfe5ad0bcdc518bfc33bd5922e8390f260aac984bab3f268d0a58e",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3a_level_2"
+  },
+  "learn/al03/assets/a3a-43.png": {
+   "sha256": "2c7ced76603e8a5b0432977d9b7a79dda1055b409fe3e0fbf437d35fbe28637f",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3a_level_3"
+  },
+  "learn/al03/assets/a3b-1.gif": {
+   "sha256": "4c3366023d2b224aef16e3715b4085901d00236ee5bd3401a7ab4ddb372a7a95",
+   "script": "tools/ai_art/al03.py",
+   "fn": "difference"
+  },
+  "learn/al03/assets/a3b-2.png": {
+   "sha256": "e3d379cfc1461a58c58852d3f239e7f511e748cef48895acbdffbdb28a735bd5",
+   "script": "tools/ai_art/al03.py",
+   "fn": "sobel"
+  },
+  "learn/al03/assets/a3b-3.png": {
+   "sha256": "fe0a0183f0f4b089c1a69ad28e0f3d353fc9e1d576aa215d72a0871faffa9248",
+   "script": "tools/ai_art/al03.py",
+   "fn": "gradients"
+  },
+  "learn/al03/assets/a3b-31.png": {
+   "sha256": "69f9b68bd0e28ecadde40fabe0163184fe58d235e37a79d857b9358219ff16d2",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3b_level_1"
+  },
+  "learn/al03/assets/a3b-32.png": {
+   "sha256": "17d1b17627c8c19c475fb63aeeb2a0400cfee8f5bdee6b7a9c7fc11f0350433d",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3b_level_2"
+  },
+  "learn/al03/assets/a3b-33.png": {
+   "sha256": "7e37cce4beae102681f9e6f28837461a47ed64fb6154d55f3cce89c8e29443f2",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3b_level_3"
+  },
+  "learn/al03/assets/a3c-1.gif": {
+   "sha256": "c79dffb9a8aaab504142b57b6100fe8612b6c451790f7f33421bb8e23d93772c",
+   "script": "tools/ai_art/al03.py",
+   "fn": "canny"
+  },
+  "learn/al03/assets/a3c-2.png": {
+   "sha256": "67f402ef514dd0deab45b26f5731a9c1ce9e1006ed47f0ce257616effccb4067",
+   "script": "tools/ai_art/al03.py",
+   "fn": "nms"
+  },
+  "learn/al03/assets/a3c-3.png": {
+   "sha256": "12e58c436d7873e3bf2fe0f2dc6f0e41ae3756ee12fce983dac2e6353fd8db4a",
+   "script": "tools/ai_art/al03.py",
+   "fn": "hysteresis"
+  },
+  "learn/al03/assets/a3d-1.gif": {
+   "sha256": "a46c06beb228237cfa6e979df5a26b7fd0dcb6b0c1e6ce7ce62dea5bcbf72d62",
+   "script": "tools/ai_art/al03.py",
+   "fn": "votes"
+  },
+  "learn/al03/assets/a3d-2.png": {
+   "sha256": "7b689c014ba53adda0d42759205c38d4a5ea031b5a43d7452d333dfff076f21c",
+   "script": "tools/ai_art/al03.py",
+   "fn": "normal"
+  },
+  "learn/al03/assets/a3d-3.png": {
+   "sha256": "3b5a59c678e270371086c971c58028a2dc5e8b6f0df1b4d788ace10f002c8d3c",
+   "script": "tools/ai_art/al03.py",
+   "fn": "hough"
+  },
+  "learn/al03/assets/a3e-1.gif": {
+   "sha256": "c73e93a3e3efcf6f21aaa85bb3be2970f0df4badb7bac2e2df4ed7dbee366c3b",
+   "script": "tools/ai_art/al03.py",
+   "fn": "roi"
+  },
+  "learn/al03/assets/a3e-2.png": {
+   "sha256": "95273c67ad95bc525de40921ebda8a5f3adb0188c500b640b4b6eb2a5c4a7bd2",
+   "script": "tools/ai_art/al03.py",
+   "fn": "centroid"
+  },
+  "learn/al03/assets/a3e-3.png": {
+   "sha256": "bed18ab4c147a0df02a767b4e94b085af89da15c8f65b9ad346559acc7c6a4ff",
+   "script": "tools/ai_art/al03.py",
+   "fn": "offset"
+  },
+  "learn/al03/assets/a3e-41.png": {
+   "sha256": "dd7346e914bcf6c83abf4ffc4cc454ad5a563bee100855d78abfa158f9f50be7",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3e_level_1"
+  },
+  "learn/al03/assets/a3e-42.png": {
+   "sha256": "5c3c9ac201785ab8a45cc3fe01b237e49ac819529060222e080a8dc4dd59c94e",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3e_level_2"
+  },
+  "learn/al03/assets/a3e-43.png": {
+   "sha256": "86d83753acb0ef7797158e971952d511fc3f76bbff5db1ae5d0298d3dc123a2e",
+   "script": "tools/ai_art/al03.py",
+   "fn": "a3e_level_3"
+  },
   "learn/l01/assets/1a-1.png": {
    "sha256": "eeab4fe61fdabc999edc282a30b0f1c24824e179526053db8be1c5fd500b97f3",
    "script": "tools/ai_art/l01.py",

@@ -22,9 +22,11 @@
   {"id": "l16", "title": "16차시 CNN 스크래치 구현"},
   {"id": "l17", "title": "17차시 자연어 처리 종합 실습"},
   {"id": "l18", "title": "상황별 코드"},
-  {"id": "al01", "title": "응용 1차시 이미지를 숫자로 읽고 모델 입력으로 준비합니다"}
+  {"id": "al01", "title": "응용 1차시 이미지를 숫자로 읽고 모델 입력으로 준비합니다"},
+  {"id": "al02", "title": "응용 2차시 주변 값과 좌표를 바꿔 입력을 준비합니다"},
+  {"id": "al03", "title": "응용 3차시 프레임에서 경계와 영역의 위치를 찾습니다"}
  ],
- "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01"],
+ "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03"],
  "exam": {"date": "2026-12-02", "last_new": "2026-11-24", "sweep_from": "2026-11-25", "last_review": "2026-12-01"},
  "lessons": [
   {"id": "i01", "no": 1, "title": "딥러닝에 필요한 파이썬", "page": "l01", "date": "2026-10-19", "weight": 0.8, "units": 7, "hw_due": null},
@@ -44,7 +46,9 @@
   {"id": "i15", "no": 15, "title": "15차시 이미지 파일을 학습 배치로 연결합니다", "page": "l15", "date": "2026-11-06", "weight": 0.6, "units": 5, "hw_due": null},
   {"id": "i16", "no": 16, "title": "16차시 작은 CNN을 만들며 모양과 수를 검산합니다", "page": "l16", "date": "2026-11-09", "weight": 0.8, "units": 7, "hw_due": null},
   {"id": "i17", "no": 17, "title": "17차시 토큰에서 문장 분류까지 연결합니다", "page": "l17", "date": "2026-11-10", "weight": 0.2, "units": 6, "hw_due": null},
-  {"id": "a01", "no": 1, "course": "app", "title": "이미지를 숫자로 읽고 모델 입력으로 준비합니다", "page": "al01", "date": "2026-11-11", "weight": 1, "units": 4, "hw_due": null}
+  {"id": "a01", "no": 1, "course": "app", "title": "이미지를 숫자로 읽고 모델 입력으로 준비합니다", "page": "al01", "date": "2026-11-11", "weight": 1, "units": 4, "hw_due": null},
+  {"id": "a02", "no": 2, "course": "app", "title": "주변 값과 좌표를 바꿔 입력을 준비합니다", "page": "al02", "date": null, "weight": 1, "units": 5, "hw_due": null},
+  {"id": "a03", "no": 3, "course": "app", "title": "프레임에서 경계와 영역의 위치를 찾습니다", "page": "al03", "date": null, "weight": 1, "units": 5, "hw_due": null}
  ],
  "patterns": [
   {"id": "pc", "page": "l18", "title": "상황별 코드", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}}

@@ -1,0 +1,76 @@
+{
+ "format": 1,
+ "id": "al02",
+ "lesson": "a02",
+ "title": "응용 2차시 주변 값과 좌표를 바꿔 입력을 준비합니다",
+ "defines": [
+  "필터",
+  "커널",
+  "중앙값 필터",
+  "가우시안 필터",
+  "침식",
+  "팽창",
+  "열기",
+  "닫기",
+  "보간",
+  "아핀 변환",
+  "원근 변환",
+  "행렬"
+ ],
+ "needs": [
+  "al01"
+ ],
+ "sections": {
+  "a2a": "주변 값을 모아 잡음을 줄입니다",
+  "a2b": "선택한 영역의 점과 구멍을 다듬습니다",
+  "a2c": "출력 크기와 새 픽셀 값을 따로 정합니다",
+  "a2d": "좌표를 옮긴 뒤 출력 화면에 담습니다",
+  "a2e": "비스듬한 평면을 대응점으로 펼칩니다"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "필터의 가중합·자료형·커널 크기",
+   "url": "https://docs.opencv.org/4.13.0/d4/d86/group__imgproc__filter.html",
+   "checked": "2026-11-11"
+  },
+  {
+   "what": "침식·팽창·열기·닫기",
+   "url": "https://docs.opencv.org/4.13.0/d9/d61/tutorial_py_morphological_ops.html",
+   "checked": "2026-11-11"
+  },
+  {
+   "what": "좌표 변환·역방향 조회·보간",
+   "url": "https://docs.opencv.org/4.13.0/da/d54/group__imgproc__transform.html",
+   "checked": "2026-11-11"
+  }
+ ],
+ "units": {
+  "a2a": {
+   "minutes": 8,
+   "key_figure": "assets/a2a-1.gif",
+   "kind": "concept"
+  },
+  "a2b": {
+   "minutes": 8,
+   "key_figure": "assets/a2b-1.gif",
+   "kind": "concept"
+  },
+  "a2c": {
+   "minutes": 8,
+   "key_figure": "assets/a2c-1.gif",
+   "kind": "concept"
+  },
+  "a2d": {
+   "minutes": 8,
+   "key_figure": "assets/a2d-1.gif",
+   "kind": "concept"
+  },
+  "a2e": {
+   "minutes": 8,
+   "key_figure": "assets/a2e-1.gif",
+   "kind": "concept"
+  }
+ }
+}

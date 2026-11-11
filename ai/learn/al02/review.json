@@ -1,0 +1,37 @@
+{
+ "format": 1,
+ "writer": "출제-응용23",
+ "resolver": "재풀이-응용23",
+ "reviewer": "대조검토-응용23",
+ "files": {
+  "assets/a2a-1.gif": "ab6b8f0b62342489fef5c240740f1ce0b8999f184940c4ff3747b54dcb5f0964",
+  "assets/a2a-2.png": "c9dcb12268a3e08ccfc7dcbe28de928da098d943db3fd9e52bb279f325b2ebaa",
+  "assets/a2a-21.png": "f62b201cc0b466553f6fb28d31aa1d8b231f7b097a85c60d644ce16f41a28a46",
+  "assets/a2a-22.png": "5d4ae46e609394f8f7f240f50fe512da8131c368c5a57069b81265ffb02fbf6a",
+  "assets/a2a-23.png": "d122ce62f710ab99f2ba3b9b05daedd3bbc447299aaefab4fa975de820d73113",
+  "assets/a2a-3.png": "78507d4dc50d70b4110c8c128cc9cab29dce6b96342c04b1321dee2bde283f5d",
+  "assets/a2b-1.gif": "d16dbd9edd1395dd1848012c6f745e410ad3918d0b6f51b4c3d7f9eff8381603",
+  "assets/a2b-2.png": "165c9824697756a098dce237400942769b3292d2de0c97fd9f55bf19451aa778",
+  "assets/a2b-3.png": "78f43b25e5145229835931d683461256cd0be1af77ae002176a60a05e6a7ae6c",
+  "assets/a2c-1.gif": "3166a820fb5c76979f19cbe1747ebab7c9f10c923adfa2e8fd1e099e934e61c7",
+  "assets/a2c-2.png": "9e48c65d6dcfbf0d2dadd2e9b5551a7926361858979a156a0f96885b6e9279b8",
+  "assets/a2c-3.png": "bd32840638507e6fe65f05a4f79c37cb80b6109531e7853076c9a8ff317753ff",
+  "assets/a2c-31.png": "b6357b6c663fb623f59e6fdf87f44d9cf214243126aab79c97ae91a40d856abf",
+  "assets/a2c-32.png": "db957148ec1b5e8f224d9ec6a978dc31e7b365e6325290f2b5739419fac5686f",
+  "assets/a2c-33.png": "87052234b1bf258ddb31590bca13973a9b266820768ed014d7ae63a308f18ca5",
+  "assets/a2d-1.gif": "6ac2cd2b5f433ae24a1f6391d64b31d7a548bf268958d0d77b8ab2c050a71c57",
+  "assets/a2d-2.png": "c9a8f0f9eb0262551a47f636aea80c6bd03d129f134609fc077ce3cd6ad6c5dd",
+  "assets/a2d-3.png": "6c3f5b5b0d251988b113d4d63e12833a74f75b2dbc8fdabfa548105467935189",
+  "assets/a2e-1.gif": "1018424fd799d668ca695d3a1da73dd0169db135b4aecc75a521ffa83374f19d",
+  "assets/a2e-2.png": "bd298d8f1b2838c017b1f09d23c98bd58d22d9a10c2273aaa363af423505a3a7",
+  "assets/a2e-3.png": "43fa0137fe2333104557873e35c33ee0bc1db910fe93d58daa755b497e90284e",
+  "assets/a2e-31.png": "99a676da2112bcb6d2073bcc9d236676cd51e8eaa3b4abeb99010e465f1f96af",
+  "assets/a2e-32.png": "a990b9c2459951b1bde95617a80e33296911151428b60596112333b4a98dcfd3",
+  "assets/a2e-33.png": "0b5008acdc75e8149a758d89df11f1f667cb5cf26c2ed808c22c4b02db01a263",
+  "meta.json": "fb655466bae31d313bb88facd5336ce9343b8b7bbee5eb63959cda8b9bc1d90e",
+  "page.md": "4cdd4cdcb37c6894f988c147bdb96595fd16c796b38e317db3bbabd899779b6a"
+ },
+ "findings": [
+  "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함."
+ ]
+}
