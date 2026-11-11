@@ -287,7 +287,7 @@
    "fn": "normal"
   },
   "learn/al03/assets/a3d-3.png": {
-   "sha256": "3b5a59c678e270371086c971c58028a2dc5e8b6f0df1b4d788ace10f002c8d3c",
+   "sha256": "7de55c83d64bac9b2dd152cd0fbf7a3797717830dc81e0ca191eb842a2494d08",
    "script": "tools/ai_art/al03.py",
    "fn": "hough"
   },

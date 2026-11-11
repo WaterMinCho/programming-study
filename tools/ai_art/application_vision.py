@@ -29,7 +29,7 @@ def base(title, note, phase=None):
 
 def panel(draw, x, y, w, h, label, fill=PALE, size=30):
     draw.rounded_rectangle((x, y, x + w, y + h), 14, fill=fill)
-    lines = label.split('\n')
+    lines = label.replace('θ', 'theta').replace('ρ', 'rho').split('\n')
     for i, line in enumerate(lines):
         length = draw.textlength(line, font=font(size, True))
         assert length <= w - 20, (line, length, w)

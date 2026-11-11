@@ -22,7 +22,7 @@
   "assets/a3c-3.png": "12e58c436d7873e3bf2fe0f2dc6f0e41ae3756ee12fce983dac2e6353fd8db4a",
   "assets/a3d-1.gif": "a46c06beb228237cfa6e979df5a26b7fd0dcb6b0c1e6ce7ce62dea5bcbf72d62",
   "assets/a3d-2.png": "7b689c014ba53adda0d42759205c38d4a5ea031b5a43d7452d333dfff076f21c",
-  "assets/a3d-3.png": "3b5a59c678e270371086c971c58028a2dc5e8b6f0df1b4d788ace10f002c8d3c",
+  "assets/a3d-3.png": "7de55c83d64bac9b2dd152cd0fbf7a3797717830dc81e0ca191eb842a2494d08",
   "assets/a3e-1.gif": "c73e93a3e3efcf6f21aaa85bb3be2970f0df4badb7bac2e2df4ed7dbee366c3b",
   "assets/a3e-2.png": "95273c67ad95bc525de40921ebda8a5f3adb0188c500b640b4b6eb2a5c4a7bd2",
   "assets/a3e-3.png": "bed18ab4c147a0df02a767b4e94b085af89da15c8f65b9ad346559acc7c6a4ff",
@@ -33,6 +33,7 @@
   "page.md": "ffd9be95cec37b74efef096d90a09578e451f5afc6ffb74c4fd603420e47b768"
  },
  "findings": [
-  "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함."
+  "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함.",
+  "rho·theta 대체 표기를 적용한 뒤 글자 폭으로 가운데 정렬을 계산함. 수치·물음은 유지함."
  ]
 }
