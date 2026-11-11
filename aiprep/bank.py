@@ -19,11 +19,19 @@ from webprep import bank as webbank
 
 AI_DIR = os.path.join(study.ROOT, "ai")
 INDEX_NAME, TERMS_NAME, RETIRED_NAME = "index.json", "terms.json", "retired.json"
-LESSON_ID = re.compile(r"i(\d{2})\Z")
-PAGE_ID = re.compile(r"l(\d{2})\Z")
+LESSON_ID = re.compile(r"[ia](\d{2})\Z")
+PAGE_ID = re.compile(r"a?l(\d{2})\Z")
 MOCK_ID = re.compile(r"m(\d{1,2})\Z")
-UNIT_KEY = re.compile(r"(\d{1,2})([a-i])\Z")
-CARD_ID = re.compile(r"(?:i\d{2}|pc|m\d{1,2})-[a-z]\d{2,3}\Z")
+UNIT_KEY = re.compile(r"(a?\d{1,2})([a-i])\Z")
+CARD_ID = re.compile(r"(?:[ia]\d{2}|pc|m\d{1,2})-[a-z]\d{2,3}\Z")
+COURSES = {"intro": "AI 개론", "app": "AI 응용"}
+
+
+def course_of(lid):
+    """고유 차시 id에서 과정 구분을 구함. 기존 id는 개론으로 유지함."""
+    return "app" if str(lid or "").startswith("a") else "intro"
+
+
 FACTS_MARK = re.compile(r"^\s*<!--\s*facts:\s*(.*?)\s*-->\s*$")
 SKEL_MARK = re.compile(r"^\s*<!--\s*skel:\s*(S\d+)\s+(.*?)\s*-->\s*$")  # 바로 아래 코드 울타리가 그 뼈대 판과 같아야 함
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
@@ -71,7 +79,10 @@ def read_index(root=None):
             lid = str(item["id"])
             if not LESSON_ID.match(lid):
                 raise ValueError("lessons 의 id %r" % lid)
-            lessons.append({"id": lid, "no": int(item["no"]), "title": str(item["title"]), "page": str(item["page"]),
+            course = str(item.get("course") or course_of(lid))
+            if course not in COURSES or course != course_of(lid):
+                raise ValueError("lessons 의 course %r" % course)
+            lessons.append({"course": course, "id": lid, "no": int(item["no"]), "title": str(item["title"]), "page": str(item["page"]),
                             "date": str(item.get("date") or ""), "weight": float(item.get("weight", 1.0)),
                             "units": int(item.get("units", 0)), "hw_due": item.get("hw_due")})
         patterns = []
@@ -91,7 +102,7 @@ def read_index(root=None):
     except (KeyError, TypeError, ValueError) as error:
         raise AiBankError("%s 의 형식이 맞지 않습니다: %s" % (INDEX_NAME, webbank._why(error)))
     return {"pages": web["pages"], "order": web["order"], "exam": exam, "lessons": lessons, "patterns": patterns,
-            "mocks": mocks}
+            "mocks": mocks, "courses": dict(COURSES)}
 
 
 def read_terms(root=None):
@@ -157,9 +168,10 @@ def pattern_ready(group, root=None):
 def lesson_of_unit(key):
     """단원 키 5c → i05, 18a → None(상황별 코드)."""
     found = UNIT_KEY.match(key or "")
-    if not found or int(found.group(1)) == 18:
+    if not found or found.group(1) == "18":
         return None
-    return "i%02d" % int(found.group(1))
+    number = found.group(1)
+    return ("a%02d" % int(number[1:])) if number.startswith("a") else ("i%02d" % int(number))
 
 
 # 학습 노트

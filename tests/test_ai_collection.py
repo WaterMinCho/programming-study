@@ -118,6 +118,7 @@ class CollectionIntegrationTest(Base):
 
     def test_correct_input_is_private_and_repeated_queries_are_deduplicated(self):
         sess = self.session()
+        sess.collection.set_enabled(False)
         sess.mark_read("i90", "90a")
         sess.collection.set_enabled(True)
         ps = service.PracticeSet(sess, "private1", "unit", ["i90-b01"], 3)
@@ -195,6 +196,7 @@ class CollectionIntegrationTest(Base):
         helper.setUp()
         self.addCleanup(helper.doCleanups)
         sess = helper.session()
+        sess.collection.set_enabled(False)
         exam = sess.start_mock("m90", seed=1)
         exam.save_answer(["BEFORE_CONSENT"], "m90-01")
         sess.collection.set_enabled(True)
@@ -224,3 +226,51 @@ class CollectionCliTest(unittest.TestCase):
                 args.func(args)
             self.assertFalse((Path(root) / "learner" / collection.FILENAME).exists())
         self.assertFalse(parser.parse_args(["ai-data", "export"]).include_answers)
+
+
+class DistributionPolicyTest(unittest.TestCase):
+    setUp = CollectionTest.setUp
+    def test_first_start_records_distribution_basis_once_without_claiming_consent_time(self):
+        self.store.initialize_distribution()
+        before = self.store.status()
+        self.assertTrue(before["enabled"])
+        self.store.initialize_distribution()
+        self.assertEqual(before["epoch"], self.store.status()["epoch"])
+        row = self.store.snapshot()[1]
+        self.assertEqual("distribution-2026-11-11", row["data"]["basis"])
+        self.assertIsNone(row["data"]["consent_at"])
+        self.assertEqual(2, len(self.store.snapshot()))
+
+    def test_stop_and_delete_survive_reopening_without_losing_user_choice(self):
+        self.store.initialize_distribution()
+        participant = self.store.status()["participant"]
+        self.store.set_enabled(False)
+        self.store.initialize_distribution()
+        self.assertFalse(self.store.status()["enabled"])
+        self.store.delete()
+        reopened = collection.Collection(str(self.root / "private"), str(self.repo))
+        reopened.initialize_distribution()
+        self.assertFalse(os.path.exists(reopened.path))
+        self.assertFalse(reopened.status()["enabled"])
+        self.assertFalse(reopened.emit("answer", {"result":"pass"}))
+        reopened.set_enabled(True)
+        self.assertTrue(reopened.status()["enabled"])
+        self.assertNotEqual(participant, reopened.status()["participant"])
+
+    def test_failed_stop_commit_still_blocks_goal_updates(self):
+        self.store.repository = study.ROOT
+        self.store.initialize_distribution()
+        reader = sqlite3.connect(self.store.path)
+        try:
+            reader.execute("BEGIN")
+            reader.execute("SELECT * FROM meta").fetchall()
+            with self.assertRaises(collection.CollectionError):
+                self.store.set_enabled(False)
+        finally:
+            reader.rollback()
+            reader.close()
+        count = len(self.store.snapshot())
+        self.assertFalse(self.store.status()["enabled"])
+        with self.assertRaises(collection.CollectionError):
+            self.store.set_goal("vision")
+        self.assertEqual(count, len(self.store.snapshot()))

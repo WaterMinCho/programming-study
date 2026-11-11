@@ -41,8 +41,8 @@ LIMITS = {
     "note_bytes": int(2.5 * 1024 * KB), "total_bytes": 32 * 1024 * KB, "warn_bytes": 28 * 1024 * KB,
 }
 NAMES = {
-    "page": re.compile(r"^l\d{2}-\d{1,2}\Z"),
-    "section": re.compile(r"^\d{1,2}[a-i]-\d{1,2}\Z"),
+    "page": re.compile(r"^a?l\d{2}-\d{1,2}\Z"),
+    "section": re.compile(r"^a?\d{1,2}[a-i]-\d{1,2}\Z"),
 }
 MANIFEST = os.path.join(ROOT, "tools", "ai_art", "manifest.json")
 FONTS = os.path.join(ROOT, "gui", "fonts")
@@ -64,7 +64,7 @@ def page_of(name):
     if NAMES["page"].match(name or ""):
         return name.split("-")[0]
     if NAMES["section"].match(name or ""):
-        return "l%02d" % int(re.match(r"\d+", name).group(0))
+        return ("al%02d" if name.startswith("a") else "l%02d") % int(re.search(r"\d+", name).group(0))
     return None
 
 

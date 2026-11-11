@@ -12,7 +12,7 @@ class LearningContextTest(unittest.TestCase):
     def test_every_published_unit_has_a_valid_context(self):
         data = json.loads((ROOT / "ai" / "learning-map.json").read_text(encoding="utf-8"))
         expected = set()
-        for path in (ROOT / "ai" / "learn").glob("l*/meta.json"):
+        for path in (ROOT / "ai" / "learn").glob("*/meta.json"):
             expected.update(json.loads(path.read_text(encoding="utf-8"))["sections"])
         self.assertEqual(set(data["units"]), expected)
         for unit, stages in data["units"].items():

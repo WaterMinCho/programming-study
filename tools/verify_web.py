@@ -1019,7 +1019,7 @@ def figures(v, label, markdown, folder, kind, owner, sections):
             continue
         found = owner_of(name)
         if found is None:
-            v.fail(label, 10, "%s 의 그림 이름 %s 가 l01-1, 3a-1, w03-1 꼴이 아닙니다." % (where, name))
+            v.fail(label, 10, "%s 의 그림 이름 %s 가 l01-1, 3a-1, w03-1, al01-1, a1a-1 꼴이 아닙니다." % (where, name))
         elif kind == "mission" and found != ("mission", owner):
             v.fail(label, 10, "%s 의 그림 이름 %s 는 이 미션의 꼴(%s-1)이 아닙니다." % (where, name, owner))
         elif kind == "page" and not (found == ("page", owner) or (found[0] == "section" and found[1] in sections)):

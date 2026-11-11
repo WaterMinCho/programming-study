@@ -12,6 +12,7 @@
 차시 화면: 단원 줄, [전체 노트]·[외울 것], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
 from PyQt6.QtWidgets import QWidget
 
+from aiprep import bank
 from gui import ai_text, kit, theme
 from gui.wrong_page import count_line
 from session import SessionError
@@ -48,6 +49,14 @@ class AiHomePage(QWidget):
         root.addWidget(kit.heading(kit.label(ai_text.TRACK, "title"),
                                    guide_line))
         root.addSpacing(theme.GAP["description_content"])
+        self.course_tabs = kit.TabBar(["개론", "응용"])
+        self.course_tabs.setAccessibleName("AI 학습 과정")
+        self.course_tabs.picked.connect(lambda n: self.win.switch_ai_course(("intro", "app")[n]))
+        root.addWidget(self.course_tabs)
+        root.addSpacing(theme.GAP["group"])
+        self.course_intro = kit.para("", "body", "secondary")
+        root.addWidget(self.course_intro)
+        root.addSpacing(theme.GAP["group"])
         lead = QWidget()
         lead_box = kit.box(lead, spacing=theme.GAP["group"])
         self.info = kit.label("", "caption", "secondary")
@@ -101,6 +110,10 @@ class AiHomePage(QWidget):
 
     def refresh(self):
         """서비스에서 현황을 다시 읽어 칸을 채움. 기록을 읽지 못하면 띠에 이유를 보이고 수치 줄과 목록을 비움."""
+        course = getattr(self.win.ai, "course", "intro")
+        self.course_tabs.set_current(1 if course == "app" else 0)
+        self.course_intro.setText("AI 응용 · 이미지를 준비하고 분류·검출에 연결합니다. 초판 자료는 확인한 단원부터 공개합니다." if course == "app" else
+                                  "AI 개론 · 데이터와 모델, 손실과 기울기를 연결해 학습 원리를 익힙니다.")
         try:
             overview = self.overview = self.win.ai.overview()
         except SessionError as error:
@@ -165,7 +178,7 @@ class AiHomePage(QWidget):
         for row in (overview["lessons"] if overview else []):
             if not row["ready"]:
                 continue
-            book = self.books.add(kit.Row(ai_text.BOOK % row["no"], ai_text.book_line(row), "예습" if row["preview"] else "",
+            book = self.books.add(kit.Row(ai_text.lesson_title(row["no"], "문제집", row.get("course", "intro")), ai_text.book_line(row), "예습" if row["preview"] else "",
                                           kit.Dot(ai_text.book_dot(row)), row["id"]))
             book.clicked.connect(lambda lid=row["id"]: self.open_book(lid))
         groups = ai_text.AiNotes(self.win).groups() if overview else []  # 기록이 깨졌으면 빈 목록
@@ -189,10 +202,10 @@ class AiHomePage(QWidget):
         for row in overview["lessons"]:
             if not row["ready"]:
                 if not row.get("error"):
-                    waiting.append(ai_text.lesson_title(row["no"], row["title"]))
+                    waiting.append(ai_text.lesson_title(row["no"], row["title"], row.get("course", "intro")))
                 continue
             ready += 1
-            line = kit.Row(ai_text.lesson_title(row["no"], row["title"]), ai_text.lesson_line(row), "예습" if row["preview"] else "",
+            line = kit.Row(ai_text.lesson_title(row["no"], row["title"], row.get("course", "intro")), ai_text.lesson_line(row), "예습" if row["preview"] else "",
                            kit.Dot(ai_text.lesson_dot(row)), row["id"])
             line.clicked.connect(lambda lid=row["id"]: self.open_lesson(lid))
             self.lesson_list.add(line)
@@ -268,7 +281,7 @@ class AiHomePage(QWidget):
     def set_busy(self, busy, text=""):
         """문제 받기·제출이 기록을 쓰는 동안 줄과 단추를 끔. 섞어 풀기는 끝나도 읽은 단원이 있을 때만 다시 켬."""
         self.busy = busy
-        for widget in (self.hub_btn, self.next_btn, self.data_btn):
+        for widget in (self.hub_btn, self.next_btn, self.data_btn, self.course_tabs):
             widget.setEnabled(not busy)
         for row in self.books.rows + self.lesson_list.rows + self.pattern_list.rows + self.mock_list.rows:
             kit.set_inert(row, busy or (row is self.mixed_row and not self.mixed_ready))
@@ -321,7 +334,8 @@ class AiLessonPage(QWidget):
         """차시를 올림. 준비 중이거나 읽지 못한 차시면 AiError."""
         data = self.win.ai.lesson(lid)
         self.lid = lid
-        self.title.setText(ai_text.lesson_title(data["no"], data["title"]))
+        self.title.setText(ai_text.lesson_title(data["no"], data["title"], self.win.ai.course))
+        self.back_btn.setText("← " + bank.COURSES[self.win.ai.course])
         self.title.show()
         self.unit_list.clear()
         for unit in data["units"]:

@@ -146,7 +146,7 @@ class PracticePage(QWidget):
             self.review_state = None
             self.title.setText(practice.title)
             self.title.show()
-            self.back_btn.setText("← 오답 노트" if mode == "note" else "← AI 비전 개론")
+            self.back_btn.setText("← 오답 노트" if mode == "note" else "← " + bank.COURSES[self.win.ai.course])
             self.show_item(practice.current())
             return
         status = self.win.ai.review_status() if mode in ("review", "sweep") else None
@@ -156,7 +156,7 @@ class PracticePage(QWidget):
         self.review_state = status
         self.title.setText(practice.title if practice else self.win.ai.title_of(mode))
         self.title.show()
-        self.back_btn.setText("← 오답 노트" if mode == "note" else "← AI 비전 개론")
+        self.back_btn.setText("← 오답 노트" if mode == "note" else "← " + bank.COURSES[self.win.ai.course])
         if practice is None:
             self.show_review_complete()
         else:

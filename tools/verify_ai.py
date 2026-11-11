@@ -54,10 +54,10 @@ LONG_API = ("register_full_backward_hook", "ReduceLROnPlateau", "CosineAnnealing
 PARTICLE_TRAP = re.compile(r"_{4,}\s?(을|를|은|는|이|가|과|와)(?=[\s.,?!)]|$)")
 POINTING = re.compile(r"^(모두|위의)|[①-④]|위 보기|보기\s*\d")
 REF_FORMS = (
-    ("lecture", re.compile(r"(\d{1,2})차시 슬 p\d+(?:~p?\d+)?\Z")),
-    ("lecture", re.compile(r"(\d{1,2})차시 노트북 \d{2} \[\d+\]\Z")),
-    ("lecture", re.compile(r"(\d{1,2})차시 과제 \d+번\Z")),
-    ("lecture", re.compile(r"(\d{1,2})차시 강의노트 \[\d+\]\Z")),
+    ("lecture", re.compile(r"(?:응용 )?(\d{1,2})차시 슬 p\d+(?:~p?\d+)?\Z")),
+    ("lecture", re.compile(r"(?:응용 )?(\d{1,2})차시 노트북 \d{2} \[\d+\]\Z")),
+    ("lecture", re.compile(r"(?:응용 )?(\d{1,2})차시 과제 \d+번\Z")),
+    ("lecture", re.compile(r"(?:응용 )?(\d{1,2})차시 강의노트 \[\d+\]\Z")),
     ("summary", re.compile(r"요약 (\d)주차 p\d+(?:~p?\d+)?\Z")),
     ("graduate", re.compile(r"대학원 \d{2} p\d+(?:~p?\d+)?\Z")),
     ("official", re.compile(r"공식 (\d{1,2})차시\Z")),
@@ -91,7 +91,7 @@ POLITE = re.compile(r"(?<!세)요\.(?=\s|$)|볼까요|해 봐요")
 NUMBER_TEXT = re.compile(r"\d+(?:\.\d+)?")
 NUMBER_WORD = re.compile(r"-?\d+(?:\.\d+)?\Z")
 FIGURE_NO = re.compile(r"^그림\s*\d")
-LEVELS_KEY = re.compile(r"(l\d{2}) (\d{1,2}[a-i])/(\d+) (\S+) (7|15|20)\Z")
+LEVELS_KEY = re.compile(r"(a?l\d{2}) (a?\d{1,2}[a-i])/(\d+) (\S+) (7|15|20)\Z")
 
 
 class Verifier(object):
@@ -168,15 +168,15 @@ def check_index(v, bank_dir):
     seen_ids, seen_no = set(), set()
     for lesson in index["lessons"]:
         lid = lesson["id"]
-        if lid in seen_ids or lesson["no"] in seen_no:
+        if lid in seen_ids or (lesson.get("course", "intro"), lesson["no"]) in seen_no:
             v.fail("index", 1, "lessons 에 같은 id 나 no 가 두 번 있습니다: %s" % lid)
         seen_ids.add(lid)
-        seen_no.add(lesson["no"])
+        seen_no.add((lesson.get("course", "intro"), lesson["no"]))
         if lesson["no"] != lesson_no(lid):
             v.fail("index", 1, "%s 의 no 가 id 와 다릅니다: %d" % (lid, lesson["no"]))
         if lesson["page"] not in pages:
             v.fail("index", 1, "%s 의 page %s 가 pages 에 없습니다." % (lid, lesson["page"]))
-        elif lesson["page"] != "l%02d" % lesson["no"]:
+        elif lesson["page"] != ("al%02d" if lesson.get("course") == "app" else "l%02d") % lesson["no"]:
             v.fail("index", 1, "%s 의 page 는 l%02d 여야 합니다: %s" % (lid, lesson["no"], lesson["page"]))
         if not lesson["weight"] > 0:
             v.fail("index", 1, "%s 의 weight 는 0 보다 커야 합니다." % lid)
@@ -192,7 +192,7 @@ def check_index(v, bank_dir):
                 v.fail("index", 1, "patterns 의 단원 키는 18a~18h 여야 합니다: %s" % key)
             if unit["after"] and unit["after"] not in seen_ids:
                 v.fail("index", 1, "patterns %s 의 after %s 가 lessons 에 없습니다." % (key, unit["after"]))
-    nos = sorted(seen_no)
+    nos = sorted(no for course, no in seen_no if course == "intro")
     for mock in index["mocks"]:
         if len(mock["range"]) != 2 or mock["range"][0] > mock["range"][1] or (nos and not (nos[0] <= mock["range"][0]
                                                                                             and mock["range"][1] <= nos[-1])):
@@ -226,13 +226,13 @@ def ref_kind(ref):
     return None, None
 
 
-def first_ref_ok(ref, no):
+def first_ref_ok(ref, no, course="intro"):
     kind, value = ref_kind(ref)
     if kind == "lecture":
-        return int(value) == no
+        return int(value) == no and ("app" if ref.startswith("응용 ") else "intro") == course
     if kind == "summary":
         week = int(value)
-        return (week - 1) * 5 < no <= week * 5
+        return course == "intro" and (week - 1) * 5 < no <= week * 5
     return False
 
 
@@ -328,7 +328,7 @@ def check_refs(v, les, card):
     if les.group is not None:  # 상황별 코드는 차시 번호를 견주지 않고 강의 꼴이나 요약본이면 됨
         if ref_kind(refs[0])[0] not in ("lecture", "summary"):
             v.fail(label, 9, "%s 의 첫 ref 는 그 줄을 가르친 강의 슬·노트북·과제·강의노트나 요약본이어야 합니다: %s" % (cid, refs[0]))
-    elif not first_ref_ok(refs[0], lesson_no(les.id)):
+    elif not first_ref_ok(refs[0], lesson_no(les.id), aibank.course_of(les.id)):
         v.fail(label, 9, "%s 의 첫 ref 는 %d차시의 슬·노트북·과제·강의노트·요약본이어야 합니다: %s" % (cid, lesson_no(les.id), refs[0]))
     kinds = {ref_kind(r)[0] for r in refs}
     if kinds and kinds <= {"graduate", "official"} and not card["deep"]:
@@ -935,7 +935,7 @@ def check_context(v, les, terms, pages_no):
     label = les.id
     introduced = {}
     for term in terms["terms"]:
-        first = [pages_no.get(p) for p in (term.get("intro"), term.get("page")) if pages_no.get(p) is not None]
+        first = [(p.startswith("a"), pages_no[p]) for p in (term.get("intro"), term.get("page")) if p in pages_no]
         if first:
             introduced[term["term"]] = min(first)
     finder = web_lint.Terms(terms)
@@ -947,8 +947,8 @@ def check_context(v, les, terms, pages_no):
             plain = re.sub(r"```.*?```", "", str(text), flags=re.S)
             for term, form, _ in finder.find(plain):
                 at = introduced.get(term)
-                if at is not None and at > no:
-                    v.fail(label, 11, "%s 에 %d차시에서 소개하는 낱말 '%s'가 나옵니다." % (where, at, term))
+                if at is not None and at > (aibank.course_of(les.id) == "app", no):
+                    v.fail(label, 11, "%s 에 %d차시에서 소개하는 낱말 '%s'가 나옵니다." % (where, at[1], term))
                     break
 
 
@@ -1533,7 +1533,7 @@ def _mock_evidence(v, label, item, sources):
             for ref in refs:
                 if ref_kind(ref)[0] is None:
                     v.fail(label, 9, "%s의 ref 형식을 읽지 못합니다: %s" % (cid, ref))
-            if not first_ref_ok(refs[0], lesson_no(lid)):
+            if not first_ref_ok(refs[0], lesson_no(lid), aibank.course_of(lid)):
                 v.fail(label, 9, "%s의 첫 ref는 %s의 강의·과제·요약 근거여야 합니다." % (cid, lid))
         les = Lesson({"id": label}, None, {"facts": facts, "errata": errata}, [])
         card = {"id": cid, "kind": item["kind"], "item": item, "facts": fids, "errata": item.get("errata") or []}
@@ -2259,7 +2259,7 @@ def main(argv=None, out=None):
         skeletons = skel.load_patterns(bank_dir)
     except aibank.AiBankError as error:
         skeleton_error = str(error)
-    pages_no = {p["id"]: int(p["id"][1:]) for p in index["pages"] if aibank.PAGE_ID.match(p["id"])}
+    pages_no = {p["id"]: int(aibank.PAGE_ID.fullmatch(p["id"]).group(1)) for p in index["pages"] if aibank.PAGE_ID.fullmatch(p["id"])}
     entries = [e for e in index["lessons"] if os.path.isfile(os.path.join(aibank.items_dir(e["id"], bank_dir), "meta.json"))]
     mocks = [m for m in index["mocks"] if os.path.isfile(os.path.join(aibank.mock_dir(m["id"], bank_dir), "meta.json"))]
     common = os.path.join(bank_dir, "items", "common")

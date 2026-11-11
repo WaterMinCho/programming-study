@@ -237,7 +237,8 @@ class MainWindow(QMainWindow):
         self.ai_quiz.clear()  # 옛 서비스의 묶음과 카드를 놓음
         self.ai_mock.clear()
         try:
-            self.ai = ai_service.AiSession(self.user)
+            course = self.settings.value("ai/course/" + self.user, "intro", type=str)
+            self.ai = ai_service.AiSession(self.user, course=course if course in ("intro", "app") else "intro")
             self.ai_error = ""
         except SessionError as error:
             self.ai, self.ai_error = None, str(error)
@@ -327,6 +328,23 @@ class MainWindow(QMainWindow):
         self.ai_home.refresh()
         self.area = "ai"
         motion.switch(self.pages, self.ai_home)
+
+    def switch_ai_course(self, course):
+        """과정별 읽던 위치와 연습을 보존한 채 같은 AI 홈을 바꿈."""
+        if self.ai is None or self.ai.course == course or self.ai_home.busy:
+            return
+        try:
+            selected = ai_service.AiSession(self.user, root=self.ai.root, course=course)
+        except SessionError as error:
+            self.ai_home.course_tabs.set_current(1 if self.ai.course == "app" else 0)
+            self.ask("알림", str(error))
+            return
+        self.ai_quiz.clear()
+        self.ai_mock.clear()
+        self.ai = selected
+        self.settings.setValue("ai/course/" + self.user, course)
+        self.ai_home.refresh()
+        self.ai_home.scroll.verticalScrollBar().setValue(0)
 
     def _open_ai(self, page, load):
         """AI 비전 개론 화면 page 를 load() 로 채우고 엶. 서비스가 AiError 를 내면 알리고 지금 화면에 머묾."""

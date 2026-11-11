@@ -32,7 +32,7 @@ from webprep.service import WebError
 DAYS = 7  # 막대로 보이는 날 수(오늘 포함)
 RECENT = 5  # 최근 채점 줄 수
 WEEKDAYS = "월화수목금토일"
-TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면접"), ("ai", "AI 비전"))  # 막대 순서와 범례 이름. 트랙 색(theme.SERIES)도 이 순서
+TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면접"), ("ai", "AI"))  # 막대 순서와 범례 이름. 트랙 색(theme.SERIES)도 이 순서
 BAR_GAP = 2  # 한 날의 막대 사이
 EMPTY = "최근 7일 학습 기록이 없습니다.\n공부 트랙에서 시작할 수 있습니다."
 THEME_TEXT = {"system": "밝게 보기", "light": "어둡게 보기", "dark": "시스템 따르기"}  # 단추를 누르면 바뀌는 쪽(시스템 → 밝게 → 어둡게 → 시스템)

@@ -490,7 +490,7 @@ class VerifyStaticTest(BankCase):
         self.replace(page, "파일: assets/l90-1.png", "파일: pictures/l90-1.png")
         self.assertFails("파일은 assets/<이름>.gif 나 .png 여야 합니다", "l90", steps={10})
         self.replace(page, "파일: pictures/l90-1.png", "파일: assets/x-1.png")
-        self.assertFails("그림 이름 x-1 가 l01-1, 3a-1, w03-1 꼴이 아닙니다", "l90", steps={10})
+        self.assertFails("그림 이름 x-1 가 l01-1, 3a-1, w03-1, al01-1, a1a-1 꼴이 아닙니다", "l90", steps={10})
         self.replace(page, "파일: assets/x-1.png", "파일: assets/l91-1.png")
         self.assertFails("그림 이름 l91-1 는 이 페이지(l90-1)나 그 절(90a-1, 90b-1)의 꼴이 아닙니다", "l90", steps={10})
         self.replace(page, "파일: assets/l91-1.png", "파일: assets/90a-1.gif")
@@ -747,7 +747,9 @@ class WebArtTest(unittest.TestCase):
         self.assertEqual(("page", "l01"), web_art.owner_of("l01-1"))
         self.assertEqual(("section", "3a"), web_art.owner_of("3a-12"))
         self.assertEqual(("mission", "w03"), web_art.owner_of("w03-4"))
-        for bad in ("1-1a", "l1-1", "3A-1", "w03_1", "l01-1.gif"):
+        self.assertEqual(("page", "al01"), web_art.owner_of("al01-1"))
+        self.assertEqual(("section", "a1a"), web_art.owner_of("a1a-12"))
+        for bad in ("1-1a", "l1-1", "3A-1", "w03_1", "l01-1.gif", "aal01-1", "al1-1", "a1A-1"):
             self.assertIsNone(web_art.name_kind(bad), bad)
         self.assertEqual(6 * 1024 * 1024, web_art.LIMITS["total_bytes"])
         self.assertEqual(300 * 1024, web_art.LIMITS["gif_bytes"])

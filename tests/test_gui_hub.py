@@ -470,7 +470,7 @@ class HubScreenTest(HubTest):
         self.graded_round()  # 아무것도 적지 않고 제출해 25문항이 모두 미응답
         win = self.boot()
         hub = win.hub
-        self.assertEqual([(row.title.text(), row.second.text()) for _, row in hub.note_rows], [("파이썬 스터디", "미응답 문항 25개"), ("AI 비전 개론", "아직 틀린 문항이 없습니다.")])
+        self.assertEqual([(row.title.text(), row.second.text()) for _, row in hub.note_rows], [("파이썬 스터디", "미응답 문항 25개"), ("AI", "아직 틀린 문항이 없습니다.")])
         row = hub.note_rows[0][1]
         guikit.click(row)
         page = win.wrong_page

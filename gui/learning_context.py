@@ -19,6 +19,7 @@ def unit_context(root, key):
         with open(os.path.join(root, "learning-map.json"), encoding="utf-8") as handle:
             data = json.load(handle)
         focus = data["units"][key]
+        data = dict(data, unit_note=data.get("unit_notes", {}).get(key))
         return data, focus
     except (OSError, ValueError, KeyError, TypeError):
         return None
@@ -110,6 +111,8 @@ class LearningContext(QFrame):
         if "tools" in focus:
             box.addWidget(kit.para("파이썬·배열·텐서는 아래 학습 계산을 구현하는 도구입니다.", "learn_caption", "secondary"))
         box.addWidget(kit.para("이 단원에서 연결할 과정: %s" % " · ".join(titles), "learn_caption", "accent", bold=True))
+        if data.get("unit_note"):
+            box.addWidget(kit.para(data["unit_note"], "learn_caption", "secondary"))
         self.diagram = QWidget()
         diagram_box = kit.box(self.diagram, spacing=16)
         self.map = TrainingMap(data, focus)

@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "내용 보완 0",
- "resolver": "변경 검토 1",
- "reviewer": "변경 검토 1",
+ "writer": "학습 글 작성 1",
+ "resolver": "공개본 재풀이 2",
+ "reviewer": "자료·그림 대조 3",
  "files": {
   "assets/4a-1.png": "3883301ade99f23edfbb3bc8299fafcfda2afa142e7133a7fe01a68e327fa17e",
   "assets/4a-2.gif": "54b019edd6a633a97e6614c20dae01d90799c513a008481ec163d7d469610721",
@@ -42,6 +42,7 @@
   "assets/4e-42.png": "9b55b907afefa97b1da72559ec2ecf48722604e594526fb21d0870873fecef95",
   "assets/4e-43.png": "9f507bf3a73b4d9a11ccce1d5cd8bff7772617b6a26dd8741754ff3b751978cd",
   "assets/4e-5.gif": "eb04bca63b26f8454ba60748cd478298695c710562faa0b86260ac4b3442bbcc",
+  "assets/4e-6.gif": "eb13a4db8f3330d10e89d119053c43fc5af3ed54a4f2e3c5247dfde65f21221c",
   "assets/4f-1.gif": "077d79a80191d9c50d2bcc6f12d32fdce1ffcd42806907578f211f5ad1ca4e01",
   "assets/4f-2.gif": "d4b04a25342494837408a46eb40310af75cefa2055059d2ca73f396cc9856799",
   "assets/4f-3.png": "705cefda89a43b657aef9f8612be417d9240f072d15650c23b87ddee5420761b",
@@ -59,8 +60,8 @@
   "assets/4h-42.png": "cc8ed02bc0c190dcfa054e9672c2d3865ccc7b34c8c113d990ecb03fdc913eca",
   "assets/4h-43.png": "53b005e3e27262a517543df77def1963bccc264eacd3711b791cf0294caf289d",
   "assets/4h-5.png": "e71210a34069cf9c7d5f7ed1f64aa9810c6404d3bf2826a59538986ab6ed4c02",
-  "meta.json": "d9719b0a9121181c3b7b6853ea1ba5e52b4f9ce1ef26e31005d23b42424eb02f",
-  "page.md": "803a41f0ce7e7c5b5eca08f31891bdac3f0df22b6ba727e32c4db52af9077365"
+  "meta.json": "44f95af568c80417b0a1b69808053ab584b5218586e858f861460235e3ec2cad",
+  "page.md": "cb4a1a8d9de2378beb0cef73fb1a69ab72b1a0f568c89f98213da6bac2528e86"
  },
  "findings": [
   "처음 배우는 사람으로 4a~4c 를 읽고 고침: 4b 먼저 풀어 보기에 W.grad 뜻을 먼저 줌, W 의 경사와 경사(묶음)를 나눔, 학습률을 경사에 곱하는 수로 고침",

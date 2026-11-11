@@ -34,6 +34,7 @@ def batch(rows, vocabulary, length=32):
         raise ValueError("풀이 이력 길이는 1~128로 지정해 주세요.")
     questions = {value: n for n, value in enumerate(vocabulary["questions"])}
     concepts = {value: n for n, value in enumerate(vocabulary["concepts"])}
+    courses = {value: n for n, value in enumerate(vocabulary.get("courses", ["<PAD>", "<UNK>"]))}
     width = len(concepts)
     def multi_hot(names):
         values = [0] * width
@@ -41,12 +42,14 @@ def batch(rows, vocabulary, length=32):
             values[concepts.get(name, 1)] = 1
         return values
     inputs = {name: [] for name in ("questions", "concepts", "results", "mask", "lengths", "query_question",
-                                    "query_concepts", "query_gap_seconds", "query_gap_known")}
+                                    "query_concepts", "query_gap_seconds", "query_gap_known", "courses", "query_course")}
     for row in rows:
         history = row["features"]["sequence_history"][-length:]
         size = len(history)
         inputs["questions"].append([questions.get(question_token(past), 1) for past in history] + [0] * (length-size))
         inputs["concepts"].append([multi_hot(past["concepts"]) for past in history] + [[0]*width for _ in range(length-size)])
+        inputs["courses"].append([courses.get(past.get("course"), 1) for past in history] + [0] * (length-size))
+        inputs["query_course"].append(courses.get(row.get("course"), 1))
         inputs["results"].append([past["result"] for past in history] + [0] * (length-size))
         inputs["mask"].append([True]*size + [False]*(length-size))
         inputs["lengths"].append(size)
