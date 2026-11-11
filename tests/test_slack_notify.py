@@ -104,7 +104,9 @@ class NotificationTest(unittest.TestCase):
     def test_forged_pr_and_path_traversal_are_rejected(self):
         github = FakeGitHub()
         github.associated = []
-        self.assertIsNone(notify.relay_card(run(), github))
+        source = run()
+        source["head_repository"]["full_name"] = "another/programming-study"
+        self.assertIsNone(notify.relay_card(source, github))
         github.zip_name = "../notification.json"
         with self.assertRaises(ValueError):
             notify.metadata(run(), github)
@@ -157,6 +159,16 @@ class NotificationTest(unittest.TestCase):
         payload = notify.relay_card(run(event="pull_request_review_comment"), github)
         self.assertIn("답글", payload["text"])
         self.assertIn("#discussion_r66", payload["text"])
+
+    def test_review_reply_on_closed_unmerged_pr_uses_matching_source_head(self):
+        github = FakeGitHub(data={"pr": 123, "action": "created", "review_comment": 66})
+        github.pr["state"] = "closed"
+        github.associated = []
+        source = run(event="pull_request_review_comment")
+        self.assertIn("답글", notify.relay_card(source, github)["text"])
+        source["head_sha"] = "b" * 40
+        with patch.object(notify, "association", return_value=[]):
+            self.assertIsNone(notify.relay_card(source, github))
 
     def test_ci_separates_job_results_from_merge_conditions(self):
         source = run(path=".github/workflows/ci.yml")

@@ -173,13 +173,12 @@ def relay_card(run, github):
     pr = github.get(endpoint(f"pulls/{data['pr']}"))
     associated = data["pr"] in {p["number"] for p in association(run, github)}
     # 닫힌 미머지 PR은 커밋 연결 목록에서 빠져 실행의 head를 직접 대조함
-    closed_head = (run["event"] == "pull_request" and data["action"] == "closed"
-                   and run["head_sha"] == pr["head"]["sha"]
-                   and run["head_branch"] == pr["head"]["ref"]
-                   and run.get("head_repository", {}).get("full_name")
-                   == (pr["head"].get("repo") or {}).get("full_name")
-                   and bool(pr["head"].get("repo")))
-    if not associated and not closed_head:
+    matching_head = (run["head_sha"] == pr["head"]["sha"]
+                     and run["head_branch"] == pr["head"]["ref"]
+                     and run.get("head_repository", {}).get("full_name")
+                     == (pr["head"].get("repo") or {}).get("full_name")
+                     and bool(pr["head"].get("repo")))
+    if not associated and not matching_head:
         return None
     if not development(pr, github):
         return None
