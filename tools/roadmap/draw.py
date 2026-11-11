@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """README 학습 로드맵 그림을 그림.
 
-같은 폴더의 roadmap.json 을 읽어 docs/roadmap/intro.png 와 길마다 한 장(arm.png 처럼 길 id 를 파일 이름으로)을 만듦.
+같은 폴더의 roadmap.json 을 읽어 docs/roadmap/의 미리보기·전체 그림과 직무별 그림을 만듦.
 저장소 맨 위에서 `python tools/roadmap/draw.py` 로 실행함. Pillow 가 필요함(`pip install pillow`).
 글꼴은 gui/fonts 의 나눔고딕을 씀. 네 배로 그린 뒤 두 배로 줄여 저장해서 선과 원의 가장자리가 매끄러움.
 """
@@ -25,7 +25,7 @@ INK = "#212529"
 MUTED = "#495057"
 PANEL = "#F8F9FA"  # 첫 그림의 묶음 상자 바탕
 
-# 길 그림의 배치
+# 직무별 그림의 배치
 CENTER = 600
 MAIN_SHIFT = 36  # 노란 상자를 좌우로 번갈아 비켜 놓는 거리
 LEFT_IN = 340  # 왼쪽 하위 상자의 오른쪽 끝
@@ -332,7 +332,7 @@ def used_tracks(data, items):
     return [t for t in data["tracks"] if t in found]
 
 
-# 길 그림
+# 직무별 그림
 
 
 def path_page(data, p):
@@ -343,7 +343,7 @@ def path_page(data, p):
     verify_used = any(i.get("verify") for i in everything)
     lw, lh, draw_legend = legend(data, verify_used, used_tracks(data, everything))
 
-    info_rows = [Row(data["updated"] + " 대조", 15, True),
+    info_rows = [Row(data["updated"] + " 개정", 15, True),
                  Row("필수·우대·지원 조건 구분", 13),
                  Row("전체 채용 시장의 통계 아님", 12, False, MUTED)]
     info_w = max(r.width for r in info_rows) + 36
@@ -359,7 +359,7 @@ def path_page(data, p):
     sub_y = title_y + size / 2 + 22
     spine_top = sub_y + 30
 
-    # 하위 상자 너비는 길 안에서 하나로 맞춤
+    # 하위 상자 너비는 같은 직무 그림 안에서 맞춤
     sub_w = max(SUB_MIN, min(SUB_MAX, max(natural_w(s["label"], 15, False, s.get("track"))
                                           + (2 * VERIFY_ROOM if s.get("verify") else 30) for s in subs)))
 
@@ -476,7 +476,7 @@ def intro_page(data):
     it = data["intro"]
     paths = {p["id"]: p for p in data["paths"]}
 
-    # 왼쪽 줄: 모든 길에 필요한 것
+    # 왼쪽 줄: 공통 기초
     col_w = 270
     boxes = []
     y = 56
@@ -535,7 +535,7 @@ def intro_page(data):
     rows_bottom = panel_top + head + max_rows * box_h + (max_rows - 1) * row_gap
     panel_bottom = rows_bottom + 64
 
-    # 길 사이 화살표. 곧게 그으면 다른 상자를 지나는 것은 상자 아래로 돌림
+    # 직무 사이 화살표가 다른 상자를 지나면 상자 아래로 돌림
     links = []
     for ln in it["links"]:
         a, b = pboxes[ln["from"]], pboxes[ln["to"]]
@@ -621,11 +621,30 @@ def intro_page(data):
     return cv
 
 
+def preview_page(data):
+    """README에서 직무별 안내로 연결하는 미리보기 그림을 만듦."""
+    cv = Canvas(264, key_colors(data))
+    cv.rect(1, 1, W - 2, 262, fill="#F8FAFF", outline="#D6E0F5", width=1, radius=20)
+    cv.text(40, 55, data["intro"]["title"], 36, True, "#183153")
+    cv.text(40, 108, "관심 있는 직무부터 학습 순서를 확인하세요", 21, color=MUTED)
+    cv.rect(40, 158, 390, 64, fill="#2459C4", radius=12)
+    cv.text(235, 190, "직무별 로드맵 보기", 25, True, "white", "mm")
+
+    labels = ["공통 기초", "직무별 학습", "실습 결과"]
+    cv.line([(820, 52), (820, 212)], "#B8CBED", 3)
+    for y, label in zip((52, 132, 212), labels):
+        cv.circle(820, y, 9, "#2459C4")
+        cv.circle(820, y, 4, "white")
+        cv.text(850, y, label, 22, True, "#183153")
+    return cv
+
+
 def main():
     with open(os.path.join(HERE, "roadmap.json"), encoding="utf-8") as f:
         data = json.load(f)
     os.makedirs(OUT_DIR, exist_ok=True)
-    pages = [("intro", intro_page(data))] + [(p["id"], path_page(data, p)) for p in data["paths"]]
+    pages = [("preview", preview_page(data)), ("intro", intro_page(data))]
+    pages += [(p["id"], path_page(data, p)) for p in data["paths"]]
     for name, cv in pages:
         path = os.path.join(OUT_DIR, name + ".png")
         cv.save(path)
