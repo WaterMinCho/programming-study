@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """추가 수집의 동의·보존·중복·내보내기와 실제 채점 연결을 확인함."""
+import contextlib
 import json
 import os
 import random
@@ -114,7 +115,7 @@ class CollectionTest(unittest.TestCase):
 
 class CollectionIntegrationTest(Base):
     def events(self, sess, kind):
-        with sqlite3.connect(sess.collection.path) as conn:
+        with contextlib.closing(sqlite3.connect(sess.collection.path)) as conn:
             return [json.loads(r[0]) for r in conn.execute("SELECT payload FROM events WHERE kind=? ORDER BY seq", (kind,))]
 
     def test_correct_input_is_private_and_repeated_queries_are_deduplicated(self):
@@ -177,8 +178,10 @@ class CollectionIntegrationTest(Base):
         sess = self.session()
         sess.mark_read("i90", "90a")
         state = sess._state()
-        for mode in ("unit", "mixed", "lesson", "review", "sweep"):
+        for mode in ("unit", "mixed", "lesson", "review", "sweep", "note"):
             kwargs = {"lesson": "i90", "unit": "90a"}
+            if mode == "note":
+                kwargs["card"] = "i90-b01"
             expected = service.build_set(sess, state, mode, random.Random(4), **kwargs)
             trace = {}
             actual = service.build_set(sess, state, mode, random.Random(4), trace=trace, **kwargs)
@@ -188,6 +191,37 @@ class CollectionIntegrationTest(Base):
             self.assertEqual(list(dict.fromkeys(cid for pool in trace["candidate_pools"] for cid in pool["ids"])),
                              trace["candidate_ids"])
             self.assertIsNone(trace["selection_probability"])
+            self.assertEqual(collection.runtime_revision(), trace["runtime_revision"])
+            self.assertEqual(set(actual), set(trace["selected_pools"]))
+            self.assertEqual({cid: "learner_choice" if mode == "note" and cid == "i90-b01" else "rules"
+                              for cid in actual}, trace["selected_sources"])
+            self.assertEqual("learner_choice" if mode == "note" else "rules", trace["trigger"])
+
+    def test_failed_stop_still_starts_new_collection_period_on_resume(self):
+        from learning_server.dataset import prepare
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        ps = sess.start_set("unit", lesson="i90", unit="90a", seed=4)
+        current = ps.current()
+        epoch = sess.collection.status()["epoch"]
+        with mock.patch.object(sess.collection, "_connect", side_effect=collection.CollectionError("locked")):
+            with self.assertRaises(collection.CollectionError):
+                sess.collection.set_enabled(False)
+        sess.collection.set_enabled(True)
+        self.assertNotEqual(epoch, sess.collection.status()["epoch"])
+        ps.answer(self.right(ps, current), 3, False)
+        self.assertIsNone(prepare(sess.collection.snapshot())[0]["prediction_at"])
+
+    def test_note_trace_separates_requested_card_from_rule_selected_companion(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        state, trace = sess._state(), {}
+        notes = ([{"items": [{"key": "i90-b01", "state": "wrong"},
+                              {"key": "i90-b02", "state": "wrong"}]}], [])
+        with mock.patch.object(state, "notes", return_value=notes):
+            selected = service.build_set(sess, state, "note", random.Random(4), card="i90-b01", trace=trace)
+        self.assertEqual({"i90-b01", "i90-b02"}, set(selected))
+        self.assertEqual({"i90-b01": "learner_choice", "i90-b02": "rules"}, trace["selected_sources"])
 
     def test_real_practice_events_link_first_return_time_after_restore(self):
         from learning_server.dataset import prepare

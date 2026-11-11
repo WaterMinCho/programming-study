@@ -186,7 +186,7 @@ class Collection:
             if not conn.in_transaction:
                 conn.execute("BEGIN IMMEDIATE")
             previous = conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone()
-            if previous == ("1" if enabled else "0",):
+            if previous == ("1" if enabled else "0",) and not (enabled and os.path.exists(self.stop_path)):
                 if enabled:
                     self._remember_stop(False)
                 return

@@ -1642,7 +1642,9 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     else:
         raise AiError("모르는 연습 모드입니다: %s" % mode)
     if trace is not None:
-        trace.update(policy="rules-v1", source="learner_choice" if mode == "note" else "rules",
+        trace.update(policy="rules-v1", runtime_revision=collection.runtime_revision(),
+                     trigger="learner_choice" if mode == "note" else "rules",
+                     requested_card=card if mode == "note" else None,
                      candidate_scope="mode_pools_before_choose",
                      candidate_pools=[{"name": name, "ids": list(ids), "overflow": extra}
                                       for extra, groups in ((False, pools), (True, overflow)) for name, ids in groups],
@@ -1656,6 +1658,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     if mode in ("review", "sweep"):
         keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
     chosen = _gen_trim(sess, chosen, keep=keep)  # 직접 고른 문항과 예정일·미해결 생성기는 비율로 빼지 않음
+    if trace is not None:
+        trace["selected_pools"] = dict(chosen)
+        trace["selected_sources"] = {cid: "learner_choice" if mode == "note" and cid == card else "rules"
+                                     for cid, _ in chosen}
     if mode == "unit":
         selected = _arrange(sess, state, chosen, rng, pattern)
         if trace is not None:
