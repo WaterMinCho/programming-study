@@ -2,7 +2,7 @@
 
 [처음 안내로 돌아갑니다](../README.md)
 
-처음 참여하는 팀원은 [개인 저장소부터 첫 PR까지](../docs/LEARNING_WORKFLOW.md)를 먼저 읽습니다. 모델의 역할과 비교할 조건은 [담당별 미션](../docs/LEARNING_MISSIONS.md)에 있습니다.
+처음 참여하는 팀원은 [각자 fork에서 첫 PR까지](../docs/LEARNING_WORKFLOW.md)를 먼저 읽습니다. 모델의 역할과 비교할 조건은 [담당별 미션](../docs/LEARNING_MISSIONS.md)에 있습니다.
 
 ## 풀이 데이터 수집
 
@@ -57,6 +57,6 @@ flowchart TB
 
 모델 학습은 여러 기록의 예측 오차를 줄이도록 내부 숫자인 가중치를 조정하는 과정입니다. 추천할 때는 저장한 모델에 최신 이력과 후보 문제를 넣습니다. 모델이 계산한 정답 가능성과 복습 시점을 함께 보고 추천할 문제를 고릅니다.
 
-작업과 검토 상태는 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2)에서 관리합니다. 코드·실험·받은 질문과 수정 기록은 각자의 GitHub 저장소에 남깁니다. 각자 모델 저장소를 만들고 고정 커밋과 실행 근거를 공통 PR에 연결합니다. [개인 저장소와 기여 방법](../docs/LEARNING_WORKFLOW.md), [실험 기록 양식](../docs/LEARNING_EXPERIMENT_TEMPLATE.md)에서 시작하세요.
+작업과 검토 상태는 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2)에서 관리합니다. 각자 공통 프로젝트를 fork하고 그 안의 `experiments/본인GitHubID/`에서 모델을 개발합니다. 코드·실험·받은 질문과 수정 기록을 같은 fork에 남기고 공통 프로젝트로 PR을 보냅니다. [fork에서 개발하고 기여하는 방법](../docs/LEARNING_WORKFLOW.md), [실험 기록 양식](../docs/LEARNING_EXPERIMENT_TEMPLATE.md)에서 시작하세요.
 
 팀원은 공통 입력을 읽는 작은 실습부터 시작합니다. 코드·설정·합성 자료의 학습곡선·자기 설명·피드백 반영 기록을 PR로 남깁니다. WaterMinCho가 변경 내용과 실행 근거를 검토한 뒤 피드백을 게시합니다. PR 자동 검토·자동 머지는 설정하지 않습니다. [실습 순서와 담당별 산출물](../docs/LEARNING_MISSIONS.md), [코드 검토 방법](../docs/LEARNING_REVIEW.md)을 참고하세요.
