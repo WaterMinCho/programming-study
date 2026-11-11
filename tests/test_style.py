@@ -41,6 +41,8 @@ def git_env():
 # 규칙 이름 → (걸리는 문장, 같은 뜻으로 고친 문장). 고친 문장은 다른 규칙에도 걸리지 않아야 함
 FIXED_CASES = {
     "em-dash(\u2014)": ("단추를 누르면 PR 이 올라갑니다 \u2014 프로그램이 대신 올립니다.", "단추를 누르면 프로그램이 PR 을 대신 올립니다."),
+    "행정식 당위 연결": ("출력 모양을 확인하여 연결을 수정해야 합니다.", "출력 모양을 확인한 뒤 연결을 맞춥니다."),
+    "지시어로 끝내는 결론": ("모델 선택은 결국 그것입니다.", "검증 정확도가 가장 높은 저장 모델을 고릅니다."),
     "예고형 도입": ("이번 글에서는 제출 흐름을 알아보겠습니다.", "제출 단추를 누르면 풀이가 브랜치로 올라갑니다."),
     "기계 순서": ("먼저 저장소를 받습니다.", "저장소를 받은 뒤 프로그램을 켭니다."),
     "단정 요약(개수 세기)": ("채점 방법은 하나입니다.", "답을 테스트의 기대 출력과 비교해 채점합니다."),
@@ -91,6 +93,19 @@ class FixedPatternTest(unittest.TestCase):
             with self.subTest(rule=rule):
                 self.assertIn(rule, names(check_style.check(bad + "\n", path="docs/x.md")))
                 self.assertEqual([], check_style.check(good + "\n", path="docs/x.md"))
+
+    def test_concrete_requirements_and_separate_sentences_still_pass(self):
+        for text in ("정수 번호를 입력해야 합니다.", "패딩은 계산에서 제외합니다.",
+                     "학습을 위하여 자료를 나눕니다. 검증 자료는 남겨야 합니다.",
+                     "정답은 2입니다. 선택한 번호가 맞는지 확인합니다."):
+            with self.subTest(text=text):
+                self.assertEqual([], check_style.check(text, path="docs/example.md"))
+
+    def test_obligation_pattern_does_not_join_paragraphs_or_code(self):
+        text = "자료를 위하여\n\n실제 조건을 확인해야 합니다.\n"
+        self.assertNotIn("행정식 당위 연결", names(check_style.check(text, path="docs/example.md")))
+        code = "```python\ntext = '확인하여 수정해야 합니다.'\n```\n출력 모양을 확인합니다.\n"
+        self.assertEqual([], check_style.check(code, path="docs/example.md"))
 
     def test_short_summary_after_long_sentence(self):
         bad = "검사 통과를 확인하고 단추를 누르면 폴더가 브랜치로 올라가고 PR 만들기입니다. 프로그램이 대신 합니다.\n"
