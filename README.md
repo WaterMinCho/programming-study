@@ -484,6 +484,8 @@ flowchart TB
 
 모델 학습은 여러 기록의 예측 오차를 줄이도록 내부 숫자인 가중치를 조정하는 과정입니다. 추천할 때는 저장한 모델에 최신 이력과 후보 문제를 넣습니다. 모델이 계산한 정답 가능성과 복습 시점을 함께 보고 추천할 문제를 고릅니다.
 
+작업은 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2)에서 관리하고 [Notion](https://app.notion.com/p/41581d88a7c181ad9ed9e0b5dc4b5a1f)에 안내와 배운 점을 모읍니다. 각자 모델 저장소를 만들고 고정 커밋과 실행 근거를 공통 PR에 연결합니다. [개인 저장소와 기여 방법](docs/LEARNING_WORKFLOW.md), [실험 기록 양식](docs/LEARNING_EXPERIMENT_TEMPLATE.md)에서 시작하세요.
+
 팀원은 공통 입력을 읽는 작은 실습부터 시작합니다. 코드·설정·합성 자료의 학습곡선·자기 설명·피드백 반영 기록을 PR로 남깁니다. WaterMinCho는 이 맥의 Claude Code로 변경분을 검토하고 근거를 확인한 뒤 피드백을 게시합니다. PR 자동 검토·자동 머지는 설정하지 않습니다. [실습 순서와 담당별 산출물](docs/LEARNING_MISSIONS.md), [코드 검토 방법](docs/LEARNING_REVIEW.md)을 참고하세요.
 
 ## Node.js 설치
