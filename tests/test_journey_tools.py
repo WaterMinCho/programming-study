@@ -605,6 +605,22 @@ class ChangedAndPlanTest(unittest.TestCase):
         self.assertEqual(1, code, out)
         self.assertIn("같은 no 가 두 번 이상 있습니다: 15", out)
 
+    def test_user_guide_does_not_recheck_all_dungeons_or_runners(self):
+        self.change("journey/README.md", "# 사용 안내\n")
+        self.assertEqual((False, [], False), verify_journey.changed_scope(self.bank, "base"))
+        self.assertEqual({"engine": False, "styles": False}, verify_journey.plan(self.bank, "base"))
+        self.change("dungeons/t03/p1/problem.md")
+        self.assertEqual((False, ["t03"], False), verify_journey.changed_scope(self.bank, "base"))
+        self.change("journey/x.py", "X = 2\n")
+        self.assertTrue(verify_journey.changed_scope(self.bank, "base")[0])
+        self.assertEqual({"engine": True, "styles": True}, verify_journey.plan(self.bank, "base"))
+
+    def test_moving_engine_code_into_a_guide_keeps_engine_checks(self):
+        git_run(self.repo, "mv", "journey/x.py", "journey/README.md")
+        self.commit("파일 이동")
+        self.assertTrue(verify_journey.changed_scope(self.bank, "base")[0])
+        self.assertEqual({"engine": True, "styles": True}, verify_journey.plan(self.bank, "base"))
+
     def test_plan_with_empty_ref_runs_everything(self):
         self.assertEqual({"engine": True, "styles": True}, verify_journey.plan(self.bank, ""))
         out = io.StringIO()

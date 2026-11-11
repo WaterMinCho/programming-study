@@ -339,11 +339,13 @@ def changed_files(bank_dir, ref):
     """(저장소 맨 위, 은행 폴더의 상대 경로, REF 와 갈라진 뒤 바뀐 파일 목록)."""
     top = git(["rev-parse", "--show-toplevel"], bank_dir).strip()
     rel_bank = os.path.relpath(os.path.realpath(bank_dir), os.path.realpath(top)).replace(os.sep, "/")
-    files = [line for line in git(["diff", "--name-only", "%s...HEAD" % ref], top).splitlines() if line.strip()]
+    files = [line for line in git(["diff", "--no-renames", "--name-only", "%s...HEAD" % ref], top).splitlines() if line.strip()]
     return top, rel_bank, files
 
 
 def touches(path, patterns):
+    if path == "journey/README.md":
+        return False
     for pattern in patterns:
         if pattern.endswith("/"):
             if path.startswith(pattern):
