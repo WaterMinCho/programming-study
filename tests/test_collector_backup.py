@@ -86,6 +86,7 @@ class BackupTest(unittest.TestCase):
         execute(previous)
         self.assertEqual(previous, json.loads((self.root / "managed" / previous / "checkpoint.json").read_bytes())["identity"])
         operations.verify_backup(self.root / "managed" / previous)
+        (self.root / "managed" / previous / ".checkpoint-interrupted").write_bytes(b"partial")
         execute(current, previous)
         self.assertFalse((self.root / "managed" / previous).exists())
         self.assertEqual("keep", (unrelated / "keep").read_text())
@@ -120,7 +121,7 @@ class BackupTest(unittest.TestCase):
         token.chmod(0o600)
         config = dict(self.config, host="www.pythonanywhere.com", token_file=str(token))
         path = self.root / "config.json"
-        for change in ({"host": "attacker.invalid"}, {"remote_root": config["repo"] + "/backup"}, {"db": "/home/other/data"}):
+        for change in ({"host": "attacker.invalid"}, {"remote_root": config["repo"] + "/backup"}, {"db": "/home/other/data"}, {"remote_root": "/home/example/data/offsite"}):
             path.write_text(json.dumps(dict(config, **change)))
             path.chmod(0o600)
             with self.assertRaises(ValueError):

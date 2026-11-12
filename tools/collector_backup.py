@@ -56,7 +56,7 @@ def configuration(path):
         value = PurePosixPath(config[name])
         if not value.is_relative_to(home) or ".." in value.parts or value == home:
             raise ValueError("운영 경로는 해당 계정의 홈 아래로 지정해 주세요.")
-    if config["remote_root"] in (config["repo"], str(PurePosixPath(config["db"]).parent)):
+    if PurePosixPath(config["remote_root"]).is_relative_to(PurePosixPath(config["db"]).parent):
         raise ValueError("자동 백업은 별도 운영 폴더에 보관해 주세요.")
     for name in ("db", "remote_root"):
         if PurePosixPath(config[name]).is_relative_to(PurePosixPath(config["repo"])):
@@ -119,14 +119,20 @@ if previous and previous!=identity:
  marker=old/'checkpoint.json'
  if marker.is_file():
   saved=json.loads(marker.read_bytes())
-  if saved.get('purpose')=='offsite_checkpoint' and saved.get('identity')==previous and {p.name for p in old.iterdir()}=={'learning.sqlite3','learning.sqlite3.key','manifest.json','checkpoint.json'}:
-   for p in old.iterdir():p.unlink()
-   old.rmdir()
+  if saved.get('purpose')=='offsite_checkpoint' and saved.get('identity')==previous and not old.is_symlink():
+   for p in old.glob('.checkpoint-*'):
+    if p.is_file() and not p.is_symlink():p.unlink()
+   if {p.name for p in old.iterdir()}=={'learning.sqlite3','learning.sqlite3.key','manifest.json','checkpoint.json'}:
+    for p in old.iterdir():p.unlink()
+    old.rmdir()
 result={'purpose':'offsite_checkpoint','identity':identity,'capacity':report(c['db'],Path('/home')/c['username'],512)}
 fd,temp=tempfile.mkstemp(prefix='.checkpoint-',dir=target)
-with os.fdopen(fd,'wb') as output:
- output.write((json.dumps(result)+'\\n').encode());output.flush();os.fsync(output.fileno())
-os.replace(temp,target/'checkpoint.json')
+try:
+ with os.fdopen(fd,'wb') as output:
+  output.write((json.dumps(result)+'\\n').encode());output.flush();os.fsync(output.fileno())
+ os.replace(temp,target/'checkpoint.json')
+finally:
+ if os.path.exists(temp):os.unlink(temp)
 ''' % (values, identity, previous)
     encoded = base64.b64encode(code.encode()).decode()
     return "python3.12 -c " + shlex.quote("import base64;exec(base64.b64decode(%r))" % encoded) + "\n"
