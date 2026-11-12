@@ -148,7 +148,7 @@ def body_for(data, assessment, marker, event):
     text += "\n\n자동 정적 검토 결과임. 사람이 코드를 검토하거나 실행한 결과로 표시하지 않음. PR의 코드를 이 맥에서 실행하지 않았음. 실행 검사와 최종 머지는 별도로 확인함.\n"
     review.check_text(text)
     from tools.check_style import check
-    if check("docs: 코드 검토\n\n"+text, commit=True):
+    if check(text, record=True):
         raise review.ReviewError("피드백 문장을 확인한 뒤 게시해 주세요.")
     if len(text.encode()) > 30000:
         raise review.ReviewError("게시할 피드백이 너무 깁니다.")

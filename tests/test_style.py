@@ -133,6 +133,13 @@ class FixedPatternTest(unittest.TestCase):
 
 
 class ToneTest(unittest.TestCase):
+    def test_review_records_allow_findings_beyond_commit_bullet_limit_without_weakening_commits(self):
+        text = "\n".join("- 입력 %d의 조건을 확인했음." % index for index in range(6))
+        self.assertEqual([], check_style.check(text, record=True))
+        self.assertTrue(any("불릿 5개" in name for name, _ in check_style.check("docs: 검토\n\n" + text, commit=True)))
+        self.assertTrue(check_style.check("입력 조건을 확인했습니다.", record=True))
+        self.assertTrue(check_style.check("결국 이것입니다.", record=True))
+
     def test_record_tone_in_python_comments_and_docstrings(self):
         bad = '"""python study.py 로 창이 열린다."""\n# 채점은 자식 프로세스에서 한다.\nX = 1\n'
         good = '"""python study.py 로 창이 열림."""\n# 채점은 자식 프로세스에서 함\nX = 1\n'

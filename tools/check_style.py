@@ -134,7 +134,7 @@ def prose_lines(text, commit=False):
     return out
 
 
-def check(text, commit=False, path=""):
+def check(text, commit=False, path="", record=False):
     fails = []
     code = path.endswith(CODE_SUFFIXES)
     records = []
@@ -169,7 +169,9 @@ def check(text, commit=False, path=""):
         if run == 3:
             fails.append(("불릿마다 같은 '**라벨** 설명' 꼴", line.strip()[:40]))
     fails += record_fails(records)
-    if not code and not commit:  # 문서(가이드)는 ~니다 체
+    if record:
+        fails += record_fails(lines)
+    if not code and not commit and not record:  # 문서(가이드)는 ~니다 체
         for line in lines:
             if re.search(GUIDE_BAD, line.strip()):
                 fails.append(("가이드 문장은 ~니다 체", line.strip()[-30:]))
