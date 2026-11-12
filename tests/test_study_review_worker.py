@@ -730,9 +730,9 @@ class RuntimeInstallTest(unittest.TestCase):
         original = Path(worker.__file__).resolve().parents[1]
         self.files = {name: (original/name).read_bytes() for name in (
             "tools/study_review_worker.py", "tools/learning_review.py", "tools/study_checks.py",
-            "tools/pr_title.py", "tools/check_style.py", "aiprep/privacy.py")}
+            "tools/pr_title.py", "tools/check_style.py", "learning_data/privacy.py")}
         for name, raw in {**self.files, "tools/__init__.py": b'raise RuntimeError("source initializer")\n',
-                          "aiprep/__init__.py": b'raise RuntimeError("source initializer")\n',
+                          "learning_data/__init__.py": b'raise RuntimeError("source initializer")\n',
                           ".git/config": b"excluded\n", "submissions/example/answer.py": b"excluded\n",
                           "account.json": b"excluded\n"}.items():
             path = self.source/name
@@ -761,7 +761,7 @@ class RuntimeInstallTest(unittest.TestCase):
         manifest_raw = (runtime/"manifest.json").read_bytes()
         manifest = json.loads(manifest_raw)
         self.assertEqual(self.root/"runtime"/hashlib.sha256(manifest_raw).hexdigest(), runtime)
-        expected = {**self.files, "tools/__init__.py": b"", "aiprep/__init__.py": b""}
+        expected = {**self.files, "tools/__init__.py": b"", "learning_data/__init__.py": b""}
         self.assertEqual(set(expected), set(manifest["files"]))
         self.assertEqual(set(expected) | {"manifest.json"},
                          {path.relative_to(runtime).as_posix() for path in runtime.rglob("*") if path.is_file()})
@@ -775,7 +775,7 @@ class RuntimeInstallTest(unittest.TestCase):
         self.assertEqual(63, config["Umask"])
         self.assertEqual(60, config["StartInterval"])
         self.assertTrue(config["RunAtLoad"])
-        for folder in (self.root, runtime.parent, runtime, runtime/"tools", runtime/"aiprep"):
+        for folder in (self.root, runtime.parent, runtime, runtime/"tools", runtime/"learning_data"):
             self.assertEqual(0o700, folder.stat().st_mode & 0o777)
         for path in (plist, self.root/"worker.log", self.root/"worker-error.log",
                      *(path for path in runtime.rglob("*") if path.is_file())):
@@ -882,8 +882,8 @@ with mock.patch("subprocess.run", side_effect=AssertionError("external command")
     worker.save(root/"probe.json", {"saved": True})
     assert json.loads((root/"probe.json").read_text()) == {"saved": True}
     assert worker.valid_title("fix(model): 입력 수정")
-    names = ("tools", "aiprep", "tools.study_review_worker", "tools.learning_review",
-             "tools.study_checks", "tools.pr_title", "tools.check_style", "aiprep.privacy")
+    names = ("tools", "learning_data", "tools.study_review_worker", "tools.learning_review",
+             "tools.study_checks", "tools.pr_title", "tools.check_style", "learning_data.privacy")
     origins = {name: str(Path(importlib.import_module(name).__file__).resolve()) for name in names}
     assert Path(importlib.import_module("tools.check_style").ROOT) == runtime
     print(json.dumps(origins))
@@ -894,7 +894,7 @@ with mock.patch("subprocess.run", side_effect=AssertionError("external command")
         self.assertEqual(0, result.returncode, result.stderr)
         origins = json.loads(result.stdout.splitlines()[-1])
         for name, path in origins.items():
-            expected = runtime/(name.replace(".", "/")+("/__init__.py" if name in {"tools", "aiprep"} else ".py"))
+            expected = runtime/(name.replace(".", "/")+("/__init__.py" if name in {"tools", "learning_data"} else ".py"))
             self.assertEqual(expected, Path(path))
         self.assertEqual([], list(runtime.rglob("__pycache__")))
 

@@ -26,7 +26,7 @@ import study
 MAIN = "refs/remotes/origin/main"
 MAIN_REFSPEC = "+refs/heads/main:" + MAIN  # --single-branch 로 clone 한 폴더에서도 받게 직접 적음
 TOOL_FILES = ("start.bat", "start.command", "package.json", "package-lock.json")
-TOOL_DIRS = ("gui/", "journey/", "aiprep/", "webprep/", "learning_server/", "tools/", "ROKEY.app/")
+TOOL_DIRS = ("gui/", "journey/", "aiprep/", "learning_data/", "webprep/", "learning_server/", "tools/", "ROKEY.app/")
 # 내 폴더의 세 영역. profile = profile.json 과 회차 폴더(journey/·ai/ 를 뺀 전부), journey = journey/ 폴더, ai = ai/ 폴더(AI 비전 개론
 # 기록). 겹치는 파일이 없음
 AREAS = ("profile", "journey", "ai")
@@ -226,13 +226,13 @@ class GitFlow:
 
     def submit(self):
         """내 폴더를 study/<ID> 에 올리고 PR 주소를 돌려줌. 올린 뒤 이 컴퓨터의 브랜치와 인덱스를 올린 풀이에 맞춤(_settle).
-        파일은 멈춘 git 작업이 있거나 원격에 더 새 판이 있을 때만 바꾸고, 그때는 문구와 backup 으로 알림."""
+        파일은 멈춘 git 작업이 있거나 원격에 더 새 버전이 있을 때만 바꾸고, 그때는 문구와 backup 으로 알림."""
         if not self.legacy_contract:
             return self._result("error", "공개 Git 제출을 종료했습니다. 프로그램에서 비공개 서버에 제출해 주세요.")
         return self._run("submit", self._submit)
 
     def updates(self):
-        """원격 프로젝트 전체와 현재 판을 비교함. 참조·인덱스·작업 파일은 바꾸지 않음.
+        """원격 프로젝트 전체와 현재 버전을 비교함. 참조·인덱스·작업 파일은 바꾸지 않음.
         새 객체만 받아 비교하며 count는 문항 수가 아닌 파일 수임."""
         try:
             deadline = time.monotonic() + self.fetch_timeout
@@ -519,21 +519,21 @@ class GitFlow:
 
     def _remote_copies(self):
         """원격에 있는 내 풀이의 [(커밋, 영역마다의 기록 …)]. 기록은 AREAS 순서이고 목록이거나 None(파일 없음)이거나 BROKEN 임.
-        아직 머지되지 않은 내 브랜치가 있으면 그것이 main 보다 새 판이라 main 은 보지 않음."""
+        아직 머지되지 않은 내 브랜치가 있으면 그것이 main 보다 새 버전이라 main 은 보지 않음."""
         refs = [self._tip] if self._tip else []
         if not self._tip or self._is_ancestor(self._tip, self._base):
             refs.append(self._base)
         return [(ref,) + tuple(self._log(area, ref) for area in AREAS) for ref in refs]
 
     def _judge(self, local):
-        """영역마다 가장 새 원격 판과 견줌. {영역: (판정, ref, 원격 기록 수)}. 판정은 same(그대로)·take(가져옴)·diverged.
-        기록은 덧붙기만 하므로 앞부분이 같으면 긴 쪽을 새 판으로 봄. 후보 판이 없는 영역은 빠짐.
-        local 은 {영역: 이쪽 기록}. 이쪽에 기록 파일이 없으면(None) 원격 판을 그대로 가져옴.
+        """영역마다 가장 새 원격 버전과 견줌. {영역: (판정, ref, 원격 기록 수)}. 판정은 same(그대로)·take(가져옴)·diverged.
+        기록은 덧붙기만 하므로 앞부분이 같으면 긴 쪽을 새 버전으로 봄. 후보 버전이 없는 영역은 빠짐.
+        local 은 {영역: 이쪽 기록}. 이쪽에 기록 파일이 없으면(None) 원격 버전을 그대로 가져옴.
         기록 없이 파일만 있는 영역(채점 전에 저장한 여정 코드 등)은 이쪽에 그 영역의 파일이 하나도 없을 때만
-        다른 영역이 견준 판에서 가져옴. 그러지 않으면 다음 제출이 원격의 그 파일을 지움."""
+        다른 영역에서 비교한 버전에서 가져옴. 그러지 않으면 다음 제출이 원격의 그 파일을 지움."""
         copies = self._remote_copies()
         mine = "refs/heads/" + self.branch
-        if self._branch() != self.branch and self._has(mine):  # 손으로 브랜치를 옮겨 폴더가 옛 판이 됐을 때만 씀
+        if self._branch() != self.branch and self._has(mine):  # 손으로 브랜치를 옮겨 폴더가 이전 버전이 됐을 때만 씀
             copies.append((mine,) + tuple(self._log(area, mine) for area in AREAS))
         verdicts = {}
         for index, area in enumerate(AREAS, 1):
@@ -541,7 +541,7 @@ class GitFlow:
             candidates = []
             for copy in copies:
                 ref, log = copy[0], copy[index]
-                if isinstance(log, list) and (ref != mine or here is None or log[:len(here)] == here):  # mine 은 이쪽을 이어 쓴 판일 때만
+                if isinstance(log, list) and (ref != mine or here is None or log[:len(here)] == here):  # mine 은 이쪽을 이어 쓴 버전일 때만
                     candidates.append((ref, log))
             if not candidates:
                 continue
@@ -562,10 +562,10 @@ class GitFlow:
         return verdicts
 
     def _reconcile(self, keep_diverged=False):
-        """가장 새 판의 내 풀이가 작업 폴더에 오게 함. 프로필·여정·AI 영역은 겹치는 파일이 없어 영역마다 따로 맞춤.
-        작업 폴더가 비었거나 옛 판이면 새 판을 가져오고, 어느 영역이든 서로 다르게 이어졌으면 아무것도 가져오지 않고 멈춤.
+        """가장 새 버전의 내 풀이가 작업 폴더에 오게 함. 프로필·여정·AI 영역은 겹치는 파일이 없어 영역마다 따로 맞춤.
+        작업 폴더가 비었거나 이전 버전이면 새 버전을 가져오고, 어느 영역이든 서로 다르게 이어졌으면 아무것도 가져오지 않고 멈춤.
         한 영역을 먼저 가져온 뒤 멈추면 반쯤 바뀐 폴더가 남기 때문임.
-        keep_diverged 면(이 컴퓨터 풀이로 올리기) 멈추지 않고 갈라진 영역은 이 컴퓨터 판을 둠. 원격이 앞선 영역은 그대로 가져옴."""
+        keep_diverged 면(이 컴퓨터 풀이로 올리기) 멈추지 않고 갈라진 영역은 이 컴퓨터 기록을 둠. 원격이 앞선 영역은 그대로 가져옴."""
         local = {area: self._log(area) for area in AREAS}
         if local["profile"] is BROKEN:
             raise Stop("blocked", M_BROKEN_PROFILE)
@@ -583,7 +583,7 @@ class GitFlow:
             self._take(picks)
 
     def _take(self, picks, exact=()):
-        """picks 의 (ref, 영역)마다 그 영역을 ref 에 있는 판으로 바꾸고, 지금 폴더는 통째로 보관함에 복사해 둠.
+        """picks 의 (ref, 영역)마다 그 영역을 ref 에 있는 기록으로 바꾸고, 지금 폴더는 통째로 보관함에 복사해 둠.
         exact 에 든 영역은 ref 에 없는 파일(갈라진 뒤 이 컴퓨터에서만 만든 회차)도 지움. 남겨 두면 새 회차의 답으로 읽힘.
         같은 ref 에서 파일이 있는 영역을 모두 가져오면 checkout 한 번에 폴더 전체를 가져옴."""
         kept = self._keep_folder("replaced")
@@ -928,7 +928,7 @@ class GitFlow:
             self._preflight()
         self._fetch()
         local = {area: self._log(area) for area in AREAS}
-        local = {area: None if log is BROKEN else log for area, log in local.items()}  # 읽을 수 없는 기록은 원격 판으로 바꿈
+        local = {area: None if log is BROKEN else log for area, log in local.items()}  # 읽을 수 없는 기록은 원격 버전으로 바꿈
         verdicts = self._judge(local)
         if not verdicts:
             return self._result("nothing", M_NO_REMOTE_COPY)
@@ -936,8 +936,8 @@ class GitFlow:
         if not picks:  # 고르는 사이에 갈라진 영역이 없어짐. 이쪽이 원격과 같거나 앞서므로 바꾸지 않음
             return self._result("ok", M_HAVE_REMOTE)
         diverged = [area for area, (verdict, _, _) in verdicts.items() if verdict == "diverged"]
-        self._take(picks, exact=diverged)  # 갈라진 영역은 원격 판과 똑같이, 원격이 더 긴 영역은 받기처럼 가져오고 같거나 앞선 영역은 그대로 둠
+        self._take(picks, exact=diverged)  # 갈라진 영역은 원격 버전과 똑같이, 원격이 더 긴 영역은 받기처럼 가져오고 같거나 앞선 영역은 그대로 둠
         refs = {ref for ref, _ in picks}
-        if not dev and len(refs) == 1:  # 영역들을 서로 다른 판에서 가져왔으면 맞출 판이 하나로 정해지지 않아 맞추지 않음
+        if not dev and len(refs) == 1:  # 영역들을 서로 다른 버전에서 가져왔으면 맞출 버전이 하나로 정해지지 않아 맞추지 않음
             self._settle(refs.pop())  # 가져온 풀이가 add 된 변경으로 남지 않게 함
         return self._result("ok", "")

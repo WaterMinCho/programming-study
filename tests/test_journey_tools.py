@@ -897,11 +897,17 @@ class WorkflowTest(unittest.TestCase):
         self.assertNotIn("--timing", text)
         self.assertEqual([], check_style.check(text, path=".github/workflows/journey.yml"))
 
-    def test_ci_workflow_changes_only_the_three_lines(self):
+    def test_ci_workflow_keeps_scoped_bank_model_and_gui_checks(self):
         text, data = self.load("ci.yml")
         jobs = data["jobs"]
-        self.assertEqual(["bank", "grade", "gui"], list(jobs))
-        self.assertEqual(["문제 은행 검증", "채점", "화면 테스트"], [job["name"] for job in jobs.values()])
+        self.assertEqual(["scope", "bank", "model", "gui", "required"], list(jobs))
+        self.assertEqual(["변경 범위", "기능·자료 검사", "모델 제출 검사", "화면 테스트", "필수 검사"],
+                         [job["name"] for job in jobs.values()])
+        self.assertEqual("needs.scope.outputs.bank == 'true' || needs.scope.outputs.unit == 'true'", jobs["bank"]["if"])
+        self.assertEqual("needs.scope.outputs.model == 'true'", jobs["model"]["if"])
+        self.assertIn("python -m tools.pr_checks model", runs(jobs["model"]))
+        self.assertEqual(["scope", "bank", "gui", "model"], jobs["required"]["needs"])
+        self.assertEqual("always()", jobs["required"]["if"])
         bank_runs = runs(jobs["bank"])
         at = bank_runs.index("python tools/verify_bank.py")
         self.assertEqual(["python tools/journey_seal.py check", "python tools/ai_seal.py check",
@@ -909,7 +915,7 @@ class WorkflowTest(unittest.TestCase):
                           "python tools/verify_web.py --bank ai --total-mb 32 --require-review",
                           "python tools/web_lint.py --bank ai --no-external", "python -m unittest discover -s tests"], bank_runs[at + 1:])
         self.assertEqual({"STUDY_LEAN_CI": "1"}, jobs["bank"]["steps"][-1]["env"])
-        self.assertEqual(10, len(jobs["bank"]["steps"]))
+        self.assertEqual(9, len(jobs["bank"]["steps"]))
         gui = jobs["gui"]["steps"][-1]
         self.assertIn('unittest.defaultTestLoader.discover("tests", pattern="test_gui*.py", top_level_dir=".")', gui["run"])
         self.assertIn('sys.exit(not result.wasSuccessful())', gui["run"])
@@ -917,7 +923,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual({"QT_QPA_PLATFORM": "offscreen"}, gui["env"])
         setup = next(step for step in jobs["gui"]["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
         self.assertEqual("3.13", setup["with"]["python-version"])
-        self.assertEqual("steps.scope.outputs.gui == 'true'", gui["if"])
+        self.assertEqual("needs.scope.outputs.gui == 'true'", jobs["gui"]["if"])
         self.assertEqual([], check_style.check(text, path=".github/workflows/ci.yml"))
 
     def test_style_workflow_reads_as_yaml(self):

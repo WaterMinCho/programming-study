@@ -9,7 +9,7 @@ import uuid
 import re
 from zoneinfo import ZoneInfo
 
-from aiprep.collection import digest, packed, stamp
+from learning_data.collection import digest, packed, stamp
 
 
 def profile_events(profile, catalog, timezone):

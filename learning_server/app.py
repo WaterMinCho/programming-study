@@ -13,7 +13,7 @@ import sqlite3
 import tempfile
 import uuid
 
-from aiprep.collection import FORMAT, NOTICE, inside, packed
+from learning_data.collection import FORMAT, NOTICE, inside, packed
 
 MAX_BODY = 1024 * 1024
 MAX_EVENTS = 100
@@ -153,7 +153,7 @@ class Database:
             with self.connect() as db:
                 db.execute("BEGIN IMMEDIATE")
                 return self.enroll_open(data, purpose, connection=db)
-        from aiprep.privacy import validate_receipt
+        from learning_data.privacy import validate_receipt
         participant = identifier(data.get("participant"))
         seed = data.get("registration_secret")
         if data.get("notice") != NOTICE or not isinstance(seed, str) or not re.fullmatch(r"[a-f0-9]{64}", seed):
@@ -184,7 +184,7 @@ class Database:
         return {"participant": participant, "token": token}
 
     def record_consent(self, participant, data):
-        from aiprep.privacy import validate_receipt
+        from learning_data.privacy import validate_receipt
         consent = validate_receipt(data.get("consent"))
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")

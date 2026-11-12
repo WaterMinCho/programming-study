@@ -6,9 +6,9 @@ import threading
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QCheckBox, QDialog, QWidget
 
-from aiprep.collection import CollectionError
-from aiprep.privacy import Consent, NOTICE_ROWS
-from aiprep import sync_schedule
+from learning_data.collection import CollectionError
+from learning_data.privacy import Consent, NOTICE_ROWS
+from learning_data import sync_schedule
 from gui import dialogs, kit, theme
 from gui.worker import Job
 

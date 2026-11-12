@@ -17,7 +17,7 @@ import threading
 import adaptive
 import mdlite
 import study
-import python_collection
+from learning_data import python as python_collection
 
 UNSAFE_RE = re.compile("[\x00\ud800-\udfff]")  # 파일에 쓸 수 없는 글자(NUL, 짝 없는 서러게이트)
 LABEL_RE = re.compile(r"\*\*(\d+)번\*\*")

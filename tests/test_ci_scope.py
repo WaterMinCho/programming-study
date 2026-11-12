@@ -14,6 +14,19 @@ from tools.ci_scope import needs_gui
 
 
 class ScopeTest(unittest.TestCase):
+    def test_shared_data_keeps_app_checks_and_readme_only_stays_light(self):
+        for path in ("learning_data/collection.py", "learning_data/privacy.py", "learning_data/python.py"):
+            with self.subTest(path=path):
+                self.assertTrue(ci_scope.selection([path])["gui"])
+                self.assertTrue(ci_scope.selection([path])["unit"])
+        self.assertTrue(ci_scope.selection(["learning_data/collection.py"])["bank"])
+        for old, new in (("aiprep/privacy.py", "learning_data/privacy.py"),
+                         ("aiprep/sharing.py", "learning_data/sharing.py"),
+                         ("submission_api.py", "learning_data/submission.py")):
+            self.assertEqual(ci_scope.selection([old]), ci_scope.selection([new]))
+        self.assertFalse(ci_scope.selection(["learning_data/README.md"])["gui"])
+        self.assertFalse(ci_scope.selection([".dockerignore"])["gui"])
+
     def test_only_submissions_skip_gui(self):
         self.assertFalse(needs_gui(["submissions/learner/ai/record.json", "submissions/learner/r01/quiz.py"]))
 

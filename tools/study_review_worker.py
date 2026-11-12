@@ -15,7 +15,7 @@ import tempfile
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from aiprep.privacy import save
+from learning_data.privacy import save
 from tools import learning_review as review
 from tools.pr_title import valid as valid_title
 from tools.study_checks import AUTHORS, REVIEW_CONTEXT
@@ -23,8 +23,8 @@ from tools.study_checks import AUTHORS, REVIEW_CONTEXT
 ROOT = Path.home()/".rokey-collector/review-worker"
 LABEL = "com.rokey.study-review"
 RUNTIME_FILES = ("tools/study_review_worker.py", "tools/learning_review.py", "tools/study_checks.py",
-                 "tools/pr_title.py", "tools/check_style.py", "aiprep/privacy.py")
-RUNTIME_PACKAGES = ("tools/__init__.py", "aiprep/__init__.py")
+                 "tools/pr_title.py", "tools/check_style.py", "learning_data/privacy.py")
+RUNTIME_PACKAGES = ("tools/__init__.py", "learning_data/__init__.py")
 SCHEMA = {"type": "object", "additionalProperties": False, "required": ["decision", "summary", "findings", "questions"],
           "properties": {"decision": {"type": "string", "enum": ["approve", "changes_requested", "needs_context"]},
           "summary": {"type": "string"}, "questions": {"type": "array", "maxItems": 2, "items": {"type": "string"}},
@@ -466,11 +466,11 @@ def runtime_copy(root):
     destination = parent/digest
 
     def verify(folder):
-        expected = set(contents) | {"tools", "aiprep"}
+        expected = set(contents) | {"tools", "learning_data"}
         if (folder.is_symlink() or not folder.is_dir() or folder.stat().st_mode & 0o777 != 0o700
                 or {path.relative_to(folder).as_posix() for path in folder.rglob("*")} != expected):
             raise review.ReviewError("보관한 검토 실행 코드의 경로가 다릅니다.")
-        for name in ("tools", "aiprep"):
+        for name in ("tools", "learning_data"):
             path = folder/name
             if path.is_symlink() or not path.is_dir() or path.stat().st_mode & 0o777 != 0o700:
                 raise review.ReviewError("검토 실행 코드 폴더의 권한을 확인해 주세요.")
@@ -484,7 +484,7 @@ def runtime_copy(root):
         with tempfile.TemporaryDirectory(prefix=".runtime-", dir=parent) as temporary:
             staging = Path(temporary)/digest
             staging.mkdir(mode=0o700)
-            for name in ("tools", "aiprep"):
+            for name in ("tools", "learning_data"):
                 (staging/name).mkdir(mode=0o700)
             for name, raw in contents.items():
                 fd = os.open(staging/name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

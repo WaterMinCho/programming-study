@@ -3,7 +3,7 @@ WORKDIR /app
 COPY learning_server/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY learning_server /app/learning_server
-COPY aiprep/__init__.py aiprep/collection.py aiprep/goals.py aiprep/sharing.py /app/aiprep/
+COPY learning_data /app/learning_data
 RUN useradd --create-home --uid 10001 collector && mkdir /data && chown collector:collector /data
 USER collector
 ENV STUDY_DATA_DB=/data/learning.sqlite3 PYTHONDONTWRITEBYTECODE=1

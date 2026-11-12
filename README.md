@@ -22,6 +22,8 @@
 
 [**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [실제 자료 받기·샘플링](docs/LEARNING_DATA_ACCESS.md) · [프로젝트 구조와 담당 위치](docs/ARCHITECTURE.md)
 
+코드를 고칠 때는 [기능별 폴더 안내](docs/ARCHITECTURE.md#고칠-기능에-맞는-폴더를-찾습니다)에서 시작합니다. 공통 기록·동의·전송은 `learning_data/`, 서버는 `learning_server/`, 팀원 모델은 `experiments/본인GitHubID/`에 있습니다.
+
 ---
 
 ## 설정과 자료를 찾습니다
@@ -33,7 +35,7 @@
 
 ## 라이선스
 
-프로그램 코드(`study.py`, `adaptive.py`, `session.py`, `gitflow.py`, `bootstrap.py`, `mdlite.py`, `gui/`, `journey/`, `webprep/`, `tools/`, `tests/`)는 [GPL-3.0](LICENSE)입니다. 화면에 쓰는 PyQt6 가 GPL-3.0 이라 같은 조건을 따릅니다.
+프로그램 코드(`study.py`, `adaptive.py`, `session.py`, `gitflow.py`, `bootstrap.py`, `mdlite.py`, `gui/`, `aiprep/`, `learning_data/`, `learning_server/`, `journey/`, `webprep/`, `tools/`, `tests/`)는 [GPL-3.0](LICENSE)입니다. 화면에 쓰는 PyQt6 가 GPL-3.0 이라 같은 조건을 따릅니다.
 
 `gui/fonts/` 의 글꼴은 SIL OFL 1.1 을 따릅니다. 화면 글꼴은 [나눔고딕](gui/fonts/OFL.txt), 코드 글꼴은 [D2Coding](gui/fonts/OFL-D2Coding.md)입니다.
 

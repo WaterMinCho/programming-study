@@ -4,9 +4,47 @@
 
 이 프로젝트는 문제를 푸는 PC 프로그램과 풀이 기록을 모으는 서버, 그 기록으로 만드는 추천 모델로 나뉩니다. 현재 프로그램과 수집·자료 준비 기능이 있으며, 팀원이 만들 모델을 비교한 뒤 추천 기능에 연결할 계획입니다.
 
-[![문제·학습 자료에서 PC 프로그램과 기록으로 이어지고, GitHub 제출과 서버 전송으로 나뉘는 전체 구조입니다. 세 모델과 앱 추천 연결은 점선으로 표시합니다.](img/architecture/overview.png)](img/architecture/overview.png)
+[![문제·학습 자료에서 PC 프로그램과 비공개 서버, 모델 개발로 이어지는 전체 구조입니다. 세 모델과 앱 추천 연결은 점선으로 표시합니다.](img/architecture/overview.png)](img/architecture/overview.png)
 
 그림을 누르면 크게 볼 수 있습니다. 실선은 현재 동작하는 경로이며 점선은 앞으로 구현하거나 연결할 부분입니다. AI에는 개론과 응용이 모두 포함됩니다. 현재 앱은 기존 규칙으로 문제를 고릅니다.
+
+## 고칠 기능에 맞는 폴더를 찾습니다
+
+위 그림은 학습과 모델 개발의 흐름을 보여줍니다. 아래에서는 코드를 고칠 폴더와 호출 관계를 확인합니다.
+
+화면·과목별 학습·공통 데이터·서버를 나눕니다. 시작 파일은 저장소 맨 위에 있으며, 프로그램을 받은 뒤 실행하는 순서는 같습니다.
+
+```text
+programming-study/
+├── start.bat / start.pyw / start.command   프로그램 시작
+├── study.py / session.py / adaptive.py    파이썬 학습·채점
+├── gui/                                  화면·공통 UI
+├── aiprep/                               AI 학습·연습·채점
+├── journey/                              알고리즘 실행·학습
+├── webprep/                              웹 학습 기능
+├── learning_data/                        공통 기록·동의·전송·비공개 제출
+├── learning_server/                      수집 API·보관·공통 자료 준비
+├── experiments/본인GitHubID/              팀원의 모델·실험·설명
+├── problems/ · dungeons/ · ai/ · web/      문제·해설·학습 자료
+├── tests/                                기존 기능·화면·운영 검사
+├── tools/                                검증·리뷰·운영 도구
+└── docs/                                 사용·개발 안내
+```
+
+학습 데이터의 공통 기능은 [learning_data/](../learning_data/README.md)에 모았습니다. 파이썬과 수집 서버가 AI 학습 구현을 불러오지 않고 기록·동의·전송 기능을 사용할 수 있습니다. 서버 배포 파일에는 `learning_server/`와 `learning_data/`를 포함합니다.
+
+```mermaid
+flowchart LR
+    UI[gui 화면] --> PY[파이썬 학습]
+    UI --> AI[aiprep AI 학습]
+    PY --> DATA[learning_data 공통 기록·동의·전송]
+    AI --> DATA
+    DATA --> API[learning_server 비공개 수집 API]
+    API --> EXPORT[운영자가 준비한 공통 자료]
+    EXPORT --> MODEL[experiments 팀원 모델]
+```
+
+운영자가 같은 공통 자료를 비공개로 전달하면 팀원은 각자 모델을 학습하고 비교합니다.
 
 ## 프로그램에서 기록이 만들어집니다
 
@@ -24,7 +62,7 @@
 | 비공개 자동 전송 | 첫 실행의 수집 동의 뒤 기본 수집 서버 | 새 기록을 자동 전송하고 공통 자료로 준비합니다. 입력 답안 본문은 제외합니다. |
 | 모델 코드 PR 만들기 | 본인 fork에서 공통 저장소로 보내는 개발 PR | 직접 만든 모델 코드·실험·설명을 검토받습니다. |
 
-API [풀이 제출]은 `submission_api.py`의 `PrivateClient`에서 파일 묶음을 만들고 `learning_server/submissions.py`가 비공개로 저장합니다. 공개 풀이 게시 경로는 종료했습니다. Git은 프로그램 자료 업데이트와 팀원의 모델 코드 PR에 사용합니다. [API 연결과 재시도](API_SUBMISSIONS.md)를 확인하세요.
+API [풀이 제출]은 `learning_data/submission.py`의 `PrivateClient`에서 파일 묶음을 만들고 `learning_server/submissions.py`가 비공개로 저장합니다. 공개 풀이 게시 경로는 종료했습니다. Git은 프로그램 자료 업데이트와 팀원의 모델 코드 PR에 사용합니다. [API 연결과 재시도](API_SUBMISSIONS.md)를 확인하세요.
 
 비공개 추가 기록은 첫 실행에서 동의한 뒤 약 1분 간격으로 자동 전송합니다. [내 정보·데이터](LEARNING_PRIVACY.md)에서 철회하면 수집·전송을 멈추고 삭제를 확인합니다. 비공개 파일 제출은 목록 확인과 버튼 선택으로 따로 처리합니다. 수집 서버는 `learning_server/app.py`에서 요청을 받아 SQLite에 저장합니다. WaterMinCho가 내보낸 기록을 `dataset.py`와 `starter.py`로 공통 자료와 기준 예측으로 준비합니다. 연구 사용에 동의받은 기존 풀이도 변환해 같은 자료 준비 과정에 합칩니다.
 
@@ -43,7 +81,7 @@ API [풀이 제출]은 `submission_api.py`의 `PrivateClient`에서 파일 묶�
 | wamangdoo | Transformer의 학습·평가·저장·예측 | 같은 풀이 기록을 다른 구조로 처리했을 때의 예측 결과를 비교합니다. |
 | kimjs85529-a11y | 공유받은 LSTM에 풀이 간격과 시간 확인 여부 추가 | 같은 LSTM에서 시간 정보 유무만 바꿔 효과를 비교합니다. |
 
-각자 fork 안에 `experiments/본인GitHubID/` 폴더를 만들어 작업합니다. `train.py`는 모델 학습, `evaluate.py`는 평가, `predict.py`는 저장한 모델을 불러와 예측하는 코드로 준비합니다. 아직 공통 저장소에 완성된 모델 구현이 있다는 설명은 아닙니다. 첫 PR은 모델 전체가 아닌 공통 입력을 읽고 설명하는 범위입니다.
+각자 fork 안에 `experiments/본인GitHubID/` 폴더를 만들어 작업합니다. `train.py`는 모델 학습, `evaluate.py`는 평가, `predict.py`는 저장한 모델을 불러와 예측하는 코드로 준비합니다. 아직 공통 저장소에 완성된 모델 구현이 있다는 설명은 아닙니다. 입력 확인 결과와 이번에 구현한 모델 코드·테스트·설명은 같은 PR에 모읍니다.
 
 ## 학습한 모델을 추천에 연결할 때를 구분합니다
 
@@ -56,3 +94,7 @@ API [풀이 제출]은 `submission_api.py`의 `PrivateClient`에서 파일 묶�
 ## 담당 부분부터 시작합니다
 
 [fork와 첫 PR 안내](LEARNING_WORKFLOW.md)에서 작업 공간을 준비하고 [담당별 미션](LEARNING_MISSIONS.md)에서 입력과 모델을 확인합니다. 이후에는 [모델 개발 로드맵](LEARNING_ROADMAP.md)의 산출물에 맞춰 진행합니다. 실제 진행 상태는 GitHub 보드의 담당 이슈에서 확인합니다.
+
+## 폴더 구조를 선택한 기준을 확인합니다
+
+패키지 코드를 `src/` 아래 두는 방식과 저장소에서 바로 실행하는 방식은 설치 과정과 import 경로에서 차이가 있습니다. [PyPA 공식 가이드](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/)를 대조해, 이 프로젝트는 clone 뒤 start 파일을 실행하는 절차에 맞춰 루트의 기능별 패키지를 유지했습니다. 서로 다른 과목이 공유하는 데이터 코드를 독립된 폴더로 분리했습니다. 자료 확인일은 2026년 11월 12일입니다.

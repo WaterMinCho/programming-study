@@ -9,8 +9,8 @@ from pathlib import Path
 import shutil
 import sqlite3
 
-from aiprep.collection import FORMAT, inside, packed, stamp
-from aiprep.sharing import endpoint, request
+from learning_data.collection import FORMAT, inside, packed, stamp
+from learning_data.sharing import endpoint, request
 from learning_server.app import REPOSITORY
 
 BACKUP_FILES = ("learning.sqlite3", "learning.sqlite3.key")

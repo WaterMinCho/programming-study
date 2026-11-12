@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sqlite3
 
-from aiprep.collection import CollectionError, packed
+from learning_data.collection import CollectionError, packed
 from learning_server.app import MAX_BODY, Database, application
 
 

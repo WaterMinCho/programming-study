@@ -6,7 +6,7 @@ import subprocess
 
 GUIDE_READMES = frozenset(("README.md", "gui/README.md", "ai/README.md", "problems/README.md",
                           "journey/README.md", "web/README.md", "tools/README.md",
-                          "submissions/README.md", "learning_server/README.md", "docs/README.md",
+                          "submissions/README.md", "learning_server/README.md", "learning_data/README.md", "docs/README.md",
                           "docs/GIT_GUIDE.md", "docs/roadmap/README.md", "docs/LEARNER_START.md",
                           "docs/STUDY_START.md", "docs/GUIDE_INDEX.md", "docs/PR_GUIDE.md",
                           "docs/LEARNING_REVIEW.md", "docs/SLACK_NOTIFICATIONS.md", "docs/LEGACY_RECORDS.md",
@@ -38,7 +38,7 @@ def changed_paths(base, head):
 
 
 def server_only(path):
-    return path in ("tools/collector_backup.py", "tests/test_collector_backup.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", ".github/workflows/learning-server.yml") or path.startswith("learning_server/") or path.startswith(("tests/test_learning_", "tests/test_private_submission", "tests/test_submission_api", "tests/test_legacy_transfer"))
+    return path in (".dockerignore", "tools/collector_backup.py", "tests/test_collector_backup.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", ".github/workflows/learning-server.yml") or path.startswith("learning_server/") or path.startswith(("tests/test_learning_", "tests/test_private_submission", "tests/test_submission_api", "tests/test_legacy_transfer"))
 
 
 def automation_only(path):
@@ -54,7 +54,7 @@ def selection(paths):
     work = [path for path in paths if not guide(path)]
     models = [path for path in work if model_path(path)]
     other = [path for path in work if path not in models]
-    server = lambda path: server_only(path) or path in ("submission_api.py", "aiprep/privacy.py", "aiprep/sharing.py")
+    server = lambda path: server_only(path) or path in ("submission_api.py", "aiprep/privacy.py", "aiprep/sharing.py", "learning_data/submission.py", "learning_data/privacy.py", "learning_data/sharing.py")
     return dict(bank=any(not server(path) and not automation_only(path) and not path.startswith("docs/") for path in other),
                 unit=bool(other), gui=any(not server_only(path) and not automation_only(path) and not
                                         (path.startswith("docs/") and path.endswith(".md")) for path in other),

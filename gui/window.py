@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QLineEdit, QMain
 
 import session
 import study
-from aiprep.collection import CollectionError
+from learning_data.collection import CollectionError
 from aiprep import service as ai_service
 from gui import errors, journey_text, kit, motion, theme, web_text
 from gui.ai_home import AiHomePage, AiLessonPage
@@ -69,7 +69,7 @@ def load_gitflow(root, user):
     """제출 모듈을 불러와 (GitFlow | None, 못 쓰는 이유)를 돌려줌. 모듈이 없거나 깨져도 풀이와 채점은 돼야 해서 예외를 삼킴."""
     try:
         import gitflow
-        from submission_api import Flow
+        from learning_data.submission import Flow
         return Flow(gitflow.GitFlow(root, user)), ""
     except Exception as error:
         return None, "제출 모듈(gitflow.py)을 불러오지 못했습니다: %s" % error
@@ -254,7 +254,7 @@ class MainWindow(QMainWindow):
             self.ai_error = ""
         except SessionError as error:
             self.ai, self.ai_error = None, str(error)
-        from aiprep.collection import Collection
+        from learning_data.collection import Collection
         collections = {"python": self.session.collection,
                        "ai": self.ai.collection if self.ai is not None else
                        Collection(os.path.join(ai_service.home_dir(), self.user), study.ROOT)}

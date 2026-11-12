@@ -4,8 +4,8 @@ import os
 
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QDialog, QFileDialog, QWidget
 
-from aiprep.collection import CollectionError
-from aiprep import goals
+from learning_data.collection import CollectionError
+from learning_data import goals
 from gui import dialogs, kit, theme
 
 
