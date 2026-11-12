@@ -4,7 +4,7 @@ import argparse
 import sqlite3
 
 from aiprep.collection import CollectionError, packed
-from learning_server.app import Database, application
+from learning_server.app import MAX_BODY, Database, application
 
 
 def main():
@@ -89,7 +89,7 @@ def main():
                 raise ValueError("learning_server/requirements.txt의 운영 패키지를 먼저 설치해 주세요.") from None
             print("운영용 수집 서버를 시작했습니다. 외부 연결은 HTTPS 프록시에서 처리해 주세요.")
             serve(application(db), host=args.host, port=args.port, threads=4,
-                  max_request_body_size=1024 * 1024, channel_timeout=30, expose_tracebacks=False)
+                  max_request_body_size=6 * MAX_BODY, channel_timeout=30, expose_tracebacks=False)
         else:
             from wsgiref.simple_server import make_server
             with make_server(args.host, args.port, application(db)) as server:
