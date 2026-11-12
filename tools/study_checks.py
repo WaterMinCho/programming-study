@@ -57,7 +57,6 @@ def checks_state(pr, checks, reviews, expected=("필수 검사", "PR 제목", "�
         state = completed_state(row)
         values.append((name, state, row.get("detailsUrl") or row.get("targetUrl") or ""))
     author = pr["user"]["login"].lower()
-    review_key = None
     if author in AUTHORS:
         review = by_name.get(REVIEW_CONTEXT)
         if not review or completed_state(review) not in {"SUCCESS", "FAILURE"}:
@@ -76,7 +75,6 @@ def checks_state(pr, checks, reviews, expected=("필수 검사", "PR 제목", "�
         decisions = [row for row in own if row.get("commit_id") == pr["head"]["sha"]
                      and row.get("state") in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}]
         approved = bool(decisions and latest(decisions)["state"] == "APPROVED" and completed_state(review) == "SUCCESS")
-        review_key = (current.get("id"), current["state"])
     else:
         approved = True
     failed = [name for name, state, _ in values if not (state == "SUCCESS"
@@ -87,5 +85,5 @@ def checks_state(pr, checks, reviews, expected=("필수 검사", "PR 제목", "�
         return None
     ready = passed and approved and not pr.get("draft") and pr.get("mergeable") is True and pr.get("mergeable_state") == "clean"
     digest = hashlib.sha256(json.dumps([pr.get("number"), pr["head"]["sha"], pr.get("base", {}).get("sha"),
-                                      sorted((name, state) for name, state, _ in values), review_key, bool(approved), ready], ensure_ascii=False).encode()).hexdigest()[:24]
+                                      sorted((name, state) for name, state, _ in values), bool(approved), ready], ensure_ascii=False).encode()).hexdigest()[:24]
     return {"ready": bool(ready), "passed": passed, "approved": bool(approved), "checks": values, "failed": failed, "key": digest}
