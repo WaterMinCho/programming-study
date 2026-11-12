@@ -16,6 +16,8 @@ Slack Incoming Webhooks와 GitHub Actions를 사용합니다. 채널 전용 웹�
 
 ## 포크 코드와 비밀 값을 분리합니다
 
-알림 작업은 main의 도구로 GitHub에 저장된 PR·검사·리뷰를 다시 조회합니다. 포크 코드를 실행하거나 전달 파일의 명령을 실행하지 않습니다. 제목 검사는 main의 규칙으로 제목 문자열만 확인하고 PR의 head에 결과를 남깁니다. [GitHub 이벤트 안내](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)
+알림 작업은 main의 도구로 GitHub에 저장된 PR·검사·리뷰를 다시 조회합니다. 포크 코드를 실행하거나 전달 파일의 명령을 실행하지 않습니다. 제목 검사는 main의 규칙으로 제목 문자열만 확인하고 PR의 head에 결과를 남깁니다. [GitHub 이벤트 안내][events]
 
 포크 실행에 GitHub 승인이 필요하거나 Mac 검토기가 꺼져 있으면 최종 알림도 늦어집니다. 알림을 멈추려면 **Actions → Slack 스터디 알림 → Disable workflow**를 선택합니다.
+
+[events]: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows

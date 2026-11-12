@@ -8,7 +8,10 @@ GUIDE_READMES = frozenset(("README.md", "gui/README.md", "ai/README.md", "proble
                           "submissions/README.md", "learning_server/README.md", "docs/README.md",
                           "docs/GIT_GUIDE.md", "docs/roadmap/README.md", "docs/LEARNER_START.md",
                           "docs/STUDY_START.md", "docs/GUIDE_INDEX.md", "docs/PR_GUIDE.md",
-                          "docs/LEARNING_REVIEW.md", "docs/SLACK_NOTIFICATIONS.md"))
+                          "docs/LEARNING_REVIEW.md", "docs/SLACK_NOTIFICATIONS.md", "docs/LEGACY_RECORDS.md",
+                          "docs/LEARNING_SERVER.md", "docs/LEARNING_DATA.md", "docs/LEARNING_PRIVACY.md",
+                          "docs/API_SUBMISSIONS.md", "docs/ARCHITECTURE.md", "docs/LEARNING_MISSIONS.md",
+                          "docs/LEARNING_WORKFLOW.md", "docs/LEARNING_STARTER.md", "docs/LEARNING_ROADMAP.md"))
 
 
 def needs_gui(paths):

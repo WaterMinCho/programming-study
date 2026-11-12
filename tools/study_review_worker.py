@@ -60,8 +60,21 @@ def pages(path):
 
 
 def status(pr, state, description, url=None):
-    return api("statuses/"+pr["head"]["sha"], {"state": state, "context": REVIEW_CONTEXT,
-               "description": description[:120], "target_url": url or pr["html_url"]})
+    payload = {"state": state, "context": REVIEW_CONTEXT, "description": description[:120],
+               "target_url": url or pr["html_url"]}
+    for page in range(1, 32):
+        combined = api("commits/%s/status?per_page=100&page=%d" % (pr["head"]["sha"], page))
+        rows = combined["statuses"]
+        current = next((row for row in rows if row["context"] == REVIEW_CONTEXT), None)
+        if current is not None:
+            if all(current.get(key) == value for key, value in payload.items()):
+                return current
+            break
+        if len(rows) < 100:
+            break
+    else:
+        raise review.ReviewError("현재 검토 상태의 조회 범위를 넘었습니다.")
+    return api("statuses/"+pr["head"]["sha"], payload)
 
 
 def lines_in_diff(diff):
@@ -124,7 +137,7 @@ def body_for(data, assessment, marker, event):
         text += "\n\n### %s:%d\n\n조건: %s\n\n현재 동작: %s\n\n기대 동작: %s\n\n이유: %s\n\n수정 힌트: %s\n\n확인 방법: %s" % (item["path"], item["line"], item["condition"], item["actual"], item["expected"], item["reason"], item["hint"], item["check"])
     if assessment["questions"]:
         text += "\n\n설명해볼 질문\n\n"+"\n".join("- "+question for question in assessment["questions"])
-    text += "\n\n제공한 텍스트를 검토했으며 PR의 코드를 이 맥에서 실행하지 않았음. 실행 검사와 최종 머지는 별도로 확인함.\n"
+    text += "\n\n자동 정적 검토 결과임. 사람이 코드를 검토하거나 실행한 결과로 표시하지 않음. PR의 코드를 이 맥에서 실행하지 않았음. 실행 검사와 최종 머지는 별도로 확인함.\n"
     review.check_text(text)
     from tools.check_style import check
     if check("docs: 코드 검토\n\n"+text, commit=True):
@@ -209,7 +222,7 @@ def passed_review(event, assessment, reviews, head):
 
 def finish(pr, state_path, row, passed):
     status(pr, "success" if passed else "failure", "검토 통과" if passed else "피드백 확인 필요", row["html_url"])
-    save(state_path, {"phase": "done", "at": now(), "review_id": row["id"], "passed": passed})
+    save(state_path, {"phase": "done", "reason": "review_"+row["state"].lower(), "at": now(), "review_id": row["id"], "passed": passed})
 
 
 def recover_passed(ready, folder, reviews, row, author):
@@ -235,6 +248,31 @@ def supersede(number, state_path, row, event):
     save(state_path, {"phase": "superseded", "at": now(), "review_id": row["id"]})
 
 
+class AttemptError(review.ReviewError):
+    """재시도 원인을 공개 상태의 정해진 문구로 전달함."""
+
+
+def failed_attempt(folder, attempts, reason):
+    quarantine = folder/"quarantine"
+    quarantine.mkdir(mode=0o700, exist_ok=True)
+    destination = quarantine/("attempt-%d" % attempts)
+    destination.mkdir(mode=0o700, exist_ok=True)
+    for name in ("assessment.json", "feedback.md", "review.json", "publish-ready.json"):
+        source = folder/name
+        if source.exists():
+            target = destination/name
+            if target.exists():
+                raise review.ReviewError("격리한 이전 응답을 덮어쓰지 않습니다.")
+            source.rename(target)
+    save(destination/"failure.json", {"reason": reason, "attempt": attempts, "at": now()})
+    exhausted = attempts >= 3
+    save(folder/"worker.json", {"phase": "exhausted" if exhausted else "retry_wait", "reason": reason,
+         "attempts": attempts, "retry_after": time.time()+600, "at": now()})
+    labels = {"model_failed": "검토 응답 생성 실패", "validation_failed": "검토 응답 검증 실패",
+              "body_failed": "게시 문장 검증 실패", "attempt_limit": "검토 시도 상한 도달"}
+    raise AttemptError(labels[reason]+(". 재시도 종료" if exhausted else ". 재시도 대기"))
+
+
 def process(pr, root):
     number, author = pr["number"], pr["user"]["login"]
     if not eligible(pr):
@@ -249,11 +287,16 @@ def process(pr, root):
     marker = "<!-- study-review:%d:%s -->" % (number, version)
     # 문맥이 바뀌어도 응답을 받지 못한 이전 게시를 먼저 확인함.
     for pending_path in (root/str(number)).glob("*/worker.json"):
-        if pending_path == state_path or json.loads(pending_path.read_text()).get("phase") != "posting":
+        pending = json.loads(pending_path.read_text())
+        if pending_path == state_path or pending.get("phase") not in {"posting", "unconfirmed"}:
             continue
         ready = json.loads((pending_path.parent/"publish-ready.json").read_text())
         matches = [row for row in reviews if row["user"]["login"].lower() == "watermincho" and row.get("body") == ready["body"]]
         if not matches:
+            if ready["commit_id"] != pr["head"]["sha"]:
+                if pending.get("phase") != "unconfirmed":
+                    save(pending_path, dict(pending, phase="unconfirmed", reason="posting_ack_unknown", at=now()))
+                continue
             status(pr, "error", "이전 게시 응답을 확인하지 못해 중복 게시를 보류함")
             return "게시 확인 대기"
         if len(matches) != 1:
@@ -293,42 +336,60 @@ def process(pr, root):
             passed = recover_passed(ready, folder, reviews, row, author)
             finish(pr, state_path, row, passed)
         return "이미 검토함"
-    if state.get("phase") == "posting":
+    if state.get("phase") in {"posting", "unconfirmed"}:
         status(pr, "error", "게시 응답을 확인하지 못해 중복 게시를 보류함")
         return "게시 확인 대기"
-    if state.get("phase") == "done" or state.get("attempts", 0) >= 3 or state.get("retry_after", 0) > time.time():
+    if state.get("phase") in {"prepare_failed", "input_failed", "exhausted"}:
+        return "준비 실패" if state["phase"] == "prepare_failed" else "검토 종료"
+    if state.get("phase") == "done" or state.get("retry_after", 0) > time.time():
         return "대기"
+    if state.get("attempts", 0) >= 3:
+        failed_attempt(folder, state["attempts"], "attempt_limit")
     folder.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if not folder.exists():
-        data = review.prepare(number, folder, discussion=discussion)
-    else:
-        _, data = review.snapshot(folder)
+    try:
+        if not folder.exists():
+            data = review.prepare(number, folder, discussion=discussion)
+        else:
+            _, data = review.snapshot(folder)
+    except (review.ReviewError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        save(state_path, {"phase": "prepare_failed", "reason": "prepare_failed", "at": now()})
+        raise AttemptError("검토 자료 준비 실패. 같은 판의 재준비를 중단함")
     if (not same(pr, data) or data["number"] != number or data.get("discussion", []) != discussion):
         return "새 판 대기"
-    check_packet(data)
+    try:
+        check_packet(data)
+    except review.ReviewError:
+        save(state_path, {"phase": "input_failed", "reason": "input_failed", "at": now()})
+        raise AttemptError("검토 입력 확인 실패. 같은 판의 검토를 중단함")
     status(pr, "pending", "고정한 현재 변경분을 검토 중")
-    save(state_path, {"phase": "reviewing", "attempts": state.get("attempts", 0)+1, "at": now()})
+    attempts = state.get("attempts", 0)+1
+    save(state_path, {"phase": "reviewing", "attempts": attempts, "at": now()})
     if not (folder/"assessment.json").exists():
         try:
             review.review(folder, schema=SCHEMA, system=SYSTEM)
-        except Exception:
-            save(state_path, {"phase": "failed", "attempts": state.get("attempts", 0)+1, "retry_after": time.time()+600, "at": now()})
-            raise
-    assessment = json.loads((folder/"assessment.json").read_text())
-    if not (folder/"review.json").exists() or not (folder/"feedback.md").exists():
-        raise review.ReviewError("검토 응답의 완료 기록을 확인하지 못했습니다.")
-    if json.loads((folder/"review.json").read_text()).get("head") != data["head"]:
-        raise review.ReviewError("검토 응답의 코드 판이 맞지 않습니다.")
-    event = validate(data, assessment, author)
-    # 새 댓글에 대한 답변은 기존 승인·변경 요청을 임의로 덮지 않고 의견으로 남김.
-    prior_head = [row for row in reviews if row["user"]["login"].lower() == "watermincho" and row.get("commit_id") == data["head"] and "<!-- study-review:" in row.get("body", "")]
+        except (review.ReviewError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+            failed_attempt(folder, attempts, "model_failed")
+    try:
+        assessment = json.loads((folder/"assessment.json").read_text())
+        if not (folder/"review.json").exists() or not (folder/"feedback.md").exists():
+            raise review.ReviewError("검토 응답의 완료 기록을 확인하지 못했습니다.")
+        if json.loads((folder/"review.json").read_text()).get("head") != data["head"]:
+            raise review.ReviewError("검토 응답의 코드 판이 맞지 않습니다.")
+        event = validate(data, assessment, author)
+    except (review.ReviewError, OSError, ValueError, KeyError, TypeError):
+        failed_attempt(folder, attempts, "validation_failed")
+    # 이미 승인한 판의 설명 답변만 의견으로 남기며 해소한 변경 요청은 다시 승인함.
+    prior_terminal = [row for row in reviews if row["user"]["login"].lower() == "watermincho" and row.get("commit_id") == data["head"] and row.get("state") in {"APPROVED", "CHANGES_REQUESTED"}]
     checked = event
-    if event == "APPROVE" and prior_head and discussion:
+    if event == "APPROVE" and prior_terminal and prior_terminal[-1]["state"] == "APPROVED" and discussion:
         event = "COMMENT"
     current = api("pulls/%d" % number)
     if not same(current, data):
         return "새 판 대기"
-    body = body_for(data, assessment, marker, event)
+    try:
+        body = body_for(data, assessment, marker, event)
+    except (review.ReviewError, OSError, ValueError, KeyError, TypeError):
+        failed_attempt(folder, attempts, "body_failed")
     passed = passed_review(event, checked, reviews, data["head"])
     save(folder/"publish-ready.json", {"commit_id": data["head"], "base": data["base"], "event": event, "body": body, "passed": passed})
     save(state_path, {"phase": "posting", "at": now()})
@@ -360,6 +421,10 @@ def once(root=ROOT):
                 continue
             try:
                 outputs.append((pr["number"], process(pr, root)))
+            except AttemptError as error:
+                with contextlib.suppress(Exception):
+                    status(pr, "error", str(error))
+                outputs.append((pr["number"], "검토 보류"))
             except (review.ReviewError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
                 with contextlib.suppress(Exception):
                     status(pr, "error", "검토를 완료하지 못함. 인증·구독·검토 로그 확인 필요")

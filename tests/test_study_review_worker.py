@@ -38,6 +38,7 @@ class WorkerTest(unittest.TestCase):
                    "html_url": "https://github.com/example/pull/12"}
         self.current = copy.deepcopy(self.pr)
         self.reviews, self.issues, self.inline, self.writes = [], [], [], []
+        self.statuses = {}
         self.result = assessment()
         self.packet_changes = {}
         self.api_mock = self.patch(worker, "api", side_effect=self.api)
@@ -62,7 +63,11 @@ class WorkerTest(unittest.TestCase):
         if data is not None:
             self.writes.append((path, copy.deepcopy(data), method))
         if path.startswith("statuses/"):
+            self.statuses[path.split("/")[1], data["context"]] = copy.deepcopy(data)
             return {}
+        if path.startswith("commits/") and "/status?" in path:
+            sha = path.split("/")[1]
+            return {"statuses": [copy.deepcopy(row) for (head, _), row in self.statuses.items() if head == sha]}
         if path == "pulls/12":
             return copy.deepcopy(self.current)
         if path == "pulls/12/reviews" and data:
@@ -72,7 +77,8 @@ class WorkerTest(unittest.TestCase):
             self.reviews.append(row)
             return copy.deepcopy(row)
         if path.endswith("/dismissals"):
-            self.reviews[-1]["state"] = "DISMISSED"
+            identity = int(path.split("/")[-2])
+            next(row for row in self.reviews if row["id"] == identity)["state"] = "DISMISSED"
             return {}
         if path.startswith("pulls/12/reviews/"):
             return copy.deepcopy(next(row for row in self.reviews if row["id"] == int(path.rsplit("/", 1)[1])))
@@ -92,7 +98,7 @@ class WorkerTest(unittest.TestCase):
     def model(self, folder, **kwargs):
         self.assertEqual(worker.SCHEMA, kwargs["schema"])
         worker.save(folder/"assessment.json", self.result)
-        worker.save(folder/"review.json", {"head": HEAD})
+        worker.save(folder/"review.json", {"head": json.loads((folder/"snapshot.json").read_text())["head"]})
         (folder/"feedback.md").write_text("검토를 마쳤음.\n", encoding="utf-8")
 
     def process(self):
@@ -148,6 +154,8 @@ class WorkerTest(unittest.TestCase):
         self.commands.assert_not_called()
         self.assertTrue(json.loads((self.folder()/"worker.json").read_text())["passed"])
         self.assertFalse(any("merge" in path for path, _, _ in self.writes))
+        self.assertIn("자동 정적 검토 결과임.", self.posted()[0]["body"])
+        self.assertIn("사람이 코드를 검토하거나 실행한 결과로 표시하지 않음.", self.posted()[0]["body"])
 
     def test_scope_title_images_and_context_only_leave_comment(self):
         data = {"files": [FILE], "diff": DIFF, "title": self.pr["title"]}
@@ -174,13 +182,20 @@ class WorkerTest(unittest.TestCase):
         self.assertEqual("COMMENT", self.posted()[0]["event"])
         self.assertEqual("success", self.states()[-1])
 
-    def test_comment_does_not_override_changes_request_or_missing_context(self):
+    def test_author_explanation_can_resolve_changes_request_on_same_head(self):
         self.prior()
         self.prior("CHANGES_REQUESTED", 2)
         self.author_comment()
         self.process()
-        self.assertEqual("COMMENT", self.posted()[0]["event"])
-        self.assertEqual("failure", self.states()[-1])
+        self.assertEqual("APPROVE", self.posted()[0]["event"])
+        self.assertEqual("success", self.states()[-1])
+
+    def test_comment_only_history_does_not_prevent_approval(self):
+        self.prior("COMMENTED")
+        self.author_comment()
+        self.process()
+        self.assertEqual("APPROVE", self.posted()[0]["event"])
+        self.assertEqual("success", self.states()[-1])
 
     def test_needs_context_comment_does_not_keep_approval_status(self):
         self.prior()
@@ -408,9 +423,195 @@ class WorkerTest(unittest.TestCase):
         self.assertEqual("대기", self.process())
         with mock.patch.object(worker.time, "time", return_value=10**12), self.assertRaises(worker.review.ReviewError):
             self.process()
-        self.model_mock.assert_called_once()
+        self.assertEqual(2, self.model_mock.call_count)
+        self.assertFalse((self.folder()/"assessment.json").exists())
+        for number in (1, 2):
+            self.assertTrue((self.folder()/"quarantine"/("attempt-%d" % number)/"assessment.json").exists())
         self.assertEqual([], self.posted())
         self.commands.assert_not_called()
+
+    def test_validation_failure_quarantines_artifacts_then_allows_fresh_review(self):
+        self.result = assessment(blocking=True)
+        self.result["findings"][0]["quote"] = "not in diff"
+        with self.assertRaises(worker.AttemptError):
+            self.process()
+        folder = self.folder()
+        before = copy.deepcopy(self.result)
+        quarantine = folder/"quarantine/attempt-1"
+        self.assertEqual(before, json.loads((quarantine/"assessment.json").read_text()))
+        self.assertEqual("validation_failed", json.loads((quarantine/"failure.json").read_text())["reason"])
+        for name in ("assessment.json", "feedback.md", "review.json"):
+            self.assertFalse((folder/name).exists())
+            self.assertTrue((quarantine/name).exists())
+        if os.name != "nt":
+            self.assertEqual(0o700, quarantine.stat().st_mode & 0o777)
+            self.assertEqual(0o600, (quarantine/"assessment.json").stat().st_mode & 0o777)
+        self.assertEqual("대기", self.process())
+        self.model_mock.assert_called_once()
+        self.result = assessment()
+        with mock.patch.object(worker.time, "time", return_value=10**12):
+            self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(2, self.model_mock.call_count)
+        self.assertEqual("done", json.loads((folder/"worker.json").read_text())["phase"])
+        self.assertEqual(before, json.loads((quarantine/"assessment.json").read_text()))
+
+    def test_body_failure_is_quarantined_with_a_distinct_reason(self):
+        self.result["summary"] = "현재 배치와 이전 배치의 입력 분리를 확인했음."
+        with mock.patch.object(worker, "body_for", side_effect=worker.review.ReviewError("게시 문장 확인 실패")), \
+                self.assertRaises(worker.AttemptError):
+            self.process()
+        state = json.loads((self.folder()/"worker.json").read_text())
+        self.assertEqual("body_failed", state["reason"])
+        self.assertEqual("retry_wait", state["phase"])
+        self.result = assessment()
+        with mock.patch.object(worker.time, "time", return_value=state["retry_after"]+1):
+            self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(2, self.model_mock.call_count)
+        self.assertEqual("APPROVE", self.posted()[0]["event"])
+
+    def test_invalid_assessments_stop_after_three_real_attempts(self):
+        self.result["summary"] = "x" * 3001
+        with mock.patch.object(worker.time, "time", return_value=1000) as clock:
+            for attempt in range(1, 4):
+                with self.assertRaises(worker.AttemptError):
+                    self.process()
+                state = json.loads((self.folder()/"worker.json").read_text())
+                self.assertEqual(attempt, state["attempts"])
+                self.assertEqual("validation_failed", state["reason"])
+                self.assertEqual("대기" if attempt < 3 else "검토 종료", self.process())
+                self.assertEqual(attempt, self.model_mock.call_count)
+                clock.return_value = state["retry_after"]+1
+            self.assertEqual("검토 종료", self.process())
+        self.assertEqual(3, self.model_mock.call_count)
+        self.assertEqual(3, len(list((self.folder()/"quarantine").iterdir())))
+        self.assertEqual("exhausted", state["phase"])
+        self.assertEqual([], self.posted())
+
+    def test_legacy_attempt_limit_gets_a_terminal_reason_and_quarantine(self):
+        self.result["summary"] = "x" * 3001
+        with self.assertRaises(worker.AttemptError):
+            self.process()
+        folder = self.folder()
+        self.model(folder, schema=worker.SCHEMA)
+        worker.save(folder/"worker.json", {"phase": "reviewing", "attempts": 3})
+        self.model_mock.reset_mock()
+        with self.assertRaisesRegex(worker.AttemptError, "재시도 종료"):
+            self.process()
+        state = json.loads((folder/"worker.json").read_text())
+        self.assertEqual("exhausted", state["phase"])
+        self.assertEqual("attempt_limit", state["reason"])
+        self.assertTrue((folder/"quarantine/attempt-3/assessment.json").exists())
+        self.assertEqual("검토 종료", self.process())
+        self.model_mock.assert_not_called()
+
+    def test_prepare_failure_is_cached_per_input_version(self):
+        self.prepare_mock.side_effect = worker.review.ReviewError("unsupported notebook")
+        with self.assertRaises(worker.AttemptError):
+            self.process()
+        first = self.folder()
+        self.assertEqual("prepare_failed", json.loads((first/"worker.json").read_text())["phase"])
+        self.assertEqual("준비 실패", self.process())
+        self.prepare_mock.assert_called_once()
+        changes = (lambda: self.pr["head"].update(sha="c" * 40),
+                   lambda: self.pr["base"].update(sha="d" * 40),
+                   lambda: self.pr.update(title="docs(model): 입력 확인"),
+                   lambda: self.pr.update(body="다른 설명임."), self.author_comment)
+        for index, change in enumerate(changes, 2):
+            change()
+            with self.assertRaises(worker.AttemptError):
+                self.process()
+            self.assertEqual("준비 실패", self.process())
+            self.assertEqual(index, self.prepare_mock.call_count)
+        self.model_mock.assert_not_called()
+
+    def test_partial_prepare_failure_does_not_retry_snapshot_forever(self):
+        def prepare(number, folder, **kwargs):
+            folder.mkdir()
+            raise worker.review.ReviewError("partial prepare")
+        self.prepare_mock.side_effect = prepare
+        with self.assertRaises(worker.AttemptError):
+            self.process()
+        self.assertEqual("준비 실패", self.process())
+        self.prepare_mock.assert_called_once()
+        self.model_mock.assert_not_called()
+
+    def test_unknown_old_head_does_not_block_new_head_and_late_review_is_dismissed(self):
+        original = self.api
+        def unknown(path, data=None, method=None):
+            if path == "pulls/12/reviews" and data:
+                raise worker.review.ReviewError("unknown acknowledgement")
+            return original(path, data, method)
+        self.api_mock.side_effect = unknown
+        with self.assertRaises(worker.review.ReviewError):
+            self.process()
+        previous = self.folder()
+        ready = json.loads((previous/"publish-ready.json").read_text())
+        self.pr["head"]["sha"] = "c" * 40
+        self.current = copy.deepcopy(self.pr)
+        self.packet_changes["head"] = self.pr["head"]["sha"]
+        self.api_mock.side_effect = original
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual("unconfirmed", json.loads((previous/"worker.json").read_text())["phase"])
+        self.assertTrue((previous/"publish-ready.json").exists())
+        self.assertEqual("이미 검토함", self.process())
+        self.assertEqual(2, self.model_mock.call_count)
+        self.assertEqual(self.pr["head"]["sha"], self.posted()[0]["commit_id"])
+        self.reviews.insert(0, {"id": 99, "user": {"login": "WaterMinCho"}, "body": ready["body"],
+                                "commit_id": HEAD, "state": "APPROVED", "html_url": "https://github.com/example/review/99"})
+        self.assertEqual("이미 검토함", self.process())
+        self.assertEqual("DISMISSED", self.reviews[0]["state"])
+        self.assertEqual("APPROVED", self.reviews[1]["state"])
+        self.assertEqual("superseded", json.loads((previous/"worker.json").read_text())["phase"])
+        self.assertEqual(2, self.model_mock.call_count)
+        self.assertEqual(1, len(self.posted()))
+
+    def test_unknown_same_head_with_changed_base_still_blocks_reposting(self):
+        original = self.api
+        def unknown(path, data=None, method=None):
+            if path == "pulls/12/reviews" and data:
+                raise worker.review.ReviewError("unknown acknowledgement")
+            return original(path, data, method)
+        self.api_mock.side_effect = unknown
+        with self.assertRaises(worker.review.ReviewError):
+            self.process()
+        self.api_mock.side_effect = original
+        self.pr["base"]["sha"] = "c" * 40
+        self.current = copy.deepcopy(self.pr)
+        self.assertEqual("게시 확인 대기", self.process())
+        self.model_mock.assert_called_once()
+
+    def test_identical_status_is_not_posted_repeatedly(self):
+        for _ in range(1001):
+            worker.status(self.pr, "error", "게시 응답 확인 대기")
+        self.assertEqual(["error"], self.states())
+        worker.status(self.pr, "pending", "게시 응답 확인 대기")
+        worker.status(self.pr, "pending", "새 설명 확인 중")
+        worker.status(self.pr, "pending", "새 설명 확인 중", "https://github.com/example/review/2")
+        self.pr["head"]["sha"] = "c" * 40
+        worker.status(self.pr, "pending", "새 설명 확인 중", "https://github.com/example/review/2")
+        self.assertEqual(5, len(self.states()))
+
+    def test_status_post_ack_loss_is_recovered_from_combined_status(self):
+        original = self.api
+        def unknown(path, data=None, method=None):
+            result = original(path, data, method)
+            if path.startswith("statuses/"):
+                raise worker.review.ReviewError("unknown acknowledgement")
+            return result
+        self.api_mock.side_effect = unknown
+        with self.assertRaises(worker.review.ReviewError):
+            worker.status(self.pr, "error", "게시 응답 확인 대기")
+        self.api_mock.side_effect = original
+        worker.status(self.pr, "error", "게시 응답 확인 대기")
+        self.assertEqual(["error"], self.states())
+
+    def test_status_finds_current_context_after_first_combined_page(self):
+        current = {"context": worker.REVIEW_CONTEXT, "state": "error", "description": "게시 응답 확인 대기", "target_url": self.pr["html_url"]}
+        self.api_mock.side_effect = [{"statuses": [{"context": "other-%d" % index} for index in range(100)]},
+                                     {"statuses": [current]}]
+        worker.status(self.pr, "error", "게시 응답 확인 대기")
+        self.assertEqual(2, self.api_mock.call_count)
+        self.assertTrue(self.api_mock.call_args.args[0].endswith("page=2"))
 
     @unittest.skipIf(os.name == "nt", "POSIX lock")
     def test_once_lock_prevents_concurrent_api_or_model_work(self):
