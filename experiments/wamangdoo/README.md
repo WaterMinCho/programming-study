@@ -1,6 +1,6 @@
 # wamangdoo 입력 확인 기록
 
-- 담당 모델: Transformer (과거 풀이 사이의 관계 계산)
+- 담당 모델: Transformer
 - 담당 이슈: https://github.com/WaterMinCho/programming-study/issues/120
 - 개인 모델 저장소 주소: https://github.com/wamangdoo/learning-transformer
 - README 고정 주소: https://github.com/wamangdoo/learning-transformer/blob/f601a2541c141995a0f29ff23cbf6b6e51876d41/README.md
