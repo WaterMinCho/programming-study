@@ -139,9 +139,11 @@ PR 등록·CI 결과·새 리뷰는 [Slack 알림](../docs/SLACK_NOTIFICATIONS.m
 
 ---
 
-## [풀이 올리기(PR)와 리뷰](../submissions/README.md#풀이-올리기pr와-리뷰)
+<a id="풀이-올리기pr와-리뷰"></a>
 
-참가자의 비공개 API 풀이 제출 안내입니다. 모델 개발 PR은 위의 스터디 안내를 따릅니다.
+## [풀이를 비공개 서버에 제출합니다](API_SUBMISSIONS.md)
+
+보낼 답안 파일을 확인하고 서버에 저장하는 순서입니다.
 
 ---
 
