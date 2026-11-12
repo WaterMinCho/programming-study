@@ -20,7 +20,7 @@ def needs_gui(paths):
 
 
 def server_only(path):
-    return path in ("tests/test_storage_capacity.py", "tests/test_sync_schedule.py") or path.startswith("learning_server/") or path.startswith(("tests/test_learning_", "tests/test_private_submission", "tests/test_submission_api", "tests/test_legacy_transfer"))
+    return path in ("tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", ".github/workflows/learning-server.yml") or path.startswith("learning_server/") or path.startswith(("tests/test_learning_", "tests/test_private_submission", "tests/test_submission_api", "tests/test_legacy_transfer"))
 
 
 def automation_only(path):
