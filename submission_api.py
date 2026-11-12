@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import tempfile
 import uuid
+import secrets
 
 from aiprep.collection import CollectionError, NOTICE, digest, inside, packed
 from aiprep.sharing import Sharing, endpoint, request
@@ -41,7 +42,9 @@ def snapshot(root, user):
             try:
                 text = raw.decode("utf-8")
                 if path.suffix == ".json":
-                    json.loads(text.lstrip("\ufeff"))
+                    decoded = json.loads(text.lstrip("\ufeff"))
+                    if rel == "profile.json" and isinstance(decoded, dict) and not decoded.get("rounds") and not decoded.get("attempts"):
+                        continue
             except (UnicodeError, ValueError):
                 raise CollectionError("읽을 수 없는 풀이 파일이 있습니다: %s" % rel) from None
             files[rel] = text
@@ -127,9 +130,35 @@ class Client:
                 share._save({"url": config["url"], "participant": details["participant"], "token": details["token"],
                              "sequence": 0, "notice": NOTICE, "include_answers": False})
 
+    def connect_open(self, base=None):
+        """공개 파일을 확인한 참가자의 제출 전용 연결을 준비함. 연구 수집은 별도로 동의함."""
+        from aiprep.privacy import DEFAULT_SERVER
+        base = endpoint(base or DEFAULT_SERVER)
+        config = self.settings()
+        if config.get("url") and config["url"] != base:
+            raise CollectionError("기존 제출 서버 연결을 확인해 주세요.")
+        if config.get("token"):
+            return
+        config.update(mode="api", url=base, participant=config.get("participant") or str(uuid.uuid4()),
+                      registration_secret=config.get("registration_secret") or secrets.token_hex(32),
+                      display_id=config.get("display_id") or self.user[:51] + "_" + secrets.token_hex(5), separate_research=True)
+        self.save(config)
+        result = self.transport(base, "/v1/register/open", {"participant": config["participant"], "display_id": config["display_id"],
+                                "notice": NOTICE, "registration_secret": config["registration_secret"],
+                                "public_submission": True, "tracks": {}})
+        if result.get("participant") != config["participant"] or not re.fullmatch(r"[a-f0-9]{64}", str(result.get("token", ""))):
+            raise CollectionError("서버의 제출 연결 응답을 확인해 주세요.")
+        if not re.fullmatch(r"api_[a-f0-9]{32}", str(result.get("public_id", ""))):
+            raise CollectionError("서버의 공개 풀이 식별자를 확인해 주세요.")
+        config.update(token=result["token"], public_id=result["public_id"])
+        self.save(config)
+
     def pending(self):
         files = snapshot(self.root, self.user)
         config = self.settings()
+        if config.get("separate_research") or "connections" not in config:
+            return {"status": "ok", "pending": bool(files) and digest(files) != config.get("published_hash"),
+                    "count": len(files) if digest(files) != config.get("published_hash") else 0}
         pending = bool(files) and digest(files) != config.get("published_hash") or bool(config.get("research_pending"))
         for store in self.collections.values():
             share = Sharing(store).settings()
@@ -158,7 +187,7 @@ class Client:
             batches.append({"participant": config["participant"], "request_id": nonce, "files": files,
                             "digest": digest({"files": files, "request": nonce})})
         sent, errors = 0, []
-        for store in self.collections.values():
+        for store in (() if config.get("separate_research") else self.collections.values()):
             if not store.status()["enabled"]:
                 continue
             try:
@@ -193,6 +222,8 @@ class Client:
             self.save(config)
             self.pending_path.unlink(missing_ok=True)
         message = "서버에 풀이를 저장하고 GitHub PR에 올렸습니다. 추가 학습 기록 %d건도 전송했습니다." % sent
+        if config.get("separate_research"):
+            message = "서버에 풀이를 저장하고 GitHub PR에 올렸습니다."
         if errors:
             message = "서버 저장과 GitHub 제출을 마쳤습니다. 추가 학습 기록 일부는 보내지 못했으니 다시 [풀이 제출]을 눌러 주세요."
         config["research_pending"] = bool(errors)

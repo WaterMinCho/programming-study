@@ -2,6 +2,14 @@
 
 새 데이터가 쌓일 때까지 기다릴 필요는 없습니다. 기존 파이썬 풀이 기록과 현재 문제의 개념 정보를 공통 형식으로 바꿉니다. 이후 파이썬·AI 개론·응용의 새 수집 자료도 같은 도구로 준비합니다. WaterMinCho가 자료를 준비하고 세 팀원은 같은 파일로 모델을 비교합니다.
 
+## 세 팀원이 사용할 자료 판을 맞춥니다
+
+현재 입력 판은 features_version 4이며 전달 묶음은 common-input-f4-20261112입니다. 합성 자료는 파이썬·AI를 각각 학습 8건·검증 2건·평가 2건으로 준비했습니다. 사용 범위를 확인한 기존 파이썬 기록은 학습 84건·검증 29건·평가 18건입니다. 실제 AI 기록과 수강생 전원의 자료가 준비됐다는 뜻은 아닙니다.
+
+세 팀원은 같은 실제 자료 묶음과 번호표를 비공개로 전달받아 사용합니다. 묶음 SHA-256은 `b5dd2a5daa4af4ec05de7ee1ac91a93ac485d93003f10ca3b6bbabc718c00bff`입니다. 아래 합성 예제는 같은 판의 입력을 먼저 확인하는 용도입니다. 실제 묶음의 전달·수신 확인은 담당 이슈에서 따로 기록합니다.
+
+기존 실제 자료는 한 사람의 기록이며 과거 문항 판과 일부 시각을 확인할 수 없습니다. 새 학습자에 대한 성능이나 추천 효과로 해석하지 않습니다. 검증·평가에 번호표에 없는 문항이 있으므로 UNK와 개념 입력도 확인합니다.
+
 ## 기존 파이썬 기록을 변환합니다
 
 저장소 루트에서 실행합니다. 다른 사람의 기록은 연구 사용 동의를 받은 뒤 지정합니다. 아래 시간대는 한국 시간으로 해석한다는 가정이며 원래 시각도 따로 남깁니다.
@@ -27,9 +35,9 @@ python -m learning_server.starter --input ../learning-events.jsonl --out ../lear
 실제 기록을 전달받기 전에는 기존 합성 예제로 입력 모양을 확인합니다. 이 작은 예제의 점수를 실제 학습자 성능으로 쓰지 않습니다.
 
 ```sh
-python -m learning_server.starter --synthetic --out ../learning-demo-v1
-python -m learning_server.input_example --dataset ../learning-demo-v1 --track python --batch-size 4 --length 32
-python -m learning_server.input_example --dataset ../learning-demo-v1 --track ai --batch-size 4 --length 32
+python -m learning_server.starter --synthetic --out ../learning-demo-f4
+python -m learning_server.input_example --dataset ../learning-demo-f4 --track python --batch-size 4 --length 32
+python -m learning_server.input_example --dataset ../learning-demo-f4 --track ai --batch-size 4 --length 32
 ```
 
 추가 라이브러리 설치나 모델 학습 없이 실행할 수 있습니다. 자료에 있는 과목만 선택합니다. 기존 파이썬 프로필로 만든 자료에는 파이썬만 들어 있습니다.

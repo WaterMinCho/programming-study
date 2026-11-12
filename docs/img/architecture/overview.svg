@@ -49,7 +49,7 @@
 <text x="908" y="232" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">기기의 학습 기록</text>
 <text x="856" y="272" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">답안 · 채점 결과 · 진도</text>
 <text x="856" y="304" font-family="NanumGothic, sans-serif" font-size="18" font-weight="400" fill="#516176">별도 수집 기록: 파이썬·AI</text>
-<text x="285" y="342" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">개인 초대 · [풀이 제출]과 [서버에 보내기]</text>
+<text x="285" y="342" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">동의 후 비공개 자동 전송 · 공개 제출은 별도</text>
 <text x="450" y="373" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">서버가 GitHub PR 게시</text>
 <rect x="48" y="396" width="320" height="184" rx="20" fill="#f5fbf8" stroke="#b8c6d7" stroke-width="2" />
 <path d="M72,425 C72,416 108,416 108,425 V448 C108,459 72,459 72,448 Z" fill="none" stroke="#17694e" stroke-width="2.5"/>

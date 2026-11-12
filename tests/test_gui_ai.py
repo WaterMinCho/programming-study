@@ -90,12 +90,14 @@ class AiTest(unittest.TestCase):
         os.environ.pop("STUDY_USER", None)
         os.environ["STUDY_WEB_HOME"] = os.path.join(self.tmp, "web_home")
         os.environ["STUDY_AI_HOME"] = os.path.join(self.tmp, "ai_home")
+        os.environ["STUDY_PYTHON_HOME"] = os.path.join(self.tmp, "python_home")
         self.addCleanup(setattr, sys, "excepthook", sys.excepthook)
         self.logs = os.path.join(self.tmp, ".study_logs")
         from gui import errors
         errors.install(self.logs)
         self.errors = errors
         session.save_user(USER)
+        guikit.prepare_consent(USER)
         self.git = FakeGitFlow()
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
         self.win = None

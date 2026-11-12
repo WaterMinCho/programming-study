@@ -21,7 +21,8 @@ REPOSITORY = str(Path(__file__).resolve().parent.parent)
 
 
 class ApiError(Exception):
-    def __init__(self, status, message):
+    def __init__(self, status, message, code=None):
+        self.code = code
         self.status, self.message = status, message
 
 
@@ -59,6 +60,10 @@ class Database:
                     participant TEXT NOT NULL, track TEXT NOT NULL, event_id TEXT NOT NULL,
                     sequence INTEGER NOT NULL, payload TEXT NOT NULL,
                     PRIMARY KEY(participant, track, event_id), UNIQUE(participant, track, sequence)
+                );
+                CREATE TABLE IF NOT EXISTS open_enrollments (
+                    participant TEXT PRIMARY KEY, purpose TEXT NOT NULL, receipt TEXT,
+                    created TEXT NOT NULL, withdrawn TEXT
                 );
             """)
             from learning_server.submissions import SCHEMA
@@ -121,10 +126,83 @@ class Database:
         if not re.fullmatch(r"[a-f0-9]{64}", token):
             raise ApiError(401, "참가자 인증을 확인해 주세요.")
         with self.connect() as db:
-            row = db.execute("SELECT participant FROM participants WHERE token_hash=?" + ("" if allow_revoked else " AND revoked=0"), (hashed(token),)).fetchone()
+            row = db.execute("SELECT participant, revoked FROM participants WHERE token_hash=?", (hashed(token),)).fetchone()
         if not row:
             raise ApiError(401, "참가자 인증을 확인해 주세요.")
+        if row[1] and not allow_revoked:
+            raise ApiError(401, "철회한 참가자의 인증입니다.", code="revoked")
         return row[0]
+
+    def enroll_open(self, data, purpose="research", connection=None):
+        if os.environ.get("STUDY_OPEN_REGISTRATION") != "1":
+            raise ApiError(503, "첫 실행 연결을 준비 중입니다. 학습은 계속할 수 있습니다.")
+        if connection is None:
+            with self.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                return self.enroll_open(data, purpose, connection=db)
+        from aiprep.privacy import validate_receipt
+        participant = identifier(data.get("participant"))
+        seed = data.get("registration_secret")
+        if data.get("notice") != NOTICE or not isinstance(seed, str) or not re.fullmatch(r"[a-f0-9]{64}", seed):
+            raise ApiError(400, "기기의 연결 정보를 확인해 주세요.")
+        if purpose == "research":
+            consent = validate_receipt(data.get("consent"))
+        elif data.get("public_submission") is True:
+            consent = {"public_submission": True}
+        else:
+            raise ApiError(400, "공개할 풀이 파일을 확인한 뒤 제출해 주세요.")
+        token = hmac.new(self.secret, (purpose + ":" + participant + ":" + seed).encode(), hashlib.sha256).hexdigest()
+        db = connection
+        old = db.execute("SELECT token_hash, revoked FROM participants WHERE participant=?", (participant,)).fetchone()
+        if old:
+            if old != (hashed(token), 0):
+                raise ApiError(409, "기존 연결 또는 철회 상태를 확인해 주세요.")
+        else:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            count = db.execute("SELECT count(*) FROM open_enrollments WHERE purpose<>'withdrawal' AND created>=?",
+                               ((now-datetime.timedelta(days=1)).isoformat(),)).fetchone()[0]
+            if count >= 1000:
+                raise ApiError(429, "오늘의 새 연결이 많아 잠시 대기합니다. 학습은 계속할 수 있습니다.")
+            db.execute("INSERT INTO participants VALUES (?, ?, ?, ?, 0)", (participant, hashed(token), NOTICE, now.isoformat()))
+            db.execute("INSERT INTO open_enrollments VALUES (?, ?, ?, ?, NULL)",
+                       (participant, purpose, packed(consent), now.isoformat()))
+        return {"participant": participant, "token": token}
+
+    def record_consent(self, participant, data):
+        from aiprep.privacy import validate_receipt
+        consent = validate_receipt(data.get("consent"))
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if not db.execute("SELECT 1 FROM participants WHERE participant=? AND revoked=0", (participant,)).fetchone():
+                raise ApiError(401, "철회한 참가자입니다.")
+            db.execute("INSERT INTO open_enrollments VALUES (?, 'research', ?, ?, NULL) "
+                       "ON CONFLICT(participant) DO UPDATE SET receipt=excluded.receipt",
+                       (participant, packed(consent), datetime.datetime.now(datetime.timezone.utc).isoformat()))
+        return {"consent_saved": True}
+
+    def withdraw_open(self, data):
+        participant = identifier(data.get("participant"))
+        seed = data.get("registration_secret")
+        if not isinstance(seed, str) or not re.fullmatch(r"[a-f0-9]{64}", seed):
+            raise ApiError(400, "기기의 연결 정보를 확인해 주세요.")
+        token = hmac.new(self.secret, ("research:" + participant + ":" + seed).encode(), hashlib.sha256).hexdigest()
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            old = db.execute("SELECT token_hash FROM participants WHERE participant=?", (participant,)).fetchone()
+            if old and old != (hashed(token),):
+                raise ApiError(403, "철회할 기기의 연결 정보를 확인해 주세요.")
+            if not old:
+                now = datetime.datetime.now(datetime.timezone.utc)
+                count = db.execute("SELECT count(*) FROM open_enrollments WHERE purpose='withdrawal' AND created>=?",
+                                   ((now-datetime.timedelta(days=1)).isoformat(),)).fetchone()[0]
+                if count >= 10000:
+                    raise ApiError(429, "새 연결 처리가 많아 잠시 뒤 철회를 다시 확인합니다.")
+                db.execute("INSERT INTO open_enrollments VALUES (?, 'withdrawal', NULL, ?, ?)",
+                           (participant, now.isoformat(), now.isoformat()))
+            db.execute("INSERT OR IGNORE INTO participants VALUES (?, ?, ?, ?, 1)",
+                       (participant, hashed(token), NOTICE, datetime.datetime.now(datetime.timezone.utc).isoformat()))
+        self.remove(participant)
+        return {"deleted": True}
 
     def ingest(self, participant, data):
         if data.get("participant") != participant or data.get("notice") != NOTICE or data.get("format") != FORMAT:
@@ -159,6 +237,10 @@ class Database:
             db.execute("BEGIN IMMEDIATE")
             if not db.execute("SELECT 1 FROM participants WHERE participant=? AND revoked=0", (participant,)).fetchone():
                 raise ApiError(401, "철회한 참가자입니다.")
+            if os.environ.get("STUDY_OPEN_REGISTRATION") == "1" and not db.execute(
+                    "SELECT 1 FROM open_enrollments WHERE participant=? AND purpose='research' AND receipt IS NOT NULL AND withdrawn IS NULL",
+                    (participant,)).fetchone():
+                raise ApiError(403, "현재 수집 동의를 확인한 뒤 전송해 주세요.")
             for values in cleaned:
                 old = db.execute("SELECT payload FROM events WHERE participant=? AND track=? AND event_id=?", values[:3]).fetchone()
                 if old and old[0] != values[4]:
@@ -180,6 +262,7 @@ class Database:
             for target in [participant] + children:
                 db.execute("DELETE FROM events WHERE participant=?", (target,))
                 db.execute("UPDATE participants SET revoked=1 WHERE participant=?", (target,))
+                db.execute("UPDATE open_enrollments SET receipt=NULL, withdrawn=? WHERE participant=?", (now, target))
             db.execute("DELETE FROM api_submissions WHERE participant=?", (participant,))
 
     def export(self, destination, include_answers=False):
@@ -235,14 +318,14 @@ def application(database):
             if method == "GET" and path == "/health":
                 database.health()
                 result = {"status": "ok", "format": FORMAT}
-            elif method == "POST" and path in ("/v1/enroll", "/v1/events", "/v1/register", "/v1/submissions", "/v1/submissions/publish"):
+            elif method == "POST" and path in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/events", "/v1/consent", "/v1/register", "/v1/register/open", "/v1/submissions", "/v1/submissions/publish"):
                 length = int(environ.get("CONTENT_LENGTH") or 0)
                 limit = 6 * MAX_BODY if path == "/v1/submissions" else MAX_BODY
                 if length <= 0 or length > limit:
                     raise ApiError(413, "전송 크기를 확인해 주세요.")
                 if environ.get("CONTENT_TYPE", "").split(";")[0].strip() != "application/json":
                     raise ApiError(415, "JSON 형식으로 보내 주세요.")
-                participant = database.authenticate(environ.get("HTTP_AUTHORIZATION", "")) if path not in ("/v1/enroll", "/v1/register") else None
+                participant = database.authenticate(environ.get("HTTP_AUTHORIZATION", "")) if path not in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/register", "/v1/register/open") else None
                 raw = environ["wsgi.input"].read(length)
                 if len(raw) != length:
                     raise ApiError(400, "전송 내용을 끝까지 받지 못했습니다.")
@@ -251,10 +334,16 @@ def application(database):
                     raise ApiError(400, "JSON 객체로 보내 주세요.")
                 if path == "/v1/enroll":
                     result = database.enroll(data)
+                elif path == "/v1/enroll/open":
+                    result = database.enroll_open(data)
+                elif path == "/v1/withdraw/open":
+                    result = database.withdraw_open(data)
+                elif path == "/v1/consent":
+                    result = database.record_consent(participant, data)
                 elif path == "/v1/events":
                     result = database.ingest(participant, data)
-                elif path == "/v1/register":
-                    result = submissions.register(data)
+                elif path in ("/v1/register", "/v1/register/open"):
+                    result = submissions.register(data, open_registration=path.endswith("/open"))
                 elif path == "/v1/submissions":
                     result = submissions.store(participant, data)
                 else:
@@ -267,6 +356,8 @@ def application(database):
             code = 200
         except ApiError as error:
             code, result = error.status, {"error": error.message}
+            if error.code:
+                result["code"] = error.code
         except (ValueError, UnicodeError, RecursionError):
             code, result = 400, {"error": "요청 내용을 읽을 수 없습니다."}
         except (sqlite3.Error, OSError):

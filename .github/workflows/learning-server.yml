@@ -6,8 +6,10 @@ on:
       - "learning_server/**"
       - "aiprep/collection.py"
       - "aiprep/sharing.py"
+      - "aiprep/privacy.py"
       - "submission_api.py"
       - "tests/test_submission_api.py"
+      - "tests/test_learning_privacy.py"
       - "tests/test_learning_server.py"
       - "tests/test_learning_operations.py"
       - ".github/workflows/learning-server.yml"
@@ -36,4 +38,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: "python -m pip install --only-binary=:all: -r learning_server/requirements.txt"
-      - run: python -m unittest -v tests.test_learning_server tests.test_learning_operations tests.test_submission_api
+      - run: python -m unittest -v tests.test_learning_server tests.test_learning_operations tests.test_submission_api tests.test_learning_privacy

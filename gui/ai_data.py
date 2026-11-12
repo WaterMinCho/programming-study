@@ -32,8 +32,8 @@ class LearningDataDialog(QDialog):
                                 "AI 개론·응용에서 수집을 시작한 뒤의 연습·모의고사 답안과 채점 결과, 문항을 연 순서, 응답 시간, 확신 여부를 보관합니다. "
                                 "학습 중의 짐작·떠올리기·코드 빈칸 결과도 포함합니다. 과거 풀이를 가져오지 않습니다.")
         body.addWidget(kit.para(notice))
-        body.addWidget(kit.para("기본은 이 컴퓨터에만 저장하며 GitHub 풀이 제출에는 포함하지 않습니다. "
-                                "파일로 내보내거나 API [풀이 제출]·[서버에 보내기]로 비공개 전송합니다. 수집을 중단해도 모든 학습 기능을 사용할 수 있습니다."))
+        body.addWidget(kit.para("[내 정보·데이터]에서 동의하면 새 기록을 비공개로 자동 전송합니다. GitHub 공개 풀이 제출과는 별도입니다. "
+                                "동의하지 않거나 철회해도 모든 학습 기능을 사용할 수 있습니다."))
         self.status_text = kit.para()
         body.addWidget(self.status_text)
         self.toggle = kit.button("", "primary", "l")
@@ -184,6 +184,13 @@ class LearningDataDialog(QDialog):
             super().closeEvent(event)
 
     def change_consent(self):
+        privacy = getattr(self.host, "privacy", None)
+        current_consent = (privacy is not None and not privacy.consent.needs_choice()
+                           and privacy.consent.settings().get("accepted"))
+        if not self.collection.status()["enabled"] and not current_consent and callable(getattr(self.host, "show_privacy", None)):
+            self.host.show_privacy()
+            self.accept()
+            return
         try:
             self.collection.set_enabled(not self.collection.status()["enabled"])
             self.message.setText("설정을 저장했습니다. 수집을 중단해도 이미 모은 데이터는 직접 삭제하기 전까지 남습니다.")

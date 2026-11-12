@@ -200,6 +200,7 @@ class CollectionIntegrationTest(Base):
     def test_failed_stop_still_starts_new_collection_period_on_resume(self):
         from learning_server.dataset import prepare
         sess = self.session()
+        sess.collection.set_enabled(True)
         sess.mark_read("i90", "90a")
         ps = sess.start_set("unit", lesson="i90", unit="90a", seed=4)
         current = ps.current()
@@ -226,6 +227,7 @@ class CollectionIntegrationTest(Base):
     def test_real_practice_events_link_first_return_time_after_restore(self):
         from learning_server.dataset import prepare
         sess = self.session()
+        sess.collection.set_enabled(True)
         sess.mark_read("i90", "90a")
         ps = sess.start_set("unit", lesson="i90", unit="90a", seed=4)
         current = ps.current()
@@ -262,6 +264,7 @@ class CollectionIntegrationTest(Base):
         helper.setUp()
         self.addCleanup(helper.doCleanups)
         sess = helper.session()
+        sess.collection.set_enabled(True)
         exam = sess.start_mock("m90", seed=1)
         first = exam.question(0)
         exam.save_answer(["3"], first["card"])
@@ -312,19 +315,22 @@ class CollectionCliTest(unittest.TestCase):
 
 class DistributionPolicyTest(unittest.TestCase):
     setUp = CollectionTest.setUp
-    def test_first_start_records_distribution_basis_once_without_claiming_consent_time(self):
+    def test_first_start_waits_for_explicit_choice_and_does_not_create_consent(self):
         self.store.initialize_distribution()
         before = self.store.status()
-        self.assertTrue(before["enabled"])
+        self.assertFalse(before["enabled"])
+        self.assertFalse(os.path.exists(self.store.path))
+        self.store.set_enabled(True)
+        before = self.store.status()
         self.store.initialize_distribution()
         self.assertEqual(before["epoch"], self.store.status()["epoch"])
         row = self.store.snapshot()[1]
-        self.assertEqual("distribution-2026-11-11", row["data"]["basis"])
-        self.assertIsNone(row["data"]["consent_at"])
+        self.assertEqual("consent", row["kind"])
         self.assertEqual(2, len(self.store.snapshot()))
 
     def test_stop_and_delete_survive_reopening_without_losing_user_choice(self):
         self.store.initialize_distribution()
+        self.store.set_enabled(True)
         participant = self.store.status()["participant"]
         self.store.set_enabled(False)
         self.store.initialize_distribution()
@@ -342,6 +348,7 @@ class DistributionPolicyTest(unittest.TestCase):
     def test_failed_stop_commit_still_blocks_goal_updates(self):
         self.store.repository = study.ROOT
         self.store.initialize_distribution()
+        self.store.set_enabled(True)
         reader = sqlite3.connect(self.store.path)
         try:
             reader.execute("BEGIN")
