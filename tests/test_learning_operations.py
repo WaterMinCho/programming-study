@@ -209,7 +209,7 @@ class OperationsTest(unittest.TestCase):
         options = serve.call_args.kwargs
         self.assertEqual("127.0.0.1", options["host"])
         self.assertEqual(4, options["threads"])
-        self.assertEqual(1048576, options["max_request_body_size"])
+        self.assertEqual(6 * app.MAX_BODY, options["max_request_body_size"])
         self.assertFalse(options["expose_tracebacks"])
         with mock.patch.object(app.Database, "__init__", side_effect=AssertionError("must not create")):
             with mock.patch("sys.argv", ["collector", "--db", str(self.path), "status"]):
