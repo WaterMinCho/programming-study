@@ -820,6 +820,7 @@ class BankTest(GuiTest):
         pump()
         listw = self.win.round_page.listw
         plain = QListWidget()  # 기본 그리기로 잰 같은 줄
+        plain.setFont(listw.font())
         plain.setIconSize(listw.iconSize())
         plain.addItem(listw.item(1).text())
         plain.item(0).setIcon(listw.item(1).icon())
