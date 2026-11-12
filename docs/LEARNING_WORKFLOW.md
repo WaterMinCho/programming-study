@@ -17,9 +17,9 @@ config:
 flowchart TD
     A["내 계정으로 fork"] --> B["컴퓨터로 clone"]
     B --> C["모델 작업용<br/>브랜치 만들기"]
-    C --> D["공통 입력 확인<br/>첫 PR 보내기"]
-    D --> E["같은 fork에서<br/>모델 구현"]
-    E --> F["코드·실험을<br/>PR로 검토"]
+    C --> D["비공개 자료 받기<br/>입력·샘플 확인"]
+    D --> E["본인 모델 코드·테스트<br/>개발 PR 보내기"]
+    E --> F["같은 PR에서 수정<br/>검토 후 합치기"]
 ```
 
 ## 어디에 무엇을 남기나요
@@ -44,7 +44,9 @@ flowchart TD
 | [wamangdoo · Transformer](https://github.com/WaterMinCho/programming-study/issues/120) | `experiments/wamangdoo/` |
 | [kimjs85529-a11y · LSTM + 풀이 간격](https://github.com/WaterMinCho/programming-study/issues/121) | `experiments/kimjs85529-a11y/` |
 
-작업을 시작하면 카드를 **진행**, 검토받을 PR을 올리면 **검토**로 옮깁니다. 첫 입력 확인 PR이 합쳐져도 모델 구현이 남아 있으면 **진행**으로 돌아갑니다.
+작업을 시작하면 카드를 **진행**, 검토받을 PR을 올리면 **검토**로 옮깁니다.
+
+아직 구현 중이면 PR을 Draft로 열고 카드는 진행에 둡니다. 검토받을 범위를 준비하면 **Ready for review**로 바꿉니다.
 
 <a id="2-개인-모델-저장소를-만듭니다"></a>
 
@@ -77,7 +79,7 @@ HTTPS 인증이 준비되지 않았다면 [GitHub의 Git 인증 안내][git-setu
 
 ## 3. 모델 작업 브랜치를 만듭니다
 
-SourceTree에서 본인 fork를 열고 커밋하지 않은 변경이 없는지 확인합니다. 왼쪽 **Branches(브랜치)**의 `main`을 더블클릭하고 **Pull(풀)**에서 `origin/main`을 받습니다. 기존 변경이나 충돌이 있으면 먼저 확인합니다. 위쪽 **Branch(브랜치)**에서 `model/본인ID-first-input`을 만들고 새 브랜치로 전환합니다.
+SourceTree에서 본인 fork를 열고 커밋하지 않은 변경이 없는지 확인합니다. 왼쪽 **Branches(브랜치)**의 `main`을 더블클릭하고 **Pull(풀)**에서 `origin/main`을 받습니다. 기존 변경이나 충돌이 있으면 먼저 확인합니다. 위쪽 **Branch(브랜치)**에서 `model/본인ID-model`을 만들고 새 브랜치로 전환합니다.
 
 터미널에서는 `programming-study` 폴더에서 실행합니다. 상태에 기존 변경이 보이면 브랜치를 바꾸기 전에 확인합니다. Pull이 오류로 멈추면 그 내용을 담당 이슈에 남깁니다.
 
@@ -85,14 +87,16 @@ SourceTree에서 본인 fork를 열고 커밋하지 않은 변경이 없는지 �
 git status --short --branch
 git switch main
 git pull --ff-only origin main
-git switch -c model/본인ID-first-input
+git switch -c model/본인ID-model
 ```
 
-브랜치는 수정 작업을 따로 관리하는 공간입니다. 이미 만든 작업 브랜치를 이어갈 때는 SourceTree에서 해당 브랜치를 더블클릭하거나 `git switch model/본인ID-first-input`으로 전환합니다. `git switch -c`로 다시 만들지 않습니다. 프로그램이 풀이를 제출하는 `study/본인ID` 브랜치는 모델 개발에 사용하지 않습니다.
+브랜치는 수정 작업을 따로 관리하는 공간입니다. 이미 만든 작업 브랜치를 이어갈 때는 SourceTree에서 해당 브랜치를 더블클릭하거나 `git switch model/본인ID-model`으로 전환합니다. `git switch -c`로 다시 만들지 않습니다. 예전 풀이 제출용 `study/본인ID` 브랜치는 모델 개발에 사용하지 않습니다.
 
 <a id="3-공통-연습-자료를-읽습니다"></a>
 
 ## 4. 공통 입력을 읽습니다
+
+[실제 자료 받기·샘플링 안내](LEARNING_DATA_ACCESS.md)를 따라 같은 판의 비공개 파일을 받고 입력을 확인합니다. 입력 확인 문서만 먼저 PR로 보내고 머지를 기다릴 필요는 없습니다. 아직 자료를 받지 못했다면 아래 합성 예제로 시작합니다.
 
 컴퓨터에 Git과 Python을 준비한 뒤 진행합니다. 처음 설치한다면 [프로그램 준비](../gui/README.md#최초-한번-준비해야할-것)를 확인합니다. 이번 입력 실습은 PyTorch나 GPU 없이 실행합니다.
 
@@ -110,11 +114,13 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track py
 <a id="4-본인이-이해한-내용을-저장합니다"></a>
 <a id="5-공통-프로젝트로-보낼-첫-변경을-만듭니다"></a>
 
-## 5. 본인 폴더에 첫 실습 기록을 적습니다
+<a id="5-본인-폴더에-첫-실습-기록을-적습니다"></a>
+
+## 5. 본인 폴더에서 코드와 테스트를 만듭니다
 
 편집기에서 `programming-study/experiments/본인ID/README.md`를 만듭니다. 없는 폴더는 함께 만듭니다. 일반 텍스트로 저장하고 파일 이름이 `README.md.txt`가 되지 않았는지 확인합니다. 공통 프로젝트 맨 위의 README 대신 본인 폴더의 README를 수정합니다.
 
-첫 PR에서는 입력을 읽고 이해한 내용을 공유합니다. 모델 전체가 완성될 때까지 기다릴 필요는 없습니다. 아래 틀에 실제 실행한 명령과 관측한 결과를 적습니다. 오류가 나면 성공으로 적지 않고 오류와 질문을 남깁니다.
+같은 폴더에 모델 코드와 작은 입력을 확인하는 테스트를 만듭니다. README에는 아래 틀로 실제 실행한 명령과 관측한 결과를 적습니다. 입력 읽기부터 예측·학습·저장 순서로 개발하며 지금 검토받을 코드와 질문을 PR에 담습니다. 모델 전체가 완성되기 전에도 Draft PR로 공유할 수 있습니다. 오류가 나면 오류와 질문을 남깁니다.
 
 ```markdown
 # 본인ID 모델 실습
@@ -136,19 +142,19 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track py
 
 SourceTree에서 다음 순서로 진행합니다.
 
-1. 현재 저장소가 본인 fork이고 브랜치가 `model/본인ID-first-input`인지 확인합니다.
-2. **File Status(파일 상태)**에서 `experiments/본인ID/README.md`의 변경 내용을 읽습니다.
-3. 그 파일만 **Stage(스테이지에 올리기)** 합니다. 이번 커밋에 담을 파일을 고르는 과정입니다.
-4. **Commit(커밋)**에 `docs: 본인ID 입력 확인 기록`을 적고 기록합니다.
+1. 현재 저장소가 본인 fork이고 브랜치가 `model/본인ID-model`인지 확인합니다.
+2. **File Status(파일 상태)**에서 본인 폴더의 코드·테스트·README 변경을 읽습니다.
+3. 이번 작업의 코드·테스트·README만 **Stage(스테이지에 올리기)** 합니다. 실제 자료와 샘플 파일은 제외합니다.
+4. **Commit(커밋)**에 `feat(model): 본인ID 입력과 예측 코드 추가`를 적고 기록합니다.
 5. **Push(푸시)**에서 `origin`을 고르고 이번 브랜치를 원격의 같은 이름으로 보냅니다.
 
 커밋은 컴퓨터에 변경 기록을 남기고 푸시는 그 기록을 GitHub에 보냅니다. 터미널에서는 같은 fork 폴더에서 실행합니다.
 
 ```sh
-git add experiments/본인ID/README.md
+git add experiments/본인ID/
 git --no-pager diff --cached
-git commit -m "docs: 본인ID 입력 확인 기록"
-git push -u origin model/본인ID-first-input
+git commit -m "feat(model): 본인ID 입력과 예측 코드 추가"
+git push -u origin model/본인ID-model
 ```
 
 푸시 후 GitHub의 본인 fork에서 **Compare & pull request**를 누릅니다. 보이지 않으면 [공통 프로젝트의 Pull requests](https://github.com/WaterMinCho/programming-study/pulls)에서 **New pull request → compare across forks**를 누릅니다.
@@ -158,13 +164,19 @@ git push -u origin model/본인ID-first-input
 | base repository | `WaterMinCho/programming-study` |
 | base | `main` |
 | head repository 또는 head fork | `본인ID/programming-study` |
-| compare | `model/본인ID-first-input` |
+| compare | `model/본인ID-model` |
 
-변경 목록에 본인의 `experiments/본인ID/README.md`만 있는지 확인합니다. 제목과 본문에 담당 이슈, 직접 확인한 내용, 실행 결과와 질문을 적고 **Create pull request**를 누릅니다. PR 주소를 담당 이슈에 붙이고 카드를 **검토**로 옮깁니다. PR은 내가 바꾼 내용을 검토하고 공통 프로젝트에 합쳐 달라는 요청입니다.
+변경 목록이 본인 폴더의 코드·테스트·설명인지 확인합니다. 실제 자료와 가중치가 Stage되지 않았는지도 확인합니다. 제목은 실제 변경에 맞춰 [PR 제목 규칙](PR_GUIDE.md)을 따릅니다.
 
-## 7. 같은 fork에서 모델을 개발합니다
+본문에 담당 이슈, 확인한 내용, 실행 결과와 질문을 적고 **Create pull request**를 누릅니다. 아직 작업 중이면 옆 메뉴의 **Create draft pull request**를 선택합니다. PR은 내가 바꾼 내용을 검토하고 공통 프로젝트에 합쳐 달라는 요청입니다.
 
-첫 PR이 합쳐지면 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신합니다. SourceTree에서 로컬 `main`으로 전환하고 `origin/main`을 Pull한 뒤 `model/본인ID-model` 같은 새 작업 브랜치를 만듭니다. 터미널에서는 3단계의 순서를 따라 새 브랜치 이름을 사용합니다.
+PR 주소를 담당 이슈에 붙입니다. 검토를 요청할 때 카드를 **검토**로 옮기고 Draft 작업은 진행에 둡니다.
+
+<a id="7-같은-fork에서-모델을-개발합니다"></a>
+
+## 7. 같은 PR에서 모델 개발과 수정을 이어갑니다
+
+진행 중인 작업은 같은 브랜치와 PR에서 이어갑니다. README만 올린 기존 PR이 있다면 그 브랜치에 코드를 추가해도 됩니다. 이미 합쳐진 PR과 기존 커밋은 지우지 않습니다. 다음 작업을 시작할 때는 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신하고 로컬 `main`을 Pull한 뒤 새 브랜치를 만듭니다.
 
 모델 코드도 같은 `experiments/본인ID/` 안에 작성합니다. 아래는 앞으로 만들 파일의 예시이며 완성된 모델 코드가 들어 있다는 뜻은 아닙니다.
 
@@ -182,10 +194,13 @@ model-study/
         configs/                 설정과 난수 시드
         figures/                 합성 자료의 학습곡선
         REVIEW_NOTES.md          피드백과 수정 이유
+  study-data/                   비공개 실제 자료와 샘플 · 저장소 밖에 보관
   learning-demo-f4/              가상 자료 · 저장소 밖에 보관
 ```
 
-코드를 바꾸면 본인 폴더의 변경만 골라 Stage → Commit → Push하고 공통 프로젝트로 PR을 보냅니다. 공통 입력 도구나 다른 팀원의 폴더를 바꿔야 한다면 먼저 담당 이슈에서 이유를 공유합니다. 작은 예측, 학습, 저장·불러오기, 평가를 작은 PR로 나눠도 됩니다. 구체적인 목표는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.
+공통 `learning_server`를 불러오는 모델은 `programming-study` 폴더에서 `python -m experiments.본인ID.train`처럼 실행합니다. 예를 들어 `python -m experiments.kimjs85529-a11y.train`입니다. 아직 `train.py`를 만들지 않았다면 실행할 수 없으며 파일 이름과 명령을 본인 README에 맞춰 적습니다.
+
+코드를 바꾸면 본인 폴더의 변경만 골라 Stage → Commit → Push합니다. 같은 브랜치에 Push하면 열린 PR이 갱신됩니다. 공통 입력 도구나 다른 팀원의 폴더를 바꿔야 한다면 먼저 담당 이슈에서 이유를 공유합니다. 이번 작업을 머지한 뒤 다음 목표는 새 PR로 나눠도 됩니다. 입력 확인만 별도 PR로 먼저 통과할 필요는 없습니다. 구체적인 목표는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.
 
 공개 재현에는 합성 자료를 사용합니다. 실제 풀이 원본·입력 답안·가명 구분값·인증 값·실제 자료로 학습한 가중치와 개별 예측은 올리지 않습니다. 로컬 자료·가중치·출력 폴더는 본인 모델 폴더의 `.gitignore`로 제외합니다.
 

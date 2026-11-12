@@ -18,9 +18,9 @@
 
 **michae18 · wamangdoo · kimjs85529-a11y는 여기서 시작하세요.** 담당 모델과 이번 할 일, 본인 fork에서 첫 PR을 보내는 순서를 안내합니다.
 
-담당 미션 확인 → fork·작업 브랜치 → 공통 입력 확인 → 본인 코드·설명 → PR·피드백
+담당 미션 확인 → fork·작업 브랜치 → 비공개 자료·샘플 확인 → 코드·테스트·PR
 
-[**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [프로젝트 구조와 담당 위치](docs/ARCHITECTURE.md)
+[**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [실제 자료 받기·샘플링](docs/LEARNING_DATA_ACCESS.md) · [프로젝트 구조와 담당 위치](docs/ARCHITECTURE.md)
 
 ---
 

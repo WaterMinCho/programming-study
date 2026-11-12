@@ -24,6 +24,7 @@ GitHub에서 clone한 뒤 start 파일을 실행합니다. 기기 ID는 자동 �
 - [수집 서버 운영·초대 발급](../docs/LEARNING_SERVER.md)
 - [시범 운영·백업·복구](../docs/LEARNING_PILOT.md)
 - [전체 수강생 배포 전 수집 범위·용량·접근 조건](../docs/LEARNING_READINESS.md)
+- [실제 자료 받기·샘플링·입력 테스트](../docs/LEARNING_DATA_ACCESS.md)
 - [공통 학습 자료 준비](../docs/LEARNING_STARTER.md)
 - [각자 fork에서 첫 PR까지](../docs/LEARNING_WORKFLOW.md)
 - [세 팀원의 담당별 미션](../docs/LEARNING_MISSIONS.md)

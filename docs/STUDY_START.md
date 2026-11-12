@@ -17,16 +17,17 @@
 ## 첫 PR까지 진행합니다
 
 1. [fork·SourceTree 또는 터미널 안내](LEARNING_WORKFLOW.md)를 따라 본인 fork를 받고 작업 브랜치를 만듭니다.
-2. [공통 입력 예제](LEARNING_STARTER.md)를 실행합니다. 처음에는 합성 자료를 사용하며 추가 라이브러리나 모델 학습 없이 입력 모양을 확인합니다.
-3. `experiments/본인GitHubID/README.md`에 실행한 명령·확인한 모양·자신이 이해한 내용과 질문을 적습니다. 최상위 README를 실습 기록으로 바꾸지 않습니다.
-4. Stage → Commit → Push를 한 뒤 본인 fork의 브랜치에서 공통 `main`으로 PR을 만듭니다. 제목은 `docs(model): 공통 입력 확인`처럼 [PR 제목 규칙](PR_GUIDE.md)을 따릅니다.
+2. [실제 자료 받기·샘플링](LEARNING_DATA_ACCESS.md)을 따라 같은 판의 비공개 파일을 받고 입력을 확인합니다. 아직 파일을 받지 못했다면 합성 예제로 시작합니다.
+3. `experiments/본인GitHubID/`에 모델 코드와 테스트를 작성합니다. 그 안의 `README.md`에 실행 방법·선택 이유·실행 결과와 질문을 적습니다.
+4. Stage → Commit → Push를 한 뒤 본인 fork의 브랜치에서 공통 `main`으로 PR을 만듭니다. 제목은 `feat(model): LSTM 입력과 예측 코드 추가`처럼 [PR 제목 규칙](PR_GUIDE.md)을 따릅니다.
 5. 피드백을 읽고 같은 브랜치에서 고쳐 Push합니다. 새 커밋의 검사와 리뷰가 끝난 뒤 머지 준비 상태를 확인합니다.
 
-첫 입력 확인 PR과 모델 완성은 구분합니다. 이후 학습·평가·저장·불러오기·오류 분석을 본인이 구현하며 [개발 로드맵](LEARNING_ROADMAP.md)의 산출물을 남깁니다. 실제 자료와 개별 예측·모델 가중치는 공개 PR에 올리지 않습니다.
+입력 확인용 문서 PR을 따로 먼저 보낼 필요는 없습니다. 하나의 작업은 코드·테스트·설명을 같은 PR에서 검토받습니다. 구현 중에는 Draft로 공유해도 됩니다. 입력 확인과 모델 학습 완료를 구분하고 학습·평가·저장·불러오기·오류 분석을 본인이 구현하며 [개발 로드맵](LEARNING_ROADMAP.md)의 산출물을 남깁니다. 실제 자료와 개별 예측·모델 가중치는 공개 PR에 올리지 않습니다.
 
 ## 사용할 문서를 고릅니다
 
 - [세 모델의 차이와 담당별 미션](LEARNING_MISSIONS.md)
+- [실제 자료 받기·샘플 뽑기·입력 테스트](LEARNING_DATA_ACCESS.md)
 - [공통 입력 판·예제와 실제 자료의 한계](LEARNING_STARTER.md)
 - [실험 기록 양식](LEARNING_EXPERIMENT_TEMPLATE.md)
 - [코드 검토와 피드백 반영](LEARNING_REVIEW.md) · [Slack 알림](SLACK_NOTIFICATIONS.md)

@@ -13,7 +13,7 @@ from tools.slack_notify import GitHub, REPO, WEB, RELAY, WORKFLOWS, association,
 from tools.study_checks import AUTHORS, checks_state, NOTIFY_CONTEXT
 
 SERVER_PATHS = ("learning_server/**", "aiprep/collection.py", "aiprep/sharing.py", "aiprep/privacy.py", "aiprep/sync_schedule.py", "submission_api.py", "tests/test_submission_api.py",
-                "tests/test_learning_privacy.py", "tests/test_private_submission.py", "tests/test_learning_server.py", "tests/test_learning_operations.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", "tests/test_legacy_transfer.py", ".github/workflows/learning-server.yml")
+                "tests/test_learning_privacy.py", "tests/test_private_submission.py", "tests/test_learning_server.py", "tests/test_learning_sample.py", "tests/test_learning_starter.py", "tests/test_learning_operations.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", "tests/test_legacy_transfer.py", ".github/workflows/learning-server.yml")
 JOURNEY_PATHS = ("dungeons/**", "journey/**", "study.py", "tools/verify_journey.py", "tools/journey_seal.py", "tools/journey_art/**",
                  "tests/test_journey_*.py", "tests/journey_bank/**", ".github/workflows/journey.yml")
 RELEASE = ".github/workflows/release-check.yml"
