@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""외부 게시·모델 실행 없이 검토 판정과 게시 복구를 검사함."""
+"""외부 게시·모델 실행 없이 검토 커밋정과 게시 복구를 검사함."""
 import copy
 import hashlib
 import json
@@ -256,7 +256,7 @@ class WorkerTest(unittest.TestCase):
 
     def test_prepare_race_stops_before_model(self):
         self.packet_changes["base"] = "c" * 40
-        self.assertEqual("새 판 대기", self.process())
+        self.assertEqual("새 커밋 대기", self.process())
         self.model_mock.assert_not_called()
         self.assertEqual([], self.posted())
 
@@ -266,7 +266,7 @@ class WorkerTest(unittest.TestCase):
                        {"title": "docs(model): 제목 수정"}, {"state": "closed"}):
             with self.subTest(change=change):
                 self.current = dict(copy.deepcopy(self.pr), **change)
-                self.assertEqual("새 판 대기", self.process())
+                self.assertEqual("새 커밋 대기", self.process())
                 self.assertEqual([], self.posted())
                 for path in self.folder().iterdir():
                     path.unlink()
@@ -280,7 +280,7 @@ class WorkerTest(unittest.TestCase):
                 self.current["base"]["sha"] = "c" * 40
             return result
         self.api_mock.side_effect = api
-        self.assertEqual("새 판 대기", self.process())
+        self.assertEqual("새 커밋 대기", self.process())
         self.assertEqual("DISMISSED", self.reviews[-1]["state"])
         self.assertNotIn("success", self.states())
         self.assertEqual("superseded", json.loads((self.folder()/"worker.json").read_text())["phase"])
@@ -385,7 +385,7 @@ class WorkerTest(unittest.TestCase):
     def test_recovery_rechecks_base_before_restoring_success(self):
         self.lose_status_ack()
         self.current["base"]["sha"] = "c" * 40
-        self.assertEqual("새 판 대기", self.process())
+        self.assertEqual("새 커밋 대기", self.process())
         self.assertEqual("DISMISSED", self.reviews[-1]["state"])
         self.assertNotIn("success", self.states())
 
@@ -437,7 +437,7 @@ class WorkerTest(unittest.TestCase):
         self.author_comment()
         self.result = assessment("needs_context")
         self.current["base"]["sha"] = "c" * 40
-        self.assertEqual("새 판 대기", self.process())
+        self.assertEqual("새 커밋 대기", self.process())
         folder = self.folder()
         data = json.loads((folder/"snapshot.json").read_text())
         data["context"] = [{"path": "example.py", "content": "ghp_" + "x" * 30}]
@@ -878,7 +878,7 @@ with mock.patch("subprocess.run", side_effect=AssertionError("external command")
     worker = importlib.import_module("tools.study_review_worker")
     data = {"head": "a"*40}
     result = {"summary": "변경한 입력 처리를 확인했음.", "findings": [], "questions": []}
-    assert "검토한 판" in worker.body_for(data, result, "marker", "APPROVE")
+    assert "검토한 커밋" in worker.body_for(data, result, "marker", "APPROVE")
     worker.save(root/"probe.json", {"saved": True})
     assert json.loads((root/"probe.json").read_text()) == {"saved": True}
     assert worker.valid_title("fix(model): 입력 수정")

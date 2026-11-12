@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""같은 판의 비공개 자료를 확인하고 모델 입력 시험용 샘플을 저장함."""
+"""같은 묶음의 비공개 자료를 확인하고 모델 입력 시험용 샘플을 저장함."""
 import argparse
 import copy
 import hashlib
@@ -29,7 +29,7 @@ def inspect(folder):
     raw = path.read_bytes()
     manifest = json.loads(raw)
     if manifest.get("format") != 1 or manifest.get("features_version") != dataset.FEATURES_VERSION:
-        raise ValueError("현재 공통 입력 판으로 준비한 자료를 지정해 주세요.")
+        raise ValueError("현재 공통 입력 버전으로 준비한 자료를 지정해 주세요.")
     tracks = manifest.get("tracks", [])
     if not tracks or len(set(tracks)) != len(tracks) or any(track not in TRACKS for track in tracks):
         raise ValueError("자료에 포함된 과목 목록을 확인해 주세요.")
@@ -45,7 +45,7 @@ def inspect(folder):
         raise ValueError("자료 목록의 해시가 바뀌었습니다. 받은 원본을 확인해 주세요.")
     record_manifest = json.loads(records_raw)
     if any(manifest.get(key) != record_manifest.get(key) for key in ("format", "features_version", "source", "synthetic")):
-        raise ValueError("자료의 출처와 입력 판 표시가 맞지 않습니다.")
+        raise ValueError("자료의 출처와 입력 버전 표시가 맞지 않습니다.")
     if set(record_manifest["files"]) != {track + "-" + part + ".jsonl" for track in tracks for part in PARTS}:
         raise ValueError("자료의 과목과 파일 목록이 맞지 않습니다.")
     content, counts = {}, {}
@@ -58,7 +58,7 @@ def inspect(folder):
             content[track][part] = (rows, vocabulary)
             counts[track][part] = len(rows)
     if path.read_bytes() != raw:
-        raise ValueError("확인 도중 자료 판이 바뀌었습니다. 같은 판을 새 폴더에서 확인해 주세요.")
+        raise ValueError("확인 도중 자료 버전이 바뀌었습니다. 같은 자료 묶음을 새 폴더에서 확인해 주세요.")
     report = {"status": "verified", "features_version": dataset.FEATURES_VERSION,
               "synthetic": manifest["synthetic"], "source": manifest["source"], "tracks": counts}
     return report, content, hashlib.sha256(raw).hexdigest()

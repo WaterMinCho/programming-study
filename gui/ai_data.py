@@ -67,7 +67,7 @@ class LearningDataDialog(QDialog):
         self.with_answers.setMinimumHeight(theme.control_height("s"))
         body.addWidget(self.with_answers)
         body.addWidget(kit.para("기본 내보내기는 입력 답안을 제외합니다. 문항·채점 결과·시간·가명 구분값은 포함합니다. "
-                                "희망 직무와 선택 당시 로드맵 판도 포함합니다. 가명 구분값을 써도 완전한 익명 자료는 아닙니다.", "caption", "secondary"))
+                                "희망 직무와 선택 당시 로드맵 버전도 포함합니다. 가명 구분값을 써도 완전한 익명 자료는 아닙니다.", "caption", "secondary"))
         self.export_button = kit.button("파일로 내보내기", scale="l")
         self.export_button.clicked.connect(self.choose_file)
         body.addWidget(self.export_button)
@@ -103,7 +103,7 @@ class LearningDataDialog(QDialog):
     def refresh(self):
         status = self.collection.status()
         state = "수집 중" if status["enabled"] else "수집 안 함"
-        text = "%s · 학습 동작 %d건 · 문항 판 %d개" % (state, status["events"], status["items"])
+        text = "%s · 학습 동작 %d건 · 문항 버전 %d개" % (state, status["events"], status["items"])
         if status["error"]:
             text += "\n" + status["error"]
         self.status_text.setText(text)
@@ -119,7 +119,7 @@ class LearningDataDialog(QDialog):
     def save_goal(self):
         try:
             self.collection.set_goal(self.goal_combo.currentData())
-            self.message.setText("희망 직무와 현재 로드맵 판을 저장했습니다. 이후 기록부터 적용합니다.")
+            self.message.setText("희망 직무와 현재 로드맵 버전을 저장했습니다. 이후 기록부터 적용합니다.")
         except CollectionError as error:
             self.message.setText(str(error))
         self.refresh()

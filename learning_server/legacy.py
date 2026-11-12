@@ -13,7 +13,7 @@ from aiprep.collection import digest, packed, stamp
 
 
 def profile_events(profile, catalog, timezone):
-    """기존 판정과 시각을 보존함. 과거 입력 시각·문항 판·희망 직무를 복원하지 않음."""
+    """기존 판정과 시각을 보존함. 과거 입력 시각·문항 버전·희망 직무를 복원하지 않음."""
     offset = re.fullmatch(r"([+-])(\d{2}):(\d{2})", timezone)
     if offset:
         hours, minutes = int(offset[2]), int(offset[3])

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""직접 고른 진로 목표와 선택 당시 로드맵 판을 보존함."""
+"""직접 고른 진로 목표와 선택 당시 로드맵 버전을 보존함."""
 import hashlib
 import json
 from pathlib import Path
@@ -15,9 +15,9 @@ def catalog(repository):
         options = {row["id"]: row["title"] for row in data["paths"]}
         updated = data["updated"]
     except (KeyError, TypeError):
-        raise ValueError("희망 직무 목록과 로드맵 판을 확인해 주세요.") from None
+        raise ValueError("희망 직무 목록과 로드맵 버전을 확인해 주세요.") from None
     if set(options) != set(STABLE_IDS) or not isinstance(updated, str):
-        raise ValueError("희망 직무 목록과 로드맵 판을 확인해 주세요.")
+        raise ValueError("희망 직무 목록과 로드맵 버전을 확인해 주세요.")
     canonical = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return {"options": [(key, options[key]) for key in STABLE_IDS],
             "roadmap_revision": hashlib.sha256(canonical).hexdigest(), "roadmap_updated": data["updated"]}

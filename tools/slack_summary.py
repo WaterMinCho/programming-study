@@ -221,7 +221,7 @@ def main():
                 if attempt < 2:
                     time.sleep(2)
             if final is None:
-                print("PR #%d: 전체 검사 또는 현재 판 리뷰를 기다립니다." % number)
+                print("PR #%d: 전체 검사 또는 현재 커밋의 리뷰를 기다립니다." % number)
                 continue
             if dry:
                 print(json.dumps(final[2], ensure_ascii=False))

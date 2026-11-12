@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""이 맥에서 팀원 PR의 고정한 텍스트를 검토하고 현재 판의 리뷰만 게시함."""
+"""이 맥에서 팀원 PR의 고정한 텍스트를 검토하고 현재 커밋의 리뷰만 게시함."""
 import argparse
 import contextlib
 import datetime
@@ -142,8 +142,8 @@ def validate(data, assessment, author):
 
 
 def body_for(data, assessment, marker, event):
-    labels = {"APPROVE": "현재 변경분의 정적 검토를 마쳤음.", "REQUEST_CHANGES": "수정 후 같은 브랜치에 Push한 판을 다시 확인함.", "COMMENT": "추가 문맥이나 실행 근거 확인을 기다림."}
-    text = marker+"\n\n검토한 판: `"+data["head"]+"`\n\n"+assessment["summary"]+"\n\n"+labels[event]
+    labels = {"APPROVE": "현재 변경분의 정적 검토를 마쳤음.", "REQUEST_CHANGES": "수정 후 같은 브랜치에 Push한 커밋을 다시 확인함.", "COMMENT": "추가 문맥이나 실행 근거 확인을 기다림."}
+    text = marker+"\n\n검토한 커밋: `"+data["head"]+"`\n\n"+assessment["summary"]+"\n\n"+labels[event]
     for item in assessment["findings"]:
         text += "\n\n### %s:%d\n\n조건: %s\n\n현재 동작: %s\n\n기대 동작: %s\n\n이유: %s\n\n수정 힌트: %s\n\n확인 방법: %s" % (item["path"], item["line"], item["condition"], item["actual"], item["expected"], item["reason"], item["hint"], item["check"])
     if assessment["questions"]:
@@ -255,7 +255,7 @@ def verify_saved(row, ready):
 
 def supersede(number, state_path, row, event):
     if event in {"APPROVE", "REQUEST_CHANGES"} and row["state"] != "DISMISSED":
-        api("pulls/%d/reviews/%d/dismissals" % (number, row["id"]), {"message": "리뷰 게시 중 코드 판이 바뀌어 이전 판정을 취소함."}, method="PUT")
+        api("pulls/%d/reviews/%d/dismissals" % (number, row["id"]), {"message": "리뷰 게시 중 커밋이 바뀌어 이전 판정을 취소함."}, method="PUT")
     save(state_path, {"phase": "superseded", "at": now(), "review_id": row["id"]})
 
 
@@ -329,7 +329,7 @@ def process(pr, root):
             raise review.ReviewError("같은 검토의 게시 결과가 여러 개입니다.")
         row = existing[-1]
         if row.get("commit_id") != pr["head"]["sha"]:
-            raise review.ReviewError("게시한 리뷰의 코드 판이 맞지 않습니다.")
+            raise review.ReviewError("게시한 리뷰의 커밋이 맞지 않습니다.")
         if state.get("phase") != "done":
             ready_path = folder/"publish-ready.json"
             if not ready_path.exists():
@@ -343,7 +343,7 @@ def process(pr, root):
             data = {"head": pr["head"]["sha"], "base": pr["base"]["sha"], "title": pr["title"], "description": pr.get("body") or ""}
             if not same(current, data):
                 supersede(number, state_path, row, ready["event"])
-                return "새 판 대기"
+                return "새 커밋 대기"
             passed = recover_passed(ready, folder, reviews, row, author)
             finish(pr, state_path, row, passed)
         return "이미 검토함"
@@ -364,14 +364,14 @@ def process(pr, root):
             _, data = review.snapshot(folder)
     except (review.ReviewError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
         save(state_path, {"phase": "prepare_failed", "reason": "prepare_failed", "at": now()})
-        raise AttemptError("검토 자료 준비 실패. 같은 판의 재준비를 중단함")
+        raise AttemptError("검토 자료 준비 실패. 같은 커밋의 재준비를 중단함")
     if (not same(pr, data) or data["number"] != number or data.get("discussion", []) != discussion):
-        return "새 판 대기"
+        return "새 커밋 대기"
     try:
         check_packet(data)
     except review.ReviewError:
         save(state_path, {"phase": "input_failed", "reason": "input_failed", "at": now()})
-        raise AttemptError("검토 입력 확인 실패. 같은 판의 검토를 중단함")
+        raise AttemptError("검토 입력 확인 실패. 같은 커밋의 검토를 중단함")
     status(pr, "pending", "고정한 현재 변경분을 검토 중")
     attempts = state.get("attempts", 0)+1
     save(state_path, {"phase": "reviewing", "attempts": attempts, "at": now()})
@@ -385,18 +385,18 @@ def process(pr, root):
         if not (folder/"review.json").exists() or not (folder/"feedback.md").exists():
             raise review.ReviewError("검토 응답의 완료 기록을 확인하지 못했습니다.")
         if json.loads((folder/"review.json").read_text()).get("head") != data["head"]:
-            raise review.ReviewError("검토 응답의 코드 판이 맞지 않습니다.")
+            raise review.ReviewError("검토 응답의 커밋이 맞지 않습니다.")
         event = validate(data, assessment, author)
     except (review.ReviewError, OSError, ValueError, KeyError, TypeError):
         failed_attempt(folder, attempts, "validation_failed")
-    # 이미 승인한 판의 설명 답변만 의견으로 남기며 해소한 변경 요청은 다시 승인함.
+    # 이미 승인한 커밋의 설명 답변만 의견으로 남기며 해소한 변경 요청은 다시 승인함.
     prior_terminal = [row for row in reviews if row["user"]["login"].lower() == "watermincho" and row.get("commit_id") == data["head"] and row.get("state") in {"APPROVED", "CHANGES_REQUESTED"}]
     checked = event
     if event == "APPROVE" and prior_terminal and prior_terminal[-1]["state"] == "APPROVED" and discussion:
         event = "COMMENT"
     current = api("pulls/%d" % number)
     if not same(current, data):
-        return "새 판 대기"
+        return "새 커밋 대기"
     try:
         body = body_for(data, assessment, marker, event)
     except (review.ReviewError, OSError, ValueError, KeyError, TypeError):
@@ -412,7 +412,7 @@ def process(pr, root):
     current = api("pulls/%d" % number)
     if not same(current, data):
         supersede(number, state_path, saved, event)
-        return "새 판 대기"
+        return "새 커밋 대기"
     finish(pr, state_path, saved, passed)
     return "리뷰 게시함"
 
@@ -539,7 +539,7 @@ def install(root=ROOT):
 
 def main():
     os.umask(0o077)
-    parser = argparse.ArgumentParser(description="팀원 모델 PR을 현재 판에서 검토하고 피드백을 남깁니다.")
+    parser = argparse.ArgumentParser(description="팀원 모델 PR의 현재 커밋을 검토하고 피드백을 남깁니다.")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--install", action="store_true")
     parser.add_argument("--root", type=Path, default=ROOT, help="검토 자료·처리 상태·로그를 보관할 비공개 폴더입니다.")
