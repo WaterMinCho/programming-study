@@ -120,9 +120,13 @@ def validate(data, assessment, author):
         raise review.ReviewError("확인 질문의 형식을 확인하지 못했습니다.")
     review.check_text(review.packed(assessment))
     prefix = "experiments/"+author+"/"
-    permitted = (not data.get("unreviewed_images") and len(data["files"]) <= 15 and len(data["diff"].encode()) <= 60000
-                 and all(path.startswith(prefix) and Path(path).suffix.lower() in {".py", ".md", ".txt"}
-                         and Path(path).name.lower() not in {"setup.py", "conftest.py"} for path in data["files"]))
+    changed_paths = data.get("changed_paths")
+    permitted = (isinstance(changed_paths, list) and bool(changed_paths)
+                 and all(path in changed_paths for path in data["files"])
+                 and not data.get("unreviewed_images") and len(data["files"]) <= 15 and len(data["diff"].encode()) <= 60000
+                 and all(isinstance(path, str) and path.startswith(prefix) and ".." not in Path(path).parts
+                         and Path(path).suffix.lower() in {".py", ".md", ".txt"}
+                         and Path(path).name.lower() not in {"setup.py", "conftest.py"} for path in changed_paths))
     if any(item["blocking"] for item in assessment["findings"]):
         return "REQUEST_CHANGES"
     if permitted and valid_title(data["title"]) and assessment["decision"] == "approve":

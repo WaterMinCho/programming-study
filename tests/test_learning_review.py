@@ -63,6 +63,11 @@ class ReviewTest(unittest.TestCase):
             self.assertEqual(0o700, self.folder.stat().st_mode & 0o777)
             self.assertEqual(0o600, (self.folder / "snapshot.json").stat().st_mode & 0o777)
 
+    def test_rename_keeps_both_source_and_destination_in_review_packet(self):
+        data = self.prepare(diff="rename from tools/helper.py\nrename to experiments/michae18/helper.py\n",
+                            files=[{"filename": "experiments/michae18/helper.py", "previous_filename": "tools/helper.py"}])
+        self.assertEqual(["experiments/michae18/helper.py", "tools/helper.py"], data["changed_paths"])
+
     def test_blocked_path_and_renamed_private_source_stop_before_model(self):
         for name in ("submissions/alice/profile.json", "data/events.jsonl", ".env", "model.pth", "x.ipynb", "../x.py", ""):
             with self.subTest(name=name), self.assertRaises(review.ReviewError):
