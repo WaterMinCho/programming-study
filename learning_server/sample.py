@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import random
 
-from aiprep.collection import packed
+from learning_data.collection import packed
 from learning_server import dataset, input_example
 
 PARTS = ("train", "validation", "test")

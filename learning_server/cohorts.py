@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 import sqlite3
 
-from aiprep.collection import inside, packed
-from aiprep.goals import STABLE_IDS
+from learning_data.collection import inside, packed
+from learning_data.goals import STABLE_IDS
 from learning_server.dataset import write_private
 
 

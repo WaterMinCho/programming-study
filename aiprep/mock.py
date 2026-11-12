@@ -17,7 +17,8 @@ import time
 
 import study
 import session
-from aiprep import bank, collection, grade
+from aiprep import bank, grade
+from learning_data import collection
 from webprep import bank as webbank
 from webprep import record
 

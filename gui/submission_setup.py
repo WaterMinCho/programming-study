@@ -3,9 +3,9 @@
 from PyQt6.QtWidgets import QCheckBox, QDialog, QLineEdit, QPlainTextEdit, QWidget
 
 from gui import kit, theme
-from aiprep.collection import CollectionError
-from aiprep.privacy import DEFAULT_SERVER
-from submission_api import snapshot
+from learning_data.collection import CollectionError
+from learning_data.privacy import DEFAULT_SERVER
+from learning_data.submission import snapshot
 
 
 class SubmissionSetup(QDialog):

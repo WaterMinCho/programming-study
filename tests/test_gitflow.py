@@ -376,7 +376,7 @@ class GitFlowTest(unittest.TestCase):
         write(os.path.join(pc.path, ".study_user"), "alice\n")
         before = pc.read()
         files = {"python_collection.py": "VERSION = 2\n", "start.pyw": "VERSION = 2\n",
-                 "webprep/new_helper.py": "VERSION = 2\n", "learning_server/new_helper.py": "VERSION = 2\n",
+                 "learning_data/new_helper.py": "VERSION = 2\n", "webprep/new_helper.py": "VERSION = 2\n", "learning_server/new_helper.py": "VERSION = 2\n",
                  "tools/new_helper.py": "VERSION = 2\n", "ai/new-note.md": "# 학습 자료\n",
                  "docs/new-guide.md": "# 실행 안내\n"}
         self.server.add_files(files, "프로그램 전체 업데이트")
@@ -407,6 +407,29 @@ class GitFlowTest(unittest.TestCase):
         pc.offline()
         self.assertEqual(flow.sync()["status"], "offline")
         self.assertEqual(pc.read(), before)
+
+    def test_old_folder_list_receives_new_shared_package_and_preserves_answers(self):
+        self.pc.solve(grade=False)
+        before = self.pc.read()
+        paths = ("learning_data/__init__.py", "learning_data/collection.py", "learning_data/goals.py",
+                 "aiprep/__init__.py", "aiprep/collection.py")
+        files = {name: Path(ROOT, name).read_text(encoding="utf-8") for name in paths}
+        self.server.add_files(files, "공통 학습 데이터 폴더 분리")
+        old_folders = tuple(name for name in gitflow.TOOL_DIRS if name != "learning_data/")
+        with mock.patch.object(gitflow, "TOOL_DIRS", old_folders):
+            result = self.pc.flow.sync()
+        self.assertEqual(("ok", True), (result["status"], result["restart"]))
+        for name, content in files.items():
+            self.assertEqual(content, Path(self.pc.path, name).read_text(encoding="utf-8"))
+        probe = "import sys; sys.path.insert(0, sys.argv[1]); import aiprep.collection, learning_data.collection; assert aiprep.collection is learning_data.collection"
+        loaded = subprocess.run([sys.executable, "-I", "-B", "-c", probe, self.pc.path],
+                                cwd=self.pc.path, capture_output=True, text=True, timeout=20)
+        self.assertEqual(0, loaded.returncode, loaded.stderr)
+        self.assertEqual(before, self.pc.read())
+        self.server.add_files({"learning_data/new_helper.py": "VERSION = 2\n"}, "공통 학습 데이터 코드 갱신")
+        updated = gitflow.GitFlow(self.pc.path, self.pc.user).sync()
+        self.assertEqual(("ok", True), (updated["status"], updated["restart"]))
+        self.assertEqual(before, self.pc.read())
 
     def test_failed_program_deletion_is_retried_without_deleting_private_records(self):
         pc = self.pc

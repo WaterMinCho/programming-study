@@ -10,7 +10,7 @@ import uuid
 import zlib
 import unicodedata
 
-from aiprep.collection import NOTICE, digest, packed, stamp
+from learning_data.collection import NOTICE, digest, packed, stamp
 from learning_server.app import ApiError, hashed, identifier
 
 MAX_BYTES = 4 * 1024 * 1024

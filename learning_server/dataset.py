@@ -9,7 +9,7 @@ from pathlib import Path
 import uuid
 from collections import deque
 
-from aiprep.collection import inside, packed
+from learning_data.collection import inside, packed
 
 FEATURES_VERSION = 4
 

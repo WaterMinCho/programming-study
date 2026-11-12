@@ -24,7 +24,8 @@ import threading
 import adaptive
 import session
 import study
-from aiprep import bank, collection, gen, grade, mock, notes, plan, review, skel
+from aiprep import bank, gen, grade, mock, notes, plan, review, skel
+from learning_data import collection
 from webprep import record
 
 SET_SIZE = 20

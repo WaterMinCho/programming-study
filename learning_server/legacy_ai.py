@@ -5,7 +5,7 @@ import hashlib
 import json
 import uuid
 
-from aiprep.collection import digest
+from learning_data.collection import digest
 from learning_server.legacy import store_plan
 from learning_server.operations import private_path
 
