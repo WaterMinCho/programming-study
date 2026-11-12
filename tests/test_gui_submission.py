@@ -3,11 +3,11 @@
 from pathlib import Path
 from unittest import mock
 
+from tests import guikit
+from PyQt6.QtCore import QPoint
 from aiprep.collection import CollectionError
 from gui import theme
 from submission_api import Client
-from tests import guikit
-from PyQt6.QtCore import QPoint
 from tests.test_gui_hub import HubTest
 
 
