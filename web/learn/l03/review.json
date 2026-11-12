@@ -12,10 +12,11 @@
   "assets/3b-3.gif": "95b0cf00420cfaea0998a638bb660a9118155ea75393b1210ded2c17cf0a1128",
   "assets/3b-4.png": "2f0d3952ffd8bb871d95a3e65f0f7fac22085bb92118c5eb7459e5cbf32fa1bb",
   "meta.json": "900c1527719b83d201ee199b9c364622c5bdc03fb7dccd337a6debbd3d564069",
-  "page.md": "c98f3caddc0a480bda2b136c5964f4f760ec83d83d44ef0003d6f00dfb27870c"
+  "page.md": "9ad8227f8d504e6e6c9bae2948fb100fd5840ca1d71f0c09a12d3f8e61f043af"
  },
  "findings": [
   "검토 R: 3B 본문의 A 와 C 이행 시각이 코드와 반대로 적혀 있어 고침",
-  "검토 R: 다시 보내는 조건 문단이 RETRY_STATUS 의 408 을 빼놓아 408 과 429 를 함께 적음. 3b-3.gif 7번 프레임의 지금 표시가 오른쪽 끝에 잘려 선 왼쪽에 두게 고침"
+  "검토 R: 다시 보내는 조건 문단이 RETRY_STATUS 의 408 을 빼놓아 408 과 429 를 함께 적음. 3b-3.gif 7번 프레임의 지금 표시가 오른쪽 끝에 잘려 선 왼쪽에 두게 고침",
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
  ]
 }

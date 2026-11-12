@@ -213,6 +213,7 @@ class RoundPage(QWidget):
         self.dirty.clear()
         self.view, self.review, self.current = view, review, None
         self.title.setText(view["title"] + (" · 다시 풀기" if review else ""))
+        self.title.show()
         self.banner.setVisible(review)
         self.back_btn.setVisible(review)
         self.submit_btn.setText("다시 채점" if review else "회차 제출")

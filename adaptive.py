@@ -3,7 +3,7 @@
 """적응형 학습 엔진. 진단 → 약점 분석 → 맞춤 회차 → 채점·가이드 → 모의고사 순으로 진행함.
 
 결과가 사람마다 달라서 받는 문항도 달라짐. 상태는 submissions/<ID>/profile.json 에만 기록하고,
-PR 로 올라가면 CI 와 스터디장이 같은 기준으로 분석함. study.py 가 불러 쓰는 모듈임.
+로컬 채점 결과를 바탕으로 다음 회차를 구성함. study.py 가 불러 쓰는 모듈임.
 """
 import datetime
 import json
@@ -627,7 +627,7 @@ def guide_text(prof, cat, rnd=None, show_next=False):
     shortages = (rnd or {}).get("shortages") or []
     if shortages:
         lines.append("문항이 바닥난 단원·레벨: " + ", ".join("%s 레벨%d" % (x["unit"], x["level"]) for x in shortages)
-                     + ". PR 로 올리면 스터디장에게 출제 요청이 갑니다.")
+                     + ". 부족한 단원과 레벨을 스터디장에게 알려 주세요.")
     return "\n".join(lines)
 
 
@@ -705,5 +705,5 @@ def shortage_request_markdown(shortages, cat):
              "| 단원 | 레벨 | 부족 수 |", "|---|---|---|"]
     for (u, L), n in sorted(shortages.items()):
         lines.append("| %s %s | %d | %d |" % (u, cat_unit_title(cat, u), L, n))
-    lines += ["", "이 이슈는 main 에 풀이가 올라올 때마다 자동으로 갱신됩니다."]
+    lines += ["", "문제가 추가되면 프로그램에서 새 자료를 받아 확인해 주세요."]
     return "\n".join(lines) + "\n"

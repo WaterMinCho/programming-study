@@ -30,6 +30,22 @@ class Clock:
 
 
 class ExamTest(unittest.TestCase):
+    def test_unknown_start_version_cannot_rebuild_a_missing_draft_from_current_items(self):
+        first = self.exam(seed=4)
+        path = Path(self.session.record.path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["log"][0].pop("fingerprint")
+        path.write_text(json.dumps(data), encoding="utf-8")
+        self.session.record = Record(str(path), "learner")
+        Path(first.path).unlink()
+        before = path.read_bytes()
+        with self.assertRaisesRegex(MockError, "문항 버전을 확인하지 못해"):
+            self.exam()
+        self.assertFalse(Path(first.path).exists())
+        self.assertEqual(before, path.read_bytes())
+        self.assertEqual(2, self.exam(repeat=True).attempt)
+        self.assertNotIn("fingerprint", self.session.record.log[0])
+
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix="ai_mock_")
         self.addCleanup(temp.cleanup)
@@ -46,7 +62,7 @@ class ExamTest(unittest.TestCase):
             {"id": "m1-04", "kind": "choice", "lesson": "i05", "stem": "옳지 않은 것을 고르세요.", "pick": "wrong",
              "options": [{"text": str(n), "ok": n != 1} for n in range(4)]},
         ]
-        (self.folder / 'meta.json').write_text('{}')
+        (self.folder / 'meta.json').write_text('{}', encoding="utf-8")
         self.write_items()
         self.clock = Clock()
         self.session = types.SimpleNamespace(root=str(self.root/'bank'), home=str(self.root/'local'),
@@ -55,7 +71,7 @@ class ExamTest(unittest.TestCase):
                                              _lock=threading.RLock())
 
     def write_items(self):
-        (self.folder/'work/items.json').write_text(json.dumps({'items': self.items}, ensure_ascii=False))
+        (self.folder/'work/items.json').write_text(json.dumps({'items': self.items}, ensure_ascii=False), encoding="utf-8")
 
     def exam(self, **kwargs):
         return MockExam(self.session, 'm1', clock=lambda: self.clock.at, monotonic=lambda: self.clock.mono, **kwargs)
@@ -172,12 +188,36 @@ class ExamTest(unittest.TestCase):
             self.exam(repeat=True)
         self.assertEqual(1, len(self.session.record.log))
 
+    def test_missing_active_draft_keeps_the_original_deadline(self):
+        first = self.exam(seed=3)
+        deadline = first.draft["deadline"]
+        self.clock.advance(15)
+        Path(first.path).unlink()
+        resumed = self.exam()
+        self.assertEqual(1, resumed.attempt)
+        self.assertEqual(deadline, resumed.draft["deadline"])
+        self.assertEqual({}, resumed.draft["answers"])
+        self.assertTrue(resumed.recovered_draft)
+        self.assertEqual(45, resumed.remaining())
+        self.assertEqual(1, len(self.session.record.log))
+
+    def test_changed_active_exam_can_start_a_new_attempt_without_replacing_the_old_draft(self):
+        first = self.exam(seed=3)
+        original = Path(first.path).read_bytes()
+        self.items[0]["stem"] += " 바뀐 조건입니다."
+        self.write_items()
+        second = self.exam(repeat=True, seed=4)
+        self.assertEqual(2, second.attempt)
+        self.assertEqual(original, Path(first.path).read_bytes())
+        self.assertNotEqual(first.fingerprint, second.fingerprint)
+        self.assertEqual(["mock_start", "mock_start"], [row["kind"] for row in self.session.record.log])
+
     def test_damaged_draft_is_preserved(self):
         exam = self.exam()
-        Path(exam.path).write_text('{bad')
+        Path(exam.path).write_text('{bad', encoding="utf-8")
         with self.assertRaises(MockError):
             self.exam()
-        self.assertEqual('{bad', Path(exam.path).read_text())
+        self.assertEqual('{bad', Path(exam.path).read_text(encoding="utf-8"))
 
     def test_changed_question_blocks_resume_but_explanation_change_does_not(self):
         exam = self.exam()
@@ -213,11 +253,11 @@ class ExamTest(unittest.TestCase):
     def test_damaged_record_is_reported_without_replacing_the_draft(self):
         exam = self.exam()
         before = Path(exam.path).read_bytes()
-        Path(self.session.record.path).write_text('{bad')
+        Path(self.session.record.path).write_text('{bad', encoding="utf-8")
         with self.assertRaises(MockError):
             exam.submit()
         self.assertEqual(before, Path(exam.path).read_bytes())
-        self.assertEqual('{bad', Path(self.session.record.path).read_text())
+        self.assertEqual('{bad', Path(self.session.record.path).read_text(encoding="utf-8"))
 
     def test_changed_bank_keeps_old_score_and_allows_a_new_attempt(self):
         exam = self.exam()
@@ -233,6 +273,38 @@ class ExamTest(unittest.TestCase):
 
 
 class MockServiceTest(Base):
+    def test_first_submission_after_a_bank_restart_keeps_review_score_and_history(self):
+        sess = self.session()
+        first = sess.start_mock("m90", seed=1)
+        original = Path(first.path).read_bytes()
+        self.mock_items[0]["stem"] += " 바뀐 조건입니다."
+        self.mock_items[1]["tags"] = ["공유 주제"]
+        path = Path(self.root) / "mocks/m90/work/items.json"
+        path.write_text(json.dumps({"items": self.mock_items}, ensure_ascii=False), encoding="utf-8")
+        sess = self.session()
+        self.assertTrue(sess.mock_info("m90")["restart_required"])
+        sess.cards["i90-b01"]["tags"] = ["공유 주제"]
+        exam = sess.start_mock("m90", repeat=True, seed=2)
+        exam.save_answer(["3"], "m90-01")
+        exam.save_answer(["4"], "m90-02")
+        submitted = exam.submit()
+        self.assertEqual(2, submitted["try"])
+        self.assertTrue(submitted["related"])
+        self.assertEqual(original, Path(first.path).read_bytes())
+        self.assertEqual(1, sess.mock_state("m90")["first_score"])
+        self.assertEqual(["4"], sess.wrong_item("m90-02")["mine"])
+        self.at = "2026-11-10T20:00:00"
+        fresh = self.session()
+        self.assertEqual(4, fresh.overview()["due"])
+        self.assertEqual(1, fresh.hub_overview()["recent"][0]["score"])
+        retry = fresh.start_mock("m90", repeat=True, seed=3)
+        for cid in retry.items:
+            retry.save_answer(["3"], cid)
+        self.assertFalse(retry.submit()["related"])
+        self.assertEqual(1, fresh.mock_state("m90")["first_score"])
+        self.assertEqual(4, fresh.overview()["due"])
+        self.assertEqual(1, fresh.hub_overview()["recent"][0]["score"])
+
     def setUp(self):
         super().setUp()
         self.root = os.path.join(self.tmp, 'bank')
@@ -243,13 +315,13 @@ class MockServiceTest(Base):
         study.write_text(index_path, json.dumps(index, ensure_ascii=False))
         folder = Path(self.root) / 'mocks/m90'
         (folder / 'work').mkdir(parents=True)
-        (folder / 'meta.json').write_text('{}')
+        (folder / 'meta.json').write_text('{}', encoding="utf-8")
         self.mock_items = [
             {'id': 'm90-%02d' % n, 'kind': 'blank', 'lesson': 'i90', 'unit': '90a', 'step': '90a/1',
              'stem': '숫자를 쓰세요: ____', 'blanks': [{'answer': ['3'], 'mode': 'number'}],
              'explain': '정답은 3입니다.', 'ref': ['검증 기록']} for n in range(1, 5)
         ]
-        (folder / 'work/items.json').write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False))
+        (folder / 'work/items.json').write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False), encoding="utf-8")
 
     def test_unsubmitted_questions_do_not_enter_practice(self):
         sess = self.session()
@@ -312,7 +384,7 @@ class MockServiceTest(Base):
         self.mock_items[0]['stem'] = '새 숫자를 쓰세요: ____'
         self.mock_items[0]['blanks'][0]['answer'] = ['9']
         path = Path(self.root) / 'mocks/m90/work/items.json'
-        path.write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False))
+        path.write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False), encoding="utf-8")
 
         restored = self.session()
         self.assertEqual(0, restored.overview()['due'])
@@ -391,7 +463,7 @@ class MockServiceTest(Base):
     def test_related_practice_card_is_due_next_day_without_a_fabricated_answer(self):
         self.mock_items[0]['tags'] = ['공유 주제']
         path = Path(self.root) / 'mocks/m90/work/items.json'
-        path.write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False))
+        path.write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False), encoding="utf-8")
         sess = self.session()
         sess.cards['i90-b01']['tags'] = ['공유 주제']
         result = sess.start_mock('m90').submit()
@@ -408,7 +480,7 @@ class MockServiceTest(Base):
     def test_related_card_is_due_on_last_review_day(self):
         self.mock_items[0]['tags'] = ['공유 주제']
         path = Path(self.root) / 'mocks/m90/work/items.json'
-        path.write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False))
+        path.write_text(json.dumps({'items': self.mock_items}, ensure_ascii=False), encoding="utf-8")
         sess = self.session()
         last_day = sess.exam['last_review']
         self.at = (last_day - datetime.timedelta(days=1)).isoformat() + 'T20:00:00'

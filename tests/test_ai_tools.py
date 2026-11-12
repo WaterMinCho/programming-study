@@ -95,10 +95,41 @@ class Case(unittest.TestCase):
 
 
 class VerifyTest(Case):
+    def test_choice_oracle_failure_is_reported_without_aborting_verification(self):
+        real_run = genlib.run
+        def choice_sample(spec, seed):
+            made = real_run(spec, seed)
+            if spec.id == "i90-g01":
+                made.update(kind="choice", pick="right", multi=False, options=[
+                    {"text": "갱신한 값을 사용합니다.", "ok": True},
+                    {"text": "처음 값을 유지합니다.", "ok": False},
+                    {"text": "기울기를 그대로 더합니다.", "ok": False},
+                    {"text": "기울기를 두 번 뺍니다.", "ok": False}])
+            return made
+        def broken_oracle(params):
+            raise ValueError("대조 계산 실패")
+        with mock.patch.object(genlib, "run", side_effect=choice_sample), \
+                mock.patch.object(genlib, "load_oracle", return_value={"i90_g01": broken_oracle}):
+            code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("oracle 오류 대조 계산 실패", out)
+
     def test_fixture_passes(self):
         code, out = self.verify()
         self.assertEqual(0, code, out)
         self.assertIn("OK: 묶음 2개 통과", out)
+
+    def test_guess_requires_its_answer_at_the_announced_step(self):
+        self.replace("learn/l90/page.md", '```ai-reveal\n{"guess": "g1"}\n```', "")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("짐작 g1 확인을 안내한 2단계", out)
+
+    def test_guess_rejects_an_answer_at_a_different_step(self):
+        self.replace("learn/l90/page.md", '"reveal_step": 2', '"reveal_step": 3')
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("짐작 g1 확인을 안내한 3단계", out)
 
     def test_visible_lecture_locations_fail_in_card_fields(self):
         suffix = " 슬라이드 3쪽을 봅니다."
@@ -635,6 +666,27 @@ class OverlapTest(Case):
 
 
 class ArtTest(Case):
+    def test_record_preserves_the_source_of_unchanged_images(self):
+        manifest = os.path.join(self.tmp, "manifest.json")
+        names = ai_art.record("l90", self.bank, manifest, script="tools/ai_art/__init__.py")
+        before = ai_art.read_manifest(manifest)
+        ai_art.record("l90", self.bank, manifest, script="tools/ai_art/conditions_qt.py")
+        self.assertEqual(before, ai_art.read_manifest(manifest))
+        with open(self.path(names[0]), "ab") as output:
+            output.write(b"\0")
+        ai_art.record("l90", self.bank, manifest, script="tools/ai_art/conditions_qt.py")
+        saved = ai_art.read_manifest(manifest)
+        self.assertEqual("tools/ai_art/conditions_qt.py", saved["files"][names[0]]["script"])
+        self.assertEqual(before["files"][names[1]], saved["files"][names[1]])
+
+    def test_empty_legacy_registry_does_not_report_a_successful_render(self):
+        script = os.path.join(self.tmp, "legacy.py")
+        study.write_text(script, "FIGS = {}\n")
+        manifest = os.path.join(self.tmp, "manifest.json")
+        with self.assertRaisesRegex(ValueError, "등록된 그림이 없습니다"):
+            ai_art.render("l90", bank_dir=self.bank, manifest=manifest, script=script)
+        self.assertFalse(os.path.exists(manifest))
+
     def test_names_and_limits(self):
         self.assertEqual("l05", ai_art.page_of("l05-3"))
         self.assertEqual("l05", ai_art.page_of("5c-1"))

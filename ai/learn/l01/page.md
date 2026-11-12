@@ -951,7 +951,7 @@ class MyModel(nn.Module):
         return x
 ```
 
-`super().__init__()`은 `nn.Module`의 준비를 먼저 합니다. 순전파 계산은 `forward` 메서드에 씁니다. 학습은 「PyTorch의 학습 다섯 줄」 단원의 다섯 줄로 합니다.
+`super().__init__()`은 `nn.Module`의 준비를 먼저 합니다. 순전파 계산은 `forward` 메서드에 씁니다. 학습은 「PyTorch의 학습 기본 패턴」에서 예측·손실 계산·기울기 계산·파라미터 갱신을 반복합니다.
 
 ```ai-recall
 {"id": "r24", "q": "PyTorch 모델 클래스에서 순전파 계산을 적는 메서드 이름은 ____ 입니다.", "answer": ["forward"], "mode": "code", "why": "model(x)로 부르면 nn.Module의 __call__이 forward를 부릅니다."}

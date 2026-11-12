@@ -70,6 +70,8 @@ def gen_spec(test):
 
 
 def is_cached(gen_source, test):
+    if gen_source is None:
+        return False
     path = os.path.join(runner.cache_dir(), runner.cache_key(gen_source, gen_spec(test)) + ".json")
     return os.path.isfile(path)
 

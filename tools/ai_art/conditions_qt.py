@@ -1,11 +1,10 @@
 """학습률·장치·배치 정규화의 조건을 Qt로 그림. 모델은 실행하지 않음."""
 import argparse
 import hashlib
-import json
 from pathlib import Path
 import sys
 
-from tools.ai_art import FIXED
+from tools.ai_art import FIXED, read_manifest, write_manifest
 from tools.ai_art import l01_training_qt as draw
 from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QColor, QFontDatabase, QPainterPath, QPen
@@ -242,7 +241,7 @@ def main():
         key=QFontDatabase.addApplicationFont(str(ROOT/'gui/fonts'/name))
         assert key>=0
         draw.FONTS['code' if name.startswith('D2') else 'body']=QFontDatabase.applicationFontFamilies(key)[0]
-    path=ROOT/'tools/ai_art/manifest.json';manifest=json.loads(path.read_text())
+    path=ROOT/'tools/ai_art/manifest.json';manifest=read_manifest(str(path))
     for lesson,name,fn in (('l01','1a-3',learning_rates),('l03','3h-1',device_transfer),('l05','5f-4',batch_norm),
                            ('l07','7f-4',regression_conditions),('l08','8e-4',training_then_evaluation),('l08','8e-5',training_weight),
                            ('l04','4f-4',momentum_conditions),('l04','4g-3',split_example)):
@@ -260,10 +259,10 @@ def main():
             frame.quantize(palette=palette,dither=Image.Dither.NONE).save(target,optimize=True)
             with Image.open(target) as saved:assert saved.size==(1120,600)
             assert target.stat().st_size<=150*1024
-        key=str(target.relative_to(ROOT/'ai'))
+        key=target.relative_to(ROOT/'ai').as_posix()
         manifest['files'][key]={'sha256':hashlib.sha256(target.read_bytes()).hexdigest(),'script':'tools/ai_art/conditions_qt.py','fn':fn.__name__}
         print(key,target.stat().st_size,flush=True)
-    path.write_text(json.dumps(manifest,ensure_ascii=False,indent=1)+'\n')
+    write_manifest(manifest,str(path))
     assert not any(name in sys.modules for name in ('torch','numpy','matplotlib'))
     return app
 

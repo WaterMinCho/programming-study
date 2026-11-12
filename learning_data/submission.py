@@ -252,7 +252,10 @@ class PrivateClient(Client):
         state = consent.settings()
         if consent.needs_choice() or not state.get("accepted") or state.get("withdraw_pending"):
             raise CollectionError("[내 정보·데이터]에서 수집 내용을 확인하고 동의한 뒤 제출해 주세요.")
-        receipt = validate_receipt(state.get("receipt"))
+        try:
+            receipt = validate_receipt(state.get("receipt"))
+        except ValueError as error:
+            raise CollectionError(str(error)) from error
         base = endpoint(base or DEFAULT_SERVER)
         config = self.settings()
         if config.get("url") and config["url"] != base:

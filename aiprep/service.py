@@ -221,13 +221,17 @@ class AiSession(object):
         if mid not in self.mocks:
             raise AiError('모의고사를 찾을 수 없습니다.')
         try:
-            items, _ = mock.load_items(self.root, self.mocks[mid])
+            items, fingerprint = mock.load_items(self.root, self.mocks[mid])
             rows = mock.submissions(self.record.reload(), mid)
         except (mock.MockError, record.RecordError) as error:
             raise AiError(str(error)) from error
         exam = self._mock_exams.get(mid)
+        latest = next((row for row in reversed(self.record.log) if row.get("kind") == "mock_start" and row.get("mock") == mid), None)
+        restart_required = (latest is not None and latest.get("fingerprint") != fingerprint
+                            and not any(int(row.get("try") or 1) == int(latest.get("try") or 1) for row in rows))
         return dict(self.mocks[mid], blanks=sum(item['kind'] == 'blank' for item in items.values()),
                     choices=sum(item['kind'] == 'choice' for item in items.values()), taken=bool(rows),
+                    restart_required=restart_required,
                     first_score=rows[0]['score'] if rows else None, last_score=rows[-1]['score'] if rows else None,
                     active=exam is not None and exam.result is None,
                     remaining=exam.remaining() if exam is not None and exam.result is None else None)
@@ -639,8 +643,14 @@ class AiSession(object):
                          for i, u in enumerate(self.unit_list(lid))]
         for lid in self.patterns:
             if lid in self.notes:
-                rows += [dict(u, lesson=lid, unit=u["key"], no=999, order=i, name=self.unit_name(lid, u["key"]))
-                         for i, u in enumerate(self.unit_list(lid))]
+                group = self.patterns[lid]
+                for u in self.unit_list(lid):
+                    meta = group["units"].get(u["key"])
+                    if meta is None:
+                        continue
+                    after = self.lessons.get(meta["after"])
+                    rows.append(dict(u, lesson=lid, unit=u["key"], no=after["no"] if after else 999,
+                                     order=100 + list(group["units"]).index(u["key"]), name=self.unit_name(lid, u["key"])))
         valid = {(r["lesson"], r["unit"]) for r in rows}
         saved = data.get("last_unit")
         last = tuple(saved) if isinstance(saved, list) and len(saved) == 2 and all(isinstance(v, str) for v in saved) else None
@@ -728,7 +738,7 @@ class AiSession(object):
             return None
         lid = card.get("after") if card.get("mock") else card.get("lesson")
         note = self.notes.get(lid)
-        found = re.fullmatch(r"([0-9]{1,2}[a-i])/([1-9][0-9]*)", str(card.get("step") or ""))
+        found = re.fullmatch(r"(a?[0-9]{1,2}[a-i])/([1-9][0-9]*)", str(card.get("step") or ""))
         if note is None or found is None:
             return None
         key, number = found.group(1), int(found.group(2))
@@ -749,6 +759,7 @@ class AiSession(object):
                 return self._mock_exams[mid]
             exam = mock.MockExam(self, mid, repeat=repeat, seed=seed, clock=clock or (lambda: now()), monotonic=monotonic)
             self._mock_exams[mid] = exam
+            self.errors.pop(mid, None)
             return exam
         except mock.MockError as error:
             raise AiError(str(error)) from error
@@ -846,9 +857,9 @@ class AiSession(object):
                 mine = [str(shared["also_value"][key])]
         elif card.get('mock'):
             try:
-                path = os.path.join(self.home, 'mocks', '%s-1.json' % card['mock'])
-                draft = study.read_json(path)
                 first = state.index.mocks.get(card['mock'], {})
+                path = os.path.join(self.home, 'mocks', '%s-%d.json' % (card['mock'], int(first.get('try') or 1)))
+                draft = study.read_json(path)
                 saved = None
                 if first.get('fingerprint') and draft.get('fingerprint') == first['fingerprint']:
                     saved = draft.get('answers', {}).get(key)
@@ -951,13 +962,14 @@ class _LogIndex(object):
         self.mocks = {}
         self.related = []
         self.all_activity, self.all_recent = {}, []
+        self.all_first_mocks = {}
         self.n = 0
 
     def feed(self, entries):
         self.n += len(entries)
         for day, count in activity_counts(entries).items():
             self.all_activity[day] = self.all_activity.get(day, 0) + count
-        self.all_recent = (recent_lines(entries, with_course=True) + self.all_recent)[:5]
+        self.all_recent = (recent_lines(entries, with_course=True, first_mocks=self.all_first_mocks) + self.all_recent)[:5]
         entries = [e for e in entries if e.get("course", bank.course_of(e.get("lesson") or e.get("card"))) == self.course]
         self.events.feed(entries)
         for e in entries:
@@ -974,7 +986,7 @@ class _LogIndex(object):
                 self.revisits.add(where + (day,))
             elif kind == "answer" and e.get("card") and day is not None:
                 self.day_cards.setdefault(day, set()).add(str(e["card"]))
-            elif kind == 'mock_submit' and int(e.get('try') or 1) == 1:
+            elif kind == 'mock_submit' and e.get('mock') not in self.mocks:
                 self.mocks.setdefault(e.get('mock'), e)
                 if day is not None:
                     self.related += [(cid, day + datetime.timedelta(days=1)) for cid in e.get('related') or [] if isinstance(cid, str)]
@@ -1307,13 +1319,17 @@ def activity_counts(log):
     return counts
 
 
-def recent_lines(log, most=5, with_course=False):
+def recent_lines(log, most=5, with_course=False, first_mocks=None):
     """허브 최근 채점 줄 [{"at", "kind", "n", "first_pass", "score", "of", "mock"}] (최근 순)."""
     out = []
+    first_mocks = {} if first_mocks is None else first_mocks
+    for entry in log:
+        if entry.get("kind") == "mock_submit":
+            first_mocks.setdefault(entry.get("mock"), entry)
     for e in reversed(log):
         if e.get("kind") == "set_end":
             out.append({"at": e.get("at"), "kind": "set", "n": e.get("n"), "first_pass": e.get("first_pass")})
-        elif e.get("kind") == "mock_submit" and int(e.get("try") or 1) == 1:
+        elif e.get("kind") == "mock_submit" and first_mocks.get(e.get("mock")) is e:
             out.append({"at": e.get("at"), "kind": "mock", "mock": e.get("mock"), "score": e.get("score"), "of": e.get("of")})
         else:
             continue

@@ -7,7 +7,7 @@ body:
     id: what
     attributes:
       label: 무엇을 하려고 했나요
-      placeholder: 예) python study.py 를 실행해서 회차를 받으려고 했습니다
+      placeholder: 예) start.bat 을 실행해서 프로그램을 열려고 했습니다
     validations:
       required: true
   - type: textarea

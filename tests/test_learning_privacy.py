@@ -18,6 +18,17 @@ from submission_api import Client
 
 
 class PrivacyTest(unittest.TestCase):
+    def test_invalid_saved_consent_time_stays_a_recoverable_sync_error(self):
+        self.consent.choose(True)
+        from learning_data.privacy import save
+        state = self.consent.settings()
+        state["receipt"]["at"] = "2026-11-13T13:00:00"
+        save(self.consent.path, state)
+        result = self.consent.synchronize()
+        self.assertEqual(0, result["sent"])
+        self.assertTrue(result["errors"])
+        self.assertTrue(all("시간대" in text for text in result["errors"]))
+
     def test_incomplete_open_connection_is_a_recoverable_error_for_manual_sync(self):
         self.consent.choose(True)
         store = self.collections["ai"]

@@ -17,7 +17,7 @@ import time
 
 import session
 import study
-from webprep import bank, dev, service
+from webprep import bank, dev, record, service
 from webprep.service import WebError
 
 USAGE = """웹 면접 준비 (터미널)
@@ -718,7 +718,7 @@ def main(argv=None, out=None, ask=None, clock=None, repo=None, home=None):
             return cli.show(web, args.page)
         if args.command == "drill":
             return cli.drill(web, args.chain)
-    except WebError as error:
+    except (WebError, bank.BankError, record.RecordError) as error:
         out("오류: %s" % error)
         return 1
     except (EOFError, KeyboardInterrupt):

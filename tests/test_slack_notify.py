@@ -87,6 +87,13 @@ def event(source):
 
 
 class NotificationTest(unittest.TestCase):
+    def test_deleted_head_repository_is_not_a_matching_pr(self):
+        source = run()
+        source["head_repository"] = None
+        github = FakeGitHub(source=source)
+        github.associated = []
+        self.assertIsNone(notify.relay_card(source, github))
+
     def test_fork_pr_without_pull_requests_uses_commit_association(self):
         source = run()
         payload = notify.notification("workflow_run", event(source), FakeGitHub(source=source))

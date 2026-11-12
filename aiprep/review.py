@@ -50,6 +50,7 @@ class EventIndex(object):
         self.first_try_only = first_try_only
         self.events, self.ver = {}, {}
         self._answers = {}
+        self._mocks = set()
         self._also = {}  # (set, 주 카드, again, 함께 고른·가린 카드) → also 행. override 의 also_value 가 지울 행을 찾음
 
     def _add(self, cid, row):
@@ -92,7 +93,11 @@ class EventIndex(object):
                         if not rows:
                             del self.events[str(other)]  # 답이 하나도 남지 않으면 답한 적 없는 카드로 되돌림
                         self.ver[str(other)] = self.ver.get(str(other), 0) + 1
-            elif kind == "mock_submit" and (not self.first_try_only or int(entry.get("try") or 1) == 1):
+            elif kind == "mock_submit":
+                mid = entry.get("mock")
+                if self.first_try_only and mid in self._mocks:
+                    continue
+                self._mocks.add(mid)
                 for cid, result in (entry.get("results") or {}).items():
                     self._add(str(cid), {"at": at, "day": day, "result": "pass" if result == "pass" else "stuck", "sure": None,
                                          "again": 0, "set": entry.get("mock"), "dontknow": result == "blank", "src": "mock",
@@ -103,7 +108,7 @@ def card_events(log, first_try_only=True):
     """기록을 {카드 id: [답]} 으로. 답은 {"at", "day", "result", "sure", "again", "set", "dontknow", "src"} 이고 시간 순.
     src 는 answer(연습 답), also(문장 카드에서 함께 고른 보기, 뼈대 빈칸에서 함께 가린 자리), mock(모의고사 첫 풀이 제출).
     override 는 set·again·card 로 가리킨 답 하나를 pass 로 바꾸고, also_value 에 적힌 자리의 그 답 also 행은 지움. 모의고사는
-    첫 풀이(try 1)의 판정만 넣음(설계 2.10)."""
+    각 모의고사에서 처음 제출한 판정만 넣음. 자료 갱신으로 시작만 한 시도가 앞에 있어도 제출 번호로 제외하지 않음."""
     index = EventIndex(first_try_only)
     index.feed(log)
     return index.events

@@ -17,6 +17,15 @@ class PrivateSubmissionTest(unittest.TestCase):
     call = privacy_fixture.PrivacyTest.call
     transport = privacy_fixture.PrivacyTest.transport
 
+    def test_closed_git_resolution_never_calls_legacy_submission_or_remote_copy(self):
+            from gitflow import GitFlow
+            flow = GitFlow(str(self.repo), "tester")
+            with mock.patch.object(flow, "_run", side_effect=AssertionError("legacy path called")):
+                for choice in ("local", "remote"):
+                    result = flow.resolve(choice)
+                    self.assertEqual("error", result["status"])
+                    self.assertIn("공개 Git 제출을 종료", result["message"])
+
     def client(self):
         self.app = application(self.db)
         self.consent.choose(True)
@@ -47,6 +56,15 @@ class PrivateSubmissionTest(unittest.TestCase):
         with self.db.connect() as db:
             self.assertEqual(1, db.execute("SELECT count(*) FROM api_submissions").fetchone()[0])
             self.assertIsNone(db.execute("SELECT pr_url FROM api_submissions").fetchone()[0])
+
+    def test_invalid_saved_consent_time_does_not_escape_as_a_value_error(self):
+        client = self.client()
+        from learning_data.privacy import save
+        state = self.consent.settings()
+        state["receipt"]["at"] = "2026-11-13T13:00:00"
+        save(self.consent.path, state)
+        with self.assertRaisesRegex(CollectionError, "시간대"):
+            client.connect_open("https://example.test")
 
     def test_decline_cannot_send_files_and_local_answers_remain(self):
         client = self.client()

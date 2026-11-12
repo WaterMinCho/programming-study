@@ -268,6 +268,8 @@ class GitFlow:
         """"diverged" 로 멈춘 뒤 사용자가 고른 쪽을 적용함.
         "remote" 면 원격 풀이를 가져오고 이 컴퓨터 것은 보관함에 복사함. "local" 이면 갈라진 영역은 이 컴퓨터 풀이로 두고
         원격이 앞선 영역은 받기처럼 가져온 뒤 올림."""
+        if not self.legacy_contract:
+            return self._result("error", "공개 Git 제출을 종료했습니다. 프로그램에서 비공개 서버에 제출해 주세요.")
         if choice == "remote":
             return self._run("sync", self._take_remote)
         if choice == "local":

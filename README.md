@@ -41,11 +41,11 @@ Windows에서는 `start.bat`, macOS에서는 `start.command`로 시작하세요.
 
 ## 라이선스
 
-프로그램 코드(`study.py`, `adaptive.py`, `session.py`, `gitflow.py`, `bootstrap.py`, `mdlite.py`, `gui/`, `aiprep/`, `learning_data/`, `learning_server/`, `journey/`, `webprep/`, `tools/`, `tests/`)는 [GPL-3.0](LICENSE)입니다. 화면에 쓰는 PyQt6 가 GPL-3.0 이라 같은 조건을 따릅니다.
+저장소 맨 위의 실행 파일·파이썬 모듈과 `ROKEY.app/`, `gui/`, `aiprep/`, `learning_data/`, `learning_server/`, `journey/`, `webprep/`, `tools/`, `tests/`의 코드는 [GPL-3.0](LICENSE)입니다. 화면에 쓰는 PyQt6 가 GPL-3.0 이라 같은 조건을 따릅니다.
 
 `gui/fonts/` 의 글꼴은 SIL OFL 1.1 을 따릅니다. 화면 글꼴은 [나눔고딕](gui/fonts/OFL.txt), 코드 글꼴은 [D2Coding](gui/fonts/OFL-D2Coding.md)입니다.
 
-`problems/`, `dungeons/`, `web/` 의 문제, 해설, 개념 정리, 그림, 미션 템플릿 코드는 이 스터디의 학습 자료이고 GPL 적용 대상이 아닙니다. 다른 곳에 옮겨 쓰려면 스터디장에게 문의해 주세요.
+`problems/`, `dungeons/`, `ai/`, `web/`의 문제, 해설, 개념 정리, 그림, 미션 템플릿 코드는 이 스터디의 학습 자료이고 GPL 적용 대상이 아닙니다. 다른 곳에 옮겨 쓰려면 스터디장에게 문의해 주세요.
 
 <details>
 <summary>기존 안내 주소에서 이어 보기</summary>

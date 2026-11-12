@@ -37,6 +37,7 @@ SENT = r"(^(?:\s*(?:[>*-]+|\d+\.))*\s*|[.?!]\s+)"  # 문장 첫 자리: 줄 첫�
 
 # 글 어디에 있어도 걸리는 꼴
 FIXED = {
+    "코드 뒤 조사": r"코드(?:은|을|이)(?=\s|[,.])",
     "em-dash(\u2014)": "\u2014",
     "행정식 당위 연결": r"하여[^\n.!?]{0,80}해야\s?합니다",
     "지시어로 끝내는 결론": r"(?:결국\s*)?(?:그것|이것|바로\s+그것)입니다[.!]",
@@ -183,7 +184,7 @@ def check(text, commit=False, path="", record=False):
                 if re.search(pattern, ln, re.I):
                     fails.append((name, ln.strip()[:40]))
         subject = next((ln for ln in lines if ln.strip()), "")
-        if not re.match(r"^(feat|fix|docs|refactor|test|chore|style|perf|build|ci)(\([\w/.-]+\))?: \S", subject) \
+        if not re.match(r"^(feat|fix|docs|refactor|test|chore|style|perf|build|ci)(\([A-Za-z0-9_./-]+\))?: \S", subject) \
                 and not subject.startswith(("Merge ", "Revert ")):
             fails.append(("커밋 제목 형식(type(scope): 내용)", subject[:50]))
         body_lines = [ln for ln in lines if ln.strip()][1:]

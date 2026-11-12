@@ -465,6 +465,22 @@ class HomeTest(WebTest):
         self.assertIn("Node.js 22.12", home.problem.text.text())
         self.assertEqual((home.stack_dot.state, home.stack_label.text()), ("todo", "Node.js 없음"))
 
+    def test_setup_dialog_remove_failure_releases_its_buttons_and_close(self):
+        win = self.boot()
+        win.go_web()
+        self.idle()
+        guikit.click(win.web_home.setup_btn)
+        dialog = win.web_home.setup_dialog
+        with mock.patch.object(win.web, "uninstall", side_effect=OSError("파일 잠금")), mock.patch.object(win, "ask"), \
+                mock.patch("gui.window.errors.report"):
+            dialog.remove()
+            self.idle()
+        self.assertFalse(dialog.busy)
+        self.assertTrue(dialog.close_btn.isEnabled())
+        self.assertIn("지우지 못했습니다", dialog.result.text.text())
+        dialog.close()
+        self.assertFalse(dialog.isVisible())
+
     def test_setup_dialog_installs_removes_and_shows_failures(self):
         win = self.boot()
         win.go_web()

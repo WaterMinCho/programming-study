@@ -33,6 +33,7 @@ def course_of(lid):
 
 
 FACTS_MARK = re.compile(r"^\s*<!--\s*facts:\s*(.*?)\s*-->\s*$")
+ANCHOR_MARK = re.compile(r'^\s*<a (?:id|name)="[\w-]+"></a>\s*$')
 SKEL_MARK = re.compile(r"^\s*<!--\s*skel:\s*(S\d+)\s+(.*?)\s*-->\s*$")  # 바로 아래 코드 울타리가 그 뼈대 판과 같아야 함
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
 BLOCK_KINDS = {"ai-guess": "guess", "ai-reveal": "reveal", "ai-recall": "recall", "ai-why": "why", "ai-diff": "diff",
@@ -177,10 +178,10 @@ def lesson_of_unit(key):
 # 학습 노트
 
 def strip_marks(text):
-    """단계 머리의 <!-- facts: … --> 줄과 울타리 위 <!-- skel: … --> 줄을 지운 글. 화면(Doc·DocView)에 넘기기 전에 씀(mdlite 는
+    """단계 머리의 facts·skel 표시와 제목의 이전 주소를 보존하는 빈 앵커를 지운 글. 화면(Doc·DocView)에 넘기기 전에 씀(mdlite 는
     주석을 글로 그림)."""
     return "\n".join(line for line in (text or "").replace("\r\n", "\n").split("\n")
-                     if not FACTS_MARK.match(line) and not SKEL_MARK.match(line))
+                     if not FACTS_MARK.match(line) and not SKEL_MARK.match(line) and not ANCHOR_MARK.match(line))
 
 
 def skel_fences(markdown):

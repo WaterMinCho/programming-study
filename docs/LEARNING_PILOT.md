@@ -60,6 +60,8 @@ os.environ["STUDY_DATA_DB"] = str(Path.home() / ".rokey-collector/data/learning.
 from learning_server.wsgi import application
 ```
 
+이 예시는 개인 초대 방식입니다. 일반 수강생의 첫 실행 자동 연결을 열 때는 WSGI 파일의 application import 앞에 `os.environ["STUDY_OPEN_REGISTRATION"] = "1"`을 추가합니다. [자동 등록 설정](LEARNING_SERVER.md#동의-후-자동-등록을-설정합니다)을 함께 확인하세요.
+
 저장 후 Web 탭에서 Reload를 누릅니다. Static files에는 데이터·키·초대·백업 폴더를 연결하지 않습니다. 접근 로그와 오류 로그에 답안 본문·인증 헤더를 추가하지 않습니다.
 
 Web 탭에서 실제 HTTPS 주소를 복사합니다. Bash 콘솔에서 아래 명령을 실행하고 주소를 붙여넣습니다.
@@ -70,7 +72,7 @@ python -m learning_server check --url "$COLLECTOR_URL"
 python -m learning_server --db "$HOME/.rokey-collector/data/learning.sqlite3" status
 ```
 
-`check`는 원격 서버 응답과 수집 형식 판을 확인합니다. `/health`는 실제 데이터베이스를 열 수 없으면 503을 반환합니다. `status`는 기존 DB를 읽기 전용으로 검사하며 파일이 없을 때 새 DB나 키를 만들지 않습니다. 가명 구분값·답안·인증 토큰은 상태 결과에 포함하지 않습니다.
+`check`는 원격 서버 응답과 수집 형식 버전을 확인합니다. `/health`는 실제 데이터베이스를 열 수 없으면 503을 반환합니다. `status`는 기존 DB를 읽기 전용으로 검사하며 파일이 없을 때 새 DB나 키를 만들지 않습니다. 가명 구분값·답안·인증 토큰은 상태 결과에 포함하지 않습니다.
 
 ## 운영자용 개인 초대를 발급합니다
 

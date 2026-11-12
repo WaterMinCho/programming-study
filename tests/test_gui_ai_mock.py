@@ -17,6 +17,29 @@ import study
 
 
 class MockPageTest(AiTest):
+    def test_missing_draft_recovery_opens_without_resetting_the_clock_or_records(self):
+        self.addCleanup(theme.set_text, 'normal')
+        page = self.open_mock((760, 480))
+        self.win.set_text('larger')
+        deadline = page.exam.draft["deadline"]
+        before = Path(self.win.ai.record.path).read_bytes()
+        Path(page.exam.path).unlink()
+        self.win.open_session()
+        self.assertTrue(self.win.open_ai_mock("m90"))
+        self.assertTrue(page.exam.recovered_draft)
+        self.assertTrue(page.notice.isVisible())
+        self.assertIn("원래 시작 시각", page.notice.text.text())
+        self.assertEqual(deadline, page.exam.draft["deadline"])
+        self.assertEqual(before, Path(self.win.ai.record.path).read_bytes())
+        for mode in ('light', 'dark'):
+            theme.set_mode(mode)
+            self.win.restyle()
+            self.idle()
+            self.assertLessEqual(self.win.width(), 760)
+            self.assertLessEqual(self.win.height(), 480)
+            self.assertTrue(page.notice.isVisible())
+            self.assertTrue(self.win.rect().contains(page.next_btn.mapTo(self.win, page.next_btn.rect().center())))
+
     def setUp(self):
         super().setUp()
         self.root = os.path.join(self.tmp, 'mock_bank')
@@ -27,7 +50,7 @@ class MockPageTest(AiTest):
         study.write_text(index_path, json.dumps(index, ensure_ascii=False))
         folder = Path(self.root) / 'mocks/m90'
         (folder / 'work').mkdir(parents=True)
-        (folder / 'meta.json').write_text('{}')
+        (folder / 'meta.json').write_text('{}', encoding="utf-8")
         self.items = [
             {'id': 'm90-01', 'kind': 'blank', 'lesson': 'i90', 'unit': '90a', 'step': '90a/1',
              'stem': '숫자를 쓰세요: ____', 'blanks': [{'answer': ['3'], 'mode': 'number'}],
@@ -42,7 +65,7 @@ class MockPageTest(AiTest):
              'stem': '두 값을 쓰세요: ____와 ____', 'blanks': [{'answer': ['3'], 'mode': 'number'}] * 2,
              'explain': '두 값의 해설 검증문장입니다.'},
         ]
-        (folder / 'work/items.json').write_text(json.dumps({'items': self.items}, ensure_ascii=False))
+        (folder / 'work/items.json').write_text(json.dumps({'items': self.items}, ensure_ascii=False), encoding="utf-8")
         patcher = mock.patch.object(bank, 'AI_DIR', self.root)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -54,6 +77,32 @@ class MockPageTest(AiTest):
             win.ai_mock.begin()
         self.idle()
         return win.ai_mock
+
+    def test_changed_active_exam_offers_a_new_attempt_from_the_start_button(self):
+        self.addCleanup(theme.set_text, 'normal')
+        page = self.open_mock((760, 480))
+        win = page.win
+        win.set_text('larger')
+        original_path = Path(page.exam.path)
+        original = original_path.read_bytes()
+        self.items[0]["stem"] += " 바뀐 조건입니다."
+        (Path(self.root) / "mocks/m90/work/items.json").write_text(json.dumps({"items": self.items}, ensure_ascii=False), encoding="utf-8")
+        win.open_session()
+        self.assertTrue(win.open_ai_mock("m90"))
+        self.assertEqual("새 자료로 시작", page.start_btn.text())
+        self.assertTrue(page.start_btn.isVisible())
+        for mode in ('light', 'dark'):
+            theme.set_mode(mode)
+            win.restyle()
+            self.idle()
+            self.assertLessEqual(win.width(), 760)
+            self.assertLessEqual(win.height(), 480)
+            self.assertTrue(win.rect().contains(page.start_btn.mapTo(win, page.start_btn.rect().center())))
+            self.assertGreaterEqual(page.start_btn.width(), page.start_btn.sizeHint().width())
+        guikit.click(page.start_btn)
+        self.assertEqual(2, page.exam.attempt)
+        self.assertEqual(original, original_path.read_bytes())
+        self.assertNotIn("m90", win.ai.errors)
 
     def composing_answer(self):
         """첫 글자의 조합과 확정 이벤트를 나눠 보냄."""

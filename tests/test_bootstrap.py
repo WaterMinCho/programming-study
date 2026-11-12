@@ -49,6 +49,9 @@ class FakeHost:
     def pyqt_error(self):
         return None if self.pyqt else "ModuleNotFoundError: No module named 'PyQt6'"
 
+    def supported_python(self):
+        return None
+
     def gui_main(self):
         self.calls.append(("gui",))
         if isinstance(self.gui, Exception):
@@ -172,6 +175,12 @@ class PathTest(unittest.TestCase):
 
 class LaunchTest(LaunchCase):
     # 바로 실행, 재실행
+
+    def test_unsupported_default_uses_an_installed_supported_python(self):
+        host = FakeHost(info=dict(GOOD, version=(3, 15)), exit_code=7)
+        with mock.patch.object(host, "supported_python", return_value="C:/Python314/python.exe"):
+            self.assertEqual(bootstrap.launch(["gui"], host), 7)
+        self.assertEqual(host.calls, [("call", ["C:/Python314/python.exe", bootstrap.STUDY, "gui"])])
 
     def test_pyqt_present_runs_gui_directly(self):
         host = FakeHost(pyqt=True, gui=0)
@@ -364,6 +373,28 @@ class LaunchTest(LaunchCase):
 class HostTest(unittest.TestCase):
     """진짜 Host 중 설치 없이 확인할 수 있는 부분."""
 
+    def test_supported_python_checks_installed_paths_before_running_them(self):
+        listing = (" -V:3.15 * C:/Python315/python.exe\n"
+                   " -V:3.14t C:/Python314t/python.exe\n"
+                   ' -V:3.14 C:/사용자 폴더/Python314/python.exe\n'
+                   " -3.13-32 C:/Python313/python.exe\n")
+        outputs = [subprocess.CompletedProcess([], 0, listing),
+                   subprocess.CompletedProcess([], 0, json.dumps(dict(GOOD, version=[3, 14])))]
+        with mock.patch.object(bootstrap.os, "name", "nt"), mock.patch.object(bootstrap.os.path, "isfile", return_value=True), \
+                mock.patch.object(bootstrap.subprocess, "run", side_effect=outputs) as run:
+            self.assertEqual(bootstrap.Host().supported_python(), "C:/사용자 폴더/Python314/python.exe")
+        self.assertEqual(run.call_args_list[0].args[0], ["py", "-0p"])
+        self.assertEqual(run.call_args_list[1].args[0][0], "C:/사용자 폴더/Python314/python.exe")
+
+    def test_supported_python_skips_a_32_bit_runtime_and_a_failed_probe(self):
+        listing = " -V:3.14 C:/Python314/python.exe\n -V:3.13 C:/Python313/python.exe\n"
+        outputs = [subprocess.CompletedProcess([], 0, listing),
+                   subprocess.CompletedProcess([], 0, json.dumps(dict(GOOD, version=[3, 14], bits64=False))),
+                   subprocess.CompletedProcess([], 1, "")]
+        with mock.patch.object(bootstrap.os, "name", "nt"), mock.patch.object(bootstrap.os.path, "isfile", return_value=True), \
+                mock.patch.object(bootstrap.subprocess, "run", side_effect=outputs):
+            self.assertIsNone(bootstrap.Host().supported_python())
+
     def test_python_info(self):
         info = bootstrap.Host().python_info()
         self.assertEqual(info["version"], sys.version_info[:2])
@@ -522,6 +553,27 @@ class NoGuiImportTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(job["result"]))
         self.assertTrue(study.read_text(job["pid"]).isdigit())
 
+    def test_update_and_help_work_even_when_collection_and_session_modules_are_broken(self):
+        root = os.path.join(self.tmp, "recovery")
+        os.makedirs(os.path.join(root, "learning_data"))
+        os.makedirs(os.path.join(root, "submissions", "Learner"))
+        shutil.copyfile(os.path.join(ROOT, "study.py"), os.path.join(root, "study.py"))
+        study.write_text(os.path.join(root, "learning_data", "__init__.py"), "")
+        study.write_text(os.path.join(root, "learning_data", "collection.py"), "invalid syntax !")
+        study.write_text(os.path.join(root, "session.py"), "invalid syntax !")
+        study.write_text(os.path.join(root, "gitflow.py"),
+                         "class GitFlow:\n"
+                         " def __init__(self, root, user):\n"
+                         "  assert user == 'Learner'\n"
+                         " def sync(self):\n"
+                         "  return dict(status='ok', message='recovered', backup=None)\n")
+        env = dict(os.environ, STUDY_USER="learner", PYTHONIOENCODING="utf-8")
+        for args in (["--help"], ["update"]):
+            result = subprocess.run([sys.executable, os.path.join(root, "study.py")] + args,
+                                    env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("recovered" if args == ["update"] else "update", result.stdout)
+
     def test_help(self):
         codes, out = self.run_study(["--help"])
         self.assertEqual(codes, [0])
@@ -567,6 +619,9 @@ class WindowTestHost(bootstrap.WindowHost):
 
     def pyqt_error(self):
         return self.fake.pyqt_error()
+
+    def supported_python(self):
+        return self.fake.supported_python()
 
     def gui_main(self):
         return self.fake.gui_main()
@@ -731,6 +786,16 @@ class WindowHostTest(unittest.TestCase):
     """창 모드 도우미 가운데 준비 창 없이 확인할 수 있는 부분."""
 
     FLAGS = 0x1234  # 표식 값. 콘솔 창을 숨기는 진짜 값은 Windows 밖에서 0 이라 넘겼는지 가릴 수 없음
+
+    def test_relaunched_child_keeps_the_installation_log(self):
+        os.makedirs(os.path.dirname(self.log))
+        study.write_text(self.log, "설치 기록\n")
+        with mock.patch.dict(os.environ, STUDY_LAUNCH_APPEND="1"), mock.patch.object(bootstrap, "LOG", self.log), \
+                mock.patch.object(sys, "stdout", None), mock.patch.object(sys, "stderr", None):
+            self.assertEqual(bootstrap.connect_log(), self.log)
+            self.addCleanup(sys.stdout.close)
+            print("학습 화면 기록")
+        self.assertEqual(study.read_text(self.log), "설치 기록\n학습 화면 기록\n")
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="boot_test_")

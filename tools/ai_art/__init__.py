@@ -291,6 +291,7 @@ def record(page_id, bank_dir=None, manifest=None, script=None):
     assets = os.path.join(bank_dir, "learn", page_id, "assets")
     data = read_manifest(manifest)
     prefix = "learn/%s/assets/" % page_id
+    previous = data["files"]
     data["files"] = {k: v for k, v in data["files"].items() if not k.startswith(prefix)}
     done = []
     for name in sorted(os.listdir(assets)) if os.path.isdir(assets) else []:
@@ -298,7 +299,9 @@ def record(page_id, bank_dir=None, manifest=None, script=None):
         if ext.lower() not in (".gif", ".png") or page_of(stem) != page_id:
             continue
         rel = prefix + name
-        data["files"][rel] = {"sha256": file_sha(os.path.join(assets, name)), "script": script, "fn": stem}
+        digest = file_sha(os.path.join(assets, name))
+        old = previous.get(rel)
+        data["files"][rel] = old if old and old.get("sha256") == digest else {"sha256": digest, "script": script, "fn": stem}
         done.append(rel)
     write_manifest(data, manifest)
     return done
@@ -314,6 +317,8 @@ def render(page_id, names=None, bank_dir=None, manifest=None, script=None):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     found = figures(module)
+    if not found:
+        raise ValueError("등록된 그림이 없습니다. 자체 실행 방식의 스크립트는 직접 실행한 뒤 --record로 목록을 갱신해 주세요.")
     known = [row[0] for row in found]
     for name in names or []:
         if name not in known:

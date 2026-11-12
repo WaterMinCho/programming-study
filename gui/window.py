@@ -340,6 +340,9 @@ class MainWindow(QMainWindow):
     def go_journey(self, did=None):
         if not self.leave_pages(lambda: self.go_journey(did), "저장하지 않고 나가기"):
             return
+        if self.journey is None:
+            self.ask("알림", self.journey_error or "알고리즘 여행 기록을 열지 못했습니다.")
+            return
         if self.node_first(lambda: self.go_journey(did)):
             return
         self.journey_map.refresh(did)
@@ -446,6 +449,9 @@ class MainWindow(QMainWindow):
         motion.switch(self.pages, self.web_learn)
 
     def open_problem(self, did, pid):
+        if self.journey is None:
+            self.ask("알림", self.journey_error or "알고리즘 여행 기록을 열지 못했습니다.")
+            return
         if self.node_first(lambda: self.open_problem(did, pid)):
             return
         try:

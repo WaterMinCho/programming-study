@@ -102,7 +102,10 @@ class Sharing:
     def connect_open(self, base, consent, after=0):
         """동의 뒤의 기록을 개인 초대 코드 없이 연결함."""
         from learning_data.privacy import validate_receipt, POLICY_VERSION
-        receipt = validate_receipt(consent)
+        try:
+            receipt = validate_receipt(consent)
+        except ValueError as error:
+            raise CollectionError(str(error)) from error
         base = endpoint(base)
         status = self.collection.status()
         if not status["enabled"] or status["error"]:

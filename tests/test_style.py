@@ -89,6 +89,10 @@ def read(path):
 
 
 class FixedPatternTest(unittest.TestCase):
+    def test_code_particle_replacement_does_not_match_compound_words(self):
+        self.assertIn("코드 뒤 조사", names(check_style.check("이 코드은 값을 바꿉니다.")))
+        self.assertNotIn("코드 뒤 조사", names(check_style.check("코드이름과 코드는 서로 다른 항목입니다.")))
+
     def test_version_wording_and_unrelated_words(self):
         for text in ("코드 판이 바뀌었습니다.", "같은 판의 자료를 받습니다.", "검토한 판: abc", "공통 입력 판4를 사용합니다."):
             with self.subTest(text=text):

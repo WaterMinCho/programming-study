@@ -161,7 +161,7 @@
     {
       "variant": "일부 해제",
       "line": 8,
-      "stem": "이 판은 layer4와 새 fc만 학습합니다. 이 두 부분의 파라미터만 빠짐없이 params에 넣는 줄로 옳은 것을 고르세요.",
+      "stem": "이 코드는 layer4와 새 fc만 학습합니다. 이 두 부분의 파라미터만 빠짐없이 params에 넣는 줄로 옳은 것을 고르세요.",
       "wrong": [
         {
           "text": "params = list(model.fc.parameters())",

@@ -15,6 +15,22 @@ from aiprep.collection import CollectionError
 
 
 class PrivacyGuiTest(HubTest):
+    def test_first_decline_can_close_when_consent_settings_cannot_be_saved(self):
+        win, dialog = self.open_first()
+        for store in win.privacy.consent.collections.values():
+            with store._connect() as db:
+                db.execute("DELETE FROM meta WHERE key='privacy_state_path'")
+            store.set_enabled(True)
+            self.assertTrue(store.status()["enabled"])
+        with mock.patch.object(win.privacy.consent, "choose", side_effect=OSError("설정 폴더 쓰기 실패")):
+            guikit.click(dialog.decline)
+        self.assertFalse(dialog.isVisible())
+        self.assertIn("수집 없이", win.privacy.message)
+        self.assertTrue(win.privacy.cancel.is_set())
+        for store in win.privacy.consent.collections.values():
+            self.assertFalse(store.status()["enabled"])
+            self.assertFalse(store.emit("answer", {"result": "pass"}))
+
     def test_reopening_a_learner_reuses_the_same_privacy_controller(self):
         win = self.boot()
         original = win.privacy

@@ -176,8 +176,10 @@ def check_index(v, bank_dir):
             v.fail("index", 1, "%s 의 no 가 id 와 다릅니다: %d" % (lid, lesson["no"]))
         if lesson["page"] not in pages:
             v.fail("index", 1, "%s 의 page %s 가 pages 에 없습니다." % (lid, lesson["page"]))
-        elif lesson["page"] != ("al%02d" if lesson.get("course") == "app" else "l%02d") % lesson["no"]:
-            v.fail("index", 1, "%s 의 page 는 l%02d 여야 합니다: %s" % (lid, lesson["no"], lesson["page"]))
+        else:
+            expected_page = ("al%02d" if lesson.get("course") == "app" else "l%02d") % lesson["no"]
+            if lesson["page"] != expected_page:
+                v.fail("index", 1, "%s 의 page 는 %s 여야 합니다: %s" % (lid, expected_page, lesson["page"]))
         if not lesson["weight"] > 0:
             v.fail("index", 1, "%s 의 weight 는 0 보다 커야 합니다." % lid)
         if lesson["date"] and review.parse_day(lesson["date"]) is None:
@@ -543,7 +545,11 @@ def check_gen(v, les, card, oracles, seeds):
                 problems.append("시드 %d: %s" % (seed, found[0]))
                 break
             if fn is not None:
-                want = fn(made.get("params") or {})
+                try:
+                    want = fn(made.get("params") or {})
+                except Exception as error:  # noqa: BLE001
+                    problems.append("시드 %d: oracle 오류 %s" % (seed, error))
+                    break
                 want = sorted(want if isinstance(want, list) else [want])
                 got = sorted(made["options"][n]["text"] for n in grade.right_options(made))
                 if [str(w) for w in want] != got:
@@ -628,7 +634,7 @@ def check_note_blocks(v, les, terms=None):
             v.fail(label, 8, "%s: 마지막 단계가 「외울 것」이 아닙니다." % where)
         mine = unit_cards.get(key, {})
         ids, covered = set(), set()
-        guesses = {}
+        guesses, reveals = {}, {}
         for step in unit["steps"]:
             spot = "%s/%s" % (key, step["no"] or "흐름")
             if step["scope"] != "trend" and not step["facts"]:
@@ -668,6 +674,7 @@ def check_note_blocks(v, les, terms=None):
                     bid = block.get("guess") or bid
                     if bid not in guesses:
                         v.fail(label, 8, "%s 의 짐작 확인이 앞의 먼저 풀어 보기 id 를 가리키지 않습니다: %r" % (spot, bid))
+                    reveals[bid] = step["no"]
                 elif kind == "recall":
                     if len(aibank.BLANK.findall(block.get("q", ""))) != 1:
                         v.fail(label, 8, "%s 의 떠올리기 q 에는 ____ 가 하나 있어야 합니다." % spot)
@@ -711,6 +718,9 @@ def check_note_blocks(v, les, terms=None):
                 v.fail(label, 8, "%s 의 세 수준 블록이 단계의 마지막 블록이 아닙니다." % spot)
             if spots and (step["scope"] in ("memo", "trend") or step["no"] == 1 or any(b["kind"] == "guess" for b in step["blocks"])):
                 v.fail(label, 8, "%s 단계에는 세 수준 블록을 두지 않습니다(먼저 풀어 보기·외울 것·2026 흐름 단계)." % spot)
+        for bid, block in guesses.items():
+            if reveals.get(bid) != block.get("reveal_step"):
+                v.fail(label, 8, "%s 의 짐작 %s 확인을 안내한 %s단계에서 보여 주세요." % (where, bid, block.get("reveal_step")))
         missing = sorted(cid for cid, card in mine.items() if card["core"] and cid not in covered)
         if missing:
             v.fail(label, 8, "%s 의 외울 것이 핵심 카드를 덮지 않습니다: %s" % (where, verify_web.listing(missing)))

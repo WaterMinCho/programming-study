@@ -1124,7 +1124,7 @@ def review_target(kind, item):
 def review(v, kind, label, item, secrets):
     o = v.opts
     if o.sign:
-        if v.failed(label):
+        if v.failed(label) or v.failed("node"):
             v.fail(label, 11, "실패가 있어 서명하지 않았습니다.")
         else:
             sign(v, kind, label, item, secrets)

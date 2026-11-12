@@ -3552,12 +3552,12 @@
    "fn": "fig_14"
   },
   "learn/l16/assets/16c-31.png": {
-   "sha256": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
+   "sha256": "54dec1bfc4ed953c0fd59290d19653ae1186dd7a36476cd6f7d326b176b39e4f",
    "script": "tools/ai_art/l16.py",
    "fn": "fig_11"
   },
   "learn/l16/assets/16c-32.png": {
-   "sha256": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
+   "sha256": "9b7ddd742a96f67372bfd9b893a2ebdf551caf83d332cdaa35218b89726ed98e",
    "script": "tools/ai_art/l16.py",
    "fn": "fig_12"
   },
@@ -3672,7 +3672,7 @@
    "fn": "fig_2"
   },
   "learn/l17/assets/17a-32.png": {
-   "sha256": "1684360248c19c9f91fe73a4713d718a3804989ba9cc839dd88ab17d222fdf42",
+   "sha256": "59ed99e7c66c876572b477ff0198c30cfd090ad74d86fae3958c7e7362ff84e7",
    "script": "tools/ai_art/l17.py",
    "fn": "fig_3"
   },
@@ -3707,7 +3707,7 @@
    "fn": "fig_8"
   },
   "learn/l17/assets/17b-32.png": {
-   "sha256": "1684360248c19c9f91fe73a4713d718a3804989ba9cc839dd88ab17d222fdf42",
+   "sha256": "dfd752ac506b3cc31e6304f8527a2e2554a909cfbce584c11024bd44d3b84642",
    "script": "tools/ai_art/l17.py",
    "fn": "fig_9"
   },

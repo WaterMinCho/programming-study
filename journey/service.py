@@ -531,7 +531,7 @@ class JourneySession:
         try:
             with runner.workspace() as tmp:
                 result = grading.run(problem, lang, self._source(did, pid, lang, problem, tmp), mine, report, cancel, node)
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError, UnicodeError) as error:
             raise JourneyError("코드를 실행하지 못했습니다. %s" % error)
         result["runtime"] = self.runtime(lang)["label"]
         return result
@@ -557,7 +557,7 @@ class JourneySession:
             raise JourneyError("테스트 입력을 만들지 못했습니다. %s" % error)
         except bank.BankError as error:
             raise JourneyError("이 문제의 채점 파일이 올바르지 않습니다. %s" % error)
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError, UnicodeError) as error:
             raise JourneyError("채점하지 못했습니다. %s" % error)
         result.update(runtime=self.runtime(lang)["label"], first_pass=False, boss_opened=False, cleared=False)
         if result["cancelled"]:
