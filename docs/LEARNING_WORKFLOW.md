@@ -137,6 +137,8 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track py
 
 같은 폴더에 모델 코드와 작은 입력을 확인하는 테스트를 만듭니다. README에는 아래 틀로 실제 실행한 명령과 관측한 결과를 적습니다. 입력 읽기부터 예측·학습·저장 순서로 개발하며 지금 검토받을 코드와 질문을 PR에 담습니다. 모델 전체가 완성되기 전에도 Draft PR로 공유할 수 있습니다. 오류가 나면 오류와 질문을 남깁니다.
 
+학습 중 만든 가중치·출력 폴더는 본인 모델 폴더의 `.gitignore`로 제외하고 실제 자료는 저장소 밖에 둡니다. Stage 전에 파일 목록을 확인하세요.
+
 ```markdown
 # 본인ID 모델 실습
 
@@ -173,6 +175,8 @@ git --no-pager diff --cached
 git commit -m "feat(model): 본인ID 입력과 예측 코드 추가"
 git push -u origin model/본인ID-model
 ```
+
+Stage 목록에 실제 자료나 가중치가 보이면 커밋 전에 SourceTree의 **Unstage(스테이지 해제)**로 뺍니다. 터미널에서는 `git restore --staged 파일경로`를 실행해 해당 파일을 Stage 목록에서 뺍니다.
 
 푸시 후 GitHub의 본인 fork에서 **Compare & pull request**를 누릅니다. 보이지 않으면 [공통 프로젝트의 Pull requests](https://github.com/WaterMinCho/programming-study/pulls)에서 **New pull request → compare across forks**를 누릅니다.
 
@@ -223,7 +227,7 @@ PR의 base가 공통 저장소의 기본 브랜치 `main`인지 확인합니다.
 
 ## 7. 같은 PR에 모델 코드와 수정 사항 추가하기
 
-진행 중인 작업은 같은 브랜치와 PR에서 이어갑니다. README만 올린 기존 PR이 있다면 그 브랜치에 코드를 추가해도 됩니다. 이미 합쳐진 PR과 기존 커밋은 지우지 않습니다. 다음 작업을 시작할 때는 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신하고 로컬 `main`을 Pull한 뒤 새 브랜치를 만듭니다.
+진행 중인 작업은 같은 브랜치와 PR에서 이어갑니다. README만 올린 기존 PR이 있다면 그 브랜치에 코드를 추가해도 됩니다. 이미 합쳐진 PR과 기존 커밋은 지우지 않습니다. 다음 작업을 시작할 때는 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신하고 로컬 `main`을 Pull한 뒤 새 브랜치를 만듭니다. 새 이름은 `model/본인ID-train`처럼 이번 작업에 맞춰 정합니다.
 
 모델 코드도 같은 `experiments/본인ID/` 안에 작성합니다. 아래는 앞으로 만들 파일의 예시이며 완성된 모델 코드가 들어 있다는 뜻은 아닙니다.
 
@@ -249,7 +253,7 @@ model-study/
 
 코드를 바꾸면 본인 폴더의 변경만 골라 Stage → Commit → Push합니다. 같은 브랜치에 Push하면 열린 PR이 갱신됩니다. 공통 입력 도구나 다른 팀원의 폴더를 바꿔야 한다면 먼저 담당 이슈에서 이유를 공유합니다. 이번 작업을 머지한 뒤 다음 목표는 새 PR로 나눠도 됩니다. 입력 확인만 별도 PR로 먼저 통과할 필요는 없습니다. 구체적인 목표는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.
 
-공개 재현에는 합성 자료를 사용합니다. 실제 풀이 원본·입력 답안·가명 구분값·인증 값·실제 자료로 학습한 가중치와 개별 예측은 올리지 않습니다. 로컬 자료·가중치·출력 폴더는 본인 모델 폴더의 `.gitignore`로 제외합니다.
+공개 재현에는 합성 자료를 사용합니다. 실제 풀이 원본·입력 답안·가명 구분값·인증 값·실제 자료로 학습한 가중치와 개별 예측은 올리지 않습니다.
 
 <a id="7-받은-질문에-답하고-이어갑니다"></a>
 
