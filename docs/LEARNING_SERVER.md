@@ -53,7 +53,7 @@ python -m pip install -r learning_server/requirements.txt
 waitress-serve --listen=127.0.0.1:8765 --threads=4 --max-request-body-size=6291456 --channel-timeout=30 --no-expose-tracebacks learning_server.wsgi:application
 ```
 
-컨테이너를 쓰는 경우 `docker build -f learning_server/Dockerfile -t study-learning-data .`로 빌드합니다. `/data`에는 비공개 영구 볼륨을 연결합니다. 컨테이너 사용자는 UID 10001이며 이 사용자가 볼륨에 쓸 수 있어야 합니다. 서버 외부에는 HTTPS를 처리하는 프록시를 두고, 프록시의 요청 본문은 6MiB로 제한합니다. 응용 서버가 비공개 기록 요청은 1MiB, 공개 풀이 접수는 6MiB로 구분합니다. 인증 헤더·요청 본문·답안을 접근 로그에 기록하지 않습니다. 데이터베이스·키·백업을 정적 파일로 제공하지 않습니다.
+컨테이너를 쓰는 경우 `docker build -f learning_server/Dockerfile -t study-learning-data .`로 빌드합니다. `/data`에는 비공개 영구 볼륨을 연결합니다. 컨테이너 사용자는 UID 10001이며 이 사용자가 볼륨에 쓸 수 있어야 합니다. 서버 외부에는 HTTPS를 처리하는 프록시를 두고, 프록시의 요청 본문은 6MiB로 제한합니다. 응용 서버가 비공개 기록 요청은 1MiB, 비공개 파일 접수는 6MiB로 구분합니다. 인증 헤더·요청 본문·답안을 접근 로그에 기록하지 않습니다. 데이터베이스·키·백업을 정적 파일로 제공하지 않습니다.
 
 PythonAnywhere 배포의 HTTPS와 합성 계정 전송은 확인했습니다. 위 Waitress·컨테이너 구성은 별도 장비용 예시입니다. 컨테이너 빌드·실제 수강생 기기 접속·100명 동시 사용 성능은 아직 확인하지 않았습니다.
 

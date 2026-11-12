@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """첫 동의 화면의 선택·거부·작은 창 배치를 확인함."""
 from tests import guikit
-from unittest import mock
+from unittest import mock, TestCase
+import os
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtTest import QTest
 
@@ -9,6 +10,8 @@ from gui import theme
 from aiprep import service as ai_service
 from session import SessionError
 from tests.test_gui_hub import HubTest
+from gui.privacy import SyncController
+from aiprep.collection import CollectionError
 
 
 class PrivacyGuiTest(HubTest):
@@ -73,3 +76,49 @@ class PrivacyGuiTest(HubTest):
         self.assertTrue(win.privacy.consent.settings()["accepted"])
         self.assertTrue(win.session.collection.status()["enabled"])
         self.assertEqual(profile, win.session.prof)
+
+
+class SyncSchedulingGuiTest(TestCase):
+    def setUp(self):
+        from PyQt6.QtWidgets import QWidget
+        self.parent = QWidget()
+        self.addCleanup(self.parent.deleteLater)
+        self.state = {"choice": "one", "accepted": True}
+        with mock.patch("gui.privacy.Consent") as consent, mock.patch.dict(os.environ, STUDY_AUTO_SYNC="0"):
+            consent.return_value.settings.side_effect = lambda: dict(self.state)
+            self.controller = SyncController(self.parent, {})
+        self.addCleanup(self.controller.timer.stop)
+
+    def release(self):
+        self.controller.job = mock.Mock()
+        self.controller.job_choice = self.state["choice"]
+        with mock.patch.dict(os.environ, STUDY_AUTO_SYNC="1"), \
+                mock.patch("aiprep.sync_schedule.secrets.randbelow", return_value=0):
+            self.controller.release_job()
+
+    def test_failed_upload_backs_off_success_resets_and_withdrawal_stays_short(self):
+        self.assertTrue(self.controller.timer.isSingleShot())
+        self.controller.finish({"errors": ["연결 실패"]})
+        self.release()
+        self.assertEqual(96000, self.controller.timer.interval())
+        self.controller.failures = 4
+        self.state["withdraw_pending"] = True
+        self.release()
+        self.assertEqual(48000, self.controller.timer.interval())
+        self.controller.finish({"sent": 1})
+        self.assertEqual(0, self.controller.failures)
+
+    def test_broken_settings_retry_and_stopping_does_not_schedule_another_job(self):
+        self.controller.consent.settings.side_effect = CollectionError("설정 파일 오류")
+        with mock.patch.dict(os.environ, STUDY_AUTO_SYNC="1"), \
+                mock.patch("aiprep.sync_schedule.secrets.randbelow", return_value=0):
+            self.controller.tick()
+        self.assertTrue(self.controller.timer.isActive())
+        self.assertEqual(96000, self.controller.timer.interval())
+        self.controller.closing = True
+        self.controller.job = mock.Mock()
+        self.controller.timer.stop()
+        with mock.patch.object(self.parent, "close") as close:
+            self.controller.release_job()
+        close.assert_called_once_with()
+        self.assertFalse(self.controller.timer.isActive())
