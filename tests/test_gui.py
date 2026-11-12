@@ -828,10 +828,15 @@ class BankTest(GuiTest):
         image = listw.viewport().grab(listw.visualItemRect(listw.item(1))).toImage()  # 고르지 않은 줄
         left, back = image.width() // 4, gray(image.pixel(image.width() - 4, 4))
         inked = [any(abs(gray(image.pixel(x, y)) - back) > 60 for x in range(left, image.width())) for y in range(image.height())]
-        bands = re.findall("1+", "".join("1" if row else "0" for row in inked))
-        gap = re.search("10+1", "".join("1" if row else "0" for row in inked))
+        strokes = re.finditer("1+", "".join("1" if row else "0" for row in inked))
+        bands = []
+        for stroke in strokes:
+            if bands and stroke.start() - bands[-1][1] < ROW_GAP * image.devicePixelRatio():
+                bands[-1][1] = stroke.end()  # 한 글자의 획 사이 공백은 줄 간격으로 세지 않음
+            else:
+                bands.append([stroke.start(), stroke.end()])
         self.assertEqual(len(bands), 2, inked)  # 유형 줄과 단원 줄
-        self.assertGreaterEqual(len(gap.group()) - 2, ROW_GAP * image.devicePixelRatio())
+        self.assertGreaterEqual(bands[1][0] - bands[0][1], ROW_GAP * image.devicePixelRatio())
 
     def test_each_answer_type_saves_what_the_widgets_show(self):
         self.boot()
