@@ -27,6 +27,8 @@ feat(model): LSTM 학습과 평가 추가
 공통 입력 버전 4의 합성 자료로 학습·평가·저장 코드를 추가했음. 빈 이력과 mask를 확인했으며 실제 수강생 자료의 학습은 실행하지 않았음.
 ```
 
+담당 이슈와 연결하려면 PR 본문에 `관련 이슈 WaterMinCho/programming-study#119`처럼 적습니다. 이슈의 작업을 모두 마친 마지막 PR에는 `Closes WaterMinCho/programming-study#119`를 적으면 `main`에 머지될 때 이슈도 닫힙니다. 본인 번호로 바꾸는 방법과 연결 확인은 [담당 이슈와 PR 연결하기](LEARNING_WORKFLOW.md#이슈와-pr-연결)를 따르세요.
+
 <a id="검사와-코드-검토를-구분합니다"></a>
 
 <a id="모델-pr은-코드와-실험-설명을-검토합니다"></a>
