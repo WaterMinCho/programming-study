@@ -237,7 +237,6 @@ def level_bytes():
 
 # 갱신된 실습의 입력·출력과 상태 변화를 별도로 그림.
 def _update_figure(kind, stage=0):
-    from PIL import ImageDraw
     titles = {
         'blend':'같은 위치의 두 값을 비율에 맞춰 섞습니다',
         'difference':'방향이 있는 뺄셈과 차이의 크기를 나눕니다',
@@ -347,11 +346,10 @@ def _update_figure(kind, stage=0):
     return im
 
 
-def _new_draw_function(kind, animated=False, level=False):
+def _new_draw_function(kind, animated=False):
     def draw():
         if animated:return [_update_figure(kind,s) for s in range(3)],[2200]*3
-        im=_update_figure(kind)
-        return im.resize((1040,560)) if level else im
+        return _update_figure(kind)
     return draw
 
 

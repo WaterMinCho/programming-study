@@ -9,8 +9,8 @@ import sys
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QFontDatabase, QPen
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFontDatabase
 from PyQt6.QtWidgets import QApplication
 
 from tools.ai_art import l01_training_qt as art
