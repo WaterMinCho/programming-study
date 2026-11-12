@@ -148,7 +148,7 @@ class SummaryTest(unittest.TestCase):
         for files in (["gui/window.py"], ["tools/check_release.py.bak"], [".github/workflows/release-check.yml.old"]):
             self.assertFalse(summary.release_expected(files, self.github.pr))
             self.assertNotIn("새 설치와 작은 창 (배율 1)", summary.required_names(files, self.github.pr))
-        for path in ("tools/check_release.py", ".github/workflows/release-check.yml"):
+        for path in summary.RELEASE_PATHS:
             self.assertTrue(summary.release_expected([path], self.github.pr))
             self.assertIn("새 설치와 작은 창 (배율 1.5)", summary.required_names([path], self.github.pr))
 

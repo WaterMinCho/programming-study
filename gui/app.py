@@ -8,7 +8,7 @@ from PyQt6.QtCore import QLibraryInfo, QLockFile, QSettings, QTimer, QTranslator
 from PyQt6.QtWidgets import QApplication
 
 import study
-from gui import errors, icon, theme
+from gui import errors, icon, launcher_shortcut, theme
 from gui.dialogs import MessageDialog
 from gui.window import MainWindow
 from webprep import dev
@@ -53,6 +53,7 @@ def main(argv=None):
         MessageDialog(None, "프로그래밍 스터디", text).exec()
         return 1
 
+    launcher_shortcut.ensure(study.ROOT)
     stop_servers_on_hangup(app)
     window = MainWindow(settings)
     window.show()
