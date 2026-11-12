@@ -130,7 +130,7 @@ class IdDialog(QDialog):
         head.setObjectName("h2")
         why = Para("영문·숫자·밑줄·붙임표로 풀이 ID를 정합니다. 메일 주소나 실명은 넣지 않습니다. "
                    "기존 기록을 이어서 풀려면 사용하던 ID를 입력합니다. "
-                   "API 제출은 개인 초대로 연결하며 GitHub에 직접 제출할 때만 GitHub ID를 사용합니다.", "muted")
+                   "풀이 파일은 내용을 확인한 뒤 비공개 서버로 보냅니다. GitHub ID나 개인 초대 코드는 필요하지 않습니다.", "muted")
         self.edit = QLineEdit()
         self.edit.setPlaceholderText("예: gildong-hong")
         self.error = Para(" ", "error")

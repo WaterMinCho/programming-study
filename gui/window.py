@@ -832,10 +832,6 @@ class MainWindow(QMainWindow):
             page.restyle()
 
     def closeEvent(self, event):
-        waiting = [not controller.stop() for controller in getattr(self, "privacy_controllers", {}).values()]
-        if any(waiting):
-            event.ignore()
-            return
         if self.job is not None:  # 스레드를 도중에 버리면 프로세스가 죽으므로 채점·제출이 끝난 뒤에 닫음
             self.job[0].cancel.set()  # 여행 채점은 곧 멈추고 기록하지 않음. [테스트 돌리기]는 vitest 를 끊고 대화상자 없이 끝남. 다른 일은 이 신호를 보지 않음
             self.close_pending = True
@@ -848,6 +844,12 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         if not self.leave_pages(self.close, "저장하지 않고 닫기"):
+            for controller in getattr(self, "privacy_controllers", {}).values():
+                controller.resume()
+            event.ignore()
+            return
+        waiting = [not controller.stop() for controller in getattr(self, "privacy_controllers", {}).values()]
+        if any(waiting):
             event.ignore()
             return
         if self.web is not None:

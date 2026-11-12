@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """과목 이동, 과목별 현황 카드와 제출 작업 영역을 공통으로 배치함."""
 from PyQt6.QtCore import QEvent, QPoint, QSignalBlocker, QSize, Qt
+from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import QApplication, QComboBox, QFrame, QGridLayout, QLayout, QScrollArea, QSizePolicy, QWidget
 
 import study
@@ -139,8 +140,8 @@ class SubmissionBar(QFrame):
         self.setVisible(usable and (pending or available))
 
     def arrange(self):
-        need = self.message.sizeHint().width() + self.actions.sizeHint().width() + 64
-        vertical = self.width() < max(800, need)
+        need = QFontMetricsF(self.message.font()).horizontalAdvance(self.message.text()) + self.actions.layout().sizeHint().width() + 64
+        vertical = self.width() < need
         self.row.setDirection(self.row.Direction.TopToBottom if vertical else self.row.Direction.LeftToRight)
 
     def resizeEvent(self, event):

@@ -192,6 +192,8 @@ def track_line(overview):
             parts.append(due_part(overview["due"]))
         detail = " · ".join(parts)
     course = COURSES.get(overview.get("course"))
+    if course and detail.startswith(course + " "):
+        detail = detail[len(course) + 1:]
     return "%s · %s" % (course, detail) if course else detail
 
 

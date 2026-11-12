@@ -123,6 +123,7 @@ class RoundPage(QWidget):
         split = QSplitter(Qt.Orientation.Horizontal)
         split.setContentsMargins(24, 16, 24, 16)
         self.listw = QListWidget()
+        kit.typed(self.listw, "caption")
         self.listw.setMinimumWidth(200)
         self.listw.setIconSize(QSize(DOT_PX, DOT_PX))
         self.listw.setItemDelegate(RowDelegate(self.listw))
@@ -238,6 +239,7 @@ class RoundPage(QWidget):
             row.setText("%d. %s\n%s" % (item["no"], item["type_label"], item["unit_title"]))
             row.setIcon(dot(theme.color("ok" if item["answered"] else "blank"), item["answered"]))
         row.setData(Qt.ItemDataRole.UserRole, bool(item["answered"]))
+        row.setToolTip(row.text().replace("\n", " · "))
 
     def _update_progress(self):
         items = self.view["items"]

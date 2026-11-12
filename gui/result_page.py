@@ -102,6 +102,7 @@ class ResultPage(QWidget):
 
         split = QSplitter(Qt.Orientation.Horizontal)
         self.listw = QListWidget()
+        kit.typed(self.listw, "caption")
         self.listw.setMinimumWidth(260)
         self.listw.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         right = QWidget()
@@ -186,6 +187,7 @@ class ResultPage(QWidget):
         for item in view["items"]:
             name = theme.result_label(item["state"])[0]
             self.listw.addItem("%s  %d. %s · %s" % (name, item["no"], item["type_label"], item["unit_title"]))
+            self.listw.item(self.listw.count() - 1).setToolTip(self.listw.item(self.listw.count() - 1).text())
         self.listw.setCurrentRow(0)
         self.listw.blockSignals(False)
         self.color_rows()

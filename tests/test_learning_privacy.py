@@ -18,6 +18,18 @@ from submission_api import Client
 
 
 class PrivacyTest(unittest.TestCase):
+    def test_incomplete_open_connection_is_a_recoverable_error_for_manual_sync(self):
+        self.consent.choose(True)
+        store = self.collections["ai"]
+        share = sharing.Sharing(store)
+        with mock.patch.object(sharing, "request", side_effect=CollectionError("offline")):
+            with self.assertRaises(CollectionError):
+                share.connect_open("https://example.test", self.consent.settings()["receipt"])
+        self.assertNotIn("token", share.settings())
+        with self.assertRaisesRegex(CollectionError, "서버 연결을 마친 뒤"):
+            share.sync("https://example.test")
+        self.assertTrue(share.settings()["enroll_sent"])
+
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
@@ -154,12 +166,43 @@ class PrivacyTest(unittest.TestCase):
                 self.consent.choose(True)
         self.assertTrue(all(not store.status()["enabled"] for store in self.collections.values()))
 
-    def test_declining_a_new_notice_with_an_existing_connection_requests_withdrawal(self):
+    def test_declining_a_new_notice_pauses_without_unconfirmed_deletion(self):
+        self.consent.choose(True)
+        store = self.collections["ai"]
+        store.emit("answer", {"result": "pass"})
+        self.consent.synchronize()
+        config = sharing.Sharing(store).settings()
+        rows = store.status()["events"]
+        self.consent.choose(False)
+        self.assertFalse(self.consent.settings().get("withdraw_pending", False))
+        self.assertTrue(all(not item.status()["enabled"] for item in self.collections.values()))
+        self.assertEqual(rows, store.status()["events"])
+        self.assertEqual(config, sharing.Sharing(store).settings())
+        self.assertEqual(0, self.consent.synchronize()["sent"])
+        with self.db.connect() as db:
+            self.assertGreater(db.execute("SELECT count(*) FROM events").fetchone()[0], 0)
+        self.consent.withdraw()
+        self.assertTrue(self.consent.synchronize()["withdrawn"])
+
+    def test_reconsent_keeps_connection_and_skips_previously_held_records(self):
         self.consent.choose(True)
         self.consent.synchronize()
+        store = self.collections["ai"]
+        config = sharing.Sharing(store).settings()
+        store.emit("answer", {"result": "fail"})
+        held = store.latest_sequence()
         self.consent.choose(False)
-        self.assertTrue(self.consent.settings()["withdraw_pending"])
-        self.assertTrue(self.consent.synchronize()["withdrawn"])
+        self.consent.choose(True)
+        store.emit("answer", {"result": "pass"})
+        self.assertFalse(self.consent.synchronize()["errors"])
+        new = sharing.Sharing(store).settings()
+        self.assertEqual(config["token"], new["token"])
+        self.assertEqual(self.consent.settings()["receipt"], new["consent_receipt"])
+        with self.db.connect() as db:
+            rows = [json.loads(row[0]) for row in db.execute("SELECT payload FROM events WHERE track='ai'")]
+        answers = [row for row in rows if row["kind"] == "answer"]
+        self.assertEqual(["pass"], [row["data"]["result"] for row in answers])
+        self.assertTrue(all(row["sequence"] > held for row in answers))
 
     def test_confirmed_server_revocation_stops_all_local_collection(self):
         self.consent.choose(True)
