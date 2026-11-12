@@ -119,7 +119,7 @@ AI 그림은 [크게 보기]로 열 수 있습니다. 움직이는 그림은 재
 python study.py
 ```
 
-Windows에서 Python을 못 찾으면 `py -3.14 study.py`, macOS는 `python3 study.py`로 실행합니다. 설치한 Python 판이 다르면 `-3.14`도 그 판에 맞춥니다. 오류가 표시되면 내용을 복사해 문의합니다. 창 없이 실행하다 실패한 기록은 `~/.rokey-study/launch.log`에 있습니다.
+Windows에서 Python을 못 찾으면 `py -3.14 study.py`, macOS는 `python3 study.py`로 실행합니다. 설치한 Python 버전이 다르면 `-3.14`도 그 버전에 맞춥니다. 오류가 표시되면 내용을 복사해 문의합니다. 창 없이 실행하다 실패한 기록은 `~/.rokey-study/launch.log`에 있습니다.
 
 macOS가 `ROKEY.app` 실행을 막으면 `start.command`나 위 터미널 명령을 사용합니다.
 

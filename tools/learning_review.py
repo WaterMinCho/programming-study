@@ -168,7 +168,7 @@ def snapshot(directory):
         raise ReviewError("고정한 검토 자료가 바뀌었습니다.")
     data = json.loads(raw)
     if (data["number"], data["head"], data["base"], data["merge_base"], data["repository"]) != (manifest["number"], manifest["head"], manifest["base"], manifest["merge_base"], REPO):
-        raise ReviewError("PR 번호와 검토 판이 맞지 않습니다.")
+        raise ReviewError("PR 번호와 검토 커밋이 맞지 않습니다.")
     if len(raw) > MAX_BYTES:
         raise ReviewError("검토 자료가 너무 큽니다.")
     check_text(data["diff"])
@@ -182,7 +182,7 @@ def snapshot(directory):
         check_text(item["content"])
     current = pull(data["number"])
     if current["head"]["sha"] != data["head"] or current["base"]["sha"] != data["base"]:
-        raise ReviewError("검토한 뒤 PR이 바뀌었습니다. 새 판으로 다시 검토해 주세요.")
+        raise ReviewError("검토한 뒤 PR이 바뀌었습니다. 새 커밋으로 다시 검토해 주세요.")
     return directory, data
 
 
@@ -224,7 +224,7 @@ def review(directory, *, schema=None, system=SYSTEM):
     content = result.get("structured_output") if schema else result.get("result")
     if result.get("is_error") or (not isinstance(content, dict) if schema else not isinstance(content, str) or not content.strip()):
         raise ReviewError("검토 응답을 받지 못했습니다. 구독 한도를 확인하고 유료 API로 우회하지 마세요.")
-    body = "검토한 판: `%s`\n\n%s\n" % (data["head"], packed(content) if schema else content.strip())
+    body = "검토한 커밋: `%s`\n\n%s\n" % (data["head"], packed(content) if schema else content.strip())
     check_text(body)
     if len(body.encode("utf-8")) > 30_000:
         raise ReviewError("피드백이 너무 깁니다. 게시 전에 검토 범위를 줄여 주세요.")
@@ -245,12 +245,13 @@ def post(directory):
         raise ReviewError("이 폴더의 피드백은 이미 게시했습니다.")
     info = json.loads((directory / "review.json").read_text(encoding="utf-8"))
     if info["head"] != data["head"]:
-        raise ReviewError("피드백의 검토 판이 맞지 않습니다.")
+        raise ReviewError("피드백의 검토 커밋이 맞지 않습니다.")
     path = directory / "feedback.md"
     body = path.read_text(encoding="utf-8")
     check_text(body)
-    if not body.startswith("검토한 판: `%s`\n" % data["head"]):
-        raise ReviewError("본문의 검토 판 표시를 유지해 주세요.")
+    prefixes = tuple("검토한 %s: `%s`\n" % (label, data["head"]) for label in ("커밋", "판"))
+    if not body.startswith(prefixes):
+        raise ReviewError("본문의 검토 커밋 표시를 유지해 주세요.")
     if not body.strip() or len(body.encode("utf-8")) > 30_000:
         raise ReviewError("피드백 본문을 확인해 주세요.")
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
@@ -299,7 +300,7 @@ def main():
     except ReviewError as error:
         parser.exit(1, "검토 중단: %s\n" % error)
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
-        parser.exit(1, "검토를 완료하지 못했습니다. 입력·PR 판·파일 형식·인증·구독 한도를 확인해 주세요.\n")
+        parser.exit(1, "검토를 완료하지 못했습니다. 입력·PR 커밋·파일 형식·인증·구독 한도를 확인해 주세요.\n")
 
 
 if __name__ == "__main__":

@@ -2,10 +2,10 @@
 """상황별 코드 뼈대(ai/patterns/S*.json)와 뼈대 카드(설계 3.7, 3.7.1, 3.7.2). 화면과 서비스, verify_ai, ai_seal, ai_overlap 이
 같이 씀. 코드는 실행하지 않고 줄 글만 다룸.
 
-뼈대 하나는 판(variants)마다 상황 글(situation)과 줄(lines)을 갖고, 카드 넷을 적음. slot 은 판 전체를 보이고 주 자리와 점차
-지우기 단계만큼의 다른 자리를 가린 빈칸, order 는 줄 순서 고르기, pick 은 그 자리에 맞는 줄 고르기, change 는 한 판을 다른 판으로
+뼈대 하나는 코드 예제(variants)마다 상황 글(situation)과 줄(lines)을 갖고, 카드 넷을 적음. slot 은 코드 예제 전체를 보이고 주 자리와 점차
+지우기 단계만큼의 다른 자리를 가린 빈칸, order 는 줄 순서 고르기, pick 은 그 자리에 맞는 줄 고르기, change 는 한 코드 예제를 다른 코드 예제로
 바꿀 때 고칠 줄 모두 고르기임. 카드 id 는 pc-k01(slot), pc-o01(order), pc-p01(pick), pc-x01(change). 보기를 섞는 난수는
-gen.Rng 라 파이썬 판이 달라도 같은 시드면 같은 보기가 나옴.
+gen.Rng 라 파이썬 버전이 달라도 같은 시드면 같은 보기가 나옴.
 """
 import difflib
 import os
@@ -18,7 +18,7 @@ from aiprep.gen import Rng
 PART_LETTER = {"slot": "k", "order": "o", "pick": "p", "change": "x"}
 PART_CHIP = {"slot": "코드 빈칸", "order": "순서 고르기", "pick": "고르기", "change": "고르기"}
 PART_KEY = {"slot": "slots", "order": "orders", "pick": "picks", "change": "changes"}
-CARD_ORDER = ("order", "pick", "change", "slot")  # 같은 판 고르기 카드가 slot 카드보다 먼저 나오게 매기는 순서
+CARD_ORDER = ("order", "pick", "change", "slot")  # 같은 코드 예제 고르기 카드가 slot 카드보다 먼저 나오게 매기는 순서
 SIMILAR = 0.5  # diff 짝 풀기 기준
 ROTATE_GAP = 3  # 돌려 가며 빈칸에서 틀린 자리를 다시 넣는 거리
 PATTERN_FILE = re.compile(r"(S\d+)\.json\Z")
@@ -27,7 +27,7 @@ ORDER_STEM = "줄의 순서로 **옳은** 것을 고르세요."
 ORDER_HEAD = "줄 순서로 옳은 것 고르기"
 LINE_HINT = "코드 한 줄"
 SAME_WHY = "고친 뒤의 코드에도 같은 줄이 있어 고치지 않습니다."
-CHANGE_REV = 2  # 반복 줄을 원본 위치와 블록으로 구분하는 보기 판
+CHANGE_REV = 2  # 반복 줄을 원본 위치와 블록으로 구분하는 보기 버전
 
 
 def token_re(token):
@@ -47,7 +47,7 @@ def _list(value):
 # 읽기
 
 def load_patterns(root=None):
-    """ai/patterns/S*.json 을 {"S1": 뼈대 dict} 로. 폴더가 없으면 {}. 못 읽거나 id 가 파일 이름과 다르거나 판이 꼴에 맞지
+    """ai/patterns/S*.json 을 {"S1": 뼈대 dict} 로. 폴더가 없으면 {}. 못 읽거나 id 가 파일 이름과 다르거나 코드 예제가 꼴에 맞지
     않으면 bank.AiBankError. 카드 필드의 뜻은 verify_ai 가 보고 여기서는 화면이 멈추지 않을 만큼만 봄."""
     folder = os.path.join(root or bank.AI_DIR, "patterns")
     if not os.path.isdir(folder):
@@ -64,11 +64,11 @@ def load_patterns(root=None):
             raise bank.AiBankError("patterns/%s 의 id 가 파일 이름과 다릅니다: %r" % (name, data.get("id") if isinstance(data, dict) else None))
         variants = data.get("variants")
         if not isinstance(variants, dict) or not variants:
-            raise bank.AiBankError("patterns/%s 에 판(variants)이 없습니다." % name)
+            raise bank.AiBankError("patterns/%s 에 코드 예제(variants)이 없습니다." % name)
         for vname, variant in variants.items():
             lines = variant.get("lines") if isinstance(variant, dict) else None
             if not isinstance(lines, list) or not lines or not all(isinstance(line, str) for line in lines):
-                raise bank.AiBankError("patterns/%s 의 %s 판 lines 는 글 목록이어야 합니다." % (name, vname))
+                raise bank.AiBankError("patterns/%s 의 %s 코드 예제 lines 는 글 목록이어야 합니다." % (name, vname))
         for key in PART_KEY.values():
             entries = data.get(key) or []
             if not isinstance(entries, list) or not all(isinstance(e, dict) and isinstance(e.get("id"), str) for e in entries):
@@ -78,10 +78,10 @@ def load_patterns(root=None):
 
 
 def variant_of(skeleton, name):
-    """판 dict. 모르는 판이면 AiBankError."""
+    """코드 예제 dict. 모르는 코드 예제이면 AiBankError."""
     variant = (skeleton.get("variants") or {}).get(name)
     if not isinstance(variant, dict):
-        raise bank.AiBankError("뼈대 %s 에 %s 판이 없습니다." % (skeleton.get("id"), name))
+        raise bank.AiBankError("뼈대 %s 에 %s 코드 예제가 없습니다." % (skeleton.get("id"), name))
     return variant
 
 
@@ -95,7 +95,7 @@ def entry_of(skeleton, part, cid):
 
 
 def slot_spots(skeleton, variant):
-    """그 판 자리들의 위치 {자리 id: (줄, 시작, 끝, 원본)}. 줄이 판 밖이거나 토큰이 그 줄에 없으면 AiBankError."""
+    """그 코드 예제 자리들의 위치 {자리 id: (줄, 시작, 끝, 원본)}. 줄이 코드 예제 밖이거나 토큰이 그 줄에 없으면 AiBankError."""
     lines = lines_of(skeleton, variant)
     out = {}
     for entry in skeleton.get("slots") or []:
@@ -103,10 +103,10 @@ def slot_spots(skeleton, variant):
             continue
         no = entry.get("line")
         if not isinstance(no, int) or not 0 <= no < len(lines):
-            raise bank.AiBankError("자리 %s 의 줄 번호가 %s 판 밖입니다: %r" % (entry.get("id"), variant, no))
+            raise bank.AiBankError("자리 %s 의 줄 번호가 %s 코드 예제 밖입니다: %r" % (entry.get("id"), variant, no))
         found = token_re(entry.get("token", "")).search(lines[no]) if entry.get("token") else None
         if found is None:
-            raise bank.AiBankError("자리 %s 의 토큰 %r 가 %s 판 %d번 줄에 없습니다." % (entry.get("id"), entry.get("token"), variant, no))
+            raise bank.AiBankError("자리 %s 의 토큰 %r 가 %s 코드 예제 %d번 줄에 없습니다." % (entry.get("id"), entry.get("token"), variant, no))
         out[entry["id"]] = (no, found.start(), found.end(), entry)
     return out
 
@@ -143,7 +143,7 @@ def cards(group, skeletons, units):
 
     카드는 bank.cards_of 와 같은 키(id, kind "skel", lesson=무리 id, unit, step, facts, core, prio, family, confuse, level, tags,
     deep, errata, ref, order)에 part, pattern(뼈대 id), variant(change 는 from), after, name(단원 이름), head, situations
-    ({판 이름: 상황 글}, change 는 from·to 둘), entry(원본)를 더한 것. 머리 tags·prio 는 카드가 적지 않으면 물려받고 ref·level 은
+    ({코드 예제 이름: 상황 글}, change 는 from·to 둘), entry(원본)를 더한 것. 머리 tags·prio 는 카드가 적지 않으면 물려받고 ref·level 은
     물려받지 않음. order 는 뼈대마다 orders → picks → changes → slots 순."""
     out = []
     for sid in sorted(skeletons, key=_number):
@@ -174,10 +174,10 @@ def cards(group, skeletons, units):
 
 
 def card_texts(card):
-    """카드에서 학습자에게 보이는 글 [(어디, 글, 마크다운인지)]. 판 situation, 지문, 해설, 빈칸 hint, 고르기 오답의 글(코드라
+    """카드에서 학습자에게 보이는 글 [(어디, 글, 마크다운인지)]. 코드 예제 situation, 지문, 해설, 빈칸 hint, 고르기 오답의 글(코드라
     마크다운 아님)·why·aim. verify_ai(말투·맥락·그림 참조)와 ai_overlap 이 같이 씀."""
     cid, entry = card["id"], card["entry"]
-    out = [("%s:%s 판 상황" % (cid, name), text, True) for name, text in (card.get("situations") or {}).items()]
+    out = [("%s:%s 코드 예제 상황" % (cid, name), text, True) for name, text in (card.get("situations") or {}).items()]
     for key in ("stem", "back", "explain"):
         if isinstance(entry.get(key), str):
             out.append(("%s:%s" % (cid, key), entry[key], True))
@@ -217,11 +217,11 @@ def _unique(ids):
 
 
 def slot_view(card, skeleton, boxes, again=0, masked=None, whole=None):
-    """뼈대 빈칸 문항. boxes 는 {같은 판 slot 카드 가운데 주 자리와 열린 자리의 id: 상자 또는 None}(주 자리를 꼭 넣음, 빠지면
+    """뼈대 빈칸 문항. boxes 는 {같은 코드 예제 slot 카드 가운데 주 자리와 열린 자리의 id: 상자 또는 None}(주 자리를 꼭 넣음, 빠지면
     None 으로 넣음). f = fade(boxes.values()). 함께 가릴 후보는 주 자리 말고 나머지를 (상자, 주 자리에서 떨어진 줄 수, id) 순으로 세운
     것이고, start = (again * f) % 후보 수 에서 min(f, 후보 수)개를 고리처럼 고름. whole 은 f 가 3 이고 주 자리 상자가 4 이상이고
     line_answer 가 있을 때 참이며, 그러면 주 자리 줄 전체를 가리고(들여쓰기는 남김) 같은 줄의 다른 자리는 masked 에서 뺌.
-    masked·whole 을 주면(오답 노트, 기록 다시 그리기) 그 값으로 다시 만들고 판에 없는 자리 id 는 버림.
+    masked·whole 을 주면(오답 노트, 기록 다시 그리기) 그 값으로 다시 만들고 코드 예제에 없는 자리 id 는 버림.
 
     돌려주는 값 {"kind": "blank", "stem", "blanks": [{"answer", "mode", "hint", "slot", "main"}](코드 안 위치 순), "explain",
     "skel": {"part": "slot", "fade", "masked", "whole"}}."""
@@ -231,7 +231,7 @@ def slot_view(card, skeleton, boxes, again=0, masked=None, whole=None):
     lines = lines_of(skeleton, variant)
     spots = slot_spots(skeleton, variant)
     if main not in spots:
-        raise bank.AiBankError("자리 %s 가 뼈대 %s 의 %s 판에 없습니다." % (main, skeleton.get("id"), variant))
+        raise bank.AiBankError("자리 %s 가 뼈대 %s 의 %s 코드 예제에 없습니다." % (main, skeleton.get("id"), variant))
     boxes = {sid: box for sid, box in (boxes or {}).items() if sid in spots}
     boxes.setdefault(main, None)
     f = fade(list(boxes.values()))
@@ -353,7 +353,7 @@ def pick_view(card, skeleton):
 
 
 def _pairs(left, right):
-    """두 판 줄의 짝 [(왼쪽 번호|None, 오른쪽 번호|None, 같은지)]. 같은 줄은 한 행. replace 묶음은 앞에서부터 zip 으로 짝짓고
+    """두 코드 예제 줄의 짝 [(왼쪽 번호|None, 오른쪽 번호|None, 같은지)]. 같은 줄은 한 행. replace 묶음은 앞에서부터 zip 으로 짝짓고
     짝의 글자 유사도(들여쓰기 뺀 줄의 SequenceMatcher ratio)가 SIMILAR 미만이면 왼쪽만 있는 행과 오른쪽만 있는 행으로 나눔.
     zip 에서 남는 줄과 delete·insert 묶음의 줄은 한쪽만 있는 행."""
     out = []
@@ -392,10 +392,10 @@ def _change_line(lines, at):
 
 
 def change_view(card, skeleton, seed, back=False, revision=CHANGE_REV):
-    """고칠 줄 모두 고르기. from 판(back 이면 to 판) 줄 가운데 diff 의 다른 줄 k 개(2~3, 다른 줄 수 이하)를 정답으로 하고 같은 줄을
-    더해 보기 4~5개를 코드 순서로 둠. 1판은 같은 글의 줄을 합치고 2판은 위치와 블록으로 구분함. 난수 키는 id·seed·back임."""
+    """고칠 줄 모두 고르기. from 코드 예제(back 이면 to 코드 예제) 줄 가운데 diff 의 다른 줄 k 개(2~3, 다른 줄 수 이하)를 정답으로 하고 같은 줄을
+    더해 보기 4~5개를 코드 순서로 둠. 버전 1은 같은 글의 줄을 합치고 버전 2는 위치와 블록으로 구분함. 난수 키는 id·seed·back임."""
     if revision not in (1, CHANGE_REV):
-        raise bank.AiBankError("고칠 줄 보기 판을 읽을 수 없습니다: %r" % revision)
+        raise bank.AiBankError("고칠 줄 보기 버전를 읽을 수 없습니다: %r" % revision)
     entry = card["entry"]
     src, dst = (entry.get("to"), entry.get("from")) if back else (entry.get("from"), entry.get("to"))
     left, right = lines_of(skeleton, src), lines_of(skeleton, dst)
@@ -410,7 +410,7 @@ def change_view(card, skeleton, seed, back=False, revision=CHANGE_REV):
             seen.add(line_text(i))
             differ.append(i)
     if len(differ) < 2:
-        raise bank.AiBankError("%s 의 두 판은 다른 줄이 %d개입니다(2개 이상)." % (card["id"], len(differ)))
+        raise bank.AiBankError("%s 의 두 코드 예제는 다른 줄이 %d개입니다(2개 이상)." % (card["id"], len(differ)))
     rng = Rng("%s %d%s" % (card["id"], int(seed), " back" if back else ""))
     k = rng.int(2, min(3, len(differ)))
     chosen = rng.sample(differ, k)
@@ -432,7 +432,7 @@ def change_view(card, skeleton, seed, back=False, revision=CHANGE_REV):
 
 def view(card, skeleton, seed, boxes=None, again=0, record=None):
     """카드 한 장의 문항. record 는 기록의 답 줄(오답 노트가 다시 그릴 때)이고 slot 은 masked·whole·fade, order·change 는
-    seed·back 을 그대로 씀. change_rev가 없는 기록은 1판으로 복원함. 새 change는 2판이며 again ≥ 1이고 back 지문이 있으면
+    seed·back 을 그대로 씀. change_rev가 없는 기록은 버전 1로 복원함. 새 change는 버전 2이며 again ≥ 1이고 back 지문이 있으면
     반대 방향으로 냄. record와 boxes가 모두 없으면 slot은 f = 0임."""
     part = card.get("part")
     if part == "slot":
@@ -463,8 +463,8 @@ def view(card, skeleton, seed, boxes=None, again=0, record=None):
 # 나란히 보기와 돌려 가며 빈칸
 
 def diff(skeleton, left, right):
-    """두 판을 나란히 보기(설계 3.7.2). {"skel", "left", "right", "rows": [{"left": 글|None, "right": 글|None, "same"}],
-    "different": same 이 거짓인 행 수, "same": 참인 행 수}. 모르는 판이면 AiBankError."""
+    """두 코드 예제를 나란히 보기(설계 3.7.2). {"skel", "left", "right", "rows": [{"left": 글|None, "right": 글|None, "same"}],
+    "different": same 이 거짓인 행 수, "same": 참인 행 수}. 모르는 코드 예제이면 AiBankError."""
     a, b = lines_of(skeleton, left), lines_of(skeleton, right)
     rows = [{"left": a[i] if i is not None else None, "right": b[j] if j is not None else None, "same": same}
             for i, j, same in _pairs(a, b)]
@@ -473,14 +473,14 @@ def diff(skeleton, left, right):
 
 
 def rotate_block(skeleton, variant, slot_ids=None):
-    """돌려 가며 빈칸 블록 값 {"code": 판 전체 글, "slots": [{"id", "line", "token", "hint", "mode", "code"(그 자리만 ____)}]}.
-    slot_ids 가 없으면 그 판의 모든 자리. 순서는 코드 위치(줄, 줄 안 위치). 모르는 판·자리면 AiBankError."""
+    """돌려 가며 빈칸 블록 값 {"code": 코드 예제 전체 글, "slots": [{"id", "line", "token", "hint", "mode", "code"(그 자리만 ____)}]}.
+    slot_ids 가 없으면 그 코드 예제의 모든 자리. 순서는 코드 위치(줄, 줄 안 위치). 모르는 코드 예제·자리면 AiBankError."""
     lines = lines_of(skeleton, variant)
     spots = slot_spots(skeleton, variant)
     ids = list(spots) if slot_ids is None else _unique(str(s) for s in slot_ids)
     for sid in ids:
         if sid not in spots:
-            raise bank.AiBankError("뼈대 %s 의 %s 판에 자리 %s 가 없습니다." % (skeleton.get("id"), variant, sid))
+            raise bank.AiBankError("뼈대 %s 의 %s 코드 예제에 자리 %s 가 없습니다." % (skeleton.get("id"), variant, sid))
     ids.sort(key=lambda sid: (spots[sid][0], spots[sid][1]))
     slots = []
     for sid in ids:

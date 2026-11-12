@@ -246,7 +246,7 @@ class Database:
                 raise ApiError(400, "기록 종류를 확인해 주세요.")
             revision = row.get("item_revision")
             if revision is not None and (not re.fullmatch(r"[a-f0-9]{64}", str(revision)) or not isinstance(row.get("item"), dict)):
-                raise ApiError(400, "문항 판과 지문을 확인해 주세요.")
+                raise ApiError(400, "문항 버전과 지문을 확인해 주세요.")
             cleaned.append((participant, track, row["event_id"], seq, packed(row)))
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")

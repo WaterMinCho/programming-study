@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""현재 PR 판의 검사·리뷰와 알림 중복 키를 계산함."""
+"""현재 PR 커밋의 검사·리뷰와 알림 중복 키를 계산함."""
 import hashlib
 import json
 

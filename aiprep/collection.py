@@ -148,7 +148,7 @@ class Collection:
             raise CollectionError("수집 중단 설정을 저장하지 못했습니다. %s" % error) from error
 
     def initialize_distribution(self):
-        """첫 실행의 명시적 선택 전에는 수집하지 않음. 이전 판의 기록을 보존하고 수집만 멈춤."""
+        """첫 실행의 명시적 선택 전에는 수집하지 않음. 이전 버전의 기록을 보존하고 수집만 멈춤."""
         from aiprep.privacy import POLICY_VERSION
         if not os.path.exists(self.path):
             return
@@ -224,7 +224,7 @@ class Collection:
             self._remember_stop(False)
 
     def set_goal(self, goal_id):
-        """동의 중에만 선택을 저장함. 같은 목표도 저장할 때마다 현재 로드맵 판을 읽음."""
+        """동의 중에만 선택을 저장함. 같은 목표도 저장할 때마다 현재 로드맵 버전을 읽음."""
         if not os.path.exists(self.path):
             raise CollectionError("추가 데이터 수집을 다시 시작한 뒤 희망 직무를 저장해 주세요.")
         with self._connect() as conn:

@@ -26,7 +26,7 @@ NOTE = ("AI 비전 개론의 문항·문장·사실 목록·검토 서명 묶음
 PARENTS = ("items", "mocks")
 SAMPLES = 10
 SKEL_SEEDS = (1, 2, 3)  # 순서·고칠 줄 카드 견본 시드
-SKEL_FADES = (("f0", None), ("f2", 2), ("f3", 4))  # 뼈대 빈칸 견본 이름과 같은 판 자리 모두에 줄 상자
+SKEL_FADES = (("f0", None), ("f2", 2), ("f3", 4))  # 뼈대 빈칸 견본 이름과 같은 코드 예제 자리 모두에 줄 상자
 WHOLE_KEY = re.compile(r"(S\d+) (.+) 전체\Z")
 SEED_KEY = re.compile(r"(pc-[ox]\d{2,3}) 시드 (\d+)\Z")
 SAMPLE_KEY = re.compile(r"(pc-k\d{2,3}) (f\d)\Z")
@@ -128,7 +128,7 @@ def _blank_answers(stem):
 
 def option_order(item):
     """공개본 고르기의 보기 순서(원래 번호 목록). 답안에 적어 두면 원래 0번 보기가 몇 번으로 갔는지 보여 답이 드러나므로 적지 않고
-    채점 때 같은 시드로 다시 만듦. genlib.Rng 라 파이썬 판이 달라도 같은 순서임."""
+    채점 때 같은 시드로 다시 만듦. genlib.Rng 라 파이썬 버전이 달라도 같은 순서임."""
     return genlib.Rng("%s 보기" % item["id"]).shuffle(list(range(len(item.get("options") or []))))
 
 
@@ -162,7 +162,7 @@ def _slot_cards(cards, pattern, variant):
 
 
 def whole_view(skeleton, variant, cards):
-    """판 하나의 모든 slot 카드 자리를 한꺼번에 토큰으로 가린 견본(1단계, 키 "S1 표준형 전체"). 카드가 없으면 None.
+    """코드 예제 하나의 모든 slot 카드 자리를 한꺼번에 토큰으로 가린 견본(1단계, 키 "S1 표준형 전체"). 카드가 없으면 None.
     칸은 코드 위치 순이고 칸마다 slot 이 그 자리 id 임."""
     mine = _slot_cards(cards, skeleton["id"], variant)
     if not mine:
@@ -171,7 +171,7 @@ def whole_view(skeleton, variant, cards):
 
 
 def skel_samples(card, skeleton, cards):
-    """slot 카드 하나의 점차 지우기 견본 [(이름, view)](2단계). 같은 판 slot 카드 모두에 같은 상자를 줘서 f0·f2·f3 판을 만듦."""
+    """slot 카드 하나의 점차 지우기 견본 [(이름, view)](2단계). 같은 코드 예제 slot 카드 모두에 같은 상자를 줘서 f0·f2·f3 코드 예제를 만듦."""
     ids = [c["id"] for c in _slot_cards(cards, card["pattern"], card["variant"])]
     return [(name, skel.slot_view(card, skeleton, {sid: box for sid in ids})) for name, box in SKEL_FADES]
 
@@ -232,7 +232,7 @@ def _note_answers(bank_dir, page_id):
 
 
 def brief_patterns(bank_dir, group, out_dir):
-    """상황별 코드 공개본. sheet.md에는 순서·줄·고칠 줄 고르기, whole.md에는 모든 자리를 가린 판을 둠.
+    """상황별 코드 공개본. sheet.md에는 순서·줄·고칠 줄 고르기, whole.md에는 모든 자리를 가린 코드 예제를 둠.
     skel.md 에는 slot 카드마다 f0·f2·f3 견본을 둠. whole.md는 sheet.md 답을 다 적은 뒤, skel.md는 whole.md 답을 다 적은 뒤에 엶(뼈대 빈칸 견본끼리 서로의 답을 보여 줌).
     line_answer·valid·wrong why·aim·facts.json 은 넣지 않음."""
     skeletons, cards = pattern_cards(bank_dir, group)

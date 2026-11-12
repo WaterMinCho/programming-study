@@ -15,7 +15,7 @@ FEATURES_VERSION = 4
 
 
 def question_key(row):
-    """실제로 반환한 같은 문항 판·풀이 위치만 연결함."""
+    """실제로 반환한 같은 문항 버전·풀이 위치만 연결함."""
     data, item = row["data"], row.get("item") or {}
     mock = row["kind"] in ("mock_question_returned", "mock_answer")
     fields = ("mock", "try", "card", "position") if mock else ("set", "card", "position", "again")

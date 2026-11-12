@@ -390,7 +390,7 @@ class AiSession(object):
         return out
 
     def _skel_block(self, block):
-        """ai-diff·ai-rotate 블록에 채울 값. diff 는 skel.diff 결과, rotate 는 skel.rotate_block 결과(code, slots). 모르는 뼈대·판·
+        """ai-diff·ai-rotate 블록에 채울 값. diff 는 skel.diff 결과, rotate 는 skel.rotate_block 결과(code, slots). 모르는 뼈대·코드 예제·
         자리면 {"error"}."""
         skeleton = self.skeletons.get(str(block.get("skel")))
         if skeleton is None:
@@ -405,7 +405,7 @@ class AiSession(object):
 
     def _blocks(self, lid, key, step, state):
         """단계 블록을 화면용으로. guess 는 답을 빼고 고른 번호를, reveal 은 짐작한 답과 정답을, figure 는 파일 경로를, diff 는
-        두 판의 행을, rotate 는 판 코드와 자리마다 그 자리만 가린 코드를 채움."""
+        두 코드 예제의 행을, rotate 는 예제 코드와 자리마다 그 자리만 가린 코드를 채움."""
         guesses = state.guesses.get((lid, key), {})
         out = []
         unit = self.notes[lid]["units"][key]
@@ -559,7 +559,7 @@ class AiSession(object):
         return self._append(entry, private={"response": value}, item=item)
 
     def check_rotate(self, lid, key, rid, slot, value, readonly=False):
-        """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 판 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
+        """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 예제 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
         문맥 떼기를 씀. readonly 가 아니면 {"kind": "recall", "lesson", "unit", "id", "slot", "ok"} 를 한 번 기록하고 상자는
         움직이지 않음. {"ok", "answer"(첫 답), "explain"(같은 자리의 기존 해설)}. 모르는 블록·자리면 AiError."""
         unit = self._unit(lid, key)
@@ -877,7 +877,7 @@ class AiSession(object):
 
     def _static_view(self, card, entry=None):
         """오답 노트에 다시 그릴 문항. 생성기는 기록의 시드로, 문장 카드는 기록의 shown 순서로 다시 만들고 shown 이 없으면 빈칸판.
-        뼈대 카드는 기록의 답 줄(seed, masked, whole, fade, back)로 다시 만들고 기록이 없으면 f = 0 판."""
+        뼈대 카드는 기록의 답 줄(seed, masked, whole, fade, back)로 다시 만들고 기록이 없으면 f = 0 코드 예제."""
         entry = entry or {}
         seed = entry.get("seed")
         if seed is None:
@@ -980,7 +980,7 @@ class _LogIndex(object):
 
 
 class _State(object):
-    """기록 한 판에서 계산한 값. AiSession._state 가 캐시하고, 카드 일정은 _LogIndex 의 캐시를 씀."""
+    """기록 스냅샷에서 계산한 값. AiSession._state 가 캐시하고, 카드 일정은 _LogIndex 의 캐시를 씀."""
 
     def __init__(self, sess, index, today):
         self.sess, self.today, self.exam, self.index = sess, today, sess.exam, index
@@ -1326,7 +1326,7 @@ def recent_lines(log, most=5, with_course=False):
 # 묶음 만들기
 
 def _overlapping_pattern_answers(sess, first, second):
-    """같은 판의 줄 고르기와 고칠 줄 문항이 같은 답 줄을 보여주는지 확인함."""
+    """같은 코드 예제의 줄 고르기와 고칠 줄 문항이 같은 답 줄을 보여주는지 확인함."""
     a, b = sess.cards[first], sess.cards[second]
     if a.get("kind") != "skel" or b.get("kind") != "skel" or a["pattern"] != b["pattern"]:
         return False
@@ -1428,16 +1428,16 @@ def _gen_trim(sess, chosen, keep=()):
 
 
 def _shows(card):
-    """뼈대 카드가 드러내는 판 이름 집합(change 는 from·to 둘)."""
+    """뼈대 카드가 드러내는 코드 예제 이름 집합(change 는 from·to 둘)."""
     return set(card.get("situations") or {}) | {card.get("variant")}
 
 
-# 같은 뼈대에서 먼저 낼 꼴. slot 은 판 전체를, change 는 두 판의 같은 줄을 보기로 보여 순위가 낮은 꼴의 답이 됨
+# 같은 뼈대에서 먼저 낼 꼴. slot 은 코드 예제 전체를, change 는 두 코드 예제의 같은 줄을 보기로 보여 순위가 낮은 꼴의 답이 됨
 SKEL_RANK = {"order": 0, "pick": 0, "change": 1, "slot": 2}
 
 
 def _blockers(sess, cid, waiting):
-    """cid 가 뼈대 change·slot 카드면 waiting 가운데 cid 보다 먼저 낼 카드. 같은 뼈대이고 SKEL_RANK 가 낮고 보이는 판이 겹치는
+    """cid 가 뼈대 change·slot 카드면 waiting 가운데 cid 보다 먼저 낼 카드. 같은 뼈대이고 SKEL_RANK 가 낮고 보이는 코드 예제가 겹치는
     카드임."""
     card = sess.cards[cid]
     if card.get("kind") != "skel":
@@ -1462,9 +1462,9 @@ def _hold_lead(sess, lead, rest):
 
 def _arrange(sess, state, chosen, rng, pattern=None):
     """순서 정하기. 같은 confuse 카드는 사이에 한 문항만 두고, 같은 차시·tags 는 붙이지 않고, 고르기는 CHOICE_RUN 개 넘게
-    잇지 않음. 같은 판 뼈대 카드가 아직 남았으면 SKEL_RANK 가 높은 카드를 미룸(slot 은 판 전체를 보여 고르기의 답이 되고, change 는
+    잇지 않음. 같은 코드 예제 뼈대 카드가 아직 남았으면 SKEL_RANK 가 높은 카드를 미룸(slot 은 코드 예제 전체를 보여 고르기의 답이 되고, change 는
     같은 줄 보기로 pick 의 답을 보임). 맞지 않으면 confuse → 차시·tags → 고르기 → 뼈대 순으로 풂. pattern 이 있으면(단원 모드)
-    자리마다 N(새 카드, 주어진 순서 그대로이되 같은 판 카드를 기다리는 카드는 미룸)·R(나머지)을 정하고, R 자리는 바로 뒤 N 자리에
+    자리마다 N(새 카드, 주어진 순서 그대로이되 같은 코드 예제 카드를 기다리는 카드는 미룸)·R(나머지)을 정하고, R 자리는 바로 뒤 N 자리에
     올 새 고르기까지 세어 고르기를 잇는 수를 지킴."""
     def form(cid):
         return sess.card_form(sess.cards[cid], state.box(cid))
@@ -1488,7 +1488,7 @@ def _arrange(sess, state, chosen, rng, pattern=None):
                     continue
                 waiting = [m for m in rest if m in blockers(new[0], rest)]
                 ready = [m for m in waiting if not held(m, new + rest)]
-                if waiting:  # 새 카드가 모두 같은 판 카드를 기다리면 그 카드를 먼저 냄
+                if waiting:  # 새 카드가 모두 같은 코드 예제 카드를 기다리면 그 카드를 먼저 냄
                     seq.append(rest.pop(rest.index((ready or waiting)[0])))
                 else:
                     seq.append(new.pop(0))
@@ -1773,7 +1773,7 @@ class PracticeSet(object):
         view = {"form": sess.card_form(card, box), "shown": None, "seed": entry["seed"]}
         if card["kind"] in ("blank", "choice"):
             item = card["item"]
-            if entry["again"] and isinstance(item.get("alt"), dict):  # 묶음 안에서 다시 낼 때 바꿔 쓴 판
+            if entry["again"] and isinstance(item.get("alt"), dict):  # 묶음 안에서 다시 낼 때 바꿔 쓴 문항
                 item = dict(item, **item["alt"])
         elif card["kind"] == "gen":
             item = gen.run(card["gen"], entry["seed"])
@@ -1793,7 +1793,7 @@ class PracticeSet(object):
         return view
 
     def _skel_view(self, card, state, entry):
-        """뼈대 카드 문항. slot 은 같은 뼈대·같은 판 slot 카드 가운데 주 자리와 열린 자리의 상자로 점차 지우기를 정함."""
+        """뼈대 카드 문항. slot 은 같은 뼈대·같은 코드 예제 slot 카드 가운데 주 자리와 열린 자리의 상자로 점차 지우기를 정함."""
         sess = self.sess
         boxes = None
         if card["part"] == "slot":
@@ -1943,7 +1943,7 @@ class PracticeSet(object):
 
     @staticmethod
     def _skel_row(card, item, row):
-        """답 줄에 다시 그릴 값을 더함. slot은 fade·masked·whole, change는 보기 판과 반대 방향 여부를 남김."""
+        """답 줄에 다시 그릴 값을 더함. slot은 fade·masked·whole, change는 보기 버전와 반대 방향 여부를 남김."""
         if card["kind"] != "skel":
             return
         made = item.get("skel") or {}
