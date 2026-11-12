@@ -5,7 +5,7 @@ from unittest import mock
 
 from tests import guikit, test_gui_hub, test_learning_privacy
 from PyQt6.QtCore import QPoint
-from PyQt6.QtWidgets import QBoxLayout, QScrollArea
+from PyQt6.QtWidgets import QBoxLayout, QScrollArea, QWidget
 from aiprep import privacy
 from gui import theme
 from gui.ai_data import LearningDataDialog
@@ -151,6 +151,16 @@ class GlobalConsistencyTest(test_gui_hub.HubTest):
         self.assertTrue(dialog.confirm_private.isChecked())
         self.assertIn("다른 작업", dialog.message.text())
         self.assertIn("r01/quiz.py", dialog.files.toPlainText())
+
+    def test_submission_title_and_description_keep_the_common_gap_in_a_large_dialog(self):
+        win, dialog = self.setup_submission()
+        for step in ("normal", "larger"):
+            win.set_text(step)
+            for selected in ("light", "dark"):
+                theme.set_mode(selected)
+                guikit.pump()
+                head = next(widget for widget in dialog.findChildren(QWidget) if widget.property("spacing_role") == "title_description")
+                self.assertEqual(theme.GAP["title_description"], head.description.y() - head.title.geometry().bottom() - 1)
 
     def test_empty_submission_explains_why_confirmation_is_disabled(self):
         win, dialog = self.setup_submission(empty=True)

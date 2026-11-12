@@ -59,6 +59,7 @@ class SubmissionSetup(QDialog):
         self.connect_button.setEnabled(False)
         self.confirm_private.toggled.connect(lambda checked: self.connect_button.setEnabled(checked and self.confirm_private.isEnabled()))
         self.connect_button.clicked.connect(self.connect_and_submit)
+        body.addStretch(1)
         outer.addWidget(kit.scroll(content), 1)
         footer = QWidget()
         row = kit.FlowLayout(footer, spacing=theme.GAP["detail"])
