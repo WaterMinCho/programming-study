@@ -38,6 +38,7 @@ jobs:
             tools/slack_notify.py
             tools/slack_summary.py
             tools/study_checks.py
+            tools/ci_scope.py
           sparse-checkout-cone-mode: false
       - name: 한국어 알림 보내기
         env:
