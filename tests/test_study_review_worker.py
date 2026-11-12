@@ -39,6 +39,7 @@ class WorkerTest(unittest.TestCase):
         self.assertIn("수정 필요 · "+FILE+":1", body)
         self.assertIn("선택 제안 · "+FILE+":1", body)
         self.assertIn("수정할 부분: 반복 시작에서 기울기를 초기화함.", body)
+        self.assertIn("제안 내용: 입력의 단위를 설명에 남김.", body)
         self.assertIn("현재 내용: 이전 기울기를 더함.", body)
         self.assertIn("수정 후: 현재 배치의 기울기만 사용함.", body)
         self.assertIn("<summary>현재 내용과 수정 후 결과</summary>", body)
@@ -58,6 +59,7 @@ class WorkerTest(unittest.TestCase):
                     self.assertIn("기존 커밋 뒤에 새 커밋이 추가됩니다", body)
                     self.assertIn("같은 브랜치로 Push하면 기존 PR이 갱신", body)
                     self.assertIn("PR 설명글만 고칠 때", body)
+                    self.assertIn("질문에 답하거나 실행 결과만 알릴 때는 댓글로 답하면 됩니다", body)
 
     def test_review_with_separate_observations_is_not_checked_as_a_commit_message(self):
         result = assessment()

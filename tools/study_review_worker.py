@@ -147,12 +147,12 @@ def validate(data, assessment, author):
 
 FOLLOWUP_GUIDE = """### 수정한 파일을 같은 PR에 추가하기
 
-파일 수정은 아래 순서로 진행합니다. 선택 제안은 반영할지 정하고 이유를 댓글로 답할 수 있습니다.
+파일을 고친 경우에만 아래 순서로 진행합니다. 질문에 답하거나 실행 결과만 알릴 때는 댓글로 답하면 됩니다. 선택 제안은 반영할지 정하고 이유를 답할 수 있습니다.
 
-1. SourceTree에서 이 PR을 올렸던 작업 브랜치를 엽니다.
+1. PR 위쪽의 `본인ID:작업브랜치`에서 이름을 확인하고, SourceTree 왼쪽 Branches에서 같은 작업 브랜치를 선택합니다.
 2. 편집기에서 파일을 고쳐 저장하고, SourceTree에서 바꾼 파일만 Stage에 넣습니다. Stage는 이번 커밋에 넣을 파일을 고르는 작업입니다.
 3. Commit에 수정 내용을 적어 저장합니다. Commit은 컴퓨터에 수정 기록을 남기며 기존 커밋 뒤에 새 커밋이 추가됩니다.
-4. Push에서 본인 fork의 같은 브랜치로 보냅니다. Push는 컴퓨터의 커밋을 GitHub에 올리는 작업입니다.
+4. Push는 컴퓨터의 커밋을 GitHub에 올리는 작업입니다. Push 창에서 원격이 `origin`인 본인 fork인지, 브랜치 이름이 1단계와 같은지 확인하고 보냅니다.
 5. 이 PR의 Commits에 새 커밋이 보이는지 확인하고, 고친 내용과 다시 확인한 결과를 댓글로 남깁니다.
 
 같은 브랜치로 Push하면 기존 PR이 갱신되므로 새 PR을 만들 필요가 없습니다. PR 설명글만 고칠 때는 GitHub에서 설명글의 Edit를 누르면 되며 파일 커밋은 필요하지 않습니다.
@@ -166,7 +166,8 @@ def body_for(data, assessment, marker, event):
     text = marker+"\n\n검토한 커밋: `"+data["head"]+"`\n\n"+assessment["summary"]+"\n\n"+labels[event]
     for item in assessment["findings"]:
         label = "수정 필요" if item["blocking"] else "선택 제안"
-        text += "\n\n### %s · %s:%d\n\n수정할 부분: %s\n\n이유: %s\n\n확인 방법: %s" % (label, item["path"], item["line"], item["hint"], item["reason"], item["check"])
+        action = "수정할 부분" if item["blocking"] else "제안 내용"
+        text += "\n\n### %s · %s:%d\n\n%s: %s\n\n이유: %s\n\n확인 방법: %s" % (label, item["path"], item["line"], action, item["hint"], item["reason"], item["check"])
         text += "\n\n<details>\n<summary>현재 내용과 수정 후 결과</summary>\n\n상황: %s\n\n현재 내용: %s\n\n수정 후: %s\n\n</details>" % (item["condition"], item["actual"], item["expected"])
     if assessment["questions"]:
         text += "\n\n설명해볼 질문\n\n"+"\n".join("- "+question for question in assessment["questions"])
