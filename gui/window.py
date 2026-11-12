@@ -201,11 +201,22 @@ class MainWindow(QMainWindow):
         if self.gitflow is None:
             self.open_session()
             return
-        self.run_job("새 문제 확인 중입니다.", self.gitflow.sync, self._synced_first, on_fail=self.open_session)
+        self.run_job("업데이트 확인 중입니다.", self.gitflow.sync, self._synced_first, on_fail=self.open_session)
 
     def _synced_first(self, result):
+        if result.get("status") == "error" or (result.get("restart") and result.get("status") not in ("ok", "nothing")):
+            text = "파일을 사용 중인 프로그램이 있다면 닫아 주세요. 이 창을 닫은 뒤 start 파일로 다시 실행합니다."
+            if result.get("backup"):
+                text += "\n\n보관한 사본: " + result["backup"]
+            dialog = self.ask("업데이트를 마치지 못했습니다", text, (("닫기", "ok"),),
+                              detail="\n".join(filter(None, (result.get("message"), result.get("detail")))))
+            dialog.finished.connect(self.close)
+            return
         if result.get("restart"):
-            self._restart(result)
+            if self.session is None and not result.get("backup"):
+                self._quit_for_restart()
+            else:
+                self._restart(result)
             return
         diverged = result.get("status") == "diverged"
         if not diverged and (result.get("status") not in ("ok", "nothing") or result.get("changed") or result.get("backup")):
@@ -736,7 +747,7 @@ class MainWindow(QMainWindow):
 
     def fetch_problems(self):
         if self.round_page.flush() and self.journey_page.flush():
-            self.run_job("새 문제 확인 중입니다.", self.gitflow.sync, self._fetched)
+            self.run_job("업데이트 확인 중입니다.", self.gitflow.sync, self._fetched)
 
     def _fetched(self, result):
         if self.web_node_first(lambda: self._fetched(result)):
@@ -785,7 +796,10 @@ class MainWindow(QMainWindow):
 
     def _restart(self, result):
         """도구 파일이 바뀌었으면 옛 코드로 새 파일을 다루지 않게, 대화상자를 어떻게 닫든 다시 시작함."""
-        dialog = self.ask("프로그램 갱신", result.get("message") or "프로그램이 새 버전으로 바뀌었습니다. 다시 시작합니다.", (("다시 시작", "ok"),))
+        message = result.get("message") or "프로그램이 새 버전으로 바뀌었습니다. 다시 시작합니다."
+        if result.get("backup"):
+            message += "\n\n보관한 사본: " + result["backup"]
+        dialog = self.ask("프로그램 갱신", message, (("다시 시작", "ok"),))
         dialog.finished.connect(self._quit_for_restart)
 
     def _quit_for_restart(self):

@@ -14,6 +14,10 @@ sys.path.insert(0, str(ROOT))
 
 CASES = (
     "tests.test_gui.FirstRunTest.test_from_first_run_to_regrade",
+    "tests.test_gui.HomeAndGitTest.test_tool_update_at_start_restarts",
+    "tests.test_gui.HomeAndGitTest.test_tool_update_during_learning_waits_for_restart_choice",
+    "tests.test_gui.HomeAndGitTest.test_blocked_startup_update_does_not_restart_in_a_loop",
+    "tests.test_gui.HomeAndGitTest.test_startup_update_backup_is_shown_before_restarting",
     "tests.test_gui_hub.HubScreenTest.test_subject_navigation_fits_a_small_window_at_the_largest_text_size",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",

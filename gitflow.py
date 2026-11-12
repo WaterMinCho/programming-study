@@ -25,9 +25,8 @@ import study
 
 MAIN = "refs/remotes/origin/main"
 MAIN_REFSPEC = "+refs/heads/main:" + MAIN  # --single-branch 로 clone 한 폴더에서도 받게 직접 적음
-TOOL_FILES = ("study.py", "adaptive.py", "session.py", "mdlite.py", "gitflow.py", "bootstrap.py", "submission_api.py")
-TOOL_DIRS = ("gui/", "journey/", "aiprep/")
-BANK_DIRS = ("problems/", "dungeons/", "ai/")  # 내용만 바뀌면 재시작 없이 세션만 새로 만듦
+TOOL_FILES = ("start.bat", "start.command", "package.json", "package-lock.json")
+TOOL_DIRS = ("gui/", "journey/", "aiprep/", "webprep/", "learning_server/", "tools/", "ROKEY.app/")
 # 내 폴더의 세 영역. profile = profile.json 과 회차 폴더(journey/·ai/ 를 뺀 전부), journey = journey/ 폴더, ai = ai/ 폴더(AI 비전 개론
 # 기록). 겹치는 파일이 없음
 AREAS = ("profile", "journey", "ai")
@@ -56,14 +55,14 @@ M_NO_GIT = "git 이 설치돼 있지 않아 문제 받기와 제출을 할 수 �
 M_NOT_REPO = ("이 폴더는 저장소를 clone 한 폴더가 아니라(ZIP 으로 받은 폴더 등) 문제 받기와 제출을 할 수 없습니다. "
               "안내대로 clone 한 폴더에서 실행하고, 지금까지 푼 submissions/%s 폴더는 그 폴더로 복사해 주세요.")
 M_BAD_USER = "ID 가 올바르지 않아 문제 받기와 제출을 할 수 없습니다: %r"
-M_OFFLINE = {"sync": "인터넷에 연결되지 않아 새 문제를 받지 못했습니다. 받아 둔 문제로 계속 풀 수 있습니다.",
+M_OFFLINE = {"sync": "인터넷에 연결되지 않아 업데이트를 확인하지 못했습니다. 받은 자료로 계속 학습할 수 있습니다.",
              "submit": "인터넷에 연결되지 않아 올리지 못했습니다. %s. 연결한 뒤 [제출]을 다시 눌러 주세요." % SAFE}
 M_SLOW = "저장소가 제때 응답하지 않아 멈췄습니다(%s). 인터넷 연결과 로그인 창을 확인한 뒤 다시 눌러 주세요." % SAFE
 M_LOGIN = "깃허브 로그인이 필요해 %%s 못했습니다(%s). 스터디장이 안내한 방법으로 로그인한 뒤 다시 눌러 주세요." % SAFE
 M_DENIED = ("저장소에 접근할 권한이 없어 %%s 못했습니다(%s). "
             "스터디장의 초대를 수락했는지, 로그인한 깃허브 계정이 %%s 인지 확인한 뒤 다시 눌러 주세요." % SAFE)
 M_BEHIND = "원격의 내 브랜치가 방금 또 바뀌어 올리지 못했습니다(%s). 잠시 뒤 [제출]을 다시 눌러 주세요." % SAFE
-M_ERROR = {"sync": "문제를 받다가 오류가 났습니다(풀이는 이 컴퓨터에 남아 있습니다). [자세히]의 내용을 스터디장에게 보내 주세요.",
+M_ERROR = {"sync": "업데이트를 마치지 못했습니다(풀이는 이 컴퓨터에 남아 있습니다). [자세히]의 내용을 스터디장에게 보내 주세요.",
            "submit": "제출하다가 오류가 났습니다(풀이는 이 컴퓨터에 남아 있습니다). [자세히]의 내용을 스터디장에게 보내 주세요."}
 M_DIVERGED = "다른 컴퓨터에서 올린 풀이가 있고, 이 컴퓨터의 풀이와 이어지지 않습니다. 덮어쓰지 않고 멈췄으니 어느 쪽을 쓸지 골라 주세요."
 M_BROKEN_PROFILE = "풀이 기록 파일(profile.json)을 읽을 수 없어 멈췄습니다. 풀이 폴더는 건드리지 않았습니다."
@@ -71,15 +70,15 @@ M_BROKEN_JOURNEY = "알고리즘 여행 기록 파일(journey/progress.json)을 
 M_BROKEN_AI = "AI 비전 개론 기록 파일(ai/record.json)을 읽을 수 없어 멈췄습니다. 풀이 폴더는 건드리지 않았습니다."
 M_BROKEN = "읽을 수 없는 풀이 파일이 있어 올리지 않았습니다: %s 고친 뒤 [제출]을 다시 눌러 주세요."
 M_DEV = "지금 '%s' 에서 문제·도구 파일을 고치는 중이라 [문제 받기]는 하지 않았습니다. 제출은 그대로 할 수 있습니다."
-M_LOCKED = "파일 %%d개를 새 버전으로 바꾸지 못했습니다: %%s. 이 파일을 연 프로그램을 닫고 [문제 받기]를 다시 눌러 주세요(%s)." % SAFE
+M_LOCKED = "파일 %%d개를 새 버전으로 바꾸지 못했습니다: %%s. 이 파일을 연 프로그램을 닫고 [새 문제 받기]를 다시 눌러 주세요(%s)." % SAFE
 M_UNSTALLED = "멈춰 있던 git 작업을 되돌렸습니다."
 M_UNSTALLED_KEPT = "멈춰 있던 git 작업을 되돌렸습니다. 그 전의 풀이 폴더는 보관함에 복사해 두었습니다."
 M_TOOK = "올려 둔 풀이를 가져왔습니다."
 M_TOOK_OVER = "올려 둔 풀이를 가져왔습니다. 이 컴퓨터에 있던 풀이는 보관함에 복사해 두었습니다."
 M_PARKED = "풀이 폴더 밖의 파일 %d개가 바뀌어 있어 원래대로 되돌렸습니다. 바꾼 내용은 보관함에 복사해 두었습니다."
-M_RESTART = "프로그램이 새 버전으로 바뀌었습니다. 다시 시작하면 적용됩니다."
-M_NEW = "새 문제를 받았습니다."
-M_LATEST = "문제가 이미 최신입니다."
+M_RESTART = "프로그램 업데이트를 받았습니다. 다시 시작하면 적용됩니다."
+M_NEW = "업데이트를 받았습니다."
+M_LATEST = "최신 버전입니다."
 M_NOTHING = "새로 제출할 풀이가 없습니다. 지난번에 올린 내용이 이미 반영돼 있습니다."
 M_EMPTY = "아직 제출할 풀이가 없습니다. 문제를 푼 뒤 다시 눌러 주세요."
 M_ADDED = "제출했습니다. 열려 있는 PR 에 이어서 올라갔습니다."
@@ -152,7 +151,7 @@ def new_pr_url(owner, repo, branch, title):
 
 
 def is_tool(path):
-    return path in TOOL_FILES or path.startswith(TOOL_DIRS)
+    return path in TOOL_FILES or path.startswith(TOOL_DIRS) or ("/" not in path and path.endswith((".py", ".pyw")))
 
 
 class GitFlow:
@@ -233,7 +232,7 @@ class GitFlow:
         return self._run("submit", self._submit)
 
     def updates(self):
-        """원격 학습 자료와 현재 판을 비교함. 참조·인덱스·작업 파일은 바꾸지 않음.
+        """원격 프로젝트 전체와 현재 판을 비교함. 참조·인덱스·작업 파일은 바꾸지 않음.
         새 객체만 받아 비교하며 count는 문항 수가 아닌 파일 수임."""
         try:
             deadline = time.monotonic() + self.fetch_timeout
@@ -244,8 +243,7 @@ class GitFlow:
             if not self._commit_of(tip):
                 self._git("fetch", "--no-write-fetch-head", "--no-tags", "--refmap=", "origin", "refs/heads/main",
                           timeout=max(0.1, deadline - time.monotonic()))
-            paths = self._paths("diff", "--name-only", "-z", "--diff-filter=AMR", "HEAD", tip, "--",
-                                "problems/", "dungeons/", "web/", "ai/")
+            paths = self._paths("diff", "--name-only", "-z", "HEAD", tip, "--", *self.outside)
             return {"status": "ok", "available": bool(paths), "count": len(paths)}
         except (OSError, GitError):
             return {"status": "error", "available": False, "count": 0}
@@ -424,15 +422,16 @@ class GitFlow:
         raise Stop("error", M_BEHIND if kind == "behind" else M_ERROR[self._op], text)
 
     def _fetch(self):
-        """최신 main 과 내 브랜치를 받음. 원격에서 지워진 브랜치는 로컬의 origin/ 참조도 지움.
+        """학습자는 main만 받고 예전 공개 제출 모드에서만 내 브랜치도 받음.
         남의 브랜치는 받지 않음. 대소문자만 다른 브랜치가 원격에 둘 있으면 Windows·macOS 에서는 fetch 가 통째로 실패함."""
         mine = "+refs/heads/%s*:refs/remotes/origin/%s*" % (self.branch, self.branch)  # 끝의 * 가 있어야 브랜치가 없을 때도 실패하지 않음
-        run = self._git("fetch", "--prune", "origin", MAIN_REFSPEC, mine, check=False, timeout=self.fetch_timeout)
+        refs = [MAIN_REFSPEC, mine] if self.legacy_contract else [MAIN_REFSPEC]
+        run = self._git("fetch", "--prune", "origin", *refs, check=False, timeout=self.fetch_timeout)
         if run.code != 0:
             kind = "slow" if run.code is None else remote_problem(run.err)
             self._remote_stop(kind if kind in ("slow", "login", "denied") else "offline", "git %s\n%s" % (run.args, run.err.strip()), "받지")
         self._base = self._out("rev-parse", MAIN + "^{commit}")
-        self._tip = self._commit_of(self.tip_ref)
+        self._tip = self._commit_of(self.tip_ref) if self.legacy_contract else None
         self._check_spelling()
         self._submitted = ""  # 새 제출 참조를 받은 뒤에는 이전 실행 중 기준을 쓰지 않음
 
@@ -781,25 +780,105 @@ class GitFlow:
 
     # 작업
 
+    def _pending_removals(self):
+        """삭제하지 못한 프로그램 파일만 다음 실행에서 다시 확인함. 풀이 경로는 제외함."""
+        filename = os.path.join(self._gitdir(), "study-update-removals.json")
+        if not os.path.exists(filename):
+            return set()
+        if os.path.islink(filename) or not os.path.isfile(filename):
+            raise ValueError("업데이트 확인 기록이 일반 파일이 아니어서 멈췄습니다.")
+        try:
+            with open(filename, encoding="utf-8") as stream:
+                paths = json.load(stream)
+            if not isinstance(paths, list):
+                raise ValueError("업데이트 확인 기록의 형식이 맞지 않습니다.")
+            root = os.path.realpath(self.root)
+            for rel in paths:
+                if (not isinstance(rel, str) or not rel or "\\" in rel or ":" in rel or
+                        rel.startswith("submissions/") or any(part in ("", ".", "..") for part in rel.split("/"))):
+                    raise ValueError("업데이트 파일 경로가 올바르지 않습니다.")
+                if os.path.commonpath((root, os.path.realpath(os.path.join(root, rel)))) != root:
+                    raise ValueError("업데이트 파일이 프로그램 폴더 밖을 가리킵니다.")
+        except ValueError:
+            fd, saved = tempfile.mkstemp(dir=self._gitdir(), prefix="study-update-invalid-", suffix=".json")
+            os.close(fd)
+            try:
+                os.replace(filename, saved)
+            except OSError:
+                os.remove(saved)
+                raise
+            self._notes.append("업데이트 확인 기록을 새로 만들었습니다.")
+            return set()
+        return set(paths)
+
+    def _save_removals(self, paths):
+        filename = os.path.join(self._gitdir(), "study-update-removals.json")
+        if not paths:
+            if os.path.exists(filename):
+                os.remove(filename)
+            return
+        fd, temporary = tempfile.mkstemp(dir=self._gitdir(), prefix="study-update-")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(sorted(paths), stream)
+            os.replace(temporary, filename)
+        finally:
+            if os.path.exists(temporary):
+                os.remove(temporary)
+
+    def _remaining_removals(self, paths):
+        if not paths:
+            return set()
+        ordered, untracked = sorted(paths), set()
+        for start in range(0, len(ordered), 64):
+            untracked.update(self._paths("ls-files", "--others", "-z", "--",
+                                         *(":(literal)" + rel for rel in ordered[start:start + 64])))
+        return {rel for rel in paths & untracked if os.path.lexists(os.path.join(self.root, rel))}
+
     def _sync(self):
         dev = self._dev_branch()
         if dev:
             raise Stop("blocked", M_DEV % dev)
         self._preflight()
         self._fetch()
-        self._reconcile()
-        snap = self._snapshot("최신 문제 받기")
+        if self.legacy_contract:
+            self._reconcile()
+        snap = self._snapshot("프로그램과 학습 자료 업데이트")
         before = self._out("rev-parse", "HEAD^{commit}")
+        pending = self._pending_removals() if not self.legacy_contract else set()
         moved = self._park_outside(snap)
-        if before != snap or self._branch() != self.branch:
-            if os.path.isdir(self.folder) or self._paths("ls-files", "-z", "--", self.rel):
-                self._git("add", "-A", "--", self.rel)  # 인덱스의 내 폴더 = 작업 폴더 = 스냅샷
-            self._git("checkout", "-q", "-B", self.branch, snap)  # 덮어쓸 수정이 있으면 git 이 거부함
-        moved |= set(self._paths("diff", "--name-only", "-z", before, snap, "--", *self.outside))
-        restart = any(is_tool(path) for path in moved)
-        changed = restart or any(path.startswith(BANK_DIRS) for path in moved)
-        stale = self._paths("diff", "--name-only", "-z", "HEAD", "--", *self.outside)
+        moved |= set(self._paths("diff", "--no-renames", "--name-only", "-z", before, snap, "--", *self.outside))
+        removed = set()
+        if not self.legacy_contract:
+            current = set(self._paths("ls-tree", "-r", "--name-only", "-z", snap)) if pending else set()
+            removed = (pending - current) | set(self._paths("diff", "--no-renames", "--name-only", "-z", "--diff-filter=D", before, snap, "--", *self.outside))
+            removed = {rel for rel in removed if not rel.startswith("submissions/")}
+            self._save_removals(removed)
+            for rel in self._remaining_removals(pending & removed):
+                try:
+                    self._copy_out({rel})
+                    os.remove(os.path.join(self.root, rel))
+                    moved.add(rel)
+                except OSError:
+                    pass
+        try:
+            if before != snap or self._branch() != self.branch:
+                if os.path.isdir(self.folder) or self._paths("ls-files", "-z", "--", self.rel):
+                    self._git("add", "-A", "--", self.rel)  # 인덱스의 내 폴더를 스냅샷에 맞춤
+                self._git("checkout", "-q", "-B", self.branch, snap)
+            stale = set(self._paths("diff", "--name-only", "-z", "HEAD", "--", *self.outside))
+            if not self.legacy_contract:
+                remaining = self._remaining_removals(removed)
+                self._save_removals(remaining)
+                stale |= remaining
+        except (GitError, OSError) as error:
+            if self.legacy_contract:
+                raise
+            return self._result("error", M_ERROR["sync"], str(error), restart=bool(moved), changed=bool(moved))
+        restart = any(is_tool(path) for path in moved | stale)
+        changed = bool(moved)
         if stale:  # checkout 은 파일을 못 바꿔도 0 으로 끝나서 직접 확인함. 나머지 파일은 이미 바뀌었으니 restart·changed 도 같이 알림
+            stale = sorted(stale)
             return self._result("blocked", M_LOCKED % (len(stale), ", ".join(stale[:3])), "\n".join(stale), restart=restart, changed=changed)
         return self._result("ok", M_RESTART if restart else M_NEW if changed else M_LATEST, restart=restart, changed=changed)
 
