@@ -211,6 +211,10 @@ class SubmissionTest(unittest.TestCase):
         result = class_invites(self.db, destination, "https://example.test", count=100)
         self.assertEqual(result["members"], 100)
         self.assertEqual(len(list(destination.glob("member-*.txt"))), 100)
+        text = (destination / "member-001.txt").read_text(encoding="utf-8")
+        self.assertIn("일반 수강생은 이 초대 파일을 사용하지 않습니다", text)
+        self.assertIn("비공개로 보냅니다", text)
+        self.assertNotIn("GitHub 공개 PR로 올립니다", text)
         with self.db.connect() as db:
             self.assertEqual(db.execute("SELECT count(*) FROM submission_accounts").fetchone()[0], 0)
 
