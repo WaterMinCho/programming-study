@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """Windows 첫 실행 뒤 프로그램 폴더에 R 아이콘 바로가기를 만듦."""
-import base64
-import json
 import os
 from pathlib import Path
 import struct
@@ -11,38 +9,59 @@ import tempfile
 
 NAME = "프로그래밍 스터디.lnk"
 CACHE = ".study-launcher"
-PAYLOAD = "STUDY_SHORTCUT_JSON"
-SCRIPT = r"""
-$ErrorActionPreference = 'Stop'
-$p = $env:STUDY_SHORTCUT_JSON | ConvertFrom-Json
-$shell = New-Object -ComObject WScript.Shell
-$link = $shell.CreateShortcut($p.link)
-$link.TargetPath = $p.target
-$link.Arguments = $p.arguments
-$link.WorkingDirectory = $p.workdir
-$link.IconLocation = $p.icon
-$link.Description = '프로그래밍 스터디'
-$link.Save()
-$saved = $shell.CreateShortcut($p.link)
-foreach ($pair in @(@('TargetPath', 'target'), @('Arguments', 'arguments'),
-                    @('WorkingDirectory', 'workdir'), @('IconLocation', 'icon'))) {
-    if ($saved.($pair[0]) -ne $p.($pair[1])) {
-        throw ('Shortcut property was not saved: ' + $pair[0] + '; ' +
-               (@{expected=$p.($pair[1]); actual=$saved.($pair[0])} | ConvertTo-Json -Compress))
-    }
-}
-"""
 
 
-def powershell(script, payload):
-    """고정 명령과 경로 데이터를 나누고 콘솔 창 없이 실행함."""
-    command = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-    system = Path(os.environ["SystemRoot"])
-    executable = system / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
-    return subprocess.run([str(executable), "-NoProfile", "-NonInteractive", "-EncodedCommand", command],
-                          env=dict(os.environ, **{PAYLOAD: json.dumps(payload, ensure_ascii=True)}),
-                          stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                          creationflags=subprocess.CREATE_NO_WINDOW, timeout=15, check=True)
+def save_shortcut(payload):
+    """IShellLinkW와 IPersistFile로 경로를 유니코드 그대로 저장함."""
+    import ctypes as ct
+    from ctypes import wintypes as wt
+    import uuid
+
+    class GUID(ct.Structure):
+        _fields_ = [("data1", wt.DWORD), ("data2", wt.WORD), ("data3", wt.WORD), ("data4", ct.c_ubyte * 8)]
+
+    def guid(value):
+        return GUID.from_buffer_copy(uuid.UUID(value).bytes_le)
+
+    def check(result):
+        if result < 0:
+            raise ct.WinError(result)
+
+    def method(pointer, index, result, *arguments):
+        table = ct.cast(pointer, ct.POINTER(ct.POINTER(ct.c_void_p))).contents
+        return ct.WINFUNCTYPE(result, ct.c_void_p, *arguments)(table[index])
+
+    ole = ct.WinDLL("ole32")
+    ole.CoInitializeEx.argtypes, ole.CoInitializeEx.restype = [ct.c_void_p, wt.DWORD], ct.c_long
+    ole.CoUninitialize.argtypes, ole.CoUninitialize.restype = [], None
+    ole.CoCreateInstance.argtypes = [ct.POINTER(GUID), ct.c_void_p, wt.DWORD, ct.POINTER(GUID), ct.POINTER(ct.c_void_p)]
+    ole.CoCreateInstance.restype = ct.c_long
+    initialized = ole.CoInitializeEx(None, 2)
+    if initialized != -2147417850:  # RPC_E_CHANGED_MODE이면 이미 설정된 apartment를 사용함.
+        check(initialized)
+    link, persist = ct.c_void_p(), ct.c_void_p()
+    try:
+        clsid = guid("00021401-0000-0000-c000-000000000046")
+        iid = guid("000214f9-0000-0000-c000-000000000046")
+        check(ole.CoCreateInstance(ct.byref(clsid), None, 1, ct.byref(iid), ct.byref(link)))
+        # IShellLinkW의 SetPath·SetArguments·SetWorkingDirectory·SetDescription임.
+        for index, value in ((20, payload["target"]), (11, payload["arguments"]),
+                             (9, payload["workdir"]), (7, "프로그래밍 스터디")):
+            check(method(link, index, ct.c_long, wt.LPCWSTR)(link, value))
+        check(method(link, 17, ct.c_long, wt.LPCWSTR, ct.c_int)(link, payload["icon"], 0))
+        iid = guid("0000010b-0000-0000-c000-000000000046")
+        check(method(link, 0, ct.c_long, ct.POINTER(GUID), ct.POINTER(ct.c_void_p))
+              (link, ct.byref(iid), ct.byref(persist)))
+        saved = method(persist, 6, ct.c_long, wt.LPCWSTR, wt.BOOL)(persist, payload["link"], True)
+        check(saved)
+        if saved != 0:
+            raise OSError("바로가기 파일을 저장하지 못했습니다.")
+    finally:
+        for pointer in (persist, link):
+            if pointer:
+                method(pointer, 2, wt.ULONG)(pointer)
+        if initialized >= 0:
+            ole.CoUninitialize()
 
 
 def icon_bytes():
@@ -85,9 +104,9 @@ def create(root, executable=None):
         image.write_bytes(icon_bytes())
         os.replace(image, icon)
         pending = temporary / NAME
-        powershell(SCRIPT, {"link": str(pending), "target": str(pythonw),
+        save_shortcut({"link": str(pending), "target": str(pythonw),
                             "arguments": subprocess.list2cmdline([str(start)]),
-                            "workdir": str(root), "icon": str(icon) + ",0"})
+                            "workdir": str(root), "icon": str(icon)})
         # Windows의 rename은 목적지 파일이 먼저 생겼어도 덮어쓰지 않음.
         try:
             os.rename(pending, link)

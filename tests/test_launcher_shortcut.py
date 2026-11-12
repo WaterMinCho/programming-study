@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """바로가기의 경로 전달·기존 파일 보존·실패 복구를 확인함."""
-import base64
 import contextlib
 import io
-import json
 import os
 from pathlib import Path
 import subprocess
@@ -31,15 +29,15 @@ class ShortcutTest(unittest.TestCase):
         with mock.patch.object(shortcut.sys, "platform", "win32"):
             return shortcut.create(self.root, self.python)
 
-    def save(self, script, payload):
+    def save(self, payload):
         Path(payload["link"]).write_bytes(b"shortcut")
         self.assertEqual(payload["target"], str(self.pythonw))
         self.assertEqual(payload["arguments"], subprocess.list2cmdline([str(self.start)]))
         self.assertEqual(payload["workdir"], str(self.root))
-        self.assertEqual(payload["icon"], str(self.root / shortcut.CACHE / "icon.ico") + ",0")
+        self.assertEqual(payload["icon"], str(self.root / shortcut.CACHE / "icon.ico"))
 
     def test_project_link_uses_the_running_pythonw_and_absolute_paths(self):
-        with mock.patch.object(shortcut, "powershell", side_effect=self.save) as shell, \
+        with mock.patch.object(shortcut, "save_shortcut", side_effect=self.save) as shell, \
                 mock.patch.object(shortcut, "icon_bytes", return_value=b"icon"):
             link = self.create()
         self.assertEqual(link, self.root / shortcut.NAME)
@@ -59,7 +57,7 @@ class ShortcutTest(unittest.TestCase):
                     link.mkdir()
                 else:
                     link.write_bytes(b"someone else's shortcut")
-                with mock.patch.object(shortcut, "powershell") as shell:
+                with mock.patch.object(shortcut, "save_shortcut") as shell:
                     self.assertIsNone(self.create())
                 shell.assert_not_called()
                 self.assertFalse((self.root / shortcut.CACHE).exists())
@@ -76,7 +74,7 @@ class ShortcutTest(unittest.TestCase):
             link.write_bytes(b"someone else's shortcut")
             raise FileExistsError()
 
-        with mock.patch.object(shortcut, "powershell", side_effect=self.save), \
+        with mock.patch.object(shortcut, "save_shortcut", side_effect=self.save), \
                 mock.patch.object(shortcut, "icon_bytes", return_value=b"icon"), \
                 mock.patch.object(shortcut.os, "rename", side_effect=collision):
             self.assertIsNone(self.create())
@@ -86,7 +84,7 @@ class ShortcutTest(unittest.TestCase):
         for missing in (self.pythonw, self.start):
             with self.subTest(missing=missing):
                 missing.unlink()
-                with mock.patch.object(shortcut, "powershell") as shell:
+                with mock.patch.object(shortcut, "save_shortcut") as shell:
                     with self.assertRaises(FileNotFoundError):
                         self.create()
                 shell.assert_not_called()
@@ -95,19 +93,19 @@ class ShortcutTest(unittest.TestCase):
 
     def test_shell_failure_leaves_no_partial_link_and_can_be_retried(self):
         with mock.patch.object(shortcut, "icon_bytes", return_value=b"icon"), \
-                mock.patch.object(shortcut, "powershell", side_effect=subprocess.TimeoutExpired("powershell", 15)):
+                mock.patch.object(shortcut, "save_shortcut", side_effect=subprocess.TimeoutExpired("save_shortcut", 15)):
             with self.assertRaises(subprocess.TimeoutExpired):
                 self.create()
         self.assertFalse((self.root / shortcut.NAME).exists())
         self.assertEqual(len(list((self.root / shortcut.CACHE).iterdir())), 1)
         with mock.patch.object(shortcut, "icon_bytes", return_value=b"icon"), \
-                mock.patch.object(shortcut, "powershell", side_effect=self.save):
+                mock.patch.object(shortcut, "save_shortcut", side_effect=self.save):
             self.assertEqual(self.create(), self.root / shortcut.NAME)
 
     def test_non_windows_does_not_create_files_or_import_qt(self):
         with mock.patch.object(shortcut.sys, "platform", "darwin"), \
                 mock.patch.object(shortcut, "icon_bytes") as icon, \
-                mock.patch.object(shortcut, "powershell") as shell:
+                mock.patch.object(shortcut, "save_shortcut") as shell:
             self.assertIsNone(shortcut.ensure(self.root))
         icon.assert_not_called()
         shell.assert_not_called()
@@ -115,30 +113,30 @@ class ShortcutTest(unittest.TestCase):
 
     def test_optional_shortcut_failure_is_logged_without_stopping_startup(self):
         for error in (PermissionError("read-only"), OSError("COM unavailable"),
-                      subprocess.CalledProcessError(1, "powershell")):
+                      subprocess.CalledProcessError(1, "save_shortcut")):
             with self.subTest(error=error), mock.patch.object(shortcut, "create", side_effect=error), \
                     contextlib.redirect_stderr(io.StringIO()) as log:
                 self.assertIsNone(shortcut.ensure(self.root))
                 self.assertIn("start.bat", log.getvalue())
                 self.assertIn(type(error).__name__, log.getvalue())
 
-class PowershellTest(unittest.TestCase):
+class ShortcutArgumentsTest(unittest.TestCase):
     def test_unicode_quotes_and_different_drives_stay_outside_the_script(self):
-        payload = {"target": r"D:\한글 Python\pythonw.exe", "workdir": r"E:\공부 ' & $ ` [ ] , 폴더",
-                   "arguments": subprocess.list2cmdline([r'E:\공부 "인용"\start.pyw'])}
-        with mock.patch.dict(os.environ, {"SystemRoot": r"C:\Windows"}), \
-                mock.patch.object(subprocess, "CREATE_NO_WINDOW", 0x08000000, create=True), \
-                mock.patch.object(subprocess, "run") as run:
-            shortcut.powershell(shortcut.SCRIPT, payload)
-        args, kwargs = run.call_args
-        command = args[0]
-        self.assertEqual(base64.b64decode(command[-1]).decode("utf-16-le"), shortcut.SCRIPT)
-        self.assertEqual(command[1:4], ["-NoProfile", "-NonInteractive", "-EncodedCommand"])
-        self.assertEqual(json.loads(kwargs["env"][shortcut.PAYLOAD]), payload)
-        self.assertNotIn("shell", kwargs)
-        self.assertEqual(kwargs["creationflags"], 0x08000000)
-        self.assertTrue(kwargs["check"])
-        self.assertEqual(kwargs["timeout"], 15)
+        # 바로가기 저장은 쉘 명령이나 경로별 실행문을 만들지 않음.
+        with tempfile.TemporaryDirectory(prefix="study 한글 ' & $ [ , ") as temporary:
+            root = Path(temporary).resolve()
+            (root / "start.pyw").write_text("", encoding="utf-8")
+            (root / "pythonw.exe").write_bytes(b"")
+            with mock.patch.object(shortcut.sys, "platform", "win32"), \
+                    mock.patch.object(shortcut, "icon_bytes", return_value=b"icon"), \
+                    mock.patch.object(shortcut, "save_shortcut", side_effect=lambda p: Path(p["link"]).write_bytes(b"link")) as save, \
+                    mock.patch.object(subprocess, "run") as run:
+                shortcut.create(root, root / "python.exe")
+            payload = save.call_args.args[0]
+            self.assertEqual(payload["arguments"], subprocess.list2cmdline([str(root / "start.pyw")]))
+            self.assertEqual(payload["workdir"], str(root))
+            self.assertEqual(payload["icon"], str(root / shortcut.CACHE / "icon.ico"))
+            run.assert_not_called()
 
     def test_generated_paths_are_gitignored(self):
         root = Path(__file__).resolve().parents[1]

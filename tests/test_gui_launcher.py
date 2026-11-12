@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """R 아이콘의 ICO와 Windows 바로가기 속성·실행을 확인함."""
+import base64
 import json
+import os
+import subprocess
 from pathlib import Path
 import struct
 import sys
@@ -13,6 +16,15 @@ from PyQt6.QtCore import QLockFile
 from PyQt6.QtGui import QIcon, QImage
 
 from gui import app, icon, launcher_shortcut as shortcut
+
+
+def powershell(script, payload):
+    command = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    executable = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    return subprocess.run([str(executable), "-NoProfile", "-NonInteractive", "-EncodedCommand", command],
+                          env=dict(os.environ, STUDY_SHORTCUT_JSON=json.dumps(payload, ensure_ascii=True)),
+                          stdin=subprocess.DEVNULL, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW,
+                          timeout=15, check=True)
 
 
 class IconFileTest(unittest.TestCase):
@@ -120,13 +132,10 @@ class NativeShortcutTest(unittest.TestCase):
                 "'python': sys.executable, 'prefix': sys.prefix}), encoding='utf-8')\n"
                 "result.replace(result.with_name('ran.json'))\n",
                 encoding="utf-8")
-            try:
-                link = shortcut.create(root)
-            except shortcut.subprocess.CalledProcessError as error:
-                self.fail(error.stderr.decode('utf-8', errors='replace'))
+            link = shortcut.create(root)
             self.assertEqual(link, root / shortcut.NAME)
             self.assertEqual(link.read_bytes()[:4], b"L\x00\x00\x00")
-            read = shortcut.powershell(r"""
+            read = powershell(r"""
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding
 $p = $env:STUDY_SHORTCUT_JSON | ConvertFrom-Json
@@ -145,7 +154,7 @@ $link = (New-Object -ComObject WScript.Shell).CreateShortcut($p.link)
             original = link.read_bytes()
             self.assertIsNone(shortcut.create(root))
             self.assertEqual(link.read_bytes(), original)
-            shortcut.powershell(r"""
+            powershell(r"""
 $ErrorActionPreference = 'Stop'
 $p = $env:STUDY_SHORTCUT_JSON | ConvertFrom-Json
 Start-Process -FilePath $p.link -Wait
