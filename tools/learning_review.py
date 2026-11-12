@@ -133,7 +133,9 @@ def prepare(number, destination, context=(), discussion=()):
     packet = {"repository": REPO, "number": number, "head": before["head"]["sha"],
               "base": before["base"]["sha"], "merge_base": merge_base, "comparison": "GitHub compare base...head: merge-base to head",
               "title": before["title"], "description": before.get("body") or "",
-              "files": [row["filename"] for row in files], "unreviewed_images": [row["filename"] for row in files if Path(row["filename"]).suffix.lower() in IMAGES], "diff": diff, "context": excerpts}
+              "files": [row["filename"] for row in files],
+              "changed_paths": list(dict.fromkeys(path for row in files for path in (row["filename"], row.get("previous_filename", row["filename"])))),
+              "unreviewed_images": [row["filename"] for row in files if Path(row["filename"]).suffix.lower() in IMAGES], "diff": diff, "context": excerpts}
     check_text(diff)
     check_text(packet["title"] + "\n" + packet["description"])
     for item in excerpts:
@@ -172,6 +174,8 @@ def snapshot(directory):
     check_text(data["diff"])
     check_text(data["title"] + "\n" + data["description"])
     for name in data["files"]:
+        check_path(name, allow_image=True)
+    for name in data.get("changed_paths", []):
         check_path(name, allow_image=True)
     for item in data["context"]:
         check_path(item["path"])

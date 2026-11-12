@@ -87,7 +87,7 @@ class WorkerTest(unittest.TestCase):
     def prepare(self, number, folder, discussion):
         folder.mkdir(parents=True)
         data = {"number": number, "head": HEAD, "base": BASE, "title": self.pr["title"],
-                "description": self.pr["body"], "files": [FILE], "diff": DIFF, "context": [],
+                "description": self.pr["body"], "files": [FILE], "changed_paths": [FILE], "diff": DIFF, "context": [],
                 "discussion": discussion, **self.packet_changes}
         worker.save(folder/"snapshot.json", data)
         return data
@@ -158,13 +158,34 @@ class WorkerTest(unittest.TestCase):
         self.assertIn("사람이 코드를 검토하거나 실행한 결과로 표시하지 않음.", self.posted()[0]["body"])
 
     def test_scope_title_images_and_context_only_leave_comment(self):
-        data = {"files": [FILE], "diff": DIFF, "title": self.pr["title"]}
+        data = {"files": [FILE], "changed_paths": [FILE], "diff": DIFF, "title": self.pr["title"]}
         for update in ({"files": ["gui/view.py"]}, {"files": ["experiments/michae18/setup.py"]},
                        {"unreviewed_images": ["chart.png"]}, {"title": "wrong title"}, {"diff": "x" * 60001}):
             with self.subTest(update=update):
                 self.assertEqual("COMMENT", worker.validate(dict(data, **update), assessment(), "michae18"))
         self.assertEqual("COMMENT", worker.validate(data, assessment("needs_context"), "michae18"))
         self.assertEqual("COMMENT", worker.validate(data, assessment("changes_requested"), "michae18"))
+
+    def test_rename_from_outside_author_folder_cannot_be_approved(self):
+        data = {"files": [FILE], "changed_paths": [FILE, "gui/view.py"], "diff": DIFF, "title": self.pr["title"]}
+        self.assertEqual("COMMENT", worker.validate(data, assessment(), "michae18"))
+        data["changed_paths"] = [FILE, "experiments/michae18/old_train.py"]
+        self.assertEqual("APPROVE", worker.validate(data, assessment(), "michae18"))
+
+    def test_all_changed_paths_must_use_permitted_text_types(self):
+        data = {"files": [FILE], "diff": DIFF, "title": self.pr["title"]}
+        for old in ("old.ipynb", "old.jsonl", "setup.py", "conftest.py", "../other/train.py"):
+            with self.subTest(old=old):
+                data["changed_paths"] = [FILE, "experiments/michae18/"+old]
+                self.assertEqual("COMMENT", worker.validate(data, assessment(), "michae18"))
+
+    def test_old_cache_without_changed_paths_holds_approval_but_keeps_blockers(self):
+        data = {"files": [FILE], "diff": DIFF, "title": self.pr["title"]}
+        self.assertEqual("COMMENT", worker.validate(data, assessment(), "michae18"))
+        self.assertEqual("REQUEST_CHANGES", worker.validate(data, assessment(blocking=True), "michae18"))
+        for paths in (None, [], FILE, ["experiments/michae18/other.py"]):
+            with self.subTest(paths=paths):
+                self.assertEqual("COMMENT", worker.validate(dict(data, changed_paths=paths), assessment(), "michae18"))
 
     def test_grounded_blocker_overrides_approve_on_same_head(self):
         self.prior()

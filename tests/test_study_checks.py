@@ -190,7 +190,7 @@ class ChecksTest(unittest.TestCase):
         self.pr["number"] += 1
         self.assertNotEqual(key, self.state()["key"])
 
-    def test_key_changes_with_head_base_and_review(self):
+    def test_key_changes_with_head_base_and_result_but_not_repeated_approval(self):
         key = self.state()["key"]
         self.pr["head"]["sha"] = "d" * 40
         self.assertNotEqual(key, self.state()["key"])
@@ -198,7 +198,11 @@ class ChecksTest(unittest.TestCase):
         self.pr["base"]["sha"] = "e" * 40
         self.assertNotEqual(key, self.state()["key"])
         self.team()
-        self.assertNotEqual(self.state([review()])["key"], self.state([review(id=6)])["key"])
+        self.assertEqual(self.state([review()])["key"], self.state([review(id=6)])["key"])
+        approved = self.state([review()])["key"]
+        self.assertEqual(approved, self.state([review(), review("COMMENTED", id=6)])["key"])
+        self.rows[-1]["state"] = "FAILURE"
+        self.assertNotEqual(approved, self.state([review("CHANGES_REQUESTED")])["key"])
 
 
 if __name__ == "__main__":
