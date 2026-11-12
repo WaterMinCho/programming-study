@@ -54,3 +54,5 @@ GitHub에서 clone한 뒤 start 파일을 실행합니다. 기기 ID는 자동 �
 작업과 검토 상태는 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2)에서 관리합니다. 각자 공통 프로젝트를 fork하고 그 안의 `experiments/본인GitHubID/`에서 모델을 개발합니다. 코드·실험·받은 질문과 수정 기록을 같은 fork에 남기고 공통 프로젝트로 PR을 보냅니다. [fork에서 개발하고 기여하는 방법](../docs/LEARNING_WORKFLOW.md), [실험 기록 양식](../docs/LEARNING_EXPERIMENT_TEMPLATE.md)에서 시작하세요.
 
 팀원은 공통 입력을 읽는 작은 실습부터 시작합니다. 코드·설정·합성 자료의 학습곡선·자기 설명·피드백 반영 기록을 PR로 남깁니다. 등록한 세 팀원의 개발 PR은 로컬 검토기가 코드를 읽고 피드백을 게시합니다. WaterMinCho가 실행 근거와 남은 지적을 확인한 뒤 머지하며 팀원 PR을 자동 머지하지 않습니다. [실습 순서와 담당별 산출물](../docs/LEARNING_MISSIONS.md), [코드 검토 방법](../docs/LEARNING_REVIEW.md)을 참고하세요.
+
+서버에 일부 폴더만 받는 설정(sparse checkout)을 쓰면 업데이트 후에도 새 폴더가 빠질 수 있습니다. 운영 서버에서 쓰는 패턴 방식에서는 저장소 안에서 `git sparse-checkout add /learning_data/`로 공통 패키지를 추가합니다. 웹앱을 다시 시작하기 전에 `python3.12 -c "from learning_server import app, submissions; from learning_data import privacy"`로 두 폴더의 코드를 함께 읽을 수 있는지 확인하세요.
