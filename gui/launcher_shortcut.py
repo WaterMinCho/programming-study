@@ -24,9 +24,12 @@ $link.IconLocation = $p.icon
 $link.Description = '프로그래밍 스터디'
 $link.Save()
 $saved = $shell.CreateShortcut($p.link)
-if ($saved.TargetPath -ne $p.target -or $saved.Arguments -ne $p.arguments -or
-    $saved.WorkingDirectory -ne $p.workdir -or $saved.IconLocation -ne $p.icon) {
-    throw 'Shortcut properties were not saved.'
+foreach ($pair in @(@('TargetPath', 'target'), @('Arguments', 'arguments'),
+                    @('WorkingDirectory', 'workdir'), @('IconLocation', 'icon'))) {
+    if ($saved.($pair[0]) -ne $p.($pair[1])) {
+        throw ('Shortcut property was not saved: ' + $pair[0] + '; ' +
+               (@{expected=$p.($pair[1]); actual=$saved.($pair[0])} | ConvertTo-Json -Compress))
+    }
 }
 """
 

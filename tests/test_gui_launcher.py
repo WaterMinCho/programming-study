@@ -120,7 +120,10 @@ class NativeShortcutTest(unittest.TestCase):
                 "'python': sys.executable, 'prefix': sys.prefix}), encoding='utf-8')\n"
                 "result.replace(result.with_name('ran.json'))\n",
                 encoding="utf-8")
-            link = shortcut.create(root)
+            try:
+                link = shortcut.create(root)
+            except shortcut.subprocess.CalledProcessError as error:
+                self.fail(error.stderr.decode('utf-8', errors='replace'))
             self.assertEqual(link, root / shortcut.NAME)
             self.assertEqual(link.read_bytes()[:4], b"L\x00\x00\x00")
             read = shortcut.powershell(r"""
