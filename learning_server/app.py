@@ -337,7 +337,7 @@ def application(database, *, legacy_contract=False):
     def app(environ, start_response):
         try:
             method, path = environ.get("REQUEST_METHOD"), environ.get("PATH_INFO")
-            if not legacy_contract and path in ("/v1/register", "/v1/register/open", "/v1/submissions/publish"):
+            if not legacy_contract and path in ("/v1/register", "/v1/register/open", "/v1/submissions", "/v1/submissions/publish"):
                 raise ApiError(410, "공개 풀이 제출을 종료했습니다. 프로그램을 업데이트해 비공개로 제출해 주세요.")
             if method == "GET" and path == "/health":
                 database.health()
