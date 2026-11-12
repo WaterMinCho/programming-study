@@ -25,7 +25,7 @@ class MockPage(QWidget):
         self.paste = PasteBlock(self)
         self.paste.blocked.connect(self.note_blocked)
         root = kit.box(self)
-        self.top = kit.TopBar('← AI 비전 개론', '')
+        self.top = kit.TopBar('← AI 개론', '')
         self.clock_box, self.clock_caption, self.time = kit.clock()
         self.top.add_right(self.clock_box)
         self.top_submit = self.top.add_right(kit.button('제출', 'text', 's'))

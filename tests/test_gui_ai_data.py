@@ -53,7 +53,7 @@ class AiDataTest(AiTest):
             guikit.pump()
             self.assertLessEqual(dialog.width(), 760)
             self.assertLessEqual(dialog.height(), 480)
-            for button in (dialog.toggle, dialog.goal_save, dialog.export_button, dialog.delete_button, dialog.send_button, dialog.remote_delete):
+            for button in (dialog.toggle, dialog.goal_save, dialog.export_button, dialog.delete_button, dialog.send_button, dialog.privacy_button):
                 dialog.scroll.ensureWidgetVisible(button)
                 guikit.pump()
                 self.assertGreaterEqual(button.width(), QFontMetricsF(button.font()).horizontalAdvance(button.text()) + 24)
@@ -90,20 +90,23 @@ class AiDataTest(AiTest):
         self.assertIsNone(win.ai.collection.status()["goal"]["goal_id"])
         dialog.close()
 
-    def test_remote_job_does_not_close_the_dialog_or_lose_controls(self):
+    def test_sync_job_survives_dialog_close_and_reopens_status(self):
         win = self.boot(size=(760, 480))
         win.go_ai()
         dialog = LearningDataDialog(win, win.ai.collection)
         dialog.show()
         release = threading.Event()
-        with mock.patch.object(dialog.sharing, "sync", side_effect=lambda *args, **kwargs: (release.wait(2), {"sent": 3})[1]):
+        with mock.patch.dict("os.environ", {"STUDY_AUTO_SYNC": "1"}), mock.patch.object(
+                win.privacy.consent, "synchronize", side_effect=lambda *args, **kwargs: (release.wait(2), {"sent": 3})[1]):
             dialog.send()
             self.assertTrue(dialog.working)
-            dialog.close()
-            self.assertTrue(dialog.isVisible())
             self.assertFalse(dialog.send_button.isEnabled())
+            dialog.close()
+            self.assertFalse(dialog.isVisible())
+            self.assertTrue(win.isVisible())
             release.set()
-            guikit.wait_until(lambda: win.job is None)
+            guikit.wait_until(lambda: win.privacy.job is None)
             self.assertFalse(dialog.working)
             self.assertTrue(dialog.send_button.isEnabled())
+            self.assertIn("3건", dialog.sync_status.text())
         dialog.close()

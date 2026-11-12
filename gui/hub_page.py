@@ -15,7 +15,7 @@ import math
 
 import study
 
-from PyQt6.QtCore import QEvent, QRectF, Qt
+from PyQt6.QtCore import QEvent, QRectF, QSize, Qt
 from PyQt6.QtGui import QFontMetricsF, QPainter
 from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
 
@@ -215,6 +215,10 @@ class WeekBody(QWidget):
             self.recent_box.setMinimumWidth(0)
             self.recent_box.setMaximumWidth(QWIDGETSIZE_MAX)
 
+    def minimumSizeHint(self):
+        size = super().minimumSizeHint()
+        return QSize(0, size.height())
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.arrange()
@@ -286,7 +290,7 @@ class HubPage(QWidget):
         self.privacy_btn = kit.button("내 정보·데이터", "text", "s", onbg=True)
         self.privacy_btn.clicked.connect(win.show_privacy)
         top.add_right(self.privacy_btn)
-        self.submission_setup = kit.button("제출 연결", "text", "s", onbg=True)
+        self.submission_setup = kit.button("풀이 파일 확인", "text", "s", onbg=True)
         self.submission_setup.clicked.connect(win.show_submission_setup)
         top.add_right(self.submission_setup)
         self.manual_sync = kit.button("새 문제 받기", "text", "s", onbg=True)

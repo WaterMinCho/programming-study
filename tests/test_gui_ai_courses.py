@@ -22,6 +22,8 @@ class CourseGuiTest(AiTest):
         participant = win.ai.collection.status()['participant']
         guikit.click(win.ai_home.course_tabs.buttons[1])
         self.assertEqual('app', win.ai.course)
+        from gui import ai_text
+        self.assertNotIn('응용 · 응용', ai_text.track_line(win.ai.overview()))
         self.assertEqual(['a01', 'a02', 'a03'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """알고리즘 여행의 던전 지도. 첫 화면·웹 홈과 같은 홈 틀임: 위 막대(← 처음 화면, 풀이 언어 칩, 캐시 비우기), 제목과 한 줄 설명,
 주의 띠(Node.js 없음, 읽지 못한 던전), 이어서 할 일 카드(화면에 하나뿐인 주 단추), 그 아래 5:7 두 구역(왼쪽 던전 지도 카드,
-오른쪽 고른 던전의 목록 카드). 960 폭의 가운데 단에 두고 창이 작으면 스크롤함.
+오른쪽 고른 던전의 목록 카드). 가용 폭이 부족하면 두 구역을 세로로 놓고 스크롤함.
 
 던전은 모두 열려 있고 지도는 권장 순서만 보여 줌. 보스 줄은 그 던전의 중급 문제를 모두 통과하기 전에는 눌리지 않음.
 "보스에서 익힌 기술" 은 보스를 통과했거나 보스 해설을 연 뒤에만 서비스가 내용을 줌. 화면 낱말은 gui/journey_text.py 가 만듦."""
 import math
 
-from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPen
 from PyQt6.QtWidgets import QHBoxLayout, QSizePolicy, QToolTip, QWidget
 
@@ -399,7 +399,7 @@ class JourneyMapPage(QWidget):
         banner_box.addWidget(self.next_note)
         root.addSpacing(theme.GAP["section"])
 
-        cols = QHBoxLayout()
+        self.columns = cols = QHBoxLayout()
         cols.setContentsMargins(0, 0, 0, 0)
         cols.setSpacing(24)
         left = QWidget()
@@ -455,6 +455,9 @@ class JourneyMapPage(QWidget):
         column = kit.column(inner)
         column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
         self.scroll = kit.scroll(column)
+        self.scroll.viewport().installEventFilter(self)
+        self.column_body = inner
+        inner.installEventFilter(self)
         outer.addWidget(self.scroll, 1)
 
         self.home_btn.clicked.connect(lambda: self.win.go_hub())
@@ -464,6 +467,21 @@ class JourneyMapPage(QWidget):
         self.node_banner.action.clicked.connect(lambda: ask_node(self.win, lambda: self.pick_lang("javascript")))
         self.clear_cache_btn.clicked.connect(self.ask_clear_cache)
         self.next_btn.clicked.connect(self.open_next)
+
+    def arrange_columns(self):
+        if not hasattr(self, "scroll"):
+            return
+        needed = sum(self.columns.itemAt(i).minimumSize().width() for i in range(self.columns.count())) + self.columns.spacing()
+        width = self.scroll.viewport().width() - 2 * kit.MARGIN
+        direction = self.columns.Direction.LeftToRight if width >= needed else self.columns.Direction.TopToBottom
+        self.columns.setDirection(direction)
+
+    def eventFilter(self, watched, event):
+        if hasattr(self, "scroll") and watched is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
+            self.arrange_columns()
+        elif hasattr(self, "column_body") and watched is self.column_body and event.type() == QEvent.Type.LayoutRequest:
+            QTimer.singleShot(0, self.arrange_columns)
+        return super().eventFilter(watched, event)
 
     # 불러오기
 
@@ -539,6 +557,7 @@ class JourneyMapPage(QWidget):
         self.rows.clear()
         if not ready:
             self.intro.clear()
+            self.arrange_columns()
             return
         self.fill_list()
         self.intro.set_markdown(info["intro"], info["base_dir"], self.lang_bar.lang)
@@ -547,6 +566,7 @@ class JourneyMapPage(QWidget):
         self.skills_box.setVisible(bool(info["skills"]))
         self.boss_new.setText(info["boss_new"] or "")
         self.boss_box.setVisible(bool(info["boss_new"]))
+        self.arrange_columns()
 
     def fill_list(self):
         """문제 목록 줄. 앞 점은 통과 done, 시도함 progress, 안 함 todo, 잠긴 보스 lock 이고 끝 caption 은 역할. 미리 고른 줄은 없음."""
@@ -639,5 +659,6 @@ class JourneyMapPage(QWidget):
         self.intro.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
         self.lang_bar.fit()
         self.view.refont()
+        self.arrange_columns()
         for widget in self.findChildren(kit.Dot) + self.findChildren(Mark) + self.findChildren(kit.Chevron):
             widget.update()

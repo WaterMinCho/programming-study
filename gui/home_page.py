@@ -62,6 +62,7 @@ class HomePage(QWidget):
         self.rounds_hint = kit.para("", "caption", "secondary")
         rounds_card, box = card("지난 회차", self.rounds_hint)
         self.rounds = QListWidget()
+        kit.typed(self.rounds, "caption")
         self.rounds.setObjectName("plain")
         self.rounds.setCursor(Qt.CursorShape.PointingHandCursor)
         self.rounds.setMinimumHeight(160)

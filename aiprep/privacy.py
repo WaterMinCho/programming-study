@@ -102,16 +102,17 @@ class Consent:
             return False
         return value.get("policy") != POLICY_VERSION or value.get("policy_hash") != POLICY_HASH
 
+    def has_private_records(self):
+        from aiprep.sharing import Sharing
+        return (any(Path(store.path).exists() or Path(Sharing(store).path).exists() for store in self.collections.values()) or
+                any(self.path.with_name(name).exists() for name in ("private-submission.json", "submission-api.json")))
+
     def choose(self, accepted):
         from aiprep.collection import CollectionError
-        from aiprep.sharing import Sharing
         with self.lock:
             old = self.settings()
             if old.get("withdraw_pending"):
                 raise CollectionError("서버의 철회 처리를 마친 뒤 다시 동의할 수 있습니다.")
-            if not accepted and (any(Sharing(store).settings() for store in self.collections.values()) or
-                                 any(self.path.with_name(name).exists() for name in ("private-submission.json", "submission-api.json"))):
-                return self.withdraw()
             value = {"policy": POLICY_VERSION, "policy_hash": POLICY_HASH, "accepted": bool(accepted), "choice": str(uuid.uuid4()),
                      "at": datetime.datetime.now().astimezone().isoformat(), "start": {}}
             self._stop_all()

@@ -123,9 +123,10 @@ class Sharing:
                 raise CollectionError("참가자 등록 응답을 확인해 주세요.")
             config["token"] = enrolled["token"]
             self._save(config)
-        if config.get("consent_policy") != POLICY_VERSION:
+        if config.get("consent_policy") != POLICY_VERSION or config.get("consent_receipt") != receipt or after > config.get("sequence", 0):
             request(base, "/v1/consent", {"consent": receipt}, token=config["token"], error_detail=True)
-            config.update(consent_policy=POLICY_VERSION, include_answers=False, sequence=max(config.get("sequence", 0), after))
+            config.update(consent_policy=POLICY_VERSION, consent_receipt=receipt, include_answers=False,
+                          sequence=max(config.get("sequence", 0), after))
             self._save(config)
 
     def sync(self, base, invite="", include_answers=False, canceled=lambda: False):
@@ -138,6 +139,8 @@ class Sharing:
             raise CollectionError("이미 연결한 서버와 참가자 정보를 확인해 주세요. 다른 서버로 바꾸기 전 기존 연결을 정리해 주세요.")
         if config and config.get("include_answers") != bool(include_answers):
             raise CollectionError("전송 중에는 답안 포함 설정을 바꿀 수 없습니다. 기존 서버 데이터를 삭제한 뒤 다시 연결해 주세요.")
+        if config and not config.get("token"):
+            raise CollectionError("서버 연결을 마친 뒤 다시 전송해 주세요. 자동 연결은 다음 전송 때 다시 시도합니다.")
         if not config:
             enrolled = request(base, "/v1/enroll", {"participant": status["participant"], "invite": invite, "notice": NOTICE})
             if enrolled.get("participant") != status["participant"] or not isinstance(enrolled.get("token"), str):

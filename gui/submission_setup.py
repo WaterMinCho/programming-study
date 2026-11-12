@@ -34,8 +34,10 @@ class SubmissionSetup(QDialog):
         body.addWidget(self.url)
         try:
             files = snapshot(self.client.root, self.client.user)
+            available = bool(files)
             listing = "\n".join(sorted(files)) or "아직 제출할 풀이 파일이 없습니다."
         except (CollectionError, OSError, ValueError) as error:
+            available = False
             listing = str(error)
         preview = kit.button("보낼 풀이 파일 보기", "text", "l")
         preview.setCheckable(True)
@@ -47,12 +49,15 @@ class SubmissionSetup(QDialog):
         preview.toggled.connect(self.files.setVisible)
         body.addWidget(self.files)
         self.confirm_private = QCheckBox("위 파일을 비공개 서버에 제출합니다.")
-        self.confirm_private.setFont(theme.font("body"))
+        kit.typed(self.confirm_private, "body")
         self.confirm_private.setMinimumHeight(theme.control_height("s"))
+        self.confirm_private.setEnabled(available)
         body.addWidget(self.confirm_private)
+        self.message = kit.para("" if available else listing, "caption", "secondary")
+        body.addWidget(self.message)
         self.connect_button = kit.button("확인하고 제출", "primary", "l")
         self.connect_button.setEnabled(False)
-        self.confirm_private.toggled.connect(self.connect_button.setEnabled)
+        self.confirm_private.toggled.connect(lambda checked: self.connect_button.setEnabled(checked and self.confirm_private.isEnabled()))
         self.connect_button.clicked.connect(self.connect_and_submit)
         outer.addWidget(kit.scroll(content), 1)
         footer = QWidget()
@@ -64,14 +69,16 @@ class SubmissionSetup(QDialog):
         outer.addWidget(footer)
 
     def connect_and_submit(self):
-        if not self.confirm_private.isChecked():
+        if not self.confirm_private.isChecked() or not self.confirm_private.isEnabled():
             return
         base = self.url.text()
-        self.accept()
         def work():
             try:
                 self.client.connect_open(base)
                 return self.client.submit()
             except (CollectionError, OSError, ValueError) as error:
                 return {"status": "error", "message": str(error)}
-        self.win.run_job("비공개로 제출하는 중입니다.", work, lambda result: self.win._git_done("풀이 제출", result))
+        if self.win.run_job("비공개로 제출하는 중입니다.", work, lambda result: self.win._git_done("풀이 제출", result)):
+            self.accept()
+        else:
+            self.message.setText("다른 작업을 마친 뒤 다시 제출해 주세요. 확인한 파일 목록은 유지했습니다.")
