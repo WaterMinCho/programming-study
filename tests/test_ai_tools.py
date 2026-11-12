@@ -1023,7 +1023,7 @@ class PatternVerifyTest(PatternCase):
 
     def test_token_must_appear_once_in_the_variant(self):
         self.edit_entry("slots", "pc-k04", lambda e: e.update(token="opt", answer=["opt"], line_answer=None))
-        self.assertFailsPc("판 전체에 2번 나옵니다")
+        self.assertFailsPc("코드 예제 전체에 2번 나옵니다")
 
     def test_answers_of_one_variant_must_not_overlap(self):
         self.edit_entry("slots", "pc-k03", lambda e: e["answer"].append("zero_grad"))
@@ -1033,13 +1033,13 @@ class PatternVerifyTest(PatternCase):
         self.edit_entry("slots", "pc-k02", lambda e: e.update(line_answer=["opt.zero_grad( )"]))
         self.assertFailsPc("line_answer 첫째는 들여쓰기를 뺀 2번 줄")
         self.edit_entry("slots", "pc-k02", lambda e: e.update(line=99))
-        self.assertFailsPc("줄 번호가 판 밖입니다")
+        self.assertFailsPc("줄 번호가 코드 예제 밖입니다")
 
     def test_order_valid(self):
         self.edit_entry("orders", "pc-o01", lambda e: e.update(valid=[[0, 1, 2, 3, 3]]))
         self.assertFailsPc("순열 목록")
         self.edit_entry("orders", "pc-o01", lambda e: e.update(valid=[[1, 0, 2, 3, 4]]))
-        self.assertFailsPc("판 순서 [0, 1, 2, 3, 4] 가 없습니다")
+        self.assertFailsPc("코드 예제 순서 [0, 1, 2, 3, 4] 가 없습니다")
 
     def test_pick_options(self):
         self.edit_entry("picks", "pc-p01", lambda e: e["wrong"][0].update(text="n += c.argmax(1).sum( )"))
@@ -1061,13 +1061,13 @@ class PatternVerifyTest(PatternCase):
 
     def test_note_blocks_and_marked_fence(self):
         self.replace("learn/l18/page.md", '"right": "나"', '"right": "다"')
-        self.assertFailsPc("판 '다' 이 뼈대 S90 에 없습니다")
+        self.assertFailsPc("코드 예제 '다' 이 뼈대 S90 에 없습니다")
         self.replace("learn/l18/page.md", '"right": "다"', '"right": "나"')
         self.replace("learn/l18/page.md", '"variant": "가"}', '"variant": "가", "slots": ["pc-k09"]}')
-        self.assertFailsPc("ai-rotate: 뼈대 S90 의 가 판에 자리 pc-k09 가 없습니다")
+        self.assertFailsPc("ai-rotate: 뼈대 S90 의 가 코드 예제에 자리 pc-k09 가 없습니다")
         self.replace("learn/l18/page.md", ', "slots": ["pc-k09"]}', "}")
         self.replace("learn/l18/page.md", "    e.backward()\n    opt.step()", "    opt.step()\n    e.backward()")
-        self.assertFailsPc("울타리가 뼈대 S90 가 판과 다릅니다(6번째 줄부터)")
+        self.assertFailsPc("울타리가 뼈대 S90 가 코드 예제와 다릅니다(6번째 줄부터)")
 
     def test_facts_steps_and_errata(self):
         self.edit_entry("slots", "pc-k03", lambda e: e.update(facts=["F18-09"]))
