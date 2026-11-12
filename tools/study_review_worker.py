@@ -11,6 +11,7 @@ import plistlib
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -21,6 +22,9 @@ from tools.study_checks import AUTHORS, REVIEW_CONTEXT
 
 ROOT = Path.home()/".rokey-collector/review-worker"
 LABEL = "com.rokey.study-review"
+RUNTIME_FILES = ("tools/study_review_worker.py", "tools/learning_review.py", "tools/study_checks.py",
+                 "tools/pr_title.py", "tools/check_style.py", "aiprep/privacy.py")
+RUNTIME_PACKAGES = ("tools/__init__.py", "aiprep/__init__.py")
 SCHEMA = {"type": "object", "additionalProperties": False, "required": ["decision", "summary", "findings", "questions"],
           "properties": {"decision": {"type": "string", "enum": ["approve", "changes_requested", "needs_context"]},
           "summary": {"type": "string"}, "questions": {"type": "array", "maxItems": 2, "items": {"type": "string"}},
@@ -437,15 +441,82 @@ def once(root=ROOT):
         return outputs
 
 
+def runtime_copy(root):
+    """실행에 쓰는 코드만 내용 해시별로 복사하고 원본 바이트와 대조함."""
+    source = Path(__file__).resolve().parents[1]
+    contents = {name: b"" for name in RUNTIME_PACKAGES}
+    for name in RUNTIME_FILES:
+        path = source/name
+        if path.is_symlink() or not path.is_file() or path.resolve() != path:
+            raise review.ReviewError("검토 실행 코드의 원본 경로를 확인해 주세요.")
+        contents[name] = path.read_bytes()
+    manifest = review.packed({"version": 1, "files": {
+        name: {"sha256": hashlib.sha256(raw).hexdigest(), "size": len(raw)}
+        for name, raw in sorted(contents.items())}}).encode("utf-8")
+    digest = hashlib.sha256(manifest).hexdigest()
+    contents["manifest.json"] = manifest
+    parent = root/"runtime"
+    if parent.is_symlink():
+        raise review.ReviewError("검토 실행 코드의 보관 경로를 확인해 주세요.")
+    parent.mkdir(mode=0o700, exist_ok=True)
+    parent.chmod(0o700)
+    destination = parent/digest
+
+    def verify(folder):
+        expected = set(contents) | {"tools", "aiprep"}
+        if (folder.is_symlink() or not folder.is_dir() or folder.stat().st_mode & 0o777 != 0o700
+                or {path.relative_to(folder).as_posix() for path in folder.rglob("*")} != expected):
+            raise review.ReviewError("보관한 검토 실행 코드의 경로가 다릅니다.")
+        for name in ("tools", "aiprep"):
+            path = folder/name
+            if path.is_symlink() or not path.is_dir() or path.stat().st_mode & 0o777 != 0o700:
+                raise review.ReviewError("검토 실행 코드 폴더의 권한을 확인해 주세요.")
+        for name, raw in contents.items():
+            path = folder/name
+            if (path.is_symlink() or not path.is_file() or path.stat().st_mode & 0o777 != 0o600
+                    or path.read_bytes() != raw):
+                raise review.ReviewError("보관한 검토 실행 코드의 바이트·권한이 다릅니다.")
+
+    if not destination.exists() and not destination.is_symlink():
+        with tempfile.TemporaryDirectory(prefix=".runtime-", dir=parent) as temporary:
+            staging = Path(temporary)/digest
+            staging.mkdir(mode=0o700)
+            for name in ("tools", "aiprep"):
+                (staging/name).mkdir(mode=0o700)
+            for name, raw in contents.items():
+                fd = os.open(staging/name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "wb") as output:
+                    output.write(raw)
+            verify(staging)
+            try:
+                staging.rename(destination)
+            except OSError:
+                if not destination.exists():
+                    raise
+    verify(destination)
+    return destination
+
+
 def install(root=ROOT):
     if sys.platform != "darwin":
         raise review.ReviewError("자동 실행 설치는 이 맥에서 진행합니다.")
     root = review.private_folder(root)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root.chmod(0o700)
+    runtime = runtime_copy(root)
+    for name in ("worker.log", "worker-error.log"):
+        path = root/name
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise review.ReviewError("검토 로그의 보관 경로를 확인해 주세요.")
+        path.touch(mode=0o600, exist_ok=True)
+        path.chmod(0o600)
     plist = Path.home()/"Library/LaunchAgents"/(LABEL+".plist")
     plist.parent.mkdir(parents=True, exist_ok=True)
-    config = {"Label": LABEL, "ProgramArguments": [sys.executable, str(Path(__file__).resolve()), "--once"],
-              "WorkingDirectory": str(Path(__file__).resolve().parents[1]), "StartInterval": 60, "RunAtLoad": True,
+    if plist.is_symlink():
+        raise review.ReviewError("자동 실행 설정의 보관 경로를 확인해 주세요.")
+    config = {"Label": LABEL, "ProgramArguments": [sys.executable, "-I", "-B", str(runtime/"tools/study_review_worker.py"),
+                                                "--once", "--root", str(root)],
+              "WorkingDirectory": str(runtime), "StartInterval": 60, "RunAtLoad": True,
               "StandardOutPath": str(root/"worker.log"), "StandardErrorPath": str(root/"worker-error.log"), "Umask": 63,
               "EnvironmentVariables": {"PATH": os.environ.get("PATH", "/opt/homebrew/bin:/usr/bin:/bin")}}
     if plist.exists():
@@ -453,8 +524,12 @@ def install(root=ROOT):
         if existing.get("Label") != LABEL:
             raise review.ReviewError("기존 자동 실행 설정을 확인해 주세요.")
         subprocess.run(["launchctl", "bootout", "gui/%d/%s" % (os.getuid(), LABEL)], capture_output=True)
-    plist.write_bytes(plistlib.dumps(config)); plist.chmod(0o600)
-    assert plistlib.loads(plist.read_bytes()) == config
+    fd = os.open(plist, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as output:
+        os.fchmod(output.fileno(), 0o600)
+        output.write(plistlib.dumps(config))
+    if plistlib.loads(plist.read_bytes()) != config:
+        raise review.ReviewError("저장한 자동 실행 설정이 다릅니다.")
     subprocess.run(["launchctl", "bootstrap", "gui/%d" % os.getuid(), str(plist)], check=True, capture_output=True)
     return str(plist)
 
@@ -464,9 +539,10 @@ def main():
     parser = argparse.ArgumentParser(description="팀원 모델 PR을 현재 판에서 검토하고 피드백을 남깁니다.")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--install", action="store_true")
+    parser.add_argument("--root", type=Path, default=ROOT, help="검토 자료·처리 상태·로그를 보관할 비공개 폴더입니다.")
     args = parser.parse_args()
     try:
-        print(install() if args.install else once())
+        print(install(args.root) if args.install else once(args.root))
     except (review.ReviewError, OSError, ValueError, KeyError, subprocess.SubprocessError):
         print("검토 작업을 완료하지 못했습니다. 비공개 운영 로그를 확인해 주세요.", file=sys.stderr)
         return 1

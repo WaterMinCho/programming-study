@@ -220,6 +220,21 @@ class LegacyTransferTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             legacy.remove_transfer(self.path, str(uuid.uuid4()), reason="rollback")
 
+    def test_server_only_cli_uses_explicit_catalog_without_importing_the_learning_app(self):
+        catalog = self.root / "catalog.json"
+        catalog.write_text(json.dumps(self.catalog), encoding="utf-8")
+        argv = ["collector", "--db", str(self.path), "legacy-import", "--manifest", str(self.manifest), "--catalog", str(catalog)]
+        output = io.StringIO()
+        with mock.patch("sys.argv", argv), mock.patch.dict("sys.modules", {"adaptive": None}), contextlib.redirect_stdout(output):
+            main()
+        self.assertEqual(4, json.loads(output.getvalue())["inserted_profiles"])
+        catalog.write_text('{"q": {"unit": "private-secret"}}', encoding="utf-8")
+        error = io.StringIO()
+        with mock.patch("sys.argv", argv), contextlib.redirect_stderr(error), self.assertRaises(SystemExit):
+            main()
+        self.assertNotIn("private-secret", error.getvalue())
+        self.assertEqual(4, self.transfer()["existing_profiles"])
+
     def test_cli_reports_only_json_counts_and_sanitizes_failures(self):
         argv = ["collector", "--db", str(self.path), "legacy-import", "--manifest", str(self.manifest)]
         output = io.StringIO()

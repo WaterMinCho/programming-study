@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """서버 실행·초대 코드 발급·학습용 비공개 내보내기를 제공함."""
 import argparse
+import json
+from pathlib import Path
 import sqlite3
 
 from aiprep.collection import CollectionError, packed
@@ -44,6 +46,7 @@ def main():
     cohorts.add_argument("--synthetic", action="store_true", help="합성 입력임을 명시합니다.")
     legacy_import = sub.add_parser("legacy-import", help="동의를 확인한 기존 프로필을 로컬 DB에 이관합니다.")
     legacy_import.add_argument("--manifest", required=True, help="비공개 이관 목록 JSON 파일")
+    legacy_import.add_argument("--catalog", help="문제 은행을 두지 않은 서버에서 사용할 개념 목록 JSON 파일")
     legacy_import.add_argument("--dry-run", action="store_true", help="원본과 기존 DB를 읽고 저장 예정 건수만 확인합니다.")
     legacy_remove = sub.add_parser("legacy-remove", help="기존 프로필 이관을 되돌리거나 철회를 처리합니다.")
     legacy_remove.add_argument("--participant", required=True, help="비공개 이관 목록에 고정한 UUID 가명값")
@@ -56,8 +59,18 @@ def main():
             if not args.db:
                 raise ValueError("기존 서버 데이터 파일을 --db로 지정해 주세요.")
             if args.command == "legacy-import":
-                import adaptive
-                result = legacy.transfer(args.db, args.manifest, adaptive.catalog(), dry_run=args.dry_run)
+                if args.catalog:
+                    catalog = json.loads(Path(args.catalog).read_text(encoding="utf-8"))
+                    if not isinstance(catalog, dict) or not catalog or any(
+                            not isinstance(key, str) or not isinstance(row, dict) or set(row) != {"unit", "tags", "kind", "type"}
+                            or any(not isinstance(row[name], str) for name in ("unit", "kind", "type"))
+                            or not isinstance(row["tags"], list) or any(not isinstance(tag, str) for tag in row["tags"])
+                            for key, row in catalog.items()):
+                        raise ValueError("개념 목록의 형식을 확인해 주세요.")
+                else:
+                    import adaptive
+                    catalog = adaptive.catalog()
+                result = legacy.transfer(args.db, args.manifest, catalog, dry_run=args.dry_run)
             else:
                 result = legacy.remove_transfer(args.db, args.participant, reason=args.reason)
             print(packed(result))
