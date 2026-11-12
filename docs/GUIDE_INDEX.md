@@ -2,13 +2,13 @@
 
 [학습 시작](LEARNER_START.md) · [스터디 개발 시작](STUDY_START.md)
 
-## [프로젝트 전체 구조와 내 담당 보기](../docs/ARCHITECTURE.md)
+## [프로젝트 구조와 팀원 역할](../docs/ARCHITECTURE.md)
 
 문제를 푼 기록이 어디에 저장되고 팀원의 모델에 어떻게 쓰이는지 보여줍니다. 실선은 현재 기능, 점선은 앞으로 연결할 부분입니다.
 
 [![프로그램·수집 서버·세 팀원의 모델과 GitHub 협업을 연결한 전체 구조](../docs/img/architecture/overview.png)](../docs/ARCHITECTURE.md)
 
-[그림 크게 보기](../docs/img/architecture/overview.png) · [담당별 입력·출력 확인하기](../docs/ARCHITECTURE.md#팀원의-모델은-같은-입력을-받아-비교합니다)
+[그림 크게 보기](../docs/img/architecture/overview.png) · [담당별 입력·출력 확인하기](../docs/ARCHITECTURE.md#팀원별-모델과-역할)
 
 ---
 

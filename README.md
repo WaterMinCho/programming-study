@@ -20,9 +20,9 @@
 
 담당 미션 확인 → fork·작업 브랜치 → 비공개 자료·샘플 확인 → 코드·테스트·PR
 
-[**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [실제 자료 받기·샘플링](docs/LEARNING_DATA_ACCESS.md) · [프로젝트 구조와 담당 위치](docs/ARCHITECTURE.md)
+[**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [실제 자료 받기·샘플링](docs/LEARNING_DATA_ACCESS.md) · [프로젝트 구조와 팀원 역할](docs/ARCHITECTURE.md)
 
-코드를 고칠 때는 [기능별 폴더 안내](docs/ARCHITECTURE.md#고칠-기능에-맞는-폴더를-찾습니다)에서 시작합니다. 공통 기록·동의·전송은 `learning_data/`, 서버는 `learning_server/`, 팀원 모델은 `experiments/본인GitHubID/`에 있습니다.
+코드를 고칠 때는 [기능별 폴더 안내](docs/ARCHITECTURE.md#기능별-코드-위치)에서 시작합니다. 공통 기록·동의·전송은 `learning_data/`, 서버는 `learning_server/`, 팀원 모델은 `experiments/본인GitHubID/`에 있습니다.
 
 ---
 

@@ -31,6 +31,15 @@ GitHub에서 clone한 뒤 start 파일을 실행합니다. 기기 ID는 자동 �
 - [각자 fork에서 첫 PR까지](../docs/LEARNING_WORKFLOW.md)
 - [세 팀원의 담당별 미션](../docs/LEARNING_MISSIONS.md)
 
+운영 서버처럼 필요한 폴더만 받는 경우, 새 폴더를 다운로드 목록에 추가해야 합니다. 아래 명령은 패턴 방식의 sparse checkout을 쓰는 기존 운영 서버에서 실행합니다.
+
+```sh
+git sparse-checkout add /learning_data/
+python3.12 -c "from learning_server import app, submissions; from learning_data import privacy"
+```
+
+두 번째 명령이 오류 없이 끝나면 웹앱을 다시 시작합니다.
+
 </details>
 
 ## 풀이 기록으로 추천 모델을 만듭니다
@@ -39,7 +48,7 @@ GitHub에서 clone한 뒤 start 파일을 실행합니다. 기기 ID는 자동 �
 
 [![PC 프로그램의 풀이·진도와 서버 수집, 공통 자료 준비, 세 모델의 학습·비교와 추천 연결 위치입니다. 점선은 예정입니다.](../docs/img/architecture/overview.png)](../docs/img/architecture/overview.png)
 
-[프로젝트 전체 구조와 담당별 연결 설명](../docs/ARCHITECTURE.md)
+[프로젝트 구조와 팀원 역할](../docs/ARCHITECTURE.md)
 
 설명용 예로 `list(range(1, 4))`의 답은 `[1, 2, 3]`입니다. `[1, 2, 3, 4]`라고 답했다면 문제·개념·문항 버전·오답·시각을 기록합니다. 이 문제를 예측할 때는 이전에 알려진 풀이만 입력으로 쓰고 이번 오답은 예측을 채점할 정답표로 분리합니다. 입력 답안 본문은 기본 서버 전송에서 제외합니다.
 
