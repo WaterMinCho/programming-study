@@ -84,6 +84,9 @@ def write_sample(folder, track, part, size, seed, length, destination):
     if (len(result["targets"]) != size or len(result["event_ids"]) != size or
             any(len(values) != size for values in result["inputs"].values())):
         raise ValueError("입력·정답·샘플 번호의 개수가 맞지 않습니다.")
+    if (result["event_ids"] != [row["event_id"] for row in chosen] or
+            result["targets"] != [row["target"] for row in chosen]):
+        raise ValueError("샘플 번호·정답의 값이나 순서가 원본과 맞지 않습니다.")
     changed = copy.deepcopy(chosen)
     for row in changed:
         row["target"] = 1 - row["target"]
@@ -92,6 +95,8 @@ def write_sample(folder, track, part, size, seed, length, destination):
     inputs = result["inputs"]
     width = len(vocabulary["concepts"])
     for index, (mask, count) in enumerate(zip(inputs["mask"], inputs["lengths"])):
+        if count != min(len(chosen[index]["features"]["sequence_history"]), length):
+            raise ValueError("풀이 이력의 길이가 원본과 맞지 않습니다.")
         if not 0 <= count <= length:
             raise ValueError("실제 풀이 이력의 길이를 확인해 주세요.")
         if any(len(inputs[name][index]) != length for name in ("questions", "courses", "results", "concepts", "mask")):

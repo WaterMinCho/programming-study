@@ -28,7 +28,7 @@ class SampleTest(unittest.TestCase):
         self.assertEqual(outputs[0].read_bytes(), outputs[1].read_bytes())
         self.assertEqual(reports[0], reports[1])
         self.assertEqual(state, random.getstate())
-        stored = json.loads(outputs[0].read_text())
+        stored = json.loads(outputs[0].read_text(encoding="utf-8"))
         rows, vocabulary = input_example.load(self.data, "python", "train")
         ids = stored["batch"]["event_ids"]
         self.assertEqual(4, len(set(ids)))
@@ -97,6 +97,29 @@ class SampleTest(unittest.TestCase):
         self.assertEqual(sum(length > 1 for length in lengths), report["truncated_histories"])
         self.assertGreater(report["empty_histories"], 0)
         self.assertGreater(report["truncated_histories"], 0)
+
+    def test_batch_identity_targets_and_lengths_match_the_source_rows(self):
+        batch = input_example.batch
+        for failure in ("history", "identity", "target"):
+            def broken(rows, vocabulary, length):
+                value = batch(rows, vocabulary, length)
+                if failure == "identity":
+                    value["event_ids"].reverse()
+                elif failure == "target":
+                    value["targets"][0] = 1 - value["targets"][0]
+                else:
+                    inputs = value["inputs"]
+                    for i in range(len(rows)):
+                        inputs["lengths"][i] = 0
+                        for name in ("questions", "courses", "results", "mask"):
+                            inputs[name][i] = [0] * length
+                        inputs["concepts"][i] = [[0] * len(vocabulary["concepts"]) for _ in range(length)]
+                return value
+            path = self.root / (failure + ".json")
+            with self.subTest(failure=failure), mock.patch.object(input_example, "batch", side_effect=broken):
+                with self.assertRaisesRegex(ValueError, "원본과"):
+                    sample.write_sample(self.data, "python", "train", 8, 42, 32, path)
+            self.assertFalse(path.exists())
 
     def test_unavailable_track_empty_split_and_oversized_sample_are_explicit(self):
         python_only = self.root / "python-only"
