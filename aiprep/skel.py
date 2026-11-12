@@ -395,7 +395,7 @@ def change_view(card, skeleton, seed, back=False, revision=CHANGE_REV):
     """고칠 줄 모두 고르기. from 코드 예제(back 이면 to 코드 예제) 줄 가운데 diff 의 다른 줄 k 개(2~3, 다른 줄 수 이하)를 정답으로 하고 같은 줄을
     더해 보기 4~5개를 코드 순서로 둠. 버전 1은 같은 글의 줄을 합치고 버전 2는 위치와 블록으로 구분함. 난수 키는 id·seed·back임."""
     if revision not in (1, CHANGE_REV):
-        raise bank.AiBankError("고칠 줄 보기 버전를 읽을 수 없습니다: %r" % revision)
+        raise bank.AiBankError("고칠 줄 보기 버전을 읽을 수 없습니다: %r" % revision)
     entry = card["entry"]
     src, dst = (entry.get("to"), entry.get("from")) if back else (entry.get("from"), entry.get("to"))
     left, right = lines_of(skeleton, src), lines_of(skeleton, dst)
