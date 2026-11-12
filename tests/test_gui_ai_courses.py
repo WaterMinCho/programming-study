@@ -85,6 +85,7 @@ class CourseGuiTest(AiTest):
                         number = step['no']
                         win.open_ai_unit(lesson, unit, number)
                         guikit.pump(20)
+                        guikit.wait_until(lambda: win.ai_learn.pending_position is None)
                         self.assertLessEqual(win.width(), 760)
                         for image in win.ai_learn.view.findChildren(ai_learn.AiFigure):
                             self.assertTrue(image.available)
@@ -94,12 +95,15 @@ class CourseGuiTest(AiTest):
                             if image.controls is not None:
                                 win.ai_learn.scroll.ensureWidgetVisible(image.controls, 0, 0)
                                 guikit.pump()
+                                guikit.wait_until(lambda: win.ai_learn.pending_position is None)
                                 viewport = win.ai_learn.scroll.viewport()
                                 top = image.controls.mapTo(viewport, QPoint())
                                 bottom = top + QPoint(image.controls.width()-1, image.controls.height()-1)
-                                self.assertTrue(viewport.rect().contains(top))
-                                self.assertTrue(viewport.rect().contains(bottom))
+                                where = f'{mode} {lesson} {unit}/{number}: {top}, {bottom}, {viewport.rect()}'
+                                self.assertTrue(viewport.rect().contains(top), where)
+                                self.assertTrue(viewport.rect().contains(bottom), where)
         win.open_ai_unit('a02', 'a2f', 3)
+        guikit.wait_until(lambda: win.ai_learn.pending_position is None)
         image = win.ai_learn.view.findChildren(ai_learn.AiFigure)[0]
         win.ai_learn.scroll.ensureWidgetVisible(image.controls, 0, 0)
         guikit.pump()
