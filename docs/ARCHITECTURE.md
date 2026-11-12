@@ -34,7 +34,7 @@ programming-study/
 학습 데이터의 공통 기능은 [learning_data/](../learning_data/README.md)에 모았습니다. 파이썬과 수집 서버가 AI 학습 구현을 불러오지 않고 기록·동의·전송 기능을 사용할 수 있습니다. 서버 배포 파일에는 `learning_server/`와 `learning_data/`를 포함합니다.
 
 ```mermaid
-flowchart LR
+flowchart TB
     UI[gui 화면] --> PY[파이썬 학습]
     UI --> AI[aiprep AI 학습]
     PY --> DATA[learning_data 공통 기록·동의·전송]
