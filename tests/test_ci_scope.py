@@ -89,9 +89,9 @@ class SelectionTest(unittest.TestCase):
 
 class AutomationScopeTest(unittest.TestCase):
     def test_style_and_known_server_tests_keep_units_without_running_windows(self):
-        for path in ("tools/check_style.py", "tests/test_style.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", ".github/workflows/learning-server.yml"):
+        for path in ("tools/check_style.py", "tests/test_style.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", ".github/workflows/learning-server.yml", "tools/collector_backup.py", "tests/test_collector_backup.py"):
             self.assertEqual(dict(bank=False, unit=True, gui=False, model=False), ci_scope.selection([path]))
-        for path in ("docs/LEARNING_PILOT.md", "docs/LEARNING_READINESS.md"):
+        for path in ("docs/LEARNING_PILOT.md", "docs/LEARNING_READINESS.md", "docs/COLLECTOR_BACKUP.md"):
             self.assertEqual(dict(bank=False, unit=False, gui=False, model=False), ci_scope.selection([path]))
         self.assertTrue(ci_scope.selection(["tests/test_style_gui.py"])["gui"])
 

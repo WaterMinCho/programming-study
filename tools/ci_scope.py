@@ -12,7 +12,7 @@ GUIDE_READMES = frozenset(("README.md", "gui/README.md", "ai/README.md", "proble
                           "docs/LEARNING_SERVER.md", "docs/LEARNING_DATA.md", "docs/LEARNING_PRIVACY.md",
                           "docs/API_SUBMISSIONS.md", "docs/ARCHITECTURE.md", "docs/LEARNING_MISSIONS.md",
                           "docs/LEARNING_WORKFLOW.md", "docs/LEARNING_STARTER.md", "docs/LEARNING_ROADMAP.md",
-                          "docs/LEARNING_PILOT.md", "docs/LEARNING_READINESS.md"))
+                          "docs/LEARNING_PILOT.md", "docs/LEARNING_READINESS.md", "docs/COLLECTOR_BACKUP.md"))
 
 
 def needs_gui(paths):
@@ -20,7 +20,7 @@ def needs_gui(paths):
 
 
 def server_only(path):
-    return path in ("tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", ".github/workflows/learning-server.yml") or path.startswith("learning_server/") or path.startswith(("tests/test_learning_", "tests/test_private_submission", "tests/test_submission_api", "tests/test_legacy_transfer"))
+    return path in ("tools/collector_backup.py", "tests/test_collector_backup.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", ".github/workflows/learning-server.yml") or path.startswith("learning_server/") or path.startswith(("tests/test_learning_", "tests/test_private_submission", "tests/test_submission_api", "tests/test_legacy_transfer"))
 
 
 def automation_only(path):
