@@ -105,20 +105,28 @@ class NativeShortcutTest(unittest.TestCase):
         try:
             actual = QImage.fromHICON(int(info.hIcon))
             self.assertFalse(actual.isNull())
-            expected = QIcon(str(source)).pixmap(actual.size(), 1.0).toImage()
+            reference = FileInfo()
+            # Shell이 LNK에 붙이는 화살표를 원본 ICO에도 같은 API로 붙여 비교함.
+            self.assertTrue(shell(str(source), 0, ctypes.byref(reference), ctypes.sizeof(reference), flags | 0x8000))
+            self.assertTrue(reference.hIcon)
+            try:
+                expected = QImage.fromHICON(int(reference.hIcon))
+            finally:
+                self.assertTrue(destroy(reference.hIcon))
+            self.assertFalse(expected.isNull())
             self.assertEqual(actual.size(), expected.size())
             folder = getattr(self, "capture_directory", None)
             if folder:
                 self.assertTrue(actual.save(str(folder / ("shortcut-shell-%s.png" % flags))))
                 self.assertTrue(expected.save(str(folder / ("shortcut-source-%s.png" % flags))))
-            for x in range(2, 7):
-                for y in range(2, 7):
-                    spot = (actual.width() * x // 8, actual.height() * y // 8)
-                    want, found = expected.pixelColor(*spot), actual.pixelColor(*spot)
-                    self.assertEqual(want.alpha(), 255)
-                    self.assertLessEqual(max(abs(a - b) for a, b in zip(want.getRgb(), found.getRgb())), 8, (flags, spot, actual.size(), want.getRgb(), found.getRgb()))
+            for x in range(actual.width()):
+                for y in range(actual.height()):
+                    want, found = expected.pixelColor(x, y), actual.pixelColor(x, y)
+                    delta = max(abs(a - b) for a, b in zip(want.getRgb(), found.getRgb()))
+                    self.assertLessEqual(delta, 8, (flags, x, y, want.getRgb(), found.getRgb()))
         finally:
             self.assertTrue(destroy(info.hIcon))
+
     def test_native_shortcut_properties_and_pythonw_launch(self):
         with tempfile.TemporaryDirectory(prefix="study 한글 ' & $ [ , ") as temporary:
             root = Path(temporary).resolve()
