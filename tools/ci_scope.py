@@ -11,7 +11,8 @@ GUIDE_READMES = frozenset(("README.md", "gui/README.md", "ai/README.md", "proble
                           "docs/LEARNING_REVIEW.md", "docs/SLACK_NOTIFICATIONS.md", "docs/LEGACY_RECORDS.md",
                           "docs/LEARNING_SERVER.md", "docs/LEARNING_DATA.md", "docs/LEARNING_PRIVACY.md",
                           "docs/API_SUBMISSIONS.md", "docs/ARCHITECTURE.md", "docs/LEARNING_MISSIONS.md",
-                          "docs/LEARNING_WORKFLOW.md", "docs/LEARNING_STARTER.md", "docs/LEARNING_ROADMAP.md"))
+                          "docs/LEARNING_WORKFLOW.md", "docs/LEARNING_STARTER.md", "docs/LEARNING_ROADMAP.md",
+                          "docs/LEARNING_PILOT.md", "docs/LEARNING_READINESS.md"))
 
 
 def needs_gui(paths):
@@ -19,11 +20,11 @@ def needs_gui(paths):
 
 
 def server_only(path):
-    return path.startswith("learning_server/") or path.startswith(("tests/test_learning_", "tests/test_private_submission", "tests/test_submission_api", "tests/test_legacy_transfer"))
+    return path in ("tests/test_storage_capacity.py", "tests/test_sync_schedule.py") or path.startswith("learning_server/") or path.startswith(("tests/test_learning_", "tests/test_private_submission", "tests/test_submission_api", "tests/test_legacy_transfer"))
 
 
 def automation_only(path):
-    return path in ("tools/ci_scope.py", "tools/pr_title.py", "tools/study_checks.py", "tools/study_review_worker.py", "tools/slack_summary.py", "tools/slack_notify.py", "tools/learning_review.py") or path.startswith(("tests/test_ci_scope", "tests/test_pr_title", "tests/test_study_", "tests/test_slack_", "tests/test_learning_review"))
+    return path in ("tools/ci_scope.py", "tools/check_style.py", "tests/test_style.py", "tools/pr_title.py", "tools/study_checks.py", "tools/study_review_worker.py", "tools/slack_summary.py", "tools/slack_notify.py", "tools/learning_review.py") or path.startswith(("tests/test_ci_scope", "tests/test_pr_title", "tests/test_study_", "tests/test_slack_", "tests/test_learning_review"))
 
 
 def selection(paths):

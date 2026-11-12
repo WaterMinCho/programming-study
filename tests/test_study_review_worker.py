@@ -31,6 +31,16 @@ def assessment(decision="approve", blocking=False):
 
 
 class WorkerTest(unittest.TestCase):
+    def test_review_with_separate_observations_is_not_checked_as_a_commit_message(self):
+        result = assessment()
+        result["summary"] = "확인한 범위\n\n" + "\n".join(
+            "- 입력 %d의 조건과 근거를 확인했음." % index for index in range(6))
+        body = worker.body_for({"head": HEAD}, result, "<!-- review -->", "APPROVE")
+        self.assertIn("입력 5의 조건", body)
+        result["summary"] = "결국 이것입니다."
+        with self.assertRaises(worker.review.ReviewError):
+            worker.body_for({"head": HEAD}, result, "<!-- review -->", "APPROVE")
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="study-worker-test-")
         self.addCleanup(temporary.cleanup)
