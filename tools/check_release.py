@@ -65,6 +65,8 @@ def gui_check(out):
     result = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)
     launcher_cases = ["tests.test_launcher_shortcut", "tests.test_gui_launcher.IconFileTest", "tests.test_gui_launcher.StartupTest"]
     if sys.platform == "win32":
+        from tests.test_gui_launcher import NativeShortcutTest
+        NativeShortcutTest.capture_directory = out
         launcher_cases.append("tests.test_gui_launcher.NativeShortcutTest")
     launcher_suite = unittest.defaultTestLoader.loadTestsFromNames(launcher_cases)
     launcher_result = unittest.TextTestRunner(verbosity=2).run(launcher_suite)

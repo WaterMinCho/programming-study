@@ -91,26 +91,34 @@ class NativeShortcutTest(unittest.TestCase):
             self.assertTrue(shell(str(link), 0, ctypes.byref(location), ctypes.sizeof(location), 0x1000))
             self.assertEqual(Path(location.szDisplayName.strip('"')), source)
             self.assertEqual(location.iIcon, 0)
-            for flags in (0x100, 0x101):  # SHGFI_ICON의 큰 아이콘과 작은 아이콘을 조회함. 화살표 덧그림은 요청하지 않음.
-                info = FileInfo()
-                self.assertTrue(shell(str(link), 0, ctypes.byref(info), ctypes.sizeof(info), flags))
-                self.assertTrue(info.hIcon)
-                try:
-                    actual = QImage.fromHICON(int(info.hIcon))
-                    self.assertFalse(actual.isNull())
-                    expected = QIcon(str(source)).pixmap(actual.size(), 1.0).toImage()
-                    self.assertEqual(actual.size(), expected.size())
-                    for x in range(2, 7):
-                        for y in range(2, 7):
-                            spot = (actual.width() * x // 8, actual.height() * y // 8)
-                            want, found = expected.pixelColor(*spot), actual.pixelColor(*spot)
-                            self.assertEqual(want.alpha(), 255)
-                            self.assertLessEqual(max(abs(a - b) for a, b in zip(want.getRgb(), found.getRgb())), 8)
-                finally:
-                    self.assertTrue(destroy(info.hIcon))
+            for flags in (0x100, 0x101):  # SHGFI_ICON의 큰 아이콘과 작은 아이콘을 조회함.
+                with self.subTest(icon_flags=flags):
+                    self.check_icon_pixels(shell, destroy, FileInfo, link, source, flags)
         finally:
             ole.CoUninitialize()
 
+    def check_icon_pixels(self, shell, destroy, FileInfo, link, source, flags):
+        import ctypes
+        info = FileInfo()
+        self.assertTrue(shell(str(link), 0, ctypes.byref(info), ctypes.sizeof(info), flags))
+        self.assertTrue(info.hIcon)
+        try:
+            actual = QImage.fromHICON(int(info.hIcon))
+            self.assertFalse(actual.isNull())
+            expected = QIcon(str(source)).pixmap(actual.size(), 1.0).toImage()
+            self.assertEqual(actual.size(), expected.size())
+            folder = getattr(self, "capture_directory", None)
+            if folder:
+                self.assertTrue(actual.save(str(folder / ("shortcut-shell-%s.png" % flags))))
+                self.assertTrue(expected.save(str(folder / ("shortcut-source-%s.png" % flags))))
+            for x in range(2, 7):
+                for y in range(2, 7):
+                    spot = (actual.width() * x // 8, actual.height() * y // 8)
+                    want, found = expected.pixelColor(*spot), actual.pixelColor(*spot)
+                    self.assertEqual(want.alpha(), 255)
+                    self.assertLessEqual(max(abs(a - b) for a, b in zip(want.getRgb(), found.getRgb())), 8, (flags, spot, actual.size(), want.getRgb(), found.getRgb()))
+        finally:
+            self.assertTrue(destroy(info.hIcon))
     def test_native_shortcut_properties_and_pythonw_launch(self):
         with tempfile.TemporaryDirectory(prefix="study 한글 ' & $ [ , ") as temporary:
             root = Path(temporary).resolve()
@@ -118,8 +126,9 @@ class NativeShortcutTest(unittest.TestCase):
             start.write_text(
                 "import json, os, sys\nfrom pathlib import Path\n"
                 "result = Path(__file__).with_name('ran.tmp')\n"
-                "result.write_text(json.dumps({'cwd': os.getcwd(), 'argv': sys.argv, "
-                "'python': sys.executable, 'prefix': sys.prefix}), encoding='utf-8')\n"
+                "data = {'cwd': os.getcwd(), 'argv': sys.argv, 'python': sys.executable, 'prefix': sys.prefix}\n"
+                "os.chdir(os.path.dirname(sys.executable))\n"
+                "result.write_text(json.dumps(data), encoding='utf-8')\n"
                 "result.replace(result.with_name('ran.json'))\n",
                 encoding="utf-8")
             link = shortcut.create(root)
