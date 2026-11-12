@@ -473,6 +473,34 @@ class SummaryTest(unittest.TestCase):
             self.send.assert_not_called()
             self.assertEqual([], self.github.posts)
 
+    def test_main_routes_enabled_daily_alerts_through_the_thread_sender(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"event.json"
+            path.write_text(json.dumps({"repository": {"full_name": summary.REPO}}), encoding="utf-8")
+            env = {"GITHUB_EVENT_PATH": str(path), "GITHUB_EVENT_NAME": "workflow_dispatch", "GH_TOKEN": "unused",
+                   "SLACK_DRY_RUN": "0", "SLACK_STUDY_WEBHOOK_URL": "", "SLACK_STUDY_DAILY_THREADS": "1",
+                   "SLACK_STUDY_BOT_TOKEN": "xoxb-example", "SLACK_STUDY_CHANNEL_ID": "C123ABC456",
+                   "SLACK_STUDY_THREAD_ANCHOR": "a" * 40}
+            with patch.dict(os.environ, env), patch.object(summary, "Client", return_value=self.github), \
+                    patch.object(summary, "DailyThreads") as sender, patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(0, summary.main())
+            sender.return_value.send.assert_called_once()
+            self.send.assert_not_called()
+            self.assertEqual("sent:", self.github.posts[-1]["description"][:5])
+
+    def test_daily_dry_run_does_not_create_a_parent_or_need_bot_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"event.json"
+            path.write_text(json.dumps({"repository": {"full_name": summary.REPO}}), encoding="utf-8")
+            env = {"GITHUB_EVENT_PATH": str(path), "GITHUB_EVENT_NAME": "workflow_dispatch", "GH_TOKEN": "unused",
+                   "SLACK_DRY_RUN": "1", "SLACK_STUDY_DAILY_THREADS": "1", "SLACK_STUDY_BOT_TOKEN": ""}
+            with patch.dict(os.environ, env), patch.object(summary, "Client", return_value=self.github), \
+                    patch.object(summary, "DailyThreads") as sender, patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(0, summary.main())
+            sender.assert_not_called()
+            self.send.assert_not_called()
+            self.assertEqual([], self.github.posts)
+
     def test_main_waits_bounded_time_without_partial_notification(self):
         with patch.dict(os.environ, {"GITHUB_EVENT_PATH": "unused", "GITHUB_EVENT_NAME": "workflow_dispatch", "GH_TOKEN": "unused"}), \
                 patch.object(summary.Path, "read_text", return_value="{}"), patch.object(summary, "Client", return_value=self.github), \

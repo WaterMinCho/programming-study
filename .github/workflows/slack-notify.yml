@@ -39,10 +39,15 @@ jobs:
             tools/slack_summary.py
             tools/study_checks.py
             tools/ci_scope.py
+            tools/slack_threads.py
           sparse-checkout-cone-mode: false
       - name: 한국어 알림 보내기
         env:
           GH_TOKEN: ${{ github.token }}
           SLACK_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           SLACK_STUDY_WEBHOOK_URL: ${{ secrets.SLACK_STUDY_WEBHOOK_URL }}
+          SLACK_STUDY_DAILY_THREADS: ${{ vars.SLACK_STUDY_DAILY_THREADS || '0' }}
+          SLACK_STUDY_BOT_TOKEN: ${{ secrets.SLACK_STUDY_BOT_TOKEN }}
+          SLACK_STUDY_CHANNEL_ID: ${{ vars.SLACK_STUDY_CHANNEL_ID }}
+          SLACK_STUDY_THREAD_ANCHOR: ${{ vars.SLACK_STUDY_THREAD_ANCHOR }}
         run: python3 -m tools.slack_summary
