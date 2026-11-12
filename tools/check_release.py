@@ -25,6 +25,7 @@ CASES = (
     "tests.test_gui_ai_mock.MockPageTest.test_missing_draft_recovery_opens_without_resetting_the_clock_or_records",
     "tests.test_gui_ai_mock.MockPageTest.test_theme_and_text_changes_keep_live_answers_and_recolor_the_stem",
     "tests.test_gui_ai_mock.MockPageTest.test_text_changes_resize_live_code_without_resetting_the_answer",
+    "tests.test_gui_ai_mock.MockPageTest.test_choice_text_size_returns_to_the_same_size_after_the_first_change",
     "tests.test_gui_submission.ApiSetupTest.test_setup_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_privacy.PrivacyGuiTest.test_consent_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_submission.ApiSetupTest.test_connection_error_keeps_answers_and_shows_message",

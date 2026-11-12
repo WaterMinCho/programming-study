@@ -84,6 +84,7 @@ def refont(root):
     """글자 크기 단계가 바뀐 뒤 root 아래 모든 부품의 글꼴을 지금 TYPE 으로 다시 줌. 역할을 적어 둔 위젯은 글꼴(Para 는 줄 높이도)을,
     refont 메서드가 있는 부품(줄임표 글, 목록 줄, 체크 상자)은 제 크기를 다시 잡음. 시계 숫자처럼 measure 속성이 있는 글은 그 글자의 폭을 다시 잼."""
     for widget in [root] + root.findChildren(QWidget):
+        widget.ensurePolished()
         role = widget.property("role")
         if role:
             widget.setFont(theme.font(role, widget.property("bold")))

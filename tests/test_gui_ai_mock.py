@@ -91,6 +91,19 @@ class MockPageTest(AiTest):
         self.assertEqual(normal, field.font().pixelSize())
         self.assertEqual("3", field.text())
 
+    def test_choice_text_size_returns_to_the_same_size_after_the_first_change(self):
+        self.addCleanup(theme.set_text, "normal")
+        page = self.open_mock((760, 480))
+        page.go(page.exam.draft["order"].index("m90-02"))
+        page.choices.rows[0].box.setChecked(True)
+        picked = page.choices.picked()
+        for size in ("normal", "larger", "normal"):
+            self.win.set_text(size)
+            self.idle()
+            for row in page.choices.rows:
+                self.assertEqual(theme.TYPE["learn_body"][0], row.label.font().pixelSize(), size)
+            self.assertEqual(picked, page.choices.picked())
+
     def setUp(self):
         super().setUp()
         self.root = os.path.join(self.tmp, 'mock_bank')

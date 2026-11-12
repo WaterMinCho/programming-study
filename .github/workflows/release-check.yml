@@ -15,6 +15,7 @@ on:
       - 'gui/icon.py'
       - 'gui/launcher_shortcut.py'
       - 'gui/ai_mock.py'
+      - 'gui/kit.py'
       - 'tests/test_gui_ai_mock.py'
       - 'tests/test_launcher_shortcut.py'
       - 'tests/test_gui_launcher.py'
