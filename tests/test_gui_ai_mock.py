@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 from tests.test_gui_ai import AI_FIXTURE, AiTest, visible_text
-from PyQt6.QtGui import QInputMethodEvent
+from PyQt6.QtGui import QImage, QInputMethodEvent, QPainter
 from PyQt6.QtWidgets import QApplication
 from aiprep import bank
 from aiprep.mock import MockError
@@ -39,6 +39,57 @@ class MockPageTest(AiTest):
             self.assertLessEqual(self.win.height(), 480)
             self.assertTrue(page.notice.isVisible())
             self.assertTrue(self.win.rect().contains(page.next_btn.mapTo(self.win, page.next_btn.rect().center())))
+
+    def test_theme_and_text_changes_keep_live_answers_and_recolor_the_stem(self):
+        from gui.docview import TextPiece
+
+        page = self.open_mock((760, 480))
+        page.go(page.exam.draft["order"].index("m90-01"))
+        field = page.inputs[0]
+        field.setText("3")
+        page.changed()
+        self.assertTrue(page.persist())
+        field.selectAll()
+        deadline = page.exam.draft["deadline"]
+        before = Path(self.win.ai.record.path).read_bytes()
+        self.addCleanup(theme.set_text, "normal")
+        for mode, size in (("light", "normal"), ("dark", "larger"), ("light", "normal")):
+            theme.set_mode(mode)
+            self.win.set_text(size)
+            self.idle()
+            piece = next(p for p in page.card.findChildren(TextPiece) if "숫자를 쓰세요" in p.toPlainText())
+            shot = piece.viewport().grab()
+            image = QImage(shot.size(), QImage.Format.Format_ARGB32)
+            image.fill(theme.qcolor("surface"))
+            painter = QPainter(image)
+            painter.drawPixmap(0, 0, shot)
+            painter.end()
+            ink = guikit.ink(image, theme.color("surface"))
+            self.assertTrue(guikit.near(ink, "ink"), (mode, ink.name()))
+            self.assertIs(field, page.inputs[0])
+            self.assertEqual("3", field.text())
+            self.assertEqual("3", field.selectedText())
+            self.assertEqual(deadline, page.exam.draft["deadline"])
+            self.assertEqual(before, Path(self.win.ai.record.path).read_bytes())
+
+    def test_text_changes_resize_live_code_without_resetting_the_answer(self):
+        self.addCleanup(theme.set_text, "normal")
+        page = self.open_mock((760, 480))
+        page.go(page.exam.draft["order"].index("m90-03"))
+        field = page.inputs[0]
+        field.setText("3")
+        page.changed()
+        self.assertTrue(page.persist())
+        self.win.set_text("normal")
+        normal = field.font().pixelSize()
+        self.win.set_text("larger")
+        self.idle()
+        self.assertGreater(field.font().pixelSize(), normal)
+        self.assertEqual("3", field.text())
+        self.win.set_text("normal")
+        self.idle()
+        self.assertEqual(normal, field.font().pixelSize())
+        self.assertEqual("3", field.text())
 
     def setUp(self):
         super().setUp()

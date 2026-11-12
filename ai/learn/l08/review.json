@@ -22,14 +22,14 @@
   "assets/8c-33.png": "b3cb0dcaef7f9e52a1688b5a9c1b887fe3ece3d3484bb61d433985aa3e22ebae",
   "assets/8c-4.png": "50721dbf5ef935d58173934470984d0a88e87f6bbeee5b2b4795f608d2b757d9",
   "assets/8c-5.png": "55b9820ad1495ab321fb935918b0ad572e5e261038e44377ff768607011f29f8",
-  "assets/8d-1.png": "fec8dc25cbb41b24110b7a3f48bdd6db0243fc5a01901f1d4a37ff06146bce43",
+  "assets/8d-1.png": "94796ea7e5620393d153b2bb7c828c2b29d24b6b607b4ba08f8604cb24abd2ce",
   "assets/8d-2.gif": "8b12414683eacf93d20e5ff4a3fbd32c5d51bb6c5b4270b2ca30d6787a1e0de3",
-  "assets/8d-3.png": "1e61cd77a42742eb09a5af90691e0331b93e60a6dfa10cb020311f354871396c",
+  "assets/8d-3.png": "7f90f58ae55afcfe3f0970cd7875ff89054a7f248e8941e0aa4d49ca02eddb37",
   "assets/8d-31.png": "9b205175bbce07bb335d0bc434f8c9995e4f99428f4907455856c575a2d4676e",
   "assets/8d-32.png": "f66c95d76096b3e07a9e3ff8bcbb2cb446775d0999d0f5c18ee1bec060beab06",
   "assets/8d-33.png": "454ee2a9dae221ac36f48ef17d92d8952224083acdfeb35ca07fca6129ae3e5a",
   "assets/8d-4.png": "e0e87ac3244118bc73b8d08514236062f83faf87341f30eb41822ece4201818c",
-  "assets/8d-5.png": "7e7dab0277ffadec439529c1c2a1b6af7495fb4dca8bec8e0412edb39f9a5d63",
+  "assets/8d-5.png": "8ecf9f0f151063988e4cf8c27edb2fdca50cdd9e56a6520aae88b6c33a4ca8fe",
   "assets/8e-1.png": "ccc66ce326674829c023889a0a8bc124fca4aa0d44e4f49314be5fb1abf98cf4",
   "assets/8e-2.gif": "832777f0d9f601a3083975f05331efa0f932615a9dc32b63b34e88ce8d899382",
   "assets/8e-3.png": "49aaa002b381a227891b7b1d0c268192008bebc782a7d35244dfd7b5ec704028",
@@ -75,6 +75,7 @@
   "용어의 첫 등장과 정의를 추가 대조함. 개발 과정 그림의 클래스 표현을 정답 종류로 풀어 쓴 세 장면도 본문과 맞춰 확인함.",
   "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음.",
   "변경 물음의 첫 답을 보존하고 본문 문맥·그림 10장·새 조건을 독립 대조했음. 테스트 예측 표기와 저장 대상 버퍼·채널 수의 범위를 바로잡았음.",
-  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함.",
+  "2026-11-13: 두 손실 함수 방식의 그림 3장과 그림 원본의 용어를 본문에 맞추고 실제 크기로 확인함. 수치·정답과 기존 검토 기록을 보존함."
  ]
 }

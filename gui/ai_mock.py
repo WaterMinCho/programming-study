@@ -7,7 +7,8 @@ from aiprep import bank
 from aiprep.grade import BLANK
 from aiprep.mock import MockError
 from gui import ai_text, kit, theme
-from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, doc, reading_column
+from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, RichPara, doc, reading_column
+from gui.docview import Doc
 from gui.ai_quiz import commit_input, split_stem
 from gui.widgets import PasteBlock
 from session import SessionError
@@ -391,5 +392,11 @@ class MockPage(QWidget):
             self.update_navigation()
 
     def restyle(self):
+        for widget in self.findChildren(Doc):
+            widget.restyle(theme.learning_css())
+        for widget in self.findChildren(RichPara):
+            widget.restyle()
+        for widget in self.findChildren(CodeSlots):
+            widget.restyle()
         for widget in self.findChildren(kit.Chevron):
             widget.update()
