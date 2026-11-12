@@ -54,7 +54,8 @@ def selection(paths):
     other = [path for path in work if path not in models]
     server = lambda path: server_only(path) or path in ("submission_api.py", "aiprep/privacy.py", "aiprep/sharing.py")
     return dict(bank=any(not server(path) and not automation_only(path) and not path.startswith("docs/") for path in other),
-                unit=bool(other), gui=any(not server_only(path) and not automation_only(path) for path in other),
+                unit=bool(other), gui=any(not server_only(path) and not automation_only(path) and not
+                                        (path.startswith("docs/") and path.endswith(".md")) for path in other),
                 model=any(path.endswith(".py") for path in models))
 
 

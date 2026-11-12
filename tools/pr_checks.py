@@ -21,12 +21,14 @@ def model(paths, root=None):
             continue
         if path.is_symlink() or not path.resolve().is_relative_to(root) or not path.is_file():
             raise ValueError("일반 Python 파일을 지정해 주세요: " + name)
-        with tokenize.open(path) as stream:
-            source = stream.read()
         try:
+            with tokenize.open(path) as stream:
+                source = stream.read()
             compile(source, name, "exec", dont_inherit=True)
         except SyntaxError as error:
-            raise ValueError("%s:%s 구문 오류: %s" % (name, error.lineno, error.msg)) from None
+            raise ValueError("%s:%s 구문 오류: %s" % (name, error.lineno or 1, error.msg)) from None
+        except RecursionError:
+            raise ValueError("너무 깊게 중첩된 모델 코드입니다: " + name) from None
         checked += 1
     print("바뀐 모델 Python 파일 %d개의 구문을 확인했습니다. 코드 실행·의존성 설치·모델 학습은 하지 않았습니다." % checked)
     return 0

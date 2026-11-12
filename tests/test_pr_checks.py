@@ -58,7 +58,7 @@ class PRChecksTest(unittest.TestCase):
         self.write("experiments/bob/train.py", "this is invalid python :\n")
         self.assertEqual(0, pr_checks.model([target]))
         self.assertFalse((self.root / "executed").exists())
-        for broken in ("def broken(:\n", "return 3\n"):
+        for broken in ("def broken(:\n", "return 3\n", "# coding: unknown-encoding\nprint('ok')\n"):
             self.write(target, broken)
             with self.subTest(source=broken), self.assertRaisesRegex(ValueError, "구문 오류"):
                 pr_checks.model([target])

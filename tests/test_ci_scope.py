@@ -26,7 +26,7 @@ class ScopeTest(unittest.TestCase):
         for paths in (["README.md", "gui/theme.py"], ["ai/learning/i01.md"],
                       ["problems/s01/README.md"], ["dungeons/d01/p1/problem.md"],
                       ["docs/img/icon.png"], ["docs/img/screen-settings.png"],
-                      ["docs/guide.json"], ["docs/new-screen-guide.md"], ["journey/README.md.bak"],
+                      ["docs/guide.json"], ["journey/README.md.bak"],
                       ["gui/widgets/README.md"], ["gui/window.py", "docs/window.md"]):
             with self.subTest(paths=paths):
                 self.assertTrue(needs_gui(paths))
@@ -74,6 +74,10 @@ class SelectionTest(unittest.TestCase):
 
     def test_model_code_gets_syntax_check(self):
         self.assertEqual(dict(bank=False, unit=False, gui=False, model=True), ci_scope.selection(["experiments/alice/train.py"]))
+
+    def test_unlisted_markdown_guides_keep_units_without_screen_tests(self):
+        self.assertEqual(dict(bank=False, unit=True, gui=False, model=False),
+                         ci_scope.selection(["docs/new-screen-guide.md"]))
 
     def test_server_changes_keep_function_tests(self):
         self.assertTrue(ci_scope.selection(["learning_server/app.py"])["unit"])
