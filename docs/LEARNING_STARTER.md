@@ -2,6 +2,8 @@
 
 새 데이터가 쌓일 때까지 기다릴 필요는 없습니다. 기존 파이썬 풀이 기록과 현재 문제의 개념 정보를 공통 형식으로 바꿉니다. 이후 파이썬·AI 개론·응용의 새 수집 자료도 같은 도구로 준비합니다. WaterMinCho가 자료를 준비하고 세 팀원은 같은 파일로 모델을 비교합니다.
 
+팀원은 [실제 자료 받기·샘플링 안내](LEARNING_DATA_ACCESS.md)부터 따라 합니다. 아래 변환 명령은 WaterMinCho가 원본에서 공통 자료를 준비할 때 사용합니다. 팀원마다 원본을 다시 변환하지 않습니다.
+
 ## 세 팀원이 사용할 자료 판을 맞춥니다
 
 현재 입력 판은 features_version 4이며 전달 묶음은 common-input-f4-20261112입니다. 합성 자료는 파이썬·AI를 각각 학습 8건·검증 2건·평가 2건으로 준비했습니다. 사용 범위를 확인한 기존 파이썬 기록은 학습 84건·검증 29건·평가 18건입니다. 실제 AI 기록과 수강생 전원의 자료가 준비됐다는 뜻은 아닙니다.
@@ -12,10 +14,10 @@
 
 ## 기존 파이썬 기록을 변환합니다
 
-저장소 루트에서 실행합니다. 다른 사람의 기록은 연구 사용 동의를 받은 뒤 지정합니다. 아래 시간대는 한국 시간으로 해석한다는 가정이며 원래 시각도 따로 남깁니다.
+WaterMinCho가 저장소 루트에서 실행합니다. `--profile`에는 비공개로 보관한 실제 원본 경로를 지정합니다. 다른 사람의 기록은 연구 사용 동의를 받은 뒤 지정합니다. 아래 시간대는 한국 시간으로 해석한다는 가정이며 원래 시각도 따로 남깁니다.
 
 ```sh
-python -m learning_server.starter --profile submissions/WaterMinCho/profile.json --agree --timezone +09:00 --out ../learning-profile-v1
+python -m learning_server.starter --profile ../legacy-profiles/participant/profile.json --agree --timezone +09:00 --out ../learning-profile-v1
 ```
 
 기존 파일은 수정하지 않습니다. 결과는 공개 저장소 밖의 새 폴더에 저장하고 다시 읽어 확인합니다. 같은 폴더를 덮어쓰지 않으므로 다시 만들 때는 다른 이름을 지정합니다. 원본 답안·GitHub ID·이름은 복사하지 않으며 새 가명 구분값을 만듭니다.
@@ -26,7 +28,7 @@ python -m learning_server.starter --profile submissions/WaterMinCho/profile.json
 
 ## 새 수집 자료와 연습 자료도 준비합니다
 
-이미 내보낸 수집 JSONL 파일은 다음과 같이 준비합니다.
+WaterMinCho가 이미 내보낸 수집 JSONL 파일을 다음과 같이 준비합니다.
 
 ```sh
 python -m learning_server.starter --input ../learning-events.jsonl --out ../learning-recorded-v1
@@ -42,12 +44,14 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track ai
 
 추가 라이브러리 설치나 모델 학습 없이 실행할 수 있습니다. 자료에 있는 과목만 선택합니다. 기존 파이썬 프로필로 만든 자료에는 파이썬만 들어 있습니다.
 
+`input_example`은 실제 배열도 출력합니다. 공개 실행 예시는 합성 자료로 만들고 실제 자료는 [요약만 출력하는 확인 도구](LEARNING_DATA_ACCESS.md#받은-파일을-확인합니다)를 사용합니다.
+
 ## 세 모델이 같은 입력을 사용합니다
 
 ```python
 from learning_server.input_example import load, batch
 
-rows, vocabulary = load("../learning-profile-v1", "python", "train")
+rows, vocabulary = load("../study-data/common-input-f4-20261112/recorded-python", "python", "train")
 example = batch(rows[:4], vocabulary, length=32)
 inputs = example["inputs"]
 targets = example["targets"]

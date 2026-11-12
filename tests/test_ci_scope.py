@@ -70,6 +70,7 @@ class SelectionTest(unittest.TestCase):
     def test_readme_and_model_notes_do_not_run_product_or_bank(self):
         self.assertEqual(dict(bank=False, unit=False, gui=False, model=False), ci_scope.selection(["README.md", "experiments/alice/README.md"]))
         self.assertEqual(dict(bank=False, unit=False, gui=False, model=False), ci_scope.selection(["docs/LEGACY_RECORDS.md", "docs/LEARNING_SERVER.md"]))
+        self.assertEqual(dict(bank=False, unit=False, gui=False, model=False), ci_scope.selection(["docs/LEARNING_EXPERIMENT_TEMPLATE.md", "docs/LEARNING_DATA_ACCESS.md"]))
 
     def test_model_code_gets_syntax_check(self):
         self.assertEqual(dict(bank=False, unit=False, gui=False, model=True), ci_scope.selection(["experiments/alice/train.py"]))
