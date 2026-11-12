@@ -29,14 +29,14 @@ class PrivateSubmissionTest(unittest.TestCase):
 
     def test_production_public_routes_are_closed_before_any_publisher(self):
         self.app = application(self.db)
-        with mock.patch("learning_server.submissions.Publisher.configured") as publisher:
+        with mock.patch("tests.legacy_submissions.Publisher.configured") as publisher:
             for path in ("/v1/register", "/v1/register/open", "/v1/submissions/publish"):
                 self.assertEqual(410, self.call(path, {})[0])
             publisher.assert_not_called()
 
     def test_private_submission_stores_and_retries_without_git(self):
         client = self.client()
-        with mock.patch("learning_server.submissions.Publisher.configured") as publisher:
+        with mock.patch("tests.legacy_submissions.Publisher.configured") as publisher:
             client.connect_open("https://example.test")
             first = client.submit()
             second = client.submit()

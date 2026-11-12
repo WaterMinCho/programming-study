@@ -36,10 +36,9 @@ import study  # noqa: E402
 from gui import app, dialogs, errors, icon, kit, motion, theme, widgets, window, wrong_page  # noqa: E402
 from gui.mascot import Mascot  # noqa: E402
 from gui.guard import NOTE as PASTE_NOTE  # noqa: E402
-from gui.team_page import Avatar, EmptyCard, MemberCard  # noqa: E402
+from tests.legacy_team_page import Avatar, EmptyCard, MemberCard, MainWindow  # noqa: E402
 from gui.round_page import ROW_GAP  # noqa: E402
 from gui.widgets import ChoiceCard, ChoicePanel, CodeEditor, Para, TextPanel, content_height  # noqa: E402
-from gui.window import MainWindow  # noqa: E402
 from aiprep import bank as ai_bank  # noqa: E402
 from webprep import bank as web_bank  # noqa: E402
 from webprep import stack  # noqa: E402

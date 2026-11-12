@@ -205,3 +205,20 @@ class TeamPage(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.arrange()
+
+
+from gui import motion
+from gui.window import MainWindow as ProductWindow
+
+
+class MainWindow(ProductWindow):
+    """종료한 팀 현황의 기존 회귀 검사를 위한 창임. 제품 진입점에서는 쓰지 않음."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.team_page = TeamPage(self)
+        self.pages.addWidget(self.team_page)
+
+    def show_team(self):
+        self.team_page.refresh()
+        motion.switch(self.pages, self.team_page)

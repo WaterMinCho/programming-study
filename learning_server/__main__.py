@@ -42,7 +42,28 @@ def main():
     cohorts.add_argument("--input", help="내보낸 JSONL 파일")
     cohorts.add_argument("--out", required=True, help="원본·저장소 밖의 새 폴더")
     cohorts.add_argument("--synthetic", action="store_true", help="합성 입력임을 명시합니다.")
+    legacy_import = sub.add_parser("legacy-import", help="동의를 확인한 기존 프로필을 로컬 DB에 이관합니다.")
+    legacy_import.add_argument("--manifest", required=True, help="비공개 이관 목록 JSON 파일")
+    legacy_import.add_argument("--dry-run", action="store_true", help="원본과 기존 DB를 읽고 저장 예정 건수만 확인합니다.")
+    legacy_remove = sub.add_parser("legacy-remove", help="기존 프로필 이관을 되돌리거나 철회를 처리합니다.")
+    legacy_remove.add_argument("--participant", required=True, help="비공개 이관 목록에 고정한 UUID 가명값")
+    legacy_remove.add_argument("--reason", required=True, choices=("rollback", "withdrawal"))
     args = parser.parse_args()
+    if args.command in ("legacy-import", "legacy-remove"):
+        try:
+            from learning_server import legacy
+            from learning_server.app import ApiError
+            if not args.db:
+                raise ValueError("기존 서버 데이터 파일을 --db로 지정해 주세요.")
+            if args.command == "legacy-import":
+                import adaptive
+                result = legacy.transfer(args.db, args.manifest, adaptive.catalog(), dry_run=args.dry_run)
+            else:
+                result = legacy.remove_transfer(args.db, args.participant, reason=args.reason)
+            print(packed(result))
+            return
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, sqlite3.Error, ApiError):
+            parser.exit(1, packed({"status": "error", "code": "legacy_transfer_failed"}) + "\n")
     try:
         if args.command in ("check", "restore", "status", "backup"):
             from learning_server import operations

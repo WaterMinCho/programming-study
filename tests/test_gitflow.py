@@ -1750,7 +1750,7 @@ class PendingReferenceTest(unittest.TestCase):
 class CiReportTest(unittest.TestCase):
     def report(self, files, present):
         """changed_files 가 files 를 돌려주는 PR 에서 ci_report 를 돌려 (모듈, report.md 내용, 표준 출력) 을 돌려줌. present 는 PR 을 합친 결과에 남은 파일."""
-        spec = importlib.util.spec_from_file_location("ci_report", os.path.join(ROOT, "tools", "ci_report.py"))
+        spec = importlib.util.spec_from_file_location("ci_report", os.path.join(ROOT, "tests", "legacy_ci_report.py"))
         ci_report = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(ci_report)
         tmp = tempfile.mkdtemp(prefix="study_ci_")

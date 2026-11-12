@@ -1,0 +1,29 @@
+name: PR 제목 검사
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  title:
+    name: PR 제목 실행
+    if: ${{ !startsWith(github.event.pull_request.head.ref, 'study/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: tools/pr_title.py
+          sparse-checkout-cone-mode: false
+      - name: 제목 형식 확인
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python3 tools/pr_title.py --publish-status

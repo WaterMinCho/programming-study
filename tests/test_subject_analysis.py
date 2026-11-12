@@ -28,7 +28,7 @@ PRIVATE = "private-contact@example.invalid"
 
 
 def tool(name):
-    spec = importlib.util.spec_from_file_location("subject_test_" + name, ROOT / "tools" / (name + ".py"))
+    spec = importlib.util.spec_from_file_location("subject_test_" + name, ROOT / "tests" / ("legacy_" + name + ".py") if name in ("dashboard", "ci_report") else ROOT / "tools" / (name + ".py"))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

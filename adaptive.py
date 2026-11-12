@@ -638,7 +638,7 @@ def users_with_profile():
 
 
 def user_summary(user, cat):
-    """한 사람의 학습 요약. 현황판(tools/dashboard.py)과 화면의 팀 현황이 같이 씀. profile.json 을 읽지 못하면 예외를 냄."""
+    """한 사람의 학습 요약. 기존 기록의 회귀 검사에서도 씀. profile.json 을 읽지 못하면 예외를 냄."""
     prof = load_profile(user)
     unit_ids = [s["id"] for s in units()]
     states = {st["unit"]: st for st in all_states(prof, cat)}
