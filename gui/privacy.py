@@ -26,7 +26,7 @@ class ConsentDialog(QDialog):
         content = QWidget()
         body = kit.box(content, spacing=theme.GAP["group"])
         body.addWidget(kit.heading(kit.label("학습 데이터 제공 안내" if first else "내 정보·데이터", "title"),
-                                   kit.para("동의하면 새 풀이 기록을 자동으로 보내 문제 추천 연구에 사용합니다. 동의하지 않아도 문제를 풀고 채점할 수 있습니다.",
+                                   kit.para("동의하면 새 풀이 기록을 자동으로 보내 문제 추천 연구에 사용합니다. 동의하지 않아도 문제를 풀고 채점할 수 있습니다. 두 항목을 모두 선택하면 동의 버튼이 켜집니다.",
                                             "body", "secondary")))
         self.status_text = kit.para()
         body.addWidget(self.status_text)
@@ -93,6 +93,16 @@ class ConsentDialog(QDialog):
             self.controller.consent.choose(accepted)
         except (CollectionError, OSError) as error:
             self.message.setText(str(error))
+            if self.first and not accepted:
+                self.controller.cancel.set()
+                self.controller.timer.stop()
+                self.controller.consent._stop_all()
+                if any(store.status()["enabled"] for store in self.controller.consent.collections.values()):
+                    self.message.setText("수집 중단을 확인하지 못했습니다. 저장 공간과 파일 권한을 확인한 뒤 다시 선택해 주세요.")
+                    return
+                self.controller.message = "동의 설정을 저장하지 못해 수집 없이 시작합니다. 다음 실행 때 동의 여부를 다시 선택할 수 있습니다."
+                self.controller.changed.emit()
+                self.accept()
             return
         self.controller.changed.emit()
         self.controller.tick()

@@ -479,8 +479,8 @@ def style_check(report, tools, md_files, strings):
 def lint_item(kind, entry, bank_dir, index, tools, parts=("style", "context", "extra")):
     """항목 하나를 검사해 Report 로. parts 로 말투·맥락·그 밖의 규칙을 고름."""
     report = Report("%s %s" % (entry["id"], entry["title"]))
-    terms_data = bank.read_terms(bank_dir)
     try:
+        terms_data = bank.read_terms(bank_dir)
         if kind == "mission":
             item = bank.load_mission(entry, bank_dir)
             secrets = bank.load_secrets(item["dir"])

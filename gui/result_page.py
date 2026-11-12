@@ -164,6 +164,7 @@ class ResultPage(QWidget):
         overview = session.overview()
         self.view, self.verdicts, self.revealed = view, result["verdicts"] if result else None, set()
         self.title.setText("%s 결과" % view["title"])
+        self.title.show()
         ratio = round(100 * earned / total) if total else 0
         motion.count_text(self.score, "%%d / %d점" % total, earned)
         motion.count_text(self.ratio, "득점률 %d%%", ratio)

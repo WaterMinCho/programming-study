@@ -14,6 +14,9 @@ on:
       - 'gui/app.py'
       - 'gui/icon.py'
       - 'gui/launcher_shortcut.py'
+      - 'gui/ai_mock.py'
+      - 'gui/kit.py'
+      - 'tests/test_gui_ai_mock.py'
       - 'tests/test_launcher_shortcut.py'
       - 'tests/test_gui_launcher.py'
 
@@ -36,6 +39,8 @@ jobs:
       STUDY_NODE_PROBE: '0'
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'

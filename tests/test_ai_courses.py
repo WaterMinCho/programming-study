@@ -49,6 +49,24 @@ class CourseTest(unittest.TestCase):
     def session(self, course):
         return service.AiSession('alice', home=str(self.root / 'home'), root=str(self.bank), course=course)
 
+    def test_application_answer_links_to_its_published_learning_step(self):
+        app = self.session('app')
+        card = app.cards['a90-b01']
+        self.assertEqual('a90a/2', card['step'])
+        target = app.note_target(card['id'])
+        self.assertEqual(('a90', 'a90a/2'), (target['lesson'], target['step']))
+        card['step'] = 'a90a/999'
+        self.assertIsNone(app.note_target(card['id']))
+
+    def test_application_wrong_notes_name_the_selected_course(self):
+        from aiprep import notes
+        app = self.session('app')
+        title, _ = notes.group_title(app.cards['a90-b01'], app.lessons, app.mocks)
+        self.assertTrue(title.startswith('응용 90차시 '), title)
+        intro = self.session('intro')
+        title, _ = notes.group_title(intro.cards['i90-b01'], intro.lessons, intro.mocks)
+        self.assertTrue(title.startswith('90차시 '), title)
+
     def test_hub_history_combines_courses_without_changing_course_progress(self):
         intro, app = self.session('intro'), self.session('app')
         intro.mark_read('i90', '90a')

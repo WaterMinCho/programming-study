@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""8차시 학습 노트 l08 의 그림(8a 이진 분류와 로지스틱 회귀, 8b 데이터 나누기와 정확도, 8c 결정 경계, 8d 두 손실 판,
+"""8차시 학습 노트 l08 의 그림(8a 이진 분류와 로지스틱 회귀, 8b 데이터 나누기와 정확도, 8c 결정 경계, 8d 두 손실 방식,
 8e 사기 거래 데이터와 pos_weight, 8f 혼동 행렬과 지표, 8g 코드 읽기).
 
 그림에 찍는 숫자는 모두 이 파일에서 numpy 로 다시 계산하고 assert 로 확인함. iris 앞 100송이의 꽃받침 길이·폭은 8차시
@@ -39,7 +39,7 @@ CODE = "D2Coding"
 # 8a: 회색 곡선은 시그모이드, 노랑은 따라가는 꽃 (4.8, 3.4)
 # 8b: 슬레이트는 학습 데이터, 보라는 검증 데이터, 초록은 맞힌 예측, 빨강은 틀린 예측, 회색 점선은 임계값 0.5
 # 8c: 검은 선은 결정 경계, 슬레이트는 학습 데이터 곡선, 보라는 검증 데이터 곡선, 노랑은 따라가는 꽃
-# 8d: 회색 상자는 시그모이드, 초록 테두리는 BCEWithLogitsLoss 판, 빨강은 logit 에 0.5 기준을 쓴 잘못된 판정
+# 8d: 회색 상자는 시그모이드, 초록 테두리는 BCEWithLogitsLoss 방식, 빨강은 logit 에 0.5 기준을 쓴 잘못된 판정
 # 8e: 슬레이트는 학습 데이터, 보라는 테스트 데이터, 회색은 stratify 없이 나눈 예
 # 8f: 초록은 맞힌 칸, 빨강은 틀린 칸, 노란 테두리는 그 지표가 쓰는 칸, 보라는 점수로 그린 ROC 곡선, 빨강 점선은 0/1 로 그린 곡선
 # 8g: 초록은 True, 빨강은 False, 슬레이트는 학습 손실, 보라는 검증 손실
@@ -749,9 +749,9 @@ def memo_8c():
 
 @figure("8d-1", 560, 280)
 def two_versions():
-    """BCELoss 판(Linear → Sigmoid → BCELoss, 기준 0.5)과 BCEWithLogitsLoss 판(Linear → BCEWithLogitsLoss, 기준 0.0)."""
+    """BCELoss 방식(Linear → Sigmoid → BCELoss, 기준 0.5)과 BCEWithLogitsLoss 방식(Linear → BCEWithLogitsLoss, 기준 0.0)."""
     plt, fig, ax = board(560)
-    rows = [(4.0, "BCELoss 판", False), (1.55, "BCEWithLogitsLoss 판", True)]
+    rows = [(4.0, "BCELoss 방식", False), (1.55, "BCEWithLogitsLoss 방식", True)]
     for y0, title, logit in rows:
         ax.text(0.3, y0 + 1.15, title, fontsize=19, weight="bold", color=GREEN if logit else INK)
         box(ax, 0.3, y0 - 0.4, 1.1, 0.8, edge=INK)
@@ -838,8 +838,8 @@ def same_training():
     assert fx(exact, 5) == "5.33163" and abs(exact - 5.331626) < 5e-7
     plt, fig, ax = board(500)
     cols = [0.3, 4.6, 8.0]
-    ax.text(cols[1], 4.55, "BCELoss 판", fontsize=18, weight="bold", ha="left")
-    ax.text(cols[2], 4.55, "BCEWithLogitsLoss 판", fontsize=18, weight="bold", ha="left", color=GREEN)
+    ax.text(cols[1], 4.55, "BCELoss 방식", fontsize=18, weight="bold", ha="left")
+    ax.text(cols[2], 4.55, "BCEWithLogitsLoss 방식", fontsize=18, weight="bold", ha="left", color=GREEN)
     rows = [("처음 값, 학습률, 반복", "1, 0.01, 10,000번", "1, 0.01, 10,000번"),
             ("반복 0번의 학습 손실", "4.41008", "4.41009"),
             ("반복 1,000번부터 찍은 학습 손실", "같은 값", "같은 값"),
@@ -891,8 +891,8 @@ def half_rules():
 
 @figure("8d-5", 560, 250)
 def memo_8d():
-    return memo([[(0.2, 5.35, "BCELoss 판", ["모델 끝 nn.Sigmoid(), 출력은 확률 p", "nn.BCELoss()", "기준 0.5"], GRAY, INK, (1,)),
-                  (5.65, 5.35, "BCEWithLogitsLoss 판", ["모델 끝 Linear, 출력은 logit z", "nn.BCEWithLogitsLoss()",
+    return memo([[(0.2, 5.35, "BCELoss 방식", ["모델 끝 nn.Sigmoid(), 출력은 확률 p", "nn.BCELoss()", "기준 0.5"], GRAY, INK, (1,)),
+                  (5.65, 5.35, "BCEWithLogitsLoss 방식", ["모델 끝 Linear, 출력은 logit z", "nn.BCEWithLogitsLoss()",
                                                    "기준 0.0, 확률은 torch.sigmoid(z)"], GREEN, INK, (1,))]],
                 "p = 0.5 이면 torch.where(p < 0.5, 0, 1) 과 >= 는 1, > 는 0 · logit 에 0.5 를 쓰면 0 과 0.5 사이의 z 를 놓침")
 
@@ -1014,7 +1014,7 @@ def train_eval_loop():
             x += w
     ax.plot([10.5, 10.5, 2.125], [3.45, 2.65, 2.65], color=MUTED, lw=2)
     arrow(ax, 2.125, 2.65, 2.125, 2.05, color=MUTED)
-    note(ax, 5.6, 0.45, "1,000번 되풀이 · BCEWithLogitsLoss 판이라 기준 0.0", size=16, ha="center")
+    note(ax, 5.6, 0.45, "1,000번 되풀이 · BCEWithLogitsLoss 방식이라 기준 0.0", size=16, ha="center")
     return image(fig)
 
 
@@ -1361,7 +1361,7 @@ def _lv_arrow(ax, x0, y0, x1, y1, color=INK, lw=2.4):
 
 def _lv_table(rows, col_names=(), row_names=(), fills=None, top="", code=False, pad=28, min_w=72.0, row_tone="muted",
               col_tone="muted"):
-    """levels.grid 와 같은 판·글자 크기의 표. fills 는 {(행, 열): levels.PALE 색 이름이나 FIXED 색}(머리 빼고 0부터)이고
+    """levels.grid 와 같은 버전·글자 크기의 표. fills 는 {(행, 열): levels.PALE 색 이름이나 FIXED 색}(머리 빼고 0부터)이고
     칠한 칸 글은 굵게 씀. pad 는 칸 글 좌우 여백 합, min_w 는 칸 폭 하한(논리 px). 표나 위 글이 그림 폭을 넘으면 ValueError."""
     from matplotlib.patches import Rectangle
     fills = fills or {}
@@ -1469,7 +1469,7 @@ def levels_8c_20():
     return _levels_8c(20)
 
 
-# 8d 셋째 단계: BCEWithLogitsLoss 판의 기준. 주황은 1 예측, 빨강은 logit 에 0.5 기준을 잘못 쓴 판정, 회색 곡선은 시그모이드,
+# 8d 셋째 단계: BCEWithLogitsLoss 방식의 기준. 주황은 1 예측, 빨강은 logit 에 0.5 기준을 잘못 쓴 판정, 회색 곡선은 시그모이드,
 # 보라는 시그모이드를 두 번 거친 값(이 그림에서만 씀)
 
 def _levels_8d(level):

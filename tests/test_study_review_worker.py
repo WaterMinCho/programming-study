@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""외부 게시·모델 실행 없이 검토 커밋정과 게시 복구를 검사함."""
+"""외부 게시·모델 실행 없이 검토 판정과 게시 복구를 검사함."""
 import copy
 import hashlib
 import json

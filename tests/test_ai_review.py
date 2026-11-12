@@ -82,6 +82,16 @@ class TableTest(unittest.TestCase):
 
 
 class RuleTest(unittest.TestCase):
+    def test_first_submitted_mock_is_retained_across_incremental_feeds(self):
+        first = {"kind": "mock_submit", "at": "2026-11-15T20:00:00", "mock": "m1", "try": 2,
+                 "results": {"m1-01": "stuck"}}
+        retry = dict(first, at="2026-11-16T20:00:00", **{"try": 3, "results": {"m1-01": "pass"}})
+        index = review.EventIndex()
+        index.feed([first])
+        index.feed([retry])
+        self.assertEqual(["stuck"], [e["result"] for e in index.events["m1-01"]])
+        self.assertEqual(2, len(review.card_events([first, retry], first_try_only=False)["m1-01"]))
+
     def test_study_day_turns_at_four(self):
         self.assertEqual(D(2026, 11, 9), review.study_day("2026-11-09T23:55:00"))
         self.assertEqual(D(2026, 11, 9), review.study_day("2026-11-10T00:05:00"))

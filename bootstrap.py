@@ -14,6 +14,7 @@ start.pyw 나 ROKEY.app 으로 켜면 터미널이 없는 창 모드로 돎. 흐
 표준 라이브러리만 씀. PyQt6 는 Host.pyqt_error 와 Host.gui_main 안에서만, tkinter 는 SetupWindow 안에서만 import 함.
 """
 import importlib.util
+import json
 import os
 import queue
 import re
@@ -50,6 +51,37 @@ class Host:
     def python_info(self):
         return {"version": sys.version_info[:2], "bits64": sys.maxsize > 2 ** 32,
                 "platform": sysconfig.get_platform(), "prefix": sys.prefix}
+
+    def supported_python(self):
+        """Windows에 이미 설치된 지원 버전의 파이썬을 찾음."""
+        if os.name != "nt":
+            return None
+        options = dict(capture_output=True, text=True, errors="replace", timeout=5, creationflags=self.flags)
+        try:
+            listing = subprocess.run(["py", "-0p"], **options)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        candidates = []
+        for line in listing.stdout.splitlines():
+            match = re.match(r"\s*-(?:V:)?(?:PythonCore/)?(\d+)\.(\d+)(?:-(?:32|64|arm64))?\s+(?:\*\s+)?(.+?)\s*$", line)
+            if match is None:
+                continue
+            version = (int(match[1]), int(match[2]))
+            python = match[3].strip('"')
+            if MIN_VERSION <= version <= MAX_VERSION and not same_path(python, sys.executable) and os.path.isfile(python):
+                candidates.append((version, python))
+        probe = ("import json,sys,sysconfig; print(json.dumps({'version':list(sys.version_info[:2]), "
+                 "'bits64':sys.maxsize>2**32, 'platform':sysconfig.get_platform(), 'prefix':sys.prefix}))")
+        for _, python in sorted(candidates, reverse=True):
+            try:
+                result = subprocess.run([python, "-c", probe], **options)
+                info = json.loads(result.stdout)
+                info["version"] = tuple(info["version"])
+                if result.returncode == 0 and python_problem(info) is None:
+                    return python
+            except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError):
+                continue
+        return None
 
     def pyqt_error(self):
         """지금 파이썬에서 PyQt6 를 못 쓰는 이유. 쓸 수 있으면 None."""
@@ -291,7 +323,8 @@ class WindowHost(Host):
         self.lines = []
         pythonw = os.path.join(os.path.dirname(command[0]), "pythonw.exe")
         python = pythonw if os.path.isfile(pythonw) else command[0]
-        return subprocess.call([python, START] + command[2:], env=dict(os.environ, STUDY_WINDOW="1"), creationflags=self.flags)
+        return subprocess.call([python, START] + command[2:],
+                               env=dict(os.environ, STUDY_WINDOW="1", STUDY_LAUNCH_APPEND="1"), creationflags=self.flags)
 
     def finish(self, code):
         """실패 안내가 남아 있으면 [닫기]를 누를 때까지 준비 창에 둠. 준비 창을 띄울 수 없으면 예전 실행 파일로 넘기고 0 을 돌려줌."""
@@ -314,12 +347,14 @@ def windowed():
 
 def connect_log():
     """표준 출력이나 표준 오류가 없으면(pythonw) 기록 파일에 연결하고 그 경로를 돌려줌. 연결하지 않았으면 None.
-    print 는 출력이 없어도 조용히 넘어가지만 sys.stderr.write 처럼 직접 쓰는 코드는 죽음. 파일은 실행할 때마다 새로 씀."""
+    print 는 출력이 없어도 조용히 넘어가지만 sys.stderr.write 처럼 직접 쓰는 코드는 죽음.
+    처음 켤 때 새로 쓰고, 실행 환경을 준비한 뒤 다시 띄우는 자식은 이어 씀."""
     if sys.stdout is not None and sys.stderr is not None:
         return None
     try:
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
-        stream, path = open(LOG, "w", encoding="utf-8", errors="replace", buffering=1), LOG
+        mode = "a" if os.environ.get("STUDY_LAUNCH_APPEND") == "1" else "w"
+        stream, path = open(LOG, mode, encoding="utf-8", errors="replace", buffering=1), LOG
     except OSError:
         stream, path = open(os.devnull, "w", encoding="utf-8", errors="replace"), None
     if sys.stdout is None:
@@ -441,6 +476,10 @@ def launch(argv=None, host=None):
     # 여기부터는 새로 설치해야 하는 경우
     problem = python_problem(info)
     if problem:
+        supported = host.supported_python()
+        if supported:
+            host.say("설치된 지원 버전의 파이썬으로 다시 실행합니다.")
+            return host.call([supported, STUDY] + argv)
         command = "py -3.14 study.py" if os.name == "nt" else "python3.14 study.py"
         return fail(host, "%s 파이썬 3.14(64비트)를 설치해 주세요: %s" % (problem, PYTHON_URL),
                     retry="파이썬 3.14 설치 후 %s" % command)

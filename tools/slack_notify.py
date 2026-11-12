@@ -179,7 +179,7 @@ def relay_card(run, github):
     # 닫힌 미머지 PR은 커밋 연결 목록에서 빠져 실행의 head를 직접 대조함
     matching_head = (run["head_sha"] == pr["head"]["sha"]
                      and run["head_branch"] == pr["head"]["ref"]
-                     and run.get("head_repository", {}).get("full_name")
+                     and (run.get("head_repository") or {}).get("full_name")
                      == (pr["head"].get("repo") or {}).get("full_name")
                      and bool(pr["head"].get("repo")))
     if not associated and not matching_head:

@@ -806,6 +806,21 @@ class PatternStepsTest(PatternBase):
 
 
 class PatternPlanTest(PatternBase):
+    def test_continuation_places_patterns_after_their_recommended_lesson(self):
+        import copy
+        sess = self.session()
+        note = copy.deepcopy(sess.notes["i90"])
+        note["visible"] = ["91a"]
+        note["units"] = {"91a": note["units"]["90a"]}
+        note["unit_meta"] = {"91a": {}}
+        sess.notes["i91"] = note
+        sess.save_step("i90", "90b", 4)
+        sess.mark_read("i90", "90b")
+        ps = sess.start_set("unit", lesson="i90", unit="90b", seed=2)
+        self.play(ps, lambda _: "pass")
+        target = sess.continuation()
+        self.assertEqual(("pc", "18a"), (target["lesson"], target["unit"]))
+
     def test_next_card_offers_the_pattern_unit_after_its_lesson(self):
         sess = self.session()
         sess.mark_read("i90", "90a")

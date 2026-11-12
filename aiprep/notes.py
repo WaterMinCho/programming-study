@@ -55,7 +55,8 @@ def group_title(card, lessons, mocks, patterns_title="상황별 코드"):
     if cid.startswith("pc-"):
         return patterns_title, (2, "pc")  # 상황별 코드 카드는 한 묶음(카드 id 를 키로 두면 카드마다 묶음이 갈림)
     lesson = lessons.get(card.get("lesson"), {})
-    return "%d차시 %s" % (lesson.get("no", 0), lesson.get("title", "")), (1, lesson.get("no", 0))
+    prefix = "응용 " if lesson.get("course") == "app" else ""
+    return "%s%d차시 %s" % (prefix, lesson.get("no", 0), lesson.get("title", "")), (1, lesson.get("no", 0))
 
 
 def wrong_notes(events, cards, read_days, lessons, mocks, leeches=(), mock_order=()):
@@ -76,7 +77,12 @@ def wrong_notes(events, cards, read_days, lessons, mocks, leeches=(), mock_order
         title, order = group_title(card, lessons, mocks)
         if order[0] == 0:
             order = (0, rank.get(order[1], len(rank)), order[1])
-        where = "%d차시" % lessons.get(card.get("lesson"), {}).get("no", 0) if order[0] == 1 else title
+        if order[0] == 1:
+            lesson = lessons.get(card.get("lesson"), {})
+            prefix = "응용 " if lesson.get("course") == "app" else ""
+            where = "%s%d차시" % (prefix, lesson.get("no", 0))
+        else:
+            where = title
         kind = PART_CHIP.get(card.get("part")) if card.get("kind") == "skel" else None  # 뼈대 카드는 꼴(코드 빈칸·순서 고르기·고르기)
         item = {"key": cid, "label": "%s · %s" % (kind or KIND_LABEL.get(card.get("kind"), "문항"), where), "state": note["state"],
                 "sure": note["sure"], "leech": cid in leeches, "deep": bool(card.get("deep")), "fails": note["fails"],

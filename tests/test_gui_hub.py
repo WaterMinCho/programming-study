@@ -619,6 +619,13 @@ class HubScreenTest(HubTest):
         hub = win.hub
         self.assertIs(self.page(), hub)
         self.assertIsNone(win.journey)
+        for language in ("python", "javascript"):
+            win.settings.setValue("journey/lang", language)
+            with mock.patch.object(win, "ask") as ask:
+                win.go_journey()
+                ask.assert_called_once()
+                self.assertIn("progress.json", ask.call_args.args[1])
+            self.assertIs(self.page(), hub)
         self.assertTrue(hub.journey_error.isVisible())
         self.assertIn("progress.json", hub.journey_error.text.text())
         self.assertIn("파일을 고친 뒤 프로그램을 다시 실행해 주세요.", hub.journey_error.text.text())

@@ -47,7 +47,7 @@ python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legac
 
 `--dry-run`은 원본과 DB를 읽고 신규 저장 예정 건수·기존 이관 건수·제외 건수를 JSON으로 출력합니다. `inserted_profiles`는 이때 저장 예정인 프로필 수입니다. DB·인증 키·이관 표를 만들거나 고치지 않습니다. DB 또는 인증 키가 없으면 중단합니다. 실제 저장 때의 보관량은 다른 기록의 증가에 따라 달라질 수 있어 저장 트랜잭션 안에서 다시 검사합니다.
 
-서버에 문제 은행과 `adaptive.py`를 두지 않았다면 프로그램 담당이 같은 프로그램 판에서 준비한 개념 목록 JSON을 `--catalog /srv/study-private/legacy/catalog.json`으로 지정합니다. 각 문항 ID 아래에 `unit`, `tags`, `kind`, `type`만 담습니다. 파일의 SHA-256과 준비한 프로그램 판도 비공개 이력에 남깁니다. 이 방식은 서버에 학습 앱이나 모델 패키지를 설치하지 않습니다.
+서버에 문제 은행과 `adaptive.py`를 두지 않았다면 프로그램 담당이 같은 프로그램 버전에서 준비한 개념 목록 JSON을 `--catalog /srv/study-private/legacy/catalog.json`으로 지정합니다. 각 문항 ID 아래에 `unit`, `tags`, `kind`, `type`만 담습니다. 파일의 SHA-256과 준비한 프로그램 버전도 비공개 이력에 남깁니다. 이 방식은 서버에 학습 앱이나 모델 패키지를 설치하지 않습니다.
 
 ## 이관하고 같은 목록으로 다시 확인합니다
 

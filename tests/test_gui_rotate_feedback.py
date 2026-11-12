@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
-os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from tests import guikit  # noqa: E402
 from PyQt6.QtCore import QPoint, Qt  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402

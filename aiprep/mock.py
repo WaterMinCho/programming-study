@@ -70,9 +70,8 @@ def load_items(root, spec):
 
 
 def submissions(log, mid):
-    """회차 제출 기록을 풀이 횟수 순서로 돌려줌."""
-    return sorted((row for row in log if row.get("kind") == "mock_submit" and row.get("mock") == mid),
-                  key=lambda row: int(row.get("try") or 1))
+    """회차 제출 기록을 실제로 기록된 순서로 돌려줌."""
+    return [row for row in log if row.get("kind") == "mock_submit" and row.get("mock") == mid]
 
 
 class MockExam:
@@ -88,6 +87,7 @@ class MockExam:
             raise MockError("모의고사를 찾을 수 없습니다.") from error
         self.items, self.fingerprint = load_items(session.root, self.spec)
         self.local_answers = True
+        self.recovered_draft = False
         with self.lock:
             log = self._log()
             starts = [row for row in log if row.get("kind") == "mock_start" and row.get("mock") == mid]
@@ -97,17 +97,23 @@ class MockExam:
                 latest = dict(done[-1])
             submitted = {int(row.get("try") or 1): row for row in done}
             active = latest is not None and int(latest.get("try") or 1) not in submitted
-            if latest is not None and (active or not repeat) and latest.get('fingerprint') and latest['fingerprint'] != self.fingerprint:
+            changed = latest is not None and latest.get("fingerprint") != self.fingerprint
+            if changed and not repeat:
+                if not latest.get("fingerprint"):
+                    raise MockError("시작한 문항 버전을 확인하지 못해 이어풀기를 멈췄습니다. 이전 기록은 보존했습니다.")
                 raise MockError('시작한 뒤 문제 자료가 바뀌었습니다. 초안과 제출 기록은 보존했습니다.')
-            if repeat and active:
+            if repeat and active and not changed:
                 raise MockError("풀고 있는 모의고사를 먼저 제출하세요.")
-            if latest is not None and (active or not repeat):
+            if latest is not None and not repeat:
                 self.attempt = int(latest.get("try") or 1)
                 self.path = self._path()
                 self.result = submitted.get(self.attempt)
-                if self.result is not None and not os.path.exists(self.path):
+                if not os.path.exists(self.path):
                     self.draft = self._fresh_draft(_moment(latest["at"]), latest.get("seed", 0))
-                    self.local_answers = False
+                    self.local_answers = self.result is None
+                    if self.result is None:
+                        self._write_draft()
+                        self.recovered_draft = True
                 else:
                     self.draft = self._read_draft()
             else:
@@ -311,7 +317,7 @@ class MockExam:
 
     def _related(self, results):
         """첫 풀이의 오답마다 같은 주제의 연습 카드 하나를 고름. 답한 것으로 기록하지 않음."""
-        if self.attempt != 1:
+        if submissions(self._log(), self.id):
             return []
         cards, out = getattr(self.sess, 'cards', {}), []
         for cid in self.draft['order']:

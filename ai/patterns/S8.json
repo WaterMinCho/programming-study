@@ -13,7 +13,7 @@
  ],
  "variants": {
   "배치 유지": {
-   "situation": "model은 S4의 PatchNet이며 x는 CPU float32[2, 1, 8, 8]입니다. 첫 줄 뒤에는 [2, 8, 2, 2] 특징을 얻습니다. 마지막 층은 데이터마다 특징 32개를 받아 로짓 3개를 냅니다.",
+   "situation": "model은 Conv2d·ReLU·MaxPool2d를 두 번 거치는 PatchNet이며 x는 CPU float32[2, 1, 8, 8]입니다. 첫 줄 뒤에는 [2, 8, 2, 2] 특징을 얻습니다. 마지막 층은 데이터마다 특징 32개를 받아 로짓 3개를 냅니다.",
    "lines": [
     "x = model.features(x)",
     "x = torch.flatten(x, start_dim=1)",

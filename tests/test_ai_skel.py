@@ -374,6 +374,10 @@ class RotateTest(unittest.TestCase):
 
 
 class FencesTest(unittest.TestCase):
+    def test_empty_legacy_anchors_do_not_appear_as_learning_text(self):
+        source = '<a id="이전-제목"></a>\n### 새 제목\n<a id="not-hidden">읽을 글</a>\n'
+        self.assertEqual('### 새 제목\n<a id="not-hidden">읽을 글</a>\n', bank.strip_marks(source))
+
     def test_marks(self):
         text = "글\n<!-- skel: S90 가 -->\n\n```python\nnet.train()  # 모드\n```\n\n<!-- skel: S1 표준형 -->\n글만 있음\n"
         found = bank.skel_fences(text)
