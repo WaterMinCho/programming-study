@@ -12,6 +12,7 @@ from urllib.error import HTTPError
 from tools.slack_notify import GitHub, REPO, WEB, RELAY, WORKFLOWS, association, card, development, endpoint, metadata, plain, read_url, send
 from tools.study_checks import AUTHORS, checks_state, NOTIFY_CONTEXT
 from tools.ci_scope import model_path
+from tools.slack_threads import DailyThreads
 
 SERVER_PATHS = ("learning_server/**", "aiprep/collection.py", "aiprep/sharing.py", "aiprep/privacy.py", "aiprep/sync_schedule.py", "submission_api.py", "tests/test_submission_api.py",
                 "tests/test_learning_privacy.py", "tests/test_private_submission.py", "tests/test_learning_server.py", "tests/test_learning_sample.py", "tests/test_learning_starter.py", "tests/test_learning_operations.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", "tests/test_legacy_transfer.py", ".github/workflows/learning-server.yml")
@@ -158,7 +159,7 @@ def candidates(event_name, event, github):
     return [row["number"] for row in association(run, github) if row["head"]["sha"] == run["head_sha"]]
 
 
-def deliver(pr, result, payload, github, webhook):
+def deliver(pr, result, payload, github, webhook, threader=None):
     current = aggregate(pr["number"], github)
     if current is None or not same_pr(pr, current[0]) or current[1]["key"] != result["key"]:
         return False
@@ -187,7 +188,10 @@ def deliver(pr, result, payload, github, webhook):
         github.post(location, {"state": "success", "context": NOTIFY_CONTEXT, "description": "failed:"+key})
         return False
     try:
-        send(payload, webhook)
+        if threader is not None:
+            threader.send(payload)
+        else:
+            send(payload, webhook)
     except (HTTPError, ValueError):
         # 명시적인 거절만 재시도하며 수신 여부를 모르는 연결 오류는 보류함.
         github.post(location, {"state": "success", "context": NOTIFY_CONTEXT, "description": "failed:"+key})
@@ -203,6 +207,11 @@ def main():
         event_name = os.environ["GITHUB_EVENT_NAME"]
         github = Client(os.environ["GH_TOKEN"])
         dry = os.environ.get("SLACK_DRY_RUN") == "1"
+        threader = None
+        if not dry and os.environ.get("SLACK_STUDY_DAILY_THREADS") == "1":
+            threader = DailyThreads(github, os.environ.get("SLACK_STUDY_BOT_TOKEN", ""),
+                                    os.environ.get("SLACK_STUDY_CHANNEL_ID", ""),
+                                    os.environ.get("SLACK_STUDY_THREAD_ANCHOR", ""))
         for number in sorted(set(candidates(event_name, event, github))):
             final = None
             for attempt in range(3):
@@ -216,8 +225,8 @@ def main():
                 continue
             if dry:
                 print(json.dumps(final[2], ensure_ascii=False))
-            elif webhook:
-                print("종합 결과 알림을 보냈습니다." if deliver(*final, github, webhook) else "이미 알린 결과이거나 상태가 바뀌어 전송을 보류했습니다.")
+            elif webhook or threader is not None:
+                print("종합 결과 알림을 보냈습니다." if deliver(*final, github, webhook, threader) else "이미 알린 결과이거나 상태가 바뀌어 전송을 보류했습니다.")
         return 0
     except Exception:
         print("최종 알림을 확인하지 못했습니다. 인증 값은 로그에 남기지 않았습니다.", file=sys.stderr)

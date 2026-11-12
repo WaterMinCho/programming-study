@@ -111,3 +111,5 @@ class AutomationScopeTest(unittest.TestCase):
     def test_review_automation_keeps_function_checks_without_gui_or_bank(self):
         self.assertEqual(dict(bank=False, unit=True, gui=False, model=False),
                          ci_scope.selection(["tools/study_review_worker.py", "tests/test_study_review_worker.py"]))
+        self.assertEqual(dict(bank=False, unit=True, gui=False, model=False),
+                         ci_scope.selection(["tools/slack_threads.py", "tests/test_slack_threads.py"]))

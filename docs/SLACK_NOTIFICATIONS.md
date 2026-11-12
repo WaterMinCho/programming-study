@@ -6,9 +6,53 @@
 
 새 커밋의 검사가 진행 중이거나 결과가 아직 등록되지 않았으면 기다립니다. 이전 커밋의 뒤늦은 결과로 알리지 않습니다. 같은 코드 판의 같은 결과는 다시 보내지 않으며 실패를 고쳐 통과한 경우처럼 결과가 달라지면 새 카드를 보냅니다. 제목 수정으로 머지 조건이 바뀐 때도 다시 확인합니다.
 
+## 하루의 PR 결과를 스레드에 모읍니다
+
+일별 스레드 모드를 켜면 한국 시간으로 그날 첫 알림이 있을 때 `2026-11-12 오늘의 PR`처럼 상위 글을 만듭니다. 이후 결과는 같은 글의 답글로 모읍니다. 날짜가 바뀐 뒤 첫 알림이 오면 새 글을 만들고 알림이 없는 날에는 글을 만들지 않습니다. 답글은 채널 본문에 다시 게시하지 않습니다.
+
+상위 글 번호는 고정한 Git 커밋의 상태 기록에 저장해 실행이 끝나도 재사용합니다. 토큰과 메시지 본문은 상태 기록에 넣지 않습니다. 상위 글을 만드는 중 응답을 잃으면 새 글을 반복 생성하지 않고 전송을 보류합니다. 이때는 운영자가 Slack에 실제 글이 올라왔는지 확인하고 저장한 글 번호를 복구합니다.
+
 ## 운영자가 알림 연결을 확인합니다
 
-Slack Incoming Webhooks와 GitHub Actions를 사용합니다. 채널 전용 웹훅은 저장소의 `SLACK_STUDY_WEBHOOK_URL` 비밀 값에 보관합니다. 코드·문서·PR·로그에 주소를 붙이지 않습니다. [웹훅 공식 안내](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/)
+GitHub Actions에서 Slack 알림을 보냅니다. 기본 모드의 채널 전용 웹훅은 저장소의 `SLACK_STUDY_WEBHOOK_URL` 비밀 값에 보관합니다. 코드·문서·PR·로그에 주소를 붙이지 않습니다. [웹훅 공식 안내](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/)
+
+일별 스레드는 기존 Slack 앱의 메시지 전송 권한 `chat:write`와 해당 채널 참여가 필요합니다. 채널 기록을 읽는 권한은 요청하지 않습니다. [메시지 전송 API](https://docs.slack.dev/reference/methods/chat.postMessage/)로 받은 글 번호를 저장하고 답글의 `thread_ts`로 사용합니다.
+
+연결을 준비할 때 GitHub 저장소의 **Settings → Secrets and variables → Actions**에서 다음 값을 설정합니다. 봇 연결을 마치고 활성화하기 전까지 기존 웹훅 알림을 유지합니다.
+
+| 위치 | 이름 | 값 |
+|---|---|---|
+| Secrets | `SLACK_STUDY_BOT_TOKEN` | 해당 Slack 앱의 Bot User OAuth Token |
+| Variables | `SLACK_STUDY_CHANNEL_ID` | 스터디 채널 ID |
+| Variables | `SLACK_STUDY_THREAD_ANCHOR` | 스레드 번호를 보관할 고정 커밋의 전체 SHA |
+| Variables | `SLACK_STUDY_DAILY_THREADS` | 일별 스레드를 켤 때 `1`, 기존 웹훅 모드는 `0` |
+
+고정 커밋은 `git rev-list --max-parents=0 origin/main`으로 확인한 첫 커밋을 사용합니다. 날짜마다 상태 이름을 나눠 같은 커밋에 저장합니다. 봇 토큰과 전송 채널 설정이 맞지 않으면 전송을 멈추며 채널 본문으로 대신 게시하지 않습니다.
+
+<details>
+<summary>상위 글 생성 중 응답을 잃었을 때 복구합니다</summary>
+
+스터디 채널에서 해당 날짜의 상위 글이 있는지 확인합니다. 글이 있으면 [메시지 링크 복사]로 주소를 확인합니다. 주소 끝의 `p1794490000000001`은 마지막 여섯 자리 앞에 점을 넣어 `1794490000.000001`로 바꿉니다. 이 값이 상위 글의 `ts`입니다.
+
+아래 명령의 `고정커밋SHA`와 날짜를 실제 설정으로 바꿉니다. `context`는 `스터디 PR 스레드/날짜/채널 ID의 SHA-256 앞 12자리` 형식이며 조회 결과의 값을 복사합니다.
+
+```bash
+gh api repos/WaterMinCho/programming-study/commits/고정커밋SHA/statuses --jq '.[] | select(.context | startswith("스터디 PR 스레드/2026-11-12/")) | {context, description}'
+gh api --method POST repos/WaterMinCho/programming-study/statuses/고정커밋SHA -f state=success -f context='조회한 context 값' -f description='ready:1794490000.000001'
+```
+
+상위 글이 없다는 것을 확인했다면 두 번째 명령의 description을 `failed`로 바꿔 재생성을 허용합니다. 실제 글과 날짜·채널을 대조하기 전에는 기록을 바꾸지 않습니다.
+
+보류된 PR의 알림은 별도로 확인합니다. 해당 head의 `스터디 알림 기록`에 `sending:KEY`가 남아 있으면 Slack 답글과 실행 로그를 대조합니다. 답글을 보내기 전에 멈췄다는 것이 확인된 경우에만 아래처럼 `failed:KEY`를 추가하고 알림 워크플로를 다시 실행합니다. `PR_HEAD_SHA`와 `KEY`는 실제 조회 값으로 바꿉니다.
+
+```bash
+gh api repos/WaterMinCho/programming-study/commits/PR_HEAD_SHA/statuses --jq '.[] | select(.context == "스터디 알림 기록") | {context, description}'
+gh api --method POST repos/WaterMinCho/programming-study/statuses/PR_HEAD_SHA -f state=success -f context='스터디 알림 기록' -f description='failed:KEY'
+```
+
+답글이 이미 도착한 것을 확인했다면 같은 명령의 description을 `sent:KEY`로 바꿔 완료를 기록합니다. 이 경우에는 다시 전송하지 않습니다.
+
+</details>
 
 **Actions → Slack 스터디 알림 → Run workflow**의 기본 실행은 전송 없이 카드만 확인합니다. 실제 전송은 운영자가 dry run을 끄고 실행합니다. 웹훅이 없으면 전송을 보류하고 CI 판정은 유지합니다.
 
