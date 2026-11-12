@@ -25,7 +25,7 @@ import study
 
 MAIN = "refs/remotes/origin/main"
 MAIN_REFSPEC = "+refs/heads/main:" + MAIN  # --single-branch 로 clone 한 폴더에서도 받게 직접 적음
-TOOL_FILES = ("study.py", "adaptive.py", "session.py", "mdlite.py", "gitflow.py", "bootstrap.py")
+TOOL_FILES = ("study.py", "adaptive.py", "session.py", "mdlite.py", "gitflow.py", "bootstrap.py", "submission_api.py")
 TOOL_DIRS = ("gui/", "journey/", "aiprep/")
 BANK_DIRS = ("problems/", "dungeons/", "ai/")  # 내용만 바뀌면 재시작 없이 세션만 새로 만듦
 # 내 폴더의 세 영역. profile = profile.json 과 회차 폴더(journey/·ai/ 를 뺀 전부), journey = journey/ 폴더, ai = ai/ 폴더(AI 비전 개론

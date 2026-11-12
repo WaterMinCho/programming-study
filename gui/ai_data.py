@@ -33,7 +33,7 @@ class LearningDataDialog(QDialog):
                                 "학습 중의 짐작·떠올리기·코드 빈칸 결과도 포함합니다. 과거 풀이를 가져오지 않습니다.")
         body.addWidget(kit.para(notice))
         body.addWidget(kit.para("기본은 이 컴퓨터에만 저장하며 GitHub 풀이 제출에는 포함하지 않습니다. "
-                                "파일을 내보내거나 아래 버튼으로 서버에 보낼 수 있습니다. 수집을 중단해도 모든 학습 기능을 사용할 수 있습니다."))
+                                "파일로 내보내거나 API [풀이 제출]·[서버에 보내기]로 비공개 전송합니다. 수집을 중단해도 모든 학습 기능을 사용할 수 있습니다."))
         self.status_text = kit.para()
         body.addWidget(self.status_text)
         self.toggle = kit.button("", "primary", "l")
@@ -75,7 +75,7 @@ class LearningDataDialog(QDialog):
         body.addWidget(self.delete_button)
         body.addWidget(kit.heading(kit.label("팀에 데이터 보내기", "headline"),
                                    kit.para("수집 서버 주소와 개인 초대 코드를 받은 뒤 사용할 수 있습니다. "
-                                            "아래 단추를 누를 때만 전송하며 자동 전송하지 않습니다.", "body", "secondary")))
+                                            "API [풀이 제출]을 연결했다면 그 버튼에서도 수집 중인 기록을 보냅니다.", "body", "secondary")))
         self.server_url = QLineEdit()
         self.server_url.setPlaceholderText("https://수집-서버-주소")
         self.server_url.setAccessibleName("수집 서버 주소")

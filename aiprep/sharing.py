@@ -33,14 +33,14 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise CollectionError("수집 서버의 주소가 바뀌었습니다. 새 주소를 직접 확인해 주세요.")
 
 
-def request(base, path, data=None, token=None, method="POST"):
+def request(base, path, data=None, token=None, method="POST", timeout=5, error_detail=False):
     payload = packed(data).encode("utf-8") if data is not None else None
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
     req = urllib.request.Request(endpoint(base) + path, payload, headers, method=method)
     try:
-        with urllib.request.build_opener(NoRedirect()).open(req, timeout=5) as response:
+        with urllib.request.build_opener(NoRedirect()).open(req, timeout=timeout) as response:
             raw = response.read(65537)
             if len(raw) > 65536:
                 raise CollectionError("수집 서버의 응답 크기를 확인해 주세요.")
@@ -49,7 +49,16 @@ def request(base, path, data=None, token=None, method="POST"):
                 raise ValueError()
             return result
     except urllib.error.HTTPError as error:
-        raise CollectionError("수집 서버가 요청을 받지 않았습니다. 상태 코드 %d입니다." % error.code) from None
+        message = "수집 서버가 요청을 받지 않았습니다. 상태 코드 %d입니다." % error.code
+        if error_detail:
+            try:
+                detail = json.loads(error.read(4096)).get("error")
+                if isinstance(detail, str) and len(detail) <= 500:
+                    message += " " + detail
+            except (OSError, ValueError, AttributeError):
+                pass
+        error.close()
+        raise CollectionError(message) from None
     except (urllib.error.URLError, OSError, ValueError):
         raise CollectionError("수집 서버에 연결하지 못했습니다. 데이터는 이 기기에 남아 있으니 다시 보내 주세요.") from None
 

@@ -114,7 +114,7 @@ class MessageDialog(QDialog):
 
 
 class IdDialog(QDialog):
-    """첫 실행 때 깃허브 ID 를 받아 저장함."""
+    """첫 실행 때 풀이를 구분할 ID를 받아 저장함."""
 
     def __init__(self, parent, on_saved):
         super().__init__(parent)
@@ -126,11 +126,11 @@ class IdDialog(QDialog):
         box = QVBoxLayout(self)
         box.setContentsMargins(22, 20, 22, 16)
         box.setSpacing(theme.GAP["description_content"])
-        head = QLabel("깃허브 ID 를 입력해 주세요")
+        head = QLabel("풀이 ID를 입력해 주세요")
         head.setObjectName("h2")
-        why = Para("깃허브 주소 github.com/ 뒤에 나오는 이름입니다(메일 주소나 실명이 아닙니다). "
-                   "내 풀이를 저장하는 폴더 이름(submissions/ID)과 제출할 때 올라가는 브랜치 이름에 쓰입니다. "
-                   "한 번만 입력하면 됩니다.", "muted")
+        why = Para("영문·숫자·밑줄·붙임표로 풀이 ID를 정합니다. 메일 주소나 실명은 넣지 않습니다. "
+                   "기존 기록을 이어서 풀려면 사용하던 ID를 입력합니다. "
+                   "API 제출은 개인 초대로 연결하며 GitHub에 직접 제출할 때만 GitHub ID를 사용합니다.", "muted")
         self.edit = QLineEdit()
         self.edit.setPlaceholderText("예: gildong-hong")
         self.error = Para(" ", "error")

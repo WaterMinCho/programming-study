@@ -17,6 +17,7 @@ CASES = (
     "tests.test_gui_hub.HubScreenTest.test_subject_navigation_fits_a_small_window_at_the_largest_text_size",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
+    "tests.test_gui_submission.ApiSetupTest.test_setup_fits_small_window_max_text_and_both_themes",
 )
 
 
@@ -34,7 +35,7 @@ def gui_check(out):
 
             def finish():
                 try:
-                    win = getattr(case, "win", None)
+                    win = getattr(case, "capture_widget", None) or getattr(case, "win", None)
                     if win is not None and win.isVisible():
                         guikit.pump(50)
                         stem = case.id().rsplit(".", 1)[-1]
