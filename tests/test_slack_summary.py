@@ -125,7 +125,8 @@ class SummaryTest(unittest.TestCase):
             self.rows = original
 
     def test_conditionally_triggered_workflow_cannot_arrive_late(self):
-        for path, workflow_path, expected in (("learning_server/app.py", "learning-server.yml", "운영 경로 (windows-latest)"),
+        for path, workflow_path, expected in (("experiments/alice/train.py", "ci.yml", "모델 제출 검사"),
+                                             ("learning_server/app.py", "learning-server.yml", "운영 경로 (windows-latest)"),
                                              ("dungeons/d01/p1/problem.md", "journey.yml", "여정 문제 검증")):
             with self.subTest(path=path):
                 self.github.files = [{"filename": path}]
