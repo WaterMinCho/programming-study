@@ -263,7 +263,55 @@ model-study/
 
 ## 리뷰 질문에 답하고 수정한 커밋 남기기
 
-WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 같은 fork의 같은 작업 브랜치에서 파일을 고친 뒤 바꾼 파일만 커밋하고 같은 원격 브랜치로 푸시하면 기존 PR에 반영됩니다. 수정할 때마다 새 PR을 만들지 않습니다. 무엇을 고쳤고 어떤 결과를 다시 확인했는지 답합니다. 팀원 PR은 자동 머지하지 않습니다.
+WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 「수정 필요」는 지금 고칠 결함이고 「선택 제안」은 반영할지 판단할 보완입니다. 선택 제안을 반영하지 않았다면 이유를 댓글로 답할 수 있습니다.
+
+파일을 고칠 때는 PR을 올렸던 같은 작업 브랜치에 새 커밋을 추가합니다. 커밋은 컴퓨터에 남기는 수정 기록이고 Push는 그 커밋을 본인 GitHub fork로 보내는 작업입니다. 같은 브랜치로 Push하면 기존 PR에 새 커밋이 붙습니다. 수정할 때마다 새 PR을 만들지 않습니다.
+
+### SourceTree에서 파일 수정부터 추가 커밋까지
+
+1. PR 위쪽에서 `본인ID:작업브랜치`를 확인합니다. 준성님의 PR #158은 `kimjs85529-a11y:model/kimjs85529-a11y-first-input`입니다.
+2. SourceTree에서 본인 fork의 로컬 저장소를 엽니다. 왼쪽 **Branches(브랜치)**에서 위 작업 브랜치를 선택합니다. 이미 해당 브랜치라면 이동하지 않습니다. 커밋하지 않은 다른 작업이 있거나 전환 오류가 나면 파일을 지우지 말고 PR에 질문을 남깁니다.
+3. 편집기에서 피드백에 표시된 파일을 고쳐 저장합니다. SourceTree의 **File Status(파일 상태)**에서 수정한 파일을 선택해 차이를 읽습니다.
+4. 이번에 고친 파일만 **Stage(스테이지에 추가)**합니다. Stage는 다음 커밋에 넣을 파일을 선택하는 작업입니다.
+5. **Commit(커밋)**에 `docs(model): 입력 설명 보완`처럼 수정 내용을 적어 저장합니다. 기존 커밋은 남기고 새 커밋을 추가합니다.
+6. **Push(푸시)**에서 원격 저장소가 본인 fork의 `origin`인지, 보낼 브랜치가 이 PR의 작업 브랜치인지 확인하고 전송합니다.
+7. GitHub에서 기존 PR을 새로고침합니다. **Commits**에 새 커밋이 있고 **Files changed**에 고친 내용이 보이면 반영된 것입니다. 고친 내용과 다시 확인한 결과를 댓글로 남깁니다.
+
+파일을 저장하거나 Commit만 하면 GitHub에는 아직 반영되지 않습니다. Push까지 마친 뒤 PR에서 확인합니다. 기존 기록을 바꾸는 **Amend(커밋 수정)**나 **Force push(강제 푸시)**는 이 과정에 필요하지 않습니다.
+
+<details>
+<summary>터미널을 사용한다면 · PR #158 예시</summary>
+
+SourceTree로 Commit·Push했다면 아래 명령을 반복하지 않습니다. 이 예시는 준성님의 브랜치와 README 경로를 사용합니다. 다른 팀원은 본인 PR의 브랜치와 파일 경로로 바꿉니다. 먼저 받은 프로젝트 폴더에서 현재 상태를 확인합니다.
+
+```sh
+git status --short
+git branch --show-current
+git remote -v
+```
+
+현재 브랜치가 `model/kimjs85529-a11y-first-input`이고 `origin`이 본인 fork인지 확인합니다. 다른 브랜치라면 커밋하지 않은 변경을 먼저 확인한 뒤 기존 작업 브랜치로 이동합니다. 새 브랜치를 만드는 `-c` 옵션은 붙이지 않습니다.
+
+```sh
+git switch model/kimjs85529-a11y-first-input
+```
+
+README를 고쳐 저장한 뒤 실행합니다. `git diff --cached`에서 이번에 고친 파일만 들어갔는지 읽고, 다른 파일이 보이면 커밋 전에 Stage 목록에서 뺍니다.
+
+```sh
+git add experiments/kimjs85529-a11y/README.md
+git diff --cached
+git commit -m "docs(model): 입력 설명 보완"
+git push origin model/kimjs85529-a11y-first-input
+```
+
+</details>
+
+### PR 설명글 수정과 파일 수정 구분하기
+
+PR 위쪽의 설명글만 고칠 때는 GitHub에서 설명글 오른쪽의 **… → Edit**를 누릅니다. 내용을 고치고 **Update comment**로 저장합니다. 이 작업에는 파일 커밋이나 Push가 필요하지 않습니다. **Files changed**에 있는 README나 코드를 바꾸려면 위의 Commit·Push 순서로 진행합니다.
+
+댓글에는 `README의 간격 설명을 고쳤고 같은 예제에서 query_gap_known 출력도 확인했습니다. 추가 커밋: 커밋 주소`처럼 바꾼 부분과 실제 확인한 결과를 적습니다. 실행하지 않은 단계는 실행하지 않았다고 남깁니다. 팀원 PR은 자동 머지하지 않습니다.
 
 본인이 직접 만든 코드·설정·실험·수정 이유는 본인 폴더와 커밋·PR에 남깁니다. 포트폴리오에는 모델 폴더, 대표 PR, 실험 결과와 재현 방법을 연결합니다. fork를 만들거나 README만 추가한 일을 모델 구현 완료로 적지 않습니다. 모델 제출에는 실행 방법과 전체 커밋 SHA를 남깁니다. 상세 검토 기준은 [코드 검토 방법](LEARNING_REVIEW.md)에 있습니다.
 
@@ -277,12 +325,13 @@ WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 같은 fork의 같
 
 ## GitHub와 SourceTree 공식 안내
 
-2026년 11월 12일 GitHub와 Atlassian 공식 안내에서 fork, clone, 브랜치, 커밋·푸시, PR 대상을 확인했습니다. 11월 13일 GitHub 공식 안내에서 이슈 연결과 자동 종료 조건도 확인했습니다. SourceTree의 공통 동작으로 설명했으며 메뉴 위치와 이름은 운영체제·버전·언어에 따라 다를 수 있습니다.
+2026년 11월 12일 GitHub와 Atlassian 공식 안내에서 fork, clone, 브랜치, 커밋·푸시, PR 대상을 확인했습니다. 11월 13일에는 이슈 연결·자동 종료 조건과 같은 PR 브랜치에 수정 커밋을 추가하는 절차를 확인했습니다. SourceTree의 공통 동작으로 설명했으며 메뉴 위치와 이름은 운영체제·버전·언어에 따라 다를 수 있습니다.
 
 - [공통 프로젝트 fork하기][fork]
 - [fork 갱신하기][sync]
 - [fork에서 PR 보내기][pr]
 - [이슈와 PR 연결 및 자동 종료][issue-pr]
+- [같은 PR 브랜치에 수정 커밋 추가하기][pr-commit]
 - [SourceTree에서 저장소 받기][st-clone]
 - [SourceTree에서 브랜치를 만들고 보내기][st-branch]
 - [SourceTree에서 커밋과 푸시하기][st-commit]
@@ -295,3 +344,4 @@ WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 같은 fork의 같
 [st-commit]: https://confluence.atlassian.com/get-started-with-sourcetree/commit-and-push-a-change-git-847359114.html
 [git-setup]: https://docs.github.com/en/get-started/git-basics/set-up-git
 [issue-pr]: https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue
+[pr-commit]: https://docs.github.com/en/pull-requests/how-tos/commit-changes/committing-changes-to-a-pull-request-branch-created-from-a-fork
