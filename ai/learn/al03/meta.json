@@ -39,7 +39,7 @@
   {
    "what": "Sobel과 Laplacian",
    "url": "https://docs.opencv.org/4.13.0/d4/d86/group__imgproc__filter.html",
-   "checked": "2026-11-11"
+   "checked": "2026-11-13"
   },
   {
    "what": "Canny의 기울기 방향·연결성",
@@ -60,6 +60,11 @@
    "what": "역이진화와 임계값",
    "url": "https://docs.opencv.org/4.13.0/d7/d1b/group__imgproc__misc.html",
    "checked": "2026-11-11"
+  },
+  {
+   "what": "좌표 변환과 원본 조회 관계",
+   "url": "https://docs.opencv.org/4.13.0/da/d54/group__imgproc__transform.html",
+   "checked": "2026-11-13"
   }
  ],
  "units": {

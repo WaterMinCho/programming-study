@@ -14,21 +14,28 @@
   "자료형",
   "채널",
   "배치",
-  "min-max 정규화"
+  "min-max 정규화",
+  "슬라이스",
+  "손실 압축",
+  "무손실 압축"
  ],
  "needs": [],
  "sections": {
   "a1a": "이미지의 위치와 값을 나누어 봅니다",
   "a1b": "색상 순서와 배열 모양을 맞춥니다",
   "a1c": "픽셀 연산과 영역 선택을 구분합니다",
-  "a1d": "색 범위와 밝기 분포를 확인합니다"
+  "a1d": "색 범위와 밝기 분포를 확인합니다",
+  "a1e": "두 영상을 같은 조건으로 섞고 비교합니다",
+  "a1f": "파일을 읽고 저장 결과를 확인합니다",
+  "a1g": "원본을 지키며 위치와 설명을 표시합니다",
+  "a1h": "사용자 입력으로 처리 결과를 바꿉니다"
  },
  "outputs": [],
  "sources": [
   {
    "what": "OpenCV의 BGR 읽기와 저장",
    "url": "https://docs.opencv.org/4.13.0/d4/da8/group__imgcodecs.html",
-   "checked": "2026-11-11"
+   "checked": "2026-11-13"
   },
   {
    "what": "배열의 축과 shape",
@@ -38,12 +45,12 @@
   {
    "what": "resize의 크기 순서",
    "url": "https://docs.opencv.org/4.13.0/da/d54/group__imgproc__transform.html",
-   "checked": "2026-11-11"
+   "checked": "2026-11-13"
   },
   {
    "what": "배열 덧셈·마스크·범위",
    "url": "https://docs.opencv.org/4.13.0/d2/de8/group__core__array.html",
-   "checked": "2026-11-11"
+   "checked": "2026-11-13"
   },
   {
    "what": "8비트 HSV와 색 범위 마스크",
@@ -64,6 +71,26 @@
    "what": "uint8·float32 자료형의 비트 수",
    "url": "https://numpy.org/doc/stable/reference/arrays.scalars.html",
    "checked": "2026-11-11"
+  },
+  {
+   "what": "그리기 함수의 좌표·자료형과 문자열 기준선",
+   "url": "https://docs.opencv.org/4.13.0/d6/d6e/group__imgproc__draw.html",
+   "checked": "2026-11-13"
+  },
+  {
+   "what": "입출력 옵션과 압축 수준",
+   "url": "https://docs.opencv.org/4.13.0/d8/d6a/group__imgcodecs__flags.html",
+   "checked": "2026-11-13"
+  },
+  {
+   "what": "로컬 창의 키·마우스·트랙바 입력",
+   "url": "https://docs.opencv.org/4.13.0/d7/dfc/group__highgui.html",
+   "checked": "2026-11-13"
+  },
+  {
+   "what": "기본 슬라이스의 뷰와 독립 복사",
+   "url": "https://numpy.org/doc/stable/user/basics.copies.html",
+   "checked": "2026-11-13"
   }
  ],
  "credits": [],
@@ -86,6 +113,26 @@
   "a1d": {
    "minutes": 7,
    "key_figure": "assets/a1d-1.gif",
+   "kind": "concept"
+  },
+  "a1e": {
+   "minutes": 8,
+   "key_figure": "assets/a1e-1.gif",
+   "kind": "concept"
+  },
+  "a1f": {
+   "minutes": 8,
+   "key_figure": "assets/a1f-1.gif",
+   "kind": "concept"
+  },
+  "a1g": {
+   "minutes": 8,
+   "key_figure": "assets/a1g-1.gif",
+   "kind": "concept"
+  },
+  "a1h": {
+   "minutes": 8,
+   "key_figure": "assets/a1h-3.gif",
    "kind": "concept"
   }
  }

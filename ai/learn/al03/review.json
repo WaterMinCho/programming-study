@@ -29,11 +29,12 @@
   "assets/a3e-41.png": "dd7346e914bcf6c83abf4ffc4cc454ad5a563bee100855d78abfa158f9f50be7",
   "assets/a3e-42.png": "5c3c9ac201785ab8a45cc3fe01b237e49ac819529060222e080a8dc4dd59c94e",
   "assets/a3e-43.png": "86d83753acb0ef7797158e971952d511fc3f76bbff5db1ae5d0298d3dc123a2e",
-  "meta.json": "21e2bc2b083d466bd77fcf6c582e2a3b0579537a5195aaf58be01633e2e32286",
-  "page.md": "ffd9be95cec37b74efef096d90a09578e451f5afc6ffb74c4fd603420e47b768"
+  "meta.json": "6c0b5a89c709065ebd0ae6608162d4343507df22d56cc94e3a0ee88bc9506ebf",
+  "page.md": "abd60204f807c47f61af2ce9d78b34e3ecbc254f9f0f2c26e0c217201dfe9230"
  },
  "findings": [
   "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함.",
-  "rho·theta 대체 표기를 적용한 뒤 글자 폭으로 가운데 정렬을 계산함. 수치·물음은 유지함."
+  "rho·theta 대체 표기를 적용한 뒤 글자 폭으로 가운데 정렬을 계산함. 수치·물음은 유지함.",
+  "3차시 원본 4개의 해시가 이전 확인본과 같음을 확인했음. 기존 30문항과 정답을 유지하고 ROI 시작 좌표의 덧셈은 순수한 잘라내기의 조건임을 보완했음. 회전·원근·비선형 변환까지 한 경우의 좌표 관계를 공식 변환 문서와 대조했음."
  ]
 }

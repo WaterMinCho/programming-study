@@ -46,8 +46,8 @@
   {"id": "i15", "no": 15, "title": "15차시 이미지 파일을 학습 배치로 연결합니다", "page": "l15", "date": "2026-11-06", "weight": 0.6, "units": 5, "hw_due": null},
   {"id": "i16", "no": 16, "title": "16차시 작은 CNN을 만들며 모양과 수를 검산합니다", "page": "l16", "date": "2026-11-09", "weight": 0.8, "units": 7, "hw_due": null},
   {"id": "i17", "no": 17, "title": "17차시 토큰에서 문장 분류까지 연결합니다", "page": "l17", "date": "2026-11-10", "weight": 0.2, "units": 6, "hw_due": null},
-  {"id": "a01", "no": 1, "course": "app", "title": "이미지를 숫자로 읽고 모델 입력으로 준비합니다", "page": "al01", "date": "2026-11-11", "weight": 1, "units": 4, "hw_due": null},
-  {"id": "a02", "no": 2, "course": "app", "title": "주변 값과 좌표를 바꿔 입력을 준비합니다", "page": "al02", "date": null, "weight": 1, "units": 5, "hw_due": null},
+  {"id": "a01", "no": 1, "course": "app", "title": "이미지를 숫자로 읽고 모델 입력으로 준비합니다", "page": "al01", "date": "2026-11-11", "weight": 1, "units": 8, "hw_due": null},
+  {"id": "a02", "no": 2, "course": "app", "title": "주변 값과 좌표를 바꿔 입력을 준비합니다", "page": "al02", "date": null, "weight": 1, "units": 6, "hw_due": null},
   {"id": "a03", "no": 3, "course": "app", "title": "프레임에서 경계와 영역의 위치를 찾습니다", "page": "al03", "date": null, "weight": 1, "units": 5, "hw_due": null}
  ],
  "patterns": [

@@ -20,7 +20,7 @@ JOURNEY_PATHS = ("dungeons/**", "journey/**", "study.py", "tools/verify_journey.
                  "tests/test_journey_*.py", "tests/journey_bank/**", ".github/workflows/journey.yml")
 RELEASE = ".github/workflows/release-check.yml"
 RELEASE_PATHS = ("tools/check_release.py", RELEASE, "bootstrap.py", "gitflow.py", "start.bat", "start.pyw", "gui/app.py", "gui/icon.py",
-                 "gui/launcher_shortcut.py", "gui/ai_mock.py", "gui/kit.py", "tests/test_gui_ai_mock.py", "tests/test_launcher_shortcut.py", "tests/test_gui_launcher.py")
+                 "gui/launcher_shortcut.py", "gui/ai_mock.py", "gui/kit.py", "tests/test_gui_ai_mock.py", "tests/test_gui_ai_courses.py", "tests/test_launcher_shortcut.py", "tests/test_gui_launcher.py")
 
 
 def touches(files, patterns):
