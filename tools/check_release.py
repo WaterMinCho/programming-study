@@ -19,6 +19,7 @@ CASES = (
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
     "tests.test_gui_submission.ApiSetupTest.test_setup_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_privacy.PrivacyGuiTest.test_consent_fits_small_window_max_text_and_both_themes",
+    "tests.test_gui_submission.ApiSetupTest.test_connection_error_keeps_answers_and_shows_message",
 )
 
 
@@ -36,7 +37,9 @@ def gui_check(out):
 
             def finish():
                 try:
-                    win = getattr(case, "capture_widget", None) or getattr(case, "win", None)
+                    main_window = getattr(case, "win", None)
+                    candidates = (getattr(case, "capture_widget", None), getattr(main_window, "dialog", None), main_window)
+                    win = next((widget for widget in candidates if widget is not None and widget.isVisible()), None)
                     if win is not None and win.isVisible():
                         guikit.pump(50)
                         stem = case.id().rsplit(".", 1)[-1]

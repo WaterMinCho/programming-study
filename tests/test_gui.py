@@ -1243,7 +1243,7 @@ class TeamTest(GuiTest):
         study.write_text(adaptive.profile_path("broken"), '{"rounds": [<<<<<<<')  # 읽을 수 없는 기록은 건너뜀
         self.boot()
         win, team = self.win, self.win.team_page
-        click(win.home.team_btn)
+        win.show_team(); pump()
         self.assertIs(self.page(), team)
         rows = win.session.team()
         self.assertEqual([row["user"] for row in rows], ["alpha-kim", "tester", "beta_lee"])
@@ -1272,7 +1272,7 @@ class TeamTest(GuiTest):
             self.add_member(user, correct)
         self.win.resize(1024, 700)
         self.boot()
-        click(self.win.home.team_btn)
+        self.win.show_team(); pump()
         first, second = self.win.team_page.cards
         self.assertEqual(first.width(), second.width())
         self.assertTrue(first.user.text().endswith("…") and len(first.user.text()) < len(long), first.user.text())
@@ -1282,7 +1282,7 @@ class TeamTest(GuiTest):
     def test_team_page_explains_when_nobody_else_has_a_record(self):
         self.boot()
         win, team = self.win, self.win.team_page
-        click(win.home.team_btn)
+        win.show_team(); pump()
         self.assertEqual(team.cards, [])
         self.assertIn("다른 사람의 풀이가 없습니다", team.empty.title.text())
         self.assertIn("진단 테스트를 시작하면", team.empty.text.text())
@@ -1290,13 +1290,13 @@ class TeamTest(GuiTest):
         click(team.home_btn)
         click(win.home.action_btn)  # 진단을 시작하면 내 카드가 생김
         click(win.round_page.home_btn)
-        click(win.home.team_btn)
+        win.show_team(); pump()
         self.assertEqual([hasattr(card, "me") for card in team.cards], [True])
         self.assertEqual(team.cards[0].facts.text(), "회차 1 · 정답률 - · 마지막 풀이 -")
         self.assertNotIn("진단 테스트를 시작하면", team.empty.text.text())
         self.add_member("other", 5)
         click(team.home_btn)
-        click(win.home.team_btn)
+        win.show_team(); pump()
         self.assertEqual((len(team.cards), team.empty), (2, None))
         self.assertEqual((len(team.findChildren(MemberCard)), team.findChildren(EmptyCard)), (2, []))  # 앞서 놓았던 카드는 남지 않음
 
@@ -2553,7 +2553,7 @@ class ThemeTest(GuiTest):
             check(win, result.detail)  # 구역 띠, 코드 상자, 해설
         click(result.home_btn)
         check(win)
-        click(win.home.team_btn)  # 팀 현황: 내 카드와 빈 자리 안내
+        win.show_team(); pump()  # 팀 현황: 내 카드와 빈 자리 안내
         self.assertEqual((len(win.team_page.cards), win.team_page.empty is not None), (1, True))
         check(win)
         click(win.team_page.home_btn)
@@ -3553,7 +3553,7 @@ class MotionTest(GuiTest):
         self.assertLess(cards[0].tick, 1.0)
         wait_until(lambda: cards[0].tick == 1.0, 5)
         click(page.home_btn)
-        click(win.home.team_btn)
+        win.show_team(); pump()
         wait_until(lambda: not self.covers(win), 5)
         card = win.team_page.cards[0]
         wait_until(lambda: getattr(card.bar, "_motion", None) is None, 5)
@@ -3563,7 +3563,7 @@ class MotionTest(GuiTest):
         bot.blink()
         self.assertEqual(bot.open, 1.0)
         click(win.team_page.home_btn)
-        click(win.home.team_btn)
+        win.show_team(); pump()
         self.assertEqual(win.team_page.cards[0].bar.value(), moving)
         click(win.team_page.home_btn)
         click(win.home.action_btn)

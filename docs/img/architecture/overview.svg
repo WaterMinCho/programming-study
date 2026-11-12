@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1060" viewBox="0 0 1200 1060" role="img" aria-labelledby="title desc">
 <title id="title">프로젝트 전체 구조</title>
-<desc id="desc">문제와 학습 자료, PC 프로그램, 기기의 학습 기록을 연결합니다. API 서버가 풀이를 접수해 GitHub PR로 게시하고 추가 학습 기록은 비공개로 보관합니다. 공통 자료 이후 세 모델의 학습·비교와 앱 추천 연결은 예정입니다.</desc>
+<desc id="desc">문제와 학습 자료, PC 프로그램, 기기의 학습 기록을 연결합니다. API 서버가 풀이 파일과 추가 학습 기록을 비공개로 보관합니다. GitHub는 팀원의 모델 코드 PR에 사용합니다. 공통 자료 이후 세 모델의 학습·비교와 앱 추천 연결은 예정입니다.</desc>
 <rect width="1200" height="1060" fill="#fff"/>
 <text x="48" y="49" font-family="NanumGothic, sans-serif" font-size="34" font-weight="700" fill="#18263d">프로그램과 모델 스터디는 이렇게 연결됩니다</text>
 <text x="48" y="86" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#516176">학습 화면에서 남긴 기록을 모아 모델을 비교하고, 이후 추천 기능에 연결합니다.</text>
@@ -16,8 +16,6 @@
 <polygon points="818,242 807.1946347717678,247.21958640933477 807.1946347717678,236.78041359066523" fill="#6b7e95"/>
 <polyline points="832,292 798,292 798,348 208,348 208,382" fill="none" stroke="#6b7e95" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
 <polygon points="208,382 202.78041359066523,371.1946347717679 213.21958640933477,371.1946347717679" fill="#6b7e95"/>
-<polyline points="320,396 320,380 992,380 992,392" fill="none" stroke="#6b7e95" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
-<polygon points="992,392 986,381 998,381" fill="#6b7e95"/>
 <polyline points="368,477 426,477" fill="none" stroke="#6b7e95" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
 <polygon points="426,477 415.1946347717679,482.21958640933474 415.1946347717679,471.78041359066526" fill="#6b7e95"/>
 <polyline points="600,580 600,640" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
@@ -49,8 +47,7 @@
 <text x="908" y="232" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">기기의 학습 기록</text>
 <text x="856" y="272" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">답안 · 채점 결과 · 진도</text>
 <text x="856" y="304" font-family="NanumGothic, sans-serif" font-size="18" font-weight="400" fill="#516176">별도 수집 기록: 파이썬·AI</text>
-<text x="285" y="342" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">동의 후 비공개 자동 전송 · 공개 제출은 별도</text>
-<text x="450" y="373" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">서버가 GitHub PR 게시</text>
+<text x="285" y="342" font-family="NanumGothic, sans-serif" font-size="19" font-weight="400" fill="#516176">동의 후 비공개 전송 · 파일 제출도 비공개</text>
 <rect x="48" y="396" width="320" height="184" rx="20" fill="#f5fbf8" stroke="#b8c6d7" stroke-width="2" />
 <path d="M72,425 C72,416 108,416 108,425 V448 C108,459 72,459 72,448 Z" fill="none" stroke="#17694e" stroke-width="2.5"/>
 <ellipse cx="90" cy="425" rx="18" ry="7" fill="none" stroke="#17694e" stroke-width="2.5"/>
@@ -73,8 +70,8 @@
 <circle cx="863" cy="421" r="5" fill="white" stroke="#3658b9" stroke-width="2.5"/>
 <circle cx="863" cy="452" r="5" fill="white" stroke="#3658b9" stroke-width="2.5"/>
 <circle cx="884" cy="421" r="5" fill="white" stroke="#3658b9" stroke-width="2.5"/>
-<text x="908" y="448" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">GitHub에서 공유</text>
-<text x="856" y="490" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">풀이 PR · 모델 코드 PR</text>
+<text x="908" y="448" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">GitHub 모델 개발</text>
+<text x="856" y="490" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#18263d">모델 코드 · 실험 설명 PR</text>
 <text x="856" y="525" font-family="NanumGothic, sans-serif" font-size="22" font-weight="400" fill="#516176">CI 검사 · 리뷰</text>
 <text x="856" y="558" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#516176">개발 PR 소식은 Slack 알림</text>
 <text x="620" y="621" font-family="NanumGothic, sans-serif" font-size="20" font-weight="400" fill="#3658b9">같은 공통 자료로 시작</text>

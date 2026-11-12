@@ -718,7 +718,7 @@ class MainWindow(QMainWindow):
 
     def submit_pr(self):
         api = getattr(self.gitflow, "api", None)
-        if api is not None and api.settings().get("mode") != "git":
+        if api is not None:
             self.show_submission_setup()
             return
         if self.round_page.flush() and self.journey_page.flush():  # 쓰다 만 답과 코드가 빠진 채 올라가지 않게

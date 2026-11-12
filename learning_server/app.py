@@ -17,6 +17,9 @@ from aiprep.collection import FORMAT, NOTICE, inside, packed
 
 MAX_BODY = 1024 * 1024
 MAX_EVENTS = 100
+MAX_STORED_BYTES = 64 * 1024 * 1024
+MAX_PARTICIPANT_BYTES = 8 * 1024 * 1024
+MAX_PARTICIPANT_EVENTS = 20000
 REPOSITORY = str(Path(__file__).resolve().parent.parent)
 
 
@@ -93,6 +96,17 @@ class Database:
         with contextlib.closing(sqlite3.connect(Path(self.path).as_uri() + "?mode=ro", uri=True)) as db:
             db.execute("SELECT 1 FROM participants LIMIT 1").fetchone()
 
+    def storage_limit(self, db, participant, extra_bytes, extra_events=0):
+        """새로 저장할 분량을 논리 보관량과 대조함."""
+        def used(where="", args=()):
+            events = db.execute("SELECT count(*), coalesce(sum(length(CAST(payload AS BLOB))),0) FROM events" + where, args).fetchone()
+            files = db.execute("SELECT coalesce(sum(length(payload)),0) FROM api_submissions" + where, args).fetchone()[0]
+            return events[0], events[1]+files
+        count, own = used(" WHERE participant=?", (participant,))
+        total = used()[1]
+        if total+extra_bytes > MAX_STORED_BYTES or own+extra_bytes > MAX_PARTICIPANT_BYTES or count+extra_events > MAX_PARTICIPANT_EVENTS:
+            raise ApiError(507, "서버의 기록 보관량에 도달했습니다. 로컬 풀이는 유지되며 운영자 확인 후 다시 전송합니다.")
+
     def enroll(self, data, connection=None):
         if connection is not None:
             return self._enroll(connection, data)
@@ -145,8 +159,10 @@ class Database:
         seed = data.get("registration_secret")
         if data.get("notice") != NOTICE or not isinstance(seed, str) or not re.fullmatch(r"[a-f0-9]{64}", seed):
             raise ApiError(400, "기기의 연결 정보를 확인해 주세요.")
-        if purpose == "research":
+        if purpose in ("research", "private_submission"):
             consent = validate_receipt(data.get("consent"))
+            if purpose == "private_submission" and data.get("private_submission") is not True:
+                raise ApiError(400, "비공개로 보낼 풀이 파일을 확인해 주세요.")
         elif data.get("public_submission") is True:
             consent = {"public_submission": True}
         else:
@@ -180,12 +196,12 @@ class Database:
                        (participant, packed(consent), datetime.datetime.now(datetime.timezone.utc).isoformat()))
         return {"consent_saved": True}
 
-    def withdraw_open(self, data):
+    def withdraw_open(self, data, purpose="research"):
         participant = identifier(data.get("participant"))
         seed = data.get("registration_secret")
         if not isinstance(seed, str) or not re.fullmatch(r"[a-f0-9]{64}", seed):
             raise ApiError(400, "기기의 연결 정보를 확인해 주세요.")
-        token = hmac.new(self.secret, ("research:" + participant + ":" + seed).encode(), hashlib.sha256).hexdigest()
+        token = hmac.new(self.secret, (purpose + ":" + participant + ":" + seed).encode(), hashlib.sha256).hexdigest()
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             old = db.execute("SELECT token_hash FROM participants WHERE participant=?", (participant,)).fetchone()
@@ -241,13 +257,17 @@ class Database:
                     "SELECT 1 FROM open_enrollments WHERE participant=? AND purpose='research' AND receipt IS NOT NULL AND withdrawn IS NULL",
                     (participant,)).fetchone():
                 raise ApiError(403, "현재 수집 동의를 확인한 뒤 전송해 주세요.")
+            fresh = []
             for values in cleaned:
                 old = db.execute("SELECT payload FROM events WHERE participant=? AND track=? AND event_id=?", values[:3]).fetchone()
                 if old and old[0] != values[4]:
                     raise ApiError(409, "이미 받은 기록의 내용이 달라 저장하지 않았습니다.")
+                if not old:
+                    fresh.append(values)
+            if fresh:
+                self.storage_limit(db, participant, sum(len(row[4].encode("utf-8")) for row in fresh), len(fresh))
                 try:
-                    if not old:
-                        db.execute("INSERT INTO events VALUES (?, ?, ?, ?, ?)", values)
+                    db.executemany("INSERT INTO events VALUES (?, ?, ?, ?, ?)", fresh)
                 except sqlite3.IntegrityError:
                     raise ApiError(409, "기록의 고유번호와 순서가 겹칩니다.")
         return {"received": len(cleaned), "last_sequence": previous}
@@ -264,6 +284,8 @@ class Database:
                 db.execute("UPDATE participants SET revoked=1 WHERE participant=?", (target,))
                 db.execute("UPDATE open_enrollments SET receipt=NULL, withdrawn=? WHERE participant=?", (now, target))
             db.execute("DELETE FROM api_submissions WHERE participant=?", (participant,))
+            db.execute("DELETE FROM submission_collections WHERE account=? OR participant=?", (participant, participant))
+            db.execute("DELETE FROM submission_accounts WHERE participant=?", (participant,))
 
     def export(self, destination, include_answers=False):
         if inside(destination, REPOSITORY) or inside(destination, os.path.dirname(self.path)):
@@ -309,23 +331,25 @@ def identifier(value):
     return value
 
 
-def application(database):
+def application(database, *, legacy_contract=False):
     from learning_server.submissions import Submissions
     submissions = Submissions(database)
     def app(environ, start_response):
         try:
             method, path = environ.get("REQUEST_METHOD"), environ.get("PATH_INFO")
+            if not legacy_contract and path in ("/v1/register", "/v1/register/open", "/v1/submissions", "/v1/submissions/publish"):
+                raise ApiError(410, "공개 풀이 제출을 종료했습니다. 프로그램을 업데이트해 비공개로 제출해 주세요.")
             if method == "GET" and path == "/health":
                 database.health()
                 result = {"status": "ok", "format": FORMAT}
-            elif method == "POST" and path in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/events", "/v1/consent", "/v1/register", "/v1/register/open", "/v1/submissions", "/v1/submissions/publish"):
+            elif method == "POST" and path in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/withdraw/private", "/v1/events", "/v1/consent", "/v1/register", "/v1/register/open", "/v1/register/private", "/v1/submissions", "/v1/private/submissions", "/v1/submissions/publish"):
                 length = int(environ.get("CONTENT_LENGTH") or 0)
-                limit = 6 * MAX_BODY if path == "/v1/submissions" else MAX_BODY
+                limit = 6 * MAX_BODY if path in ("/v1/submissions", "/v1/private/submissions") else MAX_BODY
                 if length <= 0 or length > limit:
                     raise ApiError(413, "전송 크기를 확인해 주세요.")
                 if environ.get("CONTENT_TYPE", "").split(";")[0].strip() != "application/json":
                     raise ApiError(415, "JSON 형식으로 보내 주세요.")
-                participant = database.authenticate(environ.get("HTTP_AUTHORIZATION", "")) if path not in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/register", "/v1/register/open") else None
+                participant = database.authenticate(environ.get("HTTP_AUTHORIZATION", "")) if path not in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/withdraw/private", "/v1/register", "/v1/register/open", "/v1/register/private") else None
                 raw = environ["wsgi.input"].read(length)
                 if len(raw) != length:
                     raise ApiError(400, "전송 내용을 끝까지 받지 못했습니다.")
@@ -338,12 +362,22 @@ def application(database):
                     result = database.enroll_open(data)
                 elif path == "/v1/withdraw/open":
                     result = database.withdraw_open(data)
+                elif path == "/v1/withdraw/private":
+                    result = database.withdraw_open(data, "private_submission")
                 elif path == "/v1/consent":
                     result = database.record_consent(participant, data)
                 elif path == "/v1/events":
                     result = database.ingest(participant, data)
+                elif path == "/v1/register/private":
+                    result = submissions.register(data, open_registration=True, private=True)
                 elif path in ("/v1/register", "/v1/register/open"):
                     result = submissions.register(data, open_registration=path.endswith("/open"))
+                elif path == "/v1/private/submissions":
+                    with database.connect() as db:
+                        allowed = db.execute("SELECT 1 FROM open_enrollments WHERE participant=? AND purpose='private_submission' AND withdrawn IS NULL", (participant,)).fetchone()
+                    if not allowed:
+                        raise ApiError(403, "비공개 풀이 제출 연결이 필요합니다.")
+                    result = submissions.store(participant, data)
                 elif path == "/v1/submissions":
                     result = submissions.store(participant, data)
                 else:

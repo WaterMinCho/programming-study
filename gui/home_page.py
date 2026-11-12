@@ -30,7 +30,7 @@ class HomePage(QWidget):
         self.hub_btn = top.back
         self.wrong_btn = top.add_right(kit.button("오답 노트", "text"))
         self.team_btn = top.add_right(kit.button("팀 현황", "text"))
-        self.team_btn.setToolTip("팀원들의 숙달 단원과 학습 기록을 봅니다.")
+        self.team_btn.hide()
         self.theme_btn = top.add_right(kit.button("", "text"))
         outer.addWidget(top)
         inner = QWidget()

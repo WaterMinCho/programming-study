@@ -167,7 +167,8 @@ class GitFlow:
     한 번에 한 작업만 부름. 부르는 동안 답안 자동 저장을 멈춰야 쓰다 만 파일이 올라가지 않음.
     find_pr(owner, repo, branch) 는 열린 PR 주소를 찾는 함수고, log 는 부른 git 명령의 기록임."""
 
-    def __init__(self, root, user, timeout=60):
+    def __init__(self, root, user, timeout=60, *, legacy_contract=False):
+        self.legacy_contract = legacy_contract
         self.root = os.path.abspath(root)
         self.user = user
         self.timeout = timeout
@@ -227,6 +228,8 @@ class GitFlow:
     def submit(self):
         """내 폴더를 study/<ID> 에 올리고 PR 주소를 돌려줌. 올린 뒤 이 컴퓨터의 브랜치와 인덱스를 올린 풀이에 맞춤(_settle).
         파일은 멈춘 git 작업이 있거나 원격에 더 새 판이 있을 때만 바꾸고, 그때는 문구와 backup 으로 알림."""
+        if not self.legacy_contract:
+            return self._result("error", "공개 Git 제출을 종료했습니다. 프로그램에서 비공개 서버에 제출해 주세요.")
         return self._run("submit", self._submit)
 
     def updates(self):

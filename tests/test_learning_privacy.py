@@ -26,7 +26,7 @@ class PrivacyTest(unittest.TestCase):
         self.collections = {name: Collection(str(self.root / name), str(self.repo), track=name) for name in ("python", "ai")}
         self.consent = Consent(self.collections, "https://example.test")
         self.db = Database(self.root / "server/learning.sqlite3")
-        self.app = application(self.db)
+        self.app = application(self.db, legacy_contract=True)
         for patcher in (mock.patch.dict(os.environ, {"STUDY_OPEN_REGISTRATION": "1"}),
                         mock.patch.object(sharing, "request", self.transport)):
             patcher.start()

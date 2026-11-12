@@ -1,6 +1,6 @@
 # 수집 범위와 전체 배포 조건을 확인합니다
 
-일반 수강생 배포는 [첫 실행 동의·비공개 자동 전송](LEARNING_PRIVACY.md)과 [별도 공개 풀이 제출](API_SUBMISSIONS.md)을 사용합니다. 개인 초대 파일은 기본 배포에 필요하지 않습니다. 이 문서의 초대 발급 절차는 운영자용 시범 방식입니다.
+일반 수강생 배포는 [첫 실행 동의·비공개 자동 전송](LEARNING_PRIVACY.md)과 [별도 비공개 파일 제출](API_SUBMISSIONS.md)을 사용합니다. 개인 초대 파일은 기본 배포에 필요하지 않습니다. 이 문서의 초대 발급 절차는 운영자용 시범 방식입니다.
 
 [풀이 데이터 안내](LEARNING_DATA.md) · [서버 운영](LEARNING_SERVER.md) · [시범 운영](LEARNING_PILOT.md)
 

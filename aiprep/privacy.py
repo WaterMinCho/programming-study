@@ -9,7 +9,7 @@ import tempfile
 import threading
 import uuid
 
-POLICY_VERSION = "2026-11-12-v1"
+POLICY_VERSION = "2026-11-12-v2"
 DEFAULT_SERVER = "https://whalstn9.pythonanywhere.com"
 CONTACT = "whalstn9@gmail.com"
 RETENTION = "수집일부터 동의 철회 전까지"
@@ -23,11 +23,12 @@ NOTICE_ROWS = (
     ("전송 방법", "동의 후 새로 수집한 기록을 HTTPS로 자동 전송합니다. 오프라인에서는 이 기기에 보관했다가 다시 연결되면 보냅니다. 과거 풀이를 자동으로 가져오지 않습니다."),
     ("국외 보관", "PythonAnywhere LLP의 미국 서버에 기록을 보관하며 스터디 운영자가 모델 실습 자료를 준비합니다. 전송 항목·목적·보관 기간은 위 내용과 같습니다. 호스팅 문의: support@pythonanywhere.com."),
     ("선택·철회", "동의를 거부하거나 [내 정보·데이터]에서 철회할 수 있습니다. 문제 학습·로컬 채점은 계속 사용할 수 있습니다. 연결이 끊긴 상태의 서버 삭제는 다시 연결되면 처리합니다."),
-    ("공개 풀이 제출", "GitHub 공개 풀이 제출은 자동 전송과 별도입니다. 공개할 파일을 확인하고 [풀이 제출]을 눌렀을 때만 게시합니다. 이미 공개한 Git 이력은 비공개 수집 동의 철회로 삭제되지 않습니다."),
+    ("풀이 파일 제출", "[풀이 제출]에서 확인하고 보낸 답안 파일·채점·진도는 같은 목적과 기간으로 비공개 서버에 저장합니다. 자동 전송에서는 답안 본문을 제외하며 파일 제출은 직접 선택합니다. 새 풀이와 학습현황을 GitHub에 공개하지 않습니다. 이미 공개한 Git 이력은 유지합니다."),
     ("전달 사본", "이미 연구용으로 전달한 사본·백업의 삭제는 운영자가 철회 기록과 대조해 처리합니다. 관련 문의는 위 이메일로 보내 주세요."),
     ("철회 처리 기록", "삭제한 학습 기록이 다시 전송되지 않도록 인증 폐기 상태와 처리 시각만 남깁니다. 이 정보는 모델 학습 자료로 사용하지 않습니다."),
 )
 POLICY_HASH = hashlib.sha256(json.dumps(NOTICE_ROWS, ensure_ascii=False).encode()).hexdigest()
+CONSENT_LOCKS = {}
 
 
 def receipt():
@@ -66,7 +67,7 @@ def save(path, data):
 class Consent:
     def __init__(self, collections, server=DEFAULT_SERVER):
         self.collections, self.server = collections, server
-        self.lock = threading.RLock()
+        self.lock = CONSENT_LOCKS.setdefault(os.path.normcase(os.path.realpath(self.path)), threading.RLock())
 
     @property
     def path(self):
@@ -108,7 +109,8 @@ class Consent:
             old = self.settings()
             if old.get("withdraw_pending"):
                 raise CollectionError("서버의 철회 처리를 마친 뒤 다시 동의할 수 있습니다.")
-            if not accepted and any(Sharing(store).settings() for store in self.collections.values()):
+            if not accepted and (any(Sharing(store).settings() for store in self.collections.values()) or
+                                 any(self.path.with_name(name).exists() for name in ("private-submission.json", "submission-api.json"))):
                 return self.withdraw()
             value = {"policy": POLICY_VERSION, "policy_hash": POLICY_HASH, "accepted": bool(accepted), "choice": str(uuid.uuid4()),
                      "at": datetime.datetime.now().astimezone().isoformat(), "start": {}}
@@ -147,6 +149,11 @@ class Consent:
                 store.delete()
             except Exception as error:
                 errors.append(str(error))
+        for name in ("private-submission-pending.json", "submission-pending.json"):
+            try:
+                self.path.with_name(name).unlink(missing_ok=True)
+            except OSError:
+                errors.append("이 기기의 전송 대기 답안을 삭제하지 못했습니다. 다시 시도합니다.")
         return errors
 
     def synchronize(self, canceled=lambda: False):
@@ -156,6 +163,7 @@ class Consent:
         errors, sent = [], 0
         if value.get("withdraw_pending"):
             errors.extend(self._delete_local())
+            errors.extend(self._delete_submissions())
             for store in self.collections.values():
                 try:
                     share = Sharing(store)
@@ -188,3 +196,26 @@ class Consent:
                     break
                 errors.append(str(error))
         return {"sent": sent, "errors": errors}
+
+    def _delete_submissions(self):
+        from aiprep.collection import CollectionError
+        from aiprep.sharing import request
+        errors = []
+        for name in ("private-submission.json", "submission-api.json"):
+            path = self.path.with_name(name)
+            try:
+                if not path.exists():
+                    continue
+                config = json.loads(path.read_text(encoding="utf-8"))
+                if config.get("token"):
+                    confirmed = request(config["url"], "/v1/me", token=config["token"], method="DELETE")
+                elif name == "private-submission.json" and config.get("enroll_sent"):
+                    confirmed = request(config["url"], "/v1/withdraw/private", {"participant": config["participant"], "registration_secret": config["registration_secret"]})
+                else:
+                    confirmed = {"deleted": True}
+                if confirmed.get("deleted") is not True:
+                    raise CollectionError("서버 삭제를 확인하지 못했습니다.")
+                path.unlink()
+            except (CollectionError, OSError, ValueError, KeyError, TypeError):
+                errors.append("제출한 기록의 삭제를 확인하지 못했습니다. 문의: " + CONTACT)
+        return errors
