@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """외부 게시·모델 실행 없이 검토 판정과 게시 복구를 검사함."""
 import copy
+import hashlib
 import json
 import os
 from pathlib import Path
+import plistlib
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -703,6 +706,187 @@ class WorkerTest(unittest.TestCase):
                 self.process()
         self.assertEqual(2, self.commands.call_count)
         self.assertEqual([], self.posted())
+
+
+@unittest.skipIf(os.name == "nt", "Mac worker")
+class RuntimeInstallTest(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="study-runtime-test-")
+        self.addCleanup(temporary.cleanup)
+        self.home = Path(temporary.name).resolve()
+        self.root = self.home/"operations"
+        self.root.mkdir(mode=0o755)
+        self.source = self.home/"trusted-main"
+        original = Path(worker.__file__).resolve().parents[1]
+        self.files = {name: (original/name).read_bytes() for name in (
+            "tools/study_review_worker.py", "tools/learning_review.py", "tools/study_checks.py",
+            "tools/pr_title.py", "tools/check_style.py", "aiprep/privacy.py")}
+        for name, raw in {**self.files, "tools/__init__.py": b'raise RuntimeError("source initializer")\n',
+                          "aiprep/__init__.py": b'raise RuntimeError("source initializer")\n',
+                          ".git/config": b"excluded\n", "submissions/example/answer.py": b"excluded\n",
+                          "account.json": b"excluded\n"}.items():
+            path = self.source/name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+        self.native_run = subprocess.run
+        for patcher in (mock.patch.object(worker, "__file__", str(self.source/"tools/study_review_worker.py")),
+                        mock.patch.object(Path, "home", return_value=self.home),
+                        mock.patch.object(worker.sys, "platform", "darwin")):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        patcher = mock.patch.object(worker.subprocess, "run", return_value=subprocess.CompletedProcess([], 0))
+        self.commands = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def installed(self):
+        plist = Path(worker.install(self.root))
+        config = plistlib.loads(plist.read_bytes())
+        return plist, config, Path(config["WorkingDirectory"])
+
+    def test_install_copies_only_code_and_reads_back_manifest_and_private_settings(self):
+        for name in ("worker.log", "worker-error.log"):
+            (self.root/name).write_text("previous log\n")
+            (self.root/name).chmod(0o644)
+        plist, config, runtime = self.installed()
+        manifest_raw = (runtime/"manifest.json").read_bytes()
+        manifest = json.loads(manifest_raw)
+        self.assertEqual(self.root/"runtime"/hashlib.sha256(manifest_raw).hexdigest(), runtime)
+        expected = {**self.files, "tools/__init__.py": b"", "aiprep/__init__.py": b""}
+        self.assertEqual(set(expected), set(manifest["files"]))
+        self.assertEqual(set(expected) | {"manifest.json"},
+                         {path.relative_to(runtime).as_posix() for path in runtime.rglob("*") if path.is_file()})
+        for name, raw in expected.items():
+            self.assertEqual(raw, (runtime/name).read_bytes())
+            self.assertEqual({"sha256": hashlib.sha256(raw).hexdigest(), "size": len(raw)}, manifest["files"][name])
+        self.assertEqual([sys.executable, "-I", "-B", str(runtime/"tools/study_review_worker.py"),
+                          "--once", "--root", str(self.root)], config["ProgramArguments"])
+        self.assertEqual(str(self.root/"worker.log"), config["StandardOutPath"])
+        self.assertEqual(str(self.root/"worker-error.log"), config["StandardErrorPath"])
+        self.assertEqual(63, config["Umask"])
+        self.assertEqual(60, config["StartInterval"])
+        self.assertTrue(config["RunAtLoad"])
+        for folder in (self.root, runtime.parent, runtime, runtime/"tools", runtime/"aiprep"):
+            self.assertEqual(0o700, folder.stat().st_mode & 0o777)
+        for path in (plist, self.root/"worker.log", self.root/"worker-error.log",
+                     *(path for path in runtime.rglob("*") if path.is_file())):
+            self.assertEqual(0o600, path.stat().st_mode & 0o777)
+        self.assertEqual("previous log\n", (self.root/"worker.log").read_text())
+        self.commands.assert_called_once_with(["launchctl", "bootstrap", "gui/%d" % os.getuid(), str(plist)],
+                                              check=True, capture_output=True)
+
+    def test_same_content_reuses_verified_bytes_and_new_content_keeps_old_runtime(self):
+        plist, _, first = self.installed()
+        before = {path.relative_to(first): (path.read_bytes(), path.stat().st_mtime_ns)
+                  for path in first.rglob("*") if path.is_file()}
+        self.assertEqual(first, self.installed()[2])
+        self.assertEqual(before, {path.relative_to(first): (path.read_bytes(), path.stat().st_mtime_ns)
+                                  for path in first.rglob("*") if path.is_file()})
+        path = self.source/"tools/pr_title.py"
+        path.write_bytes(path.read_bytes()+b"\n")
+        second = self.installed()[2]
+        self.assertNotEqual(first, second)
+        self.assertEqual(self.files["tools/pr_title.py"], (first/"tools/pr_title.py").read_bytes())
+        self.assertEqual(path.read_bytes(), (second/"tools/pr_title.py").read_bytes())
+        self.assertEqual(str(second), plistlib.loads(plist.read_bytes())["WorkingDirectory"])
+        self.assertEqual(["launchctl", "bootout", "gui/%d/%s" % (os.getuid(), worker.LABEL)],
+                         self.commands.call_args_list[-2].args[0])
+
+    def test_existing_runtime_changes_stop_install_without_overwriting(self):
+        for change in ("code", "manifest", "extra", "missing", "symlink", "mode"):
+            with self.subTest(change=change):
+                root = self.home/change
+                root.mkdir(mode=0o700)
+                runtime = worker.runtime_copy(root)
+                path = runtime/"tools/pr_title.py"
+                if change == "code":
+                    path.write_bytes(b"changed\n")
+                elif change == "manifest":
+                    (runtime/"manifest.json").write_text("{}")
+                elif change == "extra":
+                    (runtime/"extra.py").write_text("pass\n")
+                elif change == "missing":
+                    path.unlink()
+                elif change == "symlink":
+                    path.unlink()
+                    path.symlink_to(self.source/"tools/pr_title.py")
+                else:
+                    path.chmod(0o644)
+                before = path.read_bytes() if path.exists() else None
+                self.commands.reset_mock()
+                with self.assertRaises(worker.review.ReviewError):
+                    worker.install(root)
+                self.commands.assert_not_called()
+                self.assertEqual(before, path.read_bytes() if path.exists() else None)
+
+    def test_source_symlink_or_missing_dependency_stops_before_launchctl(self):
+        path = self.source/"tools/pr_title.py"
+        path.unlink()
+        with self.assertRaises(worker.review.ReviewError):
+            worker.install(self.root)
+        path.symlink_to(self.source/"tools/study_checks.py")
+        with self.assertRaises(worker.review.ReviewError):
+            worker.install(self.root)
+        self.commands.assert_not_called()
+
+    def test_copy_readback_failure_leaves_no_published_runtime(self):
+        original = Path.read_bytes
+        def read(path):
+            raw = original(path)
+            return b"changed\n" if ".runtime-" in str(path) and path.name == "pr_title.py" else raw
+        with mock.patch.object(Path, "read_bytes", read), self.assertRaises(worker.review.ReviewError):
+            worker.install(self.root)
+        self.assertEqual([], list((self.root/"runtime").iterdir()))
+        self.commands.assert_not_called()
+
+    def test_cli_passes_explicit_root_to_install_and_once(self):
+        for flag, target in (("--install", "install"), ("--once", "once")):
+            with self.subTest(flag=flag), mock.patch.object(sys, "argv", ["worker", flag, "--root", str(self.root)]), \
+                    mock.patch.object(worker, target, return_value="done") as action, mock.patch("builtins.print"), \
+                    mock.patch.object(worker.os, "umask"):
+                self.assertEqual(0, worker.main())
+                action.assert_called_once_with(self.root)
+        self.commands.assert_not_called()
+
+    def test_runtime_imports_and_deferred_style_check_work_without_source_or_pythonpath(self):
+        _, config, runtime = self.installed()
+        self.source.rename(self.home/"unavailable-source")
+        probe = self.home/"probe.py"
+        probe.write_text('''import importlib
+import json
+from pathlib import Path
+import runpy
+import sys
+from unittest import mock
+
+runtime, root = map(Path, sys.argv[1:])
+with mock.patch("subprocess.run", side_effect=AssertionError("external command")):
+    with mock.patch.object(sys, "argv", ["worker", "--help"]):
+        try:
+            runpy.run_path(str(runtime/"tools/study_review_worker.py"), run_name="__main__")
+        except SystemExit as error:
+            assert error.code == 0
+    worker = importlib.import_module("tools.study_review_worker")
+    data = {"head": "a"*40}
+    result = {"summary": "변경한 입력 처리를 확인했음.", "findings": [], "questions": []}
+    assert "검토한 판" in worker.body_for(data, result, "marker", "APPROVE")
+    worker.save(root/"probe.json", {"saved": True})
+    assert json.loads((root/"probe.json").read_text()) == {"saved": True}
+    assert worker.valid_title("fix(model): 입력 수정")
+    names = ("tools", "aiprep", "tools.study_review_worker", "tools.learning_review",
+             "tools.study_checks", "tools.pr_title", "tools.check_style", "aiprep.privacy")
+    origins = {name: str(Path(importlib.import_module(name).__file__).resolve()) for name in names}
+    assert Path(importlib.import_module("tools.check_style").ROOT) == runtime
+    print(json.dumps(origins))
+''', encoding="utf-8")
+        result = self.native_run([*config["ProgramArguments"][:3], str(probe), str(runtime), str(self.root)],
+                                 cwd=runtime, env={**os.environ, "PYTHONPATH": str(self.home/"unavailable-source")},
+                                 capture_output=True, text=True, timeout=30)
+        self.assertEqual(0, result.returncode, result.stderr)
+        origins = json.loads(result.stdout.splitlines()[-1])
+        for name, path in origins.items():
+            expected = runtime/(name.replace(".", "/")+("/__init__.py" if name in {"tools", "aiprep"} else ".py"))
+            self.assertEqual(expected, Path(path))
+        self.assertEqual([], list(runtime.rglob("__pycache__")))
 
 
 if __name__ == "__main__":
