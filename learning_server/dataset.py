@@ -68,6 +68,7 @@ def course_fields(track, item, data):
 
 def prepare(events, synthetic=None):
     events = source_events(events, synthetic)
+    events = [row for row in events if row.get("data", {}).get("training_eligible") is not False]
     events = sorted(events, key=lambda row: (row["participant"], row["track"], row["sequence"]))
     results = ("pass", "stuck", "ok", "wrong")
     def answer_key(row):

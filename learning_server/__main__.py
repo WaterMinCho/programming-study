@@ -53,17 +53,23 @@ def main():
     legacy_import.add_argument("--manifest", required=True, help="비공개 이관 목록 JSON 파일")
     legacy_import.add_argument("--catalog", help="문제 은행을 두지 않은 서버에서 사용할 개념 목록 JSON 파일")
     legacy_import.add_argument("--dry-run", action="store_true", help="원본과 기존 DB를 읽고 저장 예정 건수만 확인합니다.")
+    legacy_ai = sub.add_parser("legacy-ai-import", help="동의를 확인한 과거 AI 판정을 보관합니다.")
+    legacy_ai.add_argument("--manifest", required=True)
+    legacy_ai.add_argument("--dry-run", action="store_true")
     legacy_remove = sub.add_parser("legacy-remove", help="기존 프로필 이관을 되돌리거나 철회를 처리합니다.")
     legacy_remove.add_argument("--participant", required=True, help="비공개 이관 목록에 고정한 UUID 가명값")
     legacy_remove.add_argument("--reason", required=True, choices=("rollback", "withdrawal"))
     args = parser.parse_args()
-    if args.command in ("legacy-import", "legacy-remove"):
+    if args.command in ("legacy-import", "legacy-ai-import", "legacy-remove"):
         try:
             from learning_server import legacy
             from learning_server.app import ApiError
             if not args.db:
                 raise ValueError("기존 서버 데이터 파일을 --db로 지정해 주세요.")
-            if args.command == "legacy-import":
+            if args.command == "legacy-ai-import":
+                from learning_server import legacy_ai
+                result = legacy_ai.transfer(args.db, args.manifest, dry_run=args.dry_run)
+            elif args.command == "legacy-import":
                 if args.catalog:
                     catalog = json.loads(Path(args.catalog).read_text(encoding="utf-8"))
                     if not isinstance(catalog, dict) or not catalog or any(
