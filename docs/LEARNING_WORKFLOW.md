@@ -198,6 +198,8 @@ model-study/
   learning-demo-f4/              가상 자료 · 저장소 밖에 보관
 ```
 
+공통 `learning_server`를 불러오는 모델은 `programming-study` 폴더에서 `python -m experiments.본인ID.train`처럼 실행합니다. 예를 들어 `python -m experiments.kimjs85529-a11y.train`입니다. 아직 `train.py`를 만들지 않았다면 실행할 수 없으며 파일 이름과 명령을 본인 README에 맞춰 적습니다.
+
 코드를 바꾸면 본인 폴더의 변경만 골라 Stage → Commit → Push합니다. 같은 브랜치에 Push하면 열린 PR이 갱신됩니다. 공통 입력 도구나 다른 팀원의 폴더를 바꿔야 한다면 먼저 담당 이슈에서 이유를 공유합니다. 이번 작업을 머지한 뒤 다음 목표는 새 PR로 나눠도 됩니다. 입력 확인만 별도 PR로 먼저 통과할 필요는 없습니다. 구체적인 목표는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.
 
 공개 재현에는 합성 자료를 사용합니다. 실제 풀이 원본·입력 답안·가명 구분값·인증 값·실제 자료로 학습한 가중치와 개별 예측은 올리지 않습니다. 로컬 자료·가중치·출력 폴더는 본인 모델 폴더의 `.gitignore`로 제외합니다.

@@ -89,11 +89,22 @@ def write_sample(folder, track, part, size, seed, length, destination):
         row["target"] = 1 - row["target"]
     if result["inputs"] != input_example.batch(changed, vocabulary, length)["inputs"]:
         raise ValueError("이번 정답이 모델 입력에 섞였습니다. 입력과 정답을 분리해 주세요.")
-    for mask, count in zip(result["inputs"]["mask"], result["inputs"]["lengths"]):
+    inputs = result["inputs"]
+    width = len(vocabulary["concepts"])
+    for index, (mask, count) in enumerate(zip(inputs["mask"], inputs["lengths"])):
         if not 0 <= count <= length:
             raise ValueError("실제 풀이 이력의 길이를 확인해 주세요.")
+        if any(len(inputs[name][index]) != length for name in ("questions", "courses", "results", "concepts", "mask")):
+            raise ValueError("풀이 이력 배열의 길이가 맞지 않습니다.")
         if mask != [True] * count + [False] * (length - count):
             raise ValueError("실제 이력과 빈 자리의 표시가 맞지 않습니다.")
+        if any(value != 0 for name in ("questions", "courses", "results") for value in inputs[name][index][count:]):
+            raise ValueError("빈 자리에 문제·과정·정오답 값이 들어 있습니다.")
+        if (any(len(row) != width for row in inputs["concepts"][index]) or
+                any(len(inputs[name][index]) != width for name in ("query_concepts", "query_gap_seconds", "query_gap_known"))):
+            raise ValueError("개념 배열의 너비가 번호표와 맞지 않습니다.")
+        if any(value != 0 for row in inputs["concepts"][index][count:] for value in row):
+            raise ValueError("빈 자리에 개념 값이 들어 있습니다.")
     value = {"format": 1, "purpose": "input-smoke-test", "features_version": dataset.FEATURES_VERSION,
              "synthetic": report["synthetic"], "source_manifest_sha256": source_hash,
              "track": track, "split": part, "seed": seed, "history_length": length,
@@ -102,11 +113,15 @@ def write_sample(folder, track, part, size, seed, length, destination):
     dataset.write_private(target, packed(value) + "\n")
     if json.loads(target.read_text(encoding="utf-8")) != value:
         raise ValueError("샘플을 저장한 뒤 다시 읽어 확인하지 못했습니다.")
-    width = len(vocabulary["concepts"])
     return {"status": "input_checked", "features_version": dataset.FEATURES_VERSION, "synthetic": report["synthetic"],
             "track": track, "split": part, "sample_rows": size, "seed": seed,
-            "shapes": {"questions": [size, length], "concepts": [size, length, width],
-                       "mask": [size, length], "query_concepts": [size, width], "targets": [size]},
+            "shapes": {"questions": [len(inputs["questions"]), len(inputs["questions"][0])],
+                       "concepts": [len(inputs["concepts"]), len(inputs["concepts"][0]), len(inputs["concepts"][0][0])],
+                       "mask": [len(inputs["mask"]), len(inputs["mask"][0])],
+                       "query_concepts": [len(inputs["query_concepts"]), len(inputs["query_concepts"][0])],
+                       "targets": [len(result["targets"])]},
+            "empty_histories": sum(count == 0 for count in inputs["lengths"]),
+            "truncated_histories": sum(len(row["features"]["sequence_history"]) > length for row in chosen),
             "target_separation": "passed", "padding": "passed"}
 
 
