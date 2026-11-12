@@ -74,6 +74,15 @@ class PrivacyTest(unittest.TestCase):
             self.assertNotIn("PRIVATE ANSWER", json.dumps(rows))
             self.assertEqual(0, db.execute("SELECT count(*) FROM submission_accounts").fetchone()[0])
 
+    def test_pausing_python_does_not_stop_ai_automatic_upload(self):
+        self.consent.choose(True)
+        self.collections["python"].set_enabled(False)
+        self.collections["ai"].emit("answer", {"result": "pass"})
+        self.assertFalse(self.consent.synchronize()["errors"])
+        with self.db.connect() as db:
+            self.assertEqual(1, db.execute("SELECT count(*) FROM events WHERE track='ai' AND json_extract(payload, '$.kind')='answer'").fetchone()[0])
+            self.assertEqual(0, db.execute("SELECT count(*) FROM events WHERE track='python'").fetchone()[0])
+
     def test_offline_withdraw_stops_immediately_and_retries_remote_delete(self):
         self.consent.choose(True)
         self.consent.synchronize()

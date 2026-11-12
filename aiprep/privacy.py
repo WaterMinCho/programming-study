@@ -174,8 +174,10 @@ class Consent:
             return {"sent": 0, "errors": []}
         for track, store in self.collections.items():
             try:
-                if canceled() or self.settings().get("choice") != value.get("choice") or not store.status()["enabled"]:
+                if canceled() or self.settings().get("choice") != value.get("choice"):
                     break
+                if not store.status()["enabled"]:
+                    continue
                 share = Sharing(store)
                 share.connect_open(self.server, value["receipt"], after=value["start"].get(track, 0))
                 sent += share.sync(self.server, include_answers=False, canceled=canceled)["sent"]
