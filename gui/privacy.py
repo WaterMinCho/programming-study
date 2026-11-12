@@ -17,7 +17,7 @@ class ConsentDialog(QDialog):
     def __init__(self, parent, controller, first=False):
         super().__init__(parent)
         self.controller, self.first = controller, first
-        self.setWindowTitle("학습 기록 수집 동의" if first else "내 정보·데이터")
+        self.setWindowTitle("학습 데이터 제공 안내" if first else "내 정보·데이터")
         self.setModal(True)
         kit.page(self)
         room = self.screen().availableGeometry()
@@ -25,14 +25,15 @@ class ConsentDialog(QDialog):
         outer = kit.box(self, (24, 24, 24, 24), spacing=theme.GAP["group"])
         content = QWidget()
         body = kit.box(content, spacing=theme.GAP["group"])
-        body.addWidget(kit.heading(kit.label("학습 기록 수집 동의" if first else "내 정보·데이터", "title"),
-                                   kit.para("동의하지 않아도 문제를 풀고 채점할 수 있습니다.", "body", "secondary")))
+        body.addWidget(kit.heading(kit.label("학습 데이터 제공 안내" if first else "내 정보·데이터", "title"),
+                                   kit.para("동의하면 새 풀이 기록을 자동으로 보내 문제 추천 연구에 사용합니다. 동의하지 않아도 문제를 풀고 채점할 수 있습니다.",
+                                            "body", "secondary")))
         self.status_text = kit.para()
         body.addWidget(self.status_text)
         for title, text in NOTICE_ROWS:
             body.addWidget(kit.heading(kit.label(title, "headline"), kit.para(text)))
-        self.research = QCheckBox("수집·이용과 자동 전송 동의 (선택)")
-        self.overseas = QCheckBox("미국 서버 보관 동의 (선택)")
+        self.research = QCheckBox("학습 데이터 제공 동의 (선택)")
+        self.overseas = QCheckBox("서버 보관 동의 (선택)")
         for box in (self.research, self.overseas):
             box.setProperty("role", "body")
             box.setFont(theme.font("body"))
@@ -41,8 +42,10 @@ class ConsentDialog(QDialog):
         body.addWidget(self.message)
         self.scroll = kit.scroll(content)
         outer.addWidget(self.scroll, 1)
-        outer.addWidget(self.research)
-        outer.addWidget(self.overseas)
+        self.storage_hint = kit.para("보관 위치: 미국 · PythonAnywhere", "body", "secondary")
+        self.choices = kit.spaced(self.research, kit.spaced(self.overseas, self.storage_hint, spacing=theme.GAP["detail"]),
+                                  spacing=theme.GAP["detail"])
+        outer.addWidget(self.choices)
         actions = QWidget()
         flow = kit.FlowLayout(actions, spacing=theme.GAP["detail"])
         self.agree = kit.button("동의하고 시작" if first else "동의하고 수집 시작", "primary", "l")
@@ -79,8 +82,7 @@ class ConsentDialog(QDialog):
             self.message.setText(self.controller.message)
             self.agree.setVisible(not active)
             self.agree.setEnabled(self.research.isChecked() and self.overseas.isChecked() and not pending)
-            self.research.setVisible(not active and not pending)
-            self.overseas.setVisible(not active and not pending)
+            self.choices.setVisible(not active and not pending)
             self.withdraw.setVisible(not pending and (bool(state.get("accepted")) or self.controller.consent.has_private_records()))
         except CollectionError as error:
             self.status_text.setText(str(error))
