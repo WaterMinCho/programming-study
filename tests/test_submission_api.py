@@ -27,7 +27,7 @@ class SubmissionTest(unittest.TestCase):
         self.folder.mkdir(parents=True)
         (self.folder / "quiz.py").write_text("ANSWERS = {'q1': 4}\n", encoding="utf-8")
         self.db = app.Database(self.root / "server/data.sqlite3")
-        self.wsgi = app.application(self.db)
+        self.wsgi = app.application(self.db, legacy_contract=True)
         self.stores = {name: Collection(str(self.root / name), str(self.repo), track=name) for name in ("ai", "python")}
         for store in self.stores.values():
             store.initialize_distribution()
@@ -260,16 +260,16 @@ class SubmissionTest(unittest.TestCase):
         self.assertEqual(files["s01/meta.json"].encode("utf-8"), b"\xef\xbb\xbf{}")
         clean_files(files)
 
-    def test_default_flow_asks_for_api_setup_and_direct_git_is_explicit(self):
+    def test_default_flow_asks_for_private_setup_and_does_not_use_direct_git(self):
+        from aiprep.privacy import Consent
+        Consent(self.stores).choose(True)
         git = mock.Mock(root=str(self.repo), user="tester")
         flow = Flow(git)
         flow.set_collections(self.stores)
         self.assertEqual(flow.submit()["status"], "setup_required")
-        git.submit.assert_not_called()
         flow.api.save({"mode": "git"})
-        git.submit.return_value = {"status": "ok"}
-        self.assertEqual(flow.submit()["status"], "ok")
-        git.submit.assert_called_once()
+        self.assertEqual(flow.submit()["status"], "setup_required")
+        git.submit.assert_not_called()
 
     def test_real_http_client_registers_stores_and_publishes(self):
         import threading

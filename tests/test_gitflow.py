@@ -181,7 +181,7 @@ class PC:
         git(self.path, "config", "url.%s.insteadOf" % origin, FAKE_URL)
         self.origin = origin
         self.folder = os.path.join(self.path, "submissions", user)
-        self.flow = gitflow.GitFlow(self.path, user)
+        self.flow = gitflow.GitFlow(self.path, user, legacy_contract=True)
         self.flow.find_pr = self.find_pr
         self.flow.pr_wait = 0  # 자동으로 만들어지는 PR 을 기다리지 않음. 기다리는 경우는 따로 테스트함
         self.open_pr, self.lookups = None, []
@@ -1161,7 +1161,7 @@ class GitFlowTest(unittest.TestCase):
         pc.solve(); self.sync()  # study/alice 에 내 폴더가 커밋돼 있음
         renamed = os.path.join(pc.path, "submissions", "alicia")
         os.rename(pc.folder, renamed)
-        flow = gitflow.GitFlow(pc.path, "alicia")
+        flow = gitflow.GitFlow(pc.path, "alicia", legacy_contract=True)
         flow.find_pr, flow.pr_wait = pc.find_pr, 0
         result = flow.sync()
         pc.flow.log += flow.log  # 금지 명령 검사에 포함
@@ -1387,7 +1387,7 @@ class GitFlowTest(unittest.TestCase):
     def test_folder_from_zip_and_missing_git(self):
         folder = os.path.join(self.tmp, "zip")
         write(os.path.join(folder, "submissions", "alice", "profile.json"), "{}")
-        flow = gitflow.GitFlow(folder, "alice")
+        flow = gitflow.GitFlow(folder, "alice", legacy_contract=True)
         doctor = flow.doctor()
         self.assertEqual((doctor["ok"], doctor["git"], doctor["repo"]), (False, True, False))
         for result in (flow.sync(), flow.submit(), flow.resolve("remote")):
@@ -1396,7 +1396,7 @@ class GitFlowTest(unittest.TestCase):
             doctor = self.pc.flow.doctor()
             self.assertEqual((doctor["ok"], doctor["git"], doctor["problems"]), (False, False, [gitflow.M_NO_GIT]))
             self.assertEqual(self.pc.flow.sync()["status"], "no_git")
-        self.assertEqual(gitflow.GitFlow(self.pc.path, "../bob").submit()["status"], "error")
+        self.assertEqual(gitflow.GitFlow(self.pc.path, "../bob", legacy_contract=True).submit()["status"], "error")
 
     # 알고리즘 여행 기록. 프로필 영역(profile.json 과 회차 폴더)과 여정 영역(journey/)을 따로 맞춤
 

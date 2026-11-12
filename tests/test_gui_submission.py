@@ -7,7 +7,7 @@ from tests import guikit
 from PyQt6.QtCore import QPoint
 from aiprep.collection import CollectionError
 from gui import theme
-from submission_api import Client
+from submission_api import PrivateClient
 from tests.test_gui_hub import HubTest
 
 
@@ -18,7 +18,7 @@ class ApiSetupTest(HubTest):
         folder = repo / "submissions/tester/r01"
         folder.mkdir(parents=True)
         (folder / "quiz.py").write_text("ANSWERS = {}\n", encoding="utf-8")
-        self.git.api = Client(str(repo), "tester", {"python": win.session.collection, "ai": win.ai.collection})
+        self.git.api = PrivateClient(str(repo), "tester", {"python": win.session.collection, "ai": win.ai.collection})
         win.show_submission_setup()
         guikit.pump()
         self.capture_widget = win.submission_dialog
@@ -40,17 +40,15 @@ class ApiSetupTest(HubTest):
             position = dialog.connect_button.mapTo(dialog, QPoint(0, 0))
             self.assertGreaterEqual(position.y(), 0)
             self.assertLessEqual(position.y() + dialog.connect_button.height(), dialog.height())
-            self.assertEqual(dialog.invite.echoMode(), dialog.invite.EchoMode.Password)
+            self.assertFalse(hasattr(dialog, "invite"))
 
     def test_connection_error_keeps_answers_and_shows_message(self):
         win, dialog = self.open_setup()
         dialog.url.setText("https://example.test")
-        dialog.invite.setText("private-invite")
-        dialog.confirm_public.setChecked(True)
-        with mock.patch.object(self.git.api, "connect", side_effect=CollectionError("초대 코드가 만료됐습니다.")):
+        dialog.confirm_private.setChecked(True)
+        with mock.patch.object(self.git.api, "connect_open", side_effect=CollectionError("서버에 연결하지 못했습니다.")):
             guikit.click(dialog.connect_button)
             self.idle()
         self.assertTrue(win.dialog.isVisible())
-        self.assertIn("초대 코드가 만료", win.dialog.text.text())
-        self.assertEqual(dialog.invite.text(), "")
+        self.assertIn("서버에 연결하지", win.dialog.text.text())
         self.assertTrue((Path(self.tmp) / "api-repo/submissions/tester/r01/quiz.py").exists())

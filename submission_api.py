@@ -231,6 +231,94 @@ class Client:
         return {"status": "ok", "message": message, "pr_url": url, "detail": "\n".join(errors)}
 
 
+class PrivateClient(Client):
+    """풀이 파일을 비공개 서버에만 저장하고 공개 Git 게시를 호출하지 않음."""
+
+    def __init__(self, root, user, collections):
+        super().__init__(root, user, collections)
+        self.path = self.path.with_name("private-submission.json")
+        self.pending_path = self.path.with_name("private-submission-pending.json")
+
+    def save_active(self, consent, choice, data, path=None):
+        with consent.lock:
+            current = consent.settings()
+            if current.get("choice") != choice or not current.get("accepted") or current.get("withdraw_pending") or consent.needs_choice():
+                raise CollectionError("동의가 바뀌어 제출을 멈췄습니다. 로컬 풀이는 유지됩니다.")
+            self.save(data, path)
+
+    def connect_open(self, base=None):
+        from aiprep.privacy import Consent, DEFAULT_SERVER, validate_receipt
+        consent = Consent(self.collections)
+        state = consent.settings()
+        if consent.needs_choice() or not state.get("accepted") or state.get("withdraw_pending"):
+            raise CollectionError("[내 정보·데이터]에서 수집 내용을 확인하고 동의한 뒤 제출해 주세요.")
+        receipt = validate_receipt(state.get("receipt"))
+        base = endpoint(base or DEFAULT_SERVER)
+        config = self.settings()
+        if config.get("url") and config["url"] != base:
+            raise CollectionError("기존 제출 서버 연결을 확인해 주세요.")
+        config.update(mode="private", url=base, participant=config.get("participant") or str(uuid.uuid4()),
+                      registration_secret=config.get("registration_secret") or secrets.token_hex(32),
+                      display_id=config.get("display_id") or "private_" + secrets.token_hex(12), separate_research=True)
+        if config.get("token"):
+            return
+        config["enroll_sent"] = True
+        self.save_active(consent, state.get("choice"), config)
+        result = self.transport(base, "/v1/register/private", {"participant": config["participant"], "display_id": config["display_id"],
+                                "notice": NOTICE, "registration_secret": config["registration_secret"], "consent": receipt,
+                                "private_submission": True, "tracks": {}})
+        if result.get("participant") != config["participant"] or not re.fullmatch(r"[a-f0-9]{64}", str(result.get("token", ""))):
+            raise CollectionError("서버의 비공개 제출 연결 응답을 확인해 주세요.")
+        current = consent.settings()
+        if current.get("choice") != state.get("choice") or not current.get("accepted") or current.get("withdraw_pending"):
+            raise CollectionError("연결 중 동의가 바뀌어 제출을 멈췄습니다.")
+        config.update(token=result["token"])
+        self.save_active(consent, state.get("choice"), config)
+
+    def submit(self):
+        from aiprep.privacy import Consent
+        consent = Consent(self.collections)
+        if consent.needs_choice() or not consent.settings().get("accepted") or consent.settings().get("withdraw_pending"):
+            return {"status": "error", "message": "수집 동의를 확인한 뒤 제출해 주세요. 로컬 풀이는 유지됩니다."}
+        config = self.settings()
+        choice = consent.settings().get("choice")
+        if not config.get("token"):
+            return {"status": "setup_required", "message": "비공개 풀이 제출을 연결해 주세요."}
+        files = snapshot(self.root, self.user)
+        if not files:
+            return {"status": "nothing", "message": "아직 제출할 풀이가 없습니다."}
+        parts = []
+        if self.pending_path.exists():
+            saved = json.loads(self.pending_path.read_text(encoding="utf-8"))
+            if saved.get("participant") != config["participant"] or saved.get("digest") != digest({"files": saved.get("files"), "request": saved.get("request_id")}):
+                raise CollectionError("이전 비공개 접수 기록을 확인해 주세요.")
+            parts.append(saved)
+        if (not parts and config.get("published_hash") != digest(files)) or (parts and digest(parts[-1]["files"]) != digest(files)):
+            request_id = str(uuid.uuid4())
+            parts.append({"participant": config["participant"], "request_id": request_id, "files": files,
+                          "digest": digest({"files": files, "request": request_id})})
+        for part in parts:
+            self.save_active(consent, choice, part, self.pending_path)
+            try:
+                result = self.transport(config["url"], "/v1/private/submissions", {"files": part["files"], "request_id": part["request_id"],
+                                        "digest": part["digest"], "previous": config.get("last_hash")}, token=config["token"], timeout=20)
+            except CollectionError as error:
+                with consent.lock:
+                    if consent.settings().get("choice") == choice:
+                        if error.status in (400, 403, 413, 415, 422):
+                            self.pending_path.unlink(missing_ok=True)
+                        if error.code == "revoked":
+                            consent.withdraw()
+                raise
+            if result.get("digest") != part["digest"] or result.get("state") != "stored":
+                raise CollectionError("서버의 저장 확인을 받지 못했습니다. 로컬 풀이는 유지됩니다.")
+            config.update(last_hash=part["digest"], published_hash=digest(part["files"]))
+            with consent.lock:
+                self.save_active(consent, choice, config)
+                self.pending_path.unlink(missing_ok=True)
+        return {"status": "ok", "message": "비공개 서버에 풀이를 저장했습니다.", "pr_url": None, "receipt": config.get("last_hash")}
+
+
 class Flow:
     def __init__(self, git):
         self.git, self.api = git, None
@@ -239,11 +327,11 @@ class Flow:
         return getattr(self.git, name)
 
     def set_collections(self, collections):
-        self.api = Client(self.git.root, self.git.user, collections)
+        self.api = PrivateClient(self.git.root, self.git.user, collections)
 
     def pending(self):
         try:
-            if self.api and self.api.settings().get("mode") != "git":
+            if self.api:
                 return self.api.pending()
             return self.git.pending()
         except (CollectionError, OSError, ValueError):
@@ -251,10 +339,8 @@ class Flow:
 
     def submit(self):
         if not self.api:
-            return self.git.submit()
+            return {"status": "error", "message": "비공개 제출 연결을 확인해 주세요."}
         try:
-            if self.api.settings().get("mode") == "git":
-                return self.git.submit()
             return self.api.submit()
         except (CollectionError, OSError, ValueError) as error:
             return {"status": "error", "message": str(error), "detail": ""}
@@ -262,5 +348,5 @@ class Flow:
     def sync(self):
         result = self.git.sync()
         if result.get("status") in ("no_git", "not_repo"):
-            result["message"] = "새 자료를 받으려면 Git으로 복제한 프로그램 폴더가 필요합니다. API 풀이 제출은 개인 초대로 연결할 수 있습니다."
+            result["message"] = "새 자료를 받으려면 Git으로 복제한 프로그램 폴더가 필요합니다. 풀이는 비공개 서버에 제출합니다."
         return result

@@ -72,7 +72,7 @@ class Submissions:
     def __init__(self, database, publisher=None):
         self.database, self.publisher = database, publisher
 
-    def register(self, data, open_registration=False):
+    def register(self, data, open_registration=False, private=False):
         name, tracks = data.get("display_id"), data.get("tracks", {})
         if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", name):
             raise ApiError(400, "풀이 ID는 영문·숫자·밑줄·붙임표로 64자 안에 입력해 주세요.")
@@ -87,7 +87,7 @@ class Submissions:
         connected = {}
         with self.database.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            enrolled = (self.database.enroll_open(data, "submission", connection=db) if open_registration
+            enrolled = (self.database.enroll_open(data, "private_submission" if private else "submission", connection=db) if open_registration
                         else self.database.enroll(data, connection=db))
             if not db.execute("SELECT 1 FROM participants WHERE participant=? AND revoked=0", (parent,)).fetchone():
                 raise ApiError(401, "철회한 참가자입니다.")
@@ -139,13 +139,16 @@ class Submissions:
             count = db.execute("SELECT count(*) FROM api_submissions WHERE participant=? AND received>=?",
                                (participant, (instant - datetime.timedelta(days=1)).isoformat())).fetchone()[0]
             if count >= MAX_DAILY:
-                raise ApiError(429, "최근 24시간의 공개 제출 100회에 도달했습니다. 학습과 비공개 기록 전송은 계속 사용할 수 있습니다.")
+                raise ApiError(429, "최근 24시간의 파일 제출 100회에 도달했습니다. 학습과 과정 기록 전송은 계속 사용할 수 있습니다.")
             busy = db.execute("SELECT 1 FROM api_submissions WHERE participant=? AND lease_until>?", (participant, now)).fetchone()
             if busy:
                 raise ApiError(409, "이전 풀이를 GitHub에 게시 중입니다. 잠시 뒤 다시 제출해 주세요.")
+            payload = zlib.compress(packed(envelope).encode("utf-8"))
+            previous_bytes = db.execute("SELECT coalesce(sum(length(payload)),0) FROM api_submissions WHERE participant=?", (participant,)).fetchone()[0]
+            self.database.storage_limit(db, participant, len(payload)-previous_bytes)
             db.execute("UPDATE api_submissions SET payload=NULL WHERE participant=?", (participant,))
             db.execute("INSERT INTO api_submissions VALUES (?, ?, ?, ?, NULL, NULL, NULL)",
-                       (participant, current, zlib.compress(packed(envelope).encode("utf-8")), now))
+                       (participant, current, payload, now))
             db.execute("UPDATE submission_accounts SET latest=? WHERE participant=?", (current, participant))
         return self.receipt(current, None)
 
