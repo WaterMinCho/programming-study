@@ -7,6 +7,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+import secrets
 
 from aiprep.collection import CollectionError, FORMAT, NOTICE, SYNC_FILENAME, packed
 
@@ -50,15 +51,17 @@ def request(base, path, data=None, token=None, method="POST", timeout=5, error_d
             return result
     except urllib.error.HTTPError as error:
         message = "수집 서버가 요청을 받지 않았습니다. 상태 코드 %d입니다." % error.code
-        if error_detail:
-            try:
-                detail = json.loads(error.read(4096)).get("error")
-                if isinstance(detail, str) and len(detail) <= 500:
-                    message += " " + detail
-            except (OSError, ValueError, AttributeError):
-                pass
+        reason = None
+        try:
+            failure = json.loads(error.read(4096))
+            detail = failure.get("error")
+            reason = "revoked" if failure.get("code") == "revoked" else None
+            if error_detail and isinstance(detail, str) and len(detail) <= 500:
+                message += " " + detail
+        except (OSError, ValueError, AttributeError):
+            pass
         error.close()
-        raise CollectionError(message) from None
+        raise CollectionError(message, status=error.code, code=reason) from None
     except (urllib.error.URLError, OSError, ValueError):
         raise CollectionError("수집 서버에 연결하지 못했습니다. 데이터는 이 기기에 남아 있으니 다시 보내 주세요.") from None
 
@@ -96,7 +99,36 @@ class Sharing:
             if path and os.path.exists(path):
                 os.unlink(path)
 
-    def sync(self, base, invite="", include_answers=False):
+    def connect_open(self, base, consent, after=0):
+        """동의 뒤의 기록을 개인 초대 코드 없이 연결함."""
+        from aiprep.privacy import validate_receipt, POLICY_VERSION
+        receipt = validate_receipt(consent)
+        base = endpoint(base)
+        status = self.collection.status()
+        if not status["enabled"] or status["error"]:
+            raise CollectionError("동의한 뒤 수집을 시작해 주세요.")
+        config = self.settings()
+        if config and (config.get("url") != base or config.get("participant") != status["participant"]):
+            raise CollectionError("기존 서버 연결을 확인해 주세요.")
+        if not config:
+            config = {"url": base, "participant": status["participant"], "sequence": after,
+                      "notice": NOTICE, "include_answers": False, "registration_secret": secrets.token_hex(32)}
+            self._save(config)
+        if not config.get("token"):
+            config.update(enroll_sent=True, consent_receipt=receipt)
+            self._save(config)
+            enrolled = request(base, "/v1/enroll/open", {"participant": config["participant"], "notice": NOTICE,
+                               "registration_secret": config["registration_secret"], "consent": receipt}, error_detail=True)
+            if enrolled.get("participant") != config["participant"] or not isinstance(enrolled.get("token"), str):
+                raise CollectionError("참가자 등록 응답을 확인해 주세요.")
+            config["token"] = enrolled["token"]
+            self._save(config)
+        if config.get("consent_policy") != POLICY_VERSION:
+            request(base, "/v1/consent", {"consent": receipt}, token=config["token"], error_detail=True)
+            config.update(consent_policy=POLICY_VERSION, include_answers=False, sequence=max(config.get("sequence", 0), after))
+            self._save(config)
+
+    def sync(self, base, invite="", include_answers=False, canceled=lambda: False):
         status = self.collection.status()
         if not status["enabled"] or status["error"]:
             raise CollectionError("추가 데이터 수집을 시작하고 저장 상태를 확인한 뒤 보내 주세요.")
@@ -115,6 +147,8 @@ class Sharing:
             self._save(config)
         sent = 0
         while True:
+            if canceled():
+                return {"sent": sent, "last_sequence": config["sequence"]}
             if not self.collection.status()["enabled"]:
                 raise CollectionError("수집을 중단해 전송도 멈췄습니다. 이미 확인받은 기록은 서버에 남습니다.")
             rows = self.collection.snapshot(after=config["sequence"], limit=100, include_answers=include_answers)[1:]
@@ -138,6 +172,17 @@ class Sharing:
         config = self.settings()
         if not config:
             raise CollectionError("연결한 수집 서버가 없습니다.")
+        if not config.get("token"):
+            if config.get("enroll_sent"):
+                result = request(config["url"], "/v1/withdraw/open", {"participant": config["participant"],
+                                 "registration_secret": config["registration_secret"]})
+                if result.get("deleted") is not True:
+                    raise CollectionError("서버의 철회 확인을 받지 못했습니다.")
+                os.unlink(self.path)
+                return result
+            else:
+                os.unlink(self.path)
+                return {"deleted": True}
         result = request(config["url"], "/v1/me", token=config["token"], method="DELETE")
         if result.get("deleted") is not True:
             raise CollectionError("서버의 삭제 확인을 받지 못했습니다.")

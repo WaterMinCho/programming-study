@@ -6,7 +6,7 @@ WaterMinCho가 프로그램·서버·공통 자료와 앱 연결을 맡습니다
 
 [단계별 로드맵](LEARNING_ROADMAP.md)에서 앞으로 만들 산출물과 다음 단계로 넘어갈 기준을 확인합니다. 새 코드와 실행 결과에 따라 담당 이슈의 다음 미션을 조정합니다.
 
-처음 참여했다면 [각자 fork에서 첫 PR까지](LEARNING_WORKFLOW.md)를 먼저 따라 합니다. 공통 프로젝트를 fork하고 공통 입력을 읽은 뒤, 본인이 이해한 내용을 첫 PR로 공유하는 순서입니다. 이 문서에서는 그다음에 맡을 모델과 비교 방법을 그림으로 확인합니다. 작업·질문·검토는 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2/views/1)와 이슈·PR에서 이어갑니다.
+처음 참여했다면 [각자 fork에서 첫 PR까지](LEARNING_WORKFLOW.md)를 먼저 따라 합니다. [공통 자료 판 4와 전달 묶음](LEARNING_STARTER.md#세-팀원이-사용할-자료-판을-맞춥니다)을 확인하고 같은 번호표로 시작합니다. 공통 프로젝트를 fork하고 공통 입력을 읽은 뒤, 본인이 이해한 내용을 첫 PR로 공유하는 순서입니다. 이 문서에서는 그다음에 맡을 모델과 비교 방법을 그림으로 확인합니다. 작업·질문·검토는 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2/views/1)와 이슈·PR에서 이어갑니다.
 
 | 담당 | 맡은 일 |
 |---|---|

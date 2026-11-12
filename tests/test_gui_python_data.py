@@ -20,6 +20,7 @@ class PythonDataGuiTest(fixtures.GuiTest):
         patcher = mock.patch.dict(os.environ, {"STUDY_PYTHON_HOME": os.path.join(self.tmp, "python-home")})
         patcher.start()
         self.addCleanup(patcher.stop)
+        guikit.prepare_consent(self.user)
 
     def test_home_opens_python_collection_and_stops_it_separately_from_ai(self):
         self.boot()

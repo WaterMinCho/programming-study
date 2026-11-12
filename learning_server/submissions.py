@@ -72,12 +72,14 @@ class Submissions:
     def __init__(self, database, publisher=None):
         self.database, self.publisher = database, publisher
 
-    def register(self, data):
+    def register(self, data, open_registration=False):
         name, tracks = data.get("display_id"), data.get("tracks", {})
         if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", name):
             raise ApiError(400, "풀이 ID는 영문·숫자·밑줄·붙임표로 64자 안에 입력해 주세요.")
         if not isinstance(tracks, dict) or set(tracks) - {"ai", "python"}:
             raise ApiError(400, "연결할 학습 과목을 확인해 주세요.")
+        if open_registration and tracks:
+            raise ApiError(400, "비공개 학습 기록은 동의 후 과목별 연결을 사용합니다.")
         parent = identifier(data.get("participant"))
         children = [identifier(value) for value in tracks.values()]
         if len(set([parent] + children)) != len(children) + 1:
@@ -85,7 +87,8 @@ class Submissions:
         connected = {}
         with self.database.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            enrolled = self.database.enroll(data, connection=db)
+            enrolled = (self.database.enroll_open(data, "submission", connection=db) if open_registration
+                        else self.database.enroll(data, connection=db))
             if not db.execute("SELECT 1 FROM participants WHERE participant=? AND revoked=0", (parent,)).fetchone():
                 raise ApiError(401, "철회한 참가자입니다.")
             old = db.execute("SELECT display_id, public_id FROM submission_accounts WHERE participant=?", (parent,)).fetchone()

@@ -99,13 +99,13 @@ git switch -c model/본인ID-first-input
 현재 `programming-study` 안에 `study.py`와 `learning_server`가 보이는지 확인합니다. SourceTree를 쓰는 사람도 이 폴더에서 터미널을 열고 다음 Python 명령을 실행합니다.
 
 ```sh
-python -m learning_server.starter --synthetic --out ../learning-demo-v3
-python -m learning_server.input_example --dataset ../learning-demo-v3 --track python --batch-size 4 --length 4
+python -m learning_server.starter --synthetic --out ../learning-demo-f4
+python -m learning_server.input_example --dataset ../learning-demo-f4 --track python --batch-size 4 --length 4
 ```
 
 첫 명령은 가상 풀이 자료를 만들고 두 번째 명령은 입력 예시 4개를 읽습니다. 각 예시의 과거 풀이를 최대 4개까지 확인하며 모델을 학습하지는 않습니다. `inputs`와 이번 정답표인 `targets`, 과거 풀이의 실제 자리인 `mask`, 실제 길이인 `lengths`를 [공통 입력 설명](LEARNING_STARTER.md#세-모델이-같은-입력을-사용합니다)과 대조합니다. 오답 0과 빈 자리를 구분해보세요. `--track python`을 `--track ai`로 바꾸면 AI 개론·응용 예제를 읽습니다.
 
-`python`을 찾지 못하면 Windows는 `py`, Mac은 `python3`로 바꿉니다. `No module named learning_server`가 나오면 현재 폴더부터 확인합니다. `learning-demo-v3`가 이미 있으면 두 번째 명령으로 읽습니다. 새 자료를 만들 때는 `--out`과 `--dataset`에 같은 새 폴더 이름을 쓰며 기존 자료는 덮어쓰지 않습니다.
+`python`을 찾지 못하면 Windows는 `py`, Mac은 `python3`로 바꿉니다. `No module named learning_server`가 나오면 현재 폴더부터 확인합니다. `learning-demo-f4`가 이미 있으면 두 번째 명령으로 읽습니다. 새 자료를 만들 때는 `--out`과 `--dataset`에 같은 새 폴더 이름을 쓰며 기존 자료는 덮어쓰지 않습니다.
 
 <a id="4-본인이-이해한-내용을-저장합니다"></a>
 <a id="5-공통-프로젝트로-보낼-첫-변경을-만듭니다"></a>
@@ -182,7 +182,7 @@ model-study/
         configs/                 설정과 난수 시드
         figures/                 합성 자료의 학습곡선
         REVIEW_NOTES.md          피드백과 수정 이유
-  learning-demo-v3/              가상 자료 · 저장소 밖에 보관
+  learning-demo-f4/              가상 자료 · 저장소 밖에 보관
 ```
 
 코드를 바꾸면 본인 폴더의 변경만 골라 Stage → Commit → Push하고 공통 프로젝트로 PR을 보냅니다. 공통 입력 도구나 다른 팀원의 폴더를 바꿔야 한다면 먼저 담당 이슈에서 이유를 공유합니다. 작은 예측, 학습, 저장·불러오기, 평가를 작은 PR로 나눠도 됩니다. 구체적인 목표는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.

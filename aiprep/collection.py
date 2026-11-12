@@ -21,6 +21,9 @@ CURRENT_CONTEXT = object()
 
 class CollectionError(Exception):
     """추가 풀이 데이터를 저장하거나 내보내지 못함."""
+    def __init__(self, message, status=None, code=None):
+        super().__init__(message)
+        self.status, self.code = status, code
 
 
 def stamp():
@@ -145,21 +148,19 @@ class Collection:
             raise CollectionError("수집 중단 설정을 저장하지 못했습니다. %s" % error) from error
 
     def initialize_distribution(self):
-        """배포 시 동의를 받은 참가자의 새 수집부만 시작함. 이전 중단·삭제는 유지함."""
-        if os.path.exists(self.stop_path):
+        """첫 실행의 명시적 선택 전에는 수집하지 않음. 이전 판의 기록을 보존하고 수집만 멈춤."""
+        from aiprep.privacy import POLICY_VERSION
+        if not os.path.exists(self.path):
             return
-        with self._connect(create=True) as conn:
-            if not conn.in_transaction:
-                conn.execute("BEGIN IMMEDIATE")
-            if conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone() is not None:
-                return
-            goal = goals.unselected()
-            conn.executemany("INSERT OR REPLACE INTO meta VALUES (?, ?)",
-                             [("enabled", "1"), ("notice", NOTICE), ("goal", packed(goal)),
-                              ("epoch", str(uuid.uuid4())), ("consent_basis", "distribution-2026-11-11")])
-            conn.execute("INSERT INTO events(event_id, at, kind, payload) VALUES (?, ?, 'consent', ?)",
-                         (str(uuid.uuid4()), stamp(), packed({"notice": NOTICE, "goal": goal,
-                          "basis": "distribution-2026-11-11", "consent_at": None})))
+        with self._connect() as conn:
+            if conn.execute("SELECT value FROM meta WHERE key='consent_policy'").fetchone() != (POLICY_VERSION,):
+                conn.execute("INSERT OR REPLACE INTO meta VALUES ('enabled', '0')")
+
+    def latest_sequence(self):
+        if not os.path.exists(self.path):
+            return 0
+        with self._connect() as conn:
+            return conn.execute("SELECT coalesce(max(seq),0) FROM events").fetchone()[0]
 
     def status(self):
         out = {"enabled": False, "events": 0, "items": 0, "path": self.path, "error": self.error,
@@ -169,7 +170,7 @@ class Collection:
         try:
             with self._connect() as conn:
                 meta = dict(conn.execute("SELECT key, value FROM meta"))
-                out.update(enabled=meta.get("enabled") == "1" and not os.path.exists(self.stop_path), participant=meta.get("participant"), epoch=meta.get("epoch"), notice=meta.get("notice"),
+                out.update(enabled=self._active(meta) and not os.path.exists(self.stop_path), participant=meta.get("participant"), epoch=meta.get("epoch"), notice=meta.get("notice"),
                            goal=json.loads(meta["goal"]) if "goal" in meta else goals.unselected(),
                            events=conn.execute("SELECT count(*) FROM events WHERE kind NOT IN ('consent', 'withdraw', 'goal_changed')").fetchone()[0],
                            items=conn.execute("SELECT count(*) FROM items").fetchone()[0])
@@ -177,7 +178,23 @@ class Collection:
             out["error"] = str(error)
         return out
 
-    def set_enabled(self, enabled):
+    @staticmethod
+    def _active(meta):
+        if meta.get("enabled") != "1":
+            return False
+        if meta.get("privacy_state_path"):
+            try:
+                with open(meta["privacy_state_path"], encoding="utf-8") as source:
+                    state = json.load(source)
+                from aiprep.privacy import POLICY_VERSION, POLICY_HASH
+                return (state.get("accepted") is True and state.get("policy") == POLICY_VERSION
+                        and state.get("policy_hash") == POLICY_HASH and not state.get("withdraw_pending"))
+            except (OSError, ValueError, AttributeError):
+                return False
+        return True
+
+    def set_enabled(self, enabled, renew=False, privacy_state=None):
+        from aiprep.privacy import POLICY_VERSION, POLICY_HASH
         if not enabled:
             self._remember_stop(True)
         if not enabled and not os.path.exists(self.path):
@@ -186,7 +203,7 @@ class Collection:
             if not conn.in_transaction:
                 conn.execute("BEGIN IMMEDIATE")
             previous = conn.execute("SELECT value FROM meta WHERE key='enabled'").fetchone()
-            if previous == ("1" if enabled else "0",) and not (enabled and os.path.exists(self.stop_path)):
+            if previous == ("1" if enabled else "0",) and not (enabled and (renew or os.path.exists(self.stop_path))):
                 if enabled:
                     self._remember_stop(False)
                 return
@@ -196,8 +213,12 @@ class Collection:
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('goal', ?)", (packed(goal),))
             if enabled:
                 conn.execute("INSERT OR REPLACE INTO meta VALUES ('epoch', ?)", (str(uuid.uuid4()),))
+                conn.execute("INSERT OR REPLACE INTO meta VALUES ('consent_policy', ?)", (POLICY_VERSION,))
+                if privacy_state is not None:
+                    conn.execute("INSERT OR REPLACE INTO meta VALUES ('privacy_state_path', ?)", (str(privacy_state),))
             conn.execute("INSERT INTO events(event_id, at, kind, payload) VALUES (?, ?, ?, ?)",
-                         (str(uuid.uuid4()), stamp(), "consent" if enabled else "withdraw", packed({"notice": NOTICE, "goal": goal})))
+                         (str(uuid.uuid4()), stamp(), "consent" if enabled else "withdraw", packed({"notice": NOTICE, "goal": goal,
+                          "policy": POLICY_VERSION, "policy_hash": POLICY_HASH})))
 
         if enabled:
             self._remember_stop(False)
@@ -224,7 +245,7 @@ class Collection:
             with self._connect() as conn:
                 conn.execute("BEGIN")
                 meta = dict(conn.execute("SELECT key, value FROM meta"))
-                if meta.get("enabled") != "1":
+                if not self._active(meta):
                     return None
                 return {"epoch": meta.get("epoch"),
                         "goal": json.loads(meta["goal"]) if "goal" in meta else goals.unselected(),
@@ -241,7 +262,7 @@ class Collection:
             with self._connect() as conn:
                 conn.execute("BEGIN IMMEDIATE")
                 meta = dict(conn.execute("SELECT key, value FROM meta"))
-                if meta.get("enabled") != "1":
+                if not self._active(meta):
                     return False
                 payload = dict(payload)
                 if observation_context is CURRENT_CONTEXT:

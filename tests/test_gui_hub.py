@@ -110,10 +110,12 @@ class HubTest(unittest.TestCase):
         os.environ.pop("STUDY_USER", None)
         os.environ["STUDY_WEB_HOME"] = os.path.join(self.tmp, "web_home")
         os.environ["STUDY_AI_HOME"] = os.path.join(self.tmp, "ai_home")
+        os.environ["STUDY_PYTHON_HOME"] = os.path.join(self.tmp, "python_home")
         self.addCleanup(setattr, sys, "excepthook", sys.excepthook)
         self.logs = os.path.join(self.tmp, ".study_logs")
         errors.install(self.logs)
         session.save_user(USER)
+        guikit.prepare_consent(USER)
         self.git = FakeGitFlow()
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
         self.win = None

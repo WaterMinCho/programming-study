@@ -26,6 +26,8 @@ try:
 except ImportError:
     raise unittest.SkipTest("PyQt6 가 설치돼 있지 않아 화면 테스트를 건너뜁니다")
 
+from tests import guikit
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import adaptive  # noqa: E402
 import mdlite  # noqa: E402
@@ -143,13 +145,14 @@ def right_answer(sess, view):
 
 
 class GuiTest(unittest.TestCase):
-    user = "tester"  # None 이면 처음 실행이라 ID 를 물음
+    user = "tester"  # None이면 첫 실행의 기기 ID 생성과 동의를 검사함.
     git_reason = ""  # 채우면 제출 모듈을 불러오지 못한 상황
     expect_error = False  # 오류 대화상자가 뜨는 것이 정상인 테스트
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="study_gui_")
         for patcher in (mock.patch.dict(os.environ, {"STUDY_WEB_HOME": os.path.join(self.tmp, "web_home"),
+                                                     "STUDY_PYTHON_HOME": os.path.join(self.tmp, "python_home"),
                                                      "STUDY_AI_HOME": os.path.join(self.tmp, "ai_home")}),
                         mock.patch.object(web_bank, "BANK_DIR", WEB_FIXTURE), mock.patch.object(ai_bank, "AI_DIR", AI_FIXTURE),
                         mock.patch.object(stack, "find_node", lambda saved=None, probe=False: FAKE_NODE)):
@@ -162,6 +165,7 @@ class GuiTest(unittest.TestCase):
         errors.install(self.logs)
         if self.user:
             session.save_user(self.user)
+            guikit.prepare_consent(self.user)
         self.git, self.opened = FakeGitFlow(), []
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
         self.settings.setValue("text", "normal")  # 옛 화면의 테스트는 보통 글자(문서·코드 확대 0)에서 봄
@@ -261,7 +265,7 @@ class GuiTest(unittest.TestCase):
         return dialog
 
     def attempts(self):
-        return adaptive.load_profile("tester")["attempts"]
+        return adaptive.load_profile(self.win.user)["attempts"]
 
     def first(self, **want):
         """조건에 맞는 은행의 첫 문항 키."""
@@ -278,21 +282,21 @@ class FirstRunTest(GuiTest):
     def test_from_first_run_to_regrade(self):
         win, home, page, result = self.win, self.win.home, self.win.round_page, self.win.result_page
 
-        # 처음 실행: ID 를 묻고 형식을 검사한 뒤 새 문제부터 받음
+        # 처음 실행은 기기 ID를 만들고 동의 여부를 선택한 뒤 학습함.
         win.boot()
-        dialog = win.dialog
+        self.idle()
+        dialog = win.privacy.dialog
         self.assertTrue(dialog.isVisible())
-        self.assertFalse(dialog.ok.isEnabled())
-        QTest.keyClicks(dialog.edit, "a b")
-        self.assertFalse(dialog.ok.isEnabled())
-        self.assertIn("영문", dialog.error.text())
-        dialog.edit.clear()
-        QTest.keyClicks(dialog.edit, "tester")
-        click(dialog.ok)
+        self.assertFalse(dialog.agree.isEnabled())
+        QTest.mouseClick(dialog.research, Qt.MouseButton.LeftButton, pos=QPoint(8, dialog.research.height() // 2))
+        QTest.mouseClick(dialog.overseas, Qt.MouseButton.LeftButton, pos=QPoint(8, dialog.overseas.height() // 2))
+        self.assertTrue(dialog.agree.isEnabled())
+        click(dialog.agree)
         self.idle()
         self.assertIs(self.page(), win.hub)
         click(win.hub.python_row)
-        self.assertEqual(session.saved_user(), "tester")
+        self.assertTrue(session.saved_user().startswith("learner-"))
+        self.user = win.user
         self.assertEqual(self.git.calls, ["sync"])
         self.assertIs(self.page(), home)
         self.assertEqual(home.action_btn.text(), "진단 테스트 시작")
@@ -426,11 +430,12 @@ class FirstRunTest(GuiTest):
         self.assertIn("첫 제출", result.note.text())
         again = self.attempts()[tried:]
         self.assertEqual([(a["round"], a["try"], a["ok"]) for a in again], [("d1", 2, True)])
-        rnd = adaptive.find_round(adaptive.load_profile("tester"), "d1")
+        rnd = adaptive.find_round(adaptive.load_profile(win.user), "d1")
         self.assertNotEqual(rnd["score"], rnd["first_score"])
 
     def test_id_box_accepts_paste(self):
-        self.win.boot()
+        self.win.dialog = dialogs.IdDialog(self.win, self.win.sync_first)
+        self.win.dialog.show()
         dialog = self.win.dialog
         QGuiApplication.clipboard().setText("tester")
         QTest.keyClick(dialog.edit, Qt.Key.Key_V, CTRL)
@@ -442,7 +447,8 @@ class FirstRunTest(GuiTest):
     def test_id_that_already_has_a_record_is_confirmed_once(self):
         """이미 풀이 기록이 있는 ID 를 넣으면 한 번 확인받고, 대소문자가 달라도 그 폴더의 철자로 이어 감."""
         session.Session("Tester").ensure_round()
-        self.win.boot()
+        self.win.dialog = dialogs.IdDialog(self.win, self.win.sync_first)
+        self.win.dialog.show()
         dialog = self.win.dialog
         self.assertNotIn("WaterMinCho", dialog.edit.placeholderText())  # 예시가 실제 ID 면 그대로 넣는 사람이 생김
         QTest.keyClicks(dialog.edit, "tester")

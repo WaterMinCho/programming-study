@@ -11,6 +11,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("STUDY_NODE_PROBE", "0")  # 로그인 셸로 node 를 찾지 않음
+os.environ.setdefault("STUDY_AUTO_SYNC", "0")  # 화면 검사에서 실제 운영 서버로 전송하지 않음
 
 try:
     from PyQt6.QtCore import QEventLoop, QPoint, Qt, QTimer, qInstallMessageHandler
@@ -34,6 +35,16 @@ LEFT = Qt.MouseButton.LeftButton
 SHIFT = Qt.KeyboardModifier.ShiftModifier
 CTRL = Qt.KeyboardModifier.ControlModifier
 SYNTAX = ("keyword", "def", "builtin", "string", "comment", "number", "decorator", "self", "blank")  # 문법 색칠이 나누는 종류
+
+
+def prepare_consent(user):
+    """첫 실행 동의를 별도로 검사하는 경우 외에는 임시 학습자의 동의를 고정함."""
+    from aiprep.collection import Collection
+    from aiprep.privacy import Consent
+    import study
+    from python_collection import PythonCollection
+    Consent({"python": PythonCollection(os.path.join(os.environ["STUDY_PYTHON_HOME"], user), study.ROOT),
+             "ai": Collection(os.path.join(os.environ["STUDY_AI_HOME"], user), study.ROOT)}).choose(True)
 
 
 def pump(ms=30):

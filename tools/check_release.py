@@ -18,6 +18,7 @@ CASES = (
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
     "tests.test_gui_submission.ApiSetupTest.test_setup_fits_small_window_max_text_and_both_themes",
+    "tests.test_gui_privacy.PrivacyGuiTest.test_consent_fits_small_window_max_text_and_both_themes",
 )
 
 

@@ -46,6 +46,7 @@ class ApiSetupTest(HubTest):
         win, dialog = self.open_setup()
         dialog.url.setText("https://example.test")
         dialog.invite.setText("private-invite")
+        dialog.confirm_public.setChecked(True)
         with mock.patch.object(self.git.api, "connect", side_effect=CollectionError("초대 코드가 만료됐습니다.")):
             guikit.click(dialog.connect_button)
             self.idle()

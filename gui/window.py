@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-"""메인 창. 시작 순서(ID → 새 문제 받기 → 풀이 기록 열기 → 웹 트랙의 Node 찾기), 화면 전환, 워커, 제출 흐름, 테마를 맡음.
+"""메인 창. 기기 ID·풀이 기록·첫 동의, 화면 전환, 워커, 제출 흐름, 테마를 맡음.
 첫 화면은 허브이고, 파이썬 스터디(홈 이하), 알고리즘 여행(지도·문제 화면), 웹 면접 준비(웹 홈·미션·드릴·학습 노트),
 AI 비전 개론(홈·차시·학습 단원·노트·다시 보기·연습)으로 나뉨.
 area 가 지금 어느 쪽에 있는지 기억함. 웹 트랙의 Node 는 허브 카드가 설치 상태를 보이므로 허브를 열기 전에 워커에서 한 번 찾아 두고,
 여행의 [다시 찾기]가 기억을 버렸으면 허브나 웹 홈을 열기 전에 다시 찾음."""
+import os
 import time
+import uuid
 
 from PyQt6.QtCore import QPoint, QTimer, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
@@ -13,6 +15,7 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QLineEdit, QMain
 
 import session
 import study
+from aiprep.collection import CollectionError
 from aiprep import service as ai_service
 from gui import errors, journey_text, kit, motion, theme, web_text
 from gui.ai_home import AiHomePage, AiLessonPage
@@ -20,7 +23,7 @@ from gui.ai_learn import AiLearnPage, AiNotePage, RevisitPage
 from gui.ai_quiz import PracticePage
 from gui.ai_mock import MockPage
 from gui.ai_text import AiNotes
-from gui.dialogs import IdDialog, MessageDialog
+from gui.dialogs import MessageDialog
 from gui.guard import Guard
 from gui.home_page import HomePage
 from gui.hub_page import HubPage
@@ -186,13 +189,11 @@ class MainWindow(QMainWindow):
     # 시작 순서
 
     def boot(self):
+        self.first_boot = True
         user = session.saved_user()
-        if user:
-            self.sync_first(user)
-            return
-        self.dialog = IdDialog(self, self.sync_first)
-        self.dialog.rejected.connect(self.close)  # ID 없이는 진행할 수 없음
-        self.dialog.show()
+        if not user:
+            user = session.save_user("learner-" + uuid.uuid4().hex[:10])
+        self.sync_first(user)
 
     def sync_first(self, user):
         """새 컴퓨터에서 빈 기록이 먼저 생기지 않게, 풀이 기록을 열기 전에 새 문제부터 받음."""
@@ -243,16 +244,37 @@ class MainWindow(QMainWindow):
             self.ai_error = ""
         except SessionError as error:
             self.ai, self.ai_error = None, str(error)
+        from aiprep.collection import Collection
+        collections = {"python": self.session.collection,
+                       "ai": self.ai.collection if self.ai is not None else
+                       Collection(os.path.join(ai_service.home_dir(), self.user), study.ROOT)}
         if hasattr(self.gitflow, "set_collections"):
-            collections = {"python": self.session.collection}
-            if self.ai is not None:
-                collections["ai"] = self.ai.collection
             self.gitflow.set_collections(collections)
+        from gui.privacy import SyncController
+        new_privacy_path = str(collections["python"].path)
+        self.privacy_controllers = getattr(self, "privacy_controllers", {})
+        if new_privacy_path not in self.privacy_controllers:
+            self.privacy_controllers[new_privacy_path] = SyncController(self, collections)
+            self.first_boot = True
+        self.privacy = self.privacy_controllers[new_privacy_path]
+        if self.privacy.job is None:
+            self.privacy.consent.collections = collections
         self.start.show_error("")
         go = then or self.go_hub
         if not self.web_node_first(go):
             go()
+        if getattr(self, "first_boot", False):
+            self.first_boot = False
+            try:
+                if self.privacy.consent.needs_choice():
+                    QTimer.singleShot(0, lambda: self.privacy.show(first=True))
+            except CollectionError as error:
+                self.ask("동의 설정 확인", str(error))
         return True
+
+    def show_privacy(self):
+        if hasattr(self, "privacy"):
+            self.privacy.show()
 
     def web_node_first(self, then):
         """웹 트랙의 Node 를 아직 찾지 않았거나 여행의 [다시 찾기]가 기억을 버렸으면 워커에서 찾은 뒤 then() 을 부르고 True 를 돌려줌.
@@ -695,6 +717,10 @@ class MainWindow(QMainWindow):
         job.start()
 
     def submit_pr(self):
+        api = getattr(self.gitflow, "api", None)
+        if api is not None and api.settings().get("mode") != "git":
+            self.show_submission_setup()
+            return
         if self.round_page.flush() and self.journey_page.flush():  # 쓰다 만 답과 코드가 빠진 채 올라가지 않게
             self.run_job("제출하는 중입니다.", self.gitflow.submit, self._submitted)
 
@@ -811,6 +837,10 @@ class MainWindow(QMainWindow):
             page.restyle()
 
     def closeEvent(self, event):
+        waiting = [not controller.stop() for controller in getattr(self, "privacy_controllers", {}).values()]
+        if any(waiting):
+            event.ignore()
+            return
         if self.job is not None:  # 스레드를 도중에 버리면 프로세스가 죽으므로 채점·제출이 끝난 뒤에 닫음
             self.job[0].cancel.set()  # 여행 채점은 곧 멈추고 기록하지 않음. [테스트 돌리기]는 vitest 를 끊고 대화상자 없이 끝남. 다른 일은 이 신호를 보지 않음
             self.close_pending = True

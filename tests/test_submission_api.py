@@ -31,6 +31,7 @@ class SubmissionTest(unittest.TestCase):
         self.stores = {name: Collection(str(self.root / name), str(self.repo), track=name) for name in ("ai", "python")}
         for store in self.stores.values():
             store.initialize_distribution()
+            store.set_enabled(True)
             store.emit("answer", {"response": "secret input", "result": "pass"})
         self.client = Client(str(self.repo), "tester", self.stores)
         self.client.transport = self.transport
