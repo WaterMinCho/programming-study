@@ -539,7 +539,7 @@ def install(root=ROOT):
 
 def main():
     os.umask(0o077)
-    parser = argparse.ArgumentParser(description="팀원 모델 PR을 현재 커밋을 검토하고 피드백을 남깁니다.")
+    parser = argparse.ArgumentParser(description="팀원 모델 PR의 현재 커밋을 검토하고 피드백을 남깁니다.")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--install", action="store_true")
     parser.add_argument("--root", type=Path, default=ROOT, help="검토 자료·처리 상태·로그를 보관할 비공개 폴더입니다.")
