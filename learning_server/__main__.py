@@ -25,6 +25,11 @@ def main():
     pilot.add_argument("--url", required=True, help="참가자가 접속할 HTTPS 주소")
     pilot.add_argument("--out", required=True, help="저장소와 데이터 폴더 밖의 새 폴더")
     pilot.add_argument("--days", type=int, default=7)
+    class_invites = sub.add_parser("class-invites", help="API 제출용 개인 초대를 파일로 발급합니다.")
+    class_invites.add_argument("--url", required=True)
+    class_invites.add_argument("--out", required=True)
+    class_invites.add_argument("--count", type=int, default=100)
+    class_invites.add_argument("--days", type=int, default=7)
     sub.add_parser("status", help="기존 DB의 무결성과 과목별 기록 수를 확인합니다.")
     backup = sub.add_parser("backup", help="기존 DB와 인증 키를 함께 백업합니다.")
     backup.add_argument("--out", required=True)
@@ -73,6 +78,10 @@ def main():
             from learning_server.operations import pilot
             pilot(db, args.out, args.url, args.days)
             print("네 명의 개인 초대 파일을 저장하고 다시 읽어 확인했습니다. 초대 코드는 화면에 출력하지 않습니다.")
+        elif args.command == "class-invites":
+            from learning_server.operations import class_invites
+            result = class_invites(db, args.out, args.url, args.count, args.days)
+            print("%d명의 API 개인 초대를 파일로 저장하고 다시 읽어 확인했습니다." % result["members"])
         elif args.production:
             try:
                 from waitress import serve

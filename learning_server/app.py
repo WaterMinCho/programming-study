@@ -61,6 +61,8 @@ class Database:
                     PRIMARY KEY(participant, track, event_id), UNIQUE(participant, track, sequence)
                 );
             """)
+            from learning_server.submissions import SCHEMA
+            db.executescript(SCHEMA)
         if os.name != "nt":
             os.chmod(self.path, 0o600)
 
@@ -86,25 +88,30 @@ class Database:
         with contextlib.closing(sqlite3.connect(Path(self.path).as_uri() + "?mode=ro", uri=True)) as db:
             db.execute("SELECT 1 FROM participants LIMIT 1").fetchone()
 
-    def enroll(self, data):
+    def enroll(self, data, connection=None):
+        if connection is not None:
+            return self._enroll(connection, data)
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            return self._enroll(db, data)
+
+    def _enroll(self, db, data):
         participant = identifier(data.get("participant"))
         code = data.get("invite")
         if not isinstance(code, str) or not 16 <= len(code) <= 128 or data.get("notice") != NOTICE:
             raise ApiError(400, "초대 코드와 전송 동의 항목을 확인해 주세요.")
-        with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
-            invite = db.execute("SELECT expires, participant FROM invites WHERE code_hash=?", (hashed(code),)).fetchone()
-            if not invite or datetime.datetime.fromisoformat(invite[0]) <= datetime.datetime.now(datetime.timezone.utc):
-                raise ApiError(403, "초대 코드가 없거나 만료됐습니다.")
-            if invite[1] not in (None, participant):
-                raise ApiError(403, "이미 사용한 초대 코드입니다.")
-            token = hmac.new(self.secret, (code + ":" + participant).encode("utf-8"), hashlib.sha256).hexdigest()
-            old = db.execute("SELECT token_hash, revoked FROM participants WHERE participant=?", (participant,)).fetchone()
-            if old and (old[0] != hashed(token) or old[1]):
-                raise ApiError(409, "이미 등록되거나 철회한 참가자입니다. 관리자에게 새 등록을 요청해 주세요.")
-            db.execute("INSERT OR IGNORE INTO participants VALUES (?, ?, ?, ?, 0)",
-                       (participant, hashed(token), NOTICE, datetime.datetime.now(datetime.timezone.utc).isoformat()))
-            db.execute("UPDATE invites SET participant=? WHERE code_hash=?", (participant, hashed(code)))
+        invite = db.execute("SELECT expires, participant FROM invites WHERE code_hash=?", (hashed(code),)).fetchone()
+        if not invite or datetime.datetime.fromisoformat(invite[0]) <= datetime.datetime.now(datetime.timezone.utc):
+            raise ApiError(403, "초대 코드가 없거나 만료됐습니다.")
+        if invite[1] not in (None, participant):
+            raise ApiError(403, "이미 사용한 초대 코드입니다.")
+        token = hmac.new(self.secret, (code + ":" + participant).encode("utf-8"), hashlib.sha256).hexdigest()
+        old = db.execute("SELECT token_hash, revoked FROM participants WHERE participant=?", (participant,)).fetchone()
+        if old and (old[0] != hashed(token) or old[1]):
+            raise ApiError(409, "이미 등록되거나 철회한 참가자입니다. 관리자에게 새 등록을 요청해 주세요.")
+        db.execute("INSERT OR IGNORE INTO participants VALUES (?, ?, ?, ?, 0)",
+                   (participant, hashed(token), NOTICE, datetime.datetime.now(datetime.timezone.utc).isoformat()))
+        db.execute("UPDATE invites SET participant=? WHERE code_hash=?", (participant, hashed(code)))
         return {"participant": participant, "token": token}
 
     def authenticate(self, authorization, allow_revoked=False):
@@ -166,8 +173,14 @@ class Database:
     def remove(self, participant):
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            db.execute("DELETE FROM events WHERE participant=?", (participant,))
-            db.execute("UPDATE participants SET revoked=1 WHERE participant=?", (participant,))
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            if db.execute("SELECT 1 FROM api_submissions WHERE participant=? AND lease_until>?", (participant, now)).fetchone():
+                raise ApiError(409, "GitHub 게시가 끝난 뒤 다시 삭제해 주세요.")
+            children = [row[0] for row in db.execute("SELECT participant FROM submission_collections WHERE account=?", (participant,))]
+            for target in [participant] + children:
+                db.execute("DELETE FROM events WHERE participant=?", (target,))
+                db.execute("UPDATE participants SET revoked=1 WHERE participant=?", (target,))
+            db.execute("DELETE FROM api_submissions WHERE participant=?", (participant,))
 
     def export(self, destination, include_answers=False):
         if inside(destination, REPOSITORY) or inside(destination, os.path.dirname(self.path)):
@@ -214,26 +227,38 @@ def identifier(value):
 
 
 def application(database):
+    from learning_server.submissions import Submissions
+    submissions = Submissions(database)
     def app(environ, start_response):
         try:
             method, path = environ.get("REQUEST_METHOD"), environ.get("PATH_INFO")
             if method == "GET" and path == "/health":
                 database.health()
                 result = {"status": "ok", "format": FORMAT}
-            elif method == "POST" and path in ("/v1/enroll", "/v1/events"):
+            elif method == "POST" and path in ("/v1/enroll", "/v1/events", "/v1/register", "/v1/submissions", "/v1/submissions/publish"):
                 length = int(environ.get("CONTENT_LENGTH") or 0)
-                if length <= 0 or length > MAX_BODY:
+                limit = 6 * MAX_BODY if path == "/v1/submissions" else MAX_BODY
+                if length <= 0 or length > limit:
                     raise ApiError(413, "전송 크기를 확인해 주세요.")
                 if environ.get("CONTENT_TYPE", "").split(";")[0].strip() != "application/json":
                     raise ApiError(415, "JSON 형식으로 보내 주세요.")
-                participant = database.authenticate(environ.get("HTTP_AUTHORIZATION", "")) if path == "/v1/events" else None
+                participant = database.authenticate(environ.get("HTTP_AUTHORIZATION", "")) if path not in ("/v1/enroll", "/v1/register") else None
                 raw = environ["wsgi.input"].read(length)
                 if len(raw) != length:
                     raise ApiError(400, "전송 내용을 끝까지 받지 못했습니다.")
                 data = json.loads(raw.decode("utf-8"), parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
                 if not isinstance(data, dict):
                     raise ApiError(400, "JSON 객체로 보내 주세요.")
-                result = database.enroll(data) if path == "/v1/enroll" else database.ingest(participant, data)
+                if path == "/v1/enroll":
+                    result = database.enroll(data)
+                elif path == "/v1/events":
+                    result = database.ingest(participant, data)
+                elif path == "/v1/register":
+                    result = submissions.register(data)
+                elif path == "/v1/submissions":
+                    result = submissions.store(participant, data)
+                else:
+                    result = submissions.publish(participant, data)
             elif method == "DELETE" and path == "/v1/me":
                 database.remove(database.authenticate(environ.get("HTTP_AUTHORIZATION", ""), allow_revoked=True))
                 result = {"deleted": True}

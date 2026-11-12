@@ -67,7 +67,8 @@ def load_gitflow(root, user):
     """제출 모듈을 불러와 (GitFlow | None, 못 쓰는 이유)를 돌려줌. 모듈이 없거나 깨져도 풀이와 채점은 돼야 해서 예외를 삼킴."""
     try:
         import gitflow
-        return gitflow.GitFlow(root, user), ""
+        from submission_api import Flow
+        return Flow(gitflow.GitFlow(root, user)), ""
     except Exception as error:
         return None, "제출 모듈(gitflow.py)을 불러오지 못했습니다: %s" % error
 
@@ -242,6 +243,11 @@ class MainWindow(QMainWindow):
             self.ai_error = ""
         except SessionError as error:
             self.ai, self.ai_error = None, str(error)
+        if hasattr(self.gitflow, "set_collections"):
+            collections = {"python": self.session.collection}
+            if self.ai is not None:
+                collections["ai"] = self.ai.collection
+            self.gitflow.set_collections(collections)
         self.start.show_error("")
         go = then or self.go_hub
         if not self.web_node_first(go):
@@ -690,7 +696,22 @@ class MainWindow(QMainWindow):
 
     def submit_pr(self):
         if self.round_page.flush() and self.journey_page.flush():  # 쓰다 만 답과 코드가 빠진 채 올라가지 않게
-            self.run_job("제출하는 중입니다.", self.gitflow.submit, lambda result: self._git_done("제출", result))
+            self.run_job("제출하는 중입니다.", self.gitflow.submit, self._submitted)
+
+    def _submitted(self, result):
+        if result.get("status") == "setup_required":
+            self.show_submission_setup()
+        else:
+            self._git_done("제출", result)
+
+    def show_submission_setup(self):
+        if getattr(self.gitflow, "api", None) is None:
+            return
+        from gui.submission_setup import SubmissionSetup
+        if not self.round_page.flush() or not self.journey_page.flush():
+            return
+        self.submission_dialog = SubmissionSetup(self)
+        self.submission_dialog.show()
 
     def fetch_problems(self):
         if self.round_page.flush() and self.journey_page.flush():

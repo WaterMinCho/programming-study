@@ -118,6 +118,25 @@ def check(url):
     return result
 
 
+def class_invites(database, destination, url, count=100, days=7):
+    """참가자당 하나의 API 개인 초대를 새 비공개 폴더에 저장함."""
+    url = endpoint(url)
+    with new_directory(destination, Path(database.path).parent) as directory:
+        codes = database.invites(count=count, days=days)
+        for index, code in enumerate(codes, 1):
+            text = ("프로그래밍 스터디 개인 초대\n\n서버 주소: %s\n개인 초대 코드: %s\n"
+                    "발급 후 %d일 안에 연결합니다.\n\n"
+                    "프로그램 첫 화면의 [제출 연결]에서 주소와 코드를 입력하고 [연결하고 제출]을 누릅니다.\n"
+                    "풀이 파일은 서버에 저장한 뒤 GitHub 공개 PR로 올립니다. 개인 GitHub 쓰기 권한은 필요하지 않습니다.\n"
+                    "추가 학습 데이터는 비공개로 보내며 입력 답안은 기본으로 제외합니다.\n"
+                    "각 과목의 [학습 데이터]에서 수집 중단·답안 포함·삭제를 관리합니다.\n"
+                    "이 초대는 한 사람만 사용하며 공개 채널이나 저장소에 올리지 않습니다.\n") % (url, code, days)
+            write_private(directory / ("member-%03d.txt" % index), text.encode("utf-8"))
+        result = {"members": count, "invites": count, "created_at": stamp(), "expires_in_days": days}
+        write_private(directory / "manifest.json", (packed(result) + "\n").encode("utf-8"))
+    return result
+
+
 def snapshot_state(path):
     result = status(path)
     result.pop("available_invites")
