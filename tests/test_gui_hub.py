@@ -324,7 +324,7 @@ class HubScreenTest(HubTest):
         self.assertTrue(bar.isVisible())
         self.assertTrue(bar.submit.isHidden())
         self.assertTrue(bar.sync.isVisible())
-        self.assertEqual(bar.message.text(), "새 학습 자료가 있습니다.")
+        self.assertEqual(bar.message.text(), "새 업데이트가 있습니다.")
         checks = self.git.update_checks
         win.check_pending_submission()
         guikit.wait_until(lambda: win.pending_job is None)
