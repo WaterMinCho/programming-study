@@ -17,10 +17,11 @@ config:
     rankSpacing: 36
 ---
 flowchart TD
-    A["내 계정으로 fork"] --> B["컴퓨터로 clone"]
+    I["담당 이슈 확인<br/>#119 · #120 · #121"] --> A["내 계정으로 fork"]
+    A --> B["컴퓨터로 clone"]
     B --> C["모델 작업용<br/>브랜치 만들기"]
     C --> D["비공개 자료 받기<br/>입력·샘플 확인"]
-    D --> E["본인 모델 코드·테스트<br/>개발 PR 보내기"]
+    D --> E["본인 모델 코드·테스트<br/>담당 이슈를 적어 PR 보내기"]
     E --> F["같은 PR에서 수정<br/>검토 후 합치기"]
 ```
 
@@ -136,6 +137,8 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track py
 
 같은 폴더에 모델 코드와 작은 입력을 확인하는 테스트를 만듭니다. README에는 아래 틀로 실제 실행한 명령과 관측한 결과를 적습니다. 입력 읽기부터 예측·학습·저장 순서로 개발하며 지금 검토받을 코드와 질문을 PR에 담습니다. 모델 전체가 완성되기 전에도 Draft PR로 공유할 수 있습니다. 오류가 나면 오류와 질문을 남깁니다.
 
+학습 중 만든 가중치·출력 폴더는 본인 모델 폴더의 `.gitignore`로 제외하고 실제 자료는 저장소 밖에 둡니다. Stage 전에 파일 목록을 확인하세요.
+
 ```markdown
 # 본인ID 모델 실습
 
@@ -173,6 +176,8 @@ git commit -m "feat(model): 본인ID 입력과 예측 코드 추가"
 git push -u origin model/본인ID-model
 ```
 
+Stage 목록에 실제 자료나 가중치가 보이면 커밋 전에 SourceTree의 **Unstage(스테이지 해제)**로 뺍니다. 터미널에서는 `git restore --staged 파일경로`를 실행해 해당 파일을 Stage 목록에서 뺍니다.
+
 푸시 후 GitHub의 본인 fork에서 **Compare & pull request**를 누릅니다. 보이지 않으면 [공통 프로젝트의 Pull requests](https://github.com/WaterMinCho/programming-study/pulls)에서 **New pull request → compare across forks**를 누릅니다.
 
 | GitHub 항목 | 고를 값 |
@@ -184,9 +189,37 @@ git push -u origin model/본인ID-model
 
 변경 목록이 본인 폴더의 코드·테스트·설명인지 확인합니다. 실제 자료와 가중치가 Stage되지 않았는지도 확인합니다. 제목은 실제 변경에 맞춰 [PR 제목 규칙](PR_GUIDE.md)을 따릅니다.
 
-본문에 담당 이슈, 확인한 내용, 실행 결과와 질문을 적고 **Create pull request**를 누릅니다. 아직 작업 중이면 옆 메뉴의 **Create draft pull request**를 선택합니다. PR은 내가 바꾼 내용을 검토하고 공통 프로젝트에 합쳐 달라는 요청입니다.
+본문에 아래 안내대로 담당 이슈와 실행 결과를 적고 **Create pull request**를 누릅니다. 아직 작업 중이면 옆 메뉴의 **Create draft pull request**를 선택합니다. PR은 내가 바꾼 내용을 검토하고 공통 프로젝트에 합쳐 달라는 요청입니다.
 
 PR 주소를 담당 이슈에 붙입니다. 검토를 요청할 때 카드를 **검토**로 옮기고 Draft 작업은 진행에 둡니다.
+
+<a id="이슈와-pr-연결"></a>
+
+### 담당 이슈와 PR 연결하기
+
+예를 들어 michae18이 [LSTM 담당 이슈 #119](https://github.com/WaterMinCho/programming-study/issues/119)의 입력 처리부터 구현했다면, PR 본문에 아래처럼 적습니다. 코드와 결과 설명은 본인이 실제로 한 작업으로 바꾸세요.
+
+```text
+관련 이슈 WaterMinCho/programming-study#119
+
+LSTM에 넣을 입력과 빈 이력 처리 코드를 추가했음. 합성 자료로 입력 크기와 빈 이력 처리를 확인했음. 모델 학습은 다음 작업에서 진행함.
+```
+
+1. **Write(작성)** 탭에 본문을 입력하고 **Preview(미리 보기)**에서 이슈 번호가 링크로 바뀌는지 확인합니다.
+2. 링크를 새 탭으로 열어 공통 저장소의 본인 담당 이슈인지 확인합니다. 본인 fork와 구별할 수 있도록 `WaterMinCho/programming-study#119`처럼 저장소 이름까지 적습니다.
+3. PR을 만든 뒤 담당 이슈에 PR 주소와 이번에 구현한 내용을 댓글로 남깁니다. 이슈에서 관련 코드와 검토 결과를 찾아갈 수 있습니다.
+
+wamangdoo는 `WaterMinCho/programming-study#120`, kimjs85529-a11y는 `WaterMinCho/programming-study#121`을 사용합니다. 담당 이슈 전체가 끝날 때까지는 위처럼 번호를 참조하며 여러 PR을 이어갈 수 있습니다.
+
+### 이슈의 작업을 모두 끝냈을 때
+
+담당 이슈의 완료 조건을 모두 채운 마지막 PR에서는 관련 이슈 줄을 아래처럼 바꿉니다.
+
+```text
+Closes WaterMinCho/programming-study#119
+```
+
+PR의 base가 공통 저장소의 기본 브랜치 `main`인지 확인합니다. PR을 만든 뒤 오른쪽 **Development**에서 해당 이슈가 연결됐는지 확인하세요. 이 PR이 `main`에 머지되면 이슈도 자동으로 닫힙니다. 아직 남은 작업이 있는 PR에 `Closes`를 적었다면 PR 본문의 **Edit**에서 위의 ‘관련 이슈’ 형식으로 고칩니다.
 
 <a id="7-같은-fork에서-모델을-개발합니다"></a>
 
@@ -194,7 +227,7 @@ PR 주소를 담당 이슈에 붙입니다. 검토를 요청할 때 카드를 **
 
 ## 7. 같은 PR에 모델 코드와 수정 사항 추가하기
 
-진행 중인 작업은 같은 브랜치와 PR에서 이어갑니다. README만 올린 기존 PR이 있다면 그 브랜치에 코드를 추가해도 됩니다. 이미 합쳐진 PR과 기존 커밋은 지우지 않습니다. 다음 작업을 시작할 때는 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신하고 로컬 `main`을 Pull한 뒤 새 브랜치를 만듭니다.
+진행 중인 작업은 같은 브랜치와 PR에서 이어갑니다. README만 올린 기존 PR이 있다면 그 브랜치에 코드를 추가해도 됩니다. 이미 합쳐진 PR과 기존 커밋은 지우지 않습니다. 다음 작업을 시작할 때는 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신하고 로컬 `main`을 Pull한 뒤 새 브랜치를 만듭니다. 새 이름은 `model/본인ID-train`처럼 이번 작업에 맞춰 정합니다.
 
 모델 코드도 같은 `experiments/본인ID/` 안에 작성합니다. 아래는 앞으로 만들 파일의 예시이며 완성된 모델 코드가 들어 있다는 뜻은 아닙니다.
 
@@ -220,7 +253,7 @@ model-study/
 
 코드를 바꾸면 본인 폴더의 변경만 골라 Stage → Commit → Push합니다. 같은 브랜치에 Push하면 열린 PR이 갱신됩니다. 공통 입력 도구나 다른 팀원의 폴더를 바꿔야 한다면 먼저 담당 이슈에서 이유를 공유합니다. 이번 작업을 머지한 뒤 다음 목표는 새 PR로 나눠도 됩니다. 입력 확인만 별도 PR로 먼저 통과할 필요는 없습니다. 구체적인 목표는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.
 
-공개 재현에는 합성 자료를 사용합니다. 실제 풀이 원본·입력 답안·가명 구분값·인증 값·실제 자료로 학습한 가중치와 개별 예측은 올리지 않습니다. 로컬 자료·가중치·출력 폴더는 본인 모델 폴더의 `.gitignore`로 제외합니다.
+공개 재현에는 합성 자료를 사용합니다. 실제 풀이 원본·입력 답안·가명 구분값·인증 값·실제 자료로 학습한 가중치와 개별 예측은 올리지 않습니다.
 
 <a id="7-받은-질문에-답하고-이어갑니다"></a>
 
@@ -242,11 +275,12 @@ WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 같은 fork의 같
 
 ## GitHub와 SourceTree 공식 안내
 
-2026년 11월 12일 GitHub와 Atlassian 공식 안내에서 fork, clone, 브랜치, 커밋·푸시, PR 대상을 확인했습니다. SourceTree의 공통 동작으로 설명했으며 메뉴 위치와 이름은 운영체제·버전·언어에 따라 다를 수 있습니다.
+2026년 11월 12일 GitHub와 Atlassian 공식 안내에서 fork, clone, 브랜치, 커밋·푸시, PR 대상을 확인했습니다. 11월 13일 GitHub 공식 안내에서 이슈 연결과 자동 종료 조건도 확인했습니다. SourceTree의 공통 동작으로 설명했으며 메뉴 위치와 이름은 운영체제·버전·언어에 따라 다를 수 있습니다.
 
 - [공통 프로젝트 fork하기][fork]
 - [fork 갱신하기][sync]
 - [fork에서 PR 보내기][pr]
+- [이슈와 PR 연결 및 자동 종료][issue-pr]
 - [SourceTree에서 저장소 받기][st-clone]
 - [SourceTree에서 브랜치를 만들고 보내기][st-branch]
 - [SourceTree에서 커밋과 푸시하기][st-commit]
@@ -258,3 +292,4 @@ WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 같은 fork의 같
 [st-branch]: https://confluence.atlassian.com/get-started-with-sourcetree/create-and-push-a-branch-to-the-remote-repository-git-847359118.html
 [st-commit]: https://confluence.atlassian.com/get-started-with-sourcetree/commit-and-push-a-change-git-847359114.html
 [git-setup]: https://docs.github.com/en/get-started/git-basics/set-up-git
+[issue-pr]: https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue
