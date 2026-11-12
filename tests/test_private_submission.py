@@ -30,7 +30,7 @@ class PrivateSubmissionTest(unittest.TestCase):
     def test_production_public_routes_are_closed_before_any_publisher(self):
         self.app = application(self.db)
         with mock.patch("tests.legacy_submissions.Publisher.configured") as publisher:
-            for path in ("/v1/register", "/v1/register/open", "/v1/submissions/publish"):
+            for path in ("/v1/register", "/v1/register/open", "/v1/submissions", "/v1/submissions/publish"):
                 self.assertEqual(410, self.call(path, {})[0])
             publisher.assert_not_called()
 
@@ -190,3 +190,24 @@ class PrivateSubmissionTest(unittest.TestCase):
         with self.db.connect() as db:
             self.assertEqual(0, db.execute("SELECT count(*) FROM submission_accounts WHERE participant=?", (config["participant"],)).fetchone()[0])
             self.assertEqual((1,), db.execute("SELECT revoked FROM participants WHERE participant=?", (config["participant"],)).fetchone())
+
+    def test_locked_pending_file_is_retried_after_connection_was_deleted(self):
+        client = self.client()
+        client.connect_open("https://example.test")
+        client.pending_path.write_text("temporary answer")
+        legacy = self.consent.path.with_name("submission-pending.json")
+        legacy.write_text("previous answer")
+        original = Path.unlink
+        def locked(path, *args, **kwargs):
+            if path == client.pending_path:
+                raise OSError("locked")
+            return original(path, *args, **kwargs)
+        with mock.patch.object(Path, "unlink", locked):
+            self.consent.withdraw()
+            self.assertTrue(self.consent.synchronize()["errors"])
+            self.assertTrue(self.consent.settings()["withdraw_pending"])
+        self.assertFalse(client.path.exists())
+        self.assertTrue(client.pending_path.exists())
+        self.assertFalse(legacy.exists())
+        self.assertTrue(self.consent.synchronize()["withdrawn"])
+        self.assertFalse(client.pending_path.exists())

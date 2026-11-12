@@ -149,6 +149,11 @@ class Consent:
                 store.delete()
             except Exception as error:
                 errors.append(str(error))
+        for name in ("private-submission-pending.json", "submission-pending.json"):
+            try:
+                self.path.with_name(name).unlink(missing_ok=True)
+            except OSError:
+                errors.append("이 기기의 전송 대기 답안을 삭제하지 못했습니다. 다시 시도합니다.")
         return errors
 
     def synchronize(self, canceled=lambda: False):
@@ -211,8 +216,6 @@ class Consent:
                 if confirmed.get("deleted") is not True:
                     raise CollectionError("서버 삭제를 확인하지 못했습니다.")
                 path.unlink()
-                if name == "private-submission.json":
-                    path.with_name("private-submission-pending.json").unlink(missing_ok=True)
             except (CollectionError, OSError, ValueError, KeyError, TypeError):
                 errors.append("제출한 기록의 삭제를 확인하지 못했습니다. 문의: " + CONTACT)
         return errors
