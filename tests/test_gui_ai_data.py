@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""배포 시 동의를 받은 수집 화면과 작은 창의 동작을 확인함."""
+"""첫 실행 동의를 공통으로 쓰는 수집 화면과 작은 창의 동작을 확인함."""
 import json
 import threading
 from pathlib import Path

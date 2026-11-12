@@ -122,7 +122,7 @@ class PrivateSubmissionTest(unittest.TestCase):
         transport = client.transport
         def withdrawing(*args, **kwargs):
             result = transport(*args, **kwargs)
-            self.consent.choose(False)
+            self.consent.withdraw()
             return result
         client.transport = withdrawing
         with self.assertRaises(CollectionError):
