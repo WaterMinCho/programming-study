@@ -33,6 +33,11 @@ def main():
     class_invites.add_argument("--count", type=int, default=100)
     class_invites.add_argument("--days", type=int, default=7)
     sub.add_parser("status", help="기존 DB의 무결성과 과목별 기록 수를 확인합니다.")
+    capacity = sub.add_parser("capacity", help="운영 폴더 전체의 용량과 보관량 상한을 확인합니다.")
+    capacity.add_argument("--storage-root", required=True)
+    capacity.add_argument("--quota-mib", type=int, required=True)
+    capacity.add_argument("--warn-percent", type=int, default=80)
+    capacity.add_argument("--verify", action="store_true", help="원본 전체와 누적 보관량을 별도로 대조합니다.")
     backup = sub.add_parser("backup", help="기존 DB와 인증 키를 함께 백업합니다.")
     backup.add_argument("--out", required=True)
     restore = sub.add_parser("restore", help="검증한 백업을 새 폴더에 복구합니다.")
@@ -78,7 +83,7 @@ def main():
         except (OSError, ValueError, KeyError, TypeError, AttributeError, sqlite3.Error, ApiError):
             parser.exit(1, packed({"status": "error", "code": "legacy_transfer_failed"}) + "\n")
     try:
-        if args.command in ("check", "restore", "status", "backup"):
+        if args.command in ("check", "restore", "status", "backup", "capacity"):
             from learning_server import operations
             if args.command == "check":
                 result = operations.check(args.url)
@@ -88,9 +93,14 @@ def main():
                 raise ValueError("기존 서버 데이터 파일을 --db로 지정해 주세요.")
             elif args.command == "status":
                 result = operations.status(args.db)
+            elif args.command == "capacity":
+                from learning_server.capacity import report
+                result = report(args.db, args.storage_root, args.quota_mib, args.warn_percent, args.verify)
             else:
                 result = operations.backup(args.db, args.out)
             print(packed(result))
+            if args.command == "capacity" and result["warnings"]:
+                parser.exit(2)
             return
         if args.command == "cohorts":
             from learning_server.cohorts import export as export_cohorts

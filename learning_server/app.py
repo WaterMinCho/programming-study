@@ -71,6 +71,8 @@ class Database:
             """)
             from learning_server.submissions import SCHEMA
             db.executescript(SCHEMA)
+            from learning_server.storage import initialize
+            initialize(db)
         if os.name != "nt":
             os.chmod(self.path, 0o600)
 
@@ -98,12 +100,9 @@ class Database:
 
     def storage_limit(self, db, participant, extra_bytes, extra_events=0):
         """새로 저장할 분량을 논리 보관량과 대조함."""
-        def used(where="", args=()):
-            events = db.execute("SELECT count(*), coalesce(sum(length(CAST(payload AS BLOB))),0) FROM events" + where, args).fetchone()
-            files = db.execute("SELECT coalesce(sum(length(payload)),0) FROM api_submissions" + where, args).fetchone()[0]
-            return events[0], events[1]+files
-        count, own = used(" WHERE participant=?", (participant,))
-        total = used()[1]
+        from learning_server.storage import usage
+        count, own = usage(db, participant)
+        total = usage(db)[1]
         if total+extra_bytes > MAX_STORED_BYTES or own+extra_bytes > MAX_PARTICIPANT_BYTES or count+extra_events > MAX_PARTICIPANT_EVENTS:
             raise ApiError(507, "서버의 기록 보관량에 도달했습니다. 로컬 풀이는 유지되며 운영자 확인 후 다시 전송합니다.")
 

@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QCheckBox, QDialog, QWidget
 
 from aiprep.collection import CollectionError
 from aiprep.privacy import Consent, NOTICE_ROWS
+from aiprep import sync_schedule
 from gui import dialogs, kit, theme
 from gui.worker import Job
 
@@ -66,6 +67,8 @@ class ConsentDialog(QDialog):
             text = "동의 여부를 선택해 주세요."
             if pending:
                 text = "이 기기의 수집을 멈췄습니다. 서버 삭제는 연결되는 대로 다시 시도합니다."
+                if os.environ.get("STUDY_AUTO_SYNC", "1") == "0":
+                    text = "이 기기의 수집을 멈췄습니다. 서버 연결이 중지되어 삭제 요청을 보내지 못했습니다."
             elif active:
                 text = "수집에 동의했습니다 · 선택 시각: " + state.get("at", "")[:19].replace("T", " ")
             elif state:
@@ -123,12 +126,12 @@ class SyncController(QObject):
         self.consent = Consent(collections)
         self.message, self.job = "", None
         self.cancel, self.closing = threading.Event(), False
+        self.failures = 0
         self.timer = QTimer(self)
-        self.timer.setInterval(60000)
+        self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.tick)
         if os.environ.get("STUDY_AUTO_SYNC", "1") != "0":
-            self.timer.start()
-            QTimer.singleShot(0, self.tick)
+            self.timer.start(sync_schedule.initial_ms())
 
     def show(self, first=False):
         self.dialog = ConsentDialog(self.parent(), self, first)
@@ -137,11 +140,14 @@ class SyncController(QObject):
     def tick(self):
         if self.job is not None or os.environ.get("STUDY_AUTO_SYNC", "1") == "0":
             return
+        self.timer.stop()
         try:
             state = self.consent.settings()
         except CollectionError as error:
             self.message = str(error)
             self.changed.emit()
+            self.failures = min(4, self.failures + 1)
+            self.timer.start(sync_schedule.delay_ms(self.failures))
             return
         if not state.get("accepted") and not state.get("withdraw_pending"):
             return
@@ -154,6 +160,7 @@ class SyncController(QObject):
         self.job.start()
 
     def finish(self, result):
+        self.failures = min(4, self.failures + 1) if result.get("errors") else 0
         self.message = ("처리 대기 · " + result["errors"][0] if result.get("errors") else
                         "서버의 비공개 기록 삭제를 확인했습니다." if result.get("withdrawn") else
                         "서버에 새 기록 %d건을 전송했습니다." % result.get("sent", 0))
@@ -164,8 +171,22 @@ class SyncController(QObject):
         self.job = None
         if self.closing:
             self.parent().close()
-        elif self.consent.settings().get("choice") != self.job_choice:
+            return
+        try:
+            state = self.consent.settings()
+        except CollectionError as error:
+            self.message = str(error)
+            self.changed.emit()
+            self.failures = min(4, self.failures + 1)
+            if os.environ.get("STUDY_AUTO_SYNC", "1") != "0":
+                self.timer.start(sync_schedule.delay_ms(self.failures))
+            return
+        if state.get("choice") != self.job_choice:
+            self.failures = 0
             QTimer.singleShot(0, self.tick)
+        elif os.environ.get("STUDY_AUTO_SYNC", "1") != "0":
+            if state.get("accepted") or state.get("withdraw_pending"):
+                self.timer.start(sync_schedule.delay_ms(self.failures, bool(state.get("withdraw_pending"))))
 
     def stop(self):
         self.timer.stop()
