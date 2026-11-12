@@ -91,16 +91,15 @@ def pilot(database, destination, url, days=7):
         codes = database.invites(count=8, days=days)
         for index in range(4):
             message = (
-                "수집 서버 시범 운영에 참여합니다\n\n"
+                "운영자용 이전 시범 초대입니다\n\n"
                 "서버 주소: %s\n"
                 "AI 개론·응용 초대 코드: %s\n"
                 "파이썬 초대 코드: %s\n"
                 "초대 유효 기간: 발급 후 %d일\n\n"
-                "각 과목 홈의 [학습 데이터]에서 수집 항목을 확인할 수 있습니다.\n"
-                "배포 때 동의한 범위에서 풀이 기록을 수집하며, 서버 주소와 해당 과목의 초대 코드를 입력합니다.\n"
-                "[서버에 보내기]를 누를 때만 전송하며 입력 답안 포함은 기본으로 꺼져 있습니다.\n"
-                "수집을 중단해도 학습과 풀이 제출을 사용할 수 있습니다.\n"
-                "[서버의 내 풀이 삭제]로 서버 기록을 지우고 전송 인증을 폐기할 수 있습니다.\n"
+                "일반 수강생에게는 개인 초대 파일이 필요하지 않습니다. 첫 실행에서 동의 여부를 선택합니다.\n"
+                "현재 프로그램은 동의 후 새 기록을 자동 전송합니다. 입력 답안 포함은 기본으로 꺼져 있습니다.\n"
+                "동의 상태와 철회는 [내 정보·데이터]에서 관리하며, 동의하지 않아도 학습·로컬 채점은 사용할 수 있습니다.\n"
+                "위 코드는 운영자가 별도 시범 연결을 안내한 경우에만 사용합니다.\n"
                 "내보낸 사본과 백업 삭제는 프로그램 담당에게 별도로 요청합니다.\n"
                 "두 코드는 본인만 사용하며 공개 채널이나 저장소에 올리지 않습니다.\n"
             ) % (url, codes[index * 2], codes[index * 2 + 1], days)
@@ -124,12 +123,12 @@ def class_invites(database, destination, url, count=100, days=7):
     with new_directory(destination, Path(database.path).parent) as directory:
         codes = database.invites(count=count, days=days)
         for index, code in enumerate(codes, 1):
-            text = ("프로그래밍 스터디 개인 초대\n\n서버 주소: %s\n개인 초대 코드: %s\n"
+            text = ("운영자용 이전 시범 초대\n\n서버 주소: %s\n개인 초대 코드: %s\n"
                     "발급 후 %d일 안에 연결합니다.\n\n"
-                    "프로그램 첫 화면의 [제출 연결]에서 주소와 코드를 입력하고 [연결하고 제출]을 누릅니다.\n"
-                    "풀이 파일은 서버에 저장한 뒤 GitHub 공개 PR로 올립니다. 개인 GitHub 쓰기 권한은 필요하지 않습니다.\n"
-                    "추가 학습 데이터는 비공개로 보내며 입력 답안은 기본으로 제외합니다.\n"
-                    "각 과목의 [학습 데이터]에서 수집 중단·답안 포함·삭제를 관리합니다.\n"
+                    "일반 수강생은 이 초대 파일을 사용하지 않습니다. 첫 실행에서 수집 동의 여부를 선택합니다.\n"
+                    "동의 후 새 학습 기록을 비공개 서버로 자동 전송하며 입력 답안 본문은 제외합니다.\n"
+                    "풀이 파일은 [풀이 제출]에서 내용을 확인한 뒤 비공개로 보냅니다. 새 풀이 PR은 만들지 않습니다.\n"
+                    "동의 상태와 철회는 [내 정보·데이터]에서 관리합니다.\n"
                     "이 초대는 한 사람만 사용하며 공개 채널이나 저장소에 올리지 않습니다.\n") % (url, code, days)
             write_private(directory / ("member-%03d.txt" % index), text.encode("utf-8"))
         result = {"members": count, "invites": count, "created_at": stamp(), "expires_in_days": days}
