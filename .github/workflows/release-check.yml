@@ -2,13 +2,26 @@ name: Windows 첫 실행 검사
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/check_release.py'
+      - '.github/workflows/release-check.yml'
+      - 'bootstrap.py'
+      - 'start.bat'
+      - 'start.pyw'
+      - 'gui/app.py'
+      - 'gui/icon.py'
+      - 'gui/launcher_shortcut.py'
+      - 'tests/test_launcher_shortcut.py'
+      - 'tests/test_gui_launcher.py'
 
 permissions:
   contents: read
 
 jobs:
   windows:
-    name: 전역 화면 확인 (배율 ${{ matrix.scale }})
+    name: 새 설치와 작은 창 (배율 ${{ matrix.scale }})
     runs-on: windows-latest
     timeout-minutes: 12
     strategy:
@@ -20,25 +33,22 @@ jobs:
       QT_QPA_PLATFORM: windows
       QT_SCALE_FACTOR: ${{ matrix.scale }}
       STUDY_NODE_PROBE: '0'
-      STUDY_AUTO_SYNC: '0'
     steps:
       - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
-      - run: |
-          python -m pip install --only-binary=:all: PyQt6
-      - name: 변경 화면과 전환 경로 확인
-        env:
-          STUDY_UI_ARTIFACT_DIR: ${{ runner.temp }}/global-ui-check
-        run: python -c "import base64; exec(compile(base64.b64decode('aW1wb3J0IGpzb24sb3MscGxhdGZvcm0sc3lzLHVuaXR0ZXN0CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aApmcm9tIFB5UXQ2LlF0Q29yZSBpbXBvcnQgUVRfVkVSU0lPTl9TVFIsUFlRVF9WRVJTSU9OX1NUUgpmcm9tIFB5UXQ2LlF0V2lkZ2V0cyBpbXBvcnQgUUFwcGxpY2F0aW9uCmZyb20gdGVzdHMgaW1wb3J0IGd1aWtpdApvdXQ9UGF0aChvcy5lbnZpcm9uWydTVFVEWV9VSV9BUlRJRkFDVF9ESVInXSk7b3V0Lm1rZGlyKHBhcmVudHM9VHJ1ZSxleGlzdF9vaz1UcnVlKQppdGVtcz1bXQpjbGFzcyBSZXN1bHQodW5pdHRlc3QuVGV4dFRlc3RSZXN1bHQpOgogZGVmIHN0YXJ0VGVzdChzZWxmLGNhc2UpOgogIHN1cGVyKCkuc3RhcnRUZXN0KGNhc2UpO29yaWdpbmFsPWNhc2UudGVhckRvd24KICBkZWYgZmluaXNoKCk6CiAgIHRyeToKICAgIHdpbj1nZXRhdHRyKGNhc2UsJ3dpbicsTm9uZSkKICAgIGlmIHdpbiBpcyBub3QgTm9uZSBhbmQgd2luLmlzVmlzaWJsZSgpOgogICAgIGd1aWtpdC5wdW1wKDMwKTtuYW1lPWNhc2UuaWQoKS5yc3BsaXQoJy4nLDEpWy0xXTt3aW4uZ3JhYigpLnNhdmUoc3RyKG91dC8obmFtZSsnLnBuZycpKSk7c2NyZWVuPXdpbi5zY3JlZW4oKTtuYXRpdmU9c2NyZWVuLmdyYWJXaW5kb3coaW50KHdpbi53aW5JZCgpKSk7bmF0aXZlLnNhdmUoc3RyKG91dC8obmFtZSsnLW5hdGl2ZS5wbmcnKSkpCiAgICAgaXRlbXMuYXBwZW5kKHsnY2FzZSc6Y2FzZS5pZCgpLCd3aW5kb3cnOlt3aW4ud2lkdGgoKSx3aW4uaGVpZ2h0KCldLCdzY3JlZW5fYXZhaWxhYmxlJzpbc2NyZWVuLmF2YWlsYWJsZUdlb21ldHJ5KCkud2lkdGgoKSxzY3JlZW4uYXZhaWxhYmxlR2VvbWV0cnkoKS5oZWlnaHQoKV0sJ25hdGl2ZV9jb21wbGV0ZSc6c2NyZWVuLmF2YWlsYWJsZUdlb21ldHJ5KCkuY29udGFpbnMod2luLmZyYW1lR2VvbWV0cnkoKSksJ2RldmljZV9waXhlbF9yYXRpbyc6d2luLmRldmljZVBpeGVsUmF0aW9GKCksJ25hdGl2ZV9pbWFnZSc6W25hdGl2ZS53aWR0aCgpLG5hdGl2ZS5oZWlnaHQoKV19KQogICBmaW5hbGx5Om9yaWdpbmFsKCkKICBjYXNlLnRlYXJEb3duPWZpbmlzaApuYW1lcz1bJ3Rlc3RzLnRlc3RfZ3VpX2dsb2JhbF9jb25zaXN0ZW5jeS5HbG9iYWxDb25zaXN0ZW5jeVRlc3QudGVzdF9zdWJtaXNzaW9uX3RpdGxlX2FuZF9kZXNjcmlwdGlvbl9rZWVwX3RoZV9jb21tb25fZ2FwX2luX2FfbGFyZ2VfZGlhbG9nJ10Kc3VpdGU9dW5pdHRlc3QuZGVmYXVsdFRlc3RMb2FkZXIubG9hZFRlc3RzRnJvbU5hbWVzKG5hbWVzKTtyZXN1bHQ9dW5pdHRlc3QuVGV4dFRlc3RSdW5uZXIodmVyYm9zaXR5PTIscmVzdWx0Y2xhc3M9UmVzdWx0KS5ydW4oc3VpdGUpCnJlcG9ydD17J3B5dGhvbic6cGxhdGZvcm0ucHl0aG9uX3ZlcnNpb24oKSwnb3MnOnBsYXRmb3JtLnBsYXRmb3JtKCksJ3F0JzpRVF9WRVJTSU9OX1NUUiwncHlxdCc6UFlRVF9WRVJTSU9OX1NUUiwncGxhdGZvcm0nOlFBcHBsaWNhdGlvbi5wbGF0Zm9ybU5hbWUoKSwnc2NhbGUnOm9zLmVudmlyb24uZ2V0KCdRVF9TQ0FMRV9GQUNUT1InKSwndGVzdHMnOnJlc3VsdC50ZXN0c1J1biwnZmFpbHVyZXMnOmxlbihyZXN1bHQuZmFpbHVyZXMpLCdlcnJvcnMnOmxlbihyZXN1bHQuZXJyb3JzKSwnc2tpcHBlZCc6bGVuKHJlc3VsdC5za2lwcGVkKSwnc3VjY2Vzcyc6cmVzdWx0Lndhc1N1Y2Nlc3NmdWwoKSBhbmQgbm90IHJlc3VsdC5za2lwcGVkIGFuZCBRQXBwbGljYXRpb24ucGxhdGZvcm1OYW1lKCk9PSd3aW5kb3dzJywnY2FwdHVyZXMnOml0ZW1zfQoob3V0LydnbG9iYWwtcmVwb3J0Lmpzb24nKS53cml0ZV90ZXh0KGpzb24uZHVtcHMocmVwb3J0LGluZGVudD0yKSk7cmFpc2UgU3lzdGVtRXhpdChub3QgcmVwb3J0WydzdWNjZXNzJ10pCg=='), 'native-windows-check.py', 'exec'))"
-      - name: 실제 창과 위젯 화면 보관
+      - name: 기존 화면 도구가 없는 새 환경 확인
+        run: python -c "import importlib.util; assert importlib.util.find_spec('PyQt6') is None"
+      - name: 프로그램 설치 경로와 첫 사용 검사
+        run: python tools/check_release.py --out "${{ runner.temp }}/release-check"
+      - name: 환경·창 크기·검사 결과와 화면 보관
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-global-scale-${{ matrix.scale }}
-          path: ${{ runner.temp }}/global-ui-check/
-          if-no-files-found: error
+          name: windows-release-scale-${{ matrix.scale }}
+          path: |
+            ${{ runner.temp }}/release-check/report.json
+            ${{ runner.temp }}/release-check/*.png
+          if-no-files-found: warn
           retention-days: 14
