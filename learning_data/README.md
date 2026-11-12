@@ -1,4 +1,6 @@
-# 학습 기록·동의·전송 코드를 찾습니다
+# 학습 기록·동의·전송 코드 위치
+
+<a id="학습-기록동의전송-코드를-찾습니다"></a>
 
 [전체 프로젝트 구조](../docs/ARCHITECTURE.md) · [모델 개발 시작](../docs/STUDY_START.md)
 
@@ -16,7 +18,9 @@
 
 화면 배치는 `gui/`, 서버 요청 처리와 자료 준비는 `learning_server/`, AI 문제·학습·연습은 `aiprep/`에서 고칩니다. 팀원의 모델 코드는 `experiments/본인GitHubID/`에 둡니다.
 
-## 기존 경로로 불러와도 같은 구현을 사용합니다
+<a id="기존-경로로-불러와도-같은-구현을-사용합니다"></a>
+
+## 기존 import 경로와 실제 구현 파일
 
 `aiprep/collection.py`, `aiprep/privacy.py`, `aiprep/sharing.py`, `aiprep/goals.py`, `aiprep/sync_schedule.py`, 루트의 `python_collection.py`와 `submission_api.py`는 기존 import를 위한 연결 파일입니다. 구현을 고칠 때는 위 표의 파일을 수정합니다.
 

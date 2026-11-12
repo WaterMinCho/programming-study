@@ -1,4 +1,6 @@
-# 각자 fork에서 모델을 만들고 PR을 보냅니다
+# 내 fork에서 모델을 개발하고 PR 보내기
+
+<a id="각자-fork에서-모델을-만들고-pr을-보냅니다"></a>
 
 공통 프로젝트를 본인 GitHub 계정으로 fork하고, 그 안의 `experiments/본인ID/`에서 모델을 만듭니다. 코드·설정·실험 기록을 같은 fork에 쌓고 공통 프로젝트로 PR을 보냅니다. 별도의 모델 저장소를 새로 만들 필요는 없습니다.
 
@@ -22,7 +24,9 @@ flowchart TD
     E --> F["같은 PR에서 수정<br/>검토 후 합치기"]
 ```
 
-## 어디에 무엇을 남기나요
+<a id="어디에-무엇을-남기나요"></a>
+
+## GitHub 보드·이슈·PR에 남길 내용
 
 | 공간 | 남기는 내용 |
 |---|---|
@@ -33,7 +37,9 @@ flowchart TD
 
 이 문서의 `본인ID`는 실제 GitHub ID로 바꿉니다. `origin`은 clone한 본인 fork의 주소 이름입니다. 프로그램으로 문제를 풀던 기존 폴더는 별도로 두고 모델 작업용 폴더를 준비합니다.
 
-## 1. 본인 카드부터 엽니다
+<a id="1-본인-카드부터-엽니다"></a>
+
+## 1. GitHub 보드에서 내 담당 이슈 열기
 
 [스터디 보드](https://github.com/users/WaterMinCho/projects/2/views/1)의 **내 작업**에서 본인 카드를 엽니다. 보드를 열 수 없거나 카드가 없으면 WaterMinCho에게 GitHub ID를 알려주세요.
 
@@ -50,7 +56,9 @@ flowchart TD
 
 <a id="2-개인-모델-저장소를-만듭니다"></a>
 
-## 2. 공통 프로젝트를 fork하고 컴퓨터로 받습니다
+<a id="2-공통-프로젝트를-fork하고-컴퓨터로-받습니다"></a>
+
+## 2. 프로젝트를 fork하고 내 컴퓨터로 받기
 
 1. GitHub에서 [공통 저장소](https://github.com/WaterMinCho/programming-study)를 열고 **Fork → Create fork**로 본인 계정에 복사합니다. 이미 fork가 있다면 그 저장소를 사용합니다.
 2. 화면 왼쪽 위가 `본인ID/programming-study`인지 확인합니다. 기존 fork는 `main`에서 **Sync fork**를 열고 받을 변경이 있으면 **Update branch**로 반영합니다. 충돌 안내가 나오면 담당 이슈에 남깁니다.
@@ -77,7 +85,9 @@ git config user.email "본인 커밋 이메일"
 
 HTTPS 인증이 준비되지 않았다면 [GitHub의 Git 인증 안내][git-setup]를 따라 연결합니다.
 
-## 3. 모델 작업 브랜치를 만듭니다
+<a id="3-모델-작업-브랜치를-만듭니다"></a>
+
+## 3. 모델 개발 브랜치 만들기
 
 SourceTree에서 본인 fork를 열고 커밋하지 않은 변경이 없는지 확인합니다. 왼쪽 **Branches(브랜치)**의 `main`을 더블클릭하고 **Pull(풀)**에서 `origin/main`을 받습니다. 기존 변경이나 충돌이 있으면 먼저 확인합니다. 위쪽 **Branch(브랜치)**에서 `model/본인ID-model`을 만들고 새 브랜치로 전환합니다.
 
@@ -94,11 +104,13 @@ git switch -c model/본인ID-model
 
 <a id="3-공통-연습-자료를-읽습니다"></a>
 
-## 4. 공통 입력을 읽습니다
+<a id="4-공통-입력을-읽습니다"></a>
+
+## 4. 공통 예제에서 모델 입력과 정답 확인하기
 
 [실제 자료 받기·샘플링 안내](LEARNING_DATA_ACCESS.md)를 따라 같은 자료 묶음의 비공개 파일을 받고 입력을 확인합니다. 입력 확인 문서만 먼저 PR로 보내고 머지를 기다릴 필요는 없습니다. 아직 자료를 받지 못했다면 아래 합성 예제로 시작합니다.
 
-컴퓨터에 Git과 Python을 준비한 뒤 진행합니다. 처음 설치한다면 [프로그램 준비](../gui/README.md#최초-한번-준비해야할-것)를 확인합니다. 이번 입력 실습은 PyTorch나 GPU 없이 실행합니다.
+컴퓨터에 Git과 Python을 준비한 뒤 진행합니다. 처음 설치한다면 [프로그램 준비](../gui/README.md#처음-설치할-때)를 확인합니다. 이번 입력 실습은 PyTorch나 GPU 없이 실행합니다.
 
 현재 `programming-study` 안에 `study.py`와 `learning_server`가 보이는지 확인합니다. SourceTree를 쓰는 사람도 이 폴더에서 터미널을 열고 다음 Python 명령을 실행합니다.
 
@@ -107,7 +119,7 @@ python -m learning_server.starter --synthetic --out ../learning-demo-f4
 python -m learning_server.input_example --dataset ../learning-demo-f4 --track python --batch-size 4 --length 4
 ```
 
-첫 명령은 가상 풀이 자료를 만들고 두 번째 명령은 입력 예시 4개를 읽습니다. 각 예시의 과거 풀이를 최대 4개까지 확인하며 모델을 학습하지는 않습니다. `inputs`와 이번 정답표인 `targets`, 과거 풀이의 실제 자리인 `mask`, 실제 길이인 `lengths`를 [공통 입력 설명](LEARNING_STARTER.md#세-모델이-같은-입력을-사용합니다)과 대조합니다. 오답 0과 빈 자리를 구분해보세요. `--track python`을 `--track ai`로 바꾸면 AI 개론·응용 예제를 읽습니다.
+첫 명령은 가상 풀이 자료를 만들고 두 번째 명령은 입력 예시 4개를 읽습니다. 각 예시의 과거 풀이를 최대 4개까지 확인하며 모델을 학습하지는 않습니다. `inputs`와 이번 정답표인 `targets`, 과거 풀이의 실제 자리인 `mask`, 실제 길이인 `lengths`를 [공통 입력 설명](LEARNING_STARTER.md#세-모델의-공통-입력-형식)과 대조합니다. 오답 0과 빈 자리를 구분해보세요. `--track python`을 `--track ai`로 바꾸면 AI 개론·응용 예제를 읽습니다.
 
 `python`을 찾지 못하면 Windows는 `py`, Mac은 `python3`로 바꿉니다. `No module named learning_server`가 나오면 현재 폴더부터 확인합니다. `learning-demo-f4`가 이미 있으면 두 번째 명령으로 읽습니다. 새 자료를 만들 때는 `--out`과 `--dataset`에 같은 새 폴더 이름을 쓰며 기존 자료는 덮어쓰지 않습니다.
 
@@ -116,7 +128,9 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track py
 
 <a id="5-본인-폴더에-첫-실습-기록을-적습니다"></a>
 
-## 5. 본인 폴더에서 코드와 테스트를 만듭니다
+<a id="5-본인-폴더에서-코드와-테스트를-만듭니다"></a>
+
+## 5. 내 실험 폴더에 코드와 테스트 작성하기
 
 편집기에서 `programming-study/experiments/본인ID/README.md`를 만듭니다. 없는 폴더는 함께 만듭니다. 일반 텍스트로 저장하고 파일 이름이 `README.md.txt`가 되지 않았는지 확인합니다. 공통 프로젝트 맨 위의 README 대신 본인 폴더의 README를 수정합니다.
 
@@ -138,7 +152,9 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track py
 
 예를 들어 michae18은 본인 fork의 `experiments/michae18/README.md`에 기본 LSTM을 맡았다고 적고, 출력에서 과거 오답과 이번 정답표를 어떻게 구분했는지 설명합니다. 모델 학습을 아직 하지 않았다면 그 단계는 미실행으로 적습니다. 상세 기록에는 [실험 기록 양식](LEARNING_EXPERIMENT_TEMPLATE.md)을 사용해도 됩니다.
 
-## 6. 커밋·푸시하고 첫 PR을 엽니다
+<a id="6-커밋푸시하고-첫-pr을-엽니다"></a>
+
+## 6. 커밋하고 GitHub에 첫 PR 열기
 
 SourceTree에서 다음 순서로 진행합니다.
 
@@ -174,7 +190,9 @@ PR 주소를 담당 이슈에 붙입니다. 검토를 요청할 때 카드를 **
 
 <a id="7-같은-fork에서-모델을-개발합니다"></a>
 
-## 7. 같은 PR에서 모델 개발과 수정을 이어갑니다
+<a id="7-같은-pr에서-모델-개발과-수정을-이어갑니다"></a>
+
+## 7. 같은 PR에 모델 코드와 수정 사항 추가하기
 
 진행 중인 작업은 같은 브랜치와 PR에서 이어갑니다. README만 올린 기존 PR이 있다면 그 브랜치에 코드를 추가해도 됩니다. 이미 합쳐진 PR과 기존 커밋은 지우지 않습니다. 다음 작업을 시작할 때는 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신하고 로컬 `main`을 Pull한 뒤 새 브랜치를 만듭니다.
 
@@ -206,7 +224,9 @@ model-study/
 
 <a id="7-받은-질문에-답하고-이어갑니다"></a>
 
-## 받은 질문에 답하고 이어갑니다
+<a id="받은-질문에-답하고-이어갑니다"></a>
+
+## 리뷰 질문에 답하고 수정한 커밋 남기기
 
 WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 같은 fork의 같은 작업 브랜치에서 파일을 고친 뒤 바꾼 파일만 커밋하고 같은 원격 브랜치로 푸시하면 기존 PR에 반영됩니다. 수정할 때마다 새 PR을 만들지 않습니다. 무엇을 고쳤고 어떤 결과를 다시 확인했는지 답합니다. 팀원 PR은 자동 머지하지 않습니다.
 
@@ -218,7 +238,9 @@ WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 같은 fork의 같
 
 기존 코드와 커밋을 지우지 않습니다. 본인 fork의 새 브랜치에 필요한 코드와 설명을 옮기고 `REVIEW_NOTES.md`에 원래 저장소·전체 커밋 SHA·가져온 부분을 적습니다. 다른 사람이 만든 부분과 직접 바꾼 부분을 구분합니다. 아직 시작하지 않았다면 fork 안의 본인 폴더에서 시작하면 됩니다.
 
-## 사용 방법을 확인한 자료입니다
+<a id="사용-방법을-확인한-자료입니다"></a>
+
+## GitHub와 SourceTree 공식 안내
 
 2026년 11월 12일 GitHub와 Atlassian 공식 안내에서 fork, clone, 브랜치, 커밋·푸시, PR 대상을 확인했습니다. SourceTree의 공통 동작으로 설명했으며 메뉴 위치와 이름은 운영체제·버전·언어에 따라 다를 수 있습니다.
 
