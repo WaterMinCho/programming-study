@@ -40,6 +40,10 @@ SYSTEM = review.SYSTEM + """
 자료 설명만 바꾸면 입력 이해·설명의 정확성을, 모델 코드를 바꾸면 해당 배열·예측을, 학습·평가를 바꾸면 그 실행 근거를 확인함.
 관련 없는 문제 은행·화면 검사나 아직 제출하지 않은 다음 단계 구현을 요구하지 않음. 공통 구조를 바꿀 제안은 현재 결함과 구분하고 필요한 이유를 적음.
 각 지적의 quote는 해당 경로의 실제 추가 줄에서 그대로 인용함. 제공한 코드 밖의 동작을 확정하지 않음.
+summary는 확인 범위와 지금 할 일을 2~3문장으로 씀. findings와 questions의 내용을 summary에 되풀이하지 않음.
+blocking이 참이면 지금 수정할 결함, 거짓이면 선택 제안임. 선택 제안을 승인에 필요한 수정처럼 설명하지 않음.
+hint에는 작성자가 고칠 파일과 동작을, reason에는 고치지 않았을 때 생기는 일을, check에는 작은 확인 입력과 볼 결과를 씀.
+Git을 처음 쓰는 사람이 읽으므로 낯선 용어는 값이나 동작의 예로 설명함. 커밋·푸시 절차는 게시기가 붙이므로 중복하지 않음.
 discussion의 새 질문에도 코드 근거로 답함. 이전 피드백과 달라진 판단은 이유를 설명함. 응답은 한국어 기록체로 씀.
 """
 
@@ -141,11 +145,29 @@ def validate(data, assessment, author):
     return "COMMENT"
 
 
+FOLLOWUP_GUIDE = """### 수정한 파일을 같은 PR에 추가하기
+
+파일 수정은 아래 순서로 진행합니다. 선택 제안은 반영할지 정하고 이유를 댓글로 답할 수 있습니다.
+
+1. SourceTree에서 이 PR을 올렸던 작업 브랜치를 엽니다.
+2. 편집기에서 파일을 고쳐 저장하고, SourceTree에서 바꾼 파일만 Stage에 넣습니다. Stage는 이번 커밋에 넣을 파일을 고르는 작업입니다.
+3. Commit에 수정 내용을 적어 저장합니다. Commit은 컴퓨터에 수정 기록을 남기며 기존 커밋 뒤에 새 커밋이 추가됩니다.
+4. Push에서 본인 fork의 같은 브랜치로 보냅니다. Push는 컴퓨터의 커밋을 GitHub에 올리는 작업입니다.
+5. 이 PR의 Commits에 새 커밋이 보이는지 확인하고, 고친 내용과 다시 확인한 결과를 댓글로 남깁니다.
+
+같은 브랜치로 Push하면 기존 PR이 갱신되므로 새 PR을 만들 필요가 없습니다. PR 설명글만 고칠 때는 GitHub에서 설명글의 Edit를 누르면 되며 파일 커밋은 필요하지 않습니다.
+
+[SourceTree·터미널로 수정 커밋 올리기](https://github.com/WaterMinCho/programming-study/blob/main/docs/LEARNING_WORKFLOW.md#리뷰-질문에-답하고-수정한-커밋-남기기)
+"""
+
+
 def body_for(data, assessment, marker, event):
     labels = {"APPROVE": "현재 변경분의 정적 검토를 마쳤음.", "REQUEST_CHANGES": "수정 후 같은 브랜치에 Push한 커밋을 다시 확인함.", "COMMENT": "추가 문맥이나 실행 근거 확인을 기다림."}
     text = marker+"\n\n검토한 커밋: `"+data["head"]+"`\n\n"+assessment["summary"]+"\n\n"+labels[event]
     for item in assessment["findings"]:
-        text += "\n\n### %s:%d\n\n조건: %s\n\n현재 동작: %s\n\n기대 동작: %s\n\n이유: %s\n\n수정 힌트: %s\n\n확인 방법: %s" % (item["path"], item["line"], item["condition"], item["actual"], item["expected"], item["reason"], item["hint"], item["check"])
+        label = "수정 필요" if item["blocking"] else "선택 제안"
+        text += "\n\n### %s · %s:%d\n\n수정할 부분: %s\n\n이유: %s\n\n확인 방법: %s" % (label, item["path"], item["line"], item["hint"], item["reason"], item["check"])
+        text += "\n\n<details>\n<summary>현재 내용과 수정 후 결과</summary>\n\n상황: %s\n\n현재 내용: %s\n\n수정 후: %s\n\n</details>" % (item["condition"], item["actual"], item["expected"])
     if assessment["questions"]:
         text += "\n\n설명해볼 질문\n\n"+"\n".join("- "+question for question in assessment["questions"])
     text += "\n\n자동 정적 검토 결과임. 사람이 코드를 검토하거나 실행한 결과로 표시하지 않음. PR의 코드를 이 맥에서 실행하지 않았음. 실행 검사와 최종 머지는 별도로 확인함.\n"
@@ -153,6 +175,11 @@ def body_for(data, assessment, marker, event):
     from tools.check_style import check
     if check(text, record=True):
         raise review.ReviewError("피드백 문장을 확인한 뒤 게시해 주세요.")
+    if assessment["findings"] or event != "APPROVE":
+        if check(FOLLOWUP_GUIDE):
+            raise review.ReviewError("수정 커밋 안내 문장을 확인해 주세요.")
+        text += "\n"+FOLLOWUP_GUIDE
+    review.check_text(text)
     if len(text.encode()) > 30000:
         raise review.ReviewError("게시할 피드백이 너무 깁니다.")
     return text
