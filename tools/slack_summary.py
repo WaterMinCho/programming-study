@@ -17,7 +17,8 @@ SERVER_PATHS = ("learning_server/**", "aiprep/collection.py", "aiprep/sharing.py
 JOURNEY_PATHS = ("dungeons/**", "journey/**", "study.py", "tools/verify_journey.py", "tools/journey_seal.py", "tools/journey_art/**",
                  "tests/test_journey_*.py", "tests/journey_bank/**", ".github/workflows/journey.yml")
 RELEASE = ".github/workflows/release-check.yml"
-RELEASE_PATHS = ("tools/check_release.py", RELEASE)
+RELEASE_PATHS = ("tools/check_release.py", RELEASE, "bootstrap.py", "start.bat", "start.pyw", "gui/app.py", "gui/icon.py",
+                 "gui/launcher_shortcut.py", "tests/test_launcher_shortcut.py", "tests/test_gui_launcher.py")
 
 
 def touches(files, patterns):

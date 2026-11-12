@@ -63,6 +63,15 @@ def gui_check(out):
 
     suite = unittest.defaultTestLoader.loadTestsFromNames(CASES)
     result = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)
+    launcher_cases = ["tests.test_launcher_shortcut", "tests.test_gui_launcher.IconFileTest", "tests.test_gui_launcher.StartupTest"]
+    if sys.platform == "win32":
+        launcher_cases.append("tests.test_gui_launcher.NativeShortcutTest")
+    launcher_suite = unittest.defaultTestLoader.loadTestsFromNames(launcher_cases)
+    launcher_result = unittest.TextTestRunner(verbosity=2).run(launcher_suite)
+    launcher = {"tests": launcher_result.testsRun, "failures": len(launcher_result.failures),
+                "errors": len(launcher_result.errors), "skipped": len(launcher_result.skipped),
+                "native_windows": sys.platform == "win32",
+                "success": launcher_result.wasSuccessful() and not launcher_result.skipped}
     native_ok = sys.platform != "win32" or QApplication.platformName() == "windows"
     report = {"python": platform.python_version(), "platform": platform.platform(), "python_prefix": sys.prefix,
               "qt": QT_VERSION_STR, "pyqt": PYQT_VERSION_STR,
@@ -70,9 +79,10 @@ def gui_check(out):
               "tests": result.testsRun, "failures": len(result.failures), "errors": len(result.errors),
               "skipped": len(result.skipped),
               "success": result.wasSuccessful() and not result.skipped and native_ok
-                         and result.testsRun == len(CASES) and len(captures) == len(CASES),
+                         and result.testsRun == len(CASES) and len(captures) == len(CASES) and launcher["success"],
+              "launcher": launcher,
               "captures": captures,
-              "limits": "임시 기록·모의 Git 연결을 사용함. 설치 동의 응답을 자동 입력하며 설치 대화상자의 클릭·사용자 PC·Windows 설정의 글자 크기는 검증하지 않음. 실행기의 화면보다 큰 창은 운영체제 캡처에서 잘릴 수 있어 전체 위젯 그림과 구분함."}
+              "limits": "임시 기록·모의 Git 연결을 사용함. 설치 동의 응답을 자동 입력하며 설치 대화상자의 클릭·사용자 PC·Windows 설정의 글자 크기는 검증하지 않음. 실행기의 화면보다 큰 창은 운영체제 캡처에서 잘릴 수 있어 전체 위젯 그림과 구분함. 바로가기는 Shell API의 아이콘 조회와 임시 start.pyw 실행을 검사함. 탐색기의 실제 표시는 검증하지 않음."}
     target = out / "report.json"
     target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     assert json.loads(target.read_text(encoding="utf-8")) == report

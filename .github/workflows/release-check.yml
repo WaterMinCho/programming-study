@@ -7,6 +7,14 @@ on:
     paths:
       - 'tools/check_release.py'
       - '.github/workflows/release-check.yml'
+      - 'bootstrap.py'
+      - 'start.bat'
+      - 'start.pyw'
+      - 'gui/app.py'
+      - 'gui/icon.py'
+      - 'gui/launcher_shortcut.py'
+      - 'tests/test_launcher_shortcut.py'
+      - 'tests/test_gui_launcher.py'
 
 permissions:
   contents: read
