@@ -897,7 +897,6 @@ def round_as_set(rnd):
 
 
 def announce_round(user, rnd, folder):
-    import adaptive
     title = round_as_set(rnd)["meta"]["title"]
     print("%s %d문항이 준비되어 있습니다." % (title, len(rnd["items"])))
     print("  문제지 : %s/README.md" % shown_path(folder))

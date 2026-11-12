@@ -9,7 +9,7 @@ import sys
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QColor, QFontDatabase, QPen
 from PyQt6.QtWidgets import QApplication
 

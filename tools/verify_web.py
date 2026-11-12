@@ -29,7 +29,6 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import study  # noqa: E402
-from journey import node as node_finder  # noqa: E402
 from tools import check_style, verify_journey, web_lint  # noqa: E402
 from tools.journey_art import KB  # noqa: E402
 from tools.web_art import LIMITS, owner_of  # noqa: E402

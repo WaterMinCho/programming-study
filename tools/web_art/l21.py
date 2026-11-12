@@ -21,7 +21,7 @@ if ROOT not in sys.path:
 
 from tools.journey_art import LIMITS  # noqa: E402
 from tools.journey_art import draw, render  # noqa: E402
-from tools.journey_art.draw import figure, mid_x, shade  # noqa: E402
+from tools.journey_art.draw import figure, shade  # noqa: E402
 
 OUT = os.path.join(ROOT, "web", "learn", "l21", "assets")
 USAGE = "쓰는 법: python3 tools/web_art/l21.py [그림 이름...] [--check] [--out DIR]"

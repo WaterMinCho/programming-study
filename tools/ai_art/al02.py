@@ -12,7 +12,7 @@ register(globals(), 2, {
 register_levels(globals(), {'a2a': 2, 'a2c': 3, 'a2e': 3})
 
 from tools.ai_art import figure
-from tools.ai_art.application_vision import base, grid, panel, text, BLUE, INK, LINE
+from tools.ai_art.application_vision import base, grid, panel, text, BLUE, INK
 
 
 def _map_figure(kind,stage=0):
