@@ -25,7 +25,8 @@
   "a2b": "선택한 영역의 점과 구멍을 다듬습니다",
   "a2c": "출력 크기와 새 픽셀 값을 따로 정합니다",
   "a2d": "좌표를 옮긴 뒤 출력 화면에 담습니다",
-  "a2e": "비스듬한 평면을 대응점으로 펼칩니다"
+  "a2e": "비스듬한 평면을 대응점으로 펼칩니다",
+  "a2f": "좌표 지도로 원본을 찾아 새 화면을 만듭니다"
  },
  "outputs": [],
  "credits": [],
@@ -33,7 +34,7 @@
   {
    "what": "필터의 가중합·자료형·커널 크기",
    "url": "https://docs.opencv.org/4.13.0/d4/d86/group__imgproc__filter.html",
-   "checked": "2026-11-11"
+   "checked": "2026-11-13"
   },
   {
    "what": "침식·팽창·열기·닫기",
@@ -43,7 +44,12 @@
   {
    "what": "좌표 변환·역방향 조회·보간",
    "url": "https://docs.opencv.org/4.13.0/da/d54/group__imgproc__transform.html",
-   "checked": "2026-11-11"
+   "checked": "2026-11-13"
+  },
+  {
+   "what": "np.indices의 축 순서",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.indices.html",
+   "checked": "2026-11-13"
   }
  ],
  "units": {
@@ -70,6 +76,11 @@
   "a2e": {
    "minutes": 8,
    "key_figure": "assets/a2e-1.gif",
+   "kind": "concept"
+  },
+  "a2f": {
+   "minutes": 8,
+   "key_figure": "assets/a2f-2.gif",
    "kind": "concept"
   }
  }
