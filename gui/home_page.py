@@ -29,8 +29,6 @@ class HomePage(QWidget):
         top = kit.TopBar("학습 현황", "파이썬 스터디")
         self.hub_btn = top.back
         self.wrong_btn = top.add_right(kit.button("오답 노트", "text"))
-        self.team_btn = top.add_right(kit.button("팀 현황", "text"))
-        self.team_btn.hide()
         self.theme_btn = top.add_right(kit.button("", "text"))
         outer.addWidget(top)
         inner = QWidget()
@@ -86,7 +84,6 @@ class HomePage(QWidget):
         outer.addWidget(kit.scroll(column), 1)
         self.hub_btn.clicked.connect(win.go_hub)
         self.wrong_btn.clicked.connect(lambda: win.show_wrong("python", "python"))
-        self.team_btn.clicked.connect(win.show_team)
         self.theme_btn.clicked.connect(win.cycle_theme)
         self.action_btn.clicked.connect(win.start_next)
         self.rounds.itemClicked.connect(lambda item: win.show_result(item.data(Qt.ItemDataRole.UserRole)))
@@ -131,7 +128,7 @@ class HomePage(QWidget):
         self.theme_btn.setText("테마: %s" % theme.MODES[theme.state["mode"]])
 
     def set_busy(self, busy, text=""):
-        for widget in (self.action_btn, self.rounds, self.team_btn, self.wrong_btn, self.hub_btn, self.data_btn):
+        for widget in (self.action_btn, self.rounds, self.wrong_btn, self.hub_btn, self.data_btn):
             widget.setEnabled(not busy)
         self.busy_bar.setVisible(busy)
         self.status.setText(text if busy else "")

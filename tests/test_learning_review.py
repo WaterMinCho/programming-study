@@ -127,6 +127,29 @@ class ReviewTest(unittest.TestCase):
                 review.review(self.folder)
             run.assert_not_called()
 
+    def test_schema_allows_only_the_output_formatter_and_saves_after_current_head_check(self):
+        self.prepare()
+        assessment = {"decision": "needs_context"}
+        with mock.patch.object(review, "pull", return_value=self.info), mock.patch.object(review.shutil, "which", return_value="claude"), \
+                mock.patch.object(review, "run", side_effect=["test-version", AUTH, response(initial={"tools": ["StructuredOutput"]}, result={"structured_output": assessment})]):
+            review.review(self.folder, schema={"type": "object"})
+        self.assertEqual(assessment, json.loads((self.folder / "assessment.json").read_text()))
+
+    def test_schema_stale_head_and_unexpected_execution_tool_leave_no_assessment(self):
+        self.prepare()
+        changed = dict(self.info, head=dict(self.info["head"], sha="f" * 40))
+        with mock.patch.object(review, "pull", side_effect=[self.info, changed]), mock.patch.object(review.shutil, "which", return_value="claude"), \
+                mock.patch.object(review, "run", side_effect=["test-version", AUTH, response(initial={"tools": ["StructuredOutput"]}, result={"structured_output": {"decision": "approve"}})]):
+            with self.assertRaises(review.ReviewError):
+                review.review(self.folder, schema={"type": "object"})
+        self.assertFalse((self.folder / "assessment.json").exists())
+        payload = response(initial={"tools": ["StructuredOutput"]}, result={"structured_output": {}}) + '\n' + json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}})
+        with mock.patch.object(review, "pull", return_value=self.info), mock.patch.object(review.shutil, "which", return_value="claude"), \
+                mock.patch.object(review, "run", side_effect=["test-version", AUTH, payload]):
+            with self.assertRaises(review.ReviewError):
+                review.review(self.folder, schema={"type": "object"})
+        self.assertFalse((self.folder / "assessment.json").exists())
+
     def test_base_change_and_model_error_leave_no_publishable_feedback(self):
         self.prepare()
         changed = dict(self.info, base=dict(self.info["base"], sha="e" * 40))

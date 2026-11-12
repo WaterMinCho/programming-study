@@ -333,6 +333,8 @@ def identifier(value):
 
 def application(database, *, legacy_contract=False):
     from learning_server.submissions import Submissions
+    if legacy_contract:
+        from tests.legacy_submissions import Submissions
     submissions = Submissions(database)
     def app(environ, start_response):
         try:

@@ -31,7 +31,6 @@ from gui.journey_map import JourneyMapPage
 from gui.journey_page import JourneyPage, saved_lang, with_node
 from gui.result_page import ResultPage
 from gui.round_page import RoundPage
-from gui.team_page import TeamPage
 from gui.web_drill import WebDrillPage
 from gui.web_home import WebHomePage
 from gui.web_learn import WebLearnPage
@@ -144,13 +143,13 @@ class MainWindow(QMainWindow):
         self.wrong_tracks = [make(self) for make in WRONG_TRACKS]  # 허브와 오답 노트 화면이 만들 때 읽음
         self.pages = QStackedWidget()
         self.start, self.hub, self.home, self.round_page = StartPage(self), HubPage(self), HomePage(self), RoundPage(self)
-        self.result_page, self.team_page, self.wrong_page = ResultPage(self), TeamPage(self), WrongPage(self)
+        self.result_page, self.wrong_page = ResultPage(self), WrongPage(self)
         self.journey_map, self.journey_page = JourneyMapPage(self), JourneyPage(self)
         self.web_home, self.web_mission, self.web_drill, self.web_learn = WebHomePage(self), WebMissionPage(self), WebDrillPage(self), WebLearnPage(self)
         self.ai_home, self.ai_lesson, self.ai_learn = AiHomePage(self), AiLessonPage(self), AiLearnPage(self)
         self.ai_note, self.ai_revisit, self.ai_quiz = AiNotePage(self), RevisitPage(self), PracticePage(self)
         self.ai_mock = MockPage(self)
-        for page in (self.start, self.hub, self.home, self.round_page, self.result_page, self.team_page, self.wrong_page,
+        for page in (self.start, self.hub, self.home, self.round_page, self.result_page, self.wrong_page,
                      self.journey_map, self.journey_page, self.web_home, self.web_mission, self.web_drill, self.web_learn,
                      self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz, self.ai_mock):
             self.pages.addWidget(page)
@@ -542,10 +541,6 @@ class MainWindow(QMainWindow):
             self._session_error(error, rid, lambda: self.show_result(rid, result))
             return
         motion.switch(self.pages, self.result_page)
-
-    def show_team(self):
-        self.team_page.refresh()
-        motion.switch(self.pages, self.team_page)
 
     def show_wrong(self, tid=None, back="python"):
         """오답 노트를 tid 트랙(없으면 지난번 트랙)으로 엶. back 은 위 막대의 돌아가기가 갈 곳(python 은 파이썬 스터디 홈, hub 는 첫 화면,

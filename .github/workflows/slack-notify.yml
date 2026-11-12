@@ -2,23 +2,30 @@ name: Slack 스터디 알림
 
 on:
   workflow_run:
-    workflows: [스터디 알림 전달, CI, 문장 검사, 수집 서버 운영 검사, 알고리즘 여행 검증]
+    workflows: [스터디 알림 전달, CI, 문장 검사, 수집 서버 운영 검사, 알고리즘 여행 검증, PR 제목 검사, Windows 첫 실행 검사]
     types: [completed]
-  issue_comment:
-    types: [created]
+  status:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
   actions: read
   pull-requests: read
+  statuses: write
+
+concurrency:
+  group: study-final-notifications
+  cancel-in-progress: false
 
 jobs:
   notify:
     if: >-
       github.repository == 'WaterMinCho/programming-study' &&
-      (github.event_name != 'issue_comment' ||
-       (github.event.issue.pull_request && github.event.comment.user.type != 'Bot'))
+      (github.event_name != 'status' || github.event.context == '스터디 코드 검토')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
@@ -27,10 +34,14 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-          sparse-checkout: tools/slack_notify.py
+          sparse-checkout: |
+            tools/slack_notify.py
+            tools/slack_summary.py
+            tools/study_checks.py
           sparse-checkout-cone-mode: false
       - name: 한국어 알림 보내기
         env:
           GH_TOKEN: ${{ github.token }}
+          SLACK_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           SLACK_STUDY_WEBHOOK_URL: ${{ secrets.SLACK_STUDY_WEBHOOK_URL }}
-        run: python3 tools/slack_notify.py
+        run: python3 -m tools.slack_summary

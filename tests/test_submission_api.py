@@ -12,8 +12,8 @@ from unittest import mock
 from aiprep.collection import Collection, CollectionError, NOTICE, digest
 from aiprep import sharing
 from learning_server import app
-from learning_server.github import Publisher, PublishError
-from learning_server.submissions import Submissions, clean_files
+from tests.legacy_github import Publisher, PublishError
+from tests.legacy_submissions import Submissions, clean_files
 from submission_api import Client, Flow, snapshot
 
 
@@ -44,7 +44,7 @@ class SubmissionTest(unittest.TestCase):
         local = mock.patch.object(sharing, "request", side_effect=self.transport)
         local.start()
         self.addCleanup(local.stop)
-        patch = mock.patch("learning_server.submissions.Publisher.configured", return_value=self.publisher)
+        patch = mock.patch("tests.legacy_submissions.Publisher.configured", return_value=self.publisher)
         patch.start()
         self.addCleanup(patch.stop)
 

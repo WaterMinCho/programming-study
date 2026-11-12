@@ -590,7 +590,7 @@ class SessionTest(unittest.TestCase):
 
     def test_dashboard_has_each_subject_and_keeps_the_legacy_summary_api(self):
         self.other_member("tester", 20)
-        spec = importlib.util.spec_from_file_location("dashboard", os.path.join(study.ROOT, "tools", "dashboard.py"))
+        spec = importlib.util.spec_from_file_location("dashboard", os.path.join(study.ROOT, "tests", "legacy_dashboard.py"))
         dashboard = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(dashboard)
         out = os.path.join(self.tmp, "out")

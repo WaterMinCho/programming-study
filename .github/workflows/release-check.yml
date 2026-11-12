@@ -2,8 +2,8 @@ name: Windows 첫 실행 검사
 
 on:
   workflow_dispatch:
-  push:
-    branches-ignore: ['main', 'study/**']
+  pull_request:
+    branches: [main]
     paths:
       - 'tools/check_release.py'
       - '.github/workflows/release-check.yml'

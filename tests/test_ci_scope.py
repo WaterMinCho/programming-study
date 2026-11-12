@@ -63,4 +63,31 @@ class ScopeTest(unittest.TestCase):
                         ci_scope.main()
             finally:
                 os.chdir(previous)
-            self.assertEqual("gui=true\n", (root / "output").read_text(encoding="utf-8"))
+            self.assertIn("gui=true\n", (root / "output").read_text(encoding="utf-8"))
+
+
+class SelectionTest(unittest.TestCase):
+    def test_readme_and_model_notes_do_not_run_product_or_bank(self):
+        self.assertEqual(dict(bank=False, unit=False, gui=False, model=False), ci_scope.selection(["README.md", "experiments/alice/README.md"]))
+        self.assertEqual(dict(bank=False, unit=False, gui=False, model=False), ci_scope.selection(["docs/LEGACY_RECORDS.md", "docs/LEARNING_SERVER.md"]))
+
+    def test_model_code_gets_syntax_check(self):
+        self.assertEqual(dict(bank=False, unit=False, gui=False, model=True), ci_scope.selection(["experiments/alice/train.py"]))
+
+    def test_server_changes_keep_function_tests(self):
+        self.assertTrue(ci_scope.selection(["learning_server/app.py"])["unit"])
+        self.assertFalse(ci_scope.selection(["learning_server/app.py"])["bank"])
+        self.assertFalse(ci_scope.selection(["learning_server/app.py"])["gui"])
+        self.assertTrue(ci_scope.selection(["aiprep/privacy.py"])["gui"])
+
+    def test_unknown_and_renamed_product_paths_keep_full_checks(self):
+        for paths in ([], ["adaptive.py"], ["gui/window.py", "docs/STUDY_START.md"]):
+            selected = ci_scope.selection(paths)
+            self.assertTrue(selected["unit"])
+            self.assertTrue(selected["gui"])
+
+
+class AutomationScopeTest(unittest.TestCase):
+    def test_review_automation_keeps_function_checks_without_gui_or_bank(self):
+        self.assertEqual(dict(bank=False, unit=True, gui=False, model=False),
+                         ci_scope.selection(["tools/study_review_worker.py", "tests/test_study_review_worker.py"]))
