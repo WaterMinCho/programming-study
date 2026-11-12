@@ -11,6 +11,7 @@ from urllib.error import HTTPError
 
 from tools.slack_notify import GitHub, REPO, WEB, RELAY, WORKFLOWS, association, card, development, endpoint, metadata, read_url, send
 from tools.study_checks import AUTHORS, checks_state, NOTIFY_CONTEXT
+from tools.ci_scope import model_path
 
 SERVER_PATHS = ("learning_server/**", "aiprep/collection.py", "aiprep/sharing.py", "aiprep/privacy.py", "aiprep/sync_schedule.py", "submission_api.py", "tests/test_submission_api.py",
                 "tests/test_learning_privacy.py", "tests/test_private_submission.py", "tests/test_learning_server.py", "tests/test_learning_sample.py", "tests/test_learning_starter.py", "tests/test_learning_operations.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", "tests/test_legacy_transfer.py", ".github/workflows/learning-server.yml")
@@ -52,6 +53,8 @@ def rollup(pr):
 
 def required_names(files, pr=None):
     names = ["필수 검사", "PR 제목", "문장 검사", "변경 범위", "기능·자료 검사", "화면 테스트"]
+    if any(model_path(path) and path.endswith(".py") for path in files):
+        names.append("모델 제출 검사")
     if touches(files, SERVER_PATHS):
         names += ["운영 경로 (ubuntu-latest)", "운영 경로 (windows-latest)"]
     if touches(files, JOURNEY_PATHS):

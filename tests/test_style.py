@@ -407,8 +407,10 @@ class RepoFilesTest(unittest.TestCase):
         self.assertIn("name: 문장 검사\n", text)
         self.assertIn("pull_request:\n    types: [opened, synchronize, reopened, edited]\n    paths-ignore:\n      - \"submissions/**\"\n", text)
         self.assertNotIn("\n  push:", text)
-        self.assertIn("check_style.py --changed", text)
-        self.assertIn("check_style.py --commit", text)
+        self.assertIn("python -m tools.pr_checks style", text)
+        self.assertIn("SCOPE_BASE: ${{ github.event.pull_request.base.sha }}", text)
+        self.assertIn("SCOPE_HEAD: ${{ github.event.pull_request.head.sha }}", text)
+        self.assertIn("BODY: ${{ github.event.pull_request.body }}", text)
         self.assertEqual([], check_style.check(text, path="style.yml"))
 
     @unittest.skipUnless(HAS_GIT, "git 이 있어야 함")
