@@ -127,6 +127,8 @@ class OperationsTest(unittest.TestCase):
         before = self.path.read_bytes()
         result = operations.backup(self.path, backup)
         self.assertEqual(before, self.path.read_bytes())
+        with contextlib.closing(sqlite3.connect(backup / "learning.sqlite3")) as standalone:
+            self.assertEqual(("delete",), standalone.execute("PRAGMA journal_mode").fetchone())
         self.assertEqual({"ai": 1, "python": 1}, result["state"]["events"])
         restored = self.root / "restored"
         self.assertEqual(result["state"], operations.restore(backup, restored))

@@ -151,6 +151,7 @@ def backup(path, destination):
         write_private(target, b"")
         with read_database(path) as source, contextlib.closing(sqlite3.connect(target)) as saved:
             source.backup(saved)
+            saved.execute("PRAGMA journal_mode=DELETE")
         if read_key(path) != key:
             raise ValueError("백업 중 인증 키가 바뀌었습니다. 다시 백업해 주세요.")
         write_private(directory / BACKUP_FILES[1], key)
