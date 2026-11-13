@@ -4,10 +4,11 @@ import os
 from pathlib import Path
 from unittest import mock
 
+from tests import guikit
+
 from PyQt6.QtGui import QImage
 
 from gui import ai_learn, theme
-from tests import guikit
 from tests.test_ai_lesson_content_fixes import ROOT, note, old_aspect_note
 from tests.test_gui_ai import AiTest
 
