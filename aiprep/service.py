@@ -342,7 +342,7 @@ class AiSession(object):
         with self._lock:
             if self._content_versions_cache is not None:
                 return self._content_versions_cache
-            path = os.path.join(self.home, "state.json")
+            path = os.path.join(self.home, "content-versions.json")
             writable = True
             try:
                 local = study.read_json(path) if os.path.exists(path) else {}
@@ -350,7 +350,7 @@ class AiSession(object):
                     raise ValueError("local state")
             except (OSError, ValueError):
                 local, writable = {}, False
-                self.errors["card_versions"] = "학습 위치 파일을 읽지 못했습니다. 원본을 보관하고 스터디장에게 알려 주세요."
+                self.errors["card_versions"] = "문항 변경 기록을 읽지 못했습니다. 원본을 보관하고 스터디장에게 알려 주세요."
             saved = local.get("card_versions", {})
             saved = saved if isinstance(saved, dict) else {}
             versions, revised, sources = {}, set(), {}

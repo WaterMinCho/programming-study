@@ -67,7 +67,7 @@ class ContentVersionTest(Base):
     def test_missing_local_version_file_can_use_known_answer_versions(self):
         sess = self.session()
         self.answer(sess)
-        os.unlink(os.path.join(sess.home, "state.json"))
+        os.unlink(os.path.join(sess.home, "content-versions.json"))
         changed = self.changed()
         self.assertIn("i90-b01", changed._state().revised)
         self.assertNotIn("i90-b01", changed._state().events)
@@ -108,7 +108,7 @@ class ContentVersionTest(Base):
     def test_corrupt_local_state_is_preserved(self):
         from pathlib import Path
         sess = self.session()
-        path = Path(sess.home) / "state.json"
+        path = Path(sess.home) / "content-versions.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"{broken")
         sess._state()
