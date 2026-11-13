@@ -32,6 +32,10 @@ class ConsentDialog(QDialog):
         body.addWidget(self.status_text)
         for title, text in NOTICE_ROWS:
             body.addWidget(kit.heading(kit.label(title, "headline"), kit.para(text)))
+        self.submission_files = kit.button("보낼 풀이 파일 보기", "text", "l")
+        self.submission_files.clicked.connect(lambda: parent.show_submission_files(self))
+        self.submission_files.setVisible(not first and getattr(getattr(parent, "gitflow", None), "api", None) is not None)
+        body.addWidget(self.submission_files)
         self.research = QCheckBox("학습 데이터 제공 동의 (선택)")
         self.overseas = QCheckBox("서버 보관 동의 (선택)")
         for box in (self.research, self.overseas):

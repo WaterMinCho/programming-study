@@ -290,9 +290,14 @@ class HubPage(QWidget):
         self.privacy_btn = kit.button("내 정보·데이터", "text", "s", onbg=True)
         self.privacy_btn.clicked.connect(win.show_privacy)
         top.add_right(self.privacy_btn)
-        self.submission_setup = kit.button("풀이 파일 확인", "text", "s", onbg=True)
-        self.submission_setup.clicked.connect(win.show_submission_setup)
+        self.submission_setup = kit.button("풀이 제출", "text", "s", onbg=True)
+        self.submission_setup.setProperty("submission_action", True)
+        self.submission_setup.clicked.connect(win.submit_pr)
         top.add_right(self.submission_setup)
+        self.server_connection = kit.button("다른 서버 연결", "text", "s", onbg=True)
+        self.server_connection.clicked.connect(win.show_submission_setup)
+        self.server_connection.setVisible(win.operator_mode)
+        top.add_right(self.server_connection)
         self.manual_sync = kit.button("새 문제 받기", "text", "s", onbg=True)
         self.manual_sync.clicked.connect(win.fetch_problems)
         top.add_right(self.manual_sync)
@@ -477,6 +482,21 @@ class HubPage(QWidget):
             more = ' <a href="detail">자세히</a>' if note.get("detail") else ""
             self.notice.setText(html.escape(note.get("message") or "") + more)
         self.restyle()
+
+    def refresh_submission(self, allowed=None):
+        win = self.win
+        usable = win.session is not None and win.gitflow is not None
+        busy = win.job is not None or win.pending_close or win.close_pending
+        if allowed is None:
+            allowed = win.has_submission_consent()
+        ready = (usable and allowed and win.pending_submission.get("status") == "ok"
+                 and win.pending_submission.get("pending", False))
+        kit.set_tone(self.submission_setup, "accent" if ready else None)
+        self.submission_setup.setEnabled(usable and not busy)
+        self.submission_setup.setAccessibleDescription("제출할 풀이가 있습니다." if ready else "답안 파일·채점·진도를 비공개 서버에 제출합니다.")
+        self.submission_setup.setToolTip("답안 파일·채점·진도를 비공개 서버에 제출합니다. 보낼 파일은 [내 정보·데이터]에서 확인할 수 있습니다.")
+        self.server_connection.setVisible(win.operator_mode)
+        self.server_connection.setEnabled(usable and not busy)
 
     def show_journey(self):
         """알고리즘 여행 줄. 여행 기록을 읽지 못했으면 이유를 띠로 보이고 줄을 끄고 None 을, 아니면 여행 서비스의 overview 를 돌려줌.

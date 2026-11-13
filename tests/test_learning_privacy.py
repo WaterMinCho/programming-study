@@ -19,6 +19,11 @@ from submission_api import Client
 
 
 class PrivacyTest(unittest.TestCase):
+    def test_unmocked_http_is_rejected_by_the_fixture(self):
+        import urllib.request
+        with self.assertRaisesRegex(AssertionError, "외부 서버"):
+            urllib.request.build_opener().open("https://example.invalid")
+
     def test_invalid_saved_consent_time_stays_a_recoverable_sync_error(self):
         self.consent.choose(True)
         from learning_data.privacy import save
@@ -52,7 +57,9 @@ class PrivacyTest(unittest.TestCase):
         self.db = Database(self.root / "server/learning.sqlite3")
         self.app = application(self.db, legacy_contract=True)
         for patcher in (mock.patch.dict(os.environ, {"STUDY_OPEN_REGISTRATION": "1"}),
-                        mock.patch.object(sharing, "request", self.transport)):
+                        mock.patch.object(sharing, "request", self.transport),
+                        mock.patch("learning_data.submission.request", self.transport),
+                        mock.patch("urllib.request.OpenerDirector.open", side_effect=AssertionError("시험에서 외부 서버를 호출할 수 없습니다."))):
             patcher.start()
             self.addCleanup(patcher.stop)
 

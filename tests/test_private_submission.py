@@ -191,8 +191,130 @@ class PrivateSubmissionTest(unittest.TestCase):
         flow = Flow(git)
         flow.set_collections(self.collections)
         flow.api.save({"mode": "git"})
-        self.assertEqual("setup_required", flow.submit()["status"])
+        self.assertEqual("ok", flow.submit()["status"])
+        self.assertIsNone(flow.api.submit()["pr_url"])
         git.submit.assert_not_called()
+        with self.db.connect() as db:
+            self.assertEqual(1, db.execute("SELECT count(*) FROM api_submissions").fetchone()[0])
+
+    def test_ready_submission_connects_once_and_reuses_current_consent(self):
+        client = self.client()
+        before = self.consent.settings()
+        transport = mock.Mock(wraps=self.transport)
+        client.transport = transport
+        self.assertEqual("ok", client.submit_ready()["status"])
+        self.assertEqual("nothing", client.submit_ready()["status"])
+        self.assertEqual(["/v1/register/private", "/v1/private/submissions"], [call.args[1] for call in transport.call_args_list])
+        self.assertEqual(before, self.consent.settings())
+        self.assertFalse(client.pending()["pending"])
+
+    def test_ready_submission_does_not_register_without_files_or_current_consent(self):
+        client = self.client()
+        file = self.repo / "submissions/tester/r01/quiz.py"
+        file.unlink()
+        with mock.patch.object(client, "transport") as transport:
+            self.assertEqual("nothing", client.submit_ready()["status"])
+            transport.assert_not_called()
+            file.write_text("ANSWERS = {'q1': 3}\n")
+            self.consent.choose(False)
+            self.assertEqual("error", client.submit_ready()["status"])
+            transport.assert_not_called()
+        self.assertFalse(client.path.exists())
+        self.assertTrue(file.exists())
+
+    def test_ready_submission_keeps_the_connected_custom_server(self):
+        client = self.client()
+        client.connect_open("https://example.test")
+        client.transport = mock.Mock(wraps=self.transport)
+        with mock.patch.object(client, "connect_open", side_effect=AssertionError("기존 연결을 다시 만들면 안 됨")):
+            self.assertEqual("ok", client.submit_ready()["status"])
+        self.assertEqual("https://example.test", client.transport.call_args.args[0])
+        self.assertEqual("/v1/private/submissions", client.transport.call_args.args[1])
+
+    def test_ready_submission_does_not_enroll_an_unconfirmed_custom_server(self):
+        client = self.client()
+        client.save({"url": "https://example.test"})
+        with mock.patch.object(client, "transport") as transport:
+            self.assertEqual("error", client.submit_ready()["status"])
+            transport.assert_not_called()
+
+    def test_invalid_connection_and_pending_files_are_preserved_without_uploading(self):
+        client = self.client()
+        client.save({"token": "a" * 64})
+        original = client.path.read_bytes()
+        with mock.patch.object(client, "transport") as transport:
+            with self.assertRaisesRegex(CollectionError, "운영자"):
+                client.submit_ready()
+            transport.assert_not_called()
+        self.assertEqual(original, client.path.read_bytes())
+        client.path.unlink()
+        client.connect_open("https://example.test")
+        client.pending_path.write_text("{broken", encoding="utf-8")
+        with mock.patch.object(client, "transport") as transport:
+            with self.assertRaisesRegex(CollectionError, "대기 정보"):
+                client.pending()
+            with self.assertRaisesRegex(CollectionError, "대기 정보"):
+                client.submit_ready()
+            transport.assert_not_called()
+        self.assertEqual("{broken", client.pending_path.read_text(encoding="utf-8"))
+        self.assertTrue((self.repo / "submissions/tester/r01/quiz.py").exists())
+
+    def test_unauthorized_submission_gives_operator_help_without_erasing_connection(self):
+        client = self.client()
+        client.connect_open("https://example.test")
+        original = client.path.read_bytes()
+        flow = Flow(mock.Mock())
+        flow.api = client
+        with mock.patch.object(client, "transport", side_effect=CollectionError("인증을 확인해 주세요.", status=401)):
+            result = flow.submit()
+        self.assertEqual("error", result["status"])
+        self.assertIn("운영자", result["message"])
+        self.assertEqual(original, client.path.read_bytes())
+        self.assertTrue(client.pending_path.exists())
+
+    def test_ready_submission_recovers_a_lost_registration_ack_with_the_same_seed(self):
+        client = self.client()
+        registrations = []
+        def wire(base, path, data, **kwargs):
+            result = self.transport(base, path, data, **kwargs)
+            if path == "/v1/register/private":
+                registrations.append(dict(data))
+                if len(registrations) == 1:
+                    raise CollectionError("연결 응답 유실")
+            return result
+        client.transport = wire
+        with self.assertRaises(CollectionError):
+            client.submit_ready()
+        self.assertEqual("ok", client.submit_ready()["status"])
+        self.assertEqual(registrations[0], registrations[1])
+        with self.db.connect() as db:
+            self.assertEqual(1, db.execute("SELECT count(*) FROM participants").fetchone()[0])
+            self.assertEqual(1, db.execute("SELECT count(*) FROM api_submissions").fetchone()[0])
+
+    def test_pending_ack_is_retried_even_after_answers_revert_to_the_published_file(self):
+        client = self.client()
+        self.assertEqual("ok", client.submit_ready()["status"])
+        file = self.repo / "submissions/tester/r01/quiz.py"
+        original = file.read_text()
+        file.write_text("ANSWERS = {'q1': 4}\n")
+        failed = []
+        def wire(base, path, data, **kwargs):
+            result = self.transport(base, path, data, **kwargs)
+            if path == "/v1/private/submissions" and not failed:
+                failed.append(True)
+                raise CollectionError("저장 응답 유실")
+            return result
+        client.transport = wire
+        with mock.patch("learning_server.submissions.MIN_INTERVAL", 0):
+            with self.assertRaises(CollectionError):
+                client.submit_ready()
+            file.write_text(original)
+            self.assertTrue(client.pending()["pending"])
+            self.assertEqual("ok", client.submit_ready()["status"])
+        self.assertFalse(client.pending()["pending"])
+        self.assertEqual(original, file.read_text())
+        with self.db.connect() as db:
+            self.assertEqual(3, db.execute("SELECT count(*) FROM api_submissions").fetchone()[0])
 
     def test_withdrawal_during_registration_does_not_restore_connection(self):
         client = self.client()

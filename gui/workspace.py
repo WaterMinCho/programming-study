@@ -101,6 +101,7 @@ class SubmissionBar(QFrame):
 
     def __init__(self, win):
         super().__init__()
+        self.win, self.result = win, None
         self.setObjectName("submissionbar")
         self.setProperty("ui", "2")
         self.row = kit.box(self, (24, 16, 24, 16), 16, horizontal=True)
@@ -118,19 +119,37 @@ class SubmissionBar(QFrame):
         self.sync.clicked.connect(win.fetch_problems)
         buttons.addWidget(self.submit)
         buttons.addWidget(self.sync)
+        self.details = kit.button("자세히", "text", "l")
+        self.details.clicked.connect(self.show_details)
+        buttons.addWidget(self.details)
+        self.details.hide()
+        self.dismiss = kit.button("닫기", "text", "l")
+        self.dismiss.clicked.connect(self.dismiss_result)
+        buttons.addWidget(self.dismiss)
+        self.dismiss.hide()
         self.row.addWidget(self.actions)
         self.state, self.busy, self.usable = {}, False, False
 
-    def refresh(self, state, updates, usable, busy=False):
+    def refresh(self, state, updates, usable, busy=False, allowed=None):
+        was_pending = self.state.get("status") == "ok" and self.state.get("pending", False)
         self.state, self.usable, self.busy = state, usable, busy
-        pending = state.get("status") == "ok" and state.get("pending", False)
+        if allowed is None:
+            allowed = self.win.has_submission_consent()
+        pending = state.get("status") == "ok" and state.get("pending", False) and allowed
+        if self.result and self.result.get("status") in ("ok", "nothing") and (not allowed or pending and not was_pending):
+            self.clear_result()
         available = updates.get("status") == "ok" and updates.get("available", False)
         self.submit.setVisible(usable and pending)
         self.sync.setVisible(usable and available)
         self.submit.setEnabled(usable and not busy)
         self.sync.setEnabled(usable and not busy)
+        self.dismiss.setVisible(self.result is not None and not busy)
+        self.dismiss.setEnabled(not busy)
+        detail = False
         if busy:
-            text = "작업이 끝나면 제출 현황을 갱신합니다."
+            text = "풀이 결과를 서버로 제출합니다." if self.win.submission_running else "작업이 끝나면 제출 현황을 갱신합니다."
+        elif self.result is not None:
+            text, detail = self.result_summary()
         elif pending and available:
             text = "제출할 풀이와 새 업데이트가 있습니다."
         elif pending:
@@ -138,9 +157,37 @@ class SubmissionBar(QFrame):
         else:
             text = "새 업데이트가 있습니다."
         self.message.setText(text)
-        kit.set_tone(self.message, "accent" if pending else "secondary")
+        self.details.setVisible(detail and not busy)
+        self.details.setEnabled(not busy)
+        tone = "accent" if pending else "secondary"
+        if self.result is not None:
+            tone = {"ok": "success", "error": "danger"}.get(self.result.get("status"), "secondary")
+        kit.set_tone(self.message, tone)
         self.arrange()
-        self.setVisible(usable and (pending or available))
+        self.setVisible(usable and (pending or available or self.result is not None))
+
+    def show_result(self, result):
+        self.result = dict(result)
+        self.win.workspace.refresh()
+
+    def clear_result(self):
+        self.result = None
+
+    def dismiss_result(self):
+        self.clear_result()
+        self.win.workspace.refresh()
+
+    def show_details(self):
+        if self.result:
+            self.win.ask("제출 안내", self.result.get("message") or "제출 결과를 확인해 주세요.", detail=self.result.get("detail") or "")
+
+    def result_summary(self):
+        if not self.result:
+            return "", False
+        original = self.result.get("message") or "제출 결과를 확인해 주세요."
+        summary = " ".join(original.split())
+        text = summary[:48] + "…" if len(summary) > 48 else summary
+        return text, text != original.strip() or bool(self.result.get("detail"))
 
     def arrange(self):
         need = QFontMetricsF(self.message.font()).horizontalAdvance(self.message.text()) + self.actions.layout().sizeHint().width() + 64
@@ -247,18 +294,22 @@ class Workspace(QWidget):
                 blocker = QSignalBlocker(self.compact)
                 self.compact.setCurrentIndex(index)
                 del blocker
-        busy = self.win.job is not None or self.win.pending_close
+        busy = self.win.job is not None or self.win.pending_close or self.win.close_pending
         self.rail.setEnabled(not busy)
         self.compact.setEnabled(not busy)
         usable = started and self.pages.currentWidget() in self.submission_pages and self.win.gitflow is not None
-        pending = self.win.pending_submission.get("status") == "ok" and self.win.pending_submission.get("pending", False)
+        allowed = self.win.has_submission_consent()
+        pending = self.win.pending_submission.get("status") == "ok" and self.win.pending_submission.get("pending", False) and allowed
         available = self.win.problem_updates.get("status") == "ok" and self.win.problem_updates.get("available", False)
         focused = QApplication.focusWidget()
         if ((focused is self.submissions.submit and not (usable and pending)) or
-                (focused is self.submissions.sync and not (usable and available))):
+                (focused is self.submissions.sync and not (usable and available)) or
+                (focused is self.submissions.details and not (usable and not busy and self.submissions.result_summary()[1])) or
+                (focused is self.submissions.dismiss and self.submissions.result is None)):
             self.setFocus(Qt.FocusReason.OtherFocusReason)
-        self.submissions.refresh(self.win.pending_submission, self.win.problem_updates, usable, busy)
+        self.submissions.refresh(self.win.pending_submission, self.win.problem_updates, usable, busy, allowed)
         self.position_reminder()
+        self.win.hub.refresh_submission(allowed)
 
     def position_reminder(self):
         """알림이 나타나도 본문은 그대로 두고, 마지막 조작부까지 스크롤할 여백을 남김."""

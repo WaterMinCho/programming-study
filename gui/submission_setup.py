@@ -9,34 +9,58 @@ from learning_data.privacy import DEFAULT_SERVER
 from learning_data.submission import snapshot
 
 
+def file_listing(client):
+    try:
+        files = snapshot(client.root, client.user)
+        return bool(files), "\n".join(sorted(files)) or "아직 제출할 풀이 파일이 없습니다."
+    except (CollectionError, OSError, ValueError) as error:
+        return False, str(error)
+
+
+class SubmissionFiles(QDialog):
+    """선택해서 여는 읽기 전용 파일 목록. 연결·등록·제출은 호출하지 않음."""
+
+    def __init__(self, parent, client):
+        super().__init__(parent)
+        self.setWindowTitle("보낼 풀이 파일")
+        self.setModal(True)
+        self.finished.connect(self.deleteLater)
+        kit.page(self)
+        self.shell = DialogLayout(self, "보낼 풀이 파일", "[풀이 제출]을 누르면 답안 파일·채점·진도를 비공개 서버에 보냅니다.")
+        self.files = QPlainTextEdit(file_listing(client)[1])
+        self.files.setReadOnly(True)
+        self.files.setMinimumHeight(96)
+        self.shell.content.addWidget(self.files)
+        close = kit.button("닫기", scale="l")
+        close.clicked.connect(self.accept)
+        self.shell.actions.set_actions([], [close])
+        self.shell.fit(640, 400)
+
+
 class SubmissionSetup(QDialog):
     def __init__(self, win):
         super().__init__(win)
         self.win, self.client = win, win.gitflow.api
-        self.setWindowTitle("비공개 풀이 제출")
+        self.setWindowTitle("제출 서버 연결")
         self.setModal(True)
         kit.page(self)
         area = win.screen().availableGeometry()
         self.resize(min(640, win.width(), area.width()-32), min(640, win.height(), area.height()-72))
         self.move(area.x()+(area.width()-self.width())//2, area.y()+24)
-        self.shell = DialogLayout(self, "비공개 풀이 제출", "확인한 풀이 파일을 서버에 보관합니다. GitHub에는 올리지 않습니다.")
+        self.shell = DialogLayout(self, "제출 서버 연결", "운영자가 별도 서버를 연결할 때 사용합니다. 일반 제출은 첫 화면의 [풀이 제출]을 누릅니다.")
         body = self.shell.content
         body.addWidget(kit.para("답안 파일·채점·진도를 문제 추천 연구에 사용합니다. 수집 동의와 보관 기간은 [내 정보·데이터]에서 확인하고 철회할 수 있습니다.", "caption", "secondary"))
-        self.url = QLineEdit(DEFAULT_SERVER)
-        self.url.setAccessibleName("풀이 제출 서버 주소")
-        self.url.hide()
-        advanced = kit.button("다른 서버 연결 (운영자용)", "text", "l")
-        advanced.setCheckable(True)
-        advanced.toggled.connect(self.url.setVisible)
-        body.addWidget(advanced)
-        body.addWidget(self.url)
+        connection_error = ""
         try:
-            files = snapshot(self.client.root, self.client.user)
-            available = bool(files)
-            listing = "\n".join(sorted(files)) or "아직 제출할 풀이 파일이 없습니다."
-        except (CollectionError, OSError, ValueError) as error:
-            available = False
-            listing = str(error)
+            base = self.client.settings().get("url") or DEFAULT_SERVER
+        except CollectionError as error:
+            base, connection_error = DEFAULT_SERVER, str(error)
+        self.url = QLineEdit(base)
+        self.url.setAccessibleName("풀이 제출 서버 주소")
+        body.addWidget(self.url)
+        available, listing = file_listing(self.client)
+        if connection_error:
+            available, listing = False, connection_error
         preview = kit.button("보낼 풀이 파일 보기", "text", "l")
         preview.setCheckable(True)
         body.addWidget(preview)
