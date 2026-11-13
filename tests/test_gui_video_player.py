@@ -291,6 +291,8 @@ class VideoDialogTest(unittest.TestCase):
                 dialog.resize(width - 40, height - 40)
                 kit.refont(dialog)
                 guikit.pump()
+                dialog._place()
+                guikit.pump()
                 self.assertEqual((width - 40, height - 40), (dialog.width(), dialog.height()))
                 self.assert_footer(dialog)
                 if evidence:
