@@ -28,6 +28,7 @@ CASES = (
     "tests.test_gui_dialogs.DialogTest.test_long_message_keeps_all_actions_outside_body_scroll",
     "tests.test_gui_onboarding.OnboardingTest.test_visible_controls_fit_and_switch_without_activating_targets",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
+    "tests.test_gui_ai_courses.CourseGuiTest.test_course_tab_and_content_commit_together_at_max_text_in_both_themes",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
     "tests.test_gui_ai_courses.CourseGuiTest.test_version_notice_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_ai_mock.MockPageTest.test_changed_active_exam_offers_a_new_attempt_from_the_start_button",

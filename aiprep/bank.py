@@ -52,6 +52,23 @@ class AiBankError(webbank.BankError):
     """은행 파일을 읽지 못함. 문구는 화면 띠나 터미널에 그대로 보여 줌."""
 
 
+def source_stamp(root=None):
+    """과정 재진입에 쓸 자료 변경 표식. 그림은 표시할 때 별도로 읽음."""
+    def failed(error):
+        raise error
+    rows = []
+    try:
+        for folder, dirs, names in os.walk(root or AI_DIR, onerror=failed):
+            dirs[:] = sorted(name for name in dirs if name not in ("assets", "__pycache__"))
+            for name in sorted(names):
+                path = os.path.join(folder, name)
+                stat = os.stat(path)
+                rows.append((path, stat.st_mtime_ns, stat.st_size, stat.st_ino, stat.st_ctime_ns))
+    except OSError:
+        return None
+    return tuple(rows)
+
+
 def _read_json(path, shown):
     try:
         return study.read_json(path)

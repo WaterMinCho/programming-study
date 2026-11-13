@@ -2,12 +2,16 @@
 """과정 전환·심화 창·새 그림의 작은 창 배치를 확인함."""
 from pathlib import Path
 import datetime
+import json
+import shutil
+from unittest import mock
 
 from tests import guikit
 from tests.test_gui_ai import AiTest
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtTest import QTest
 from gui import ai_learn, theme
+from aiprep import service as ai_service
 from gui.docview import FigureView
 
 
@@ -35,6 +39,88 @@ class CourseGuiTest(AiTest):
         self.assertEqual(2, win.ai.unit_steps('i01', '1a')['at_step'])
         self.assertNotIn('a01', win.ai.lessons)
         self.assertEqual('intro', win.settings.value('ai/course/' + win.user))
+
+    def test_switch_reuses_the_course_and_keeps_the_old_tab_until_content_is_ready(self):
+        win = self.boot((760, 480))
+        win.go_ai()
+        intro = win.ai
+        make_session = ai_service.AiSession
+        observed = []
+
+        def prepare(*args, **kwargs):
+            observed.append((win.ai_home.course_tabs.buttons[0].isChecked(), "개론" in win.ai_home.course_intro.text()))
+            guikit.pump()
+            return make_session(*args, **kwargs)
+
+        with mock.patch("gui.window.ai_service.AiSession", side_effect=prepare) as factory:
+            win.ai_home.course_tabs.buttons[1].setFocus()
+            QTest.keyClick(win.ai_home.course_tabs.buttons[1], Qt.Key.Key_Space)
+            guikit.pump()
+            applied = win.ai
+            self.assertEqual([(True, True)], observed)
+            self.assertTrue(win.ai_home.course_tabs.buttons[1].isChecked())
+            with mock.patch.object(win.ai_home, "show_books", wraps=win.ai_home.show_books) as books:
+                guikit.click(win.ai_home.course_tabs.buttons[0])
+                self.assertIs(intro, win.ai)
+                books.assert_called_once()
+            guikit.click(win.ai_home.course_tabs.buttons[1])
+            self.assertIs(applied, win.ai)
+            factory.assert_called_once()
+        self.assertTrue(win.ai_home.updatesEnabled())
+
+    def test_cached_course_reloads_changed_materials_and_rejects_a_broken_record(self):
+        win = self.boot((760, 480))
+        root = Path(self.tmp) / "course-bank"
+        shutil.copytree(win.ai.root, root, ignore=shutil.ignore_patterns("assets", "__pycache__"))
+        win.ai = ai_service.AiSession(win.user, root=str(root))
+        win.ai_courses.clear()
+        win.go_ai()
+        guikit.click(win.ai_home.course_tabs.buttons[1])
+        before = win.ai
+        guikit.click(win.ai_home.course_tabs.buttons[0])
+        path = root / "index.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        next(row for row in data["lessons"] if row["id"] == "a01")["title"] = "응용 자료 수정 확인"
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        guikit.click(win.ai_home.course_tabs.buttons[1])
+        self.assertIsNot(before, win.ai)
+        self.assertIn("응용 자료 수정 확인", win.ai_home.lesson_list.rows[0].title.text())
+        guikit.click(win.ai_home.course_tabs.buttons[0])
+        intro = win.ai
+        record = Path(win.ai.record.path)
+        record.parent.mkdir(parents=True, exist_ok=True)
+        record.write_text("{broken", encoding="utf-8")
+        with mock.patch.object(win, "ask") as alert:
+            guikit.click(win.ai_home.course_tabs.buttons[1])
+        alert.assert_called_once()
+        self.assertIs(intro, win.ai)
+        self.assertTrue(win.ai_home.course_tabs.buttons[0].isChecked())
+        self.assertEqual(b"{broken", record.read_bytes())
+        self.assertTrue(win.ai_home.updatesEnabled())
+
+    def test_course_tab_and_content_commit_together_at_max_text_in_both_themes(self):
+        win = self.boot((760, 480))
+        win.go_ai()
+        win.set_text("larger")
+        original = win.ai_home.show_lessons
+        phases = []
+
+        def update(overview):
+            phases.append(win.ai_home.updatesEnabled())
+            guikit.pump()
+            return original(overview)
+
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            win.restyle()
+            for number, course in ((1, "app"), (0, "intro")):
+                with mock.patch.object(win.ai_home, "show_lessons", side_effect=update):
+                    guikit.click(win.ai_home.course_tabs.buttons[number])
+                self.assertEqual(course, win.ai.course)
+                self.assertTrue(win.ai_home.course_tabs.buttons[number].isChecked())
+                self.assertTrue(win.ai_home.updatesEnabled())
+                self.assertEqual(0, win.ai_home.scroll.horizontalScrollBar().maximum())
+        self.assertEqual([False] * 4, phases)
 
     def test_version_notice_fits_small_window_max_text_and_both_themes(self):
         from unittest import mock
