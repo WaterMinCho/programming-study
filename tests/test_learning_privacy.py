@@ -49,6 +49,12 @@ class PrivacyTest(unittest.TestCase):
             privacy.validate_receipt(invalid)
         with self.assertRaises(ValueError):
             privacy.validate_receipt(dict(old, policy=[]))
+        self.consent.withdraw()
+        self.assertTrue(self.consent.synchronize()["withdrawn"])
+        self.assertFalse(self.consent.needs_choice())
+        self.assertEqual(old_version, self.consent.settings()["policy"])
+        self.assertEqual(old_hash, self.consent.settings()["policy_hash"])
+        self.assertFalse(self.consent.settings()["accepted"])
 
     def test_unmocked_http_is_rejected_by_the_fixture(self):
         import urllib.request

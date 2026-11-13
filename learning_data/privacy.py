@@ -186,7 +186,9 @@ class Consent:
     def withdraw(self):
         with self.lock:
             value = self.settings()
-            value.update(policy=POLICY_VERSION, accepted=False, choice=str(uuid.uuid4()),
+            if not known_policy(value):
+                value.update(policy=POLICY_VERSION, policy_hash=POLICY_HASH)
+            value.update(accepted=False, choice=str(uuid.uuid4()),
                          withdrawn_at=datetime.datetime.now().astimezone().isoformat(), withdraw_pending=True)
             save(self.path, value)
             self._stop_all()
