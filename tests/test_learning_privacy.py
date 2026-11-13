@@ -14,6 +14,7 @@ from aiprep.collection import Collection, CollectionError, NOTICE, stamp
 from aiprep.privacy import Consent, receipt
 from aiprep import sharing
 from learning_server.app import Database, application
+from learning_data.collection import packed
 from submission_api import Client
 
 
@@ -56,7 +57,7 @@ class PrivacyTest(unittest.TestCase):
             self.addCleanup(patcher.stop)
 
     def call(self, path, data=None, token=None, method="POST"):
-        raw = json.dumps(data).encode()
+        raw = packed(data).encode("utf-8")
         env = {"REQUEST_METHOD": method, "PATH_INFO": path, "CONTENT_TYPE": "application/json",
                "CONTENT_LENGTH": str(len(raw)), "wsgi.input": io.BytesIO(raw)}
         if token:
