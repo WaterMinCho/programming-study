@@ -131,6 +131,7 @@ class SubmissionBar(QFrame):
         self.state, self.busy, self.usable = {}, False, False
 
     def refresh(self, state, updates, usable, busy=False, allowed=None):
+        busy = busy or self.win.submission_running
         was_pending = self.state.get("status") == "ok" and self.state.get("pending", False)
         self.state, self.usable, self.busy = state, usable, busy
         if allowed is None:

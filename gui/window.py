@@ -167,6 +167,8 @@ class MainWindow(QMainWindow):
         self.result_page.git_btn = self.workspace.submissions.submit
         self.hub.sync_btn = self.home.sync_btn = self.workspace.submissions.sync
         self.setCentralWidget(self.workspace)
+        from gui.auto_submission import AutoSubmission
+        self.auto_submission = AutoSubmission(self)
         self.pages.currentChanged.connect(self.check_pending_submission)
         self.pending_timer = QTimer(self)
         self.pending_timer.setInterval(15000)
@@ -332,6 +334,7 @@ class MainWindow(QMainWindow):
         if new_privacy_path not in self.privacy_controllers:
             self.privacy_controllers[new_privacy_path] = SyncController(self, collections)
             self.privacy_controllers[new_privacy_path].changed.connect(self.workspace.refresh)
+            self.privacy_controllers[new_privacy_path].changed.connect(self.auto_submission.changed)
             self.first_boot = True
             self.tour_ready = False
         self.privacy = self.privacy_controllers[new_privacy_path]
@@ -346,15 +349,24 @@ class MainWindow(QMainWindow):
             try:
                 if self.privacy.consent.needs_choice():
                     QTimer.singleShot(0, self.show_first_consent)
+                elif self.privacy.consent.needs_auto_choice() and os.environ.get("STUDY_AUTO_SYNC", "1") != "0":
+                    QTimer.singleShot(0, self.show_auto_submission_notice)
                 else:
                     self.enable_hub_tour()
             except CollectionError as error:
                 self.ask("동의 설정 확인", str(error))
+        self.auto_submission.changed()
+        self.auto_submission.request()
         return True
 
     def show_first_consent(self):
         self.privacy.show(first=True)
-        self.privacy.dialog.accepted.connect(self.enable_hub_tour)
+        def continue_setup():
+            if self.privacy.consent.needs_auto_choice() and os.environ.get("STUDY_AUTO_SYNC", "1") != "0":
+                self.show_auto_submission_notice()
+            else:
+                self.enable_hub_tour()
+        self.privacy.dialog.accepted.connect(continue_setup)
 
     def enable_hub_tour(self):
         self.tour_ready = True
@@ -373,6 +385,13 @@ class MainWindow(QMainWindow):
         if self.hub_tour is None:
             self.hub_tour = HubTour(self)
         self.hub_tour.begin(self.hub.replay_tour if replay else QApplication.focusWidget())
+
+    def show_auto_submission_notice(self):
+        from gui.privacy import AutoSubmissionDialog
+        if self.privacy.consent.needs_auto_choice():
+            self.automatic_dialog = AutoSubmissionDialog(self, self.privacy)
+            self.automatic_dialog.finished.connect(self.enable_hub_tour)
+            self.automatic_dialog.show()
 
     def show_privacy(self):
         if hasattr(self, "privacy"):
@@ -662,6 +681,8 @@ class MainWindow(QMainWindow):
             self._session_error(error, rid, lambda: self.show_result(rid, result))
             return
         motion.switch(self.pages, self.result_page)
+        if result is not None:
+            self.auto_submission.request()
 
     def show_wrong(self, tid=None, back="python"):
         """오답 노트를 tid 트랙(없으면 지난번 트랙)으로 엶. back 은 위 막대의 돌아가기가 갈 곳(python 은 파이썬 스터디 홈, hub 는 첫 화면,
@@ -834,7 +855,7 @@ class MainWindow(QMainWindow):
         job.start()
 
     def submit_pr(self):
-        if self.gitflow is None or self.job is not None:
+        if self.gitflow is None or self.job is not None or self.submission_running or self.auto_submission.job is not None:
             return
         api = getattr(self.gitflow, "api", None)
         if api is not None and not self.has_submission_consent():
@@ -864,6 +885,7 @@ class MainWindow(QMainWindow):
         self.submission_running = False
         if getattr(self.gitflow, "api", None) is not None:
             if result.get("status") in ("ok", "nothing"):
+                self.auto_submission.clear_blocked()
                 self.pending_submission = {"status": "checking", "pending": False, "count": 0}
             self.workspace.submissions.show_result(result)
             return
@@ -1002,6 +1024,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self.identity_dialog is not None and self.identity_dialog.job is not None:
+            self.auto_submission.resume()
+            for controller in getattr(self, "privacy_controllers", {}).values():
+                controller.resume()
             self.identity_dialog.reject()
             event.ignore()
             return
@@ -1017,12 +1042,14 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         if not self.leave_pages(self.close, "저장하지 않고 닫기"):
+            self.auto_submission.resume()
             for controller in getattr(self, "privacy_controllers", {}).values():
                 controller.resume()
             event.ignore()
             return
+        waiting_auto = not self.auto_submission.stop()
         waiting = [not controller.stop() for controller in getattr(self, "privacy_controllers", {}).values()]
-        if any(waiting):
+        if any(waiting) or waiting_auto:
             event.ignore()
             return
         if self.web is not None:

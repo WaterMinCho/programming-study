@@ -28,6 +28,9 @@ NOTICE_ROWS = (
     ("철회 처리 기록", "삭제한 학습 기록이 다시 전송되지 않도록 인증 폐기 상태와 처리 시각만 남깁니다. 이 정보는 모델 학습 자료로 사용하지 않습니다."),
 )
 POLICY_HASH = hashlib.sha256(json.dumps(NOTICE_ROWS, ensure_ascii=False).encode()).hexdigest()
+AUTO_VERSION = "2026-11-13-auto-v1"
+AUTO_NOTICE = "동의하면 문제 묶음을 채점한 뒤 답안 파일·채점 결과·진도를 비공개 서버에 자동 제출합니다. 프로그램을 시작할 때도 미제출 풀이를 보냅니다. 업데이트 전이나 이 선택 전에 작성한 풀이 파일도 포함됩니다. 사용 목적·보관 기간·철회 방법은 기존 학습 데이터 동의와 같습니다. 끄면 새 자동 제출을 멈추고 기록 자동 전송과 수동 제출은 계속 사용할 수 있습니다."
+AUTO_HASH = hashlib.sha256(AUTO_NOTICE.encode("utf-8")).hexdigest()
 CONSENT_LOCKS = {}
 
 
@@ -36,7 +39,7 @@ def receipt():
             "overseas": True, "at": datetime.datetime.now().astimezone().isoformat()}
 
 
-def validate_receipt(value):
+def validate_receipt(value, *, automatic=False):
     if not isinstance(value, dict) or value.get("policy") != POLICY_VERSION or value.get("policy_hash") != POLICY_HASH:
         raise ValueError("현재 동의서의 내용을 확인하고 선택해 주세요.")
     if value.get("accepted") is not True or value.get("overseas") is not True:
@@ -46,7 +49,20 @@ def validate_receipt(value):
     instant = datetime.datetime.fromisoformat(value["at"])
     if instant.tzinfo is None:
         raise ValueError("동의 시각의 시간대를 확인해 주세요.")
-    return {key: value[key] for key in ("policy", "policy_hash", "accepted", "overseas", "at")}
+    result = {key: value[key] for key in ("policy", "policy_hash", "accepted", "overseas", "at")}
+    scope = value.get("automatic_submission")
+    if scope is not None:
+        if (not isinstance(scope, dict) or scope.get("version") != AUTO_VERSION or scope.get("hash") != AUTO_HASH
+                or type(scope.get("accepted")) is not bool or not isinstance(scope.get("at"), str)
+                or len(scope["at"]) > 80 or not isinstance(scope.get("choice"), str)):
+            raise ValueError("자동 제출 안내의 선택 기록을 확인해 주세요.")
+        if datetime.datetime.fromisoformat(scope["at"]).tzinfo is None:
+            raise ValueError("자동 제출 선택 시각의 시간대를 확인해 주세요.")
+        uuid.UUID(scope["choice"])
+        result["automatic_submission"] = {key: scope[key] for key in ("version", "hash", "accepted", "at", "choice")}
+    if automatic and (scope is None or scope["accepted"] is not True):
+        raise ValueError("답안 파일 자동 제출을 선택한 기록이 필요합니다.")
+    return result
 
 
 def save(path, data):
@@ -130,6 +146,35 @@ class Consent:
                 self._stop_all()
                 save(self.path, value)
                 raise
+            return value
+
+    def needs_auto_choice(self):
+        value = self.settings()
+        if self.needs_choice() or not value.get("accepted") or value.get("withdraw_pending"):
+            return False
+        try:
+            result = validate_receipt(value.get("receipt"))
+            return "automatic_submission" not in result
+        except ValueError:
+            return True
+
+    def set_auto_submission(self, enabled):
+        from learning_data.collection import CollectionError
+        with self.lock:
+            value = self.settings()
+            if self.needs_choice() or not value.get("accepted") or value.get("withdraw_pending"):
+                raise CollectionError("학습 데이터 제공에 동의한 뒤 자동 제출을 선택해 주세요.")
+            try:
+                current = validate_receipt(value.get("receipt"))
+            except ValueError as error:
+                raise CollectionError(str(error)) from error
+            scope = current.get("automatic_submission")
+            if scope is not None and scope["accepted"] is bool(enabled):
+                return value
+            current["automatic_submission"] = {"version": AUTO_VERSION, "hash": AUTO_HASH, "accepted": bool(enabled),
+                                                "at": datetime.datetime.now().astimezone().isoformat(), "choice": str(uuid.uuid4())}
+            value.update(receipt=current, choice=str(uuid.uuid4()))
+            save(self.path, value)
             return value
 
     def withdraw(self):

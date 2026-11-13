@@ -17,15 +17,20 @@ MAX_REQUEST_BYTES = 6 * 1024 * 1024
 SUFFIXES = (".py", ".js", ".json", ".md", ".txt", ".html", ".css", ".ts", ".tsx", ".jsx")
 
 
+def check_canceled(canceled):
+    if canceled():
+        raise CollectionError("자동 제출을 멈췄습니다.", code="canceled")
+
+
 def snapshot(root, user):
     folder = Path(root) / "submissions" / user
     files, size = {}, 0
     if folder.is_symlink():
-        raise CollectionError("풀이 폴더의 바로가기 연결을 해제한 뒤 제출해 주세요.")
+        raise CollectionError("풀이 폴더의 바로가기 연결을 해제한 뒤 제출해 주세요.", status=422)
     for base, dirs, names in os.walk(folder, followlinks=False):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "__pycache__", "dist")]
         if any((Path(base) / d).is_symlink() for d in dirs):
-            raise CollectionError("풀이 폴더 안의 심볼릭 링크는 제출할 수 없습니다.")
+            raise CollectionError("풀이 폴더 안의 심볼릭 링크는 제출할 수 없습니다.", status=422)
         for name in sorted(names):
             path = Path(base) / name
             rel = path.relative_to(folder).as_posix()
@@ -34,12 +39,12 @@ def snapshot(root, user):
             if name.startswith(".") or path.suffix.lower() not in SUFFIXES or name in ("learning-data-sharing.json", "submission-api.json"):
                 continue
             if path.is_symlink() or not inside(path, folder):
-                raise CollectionError("풀이 폴더 밖을 가리키는 파일은 제출할 수 없습니다.")
+                raise CollectionError("풀이 폴더 밖을 가리키는 파일은 제출할 수 없습니다.", status=422)
             with path.open("rb") as source:
                 raw = source.read(MAX_BYTES + 1)
             size += len(raw)
             if size > MAX_BYTES or len(files) >= 1000:
-                raise CollectionError("풀이 파일이 제출 크기를 넘습니다. 스터디장에게 알려 주세요.")
+                raise CollectionError("풀이 파일이 제출 크기를 넘습니다. 스터디장에게 알려 주세요.", status=413)
             try:
                 text = raw.decode("utf-8")
                 if path.suffix == ".json":
@@ -47,7 +52,7 @@ def snapshot(root, user):
                     if rel == "profile.json" and isinstance(decoded, dict) and not decoded.get("rounds") and not decoded.get("attempts"):
                         continue
             except (UnicodeError, ValueError):
-                raise CollectionError("읽을 수 없는 풀이 파일이 있습니다: %s" % rel) from None
+                raise CollectionError("읽을 수 없는 풀이 파일이 있습니다: %s" % rel, status=422) from None
             files[rel] = text
     return files
 
@@ -269,20 +274,46 @@ class PrivateClient(Client):
             raise CollectionError("이전 제출의 대기 정보를 읽을 수 없습니다. 파일을 지우지 말고 운영자에게 문의해 주세요. 로컬 풀이는 유지됩니다.") from None
         return saved
 
-    def submit_ready(self):
+    def submit_ready(self, automatic=False, canceled=lambda: False):
+        check_canceled(canceled)
         from learning_data.privacy import Consent, DEFAULT_SERVER
         consent = Consent(self.collections)
         state = consent.settings()
         if consent.needs_choice() or not state.get("accepted") or state.get("withdraw_pending"):
             return {"status": "error", "message": "[내 정보·데이터]에서 동의 내용을 확인한 뒤 제출해 주세요. 로컬 풀이는 유지됩니다."}
+        if automatic:
+            from learning_data.privacy import validate_receipt
+            receipt = validate_receipt(state.get("receipt"))
+            if not receipt.get("automatic_submission", {}).get("accepted"):
+                self.sync_consent(consent, state, canceled=canceled)
+                return {"status": "paused", "message": "답안 파일 자동 제출을 사용하지 않습니다."}
+            validate_receipt(receipt, automatic=True)
+            if not all(store.status()["enabled"] for store in self.collections.values()):
+                return {"status": "paused", "message": "수집을 중단한 과목이 있어 파일 자동 제출을 멈췄습니다."}
         if not self.pending()["pending"]:
             return {"status": "nothing", "message": "새로 제출할 풀이가 없습니다."}
         config = self.settings()
         if not config.get("token"):
             if config.get("url") and config["url"] != DEFAULT_SERVER and not config.get("enroll_sent"):
-                return {"status": "error", "message": "다른 서버 연결은 운영자 설정에서 먼저 확인해 주세요. 로컬 풀이는 유지됩니다."}
-            self.connect_open(config.get("url"))
-        return self.submit()
+                return {"status": "error", "message": "다른 서버 연결은 운영자 설정에서 먼저 확인해 주세요. 로컬 풀이는 유지됩니다.", "retryable": False}
+            self.connect_open(config.get("url"), canceled=canceled)
+        if automatic:
+            self.sync_consent(consent, state, canceled=canceled)
+        return self.submit(automatic=automatic, canceled=canceled)
+
+    def sync_consent(self, consent, state, canceled=lambda: False):
+        config = self.settings()
+        if not config.get("token"):
+            return
+        receipt = state["receipt"]
+        stamp = digest(receipt)
+        if config.get("consent_stamp") != stamp:
+            check_canceled(canceled)
+            confirmed = self.transport(config["url"], "/v1/consent", {"consent": receipt}, token=config["token"])
+            if confirmed.get("consent_saved") is not True:
+                raise CollectionError("자동 제출 동의의 저장 확인을 받지 못했습니다.")
+            config["consent_stamp"] = stamp
+            self.save_active(consent, state.get("choice"), config)
 
     def save_active(self, consent, choice, data, path=None):
         with consent.lock:
@@ -291,7 +322,7 @@ class PrivateClient(Client):
                 raise CollectionError("동의가 바뀌어 제출을 멈췄습니다. 로컬 풀이는 유지됩니다.")
             self.save(data, path)
 
-    def connect_open(self, base=None):
+    def connect_open(self, base=None, canceled=lambda: False):
         from learning_data.privacy import Consent, DEFAULT_SERVER, validate_receipt
         consent = Consent(self.collections)
         state = consent.settings()
@@ -312,6 +343,7 @@ class PrivateClient(Client):
             return
         config["enroll_sent"] = True
         self.save_active(consent, state.get("choice"), config)
+        check_canceled(canceled)
         result = self.transport(base, "/v1/register/private", {"participant": config["participant"], "display_id": config["display_id"],
                                 "notice": NOTICE, "registration_secret": config["registration_secret"], "consent": receipt,
                                 "private_submission": True, "tracks": {}})
@@ -320,16 +352,19 @@ class PrivateClient(Client):
         current = consent.settings()
         if current.get("choice") != state.get("choice") or not current.get("accepted") or current.get("withdraw_pending"):
             raise CollectionError("연결 중 동의가 바뀌어 제출을 멈췄습니다.")
-        config.update(token=result["token"])
+        config.update(token=result["token"], consent_stamp=digest(receipt))
         self.save_active(consent, state.get("choice"), config)
 
-    def submit(self):
-        from learning_data.privacy import Consent
+    def submit(self, automatic=False, canceled=lambda: False):
+        from learning_data.privacy import Consent, validate_receipt
         consent = Consent(self.collections)
-        if consent.needs_choice() or not consent.settings().get("accepted") or consent.settings().get("withdraw_pending"):
+        state = consent.settings()
+        if consent.needs_choice() or not state.get("accepted") or state.get("withdraw_pending"):
             return {"status": "error", "message": "수집 동의를 확인한 뒤 제출해 주세요. 로컬 풀이는 유지됩니다."}
+        if automatic:
+            validate_receipt(state.get("receipt"), automatic=True)
         config = self.settings()
-        choice = consent.settings().get("choice")
+        choice = state.get("choice")
         if not config.get("token"):
             return {"status": "setup_required", "message": "비공개 풀이 제출을 연결해 주세요."}
         files = snapshot(self.root, self.user)
@@ -348,10 +383,16 @@ class PrivateClient(Client):
         for part in parts:
             payload = {"files": part["files"], "request_id": part["request_id"],
                        "digest": part["digest"], "previous": config.get("last_hash")}
+            if automatic:
+                payload["automatic"] = True
             if part is not saved and len(packed(payload).encode("utf-8")) > MAX_REQUEST_BYTES:
                 raise CollectionError("줄바꿈·기호를 포함한 전송 크기가 6MiB를 넘습니다. 풀이 파일을 줄인 뒤 다시 제출해 주세요. 로컬 풀이는 유지됩니다.", status=413)
+            if automatic:
+                if not all(store.status()["enabled"] for store in self.collections.values()):
+                    return {"status": "paused", "message": "수집을 중단해 파일 자동 제출을 멈췄습니다."}
             self.save_active(consent, choice, part, self.pending_path)
             try:
+                check_canceled(canceled)
                 result = self.transport(config["url"], "/v1/private/submissions", payload, token=config["token"], timeout=20)
             except CollectionError as error:
                 with consent.lock:
@@ -359,7 +400,7 @@ class PrivateClient(Client):
                         if error.status in (400, 403, 413, 415, 422):
                             self.pending_path.unlink(missing_ok=True)
                         if error.status == 413 and part is saved:
-                            raise CollectionError("이전 제출의 대기 정보를 정리했습니다. [풀이 제출]을 다시 눌러 현재 답안을 보내 주세요.", status=413) from error
+                            raise CollectionError("이전 제출의 대기 정보를 정리했습니다. [풀이 제출]을 다시 눌러 현재 답안을 보내 주세요.", status=413, code="pending_oversized_removed") from error
                         if error.code == "revoked":
                             consent.withdraw()
                 raise
@@ -370,6 +411,23 @@ class PrivateClient(Client):
                 self.save_active(consent, choice, config)
                 self.pending_path.unlink(missing_ok=True)
         return {"status": "ok", "message": "비공개 서버에 풀이를 저장했습니다.", "pr_url": None, "receipt": config.get("last_hash")}
+
+
+def submit_private(client, automatic=False, canceled=lambda: False):
+    if client is None:
+        return {"status": "error", "message": "비공개 제출 연결을 확인해 주세요.", "retryable": False}
+    try:
+        return client.submit_ready(automatic=True, canceled=canceled) if automatic else client.submit_ready()
+    except (CollectionError, OSError, ValueError) as error:
+        message = str(error)
+        status = error.status if isinstance(error, CollectionError) else None
+        if getattr(error, "code", None) == "canceled":
+            return {"status": "paused", "message": message}
+        if status == 401:
+            message += " 연결 파일을 지우지 말고 운영자에게 문의해 주세요. 로컬 풀이는 유지됩니다."
+        retryable = (getattr(error, "code", None) in ("network", "pending_oversized_removed") or
+                     (status is not None and (status in (408, 429) or status >= 500)) or isinstance(error, FileNotFoundError))
+        return {"status": "error", "message": message, "detail": "", "retryable": retryable}
 
 
 class Flow:
@@ -391,15 +449,7 @@ class Flow:
             return {"status": "error", "pending": False, "count": 0}
 
     def submit(self):
-        if not self.api:
-            return {"status": "error", "message": "비공개 제출 연결을 확인해 주세요."}
-        try:
-            return self.api.submit_ready()
-        except (CollectionError, OSError, ValueError) as error:
-            message = str(error)
-            if isinstance(error, CollectionError) and error.status == 401:
-                message += " 연결 파일을 지우지 말고 운영자에게 문의해 주세요. 로컬 풀이는 유지됩니다."
-            return {"status": "error", "message": message, "detail": ""}
+        return submit_private(self.api)
 
     def sync(self):
         result = self.git.sync()

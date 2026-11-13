@@ -346,7 +346,9 @@ class FirstRunTest(GuiTest):
         self.idle()
         self.assertIs(self.page(), page)
         self.assertEqual(self.attempts(), [])
-        self.submit_round()
+        with mock.patch.object(win.auto_submission, "request") as checkpoint:
+            self.submit_round()
+            checkpoint.assert_called_once()
 
         # 결과: 점수·숙달 단원·문항별 결과·해설
         size = len(page.view["items"])

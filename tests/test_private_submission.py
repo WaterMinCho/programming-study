@@ -36,6 +36,114 @@ class PrivateSubmissionTest(unittest.TestCase):
         client.transport = self.transport
         return client
 
+    def test_automatic_scope_preserves_old_consent_period_and_needs_its_own_choice(self):
+        from learning_data.privacy import validate_receipt
+        client = self.client()
+        old = self.consent.settings()
+        self.assertTrue(self.consent.needs_auto_choice())
+        self.assertFalse(self.consent.needs_choice())
+        with self.assertRaises(ValueError):
+            validate_receipt(old["receipt"], automatic=True)
+        active = self.consent.set_auto_submission(True)
+        self.assertEqual(old["at"], active["at"])
+        self.assertEqual(old["start"], active["start"])
+        self.assertFalse(self.consent.needs_auto_choice())
+        self.assertTrue(validate_receipt(active["receipt"], automatic=True)["automatic_submission"]["accepted"])
+        self.assertEqual("ok", client.submit_ready(automatic=True)["status"])
+        self.assertEqual("nothing", client.submit_ready(automatic=True)["status"])
+        disabled = self.consent.set_auto_submission(False)
+        self.assertTrue(disabled["accepted"])
+        self.assertEqual(old["start"], disabled["start"])
+        self.assertEqual("paused", client.submit_ready(automatic=True)["status"])
+        with self.db.connect() as db:
+            saved = db.execute("SELECT receipt FROM open_enrollments WHERE purpose='private_submission'").fetchone()[0]
+            self.assertFalse(json.loads(saved)["automatic_submission"]["accepted"])
+
+    def test_server_rejects_automatic_files_without_scope_and_keeps_manual_submission(self):
+        import uuid
+        from learning_data.collection import digest
+        from learning_data.submission import snapshot
+        client = self.client()
+        client.connect_open("https://example.test")
+        with self.assertRaises(CollectionError):
+            files = snapshot(client.root, client.user)
+            request_id = str(uuid.uuid4())
+            client.transport("https://example.test", "/v1/private/submissions",
+                             {"files": files, "request_id": request_id, "digest": digest({"files": files, "request": request_id}), "automatic": True},
+                             token=client.settings()["token"])
+        self.assertEqual("ok", client.submit()["status"])
+        self.consent.set_auto_submission(True)
+        client.sync_consent(self.consent, self.consent.settings())
+        self.assertEqual("nothing", client.submit_ready(automatic=True)["status"])
+        self.consent.set_auto_submission(False)
+        client.sync_consent(self.consent, self.consent.settings())
+        with self.assertRaises(ValueError):
+            from learning_data.privacy import validate_receipt
+            validate_receipt(self.consent.settings()["receipt"], automatic=True)
+
+    def test_automatic_transfer_respects_paused_tracks_and_changed_choice(self):
+        client = self.client()
+        self.consent.set_auto_submission(True)
+        self.collections["ai"].set_enabled(False)
+        with mock.patch.object(client, "transport") as transport:
+            self.assertEqual("paused", client.submit_ready(automatic=True)["status"])
+            transport.assert_not_called()
+        self.assertTrue((self.repo/"submissions/tester/r01/quiz.py").exists())
+
+    def test_permission_disabled_after_sync_prevents_the_next_file_request(self):
+        client = self.client()
+        self.consent.set_auto_submission(True)
+        sync = client.sync_consent
+        def disable_after_sync(*args, **kwargs):
+            sync(*args, **kwargs)
+            self.consent.set_auto_submission(False)
+        with mock.patch.object(client, "sync_consent", side_effect=disable_after_sync):
+            with self.assertRaises(ValueError):
+                client.submit_ready(automatic=True)
+        with self.db.connect() as db:
+            self.assertEqual(0, db.execute("SELECT count(*) FROM api_submissions").fetchone()[0])
+        self.assertFalse(client.pending_path.exists())
+
+    def test_server_does_not_restore_a_delayed_on_receipt_after_off(self):
+        client = self.client()
+        self.consent.set_auto_submission(True)
+        client.submit_ready(automatic=True)
+        old_receipt = self.consent.settings()["receipt"]
+        config = client.settings()
+        self.consent.set_auto_submission(False)
+        client.sync_consent(self.consent, self.consent.settings())
+        status, _ = self.call("/v1/consent", {"consent": old_receipt}, token=config["token"])
+        self.assertEqual(409, status)
+        status, _ = self.call("/v1/private/submissions", {"automatic": True}, token=config["token"])
+        self.assertEqual(403, status)
+        status, _ = self.call("/v1/private/submissions", {"automatic": "true"}, token=config["token"])
+        self.assertEqual(400, status)
+        plain = {k:v for k,v in old_receipt.items() if k != "automatic_submission"}
+        self.assertEqual(200, self.call("/v1/consent", {"consent": plain}, token=config["token"])[0])
+        with self.db.connect() as db:
+            scope = json.loads(db.execute("SELECT receipt FROM open_enrollments WHERE participant=?", (config["participant"],)).fetchone()[0])["automatic_submission"]
+            self.assertFalse(scope["accepted"])
+
+    def test_cancellation_after_registration_stops_before_any_file_request(self):
+        import threading
+        from learning_data.submission import submit_private
+        client = self.client()
+        self.consent.set_auto_submission(True)
+        cancel = threading.Event()
+        wire = client.transport
+        routes = []
+        def register_then_stop(base, path, *args, **kwargs):
+            routes.append(path)
+            result = wire(base, path, *args, **kwargs)
+            if path == "/v1/register/private":
+                cancel.set()
+            return result
+        client.transport = register_then_stop
+        result = submit_private(client, automatic=True, canceled=cancel.is_set)
+        self.assertEqual("paused", result["status"])
+        self.assertNotIn("/v1/private/submissions", routes)
+        self.assertTrue((self.repo/"submissions/tester/r01/quiz.py").exists())
+
     def test_production_public_routes_are_closed_before_any_publisher(self):
         self.app = application(self.db)
         with mock.patch("tests.legacy_submissions.Publisher.configured") as publisher:
