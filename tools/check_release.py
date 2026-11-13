@@ -25,6 +25,7 @@ CASES = (
     "tests.test_gui_identity.IdentityGuiTest.test_team_statistics_switch_period_and_are_hidden_for_other_users",
     "tests.test_gui_identity.TeamDashboardTest.test_summary_and_chart_reflow_at_max_text_in_both_themes",
     "tests.test_gui_identity.TeamDashboardTest.test_count_tooltips_follow_max_text_and_fit_both_themes",
+    "tests.test_gui_identity.TeamDashboardTest.test_metric_info_matches_actual_text_pixels_in_both_themes_and_sizes",
     "tests.test_gui_dialogs.DialogTest.test_pending_preserves_pixels_focus_selection_scroll_and_actions",
     "tests.test_gui_dialogs.DialogTest.test_identity_footer_and_code_fit_max_text_both_themes",
     "tests.test_gui_dialogs.DialogTest.test_long_message_keeps_all_actions_outside_body_scroll",
@@ -99,6 +100,8 @@ def gui_check(out):
                                          "device_pixel_ratio": win.devicePixelRatioF(),
                                          "widget_image": [shot.width(), shot.height()],
                                          "native_image": [native.width(), native.height()]})
+                        if hasattr(case, "alignment_samples"):
+                            captures[-1]["glyph_alignment"] = case.alignment_samples
                     elif case.id() in CLOSED_CASES and main_window is not None and not main_window.isVisible():
                         closed.append(case.id())
                 finally:
