@@ -426,7 +426,7 @@ def submit_private(client, automatic=False, canceled=lambda: False):
         if status == 401:
             message += " 연결 파일을 지우지 말고 운영자에게 문의해 주세요. 로컬 풀이는 유지됩니다."
         retryable = (getattr(error, "code", None) in ("network", "pending_oversized_removed") or
-                     (status is not None and (status in (408, 429) or status >= 500)) or isinstance(error, OSError))
+                     (status is not None and (status in (408, 429) or status >= 500)) or isinstance(error, FileNotFoundError))
         return {"status": "error", "message": message, "detail": "", "retryable": retryable}
 
 

@@ -187,6 +187,24 @@ class AutomaticSubmissionTest(HubTest):
         self.assertTrue(win.isVisible())
         self.assertFalse(win.auto_submission.closing)
 
+    def test_identity_confirmation_during_close_restores_background_work(self):
+        win = self.prepare()
+        win.auto_submission.stop()
+        with mock.patch.object(win, "identity_dialog", mock.Mock(job=object())) as dialog:
+            win.close()
+            dialog.reject.assert_called_once()
+        self.assertTrue(win.isVisible())
+        self.assertFalse(win.auto_submission.closing)
+
+    def test_local_permission_failure_stops_automatic_retry(self):
+        win = self.prepare()
+        with mock.patch.object(self.api, "submit_ready", side_effect=PermissionError("permission denied")):
+            self.enable(win)
+            self.finished(win)
+        self.assertFalse(win.auto_submission.wanted)
+        self.assertFalse(win.auto_submission.timer.isActive())
+        self.assertTrue(self.file.exists())
+
     def test_notice_keeps_existing_consent_and_fits_small_window_max_text_both_themes(self):
         win = self.prepare()
         before = win.privacy.consent.settings()

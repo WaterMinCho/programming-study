@@ -1024,6 +1024,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self.identity_dialog is not None and self.identity_dialog.job is not None:
+            self.auto_submission.resume()
+            for controller in getattr(self, "privacy_controllers", {}).values():
+                controller.resume()
             self.identity_dialog.reject()
             event.ignore()
             return

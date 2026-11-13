@@ -24,7 +24,10 @@ def signature(api):
             path = Path(base)/name
             if name.startswith("."):
                 continue
-            st = path.lstat()
+            try:
+                st = path.lstat()
+            except FileNotFoundError:
+                continue
             rows.append((path.relative_to(root).as_posix(), st.st_size, st.st_mtime_ns))
     return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
 
@@ -92,7 +95,15 @@ class AutoSubmission(QObject):
                 return
             stamp = signature(api)
             config_at = api.path.stat().st_mtime_ns if api.path.exists() else None
+        except FileNotFoundError:
+            self.failures += 1
+            if self.failures <= 3:
+                self.timer.start(1000)
+            else:
+                self.wanted = False
+            return
         except (CollectionError, OSError, ValueError):
+            self.wanted = False
             return
         blocked = {"files": stamp, "choice": state["choice"], "connection": config_at}
         if win.settings.value(self.key(api), "", type=str) == json.dumps(blocked, sort_keys=True):
