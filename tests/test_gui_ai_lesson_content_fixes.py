@@ -1,19 +1,40 @@
 """종횡비 물음의 새 입력과 기존 초급 답의 화면 복원을 확인함."""
 import copy
 import os
+import unittest
 from pathlib import Path
 from unittest import mock
 
 from tests import guikit
 
-from PyQt6.QtGui import QImage
+from PyQt6.QtGui import QFont, QImage
 
 from gui import ai_learn, theme
 from tests.test_ai_lesson_content_fixes import ROOT, note, old_aspect_note
-from tests.test_gui_ai import AiTest
+from tests import test_gui_ai
 
 
-class LessonContentGuiTest(AiTest):
+class LessonContentGuiTest(unittest.TestCase):
+    pc = False
+    real_bank = False
+    tearDown = test_gui_ai.AiTest.tearDown
+    boot = test_gui_ai.AiTest.boot
+    idle = test_gui_ai.AiTest.idle
+    log = test_gui_ai.AiTest.log
+
+    def setUp(self):
+        before = (dict(theme.state), QFont(guikit.APP.font()), guikit.APP.palette(), guikit.APP.styleSheet())
+        test_gui_ai.AiTest.setUp(self)
+        self.addCleanup(self.restore_theme, before)
+
+    def restore_theme(self, before):
+        state, font, palette, stylesheet = before
+        theme.set_text(state["text"])
+        theme.set_mode(state["mode"], force=True)
+        guikit.APP.setFont(font)
+        guikit.APP.setPalette(palette)
+        guikit.APP.setStyleSheet(stylesheet)
+
     def test_versioned_level_drops_old_twenty_draft_and_preserves_record(self):
         win = self.boot(size=(760, 480))
         win.ai.notes["i90"] = old_aspect_note()
