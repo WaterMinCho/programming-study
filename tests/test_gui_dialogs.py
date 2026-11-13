@@ -7,7 +7,7 @@ from unittest import mock
 
 from tests import guikit
 from PyQt6.QtCore import QEvent, QObject, QPoint
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QPushButton, QWidget
 
 from gui import dialogs, theme
 from gui.identity import IdentityDialog
@@ -257,4 +257,8 @@ class DialogTest(unittest.TestCase):
             self.assertTrue(dialog.rect().contains(rect))
             self.assertFalse(button.isDefault())
         self.assertEqual("danger_text", dialog.buttons["delete"].objectName())
+        tools = [button for button in dialog.shell.footer.findChildren(QPushButton)
+                 if button.text() in ("자세히", "내용 복사", "기록 삭제")]
+        self.assertEqual(3, len(tools))
+        self.assertEqual(1, len({button.y() for button in tools}))
         self.capture_widget = dialog

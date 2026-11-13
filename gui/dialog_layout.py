@@ -83,10 +83,15 @@ class ActionLayout(QLayout):
         if width(first) + width(last) + (gap if first and last else 0) <= area.width():
             return top + max(row(first, area.x(), y), row(last, area.right() + 1 - width(last), y)) + bottom
         if first:
-            for number, item in enumerate(first):
-                y += row([item], area.x(), y)
-                if number < len(first) - 1 or last:
-                    y += gap
+            pending = []
+            for item in first:
+                if pending and width(pending + [item]) > area.width():
+                    y += row(pending, area.x(), y) + gap
+                    pending = []
+                pending.append(item)
+            y += row(pending, area.x(), y)
+            if last:
+                y += gap
         if last and width(last) <= area.width():
             y += row(last, area.right() + 1 - width(last), y)
         else:
