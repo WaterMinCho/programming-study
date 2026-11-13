@@ -662,23 +662,23 @@ def current_user(args):
     if not user and os.path.isfile(USER_FILE):
         user = read_text(USER_FILE).strip()
     if not user and sys.stdin.isatty():
-        print("처음 한 번만 내 깃허브 ID 를 입력하세요 (영문·숫자·-·_).")
+        print("처음 한 번만 풀이 ID를 입력하세요 (영문·숫자·-·_).")
         user = input("> ").strip()
         if not USER_RE.fullmatch(user):
-            die("ID 는 영문·숫자·-·_ 만 쓸 수 있습니다.")
+            die("ID는 영문·숫자·-·_만 쓸 수 있습니다.")
         os.makedirs(os.path.join(SUBMISSIONS_DIR, user), exist_ok=True)
         write_text(USER_FILE, user + "\n")
         print("내 풀이 폴더: submissions/%s/\n" % user)
     if not user:
-        die("`python study.py init <내 깃허브 ID>` 로 내 풀이 폴더를 먼저 만들어 주세요.")
+        die("`python study.py init <내 풀이 ID>` 로 내 풀이 폴더를 먼저 만들어 주세요.")
     if not USER_RE.fullmatch(user):
-        die("ID 는 영문·숫자·-·_ 만 쓸 수 있습니다: %r" % user)
+        die("ID는 영문·숫자·-·_만 쓸 수 있습니다: %r" % user)
     return user
 
 
 def cmd_init(args):
     if not USER_RE.fullmatch(args.id):
-        die("ID 는 영문·숫자·-·_ 만 쓸 수 있습니다(깃허브 ID 권장).")
+        die("ID는 영문·숫자·-·_만 쓸 수 있습니다.")
     os.makedirs(os.path.join(SUBMISSIONS_DIR, args.id), exist_ok=True)
     write_text(USER_FILE, args.id + "\n")
     print("내 풀이 폴더: submissions/%s/" % args.id)
@@ -897,7 +897,6 @@ def round_as_set(rnd):
 
 
 def announce_round(user, rnd, folder):
-    import adaptive
     title = round_as_set(rnd)["meta"]["title"]
     print("%s %d문항이 준비되어 있습니다." % (title, len(rnd["items"])))
     print("  문제지 : %s/README.md" % shown_path(folder))
@@ -1016,8 +1015,11 @@ def cmd_analyze(args):
 def cmd_update(args):
     """화면이 열리지 않을 때 터미널에서 새 버전과 새 문제를 받음. 화면이 켤 때 하는 문제 받기와 같은 일을 함."""
     import gitflow
-    import session
-    result = gitflow.GitFlow(ROOT, session.user_folder(current_user(args))).sync()
+    user = current_user(args)
+    names = all_users()
+    if user not in names:
+        user = next((name for name in names if name.lower() == user.lower()), user)
+    result = gitflow.GitFlow(ROOT, user).sync()
     print(result["message"])
     if result["backup"]:
         print("보관한 사본: %s" % result["backup"])
@@ -1025,6 +1027,12 @@ def cmd_update(args):
         if result["detail"]:
             print(result["detail"], file=sys.stderr)
         sys.exit(1)
+
+
+def cmd_data(args):
+    """수집 관리 명령을 실행할 때 해당 모듈을 읽음."""
+    from learning_data.collection import command
+    return command(args)
 
 
 def build_parser():
@@ -1035,7 +1043,6 @@ def build_parser():
     if "web" in ENTRY_TRACKS:
         sub.add_parser("web", help="웹 면접 준비: python study.py web --help", add_help=False)
 
-    from aiprep.collection import command as data_command
     for name, title, track in (("ai-data", "AI 비전 개론", "ai"), ("python-data", "파이썬", "python")):
         p = sub.add_parser(name, help=title + " 추가 학습 데이터 관리")
         p.add_argument("action", choices=("status", "enable", "disable", "export", "delete"), nargs="?", default="status")
@@ -1043,7 +1050,7 @@ def build_parser():
         p.add_argument("--agree", action="store_true", help="수집 안내에 동의하거나 추가 데이터 삭제를 확인합니다")
         p.add_argument("--out", help="공개 저장소 밖의 새 JSONL 파일")
         p.add_argument("--include-answers", action="store_true", help="내보낼 때 입력 답안도 포함합니다")
-        p.set_defaults(func=data_command, track=track)
+        p.set_defaults(func=cmd_data, track=track)
 
     p = sub.add_parser("go", help="터미널 모드로 다음 할 일 이어 가기: 진단 → 풀기 → 채점 → 다음 회차")
     p.add_argument("--user")
@@ -1069,7 +1076,7 @@ def build_parser():
     p.set_defaults(func=cmd_analyze)
 
     p = sub.add_parser("init", help="내 풀이 폴더 만들기 (처음 한 번)")
-    p.add_argument("id", help="내 깃허브 ID (영문·숫자·-·_)")
+    p.add_argument("id", help="내 풀이 ID (영문·숫자·-·_)")
     p.set_defaults(func=cmd_init)
 
     p = sub.add_parser("list", help="세트(차시·모의고사) 목록")

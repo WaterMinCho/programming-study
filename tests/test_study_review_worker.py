@@ -31,6 +31,46 @@ def assessment(decision="approve", blocking=False):
 
 
 class WorkerTest(unittest.TestCase):
+    def test_feedback_separates_required_fixes_from_optional_suggestions(self):
+        result = assessment(blocking=True)
+        optional = dict(result["findings"][0], blocking=False, hint="입력의 단위를 설명에 남김.")
+        result["findings"].append(optional)
+        body = worker.body_for({"head": HEAD}, result, "marker", "REQUEST_CHANGES")
+        self.assertIn("수정 필요 · "+FILE+":1", body)
+        self.assertIn("선택 제안 · "+FILE+":1", body)
+        self.assertIn("수정할 부분: 반복 시작에서 기울기를 초기화함.", body)
+        self.assertIn("제안 내용: 입력의 단위를 설명에 남김.", body)
+        self.assertIn("현재 내용: 이전 기울기를 더함.", body)
+        self.assertIn("수정 후: 현재 배치의 기울기만 사용함.", body)
+        self.assertIn("<summary>현재 내용과 수정 후 결과</summary>", body)
+
+    def test_followup_steps_only_appear_when_there_is_something_to_answer(self):
+        optional = assessment(blocking=True)
+        optional["findings"][0]["blocking"] = False
+        for event, result, needs_guide in (
+                ("APPROVE", assessment(), False),
+                ("COMMENT", assessment("needs_context"), True),
+                ("REQUEST_CHANGES", assessment(blocking=True), True),
+                ("APPROVE", optional, True)):
+            with self.subTest(event=event, findings=bool(result["findings"])):
+                body = worker.body_for({"head": HEAD}, result, "marker", event)
+                self.assertEqual(needs_guide, worker.FOLLOWUP_GUIDE in body)
+                if needs_guide:
+                    self.assertIn("기존 커밋 뒤에 새 커밋이 추가됩니다", body)
+                    self.assertIn("같은 브랜치로 Push하면 기존 PR이 갱신", body)
+                    self.assertIn("PR 설명글만 고칠 때", body)
+                    self.assertIn("질문에 답하거나 실행 결과만 알릴 때는 댓글로 답하면 됩니다", body)
+
+    def test_review_with_separate_observations_is_not_checked_as_a_commit_message(self):
+        result = assessment()
+        result["summary"] = "확인한 범위\n\n" + "\n".join(
+            "- 입력 %d의 조건과 근거를 확인했음." % index for index in range(6))
+        body = worker.body_for({"head": HEAD}, result, "<!-- review -->", "APPROVE")
+        self.assertIn("입력 5의 조건", body)
+        result["summary"] = "결국 이것입니다."
+        with self.assertRaises(worker.review.ReviewError):
+            worker.body_for({"head": HEAD}, result, "<!-- review -->", "APPROVE")
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="study-worker-test-")
         self.addCleanup(temporary.cleanup)
@@ -246,7 +286,7 @@ class WorkerTest(unittest.TestCase):
 
     def test_prepare_race_stops_before_model(self):
         self.packet_changes["base"] = "c" * 40
-        self.assertEqual("새 판 대기", self.process())
+        self.assertEqual("새 커밋 대기", self.process())
         self.model_mock.assert_not_called()
         self.assertEqual([], self.posted())
 
@@ -256,7 +296,7 @@ class WorkerTest(unittest.TestCase):
                        {"title": "docs(model): 제목 수정"}, {"state": "closed"}):
             with self.subTest(change=change):
                 self.current = dict(copy.deepcopy(self.pr), **change)
-                self.assertEqual("새 판 대기", self.process())
+                self.assertEqual("새 커밋 대기", self.process())
                 self.assertEqual([], self.posted())
                 for path in self.folder().iterdir():
                     path.unlink()
@@ -270,7 +310,7 @@ class WorkerTest(unittest.TestCase):
                 self.current["base"]["sha"] = "c" * 40
             return result
         self.api_mock.side_effect = api
-        self.assertEqual("새 판 대기", self.process())
+        self.assertEqual("새 커밋 대기", self.process())
         self.assertEqual("DISMISSED", self.reviews[-1]["state"])
         self.assertNotIn("success", self.states())
         self.assertEqual("superseded", json.loads((self.folder()/"worker.json").read_text())["phase"])
@@ -375,7 +415,7 @@ class WorkerTest(unittest.TestCase):
     def test_recovery_rechecks_base_before_restoring_success(self):
         self.lose_status_ack()
         self.current["base"]["sha"] = "c" * 40
-        self.assertEqual("새 판 대기", self.process())
+        self.assertEqual("새 커밋 대기", self.process())
         self.assertEqual("DISMISSED", self.reviews[-1]["state"])
         self.assertNotIn("success", self.states())
 
@@ -427,7 +467,7 @@ class WorkerTest(unittest.TestCase):
         self.author_comment()
         self.result = assessment("needs_context")
         self.current["base"]["sha"] = "c" * 40
-        self.assertEqual("새 판 대기", self.process())
+        self.assertEqual("새 커밋 대기", self.process())
         folder = self.folder()
         data = json.loads((folder/"snapshot.json").read_text())
         data["context"] = [{"path": "example.py", "content": "ghp_" + "x" * 30}]
@@ -720,9 +760,9 @@ class RuntimeInstallTest(unittest.TestCase):
         original = Path(worker.__file__).resolve().parents[1]
         self.files = {name: (original/name).read_bytes() for name in (
             "tools/study_review_worker.py", "tools/learning_review.py", "tools/study_checks.py",
-            "tools/pr_title.py", "tools/check_style.py", "aiprep/privacy.py")}
+            "tools/pr_title.py", "tools/check_style.py", "learning_data/privacy.py")}
         for name, raw in {**self.files, "tools/__init__.py": b'raise RuntimeError("source initializer")\n',
-                          "aiprep/__init__.py": b'raise RuntimeError("source initializer")\n',
+                          "learning_data/__init__.py": b'raise RuntimeError("source initializer")\n',
                           ".git/config": b"excluded\n", "submissions/example/answer.py": b"excluded\n",
                           "account.json": b"excluded\n"}.items():
             path = self.source/name
@@ -751,7 +791,7 @@ class RuntimeInstallTest(unittest.TestCase):
         manifest_raw = (runtime/"manifest.json").read_bytes()
         manifest = json.loads(manifest_raw)
         self.assertEqual(self.root/"runtime"/hashlib.sha256(manifest_raw).hexdigest(), runtime)
-        expected = {**self.files, "tools/__init__.py": b"", "aiprep/__init__.py": b""}
+        expected = {**self.files, "tools/__init__.py": b"", "learning_data/__init__.py": b""}
         self.assertEqual(set(expected), set(manifest["files"]))
         self.assertEqual(set(expected) | {"manifest.json"},
                          {path.relative_to(runtime).as_posix() for path in runtime.rglob("*") if path.is_file()})
@@ -765,7 +805,7 @@ class RuntimeInstallTest(unittest.TestCase):
         self.assertEqual(63, config["Umask"])
         self.assertEqual(60, config["StartInterval"])
         self.assertTrue(config["RunAtLoad"])
-        for folder in (self.root, runtime.parent, runtime, runtime/"tools", runtime/"aiprep"):
+        for folder in (self.root, runtime.parent, runtime, runtime/"tools", runtime/"learning_data"):
             self.assertEqual(0o700, folder.stat().st_mode & 0o777)
         for path in (plist, self.root/"worker.log", self.root/"worker-error.log",
                      *(path for path in runtime.rglob("*") if path.is_file())):
@@ -868,12 +908,12 @@ with mock.patch("subprocess.run", side_effect=AssertionError("external command")
     worker = importlib.import_module("tools.study_review_worker")
     data = {"head": "a"*40}
     result = {"summary": "변경한 입력 처리를 확인했음.", "findings": [], "questions": []}
-    assert "검토한 판" in worker.body_for(data, result, "marker", "APPROVE")
+    assert "검토한 커밋" in worker.body_for(data, result, "marker", "APPROVE")
     worker.save(root/"probe.json", {"saved": True})
     assert json.loads((root/"probe.json").read_text()) == {"saved": True}
     assert worker.valid_title("fix(model): 입력 수정")
-    names = ("tools", "aiprep", "tools.study_review_worker", "tools.learning_review",
-             "tools.study_checks", "tools.pr_title", "tools.check_style", "aiprep.privacy")
+    names = ("tools", "learning_data", "tools.study_review_worker", "tools.learning_review",
+             "tools.study_checks", "tools.pr_title", "tools.check_style", "learning_data.privacy")
     origins = {name: str(Path(importlib.import_module(name).__file__).resolve()) for name in names}
     assert Path(importlib.import_module("tools.check_style").ROOT) == runtime
     print(json.dumps(origins))
@@ -884,7 +924,7 @@ with mock.patch("subprocess.run", side_effect=AssertionError("external command")
         self.assertEqual(0, result.returncode, result.stderr)
         origins = json.loads(result.stdout.splitlines()[-1])
         for name, path in origins.items():
-            expected = runtime/(name.replace(".", "/")+("/__init__.py" if name in {"tools", "aiprep"} else ".py"))
+            expected = runtime/(name.replace(".", "/")+("/__init__.py" if name in {"tools", "learning_data"} else ".py"))
             self.assertEqual(expected, Path(path))
         self.assertEqual([], list(runtime.rglob("__pycache__")))
 

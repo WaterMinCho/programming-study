@@ -9,11 +9,11 @@ import uuid
 import re
 from zoneinfo import ZoneInfo
 
-from aiprep.collection import digest, packed, stamp
+from learning_data.collection import digest, packed, stamp
 
 
 def profile_events(profile, catalog, timezone):
-    """기존 판정과 시각을 보존함. 과거 입력 시각·문항 판·희망 직무를 복원하지 않음."""
+    """기존 판정과 시각을 보존함. 과거 입력 시각·문항 버전·희망 직무를 복원하지 않음."""
     offset = re.fullmatch(r"([+-])(\d{2}):(\d{2})", timezone)
     if offset:
         hours, minutes = int(offset[2]), int(offset[3])
@@ -154,11 +154,14 @@ def transfer_plan(path, catalog):
 
 
 def transfer(path, manifest, catalog, *, dry_run=False):
+    return store_plan(path, transfer_plan(manifest, catalog), dry_run=dry_run)
+
+
+def store_plan(path, prepared, *, dry_run=False):
     """기존 서버 DB에 별도 이관 계정을 원자적으로 저장함. 재실행과 변경 충돌을 구분함."""
     from learning_server.app import Database
     from learning_server.operations import private_path, read_database, status
 
-    prepared = transfer_plan(manifest, catalog)
     path = private_path(path)
     status(path)
     database = None if dry_run else Database(str(path))
@@ -176,7 +179,7 @@ def transfer(path, manifest, catalog, *, dry_run=False):
             old = db.execute("SELECT participant, source_sha256, provenance, consent, state FROM legacy_transfers "
                              "WHERE participant=? OR source_sha256=?", (participant, item["source_sha256"])).fetchall() if has_table else []
             account = db.execute("SELECT revoked FROM participants WHERE participant=?", (participant,)).fetchone()
-            values = [(participant, "python", row["event_id"], row["sequence"], packed(row)) for row in item["events"]]
+            values = [(participant, item.get("track", "python"), row["event_id"], row["sequence"], packed(row)) for row in item["events"]]
             if old:
                 expected = [(participant, item["source_sha256"], packed(provenance), packed(item["consent"]), "active")]
                 if old != expected or account != (0,):

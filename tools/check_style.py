@@ -37,6 +37,7 @@ SENT = r"(^(?:\s*(?:[>*-]+|\d+\.))*\s*|[.?!]\s+)"  # 문장 첫 자리: 줄 첫�
 
 # 글 어디에 있어도 걸리는 꼴
 FIXED = {
+    "코드 뒤 조사": r"코드(?:은|을|이)(?=\s|[,.])",
     "em-dash(\u2014)": "\u2014",
     "행정식 당위 연결": r"하여[^\n.!?]{0,80}해야\s?합니다",
     "지시어로 끝내는 결론": r"(?:결국\s*)?(?:그것|이것|바로\s+그것)입니다[.!]",
@@ -59,6 +60,7 @@ FIXED = {
     "수사 대구": r"단순(한|히) [^.\n]{0,25}(넘어|아니라)\s",
     "분열문": r"(중요한|주목할|주목할 만한|기억할|눈여겨볼|눈여겨보아야 할|알아야 할|주의할|핵심적인|놓치기 쉬운) (것|점)은\s|" + SENT + r"(핵심|관건)은\s|" + SENT + r"문제는 [^.\n]{0,30}(때|것|점)입니다",
     "메타 담화": r"앞(서|에서|에서도) (설명|말|살펴|본|보았|봤|이야기)\S*\s?(것처럼|바와 같이|대로|듯이|듯)|아시다시피|아시겠지만|솔직히 말하면|결론적으로|종합하면|요약하면|말하자면|" + SENT + r"다시 말(해|하면)(서)?,? ",
+    "버전 표현": r"(?<![가-힣])(?:코드|문항|자료|입력|로드맵|동의서?|검토한?|규칙|정책|모델|Python|PR|main|현재|같은|새|이전|예전|당시|그)\s+판(?=$|[\s\d.,:;·`]|(?:으로|에서|마다|끼리|은|을|이|의|과|도|만|에)(?=$|[\s.,:;·`]))",
 }
 END = r"(니다|세요|어요|아요|해요|돼요)\.$"
 POINTER = r"(^|\s)(그|이|그게|이게|바로 그)\s?\S{0,10}" + END  # 앞 문장을 가리키며 닫는 짧은 문장
@@ -134,7 +136,7 @@ def prose_lines(text, commit=False):
     return out
 
 
-def check(text, commit=False, path=""):
+def check(text, commit=False, path="", record=False):
     fails = []
     code = path.endswith(CODE_SUFFIXES)
     records = []
@@ -169,7 +171,9 @@ def check(text, commit=False, path=""):
         if run == 3:
             fails.append(("불릿마다 같은 '**라벨** 설명' 꼴", line.strip()[:40]))
     fails += record_fails(records)
-    if not code and not commit:  # 문서(가이드)는 ~니다 체
+    if record:
+        fails += record_fails(lines)
+    if not code and not commit and not record:  # 문서(가이드)는 ~니다 체
         for line in lines:
             if re.search(GUIDE_BAD, line.strip()):
                 fails.append(("가이드 문장은 ~니다 체", line.strip()[-30:]))
@@ -180,7 +184,7 @@ def check(text, commit=False, path=""):
                 if re.search(pattern, ln, re.I):
                     fails.append((name, ln.strip()[:40]))
         subject = next((ln for ln in lines if ln.strip()), "")
-        if not re.match(r"^(feat|fix|docs|refactor|test|chore|style|perf|build|ci)(\([\w/.-]+\))?: \S", subject) \
+        if not re.match(r"^(feat|fix|docs|refactor|test|chore|style|perf|build|ci)(\([A-Za-z0-9_./-]+\))?: \S", subject) \
                 and not subject.startswith(("Merge ", "Revert ")):
             fails.append(("커밋 제목 형식(type(scope): 내용)", subject[:50]))
         body_lines = [ln for ln in lines if ln.strip()][1:]
@@ -200,7 +204,7 @@ def select(paths):
         top = p.split("/")[0]
         if p.endswith(".md"):
             picked.append(p)
-        elif p.endswith(".py") and ("/" not in p or top in ("gui", "journey", "webprep", "tools", "aiprep", "ai")):
+        elif p.endswith(".py") and ("/" not in p or top in ("gui", "journey", "webprep", "tools", "aiprep", "learning_data", "ai")):
             picked.append(p)
         elif p.startswith(".github/workflows/") and p.endswith((".yml", ".yaml")):
             picked.append(p)

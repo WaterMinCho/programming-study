@@ -24,7 +24,8 @@ import threading
 import adaptive
 import session
 import study
-from aiprep import bank, collection, gen, grade, mock, notes, plan, review, skel
+from aiprep import bank, gen, grade, mock, notes, plan, review, skel
+from learning_data import collection
 from webprep import record
 
 SET_SIZE = 20
@@ -220,13 +221,17 @@ class AiSession(object):
         if mid not in self.mocks:
             raise AiError('모의고사를 찾을 수 없습니다.')
         try:
-            items, _ = mock.load_items(self.root, self.mocks[mid])
+            items, fingerprint = mock.load_items(self.root, self.mocks[mid])
             rows = mock.submissions(self.record.reload(), mid)
         except (mock.MockError, record.RecordError) as error:
             raise AiError(str(error)) from error
         exam = self._mock_exams.get(mid)
+        latest = next((row for row in reversed(self.record.log) if row.get("kind") == "mock_start" and row.get("mock") == mid), None)
+        restart_required = (latest is not None and latest.get("fingerprint") != fingerprint
+                            and not any(int(row.get("try") or 1) == int(latest.get("try") or 1) for row in rows))
         return dict(self.mocks[mid], blanks=sum(item['kind'] == 'blank' for item in items.values()),
                     choices=sum(item['kind'] == 'choice' for item in items.values()), taken=bool(rows),
+                    restart_required=restart_required,
                     first_score=rows[0]['score'] if rows else None, last_score=rows[-1]['score'] if rows else None,
                     active=exam is not None and exam.result is None,
                     remaining=exam.remaining() if exam is not None and exam.result is None else None)
@@ -390,7 +395,7 @@ class AiSession(object):
         return out
 
     def _skel_block(self, block):
-        """ai-diff·ai-rotate 블록에 채울 값. diff 는 skel.diff 결과, rotate 는 skel.rotate_block 결과(code, slots). 모르는 뼈대·판·
+        """ai-diff·ai-rotate 블록에 채울 값. diff 는 skel.diff 결과, rotate 는 skel.rotate_block 결과(code, slots). 모르는 뼈대·코드 예제·
         자리면 {"error"}."""
         skeleton = self.skeletons.get(str(block.get("skel")))
         if skeleton is None:
@@ -405,7 +410,7 @@ class AiSession(object):
 
     def _blocks(self, lid, key, step, state):
         """단계 블록을 화면용으로. guess 는 답을 빼고 고른 번호를, reveal 은 짐작한 답과 정답을, figure 는 파일 경로를, diff 는
-        두 판의 행을, rotate 는 판 코드와 자리마다 그 자리만 가린 코드를 채움."""
+        두 코드 예제의 행을, rotate 는 예제 코드와 자리마다 그 자리만 가린 코드를 채움."""
         guesses = state.guesses.get((lid, key), {})
         out = []
         unit = self.notes[lid]["units"][key]
@@ -559,7 +564,7 @@ class AiSession(object):
         return self._append(entry, private={"response": value}, item=item)
 
     def check_rotate(self, lid, key, rid, slot, value, readonly=False):
-        """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 판 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
+        """돌려 가며 빈칸 한 자리를 채점함. 그 자리만 가린 예제 코드를 지문으로 둔 한 칸 문항을 grade_item 으로 채점해 연습과 같은
         문맥 떼기를 씀. readonly 가 아니면 {"kind": "recall", "lesson", "unit", "id", "slot", "ok"} 를 한 번 기록하고 상자는
         움직이지 않음. {"ok", "answer"(첫 답), "explain"(같은 자리의 기존 해설)}. 모르는 블록·자리면 AiError."""
         unit = self._unit(lid, key)
@@ -638,8 +643,14 @@ class AiSession(object):
                          for i, u in enumerate(self.unit_list(lid))]
         for lid in self.patterns:
             if lid in self.notes:
-                rows += [dict(u, lesson=lid, unit=u["key"], no=999, order=i, name=self.unit_name(lid, u["key"]))
-                         for i, u in enumerate(self.unit_list(lid))]
+                group = self.patterns[lid]
+                for u in self.unit_list(lid):
+                    meta = group["units"].get(u["key"])
+                    if meta is None:
+                        continue
+                    after = self.lessons.get(meta["after"])
+                    rows.append(dict(u, lesson=lid, unit=u["key"], no=after["no"] if after else 999,
+                                     order=100 + list(group["units"]).index(u["key"]), name=self.unit_name(lid, u["key"])))
         valid = {(r["lesson"], r["unit"]) for r in rows}
         saved = data.get("last_unit")
         last = tuple(saved) if isinstance(saved, list) and len(saved) == 2 and all(isinstance(v, str) for v in saved) else None
@@ -727,7 +738,7 @@ class AiSession(object):
             return None
         lid = card.get("after") if card.get("mock") else card.get("lesson")
         note = self.notes.get(lid)
-        found = re.fullmatch(r"([0-9]{1,2}[a-i])/([1-9][0-9]*)", str(card.get("step") or ""))
+        found = re.fullmatch(r"(a?[0-9]{1,2}[a-i])/([1-9][0-9]*)", str(card.get("step") or ""))
         if note is None or found is None:
             return None
         key, number = found.group(1), int(found.group(2))
@@ -748,6 +759,7 @@ class AiSession(object):
                 return self._mock_exams[mid]
             exam = mock.MockExam(self, mid, repeat=repeat, seed=seed, clock=clock or (lambda: now()), monotonic=monotonic)
             self._mock_exams[mid] = exam
+            self.errors.pop(mid, None)
             return exam
         except mock.MockError as error:
             raise AiError(str(error)) from error
@@ -845,9 +857,9 @@ class AiSession(object):
                 mine = [str(shared["also_value"][key])]
         elif card.get('mock'):
             try:
-                path = os.path.join(self.home, 'mocks', '%s-1.json' % card['mock'])
-                draft = study.read_json(path)
                 first = state.index.mocks.get(card['mock'], {})
+                path = os.path.join(self.home, 'mocks', '%s-%d.json' % (card['mock'], int(first.get('try') or 1)))
+                draft = study.read_json(path)
                 saved = None
                 if first.get('fingerprint') and draft.get('fingerprint') == first['fingerprint']:
                     saved = draft.get('answers', {}).get(key)
@@ -877,7 +889,7 @@ class AiSession(object):
 
     def _static_view(self, card, entry=None):
         """오답 노트에 다시 그릴 문항. 생성기는 기록의 시드로, 문장 카드는 기록의 shown 순서로 다시 만들고 shown 이 없으면 빈칸판.
-        뼈대 카드는 기록의 답 줄(seed, masked, whole, fade, back)로 다시 만들고 기록이 없으면 f = 0 판."""
+        뼈대 카드는 기록의 답 줄(seed, masked, whole, fade, back)로 다시 만들고 기록이 없으면 f = 0 코드 예제."""
         entry = entry or {}
         seed = entry.get("seed")
         if seed is None:
@@ -950,13 +962,14 @@ class _LogIndex(object):
         self.mocks = {}
         self.related = []
         self.all_activity, self.all_recent = {}, []
+        self.all_first_mocks = {}
         self.n = 0
 
     def feed(self, entries):
         self.n += len(entries)
         for day, count in activity_counts(entries).items():
             self.all_activity[day] = self.all_activity.get(day, 0) + count
-        self.all_recent = (recent_lines(entries, with_course=True) + self.all_recent)[:5]
+        self.all_recent = (recent_lines(entries, with_course=True, first_mocks=self.all_first_mocks) + self.all_recent)[:5]
         entries = [e for e in entries if e.get("course", bank.course_of(e.get("lesson") or e.get("card"))) == self.course]
         self.events.feed(entries)
         for e in entries:
@@ -973,14 +986,14 @@ class _LogIndex(object):
                 self.revisits.add(where + (day,))
             elif kind == "answer" and e.get("card") and day is not None:
                 self.day_cards.setdefault(day, set()).add(str(e["card"]))
-            elif kind == 'mock_submit' and int(e.get('try') or 1) == 1:
+            elif kind == 'mock_submit' and e.get('mock') not in self.mocks:
                 self.mocks.setdefault(e.get('mock'), e)
                 if day is not None:
                     self.related += [(cid, day + datetime.timedelta(days=1)) for cid in e.get('related') or [] if isinstance(cid, str)]
 
 
 class _State(object):
-    """기록 한 판에서 계산한 값. AiSession._state 가 캐시하고, 카드 일정은 _LogIndex 의 캐시를 씀."""
+    """기록 스냅샷에서 계산한 값. AiSession._state 가 캐시하고, 카드 일정은 _LogIndex 의 캐시를 씀."""
 
     def __init__(self, sess, index, today):
         self.sess, self.today, self.exam, self.index = sess, today, sess.exam, index
@@ -1306,13 +1319,17 @@ def activity_counts(log):
     return counts
 
 
-def recent_lines(log, most=5, with_course=False):
+def recent_lines(log, most=5, with_course=False, first_mocks=None):
     """허브 최근 채점 줄 [{"at", "kind", "n", "first_pass", "score", "of", "mock"}] (최근 순)."""
     out = []
+    first_mocks = {} if first_mocks is None else first_mocks
+    for entry in log:
+        if entry.get("kind") == "mock_submit":
+            first_mocks.setdefault(entry.get("mock"), entry)
     for e in reversed(log):
         if e.get("kind") == "set_end":
             out.append({"at": e.get("at"), "kind": "set", "n": e.get("n"), "first_pass": e.get("first_pass")})
-        elif e.get("kind") == "mock_submit" and int(e.get("try") or 1) == 1:
+        elif e.get("kind") == "mock_submit" and first_mocks.get(e.get("mock")) is e:
             out.append({"at": e.get("at"), "kind": "mock", "mock": e.get("mock"), "score": e.get("score"), "of": e.get("of")})
         else:
             continue
@@ -1326,7 +1343,7 @@ def recent_lines(log, most=5, with_course=False):
 # 묶음 만들기
 
 def _overlapping_pattern_answers(sess, first, second):
-    """같은 판의 줄 고르기와 고칠 줄 문항이 같은 답 줄을 보여주는지 확인함."""
+    """같은 코드 예제의 줄 고르기와 고칠 줄 문항이 같은 답 줄을 보여주는지 확인함."""
     a, b = sess.cards[first], sess.cards[second]
     if a.get("kind") != "skel" or b.get("kind") != "skel" or a["pattern"] != b["pattern"]:
         return False
@@ -1428,16 +1445,16 @@ def _gen_trim(sess, chosen, keep=()):
 
 
 def _shows(card):
-    """뼈대 카드가 드러내는 판 이름 집합(change 는 from·to 둘)."""
+    """뼈대 카드가 드러내는 코드 예제 이름 집합(change 는 from·to 둘)."""
     return set(card.get("situations") or {}) | {card.get("variant")}
 
 
-# 같은 뼈대에서 먼저 낼 꼴. slot 은 판 전체를, change 는 두 판의 같은 줄을 보기로 보여 순위가 낮은 꼴의 답이 됨
+# 같은 뼈대에서 먼저 낼 꼴. slot 은 코드 예제 전체를, change 는 두 코드 예제의 같은 줄을 보기로 보여 순위가 낮은 꼴의 답이 됨
 SKEL_RANK = {"order": 0, "pick": 0, "change": 1, "slot": 2}
 
 
 def _blockers(sess, cid, waiting):
-    """cid 가 뼈대 change·slot 카드면 waiting 가운데 cid 보다 먼저 낼 카드. 같은 뼈대이고 SKEL_RANK 가 낮고 보이는 판이 겹치는
+    """cid 가 뼈대 change·slot 카드면 waiting 가운데 cid 보다 먼저 낼 카드. 같은 뼈대이고 SKEL_RANK 가 낮고 보이는 코드 예제가 겹치는
     카드임."""
     card = sess.cards[cid]
     if card.get("kind") != "skel":
@@ -1462,9 +1479,9 @@ def _hold_lead(sess, lead, rest):
 
 def _arrange(sess, state, chosen, rng, pattern=None):
     """순서 정하기. 같은 confuse 카드는 사이에 한 문항만 두고, 같은 차시·tags 는 붙이지 않고, 고르기는 CHOICE_RUN 개 넘게
-    잇지 않음. 같은 판 뼈대 카드가 아직 남았으면 SKEL_RANK 가 높은 카드를 미룸(slot 은 판 전체를 보여 고르기의 답이 되고, change 는
+    잇지 않음. 같은 코드 예제 뼈대 카드가 아직 남았으면 SKEL_RANK 가 높은 카드를 미룸(slot 은 코드 예제 전체를 보여 고르기의 답이 되고, change 는
     같은 줄 보기로 pick 의 답을 보임). 맞지 않으면 confuse → 차시·tags → 고르기 → 뼈대 순으로 풂. pattern 이 있으면(단원 모드)
-    자리마다 N(새 카드, 주어진 순서 그대로이되 같은 판 카드를 기다리는 카드는 미룸)·R(나머지)을 정하고, R 자리는 바로 뒤 N 자리에
+    자리마다 N(새 카드, 주어진 순서 그대로이되 같은 코드 예제 카드를 기다리는 카드는 미룸)·R(나머지)을 정하고, R 자리는 바로 뒤 N 자리에
     올 새 고르기까지 세어 고르기를 잇는 수를 지킴."""
     def form(cid):
         return sess.card_form(sess.cards[cid], state.box(cid))
@@ -1488,7 +1505,7 @@ def _arrange(sess, state, chosen, rng, pattern=None):
                     continue
                 waiting = [m for m in rest if m in blockers(new[0], rest)]
                 ready = [m for m in waiting if not held(m, new + rest)]
-                if waiting:  # 새 카드가 모두 같은 판 카드를 기다리면 그 카드를 먼저 냄
+                if waiting:  # 새 카드가 모두 같은 코드 예제 카드를 기다리면 그 카드를 먼저 냄
                     seq.append(rest.pop(rest.index((ready or waiting)[0])))
                 else:
                     seq.append(new.pop(0))
@@ -1773,7 +1790,7 @@ class PracticeSet(object):
         view = {"form": sess.card_form(card, box), "shown": None, "seed": entry["seed"]}
         if card["kind"] in ("blank", "choice"):
             item = card["item"]
-            if entry["again"] and isinstance(item.get("alt"), dict):  # 묶음 안에서 다시 낼 때 바꿔 쓴 판
+            if entry["again"] and isinstance(item.get("alt"), dict):  # 묶음 안에서 다시 낼 때 바꿔 쓴 문항
                 item = dict(item, **item["alt"])
         elif card["kind"] == "gen":
             item = gen.run(card["gen"], entry["seed"])
@@ -1793,7 +1810,7 @@ class PracticeSet(object):
         return view
 
     def _skel_view(self, card, state, entry):
-        """뼈대 카드 문항. slot 은 같은 뼈대·같은 판 slot 카드 가운데 주 자리와 열린 자리의 상자로 점차 지우기를 정함."""
+        """뼈대 카드 문항. slot 은 같은 뼈대·같은 코드 예제 slot 카드 가운데 주 자리와 열린 자리의 상자로 점차 지우기를 정함."""
         sess = self.sess
         boxes = None
         if card["part"] == "slot":
@@ -1943,7 +1960,7 @@ class PracticeSet(object):
 
     @staticmethod
     def _skel_row(card, item, row):
-        """답 줄에 다시 그릴 값을 더함. slot은 fade·masked·whole, change는 보기 판과 반대 방향 여부를 남김."""
+        """답 줄에 다시 그릴 값을 더함. slot은 fade·masked·whole, change는 보기 버전와 반대 방향 여부를 남김."""
         if card["kind"] != "skel":
             return
         made = item.get("skel") or {}

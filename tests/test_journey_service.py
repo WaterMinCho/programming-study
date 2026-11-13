@@ -483,6 +483,27 @@ class RuntimeTest(Base):
         self.assertIn("채점하지 못했습니다. Node.js 를 찾지 못했습니다.", str(caught.exception))
         self.assertEqual([], self.read_log())
 
+    def test_non_utf8_source_reports_a_recoverable_error_without_changing_records(self):
+        journey = self.session()
+        path = os.path.join(study.SUBMISSIONS_DIR, "alice", "journey", "t01", "p1.py")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        original = "# 한글\ndef solution(nums):\n    return 0\n".encode("cp949")
+        with open(path, "wb") as output:
+            output.write(original)
+        for action in (journey.run, journey.grade):
+            with self.assertRaises(JourneyError):
+                action("t01", "p1", "python")
+        with open(path, "rb") as source:
+            self.assertEqual(original, source.read())
+        self.assertEqual([], self.read_log())
+
+    def test_missing_generator_reports_its_cause_with_progress_enabled(self):
+        events = []
+        test = {"id": "missing", "gen": "values", "seed": 1, "expected": 0}
+        with self.assertRaisesRegex(runner.GenError, "gen.py 가 없어"):
+            grading._prepare_cases(grading.EFFICIENCY, [test], None, 100, events.append, None)
+        self.assertEqual("status", events[0]["kind"])
+
     def test_cache_info_and_clear_cache(self):
         journey = self.session()
         self.assertEqual({"bytes": 0, "files": 0}, journey.cache_info())

@@ -349,11 +349,208 @@ class GitFlowTest(unittest.TestCase):
     def test_updates_distinguishes_material_from_code_and_network_failure(self):
         self.sync()
         self.server.add_files({"gui/app.py": "# 화면 변경\n"}, "화면을 고침")
-        self.assertFalse(self.pc.flow.updates()["available"])
+        self.assertTrue(self.pc.flow.updates()["available"])
         self.server.add_files({"problems/s01/quiz.md": "# 고친 문제\n"}, "문항을 고침")
         self.assertTrue(self.pc.flow.updates()["available"])
+        self.sync()
+        self.server._main()
+        git(self.server.dir, "rm", "gui/app.py")
+        git(self.server.dir, "commit", "-qm", "이전 실행 파일 삭제")
+        git(self.server.dir, "push", "-q", "origin", "main")
+        self.assertEqual(self.pc.flow.updates(), {"status": "ok", "available": True, "count": 1})
+        self.assertTrue(self.sync()["restart"])
+        self.assertFalse(os.path.exists(os.path.join(self.pc.path, "gui/app.py")))
         self.pc.offline()
         self.assertEqual(self.pc.flow.updates(), {"status": "error", "available": False, "count": 0})
+
+    def test_learner_sync_updates_the_entire_project_without_touching_private_records(self):
+        old = self.new_pc("old-public-records")
+        old.journey(3)
+        old.ai(3)
+        self.assertEqual(old.flow.submit()["status"], "ok")
+        pc = self.pc
+        git(pc.path, "fetch", "-q", "origin", "+refs/heads/study/alice:refs/remotes/origin/study/alice")
+        pc.solve(grade=False)
+        pc.journey(1, lang="js")
+        pc.ai(1, variant="b")
+        write(os.path.join(pc.path, ".study_user"), "alice\n")
+        before = pc.read()
+        files = {"python_collection.py": "VERSION = 2\n", "start.pyw": "VERSION = 2\n",
+                 "learning_data/new_helper.py": "VERSION = 2\n", "webprep/new_helper.py": "VERSION = 2\n", "learning_server/new_helper.py": "VERSION = 2\n",
+                 "tools/new_helper.py": "VERSION = 2\n", "ai/new-note.md": "# 학습 자료\n",
+                 "docs/new-guide.md": "# 실행 안내\n"}
+        self.server.add_files(files, "프로그램 전체 업데이트")
+        self.server._main()
+        image = Path(ROOT, "docs/img/icon.png").read_bytes()
+        figure = Path(self.server.dir, "ai/figures/new-frame.png")
+        figure.parent.mkdir(parents=True, exist_ok=True)
+        figure.write_bytes(image)
+        git(self.server.dir, "add", "ai/figures/new-frame.png")
+        git(self.server.dir, "rm", "problems/s02/quiz.md")
+        git(self.server.dir, "commit", "-qm", "이전 자료 삭제")
+        git(self.server.dir, "push", "-q", "origin", "main")
+        refs = git(self.origin, "show-ref").stdout
+        os.environ["GIT_CONFIG_GLOBAL"] = self.config_no_identity
+        flow = gitflow.GitFlow(pc.path, pc.user)
+        result = flow.sync()
+        self.assertEqual((result["status"], result["restart"], result["changed"]), ("ok", True, True))
+        self.assertEqual(pc.read(), before)
+        for name, content in files.items():
+            self.assertEqual(Path(pc.path, name).read_text(encoding="utf-8"), content)
+        self.assertEqual(Path(pc.path, "ai/figures/new-frame.png").read_bytes(), image)
+        self.assertFalse(Path(pc.path, "problems/s02/quiz.md").exists())
+        self.assertEqual(Path(pc.path, ".study_user").read_text(), "alice\n")
+        self.assertEqual(git(self.origin, "show-ref").stdout, refs)
+        self.assertFalse(any("git push " in line or "refs/heads/study/" in line for line in flow.log))
+        again = flow.sync()
+        self.assertEqual((again["status"], again["changed"], again["restart"]), ("ok", False, False))
+        pc.offline()
+        self.assertEqual(flow.sync()["status"], "offline")
+        self.assertEqual(pc.read(), before)
+
+    def test_old_folder_list_receives_new_shared_package_and_preserves_answers(self):
+        self.pc.solve(grade=False)
+        before = self.pc.read()
+        paths = ("learning_data/__init__.py", "learning_data/collection.py", "learning_data/goals.py",
+                 "aiprep/__init__.py", "aiprep/collection.py")
+        files = {name: Path(ROOT, name).read_text(encoding="utf-8") for name in paths}
+        self.server.add_files(files, "공통 학습 데이터 폴더 분리")
+        old_folders = tuple(name for name in gitflow.TOOL_DIRS if name != "learning_data/")
+        with mock.patch.object(gitflow, "TOOL_DIRS", old_folders):
+            result = self.pc.flow.sync()
+        self.assertEqual(("ok", True), (result["status"], result["restart"]))
+        for name, content in files.items():
+            self.assertEqual(content, Path(self.pc.path, name).read_text(encoding="utf-8"))
+        probe = "import sys; sys.path.insert(0, sys.argv[1]); import aiprep.collection, learning_data.collection; assert aiprep.collection is learning_data.collection"
+        loaded = subprocess.run([sys.executable, "-I", "-B", "-c", probe, self.pc.path],
+                                cwd=self.pc.path, capture_output=True, text=True, timeout=20)
+        self.assertEqual(0, loaded.returncode, loaded.stderr)
+        self.assertEqual(before, self.pc.read())
+        self.server.add_files({"learning_data/new_helper.py": "VERSION = 2\n"}, "공통 학습 데이터 코드 갱신")
+        updated = gitflow.GitFlow(self.pc.path, self.pc.user).sync()
+        self.assertEqual(("ok", True), (updated["status"], updated["restart"]))
+        self.assertEqual(before, self.pc.read())
+
+    def test_failed_program_deletion_is_retried_without_deleting_private_records(self):
+        pc = self.pc
+        rel = "tools/retired_helper.py"
+        self.server.add_files({rel: "OLD = True\n"}, "이전 실행 파일")
+        flow = gitflow.GitFlow(pc.path, pc.user)
+        self.assertEqual(flow.sync()["status"], "ok")
+        pc.ai(1)
+        before = pc.read()
+        self.server._main()
+        git(self.server.dir, "rm", rel)
+        git(self.server.dir, "commit", "-qm", "이전 실행 파일 삭제")
+        git(self.server.dir, "push", "-q", "origin", "main")
+        real_git = flow._git
+        target = Path(pc.path, rel)
+        def incomplete_checkout(*args, **kwargs):
+            result = real_git(*args, **kwargs)
+            if args[:3] == ("checkout", "-q", "-B"):
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("OLD = True\n", encoding="utf-8")
+            return result
+        with mock.patch.object(flow, "_git", side_effect=incomplete_checkout):
+            result = flow.sync()
+        self.assertEqual((result["status"], result["restart"]), ("blocked", True))
+        self.assertEqual(json.loads(Path(pc.gitdir("study-update-removals.json")).read_text()), [rel])
+        unreadable = gitflow.GitFlow(pc.path, pc.user)
+        real_copy = unreadable._copy_out
+        def cannot_copy(paths):
+            if rel in paths:
+                raise PermissionError("파일을 읽지 못함")
+            return real_copy(paths)
+        with mock.patch.object(unreadable, "_copy_out", side_effect=cannot_copy):
+            copy_failed = unreadable.sync()
+        self.assertEqual((copy_failed["status"], copy_failed["restart"]), ("blocked", True))
+        self.assertTrue(target.exists())
+        real_remove = os.remove
+        def still_locked(path):
+            if os.path.abspath(path) == str(target):
+                raise PermissionError("파일을 사용 중임")
+            return real_remove(path)
+        with mock.patch.object(gitflow.os, "remove", side_effect=still_locked):
+            again = gitflow.GitFlow(pc.path, pc.user).sync()
+        self.assertEqual((again["status"], again["restart"]), ("blocked", True))
+        fixed = gitflow.GitFlow(pc.path, pc.user).sync()
+        self.assertEqual((fixed["status"], fixed["restart"]), ("ok", True))
+        self.assertFalse(target.exists())
+        self.assertFalse(Path(pc.gitdir("study-update-removals.json")).exists())
+        self.assertIsNotNone(fixed["backup"])
+        self.assertEqual(Path(fixed["backup"], "outside", rel).read_text(), "OLD = True\n")
+        self.assertEqual(pc.read(), before)
+        state = Path(pc.gitdir("study-update-removals.json"))
+        outside = Path(pc.path).parent / "keep.txt"
+        outside.write_text("keep", encoding="utf-8")
+        invalid = json.dumps(["../keep.txt"])
+        state.write_text(invalid)
+        self.assertEqual(gitflow.GitFlow(pc.path, pc.user).sync()["status"], "ok")
+        saved = list(Path(pc.gitdir()).glob("study-update-invalid-*.json"))
+        self.assertEqual(len(saved), 1)
+        self.assertEqual(saved[0].read_text(), invalid)
+        self.assertEqual(gitflow.GitFlow(pc.path, pc.user).sync()["status"], "ok")
+        self.assertEqual(outside.read_text(), "keep")
+        self.assertEqual(pc.read(), before)
+
+    def test_learner_case_only_rename_keeps_the_new_tracked_file(self):
+        self.server.add_files({"tools/helper.py": "VALUE = 1\n"}, "실행 파일")
+        flow = gitflow.GitFlow(self.pc.path, self.pc.user)
+        self.assertEqual(flow.sync()["status"], "ok")
+        self.server._main()
+        git(self.server.dir, "mv", "tools/helper.py", "tools/temporary.py")
+        git(self.server.dir, "mv", "tools/temporary.py", "tools/Helper.py")
+        git(self.server.dir, "commit", "-qm", "파일 이름 대소문자 변경")
+        git(self.server.dir, "push", "-q", "origin", "main")
+        self.assertEqual(flow.sync()["status"], "ok")
+        self.assertEqual(Path(self.pc.path, "tools/Helper.py").read_text(), "VALUE = 1\n")
+        self.assertFalse(Path(self.pc.gitdir("study-update-removals.json")).exists())
+        Path(self.pc.gitdir("study-update-removals.json")).write_text(json.dumps(["tools/helper.py"]))
+        self.assertEqual(flow.sync()["status"], "ok")
+        self.assertEqual(Path(self.pc.path, "tools/Helper.py").read_text(), "VALUE = 1\n")
+        self.assertFalse(Path(self.pc.gitdir("study-update-removals.json")).exists())
+        self.server._main()
+        Path(self.server.dir, "docs").mkdir(exist_ok=True)
+        git(self.server.dir, "mv", "tools/Helper.py", "docs/retired-helper.txt")
+        git(self.server.dir, "commit", "-qm", "실행 파일을 안내 폴더로 옮김")
+        git(self.server.dir, "push", "-q", "origin", "main")
+        moved = flow.sync()
+        self.assertEqual((moved["status"], moved["restart"]), ("ok", True))
+
+    @unittest.skipUnless(os.name == "nt", "Windows 파일 잠금 검사임")
+    def test_windows_locked_program_deletion_recovers_after_unlock(self):
+        import ctypes
+        from ctypes import wintypes
+        pc = self.pc
+        rel = "tools/retired_helper.py"
+        self.server.add_files({rel: "OLD = True\n"}, "이전 실행 파일")
+        flow = gitflow.GitFlow(pc.path, pc.user)
+        self.assertEqual(flow.sync()["status"], "ok")
+        pc.ai(1)
+        before = pc.read()
+        target = Path(pc.path, rel)
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                                      wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+        kernel.CreateFileW.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+        handle = kernel.CreateFileW(str(target), 0x80000000, 3, None, 3, 0x80, None)
+        self.assertNotEqual(handle, ctypes.c_void_p(-1).value)
+        try:
+            self.server._main()
+            git(self.server.dir, "rm", rel)
+            git(self.server.dir, "commit", "-qm", "잠금 파일 삭제")
+            git(self.server.dir, "push", "-q", "origin", "main")
+            result = flow.sync()
+            self.assertIn(result["status"], ("blocked", "error"))
+            self.assertTrue(result["restart"])
+            self.assertTrue(target.exists())
+            self.assertEqual(pc.read(), before)
+        finally:
+            kernel.CloseHandle(handle)
+        self.assertEqual(gitflow.GitFlow(pc.path, pc.user).sync()["status"], "ok")
+        self.assertFalse(target.exists())
+        self.assertEqual(pc.read(), before)
 
     def test_pending_looks_only_at_my_folder_without_writing(self):
         self.sync()

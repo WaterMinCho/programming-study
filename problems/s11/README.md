@@ -14,6 +14,7 @@
 
 ```python
 import sys
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout
 from PyQt6.QtGui import QPixmap
 ```
@@ -22,6 +23,7 @@ from PyQt6.QtGui import QPixmap
 
 ```python
 import sys
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QPushButton, QVBoxLayout, QWidget
 
 app = QApplication(sys.argv)      # 애플리케이션 객체. 가장 먼저, 하나만

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """과목 이동, 과목별 현황 카드와 제출 작업 영역을 공통으로 배치함."""
 from PyQt6.QtCore import QEvent, QPoint, QSignalBlocker, QSize, Qt
+from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import QApplication, QComboBox, QFrame, QGridLayout, QLayout, QScrollArea, QSizePolicy, QWidget
 
 import study
@@ -111,6 +112,7 @@ class SubmissionBar(QFrame):
         self.submit.clicked.connect(win.submit_pr)
         self.submit.hide()
         self.sync = kit.button("새 문제 받기", "secondary", "l")
+        self.sync.setToolTip("프로그램과 학습 자료를 함께 업데이트합니다.")
         self.sync.clicked.connect(win.fetch_problems)
         buttons.addWidget(self.submit)
         buttons.addWidget(self.sync)
@@ -128,19 +130,19 @@ class SubmissionBar(QFrame):
         if busy:
             text = "작업이 끝나면 제출 현황을 갱신합니다."
         elif pending and available:
-            text = "제출할 풀이와 새 학습 자료가 있습니다."
+            text = "제출할 풀이와 새 업데이트가 있습니다."
         elif pending:
             text = "제출할 풀이가 있습니다."
         else:
-            text = "새 학습 자료가 있습니다."
+            text = "새 업데이트가 있습니다."
         self.message.setText(text)
         kit.set_tone(self.message, "accent" if pending else "secondary")
         self.arrange()
         self.setVisible(usable and (pending or available))
 
     def arrange(self):
-        need = self.message.sizeHint().width() + self.actions.sizeHint().width() + 64
-        vertical = self.width() < max(800, need)
+        need = QFontMetricsF(self.message.font()).horizontalAdvance(self.message.text()) + self.actions.layout().sizeHint().width() + 64
+        vertical = self.width() < need
         self.row.setDirection(self.row.Direction.TopToBottom if vertical else self.row.Direction.LeftToRight)
 
     def resizeEvent(self, event):

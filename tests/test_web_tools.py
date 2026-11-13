@@ -357,6 +357,12 @@ class LintTest(BankCase):
 
 
 class VerifyStaticTest(BankCase):
+    def test_broken_terms_are_reported_without_aborting_the_remaining_checks(self):
+        self.write("terms.json", "{broken")
+        code, out = self.verify("x01", steps=STATIC)
+        self.assertEqual(1, code, out)
+        self.assertIn("terms.json", out)
+
     def test_fixture_passes_static_steps(self):
         code, out = self.verify(steps=STATIC)
         self.assertEqual(0, code, out)
@@ -527,6 +533,13 @@ class VerifyStaticTest(BankCase):
 
 
 class ReviewTest(BankCase):
+    def test_missing_node_does_not_write_a_review_signature(self):
+        with mock.patch.object(stack, "find_node", return_value=None):
+            code, out = self.verify("x01", "--sign", *NAMES, steps={4})
+        self.assertEqual(1, code, out)
+        self.assertIn("서명하지 않았습니다", out)
+        self.assertFalse(os.path.exists(self.path("missions/x01/work/review.json")))
+
     def sign(self, target, *extra):
         return self.verify(target, "--sign", *(NAMES + list(extra)), steps=set())
 

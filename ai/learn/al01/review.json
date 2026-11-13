@@ -19,8 +19,30 @@
   "assets/a1d-1.gif": "42f64ab4abbe45732610126dc8f0953abbd9874f5783c442c89c954dcf67faab",
   "assets/a1d-2.png": "bd7c2aa42fe507371885c8782505fd8dc6ea4a52f37f1052bebb0786ef2fbe60",
   "assets/a1d-3.png": "f376ec4ffd8812f58ba5c6fca8026fd2e7bef3719c328170923896d571bb5f73",
-  "meta.json": "38e18fea4c9786a587b77be0f0de502d75af5dca177f8acbb0f76c3e76f37413",
-  "page.md": "aa499d7f2f29086058aa8eb9c6dccaf771c8f31ffaeb36cc10321fad84049c44"
+  "assets/a1e-1.gif": "5842cb4227934dda185bf6391eb3d0438fcc68869cdc6fd1cf3e732e2ccf35d6",
+  "assets/a1e-2.png": "0e639a1f848bd6a274b16239134d18e19ced39f3fcf6975774f9301e0952a6b8",
+  "assets/a1e-3.png": "6ce0b7a08c6844a1c4362f25a0700420771cc4dded3cdf5569f50ec33e4a8cbc",
+  "assets/a1e-31.png": "633bb613acaf1434079a4d29d52e7548d62d62e8a2880dde298d6646e25890a8",
+  "assets/a1e-32.png": "d9569d23473d7c60f5de280222b3e97d8e25e4a79ef35e37212a1e85c224c1a9",
+  "assets/a1e-33.png": "729c914d2baeda38fdbafdca457408e842cd20d0198df2ab5795e5f285774e36",
+  "assets/a1f-1.gif": "2e363b4ebf229fed9a49374d6738686eed04d3d369848e15a8149011b1a9b32d",
+  "assets/a1f-2.png": "b30ce2651954c626744e9c8fabff627b84ebb97f38dae0f6d08c486f16937103",
+  "assets/a1f-3.png": "ad09974120a78f1121ec43eb75e4bc770d9be2cda16c65ce860fc1e9d6560481",
+  "assets/a1g-1.gif": "cd0c7cc5eb0814bd045c2581f6c16150bd72e7c89ad40246a31ddd52ab5e5fcf",
+  "assets/a1g-2.png": "ec52fa3a0774ee8ab1ccf76ad3b5c53e89a4fd9d6f4f087f195ce6ef99ea00a4",
+  "assets/a1g-21.png": "4d597a892050242880cb55e402d1971eee9eed83b10b36e2e16dc375ead68906",
+  "assets/a1g-22.png": "5ba345eff35ba78ecc473dcb68335e6d60b6c8839646b0ca80fa950653cb255c",
+  "assets/a1g-23.png": "1dccd706eed870bb1cdfa213f2f54ec7c9fcd5f939d93171f15670d6bf860e0b",
+  "assets/a1g-3.png": "029f63e93b192d9f7cb30a2fa94f2d8aa6ed48e0925a1e10fd6b73dd87dccbbe",
+  "assets/a1g-4.png": "74ed0f7bd0c0382a611e7c6dd4bd36ba43a864f258654a64fee3fd2a194ac57b",
+  "assets/a1h-1.png": "45080738a362d69092097d0f41d1f02dd250fa6aa2b7af99e620e11ef8ca30e5",
+  "assets/a1h-2.png": "89956835bd65ee320751f65dc221f8f89204960b3928f9973ef891dd922355f4",
+  "assets/a1h-3.gif": "f3ac9e03012f28eb7723f3905ade7a25662559e8e61e19fb4b875750ec6c9675",
+  "meta.json": "0b9b6bc104a911e7e1889d299b63335efa55b9a8df9f047d4035ca2d29af3611",
+  "page.md": "7011abfe9a287e84698ae13342d4554ea1db1e7d83a825b0b82b80f9c82f631b"
  },
- "findings": []
+ "findings": [
+  "추가 24문항의 정답 없는 첫 답 24/24, 학습 물음 14/14와 세 단계 물음 6/6을 별도로 대조함. 기존 첫 재풀이와 문항 식별자를 보존했음. 갱신한 1차시 입력 셀과 공식 문서를 대조해 영상 합성·파일 저장·도형·사용자 입력을 보완했음. 원본을 바꾸지 않고 새 그림 19개 27장을 읽고 확인했음. 합성 배열만 실행했으며 전체 노트북·로컬 창·Colab·모델 학습은 실행하지 않았음.",
+  "문자열 예제의 흰색 배열을 높이160·너비320으로 바꾸고 실제 글자 범위 x22~135·y77~108이 이미지 안에 들어감을 확인했음. 기준선·배열 크기·문장을 별도로 재검토했음."
+ ]
 }

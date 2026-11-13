@@ -22,6 +22,8 @@ class CourseGuiTest(AiTest):
         participant = win.ai.collection.status()['participant']
         guikit.click(win.ai_home.course_tabs.buttons[1])
         self.assertEqual('app', win.ai.course)
+        from gui import ai_text
+        self.assertNotIn('응용 · 응용', ai_text.track_line(win.ai.overview()))
         self.assertEqual(['a01', 'a02', 'a03'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
@@ -76,19 +78,35 @@ class CourseGuiTest(AiTest):
         for mode in ('light', 'dark'):
             theme.set_mode(mode)
             win.restyle()
-            for lesson, units in [('a01', ('a1a','a1b','a1c','a1d')),
-                                  ('a02', ('a2a','a2b','a2c','a2d','a2e')),
-                                  ('a03', ('a3a','a3b','a3c','a3d','a3e'))]:
-                for unit in units:
-                    for number in range(1, 7 if unit == 'a3a' else 6):
+            for lesson in ('a01', 'a02', 'a03'):
+                for row in win.ai.unit_list(lesson):
+                    unit = row['key']
+                    for step in win.ai.unit_steps(lesson, unit)['steps']:
+                        number = step['no']
                         win.open_ai_unit(lesson, unit, number)
                         guikit.pump(20)
+                        guikit.wait_until(lambda: win.ai_learn.pending_position is None)
                         self.assertLessEqual(win.width(), 760)
                         for image in win.ai_learn.view.findChildren(ai_learn.AiFigure):
                             self.assertTrue(image.available)
                             shown = image.picture.pixmap().deviceIndependentSize()
                             self.assertAlmostEqual(shown.width()/shown.height(), image.source.width()/image.source.height(), delta=.01)
                             self.assertEqual(0, win.ai_learn.scroll.horizontalScrollBar().maximum())
+                            if image.controls is not None:
+                                win.ai_learn.scroll.ensureWidgetVisible(image.controls, 0, 0)
+                                guikit.pump()
+                                guikit.wait_until(lambda: win.ai_learn.pending_position is None)
+                                viewport = win.ai_learn.scroll.viewport()
+                                top = image.controls.mapTo(viewport, QPoint())
+                                bottom = top + QPoint(image.controls.width()-1, image.controls.height()-1)
+                                where = f'{mode} {lesson} {unit}/{number}: {top}, {bottom}, {viewport.rect()}'
+                                self.assertTrue(viewport.rect().contains(top), where)
+                                self.assertTrue(viewport.rect().contains(bottom), where)
+        win.open_ai_unit('a02', 'a2f', 3)
+        guikit.wait_until(lambda: win.ai_learn.pending_position is None)
+        image = win.ai_learn.view.findChildren(ai_learn.AiFigure)[0]
+        win.ai_learn.scroll.ensureWidgetVisible(image.controls, 0, 0)
+        guikit.pump()
 
     def test_failed_course_open_restores_the_selected_tab(self):
         win = self.boot((760,480))

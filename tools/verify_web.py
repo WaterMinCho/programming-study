@@ -29,7 +29,6 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import study  # noqa: E402
-from journey import node as node_finder  # noqa: E402
 from tools import check_style, verify_journey, web_lint  # noqa: E402
 from tools.journey_art import KB  # noqa: E402
 from tools.web_art import LIMITS, owner_of  # noqa: E402
@@ -1124,7 +1123,7 @@ def review_target(kind, item):
 def review(v, kind, label, item, secrets):
     o = v.opts
     if o.sign:
-        if v.failed(label):
+        if v.failed(label) or v.failed("node"):
             v.fail(label, 11, "실패가 있어 서명하지 않았습니다.")
         else:
             sign(v, kind, label, item, secrets)

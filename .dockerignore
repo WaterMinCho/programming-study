@@ -1,0 +1,11 @@
+*
+!learning_server/
+!learning_server/**
+!learning_data/
+!learning_data/**
+**/__pycache__/
+**/*.pyc
+**/.env*
+**/*.key
+**/*.sqlite*
+**/*.db

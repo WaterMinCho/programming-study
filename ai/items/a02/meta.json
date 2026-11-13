@@ -13,7 +13,7 @@
   },
   "a2b": {
    "blank": 4,
-   "choice": 2,
+   "choice": 3,
    "stmt": 0,
    "gen": [],
    "core": 3
@@ -33,6 +33,13 @@
    "core": 3
   },
   "a2e": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a2f": {
    "blank": 4,
    "choice": 2,
    "stmt": 0,

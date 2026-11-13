@@ -6,9 +6,9 @@ import threading
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QCheckBox, QDialog, QWidget
 
-from aiprep.collection import CollectionError
-from aiprep.privacy import Consent, NOTICE_ROWS
-from aiprep import sync_schedule
+from learning_data.collection import CollectionError
+from learning_data.privacy import Consent, NOTICE_ROWS
+from learning_data import sync_schedule
 from gui import dialogs, kit, theme
 from gui.worker import Job
 
@@ -17,22 +17,23 @@ class ConsentDialog(QDialog):
     def __init__(self, parent, controller, first=False):
         super().__init__(parent)
         self.controller, self.first = controller, first
-        self.setWindowTitle("학습 기록 수집 동의" if first else "내 정보·데이터")
+        self.setWindowTitle("학습 데이터 제공 안내" if first else "내 정보·데이터")
         self.setModal(True)
         kit.page(self)
         room = self.screen().availableGeometry()
-        self.resize(min(760, room.width()-32), min(700, room.height()-72))
+        self.resize(min(760, parent.width(), room.width()-32), min(700, parent.height(), room.height()-72))
         outer = kit.box(self, (24, 24, 24, 24), spacing=theme.GAP["group"])
         content = QWidget()
         body = kit.box(content, spacing=theme.GAP["group"])
-        body.addWidget(kit.heading(kit.label("학습 기록 수집 동의" if first else "내 정보·데이터", "title"),
-                                   kit.para("동의하지 않아도 문제를 풀고 채점할 수 있습니다.", "body", "secondary")))
+        body.addWidget(kit.heading(kit.label("학습 데이터 제공 안내" if first else "내 정보·데이터", "title"),
+                                   kit.para("동의하면 새 풀이 기록을 자동으로 보내 문제 추천 연구에 사용합니다. 동의하지 않아도 문제를 풀고 채점할 수 있습니다. 두 항목을 모두 선택하면 동의 버튼이 켜집니다.",
+                                            "body", "secondary")))
         self.status_text = kit.para()
         body.addWidget(self.status_text)
         for title, text in NOTICE_ROWS:
             body.addWidget(kit.heading(kit.label(title, "headline"), kit.para(text)))
-        self.research = QCheckBox("수집·이용과 자동 전송 동의 (선택)")
-        self.overseas = QCheckBox("미국 서버 보관 동의 (선택)")
+        self.research = QCheckBox("학습 데이터 제공 동의 (선택)")
+        self.overseas = QCheckBox("서버 보관 동의 (선택)")
         for box in (self.research, self.overseas):
             box.setProperty("role", "body")
             box.setFont(theme.font("body"))
@@ -41,8 +42,10 @@ class ConsentDialog(QDialog):
         body.addWidget(self.message)
         self.scroll = kit.scroll(content)
         outer.addWidget(self.scroll, 1)
-        outer.addWidget(self.research)
-        outer.addWidget(self.overseas)
+        self.storage_hint = kit.para("보관 위치: 미국 · PythonAnywhere", "body", "secondary")
+        self.choices = kit.spaced(self.research, kit.spaced(self.overseas, self.storage_hint, spacing=theme.GAP["detail"]),
+                                  spacing=theme.GAP["detail"])
+        outer.addWidget(self.choices)
         actions = QWidget()
         flow = kit.FlowLayout(actions, spacing=theme.GAP["detail"])
         self.agree = kit.button("동의하고 시작" if first else "동의하고 수집 시작", "primary", "l")
@@ -71,15 +74,16 @@ class ConsentDialog(QDialog):
                     text = "이 기기의 수집을 멈췄습니다. 서버 연결이 중지되어 삭제 요청을 보내지 못했습니다."
             elif active:
                 text = "수집에 동의했습니다 · 선택 시각: " + state.get("at", "")[:19].replace("T", " ")
+            elif state.get("accepted"):
+                text = "동의 내용이 바뀌었습니다. 내용을 확인하고 다시 선택해 주세요. 이전 기록은 동의 철회로 삭제할 수 있습니다."
             elif state:
                 text = "수집에 동의하지 않았습니다. 학습과 로컬 채점은 사용할 수 있습니다."
             self.status_text.setText(text)
             self.message.setText(self.controller.message)
             self.agree.setVisible(not active)
             self.agree.setEnabled(self.research.isChecked() and self.overseas.isChecked() and not pending)
-            self.research.setVisible(not active and not pending)
-            self.overseas.setVisible(not active and not pending)
-            self.withdraw.setVisible(active)
+            self.choices.setVisible(not active and not pending)
+            self.withdraw.setVisible(not pending and (bool(state.get("accepted")) or self.controller.consent.has_private_records()))
         except CollectionError as error:
             self.status_text.setText(str(error))
             self.agree.setEnabled(False)
@@ -89,6 +93,16 @@ class ConsentDialog(QDialog):
             self.controller.consent.choose(accepted)
         except (CollectionError, OSError) as error:
             self.message.setText(str(error))
+            if self.first and not accepted:
+                self.controller.cancel.set()
+                self.controller.timer.stop()
+                self.controller.consent._stop_all()
+                if any(store.status()["enabled"] for store in self.controller.consent.collections.values()):
+                    self.message.setText("수집 중단을 확인하지 못했습니다. 저장 공간과 파일 권한을 확인한 뒤 다시 선택해 주세요.")
+                    return
+                self.controller.message = "동의 설정을 저장하지 못해 수집 없이 시작합니다. 다음 실행 때 동의 여부를 다시 선택할 수 있습니다."
+                self.controller.changed.emit()
+                self.accept()
             return
         self.controller.changed.emit()
         self.controller.tick()
@@ -99,10 +113,7 @@ class ConsentDialog(QDialog):
             if key != "withdraw":
                 return
             try:
-                self.controller.consent.withdraw()
-                self.controller.message = "수집을 멈추고 비공개 기록 삭제를 요청했습니다. 완료 여부를 확인하고 있습니다. 기존 풀이·진도는 유지합니다."
-                self.controller.changed.emit()
-                self.controller.tick()
+                self.controller.withdraw()
             except (CollectionError, OSError) as error:
                 self.message.setText(str(error))
         self.confirmation = dialogs.MessageDialog(self, "동의를 철회할까요?",
@@ -137,8 +148,22 @@ class SyncController(QObject):
         self.dialog = ConsentDialog(self.parent(), self, first)
         self.dialog.show()
 
+    def withdraw(self):
+        self.consent.withdraw()
+        self.cancel.set()
+        self.message = "수집을 멈추고 비공개 기록 삭제를 요청했습니다. 완료 여부를 확인하고 있습니다. 기존 풀이·진도는 유지합니다."
+        self.changed.emit()
+        self.tick()
+
+    def resume(self):
+        if self.closing:
+            self.closing = False
+            self.cancel.clear()
+            if self.job is None and os.environ.get("STUDY_AUTO_SYNC", "1") != "0":
+                self.timer.start(sync_schedule.initial_ms())
+
     def tick(self):
-        if self.job is not None or os.environ.get("STUDY_AUTO_SYNC", "1") == "0":
+        if self.closing or self.job is not None or os.environ.get("STUDY_AUTO_SYNC", "1") == "0":
             return
         self.timer.stop()
         try:
@@ -158,6 +183,7 @@ class SyncController(QObject):
         self.job.failed.connect(lambda *_: self.finish({"errors": ["서버에 연결하지 못했습니다. 기록은 이 기기에 보관하고 다시 시도합니다."]}))
         self.job.finished.connect(self.release_job)
         self.job.start()
+        self.changed.emit()
 
     def finish(self, result):
         self.failures = min(4, self.failures + 1) if result.get("errors") else 0
@@ -169,6 +195,7 @@ class SyncController(QObject):
     def release_job(self):
         self.job.deleteLater()
         self.job = None
+        self.changed.emit()
         if self.closing:
             self.parent().close()
             return
@@ -189,9 +216,9 @@ class SyncController(QObject):
                 self.timer.start(sync_schedule.delay_ms(self.failures, bool(state.get("withdraw_pending"))))
 
     def stop(self):
+        self.closing = True
         self.timer.stop()
         if self.job is not None:
-            self.closing = True
             self.cancel.set()
             return False
         return True

@@ -309,6 +309,7 @@ class FirstRunTest(GuiTest):
         click(home.action_btn)
         self.assertIs(self.page(), page)
         self.assertEqual(page.view["id"], "d1")
+        self.assertTrue(page.title.isVisible())
         self.assertEqual(page.listw.count(), len(page.view["items"]))
         self.assertFalse(page.run_btn.isVisible())
         self.assertFalse(page.banner.isVisible())
@@ -350,6 +351,7 @@ class FirstRunTest(GuiTest):
         self.assertEqual(sum(1 for a in self.attempts() if a["ok"]), size - 2)
         self.assertEqual(result.listw.count(), size + 1)
         self.assertIn("진단 테스트 결과", result.title.text())
+        self.assertTrue(result.title.isVisible())
         self.assertIn("숙달한 단원", result.ready.text())
         self.assertIn("미응답 2문항", result.detail.toPlainText())
         self.assertFalse(result.explain_btn.isEnabled())
@@ -485,10 +487,44 @@ class HomeAndGitTest(GuiTest):
         self.git.replies["sync"] = {"status": "ok", "message": "프로그램이 새 버전으로 바뀌었습니다. 다시 시작합니다.", "restart": True, "changed": True}
         self.boot()
         self.assertIsNone(self.win.session)  # 옛 코드로 풀이 기록을 열지 않음
-        self.assertIn("새 버전", self.win.dialog.text.text())
+        self.assertIsNone(self.win.dialog)
+        self.assertTrue(self.win.restart)
+        self.assertFalse(self.win.isVisible())
+
+    def test_tool_update_during_learning_waits_for_restart_choice(self):
+        self.boot()
+        self.git.replies["sync"] = {"status": "ok", "message": "프로그램 업데이트를 받았습니다.", "restart": True, "changed": True}
+        self.win.fetch_problems()
+        self.idle()
+        self.assertTrue(self.win.isVisible())
+        self.assertFalse(self.win.restart)
+        self.assertTrue(self.win.dialog.isVisible())
         self.choose("ok")
         self.assertTrue(self.win.restart)
         self.assertFalse(self.win.isVisible())
+
+    def test_blocked_startup_update_does_not_restart_in_a_loop(self):
+        self.git.replies["sync"] = {"status": "blocked", "message": "파일을 연 프로그램을 닫은 뒤 다시 시작해 주세요.",
+                                    "restart": True, "changed": True}
+        self.boot()
+        self.assertIsNone(self.win.session)
+        self.assertFalse(self.win.restart)
+        self.assertTrue(self.win.dialog.isVisible())
+        self.assertTrue(self.win.isVisible())
+        self.choose("ok")
+        self.assertFalse(self.win.restart)
+        self.assertFalse(self.win.isVisible())
+
+    def test_startup_update_backup_is_shown_before_restarting(self):
+        backup = "C:/study/.git/backups/saved-source"
+        self.git.replies["sync"] = {"status": "ok", "message": "프로그램 업데이트를 받았습니다.", "restart": True,
+                                    "changed": True, "backup": backup}
+        self.boot()
+        self.assertIsNone(self.win.session)
+        self.assertFalse(self.win.restart)
+        self.assertIn(backup, self.win.dialog.text.text())
+        self.choose("ok")
+        self.assertTrue(self.win.restart)
 
     def test_submit_opens_the_pr_page(self):
         self.boot()
@@ -820,6 +856,7 @@ class BankTest(GuiTest):
         pump()
         listw = self.win.round_page.listw
         plain = QListWidget()  # 기본 그리기로 잰 같은 줄
+        plain.setFont(listw.font())
         plain.setIconSize(listw.iconSize())
         plain.addItem(listw.item(1).text())
         plain.item(0).setIcon(listw.item(1).icon())
@@ -827,10 +864,15 @@ class BankTest(GuiTest):
         image = listw.viewport().grab(listw.visualItemRect(listw.item(1))).toImage()  # 고르지 않은 줄
         left, back = image.width() // 4, gray(image.pixel(image.width() - 4, 4))
         inked = [any(abs(gray(image.pixel(x, y)) - back) > 60 for x in range(left, image.width())) for y in range(image.height())]
-        bands = re.findall("1+", "".join("1" if row else "0" for row in inked))
-        gap = re.search("10+1", "".join("1" if row else "0" for row in inked))
+        strokes = re.finditer("1+", "".join("1" if row else "0" for row in inked))
+        bands = []
+        for stroke in strokes:
+            if bands and stroke.start() - bands[-1][1] < ROW_GAP * image.devicePixelRatio():
+                bands[-1][1] = stroke.end()  # 한 글자의 획 사이 공백은 줄 간격으로 세지 않음
+            else:
+                bands.append([stroke.start(), stroke.end()])
         self.assertEqual(len(bands), 2, inked)  # 유형 줄과 단원 줄
-        self.assertGreaterEqual(len(gap.group()) - 2, ROW_GAP * image.devicePixelRatio())
+        self.assertGreaterEqual(bands[1][0] - bands[0][1], ROW_GAP * image.devicePixelRatio())
 
     def test_each_answer_type_saves_what_the_widgets_show(self):
         self.boot()
@@ -1302,7 +1344,7 @@ class TeamTest(GuiTest):
 
 class RoundScoreTest(GuiTest):
     def test_scores_are_out_of_100_even_for_rounds_saved_with_old_points(self):
-        """회차 화면의 문항 제목은 회차 배점을 보여 주고, 결과 화면과 홈 목록은 100점 기준임.
+        """회차 화면의 문항 제목은 회차 배점을 보여 주고, 결과 화면과 홈 목록은 100점 만점으로 보여줌.
         예전 배점("6/12")으로 저장된 회차도 지금 배점으로 다시 셈."""
         self.boot()
         win, sess, page, result = self.win, self.win.session, self.win.round_page, self.win.result_page

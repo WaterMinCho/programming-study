@@ -76,6 +76,101 @@
    "script": "tools/ai_art/al01.py",
    "fn": "normalization"
   },
+  "learn/al01/assets/a1e-1.gif": {
+   "sha256": "5842cb4227934dda185bf6391eb3d0438fcc68869cdc6fd1cf3e732e2ccf35d6",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1e_1"
+  },
+  "learn/al01/assets/a1e-2.png": {
+   "sha256": "0e639a1f848bd6a274b16239134d18e19ced39f3fcf6975774f9301e0952a6b8",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1e_2"
+  },
+  "learn/al01/assets/a1e-3.png": {
+   "sha256": "6ce0b7a08c6844a1c4362f25a0700420771cc4dded3cdf5569f50ec33e4a8cbc",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1e_3"
+  },
+  "learn/al01/assets/a1e-31.png": {
+   "sha256": "633bb613acaf1434079a4d29d52e7548d62d62e8a2880dde298d6646e25890a8",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1e_31"
+  },
+  "learn/al01/assets/a1e-32.png": {
+   "sha256": "d9569d23473d7c60f5de280222b3e97d8e25e4a79ef35e37212a1e85c224c1a9",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1e_32"
+  },
+  "learn/al01/assets/a1e-33.png": {
+   "sha256": "729c914d2baeda38fdbafdca457408e842cd20d0198df2ab5795e5f285774e36",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1e_33"
+  },
+  "learn/al01/assets/a1f-1.gif": {
+   "sha256": "2e363b4ebf229fed9a49374d6738686eed04d3d369848e15a8149011b1a9b32d",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1f_1"
+  },
+  "learn/al01/assets/a1f-2.png": {
+   "sha256": "b30ce2651954c626744e9c8fabff627b84ebb97f38dae0f6d08c486f16937103",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1f_2"
+  },
+  "learn/al01/assets/a1f-3.png": {
+   "sha256": "ad09974120a78f1121ec43eb75e4bc770d9be2cda16c65ce860fc1e9d6560481",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1f_3"
+  },
+  "learn/al01/assets/a1g-1.gif": {
+   "sha256": "cd0c7cc5eb0814bd045c2581f6c16150bd72e7c89ad40246a31ddd52ab5e5fcf",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1g_1"
+  },
+  "learn/al01/assets/a1g-2.png": {
+   "sha256": "ec52fa3a0774ee8ab1ccf76ad3b5c53e89a4fd9d6f4f087f195ce6ef99ea00a4",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1g_2"
+  },
+  "learn/al01/assets/a1g-21.png": {
+   "sha256": "4d597a892050242880cb55e402d1971eee9eed83b10b36e2e16dc375ead68906",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1g_21"
+  },
+  "learn/al01/assets/a1g-22.png": {
+   "sha256": "5ba345eff35ba78ecc473dcb68335e6d60b6c8839646b0ca80fa950653cb255c",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1g_22"
+  },
+  "learn/al01/assets/a1g-23.png": {
+   "sha256": "1dccd706eed870bb1cdfa213f2f54ec7c9fcd5f939d93171f15670d6bf860e0b",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1g_23"
+  },
+  "learn/al01/assets/a1g-3.png": {
+   "sha256": "029f63e93b192d9f7cb30a2fa94f2d8aa6ed48e0925a1e10fd6b73dd87dccbbe",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1g_3"
+  },
+  "learn/al01/assets/a1g-4.png": {
+   "sha256": "74ed0f7bd0c0382a611e7c6dd4bd36ba43a864f258654a64fee3fd2a194ac57b",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1g_4"
+  },
+  "learn/al01/assets/a1h-1.png": {
+   "sha256": "45080738a362d69092097d0f41d1f02dd250fa6aa2b7af99e620e11ef8ca30e5",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1h_1"
+  },
+  "learn/al01/assets/a1h-2.png": {
+   "sha256": "89956835bd65ee320751f65dc221f8f89204960b3928f9973ef891dd922355f4",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1h_2"
+  },
+  "learn/al01/assets/a1h-3.gif": {
+   "sha256": "f3ac9e03012f28eb7723f3905ade7a25662559e8e61e19fb4b875750ec6c9675",
+   "script": "tools/ai_art/al01.py",
+   "fn": "updated_a1h_3"
+  },
   "learn/al02/assets/a2a-1.gif": {
    "sha256": "ab6b8f0b62342489fef5c240740f1ce0b8999f184940c4ff3747b54dcb5f0964",
    "script": "tools/ai_art/al02.py",
@@ -120,6 +215,11 @@
    "sha256": "78f43b25e5145229835931d683461256cd0be1af77ae002176a60a05e6a7ae6c",
    "script": "tools/ai_art/al02.py",
    "fn": "morph"
+  },
+  "learn/al02/assets/a2b-4.png": {
+   "sha256": "c54fc96b134938848418467b07bc3bf98360305d2507f702a5e2dd00bd45bcca",
+   "script": "tools/ai_art/al02.py",
+   "fn": "updated_a2b_4"
   },
   "learn/al02/assets/a2c-1.gif": {
    "sha256": "3166a820fb5c76979f19cbe1747ebab7c9f10c923adfa2e8fd1e099e934e61c7",
@@ -195,6 +295,41 @@
    "sha256": "0b5008acdc75e8149a758d89df11f1f667cb5cf26c2ed808c22c4b02db01a263",
    "script": "tools/ai_art/al02.py",
    "fn": "a2e_level_3"
+  },
+  "learn/al02/assets/a2f-1.png": {
+   "sha256": "fa61a6d0564fe5b3d3809082330cf238fbaca1e27bfae588836a714928c9ae57",
+   "script": "tools/ai_art/al02.py",
+   "fn": "updated_a2f_1"
+  },
+  "learn/al02/assets/a2f-2.gif": {
+   "sha256": "279e59fbc2e040913b560ddb0c515bfb9e4ddef13013e9e0ada8dbf0f2410f3b",
+   "script": "tools/ai_art/al02.py",
+   "fn": "updated_a2f_2"
+  },
+  "learn/al02/assets/a2f-3.png": {
+   "sha256": "5c05763a42ad6a111e110be1b685019c5aeb6b52b8e4d2aac0e965a616c90c0d",
+   "script": "tools/ai_art/al02.py",
+   "fn": "updated_a2f_3"
+  },
+  "learn/al02/assets/a2f-31.png": {
+   "sha256": "a84c8b6a1abd4dd461ba7b76cd61409226c4ac535a60367ed7d2586ee489247d",
+   "script": "tools/ai_art/al02.py",
+   "fn": "updated_a2f_31"
+  },
+  "learn/al02/assets/a2f-32.png": {
+   "sha256": "253883f73c9762c9111acebec5e4bfc5142888d672ddc1974981bc8682fce0d5",
+   "script": "tools/ai_art/al02.py",
+   "fn": "updated_a2f_32"
+  },
+  "learn/al02/assets/a2f-33.png": {
+   "sha256": "a691df4e73c7d645e8c299d3bac917dba5a249278921520179e0ef4b297114d7",
+   "script": "tools/ai_art/al02.py",
+   "fn": "updated_a2f_33"
+  },
+  "learn/al02/assets/a2f-4.png": {
+   "sha256": "c0a5133fd29a88cd25eae603012ba4ce3fa8771ddd46ee7844a7eb36bac1b8f3",
+   "script": "tools/ai_art/al02.py",
+   "fn": "updated_a2f_4"
   },
   "learn/al03/assets/a3a-1.gif": {
    "sha256": "f469f403b717820a61a8cc0e64c69e764ddf0c8e7ed28d8f2272f2ad7135a0fc",
@@ -1917,9 +2052,9 @@
    "fn": "boundary_summary"
   },
   "learn/l08/assets/8d-1.png": {
-   "sha256": "fec8dc25cbb41b24110b7a3f48bdd6db0243fc5a01901f1d4a37ff06146bce43",
+   "sha256": "94796ea7e5620393d153b2bb7c828c2b29d24b6b607b4ba08f8604cb24abd2ce",
    "script": "tools/ai_art/l08.py",
-   "fn": "8d-1"
+   "fn": "two_versions"
   },
   "learn/l08/assets/8d-2.gif": {
    "sha256": "8b12414683eacf93d20e5ff4a3fbd32c5d51bb6c5b4270b2ca30d6787a1e0de3",
@@ -1927,9 +2062,9 @@
    "fn": "8d-2"
   },
   "learn/l08/assets/8d-3.png": {
-   "sha256": "1e61cd77a42742eb09a5af90691e0331b93e60a6dfa10cb020311f354871396c",
+   "sha256": "7f90f58ae55afcfe3f0970cd7875ff89054a7f248e8941e0aa4d49ca02eddb37",
    "script": "tools/ai_art/l08.py",
-   "fn": "8d-3"
+   "fn": "same_training"
   },
   "learn/l08/assets/8d-31.png": {
    "sha256": "9b205175bbce07bb335d0bc434f8c9995e4f99428f4907455856c575a2d4676e",
@@ -1952,9 +2087,9 @@
    "fn": "8d-4"
   },
   "learn/l08/assets/8d-5.png": {
-   "sha256": "7e7dab0277ffadec439529c1c2a1b6af7495fb4dca8bec8e0412edb39f9a5d63",
+   "sha256": "8ecf9f0f151063988e4cf8c27edb2fdca50cdd9e56a6520aae88b6c33a4ca8fe",
    "script": "tools/ai_art/l08.py",
-   "fn": "8d-5"
+   "fn": "memo_8d"
   },
   "learn/l08/assets/8e-1.png": {
    "sha256": "ccc66ce326674829c023889a0a8bc124fca4aa0d44e4f49314be5fb1abf98cf4",
@@ -3552,12 +3687,12 @@
    "fn": "fig_14"
   },
   "learn/l16/assets/16c-31.png": {
-   "sha256": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
+   "sha256": "54dec1bfc4ed953c0fd59290d19653ae1186dd7a36476cd6f7d326b176b39e4f",
    "script": "tools/ai_art/l16.py",
    "fn": "fig_11"
   },
   "learn/l16/assets/16c-32.png": {
-   "sha256": "83bc5efddb17b2c5ebef7c2959125c9e842a63537519aa9279f6cc158067e16c",
+   "sha256": "9b7ddd742a96f67372bfd9b893a2ebdf551caf83d332cdaa35218b89726ed98e",
    "script": "tools/ai_art/l16.py",
    "fn": "fig_12"
   },
@@ -3672,7 +3807,7 @@
    "fn": "fig_2"
   },
   "learn/l17/assets/17a-32.png": {
-   "sha256": "1684360248c19c9f91fe73a4713d718a3804989ba9cc839dd88ab17d222fdf42",
+   "sha256": "59ed99e7c66c876572b477ff0198c30cfd090ad74d86fae3958c7e7362ff84e7",
    "script": "tools/ai_art/l17.py",
    "fn": "fig_3"
   },
@@ -3707,7 +3842,7 @@
    "fn": "fig_8"
   },
   "learn/l17/assets/17b-32.png": {
-   "sha256": "1684360248c19c9f91fe73a4713d718a3804989ba9cc839dd88ab17d222fdf42",
+   "sha256": "dfd752ac506b3cc31e6304f8527a2e2554a909cfbce584c11024bd44d3b84642",
    "script": "tools/ai_art/l17.py",
    "fn": "fig_9"
   },

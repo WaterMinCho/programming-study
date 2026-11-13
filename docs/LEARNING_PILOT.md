@@ -2,7 +2,7 @@
 
 일반 수강생 배포는 [첫 실행 동의·비공개 자동 전송](LEARNING_PRIVACY.md)과 [비공개 풀이 제출](API_SUBMISSIONS.md)을 사용합니다. 개인 초대 파일은 기본 배포에 필요하지 않습니다. 이 문서의 초대 발급 절차는 운영자용 시범 방식입니다.
 
-프로그램 담당 WaterMinCho가 운영하는 비공개 수집 서버입니다. 일반 참가자는 프로그램을 실행하고 [학습 기록 수집 동의]에서 참여 여부를 선택합니다. 동의하면 개인 초대 파일 없이 자동으로 연결하며, [내 정보·데이터]에서 전송 상태와 철회를 관리합니다. 이 문서의 개인 초대 발급은 운영자용 수동 연결 절차입니다.
+프로그램 담당 WaterMinCho가 운영하는 비공개 수집 서버입니다. 일반 참가자는 프로그램을 실행하고 [학습 데이터 제공 안내]에서 참여 여부를 선택합니다. 동의하면 개인 초대 파일 없이 자동으로 연결하며, [내 정보·데이터]에서 전송 상태와 철회를 관리합니다. 이 문서의 개인 초대 발급은 운영자용 수동 연결 절차입니다.
 
 ## 배포 후 확인한 내용입니다
 
@@ -29,9 +29,9 @@ Python 3.12 웹앱에서 데이터베이스 연결과 HTTPS 상태 응답을 확
 
 근거는 [PythonAnywhere 요금](https://www.pythonanywhere.com/pricing/), [무료 계정 기능](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/), [Render 무료 제한](https://render.com/docs/free)입니다. PythonAnywhere의 100 CPU초는 콘솔·작업에 적용하며 웹앱 요청의 실행 한도와 구분합니다. 새 무료 계정에는 예약 작업이 없으므로 자동 백업을 등록했다고 안내하지 않습니다.
 
-추가 비교는 [Koyeb 무료 인스턴스](https://www.koyeb.com/docs/reference/instances#free-instances), [Railway 무료 플랜](https://docs.railway.com/pricing/plans)과 [체험 자료 보존 조건](https://docs.railway.com/pricing/free-trial), [Oracle 무료 자원](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)과 [가입 조건](https://www.oracle.com/cloud/free/faq/), [D1 무료 한도](https://developers.cloudflare.com/d1/platform/pricing/)를 대조했습니다. D1 연결 변경과 서버 관리 부담은 현재 코드·운영 절차를 대조한 선택 판단입니다. 각 서비스에서 실제 수강생 전송을 시험했다는 뜻은 아닙니다.
+추가 비교는 [Koyeb 무료 인스턴스][koyeb-free], [Railway 무료 플랜](https://docs.railway.com/pricing/plans)과 [체험 자료 보존 조건](https://docs.railway.com/pricing/free-trial), [Oracle 무료 자원][oracle-free]과 [가입 조건](https://www.oracle.com/cloud/free/faq/), [D1 무료 한도](https://developers.cloudflare.com/d1/platform/pricing/)를 대조했습니다. D1 연결 변경과 서버 관리 부담은 현재 코드·운영 절차를 대조한 선택 판단입니다. 각 서비스에서 실제 수강생 전송을 시험했다는 뜻은 아닙니다.
 
-PythonAnywhere는 파일을 보존하지만 네트워크 파일 시스템을 사용합니다. 운영사는 [SQLite의 간헐적 잠금과 운영 서비스 사용 제한](https://www.pythonanywhere.com/forums/topic/35474/)을 안내했습니다. 이 후보에서는 네 명의 전송·재전송·복구를 먼저 확인하고, 문제가 반복되면 영구 저장소가 있는 다른 서버나 별도 DB를 검토합니다. 앱은 전송에 실패해도 로컬 기록을 보존합니다. 아직 다른 수강생에게 배포하거나 수집 성능을 측정한 결과는 없습니다.
+PythonAnywhere는 파일을 보존하지만 네트워크 파일 시스템을 사용합니다. 운영사는 [SQLite의 간헐적 잠금과 운영 서비스 사용 제한](https://www.pythonanywhere.com/forums/topic/35474/)을 안내했습니다. 이 후보에서는 네 명의 전송·재전송·복구를 먼저 확인하고, 문제가 반복되면 영구 저장소가 있는 다른 서버나 별도 DB를 검토합니다. 앱은 전송에 실패해도 로컬 기록을 보존합니다. 11월 13일에는 운영 서버에서 합성 클라이언트 30개가 1MiB 파일을 동시에 제출했고, 별도 시험에서 4MiB 파일 한 개를 제출했습니다. 수강생 PC에서 한 달간 사용할 때의 보관량은 [전체 배포 조건](LEARNING_READINESS.md#무료-서버의-운영-한계를-확인합니다)에서 따로 다룹니다.
 
 ## 서버 계정에 코드를 준비합니다
 
@@ -60,6 +60,8 @@ os.environ["STUDY_DATA_DB"] = str(Path.home() / ".rokey-collector/data/learning.
 from learning_server.wsgi import application
 ```
 
+이 예시는 개인 초대 방식입니다. 일반 수강생의 첫 실행 자동 연결을 열 때는 WSGI 파일의 application import 앞에 `os.environ["STUDY_OPEN_REGISTRATION"] = "1"`을 추가합니다. [자동 등록 설정](LEARNING_SERVER.md#동의-후-자동-등록을-설정합니다)을 함께 확인하세요.
+
 저장 후 Web 탭에서 Reload를 누릅니다. Static files에는 데이터·키·초대·백업 폴더를 연결하지 않습니다. 접근 로그와 오류 로그에 답안 본문·인증 헤더를 추가하지 않습니다.
 
 Web 탭에서 실제 HTTPS 주소를 복사합니다. Bash 콘솔에서 아래 명령을 실행하고 주소를 붙여넣습니다.
@@ -70,7 +72,7 @@ python -m learning_server check --url "$COLLECTOR_URL"
 python -m learning_server --db "$HOME/.rokey-collector/data/learning.sqlite3" status
 ```
 
-`check`는 원격 서버 응답과 수집 형식 판을 확인합니다. `/health`는 실제 데이터베이스를 열 수 없으면 503을 반환합니다. `status`는 기존 DB를 읽기 전용으로 검사하며 파일이 없을 때 새 DB나 키를 만들지 않습니다. 가명 구분값·답안·인증 토큰은 상태 결과에 포함하지 않습니다.
+`check`는 원격 서버 응답과 수집 형식 버전을 확인합니다. `/health`는 실제 데이터베이스를 열 수 없으면 503을 반환합니다. `status`는 기존 DB를 읽기 전용으로 검사하며 파일이 없을 때 새 DB나 키를 만들지 않습니다. 가명 구분값·답안·인증 토큰은 상태 결과에 포함하지 않습니다.
 
 ## 운영자용 개인 초대를 발급합니다
 
@@ -89,7 +91,7 @@ python -m learning_server --db "$HOME/.rokey-collector/data/learning.sqlite3" pi
 ## 참가자가 저장과 재전송을 확인합니다
 
 1. 프로그램을 최신 버전으로 업데이트하고 실행합니다.
-2. [학습 기록 수집 동의]에서 수집·이용과 미국 서버 보관 여부를 선택합니다. 동의하지 않아도 학습과 로컬 채점을 사용할 수 있습니다.
+2. [학습 데이터 제공 안내]에서 [학습 데이터 제공 동의]와 [서버 보관 동의]를 선택합니다. 보관 위치와 기간도 확인합니다. 동의하지 않아도 학습과 로컬 채점을 사용할 수 있습니다.
 3. 파이썬 또는 AI 개론·응용에서 문제에 답하고 채점합니다. 동의 후의 새 기록만 자동 전송합니다.
 4. [내 정보·데이터]에서 전송 결과를 확인합니다. 연결이 끊겨도 로컬 기록을 유지하며 다음 전송 때 다시 시도합니다.
 5. 다른 과목에서도 기록과 전송 결과를 확인합니다. 과목마다 가명이 달라 사람 수와 계정 수를 구분합니다.
@@ -127,3 +129,7 @@ python -m learning_server --db "$HOME/.rokey-collector/data/learning.sqlite3" se
 ```
 
 기본은 이 기기의 `127.0.0.1:8765`에서만 받습니다. 외부 참가자가 쓰려면 별도의 HTTPS 연결이 필요합니다. 개발용 `serve`와 운영용 `serve --production`을 구분하며 두 실행만으로 외부 접속 주소가 생기지 않습니다.
+
+[koyeb-free]: https://www.koyeb.com/docs/reference/instances#free-instances
+
+[oracle-free]: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm

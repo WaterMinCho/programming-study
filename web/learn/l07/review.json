@@ -11,11 +11,12 @@
   "assets/7c-1.gif": "8fdbcce5bdcce8945bfa627801eb7d326cb8d6872a32f0ce8773637e9f202c91",
   "assets/7c-2.png": "434ac0f4d0afce995c13f641f8c7b3f88438678ad905c62f7a68186d957f37ef",
   "meta.json": "f823c00f4936dcf873601ae4e8a6e36b0ff919f5df8d89db090881d35bcfcd6c",
-  "page.md": "433da46e0ede8da3976960a653a34d2cd2d2df4cfccda753d6c7873caa012118"
+  "page.md": "3106180c6b215c79184195b41fa8613be7ef1ef3950f7f470bdee4a7ddfddf2c"
  },
  "findings": [
   "useProducts 실패 뒤 화면 설명을 탭을 다시 누를 때까지 머문다로 고침",
   "StockBadge 예상 문제의 질문 문단을 코드 앞으로 옮김",
-  "쿼리 키 공유 설명에 그림 7C-1과 같은 목록과 상품 수 배지 예를 넣음"
+  "쿼리 키 공유 설명에 그림 7C-1과 같은 목록과 상품 수 배지 예를 넣음",
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
  ]
 }

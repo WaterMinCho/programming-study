@@ -14,13 +14,23 @@ sys.path.insert(0, str(ROOT))
 
 CASES = (
     "tests.test_gui.FirstRunTest.test_from_first_run_to_regrade",
+    "tests.test_gui.HomeAndGitTest.test_tool_update_at_start_restarts",
+    "tests.test_gui.HomeAndGitTest.test_tool_update_during_learning_waits_for_restart_choice",
+    "tests.test_gui.HomeAndGitTest.test_blocked_startup_update_does_not_restart_in_a_loop",
+    "tests.test_gui.HomeAndGitTest.test_startup_update_backup_is_shown_before_restarting",
     "tests.test_gui_hub.HubScreenTest.test_subject_navigation_fits_a_small_window_at_the_largest_text_size",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
+    "tests.test_gui_ai_mock.MockPageTest.test_changed_active_exam_offers_a_new_attempt_from_the_start_button",
+    "tests.test_gui_ai_mock.MockPageTest.test_missing_draft_recovery_opens_without_resetting_the_clock_or_records",
+    "tests.test_gui_ai_mock.MockPageTest.test_theme_and_text_changes_keep_live_answers_and_recolor_the_stem",
+    "tests.test_gui_ai_mock.MockPageTest.test_text_changes_resize_live_code_without_resetting_the_answer",
+    "tests.test_gui_ai_mock.MockPageTest.test_choice_text_size_returns_to_the_same_size_after_the_first_change",
     "tests.test_gui_submission.ApiSetupTest.test_setup_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_privacy.PrivacyGuiTest.test_consent_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_submission.ApiSetupTest.test_connection_error_keeps_answers_and_shows_message",
 )
+CLOSED_CASES = frozenset(name for name in CASES if ".HomeAndGitTest." in name)
 
 
 def gui_check(out):
@@ -28,7 +38,7 @@ def gui_check(out):
     from PyQt6.QtWidgets import QApplication
     from tests import guikit
 
-    captures = []
+    captures, closed = [], []
 
     class Result(unittest.TextTestResult):
         def startTest(self, case):
@@ -56,6 +66,8 @@ def gui_check(out):
                                          "device_pixel_ratio": win.devicePixelRatioF(),
                                          "widget_image": [shot.width(), shot.height()],
                                          "native_image": [native.width(), native.height()]})
+                    elif case.id() in CLOSED_CASES and main_window is not None and not main_window.isVisible():
+                        closed.append(case.id())
                 finally:
                     original()
 
@@ -81,9 +93,11 @@ def gui_check(out):
               "tests": result.testsRun, "failures": len(result.failures), "errors": len(result.errors),
               "skipped": len(result.skipped),
               "success": result.wasSuccessful() and not result.skipped and native_ok
-                         and result.testsRun == len(CASES) and len(captures) == len(CASES) and launcher["success"],
+                         and result.testsRun == len(CASES) and set(closed) == CLOSED_CASES
+                         and {item["case"] for item in captures} == set(CASES) - CLOSED_CASES and launcher["success"],
               "launcher": launcher,
               "captures": captures,
+              "closed_after_transition": closed,
               "limits": "임시 기록·모의 Git 연결을 사용함. 설치 동의 응답을 자동 입력하며 설치 대화상자의 클릭·사용자 PC·Windows 설정의 글자 크기는 검증하지 않음. 실행기의 화면보다 큰 창은 운영체제 캡처에서 잘릴 수 있어 전체 위젯 그림과 구분함. 바로가기는 Shell API의 아이콘 조회와 임시 start.pyw 실행을 검사함. 탐색기의 실제 표시는 검증하지 않음."}
     target = out / "report.json"
     target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

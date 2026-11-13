@@ -39,7 +39,9 @@ SYSTEM = """한국어로 초보 모델 개발자의 PR을 검토함. 검토 자�
 데이터 분리·미래 정보 누출·mask와 shape·손실 입력·기울기 초기화·학습/평가·저장불러오기·실험 재현을 살핌.
 평가하지 않은 성능을 주장하거나 Attention을 인과로 설명하지 않음. 이번 변경에 해당하는 항목만 검토하고 공부를 확인할 물음은 최대 2개로 둠.
 이미지 파일은 경로만 제공됐으므로 그림 내용을 확인했다고 쓰지 않음.
-확인 범위, 잘 구현한 점, 수정이 필요한 곳, 설명해볼 질문, 실행 확인이 필요한 점 순서로 짧게 씀.
+Git과 모델 개발을 처음 접하는 사람이 읽는 피드백임. 낯선 용어는 처음 나올 때 실제 값이나 동작으로 풀어 씀.
+수정할 위치, 지금 고칠 내용, 고치는 이유, 확인할 결과를 짧게 연결함. 확인한 결함과 선택 제안을 구분함.
+확인 범위와 지금 할 일을 먼저 씀. 상세 지적과 질문을 요약에 다시 나열하지 않음. 실행하지 않은 내용은 구분함.
 지적이 없으면 억지로 만들지 않음. 모델 이름이나 작성 도구를 서명으로 붙이지 않음. 기록은 ~함/~음 체로 씀."""
 
 
@@ -168,7 +170,7 @@ def snapshot(directory):
         raise ReviewError("고정한 검토 자료가 바뀌었습니다.")
     data = json.loads(raw)
     if (data["number"], data["head"], data["base"], data["merge_base"], data["repository"]) != (manifest["number"], manifest["head"], manifest["base"], manifest["merge_base"], REPO):
-        raise ReviewError("PR 번호와 검토 판이 맞지 않습니다.")
+        raise ReviewError("PR 번호와 검토 커밋이 맞지 않습니다.")
     if len(raw) > MAX_BYTES:
         raise ReviewError("검토 자료가 너무 큽니다.")
     check_text(data["diff"])
@@ -182,7 +184,7 @@ def snapshot(directory):
         check_text(item["content"])
     current = pull(data["number"])
     if current["head"]["sha"] != data["head"] or current["base"]["sha"] != data["base"]:
-        raise ReviewError("검토한 뒤 PR이 바뀌었습니다. 새 판으로 다시 검토해 주세요.")
+        raise ReviewError("검토한 뒤 PR이 바뀌었습니다. 새 커밋으로 다시 검토해 주세요.")
     return directory, data
 
 
@@ -224,7 +226,7 @@ def review(directory, *, schema=None, system=SYSTEM):
     content = result.get("structured_output") if schema else result.get("result")
     if result.get("is_error") or (not isinstance(content, dict) if schema else not isinstance(content, str) or not content.strip()):
         raise ReviewError("검토 응답을 받지 못했습니다. 구독 한도를 확인하고 유료 API로 우회하지 마세요.")
-    body = "검토한 판: `%s`\n\n%s\n" % (data["head"], packed(content) if schema else content.strip())
+    body = "검토한 커밋: `%s`\n\n%s\n" % (data["head"], packed(content) if schema else content.strip())
     check_text(body)
     if len(body.encode("utf-8")) > 30_000:
         raise ReviewError("피드백이 너무 깁니다. 게시 전에 검토 범위를 줄여 주세요.")
@@ -245,12 +247,13 @@ def post(directory):
         raise ReviewError("이 폴더의 피드백은 이미 게시했습니다.")
     info = json.loads((directory / "review.json").read_text(encoding="utf-8"))
     if info["head"] != data["head"]:
-        raise ReviewError("피드백의 검토 판이 맞지 않습니다.")
+        raise ReviewError("피드백의 검토 커밋이 맞지 않습니다.")
     path = directory / "feedback.md"
     body = path.read_text(encoding="utf-8")
     check_text(body)
-    if not body.startswith("검토한 판: `%s`\n" % data["head"]):
-        raise ReviewError("본문의 검토 판 표시를 유지해 주세요.")
+    prefixes = tuple("검토한 %s: `%s`\n" % (label, data["head"]) for label in ("커밋", "판"))
+    if not body.startswith(prefixes):
+        raise ReviewError("본문의 검토 커밋 표시를 유지해 주세요.")
     if not body.strip() or len(body.encode("utf-8")) > 30_000:
         raise ReviewError("피드백 본문을 확인해 주세요.")
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
@@ -299,7 +302,7 @@ def main():
     except ReviewError as error:
         parser.exit(1, "검토 중단: %s\n" % error)
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
-        parser.exit(1, "검토를 완료하지 못했습니다. 입력·PR 판·파일 형식·인증·구독 한도를 확인해 주세요.\n")
+        parser.exit(1, "검토를 완료하지 못했습니다. 입력·PR 커밋·파일 형식·인증·구독 한도를 확인해 주세요.\n")
 
 
 if __name__ == "__main__":

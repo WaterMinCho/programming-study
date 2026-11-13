@@ -94,7 +94,7 @@ def state(root, node=None):
     problem = ""
     if node is None:
         problem = ("Node.js 를 찾지 못했습니다. Node.js %s 이상을 설치하고 다시 시도해 주세요. nvm 이나 nvm-windows 를 쓰면 "
-                   "기본 판을 %s 이상으로 두거나 STUDY_NODE 에 node 경로를 적어 주세요." % (node_label(), node_label()))
+                   "기본 버전을 %s 이상으로 두거나 STUDY_NODE 에 node 경로를 적어 주세요." % (node_label(), node_label()))
     elif not current:
         problem = "저장소 맨 위에서 %s 을 찾지 못했습니다. 저장소를 최신으로 받아 주세요." % LOCK_NAME
     elif not has:

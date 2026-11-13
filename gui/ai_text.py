@@ -32,8 +32,8 @@ LESSON_PRACTICE = "단원을 읽지 않아도 이 차시의 모든 문항을 20�
 PREPARING = "준비 중"
 BOOK = "%d차시 문제집"
 NOTES_ROW = "오답 노트"
-BROKEN = "읽지 못한 차시가 있습니다: %s. [새 문제 받기]로 최신 판을 받은 뒤 다시 열어 보세요."
-PATTERN_BROKEN = "%s를 읽지 못했습니다. [새 문제 받기]로 최신 판을 받은 뒤 다시 열어 보세요."
+BROKEN = "읽지 못한 차시가 있습니다: %s. [새 문제 받기]로 최신 버전을 받은 뒤 다시 열어 보세요."
+PATTERN_BROKEN = "%s를 읽지 못했습니다. [새 문제 받기]로 최신 버전을 받은 뒤 다시 열어 보세요."
 FIX_HINT = "파일을 고친 뒤 프로그램을 다시 실행해 주세요."
 GUESS_LATER = "%d단계에서 답을 확인합니다."
 RECALL_HEAD = "떠올리기"
@@ -41,7 +41,7 @@ WHY_HEAD = "왜일까요?"
 REVEAL_HEAD = "짐작 확인"
 MEMO_HINT = "답을 떠올린 뒤 질문을 눌러 맞춰 보세요."
 RECALL_EMPTY = "답을 적은 뒤 [확인]을 누르세요."
-BLOCK_BROKEN = "이 부분을 읽지 못했습니다. [새 문제 받기]로 최신 판을 받아 보세요."
+BLOCK_BROKEN = "이 부분을 읽지 못했습니다. [새 문제 받기]로 최신 버전을 받아 보세요."
 TRAINED = "다음 복습에서는 해설을 보기 전에 답을 먼저 떠올려 보세요."
 SET_FIRST = "이번 묶음의 첫 답"
 REVIEW_COMPLETE = "지금 복습할 문항이 없습니다."
@@ -62,7 +62,7 @@ VERDICT = {"pass": ("맞았습니다", "success"), "partial": ("일부 맞았습
 SURE_WRONG = "확실하다고 했지만 틀렸습니다"
 DONT_KNOW = "모르는 문항으로 넘겼습니다"
 OVERRIDDEN = "맞은 답으로 바꿨습니다"
-MOCK_LATER = "모의고사 화면은 아직 없습니다. [새 문제 받기]로 새 판을 받으면 열립니다."
+MOCK_LATER = "모의고사 화면은 아직 없습니다. [새 문제 받기]로 새 문제 묶음을 받으면 열립니다."
 ROTATE_HEAD = "돌려 가며 빈칸"
 ROTATE_DONE = "모든 자리를 맞혔습니다."
 ROTATE_SLOTS = "가리는 자리: %s"
@@ -192,6 +192,8 @@ def track_line(overview):
             parts.append(due_part(overview["due"]))
         detail = " · ".join(parts)
     course = COURSES.get(overview.get("course"))
+    if course and detail.startswith(course + " "):
+        detail = detail[len(course) + 1:]
     return "%s · %s" % (course, detail) if course else detail
 
 
@@ -439,7 +441,7 @@ class AiNotes:
         kind = item["label"].split(" · ")[0]
         try:
             card = self.win.ai.card_info(item["key"])
-            if card["kind"] == "stmt":  # 문장 카드는 틀린 판에 따라 꼴과 첫머리가 바뀜
+            if card["kind"] == "stmt":  # 문장 카드는 틀린 문장에 따라 꼴과 첫머리가 바뀜
                 note = self.win.ai.wrong_item(item["key"])
                 return "%s · %s" % ("빈칸" if note["kind"] == "blank" else kind, stmt_head(card, note))
         except SessionError:

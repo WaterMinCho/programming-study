@@ -7,7 +7,8 @@ from aiprep import bank
 from aiprep.grade import BLANK
 from aiprep.mock import MockError
 from gui import ai_text, kit, theme
-from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, doc, reading_column
+from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, RichPara, doc, reading_column
+from gui.docview import Doc
 from gui.ai_quiz import commit_input, split_stem
 from gui.widgets import PasteBlock
 from session import SessionError
@@ -20,12 +21,13 @@ class MockPage(QWidget):
         self.setObjectName('page')
         self.win, self.exam, self.item, self.mid = win, None, None, None
         self.intro, self.showing_result, self.leaving_hint = True, False, False
+        self.restart_required = False
         self.inputs, self.choices, self.nav = [], None, []
         self.busy, self.dirty = False, False
         self.paste = PasteBlock(self)
         self.paste.blocked.connect(self.note_blocked)
         root = kit.box(self)
-        self.top = kit.TopBar('← AI 비전 개론', '')
+        self.top = kit.TopBar('← AI 개론', '')
         self.clock_box, self.clock_caption, self.time = kit.clock()
         self.top.add_right(self.clock_box)
         self.top_submit = self.top.add_right(kit.button('제출', 'text', 's'))
@@ -84,9 +86,10 @@ class MockPage(QWidget):
             raise MockError('쓰던 답안을 먼저 저장하세요.')
         self.mid = mid
         info = self.win.ai.mock_info(mid)
+        self.restart_required = info["restart_required"]
         self.top.title.setText(info['title'])
         self.top.title.show()
-        if info['active']:
+        if info['active'] and not self.restart_required:
             self.begin()
             return
         self.exam, self.item, self.intro = None, None, True
@@ -97,10 +100,15 @@ class MockPage(QWidget):
         self.heading.setText('%d문항 · %d분 · %d~%d차시 · 빈칸 %d · 고르기 %d' %
                              (info['count'], info['minutes'], *info['range'], info['blanks'], info['choices']))
         doc('시작하면 시계가 멈추지 않습니다. 프로그램을 꺼도 시간이 흐르고, 시간이 다 되면 그때까지 쓴 답으로 제출됩니다. 부분 점수는 없습니다.', '', self.card_box)
+        if self.restart_required:
+            doc("시작 당시 문항 버전과 현재 자료가 일치하지 않습니다. [새 자료로 시작]을 누르면 새 응시를 시작합니다. 이전 초안과 응시 기록은 보관합니다.", "", self.card_box)
         if info['taken']:
             self.card_box.addWidget(kit.para('처음 점수 %d/%d · 마지막 점수 %d/%d' %
                                             (info['first_score'], info['count'], info['last_score'], info['count']), 'headline'))
-        self.start_btn.setText('결과 보기' if info['taken'] else '시작')
+        start_label = '결과 보기' if info['taken'] else '시작'
+        if self.restart_required:
+            start_label = "새 자료로 시작"
+        self.start_btn.setText(start_label)
         for button in (self.flag_btn, self.previous_btn, self.next_btn, self.submit_btn, self.home_btn, self.notes_btn, self.top_submit):
             button.hide()
         self.retry_btn.setVisible(info['taken'])
@@ -108,11 +116,12 @@ class MockPage(QWidget):
 
     def begin(self, checked=False, repeat=False):
         try:
-            self.exam = self.win.ai.start_mock(self.mid, repeat=repeat)
+            self.exam = self.win.ai.start_mock(self.mid, repeat=repeat or self.restart_required)
         except SessionError as error:
             self.fail(error)
             return
         self.intro, self.leaving_hint = False, False
+        self.restart_required = False
         self.numbers.show()
         self.clock_box.show()
         self.start_btn.hide()
@@ -129,6 +138,9 @@ class MockPage(QWidget):
             self.nav.append(button)
         self.notice.hide()
         self.show_question()
+        if self.exam.recovered_draft:
+            self.notice.text.setText("이 기기의 모의고사 초안이 없어 저장된 답을 복원하지 못했습니다. 원래 시작 시각과 제한 시간을 적용합니다.")
+            self.notice.show()
 
     def clear(self):
         self.save_timer.stop()
@@ -380,5 +392,11 @@ class MockPage(QWidget):
             self.update_navigation()
 
     def restyle(self):
+        for widget in self.findChildren(Doc):
+            widget.restyle(theme.learning_css())
+        for widget in self.findChildren(RichPara):
+            widget.restyle()
+        for widget in self.findChildren(CodeSlots):
+            widget.restyle()
         for widget in self.findChildren(kit.Chevron):
             widget.update()

@@ -101,17 +101,17 @@ class CardsTest(unittest.TestCase):
     def test_card_texts(self):
         cards = make_cards()
         texts = {where: (text, md) for where, text, md in skel.card_texts(cards["pc-p01"])}
-        self.assertEqual(("묶음마다 파라미터를 한 번 바꾸며 학습합니다.", True), texts["pc-p01:가 판 상황"])
+        self.assertEqual(("묶음마다 파라미터를 한 번 바꾸며 학습합니다.", True), texts["pc-p01:가 코드 예제 상황"])
         self.assertTrue(texts["pc-p01:stem"][1])
         self.assertEqual(("n += c.argmax(0).sum()", False), texts["pc-p01:보기1"])
         self.assertIn("pc-p01:보기3 why", texts)
         self.assertEqual(("축을 0번으로 씀", False), texts["pc-p01:보기1 aim"])
         self.assertIn("pc-p01:explain", texts)
         texts = {where for where, _, _ in skel.card_texts(cards["pc-k02"])}
-        self.assertEqual({"pc-k02:가 판 상황", "pc-k02:explain", "pc-k02:hint"}, texts)
+        self.assertEqual({"pc-k02:가 코드 예제 상황", "pc-k02:explain", "pc-k02:hint"}, texts)
         texts = {where for where, _, _ in skel.card_texts(cards["pc-x01"])}
-        self.assertIn("pc-x01:나 판 상황", texts)
-        self.assertIn("pc-x01:가 판 상황", texts)
+        self.assertIn("pc-x01:나 코드 예제 상황", texts)
+        self.assertIn("pc-x01:가 코드 예제 상황", texts)
 
 
 class FadeTest(unittest.TestCase):
@@ -374,6 +374,10 @@ class RotateTest(unittest.TestCase):
 
 
 class FencesTest(unittest.TestCase):
+    def test_empty_legacy_anchors_do_not_appear_as_learning_text(self):
+        source = '<a id="이전-제목"></a>\n### 새 제목\n<a id="not-hidden">읽을 글</a>\n'
+        self.assertEqual('### 새 제목\n<a id="not-hidden">읽을 글</a>\n', bank.strip_marks(source))
+
     def test_marks(self):
         text = "글\n<!-- skel: S90 가 -->\n\n```python\nnet.train()  # 모드\n```\n\n<!-- skel: S1 표준형 -->\n글만 있음\n"
         found = bank.skel_fences(text)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """검사 도구 설치 관리 대화상자: 상태 한 문장과 꼬리표, 설치 진행과 설치 로그 꼬리, 결과 띠(완료·오류), [자세히] [닫기] [설치하기].
-동의 글(무엇을, 어디에, 언제 인터넷이 필요한지, 지우는 법, 로그 위치, Node 판)과 설치된 상태의 [다시 설치하기] [지우기]는 [자세히] 안에 둠.
+동의 글(무엇을, 어디에, 언제 인터넷이 필요한지, 지우는 법, 로그 위치, Node 버전)과 설치된 상태의 [다시 설치하기] [지우기]는 [자세히] 안에 둠.
 
 설치와 지우기는 창의 run_job 으로 워커에서 돌리고(node_modules 는 파일 수천 개라 지우는 데도 몇 초 걸림), 진행 알림은 상태 줄에,
 로그 파일의 끝 몇 줄은 반초마다 읽어 보여 줌. WebSession.install 이 내는 WebError 는 워커 안에서 받아 결과로 돌려주므로 실패 문구가
@@ -43,7 +43,7 @@ def consent_html(text):
 
 
 def state_sentence(state):
-    """창 맨 위의 상태 한 문장. Node 나 lockfile 이 없으면 그 안내. Node 판과 경로는 [자세히] 안의 동의 글에만 적음."""
+    """창 맨 위의 상태 한 문장. Node 나 lockfile 이 없으면 그 안내. Node 버전과 경로는 [자세히] 안의 동의 글에만 적음."""
     if not state["node"] or not state["lock"]:
         return gui_text(state["problem"])
     if state["installed"]:
@@ -276,8 +276,12 @@ class SetupDialog(QDialog):
         self.log.hide()
         self.lock("검사 도구를 지우는 중입니다.")
         self.fit()
-        if not self.win.run_job("검사 도구를 지우는 중입니다.", self.win.web.uninstall, self._removed):
+        if not self.win.run_job("검사 도구를 지우는 중입니다.", self.win.web.uninstall, self._removed, on_fail=self._remove_failed):
             self._refused()
+
+    def _remove_failed(self):
+        self._done()
+        self.say("검사 도구를 지우지 못했습니다. 파일을 사용하는 프로그램을 닫고 다시 시도해 주세요.", "error")
 
     def _removed(self, result):
         self._done()

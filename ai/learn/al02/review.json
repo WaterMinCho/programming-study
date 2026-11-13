@@ -13,6 +13,7 @@
   "assets/a2b-1.gif": "d16dbd9edd1395dd1848012c6f745e410ad3918d0b6f51b4c3d7f9eff8381603",
   "assets/a2b-2.png": "165c9824697756a098dce237400942769b3292d2de0c97fd9f55bf19451aa778",
   "assets/a2b-3.png": "78f43b25e5145229835931d683461256cd0be1af77ae002176a60a05e6a7ae6c",
+  "assets/a2b-4.png": "c54fc96b134938848418467b07bc3bf98360305d2507f702a5e2dd00bd45bcca",
   "assets/a2c-1.gif": "3166a820fb5c76979f19cbe1747ebab7c9f10c923adfa2e8fd1e099e934e61c7",
   "assets/a2c-2.png": "9e48c65d6dcfbf0d2dadd2e9b5551a7926361858979a156a0f96885b6e9279b8",
   "assets/a2c-3.png": "bd32840638507e6fe65f05a4f79c37cb80b6109531e7853076c9a8ff317753ff",
@@ -28,10 +29,18 @@
   "assets/a2e-31.png": "99a676da2112bcb6d2073bcc9d236676cd51e8eaa3b4abeb99010e465f1f96af",
   "assets/a2e-32.png": "a990b9c2459951b1bde95617a80e33296911151428b60596112333b4a98dcfd3",
   "assets/a2e-33.png": "0b5008acdc75e8149a758d89df11f1f667cb5cf26c2ed808c22c4b02db01a263",
-  "meta.json": "fb655466bae31d313bb88facd5336ce9343b8b7bbee5eb63959cda8b9bc1d90e",
-  "page.md": "4cdd4cdcb37c6894f988c147bdb96595fd16c796b38e317db3bbabd899779b6a"
+  "assets/a2f-1.png": "fa61a6d0564fe5b3d3809082330cf238fbaca1e27bfae588836a714928c9ae57",
+  "assets/a2f-2.gif": "279e59fbc2e040913b560ddb0c515bfb9e4ddef13013e9e0ada8dbf0f2410f3b",
+  "assets/a2f-3.png": "5c05763a42ad6a111e110be1b685019c5aeb6b52b8e4d2aac0e965a616c90c0d",
+  "assets/a2f-31.png": "a84c8b6a1abd4dd461ba7b76cd61409226c4ac535a60367ed7d2586ee489247d",
+  "assets/a2f-32.png": "253883f73c9762c9111acebec5e4bfc5142888d672ddc1974981bc8682fce0d5",
+  "assets/a2f-33.png": "a691df4e73c7d645e8c299d3bac917dba5a249278921520179e0ef4b297114d7",
+  "assets/a2f-4.png": "c0a5133fd29a88cd25eae603012ba4ce3fa8771ddd46ee7844a7eb36bac1b8f3",
+  "meta.json": "0e5003d48eb86f0e10f5cf58dc97451e51335b1571ef104402467ef5f64b5e86",
+  "page.md": "7761ec22db149aa40c26f7f54e46d306fe4e0aaf8133e38252e92bce016ddfc2"
  },
  "findings": [
-  "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함."
+  "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함.",
+  "추가 7문항의 정답 없는 첫 답 7/7, 학습 물음 3/3과 세 단계 물음 3/3을 별도로 대조함. 기존 첫 재풀이와 문항 식별자를 보존했음. iterations=2의 연산 순서와 출력에서 원본을 찾는 remap 방향을 원문·공식 문서·합성 배열 계산으로 대조했음. 새 그림 8개 10장을 확인했음. 원문의 구현 개요를 그대로 실행한 것으로 쓰지 않았으며 완성 코드는 별도의 9×9 예임."
  ]
 }

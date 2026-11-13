@@ -71,7 +71,7 @@ class PythonDataGuiTest(fixtures.GuiTest):
                 dialog.grab().save(str(root / ("python-data-top-" + mode + ".png")))
                 if QApplication.platformName() == "windows":
                     screen.grabWindow(int(dialog.winId())).save(str(root / ("python-data-native-top-" + mode + ".png")))
-            for button in (dialog.toggle, dialog.goal_save, dialog.export_button, dialog.delete_button, dialog.send_button, dialog.remote_delete):
+            for button in (dialog.toggle, dialog.goal_save, dialog.export_button, dialog.delete_button, dialog.send_button, dialog.privacy_button):
                 dialog.scroll.ensureWidgetVisible(button)
                 guikit.pump()
                 point = button.mapTo(dialog.scroll.viewport(), QPoint())

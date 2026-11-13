@@ -9,16 +9,18 @@ import time
 from urllib.request import Request
 from urllib.error import HTTPError
 
-from tools.slack_notify import GitHub, REPO, WEB, RELAY, WORKFLOWS, association, card, development, endpoint, metadata, read_url, send
+from tools.slack_notify import GitHub, REPO, WEB, RELAY, WORKFLOWS, association, card, development, endpoint, metadata, plain, read_url, send
 from tools.study_checks import AUTHORS, checks_state, NOTIFY_CONTEXT
+from tools.ci_scope import model_path
+from tools.slack_threads import DailyThreads
 
-SERVER_PATHS = ("learning_server/**", "aiprep/collection.py", "aiprep/sharing.py", "aiprep/privacy.py", "aiprep/sync_schedule.py", "submission_api.py", "tests/test_submission_api.py",
-                "tests/test_learning_privacy.py", "tests/test_private_submission.py", "tests/test_learning_server.py", "tests/test_learning_operations.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", ".github/workflows/learning-server.yml")
+SERVER_PATHS = ("learning_server/**", "learning_data/**", ".dockerignore", "tests/test_project_structure.py", "aiprep/collection.py", "aiprep/sharing.py", "aiprep/privacy.py", "aiprep/sync_schedule.py", "submission_api.py", "tests/test_submission_api.py",
+                "tests/test_learning_privacy.py", "tests/test_private_submission.py", "tests/test_learning_server.py", "tests/test_learning_sample.py", "tests/test_learning_starter.py", "tests/test_learning_operations.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", "tests/test_legacy_transfer.py", ".github/workflows/learning-server.yml")
 JOURNEY_PATHS = ("dungeons/**", "journey/**", "study.py", "tools/verify_journey.py", "tools/journey_seal.py", "tools/journey_art/**",
                  "tests/test_journey_*.py", "tests/journey_bank/**", ".github/workflows/journey.yml")
 RELEASE = ".github/workflows/release-check.yml"
-RELEASE_PATHS = ("tools/check_release.py", RELEASE, "bootstrap.py", "start.bat", "start.pyw", "gui/app.py", "gui/icon.py",
-                 "gui/launcher_shortcut.py", "tests/test_launcher_shortcut.py", "tests/test_gui_launcher.py")
+RELEASE_PATHS = ("tools/check_release.py", RELEASE, "bootstrap.py", "gitflow.py", "start.bat", "start.pyw", "gui/app.py", "gui/icon.py",
+                 "gui/launcher_shortcut.py", "gui/ai_mock.py", "gui/kit.py", "tests/test_gui_ai_mock.py", "tests/test_gui_ai_courses.py", "tests/test_launcher_shortcut.py", "tests/test_gui_launcher.py")
 
 
 def touches(files, patterns):
@@ -52,6 +54,8 @@ def rollup(pr):
 
 def required_names(files, pr=None):
     names = ["필수 검사", "PR 제목", "문장 검사", "변경 범위", "기능·자료 검사", "화면 테스트"]
+    if any(model_path(path) and path.endswith(".py") for path in files):
+        names.append("모델 제출 검사")
     if touches(files, SERVER_PATHS):
         names += ["운영 경로 (ubuntu-latest)", "운영 경로 (windows-latest)"]
     if touches(files, JOURNEY_PATHS):
@@ -111,15 +115,13 @@ def aggregate(number, github):
     result = checks_state(pr, checks["statusCheckRollup"]+workflows, reviews, required_names(files, pr))
     if result is None:
         return None
-    title = "머지 준비가 끝났습니다" if result["ready"] else "검토 결과를 확인해 주세요"
+    title = "머지 준비 완료" if result["ready"] else "확인 필요"
     team = pr["user"]["login"].lower() in AUTHORS
-    description = (("현재 커밋의 필수 검사와 코드 검토를 마쳤습니다." if team else "현재 커밋의 필수 검사를 마쳤습니다.")+" 운영자가 최종 확인 후 머지합니다." if result["ready"] else
-                   "현재 커밋의 검사가 끝났습니다. 실패·수정 요청 또는 남은 머지 조건을 PR에서 확인해 주세요.")
-    failed = result["failed"]
-    fields = [("작성자", pr["user"]["login"]), ("코드 판", pr["head"]["sha"][:10]),
-              ("검사", "모두 통과" if result["passed"] else " · ".join(failed)),
-              ("리뷰", ("현재 판 검토 완료" if result["approved"] else "피드백 확인 필요") if team else "자동 검토 대상이 아닙니다")]
-    payload = card(title, description, pr, fields, [("PR·피드백 보기", pr["html_url"])], "자동 머지는 하지 않습니다.")
+    details = ["검사 통과" if result["passed"] else "검사: " + plain(" · ".join(result["failed"]), 300)]
+    if team:
+        details.append("검토 완료" if result["approved"] else "피드백 확인 필요")
+    details.append("운영자 확인 후 머지" if result["ready"] else "PR에서 남은 조건 확인")
+    payload = card(title, " · ".join(details), pr, links=[("PR 보기", pr["html_url"])])
     return pr, result, payload
 
 
@@ -157,7 +159,7 @@ def candidates(event_name, event, github):
     return [row["number"] for row in association(run, github) if row["head"]["sha"] == run["head_sha"]]
 
 
-def deliver(pr, result, payload, github, webhook):
+def deliver(pr, result, payload, github, webhook, threader=None):
     current = aggregate(pr["number"], github)
     if current is None or not same_pr(pr, current[0]) or current[1]["key"] != result["key"]:
         return False
@@ -186,7 +188,10 @@ def deliver(pr, result, payload, github, webhook):
         github.post(location, {"state": "success", "context": NOTIFY_CONTEXT, "description": "failed:"+key})
         return False
     try:
-        send(payload, webhook)
+        if threader is not None:
+            threader.send(payload)
+        else:
+            send(payload, webhook)
     except (HTTPError, ValueError):
         # 명시적인 거절만 재시도하며 수신 여부를 모르는 연결 오류는 보류함.
         github.post(location, {"state": "success", "context": NOTIFY_CONTEXT, "description": "failed:"+key})
@@ -202,6 +207,11 @@ def main():
         event_name = os.environ["GITHUB_EVENT_NAME"]
         github = Client(os.environ["GH_TOKEN"])
         dry = os.environ.get("SLACK_DRY_RUN") == "1"
+        threader = None
+        if not dry and os.environ.get("SLACK_STUDY_DAILY_THREADS") == "1":
+            threader = DailyThreads(github, os.environ.get("SLACK_STUDY_BOT_TOKEN", ""),
+                                    os.environ.get("SLACK_STUDY_CHANNEL_ID", ""),
+                                    os.environ.get("SLACK_STUDY_THREAD_ANCHOR", ""))
         for number in sorted(set(candidates(event_name, event, github))):
             final = None
             for attempt in range(3):
@@ -211,12 +221,12 @@ def main():
                 if attempt < 2:
                     time.sleep(2)
             if final is None:
-                print("PR #%d: 전체 검사 또는 현재 판 리뷰를 기다립니다." % number)
+                print("PR #%d: 전체 검사 또는 현재 커밋의 리뷰를 기다립니다." % number)
                 continue
             if dry:
                 print(json.dumps(final[2], ensure_ascii=False))
-            elif webhook:
-                print("종합 결과 알림을 보냈습니다." if deliver(*final, github, webhook) else "이미 알린 결과이거나 상태가 바뀌어 전송을 보류했습니다.")
+            elif webhook or threader is not None:
+                print("종합 결과 알림을 보냈습니다." if deliver(*final, github, webhook, threader) else "이미 알린 결과이거나 상태가 바뀌어 전송을 보류했습니다.")
         return 0
     except Exception:
         print("최종 알림을 확인하지 못했습니다. 인증 값은 로그에 남기지 않았습니다.", file=sys.stderr)

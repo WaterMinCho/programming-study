@@ -227,6 +227,14 @@ class DrillCliTest(CliBase):
 
 
 class StatusInstallCliTest(CliBase):
+    def test_storage_and_bank_errors_after_open_are_readable_cli_errors(self):
+        from webprep import bank, record
+        for error in (bank.BankError, record.RecordError):
+            with mock.patch.object(cli.Cli, "status", side_effect=error("자료 읽기 실패")):
+                code, text = self.cmd("status")
+            self.assertEqual(1, code)
+            self.assertEqual("오류: 자료 읽기 실패", text)
+
     def test_status(self):
         code, text = self.cmd("status")
         self.assertEqual(0, code)

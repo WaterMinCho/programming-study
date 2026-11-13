@@ -38,7 +38,8 @@ class AlreadyReceived(WebError):
     터미널은 --again 을 안내함."""
 
     def __init__(self, phase):
-        super().__init__("이미 받은 미션입니다(%s). 다시 받으면 지금 코드는 템플릿으로 덮어써집니다." % PHASE_LABEL[phase])
+        message = "받은 코드 폴더가 남아 있습니다." if phase == "none" else "이미 받은 미션입니다(%s)." % PHASE_LABEL[phase]
+        super().__init__(message + " 다시 받으면 지금 코드는 템플릿으로 덮어써집니다.")
         self.phase = phase
 
 

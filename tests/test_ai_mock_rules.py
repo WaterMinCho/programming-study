@@ -215,7 +215,7 @@ class ValidationTest(unittest.TestCase):
         self.text(rel, json.dumps(value, ensure_ascii=False, indent=1) + "\n")
 
     def read(self, rel):
-        return json.loads((self.bank / rel).read_text())
+        return json.loads((self.bank / rel).read_text(encoding="utf-8"))
 
     def save_exam(self, mid="m1", edit=None):
         entry, meta, items = exam(mid)
@@ -287,7 +287,7 @@ class ValidationTest(unittest.TestCase):
 
     def test_existing_step_must_share_a_fact(self):
         path = self.bank / "learn/l01/page.md"
-        path.write_text(path.read_text().replace("F01-01 ", ""))
+        path.write_text(path.read_text(encoding="utf-8").replace("F01-01 ", ""), encoding="utf-8")
         self.assert_failure("사실 줄과 겹치지 않습니다")
 
     def test_pattern_can_use_its_own_note_and_facts(self):

@@ -4,7 +4,7 @@
 
 화면에 아무것도 출력하지 않고 dict 로 돌려줌. 저장 형식이 CLI 와 같아서
 (submissions/<ID>/profile.json, 회차 폴더의 quiz.py 와 <문항>.py) GUI 로 풀든 파일을 직접 고치든
-PR 리뷰·CI 분석·현황판이 똑같이 동작함.
+같은 채점 결과와 다음 회차 구성을 사용함.
 
 오류는 전부 SessionError 로 올림. 문구를 사용자에게 그대로 보여 줄 수 있음.
 """
@@ -17,7 +17,7 @@ import threading
 import adaptive
 import mdlite
 import study
-import python_collection
+from learning_data import python as python_collection
 
 UNSAFE_RE = re.compile("[\x00\ud800-\udfff]")  # 파일에 쓸 수 없는 글자(NUL, 짝 없는 서러게이트)
 LABEL_RE = re.compile(r"\*\*(\d+)번\*\*")

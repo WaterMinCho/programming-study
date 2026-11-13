@@ -81,7 +81,7 @@
 <circle cx="600" cy="586" r="5" fill="#3658b9"/>
 <rect x="48" y="728" width="1104" height="120" rx="20" fill="#f5f7ff" stroke="#3658b9" stroke-width="2" stroke-dasharray="9 7"/>
 <text x="76" y="770" font-family="NanumGothic, sans-serif" font-size="27" font-weight="700" fill="#18263d">모든 모델이 같은 형식으로 결과를 냅니다</text>
-<text x="76" y="810" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#516176">예시 번호(event_id) · 정답일 확률(probability) · 모델 판(model_version)</text>
+<text x="76" y="810" font-family="NanumGothic, sans-serif" font-size="23" font-weight="400" fill="#516176">예시 번호(event_id) · 정답일 확률(probability) · 모델 버전(model_version)</text>
 <polyline points="600,848 600,876 308,876 308,897" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
 <polygon points="308,897 302.78041359066526,886.1946347717678 313.21958640933474,886.1946347717678" fill="#3658b9"/>
 <polyline points="568,972 618,972" fill="none" stroke="#3658b9" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>

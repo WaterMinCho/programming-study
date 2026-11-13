@@ -9,13 +9,13 @@ from pathlib import Path
 import uuid
 from collections import deque
 
-from aiprep.collection import inside, packed
+from learning_data.collection import inside, packed
 
 FEATURES_VERSION = 4
 
 
 def question_key(row):
-    """실제로 반환한 같은 문항 판·풀이 위치만 연결함."""
+    """실제로 반환한 같은 문항 버전·풀이 위치만 연결함."""
     data, item = row["data"], row.get("item") or {}
     mock = row["kind"] in ("mock_question_returned", "mock_answer")
     fields = ("mock", "try", "card", "position") if mock else ("set", "card", "position", "again")
@@ -68,6 +68,7 @@ def course_fields(track, item, data):
 
 def prepare(events, synthetic=None):
     events = source_events(events, synthetic)
+    events = [row for row in events if row.get("data", {}).get("training_eligible") is not False]
     events = sorted(events, key=lambda row: (row["participant"], row["track"], row["sequence"]))
     results = ("pass", "stuck", "ok", "wrong")
     def answer_key(row):

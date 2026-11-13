@@ -27,6 +27,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: 풀이 폴더 이름 검사
+        run: |
+          DUP=$(git ls-tree --name-only HEAD submissions/ | tr 'A-Z' 'a-z' | sort | uniq -d)
+          if [ -n "$DUP" ]; then
+            echo "::error::대소문자만 다른 풀이 폴더가 있습니다: $DUP"
+            exit 1
+          fi
       - name: 변경 파일 확인
         id: scope
         env:
@@ -37,7 +44,7 @@ jobs:
   bank:
     name: 기능·자료 검사
     needs: scope
-    if: needs.scope.outputs.bank == 'true' || needs.scope.outputs.unit == 'true' || needs.scope.outputs.model == 'true'
+    if: needs.scope.outputs.bank == 'true' || needs.scope.outputs.unit == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -46,15 +53,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      # Windows·macOS 는 대소문자만 다른 폴더를 한 폴더로 열어서, 둘 다 main 에 들어가면 전원의 문제 받기가 막힘
-      - name: 풀이 폴더 이름 검사
-        if: needs.scope.outputs.bank == 'true'
-        run: |
-          DUP=$(git ls-tree --name-only HEAD submissions/ | tr 'A-Z' 'a-z' | sort | uniq -d)
-          if [ -n "$DUP" ]; then
-            echo "::error::대소문자만 다른 풀이 폴더가 있습니다: $DUP"
-            exit 1
-          fi
       # 모든 모범 답안이 테스트를 통과하는지, 정답표가 실제 실행 결과와 맞는지 확인
       - if: needs.scope.outputs.bank == 'true'
         run: python tools/verify_bank.py
@@ -77,9 +75,27 @@ jobs:
         env:
           STUDY_LEAN_CI: "1"
 
-      - name: 모델 코드 구문 확인
-        if: needs.scope.outputs.model == 'true'
-        run: python -m compileall -q experiments
+  model:
+    name: 모델 제출 검사
+    needs: scope
+    if: needs.scope.outputs.model == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: 바뀐 모델 파일의 구문 확인
+        env:
+          SCOPE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          SCOPE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python -m tools.pr_checks model
 
   gui:
     name: 화면 테스트
@@ -117,7 +133,7 @@ jobs:
 
   required:
     name: 필수 검사
-    needs: [scope, bank, gui]
+    needs: [scope, bank, gui, model]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -131,7 +147,8 @@ jobs:
           result = json.loads(os.environ['RESULTS'])
           assert result['scope']['result'] == 'success'
           outputs = result['scope']['outputs']
-          planned = {'bank': any(outputs[name] == 'true' for name in ('bank', 'unit', 'model')), 'gui': outputs['gui'] == 'true'}
+          planned = {'bank': any(outputs[name] == 'true' for name in ('bank', 'unit')),
+                     'gui': outputs['gui'] == 'true', 'model': outputs['model'] == 'true'}
           for name, required in planned.items():
               expected = 'success' if required else 'skipped'
               assert result[name]['result'] == expected, (name, result[name]['result'], expected)

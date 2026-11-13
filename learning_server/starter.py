@@ -8,7 +8,7 @@ import numbers
 import os
 from pathlib import Path
 
-from aiprep.collection import inside, packed
+from learning_data.collection import inside, packed
 from learning_server import dataset
 
 

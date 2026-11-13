@@ -95,10 +95,41 @@ class Case(unittest.TestCase):
 
 
 class VerifyTest(Case):
+    def test_choice_oracle_failure_is_reported_without_aborting_verification(self):
+        real_run = genlib.run
+        def choice_sample(spec, seed):
+            made = real_run(spec, seed)
+            if spec.id == "i90-g01":
+                made.update(kind="choice", pick="right", multi=False, options=[
+                    {"text": "갱신한 값을 사용합니다.", "ok": True},
+                    {"text": "처음 값을 유지합니다.", "ok": False},
+                    {"text": "기울기를 그대로 더합니다.", "ok": False},
+                    {"text": "기울기를 두 번 뺍니다.", "ok": False}])
+            return made
+        def broken_oracle(params):
+            raise ValueError("대조 계산 실패")
+        with mock.patch.object(genlib, "run", side_effect=choice_sample), \
+                mock.patch.object(genlib, "load_oracle", return_value={"i90_g01": broken_oracle}):
+            code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("oracle 오류 대조 계산 실패", out)
+
     def test_fixture_passes(self):
         code, out = self.verify()
         self.assertEqual(0, code, out)
         self.assertIn("OK: 묶음 2개 통과", out)
+
+    def test_guess_requires_its_answer_at_the_announced_step(self):
+        self.replace("learn/l90/page.md", '```ai-reveal\n{"guess": "g1"}\n```', "")
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("짐작 g1 확인을 안내한 2단계", out)
+
+    def test_guess_rejects_an_answer_at_a_different_step(self):
+        self.replace("learn/l90/page.md", '"reveal_step": 2', '"reveal_step": 3')
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("짐작 g1 확인을 안내한 3단계", out)
 
     def test_visible_lecture_locations_fail_in_card_fields(self):
         suffix = " 슬라이드 3쪽을 봅니다."
@@ -635,6 +666,27 @@ class OverlapTest(Case):
 
 
 class ArtTest(Case):
+    def test_record_preserves_the_source_of_unchanged_images(self):
+        manifest = os.path.join(self.tmp, "manifest.json")
+        names = ai_art.record("l90", self.bank, manifest, script="tools/ai_art/__init__.py")
+        before = ai_art.read_manifest(manifest)
+        ai_art.record("l90", self.bank, manifest, script="tools/ai_art/conditions_qt.py")
+        self.assertEqual(before, ai_art.read_manifest(manifest))
+        with open(self.path(names[0]), "ab") as output:
+            output.write(b"\0")
+        ai_art.record("l90", self.bank, manifest, script="tools/ai_art/conditions_qt.py")
+        saved = ai_art.read_manifest(manifest)
+        self.assertEqual("tools/ai_art/conditions_qt.py", saved["files"][names[0]]["script"])
+        self.assertEqual(before["files"][names[1]], saved["files"][names[1]])
+
+    def test_empty_legacy_registry_does_not_report_a_successful_render(self):
+        script = os.path.join(self.tmp, "legacy.py")
+        study.write_text(script, "FIGS = {}\n")
+        manifest = os.path.join(self.tmp, "manifest.json")
+        with self.assertRaisesRegex(ValueError, "등록된 그림이 없습니다"):
+            ai_art.render("l90", bank_dir=self.bank, manifest=manifest, script=script)
+        self.assertFalse(os.path.exists(manifest))
+
     def test_names_and_limits(self):
         self.assertEqual("l05", ai_art.page_of("l05-3"))
         self.assertEqual("l05", ai_art.page_of("5c-1"))
@@ -1023,7 +1075,7 @@ class PatternVerifyTest(PatternCase):
 
     def test_token_must_appear_once_in_the_variant(self):
         self.edit_entry("slots", "pc-k04", lambda e: e.update(token="opt", answer=["opt"], line_answer=None))
-        self.assertFailsPc("판 전체에 2번 나옵니다")
+        self.assertFailsPc("코드 예제 전체에 2번 나옵니다")
 
     def test_answers_of_one_variant_must_not_overlap(self):
         self.edit_entry("slots", "pc-k03", lambda e: e["answer"].append("zero_grad"))
@@ -1033,13 +1085,13 @@ class PatternVerifyTest(PatternCase):
         self.edit_entry("slots", "pc-k02", lambda e: e.update(line_answer=["opt.zero_grad( )"]))
         self.assertFailsPc("line_answer 첫째는 들여쓰기를 뺀 2번 줄")
         self.edit_entry("slots", "pc-k02", lambda e: e.update(line=99))
-        self.assertFailsPc("줄 번호가 판 밖입니다")
+        self.assertFailsPc("줄 번호가 코드 예제 밖입니다")
 
     def test_order_valid(self):
         self.edit_entry("orders", "pc-o01", lambda e: e.update(valid=[[0, 1, 2, 3, 3]]))
         self.assertFailsPc("순열 목록")
         self.edit_entry("orders", "pc-o01", lambda e: e.update(valid=[[1, 0, 2, 3, 4]]))
-        self.assertFailsPc("판 순서 [0, 1, 2, 3, 4] 가 없습니다")
+        self.assertFailsPc("코드 예제 순서 [0, 1, 2, 3, 4] 가 없습니다")
 
     def test_pick_options(self):
         self.edit_entry("picks", "pc-p01", lambda e: e["wrong"][0].update(text="n += c.argmax(1).sum( )"))
@@ -1061,13 +1113,13 @@ class PatternVerifyTest(PatternCase):
 
     def test_note_blocks_and_marked_fence(self):
         self.replace("learn/l18/page.md", '"right": "나"', '"right": "다"')
-        self.assertFailsPc("판 '다' 이 뼈대 S90 에 없습니다")
+        self.assertFailsPc("코드 예제 '다' 이 뼈대 S90 에 없습니다")
         self.replace("learn/l18/page.md", '"right": "다"', '"right": "나"')
         self.replace("learn/l18/page.md", '"variant": "가"}', '"variant": "가", "slots": ["pc-k09"]}')
-        self.assertFailsPc("ai-rotate: 뼈대 S90 의 가 판에 자리 pc-k09 가 없습니다")
+        self.assertFailsPc("ai-rotate: 뼈대 S90 의 가 코드 예제에 자리 pc-k09 가 없습니다")
         self.replace("learn/l18/page.md", ', "slots": ["pc-k09"]}', "}")
         self.replace("learn/l18/page.md", "    e.backward()\n    opt.step()", "    opt.step()\n    e.backward()")
-        self.assertFailsPc("울타리가 뼈대 S90 가 판과 다릅니다(6번째 줄부터)")
+        self.assertFailsPc("울타리가 뼈대 S90 가 코드 예제와 다릅니다(6번째 줄부터)")
 
     def test_facts_steps_and_errata(self):
         self.edit_entry("slots", "pc-k03", lambda e: e.update(facts=["F18-09"]))

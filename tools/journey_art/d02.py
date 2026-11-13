@@ -7,7 +7,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from tools.journey_art.draw import CAPTION_H, figure, mid_x, mid_y, shade  # noqa: E402
+from tools.journey_art.draw import figure, mid_x, mid_y, shade  # noqa: E402
 
 ADD, SUB, NEW = shade("string", 0.5), shade("missing", 0.5), shade("def", 0.5)  # 더하는 칸, 빼는 칸, 이번에 채우는 칸
 DIM = shade("comment", 0.75)

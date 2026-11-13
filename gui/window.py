@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QLineEdit, QMain
 
 import session
 import study
-from aiprep.collection import CollectionError
+from learning_data.collection import CollectionError
 from aiprep import service as ai_service
 from gui import errors, journey_text, kit, motion, theme, web_text
 from gui.ai_home import AiHomePage, AiLessonPage
@@ -69,7 +69,7 @@ def load_gitflow(root, user):
     """제출 모듈을 불러와 (GitFlow | None, 못 쓰는 이유)를 돌려줌. 모듈이 없거나 깨져도 풀이와 채점은 돼야 해서 예외를 삼킴."""
     try:
         import gitflow
-        from submission_api import Flow
+        from learning_data.submission import Flow
         return Flow(gitflow.GitFlow(root, user)), ""
     except Exception as error:
         return None, "제출 모듈(gitflow.py)을 불러오지 못했습니다: %s" % error
@@ -201,11 +201,22 @@ class MainWindow(QMainWindow):
         if self.gitflow is None:
             self.open_session()
             return
-        self.run_job("새 문제 확인 중입니다.", self.gitflow.sync, self._synced_first, on_fail=self.open_session)
+        self.run_job("업데이트 확인 중입니다.", self.gitflow.sync, self._synced_first, on_fail=self.open_session)
 
     def _synced_first(self, result):
+        if result.get("status") == "error" or (result.get("restart") and result.get("status") not in ("ok", "nothing")):
+            text = "파일을 사용 중인 프로그램이 있다면 닫아 주세요. 이 창을 닫은 뒤 start 파일로 다시 실행합니다."
+            if result.get("backup"):
+                text += "\n\n보관한 사본: " + result["backup"]
+            dialog = self.ask("업데이트를 마치지 못했습니다", text, (("닫기", "ok"),),
+                              detail="\n".join(filter(None, (result.get("message"), result.get("detail")))))
+            dialog.finished.connect(self.close)
+            return
         if result.get("restart"):
-            self._restart(result)
+            if self.session is None and not result.get("backup"):
+                self._quit_for_restart()
+            else:
+                self._restart(result)
             return
         diverged = result.get("status") == "diverged"
         if not diverged and (result.get("status") not in ("ok", "nothing") or result.get("changed") or result.get("backup")):
@@ -243,7 +254,7 @@ class MainWindow(QMainWindow):
             self.ai_error = ""
         except SessionError as error:
             self.ai, self.ai_error = None, str(error)
-        from aiprep.collection import Collection
+        from learning_data.collection import Collection
         collections = {"python": self.session.collection,
                        "ai": self.ai.collection if self.ai is not None else
                        Collection(os.path.join(ai_service.home_dir(), self.user), study.ROOT)}
@@ -328,6 +339,9 @@ class MainWindow(QMainWindow):
 
     def go_journey(self, did=None):
         if not self.leave_pages(lambda: self.go_journey(did), "저장하지 않고 나가기"):
+            return
+        if self.journey is None:
+            self.ask("알림", self.journey_error or "알고리즘 여행 기록을 열지 못했습니다.")
             return
         if self.node_first(lambda: self.go_journey(did)):
             return
@@ -435,6 +449,9 @@ class MainWindow(QMainWindow):
         motion.switch(self.pages, self.web_learn)
 
     def open_problem(self, did, pid):
+        if self.journey is None:
+            self.ask("알림", self.journey_error or "알고리즘 여행 기록을 열지 못했습니다.")
+            return
         if self.node_first(lambda: self.open_problem(did, pid)):
             return
         try:
@@ -736,7 +753,7 @@ class MainWindow(QMainWindow):
 
     def fetch_problems(self):
         if self.round_page.flush() and self.journey_page.flush():
-            self.run_job("새 문제 확인 중입니다.", self.gitflow.sync, self._fetched)
+            self.run_job("업데이트 확인 중입니다.", self.gitflow.sync, self._fetched)
 
     def _fetched(self, result):
         if self.web_node_first(lambda: self._fetched(result)):
@@ -785,7 +802,10 @@ class MainWindow(QMainWindow):
 
     def _restart(self, result):
         """도구 파일이 바뀌었으면 옛 코드로 새 파일을 다루지 않게, 대화상자를 어떻게 닫든 다시 시작함."""
-        dialog = self.ask("프로그램 갱신", result.get("message") or "프로그램이 새 버전으로 바뀌었습니다. 다시 시작합니다.", (("다시 시작", "ok"),))
+        message = result.get("message") or "프로그램이 새 버전으로 바뀌었습니다. 다시 시작합니다."
+        if result.get("backup"):
+            message += "\n\n보관한 사본: " + result["backup"]
+        dialog = self.ask("프로그램 갱신", message, (("다시 시작", "ok"),))
         dialog.finished.connect(self._quit_for_restart)
 
     def _quit_for_restart(self):
@@ -832,10 +852,6 @@ class MainWindow(QMainWindow):
             page.restyle()
 
     def closeEvent(self, event):
-        waiting = [not controller.stop() for controller in getattr(self, "privacy_controllers", {}).values()]
-        if any(waiting):
-            event.ignore()
-            return
         if self.job is not None:  # 스레드를 도중에 버리면 프로세스가 죽으므로 채점·제출이 끝난 뒤에 닫음
             self.job[0].cancel.set()  # 여행 채점은 곧 멈추고 기록하지 않음. [테스트 돌리기]는 vitest 를 끊고 대화상자 없이 끝남. 다른 일은 이 신호를 보지 않음
             self.close_pending = True
@@ -848,6 +864,12 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         if not self.leave_pages(self.close, "저장하지 않고 닫기"):
+            for controller in getattr(self, "privacy_controllers", {}).values():
+                controller.resume()
+            event.ignore()
+            return
+        waiting = [not controller.stop() for controller in getattr(self, "privacy_controllers", {}).values()]
+        if any(waiting):
             event.ignore()
             return
         if self.web is not None:

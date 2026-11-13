@@ -8,9 +8,10 @@
   "assets/l20-2.gif": "c980344cff26d1436640e7b3c0657fbcb9c050c01fc8bddb8c94829c235d2c9e",
   "assets/l20-3.png": "60577a3e9aa69222a35b361a7c13e55343b4e3808f1b2ac9cbd4b1bd0346111d",
   "meta.json": "aac2624606ef7a3ac2f396045ac415cf81b7b10056972769011f3eefeca879fc",
-  "page.md": "51dbec2eeee2c38685fedfad0d0854b19fd241335248f5565dff7defe1c6f8aa"
+  "page.md": "52a00c27ca0156ced6f95d5e08907337092a7b1df25314a4607d272ed9e9e146"
  },
  "findings": [
-  "kit/self_check.md 의 연결어미 쉼표를 걷어낸 문장에 맞춰 스스로 점검 항목 인용을 고침"
+  "kit/self_check.md 의 연결어미 쉼표를 걷어낸 문장에 맞춰 스스로 점검 항목 인용을 고침",
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
  ]
 }

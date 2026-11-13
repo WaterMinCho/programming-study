@@ -1,6 +1,6 @@
 # 기존 풀이를 비공개 연구 DB에 이관합니다
 
-이 명령의 변환 대상은 기존 Python `profile.json`입니다. AI `record.json`과 다른 과목의 기록은 변환하거나 이관하지 않습니다. 원본 전체 파일의 비공개 archive와 SHA-256·저장 후 바이트 확인은 운영자가 별도로 처리합니다.
+`legacy-import`는 기존 Python `profile.json`을 변환합니다. `legacy-ai-import`는 AI `record.json`의 과거 판정을 별도로 보관합니다. 원본 전체 파일의 비공개 보관과 SHA-256·저장 후 바이트 확인은 운영자가 별도로 처리합니다.
 
 운영자가 배포한 저장소에서 `legacy-import`를 실행합니다. 네트워크나 공개 API를 거치지 않고 기존 서버 SQLite에 기록합니다. 동의를 확인한 `submissions/개인폴더/profile.json`만 명시적으로 고릅니다. 원본 풀이 코드와 답안 파일은 실행하거나 복사하지 않습니다.
 
@@ -47,7 +47,7 @@ python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legac
 
 `--dry-run`은 원본과 DB를 읽고 신규 저장 예정 건수·기존 이관 건수·제외 건수를 JSON으로 출력합니다. `inserted_profiles`는 이때 저장 예정인 프로필 수입니다. DB·인증 키·이관 표를 만들거나 고치지 않습니다. DB 또는 인증 키가 없으면 중단합니다. 실제 저장 때의 보관량은 다른 기록의 증가에 따라 달라질 수 있어 저장 트랜잭션 안에서 다시 검사합니다.
 
-서버에 문제 은행과 `adaptive.py`를 두지 않았다면 프로그램 담당이 같은 프로그램 판에서 준비한 개념 목록 JSON을 `--catalog /srv/study-private/legacy/catalog.json`으로 지정합니다. 각 문항 ID 아래에 `unit`, `tags`, `kind`, `type`만 담습니다. 파일의 SHA-256과 준비한 프로그램 판도 비공개 이력에 남깁니다. 이 방식은 서버에 학습 앱이나 모델 패키지를 설치하지 않습니다.
+서버에 문제 은행과 `adaptive.py`를 두지 않았다면 프로그램 담당이 같은 프로그램 버전에서 준비한 개념 목록 JSON을 `--catalog /srv/study-private/legacy/catalog.json`으로 지정합니다. 각 문항 ID 아래에 `unit`, `tags`, `kind`, `type`만 담습니다. 파일의 SHA-256과 준비한 프로그램 버전도 비공개 이력에 남깁니다. 이 방식은 서버에 학습 앱이나 모델 패키지를 설치하지 않습니다.
 
 ## 이관하고 같은 목록으로 다시 확인합니다
 
@@ -65,9 +65,41 @@ python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 statu
 
 `legacy_transfers`는 원본 SHA-256, 이관 식별자, 변환 근거, 동의 근거, 실제 이관 시각과 상태를 나누어 보관합니다. 동의 근거는 연구 이벤트에 복사하지 않습니다. 원본 파일 경로와 계정 이름도 서버의 연구 이벤트에 넣지 않습니다. 정오답 기록에는 원본 해시와 이관 식별자를 남겨 원본과 대조할 수 있습니다.
 
-과거 문항 판은 `null`이며 개념은 현재 문항맵에서 연결했다는 표시와 해시를 남깁니다. 시간대가 없는 채점 시각에는 목록의 시간대를 가정하고 원래 문자열도 보존합니다. 실제 화면 표시·입력 시각과 희망 직무는 복원하지 않습니다. 원본에 회차 생성 시각이 있을 때만 기존 변환기의 예측 기준 시각으로 사용합니다. 묶음 표시인 `batch_start`의 시각은 채점 시각을 따른 정리용 값이며 실제 문제 표시 시각을 관찰한 값으로 쓰지 않습니다.
+과거 문항 버전은 `null`이며 개념은 현재 문항맵에서 연결했다는 표시와 해시를 남깁니다. 시간대가 없는 채점 시각에는 목록의 시간대를 가정하고 원래 문자열도 보존합니다. 실제 화면 표시·입력 시각과 희망 직무는 복원하지 않습니다. 원본에 회차 생성 시각이 있을 때만 기존 변환기의 예측 기준 시각으로 사용합니다. 묶음 표시인 `batch_start`의 시각은 채점 시각을 따른 정리용 값이며 실제 문제 표시 시각을 관찰한 값으로 쓰지 않습니다.
 
-시각 없음·현재 문항맵에 없음·건너뛰기는 제외 건수로 남깁니다. 변환할 기록이 없는 프로필이나 거꾸로 흐르는 채점 시각은 저장하지 않습니다. 새 시간이나 과거 문항 판을 추정해 채우지 않습니다. DB에서 내보낸 이벤트는 기존 `learning_server.starter --input`으로 별도 연구 자료를 만들 수 있습니다. 내보낸 사본과 백업도 철회 처리 목록에 포함합니다.
+시각 없음·현재 문항맵에 없음·건너뛰기는 제외 건수로 남깁니다. 변환할 기록이 없는 프로필이나 거꾸로 흐르는 채점 시각은 저장하지 않습니다. 새 시간이나 과거 문항 버전을 추정해 채우지 않습니다. DB에서 내보낸 이벤트는 기존 `learning_server.starter --input`으로 별도 연구 자료를 만들 수 있습니다. 내보낸 사본과 백업도 철회 처리 목록에 포함합니다.
+
+## 과거 AI 판정은 학습 입력과 나눠 보관합니다
+
+과거 AI 기록에는 문제를 보여준 시각과 문항 버전이 없을 수 있습니다. `legacy-ai-import`는 이 값을 추정하지 않습니다. `pass`·`stuck`·`partial` 판정을 `legacy_answer`로 보관하고, 직접 입력한 답안 본문과 선택지 값은 옮기지 않습니다. 기존 `starter`는 이 보관용 이벤트를 모델 입력에서 제외합니다.
+
+운영자는 위와 같은 동의 근거를 준비하고, Python 이관 계정과 겹치지 않는 별도 UUID를 지정합니다. 비공개 목록 형식은 아래와 같습니다. `archived_at`은 운영자가 이 목록을 만든 보관 작업 시각입니다. 실제 과거 풀이 시각이나 동의 시각으로 쓰지 않으며, 재실행할 때도 바꾸지 않습니다.
+
+```json
+{
+  "format": 1,
+  "archived_at": "2026-11-12T16:00:00+09:00",
+  "profiles": [{
+    "participant": "4b05ac22-abde-4f55-8ddc-0e057d7a45aa",
+    "record": "sources/person-ai/record.json",
+    "consent": {
+      "confirmed_on": "2026-11-12",
+      "evidence_ref": "private-consent-reference",
+      "private_server_transfer": true,
+      "recommendation_research": true
+    }
+  }]
+}
+```
+
+```sh
+python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legacy-ai-import --manifest /srv/study-private/legacy/ai-transfer.json --dry-run
+python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legacy-ai-import --manifest /srv/study-private/legacy/ai-transfer.json
+```
+
+원래 시각·소요 시간 값은 `original_at`·`original_secs`로 보존합니다. 과정·문항 버전·예측 시각이 없으면 미확인으로 남깁니다. 원본 해시와 로그 위치로 출처를 찾을 수 있으며, 같은 목록을 다시 실행해도 중복 저장하지 않습니다. 아래 철회 명령은 AI 이관 계정에도 적용됩니다.
+
+정정 이력이나 중복 시도가 있는 원본은 자동 이관하지 않고 먼저 대조합니다. 재수입 차단은 고정한 가명과 원본 바이트 해시를 기준으로 합니다. 파일을 다시 저장하거나 새 가명을 붙이면 같은 사람인지 자동으로 판별할 수 없습니다. 운영자는 기존 비공개 대응 목록과 철회 기록을 확인하며, 이미 이관한 사람에게 새 가명을 발급해 다시 넣지 않습니다.
 
 ## 이관을 되돌리거나 철회를 처리합니다
 

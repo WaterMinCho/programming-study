@@ -116,7 +116,7 @@ class ReviewTest(unittest.TestCase):
         self.assertIn("--safe-mode", command)
         self.assertIn("--safe-mode", run.call_args_list[1].args[0])
         self.assertEqual(set(), set(run.call_args_list[2].kwargs["env"]) - set(review.ENVIRONMENT))
-        self.assertTrue(body.startswith("검토한 판: `%s`" % HEAD))
+        self.assertTrue(body.startswith("검토한 커밋: `%s`" % HEAD))
         self.assertFalse(json.loads((self.folder / "review.json").read_text())["code_executed"])
 
     def test_api_auth_and_stale_head_do_not_call_model(self):
@@ -194,7 +194,7 @@ class ReviewTest(unittest.TestCase):
 
     def test_post_is_explicit_reads_back_and_rejects_duplicates_or_new_head(self):
         self.prepare()
-        body = "검토한 판: `%s`\n\n작은 입력으로 확인할 질문을 남겼음.\n" % HEAD
+        body = "검토한 커밋: `%s`\n\n작은 입력으로 확인할 질문을 남겼음.\n" % HEAD
         review.write(self.folder / "feedback.md", body)
         review.write(self.folder / "review.json", review.packed({"head": HEAD}))
         saved = {"id": 34, "body": body, "html_url": "https://github.com/example/comment"}

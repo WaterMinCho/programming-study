@@ -15,6 +15,22 @@ from aiprep.collection import CollectionError
 
 
 class PrivacyGuiTest(HubTest):
+    def test_first_decline_can_close_when_consent_settings_cannot_be_saved(self):
+        win, dialog = self.open_first()
+        for store in win.privacy.consent.collections.values():
+            with store._connect() as db:
+                db.execute("DELETE FROM meta WHERE key='privacy_state_path'")
+            store.set_enabled(True)
+            self.assertTrue(store.status()["enabled"])
+        with mock.patch.object(win.privacy.consent, "choose", side_effect=OSError("설정 폴더 쓰기 실패")):
+            guikit.click(dialog.decline)
+        self.assertFalse(dialog.isVisible())
+        self.assertIn("수집 없이", win.privacy.message)
+        self.assertTrue(win.privacy.cancel.is_set())
+        for store in win.privacy.consent.collections.values():
+            self.assertFalse(store.status()["enabled"])
+            self.assertFalse(store.emit("answer", {"result": "pass"}))
+
     def test_reopening_a_learner_reuses_the_same_privacy_controller(self):
         win = self.boot()
         original = win.privacy
@@ -54,7 +70,11 @@ class PrivacyGuiTest(HubTest):
             guikit.pump()
             self.assertLessEqual(dialog.width(), min(640, area.width()-32))
             self.assertFalse(dialog.agree.isEnabled())
-            for widget in (dialog.agree, dialog.decline, dialog.research, dialog.overseas):
+            self.assertEqual("학습 데이터 제공 동의 (선택)", dialog.research.text())
+            self.assertEqual("서버 보관 동의 (선택)", dialog.overseas.text())
+            self.assertIn("미국 · PythonAnywhere", dialog.storage_hint.text())
+            self.assertEqual("body", dialog.storage_hint.property("role"))
+            for widget in (dialog.agree, dialog.decline, dialog.research, dialog.overseas, dialog.storage_hint):
                 point = widget.mapTo(dialog, QPoint(0, 0))
                 self.assertGreaterEqual(point.y(), 0)
                 self.assertLessEqual(point.y()+widget.height(), dialog.height())
@@ -70,12 +90,16 @@ class PrivacyGuiTest(HubTest):
         win.show_privacy()
         dialog = win.privacy.dialog
         self.assertFalse(dialog.agree.isEnabled())
-        for box in (dialog.research, dialog.overseas):
-            QTest.mouseClick(box, Qt.MouseButton.LeftButton, pos=QPoint(8, box.height()//2))
+        QTest.mouseClick(dialog.research, Qt.MouseButton.LeftButton, pos=QPoint(8, dialog.research.height()//2))
+        self.assertFalse(dialog.agree.isEnabled())
+        QTest.mouseClick(dialog.overseas, Qt.MouseButton.LeftButton, pos=QPoint(8, dialog.overseas.height()//2))
         guikit.click(dialog.agree)
         self.assertTrue(win.privacy.consent.settings()["accepted"])
         self.assertTrue(win.session.collection.status()["enabled"])
         self.assertEqual(profile, win.session.prof)
+        win.show_privacy()
+        self.assertFalse(win.privacy.dialog.choices.isVisible())
+        self.assertTrue(win.privacy.dialog.withdraw.isVisible())
 
 
 class SyncSchedulingGuiTest(TestCase):

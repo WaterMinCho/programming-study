@@ -40,6 +40,7 @@ def git_env():
 
 # 규칙 이름 → (걸리는 문장, 같은 뜻으로 고친 문장). 고친 문장은 다른 규칙에도 걸리지 않아야 함
 FIXED_CASES = {
+    "버전 표현": ("문항 판을 확인합니다.", "문항 버전을 확인합니다."),
     "em-dash(\u2014)": ("단추를 누르면 PR 이 올라갑니다 \u2014 프로그램이 대신 올립니다.", "단추를 누르면 프로그램이 PR 을 대신 올립니다."),
     "행정식 당위 연결": ("출력 모양을 확인하여 연결을 수정해야 합니다.", "출력 모양을 확인한 뒤 연결을 맞춥니다."),
     "지시어로 끝내는 결론": ("모델 선택은 결국 그것입니다.", "검증 정확도가 가장 높은 저장 모델을 고릅니다."),
@@ -88,6 +89,19 @@ def read(path):
 
 
 class FixedPatternTest(unittest.TestCase):
+    def test_code_particle_replacement_does_not_match_compound_words(self):
+        self.assertIn("코드 뒤 조사", names(check_style.check("이 코드은 값을 바꿉니다.")))
+        self.assertNotIn("코드 뒤 조사", names(check_style.check("코드이름과 코드는 서로 다른 항목입니다.")))
+
+    def test_version_wording_and_unrelated_words(self):
+        for text in ("코드 판이 바뀌었습니다.", "같은 판의 자료를 받습니다.", "검토한 판: abc", "공통 입력 판4를 사용합니다."):
+            with self.subTest(text=text):
+                self.assertIn("버전 표현", names(check_style.check(text, path="docs/x.md")))
+        for text in ("현재 커밋을 확인합니다.", "문항 버전을 맞춥니다.", "코드 예제를 비교합니다.",
+                     "판단과 판정, 판별 조건을 확인합니다.", "게시판과 칠판을 확인합니다."):
+            with self.subTest(text=text):
+                self.assertNotIn("버전 표현", names(check_style.check(text, path="docs/x.md")))
+
     def test_each_rule_catches_one_sentence_and_passes_the_fix(self):
         for rule, (bad, good) in FIXED_CASES.items():
             with self.subTest(rule=rule):
@@ -133,6 +147,13 @@ class FixedPatternTest(unittest.TestCase):
 
 
 class ToneTest(unittest.TestCase):
+    def test_review_records_allow_findings_beyond_commit_bullet_limit_without_weakening_commits(self):
+        text = "\n".join("- 입력 %d의 조건을 확인했음." % index for index in range(6))
+        self.assertEqual([], check_style.check(text, record=True))
+        self.assertTrue(any("불릿 5개" in name for name, _ in check_style.check("docs: 검토\n\n" + text, commit=True)))
+        self.assertTrue(check_style.check("입력 조건을 확인했습니다.", record=True))
+        self.assertTrue(check_style.check("결국 이것입니다.", record=True))
+
     def test_record_tone_in_python_comments_and_docstrings(self):
         bad = '"""python study.py 로 창이 열린다."""\n# 채점은 자식 프로세스에서 한다.\nX = 1\n'
         good = '"""python study.py 로 창이 열림."""\n# 채점은 자식 프로세스에서 함\nX = 1\n'
@@ -217,13 +238,13 @@ class SelectTest(unittest.TestCase):
             "study.py", "gitflow.py", "gui/hub_page.py", "journey/runner.py", "tools/journey_art/d01.py", "tests/test_gui.py",
             "tests/test_style.py", "submissions/alice/README.md", "submissions/alice/journey/progress.json",
             ".github/workflows/style.yml", ".github/workflows/ci.yml", "start.bat", "gui\\window.py",
-            "aiprep/service.py", "ai/items/i05/gens.py", "ai/items/i05/sealed.json", "ai/learn/l05/page.md",
+            "aiprep/service.py", "learning_data/collection.py", "ai/items/i05/gens.py", "ai/items/i05/sealed.json", "ai/learn/l05/page.md",
         ]
         self.assertEqual([
             "README.md", "docs/CRITERIA.md", "problems/s01/p1/problem.md", "dungeons/d01/intro.md", "dungeons/d01/p1/problem.md",
             "dungeons/d01/sealed.json", "study.py", "gitflow.py", "gui/hub_page.py", "journey/runner.py", "tools/journey_art/d01.py",
             ".github/workflows/style.yml", ".github/workflows/ci.yml", "gui/window.py",
-            "aiprep/service.py", "ai/items/i05/gens.py", "ai/learn/l05/page.md",
+            "aiprep/service.py", "learning_data/collection.py", "ai/items/i05/gens.py", "ai/learn/l05/page.md",
         ], check_style.select(paths))
 
 
@@ -400,8 +421,10 @@ class RepoFilesTest(unittest.TestCase):
         self.assertIn("name: 문장 검사\n", text)
         self.assertIn("pull_request:\n    types: [opened, synchronize, reopened, edited]\n    paths-ignore:\n      - \"submissions/**\"\n", text)
         self.assertNotIn("\n  push:", text)
-        self.assertIn("check_style.py --changed", text)
-        self.assertIn("check_style.py --commit", text)
+        self.assertIn("python -m tools.pr_checks style", text)
+        self.assertIn("SCOPE_BASE: ${{ github.event.pull_request.base.sha }}", text)
+        self.assertIn("SCOPE_HEAD: ${{ github.event.pull_request.head.sha }}", text)
+        self.assertIn("BODY: ${{ github.event.pull_request.body }}", text)
         self.assertEqual([], check_style.check(text, path="style.yml"))
 
     @unittest.skipUnless(HAS_GIT, "git 이 있어야 함")

@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -104,10 +106,51 @@ class SummaryTest(unittest.TestCase):
 
     def test_general_pr_has_no_claim_of_code_review_or_self_approval(self):
         text = json.dumps(self.final()[2], ensure_ascii=False)
-        self.assertIn("필수 검사를 마쳤습니다", text)
-        self.assertIn("자동 검토 대상이 아닙니다", text)
-        self.assertNotIn("코드 검토를 마쳤습니다", text)
+        self.assertIn("검사 통과", text)
+        self.assertNotIn("자동 검토 대상이 아닙니다", text)
+        self.assertNotIn("검토 완료", text)
         self.assertEqual([], self.github.posts)
+
+    def test_ready_card_keeps_only_status_title_result_and_link(self):
+        self.github.pr["user"]["login"] = "wamangdoo"
+        self.rows.append({"context": REVIEW_CONTEXT, "state": "SUCCESS"})
+        self.github.reviews = [review()]
+        pr, result, payload = self.final()
+        self.assertTrue(result["ready"])
+        self.assertLessEqual(len(payload["blocks"]), 4)
+        self.assertEqual("머지 준비 완료", payload["blocks"][0]["text"]["text"])
+        self.assertIn(pr["title"], payload["blocks"][1]["text"]["text"])
+        self.assertEqual("검사 통과 · 검토 완료 · 운영자 확인 후 머지", payload["blocks"][2]["text"]["text"])
+        self.assertFalse(any("fields" in block or block["type"] == "context" for block in payload["blocks"]))
+        self.assertNotIn(pr["head"]["sha"][:10], payload["text"])
+        self.assertIn(pr["html_url"], payload["text"])
+
+    def test_workflow_sparse_checkout_can_import_the_notification_module(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root/".github/workflows/slack-notify.yml").read_text(encoding="utf-8")
+        files = re.findall(r"^            (tools/[^\s]+)$", workflow, re.M)
+        self.assertTrue(files)
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder)
+            for name in files:
+                path = target/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes((root/name).read_bytes())
+            result = subprocess.run([sys.executable, "-I", "-c",
+                                     "import sys; sys.path.insert(0, sys.argv[1]); import tools.slack_summary", str(target)],
+                                    cwd=target, capture_output=True, text=True, timeout=20)
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_failed_card_keeps_a_bounded_result_without_extra_rows(self):
+        self.rows[0] = job("필수 검사", "FAILURE")
+        self.rows.append(job("긴 검사 이름\n" + "x" * 4000, "FAILURE"))
+        payload = self.final()[2]
+        description = payload["blocks"][2]["text"]["text"]
+        self.assertEqual("확인 필요", payload["blocks"][0]["text"]["text"])
+        self.assertIn("검사: 필수 검사", description)
+        self.assertIn("PR에서 남은 조건 확인", description)
+        self.assertLess(len(description), 400)
+        self.assertNotIn("\n", description)
 
     def test_team_review_is_required_even_after_ci_failure(self):
         self.github.pr["user"]["login"] = "wamangdoo"
@@ -125,7 +168,8 @@ class SummaryTest(unittest.TestCase):
             self.rows = original
 
     def test_conditionally_triggered_workflow_cannot_arrive_late(self):
-        for path, workflow_path, expected in (("learning_server/app.py", "learning-server.yml", "운영 경로 (windows-latest)"),
+        for path, workflow_path, expected in (("experiments/alice/train.py", "ci.yml", "모델 제출 검사"),
+                                             ("learning_server/app.py", "learning-server.yml", "운영 경로 (windows-latest)"),
                                              ("dungeons/d01/p1/problem.md", "journey.yml", "여정 문제 검증")):
             with self.subTest(path=path):
                 self.github.files = [{"filename": path}]
@@ -426,6 +470,34 @@ class SummaryTest(unittest.TestCase):
                    "SLACK_DRY_RUN": "1", "SLACK_STUDY_WEBHOOK_URL": "unused"}
             with patch.dict(os.environ, env), patch.object(summary, "Client", return_value=self.github), patch("sys.stdout", new_callable=io.StringIO):
                 self.assertEqual(0, summary.main())
+            self.send.assert_not_called()
+            self.assertEqual([], self.github.posts)
+
+    def test_main_routes_enabled_daily_alerts_through_the_thread_sender(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"event.json"
+            path.write_text(json.dumps({"repository": {"full_name": summary.REPO}}), encoding="utf-8")
+            env = {"GITHUB_EVENT_PATH": str(path), "GITHUB_EVENT_NAME": "workflow_dispatch", "GH_TOKEN": "unused",
+                   "SLACK_DRY_RUN": "0", "SLACK_STUDY_WEBHOOK_URL": "", "SLACK_STUDY_DAILY_THREADS": "1",
+                   "SLACK_STUDY_BOT_TOKEN": "xoxb-example", "SLACK_STUDY_CHANNEL_ID": "C123ABC456",
+                   "SLACK_STUDY_THREAD_ANCHOR": "a" * 40}
+            with patch.dict(os.environ, env), patch.object(summary, "Client", return_value=self.github), \
+                    patch.object(summary, "DailyThreads") as sender, patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(0, summary.main())
+            sender.return_value.send.assert_called_once()
+            self.send.assert_not_called()
+            self.assertEqual("sent:", self.github.posts[-1]["description"][:5])
+
+    def test_daily_dry_run_does_not_create_a_parent_or_need_bot_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"event.json"
+            path.write_text(json.dumps({"repository": {"full_name": summary.REPO}}), encoding="utf-8")
+            env = {"GITHUB_EVENT_PATH": str(path), "GITHUB_EVENT_NAME": "workflow_dispatch", "GH_TOKEN": "unused",
+                   "SLACK_DRY_RUN": "1", "SLACK_STUDY_DAILY_THREADS": "1", "SLACK_STUDY_BOT_TOKEN": ""}
+            with patch.dict(os.environ, env), patch.object(summary, "Client", return_value=self.github), \
+                    patch.object(summary, "DailyThreads") as sender, patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(0, summary.main())
+            sender.assert_not_called()
             self.send.assert_not_called()
             self.assertEqual([], self.github.posts)
 

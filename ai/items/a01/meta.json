@@ -31,6 +31,34 @@
    "stmt": 0,
    "gen": [],
    "core": 3
+  },
+  "a1e": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a1f": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a1g": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a1h": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
   }
  },
  "sources": []

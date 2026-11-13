@@ -1,43 +1,51 @@
 # <img src="docs/img/icon.png" width="36" alt=""> 프로그래밍 스터디
 
-파이썬·알고리즘·AI 문제를 풀고, 풀이 기록으로 추천 모델을 만드는 프로젝트입니다. ROKEY 11기 수강생의 자율 학습용이며 아래에서 사용할 안내를 고릅니다.
+ROKEY 11기 수강생이 파이썬·알고리즘·AI 문제를 푸는 자율 학습 프로그램입니다. 스터디 팀은 풀이 기록을 바탕으로 문제 추천 모델을 개발합니다.
 
 ---
 
-## [문제를 풀고 싶어요 → 학습 시작](docs/LEARNER_START.md)
+<a id="문제를-풀고-싶어요--학습-시작"></a>
 
-**처음 코딩을 배우는 분도 여기서 시작하세요.** 설치부터 첫 문제를 푸는 순서까지 안내합니다.
+## [학습자 가이드 · 설치부터 첫 문제까지](docs/LEARNER_START.md)
+
+Windows에서는 `start.bat`, macOS에서는 `start.command`로 시작하세요.
 
 프로그램 받기 → start 파일 실행 → 과목 선택 → 풀이·채점
 
-[**설치하고 첫 문제 풀기**](docs/LEARNER_START.md) · [이미 설치했다면 바로 실행하기](gui/README.md#프로그램을-켜고-id를-입력합니다)
+[**설치하고 첫 문제 풀기**](docs/LEARNER_START.md) · [이미 설치했다면 바로 실행하기](gui/README.md#프로그램-실행과-학습-이어가기)
 
 ---
 
-## [스터디원이에요 → 모델 개발 시작](docs/STUDY_START.md)
+<a id="스터디원이에요--모델-개발-시작"></a>
 
-**michae18 · wamangdoo · kimjs85529-a11y는 여기서 시작하세요.** 담당 모델과 이번 할 일, 본인 fork에서 첫 PR을 보내는 순서를 안내합니다.
+## [스터디원 가이드 · 담당 모델과 첫 PR](docs/STUDY_START.md)
 
-담당 미션 확인 → fork·작업 브랜치 → 공통 입력 확인 → 본인 코드·설명 → PR·피드백
+담당 이슈에서 이번 작업을 확인하고, 본인 fork에 모델 코드와 실행 결과를 올리세요.
 
-[**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [프로젝트 구조와 담당 위치](docs/ARCHITECTURE.md)
+담당 미션 확인 → fork·작업 브랜치 → 비공개 자료·샘플 확인 → 코드·테스트·PR
+
+[**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [실제 자료 받기·샘플링](docs/LEARNING_DATA_ACCESS.md) · [프로젝트 구조와 팀원 역할](docs/ARCHITECTURE.md)
+
+코드를 고칠 때는 [기능별 폴더 안내](docs/ARCHITECTURE.md#기능별-코드-위치)에서 시작합니다. 공통 기록·동의·전송은 `learning_data/`, 서버는 `learning_server/`, 팀원 모델은 `experiments/본인GitHubID/`에 있습니다.
 
 ---
 
-## 설정과 자료를 찾습니다
+<a id="설정과-자료를-찾습니다"></a>
 
-- [글자 크기·밝고 어두운 테마](gui/README.md#글자-크기와-테마를-바꿉니다) · [새 자료 받기](gui/README.md#새-자료를-받습니다)
+## 화면 설정, 풀이 제출, 학습 자료
+
+- [글자 크기·밝고 어두운 테마](gui/README.md#글자-크기와-화면-테마) · [새 자료 받기](gui/README.md#프로그램과-문제-업데이트)
 - [비공개 풀이 제출](docs/API_SUBMISSIONS.md) · [수집 동의·철회](docs/LEARNING_PRIVACY.md)
 - [직무별 학습 로드맵 펼쳐보기](docs/roadmap/README.md#직무별-로드맵)
-- [실행·제출 오류 해결](gui/README.md#안-될-때) · [전체 안내 목록](docs/GUIDE_INDEX.md)
+- [실행·제출 오류 해결](gui/README.md#실행업데이트제출-오류-해결) · [전체 안내 목록](docs/GUIDE_INDEX.md)
 
 ## 라이선스
 
-프로그램 코드(`study.py`, `adaptive.py`, `session.py`, `gitflow.py`, `bootstrap.py`, `mdlite.py`, `gui/`, `journey/`, `webprep/`, `tools/`, `tests/`)는 [GPL-3.0](LICENSE)입니다. 화면에 쓰는 PyQt6 가 GPL-3.0 이라 같은 조건을 따릅니다.
+저장소 맨 위의 실행 파일·파이썬 모듈과 `ROKEY.app/`, `gui/`, `aiprep/`, `learning_data/`, `learning_server/`, `journey/`, `webprep/`, `tools/`, `tests/`의 코드는 [GPL-3.0](LICENSE)입니다. 화면에 쓰는 PyQt6 가 GPL-3.0 이라 같은 조건을 따릅니다.
 
 `gui/fonts/` 의 글꼴은 SIL OFL 1.1 을 따릅니다. 화면 글꼴은 [나눔고딕](gui/fonts/OFL.txt), 코드 글꼴은 [D2Coding](gui/fonts/OFL-D2Coding.md)입니다.
 
-`problems/`, `dungeons/`, `web/` 의 문제, 해설, 개념 정리, 그림, 미션 템플릿 코드는 이 스터디의 학습 자료이고 GPL 적용 대상이 아닙니다. 다른 곳에 옮겨 쓰려면 스터디장에게 문의해 주세요.
+`problems/`, `dungeons/`, `ai/`, `web/`의 문제, 해설, 개념 정리, 그림, 미션 템플릿 코드는 이 스터디의 학습 자료이고 GPL 적용 대상이 아닙니다. 다른 곳에 옮겨 쓰려면 스터디장에게 문의해 주세요.
 
 <details>
 <summary>기존 안내 주소에서 이어 보기</summary>

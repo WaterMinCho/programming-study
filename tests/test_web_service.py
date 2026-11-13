@@ -348,8 +348,9 @@ class MissionFlowTest(Base):
         self.assertEqual(["c1", "c2", "c3", "m1", "m2"], [i["key"] for i in result["self_items"]])
         self.assertEqual(["끝", "통과", "잠김"], [s["label"] for s in result["steps"]])
         self.assertEqual(["l90"], result["pages"])
+        before = len(self.log())
         again = web.finish("x01")  # 끝난 미션은 기록 없이 같은 것
-        self.assertEqual(len(self.log()), len(self.log()))
+        self.assertEqual(before, len(self.log()))
         self.assertEqual(result["explain"], again["explain"])
         self.solve(2)
         self.assertEqual([], web.finish("x01")["mine_diff"])
