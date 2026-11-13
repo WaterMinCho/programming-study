@@ -49,7 +49,7 @@ class EventIndex(object):
     def __init__(self, first_try_only=True, versions=None, revised=()):
         self.first_try_only = first_try_only
         self.versions, self.revised = versions or {}, set(revised)
-        self.unversioned = set()
+        self.unversioned, self.dropped = set(), set()
         self.events, self.ver = {}, {}
         self._answers = {}
         self._mocks = set()
@@ -60,6 +60,7 @@ class EventIndex(object):
         wrong_version = revision is not None and revision != expected
         unconfirmed_change = revision is None and cid in self.revised
         if expected is not None and (wrong_version or unconfirmed_change):
+            self.dropped.add(cid)
             return
         if revision is None:
             self.unversioned.add(cid)

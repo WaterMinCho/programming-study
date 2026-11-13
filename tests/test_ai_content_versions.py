@@ -115,3 +115,22 @@ class ContentVersionTest(Base):
         self.assertEqual(b"{broken", path.read_bytes())
         self.assertIn("card_versions", sess.errors)
 
+    def test_editing_an_unanswered_card_does_not_reset_a_family(self):
+        sess = self.session()
+        self.answer(sess)
+        fresh = self.session()
+        fresh.cards["i90-b02"]["item"]["stem"] += " 새 조건"
+        fresh.cards["i90-b02"]["family"] = fresh.cards["i90-b01"]["family"]
+        self.assertNotIn("i90-b02", fresh._state().revised)
+        self.assertEqual(0, fresh.overview()["revised_cards"])
+
+    def test_override_of_a_new_version_keeps_its_original_revision(self):
+        sess = self.session()
+        self.answer(sess)
+        fresh = self.changed()
+        fresh._append({"kind": "answer", "card": "i90-b01", "result": "stuck", "set": "new", "again": 0})
+        fresh._append({"kind": "override", "card": "i90-b01", "set": "new", "again": 0})
+        rows = fresh._state().events["i90-b01"]
+        self.assertEqual(1, len(rows))
+        self.assertEqual("pass", rows[0]["result"])
+        self.assertNotIn("i90-b01", fresh._state().legacy_cards)

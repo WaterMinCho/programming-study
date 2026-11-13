@@ -1082,7 +1082,7 @@ class _State(object):
         self.practice_completed = {starts[e.get("set")] for e in self.log
                                    if e.get("kind") == "set_end" and e.get("set") in starts}
         self.events = index.events.events
-        self.revised = index.events.revised
+        self.revised = index.events.dropped
         self.legacy_cards = {cid for cid in index.events.unversioned if cid in self.events and cid in sess.cards and not sess.cards[cid].get("mock")}
         self.reads = index.reads
         self.opened = index.opened
