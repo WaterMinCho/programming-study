@@ -4,8 +4,8 @@ import unittest
 from unittest import mock
 
 from aiprep import bank
-from gui import theme
 from tests import test_gui_ai
+from gui import theme
 from tests.test_ai_mixed_mock import make_bank, without_mixed_metadata
 from tests.test_gui_ai import visible_text
 
