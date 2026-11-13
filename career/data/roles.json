@@ -1,0 +1,1355 @@
+{
+  "schema_version": 1,
+  "version": "2026-11-14-v1",
+  "checked_date": "2026-11-14",
+  "roadmap_revision": "d54fdf63dfad1571a6bfc5ce5b3d178dcc976c610902f711e3fd7df69ace5e6f",
+  "roadmap_updated": "2026-11-11",
+  "organization_caption": "회사마다 조직 이름과 업무 범위가 다릅니다. 여기서는 공식 자료의 사례를 확인합니다.",
+  "industries": [
+    {
+      "id": "manufacturing_logistics",
+      "label": "제조·물류"
+    },
+    {
+      "id": "service_robot",
+      "label": "서비스 로봇"
+    },
+    {
+      "id": "mobility",
+      "label": "모빌리티"
+    },
+    {
+      "id": "digital_services",
+      "label": "웹·디지털 서비스"
+    }
+  ],
+  "products": [
+    {
+      "id": "robot_arm",
+      "label": "로봇 팔·이동 장치",
+      "industry_ids": [
+        "manufacturing_logistics"
+      ],
+      "status": "learning_example"
+    },
+    {
+      "id": "mobile_robot",
+      "label": "이동 로봇",
+      "industry_ids": [
+        "service_robot",
+        "manufacturing_logistics"
+      ],
+      "status": "learning_example"
+    },
+    {
+      "id": "perception",
+      "label": "로봇 영상 인식",
+      "industry_ids": [
+        "service_robot",
+        "manufacturing_logistics"
+      ],
+      "status": "learning_example"
+    },
+    {
+      "id": "learned_robot",
+      "label": "학습하는 로봇·차량",
+      "industry_ids": [
+        "manufacturing_logistics",
+        "mobility"
+      ],
+      "status": "learning_example"
+    },
+    {
+      "id": "robot_fleet",
+      "label": "여러 로봇의 관제",
+      "industry_ids": [
+        "manufacturing_logistics",
+        "service_robot"
+      ],
+      "status": "learning_example"
+    },
+    {
+      "id": "web_service",
+      "label": "웹 서비스",
+      "industry_ids": [
+        "digital_services"
+      ],
+      "status": "learning_example"
+    },
+    {
+      "id": "mobility_data",
+      "label": "모빌리티 데이터 서비스",
+      "industry_ids": [
+        "mobility"
+      ],
+      "status": "learning_example"
+    }
+  ],
+  "roles": [
+    {
+      "id": "robot_control",
+      "title": "로봇 제어·펌웨어 개발",
+      "industry_ids": [
+        "manufacturing_logistics"
+      ],
+      "product_ids": [
+        "robot_arm"
+      ],
+      "team_label": "SW개발",
+      "team_note": "공고에 적힌 직무 분류입니다.",
+      "source_ids": [
+        "S4"
+      ],
+      "inputs": [
+        "목표 동작과 장치 상태",
+        "제어 주기와 통신 조건"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "모터를 제어하고 이동부와 로봇 팔을 연결합니다.",
+        "장치 통신과 HW·SW 문제를 진단합니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "입력·제어 주기·제약을 적은 장치 시험",
+        "오류 재현 로그와 수정 후 비교"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "arm",
+          "relation": "primary"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "arm",
+          "node_id": "cpp",
+          "label": "C++ 실전",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "arm",
+          "node_id": "frames",
+          "label": "좌표계와 변환",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "arm",
+          "node_id": "ros2",
+          "label": "ROS2 기본",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "arm",
+          "node_id": "comm",
+          "label": "통신과 실시간성",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "arm",
+          "node_id": "control",
+          "label": "ros2_control",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "robot_navigation",
+      "title": "이동 로봇 주행 개발",
+      "industry_ids": [
+        "service_robot",
+        "manufacturing_logistics"
+      ],
+      "product_ids": [
+        "mobile_robot"
+      ],
+      "team_label": "Robotics Engineering",
+      "team_note": "채용 페이지에 적힌 부서 분류입니다.",
+      "source_ids": [
+        "S7"
+      ],
+      "inputs": [
+        "주행할 목적지와 주변 장애물",
+        "위치·센서 자료"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "주행 시스템을 개발하고 운용합니다.",
+        "주변 사물과 상호작용하는 기능을 개발합니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "고정한 경로·장애물 조건의 실패·복구 기록"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "nav",
+          "relation": "primary"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "nav",
+          "node_id": "ros2",
+          "label": "ROS2 기본",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "nav",
+          "node_id": "tf",
+          "label": "좌표 변환",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "nav",
+          "node_id": "sensor",
+          "label": "센서 데이터",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "nav",
+          "node_id": "slam",
+          "label": "2D SLAM",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "nav",
+          "node_id": "nav2",
+          "label": "Nav2",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "nav",
+          "node_id": "recovery",
+          "label": "주행 실패 복구",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "robot_vision",
+      "title": "로봇 영상 인식·ML 개발",
+      "industry_ids": [
+        "service_robot",
+        "manufacturing_logistics"
+      ],
+      "product_ids": [
+        "perception"
+      ],
+      "team_label": "인식·주행·시스템 개발 협업",
+      "team_note": "공고의 협업 관계입니다. 공식 팀 이름은 확인하지 못했습니다.",
+      "source_ids": [
+        "S8"
+      ],
+      "inputs": [
+        "카메라 영상과 학습 자료",
+        "장치의 입력 크기·처리 조건"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "수집·정제·모델 개발을 관리합니다.",
+        "모델을 실로봇에 적용하고 안정화합니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "자료 분리 기준과 실패 이미지별 분석",
+        "장치·입력 크기를 적은 추론 측정"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "vision",
+          "relation": "primary"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "vision",
+          "node_id": "data",
+          "label": "데이터 다루기",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "vision",
+          "node_id": "torch",
+          "label": "PyTorch 기본",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "vision",
+          "node_id": "cnn",
+          "label": "이미지 분류 모델",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "vision",
+          "node_id": "tune",
+          "label": "학습 튜닝",
+          "course_status": "taught"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "field_integration",
+      "title": "로봇 현장 설치·통합",
+      "industry_ids": [
+        "manufacturing_logistics",
+        "service_robot"
+      ],
+      "product_ids": [
+        "mobile_robot"
+      ],
+      "team_label": "Robotics Field Engineer Team",
+      "team_note": "공고에 적힌 팀 이름입니다.",
+      "source_ids": [
+        "S6"
+      ],
+      "inputs": [
+        "설치할 현장과 네트워크",
+        "로봇·주변 설비의 연결 조건"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "현장을 조사하고 설치·맵핑·시운전을 수행합니다.",
+        "네트워크·설비 연동과 장애 로그를 확인합니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "설치·인수 점검표와 조치 기록"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "field",
+          "relation": "primary"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "field",
+          "node_id": "linux",
+          "label": "Linux 운영",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "field",
+          "node_id": "net",
+          "label": "네트워크 기초",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "field",
+          "node_id": "trouble",
+          "label": "장애 대응",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "field",
+          "node_id": "document",
+          "label": "기술문서 작성",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "robot_policy",
+      "title": "로봇 학습 정책·시뮬레이션 개발",
+      "industry_ids": [
+        "manufacturing_logistics",
+        "mobility"
+      ],
+      "product_ids": [
+        "learned_robot"
+      ],
+      "team_label": "SW개발 / Autonomous Driving",
+      "team_note": "서로 다른 회사의 공개 직무 분류를 함께 표시합니다.",
+      "source_ids": [
+        "S5",
+        "S3"
+      ],
+      "inputs": [
+        "작업 지시와 환경 관측",
+        "학습 자료와 평가 조건"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "시뮬레이션과 로봇 행동 모델을 개발합니다.",
+        "정책을 검증하고 실제 장치 적용을 다룹니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "학습 조건·평가 환경·실패 조건을 고정한 비교"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "physical",
+          "relation": "primary"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "physical",
+          "node_id": "torch",
+          "label": "PyTorch",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "physical",
+          "node_id": "robot",
+          "label": "ROS2와 로봇 모델",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "physical",
+          "node_id": "sim",
+          "label": "시뮬레이터",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "physical",
+          "node_id": "rl",
+          "label": "강화학습 기초",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "physical",
+          "node_id": "imitation",
+          "label": "모방학습",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "physical",
+          "node_id": "vla",
+          "label": "VLA 모델",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "physical",
+          "node_id": "evaluation",
+          "label": "로봇 정책 평가",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "robot_backend",
+      "title": "로봇 관제 백엔드 개발",
+      "industry_ids": [
+        "manufacturing_logistics",
+        "service_robot"
+      ],
+      "product_ids": [
+        "robot_fleet"
+      ],
+      "team_label": "ACS Data Platform & Backend",
+      "team_note": "공고가 나눈 업무 영역입니다. 부서 이름과 구분합니다.",
+      "source_ids": [
+        "S9"
+      ],
+      "inputs": [
+        "로봇 상태와 수집 기록",
+        "화면·장치의 조회 요청"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "로봇 자료 수집과 저장·조회 API를 개발합니다.",
+        "데이터 일관성과 모니터링·보관을 다룹니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "연결 단절·중복 요청의 처리 기록",
+        "API·DB 구조와 운영 로그"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "platform",
+          "relation": "primary"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "platform",
+          "node_id": "db",
+          "label": "SQL과 DB",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "api",
+          "label": "백엔드 API",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "realtime",
+          "label": "실시간 통신",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "ros",
+          "label": "ROS2 연동",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "container",
+          "label": "컨테이너",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "ops",
+          "label": "배포와 운영",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "platform_infrastructure",
+      "title": "플랫폼 배포·운영 개발",
+      "industry_ids": [
+        "service_robot",
+        "manufacturing_logistics"
+      ],
+      "product_ids": [
+        "robot_fleet"
+      ],
+      "team_label": "ACS Infrastructure & Deployment",
+      "team_note": "공고가 나눈 업무 영역입니다. 부서 이름과 구분합니다.",
+      "source_ids": [
+        "S9"
+      ],
+      "inputs": [
+        "배포할 서비스와 설정",
+        "장애·네트워크 기록"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "현장 서버 배포와 구성 자동화를 다룹니다.",
+        "네트워크·장애 대응·관측 도구를 관리합니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "배포·되돌리기 절차와 장애 복구 비교"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "platform",
+          "relation": "adjacent_specialization"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "platform",
+          "node_id": "container",
+          "label": "컨테이너",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "ops",
+          "label": "배포와 운영",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "frontend",
+      "title": "프론트엔드 개발",
+      "industry_ids": [
+        "digital_services"
+      ],
+      "product_ids": [
+        "web_service"
+      ],
+      "team_label": "프론트엔드",
+      "team_note": "공고에 적힌 직무 이름입니다.",
+      "source_ids": [
+        "S10"
+      ],
+      "inputs": [
+        "서버에서 받은 자료",
+        "화면에서 누르거나 입력한 값"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "모바일·PC 웹 화면과 백오피스를 개발합니다.",
+        "실시간 데이터와 렌더링 성능을 다룹니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "상태·입력·오류가 드러나는 작은 관제 화면"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "platform",
+          "relation": "shared_skills_only"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "platform",
+          "node_id": "web",
+          "label": "HTTP와 웹 기초",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "js",
+          "label": "JavaScript",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "ts",
+          "label": "TypeScript",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "react",
+          "label": "React",
+          "course_status": "extra"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "quality",
+          "label": "화면 품질",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "backend",
+      "title": "서비스 백엔드 개발",
+      "industry_ids": [
+        "digital_services"
+      ],
+      "product_ids": [
+        "web_service"
+      ],
+      "team_label": "Back-end",
+      "team_note": "공개 소개의 직무 분류입니다.",
+      "source_ids": [
+        "S1"
+      ],
+      "inputs": [
+        "화면·외부 시스템의 요청",
+        "저장할 자료와 업무 규칙"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "요청을 받아 업무 규칙과 저장 자료를 처리합니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "API 계약과 오류·권한별 응답 예시"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "platform",
+          "relation": "shared_skills_only"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "platform",
+          "node_id": "db",
+          "label": "SQL과 DB",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "api",
+          "label": "백엔드 API",
+          "course_status": "partial"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "data_engineering",
+      "title": "데이터 엔지니어링",
+      "industry_ids": [
+        "mobility"
+      ],
+      "product_ids": [
+        "mobility_data"
+      ],
+      "team_label": "Data / Data Engineering",
+      "team_note": "공개 소개의 직무 분류입니다.",
+      "source_ids": [
+        "S2"
+      ],
+      "inputs": [
+        "수집한 원본 자료",
+        "정제·저장 조건"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "데이터 처리 흐름과 기반 시스템을 구축·운영합니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "수집·정제·검사·적재의 재실행 가능한 예시"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "platform",
+          "relation": "shared_skills_only"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "platform",
+          "node_id": "db",
+          "label": "SQL과 DB",
+          "course_status": "taught"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "api",
+          "label": "백엔드 API",
+          "course_status": "partial"
+        },
+        {
+          "goal_id": "platform",
+          "node_id": "ops",
+          "label": "배포와 운영",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    },
+    {
+      "id": "qa",
+      "title": "소프트웨어 품질·검증",
+      "industry_ids": [
+        "digital_services"
+      ],
+      "product_ids": [
+        "web_service"
+      ],
+      "team_label": "QA",
+      "team_note": "공개 소개의 직무 분류입니다.",
+      "source_ids": [
+        "S1"
+      ],
+      "inputs": [
+        "제품의 요구사항",
+        "확인할 입력과 기대 결과"
+      ],
+      "input_status": "learning_example",
+      "tasks": [
+        "요구에 맞춰 시험 계획·자동화·품질 기록을 관리합니다."
+      ],
+      "task_status": "source_paraphrase",
+      "outputs": [
+        "요구·입력 조건·기대 결과·재현 기록의 대응표"
+      ],
+      "output_status": "learning_proposal",
+      "goal_links": [
+        {
+          "goal_id": "field",
+          "relation": "shared_skills_only"
+        }
+      ],
+      "roadmap_nodes": [
+        {
+          "goal_id": "field",
+          "node_id": "test",
+          "label": "테스트 설계",
+          "course_status": "unverified"
+        },
+        {
+          "goal_id": "field",
+          "node_id": "document",
+          "label": "기술문서 작성",
+          "course_status": "extra"
+        }
+      ],
+      "sequence_status": "learning_proposal"
+    }
+  ],
+  "goals": [
+    {
+      "goal_id": "arm",
+      "title": "로봇 SW·제어 엔지니어",
+      "nodes": [
+        {
+          "node_id": "cpp",
+          "label": "C++ 실전",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "frames",
+          "label": "좌표계와 변환",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "ros2",
+          "label": "ROS2 기본",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "client",
+          "label": "노드 프로그래밍",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "tools",
+          "label": "개발 도구",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "model",
+          "label": "로봇 모델",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "kinematics",
+          "label": "로봇 기구학",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "sim",
+          "label": "시뮬레이션",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "cobot",
+          "label": "협동로봇 프로그래밍",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "moveit",
+          "label": "MoveIt 2",
+          "course_status": "unverified"
+        },
+        {
+          "node_id": "vision",
+          "label": "비전 연동",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "control",
+          "label": "ros2_control",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "comm",
+          "label": "통신과 실시간성",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "force",
+          "label": "궤적·힘 제어",
+          "course_status": "extra"
+        }
+      ]
+    },
+    {
+      "goal_id": "nav",
+      "title": "자율주행 로봇 엔지니어",
+      "nodes": [
+        {
+          "node_id": "cpp",
+          "label": "C++ 실전",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "prob",
+          "label": "확률과 선형대수",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "search",
+          "label": "경로 탐색 알고리즘",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "ros2",
+          "label": "ROS2 기본",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "tf",
+          "label": "좌표 변환",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "sensor",
+          "label": "센서 데이터",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "sim",
+          "label": "시뮬레이션",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "loc",
+          "label": "위치 추정",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "slam",
+          "label": "2D SLAM",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "nav2",
+          "label": "Nav2",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "recovery",
+          "label": "주행 실패 복구",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "percep",
+          "label": "인식 연동",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "slam3d",
+          "label": "3D SLAM",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "fleet",
+          "label": "다중 로봇",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "board",
+          "label": "임베디드 보드",
+          "course_status": "extra"
+        }
+      ]
+    },
+    {
+      "goal_id": "vision",
+      "title": "비전 AI 엔지니어",
+      "nodes": [
+        {
+          "node_id": "data",
+          "label": "데이터 다루기",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "math",
+          "label": "딥러닝 수학",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "torch",
+          "label": "PyTorch 기본",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "cnn",
+          "label": "이미지 분류 모델",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "tune",
+          "label": "학습 튜닝",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "transfer",
+          "label": "전이 학습",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "opencv",
+          "label": "OpenCV 영상 처리",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "detect",
+          "label": "객체 검출",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "segtrack",
+          "label": "분할과 추적",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "pipeline",
+          "label": "학습 파이프라인",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "deploy",
+          "label": "경량화와 배포",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "ros",
+          "label": "ROS2 연동",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "three_d",
+          "label": "3D 비전",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "vit",
+          "label": "트랜스포머 비전",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "extra",
+          "label": "생성·응용 모델",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "machine",
+          "label": "머신비전 장비",
+          "course_status": "extra"
+        }
+      ]
+    },
+    {
+      "goal_id": "field",
+      "title": "로봇 현장·통합 엔지니어",
+      "nodes": [
+        {
+          "node_id": "linux",
+          "label": "Linux 운영",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "net",
+          "label": "네트워크 기초",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "py",
+          "label": "Python 자동화",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "hw",
+          "label": "하드웨어 기초",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "diag",
+          "label": "ROS2 진단 도구",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "cobot",
+          "label": "협동로봇 셋업",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "amr",
+          "label": "이동 로봇 셋업",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "calib",
+          "label": "캘리브레이션",
+          "course_status": "unverified"
+        },
+        {
+          "node_id": "plc",
+          "label": "PLC와 산업 통신",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "trouble",
+          "label": "장애 대응",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "document",
+          "label": "기술문서 작성",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "test",
+          "label": "테스트 설계",
+          "course_status": "unverified"
+        },
+        {
+          "node_id": "deploy",
+          "label": "원격 배포",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "poc",
+          "label": "고객 요구와 PoC",
+          "course_status": "unverified"
+        },
+        {
+          "node_id": "data",
+          "label": "현장 데이터 수집",
+          "course_status": "partial"
+        }
+      ]
+    },
+    {
+      "goal_id": "physical",
+      "title": "Physical AI 엔지니어",
+      "nodes": [
+        {
+          "node_id": "math",
+          "label": "수학",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "torch",
+          "label": "PyTorch",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "robot",
+          "label": "ROS2와 로봇 모델",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "sim",
+          "label": "시뮬레이터",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "rl",
+          "label": "강화학습 기초",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "rlalgo",
+          "label": "강화학습 알고리즘",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "data",
+          "label": "시연 데이터 수집",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "imitation",
+          "label": "모방학습",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "vla",
+          "label": "VLA 모델",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "sim2real",
+          "label": "Sim2Real",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "evaluation",
+          "label": "로봇 정책 평가",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "twin",
+          "label": "디지털 트윈",
+          "course_status": "unverified"
+        },
+        {
+          "node_id": "paper",
+          "label": "논문 구현",
+          "course_status": "extra"
+        }
+      ]
+    },
+    {
+      "goal_id": "platform",
+      "title": "로봇 관제 개발자",
+      "nodes": [
+        {
+          "node_id": "web",
+          "label": "HTTP와 웹 기초",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "js",
+          "label": "JavaScript",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "ts",
+          "label": "TypeScript",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "react",
+          "label": "React",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "quality",
+          "label": "화면 품질",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "db",
+          "label": "SQL과 DB",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "api",
+          "label": "백엔드 API",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "realtime",
+          "label": "실시간 통신",
+          "course_status": "extra"
+        },
+        {
+          "node_id": "ros",
+          "label": "ROS2 연동",
+          "course_status": "partial"
+        },
+        {
+          "node_id": "container",
+          "label": "컨테이너",
+          "course_status": "taught"
+        },
+        {
+          "node_id": "console",
+          "label": "관제 화면",
+          "course_status": "unverified"
+        },
+        {
+          "node_id": "ops",
+          "label": "배포와 운영",
+          "course_status": "extra"
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "NAVER Tech 직무 소개",
+      "url": "https://recruit.navercorp.com/cnts/tech?lang=ko",
+      "published_date": null,
+      "checked_date": "2026-11-14",
+      "kind": "employer_role_catalog",
+      "summary": "프론트엔드·백엔드·AI/ML·임베디드 SW·인프라·QA의 일을 소개합니다. 회사 전체의 조직도나 현재 모집 목록과 구분합니다."
+    },
+    {
+      "id": "S2",
+      "title": "42dot Engineering 팀 소개",
+      "url": "https://42dot.ai/ko/careers/teams/engineering",
+      "published_date": null,
+      "checked_date": "2026-11-14",
+      "kind": "employer_team_catalog",
+      "summary": "자율주행·AI·데이터 분야의 인지·판단·제어, 모델·데이터·MLOps 업무를 소개합니다. 이 회사의 직무 사례입니다."
+    },
+    {
+      "id": "S3",
+      "title": "42dot VLA for Physical AI",
+      "url": "https://42dot.ai/ko/careers/open-roles/549b256c-5184-4147-a96a-811a5a03222a",
+      "published_date": "2026-07-20",
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "시각·장면·주행 행동을 연결하는 모델과 차량 적용을 다룹니다. Talent pool 공고이며 구체적인 경력·학위 조건은 확인한 본문에 없습니다."
+    },
+    {
+      "id": "S4",
+      "title": "레인보우 펌웨어 개발",
+      "url": "https://rainbow-robotics.com/채용/채용공고/?mod=document&uid=170",
+      "published_date": "2026-10-08",
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "모터 펌웨어, 이동부와 로봇 팔의 통합, 기능 안전과 양산 대응을 다룹니다. 석사 이상·유관 전공·6~10년 이상의 경력을 명시한 공고입니다."
+    },
+    {
+      "id": "S5",
+      "title": "레인보우 양팔로봇 AI/SW",
+      "url": "https://rainbow-robotics.com/채용/채용공고/?mod=document&uid=157",
+      "published_date": "2026-09-22",
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "강화학습·시뮬레이션·로봇 행동 정책의 검증과 실제 적용을 다룹니다. 학위와 연차 조건의 조합이 불명확해 지원 자격은 확인 대기로 남깁니다."
+    },
+    {
+      "id": "S6",
+      "title": "Bear Robotics AMR Field Engineer",
+      "url": "https://bear-robotics.breezy.hr/p/8e210cb04bc5-robotics-field-engineer-amr",
+      "published_date": null,
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "현장 조사·맵핑·시운전·네트워크·설비 연동·로그 진단을 다룹니다. Robotics Field Engineer Team과 경력 1년 이상, 장기 출장 조건을 명시합니다."
+    },
+    {
+      "id": "S7",
+      "title": "Bear Robotics Navigation",
+      "url": "https://bear-robotics.breezy.hr/p/2c79628ae97a-robotics-software-engineer-navigation",
+      "published_date": null,
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "주행 시스템과 상호작용 기능을 개발합니다. 관련 전공과 C++/Python 3년 이상 또는 이에 준하는 실력, ROS·Linux를 요구합니다. 석박사 학위는 우대 조건입니다."
+    },
+    {
+      "id": "S8",
+      "title": "Bear Robotics ML Perception",
+      "url": "https://bear-robotics.breezy.hr/p/22f14e37ff59-robotics-software-engineer-machine-learning",
+      "published_date": null,
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "자료 수집·정제·모델 개발·로봇 적용을 맡고 인식·주행·시스템 담당과 협업합니다. 석박사와 업계 경력 또는 컴퓨터 비전·딥러닝 중심 학사와 업계 4년 이상을 제시합니다."
+    },
+    {
+      "id": "S9",
+      "title": "Bear Robotics Senior Platform Engineer ACS",
+      "url": "https://bear-robotics.breezy.hr/p/e4bc781179c4-senior-platform-engineer-acs",
+      "published_date": null,
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "ACS는 로봇 배차·트래픽 제어·모니터링을 맡습니다. 인프라·배포와 데이터 플랫폼·백엔드 업무를 나누고 각각 5년 이상과 4년 이상 경력을 제시합니다."
+    },
+    {
+      "id": "S10",
+      "title": "토스증권 Frontend Developer",
+      "url": "https://toss.im/career/job-detail?job_id=4076141003",
+      "published_date": null,
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "모바일 웹뷰·데스크톱·백오피스와 실시간 투자 데이터 화면을 개발합니다. React 서비스 개발·운영과 렌더링 최적화 경험을 요구합니다. 학위·연차는 별도로 추정하지 않습니다."
+    },
+    {
+      "id": "S11",
+      "title": "Bear Robotics SW Intern",
+      "url": "https://bear-robotics.breezy.hr/p/3ad392d6c3f0-robotics-software-engineer-intern",
+      "published_date": null,
+      "checked_date": "2026-11-14",
+      "kind": "employer_job",
+      "summary": "로봇 소프트웨어와 Gazebo 시험을 다룹니다. 인턴 제목의 공고에도 관련 전공과 C++/Python 3년 이상 또는 이에 준하는 실력, ROS·Linux 조건이 있습니다."
+    }
+  ]
+}

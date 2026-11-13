@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "논문 해설 자료 형식",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "papers"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "papers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "paper_id",
+          "title",
+          "url",
+          "summary",
+          "beginner_explanation",
+          "checked_date"
+        ],
+        "properties": {
+          "paper_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "published_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "beginner_explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checked_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "verification_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license_label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "examined_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "method_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "prerequisites": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "figure_description": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "adoption_urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://"
+            }
+          },
+          "figure_status": {
+            "const": "original_diagram_proposal"
+          }
+        }
+      }
+    }
+  }
+}

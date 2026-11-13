@@ -10,7 +10,8 @@ from gui.mascot import Mascot
 from gui.navigation import NavigationButton
 
 SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home"),
-            ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI", "go_ai"))
+            ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI", "go_ai"),
+            ("career_roadmap", "개발자 로드맵", "go_career"), ("career_magazine", "매거진", "go_magazine"))
 
 
 class SubjectTile(kit.Row):
@@ -209,7 +210,7 @@ class Workspace(QWidget):
     def __init__(self, win, pages):
         super().__init__()
         self.win, self.pages = win, pages
-        self.subjects = tuple(row for row in SUBJECTS if row[0] == "hub" or row[0] in study.ENTRY_TRACKS)
+        self.subjects = tuple(row for row in SUBJECTS if row[0] == "hub" or row[0].startswith("career_") or row[0] in study.ENTRY_TRACKS)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.overview_pages = (win.hub, win.home, win.journey_map, win.web_home, win.ai_home, win.ai_lesson)
         self.submission_pages = (*self.overview_pages, win.result_page)
@@ -232,8 +233,17 @@ class Workspace(QWidget):
         nav.addWidget(brand)
         nav.addSpacing(24)
         self.buttons = {}
+        self.career_toggle = NavigationButton("career", "커리어")
+        self.career_toggle.setProperty("expanded", True)
+        self.career_toggle.setToolTip("커리어 메뉴 접기")
+        self.career_toggle.setAccessibleDescription("개발자 로드맵과 매거진 메뉴를 접거나 펼칩니다.")
+        self.career_toggle.clicked.connect(self.toggle_career)
+        self.career_expanded = True
         for tid, title, action in self.subjects:
-            button = NavigationButton(tid, title)
+            if tid == "career_roadmap":
+                nav.addSpacing(16)
+                nav.addWidget(self.career_toggle)
+            button = NavigationButton(tid, title, depth=int(tid.startswith("career_")))
             button.clicked.connect(lambda checked=False, action=action: self.navigate(action))
             self.buttons[tid] = button
             nav.addWidget(button)
@@ -246,7 +256,7 @@ class Workspace(QWidget):
         self.compact.setObjectName("subject_picker")
         self.compact.setAccessibleName("학습 과목 이동")
         for tid, title, action in self.subjects:
-            self.compact.addItem(title, action)
+            self.compact.addItem("커리어 · " + title if tid.startswith("career_") else title, action)
         self.compact.setMinimumHeight(48)
         self.compact.activated.connect(lambda index: self.navigate(self.compact.itemData(index)))
         box.addWidget(self.compact)
@@ -280,17 +290,31 @@ class Workspace(QWidget):
         getattr(self.win, action)()
         self.refresh()
 
+    def toggle_career(self):
+        self.career_expanded = not self.career_expanded
+        self.career_toggle.setChecked(not self.career_expanded and self.win.area.startswith("career_"))
+        self.career_toggle.setProperty("expanded", self.career_expanded)
+        self.career_toggle.setToolTip("커리어 메뉴 접기" if self.career_expanded else "커리어 메뉴 펼치기")
+        for key, button in self.buttons.items():
+            if key.startswith("career_"):
+                button.setVisible(self.career_expanded)
+        self.career_toggle.update()
+
     def refresh(self, *_):
         started = self.win.session is not None and self.pages.currentWidget() is not self.win.start
         overview = self.pages.currentWidget() in self.overview_pages
-        self.rail.setVisible(started and overview and self.width() >= 1120)
-        self.compact.setVisible(started and overview and self.width() < 1120)
+        rail_width = max(232, max(button.sizeHint().width() for button in self.buttons.values()) + 32)
+        self.rail.setFixedWidth(rail_width)
+        breakpoint = max(1120, rail_width + 760)
+        self.rail.setVisible(started and overview and self.width() >= breakpoint)
+        self.compact.setVisible(started and overview and self.width() < breakpoint)
         for index, (tid, _, _) in enumerate(self.subjects):
             self.buttons[tid].setChecked(self.win.area == tid)
             if self.win.area == tid:
                 blocker = QSignalBlocker(self.compact)
                 self.compact.setCurrentIndex(index)
                 del blocker
+        self.career_toggle.setChecked(not self.career_expanded and self.win.area.startswith("career_"))
         busy = self.win.job is not None or self.win.pending_close or self.win.close_pending
         self.rail.setEnabled(not busy)
         self.compact.setEnabled(not busy)

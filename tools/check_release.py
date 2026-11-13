@@ -20,6 +20,13 @@ CASES = (
     "tests.test_gui.HomeAndGitTest.test_startup_update_backup_is_shown_before_restarting",
     "tests.test_gui_hub.HubScreenTest.test_subject_navigation_fits_a_small_window_at_the_largest_text_size",
     "tests.test_gui_navigation.NavigationTest.test_sidebar_labels_and_keyboard_navigation_fit_both_themes_at_max_text",
+    "tests.test_gui_career_integration.CareerIntegrationTest.test_career_navigation_hierarchy_fits_and_compact_keeps_both_entries",
+    "tests.test_gui_career_integration.CareerIntegrationTest.test_paper_callbacks_keep_study_records_and_footer_in_small_parent",
+    "tests.test_gui_career.CareerGuiTest.test_small_windows_themes_fonts_and_flow_bounds",
+    "tests.test_gui_career.CareerGuiTest.test_magazine_small_windows_keep_text_and_actions_inside_content",
+    "tests.test_gui_career.CareerGuiTest.test_existing_image_viewer_and_missing_image_preserve_role",
+    "tests.test_gui_paper_explainer.PaperExplainerTest.test_all_scenes_fit_largest_text_in_small_window_and_both_themes",
+    "tests.test_gui_video_player.VideoDialogTest.test_small_large_windows_maximum_text_and_two_themes_keep_footer_visible",
     "tests.test_gui_settings_menu.SettingsMenuTest.test_popup_fits_and_reanchors_at_max_text_in_both_themes",
     "tests.test_gui_identity.IdentityGuiTest.test_unverified_existing_device_is_prompted_and_fits_max_text_both_themes",
     "tests.test_gui_identity.IdentityGuiTest.test_team_statistics_switch_period_and_are_hidden_for_other_users",
@@ -51,6 +58,7 @@ CLOSED_CASES = frozenset(name for name in CASES if ".HomeAndGitTest." in name)
 
 
 def gui_check(out):
+    os.environ["CAREER_EVIDENCE"] = str(out)
     from PyQt6.QtCore import QPoint, Qt, QT_VERSION_STR, PYQT_VERSION_STR
     from PyQt6.QtWidgets import QApplication
     from tests import guikit

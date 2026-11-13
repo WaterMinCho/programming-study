@@ -24,7 +24,11 @@ class NavigationTest(HubTest):
             guikit.pump()
             self.assertTrue(win.workspace.rail.isVisible())
             buttons = win.workspace.buttons
-            self.assertEqual(1, len({button.text_rect().left() for button in buttons.values()}))
+            parents = [button for button in buttons.values() if button.depth == 0]
+            children = [button for button in buttons.values() if button.depth == 1]
+            self.assertEqual(1, len({button.text_rect().left() for button in parents}))
+            self.assertEqual(1, len({button.text_rect().left() for button in children}))
+            self.assertGreater(children[0].text_rect().left(), parents[0].text_rect().left())
             self.assertEqual(1, len({button.height() for button in buttons.values()}))
             for tid in ("python", "ai", "journey", "hub"):
                 button = buttons[tid]
