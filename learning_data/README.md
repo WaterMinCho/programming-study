@@ -11,7 +11,8 @@
 | 추가 학습 기록·문항 버전·내보내기 | [collection.py](collection.py) | 파이썬·AI 서비스 |
 | 파이썬 입력 변경·채점 기록 | [python.py](python.py) | `session.py` |
 | 수집 동의·철회 | [privacy.py](privacy.py) | `gui/privacy.py`, 서버의 동의 검증 |
-| 기록 전송·인증 | [sharing.py](sharing.py) | 수집 서버 API |
+| GitHub 기기 본인 확인·팀 통계 조회 | [identity.py](identity.py) | `gui/identity.py`, `learning_server/team.py` |
+| 과목별 연구 기록 전송·인증 | [sharing.py](sharing.py) | 수집 서버 API |
 | 비공개 풀이 파일 제출 | [submission.py](submission.py) | 제출 화면, `learning_server/submissions.py` |
 | 희망 직무·로드맵 버전 | [goals.py](goals.py) | 직무 선택 화면과 공통 자료 준비 |
 | 자동 전송 간격 | [sync_schedule.py](sync_schedule.py) | 화면의 전송 예약 |

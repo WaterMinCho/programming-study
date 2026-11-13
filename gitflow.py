@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""화면의 [문제 받기]·[제출] 이 부르는 git 작업.
+"""프로그램 업데이트와 이전 공개 제출 버전의 Git 동작을 처리함.
+
+현재 앱의 [풀이 제출]은 learning_data.submission에서 비공개 서버로 보냄.
+아래 study/<ID> 푸시는 이전 공개 제출 계약에만 적용함.
 
 submissions/<ID>/ 는 나만 쓰므로 작업 폴더의 내용을 정답으로 봄. 그 밖은 origin/main 과 같게 맞춤.
 병합하지 않고 "origin/main 의 트리 + 내 폴더"로 커밋을 직접 만들어(임시 인덱스, commit-tree)
@@ -26,7 +29,7 @@ import study
 MAIN = "refs/remotes/origin/main"
 MAIN_REFSPEC = "+refs/heads/main:" + MAIN  # --single-branch 로 clone 한 폴더에서도 받게 직접 적음
 TOOL_FILES = ("start.bat", "start.command", "package.json", "package-lock.json")
-TOOL_DIRS = ("gui/", "journey/", "aiprep/", "learning_data/", "webprep/", "learning_server/", "tools/", "ROKEY.app/")
+TOOL_DIRS = ("gui/", "journey/", "aiprep/", "career/", "learning_data/", "webprep/", "learning_server/", "tools/", "ROKEY.app/")
 # 내 폴더의 세 영역. profile = profile.json 과 회차 폴더(journey/·ai/ 를 뺀 전부), journey = journey/ 폴더, ai = ai/ 폴더(AI 비전 개론
 # 기록). 겹치는 파일이 없음
 AREAS = ("profile", "journey", "ai")
@@ -51,10 +54,10 @@ REMOTE_MARKS = (
 )
 
 SAFE = "풀이는 이 컴퓨터에 그대로 있습니다"
-M_NO_GIT = "git 이 설치돼 있지 않아 문제 받기와 제출을 할 수 없습니다. 풀이와 채점은 지금도 되니, git 을 설치한 뒤 프로그램을 다시 실행해 주세요."
-M_NOT_REPO = ("이 폴더는 저장소를 clone 한 폴더가 아니라(ZIP 으로 받은 폴더 등) 문제 받기와 제출을 할 수 없습니다. "
-              "안내대로 clone 한 폴더에서 실행하고, 지금까지 푼 submissions/%s 폴더는 그 폴더로 복사해 주세요.")
-M_BAD_USER = "ID 가 올바르지 않아 문제 받기와 제출을 할 수 없습니다: %r"
+M_NO_GIT = "프로그램을 업데이트하려면 Git을 설치하고 다시 실행해 주세요. 이미 받은 문제는 계속 풀 수 있습니다."
+M_NOT_REPO = ("현재 폴더에서 프로그램을 업데이트할 수 없습니다. "
+              "설치 안내에 따라 Git으로 복제한 폴더에서 실행하세요. 기존 풀이 폴더(submissions/%s)는 먼저 따로 보관하세요.")
+M_BAD_USER = "풀이 ID를 확인해 주세요: %r"
 M_OFFLINE = {"sync": "인터넷에 연결되지 않아 업데이트를 확인하지 못했습니다. 받은 자료로 계속 학습할 수 있습니다.",
              "submit": "인터넷에 연결되지 않아 올리지 못했습니다. %s. 연결한 뒤 [제출]을 다시 눌러 주세요." % SAFE}
 M_SLOW = "저장소가 제때 응답하지 않아 멈췄습니다(%s). 인터넷 연결과 로그인 창을 확인한 뒤 다시 눌러 주세요." % SAFE
@@ -69,7 +72,7 @@ M_BROKEN_PROFILE = "풀이 기록 파일(profile.json)을 읽을 수 없어 멈�
 M_BROKEN_JOURNEY = "알고리즘 여행 기록 파일(journey/progress.json)을 읽을 수 없어 멈췄습니다. 풀이 폴더는 건드리지 않았습니다."
 M_BROKEN_AI = "AI 비전 개론 기록 파일(ai/record.json)을 읽을 수 없어 멈췄습니다. 풀이 폴더는 건드리지 않았습니다."
 M_BROKEN = "읽을 수 없는 풀이 파일이 있어 올리지 않았습니다: %s 고친 뒤 [제출]을 다시 눌러 주세요."
-M_DEV = "지금 '%s' 에서 문제·도구 파일을 고치는 중이라 [문제 받기]는 하지 않았습니다. 제출은 그대로 할 수 있습니다."
+M_DEV = "작업 중인 브랜치(%s)를 보호하기 위해 프로그램 업데이트를 멈췄습니다."
 M_LOCKED = "파일 %%d개를 새 버전으로 바꾸지 못했습니다: %%s. 이 파일을 연 프로그램을 닫고 스터디 프로그램을 다시 실행해 주세요(%s)." % SAFE
 M_UNSTALLED = "멈춰 있던 git 작업을 되돌렸습니다."
 M_UNSTALLED_KEPT = "멈춰 있던 git 작업을 되돌렸습니다. 그 전의 풀이 폴더는 보관함에 복사해 두었습니다."
@@ -208,13 +211,13 @@ class GitFlow:
             info["ok"] = bool(url)
             if not url:
                 problems.append(M_NOT_REPO % self.user)
-            elif not slug:
+            elif not slug and self.legacy_contract:
                 problems.append("origin 이 GitHub 저장소 주소가 아니라 PR 주소를 만들 수 없습니다.")
             if url and not self._has(MAIN):
-                problems.append("아직 main 을 받은 적이 없습니다. [문제 받기]를 누르면 받아 옵니다.")
+                problems.append("아직 main을 받은 적이 없습니다. 프로그램을 다시 실행하면 업데이트를 확인합니다.")
             stalled = self._stalled()
             if stalled:
-                problems.append("멈춰 있는 git 작업(%s)이 있습니다. [문제 받기]를 누르면 풀이를 보관한 뒤 되돌립니다." % ", ".join(stalled))
+                problems.append("끝나지 않은 Git 작업(%s)이 있습니다. [프로그램 업데이트]를 누르면 내 풀이 폴더를 먼저 보관한 뒤 중단된 Git 작업을 되돌립니다." % ", ".join(stalled))
         except Exception as error:
             info["ok"] = False
             problems.append("git 상태를 확인하지 못했습니다: %s" % error)

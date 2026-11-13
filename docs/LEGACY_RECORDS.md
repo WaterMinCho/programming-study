@@ -37,7 +37,7 @@
 
 ## 저장 전 점검과 백업을 실행합니다
 
-아래 경로는 운영 환경에 맞춰 바꿉니다. 배포한 저장소 루트에서 기존 DB와 그 옆의 `.key`를 지정합니다. 백업 폴더는 원본 DB 폴더 밖의 새 경로를 사용합니다.
+아래 경로는 운영 환경에 맞춰 바꿉니다. 배포한 저장소 루트에서 `--db`로 기존 DB를 지정합니다. 도구가 같은 경로 끝에 `.key`를 붙여 인증 키를 읽습니다. 백업 폴더는 원본 DB 폴더 밖의 새 경로를 사용합니다.
 
 ```sh
 python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 status
@@ -59,7 +59,7 @@ python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 statu
 
 목록 전체를 한 트랜잭션으로 저장합니다. 저장한 이벤트를 다시 읽어 내용과 순서를 대조하며 한 사람이라도 충돌하거나 보관량을 넘으면 목록 전체를 취소합니다. 같은 목록과 문항맵으로 재실행하면 이벤트를 추가하지 않습니다. 재확인 결과의 `inserted_profiles`는 0이고 `existing_profiles`는 이관한 프로필 수입니다. `events`는 묶음 표시를 포함한 이벤트 수이고 `answers`는 재시도를 포함한 정오답 기록 수입니다. 모델 입력에 쓰는 첫 시도 행 수와 구분합니다.
 
-원본 바이트·시간대·연결한 문항의 개념 정보·동의 근거가 바뀌면 중단합니다. 같은 원본을 다른 가명값으로 넣거나 기존 수집 계정에 붙이는 작업도 거절합니다. 변경된 프로필의 추가 시도만 이어 붙이는 명령으로 사용하지 않습니다. 오류는 경로·원본 내용·비밀 값 없이 `legacy_transfer_failed` JSON과 실패 종료로 알립니다.
+원본 바이트·시간대·연결한 문항의 개념 정보·동의 근거가 바뀌면 중단합니다. 같은 원본을 다른 가명값으로 넣거나 기존 수집 계정에 붙이는 작업도 거절합니다. 변경된 프로필의 추가 시도만 이어 붙이는 명령으로 사용하지 않습니다. 도구가 처리하는 입력·DB 오류는 `legacy_transfer_failed` JSON과 종료 코드 1로 알립니다. 문제 은행을 뺀 서버에서는 `--catalog` 경로를 함께 확인하세요.
 
 ## 확인하지 못한 과거 정보는 비워 둡니다
 
@@ -92,10 +92,14 @@ python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 statu
 }
 ```
 
+AI 이관도 앞 절의 `status`와 새 경로 백업을 먼저 마칩니다.
+
 ```sh
 python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legacy-ai-import --manifest /srv/study-private/legacy/ai-transfer.json --dry-run
 python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legacy-ai-import --manifest /srv/study-private/legacy/ai-transfer.json
 ```
+
+저장 후 같은 목록으로 `legacy-ai-import --dry-run`을 다시 실행해 추가 예정 건수가 0인지 확인하고 같은 DB의 `status`를 확인합니다.
 
 원래 시각·소요 시간 값은 `original_at`·`original_secs`로 보존합니다. 과정·문항 버전·예측 시각이 없으면 미확인으로 남깁니다. 원본 해시와 로그 위치로 출처를 찾을 수 있으며, 같은 목록을 다시 실행해도 중복 저장하지 않습니다. 아래 철회 명령은 AI 이관 계정에도 적용됩니다.
 
@@ -103,10 +107,15 @@ python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legac
 
 ## 이관을 되돌리거나 철회를 처리합니다
 
-비공개 목록에서 해당 사람의 `participant`를 확인하고 아래 명령에 넣습니다. 이관 계정의 이벤트만 지우며 원본 `submissions`와 다른 수집 계정은 고치지 않습니다.
+비공개 목록에서 해당 사람의 `participant`를 확인하고 해당 사유의 명령 하나에 넣습니다. 이관 계정의 이벤트만 지우며 원본 `submissions`와 다른 수집 계정은 고치지 않습니다.
 
 ```sh
 python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legacy-remove --participant fe6dbf8c-c020-42f6-b9cb-6369239455f9 --reason rollback
+```
+
+동의를 철회한 사람에게는 다음 명령을 사용합니다.
+
+```sh
 python3 -m learning_server --db /srv/study-private/server/learning.sqlite3 legacy-remove --participant fe6dbf8c-c020-42f6-b9cb-6369239455f9 --reason withdrawal
 ```
 

@@ -31,7 +31,7 @@ class LearningDataDialog(QDialog):
                                 "AI 개론·응용에서 수집을 시작한 뒤의 연습·모의고사 답안과 채점 결과, 문항을 연 순서, 응답 시간, 확신 여부를 보관합니다. "
                                 "학습 중의 짐작·떠올리기·코드 빈칸 결과도 포함합니다. 과거 풀이를 가져오지 않습니다.")
         body.addWidget(kit.para(notice))
-        body.addWidget(kit.para("[내 정보·데이터]에서 동의하면 새 기록을 비공개로 자동 전송합니다. 풀이 파일은 [풀이 제출]에서 따로 확인하고 보냅니다. "
+        body.addWidget(kit.para("[내 정보·데이터]에서 동의하면 새 기록을 비공개로 자동 전송합니다. 풀이 파일은 [풀이 제출]을 누르거나 파일 자동 제출을 켜면 보냅니다. "
                                 "동의하지 않거나 철회해도 모든 학습 기능을 사용할 수 있습니다."))
         self.status_text = kit.para()
         body.addWidget(self.status_text)

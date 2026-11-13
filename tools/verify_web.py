@@ -1010,7 +1010,7 @@ def page_outputs(v, pid, page, blocks):
 # 그림
 
 def figures(v, label, markdown, folder, kind, owner, sections):
-    """figure 블록과 ![…](assets/…) 가 가리키는 그림의 이름 규칙, 꼴, 한도. 파일이 아직 없으면 경고(그림 준비 중)."""
+    """figure 블록과 ![…](assets/…) 가 가리키는 그림의 이름 규칙, 꼴, 한도. 파일이 없으면 위치와 경로를 경고함."""
     assets = os.path.join(folder, "assets")
     referenced = set()
     for block in figure_blocks(markdown):
@@ -1051,7 +1051,7 @@ def figures(v, label, markdown, folder, kind, owner, sections):
             v.fail(label, 10, "%s 는 PNG 인데 내용: 설명이 없습니다." % where)
         path = os.path.join(assets, rel.split("/", 1)[1])
         if not os.path.isfile(path):
-            v.warn(label, 10, "%s 의 그림 파일이 아직 없습니다(화면에는 캡션과 \"그림 준비 중\"만 보임): %s" % (where, rel))
+            v.warn(label, 10, "%s에 연결한 그림 파일이 아직 없습니다: %s" % (where, rel))
             continue
         for problem in verify_journey.image_problems(path):
             v.fail(label, 10, "%s: %s" % (rel, problem))

@@ -19,7 +19,7 @@ Git 작업은 SourceTree 또는 터미널 중 편한 방법으로 진행합니�
 | 작업 브랜치는 있고 PR은 없습니다. | 기존 브랜치에서 이어서 작업하고 그 브랜치로 첫 PR을 만듭니다. 구현 중이면 Draft PR로 공유합니다. |
 | 아직 fork나 로컬 저장소가 없습니다. | 아래 1~3절부터 시작합니다. |
 
-열린 PR에서 보완하는 커밋과 머지 후 다음 작업을 시작하는 새 PR은 구분합니다. 예전 입력 확인 PR이 이미 머지됐다고 입력 실습을 처음부터 다시 할 필요는 없습니다. 실제 출력이 빠졌다면 다음 코드 PR의 README에 함께 채웁니다.
+열린 PR에서 보완하는 커밋과 머지 후 다음 작업을 시작하는 새 PR은 구분합니다. 입력 실습 PR #150·#158·#189는 모두 머지됐습니다. [팀원별 다음 작업](STUDY_START.md#담당과-이번-작업을-확인합니다)은 갱신한 `main`에서 새 브랜치를 만들어 진행합니다. 실제 출력이 빠졌다면 다음 코드 PR의 README에 함께 채웁니다.
 
 기존 작업 브랜치에 최신 공통 변경이 필요하면 [작업 브랜치에 공통 변경 받기](#작업-브랜치에-공통-변경-받기)를 따릅니다. 새 명령이 없다는 오류가 나도 작업 파일이나 자료를 지우지 않습니다.
 
@@ -70,7 +70,7 @@ flowchart TD
 
 작업을 시작하면 카드를 **진행**, 검토받을 PR을 올리면 **검토**로 옮깁니다.
 
-아직 구현 중이면 PR을 Draft로 열고 카드는 진행에 둡니다. 검토받을 범위를 준비하면 **Ready for review**로 바꿉니다.
+아직 구현 중이면 PR을 Draft로 열고 카드는 진행에 둡니다. 자동 코드 리뷰를 받을 때 **Ready for review**로 바꾸고 카드를 **검토**로 옮깁니다.
 
 <a id="2-개인-모델-저장소를-만듭니다"></a>
 
@@ -156,13 +156,13 @@ git merge origin/main
 현재 `programming-study` 안에 `study.py`와 `learning_server`가 보이는지 확인합니다. SourceTree를 쓰는 사람도 이 폴더에서 터미널을 열고 다음 Python 명령을 실행합니다.
 
 ```sh
-python -m learning_server.starter --synthetic --out ../learning-demo-f4
-python -m learning_server.input_example --dataset ../learning-demo-f4 --track python --batch-size 4 --length 4
+python -m learning_server.starter --synthetic --out ../learning-demo-f5
+python -m learning_server.input_example --dataset ../learning-demo-f5 --track python --batch-size 4 --length 4
 ```
 
-첫 명령은 가상 풀이 자료를 만들고 두 번째 명령은 입력 예시 4개를 읽습니다. 각 예시의 과거 풀이를 최대 4개까지 확인하며 모델을 학습하지는 않습니다. `inputs`와 이번 정답표인 `targets`, 과거 풀이의 실제 자리인 `mask`, 실제 길이인 `lengths`를 [공통 입력 설명](LEARNING_STARTER.md#세-모델의-공통-입력-형식)과 대조합니다. 오답 0과 빈 자리를 구분해보세요. `--track python`을 `--track ai`로 바꾸면 AI 개론·응용 예제를 읽습니다.
+첫 명령은 가상 풀이 자료를 만들고 두 번째 명령은 입력 예시 4개를 읽습니다. 각 예시의 과거 풀이를 최대 4개까지 확인하며 모델을 학습하지는 않습니다. `inputs`와 이번 정답표인 `targets`, 과거 풀이의 실제 자리인 `mask`, 실제 길이인 `lengths`를 [공통 입력 설명](LEARNING_STARTER.md#세-모델의-공통-입력-형식)과 대조합니다. 오답 0과 빈 자리를 구분해보세요. `--track python`을 `--track ai`로 바꾸면 AI 과목의 합성 예제를 읽습니다. 이 예제의 과정은 미기록입니다.
 
-`python`을 찾지 못하면 Windows는 `py`, Mac은 `python3`로 바꿉니다. `No module named learning_server`가 나오면 현재 폴더부터 확인합니다. `learning-demo-f4`가 이미 있으면 두 번째 명령으로 읽습니다. 새 자료를 만들 때는 `--out`과 `--dataset`에 같은 새 폴더 이름을 쓰며 기존 자료는 덮어쓰지 않습니다.
+`python`을 찾지 못하면 Windows는 `py`, Mac은 `python3`로 바꿉니다. `No module named learning_server`가 나오면 현재 폴더부터 확인합니다. `learning-demo-f5`가 이미 있으면 두 번째 명령으로 읽습니다. 새 자료를 만들 때는 `--out`과 `--dataset`에 같은 새 폴더 이름을 쓰며 기존 자료는 덮어쓰지 않습니다.
 
 <a id="4-본인이-이해한-내용을-저장합니다"></a>
 <a id="5-공통-프로젝트로-보낼-첫-변경을-만듭니다"></a>
@@ -173,7 +173,7 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track py
 
 ## 5. 내 실험 폴더에 코드와 테스트 작성하기
 
-편집기에서 `programming-study/experiments/본인ID/README.md`를 만듭니다. 기존에 `Readme.md`나 `README.md`가 있으면 그 파일을 이어서 고칩니다. 대소문자만 다른 README를 하나 더 만들지 않습니다. 없는 폴더는 함께 만듭니다. 일반 텍스트로 저장하고 파일 이름이 `README.md.txt`가 되지 않았는지 확인합니다. 공통 프로젝트 맨 위의 README 대신 본인 폴더의 README를 수정합니다.
+편집기에서 `programming-study/experiments/본인ID/`의 기존 `Readme.md`나 `README.md`를 열어 고칩니다. README가 없을 때만 `README.md`를 만듭니다. 대소문자만 다른 README를 하나 더 만들지 않습니다. 없는 폴더는 함께 만듭니다. 일반 텍스트로 저장하고 파일 이름이 `README.md.txt`가 되지 않았는지 확인합니다. 공통 프로젝트 맨 위의 README 대신 본인 폴더의 README를 수정합니다.
 
 같은 폴더에 모델 코드와 작은 입력을 확인하는 테스트를 만듭니다. README에는 아래 틀로 실제 실행한 명령과 관측한 결과를 적습니다. 입력 읽기부터 예측·학습·저장 순서로 개발하며 지금 검토받을 코드와 질문을 PR에 담습니다. 모델 전체가 완성되기 전에도 Draft PR로 공유할 수 있습니다. 오류가 나면 오류와 질문을 남깁니다.
 
@@ -193,7 +193,7 @@ python -m learning_server.input_example --dataset ../learning-demo-f4 --track py
 ## 막힌 부분과 질문
 ```
 
-예를 들어 michae18은 본인 fork의 `experiments/michae18/README.md`에 기본 LSTM을 맡았다고 적고, 출력에서 과거 오답과 이번 정답표를 어떻게 구분했는지 설명합니다. 모델 학습을 아직 하지 않았다면 그 단계는 미실행으로 적습니다. 상세 기록에는 [실험 기록 양식](LEARNING_EXPERIMENT_TEMPLATE.md)을 사용해도 됩니다.
+예를 들어 michae18은 본인 fork의 `experiments/michae18/Readme.md`에 기본 LSTM을 맡았다고 적고, 출력에서 과거 오답과 이번 정답표를 어떻게 구분했는지 설명합니다. 모델 학습을 아직 하지 않았다면 그 단계는 미실행으로 적습니다. 상세 기록에는 [실험 기록 양식](LEARNING_EXPERIMENT_TEMPLATE.md)을 사용해도 됩니다.
 
 <a id="6-커밋푸시하고-첫-pr을-엽니다"></a>
 
@@ -267,7 +267,7 @@ PR의 base가 공통 저장소의 기본 브랜치 `main`인지 확인합니다.
 
 ## 7. 같은 PR에 모델 코드와 수정 사항 추가하기
 
-진행 중인 작업은 같은 브랜치와 PR에서 이어갑니다. README만 올린 기존 PR이 있다면 그 브랜치에 코드를 추가해도 됩니다. 이미 합쳐진 PR과 기존 커밋은 지우지 않습니다. 다음 작업을 시작할 때는 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신하고 로컬 `main`을 Pull한 뒤 새 브랜치를 만듭니다. 새 이름은 `model/본인ID-train`처럼 이번 작업에 맞춰 정합니다.
+진행 중인 작업은 같은 브랜치와 PR에서 이어갑니다. README만 올린 PR이 아직 열려 있다면 그 브랜치에 코드를 추가해도 됩니다. 이미 합쳐진 PR과 기존 커밋은 지우지 않습니다. 다음 작업을 시작할 때는 GitHub에서 fork의 `main`을 **Sync fork → Update branch**로 갱신하고 로컬 `main`을 Pull한 뒤 새 브랜치를 만듭니다. 새 이름은 `model/본인ID-train`처럼 이번 작업에 맞춰 정합니다.
 
 모델 코드도 같은 `experiments/본인ID/` 안에 작성합니다. 아래는 앞으로 만들 파일의 예시이며 완성된 모델 코드가 들어 있다는 뜻은 아닙니다.
 
@@ -286,12 +286,12 @@ model-study/
         figures/                 합성 자료의 학습곡선
         REVIEW_NOTES.md          피드백과 수정 이유
   study-data/                   비공개 실제 자료와 샘플 · 저장소 밖에 보관
-  learning-demo-f4/              가상 자료 · 저장소 밖에 보관
+  learning-demo-f5/              가상 자료 · 저장소 밖에 보관
 ```
 
 공통 `learning_server`를 불러오는 모델은 `programming-study` 폴더에서 `python -m experiments.본인ID.train`처럼 실행합니다. 예를 들어 `python -m experiments.kimjs85529-a11y.train`입니다. 아직 `train.py`를 만들지 않았다면 실행할 수 없으며 파일 이름과 명령을 본인 README에 맞춰 적습니다.
 
-폴더 이름에 붙임표가 들어 있으면 같은 모델 폴더의 파일은 `from .model import Model`처럼 상대 경로로 불러옵니다. 이 예시의 `model.py`와 `Model`은 본인이 만든 파일·클래스 이름으로 바꿉니다.
+폴더 이름에 붙임표가 들어 있으면 같은 모델 폴더의 파일은 `from .model import Model`처럼 상대 경로로 불러옵니다. 이 예시의 `model.py`와 `Model`은 본인이 만든 파일·클래스 이름으로 바꿉니다. 표준 `unittest`로 `test_model.py`를 만들었다면 저장소 루트에서 `python -m unittest experiments.본인ID.test_model`을 실행합니다. 간격 테스트 파일이 `test_gaps.py`라면 마지막 이름을 `test_gaps`로 바꾸세요.
 
 코드를 바꾸면 본인 폴더의 변경만 골라 Stage → Commit → Push합니다. 같은 브랜치에 Push하면 열린 PR이 갱신됩니다. 공통 입력 도구나 다른 팀원의 폴더를 바꿔야 한다면 먼저 담당 이슈에서 이유를 공유합니다. 이번 작업을 머지한 뒤 다음 목표는 새 PR로 나눠도 됩니다. 입력 확인만 별도 PR로 먼저 통과할 필요는 없습니다. 구체적인 목표는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.
 
@@ -303,13 +303,13 @@ model-study/
 
 ## 리뷰 질문에 답하고 수정한 커밋 남기기
 
-WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 「수정 필요」는 지금 고칠 결함이고 「선택 제안」은 반영할지 판단할 보완입니다. 선택 제안은 접힌 영역에서 필요할 때 읽습니다. 확인 질문은 댓글로 답하고, 파일을 고쳤을 때 아래 순서로 커밋을 추가합니다.
+로컬 검토기가 열린 개발 PR에 피드백을 남기면 WaterMinCho가 실행 근거와 남은 지적을 확인합니다. 「수정 필요」는 지금 고칠 결함이고 「선택 제안」은 반영할지 판단할 보완입니다. 선택 제안은 접힌 영역에서 필요할 때 읽습니다. 확인 질문은 댓글로 답하고, 파일을 고쳤을 때 아래 순서로 커밋을 추가합니다.
 
 파일을 고칠 때는 PR을 올렸던 같은 작업 브랜치에 새 커밋을 추가합니다. 커밋은 컴퓨터에 남기는 수정 기록이고 Push는 그 커밋을 본인 GitHub fork로 보내는 작업입니다. 같은 브랜치로 Push하면 기존 PR에 새 커밋이 붙습니다. 수정할 때마다 새 PR을 만들지 않습니다.
 
 ### SourceTree에서 파일 수정부터 추가 커밋까지
 
-1. PR 위쪽에서 `본인ID:작업브랜치`를 확인합니다. 준성님의 PR #158은 `kimjs85529-a11y:model/kimjs85529-a11y-first-input`입니다.
+1. 수정할 PR이 열려 있는지 확인하고 PR 위쪽에서 `본인ID:작업브랜치`를 읽습니다.
 2. SourceTree에서 본인 fork의 로컬 저장소를 엽니다. 왼쪽 **Branches(브랜치)**에서 위 작업 브랜치를 선택합니다. 이미 해당 브랜치라면 이동하지 않습니다. 커밋하지 않은 다른 작업이 있거나 전환 오류가 나면 파일을 지우지 말고 PR에 질문을 남깁니다.
 3. 편집기에서 피드백에 표시된 파일을 고쳐 저장합니다. SourceTree의 **File Status(파일 상태)**에서 수정한 파일을 선택해 차이를 읽습니다.
 4. 이번에 고친 파일만 **Stage(스테이지에 추가)**합니다. Stage는 다음 커밋에 넣을 파일을 선택하는 작업입니다.
@@ -320,9 +320,9 @@ WaterMinCho가 PR 변경과 실행 근거를 검토합니다. 「수정 필요�
 파일을 저장하거나 Commit만 하면 GitHub에는 아직 반영되지 않습니다. Push까지 마친 뒤 PR에서 확인합니다. 기존 기록을 바꾸는 **Amend(커밋 수정)**나 **Force push(강제 푸시)**는 이 과정에 필요하지 않습니다.
 
 <details>
-<summary>터미널을 사용한다면 · PR #158 예시</summary>
+<summary>터미널에서 열린 개발 PR에 수정 커밋 추가하기</summary>
 
-SourceTree로 Commit·Push했다면 아래 명령을 반복하지 않습니다. 이 예시는 준성님의 브랜치와 README 경로를 사용합니다. 다른 팀원은 본인 PR의 브랜치와 파일 경로로 바꿉니다. 먼저 받은 프로젝트 폴더에서 현재 상태를 확인합니다.
+SourceTree로 Commit·Push했다면 아래 명령을 반복하지 않습니다. 아래 `작업브랜치`와 `수정한파일경로`는 현재 열린 PR의 브랜치 이름과 고친 파일 경로로 바꿉니다. 먼저 받은 프로젝트 폴더에서 현재 상태를 확인합니다.
 
 ```sh
 git status --short
@@ -330,19 +330,19 @@ git branch --show-current
 git remote -v
 ```
 
-현재 브랜치가 `model/kimjs85529-a11y-first-input`이고 `origin`이 본인 fork인지 확인합니다. 다른 브랜치라면 커밋하지 않은 변경을 먼저 확인한 뒤 기존 작업 브랜치로 이동합니다. 새 브랜치를 만드는 `-c` 옵션은 붙이지 않습니다.
+현재 브랜치가 수정할 PR의 작업 브랜치이고 `origin`이 본인 fork인지 확인합니다. 다른 브랜치라면 커밋하지 않은 변경을 먼저 확인한 뒤 기존 작업 브랜치로 이동합니다. 새 브랜치를 만드는 `-c` 옵션은 붙이지 않습니다.
 
 ```sh
-git switch model/kimjs85529-a11y-first-input
+git switch 작업브랜치
 ```
 
-README를 고쳐 저장한 뒤 실행합니다. `git diff --cached`에서 이번에 고친 파일만 들어갔는지 읽고, 다른 파일이 보이면 커밋 전에 Stage 목록에서 뺍니다.
+파일을 고쳐 저장한 뒤 실행합니다. `git diff --cached`에서 이번에 고친 파일만 들어갔는지 읽고, 다른 파일이 보이면 커밋 전에 Stage 목록에서 뺍니다.
 
 ```sh
-git add experiments/kimjs85529-a11y/README.md
+git add -- 수정한파일경로
 git diff --cached
 git commit -m "docs(model): 입력 설명 보완"
-git push origin model/kimjs85529-a11y-first-input
+git push origin HEAD
 ```
 
 </details>

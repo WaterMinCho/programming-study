@@ -14,7 +14,7 @@ body:
     id: happened
     attributes:
       label: 실제로 어떻게 됐나요
-      description: 터미널에 나온 내용을 그대로 붙여 주세요.
+      description: 어느 화면에서 무엇을 눌렀는지와 오류 문구를 적어 주세요. 공개 글이므로 계정 정보나 인증 코드, 답안 파일은 빼 주세요.
       render: text
     validations:
       required: true

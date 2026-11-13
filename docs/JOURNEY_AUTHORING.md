@@ -295,7 +295,7 @@ python tools/journey_seal.py brief d01/p3 --out ~/brief_d01_p3
 
 - seal 은 기존 sealed.json 의 내용과 평문을 합쳐 다시 묶고, 같은 파일이 둘 다 있으면 평문을 씁니다. 폴더가 사라진 문제의 항목은 버립니다.
 - 봉인한 비밀 파일을 지울 때는 unseal 로 모두 꺼낸 뒤 그 파일과 `sealed.json` 을 지우고 seal 합니다. sealed.json 을 남겨 두면 지운 파일이 묶음에 다시 들어갑니다.
-- check 는 CI 의 필수 검사(문제 은행 검증)에서도 돕니다. 커밋 전에 한 번 돌려 평문이 남지 않았는지 봅니다.
+- CI에서 문제 은행 검사가 예정된 변경이면 `기능·자료 검사` 작업도 이 명령을 실행합니다. 커밋 전에 한 번 돌려 평문이 남지 않았는지 봅니다.
 - brief 는 다시 풀 사람에게 줄 공개본을 만듭니다. `problem.md`, problem.json 의 `title`·`signature`·`time_limit_ms`·`examples`, 두 언어 시작 코드(`alt.py`, `alt.js`)만 들어갑니다. 저장소 안의 폴더에는 만들지 않습니다.
 
 ### 검증
@@ -384,7 +384,7 @@ review.json 은 아래 꼴입니다. `files` 는 review.json 을 뺀 그 문제�
 }
 ```
 
-`--require-review` 는 review.json 이 없거나, writer 가 resolver·reviewer 와 같거나, 서명 뒤에 바뀐 파일이 있으면 실패하고 "검토 뒤에 바뀐 파일: p3/explain.md" 처럼 바뀐 파일을 알려 줍니다. 서명 뒤에 한 글자라도 고쳤으면 다시 검토를 받고 서명합니다. CI 의 여정 문제 검증이 이 검사를 하고, 로컬 검증은 하지 않으므로 출제 중에는 막히지 않습니다.
+`--require-review` 는 review.json 이 없거나, writer 가 resolver·reviewer 와 같거나, 서명 뒤에 바뀐 파일이 있으면 실패하고 "검토 뒤에 바뀐 파일: p3/explain.md" 처럼 바뀐 파일을 알려 줍니다. 서명 뒤에 한 글자라도 고쳤으면 다시 검토를 받고 서명합니다. CI의 여정 문제 검증은 이 옵션을 사용합니다. 로컬에서도 서명을 확인하려면 같은 옵션을 붙입니다.
 
 ### 검토자 확인 목록
 
@@ -403,6 +403,6 @@ README, docs, 화면 문구처럼 답이 없는 글은 쓴 사람이 아닌 사�
 
 ## 9. CI
 
-- 문제 은행 검증(필수 검사)은 `journey_seal.py check` 로 평문 비밀 파일이 올라오지 않았는지 봅니다. 이 작업의 단위 테스트는 `STUDY_LEAN_CI` 를 켜고 돌아서, 자식 프로세스를 띄우고 시간을 기다리는 여정 테스트를 건너뜁니다.
-- 알고리즘 여행 검증(`journey.yml`, 필수 검사 아님)은 `dungeons/`, `journey/`, 여정 도구와 테스트가 바뀐 PR 에서만 돕니다. 여정 실행기 작업은 Python 3.10~3.14 마다 단위 테스트와 `--styles` 를 돌리고, 여정 문제 검증 작업은 Node 24 로 `--require-review` 검증을, 여정 JS 검증 작업은 Node 22 로 `--lang javascript` 를 돌립니다. 던전 PR 에서는 `--changed` 로 바뀐 던전만 봅니다.
-- 던전 4~16 은 던전마다 `dungeons/d0N/**` 와 그림 스크립트 `tools/journey_art/d0N.py` 만 바꾸는 PR 하나로 올리고, 그 PR 에 검토 서명이 있어야 알고리즘 여행 검증을 통과합니다.
+- `ci.yml`의 기능·자료 검사는 변경 경로에 따라 문제 은행 검사와 단위 테스트를 각각 실행합니다. 은행 검사에서는 `journey_seal.py check`로 봉인을 확인합니다. 단위 테스트에서는 `STUDY_LEAN_CI`를 켜 별도 여정 실행기 작업에서 다루는 검사를 건너뜁니다.
+- 알고리즘 여행 검증(`journey.yml`)은 던전·여정 엔진·여정 도구와 테스트, `study.py` 또는 워크플로 자체가 바뀐 PR에서 실행합니다. 수동 실행도 지원합니다. 변경 경로에 따라 Python 3.10~3.14에서 여정 실행기 단위 테스트와 재귀 방식 검사(`--styles`)를 각각 실행합니다. 여정 문제 검증은 Node 24에서 `--require-review`로, 여정 JS 검증은 Node 22에서 `--lang javascript`로 실행합니다. 던전 PR 에서는 `--changed` 로 바뀐 던전만 봅니다.
+- 던전 4~16은 번호를 두 자리로 적습니다. 던전마다 `dungeons/dNN/**`와 그림 스크립트 `tools/journey_art/dNN.py`를 한 PR에 올리고, 그 PR 에 검토 서명이 있어야 알고리즘 여행 검증을 통과합니다.

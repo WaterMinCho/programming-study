@@ -65,6 +65,24 @@ class OperationsTest(unittest.TestCase):
         if os.name != "nt":
             self.assertEqual(0o700, destination.stat().st_mode & 0o777)
 
+    def test_incomplete_invite_files_roll_back_only_the_new_codes(self):
+        self.db.invites(count=1)
+        before = operations.status(self.path)
+        write_file = operations.write_private
+
+        def fail_manifest(path, data):
+            if path.name == "manifest.json":
+                raise OSError("manifest write failed")
+            write_file(path, data)
+
+        for name, issue in (("pilot", operations.pilot), ("class", operations.class_invites)):
+            destination = self.root / name
+            with self.subTest(name=name), mock.patch.object(operations, "write_private", side_effect=fail_manifest):
+                with self.assertRaises(OSError):
+                    issue(self.db, destination, "https://collector.example")
+                self.assertFalse(destination.exists())
+                self.assertEqual(before, operations.status(self.path))
+
     def test_pilot_rejects_remote_plaintext_and_existing_output_before_issuing(self):
         destination = self.root / "existing"
         destination.mkdir()
@@ -78,6 +96,22 @@ class OperationsTest(unittest.TestCase):
         self.assertEqual(before, operations.status(self.path))
         self.assertEqual("보존", sentinel.read_text(encoding="utf-8"))
         self.assertFalse((self.root / "unused").exists())
+
+    def test_export_uses_an_existing_database_without_initializing_or_replacing_its_key(self):
+        output = self.root / "training.jsonl"
+        with mock.patch("learning_server.__main__.Database", side_effect=AssertionError("unexpected initialization")):
+            with mock.patch("sys.argv", ["collector", "--db", str(self.path), "export", "--out", str(output)]):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    main()
+        self.assertEqual(b"", output.read_bytes())
+        for path in (self.root / "missing.sqlite3", self.path):
+            Path(str(path) + ".key").unlink(missing_ok=True)
+            destination = self.root / "unused.jsonl"
+            with self.assertRaises((OSError, ValueError)):
+                operations.export(path, destination)
+            self.assertFalse(Path(str(path) + ".key").exists())
+            self.assertFalse(destination.exists())
+        self.assertFalse((self.root / "missing.sqlite3").exists())
 
     def test_status_never_creates_missing_data_or_key_and_hides_identifiers(self):
         missing = self.root / "missing/server.sqlite3"

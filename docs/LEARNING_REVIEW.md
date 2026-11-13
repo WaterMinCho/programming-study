@@ -38,7 +38,7 @@ python3 tools/study_review_worker.py --once
 python3 tools/study_review_worker.py --install
 ```
 
-`--once`는 현재 대상 PR을 한 번 확인합니다. `--install`은 이 맥에 1분 간격의 실행기를 등록합니다. GitHub Actions의 실행기로 포크 코드를 내려받지 않습니다. 검토 자료·처리 상태·로그는 `~/.rokey-collector/review-worker/`에 비공개로 보관합니다. 게시 문장은 안내체로 작성하고 내부 판정·실행 기록은 별도로 남깁니다. 이전 형식으로 저장한 응답과 게시 확인 기록도 복구할 수 있게 유지합니다.
+`--once`는 현재 대상 PR을 한 번 처리하며, 조건을 충족하면 GitHub에 검토 상태와 리뷰를 게시합니다. `--install`은 이 맥에 1분 간격의 실행기를 등록합니다. GitHub Actions의 실행기로 포크 코드를 내려받지 않습니다. 검토 자료·처리 상태·로그는 `~/.rokey-collector/review-worker/`에 비공개로 보관합니다. 게시 문장은 안내체로 작성하고 내부 판정·실행 기록은 별도로 남깁니다. 이전 형식으로 저장한 응답과 게시 확인 기록도 복구할 수 있게 유지합니다.
 
 설치할 때 신뢰한 main의 검토 실행 코드만 `~/.rokey-collector/review-worker/runtime/<내용 SHA-256>/`에 복사합니다. 파일별 해시·크기를 `manifest.json`에 기록하고 원본과 저장한 바이트를 대조합니다. 실행기는 이 폴더를 작업 경로로 사용합니다. 풀이·계정 설정·Git 상태는 복사하지 않으며 macOS 보호 설정을 바꾸지 않습니다. 코드 폴더와 운영 폴더는 권한 700, 코드·설정·로그 파일은 600으로 보관합니다.
 

@@ -4,7 +4,7 @@
 
 ## 페이지 콜백과 앱 통합
 
-`gui.career_roadmap.CareerRoadmapPage`와 `gui.career_magazine.CareerMagazinePage`는 특정 창이나 학습 세션에 의존하지 않습니다. `catalog`를 생략하면 `career/data/`의 공개 JSON을 읽습니다. 별도 자료 폴더를 사용할 때는 `career.load_catalog(directory)`의 결과를 전달합니다. 이 모듈은 표준 라이브러리만 사용합니다.
+`gui.career_roadmap.CareerRoadmapPage`와 `gui.career_magazine.CareerMagazinePage`는 특정 창이나 학습 세션에 의존하지 않습니다. `catalog`를 생략하면 `career/data/`의 공개 JSON을 읽습니다. 별도 자료 폴더를 사용할 때는 `career.load_catalog(directory)`의 결과를 전달합니다. 목록을 읽는 `career.catalog`는 표준 라이브러리만 사용합니다. 두 화면은 PyQt6로 표시합니다.
 
 | 연결 지점 | 전달하는 값과 동작 |
 | --- | --- |
@@ -13,7 +13,7 @@
 | 로드맵 `on_magazine()` | 매거진 열기 버튼을 눌렀을 때 호출합니다. |
 | 로드맵 `on_video(video_id)` | 관련 영상을 매거진에서 선택하도록 요청합니다. 이 콜백 자체를 자동 재생에 연결하지 않습니다. |
 | 두 페이지 `on_source(url)` | 원문 열기 버튼을 눌렀을 때만 HTTPS 주소를 전달합니다. |
-| 매거진 `on_video(Video)` | [영상 보기]을 눌렀을 때 호출합니다. `Video.video_id`와 `Video.url`을 사용할 수 있습니다. |
+| 매거진 `on_video(Video)` | 재생 버튼을 눌렀을 때 호출합니다. 페이지의 기본 이름은 [영상 재생]이고 앱에서는 [영상 보기]로 표시합니다. `Video.video_id`와 `Video.url`을 사용할 수 있습니다. |
 | 매거진 `on_stop()` | 요청한 영상의 정지를 전달합니다. 재생·정지 콜백을 함께 제공해야 재생 버튼을 사용할 수 있습니다. |
 | 매거진 `on_paper(Paper)` | [논문 원문 열기]에서 논문 자료를 전달합니다. |
 | 매거진 `on_figure(Paper)` | [그림 설명 보기]에서 `figure_description`과 검토 범위를 전달합니다. 실제 도식은 연결한 쪽에서 제공합니다. |
@@ -32,10 +32,10 @@
 
 ```sh
 python -m unittest tests.test_career
-QT_QPA_PLATFORM=offscreen python -m unittest tests.test_gui_career
+python -m unittest tests.test_gui_career
 ```
 
-화면 검사는 임시 자료와 PyQt6 기본 위젯을 사용합니다. 작은 창·최대 글자·두 테마에서 흐름도의 경계, 목표 선택 요청, 영상 재생·정지 콜백, 탭 왕복과 읽던 위치를 확인합니다. 이 결과는 Windows의 실제 글꼴·창 배율이나 YouTube의 실제 재생을 검증한 결과와 구분합니다.
+화면 검사는 임시 자료와 PyQt6 기본 위젯을 사용합니다. 별도로 Qt 플랫폼을 지정하지 않으면 테스트가 `offscreen`을 선택합니다. 작은 창·최대 글자·두 테마에서 흐름도의 경계, 목표 선택 요청, 영상 재생·정지 콜백, 탭 왕복과 읽던 위치를 확인합니다. 이 결과는 Windows의 실제 글꼴·창 배율이나 YouTube의 실제 재생을 검증한 결과와 구분합니다.
 
 
 앱 통합은 `gui/career_controller.py`가 맡습니다. 화면은 처음 열 때 만들며 자료 목록 진입으로 외부 연결·재생 부품 설치를 시작하지 않습니다. 관심 직무는 선택한 자료 버전·시각과 함께 기기 설정에 저장합니다. 기존 여섯 연구 목표와 수집 기록은 바꾸지 않습니다. 세부 직무의 연구 수집은 별도 계약을 정하기 전까지 포함하지 않습니다.

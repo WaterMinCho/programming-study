@@ -6,8 +6,8 @@ body:
   - type: input
     id: item
     attributes:
-      label: 문항 ID
-      placeholder: 예) s03_Q4, s05/p02
+      label: 문항 번호 또는 화면에서 본 제목
+      placeholder: 예) s03_Q4, 개론·응용 혼합 모의고사 4회의 12번
     validations:
       required: true
   - type: textarea
