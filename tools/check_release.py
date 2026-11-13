@@ -95,7 +95,8 @@ def gui_check(out):
               "skipped": len(result.skipped),
               "success": result.wasSuccessful() and not result.skipped and native_ok
                          and result.testsRun == len(CASES) and set(closed) == CLOSED_CASES
-                         and {item["case"] for item in captures} == set(CASES) - CLOSED_CASES and launcher["success"],
+                         and {item["case"] for item in captures} == set(CASES) - CLOSED_CASES
+                         and all(item["native_capture_complete"] for item in captures) and launcher["success"],
               "launcher": launcher,
               "captures": captures,
               "closed_after_transition": closed,

@@ -45,6 +45,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+      - name: 배율 검사에 필요한 화면 작업 영역 준비
+        shell: powershell
+        run: |
+          Set-DisplayResolution -Width 2560 -Height 1440 -Force
+          Get-DisplayResolution
       - name: 기존 화면 도구가 없는 새 환경 확인
         run: python -c "import importlib.util; assert importlib.util.find_spec('PyQt6') is None"
       - name: 업데이트와 개인 기록 보존 검사
