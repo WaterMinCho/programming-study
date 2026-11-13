@@ -36,30 +36,102 @@ class WorkerTest(unittest.TestCase):
         optional = dict(result["findings"][0], blocking=False, hint="입력의 단위를 설명에 남김.")
         result["findings"].append(optional)
         body = worker.body_for({"head": HEAD}, result, "marker", "REQUEST_CHANGES")
-        self.assertIn("수정 필요 · "+FILE+":1", body)
-        self.assertIn("선택 제안 · "+FILE+":1", body)
-        self.assertIn("수정할 부분: 반복 시작에서 기울기를 초기화함.", body)
-        self.assertIn("제안 내용: 입력의 단위를 설명에 남김.", body)
-        self.assertIn("현재 내용: 이전 기울기를 더함.", body)
-        self.assertIn("수정 후: 현재 배치의 기울기만 사용함.", body)
-        self.assertIn("<summary>현재 내용과 수정 후 결과</summary>", body)
+        self.assertIn("수정 필요 · train.py:1", body)
+        self.assertIn(FILE+"#L1)", body)
+        self.assertIn("수정 힌트: 반복 시작에서 기울기를 초기화함.", body)
+        self.assertIn("수정 힌트: 입력의 단위를 설명에 남김.", body)
+        self.assertIn("이전 기울기를 더함.", body)
+        self.assertIn("기대 결과: 현재 배치의 기울기만 사용함.", body)
+        self.assertLess(body.index("이전 기울기를 더함."), body.index("<details>"))
+        self.assertIn("<summary>코드 근거와 수정 힌트</summary>", body)
+        self.assertIn("<summary>선택 제안·질문 펼치기 · 승인 조건이 아닙니다</summary>", body)
 
     def test_followup_steps_only_appear_when_there_is_something_to_answer(self):
         optional = assessment(blocking=True)
         optional["findings"][0]["blocking"] = False
-        for event, result, needs_guide in (
-                ("APPROVE", assessment(), False),
-                ("COMMENT", assessment("needs_context"), True),
-                ("REQUEST_CHANGES", assessment(blocking=True), True),
-                ("APPROVE", optional, True)):
+        for event, result, needs_guide, needs_reply in (
+                ("APPROVE", assessment(), False, False),
+                ("COMMENT", assessment("needs_context"), False, False),
+                ("REQUEST_CHANGES", assessment(blocking=True), True, False),
+                ("APPROVE", optional, False, False),
+                ("COMMENT", assessment(), False, False)):
             with self.subTest(event=event, findings=bool(result["findings"])):
                 body = worker.body_for({"head": HEAD}, result, "marker", event)
                 self.assertEqual(needs_guide, worker.FOLLOWUP_GUIDE in body)
+                self.assertEqual(needs_reply, worker.DISCUSSION_GUIDE in body)
+                self.assertNotIn("Stage는", body)
                 if needs_guide:
-                    self.assertIn("기존 커밋 뒤에 새 커밋이 추가됩니다", body)
-                    self.assertIn("같은 브랜치로 Push하면 기존 PR이 갱신", body)
-                    self.assertIn("PR 설명글만 고칠 때", body)
-                    self.assertIn("질문에 답하거나 실행 결과만 알릴 때는 댓글로 답하면 됩니다", body)
+                    self.assertIn("같은 작업 브랜치에 Commit·Push", body)
+                    self.assertIn("SourceTree·터미널", body)
+
+    def test_reader_format_preserves_all_blockers_and_commit_evidence(self):
+        result = assessment(blocking=True)
+        result["format_version"] = 2
+        result["summary"] = "학습 반복에서 기울기를 초기화해 주세요."
+        item = result["findings"][0]
+        item.update(title="반복 시작에서 기울기를 초기화해 주세요", condition="학습을 두 번 반복할 때",
+                    actual="이전 기울기에 이번 값을 더합니다.", expected="현재 배치의 기울기만 사용합니다.",
+                    reason="초기화가 빠져 이전 배치가 이번 계산에 섞입니다.", hint="각 반복의 시작 위치를 확인해 주세요.",
+                    check="두 배치의 기울기를 따로 비교해 주세요.")
+        result["findings"] = [dict(item, title="기울기 초기화 위치 확인 %d" % i) for i in range(5)]
+        body = worker.body_for({"head": HEAD}, result, "marker", "REQUEST_CHANGES")
+        self.assertEqual(5, body.count("### 수정 필요"))
+        self.assertIn("검토한 커밋: `"+HEAD+"`", body)
+        self.assertIn("/blob/"+HEAD+"/"+FILE+"#L1", body)
+        data = {"files": [FILE], "changed_paths": [FILE], "diff": DIFF, "title": self.pr["title"]}
+        self.assertEqual("REQUEST_CHANGES", worker.validate(data, result, "michae18"))
+        for update in ({"format_version": True}, {"format_version": 3}, {"summary": "x" * 401}):
+            with self.subTest(update=update), self.assertRaises(worker.review.ReviewError):
+                worker.validate(data, dict(result, **update), "michae18")
+        result["findings"][0]["title"] = "두 줄\n제목"
+        with self.assertRaises(worker.review.ReviewError):
+            worker.validate(data, result, "michae18")
+
+    def test_approved_legacy_questions_are_optional_and_quotes_cannot_hide_the_review(self):
+        result = assessment(blocking=True)
+        result["findings"][0].update(blocking=False, quote="</details><script>x</script>")
+        result["questions"] = ["빈 이력의 입력을 어떻게 처리할 계획인가요?"]
+        body = worker.body_for({"head": HEAD}, result, "marker", "APPROVE")
+        self.assertNotIn(worker.FOLLOWUP_GUIDE, body)
+        self.assertNotIn("### 확인할 내용", body)
+        self.assertGreater(body.index(result["questions"][0]), body.index("선택 제안·질문 펼치기"))
+        self.assertIn("&lt;/details&gt;&lt;script&gt;x&lt;/script&gt;", body)
+        self.assertNotIn("<script>", body)
+
+    def test_new_reader_format_checks_authored_prose_without_rewriting_code_quotes(self):
+        result = assessment(blocking=True)
+        result.update(format_version=2, summary="입력 처리를 수정해 주세요.")
+        item = result["findings"][0]
+        item.update(title="입력 조건을 확인해 주세요", condition="두 값을 비교할 때", actual="경계값을 확인하지 않았습니다.",
+                    expected="경계값에서도 같은 조건을 확인할 수 있습니다.", reason="경계값에서 결과가 달라질 수 있습니다.",
+                    check="경계값을 넣고 결과를 비교해 주세요.", hint="", quote="x != y  # 매우 중요 "+chr(0x2014)+" 확인!")
+        body = worker.body_for({"head": HEAD}, result, "marker", "REQUEST_CHANGES")
+        self.assertIn(item["quote"], body)
+        self.assertNotIn("수정 힌트:", body)
+        result["summary"] = "입력 처리를 확인했음."
+        with self.assertRaises(worker.review.ReviewError):
+            worker.body_for({"head": HEAD}, result, "marker", "REQUEST_CHANGES")
+
+    def test_comment_after_approval_is_distinct_from_a_manual_approval_hold(self):
+        result = assessment()
+        answered = worker.body_for({"head": HEAD}, result, "marker", "COMMENT", checked="APPROVE")
+        held = worker.body_for({"head": HEAD}, result, "marker", "COMMENT", checked="COMMENT")
+        self.assertIn("기존 승인은 유지", answered)
+        self.assertIn("자동 승인 범위 밖", held)
+        self.assertNotIn("기존 승인은 유지", held)
+        data = {"files": [FILE], "changed_paths": [FILE], "diff": DIFF, "title": self.pr["title"],
+                "previous_review_skipped": "content_check"}
+        self.assertEqual("COMMENT", worker.validate(data, result, "michae18"))
+
+    def test_missing_prior_context_is_explicit_and_blank_questions_cannot_be_posted(self):
+        data = {"head": HEAD, "files": [FILE], "diff": DIFF, "title": self.pr["title"], "previous_review_skipped": "size_limit"}
+        result = assessment()
+        body = worker.body_for(data, result, "marker", "COMMENT", checked="COMMENT")
+        self.assertIn("참고 내용을 포함하지 못해 자동 승인을 보류", body)
+        self.assertNotIn("자동 승인 범위 밖", body)
+        for question in ("", " "):
+            with self.subTest(question=question), self.assertRaises(worker.review.ReviewError):
+                worker.validate(data, dict(result, questions=[question]), "michae18")
 
     def test_review_with_separate_observations_is_not_checked_as_a_commit_message(self):
         result = assessment()
@@ -127,11 +199,11 @@ class WorkerTest(unittest.TestCase):
             return copy.deepcopy(next(row for row in self.reviews if row["id"] == int(path.rsplit("/", 1)[1])))
         raise AssertionError(path)
 
-    def prepare(self, number, folder, discussion):
+    def prepare(self, number, folder, discussion, previous_review=None):
         folder.mkdir(parents=True)
         data = {"number": number, "head": HEAD, "base": BASE, "title": self.pr["title"],
                 "description": self.pr["body"], "files": [FILE], "changed_paths": [FILE], "diff": DIFF, "context": [],
-                "discussion": discussion, **self.packet_changes}
+                "discussion": discussion, "previous_review": previous_review, **self.packet_changes}
         worker.save(folder/"snapshot.json", data)
         return data
 
@@ -197,8 +269,16 @@ class WorkerTest(unittest.TestCase):
         self.commands.assert_not_called()
         self.assertTrue(json.loads((self.folder()/"worker.json").read_text())["passed"])
         self.assertFalse(any("merge" in path for path, _, _ in self.writes))
-        self.assertIn("자동 정적 검토 결과임.", self.posted()[0]["body"])
-        self.assertIn("사람이 코드를 검토하거나 실행한 결과로 표시하지 않음.", self.posted()[0]["body"])
+        self.assertIn("자동 정적 검토이며", self.posted()[0]["body"])
+        self.assertIn("PR 코드는 실행하지 않았습니다.", self.posted()[0]["body"])
+
+    def test_previous_review_is_context_without_triggering_a_self_review_loop(self):
+        self.reviews.append({"id": 77, "user": {"login": "WaterMinCho"}, "body": "이전 제안", "commit_id": BASE, "state": "APPROVED"})
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual("이미 검토함", self.process())
+        self.assertEqual(1, len(self.posted()))
+        self.assertEqual("이전 제안", self.prepare_mock.call_args.kwargs["previous_review"]["body"])
+        self.model_mock.assert_called_once()
 
     def test_scope_title_images_and_context_only_leave_comment(self):
         data = {"files": [FILE], "changed_paths": [FILE], "diff": DIFF, "title": self.pr["title"]}
@@ -694,6 +774,7 @@ class WorkerTest(unittest.TestCase):
         self.assertEqual([], self.posted())
 
     def test_subscription_runner_is_isolated_and_only_mocked(self):
+        self.result.update(format_version=2, summary="변경한 입력 처리를 확인했습니다.")
         self.model_mock.side_effect = self.native_review
         initial = {"type": "system", "subtype": "init", "model": "test-model", "apiKeySource": "none",
                    "tools": ["StructuredOutput"], "mcp_servers": [], "slash_commands": [], "skills": []}

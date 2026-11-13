@@ -37,12 +37,13 @@ SYSTEM = """한국어로 초보 모델 개발자의 PR을 검토함. 검토 자�
 확인한 결함·확인 질문·선택 제안을 구분하고 심각도와 근거의 충분함을 따로 적음. 자기 신뢰 점수를 정답 확률로 쓰지 않음.
 각 지적에 현재 파일과 줄, 재현 조건, 현재/기대 동작, 이유, 최소 수정 힌트와 확인 방법을 적음.
 데이터 분리·미래 정보 누출·mask와 shape·손실 입력·기울기 초기화·학습/평가·저장불러오기·실험 재현을 살핌.
-평가하지 않은 성능을 주장하거나 Attention을 인과로 설명하지 않음. 이번 변경에 해당하는 항목만 검토하고 공부를 확인할 물음은 최대 2개로 둠.
+평가하지 않은 성능을 주장하거나 Attention을 인과로 설명하지 않음. 이번 변경에 해당하는 항목만 검토하고 질문은 현재 변경의 판단에 필요한 경우만 쓰고 최대 2개로 둠.
 이미지 파일은 경로만 제공됐으므로 그림 내용을 확인했다고 쓰지 않음.
 Git과 모델 개발을 처음 접하는 사람이 읽는 피드백임. 낯선 용어는 처음 나올 때 실제 값이나 동작으로 풀어 씀.
 수정할 위치, 지금 고칠 내용, 고치는 이유, 확인할 결과를 짧게 연결함. 확인한 결함과 선택 제안을 구분함.
-확인 범위와 지금 할 일을 먼저 씀. 상세 지적과 질문을 요약에 다시 나열하지 않음. 실행하지 않은 내용은 구분함.
-지적이 없으면 억지로 만들지 않음. 모델 이름이나 작성 도구를 서명으로 붙이지 않음. 기록은 ~함/~음 체로 씀."""
+이번 변경의 결론과 확인 범위를 먼저 씀. 상세 지적과 질문을 요약에 다시 나열하지 않음. 실행하지 않은 내용은 구분함.
+지적이 없으면 억지로 만들지 않음. 모델 이름이나 작성 도구를 서명으로 붙이지 않음. 게시할 설명과 질문은 ~니다/~세요 체로 씀.
+미구현 다음 단계의 설계를 대신 정하거나 같은 선택 제안을 반복하지 않음. 완성 코드·교체할 문단을 주기보다 확인할 조건과 작은 수정 방향을 남김."""
 
 
 class ReviewError(ValueError):
@@ -105,7 +106,7 @@ def packed(value):
     return json.dumps(value, ensure_ascii=False, indent=2) + "\n"
 
 
-def prepare(number, destination, context=(), discussion=()):
+def prepare(number, destination, context=(), discussion=(), previous_review=None):
     before = pull(number)
     files = api("repos/%s/pulls/%d/files?per_page=100" % (REPO, number))
     if not 1 <= before["changed_files"] <= 30 or len(files) != before["changed_files"]:
@@ -146,6 +147,16 @@ def prepare(number, destination, context=(), discussion=()):
         for item in discussion:
             check_text(item["body"])
         packet["discussion"] = discussion
+    if previous_review:
+        try:
+            check_text(previous_review.get("body", ""))
+            check_text(packed(previous_review))
+            packet["previous_review"] = previous_review
+        except ReviewError:
+            packet["previous_review_skipped"] = "content_check"
+        if len(packed(packet).encode("utf-8")) > MAX_BYTES and "previous_review" in packet:
+            packet.pop("previous_review")
+            packet["previous_review_skipped"] = "size_limit"
     text = packed(packet)
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise ReviewError("검토 자료가 너무 큽니다. 변경분이나 관련 문맥을 줄여 주세요.")
@@ -175,6 +186,9 @@ def snapshot(directory):
         raise ReviewError("검토 자료가 너무 큽니다.")
     check_text(data["diff"])
     check_text(data["title"] + "\n" + data["description"])
+    if data.get("previous_review"):
+        check_text(data["previous_review"].get("body", ""))
+        check_text(packed(data["previous_review"]))
     for name in data["files"]:
         check_path(name, allow_image=True)
     for name in data.get("changed_paths", []):
@@ -226,6 +240,9 @@ def review(directory, *, schema=None, system=SYSTEM):
     content = result.get("structured_output") if schema else result.get("result")
     if result.get("is_error") or (not isinstance(content, dict) if schema else not isinstance(content, str) or not content.strip()):
         raise ReviewError("검토 응답을 받지 못했습니다. 구독 한도를 확인하고 유료 API로 우회하지 마세요.")
+    expected_format = (schema or {}).get("properties", {}).get("format_version", {}).get("const")
+    if expected_format is not None and (type(content.get("format_version")) is not int or content["format_version"] != expected_format):
+        raise ReviewError("새 리뷰 표시 형식으로 응답하지 않아 게시를 보류합니다.")
     body = "검토한 커밋: `%s`\n\n%s\n" % (data["head"], packed(content) if schema else content.strip())
     check_text(body)
     if len(body.encode("utf-8")) > 30_000:
