@@ -296,7 +296,7 @@ class HubPage(QWidget):
         top.add_right(self.submission_setup)
         self.server_connection = kit.button("다른 서버 연결", "text", "s", onbg=True)
         self.server_connection.clicked.connect(win.show_submission_setup)
-        self.server_connection.setVisible(win.operator_mode)
+        self.server_connection.setVisible(win.can_configure_submission())
         top.add_right(self.server_connection)
         self.manual_sync = kit.button("새 문제 받기", "text", "s", onbg=True)
         self.manual_sync.clicked.connect(win.fetch_problems)
@@ -495,7 +495,7 @@ class HubPage(QWidget):
         self.submission_setup.setEnabled(usable and not busy)
         self.submission_setup.setAccessibleDescription("제출할 풀이가 있습니다." if ready else "답안 파일·채점·진도를 비공개 서버에 제출합니다.")
         self.submission_setup.setToolTip("답안 파일·채점·진도를 비공개 서버에 제출합니다. 보낼 파일은 [내 정보·데이터]에서 확인할 수 있습니다.")
-        self.server_connection.setVisible(win.operator_mode)
+        self.server_connection.setVisible(win.can_configure_submission())
         self.server_connection.setEnabled(usable and not busy)
 
     def show_journey(self):
