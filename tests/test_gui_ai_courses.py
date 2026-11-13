@@ -51,8 +51,15 @@ class CourseGuiTest(AiTest):
             note = win.ai_home.revision_note
             self.assertTrue(note.isVisible())
             self.assertIn("999", note.text())
-            win.ai_home.scroll.ensureWidgetVisible(note)
             guikit.wait_until(lambda: note.width() > 0 and note.height() >= note.heightForWidth(note.width()))
+            scroll = win.ai_home.scroll
+            reminder = win.workspace.submissions
+            scroll.ensureWidgetVisible(note, 0, reminder.height() + 24)
+            guikit.pump()
+            point = note.mapTo(scroll.viewport(), QPoint())
+            limit = reminder.mapTo(scroll.viewport(), QPoint()).y() if reminder.isVisible() else scroll.viewport().height()
+            self.assertGreaterEqual(point.y(), 0)
+            self.assertLessEqual(point.y() + note.height(), limit)
             self.assertGreater(note.heightForWidth(note.width()), 0)
             self.assertLessEqual(note.width(), win.width())
             self.assertGreater(win.ai_home.next_btn.height(), 0)
