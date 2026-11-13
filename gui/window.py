@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (QApplication, QFileDialog, QLabel, QLineEdit, QMain
 import session
 import study
 from learning_data.collection import CollectionError
-from aiprep import service as ai_service
+from aiprep import bank as ai_bank, service as ai_service
 from gui import errors, journey_text, kit, motion, theme, web_text
 from gui.ai_home import AiHomePage, AiLessonPage
 from gui.ai_learn import AiLearnPage, AiNotePage, RevisitPage
@@ -123,6 +123,7 @@ class MainWindow(QMainWindow):
         self.journey, self.journey_error = None, ""  # 알고리즘 여행 서비스와 그것을 열지 못한 이유
         self.web, self.web_error = None, ""  # 웹 면접 준비 서비스와 열지 못한 이유
         self.ai, self.ai_error = None, ""  # AI 비전 개론 서비스와 열지 못한 이유
+        self.ai_courses = {}
         self.web_node_known, self.web_node_seen = False, False  # 웹 트랙의 Node 를 찾아 봤는지, 그때 node 모듈이 결과를 기억했는지
         self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면), web(웹 홈·미션·드릴·학습 노트), ai(AI 비전 개론)
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)
@@ -308,9 +309,12 @@ class MainWindow(QMainWindow):
             self.web, self.web_error = None, str(error)
         self.ai_quiz.clear()  # 옛 서비스의 묶음과 카드를 놓음
         self.ai_mock.clear()
+        self.ai_courses.clear()
         try:
             course = self.settings.value("ai/course/" + self.user, "intro", type=str)
+            stamp = ai_bank.source_stamp()
             self.ai = ai_service.AiSession(self.user, course=course if course in ("intro", "app") else "intro")
+            self.ai_courses[self.ai.course] = (stamp, self.ai)
             self.ai_error = ""
         except SessionError as error:
             self.ai, self.ai_error = None, str(error)
@@ -461,17 +465,28 @@ class MainWindow(QMainWindow):
         if self.ai is None or self.ai.course == course or self.ai_home.busy:
             return
         try:
-            selected = ai_service.AiSession(self.user, root=self.ai.root, course=course)
+            stamp = ai_bank.source_stamp(self.ai.root)
+            saved, selected = self.ai_courses.get(course, (None, None))
+            if stamp is None or saved != stamp or selected is None or selected.user != self.user or selected.root != self.ai.root:
+                selected = ai_service.AiSession(self.user, root=self.ai.root, course=course)
+            else:
+                selected.resume_course()
         except SessionError as error:
             self.ai_home.course_tabs.set_current(1 if self.ai.course == "app" else 0)
             self.ask("알림", str(error))
             return
-        self.ai_quiz.clear()
-        self.ai_mock.clear()
-        self.ai = selected
-        self.settings.setValue("ai/course/" + self.user, course)
-        self.ai_home.refresh()
-        self.ai_home.scroll.verticalScrollBar().setValue(0)
+        updates = self.ai_home.updatesEnabled()
+        self.ai_home.setUpdatesEnabled(False)
+        try:
+            self.ai_quiz.clear()
+            self.ai_mock.clear()
+            self.ai = selected
+            self.ai_courses[course] = (stamp, selected)
+            self.settings.setValue("ai/course/" + self.user, course)
+            self.ai_home.refresh()
+            self.ai_home.scroll.verticalScrollBar().setValue(0)
+        finally:
+            self.ai_home.setUpdatesEnabled(updates)
 
     def _open_ai(self, page, load):
         """AI 비전 개론 화면 page 를 load() 로 채우고 엶. 서비스가 AiError 를 내면 알리고 지금 화면에 머묾."""

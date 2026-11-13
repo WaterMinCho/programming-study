@@ -1,14 +1,39 @@
 # -*- coding: utf-8 -*-
 """문항 갱신 후의 복습과 과거 답안·미확인 기록 보존을 확인함."""
 import copy
+import json
 import os
+from pathlib import Path
 from unittest import mock
 
+import study
 from aiprep import service
 from tests.test_ai_service import Base
 
 
 class ContentVersionTest(Base):
+    def test_course_resume_refreshes_changed_flags_and_recovers_a_repaired_version_file(self):
+        sess = self.session()
+        sess.record.append({"kind": "answer", "card": "i90-b01", "result": "pass", "set": "legacy"}, self.at)
+        self.answer(sess, "i90-b02")
+        record = Path(sess.record.path).read_bytes()
+        path = Path(sess.home) / "content-versions.json"
+        data = study.read_json(str(path))
+        data["card_versions"]["i90-b01"]["changed"] = True
+        path.write_text(json.dumps(data), encoding="utf-8")
+        sess.resume_course()
+        self.assertIn("i90-b01", sess._content_versions()[1])
+        self.assertNotIn("i90-b01", sess._state().events)
+        self.assertIn("i90-b02", sess._state().events)
+        path.write_text("{broken", encoding="utf-8")
+        sess.resume_course()
+        self.assertIn("card_versions", sess.errors)
+        self.assertEqual(b"{broken", path.read_bytes())
+        path.write_text(json.dumps(data), encoding="utf-8")
+        sess.resume_course()
+        self.assertNotIn("card_versions", sess.errors)
+        self.assertEqual(record, Path(sess.record.path).read_bytes())
+
     def answer(self, sess, cid="i90-b01"):
         sess._append({"kind": "answer", "card": cid, "result": "pass", "set": "test", "again": 0})
 

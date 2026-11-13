@@ -238,9 +238,17 @@ class FirstLine(QWidget):
         return super().eventFilter(watched, event)
 
 
+class _TabButton(QPushButton):
+    auto_check = True
+
+    def nextCheckState(self):
+        if self.auto_check or self.isChecked():
+            super().nextCheckState()
+
+
 def button(text="", kind="secondary", scale="m", onbg=False):
     """단추. kind 는 primary·secondary·text·danger·danger_text·chip·tab 가운데 하나, scale 은 l(48)·m(40)·s(32). onbg 는 회색 바탕 위의 글자 단추(올리면 line 색)."""
-    out = QPushButton(text)
+    out = _TabButton(text) if kind == "tab" else QPushButton(text)
     if kind != "secondary":
         out.setObjectName(kind)
     out.setProperty("scale", scale)
@@ -883,7 +891,7 @@ class TabBar(QWidget):
     """같은 자리의 내용을 바꾸는 탭. 체크형 단추를 QButtonGroup 으로 묶고 아래에 line 1px. picked(번호)가 남."""
     picked = pyqtSignal(int)
 
-    def __init__(self, names):
+    def __init__(self, names, deferred=False):
         super().__init__()
         outer = box(self)
         row = QHBoxLayout()
@@ -893,6 +901,7 @@ class TabBar(QWidget):
         self.buttons = []
         for number, name in enumerate(names):
             tab = button(name, "tab")
+            tab.auto_check = not deferred
             tab.setCheckable(True)
             typed(tab, "label", True)
             self.group.addButton(tab, number)

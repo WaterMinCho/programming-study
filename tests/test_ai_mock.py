@@ -273,6 +273,22 @@ class ExamTest(unittest.TestCase):
 
 
 class MockServiceTest(Base):
+    def test_cached_course_resume_keeps_the_deadline_and_submits_only_once(self):
+        sess = self.session()
+        exam = sess.start_mock("m90", seed=1)
+        exam.save_answer(["3"], "m90-01")
+        self.at = "2026-11-09T20:01:00"
+        sess.resume_course()
+        self.assertEqual(3540, sess.mock_state("m90")["remaining"])
+        self.assertEqual([], self.log(sess, "mock_submit"))
+        self.at = "2026-11-09T21:01:00"
+        sess.resume_course()
+        self.assertFalse(sess.mock_state("m90")["active"])
+        self.assertEqual(1, len(self.log(sess, "mock_submit")))
+        sess.resume_course()
+        self.assertEqual(1, len(self.log(sess, "mock_submit")))
+        self.assertEqual(["3"], study.read_json(exam.path)["answers"]["m90-01"])
+
     def test_first_submission_after_a_bank_restart_keeps_review_score_and_history(self):
         sess = self.session()
         first = sess.start_mock("m90", seed=1)

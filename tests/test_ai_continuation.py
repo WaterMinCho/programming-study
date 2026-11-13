@@ -9,6 +9,25 @@ from tests.test_ai_service import Base
 
 
 class ContinuationTest(Base):
+    def test_course_resume_reads_the_practice_position_changed_by_another_session(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        practice = sess.start_set("unit", lesson="i90", unit="90a", seed=2)
+        practice.answer(self.right(practice, practice.current()), 1, True)
+        another = self.session().resume_set()
+        another.next()
+        path = os.path.join(sess.home, "state.json")
+        with open(path, "rb") as source:
+            before = source.read()
+        log = list(another.sess.record.log)
+        sess.resume_course()
+        resumed = sess.resume_set()
+        self.assertEqual(another.pos, resumed.pos)
+        self.assertEqual(another.current(), resumed.current())
+        self.assertEqual(log, sess.record.log)
+        with open(path, "rb") as source:
+            self.assertEqual(before, source.read())
+
     def test_saved_last_step_is_not_completion_and_survives_reload(self):
         sess = self.session()
         sess.save_step("i90", "90a", 4)

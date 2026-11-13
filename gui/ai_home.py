@@ -49,7 +49,7 @@ class AiHomePage(QWidget):
         root.addWidget(kit.heading(kit.label(ai_text.TRACK, "title"),
                                    guide_line))
         root.addSpacing(theme.GAP["description_content"])
-        self.course_tabs = kit.TabBar(["개론", "응용"])
+        self.course_tabs = kit.TabBar(["개론", "응용"], deferred=True)
         self.course_tabs.setAccessibleName("AI 학습 과정")
         self.course_tabs.picked.connect(lambda n: self.win.switch_ai_course(("intro", "app")[n]))
         root.addWidget(self.course_tabs)

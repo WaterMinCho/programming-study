@@ -186,9 +186,21 @@ class AiSession(object):
         self._index, self._index_log = None, None
         self._gen_kind = {}
         self._content_versions_cache = None
+        self._card_versions_cache = None
         self._active_set = None
         self._mock_loaded = set()
         self._mock_exams = {}
+        self._recover_mocks()
+
+    def resume_course(self):
+        """자료는 재사용하고 다른 과정에서 바뀐 기록·연습·모의고사를 다시 읽음."""
+        self._content_versions_cache = None
+        self._cache_key, self._index = None, None
+        self._active_set = None
+        for key in ("card_versions", *self.mocks):
+            self.errors.pop(key, None)
+        self._state()
+        self._mock_exams.clear()
         self._recover_mocks()
 
     def _recover_mocks(self):
@@ -337,6 +349,49 @@ class AiSession(object):
     def today(self):
         return _today()
 
+    def _card_versions(self):
+        """자료가 같은 세션에서는 문항 본문·용어의 해시를 재사용함."""
+        if self._card_versions_cache is not None:
+            return self._card_versions_cache
+        versions, sources = {}, {}
+        metadata = {"order", "ref", "errata", "prio", "core", "deep", "level", "tags", "facts", "step",
+                    "unit", "family", "confuse", "after"}
+        def content_only(value):
+            if isinstance(value, dict):
+                return {key: content_only(item) for key, item in value.items() if key not in metadata}
+            if isinstance(value, (list, tuple)):
+                return [content_only(item) for item in value]
+            return value
+        for cid, card in self.cards.items():
+            if card.get("mock"):
+                continue
+            content = dict(card)
+            content.pop("gen", None)
+            source_text = []
+            if card["kind"] == "gen":
+                spec = card["gen"]
+                hashes = []
+                for source in (spec.path, os.path.join(self.root, "items", "common", "gens.py")):
+                    if source not in sources:
+                        try:
+                            with open(source, "rb") as stream:
+                                raw = stream.read()
+                            sources[source] = hashlib.sha256(raw).hexdigest(), raw.decode("utf-8", errors="replace")
+                        except OSError:
+                            sources[source] = None, ""
+                    checksum, text = sources[source]
+                    hashes.append(checksum)
+                    source_text.append(text)
+                content["generator"] = {"id": spec.id, "meta": spec.meta, "doc": spec.doc, "sources": hashes}
+            if card["kind"] == "skel":
+                content["skeleton"] = self.skeletons.get(card["pattern"])
+            content = content_only(content)
+            text = grade.norm("word", collection.packed(content) + " ".join(source_text))
+            terms = {key: sorted(values) for key, values in self.term_map.items() if key in text}
+            versions[cid] = collection.digest({"card": content, "terms": terms})
+        self._card_versions_cache = versions
+        return versions
+
     def _content_versions(self):
         """현재 문항과 이전에 관찰한 문항을 대조함. 원래 답 기록은 바꾸지 않음."""
         with self._lock:
@@ -353,44 +408,10 @@ class AiSession(object):
                 self.errors["card_versions"] = "문항 변경 기록을 읽지 못했습니다. 원본을 보관하고 스터디장에게 알려 주세요."
             saved = local.get("card_versions", {})
             saved = saved if isinstance(saved, dict) else {}
-            versions, revised, sources = {}, set(), {}
-            metadata = {"order", "ref", "errata", "prio", "core", "deep", "level", "tags", "facts", "step",
-                        "unit", "family", "confuse", "after"}
-            def content_only(value):
-                if isinstance(value, dict):
-                    return {key: content_only(item) for key, item in value.items() if key not in metadata}
-                if isinstance(value, (list, tuple)):
-                    return [content_only(item) for item in value]
-                return value
-            for cid, card in self.cards.items():
-                if card.get("mock"):
-                    continue
-                content = dict(card)
-                content.pop("gen", None)
-                source_text = []
-                if card["kind"] == "gen":
-                    spec = card["gen"]
-                    hashes = []
-                    for source in (spec.path, os.path.join(self.root, "items", "common", "gens.py")):
-                        if source not in sources:
-                            try:
-                                with open(source, "rb") as stream:
-                                    raw = stream.read()
-                                sources[source] = hashlib.sha256(raw).hexdigest(), raw.decode("utf-8", errors="replace")
-                            except OSError:
-                                sources[source] = None, ""
-                        checksum, text = sources[source]
-                        hashes.append(checksum)
-                        source_text.append(text)
-                    content["generator"] = {"id": spec.id, "meta": spec.meta, "doc": spec.doc, "sources": hashes}
-                if card["kind"] == "skel":
-                    content["skeleton"] = self.skeletons.get(card["pattern"])
-                content = content_only(content)
-                text = grade.norm("word", collection.packed(content) + " ".join(source_text))
-                terms = {key: sorted(values) for key, values in self.term_map.items() if key in text}
-                versions[cid] = collection.digest({"card": content, "terms": terms})
+            versions, revised = self._card_versions(), set()
+            for cid, revision in versions.items():
                 previous = saved.get(cid, {})
-                if isinstance(previous, dict) and (previous.get("changed") or previous.get("revision") not in (None, versions[cid])):
+                if isinstance(previous, dict) and (previous.get("changed") or previous.get("revision") not in (None, revision)):
                     revised.add(cid)
             for entry in self.course_log():
                 cid, revision = entry.get("card"), entry.get("content_revision")
