@@ -77,6 +77,7 @@ def gui_check(out):
                     candidates = (getattr(case, "capture_widget", None), getattr(main_window, "dialog", None), main_window)
                     win = next((widget for widget in candidates if widget is not None and widget.isVisible()), None)
                     if win is not None and win.isVisible():
+                        win.repaint()
                         guikit.pump(50)
                         stem = case.id().rsplit(".", 1)[-1]
                         shot = win.grab()

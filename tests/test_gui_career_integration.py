@@ -70,6 +70,8 @@ class CareerIntegrationTest(unittest.TestCase):
             if evidence:
                 destination = Path(evidence)
                 destination.mkdir(parents=True, exist_ok=True)
+                win.repaint()
+                guikit.pump()
                 win.grab().save(str(destination / f"career-wide-short-{mode}.png"))
                 if sys.platform == "win32":
                     win.screen().grabWindow(int(win.winId())).save(str(destination / f"career-wide-short-{mode}-native.png"))
