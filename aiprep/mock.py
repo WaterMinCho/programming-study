@@ -67,7 +67,8 @@ def load_items(root, spec, lessons=None):
                   for item in items]
         if mixed_mock.candidate(spec):
             stable = {"items": stable, "blueprint_revision": spec["blueprint_revision"],
-                      "classification": [{k: i[k] for k in ("id", "course", "lesson", "family")} for i in items]}
+                      "classification": [{k: i.get(k) for k in ("id", "course", "lesson", "family", "concept", "format",
+                                                               "level", "transferaxis", "conditions", "sourcefacts")} for i in items]}
         fingerprint = hashlib.sha256(json.dumps(stable, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
     except (OSError, ValueError, KeyError, TypeError, AttributeError, webbank.BankError) as error:
         raise MockError("모의고사 자료를 읽을 수 없습니다. %s" % error) from error
@@ -169,7 +170,10 @@ class MockExam:
                     "terms_revision": getattr(self.sess, "collection_terms_revision", None)}
         if self.mixed:
             metadata.update(course=item["course"], course_no=self.sess.mock_lessons[item["lesson"]]["no"],
-                            scope="mixed", seed=self.draft["seed"], blueprint_revision=self.spec["blueprint_revision"])
+                            scope="mixed", seed=self.draft["seed"], blueprint_revision=self.spec["blueprint_revision"],
+                            concept=item.get("concept"), format=item.get("format"), transferaxis=item.get("transferaxis"),
+                            conditions=item.get("conditions") or [], sourcefacts=item.get("sourcefacts") or [],
+                            classification_basis="author")
         return collection.question(item, **metadata)
 
     def _log(self):
@@ -375,6 +379,12 @@ class MockExam:
                        and (not self.mixed or bank.course_of(card.get('lesson')) == item['course'])
                        and (family and card.get('family') == family or tags & set(card.get('tags') or []))]
             choices.sort(key=lambda card: (card.get('family') != family, -len(tags & set(card.get('tags') or [])), card['id']))
+            if not choices and self.mixed:
+                facts = set(item.get('facts') or [])
+                choices = [card for card in cards.values() if not card.get('mock') and not card.get('errata')
+                           and card['id'] not in out and bank.course_of(card.get('lesson')) == item['course']
+                           and card.get('lesson') == item.get('lesson') and facts & set(card.get('facts') or [])]
+                choices.sort(key=lambda card: (-len(facts & set(card.get('facts') or [])), card['id']))
             if choices:
                 out.append(choices[0]['id'])
         return out

@@ -4,7 +4,7 @@ from unittest import mock
 
 from aiprep import bank
 from gui import theme
-from tests.test_ai_mixed_mock import make_bank, parsed_index, READ_INDEX
+from tests.test_ai_mixed_mock import make_bank, without_mixed_metadata
 from tests.test_gui_ai import AiTest, visible_text
 
 
@@ -12,13 +12,13 @@ class MixedMockPageTest(AiTest):
     def setUp(self):
         super().setUp()
         self.root = str(make_bank(self.tmp+'/mixed_bank'))
-        for name,value in [('AI_DIR',self.root),('read_index',parsed_index)]:
+        for name,value in [('AI_DIR',self.root)]:
             patch=mock.patch.object(bank,name,value)
             patch.start()
             self.addCleanup(patch.stop)
 
     def test_unconnected_metadata_hides_start_and_shows_pending_text(self):
-        with mock.patch.object(bank,'read_index',READ_INDEX):
+        with mock.patch.object(bank,'read_index',without_mixed_metadata):
             win=self.boot()
             win.go_ai()
             for course in ('intro','app'):
@@ -30,7 +30,7 @@ class MixedMockPageTest(AiTest):
                 self.assertFalse(win.open_ai_mock('m4'))
 
     def test_both_tabs_restore_the_same_timed_answer_and_attempt(self):
-        win=self.boot((800,700))
+        win=self.boot((760,480))
         self.assertTrue(win.open_ai_mock('m4'))
         page=win.ai_mock
         self.assertIn('개론 16 · 응용 16 · 연습 기본 120분',page.heading.text())
@@ -52,14 +52,22 @@ class MixedMockPageTest(AiTest):
         self.assertTrue(page.item['flagged'])
         self.assertGreater(page.exam.remaining(),7100)
         self.assertFalse(any(cid.startswith('i90-') for cid in win.ai.cards))
+        for cid in page.exam.draft['order']:
+            page.go(page.exam.draft['order'].index(cid))
+            page.inputs[0].setText('4');page.changed();self.assertTrue(page.persist())
+        self.assertEqual(32,sum(page.exam.answered(cid) for cid in page.exam.draft['order']))
+        page.submit();self.idle()
+        self.assertEqual(32,page.exam.summary()['of'])
+        self.capture_widget=win
 
     def test_result_course_names_and_narrow_controls_keep_the_timer(self):
         self.addCleanup(theme.set_text,'normal')
-        win=self.boot((800,700));self.assertTrue(win.open_ai_mock('m4'))
+        win=self.boot((760,480));self.assertTrue(win.open_ai_mock('m4'))
         page=win.ai_mock;page.begin();deadline=page.exam.draft['deadline']
         win.set_text('larger')
         for mode in ('light','dark'):
             theme.set_mode(mode);win.restyle();self.idle()
+            self.assertEqual((760,480),(win.width(),win.height()))
             self.assertEqual(deadline,page.exam.draft['deadline'])
             self.assertTrue(win.rect().contains(page.next_btn.mapTo(win,page.next_btn.rect().center())))
             self.assertGreaterEqual(page.next_btn.width(),page.next_btn.sizeHint().width())
@@ -69,3 +77,4 @@ class MixedMockPageTest(AiTest):
         self.assertIn('응용 90차시',text)
         self.assertIn('90차시',text)
         self.assertEqual(2,len(page.lesson_results.rows))
+        self.capture_widget=win

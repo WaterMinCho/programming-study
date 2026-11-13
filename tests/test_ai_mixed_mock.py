@@ -13,7 +13,7 @@ from unittest import mock
 
 import study
 from aiprep import bank, mixed_mock, service
-from aiprep.mock import MockError, load_items
+from aiprep.mock import MockError, MockExam, load_items
 from learning_data import collection
 from learning_server import dataset
 from webprep.bank import load_secrets
@@ -52,19 +52,19 @@ def make_bank(root):
         items.append(dict(id='m4-%02d' % n, course='app' if app else 'intro', lesson='a90' if app else 'i90',
                           unit='a90a' if app else '90a', step='a90a/2' if app else '90a/2', family='shared-topic',
                           tags=['학습 루프'], level=2, kind='blank', stem='값을 쓰세요. ____',
+                          concept='조건 비교', format='short_calculation', transferaxis='comparison',
+                          conditions=['입력을 고정함'], sourcefacts=[{'lesson':'a90' if app else 'i90','id':'F90-01'}],
                           blanks=[{'mode':'number','answer':['3']}], explain='이 예제의 값은 3입니다.'))
     study.write_text(folder/'work/items.json', json.dumps({'items':items}))
     return root
 
 
-def parsed_index(root):
-    """공통 파서 제안이 반영된 반환 계약만 시험에서 제공함."""
+def without_mixed_metadata(root):
+    """불완전한 목록을 받은 경로만 별도로 확인함."""
     index = READ_INDEX(str(root))
-    raw = study.read_json(Path(root)/'index.json')
-    for parsed, source in zip(index['mocks'], raw['mocks']):
+    for spec in index['mocks']:
         for key in ('scope','courses','course_counts','blueprint','blueprint_revision'):
-            if key in source:
-                parsed[key] = source[key]
+            spec.pop(key, None)
     return index
 
 
@@ -76,7 +76,7 @@ class MixedMockTest(unittest.TestCase):
         self.bank = make_bank(self.root/'bank')
         self.at = '2026-11-14T03:00:00+09:00'
         for obj, key, value in [(study,'SUBMISSIONS_DIR',str(self.root/'subs')),
-                                 (bank,'read_index',parsed_index),(service,'now',lambda:self.at),
+                                 (service,'now',lambda:self.at),
                                  (collection,'stamp',lambda:self.at)]:
             patch = mock.patch.object(obj,key,value)
             patch.start()
@@ -92,7 +92,7 @@ class MixedMockTest(unittest.TestCase):
         return [r for r in sess.collection.snapshot(include_answers=True) if r['kind']==kind]
 
     def test_missing_parser_metadata_and_unreviewed_draft_are_hidden(self):
-        with mock.patch.object(bank,'read_index',READ_INDEX):
+        with mock.patch.object(bank,'read_index',without_mixed_metadata):
             for course in ('intro','app'):
                 sess=self.session(course)
                 self.assertNotIn('m4',sess.mocks)
@@ -143,6 +143,10 @@ class MixedMockTest(unittest.TestCase):
         meta=study.read_json(self.bank/'mocks/m4/meta.json');meta.update(blueprint_revision='fixture-v2')
         study.write_text(self.bank/'mocks/m4/meta.json',json.dumps(meta))
         self.assertNotEqual(exam.fingerprint,load_items(str(self.bank),spec,sess.mock_lessons)[1])
+        first=load_items(str(self.bank),spec,sess.mock_lessons)[1]
+        source['items'][0]['transferaxis']='new-condition'
+        study.write_text(path,json.dumps(source))
+        self.assertNotEqual(first,load_items(str(self.bank),spec,sess.mock_lessons)[1])
         source['items'][0]['course']='app';study.write_text(path,json.dumps(source))
         with self.assertRaises(MockError): load_items(str(self.bank),spec,sess.mock_lessons)
 
@@ -158,6 +162,8 @@ class MixedMockTest(unittest.TestCase):
         self.assertEqual('75ea75de71a2e88f29a8a14c90ed7c2e7e0a59407def27866a298a4c939d1769',provenance['source_files']['answer-key.json'])
         specs=READ_INDEX(str(root/'ai'))['mocks']
         for spec in specs:
+            if spec['id'] not in ('m1','m2','m3'):
+                continue
             items,fingerprint=load_items(str(root/'ai'),spec)
             stable=[dict({k:i.get(k) for k in ('id','kind','stem','pick','multi')},
                          blanks=[{k:b.get(k) for k in ('answer','mode','places','unit','term','context')} for b in i.get('blanks') or []],
@@ -179,6 +185,9 @@ class MixedMockTest(unittest.TestCase):
             self.assertEqual(41,row['item']['seed'])
             self.assertEqual(90,row['item']['course_no'])
             self.assertEqual(row['data']['course'],row['item']['course'])
+            for key in ('concept','format','transferaxis','conditions','sourcefacts'):
+                self.assertEqual(exam.items[row['data']['card']][key],row['item'][key])
+            self.assertEqual('author',row['item']['classification_basis'])
             self.assertNotIn('answer',json.dumps(row['item']))
         submissions=self.rows(sess,'mock_submit')
         self.assertEqual([16,16],[r['data']['of'] for r in submissions])
@@ -267,3 +276,61 @@ class MixedMockTest(unittest.TestCase):
             self.assertEqual(0,sess.mock_state('m4')['first_score'])
         self.assertEqual('a90',app.wrong_item('m4-17')['lesson'])
         self.assertEqual('a90a/2',app.note_target('m4-17')['step'])
+
+    def test_return_in_old_epoch_then_edit_in_new_epoch_keeps_summary_and_answer_together(self):
+        sess=self.session();sess.collection.set_enabled(True);exam=sess.start_mock('m4')
+        exam.question(exam.draft['order'].index('m4-01'));exam.save_answer(['4'],'m4-01')
+        sess.collection.set_enabled(False);sess.collection.set_enabled(True)
+        self.tick();exam.save_answer(['3'],'m4-01');exam.submit()
+        answer=next(r for r in self.rows(sess,'mock_answer') if r['data']['card']=='m4-01')['data']
+        summary=next(r for r in self.rows(sess,'mock_submit') if r['data']['course']=='intro')['data']
+        self.assertEqual(['3'],answer['response'])
+        self.assertEqual('pass',answer['result'])
+        self.assertEqual('pass',summary['results']['m4-01'])
+        self.assertEqual(exam.draft['collection_epochs']['m4-01'],exam.draft['collection_observations']['m4-01']['epoch'])
+
+    def test_changed_classification_blocks_summary_as_well_as_item_events(self):
+        sess=self.session();sess.collection.set_enabled(True);exam=sess.start_mock('m4')
+        sess.mock_lessons['a90']['course']='intro'
+        exam.submit()
+        self.assertEqual([],self.rows(sess,'mock_submit'))
+        self.assertFalse(any(r['data']['card']=='m4-17' for r in self.rows(sess,'mock_answer')))
+        self.assertIn('분류',sess.collection.error)
+
+    def test_actual_32_items_have_same_lesson_fact_fallback_without_family_or_tags(self):
+        root=Path(__file__).resolve().parents[1]/'ai'
+        raw=load_secrets(str(root/'mocks/m4')).get('items.json')
+        if raw is None:
+            self.skipTest('초안 문항은 검토 경로에서만 보관함')
+        sess=service.AiSession('synthetic',home=str(self.root/'real-home'),root=str(root))
+        exam=MockExam.__new__(MockExam)
+        exam.id='m4';exam.sess=sess;exam.mixed=True
+        exam.items={i['id']:dict(i,family='unmatched-test-family',tags=[]) for i in json.loads(raw)['items']}
+        exam.draft={'order':list(exam.items)}
+        cards=mixed_mock.related_cards(sess)
+        with mock.patch.object(mixed_mock,'related_cards',return_value=cards):
+            for cid,item in exam.items.items():
+                results={key:'pass' if key!=cid else 'fail' for key in exam.items}
+                related=exam._related(results)
+                self.assertEqual(1,len(related),cid)
+                card=cards[related[0]]
+                self.assertEqual(item['course'],bank.course_of(card['lesson']))
+                self.assertEqual(item['lesson'],card['lesson'])
+                self.assertTrue(set(item['facts']) & set(card['facts']))
+                overlaps=[len(set(item['facts']) & set(c.get('facts') or [])) for c in cards.values()
+                          if c.get('lesson')==item['lesson'] and not c.get('errata')]
+                self.assertEqual(max(overlaps),len(set(item['facts']) & set(card['facts'])))
+            all_wrong=exam._related(dict.fromkeys(exam.items,'fail'))
+            self.assertEqual(len(set(all_wrong)),len(all_wrong))
+            self.assertGreater(len(all_wrong),0)
+
+    def test_fact_fallback_rejects_other_lesson_and_empty_overlap(self):
+        sess=self.session();exam=sess.start_mock('m4')
+        for item in exam.items.values():
+            item.update(family='unmatched',tags=[],facts=['F90-01'])
+        cards={'other':{'id':'other','lesson':'a89','facts':['F90-01']},
+               'none':{'id':'none','lesson':'a90','facts':['other']},
+               'intro':{'id':'intro','lesson':'i90','facts':['F90-01']}}
+        results={cid:'pass' if cid!='m4-17' else 'fail' for cid in exam.items}
+        with mock.patch.object(mixed_mock,'related_cards',return_value=cards):
+            self.assertEqual([],exam._related(results))

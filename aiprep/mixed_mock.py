@@ -108,6 +108,10 @@ def collection_course(exam, sess, kind, data):
         return item["course"]
     if kind in ("mock_start", "mock_submit") and data.get("course") in exam.spec["courses"]:
         course = data["course"]
+        for item in exam.items.values():
+            entry = sess.mock_lessons.get(item.get("lesson"))
+            if not entry or item.get("course") != entry["course"] or bank.course_of(item["lesson"]) != item["course"]:
+                raise ValueError("혼합 수집의 문항 분류가 바뀌었습니다.")
         if kind == "mock_submit" and any(exam.items.get(cid, {}).get("course") != course for cid in data.get("results", {})):
             raise ValueError("제출 집계에 다른 과정의 문항이 섞였습니다.")
         return course
