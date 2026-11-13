@@ -1482,9 +1482,9 @@
    "fn": "5b-4"
   },
   "learn/l05/assets/5c-1.png": {
-   "sha256": "70fb21e91188acdf45477288d0b3cdb0cf248fd7cf0546cdab900f89320e7c10",
+   "sha256": "373d158753d2f26c6fe3f801339b436362364c53ebfda47fe55ae91132ae816b",
    "script": "tools/ai_art/l05.py",
-   "fn": "5c-1"
+   "fn": "saved_5c"
   },
   "learn/l05/assets/5c-2.gif": {
    "sha256": "bddf14c7be40cd57145419758c1297ef8b784e70cade563388de7f4dddf473aa",
@@ -1712,9 +1712,9 @@
    "fn": "6d-1"
   },
   "learn/l06/assets/6d-2.png": {
-   "sha256": "45aeb927d8891eef0fce56ff685c353154b15c0a946ede2cf0ec5ca069aec64f",
+   "sha256": "79d67f7dfb5f7ec9e35189a46dbb68386d80c36975b15af8a5d92295c3a02a90",
    "script": "tools/ai_art/l06.py",
-   "fn": "6d-2"
+   "fn": "ce_shapes"
   },
   "learn/l06/assets/6d-21.png": {
    "sha256": "db98a010c3b32f31240d20be851be8e9043359f84dd3689d91154d0c4edde6ce",
@@ -1737,9 +1737,9 @@
    "fn": "6d-3"
   },
   "learn/l06/assets/6d-4.png": {
-   "sha256": "6e2889597bb1a26e74e4b34df1ab338ff503c9d638fc5b8a61f8cd52274e7a46",
+   "sha256": "af4f9ec44f391585e2216b91ed0de8355349ee8e38bb252150c12ec9adbec8ed",
    "script": "tools/ai_art/l06.py",
-   "fn": "6d-4"
+   "fn": "summary_6d"
   },
   "learn/l06/assets/6e-1.png": {
    "sha256": "4ae8c10ec50eda84835492822cbfa3104061b846ba168c97ba0066f801d985d7",
@@ -1757,9 +1757,9 @@
    "fn": "focal"
   },
   "learn/l06/assets/6e-31.png": {
-   "sha256": "9cb8a8a87e16a57d519b68ce3d038427c900d2c3ee4da4e2420148ad5ec83d99",
+   "sha256": "158a7d232268c5dcf9878500448ba6217042911c1af42f7db9bd7279702f7311",
    "script": "tools/ai_art/l06.py",
-   "fn": "6e-31"
+   "fn": "levels_6e_7"
   },
   "learn/l06/assets/6e-32.png": {
    "sha256": "e68ff5a5801e9f1317cc7366da6c1554513dc372d422e5eae310017e9e5cbc6b",
@@ -1782,9 +1782,9 @@
    "fn": "summary_6e"
   },
   "learn/l06/assets/6f-1.png": {
-   "sha256": "4b108bfe97dca3e6b777fcc51f8c4ae4fd37fa055e1a1da1ad2023137511d4df",
+   "sha256": "fb736b24f19a653f70090ae727eb33f1e722972c4b645b83b4520b61defb8caa",
    "script": "tools/ai_art/l06.py",
-   "fn": "6f-1"
+   "fn": "problem_types"
   },
   "learn/l06/assets/6f-2.png": {
    "sha256": "be8b462dcc8cb8b7bc742ddb6f92d85472a78723151fb9d7f438168104515a0c",
@@ -1847,9 +1847,9 @@
    "fn": "7b-23"
   },
   "learn/l07/assets/7b-3.png": {
-   "sha256": "ee79345739baff1da3780c6d1e4bdf495a59deb3a4782aa1268decabf13cddd8",
+   "sha256": "9db79b50c67c8d68a3e4b54f3525b4f13198c4ef9ca34a45f2313db74970f995",
    "script": "tools/ai_art/l07.py",
-   "fn": "7b-3"
+   "fn": "dummy_matrix"
   },
   "learn/l07/assets/7b-4.png": {
    "sha256": "72e00f31f933f51c694e9ffcfeb943c141b7409d56ddafea2d34d081075d93ca",

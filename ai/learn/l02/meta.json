@@ -106,8 +106,9 @@
    "what": "NumPy 문서 numpy.sum: keepdims=True 면 줄인 축을 길이 1 로 남겨 결과가 입력과 브로드캐스팅됨",
    "url": "https://numpy.org/doc/stable/reference/generated/numpy.sum.html",
    "checked": "2026-11-05"
-  }
- ],
+  },
+    {"what": "NumPy broadcasting: 입력 복사와 결과 메모리", "url": "https://numpy.org/doc/stable/user/basics.broadcasting.html", "checked": "2026-11-14"}
+  ],
  "lesson": "i02",
  "credits": [],
  "units": {

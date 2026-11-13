@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "내용 보완 0",
+ "writer": "조건 교정 담당",
  "resolver": "전체 재풀이 1",
- "reviewer": "교차 검토 2",
+ "reviewer": "변경 조건 독립 검토 담당",
  "files": {
   "assets/6a-1.png": "6e2df490079b6d508c24c62b13d635c69ee43c4cb6146022cfbb5cda35a7d50c",
   "assets/6a-2.gif": "3925dbc3271a00ff4bb4bff609592b41371d495b2bac040618faeab54cb71caf",
@@ -24,26 +24,26 @@
   "assets/6c-4.png": "82d28784b95f6727ee3485182c94e584f9a7f2d5bffe4a5afff831ed4854ee3f",
   "assets/6c-5.png": "f7888d7a4340207257b35a04f02f5badf474a9c6b8143e3325a0d378d78951c8",
   "assets/6d-1.gif": "cda0c0fc2450f4b7fe7326effd7479b3fc692e8d76806760a3fc2dd1b7f79bca",
-  "assets/6d-2.png": "45aeb927d8891eef0fce56ff685c353154b15c0a946ede2cf0ec5ca069aec64f",
+  "assets/6d-2.png": "79d67f7dfb5f7ec9e35189a46dbb68386d80c36975b15af8a5d92295c3a02a90",
   "assets/6d-21.png": "db98a010c3b32f31240d20be851be8e9043359f84dd3689d91154d0c4edde6ce",
   "assets/6d-22.png": "dd853cbb5fbb8568898a88b8f06d7d6c16d51285978a5201929bd750c262f067",
   "assets/6d-23.png": "ea9705965a66a49bc39e56a2732922cdad2151e53ed8f3b3daeb721448de5940",
   "assets/6d-3.png": "ed288b2d6e33a444908bb90497afdb4db98adeab0671c4ba7cecc4d5935166ed",
-  "assets/6d-4.png": "6e2889597bb1a26e74e4b34df1ab338ff503c9d638fc5b8a61f8cd52274e7a46",
+  "assets/6d-4.png": "af4f9ec44f391585e2216b91ed0de8355349ee8e38bb252150c12ec9adbec8ed",
   "assets/6e-1.png": "4ae8c10ec50eda84835492822cbfa3104061b846ba168c97ba0066f801d985d7",
   "assets/6e-2.gif": "9f038958fa12aeafabd591d269c7bfb7d19842cfa50e8507637a35bd2a933e61",
   "assets/6e-3.png": "ec38c8ea5704c7c865f661b5c9b37f7b1a232a7f96681e17a1856eeee63cb854",
-  "assets/6e-31.png": "9cb8a8a87e16a57d519b68ce3d038427c900d2c3ee4da4e2420148ad5ec83d99",
+  "assets/6e-31.png": "158a7d232268c5dcf9878500448ba6217042911c1af42f7db9bd7279702f7311",
   "assets/6e-32.png": "e68ff5a5801e9f1317cc7366da6c1554513dc372d422e5eae310017e9e5cbc6b",
   "assets/6e-33.png": "5f8bac2672b5f2282c27dd389ac8c6cd4fe3cf21de3555ff83deea73a6ed0f02",
   "assets/6e-4.png": "84d6d23728605e7a6453087119ed20593187a0ce989168236359ab37b7a0591b",
   "assets/6e-5.png": "ec1ab7dbeb0907ed25c5a806de321fdf0b5bb23342f939975a82b646a3c8f05b",
-  "assets/6f-1.png": "4b108bfe97dca3e6b777fcc51f8c4ae4fd37fa055e1a1da1ad2023137511d4df",
+  "assets/6f-1.png": "fb736b24f19a653f70090ae727eb33f1e722972c4b645b83b4520b61defb8caa",
   "assets/6f-2.png": "be8b462dcc8cb8b7bc742ddb6f92d85472a78723151fb9d7f438168104515a0c",
   "assets/6f-3.png": "976a84bc28827d0b5462a34c5f0e636dd5aad730b7e511001480b9d0584c6117",
   "assets/6f-4.png": "333d310821fe00f42aac2890dce5f3f20c13a72744cc2a6e8f76b7ac00d8ea76",
-  "meta.json": "791d261bd09833f950790997cedc9d35e42d566869f729ab7c768dcc0d0e578a",
-  "page.md": "3ac68e0eac0d64a00f0aa23c466abc0f1fbb0f67f9769ad6a04575da54f925db"
+  "meta.json": "cc47bbebc97732bced2667f64ad1a0213ef7619a1357372f160fe86328dd56e7",
+  "page.md": "cdb84d4e052fd097817784acce4c19e70da4cba131ffbd3dd1aad73d21526f31"
  },
  "findings": [
   "검토 4 가 본문, 캡션, 장 설명, 블록 글을 한 문장씩 읽고 119문장을 고침. 비유 낱말과 번역투를 바꾸고 정확도와 MNIST 를 쓰기 전에 정의했으며, 그림 6e-5 의 상자 이름을 클래스 불균형으로 바꿔 다시 그림",
@@ -65,6 +65,7 @@
   "추가된 용어의 첫 사용과 정의 순서를 대조함. 불필요한 예고 용어는 쉬운 말로 바꾸고 문항·코드·정답은 보존함.",
   "용어의 첫 등장과 정의를 추가 대조함. 개발 과정 그림의 클래스 표현을 정답 종류로 풀어 쓴 세 장면도 본문과 맞춰 확인함.",
   "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음.",
-  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함.",
+  "2026-11-14 BCE 일반 규격과 예제, 클래스 번호 CE의 모양과 자료형, 데이터별 손실과 배치 평균, 가중한 개수와 손실 합을 구분함. 기존 첫 재풀이의 답·점수·시간과 이전 검토 메모를 보존함. 변경한 지문·해설·본문·그림의 조건만 독립 대조했으며 전체 문항의 새 첫 재풀이로 세지 않음. 공식 문서와 순수 계산을 확인했으며 PyTorch를 import하거나 모델을 실행하지 않았음."
  ]
 }
