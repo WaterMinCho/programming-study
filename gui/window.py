@@ -227,8 +227,13 @@ class MainWindow(QMainWindow):
         diverged = result.get("status") == "diverged"
         if not diverged and (result.get("status") not in ("ok", "nothing") or result.get("changed") or result.get("backup")):
             self.notice = result  # 오프라인·git 없음 같은 결과는 홈에 한 줄로만 알리고 계속 진행함
-        if self.open_session() and diverged:
-            self._git_done("문제 받기", dict(result, changed=False))
+        if diverged:
+            def opened():
+                self.go_hub()
+                self._git_done("문제 받기", dict(result, changed=False))
+            self.open_session(opened)
+        else:
+            self.open_session()
 
     def ensure_identity(self, then=None, force=False):
         from learning_data.collection import CollectionError
