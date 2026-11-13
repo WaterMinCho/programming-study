@@ -155,6 +155,43 @@ class CourseGuiTest(AiTest):
             self.assertLessEqual(note.width(), win.width())
             self.assertGreater(win.ai_home.next_btn.height(), 0)
 
+    def test_learning_answers_block_clipboard_without_moving_at_max_text_in_both_courses(self):
+        from PyQt6.QtGui import QKeySequence
+        from PyQt6.QtWidgets import QApplication, QToolTip
+        win = self.boot((760, 480))
+        win.set_text("larger")
+        old_clipboard = QApplication.clipboard().text()
+        self.addCleanup(QApplication.clipboard().setText, old_clipboard)
+        self.addCleanup(QToolTip.hideText)
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            win.restyle()
+            for course, lesson, unit, step in (("intro", "i01", "1a", 2), ("app", "a01", "a1e", 3)):
+                win.go_ai()
+                win.switch_ai_course(course)
+                self.assertTrue(win.open_ai_unit(lesson, unit, step))
+                learn = win.ai_learn
+                guikit.wait_until(lambda: learn.pending_position is None)
+                recall = learn.view.findChildren(ai_learn.RecallBlock)[0]
+                field = recall.field
+                field.setText("draft")
+                field.setSelection(1, 3)
+                field.setFocus(Qt.FocusReason.TabFocusReason)
+                guikit.wait_until(lambda: not win.input_timer.isActive() and win.focused_input is None and learn.pending_position is None)
+                before = (learn.index, learn.scroll.verticalScrollBar().value(), field.geometry(), list(win.ai.record.log))
+                QApplication.clipboard().setText("outside-answer")
+                for action in (QKeySequence.StandardKey.Copy, QKeySequence.StandardKey.Cut, QKeySequence.StandardKey.Paste):
+                    QTest.keySequence(field, QKeySequence(action))
+                guikit.pump()
+                self.assertEqual("draft", field.text())
+                self.assertEqual("raf", field.selectedText())
+                self.assertEqual("outside-answer", QApplication.clipboard().text())
+                self.assertIs(field, QApplication.focusWidget())
+                self.assertEqual(before, (learn.index, learn.scroll.verticalScrollBar().value(), field.geometry(), list(win.ai.record.log)))
+                for widget in (field, recall.check_btn):
+                    self.assertTrue(widget.visibleRegion().contains(widget.rect()))
+                QToolTip.hideText()
+
     def test_deep_dialog_closes_without_changing_main_position_or_records(self):
         win = self.boot((760, 480))
         win.go_ai()
