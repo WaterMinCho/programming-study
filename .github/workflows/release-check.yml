@@ -43,6 +43,7 @@ on:
       - 'tests/test_gui_identity.py'
       - 'tests/test_gui_dialogs.py'
       - 'tests/test_gui_auto_submission.py'
+      - 'tests/test_gui_submission.py'
       - 'tests/test_gui_onboarding.py'
       - 'tests/test_launcher_shortcut.py'
       - 'tests/test_gui_launcher.py'

@@ -266,7 +266,9 @@ class DirectSubmissionTest(HubTest):
             win.pending_submission = {"status": "ok", "pending": False, "count": 0}
             win.workspace.submissions.show_result({"status": "ok", "message": "비공개 서버에 풀이를 저장했습니다."})
             guikit.pump()
-            self.assertIs(win.hub.submission_setup, QApplication.focusWidget())
+            self.assertIs(win.workspace, QApplication.focusWidget())
+            self.assertTrue(win.hub.submission_setup.isHidden())
+            self.assertFalse(win.hub.submission_setup.isEnabled())
             self.assertEqual(before, scroll.verticalScrollBar().value())
             self.assertNotEqual("accent", win.hub.submission_setup.property("tone"))
             self.assertEqual(before_width, win.hub.submission_setup.sizeHint().width())

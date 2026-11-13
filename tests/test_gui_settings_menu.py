@@ -32,10 +32,14 @@ class SettingsMenuTest(test_gui_hub.HubTest):
         self.assertEqual(hub.layout().indexOf(menu), -1)
         self.assertEqual(len(menu.actions), 4)
         self.assertEqual([button.text() for button in menu.theme_buttons.values()], ["시스템 따르기", "밝게", "어둡게"])
+        available = menu.screen().availableGeometry()
+        sizes = ((1280, 800), (1024, 700), (760, 480))
+        if guikit.APP.platformName() != "offscreen":
+            sizes = tuple((min(width, available.width() - 48), min(height, available.height() - 64)) for width, height in sizes)
         for mode in ("light", "dark"):
             win.set_theme(mode)
             win.set_text("larger")
-            for size in ((1280, 800), (1024, 700), (760, 480)):
+            for size in sizes:
                 with self.subTest(mode=mode, size=size):
                     win.resize(*size)
                     guikit.wait_until(lambda: not menu.anchor_timer.isActive() and menu.size() == menu.sizeHint())

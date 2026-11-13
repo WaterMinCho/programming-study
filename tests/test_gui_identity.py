@@ -267,7 +267,7 @@ class TeamDashboardTest(unittest.TestCase):
         theme.set_text("larger")
         kit.refont(self.root)
         available = self.root.screen().availableGeometry()
-        self.root.resize(620, min(700, available.height() - 48))
+        self.root.resize(620, min(700, available.height() - 96))
         self.root.move(available.topLeft() + QPoint(24, 24))
         for mode in ("light", "dark"):
             theme.set_mode(mode)
