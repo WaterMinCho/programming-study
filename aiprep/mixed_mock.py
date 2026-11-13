@@ -76,9 +76,9 @@ def course_entry(row, course):
 
 def related_cards(sess):
     """혼합 오답의 후보만 따로 읽음. 일반 연습 목록에는 추가하지 않음."""
-    cards = {cid: card for cid, card in sess.cards.items() if not card.get("mock")}
+    cards = {}
     for entry in sess.mock_lessons.values():
-        if entry["course"] == sess.course or not bank.is_ready(entry, sess.root):
+        if not bank.is_ready(entry, sess.root):
             continue
         try:
             note = bank.load_note({"id": entry["page"], "title": entry["title"]}, sess.root)

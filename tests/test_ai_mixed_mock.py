@@ -308,6 +308,9 @@ class MixedMockTest(unittest.TestCase):
         exam.items={i['id']:dict(i,family='unmatched-test-family',tags=[]) for i in json.loads(raw)['items']}
         exam.draft={'order':list(exam.items)}
         cards=mixed_mock.related_cards(sess)
+        app=service.AiSession('synthetic',home=str(self.root/'real-home'),root=str(root),course='app')
+        self.assertEqual(set(cards),set(mixed_mock.related_cards(app)))
+        self.assertFalse(any(c['kind']=='gen' for c in cards.values()))
         with mock.patch.object(mixed_mock,'related_cards',return_value=cards):
             for cid,item in exam.items.items():
                 results={key:'pass' if key!=cid else 'fail' for key in exam.items}
