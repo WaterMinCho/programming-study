@@ -254,7 +254,7 @@ class Workspace(QWidget):
         box = kit.box(self.body)
         self.compact = QComboBox()
         self.compact.setObjectName("subject_picker")
-        self.compact.setAccessibleName("학습 과목 이동")
+        self.compact.setAccessibleName("메뉴 이동")
         for tid, title, action in self.subjects:
             self.compact.addItem("커리어 · " + title if tid.startswith("career_") else title, action)
         self.compact.setMinimumHeight(48)
@@ -306,8 +306,9 @@ class Workspace(QWidget):
         rail_width = max(232, max(button.sizeHint().width() for button in self.buttons.values()) + 32)
         self.rail.setFixedWidth(rail_width)
         breakpoint = max(1120, rail_width + 760)
-        self.rail.setVisible(started and overview and self.width() >= breakpoint)
-        self.compact.setVisible(started and overview and self.width() < breakpoint)
+        rail_fits = self.width() >= breakpoint and self.height() >= self.rail.minimumSizeHint().height()
+        self.rail.setVisible(started and overview and rail_fits)
+        self.compact.setVisible(started and overview and not rail_fits)
         for index, (tid, _, _) in enumerate(self.subjects):
             self.buttons[tid].setChecked(self.win.area == tid)
             if self.win.area == tid:

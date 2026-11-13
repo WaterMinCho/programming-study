@@ -61,6 +61,18 @@ class CareerIntegrationTest(unittest.TestCase):
             self.assertTrue(workspace.career_toggle.isChecked())
             guikit.click(workspace.career_toggle)
             self.assertFalse(workspace.buttons["career_roadmap"].isHidden())
+            win.resize(1200, 480)
+            guikit.pump()
+            self.assertEqual((win.width(), win.height()), (1200, 480))
+            self.assertFalse(workspace.rail.isVisible())
+            self.assertTrue(workspace.compact.isVisible())
+            evidence = os.environ.get("CAREER_EVIDENCE")
+            if evidence:
+                destination = Path(evidence)
+                destination.mkdir(parents=True, exist_ok=True)
+                win.grab().save(str(destination / f"career-wide-short-{mode}.png"))
+                if sys.platform == "win32":
+                    win.screen().grabWindow(int(win.winId())).save(str(destination / f"career-wide-short-{mode}-native.png"))
             win.resize(760, 480)
             guikit.pump()
             self.assertEqual((win.width(), win.height()), (760, 480))
