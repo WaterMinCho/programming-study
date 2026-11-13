@@ -127,6 +127,8 @@ class MainWindow(QMainWindow):
         self.web_node_known, self.web_node_seen = False, False  # 웹 트랙의 Node 를 찾아 봤는지, 그때 node 모듈이 결과를 기억했는지
         self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면), web(웹 홈·미션·드릴·학습 노트), ai(AI 비전 개론)
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)
+        self.submission_running = False
+        self.operator_mode = os.environ.get("STUDY_OPERATOR_MODE") == "1"
         self.pending_submission = {"status": "checking", "pending": False, "count": 0}
         self.problem_updates = {"status": "checking", "available": False, "count": 0}
         self.next_update_check = 0
@@ -286,6 +288,7 @@ class MainWindow(QMainWindow):
     def open_session(self, then=None):
         """풀이 기록과 문제 은행을 새로 읽고 then()(없으면 허브)으로 감. 풀이 기록을 읽지 못하면 시작 화면에 이유를 보여 주고 False 를 돌려줌.
         알고리즘 여행 기록을 읽지 못하면 파이썬 스터디는 그대로 열고, 허브의 여행 카드에 이유를 보여 줌. 여기서는 node 를 찾지 않음."""
+        self.workspace.submissions.clear_result()
         if not self.ensure_identity(then):
             return False
         try:
@@ -329,6 +332,7 @@ class MainWindow(QMainWindow):
         self.privacy_controllers = getattr(self, "privacy_controllers", {})
         if new_privacy_path not in self.privacy_controllers:
             self.privacy_controllers[new_privacy_path] = SyncController(self, collections)
+            self.privacy_controllers[new_privacy_path].changed.connect(self.workspace.refresh)
             self.first_boot = True
             self.tour_ready = False
         self.privacy = self.privacy_controllers[new_privacy_path]
@@ -710,6 +714,7 @@ class MainWindow(QMainWindow):
         다른 일이 도는 중이면 시작하지 않고 False 를 돌려줌."""
         if self.job is not None:
             return False
+        self.workspace.submissions.clear_result()
         page = self.pages.currentWidget()
         page.set_busy(True, text)
         job = Job(fn, progress=on_progress is not None)
@@ -830,27 +835,62 @@ class MainWindow(QMainWindow):
         job.start()
 
     def submit_pr(self):
+        if self.gitflow is None or self.job is not None:
+            return
         api = getattr(self.gitflow, "api", None)
-        if api is not None:
-            self.show_submission_setup()
+        if api is not None and not self.has_submission_consent():
+            self.show_privacy()
             return
         if self.round_page.flush() and self.journey_page.flush():  # 쓰다 만 답과 코드가 빠진 채 올라가지 않게
-            self.run_job("제출하는 중입니다.", self.gitflow.submit, self._submitted)
+            self.submission_running = api is not None
+            started = self.run_job("풀이 결과를 서버로 제출합니다." if api is not None else "제출하는 중입니다.",
+                                   self.gitflow.submit, self._submitted,
+                                   on_fail=lambda: setattr(self, "submission_running", False))
+            if not started:
+                self.submission_running = False
+
+    def has_submission_consent(self):
+        if getattr(self.gitflow, "api", None) is None:
+            return True
+        controller = getattr(self, "privacy", None)
+        if controller is None:
+            return False
+        try:
+            state = controller.consent.settings()
+            return bool(state.get("accepted") and not state.get("withdraw_pending") and not controller.consent.needs_choice())
+        except CollectionError:
+            return False
 
     def _submitted(self, result):
+        self.submission_running = False
+        if getattr(self.gitflow, "api", None) is not None:
+            if result.get("status") in ("ok", "nothing"):
+                self.pending_submission = {"status": "checking", "pending": False, "count": 0}
+            self.workspace.submissions.show_result(result)
+            return
         if result.get("status") == "setup_required":
             self.show_submission_setup()
         else:
             self._git_done("제출", result)
 
     def show_submission_setup(self):
-        if getattr(self.gitflow, "api", None) is None:
+        if not self.operator_mode or getattr(self.gitflow, "api", None) is None:
             return
         from gui.submission_setup import SubmissionSetup
         if not self.round_page.flush() or not self.journey_page.flush():
             return
         self.submission_dialog = SubmissionSetup(self)
         self.submission_dialog.show()
+
+    def show_submission_files(self, parent=None):
+        api = getattr(self.gitflow, "api", None)
+        if api is None:
+            return
+        if not self.round_page.flush() or not self.journey_page.flush():
+            return
+        from gui.submission_setup import SubmissionFiles
+        self.submission_files_dialog = SubmissionFiles(parent or self, api)
+        self.submission_files_dialog.show()
 
     def fetch_problems(self):
         if self.round_page.flush() and self.journey_page.flush():

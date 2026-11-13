@@ -240,6 +240,50 @@ class PrivateClient(Client):
         self.path = self.path.with_name("private-submission.json")
         self.pending_path = self.path.with_name("private-submission-pending.json")
 
+    def settings(self):
+        config = super().settings()
+        if config.get("token"):
+            if (not isinstance(config["token"], str) or not re.fullmatch(r"[a-f0-9]{64}", config["token"]) or not isinstance(config.get("participant"), str)
+                    or not config["participant"] or not isinstance(config.get("url"), str)):
+                raise CollectionError("제출 연결 정보를 확인할 수 없습니다. 연결 파일을 지우지 말고 운영자에게 문의해 주세요.")
+            endpoint(config["url"])
+        return config
+
+    def pending(self):
+        files = snapshot(self.root, self.user)
+        config = self.settings()
+        saved = self._pending_request(config)
+        pending = bool(files) and (digest(files) != config.get("published_hash") or saved is not None)
+        return {"status": "ok", "pending": pending, "count": len(files) if pending else 0}
+
+    def _pending_request(self, config):
+        if not self.pending_path.exists():
+            return None
+        try:
+            saved = json.loads(self.pending_path.read_text(encoding="utf-8"))
+            if (not isinstance(saved, dict) or not isinstance(saved.get("files"), dict) or not saved["files"]
+                    or not isinstance(saved.get("request_id"), str) or saved.get("participant") != config.get("participant")
+                    or saved.get("digest") != digest({"files": saved.get("files"), "request": saved.get("request_id")})):
+                raise ValueError()
+        except (OSError, ValueError):
+            raise CollectionError("이전 제출의 대기 정보를 읽을 수 없습니다. 파일을 지우지 말고 운영자에게 문의해 주세요. 로컬 풀이는 유지됩니다.") from None
+        return saved
+
+    def submit_ready(self):
+        from learning_data.privacy import Consent, DEFAULT_SERVER
+        consent = Consent(self.collections)
+        state = consent.settings()
+        if consent.needs_choice() or not state.get("accepted") or state.get("withdraw_pending"):
+            return {"status": "error", "message": "[내 정보·데이터]에서 동의 내용을 확인한 뒤 제출해 주세요. 로컬 풀이는 유지됩니다."}
+        if not self.pending()["pending"]:
+            return {"status": "nothing", "message": "새로 제출할 풀이가 없습니다."}
+        config = self.settings()
+        if not config.get("token"):
+            if config.get("url") and config["url"] != DEFAULT_SERVER and not config.get("enroll_sent"):
+                return {"status": "error", "message": "다른 서버 연결은 운영자 설정에서 먼저 확인해 주세요. 로컬 풀이는 유지됩니다."}
+            self.connect_open(config.get("url"))
+        return self.submit()
+
     def save_active(self, consent, choice, data, path=None):
         with consent.lock:
             current = consent.settings()
@@ -292,16 +336,15 @@ class PrivateClient(Client):
         if not files:
             return {"status": "nothing", "message": "아직 제출할 풀이가 없습니다."}
         parts = []
-        saved = None
-        if self.pending_path.exists():
-            saved = json.loads(self.pending_path.read_text(encoding="utf-8"))
-            if saved.get("participant") != config["participant"] or saved.get("digest") != digest({"files": saved.get("files"), "request": saved.get("request_id")}):
-                raise CollectionError("이전 비공개 접수 기록을 확인해 주세요.")
+        saved = self._pending_request(config)
+        if saved is not None:
             parts.append(saved)
         if (not parts and config.get("published_hash") != digest(files)) or (parts and digest(parts[-1]["files"]) != digest(files)):
             request_id = str(uuid.uuid4())
             parts.append({"participant": config["participant"], "request_id": request_id, "files": files,
                           "digest": digest({"files": files, "request": request_id})})
+        if not parts:
+            return {"status": "nothing", "message": "이미 제출한 풀이입니다.", "pr_url": None, "receipt": config.get("last_hash")}
         for part in parts:
             payload = {"files": part["files"], "request_id": part["request_id"],
                        "digest": part["digest"], "previous": config.get("last_hash")}
@@ -351,9 +394,12 @@ class Flow:
         if not self.api:
             return {"status": "error", "message": "비공개 제출 연결을 확인해 주세요."}
         try:
-            return self.api.submit()
+            return self.api.submit_ready()
         except (CollectionError, OSError, ValueError) as error:
-            return {"status": "error", "message": str(error), "detail": ""}
+            message = str(error)
+            if isinstance(error, CollectionError) and error.status == 401:
+                message += " 연결 파일을 지우지 말고 운영자에게 문의해 주세요. 로컬 풀이는 유지됩니다."
+            return {"status": "error", "message": message, "detail": ""}
 
     def sync(self):
         result = self.git.sync()

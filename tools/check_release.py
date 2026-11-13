@@ -40,6 +40,7 @@ CASES = (
     "tests.test_gui_submission.ApiSetupTest.test_setup_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_privacy.PrivacyGuiTest.test_consent_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_submission.ApiSetupTest.test_connection_error_keeps_answers_and_shows_message",
+    "tests.test_gui_submission.DirectSubmissionTest.test_pending_submission_and_result_fit_small_window_largest_text_both_themes",
 )
 CLOSED_CASES = frozenset(name for name in CASES if ".HomeAndGitTest." in name)
 

@@ -264,16 +264,23 @@ class SubmissionTest(unittest.TestCase):
         self.assertEqual(files["s01/meta.json"].encode("utf-8"), b"\xef\xbb\xbf{}")
         clean_files(files)
 
-    def test_default_flow_asks_for_private_setup_and_does_not_use_direct_git(self):
+    def test_default_flow_connects_private_and_does_not_use_direct_git(self):
         from aiprep.privacy import Consent
         Consent(self.stores).choose(True)
         git = mock.Mock(root=str(self.repo), user="tester")
         flow = Flow(git)
         flow.set_collections(self.stores)
-        self.assertEqual(flow.submit()["status"], "setup_required")
+        flow.api.transport = self.transport
         flow.api.save({"mode": "git"})
-        self.assertEqual(flow.submit()["status"], "setup_required")
+        with mock.patch.dict("os.environ", {"STUDY_OPEN_REGISTRATION": "1"}):
+            result = flow.submit()
+        self.assertEqual(result["status"], "ok")
+        self.assertIsNone(result["pr_url"])
+        self.assertEqual(flow.submit()["status"], "nothing")
         git.submit.assert_not_called()
+        self.publisher.publish.assert_not_called()
+        with self.db.connect() as db:
+            self.assertEqual(1, db.execute("SELECT count(*) FROM api_submissions").fetchone()[0])
 
     def test_real_http_client_registers_stores_and_publishes(self):
         import threading
