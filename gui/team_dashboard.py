@@ -82,8 +82,8 @@ class CollectionChart(QWidget):
 
     def set_data(self, rows, days, message=""):
         self.rows, self.days, self.active = rows, days, None
-        self.message = message or ("이 기간에 수집된 기록이 없습니다." if not any(row["python"] + row["ai"] for row in rows) else "")
-        self.setAccessibleName("시간별 수집 기록" if days == 1 else "일별 수집 기록")
+        self.message = message or ("이 기간에 채점한 풀이가 없습니다." if not any(row["python"] + row["ai"] for row in rows) else "")
+        self.setAccessibleName("시간별 채점 풀이" if days == 1 else "일별 채점 풀이")
         self.setAccessibleDescription("\n".join(self.describe(n) for n in range(len(rows))) or self.message)
         self.update()
 
@@ -217,14 +217,14 @@ class TeamCard(QWidget):
         self.win, self.days, self.loaded, self.loading = win, 7, None, False
         self.setProperty("ui", "2")
         box = kit.box(self, spacing=24)
-        heading = kit.heading(kit.para("스터디 수집 현황", "headline", bold=True), kit.para("파이썬과 AI 개론·응용의 수집 통계입니다.", "caption", "secondary"))
+        heading = kit.heading(kit.para("스터디 수집 현황", "headline", bold=True), kit.para("파이썬과 AI에서 답을 쓰거나 고르고 채점한 문항을 셉니다.", "caption", "secondary"))
         self.reload = kit.button("새로고침", "secondary")
         self.reload.clicked.connect(self.fetch)
         box.addWidget(DashboardRow([heading, self.reload], lambda: [text_width(heading.title), self.reload.sizeHint().width()], [1, 0], 16))
         self.total, self.installations, self.accounts = [kit.para("–", "display", bold=True) for _ in range(3)]
         self.account_period, self.device_period = [kit.para("", "caption", "secondary") for _ in range(2)]
         metrics, metric_labels = [], []
-        for name, value, detail in (("누적 수집 기록", self.total, kit.para("수집 시작 이후 전체 기록", "caption", "secondary")),
+        for name, value, detail in (("누적 채점 풀이", self.total, kit.para("정답과 오답을 모두 포함합니다.", "caption", "secondary")),
                                     ("인증 계정", self.accounts, self.account_period),
                                     ("첫 실행 확인 기기", self.installations, self.device_period)):
             metric = kit.frame("team_metric")
@@ -239,7 +239,7 @@ class TeamCard(QWidget):
         box.addWidget(self.metrics)
         self.plot_card = kit.frame("team_plot")
         plot_box = kit.box(self.plot_card, (24, 24, 24, 24), 24)
-        self.period_name = kit.para("최근 7일 수집", "caption", "secondary")
+        self.period_name = kit.para("최근 7일 풀이", "caption", "secondary")
         self.period_total = kit.para("–", "display", bold=True)
         period_heading = kit.spaced(self.period_name, self.period_total, spacing=8)
         self.periods = PeriodSelector()
@@ -273,7 +273,7 @@ class TeamCard(QWidget):
         area_box.addWidget(self.chart)
         self.breakdown = kit.frame("team_breakdown")
         breakdown = kit.box(self.breakdown, (24, 24, 24, 24), 16)
-        breakdown.addWidget(kit.para("과목별 수집", "body", bold=True))
+        breakdown.addWidget(kit.para("과목별 풀이", "body", bold=True))
         self.subject_totals, self.subject_bars = {}, {}
         for key, title in (("python", "파이썬"), ("ai", "AI 개론·응용")):
             body = QWidget()
@@ -367,15 +367,24 @@ class TeamCard(QWidget):
                 return
             self.reverify.hide()
             self.metrics.show()
-            self.plot_card.show()
-            self.total.setText("%s건" % format(result["total"], ","))
+            graded = result.get("graded")
+            self.plot_card.setVisible(graded is not None)
             self.accounts.setText("%s개" % format(result["accounts"], ","))
             self.installations.setText("%s대" % format(result["installations"], ","))
             self.account_period.setText("%s 첫 인증 %s개" % (PERIODS[days], format(result["period_accounts"], ",")))
             self.device_period.setText("%s 첫 실행 %s대" % (PERIODS[days], format(result["period_installations"], ",")))
-            self.period_name.setText(PERIODS[days] + " 수집")
-            self.period_total.setText("%s건" % format(result["period_total"], ","))
-            rows = result["series"]
+            kit.typed(self.note, "caption")
+            self.note.line = theme.TYPE["caption"][1]
+            kit.set_tone(self.note, "secondary")
+            if graded is None:
+                self.total.setText("–")
+                self.note.setText("이 서버는 채점 풀이 통계를 아직 제공하지 않습니다.")
+                self.show()
+                return
+            self.total.setText("%s건" % format(graded["total"], ","))
+            self.period_name.setText(PERIODS[days] + " 풀이")
+            self.period_total.setText("%s건" % format(graded["period_total"], ","))
+            rows = graded["series"]
             first, last = [datetime.datetime.fromisoformat(rows[n]["at"]).astimezone(KST) for n in (0, -1)]
             dates = "%d.%d.%d" % (first.year, first.month, first.day)
             if days != 1:
@@ -384,11 +393,13 @@ class TeamCard(QWidget):
             for key in ("python", "ai"):
                 value = sum(row[key] for row in rows)
                 self.subject_totals[key].setText("%s건" % format(value, ","))
-                self.subject_bars[key].setValue(round(100 * value / result["period_total"]) if result["period_total"] else 0)
+                self.subject_bars[key].setValue(round(100 * value / graded["period_total"]) if graded["period_total"] else 0)
             self.chart.set_data(rows, days)
-            text = "저장된 기록 시각으로 집계합니다. 재전송은 중복 합산하지 않고 합성 기록은 제외합니다."
-            if result["undated"]:
-                text += " 시각 미확인 %s건은 누적에만 포함합니다." % format(result["undated"], ",")
+            text = "다시 풀고 채점하면 한 건 더 셉니다. 미응답과 [모르겠어요]는 제외합니다."
+            if graded["undated"]:
+                text += " 시각 미확인 %s건은 누적에만 포함합니다." % format(graded["undated"], ",")
+            if graded["unknown"]:
+                text += " 응답 여부 미확인 %s건은 풀이 수에서 제외했습니다." % format(graded["unknown"], ",")
             try:
                 at = datetime.datetime.fromisoformat(result.get("as_of", ""))
                 if at.tzinfo is not None:
@@ -396,9 +407,6 @@ class TeamCard(QWidget):
                     text += "  %d.%d %02d:%02d 기준" % (at.month, at.day, at.hour, at.minute)
             except (TypeError, ValueError):
                 pass
-            kit.typed(self.note, "caption")
-            self.note.line = theme.TYPE["caption"][1]
-            kit.set_tone(self.note, "secondary")
             self.note.setText(text)
             self.show()
         started = self.win.run_job("수집 통계를 확인하고 있습니다.", work, done,

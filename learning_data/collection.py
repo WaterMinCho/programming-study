@@ -278,6 +278,10 @@ class Collection:
                         payload.update(response=None, goal=None, observed_at=None)
                         if payload.get("result") != "blank":
                             payload["result"] = "not_collected"
+                if kind in ("answer", "mock_answer") and payload.get("result") != "not_collected" and "response" in payload:
+                    response = payload["response"]
+                    values = response if isinstance(response, (list, tuple)) else [response]
+                    payload["answered"] = any(v is not None and str(v).strip() for v in values)
                 if at is not None:
                     payload["source_at"] = at
                 eid = str(uuid.uuid5(uuid.UUID(meta["participant"]), key)) if key else str(uuid.uuid4())

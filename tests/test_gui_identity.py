@@ -44,7 +44,8 @@ class IdentityGuiTest(HubTest):
         def summary(days):
             count = 24 if days == 1 else days
             rows = [{"at": (datetime.datetime(2026, 11, 1, tzinfo=datetime.timezone.utc) + datetime.timedelta(days=n)).isoformat(), "python": n + 1, "ai": 0} for n in range(count)]
-            return {"total": 1000, "period_total": sum(row["python"] for row in rows), "undated": 100, "days": days, "series": rows, "installations": 12, "period_installations": 3, "accounts": 10, "period_accounts": 2}
+            return {"total": 5000, "days": days, "installations": 12, "period_installations": 3, "accounts": 10, "period_accounts": 2,
+                    "graded": {"total": 1000, "period_total": sum(row["python"] for row in rows), "undated": 100, "unknown": 0, "series": rows}}
         identity = mock.Mock()
         identity.settings.return_value = {"verified": True, "team": True}
         identity.summary.side_effect = summary
@@ -106,14 +107,15 @@ class TeamDashboardTest(unittest.TestCase):
         start = datetime.datetime(2026, 11, 13, tzinfo=datetime.timezone(datetime.timedelta(hours=9))) - datetime.timedelta(days=days - 1)
         rows = [{"at": (start + (datetime.timedelta(hours=n) if days == 1 else datetime.timedelta(days=n))).isoformat(),
                  "python": n + 1, "ai": 2 * n} for n in range(24 if days == 1 else days)]
-        return {"total": 12000, "period_total": sum(row["python"] + row["ai"] for row in rows),
-                "undated": 9, "days": days, "series": rows, "as_of": "2026-11-13T17:20:00+09:00",
+        return {"total": 20000, "period_total": 4000, "undated": 20, "series": [dict(row, ai=0) for row in rows],
+                "graded": {"total": 12000, "period_total": sum(row["python"] + row["ai"] for row in rows),
+                           "undated": 9, "unknown": 13, "series": rows}, "days": days, "as_of": "2026-11-13T17:20:00+09:00",
                 "installations": 41, "period_installations": 11, "accounts": 32, "period_accounts": 8}
 
     def test_period_changes_all_visible_counts_and_never_replaces_the_lifetime_totals(self):
         for days in (1, 7, 15, 30):
             self.card.buttons[days].click()
-            result = self.result(days)
+            result = self.result(days)["graded"]
             self.assertEqual("12,000건", self.card.total.text())
             self.assertEqual("32개", self.card.accounts.text())
             self.assertEqual("41대", self.card.installations.text())
@@ -124,6 +126,7 @@ class TeamDashboardTest(unittest.TestCase):
             self.assertEqual(result["series"], self.card.chart.rows)
             self.assertIn("시간별" if days == 1 else "일별", self.card.range.text())
             self.assertIn("시각 미확인 9건", self.card.note.text())
+            self.assertIn("응답 여부 미확인 13건", self.card.note.text())
             self.assertIn("17:20 기준", self.card.note.text())
 
     def test_summary_and_chart_reflow_at_max_text_in_both_themes(self):
@@ -154,13 +157,13 @@ class TeamDashboardTest(unittest.TestCase):
 
     def test_empty_and_failed_queries_are_distinct_and_retry_restores_counts(self):
         empty = self.result(7)
-        empty["period_total"] = 0
-        empty["series"] = [dict(row, python=0, ai=0) for row in empty["series"]]
+        empty["graded"]["period_total"] = 0
+        empty["graded"]["series"] = [dict(row, python=0, ai=0) for row in empty["graded"]["series"]]
         self.identity.summary.side_effect = None
         self.identity.summary.return_value = empty
         self.card.fetch()
         self.assertEqual("0건", self.card.period_total.text())
-        self.assertIn("수집된 기록이 없습니다", self.card.chart.message)
+        self.assertIn("채점한 풀이가 없습니다", self.card.chart.message)
         self.assertFalse(self.card.plot_card.isHidden())
         self.identity.summary.side_effect = CollectionError("연결을 확인해 주세요.")
         self.card.fetch()
@@ -196,6 +199,21 @@ class TeamDashboardTest(unittest.TestCase):
             done(self.result(7))
             self.assertTrue(self.card.isHidden())
             self.assertFalse(self.card.loading)
+
+    def test_old_server_keeps_accounts_without_showing_event_counts_as_attempts(self):
+        old = self.result(7)
+        del old["graded"]
+        self.identity.summary.side_effect = None
+        self.identity.summary.return_value = old
+        self.card.fetch()
+        self.assertEqual("–", self.card.total.text())
+        self.assertTrue(self.card.plot_card.isHidden())
+        self.assertEqual("32개", self.card.accounts.text())
+        self.assertIn("아직 제공하지 않습니다", self.card.note.text())
+        self.identity.summary.side_effect = self.result
+        self.card.fetch()
+        self.assertFalse(self.card.plot_card.isHidden())
+        self.assertEqual("12,000건", self.card.total.text())
 
     def test_worker_failure_and_declined_job_restore_the_controls(self):
         self.controller.run_job.side_effect = None

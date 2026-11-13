@@ -26,6 +26,11 @@ def initialize(db):
     db.execute("CREATE TABLE IF NOT EXISTS identity_policy (slot INTEGER PRIMARY KEY CHECK(slot=1), value TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS identity_installations (device_hash TEXT PRIMARY KEY, first_seen INTEGER NOT NULL)")
     db.execute("CREATE INDEX IF NOT EXISTS identity_installations_time ON identity_installations(first_seen)")
+    initialize_events(db)
+    initialize_attempts(db)
+
+
+def initialize_events(db):
     if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_events'").fetchone():
         return
     db.execute("CREATE TABLE team_events (participant TEXT, track TEXT, event_id TEXT, at INTEGER, synthetic INTEGER NOT NULL, PRIMARY KEY(participant,track,event_id))")
@@ -39,6 +44,44 @@ def initialize(db):
     remove = "DELETE FROM team_events WHERE participant=old.participant AND track=old.track AND event_id=old.event_id;"
     for action, body in (("INSERT", insert), ("DELETE", remove), ("UPDATE", remove + insert)):
         db.execute("CREATE TRIGGER team_events_%s AFTER %s ON events BEGIN %s END" % (action.lower(), action, body))
+
+
+def initialize_attempts(db):
+    """원본을 그대로 두고 문항별 채점 판정만 색인함. 첫 이관과 이후 저장에 같은 질의를 사용함."""
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='team_attempts'").fetchone():
+        return
+    db.execute("""CREATE VIEW team_attempt_source AS
+        SELECT participant, track, event_id, CASE
+            WHEN json_type(payload,'$.data.card') IS NOT 'text' OR trim(card)='' THEN NULL
+            WHEN dontknow=1 OR answered='false' THEN NULL
+            WHEN answered IS NOT NULL AND answered!='true' THEN NULL
+            WHEN kind='answer' AND track='python' AND result IN ('ok','wrong') THEN 1
+            WHEN track!='ai' OR kind IS NULL OR kind NOT IN ('answer','legacy_answer','mock_answer') THEN NULL
+            WHEN result='pass' OR (kind!='mock_answer' AND result='partial') THEN 1
+            WHEN result='stuck' THEN CASE
+                WHEN answered='true' THEN 1
+                WHEN json_type(payload,'$.data.response')='array' THEN
+                    CASE WHEN EXISTS (SELECT 1 FROM json_each(payload,'$.data.response')
+                        WHERE type='integer' OR (type='text' AND trim(value, char(9,10,11,12,13,32,160,12288))!=''))
+                        THEN 1 END
+                WHEN kind='answer' THEN 1
+                WHEN kind='legacy_answer' AND json_type(payload,'$.data.sure') IN ('true','false') THEN 1
+                ELSE 0 END
+            END AS confirmed
+        FROM (SELECT participant, track, event_id, payload, json_extract(payload,'$.kind') AS kind,
+                     json_extract(payload,'$.data.card') AS card, json_extract(payload,'$.data.result') AS result,
+                     json_extract(payload,'$.data.dontknow') AS dontknow, json_type(payload,'$.data.answered') AS answered
+              FROM events WHERE json_valid(payload))""")
+    db.execute("""CREATE TABLE team_attempts (
+        participant TEXT, track TEXT, event_id TEXT, confirmed INTEGER NOT NULL,
+        PRIMARY KEY(participant,track,event_id)) WITHOUT ROWID""")
+    select = "SELECT participant,track,event_id,confirmed FROM team_attempt_source WHERE confirmed IS NOT NULL"
+    db.execute("INSERT INTO team_attempts " + select)
+    add = ("INSERT INTO team_attempts " + select +
+           " AND participant=new.participant AND track=new.track AND event_id=new.event_id;")
+    remove = "DELETE FROM team_attempts WHERE participant=old.participant AND track=old.track AND event_id=old.event_id;"
+    for action, body in (("insert", add), ("delete", remove), ("update", remove + add)):
+        db.execute("CREATE TRIGGER team_attempts_%s AFTER %s ON events BEGIN %s END" % (action, action, body))
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -167,15 +210,26 @@ class Access:
         step, size = (3600, 24) if days == 1 else (86400, days)
         begin, end = int(start.timestamp()), int(now.timestamp()) + 1
         with self.database.connect() as db:
-            total, undated = db.execute("SELECT count(*),coalesce(sum(at IS NULL OR at>?),0) FROM team_events WHERE synthetic=0", (end,)).fetchone()
-            values = db.execute("SELECT (at-?)/? AS slot,track,count(*) FROM team_events WHERE synthetic=0 AND at>=? AND at<? GROUP BY slot,track", (begin, step, begin, end)).fetchall()
+            db.execute("BEGIN")
+            joined = " FROM team_events LEFT JOIN team_attempts USING (participant, track, event_id) WHERE synthetic=0"
+            total, undated, graded, graded_undated, unknown = db.execute("""
+                SELECT count(*), count(CASE WHEN at IS NULL OR at>? THEN 1 END),
+                       count(CASE WHEN confirmed=1 THEN 1 END),
+                       count(CASE WHEN confirmed=1 AND (at IS NULL OR at>=?) THEN 1 END),
+                       count(CASE WHEN confirmed=0 THEN 1 END)""" + joined, (end, end)).fetchone()
+            values = db.execute("""SELECT (at-?)/? AS slot,track,count(*),count(CASE WHEN confirmed=1 THEN 1 END)"""
+                                + joined + " AND at>=? AND at<? GROUP BY slot,track", (begin, step, begin, end)).fetchall()
             installations = db.execute("SELECT count(*),coalesce(sum(first_seen>=? AND first_seen<?),0) FROM identity_installations", (begin, end)).fetchone()
             accounts = db.execute("SELECT count(*),coalesce(sum(first_seen>=? AND first_seen<?),0) FROM identity_accounts", (begin, end)).fetchone()
         series = [{"at": (start + datetime.timedelta(seconds=n * step)).isoformat(), "python": 0, "ai": 0} for n in range(size)]
-        for slot, track, count in values:
+        graded_series = [row.copy() for row in series]
+        for slot, track, count, attempts in values:
             if 0 <= slot < size and track in ("python", "ai"):
                 series[slot][track] = count
+                graded_series[slot][track] = attempts
         return {"total": total, "period_total": sum(row["python"] + row["ai"] for row in series),
+                "graded": {"total": graded, "undated": graded_undated, "unknown": unknown, "series": graded_series,
+                           "period_total": sum(row["python"] + row["ai"] for row in graded_series)},
                 "undated": undated, "days": days, "series": series, "as_of": now.isoformat(), "time_basis": "recorded_at",
                 "installations": installations[0], "period_installations": installations[1],
                 "accounts": accounts[0], "period_accounts": accounts[1]}
