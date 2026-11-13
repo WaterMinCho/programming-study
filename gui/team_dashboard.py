@@ -3,8 +3,8 @@
 import datetime
 import math
 
-from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer
-from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
+from PyQt6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, Qt, QTimer
+from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen, QTextLayout
 from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QFrame, QPushButton, QSizePolicy, QToolTip, QWidget
 
 from gui import kit, theme
@@ -21,17 +21,68 @@ def observed_total(row):
 
 
 class MetricInfo(QPushButton):
-    def __init__(self, title, explanation):
-        super().__init__("ⓘ")
-        self.setObjectName("text")
+    def __init__(self, title, explanation, anchor=None):
+        super().__init__()
+        self.anchor = anchor
+        self.ink_cache = None
+        if anchor is not None:
+            anchor.installEventFilter(self)
+        self.setObjectName("metric_info")
         self.setProperty("scale", "s")
         self.setAutoDefault(False)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAccessibleName(title + " 집계 기준")
-        self.setToolTip(explanation)
-        self.setAccessibleDescription(self.toolTip())
+        self.set_explanation(explanation)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.clicked.connect(self.show_tip)
+        self.refont()
+
+    def set_explanation(self, explanation):
+        self.setToolTip(explanation)
+        self.setAccessibleDescription(explanation)
+
+    def refont(self):
+        side = theme.control_height("s")
+        self.setFixedSize(side, side)
+        self.update()
+
+    def icon_rect(self):
+        center = self.height() / 2
+        if self.anchor is not None:
+            key = self.anchor.font().toString(), self.anchor.text()
+            if self.ink_cache is None or self.ink_cache[0] != key:
+                layout = QTextLayout(self.anchor.text(), self.anchor.font())
+                layout.beginLayout()
+                line = layout.createLine()
+                line.setLineWidth(max(1, self.anchor.width()))
+                layout.endLayout()
+                glyphs = [run.rawFont().boundingRect(glyph).translated(position)
+                          for run in layout.glyphRuns() for glyph, position in zip(run.glyphIndexes(), run.positions())
+                          if not run.rawFont().boundingRect(glyph).isEmpty()]
+                ink = (min(rect.top() for rect in glyphs) + max(rect.bottom() for rect in glyphs)) / 2 if glyphs else line.height() / 2
+                self.ink_cache = key, line.height(), ink
+            top = self.mapFromGlobal(self.anchor.mapToGlobal(QPoint())).y()
+            center = top + (self.anchor.height() - self.ink_cache[1]) / 2 + self.ink_cache[2]
+        size = theme.TYPE["caption"][0] * .85
+        return QRectF((self.width() - size) / 2, center - size / 2, size, size)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(theme.qcolor("muted"), 1.5)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+        circle = self.icon_rect()
+        painter.drawEllipse(circle)
+        center = circle.center()
+        painter.drawPoint(QPointF(center.x(), center.y() - circle.height() * .22))
+        painter.drawLine(QPointF(center.x(), center.y()), QPointF(center.x(), center.y() + circle.height() * .24))
+
+    def eventFilter(self, watched, event):
+        if watched is self.anchor and event.type() in (QEvent.Type.Paint, QEvent.Type.FontChange, QEvent.Type.StyleChange, QEvent.Type.Resize):
+            self.update()
+        return super().eventFilter(watched, event)
 
     def show_tip(self):
         QToolTip.showText(self.mapToGlobal(self.rect().bottomLeft()), self.toolTip(), self)
@@ -302,7 +353,7 @@ class TeamCard(QWidget):
             line = QWidget()
             number = kit.box(line, horizontal=True, spacing=8)
             value = kit.label("–", "headline", bold=True)
-            info = MetricInfo(title, description)
+            info = MetricInfo(title, description, value)
             number.addWidget(value)
             number.addWidget(info)
             number.addStretch(1)
@@ -317,8 +368,19 @@ class TeamCard(QWidget):
         halves = [DashboardRow(pair, lambda pair=pair: widths(pair), spacing=16) for pair in pairs]
         self.metrics = DashboardRow(halves, lambda: [sum(widths(pair)) + 16 for pair in pairs], spacing=16)
         box.addWidget(self.metrics)
+        self.raw_card = kit.frame("team_breakdown")
+        raw_box = kit.box(self.raw_card, (16, 16, 16, 16), 8)
+        raw_heading = QWidget()
+        raw_line = kit.box(raw_heading, horizontal=True, spacing=8)
+        raw_title = kit.label("수집 기록", "caption", "secondary")
+        self.raw_info = MetricInfo("수집 기록", "", raw_title)
+        raw_line.addWidget(raw_title)
+        raw_line.addWidget(self.raw_info)
+        raw_line.addStretch(1)
         self.raw = kit.para("", "body", bold=True)
-        box.addWidget(self.raw)
+        raw_box.addWidget(raw_heading)
+        raw_box.addWidget(self.raw)
+        box.addWidget(self.raw_card)
         self.identity_line = QWidget()
         secondary = kit.FlowLayout(self.identity_line, spacing=12)
         self.total, self.accounts, self.installations = [kit.label("–", "caption", "secondary") for _ in range(3)]
@@ -329,6 +391,9 @@ class TeamCard(QWidget):
             part = kit.box(group, spacing=4, horizontal=True)
             part.addWidget(kit.label(name, "caption", "secondary"))
             part.addWidget(value)
+            if value is self.total:
+                self.total_info = MetricInfo(name, "", value)
+                part.addWidget(self.total_info)
             if detail is not None:
                 part.addWidget(detail)
             secondary.addWidget(group)
@@ -513,7 +578,7 @@ class TeamCard(QWidget):
             self.loaded = identity
             if result.get("error"):
                 self.result = None
-                self.raw.hide()
+                self.raw_card.hide()
                 self.filter_row.hide()
                 self.identity_line.hide()
                 self.metrics.hide()
@@ -533,8 +598,14 @@ class TeamCard(QWidget):
             self.result = result
             raw_period = result.get("period_total")
             period_text = "미확인" if raw_period is None else f"{raw_period:,}건"
-            self.raw.setText(f"수집 기록  누적 {result['total']:,}건 · {PERIODS[days]} {period_text}")
-            self.raw.show()
+            self.raw.setText(f"누적 {result['total']:,}건 · {PERIODS[days]} {period_text}")
+            raw_tip = "문제 열기·입력 변경·채점 등 서버에 저장된 기록의 합계입니다. 한 문항에서도 기록이 여러 개 생길 수 있습니다. 같은 기록을 다시 보내도 한 번만 셉니다."
+            if raw_period is None:
+                raw_tip += " 이 서버는 기간별 수집 기록 수를 아직 제공하지 않습니다."
+            if result.get("undated"):
+                raw_tip += " 시각을 알 수 없는 %s건은 누적에 넣고 기간별 합계에서는 뺍니다." % format(result["undated"], ",")
+            self.raw_info.set_explanation(raw_tip)
+            self.raw_card.show()
             graded = result.get("graded")
             self.plot_card.setVisible(graded is not None)
             self.accounts.setText("%s개" % format(result["accounts"], ","))
@@ -550,10 +621,17 @@ class TeamCard(QWidget):
                 for button in self.metric_buttons.values():
                     button.setEnabled(False)
                 self.total.setText("–")
+                self.total_info.set_explanation("이 서버는 누적 채점 통계를 아직 제공하지 않습니다.")
                 self.note.setText("이 서버는 채점 풀이 통계를 아직 제공하지 않습니다.")
                 self.show()
                 return
             self.total.setText("%s건" % format(graded["total"], ","))
+            total_tip = "답을 쓰거나 고른 뒤 채점한 문항의 누적 건수입니다. 다시 풀고 채점하면 한 건 더 셉니다."
+            if graded["undated"]:
+                total_tip += " 채점 시각을 알 수 없는 %s건은 누적에 넣고 기간별 합계에서는 뺍니다." % format(graded["undated"], ",")
+            if graded["unknown"]:
+                total_tip += " 답 작성 여부를 확인할 수 없는 %s건은 이 누적 건수에서도 뺍니다." % format(graded["unknown"], ",")
+            self.total_info.set_explanation(total_tip)
             self.show_activity(result)
             rows = graded["series"]
             first, last = [datetime.datetime.fromisoformat(rows[n]["at"]).astimezone(KST) for n in (0, -1)]
@@ -564,10 +642,6 @@ class TeamCard(QWidget):
             text = ""
             if not result.get("activity"):
                 text = "이 서버는 문항·열기·입력 통계를 아직 제공하지 않습니다."
-            if graded["undated"]:
-                text += " 시각 미확인 %s건은 누적에만 포함합니다." % format(graded["undated"], ",")
-            if graded["unknown"]:
-                text += " 응답 여부 미확인 %s건은 풀이 수에서 제외했습니다." % format(graded["unknown"], ",")
             try:
                 at = datetime.datetime.fromisoformat(result.get("as_of", ""))
                 if at.tzinfo is not None:

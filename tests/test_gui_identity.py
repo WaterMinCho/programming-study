@@ -125,8 +125,10 @@ class TeamDashboardTest(unittest.TestCase):
                 self.assertEqual(format(count, ",") + "건", self.card.subject_totals[key].text())
             self.assertEqual(result["series"], self.card.chart.rows)
             self.assertIn("시간별" if days == 1 else "일별", self.card.range.text())
-            self.assertIn("시각 미확인 9건", self.card.note.text())
-            self.assertIn("응답 여부 미확인 13건", self.card.note.text())
+            self.assertIn("채점 시각을 알 수 없는 9건", self.card.total_info.toolTip())
+            self.assertIn("답 작성 여부를 확인할 수 없는 13건", self.card.total_info.toolTip())
+            self.assertIn("시각을 알 수 없는 20건", self.card.raw_info.toolTip())
+            self.assertNotIn("미확인", self.card.note.text())
             self.assertIn("17:20 기준", self.card.note.text())
 
     def test_summary_and_chart_reflow_at_max_text_in_both_themes(self):
@@ -241,6 +243,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.assertTrue(self.card.metric_buttons["graded"].isChecked())
         self.assertIn("누적 20,000건", self.card.raw.text())
         self.assertIn("최근 7일 4,000건", self.card.raw.text())
+        self.assertIs(self.card.raw.parentWidget(), self.card.raw_card)
         self.assertEqual("4개", self.card.values["cards"].text())
         self.assertNotIn("다시 풀고", self.card.note.text())
         self.card.metric_buttons["inputs"].click()
@@ -271,7 +274,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.root.move(available.topLeft() + QPoint(24, 24))
         for mode in ("light", "dark"):
             theme.set_mode(mode)
-            for info in self.card.infos.values():
+            for info in (*self.card.infos.values(), self.card.raw_info, self.card.total_info):
                 self.scroll.ensureWidgetVisible(info)
                 info.setFocus(Qt.FocusReason.TabFocusReason)
                 info.show_tip()
@@ -285,6 +288,55 @@ class TeamDashboardTest(unittest.TestCase):
                 self.assertEqual(info.accessibleDescription(), info.toolTip())
                 QTest.keyClick(info, Qt.Key.Key_Escape)
         QToolTip.hideText()
+        self.capture_widget = self.root
+
+    def test_metric_info_matches_actual_text_pixels_in_both_themes_and_sizes(self):
+        self.alignment_samples = []
+        def center(widget):
+            image = widget.grab().toImage()
+            bg = image.pixelColor(0, 0)
+            rows = []
+            for y in range(image.height()):
+                for x in range(image.width()):
+                    color = image.pixelColor(x, y)
+                    ink = color.alpha() > 64 if bg.alpha() < 64 else max(
+                        abs(color.red() - bg.red()), abs(color.green() - bg.green()), abs(color.blue() - bg.blue())) > 64
+                    if ink:
+                        rows.append(y)
+                        break
+            self.assertTrue(rows, widget.objectName())
+            return widget.mapTo(self.root, QPoint()).y() * image.devicePixelRatio() + (min(rows) + max(rows)) / 2
+
+        measured = self.result(7)
+        rows = measured['graded']['series']
+        measured['activity'] = dict(distinct_cards=128, opens=rows, inputs=[dict(row, ai=None) for row in rows],
+            graded_metadata=dict(stem=1, concepts=2, revision=3, difficulty=4, ordered_timed=5, linked_input=0),
+            period_first_ai_measurement_at=None, ai_input_schema=1)
+        unmeasured = self.result(7)
+        unsupported = dict(self.result(7), graded=None, period_total=None)
+        self.identity.summary.side_effect = None
+        for state, result in (('measured', measured), ('unmeasured', unmeasured), ('unsupported', unsupported)):
+            self.identity.summary.return_value = result
+            self.card.fetch()
+            if result['period_total'] is None:
+                self.assertIn('기간별 수집 기록 수를 아직 제공하지 않습니다', self.card.raw_info.toolTip())
+            for mode in ('light', 'dark'):
+                theme.set_mode(mode)
+                for step in ('normal', 'larger'):
+                    theme.set_text(step)
+                    kit.refont(self.root)
+                    self.root.resize(620, min(700, self.root.screen().availableGeometry().height() - 48))
+                    for info in (*self.card.infos.values(), self.card.raw_info, self.card.total_info):
+                        self.scroll.ensureWidgetVisible(info)
+                        info.clearFocus()
+                        QToolTip.hideText()
+                        guikit.pump(20)
+                        difference = abs(center(info) - center(info.anchor))
+                        self.alignment_samples.append(dict(state=state, mode=mode, text_size=step,
+                            metric=info.accessibleName(), text=info.anchor.text(), difference_device_px=difference,
+                            device_ratio=info.devicePixelRatioF(), font=info.anchor.font().toString()))
+                        self.assertLessEqual(difference, 1,
+                                             (mode, step, info.accessibleName(), info.anchor.text()))
         self.capture_widget = self.root
 
     def test_worker_failure_and_declined_job_restore_the_controls(self):
