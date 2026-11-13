@@ -1,6 +1,7 @@
 """실제 엔진·설치·학습 기록 없이 재생 창의 상태와 배치를 확인함."""
 import os
 import sys
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -60,6 +61,14 @@ class VideoDialogTest(unittest.TestCase):
     def unavailable(self):
         with mock.patch("gui.video_viewer.find_spec", return_value=None):
             return self.dialog(create_engine)
+
+    def test_import_does_not_load_webengine_or_start_a_process(self):
+        code = ("import sys; from unittest.mock import patch; "
+                "p=patch('subprocess.Popen',side_effect=AssertionError('process')); p.start(); "
+                "import gui.video_viewer; import tools.video_setup; "
+                "assert not any('QtWebEngine' in n for n in sys.modules)")
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+        self.assertEqual(0, result.returncode, result.stderr)
 
     def test_constructor_never_creates_engine_or_prepares(self):
         factory = mock.Mock()

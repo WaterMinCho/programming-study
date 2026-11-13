@@ -275,7 +275,7 @@ class CareerMagazinePage(ReadingPage):
 
     def _show_papers(self):
         state = self.catalog.states["papers"]
-        self.paper_box.addWidget(kit.heading(kit.para("논문 해설", "headline"), kit.para("논문에서 다루는 문제와 입력·출력, 적용 조건을 초급 설명으로 연결합니다.")))
+        self.paper_box.addWidget(kit.heading(kit.para("논문 해설", "headline"), kit.para("어떤 문제를 풀려는 논문인지 읽고, 그림으로 계산 과정을 따라가세요.")))
         if state != "ready":
             text = {"unavailable": "논문 해설 자료는 아직 제공하지 않습니다.", "empty": "공개한 논문 해설이 없습니다.",
                     "invalid": "논문 해설 자료를 읽지 못했습니다. 프로그램을 업데이트한 뒤 다시 열어 주세요."}[state]
@@ -283,11 +283,12 @@ class CareerMagazinePage(ReadingPage):
         for paper in self.catalog.papers:
             section, box = kit.card(pad=24, spacing=24)
             section.setProperty("reading_anchor", True)
-            box.addWidget(kit.heading(kit.para(paper.title, "headline"), kit.para(f"발표일 {paper.published_date or '미확인'} · 확인일 {paper.checked_date}", "caption", "secondary")))
+            box.addWidget(kit.heading(kit.para(paper.title.split(":", 1)[0], "headline"), kit.para(f"발표일 {paper.published_date or '미확인'}", "caption", "secondary")))
             box.addWidget(kit.para(paper.summary))
             box.addWidget(kit.para(paper.beginner_explanation))
             box.addWidget(kit.para("읽기에 필요한 개념 · " + ", ".join(paper.prerequisites), "caption", "secondary"))
             details = SourceDetails(self)
+            details.body.addWidget(kit.para(f"{paper.title}\n확인일 {paper.checked_date}", "caption", "secondary"))
             details.body.addWidget(kit.para(f"검토한 버전 {paper.examined_version or '미확인'}\n{paper.verification_scope}", "caption", "secondary"))
             details.body.addWidget(kit.para(f"논문 이용 조건 · {paper.license_label}\n{paper.license_scope}", "caption", "secondary"))
             button = kit.button("논문 원문 열기", "text")

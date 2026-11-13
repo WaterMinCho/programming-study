@@ -78,14 +78,6 @@ class PlayerDocumentTest(unittest.TestCase):
         self.assertIn("식별", player.error_message(153))
         self.assertIn("연결", player.error_message(999))
 
-    def test_import_does_not_load_webengine_or_start_a_process(self):
-        code = ("import sys; from unittest.mock import patch; "
-                "p=patch('subprocess.Popen',side_effect=AssertionError('process')); p.start(); "
-                "import gui.video_viewer; import tools.video_setup; "
-                "assert not any('QtWebEngine' in n for n in sys.modules)")
-        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
-        self.assertEqual(0, result.returncode, result.stderr)
-
     @unittest.skipUnless(shutil.which("node"), "Node.js가 없어 HTML 이벤트 검사를 건너뜁니다.")
     def test_html_error_is_terminal_while_normal_events_keep_their_order(self):
         script = re.search(r"<script>([\s\S]*?)</script>", player.player_html(VIDEO)).group(1)
