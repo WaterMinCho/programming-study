@@ -23,7 +23,7 @@ class AutoSubmissionDialog(QDialog):
         kit.page(self)
         self.shell = DialogLayout(self, "문제 묶음을 끝내면 자동 제출", "기존 학습 기록 동의와 전송은 유지합니다. 답안 파일을 자동으로 보낼지 선택해 주세요.")
         self.shell.content.addWidget(kit.para(AUTO_NOTICE))
-        self.storage_hint = kit.para("보관 위치: 미국 · PythonAnywhere", "body", "secondary")
+        self.storage_hint = kit.para("비공개 서버에 보관합니다.", "body", "secondary")
         storage = QWidget()
         kit.box(storage, (32, 8, 32, 0)).addWidget(self.storage_hint)
         self.shell.insertWidget(2, storage)
@@ -82,7 +82,7 @@ class ConsentDialog(QDialog):
         self.automatic.clicked.connect(lambda: AutoSubmissionDialog(self, controller).exec())
         body.addWidget(self.automatic)
         self.research = QCheckBox("학습 데이터 제공 동의 (선택)")
-        self.overseas = QCheckBox("서버 보관 동의 (선택)")
+        self.overseas = QCheckBox("비공개 서버 보관 동의 (선택)")
         for box in (self.research, self.overseas):
             box.setProperty("role", "body")
             box.setFont(theme.font("body"))
@@ -90,7 +90,7 @@ class ConsentDialog(QDialog):
         self.message = kit.para("", "caption", "secondary")
         body.addWidget(self.message)
         self.scroll = self.shell.scroll
-        self.storage_hint = kit.para("보관 위치: 미국 · PythonAnywhere", "body", "secondary")
+        self.storage_hint = kit.para("비공개 서버에 보관합니다.", "body", "secondary")
         self.choices = kit.spaced(self.research, kit.spaced(self.overseas, self.storage_hint, spacing=theme.GAP["detail"]),
                                   spacing=theme.GAP["detail"])
         self.choice_area = QWidget()

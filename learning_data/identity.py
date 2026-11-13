@@ -162,16 +162,29 @@ class Identity:
             raise CollectionError("스터디원에게만 제공하는 통계입니다.")
         result = request(self.base, "/v1/team/summary?days=" + str(days), token=settings["token"], method="GET", error_detail=True)
         try:
-            for key in ("total", "period_total", "undated", "installations", "period_installations", "accounts", "period_accounts"):
+            if result["days"] != days:
+                raise ValueError()
+            for key in ("installations", "period_installations", "accounts", "period_accounts"):
                 if type(result[key]) is not int or result[key] < 0:
                     raise ValueError()
-            if result["days"] != days or len(result["series"]) != (24 if days == 1 else days):
+            summaries = [result]
+            if "graded" in result:
+                graded = result["graded"]
+                if not isinstance(graded, dict) or type(graded["unknown"]) is not int or graded["unknown"] < 0:
+                    raise ValueError()
+                summaries.append(graded)
+            for summary in summaries:
+                if any(type(summary[k]) is not int or summary[k] < 0 for k in ("total", "period_total", "undated")):
+                    raise ValueError()
+                if len(summary["series"]) != (24 if days == 1 else days):
+                    raise ValueError()
+                for row in summary["series"]:
+                    if (not isinstance(row["at"], str) or datetime.datetime.fromisoformat(row["at"]).tzinfo is None
+                            or any(type(row[k]) is not int or row[k] < 0 for k in ("python", "ai"))):
+                        raise ValueError()
+            if "graded" in result and (sum(row["ai"] + row["python"] for row in graded["series"]) != graded["period_total"]
+                                       or graded["period_total"] + graded["undated"] > graded["total"]):
                 raise ValueError()
-            for row in result["series"]:
-                if not isinstance(row["at"], str) or any(type(row[key]) is not int or row[key] < 0 for key in ("python", "ai")):
-                    raise ValueError()
-                if datetime.datetime.fromisoformat(row["at"]).tzinfo is None:
-                    raise ValueError()
         except (KeyError, TypeError, ValueError):
             raise CollectionError("통계 응답을 읽지 못했습니다. 프로그램을 업데이트한 뒤 다시 확인해 주세요.") from None
         return result

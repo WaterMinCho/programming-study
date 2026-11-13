@@ -261,6 +261,9 @@ class CollectionIntegrationTest(Base):
         rows = self.events(sess, "mock_answer")
         self.assertEqual(4, len(rows))
         self.assertEqual(3, sum(row["result"] == "blank" for row in rows))
+        exported = [row["data"] for row in sess.collection.snapshot() if row["kind"] == "mock_answer"]
+        self.assertEqual([row["card"] == "m90-01" for row in exported], [row["answered"] for row in exported])
+        self.assertTrue(all("response" not in row for row in exported))
         self.assertTrue(all(row["secs"] is None for row in rows))
         self.assertEqual(1, len(self.events(sess, "mock_question_returned")))
         snapshots = [row["item"] for row in sess.collection.snapshot() if row["kind"] in ("mock_question_returned", "mock_answer")]
@@ -299,6 +302,7 @@ class CollectionIntegrationTest(Base):
         result = exam.submit()
         rows = self.events(sess, "mock_answer")
         self.assertEqual("not_collected", next(row["result"] for row in rows if row["card"] == "m90-01"))
+        self.assertNotIn("answered", next(row for row in rows if row["card"] == "m90-01"))
         self.assertNotIn("BEFORE_CONSENT", json.dumps(rows))
         self.assertEqual("stuck", result["results"]["m90-01"])
         self.assertEqual(["BEFORE_CONSENT"], exam.draft["answers"]["m90-01"])

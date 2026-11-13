@@ -31,6 +31,21 @@ class IdentityTest(unittest.TestCase):
         with self.assertRaises(CollectionError):
             self.identity.summary(7)
 
+    def test_graded_response_validation_and_raw_only_server(self):
+        self.identity.save({"verified": True, "team": True, "token": "a" * 64})
+        rows = [{"at": "2026-11-13T12:00:00+09:00", "ai": 0, "python": 0} for _ in range(7)]
+        raw = {"days": 7, "total": 100, "period_total": 0, "undated": 0, "series": rows,
+               "installations": 1, "period_installations": 0, "accounts": 1, "period_accounts": 0}
+        graded = {"total": 1, "period_total": 0, "undated": 1, "unknown": 2, "series": rows}
+        with mock.patch("learning_data.identity.request", return_value=raw) as get:
+            self.assertNotIn("graded", self.identity.summary(7))
+            get.return_value = dict(raw, graded=graded)
+            self.assertEqual(graded, self.identity.summary(7)["graded"])
+            for invalid in (None, dict(graded, period_total=1), dict(graded, unknown=True), dict(graded, series=[])):
+                get.return_value = dict(raw, graded=invalid)
+                with self.assertRaises(CollectionError):
+                    self.identity.summary(7)
+
     def test_corrupt_receipt_is_preserved(self):
         self.identity.path.write_bytes(b"{broken")
         self.identity.save({"verified": True, "team": False, "token": "c" * 64})

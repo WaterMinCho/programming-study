@@ -118,6 +118,54 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(local, Path(store.path).read_bytes())
             self.assertEqual(0, self.count())
 
+    def test_team_graded_counts_answered_items_and_keeps_the_raw_api(self):
+        from learning_server.team import Access
+        viewer = "c" * 64
+        policy = Access(self.db).policy()
+        with self.db.connect() as db:
+            db.execute("INSERT INTO identity_grants VALUES (?,?,0,1)", (app.hashed(viewer), policy))
+
+        groups = {
+            "python": [
+                ("answer", {"result": "ok"}), ("answer", {"result": "wrong", "again": 1}),
+                ("answer", {"result": "blank"}), ("python_input", {"result": "wrong"}),
+                ("question_returned", {}), ("answer", {"result": "right"}), ("answer", {"result": "wrong", "card": ""}),
+            ],
+            "ai": [
+                ("answer", {"result": "pass"}), ("answer", {"result": "partial"}),
+                ("answer", {"result": "stuck", "sure": False}), ("answer", {"result": "stuck", "dontknow": True}),
+                ("answer", {"result": "stuck", "answered": False}), ("mock_submit", {"result": "pass"}),
+                ("mock_answer", {"result": "blank"}), ("mock_answer", {"result": "not_collected"}),
+                ("mock_answer", {"result": "stuck", "answered": True}), ("mock_answer", {"result": "stuck", "answered": False}),
+                ("mock_answer", {"result": "stuck"}), ("mock_answer", {"result": "pass"}),
+                ("mock_answer", {"result": "stuck", "response": [0]}), ("mock_answer", {"result": "stuck", "response": [" ", ""]}),
+                ("legacy_answer", {"result": "pass"}), ("legacy_answer", {"result": "partial"}),
+                ("legacy_answer", {"result": "stuck", "sure": False}), ("legacy_answer", {"result": "stuck"}),
+                ("legacy_answer", {"result": "stuck", "dontknow": True}), ("override", {"result": "pass"}),
+                ("mock_answer", {"result": "stuck", "response": []}), ("answer", {}), ("answer", {"result": "wrong"}),
+            ],
+        }
+        for track, group in groups.items():
+            rows = []
+            for n, (kind, data) in enumerate(group, 1):
+                rows.append(dict(self.row(n, track), kind=kind, data={"card": "q1", **data}))
+            rows.append(dict(self.row(len(group) + 1, track), synthetic=True, data={"card": "q1", "result": "pass"}))
+            for _ in range(2):
+                self.assertEqual(200, self.call("/v1/events", self.packet(rows, track), self.token)[0])
+        code, result = self.call("/v1/team/summary", method="GET", token=viewer)
+        self.assertEqual(200, code)
+        self.assertEqual(sum(map(len, groups.values())), result["total"])
+        self.assertEqual(5, result["undated"])
+        self.assertEqual(result["total"] - 5, result["period_total"])
+        graded = result["graded"]
+        self.assertEqual((11, 8, 3, 2), (graded["total"], graded["period_total"], graded["undated"], graded["unknown"]))
+        self.assertEqual(2, sum(row["python"] for row in graded["series"]))
+        self.assertEqual(6, sum(row["ai"] for row in graded["series"]))
+        self.assertEqual([row["at"] for row in result["series"]], [row["at"] for row in graded["series"]])
+        self.assertEqual(200, self.call("/v1/me", token=self.token, method="DELETE")[0])
+        after = self.call("/v1/team/summary", method="GET", token=viewer)[1]
+        self.assertEqual((0, 0, 0), (after["total"], after["graded"]["total"], after["graded"]["unknown"]))
+
     def test_python_client_uses_python_envelope_and_redacts_answers(self):
         store = collection.Collection(str(self.root / "python-client"), str(self.root / "repo"), track="python")
         store.set_enabled(True)
