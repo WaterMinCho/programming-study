@@ -83,10 +83,10 @@ jobs:
       - name: 배율 검사에 필요한 화면 작업 영역 준비
         shell: powershell
         run: |
-          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Set-DisplayResolution -Width 2560 -Height 1440 -Force
           $resolution = (Get-DisplayResolution | Out-String).Replace([string][char]0, '').Trim()
           Write-Output $resolution
-          if ($resolution -notmatch '1920\s*x\s*1080') {
+          if ($resolution -notmatch '2560\s*x\s*1440') {
             throw "Failed to configure CI screen: $resolution"
           }
       - name: 기존 화면 도구가 없는 새 환경 확인

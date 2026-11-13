@@ -286,7 +286,12 @@ class VideoDialogTest(unittest.TestCase):
                 if evidence:
                     Path(evidence).mkdir(parents=True, exist_ok=True)
                     dialog.grab().save(str(Path(evidence) / f"unavailable-{mode}-{width}x{height}.png"))
-                dialog.close()
+                    if os.name == "nt":
+                        dialog.screen().grabWindow(int(dialog.winId())).save(str(Path(evidence) / f"unavailable-{mode}-{width}x{height}-native.png"))
+                if mode == "dark" and width == 1280:
+                    self.capture_widget = dialog
+                else:
+                    dialog.close()
 
     def test_small_viewport_does_not_construct_an_undersized_player(self):
         dialog = self.dialog(show=False)

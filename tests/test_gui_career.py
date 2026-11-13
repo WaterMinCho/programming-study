@@ -1,6 +1,7 @@
 """임시 화면에서 선택·재생 요청·그림 배치와 읽던 위치를 확인함."""
 from dataclasses import replace
 from pathlib import Path
+import os
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -50,6 +51,15 @@ class CareerGuiTest(unittest.TestCase):
             if stable >= 3 and not window._settling:
                 return
         self.fail("화면 배치가 안정되지 않았음")
+
+    def _capture(self, widget, name):
+        destination = os.environ.get("CAREER_EVIDENCE")
+        if destination:
+            target = Path(destination)
+            target.mkdir(parents=True, exist_ok=True)
+            self.assertTrue(widget.grab().save(str(target / (name + ".png"))))
+            if os.name == "nt":
+                self.assertTrue(widget.screen().grabWindow(int(widget.winId())).save(str(target / (name + "-native.png"))))
 
     def test_browse_does_not_save_and_explicit_goal_has_both_ids(self):
         callback = Mock()
@@ -222,6 +232,9 @@ class CareerGuiTest(unittest.TestCase):
                     if button.isVisibleTo(page):
                         self.assertGreaterEqual(button.width(), QFontMetricsF(button.font()).horizontalAdvance(button.text()))
 
+                self._capture(page, f"roadmap-{scheme}-{width}x{height}")
+        self.capture_widget = page
+
     def test_magazine_small_windows_keep_text_and_actions_inside_content(self):
         page = self.show(CareerMagazinePage, on_back=Mock(), on_video=Mock(), on_stop=Mock(), on_paper=Mock(),
                          on_source=Mock(), on_figure=Mock())
@@ -244,6 +257,9 @@ class CareerGuiTest(unittest.TestCase):
                     for button in page.findChildren(QPushButton):
                         if button.isVisibleTo(page):
                             self.assertGreaterEqual(button.width(), QFontMetricsF(button.font()).horizontalAdvance(button.text()))
+
+                self._capture(page, f"magazine-{scheme}-{width}x{height}")
+        self.capture_widget = page
 
     def test_existing_image_viewer_and_missing_image_preserve_role(self):
         page = self.show(CareerRoadmapPage)
