@@ -315,6 +315,8 @@ class PrivateClient(Client):
                     if consent.settings().get("choice") == choice:
                         if error.status in (400, 403, 413, 415, 422):
                             self.pending_path.unlink(missing_ok=True)
+                        if error.status == 413 and part is saved:
+                            raise CollectionError("이전 제출의 대기 정보를 정리했습니다. [풀이 제출]을 다시 눌러 현재 답안을 보내 주세요.", status=413) from error
                         if error.code == "revoked":
                             consent.withdraw()
                 raise

@@ -109,6 +109,7 @@ class PrivateSubmissionTest(unittest.TestCase):
             with self.assertRaises(CollectionError) as caught:
                 client.submit()
             self.assertEqual(413, caught.exception.status)
+            self.assertIn("다시 눌러", str(caught.exception))
             self.assertEqual(identifier, send.call_args.args[2]["request_id"])
             send.assert_called_once()
         self.assertFalse(client.pending_path.exists())
