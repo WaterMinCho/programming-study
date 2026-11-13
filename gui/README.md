@@ -27,26 +27,12 @@
 
 ### GitHub에서 프로그램 받기
 
-**SourceTree와 터미널 중 편한 방법 하나를 고르세요.** 아래 주소로 프로그램 폴더를 복제(Clone)하면 실행할 때마다 새 자료를 받을 수 있습니다.
+<a id="sourcetree로-받는-경우"></a>
+<a id="터미널로-받는-경우"></a>
 
-#### SourceTree로 받는 경우
+[학습자 가이드의 프로그램 받기](../docs/LEARNER_START.md#1-프로그램을-받습니다)에서 SourceTree 또는 터미널로 복제하는 순서를 따라 합니다. 저장소 주소·저장할 폴더·내려받기 완료 후 확인할 파일을 함께 안내합니다.
 
-1. SourceTree에서 [Clone] 또는 [Clone/New]를 열고 저장소 복제를 선택합니다. 버전에 따라 버튼 이름이 다를 수 있습니다.
-2. 원본 주소에 `https://github.com/WaterMinCho/programming-study.git`를 넣습니다.
-3. 대상 경로는 예를 들어 `C:\study\programming-study`처럼 새로 만들 폴더로 정합니다. [Clone]을 누릅니다.
-4. 복제가 끝나면 탐색기에서 그 폴더를 엽니다. 안에 `study.py`, `start.bat`, `README.md`가 보이면 프로그램을 실행할 준비가 됐습니다.
-
-SourceTree 화면은 [공식 저장소 복제 안내][sourcetree-clone]에서도 확인할 수 있습니다.
-
-#### 터미널로 받는 경우
-
-Windows 탐색기에서 프로그램을 둘 상위 폴더를 열고 주소 칸에 `cmd`를 입력한 뒤 Enter를 누릅니다. macOS는 터미널에서 저장할 상위 폴더로 이동합니다. 아래 명령을 입력하면 그 안에 `programming-study` 폴더가 생깁니다.
-
-```bash
-git clone https://github.com/WaterMinCho/programming-study.git
-```
-
-이미 프로그램을 받았다면 [새 자료 받기](#프로그램과-문제-업데이트)로 업데이트합니다.
+이미 프로그램 폴더가 있다면 start 파일을 열어 업데이트합니다. [프로그램과 문제 업데이트](#프로그램과-문제-업데이트)
 
 <a id="프로그램을-켜고-id를-입력합니다"></a>
 
@@ -176,5 +162,3 @@ python study.py update
 - ‘사용이 불편하거나 오류가 납니다’에는 화면과 오류 문구를 적습니다.
 - ‘문제나 정답이 이상합니다’에는 문항 ID와 질문·내 답·이상한 부분을 적습니다. 예: 파이썬 `s03_Q4`, 알고리즘 `1-3`.
 - ‘문제를 더 만들어 주세요’에는 더 연습하고 싶은 단원이나 개념을 적습니다.
-
-[sourcetree-clone]: https://support.atlassian.com/sourcetree/kb/clone-a-repository-into-sourcetree/
