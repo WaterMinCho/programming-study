@@ -385,6 +385,17 @@ class HubScreenTest(HubTest):
         guikit.pump()
         self.assertEqual((win.pages.currentWidget(), win.area), (win.home, "python"))
 
+        # 배율 1.5의 1080p 화면에서도 창 전체가 보이는 높이로 같은 이동을 확인함.
+        win.resize(800, 600)
+        guikit.pump()
+        self.assertEqual((win.width(), win.height()), (800, 600))
+        self.assertTrue(win.workspace.compact.isVisible())
+        self.assertLessEqual(bar.submit.geometry().right(), bar.width())
+        self.assertLessEqual(bar.sync.geometry().right(), bar.width())
+        win.workspace.compact.activated.emit(0)
+        guikit.pump()
+        self.assertEqual((win.pages.currentWidget(), win.area), (win.hub, "hub"))
+
     def test_starts_at_the_hub_and_the_rows_show_their_numbers(self):
         prof = self.graded_round()
         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat(timespec="seconds")
