@@ -105,7 +105,7 @@ let ready = false;
 let attempted = false;
 let initial = true;
 // Qt에서 선택한 영상이 절반 넘게 보일 때만 한 번 요청함.
-// https://developers.google.com/youtube/terms/required-minimum-functionality#autoplay
+// https://developers.google.com/youtube/terms/required-minimum-functionality
 window.tryRokeyPlayback = function(visible) {
     if (visible && !document.hidden && ready && !attempted && !disposed && window.rokeyState.kind !== "error") {
         attempted = true;

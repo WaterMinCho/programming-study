@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from importlib.util import find_spec
+from time import monotonic
 
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QDialog, QSizePolicy, QWidget
@@ -10,6 +11,9 @@ from career.player_html import (APP_ORIGIN, EMBED_HOST, checked_video_id, error_
                                 external_video_link, is_embed_url, is_playback_frame, player_html, watch_url)
 from gui import kit
 from gui.dialog_layout import DialogLayout
+
+
+PLAYER_TIMEOUT_MS = 25_000
 
 
 class EngineUnavailable(RuntimeError):
@@ -163,7 +167,7 @@ def create_engine(parent, on_event, open_url):
             from PyQt6.QtCore import QUrl
             self.page.setHtml(player_html(video_id), QUrl(APP_ORIGIN + "/"))
             self.poll_timer.start()
-            self.deadline.start(25000)
+            self.deadline.start(PLAYER_TIMEOUT_MS)
 
         def loaded(self, ok):
             if not ok:
@@ -180,13 +184,13 @@ def create_engine(parent, on_event, open_url):
             if self.closed or not isinstance(value, dict) or value == self.last_event:
                 return
             self.last_event = value
-            if value.get("initial") is False and value.get("kind") == "error" and value.get("code") in (101, 150):
+            kind = value.get("kind")
+            if kind in ("ready", "state", "blocked", "error"):
                 self.deadline.stop()
-                self.emit("late_error", value["code"])
-                return
-            if value.get("kind") in ("ready", "state", "blocked", "error"):
-                self.deadline.stop()
-                self.emit(value["kind"], value.get("code"))
+                # 같은 조회 주기 안에서 재생이나 차단을 거친 오류도 늦은 오류로 전달함.
+                if kind == "error" and value.get("initial") is False:
+                    kind = "late_error"
+                self.emit(kind, value.get("code"))
 
         def new_window(self, request):
             url = request.requestedUrl().toString()
@@ -235,7 +239,7 @@ class VideoDialog(QDialog):
         self.engine_factory = engine_factory or create_engine
         self.engine, self.cancel_prepare = None, None
         self.state, self.generation, self.closed = "idle", 0, False
-        self._initial_attempt = False
+        self._embed_fallback_until = 0
         self._fullscreen, self._changing_window = False, False
         self._starting_engine, self._document_hidden = False, False
         self.setWindowTitle("영상 보기")
@@ -307,7 +311,7 @@ class VideoDialog(QDialog):
     def play(self):
         if self.closed or self.state not in ("idle", "error", "stopped", "ended"):
             return
-        self._initial_attempt = self.state == "idle"
+        self._embed_fallback_until = monotonic() + PLAYER_TIMEOUT_MS / 1000 if self.state == "idle" else 0
         self._release()
         current = self.generation
         self._state("requesting", "영상을 불러오고 있습니다.")
@@ -359,12 +363,11 @@ class VideoDialog(QDialog):
         if self.closed or generation != self.generation:
             return
         if kind == "blocked" or (kind == "state" and code in (0, 1, 2)):
-            self._initial_attempt = False
-        if kind == "error" and code in (101, 150):
-            if self._initial_attempt and self.isVisible():
-                self._initial_attempt = False
-                self._external(watch_url(self.video_id), "error", error_message(code))
-                return
+            self._embed_fallback_until = 0
+        if kind == "error" and code in (101, 150) and monotonic() < self._embed_fallback_until and self.isVisible():
+            self._embed_fallback_until = 0
+            self._external(watch_url(self.video_id), "error", error_message(code))
+            return
         if kind == "fullscreen":
             self._set_fullscreen(bool(code))
         elif kind in ("error", "late_error"):

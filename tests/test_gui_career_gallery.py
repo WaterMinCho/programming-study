@@ -45,9 +45,11 @@ class GalleryPlaybackTest(HubTest):
         with patch("gui.video_viewer.create_engine", Engine):
             page.play_video()
             dialog = win.career.video
+            dialog.engine.event("state", 1)
             dialog.engine.event("error", 101)
             card = page.rows[page.selected_video_id]
             self.assertTrue(card.error.isVisible())
+            self.assertEqual(card.error.text(), dialog.status.text())
             guikit.click(dialog.retry_button)
             dialog.engine.event("state", 1)
             self.assertEqual(page.playback_state, "playing")

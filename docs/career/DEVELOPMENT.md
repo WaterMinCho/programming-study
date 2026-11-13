@@ -40,4 +40,4 @@ python -m unittest tests.test_gui_career
 
 앱 메뉴는 `gui/career_controller.py`에서 연결합니다. 관심 직무는 선택 시각과 자료 버전과 함께 기기에 저장합니다. 영상 표지는 `career/covers/<video_id>.webp`에서 읽습니다. 파일이 없거나 손상되면 같은 크기의 대체 표지를 그립니다. 새 영상을 추가할 때는 16:9 표지와 출처·검토 범위를 함께 확인하세요.
 
-표지를 누르면 `VideoDialog`가 재생을 요청합니다. Qt WebEngine을 사용할 수 없거나 YouTube가 앱 내 재생을 허용하지 않으면 해당 영상의 원본 주소를 기본 브라우저에 전달합니다. 앱의 재생창을 닫으면 내장 플레이어를 정리합니다. 브라우저로 연 영상은 브라우저에서 제어합니다. 앱에서 자동 재생을 요청해도 브라우저 정책에 따라 사용자가 플레이어의 재생 버튼을 눌러야 할 수 있습니다. [YouTube 플레이어 이벤트](https://developers.google.com/youtube/iframe_api_reference#onAutoplayBlocked)
+표지를 누르면 `VideoDialog`가 재생을 요청합니다. Qt WebEngine을 사용할 수 없으면 해당 영상의 원본을 기본 브라우저에서 엽니다. 첫 재생을 시도한 뒤 25초 안에 YouTube가 외부 재생을 제한해도 같은 원본을 한 번 엽니다. 앱 내 재생기가 없고 브라우저까지 열리지 않을 때는 재생창에서 [앱 내 재생기 설치]를 선택할 수 있습니다. 앱의 재생창을 닫으면 내장 플레이어를 정리합니다. 브라우저로 연 영상은 브라우저에서 제어합니다. 앱에서 자동 재생을 요청해도 브라우저 정책에 따라 사용자가 플레이어의 재생 버튼을 눌러야 할 수 있습니다. [YouTube 플레이어 이벤트](https://developers.google.com/youtube/iframe_api_reference#onAutoplayBlocked)

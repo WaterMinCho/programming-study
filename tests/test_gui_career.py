@@ -171,6 +171,18 @@ class CareerGuiTest(unittest.TestCase):
         callback.assert_called_once()
         self.assertEqual(len(page.rows), 38)
 
+    def test_playback_error_shows_player_detail_or_default_once(self):
+        page = self.show(CareerMagazinePage, on_video=Mock(), on_stop=Mock())
+        video_id = page.selected_video_id
+        default = "영상을 재생하지 못했습니다. YouTube 원본에서 확인해 주세요."
+        detail = "게시자가 외부 재생을 제한했습니다."
+        for message, expected in ((detail, detail), ("", default), ("  ", default)):
+            with self.subTest(message=message):
+                page.play_video()
+                self.assertTrue(page.set_playback_state(video_id, "error", message))
+                self.assertEqual(page.rows[video_id].error.text(), expected)
+                self.assertEqual(page.playback_note.text(), expected)
+
     def test_search_preserves_preview_and_lists_are_sorted(self):
         page = self.show(CareerMagazinePage)
         selected = page.selected_video_id

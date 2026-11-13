@@ -12,7 +12,7 @@ from PyQt6.QtCore import QObject, QPoint, Qt, QUrl, pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
 from gui import kit, theme
-from gui.video_viewer import EngineUnavailable, VideoDialog, VideoSurface, create_engine
+from gui.video_viewer import EngineUnavailable, PLAYER_TIMEOUT_MS, VideoDialog, VideoSurface, create_engine
 
 VIDEO = SimpleNamespace(video_id="H89Az-iZZrc", title="로봇 개발자의 실제 업무와 학습 순서를 살펴봅니다", author="공개 영상 제작자", embeddable=True)
 
@@ -161,6 +161,16 @@ class VideoDialogTest(unittest.TestCase):
         dialog.engine.on_event("error", 101)
         self.assertEqual("error", dialog.state)
         self.external.assert_not_called()
+
+    def test_denial_after_initial_load_window_does_not_open_a_browser(self):
+        with mock.patch("gui.video_viewer.monotonic", return_value=10) as clock:
+            dialog = self.dialog()
+            engine = dialog.engine
+            engine.on_event("ready")
+            clock.return_value += PLAYER_TIMEOUT_MS / 1000
+            engine.on_event("error", 150)
+            self.assertEqual("error", dialog.state)
+            self.external.assert_not_called()
 
     def test_stop_close_hide_and_retry_invalidate_old_callbacks(self):
         dialog = self.dialog()

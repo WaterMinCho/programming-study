@@ -281,10 +281,10 @@ class CareerMagazinePage(ReadingPage):
         if state not in labels:
             return False
         self.playback_state = state
-        self.playback_note.setText(labels[state] + ("\n" + message if message else ""))
         if state == "error":
-            self._show_error(self.playback_note.text())
+            self._show_error((message or "").strip() or labels[state])
         else:
+            self.playback_note.setText(labels[state] + ("\n" + message if message else ""))
             self.cards[video_id].error.hide()
         if state in ("ended", "error"):
             self._requested_id = None
