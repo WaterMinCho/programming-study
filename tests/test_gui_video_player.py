@@ -12,7 +12,7 @@ from PyQt6.QtCore import QObject, QPoint, Qt, QUrl, pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
 from gui import kit, theme
-from gui.video_viewer import EngineUnavailable, VideoDialog, create_engine
+from gui.video_viewer import EngineUnavailable, VideoDialog, VideoSurface, create_engine
 
 VIDEO = SimpleNamespace(video_id="H89Az-iZZrc", title="로봇 개발자의 실제 업무와 학습 순서를 살펴봅니다", author="공개 영상 제작자", embeddable=True)
 
@@ -54,11 +54,13 @@ class VideoDialogTest(unittest.TestCase):
         dialog = VideoDialog(self.host, video, self.external, self.prepare, factory or self.engine)
         self.dialogs.append(dialog)
         if show:
-            dialog.show()
+            dialog.open()
             guikit.pump()
         return dialog
 
     def unavailable(self):
+        # 브라우저 실행도 실패했을 때만 선택형 설치를 표시함.
+        self.external.return_value = False
         with mock.patch("gui.video_viewer.find_spec", return_value=None):
             return self.dialog(create_engine)
 
@@ -114,12 +116,15 @@ class VideoDialogTest(unittest.TestCase):
                                      ("state", 1, "playing"), ("state", 2, "paused")):
             engine.on_event(kind, code)
             self.assertEqual(expected, dialog.state)
+        self.assertIs(dialog.engine, engine)
+        self.external.assert_not_called()
         self.prepare.assert_not_called()
 
     def test_errors_release_engine_and_ignore_late_playing(self):
         for code in (100, 101, 150, 153, 5, 0):
             dialog = self.dialog()
             engine = self.engines[-1]
+            engine.on_event("state", 1)
             engine.on_event("error", code)
             self.assertEqual("error", dialog.state)
             self.assertIsNone(dialog.engine)
@@ -127,7 +132,35 @@ class VideoDialogTest(unittest.TestCase):
             engine.on_event("state", 1)
             self.assertEqual("error", dialog.state)
             self.assertTrue(dialog.retry_button.isVisible())
+            self.external.assert_not_called()
             dialog.close()
+
+    def test_first_embed_denial_opens_selected_watch_url_once_then_ignores_old_events(self):
+        for code in (101, 150):
+            video = SimpleNamespace(**dict(vars(VIDEO), embeddable=None, url="https://example.test"))
+            dialog = self.dialog(video=video)
+            engine = dialog.engine
+            engine.on_event("ready")
+            engine.on_event("state", 3)
+            engine.on_event("error", code)
+            self.assertTrue(dialog.closed)
+            self.assertFalse(dialog.isVisible())
+            engine.close.assert_called_once()
+            engine.on_event("error", code)
+            engine.open_url("https://www.youtube.com/watch?v=" + video.video_id)
+            self.external.assert_called_once_with("https://www.youtube.com/watch?v=" + video.video_id)
+            self.external.reset_mock()
+            self.prepare.assert_not_called()
+
+    def test_embed_denial_after_autoplay_block_or_retry_stays_in_the_dialog(self):
+        dialog = self.dialog()
+        dialog.engine.on_event("blocked")
+        dialog.engine.on_event("error", 150)
+        self.assertEqual("error", dialog.state)
+        dialog.play()
+        dialog.engine.on_event("error", 101)
+        self.assertEqual("error", dialog.state)
+        self.external.assert_not_called()
 
     def test_stop_close_hide_and_retry_invalidate_old_callbacks(self):
         dialog = self.dialog()
@@ -161,6 +194,44 @@ class VideoDialogTest(unittest.TestCase):
         self.host.hide()
         other.hide()
         engine.close.assert_called_once()
+
+    def test_known_unavailability_opens_only_browser_in_click_call(self):
+        for error in (EngineUnavailable("missing"), EngineUnavailable("restart", "restart"),
+                      ImportError("library"), RuntimeError("initialization"), None):
+            with self.subTest(error=error):
+                video = SimpleNamespace(**dict(vars(VIDEO), embeddable=bool(error), url="https://example.test/"))
+                factory = mock.Mock(side_effect=error)
+                dialog = self.dialog(factory, video, show=False)
+                with mock.patch.object(dialog, "showEvent", wraps=dialog.showEvent) as shown:
+                    dialog.open()
+                    self.external.assert_called_once_with("https://www.youtube.com/watch?v=" + VIDEO.video_id)
+                    dialog.open()
+                    guikit.pump()
+                    shown.assert_not_called()
+                self.assertTrue(dialog.closed)
+                self.assertIsNone(dialog.engine)
+                self.assertEqual(int(error is not None), factory.call_count)
+                self.prepare.assert_not_called()
+                self.external.reset_mock()
+
+    def test_start_failure_after_cancel_and_old_link_after_retry_do_not_navigate(self):
+        def factory(parent, on_event, open_url):
+            engine = self.engine(parent, on_event, open_url)
+            def cancelled(_):
+                parent.window().close()
+                raise RuntimeError("closed")
+            engine.start.side_effect = cancelled
+            return engine
+
+        self.assertTrue(self.dialog(factory).closed)
+        dialog = self.dialog()
+        first = self.engines[-1]
+        dialog.stop()
+        dialog.play()
+        first.open_url("https://www.youtube.com/watch?v=" + VIDEO.video_id)
+        first.on_event("error", 101)
+        self.assertIs(dialog.engine, self.engines[-1])
+        self.external.assert_not_called()
 
     def test_preparation_is_explicit_idempotent_and_late_completion_is_ignored(self):
         cancel = mock.Mock()
@@ -205,7 +276,7 @@ class VideoDialogTest(unittest.TestCase):
         factory = mock.Mock()
         dialog = self.dialog(factory, show=False)
         dialog.state_changed.connect(lambda state: dialog.close() if state == "requesting" else None)
-        dialog.show()
+        dialog.open()
         guikit.pump()
         factory.assert_not_called()
         pending = self.unavailable()
@@ -214,6 +285,7 @@ class VideoDialogTest(unittest.TestCase):
         self.prepare.assert_not_called()
 
     def test_unsupported_initialization_and_embed_denial_never_install(self):
+        self.external.return_value = False
         dialog = self.dialog(mock.Mock(side_effect=EngineUnavailable("다시 시작해 주세요.", "restart")))
         self.assertEqual("restart", dialog.state)
         self.assertTrue(dialog.prepare_button.isHidden())
@@ -253,7 +325,8 @@ class VideoDialogTest(unittest.TestCase):
         guikit.click(dialog.source_button)
         self.external.assert_called_once_with("https://www.youtube.com/watch?v=" + VIDEO.video_id)
         engine.close.assert_called_once()
-        self.assertEqual("stopped", dialog.state)
+        self.assertTrue(dialog.closed)
+        self.assertFalse(dialog.isVisible())
         self.external.reset_mock()
         dialog._external("https://accounts.google.com/")
         self.external.assert_not_called()
@@ -318,10 +391,11 @@ class VideoDialogTest(unittest.TestCase):
         dialog = self.dialog(show=False)
         dialog.resize(200, 400)
         with mock.patch.object(dialog.shell, "fit"):
-            dialog.show()
+            dialog.open()
             guikit.pump()
         self.assertEqual([], self.engines)
-        self.assertEqual("stopped", dialog.state)
+        self.external.assert_called_once_with("https://www.youtube.com/watch?v=" + VIDEO.video_id)
+        self.assertTrue(dialog.closed)
 
     def test_playing_and_preparing_footer_survives_font_change_and_fullscreen_exit(self):
         theme.set_text("larger")
@@ -372,6 +446,20 @@ class VideoDialogTest(unittest.TestCase):
             self.assertGreaterEqual(dialog.engine.widget.width(), 200)
             self.assertGreaterEqual(dialog.engine.widget.height(), 200)
             self.assertLessEqual(abs(dialog.surface.height() - max(200, round(dialog.surface.width() * 9 / 16))), 1)
+
+    def test_autoplay_requires_more_than_half_the_surface_in_the_viewport(self):
+        viewport = QWidget(self.host)
+        viewport.setGeometry(5, 5, 320, 200)
+        surface = VideoSurface(viewport)
+        surface.setFixedSize(320, 200)
+        viewport.show()
+        surface.show()
+        for offset, expected in ((0, True), (99, True), (100, False), (101, False)):
+            surface.move(0, offset)
+            self.assertEqual(expected, surface.can_autoplay())
+        surface.move(0, 0)
+        viewport.hide()
+        self.assertFalse(surface.can_autoplay())
 
     def test_hiding_fullscreen_releases_without_showing_the_dialog_again(self):
         dialog = self.dialog()
@@ -443,7 +531,7 @@ class EnginePolicyTest(unittest.TestCase):
         for patch in patches:
             patch.start()
             self.addCleanup(patch.stop)
-        self.parent = QWidget()
+        self.parent = VideoSurface()
         self.event, self.external = mock.Mock(), mock.Mock()
         self.engine = create_engine(self.parent, self.event, self.external)
         self.engine.start(VIDEO.video_id)
@@ -459,7 +547,7 @@ class EnginePolicyTest(unittest.TestCase):
         engine.profile.setHttpCacheType.assert_called_once_with(1)
         engine.profile.setHttpCacheMaximumSize.assert_called_once_with(16 * 1024 * 1024)
         engine.profile.setPersistentCookiesPolicy.assert_called_once_with(2)
-        engine.page.options.setAttribute.assert_any_call("PlaybackRequiresUserGesture", True)
+        engine.page.options.setAttribute.assert_any_call("PlaybackRequiresUserGesture", False)
         engine.page.options.setAttribute.assert_any_call("JavascriptCanOpenWindows", False)
         request = mock.Mock()
         engine.page.permissionRequested.emit(request)
@@ -492,6 +580,10 @@ class EnginePolicyTest(unittest.TestCase):
         self.external.assert_not_called()
         self.assertFalse(page.acceptNavigationRequest(QUrl("https://www.youtube.com/watch?v=" + VIDEO.video_id), 0, True))
         self.external.assert_called_once()
+
+    def test_embed_denial_keeps_prior_block_or_play_between_polls(self):
+        self.engine.received({"kind": "error", "code": 101, "initial": False})
+        self.event.assert_called_once_with("late_error", 101)
 
     def test_only_user_initiated_official_popups_are_forwarded(self):
         request = mock.Mock()

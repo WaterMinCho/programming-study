@@ -7,9 +7,10 @@ import unittest
 from unittest.mock import Mock, patch
 
 from tests import guikit
-from PyQt6.QtCore import QPoint
-from PyQt6.QtGui import QFontMetricsF
-from PyQt6.QtWidgets import QPushButton, QWidget
+from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtGui import QFontMetricsF, QImageReader
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QLabel, QPushButton, QWidget
 
 from career.catalog import Catalog, Paper, load_catalog
 from gui import kit, theme
@@ -95,6 +96,28 @@ class CareerGuiTest(unittest.TestCase):
         self.assertEqual(page.selected_role_id, "qa")
         self.assertEqual(page.role_picker.currentData(), "qa")
 
+    def test_roadmap_sources_and_related_videos_open_selected_targets(self):
+        source, video, magazine = Mock(), Mock(), Mock()
+        page = self.show(CareerRoadmapPage, on_source=source, on_video=video, on_magazine=magazine)
+        page.select_role("frontend")
+        self.settle(page)
+        source.assert_not_called()
+        role = self.catalog.role("frontend")
+        expected = [row for row in self.catalog.sources if row["id"] in role["source_ids"]]
+        links = page.source_box.findChildren(QPushButton)
+        self.assertEqual(len(links), len(expected))
+        for link, row in zip(links, expected):
+            self.assertEqual(link.toolTip(), row["url"])
+            guikit.click(link)
+            source.assert_called_with(row["url"])
+        buttons = {button.text(): button for button in page.findChildren(QPushButton)}
+        for label, key in (("로봇 개발자의 업무", "H89Az-iZZrc"), ("로봇 개발 프로젝트 준비", "HCx2ICUe0eA")):
+            guikit.click(buttons[label])
+            video.assert_called_with(key)
+        guikit.click(buttons["매거진 열기"])
+        magazine.assert_called_once()
+        self.assertEqual(page.selected_role_id, "frontend")
+
     def test_external_video_work_only_follows_explicit_play_and_stop(self):
         play, stop, source = Mock(), Mock(), Mock()
         with patch("socket.socket", side_effect=AssertionError("네트워크 사용")):
@@ -104,7 +127,7 @@ class CareerGuiTest(unittest.TestCase):
             play.assert_not_called()
             stop.assert_not_called()
             self.assertEqual(page.playback_state, "idle")
-            guikit.click(page.play_button)
+            guikit.click(page.rows[other].cover)
             self.assertEqual(play.call_args[0][0].video_id, other)
             self.assertEqual(page.playback_state, "requested")
             self.assertNotIn("재생하고", page.playback_note.text())
@@ -142,7 +165,7 @@ class CareerGuiTest(unittest.TestCase):
         self.assertEqual(page.playback_state, "error")
         self.assertIn("열지 못", page.playback_note.text())
         page.set_online(False)
-        self.assertFalse(page.play_button.isEnabled())
+        self.assertFalse(any(card.cover.isEnabled() for card in page.rows.values()))
         self.assertIn("오프라인", page.network_note.text())
         page.play_video()
         callback.assert_called_once()
@@ -155,7 +178,8 @@ class CareerGuiTest(unittest.TestCase):
         page.search.setText("찾을수없는임시검색")
         self.assertEqual(page.rows, {})
         self.assertEqual(page.selected_video_id, selected)
-        self.assertTrue(page.detail.isVisible())
+        self.assertTrue(page.empty_note.isVisible())
+        self.assertIn("검색 조건", page.empty_note.text())
         page.search.clear()
         page.origin.setCurrentIndex(1)
         self.assertEqual(len(page.rows), 18)
@@ -164,7 +188,7 @@ class CareerGuiTest(unittest.TestCase):
         for state, expected in (("empty", "공개한 영상"), ("unavailable", "파일이 없습니다"), ("invalid", "읽지 못")):
             catalog = Catalog(states={"roles": state, "videos": state, "papers": state})
             page = self.show(CareerMagazinePage, catalog=catalog)
-            self.assertIn(expected, page.rows_layout.itemAt(0).widget().text())
+            self.assertIn(expected, page.empty_note.text())
             self.assertFalse(page.play_button.isEnabled())
         paper = Paper("fixture", "임시 논문", "https://example.org/paper", None, "임시 요약입니다.", "임시 설명입니다.", "2026-11-14")
         catalog = replace(self.catalog, papers=(paper,), states={**self.catalog.states, "papers": "ready"})
@@ -173,6 +197,144 @@ class CareerGuiTest(unittest.TestCase):
         page.tabs.picked.emit(1)
         page.open_paper(paper)
         callback.assert_called_once_with(paper)
+
+    def test_cover_activates_once_and_information_returns_to_its_card(self):
+        play, stop, source = Mock(), Mock(), Mock()
+        page = self.show(CareerMagazinePage, on_video=play, on_stop=stop, on_source=source)
+        page.origin.setCurrentIndex(1)
+        page.search.setText("로봇")
+        self.settle(page)
+        card = list(page.rows.values())[-1]
+        video = card.cover.video
+        page.scroll.ensureWidgetVisible(card.info)
+        card.info.setFocus()
+        self.settle(page)
+        bar = page.scroll.verticalScrollBar()
+        before = bar.value()
+        selected = page.selected_video_id
+        self.assertGreater(before, 0)
+        QTest.keyClick(card.info, Qt.Key.Key_Space)
+        guikit.pump()
+        dialog = page.info_dialog
+        self.assertTrue(dialog.isVisible())
+        shown = [label.text() for label in dialog.findChildren(QLabel)]
+        for text in (video.title, video.summary, video.learning_use, video.limitations):
+            self.assertIn(text, shown)
+        buttons = {button.toolTip(): button for button in dialog.findChildren(QPushButton)}
+        guikit.click(buttons[video.url])
+        source.assert_called_once_with(video.url)
+        QTest.keyClick(dialog, Qt.Key.Key_Escape)
+        self.settle(page)
+        self.assertIsNone(page.info_dialog)
+        self.assertIs(page.focusWidget(), card.info)
+        self.assertEqual(bar.value(), before)
+        self.assertEqual(page.selected_video_id, selected)
+        self.assertEqual(page.search.text(), "로봇")
+        self.assertEqual(page.origin.currentData(), "selected")
+        play.assert_not_called()
+
+        card.cover.setFocus()
+        self.settle(page)
+        before = bar.value()
+        play.side_effect = lambda item: self.assertEqual(page.selected_video_id, item.video_id)
+        for key in (Qt.Key.Key_Return, Qt.Key.Key_Space, Qt.Key.Key_Enter):
+            with self.subTest(key=key):
+                QTest.keyClick(card.cover, key)
+                self.settle(page)
+                play.assert_called_once_with(video)
+                self.assertEqual(bar.value(), before)
+                self.assertTrue(page.set_playback_state(video.video_id, "ended"))
+                play.reset_mock()
+        stop.assert_not_called()
+
+    def test_related_cover_outside_filters_is_visible_and_plays_only_on_activation(self):
+        play = Mock()
+        page = self.show(CareerMagazinePage, on_video=play, on_stop=Mock())
+        page.origin.setCurrentIndex(page.origin.findData("additional"))
+        page.search.setText("kakao")
+        matches = list(page.rows)
+        targets = ["H89Az-iZZrc", "HCx2ICUe0eA"]
+        self.assertTrue(matches)
+        for target in targets:
+            self.assertNotIn(target, matches)
+            self.assertTrue(page.select_video(target, reveal=True))
+            self.settle(page)
+            card = page.rows[target]
+            self.assertEqual(list(page.rows), [target, *matches])
+            self.assertTrue(card.related_note.isVisible())
+            self.assertIs(page.focusWidget(), card.cover)
+            viewport = page.scroll.viewport()
+            self.assertTrue(viewport.rect().contains(card.cover.rect().translated(card.cover.mapTo(viewport, QPoint()))))
+            self.assertEqual(page.search.text(), "kakao")
+            self.assertEqual(page.origin.currentData(), "additional")
+            self.assertIsNone(page.info_dialog)
+            play.assert_not_called()
+        QTest.keyClick(card.cover, Qt.Key.Key_Return)
+        play.assert_called_once_with(card.cover.video)
+        page.search.setText("kakao tech")
+        self.assertNotIn(target, page.rows)
+        self.assertEqual(page.selected_video_id, target)
+        self.assertFalse(card.related_note.isVisible())
+        page.search.setText("검색 결과가 없는 제목")
+        self.assertFalse(page.rows)
+        self.assertTrue(page.select_video(target, reveal=True))
+        self.settle(page)
+        self.assertEqual(list(page.rows), [target])
+        self.assertFalse(page.empty_note.isVisible())
+        self.assertIs(page.focusWidget(), card.cover)
+        play.assert_called_once()
+
+    def test_related_cover_already_in_results_scrolls_to_target_in_catalog_order(self):
+        play = Mock()
+        page = self.show(CareerMagazinePage, on_video=play, on_stop=Mock())
+        ordered = list(page.rows)
+        card = page.rows[ordered[-3]]
+        page.select_video(card.cover.video.video_id, reveal=True)
+        self.settle(page)
+        viewport = page.scroll.viewport()
+        self.assertTrue(viewport.rect().contains(card.cover.rect().translated(card.cover.mapTo(viewport, QPoint()))))
+        self.assertIs(page.focusWidget(), card.cover)
+        self.assertEqual(list(page.rows), ordered)
+        self.assertFalse(card.related_note.isVisible())
+        play.assert_not_called()
+
+    def test_first_cover_is_highlighted_only_after_selection_or_play(self):
+        play = Mock()
+        page = self.show(CareerMagazinePage, on_video=play, on_stop=Mock())
+        first = self.catalog.videos[0]
+        self.assertEqual(page.video(), first)
+        self.assertFalse(any(card.cover.isChecked() for card in page.rows.values()))
+        play.assert_not_called()
+        page.play_video()
+        play.assert_called_once_with(first)
+        self.assertTrue(page.rows[first.video_id].cover.isChecked())
+
+    def test_shipped_webp_decodes_and_missing_or_invalid_cover_still_plays(self):
+        from gui.career_gallery import COVERS
+        ids = {video.video_id for video in self.catalog.videos}
+        self.assertEqual(len(ids), 38)
+        self.assertEqual(ids, {path.stem for path in COVERS.glob("*.webp")})
+        self.assertIn(b"webp", QImageReader.supportedImageFormats())
+        for video in self.catalog.videos:
+            reader = QImageReader(str(COVERS / (video.video_id + ".webp")))
+            self.assertEqual(bytes(reader.format()), b"webp", video.video_id)
+            image = reader.read()
+            self.assertFalse(image.isNull(), (video.video_id, reader.errorString()))
+            self.assertEqual(image.width() * 9, image.height() * 16)
+        videos = self.catalog.videos[:2]
+        play = Mock()
+        with tempfile.TemporaryDirectory() as folder, patch("gui.career_gallery.COVERS", Path(folder)):
+            (Path(folder) / (videos[1].video_id + ".webp")).write_bytes(b"invalid")
+            with patch("socket.socket", side_effect=AssertionError("네트워크 사용")):
+                page = self.show(CareerMagazinePage, catalog=replace(self.catalog, videos=videos),
+                                 on_video=play, on_stop=Mock())
+                for video in videos:
+                    cover = page.rows[video.video_id].cover
+                    self.assertFalse(cover.grab().isNull())
+                    self.assertTrue(cover.image.isNull())
+                    guikit.click(cover)
+                    play.assert_called_once_with(video)
+                    play.reset_mock()
 
     def test_paper_figure_callback_receives_original_design_and_review_scope(self):
         figure, source = Mock(), Mock()
@@ -274,11 +436,49 @@ class CareerGuiTest(unittest.TestCase):
                         if button.isVisibleTo(page):
                             self.assertGreaterEqual(button.width(), QFontMetricsF(button.font()).horizontalAdvance(button.text()))
 
-                self._capture(page, f"magazine-{scheme}-{width}x{height}")
+                    self._capture(page, f"magazine-{scheme}-{width}x{height}" + ("-paper" if tab else ""))
         self.capture_widget = page
+
+    def test_gallery_columns_cover_alignment_and_filter_wrapping(self):
+        page = self.show(CareerMagazinePage, on_video=Mock(), on_stop=Mock())
+        for width, font, columns in ((480, "larger", 1), (760, "larger", 2), (1000, "normal", 3),
+                                     (1000, "larger", 2), (1280, "larger", 3)):
+            with self.subTest(width=width, font=font):
+                theme.set_text(font)
+                kit.refont(page)
+                page.resize(width, 700)
+                self.settle(page)
+                self.assertEqual(page.gallery.columns, columns)
+                cards = list(page.rows.values())
+                for i, card in enumerate(cards):
+                    self.assertEqual(card.cover.height(), round(card.cover.width() * 9 / 16))
+                    first = cards[i - i % columns]
+                    self.assertEqual(card.y(), first.y())
+                    self.assertLessEqual(abs(card.cover.width() - first.cover.width()), 1)
+                    self.assertEqual(card.author.mapTo(page.gallery, QPoint()).y(),
+                                     first.author.mapTo(page.gallery, QPoint()).y())
+                    self.assertGreaterEqual(card.title.height(), card.title.heightForWidth(card.title.width()))
+        page.resize(380, 620)
+        self.settle(page)
+        self.assertGreater(page.origin.y(), page.search.y())
+        self.assertLessEqual(page.content.width(), page.width())
+
+    def test_gallery_reflow_keeps_reading_card_across_column_changes(self):
+        page = self.show(CareerMagazinePage)
+        page.resize(1280, 800)
+        self.settle(page)
+        page.scroll.verticalScrollBar().setValue(1800)
+        card, offset = page._anchor
+        for width, size in ((760, "larger"), (480, "larger"), (1280, "normal")):
+            theme.set_text(size)
+            kit.refont(page)
+            page.resize(width, 800)
+            self.settle(page)
+            self.assertLessEqual(abs(card.mapTo(page.scroll.viewport(), QPoint()).y() - offset), 1)
 
     def test_existing_image_viewer_and_missing_image_preserve_role(self):
         page = self.show(CareerRoadmapPage)
+        self.assertEqual(page.image_button.text(), "학습 로드맵 크게 보기")
         repository = page.repository
         with tempfile.TemporaryDirectory() as directory:
             page.repository = Path(directory)
@@ -296,21 +496,32 @@ class CareerGuiTest(unittest.TestCase):
             page.open_image()
             guikit.pump()
             dialog = page.image_dialog
-            self.windows.append(dialog)
-            self.assertFalse(dialog.original.isNull())
-            self.assertLessEqual(dialog.width(), page.width())
-            self.assertLessEqual(dialog.height(), page.height())
-            before = dialog.original.size()
-            dialog.zoom(1.25)
-            self.assertEqual(dialog.original.size(), before)
-            self.assertGreater(dialog.image.width(), before.width())
-            for button in (dialog.less, dialog.more, dialog.fit, dialog.close_button):
+            self.assertTrue(dialog.isMaximized())
+            room = page.window().screen().availableGeometry()
+            self.assertIs(dialog.screen(), page.window().screen())
+            self.assertGreater(dialog.width(), room.width() * 0.9)
+            self.assertGreater(dialog.height(), room.height() * 0.85)
+            view = dialog.area
+            original = view.original
+            self.assertFalse(original.isNull())
+            self.assertGreater(view.viewport().height(), dialog.height() * 0.64)
+            self.assertEqual(view.horizontalScrollBar().maximum(), 0)
+            self.assertAlmostEqual(view.scale * original.width(), view.viewport().width(), delta=1)
+            before, key = original.size(), original.cacheKey()
+            guikit.click(dialog.more)
+            self.assertGreater(view.scale * original.width(), view.viewport().width())
+            self.assertEqual((view.original.size(), view.original.cacheKey()), (before, key))
+            guikit.click(dialog.fit)
+            view.verticalScrollBar().setValue(view.verticalScrollBar().maximum() // 2)
+            guikit.pump()
+            for button in (dialog.less, dialog.more, dialog.fit, dialog.window_size, dialog.close_button):
                 top = button.mapTo(dialog, QPoint(0, 0))
                 self.assertGreaterEqual(top.y(), 0)
                 self.assertLessEqual(top.y() + button.height(), dialog.height())
                 self.assertGreaterEqual(button.width(), QFontMetricsF(button.font()).horizontalAdvance(button.text()))
             if palette == "light":
-                dialog.close()
+                guikit.click(dialog.close_button)
+                self.assertIsNone(page.image_dialog)
             else:
                 self.capture_widget = dialog
 

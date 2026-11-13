@@ -34,9 +34,6 @@ class CareerController:
                 catalog=self._catalog(), on_back=self.win.go_hub,
                 on_select_goal=self.select_role, on_magazine=lambda: self.show_magazine(),
                 on_video=self.show_magazine, on_source=self.win.open_url))
-            self.roadmap.top.back.setText("← 학습 현황")
-            self.roadmap.goal_button.setText("관심 직무로 저장")
-            self.roadmap.goal_button.setToolTip("이 기기에 관심 직무를 저장합니다. 기존 연구용 희망 직무는 바꾸지 않습니다.")
             try:
                 saved = json.loads(self.win.settings.value("career/role/" + self.win.user, "{}"))
             except (ValueError, TypeError):
@@ -56,17 +53,11 @@ class CareerController:
                 on_video=self.play_video, on_stop=self.stop_video,
                 on_source=self.win.open_url, on_paper=lambda paper: self.win.open_url(paper.url),
                 on_figure=self.explain_paper))
-            self.magazine.top.back.setText("← 개발자 로드맵")
-            self.magazine.viewer_host.hide()
-            self.magazine.stop_button.hide()
-            self.magazine.play_button.setText("영상 보기")
-            self.magazine.network_note.setText("영상은 앱 안의 별도 창에서 엽니다. 재생에는 인터넷 연결이 필요합니다.")
-        if video_id is not None:
-            self.magazine.tabs.set_current(0)
-            self.magazine._change_tab(0)
-            self.magazine.select_video(video_id)
         self.win.area = "career_magazine"
         motion.switch(self.win.pages, self.magazine)
+        if video_id is not None:
+            self.magazine._change_tab(0)
+            self.magazine.select_video(video_id, reveal=True)
 
     def select_role(self, role_id, coarse_goal_id):
         role = self._catalog().role(role_id)
@@ -94,9 +85,9 @@ class CareerController:
         dialog.open()
 
     def _video_closed(self, dialog):
-        self.magazine.stop_playback()
         if self.video is dialog:
             self.video = None
+            self.magazine.stop_playback()
             dialog.deleteLater()
 
     def stop_video(self):
@@ -108,7 +99,7 @@ class CareerController:
     def prepare_video(self, done):
         from tools.video_setup import install
         if self.setup_job is not None:
-            done({"ok": False, "message": "영상 재생 준비가 진행 중입니다."})
+            done({"ok": False, "message": "앱 내 재생기를 설치하고 있습니다."})
             return None
         job = self.setup_job = Job(lambda: install(job.cancel))
         owner = self.video
@@ -118,7 +109,7 @@ class CareerController:
                 accepted = done(result)
                 if accepted and result.get("ok") and result.get("restart"):
                     self.stop_video()
-                    self.win._restart({"message": "영상 재생 준비를 마쳤습니다. 다시 시작하면 앱 안에서 영상을 볼 수 있습니다."})
+                    self.win._restart({"message": "앱 내 재생기를 설치했습니다. 프로그램을 다시 시작해 주세요."})
 
         def stopped():
             self.setup_job = None
@@ -127,7 +118,7 @@ class CareerController:
                 QTimer.singleShot(0, self.win.close)
 
         job.done.connect(finish)
-        job.failed.connect(lambda *_: finish({"ok": False, "message": "영상 재생 준비를 마치지 못했습니다. 다시 시도해 주세요."}))
+        job.failed.connect(lambda *_: finish({"ok": False, "message": "앱 내 재생기를 설치하지 못했습니다."}))
         job.finished.connect(stopped)
         job.start()
         return job.cancel.set

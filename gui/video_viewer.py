@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from importlib.util import find_spec
 
-from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QDialog, QSizePolicy, QWidget
 
 from career.player_html import (APP_ORIGIN, EMBED_HOST, checked_video_id, error_message,
@@ -40,6 +40,19 @@ class VideoSurface(QWidget):
     def minimumSizeHint(self):
         return QSize(0, 200)
 
+    def can_autoplay(self):
+        if not self.isVisible() or self.window().isMinimized():
+            return False
+        # WebEngine의 불투명한 자식이 visibleRegion을 덮으므로 스크롤 뷰포트 등 부모들의 잘림을 직접 계산함.
+        visible = self.screen().geometry()
+        widget = self
+        while widget is not None:
+            visible = visible.intersected(widget.rect().translated(widget.mapToGlobal(QPoint())))
+            if widget.isWindow():
+                break
+            widget = widget.parentWidget()
+        return 2 * visible.width() * visible.height() > self.width() * self.height()
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.setMinimumHeight(200 if self.fullscreen else self.heightForWidth(self.width()))
@@ -52,15 +65,15 @@ def create_engine(parent, on_event, open_url):
     except (ImportError, ValueError):
         available = False
     if not available:
-        raise EngineUnavailable("앱 안에서 보려면 영상 재생 준비를 눌러 주세요. 재생 부품을 내려받아 설치합니다.")
+        raise EngineUnavailable("앱 내 재생기를 설치하면 이 창에서 볼 수 있습니다.")
     if not QCoreApplication.testAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts):
-        raise EngineUnavailable("재생 환경을 적용하려면 프로그램을 다시 시작해 주세요. YouTube에서도 열 수 있습니다.", "restart")
+        raise EngineUnavailable("앱 내 재생기를 사용하려면 프로그램을 다시 시작해 주세요.", "restart")
     try:
         from PyQt6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile, QWebEngineSettings,
                                            QWebEngineUrlRequestInterceptor)
         from PyQt6.QtWebEngineWidgets import QWebEngineView
     except (ImportError, OSError, RuntimeError) as error:
-        raise EngineUnavailable("영상 재생 부품을 불러오지 못했습니다. YouTube에서 열어 주세요.", "error") from error
+        raise EngineUnavailable("앱 내 재생기를 불러오지 못했습니다.", "error") from error
 
     class Referrer(QWebEngineUrlRequestInterceptor):
         def interceptRequest(self, info):
@@ -117,7 +130,7 @@ def create_engine(parent, on_event, open_url):
             self.interceptor = Referrer(self.profile)
             self.profile.setUrlRequestInterceptor(self.interceptor)
             settings = self.page.settings()
-            for name, value in (("FullScreenSupportEnabled", True), ("PlaybackRequiresUserGesture", True),
+            for name, value in (("FullScreenSupportEnabled", True), ("PlaybackRequiresUserGesture", False),
                                 ("JavascriptCanOpenWindows", False), ("JavascriptCanAccessClipboard", False),
                                 ("LocalContentCanAccessFileUrls", False), ("LocalContentCanAccessRemoteUrls", False)):
                 settings.setAttribute(getattr(QWebEngineSettings.WebAttribute, name), value)
@@ -159,13 +172,18 @@ def create_engine(parent, on_event, open_url):
         def poll(self):
             if not self.closed and not self.pending:
                 self.pending = True
-                self.page.runJavaScript("window.rokeyState || null", self.received)
+                flag = "true" if parent.can_autoplay() else "false"
+                self.page.runJavaScript(f"window.tryRokeyPlayback?.({flag}); window.rokeyState || null", self.received)
 
         def received(self, value):
             self.pending = False
             if self.closed or not isinstance(value, dict) or value == self.last_event:
                 return
             self.last_event = value
+            if value.get("initial") is False and value.get("kind") == "error" and value.get("code") in (101, 150):
+                self.deadline.stop()
+                self.emit("late_error", value["code"])
+                return
             if value.get("kind") in ("ready", "state", "blocked", "error"):
                 self.deadline.stop()
                 self.emit(value["kind"], value.get("code"))
@@ -217,23 +235,23 @@ class VideoDialog(QDialog):
         self.engine_factory = engine_factory or create_engine
         self.engine, self.cancel_prepare = None, None
         self.state, self.generation, self.closed = "idle", 0, False
-        self._opened, self._fullscreen, self._changing_window = False, False, False
+        self._initial_attempt = False
+        self._fullscreen, self._changing_window = False, False
         self._starting_engine, self._document_hidden = False, False
         self.setWindowTitle("영상 보기")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.shell = DialogLayout(self, "영상 보기")
         self.title = kit.para(video.title, "headline", bold=True)
         self.author = kit.para(video.author, "caption", "secondary")
-        self.status = kit.para("영상 열기를 준비하고 있습니다.")
+        self.status = kit.para("")
         self.surface = VideoSurface(self)
         self.surface.hide()
-        self.privacy = kit.para("YouTube의 재생·자막·전체화면 기능을 사용합니다. 재생을 열면 YouTube에 연결됩니다. "
-                                "이 창의 쿠키와 캐시는 디스크에 보관하지 않습니다.", "caption", "secondary")
+        self.privacy = kit.para("이 창에서는 YouTube 쿠키와 캐시를 메모리에만 보관합니다.", "caption", "secondary")
         self.size_note = kit.para("영상 영역이 작습니다. 창을 넓히거나 YouTube에서 열어 주세요.", "caption", "secondary")
         self.size_note.hide()
         for widget in (self.title, self.author, self.status, self.surface, self.size_note, self.privacy):
             self.shell.content.addWidget(widget)
-        self.prepare_button = kit.button("영상 재생 준비", "primary", "l")
+        self.prepare_button = kit.button("앱 내 재생기 설치", "primary", "l")
         self.retry_button = kit.button("다시 재생", "primary", "l")
         self.stop_button = kit.button("재생 멈추기", "secondary", "l")
         self.source_button = kit.button("YouTube에서 열기", "secondary", "l")
@@ -252,12 +270,10 @@ class VideoDialog(QDialog):
         self._buttons()
 
     def _buttons(self):
-        self.prepare_button.setVisible(self.state == "unavailable")
-        self.prepare_button.setEnabled(self.on_prepare is not None)
-        self.prepare_button.setToolTip("" if self.on_prepare else "현재는 YouTube에서 영상을 열어 주세요.")
+        self.prepare_button.setVisible(self.state == "unavailable" and self.on_prepare is not None)
         self.retry_button.setVisible(self.state in ("stopped", "ended", "error"))
         self.stop_button.setVisible(self.engine is not None)
-        self.close_button.setText("준비 취소하고 닫기" if self.state == "preparing" else "닫기")
+        self.close_button.setText("설치 취소하고 닫기" if self.state == "preparing" else "닫기")
         for button in (self.prepare_button, self.retry_button, self.stop_button, self.source_button, self.close_button):
             button.setMinimumWidth(0)
             button.ensurePolished()
@@ -274,13 +290,11 @@ class VideoDialog(QDialog):
         self._buttons()
         self.state_changed.emit(state)
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        if not self._opened:
-            self._opened = True
+    def open(self):
+        if not self.closed and self.state == "idle":
             self.shell.fit(1000, 680)
             self._place()
-            QTimer.singleShot(0, self.play)
+            self.play()
 
     def _place(self):
         room = self.screen().availableGeometry()
@@ -291,21 +305,27 @@ class VideoDialog(QDialog):
                   max(room.top(), min(rect.top(), room.bottom() - rect.height() + 1)))
 
     def play(self):
-        if self.closed or self.state == "preparing" or not self.isVisible():
+        if self.closed or self.state not in ("idle", "error", "stopped", "ended"):
             return
+        self._initial_attempt = self.state == "idle"
         self._release()
-        if self.shell.scroll.viewport().width() - 64 < 200:
-            self._state("stopped", "영상 영역이 작습니다. 창을 넓히거나 YouTube에서 열어 주세요.")
-            return
-        if getattr(self.video, "embeddable", None) is False:
-            self._state("error", error_message(101))
-            return
         current = self.generation
-        self._state("requesting", "영상을 불러오고 있습니다. 재생 버튼을 누르면 영상이 시작됩니다.")
+        self._state("requesting", "영상을 불러오고 있습니다.")
         if self.closed or self.generation != current:
             return
+        if getattr(self.video, "embeddable", None) is False:
+            self._external(watch_url(self.video_id))
+            return
+        if self.width() - 64 < 200:
+            self._external(watch_url(self.video_id), "stopped", "앱에서 보려면 창을 넓혀 주세요.")
+            return
+
+        def open_link(url):
+            if self.generation == current:
+                self._external(url)
+
         try:
-            engine = self.engine_factory(self.surface, lambda kind, code=None: self._event(current, kind, code), self._external)
+            engine = self.engine_factory(self.surface, lambda kind, code=None: self._event(current, kind, code), open_link)
             if self.closed or self.generation != current:
                 engine.close()
                 return
@@ -313,6 +333,11 @@ class VideoDialog(QDialog):
             self.surface.box.addWidget(engine.widget)
             self.surface.show()
             self._buttons()
+            if not self.isVisible():
+                super().open()
+            if self.closed or self.generation != current:
+                return
+            self.shell.scroll.ensureWidgetVisible(self.surface, 0, 0)
             # Windows에서 첫 문서를 붙일 때의 창 재생성을 사용자 숨김과 구분함.
             self._document_hidden = False
             self._starting_engine = True
@@ -324,18 +349,25 @@ class VideoDialog(QDialog):
                     self._document_hidden = False
                     self.show()
         except EngineUnavailable as error:
-            self._release()
-            self._state(error.state, str(error))
+            if self.generation == current:
+                self._external(watch_url(self.video_id), error.state, str(error))
         except (ImportError, OSError, RuntimeError):
-            self._release()
-            self._state("error", "영상 재생기를 열지 못했습니다. 다시 시도하거나 YouTube에서 열어 주세요.")
+            if self.generation == current:
+                self._external(watch_url(self.video_id), "error", "앱 내 재생기를 열지 못했습니다.")
 
     def _event(self, generation, kind, code=None):
         if self.closed or generation != self.generation:
             return
+        if kind == "blocked" or (kind == "state" and code in (0, 1, 2)):
+            self._initial_attempt = False
+        if kind == "error" and code in (101, 150):
+            if self._initial_attempt and self.isVisible():
+                self._initial_attempt = False
+                self._external(watch_url(self.video_id), "error", error_message(code))
+                return
         if kind == "fullscreen":
             self._set_fullscreen(bool(code))
-        elif kind == "error":
+        elif kind in ("error", "late_error"):
             self._release()
             self._state("error", error_message(code))
         elif kind == "blocked":
@@ -361,7 +393,7 @@ class VideoDialog(QDialog):
             return
         self.generation += 1
         current = self.generation
-        self._state("preparing", "영상 재생 부품을 준비하고 있습니다. 창을 닫으면 취소를 요청합니다.")
+        self._state("preparing", "앱 내 재생기를 설치하고 있습니다.")
         if self.closed or self.generation != current:
             return
 
@@ -370,11 +402,11 @@ class VideoDialog(QDialog):
                 return False
             self.cancel_prepare = None
             if result.get("ok"):
-                self._state("restart", "영상 재생 준비를 마쳤습니다. 프로그램을 다시 시작해 주세요.")
+                self._state("restart", "앱 내 재생기를 설치했습니다. 프로그램을 다시 시작해 주세요.")
             elif result.get("status") == "cancelled":
-                self._state("unavailable", "준비를 취소했습니다. 다시 준비하거나 YouTube에서 열어 주세요.")
+                self._state("unavailable", "설치를 취소했습니다.")
             else:
-                self._state("unavailable", result.get("message") or "영상 재생 준비를 마치지 못했습니다. 다시 시도해 주세요.")
+                self._state("unavailable", result.get("message") or "앱 내 재생기를 설치하지 못했습니다.")
             return not self.closed and self.generation == current
         try:
             cancel = self.on_prepare(done)
@@ -399,7 +431,7 @@ class VideoDialog(QDialog):
             return
         self._release()
         self._cancel_preparation()
-        self._state("stopped", "영상 재생을 멈췄습니다. 다시 재생하거나 창을 닫을 수 있습니다.")
+        self._state("stopped", "영상 재생을 멈췄습니다.")
 
     def _cancel_preparation(self):
         cancel, self.cancel_prepare = self.cancel_prepare, None
@@ -409,10 +441,24 @@ class VideoDialog(QDialog):
             except (OSError, RuntimeError):
                 pass
 
-    def _external(self, url):
-        if not self.closed and external_video_link(url):
-            self.stop()
-            self.open_url(url)
+    def _external(self, url, failure_state="error", reason=""):
+        if self.closed or not external_video_link(url):
+            return
+        self._release()
+        self._cancel_preparation()
+        current = self.generation
+        try:
+            opened = self.open_url(url)
+        except (OSError, RuntimeError):
+            opened = False
+        if self.closed or self.generation != current:
+            return
+        if opened is False:
+            self._state(failure_state, ("기본 브라우저를 열지 못했습니다. " + reason).strip())
+            if not self.closed and self.generation == current and not self.isVisible():
+                super().open()
+        else:
+            self.accept()
 
     def _set_fullscreen(self, enabled):
         if enabled == self._fullscreen:
