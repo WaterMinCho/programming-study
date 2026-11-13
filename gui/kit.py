@@ -242,7 +242,7 @@ class _TabButton(QPushButton):
     auto_check = True
 
     def nextCheckState(self):
-        if self.auto_check:
+        if self.auto_check or self.isChecked():
             super().nextCheckState()
 
 

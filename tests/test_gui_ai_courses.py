@@ -58,13 +58,16 @@ class CourseGuiTest(AiTest):
             guikit.pump()
             applied = win.ai
             self.assertEqual([(True, True)], observed)
-            self.assertTrue(win.ai_home.course_tabs.buttons[1].isChecked())
+            self.assertEqual([False, True], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
             with mock.patch.object(win.ai_home, "show_books", wraps=win.ai_home.show_books) as books:
                 guikit.click(win.ai_home.course_tabs.buttons[0])
                 self.assertIs(intro, win.ai)
+                self.assertEqual([True, False], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
                 books.assert_called_once()
             guikit.click(win.ai_home.course_tabs.buttons[1])
             self.assertIs(applied, win.ai)
+            guikit.click(win.ai_home.course_tabs.buttons[1])
+            self.assertEqual([False, True], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
             factory.assert_called_once()
         self.assertTrue(win.ai_home.updatesEnabled())
 
@@ -118,6 +121,7 @@ class CourseGuiTest(AiTest):
                     guikit.click(win.ai_home.course_tabs.buttons[number])
                 self.assertEqual(course, win.ai.course)
                 self.assertTrue(win.ai_home.course_tabs.buttons[number].isChecked())
+                self.assertEqual([n == number for n in range(2)], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
                 self.assertTrue(win.ai_home.updatesEnabled())
                 self.assertEqual(0, win.ai_home.scroll.horizontalScrollBar().maximum())
         self.assertEqual([False] * 4, phases)
