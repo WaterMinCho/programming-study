@@ -16,14 +16,14 @@ import time
 
 from PyQt6.QtCore import QEvent, QObject, Qt
 from PyQt6.QtGui import QGuiApplication, QKeySequence, QShortcut
-from PyQt6.QtWidgets import QLineEdit, QWidget
+from PyQt6.QtWidgets import QWidget
 
 from aiprep import bank
 from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
 from gui.ai_learn import CARD_PAD, ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, reading_width, rich
 from gui.guard import NOTE as PASTE_NOTE
-from gui.widgets import LinkLabel, PasteBlock
+from gui.widgets import AnswerLine, LinkLabel, PasteBlock
 from session import SessionError
 
 
@@ -315,7 +315,7 @@ class PracticePage(QWidget):
                 self.results.append(None)
                 continue
             blank = blanks[n] if n < len(blanks) else {"mode": "word", "hint": ""}
-            field = QLineEdit()
+            field = AnswerLine()
             kit.typed(field, "learn_body")
             field.setPlaceholderText(blank.get("hint") or ai_text.MODE_HINT.get(blank.get("mode"), ""))
             self.paste.watch(field)

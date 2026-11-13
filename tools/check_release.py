@@ -31,6 +31,7 @@ CASES = (
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_tab_and_content_commit_together_at_max_text_in_both_themes",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
     "tests.test_gui_ai_courses.CourseGuiTest.test_version_notice_fits_small_window_max_text_and_both_themes",
+    "tests.test_gui_ai_courses.CourseGuiTest.test_learning_answers_block_clipboard_without_moving_at_max_text_in_both_courses",
     "tests.test_gui_ai_mock.MockPageTest.test_changed_active_exam_offers_a_new_attempt_from_the_start_button",
     "tests.test_gui_ai_mock.MockPageTest.test_missing_draft_recovery_opens_without_resetting_the_clock_or_records",
     "tests.test_gui_ai_mock.MockPageTest.test_theme_and_text_changes_keep_live_answers_and_recolor_the_stem",

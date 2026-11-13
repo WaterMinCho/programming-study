@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """모의고사 답안을 로컬에 저장하고 제출한 뒤에만 판정과 해설을 보임."""
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QLineEdit, QWidget
+from PyQt6.QtWidgets import QWidget
 
 from aiprep import bank
 from aiprep.grade import BLANK
@@ -10,7 +10,7 @@ from gui import ai_text, kit, theme
 from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, RichPara, doc, reading_column
 from gui.docview import Doc
 from gui.ai_quiz import commit_input, split_stem
-from gui.widgets import PasteBlock
+from gui.widgets import AnswerLine, PasteBlock
 from session import SessionError
 
 
@@ -213,7 +213,7 @@ class MockPage(QWidget):
                 else:
                     doc(text, '', self.card_box)
                     for _ in BLANK.findall(text):
-                        field = QLineEdit()
+                        field = AnswerLine()
                         kit.typed(field, 'body')
                         field.setPlaceholderText(blanks[count].get('hint') or ai_text.MODE_HINT.get(blanks[count]['mode'], ''))
                         if len(blanks) > 1:

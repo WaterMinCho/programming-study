@@ -4,10 +4,10 @@ import html
 import math
 import re
 
-from PyQt6.QtCore import QEvent, QObject, QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import (QFont, QFontMetricsF, QKeySequence, QPainter, QPainterPath, QPen, QShortcut, QTextBlockFormat, QTextDocument,
                          QTextDocumentFragment, QTextFrame)
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSplitter, QTextBrowser, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSplitter, QTextBrowser, QToolTip, QVBoxLayout, QWidget
 
 import mdlite
 from gui import motion, theme
@@ -48,6 +48,44 @@ class PasteBlock(QObject):
                 self.blocked.emit()
             return True
         return False
+
+
+class AnswerLine(QLineEdit):
+    """읽기 화면의 복사 허용과 별개로 답안 칸의 복사·잘라내기·붙여넣기를 막음."""
+    blocked = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.paste_block = PasteBlock(self)
+        self.paste_block.watch(self)
+        self.paste_block.blocked.connect(self.note_blocked)
+
+    def note_blocked(self):
+        self.blocked.emit()
+        QToolTip.showText(self.mapToGlobal(QPoint(0, self.height())),
+                         "답은 복사·붙여넣기 없이 직접 입력해 주세요.", self)
+
+    def keyPressEvent(self, event):
+        copying = (QKeySequence.StandardKey.Copy, QKeySequence.StandardKey.Cut,
+                   QKeySequence.StandardKey.DeleteEndOfLine, QKeySequence.StandardKey.DeleteCompleteLine)
+        if is_paste(event) or any(event.matches(key) for key in copying):
+            self.note_blocked()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def contextMenuEvent(self, event):
+        self.note_blocked()
+        event.accept()
+
+    def copy(self):
+        self.note_blocked()
+
+    def cut(self):
+        self.note_blocked()
+
+    def paste(self):
+        self.note_blocked()
 
 
 class Para(QLabel):

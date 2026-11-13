@@ -23,7 +23,7 @@ from aiprep import bank, skel
 from aiprep.grade import BLANK
 from gui import motion, ai_text, kit, theme
 from gui.docview import Doc, FigureView, TextPiece
-from gui.widgets import Para
+from gui.widgets import AnswerLine, Para
 from gui.wrong_page import Arrow
 from session import SessionError
 
@@ -416,7 +416,7 @@ def code_font():
     return theme.code_font(theme.TYPE["learn_code"][0] - theme.CODE_PX)
 
 
-class Slot(QLineEdit):
+class Slot(AnswerLine):
     """코드 줄 안의 빈칸. 높이는 theme.slot_height(), 폭은 SLOT_CHARS 자에서 시작해 적은 글만큼 넓어짐. 폭은 자리표시 글(hint)도 담음.
     답한 뒤 자리표시를 지워도 폭이 그대로라 뒤 코드가 움직이지 않음."""
 
@@ -693,7 +693,7 @@ class RecallBlock(QFrame):
         column = kit.box(self, (32, 32, 32, 32), spacing=24)
         column.addWidget(head(title))
         column.addWidget(rich(block.get("q", "")))
-        self.field = QLineEdit()
+        self.field = AnswerLine()
         kit.typed(self.field, "learn_body")
         self.field.setPlaceholderText(ai_text.MODE_HINT.get(block.get("mode") or "word", ""))
         self.field.installEventFilter(ALT_PASS)
