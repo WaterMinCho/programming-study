@@ -11,14 +11,14 @@ from tools.slack_notify import endpoint, read_url, send
 from tools.slack_summary import Client
 
 API = "https://incidents.betterstack.com/api/v3/incidents"
-LABELS = {"health": "수집 서버", "internal": "운영 점검", "test": "연결 테스트"}
+LABELS = {"health": "수집 서버", "test": "연결 테스트"}
 
 
 def events(resources, token):
     notices = []
     for key, resource in resources.items():
         kind, identifier = resource.split(":")
-        if key not in LABELS or kind not in ("monitor", "heartbeat") or not identifier.isdecimal():
+        if key not in LABELS or kind != "monitor" or not identifier.isdecimal():
             raise ValueError("모니터 목록을 확인해 주세요.")
         page = 1
         while True:
