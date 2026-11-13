@@ -31,6 +31,18 @@ Windows 창 검사는 `QT_QPA_PLATFORM=windows`에서 별도로 수행합니다.
 
 빈 화면과 기록이 쌓인 화면을 모두 확인합니다. 그래프의 권장 너비를 작은 창의 최소 너비로 강제하지 않습니다. 나란한 카드가 들어가지 않으면 세로로 배치하고, 창을 넓히면 다시 나란히 놓습니다. 화면 첫 진입과 왕복, 글자 확대 뒤 축소에서도 가용 폭을 다시 계산합니다.
 
+## 수집 통계의 요약과 조회 기간을 구분합니다
+
+누적 수집 기록·인증 계정·첫 실행 확인 기기는 별도 요약으로 표시합니다. 선택 기간의 최초 인증·첫 실행은 건수로 쓰며 증가율이나 실제 사람 수로 바꾸지 않습니다. 기간 선택은 기간 합계와 그래프 가까이에 두고 과목별 합계도 같은 기간을 따릅니다.
+
+그래프는 과목별 색을 유지하고 정확한 건수는 마우스와 키보드로 확인할 수 있게 합니다. 눈금은 정수로 표시하고 글자가 겹치면 날짜 표시 수를 줄입니다. 좁은 창에서는 요약과 과목 합계를 세로로 옮기며 넓히면 다시 나란히 배치합니다. 빈 기록과 조회 실패는 구분하고 권한이 사라진 뒤 도착한 응답으로 수치를 다시 열지 않습니다.
+
+2026년 11월 13일 [Carbon의 대시보드 지침][carbon-dashboard], [PostHog의 날짜 필터][posthog-dashboard], [Vercel의 조회 기간과 그래프][vercel-dashboard]를 대조했습니다. 지표의 위계·공통 기간·계열색을 참고하고 기존 앱의 글꼴·테마·간격을 사용합니다.
+
+[carbon-dashboard]: https://www.carbondesignsystem.com/building-blocks/data-visualization/dashboards
+[posthog-dashboard]: https://posthog.com/docs/product-analytics/dashboards#dates-and-filters
+[vercel-dashboard]: https://vercel.com/docs/observability
+
 ## 팝업의 하단 동작을 고정합니다
 
 확인·오류·풀이 ID·GitHub 본인 확인·동의·제출·학습 데이터 팝업은 `gui/dialog_layout.py`의 공통 배치를 사용합니다. 제목과 하단 동작은 고정하고 긴 본문만 스크롤합니다. 제목·본문·버튼의 좌우 여백은 32px로 맞춥니다. 하단에는 1px 테두리를 표시해 본문과 버튼을 구분합니다. 본문에는 기존 글자 역할을 사용하며 글자 확대에 따라 함께 커집니다.
