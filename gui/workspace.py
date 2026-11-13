@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import QApplication, QComboBox, QFrame, QGridLayout, QLayou
 
 import study
 from gui import kit, theme
+from gui.mascot import Mascot
+from gui.navigation import NavigationButton
 
 SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home"),
             ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI", "go_ai"))
@@ -169,16 +171,25 @@ class Workspace(QWidget):
         self.rail = QFrame()
         self.rail.setObjectName("navigation")
         self.rail.setProperty("ui", "2")
-        self.rail.setFixedWidth(188)
+        self.rail.setFixedWidth(232)
         nav = kit.box(self.rail, (16, 24, 16, 24), 8)
-        nav.addWidget(kit.para("프로그래밍\n스터디", "headline", bold=True))
-        nav.addSpacing(32)
-        nav.addWidget(kit.label("내 공부", "caption", "tertiary"))
+        brand = QWidget()
+        brand_row = kit.box(brand, spacing=12, horizontal=True)
+        mark = QWidget()
+        mark.setFixedWidth(36)
+        mark_row = kit.box(mark)
+        mark_row.addWidget(Mascot(32), 0, Qt.AlignmentFlag.AlignCenter)
+        brand_row.addWidget(mark)
+        brand_row.addWidget(kit.para("프로그래밍\n스터디", "label", bold=True), 1)
+        nav.addWidget(brand)
+        nav.addSpacing(24)
+        section = QWidget()
+        section_row = kit.box(section, (48, 0, 0, 0))
+        section_row.addWidget(kit.label("학습", "caption", "tertiary"))
+        nav.addWidget(section)
         self.buttons = {}
         for tid, title, action in self.subjects:
-            button = kit.button(title, "text", "l")
-            button.setProperty("navigation", True)
-            button.setCheckable(True)
+            button = NavigationButton(tid, title)
             button.clicked.connect(lambda checked=False, action=action: self.navigate(action))
             self.buttons[tid] = button
             nav.addWidget(button)

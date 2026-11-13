@@ -15,7 +15,7 @@ import math
 
 import study
 
-from PyQt6.QtCore import QEvent, QRectF, QSize, Qt
+from PyQt6.QtCore import QEvent, QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF, QPainter
 from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
 
@@ -310,6 +310,12 @@ class HubPage(QWidget):
             setting_box.addWidget(button)
             self.text_buttons[step] = button
         setting_box.addWidget(self.theme_btn)
+        self.identity_btn = kit.button("본인 확인 다시 하기", "text", "s", onbg=True)
+        self.identity_btn.clicked.connect(lambda: win.ensure_identity(force=True))
+        setting_box.addWidget(self.identity_btn)
+        self.replay_tour = kit.button("첫 화면 안내 다시 보기", "text", "s", onbg=True)
+        self.replay_tour.clicked.connect(lambda: win.show_hub_tour(replay=True))
+        setting_box.addWidget(self.replay_tour)
         top.add_right(self.settings_btn, flush=True)
         outer.addWidget(top)
         outer.addWidget(self.settings_panel)
@@ -417,16 +423,21 @@ class HubPage(QWidget):
         root.addWidget(self.status)
         root.addSpacing(8)
         root.addWidget(self.busy_bar)
+        from gui.team_dashboard import TeamCard
+        self.team_card = TeamCard(win)
+        root.addSpacing(24)
+        root.addWidget(self.team_card)
         root.addSpacing(24)
         self.foot = LinkLabel('<a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL,
                               line=theme.TYPE["caption"][1], font=theme.font("caption"))
         kit.typed(self.foot, "caption")
         self.foot.setProperty("tone", "tertiary")
         self.foot.setOpenExternalLinks(True)
-        root.addWidget(self.foot)
+        root.addWidget(self.foot, 0, Qt.AlignmentFlag.AlignLeft)
         column = kit.column(inner)
         column.layout().setContentsMargins(32, 0, 32, 0)
-        outer.addWidget(kit.scroll(column), 1)
+        self.scroll = kit.scroll(column)
+        outer.addWidget(self.scroll, 1)
 
         self.theme_btn.clicked.connect(win.cycle_theme)
         self.next_btn.clicked.connect(self.open_next)
@@ -438,6 +449,7 @@ class HubPage(QWidget):
 
     def refresh(self):
         win = self.win
+        self.team_card.refresh_identity()
         overview = win.session.overview()
         self.user.setText("ID: %s" % overview["user"])
         name, _ = split_action(win.next_action(overview)[0])
@@ -682,3 +694,5 @@ class HubPage(QWidget):
         self.busy_bar.setVisible(busy)
         self.status.setVisible(busy and bool(text))
         self.status.setText(text if busy else "")
+        if not busy:
+            QTimer.singleShot(0, self.win.show_hub_tour)
