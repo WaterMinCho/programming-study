@@ -3,7 +3,7 @@
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QWidget
 
-from aiprep import bank
+from aiprep import bank, mixed_mock
 from aiprep.grade import BLANK
 from aiprep.mock import MockError
 from gui import ai_text, kit, theme
@@ -89,6 +89,7 @@ class MockPage(QWidget):
             raise MockError('쓰던 답안을 먼저 저장하세요.')
         self.mid = mid
         info = self.win.ai.mock_info(mid)
+        self.top.back.setText('← ' + bank.COURSES[self.win.ai.course])
         self.restart_required = info["restart_required"]
         self.top.title.setText(info['title'])
         self.top.title.show()
@@ -100,8 +101,12 @@ class MockPage(QWidget):
         self.numbers.hide()
         self.lesson_results.hide()
         self.clock_box.hide()
-        self.heading.setText('%d문항 · %d분 · %d~%d차시 · 빈칸 %d · 고르기 %d' %
-                             (info['count'], info['minutes'], *info['range'], info['blanks'], info['choices']))
+        if mixed_mock.candidate(info):
+            self.heading.setText(mixed_mock.description(info) + '\n빈칸 %d · 고르기 %d' % (info['blanks'], info['choices']))
+            doc('120분은 약 2시간 연습을 위한 기본값입니다. 공식 평가 시간을 뜻하지 않습니다.', '', self.card_box)
+        else:
+            self.heading.setText('%d문항 · %d분 · %d~%d차시 · 빈칸 %d · 고르기 %d' %
+                                 (info['count'], info['minutes'], *info['range'], info['blanks'], info['choices']))
         doc('시작하면 시계가 멈추지 않습니다. 프로그램을 꺼도 시간이 흐르고, 시간이 다 되면 그때까지 쓴 답으로 제출됩니다. 부분 점수는 없습니다.', '', self.card_box)
         if self.restart_required:
             doc("시작 당시 문항 버전과 현재 자료가 일치하지 않습니다. [새 자료로 시작]을 누르면 새 응시를 시작합니다. 이전 초안과 응시 기록은 보관합니다.", "", self.card_box)
@@ -205,6 +210,8 @@ class MockPage(QWidget):
         self.showing_result = done
         self.dirty = False
         self.card_box.addWidget(kit.label('%d / %d' % (item['at'], item['total']), 'headline'))
+        if item.get('course'):
+            self.card_box.addWidget(kit.para(ai_text.lesson_title(item['course_no'], '', item['course']), 'caption', 'secondary'))
         if item['kind'] == 'blank':
             blanks, count = item['blanks'], 0
             stem = bank.number_blanks(item['stem']) if len(blanks) > 1 else item['stem']
@@ -297,8 +304,9 @@ class MockPage(QWidget):
             if self.summary_key != summary_key:
                 self.lesson_results.clear()
                 for lid, counts in rows:
-                    entry = self.win.ai.lessons.get(lid, {})
-                    title = ai_text.lesson_title(entry.get('no', lid), entry.get('title', ''))
+                    entries = self.exam.sess.mock_lessons if self.exam.mixed else self.win.ai.lessons
+                    entry = entries.get(lid, {})
+                    title = ai_text.lesson_title(entry.get('no', lid), entry.get('title', ''), entry.get('course', 'intro'))
                     self.lesson_results.add(kit.Row(title.strip(), end='%d / %d' % (counts['correct'], counts['total']), inert=True))
                 self.summary_key = summary_key
             self.heading.setText('%d / %d문항 맞음 · 걸린 시간 %d분 %d초\n처음 점수 %d / %d\n틀리거나 비운 문항은 첫 풀이 결과를 기준으로 다음 날부터 복습합니다.' %

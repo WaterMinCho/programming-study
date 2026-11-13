@@ -12,7 +12,7 @@
 차시 화면: 단원 줄, [전체 노트]·[복습 질문], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
 from PyQt6.QtWidgets import QWidget
 
-from aiprep import bank
+from aiprep import bank, mixed_mock
 from gui import ai_text, kit, theme
 from gui.wrong_page import count_line
 from session import SessionError
@@ -101,6 +101,8 @@ class AiHomePage(QWidget):
         mock_box.addSpacing(theme.GAP["description_content"])
         self.mock_list = kit.RowList()
         mock_box.addWidget(self.mock_list)
+        self.mock_pending = kit.para('', 'body', 'secondary')
+        mock_box.addWidget(self.mock_pending)
         root.addWidget(self.mock_section)
         root.addStretch(1)
         column = kit.column(inner)
@@ -165,7 +167,10 @@ class AiHomePage(QWidget):
     def show_mocks(self, overview):
         self.mock_list.clear()
         rows = [row for row in overview['mocks'] if row['ready']]
-        self.mock_section.setVisible(bool(rows))
+        pending = overview.get('mock_pending', '')
+        self.mock_pending.setText(pending)
+        self.mock_pending.setVisible(bool(pending))
+        self.mock_section.setVisible(bool(rows) or bool(pending))
         for spec in rows:
             state = self.win.ai.mock_state(spec['id'])
             end = '풀기 전'
@@ -175,8 +180,9 @@ class AiHomePage(QWidget):
                 end = '남은 시간 %d분' % ((state['remaining'] + 59) // 60)
             elif state['first_score'] is not None:
                 end = '%d / %d' % (state['first_score'], spec['count'])
-            row = self.mock_list.add(kit.Row(spec['title'], '%d문항 · %d분 · %d~%d차시' %
-                                            (spec['count'], spec['minutes'], spec['range'][0], spec['range'][1]), end=end))
+            detail = mixed_mock.description(spec) if mixed_mock.candidate(spec) else '%d문항 · %d분 · %d~%d차시' % (
+                spec['count'], spec['minutes'], spec['range'][0], spec['range'][1])
+            row = self.mock_list.add(kit.Row(spec['title'], detail, end=end))
             if state['error']:
                 row.setToolTip(state['error'])
             row.clicked.connect(lambda checked=False, mid=spec['id']: self.win.open_ai_mock(mid))
