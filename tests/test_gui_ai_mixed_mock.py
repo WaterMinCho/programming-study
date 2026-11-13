@@ -4,7 +4,8 @@ import unittest
 from unittest import mock
 
 from aiprep import bank
-from tests import test_gui_ai
+from tests import guikit, test_gui_ai
+from PyQt6.QtGui import QFont
 from gui import theme
 from tests.test_ai_mixed_mock import make_bank, without_mixed_metadata
 from tests.test_gui_ai import visible_text
@@ -18,12 +19,22 @@ class MixedMockPageTest(unittest.TestCase):
     idle = test_gui_ai.AiTest.idle
 
     def setUp(self):
+        before=(dict(theme.state),QFont(guikit.APP.font()),guikit.APP.palette(),guikit.APP.styleSheet())
         test_gui_ai.AiTest.setUp(self)
+        self.addCleanup(self.restore_theme,before)
         self.root = str(make_bank(self.tmp+'/mixed_bank'))
         for name,value in [('AI_DIR',self.root)]:
             patch=mock.patch.object(bank,name,value)
             patch.start()
             self.addCleanup(patch.stop)
+
+    def restore_theme(self,before):
+        state,font,palette,stylesheet=before
+        theme.set_text(state['text'])
+        theme.set_mode(state['mode'],force=True)
+        guikit.APP.setFont(font)
+        guikit.APP.setPalette(palette)
+        guikit.APP.setStyleSheet(stylesheet)
 
     def test_unconnected_metadata_hides_start_and_shows_pending_text(self):
         with mock.patch.object(bank,'read_index',without_mixed_metadata):
