@@ -243,6 +243,29 @@ class CollectionIntegrationTest(Base):
         self.assertEqual(first["at"], row["prediction_at"])
         self.assertEqual(first["event_id"], row["prediction_event"])
 
+    def test_runtime_change_keeps_raw_answer_without_guessing_return_time(self):
+        from learning_server.dataset import prepare
+        sess = self.session()
+        sess.collection.set_enabled(True)
+        sess.mark_read('i90', '90a')
+        with mock.patch.object(collection, 'runtime_revision', return_value='before-update'):
+            practice = sess.start_set('unit', lesson='i90', unit='90a', seed=4)
+            current = practice.current()
+            saved = practice.snapshot()
+        before = sess.collection.snapshot()
+        first = next(row for row in before if row['kind'] == 'question_returned')
+        with mock.patch.object(collection, 'runtime_revision', return_value='after-update'):
+            restored = service.PracticeSet.restore(sess, saved)
+            restored.current()
+            restored.answer(self.right(restored, current), 3, False)
+        after = sess.collection.snapshot()
+        self.assertEqual(first, next(row for row in after if row['kind'] == 'question_returned'))
+        answer = next(row for row in after if row['kind'] == 'answer')
+        self.assertNotEqual(first['item_revision'], answer['item_revision'])
+        prepared = prepare(after)[0]
+        self.assertIsNone(prepared['prediction_at'])
+        self.assertIsNone(prepared['prediction_event'])
+
     def test_mock_submission_records_missing_and_answered_items_once(self):
         helper = mock_tests.MockServiceTest("test_unsubmitted_questions_do_not_enter_practice")
         helper.setUp()

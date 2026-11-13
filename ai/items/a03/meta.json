@@ -38,6 +38,20 @@
    "stmt": 0,
    "gen": [],
    "core": 3
+  },
+  "a3f": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a3g": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
   }
  },
  "sources": []

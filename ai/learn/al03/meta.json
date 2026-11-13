@@ -16,7 +16,14 @@
   "기울기",
   "손실",
   "임계값",
-  "파라미터"
+  "파라미터",
+  "이진화",
+  "적응형 이진화",
+  "Otsu",
+  "모서리",
+  "Harris",
+  "Shi–Tomasi",
+  "계층"
  ],
  "needs": [
   "al02"
@@ -26,7 +33,9 @@
   "a3b": "공간의 밝기 변화와 시간 변화를 구분합니다",
   "a3c": "Canny로 얇고 이어진 경계를 고릅니다",
   "a3d": "경계점의 표를 모아 직선을 찾습니다",
-  "a3e": "선택한 영역의 중심을 원본 좌표로 옮깁니다"
+  "a3e": "선택한 영역의 중심을 원본 좌표로 옮깁니다",
+  "a3f": "밝기 기준과 윤곽선 검색 범위를 고릅니다",
+  "a3g": "모서리와 원을 다른 조건으로 찾습니다"
  },
  "outputs": [],
  "credits": [],
@@ -65,6 +74,26 @@
    "what": "좌표 변환과 원본 조회 관계",
    "url": "https://docs.opencv.org/4.13.0/da/d54/group__imgproc__transform.html",
    "checked": "2026-11-13"
+  },
+  {
+   "what": "전역·적응형·Otsu 이진화",
+   "url": "https://docs.opencv.org/4.13.0/d7/d4d/tutorial_py_thresholding.html",
+   "checked": "2026-11-14"
+  },
+  {
+   "what": "모서리 점수와 Harris의 계수",
+   "url": "https://docs.opencv.org/4.13.0/dc/d0d/tutorial_py_features_harris.html",
+   "checked": "2026-11-14"
+  },
+  {
+   "what": "모서리 후보 선택과 원 검출의 설정",
+   "url": "https://docs.opencv.org/4.13.0/dd/d1a/group__imgproc__feature.html",
+   "checked": "2026-11-14"
+  },
+  {
+   "what": "윤곽선 검색과 점 압축",
+   "url": "https://docs.opencv.org/4.13.0/d3/dc0/group__imgproc__shape.html",
+   "checked": "2026-11-14"
   }
  ],
  "units": {
@@ -91,6 +120,16 @@
   "a3e": {
    "minutes": 8,
    "key_figure": "assets/a3e-1.gif",
+   "kind": "concept"
+  },
+  "a3f": {
+   "minutes": 8,
+   "key_figure": "assets/a3f-1.gif",
+   "kind": "concept"
+  },
+  "a3g": {
+   "minutes": 8,
+   "key_figure": "assets/a3g-1.gif",
    "kind": "concept"
   }
  }

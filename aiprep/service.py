@@ -1824,8 +1824,8 @@ class PracticeSet(object):
         self.ended = False
         self.card, self.draft = None, {}
 
-    def fingerprint(self):
-        """묶음의 문항·용어·뼈대가 바뀌었는지 비교할 해시를 구함."""
+    def fingerprint(self, previous_refs=False):
+        """묶음 전체를 대조함. 출처 정정은 등록한 이전 ref로만 다시 계산함."""
         def generator(value):
             if not isinstance(value, gen.GenSpec):
                 raise TypeError(type(value).__name__)
@@ -1840,6 +1840,23 @@ class PracticeSet(object):
 
         content = {"cards": [self.sess.cards[c] for c in self.stats], "terms": self.sess.terms,
                    "skeletons": self.sess.skeletons}
+        if previous_refs:
+            cards, replaced = [], False
+            for card in content["cards"]:
+                fixes = self.sess.items.get(card.get("lesson"), {}).get("meta", {}).get("resume_source_refs", {})
+                fix = fixes.get(card["id"]) if isinstance(fixes, dict) else None
+                if fix is not None:
+                    if (not isinstance(fix, dict) or card["kind"] not in ("blank", "choice")
+                            or any(not isinstance(fix.get(key), list) or not all(isinstance(ref, str) for ref in fix[key])
+                                   for key in ("previous", "current"))
+                            or card.get("ref") != fix["current"] or card["item"].get("ref") != fix["current"]):
+                        return None
+                    card = dict(card, ref=fix["previous"], item=dict(card["item"], ref=fix["previous"]))
+                    replaced = True
+                cards.append(card)
+            if not replaced:
+                return None
+            content["cards"] = cards
         return hashlib.sha256(json.dumps(content, ensure_ascii=False, sort_keys=True, default=generator).encode("utf-8")).hexdigest()
 
     def snapshot(self):
@@ -1865,7 +1882,9 @@ class PracticeSet(object):
         if not 0 <= result.pos < len(result.queue) or any(e["card"] not in sess.cards for e in result.queue):
             raise ValueError("문항이 바뀐 묶음")
         if saved["fingerprint"] != result.fingerprint():
-            raise ValueError("문항이 바뀐 묶음")
+            previous = result.fingerprint(previous_refs=True)
+            if previous is None or saved["fingerprint"] != previous:
+                raise ValueError("문항이 바뀐 묶음")
         result.before_due = {k: datetime.date.fromisoformat(d) if d else None for k, d in saved["before_due"].items()}
         result.sure_before = set(saved["sure_before"])
         result.rng = random.Random()
