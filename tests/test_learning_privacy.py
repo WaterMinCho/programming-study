@@ -47,6 +47,8 @@ class PrivacyTest(unittest.TestCase):
         invalid = dict(old, policy_hash=privacy.POLICY_HASH)
         with self.assertRaises(ValueError):
             privacy.validate_receipt(invalid)
+        with self.assertRaises(ValueError):
+            privacy.validate_receipt(dict(old, policy=[]))
 
     def test_unmocked_http_is_rejected_by_the_fixture(self):
         import urllib.request

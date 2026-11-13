@@ -36,7 +36,7 @@ CONSENT_LOCKS = {}
 
 
 def known_policy(value):
-    return (isinstance(value, dict) and value.get("policy") in SUPPORTED_POLICIES
+    return (isinstance(value, dict) and isinstance(value.get("policy"), str) and value["policy"] in SUPPORTED_POLICIES
             and value.get("policy_hash") == SUPPORTED_POLICIES[value["policy"]])
 
 
