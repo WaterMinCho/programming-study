@@ -1,8 +1,8 @@
 # AI 개론·응용 출제 안내
 
-AI 비전 개론 트랙에 학습 노트, 연습 문항, 생성기, 상황별 코드 뼈대, 그림을 넣는 사람이 보는 문서입니다. 파일 규격, 봉인·검증·서명 명령, 출제·재풀이·대조·검토를 나눠 맡는 교차 검증 순서, 쓰는 사람과 검토하는 사람이 같이 쓰는 체크 목록을 적었습니다. 학습 노트의 기본 꼴과 서명은 웹 면접 준비의 학습 페이지와 같아서 [WEB_AUTHORING.md](WEB_AUTHORING.md) 의 학습 페이지 절도 함께 읽습니다.
+AI 개론·응용에 학습 노트, 연습 문항, 생성기, 상황별 코드 뼈대, 그림을 넣는 사람이 보는 문서입니다. 파일 규격, 봉인·검증·서명 명령, 출제·재풀이·대조·검토를 나눠 맡는 교차 검증 순서, 쓰는 사람과 검토하는 사람이 같이 쓰는 체크 목록을 적었습니다. 학습 노트의 기본 꼴과 서명은 웹 면접 준비의 학습 페이지와 같아서 [WEB_AUTHORING.md](WEB_AUTHORING.md) 의 학습 페이지 절도 함께 읽습니다.
 
-이 트랙은 코드를 실행하지 않습니다. 앱, 도구, 테스트, 생성기 어느 것도 `torch` 와 `numpy` 를 import 하지 않고, 코드 지식은 코드 빈칸과 코드 고르기로만 묻습니다. 강의 자료가 맞다고 가정하지 않습니다. 문항은 사실 확인을 마친 사실(`facts.json`)로만 만듭니다. 자료 오류의 대조는 사실 목록과 검토 기록에 보존하고, 학습 본문과 해설에는 확인한 원리와 조건을 바로 설명합니다. 외부 교재의 파일 이름이나 셀 번호를 몰라도 이해할 수 있게 씁니다.
+학습자가 적은 코드는 실행하지 않습니다. 앱에서 빈칸 채우기·고르기·순서 맞추기·고칠 줄 찾기로 코드 지식을 확인합니다. 강의 자료가 맞다고 가정하지 않습니다. 문항은 사실 확인을 마친 사실(`facts.json`)로만 만듭니다. 자료 오류의 대조는 사실 목록과 검토 기록에 보존하고, 학습 본문과 해설에는 확인한 원리와 조건을 바로 설명합니다. 외부 교재의 파일 이름이나 셀 번호를 몰라도 이해할 수 있게 씁니다.
 
 ## 1. 폴더와 파일
 
@@ -25,13 +25,13 @@ ai/
       statements.json       참거짓을 정한 문장 묶음
       facts.json            확인된 사실과 강의 자료 오류
       review.json           문항 묶음 서명(verify_ai.py --sign 이 씀)
-  items/common/gens.py      공용 생성기(@base). 차시마다 register 로 붙입니다
-  items/pc/                 상황별 코드. meta.json, sealed.json(facts.json 과 review.json 만)
+  items/common/gens.py      여러 차시에서 같은 생성기를 쓸 때 추가하는 선택 파일(@base)
+  items/pc/                 상황별 코드. meta.json, gens.py, oracle.py, sealed.json(facts.json과 review.json)
   patterns/S1.json          상황별 코드 뼈대. 공개라 봉인하지 않고 카드는 엔진이 여기서 만듭니다
   learn/l18/                상황별 코드 학습 노트(단원 키 18a~18h)
   mocks/m1/                 모의고사
 tools/ai_art/
-  lNN.py                    그 노트의 그림 스크립트(출제자 컴퓨터에서만)
+  lNN.py                    그 노트의 그림 스크립트(출제할 때 사용)
   manifest.json             스크립트로 그린 그림의 sha256
 ```
 
@@ -39,7 +39,7 @@ tools/ai_art/
 
 ## 2. 학습 노트(page.md)
 
-`#` 은 노트 제목, `##` 는 단원, `###` 는 단계입니다. 단원 제목은 `meta.json` 의 `sections` 값과 같아야 하고, 단원 키는 `<차시 번호><a~i>`(5c), 상황별 코드는 `18a`~`18h` 입니다. `sections` 에 없는 `##`(그림 출처 등)는 단원으로 세지 않습니다. `##` 바로 밑에는 글을 두지 않고 첫 `###` 안에 씁니다.
+`#` 은 노트 제목, `##` 는 단원, `###` 는 단계입니다. 단원 제목은 `meta.json` 의 `sections` 값과 같아야 하고, 단원 키는 `<차시 번호><a~i>`(5c), 응용은 `a1a`처럼 앞에 a를 붙이고, 상황별 코드는 `18a`~`18h`입니다. `sections` 에 없는 `##`(그림 출처 등)는 단원으로 세지 않습니다. `##` 바로 밑에는 글을 두지 않고 첫 `###` 안에 씁니다.
 
 단계 제목 바로 밑 줄에 그 단계가 설명하는 사실 id 를 적습니다. 이 줄은 화면에 넘기기 전에 지워지고 verify_ai 가 카드의 `step` 과 맞춰 봅니다.
 
@@ -170,13 +170,13 @@ def linear_params(r):
 
 `oracle.py` 에는 생성기 id 의 붙임표를 밑줄로 바꾼 함수(`def i05_g02(params)`)를 둡니다. 빈칸이면 칸마다 정답 글의 목록, 고르기면 답 보기의 글을 돌려줍니다. 300 시드에서 생성기와 oracle 이 같아야 하고 서로 다른 지문이 20개 이상이어야 합니다. 반올림 경계는 `fixed(x, k)` 가 `Retry` 로 피합니다.
 
-`ref` 는 이 꼴만 받습니다: `5차시 슬 p21`, `5차시 노트북 02 [7]`, `5차시 과제 4번`, `10차시 강의노트 [3]`, `요약 1주차 p14`, `대학원 05 p15`, `공식 13차시`, `PyTorch 문서 CrossEntropyLoss`. 첫 ref 는 그 차시의 슬라이드·노트북·과제·강의노트·요약본이고, 대학원·공식만 근거인 카드는 `deep` 입니다.
+`ref`에 쓸 수 있는 표기의 예입니다. `5차시 슬 p21`, `5차시 노트북 02 [7]`, `5차시 과제 4번`, `10차시 강의노트 [3]`, `요약 1주차 p14`, `대학원 05 p15`, `공식 13차시`, `PyTorch 문서 CrossEntropyLoss`. 첫 근거는 해당 과정과 차시의 강의 자료입니다. 응용은 `응용 1차시 슬 p3`처럼 과정 이름을 붙입니다. 개론은 해당 주차 요약본도 첫 근거로 쓸 수 있습니다. 심화 자료는 강의 근거 뒤에 적습니다.
 
 강의 자료 위치는 문항의 `ref`, facts.json의 `where`, meta.json의 `sources`에 남깁니다. 본문·블록·캡션·문항·보기·해설·생성기 견본에는 붙이지 않습니다. 앞에서 소개하지 않은 파일 별칭이나 셀 번호를 설명의 전제로 삼지 않습니다. 필요한 데이터·코드·계산 조건을 같은 화면에서 설명합니다. 더 볼 곳은 "5차시 여섯째 단원 3단계"처럼 학습 화면으로 안내합니다. 공식 문서 이름과 외부 그림의 출처 표시는 유지합니다.
 
 ## 4. 상황별 코드 뼈대
 
-상황별 코드 단원(l18)의 카드는 `ai/patterns/S1.json` 같은 뼈대 파일에서 엔진이 만듭니다. `ai/items/pc/` 에는 단원별 카드 수를 적은 `meta.json` 과 봉인한 `facts.json`, `review.json` 만 둡니다. 사실 id 는 `F18-01`, 강의 자료 오류는 `X18-01` 이고, 차시 사실을 옮긴 것은 `from` 에 원래 id 를 적습니다.
+상황별 코드 단원(l18)의 카드는 `ai/patterns/S1.json` 같은 뼈대 파일에서 엔진이 만듭니다. `ai/items/pc/` 에는 단원별 카드 수를 적은 `meta.json`, 계산 문항의 `gens.py`와 독립 정답 함수 `oracle.py`를 둡니다. `facts.json`과 `review.json`은 `sealed.json`에 묶습니다. 사실 id 는 `F18-01`, 강의 자료 오류는 `X18-01` 이고, 차시 사실을 옮긴 것은 `from` 에 원래 id 를 적습니다.
 
 뼈대는 강의의 입력 조건과 호출 순서를 확인한 뒤 이 트랙의 예제로 씁니다. 변수 이름만 바꾼 것을 새 설명이나 독립 계산으로 세지 않습니다. 겹침 검사에서 같은 줄이 나오면 원문과 문맥을 직접 대조합니다. `loss.backward()`, `optimizer.step()`, `model.eval()`, `with torch.no_grad():`만으로 이뤄진 세 줄은 공통 호출 순서로 봅니다. 이 경우에도 코드 120자 전체 일치와 직접 쓴 계산이 포함된 세 줄, 산문 검사는 유지합니다. 예제의 변수 이름이 원문과 다르면 학습 노트에서 한 문장으로 밝힙니다.
 
@@ -219,9 +219,9 @@ GIF의 장 수는 보여 줄 계산 단계로 정합니다. 3~5장으로 변화 
 저장할 때는 `tools/ai_art` 의 `quantize()` 로 64색 팔레트를 만듭니다. `FIXED` 에 적힌 색은 팔레트에 먼저 들어가서 옅은 회색과 옅은 보라처럼 가까운 두 색도 서로 합쳐지지 않습니다. 스크립트에 새 색을 쓰면 `FIXED` 에도 넣어야 tests/test_ai_tools.py 가 통과합니다.
 
 ```
-python3 -m tools.ai_art l05                                    @figure 함수를 그려 assets/ 에 쓰고 manifest 를 고칩니다
-python3 tools/ai_art/l05.py                                    자기 명령줄로 그리는 스크립트
-python3 -m tools.ai_art l05 --record                           그린 뒤 manifest 만 고칩니다(표준 라이브러리)
+python3 -m tools.ai_art l05 5a-2  # 5a-2 그림을 그리고 manifest에 기록합니다.
+python3 tools/ai_art/l02.py l02-1  # l02 스크립트로 l02-1 그림을 그립니다.
+python3 -m tools.ai_art l02 --record  # l02의 기존 그림을 manifest에 기록합니다.
 ```
 
 직접 그린 그림은 manifest에 등록합니다. 가져온 그림은 `meta.credits`에 출처를 적습니다. 이번에 확인한 3Blue1Brown 공식 글의 MP4 두 개는 원작자 FAQ의 짧은 인용 허락으로 사용합니다. 허락 이름은 `3Blue1Brown FAQ clip permission (under 60 seconds)`이며 author는 `3Blue1Brown · Grant Sanderson`, permission_url은 `https://www.3blue1brown.com/about/`, url은 해당 공식 MP4 주소로 적습니다. source_seconds에는 사용한 원본 구간의 초수를 적으며 전체 해당 credits의 합도 60초 미만으로 둡니다. 직접 그린 그림의 manifest나 CC 라이선스로 등록하지 않습니다. 화면마다 저작자와 공식 글 링크를 읽을 수 있게 두고 원본 장면과 추가 한글 설명을 구별합니다. 캡션과 주변 본문에는 대표 장면 발췌와 느린 표시임을 밝힙니다. 표시 시간과 원본 사용 시간을 구별하고 시그모이드의 입력 0·출력 0.5와 출력 범위를 다른 활성화 함수로 넓히지 않습니다. 검증기는 확인한 원작자·허락 URL·공식 자산 URL·기재한 시간 조건을 검사하며 주변 설명과 실제 원본 사용 범위는 별도로 대조합니다. 가져온 GIF에도 기존 크기·장 수·색 수·용량 한도를 적용합니다.
@@ -252,7 +252,7 @@ python3 tools/ai_seal.py check                            평문이 남았거나
 python3 tools/ai_seal.py brief i05 --out DIR              재풀이용 문제지(sheet.md, cloze.md)와 빈 답안(answers.json), 저장소 밖에만
 python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, whole.md, skel.md)와 빈 답안·노트 답안
 python3 tools/ai_seal.py levels l04 [l05 ...] --out DIR   세 수준 블록 재풀이 공개본(블록마다 0_step.md 와 수준 파일 셋)과 빈 답안 levels_answers.json
-python3 tools/verify_ai.py [i05 common ...]               문항 꼴, 빈칸 규칙, 고르기, 문장, 생성기 300 시드, 사실 확인, 노트 블록, 근거, 말투, 그림
+python3 tools/verify_ai.py [i05 a01 ...]               문항 꼴, 빈칸 규칙, 고르기, 문장, 생성기 300 시드, 사실 확인, 노트 블록, 근거, 말투, 그림
 python3 tools/verify_ai.py pc                             상황별 코드. 위 검사에 더해 뼈대(코드 예제, 자리, 순서 300 시드, 고르기, 고칠 줄 300 시드)
 python3 tools/verify_ai.py i05 --answers DIR/answers.json 재풀이 답안을 채점
 python3 tools/verify_ai.py --levels-answers DIR/levels_answers.json   세 수준 물음 재풀이 답안을 채점(문항 재풀이와 따로 셈)
@@ -260,8 +260,8 @@ python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 
         --first-pass DIR/answers.json --minutes 95 --finding "i05-b09 지문이 두 가지로 읽혀 고침"
 python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4" \
         --keep-first-pass --finding "문장을 고치고 다시 대조함"
-python3 tools/verify_ai.py --require-review               문항 묶음·common·모의고사 서명 확인(CI)
-python3 tools/verify_web.py --bank ai --total-mb 32 l05   학습 노트 꼴·그림·서명(--sign --writer --resolver --reviewer)
+python3 tools/verify_ai.py --require-review               문항 묶음·모의고사와 등록된 공용 생성기의 서명 확인(CI)
+python3 tools/verify_web.py --bank ai --total-mb 32 l05 --require-review   학습 노트 형식·그림과 기존 서명 확인
 python3 tools/web_lint.py --bank ai --no-external         학습 노트 말투와 맥락(낱말을 쓰기 전에 소개)
 python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l05 i05   강의 글 겹침(출제자 컴퓨터에서만, PDF 는 pypdf)
 python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l18       l18·pc·S1 가운데 하나만 줘도 l18, 뼈대 전부, items/pc 를 모든 차시 강의와 견줌
@@ -272,7 +272,7 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 
 상황별 코드는 학습 노트 l18 을 `verify_web.py --bank ai --total-mb 32 l18 --sign …` 로, 카드를 `verify_ai.py pc --sign …` 으로 따로 서명합니다. pc 서명은 `ai/patterns/*.json` 을 모두 덮어서 뼈대를 더하거나 고치면 pc 를 다시 재풀이·대조·검토하고 서명합니다.
 
-이 컴퓨터에서는 `python3` 를 `/opt/homebrew/bin/python3` 로 씁니다. 서명은 글 파일(.py, .json, .md)을 줄 끝 LF 로 읽어 해시를 세므로 Windows 에서 받아도 맞습니다. 봉인은 내용을 바꾸지 않아 봉인 앞뒤로 서명이 맞습니다. 서명 뒤에 한 글자라도 고치면 `--require-review` 가 떨어지고, 바뀐 카드를 다시 재풀이·대조·검토한 뒤 다시 서명합니다.
+서명은 글 파일(.py, .json, .md)을 줄 끝 LF 로 읽어 해시를 세므로 Windows 에서 받아도 맞습니다. 봉인은 내용을 바꾸지 않아 봉인 앞뒤로 서명이 맞습니다. 서명 뒤에 한 글자라도 고치면 `--require-review` 가 떨어지고, 바뀐 카드를 다시 재풀이·대조·검토한 뒤 다시 서명합니다.
 
 첫 재풀이 뒤 문장만 고쳐 다시 서명할 때는 `--keep-first-pass`로 이전 기록을 보존합니다. 이 옵션은 맞힌 수, 틀린 문항, 시간과 나머지 기록을 함께 보존합니다. `--first-pass`나 `--minutes`와 함께 쓰지 않습니다. 이전 기록을 읽을 수 없으면 서명하지 않습니다.
 
@@ -345,7 +345,7 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 
 - 핵심 카드는 단원을 읽으면 열리고, 비핵심 카드는 그 단원 핵심 카드가 모두 상자 2 이상일 때 열립니다. 차시 풀기로 연 차시는 모든 카드가 열립니다.
 - 같은 `family` 는 한 묶음에 하나만 나오고, 외운 문항 수도 family 로 셉니다.
-- 같은 `confuse` 태그 카드는 한 문항을 사이에 두고 가까이 나옵니다.
+- 같은 `confuse` 태그의 카드는 가능하면 사이에 한 문항을 두고 배치합니다.
 - 문장 카드는 상자 1 까지 고르기, 상자 2 부터 빈칸판으로 나옵니다.
 - 상황별 코드 카드는 그 단원을 읽어야 열립니다. 차시 풀기에서는 index.json patterns 의 `after` 차시 문제집에 함께 들어갑니다.
 - 하루 새 카드 상한과 오늘 목표 단원은 기본으로 꺼 두었습니다(학습자가 문제집을 원하는 만큼 풂). 켜려면 `aiprep/service.py` 의 `NEW_PER_DAY`, `DAILY_GOAL` 을 바꿉니다.

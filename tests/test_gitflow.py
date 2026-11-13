@@ -363,6 +363,13 @@ class GitFlowTest(unittest.TestCase):
         self.pc.offline()
         self.assertEqual(self.pc.flow.updates(), {"status": "error", "available": False, "count": 0})
 
+    def test_career_catalog_only_update_restarts_to_load_new_roles(self):
+        self.sync()
+        self.server.add_files({"career/data/roles.json": '{"version": 2}\n'}, "직무 목록 갱신")
+        result = self.sync()
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(result["restart"])
+
     def test_learner_sync_updates_the_entire_project_without_touching_private_records(self):
         old = self.new_pc("old-public-records")
         old.journey(3)

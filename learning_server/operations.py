@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
+import tempfile
 
 from learning_data.collection import FORMAT, inside, packed, stamp
 from learning_data.sharing import endpoint, request
@@ -87,8 +88,7 @@ def write_private(path, data):
 def pilot(database, destination, url, days=7):
     """네 명에게 과목별 초대를 발급함. 등록과 전송 동의는 참가자가 직접 함."""
     url = endpoint(url)
-    with new_directory(destination, Path(database.path).parent) as directory:
-        codes = database.invites(count=8, days=days)
+    with new_directory(destination, Path(database.path).parent) as directory, database.prepare_invites(8, days) as codes:
         for index in range(4):
             message = (
                 "운영자용 이전 시범 초대입니다\n\n"
@@ -97,7 +97,7 @@ def pilot(database, destination, url, days=7):
                 "파이썬 초대 코드: %s\n"
                 "초대 유효 기간: 발급 후 %d일\n\n"
                 "일반 수강생에게는 개인 초대 파일이 필요하지 않습니다. 첫 실행에서 동의 여부를 선택합니다.\n"
-                "현재 프로그램은 동의 후 새 기록을 자동 전송합니다. 입력 답안 포함은 기본으로 꺼져 있습니다.\n"
+                "동의 후 자동 전송하는 연구 기록에는 답안 본문이 없습니다. 답안 파일 자동 제출은 따로 선택합니다. 연구 자료를 내보낼 때 입력 답안 포함은 기본으로 꺼져 있습니다.\n"
                 "동의 상태와 철회는 [내 정보·데이터]에서 관리하며, 동의하지 않아도 학습·로컬 채점은 사용할 수 있습니다.\n"
                 "위 코드는 운영자가 별도 시범 연결을 안내한 경우에만 사용합니다.\n"
                 "내보낸 사본과 백업 삭제는 프로그램 담당에게 별도로 요청합니다.\n"
@@ -120,20 +120,55 @@ def check(url):
 def class_invites(database, destination, url, count=100, days=7):
     """참가자당 하나의 API 개인 초대를 새 비공개 폴더에 저장함."""
     url = endpoint(url)
-    with new_directory(destination, Path(database.path).parent) as directory:
-        codes = database.invites(count=count, days=days)
+    with new_directory(destination, Path(database.path).parent) as directory, database.prepare_invites(count, days) as codes:
         for index, code in enumerate(codes, 1):
             text = ("운영자용 이전 시범 초대\n\n서버 주소: %s\n개인 초대 코드: %s\n"
                     "발급 후 %d일 안에 연결합니다.\n\n"
                     "일반 수강생은 이 초대 파일을 사용하지 않습니다. 첫 실행에서 수집 동의 여부를 선택합니다.\n"
                     "동의 후 새 학습 기록을 비공개 서버로 자동 전송하며 입력 답안 본문은 제외합니다.\n"
-                    "풀이 파일은 [풀이 제출]에서 내용을 확인한 뒤 비공개로 보냅니다. 새 풀이 PR은 만들지 않습니다.\n"
+                    "답안 파일은 [풀이 제출]을 눌러 비공개로 보냅니다. [답안 파일도 자동 제출]을 켜면 프로그램을 열거나 문제 묶음을 채점할 때 미제출 파일을 보냅니다.\n"
                     "동의 상태와 철회는 [내 정보·데이터]에서 관리합니다.\n"
                     "이 초대는 한 사람만 사용하며 공개 채널이나 저장소에 올리지 않습니다.\n") % (url, code, days)
             write_private(directory / ("member-%03d.txt" % index), text.encode("utf-8"))
         result = {"members": count, "invites": count, "created_at": stamp(), "expires_in_days": days}
         write_private(directory / "manifest.json", (packed(result) + "\n").encode("utf-8"))
     return result
+
+
+def export(path, destination, include_answers=False):
+    path = private_path(path)
+    read_key(path)
+    if inside(destination, REPOSITORY) or inside(destination, str(path.parent)):
+        raise ValueError("공개 저장소와 서버 데이터 폴더 밖의 새 파일을 골라 주세요.")
+    if os.path.lexists(destination):
+        raise ValueError("이미 있는 파일입니다. 다른 이름을 골라 주세요.")
+    fd, temp = tempfile.mkstemp(prefix=".dataset-", dir=os.path.dirname(os.path.abspath(destination)))
+    try:
+        expected, count = hashlib.sha256(), 0
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as output, read_database(path) as db:
+            for row in db.execute("SELECT payload FROM events ORDER BY participant, track, sequence"):
+                value = json.loads(row[0])
+                value.setdefault("synthetic", False)
+                if not include_answers:
+                    value["data"].pop("response", None)
+                line = packed(value) + "\n"
+                output.write(line)
+                expected.update(line.encode("utf-8"))
+                count += 1
+            output.flush()
+            os.fsync(output.fileno())
+        actual = hashlib.sha256()
+        with open(temp, "rb") as saved:
+            for line in saved:
+                json.loads(line)
+                actual.update(line)
+        if actual.digest() != expected.digest():
+            raise ValueError("내보낸 파일의 내용을 확인하지 못했습니다.")
+        os.link(temp, destination)
+        return {"events": count, "sha256": actual.hexdigest()}
+    finally:
+        if os.path.exists(temp):
+            os.unlink(temp)
 
 
 def snapshot_state(path):

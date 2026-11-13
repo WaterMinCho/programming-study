@@ -10,7 +10,6 @@ from pathlib import Path
 import re
 import secrets
 import sqlite3
-import tempfile
 import uuid
 import urllib.parse
 
@@ -89,13 +88,19 @@ class Database:
             db.close()
 
     def invites(self, count=1, days=7):
+        with self.prepare_invites(count, days) as codes:
+            return codes
+
+    @contextlib.contextmanager
+    def prepare_invites(self, count, days):
+        """파일 준비가 성공한 뒤에만 새 초대 코드를 등록함."""
         if not 1 <= count <= 200 or not 1 <= days <= 30:
             raise ValueError("초대 수는 1~200, 유효 기간은 1~30일로 지정해 주세요.")
         expires = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)).isoformat()
         codes = [secrets.token_urlsafe(24) for _ in range(count)]
+        yield codes
         with self.connect() as db:
             db.executemany("INSERT INTO invites VALUES (?, ?, NULL)", [(hashed(code), expires) for code in codes])
-        return codes
 
     def health(self):
         with contextlib.closing(sqlite3.connect(Path(self.path).as_uri() + "?mode=ro", uri=True)) as db:
@@ -299,38 +304,8 @@ class Database:
             db.execute("DELETE FROM submission_accounts WHERE participant=?", (participant,))
 
     def export(self, destination, include_answers=False):
-        if inside(destination, REPOSITORY) or inside(destination, os.path.dirname(self.path)):
-            raise ValueError("공개 저장소와 서버 데이터 폴더 밖의 새 파일을 골라 주세요.")
-        if os.path.lexists(destination):
-            raise ValueError("이미 있는 파일입니다. 다른 이름을 골라 주세요.")
-        fd, temp = tempfile.mkstemp(prefix=".dataset-", dir=os.path.dirname(os.path.abspath(destination)))
-        try:
-            expected, count = hashlib.sha256(), 0
-            with self.connect() as db, os.fdopen(fd, "w", encoding="utf-8", newline="\n") as output:
-                db.execute("BEGIN")
-                for row in db.execute("SELECT payload FROM events ORDER BY participant, track, sequence"):
-                    value = json.loads(row[0])
-                    value.setdefault("synthetic", False)
-                    if not include_answers:
-                        value["data"].pop("response", None)
-                    line = packed(value) + "\n"
-                    output.write(line)
-                    expected.update(line.encode("utf-8"))
-                    count += 1
-                output.flush()
-                os.fsync(output.fileno())
-            actual = hashlib.sha256()
-            with open(temp, "rb") as saved:
-                for line in saved:
-                    json.loads(line)
-                    actual.update(line)
-            if actual.digest() != expected.digest():
-                raise ValueError("내보낸 파일의 내용을 확인하지 못했습니다.")
-            os.link(temp, destination)
-            return {"events": count, "sha256": actual.hexdigest()}
-        finally:
-            if os.path.exists(temp):
-                os.unlink(temp)
+        from learning_server.operations import export
+        return export(self.path, destination, include_answers)
 
 
 def identifier(value):

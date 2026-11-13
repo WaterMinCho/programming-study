@@ -12,7 +12,7 @@ API로 콘솔 번호를 만들기만 해서는 프로세스가 시작되지 않�
 
 ## 비공개 설정을 준비합니다
 
-아래는 가상 계정의 설정 예입니다. 실제 설정과 토큰 파일은 저장소 밖에 두고 본인만 읽을 수 있게 권한을 `600`으로 지정합니다. 토큰 파일에는 API 토큰만 넣습니다.
+아래는 가상 계정의 설정 예입니다. 실제 설정과 토큰 파일은 저장소 밖에 두고 본인만 읽을 수 있게 권한을 `600`으로 지정합니다. 토큰 파일에는 API 토큰만 넣습니다. 설정 예시의 두 파일을 만든 뒤 `chmod 600 /Users/operator/.rokey-collector/backup/{config.json,api-token}`을 실행하세요. 도구는 두 파일에 그룹·다른 사용자 권한이 남아 있으면 중단합니다.
 
 ```json
 {
@@ -27,7 +27,7 @@ API로 콘솔 번호를 만들기만 해서는 프로세스가 시작되지 않�
 }
 ```
 
-맥에서 아래 명령으로 한 번 실행합니다. 성공 뒤 macOS `launchd`에 4시간 간격으로 등록할 수 있습니다. 맥이 꺼져 있거나 로그인하지 않은 시간에는 실행되지 않습니다. 코드를 준비한 상태와 자동 실행을 실제 등록한 상태를 구분합니다.
+맥에서 아래 명령으로 한 번 실행합니다. 정기 백업에는 운영자가 별도로 준비한 macOS 사용자 LaunchAgent를 사용합니다. 설정 파일의 `ProgramArguments`에는 Python 절대 경로, `-m`, `tools.collector_backup`, `--config`, 설정 파일 절대 경로를 순서대로 넣습니다. `WorkingDirectory`는 해당 모듈을 읽을 수 있는 코드 폴더, `StartInterval`은 14400초입니다. 처음 등록할 때는 준비한 plist 경로로 `launchctl bootstrap gui/$(id -u) plist파일경로`를 실행합니다. 맥이 꺼져 있거나 로그인하지 않은 시간에는 실행되지 않습니다. 코드를 준비한 상태와 자동 실행을 실제 등록한 상태를 구분합니다.
 
 ```sh
 python3 -m tools.collector_backup --config /Users/operator/.rokey-collector/backup/config.json
@@ -39,4 +39,4 @@ python3 -m tools.collector_backup --config /Users/operator/.rokey-collector/back
 
 ## 복구와 철회 요청을 함께 처리합니다
 
-[서버 백업·복구 절차](LEARNING_SERVER.md)를 따릅니다. 동의 철회가 있으면 서버뿐 아니라 자동 사본·수동 백업·전달한 연구 자료도 대조합니다. 오래된 사본을 복구한 뒤에는 백업 이후의 철회 요청을 먼저 적용합니다. 백업 성공은 실제 네 명의 PC 사용이나 장시간 서버 안정성 검사를 대신하지 않습니다.
+맥에서 받은 사본은 설정의 `destination` 아래에 작업 번호별로 저장합니다. `state.json`의 `latest`가 가리키는 폴더에 `manifest.json`, `learning.sqlite3`, `learning.sqlite3.key`가 있는지 확인합니다. 시범 운영 안내의 `restore --from`에 이 폴더를 지정하고 `--out`에는 아직 없는 새 폴더를 지정합니다. DB와 키는 그 새 폴더 바로 아래에 복구됩니다. [새 폴더에 복구하고 서버를 다시 여는 절차](LEARNING_PILOT.md#복구한-사본을-확인한-뒤-다시-엽니다)를 따릅니다. 동의 철회가 있으면 서버뿐 아니라 자동 사본·수동 백업·전달한 연구 자료도 대조합니다. 오래된 사본을 복구한 뒤에는 백업 이후의 철회 요청을 먼저 적용합니다. 백업 성공은 실제 네 명의 PC 사용이나 장시간 서버 안정성 검사를 대신하지 않습니다.

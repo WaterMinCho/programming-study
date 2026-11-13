@@ -23,11 +23,11 @@ def main():
     export = sub.add_parser("export")
     export.add_argument("--out", required=True)
     export.add_argument("--include-answers", action="store_true")
-    pilot = sub.add_parser("pilot", help="운영자용 이전 시범 초대를 발급합니다. 일반 배포에는 필요하지 않습니다.")
+    pilot = sub.add_parser("pilot", help="이전 시범 API용입니다. 네 명에게 과목별 초대 코드를 발급합니다.")
     pilot.add_argument("--url", required=True, help="참가자가 접속할 HTTPS 주소")
     pilot.add_argument("--out", required=True, help="저장소와 데이터 폴더 밖의 새 폴더")
     pilot.add_argument("--days", type=int, default=7)
-    class_invites = sub.add_parser("class-invites", help="운영자용 이전 시범 초대를 발급합니다. 일반 배포에는 사용하지 않습니다.")
+    class_invites = sub.add_parser("class-invites", help="이전 시범 API용입니다. 참가자마다 초대 파일 하나를 발급합니다.")
     class_invites.add_argument("--url", required=True)
     class_invites.add_argument("--out", required=True)
     class_invites.add_argument("--count", type=int, default=100)
@@ -79,8 +79,15 @@ def main():
                             for key, row in catalog.items()):
                         raise ValueError("개념 목록의 형식을 확인해 주세요.")
                 else:
-                    import adaptive
+                    try:
+                        import adaptive
+                    except ModuleNotFoundError as error:
+                        if error.name != "adaptive":
+                            raise
+                        raise ValueError("문제 은행이 없는 서버에서는 --catalog를 지정해 주세요.") from None
                     catalog = adaptive.catalog()
+                    if not catalog:
+                        raise ValueError("문제 은행이 비어 있습니다. --catalog를 지정해 주세요.")
                 result = legacy.transfer(args.db, args.manifest, catalog, dry_run=args.dry_run)
             else:
                 result = legacy.remove_transfer(args.db, args.participant, reason=args.reason)
@@ -117,13 +124,15 @@ def main():
             return
         if not args.db:
             raise ValueError("서버 데이터 파일을 --db로 지정해 주세요.")
+        if args.command == "export":
+            from learning_server.operations import export
+            result = export(args.db, args.out, include_answers=args.include_answers)
+            print("학습용 파일을 다시 읽어 %d건을 확인했습니다. %s\nSHA-256: %s" % (result["events"], args.out, result["sha256"]))
+            return
         db = Database(args.db)
         if args.command == "invite":
             for code in db.invites(args.count, args.days):
                 print(code)
-        elif args.command == "export":
-            result = db.export(args.out, include_answers=args.include_answers)
-            print("학습용 파일을 다시 읽어 %d건을 확인했습니다. %s\nSHA-256: %s" % (result["events"], args.out, result["sha256"]))
         elif args.command == "pilot":
             from learning_server.operations import pilot
             pilot(db, args.out, args.url, args.days)

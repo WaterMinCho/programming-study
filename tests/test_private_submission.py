@@ -59,6 +59,21 @@ class PrivateSubmissionTest(unittest.TestCase):
             saved = db.execute("SELECT receipt FROM open_enrollments WHERE purpose='private_submission'").fetchone()[0]
             self.assertFalse(json.loads(saved)["automatic_submission"]["accepted"])
 
+    def test_reenabling_automatic_submission_without_new_files_only_syncs_consent(self):
+        client = self.client()
+        self.consent.set_auto_submission(True)
+        self.assertEqual("ok", client.submit_ready(automatic=True)["status"])
+        self.consent.set_auto_submission(False)
+        self.assertEqual("paused", client.submit_ready(automatic=True)["status"])
+        self.consent.set_auto_submission(True)
+        with mock.patch.object(client, "transport", wraps=client.transport) as transport:
+            self.assertEqual("nothing", client.submit_ready(automatic=True)["status"])
+            self.assertEqual("nothing", client.submit_ready(automatic=True)["status"])
+            self.assertEqual(["/v1/consent"], [call.args[1] for call in transport.call_args_list])
+        with self.db.connect() as db:
+            receipt, = db.execute("SELECT receipt FROM open_enrollments WHERE purpose='private_submission'").fetchone()
+            self.assertTrue(json.loads(receipt)["automatic_submission"]["accepted"])
+
     def test_server_rejects_automatic_files_without_scope_and_keeps_manual_submission(self):
         import uuid
         from learning_data.collection import digest

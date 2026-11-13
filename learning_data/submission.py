@@ -291,6 +291,8 @@ class PrivateClient(Client):
             if not all(store.status()["enabled"] for store in self.collections.values()):
                 return {"status": "paused", "message": "수집을 중단한 과목이 있어 파일 자동 제출을 멈췄습니다."}
         if not self.pending()["pending"]:
+            if automatic:
+                self.sync_consent(consent, state, canceled=canceled)
             return {"status": "nothing", "message": "새로 제출할 풀이가 없습니다."}
         config = self.settings()
         if not config.get("token"):
