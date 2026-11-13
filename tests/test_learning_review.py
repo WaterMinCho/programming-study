@@ -38,7 +38,7 @@ class ReviewTest(unittest.TestCase):
         self.folder = self.root / "review"
         self.info = pull()
 
-    def prepare(self, diff="+loss.backward()\n", files=None):
+    def prepare(self, diff="+loss.backward()\n", files=None, previous_review=None):
         files = files or [{"filename": "experiments/michae18/train.py"}]
         def api(path):
             if "/compare/" in path:
@@ -48,7 +48,7 @@ class ReviewTest(unittest.TestCase):
             return {"encoding": "base64", "size": 7, "content": base64.b64encode(b"context").decode()}
         with mock.patch.object(review, "pull", return_value=self.info), mock.patch.object(review, "api", side_effect=api), \
                 mock.patch.object(review, "run", return_value=diff) as command:
-            data = review.prepare(12, self.folder)
+            data = review.prepare(12, self.folder, previous_review=previous_review)
             self.assertEqual(["gh", "api", "repos/%s/compare/%s...%s" % (review.REPO, "c" * 40, HEAD),
                               "-H", "Accept: application/vnd.github.diff"], command.call_args.args[0])
             return data
@@ -62,6 +62,22 @@ class ReviewTest(unittest.TestCase):
         if os.name != "nt":
             self.assertEqual(0o700, self.folder.stat().st_mode & 0o777)
             self.assertEqual(0o600, (self.folder / "snapshot.json").stat().st_mode & 0o777)
+
+    def test_previous_review_is_frozen_and_private_text_is_rejected(self):
+        previous = {"id": 10, "head": "b" * 40, "body": "이전 제안", "state": "APPROVED"}
+        data = self.prepare(previous_review=previous)
+        self.assertEqual(previous, data["previous_review"])
+        saved = json.loads((self.folder/"snapshot.json").read_text())
+        self.assertEqual(previous, saved["previous_review"])
+        self.folder = self.root/"private-previous"
+        redacted = self.prepare(previous_review=dict(previous, body="ghp_"+"a" * 30))
+        self.assertNotIn("previous_review", redacted)
+        self.assertEqual("content_check", redacted["previous_review_skipped"])
+        self.assertNotIn("ghp_", (self.folder/"snapshot.json").read_text())
+        self.folder = self.root/"large-previous"
+        bounded = self.prepare(previous_review=dict(previous, body="x" * review.MAX_BYTES))
+        self.assertNotIn("previous_review", bounded)
+        self.assertEqual("size_limit", bounded["previous_review_skipped"])
 
     def test_rename_keeps_both_source_and_destination_in_review_packet(self):
         data = self.prepare(diff="rename from tools/helper.py\nrename to experiments/michae18/helper.py\n",
@@ -139,6 +155,15 @@ class ReviewTest(unittest.TestCase):
                 mock.patch.object(review, "run", side_effect=["test-version", AUTH, response(initial={"tools": ["StructuredOutput"]}, result={"structured_output": assessment})]):
             review.review(self.folder, schema={"type": "object"})
         self.assertEqual(assessment, json.loads((self.folder / "assessment.json").read_text()))
+
+    def test_new_schema_rejects_missing_presentation_version_before_saving(self):
+        self.prepare()
+        with mock.patch.object(review, "pull", return_value=self.info), mock.patch.object(review.shutil, "which", return_value="claude"), \
+                mock.patch.object(review, "run", side_effect=["test-version", AUTH, response(result={"structured_output": {}})]):
+            with self.assertRaises(review.ReviewError):
+                review.review(self.folder, schema={"properties": {"format_version": {"const": 2}}})
+        self.assertFalse((self.folder/"assessment.json").exists())
+        self.assertFalse((self.folder/"feedback.md").exists())
 
     def test_schema_stale_head_and_unexpected_execution_tool_leave_no_assessment(self):
         self.prepare()
