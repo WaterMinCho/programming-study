@@ -12,7 +12,7 @@
 
 ## 팀원이 함께 쓸 자료 버전
 
-현재 공통 입력 버전은 features_version 4이며 전달 묶음은 common-input-f4-20261112입니다. 합성 자료는 파이썬·AI를 각각 학습 8건·검증 2건·평가 2건으로 준비했습니다. 사용 범위를 확인한 기존 파이썬 기록은 학습 84건·검증 29건·평가 18건입니다. 실제 AI 기록과 수강생 전원의 자료가 준비됐다는 뜻은 아닙니다.
+새로 만드는 공통 입력 버전은 `features_version: 5`입니다. 현재 공유 폴더의 `common-input-f4-20261112` 자료도 계속 읽을 수 있습니다. 합성 자료는 파이썬·AI를 각각 학습 8건·검증 2건·평가 2건으로 준비했습니다. 사용 범위를 확인한 기존 파이썬 기록은 학습 84건·검증 29건·평가 18건입니다. 실제 AI 기록과 수강생 전원의 자료가 준비됐다는 뜻은 아닙니다.
 
 세 팀원은 스터디 공유 폴더에서 같은 자료 묶음과 번호표를 내려받습니다. 묶음 SHA-256은 `b5dd2a5daa4af4ec05de7ee1ac91a93ac485d93003f10ca3b6bbabc718c00bff`입니다. 아래 합성 예제는 같은 입력 버전을 먼저 확인하는 용도입니다. 담당 이슈에는 자료를 열었는지만 적습니다.
 
@@ -47,9 +47,9 @@ python -m learning_server.starter --input ../learning-events.jsonl --out ../lear
 실제 기록을 전달받기 전에는 기존 합성 예제로 입력 모양을 확인합니다. 이 작은 예제의 점수를 실제 학습자 성능으로 쓰지 않습니다.
 
 ```sh
-python -m learning_server.starter --synthetic --out ../learning-demo-f4
-python -m learning_server.input_example --dataset ../learning-demo-f4 --track python --batch-size 4 --length 32
-python -m learning_server.input_example --dataset ../learning-demo-f4 --track ai --batch-size 4 --length 32
+python -m learning_server.starter --synthetic --out ../learning-demo-f5
+python -m learning_server.input_example --dataset ../learning-demo-f5 --track python --batch-size 4 --length 32
+python -m learning_server.input_example --dataset ../learning-demo-f5 --track ai --batch-size 4 --length 32
 ```
 
 추가 라이브러리 설치나 모델 학습 없이 실행할 수 있습니다. 자료에 있는 과목만 선택합니다. 기존 파이썬 프로필로 만든 자료에는 파이썬만 들어 있습니다.
@@ -76,13 +76,17 @@ targets = example["targets"]
 | `mask`, `lengths` | 실제 풀이가 있는 자리와 개수입니다. 이력이 없는 학습자는 길이가 0입니다. |
 | `query_question`, `query_concepts` | 앞으로 예측할 문제와 개념입니다. 현재 정답은 포함하지 않습니다. |
 | `query_gap_seconds`, `query_gap_known` | 같은 개념의 마지막 채점 이후 지난 시간과 시각 확인 여부입니다. 모양은 `[묶음 크기, 개념 수]`입니다. |
+| `difficulties`, `difficulty_known` | 이전 문제의 출제 난이도와 확인 여부입니다. 모양은 `[묶음 크기, 이력 길이]`입니다. |
+| `query_difficulty`, `query_difficulty_known` | 예측할 문제의 출제 난이도와 확인 여부입니다. 모양은 `[묶음 크기]`입니다. |
 | `targets` | 이번 시도의 정오답입니다. 입력과 분리하며 1은 정답, 0은 오답입니다. |
 
 문제·개념 번호는 학습 자료만으로 정합니다. 이후 처음 등장한 값은 1번인 미확인 값으로 처리하고 0번은 빈 자리로 씁니다. 정오답의 0은 오답이므로 빈 자리 구분에는 반드시 `mask`를 사용합니다. 풀이 이력은 최근 128개까지 보관합니다.
 
 순서 입력의 길이와 기준 방법의 개념 집계 범위는 구분합니다. 개념별 시도 수·정답 수·마지막 시각은 예측 전에 공개된 전체 기록으로 계산합니다. 묶음의 답은 묶음 전체가 공개된 뒤 사용합니다. 간격은 그 개념의 답 이벤트 중 가장 늦은 시각부터 예측 시각까지로 계산합니다. 공개 여부를 판단하는 시각과 구분합니다.
 
-현재 공통 입력 버전은 `features_version: 4`입니다. AI 문항 반환 시각을 연결해 예측 전에 알려진 이력을 다시 계산합니다. 이전 버전의 자료는 입력 예제가 거절하므로 새 폴더에 다시 준비한 뒤 비교합니다. 기존 자료와 원본은 덮어쓰지 않습니다.
+공통 입력 버전 5에는 문제를 제시할 때의 출제 난이도 1~3을 담습니다. 값이 없으면 숫자는 0, 확인 여부는 False입니다. 0을 가장 쉬운 문제로 해석하지 않습니다. 문항 번호가 학습 때 없던 UNK여도 출제 난이도가 확인됐다면 사용할 수 있습니다.
+
+버전 4 자료는 같은 이력 집계 규칙을 쓰므로 계속 읽습니다. 과거 기록에 없던 난이도를 현재 문항 목록에서 가져와 채우지 않습니다. 버전 3 이하의 자료는 예측 시각과 이력 집계를 다시 확인하도록 거절합니다. 새 자료는 별도 폴더에 준비합니다.
 
 시각을 알 수 없는 항목은 `query_gap_known=False`로 표시합니다. 함께 들어 있는 숫자 0을 당일 복습으로 해석하지 않습니다. 새 파이썬 수집에서는 실제 화면에 선택한 문항의 표시 시각을 사용합니다. 외부 편집기나 터미널에서 풀어 표시 시각을 모르면 간격을 추정하지 않습니다.
 

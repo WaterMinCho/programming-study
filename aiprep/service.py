@@ -185,6 +185,7 @@ class AiSession(object):
         self._cache_key, self._cache = None, None
         self._index, self._index_log = None, None
         self._gen_kind = {}
+        self._content_versions_cache = None
         self._active_set = None
         self._mock_loaded = set()
         self._mock_exams = {}
@@ -336,6 +337,79 @@ class AiSession(object):
     def today(self):
         return _today()
 
+    def _content_versions(self):
+        """현재 문항과 이전에 관찰한 문항을 대조함. 원래 답 기록은 바꾸지 않음."""
+        with self._lock:
+            if self._content_versions_cache is not None:
+                return self._content_versions_cache
+            path = os.path.join(self.home, "content-versions.json")
+            writable = True
+            try:
+                local = study.read_json(path) if os.path.exists(path) else {}
+                if not isinstance(local, dict):
+                    raise ValueError("local state")
+            except (OSError, ValueError):
+                local, writable = {}, False
+                self.errors["card_versions"] = "문항 변경 기록을 읽지 못했습니다. 원본을 보관하고 스터디장에게 알려 주세요."
+            saved = local.get("card_versions", {})
+            saved = saved if isinstance(saved, dict) else {}
+            versions, revised, sources = {}, set(), {}
+            metadata = {"order", "ref", "errata", "prio", "core", "deep", "level", "tags", "facts", "step",
+                        "unit", "family", "confuse", "after"}
+            def content_only(value):
+                if isinstance(value, dict):
+                    return {key: content_only(item) for key, item in value.items() if key not in metadata}
+                if isinstance(value, (list, tuple)):
+                    return [content_only(item) for item in value]
+                return value
+            for cid, card in self.cards.items():
+                if card.get("mock"):
+                    continue
+                content = dict(card)
+                content.pop("gen", None)
+                source_text = []
+                if card["kind"] == "gen":
+                    spec = card["gen"]
+                    hashes = []
+                    for source in (spec.path, os.path.join(self.root, "items", "common", "gens.py")):
+                        if source not in sources:
+                            try:
+                                with open(source, "rb") as stream:
+                                    raw = stream.read()
+                                sources[source] = hashlib.sha256(raw).hexdigest(), raw.decode("utf-8", errors="replace")
+                            except OSError:
+                                sources[source] = None, ""
+                        checksum, text = sources[source]
+                        hashes.append(checksum)
+                        source_text.append(text)
+                    content["generator"] = {"id": spec.id, "meta": spec.meta, "doc": spec.doc, "sources": hashes}
+                if card["kind"] == "skel":
+                    content["skeleton"] = self.skeletons.get(card["pattern"])
+                content = content_only(content)
+                text = grade.norm("word", collection.packed(content) + " ".join(source_text))
+                terms = {key: sorted(values) for key, values in self.term_map.items() if key in text}
+                versions[cid] = collection.digest({"card": content, "terms": terms})
+                previous = saved.get(cid, {})
+                if isinstance(previous, dict) and (previous.get("changed") or previous.get("revision") not in (None, versions[cid])):
+                    revised.add(cid)
+            for entry in self.course_log():
+                cid, revision = entry.get("card"), entry.get("content_revision")
+                if cid in versions and revision is not None and revision != versions[cid]:
+                    revised.add(cid)
+                for other, revision in (entry.get("content_revisions") or {}).items():
+                    if other in versions and revision is not None and revision != versions[other]:
+                        revised.add(other)
+            updated = dict(saved)
+            updated.update({cid: {"revision": revision, "changed": cid in revised} for cid, revision in versions.items()})
+            if updated != saved and writable:
+                local["card_versions"] = updated
+                try:
+                    study.write_text(path, json.dumps(local, ensure_ascii=False, indent=1) + "\n")
+                except OSError:
+                    self.errors["card_versions"] = "문항 변경 정보를 저장하지 못했습니다. 이 컴퓨터의 저장 공간과 폴더 권한을 확인해 주세요."
+            self._content_versions_cache = versions, revised
+            return versions, revised
+
     def _state(self):
         """기록에서 계산한 값 묶음. 기록과 학습일이 바뀌지 않았으면 다시 계산하지 않음."""
         with self._lock:
@@ -344,8 +418,9 @@ class AiSession(object):
             except record.RecordError as error:
                 raise AiError(str(error))
             log = self.record.log
+            versions, revised = self._content_versions()
             if self._index is None or self._index_log is not log or self._index.n > len(log):
-                self._index, self._index_log = _LogIndex(self.course), log  # 파일을 다시 읽었으면 처음부터
+                self._index, self._index_log = _LogIndex(self.course, versions, revised), log  # 파일을 다시 읽었으면 처음부터
                 self.cards = {cid: card for cid, card in self.cards.items() if not card.get('mock')}
                 self._mock_loaded.clear()
             self._index.feed(log[self._index.n:])
@@ -518,7 +593,7 @@ class AiSession(object):
             self.collection.missed += 1
 
     def _collect_record(self, row, private=None, item=None, *, observation_context=collection.CURRENT_CONTEXT):
-        data = {key: value for key, value in row.items() if key not in ("at", "value", "picked", "also_value")}
+        data = {key: value for key, value in row.items() if key not in ("at", "value", "picked", "also_value", "content_revision", "content_revisions")}
         response = {key: row[key] for key in ("value", "picked", "also_value") if key in row}
         if response:
             data["response"] = response
@@ -529,6 +604,10 @@ class AiSession(object):
     def _append(self, entry, private=None, item=None):
         try:
             entry = dict(entry)
+            if entry.get("kind") == "answer":
+                versions, _ = self._content_versions()
+                entry["content_revision"] = versions.get(entry.get("card"))
+                entry["content_revisions"] = {cid: versions[cid] for cid in entry.get("also") or {} if cid in versions}
             if self.course != "intro":
                 entry["course"] = self.course
             row = self.record.append(entry, now())
@@ -953,9 +1032,9 @@ class _LogIndex(object):
     """기록을 덧붙는 만큼만 이어 읽는 색인. 카드별 답(review.EventIndex), 처음 읽은 날, 연 차시, 짐작, 다시 보기, 날마다 답한
     카드와 카드별 일정 캐시를 둠. 4주 기록(7,000줄 안팎)을 답마다 처음부터 다시 계산하지 않으려는 것임."""
 
-    def __init__(self, course="intro"):
+    def __init__(self, course="intro", versions=None, revised=()):
         self.course = course
-        self.events = review.EventIndex()
+        self.events = review.EventIndex(versions=versions, revised=revised)
         self.reads, self.opened, self.guesses, self.revisits = {}, set(), {}, set()
         self.day_cards = {}
         self.sched, self.start_due = {}, {}
@@ -1003,6 +1082,8 @@ class _State(object):
         self.practice_completed = {starts[e.get("set")] for e in self.log
                                    if e.get("kind") == "set_end" and e.get("set") in starts}
         self.events = index.events.events
+        self.revised = index.events.dropped
+        self.legacy_cards = {cid for cid in index.events.unversioned if cid in self.events and cid in sess.cards and not sess.cards[cid].get("mock")}
         self.reads = index.reads
         self.opened = index.opened
         self.guesses = index.guesses
@@ -1118,7 +1199,7 @@ class _State(object):
 
     def unit_stats(self, lid, key):
         cards = self._units.get((lid, key), [])
-        memorised = families_memorised(cards, self.sched)
+        memorised = families_memorised(cards, self.sched, self.revised)
         due = sum(1 for c in cards if (self.due_day(c["id"]) or datetime.date.max) <= self.today)
         return {"read": (lid, key) in self.reads, "cards": len(cards), "memorised": memorised,
                 "families": len({c["family"] for c in cards}), "due": due, "practiced": (lid, key) in self.practice_completed}
@@ -1293,19 +1374,20 @@ class _State(object):
         last_at = max((str(e.get("at") or "") for e in self.log), default=None) or None
         return {"course": sess.course, "lessons": lessons, "patterns": self.pattern_rows(), "mocks": mocks, "due": len(due), "again": len(self.again),
                 "today_answers": moved, "today_extra": max(0, len(today_rows) - moved),
-                "memorised": families_memorised(list(sess.cards.values()), self.sched), "cards": len(sess.cards),
+                "memorised": families_memorised(list(sess.cards.values()), self.sched, self.revised), "cards": len(sess.cards),
                 "families": len({c["family"] for c in sess.cards.values()}), "plan": plan_row, "next": self.next(plan_row, len(due)),
                 "notes": counts, "activity": sorted(activity), "activity_counts": activity, "recent": recent_lines(self.log),
-                "last_at": last_at, "errors": dict(sess.errors)}
+                "last_at": last_at, "errors": dict(sess.errors), "legacy_cards": len(self.legacy_cards),
+                "revised_cards": sum(cid in sess.cards and not review.memorised(self.sched.get(cid)) for cid in self.revised)}
 
 
-def families_memorised(cards, sched):
+def families_memorised(cards, sched, revised=()):
     """외운 문항 수. family 하나를 한 번만 세고, family 안 열린(답한) 카드가 모두 상자 4 이상일 때 외운 것으로 봄."""
     groups = {}
     for card in cards:
         s = sched.get(card["id"])
-        if s:
-            groups.setdefault(card["family"], []).append(review.memorised(s))
+        if s or card["id"] in revised:
+            groups.setdefault(card["family"], []).append(review.memorised(s) if s else False)
     return sum(1 for marks in groups.values() if marks and all(marks))
 
 
@@ -1715,7 +1797,7 @@ class PracticeSet(object):
         self.before_due = {cid: state.due_day(cid) for cid in cards}
         self.had_before = {cid: any(e["day"] < state.today for e in state.events.get(cid, [])) for cid in cards}
         self.sure_before = {cid for cid in cards if state.sure_wrong(cid)}
-        self.memorised_before = families_memorised([sess.cards[c] for c in cards], state.sched)
+        self.memorised_before = families_memorised([sess.cards[c] for c in cards], state.sched, state.revised)
         self.title = sess.title_of(mode, lesson, unit)
         self.ended = False
         self.card, self.draft = None, {}
@@ -1776,6 +1858,7 @@ class PracticeSet(object):
         view = self._view(entry)
         return collection.question(view["item"], card=card["id"], lesson=card["lesson"], unit=card["unit"],
                                    family=card.get("family"), tags=card.get("tags") or [], step=card.get("step"),
+                                   difficulty=card.get("level"),
                                    seed=entry["seed"], option_order=view["order"], form=view["form"],
                                    terms_revision=self.sess.collection_terms_revision)
 
@@ -2121,7 +2204,7 @@ class PracticeSet(object):
                 first_today += 1
         sure_wrong = sum(1 for e in self.sess.record.log if e.get("kind") == "answer" and e.get("set") == self.id
                          and e.get("sure") and e.get("result") != "pass")
-        memorised = families_memorised([self.sess.cards[c] for c in self.stats], state.sched) - self.memorised_before
+        memorised = families_memorised([self.sess.cards[c] for c in self.stats], state.sched, state.revised) - self.memorised_before
         nexts = sorted(d for d in (state.due_day(c) for c in self.stats) if d is not None and d > today)
         upcoming = None
         if nexts:

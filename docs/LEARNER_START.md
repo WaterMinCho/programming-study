@@ -4,15 +4,42 @@
 
 [처음 화면으로](../README.md)
 
-**Windows는 프로그램 폴더의 `start.bat`을 더블클릭해 시작합니다.** 처음이라면 아래 순서대로 준비하세요.
+처음 설치한다면 **아래 1번부터** 따라 하세요. 이미 프로그램 폴더가 있다면 [2. start 파일로 첫 실행](#2-start-파일을-엽니다)으로 넘어갑니다.
 
 <a id="1-프로그램을-받습니다"></a>
 
 ## 1. Python과 Git 설치 후 프로그램 받기
 
-[설치 안내](../gui/README.md#처음-설치할-때)를 따라 Python과 Git을 설치하고 프로그램 폴더를 받습니다.
+[Python과 Git 설치 안내](../gui/README.md#python과-git을-설치합니다)에 따라 두 프로그램을 준비합니다. 이미 설치했다면 바로 아래에서 **SourceTree와 터미널 중 편한 방법 하나**를 고르세요. 프로그램을 내 컴퓨터로 내려받는 과정을 복제(Clone)라고 합니다.
 
-받은 폴더에 `start.bat`, `study.py`, `README.md`가 보이면 다음으로 넘어갑니다.
+### SourceTree로 받기
+
+SourceTree가 없다면 [공식 설치 페이지](https://www.sourcetreeapp.com/)에서 받아 설치합니다.
+
+1. SourceTree를 열고 **Clone(복제)** 또는 **Clone/New → Clone Repository**를 선택합니다. 버전에 따라 버튼 이름이 다를 수 있습니다.
+2. **원본 주소**에 아래 주소를 붙여 넣습니다.
+
+   ```text
+   https://github.com/WaterMinCho/programming-study.git
+   ```
+
+3. **대상 경로**에 저장할 새 폴더를 지정합니다. Windows는 `C:\study\programming-study`, Mac은 문서 폴더 안의 `programming-study`처럼 정합니다.
+4. **Clone(복제)**을 누르고 완료될 때까지 기다립니다.
+5. 탐색기나 Finder에서 방금 지정한 폴더를 엽니다. `start.bat`, `start.command`, `study.py`, `README.md`가 있으면 내려받기가 끝났습니다. [2번으로 넘어가 실행](#2-start-파일을-엽니다)하세요.
+
+버튼 위치는 [SourceTree 공식 복제 안내][sourcetree-clone]에서도 확인할 수 있습니다.
+
+### 터미널로 받기
+
+1. 프로그램을 저장할 위치에서 터미널을 엽니다. Windows는 탐색기로 문서 같은 상위 폴더를 열고 주소 칸에 `cmd`를 입력한 뒤 Enter를 누릅니다. Mac은 터미널을 열고 `cd ~/Documents`를 입력하면 문서 폴더로 이동합니다.
+2. 아래 두 줄을 순서대로 실행합니다.
+
+   ```sh
+   git clone https://github.com/WaterMinCho/programming-study.git
+   cd programming-study
+   ```
+
+3. 방금 선택한 위치에 `programming-study` 폴더가 생깁니다. 탐색기나 Finder에서 이 폴더를 열어 `start.bat`, `start.command`, `study.py`, `README.md`가 있는지 확인합니다. [2번으로 넘어가 실행](#2-start-파일을-엽니다)하세요.
 
 <a id="2-start-파일을-엽니다"></a>
 
@@ -55,3 +82,5 @@ Windows는 `start.bat`, macOS는 `start.command`를 엽니다. 화면 도구 설
 ## 글자 크기 설정과 실행·제출 오류 해결
 
 [화면 설정](../gui/README.md#글자-크기와-화면-테마)에서 글자 크기와 테마를 바꿉니다. 창이 열리지 않거나 제출이 실패하면 [오류 해결 안내](../gui/README.md#실행업데이트제출-오류-해결)를 확인하세요. 인터넷 연결이 없어도 이미 받은 문제를 풀고 로컬 채점을 사용할 수 있습니다.
+
+[sourcetree-clone]: https://support.atlassian.com/sourcetree/kb/clone-a-repository-into-sourcetree/

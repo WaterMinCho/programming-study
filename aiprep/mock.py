@@ -294,7 +294,7 @@ class MockExam:
         if self.result is None and hasattr(self.sess, "collect_event"):
             self.sess.collect_event("mock_question_returned", {"mock": self.id, "try": self.attempt, "card": cid, "position": position},
                                     item=lambda: collection.question(item, card=cid, lesson=item.get("lesson"),
-                                                                     family=item.get("family"), tags=item.get("tags") or [],
+                                                                     family=item.get("family"), tags=item.get("tags") or [], difficulty=item.get("level"),
                                                                      option_order=self.draft["shuffle"][cid],
                                                                      terms_revision=getattr(self.sess, "collection_terms_revision", None)),
                                     key="mock-question:%s:%d:%s:%s" % (self.id, self.attempt, self.fingerprint, cid))
@@ -378,7 +378,7 @@ class MockExam:
                                                            "result": results[cid] if cid in included else "not_collected",
                                                            "secs": None, "auto": event["auto"]},
                                             item=lambda item=item, cid=cid: collection.question(item, card=cid, lesson=item.get("lesson"),
-                                                                                               family=item.get("family"), tags=item.get("tags") or [],
+                                                                                               family=item.get("family"), tags=item.get("tags") or [], difficulty=item.get("level"),
                                                                                                option_order=self.draft["shuffle"][cid],
                                                                                                terms_revision=getattr(self.sess, "collection_terms_revision", None)),
                                             key="mock-answer:%s:%d:%s:%s" % (self.id, self.attempt, self.fingerprint, cid),

@@ -61,6 +61,9 @@ class AiHomePage(QWidget):
         lead_box = kit.box(lead, spacing=theme.GAP["group"])
         self.info = kit.label("", "caption", "secondary")
         lead_box.addWidget(self.info)
+        self.revision_note = kit.para("", "caption", "secondary")
+        self.revision_note.hide()
+        lead_box.addWidget(self.revision_note)
         self.notice = kit.banner("", "danger")  # 기록을 읽지 못한 까닭이나 읽지 못한 차시
         self.notice.hide()
         lead_box.addWidget(self.notice)
@@ -118,6 +121,7 @@ class AiHomePage(QWidget):
             overview = self.overview = self.win.ai.overview()
         except SessionError as error:
             self.overview = None
+            self.revision_note.hide()
             self.notice.text.setText("%s\n%s" % (error, ai_text.FIX_HINT))
             self.notice.show()
             self.info.setText("")
@@ -133,6 +137,9 @@ class AiHomePage(QWidget):
         broken = [row["title"] for row in overview["lessons"] if row.get("error")]
         lines = [ai_text.BROKEN % ", ".join(broken)] if broken else []
         lines += [ai_text.PATTERN_BROKEN % group["title"] for group in overview["patterns"] if group.get("error")]
+        version_error = overview.get("errors", {}).get("card_versions")
+        if version_error:
+            lines.append(version_error)
         collection_error = self.win.ai.collection.status()["error"]
         if collection_error:
             lines.append(collection_error)
@@ -140,6 +147,13 @@ class AiHomePage(QWidget):
         self.notice.setToolTip("\n".join("%s: %s" % (row["title"], row["error"]) for row in overview["lessons"] + overview["patterns"]
                                          if row.get("error")))
         self.notice.setVisible(bool(lines))
+        revision_notes = []
+        if overview.get("revised_cards"):
+            revision_notes.append("내용이 바뀐 %d문항은 새 내용으로 복습을 확인합니다." % overview["revised_cards"])
+        if overview.get("legacy_cards"):
+            revision_notes.append("문항 버전이 없는 %d문항은 이전 풀이로 복습 현황을 계산합니다." % overview["legacy_cards"])
+        self.revision_note.setText("\n".join(revision_notes))
+        self.revision_note.setVisible(bool(revision_notes))
         self.info.setText(ai_text.exam_line(overview, self.win.ai.today()))
         self.info.setVisible(bool(self.info.text()))
         self.show_next(overview)

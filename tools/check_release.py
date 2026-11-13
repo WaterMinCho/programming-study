@@ -21,6 +21,7 @@ CASES = (
     "tests.test_gui_hub.HubScreenTest.test_subject_navigation_fits_a_small_window_at_the_largest_text_size",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
+    "tests.test_gui_ai_courses.CourseGuiTest.test_version_notice_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_ai_mock.MockPageTest.test_changed_active_exam_offers_a_new_attempt_from_the_start_button",
     "tests.test_gui_ai_mock.MockPageTest.test_missing_draft_recovery_opens_without_resetting_the_clock_or_records",
     "tests.test_gui_ai_mock.MockPageTest.test_theme_and_text_changes_keep_live_answers_and_recolor_the_stem",
@@ -94,7 +95,8 @@ def gui_check(out):
               "skipped": len(result.skipped),
               "success": result.wasSuccessful() and not result.skipped and native_ok
                          and result.testsRun == len(CASES) and set(closed) == CLOSED_CASES
-                         and {item["case"] for item in captures} == set(CASES) - CLOSED_CASES and launcher["success"],
+                         and {item["case"] for item in captures} == set(CASES) - CLOSED_CASES
+                         and all(item["native_capture_complete"] for item in captures) and launcher["success"],
               "launcher": launcher,
               "captures": captures,
               "closed_after_transition": closed,

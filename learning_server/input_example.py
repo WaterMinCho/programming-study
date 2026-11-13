@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from learning_server.starter import question_token
-from learning_server.dataset import FEATURES_VERSION
+from learning_server.dataset import SUPPORTED_FEATURES_VERSIONS, author_difficulty
 
 
 def load(folder, track, part):
@@ -21,7 +21,10 @@ def load(folder, track, part):
             raise ValueError("자료가 바뀌었습니다. 파일 해시를 확인해 주세요.")
         return raw
     records = json.loads(verified(root / "records/manifest.json", manifest["records_manifest_sha256"]))
-    if manifest.get("features_version") != FEATURES_VERSION or records.get("features_version") != FEATURES_VERSION:
+    if (type(manifest.get("features_version")) is not int
+            or type(records.get("features_version")) is not int
+            or manifest["features_version"] not in SUPPORTED_FEATURES_VERSIONS
+            or records.get("features_version") != manifest["features_version"]):
         raise ValueError("이전 이력 집계로 만든 자료입니다. 원본을 보존하고 새 폴더에 공통 자료를 다시 준비해 주세요.")
     vocabulary = json.loads(verified(root / "vocabulary.json", manifest["files"]["vocabulary.json"]))[track]
     name = track + "-" + part + ".jsonl"
@@ -42,10 +45,17 @@ def batch(rows, vocabulary, length=32):
             values[concepts.get(name, 1)] = 1
         return values
     inputs = {name: [] for name in ("questions", "concepts", "results", "mask", "lengths", "query_question",
-                                    "query_concepts", "query_gap_seconds", "query_gap_known", "courses", "query_course")}
+                                    "query_concepts", "query_gap_seconds", "query_gap_known", "courses", "query_course",
+                                    "difficulties", "difficulty_known", "query_difficulty", "query_difficulty_known")}
     for row in rows:
         history = row["features"]["sequence_history"][-length:]
         size = len(history)
+        difficulties = [author_difficulty(past) for past in history]
+        query_difficulty = author_difficulty(row)
+        inputs["difficulties"].append([value or 0 for value in difficulties] + [0] * (length-size))
+        inputs["difficulty_known"].append([value is not None for value in difficulties] + [False] * (length-size))
+        inputs["query_difficulty"].append(query_difficulty or 0)
+        inputs["query_difficulty_known"].append(query_difficulty is not None)
         inputs["questions"].append([questions.get(question_token(past), 1) for past in history] + [0] * (length-size))
         inputs["concepts"].append([multi_hot(past["concepts"]) for past in history] + [[0]*width for _ in range(length-size)])
         inputs["courses"].append([courses.get(past.get("course"), 1) for past in history] + [0] * (length-size))
