@@ -553,7 +553,7 @@ output의 마지막 축은 두 방향의 은닉 길이 6을 합친 12입니다. 
 
 여러 층에서는 h_n[-2]와 h_n[-1]이 마지막 층의 두 방향입니다. 배치 수를 B로 쓰면 각 상태는 (B,H)입니다. 특징 축인 dim=1로 붙이면 (B,2H)입니다. output[:, -1]은 두 방향의 최종 상태를 모은 값과 같지 않습니다.
 
-뒤에 PAD를 그냥 넣으면 정방향의 마지막 상태가 PAD를 처리한 뒤의 상태가 됩니다. 길이 텐서를 CPU에 두고 pack_padded_sequence를 쓰면 실제 토큰 구간만 LSTM에 전달할 수 있습니다. 아래는 길이가 양수이고 enforce_sorted=False로 내림차순 정렬을 요구하지 않는 경우입니다.
+뒤에 PAD를 그냥 넣으면 정방향의 마지막 상태가 PAD를 처리한 뒤의 상태가 됩니다. 길이 텐서를 CPU에 두고 pack_padded_sequence를 쓰면 실제 토큰 구간만 LSTM에 전달할 수 있습니다. lengths에는 각 문장을 최대 길이로 자른 뒤 PAD를 붙이기 전의 토큰 수를 넣습니다. 원래 길이가 5이고 최대 길이가 4라면 4를 넣습니다. 아래 코드는 모든 길이가 1 이상이며 현재 입력의 시간 축 길이 이하라고 가정합니다. enforce_sorted=False를 주면 길이의 내림차순으로 미리 정렬하지 않아도 됩니다.
 
 ```python
 packed = nn.utils.rnn.pack_padded_sequence(e, lengths.cpu(),

@@ -4160,6 +4160,11 @@
    "sha256": "7c5f86571dc7a0692fd90a9871a91dcf47aba4e35cb53e01c79136d68bd95dd9",
    "script": "tools/ai_art/l18.py",
    "fn": "18h-5"
+  },
+  "learn/l15/assets/15b-6.png": {
+   "sha256": "9a643424509a3885a8473b38a23ba91b54c497989e3073a8a7f5b708e5a3af52",
+   "script": "tools/ai_art/lesson_content_qt.py",
+   "fn": "draw"
   }
  }
 }
