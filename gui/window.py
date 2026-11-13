@@ -128,7 +128,6 @@ class MainWindow(QMainWindow):
         self.area = "hub"  # 지금 있는 쪽: hub, python(홈 이하), journey(지도·문제 화면), web(웹 홈·미션·드릴·학습 노트), ai(AI 비전 개론)
         self.job = None  # 도는 중인 워커 (Job, 잠근 화면, 끝났을 때, 실패했을 때)
         self.submission_running = False
-        self.operator_mode = os.environ.get("STUDY_OPERATOR_MODE") == "1"
         self.pending_submission = {"status": "checking", "pending": False, "count": 0}
         self.problem_updates = {"status": "checking", "available": False, "count": 0}
         self.next_update_check = 0
@@ -873,8 +872,17 @@ class MainWindow(QMainWindow):
         else:
             self._git_done("제출", result)
 
+    def can_configure_submission(self):
+        if self.identity is None or not self.identity_checked or self.identity_invalid:
+            return False
+        try:
+            state = self.identity.settings()
+            return state.get("verified") is True and state.get("team") is True
+        except CollectionError:
+            return False
+
     def show_submission_setup(self):
-        if not self.operator_mode or getattr(self.gitflow, "api", None) is None:
+        if not self.can_configure_submission() or getattr(self.gitflow, "api", None) is None:
             return
         from gui.submission_setup import SubmissionSetup
         if not self.round_page.flush() or not self.journey_page.flush():

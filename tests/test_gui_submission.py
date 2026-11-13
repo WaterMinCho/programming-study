@@ -22,7 +22,7 @@ class ApiSetupTest(HubTest):
         folder.mkdir(parents=True)
         (folder / "quiz.py").write_text("ANSWERS = {}\n", encoding="utf-8")
         self.git.api = PrivateClient(str(repo), "tester", {"python": win.session.collection, "ai": win.ai.collection})
-        win.operator_mode = True
+        win.identity.save({"verified": True, "team": True, "token": "f" * 64})
         win.show_submission_setup()
         guikit.pump()
         self.capture_widget = win.submission_dialog
@@ -197,9 +197,8 @@ class DirectSubmissionTest(HubTest):
             self.idle()
         self.assertEqual(1, len(self.stored))
 
-    def test_file_preview_is_optional_and_server_connection_is_operator_only(self):
+    def test_file_preview_is_optional_and_server_connection_requires_verified_team(self):
         win = self.prepare()
-        win.operator_mode = False
         win.workspace.refresh()
         self.assertFalse(win.hub.server_connection.isVisible())
         win.show_submission_setup()
@@ -212,9 +211,36 @@ class DirectSubmissionTest(HubTest):
         self.assertEqual([], self.requests)
         preview.close()
         dialog.close()
-        win.operator_mode = True
+        win.identity.save({"verified": True, "team": True, "token": "f" * 64})
         win.workspace.refresh()
         self.assertTrue(win.hub.server_connection.isVisible())
+        for state in ({"verified": False, "team": True}, {"verified": True, "team": False}):
+            with mock.patch.object(win.identity, "settings", return_value=state):
+                win.workspace.refresh()
+                self.assertFalse(win.hub.server_connection.isVisible())
+                win.show_submission_setup()
+                self.assertFalse(hasattr(win, "submission_dialog"))
+        win.identity_invalid = True
+        win.workspace.refresh()
+        self.assertFalse(win.hub.server_connection.isVisible())
+        win.identity_invalid = False
+        win.identity_checked = False
+        win.workspace.refresh()
+        self.assertFalse(win.hub.server_connection.isVisible())
+        win.identity_checked = True
+        win.resize(760, 480)
+        win.set_text("larger")
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            win.restyle()
+            win.workspace.refresh()
+            guikit.pump()
+            button = win.hub.server_connection
+            self.assertTrue(button.isVisible())
+            self.assertTrue(button.visibleRegion().contains(button.rect()))
+        guikit.click(win.hub.server_connection)
+        self.assertTrue(win.submission_dialog.isVisible())
+        win.submission_dialog.close()
 
     def test_pending_submission_and_result_fit_small_window_largest_text_both_themes(self):
         win = self.prepare()

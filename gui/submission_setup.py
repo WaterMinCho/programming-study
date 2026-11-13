@@ -47,7 +47,7 @@ class SubmissionSetup(QDialog):
         area = win.screen().availableGeometry()
         self.resize(min(640, win.width(), area.width()-32), min(640, win.height(), area.height()-72))
         self.move(area.x()+(area.width()-self.width())//2, area.y()+24)
-        self.shell = DialogLayout(self, "제출 서버 연결", "운영자가 별도 서버를 연결할 때 사용합니다. 일반 제출은 첫 화면의 [풀이 제출]을 누릅니다.")
+        self.shell = DialogLayout(self, "제출 서버 연결", "스터디원이 별도 서버를 연결할 때 사용합니다. 일반 제출은 첫 화면의 [풀이 제출]을 누릅니다.")
         body = self.shell.content
         body.addWidget(kit.para("답안 파일·채점·진도를 문제 추천 연구에 사용합니다. 수집 동의와 보관 기간은 [내 정보·데이터]에서 확인하고 철회할 수 있습니다.", "caption", "secondary"))
         connection_error = ""
