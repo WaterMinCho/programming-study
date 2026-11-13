@@ -52,6 +52,22 @@ class CareerGuiTest(unittest.TestCase):
                 return
         self.fail("화면 배치가 안정되지 않았음")
 
+    def _sizes(self, widget):
+        sizes = ((760, 480), (1024, 700), (1280, 800))
+        if os.name != "nt":
+            return sizes
+        room = widget.screen().availableGeometry()
+        tested = tuple((min(w, room.width() - 32), min(h, room.height() - 64)) for w, h in sizes)
+        destination = os.environ.get("CAREER_EVIDENCE")
+        if destination:
+            import json
+            data = {"requested": sizes, "tested": tested, "available": [room.width(), room.height()],
+                    "scope": "Large native windows fit the actual runner work area. Full requested sizes remain in offscreen cases; small 760x480 unchanged."}
+            Path(destination).mkdir(parents=True, exist_ok=True)
+            (Path(destination) / "career-window-sizes.json").write_text(json.dumps(data, indent=2))
+        widget.move(room.topLeft() + QPoint(16, 32))
+        return tested
+
     def _capture(self, widget, name):
         destination = os.environ.get("CAREER_EVIDENCE")
         if destination:
@@ -211,7 +227,7 @@ class CareerGuiTest(unittest.TestCase):
             theme.set_mode(scheme)
             theme.set_text("larger")
             kit.refont(page)
-            for width, height in ((760, 480), (1024, 700), (1280, 800)):
+            for width, height in self._sizes(page):
                 page.resize(width, height)
                 self.settle(page)
                 self.assertEqual(page.width(), width)
@@ -242,7 +258,7 @@ class CareerGuiTest(unittest.TestCase):
             theme.set_mode(scheme)
             theme.set_text("larger")
             kit.refont(page)
-            for width, height in ((760, 480), (1024, 700), (1280, 800)):
+            for width, height in self._sizes(page):
                 page.resize(width, height)
                 for tab in (0, 1):
                     page.tabs.picked.emit(tab)

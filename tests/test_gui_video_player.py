@@ -273,9 +273,19 @@ class VideoDialogTest(unittest.TestCase):
     def test_small_large_windows_maximum_text_and_two_themes_keep_footer_visible(self):
         theme.set_text("larger")
         evidence = os.environ.get("VIDEO_EVIDENCE")
+        sizes = ((760, 480), (1024, 700), (1280, 800))
+        if os.name == "nt":
+            room = self.host.screen().availableGeometry()
+            sizes = tuple((min(w, room.width() - 32), min(h, room.height() - 64)) for w, h in sizes)
+            self.host.move(room.topLeft() + QPoint(16, 32))
+            if evidence:
+                import json
+                Path(evidence).mkdir(parents=True, exist_ok=True)
+                (Path(evidence) / "video-window-sizes.json").write_text(json.dumps({"requested": [[760, 480], [1024, 700], [1280, 800]], "tested": sizes,
+                    "available": [room.width(), room.height()], "scope": "Native large cases fit the runner. Full sizes remain offscreen;760x480 unchanged."}, indent=2))
         for mode in ("light", "dark"):
             theme.set_mode(mode)
-            for width, height in ((760, 480), (1024, 700), (1280, 800)):
+            for width, height in sizes:
                 self.host.resize(width, height)
                 dialog = self.unavailable()
                 dialog.resize(width - 40, height - 40)
@@ -288,7 +298,7 @@ class VideoDialogTest(unittest.TestCase):
                     dialog.grab().save(str(Path(evidence) / f"unavailable-{mode}-{width}x{height}.png"))
                     if os.name == "nt":
                         dialog.screen().grabWindow(int(dialog.winId())).save(str(Path(evidence) / f"unavailable-{mode}-{width}x{height}-native.png"))
-                if mode == "dark" and width == 1280:
+                if mode == "dark" and (width, height) == sizes[-1]:
                     self.capture_widget = dialog
                 else:
                     dialog.close()
