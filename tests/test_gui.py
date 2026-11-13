@@ -600,6 +600,10 @@ class HomeAndGitTest(GuiTest):
         self.assertTrue(self.win.home.notice.isVisible())
         before = self.win.session
         self.git.replies["sync"] = {"status": "ok", "message": "새 문제를 받았습니다.", "changed": True}
+        self.assertFalse(self.win.home.sync_btn.isVisible())
+        self.win.problem_updates = {"status": "ok", "available": True, "count": 1}
+        self.win.workspace.refresh()
+        self.assertTrue(self.win.home.sync_btn.isVisible())
         click(self.win.home.sync_btn)
         self.idle()
         self.assertIsNot(self.win.session, before)
