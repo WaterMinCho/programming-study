@@ -49,10 +49,10 @@ jobs:
         shell: powershell
         run: |
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
-          $resolution = (Get-DisplayResolution | Out-String).Trim()
+          $resolution = (Get-DisplayResolution | Out-String).Replace([string][char]0, '').Trim()
           Write-Output $resolution
           if ($resolution -notmatch '1920\s*x\s*1080') {
-            throw "검사용 화면 해상도를 적용하지 못했음: $resolution"
+            throw "Failed to configure CI screen: $resolution"
           }
       - name: 기존 화면 도구가 없는 새 환경 확인
         run: python -c "import importlib.util; assert importlib.util.find_spec('PyQt6') is None"
