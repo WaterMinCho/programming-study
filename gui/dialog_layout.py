@@ -95,7 +95,7 @@ class ActionLayout(QLayout):
         if last and width(last) <= area.width():
             y += row(last, area.right() + 1 - width(last), y)
         else:
-            for number, item in enumerate(last):
+            for number, item in enumerate(reversed(last)):
                 y += row([item], area.x(), y, True) + (gap if number < len(last) - 1 else 0)
         return y - rect.y() + bottom
 
@@ -103,7 +103,7 @@ class ActionLayout(QLayout):
 class DialogLayout(QVBoxLayout):
     """본문이 길어져도 제목과 하단 단추에 계속 접근할 수 있게 함."""
 
-    def __init__(self, dialog, title):
+    def __init__(self, dialog, title, description=""):
         super().__init__(dialog)
         kit.page(dialog)
         self.dialog = dialog
@@ -111,7 +111,10 @@ class DialogLayout(QVBoxLayout):
         self.setSpacing(0)
         self.header = kit.frame("dialog_header")
         self.title = kit.para(title, "headline", bold=True)
-        kit.box(self.header, (32, 32, 32, 16)).addWidget(self.title)
+        heading = self.title
+        if description:
+            heading = kit.heading(self.title, kit.para(description, "body", "secondary"))
+        kit.box(self.header, (32, 32, 32, 16 if description else 4)).addWidget(heading)
         self.addWidget(self.header)
         self.body = QWidget()
         self.content = kit.box(self.body, (32, 8, 32, 24), theme.GAP["paragraph"])
@@ -133,7 +136,8 @@ class DialogLayout(QVBoxLayout):
         width = max(self.minimumSize().width(), min(preferred_width, max_width))
         self.activate()
         body_width = width - self.scroll.verticalScrollBar().sizeHint().width()
-        body_height = max(self.content.minimumSize().height(), self.content.totalHeightForWidth(body_width))
+        body_height = max(self.scroll.minimumSizeHint().height(), self.content.minimumSize().height(),
+                          self.content.totalHeightForWidth(body_width))
         fixed = 0
         for index in range(self.count()):
             widget = self.itemAt(index).widget()

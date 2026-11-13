@@ -66,7 +66,7 @@ class MessageDialog(QDialog):
         self.fit()
 
     def fit(self):
-        self.shell.fit(640)
+        self.shell.fit(560)
 
     def choose(self, key):
         self.choice = key

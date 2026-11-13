@@ -19,9 +19,8 @@ class SubmissionSetup(QDialog):
         area = win.screen().availableGeometry()
         self.resize(min(640, win.width(), area.width()-32), min(640, win.height(), area.height()-72))
         self.move(area.x()+(area.width()-self.width())//2, area.y()+24)
-        self.shell = DialogLayout(self, "비공개 풀이 제출")
+        self.shell = DialogLayout(self, "비공개 풀이 제출", "확인한 풀이 파일을 서버에 보관합니다. GitHub에는 올리지 않습니다.")
         body = self.shell.content
-        body.addWidget(kit.para("확인한 풀이 파일을 서버에 보관합니다. GitHub에는 올리지 않습니다."))
         body.addWidget(kit.para("답안 파일·채점·진도를 문제 추천 연구에 사용합니다. 수집 동의와 보관 기간은 [내 정보·데이터]에서 확인하고 철회할 수 있습니다.", "caption", "secondary"))
         self.url = QLineEdit(DEFAULT_SERVER)
         self.url.setAccessibleName("풀이 제출 서버 주소")
