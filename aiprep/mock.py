@@ -87,6 +87,7 @@ class MockExam:
             raise MockError("모의고사를 찾을 수 없습니다.") from error
         self.items, self.fingerprint = load_items(session.root, self.spec)
         self.local_answers = True
+        self.pending_inputs = {}
         self.recovered_draft = False
         with self.lock:
             log = self._log()
@@ -200,6 +201,13 @@ class MockExam:
         except OSError as error:
             raise MockError("답안을 저장하지 못했습니다. 다시 저장해 주세요. %s" % error) from error
 
+        for cid, original in self.pending_inputs.items():
+            if self.draft["answers"][cid] != original:
+                self.sess.collect_event("ai_input", {"mock": self.id, "try": self.attempt, "card": cid,
+                                                     "input_schema": collection.AI_INPUT_SCHEMA},
+                                        observation_context=self.draft["collection_observations"][cid])
+        self.pending_inputs.clear()
+
     def _wall_remaining(self):
         seconds = (_moment(self.draft["deadline"]) - _moment(self.clock())).total_seconds()
         return max(0.0, min(self.draft["duration"], seconds))
@@ -237,9 +245,13 @@ class MockExam:
             cid = cid or self.draft["order"][self.draft["current"]]
             self._validate_answer(cid, value)
             previous_draft = copy.deepcopy(self.draft)
+            was_pending = cid in self.pending_inputs
+            empty = [""] * len(self.items[cid].get("blanks", [])) if self.items[cid]["kind"] == "blank" else []
             previous = self.draft["answers"].get(cid)
             if previous != list(value) and hasattr(self.sess, "collection"):
                 context = self.sess.collection.observation_context()
+                if value != (previous if previous is not None else empty):
+                    self.pending_inputs.setdefault(cid, previous if previous is not None else empty)
                 self.draft.setdefault("collection_epochs", {})[cid] = context.get("epoch") if context else None
                 self.draft.setdefault("collection_observations", {})[cid] = context
             self.draft["answers"][cid] = list(value)
@@ -249,6 +261,8 @@ class MockExam:
             except MockError:
                 self.draft.clear()
                 self.draft.update(previous_draft)
+                if not was_pending:
+                    self.pending_inputs.pop(cid, None)
                 raise
             return True
 
@@ -292,7 +306,8 @@ class MockExam:
         cid = self.draft["order"][position]
         item = self.items[cid]
         if self.result is None and hasattr(self.sess, "collect_event"):
-            self.sess.collect_event("mock_question_returned", {"mock": self.id, "try": self.attempt, "card": cid, "position": position},
+            self.sess.collect_event("mock_question_returned", {"mock": self.id, "try": self.attempt, "card": cid, "position": position,
+                                                           "input_schema": collection.AI_INPUT_SCHEMA},
                                     item=lambda: collection.question(item, card=cid, lesson=item.get("lesson"),
                                                                      family=item.get("family"), tags=item.get("tags") or [], difficulty=item.get("level"),
                                                                      option_order=self.draft["shuffle"][cid],

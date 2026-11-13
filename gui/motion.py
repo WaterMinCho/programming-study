@@ -6,7 +6,7 @@ import random
 
 from PyQt6.QtCore import QEasingCurve, QEvent, QRectF, Qt, QVariantAnimation
 from PyQt6.QtGui import QPainter
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QGraphicsOpacityEffect, QWidget
 
 from gui import theme
 
@@ -53,6 +53,18 @@ def play(owner, ms, step, done=None, curve=QEasingCurve.Type.OutCubic):
 def count(owner, end, show, ms=COUNT_MS):
     """show(정수)를 0 부터 end 까지 올려 가며 부름. 막대는 count(bar, 값, bar.setValue) 로 씀."""
     play(owner, ms if end else 0, lambda t: show(round(end * t)))
+
+
+def fade_opacity(widget, showing, done=None, ms=FADE_MS):
+    """위젯을 나타낼 때 가속하고 숨길 때 감속하며 투명도를 바꿈. 반전하면 현재 투명도에서 이어감."""
+    effect = getattr(widget, "_opacity_effect", None)
+    if effect is None:
+        effect = widget._opacity_effect = QGraphicsOpacityEffect(widget)
+        widget.setGraphicsEffect(effect)
+        effect.setOpacity(0.0 if showing else 1.0)
+    start, end = effect.opacity(), 1.0 if showing else 0.0
+    curve = QEasingCurve.Type.InCubic if showing else QEasingCurve.Type.OutCubic
+    play(widget, ms, lambda t: effect.setOpacity(start + (end - start) * t), done, curve)
 
 
 def count_text(label, form, end, ms=COUNT_MS):

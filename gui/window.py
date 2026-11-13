@@ -926,6 +926,27 @@ class MainWindow(QMainWindow):
         if self.round_page.flush() and self.journey_page.flush():
             self.run_job("업데이트 확인 중입니다.", self.gitflow.sync, self._fetched)
 
+    def check_updates(self):
+        """설정에서 파일을 바꾸지 않고 업데이트 유무만 확인함."""
+        flow = self.gitflow
+        if flow is None or not hasattr(flow, "updates") or self.job is not None or self.submission_running:
+            return
+
+        def done(result):
+            if self.gitflow is not flow:
+                return
+            if result.get("status") == "ok":
+                self.problem_updates = result
+                self.next_update_check = time.monotonic() + 300
+                self.workspace.refresh()
+                message = ("새 업데이트가 있습니다. [프로그램 업데이트]를 눌러 적용하세요."
+                           if result.get("available") else "최신 버전을 사용하고 있습니다.")
+            else:
+                message = "업데이트를 확인하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요."
+            self.ask("업데이트 확인", message)
+
+        self.run_job("업데이트 확인 중입니다.", flow.updates, done)
+
     def _fetched(self, result):
         if self.web_node_first(lambda: self._fetched(result)):
             return
@@ -935,7 +956,7 @@ class MainWindow(QMainWindow):
         self.notice = None  # 시작할 때 받지 못했다는 알림은 방금 결과가 대신함
         self.home.refresh()
         self.hub.refresh()
-        self._git_done("문제 받기", result)
+        self._git_done("프로그램 업데이트", result)
 
     def _git_done(self, title, result):
         if result.get("status") in ("ok", "nothing"):
@@ -1006,6 +1027,12 @@ class MainWindow(QMainWindow):
         """시스템 → 밝게 → 어둡게 순서로 다음 테마를 고르고 기억함."""
         modes = list(theme.MODES)
         mode = modes[(modes.index(theme.state["mode"]) + 1) % len(modes)]
+        self.set_theme(mode)
+
+    def set_theme(self, mode):
+        """고른 화면 테마를 저장하고 열린 화면에 반영함."""
+        if mode not in theme.MODES:
+            return
         self.settings.setValue("theme", mode)
 
         def change():

@@ -1258,7 +1258,7 @@ class TextSizeTest(WebTest):
         self.assertEqual((theme.state["text"], win.zoom, self.settings.value("text")), ("larger", 4, "larger"))
         self.assertEqual([step for step, button in hub.text_buttons.items() if button.isChecked()], ["larger"])
         self.assertEqual((hub.summary.font().pixelSize(), hub.summary.line, hub.next_btn.font().pixelSize()), (21, 36, 21))
-        self.assertEqual(hub.theme_btn.font().pixelSize(), 18)  # 작은 글자 단추는 caption
+        self.assertEqual({button.font().pixelSize() for button in hub.theme_buttons.values()}, {18})  # 작은 글자 단추는 caption임.
         self.assertEqual((learn.title.font().pixelSize(), doc_sizes(learn.view)[head]), (26, 26))
         self.assertEqual(learn.card.maximumWidth(), kit.read_width(win.width()) + 48)
         if row is not None:
@@ -1435,7 +1435,7 @@ class LookTest(WebTest):
             self.assertLessEqual(page.minimumSizeHint().height(), 700, name)
             self.assertEqual((win.width(), win.height()), (1024, 700), name)
             if name == "hub":
-                buttons = buttons + tuple(win.hub.text_buttons.values()) + (win.hub.theme_btn,)
+                buttons = buttons + (win.hub.settings_btn,)
             for button in buttons:
                 if not button.isVisible():
                     continue

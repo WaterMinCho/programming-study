@@ -12,6 +12,7 @@ import uuid
 
 from learning_data import goals
 
+AI_INPUT_SCHEMA = 1
 FORMAT = 1
 NOTICE = "2026-11-08-v2"
 FILENAME = "learning-data.sqlite3"
@@ -268,13 +269,15 @@ class Collection:
                 if observation_context is CURRENT_CONTEXT:
                     payload["goal"] = json.loads(meta["goal"]) if "goal" in meta else goals.unselected()
                 else:
-                    if kind not in ("mock_answer", "mock_submit") and not (self.track == "python" and kind in ("answer", "python_input", "question_returned")):
+                    allowed = {"mock_answer", "mock_submit"}
+                    allowed.update({"answer", "python_input", "question_returned"} if self.track == "python" else {"ai_input"})
+                    if kind not in allowed:
                         raise ValueError("관찰 문맥을 지정할 수 없는 기록입니다.")
                     context = observation_context or {}
                     payload["goal"] = context.get("goal")
                     payload["observed_at"] = context.get("observed_at")
                     if context.get("epoch") != meta.get("epoch"):
-                        if kind in ("mock_submit", "python_input", "question_returned"):
+                        if kind in ("mock_submit", "python_input", "ai_input", "question_returned"):
                             return False
                         payload.update(response=None, goal=None, observed_at=None)
                         if payload.get("result") != "blank":

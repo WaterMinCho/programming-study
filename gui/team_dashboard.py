@@ -5,13 +5,52 @@ import math
 
 from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QFrame, QSizePolicy, QToolTip, QWidget
+from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QFrame, QPushButton, QSizePolicy, QToolTip, QWidget
 
 from gui import kit, theme
 from learning_data.collection import CollectionError
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 PERIODS = {1: "오늘", 7: "최근 7일", 15: "최근 15일", 30: "최근 30일"}
+
+METRICS = {"opens": "문제 열기", "inputs": "입력 변경", "graded": "채점"}
+
+
+def observed_total(row):
+    return row["python"] + (row["ai"] or 0)
+
+
+class MetricInfo(QPushButton):
+    def __init__(self, title, explanation):
+        super().__init__("ⓘ")
+        self.setObjectName("text")
+        self.setProperty("scale", "s")
+        self.setAutoDefault(False)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAccessibleName(title + " 집계 기준")
+        self.setToolTip(explanation)
+        self.setAccessibleDescription(self.toolTip())
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.clicked.connect(self.show_tip)
+
+    def show_tip(self):
+        QToolTip.showText(self.mapToGlobal(self.rect().bottomLeft()), self.toolTip(), self)
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        if event.reason() in (Qt.FocusReason.TabFocusReason, Qt.FocusReason.BacktabFocusReason, Qt.FocusReason.ShortcutFocusReason):
+            self.show_tip()
+
+    def focusOutEvent(self, event):
+        QToolTip.hideText()
+        super().focusOutEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            QToolTip.hideText()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
 
 def text_width(*labels):
@@ -80,10 +119,15 @@ class CollectionChart(QWidget):
         self.updateGeometry()
         self.update()
 
-    def set_data(self, rows, days, message=""):
+    def set_data(self, rows, days, message="", metric="graded"):
         self.rows, self.days, self.active = rows, days, None
-        self.message = message or ("이 기간에 채점한 풀이가 없습니다." if not any(row["python"] + row["ai"] for row in rows) else "")
-        self.setAccessibleName("시간별 채점 풀이" if days == 1 else "일별 채점 풀이")
+        self.metric = metric
+        empty = {"opens": "이 기간에 기록된 문제 열기가 없습니다.", "inputs": "이 기간에 기록된 입력 변경이 없습니다.",
+                 "graded": "이 기간에 채점한 풀이가 없습니다."}
+        if metric == "inputs" and all(row["ai"] is None for row in rows):
+            empty["inputs"] = "파이썬 입력 변경이 없습니다. AI 입력은 미측정입니다."
+        self.message = message or (empty[metric] if not any(map(observed_total, rows)) else "")
+        self.setAccessibleName(("시간별 " if days == 1 else "일별 ") + METRICS[metric])
         self.setAccessibleDescription("\n".join(self.describe(n) for n in range(len(rows))) or self.message)
         self.update()
 
@@ -93,10 +137,13 @@ class CollectionChart(QWidget):
         label = "%d월 %d일" % (at.month, at.day)
         if self.days == 1:
             label += " %d시" % at.hour
-        return "%s · 파이썬 %s건 · AI %s건 · 합계 %s건" % (label, format(row["python"], ","), format(row["ai"], ","), format(row["python"] + row["ai"], ","))
+        ai = "미측정" if row["ai"] is None else format(row["ai"], ",") + "건"
+        if row["ai"] is not None and row.get("ai_unmeasured"):
+            ai += " (미측정 기록 포함)"
+        return f"{label} · 파이썬 {row['python']:,}건 · AI {ai}"
 
     def plot_geometry(self):
-        peak = max([1] + [row["python"] + row["ai"] for row in self.rows])
+        peak = max([1] + list(map(observed_total, self.rows)))
         raw = max(1, peak / 4)
         power = 10 ** math.floor(math.log10(raw))
         step = next(value * power for value in (1, 2, 5, 10) if value * power >= raw)
@@ -144,7 +191,7 @@ class CollectionChart(QWidget):
         bar = max(2, min(36, width * .56))
         for n, row in enumerate(self.rows):
             x = plot.left() + width * (n + .5)
-            total = row["python"] + row["ai"]
+            total = observed_total(row)
             if n == self.active:
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.setBrush(theme.qcolor("surface_alt"))
@@ -159,7 +206,7 @@ class CollectionChart(QWidget):
                 bottom = plot.bottom()
                 painter.setPen(Qt.PenStyle.NoPen)
                 for track, token in (("python", "series_python"), ("ai", "series_ai")):
-                    height = size * row[track] / total
+                    height = size * (row[track] or 0) / total
                     painter.setBrush(theme.qcolor(token))
                     painter.drawRect(QRectF(x - bar / 2, bottom - height, bar, height))
                     bottom -= height
@@ -215,33 +262,14 @@ class TeamCard(QWidget):
     def __init__(self, win):
         super().__init__()
         self.win, self.days, self.loaded, self.loading = win, 7, None, False
+        self.metric, self.result = "graded", None
         self.setProperty("ui", "2")
         box = kit.box(self, spacing=24)
-        heading = kit.heading(kit.para("스터디 수집 현황", "headline", bold=True), kit.para("파이썬과 AI에서 답을 쓰거나 고르고 채점한 문항을 셉니다.", "caption", "secondary"))
+        heading = kit.heading(kit.para("스터디 수집 현황", "headline", bold=True), kit.para("파이썬과 AI 학습에서 수집한 기록을 확인합니다.", "caption", "secondary"))
         self.reload = kit.button("새로고침", "secondary")
         self.reload.clicked.connect(self.fetch)
         box.addWidget(DashboardRow([heading, self.reload], lambda: [text_width(heading.title), self.reload.sizeHint().width()], [1, 0], 16))
-        self.total, self.installations, self.accounts = [kit.para("–", "display", bold=True) for _ in range(3)]
-        self.account_period, self.device_period = [kit.para("", "caption", "secondary") for _ in range(2)]
-        metrics, metric_labels = [], []
-        for name, value, detail in (("누적 채점 풀이", self.total, kit.para("정답과 오답을 모두 포함합니다.", "caption", "secondary")),
-                                    ("인증 계정", self.accounts, self.account_period),
-                                    ("첫 실행 확인 기기", self.installations, self.device_period)):
-            metric = kit.frame("team_metric")
-            layout = kit.box(metric, (24, 24, 24, 24), 8)
-            label = kit.para(name, "caption", "secondary")
-            layout.addWidget(label)
-            layout.addWidget(value)
-            layout.addWidget(detail)
-            metrics.append(metric)
-            metric_labels.extend((label, value, detail))
-        self.metrics = DashboardRow(metrics, lambda: [max(180, text_width(*metric_labels) + 48)] * 3, spacing=16)
-        box.addWidget(self.metrics)
-        self.plot_card = kit.frame("team_plot")
-        plot_box = kit.box(self.plot_card, (24, 24, 24, 24), 24)
-        self.period_name = kit.para("최근 7일 풀이", "caption", "secondary")
-        self.period_total = kit.para("–", "display", bold=True)
-        period_heading = kit.spaced(self.period_name, self.period_total, spacing=8)
+        self.period_title = kit.para("최근 7일 학습 활동", "title", bold=True)
         self.periods = PeriodSelector()
         self.periods.setObjectName("team_periods")
         self.periods.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
@@ -255,7 +283,71 @@ class TeamCard(QWidget):
             self.buttons[days] = button
             row.addWidget(button)
             button.clicked.connect(lambda checked=False, days=days: self.select(days))
-        plot_box.addWidget(DashboardRow([period_heading, self.periods], lambda: [text_width(self.period_name, self.period_total), self.periods.sizeHint().width()], [1, 0], 16))
+        self.filter_row = DashboardRow([self.period_title, self.periods],
+                                       lambda: [text_width(self.period_title), self.periods.sizeHint().width()], [1, 0], 16)
+        box.addWidget(self.filter_row)
+        definitions = {
+            "cards": ("열어 본 문항", "선택 기간에 문제 열기가 기록된 서로 다른 문항 수입니다. 같은 과목의 같은 문항은 여러 사람이 여러 번 열어도 한 번만 셉니다."),
+            "opens": ("문제 열기", "선택 기간에 파이썬·AI 연습과 모의고사에서 문항을 반환한 기록 수입니다. 같은 기록을 다시 보내도 한 번만 셉니다."),
+            "inputs": ("입력 변경", "선택 기간에 바뀐 답을 저장한 횟수입니다. 키 입력, 같은 값 재저장, 기존 초안 다시 열기는 세지 않습니다. AI는 새 계측으로 관측한 횟수만 표시합니다."),
+            "graded": ("채점", "선택 기간에 답을 쓰거나 고른 뒤 채점한 문항을 셉니다. 다시 풀고 채점하면 한 건 더 셉니다. "
+                               "미응답과 [모르겠어요], 같은 기록의 재전송은 제외합니다."),
+        }
+        self.values, self.infos = {}, {}
+        cards = []
+        for key, (title, description) in definitions.items():
+            card = kit.frame("team_metric")
+            inner = kit.box(card, (16, 16, 16, 16), 8)
+            inner.addWidget(kit.para(title, "caption", "secondary"))
+            line = QWidget()
+            number = kit.box(line, horizontal=True, spacing=8)
+            value = kit.label("–", "headline", bold=True)
+            info = MetricInfo(title, description)
+            number.addWidget(value)
+            number.addWidget(info)
+            number.addStretch(1)
+            inner.addWidget(line)
+            cards.append(card)
+            self.values[key], self.infos[key] = value, info
+
+        def widths(pair):
+            return [max(180, card.sizeHint().width()) for card in pair]
+
+        pairs = [cards[:2], cards[2:]]
+        halves = [DashboardRow(pair, lambda pair=pair: widths(pair), spacing=16) for pair in pairs]
+        self.metrics = DashboardRow(halves, lambda: [sum(widths(pair)) + 16 for pair in pairs], spacing=16)
+        box.addWidget(self.metrics)
+        self.raw = kit.para("", "body", bold=True)
+        box.addWidget(self.raw)
+        self.identity_line = QWidget()
+        secondary = kit.FlowLayout(self.identity_line, spacing=12)
+        self.total, self.accounts, self.installations = [kit.label("–", "caption", "secondary") for _ in range(3)]
+        self.account_period, self.device_period = [kit.label("", "caption", "secondary") for _ in range(2)]
+        for name, value, detail in (("누적 채점", self.total, None), ("인증 계정", self.accounts, self.account_period),
+                                    ("첫 실행 확인 기기", self.installations, self.device_period)):
+            group = QWidget()
+            part = kit.box(group, spacing=4, horizontal=True)
+            part.addWidget(kit.label(name, "caption", "secondary"))
+            part.addWidget(value)
+            if detail is not None:
+                part.addWidget(detail)
+            secondary.addWidget(group)
+        box.addWidget(self.identity_line)
+        self.plot_card = kit.frame("team_plot")
+        plot_box = kit.box(self.plot_card, (24, 24, 24, 24), 16)
+        self.period_name = kit.para("최근 7일 채점", "caption", "secondary")
+        self.period_total = kit.para("–", "headline", bold=True)
+        plot_box.addWidget(kit.spaced(self.period_name, self.period_total, spacing=8))
+        actions = QWidget()
+        choices = kit.FlowLayout(actions, spacing=8)
+        self.metric_group, self.metric_buttons = QButtonGroup(self), {}
+        for metric, title in METRICS.items():
+            button = kit.chip(title)
+            self.metric_group.addButton(button)
+            self.metric_buttons[metric] = button
+            choices.addWidget(button)
+            button.clicked.connect(lambda checked=False, metric=metric: self.show_metric(metric))
+        plot_box.addWidget(actions)
         self.range = kit.para("", "caption", "secondary")
         plot_box.addWidget(self.range)
         chart_area = QWidget()
@@ -273,7 +365,8 @@ class TeamCard(QWidget):
         area_box.addWidget(self.chart)
         self.breakdown = kit.frame("team_breakdown")
         breakdown = kit.box(self.breakdown, (24, 24, 24, 24), 16)
-        breakdown.addWidget(kit.para("과목별 풀이", "body", bold=True))
+        self.breakdown_title = kit.para("과목별 채점", "body", bold=True)
+        breakdown.addWidget(self.breakdown_title)
         self.subject_totals, self.subject_bars = {}, {}
         for key, title in (("python", "파이썬"), ("ai", "AI 개론·응용")):
             body = QWidget()
@@ -291,6 +384,15 @@ class TeamCard(QWidget):
         breakdown.addStretch(1)
         self.chart_row = DashboardRow([chart_area, self.breakdown], lambda: [theme.TYPE["micro"][0] * 32, theme.TYPE["caption"][0] * 14 + 48], [3, 1])
         plot_box.addWidget(self.chart_row)
+        self.metadata = QWidget()
+        facts = kit.box(self.metadata, spacing=8)
+        self.metadata_heading = kit.para("", "body", bold=True)
+        self.item_facts = kit.para("", "caption", "secondary")
+        self.time_facts = kit.para("", "caption", "secondary")
+        self.coverage = kit.para("", "caption", "secondary")
+        for label in (self.metadata_heading, self.item_facts, self.time_facts, self.coverage):
+            facts.addWidget(label)
+        plot_box.addWidget(self.metadata)
         box.addWidget(self.plot_card)
         self.note = kit.para("", "caption", "secondary")
         box.addWidget(self.note)
@@ -322,6 +424,60 @@ class TeamCard(QWidget):
             return
         self.days = days
         self.fetch()
+
+    def show_metric(self, metric):
+        result = self.result
+        if not result or not result.get("graded") or metric not in METRICS:
+            return
+        if metric != "graded" and not result.get("activity"):
+            return
+        self.metric = metric
+        self.metric_buttons[metric].setChecked(True)
+        rows = result["graded"]["series"] if metric == "graded" else result["activity"][metric]
+        total = sum(map(observed_total, rows))
+        self.period_name.setText(PERIODS[result["days"]] + " " + METRICS[metric])
+        self.period_total.setText(f"{total:,}건" if metric != "inputs" else f"관측 {total:,}건")
+        self.breakdown_title.setText("과목별 " + METRICS[metric])
+        for track in ("python", "ai"):
+            measured = [row[track] for row in rows if row[track] is not None]
+            value = sum(measured)
+            count = f"{value:,}건" if measured else "미측정"
+            if metric == "inputs" and track == "ai" and measured:
+                count = "관측 " + count
+            self.subject_totals[track].setText(count)
+            self.subject_bars[track].setValue(round(100 * value / total) if total else 0)
+        self.chart.set_data(rows, result["days"], metric=metric)
+
+    def show_activity(self, result):
+        activity = result.get("activity")
+        self.values["graded"].setText(f"{result['graded']['period_total']:,}건")
+        for key in ("cards", "opens", "inputs"):
+            self.values[key].setText("–")
+        self.metadata.setVisible(bool(activity))
+        for name, button in self.metric_buttons.items():
+            button.setEnabled(name == "graded" or bool(activity))
+        graded = result["graded"]["period_total"]
+        if activity:
+            opens = sum(map(observed_total, activity["opens"]))
+            inputs = sum(map(observed_total, activity["inputs"]))
+            self.values["cards"].setText(f"{activity['distinct_cards']:,}개")
+            self.values["opens"].setText(f"{opens:,}회")
+            self.values["inputs"].setText(f"관측 {inputs:,}회")
+            counts = activity["graded_metadata"]
+            first = activity["period_first_ai_measurement_at"]
+            coverage = "AI 입력은 이 기간에 미측정입니다."
+            if first:
+                observed = datetime.datetime.fromisoformat(first).astimezone(KST)
+                coverage = f"선택 기간의 첫 AI 입력 계측 표시는 {observed:%m.%d %H:%M}입니다. 구버전의 입력 횟수는 미확인입니다."
+            self.metadata_heading.setText(f"선택 기간 채점 {graded:,}건에 남은 정보")
+            self.item_facts.setText(f"지문 {counts['stem']:,}건 · 개념 태그 {counts['concepts']:,}건 · "
+                                    f"문항 버전 {counts['revision']:,}건 · 출제 난이도 {counts['difficulty']:,}건 "
+                                    f"(미확인 {graded - counts['difficulty']:,}건)")
+            python_graded = sum(row["python"] for row in result["graded"]["series"])
+            self.time_facts.setText(f"순서와 기록 시각 {counts['ordered_timed']:,}건 · "
+                                    f"파이썬 채점 {python_graded:,}건 중 입력 연결 {counts['linked_input']:,}건")
+            self.coverage.setText(coverage)
+        self.show_metric(self.metric if activity else "graded")
 
     def fetch(self):
         if self.win.job is not None:
@@ -356,6 +512,10 @@ class TeamCard(QWidget):
                 return
             self.loaded = identity
             if result.get("error"):
+                self.result = None
+                self.raw.hide()
+                self.filter_row.hide()
+                self.identity_line.hide()
                 self.metrics.hide()
                 self.plot_card.hide()
                 kit.typed(self.note, "body")
@@ -367,35 +527,43 @@ class TeamCard(QWidget):
                 return
             self.reverify.hide()
             self.metrics.show()
+            self.filter_row.show()
+            self.identity_line.show()
+            self.period_title.setText(PERIODS[days] + " 학습 활동")
+            self.result = result
+            raw_period = result.get("period_total")
+            period_text = "미확인" if raw_period is None else f"{raw_period:,}건"
+            self.raw.setText(f"수집 기록  누적 {result['total']:,}건 · {PERIODS[days]} {period_text}")
+            self.raw.show()
             graded = result.get("graded")
             self.plot_card.setVisible(graded is not None)
             self.accounts.setText("%s개" % format(result["accounts"], ","))
             self.installations.setText("%s대" % format(result["installations"], ","))
-            self.account_period.setText("%s 첫 인증 %s개" % (PERIODS[days], format(result["period_accounts"], ",")))
-            self.device_period.setText("%s 첫 실행 %s대" % (PERIODS[days], format(result["period_installations"], ",")))
+            self.account_period.setText("(%s +%s개)" % (PERIODS[days], format(result["period_accounts"], ",")))
+            self.device_period.setText("(%s +%s대)" % (PERIODS[days], format(result["period_installations"], ",")))
             kit.typed(self.note, "caption")
             self.note.line = theme.TYPE["caption"][1]
             kit.set_tone(self.note, "secondary")
             if graded is None:
+                for value in self.values.values():
+                    value.setText("–")
+                for button in self.metric_buttons.values():
+                    button.setEnabled(False)
                 self.total.setText("–")
                 self.note.setText("이 서버는 채점 풀이 통계를 아직 제공하지 않습니다.")
                 self.show()
                 return
             self.total.setText("%s건" % format(graded["total"], ","))
-            self.period_name.setText(PERIODS[days] + " 풀이")
-            self.period_total.setText("%s건" % format(graded["period_total"], ","))
+            self.show_activity(result)
             rows = graded["series"]
             first, last = [datetime.datetime.fromisoformat(rows[n]["at"]).astimezone(KST) for n in (0, -1)]
             dates = "%d.%d.%d" % (first.year, first.month, first.day)
             if days != 1:
                 dates += " – %d.%d.%d" % (last.year, last.month, last.day)
             self.range.setText(dates + "  ·  한국 시간 · " + ("시간별 합계" if days == 1 else "일별 합계"))
-            for key in ("python", "ai"):
-                value = sum(row[key] for row in rows)
-                self.subject_totals[key].setText("%s건" % format(value, ","))
-                self.subject_bars[key].setValue(round(100 * value / graded["period_total"]) if graded["period_total"] else 0)
-            self.chart.set_data(rows, days)
-            text = "다시 풀고 채점하면 한 건 더 셉니다. 미응답과 [모르겠어요]는 제외합니다."
+            text = ""
+            if not result.get("activity"):
+                text = "이 서버는 문항·열기·입력 통계를 아직 제공하지 않습니다."
             if graded["undated"]:
                 text += " 시각 미확인 %s건은 누적에만 포함합니다." % format(graded["undated"], ",")
             if graded["unknown"]:
@@ -407,7 +575,7 @@ class TeamCard(QWidget):
                     text += "  %d.%d %02d:%02d 기준" % (at.month, at.day, at.hour, at.minute)
             except (TypeError, ValueError):
                 pass
-            self.note.setText(text)
+            self.note.setText(text.strip())
             self.show()
         started = self.win.run_job("수집 통계를 확인하고 있습니다.", work, done,
                                    on_fail=lambda: done({"error": "통계를 불러오지 못했습니다. 잠시 후 [새로고침]을 눌러 주세요.", "auth": False}))

@@ -718,7 +718,8 @@ class AiSession(object):
         try:
             study.write_text(os.path.join(self.home, "state.json"), json.dumps(data, ensure_ascii=False, indent=1) + "\n")
         except OSError:
-            pass  # 중간 자리는 편의라 못 써도 학습은 이어감
+            return False  # 중간 자리는 편의라 못 써도 학습은 이어감
+        return True
 
     def completed_units(self):
         """끝낸 단원 연습 묶음을 셈. 읽기 기록이나 마지막 단계 진입으로 완료를 추정하지 않음."""
@@ -802,7 +803,7 @@ class AiSession(object):
             data["continuation"] = {"kind": "practice", "at": now()}
             if practice.lesson and practice.unit:
                 data["last_unit"] = [practice.lesson, practice.unit]
-        self._save_local(data)
+        return self._save_local(data)
 
     # 카드
 
@@ -1950,7 +1951,7 @@ class PracticeSet(object):
                 "options": options, "pick": "right" if statement.get("ok") else "wrong", "multi": False,
                 "explain": statement.get("why", "")}
 
-    def current(self):
+    def current(self, *, measure_input=False):
         """지금 문항. 끝났으면 None. {"card", "kind", "chips", "stem", "blanks": [{"mode", "hint"}], "options": [{"no", "text"}],
         "multi", "pick", "code", "code_options"(보기가 코드), "grid"(보기 열 수 1·2), "again", "step", "lesson", "at", "total",
         "answered"}. chips 첫째는 자리 꼬리표(차시 "5차시", 상황별 코드는 단원 name), 둘째는 꼴."""
@@ -1982,7 +1983,8 @@ class PracticeSet(object):
             chips.append("심화")
         options = [{"no": n, "text": item["options"][n]["text"]} for n in view["order"]]
         self.sess.collect_event("question_returned", {"set": self.id, "card": card["id"], "position": self.pos,
-                                                     "again": entry["again"], "mode": self.mode},
+                                                     "again": entry["again"], "mode": self.mode,
+                                                     **({"input_schema": collection.AI_INPUT_SCHEMA} if measure_input else {})},
                                 item=lambda: self._collection_item(entry),
                                 key="question:%s:%d:%s:%d" % (self.id, self.pos, card["id"], entry["seed"]))
         return {"card": card["id"], "kind": form, "chips": chips, "stem": item.get("stem", ""),
@@ -2173,7 +2175,7 @@ class PracticeSet(object):
         self.sess.save_practice(self, activate=True)
         return self.answered
 
-    def next(self):
+    def next(self, *, measure_input=False):
         """다음 문항으로. 끝나면 set_end 를 기록하고 None."""
         if self.answered is None and self.pos < len(self.queue):
             raise AiError("답한 뒤에 넘어갈 수 있습니다.")
@@ -2186,7 +2188,7 @@ class PracticeSet(object):
                 self.sess.save_practice(self, activate=True)
                 return None
             self.draft = {}
-            item = self.current()
+            item = self.current(measure_input=measure_input)
             self.sess.save_practice(self, activate=True)
             return item
         except AiError:

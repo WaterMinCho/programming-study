@@ -8,7 +8,7 @@ import sys
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QFontDatabase, QFontInfo, QFontMetricsF, QPalette
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QToolTip
 
 import mdlite
 
@@ -519,6 +519,7 @@ def _style(scheme):
                        (role.ToolTipText, "ink"), (role.Link, "link")):
         palette.setColor(part, qcolor(name))
     app.setPalette(palette)
+    QToolTip.setFont(font("caption"))
     tokens = style_tokens(scheme)
     app.setStyleSheet(STYLE % tokens + STYLE_V2 % tokens + EDITOR_STYLE)
 

@@ -2489,7 +2489,7 @@ class ThemeTest(GuiTest):
                     self.assertEqual([key for key, button in hub.text_buttons.items() if button.isChecked()], [step])
                     for button in buttons:
                         self.assertGreaterEqual(button.width(), button.fontMetrics().horizontalAdvance(button.text()) + 28)
-                        self.assertTrue(hub.settings_panel.rect().contains(button.geometry()))
+                        self.assertTrue(hub.settings_panel.rect().contains(button.rect().translated(button.mapTo(hub.settings_panel, QPoint()))))
                     if step in widths:
                         self.assertEqual(buttons[0].width(), widths[step])
                     widths[step] = buttons[0].width()

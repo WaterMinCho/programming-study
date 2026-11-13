@@ -1056,7 +1056,7 @@ def build_parser():
     p.add_argument("--user")
     p.set_defaults(func=cmd_go)
 
-    p = sub.add_parser("update", help="새 버전과 새 문제 받기 (화면이 열리지 않을 때)")
+    p = sub.add_parser("update", help="새 버전과 프로그램 업데이트 (화면이 열리지 않을 때)")
     p.add_argument("--user")
     p.set_defaults(func=cmd_update)
 

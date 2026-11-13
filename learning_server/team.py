@@ -84,6 +84,74 @@ def initialize_attempts(db):
         db.execute("CREATE TRIGGER team_attempts_%s AFTER %s ON events BEGIN %s END" % (action, action, body))
 
 
+def activity_summary(db, start, step, size, end):
+    """선택 기간에 실제로 나타난 문항과 행동을 셈. 기존 원본과 색인은 읽기만 함."""
+    begin = int(start.timestamp())
+    slots = [{"at": (start + datetime.timedelta(seconds=n * step)).isoformat(), "python": 0, "ai": 0}
+             for n in range(size)]
+    opened = [dict(row) for row in slots]
+    inputs = [dict(row, ai=None, ai_unmeasured=False) for row in slots]
+    cards = set()
+    metadata = dict(stem=0, concepts=0, revision=0, difficulty=0, ordered_timed=0, linked_input=0)
+    first_measured = None
+    rows = db.execute("""
+        SELECT t.at,t.track,json_extract(e.payload,'$.kind'),json_extract(e.payload,'$.data.card'),
+            json_type(e.payload,'$.data.card')='text',a.confirmed,
+            json_type(e.payload,'$.data.input_schema')='integer' AND json_extract(e.payload,'$.data.input_schema')=1,
+            json_type(e.payload,'$.item.stem')='text' AND trim(json_extract(e.payload,'$.item.stem'))!='',
+            json_type(e.payload,'$.item.tags')='array' AND EXISTS
+                (SELECT 1 FROM json_each(e.payload,'$.item.tags') WHERE type='text' AND trim(value)!=''),
+            length(json_extract(e.payload,'$.item_revision'))=64,
+            CASE WHEN t.track='python' AND json_type(e.payload,'$.item.difficulty') IS NULL
+                THEN json_type(e.payload,'$.item.level')='integer' AND json_extract(e.payload,'$.item.level') BETWEEN 1 AND 3
+                ELSE json_type(e.payload,'$.item.difficulty')='integer' AND json_extract(e.payload,'$.item.difficulty') BETWEEN 1 AND 3 END,
+            e.sequence>0,
+            CASE WHEN a.confirmed=1 AND t.track='python' THEN EXISTS (
+                SELECT 1 FROM events i JOIN team_events it USING(participant,track,event_id)
+                WHERE i.participant=e.participant AND i.track=e.track
+                    AND i.event_id=json_extract(e.payload,'$.data.input_event') AND i.sequence<e.sequence
+                    AND it.synthetic=0 AND it.at<=t.at AND json_valid(i.payload)
+                    AND json_extract(i.payload,'$.kind')='python_input'
+                    AND json_extract(i.payload,'$.data.card')=json_extract(e.payload,'$.data.card')
+                    AND json_extract(i.payload,'$.data.set')=json_extract(e.payload,'$.data.set')
+                    AND json_extract(i.payload,'$.item_revision')=json_extract(e.payload,'$.item_revision')) END
+        FROM team_events t JOIN events e USING(participant,track,event_id)
+        LEFT JOIN team_attempts a USING(participant,track,event_id)
+        WHERE t.synthetic=0 AND t.at>=? AND t.at<? AND json_valid(e.payload)
+            AND json_extract(e.payload,'$.kind') IN
+                ('question_returned','mock_question_returned','python_input','ai_input','answer','mock_answer')
+        ORDER BY t.at""", (begin, end))
+    for at, track, kind, card, has_card, graded, measured, stem, tags, revision, difficulty, ordered, linked in rows:
+        if track not in ("python", "ai"):
+            continue
+        slot = (at - begin) // step
+        is_open = kind in ("question_returned", "mock_question_returned")
+        is_input = ((track == "python" and kind == "python_input") or
+                    (track == "ai" and kind == "ai_input" and measured))
+        if is_open:
+            if has_card and card.strip():
+                cards.add((track, card))
+            opened[slot][track] += 1
+            if track == "ai" and not measured:
+                inputs[slot]["ai_unmeasured"] = True
+        if track == "ai" and measured and (is_open or is_input):
+            if first_measured is None:
+                first_measured = datetime.datetime.fromtimestamp(at, KST).isoformat()
+            if inputs[slot]["ai"] is None:
+                inputs[slot]["ai"] = 0
+        if is_input:
+            inputs[slot][track] += 1
+        if graded == 1:
+            metadata["stem"] += bool(stem)
+            metadata["concepts"] += bool(tags)
+            metadata["revision"] += bool(revision)
+            metadata["difficulty"] += bool(difficulty)
+            metadata["ordered_timed"] += bool(ordered)
+            metadata["linked_input"] += bool(linked)
+    return {"distinct_cards": len(cards), "opens": opened, "inputs": inputs, "graded_metadata": metadata,
+            "ai_input_schema": 1, "period_first_ai_measurement_at": first_measured}
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise OSError("redirect")
@@ -219,6 +287,7 @@ class Access:
                        count(CASE WHEN confirmed=0 THEN 1 END)""" + joined, (end, end)).fetchone()
             values = db.execute("""SELECT (at-?)/? AS slot,track,count(*),count(CASE WHEN confirmed=1 THEN 1 END)"""
                                 + joined + " AND at>=? AND at<? GROUP BY slot,track", (begin, step, begin, end)).fetchall()
+            activity = activity_summary(db, start, step, size, end)
             installations = db.execute("SELECT count(*),coalesce(sum(first_seen>=? AND first_seen<?),0) FROM identity_installations", (begin, end)).fetchone()
             accounts = db.execute("SELECT count(*),coalesce(sum(first_seen>=? AND first_seen<?),0) FROM identity_accounts", (begin, end)).fetchone()
         series = [{"at": (start + datetime.timedelta(seconds=n * step)).isoformat(), "python": 0, "ai": 0} for n in range(size)]
@@ -227,7 +296,7 @@ class Access:
             if 0 <= slot < size and track in ("python", "ai"):
                 series[slot][track] = count
                 graded_series[slot][track] = attempts
-        return {"total": total, "period_total": sum(row["python"] + row["ai"] for row in series),
+        return {"activity": activity, "total": total, "period_total": sum(row["python"] + row["ai"] for row in series),
                 "graded": {"total": graded, "undated": graded_undated, "unknown": unknown, "series": graded_series,
                            "period_total": sum(row["python"] + row["ai"] for row in graded_series)},
                 "undated": undated, "days": days, "series": series, "as_of": now.isoformat(), "time_basis": "recorded_at",
