@@ -126,7 +126,8 @@
       "what": "scikit-learn _check_set_wise_labels: average='binary' 인데 정답이 이진이 아니면 ValueError(\"Target is multiclass but average='binary'. …\")를 냄(1.9.1 소스)",
       "url": "https://github.com/scikit-learn/scikit-learn/blob/1.9.1/sklearn/metrics/_classification.py",
       "checked": "2026-11-05"
-    }
+    },
+    {"what": "SciPy rel_entr: P=0인 항과 Q=0일 때의 경계", "url": "https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.rel_entr.html", "checked": "2026-11-14"}
   ],
   "credits": [],
   "units": {

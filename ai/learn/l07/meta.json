@@ -40,7 +40,8 @@
     {"what": "PyTorch torch.sign: 원소마다 부호를 돌려주고 0 은 0", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.sign.html", "checked": "2026-11-05"},
     {"what": "PyTorch torch.clamp: 원소를 [min, max] 로 자르고 min 만 주면 아래쪽만 자름", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.clamp.html", "checked": "2026-11-05"},
     {"what": "NumPy polyder: 계수 리스트를 다항식으로 보고 미분한 계수를 돌려줌(높은 차수부터)", "url": "https://numpy.org/doc/stable/reference/generated/numpy.polyder.html", "checked": "2026-11-05"},
-    {"what": "NumPy roots: 높은 차수부터 적은 계수 p 의 다항식 근을 돌려줌", "url": "https://numpy.org/doc/stable/reference/generated/numpy.roots.html", "checked": "2026-11-05"}
+    {"what": "NumPy roots: 높은 차수부터 적은 계수 p 의 다항식 근을 돌려줌", "url": "https://numpy.org/doc/stable/reference/generated/numpy.roots.html", "checked": "2026-11-05"},
+    {"what": "NumPy lstsq: 열의 독립성과 여러 최소제곱 해", "url": "https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html", "checked": "2026-11-14"}
   ],
   "credits": [],
   "units": {

@@ -766,7 +766,7 @@ def ce_shapes():
     note(ax, 7.75, 3.15, "nn.CrossEntropyLoss()", size=17, family=CODE, bg="white", ec=INK)
     note(ax, 7.75, 1.95, "데이터 1: 0.4170\n데이터 2: 0.1967\n평균 0.3069", color=GREEN, size=17, bg="white", ec=GREEN,
          va="center")
-    note(ax, 0.3, 0.5, "logit 은 소프트맥스 없이 그대로, 정답은 원-핫 벡터가 아닌 클래스 번호", size=17)
+    note(ax, 0.3, 0.5, "이 예제는 클래스 번호를 정답으로 쓰고 logit을 그대로 넣습니다", size=17)
     return image(fig)
 
 
@@ -807,11 +807,11 @@ def smoothing():
 def summary_6d():
     """외울 것 그림. CE 계산 순서, 입력 꼴, 라벨 스무딩."""
     assert fx(-LG[0], 3) == "0.417" and fx(-LG[2], 3) == "2.317"
-    return memo([[(0.3, 10.6, "CrossEntropyLoss", ["logit [2.0, 1.0, 0.1] → 소프트맥스 → log → 정답 칸 고르기 → 부호 바꿈",
+    return memo([[(0.3, 10.6, "CrossEntropyLoss 클래스 번호 예제", ["logit [2.0, 1.0, 0.1] → 소프트맥스 → log → 정답 칸 고르기 → 부호 바꿈",
                                                    "정답 0: 0.417,  정답 2: 2.317"], GREEN, GREEN, ())],
-                 [(0.3, 5.15, "넣는 꼴", ["logit [N, 클래스 수]", "정답 [N], 클래스 번호"], BLUE, BLUE, ()),
+                 [(0.3, 5.15, "이 예제의 입력", ["logit [N, 클래스 수]", "정답 [N], 클래스 번호"], BLUE, BLUE, ()),
                   (5.75, 5.15, "라벨 스무딩", ["label_smoothing=0.1", "K = 3: 0.933, 0.033, 0.033"], SLATE, SLATE, (0,))]],
-                "모델 끝에 소프트맥스를 두지 않음. 정답은 원-핫 벡터가 아닌 클래스 번호")
+                "모델은 logit을 냅니다. 이 예제의 정답은 클래스 번호입니다.")
 
 
 # 6e 클래스 불균형
@@ -946,7 +946,7 @@ def summary_6e():
 def problem_types():
     """회귀·이진 분류·다중 분류의 마지막 출력, 손실 줄, 정답 꼴."""
     plt, fig, ax = board(580)
-    heads = [(0.3, "문제"), (2.35, "마지막 출력"), (5.05, "손실 줄"), (8.55, "정답 꼴")]
+    heads = [(0.3, "문제"), (2.35, "마지막 출력"), (5.05, "손실 줄"), (8.55, "예제의 정답 꼴")]
     for x0, h in heads:
         ax.text(x0, 5.35, h, fontsize=19, color=MUTED, weight="bold", va="center")
     ax.plot([0.2, 11.0], [5.0, 5.0], color=FAINT, lw=1.6)
@@ -1268,7 +1268,7 @@ def _levels_6e(level):
         _lv_box(ax, 420, 100, 130, 54, "9,900", ec=RED, fc=LV.PALE["red"], bold=True)
         _lv_text(ax, 100, 250, "한 명씩 세기", color=MUTED)
         _lv_text(ax, 420, 250, "다시 센 수", color=MUTED)
-        _lv_text(ax, 260, 32, "두 쪽이 같아집니다")
+        _lv_text(ax, 260, 32, "다시 센 수가 같습니다")
         return fig
     if level == 15:
         xs = list(np.linspace(100, 9900, 300))

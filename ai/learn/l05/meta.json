@@ -29,7 +29,8 @@
     {"what": "PyTorch nn.ReLU: ReLU(x) = max(0, x) 를 원소마다 계산", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.ReLU.html", "checked": "2026-11-05"},
     {"what": "PyTorch nn.Module.train·eval: eval() 은 train(False) 와 같고 training 값이 학습·평가 모드를 나타냄", "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html", "checked": "2026-11-05"},
     {"what": "PyTorch autograd 노트: 평가 모드(nn.Module.eval)는 기울기 계산을 끄는 방법이 아니고 no_grad 와 따로 씀", "url": "https://docs.pytorch.org/docs/stable/notes/autograd.html", "checked": "2026-11-05"},
-    {"what": "PyTorch BatchNorm 소스 reset_running_stats: running_mean 은 0, running_var 는 1 에서 시작하고, 학습 모드에서 momentum 으로 고침", "url": "https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/batchnorm.py", "checked": "2026-11-05"}
+    {"what": "PyTorch BatchNorm 소스 reset_running_stats: running_mean 은 0, running_var 는 1 에서 시작하고, 학습 모드에서 momentum 으로 고침", "url": "https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/batchnorm.py", "checked": "2026-11-05"},
+    {"what": "PyTorch v2.5.1 relu 미분 정의: 출력 result를 사용하는 역전파", "url": "https://raw.githubusercontent.com/pytorch/pytorch/v2.5.1/tools/autograd/derivatives.yaml", "checked": "2026-11-14"}
   ],
   "credits": [],
   "units": {
