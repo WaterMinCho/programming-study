@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """학습 재개 안내와 풀이 초안 복원을 화면 환경에서 확인함."""
+from unittest import mock
+
 from tests import guikit
 from tests.test_ai_service import Base
 from tests.test_gui_ai import AiTest
@@ -35,6 +37,37 @@ class ContinuationGuiTest(AiTest):
         win.hub.open_ai(ai_text.next_item(win.ai.overview(), win.ai.today()))
         self.assertEqual(saved_set, page.practice.id)
         self.assertEqual("중간 입력", page.inputs[0].text())
+
+    def test_editing_a_blank_counts_one_change_and_restoring_counts_none(self):
+        from gui.ai_quiz import PracticePage
+        from PyQt6.QtTest import QTest
+        win = self.boot()
+        win.ai.mark_read("i90", "90a")
+        win.open_ai_practice("unit", lesson="i90", unit="90a")
+        page = win.ai_quiz
+        def inputs():
+            return [r["data"] for r in win.ai.collection.snapshot() if r["kind"] == "ai_input"]
+        field = page.inputs[0]
+        QTest.keyClicks(field, "example")
+        self.assertEqual([], inputs())
+        field.clearFocus()
+        page.finish_input()
+        page.save_progress()
+        self.assertEqual(1, len(inputs()))
+        self.assertEqual({"input_schema", "set", "card", "position", "course", "goal", "observed_at"}, set(inputs()[0]))
+        self.assertEqual(1, inputs()[0]["input_schema"])
+        shown = [r for r in win.ai.collection.snapshot() if r["kind"] == "question_returned"]
+        self.assertEqual(1, shown[-1]["data"]["input_schema"])
+        win.ai._active_set = None
+        restored = PracticePage(win)
+        self.addCleanup(restored.deleteLater)
+        restored.load("unit", "i90", "90a")
+        self.assertEqual("example", restored.values()[0])
+        restored.finish_input()
+        with mock.patch.object(win.ai, "_save_local", return_value=False):
+            QTest.keyClicks(restored.inputs[0], "z")
+            restored.finish_input()
+        self.assertEqual(1, len(inputs()))
 
     def test_new_page_restores_local_draft_without_grading_it(self):
         from gui.ai_quiz import PracticePage

@@ -270,6 +270,38 @@ class CollectionIntegrationTest(Base):
         self.assertEqual(5, len(snapshots))
         self.assertTrue(all(item["difficulty"] == 2 for item in snapshots))
 
+    def test_mock_input_counts_only_persisted_changes_in_the_same_consent_period(self):
+        helper = mock_tests.MockServiceTest("test_unsubmitted_questions_do_not_enter_practice")
+        helper.setUp()
+        self.addCleanup(helper.doCleanups)
+        sess = helper.session()
+        sess.collection.set_enabled(True)
+        exam = sess.start_mock("m90", seed=1)
+        cid = "m90-01"
+        exam.save_answer([""], cid)
+        exam.save_answer(["a"], cid, flush=False)
+        exam.save_answer([""], cid)
+        self.assertEqual([], self.events(sess, "ai_input"))
+        exam.save_answer(["a"], cid, flush=False)
+        exam.save_answer(["ab"], cid, flush=False)
+        with mock.patch.object(study, "write_text", side_effect=OSError("full")), self.assertRaises(mock_tests.MockError):
+            exam.save_answer(["abc"], cid)
+        self.assertEqual([], self.events(sess, "ai_input"))
+        exam.save_answer(["answer-marker"], cid)
+        exam.save_answer(["answer-marker"], cid)
+        sess.start_mock("m90").save_answer(["answer-marker"], cid)
+        exam.save_answer(["b"], cid, flush=False)
+        sess.collection.set_enabled(False)
+        sess.collection.set_enabled(True)
+        exam.move(0)
+        rows = self.events(sess, "ai_input")
+        self.assertEqual(1, len(rows))
+        self.assertEqual({"input_schema", "card", "mock", "try", "course", "goal", "observed_at"}, set(rows[0]))
+        self.assertEqual(1, rows[0]["input_schema"])
+        exported = [r for r in sess.collection.snapshot() if r["kind"] == "ai_input"]
+        self.assertNotIn("answer-marker", json.dumps(exported))
+        self.assertIsNone(exported[0]["item_revision"])
+
     def test_real_mock_events_link_return_time_without_same_exam_labels(self):
         from learning_server.dataset import prepare
         helper = mock_tests.MockServiceTest("test_unsubmitted_questions_do_not_enter_practice")

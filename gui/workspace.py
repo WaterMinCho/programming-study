@@ -114,7 +114,7 @@ class SubmissionBar(QFrame):
         self.submit.setAccessibleDescription("아직 올리지 않은 풀이와 학습 기록을 제출합니다.")
         self.submit.clicked.connect(win.submit_pr)
         self.submit.hide()
-        self.sync = kit.button("새 문제 받기", "secondary", "l")
+        self.sync = kit.button("프로그램 업데이트", "secondary", "l")
         self.sync.setToolTip("프로그램과 학습 자료를 함께 업데이트합니다.")
         self.sync.clicked.connect(win.fetch_problems)
         buttons.addWidget(self.submit)
@@ -142,8 +142,8 @@ class SubmissionBar(QFrame):
         available = updates.get("status") == "ok" and updates.get("available", False)
         self.submit.setVisible(usable and pending)
         self.sync.setVisible(usable and available)
-        self.submit.setEnabled(usable and not busy)
-        self.sync.setEnabled(usable and not busy)
+        self.submit.setEnabled(usable and pending and not busy)
+        self.sync.setEnabled(usable and available and not busy)
         self.dismiss.setVisible(self.result is not None and not busy)
         self.dismiss.setEnabled(not busy)
         detail = False
@@ -231,10 +231,6 @@ class Workspace(QWidget):
         brand_row.addWidget(kit.para("프로그래밍\n스터디", "label", bold=True), 1)
         nav.addWidget(brand)
         nav.addSpacing(24)
-        section = QWidget()
-        section_row = kit.box(section, (48, 0, 0, 0))
-        section_row.addWidget(kit.label("학습", "caption", "tertiary"))
-        nav.addWidget(section)
         self.buttons = {}
         for tid, title, action in self.subjects:
             button = NavigationButton(tid, title)

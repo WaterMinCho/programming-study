@@ -9,7 +9,7 @@
 원하는 만큼 풀게 함. 문제집 줄은 외운 문항과 복습 문항을, 학습 단원 줄은 읽은 단원 수를, 상황별 코드 줄은 권하는 차시와 외운 문항·복습
 (안 읽었으면 읽는 시간)을 씀. 상황별 코드 단원은 권하는 차시를 읽기 전에도 열 수 있음.
 모의고사 구역은 문항이 공개된 회차만 보임.
-차시 화면: 단원 줄, [전체 노트]·[외울 것], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
+차시 화면: 단원 줄, [전체 노트]·[복습 질문], 아래 막대의 [이 차시 풀기]. 수치는 모두 AiSession 이 계산한 값이고 화면 글은 gui/ai_text.py 가 만듦."""
 from PyQt6.QtWidgets import QWidget
 
 from aiprep import bank
@@ -318,9 +318,10 @@ class AiLessonPage(QWidget):
         self.top = kit.TopBar("← AI 비전 개론", "")
         self.back_btn, self.title = self.top.back, self.top.title
         self.note_btn = self.top.add_right(kit.button("전체 노트", "text", "s"))
-        self.memo_btn = self.top.add_right(kit.button("외울 것", "text", "s"), flush=True)
+        self.memo_btn = self.top.add_right(kit.button("복습 질문", "text", "s"), flush=True)
         self.note_btn.setToolTip("이 차시의 모든 단원을 정답을 편 채로 다시 읽습니다. 다시 읽기는 복습 확인 기록으로 세지 않습니다.")
-        self.memo_btn.setToolTip("이 차시 모든 단원의 외울 것을 답을 가린 질문으로 모아 봅니다.")
+        self.memo_btn.setToolTip("이 차시의 복습 질문을 모아 엽니다. 질문을 누르면 답이 펼쳐집니다.")
+        self.memo_btn.setAccessibleDescription(self.memo_btn.toolTip())
         outer.addWidget(self.top)
         inner = QWidget()
         root = kit.box(inner, (0, 24, 0, 48))

@@ -159,6 +159,46 @@ class AccessTest(unittest.TestCase):
             if days != 1:
                 self.assertEqual(1, graded["series"][-2]["python"])
 
+    def test_period_activity_preserves_raw_and_counts_cards_across_days_and_people(self):
+        now = datetime.datetime(2026, 11, 13, 12, tzinfo=KST)
+        viewer = "Bearer " + self.access.verify(self.data)["token"]
+        revision = "a" * 64
+        def add(seq, kind, day=13, track="ai", participant="a", card="q", item=None, **fields):
+            at = now.replace(day=day, hour=9).isoformat()
+            data = dict(card=card, set="s", **fields)
+            event = dict(at=at, kind=kind, data=data, item=item, item_revision=revision if item else None)
+            db.execute("INSERT INTO events VALUES (?,?,?,?,?)", (participant, track, str(seq), seq, json.dumps(event)))
+        with self.database.connect() as db:
+            add(1, "question_returned", day=11)
+            add(2, "question_returned", day=13, participant="b")
+            add(3, "mock_question_returned", input_schema=1)
+            add(4, "ai_input", input_schema=1)
+            add(5, "set", card="not-shown")
+            add(6, "answer", result="pass", item={"stem": "문제", "tags": ["개념"]})
+            add(7, "question_returned", track="python")
+            add(8, "python_input", track="python", item={"level": 2})
+            add(9, "answer", track="python", item={"level": 2}, input_event="8", result="wrong")
+            add(10, "mock_answer", card="never-opened", result="stuck", answered=False)
+            add(11, "answer", card="used", item={"difficulty": True}, result="pass")
+            add(12, "ai_input", day=10, input_schema=True)
+            add(13, "question_returned", day=8, input_schema=1)
+            add(14, "answer", track="python", participant="b", item={"level": 2}, result="ok", input_event="8")
+            before = db.execute("SELECT * FROM events ORDER BY rowid").fetchall()
+        result = self.access.summary(viewer, 7, now)
+        activity = result["activity"]
+        self.assertEqual((14, 14, 4, 2), (result["total"], result["period_total"], result["graded"]["period_total"],
+                                          activity["distinct_cards"]))
+        self.assertEqual(5, sum(row["ai"] + row["python"] for row in activity["opens"]))
+        self.assertEqual([None, 0, None, None, None, None, 1], [row["ai"] for row in activity["inputs"]])
+        self.assertTrue(activity["inputs"][-1]["ai_unmeasured"])
+        self.assertEqual(1, activity["inputs"][-1]["python"])
+        self.assertEqual(now.replace(day=8, hour=9).isoformat(), activity["period_first_ai_measurement_at"])
+        self.assertEqual(dict(stem=1, concepts=1, revision=4, difficulty=2, ordered_timed=4, linked_input=1),
+                         activity["graded_metadata"])
+        self.assertNotIn("never-opened", json.dumps(activity))
+        with self.database.connect() as db:
+            self.assertEqual(before, db.execute("SELECT * FROM events ORDER BY rowid").fetchall())
+
     def test_migration_and_deletion_preserve_source_records_and_reconcile_counts(self):
         self.insert("1", "2026-11-13T09:00:00+09:00")
         with self.database.connect() as db:

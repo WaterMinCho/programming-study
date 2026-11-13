@@ -16,6 +16,8 @@ on:
       - "tests/test_learning_privacy.py"
       - "tests/test_private_submission.py"
       - "tests/test_learning_server.py"
+      - "tests/test_team_access.py"
+      - "tests/test_identity.py"
       - "tests/test_learning_sample.py"
       - "tests/test_learning_starter.py"
       - "tests/test_learning_operations.py"
@@ -51,4 +53,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: "python -m pip install --only-binary=:all: -r learning_server/requirements.txt"
-      - run: python -m unittest -v tests.test_learning_server tests.test_learning_operations tests.test_submission_api tests.test_learning_privacy tests.test_private_submission tests.test_storage_capacity tests.test_sync_schedule tests.test_legacy_ai tests.test_legacy_transfer tests.test_learning_sample tests.test_learning_starter tests.test_project_structure
+      - run: python -m unittest -v tests.test_learning_server tests.test_team_access tests.test_identity tests.test_learning_operations tests.test_submission_api tests.test_learning_privacy tests.test_private_submission tests.test_storage_capacity tests.test_sync_schedule tests.test_legacy_ai tests.test_legacy_transfer tests.test_learning_sample tests.test_learning_starter tests.test_project_structure

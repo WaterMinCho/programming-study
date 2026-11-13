@@ -297,7 +297,8 @@ class HubScreenTest(HubTest):
         self.assertTrue(bar.submit.isHidden())
         self.assertTrue(bar.isHidden())
         self.assertTrue(bar.sync.isHidden())
-        self.assertTrue(win.hub.manual_sync.isVisible())
+        self.assertTrue(win.hub.manual_sync.isHidden())
+        self.assertFalse(win.hub.manual_sync.isEnabled())
         page_geometry = win.pages.geometry()
         scroll = win.hub.findChild(QScrollArea).verticalScrollBar()
         scroll.setValue(scroll.maximum() // 2)
@@ -306,6 +307,7 @@ class HubScreenTest(HubTest):
         win.check_pending_submission()
         guikit.wait_until(lambda: win.pending_job is None)
         self.assertTrue(bar.submit.isVisible())
+        self.assertTrue(win.hub.submission_setup.isVisible())
         self.assertEqual(bar.message.text(), "제출할 풀이가 있습니다.")
         self.assertTrue(bar.sync.isHidden())
         self.assertEqual(win.pages.geometry(), page_geometry)
@@ -325,6 +327,8 @@ class HubScreenTest(HubTest):
         self.assertTrue(bar.isVisible())
         self.assertTrue(bar.submit.isHidden())
         self.assertTrue(bar.sync.isVisible())
+        self.assertTrue(win.hub.manual_sync.isVisible())
+        self.assertEqual(win.hub.manual_sync.text(), "프로그램 업데이트")
         self.assertEqual(bar.message.text(), "새 업데이트가 있습니다.")
         checks = self.git.update_checks
         win.check_pending_submission()
@@ -336,6 +340,8 @@ class HubScreenTest(HubTest):
         guikit.wait_until(lambda: win.pending_job is None)
         self.assertIn("sync", self.git.calls)
         self.assertTrue(bar.isHidden())
+        self.assertTrue(win.hub.manual_sync.isHidden())
+        self.assertFalse(win.hub.manual_sync.isEnabled())
 
     def test_update_failure_keeps_a_known_reminder_and_retry_stays_available(self):
         self.git.has_pending, self.git.has_updates = False, True
@@ -348,6 +354,55 @@ class HubScreenTest(HubTest):
         guikit.wait_until(lambda: win.pending_job is None)
         self.assertTrue(win.workspace.submissions.sync.isVisible())
         self.assertTrue(win.hub.manual_sync.isEnabled())
+
+    def test_manual_update_check_only_queries_and_preserves_known_updates_on_failure(self):
+        self.git.has_pending, self.git.has_updates = False, False
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        syncs = self.git.calls.count("sync")
+        with mock.patch.object(win, "ask") as ask:
+            for available in (False, True):
+                self.git.has_updates = available
+                checks = self.git.update_checks
+                win.check_updates()
+                self.idle()
+                self.assertGreater(self.git.update_checks, checks)
+                self.assertEqual(win.hub.manual_sync.isVisible(), available)
+                self.assertEqual(win.hub.manual_sync.isEnabled(), available)
+            self.git.updates = lambda: {"status": "error", "available": False, "count": 0}
+            win.check_updates()
+            self.idle()
+            self.assertTrue(win.hub.manual_sync.isVisible())
+            self.assertIn("확인하지 못했습니다", ask.call_args.args[1])
+        self.assertEqual(self.git.calls.count("sync"), syncs)
+
+    def test_conditional_header_actions_keep_content_position_and_release_hidden_focus(self):
+        self.git.has_pending, self.git.has_updates = False, False
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        win.resize(800, 700)
+        win.set_text("larger")
+        guikit.pump()
+        hub = win.hub
+        scroll = hub.scroll.verticalScrollBar()
+        scroll.setValue(scroll.maximum() // 2)
+        initial = (hub.top.height(), hub.scroll.geometry(), scroll.value())
+        win.pending_submission = {"status": "ok", "pending": True, "count": 1}
+        win.problem_updates = {"status": "ok", "available": True, "count": 1}
+        win.workspace.refresh()
+        guikit.pump()
+        self.assertEqual((hub.top.height(), hub.scroll.geometry(), scroll.value()), initial)
+        for button, state in ((hub.submission_setup, "pending_submission"), (hub.manual_sync, "problem_updates")):
+            button.setFocus(Qt.FocusReason.TabFocusReason)
+            setattr(win, state, {"status": "ok", "pending": False, "available": False, "count": 0})
+            win.workspace.refresh()
+            guikit.pump()
+            self.assertTrue(button.isHidden())
+            self.assertFalse(button.isEnabled())
+            self.assertTrue(win.workspace.hasFocus())
+            self.assertEqual((hub.top.height(), hub.scroll.geometry(), scroll.value()), initial)
 
     def test_hiding_a_keyboard_focused_reminder_keeps_the_reading_position(self):
         from PyQt6.QtWidgets import QScrollArea
@@ -409,7 +464,7 @@ class HubScreenTest(HubTest):
         self.assertEqual((win.area, win.windowTitle()), ("hub", "프로그래밍 스터디"))
         self.assertIn("프로그래밍 스터디", [label.text() for label in hub.findChildren(QLabel)])
         self.assertEqual(hub.user.text(), "ID: tester")
-        self.assertEqual(hub.theme_btn.text(), "밝게 보기")  # 시스템을 따르는 중이라 누르면 밝게로 바뀜
+        self.assertTrue(hub.theme_buttons["system"].isChecked())
 
         # 파이썬 줄: 서비스가 낸 값을 그대로 보임
         overview = win.session.overview()
@@ -570,12 +625,15 @@ class HubScreenTest(HubTest):
         guikit.click(win.journey_map.home_btn)
         self.assertEqual((self.page(), win.area), (hub, "hub"))
         self.addCleanup(theme.set_mode, "system")
-        guikit.click(hub.theme_btn)
+        guikit.click(hub.settings_btn)
+        guikit.click(hub.theme_buttons["light"])
         guikit.pump(400)
-        self.assertEqual((theme.state["mode"], hub.theme_btn.text()), ("light", "어둡게 보기"))
-        guikit.click(hub.theme_btn)
+        self.assertEqual(theme.state["mode"], "light")
+        self.assertTrue(hub.theme_buttons["light"].isChecked())
+        guikit.click(hub.theme_buttons["dark"])
         guikit.pump(400)
-        self.assertEqual((theme.state["mode"], hub.theme_btn.text()), ("dark", "시스템 따르기"))
+        self.assertEqual(theme.state["mode"], "dark")
+        self.assertTrue(hub.theme_buttons["dark"].isChecked())
         self.assertEqual(len(kit.visible_primary_buttons(hub)), 1)
 
     def test_hub_submit_writes_unsaved_journey_code_first(self):
@@ -726,7 +784,7 @@ class JobTest(HubTest):
         self.assertEqual("보스 문제는 중급 문제를 통과하면 열립니다.", win.dialog.text.text(), "지도 목록 줄과 같은 말")
         win.dialog.close()
         win.open_problem("t01", "p9")
-        self.assertEqual(("문제 열기", "이 문제의 파일을 읽지 못했습니다. 첫 화면의 [새 문제 받기]로 문제를 다시 받으세요."),
+        self.assertEqual(("문제 열기", "이 문제의 파일을 읽지 못했습니다. 프로그램을 다시 실행해 문제를 다시 받으세요."),
                          (win.dialog.windowTitle(), win.dialog.text.text()))
         self.assertIn("t01/p9", win.dialog.detail.toPlainText(), "내부 id 는 자세히에만 남음")
 

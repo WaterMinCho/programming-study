@@ -315,7 +315,7 @@ class DialogTextTest(SessionBase):
 
     def test_bank_banner_names_the_dungeon_and_keeps_the_original_in_the_tip(self):
         text, tip = journey_text.bank_text(self.service().overview())
-        self.assertEqual(text, "읽지 못한 던전이 있습니다: 던전 2. 첫 화면의 [새 문제 받기]로 다시 받은 뒤 여세요.")
+        self.assertEqual(text, "읽지 못한 던전이 있습니다: 던전 2. 프로그램을 다시 실행해 최신 버전을 받은 뒤 여세요.")
         self.assertIn("t02: ", tip)
         self.assertEqual(journey_text.bank_text({"dungeons": [{"no": 1, "error": ""}], "bank_errors": []}), ("", ""))
 

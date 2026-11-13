@@ -121,8 +121,8 @@ class Arrow(QWidget):
 
 
 class KeyRing:
-    """키보드로 받은 초점에만 초점 테두리를 그리는 줄(Fold, NoteRow 앞에 섞음). 마우스로 누른 줄은 초점을 받아 화살표로 옮길 수 있지만
-    테두리는 그리지 않음. kit.button 이 TabFocus 로 마우스 초점을 받지 않는 것과 같은 뜻임."""
+    """키보드로 받은 초점에만 테두리를 표시함(Fold, NoteRow 앞에 섞음).
+    마우스로 누른 줄도 초점을 받아 화살표로 이동할 수 있음."""
     keyed = False
 
     def focusInEvent(self, event):
@@ -364,6 +364,7 @@ class WrongPage(QWidget):
         self.bar = kit.BottomBar()
         self.explain_btn = self.bar.add_action(kit.button("해설 보기", "secondary", "l"))
         self.retry_btn = self.bar.add_action(kit.button("다시 풀기", "primary", "l"))
+        self.retry_btn.setToolTip("선택한 문항을 다시 푸는 화면을 엽니다.")
         self.filled = QWidget()  # 오답이 있는 트랙: 두 카드와 아래 막대
         filled_box = kit.box(self.filled)
         filled_box.addWidget(body, 1)

@@ -31,6 +31,7 @@ class MockPage(QWidget):
         self.clock_box, self.clock_caption, self.time = kit.clock()
         self.top.add_right(self.clock_box)
         self.top_submit = self.top.add_right(kit.button('제출', 'text', 's'))
+        self.top_submit.setToolTip('모의고사를 끝내고 답안을 채점해 정답과 해설을 표시합니다. 풀이 파일의 자동 제출은 별도 동의에 따릅니다.')
         self.top_submit.clicked.connect(self.confirm_submit)
         self.top.back.clicked.connect(self.go_back)
         root.addWidget(self.top)
@@ -57,7 +58,9 @@ class MockPage(QWidget):
         self.previous_btn = self.bar.add_action(kit.button('이전', 'secondary', 'l'))
         self.next_btn = self.bar.add_action(kit.button('다음', 'primary', 'l'))
         self.submit_btn = self.bar.add_action(kit.button('제출', 'primary', 'l'))
+        self.submit_btn.setToolTip(self.top_submit.toolTip())
         self.retry_btn = self.bar.add_action(kit.button('다시 풀기', 'secondary', 'l'))
+        self.retry_btn.setToolTip('같은 모의고사의 새 응시를 시작합니다. 이전 응시 기록은 보관합니다.')
         self.home_btn = self.bar.add_action(kit.button('홈으로', 'secondary', 'l'))
         self.notes_btn = self.bar.add_action(kit.button('오답 노트로', 'primary', 'l'))
         self.start_btn = self.bar.add_action(kit.button('시작', 'primary', 'l'))
@@ -109,6 +112,9 @@ class MockPage(QWidget):
         if self.restart_required:
             start_label = "새 자료로 시작"
         self.start_btn.setText(start_label)
+        self.start_btn.setToolTip('새 자료로 새 응시를 시작하고 이전 초안과 응시 기록은 보관합니다.' if self.restart_required else
+                                  '채점한 모의고사의 결과와 정답·해설을 엽니다.' if info['taken'] else
+                                  '모의고사를 시작합니다. 프로그램을 꺼도 제한 시간은 계속 흐릅니다.')
         for button in (self.flag_btn, self.previous_btn, self.next_btn, self.submit_btn, self.home_btn, self.notes_btn, self.top_submit):
             button.hide()
         self.retry_btn.setVisible(info['taken'])
@@ -271,6 +277,8 @@ class MockPage(QWidget):
         last = self.item['at'] == self.item['total']
         self.next_btn.setEnabled(not last and not self.busy)
         self.flag_btn.setText('표시 해제' if self.item.get('flagged') else '나중에 보기')
+        self.flag_btn.setToolTip('현재 문항의 나중에 볼 표시를 지웁니다. 다른 문항으로 이동하지 않습니다.' if self.item.get('flagged') else
+                                 '현재 문항에 나중에 볼 표시를 남깁니다. 다른 문항으로 이동하지 않습니다.')
         self.flag_btn.setVisible(not done)
         self.previous_btn.show()
         self.lesson_results.setVisible(done)

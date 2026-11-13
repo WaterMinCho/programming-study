@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""첫 화면(허브): 위 막대(이름, ID, 글자 크기 단추 셋, 테마 단추), 제목 "오늘 할 공부", 이어서 할 일 카드 하나(화면에 하나뿐인 주 단추), 공부 트랙 줄 넷,
-오답 노트 줄(트랙마다 하나), 최근 7일 학습 카드, 제출 줄 둘, 바닥글. 구역은 위아래로 쌓아 저마다 960 폭의 가운데 단을 다 씀. 창이 작으면 스크롤함.
+"""첫 화면(허브): 위 막대의 이름·ID·설정 팝업, 이어서 할 일 카드 하나, 과목별 학습과 오답 노트, 최근 7일 학습 카드를 표시함.
+구역은 위아래로 쌓고 창이 작으면 스크롤함.
 
 카드의 수치는 네 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service,
 AI 비전 개론은 aiprep.service 의 overview).
@@ -17,12 +17,12 @@ import study
 
 from PyQt6.QtCore import QEvent, QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF, QPainter
-from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QHBoxLayout, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QBoxLayout, QHBoxLayout, QSizePolicy, QWidget
 
 from aiprep import service as ai_service
-from gui import ai_text, errors, journey_text, kit, theme, web_text
+from gui import ai_text, journey_text, kit, theme, web_text
 from gui.mascot import Mascot
-from gui.widgets import LinkLabel
+from gui.settings_menu import SettingsMenu
 from gui.workspace import SubjectGrid, SubjectTile
 from gui.wrong_page import count_line
 from session import SessionError
@@ -35,9 +35,6 @@ WEEKDAYS = "월화수목금토일"
 TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면접"), ("ai", "AI"))  # 막대 순서와 범례 이름. 트랙 색(theme.SERIES)도 이 순서
 BAR_GAP = 2  # 한 날의 막대 사이
 EMPTY = "최근 7일 학습 기록이 없습니다.\n공부 트랙에서 시작할 수 있습니다."
-THEME_TEXT = {"system": "밝게 보기", "light": "어둡게 보기", "dark": "시스템 따르기"}  # 단추를 누르면 바뀌는 쪽(시스템 → 밝게 → 어둡게 → 시스템)
-TEXT_LABELS = {"normal": "보통 글자", "large": "큰 글자", "larger": "더 큰 글자"}  # 글자 크기 단추. 지금 단계가 고른 모양으로 보임
-TEXT_TIP = "화면의 글자 크기를 바꿉니다. Ctrl(맥은 Cmd)과 +, -, 0 으로도 바꿀 수 있습니다."
 PYTHON_ABOUT = "파이썬 교과목 평가에 나오는 문제를 회차로 나눠 풀고 채점합니다."
 FIX_HINT = "파일을 고친 뒤 프로그램을 다시 실행해 주세요."
 SIDE_MIN = 40  # 최근 7일 카드에서 막대와 최근 채점을 나란히 두는 가장 좁은 폭(본문 글자 수). 보통 글자 680, 더 큰 글자 840
@@ -247,7 +244,11 @@ class HubBar(kit.TopBar):
     def arrange(self):
         left, top, right, bottom = self.row.getContentsMargins()
         identity, controls = self.identity_row.sizeHint(), self.control_row.sizeHint()
-        stacked = identity.width() + 24 + controls.width() > self.width() - left - right
+        # 조건부 단추가 나타나도 본문 시작 높이를 바꾸지 않도록 전체 도구 폭으로 줄을 정함.
+        tools = [self.control_row.itemAt(i).widget() for i in range(self.control_row.count())]
+        tools = [widget for widget in tools if widget is not None]
+        reserved = sum(widget.sizeHint().width() for widget in tools) + self.control_row.spacing() * max(0, len(tools) - 1)
+        stacked = identity.width() + 24 + max(controls.width(), reserved) > self.width() - left - right
         self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
         height = identity.height() + 8 + controls.height() if stacked else max(identity.height(), controls.height())
         self.setFixedHeight(max(theme.CONTROL["topbar"], top + height + bottom))
@@ -277,8 +278,6 @@ class HubPage(QWidget):
         outer = kit.box(self)
 
         self.top = top = HubBar()
-        self.theme_btn = kit.button("", "text", "s", onbg=True)
-        self.theme_btn.setToolTip("누를 때마다 시스템 → 밝게 → 어둡게 순서로 바뀝니다. 시스템은 운영체제 설정을 따릅니다.")
         self.user = kit.ElideLabel("", "caption", "tertiary")
         self.user.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         self.user.setMaximumWidth(ACCOUNT_WIDTH)
@@ -286,7 +285,7 @@ class HubPage(QWidget):
         top.identity_row.addWidget(kit.label("프로그래밍 스터디", "headline"))
         top.identity_row.addStretch(1)
         top.identity_row.addWidget(self.user)
-        self.settings_btn = kit.button("화면 설정", "text", "s", onbg=True)
+        self.settings_btn = kit.button("설정", "text", "s", onbg=True)
         self.privacy_btn = kit.button("내 정보·데이터", "text", "s", onbg=True)
         self.privacy_btn.clicked.connect(win.show_privacy)
         top.add_right(self.privacy_btn)
@@ -298,35 +297,16 @@ class HubPage(QWidget):
         self.server_connection.clicked.connect(win.show_submission_setup)
         self.server_connection.setVisible(win.can_configure_submission())
         top.add_right(self.server_connection)
-        self.manual_sync = kit.button("새 문제 받기", "text", "s", onbg=True)
+        self.manual_sync = kit.button("프로그램 업데이트", "text", "s", onbg=True)
         self.manual_sync.clicked.connect(win.fetch_problems)
         top.add_right(self.manual_sync)
-        self.settings_panel = QWidget()
-        setting_box = kit.FlowLayout(self.settings_panel, spacing=8)
-        self.text_buttons = {}  # 글자 크기 단계 → 단추. 테마 단추와 같은 모양이고 지금 단계는 고른 모양
-        self.text_group = QButtonGroup(self)
-        self.text_group.setExclusive(True)
-        for step in theme.TEXT_STEPS:
-            button = kit.typed(kit.button(TEXT_LABELS[step], "text", "s", onbg=True), "caption", True)
-            button.setCheckable(True)
-            button.setToolTip(TEXT_TIP)
-            button.clicked.connect(lambda checked=False, step=step: win.set_text(step))
-            self.text_group.addButton(button)
-            setting_box.addWidget(button)
-            self.text_buttons[step] = button
-        setting_box.addWidget(self.theme_btn)
-        self.identity_btn = kit.button("본인 확인 다시 하기", "text", "s", onbg=True)
-        self.identity_btn.clicked.connect(lambda: win.ensure_identity(force=True))
-        setting_box.addWidget(self.identity_btn)
-        self.replay_tour = kit.button("첫 화면 안내 다시 보기", "text", "s", onbg=True)
-        self.replay_tour.clicked.connect(lambda: win.show_hub_tour(replay=True))
-        setting_box.addWidget(self.replay_tour)
+        self.settings_panel = SettingsMenu(self, self.settings_btn)
+        self.text_buttons = self.settings_panel.text_buttons
+        self.theme_buttons = self.settings_panel.theme_buttons
+        self.identity_btn = self.settings_panel.identity_btn
+        self.replay_tour = self.settings_panel.replay_tour
         top.add_right(self.settings_btn, flush=True)
         outer.addWidget(top)
-        outer.addWidget(self.settings_panel)
-        self.settings_panel.hide()
-        self.settings_btn.setCheckable(True)
-        self.settings_btn.toggled.connect(self.settings_panel.setVisible)
 
         inner = QWidget()
         root = kit.box(inner, (0, 16, 0, 48))
@@ -433,18 +413,11 @@ class HubPage(QWidget):
         root.addSpacing(24)
         root.addWidget(self.team_card)
         root.addSpacing(24)
-        self.foot = LinkLabel('<a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL,
-                              line=theme.TYPE["caption"][1], font=theme.font("caption"))
-        kit.typed(self.foot, "caption")
-        self.foot.setProperty("tone", "tertiary")
-        self.foot.setOpenExternalLinks(True)
-        root.addWidget(self.foot, 0, Qt.AlignmentFlag.AlignLeft)
         column = kit.column(inner)
         column.layout().setContentsMargins(32, 0, 32, 0)
         self.scroll = kit.scroll(column)
         outer.addWidget(self.scroll, 1)
 
-        self.theme_btn.clicked.connect(win.cycle_theme)
         self.next_btn.clicked.connect(self.open_next)
         self.python_row.clicked.connect(win.go_home)
         self.journey_row.clicked.connect(lambda: win.go_journey())
@@ -475,7 +448,7 @@ class HubPage(QWidget):
         self.next_card.arrange()
         usable = win.gitflow is not None
         self.git_hint.setVisible(not usable)
-        self.git_hint.text.setText("" if usable else "지금은 제출과 문제 받기를 쓸 수 없습니다. 풀이와 채점은 계속할 수 있습니다.\n" + win.git_reason)
+        self.git_hint.text.setText("" if usable else "지금은 풀이 제출과 업데이트를 쓸 수 없습니다. 풀이와 채점은 계속할 수 있습니다.\n" + win.git_reason)
         note = win.notice
         self.notice_banner.setVisible(bool(note))
         if note:
@@ -483,20 +456,29 @@ class HubPage(QWidget):
             self.notice.setText(html.escape(note.get("message") or "") + more)
         self.restyle()
 
-    def refresh_submission(self, allowed=None):
+    def refresh_submission(self, allowed=None, busy=False):
         win = self.win
         usable = win.session is not None and win.gitflow is not None
-        busy = win.job is not None or win.pending_close or win.close_pending or win.submission_running
+        busy = busy or win.job is not None or win.pending_close or win.close_pending or win.submission_running
         if allowed is None:
             allowed = win.has_submission_consent()
         ready = (usable and allowed and win.pending_submission.get("status") == "ok"
                  and win.pending_submission.get("pending", False))
+        available = usable and win.problem_updates.get("status") == "ok" and win.problem_updates.get("available", False)
+        focused = QApplication.focusWidget()
+        if ((focused is self.submission_setup and not ready) or (focused is self.manual_sync and not available)):
+            target = getattr(win, "workspace", self)
+            target.setFocus(Qt.FocusReason.OtherFocusReason)
         kit.set_tone(self.submission_setup, "accent" if ready else None)
-        self.submission_setup.setEnabled(usable and not busy)
+        self.submission_setup.setVisible(ready)
+        self.submission_setup.setEnabled(ready and not busy)
         self.submission_setup.setAccessibleDescription("제출할 풀이가 있습니다." if ready else "답안 파일·채점·진도를 비공개 서버에 제출합니다.")
         self.submission_setup.setToolTip("답안 파일·채점·진도를 비공개 서버에 제출합니다. 보낼 파일은 [내 정보·데이터]에서 확인할 수 있습니다.")
         self.server_connection.setVisible(win.can_configure_submission())
         self.server_connection.setEnabled(usable and not busy)
+        self.manual_sync.setVisible(available)
+        self.manual_sync.setEnabled(available and not busy)
+        kit.set_tone(self.manual_sync, "accent" if available else None)
 
     def show_journey(self):
         """알고리즘 여행 줄. 여행 기록을 읽지 못했으면 이유를 띠로 보이고 줄을 끄고 None 을, 아니면 여행 서비스의 overview 를 돌려줌.
@@ -690,13 +672,7 @@ class HubPage(QWidget):
 
     def restyle(self):
         self.user.setFixedWidth(min(ACCOUNT_WIDTH, self.user.sizeHint().width()))
-        self.theme_btn.setText(THEME_TEXT[theme.state["mode"]])
-        for step, button in self.text_buttons.items():
-            button.setChecked(step == theme.state["text"])
-            button.ensurePolished()
-        width = max(button.sizeHint().width() for button in self.text_buttons.values())
-        for button in self.text_buttons.values():
-            button.setFixedWidth(width)
+        self.settings_panel.restyle()
         for widget in (self.chart, self.recent):
             widget.update()
         self.week.arrange()  # 글자 크기가 바뀌면 최근 채점 줄의 폭과 나란히 둘 폭이 바뀜
@@ -709,8 +685,10 @@ class HubPage(QWidget):
         kit.set_inert(self.ai_row, busy or self.ai_error.isVisibleTo(self))
         for _, row in self.note_rows:
             kit.set_inert(row, busy)
-        for button in (self.git_btn, self.sync_btn, self.manual_sync):
+        for button in (self.git_btn, self.sync_btn):
             button.setEnabled(not busy and self.win.gitflow is not None)
+        self.refresh_submission(busy=busy)
+        self.settings_panel.refresh_actions(busy)
         self.busy_bar.setVisible(busy)
         self.status.setVisible(busy and bool(text))
         self.status.setText(text if busy else "")

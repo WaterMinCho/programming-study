@@ -46,6 +46,19 @@ class IdentityTest(unittest.TestCase):
                 with self.assertRaises(CollectionError):
                     self.identity.summary(7)
 
+    def test_activity_checks_missing_measurement_and_matching_buckets(self):
+        from learning_data.identity import validate_activity
+        at = "2026-11-13T12:00:00+09:00"
+        row = dict(at=at, python=0, ai=0)
+        activity = dict(distinct_cards=0, ai_input_schema=1, opens=[row],
+                        inputs=[dict(row, ai=None, ai_unmeasured=False)], period_first_ai_measurement_at=None,
+                        graded_metadata=dict(stem=0, concepts=0, revision=0, difficulty=0, ordered_timed=0, linked_input=0))
+        validate_activity(activity, [row], {"period_total": 0})
+        for change in (dict(inputs=[dict(row, ai=0, ai_unmeasured=False)]), dict(opens=[dict(row, at="other")]),
+                       dict(graded_metadata=dict(activity["graded_metadata"], difficulty=1))):
+            with self.assertRaises(ValueError):
+                validate_activity(dict(activity, **change), [row], {"period_total": 0})
+
     def test_corrupt_receipt_is_preserved(self):
         self.identity.path.write_bytes(b"{broken")
         self.identity.save({"verified": True, "team": False, "token": "c" * 64})

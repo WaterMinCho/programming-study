@@ -458,6 +458,7 @@ class JourneyPage(QWidget):
         self.hint_tail = QWidget()
         hint_box = kit.box(self.hint_tail, spacing=8)
         self.hint_btn = kit.button("", "secondary", "m")
+        self.hint_btn.setToolTip("다음 힌트를 열고 학습 기록에 남깁니다.")
         self.hint_note = kit.label("", "caption", "tertiary")
         hint_box.addWidget(self.hint_btn, 0, Qt.AlignmentFlag.AlignLeft)
         hint_box.addWidget(self.hint_note)
@@ -465,6 +466,7 @@ class JourneyPage(QWidget):
         self.explain_tail = QWidget()  # 해설 꼬리. [해설 먼저 보기]의 글자가 위 문단과 같은 세로선에 오게 FLUSH 만큼 내어 둠
         explain_box = kit.box(self.explain_tail)
         self.give_up_btn = kit.button("해설 먼저 보기", "danger_text", "m")
+        self.give_up_btn.setToolTip("해설을 열고 열람 사실을 기록합니다. 나중에 통과해도 '해설 보고 통과'로 표시합니다.")
         self.next_box = QWidget()  # 해설 끝의 다음 문제 줄. 위 24(조각 사이 16 에 8 을 더함). 꼬리를 내어 둔 만큼 왼쪽을 되돌림
         next_box = kit.box(self.next_box, (kit.FLUSH, 8, 0, 0), 8)
         self.next_rows = kit.RowList(flush=True)
@@ -500,6 +502,7 @@ class JourneyPage(QWidget):
         self.reset_btn.setSizePolicy(policy)
         self.code_panel.reset_btn = self.reset_btn
         self.cases_btn = self.bar.add_tool(kit.button("테스트 추가", "text", "m"))
+        self.cases_btn.setToolTip("직접 만든 입력과 예상 출력을 추가·수정하는 창을 엽니다.")
         self.stop_btn = self.bar.add_action(kit.button("중지", "secondary", "l"))
         self.stop_btn.hide()
         self.run_btn = self.bar.add_action(kit.button("코드 실행", "secondary", "l"))

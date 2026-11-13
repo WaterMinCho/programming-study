@@ -24,6 +24,7 @@ from gui import ai_text, kit, theme
 from gui.ai_learn import CARD_PAD, ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, reading_width, rich
 from gui.guard import NOTE as PASTE_NOTE
 from gui.widgets import AnswerLine, LinkLabel, PasteBlock
+from learning_data.collection import AI_INPUT_SCHEMA
 from session import SessionError
 
 
@@ -82,6 +83,7 @@ class PracticePage(QWidget):
         self.setObjectName("page")
         self.win = win
         self.practice, self.item, self.feedback, self.dontknow = None, None, None, False
+        self.input_context = None
         self.review_state = None
         self.args = None  # 묶음을 만든 (mode, lesson, unit, card). [한 번 더]가 다시 씀
         self.inputs, self.fields, self.results, self.docs, self.slots = [], [], [], [], []
@@ -111,8 +113,9 @@ class PracticePage(QWidget):
         self.sure_btn = self.bar.add_action(kit.button("확실함", "primary", "l"))
         self.next_btn = self.bar.add_action(kit.button("다음", "primary", "l"))
         self.again_btn = self.bar.add_action(kit.button("한 번 더", "primary", "l"))
-        self.sure_btn.setToolTip(ai_text.SHORTCUTS)
-        self.unsure_btn.setToolTip(ai_text.SHORTCUTS)
+        self.dont_btn.setToolTip("정답과 해설을 표시하고 모르는 문항으로 기록해 복습에 반영합니다.")
+        self.sure_btn.setToolTip("입력한 답을 채점하고 확신한 답으로 기록합니다.\n" + ai_text.SHORTCUTS)
+        self.unsure_btn.setToolTip("입력한 답을 채점하고 확신하지 못한 답으로 기록합니다.\n" + ai_text.SHORTCUTS)
         self.note_btn.setToolTip("이 문항의 근거가 된 학습 단계를 엽니다.")
         self.mine_btn.setToolTip("내 답이 정답과 같은 뜻인데 틀림으로 나왔으면 누르세요. 맞은 답으로 바꾸고 출제자가 모아 봅니다.")
         root.addWidget(self.bar)
@@ -137,6 +140,7 @@ class PracticePage(QWidget):
 
     def load(self, mode, lesson=None, unit=None, card=None):
         """같은 미완료 묶음이 있으면 입력·판정을 복원함. 없으면 새 묶음이나 복습 완료 안내를 보임."""
+        self.finish_input()
         practice = self.win.ai.resume_set(mode, lesson, unit, card)
         if practice is not None and practice is self.practice:
             self.win.ai.save_practice(practice, activate=True)
@@ -147,7 +151,7 @@ class PracticePage(QWidget):
             self.title.setText(practice.title)
             self.title.show()
             self.back_btn.setText("← 오답 노트" if mode == "note" else "← " + bank.COURSES[self.win.ai.course])
-            self.show_item(practice.current())
+            self.show_item(practice.current(measure_input=True))
             return
         status = self.win.ai.review_status() if mode in ("review", "sweep") else None
         practice = None if status is not None and not status["available"] else \
@@ -160,10 +164,11 @@ class PracticePage(QWidget):
         if practice is None:
             self.show_review_complete()
         else:
-            self.show_item(practice.current())
+            self.show_item(practice.current(measure_input=True))
 
     def clear(self):
         """문제 받기로 서비스가 바뀌면 부름. 옛 묶음과 옛 카드를 붙들지 않게 놓음."""
+        self.finish_input()
         self.close_note()
         self.practice, self.item, self.feedback = None, None, None
         self.review_state = None
@@ -263,11 +268,14 @@ class PracticePage(QWidget):
             self.dontknow = bool(draft.get("dontknow"))
             self.queued = int(draft.get("queued") or len(self.practice.queue))
             self.show_feedback(self.practice.answered)
+        self.saved_values = self.values()
+        self.input_context = None
         if item["kind"] == "blank":
             for widget in self.inputs:
-                widget.textEdited.connect(self.save_progress)
+                widget.textEdited.connect(self.edit_input)
+                widget.editingFinished.connect(self.finish_input)
         else:
-            self.choices.changed.connect(self.save_progress)
+            self.choices.changed.connect(self.edit_input)
         self.win.ai.save_practice(self.practice, activate=True)
 
     def save_progress(self, *_):
@@ -275,10 +283,34 @@ class PracticePage(QWidget):
         if self.practice is None or self.item is None:
             return
         self.practice.draft = {"values": self.values(), "dontknow": self.dontknow, "queued": self.queued}
-        self.win.ai.save_practice(self.practice)
+        return self.win.ai.save_practice(self.practice)
+
+    def edit_input(self, *_):
+        if self.feedback is not None:
+            return
+        if not self.save_progress():
+            return
+        self.edited_values = self.practice.draft["values"]
+        self.input_context = self.practice.sess.collection.observation_context()
+        if self.input_context is None:
+            self.saved_values = self.edited_values
+        elif self.item["kind"] != "blank":
+            self.finish_input()
+
+    def finish_input(self):
+        context, self.input_context = self.input_context, None
+        if context is None or self.practice is None or self.item is None:
+            return
+        values = self.edited_values
+        if values != self.saved_values:
+            self.practice.sess.collect_event("ai_input", {"input_schema": AI_INPUT_SCHEMA, "set": self.practice.id,
+                                                   "card": self.item["card"], "position": self.practice.pos},
+                                      observation_context=context)
+        self.saved_values = list(values)
 
     def hideEvent(self, event):
         self.save_progress()
+        self.finish_input()
         super().hideEvent(event)
 
     def build_blanks(self, item):
@@ -390,6 +422,7 @@ class PracticePage(QWidget):
         if self.practice is None or self.feedback is not None or self.busy:
             return
         commit_input()
+        self.finish_input()
         value = self.values()
         if not any(str(v).strip() for v in value):
             self.status.setText(ai_text.EMPTY_ANSWER.get(self.item["kind"], ai_text.EMPTY_ANSWER["blank"]))
@@ -409,6 +442,7 @@ class PracticePage(QWidget):
     def dont_know(self):
         if self.practice is None or self.feedback is not None or self.busy:
             return
+        self.finish_input()
         self.queued = len(self.practice.queue)
         try:
             feedback = self.practice.dont_know(self.clock() - self.shown_at)
@@ -556,7 +590,7 @@ class PracticePage(QWidget):
             return
         self.close_note()
         try:
-            item = self.practice.next()
+            item = self.practice.next(measure_input=True)
         except SessionError as error:
             self.win.ask("알림", str(error))
             return
@@ -665,6 +699,7 @@ class PracticePage(QWidget):
             else:
                 text = "한 번 더"
             self.again_btn.setText(text)
+            self.again_btn.setToolTip("같은 연습 방식으로 새 문제 묶음을 만듭니다." if text == "한 번 더" else "")
 
     def note_reference(self):
         if not self.item or self.win.ai is None:

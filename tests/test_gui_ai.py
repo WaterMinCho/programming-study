@@ -478,7 +478,7 @@ class LessonAndLearnTest(AiTest):
         learn = self.open_unit()
         self.assertEqual(learn.back_btn.text(), "← 90차시")
         self.assertEqual(learn.title.text(), "기울기로 걸음 정하기")
-        self.assertEqual(learn.stepper.steps, [(1, "먼저", "now"), (2, "", "todo"), (3, "", "todo"), (4, "외울 것", "todo")])
+        self.assertEqual(learn.stepper.steps, [(1, "먼저", "now"), (2, "", "todo"), (3, "", "todo"), (4, "복습 질문", "todo")])
         self.assertFalse(learn.prev_btn.isEnabled())
         guess = learn.view.findChildren(ai_learn.GuessBlock)[0]
         self.assertIsInstance(guess.choices.rows[0].box, ai_learn.RadioMark)  # 하나 고르기는 둥근 표시
@@ -519,7 +519,9 @@ class LessonAndLearnTest(AiTest):
         self.assertNotIn("<!--", text)
         self.assertNotIn("정정", [badge.text() for badge in learn.view.findChildren(QLabel)])
         self.assertFalse(self.log("learn"))
-        guikit.click(learn.memo_btn)  # [외울 것으로]
+        self.assertEqual(learn.memo_btn.text(), "복습 질문")
+        self.assertIn("이 단원", learn.memo_btn.toolTip())
+        guikit.click(learn.memo_btn)
         self.assertEqual(learn.index, 3)
         self.assertFalse(learn.memo_btn.isVisible())
         self.assertEqual(learn.next_btn.text(), "연습 시작")

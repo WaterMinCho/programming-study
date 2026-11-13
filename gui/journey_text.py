@@ -36,8 +36,8 @@ EXPLAIN_LOCKED = "이 문제를 통과하면 해설이 열립니다."
 # 서비스 오류 창. 제목은 하던 행동의 이름
 ACTIONS = {"open": "문제 열기", "hint": "힌트 열기", "explain": "해설 열기", "lang": "언어 바꾸기", "reset": "코드 되돌리기",
            "save": "코드 저장", "run": "코드 실행", "grade": "채점하기"}
-REFETCH = "이 문제의 파일을 읽지 못했습니다. 첫 화면의 [새 문제 받기]로 문제를 다시 받으세요."  # 문제를 열 때도, 연 뒤 채점·힌트에서도 씀
-WAITING = "준비 중인 던전입니다. 새 던전이 나오면 첫 화면의 [새 문제 받기]로 받으세요."  # 지도 카드와 "아직 출제되지 않은 던전" 오류가 같이 씀
+REFETCH = "이 문제의 파일을 읽지 못했습니다. 프로그램을 다시 실행해 문제를 다시 받으세요."  # 문제를 열 때도, 연 뒤 채점·힌트에서도 씀
+WAITING = "준비 중인 던전입니다. [설정]의 [업데이트 확인]에서 새 자료가 있는지 확인할 수 있습니다."  # 지도 카드와 아직 출제되지 않은 던전 오류에서 함께 씀
 CASES_FAILED = "내 테스트를 저장하지 못했습니다."
 NO_LANG = "이 언어로는 풀 수 없습니다. Python 이나 JavaScript 를 고르세요."
 NO_RECORD = "알고리즘 여행 기록을 저장하지 못했습니다. 기록은 바뀌지 않았습니다. 잠시 뒤 다시 하세요."
@@ -272,7 +272,7 @@ def bank_text(overview):
     broken = [str(row["no"]) for row in overview["dungeons"] if row.get("error")]
     if not broken:
         return "", ""
-    text = "읽지 못한 던전이 있습니다: 던전 %s. 첫 화면의 [새 문제 받기]로 다시 받은 뒤 여세요." % ", ".join(broken)
+    text = "읽지 못한 던전이 있습니다: 던전 %s. 프로그램을 다시 실행해 최신 버전을 받은 뒤 여세요." % ", ".join(broken)
     return text, "\n".join(overview.get("bank_errors") or [])
 
 
