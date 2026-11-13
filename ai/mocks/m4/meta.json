@@ -40,6 +40,6 @@
   },
   "blueprint_revision": "mixed32-blueprint-v1",
   "format": 1,
-  "draft": true,
+  "draft": false,
   "time_basis": "약 2시간 연습을 참고한 기본값입니다. 공식 평가 시간은 아닙니다."
 }

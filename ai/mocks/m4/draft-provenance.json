@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "status": "문항 재검토 전 초안입니다. 서명과 봉인을 하지 않았습니다.",
+  "status": "문항·구현 검토 뒤 공개 전환함. 원본 문항과 첫 답안을 보존함.",
   "source_files": {
     "question-sheet.json": "de462a9f254d914651b56b2fc3cdfd4d84763ebfea5a945f5ee16ad1888733dd",
     "answer-key.json": "75ea75de71a2e88f29a8a14c90ed7c2e7e0a59407def27866a298a4c939d1769",
