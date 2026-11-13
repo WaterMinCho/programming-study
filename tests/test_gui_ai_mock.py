@@ -17,6 +17,13 @@ import study
 
 
 class MockPageTest(AiTest):
+    def test_submitting_an_exam_requests_automatic_file_submission(self):
+        page = self.open_mock()
+        with mock.patch.object(self.win.auto_submission, "request") as checkpoint:
+            page.submit()
+            checkpoint.assert_called_once()
+        self.assertIsNotNone(page.exam.result)
+
     def test_missing_draft_recovery_opens_without_resetting_the_clock_or_records(self):
         self.addCleanup(theme.set_text, 'normal')
         page = self.open_mock((760, 480))
@@ -251,7 +258,9 @@ class MockPageTest(AiTest):
         page = self.open_mock()
         self.win.go_ai()
         self.clock = '2026-11-04T21:01:00'
-        page.tick()
+        with mock.patch.object(self.win.auto_submission, "request") as checkpoint:
+            page.tick()
+            checkpoint.assert_called_once()
         self.assertTrue(page.exam.result['auto'])
         self.assertIs(self.win.pages.currentWidget(), self.win.ai_home)
         self.assertTrue(self.win.open_ai_mock('m90'))

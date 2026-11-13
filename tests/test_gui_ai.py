@@ -901,6 +901,19 @@ class LevelsTest(AiTest):
 
 
 class PracticeTest(AiTest):
+    def test_only_the_last_graded_answer_requests_automatic_file_submission(self):
+        page = self.start()
+        with mock.patch.object(self.win.auto_submission, "request") as checkpoint:
+            while page.item is not None:
+                last = page.practice.pos == len(page.practice.queue) - 1
+                self.answer()
+                if last:
+                    checkpoint.assert_called_once()
+                    break
+                checkpoint.assert_not_called()
+                guikit.click(page.next_btn)
+            self.assertTrue(last)
+
     def start(self, mode="lesson"):
         win = self.boot()
         self.at(4)

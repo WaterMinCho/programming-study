@@ -63,7 +63,7 @@ def request(base, path, data=None, token=None, method="POST", timeout=5, error_d
         error.close()
         raise CollectionError(message, status=error.code, code=reason) from None
     except (urllib.error.URLError, OSError, ValueError):
-        raise CollectionError("수집 서버에 연결하지 못했습니다. 데이터는 이 기기에 남아 있으니 다시 보내 주세요.") from None
+        raise CollectionError("수집 서버에 연결하지 못했습니다. 데이터는 이 기기에 남아 있으니 다시 보내 주세요.", code="network") from None
 
 
 class Sharing:

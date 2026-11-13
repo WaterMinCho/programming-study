@@ -344,6 +344,7 @@ class MockPage(QWidget):
             return
         try:
             self.exam.submit(auto=auto)
+            self.win.auto_submission.request()
             self.show_question(self.item['at'] - 1)
         except MockError as error:
             self.fail(error)
@@ -359,6 +360,7 @@ class MockPage(QWidget):
             return
         if self.exam.result is not None:
             if not self.showing_result and self.item is not None:
+                self.win.auto_submission.request()
                 self.show_question(self.item['at'] - 1)
                 return
             self.time.setText('제출 완료')

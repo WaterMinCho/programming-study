@@ -403,6 +403,8 @@ class PracticePage(QWidget):
             self.win.ask("알림", str(error))
             return
         self.show_feedback(feedback)
+        if self.practice.pos == len(self.practice.queue) - 1:
+            self.win.auto_submission.request()
 
     def dont_know(self):
         if self.practice is None or self.feedback is not None or self.busy:
@@ -415,6 +417,8 @@ class PracticePage(QWidget):
             return
         self.dontknow = True
         self.show_feedback(feedback)
+        if self.practice.pos == len(self.practice.queue) - 1:
+            self.win.auto_submission.request()
 
     def show_feedback(self, feedback):
         """판정 줄, 칸과 보기의 결과, 해설·근거·정정을 그림. 판정 줄이 맨 위에 오게 스크롤함."""
@@ -576,6 +580,7 @@ class PracticePage(QWidget):
         self.scroll.verticalScrollBar().setValue(0)
 
     def show_summary(self):
+        self.win.auto_submission.request()
         summary = self.practice.summary()
         if self.practice.mode in ("review", "sweep"):
             self.review_state = self.win.ai.review_status()

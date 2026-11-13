@@ -7,11 +7,52 @@ from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QCheckBox, QDialog, QWidget
 
 from learning_data.collection import CollectionError
-from learning_data.privacy import Consent, NOTICE_ROWS
+from learning_data.privacy import Consent, NOTICE_ROWS, AUTO_NOTICE
 from learning_data import sync_schedule
 from gui import dialogs, kit, theme
 from gui.dialog_layout import DialogLayout
 from gui.worker import Job
+
+
+class AutoSubmissionDialog(QDialog):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        self.setWindowTitle("풀이 자동 제출")
+        self.setModal(True)
+        kit.page(self)
+        self.shell = DialogLayout(self, "문제 묶음을 끝내면 자동 제출", "기존 학습 기록 동의와 전송은 유지합니다. 답안 파일을 자동으로 보낼지 선택해 주세요.")
+        self.shell.content.addWidget(kit.para(AUTO_NOTICE))
+        self.storage_hint = kit.para("보관 위치: 미국 · PythonAnywhere", "body", "secondary")
+        storage = QWidget()
+        kit.box(storage, (32, 8, 32, 0)).addWidget(self.storage_hint)
+        self.shell.insertWidget(2, storage)
+        self.message = kit.para("", "caption", "secondary")
+        self.shell.content.addWidget(self.message)
+        keep = kit.button("기록만 자동 전송", scale="l")
+        keep.clicked.connect(lambda: self.choose(False))
+        self.enable = kit.button("답안 파일도 자동 제출", "primary", "l")
+        self.enable.clicked.connect(lambda: self.choose(True))
+        self.shell.actions.set_actions([keep], [self.enable])
+        self.shell.fit(700, 460)
+
+    def choose(self, enabled):
+        try:
+            self.controller.consent.set_auto_submission(enabled)
+        except (CollectionError, OSError, ValueError) as error:
+            self.message.setText(str(error))
+            return False
+        self.controller.changed.emit()
+        self.accept()
+        return True
+
+    def reject(self):
+        try:
+            if self.controller.consent.needs_auto_choice() and self.choose(False):
+                return
+        except CollectionError:
+            pass
+        super().reject()
 
 
 class ConsentDialog(QDialog):
@@ -32,10 +73,14 @@ class ConsentDialog(QDialog):
         body.addWidget(self.status_text)
         for title, text in NOTICE_ROWS:
             body.addWidget(kit.heading(kit.label(title, "headline"), kit.para(text)))
+        body.addWidget(kit.heading(kit.label("답안 파일 자동 제출 (추가 선택)", "headline"), kit.para(AUTO_NOTICE)))
         self.submission_files = kit.button("보낼 풀이 파일 보기", "text", "l")
         self.submission_files.clicked.connect(lambda: parent.show_submission_files(self))
         self.submission_files.setVisible(not first and getattr(getattr(parent, "gitflow", None), "api", None) is not None)
         body.addWidget(self.submission_files)
+        self.automatic = kit.button("답안 파일 자동 제출 설정", "text", "l")
+        self.automatic.clicked.connect(lambda: AutoSubmissionDialog(self, controller).exec())
+        body.addWidget(self.automatic)
         self.research = QCheckBox("학습 데이터 제공 동의 (선택)")
         self.overseas = QCheckBox("서버 보관 동의 (선택)")
         for box in (self.research, self.overseas):
@@ -82,6 +127,9 @@ class ConsentDialog(QDialog):
                 text = "수집에 동의하지 않았습니다. 학습과 로컬 채점은 사용할 수 있습니다."
             self.status_text.setText(text)
             self.message.setText(self.controller.message)
+            self.automatic.setVisible(active and not pending)
+            scope = state.get("receipt", {}).get("automatic_submission", {})
+            self.automatic.setText("답안 파일 자동 제출: " + ("사용 중" if scope.get("accepted") else "사용 안 함") + " · 설정")
             self.agree.setVisible(not active)
             self.agree.setEnabled(self.research.isChecked() and self.overseas.isChecked() and not pending)
             self.choices.setVisible(not active and not pending)

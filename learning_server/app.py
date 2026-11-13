@@ -193,6 +193,15 @@ class Database:
             db.execute("BEGIN IMMEDIATE")
             if not db.execute("SELECT 1 FROM participants WHERE participant=? AND revoked=0", (participant,)).fetchone():
                 raise ApiError(401, "철회한 참가자입니다.")
+            previous = db.execute("SELECT receipt FROM open_enrollments WHERE participant=?", (participant,)).fetchone()
+            old_scope = json.loads(previous[0]).get("automatic_submission") if previous and previous[0] else None
+            new_scope = consent.get("automatic_submission")
+            if old_scope is not None:
+                if new_scope is None:
+                    consent["automatic_submission"] = old_scope
+                elif (datetime.datetime.fromisoformat(new_scope["at"]) < datetime.datetime.fromisoformat(old_scope["at"]) or
+                      (new_scope["at"] == old_scope["at"] and not old_scope["accepted"] and new_scope["accepted"])):
+                    raise ApiError(409, "이전 자동 제출 설정입니다. 현재 설정을 다시 보내 주세요.")
             db.execute("INSERT INTO open_enrollments VALUES (?, 'research', ?, ?, NULL) "
                        "ON CONFLICT(participant) DO UPDATE SET receipt=excluded.receipt",
                        (participant, packed(consent), datetime.datetime.now(datetime.timezone.utc).isoformat()))
@@ -407,6 +416,16 @@ def application(database, *, legacy_contract=False):
                         allowed = db.execute("SELECT 1 FROM open_enrollments WHERE participant=? AND purpose='private_submission' AND withdrawn IS NULL", (participant,)).fetchone()
                     if not allowed:
                         raise ApiError(403, "비공개 풀이 제출 연결이 필요합니다.")
+                    if type(data.get("automatic", False)) is not bool:
+                        raise ApiError(400, "자동 제출 여부를 확인해 주세요.")
+                    if data.get("automatic"):
+                        from learning_data.privacy import validate_receipt
+                        with database.connect() as db:
+                            saved = db.execute("SELECT receipt FROM open_enrollments WHERE participant=?", (participant,)).fetchone()
+                        try:
+                            validate_receipt(json.loads(saved[0]), automatic=True)
+                        except (ValueError, TypeError):
+                            raise ApiError(403, "자동 제출 안내에 동의한 기록이 필요합니다.") from None
                     result = submissions.store(participant, data)
                 elif path == "/v1/submissions":
                     result = submissions.store(participant, data)

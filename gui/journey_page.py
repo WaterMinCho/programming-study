@@ -1053,6 +1053,7 @@ class JourneyPage(QWidget):
         if result.get("cancelled"):
             return
         self.refresh()
+        self.win.auto_submission.request()
         if result.get("cleared"):
             self.celebrate()
 

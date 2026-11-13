@@ -83,6 +83,7 @@ class FakeWindow(QMainWindow):
         super().__init__()
         self.settings = QSettings(os.path.join(folder, "settings.ini"), QSettings.Format.IniFormat)
         self.dialog, self.job = None, None
+        self.auto_submission = mock.Mock()
         self.journey = JourneySession("alice")
         self.opened, self.picks, self.pick_result, self.went, self.blocked = [], [], "", [], 0
         self.open_url = self.opened.append

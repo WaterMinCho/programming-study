@@ -486,7 +486,7 @@ class HubPage(QWidget):
     def refresh_submission(self, allowed=None):
         win = self.win
         usable = win.session is not None and win.gitflow is not None
-        busy = win.job is not None or win.pending_close or win.close_pending
+        busy = win.job is not None or win.pending_close or win.close_pending or win.submission_running
         if allowed is None:
             allowed = win.has_submission_consent()
         ready = (usable and allowed and win.pending_submission.get("status") == "ok"
