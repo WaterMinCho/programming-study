@@ -143,3 +143,12 @@ class MixedValidationTest(unittest.TestCase):
         self.items[0].update(stem=original['stem'], blanks=original['blanks'], allowed_answers=[b['answer'] for b in original['blanks']])
         self.save()
         self.assertIn('회차 간 같은 문항', self.verify()[1])
+
+
+class PublishedSecretCheckTest(unittest.TestCase):
+    def test_published_content_passes_the_unchanged_secret_scanner(self):
+        root=Path(__file__).resolve().parents[1]/'ai'
+        verifier=verify_ai.Verifier(None,io.StringIO())
+        verify_ai.check_secrets(verifier,str(root))
+        self.assertEqual([],verifier.failures)
+        self.assertIsNotNone(verify_ai.SECRET.search('sk-'+'test'*8))

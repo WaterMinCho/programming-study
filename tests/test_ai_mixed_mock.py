@@ -150,16 +150,12 @@ class MixedMockTest(unittest.TestCase):
         source['items'][0]['course']='app';study.write_text(path,json.dumps(source))
         with self.assertRaises(MockError): load_items(str(self.bank),spec,sess.mock_lessons)
 
-    def test_actual_draft_is_bound_to_original_hashes_and_legacy_fingerprints_keep_the_old_formula(self):
+    def test_actual_items_and_legacy_fingerprints_keep_their_contracts(self):
         root=Path(__file__).resolve().parents[1]
-        provenance=study.read_json(root/'ai/mocks/m4/draft-provenance.json')
-        self.assertEqual(32,len(provenance['item_id_mapping']))
-        draft=root/'ai/mocks/m4/work/items.json'
-        if draft.exists():
-            raw=draft.read_bytes()
-            self.assertEqual(provenance['draft_items_sha256'],hashlib.sha256(raw).hexdigest())
-            self.assertEqual(32,len(json.loads(raw)['items']))
-        self.assertEqual('75ea75de71a2e88f29a8a14c90ed7c2e7e0a59407def27866a298a4c939d1769',provenance['source_files']['answer-key.json'])
+        items=json.loads(load_secrets(str(root/'ai/mocks/m4'))['items.json'])['items']
+        self.assertEqual(['m4-%02d' % n for n in range(1,33)],sorted(i['id'] for i in items))
+        self.assertEqual(16,sum(i['course']=='intro' for i in items))
+        self.assertEqual(16,sum(i['course']=='app' for i in items))
         specs=READ_INDEX(str(root/'ai'))['mocks']
         for spec in specs:
             if spec['id'] not in ('m1','m2','m3'):

@@ -31,7 +31,8 @@ class CourseGuiTest(AiTest):
         self.assertEqual(['a01', 'a02', 'a03'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
-        self.assertFalse(win.ai_home.mock_section.isVisible())
+        self.assertEqual({'m4'},set(win.ai.mocks))
+        self.assertTrue(win.ai_home.mock_section.isVisible())
         self.assertIn('응용', win.ai_home.lesson_list.rows[0].title.text())
         win.ai.save_step('a01', 'a1b', 3)
         guikit.click(win.ai_home.course_tabs.buttons[0])
@@ -39,6 +40,23 @@ class CourseGuiTest(AiTest):
         self.assertEqual(2, win.ai.unit_steps('i01', '1a')['at_step'])
         self.assertNotIn('a01', win.ai.lessons)
         self.assertEqual('intro', win.settings.value('ai/course/' + win.user))
+        self.assertTrue({'m1','m2','m3'}.issubset(win.ai.mocks))
+        self.capture_widget=win
+
+    def test_missing_mixed_fixture_keeps_application_mock_section_hidden(self):
+        from aiprep import bank
+        from tests.test_ai_mixed_mock import make_bank
+        root=make_bank(self.tmp+'/without-mixed')
+        index=json.loads((root/'index.json').read_text(encoding='utf-8'))
+        index['mocks']=[m for m in index['mocks'] if m['id']!='m4']
+        (root/'index.json').write_text(json.dumps(index),encoding='utf-8')
+        shutil.rmtree(root/'mocks/m4')
+        with mock.patch.object(bank,'AI_DIR',str(root)):
+            win=self.boot((760,480))
+            win.go_ai();win.switch_ai_course('app');self.idle()
+            self.assertEqual({},win.ai.mocks)
+            self.assertFalse(win.ai_home.mock_section.isVisible())
+            self.capture_widget=win
 
     def test_switch_reuses_the_course_and_keeps_the_old_tab_until_content_is_ready(self):
         win = self.boot((760, 480))
