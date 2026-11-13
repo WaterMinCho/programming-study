@@ -100,6 +100,7 @@ class AiTest(unittest.TestCase):
         guikit.prepare_consent(USER)
         self.git = FakeGitFlow()
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
+        self.settings.setValue("onboarding/hub/v1", True)  # 첫 안내는 전용 화면 검사에서 확인함.
         self.win = None
 
     def tearDown(self):
@@ -121,7 +122,7 @@ class AiTest(unittest.TestCase):
     # 도우미
 
     def boot(self, size=(1280, 800)):
-        self.win = win = MainWindow(self.settings, lambda root, user: (self.git, ""))
+        self.win = win = MainWindow(self.settings, lambda root, user: (self.git, ""), identity_factory=guikit.identity_factory)
         win.open_url = lambda url: None
         win.resize(*size)
         win.show()

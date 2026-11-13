@@ -134,7 +134,7 @@ class NativeShortcutTest(unittest.TestCase):
             start.write_text(
                 "import json, os, sys\nfrom pathlib import Path\n"
                 "result = Path(__file__).with_name('ran.tmp')\n"
-                "data = {'cwd': os.getcwd(), 'argv': sys.argv, 'python': sys.executable, 'prefix': sys.prefix}\n"
+                "data = {'cwd': os.getcwd(), 'argv': sys.argv, 'python': sys.executable, 'prefix': sys.prefix, 'pid': os.getpid()}\n"
                 "os.chdir(os.path.dirname(sys.executable))\n"
                 "result.write_text(json.dumps(data), encoding='utf-8')\n"
                 "result.replace(result.with_name('ran.json'))\n",
@@ -160,6 +160,24 @@ class NativeShortcutTest(unittest.TestCase):
             self.assertEqual(actual["argv"], [str(start)])
             self.assertEqual(Path(actual["python"]), pythonw)
             self.assertEqual(Path(actual["prefix"]), Path(sys.prefix))
+            # 결과 파일 작성 뒤에도 pythonw 종료가 남을 수 있어 임시 폴더를 지우기 전에 기다림.
+            import ctypes
+            from ctypes import wintypes
+            kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            kernel.OpenProcess.restype = wintypes.HANDLE
+            kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            kernel.WaitForSingleObject.restype = wintypes.DWORD
+            kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+            kernel.CloseHandle.restype = wintypes.BOOL
+            process = kernel.OpenProcess(0x00100000, False, actual["pid"])
+            if process:
+                try:
+                    self.assertEqual(kernel.WaitForSingleObject(process, 10000), 0)
+                finally:
+                    self.assertTrue(kernel.CloseHandle(process))
+            else:
+                self.assertEqual(ctypes.get_last_error(), 87)  # 이미 종료된 PID는 ERROR_INVALID_PARAMETER임.
 
 
 if __name__ == "__main__":

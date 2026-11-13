@@ -167,8 +167,9 @@ class GuiTest(unittest.TestCase):
             guikit.prepare_consent(self.user)
         self.git, self.opened = FakeGitFlow(), []
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
+        self.settings.setValue("onboarding/hub/v1", True)  # 첫 안내는 전용 화면 검사에서 확인함.
         self.settings.setValue("text", "normal")  # 옛 화면의 테스트는 보통 글자(문서·코드 확대 0)에서 봄
-        self.win = MainWindow(self.settings, lambda root, user: (None if self.git_reason else self.git, self.git_reason))
+        self.win = MainWindow(self.settings, lambda root, user: (None if self.git_reason else self.git, self.git_reason), identity_factory=guikit.identity_factory)
         self.win.open_url = self.opened.append
         self.win.show()
 
@@ -283,6 +284,9 @@ class FirstRunTest(GuiTest):
 
         # 처음 실행은 기기 ID를 만들고 동의 여부를 선택한 뒤 학습함.
         win.boot()
+        self.idle()
+        self.assertTrue(win.identity_dialog.isVisible())
+        guikit.complete_identity(win)
         self.idle()
         dialog = win.privacy.dialog
         self.assertTrue(dialog.isVisible())
@@ -462,6 +466,11 @@ class FirstRunTest(GuiTest):
             self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()), label.text())
         click(dialog.ok)
         self.idle()
+        self.assertTrue(self.win.identity_dialog.isVisible())
+        guikit.complete_identity(self.win)
+        self.idle()
+        if self.win.privacy.dialog is not None and self.win.privacy.dialog.isVisible():
+            click(self.win.privacy.dialog.decline)
         click(self.win.hub.python_row)
         self.assertEqual(session.saved_user(), "Tester")
         self.assertEqual(self.win.home.user.text(), "ID: Tester")
@@ -738,7 +747,7 @@ class HomeAndGitTest(GuiTest):
         self.win.close()
         wait_until(lambda: not self.win.isVisible(), 5)
         self.assertEqual(self.settings.value("text"), "larger")
-        again = MainWindow(self.settings, lambda root, user: (self.git, ""))
+        again = MainWindow(self.settings, lambda root, user: (self.git, ""), identity_factory=guikit.identity_factory)
         self.addCleanup(again.deleteLater)
         self.assertEqual((again.zoom, theme.state["text"]), (4, "larger"))
         self.assertEqual(again.size(), size)
@@ -1704,7 +1713,7 @@ class WrongNotesTest(GuiTest):
         wait_until(lambda: not self.win.isVisible(), 5)
         self.win.deleteLater()
         with mock.patch.object(window, "WRONG_TRACKS", tracks):
-            self.win = MainWindow(self.settings, lambda root, user: (self.git, ""))
+            self.win = MainWindow(self.settings, lambda root, user: (self.git, ""), identity_factory=guikit.identity_factory)
         self.win.open_url = self.opened.append
         self.win.show()
         self.win.boot()
@@ -2496,7 +2505,7 @@ class ThemeTest(GuiTest):
         self.assertEqual((home.theme_btn.text(), theme.state["scheme"]), ("테마: 어둡게", "dark"))
         self.assertEqual(self.settings.value("theme"), "dark")
         self.assertIn(theme.DARK["bg"], APP.styleSheet())
-        again = MainWindow(self.settings, lambda root, user: (self.git, ""))  # 다시 켜면 고른 테마로 열림
+        again = MainWindow(self.settings, lambda root, user: (self.git, ""), identity_factory=guikit.identity_factory)  # 다시 켜면 고른 테마로 열림
         self.assertEqual((again.home.theme_btn.text(), theme.state["scheme"]), ("테마: 어둡게", "dark"))
         again.deleteLater()
         click(home.theme_btn)

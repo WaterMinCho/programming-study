@@ -29,6 +29,7 @@ from gui.home_page import HomePage
 from gui.hub_page import HubPage
 from gui.journey_map import JourneyMapPage
 from gui.journey_page import JourneyPage, saved_lang, with_node
+from gui.onboarding import HubTour, TOUR_KEY
 from gui.result_page import ResultPage
 from gui.round_page import RoundPage
 from gui.web_drill import WebDrillPage
@@ -114,7 +115,7 @@ class StartPage(QWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, settings, gitflow_factory=load_gitflow):
+    def __init__(self, settings, gitflow_factory=load_gitflow, identity_factory=None):
         super().__init__()
         self.setWindowTitle("프로그래밍 스터디")
         self.settings, self.gitflow_factory = settings, gitflow_factory
@@ -134,6 +135,11 @@ class MainWindow(QMainWindow):
         self.dialog = None  # 가장 최근에 띄운 대화상자
         self.notice = None  # 허브와 홈 위쪽에 한 줄로 보여 줄 제출 모듈의 결과
         self.restart, self.close_pending = False, False
+        self.hub_tour = None
+        self.tour_ready = False
+        self.identity, self.identity_dialog = None, None
+        self.identity_factory = identity_factory
+        self.identity_checked, self.identity_invalid = False, False
         self.open_url = lambda url: QDesktopServices.openUrl(QUrl(url))
         self.pick_file = lambda title: QFileDialog.getOpenFileName(self, title)[0]
         self.open_folder = lambda path: open_folder(path, settings)  # 미션 폴더를 편집기로 엶. 테스트는 가짜로 바꿈
@@ -221,12 +227,66 @@ class MainWindow(QMainWindow):
         diverged = result.get("status") == "diverged"
         if not diverged and (result.get("status") not in ("ok", "nothing") or result.get("changed") or result.get("backup")):
             self.notice = result  # 오프라인·git 없음 같은 결과는 홈에 한 줄로만 알리고 계속 진행함
-        if self.open_session() and diverged:
-            self._git_done("문제 받기", dict(result, changed=False))
+        if diverged:
+            def opened():
+                self.go_hub()
+                self._git_done("문제 받기", dict(result, changed=False))
+            self.open_session(opened)
+        else:
+            self.open_session()
+
+    def ensure_identity(self, then=None, force=False):
+        from learning_data.collection import CollectionError
+        from learning_data.identity import Identity
+        from gui.identity import IdentityDialog
+        if self.identity is None:
+            try:
+                self.identity = (self.identity_factory or Identity)(study.ROOT, self.user)
+            except CollectionError as failure:
+                self.start.show_error(str(failure))
+                motion.switch(self.pages, self.start)
+                return False
+        error = ""
+        try:
+            if self.identity.settings().get("verified") and not force and not self.identity_invalid:
+                if self.identity_checked:
+                    return True
+                self.identity_checked = True
+                def check():
+                    try:
+                        self.identity.status()
+                        return True
+                    except CollectionError as failure:
+                        return failure.status not in (401, 403)
+                def checked(valid):
+                    self.identity_invalid = not valid
+                    self.open_session(then)
+                self.run_job("기기 확인 상태를 확인하고 있습니다.", check, checked)
+                return False
+        except CollectionError as failure:
+            error = str(failure)
+        if self.identity_dialog is not None and self.identity_dialog.isVisible():
+            return False
+        dialog = self.identity_dialog = IdentityDialog(self, self.identity, closing_app=not force)
+        if error:
+            dialog.status.setText(error)
+        def finished(result):
+            self.identity_dialog = None
+            if result == dialog.DialogCode.Accepted:
+                self.identity_checked, self.identity_invalid = True, False
+                self.hub.team_card.loaded = None
+                self.open_session(then)
+            elif not force:
+                self.close()
+        dialog.finished.connect(finished)
+        dialog.show()
+        return False
 
     def open_session(self, then=None):
         """풀이 기록과 문제 은행을 새로 읽고 then()(없으면 허브)으로 감. 풀이 기록을 읽지 못하면 시작 화면에 이유를 보여 주고 False 를 돌려줌.
         알고리즘 여행 기록을 읽지 못하면 파이썬 스터디는 그대로 열고, 허브의 여행 카드에 이유를 보여 줌. 여기서는 node 를 찾지 않음."""
+        if not self.ensure_identity(then):
+            return False
         try:
             self.session = session.Session(self.user)
         except SessionError as error:
@@ -266,6 +326,7 @@ class MainWindow(QMainWindow):
         if new_privacy_path not in self.privacy_controllers:
             self.privacy_controllers[new_privacy_path] = SyncController(self, collections)
             self.first_boot = True
+            self.tour_ready = False
         self.privacy = self.privacy_controllers[new_privacy_path]
         if self.privacy.job is None:
             self.privacy.consent.collections = collections
@@ -277,10 +338,34 @@ class MainWindow(QMainWindow):
             self.first_boot = False
             try:
                 if self.privacy.consent.needs_choice():
-                    QTimer.singleShot(0, lambda: self.privacy.show(first=True))
+                    QTimer.singleShot(0, self.show_first_consent)
+                else:
+                    self.enable_hub_tour()
             except CollectionError as error:
                 self.ask("동의 설정 확인", str(error))
         return True
+
+    def show_first_consent(self):
+        self.privacy.show(first=True)
+        self.privacy.dialog.accepted.connect(self.enable_hub_tour)
+
+    def enable_hub_tour(self):
+        self.tour_ready = True
+        QTimer.singleShot(0, self.show_hub_tour)
+
+    def show_hub_tour(self, replay=False):
+        if (not self.tour_ready or not self.hub.isVisible() or self.job is not None
+                or self.identity_dialog is not None or self.close_pending or self.pending_close
+                or (not replay and self.settings.value(TOUR_KEY, False, type=bool))):
+            return
+        modal = QApplication.activeModalWidget()
+        if modal is not None:
+            if hasattr(modal, "finished"):
+                modal.finished.connect(lambda: QTimer.singleShot(0, self.show_hub_tour))
+            return
+        if self.hub_tour is None:
+            self.hub_tour = HubTour(self)
+        self.hub_tour.begin(self.hub.replay_tour if replay else QApplication.focusWidget())
 
     def show_privacy(self):
         if hasattr(self, "privacy"):
@@ -329,6 +414,7 @@ class MainWindow(QMainWindow):
         self.hub.refresh()
         self.area = "hub"
         motion.switch(self.pages, self.hub)
+        QTimer.singleShot(0, self.show_hub_tour)
 
     def go_home(self):
         if not self.leave_round(self.go_home, "저장하지 않고 나가기"):
@@ -852,6 +938,10 @@ class MainWindow(QMainWindow):
             page.restyle()
 
     def closeEvent(self, event):
+        if self.identity_dialog is not None and self.identity_dialog.job is not None:
+            self.identity_dialog.reject()
+            event.ignore()
+            return
         if self.job is not None:  # 스레드를 도중에 버리면 프로세스가 죽으므로 채점·제출이 끝난 뒤에 닫음
             self.job[0].cancel.set()  # 여행 채점은 곧 멈추고 기록하지 않음. [테스트 돌리기]는 vitest 를 끊고 대화상자 없이 끝남. 다른 일은 이 신호를 보지 않음
             self.close_pending = True

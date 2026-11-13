@@ -10,6 +10,7 @@ from learning_data.collection import CollectionError
 from learning_data.privacy import Consent, NOTICE_ROWS
 from learning_data import sync_schedule
 from gui import dialogs, kit, theme
+from gui.dialog_layout import DialogLayout
 from gui.worker import Job
 
 
@@ -22,12 +23,11 @@ class ConsentDialog(QDialog):
         kit.page(self)
         room = self.screen().availableGeometry()
         self.resize(min(760, parent.width(), room.width()-32), min(700, parent.height(), room.height()-72))
-        outer = kit.box(self, (24, 24, 24, 24), spacing=theme.GAP["group"])
-        content = QWidget()
-        body = kit.box(content, spacing=theme.GAP["group"])
-        body.addWidget(kit.heading(kit.label("학습 데이터 제공 안내" if first else "내 정보·데이터", "title"),
-                                   kit.para("동의하면 새 풀이 기록을 자동으로 보내 문제 추천 연구에 사용합니다. 동의하지 않아도 문제를 풀고 채점할 수 있습니다. 두 항목을 모두 선택하면 동의 버튼이 켜집니다.",
-                                            "body", "secondary")))
+        self.shell = DialogLayout(self, "학습 데이터 제공 안내" if first else "내 정보·데이터")
+        body = self.shell.content
+        body.setSpacing(theme.GAP["group"])
+        body.addWidget(kit.para("동의하면 새 풀이 기록을 자동으로 보내 문제 추천 연구에 사용합니다. 동의하지 않아도 문제를 풀고 채점할 수 있습니다. 두 항목을 모두 선택하면 동의 버튼이 켜집니다.",
+                               "body", "secondary"))
         self.status_text = kit.para()
         body.addWidget(self.status_text)
         for title, text in NOTICE_ROWS:
@@ -40,27 +40,25 @@ class ConsentDialog(QDialog):
             box.setMinimumHeight(theme.control_height("s"))
         self.message = kit.para("", "caption", "secondary")
         body.addWidget(self.message)
-        self.scroll = kit.scroll(content)
-        outer.addWidget(self.scroll, 1)
+        self.scroll = self.shell.scroll
         self.storage_hint = kit.para("보관 위치: 미국 · PythonAnywhere", "body", "secondary")
         self.choices = kit.spaced(self.research, kit.spaced(self.overseas, self.storage_hint, spacing=theme.GAP["detail"]),
                                   spacing=theme.GAP["detail"])
-        outer.addWidget(self.choices)
-        actions = QWidget()
-        flow = kit.FlowLayout(actions, spacing=theme.GAP["detail"])
+        self.choice_area = QWidget()
+        kit.box(self.choice_area, (32, 16, 32, 16)).addWidget(self.choices)
+        self.shell.insertWidget(2, self.choice_area)
         self.agree = kit.button("동의하고 시작" if first else "동의하고 수집 시작", "primary", "l")
         self.agree.clicked.connect(lambda: self.choose(True))
         self.decline = kit.button("동의하지 않고 시작" if first else "닫기", scale="l")
         self.decline.clicked.connect(lambda: self.choose(False) if first else self.accept())
         self.withdraw = kit.button("동의 철회·비공개 기록 삭제", "danger_text", "l")
         self.withdraw.clicked.connect(self.confirm_withdraw)
-        for button in (self.agree, self.decline, self.withdraw):
-            flow.addWidget(button)
-        outer.addWidget(actions)
+        self.shell.actions.set_actions([self.withdraw], [self.decline, self.agree])
         self.research.toggled.connect(self.refresh)
         self.overseas.toggled.connect(self.refresh)
         controller.changed.connect(self.refresh)
         self.refresh()
+        self.shell.fit(760, 620)
 
     def refresh(self):
         try:
@@ -83,6 +81,7 @@ class ConsentDialog(QDialog):
             self.agree.setVisible(not active)
             self.agree.setEnabled(self.research.isChecked() and self.overseas.isChecked() and not pending)
             self.choices.setVisible(not active and not pending)
+            self.choice_area.setVisible(not active and not pending)
             self.withdraw.setVisible(not pending and (bool(state.get("accepted")) or self.controller.consent.has_private_records()))
         except CollectionError as error:
             self.status_text.setText(str(error))

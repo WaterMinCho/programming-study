@@ -2,14 +2,12 @@
 """대화상자. 화면이 멈추지 않고 시험하기 쉽게, 모두 exec() 없이 show() 로 띄우고 고른 결과를 콜백으로 넘김."""
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QVBoxLayout
+from PyQt6.QtWidgets import QDialog, QLineEdit, QPlainTextEdit
 
 import session
 from gui import kit, theme
-from gui.widgets import LinkLabel, Para
-
-
-NARROWEST, WIDEST = 480, 560  # 알림 창의 폭
+from gui.dialog_layout import DialogLayout
+from gui.widgets import LinkLabel
 
 
 class MessageDialog(QDialog):
@@ -24,26 +22,21 @@ class MessageDialog(QDialog):
         self.setWindowTitle(title)
         self.setModal(True)
         self.on_choice, self.choice = on_choice, ""
-        box = QVBoxLayout(self)
-        box.setContentsMargins(32, 32, 32, 24)
-        box.setSpacing(0)
-        head = kit.para(title, "headline")
+        self.shell = DialogLayout(self, title)
+        box = self.shell.content
         self.text = kit.para(text)
         self.text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        box.addWidget(kit.heading(head, self.text))
+        box.addWidget(self.text)
         if link:
             self.link = kit.typed(LinkLabel('<a href="%s">%s</a>' % (link, link), line=theme.TYPE["body"][1], font=theme.font("body")), "body")
             self.link.linkActivated.connect(lambda url: parent.open_url(url))
-            box.addSpacing(8)
             box.addWidget(self.link)
         self.detail = QPlainTextEdit(detail)
         self.detail.setReadOnly(True)
         self.detail.setFont(theme.code_font(theme.text_px() - 1))
         self.detail.setMinimumHeight(140)
         self.detail.hide()
-        box.addSpacing(16)
         box.addWidget(self.detail)
-        box.addSpacing(16)
         tools = []
         if detail:
             more = kit.button("자세히", "text", "l")
@@ -69,42 +62,11 @@ class MessageDialog(QDialog):
         first.setDefault(len(buttons) == 1 and roles[buttons[0][1]] == "primary")  # 고를 것이 있거나 되돌릴 수 없는 창은 Enter 로 넘어가지 않음
         far = [self.buttons[key] for key in roles if roles[key] == "danger_text"]  # 왼쪽 끝. 주 단추와 가장 멀게
         made = [button for button in self.buttons.values() if button not in far]
-        for tool in tools:
-            tool.setParent(self)
-            tool.ensurePolished()
-        room = WIDEST - box.contentsMargins().left() - box.contentsMargins().right()
-        need = sum(b.sizeHint().width() + 8 for b in made + far) - 8
-        if tools and need + sum(t.sizeHint().width() + 8 for t in tools) > room:  # 한 줄에 다 들어가지 않으면 자세히·내용 복사를 윗줄로
-            box.addLayout(self.line(tools, []))
-            box.addSpacing(8)
-            tools = []
-        if need > room:  # 단추 글자가 길면 한 줄에 하나씩, 첫 번째(주 단추)를 위에 두고 파괴 글자 단추는 맨 아래
-            column = QVBoxLayout()
-            column.setSpacing(8)
-            for button in list(reversed(made)) + far:
-                column.addWidget(button)
-            box.addLayout(column)
-        else:
-            box.addLayout(self.line(tools + far, made))
+        self.shell.actions.set_actions(tools + far, made)
         self.fit()
 
-    @staticmethod
-    def line(left, right):
-        """단추 한 줄. left 는 왼쪽 끝에, right 는 오른쪽 끝에 붙임."""
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        for widget in left:
-            row.addWidget(widget)
-        row.addStretch(1)
-        for widget in right:
-            row.addWidget(widget)
-        return row
-
     def fit(self):
-        """글이 줄바꿈되는 폭에 맞춰 높이를 잡음. 줄바꿈하는 QLabel 의 크기 추정을 쓰면 좁고 길게 나와 빈 줄이 생김."""
-        self.layout().activate()  # 자세히를 접은 직후에는 최소 높이가 펼친 값으로 남아 있어 창이 줄어들지 않음
-        width = max(NARROWEST, min(WIDEST, self.layout().minimumSize().width()))
-        self.resize(width, self.layout().totalHeightForWidth(width))
+        self.shell.fit(560)
 
     def choose(self, key):
         self.choice = key
@@ -120,31 +82,24 @@ class IdDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("처음 실행")
         self.setModal(True)
-        self.setMinimumWidth(480)
         self.on_saved = on_saved
         self.asked = ""  # 풀이 기록이 이미 있다고 알린 ID
-        box = QVBoxLayout(self)
-        box.setContentsMargins(22, 20, 22, 16)
-        box.setSpacing(theme.GAP["description_content"])
-        head = QLabel("풀이 ID를 입력해 주세요")
-        head.setObjectName("h2")
-        why = Para("영문·숫자·밑줄·붙임표로 풀이 ID를 정합니다. 메일 주소나 실명은 넣지 않습니다. "
+        self.shell = DialogLayout(self, "풀이 ID를 입력해 주세요")
+        box = self.shell.content
+        why = kit.para("영문·숫자·밑줄·붙임표로 풀이 ID를 정합니다. 메일 주소나 실명은 넣지 않습니다. "
                    "기존 기록을 이어서 풀려면 사용하던 ID를 입력합니다. "
-                   "풀이 파일은 내용을 확인한 뒤 비공개 서버로 보냅니다. GitHub ID나 개인 초대 코드는 필요하지 않습니다.", "muted")
+                   "풀이 파일은 내용을 확인한 뒤 비공개 서버로 보냅니다.", "body", "secondary")
         self.edit = QLineEdit()
         self.edit.setPlaceholderText("예: gildong-hong")
-        self.error = Para(" ", "error")
-        self.ok = QPushButton("시작")
-        self.ok.setObjectName("primary")
+        self.error = kit.para(" ", "caption", "danger")
+        self.ok = kit.button("시작", "primary", "l")
         self.ok.setDefault(True)
         self.ok.setEnabled(False)
-        row = QHBoxLayout()
-        row.addStretch(1)
-        row.addWidget(self.ok)
-        box.addWidget(kit.heading(head, why))
+        box.addWidget(why)
         for widget in (self.edit, self.error):
             box.addWidget(widget)
-        box.addLayout(row)
+        self.shell.actions.set_actions([], [self.ok])
+        self.shell.fit(640)
         self.edit.textChanged.connect(self.check)
         self.ok.clicked.connect(self.save)
 
@@ -159,7 +114,7 @@ class IdDialog(QDialog):
     def say(self, text):
         """입력칸 아래에 안내를 보여 줌. 안내가 여러 줄로 늘어나면 위의 설명이 눌려 잘리므로 창을 그만큼 키움."""
         self.error.setText(text)
-        self.resize(self.width(), max(self.height(), self.layout().totalHeightForWidth(self.width())))
+        self.shell.fit(self.width(), self.height())
 
     def save(self):
         QGuiApplication.inputMethod().commit()
@@ -187,32 +142,25 @@ class ErrorDialog(QDialog):
         self.setWindowTitle("프로그램 오류")
         self.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)  # 이 창이 남아 있어도 본 창을 닫으면 프로그램이 끝나게
         self.resize(640, 420)
-        box = QVBoxLayout(self)
-        box.setContentsMargins(22, 20, 22, 16)
-        box.setSpacing(10)
-        head = QLabel("프로그램에서 오류가 났습니다")
-        head.setObjectName("h2")
-        note = LinkLabel("작성한 답은 저장돼 있고, 이 창을 닫으면 계속 쓸 수 있습니다. 같은 오류가 반복되면 아래 내용을 복사해 "
-                         '<a href="%s">불편 신고 양식</a>에 붙여 주세요.' % issue_url)
+        self.shell = DialogLayout(self, "프로그램에서 오류가 났습니다")
+        box = self.shell.content
+        note = kit.typed(LinkLabel("작성한 답은 저장돼 있고, 이 창을 닫으면 계속 쓸 수 있습니다. 같은 오류가 반복되면 아래 내용을 복사해 "
+                         '<a href="%s">불편 신고 양식</a>에 붙여 주세요.' % issue_url,
+                         line=theme.TYPE["body"][1], font=theme.font("body")), "body")
         note.setOpenExternalLinks(True)
         self.view = QPlainTextEdit(text)
         self.view.setReadOnly(True)
-        where = Para("기록 파일: %s" % log_path if log_path else "기록 파일을 쓰지 못했습니다.", "muted")
+        where = kit.para("기록 파일: %s" % log_path if log_path else "기록 파일을 쓰지 못했습니다.", "caption", "secondary")
         where.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.copy = QPushButton("오류 내용 복사")
+        self.copy = kit.button("오류 내용 복사", scale="l")
         self.copy.clicked.connect(lambda: QGuiApplication.clipboard().setText(self.view.toPlainText()))
-        close = QPushButton("닫기")
-        close.setObjectName("primary")
+        close = kit.button("닫기", "primary", "l")
         close.clicked.connect(self.accept)
-        row = QHBoxLayout()
-        row.addWidget(self.copy)
-        row.addStretch(1)
-        row.addWidget(close)
-        box.setSpacing(theme.GAP["group"])
-        box.addWidget(kit.heading(head, note))
+        box.addWidget(note)
         for widget in (self.view, where):
             box.addWidget(widget)
-        box.addLayout(row)
+        self.shell.actions.set_actions([self.copy], [close])
+        self.shell.fit(680, 420)
 
     def append(self, text):
         self.view.appendPlainText("\n" + text)

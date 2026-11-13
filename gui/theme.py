@@ -228,6 +228,11 @@ STYLE += "QLabel#unit_none { border: 1px solid %(unit_none_edge)s; }\n"  # ып╕ьз
 STYLE_V2 = """
 QWidget[ui="2"] { background: %(bg)s; }
 QDialog[ui="2"] { background: %(surface_raised)s; }
+QDialog[ui="2"] QFrame#dialog_header, QDialog[ui="2"] QWidget#dialog_body,
+QDialog[ui="2"] QScrollArea#dialog_scroll, QDialog[ui="2"] QScrollArea#dialog_scroll > QWidget { background: %(surface_raised)s; }
+QDialog[ui="2"] QFrame#dialog_actions { background: %(surface_raised)s; border-top: 1px solid %(line)s; }
+QDialog[ui="2"] QFrame#verification_code { background: %(surface_alt)s; border: 1px solid %(line)s; border-radius: 12px; }
+QDialog[ui="2"] QLabel#verification_code_text { font-family: "D2Coding"; padding: 4px 0; color: %(ink)s; }
 QWidget[ui="2"] QLabel { color: %(ink)s; background: transparent; }
 QWidget[ui="2"] QLabel[tone="secondary"] { color: %(muted)s; }
 QWidget[ui="2"] QLabel[tone="tertiary"] { color: %(faint)s; }
@@ -244,6 +249,11 @@ QWidget[ui="2"] QLabel#badge[tone="danger"] { background: %(wrong_weak)s; color:
 QWidget[ui="2"] QFrame#card { background: %(surface)s; border: 0; border-radius: 16px; }
 QWidget[ui="2"] QFrame#card QFrame#card { background: %(surface_alt)s; border-radius: 12px; }
 QWidget[ui="2"] QFrame#well { background: %(surface_alt)s; border: 0; border-radius: 12px; }
+QWidget[ui="2"] QFrame#team_metric, QWidget[ui="2"] QFrame#team_plot { background: %(surface)s; border: 1px solid %(line)s; border-radius: 16px; }
+QWidget[ui="2"] QFrame#team_breakdown, QWidget[ui="2"] QFrame#team_periods { background: %(surface_alt)s; border: 0; border-radius: 12px; }
+QWidget[ui="2"] QProgressBar#team_python, QWidget[ui="2"] QProgressBar#team_ai { background: %(track)s; border: 0; border-radius: 3px; }
+QWidget[ui="2"] QProgressBar#team_python::chunk { background: %(series_python)s; border-radius: 3px; }
+QWidget[ui="2"] QProgressBar#team_ai::chunk { background: %(series_ai)s; border-radius: 3px; }
 QWidget[ui="2"] QFrame#topbar, QWidget[ui="2"] QFrame#bottombar, QWidget[ui="2"] QFrame#stepper { background: %(surface)s; border: 0; }
 QWidget[ui="2"] QFrame#topbar[plain="true"] { background: %(bg)s; }
 QWidget[ui="2"] QFrame#topbar { border-bottom: 1px solid %(line)s; }
@@ -381,8 +391,9 @@ QFrame#find QPushButton#tool:disabled { background: transparent; color: %(faint)
 
 STYLE_V2 += """
 QFrame#navigation { background: %(surface)s; border-right: 1px solid %(line)s; }
-QWidget[ui="2"] QPushButton[navigation="true"] { text-align: left; padding: 0 16px; }
-QWidget[ui="2"] QPushButton[navigation="true"]:checked { background: %(selection)s; color: %(selection_ink)s; }
+QWidget[ui="2"] QPushButton[navigation="true"] { text-align: left; padding: 0; border: 2px solid transparent; border-radius: 10px; min-height: %(navigation_height)spx; max-height: %(navigation_height)spx; }
+QWidget[ui="2"] QPushButton[navigation="true"]:checked { background: %(selection)s; color: %(selection_ink)s; border-left-color: %(focus)s; }
+QWidget[ui="2"] QPushButton[navigation="true"]:focus { border-color: %(focus)s; }
 QFrame#submissionbar { background: %(surface)s; border: 1px solid %(border)s; border-radius: 16px; }
 QFrame#figure_controls { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 12px; }
 QFrame#learning_activity { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
@@ -517,6 +528,7 @@ def style_tokens(scheme):
                 slot=slot_height() - 2, learn_slot=learning_slot_height() - 2,
                 slot_focus=slot_height() - 4, learn_slot_focus=learning_slot_height() - 4,
                 field_height=CONTROL["field"] - 2, field_focus=CONTROL["field"] - 4,
+                navigation_height=max(56, TYPE["label"][1] + 24) - 4,
                 **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
 
 

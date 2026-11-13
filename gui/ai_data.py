@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QCheckBox, QComboBox, QDialog, QFileDialog, QWidget
 from learning_data.collection import CollectionError
 from learning_data import goals
 from gui import dialogs, kit, theme
+from gui.dialog_layout import DialogLayout
 
 
 class LearningDataDialog(QDialog):
@@ -21,11 +22,10 @@ class LearningDataDialog(QDialog):
         self.setModal(True)
         room = parent.screen().availableGeometry()
         self.resize(min(640, parent.width(), room.width()-32), min(420, parent.height(), room.height()-72))
-        outer = kit.box(self, (24, 24, 24, 24), spacing=theme.GAP["group"])
-        outer.addWidget(kit.heading(kit.label(title, "headline"),
-                                   kit.para("문제 추천 연구에 쓸 풀이 과정을 이 기기에 추가로 보관합니다.", "body", "secondary")))
-        content = QWidget()
-        body = kit.box(content, spacing=theme.GAP["group"])
+        self.shell = DialogLayout(self, title)
+        body = self.shell.content
+        body.setSpacing(theme.GAP["group"])
+        body.addWidget(kit.para("문제 추천 연구에 쓸 풀이 과정을 이 기기에 추가로 보관합니다.", "body", "secondary"))
         notice = ("수집을 시작한 뒤 프로그램에서 변경해 저장한 퀴즈·코드 입력과 채점 결과, 문항과 개념을 보관합니다. "
                   "외부 편집기의 입력 시각이나 문항을 읽은 시간은 추정하지 않습니다. 과거 풀이를 자동으로 가져오지 않습니다.") if collection.track == "python" else (
                                 "AI 개론·응용에서 수집을 시작한 뒤의 연습·모의고사 답안과 채점 결과, 문항을 연 순서, 응답 시간, 확신 여부를 보관합니다. "
@@ -91,11 +91,11 @@ class LearningDataDialog(QDialog):
         self.message = kit.para("", "caption", "secondary")
         body.addWidget(self.message)
         body.addStretch(1)
-        self.scroll = kit.scroll(content)
-        outer.addWidget(self.scroll, 1)
+        self.scroll = self.shell.scroll
         self.close_button = kit.button("닫기", scale="l")
         self.close_button.clicked.connect(self.accept)
-        outer.addWidget(self.close_button)
+        self.shell.actions.set_actions([], [self.close_button])
+        self.shell.fit(680, 420)
         if self.controller is not None:
             self.controller.changed.connect(self.refresh_transfer)
         self.refresh()
