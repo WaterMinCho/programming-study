@@ -85,8 +85,8 @@ def gui_check(out):
                             raise RuntimeError("창 그림을 저장하지 못했음")
                         screen = win.screen()
                         native_source = "window_id"
-                        if sys.platform == "win32" and win.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
-                            # Windows의 레이어 창은 창 ID 대신 바탕 화면의 해당 영역에서 읽음.
+                        if sys.platform == "win32":
+                            # 창 ID 캡처의 오래된 배경 버퍼를 피하고 실제 바탕 화면 영역을 읽음.
                             desktop = screen.grabWindow(0)
                             ratio = desktop.devicePixelRatioF()
                             origin = win.mapToGlobal(QPoint()) - screen.geometry().topLeft()

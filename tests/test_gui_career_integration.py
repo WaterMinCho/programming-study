@@ -74,7 +74,14 @@ class CareerIntegrationTest(unittest.TestCase):
                 guikit.pump()
                 win.grab().save(str(destination / f"career-wide-short-{mode}.png"))
                 if sys.platform == "win32":
-                    win.screen().grabWindow(int(win.winId())).save(str(destination / f"career-wide-short-{mode}-native.png"))
+                    from PyQt6.QtCore import QPoint
+                    screen = win.screen()
+                    desktop = screen.grabWindow(0)
+                    ratio = desktop.devicePixelRatioF()
+                    origin = win.mapToGlobal(QPoint()) - screen.geometry().topLeft()
+                    native = desktop.copy(round(origin.x()*ratio), round(origin.y()*ratio),
+                                          round(win.width()*ratio), round(win.height()*ratio))
+                    native.save(str(destination / f"career-wide-short-{mode}-native.png"))
             win.resize(760, 480)
             guikit.pump()
             self.assertEqual((win.width(), win.height()), (760, 480))
