@@ -337,3 +337,63 @@ class MixedMockTest(unittest.TestCase):
         results={cid:'pass' if cid!='m4-17' else 'fail' for cid in exam.items}
         with mock.patch.object(mixed_mock,'related_cards',return_value=cards):
             self.assertEqual([],exam._related(results))
+
+    def test_actual_32_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        source=Path(__file__).resolve().parents[1]/'ai'
+        raw=load_secrets(str(source/'mocks/m4')).get('items.json')
+        if raw is None:
+            self.skipTest('초안 문항은 검토 경로에서만 보관함')
+        root=self.root/'snapshot-bank'
+        shutil.copytree(source,root)
+        meta=study.read_json(root/'mocks/m4/meta.json')
+        study.write_text(root/'mocks/m4/meta.json',json.dumps(dict(meta,draft=False)))
+        observed={}
+        for owner in ('intro','app'):
+            with self.subTest(owner=owner):
+                home=str(self.root/('snapshot-home-'+owner))
+                user='synthetic-'+owner
+                sess=service.AiSession(user,home=home,root=str(root),course=owner)
+                sess.collection.set_enabled(True)
+                exam=sess.start_mock('m4',seed=103)
+                other=service.AiSession(user,home=home,root=str(root),course='app' if owner=='intro' else 'intro')
+                self.assertIs(exam,other.start_mock('m4'))
+                self.assertEqual(sess.collection.path,other.collection.path)
+                for position,cid in enumerate(exam.draft['order']):
+                    exam.question(position)
+                    item=exam.items[cid]
+                    values=['검사답안']*len(item['blanks']) if item['kind']=='blank' else [0]
+                    self.tick();exam.save_answer(values,cid)
+                self.assertEqual([],self.rows(sess,'mock_answer'))
+                self.tick();exam.submit()
+                returned=self.rows(sess,'mock_question_returned')
+                answered={r['data']['card']:r for r in self.rows(sess,'mock_answer')}
+                self.assertEqual(32,len(returned))
+                self.assertEqual(32,len(answered))
+                for row in returned:
+                    cid=row['data']['card'];item=exam.items[cid];content=row['item']
+                    for key in ('course','concept','format','transferaxis','conditions','sourcefacts'):
+                        self.assertEqual(item[key],content[key],(owner,cid,key))
+                    self.assertEqual('mixed',content['scope'])
+                    self.assertEqual('author',content['classification_basis'])
+                    self.assertEqual(item['course'],row['data']['course'])
+                    self.assertEqual(int(item['lesson'][1:]),content['course_no'])
+                    self.assertEqual(103,content['seed'])
+                    self.assertEqual(row['item_revision'],answered[cid]['item_revision'])
+                    for hidden in ('answer','allowed_answers','explain','ok'):
+                        self.assertNotIn(hidden,content)
+                    for option in content['options']:
+                        self.assertNotIn('ok',option)
+                    for blank in content['blanks']:
+                        self.assertNotIn('answer',blank)
+                prepared=dataset.prepare(sess.collection.snapshot())
+                self.assertEqual(32,len(prepared))
+                self.assertTrue(all(not r['features']['sequence_history'] for r in prepared))
+                self.assertEqual([16,16],[r['data']['of'] for r in self.rows(sess,'mock_submit')])
+                observed[owner]={'fingerprint':exam.fingerprint,'order':list(exam.draft['order']),
+                                 'revisions':{r['data']['card']:r['item_revision'] for r in returned}}
+        self.assertEqual({'intro','app'},set(observed))
+        self.assertEqual(observed['intro'],observed['app'])
+        self.actual_snapshot_receipt={'items':32,'starting_courses':['intro','app'],
+                                      'same_fingerprint_order_revisions':True,'author_metadata_preserved':True,
+                                      'pre_submit_answers_absent':True,'same_exam_future_history_absent':True,
+                                      'qa_copy_only_draft_false':True,'runtime':observed}
