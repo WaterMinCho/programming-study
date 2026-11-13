@@ -57,6 +57,64 @@ class PrivateSubmissionTest(unittest.TestCase):
             self.assertEqual(1, db.execute("SELECT count(*) FROM api_submissions").fetchone()[0])
             self.assertIsNone(db.execute("SELECT pr_url FROM api_submissions").fetchone()[0])
 
+    def test_exact_file_byte_limit_is_accepted(self):
+        from learning_data.submission import MAX_BYTES
+        client = self.client()
+        client.connect_open("https://example.test")
+        path = self.repo / "submissions/tester/r01/quiz.py"
+        path.write_bytes(("가" * (MAX_BYTES // 3)).encode("utf-8") + b"x" * (MAX_BYTES % 3))
+        self.assertEqual("ok", client.submit()["status"])
+        self.assertEqual(MAX_BYTES, path.stat().st_size)
+
+    def test_raw_file_over_limit_stays_local(self):
+        from learning_data.submission import MAX_BYTES
+        client = self.client()
+        client.connect_open("https://example.test")
+        path = self.repo / "submissions/tester/r01/quiz.py"
+        path.write_bytes(b"x" * (MAX_BYTES + 1))
+        with mock.patch.object(client, "transport") as transport:
+            with self.assertRaises(CollectionError):
+                client.submit()
+            transport.assert_not_called()
+        self.assertFalse(client.pending_path.exists())
+        self.assertEqual(MAX_BYTES + 1, path.stat().st_size)
+
+    def test_escaped_request_over_limit_is_not_sent_or_left_pending(self):
+        from learning_data.submission import MAX_BYTES
+        client = self.client()
+        client.connect_open("https://example.test")
+        path = self.repo / "submissions/tester/r01/quiz.py"
+        path.write_bytes(b"\n" * MAX_BYTES)
+        with mock.patch.object(client, "transport") as transport:
+            with self.assertRaisesRegex(CollectionError, "6MiB"):
+                client.submit()
+            transport.assert_not_called()
+        self.assertFalse(client.pending_path.exists())
+        self.assertEqual(MAX_BYTES, path.stat().st_size)
+        path.write_text("ANSWERS = {'q1': 4}\n")
+        self.assertEqual("ok", client.submit()["status"])
+
+    def test_old_oversized_pending_request_does_not_block_corrected_answer(self):
+        import uuid
+        from learning_data.collection import digest
+        from learning_data.submission import MAX_BYTES
+        client = self.client()
+        client.connect_open("https://example.test")
+        files = {"r01/quiz.py": "\n" * MAX_BYTES}
+        identifier = str(uuid.uuid4())
+        client.save({"participant": client.settings()["participant"], "request_id": identifier,
+                     "files": files, "digest": digest({"files": files, "request": identifier})}, client.pending_path)
+        transport = client.transport
+        with mock.patch.object(client, "transport", wraps=transport) as send:
+            with self.assertRaises(CollectionError) as caught:
+                client.submit()
+            self.assertEqual(413, caught.exception.status)
+            self.assertEqual(identifier, send.call_args.args[2]["request_id"])
+            send.assert_called_once()
+        self.assertFalse(client.pending_path.exists())
+        self.assertEqual("ok", client.submit()["status"])
+        self.assertIn("3", (self.repo / "submissions/tester/r01/quiz.py").read_text())
+
     def test_invalid_saved_consent_time_does_not_escape_as_a_value_error(self):
         client = self.client()
         from learning_data.privacy import save

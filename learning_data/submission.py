@@ -13,6 +13,7 @@ from learning_data.collection import CollectionError, NOTICE, digest, inside, pa
 from learning_data.sharing import Sharing, endpoint, request
 
 MAX_BYTES = 4 * 1024 * 1024
+MAX_REQUEST_BYTES = 6 * 1024 * 1024
 SUFFIXES = (".py", ".js", ".json", ".md", ".txt", ".html", ".css", ".ts", ".tsx", ".jsx")
 
 
@@ -291,6 +292,7 @@ class PrivateClient(Client):
         if not files:
             return {"status": "nothing", "message": "아직 제출할 풀이가 없습니다."}
         parts = []
+        saved = None
         if self.pending_path.exists():
             saved = json.loads(self.pending_path.read_text(encoding="utf-8"))
             if saved.get("participant") != config["participant"] or saved.get("digest") != digest({"files": saved.get("files"), "request": saved.get("request_id")}):
@@ -301,10 +303,13 @@ class PrivateClient(Client):
             parts.append({"participant": config["participant"], "request_id": request_id, "files": files,
                           "digest": digest({"files": files, "request": request_id})})
         for part in parts:
+            payload = {"files": part["files"], "request_id": part["request_id"],
+                       "digest": part["digest"], "previous": config.get("last_hash")}
+            if part is not saved and len(packed(payload).encode("utf-8")) > MAX_REQUEST_BYTES:
+                raise CollectionError("줄바꿈·기호를 포함한 전송 크기가 6MiB를 넘습니다. 풀이 파일을 줄인 뒤 다시 제출해 주세요. 로컬 풀이는 유지됩니다.", status=413)
             self.save_active(consent, choice, part, self.pending_path)
             try:
-                result = self.transport(config["url"], "/v1/private/submissions", {"files": part["files"], "request_id": part["request_id"],
-                                        "digest": part["digest"], "previous": config.get("last_hash")}, token=config["token"], timeout=20)
+                result = self.transport(config["url"], "/v1/private/submissions", payload, token=config["token"], timeout=20)
             except CollectionError as error:
                 with consent.lock:
                     if consent.settings().get("choice") == choice:
