@@ -71,3 +71,9 @@ gh api --method POST repos/WaterMinCho/programming-study/statuses/PR_HEAD_SHA -f
 포크 실행에 GitHub 승인이 필요하거나 Mac 검토기가 꺼져 있으면 최종 알림도 늦어집니다. 알림을 멈추려면 **Actions → Slack 스터디 알림 → Disable workflow**를 선택합니다.
 
 [events]: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
+
+## 수집 서버 장애와 복구
+
+스터디 채널에는 수집 서버에서 장애가 발생하거나 복구됐을 때 알림이 올라옵니다. Better Stack에서 확인한 사건을 GitHub Actions가 5분마다 조회합니다. 실행 대기가 길어지면 알림도 늦어질 수 있습니다.
+
+운영자는 저장소 변수 `ROKEY_INCIDENT_RESOURCES`에 감시할 항목을 등록합니다. 예를 들어 `{"health":"monitor:123","internal":"heartbeat:456"}`에서 숫자는 각 항목의 실제 ID입니다. 사건 조회에는 팀 전용 읽기 토큰을 쓰고, 알림은 기존 스터디 채널 웹훅으로 보냅니다. Slack의 수신 확인이 끊긴 경우에는 다음 전송 전에 채널과 커밋 상태의 전송 기록을 대조합니다.
