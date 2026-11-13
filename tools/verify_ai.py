@@ -648,7 +648,7 @@ def check_note_blocks(v, les, terms=None):
                     v.fail(label, 8, "%s 의 %s 블록: %s" % (spot, kind, block["error"]))
                     continue
                 bid = block.get("id")
-                if kind in ("guess", "recall", "rotate", "levels"):
+                if kind in ("guess", "recall", "rotate", "levels", "formula"):
                     if not bid:
                         v.fail(label, 8, "%s 의 %s 블록에 id 가 없습니다." % (spot, kind))
                     elif bid in ids:
@@ -710,6 +710,12 @@ def check_note_blocks(v, les, terms=None):
                     skel_block(v, les, spot, block)
                 elif kind == "levels":
                     check_levels(v, les, unit, step, block, spot, terms)
+                elif kind == "formula":
+                    for field in aibank.FORMULA_TEXT_KEYS[1:]:
+                        v.style(label, "%s 수식 %s" % (spot, field), block[field])
+                    fig = block["figure"]
+                    for text in [fig["caption"], fig["content"]] + [f["text"] for f in fig["frames"]]:
+                        v.style(label, "%s 수식 그림" % spot, text)
             spots = [n for n, b in enumerate(step["blocks"]) if b["kind"] == "levels"]
             level_blocks += len(spots)
             if len(spots) > 1:
@@ -1697,6 +1703,8 @@ def check_figures(v, bank_dir, index, manifest):
             continue
         parsed = aibank.parse_page(study.read_text(os.path.join(pdir, "page.md")), meta.get("sections") or {}, pdir)
         blocks = [b for key in parsed["order"] for s in parsed["units"][key]["steps"] for b in s["blocks"] if b["kind"] == "figure"]
+        blocks += [b["figure"] for key in parsed["order"] for s in parsed["units"][key]["steps"] for b in s["blocks"]
+                   if b["kind"] == "formula" and not b.get("error")]
         for block in blocks:
             path = block["path"]
             if not block["file"] or not os.path.isfile(path):
