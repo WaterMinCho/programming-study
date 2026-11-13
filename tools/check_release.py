@@ -50,7 +50,7 @@ CLOSED_CASES = frozenset(name for name in CASES if ".HomeAndGitTest." in name)
 
 
 def gui_check(out):
-    from PyQt6.QtCore import QT_VERSION_STR, PYQT_VERSION_STR
+    from PyQt6.QtCore import QPoint, Qt, QT_VERSION_STR, PYQT_VERSION_STR
     from PyQt6.QtWidgets import QApplication
     from tests import guikit
 
@@ -73,12 +73,29 @@ def gui_check(out):
                         if shot.isNull() or not shot.save(str(out / (stem + ".png"))):
                             raise RuntimeError("창 그림을 저장하지 못했음")
                         screen = win.screen()
-                        native = screen.grabWindow(int(win.winId()))
+                        native_source = "window_id"
+                        if sys.platform == "win32" and win.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
+                            # Windows의 레이어 창은 창 ID 대신 바탕 화면의 해당 영역에서 읽음.
+                            desktop = screen.grabWindow(0)
+                            ratio = desktop.devicePixelRatioF()
+                            origin = win.mapToGlobal(QPoint()) - screen.geometry().topLeft()
+                            native = desktop.copy(round(origin.x() * ratio), round(origin.y() * ratio),
+                                                  round(win.width() * ratio), round(win.height() * ratio))
+                            native.setDevicePixelRatio(ratio)
+                            native_source = "desktop_region"
+                            image = native.toImage()
+                            colors = {image.pixel(x, y) for x in range(0, image.width(), max(1, image.width() // 24))
+                                      for y in range(0, image.height(), max(1, image.height() // 24))}
+                            if len(colors) < 2:
+                                raise RuntimeError("투명 창의 운영체제 캡처에 화면 내용이 없음")
+                        else:
+                            native = screen.grabWindow(int(win.winId()))
                         if native.isNull() or not native.save(str(out / (stem + "-native.png"))):
                             raise RuntimeError("운영체제 창 그림을 저장하지 못했음")
                         captures.append({"case": case.id(), "window": [win.width(), win.height()],
                                          "screen_available": [screen.availableGeometry().width(), screen.availableGeometry().height()],
                                          "native_capture_complete": screen.availableGeometry().contains(win.frameGeometry()),
+                                         "native_capture_source": native_source,
                                          "device_pixel_ratio": win.devicePixelRatioF(),
                                          "widget_image": [shot.width(), shot.height()],
                                          "native_image": [native.width(), native.height()]})
