@@ -9,7 +9,7 @@ import tempfile
 import threading
 import uuid
 
-POLICY_VERSION = "2026-11-12-v2"
+POLICY_VERSION = "2026-11-13-v3"
 DEFAULT_SERVER = "https://whalstn9.pythonanywhere.com"
 CONTACT = "whalstn9@gmail.com"
 RETENTION = "수집일부터 동의 철회 전까지"
@@ -21,17 +21,23 @@ NOTICE_ROWS = (
     ("제외 항목", "직접 입력한 답안 본문, 이름·이메일·GitHub 로그인 정보는 자동 전송하지 않습니다. 희망 직무는 고르지 않아도 됩니다."),
     ("보관 기간", RETENTION + " 보관합니다. 철회하면 자동 수집·전송을 멈추고 이 기기의 추가 기록과 서버의 비공개 기록을 삭제합니다."),
     ("전송 방법", "동의 후 새로 수집한 기록을 HTTPS로 자동 전송합니다. 오프라인에서는 이 기기에 보관했다가 다시 연결되면 보냅니다. 과거 풀이를 자동으로 가져오지 않습니다."),
-    ("국외 보관", "PythonAnywhere LLP의 미국 서버에 기록을 보관하며 스터디 운영자가 모델 실습 자료를 준비합니다. 전송 항목·목적·보관 기간은 위 내용과 같습니다. 호스팅 문의: support@pythonanywhere.com."),
+    ("비공개 서버 보관", "PythonAnywhere LLP의 비공개 서버에 기록을 보관하며 스터디 운영자가 모델 실습 자료를 준비합니다. 전송 항목·목적·보관 기간은 위 내용과 같습니다. 호스팅 문의: support@pythonanywhere.com."),
     ("선택·철회", "동의를 거부하거나 [내 정보·데이터]에서 철회할 수 있습니다. 문제 학습·로컬 채점은 계속 사용할 수 있습니다. 연결이 끊긴 상태의 서버 삭제는 다시 연결되면 처리합니다."),
     ("풀이 파일 제출", "[풀이 제출]에서 확인하고 보낸 답안 파일·채점·진도는 같은 목적과 기간으로 비공개 서버에 저장합니다. 자동 전송에서는 답안 본문을 제외하며 파일 제출은 직접 선택합니다. 새 풀이와 학습현황을 GitHub에 공개하지 않습니다. 이미 공개한 Git 이력은 유지합니다."),
     ("전달 사본", "이미 연구용으로 전달한 사본·백업의 삭제는 운영자가 철회 기록과 대조해 처리합니다. 관련 문의는 위 이메일로 보내 주세요."),
     ("철회 처리 기록", "삭제한 학습 기록이 다시 전송되지 않도록 인증 폐기 상태와 처리 시각만 남깁니다. 이 정보는 모델 학습 자료로 사용하지 않습니다."),
 )
 POLICY_HASH = hashlib.sha256(json.dumps(NOTICE_ROWS, ensure_ascii=False).encode()).hexdigest()
+SUPPORTED_POLICIES = {POLICY_VERSION: POLICY_HASH, "2026-11-12-v2": '6016ed9fd12583db1dc36efd1984e8781697da85b38680fb845718b912d4557e'}
 AUTO_VERSION = "2026-11-13-auto-v1"
 AUTO_NOTICE = "동의하면 문제 묶음을 채점한 뒤 답안 파일·채점 결과·진도를 비공개 서버에 자동 제출합니다. 프로그램을 시작할 때도 미제출 풀이를 보냅니다. 업데이트 전이나 이 선택 전에 작성한 풀이 파일도 포함됩니다. 사용 목적·보관 기간·철회 방법은 기존 학습 데이터 동의와 같습니다. 끄면 새 자동 제출을 멈추고 기록 자동 전송과 수동 제출은 계속 사용할 수 있습니다."
 AUTO_HASH = hashlib.sha256(AUTO_NOTICE.encode("utf-8")).hexdigest()
 CONSENT_LOCKS = {}
+
+
+def known_policy(value):
+    return (isinstance(value, dict) and value.get("policy") in SUPPORTED_POLICIES
+            and value.get("policy_hash") == SUPPORTED_POLICIES[value["policy"]])
 
 
 def receipt():
@@ -40,10 +46,10 @@ def receipt():
 
 
 def validate_receipt(value, *, automatic=False):
-    if not isinstance(value, dict) or value.get("policy") != POLICY_VERSION or value.get("policy_hash") != POLICY_HASH:
+    if not known_policy(value):
         raise ValueError("현재 동의서의 내용을 확인하고 선택해 주세요.")
     if value.get("accepted") is not True or value.get("overseas") is not True:
-        raise ValueError("수집·이용과 미국 서버 보관에 동의한 기록이 필요합니다.")
+        raise ValueError("수집·이용과 비공개 서버 보관에 동의한 기록이 필요합니다.")
     if not isinstance(value.get("at"), str) or len(value["at"]) > 80:
         raise ValueError("동의 시각을 확인해 주세요.")
     instant = datetime.datetime.fromisoformat(value["at"])
@@ -116,7 +122,7 @@ class Consent:
         value = self.settings()
         if value.get("withdraw_pending"):
             return False
-        return value.get("policy") != POLICY_VERSION or value.get("policy_hash") != POLICY_HASH
+        return not known_policy(value)
 
     def has_private_records(self):
         from learning_data.sharing import Sharing

@@ -71,8 +71,8 @@ class PrivacyGuiTest(HubTest):
             self.assertLessEqual(dialog.width(), min(640, area.width()-32))
             self.assertFalse(dialog.agree.isEnabled())
             self.assertEqual("학습 데이터 제공 동의 (선택)", dialog.research.text())
-            self.assertEqual("서버 보관 동의 (선택)", dialog.overseas.text())
-            self.assertIn("미국 · PythonAnywhere", dialog.storage_hint.text())
+            self.assertEqual("비공개 서버 보관 동의 (선택)", dialog.overseas.text())
+            self.assertEqual("비공개 서버에 보관합니다.", dialog.storage_hint.text())
             self.assertEqual("body", dialog.storage_hint.property("role"))
             for widget in (dialog.agree, dialog.decline, dialog.research, dialog.overseas, dialog.storage_hint):
                 point = widget.mapTo(dialog, QPoint(0, 0))

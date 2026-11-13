@@ -19,6 +19,35 @@ from submission_api import Client
 
 
 class PrivacyTest(unittest.TestCase):
+    def test_v2_consent_survives_server_wording_update_without_resetting_collection(self):
+        from learning_data import privacy
+        old_version = "2026-11-12-v2"
+        old_hash = privacy.SUPPORTED_POLICIES[old_version]
+        with mock.patch.multiple(privacy, POLICY_VERSION=old_version, POLICY_HASH=old_hash):
+            self.consent.choose(True)
+            self.consent.set_auto_submission(True)
+        before = self.consent.path.read_bytes()
+        starts = self.consent.settings()["start"].copy()
+        epochs = {name:store.status()["epoch"] for name,store in self.collections.items()}
+        for store in self.collections.values():
+            store.initialize_distribution()
+            self.assertTrue(store.status()["enabled"])
+            self.assertTrue(store.emit("answer", {"result": "pass", "card": "q1"}))
+        self.assertFalse(self.consent.needs_choice())
+        self.assertFalse(self.consent.needs_auto_choice())
+        result = self.consent.synchronize()
+        self.assertFalse(result["errors"])
+        self.assertGreater(result["sent"], 0)
+        self.assertEqual(before, self.consent.path.read_bytes())
+        self.assertEqual(starts, self.consent.settings()["start"])
+        self.assertEqual(epochs, {name:store.status()["epoch"] for name,store in self.collections.items()})
+        old = self.consent.settings()["receipt"]
+        self.assertEqual(old, privacy.validate_receipt(old, automatic=True))
+        self.assertEqual(privacy.POLICY_VERSION, privacy.receipt()["policy"])
+        invalid = dict(old, policy_hash=privacy.POLICY_HASH)
+        with self.assertRaises(ValueError):
+            privacy.validate_receipt(invalid)
+
     def test_unmocked_http_is_rejected_by_the_fixture(self):
         import urllib.request
         with self.assertRaisesRegex(AssertionError, "외부 서버"):
