@@ -28,8 +28,9 @@ def inspect(folder):
         raise ValueError("선택한 폴더에 manifest.json이 없습니다. 압축을 푼 뒤 recorded-python 또는 synthetic 폴더를 지정해 주세요.")
     raw = path.read_bytes()
     manifest = json.loads(raw)
-    if manifest.get("format") != 1 or manifest.get("features_version") != dataset.FEATURES_VERSION:
-        raise ValueError("현재 공통 입력 버전으로 준비한 자료를 지정해 주세요.")
+    if (manifest.get("format") != 1 or type(manifest.get("features_version")) is not int
+            or manifest["features_version"] not in dataset.SUPPORTED_FEATURES_VERSIONS):
+        raise ValueError("지원하는 공통 입력 버전의 자료를 지정해 주세요.")
     tracks = manifest.get("tracks", [])
     if not tracks or len(set(tracks)) != len(tracks) or any(track not in TRACKS for track in tracks):
         raise ValueError("자료에 포함된 과목 목록을 확인해 주세요.")
@@ -59,7 +60,7 @@ def inspect(folder):
             counts[track][part] = len(rows)
     if path.read_bytes() != raw:
         raise ValueError("확인 도중 자료 버전이 바뀌었습니다. 같은 자료 묶음을 새 폴더에서 확인해 주세요.")
-    report = {"status": "verified", "features_version": dataset.FEATURES_VERSION,
+    report = {"status": "verified", "features_version": manifest["features_version"],
               "synthetic": manifest["synthetic"], "source": manifest["source"], "tracks": counts}
     return report, content, hashlib.sha256(raw).hexdigest()
 
@@ -99,18 +100,18 @@ def write_sample(folder, track, part, size, seed, length, destination):
             raise ValueError("풀이 이력의 길이가 원본과 맞지 않습니다.")
         if not 0 <= count <= length:
             raise ValueError("실제 풀이 이력의 길이를 확인해 주세요.")
-        if any(len(inputs[name][index]) != length for name in ("questions", "courses", "results", "concepts", "mask")):
+        if any(len(inputs[name][index]) != length for name in ("questions", "courses", "results", "concepts", "mask", "difficulties", "difficulty_known")):
             raise ValueError("풀이 이력 배열의 길이가 맞지 않습니다.")
         if mask != [True] * count + [False] * (length - count):
             raise ValueError("실제 이력과 빈 자리의 표시가 맞지 않습니다.")
-        if any(value != 0 for name in ("questions", "courses", "results") for value in inputs[name][index][count:]):
-            raise ValueError("빈 자리에 문제·과정·정오답 값이 들어 있습니다.")
+        if any(value != 0 for name in ("questions", "courses", "results", "difficulties", "difficulty_known") for value in inputs[name][index][count:]):
+            raise ValueError("빈 자리에 문제·과정·정오답·난이도 값이 들어 있습니다.")
         if (any(len(row) != width for row in inputs["concepts"][index]) or
                 any(len(inputs[name][index]) != width for name in ("query_concepts", "query_gap_seconds", "query_gap_known"))):
             raise ValueError("개념 배열의 너비가 번호표와 맞지 않습니다.")
         if any(value != 0 for row in inputs["concepts"][index][count:] for value in row):
             raise ValueError("빈 자리에 개념 값이 들어 있습니다.")
-    value = {"format": 1, "purpose": "input-smoke-test", "features_version": dataset.FEATURES_VERSION,
+    value = {"format": 1, "purpose": "input-smoke-test", "features_version": report["features_version"],
              "synthetic": report["synthetic"], "source_manifest_sha256": source_hash,
              "track": track, "split": part, "seed": seed, "history_length": length,
              "vocabulary": vocabulary, "batch": result}
@@ -118,12 +119,14 @@ def write_sample(folder, track, part, size, seed, length, destination):
     dataset.write_private(target, packed(value) + "\n")
     if json.loads(target.read_text(encoding="utf-8")) != value:
         raise ValueError("샘플을 저장한 뒤 다시 읽어 확인하지 못했습니다.")
-    return {"status": "input_checked", "features_version": dataset.FEATURES_VERSION, "synthetic": report["synthetic"],
+    return {"status": "input_checked", "features_version": report["features_version"], "synthetic": report["synthetic"],
             "track": track, "split": part, "sample_rows": size, "seed": seed,
             "shapes": {"questions": [len(inputs["questions"]), len(inputs["questions"][0])],
                        "concepts": [len(inputs["concepts"]), len(inputs["concepts"][0]), len(inputs["concepts"][0][0])],
                        "mask": [len(inputs["mask"]), len(inputs["mask"][0])],
                        "query_concepts": [len(inputs["query_concepts"]), len(inputs["query_concepts"][0])],
+                       "difficulties": [size, length],
+                       "query_difficulty": [size],
                        "targets": [len(result["targets"])]},
             "empty_histories": sum(count == 0 for count in inputs["lengths"]),
             "truncated_histories": sum(len(row["features"]["sequence_history"]) > length for row in chosen),

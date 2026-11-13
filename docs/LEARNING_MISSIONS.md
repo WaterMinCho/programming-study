@@ -8,7 +8,7 @@ WaterMinCho가 프로그램·서버·공통 자료와 앱 연결을 맡습니다
 
 [단계별 로드맵](LEARNING_ROADMAP.md)에서 앞으로 만들 산출물과 다음 단계로 넘어갈 기준을 확인합니다. 새 코드와 실행 결과에 따라 담당 이슈의 다음 미션을 조정합니다.
 
-처음 참여했다면 [각자 fork에서 첫 PR까지](LEARNING_WORKFLOW.md)를 먼저 따라 합니다. [공통 자료 버전 4와 전달 묶음](LEARNING_STARTER.md#세-팀원이-사용할-자료-판을-맞춥니다)을 확인하고 같은 번호표로 시작합니다. [같은 실제 자료를 받아 샘플링·테스트](LEARNING_DATA_ACCESS.md)한 뒤 본인 폴더에서 모델을 만듭니다. 입력 확인 문서만 먼저 보내는 별도 PR은 필요하지 않습니다. 이 문서에서는 각 모델과 비교 방법을 그림으로 확인합니다. 작업·질문·검토는 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2/views/1)와 이슈·PR에서 이어갑니다.
+처음 참여했다면 [각자 fork에서 첫 PR까지](LEARNING_WORKFLOW.md)를 먼저 따라 합니다. [공통 입력 버전과 공유 자료](LEARNING_STARTER.md#세-팀원이-사용할-자료-판을-맞춥니다)을 확인하고 같은 번호표로 시작합니다. [같은 실제 자료를 받아 샘플링·테스트](LEARNING_DATA_ACCESS.md)한 뒤 본인 폴더에서 모델을 만듭니다. 입력 확인 문서만 먼저 보내는 별도 PR은 필요하지 않습니다. 이 문서에서는 각 모델과 비교 방법을 그림으로 확인합니다. 작업·질문·검토는 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2/views/1)와 이슈·PR에서 이어갑니다.
 
 | 담당 | 맡은 일 |
 |---|---|
@@ -34,6 +34,10 @@ WaterMinCho가 프로그램·서버·공통 자료와 앱 연결을 맡습니다
 빈 자리의 값만 바꿔 비교할 때는 [`model.eval()`](https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html#torch.nn.Module.eval)로 평가 모드를 켜고 같은 모델·입력으로 확인합니다. 바꿀 값은 번호표 안의 유효한 값으로 고릅니다. 학습 때 일부 값을 무작위로 빼는 Dropout이 비교 결과에 섞이지 않도록 합니다. 평가 모드를 켜는 것과 가중치를 학습하는 것은 구분합니다.
 
 모델에 전달하는 함수에는 `inputs`만 넘깁니다. `targets`는 이번 정답이므로 예측을 마친 뒤 오차를 계산할 때 사용합니다. michae18과 wamangdoo의 기본 모델에는 시간 간격을 넣지 않습니다.
+
+공통 입력 버전 5는 이전 문제의 `difficulties`와 현재 문제의 `query_difficulty`도 제공합니다. 출제 난이도는 1~3이며 미확인 값은 0입니다. `difficulty_known`과 `query_difficulty_known`으로 값이 확인됐는지 구분합니다. 기존 버전 4 자료도 읽을 수 있고, 기록에 난이도가 없으면 미확인으로 남습니다.
+
+기본 모델이 동작하면 같은 자료 분할과 설정에서 난이도를 넣고 뺀 결과를 비교합니다. 세 모델을 비교할 때도 난이도 사용 여부를 맞춥니다. 실제 정답률로 난이도를 다시 정하는 작업은 별도 실험으로 남깁니다.
 
 <details>
 <summary>빈 이력과 PyTorch의 mask를 처리할 때</summary>

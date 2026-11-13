@@ -11,7 +11,16 @@ from collections import deque
 
 from learning_data.collection import inside, packed
 
-FEATURES_VERSION = 4
+FEATURES_VERSION = 5
+SUPPORTED_FEATURES_VERSIONS = (4, FEATURES_VERSION)
+
+
+def author_difficulty(item, track=None):
+    """출제 난이도만 읽고 값이 없으면 미확인으로 남김."""
+    value = item.get("difficulty", item.get("level") if track == "python" else None)
+    if value is not None and (type(value) is not int or not 1 <= value <= 3):
+        raise ValueError("출제 난이도는 1~3 또는 미확인 값으로 지정해 주세요.")
+    return value
 
 
 def question_key(row):
@@ -167,6 +176,7 @@ def prepare(events, synthetic=None):
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
                            "sequence": row["sequence"], "at": row["at"], "session": session, "question_id": card,
                            "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
+                           "difficulty": author_difficulty(item, row["track"]),
                            "goal": data.get("goal"), **course_fields(row["track"], item, data),
                            "synthetic": row["synthetic"], "data_source": row["data_source"],
                            "provenance": data.get("provenance", "collected"),
@@ -177,7 +187,8 @@ def prepare(events, synthetic=None):
                            "target": target})
         observed[answer_key(row)] = tags
         entry = {"event_id": row["event_id"], "question_id": card, "question_revision": row.get("item_revision"),
-                 "concepts": tags, "result": target, "at": row["at"], **course_fields(row["track"], item, data)}
+                 "concepts": tags, "result": target, "at": row["at"],
+                 "difficulty": author_difficulty(item, row["track"]), **course_fields(row["track"], item, data)}
         updates = [(tags, target, row["at"], entry)]
         if is_mock:
             pending.setdefault(mock_key(row), []).extend(updates)
@@ -235,7 +246,7 @@ def synthetic_events():
                 rows.append({"participant": participant, "track": track, "sequence": day, "synthetic": True,
                              "event_id": str(uuid.uuid5(uuid.UUID(participant), "%s-%d" % (track, day))),
                              "at": "2026-01-%02dT10:00:00+00:00" % day, "kind": "answer", "item_revision": "0" * 64,
-                             "item": {"card": track + "-demo", "tags": ["demo"]},
+                             "item": {"card": track + "-demo", "tags": ["demo"], "difficulty": 2},
                              "data": {"set": "demo-%d" % day, "card": track + "-demo", "again": 0,
                                       "result": "pass" if (person + day) % 3 else "stuck", "first_in_set": True,
                                       "prediction_at": "2026-01-%02dT10:00:00+00:00" % day}})
