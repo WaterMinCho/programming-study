@@ -24,6 +24,7 @@ check_level_figure 가 여기서 봄.
 """
 import argparse
 import ast
+import collections
 import json
 import math
 import os
@@ -200,6 +201,8 @@ def check_index(v, bank_dir):
                                                                                             and mock["range"][1] <= nos[-1])):
             v.fail("index", 1, "%s 의 range 가 차시 범위가 아닙니다: %s" % (mock["id"], mock["range"]))
         days = [review.parse_day(d) for d in mock["window"]]
+        if mock["id"] == "m4" and mock.get("scope") == "mixed" and not days:
+            continue
         if len(days) != 2 or None in days or days[0] > days[1]:
             v.fail("index", 1, "%s 의 window 는 [시작, 끝] 날짜여야 합니다." % mock["id"])
         elif exam["date"] and days[1] >= exam["date"]:
@@ -1546,10 +1549,12 @@ def _mock_evidence(v, label, item, sources):
         if not isinstance(refs, list) or not refs or not all(isinstance(ref, str) and ref for ref in refs):
             v.fail(label, 12, "%s의 ref는 비어 있지 않은 근거 목록이어야 합니다." % cid)
         else:
+            recorded = {ref for fid in fids for ref in facts.get(fid, {}).get("where", [])}
             for ref in refs:
-                if ref_kind(ref)[0] is None:
+                if ref_kind(ref)[0] is None and not (label == "m4" and ref.startswith("https://") and ref in recorded):
                     v.fail(label, 9, "%s의 ref 형식을 읽지 못합니다: %s" % (cid, ref))
-            if not first_ref_ok(refs[0], lesson_no(lid), aibank.course_of(lid)):
+            documented = label == "m4" and refs[0] in recorded and (ref_kind(refs[0])[0] == "doc" or refs[0].startswith("https://"))
+            if not first_ref_ok(refs[0], lesson_no(lid), aibank.course_of(lid)) and not documented:
                 v.fail(label, 9, "%s의 첫 ref는 %s의 강의·과제·요약 근거여야 합니다." % (cid, lid))
         les = Lesson({"id": label}, None, {"facts": facts, "errata": errata}, [])
         card = {"id": cid, "kind": item["kind"], "item": item, "facts": fids, "errata": item.get("errata") or []}
@@ -1568,9 +1573,114 @@ def _mock_evidence(v, label, item, sources):
         v.fail(label, 12, "%s의 차시 근거를 읽지 못합니다: %s" % (cid, error))
 
 
+MIXED_BLUEPRINT = dict({"i%02d" % n: 1 for n in range(1, 18) if n != 10}, a01=5, a02=6, a03=5)
+
+
+def _mixed_mock_problems(entry, meta, items, sources):
+    """m4의 실제 문항 배분과 명시한 분류를 대조함. 초안도 검사함."""
+    out = []
+    expected = {"scope": "mixed", "courses": ["intro", "app"], "count": 32, "minutes": 120,
+                "course_counts": {"intro": 16, "app": 16}, "blueprint": MIXED_BLUEPRINT, "range": [1, 17]}
+    for name, data in (("index", entry), ("meta.json", meta)):
+        for key, value in expected.items():
+            if data.get(key) != value or (key in ("count", "minutes") and type(data.get(key)) is not int):
+                out.append("m4 %s의 %s가 혼합 배분과 일치하지 않습니다." % (name, key))
+        declared = data.get("blueprint")
+        if isinstance(declared, dict) and any(type(n) is not int for n in declared.values()):
+            out.append("m4 %s의 blueprint 값은 정수여야 합니다." % name)
+    revision = entry.get("blueprint_revision")
+    if not isinstance(revision, str) or not revision.strip() or meta.get("blueprint_revision") != revision:
+        out.append("m4의 blueprint_revision이 없거나 서로 일치하지 않습니다.")
+    if type(meta.get("format")) is not int or meta.get("format") != 1 or meta.get("id") != "m4":
+        out.append("m4 meta.json의 format=1과 id=m4를 확인하세요.")
+    if type(meta.get("draft")) is not bool:
+        out.append("m4 meta.json의 draft는 bool이어야 합니다.")
+    if not isinstance(meta.get("time_basis"), str) or not meta["time_basis"].strip():
+        out.append("m4의 time_basis에 연습 기본 시간의 근거를 적으세요.")
+    for field, expected_counts in (("course", {"intro": 16, "app": 16}), ("lesson", MIXED_BLUEPRINT),
+                                   ("kind", {"blank": 16, "choice": 16}), ("level", {1: 8, 2: 16, 3: 8})):
+        counts = collections.Counter(item.get(field) for item in items if isinstance(item.get(field), (str, int)))
+        if counts != expected_counts:
+            out.append("m4의 실제 %s 배분이 일치하지 않습니다: %s" % (field, dict(counts)))
+    if sorted(item["id"] for item in items) != ["m4-%02d" % n for n in range(1, 33)]:
+        out.append("m4의 문항 ID는 m4-01부터 m4-32까지 한 번씩 사용하세요.")
+    for item in items:
+        cid, lid = item["id"], item.get("lesson")
+        lesson = sources.entries.get(lid) if isinstance(lid, str) else None
+        if (not lesson or lid not in MIXED_BLUEPRINT or lesson.get("course") != item.get("course")
+                or aibank.course_of(lid) != item.get("course")):
+            out.append("%s의 course·lesson이 개론 1~17차시·응용 1~3차시와 일치하지 않습니다." % cid)
+        for key in ("concept", "family", "format", "transferaxis", "level_reason"):
+            if not isinstance(item.get(key), str) or not item[key].strip():
+                out.append("%s의 %s는 비어 있지 않은 글이어야 합니다." % (cid, key))
+        conditions = item.get("conditions")
+        if not isinstance(conditions, list) or not conditions or not all(isinstance(c, str) and c.strip() for c in conditions):
+            out.append("%s의 conditions는 비어 있지 않은 조건 목록이어야 합니다." % cid)
+        if item.get("blueprint_revision") != revision:
+            out.append("%s의 blueprint_revision이 회차와 일치하지 않습니다." % cid)
+        if type(item.get("deep", False)) is not bool or type(item.get("multi", False)) is not bool:
+            out.append("%s의 deep·multi는 bool이어야 합니다." % cid)
+        if item["kind"] == "blank" and item.get("allowed_answers") != [b.get("answer") for b in item["blanks"]]:
+            out.append("%s의 allowed_answers가 빈칸의 허용 답과 일치하지 않습니다." % cid)
+    return out
+
+
+def _mixed_duplicates(items, exams):
+    """기존 회차와 지문·보기 중복만 비교함. 세 회의 사실 사용 제한은 유지함."""
+    seen, out = {}, []
+    for group in list(exams.values()) + [items]:
+        for item in group:
+            key = ai_mock_rules.question_key(item)
+            if key in seen and (item in items or seen[key].startswith("m4-")):
+                out.append("회차 간 같은 문항입니다: %s / %s" % (seen[key], item["id"]))
+            seen[key] = item["id"]
+    return out
+
+
+def _mixed_mock_evidence(v, label, item, sources):
+    """보조 차시까지 사실 목록을 대조하며 정정·미확인 사실을 제외함."""
+    cid = item["id"]
+    try:
+        related = item.get("related_sources")
+        if not isinstance(related, list):
+            raise ValueError("related_sources는 차시·사실 목록이어야 합니다.")
+        groups = [{"lesson": item.get("lesson"), "facts": item.get("facts")}] + related
+        expected = []
+        for group in groups:
+            lid, fids = group["lesson"], group["facts"]
+            if (lid not in sources.entries or not re.fullmatch(r"i(?:0[1-9]|1[0-7])|a0[1-3]", lid)
+                    or not isinstance(fids, list) or not fids or not all(isinstance(f, str) for f in fids)):
+                raise ValueError("sourcefacts의 차시·사실이 공개 범위와 일치하지 않습니다.")
+            data, note = sources.source(lid), sources.note(lid)
+            covered = {fid for unit in note["units"].values() for step in unit["steps"] for fid in step["facts"]}
+            for fid in fids:
+                expected.append({"lesson": lid, "id": fid})
+                fact = data["facts"].get(fid)
+                if not fact or fid not in covered:
+                    raise ValueError("%s/%s를 사실 목록과 공개 학습 단계에서 찾지 못했습니다." % (lid, fid))
+                if fid in sources.errata_facts or fact.get("errata"):
+                    raise ValueError("정정 근거 사실 %s/%s를 사용합니다." % (lid, fid))
+            les = Lesson({"id": label}, None, data, [])
+            check_facts(v, les, {"id": cid, "kind": item["kind"], "item": item, "facts": fids, "errata": []}, set())
+            for fid in fids:
+                fact = data["facts"][fid]
+                if fact.get("verdict") not in VERDICTS:
+                    raise ValueError("%s/%s의 verdict를 모릅니다." % (lid, fid))
+                if fact.get("concept_only") and ((item["kind"] == "blank" and any(
+                        ai_mock_rules.numeric_blank(b) for b in item["blanks"])) or
+                        (item["kind"] == "choice" and ai_mock_rules.numeric_choices(item))):
+                    raise ValueError("concept_only 사실 %s/%s를 숫자·모양으로 묻습니다." % (lid, fid))
+        if item.get("sourcefacts") != expected:
+            raise ValueError("sourcefacts가 주 차시·보조 차시의 사실 목록과 일치하지 않습니다.")
+    except (aibank.AiBankError, ValueError, TypeError, KeyError) as error:
+        v.fail(label, 12, "%s의 혼합 근거를 읽지 못합니다: %s" % (cid, error))
+
+
 def check_mock(v, bank_dir, mock, ids, sources=None):
-    """작은 회차의 기본 꼴과 m1~m3의 배분·근거·연습 및 회차 간 겹침을 확인함."""
-    label, strict = mock["id"], mock["id"] in ai_mock_rules.LESSON_COUNTS
+    """회차별 배분·근거·연습 및 회차 간 겹침을 확인함."""
+    label = mock["id"]
+    mixed = label == "m4"
+    strict = mixed or label in ai_mock_rules.LESSON_COUNTS
     v.head(label, mock["title"])
     try:
         meta, raw_items = _mock_payload(bank_dir, label)
@@ -1640,18 +1750,24 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
             except (aibank.AiBankError, ValueError) as error:
                 v.fail(label, 12, "모의고사 비교 자료를 읽지 못합니다: %s" % error)
                 return None
-        for message in ai_mock_rules.exam_problems(label, mock, meta, items, sources.skeletons):
+        problems = (_mixed_mock_problems(mock, meta, items, sources) if mixed else
+                    ai_mock_rules.exam_problems(label, mock, meta, items, sources.skeletons))
+        for message in problems:
             v.fail(label, 12, message)
         try:
             practice = sources.practice_stems()
             for message in ai_mock_rules.practice_problems(items, practice):
                 v.fail(label, 12, message)
-            for message in ai_mock_rules.cross_problems(label, sources.other_exams()):
+            exams = sources.other_exams()
+            cross = (_mixed_duplicates(items, exams) if mixed else ai_mock_rules.cross_problems(label, exams))
+            for message in cross:
                 v.fail(label, 12, message)
         except (aibank.AiBankError, genlib.GenError, OSError, ValueError, TypeError, KeyError) as error:
             v.fail(label, 12, "모의고사 비교 자료를 읽지 못합니다: %s" % error)
         for item in items:
             _mock_evidence(v, label, item, sources)
+            if mixed:
+                _mixed_mock_evidence(v, label, item, sources)
     data = {"dir": aibank.mock_dir(label, bank_dir), "items": items, "topics": [], "facts": {}, "errata": {}, "sources": {}, "gens": []}
     try:
         return Lesson({"id": label}, None, data, aibank.cards_of({"id": label}, data))
@@ -2098,6 +2214,14 @@ def signature_step(v, bank_dir, label, folder, lessons=None, patterns=False):
     o = v.opts
     if not (o.sign or o.require_review):
         return
+    if label == "m4":
+        try:
+            if study.read_json(os.path.join(folder, "meta.json")).get("draft") is not False:
+                v.fail(label, 16, "m4는 초안 상태입니다. 최종 검토 뒤 draft를 해제하고 서명하세요.")
+                return
+        except (OSError, ValueError, AttributeError) as error:
+            v.fail(label, 16, "m4 초안 상태를 읽지 못합니다: %s" % error)
+            return
     try:
         secrets = webbank.load_secrets(folder)
     except webbank.BankError as error:

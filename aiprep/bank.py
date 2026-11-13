@@ -118,6 +118,9 @@ def read_index(root=None):
             mocks.append({"id": mid, "title": str(item["title"]), "minutes": int(item.get("minutes", 60)),
                           "count": int(item.get("count", 30)), "range": [int(x) for x in item.get("range", [1, 17])],
                           "window": [str(x) for x in item.get("window", [])]})
+            for key in ("scope", "courses", "course_counts", "blueprint", "blueprint_revision"):
+                if key in item:
+                    mocks[-1][key] = item[key]
     except (KeyError, TypeError, ValueError) as error:
         raise AiBankError("%s 의 형식이 맞지 않습니다: %s" % (INDEX_NAME, webbank._why(error)))
     return {"pages": web["pages"], "order": web["order"], "exam": exam, "lessons": lessons, "patterns": patterns,

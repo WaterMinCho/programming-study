@@ -56,6 +56,7 @@
  "mocks": [
   {"id": "m1", "title": "모의고사 1회", "minutes": 60, "count": 30, "range": [1, 12], "window": ["2026-11-14", "2026-11-16"]},
   {"id": "m2", "title": "모의고사 2회", "minutes": 60, "count": 30, "range": [1, 17], "window": ["2026-11-21", "2026-11-23"]},
-  {"id": "m3", "title": "모의고사 3회", "minutes": 60, "count": 30, "range": [1, 17], "window": ["2026-11-27", "2026-11-29"]}
+  {"id": "m3", "title": "모의고사 3회", "minutes": 60, "count": 30, "range": [1, 17], "window": ["2026-11-27", "2026-11-29"]},
+  {"id": "m4", "title": "개론·응용 혼합 모의고사", "minutes": 120, "count": 32, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 16, "app": 16}, "blueprint": {"i01": 1, "i02": 1, "i03": 1, "i04": 1, "i05": 1, "i06": 1, "i07": 1, "i08": 1, "i09": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i15": 1, "i16": 1, "i17": 1, "a01": 5, "a02": 6, "a03": 5}, "blueprint_revision": "mixed32-blueprint-v1"}
  ]
 }

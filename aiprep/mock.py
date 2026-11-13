@@ -17,7 +17,7 @@ import time
 
 import study
 import session
-from aiprep import bank, grade
+from aiprep import bank, grade, mixed_mock
 from learning_data import collection
 from webprep import bank as webbank
 from webprep import record
@@ -38,8 +38,8 @@ def _now():
     return datetime.datetime.now().astimezone()
 
 
-def load_items(root, spec):
-    """봉인한 회차의 문항과 채점에 쓰는 판 해시를 읽음."""
+def load_items(root, spec, lessons=None):
+    """회차의 문항과 채점 버전 해시를 읽음."""
     folder = bank.mock_dir(spec["id"], root)
     try:
         meta = study.read_json(os.path.join(folder, "meta.json"))
@@ -48,6 +48,8 @@ def load_items(root, spec):
             raise ValueError("문항 수가 목록과 맞지 않습니다")
         if type(spec["minutes"]) is not int or spec["minutes"] <= 0:
             raise ValueError("제한 시간이 맞지 않습니다")
+        if mixed_mock.candidate(spec):
+            mixed_mock.validate(spec, meta, items, lessons)
         ids = [item["id"] for item in items]
         if len(set(ids)) != len(ids) or not all(isinstance(cid, str) and cid for cid in ids):
             raise ValueError("문항 id가 비었거나 겹칩니다")
@@ -63,6 +65,10 @@ def load_items(root, spec):
                                for blank in item.get("blanks") or []],
                        options=[{key: option.get(key) for key in ("text", "ok")} for option in item.get("options") or []])
                   for item in items]
+        if mixed_mock.candidate(spec):
+            stable = {"items": stable, "blueprint_revision": spec["blueprint_revision"],
+                      "classification": [{k: i.get(k) for k in ("id", "course", "lesson", "family", "concept", "format",
+                                                               "level", "transferaxis", "conditions", "sourcefacts")} for i in items]}
         fingerprint = hashlib.sha256(json.dumps(stable, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
     except (OSError, ValueError, KeyError, TypeError, AttributeError, webbank.BankError) as error:
         raise MockError("모의고사 자료를 읽을 수 없습니다. %s" % error) from error
@@ -85,7 +91,10 @@ class MockExam:
             self.spec = dict(session.mocks[mid])
         except KeyError as error:
             raise MockError("모의고사를 찾을 수 없습니다.") from error
-        self.items, self.fingerprint = load_items(session.root, self.spec)
+        self.items, self.fingerprint = load_items(session.root, self.spec, getattr(session, "mock_lessons", None))
+        self.mixed = mixed_mock.candidate(self.spec)
+        if self.mixed:
+            self.lock = mixed_mock.lock(session, mid)
         self.local_answers = True
         self.pending_inputs = {}
         self.recovered_draft = False
@@ -129,11 +138,13 @@ class MockExam:
                 self.result = None
                 self._write_draft()
                 try:
-                    started_row = session.record.append({"kind": "mock_start", "mock": mid, "try": self.attempt,
-                                                          "seed": self.draft["seed"], 'fingerprint': self.fingerprint}, at=started.isoformat())
+                    started_row = session.record.append(dict({"kind": "mock_start", "mock": mid, "try": self.attempt,
+                                                          "seed": self.draft["seed"], 'fingerprint': self.fingerprint}, **self.scope_fields()), at=started.isoformat())
                 except record.RecordError as error:
                     raise MockError(str(error)) from error
-                if hasattr(session, "_collect_record"):
+                if self.mixed:
+                    session._collect_mixed_record(self, started_row)
+                elif hasattr(session, "_collect_record"):
                     session._collect_record(started_row)
             self._anchor = self.monotonic()
             self._budget = self._wall_remaining()
@@ -141,7 +152,29 @@ class MockExam:
                 self.submit(auto=True)
 
     def _path(self):
-        return os.path.join(self.sess.home, "mocks", "%s-%d.json" % (self.id, self.attempt))
+        home = self.sess.mock_home if self.mixed else self.sess.home
+        return os.path.join(home, "mocks", "%s-%d.json" % (self.id, self.attempt))
+
+    def scope_fields(self):
+        if not self.mixed:
+            return {}
+        return {"scope": "mixed", "courses": list(self.spec["courses"]),
+                "item_courses": {cid: i["course"] for cid, i in self.items.items()},
+                "blueprint_revision": self.spec["blueprint_revision"]}
+
+    def collection_item(self, cid):
+        item = self.items[cid]
+        metadata = {"card": cid, "lesson": item.get("lesson"), "family": item.get("family"),
+                    "tags": item.get("tags") or [], "difficulty": item.get("level"),
+                    "option_order": self.draft["shuffle"][cid],
+                    "terms_revision": getattr(self.sess, "collection_terms_revision", None)}
+        if self.mixed:
+            metadata.update(course=item["course"], course_no=self.sess.mock_lessons[item["lesson"]]["no"],
+                            scope="mixed", seed=self.draft["seed"], blueprint_revision=self.spec["blueprint_revision"],
+                            concept=item.get("concept"), format=item.get("format"), transferaxis=item.get("transferaxis"),
+                            conditions=item.get("conditions") or [], sourcefacts=item.get("sourcefacts") or [],
+                            classification_basis="author")
+        return collection.question(item, **metadata)
 
     def _log(self):
         try:
@@ -205,7 +238,8 @@ class MockExam:
             if self.draft["answers"][cid] != original:
                 self.sess.collect_event("ai_input", {"mock": self.id, "try": self.attempt, "card": cid,
                                                      "input_schema": collection.AI_INPUT_SCHEMA},
-                                        observation_context=self.draft["collection_observations"][cid])
+                                        observation_context=self.draft["collection_observations"][cid],
+                                        **({"_mock_exam": self} if self.mixed else {}))
         self.pending_inputs.clear()
 
     def _wall_remaining(self):
@@ -308,11 +342,9 @@ class MockExam:
         if self.result is None and hasattr(self.sess, "collect_event"):
             self.sess.collect_event("mock_question_returned", {"mock": self.id, "try": self.attempt, "card": cid, "position": position,
                                                            "input_schema": collection.AI_INPUT_SCHEMA},
-                                    item=lambda: collection.question(item, card=cid, lesson=item.get("lesson"),
-                                                                     family=item.get("family"), tags=item.get("tags") or [], difficulty=item.get("level"),
-                                                                     option_order=self.draft["shuffle"][cid],
-                                                                     terms_revision=getattr(self.sess, "collection_terms_revision", None)),
-                                    key="mock-question:%s:%d:%s:%s" % (self.id, self.attempt, self.fingerprint, cid))
+                                    item=lambda: self.collection_item(cid),
+                                    key="mock-question:%s:%d:%s:%s" % (self.id, self.attempt, self.fingerprint, cid),
+                                    **({"_mock_exam": self} if self.mixed else {}))
         return {"card": cid, "kind": item["kind"], "stem": item["stem"], "lesson": item.get("lesson"),
                 "step": item.get("step"), "at": position + 1, "total": len(self.items), "code": "```" in item["stem"],
                 "code_options": bool(item.get("code_options")), "grid": int(item.get("grid") or 1),
@@ -320,7 +352,8 @@ class MockExam:
                 "blanks": [{"mode": b.get("mode", "word"), "hint": b.get("hint", "")} for b in item.get("blanks") or []],
                 "options": [{"no": n, "text": item["options"][n]["text"]} for n in self.draft["shuffle"][cid]],
                 "mine": list(self.draft["answers"].get(cid, [])) if self.local_answers else None,
-                "flagged": cid in self.draft["flags"]}
+                "flagged": cid in self.draft["flags"],
+                **({"course": item["course"], "course_no": self.sess.mock_lessons[item["lesson"]]["no"]} if self.mixed else {})}
 
     def answered(self, cid):
         value = self.draft["answers"].get(cid) or []
@@ -335,14 +368,23 @@ class MockExam:
         if submissions(self._log(), self.id):
             return []
         cards, out = getattr(self.sess, 'cards', {}), []
+        if self.mixed:
+            cards = mixed_mock.related_cards(self.sess)
         for cid in self.draft['order']:
             if results[cid] == 'pass':
                 continue
             item = self.items[cid]
             family, tags = item.get('family'), set(item.get('tags') or [])
             choices = [card for card in cards.values() if not card.get('mock') and card['id'] not in out
+                       and (not self.mixed or bank.course_of(card.get('lesson')) == item['course'])
                        and (family and card.get('family') == family or tags & set(card.get('tags') or []))]
             choices.sort(key=lambda card: (card.get('family') != family, -len(tags & set(card.get('tags') or [])), card['id']))
+            if not choices and self.mixed:
+                facts = set(item.get('facts') or [])
+                choices = [card for card in cards.values() if not card.get('mock') and not card.get('errata')
+                           and card['id'] not in out and bank.course_of(card.get('lesson')) == item['course']
+                           and card.get('lesson') == item.get('lesson') and facts & set(card.get('facts') or [])]
+                choices.sort(key=lambda card: (-len(facts & set(card.get('facts') or [])), card['id']))
             if choices:
                 out.append(choices[0]['id'])
         return out
@@ -369,6 +411,7 @@ class MockExam:
                      "score": sum(value == "pass" for value in results.values()), "of": len(results),
                      "secs": min(self.draft["duration"], max(0, round(elapsed))), "auto": bool(auto or self.remaining() <= 0),
                      "seed": self.draft["seed"], 'fingerprint': self.fingerprint}
+            event.update(self.scope_fields())
             event['related'] = self._related(results)
             try:
                 self.result = self.sess.record.append(event, at=_moment(self.clock()).isoformat())
@@ -381,7 +424,12 @@ class MockExam:
                 partial = dict(self.result, results={cid: results[cid] for cid in included}, of=len(included),
                                score=sum(results[cid] == "pass" for cid in included), scope="current_consent",
                                omitted_before_consent=len(results) - len(included), related=[])
-                self.sess._collect_record(partial, observation_context=consent)
+                if self.mixed:
+                    partial["collection_scope"] = partial.pop("scope")
+                    partial["scope"] = "mixed"
+                    self.sess._collect_mixed_record(self, partial, observation_context=consent)
+                else:
+                    self.sess._collect_record(partial, observation_context=consent)
                 for position, cid in enumerate(self.draft["order"]):
                     item = self.items[cid]
                     context = self.draft.get("collection_observations", {}).get(cid)
@@ -392,12 +440,10 @@ class MockExam:
                                                            "response": list(self.draft["answers"].get(cid) or []) if cid in included else None,
                                                            "result": results[cid] if cid in included else "not_collected",
                                                            "secs": None, "auto": event["auto"]},
-                                            item=lambda item=item, cid=cid: collection.question(item, card=cid, lesson=item.get("lesson"),
-                                                                                               family=item.get("family"), tags=item.get("tags") or [], difficulty=item.get("level"),
-                                                                                               option_order=self.draft["shuffle"][cid],
-                                                                                               terms_revision=getattr(self.sess, "collection_terms_revision", None)),
+                                            item=lambda cid=cid: self.collection_item(cid),
                                             key="mock-answer:%s:%d:%s:%s" % (self.id, self.attempt, self.fingerprint, cid),
-                                            at=self.result["at"], observation_context=context)
+                                            at=self.result["at"], observation_context=context,
+                                            **({"_mock_exam": self} if self.mixed else {}))
             return dict(self.result)
 
     def summary(self):
