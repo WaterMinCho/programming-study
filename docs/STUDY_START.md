@@ -10,13 +10,15 @@
 
 ## 팀원별 담당 모델과 첫 작업
 
-| 담당 | 만드는 모델 | 첫 작업 |
+| 담당 | 만드는 모델 | 먼저 만들고 확인할 동작 |
 |---|---|---|
-| michae18 | 풀이 순서를 읽는 LSTM | 공통 입력을 읽고 입력·정답의 모양을 본인 말로 설명합니다. |
-| wamangdoo | 과거 풀이 관계를 비교하는 Transformer | 같은 입력에서 과거와 빈 자리를 구분하는 방법을 설명합니다. |
-| kimjs85529-a11y | 같은 LSTM에 풀이 간격 추가 | 간격을 아는 자리와 모르는 자리의 차이를 설명합니다. |
+| [michae18 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | 풀이 순서를 읽는 LSTM | 합성 예제 4개에서 확률 4개를 내고 빈 이력도 처리합니다. |
+| [wamangdoo · #120](https://github.com/WaterMinCho/programming-study/issues/120) | 과거 풀이 관계를 비교하는 Transformer | 같은 예제에서 확률을 내고 빈 자리가 예측에 섞이지 않는지 확인합니다. |
+| [kimjs85529-a11y · #121](https://github.com/WaterMinCho/programming-study/issues/121) | 같은 LSTM에 풀이 간격 추가 | 이번 문제에 필요한 개념의 간격과 확인 여부를 고르는 코드를 만듭니다. |
 
 [GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2)에서 내 이슈를 여세요. 보드에 404가 뜨면 초대받은 GitHub 계정으로 로그인했는지 확인하세요. [프로젝트 구조 그림](ARCHITECTURE.md)에는 내 모델이 받을 입력과 돌려줄 값이, [담당별 미션](LEARNING_MISSIONS.md)에는 첫 PR에 담을 코드와 실험 결과가 나와 있습니다.
+
+**담당 이슈의 지금 할 일 → [이번 PR에 만들 코드와 확인 결과](LEARNING_MISSIONS.md#이번-pr에-만들고-확인할-것) → [Commit·Push로 같은 PR에 추가하기](LEARNING_WORKFLOW.md#리뷰-질문에-답하고-수정한-커밋-남기기)** 순서로 진행합니다. 기존 작업이 있다면 [어디부터 이어갈지](LEARNING_WORKFLOW.md#기존-작업에서-어디부터-이어가나요) 먼저 확인합니다.
 
 <a id="첫-pr까지-진행합니다"></a>
 
