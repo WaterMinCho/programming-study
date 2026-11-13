@@ -61,6 +61,22 @@ class IdentityTest(unittest.TestCase):
             with self.assertRaises(CollectionError):
                 self.identity.begin()
 
+    def test_cancel_during_github_request_discards_pending_and_token_responses(self):
+        for response in ({"error": "authorization_pending"}, {"error": "slow_down"}, {"access_token": "gho_synthetic-token"}):
+            self.identity.nonce = "synthetic-nonce"
+            self.identity.device = {"device_code": "synthetic-device", "interval": 5}
+            self.identity.pending_token = None
+            self.identity.client_id = "synthetic-client"
+            def reply(*args, **kwargs):
+                self.identity.cancel()
+                return dict(response)
+            with mock.patch("learning_data.identity.github", side_effect=reply), mock.patch("learning_data.identity.request") as request:
+                with self.assertRaisesRegex(CollectionError, "중단"):
+                    self.identity.poll()
+                request.assert_not_called()
+            self.assertIsNone(self.identity.pending_token)
+            self.assertIsNone(self.identity.device)
+
     def test_installation_code_survives_new_client_and_reverification(self):
         first = self.identity.installation_nonce()
         second = Identity(study.ROOT, "another-user", home=self.tmp.name)

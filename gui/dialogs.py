@@ -114,7 +114,7 @@ class IdDialog(QDialog):
     def say(self, text):
         """입력칸 아래에 안내를 보여 줌. 안내가 여러 줄로 늘어나면 위의 설명이 눌려 잘리므로 창을 그만큼 키움."""
         self.error.setText(text)
-        self.shell.fit(self.width())
+        self.shell.fit(self.width(), self.height())
 
     def save(self):
         QGuiApplication.inputMethod().commit()

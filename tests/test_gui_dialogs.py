@@ -63,9 +63,9 @@ class DialogTest(unittest.TestCase):
         theme.set_mode(self.previous_mode)
         guikit.pump()
 
-    def identity(self, waiting=True):
+    def identity(self, waiting=True, closing_app=True):
         identity = IdentityFixture()
-        dialog = IdentityDialog(self.host, identity)
+        dialog = IdentityDialog(self.host, identity, closing_app=closing_app)
         self.dialogs.append(dialog)
         dialog.show()
         if waiting:
@@ -186,6 +186,45 @@ class DialogTest(unittest.TestCase):
         self.finish_poll(dialog)
         self.assertEqual([dialog.DialogCode.Rejected], finished)
         self.assertFalse(dialog.timer.isActive())
+
+    def test_reverification_cancel_and_accessibility_names_match_current_state(self):
+        dialog = self.identity(closing_app=False)
+        self.assertEqual("취소", dialog.cancel_button.text())
+        self.assertIn("ABCD-EFGH", dialog.code.accessibleName())
+        self.assertEqual("", dialog.status.accessibleName())
+        gate = threading.Event()
+        self.gates.append(gate)
+        dialog.identity.poll.side_effect = lambda: (gate.wait(10), {"pending": True, "interval": 5})[1]
+        dialog.poll()
+        dialog.reject()
+        self.assertIn("이 창을 닫습니다", dialog.status.text())
+        self.assertNotIn("프로그램을 닫습니다", dialog.status.text())
+        self.assertNotIn("ABCD-EFGH", dialog.code.accessibleName())
+        gate.set()
+        self.finish_poll(dialog)
+
+    def test_expired_code_is_removed_on_copy_after_a_network_error(self):
+        dialog = self.identity()
+        dialog.identity.poll.side_effect = CollectionError("연결을 확인해 주세요.")
+        dialog.poll()
+        self.finish_poll(dialog)
+        self.assertFalse(dialog.timer.isActive())
+        dialog.expires = time.monotonic() - 1
+        with mock.patch("gui.identity.QApplication.clipboard") as clipboard:
+            dialog.copy_code()
+            clipboard.assert_not_called()
+        self.assertTrue(dialog.copy.isHidden())
+        self.assertTrue(dialog.code_panel.isHidden())
+
+    def test_short_message_has_no_unnecessary_body_scroll(self):
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            dialog = dialogs.MessageDialog(self.host, "확인", "문제를 받았습니다.")
+            self.dialogs.append(dialog)
+            dialog.show()
+            guikit.pump()
+            self.assertEqual(0, dialog.shell.scroll.verticalScrollBar().maximum())
+            dialog.close()
 
     def test_identity_footer_and_code_fit_max_text_both_themes(self):
         theme.set_text("larger")

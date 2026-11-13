@@ -125,16 +125,19 @@ class Identity:
             raise CollectionError("기기 확인 코드를 읽지 못했습니다. 원본은 그대로 보관합니다.") from None
 
     def poll(self):
-        nonce = self.nonce
-        if not nonce or (self.pending_token is None and self.device is None):
+        nonce, device = self.nonce, self.device
+        if not nonce or (self.pending_token is None and device is None):
             raise CollectionError("본인 확인을 다시 시작해 주세요.")
         if self.pending_token is None:
-            value = github("/login/oauth/access_token", {"client_id": self.client_id, "device_code": self.device["device_code"],
+            value = github("/login/oauth/access_token", {"client_id": self.client_id, "device_code": device["device_code"],
                                                         "grant_type": "urn:ietf:params:oauth:grant-type:device_code"})
+            if nonce != self.nonce:
+                value.clear()
+                raise CollectionError("본인 확인을 중단했습니다.")
             error = value.get("error")
             if error in ("authorization_pending", "slow_down"):
-                interval = int(self.device.get("interval", 5)) + (5 if error == "slow_down" else 0)
-                self.device["interval"] = interval
+                interval = int(device.get("interval", 5)) + (5 if error == "slow_down" else 0)
+                device["interval"] = interval
                 return {"pending": True, "interval": max(5, interval)}
             token = value.pop("access_token", None)
             value.clear()

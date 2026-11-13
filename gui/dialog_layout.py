@@ -83,8 +83,10 @@ class ActionLayout(QLayout):
         if width(first) + width(last) + (gap if first and last else 0) <= area.width():
             return top + max(row(first, area.x(), y), row(last, area.right() + 1 - width(last), y)) + bottom
         if first:
-            for item in first:
-                y += row([item], area.x(), y) + gap
+            for number, item in enumerate(first):
+                y += row([item], area.x(), y)
+                if number < len(first) - 1 or last:
+                    y += gap
         if last and width(last) <= area.width():
             y += row(last, area.right() + 1 - width(last), y)
         else:
@@ -127,6 +129,10 @@ class DialogLayout(QVBoxLayout):
         self.activate()
         body_width = width - self.scroll.verticalScrollBar().sizeHint().width()
         body_height = max(self.content.minimumSize().height(), self.content.totalHeightForWidth(body_width))
-        header_height = max(self.header.minimumSizeHint().height(), self.header.heightForWidth(width))
-        height = header_height + body_height + self.actions.heightForWidth(width)
+        fixed = 0
+        for index in range(self.count()):
+            widget = self.itemAt(index).widget()
+            if widget is not self.scroll and not widget.isHidden():
+                fixed += max(widget.minimumSizeHint().height(), widget.heightForWidth(width))
+        height = fixed + body_height + 2 * self.scroll.frameWidth()
         dialog.resize(width, min(max_height, max(preferred_height, height)))
