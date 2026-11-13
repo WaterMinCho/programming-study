@@ -59,6 +59,20 @@ class DailyThreadTest(unittest.TestCase):
         self.assertNotIn("thread_ts", card)
         self.assertEqual(["creating", "ready:" + PARENT], [row["description"] for row in self.github.posts])
 
+    def test_pr_and_server_use_separate_threads_on_the_same_day(self):
+        server = threads.DailyThreads(self.github, "xoxb-example", CHANNEL, ANCHOR, topic="server")
+        server_ts = "1794490001.000003"
+        self.post.side_effect = [PARENT, server_ts, REPLY]
+        self.sender.parent("2026-11-12")
+        self.assertEqual(server_ts, server.parent("2026-11-12"))
+        server.send({"text": "연결 테스트 복구"})
+        parent, reply = [entry.args[0] for entry in self.post.call_args_list[1:]]
+        self.assertIn("금일 서버 상태 모니터링", parent["text"])
+        self.assertIn("2026-11-12", parent["text"])
+        self.assertEqual(server_ts, reply["thread_ts"])
+        self.assertFalse(reply["reply_broadcast"])
+        self.assertEqual(2, len({row["context"] for row in self.github.posts}))
+
     def test_new_korean_day_creates_a_different_parent(self):
         self.sender.send({"text": "어제 결과"})
         self.post.side_effect = ["1794490001.000001", REPLY]
