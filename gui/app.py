@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 
-from PyQt6.QtCore import QLibraryInfo, QLockFile, QSettings, QTimer, QTranslator
+from PyQt6.QtCore import QCoreApplication, QLibraryInfo, QLockFile, QSettings, QTimer, QTranslator, Qt
 from PyQt6.QtWidgets import QApplication
 
 import study
@@ -36,6 +36,7 @@ def stop_servers_on_hangup(app):
 
 
 def main(argv=None):
+    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv[:1] + list(sys.argv[1:] if argv is None else argv))
     app.setApplicationName("프로그래밍 스터디")
     settings = QSettings("rokey-python-study", "study")  # 저장소 이름을 바꾸기 전의 이름이지만, 바꾸면 저장된 테마와 창 크기를 잃어서 그대로 둠

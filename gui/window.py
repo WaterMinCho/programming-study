@@ -162,6 +162,8 @@ class MainWindow(QMainWindow):
                      self.ai_home, self.ai_lesson, self.ai_learn, self.ai_note, self.ai_revisit, self.ai_quiz, self.ai_mock):
             self.pages.addWidget(page)
         self.workspace = Workspace(self, self.pages)
+        from gui.career_controller import CareerController
+        self.career = CareerController(self)
         self.result_page.git_btn.hide()
         self.hub.git_btn = self.home.git_btn = self.workspace.submissions.submit
         self.result_page.git_btn = self.workspace.submissions.submit
@@ -481,6 +483,12 @@ class MainWindow(QMainWindow):
         self.ai_home.refresh()
         self.area = "ai"
         motion.switch(self.pages, self.ai_home)
+
+    def go_career(self):
+        self.career.show_roadmap()
+
+    def go_magazine(self):
+        self.career.show_magazine()
 
     def switch_ai_course(self, course):
         """과정별 읽던 위치와 연습을 보존한 채 같은 AI 홈을 바꿈."""
@@ -1050,6 +1058,10 @@ class MainWindow(QMainWindow):
             page.restyle()
 
     def closeEvent(self, event):
+        if not self.career.stop():
+            self.close_pending = True
+            event.ignore()
+            return
         if self.identity_dialog is not None and self.identity_dialog.job is not None:
             self.auto_submission.resume()
             for controller in getattr(self, "privacy_controllers", {}).values():

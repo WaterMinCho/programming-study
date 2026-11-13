@@ -43,11 +43,12 @@ Windows에서는 `start.bat`, macOS에서는 `start.command`로 시작하세요.
 - [비공개 풀이 제출](docs/API_SUBMISSIONS.md) · [수집 동의·철회](docs/LEARNING_PRIVACY.md)
 - [기기 인증과 통계](docs/DEVICE_IDENTITY.md)에서 인증한 GitHub 계정 수와 처음 인증한 기기 수를 어떻게 세는지 확인할 수 있습니다.
 - [직무별 학습 로드맵 펼쳐보기](docs/roadmap/README.md#직무별-로드맵)
+- [커리어 · 개발자 로드맵과 영상·논문 해설](docs/career/README.md)
 - [실행·제출 오류 해결](gui/README.md#실행업데이트제출-오류-해결) · [전체 안내 목록](docs/GUIDE_INDEX.md)
 
 ## 라이선스
 
-저장소 맨 위의 실행 파일·파이썬 모듈과 `ROKEY.app/`, `gui/`, `aiprep/`, `learning_data/`, `learning_server/`, `journey/`, `webprep/`, `tools/`, `tests/`의 코드는 [GPL-3.0](LICENSE)입니다. 화면에 쓰는 PyQt6 가 GPL-3.0 이라 같은 조건을 따릅니다.
+저장소 맨 위의 실행 파일·파이썬 모듈과 `ROKEY.app/`, `gui/`, `career/`, `aiprep/`, `learning_data/`, `learning_server/`, `journey/`, `webprep/`, `tools/`, `tests/`의 코드는 [GPL-3.0](LICENSE)입니다. 화면에 쓰는 PyQt6 가 GPL-3.0 이라 같은 조건을 따릅니다.
 
 `gui/fonts/` 의 글꼴은 SIL OFL 1.1 을 따릅니다. 화면 글꼴은 [나눔고딕](gui/fonts/OFL.txt), 코드 글꼴은 [D2Coding](gui/fonts/OFL-D2Coding.md)입니다.
 

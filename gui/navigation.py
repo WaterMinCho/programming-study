@@ -8,9 +8,10 @@ from gui import kit, theme
 
 
 class NavigationButton(QPushButton):
-    def __init__(self, key, title):
+    def __init__(self, key, title, depth=0):
         super().__init__(title)
         self.key = key
+        self.depth = depth
         self.setObjectName("text")
         self.setProperty("navigation", True)
         self.setProperty("scale", "l")
@@ -29,10 +30,12 @@ class NavigationButton(QPushButton):
         self.update()
 
     def sizeHint(self):
-        return QSize(max(200, self.fontMetrics().horizontalAdvance(self.text()) + 80), self.minimumHeight())
+        return QSize(max(200, self.fontMetrics().horizontalAdvance(self.text()) + 80 + 12 * self.depth), self.minimumHeight())
 
     def text_rect(self):
-        return QRectF(48, 0, max(0, self.width() - 64), self.height())
+        left = 48 + 12 * self.depth
+        right = 36 if self.key == "career" else 16
+        return QRectF(left, 0, max(0, self.width() - left - right), self.height())
 
     def paintEvent(self, event):
         painter = QStylePainter(self)
@@ -45,7 +48,7 @@ class NavigationButton(QPushButton):
         painter.setPen(QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.save()
-        painter.translate(16, (self.height() - 20) / 2)
+        painter.translate(16 + 12 * self.depth, (self.height() - 20) / 2)
         if self.key == "hub":
             for x, y in ((1, 1), (12, 1), (1, 12), (12, 12)):
                 painter.drawRoundedRect(QRectF(x, y, 7, 7), 1.5, 1.5)
@@ -67,6 +70,25 @@ class NavigationButton(QPushButton):
             painter.drawLine(QPointF(3.5, 10), QPointF(16.5, 10))
             painter.drawLine(QPointF(3.5, 10), QPointF(3.5, 14))
             painter.drawLine(QPointF(16.5, 10), QPointF(16.5, 14))
+        elif self.key == "career":
+            painter.drawRoundedRect(QRectF(1, 6, 18, 13), 2, 2)
+            painter.drawRoundedRect(QRectF(6, 1, 8, 5), 1, 1)
+            painter.drawLine(QPointF(1, 11), QPointF(19, 11))
+        elif self.key == "career_roadmap":
+            path = QPainterPath(QPointF(1, 3))
+            for x, y in ((7, 1), (13, 4), (19, 2), (19, 17), (13, 19), (7, 16), (1, 18)):
+                path.lineTo(x, y)
+            path.closeSubpath()
+            painter.drawPath(path)
+            painter.drawLine(QPointF(7, 1), QPointF(7, 16))
+            painter.drawLine(QPointF(13, 4), QPointF(13, 19))
+        elif self.key == "career_magazine":
+            painter.drawRoundedRect(QRectF(1, 1, 18, 18), 2, 2)
+            path = QPainterPath(QPointF(8, 6))
+            path.lineTo(14, 10)
+            path.lineTo(8, 14)
+            path.closeSubpath()
+            painter.drawPath(path)
         else:
             painter.drawRoundedRect(QRectF(1, 2, 18, 13), 2, 2)
             painter.drawLine(QPointF(6, 19), QPointF(14, 19))
@@ -79,3 +101,11 @@ class NavigationButton(QPushButton):
         painter.setFont(theme.font("label", self.isChecked()))
         painter.setPen(color)
         painter.drawText(self.text_rect(), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, self.text())
+        if self.key == "career":
+            x, y = self.width() - 22, self.height() / 2
+            if self.property("expanded"):
+                painter.drawLine(QPointF(x - 4, y - 2), QPointF(x, y + 2))
+                painter.drawLine(QPointF(x, y + 2), QPointF(x + 4, y - 2))
+            else:
+                painter.drawLine(QPointF(x - 2, y - 4), QPointF(x + 2, y))
+                painter.drawLine(QPointF(x + 2, y), QPointF(x - 2, y + 4))
