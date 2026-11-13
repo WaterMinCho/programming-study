@@ -123,6 +123,7 @@ class CollectionIntegrationTest(Base):
         sess.collection.set_enabled(False)
         sess.mark_read("i90", "90a")
         sess.collection.set_enabled(True)
+        sess.cards["i90-b01"]["level"] = 3
         ps = service.PracticeSet(sess, "private1", "unit", ["i90-b01"], 3)
         ps.current()
         ps.current()
@@ -131,6 +132,9 @@ class CollectionIntegrationTest(Base):
         self.assertNotIn("value", self.log(sess, "answer")[0])
         self.assertEqual(1, len(self.events(sess, "question_returned")))
         self.assertEqual([], self.events(sess, "learn"))
+        snapshots = [row["item"] for row in sess.collection.snapshot() if row["kind"] in ("question_returned", "answer")]
+        self.assertTrue(all(item["difficulty"] == 3 for item in snapshots))
+        self.assertEqual(2, len(snapshots))
         with self.assertRaises(service.AiError):
             ps.answer(["반대"], 1, True)
         self.assertEqual(1, len(self.events(sess, "answer")))
@@ -246,6 +250,8 @@ class CollectionIntegrationTest(Base):
         sess = helper.session()
         sess.collection.set_enabled(True)
         exam = sess.start_mock("m90", seed=1)
+        for item in exam.items.values():
+            item["level"] = 2
         exam.question()
         exam.question()
         exam.save_answer(["3"], "m90-01")
@@ -257,6 +263,9 @@ class CollectionIntegrationTest(Base):
         self.assertEqual(3, sum(row["result"] == "blank" for row in rows))
         self.assertTrue(all(row["secs"] is None for row in rows))
         self.assertEqual(1, len(self.events(sess, "mock_question_returned")))
+        snapshots = [row["item"] for row in sess.collection.snapshot() if row["kind"] in ("mock_question_returned", "mock_answer")]
+        self.assertEqual(5, len(snapshots))
+        self.assertTrue(all(item["difficulty"] == 2 for item in snapshots))
 
     def test_real_mock_events_link_return_time_without_same_exam_labels(self):
         from learning_server.dataset import prepare

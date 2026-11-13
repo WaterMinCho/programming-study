@@ -1776,6 +1776,7 @@ class PracticeSet(object):
         view = self._view(entry)
         return collection.question(view["item"], card=card["id"], lesson=card["lesson"], unit=card["unit"],
                                    family=card.get("family"), tags=card.get("tags") or [], step=card.get("step"),
+                                   difficulty=card.get("level"),
                                    seed=entry["seed"], option_order=view["order"], form=view["form"],
                                    terms_revision=self.sess.collection_terms_revision)
 

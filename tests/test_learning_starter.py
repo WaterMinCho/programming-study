@@ -143,13 +143,14 @@ class StarterTest(unittest.TestCase):
         profile = {"user": "private-person", "rounds": [{"id":"r1", "created":"2026-01-01T09:00:00"}],
                    "attempts":[{"round":"r1", "item":"q", "try":1, "ok":True, "at":"2026-01-01T10:00:00"},
                                {"round":"r1", "item":"q", "try":2, "ok":False, "at":"2026-01-02T10:00:00"}]}
-        catalog = {"q":{"unit":"s01", "tags":["loops"], "kind":"quiz", "type":"output"}}
+        catalog = {"q":{"unit":"s01", "tags":["loops"], "kind":"quiz", "type":"output", "level":3}}
         original = copy.deepcopy(profile)
         events = legacy.profile_events(profile, catalog, "+09:00")
         rows = dataset.prepare(events)
         self.assertEqual(original, profile)
         self.assertEqual(1, len(rows))
         self.assertIsNone(rows[0]["question_revision"])
+        self.assertIsNone(rows[0]["difficulty"])
         self.assertEqual("+09:00", rows[0]["provenance"]["timezone_assumption"])
         self.assertNotIn("private-person", json.dumps(events))
         self.assertEqual("2026-01-01T00:00:00+00:00", rows[0]["prediction_at"])
