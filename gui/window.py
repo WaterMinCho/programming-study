@@ -267,7 +267,7 @@ class MainWindow(QMainWindow):
             error = str(failure)
         if self.identity_dialog is not None and self.identity_dialog.isVisible():
             return False
-        dialog = self.identity_dialog = IdentityDialog(self, self.identity)
+        dialog = self.identity_dialog = IdentityDialog(self, self.identity, closing_app=not force)
         if error:
             dialog.status.setText(error)
         def finished(result):

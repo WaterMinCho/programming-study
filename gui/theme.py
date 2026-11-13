@@ -228,6 +228,11 @@ STYLE += "QLabel#unit_none { border: 1px solid %(unit_none_edge)s; }\n"  # ып╕ьз
 STYLE_V2 = """
 QWidget[ui="2"] { background: %(bg)s; }
 QDialog[ui="2"] { background: %(surface_raised)s; }
+QDialog[ui="2"] QFrame#dialog_header, QDialog[ui="2"] QWidget#dialog_body,
+QDialog[ui="2"] QScrollArea#dialog_scroll, QDialog[ui="2"] QScrollArea#dialog_scroll > QWidget { background: %(surface_raised)s; }
+QDialog[ui="2"] QFrame#dialog_actions { background: %(surface_raised)s; border-top: 1px solid %(line)s; }
+QDialog[ui="2"] QFrame#verification_code { background: %(surface_alt)s; border: 1px solid %(line)s; border-radius: 12px; }
+QDialog[ui="2"] QLabel#verification_code_text { font-family: "D2Coding"; padding: 4px 0; color: %(ink)s; }
 QWidget[ui="2"] QLabel { color: %(ink)s; background: transparent; }
 QWidget[ui="2"] QLabel[tone="secondary"] { color: %(muted)s; }
 QWidget[ui="2"] QLabel[tone="tertiary"] { color: %(faint)s; }
