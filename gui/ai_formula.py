@@ -34,8 +34,8 @@ class FormulaBlock(QWidget):
             self.picture = figure(self.block["figure"])
             content.addWidget(self.picture)
             self.docs.append(doc("\n\n".join("### %s\n\n%s" % (title, self.block[key]) for key, title in (
-                ("input", "입력 모양을 확인합니다"), ("terms", "각 항을 좌표에 대응시킵니다"),
-                ("operation", "한 행씩 곱해 더합니다"), ("output", "출력 모양과 역조회를 확인합니다"))), self.ctx.base_dir, content))
+                ("input", "점과 행렬의 모양"), ("terms", "행렬의 각 항"),
+                ("operation", "행별 곱셈과 덧셈"), ("output", "출력 좌표와 역조회"))), self.ctx.base_dir, content))
             self.check = WhyBlock(self.block, SimpleNamespace(readonly=False))
             content.addWidget(self.check)
             self.close_button = kit.button("닫기", "secondary", "l")
