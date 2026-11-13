@@ -31,7 +31,7 @@ Python 3.12 웹앱에서 데이터베이스 연결과 HTTPS 상태 응답을 확
 
 추가 비교는 [Koyeb 무료 인스턴스][koyeb-free], [Railway 무료 플랜](https://docs.railway.com/pricing/plans)과 [체험 자료 보존 조건](https://docs.railway.com/pricing/free-trial), [Oracle 무료 자원][oracle-free]과 [가입 조건](https://www.oracle.com/cloud/free/faq/), [D1 무료 한도](https://developers.cloudflare.com/d1/platform/pricing/)를 대조했습니다. D1 연결 변경과 서버 관리 부담은 현재 코드·운영 절차를 대조한 선택 판단입니다. 각 서비스에서 실제 수강생 전송을 시험했다는 뜻은 아닙니다.
 
-PythonAnywhere는 파일을 보존하지만 네트워크 파일 시스템을 사용합니다. 운영사는 [SQLite의 간헐적 잠금과 운영 서비스 사용 제한](https://www.pythonanywhere.com/forums/topic/35474/)을 안내했습니다. 이 후보에서는 네 명의 전송·재전송·복구를 먼저 확인하고, 문제가 반복되면 영구 저장소가 있는 다른 서버나 별도 DB를 검토합니다. 앱은 전송에 실패해도 로컬 기록을 보존합니다. 아직 다른 수강생에게 배포하거나 수집 성능을 측정한 결과는 없습니다.
+PythonAnywhere는 파일을 보존하지만 네트워크 파일 시스템을 사용합니다. 운영사는 [SQLite의 간헐적 잠금과 운영 서비스 사용 제한](https://www.pythonanywhere.com/forums/topic/35474/)을 안내했습니다. 이 후보에서는 네 명의 전송·재전송·복구를 먼저 확인하고, 문제가 반복되면 영구 저장소가 있는 다른 서버나 별도 DB를 검토합니다. 앱은 전송에 실패해도 로컬 기록을 보존합니다. 11월 13일에는 운영 서버에서 합성 클라이언트 30개가 1MiB 파일을 동시에 제출했고, 별도 시험에서 4MiB 파일 한 개를 제출했습니다. 수강생 PC에서 한 달간 사용할 때의 보관량은 [전체 배포 조건](LEARNING_READINESS.md#무료-서버의-운영-한계를-확인합니다)에서 따로 다룹니다.
 
 ## 서버 계정에 코드를 준비합니다
 

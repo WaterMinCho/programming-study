@@ -25,7 +25,7 @@
 ## 내 fork에서 개발하고 첫 PR 보내기
 
 1. [fork·SourceTree 또는 터미널 안내](LEARNING_WORKFLOW.md)를 따라 본인 fork를 받고 작업 브랜치를 만듭니다.
-2. [실제 자료 받기·샘플링](LEARNING_DATA_ACCESS.md)을 따라 동일한 비공개 자료 묶음을 받고 입력을 확인합니다. 아직 파일을 받지 못했다면 합성 예제로 시작합니다.
+2. [실제 자료 받기·샘플링](LEARNING_DATA_ACCESS.md)을 따라 스터디 공유 폴더에서 파이썬 샘플을 받아 엽니다. 처음에는 Colab 노트북의 가상 자료로 시작해도 됩니다.
 3. `experiments/본인GitHubID/`에 모델 코드와 테스트를 작성합니다. 그 안의 `README.md`에 실행 방법·선택 이유·실행 결과와 질문을 적습니다.
 4. Stage → Commit → Push를 한 뒤 본인 fork의 브랜치에서 공통 `main`으로 PR을 만듭니다. [담당 이슈를 PR 본문에 연결](LEARNING_WORKFLOW.md#이슈와-pr-연결)하고 제목은 `feat(model): LSTM 입력과 예측 코드 추가`처럼 [PR 제목 규칙](PR_GUIDE.md)을 따릅니다.
 5. 피드백을 읽고 같은 브랜치에서 고쳐 Push합니다. 새 커밋의 검사와 리뷰가 끝난 뒤 머지 준비 상태를 확인합니다.
@@ -45,7 +45,7 @@
 - [코드 검토와 피드백 반영](LEARNING_REVIEW.md) · [Slack 알림](SLACK_NOTIFICATIONS.md)
 - [프로그램 설치·화면 사용법](../gui/README.md) · [수집 동의·철회](LEARNING_PRIVACY.md)
 
-일반 수강생의 풀이 파일은 비공개 서버로 받습니다. 모델 코드와 합성 자료의 실행 결과는 GitHub 개발 PR로 검토하며 실제 학습 기록은 운영자가 같은 자료 묶음으로 준비해 비공개로 전달합니다.
+일반 수강생의 풀이 파일은 비공개 서버로 받습니다. 모델 코드와 합성 자료의 실행 결과는 GitHub 개발 PR로 검토하며 실제 학습 기록은 운영자가 비공개 공유 폴더에 준비합니다.
 
 <a id="기록을-연구에-사용할-때-확인합니다"></a>
 
