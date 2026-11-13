@@ -1325,6 +1325,7 @@ class StepView(QWidget):
     def __init__(self, step, ctx, extra=(), title_role="headline"):
         super().__init__()
         self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
+        self.formulas = []  # 수식 창의 글자와 색을 갱신할 부품
         self.levels = []  # 세 수준 블록. 펼 때 만든 글 조각과 그림을 restyle 때 다시 그림
         column = kit.box(self, spacing=theme.LEARN_GAP["group"])
         if not ctx.readonly:
@@ -1399,6 +1400,11 @@ class StepView(QWidget):
             out = LevelsBlock(block, ctx)
             self.levels.append(out)
             return out
+        if kind == "formula":
+            from gui.ai_formula import FormulaBlock
+            out = FormulaBlock(block, ctx)
+            self.formulas.append(out)
+            return out
         return kit.para(ai_text.BLOCK_BROKEN, "body", "secondary")  # 이 판이 모르는 블록
 
     def restyle(self):
@@ -1406,7 +1412,7 @@ class StepView(QWidget):
             piece.restyle(theme.learning_css())
         for widget in self.figures:
             widget.draw()
-        for widget in self.codes + self.levels:
+        for widget in self.codes + self.levels + self.formulas:
             widget.restyle()
         for widget in self.findChildren(RichPara):
             widget.restyle()

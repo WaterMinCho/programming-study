@@ -266,6 +266,11 @@
    "script": "tools/ai_art/al02.py",
    "fn": "rotate"
   },
+  "learn/al02/assets/a2d-4.gif": {
+   "sha256": "84bf90c3745f9dc72d1ad6dd5e0b76fac791d658e04c59c625e253055a18eda5",
+   "script": "tools/ai_art/affine_formula.py",
+   "fn": "frames"
+  },
   "learn/al02/assets/a2e-1.gif": {
    "sha256": "1018424fd799d668ca695d3a1da73dd0169db135b4aecc75a521ffa83374f19d",
    "script": "tools/ai_art/al02.py",

@@ -37,7 +37,8 @@ ANCHOR_MARK = re.compile(r'^\s*<a (?:id|name)="[\w-]+"></a>\s*$')
 SKEL_MARK = re.compile(r"^\s*<!--\s*skel:\s*(S\d+)\s+(.*?)\s*-->\s*$")  # 바로 아래 코드 울타리가 그 뼈대 판과 같아야 함
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
 BLOCK_KINDS = {"ai-guess": "guess", "ai-reveal": "reveal", "ai-recall": "recall", "ai-why": "why", "ai-diff": "diff",
-               "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend", "ai-levels": "levels"}
+               "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend", "ai-levels": "levels", "ai-formula": "formula"}
+FORMULA_TEXT_KEYS = ("id", "title", "input", "terms", "operation", "output", "q", "a")
 LEVELS = (7, 15, 20)
 LEVEL_KEYS = ("level", "text", "figure", "q", "answer", "mode", "places", "unit", "why")
 LEVEL_KEYS_20 = LEVEL_KEYS + ("code", "mistake")  # 20살만 쓰는 키
@@ -261,6 +262,37 @@ def figure_block(lines, folder=None):
     return out
 
 
+def _formula_block(text, folder=None):
+    """입력·항·계산·출력과 접힌 확인 물음을 읽음. 알 수 없는 키와 그림 경로는 거부함."""
+    def broken(message):
+        return {"kind": "formula", "error": message}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return broken("수식 설명의 JSON을 읽을 수 없습니다.")
+    if not isinstance(data, dict) or set(data) != set(FORMULA_TEXT_KEYS) | {"figure"}:
+        return broken("수식 설명의 필드가 맞지 않습니다.")
+    if any(not isinstance(data[k], str) or not data[k].strip() or "```" in data[k] or "~~~" in data[k]
+           for k in FORMULA_TEXT_KEYS):
+        return broken("수식 설명은 비어 있지 않은 글로 쓰고 코드 울타리를 넣지 않습니다.")
+    fig = data["figure"]
+    if not isinstance(fig, dict) or set(fig) != {"file", "caption", "content", "frames"}:
+        return broken("수식 그림의 필드가 맞지 않습니다.")
+    if any(not isinstance(fig[k], str) or not fig[k].strip() for k in ("file", "caption", "content")):
+        return broken("수식 그림의 파일·캡션·대체 설명을 적어 주세요.")
+    if not re.fullmatch(r"assets/[\w-]+\.(?:png|gif)", fig["file"]):
+        return broken("수식 그림은 assets 아래 PNG 또는 GIF 파일이어야 합니다.")
+    frames = fig["frames"]
+    if not isinstance(frames, list) or any(not isinstance(f, dict) or set(f) != {"text", "ms"}
+            or not isinstance(f["text"], str) or not f["text"].strip()
+            or type(f["ms"]) is not int or not 1600 <= f["ms"] <= 2500 for f in frames):
+        return broken("수식 그림의 장별 설명과 시간을 확인해 주세요.")
+    if (fig["file"].endswith(".gif") and not 2 <= len(frames) <= 10) or (fig["file"].endswith(".png") and frames):
+        return broken("GIF는 2~10장으로 쓰고 PNG에는 장 목록을 넣지 않습니다.")
+    return dict(data, kind="formula", figure=dict(fig, kind="figure",
+                path=os.path.join(folder, *fig["file"].split("/")) if folder else ""))
+
+
 def _json_block(kind, text):
     try:
         data = json.loads(text)
@@ -428,6 +460,8 @@ def parse_blocks(lines, folder=None):
                 blocks.append({"kind": fence, "error": "모르는 블록 이름입니다: %s" % fence})
             elif fence == "ai-levels":
                 blocks.append(_levels_block("\n".join(body), folder))
+            elif fence == "ai-formula":
+                blocks.append(_formula_block("\n".join(body), folder))
             else:
                 blocks.append(_json_block(BLOCK_KINDS[fence], "\n".join(body)))
             fence, body = None, []

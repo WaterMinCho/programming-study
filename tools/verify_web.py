@@ -162,7 +162,16 @@ def figure_blocks(markdown):
                 current["frames"].append(int(found.group(1)))
             else:
                 current["bad_ms"].append(stripped[:30])
-    return out
+    for match in re.finditer(r"^[ \t]*(?P<fence>```|~~~)[ \t]*ai-formula[ \t]*\n(?P<body>.*?)^[ \t]*(?P=fence)[ \t]*$",
+                             markdown, re.M | re.S):
+        from aiprep import bank as aibank
+        block = aibank._formula_block(match.group("body"))
+        if not block.get("error"):
+            fig = block["figure"]
+            out.append(dict(line=markdown[:match.start()].count("\n") + 1,
+                            file=fig["file"], caption=fig["caption"], content=fig["content"],
+                            frames=[f["ms"] for f in fig["frames"]], frame_lines=len(fig["frames"]), bad_ms=[]))
+    return sorted(out, key=lambda block: block["line"])
 
 
 def headings(markdown):

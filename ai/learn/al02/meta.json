@@ -15,7 +15,8 @@
   "보간",
   "아핀 변환",
   "원근 변환",
-  "행렬"
+  "행렬",
+  "벡터"
  ],
  "needs": [
   "al01"
@@ -44,7 +45,7 @@
   {
    "what": "좌표 변환·역방향 조회·보간",
    "url": "https://docs.opencv.org/4.13.0/da/d54/group__imgproc__transform.html",
-   "checked": "2026-11-13"
+   "checked": "2026-11-14"
   },
   {
    "what": "np.indices의 축 순서",

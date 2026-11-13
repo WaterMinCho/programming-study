@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제-응용23",
- "resolver": "재풀이-응용23",
- "reviewer": "대조검토-응용23",
+ "writer": "출제-수식01",
+ "resolver": "재풀이-수식02",
+ "reviewer": "검토-수식03",
  "files": {
   "assets/a2a-1.gif": "ab6b8f0b62342489fef5c240740f1ce0b8999f184940c4ff3747b54dcb5f0964",
   "assets/a2a-2.png": "c9dcb12268a3e08ccfc7dcbe28de928da098d943db3fd9e52bb279f325b2ebaa",
@@ -23,6 +23,7 @@
   "assets/a2d-1.gif": "6ac2cd2b5f433ae24a1f6391d64b31d7a548bf268958d0d77b8ab2c050a71c57",
   "assets/a2d-2.png": "c9a8f0f9eb0262551a47f636aea80c6bd03d129f134609fc077ce3cd6ad6c5dd",
   "assets/a2d-3.png": "6c3f5b5b0d251988b113d4d63e12833a74f75b2dbc8fdabfa548105467935189",
+  "assets/a2d-4.gif": "84bf90c3745f9dc72d1ad6dd5e0b76fac791d658e04c59c625e253055a18eda5",
   "assets/a2e-1.gif": "1018424fd799d668ca695d3a1da73dd0169db135b4aecc75a521ffa83374f19d",
   "assets/a2e-2.png": "bd298d8f1b2838c017b1f09d23c98bd58d22d9a10c2273aaa363af423505a3a7",
   "assets/a2e-3.png": "43fa0137fe2333104557873e35c33ee0bc1db910fe93d58daa755b497e90284e",
@@ -36,11 +37,12 @@
   "assets/a2f-32.png": "253883f73c9762c9111acebec5e4bfc5142888d672ddc1974981bc8682fce0d5",
   "assets/a2f-33.png": "a691df4e73c7d645e8c299d3bac917dba5a249278921520179e0ef4b297114d7",
   "assets/a2f-4.png": "c0a5133fd29a88cd25eae603012ba4ce3fa8771ddd46ee7844a7eb36bac1b8f3",
-  "meta.json": "0e5003d48eb86f0e10f5cf58dc97451e51335b1571ef104402467ef5f64b5e86",
-  "page.md": "7761ec22db149aa40c26f7f54e46d306fe4e0aaf8133e38252e92bce016ddfc2"
+  "meta.json": "6c668a50a200a96beb40d4f4d97ad61279e4194421f6a5e0a0393a2f366f1320",
+  "page.md": "66e1b464582b6e8438b0b97cc31af1462b869c5118393b6d618b64a92aa4bda3"
  },
  "findings": [
   "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함.",
-  "추가 7문항의 정답 없는 첫 답 7/7, 학습 물음 3/3과 세 단계 물음 3/3을 별도로 대조함. 기존 첫 재풀이와 문항 식별자를 보존했음. iterations=2의 연산 순서와 출력에서 원본을 찾는 remap 방향을 원문·공식 문서·합성 배열 계산으로 대조했음. 새 그림 8개 10장을 확인했음. 원문의 구현 개요를 그대로 실행한 것으로 쓰지 않았으며 완성 코드는 별도의 9×9 예임."
+  "추가 7문항의 정답 없는 첫 답 7/7, 학습 물음 3/3과 세 단계 물음 3/3을 별도로 대조함. 기존 첫 재풀이와 문항 식별자를 보존했음. iterations=2의 연산 순서와 출력에서 원본을 찾는 remap 방향을 원문·공식 문서·합성 배열 계산으로 대조했음. 새 그림 8개 10장을 확인했음. 원문의 구현 개요를 그대로 실행한 것으로 쓰지 않았으며 완성 코드는 별도의 9×9 예임.",
+  "입력 벡터와 행별 곱·합, 이동만 있는 역조회의 조건을 원문과 대조했음. 수정한 확인 물음을 독립 재풀이했으며 기존 문항·facts·첫 답을 보존했음."
  ]
 }
