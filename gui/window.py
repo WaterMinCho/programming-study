@@ -134,6 +134,7 @@ class MainWindow(QMainWindow):
         self.dialog = None  # 가장 최근에 띄운 대화상자
         self.notice = None  # 허브와 홈 위쪽에 한 줄로 보여 줄 제출 모듈의 결과
         self.restart, self.close_pending = False, False
+        self.identity, self.identity_dialog = None, None
         self.open_url = lambda url: QDesktopServices.openUrl(QUrl(url))
         self.pick_file = lambda title: QFileDialog.getOpenFileName(self, title)[0]
         self.open_folder = lambda path: open_folder(path, settings)  # 미션 폴더를 편집기로 엶. 테스트는 가짜로 바꿈
@@ -224,9 +225,39 @@ class MainWindow(QMainWindow):
         if self.open_session() and diverged:
             self._git_done("문제 받기", dict(result, changed=False))
 
+    def ensure_identity(self, then=None, force=False):
+        from learning_data.collection import CollectionError
+        from learning_data.identity import Identity
+        from gui.identity import IdentityDialog
+        if self.identity is None:
+            self.identity = Identity(study.ROOT, self.user)
+        error = ""
+        try:
+            if self.identity.settings().get("verified") and not force:
+                return True
+        except CollectionError as failure:
+            error = str(failure)
+        if self.identity_dialog is not None and self.identity_dialog.isVisible():
+            return False
+        dialog = self.identity_dialog = IdentityDialog(self, self.identity)
+        if error:
+            dialog.status.setText(error)
+        def finished(result):
+            self.identity_dialog = None
+            if result == dialog.DialogCode.Accepted:
+                self.hub.team_card.loaded = None
+                self.open_session(then)
+            elif not force:
+                self.close()
+        dialog.finished.connect(finished)
+        dialog.show()
+        return False
+
     def open_session(self, then=None):
         """풀이 기록과 문제 은행을 새로 읽고 then()(없으면 허브)으로 감. 풀이 기록을 읽지 못하면 시작 화면에 이유를 보여 주고 False 를 돌려줌.
         알고리즘 여행 기록을 읽지 못하면 파이썬 스터디는 그대로 열고, 허브의 여행 카드에 이유를 보여 줌. 여기서는 node 를 찾지 않음."""
+        if not self.ensure_identity(then):
+            return False
         try:
             self.session = session.Session(self.user)
         except SessionError as error:
@@ -852,6 +883,10 @@ class MainWindow(QMainWindow):
             page.restyle()
 
     def closeEvent(self, event):
+        if self.identity_dialog is not None and self.identity_dialog.job is not None:
+            self.identity_dialog.reject()
+            event.ignore()
+            return
         if self.job is not None:  # 스레드를 도중에 버리면 프로세스가 죽으므로 채점·제출이 끝난 뒤에 닫음
             self.job[0].cancel.set()  # 여행 채점은 곧 멈추고 기록하지 않음. [테스트 돌리기]는 vitest 를 끊고 대화상자 없이 끝남. 다른 일은 이 신호를 보지 않음
             self.close_pending = True

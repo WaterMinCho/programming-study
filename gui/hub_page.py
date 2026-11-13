@@ -310,6 +310,9 @@ class HubPage(QWidget):
             setting_box.addWidget(button)
             self.text_buttons[step] = button
         setting_box.addWidget(self.theme_btn)
+        self.identity_btn = kit.button("본인 확인 다시 하기", "text", "s", onbg=True)
+        self.identity_btn.clicked.connect(lambda: win.ensure_identity(force=True))
+        setting_box.addWidget(self.identity_btn)
         top.add_right(self.settings_btn, flush=True)
         outer.addWidget(top)
         outer.addWidget(self.settings_panel)
@@ -417,6 +420,10 @@ class HubPage(QWidget):
         root.addWidget(self.status)
         root.addSpacing(8)
         root.addWidget(self.busy_bar)
+        from gui.team_dashboard import TeamCard
+        self.team_card = TeamCard(win)
+        root.addSpacing(24)
+        root.addWidget(self.team_card)
         root.addSpacing(24)
         self.foot = LinkLabel('<a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL,
                               line=theme.TYPE["caption"][1], font=theme.font("caption"))
@@ -438,6 +445,7 @@ class HubPage(QWidget):
 
     def refresh(self):
         win = self.win
+        self.team_card.refresh_identity()
         overview = win.session.overview()
         self.user.setText("ID: %s" % overview["user"])
         name, _ = split_action(win.next_action(overview)[0])

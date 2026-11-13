@@ -284,6 +284,9 @@ class FirstRunTest(GuiTest):
         # 처음 실행은 기기 ID를 만들고 동의 여부를 선택한 뒤 학습함.
         win.boot()
         self.idle()
+        self.assertTrue(win.identity_dialog.isVisible())
+        guikit.complete_identity(win)
+        self.idle()
         dialog = win.privacy.dialog
         self.assertTrue(dialog.isVisible())
         self.assertFalse(dialog.agree.isEnabled())

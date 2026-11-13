@@ -12,6 +12,7 @@ import secrets
 import sqlite3
 import tempfile
 import uuid
+import urllib.parse
 
 from learning_data.collection import FORMAT, NOTICE, inside, packed
 
@@ -73,6 +74,8 @@ class Database:
             db.executescript(SCHEMA)
             from learning_server.storage import initialize
             initialize(db)
+            from learning_server.team import initialize as initialize_team
+            initialize_team(db)
         if os.name != "nt":
             os.chmod(self.path, 0o600)
 
@@ -335,6 +338,8 @@ def application(database, *, legacy_contract=False):
     if legacy_contract:
         from tests.legacy_submissions import Submissions
     submissions = Submissions(database)
+    from learning_server.team import Access
+    identity = Access(database)
     def app(environ, start_response):
         try:
             method, path = environ.get("REQUEST_METHOD"), environ.get("PATH_INFO")
@@ -343,6 +348,28 @@ def application(database, *, legacy_contract=False):
             if method == "GET" and path == "/health":
                 database.health()
                 result = {"status": "ok", "format": FORMAT}
+            elif method == "GET" and path == "/v1/identity/config":
+                result = identity.public_config()
+            elif method == "GET" and path == "/v1/identity/complete":
+                result = {"message": "프로그램으로 돌아가 본인 확인 결과를 확인해 주세요."}
+            elif method == "GET" and path == "/v1/team/summary":
+                query = urllib.parse.parse_qs(environ.get("QUERY_STRING", ""), max_num_fields=2)
+                if set(query) - {"days"} or len(query.get("days", ["7"])) != 1:
+                    raise ApiError(400, "조회 기간을 확인해 주세요.")
+                result = identity.summary(environ.get("HTTP_AUTHORIZATION", ""), int(query.get("days", ["7"])[0]))
+            elif method == "POST" and path == "/v1/identity/verify":
+                length = int(environ.get("CONTENT_LENGTH") or 0)
+                if not 1 <= length <= 2048:
+                    raise ApiError(413, "본인 확인 응답 크기를 확인해 주세요.")
+                if environ.get("CONTENT_TYPE", "").split(";")[0].strip() != "application/json":
+                    raise ApiError(415, "JSON 형식으로 보내 주세요.")
+                raw = environ["wsgi.input"].read(length)
+                if len(raw) != length:
+                    raise ApiError(400, "본인 확인 응답을 끝까지 받지 못했습니다.")
+                data = json.loads(raw.decode("utf-8"))
+                if not isinstance(data, dict):
+                    raise ApiError(400, "본인 확인 응답을 확인해 주세요.")
+                result = identity.verify(data)
             elif method == "POST" and path in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/withdraw/private", "/v1/events", "/v1/consent", "/v1/register", "/v1/register/open", "/v1/register/private", "/v1/submissions", "/v1/private/submissions", "/v1/submissions/publish"):
                 length = int(environ.get("CONTENT_LENGTH") or 0)
                 limit = 6 * MAX_BODY if path in ("/v1/submissions", "/v1/private/submissions") else MAX_BODY

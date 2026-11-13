@@ -42,9 +42,21 @@ def prepare_consent(user):
     from aiprep.collection import Collection
     from aiprep.privacy import Consent
     import study
+    from learning_data.identity import Identity
+    Identity(study.ROOT, user).save({"verified": True, "team": False})
     from python_collection import PythonCollection
     Consent({"python": PythonCollection(os.path.join(os.environ["STUDY_PYTHON_HOME"], user), study.ROOT),
              "ai": Collection(os.path.join(os.environ["STUDY_AI_HOME"], user), study.ROOT)}).choose(True)
+
+
+def complete_identity(win, team=False, token=None):
+    """GitHub 연결은 별도 검사하고 화면 시나리오에는 확인된 임시 기기를 사용함."""
+    result = {"verified": True, "team": team}
+    if token:
+        result["token"] = token
+    win.identity.save(result)
+    win.identity_dialog.complete(result)
+    pump()
 
 
 def pump(ms=30):

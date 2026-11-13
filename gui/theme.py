@@ -381,8 +381,9 @@ QFrame#find QPushButton#tool:disabled { background: transparent; color: %(faint)
 
 STYLE_V2 += """
 QFrame#navigation { background: %(surface)s; border-right: 1px solid %(line)s; }
-QWidget[ui="2"] QPushButton[navigation="true"] { text-align: left; padding: 0 16px; }
-QWidget[ui="2"] QPushButton[navigation="true"]:checked { background: %(selection)s; color: %(selection_ink)s; }
+QWidget[ui="2"] QPushButton[navigation="true"] { text-align: left; padding: 0; border: 2px solid transparent; border-radius: 10px; min-height: %(navigation_height)spx; max-height: %(navigation_height)spx; }
+QWidget[ui="2"] QPushButton[navigation="true"]:checked { background: %(selection)s; color: %(selection_ink)s; border-left-color: %(focus)s; }
+QWidget[ui="2"] QPushButton[navigation="true"]:focus { border-color: %(focus)s; }
 QFrame#submissionbar { background: %(surface)s; border: 1px solid %(border)s; border-radius: 16px; }
 QFrame#figure_controls { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 12px; }
 QFrame#learning_activity { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
@@ -517,6 +518,7 @@ def style_tokens(scheme):
                 slot=slot_height() - 2, learn_slot=learning_slot_height() - 2,
                 slot_focus=slot_height() - 4, learn_slot_focus=learning_slot_height() - 4,
                 field_height=CONTROL["field"] - 2, field_focus=CONTROL["field"] - 4,
+                navigation_height=max(56, TYPE["label"][1] + 24) - 4,
                 **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
 
 
