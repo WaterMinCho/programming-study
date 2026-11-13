@@ -22,6 +22,7 @@ CASES = (
     "tests.test_gui_navigation.NavigationTest.test_sidebar_labels_and_keyboard_navigation_fit_both_themes_at_max_text",
     "tests.test_gui_identity.IdentityGuiTest.test_unverified_existing_device_is_prompted_and_fits_max_text_both_themes",
     "tests.test_gui_identity.IdentityGuiTest.test_team_statistics_switch_period_and_are_hidden_for_other_users",
+    "tests.test_gui_identity.TeamDashboardTest.test_summary_and_chart_reflow_at_max_text_in_both_themes",
     "tests.test_gui_dialogs.DialogTest.test_pending_preserves_pixels_focus_selection_scroll_and_actions",
     "tests.test_gui_dialogs.DialogTest.test_identity_footer_and_code_fit_max_text_both_themes",
     "tests.test_gui_dialogs.DialogTest.test_long_message_keeps_all_actions_outside_body_scroll",

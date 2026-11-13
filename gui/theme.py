@@ -249,6 +249,11 @@ QWidget[ui="2"] QLabel#badge[tone="danger"] { background: %(wrong_weak)s; color:
 QWidget[ui="2"] QFrame#card { background: %(surface)s; border: 0; border-radius: 16px; }
 QWidget[ui="2"] QFrame#card QFrame#card { background: %(surface_alt)s; border-radius: 12px; }
 QWidget[ui="2"] QFrame#well { background: %(surface_alt)s; border: 0; border-radius: 12px; }
+QWidget[ui="2"] QFrame#team_metric, QWidget[ui="2"] QFrame#team_plot { background: %(surface)s; border: 1px solid %(line)s; border-radius: 16px; }
+QWidget[ui="2"] QFrame#team_breakdown, QWidget[ui="2"] QFrame#team_periods { background: %(surface_alt)s; border: 0; border-radius: 12px; }
+QWidget[ui="2"] QProgressBar#team_python, QWidget[ui="2"] QProgressBar#team_ai { background: %(track)s; border: 0; border-radius: 3px; }
+QWidget[ui="2"] QProgressBar#team_python::chunk { background: %(series_python)s; border-radius: 3px; }
+QWidget[ui="2"] QProgressBar#team_ai::chunk { background: %(series_ai)s; border-radius: 3px; }
 QWidget[ui="2"] QFrame#topbar, QWidget[ui="2"] QFrame#bottombar, QWidget[ui="2"] QFrame#stepper { background: %(surface)s; border: 0; }
 QWidget[ui="2"] QFrame#topbar[plain="true"] { background: %(bg)s; }
 QWidget[ui="2"] QFrame#topbar { border-bottom: 1px solid %(line)s; }
