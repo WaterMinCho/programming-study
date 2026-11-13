@@ -456,6 +456,46 @@
    "script": "tools/ai_art/al03.py",
    "fn": "a3e_level_3"
   },
+  "learn/al03/assets/a3f-1.gif": {
+   "sha256": "06848e24db54b25e5eec9d54fcff28eb99e8862f3b731fe415de894e8a478106",
+   "script": "tools/ai_art/course03_followup.py",
+   "fn": "a3f-1"
+  },
+  "learn/al03/assets/a3f-2.png": {
+   "sha256": "279056866211e741a068160f03c5486ae456671d34e0b182134d8324594a97bc",
+   "script": "tools/ai_art/course03_followup.py",
+   "fn": "a3f-2"
+  },
+  "learn/al03/assets/a3f-3.png": {
+   "sha256": "f0f682b65891277a62685147b7c7bd4e2a4df44a0fe5224870dbb4b3d068eb1d",
+   "script": "tools/ai_art/course03_followup.py",
+   "fn": "a3f-3"
+  },
+  "learn/al03/assets/a3f-4.png": {
+   "sha256": "66b26a36089ddc67c086fd515ceb228b869525160d731428bf9bb5c653274d5f",
+   "script": "tools/ai_art/course03_followup.py",
+   "fn": "a3f-4"
+  },
+  "learn/al03/assets/a3g-1.gif": {
+   "sha256": "6179b6b3b811ab03ae0bf5291fef02493533e390eb91fa08c1298d827c387dde",
+   "script": "tools/ai_art/course03_followup.py",
+   "fn": "a3g-1"
+  },
+  "learn/al03/assets/a3g-2.png": {
+   "sha256": "4383c75d884f2a145ffcf5d3322c32524da512388a5b260fc3eb222db5a0c840",
+   "script": "tools/ai_art/course03_followup.py",
+   "fn": "a3g-2"
+  },
+  "learn/al03/assets/a3g-3.png": {
+   "sha256": "63564fff102b6687aec2256bce6ea83299902abb005e26fb81b66e6ea9645b38",
+   "script": "tools/ai_art/course03_followup.py",
+   "fn": "a3g-3"
+  },
+  "learn/al03/assets/a3g-4.png": {
+   "sha256": "75cd8eadf836aabe4ef5de3006bb39882c2d4860d6699bb9a598ff7c0267eaf1",
+   "script": "tools/ai_art/course03_followup.py",
+   "fn": "a3g-4"
+  },
   "learn/l01/assets/1a-1.png": {
    "sha256": "eeab4fe61fdabc999edc282a30b0f1c24824e179526053db8be1c5fd500b97f3",
    "script": "tools/ai_art/l01.py",

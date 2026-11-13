@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제-응용23",
- "resolver": "재풀이-응용23",
- "reviewer": "대조검토-응용23",
+ "writer": "출제 1",
+ "resolver": "재풀이 2",
+ "reviewer": "검토 4",
  "files": {
   "assets/a3a-1.gif": "f469f403b717820a61a8cc0e64c69e764ddf0c8e7ed28d8f2272f2ad7135a0fc",
   "assets/a3a-2.png": "a2cb5fe21f94ec45a8f3b8591f410772c1872c2217e2a92bd2925a78b7c8dac8",
@@ -29,12 +29,21 @@
   "assets/a3e-41.png": "dd7346e914bcf6c83abf4ffc4cc454ad5a563bee100855d78abfa158f9f50be7",
   "assets/a3e-42.png": "5c3c9ac201785ab8a45cc3fe01b237e49ac819529060222e080a8dc4dd59c94e",
   "assets/a3e-43.png": "86d83753acb0ef7797158e971952d511fc3f76bbff5db1ae5d0298d3dc123a2e",
-  "meta.json": "6c0b5a89c709065ebd0ae6608162d4343507df22d56cc94e3a0ee88bc9506ebf",
-  "page.md": "abd60204f807c47f61af2ce9d78b34e3ecbc254f9f0f2c26e0c217201dfe9230"
+  "assets/a3f-1.gif": "06848e24db54b25e5eec9d54fcff28eb99e8862f3b731fe415de894e8a478106",
+  "assets/a3f-2.png": "279056866211e741a068160f03c5486ae456671d34e0b182134d8324594a97bc",
+  "assets/a3f-3.png": "f0f682b65891277a62685147b7c7bd4e2a4df44a0fe5224870dbb4b3d068eb1d",
+  "assets/a3f-4.png": "66b26a36089ddc67c086fd515ceb228b869525160d731428bf9bb5c653274d5f",
+  "assets/a3g-1.gif": "6179b6b3b811ab03ae0bf5291fef02493533e390eb91fa08c1298d827c387dde",
+  "assets/a3g-2.png": "4383c75d884f2a145ffcf5d3322c32524da512388a5b260fc3eb222db5a0c840",
+  "assets/a3g-3.png": "63564fff102b6687aec2256bce6ea83299902abb005e26fb81b66e6ea9645b38",
+  "assets/a3g-4.png": "75cd8eadf836aabe4ef5de3006bb39882c2d4860d6699bb9a598ff7c0267eaf1",
+  "meta.json": "374e507d87f06248f0140058b60abe4bb9dada8de6fbd540da3b8406b0918493",
+  "page.md": "c48e3b9be0ca3adb558535812f275b73250105ad9868cfebf69dc89dce26ff51"
  },
  "findings": [
   "초급·중급·심화 물음 18개를 순서대로 재풀이하고 수정한 심화 4개를 별도 대조함. 그림의 회전·분기·축척과 문장을 수정 검토함.",
   "rho·theta 대체 표기를 적용한 뒤 글자 폭으로 가운데 정렬을 계산함. 수치·물음은 유지함.",
-  "3차시 원본 4개의 해시가 이전 확인본과 같음을 확인했음. 기존 30문항과 정답을 유지하고 ROI 시작 좌표의 덧셈은 순수한 잘라내기의 조건임을 보완했음. 회전·원근·비선형 변환까지 한 경우의 좌표 관계를 공식 변환 문서와 대조했음."
+  "3차시 원본 4개의 해시가 이전 확인본과 같음을 확인했음. 기존 30문항과 정답을 유지하고 ROI 시작 좌표의 덧셈은 순수한 잘라내기의 조건임을 보완했음. 회전·원근·비선형 변환까지 한 경우의 좌표 관계를 공식 변환 문서와 대조했음.",
+  "a3f·a3g의 이진화·윤곽·모서리·원 검출을 원문 입력과 공식 문서로 대조함. 새 물음9개를 재풀이하고 원목록·점목록 차이, 부모자식 정의, 방향별 밝기 변화를 보완함. 새8그림의 정지그림과 GIF 모든장을 읽고 작은창·최대글자·두테마의 기존 단계 검사를 통과함."
  ]
 }

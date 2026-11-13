@@ -3,8 +3,9 @@
 import copy
 import json
 import os
+from types import SimpleNamespace
 
-from aiprep import plan
+from aiprep import bank, plan, service
 from tests.test_ai_service import Base
 
 
@@ -175,6 +176,78 @@ class ContinuationTest(Base):
         self.assertIsNone(changed.resume_set())
         sess._append({"kind": "answer", "set": ps.id, "card": next(iter(ps.stats)), "result": "pass"})
         self.assertIsNone(self.session().resume_set())
+
+    def source_corrected_session(self):
+        changed = self.session()
+        card = changed.cards['i90-b01']
+        previous = list(card['item']['ref'])
+        current = ['90차시 슬 p3']
+        card['ref'] = current
+        card['item']['ref'] = current
+        changed.items['i90']['meta']['resume_source_refs'] = {
+            card['id']: {'previous': previous, 'current': current}}
+        return changed
+
+    def test_registered_source_correction_keeps_draft_and_records(self):
+        sess = self.session()
+        practice = sess.start_set('note', card='i90-b01', seed=2)
+        practice.current()
+        practice.draft = {'values': ['작성 중']}
+        sess.save_practice(practice)
+        before_log = copy.deepcopy(sess.record.log)
+        with open(os.path.join(sess.home, 'state.json'), encoding='utf-8') as stream:
+            before_state = stream.read()
+        changed = self.source_corrected_session()
+        self.assertEqual(sess._card_versions()['i90-b01'], changed._card_versions()['i90-b01'])
+        restored = changed.resume_set()
+        self.assertIsNotNone(restored)
+        self.assertEqual(practice.draft, restored.draft)
+        self.assertEqual(practice.current(), restored.current())
+        self.assertEqual(before_log, changed.record.log)
+        with open(os.path.join(sess.home, 'state.json'), encoding='utf-8') as stream:
+            self.assertEqual(before_state, stream.read())
+        changed.save_practice(restored)
+        self.assertEqual(restored.fingerprint(), changed._local()['practice']['fingerprint'])
+
+    def test_source_correction_does_not_accept_changed_content_or_bad_fingerprint(self):
+        sess = self.session()
+        sess.start_set('note', card='i90-b01', seed=2)
+        for field in ('stem', 'answer', 'terms', 'source', 'missing'):
+            with self.subTest(field=field):
+                changed = self.source_corrected_session()
+                if field == 'stem':
+                    changed.cards['i90-b01']['item']['stem'] += ' 다른 조건입니다.'
+                elif field == 'answer':
+                    changed.cards['i90-b01']['item']['blanks'][0]['answer'] = ['다른 답']
+                elif field == 'terms':
+                    changed.terms['different'] = '바뀐 용어'
+                elif field == 'source':
+                    changed.cards['i90-b01']['item']['ref'] = ['등록하지 않은 출처']
+                else:
+                    changed.items['i90']['meta'].pop('resume_source_refs')
+                self.assertIsNone(changed.resume_set())
+        data = sess._local()
+        data['practice']['fingerprint'] = None
+        sess._save_local(data)
+        self.assertIsNone(self.source_corrected_session().resume_set())
+
+    def test_published_a02_refs_match_the_prior_complete_card_content(self):
+        root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ai')
+        data = bank.load_items({'id': 'a02'}, root)
+        cards = {card['id']: card for card in bank.cards_of({'id': 'a02'}, data)}
+        fixes = data['meta']['resume_source_refs']
+        self.assertEqual({'a02-b18', 'a02-c09', 'a02-c10'}, set(fixes))
+        for cid, fix in fixes.items():
+            self.assertIn(cards[cid]['kind'], ('blank', 'choice'))
+            self.assertEqual(fix['current'], cards[cid]['ref'])
+            self.assertEqual(fix['current'], cards[cid]['item']['ref'])
+        practice = service.PracticeSet.__new__(service.PracticeSet)
+        practice.sess = SimpleNamespace(cards=cards, items={'a02': data}, terms={}, skeletons={}, root=root)
+        practice.stats = {cid: {} for cid in cards}
+        # d7346a8의 37문항 전체를 용어·뼈대 없이 계산한 해시임.
+        previous = '60acc9da498ba8cd4d8615f0562e212132a1c3c8c5414a279820809dd9dc657e'
+        self.assertNotEqual(previous, practice.fingerprint())
+        self.assertEqual(previous, practice.fingerprint(previous_refs=True))
 
     def test_reading_another_unit_keeps_its_cursor_when_practice_hides(self):
         sess = self.session()
