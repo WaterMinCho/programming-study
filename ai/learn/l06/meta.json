@@ -107,7 +107,9 @@
       "what": "파라미터에 따른 손실의 모양을 loss landscape로 부르는 용례",
       "url": "https://arxiv.org/abs/1712.09913",
       "checked": "2026-11-06"
-    }
+    },
+    {"what": "PyTorch BCEWithLogitsLoss: 입력과 정답의 모양 일치", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BCEWithLogitsLoss.html", "checked": "2026-11-14"},
+    {"what": "PyTorch CrossEntropyLoss: 클래스 가중치와 실제 손실의 곱, 클래스 번호·확률 정답의 모양과 자료형", "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.CrossEntropyLoss.html", "checked": "2026-11-14"}
   ],
   "credits": [],
   "units": {

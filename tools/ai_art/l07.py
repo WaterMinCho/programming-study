@@ -518,7 +518,7 @@ def dummy_matrix():
     ax.text(6.9, 5.15, "예측  w × 신장 + b × 1", ha="center", fontsize=17, color=INK)
     for i, p in enumerate(preds):
         cell(ax, 5.8, 4.65 - (i + 1) * 0.66, 2.2, 0.66, fx(p, 2), edge=GRAY, fill="white", size=17)
-    note(ax, 9.65, 3.35, "정규방정식\n$(X^{T}X)^{-1}X^{T}y$", size=17, ha="center")
+    note(ax, 9.65, 3.35, "역행렬 식\n$(X^{T}X)^{-1}X^{T}y$", size=17, ha="center")
     note(ax, 9.65, 1.9, "w = 1.8207\nb = " + M + "245.94", size=17, ha="center")
     return image(fig)
 

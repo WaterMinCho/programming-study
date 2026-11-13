@@ -463,7 +463,7 @@ def memo_5b():
 
 @figure("5c-1", 560, 300)
 def saved_5c():
-    """순전파가 저장하는 값(Linear 의 입력, ReLU 마스크)과 역전파가 그 값을 쓰는 모습."""
+    """Linear 입력과 설명용 ReLU 마스크의 역전파 사용을 나타냄."""
     z = np.array([1.5, -0.5, 2.0])
     g = np.array([0.4, 0.3, -0.2])
     mask = z > 0
@@ -471,7 +471,7 @@ def saved_5c():
     vec = lambda v: "[" + ", ".join(f"{t:.1f}".replace("-", M) for t in v) + "]"
     plt, fig = new(600)
     ax = board(fig)
-    text(ax, 2, 56.5, "순전파는 저장하고, 역전파는 그 값을 씁니다", size=21, weight="bold")
+    text(ax, 2, 56.5, "입력과 양수 위치를 역전파에 씁니다", size=21, weight="bold")
     xs = [2, 30, 58, 86]
     labels = [("입력 x", ""), ("Linear", "z = " + vec(z)), ("ReLU", "a = " + vec(np.maximum(z, 0))), ("손실", "")]
     for x, (name, val) in zip(xs, labels):
@@ -482,7 +482,7 @@ def saved_5c():
         arrow(ax, x + 22.3, 44.5, x + 27.7, 44.5, color=BLUE, lw=2.6)
         arrow(ax, x + 27.7, 40.5, x + 22.3, 40.5, color=ORANGE, lw=2.6)
     box(ax, 30, 25, 22, 8, "저장: 입력 x", fc=PURPLE_L, ec=PURPLE, color=PURPLE, size=17)
-    box(ax, 58, 25, 22, 8, "저장: 마스크\n[True, False, True]", fc=PURPLE_L, ec=PURPLE, color=PURPLE, size=15)
+    box(ax, 58, 25, 22, 8, "설명용 마스크\n[True, False, True]", fc=PURPLE_L, ec=PURPLE, color=PURPLE, size=15)
     text(ax, 2, 15, "뒤에서 온 기울기 " + vec(g) + " 가 ReLU 를 지나면 " + vec(g * mask), size=17, color=ORANGE,
          family=CODE)
     text(ax, 2, 8, "weight 의 기울기는 뒤에서 온 기울기와 저장한 입력 x 로 계산합니다.", size=17, bg=NOTE)
