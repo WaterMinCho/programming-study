@@ -28,14 +28,17 @@ class CollectionChart(QWidget):
         font = theme.font("micro")
         painter.setFont(font)
         peak = max([3] + [row["python"] + row["ai"] for row in self.rows])
-        left = QFontMetricsF(font).horizontalAdvance(format(peak, ",")) + 16
-        plot = QRectF(left, 12, max(1, self.width() - left - 8), max(1, self.height() - theme.TYPE["micro"][1] - 40))
+        metrics = QFontMetricsF(font)
+        label_height = metrics.height() + 4
+        left = metrics.horizontalAdvance(format(peak, ",")) + 16
+        top = label_height / 2 + 4
+        plot = QRectF(left, top, max(1, self.width() - left - 8), max(1, self.height() - top - label_height - 20))
         for step in range(4):
             y = plot.bottom() - step * plot.height() / 3
             painter.setPen(QPen(theme.qcolor("line"), 1))
             painter.drawLine(int(plot.left()), int(y), int(plot.right()), int(y))
             painter.setPen(theme.qcolor("faint"))
-            painter.drawText(QRectF(0, y - 10, left - 10, 20), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            painter.drawText(QRectF(0, y - label_height / 2, left - 10, label_height), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                              format(round(peak * step / 3), ","))
         width = plot.width() / max(1, len(self.rows))
         every = max(1, math.ceil(len(self.rows) / 6))
@@ -53,7 +56,7 @@ class CollectionChart(QWidget):
                 at = datetime.datetime.fromisoformat(row["at"])
                 label = at.strftime("%H시") if self.days == 1 else "%d/%d" % (at.month, at.day)
                 painter.setPen(theme.qcolor("faint"))
-                painter.drawText(QRectF(x - 30, plot.bottom() + 12, 60, 24), Qt.AlignmentFlag.AlignCenter, label)
+                painter.drawText(QRectF(x - 30, plot.bottom() + 12, 60, label_height), Qt.AlignmentFlag.AlignCenter, label)
 
 
 class TeamCard(QWidget):
@@ -79,9 +82,11 @@ class TeamCard(QWidget):
         self.total = kit.para("", "title", bold=True)
         self.period_total = kit.para("", "body", "secondary")
         self.installations = kit.para("", "body", "secondary")
+        self.accounts = kit.para("", "body", "secondary")
         box.addWidget(self.total)
         box.addWidget(self.period_total)
         box.addWidget(self.installations)
+        box.addWidget(self.accounts)
         box.addWidget(kit.para("파이썬은 초록색, AI는 주황색 막대입니다.", "caption", "secondary"))
         self.chart = CollectionChart()
         box.addWidget(self.chart)
@@ -90,6 +95,10 @@ class TeamCard(QWidget):
         self.reload = kit.button("통계 새로고침", "text")
         self.reload.clicked.connect(self.fetch)
         box.addWidget(self.reload, 0, Qt.AlignmentFlag.AlignLeft)
+        self.reverify = kit.button("기기 확인 다시 하기", "text")
+        self.reverify.clicked.connect(lambda: win.ensure_identity(force=True))
+        box.addWidget(self.reverify, 0, Qt.AlignmentFlag.AlignLeft)
+        self.reverify.hide()
         self.hide()
 
     def refresh_identity(self):
@@ -106,6 +115,9 @@ class TeamCard(QWidget):
             QTimer.singleShot(0, self.fetch)
 
     def select(self, days):
+        if self.win.job is not None:
+            self.buttons[self.days].setChecked(True)
+            return
         self.days = days
         self.fetch()
 
@@ -123,22 +135,29 @@ class TeamCard(QWidget):
         def work():
             try:
                 return identity.summary(days)
-            except CollectionError:
-                return None
+            except CollectionError as failure:
+                return {"error": str(failure), "auth": failure.status in (401, 403)}
         def done(result):
             self.loading = False
             for button in self.buttons.values():
                 button.setEnabled(True)
             self.reload.setEnabled(True)
-            self.loaded = identity if result is not None else None
+            self.loaded = identity
             if identity is not getattr(self.win, "identity", None):
                 return
-            if result is None:
-                self.hide()
+            if result.get("error"):
+                for label in (self.total, self.period_total, self.installations, self.accounts):
+                    label.clear()
+                self.chart.set_data([], days)
+                self.note.setText(result["error"])
+                self.reverify.setVisible(result["auth"])
+                self.show()
                 return
+            self.reverify.hide()
             self.total.setText("전체 수집 기록 %s건" % format(result["total"], ","))
             self.period_total.setText("선택한 기간 %s건" % format(result["period_total"], ","))
             self.installations.setText("첫 실행 확인 기기 %s대 · 선택 기간 %s대" % (format(result.get("installations", 0), ","), format(result.get("period_installations", 0), ",")))
+            self.accounts.setText("인증 계정 %s개 · 선택 기간 첫 인증 %s개" % (format(result["accounts"], ","), format(result["period_accounts"], ",")))
             self.chart.set_data(result["series"], days)
             text = "기록에 저장된 시각을 한국 시간으로 집계합니다. 재전송은 중복 합산하지 않고 합성 기록은 제외합니다."
             if result["undated"]:

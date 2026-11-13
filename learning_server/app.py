@@ -350,6 +350,8 @@ def application(database, *, legacy_contract=False):
                 result = {"status": "ok", "format": FORMAT}
             elif method == "GET" and path == "/v1/identity/config":
                 result = identity.public_config()
+            elif method == "GET" and path == "/v1/identity/status":
+                result = identity.authenticate(environ.get("HTTP_AUTHORIZATION", ""), require_team=False)
             elif method == "GET" and path == "/v1/identity/complete":
                 result = {"message": "프로그램으로 돌아가 본인 확인 결과를 확인해 주세요."}
             elif method == "GET" and path == "/v1/team/summary":

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """과목 이동의 글자·아이콘 정렬과 실제 화면 전환을 확인함."""
 import copy
+from tests import guikit
 
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtTest import QTest
 
 from gui import theme
-from tests import guikit
 from tests.test_gui_hub import HubTest
 
 

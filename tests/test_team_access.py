@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """기기 확인·권한 분리와 집계의 원본 보존을 확인함."""
 import datetime
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -50,12 +51,40 @@ class AccessTest(unittest.TestCase):
     def test_nonmember_is_verified_but_cannot_read_statistics(self):
         self.account = 999
         result = self.access.verify(self.data)
-        self.assertEqual({"verified": True, "team": False, "token": ""}, result)
+        self.assertTrue(result["verified"])
+        self.assertFalse(result["team"])
+        self.assertTrue(self.access.authenticate("Bearer " + result["token"], require_team=False)["verified"])
         with self.assertRaises(ApiError) as raised:
-            self.access.authenticate("Bearer " + "0" * 64)
+            self.access.authenticate("Bearer " + result["token"])
         self.assertEqual(403, raised.exception.status)
         with self.database.connect() as db:
             self.assertEqual(1, db.execute("SELECT count(*) FROM identity_installations").fetchone()[0])
+
+    def test_http_routes_separate_public_configuration_device_check_and_team_statistics(self):
+        from learning_server.app import application
+        with mock.patch("learning_server.team.Access", return_value=self.access):
+            app = application(self.database)
+        def call(path, method="GET", payload=None, token=""):
+            raw = json.dumps(payload).encode()
+            environ = {"PATH_INFO": path, "REQUEST_METHOD": method, "CONTENT_LENGTH": str(len(raw)),
+                       "CONTENT_TYPE": "application/json", "wsgi.input": io.BytesIO(raw), "HTTP_AUTHORIZATION": "Bearer " + token}
+            status = []
+            body = b"".join(app(environ, lambda code, headers: status.append(int(code.split()[0]))))
+            return status[0], json.loads(body)
+        self.assertEqual((200, {"enabled": True, "client_id": "client123"}), call("/v1/identity/config"))
+        self.assertEqual(401, call("/v1/identity/status")[0])
+        self.account = 999
+        code, result = call("/v1/identity/verify", "POST", self.data)
+        self.assertEqual(200, code)
+        self.assertEqual((200, {"verified": True, "team": False}), call("/v1/identity/status", token=result["token"]))
+        self.assertEqual(403, call("/v1/team/summary", token=result["token"])[0])
+
+    def test_same_account_on_two_devices_is_one_account_and_two_installations(self):
+        self.access.verify(self.data)
+        self.access.verify({"access_token": "gho_" + "y" * 36, "nonce": "b" * 64})
+        with self.database.connect() as db:
+            self.assertEqual(1, db.execute("SELECT count(*) FROM identity_accounts").fetchone()[0])
+            self.assertEqual(2, db.execute("SELECT count(*) FROM identity_installations").fetchone()[0])
 
     def test_revocation_failure_does_not_grant_access(self):
         self.revoke_error = True
@@ -69,6 +98,16 @@ class AccessTest(unittest.TestCase):
         with mock.patch.dict("os.environ", {"STUDY_TEAM_MEMBER_HASHES": ""}):
             with self.assertRaises(ApiError):
                 self.access.authenticate("Bearer " + token)
+
+    def test_membership_change_preserves_regular_learner_device_key(self):
+        self.account = 999
+        token = self.access.verify(self.data)["token"]
+        with mock.patch.dict("os.environ", {"STUDY_TEAM_MEMBER_HASHES": ",".join(self.access.digest("member:" + str(n)) for n in (201, 202, 203, 204))}):
+            result = self.access.authenticate("Bearer " + token, require_team=False)
+            self.assertEqual({"verified": True, "team": False}, result)
+            with self.assertRaises(ApiError) as raised:
+                self.access.authenticate("Bearer " + token)
+            self.assertEqual(403, raised.exception.status)
 
     def test_unknown_and_invalid_auth_are_not_empty_statistics(self):
         for header in ("", "Bearer invalid", "Bearer " + "0" * 64):

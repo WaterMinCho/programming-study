@@ -188,8 +188,8 @@ class SummaryTest(unittest.TestCase):
         for path in ("tests/test_journey_runner.py", "tools/journey_art/d01.py", ".github/workflows/journey.yml"):
             self.assertIn("여정 문제 검증", summary.required_names([path]))
 
-    def test_release_paths_match_pr_filter_and_not_gui_changes(self):
-        for files in (["gui/window.py"], ["tools/check_release.py.bak"], [".github/workflows/release-check.yml.old"]):
+    def test_release_paths_match_pr_filter_and_not_unrelated_gui_changes(self):
+        for files in (["gui/mascot.py"], ["tools/check_release.py.bak"], [".github/workflows/release-check.yml.old"]):
             self.assertFalse(summary.release_expected(files, self.github.pr))
             self.assertNotIn("새 설치와 작은 창 (배율 1)", summary.required_names(files, self.github.pr))
         for path in summary.RELEASE_PATHS:
@@ -236,7 +236,7 @@ class SummaryTest(unittest.TestCase):
         self.assertIsNotNone(self.aggregate())
 
     def test_gui_change_does_not_wait_for_untriggered_release_workflow(self):
-        self.github.files = [{"filename": "gui/window.py"}]
+        self.github.files = [{"filename": "gui/mascot.py"}]
         self.github.runs["release-check.yml"] = []
         self.assertIsNotNone(self.aggregate())
 

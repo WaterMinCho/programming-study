@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 import tempfile
+import uuid
 import urllib.parse
 import urllib.request
 
@@ -48,7 +49,7 @@ class Identity:
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
             if (not isinstance(value, dict) or value.get("verified") is not True or type(value.get("team")) is not bool
-                    or (value["team"] and not re.fullmatch(r"[a-f0-9]{64}", str(value.get("token", ""))))):
+                    or not re.fullmatch(r"[a-f0-9]{64}", str(value.get("token", "")))):
                 raise ValueError()
             return value
         except FileNotFoundError:
@@ -60,11 +61,16 @@ class Identity:
         value = {"verified": result.get("verified") is True, "team": result.get("team") is True}
         if not value["verified"]:
             raise CollectionError("본인 확인 응답을 확인해 주세요.")
-        if value["team"]:
-            if not re.fullmatch(r"[a-f0-9]{64}", str(result.get("token", ""))):
-                raise CollectionError("기기 확인 응답을 확인해 주세요.")
-            value["token"] = result["token"]
-        self.settings()
+        if not re.fullmatch(r"[a-f0-9]{64}", str(result.get("token", ""))):
+            raise CollectionError("기기 확인 응답을 확인해 주세요.")
+        value["token"] = result["token"]
+        try:
+            self.settings()
+        except CollectionError:
+            try:
+                os.link(self.path, self.path.with_name(self.path.name + ".broken-" + uuid.uuid4().hex[:12]))
+            except OSError:
+                raise CollectionError("기존 확인 파일의 보관 사본을 만들지 못했습니다. 원본은 바꾸지 않았습니다.") from None
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         fd, name = tempfile.mkstemp(prefix=".identity-", dir=self.path.parent)
         try:
@@ -136,8 +142,13 @@ class Identity:
                 self.cancel()
                 raise CollectionError("GitHub 확인을 마치지 못했습니다. 다시 시작해 주세요.")
             self.pending_token = token
-        result = request(self.base, "/v1/identity/verify", {"access_token": self.pending_token, "nonce": nonce},
-                         timeout=30, error_detail=True)
+        try:
+            result = request(self.base, "/v1/identity/verify", {"access_token": self.pending_token, "nonce": nonce},
+                             timeout=30, error_detail=True)
+        except CollectionError as failure:
+            if failure.status in (400, 401, 403, 404, 409, 422):
+                self.cancel()
+            raise
         if nonce != self.nonce:
             raise CollectionError("본인 확인을 중단했습니다.")
         return self.save(result)
@@ -148,7 +159,7 @@ class Identity:
             raise CollectionError("스터디원에게만 제공하는 통계입니다.")
         result = request(self.base, "/v1/team/summary?days=" + str(days), token=settings["token"], method="GET", error_detail=True)
         try:
-            for key in ("total", "period_total", "undated", "installations", "period_installations"):
+            for key in ("total", "period_total", "undated", "installations", "period_installations", "accounts", "period_accounts"):
                 if type(result[key]) is not int or result[key] < 0:
                     raise ValueError()
             if result["days"] != days or len(result["series"]) != (24 if days == 1 else days):
@@ -161,6 +172,12 @@ class Identity:
         except (KeyError, TypeError, ValueError):
             raise CollectionError("통계 응답을 읽지 못했습니다. 프로그램을 업데이트한 뒤 다시 확인해 주세요.") from None
         return result
+
+    def status(self):
+        settings = self.settings()
+        result = request(self.base, "/v1/identity/status", token=settings.get("token"), method="GET", error_detail=True)
+        result["token"] = settings.get("token")
+        return self.save(result)
 
     def cancel(self):
         self.pending_token = self.device = None

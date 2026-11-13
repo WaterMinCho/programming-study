@@ -12,6 +12,8 @@ Windows에서는 `start.bat`, macOS에서는 `start.command`로 시작하세요.
 
 프로그램 받기 → start 파일 실행 → 과목 선택 → 풀이·채점
 
+기기마다 처음 한 번 GitHub 계정을 확인합니다. 다음 실행부터는 프로그램의 기기 키로 자동 확인합니다. 연구용 풀이 기록 제공은 선택 사항이며, 동의하지 않아도 학습과 로컬 채점을 이용할 수 있습니다.
+
 [**설치하고 첫 문제 풀기**](docs/LEARNER_START.md) · [이미 설치했다면 바로 실행하기](gui/README.md#프로그램-실행과-학습-이어가기)
 
 ---
@@ -38,6 +40,7 @@ Windows에서는 `start.bat`, macOS에서는 `start.command`로 시작하세요.
 
 - [글자 크기·밝고 어두운 테마](gui/README.md#글자-크기와-화면-테마) · [새 자료 받기](gui/README.md#프로그램과-문제-업데이트)
 - [비공개 풀이 제출](docs/API_SUBMISSIONS.md) · [수집 동의·철회](docs/LEARNING_PRIVACY.md)
+- [기기 인증과 통계](docs/DEVICE_IDENTITY.md)에서 인증한 GitHub 계정 수와 처음 인증한 기기 수를 어떻게 세는지 확인할 수 있습니다.
 - [직무별 학습 로드맵 펼쳐보기](docs/roadmap/README.md#직무별-로드맵)
 - [실행·제출 오류 해결](gui/README.md#실행업데이트제출-오류-해결) · [전체 안내 목록](docs/GUIDE_INDEX.md)
 

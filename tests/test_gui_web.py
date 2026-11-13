@@ -142,6 +142,7 @@ class WebTest(unittest.TestCase):
         FakeVitest.calls = []
         self.git = FakeGitFlow()
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
+        self.settings.setValue("onboarding/hub/v1", True)  # 첫 안내는 전용 화면 검사에서 확인함.
         self.win, self.opened = None, []
 
     def tearDown(self):
@@ -164,7 +165,7 @@ class WebTest(unittest.TestCase):
     # 도우미
 
     def boot(self, size=(1280, 800)):
-        self.win = win = MainWindow(self.settings, lambda root, user: (self.git, ""))
+        self.win = win = MainWindow(self.settings, lambda root, user: (self.git, ""), identity_factory=guikit.identity_factory)
         win.open_url = lambda url: None
         win.open_folder = self.open_folder
         win.web_mission.clock = lambda: self.mono

@@ -14,7 +14,7 @@ class IdentityDialog(QDialog):
     def __init__(self, win, identity):
         super().__init__(win)
         self.win, self.identity, self.job = win, identity, None
-        self.pending_close, self.expires = False, 0
+        self.pending_close, self.expires, self.retrying = False, 0, False
         self.setWindowTitle("이 기기에서 본인 확인")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.setProperty("ui", "2")
@@ -24,7 +24,8 @@ class IdentityDialog(QDialog):
         inner = kit.frame("page")
         content = kit.box(inner, spacing=16)
         content.addWidget(kit.label("GitHub에서 한 번 확인합니다", "headline", bold=True))
-        content.addWidget(kit.para("기존 사용자도 이 기기에서 처음 한 번 확인합니다. 실명·이메일·사진과 GitHub 계정 번호는 저장하지 않습니다.", "body"))
+        content.addWidget(kit.para("기존 사용자도 이 기기에서 처음 한 번 확인합니다. 실명·이메일·사진과 GitHub 계정 번호 원문은 저장하지 않습니다.", "body"))
+        content.addWidget(kit.para("계정 중복을 확인할 수 있는 HMAC 값과 임의 기기 코드를 보관합니다. GitHub 토큰은 확인 후 해제합니다.", "caption", "secondary"))
         content.addWidget(kit.para("임의 기기 코드로 첫 실행 기기 수를 집계합니다. 학습 기록 제공 여부는 다음 화면에서 별도로 선택합니다.", "caption", "secondary"))
         self.code = kit.label("", "title", bold=True)
         self.code.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -66,6 +67,7 @@ class IdentityDialog(QDialog):
             if self.pending_close:
                 super(IdentityDialog, self).reject()
             elif result.get("error"):
+                self.retrying = True
                 self.status.setText(result["error"])
                 self.begin_button.setText("다시 확인하기")
             else:
@@ -79,6 +81,10 @@ class IdentityDialog(QDialog):
             self.work(self.identity.poll, self.polled)
             return
         if self.identity.device is not None and time.monotonic() < self.expires:
+            if self.retrying:
+                self.retrying = False
+                self.work(self.identity.poll, self.polled)
+                return
             self.win.open_url(self.identity.device["verification_uri"])
             self.timer.start(max(5, int(self.identity.device.get("interval", 5))) * 1000)
             return
@@ -86,6 +92,7 @@ class IdentityDialog(QDialog):
         self.work(self.identity.begin, self.started)
 
     def started(self, result):
+        self.retrying = False
         self.code.setText(result["user_code"])
         self.code.show()
         self.copy.show()

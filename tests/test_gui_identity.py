@@ -2,11 +2,11 @@
 """기존 사용자의 첫 본인 확인과 팀 전용 통계의 배치를 확인함."""
 import datetime
 from unittest import mock
+from tests import guikit
 
 from PyQt6.QtCore import QPoint
 
 from gui import theme
-from tests import guikit
 from tests.test_gui_hub import HubTest
 
 
@@ -38,7 +38,7 @@ class IdentityGuiTest(HubTest):
         def summary(days):
             count = 24 if days == 1 else days
             rows = [{"at": (datetime.datetime(2026, 11, 1, tzinfo=datetime.timezone.utc) + datetime.timedelta(days=n)).isoformat(), "python": n + 1, "ai": 0} for n in range(count)]
-            return {"total": 1000, "period_total": sum(row["python"] for row in rows), "undated": 100, "days": days, "series": rows, "installations": 12, "period_installations": 3}
+            return {"total": 1000, "period_total": sum(row["python"] for row in rows), "undated": 100, "days": days, "series": rows, "installations": 12, "period_installations": 3, "accounts": 10, "period_accounts": 2}
         identity = mock.Mock()
         identity.settings.return_value = {"verified": True, "team": True}
         identity.summary.side_effect = summary

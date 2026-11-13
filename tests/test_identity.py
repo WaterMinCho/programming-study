@@ -26,16 +26,18 @@ class IdentityTest(unittest.TestCase):
         self.assertNotIn("gho_test", text)
         self.assertEqual(result, self.identity.settings())
 
-    def test_nonmember_receipt_does_not_store_a_token(self):
-        self.assertEqual({"verified": True, "team": False}, self.identity.save({"verified": True, "team": False, "token": "unused"}))
+    def test_nonmember_device_key_cannot_read_statistics(self):
+        self.assertEqual({"verified": True, "team": False, "token": "b" * 64}, self.identity.save({"verified": True, "team": False, "token": "b" * 64}))
         with self.assertRaises(CollectionError):
             self.identity.summary(7)
 
     def test_corrupt_receipt_is_preserved(self):
         self.identity.path.write_bytes(b"{broken")
-        with self.assertRaises(CollectionError):
-            self.identity.save({"verified": True, "team": False})
-        self.assertEqual(b"{broken", self.identity.path.read_bytes())
+        self.identity.save({"verified": True, "team": False, "token": "c" * 64})
+        backups = list(self.identity.path.parent.glob("identity.json.broken-*"))
+        self.assertEqual(1, len(backups))
+        self.assertEqual(b"{broken", backups[0].read_bytes())
+        self.assertTrue(self.identity.settings()["verified"])
 
     def test_device_flow_and_pending_token_stay_in_memory(self):
         device = {"verification_uri": "https://github.com/login/device", "device_code": "private-device-code",
@@ -44,7 +46,7 @@ class IdentityTest(unittest.TestCase):
             if path.endswith("/config"):
                 return {"enabled": True, "client_id": "client123"}
             self.assertEqual("gho_" + "x" * 36, data["access_token"])
-            return {"verified": True, "team": False}
+            return {"verified": True, "team": False, "token": "c" * 64}
         with mock.patch("learning_data.identity.request", side_effect=request), mock.patch("learning_data.identity.github", side_effect=[device, {"error": "authorization_pending"}, {"access_token": "gho_" + "x" * 36, "refresh_token": "private-refresh"}]):
             self.identity.begin()
             self.assertTrue(self.identity.poll()["pending"])

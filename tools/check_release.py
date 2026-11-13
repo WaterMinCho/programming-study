@@ -22,6 +22,7 @@ CASES = (
     "tests.test_gui_navigation.NavigationTest.test_sidebar_labels_and_keyboard_navigation_fit_both_themes_at_max_text",
     "tests.test_gui_identity.IdentityGuiTest.test_unverified_existing_device_is_prompted_and_fits_max_text_both_themes",
     "tests.test_gui_identity.IdentityGuiTest.test_team_statistics_switch_period_and_are_hidden_for_other_users",
+    "tests.test_gui_onboarding.OnboardingTest.test_visible_controls_fit_and_switch_without_activating_targets",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
     "tests.test_gui_ai_courses.CourseGuiTest.test_version_notice_fits_small_window_max_text_and_both_themes",

@@ -43,7 +43,7 @@ def prepare_consent(user):
     from aiprep.privacy import Consent
     import study
     from learning_data.identity import Identity
-    Identity(study.ROOT, user).save({"verified": True, "team": False})
+    Identity(study.ROOT, user).save({"verified": True, "team": False, "token": "f" * 64})
     from python_collection import PythonCollection
     Consent({"python": PythonCollection(os.path.join(os.environ["STUDY_PYTHON_HOME"], user), study.ROOT),
              "ai": Collection(os.path.join(os.environ["STUDY_AI_HOME"], user), study.ROOT)}).choose(True)
@@ -51,12 +51,21 @@ def prepare_consent(user):
 
 def complete_identity(win, team=False, token=None):
     """GitHub 연결은 별도 검사하고 화면 시나리오에는 확인된 임시 기기를 사용함."""
-    result = {"verified": True, "team": team}
+    result = {"verified": True, "team": team, "token": token or "f" * 64}
     if token:
         result["token"] = token
     win.identity.save(result)
     win.identity_dialog.complete(result)
     pump()
+
+
+def identity_factory(repository, user):
+    """실제 GitHub·서버 연결은 별도 검사하고 임시 기기 응답을 주입함."""
+    from learning_data.identity import Identity
+    class FixtureIdentity(Identity):
+        def status(self):
+            return self.settings()
+    return FixtureIdentity(repository, user)
 
 
 def pump(ms=30):
