@@ -1,16 +1,24 @@
 # -*- coding: utf-8 -*-
 """두 과정 탭에서 혼합 회차의 안내·초안·결과 표시를 확인함."""
+import unittest
 from unittest import mock
 
 from aiprep import bank
 from gui import theme
+from tests import test_gui_ai
 from tests.test_ai_mixed_mock import make_bank, without_mixed_metadata
-from tests.test_gui_ai import AiTest, visible_text
+from tests.test_gui_ai import visible_text
 
 
-class MixedMockPageTest(AiTest):
+class MixedMockPageTest(unittest.TestCase):
+    real_bank = False
+    pc = False
+    tearDown = test_gui_ai.AiTest.tearDown
+    boot = test_gui_ai.AiTest.boot
+    idle = test_gui_ai.AiTest.idle
+
     def setUp(self):
-        super().setUp()
+        test_gui_ai.AiTest.setUp(self)
         self.root = str(make_bank(self.tmp+'/mixed_bank'))
         for name,value in [('AI_DIR',self.root)]:
             patch=mock.patch.object(bank,name,value)
