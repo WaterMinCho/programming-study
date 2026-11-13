@@ -126,3 +126,6 @@ class AutomationScopeTest(unittest.TestCase):
                          ci_scope.selection(["tools/study_review_worker.py", "tests/test_study_review_worker.py"]))
         self.assertEqual(dict(bank=False, unit=True, gui=False, model=False),
                          ci_scope.selection(["tools/slack_threads.py", "tests/test_slack_threads.py"]))
+        for path in ("tools/server_incident_alerts.py", "tests/test_server_incident_alerts.py",
+                     ".github/workflows/server-incidents.yml"):
+            self.assertEqual(dict(bank=False, unit=True, gui=False, model=False), ci_scope.selection([path]))

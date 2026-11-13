@@ -71,3 +71,11 @@ gh api --method POST repos/WaterMinCho/programming-study/statuses/PR_HEAD_SHA -f
 포크 실행에 GitHub 승인이 필요하거나 Mac 검토기가 꺼져 있으면 최종 알림도 늦어집니다. 알림을 멈추려면 **Actions → Slack 스터디 알림 → Disable workflow**를 선택합니다.
 
 [events]: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
+
+## 수집 서버 장애와 복구
+
+스터디 채널에 한국 날짜로 ‘금일 서버 상태 모니터링’ 글이 하루에 하나 올라옵니다. 장애가 생기면 복구를 먼저 시도하고, 그날의 글에 장애 번호와 처리 결과를 답글 한 개로 남깁니다. 자정을 넘겨 결과가 나오면 결과를 보낸 날짜의 글에서 확인할 수 있습니다.
+
+복구되지 않았으면 답글에서 어떤 조치를 시도했는지, 어디서 멈췄는지 확인하세요. 이후의 접속 상태는 [수집 서버 상태 페이지](https://rokey-study.betteruptime.com)에서 확인할 수 있습니다. Better Stack은 3분마다 서버 접속을 확인하고, GitHub Actions는 5분 간격으로 장애 목록을 조회합니다. Actions 실행이 밀리면 답글도 늦어질 수 있습니다.
+
+운영자는 저장소 변수 `ROKEY_INCIDENT_RESOURCES`에 운영 모니터 ID를 `{"health":"monitor:123"}` 형식으로 등록합니다. Actions는 팀 전용 읽기 토큰으로 장애를 조회하고 기존 Slack 봇으로 답글을 보냅니다. Slack의 수신 확인이 끊기면 해당 장애 번호의 답글과 전송 기록을 대조한 뒤 재시도 여부를 결정합니다.

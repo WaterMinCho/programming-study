@@ -49,16 +49,24 @@ def post_message(payload, token, channel):
 
 
 class DailyThreads:
-    def __init__(self, github, token, channel, anchor):
+    def __init__(self, github, token, channel, anchor, *, topic="pr"):
         if (not re.fullmatch(r"xoxb-[A-Za-z0-9-]+", token or "")
                 or not re.fullmatch(r"[CG][A-Z0-9]{8,}", channel or "")
                 or not re.fullmatch(r"[0-9a-f]{40}", anchor or "")):
             raise ValueError("일별 Slack 알림의 봇·채널·저장 위치를 확인해 주세요.")
+        if topic not in ("pr", "server"):
+            raise ValueError("Slack 스레드 종류를 확인해 주세요.")
+        self.topic = topic
         self.github, self.token, self.channel, self.anchor = github, token, channel, anchor
 
     def parent(self, day):
         channel_key = hashlib.sha256(self.channel.encode()).hexdigest()[:12]
-        context = "스터디 PR 스레드/%s/%s" % (day, channel_key)
+        if self.topic == "server":
+            context = f"서버 모니터링 스레드/{day}/{channel_key}"
+            title = f"*금일 서버 상태 모니터링* · {day}  |  <https://rokey-study.betteruptime.com|서버 상태>"
+        else:
+            context = f"스터디 PR 스레드/{day}/{channel_key}"
+            title = day + " 오늘의 PR"
         location = endpoint("statuses/" + self.anchor)
         midnight = datetime.combine(datetime.fromisoformat(day).date(), time.min, KST)
         for row in self.github.pages(endpoint("commits/%s/statuses" % self.anchor)):
@@ -67,7 +75,7 @@ class DailyThreads:
                 if description.startswith("ready:") and TS.fullmatch(description[6:]):
                     return description[6:]
                 if description == "creating":
-                    raise URLError("오늘의 PR 글을 만들었는지 확인이 필요합니다. 새 글은 만들지 않았습니다.")
+                    raise URLError("오늘의 상위 글이 Slack에 도착했는지 확인해 주세요.")
                 if description == "failed":
                     break
                 raise ValueError("일별 Slack 글의 저장 기록을 확인해 주세요.")
@@ -76,7 +84,7 @@ class DailyThreads:
                 break
         self.github.post(location, {"state": "success", "context": context, "description": "creating"})
         try:
-            ts = post_message({"text": day + " 오늘의 PR", "unfurl_links": False, "unfurl_media": False},
+            ts = post_message({"text": title, "unfurl_links": False, "unfurl_media": False},
                               self.token, self.channel)
         except (HTTPError, ValueError):
             self.github.post(location, {"state": "success", "context": context, "description": "failed"})

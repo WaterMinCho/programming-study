@@ -1,0 +1,37 @@
+name: 수집 서버 장애 알림
+on:
+  schedule:
+    - cron: '2-59/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: rokey-server-incidents
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    if: github.repository == 'WaterMinCho/programming-study' && github.ref == 'refs/heads/main' && vars.ROKEY_INCIDENT_RESOURCES != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          sparse-checkout: tools
+      - name: 서버 스레드에 장애 처리 결과 보내기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BETTER_STACK_INCIDENTS_READ_TOKEN: ${{ secrets.BETTER_STACK_INCIDENTS_READ_TOKEN }}
+          SLACK_STUDY_BOT_TOKEN: ${{ secrets.SLACK_STUDY_BOT_TOKEN }}
+          SLACK_STUDY_CHANNEL_ID: ${{ vars.SLACK_STUDY_CHANNEL_ID }}
+          SLACK_STUDY_THREAD_ANCHOR: ${{ vars.SLACK_STUDY_THREAD_ANCHOR }}
+          ROKEY_INCIDENT_CUTOVER_AT: ${{ vars.ROKEY_INCIDENT_CUTOVER_AT }}
+          # 한국 날짜가 바뀔 때 진행 중인 복구를 마치고 앵커를 교체함.
+          # 이전 SHA를 최신순으로 공백 구분해 두면 과거 전송·수신 불확실 기록도 대조함.
+          ROKEY_INCIDENT_PREVIOUS_ANCHORS: ${{ vars.ROKEY_INCIDENT_PREVIOUS_ANCHORS }}
+          ROKEY_INCIDENT_RESOURCES: ${{ vars.ROKEY_INCIDENT_RESOURCES }}
+        run: python3 -m tools.server_incident_alerts
