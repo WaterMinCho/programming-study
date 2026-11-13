@@ -46,14 +46,23 @@ def exam_dates(raw):
 class EventIndex(object):
     """card_events 를 덧붙는 기록에 이어서 계산함. events 는 {카드 id: [답]}, ver 는 카드마다 바뀐 횟수(일정 캐시의 키)."""
 
-    def __init__(self, first_try_only=True):
+    def __init__(self, first_try_only=True, versions=None, revised=()):
         self.first_try_only = first_try_only
+        self.versions, self.revised = versions or {}, set(revised)
+        self.unversioned = set()
         self.events, self.ver = {}, {}
         self._answers = {}
         self._mocks = set()
         self._also = {}  # (set, 주 카드, again, 함께 고른·가린 카드) → also 행. override 의 also_value 가 지울 행을 찾음
 
-    def _add(self, cid, row):
+    def _add(self, cid, row, revision=None):
+        expected = self.versions.get(cid)
+        wrong_version = revision is not None and revision != expected
+        unconfirmed_change = revision is None and cid in self.revised
+        if expected is not None and (wrong_version or unconfirmed_change):
+            return
+        if revision is None:
+            self.unversioned.add(cid)
         self.events.setdefault(cid, []).append(row)
         self.ver[cid] = self.ver.get(cid, 0) + 1
 
@@ -69,12 +78,12 @@ class EventIndex(object):
                 row = {"at": at, "day": day, "result": str(entry.get("result") or "stuck"), "sure": entry.get("sure"),
                        "again": int(entry.get("again") or 0), "set": entry.get("set"), "dontknow": bool(entry.get("dontknow")),
                        "src": "answer", "override": False}
-                self._add(cid, row)
+                self._add(cid, row, entry.get("content_revision"))
                 self._answers[(entry.get("set"), cid, row["again"])] = row
                 for other, result in (entry.get("also") or {}).items():
                     also = {"at": at, "day": day, "result": str(result), "sure": None, "again": 0,
                             "set": entry.get("set"), "dontknow": False, "src": "also", "override": False}
-                    self._add(str(other), also)
+                    self._add(str(other), also, (entry.get("content_revisions") or {}).get(str(other)))
                     self._also[(entry.get("set"), cid, row["again"], str(other))] = also
             elif kind == "override" and entry.get("card"):
                 cid = str(entry["card"])

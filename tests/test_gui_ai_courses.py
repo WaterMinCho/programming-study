@@ -36,6 +36,27 @@ class CourseGuiTest(AiTest):
         self.assertNotIn('a01', win.ai.lessons)
         self.assertEqual('intro', win.settings.value('ai/course/' + win.user))
 
+    def test_version_notice_fits_small_window_max_text_and_both_themes(self):
+        from unittest import mock
+        win = self.boot((760, 480))
+        win.go_ai()
+        win.set_text("larger")
+        overview = dict(win.ai.overview(), legacy_cards=999, revised_cards=999)
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            win.restyle()
+            with mock.patch.object(win.ai, "overview", return_value=overview):
+                win.ai_home.refresh()
+            guikit.pump()
+            note = win.ai_home.revision_note
+            self.assertTrue(note.isVisible())
+            self.assertIn("999", note.text())
+            win.ai_home.scroll.ensureWidgetVisible(note)
+            guikit.wait_until(lambda: note.width() > 0 and note.height() >= note.heightForWidth(note.width()))
+            self.assertGreater(note.heightForWidth(note.width()), 0)
+            self.assertLessEqual(note.width(), win.width())
+            self.assertGreater(win.ai_home.next_btn.height(), 0)
+
     def test_deep_dialog_closes_without_changing_main_position_or_records(self):
         win = self.boot((760, 480))
         win.go_ai()
