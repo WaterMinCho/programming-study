@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """보낼 풀이 파일을 확인하고 비공개 서버 제출을 연결함."""
-from PyQt6.QtWidgets import QCheckBox, QDialog, QLineEdit, QPlainTextEdit, QWidget
+from PyQt6.QtWidgets import QCheckBox, QDialog, QLineEdit, QPlainTextEdit
 
 from gui import kit, theme
+from gui.dialog_layout import DialogLayout
 from learning_data.collection import CollectionError
 from learning_data.privacy import DEFAULT_SERVER
 from learning_data.submission import snapshot
@@ -18,11 +19,9 @@ class SubmissionSetup(QDialog):
         area = win.screen().availableGeometry()
         self.resize(min(640, win.width(), area.width()-32), min(640, win.height(), area.height()-72))
         self.move(area.x()+(area.width()-self.width())//2, area.y()+24)
-        outer = kit.box(self, (24, 24, 24, 24), spacing=theme.GAP["group"])
-        content = QWidget()
-        body = kit.box(content, spacing=theme.GAP["paragraph"])
-        body.addWidget(kit.heading(kit.label("비공개 풀이 제출", "headline"), kit.para(
-            "확인한 풀이 파일을 서버에 보관합니다. GitHub에는 올리지 않습니다.")))
+        self.shell = DialogLayout(self, "비공개 풀이 제출")
+        body = self.shell.content
+        body.addWidget(kit.para("확인한 풀이 파일을 서버에 보관합니다. GitHub에는 올리지 않습니다."))
         body.addWidget(kit.para("답안 파일·채점·진도를 문제 추천 연구에 사용합니다. 수집 동의와 보관 기간은 [내 정보·데이터]에서 확인하고 철회할 수 있습니다.", "caption", "secondary"))
         self.url = QLineEdit(DEFAULT_SERVER)
         self.url.setAccessibleName("풀이 제출 서버 주소")
@@ -60,14 +59,10 @@ class SubmissionSetup(QDialog):
         self.confirm_private.toggled.connect(lambda checked: self.connect_button.setEnabled(checked and self.confirm_private.isEnabled()))
         self.connect_button.clicked.connect(self.connect_and_submit)
         body.addStretch(1)
-        outer.addWidget(kit.scroll(content), 1)
-        footer = QWidget()
-        row = kit.FlowLayout(footer, spacing=theme.GAP["detail"])
-        row.addWidget(self.connect_button)
         close = kit.button("닫기", scale="l")
         close.clicked.connect(self.reject)
-        row.addWidget(close)
-        outer.addWidget(footer)
+        self.shell.actions.set_actions([], [close, self.connect_button])
+        self.shell.fit(680, 520)
 
     def connect_and_submit(self):
         if not self.confirm_private.isChecked() or not self.confirm_private.isEnabled():
