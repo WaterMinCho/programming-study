@@ -22,11 +22,16 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: tools
-      - name: 새 장애와 복구 알림 보내기
+      - name: 서버 스레드에 장애 처리 결과 보내기
         env:
           GH_TOKEN: ${{ github.token }}
           BETTER_STACK_INCIDENTS_READ_TOKEN: ${{ secrets.BETTER_STACK_INCIDENTS_READ_TOKEN }}
-          SLACK_STUDY_WEBHOOK_URL: ${{ secrets.SLACK_STUDY_WEBHOOK_URL }}
+          SLACK_STUDY_BOT_TOKEN: ${{ secrets.SLACK_STUDY_BOT_TOKEN }}
+          SLACK_STUDY_CHANNEL_ID: ${{ vars.SLACK_STUDY_CHANNEL_ID }}
           SLACK_STUDY_THREAD_ANCHOR: ${{ vars.SLACK_STUDY_THREAD_ANCHOR }}
+          ROKEY_INCIDENT_CUTOVER_AT: ${{ vars.ROKEY_INCIDENT_CUTOVER_AT }}
+          # 한국 날짜가 바뀔 때 진행 중인 복구를 마치고 앵커를 교체함.
+          # 이전 SHA를 최신순으로 공백 구분해 두면 과거 전송·수신 불확실 기록도 대조함.
+          ROKEY_INCIDENT_PREVIOUS_ANCHORS: ${{ vars.ROKEY_INCIDENT_PREVIOUS_ANCHORS }}
           ROKEY_INCIDENT_RESOURCES: ${{ vars.ROKEY_INCIDENT_RESOURCES }}
         run: python3 -m tools.server_incident_alerts
