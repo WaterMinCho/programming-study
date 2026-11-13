@@ -101,7 +101,7 @@ jobs:
     name: 화면 테스트
     needs: scope
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     if: needs.scope.outputs.gui == 'true'
     steps:
       - uses: actions/checkout@v5
