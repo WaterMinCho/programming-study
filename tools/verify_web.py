@@ -1051,7 +1051,7 @@ def figures(v, label, markdown, folder, kind, owner, sections):
             v.fail(label, 10, "%s 는 PNG 인데 내용: 설명이 없습니다." % where)
         path = os.path.join(assets, rel.split("/", 1)[1])
         if not os.path.isfile(path):
-            v.warn(label, 10, "%s에 연결한 그림 파일이 없습니다: %s" % (where, rel))
+            v.warn(label, 10, "%s에 연결한 그림 파일이 아직 없습니다: %s" % (where, rel))
             continue
         for problem in verify_journey.image_problems(path):
             v.fail(label, 10, "%s: %s" % (rel, problem))
