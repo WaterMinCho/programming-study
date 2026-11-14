@@ -101,16 +101,52 @@ class CareerIntegrationTest(unittest.TestCase):
         page = win.career.magazine
         play, stop = mock.Mock(), mock.Mock()
         page.on_video, page.on_stop = play, stop
+        page.search.setText("검색 결과 없음")
         win.career.show_magazine("H89Az-iZZrc")
         guikit.pump()
         self.assertEqual(page.selected_video_id, "H89Az-iZZrc")
         play.assert_not_called()
-        page.play_video()
+        self.assertIsNone(page.info_dialog)
+        self.assertEqual("검색 결과 없음", page.search.text())
+        cover = page.rows[page.selected_video_id].cover
+        self.assertTrue(cover.hasFocus())
+        self.assertFalse(cover.visibleRegion().isEmpty())
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        QTest.keyClick(cover, Qt.Key.Key_Return)
         play.assert_called_once()
         win.go_career()
         guikit.pump()
         stop.assert_called_once()
         self.assertIsNone(page._requested_id)
+
+    def test_browsing_filtering_and_return_never_reopen_clicked_video(self):
+        from gui.video_viewer import EngineUnavailable
+        win = self.boot()
+        win.open_url = mock.Mock(return_value=True)
+        with mock.patch("gui.video_viewer.create_engine", side_effect=EngineUnavailable("재생기 미설치")) as factory, \
+                mock.patch("tools.video_setup.install") as install:
+            win.go_magazine()
+            page = win.career.magazine
+            video = next(v for v in page.catalog.videos if v.embeddable is not False)
+            page.search.setText(video.title)
+            page._change_tab(1)
+            page._change_tab(0)
+            guikit.pump()
+            win.open_url.assert_not_called()
+            factory.assert_not_called()
+            guikit.click(page.rows[video.video_id].cover)
+            win.open_url.assert_called_once_with("https://www.youtube.com/watch?v=" + video.video_id)
+            factory.assert_called_once()
+            self.assertIsNone(win.career.video)
+            self.assertIsNone(page._requested_id)
+            win.go_career()
+            win.go_magazine()
+            page.search.clear()
+            guikit.pump()
+            self.assertEqual(1, win.open_url.call_count)
+            self.assertEqual(1, factory.call_count)
+            install.assert_not_called()
 
     def test_ended_video_close_releases_dialog_independently_of_magazine_request(self):
         from PyQt6.QtWidgets import QWidget
@@ -152,7 +188,8 @@ class CareerIntegrationTest(unittest.TestCase):
             release.wait(3)
             return {"ok": True}
 
-        with mock.patch("gui.video_viewer.create_engine", side_effect=EngineUnavailable("준비 필요")), \
+        win.open_url = mock.Mock(return_value=False)
+        with mock.patch("gui.video_viewer.create_engine", side_effect=EngineUnavailable("재생기 미설치")), \
                 mock.patch("tools.video_setup.install", install):
             win.career.magazine.play_video()
             guikit.pump()

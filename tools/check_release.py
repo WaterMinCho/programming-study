@@ -60,7 +60,7 @@ CLOSED_CASES = frozenset(name for name in CASES if ".HomeAndGitTest." in name)
 def gui_check(out):
     os.environ["CAREER_EVIDENCE"] = str(out)
     os.environ["VIDEO_EVIDENCE"] = str(out)
-    from PyQt6.QtCore import QPoint, Qt, QT_VERSION_STR, PYQT_VERSION_STR
+    from PyQt6.QtCore import QPoint, QRect, Qt, QT_VERSION_STR, PYQT_VERSION_STR
     from PyQt6.QtWidgets import QApplication
     from tests import guikit
 
@@ -103,9 +103,15 @@ def gui_check(out):
                             native = screen.grabWindow(int(win.winId()))
                         if native.isNull() or not native.save(str(out / (stem + "-native.png"))):
                             raise RuntimeError("운영체제 창 그림을 저장하지 못했음")
+                        # Windows 최대화 시 보이지 않는 크기 조절 테두리는 작업 영역 밖에 위치함.
+                        # 저장한 바탕 화면 캡처와 같은 클라이언트 영역을 검사하고 일반 창은 프레임까지 확인함.
+                        client = QRect(win.mapToGlobal(QPoint()), win.size())
+                        bounds = client if sys.platform == "win32" and win.isMaximized() else win.frameGeometry()
                         captures.append({"case": case.id(), "window": [win.width(), win.height()],
                                          "screen_available": [screen.availableGeometry().width(), screen.availableGeometry().height()],
-                                         "native_capture_complete": screen.availableGeometry().contains(win.frameGeometry()),
+                                         "native_capture_complete": screen.availableGeometry().contains(bounds),
+                                         "maximized": win.isMaximized(), "client_geometry": list(client.getRect()),
+                                         "frame_geometry": list(win.frameGeometry().getRect()),
                                          "native_capture_source": native_source,
                                          "device_pixel_ratio": win.devicePixelRatioF(),
                                          "widget_image": [shot.width(), shot.height()],

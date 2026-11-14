@@ -30,10 +30,10 @@ class PlayerDocumentTest(unittest.TestCase):
         self.assertIn("https://www.youtube-nocookie.com/embed/" + VIDEO, source)
         self.assertIn("origin=https%3A%2F%2Frokey.python.study", source)
         for value in ("autoplay=0", "controls=1", "fs=1", "cc_lang_pref=ko", "allowfullscreen",
-                      "onAutoplayBlocked", "onStateChange", "onError", "pagehide", "player.destroy()",
+                      "player.playVideo()", "onAutoplayBlocked", "onStateChange", "onError", "pagehide", "player.destroy()",
                       "min-width:200px", "min-height:200px"):
             self.assertIn(value, source)
-        for value in ("playVideo()", "modestbranding", "rel=0", "font-size", "localStorage", "fetch(", "token"):
+        for value in ("modestbranding", "rel=0", "font-size", "localStorage", "fetch(", "token"):
             self.assertNotIn(value, source)
         root = Path(__file__).resolve().parents[1]
         self.assertIn('APP_ID = "' + player.APP_ID + '"', (root / "gui/icon.py").read_text())
@@ -83,13 +83,20 @@ class PlayerDocumentTest(unittest.TestCase):
         script = re.search(r"<script>([\s\S]*?)</script>", player.player_html(VIDEO)).group(1)
         harness = '''const vm = require('node:vm'), fs = require('node:fs');
 const assert = require('node:assert/strict');
-let events;
+let events, plays = 0;
 const context = {window: {addEventListener: () => {}},
 document: {createElement: () => ({}), head: {appendChild: () => {}}},
-YT: {Player: function(id, options) {events = options.events; return {stopVideo() {}, destroy() {}};}}};
+YT: {Player: function(id, options) {events = options.events; return {playVideo() {plays++;}, stopVideo() {}, destroy() {}};}}};
 vm.createContext(context); vm.runInContext(fs.readFileSync(0, 'utf8'), context);
 context.onYouTubeIframeAPIReady();
+const attempt = context.window.tryRokeyPlayback;
+attempt(true); assert.equal(plays, 0);
 events.onReady(); assert.equal(context.window.rokeyState.kind, 'ready');
+attempt(false); context.document.hidden = true; attempt(true); assert.equal(plays, 0);
+context.document.hidden = false; attempt(true); assert.equal(plays, 1);
+events.onAutoplayBlocked(); attempt(true); assert.equal(plays, 1);
+assert.equal(context.window.rokeyState.kind, 'blocked');
+assert.equal(context.window.rokeyState.initial, false);
 for (const value of [1, 2, 3, -1, 5]) {
 events.onStateChange({data: value}); assert.equal(context.window.rokeyState.code, value); }
 events.onError({data: 150});
@@ -253,7 +260,8 @@ class InstallerTest(unittest.TestCase):
         result = self.install()
         self.assertFalse(result["ok"])
         self.assertFalse(result["restart"])
-        self.assertIn("자동으로 다시 설치하지 않습니다", result["message"])
+        self.assertIn("불러오지 못했습니다", result["message"])
+        self.assertEqual(2, len(self.calls))
         self.plan = report()
         self.calls.clear()
         result = self.install()

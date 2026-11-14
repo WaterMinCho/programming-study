@@ -101,16 +101,31 @@ def player_html(video_id):
 window.rokeyState = {kind: "requesting"};
 let player = null;
 let disposed = false;
+let ready = false;
+let attempted = false;
+let initial = true;
+// Qt에서 선택한 영상이 절반 넘게 보일 때만 한 번 요청함.
+// https://developers.google.com/youtube/terms/required-minimum-functionality
+window.tryRokeyPlayback = function(visible) {
+    if (visible && !document.hidden && ready && !attempted && !disposed && window.rokeyState.kind !== "error") {
+        attempted = true;
+        player.playVideo();
+    }
+};
 function report(kind, code) {
-    if (!disposed && window.rokeyState.kind !== "error") window.rokeyState = {kind: kind, code: code};
+    if (!disposed && window.rokeyState.kind !== "error") window.rokeyState = {kind: kind, code: code, initial: initial};
 }
 function onYouTubeIframeAPIReady() {
     if (disposed) return;
     player = new YT.Player("player", {events: {
-        onReady: () => report("ready"),
-        onStateChange: e => report("state", e.data),
+        onReady: () => { ready = true; report("ready"); },
+        onStateChange: e => {
+            if ([0, 1, 2].includes(e.data)) initial = false;
+            if ([0, 1, 2, 3].includes(e.data)) attempted = true;
+            report("state", e.data);
+        },
         onError: e => report("error", e.data),
-        onAutoplayBlocked: () => report("blocked")
+        onAutoplayBlocked: () => { initial = false; attempted = true; report("blocked"); }
     }});
 }
 window.stopRokeyVideo = function() {

@@ -1,4 +1,4 @@
-"""명시한 준비 동작 뒤 기존 Qt 구성을 고정하고 재생 부품만 추가함."""
+"""명시한 준비 동작 뒤 기존 Qt 구성을 고정하고 재생기만 추가함."""
 from __future__ import annotations
 
 from importlib import metadata
@@ -27,7 +27,7 @@ def core_versions():
 def _minor(version):
     match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", version)
     if not match:
-        raise ValueError("설치된 Qt 버전과 맞는 재생 부품을 확인하지 못했습니다.")
+        raise ValueError("설치된 Qt 버전과 맞는 재생기를 확인하지 못했습니다.")
     return tuple(map(int, match.groups()[:2]))
 
 
@@ -42,7 +42,7 @@ def _engine_versions(core):
     if core["PyQt6-Qt6"] in CONFIRMED_ENGINE_VERSIONS:
         return dict.fromkeys(ENGINE_PACKAGES, CONFIRMED_ENGINE_VERSIONS[core["PyQt6-Qt6"]])
     if minor > (6, 11):
-        raise ValueError("현재 Qt와 재생 부품의 조합을 확인하지 못했습니다. YouTube에서 열어 주세요.")
+        raise ValueError("현재 Qt와 재생기의 조합을 확인하지 못했습니다. YouTube에서 열어 주세요.")
     return {"pyqt6-webengine": None, "pyqt6-webengine-qt6": core["PyQt6-Qt6"]}
 
 
@@ -55,10 +55,10 @@ def checked_plan(report, core):
         entry = item["metadata"]
         name, version = _normal(entry["name"]), entry["version"]
         if name not in ENGINE_PACKAGES or name in packages:
-            raise ValueError("기존 Qt 구성을 바꾸지 않고 재생 부품을 설치할 수 없습니다.")
+            raise ValueError("기존 Qt 구성을 바꾸지 않고 재생기를 설치할 수 없습니다.")
         expected = versions[name]
         if (expected is not None and version != expected) or (expected is None and _minor(version) != minor):
-            raise ValueError("기존 Qt 구성에 맞는 재생 부품을 찾지 못했습니다.")
+            raise ValueError("기존 Qt 구성에 맞는 재생기를 찾지 못했습니다.")
         packages[name] = version
     return [f"{name}=={version}" for name, version in sorted(packages.items())]
 
@@ -133,7 +133,7 @@ def install(cancel=None, *, runner=None, versions=None, import_probe=None):
         descriptor = _acquire_lock(_lock_path())
     except OSError:
         return {"status": "error", "ok": False, "restart": False,
-                "message": "다른 영상 준비 작업이 끝난 뒤 다시 눌러 주세요."}
+                "message": "진행 중인 설치가 끝난 뒤 다시 시도해 주세요."}
     try:
         core = versions()
         minor = _minor(core["PyQt6-Qt6"])
@@ -151,16 +151,16 @@ def install(cancel=None, *, runner=None, versions=None, import_probe=None):
             if cancel.is_set():
                 return {"status": "cancelled", "ok": False, "restart": False}
             if probe.returncode:
-                raise ValueError("현재 Qt와 호환되는 재생 부품을 확인하지 못했습니다.")
+                raise ValueError("현재 Qt와 호환되는 재생기를 확인하지 못했습니다.")
             plan = checked_plan(json.loads(report.read_text(encoding="utf-8")), core)
             if versions() != core:
-                raise ValueError("준비 중 Qt 구성이 바뀌었습니다.")
+                raise ValueError("설치 중 Qt 구성이 바뀌었습니다.")
             if cancel.is_set():
                 return {"status": "cancelled", "ok": False, "restart": False}
             if plan:
                 result = runner(base + ["--no-deps"] + plan, cancel, applying=True)
                 if result.returncode:
-                    raise ValueError("재생 부품을 설치하지 못했습니다.")
+                    raise ValueError("재생기를 설치하지 못했습니다.")
             if versions() != core:
                 raise ValueError("다른 작업에서 Qt 구성을 바꿨습니다.")
         if cancel.is_set():
@@ -171,15 +171,15 @@ def install(cancel=None, *, runner=None, versions=None, import_probe=None):
             loadable = False
         if not loadable:
             return {"status": "error", "ok": False, "restart": False,
-                    "message": "영상 재생 부품을 불러오지 못했습니다. 현재 준비 기능은 설치된 부품을 자동으로 다시 설치하지 않습니다. YouTube에서 열어 주세요."}
+                    "message": "앱 내 재생기를 불러오지 못했습니다."}
         if versions() != core:
             raise ValueError("확인 중 Qt 구성이 바뀌었습니다.")
         if cancel.is_set():
             return {"status": "cancelled", "ok": False, "restart": False, "installed": True}
         return {"status": "ok", "ok": True, "restart": True,
-                "message": "영상 재생 준비를 마쳤습니다. 프로그램을 다시 시작해 주세요."}
+                "message": "앱 내 재생기를 설치했습니다. 프로그램을 다시 시작해 주세요."}
     except (OSError, ValueError, KeyError, TypeError, metadata.PackageNotFoundError, subprocess.SubprocessError):
         return {"status": "error", "ok": False, "restart": False,
-                "message": "현재 Qt 구성에 맞춰 영상 재생을 준비하지 못했습니다. YouTube에서 열거나 다시 시도해 주세요."}
+                "message": "현재 Qt 환경에 맞는 재생기를 설치하지 못했습니다."}
     finally:
         os.close(descriptor)
