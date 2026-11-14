@@ -149,6 +149,22 @@
       "what": "Saito·Rehmsmeier(PLOS ONE, 2015년 3월): 불균형 데이터에서 ROC 그림은 오해를 부를 수 있고 PR 그림이 더 많은 것을 알려 줌",
       "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0118432",
       "checked": "2026-11-05"
+    },
+    {
+      "what": "PR점은 점수 >= 임계값으로 예측한 TP·FP·FN에서 재현율과 정밀도를 구함. 본문의 거래 10건은 합성 예시임.",
+      "url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_recall_curve.html",
+      "checked": "2026-11-14"
+    },
+    {
+      "what": "1_3_모델평가와검증_실습.ipynb · cells[9], cells[10]",
+      "url": "https://drive.google.com/file/d/13WNSDsJ6IAN6nVAWUoN7xOSJCd2xkxVF/view",
+      "checked": "2026-11-14",
+      "file": "보충교안 및 실습 /1_3_모델평가와검증_실습.ipynb",
+      "drive_id": "13WNSDsJ6IAN6nVAWUoN7xOSJCd2xkxVF",
+      "locations": [
+        "cells[9]",
+        "cells[10]"
+      ]
     }
   ],
   "credits": [],

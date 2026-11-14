@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from aiprep import bank
+from aiprep import bank, gen, grade
 from tools import verify_web
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,3 +61,71 @@ class FormulaParserTest(unittest.TestCase):
             page.write_text(page.read_text(encoding="utf-8").replace(formula_data()["a"], "6"), encoding="utf-8")
             after = verify_web.review_files("page", {"dir": temp}, {})
             self.assertNotEqual(before["page.md"], after["page.md"])
+
+
+class AffineGeneratorTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.spec, = gen.load_module(str(ROOT / "ai/items/a02/gens.py"))
+        cls.oracle = staticmethod(gen.load_oracle(str(ROOT / "ai/items/a02/oracle.py"))["a02_g01"])
+
+    def test_300_seeds_keep_one_family_and_match_independent_oracle(self):
+        stems, directions, zero, negative = set(), set(), False, False
+        for seed in range(300):
+            item = gen.run(self.spec, seed)
+            params = item["params"]
+            self.assertEqual({"point", "translation", "direction"}, set(params))
+            got = [b["answer"][0] for b in item["blanks"]]
+            self.assertEqual(self.oracle(params), got)
+            self.assertEqual(item, gen.run(self.spec, seed))
+            self.assertEqual(2, item["stem"].count("____"))
+            for b, value in zip(item["blanks"], got):
+                self.assertEqual(grade.norm("number", value, b), grade.norm("number", value.replace("-", "−"), b))
+            stems.add(item["stem"])
+            directions.add(params["direction"])
+            zero |= 0 in params["translation"]
+            negative |= any(int(x) < 0 for x in got)
+        self.assertGreaterEqual(len(stems), 20)
+        self.assertEqual(2, len(directions))
+        self.assertTrue(zero and negative)
+        self.assertEqual(("affine-coordinate-direction", 2, 2, "affine-translation-1"),
+                         tuple(self.spec.meta[k] for k in ("family", "level", "author_difficulty", "template_revision")))
+
+    def test_explicit_origin_zero_negative_asymmetry_and_boundaries(self):
+        examples = [((2, 1), (3, 2), True, (5, 3)), ((2, 1), (-3, 2), True, (-1, 3)),
+                    ((0, 0), (0, 0), True, (0, 0)), ((0, 0), (0, 0), False, (0, 0)),
+                    ((5, 3), (3, 2), False, (2, 1)), ((-1, 3), (-3, 2), False, (2, 1)),
+                    ((1, -2), (4, -3), True, (5, -5)), ((-8, 8), (-4, 4), True, (-12, 12)),
+                    ((8, -8), (-4, 4), False, (12, -12)), ((4, 0), (1, 0), True, (5, 0))]
+        for point, shift, forward, expected in examples:
+            class Fixed:
+                values = iter((*point, *shift))
+                def int(self, lo, hi):
+                    return next(self.values)
+                def pick(self, options):
+                    return options[0 if forward else 1]
+            item = self.spec.fn(Fixed())
+            got = [b["answer"][0] for b in item["blanks"]]
+            self.assertEqual(list(map(str, expected)), got)
+            self.assertEqual(got, self.oracle(item["params"]))
+
+    def test_oracle_roundtrip_and_leaked_target_rejected(self):
+        for point, shift in [((-2, 5), (4, -3)), ((0, 0), (0, 0)), ((8, -8), (-4, 4))]:
+            params = dict(point=point, translation=shift, direction="source_to_destination")
+            dest = list(map(int, self.oracle(params)))
+            self.assertEqual(list(map(str, point)), self.oracle(dict(params, point=dest, direction="destination_to_source")))
+            with self.assertRaises(ValueError):
+                self.oracle(dict(params, target=dest))
+        with self.assertRaises(ValueError):
+            self.oracle(dict(point=[True, 0], translation=[1, 0], direction="source_to_destination"))
+
+    def test_published_affine_declares_only_visible_inputs(self):
+        from learning_data import collection
+        spec, = bank.load_items({"id": "a02"}, str(ROOT / "ai"))["gens"]
+        item = gen.run(spec, 9)
+        item["_generation"] = bank.generation_source(spec)
+        observed = collection.question(item, card=spec.id)["content"]["generation"]
+        self.assertEqual("declared", observed["params_status"])
+        self.assertEqual(item["params"], observed["params"])
+        self.assertEqual("affine-translation-1", observed["template_revision"])
+        self.assertEqual({"point", "translation", "direction"}, set(observed["params"]))

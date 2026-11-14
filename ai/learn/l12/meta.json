@@ -94,6 +94,27 @@
       "what": "RandomErasing의 높이·너비 계산",
       "url": "https://github.com/pytorch/vision/blob/main/torchvision/transforms/transforms.py",
       "checked": "2026-11-05"
+    },
+    {
+      "what": "후보 값의 모든 조합을 비교하는 탐색과 검증 점수에 따른 선택. 본문의 50분 예산·10분 시도·실험표는 설명용 예시임.",
+      "url": "https://scikit-learn.org/stable/modules/grid_search.html",
+      "checked": "2026-11-14"
+    },
+    {
+      "what": "02_하이퍼파라미터 최적화.pdf · p4, p6-9, p46-47, p53, p60, p71, p76",
+      "url": "https://drive.google.com/file/d/1VocYW3MXk05IBrSgNDGhf69uFJ3u_pWT/view",
+      "checked": "2026-11-14",
+      "file": "보충교안 및 실습 /02_하이퍼파라미터 최적화.pdf",
+      "drive_id": "1VocYW3MXk05IBrSgNDGhf69uFJ3u_pWT",
+      "locations": [
+        "p4",
+        "p6-9",
+        "p46-47",
+        "p53",
+        "p60",
+        "p71",
+        "p76"
+      ]
     }
   ],
   "credits": [],
