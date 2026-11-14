@@ -10,9 +10,10 @@ import uuid
 from collections import deque
 
 from learning_data.collection import inside, packed
+from learning_data import generation
 
-FEATURES_VERSION = 5
-SUPPORTED_FEATURES_VERSIONS = (4, FEATURES_VERSION)
+FEATURES_VERSION = 6
+SUPPORTED_FEATURES_VERSIONS = (4, 5, FEATURES_VERSION)
 
 
 def author_difficulty(item, track=None):
@@ -31,7 +32,7 @@ def question_key(row):
     if not row.get("item_revision") or any(data.get(name) is None for name in fields):
         return None
     return (row["participant"], row["track"], mock, item.get("course", data.get("course")),
-            row["item_revision"], *(data[name] for name in fields))
+            row["item_revision"], (item.get("generation") or {}).get("instance_id"), *(data[name] for name in fields))
 
 
 def source_events(events, synthetic=None):
@@ -103,6 +104,10 @@ def prepare(events, synthetic=None):
     blank = {"attempts": 0, "correct": 0, "last_at": None, "overrides": 0}
     for row in events:
         data, item = row["data"], row.get("item") or {}
+        if item.get("generation") is not None:
+            if row["track"] != "ai":
+                raise ValueError("생성 문항의 과목을 확인해 주세요.")
+            generation.from_item(item)
         key = (row["participant"], row["track"])
         at = datetime.datetime.fromisoformat(row["at"])
         if at.tzinfo is None:
@@ -146,8 +151,8 @@ def prepare(events, synthetic=None):
         prediction_at = data.get("prediction_at")
         prediction_source = "data.prediction_at" if prediction_at is not None else None
         prediction_event = None
+        shown = questions.get(key, {}).get(question_key(row))
         if prediction_at is None and row["track"] == "ai":
-            shown = questions.get(key, {}).get(question_key(row))
             if shown is not None:
                 prediction_at = shown["at"]
                 prediction_source = shown["kind"] + ".at"
@@ -171,11 +176,16 @@ def prepare(events, synthetic=None):
                             previous_at = before[tag]["last_at"]
                             if previous_at is None or datetime.datetime.fromisoformat(answered_at) > datetime.datetime.fromisoformat(previous_at):
                                 before[tag]["last_at"] = answered_at
+        # 예측 전에 관찰한 동일 문항만 사용함. 답 기록에만 남은 조건은 소급하지 않음.
+        variant = None
+        if shown is not None and prediction_at is not None and datetime.datetime.fromisoformat(shown["at"]) <= cutoff:
+            variant = generation.from_item(shown.get("item") or {})
         target = int(data["result"] in ("pass", "ok"))
         if answer_key(row) not in corrected and before is not None:
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
                            "sequence": row["sequence"], "at": row["at"], "session": session, "question_id": card,
                            "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
+                           "generation": variant,
                            "difficulty": author_difficulty(item, row["track"]),
                            "goal": data.get("goal"), **course_fields(row["track"], item, data),
                            "synthetic": row["synthetic"], "data_source": row["data_source"],
@@ -187,6 +197,7 @@ def prepare(events, synthetic=None):
                            "target": target})
         observed[answer_key(row)] = tags
         entry = {"event_id": row["event_id"], "question_id": card, "question_revision": row.get("item_revision"),
+                 "generation": variant,
                  "concepts": tags, "result": target, "at": row["at"],
                  "difficulty": author_difficulty(item, row["track"]), **course_fields(row["track"], item, data)}
         updates = [(tags, target, row["at"], entry)]

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from learning_server.starter import question_token
 from learning_server.dataset import SUPPORTED_FEATURES_VERSIONS, author_difficulty
+from learning_data import generation
 
 
 def load(folder, track, part):
@@ -79,7 +80,16 @@ def batch(rows, vocabulary, length=32):
             gaps[index], known[index] = min(values), True
         inputs["query_gap_seconds"].append(gaps)
         inputs["query_gap_known"].append(known)
-    return {"inputs": inputs, "targets": [row["target"] for row in rows],
+    # 출제 재현용 조건은 숫자 배열과 함께 반환함. 답·해설·현재 정오답을 넣지 않음.
+    provenance = {"query": [], "history": []}
+    for row in rows:
+        value = row.get("generation")
+        provenance["query"].append(generation.validate(value) if value is not None else None)
+        history = row["features"]["sequence_history"][-length:]
+        provenance["history"].append(
+            [generation.validate(past["generation"]) if past.get("generation") is not None else None for past in history]
+            + [None] * (length - len(history)))
+    return {"inputs": inputs, "question_provenance": provenance, "targets": [row["target"] for row in rows],
             "event_ids": [row["event_id"] for row in rows]}
 
 

@@ -14,6 +14,7 @@ import uuid
 import urllib.parse
 
 from learning_data.collection import FORMAT, NOTICE, inside, packed
+from learning_data.generation import from_item as generation_from_item
 
 MAX_BODY = 1024 * 1024
 MAX_EVENTS = 100
@@ -264,6 +265,13 @@ class Database:
             revision = row.get("item_revision")
             if revision is not None and (not re.fullmatch(r"[a-f0-9]{64}", str(revision)) or not isinstance(row.get("item"), dict)):
                 raise ApiError(400, "문항 버전과 지문을 확인해 주세요.")
+            if isinstance(row.get("item"), dict) and row["item"].get("generation") is not None:
+                try:
+                    if track != "ai" or revision is None:
+                        raise ValueError("생성 문항의 과목과 버전을 확인해 주세요.")
+                    generation_from_item(row["item"])
+                except ValueError as error:
+                    raise ApiError(400, str(error)) from error
             cleaned.append((participant, track, row["event_id"], seq, packed(row)))
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")

@@ -91,8 +91,13 @@ def write_sample(folder, track, part, size, seed, length, destination):
     changed = copy.deepcopy(chosen)
     for row in changed:
         row["target"] = 1 - row["target"]
-    if result["inputs"] != input_example.batch(changed, vocabulary, length)["inputs"]:
+    changed_batch = input_example.batch(changed, vocabulary, length)
+    if (result["inputs"] != changed_batch["inputs"]
+            or result["question_provenance"] != changed_batch["question_provenance"]):
         raise ValueError("이번 정답이 모델 입력에 섞였습니다. 입력과 정답을 분리해 주세요.")
+    provenance = result["question_provenance"]
+    if len(provenance["query"]) != size or len(provenance["history"]) != size:
+        raise ValueError("생성 문항 출처의 행 수가 입력과 다릅니다.")
     inputs = result["inputs"]
     width = len(vocabulary["concepts"])
     for index, (mask, count) in enumerate(zip(inputs["mask"], inputs["lengths"])):
@@ -104,6 +109,8 @@ def write_sample(folder, track, part, size, seed, length, destination):
             raise ValueError("풀이 이력 배열의 길이가 맞지 않습니다.")
         if mask != [True] * count + [False] * (length - count):
             raise ValueError("실제 이력과 빈 자리의 표시가 맞지 않습니다.")
+        if len(provenance["history"][index]) != length or any(value is not None for value in provenance["history"][index][count:]):
+            raise ValueError("생성 문항 출처의 이력 길이와 빈 자리를 확인해 주세요.")
         if any(value != 0 for name in ("questions", "courses", "results", "difficulties", "difficulty_known") for value in inputs[name][index][count:]):
             raise ValueError("빈 자리에 문제·과정·정오답·난이도 값이 들어 있습니다.")
         if (any(len(row) != width for row in inputs["concepts"][index]) or
