@@ -418,7 +418,7 @@ class GitFlowTest(unittest.TestCase):
     def test_old_folder_list_receives_new_shared_package_and_preserves_answers(self):
         self.pc.solve(grade=False)
         before = self.pc.read()
-        paths = ("learning_data/__init__.py", "learning_data/collection.py", "learning_data/goals.py",
+        paths = ("learning_data/__init__.py", "learning_data/collection.py", "learning_data/goals.py", "learning_data/generation.py",
                  "aiprep/__init__.py", "aiprep/collection.py")
         files = {name: Path(ROOT, name).read_text(encoding="utf-8") for name in paths}
         self.server.add_files(files, "공통 학습 데이터 폴더 분리")
