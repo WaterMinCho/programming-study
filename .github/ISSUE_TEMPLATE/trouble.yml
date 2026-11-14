@@ -3,6 +3,9 @@ description: 명령이 안 되거나, 설명이 헷갈리거나, 쓰기 불편�
 title: "[불편] "
 labels: ["불편"]
 body:
+  - type: markdown
+    attributes:
+      value: 다른 내용은 [다른 문의 양식](https://github.com/WaterMinCho/programming-study/issues/new/choose)에서 작성하세요.
   - type: textarea
     id: what
     attributes:
@@ -18,8 +21,10 @@ body:
       render: text
     validations:
       required: true
-  - type: input
+  - type: textarea
     id: env
     attributes:
       label: 환경
+      description: 프로그램에서 열면 운영체제·버전·화면 설정을 자동으로 채웁니다. 내용을 확인하고 수정하거나 지워도 됩니다.
       placeholder: 예) Windows 11 / Python 3.12
+      render: text

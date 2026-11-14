@@ -99,6 +99,8 @@ Windows는 `start.bat`, macOS는 `start.command`를 엽니다. 화면 도구 설
 
 [설정](../gui/README.md#글자-크기와-화면-테마)에서 글자 크기와 테마를 바꿉니다. 창이 열리지 않거나 제출이 실패하면 [오류 해결 안내](../gui/README.md#실행업데이트제출-오류-해결)를 확인하세요. 기기 본인 확인을 마친 뒤에는 인터넷 연결이 없어도 이미 받은 문제를 풀고 로컬 채점을 사용할 수 있습니다.
 
+[설정] → [불편한 점 알리기]를 누르면 문의 양식에 프로그램 버전과 화면 설정이 채워집니다. 답안과 계정 정보는 넣지 않습니다. 내용을 확인하고 증상을 적은 뒤 제출하세요. 제출한 문의는 GitHub에 공개됩니다.
+
 제출할 때 서버에 연결되지 않으면 [수집 서버 접속 상태](https://rokey-study.betteruptime.com)를 확인하세요. 최근 장애가 있었던 날짜도 표시됩니다.
 
 [sourcetree-clone]: https://support.atlassian.com/sourcetree/kb/clone-a-repository-into-sourcetree/

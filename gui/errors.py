@@ -5,9 +5,9 @@ import os
 import sys
 import traceback
 
-from gui import dialogs
+from gui import dialogs, feedback
 
-ISSUE_URL = "https://github.com/WaterMinCho/programming-study/issues/new/choose"
+ISSUE_URL = feedback.CHOOSE_URL
 
 state = {"log_dir": None, "dialog": None}
 
@@ -15,7 +15,7 @@ state = {"log_dir": None, "dialog": None}
 def install(log_dir):
     """PyQt6 는 슬롯에서 예외가 새면 프로세스를 끝내므로 전역 훅으로 받아 창을 살림."""
     state["log_dir"] = log_dir
-    sys.excepthook = lambda kind, value, tb: report("".join(traceback.format_exception(kind, value, tb)))
+    sys.excepthook = lambda kind, value, tb: report("".join(traceback.format_exception(kind, value, tb)), error=value, tb=tb)
 
 
 def write_log(text):
@@ -31,7 +31,7 @@ def write_log(text):
         return None
 
 
-def report(text):
+def report(text, *, error=None, tb=None):
     path = write_log(text)
     if sys.stderr:  # pythonw 로 띄우면 stderr 가 없음
         print(text, file=sys.stderr)
@@ -39,6 +39,6 @@ def report(text):
     if dialog is not None and dialog.isVisible():  # 오류가 연달아 나도 대화상자는 하나만
         dialog.append(text)
         return
-    state["dialog"] = dialogs.ErrorDialog(text, path, ISSUE_URL)
+    state["dialog"] = dialogs.ErrorDialog(text, path, feedback.issue_url(error=error, tb=tb))
     state["dialog"].show()
     state["dialog"].raise_()

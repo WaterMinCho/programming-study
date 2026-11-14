@@ -144,8 +144,11 @@ class ErrorDialog(QDialog):
         self.resize(640, 420)
         self.shell = DialogLayout(self, "프로그램에서 오류가 났습니다")
         box = self.shell.content
-        note = kit.typed(LinkLabel("작성한 답은 저장돼 있고, 이 창을 닫으면 계속 쓸 수 있습니다. 같은 오류가 반복되면 아래 내용을 복사해 "
-                         '<a href="%s">불편 신고 양식</a>에 붙여 주세요.' % issue_url,
+        from html import escape
+        from gui import feedback
+        note = kit.typed(LinkLabel("같은 오류가 반복되면 "
+                         '<a href="%s">불편 신고 양식</a>에서 환경정보를 확인하고 증상을 적어 주세요. '
+                         '<a href="%s">다른 문의 양식</a>도 선택할 수 있습니다.' % (escape(issue_url, quote=True), feedback.CHOOSE_URL),
                          line=theme.TYPE["body"][1], font=theme.font("body")), "body")
         note.setOpenExternalLinks(True)
         self.view = QPlainTextEdit(text)
