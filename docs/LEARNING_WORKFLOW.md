@@ -164,7 +164,7 @@ python -m learning_server.input_example --dataset ../learning-demo-f6 --track py
 
 첫 명령은 가상 풀이 자료를 만들고 두 번째 명령은 입력 예시 4개를 읽습니다. 각 예시의 과거 풀이를 최대 4개까지 확인하며 모델을 학습하지는 않습니다. `inputs`와 이번 정답표인 `targets`, 과거 풀이의 실제 자리인 `mask`, 실제 길이인 `lengths`를 [공통 입력 설명](LEARNING_STARTER.md#세-모델의-공통-입력-형식)과 대조합니다. 오답 0과 빈 자리를 구분해보세요. `--track python`을 `--track ai`로 바꾸면 AI 과목의 합성 예제를 읽습니다. 이 예제의 과정은 미기록입니다.
 
-최신 `main`에서 새로 만드는 자료는 버전 6입니다. 공유 실제 ZIP은 버전 4, 고정 커밋의 Colab 예제는 버전 5입니다. [자료별 버전](LEARNING_STARTER.md#세-팀원이-사용할-자료-버전을-맞춥니다)을 확인하고, 폴더 이름 대신 `manifest.json`의 `features_version`과 생성에 쓴 코드 커밋을 실험 기록에 적습니다.
+최신 `main`에서 새로 만드는 자료는 버전 7입니다. 공유 실제 ZIP은 버전 4, 고정 커밋의 Colab 예제는 버전 5입니다. [자료별 버전](LEARNING_STARTER.md#세-팀원이-사용할-자료-버전을-맞춥니다)을 확인하고, 폴더 이름 대신 `manifest.json`의 `features_version`과 생성에 쓴 코드 커밋을 실험 기록에 적습니다.
 
 `python`을 찾지 못하면 Windows는 `py`, Mac은 `python3`로 바꿉니다. `No module named learning_server`가 나오면 현재 폴더부터 확인합니다. `learning-demo-f6`가 이미 있으면 두 번째 명령으로 읽습니다. 새 자료를 만들 때는 `--out`과 `--dataset`에 같은 새 폴더 이름을 쓰며 기존 자료는 덮어쓰지 않습니다.
 

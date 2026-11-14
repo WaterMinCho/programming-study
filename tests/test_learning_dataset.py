@@ -42,17 +42,17 @@ class DatasetTest(unittest.TestCase):
         for field, value in (("item_revision", "1" * 64), ("position", 1), ("course", "app")):
             shown, answer = self.shown_answer()
             (shown if field == "item_revision" else shown["data"])[field] = value
-            self.assertIsNone(dataset.prepare([shown, answer])[0]["prediction_at"])
+            self.assertEqual([], dataset.prepare([shown, answer]))
         for kind in ("withdraw", "consent", "question_returned"):
             shown, answer = self.shown_answer()
             middle = copy.deepcopy(shown)
             middle.update(kind=kind, event_id="middle", sequence=2)
             answer["sequence"] = 3
-            self.assertIsNone(dataset.prepare([shown, middle, answer])[0]["prediction_at"])
+            self.assertEqual([], dataset.prepare([shown, middle, answer]))
         shown, answer = self.shown_answer()
         shown["data"].pop("position")
-        self.assertIsNone(dataset.prepare([shown, answer])[0]["prediction_at"])
-        self.assertIsNone(dataset.prepare([answer])[0]["prediction_at"])
+        self.assertEqual([], dataset.prepare([shown, answer]))
+        self.assertEqual([], dataset.prepare([answer]))
 
     def test_ai_return_cutoff_excludes_results_released_while_question_was_open(self):
         shown, answer = self.shown_answer()

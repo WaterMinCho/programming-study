@@ -16,11 +16,11 @@
 
 | 자료 | `features_version` |
 |---|---|
-| 최신 `main`에서 새로 만드는 자료 | 6 |
+| 최신 `main`에서 새로 만드는 자료 | 7 |
 | 공유 ZIP `common-input-f4-20261112` | 4 |
 | 고정 커밋 `cc87ec96`의 [Colab 합성 예제](LEARNING_DATA_ACCESS.md) | 5 |
 
-최신 `main`의 입력 읽기·자료 검사 도구는 버전 4·5·6을 지원합니다. [지원 버전 선언][supported-versions]과 [입력 읽기 조건][input-load]에서 버전과 파일 해시를 확인합니다. 공유 ZIP은 최신 `main`으로 읽고 [자료 검사 명령](LEARNING_DATA_ACCESS.md#자료-파일-검증-명령과-정상-결과)으로 본인이 받은 파일을 확인합니다.
+최신 `main`의 입력 읽기·자료 검사 도구는 버전 4·5·6·7을 지원합니다. [지원 버전 선언][supported-versions]과 [입력 읽기 조건][input-load]에서 버전과 파일 해시를 확인합니다. 공유 ZIP은 최신 `main`으로 읽고 [자료 검사 명령](LEARNING_DATA_ACCESS.md#자료-파일-검증-명령과-정상-결과)으로 본인이 받은 파일을 확인합니다.
 
 합성 자료는 파이썬·AI를 각각 학습 8건·검증 2건·평가 2건으로 준비했습니다. 사용 범위를 확인한 기존 파이썬 기록은 학습 84건·검증 29건·평가 18건입니다. 실제 AI 기록과 수강생 전원의 자료가 준비됐다는 뜻은 아닙니다.
 
@@ -42,7 +42,7 @@ python -m learning_server.starter --profile ../legacy-profiles/participant/profi
 
 기존 기록에는 채점 시각과 결과가 있습니다. 실제로 문제를 읽은 시각과 답을 입력한 시각, 당시 문제 버전은 알 수 없습니다. 과거 문항 버전은 `null`로 남기고 개념은 현재 문제 목록에서 연결했다는 출처를 보존합니다. 예전 풀이에 나중에 고른 희망 직무를 붙이지 않습니다.
 
-예측 기준 시각은 기록에 남은 회차 생성 시각입니다. 그보다 먼저 공개된 채점 결과만 입력에 넣습니다. 같은 시각의 결과는 보수적으로 제외합니다. 회차 생성 시각이 없으면 풀이 간격은 미확인으로 남깁니다. 사용하지 못한 문항·시각·건너뛰기는 `legacy-provenance.json`에서 확인합니다. 이 자료만으로 새 학습자에게도 잘 맞는다고 판단하지 않습니다.
+예측 기준 시각은 기록에 남은 회차 생성 시각입니다. 그보다 먼저 공개된 채점 결과만 입력에 넣습니다. 같은 시각의 결과는 보수적으로 제외합니다. 회차 생성 시각이 없으면 새 학습·검증·평가 자료에서 해당 답을 제외합니다. 사용하지 못한 문항·시각·건너뛰기는 `legacy-provenance.json`에서 확인합니다. 이 자료만으로 새 학습자에게도 잘 맞는다고 판단하지 않습니다.
 
 <a id="새-수집-자료와-연습-자료도-준비합니다"></a>
 
@@ -57,9 +57,9 @@ python -m learning_server.starter --input ../learning-events.jsonl --out ../lear
 실제 기록을 전달받기 전에는 기존 합성 예제로 입력 모양을 확인합니다. 이 작은 예제의 점수를 실제 학습자 성능으로 쓰지 않습니다.
 
 ```sh
-python -m learning_server.starter --synthetic --out ../learning-demo-f6
-python -m learning_server.input_example --dataset ../learning-demo-f6 --track python --batch-size 4 --length 32
-python -m learning_server.input_example --dataset ../learning-demo-f6 --track ai --batch-size 4 --length 32
+python -m learning_server.starter --synthetic --out ../learning-demo-f7
+python -m learning_server.input_example --dataset ../learning-demo-f7 --track python --batch-size 4 --length 32
+python -m learning_server.input_example --dataset ../learning-demo-f7 --track ai --batch-size 4 --length 32
 ```
 
 추가 라이브러리 설치나 모델 학습 없이 실행할 수 있습니다. 자료에 있는 과목만 선택합니다. 기존 파이썬 프로필로 만든 자료에는 파이썬만 들어 있습니다.
@@ -98,15 +98,19 @@ targets = example["targets"]
 
 공통 입력 버전 5부터 문제를 제시할 때의 출제 난이도 1~3을 담습니다. 값이 없으면 숫자는 0, 확인 여부는 False입니다. 0을 가장 쉬운 문제로 해석하지 않습니다. 문항 번호가 학습 때 없던 UNK여도 출제 난이도가 확인됐다면 사용할 수 있습니다.
 
-버전 6은 변형 문항의 생성 조건도 보존합니다. `input_example.batch()`의 `question_provenance`에서 현재 문제의 `query`와 이전 문제의 `history`를 확인할 수 있습니다. 기록에 조건이 없으면 `None`이며 과거 값을 추정해 채우지 않습니다. 기존 모델용 숫자 배열의 크기는 유지합니다. 생성 조건을 추가 입력으로 쓸 때는 세 팀원이 같은 항목과 평가 분할을 사용하도록 먼저 맞춥니다. 공유 폴더의 기존 자료는 새 버전 생성만으로 바뀌지 않습니다.
+버전 6부터 변형 문항의 생성 조건도 보존합니다. `input_example.batch()`의 `question_provenance`에서 현재 문제의 `query`와 이전 문제의 `history`를 확인할 수 있습니다. 기록에 조건이 없으면 `None`이며 과거 값을 추정해 채우지 않습니다. 기존 모델용 숫자 배열의 크기는 유지합니다. 생성 조건을 추가 입력으로 쓸 때는 세 팀원이 같은 항목과 평가 분할을 사용하도록 먼저 맞춥니다. 공유 폴더의 기존 자료는 새 버전 생성만으로 바뀌지 않습니다.
 
-버전 4 자료는 같은 이력 집계 규칙을 쓰므로 계속 읽습니다. 과거 기록에 없던 난이도를 현재 문항 목록에서 가져와 채우지 않습니다. 버전 3 이하의 자료는 예측 시각과 이력 집계를 다시 확인하도록 거절합니다. 새 자료는 별도 폴더에 준비합니다.
+이전 버전 4·5·6 자료도 실험을 재현할 수 있도록 계속 읽습니다. 읽기 성공만으로 버전 7의 이력 검사를 통과했다고 판단하지 않습니다. 과거 기록에 없던 난이도를 현재 문항 목록에서 가져와 채우지 않습니다. 버전 3 이하의 자료는 예측 시각과 이력 집계를 다시 확인하도록 거절합니다. 새 자료는 별도 폴더에 준비합니다.
 
-시각을 알 수 없는 항목은 `query_gap_known=False`로 표시합니다. 함께 들어 있는 숫자 0을 당일 복습으로 해석하지 않습니다. 새 파이썬 수집에서는 실제 화면에 선택한 문항의 표시 시각을 사용합니다. 외부 편집기나 터미널에서 풀어 표시 시각을 모르면 간격을 추정하지 않습니다.
+버전 7은 예측 기준 시각을 확인한 답만 학습·검증·평가 자료로 만듭니다. 확인할 수 없는 답의 수는 `records/manifest.json`의 `excluded_rows.missing_prediction_time`에 남깁니다. 제외한 답도 채점 결과가 공개된 시각을 알면 이후 문제의 과거 이력에는 사용할 수 있습니다. 원본 기록은 바꾸지 않습니다.
+
+‘내 답도 맞음’으로 정정한 답은 학습 정답에서 제외합니다. 정정 전에 예측한 문제의 이력에는 당시 판정을 남기고, 정정 뒤에 예측한 문제에서는 그 답을 정오답 이력과 개념별 집계에서 뺍니다. 정답으로 뒤집어 넣지 않습니다. 같은 시각의 정정은 예측 뒤에 알려진 것으로 처리합니다. 모의고사 진행 중 생긴 정정은 그 시험의 시작 이력에 소급하지 않습니다. 정정 대상을 하나로 구분할 수 없으면 자료 생성을 멈추고 원본 확인을 요청합니다.
+
+이전 자료에서 시각을 알 수 없는 항목은 `query_gap_known=False`로 표시합니다. 함께 들어 있는 숫자 0을 당일 복습으로 해석하지 않습니다. 새 파이썬 수집에서는 실제 화면에 선택한 문항의 표시 시각을 사용합니다. 외부 편집기나 터미널에서 풀어 표시 시각을 모르면 새 학습 자료에서 해당 답을 제외합니다.
 
 michae18과 wamangdoo는 간격 입력을 제외한 같은 자료로 LSTM과 Transformer를 비교합니다. kimjs85529-a11y는 같은 LSTM에 간격과 확인 여부를 추가합니다. 입력을 비우는 처리와 미래 기록을 가리는 처리는 [담당별 미션](LEARNING_MISSIONS.md)을 따릅니다.
 
-AI 자료는 같은 과정·문항 버전·풀이 위치의 반환 기록이 하나로 연결될 때 그 시각을 사용합니다. `prediction_source`와 `prediction_event`로 연결 근거를 확인합니다. 연결되지 않은 시각은 미확인으로 남기며 채점·업로드 시각으로 채우지 않습니다. 간격 담당은 파이썬과 연결 가능한 AI 자료의 시각 확인 비율과 미확인 문항 번호 비율을 살핀 뒤 비교 범위를 정합니다.
+AI 자료는 같은 과정·문항 버전·풀이 위치의 반환 기록이 하나로 연결될 때 그 시각을 사용합니다. `prediction_source`와 `prediction_event`로 연결 근거를 확인합니다. 연결되지 않은 답은 원본에 남기고 새 학습 자료에서는 제외합니다. 채점·업로드 시각을 예측 시각으로 대신 쓰지 않습니다. 간격 담당은 파이썬과 연결 가능한 AI 자료의 시각 확인 비율과 미확인 문항 번호 비율을 살핀 뒤 비교 범위를 정합니다.
 
 <a id="비교-결과와-파일-버전을-확인합니다"></a>
 
@@ -130,5 +134,5 @@ AI 개론·응용은 같은 `ai` 자료에서 함께 준비합니다. 원자료�
 
 이전 공통 자료와 ZIP은 덮어쓰지 않습니다. 현재 도구가 이전 버전을 알리면 같은 허락받은 원본을 새 출력 폴더로 다시 준비합니다. 모델의 자료 버전·번호표·가중치도 함께 맞춥니다.
 
-[supported-versions]: https://github.com/WaterMinCho/programming-study/blob/6b9d8f3aaa0503ae6d0fce97b63ae1315fd4d1a6/learning_server/dataset.py#L16
+[supported-versions]: https://github.com/WaterMinCho/programming-study/blob/main/learning_server/dataset.py#L16
 [input-load]: https://github.com/WaterMinCho/programming-study/blob/6b9d8f3aaa0503ae6d0fce97b63ae1315fd4d1a6/learning_server/input_example.py#L14

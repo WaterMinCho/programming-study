@@ -362,7 +362,11 @@ class GeneratedProvenanceTest(Base):
                 for row in (shown, answer):
                     row["item"].pop("generation")
             with self.subTest(mode=mode):
-                self.assertIsNone(dataset.prepare(rows)[0]["generation"])
+                prepared = dataset.prepare(rows)
+                if mode in ("answer_only", "mismatch", "duplicate", "reconsent"):
+                    self.assertEqual([], prepared)
+                else:
+                    self.assertIsNone(prepared[0]["generation"])
         changed = copy.deepcopy(events)
         answer = next(row for row in changed if row["kind"] == "answer")
         answer["data"].update(result="wrong", response="HIDDEN-RESPONSE", explain="HIDDEN-EXPLANATION")
@@ -392,7 +396,7 @@ class GeneratedProvenanceTest(Base):
         root = Path(self.tmp) / "prepared"
         starter.write_starter(events, root)
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(6, manifest["features_version"])
+        self.assertEqual(dataset.FEATURES_VERSION, manifest["features_version"])
         rows, vocabulary = input_example.load(root, "ai", "train")
         self.assertTrue(all(row["generation"] == item["content"]["generation"] for row in rows))
         destination = Path(self.tmp) / "sample.json"

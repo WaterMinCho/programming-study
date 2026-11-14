@@ -7,13 +7,13 @@ import json
 import os
 from pathlib import Path
 import uuid
-from collections import deque
+from collections import Counter, deque
 
 from learning_data.collection import inside, packed
 from learning_data import generation
 
-FEATURES_VERSION = 6
-SUPPORTED_FEATURES_VERSIONS = (4, 5, FEATURES_VERSION)
+FEATURES_VERSION = 7
+SUPPORTED_FEATURES_VERSIONS = (4, 5, 6, FEATURES_VERSION)
 
 
 def author_difficulty(item, track=None):
@@ -76,14 +76,16 @@ def course_fields(track, item, data):
             "course_inferred_from": "item.lesson" if course is None and inferred is not None else None}
 
 
-def prepare(events, synthetic=None):
+def prepare(events, synthetic=None, exclusions=None):
     events = source_events(events, synthetic)
     events = [row for row in events if row.get("data", {}).get("training_eligible") is not False]
     events = sorted(events, key=lambda row: (row["participant"], row["track"], row["sequence"]))
     results = ("pass", "stuck", "ok", "wrong")
     def answer_key(row):
         data = row["data"]
-        return (row["participant"], row["track"], data.get("set"), data.get("card"), data.get("again"))
+        if row["kind"] == "mock_answer":
+            return (row["participant"], row["track"], "mock", data.get("mock"), data.get("try"), data.get("card"))
+        return (row["participant"], row["track"], "practice", data.get("set"), data.get("card"), data.get("again"))
     def mock_key(row):
         data = row["data"]
         if data.get("batch"):
@@ -94,6 +96,9 @@ def prepare(events, synthetic=None):
         return row["kind"] in ("answer", "mock_answer") and data.get("result") in results and not (
             row["kind"] == "answer" and (data.get("again", 0) or data.get("first_in_set") is False))
     corrected = {answer_key(row) for row in events if row["kind"] == "override"}
+    answer_counts = Counter(answer_key(row) for row in events if eligible(row))
+    if any(answer_counts[key] > 1 for key in corrected):
+        raise ValueError("정정 대상에 답 기록이 여러 개 연결됩니다. 같은 풀이 위치의 기록을 확인해 주세요.")
     mock_last = {}
     for row in events:
         if eligible(row) and (row["kind"] == "mock_answer" or row["data"].get("batch")):
@@ -101,6 +106,7 @@ def prepare(events, synthetic=None):
     history, moments, observed, mock_before, pending, output = {}, {}, {}, {}, {}, []
     sequences, group_sequences = {}, {}
     released_history, group_history_lengths, questions = {}, {}, {}
+    correction_times, group_corrections = {}, {}
     blank = {"attempts": 0, "correct": 0, "last_at": None, "overrides": 0}
     for row in events:
         data, item = row["data"], row.get("item") or {}
@@ -130,11 +136,19 @@ def prepare(events, synthetic=None):
             mock_before.setdefault(mock_key(row), {tag: dict(value) for tag, value in prior.items()})
             group_sequences.setdefault(mock_key(row), list(sequence))
             group_history_lengths.setdefault(mock_key(row), len(released))
+            group_corrections.setdefault(mock_key(row), dict(correction_times.get(key, {})))
             continue
         if row["kind"] == "override":
-            tags = observed.get(answer_key(row), [])
+            previous = observed.get(answer_key(row))
+            if previous is None:
+                continue
+            tags, event_id = previous
+            corrections = correction_times.setdefault(key, {})
+            if event_id in corrections:
+                continue
+            corrections[event_id] = at
             for tag in tags:
-                prior[tag]["overrides"] += 1
+                prior.setdefault(tag, dict(blank))["overrides"] += 1
             released.append((tags, None, row["at"], None, row["at"]))
             continue
         if not eligible(row):
@@ -163,6 +177,9 @@ def prepare(events, synthetic=None):
                 raise ValueError("예측 시점의 시각과 시간대를 확인해 주세요.")
             available = released[:group_history_lengths.get(mock_key(row), 0)] if is_mock else released
             available = [past for past in available if datetime.datetime.fromisoformat(past[4]) < cutoff]
+            corrections = group_corrections.get(mock_key(row), {}) if is_mock else correction_times.get(key, {})
+            available = [past for past in available if past[3] is None or
+                         corrections.get(past[3]["event_id"], cutoff) >= cutoff]
             sequence_before = [past[3] for past in available if past[3] is not None][-128:]
             if before is not None:
                 before = {tag: dict(blank) for tag in tags}
@@ -181,7 +198,10 @@ def prepare(events, synthetic=None):
         if shown is not None and prediction_at is not None and datetime.datetime.fromisoformat(shown["at"]) <= cutoff:
             variant = generation.from_item(shown.get("item") or {})
         target = int(data["result"] in ("pass", "ok"))
-        if answer_key(row) not in corrected and before is not None:
+        if answer_key(row) not in corrected and before is not None and prediction_at is None:
+            if exclusions is not None:
+                exclusions["missing_prediction_time"] = exclusions.get("missing_prediction_time", 0) + 1
+        if answer_key(row) not in corrected and before is not None and prediction_at is not None:
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
                            "sequence": row["sequence"], "at": row["at"], "session": session, "question_id": card,
                            "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
@@ -195,7 +215,7 @@ def prepare(events, synthetic=None):
                            "features": {"observed_history": before,
                                         "sequence_history": sequence_before},
                            "target": target})
-        observed[answer_key(row)] = tags
+        observed[answer_key(row)] = (tags, row["event_id"])
         entry = {"event_id": row["event_id"], "question_id": card, "question_revision": row.get("item_revision"),
                  "generation": variant,
                  "concepts": tags, "result": target, "at": row["at"],
@@ -274,13 +294,14 @@ def write_dataset(events, destination, synthetic=None, source_sha256=None):
     root = Path(__file__).resolve().parent.parent
     if inside(destination, root):
         raise ValueError("학습 자료는 공개 저장소 밖에 저장해 주세요.")
-    records = prepare(events, synthetic=synthetic)
+    exclusions = {}
+    records = prepare(events, synthetic=synthetic, exclusions=exclusions)
     parts = {track: split([row for row in records if row["track"] == track]) for track in sorted({row["track"] for row in records})}
     if not parts:
         raise ValueError("사용할 첫 시도 답안이 없습니다.")
     os.mkdir(destination, mode=0o700)
     manifest = {"format": 1, "features_version": FEATURES_VERSION, "synthetic": records[0]["synthetic"], "source": records[0]["data_source"],
-                "source_sha256": source_sha256, "eligible_rows": len(records),
+                "source_sha256": source_sha256, "eligible_rows": len(records), "excluded_rows": exclusions,
                 "excluded_split_rows": len(records) - sum(len(rows) for groups in parts.values() for rows in groups.values()),
                 "files": {}}
     for track, groups in parts.items():
