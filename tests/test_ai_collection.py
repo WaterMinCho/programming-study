@@ -215,7 +215,12 @@ class CollectionIntegrationTest(Base):
         sess.collection.set_enabled(True)
         self.assertNotEqual(epoch, sess.collection.status()["epoch"])
         ps.answer(self.right(ps, current), 3, False)
-        self.assertIsNone(prepare(sess.collection.snapshot())[0]["prediction_at"])
+        raw = sess.collection.snapshot()
+        self.assertEqual(1, sum(row["kind"] == "answer" for row in raw))
+        exclusions = {}
+        self.assertEqual([], prepare(raw, exclusions=exclusions))
+        self.assertEqual({"missing_prediction_time": 1}, exclusions)
+        self.assertEqual(raw, sess.collection.snapshot())
 
     def test_note_trace_separates_requested_card_from_rule_selected_companion(self):
         sess = self.session()
@@ -262,9 +267,10 @@ class CollectionIntegrationTest(Base):
         self.assertEqual(first, next(row for row in after if row['kind'] == 'question_returned'))
         answer = next(row for row in after if row['kind'] == 'answer')
         self.assertNotEqual(first['item_revision'], answer['item_revision'])
-        prepared = prepare(after)[0]
-        self.assertIsNone(prepared['prediction_at'])
-        self.assertIsNone(prepared['prediction_event'])
+        exclusions = {}
+        self.assertEqual([], prepare(after, exclusions=exclusions))
+        self.assertEqual({"missing_prediction_time": 1}, exclusions)
+        self.assertEqual(after, sess.collection.snapshot())
 
     def test_mock_submission_records_missing_and_answered_items_once(self):
         helper = mock_tests.MockServiceTest("test_unsubmitted_questions_do_not_enter_practice")
