@@ -4,13 +4,14 @@ from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, QSizeF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QPixmap, QTextLayout, QTextOption
-from PyQt6.QtWidgets import QComboBox, QGridLayout, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QBoxLayout, QComboBox, QGridLayout, QSizePolicy, QWidget
 
 from career.catalog import RELATION_LABELS, load_catalog
 from gui import kit, theme
 from gui.career_learning_path import CareerLearningPath
 from gui.career_map_viewer import RoadmapImageDialog
 from gui.career_scene import RoleScene
+from gui.career_role_gallery import RoleGallery
 
 
 def flow_buttons(*buttons):
@@ -62,6 +63,25 @@ class CareerFilters(QWidget):
 
     def refont(self):
         self._place()
+
+
+class RoleHeading(QWidget):
+    def __init__(self, title, action):
+        super().__init__()
+        self.title, self.action = title, action
+        self.row = kit.box(self, spacing=theme.GAP["group"], horizontal=True)
+        self.row.addWidget(title, 1)
+        self.row.addWidget(action)
+
+    def refont(self):
+        needed = self.title.fontMetrics().horizontalAdvance(self.title.text())
+        needed += self.action.sizeHint().width() + self.row.spacing()
+        self.row.setDirection(QBoxLayout.Direction.LeftToRight if self.width() >= needed
+                              else QBoxLayout.Direction.TopToBottom)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.refont()
 
 
 class ReadingPage(QWidget):
@@ -277,6 +297,10 @@ class CareerRoadmapPage(ReadingPage):
     def __init__(self, parent=None, *, catalog=None, repository=None, on_back=None, on_select_goal=None,
                  on_video=None, on_magazine=None, on_source=None):
         super().__init__(parent, on_back)
+        self._on_back = on_back
+        if on_back:
+            self.top.back.clicked.disconnect(on_back)
+            self.top.back.clicked.connect(lambda: on_back() if self.browsing else self.show_catalog())
         self.catalog = catalog if catalog is not None else load_catalog()
         self.image_dialog = None
         self.repository = Path(repository) if repository is not None else Path(__file__).resolve().parents[1]
@@ -284,10 +308,20 @@ class CareerRoadmapPage(ReadingPage):
         self.on_source = on_source
         self.selected_role_id = None
         self.saved_role_id = None
+        self.browsing = True
+        self._catalog_anchor = None
+        self._detail_anchors = {}
+        self._detail_index = 0
+        self.intro = QWidget()
+        intro = kit.box(self.intro, spacing=theme.GAP["title_description"])
         title = kit.para("개발자 로드맵", "title")
         title.setProperty("reading_anchor", True)
-        self.body.addWidget(title)
-        self.body.addSpacing(theme.GAP["paragraph"])
+        intro.addWidget(title)
+        intro.addWidget(kit.para("관심 있는 직무를 고르세요. 하는 일과 준비할 기술을 그림으로 확인할 수 있습니다.", "body", "secondary"))
+        self.body.addWidget(self.intro)
+        self.catalog_gap = QWidget()
+        self.catalog_gap.setFixedHeight(theme.GAP["paragraph"])
+        self.body.addWidget(self.catalog_gap)
         self.industry, self.product, self.role_picker = (kit.typed(QComboBox(), "body") for _ in range(3))
         for combo, name in ((self.industry, "산업"), (self.product, "제품 예시"), (self.role_picker, "세부 직무")):
             combo.setAccessibleName(name)
@@ -296,9 +330,14 @@ class CareerRoadmapPage(ReadingPage):
             combo.setMinimumContentsLength(1)
             combo.setMinimumWidth(0)
             combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        controls = QWidget()
+        controls = self.controls = QWidget()
         select = kit.box(controls, spacing=theme.GAP["detail"], horizontal=True)
+        self.catalog_button = kit.button("직무 목록", "secondary", "l")
+        self.catalog_button.clicked.connect(self.show_catalog)
+        select.addWidget(self.catalog_button)
         select.addWidget(self.role_picker, 1)
+        self.catalog_count = kit.para("", "label", "secondary")
+        select.addWidget(self.catalog_count, 1)
         self.filter_toggle = kit.button("산업·제품 필터", "secondary", "l")
         self.filter_toggle.setCheckable(True)
         self.filter_toggle.setToolTip("산업과 제품으로 직무 좁히기")
@@ -309,34 +348,54 @@ class CareerRoadmapPage(ReadingPage):
         self.filters.grid.setContentsMargins(0, theme.GAP["paragraph"], 0, 0)
         self.body.addWidget(self.filters)
         self.filters.hide()
-        self.filter_toggle.toggled.connect(self.filters.setVisible)
-        self.body.addSpacing(theme.GAP["paragraph"])
+        self.filter_toggle.toggled.connect(self._toggle_filters)
+        self.controls_gap = QWidget()
+        self.controls_gap.setFixedHeight(theme.GAP["paragraph"])
+        self.body.addWidget(self.controls_gap)
         self.industry.addItem("모든 산업", None)
         for row in self.catalog.industries:
             self.industry.addItem(row["label"], row["id"])
         self.notice = kit.para("", "body", "secondary")
         self.body.addWidget(self.notice)
+        self.gallery = RoleGallery()
+        self.gallery.picked.connect(self._open_catalog_role)
+        self.body.addWidget(self.gallery)
         self.details = QWidget()
         self.body.addWidget(self.details)
         details = kit.box(self.details)
-        self.image_button = kit.button("학습 로드맵 크게 보기", "primary")
-        self.image_button.clicked.connect(self.open_image)
+        self.role_title = kit.para("", "title")
+        self.role_title.setProperty("reading_anchor", True)
         self.goal_button = kit.button("관심 직무로 저장")
         self.goal_button.clicked.connect(self.choose_goal)
-        self.actions = flow_buttons(self.image_button, self.goal_button)
-        self.scene = RoleScene(self.actions)
-        details.addWidget(self.scene)
+        self.role_heading = RoleHeading(self.role_title, self.goal_button)
         self.goal_button.setVisible(on_select_goal is not None)
+        details.addWidget(self.role_heading)
+        details.addSpacing(theme.GAP["description_content"])
+        self.detail_tabs = kit.TabBar(("업무·결과", "학습 로드맵"))
+        details.addWidget(self.detail_tabs)
+        details.addSpacing(theme.GAP["description_content"])
+        self.work_panel, self.path_panel = QWidget(), QWidget()
+        self.work_panel.setProperty("reading_anchor", True)
+        details.addWidget(self.work_panel)
+        details.addWidget(self.path_panel)
+        self.path_panel.hide()
+        work = kit.box(self.work_panel)
+        path = kit.box(self.path_panel)
+        self.detail_tabs.picked.connect(self.show_detail_tab)
+        self.image_button = kit.button("학습 로드맵 크게 보기", "primary")
+        self.image_button.clicked.connect(self.open_image)
+        self.scene = RoleScene()
+        work.addWidget(self.scene)
         self.image_notice = kit.para("", "caption", "secondary")
         self.image_notice.hide()
-        details.addWidget(self.image_notice)
-        details.addSpacing(theme.GAP["section"])
+        work.addSpacing(theme.GAP["section"])
         self.team_toggle = kit.button("팀과 담당 업무 펼치기")
         self.team_toggle.setCheckable(True)
-        details.addWidget(self.team_toggle, 0, Qt.AlignmentFlag.AlignLeft)
+        self.team_toggle.setProperty("reading_anchor", True)
+        work.addWidget(self.team_toggle, 0, Qt.AlignmentFlag.AlignLeft)
         team_details = QWidget()
         team_box = kit.box(team_details, margins=(0, theme.GAP["paragraph"], 0, 0))
-        details.addWidget(team_details)
+        work.addWidget(team_details)
         team_details.hide()
         self.team_toggle.toggled.connect(team_details.setVisible)
         self.team_toggle.toggled.connect(lambda opened: self.team_toggle.setText(
@@ -350,30 +409,34 @@ class CareerRoadmapPage(ReadingPage):
         team_box.addSpacing(theme.GAP["description_content"])
         self.work_flow = CareerFlow()
         team_box.addWidget(self.work_flow)
-        details.addSpacing(theme.GAP["section"])
-        learn_title = kit.para("추천 학습 순서", "headline")
+        learn_title = kit.para("ROKEY 11기 수업 범위와 추천 순서", "caption", "secondary")
         learn_title.setProperty("reading_anchor", True)
-        details.addWidget(kit.heading(learn_title, kit.para(
-            "그림은 각 주제에서 다룰 입력과 변화의 예시입니다. 번호와 선은 추천 순서이며 옆의 상태는 ROKEY 11기 수업 범위입니다.",
-            "body", "secondary")))
-        details.addSpacing(theme.GAP["description_content"])
-        self.relation = kit.para("", "body", "secondary")
+        path.addWidget(flow_buttons(self.image_button))
+        path.addWidget(self.image_notice)
+        path.addSpacing(theme.GAP["detail"])
+        self.relation = kit.para("", "caption", "secondary")
         self.relation.setProperty("reading_anchor", True)
-        details.addWidget(self.relation)
-        details.addSpacing(theme.GAP["title_description"])
+        path.addWidget(self.relation)
+        path.addSpacing(theme.GAP["description_content"])
+        path.addWidget(learn_title)
+        path.addSpacing(theme.GAP["detail"])
         self.learning, self.learning_box = kit.well(pad_x=16, pad_y=16, spacing=16)
-        details.addWidget(self.learning)
-        details.addSpacing(theme.GAP["section"])
+        path.addWidget(self.learning)
+        work.addSpacing(theme.GAP["section"])
         self.sources_button = kit.button("직무 소개와 채용 공고 펼치기")
         self.sources_button.setCheckable(True)
-        details.addWidget(self.sources_button, 0, Qt.AlignmentFlag.AlignLeft)
+        self.sources_button.setProperty("reading_anchor", True)
+        work.addWidget(self.sources_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.source_box = QWidget()
         self.sources_layout = kit.box(self.source_box, margins=(0, theme.GAP["group"], 0, 0), spacing=24)
-        details.addWidget(self.source_box)
+        work.addWidget(self.source_box)
         self.source_box.hide()
         self.sources_button.toggled.connect(self._toggle_sources)
         if on_video or on_magazine:
-            self.add_section("관련 영상")
+            work.addSpacing(theme.GAP["section"])
+            videos_title = kit.para("관련 영상", "headline")
+            videos_title.setProperty("reading_anchor", True)
+            work.addWidget(videos_title)
             links = []
             if on_video:
                 for label, video_id in (("로봇 개발자의 업무", "H89Az-iZZrc"), ("로봇 개발 프로젝트 준비", "HCx2ICUe0eA")):
@@ -384,11 +447,80 @@ class CareerRoadmapPage(ReadingPage):
                 magazine = kit.button("매거진 열기", "text")
                 magazine.clicked.connect(on_magazine)
                 links.append(magazine)
-            self.body.addWidget(flow_buttons(*links))
+            work.addWidget(flow_buttons(*links))
         self.industry.currentIndexChanged.connect(self._industry_changed)
         self.product.currentIndexChanged.connect(self._filter_roles)
-        self.role_picker.currentIndexChanged.connect(self._show_role)
+        self.role_picker.currentIndexChanged.connect(self._pick_role)
         self._industry_changed()
+
+    def _reset_reading(self):
+        self._timer.stop()
+        self._settling = False
+        self._anchor = None
+
+    def _show_mode(self):
+        has_role = self.catalog.role(self.selected_role_id) is not None
+        self.intro.setVisible(self.browsing)
+        self.catalog_gap.setVisible(self.browsing)
+        self.gallery.setVisible(self.browsing)
+        self.catalog_count.setVisible(self.browsing)
+        self.role_picker.hide()
+        self.filter_toggle.setVisible(self.browsing)
+        self.filters.setVisible(self.browsing and self.filter_toggle.isChecked())
+        self.controls.setVisible(self.browsing or self._on_back is None)
+        self.controls_gap.setVisible(self.browsing or self._on_back is None)
+        self.catalog_button.setVisible(not self.browsing)
+        self.top.back.setText("← 학습 현황" if self.browsing else "← 직무 목록")
+        self.details.setVisible(not self.browsing and has_role)
+
+    def show_catalog(self):
+        self._reset_reading()
+        self.browsing = True
+        self._show_mode()
+        self._anchor = self._catalog_anchor
+        self._schedule_restore()
+        card = self.gallery.cards.get(self.selected_role_id)
+        if card is not None and self._catalog_anchor is not None:
+            card.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _open_catalog_role(self, role_id):
+        index = self.role_picker.findData(role_id)
+        if index < 0:
+            return
+        self._remember()
+        self._catalog_anchor = self._anchor
+        self.role_picker.blockSignals(True)
+        self.role_picker.setCurrentIndex(index)
+        self.role_picker.blockSignals(False)
+        self._pick_role()
+        self.show_detail_tab(0)
+
+    def _pick_role(self, *_):
+        self._reset_reading()
+        self._detail_anchors.clear()
+        self.browsing = False
+        self._show_role()
+        self.scroll.verticalScrollBar().setValue(0)
+        (self.top.back if self._on_back else self.catalog_button).setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def show_detail_tab(self, index):
+        if index == self._detail_index:
+            return
+        self._remember()
+        self._detail_anchors[self._detail_index] = self._anchor
+        self._reset_reading()
+        self._detail_index = index
+        self.detail_tabs.set_current(index)
+        self.work_panel.setVisible(index == 0)
+        self.path_panel.setVisible(index == 1)
+        self.scroll.verticalScrollBar().setValue(0)
+        self._anchor = self._detail_anchors.get(index)
+        self._schedule_restore()
+
+    def _toggle_filters(self, opened):
+        top = self.controls.mapTo(self.scroll.viewport(), QPoint()).y()
+        self._anchor = self.controls, top
+        self.filters.setVisible(opened)
 
     def _toggle_sources(self, opened):
         self.source_box.setVisible(opened)
@@ -413,21 +545,43 @@ class CareerRoadmapPage(ReadingPage):
         current = self.selected_role_id
         self.role_picker.blockSignals(True)
         self.role_picker.clear()
-        for row in self.catalog.roles_for(self.industry.currentData(), self.product.currentData()):
+        roles = self.catalog.roles_for(self.industry.currentData(), self.product.currentData())
+        for row in roles:
             self.role_picker.addItem(row["title"], row["id"])
             self.role_picker.setItemData(self.role_picker.count() - 1, row["title"], Qt.ItemDataRole.ToolTipRole)
         self.role_picker.setCurrentIndex(max(0, self.role_picker.findData(current)) if self.role_picker.count() else -1)
         self.role_picker.blockSignals(False)
-        self._show_role()
+        self.gallery.set_roles(roles)
+        self.gallery.set_saved(self.saved_role_id)
+        self.gallery.set_selected(self.selected_role_id)
+        self.catalog_count.setText(f"직무 {len(roles)}개")
+        active = any(combo.currentData() is not None for combo in (self.industry, self.product))
+        self.filter_toggle.setText("산업·제품 필터 적용 중" if active else "산업·제품 필터")
+        self.notice.setVisible(not roles)
+        if not roles:
+            state = self.catalog.states["roles"]
+            if state == "ready":
+                self.filter_toggle.setChecked(True)
+                self.notice.setText("조건에 맞는 직무가 없습니다. 산업이나 제품을 바꿔 보세요.")
+            elif state == "empty":
+                self.notice.setText("공개한 직무 자료가 아직 없습니다.")
+            else:
+                self.notice.setText("직무 자료를 읽지 못했습니다. 프로그램을 업데이트한 뒤 다시 열어 주세요.")
+        self._show_mode()
 
     def select_role(self, role_id):
         """목표를 저장하지 않고 지정한 직무를 보여 줌."""
         if self.catalog.role(role_id) is None:
             return False
         self.selected_role_id = role_id
+        self.industry.blockSignals(True)
         self.industry.setCurrentIndex(0)
+        self.industry.blockSignals(False)
+        self.product.blockSignals(True)
         self.product.setCurrentIndex(0)
-        self._filter_roles()
+        self.product.blockSignals(False)
+        self._industry_changed()
+        self._pick_role()
         return True
 
     def _show_role(self, *_):
@@ -442,20 +596,13 @@ class CareerRoadmapPage(ReadingPage):
         self.goal_button.setEnabled(role is not None)
         if self.on_select_goal:
             self.goal_button.setText("저장한 관심 직무" if self.saved_role_id == self.selected_role_id else "관심 직무로 저장")
-        active = any(combo.currentData() is not None for combo in (self.industry, self.product))
-        self.filter_toggle.setText("산업·제품 필터 적용 중" if active else "산업·제품 필터")
-        self.details.setVisible(role is not None)
-        self.notice.setVisible(role is None)
+        self._show_mode()
+        self.notice.hide()
         if role is None:
-            state = self.catalog.states["roles"]
-            if state == "ready":
-                self.filter_toggle.setChecked(True)
-                self.notice.setText("조건에 맞는 직무가 없습니다. 산업이나 제품을 바꿔 보세요.")
-            elif state == "empty":
-                self.notice.setText("공개한 직무 자료가 아직 없습니다.")
-            else:
-                self.notice.setText("직무 자료를 읽지 못했습니다. 프로그램을 업데이트한 뒤 다시 열어 주세요.")
             return
+        self.role_title.setText(role["title"])
+        self.role_heading.refont()
+        self.gallery.set_selected(self.selected_role_id)
         self.scene.set_role(role)
         industry_id = self.industry.currentData()
         candidates = [item for item in self.catalog.products if item["id"] in role["product_ids"]
@@ -474,15 +621,13 @@ class CareerRoadmapPage(ReadingPage):
         link = role["goal_links"][0] if role["goal_links"] else None
         goal = self.catalog.goal(link["goal_id"]) if link else None
         self.relation.setText(f"{RELATION_LABELS[link['relation']]} · {goal['title']}" if goal else "연결한 기존 로드맵이 없습니다.")
-        show_note = not goal or link["relation"] != "primary"
-        self.scene.map_note.setVisible(show_note)
-        self.scene.map_note.setText(self.relation.text() if show_note else "")
         self.learning_path = CareerLearningPath(role["roadmap_nodes"], role["outputs"])
         self.learning_box.addWidget(self.learning_path)
         for source in self.catalog.sources:
             if source["id"] not in role["source_ids"]:
                 continue
             box = QWidget()
+            box.setProperty("reading_anchor", True)
             items = kit.box(box, spacing=12)
             items.addWidget(kit.para(source["title"], "body", bold=True))
             items.addWidget(kit.para(f"게시일 {source['published_date'] or '미확인'} · 확인일 {source['checked_date']}", "caption", "secondary"))
@@ -506,12 +651,14 @@ class CareerRoadmapPage(ReadingPage):
 
     def set_saved_role(self, role_id):
         self.saved_role_id = role_id
+        self.gallery.set_saved(role_id)
         self.goal_button.setText("저장한 관심 직무" if role_id == self.selected_role_id else "관심 직무로 저장")
 
     def open_image(self):
         role = self.catalog.role(self.selected_role_id)
         if not role or not role["goal_links"]:
             return
+        self.show_detail_tab(1)
         goal_id = role["goal_links"][0]["goal_id"]
         path = self.repository / "docs" / "roadmap" / f"{goal_id}.png"
         if self.image_dialog is not None:

@@ -24,6 +24,7 @@ CASES = (
     "tests.test_gui_career_integration.CareerIntegrationTest.test_career_navigation_hierarchy_fits_and_compact_keeps_both_entries",
     "tests.test_gui_career_integration.CareerIntegrationTest.test_paper_callbacks_keep_study_records_and_footer_in_small_parent",
     "tests.test_gui_career.CareerGuiTest.test_small_windows_themes_fonts_and_flow_bounds",
+    "tests.test_gui_career_navigation.CareerNavigationTest.test_small_window_maximum_text_two_themes_catalog_and_tabs",
     "tests.test_gui_career_learning_path.CareerLearningPathTest.test_page_maximum_font_all_roles_keep_text_and_fit_work_area",
     "tests.test_gui_career.CareerGuiTest.test_magazine_small_windows_keep_text_and_actions_inside_content",
     "tests.test_gui_career_paper_preview.PaperPreviewTest.test_diagrams_fit_both_themes_maximum_font_and_small_and_wide_windows",

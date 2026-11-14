@@ -15,6 +15,8 @@ from gui.career_roadmap import CareerRoadmapPage
 class MapViewerTest(unittest.TestCase):
     def setUp(self):
         self.page = CareerRoadmapPage(on_select_goal=Mock())
+        self.page.select_role("robot_control")
+        self.page.show_detail_tab(1)
         self.page.resize(640, 460)
         self.page.show()
         guikit.pump()
