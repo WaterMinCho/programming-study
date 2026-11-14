@@ -27,17 +27,34 @@ class AiSectionBrowserTest(AiTest):
 
     def test_categories_fit_small_wide_max_text_both_themes_and_remain_visible(self):
         win, home, browser = self.home()
+        native = guikit.APP.platformName() != "offscreen"
+        room = win.screen().availableGeometry()
+        frame_width = win.frameGeometry().width() - win.width()
+        frame_height = win.frameGeometry().height() - win.height()
         for mode in ("light", "dark"):
             theme.set_mode(mode)
             win.restyle()
             for size in ((760, 480), (1600, 1000)):
-                win.resize(*size)
+                width, height = size
+                if native:
+                    width = min(width, room.width() - frame_width - 32)
+                    height = min(height, room.height() - frame_height - 32)
+                win.resize(width, height)
+                if native:
+                    win.move(room.topLeft() + QPoint(16, 16))
                 for step in ("larger", "normal", "larger"):
                     win.set_text(step)
                     self.settle()
+                    if native:
+                        self.assertTrue(room.contains(win.frameGeometry()))
                     buttons = list(browser.buttons.values())
                     ys = {button.mapTo(home, QPoint()).y() for button in buttons}
-                    self.assertEqual(2 if size[0] == 760 else 1, len(ys))
+                    single_line_width = max(button.sizeHint().width() for button in buttons) * 4 + 24
+                    self.assertEqual(1 if browser.navigation.width() >= single_line_width else 2, len(ys))
+                    if size[0] == 760:
+                        self.assertEqual(2, len(ys))
+                    elif not native:
+                        self.assertEqual(1, len(ys))
                     self.assertEqual(1, len({button.height() for button in buttons}))
                     self.assertEqual(0, home.scroll.horizontalScrollBar().maximum())
                     before = [button.mapTo(home, QPoint()) for button in buttons]
