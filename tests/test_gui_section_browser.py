@@ -169,16 +169,30 @@ class AiSectionBrowserTest(AiTest):
         win, home, browser = self.home()
         overview = win.ai.overview()
         overview["lessons"][0].update(ready=False, error="차시 파일 확인 필요")
+        overview["patterns"].append(dict(overview["patterns"][0], error="실습 파일 확인 필요", units=[]))
         state = dict(win.ai.mock_state("m1"), error="시험 자료 확인 필요")
         with mock.patch.object(win.ai, "overview", return_value=overview), mock.patch.object(win.ai, "mock_state", return_value=state):
             home.refresh()
             self.settle()
             self.assertTrue(home.lesson_empty.isVisible())
             self.assertIn("일부 차시", home.lesson_empty.text())
+            guikit.click(browser.buttons["coding"])
+            self.settle()
+            self.assertTrue(home.pattern_empty.isVisible())
+            self.assertIn("일부 코딩 실습", home.pattern_empty.text())
             guikit.click(browser.buttons["mocks"])
             self.settle()
             self.assertIn("시험 자료 확인 필요", home.mock_list.rows[0].second.text())
             self.assertTrue(home.mock_list.rows[0].wrap)
+
+    def test_selection_restoration_moves_focus_off_unselected_category(self):
+        win, home, browser = self.home()
+        browser.buttons["mocks"].setFocus()
+        browser.select("lessons")
+        self.assertTrue(browser.buttons["lessons"].hasFocus())
+        home.course_tabs.buttons[0].setFocus()
+        browser.select("books")
+        self.assertTrue(home.course_tabs.buttons[0].hasFocus())
 
     def test_missing_content_and_read_error_have_different_messages(self):
         win, home, browser = self.home()

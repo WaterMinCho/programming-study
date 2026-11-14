@@ -133,6 +133,9 @@ class SectionBrowser(QWidget):
             panel.setVisible(name == key)
             self.buttons[name].setChecked(name == key)
             self.buttons[name].setFocusPolicy(Qt.FocusPolicy.StrongFocus if name == key else Qt.FocusPolicy.ClickFocus)
+        focused = self.window().focusWidget()
+        if focused in self.buttons.values() and focused is not self.buttons[key]:
+            self.buttons[key].setFocus(Qt.FocusReason.OtherFocusReason)
         state = self.states.setdefault(self.context, {"section": key, "positions": {}})
         state["section"] = key
         self.pending = state["positions"].get(key, 0)

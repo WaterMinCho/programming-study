@@ -273,9 +273,11 @@ class AiHomePage(QWidget):
         self.pattern_section.setVisible(bool(self.pattern_list.rows or waiting))
         self.pattern_count.setText("공개된 단원 %d개" % len(self.pattern_list.rows) if self.pattern_list.rows else "")
         broken = any(group.get("error") for group in overview["patterns"])
-        self.pattern_empty.setText("코딩 실습 자료를 읽지 못했습니다. " + ai_text.FIX_HINT if broken else
+        shown = bool(self.pattern_list.rows or waiting)
+        error_text = "일부 코딩 실습을 읽지 못했습니다. " if shown else "코딩 실습 자료를 읽지 못했습니다. "
+        self.pattern_empty.setText(error_text + ai_text.FIX_HINT if broken else
                                    "이 과정의 코딩 실습은 아직 공개하지 않았습니다.")
-        self.pattern_empty.setVisible(not self.pattern_list.rows and not waiting)
+        self.pattern_empty.setVisible(broken or not shown)
 
     def open_unit(self, lid, key):
         if not self.busy:
