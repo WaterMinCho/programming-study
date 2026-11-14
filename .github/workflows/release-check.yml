@@ -41,6 +41,7 @@ on:
       - 'gui/hub_page.py'
       - 'gui/motion.py'
       - 'tests/test_gui_settings_menu.py'
+      - 'tests/test_gui_local_identity_guard.py'
       - 'tests/test_gui_refresh.py'
       - 'learning_data/identity.py'
       - 'gui/ai_mock.py'

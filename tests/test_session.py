@@ -10,8 +10,10 @@ import importlib.util
 import io
 import ntpath
 import os
+from pathlib import Path
 import random
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -21,6 +23,273 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import adaptive  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
+
+
+class LocalIdentityTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="study_identity_")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        for patcher in (mock.patch.object(study, "ROOT", str(self.root)),
+                        mock.patch.object(study, "SUBMISSIONS_DIR", str(self.root / "submissions")),
+                        mock.patch.object(study, "USER_FILE", str(self.root / ".study_user")),
+                        mock.patch.dict(os.environ)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        for key in list(os.environ):
+            if key.upper().startswith("GIT_") or key == "STUDY_USER":
+                del os.environ[key]
+        os.environ["GIT_ALLOW_PROTOCOL"] = "file"
+
+    def write(self, name, data=b'{"fixture": true}\n'):
+        path = self.root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path
+
+    def git(self, *args):
+        return subprocess.run(["git", "-c", "core.autocrlf=false", "-c", "user.name=Fixture",
+                               "-c", "user.email=fixture@example.invalid", "-C", str(self.root), *args],
+                              check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
+
+    def baseline(self):
+        self.write("submissions/.gitkeep", b"")
+        self.git("init", "-q")
+        self.git("config", "core.autocrlf", "false")
+        self.git("add", "--", "submissions")
+        self.git("commit", "-qm", "fixture")
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+
+    def snapshot(self):
+        return {str(path.relative_to(self.root)): path.read_bytes() for path in self.root.rglob("*")
+                if path.is_file() and ".git" not in path.relative_to(self.root).parts}
+
+    def blocked(self, reason):
+        before = self.snapshot()
+        with self.assertRaisesRegex(session.SessionError, reason):
+            session.saved_user()
+        self.assertEqual(self.snapshot(), before)
+        self.assertFalse((self.root / ".study_user").exists())
+
+    def test_empty_install_needs_no_git_or_record_read(self):
+        with mock.patch.object(session.subprocess, "run") as run:
+            self.assertIsNone(session.saved_user())
+            self.write("submissions/.gitkeep", b"")
+            (self.root / "submissions/empty-learner").mkdir()
+            self.assertIsNone(session.saved_user())
+        run.assert_not_called()
+
+    def test_invalid_environment_preserves_valid_id_file(self):
+        path = self.write(".study_user", b"existing-learner\n")
+        for value in ("../bad", " ", "한글"):
+            with self.subTest(value=value), mock.patch.dict(os.environ, STUDY_USER=value):
+                with self.assertRaisesRegex(session.SessionError, "STUDY_USER"):
+                    session.saved_user()
+                self.assertEqual(path.read_bytes(), b"existing-learner\n")
+
+    def test_command_line_callers_report_identity_failure_without_a_traceback(self):
+        from webprep import cli
+        path = self.write(".study_user", b"existing-learner\n")
+        with mock.patch.dict(os.environ, STUDY_USER="../invalid"):
+            output = io.StringIO()
+            with contextlib.redirect_stderr(output), self.assertRaises(SystemExit) as stopped:
+                study.in_open_round("unused-fixture")
+            self.assertEqual(stopped.exception.code, 1)
+            self.assertIn("풀이 ID를 확인하지 못했습니다", output.getvalue())
+            self.assertNotIn("Traceback", output.getvalue())
+            with self.assertRaisesRegex(cli.WebError, "풀이 ID를 확인하지 못했습니다"):
+                cli.resolve_user(None)
+        self.assertEqual(path.read_bytes(), b"existing-learner\n")
+
+    def test_save_permission_failures_are_readable_and_preserve_the_id_file(self):
+        path = self.write(".study_user", b"existing-learner\n")
+        for target in ("session.os.makedirs", "study.write_text"):
+            with self.subTest(target=target), mock.patch(target, side_effect=PermissionError("fixture")):
+                with self.assertRaisesRegex(session.SessionError, "쓰기 권한"):
+                    session.save_user("existing-learner")
+                self.assertEqual(path.read_bytes(), b"existing-learner\n")
+
+    def test_known_os_metadata_does_not_create_a_false_record_candidate(self):
+        self.write("submissions/shared/profile.json")
+        self.baseline()
+        for name in (".DS_Store", "Thumbs.db", "desktop.ini"):
+            self.write("submissions/shared/" + name, b"fixture cache")
+        before = self.snapshot()
+        self.assertIsNone(session.saved_user())
+        self.assertEqual(self.snapshot(), before)
+        self.write("submissions/shared/r01/quiz.py", b"answer = 3\n")
+        self.blocked("로컬 기록 파일이 있습니다")
+
+    def test_invalid_and_unreadable_id_file_are_not_missing(self):
+        for value in (b"", b" \n", b"../bad\n", b"\xff"):
+            with self.subTest(value=value):
+                path = self.write(".study_user", value)
+                with self.assertRaisesRegex(session.SessionError, ".study_user"):
+                    session.saved_user()
+                self.assertEqual(path.read_bytes(), value)
+        for error in (PermissionError("fixture"), IsADirectoryError("fixture")):
+            with self.subTest(error=error), mock.patch.object(study, "read_text", side_effect=error):
+                with self.assertRaisesRegex(session.SessionError, "읽지 못했습니다"):
+                    session.saved_user()
+
+    def test_valid_environment_keeps_priority_and_valid_file_keeps_id(self):
+        for data in (b"file-learner\n", b"file-learner\r\n", b"\xef\xbb\xbffile-learner\r\n"):
+            self.write(".study_user", data)
+            self.assertEqual(session.saved_user(), "file-learner")
+        self.write(".study_user", b"file-learner\n")
+        with mock.patch.dict(os.environ, STUDY_USER="env-learner"), mock.patch.object(study, "read_text") as read:
+            self.assertEqual(session.saved_user(), "env-learner")
+            read.assert_not_called()
+        self.assertEqual((self.root / ".study_user").read_bytes(), b"file-learner\n")
+
+    def test_missing_id_with_new_private_record_blocks_all_three_tracks(self):
+        self.baseline()
+        for record in ("profile.json", "ai/record.json", "journey/progress.json"):
+            with self.subTest(record=record):
+                path = self.write("submissions/private-learner/" + record)
+                self.blocked("로컬 기록 파일이 있습니다")
+                path.unlink()
+
+    def test_four_shared_baseline_records_allow_first_install(self):
+        for number in range(4):
+            for record in ("profile.json", "ai/record.json", "journey/progress.json"):
+                self.write(f"submissions/shared-{number}/{record}", b'{"fixture": "shared"}\r\n')
+        self.baseline()
+        before = self.snapshot()
+        git_before = {str(path.relative_to(self.root)): path.read_bytes() for path in (self.root / ".git").rglob("*") if path.is_file()}
+        self.assertIsNone(session.saved_user())
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual({str(path.relative_to(self.root)): path.read_bytes() for path in (self.root / ".git").rglob("*") if path.is_file()}, git_before)
+        self.write("submissions/shared-0/profile.json", b'{"fixture": "shared"}\n')
+        self.blocked("로컬에서 바뀐 기록")
+
+    def test_multiple_candidates_never_select_or_merge_an_id(self):
+        self.baseline()
+        self.write("submissions/first-learner/profile.json")
+        self.write("submissions/second-learner/ai/record.json")
+        self.blocked("로컬 기록 파일이 있습니다")
+
+    def test_crlf_baseline_remains_shared_when_autocrlf_is_enabled_later(self):
+        path = self.write("submissions/shared/profile.json", b'{"fixture": 3}\r\n')
+        self.baseline()
+        self.git("config", "core.autocrlf", "true")
+        before = self.snapshot()
+        self.assertIsNone(session.saved_user())
+        self.assertEqual(self.snapshot(), before)
+        path.write_bytes(b'{"fixture": 4}\r\n')
+        self.blocked("로컬에서 바뀐 기록")
+
+    def test_missing_baseline_and_git_failure_are_not_empty_records(self):
+        self.write("submissions/private-learner/profile.json")
+        self.blocked("대조하지 못했습니다")
+        self.git("init", "-q")
+        self.blocked("대조하지 못했습니다")
+        self.baseline()
+        for error in (FileNotFoundError("git"), subprocess.TimeoutExpired("git", 3)):
+            with self.subTest(error=error), mock.patch.object(session.subprocess, "run", side_effect=error):
+                self.blocked("대조하지 못했습니다")
+        original = subprocess.run
+        def failed_tree(command, **kwargs):
+            return subprocess.CompletedProcess(command, 1, b"", b"fixture") if "ls-tree" in command else original(command, **kwargs)
+        with mock.patch.object(session.subprocess, "run", side_effect=failed_tree):
+            self.blocked("대조하지 못했습니다")
+
+    def test_record_read_failure_and_scan_limits_preserve_records(self):
+        self.write("submissions/shared/profile.json")
+        self.baseline()
+        original = subprocess.run
+        def unreadable(command, **kwargs):
+            return subprocess.CompletedProcess(command, 1, b"", b"cannot read fixture") if "hash-object" in command else original(command, **kwargs)
+        with mock.patch.object(session.subprocess, "run", side_effect=unreadable):
+            self.blocked("대조하지 못했습니다")
+        with mock.patch.object(session.os, "scandir", side_effect=PermissionError("fixture")):
+            with self.assertRaisesRegex(session.SessionError, "로컬 기록 파일을 확인하지 못했습니다"):
+                session.saved_user()
+        with mock.patch.object(session.time, "monotonic", side_effect=[0, 4]):
+            self.blocked("로컬 기록 파일을 확인하지 못했습니다")
+
+    def test_git_environment_isolated_and_parent_repository_not_used(self):
+        self.write("submissions/shared/profile.json")
+        self.baseline()
+        original = subprocess.run
+        calls = []
+        def checked(command, **kwargs):
+            calls.append(command)
+            env = kwargs["env"]
+            for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY"):
+                self.assertNotIn(key, env)
+            self.assertEqual(env["GIT_ALLOW_PROTOCOL"], "")
+            self.assertGreater(kwargs["timeout"], 0)
+            self.assertLessEqual(kwargs["timeout"], 3)
+            return original(command, **kwargs)
+        injected = {key: "unusable-fixture" for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY")}
+        with mock.patch.dict(os.environ, injected), mock.patch.object(session.subprocess, "run", side_effect=checked):
+            self.assertIsNone(session.saved_user())
+        self.assertEqual(len(calls), 4)
+        nested = self.root / "nested"
+        self.write("nested/submissions/private-learner/profile.json")
+        with mock.patch.object(study, "ROOT", str(nested)), mock.patch.object(study, "SUBMISSIONS_DIR", str(nested / "submissions")), \
+                mock.patch.object(study, "USER_FILE", str(nested / ".study_user")), mock.patch.object(session.subprocess, "run") as run:
+            with self.assertRaisesRegex(session.SessionError, "대조하지 못했습니다"):
+                session.saved_user()
+            run.assert_not_called()
+
+    def test_ignored_untracked_and_locally_committed_answers_are_candidates(self):
+        self.write(".gitignore", b"submissions/ignored/\n")
+        self.baseline()
+        for name in ("ignored/r01/quiz.py", "untracked/r01/p01.py", "untracked/dist/p01.py", "committed/r01/quiz.py"):
+            with self.subTest(name=name):
+                path = self.write("submissions/" + name, b"answer = 3\n")
+                if name.startswith("committed"):
+                    self.git("add", "--", str(path.relative_to(self.root)))
+                    self.git("commit", "-qm", "local fixture")
+                self.blocked("로컬 기록 파일이 있습니다")
+                path.unlink()
+
+    def test_autocrlf_and_explicit_text_attributes_keep_shared_clone_usable(self):
+        shared = []
+        for number in range(4):
+            for name in ("profile.json", "ai/record.json", "journey/progress.json", "r01/quiz.py"):
+                shared.append(self.write(f"submissions/shared-{number}/{name}", b'{"fixture": 3}\n'))
+        self.baseline()
+        self.git("config", "core.autocrlf", "true")
+        for path in shared:
+            path.write_bytes(b'{"fixture": 3}\r\n')
+        for attributes in (None, b"*.py text eol=crlf\n*.json text eol=crlf\n"):
+            with self.subTest(attributes=attributes):
+                if attributes:
+                    self.write(".gitattributes", attributes)
+                before = self.snapshot()
+                self.assertIsNone(session.saved_user())
+                self.assertEqual(self.snapshot(), before)
+        shared[-1].write_bytes(b'{"fixture": 4}\r\n')
+        self.blocked("로컬에서 바뀐 기록")
+
+    def test_git_filter_process_errors_stop_without_changing_records(self):
+        self.write("submissions/shared/profile.json")
+        self.baseline()
+        original = subprocess.run
+        for error in (OSError("fixture process failed"), subprocess.SubprocessError("fixture filter process failed")):
+            def failed_process(command, **kwargs):
+                if "hash-object" in command:
+                    raise error
+                return original(command, **kwargs)
+            with self.subTest(error=error), mock.patch.object(session.subprocess, "run", side_effect=failed_process):
+                self.blocked("대조하지 못했습니다")
+
+    def test_external_filter_is_not_executed_and_backup_alone_is_not_an_owner(self):
+        self.write("submissions/shared/profile.json")
+        self.baseline()
+        self.write(".gitattributes", b"*.json filter=private-fixture\n")
+        self.git("config", "filter.private-fixture.clean", "unusable-fixture-command")
+        self.git("config", "filter.private-fixture.process", "unusable-fixture-process")
+        with mock.patch.object(session.subprocess, "run", wraps=subprocess.run) as run:
+            self.blocked("대조하지 못했습니다")
+            self.assertFalse(any("hash-object" in call.args[0] for call in run.call_args_list))
+        (self.root / "submissions/shared/profile.json").unlink()
+        self.write(".git/study-backup/fixture/outside/submissions/old/profile.json")
+        self.assertIsNone(session.saved_user())
 
 
 def right_answer(sess, view):
