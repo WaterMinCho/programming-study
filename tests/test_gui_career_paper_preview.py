@@ -315,6 +315,7 @@ class PaperPreviewTest(unittest.TestCase):
             dialog.open()
 
         page = self.show(on_figure=open_figure)
+        self.capture_widget = page
         preview = list(page.paper_previews.values())[2]
         details = self.details(preview, "논문 설명·선행 개념")
         page.scroll.ensureWidgetVisible(details.button)

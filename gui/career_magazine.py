@@ -376,7 +376,7 @@ class CareerMagazinePage(ReadingPage):
             self._open_source(video.url)
 
     def _restore(self):
-        # 재배치 중 가까워진 다른 요소로 기준을 바꾸지 않고, 다음 사용자 스크롤까지 읽던 요소를 유지함.
+        # 재배치 중 가까워진 다른 요소로 기준을 바꾸지 않음. 사용자 동작의 _remember 호출은 유지함.
         anchor = self._anchor
         super()._restore()
         if anchor and not self._settling and anchor[0].isVisibleTo(self.content):
