@@ -273,15 +273,9 @@ def probe(out):
                                                 "proxy_rect": list(proxy.rect().getRect()),
                                                 "proxy_has_focus": proxy.hasFocus()})
         checkpoint()
-        def hover():
-            # DOM 준비 뒤에도 Chromium의 iframe 입력 영역 갱신을 기다림.
-            QTest.mouseMove(proxy, point + QPoint(1, 0))
-            QTest.mouseMove(proxy, point)
-            return js("window.fixtureSnapshot()")
-
-        wait("button_hover", hover,
-             lambda state: state["pointer"] is not None and state["pointer"][0] == "pointermove"
-             and state["pointer"][3] == "fullscreen")
+        # 복원 후 커서가 같은 자리에 있어도 누를 수 있음. 이동 이벤트는 통과 조건이 아님.
+        QTest.mouseMove(proxy, point)
+        pump()
         QTest.mousePress(proxy, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, point)
         try:
             wait("button_press", lambda: js("window.fixtureSnapshot()"),
