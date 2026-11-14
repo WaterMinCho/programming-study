@@ -2,10 +2,11 @@
 """파이썬의 다음 회차·숙달 단원·지난 회차를 모음. 제출은 창 아래 공통 영역에서 다룸."""
 import html
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QWidget
 
-from gui import errors, kit, theme
+from gui import feedback, kit, theme
 from gui.widgets import LinkLabel, UnitStrip
 
 
@@ -78,9 +79,10 @@ class HomePage(QWidget):
         self.busy_bar.hide()
         root.addWidget(self.status)
         root.addWidget(self.busy_bar)
-        self.foot = LinkLabel('<a href="%s">불편한 점 알리기</a>' % errors.ISSUE_URL)
+        self.foot = LinkLabel('<a href="%s">불편한 점 알리기</a>' % feedback.ISSUE_URL)
         kit.typed(self.foot, "caption")
-        self.foot.setOpenExternalLinks(True)
+        self.foot.setOpenExternalLinks(False)
+        self.foot.linkActivated.connect(lambda _: QDesktopServices.openUrl(QUrl(feedback.issue_url(win))))
         root.addWidget(self.foot)
         column = kit.column(inner)
         column.layout().setContentsMargins(32, 0, 32, 0)

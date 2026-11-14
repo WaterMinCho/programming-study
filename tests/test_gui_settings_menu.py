@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 from unittest import mock
+from urllib.parse import parse_qs, urlsplit
 
 from tests import guikit, test_gui_hub
 from PyQt6 import sip
@@ -12,7 +13,7 @@ from PyQt6.QtCore import QEasingCurve, QPoint, QSettings, Qt
 from PyQt6.QtGui import QTextCursor
 from PyQt6.QtTest import QTest
 
-from gui import motion, theme
+from gui import feedback, motion, theme
 from gui.settings_menu import QDesktopServices
 
 
@@ -130,14 +131,19 @@ class SettingsMenuTest(test_gui_hub.HubTest):
         with mock.patch.object(win, "check_updates", side_effect=lambda: seen.append(("update", menu.isVisible()))), \
                 mock.patch.object(win, "ensure_identity", side_effect=lambda **kw: seen.append(("identity", menu.isVisible(), kw))), \
                 mock.patch.object(win, "show_hub_tour", side_effect=lambda **kw: seen.append(("tour", menu.isVisible(), kw))), \
-                mock.patch.object(QDesktopServices, "openUrl", side_effect=lambda url: seen.append(("report", menu.isVisible(), url.toString()))):
+                mock.patch.object(QDesktopServices, "openUrl", side_effect=lambda url: seen.append(("report", menu.isVisible(), url.toString()))), \
+                mock.patch.object(feedback, "commit", return_value="e" * 40):
             for button in (menu.update_btn, menu.identity_btn, menu.replay_tour, menu.report_btn):
                 menu.open_menu()
                 guikit.click(button)
                 self.assertFalse(menu.isVisible())
         self.assertEqual(seen[:3], [("update", False), ("identity", False, {"force": True}), ("tour", False, {"replay": True})])
         self.assertEqual(seen[3][:2], ("report", False))
-        self.assertTrue(seen[3][2].startswith("https://github.com/"))
+        query = parse_qs(urlsplit(seen[3][2]).query)
+        self.assertEqual(query["template"], ["trouble.yml"])
+        self.assertIn("screen: hub", query["env"][0])
+        self.assertIn("window: %dx%d" % (win.width(), win.height()), query["env"][0])
+        self.assertNotIn("exception:", query["env"][0])
 
     def test_text_and_theme_choices_are_remembered_after_reopening(self):
         win, menu = self.open_menu()

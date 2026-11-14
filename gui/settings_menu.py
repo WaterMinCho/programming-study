@@ -5,7 +5,7 @@ from PyQt6.QtCore import QEvent, QRectF, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices, QPainter, QPen
 from PyQt6.QtWidgets import QApplication, QButtonGroup, QHBoxLayout, QWidget
 
-from gui import errors, kit, motion, theme
+from gui import feedback, kit, motion, theme
 
 
 TEXT_LABELS = {"normal": "보통 글자", "large": "큰 글자", "larger": "더 큰 글자"}
@@ -47,7 +47,7 @@ class SettingsMenu(QWidget):
         self.identity_btn = self.action(box, "본인 확인 다시 하기", lambda: hub.win.ensure_identity(force=True))
         self.replay_tour = self.action(box, "첫 화면 튜토리얼 다시 보기", lambda: hub.win.show_hub_tour(replay=True))
         self.update_btn = self.action(box, "업데이트 확인", lambda: hub.win.check_updates())
-        self.report_btn = self.action(box, "불편한 점 알리기", lambda: QDesktopServices.openUrl(QUrl(errors.ISSUE_URL)))
+        self.report_btn = self.action(box, "불편한 점 알리기", lambda: QDesktopServices.openUrl(QUrl(feedback.issue_url(hub.win))))
         self.actions = (self.identity_btn, self.replay_tour, self.update_btn, self.report_btn)
         self.anchor_timer = QTimer(self)
         self.anchor_timer.setSingleShot(True)
