@@ -27,11 +27,10 @@ PANEL = "#F8F9FA"  # 첫 그림의 묶음 상자 바탕
 
 # 직무별 그림의 배치
 CENTER = 600
-MAIN_SHIFT = 36  # 노란 상자를 좌우로 번갈아 비켜 놓는 거리
 LEFT_IN = 340  # 왼쪽 하위 상자의 오른쪽 끝
 RIGHT_IN = 860  # 오른쪽 하위 상자의 왼쪽 끝
 SUB_MIN, SUB_MAX = 200, 290
-MAIN_MIN, MAIN_MAX = 210, 320
+MAIN_MIN = 210
 SUB_H, MAIN_H = 36, 46
 STACK_GAP = 12
 ROW_GAP = 34
@@ -252,9 +251,7 @@ def draw_verify(cv, cx, cy, text):
 def draw_box(cv, b, data):
     st = data["style"]
     colors = {item["status"]: item["color"] for item in data["legend"]}
-    if b.shadow:
-        cv.rect(b.x + 2.5, b.y + 2.5, b.w, b.h, fill=st["border"])
-    cv.rect(b.x, b.y, b.w, b.h, fill=b.fill, outline=st["border"], width=2)
+    cv.rect(b.x, b.y, b.w, b.h, fill=b.fill, outline="#D5DEEB", width=1, radius=10)
     y = b.y + (b.h - b.content_h()) / 2
     for r in b.rows:
         x = b.x + (b.w - r.width) / 2 if b.align == "center" else b.x + b.pad
@@ -303,7 +300,7 @@ def legend(data, verify_used, tracks):
     h += pad - 4
 
     def draw(cv, x, y, box_h=None):
-        cv.rect(x, y, w, box_h or h, fill="white", outline=INK, width=2)
+        cv.rect(x, y, w, box_h or h, fill="#F6F8FC", outline="#D5DEEB", width=1, radius=12)
         cy = y + pad + row_h / 2 - 2
         for color, label in items:
             if color:
@@ -333,6 +330,81 @@ def used_tracks(data, items):
 
 
 # 직무별 그림
+
+
+def skill_mark(cv, label, cx, cy, color):
+    """수치 예를 만들지 않고 주제의 구조를 작은 선 그림으로 표시함."""
+    x, y = cx - 20, cy - 18
+    if "로봇 모델" in label:
+        cv.line([(x + 4, y + 30), (x + 17, y + 17), (x + 36, y + 10)], color, 4)
+        for xx, yy in ((x + 4, y + 30), (x + 17, y + 17), (x + 36, y + 10)):
+            cv.circle(xx, yy, 4, "white", color, 2)
+    elif any(word in label for word in ("데이터 다루기", "SQL", "테스트", "품질", "장애", "정책 평가")):
+        for row in range(3):
+            cv.rect(x + 2, y + 2 + row * 12, 7, 7, outline=color, width=1, radius=1)
+            cv.line([(x + 15, y + 5 + row * 12), (x + 37, y + 5 + row * 12)], color, 2)
+    elif "control" in label.lower() or "제어" in label:
+        cv.line([(x, y + 31), (x + 40, y + 31)], "#D9E2EF", 1)
+        cv.line([(x + 2, y + 29), (x + 9, y + 29), (x + 15, y + 6), (x + 23, y + 14), (x + 30, y + 10), (x + 38, y + 10)], color, 2)
+    elif any(word in label for word in ("수학", "좌표", "변환", "기구학", "확률")):
+        cv.line([(x + 4, y + 30), (x + 4, y + 2)], color, 2)
+        cv.line([(x + 4, y + 30), (x + 35, y + 30)], color, 2)
+        cv.line([(x + 4, y + 30), (x + 27, y + 10)], color, 3)
+        cv.circle(x + 27, y + 10, 4, color)
+    elif any(word in label for word in ("비전", "영상", "이미지", "검출", "분할", "센서", "인식", "데이터")):
+        cv.rect(x, y, 40, 36, fill="#F2F6FF", outline=color, width=1, radius=5)
+        for row in range(3):
+            for col in range(4):
+                if (row + col) % 3 == 1:
+                    cv.rect(x + 5 + col * 8, y + 5 + row * 9, 6, 6, fill=color, radius=1)
+        cv.rect(x + 8, y + 8, 24, 19, outline=color, width=2, radius=2)
+    elif any(word in label for word in ("ROS", "노드", "통신", "네트워크", "연동", "API", "다중")):
+        for a, b in (((x + 5, y + 18), (x + 32, y + 5)), ((x + 5, y + 18), (x + 32, y + 31))):
+            cv.line([a, b], color, 2)
+        for xx, yy in ((x + 5, y + 18), (x + 32, y + 5), (x + 32, y + 31)):
+            cv.circle(xx, yy, 5, "white", color, 2)
+    elif any(word in label for word in ("학습", "모델", "PyTorch", "튜닝", "정책", "트랜스포머")):
+        for a in (6, 18, 30):
+            for b in (10, 26):
+                cv.line([(x + 4, y + a), (x + 20, y + b), (x + 36, y + 18)], "#B5C9EB", 1)
+        for xx, ys in ((x + 4, (6, 18, 30)), (x + 20, (10, 26)), (x + 36, (18,))):
+            for yy in ys:
+                cv.circle(xx, y + yy, 3.5, color)
+    elif any(word in label for word in ("주행", "경로", "SLAM", "Nav2", "위치", "시뮬", "MoveIt")):
+        cv.rect(x, y, 40, 36, outline="#D9E2EF", width=1, radius=4)
+        cv.line([(x + 5, y + 29), (x + 15, y + 29), (x + 15, y + 12), (x + 33, y + 12), (x + 33, y + 5)], color, 2)
+        cv.circle(x + 5, y + 29, 3, color)
+        cv.circle(x + 33, y + 5, 4, "white", color, 2)
+    elif any(word in label for word in ("제어", "복구", "테스트", "품질", "평가", "장애")):
+        cv.line([(x, y + 31), (x + 40, y + 31)], "#D9E2EF", 1)
+        cv.line([(x + 2, y + 29), (x + 9, y + 29), (x + 15, y + 6), (x + 23, y + 14), (x + 30, y + 10), (x + 38, y + 10)], color, 2)
+    else:
+        cv.rect(x, y, 40, 36, fill="#F2F6FF", outline=color, width=1, radius=5)
+        cv.line([(x + 12, y + 10), (x + 6, y + 18), (x + 12, y + 26)], color, 2)
+        cv.line([(x + 28, y + 10), (x + 34, y + 18), (x + 28, y + 26)], color, 2)
+        cv.line([(x + 23, y + 8), (x + 17, y + 28)], color, 2)
+
+
+def draw_path_box(cv, box, data, *, label=None):
+    """큰 주제와 세부 주제를 얇은 경계와 같은 글자 기준으로 그림."""
+    cv.rect(box.x, box.y, box.w, box.h, fill=box.fill, outline="#D5DEEB", width=1, radius=12)
+    y = box.y + (box.h - box.content_h()) / 2
+    if label:
+        skill_mark(cv, label, box.x + 34, box.cy, "#245EC8")
+    for row in box.rows:
+        x = box.x + (62 if label else box.pad)
+        cy = y + row.height / 2
+        if row.text:
+            cv.text(x, cy, row.text, row.size, row.bold, row.color)
+            x += tw(row.text, row.size, row.bold) + TAG_GAP
+        if row.tag:
+            draw_tag(cv, x, cy, row.tag, data["style"])
+        y += row.height
+    if box.status:
+        colors = {item["status"]: item["color"] for item in data["legend"]}
+        cv.rect(box.x, box.y + 14, 3, max(8, box.h - 28), fill=colors[box.status], radius=1)
+    if box.verify:
+        draw_verify(cv, box.x1 - 15, box.y + 15, data["verify_mark"]["text"])
 
 
 def path_page(data, p):
@@ -368,26 +440,26 @@ def path_page(data, p):
     for note in p.get("notes", []):
         notes.setdefault(note["near"], []).append(note)
     y = max(20 + lh, info.y1, spine_top) + 46
-    for i, n in enumerate(nodes):
-        cx = CENTER + (MAIN_SHIFT if i % 2 else -MAIN_SHIFT)
-        mw = max(MAIN_MIN, min(MAIN_MAX, natural_w(n["label"], 17, True, n.get("track"))
-                               + (2 * VERIFY_ROOM if n.get("verify") else 40)))
-        mrows = course_rows(n, 17, True, INK, mw - 36)
-        mh = max(MAIN_H, sum(r.height for r in mrows) + 18)
+    for n in nodes:
+        cx = CENTER
+        mw = max(MAIN_MIN, min(360, natural_w(n["label"], 20, True, n.get("track"))
+                               + 90))
+        mrows = course_rows(n, 20, True, INK, mw - 82 - (24 if n.get("verify") else 0))
+        mh = max(MAIN_H, sum(r.height for r in mrows) + 40)
 
         side = {}
         for key in ("left", "right"):
             stack = []
             for s in n.get(key, []):
-                rows = course_rows(s, 15, False, INK, sub_w - 28)
+                rows = course_rows(s, 15, False, INK, sub_w - 28 - (24 if s.get("verify") else 0))
                 fill = st["alt_fill"] if s["status"] == "alt" else st["sub_fill"]
-                stack.append(Box(0, 0, sub_w, max(SUB_H, sum(r.height for r in rows) + 12), rows, fill,
-                                 course_status(s), False, key))
+                stack.append(Box(0, 0, sub_w, max(SUB_H, sum(r.height for r in rows) + 22), rows, fill,
+                                 course_status(s), bool(s.get("verify")), key))
             side[key] = stack
         stack_h = {k: sum(b.h for b in v) + STACK_GAP * max(0, len(v) - 1) for k, v in side.items()}
         core = max(mh, stack_h["left"], stack_h["right"])
         mid = y + core / 2
-        main = Box(cx - mw / 2, mid - mh / 2, mw, mh, mrows, st["main_fill"], course_status(n))
+        main = Box(cx - mw / 2, mid - mh / 2, mw, mh, mrows, st["main_fill"], course_status(n), bool(n.get("verify")), align="left", pad=62)
         mains.append(main)
         bottom = y + core
         for key, stack in side.items():
@@ -396,7 +468,7 @@ def path_page(data, p):
                 b.x = LEFT_IN - sub_w if key == "left" else RIGHT_IN
                 b.y = sy
                 sy += b.h + STACK_GAP
-                # 점선은 노란 상자의 옆면으로 모임. 왼쪽 위 귀퉁이에는 배지가 있어 그 아래로 받음
+                # 세부 주제의 연결은 같은 단계 상자 안쪽으로 모음.
                 top = main.y + (BADGE_R + 8 if key == "left" else 10)
                 ey = min(max(b.cy, top), main.y1 - 10)
                 if key == "left":
@@ -429,17 +501,20 @@ def path_page(data, p):
     check_layout(p["id"], boxes)
 
     cv = Canvas(height, key_colors(data))
-    spine = [(CENTER, spine_top)] + [(m.cx, m.cy) for m in mains]
-    for k in range(len(spine) - 1):
-        a, b = spine[k], spine[k + 1]
-        bend = 46 if k % 2 else -46
-        dy = b[1] - a[1]
-        pts = bezier(a, (a[0] + bend, a[1] + dy * 0.5), (b[0] + bend, b[1] - dy * 0.5), b)
-        cv.line(pts, st["spine"], 4)
+    for first, second in zip(mains, mains[1:]):
+        cv.line([(CENTER, first.y1), (CENTER, second.y)], "#B8CBEA", 3)
+    cv.line([(CENTER, spine_top), (CENTER, mains[0].y)], "#B8CBEA", 3)
     for a, b in lines:
-        cv.dotted(a, b, st["dots"])
-    for b in boxes:
-        draw_box(cv, b, data)
+        # 세부 주제를 얇은 직각선으로 같은 단계에 연결함.
+        turn = a[0] + (b[0] - a[0]) * .55
+        cv.line([a, (turn, a[1]), (turn, b[1]), b], "#C6D2E3", 1.5)
+    for box in boxes:
+        if box not in mains:
+            draw_path_box(cv, box, data)
+    for number, (box, node) in enumerate(zip(mains, nodes), 1):
+        draw_path_box(cv, box, data, label=node["label"])
+        cv.circle(CENTER, box.y - 15, 14, "#245EC8")
+        cv.text(CENTER, box.y - 15, str(number), 12, True, "white", "mm")
     draw_legend(cv, MARGIN, 20)
     cv.text(CENTER, title_y, p["title"], size, True, INK, "mm")
     cv.text(CENTER, sub_y, p["subtitle"], 17, False, MUTED, "mm")

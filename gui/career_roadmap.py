@@ -6,8 +6,9 @@ from PyQt6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, QSizeF, Qt, QTi
 from PyQt6.QtGui import QPainter, QPen, QPixmap, QTextLayout, QTextOption
 from PyQt6.QtWidgets import QComboBox, QGridLayout, QSizePolicy, QWidget
 
-from career.catalog import COURSE_LABELS, RELATION_LABELS, load_catalog
+from career.catalog import RELATION_LABELS, load_catalog
 from gui import kit, theme
+from gui.career_learning_path import CareerLearningPath
 from gui.career_map_viewer import RoadmapImageDialog
 from gui.career_scene import RoleScene
 
@@ -352,7 +353,9 @@ class CareerRoadmapPage(ReadingPage):
         details.addSpacing(theme.GAP["section"])
         learn_title = kit.para("추천 학습 순서", "headline")
         learn_title.setProperty("reading_anchor", True)
-        details.addWidget(kit.heading(learn_title, kit.para("각 주제 옆에 ROKEY 11기 수업에서 다루는 범위를 표시했습니다.", "body", "secondary")))
+        details.addWidget(kit.heading(learn_title, kit.para(
+            "그림은 각 주제에서 다룰 입력과 변화의 예시입니다. 번호와 선은 추천 순서이며 옆의 상태는 ROKEY 11기 수업 범위입니다.",
+            "body", "secondary")))
         details.addSpacing(theme.GAP["description_content"])
         self.relation = kit.para("", "body", "secondary")
         self.relation.setProperty("reading_anchor", True)
@@ -474,15 +477,8 @@ class CareerRoadmapPage(ReadingPage):
         show_note = not goal or link["relation"] != "primary"
         self.scene.map_note.setVisible(show_note)
         self.scene.map_note.setText(self.relation.text() if show_note else "")
-        for number, node in enumerate(role["roadmap_nodes"], 1):
-            row = QWidget()
-            box = kit.box(row, spacing=16, horizontal=True)
-            title = kit.para(f"{number}. {node['label']}", "body", bold=True)
-            title.setProperty("reading_anchor", True)
-            box.addWidget(title, 1)
-            box.addWidget(kit.label(COURSE_LABELS[node["course_status"]], "body", "secondary"),
-                          alignment=Qt.AlignmentFlag.AlignTop)
-            self.learning_box.addWidget(row)
+        self.learning_path = CareerLearningPath(role["roadmap_nodes"], role["outputs"])
+        self.learning_box.addWidget(self.learning_path)
         for source in self.catalog.sources:
             if source["id"] not in role["source_ids"]:
                 continue
