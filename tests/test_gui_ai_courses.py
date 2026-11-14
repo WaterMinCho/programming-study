@@ -32,6 +32,7 @@ class CourseGuiTest(AiTest):
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
         self.assertEqual({'m4'},set(win.ai.mocks))
+        guikit.click(win.ai_home.browser.buttons['mocks'])
         self.assertTrue(win.ai_home.mock_section.isVisible())
         self.assertIn('응용', win.ai_home.lesson_list.rows[0].title.text())
         win.ai.save_step('a01', 'a1b', 3)
@@ -55,7 +56,9 @@ class CourseGuiTest(AiTest):
             win=self.boot((760,480))
             win.go_ai();win.switch_ai_course('app');self.idle()
             self.assertEqual({},win.ai.mocks)
+            guikit.click(win.ai_home.browser.buttons['mocks'])
             self.assertFalse(win.ai_home.mock_section.isVisible())
+            self.assertTrue(win.ai_home.mock_empty.isVisible())
             self.capture_widget=win
 
     def test_switch_reuses_the_course_and_keeps_the_old_tab_until_content_is_ready(self):
@@ -159,7 +162,8 @@ class CourseGuiTest(AiTest):
             note = win.ai_home.revision_note
             self.assertTrue(note.isVisible())
             self.assertIn("999", note.text())
-            guikit.wait_until(lambda: note.width() > 0 and note.height() >= note.heightForWidth(note.width()))
+            guikit.wait_until(lambda: win.ai_home.browser.pending is None and note.width() > 0
+                              and note.height() >= note.heightForWidth(note.width()))
             scroll = win.ai_home.scroll
             reminder = win.workspace.submissions
             scroll.verticalScrollBar().setValue(note.mapTo(scroll.widget(), QPoint()).y() - 24)

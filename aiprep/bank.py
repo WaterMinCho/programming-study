@@ -29,6 +29,7 @@ MOCK_ID = re.compile(r"m(\d{1,2})\Z")
 UNIT_KEY = re.compile(r"(a?\d{1,2})([a-i])\Z")
 CARD_ID = re.compile(r"(?:[ia]\d{2}|pc|m\d{1,2})-[a-z]\d{2,3}\Z")
 COURSES = {"intro": "AI 개론", "app": "AI 응용"}
+CODING_TITLE = "코딩으로 실전학습하기"
 
 
 def course_of(lid):
@@ -112,7 +113,7 @@ def read_index(root=None):
         for item in data.get("patterns") or []:
             units = {str(k): {"after": str((v or {}).get("after", "")), "name": str((v or {}).get("name", ""))}
                      for k, v in (item.get("units") or {}).items()}
-            patterns.append({"id": str(item["id"]), "page": str(item["page"]), "title": str(item.get("title", "상황별 코드")),
+            patterns.append({"id": str(item["id"]), "page": str(item["page"]), "title": str(item.get("title", CODING_TITLE)),
                              "units": units})
         mocks = []
         for item in data.get("mocks") or []:

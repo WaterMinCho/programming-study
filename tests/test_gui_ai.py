@@ -227,9 +227,12 @@ class HubAndHomeTest(AiTest):
             return widget.mapTo(home, QPoint(0, 0)).y()
         steps = home.guide_btn
         terms = next(w for w in home.findChildren(QLabel) if w.text() == ai_text.TERMS)
-        # 사용 안내 단추, 카드, 학습 단원, 낱말 풀이, 문제집 줄 순임.
-        self.assertEqual(sorted([steps, home.next_card, home.lesson_list, terms, home.books], key=top),
-                         [steps, home.next_card, home.lesson_list, terms, home.books])
+        self.assertLess(top(steps), top(home.next_card))
+        self.assertLess(top(home.next_card), top(home.lesson_list))
+        guikit.click(home.browser.buttons["books"])
+        self.assertTrue(terms.isVisible())
+        self.assertFalse(home.lesson_list.isVisible())
+        self.assertLess(top(terms), top(home.books))
         guikit.click(book)
         self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "90차시 풀기"))
 
@@ -1389,9 +1392,11 @@ class PatternTest(AiTest):
         win = self.boot((1024, 700))
         win.go_ai()
         home = win.ai_home
+        guikit.click(home.browser.buttons["coding"])
         self.assertTrue(home.pattern_section.isVisibleTo(home))
         self.idle()
-        self.assertGreater(home.pattern_section.mapTo(home, QPoint(0, 0)).y(), home.books.mapTo(home, QPoint(0, 0)).y())  # 맨 아래 구역
+        self.assertFalse(home.books.isVisible())
+        self.assertTrue(home.browser.buttons["mocks"].isVisible())
         self.assertEqual([(r.title.text(), r.second.text(), r.mark.state) for r in home.pattern_list.rows],
                          [(self.UNIT, "90차시 뒤에 권함 · 약 6분", "todo")])  # 권하는 차시를 읽기 전에도 열 수 있음
         self.assertEqual(home.pattern_list.more_btn.text(), "준비 중 1개 보기")
