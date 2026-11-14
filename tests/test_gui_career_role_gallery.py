@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from tests import guikit
 from PyQt6.QtCore import QEvent, QPoint, QRectF, Qt
-from PyQt6.QtGui import QFontMetricsF, QKeyEvent
+from PyQt6.QtGui import QColor, QFontMetricsF, QImage, QKeyEvent
 from PyQt6.QtTest import QSignalSpy, QTest
 from PyQt6.QtWidgets import QAbstractButton, QScrollArea, QVBoxLayout, QWidget
 
@@ -78,13 +78,42 @@ class RoleGalleryTest(unittest.TestCase):
                           for key, card in gallery.cards.items()}}
         (target / f"{name}-geometry.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    def ink_rows(self, image, rect, tone):
+    def ink_rows(self, image, rect, tone, antialias=False):
         ratio = image.devicePixelRatioF()
         left, right = round(rect.left() * ratio), round(rect.right() * ratio)
         top, bottom = round(rect.top() * ratio), round(rect.bottom() * ratio)
+        background = image.pixelColor(left, top).getRgb()[:3]
+        target = theme.qcolor(tone).getRgb()[:3]
+        direction = tuple(t - b for t, b in zip(target, background))
+        length = sum(d * d for d in direction)
+
+        def visible_ink(color):
+            if guikit.near(color, tone):
+                return True
+            if not antialias or not length:
+                return False
+            # 가는 획이 배경과 섞인 화소를 확인함. 빈 배경과 다른 색은 제외함.
+            change = tuple(c - b for c, b in zip(color.getRgb()[:3], background))
+            coverage = sum(c * d for c, d in zip(change, direction)) / length
+            residual = max(abs(c - coverage * d) for c, d in zip(change, direction))
+            return .5 <= coverage <= 1 and residual <= 8
+
         return [y / ratio for y in range(top, min(bottom, image.height()))
-                if any(guikit.near(image.pixelColor(x, y), tone)
+                if any(visible_ink(image.pixelColor(x, y))
                        for x in range(left, min(right, image.width())))]
+
+    def test_text_ink_accepts_blended_strokes_but_rejects_empty_background(self):
+        image = QImage(30, 30, QImage.Format.Format_RGB32)
+        rect = QRectF(0, 0, 30, 30)
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            background, target = theme.qcolor("surface"), theme.qcolor("muted")
+            image.fill(background)
+            self.assertEqual(self.ink_rows(image, rect, "muted", antialias=True), [])
+            mixed = QColor(*(round(b + .85 * (t - b)) for b, t in
+                             zip(background.getRgb()[:3], target.getRgb()[:3])))
+            image.setPixelColor(10, 12, mixed)
+            self.assertEqual(self.ink_rows(image, rect, "muted", antialias=True), [12])
 
     def assert_text_fits(self, card):
         self.assertIsInstance(card, QAbstractButton)
@@ -103,7 +132,7 @@ class RoleGalleryTest(unittest.TestCase):
                                                     Qt.TextFlag.TextWordWrap.value, text)
             self.assertLessEqual(bound.height(), rect.height() + 1, text)
             self.assertLessEqual(bound.width(), rect.width() + 1, text)
-            rows = self.ink_rows(image, rect, tone)
+            rows = self.ink_rows(image, rect, tone, antialias=True)
             self.assertTrue(rows, (name, text))
             self.assertGreater(rows[0], rect.top())
             self.assertLess(rows[-1], rect.bottom() - 1)
@@ -135,7 +164,7 @@ class RoleGalleryTest(unittest.TestCase):
                         else:
                             self.assertLess(card.image_rect.bottom(), card.text_rects["title"].top())
                         image = card.grab().toImage()
-                        ink = self.ink_rows(image, card.text_rects["output"], "muted")[0]
+                        ink = self.ink_rows(image, card.text_rects["output"], "muted", antialias=True)[0]
                         first_ink[i] = ink + card.y()
                         if i % columns:
                             previous = cards[i - 1]
