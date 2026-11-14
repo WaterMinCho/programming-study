@@ -61,6 +61,7 @@ CLOSED_CASES = frozenset(name for name in CASES if ".HomeAndGitTest." in name)
 
 def gui_check(out):
     os.environ["CAREER_EVIDENCE"] = str(out)
+    os.environ["CAREER_LEARNING_EVIDENCE"] = str(out)
     os.environ["VIDEO_EVIDENCE"] = str(out)
     from PyQt6.QtCore import QPoint, QRect, Qt, QT_VERSION_STR, PYQT_VERSION_STR
     from PyQt6.QtWidgets import QApplication

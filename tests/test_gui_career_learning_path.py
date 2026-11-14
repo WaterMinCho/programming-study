@@ -280,6 +280,10 @@ class CareerLearningPathTest(unittest.TestCase):
                             self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()))
                             self.assertTrue(step.rect().contains(label.geometry()))
                     self.assertEqual(path.outputs, tuple(role["outputs"]))
+                if page.learning_path.steps:
+                    page.scroll.ensureWidgetVisible(page.learning_path.steps[0], 0, 0)
+                    self.settle(page)
+                    self.assertFalse(page.learning_path.steps[0].visibleRegion().isEmpty())
                 destination = os.environ.get("CAREER_LEARNING_EVIDENCE")
                 if destination:
                     target = Path(destination)
