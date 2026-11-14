@@ -2,7 +2,7 @@
 from functools import partial
 from urllib.parse import urlsplit
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, Qt, pyqtSignal
 from PyQt6.QtWidgets import QComboBox, QDialog, QLineEdit, QSizePolicy, QWidget
 
 from career.catalog import load_catalog
@@ -12,6 +12,35 @@ from gui.career_paper_preview import PaperPreview
 from gui.career_roadmap import ReadingPage, flow_buttons
 from gui.dialog_layout import DialogLayout
 from gui.paper_explainer import load_explanations
+
+
+class MagazineTabs(kit.TabBar):
+    """영상과 논문 입구를 같은 폭으로 표시하고 공통 탭 동작을 유지함."""
+    def __init__(self):
+        super().__init__(["영상", "논문 해설"])
+        row = self.layout().itemAt(0).layout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(theme.GAP["detail"])
+        row.takeAt(row.count() - 1)
+        for number, tab in enumerate(self.buttons):
+            kit.typed(tab, "headline", True)
+            row.setStretch(number, 1)
+        self.refont()
+
+    def refont(self):
+        height = theme.TYPE["headline"][1] + theme.GAP["group"]
+        color = lambda key: theme.qcolor(key).name()
+        self.setStyleSheet(f"""
+            QPushButton#tab {{ background: {color('surface')}; color: {color('ink')};
+                font-size: {theme.TYPE['headline'][0]}px; font-weight: 700;
+                min-height: {height}px; max-height: {height}px; padding: 0 16px;
+                border: 1px solid transparent; border-bottom: 3px solid {color('line')}; }}
+            QPushButton#tab:hover {{ background: {color('hover')}; }}
+            QPushButton#tab:checked {{ background: {color('selection')}; color: {color('selection_ink')};
+                border-bottom-color: {color('link')}; }}
+            QPushButton#tab:focus {{ border-top-color: {color('focus')};
+                border-left-color: {color('focus')}; border-right-color: {color('focus')}; }}
+        """)
 
 
 class SourceDetails(QWidget):
@@ -56,17 +85,16 @@ class CareerMagazinePage(ReadingPage):
         self._requested_id = None
         self._tab_anchors = {}
         title = kit.para("매거진", "title")
-        title.setProperty("reading_anchor", True)
         header = QWidget()
-        heading = kit.box(header, spacing=theme.GAP["paragraph"], horizontal=True)
+        heading = kit.box(header, (0, theme.GAP["group"], 0, 0), spacing=theme.GAP["paragraph"])
         heading.addWidget(title)
-        heading.addStretch(1)
-        self.tabs = kit.TabBar(["영상", "논문 해설"])
+        self.tabs = MagazineTabs()
         self.tabs.setAccessibleName("매거진 자료 종류")
         self.tabs.picked.connect(self._change_tab)
         heading.addWidget(self.tabs)
-        self.body.addWidget(header)
-        self.body.addSpacing(theme.GAP["paragraph"])
+        self.navigation_column = kit.column(header)
+        self.navigation_column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
+        self.layout().insertWidget(1, self.navigation_column)
 
         self.video_content = QWidget()
         self.video_box = kit.box(self.video_content, spacing=theme.GAP["paragraph"])
@@ -119,6 +147,16 @@ class CareerMagazinePage(ReadingPage):
         self._show_papers()
         self._filter()
         self._update_actions()
+        QWidget.setTabOrder(self.top.back, self.tabs.buttons[0])
+        QWidget.setTabOrder(self.tabs.buttons[0], self.tabs.buttons[1])
+        QWidget.setTabOrder(self.tabs.buttons[1], self.search)
+
+    def eventFilter(self, target, event):
+        if (target is self.scroll.viewport() and event.type() == QEvent.Type.Resize
+                and hasattr(self, "navigation_column")):
+            gutter = self.scroll.width() - self.scroll.viewport().width()
+            self.navigation_column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN + gutter, 0)
+        return super().eventFilter(target, event)
 
     def set_viewer(self, widget):
         """부모가 만든 재생 위젯을 붙임. URL을 설정하거나 재생을 시작하지 않음."""
@@ -340,7 +378,7 @@ class CareerMagazinePage(ReadingPage):
 
     def _show_papers(self):
         state = self.catalog.states["papers"]
-        self.paper_box.addWidget(kit.heading(kit.para("논문 해설", "headline"), kit.para("어떤 문제를 풀려는 논문인지 읽고, 그림으로 계산 과정을 따라가세요.")))
+        self.paper_box.addWidget(kit.para("어떤 문제를 풀려는 논문인지 읽고, 그림으로 계산 과정을 따라가세요."))
         if state != "ready":
             text = {"unavailable": "논문 해설 자료는 아직 제공하지 않습니다.", "empty": "공개한 논문 해설이 없습니다.",
                     "invalid": "논문 해설 자료를 읽지 못했습니다. 프로그램을 업데이트한 뒤 다시 열어 주세요."}[state]
