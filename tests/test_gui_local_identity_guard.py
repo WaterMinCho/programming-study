@@ -10,6 +10,7 @@ from unittest import mock
 
 from tests import guikit
 from PyQt6.QtCore import QPoint, QSettings
+from PyQt6.QtWidgets import QLabel
 
 import session
 import study
@@ -198,6 +199,9 @@ class LocalIdentityGuardTest(unittest.TestCase):
                     self.assertEqual(theme.state["text"], "larger")
                     self.assertEqual(error.font().pixelSize(), theme.TYPE["body"][0])
                     self.assertEqual(retry.font().pixelSize(), theme.TYPE["label"][0])
+                    heading = next(label for label in self.win.start.findChildren(QLabel) if label.text() == "프로그래밍 스터디")
+                    self.assertEqual(heading.font().pixelSize(), theme.TYPE["title"][0])
+                    self.assertGreater(heading.font().pixelSize(), error.font().pixelSize())
                     self.assertGreaterEqual(retry.width(), retry.fontMetrics().horizontalAdvance(retry.text()) + 16)
                     self.assertGreaterEqual(retry.height(), retry.fontMetrics().height())
                     self.assertLess(error.geometry().bottom(), retry.geometry().top())
