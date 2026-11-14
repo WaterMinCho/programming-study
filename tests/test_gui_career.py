@@ -34,6 +34,8 @@ class CareerGuiTest(unittest.TestCase):
 
     def show(self, cls, **kwargs):
         window = cls(catalog=kwargs.pop("catalog", self.catalog), **kwargs)
+        if isinstance(window, CareerRoadmapPage) and window.role_picker.currentData():
+            window.select_role(window.role_picker.currentData())
         self.windows.append(window)
         window.resize(760, 480)
         window.show()
@@ -120,6 +122,7 @@ class CareerGuiTest(unittest.TestCase):
         self.settle(page)
         self.assertTrue(scene.artifact.isVisible())
         self.assertTrue(page.filters.isHidden())
+        page.show_catalog()
         guikit.click(page.filter_toggle)
         self.assertTrue(page.filters.isVisible())
         saved.assert_not_called()

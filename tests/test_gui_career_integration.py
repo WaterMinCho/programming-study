@@ -28,6 +28,7 @@ class CareerIntegrationTest(unittest.TestCase):
         page = win.career.roadmap
         self.assertIs(win.pages.currentWidget(), page)
         self.assertEqual(win.area, "career_roadmap")
+        page.select_role("qa")
         page.choose_goal()
         selected = json.loads(win.settings.value("career/role/" + win.user))
         self.assertEqual(selected["role_id"], page.selected_role_id)

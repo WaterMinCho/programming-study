@@ -227,6 +227,8 @@ class CareerLearningPathTest(unittest.TestCase):
 
     def test_page_maximum_font_all_roles_keep_text_and_fit_work_area(self):
         page = CareerRoadmapPage(catalog=self.catalog)
+        page.select_role("robot_control")
+        page.show_detail_tab(1)
         self.windows.append(page)
         self.capture_widget = page
         page.resize(760, 480)
@@ -269,6 +271,7 @@ class CareerLearningPathTest(unittest.TestCase):
                                 "platform": guikit.APP.platformName(), "scale": page.devicePixelRatioF()})
                 for role in self.catalog.roles:
                     page.select_role(role["id"])
+                    page.show_detail_tab(1)
                     self.settle(page)
                     path = page.learning_path
                     self.assertLessEqual(page.content.width(), page.width())
@@ -315,6 +318,7 @@ class CareerLearningPathTest(unittest.TestCase):
         page.resize(1280, 800)
         page.show()
         page.select_role("robot_policy")
+        page.show_detail_tab(1)
         self.settle(page)
         step = page.learning_path.steps[3]
         page.scroll.ensureWidgetVisible(step)

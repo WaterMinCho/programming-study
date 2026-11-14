@@ -3,7 +3,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QPainter, QPainterPath, QPixmap
-from PyQt6.QtWidgets import QBoxLayout, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from gui import kit, theme
 from gui.career_artifact import CareerArtifact
@@ -56,7 +56,7 @@ class ScenePicture(QWidget):
 
 
 class RoleScene(QWidget):
-    def __init__(self, actions):
+    def __init__(self):
         super().__init__()
         self.role = None
         self.view_index = 0
@@ -77,19 +77,10 @@ class RoleScene(QWidget):
         self.panels.addWidget(self._panel("결과 예시", self.artifact), 1)
         outer.addWidget(panels)
 
-        self.copy_row = QBoxLayout(QBoxLayout.Direction.TopToBottom)
-        self.copy_row.setSpacing(theme.GAP["paragraph"])
-        outer.addLayout(self.copy_row)
         self.title = kit.para("", "headline", bold=True)
         self.title.setProperty("reading_anchor", True)
         self.caption = kit.para("", "body", "secondary")
-        self.copy_row.addWidget(kit.heading(self.title, self.caption), 2)
-        action_group = QWidget()
-        action_layout = kit.box(action_group, spacing=theme.GAP["detail"])
-        self.map_note = kit.para("", "caption", "secondary")
-        action_layout.addWidget(self.map_note)
-        action_layout.addWidget(actions)
-        self.copy_row.addWidget(action_group, 1)
+        outer.addWidget(kit.heading(self.title, self.caption))
         self.tabs.picked.connect(self.show_view)
 
     @staticmethod
@@ -111,7 +102,6 @@ class RoleScene(QWidget):
             panel.setVisible(available and (self.wide or number == self.view_index))
             panel.layout().itemAt(0).widget().setVisible(self.wide)
             visual.setFixedHeight(height)
-        self.copy_row.setDirection(QBoxLayout.Direction.LeftToRight if self.wide else QBoxLayout.Direction.TopToBottom)
         if self.role:
             result = self.artifact.accessibleDescription()
             text = result if self.view_index == 1 and not compare and self.has_artifact else self.story
