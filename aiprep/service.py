@@ -1778,6 +1778,16 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     protected = {"again", "due", "new", "lead"}
     if mode == "unit":
         fresh = new_cards(lambda c: c["lesson"] == lesson and c["unit"] == unit)
+        # 핵심을 푼 뒤에는 고정 문항 뒤에 밀린 변형 문항도 한 장 먼저 연습함.
+        # 이미 복습할 생성기가 있으면 기존 순서와 생성기 상한을 유지함.
+        cores = [cid for cid in fresh if cards[cid]["core"]]
+        if len(cores) < UNIT_NEW and not any(cards[cid]["kind"] == "gen" for cid in again + due):
+            occupied = {cards[cid]["family"] for cid in again + cores + due}
+            candidate = next((cid for cid in fresh if cards[cid]["kind"] == "gen"
+                              and not cards[cid]["core"] and cards[cid]["family"] not in occupied), None)
+            if candidate is not None:
+                fresh.remove(candidate)
+                fresh.insert(len(cores), candidate)
         others = [c for c in read_cards(lambda c: (c["lesson"], c["unit"]) != (lesson, unit)) if c not in due and c not in again]
         rng.shuffle(others)
         pools = [("again", again), ("new", fresh[:UNIT_NEW]), ("due", due[:UNIT_REVIEW]), ("other", others)]
@@ -1820,7 +1830,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     else:
         raise AiError("모르는 연습 모드입니다: %s" % mode)
     if trace is not None:
-        trace.update(policy="rules-v1", runtime_revision=collection.runtime_revision(),
+        trace.update(policy="rules-v2", runtime_revision=collection.runtime_revision(),
                      trigger="learner_choice" if mode == "note" else "rules",
                      requested_card=card if mode == "note" else None,
                      candidate_scope="mode_pools_before_choose",
@@ -2053,7 +2063,7 @@ class PracticeSet(object):
         else:
             chips.append(("코드 빈칸" if code else "빈칸") if form == "blank" else "고르기")
         if card["kind"] == "gen":
-            chips.append("숫자 바뀜")
+            chips.append("조건 변형")
         if entry["again"]:
             chips.append("다시 나온 문항")
         if card["id"] in self.sure_before:

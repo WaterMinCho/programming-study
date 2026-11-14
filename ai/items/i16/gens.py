@@ -59,3 +59,47 @@ def svhn_classifier(r):
                  explain=f'공간 한 변은 {width}, 특징 수는 {channels}×{width}×{width}={features}입니다. '
                          + (f'첫 Linear는 {features}×{hidden}+{hidden}={answer}개입니다.' if form == 'linear' else '배치 수는 곱하지 않습니다.'),
                  params=dict(side=side, channels=channels, hidden=hidden, form=form))
+
+
+@gen('i16-g07', unit='16d', step='16d/4', facts=['F16-401', 'F16-403'], level=3,
+     family='flatten-linear-repair', basis='lecture-example', tags=['Flatten', 'Linear 입력'],
+     ref=['16차시 노트북 01 [8]', '16차시 과제 5번', 'PyTorch 문서 Flatten'])
+def flatten_linear_repair(r):
+    """배치 축과 Linear 입력 수를 각각 바꿔 필요한 수정 줄을 고르게 함."""
+    from aiprep.gen import choice
+    n, c, h, w = r.int(2, 5), r.pick([2, 4, 8]), r.int(2, 6), r.int(2, 6)
+    classes = r.pick([3, 5, 10])
+    start_dim = r.pick([0, 1])
+    features = c * h * w
+    in_features = r.pick([features, n * features])
+    change_flatten, change_linear = start_dim != 1, in_features != features
+    code = (f'x = torch.zeros({n}, {c}, {h}, {w})\n'
+            f'flat = nn.Flatten(start_dim={start_dim})\n'
+            f'fc = nn.Linear({in_features}, {classes})\ny = fc(flat(x))')
+    options = [
+        ('수정하지 않습니다.', not change_flatten and not change_linear,
+         '현재 두 설정이 모두 목표와 맞는지 확인합니다.'),
+        ('flat의 start_dim만 1로 바꿉니다.', change_flatten and not change_linear,
+         'fc의 입력 수가 이미 맞을 때 이 수정만으로 연결됩니다.'),
+        (f'fc의 첫 인자만 {features}로 바꿉니다.', not change_flatten and change_linear,
+         'flat이 이미 배치 축을 남길 때 이 수정만으로 연결됩니다.'),
+        (f'flat의 start_dim을 1로, fc의 첫 인자를 {features}로 바꿉니다.', change_flatten and change_linear,
+         '두 설정이 모두 어긋났을 때 필요한 수정입니다.')]
+    before_shape = [n, features] if start_dim == 1 else [n * features]
+    after = ('fc 입력 수와 맞지 않아 마지막 줄에서 오류가 납니다.' if before_shape[-1] != in_features
+             else f'코드는 실행되지만 결과 shape은 [{classes}]라 이미지별 출력이 사라집니다.' if start_dim == 0
+             else f'현재 코드도 목표 shape인 [{n}, {classes}]를 만듭니다.')
+    return choice(
+        stem=(f'x의 축 순서는 배치·채널·높이·너비입니다. 이미지 {n}개를 각각 분류해 y.shape이 '
+              f'[{n}, {classes}]가 되게 하려 합니다. 이미 맞는 설정은 그대로 둘 때, 필요한 수정은 무엇인가요?'
+              f'\n\n```python\n{code}\n```'),
+        options=options,
+        explain=(f'이미지 하나의 특징 수는 {c} × {h} × {w} = {features}입니다. '
+                 f'배치 축을 남기면 [{n}, {features}]가 되고 Linear는 마지막 축의 {features}개 값을 받습니다. '
+                 f'현재 flat(x)의 shape은 {before_shape}입니다. {after}'),
+        params={'n': n, 'c': c, 'h': h, 'w': w, 'classes': classes,
+                'start_dim': start_dim, 'in_features': in_features})
+
+
+flatten_linear_repair.gen_spec.meta.update(template_revision='flatten-linear-repair-1', author_difficulty=3,
+                                           display_params=['n', 'c', 'h', 'w', 'classes', 'start_dim', 'in_features'])

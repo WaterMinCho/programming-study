@@ -263,3 +263,37 @@ def metric(r):
                  explain="%s 소수 둘째 자리로 반올림하면 %s입니다." % (how, answer),
                  params={"metric": key, "TP": tp, "FP": fp, "FN": fn, "TN": tn})
 
+
+
+@gen("i04-g09", unit="4c", step="4c/6", facts=["F04-11", "F04-40", "F04-67", "F04-68"],
+     level=3, family="zero-grad-update", basis="lecture-example", tags=["zero_grad", "SGD"],
+     ref=["4차시 슬 p42", "4차시 노트북 01 [49]", "문서 Optimizer.zero_grad", "문서 Tensor.backward"])
+def zero_grad_update(r):
+    """서로 다른 두 계산의 기울기를 지우거나 누적한 뒤 한 번 갱신함."""
+    start = r.pick([-3, -2, -1, 1, 2, 3])
+    a, b = r.int(1, 5), r.pick([-5, -3, -1, 1, 3, 5])
+    lr = r.pick(["0.1", "0.01"])
+    clear = r.chance(0.5)
+    first, second = 2 * a * start, b
+    gradient = second if clear else first + second
+    updated = Decimal(start) - Decimal(lr) * gradient
+    lines = [f"w = torch.tensor({start}.0, requires_grad=True)",
+             f"opt = torch.optim.SGD([w], lr={lr})", f"loss1 = {a} * w**2", "loss1.backward()"]
+    if clear:
+        lines.append("opt.zero_grad(set_to_none=True)")
+    lines += [f"loss2 = ({b}) * w", "loss2.backward()", "opt.step()"]
+    code = "\n".join(lines)
+    return blank(
+        stem=("코드에 나온 순서대로 한 번만 실행합니다. loss1과 loss2는 기울기 계산을 확인하기 위한 식입니다. 부동소수점의 반올림 오차는 무시하세요. "
+              f"마지막 줄 직전 w.grad는 ____ 이고, 마지막 줄 직후 w는 ____ 입니다.\n\n```python\n{code}\n```"),
+        blanks=[{"answer": [str(gradient)], "mode": "number"},
+                {"answer": [dec(updated)], "mode": "number"}],
+        explain=(f"loss1의 기울기는 2 × {a} × ({start}) = {first}, loss2의 기울기는 {second}입니다. "
+                 + (f"중간에 기울기를 비워 두 번째 backward 뒤에는 {second}만 남습니다. " if clear else
+                    f"중간에 기울기를 비우지 않아 {first} + ({second}) = {gradient}가 저장됩니다. ")
+                 + f"step() 전까지 w는 {start}입니다. step()에서 {start} − {lr} × ({gradient}) = {dec(updated)}로 바뀝니다."),
+        params={"start": start, "a": a, "b": b, "lr": lr, "clear": clear})
+
+
+zero_grad_update.gen_spec.meta.update(template_revision="zero-grad-update-1", author_difficulty=3,
+                                     display_params=["start", "a", "b", "lr", "clear"])

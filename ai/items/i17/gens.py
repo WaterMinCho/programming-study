@@ -47,3 +47,60 @@ def classification_metrics(r):
                  blanks=[{'answer': [answer], 'mode': 'number', 'places': 4}],
                  explain=f'지문에 정한 {"accuracy" if form == "accuracy" else "F1"} 식에 집계값을 넣고 마지막에 반올림하면 {answer}입니다.',
                  params=dict(tp=tp, tn=tn, fp=fp, fn=fn, form=form))
+
+
+@gen("i17-g06", unit="17c", step="17c/3", level=2, core=False, deep=False, prio=2,
+     tags=["LSTM 모양", "마지막 상태 연결"], family="lstm-shape", basis="lecture-example",
+     facts=["F17-301", "F17-302"],
+     ref=["17차시 노트북 01 [15]", "17차시 과제 5번", "PyTorch 문서 LSTM"])
+def lstm_state_axes(r):
+    """시간별 출력·마지막 은닉/셀 상태·양방향 연결의 모양과 축을 구분함. 파라미터 수는 묻지 않음."""
+    batch, length, input_size, hidden_size = r.sample(list(range(2, 10)), 4)
+    layers = r.pick([1, 2, 3])
+    readout = r.pick(["output", "h_n", "c_n", "last"])
+    bidirectional = True if readout == "last" else r.chance(0.5)
+    ask = r.pick(["shape", "batch_axis", "concat_axis"] if readout == "last" else ["shape", "batch_axis"])
+    directions = 2 if bidirectional else 1
+    code = (f"lstm = nn.LSTM({input_size}, {hidden_size}, num_layers={layers},\n"
+            f"               bidirectional={bidirectional}, batch_first=True, proj_size=0)\n"
+            f"x = torch.zeros({batch}, {length}, {input_size})\n"
+            "output, (h_n, c_n) = lstm(x)")
+    if readout == "last":
+        axis = "____" if ask == "concat_axis" else "1"
+        code += f"\nlast = torch.cat((h_n[-2], h_n[-1]), dim={axis})"
+        shape = (batch, 2 * hidden_size)
+        batch_axis = 0
+        explain = (f"마지막 층의 두 방향 h_n은 각각 ({batch}, {hidden_size}) 모양입니다. "
+                   f"특징 축 1에 이어 붙이면 ({batch}, {2 * hidden_size})이며 배치 축은 0입니다.")
+        if ask == "concat_axis":
+            explain += " 마지막 축을 뜻하는 -1도 같은 축을 가리킵니다."
+    elif readout == "output":
+        shape = (batch, length, directions * hidden_size)
+        batch_axis = 0
+        explain = (f"batch_first=True인 output은 배치, 시간, 방향 수×은닉 길이 순서입니다. "
+                   f"모양은 {shape}이며 배치 축은 0입니다.")
+    else:
+        shape = (layers * directions, batch, hidden_size)
+        batch_axis = 1
+        explain = (f"{readout}은 층 수×방향 수, 배치, 은닉 길이 순서입니다. "
+                   f"모양은 {shape}이며 batch_first=True여도 배치 축은 1입니다.")
+    if ask == "shape":
+        question = f"{readout}.shape은 ____ 입니다. 숫자 목록으로 쓰세요."
+        answer, mode = str(shape), "shape"
+    elif ask == "batch_axis":
+        question = f"축 번호를 0부터 셀 때 {readout}에서 문장을 구분하는 배치 축의 번호는 ____ 입니다."
+        answer, mode = str(batch_axis), "number"
+    else:
+        question = "마지막 층의 두 방향 은닉값을 같은 문장끼리 연결하려고 합니다. dim의 빈칸에 축 번호를 쓰세요."
+        answer, mode = "1", "number"
+    stem = (f"모든 문장의 길이는 {length}이고 PAD는 없습니다. 아래 LSTM의 반환값을 읽습니다.\n\n"
+            f"```python\n{code}\n```\n\n{question}")
+    return blank(stem=stem, blanks=[{"answer": [answer, "-1"] if ask == "concat_axis" else [answer], "mode": mode}], explain=explain,
+                 params={"batch": batch, "length": length, "input_size": input_size,
+                         "hidden_size": hidden_size, "layers": layers, "bidirectional": bidirectional,
+                         "readout": readout, "ask": ask})
+
+
+lstm_state_axes.gen_spec.meta.update(
+    template_revision="intro-lstm-state-axes-1", author_difficulty=2,
+    display_params=["batch", "length", "input_size", "hidden_size", "layers", "bidirectional", "readout", "ask"])

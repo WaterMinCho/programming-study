@@ -82,3 +82,44 @@ def i04_g08(params):
     value = {"acc": (tp + tn) / (tp + fp + fn + tn), "prec": tp / (tp + fp), "rec": tp / (tp + fn),
              "f1": 2 * tp / (2 * tp + fp + fn)}[params["metric"]]
     return [str(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))]
+
+
+from fractions import Fraction
+
+
+def _decimal_text(value):
+    """유한소수인 유리수를 반올림 없이 문자열로 바꿈."""
+    value = Fraction(value)
+    denominator = value.denominator
+    twos = fives = 0
+    while denominator % 2 == 0:
+        denominator //= 2
+        twos += 1
+    while denominator % 5 == 0:
+        denominator //= 5
+        fives += 1
+    if denominator != 1:
+        raise ValueError("유한소수로 표시할 수 없는 값임.")
+    places = max(twos, fives)
+    scaled = abs(value.numerator) * (10**places // value.denominator)
+    digits = str(scaled).zfill(places + 1)
+    if places:
+        digits = digits[:-places] + "." + digits[-places:]
+    return ("-" if value < 0 else "") + digits
+
+
+def i04_g09(params):
+    """역전파의 누적 기울기와 한 번 갱신한 가중치를 반환함."""
+    start = Fraction(str(params["start"]))
+    a = Fraction(str(params["a"]))
+    b = Fraction(str(params["b"]))
+    learning_rate = Fraction(str(params["lr"]))
+    clear = params["clear"]
+    if type(clear) is not bool:
+        raise ValueError("clear는 참 또는 거짓이어야 함.")
+    if learning_rate < 0:
+        raise ValueError("학습률은 음수가 될 수 없음.")
+    first_gradient = 2 * a * start
+    gradient = b if clear else first_gradient + b
+    updated = start - learning_rate * gradient
+    return [_decimal_text(gradient), _decimal_text(updated)]

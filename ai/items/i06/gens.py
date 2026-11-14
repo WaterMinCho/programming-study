@@ -7,7 +7,7 @@
 from decimal import Decimal
 from fractions import Fraction
 
-from aiprep.gen import Retry, blank, gen
+from aiprep.gen import Retry, blank, choice, gen
 
 MINUS = "−"
 
@@ -155,3 +155,53 @@ def class_weight(r):
                 "어느 클래스나 전체 ÷ 클래스 수인 %s입니다."
                 % (total, k, counts[c], shown(value), shown(share)),
         params={"counts": counts, "cls": c})
+
+
+@gen("i06-g05", unit="6c", step="6c/3", level=2, core=False, deep=False, prio=2,
+     tags=["BCE 입력 조건", "정답 모양"], family="bce-input-contract", basis="lecture-example",
+     facts=["F06-23", "F06-24", "F06-27", "F06-87"],
+     ref=["6차시 슬 p12", "6차시 과제 5번", "PyTorch 문서 BCEWithLogitsLoss"])
+def bce_input_contract(r):
+    """출력 표현과 정답 모양을 독립적으로 바꿔 BCE 입력 조건을 구분함."""
+    batch = r.int(2, 12)
+    output_shape = [batch, 1] if r.chance(0.5) else [batch]
+    label_shape = [batch, 1] if r.chance(0.5) else [batch]
+    apply_sigmoid = r.chance(0.5)
+    loss_name = r.pick(["BCELoss", "BCEWithLogitsLoss"])
+    same_shape = output_shape == label_shape
+    suitable_input = apply_sigmoid == (loss_name == "BCELoss")
+    code = "outputs = model(x)\n"
+    if apply_sigmoid:
+        code += "outputs = torch.sigmoid(outputs)\n"
+    code += f"loss = nn.{loss_name}()(outputs, labels)"
+    stem = (f"표본은 {batch}개입니다. model(x)는 {tuple(output_shape)} 모양의 logit을 반환합니다. "
+            f"labels는 {tuple(label_shape)} 모양이며 실수 0과 1을 담습니다. "
+            "출력과 정답은 같은 장치에 있습니다.\n\n"
+            f"```python\n{code}\n```\n\n"
+            "출력과 정답의 모양, logit 또는 확률을 받는 손실의 입력 조건을 함께 설명한 것으로 옳은 것을 고르세요.")
+    shape_why = (f"출력 {tuple(output_shape)}과 정답 {tuple(label_shape)}의 모양이 "
+                 + ("같습니다." if same_shape else "다릅니다. BCE 계열 손실은 출력과 같은 모양의 정답을 받습니다."))
+    if suitable_input:
+        input_why = ("BCELoss에 시그모이드를 지난 확률을 넣었습니다." if apply_sigmoid
+                     else "BCEWithLogitsLoss에 시그모이드 전 logit을 넣었습니다.")
+    elif apply_sigmoid:
+        input_why = "이미 확률로 바꾼 값을 BCEWithLogitsLoss에 넣어 시그모이드가 한 번 더 적용됩니다."
+    else:
+        input_why = "BCELoss는 logit 대신 시그모이드를 지난 확률을 받습니다."
+    explain = shape_why + " " + input_why
+    descriptions = [
+        (True, True, "모양이 같고 손실에 맞는 값을 넣었습니다."),
+        (True, False, "모양은 같지만 logit과 확률 중 잘못된 쪽을 넣었습니다."),
+        (False, True, "손실에 넣은 값은 맞지만 출력과 정답의 모양을 맞춰야 합니다."),
+        (False, False, "모양과 logit·확률 구분을 모두 고쳐야 합니다."),
+    ]
+    options = [(text, (shape_ok, input_ok) == (same_shape, suitable_input), explain)
+               for shape_ok, input_ok, text in descriptions]
+    return choice(stem=stem, options=options, explain=explain,
+                  params={"batch": batch, "output_shape": output_shape, "label_shape": label_shape,
+                          "apply_sigmoid": apply_sigmoid, "loss_name": loss_name})
+
+
+bce_input_contract.gen_spec.meta.update(
+    template_revision="intro-bce-input-contract-1", author_difficulty=2,
+    display_params=["batch", "output_shape", "label_shape", "apply_sigmoid", "loss_name"])
