@@ -835,7 +835,10 @@ def in_open_round(key):
     """풀고 있는(제출 전) 회차에 든 문항인지 봄. 화면처럼 그런 문항의 해설은 열지 않음."""
     import adaptive
     import session
-    user = session.saved_user()
+    try:
+        user = session.saved_user()
+    except session.SessionError as error:
+        die(str(error))
     if not user:
         return False
     try:

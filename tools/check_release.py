@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 
 CASES = (
     "tests.test_gui.FirstRunTest.test_from_first_run_to_regrade",
+    "tests.test_gui_local_identity_guard.LocalIdentityGuardTest.test_error_and_retry_fit_small_window_at_max_text_both_themes",
     "tests.test_gui.HomeAndGitTest.test_tool_update_at_start_restarts",
     "tests.test_gui.HomeAndGitTest.test_tool_update_during_learning_waits_for_restart_choice",
     "tests.test_gui.HomeAndGitTest.test_blocked_startup_update_does_not_restart_in_a_loop",
