@@ -304,6 +304,7 @@ class PaperPreviewTest(unittest.TestCase):
                                                                   encoding="utf-8")
 
     def test_toggles_tabs_font_and_detail_dialog_preserve_reading_position(self):
+        theme.set_text("large")
         dialogs = []
         page = None
 
@@ -342,6 +343,7 @@ class PaperPreviewTest(unittest.TestCase):
         for width in (1280, 760):
             page.resize(width, 480)
             self.settle(page)
+            self.assertIs(page._anchor[0], anchor)
             self.assertAlmostEqual(anchor.mapTo(page.scroll.viewport(), QPoint()).y(), offset, delta=1)
         page.scroll.ensureWidgetVisible(preview)
         preview.setFocus()

@@ -31,6 +31,7 @@ CASES = (
     "tests.test_gui_career_learning_path.CareerLearningPathTest.test_page_maximum_font_all_roles_keep_text_and_fit_work_area",
     "tests.test_gui_career.CareerGuiTest.test_magazine_small_windows_keep_text_and_actions_inside_content",
     "tests.test_gui_career_paper_preview.PaperPreviewTest.test_diagrams_fit_both_themes_maximum_font_and_small_and_wide_windows",
+    "tests.test_gui_career_paper_preview.PaperPreviewTest.test_toggles_tabs_font_and_detail_dialog_preserve_reading_position",
     "tests.test_gui_career.CareerGuiTest.test_existing_image_viewer_and_missing_image_preserve_role",
     "tests.test_gui_paper_explainer.PaperExplainerTest.test_all_scenes_fit_largest_text_in_small_window_and_both_themes",
     "tests.test_gui_paper_explainer.PaperExplainerTest.test_reading_fonts_and_footer_keep_size_alignment_and_step_positions",
