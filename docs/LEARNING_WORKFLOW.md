@@ -208,15 +208,15 @@ SourceTree에서 다음 순서로 진행합니다.
 1. 현재 저장소가 본인 fork이고 브랜치가 `model/본인ID-model`인지 확인합니다.
 2. **File Status(파일 상태)**에서 본인 폴더의 코드·테스트·README 변경을 읽습니다.
 3. 이번 작업의 코드·테스트·README만 **Stage(스테이지에 올리기)** 합니다. 실제 자료와 샘플 파일은 제외합니다.
-4. **Commit(커밋)**에 `feat(model): 본인ID 입력과 예측 코드 추가`를 적고 기록합니다.
+4. **Commit(커밋)**의 메시지 칸에 실제 변경 제목을 적습니다. 한 줄을 비운 뒤 본인 담당 이슈의 `Refs` 줄을 넣고 커밋합니다. [화면과 복사 예시](STUDY_PR_EXAMPLES.md#2-sourcetree에서-커밋하고-push하기)를 따라 적으세요.
 5. **Push(푸시)**에서 `origin`을 고르고 이번 브랜치를 원격의 같은 이름으로 보냅니다.
 
-커밋은 컴퓨터에 변경 기록을 남기고 푸시는 그 기록을 GitHub에 보냅니다. 터미널에서는 같은 fork 폴더에서 실행합니다.
+커밋은 컴퓨터에 변경 기록을 남기고 푸시는 그 기록을 GitHub에 보냅니다. 터미널에서는 같은 fork 폴더에서 실행합니다. 아래 커밋 예시는 민혁(#119) 기준입니다. 제목은 실제 변경 내용으로 바꾸고 정규는 `#120`, 준성은 `#121`을 적습니다.
 
 ```sh
 git add experiments/본인ID/
 git --no-pager diff --cached
-git commit -m "feat(model): 본인ID 입력과 예측 코드 추가"
+git commit -m "feat(model): 입력과 예측 코드 추가" -m "Refs WaterMinCho/programming-study#119"
 git push -u origin model/본인ID-model
 ```
 
@@ -235,35 +235,19 @@ Stage 목록에 실제 자료나 가중치가 보이면 커밋 전에 SourceTree
 
 본문에 아래 안내대로 담당 이슈와 실행 결과를 적고 **Create pull request**를 누릅니다. 아직 작업 중이면 옆 메뉴의 **Create draft pull request**를 선택합니다. PR은 내가 바꾼 내용을 검토하고 공통 프로젝트에 합쳐 달라는 요청입니다.
 
-PR 주소를 담당 이슈에 붙입니다. 검토를 요청할 때 카드를 **검토**로 옮기고 Draft 작업은 진행에 둡니다.
+PR 설명에 담당 이슈의 `Refs` 줄을 넣습니다. 검토를 요청할 때 카드를 **검토**로 옮기고 Draft 작업은 진행에 둡니다.
 
 <a id="이슈와-pr-연결"></a>
 
 ### 담당 이슈와 PR 연결하기
 
-커밋 메시지와 PR 본문의 이슈 참조는 `Refs WaterMinCho/programming-study#119`처럼 공통 저장소 이름까지 적습니다. 본인 fork의 같은 번호 이슈와 구분하기 위해서입니다. 예를 들어 michae18이 [LSTM 담당 이슈 #119](https://github.com/WaterMinCho/programming-study/issues/119)의 입력 처리부터 구현했다면, PR 본문에 아래처럼 적습니다. 코드와 결과 설명은 본인이 실제로 한 작업으로 바꾸세요.
+커밋 메시지와 GitHub PR 설명에 본인 담당 이슈의 `Refs` 줄을 넣으세요. PR 설명에는 실제 만든 내용과 확인 결과도 적습니다. [상태 변경부터 커밋·PR·리뷰 수정까지 화면과 복사 예시](STUDY_PR_EXAMPLES.md)를 따라 진행하세요.
 
-```text
-Refs WaterMinCho/programming-study#119
-
-LSTM에 넣을 입력과 빈 이력 처리 코드를 추가했음. 합성 자료로 입력 크기와 빈 이력 처리를 확인했음. 모델 학습은 다음 작업에서 진행함.
-```
-
-1. **Write(작성)** 탭에 본문을 입력하고 **Preview(미리 보기)**에서 이슈 번호가 링크로 바뀌는지 확인합니다.
-2. 링크를 새 탭으로 열어 공통 저장소의 본인 담당 이슈인지 확인합니다. 본인 fork와 구별할 수 있도록 `WaterMinCho/programming-study#119`처럼 저장소 이름까지 적습니다.
-3. PR을 만든 뒤 담당 이슈에 PR 주소와 이번에 구현한 내용을 댓글로 남깁니다. 이슈에서 관련 코드와 검토 결과를 찾아갈 수 있습니다.
-
-wamangdoo는 `WaterMinCho/programming-study#120`, kimjs85529-a11y는 `WaterMinCho/programming-study#121`을 사용합니다. 담당 이슈 전체가 끝날 때까지는 위처럼 번호를 참조하며 여러 PR을 이어갈 수 있습니다.
+`Refs` 뒤의 주소는 이 작업이 어느 담당 이슈에 해당하는지 알려줍니다. 보드 상태는 이슈의 **Projects → Status**에서 바꾸세요. 이슈 댓글에는 막힌 점이나 팀원에게 따로 알릴 내용을 남기면 됩니다.
 
 ### 이슈의 작업을 모두 끝냈을 때
 
-담당 이슈의 완료 조건을 모두 채운 마지막 PR에서는 관련 이슈 줄을 아래처럼 바꿉니다.
-
-```text
-Closes WaterMinCho/programming-study#119
-```
-
-PR의 base가 공통 저장소의 기본 브랜치 `main`인지 확인합니다. PR을 만든 뒤 오른쪽 **Development**에서 해당 이슈가 연결됐는지 확인하세요. 이 PR이 `main`에 머지되면 이슈도 자동으로 닫힙니다. 아직 남은 작업이 있는 PR에 `Closes`를 적었다면 PR 본문의 **Edit**에서 위의 `Refs` 형식으로 고칩니다.
+담당 이슈의 완료 조건을 모두 채운 마지막 PR 설명에서만 `Refs`를 `Closes`로 바꾸세요. 이 PR이 공통 저장소의 기본 브랜치 `main`에 머지되면 이슈가 닫힙니다. 남은 작업이 있다면 `Refs`를 유지합니다. [완료할 때 적는 예시](STUDY_PR_EXAMPLES.md#4-같은-브랜치에서-리뷰-수정하기)를 확인하세요.
 
 <a id="7-같은-fork에서-모델을-개발합니다"></a>
 
@@ -317,7 +301,7 @@ model-study/
 2. SourceTree에서 본인 fork의 로컬 저장소를 엽니다. 왼쪽 **Branches(브랜치)**에서 위 작업 브랜치를 선택합니다. 이미 해당 브랜치라면 이동하지 않습니다. 커밋하지 않은 다른 작업이 있거나 전환 오류가 나면 파일을 지우지 말고 PR에 질문을 남깁니다.
 3. 편집기에서 피드백에 표시된 파일을 고쳐 저장합니다. SourceTree의 **File Status(파일 상태)**에서 수정한 파일을 선택해 차이를 읽습니다.
 4. 이번에 고친 파일만 **Stage(스테이지에 추가)**합니다. Stage는 다음 커밋에 넣을 파일을 선택하는 작업입니다.
-5. **Commit(커밋)**에 `docs(model): 입력 설명 보완`처럼 수정 내용을 적어 저장합니다. 기존 커밋은 남기고 새 커밋을 추가합니다.
+5. **Commit(커밋)**의 메시지 칸에 `docs(model): 입력 설명 보완`처럼 실제 수정 제목을 적습니다. 한 줄을 비운 뒤 본인 담당 이슈의 `Refs` 줄을 넣습니다. 기존 커밋은 남기고 새 커밋을 추가합니다.
 6. **Push(푸시)**에서 원격 저장소가 본인 fork의 `origin`인지, 보낼 브랜치가 이 PR의 작업 브랜치인지 확인하고 전송합니다.
 7. GitHub에서 기존 PR을 새로고침합니다. **Commits**에 새 커밋이 있고 **Files changed**에 고친 내용이 보이면 반영된 것입니다. 고친 내용과 다시 확인한 결과를 댓글로 남깁니다.
 
@@ -340,12 +324,12 @@ git remote -v
 git switch 작업브랜치
 ```
 
-파일을 고쳐 저장한 뒤 실행합니다. `git diff --cached`에서 이번에 고친 파일만 들어갔는지 읽고, 다른 파일이 보이면 커밋 전에 Stage 목록에서 뺍니다.
+파일을 고쳐 저장한 뒤 실행합니다. `git diff --cached`에서 이번에 고친 파일만 들어갔는지 읽고, 다른 파일이 보이면 커밋 전에 Stage 목록에서 뺍니다. 커밋 제목은 실제 수정 내용으로 바꾸고 `#119`에는 본인 담당 이슈 번호를 적습니다.
 
 ```sh
 git add -- 수정한파일경로
 git diff --cached
-git commit -m "docs(model): 입력 설명 보완"
+git commit -m "docs(model): 입력 설명 보완" -m "Refs WaterMinCho/programming-study#119"
 git push origin HEAD
 ```
 
@@ -369,11 +353,12 @@ PR 위쪽의 설명글만 고칠 때는 GitHub에서 설명글 오른쪽의 **�
 
 ## GitHub와 SourceTree 공식 안내
 
-2026년 11월 12일 GitHub와 Atlassian 공식 안내에서 fork, clone, 브랜치, 커밋·푸시, PR 대상을 확인했습니다. 11월 13일에는 이슈 연결·자동 종료 조건과 같은 PR 브랜치에 수정 커밋을 추가하는 절차를 확인했습니다. SourceTree의 공통 동작으로 설명했으며 메뉴 위치와 이름은 운영체제·버전·언어에 따라 다를 수 있습니다.
+2026년 11월 12일 GitHub와 Atlassian 공식 안내에서 fork, clone, 브랜치, 커밋·푸시, PR 대상을 확인했습니다. 11월 15일에는 이슈 참조·자동 종료 조건과 같은 PR 브랜치에 수정 커밋을 추가하는 절차, SourceTree의 커밋·푸시 안내를 다시 확인했습니다. SourceTree의 공통 동작으로 설명했으며 메뉴 위치와 이름은 운영체제·버전·언어에 따라 다를 수 있습니다.
 
 - [공통 프로젝트 fork하기][fork]
 - [fork 갱신하기][sync]
 - [fork에서 PR 보내기][pr]
+- [글에 적은 이슈 번호를 링크로 표시하기][issue-ref]
 - [이슈와 PR 연결 및 자동 종료][issue-pr]
 - [같은 PR 브랜치에 수정 커밋 추가하기][pr-commit]
 - [SourceTree에서 저장소 받기][st-clone]
@@ -388,4 +373,5 @@ PR 위쪽의 설명글만 고칠 때는 GitHub에서 설명글 오른쪽의 **�
 [st-commit]: https://confluence.atlassian.com/get-started-with-sourcetree/commit-and-push-a-change-git-847359114.html
 [git-setup]: https://docs.github.com/en/get-started/git-basics/set-up-git
 [issue-pr]: https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue
+[issue-ref]: https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/autolinked-references-and-urls
 [pr-commit]: https://docs.github.com/en/pull-requests/how-tos/commit-changes/committing-changes-to-a-pull-request-branch-created-from-a-fork
