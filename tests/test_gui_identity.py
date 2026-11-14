@@ -130,7 +130,21 @@ class TeamDashboardTest(unittest.TestCase):
             self.assertIn("답 작성 여부를 확인할 수 없는 13건", self.card.total_info.toolTip())
             self.assertIn("시각을 알 수 없는 20건", self.card.raw_info.toolTip())
             self.assertNotIn("미확인", self.card.note.text())
-            self.assertIn("17:20 기준", self.card.note.text())
+            self.assertEqual("11월 13일 17:20 기준", self.card.as_of.text())
+            self.assertNotIn("17:20", self.card.note.text())
+
+    def test_as_of_belongs_to_the_displayed_response_and_uses_korean_time(self):
+        self.identity.summary.side_effect = None
+        result = self.result(7)
+        del result["graded"]
+        for timestamp, expected in (("2026-11-13T23:15:00+00:00", "11월 14일 08:15 기준"),
+                                    (None, "기준 시각 미확인"), ("invalid", "기준 시각 미확인"),
+                                    ("2026-11-13T17:20:00", "기준 시각 미확인")):
+            self.identity.summary.return_value = dict(result, as_of=timestamp)
+            self.card.fetch()
+            self.assertTrue(self.card.as_of.isVisible())
+            self.assertEqual(expected, self.card.as_of.text())
+            self.assertNotIn(expected, self.card.note.text())
 
     def test_summary_and_chart_reflow_at_max_text_in_both_themes(self):
         theme.set_text("larger")
@@ -143,6 +157,16 @@ class TeamDashboardTest(unittest.TestCase):
                 self.root.resize(width, 900)
                 guikit.pump(60)
                 self.assertEqual(side, self.card.metrics.side)
+                title, stamp, reload = [w.rect().translated(w.mapTo(self.card, QPoint()))
+                                        for w in (self.card.heading, self.card.as_of, self.card.reload)]
+                self.assertFalse(stamp.intersects(reload))
+                self.assertFalse(title.intersects(reload))
+                if stamp.top() < title.bottom():
+                    self.assertEqual(stamp.left() - title.right() - 1, 12)
+                else:
+                    self.assertFalse(side)
+                    self.assertEqual(stamp.left(), title.left())
+                self.assertGreaterEqual(stamp.width(), self.card.as_of.sizeHint().width())
                 points = [value.mapTo(self.card, QPoint()) for value in self.card.values.values()]
                 self.assertEqual(1 if side else 2, len({point.y() for point in points}))
                 self.assertEqual(4 if side else 2, len({point.x() for point in points}))
@@ -192,6 +216,8 @@ class TeamDashboardTest(unittest.TestCase):
         self.assertIsNone(self.card.result)
         self.assertTrue(self.card.metrics.isHidden())
         self.assertTrue(self.card.summary.isHidden())
+        self.assertTrue(self.card.as_of.isHidden())
+        self.assertTrue(self.card.note.isVisible())
         self.assertIn("연결을 확인", self.card.note.text())
         self.assertTrue(self.card.reload.isEnabled())
         self.assertTrue(self.card.reverify.isHidden())
@@ -202,6 +228,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.card.fetch()
         self.assertFalse(self.card.metrics.isHidden())
         self.assertFalse(self.card.summary.isHidden())
+        self.assertTrue(self.card.as_of.isVisible())
         self.assertFalse(self.card.plot_card.isHidden())
         self.assertTrue(self.card.reverify.isHidden())
         self.assertEqual("12,000건", self.card.total.text())
@@ -255,12 +282,15 @@ class TeamDashboardTest(unittest.TestCase):
         self.card.fetch()
         self.identity.summary.reset_mock()
         self.assertTrue(self.card.metric_buttons["graded"].isChecked())
+        self.assertTrue(self.card.note.isHidden())
         self.assertEqual("20,000건", self.card.raw.text())
         self.assertEqual("최근 7일 수집 4,000건", self.card.raw_period.text())
         self.assertEqual("최근 7일 신규 8개", self.card.account_period.text())
         self.assertEqual("최근 7일 첫 실행 11대", self.card.device_period.text())
         self.assertIs(self.card.raw_info.anchor, self.card.raw)
         self.assertEqual("4개", self.card.values["cards"].text())
+        self.assertEqual("7회", self.card.values["inputs"].text())
+        self.assertIn("기록된 입력 변경", self.card.infos["inputs"].accessibleName())
         self.assertNotIn("다시 풀고", self.card.note.text())
         self.card.metric_buttons["inputs"].click()
         self.assertEqual("관측 7건", self.card.period_total.text())
@@ -272,6 +302,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.assertEqual(4, len({info.toolTip() for info in self.card.infos.values()}))
         info = self.card.infos["graded"]
         self.assertIn("다시 풀고", info.toolTip())
+        QApplication.setActiveWindow(self.root)
         with mock.patch("gui.team_dashboard.QToolTip.showText") as show, mock.patch("gui.team_dashboard.QToolTip.hideText") as hide:
             info.setFocus(Qt.FocusReason.TabFocusReason)
             guikit.pump()

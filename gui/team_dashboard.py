@@ -343,11 +343,24 @@ class TeamCard(QWidget):
         self.metric, self.result = "graded", None
         self.setProperty("ui", "2")
         box = kit.box(self, spacing=24)
-        heading = kit.heading(kit.para("스터디 수집 현황", "headline", bold=True), kit.para("파이썬과 AI 학습에서 수집한 기록을 확인합니다.", "caption", "secondary"))
+        self.heading = kit.label("스터디 수집 현황", "title", bold=True)
+        self.as_of = kit.label("", "caption", "secondary")
+        self.as_of.hide()
+        self.as_of.setToolTip("서버에서 이 통계를 집계한 시각입니다. 한국 시간으로 표시합니다.")
+        self.as_of.setAccessibleDescription(self.as_of.toolTip())
+        title_row = DashboardRow([self.heading, self.as_of],
+                                 lambda: [self.heading.sizeHint().width(), self.as_of.sizeHint().width()], [0, 1], spacing=12)
+        for label in (self.heading, self.as_of):
+            title_row.row.setAlignment(label, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
+        kit.baseline(self.heading, self.as_of)
         self.reload = kit.button("새로고침", "secondary")
         self.reload.clicked.connect(self.fetch)
-        box.addWidget(DashboardRow([heading, self.reload], lambda: [text_width(heading.title), self.reload.sizeHint().width()], [1, 0], 16))
-        self.period_title = kit.para("최근 7일 학습 활동", "title", bold=True)
+        header = DashboardRow([title_row, self.reload],
+                              lambda: [self.heading.sizeHint().width(), self.reload.sizeHint().width()], [1, 0], 16)
+        header.row.setAlignment(title_row, Qt.AlignmentFlag.AlignVCenter)
+        header.row.setAlignment(self.reload, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        box.addWidget(header)
+        self.period_title = kit.para("최근 7일 학습 활동", "headline", bold=True)
         self.periods = PeriodSelector()
         self.periods.setObjectName("team_periods")
         self.periods.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
@@ -367,7 +380,7 @@ class TeamCard(QWidget):
         definitions = {
             "cards": ("열어 본 문항", "선택 기간에 문제 열기가 기록된 서로 다른 문항 수입니다. 같은 과목의 같은 문항은 여러 사람이 여러 번 열어도 한 번만 셉니다."),
             "opens": ("문제 열기", "선택 기간에 파이썬·AI 연습과 모의고사에서 문항을 반환한 기록 수입니다. 같은 기록을 다시 보내도 한 번만 셉니다."),
-            "inputs": ("입력 변경", "선택 기간에 바뀐 답을 저장한 횟수입니다. 키 입력, 같은 값 재저장, 기존 초안 다시 열기는 세지 않습니다. AI는 새 계측으로 관측한 횟수만 표시합니다."),
+            "inputs": ("기록된 입력 변경", "선택 기간에 바뀐 답을 저장한 횟수입니다. 키 입력, 같은 값 재저장, 기존 초안 다시 열기는 세지 않습니다. AI는 새 계측으로 관측한 횟수만 표시합니다."),
             "graded": ("채점", "선택 기간에 답을 쓰거나 고른 뒤 채점한 문항을 셉니다. 다시 풀고 채점하면 한 건 더 셉니다. "
                                "미응답과 [모르겠어요], 같은 기록의 재전송은 제외합니다."),
         }
@@ -392,7 +405,7 @@ class TeamCard(QWidget):
         box.addWidget(self.metrics)
         self.summary = QWidget()
         summary = kit.box(self.summary, spacing=16)
-        summary.addWidget(kit.para("전체 누적", "title", bold=True))
+        summary.addWidget(kit.para("전체 누적", "headline", bold=True))
         summary.addWidget(metric_row(totals, column_width))
         box.addWidget(self.summary)
         self.plot_card = kit.frame("team_plot")
@@ -458,6 +471,7 @@ class TeamCard(QWidget):
         box.addWidget(self.plot_card)
         self.note = kit.para("", "caption", "secondary")
         box.addWidget(self.note)
+        self.note.hide()
         self.reverify = kit.button("기기 확인 다시 하기", "text")
         self.reverify.clicked.connect(lambda: win.ensure_identity(force=True))
         box.addWidget(self.reverify, 0, Qt.AlignmentFlag.AlignLeft)
@@ -524,7 +538,7 @@ class TeamCard(QWidget):
             inputs = sum(map(observed_total, activity["inputs"]))
             self.values["cards"].setText(f"{activity['distinct_cards']:,}개")
             self.values["opens"].setText(f"{opens:,}회")
-            self.values["inputs"].setText(f"관측 {inputs:,}회")
+            self.values["inputs"].setText(f"{inputs:,}회")
             counts = activity["graded_metadata"]
             first = activity["period_first_ai_measurement_at"]
             coverage = "AI 입력은 이 기간에 미측정입니다."
@@ -540,6 +554,18 @@ class TeamCard(QWidget):
                                     f"파이썬 채점 {python_graded:,}건 중 입력 연결 {counts['linked_input']:,}건")
             self.coverage.setText(coverage)
         self.show_metric(self.metric if activity else "graded")
+
+    def set_as_of(self, timestamp):
+        label = "기준 시각 미확인"
+        try:
+            at = datetime.datetime.fromisoformat(timestamp)
+            if at.tzinfo is not None:
+                at = at.astimezone(KST)
+                label = f"{at.month}월 {at.day}일 {at:%H:%M} 기준"
+        except (TypeError, ValueError, OverflowError):
+            pass
+        self.as_of.setText(label)
+        self.as_of.show()
 
     def fetch(self):
         if self.win.job is not None:
@@ -575,6 +601,7 @@ class TeamCard(QWidget):
             self.loaded = identity
             if result.get("error"):
                 self.result = None
+                self.as_of.hide()
                 self.filter_row.hide()
                 self.summary.hide()
                 self.metrics.hide()
@@ -583,6 +610,7 @@ class TeamCard(QWidget):
                 self.note.line = theme.TYPE["body"][1]
                 kit.set_tone(self.note, "warning")
                 self.note.setText(result["error"])
+                self.note.show()
                 self.reverify.setVisible(result["auth"])
                 self.show()
                 return
@@ -592,6 +620,7 @@ class TeamCard(QWidget):
             self.summary.show()
             self.period_title.setText(PERIODS[days] + " 학습 활동")
             self.result = result
+            self.set_as_of(result.get("as_of"))
             raw_period = result.get("period_total")
             period_text = "미확인" if raw_period is None else f"{raw_period:,}건"
             self.raw.setText(f"{result['total']:,}건")
@@ -620,6 +649,7 @@ class TeamCard(QWidget):
                 self.graded_period.setText(f"{PERIODS[days]} 채점 미확인")
                 self.total_info.set_explanation("이 서버는 누적 채점 통계를 아직 제공하지 않습니다.")
                 self.note.setText("이 서버는 채점 풀이 통계를 아직 제공하지 않습니다.")
+                self.note.show()
                 self.show()
                 return
             self.total.setText("%s건" % format(graded["total"], ","))
@@ -637,17 +667,9 @@ class TeamCard(QWidget):
             if days != 1:
                 dates += " – %d.%d.%d" % (last.year, last.month, last.day)
             self.range.setText(dates + "  ·  한국 시간 · " + ("시간별 합계" if days == 1 else "일별 합계"))
-            text = ""
-            if not result.get("activity"):
-                text = "이 서버는 문항·열기·입력 통계를 아직 제공하지 않습니다."
-            try:
-                at = datetime.datetime.fromisoformat(result.get("as_of", ""))
-                if at.tzinfo is not None:
-                    at = at.astimezone(KST)
-                    text += "  %d.%d %02d:%02d 기준" % (at.month, at.day, at.hour, at.minute)
-            except (TypeError, ValueError):
-                pass
-            self.note.setText(text.strip())
+            note = "" if result.get("activity") else "이 서버는 문항·열기·입력 통계를 아직 제공하지 않습니다."
+            self.note.setText(note)
+            self.note.setVisible(bool(note))
             self.show()
         started = self.win.run_job("수집 통계를 확인하고 있습니다.", work, done,
                                    on_fail=lambda: done({"error": "통계를 불러오지 못했습니다. 잠시 후 [새로고침]을 눌러 주세요.", "auth": False}))
