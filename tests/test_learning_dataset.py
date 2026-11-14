@@ -28,6 +28,11 @@ class DatasetTest(unittest.TestCase):
         shown["data"].pop("result")
         return shown, answer
 
+    def assert_excluded_for_missing_prediction_time(self, events):
+        exclusions = {}
+        self.assertEqual([], dataset.prepare(events, exclusions=exclusions))
+        self.assertEqual({"missing_prediction_time": 1}, exclusions)
+
     def test_ai_return_time_is_linked_without_rewriting_original_events(self):
         for mock in (False, True):
             shown, answer = self.shown_answer(mock)
@@ -42,17 +47,17 @@ class DatasetTest(unittest.TestCase):
         for field, value in (("item_revision", "1" * 64), ("position", 1), ("course", "app")):
             shown, answer = self.shown_answer()
             (shown if field == "item_revision" else shown["data"])[field] = value
-            self.assertEqual([], dataset.prepare([shown, answer]))
+            self.assert_excluded_for_missing_prediction_time([shown, answer])
         for kind in ("withdraw", "consent", "question_returned"):
             shown, answer = self.shown_answer()
             middle = copy.deepcopy(shown)
             middle.update(kind=kind, event_id="middle", sequence=2)
             answer["sequence"] = 3
-            self.assertEqual([], dataset.prepare([shown, middle, answer]))
+            self.assert_excluded_for_missing_prediction_time([shown, middle, answer])
         shown, answer = self.shown_answer()
         shown["data"].pop("position")
-        self.assertEqual([], dataset.prepare([shown, answer]))
-        self.assertEqual([], dataset.prepare([answer]))
+        self.assert_excluded_for_missing_prediction_time([shown, answer])
+        self.assert_excluded_for_missing_prediction_time([answer])
 
     def test_ai_return_cutoff_excludes_results_released_while_question_was_open(self):
         shown, answer = self.shown_answer()

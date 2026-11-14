@@ -147,6 +147,7 @@ class DatasetBoundaryTest(unittest.TestCase):
             starter.write_starter(dataset.synthetic_events(), root)
             record_path = root / "records/manifest.json"
             records = json.loads(record_path.read_text())
+            self.assertEqual({"missing_prediction_time": 0}, records["excluded_rows"])
             records["features_version"] = 6
             records.pop("excluded_rows")
             record_path.write_text(json.dumps(records))

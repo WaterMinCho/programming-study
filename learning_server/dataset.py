@@ -294,7 +294,7 @@ def write_dataset(events, destination, synthetic=None, source_sha256=None):
     root = Path(__file__).resolve().parent.parent
     if inside(destination, root):
         raise ValueError("학습 자료는 공개 저장소 밖에 저장해 주세요.")
-    exclusions = {}
+    exclusions = {"missing_prediction_time": 0}
     records = prepare(events, synthetic=synthetic, exclusions=exclusions)
     parts = {track: split([row for row in records if row["track"] == track]) for track in sorted({row["track"] for row in records})}
     if not parts:

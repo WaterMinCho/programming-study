@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """임시 생성 문항의 수집·전송·입력 보존과 정답 누출·소급·줄바꿈 차이를 확인함."""
 import copy
+import datetime
 import hashlib
 import json
 from pathlib import Path
@@ -362,9 +363,18 @@ class GeneratedProvenanceTest(Base):
                 for row in (shown, answer):
                     row["item"].pop("generation")
             with self.subTest(mode=mode):
-                prepared = dataset.prepare(rows)
+                exclusions = {}
+                prepared = dataset.prepare(rows, exclusions=exclusions)
                 if mode in ("answer_only", "mismatch", "duplicate", "reconsent"):
                     self.assertEqual([], prepared)
+                    self.assertEqual({"missing_prediction_time": 1}, exclusions)
+                    later = copy.deepcopy(answer)
+                    moment = (datetime.datetime.fromisoformat(answer["at"]) + datetime.timedelta(seconds=1)).isoformat()
+                    later.update(event_id="later-known", sequence=answer["sequence"] + 1, at=moment)
+                    later["data"].update(set="later-set", prediction_at=moment)
+                    past = dataset.prepare(rows + [later])[0]["features"]["sequence_history"]
+                    self.assertEqual(1, len(past))
+                    self.assertIsNone(past[0]["generation"])
                 else:
                     self.assertIsNone(prepared[0]["generation"])
         changed = copy.deepcopy(events)
