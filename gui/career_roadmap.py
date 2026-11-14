@@ -86,6 +86,7 @@ class RoleHeading(QWidget):
 
 class ReadingPage(QWidget):
     """화면 설정과 왕복 때 현재 문단의 화면 위치를 보관함."""
+    busy_changed = pyqtSignal(bool)
     def __init__(self, parent=None, on_back=None, back_label="← 학습 현황"):
         super().__init__(parent)
         kit.page(self)
@@ -119,6 +120,13 @@ class ReadingPage(QWidget):
     def _appearance_changed(self):
         kit.refont(self)
         self.update()
+
+    def set_busy(self, busy, text=""):
+        self.busy_changed.emit(busy)
+        self.setEnabled(not busy)
+        self.top.title.setText(text if busy else "")
+        self.top.title.setToolTip(text if busy else "")
+        self.top.title.setVisible(busy and bool(text))
 
     def _remember(self, *_):
         if self._settling:

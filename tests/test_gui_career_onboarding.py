@@ -1,6 +1,7 @@
 """커리어 첫 안내의 표시·키보드·기록 보존과 실제 배치를 검사함."""
 import copy
 import os
+import threading
 import unittest
 from unittest import mock
 
@@ -91,6 +92,31 @@ class CareerOnboardingTest(unittest.TestCase):
         win.go_hub()
         win.go_magazine()
         self.visible_tour(win, "magazine")
+
+    def test_background_job_dismisses_tour_and_waits_for_result_dialog(self):
+        win = self.fixture.boot()
+        win.go_career()
+        tour = self.visible_tour(win, "catalog")
+        release = threading.Event()
+
+        def updates():
+            release.wait(3)
+            return {"status": "ok", "available": False, "count": 0}
+
+        with mock.patch.object(win.gitflow, "updates", side_effect=updates):
+            try:
+                win.check_updates()
+                self.assertIsNone(win.career.tour)
+                self.assertFalse(win.career.tour_timer.isActive())
+                self.assertFalse(tour.active)
+                self.assertFalse(win.settings.contains(TOUR_KEYS["catalog"]))
+            finally:
+                release.set()
+            self.fixture.idle()
+        self.assertTrue(win.dialog.isVisible())
+        self.assertIsNone(win.career.tour)
+        win.dialog.close()
+        self.visible_tour(win, "catalog")
 
     def test_keyboard_does_not_activate_targets_and_replay_restores_reading(self):
         win = self.fixture.boot()

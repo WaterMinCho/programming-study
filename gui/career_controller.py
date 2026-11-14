@@ -33,6 +33,7 @@ class CareerController:
         page.tour_help.setToolTip("이 화면의 버튼 위치와 사용 순서를 다시 안내합니다.")
         page.tour_help.clicked.connect(lambda: self.queue_tour(page, replay=True))
         page.top.row.addWidget(page.tour_help)
+        page.busy_changed.connect(lambda busy: self.dismiss_tour() if busy else self.queue_tour(page))
         return page
 
     def dismiss_tour(self):
@@ -52,7 +53,8 @@ class CareerController:
     def _start_tour(self):
         from gui.career_onboarding import CareerTour, TOUR_KEYS
         page = self.tour_page
-        if page is None or not page.isVisible() or self.win.close_pending or self.win.pending_close:
+        if (page is None or self.win.pages.currentWidget() is not page or not page.isVisible()
+                or self.win.close_pending or self.win.pending_close):
             return
         context = "magazine" if page is self.magazine else "catalog" if page.browsing else "detail"
         if not self.tour_replay and self.win.settings.value(TOUR_KEYS[context], False, type=bool):

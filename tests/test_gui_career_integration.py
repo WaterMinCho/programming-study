@@ -18,6 +18,90 @@ class CareerIntegrationTest(unittest.TestCase):
     boot = HubTest.boot
     idle = HubTest.idle
 
+    def test_javascript_probe_from_career_locks_page_and_opens_journey(self):
+        from PyQt6.QtTest import QTest
+        from PyQt6.QtCore import Qt
+        win = self.boot()
+        win.go_career()
+        guikit.pump()
+        page = win.career.roadmap
+        win.settings.setValue("journey/lang", "javascript")
+        checked, threads, release = [False], [], threading.Event()
+
+        def runtime(language):
+            threads.append(threading.current_thread() is threading.main_thread())
+            release.wait(3)
+            checked[0] = True
+            return {"ok": True, "path": "/fake/node", "version": "22.23.2", "major": 22}
+
+        with mock.patch.object(win.journey, "node_checked", side_effect=lambda: checked[0]), \
+                mock.patch.object(win.journey, "runtime", side_effect=runtime):
+            try:
+                win.workspace.navigate("go_journey")
+                self.assertIsNotNone(win.job)
+                self.assertFalse(page.isEnabled())
+                self.assertFalse(win.workspace.rail.isEnabled())
+                self.assertTrue(page.top.title.isVisible())
+                QTest.keyClick(page.top.back, Qt.Key.Key_Return)
+                self.assertIs(win.pages.currentWidget(), page)
+            finally:
+                release.set()
+            self.idle()
+        self.assertIs(win.pages.currentWidget(), win.journey_map)
+        self.assertTrue(page.isEnabled())
+        self.assertFalse(page.top.title.isVisibleTo(page))
+        self.assertFalse(threads[0])
+
+    def test_update_check_from_both_career_pages_restores_controls_and_position(self):
+        from session import SessionError
+        win = self.boot()
+        win.resize(760, 480)
+        win.set_text("larger")
+        for open_page, mode in ((win.go_career, "light"), (win.go_career, "dark"),
+                                (win.go_magazine, "light"), (win.go_magazine, "dark")):
+            theme.set_mode(mode)
+            open_page()
+            guikit.pump()
+            page = win.pages.currentWidget()
+            bar = page.scroll.verticalScrollBar()
+            bar.setValue(bar.maximum() // 2)
+            original = bar.value()
+            release = threading.Event()
+
+            def updates():
+                release.wait(3)
+                return {"status": "ok", "available": False, "count": 0}
+
+            with mock.patch.object(win.gitflow, "updates", side_effect=updates) as check:
+                try:
+                    win.check_updates()
+                    self.assertFalse(page.isEnabled())
+                    self.assertFalse(page.tour_help.isEnabled())
+                    self.assertIn("업데이트", page.top.title.text())
+                    self.assertGreater(page.top.title.width(), 80)
+                    self.capture_navigation(win, f"career-busy-{win.area}-{mode}")
+                    win.check_updates()
+                finally:
+                    release.set()
+                self.idle()
+                self.assertEqual(check.call_count, 1)
+            self.assertTrue(page.isEnabled())
+            self.assertEqual(bar.value(), original)
+            self.assertEqual(win.dialog.windowTitle(), "업데이트 확인")
+            win.dialog.close()
+            guikit.pump()
+            with mock.patch.object(win.gitflow, "updates", side_effect=SessionError("연결을 확인해 주세요.")):
+                win.check_updates()
+                self.idle()
+            self.assertIsNone(win.job)
+            self.assertTrue(page.isEnabled())
+            win.dialog.close()
+            guikit.pump()
+
+        for index in range(win.pages.count()):
+            self.assertTrue(callable(getattr(win.pages.widget(index), "set_busy", None)),
+                            type(win.pages.widget(index)).__name__)
+
     def test_career_is_lazy_and_selection_does_not_reclassify_learning_records(self):
         win = self.boot()
         self.assertIsNone(win.career.catalog)
