@@ -5,6 +5,7 @@ from importlib.util import find_spec
 from time import monotonic
 
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QDialog, QSizePolicy, QWidget
 
 from career.player_html import (APP_ORIGIN, EMBED_HOST, checked_video_id, error_message,
@@ -23,20 +24,32 @@ class EngineUnavailable(RuntimeError):
 
 
 class VideoSurface(QWidget):
-    """가용 폭에 16:9를 적용하며 최소 재생 높이 200px를 보존함."""
+    """16:9를 기본으로 가용 높이에 맞추며 최소 재생 높이 200px를 보존함."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.fullscreen = False
+        self.viewport_height = None
         self.box = kit.box(self)
 
     def hasHeightForWidth(self):
-        return True
+        return not self.fullscreen
 
     def heightForWidth(self, width):
-        return max(200, round(width * 9 / 16))
+        if self.fullscreen:
+            return -1
+        height = round(width * 9 / 16)
+        if self.viewport_height is not None:
+            height = min(height, self.viewport_height)
+        return max(200, height)
+
+    def fit_viewport(self, height):
+        if height != self.viewport_height:
+            self.viewport_height = height
+            self.setMinimumHeight(200 if self.fullscreen else self.heightForWidth(self.width()))
+            self.updateGeometry()
 
     def sizeHint(self):
         return QSize(640, 360)
@@ -198,7 +211,11 @@ def create_engine(parent, on_event, open_url):
                 open_url(url)
 
         def fullscreen(self, request):
-            if not self.closed and request.origin().host() in (EMBED_HOST, "rokey.python.study"):
+            origin = request.origin()
+            # setHtml 문서의 진입 요청은 출처가 비어 있을 수 있어 현재 문서도 대조함.
+            wrapper = self.page.url().toString() == APP_ORIGIN + "/"
+            trusted = origin.isEmpty() or origin.toString().rstrip("/") in (APP_ORIGIN, "https://" + EMBED_HOST)
+            if not self.closed and not self.loading_wrapper and wrapper and trusted:
                 request.accept()
                 self.emit("fullscreen", request.toggleOn())
             else:
@@ -206,7 +223,7 @@ def create_engine(parent, on_event, open_url):
 
         def exit_fullscreen(self):
             if not self.closed:
-                self.page.runJavaScript("if (document.fullscreenElement) document.exitFullscreen()")
+                self.page.triggerAction(QWebEnginePage.WebAction.ExitFullScreen)
 
         def close(self):
             if self.closed:
@@ -242,6 +259,7 @@ class VideoDialog(QDialog):
         self._embed_fallback_until = 0
         self._fullscreen, self._changing_window = False, False
         self._starting_engine, self._document_hidden = False, False
+        self._video_reveal_pending = False
         self.setWindowTitle("영상 보기")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.shell = DialogLayout(self, "영상 보기")
@@ -270,6 +288,9 @@ class VideoDialog(QDialog):
         self.stop_button.clicked.connect(self.stop)
         self.source_button.clicked.connect(lambda: self._external(watch_url(self.video_id)))
         self.close_button.clicked.connect(self.close)
+        self.fullscreen_escape = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self.fullscreen_escape.setEnabled(False)
+        self.fullscreen_escape.activated.connect(self._exit_fullscreen)
         self.shell.scroll.viewport().installEventFilter(self)
         self._buttons()
 
@@ -342,6 +363,7 @@ class VideoDialog(QDialog):
             if self.closed or self.generation != current:
                 return
             self.shell.scroll.ensureWidgetVisible(self.surface, 0, 0)
+            self._fit_video()
             # Windows에서 첫 문서를 붙일 때의 창 재생성을 사용자 숨김과 구분함.
             self._document_hidden = False
             self._starting_engine = True
@@ -467,6 +489,7 @@ class VideoDialog(QDialog):
         if enabled == self._fullscreen:
             return
         self._fullscreen = enabled
+        self.fullscreen_escape.setEnabled(enabled)
         if enabled:
             self._normal_geometry = self.saveGeometry()
         self.surface.fullscreen = enabled
@@ -476,6 +499,8 @@ class VideoDialog(QDialog):
         self.shell.content.setContentsMargins(*( (0, 0, 0, 0) if enabled else (32, 8, 32, 24)))
         self.surface.setSizePolicy(QSizePolicy.Policy.Expanding,
                                    QSizePolicy.Policy.Expanding if enabled else QSizePolicy.Policy.Preferred)
+        self.surface.setMinimumHeight(200 if enabled else self.surface.heightForWidth(self.surface.width()))
+        self.surface.updateGeometry()
         self._changing_window = True
         try:
             if enabled:
@@ -488,17 +513,37 @@ class VideoDialog(QDialog):
                 self.restoreGeometry(self._normal_geometry)
         finally:
             self._changing_window = False
+        if not enabled:
+            self._fit_video()
 
-    def keyPressEvent(self, event):
-        if self._fullscreen and event.key() == Qt.Key.Key_Escape:
+    def _fit_video(self):
+        if self.engine is None or self._fullscreen or self.closed:
+            return
+        self.surface.fit_viewport(self.shell.scroll.viewport().height())
+        if not self._video_reveal_pending:
+            self._video_reveal_pending = True
+            QTimer.singleShot(0, self._reveal_video)
+
+    def _reveal_video(self):
+        self._video_reveal_pending = False
+        if self.engine is not None and not self._fullscreen and not self.closed:
+            self.shell.scroll.ensureWidgetVisible(self.surface, 0, 0)
+
+    def _exit_fullscreen(self):
+        if self._fullscreen:
             if self.engine is not None:
                 self.engine.exit_fullscreen()
             self._set_fullscreen(False)
+
+    def keyPressEvent(self, event):
+        if self._fullscreen and event.key() == Qt.Key.Key_Escape:
+            self._exit_fullscreen()
             return
         super().keyPressEvent(event)
 
     def eventFilter(self, watched, event):
         if event.type() == QEvent.Type.Resize and self.engine is not None and not self._fullscreen:
+            self._fit_video()
             small = self.shell.scroll.viewport().width() - 64 < 200
             self.size_note.setVisible(small)
             if small:

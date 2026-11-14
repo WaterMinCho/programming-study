@@ -448,14 +448,22 @@ class VideoDialogTest(unittest.TestCase):
             peer.hide()
             peer.deleteLater()
 
-    def test_video_surface_preserves_its_available_width_and_aspect(self):
+    def test_video_surface_fits_width_and_viewport_without_clipping_controls(self):
         dialog = self.dialog()
-        for width in (720, 1000, 1200):
-            dialog.resize(width, 650)
-            self.assert_footer(dialog)
-            self.assertGreaterEqual(dialog.engine.widget.width(), 200)
-            self.assertGreaterEqual(dialog.engine.widget.height(), 200)
-            self.assertLessEqual(abs(dialog.surface.height() - max(200, round(dialog.surface.width() * 9 / 16))), 1)
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            theme.set_text("larger")
+            for width, height in ((720, 440), (1000, 680), (1200, 650), (720, 440)):
+                with self.subTest(mode=mode, width=width, height=height):
+                    dialog.resize(width, height)
+                    self.assert_footer(dialog)
+                    view = dialog.engine.widget
+                    viewport = dialog.shell.scroll.viewport()
+                    self.assertGreaterEqual(view.width(), 200)
+                    self.assertGreaterEqual(view.height(), 200)
+                    expected = max(200, min(round(dialog.surface.width() * 9 / 16), viewport.height()))
+                    self.assertLessEqual(abs(dialog.surface.height() - expected), 1)
+                    self.assertTrue(viewport.rect().contains(view.rect().translated(view.mapTo(viewport, QPoint()))))
 
     def test_autoplay_requires_more_than_half_the_surface_in_the_viewport(self):
         viewport = QWidget(self.host)
@@ -482,6 +490,43 @@ class VideoDialogTest(unittest.TestCase):
         self.assertFalse(dialog.isVisible())
         self.assertFalse(dialog._fullscreen)
         self.assertEqual("stopped", dialog.state)
+
+    def test_fullscreen_surface_fills_a_wide_short_viewport_without_scrolling(self):
+        dialog = self.dialog()
+        engine = self.engines[-1]
+        engine.on_event("fullscreen", True)
+        dialog.resize(1400, 500)
+        guikit.pump()
+        viewport = dialog.shell.scroll.viewport()
+        self.assertFalse(dialog.surface.hasHeightForWidth())
+        self.assertEqual(viewport.size(), engine.widget.size())
+        self.assertEqual(0, dialog.shell.scroll.verticalScrollBar().maximum())
+        engine.on_event("fullscreen", False)
+        guikit.pump()
+        self.assertTrue(dialog.surface.hasHeightForWidth())
+        self.assertEqual(dialog.surface.heightForWidth(dialog.surface.width()), dialog.surface.height())
+
+    def test_fullscreen_escape_keeps_the_player_and_normal_geometry(self):
+        from PyQt6.QtTest import QTest
+        dialog = self.dialog()
+        engine = self.engines[-1]
+        dialog.setGeometry(30, 40, 720, 440)
+        guikit.pump()
+        normal = dialog.geometry()
+        engine.on_event("fullscreen", True)
+        engine.widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        engine.widget.keyPressEvent = lambda event: event.accept()
+        engine.widget.setFocus()
+        guikit.pump()
+        QTest.keyClick(engine.widget, Qt.Key.Key_Escape)
+        guikit.pump()
+        self.assertFalse(dialog._fullscreen)
+        self.assertFalse(dialog.fullscreen_escape.isEnabled())
+        self.assertEqual(normal, dialog.geometry())
+        self.assertIs(engine, dialog.engine)
+        self.assertTrue(dialog.isVisible())
+        engine.exit_fullscreen.assert_called_once()
+        engine.close.assert_not_called()
 
 
 class EnginePolicyTest(unittest.TestCase):
@@ -511,11 +556,12 @@ class EnginePolicyTest(unittest.TestCase):
             NavigationType = SimpleNamespace(NavigationTypeLinkClicked=0, NavigationTypeOther=5)
             PermissionPolicy = SimpleNamespace(PermissionDeniedByUser=1)
             LifecycleState = SimpleNamespace(Discarded=2)
+            WebAction = SimpleNamespace(ExitFullScreen=3)
 
             def __init__(self, profile, parent):
                 super().__init__(parent)
                 self.options = SimpleNamespace(setAttribute=mock.Mock())
-                for name in ("setFeaturePermission", "setHtml", "runJavaScript", "setAudioMuted",
+                for name in ("setFeaturePermission", "setHtml", "runJavaScript", "setAudioMuted", "triggerAction",
                              "setVisible", "setLifecycleState"):
                     setattr(self, name, mock.Mock())
 
@@ -594,6 +640,49 @@ class EnginePolicyTest(unittest.TestCase):
     def test_embed_denial_keeps_prior_block_or_play_between_polls(self):
         self.engine.received({"kind": "error", "code": 101, "initial": False})
         self.event.assert_called_once_with("late_error", 101)
+
+    def test_fullscreen_accepts_empty_origin_only_for_loaded_wrapper(self):
+        from career.player_html import APP_ORIGIN
+        self.engine.loading_wrapper = False
+        self.engine.page.url = mock.Mock(return_value=QUrl(APP_ORIGIN + "/"))
+        for origin in ("", APP_ORIGIN, "https://www.youtube-nocookie.com/"):
+            for enabled in (True, False):
+                with self.subTest(origin=origin, enabled=enabled):
+                    request = mock.Mock()
+                    request.origin.return_value = QUrl(origin)
+                    request.toggleOn.return_value = enabled
+                    self.engine.page.fullScreenRequested.emit(request)
+                    request.accept.assert_called_once()
+                    request.reject.assert_not_called()
+                    self.event.assert_called_with("fullscreen", enabled)
+
+    def test_fullscreen_exit_uses_page_action_and_ignores_closed_engine(self):
+        self.engine.exit_fullscreen()
+        self.engine.page.triggerAction.assert_called_once_with(3)
+        self.engine.close()
+        self.engine.exit_fullscreen()
+        self.engine.page.triggerAction.assert_called_once_with(3)
+
+    def test_fullscreen_rejects_foreign_origin_changed_document_and_late_request(self):
+        from career.player_html import APP_ORIGIN
+        cases = [(origin, APP_ORIGIN + "/", False, False) for origin in (
+            "https://example.com", "http://www.youtube-nocookie.com",
+            "https://www.youtube-nocookie.com:444", "https://user@www.youtube-nocookie.com",
+            "https://www.youtube-nocookie.com.example.com", "https://www.youtube.com")]
+        cases += [("", url, loading, closed) for url, loading, closed in (
+            ("https://example.com/", False, False), ("about:blank", False, False),
+            (APP_ORIGIN + "/", True, False), (APP_ORIGIN + "/", False, True))]
+        for origin, url, loading, closed in cases:
+            with self.subTest(origin=origin, url=url, loading=loading, closed=closed):
+                self.engine.loading_wrapper, self.engine.closed = loading, closed
+                self.engine.page.url = mock.Mock(return_value=QUrl(url))
+                request = mock.Mock()
+                request.origin.return_value = QUrl(origin)
+                self.engine.page.fullScreenRequested.emit(request)
+                request.reject.assert_called_once()
+                request.accept.assert_not_called()
+        self.engine.closed = False
+        self.event.assert_not_called()
 
     def test_only_user_initiated_official_popups_are_forwarded(self):
         request = mock.Mock()

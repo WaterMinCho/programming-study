@@ -31,6 +31,8 @@ CASES = (
     "tests.test_gui_career.CareerGuiTest.test_existing_image_viewer_and_missing_image_preserve_role",
     "tests.test_gui_paper_explainer.PaperExplainerTest.test_all_scenes_fit_largest_text_in_small_window_and_both_themes",
     "tests.test_gui_video_player.VideoDialogTest.test_small_large_windows_maximum_text_and_two_themes_keep_footer_visible",
+    "tests.test_gui_video_player.VideoDialogTest.test_video_surface_fits_width_and_viewport_without_clipping_controls",
+    "tests.test_gui_video_player.VideoDialogTest.test_fullscreen_escape_keeps_the_player_and_normal_geometry",
     "tests.test_gui_settings_menu.SettingsMenuTest.test_popup_fits_and_reanchors_at_max_text_in_both_themes",
     "tests.test_gui_identity.IdentityGuiTest.test_unverified_existing_device_is_prompted_and_fits_max_text_both_themes",
     "tests.test_gui_identity.IdentityGuiTest.test_team_statistics_switch_period_and_are_hidden_for_other_users",
