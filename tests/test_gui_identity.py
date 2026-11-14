@@ -11,7 +11,7 @@ from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QToolTip, QWidget
 
 from gui import kit, theme
-from gui.team_dashboard import TeamCard
+from gui.team_dashboard import MetricCard, MetricInfo, PERIODS, TeamCard
 from learning_data.collection import CollectionError
 from tests.test_gui_hub import HubTest
 
@@ -119,6 +119,7 @@ class TeamDashboardTest(unittest.TestCase):
             self.assertEqual("12,000건", self.card.total.text())
             self.assertEqual("32개", self.card.accounts.text())
             self.assertEqual("41대", self.card.installations.text())
+            self.assertEqual(f"{PERIODS[days]} 채점 {result['period_total']:,}건", self.card.graded_period.text())
             self.assertEqual(format(result["period_total"], ",") + "건", self.card.period_total.text())
             for key in ("python", "ai"):
                 count = sum(row[key] for row in result["series"])
@@ -145,6 +146,16 @@ class TeamDashboardTest(unittest.TestCase):
                 points = [value.mapTo(self.card, QPoint()) for value in self.card.values.values()]
                 self.assertEqual(1 if side else 2, len({point.y() for point in points}))
                 self.assertEqual(4 if side else 2, len({point.x() for point in points}))
+                totals = [self.card.total, self.card.raw, self.card.accounts, self.card.installations]
+                activity_cards = [v.parentWidget().parentWidget() for v in self.card.values.values()]
+                total_cards = [v.parentWidget().parentWidget() for v in totals]
+                for upper, lower in zip(activity_cards, total_cards):
+                    self.assertIsInstance(lower, MetricCard)
+                    self.assertEqual(upper.width(), lower.width())
+                    self.assertEqual(upper.mapTo(self.card, QPoint()).x(), lower.mapTo(self.card, QPoint()).x())
+                    self.assertEqual(upper.value.font(), lower.value.font())
+                positions = [v.mapTo(self.card, QPoint()).y() for v in totals]
+                self.assertEqual(1 if side else 2, len(set(positions)))
                 for key, value in self.card.values.items():
                     info = self.card.infos[key]
                     self.assertIs(value.parentWidget(), info.parentWidget())
@@ -180,6 +191,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.card.show_metric("opens")
         self.assertIsNone(self.card.result)
         self.assertTrue(self.card.metrics.isHidden())
+        self.assertTrue(self.card.summary.isHidden())
         self.assertIn("연결을 확인", self.card.note.text())
         self.assertTrue(self.card.reload.isEnabled())
         self.assertTrue(self.card.reverify.isHidden())
@@ -189,6 +201,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.identity.summary.side_effect = self.result
         self.card.fetch()
         self.assertFalse(self.card.metrics.isHidden())
+        self.assertFalse(self.card.summary.isHidden())
         self.assertFalse(self.card.plot_card.isHidden())
         self.assertTrue(self.card.reverify.isHidden())
         self.assertEqual("12,000건", self.card.total.text())
@@ -221,6 +234,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.assertFalse(self.card.metric_buttons["inputs"].isEnabled())
         self.assertEqual("–", self.card.values["cards"].text())
         self.assertEqual("–", self.card.total.text())
+        self.assertEqual("최근 7일 채점 미확인", self.card.graded_period.text())
         self.assertTrue(self.card.plot_card.isHidden())
         self.assertEqual("32개", self.card.accounts.text())
         self.assertIn("아직 제공하지 않습니다", self.card.note.text())
@@ -241,9 +255,11 @@ class TeamDashboardTest(unittest.TestCase):
         self.card.fetch()
         self.identity.summary.reset_mock()
         self.assertTrue(self.card.metric_buttons["graded"].isChecked())
-        self.assertIn("누적 20,000건", self.card.raw.text())
-        self.assertIn("최근 7일 4,000건", self.card.raw.text())
-        self.assertIs(self.card.raw.parentWidget(), self.card.raw_card)
+        self.assertEqual("20,000건", self.card.raw.text())
+        self.assertEqual("최근 7일 수집 4,000건", self.card.raw_period.text())
+        self.assertEqual("최근 7일 신규 8개", self.card.account_period.text())
+        self.assertEqual("최근 7일 첫 실행 11대", self.card.device_period.text())
+        self.assertIs(self.card.raw_info.anchor, self.card.raw)
         self.assertEqual("4개", self.card.values["cards"].text())
         self.assertNotIn("다시 풀고", self.card.note.text())
         self.card.metric_buttons["inputs"].click()
@@ -274,7 +290,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.root.move(available.topLeft() + QPoint(24, 24))
         for mode in ("light", "dark"):
             theme.set_mode(mode)
-            for info in (*self.card.infos.values(), self.card.raw_info, self.card.total_info):
+            for info in self.card.findChildren(MetricInfo):
                 self.scroll.ensureWidgetVisible(info)
                 info.setFocus(Qt.FocusReason.TabFocusReason)
                 info.show_tip()
@@ -320,13 +336,14 @@ class TeamDashboardTest(unittest.TestCase):
             self.card.fetch()
             if result['period_total'] is None:
                 self.assertIn('기간별 수집 기록 수를 아직 제공하지 않습니다', self.card.raw_info.toolTip())
+                self.assertEqual("최근 7일 수집 미확인", self.card.raw_period.text())
             for mode in ('light', 'dark'):
                 theme.set_mode(mode)
                 for step in ('normal', 'larger'):
                     theme.set_text(step)
                     kit.refont(self.root)
                     self.root.resize(620, min(700, self.root.screen().availableGeometry().height() - 48))
-                    for info in (*self.card.infos.values(), self.card.raw_info, self.card.total_info):
+                    for info in self.card.findChildren(MetricInfo):
                         self.scroll.ensureWidgetVisible(info)
                         info.clearFocus()
                         QToolTip.hideText()

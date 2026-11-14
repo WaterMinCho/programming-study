@@ -154,6 +154,33 @@ class DashboardRow(QWidget):
         return result
 
 
+class MetricCard(QFrame):
+    """기간 지표와 누적 지표의 제목·수치·도움말을 같은 위치에 둠."""
+
+    def __init__(self, title, explanation, detail=False):
+        super().__init__()
+        self.setObjectName("team_metric")
+        layout = kit.box(self, (16, 16, 16, 16), 8)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(kit.para(title, "caption", "secondary"))
+        line = QWidget()
+        number = kit.box(line, horizontal=True, spacing=8)
+        self.value = kit.label("–", "headline", bold=True)
+        self.info = MetricInfo(title, explanation, self.value)
+        number.addWidget(self.value)
+        number.addWidget(self.info)
+        number.addStretch(1)
+        layout.addWidget(line)
+        if detail:
+            self.detail = kit.para("", "caption", "secondary")
+            layout.addWidget(self.detail)
+
+
+def metric_row(cards, column_width):
+    pairs = [DashboardRow(cards[i:i + 2], lambda: [column_width()] * 2, spacing=16) for i in (0, 2)]
+    return DashboardRow(pairs, lambda: [2 * column_width() + 16] * 2, spacing=16)
+
+
 class CollectionChart(QWidget):
     def __init__(self):
         super().__init__()
@@ -344,60 +371,30 @@ class TeamCard(QWidget):
             "graded": ("채점", "선택 기간에 답을 쓰거나 고른 뒤 채점한 문항을 셉니다. 다시 풀고 채점하면 한 건 더 셉니다. "
                                "미응답과 [모르겠어요], 같은 기록의 재전송은 제외합니다."),
         }
-        self.values, self.infos = {}, {}
-        cards = []
-        for key, (title, description) in definitions.items():
-            card = kit.frame("team_metric")
-            inner = kit.box(card, (16, 16, 16, 16), 8)
-            inner.addWidget(kit.para(title, "caption", "secondary"))
-            line = QWidget()
-            number = kit.box(line, horizontal=True, spacing=8)
-            value = kit.label("–", "headline", bold=True)
-            info = MetricInfo(title, description, value)
-            number.addWidget(value)
-            number.addWidget(info)
-            number.addStretch(1)
-            inner.addWidget(line)
-            cards.append(card)
-            self.values[key], self.infos[key] = value, info
+        activity = {key: MetricCard(title, tip) for key, (title, tip) in definitions.items()}
+        self.values = {key: card.value for key, card in activity.items()}
+        self.infos = {key: card.info for key, card in activity.items()}
+        graded = MetricCard("누적 채점", "", detail=True)
+        raw = MetricCard("수집 기록", "", detail=True)
+        accounts = MetricCard("인증 계정", "본인 확인을 마친 서로 다른 GitHub 계정 수입니다.", detail=True)
+        devices = MetricCard("첫 실행 확인 기기", "서버에서 처음 본 설치 식별자를 셉니다. 같은 컴퓨터에서도 설치 식별자가 바뀌면 새 기기로 셉니다.", detail=True)
+        self.total, self.total_info, self.graded_period = graded.value, graded.info, graded.detail
+        self.raw, self.raw_info, self.raw_period = raw.value, raw.info, raw.detail
+        self.accounts, self.account_period = accounts.value, accounts.detail
+        self.installations, self.device_period = devices.value, devices.detail
+        totals = [graded, raw, accounts, devices]
+        all_cards = [*activity.values(), *totals]
 
-        def widths(pair):
-            return [max(180, card.sizeHint().width()) for card in pair]
+        def column_width():
+            return max(180, *(card.sizeHint().width() for card in all_cards))
 
-        pairs = [cards[:2], cards[2:]]
-        halves = [DashboardRow(pair, lambda pair=pair: widths(pair), spacing=16) for pair in pairs]
-        self.metrics = DashboardRow(halves, lambda: [sum(widths(pair)) + 16 for pair in pairs], spacing=16)
+        self.metrics = metric_row(list(activity.values()), column_width)
         box.addWidget(self.metrics)
-        self.raw_card = kit.frame("team_breakdown")
-        raw_box = kit.box(self.raw_card, (16, 16, 16, 16), 8)
-        raw_heading = QWidget()
-        raw_line = kit.box(raw_heading, horizontal=True, spacing=8)
-        raw_title = kit.label("수집 기록", "caption", "secondary")
-        self.raw_info = MetricInfo("수집 기록", "", raw_title)
-        raw_line.addWidget(raw_title)
-        raw_line.addWidget(self.raw_info)
-        raw_line.addStretch(1)
-        self.raw = kit.para("", "body", bold=True)
-        raw_box.addWidget(raw_heading)
-        raw_box.addWidget(self.raw)
-        box.addWidget(self.raw_card)
-        self.identity_line = QWidget()
-        secondary = kit.FlowLayout(self.identity_line, spacing=12)
-        self.total, self.accounts, self.installations = [kit.label("–", "caption", "secondary") for _ in range(3)]
-        self.account_period, self.device_period = [kit.label("", "caption", "secondary") for _ in range(2)]
-        for name, value, detail in (("누적 채점", self.total, None), ("인증 계정", self.accounts, self.account_period),
-                                    ("첫 실행 확인 기기", self.installations, self.device_period)):
-            group = QWidget()
-            part = kit.box(group, spacing=4, horizontal=True)
-            part.addWidget(kit.label(name, "caption", "secondary"))
-            part.addWidget(value)
-            if value is self.total:
-                self.total_info = MetricInfo(name, "", value)
-                part.addWidget(self.total_info)
-            if detail is not None:
-                part.addWidget(detail)
-            secondary.addWidget(group)
-        box.addWidget(self.identity_line)
+        self.summary = QWidget()
+        summary = kit.box(self.summary, spacing=16)
+        summary.addWidget(kit.para("전체 누적", "title", bold=True))
+        summary.addWidget(metric_row(totals, column_width))
+        box.addWidget(self.summary)
         self.plot_card = kit.frame("team_plot")
         plot_box = kit.box(self.plot_card, (24, 24, 24, 24), 16)
         self.period_name = kit.para("최근 7일 채점", "caption", "secondary")
@@ -578,9 +575,8 @@ class TeamCard(QWidget):
             self.loaded = identity
             if result.get("error"):
                 self.result = None
-                self.raw_card.hide()
                 self.filter_row.hide()
-                self.identity_line.hide()
+                self.summary.hide()
                 self.metrics.hide()
                 self.plot_card.hide()
                 kit.typed(self.note, "body")
@@ -593,25 +589,25 @@ class TeamCard(QWidget):
             self.reverify.hide()
             self.metrics.show()
             self.filter_row.show()
-            self.identity_line.show()
+            self.summary.show()
             self.period_title.setText(PERIODS[days] + " 학습 활동")
             self.result = result
             raw_period = result.get("period_total")
             period_text = "미확인" if raw_period is None else f"{raw_period:,}건"
-            self.raw.setText(f"누적 {result['total']:,}건 · {PERIODS[days]} {period_text}")
+            self.raw.setText(f"{result['total']:,}건")
+            self.raw_period.setText(f"{PERIODS[days]} 수집 {period_text}")
             raw_tip = "문제 열기·입력 변경·채점 등 서버에 저장된 기록의 합계입니다. 한 문항에서도 기록이 여러 개 생길 수 있습니다. 같은 기록을 다시 보내도 한 번만 셉니다."
             if raw_period is None:
                 raw_tip += " 이 서버는 기간별 수집 기록 수를 아직 제공하지 않습니다."
             if result.get("undated"):
                 raw_tip += " 시각을 알 수 없는 %s건은 누적에 넣고 기간별 합계에서는 뺍니다." % format(result["undated"], ",")
             self.raw_info.set_explanation(raw_tip)
-            self.raw_card.show()
             graded = result.get("graded")
             self.plot_card.setVisible(graded is not None)
             self.accounts.setText("%s개" % format(result["accounts"], ","))
             self.installations.setText("%s대" % format(result["installations"], ","))
-            self.account_period.setText("(%s +%s개)" % (PERIODS[days], format(result["period_accounts"], ",")))
-            self.device_period.setText("(%s +%s대)" % (PERIODS[days], format(result["period_installations"], ",")))
+            self.account_period.setText("%s 신규 %s개" % (PERIODS[days], format(result["period_accounts"], ",")))
+            self.device_period.setText("%s 첫 실행 %s대" % (PERIODS[days], format(result["period_installations"], ",")))
             kit.typed(self.note, "caption")
             self.note.line = theme.TYPE["caption"][1]
             kit.set_tone(self.note, "secondary")
@@ -621,11 +617,13 @@ class TeamCard(QWidget):
                 for button in self.metric_buttons.values():
                     button.setEnabled(False)
                 self.total.setText("–")
+                self.graded_period.setText(f"{PERIODS[days]} 채점 미확인")
                 self.total_info.set_explanation("이 서버는 누적 채점 통계를 아직 제공하지 않습니다.")
                 self.note.setText("이 서버는 채점 풀이 통계를 아직 제공하지 않습니다.")
                 self.show()
                 return
             self.total.setText("%s건" % format(graded["total"], ","))
+            self.graded_period.setText(f"{PERIODS[days]} 채점 {graded['period_total']:,}건")
             total_tip = "답을 쓰거나 고른 뒤 채점한 문항의 누적 건수입니다. 다시 풀고 채점하면 한 건 더 셉니다."
             if graded["undated"]:
                 total_tip += " 채점 시각을 알 수 없는 %s건은 누적에 넣고 기간별 합계에서는 뺍니다." % format(graded["undated"], ",")
