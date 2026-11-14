@@ -14,6 +14,7 @@ class CareerController:
         self.win = win
         self.catalog = self.roadmap = self.magazine = None
         self.video = self.paper = self.setup_job = None
+        self.recommend_dialog = None
         self.tour = self.tour_page = self.waiting_modal = None
         self.tour_replay = False
         self.tour_timer = QTimer(win)
@@ -94,7 +95,7 @@ class CareerController:
             self.roadmap = self._attach(CareerRoadmapPage(
                 catalog=self._catalog(), on_back=self.win.go_hub,
                 on_select_goal=self.select_role, on_magazine=lambda: self.show_magazine(),
-                on_video=self.show_magazine, on_source=self.win.open_url))
+                on_video=self.show_magazine, on_source=self.win.open_url, on_recommend=self.show_recommendations))
             self.roadmap.view_changing.connect(self.dismiss_tour)
             self.roadmap.view_changed.connect(lambda: self.queue_tour(self.roadmap))
             try:
@@ -125,6 +126,24 @@ class CareerController:
             self.magazine.select_video(video_id, reveal=True)
         else:
             self.queue_tour(self.magazine)
+
+    def show_recommendations(self):
+        self.dismiss_tour()
+        if self.recommend_dialog is not None:
+            self.recommend_dialog.raise_()
+            return
+        from gui.career_recommend import CareerRecommendDialog
+        self.recommend_dialog = dialog = CareerRecommendDialog(
+            self._catalog(), self.win, on_select_goal=self.select_role, on_source=self.win.open_url,
+            saved_role_id=self.roadmap.saved_role_id)
+
+        def closed(*_):
+            self.recommend_dialog = None
+            dialog.deleteLater()
+            self.roadmap.recommend_button.setFocus()
+
+        dialog.finished.connect(closed)
+        dialog.open()
 
     def select_role(self, role_id, coarse_goal_id):
         role = self._catalog().role(role_id)
@@ -203,6 +222,8 @@ class CareerController:
 
     def stop(self):
         self.dismiss_tour()
+        if self.recommend_dialog is not None:
+            self.recommend_dialog.close()
         self.stop_video()
         if self.paper is not None:
             self.paper.close()

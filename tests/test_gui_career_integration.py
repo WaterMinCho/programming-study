@@ -18,6 +18,39 @@ class CareerIntegrationTest(unittest.TestCase):
     boot = HubTest.boot
     idle = HubTest.idle
 
+    def test_recommendation_inputs_do_not_enter_settings_or_goal_callback(self):
+        from gui.career_onboarding import TOUR_KEYS
+        win = self.boot()
+        for key in TOUR_KEYS.values():
+            win.settings.setValue(key, True)
+        win.go_career()
+        guikit.pump()
+        controller = win.career
+        before = {key: win.settings.value(key) for key in win.settings.allKeys()}
+        guikit.click(controller.roadmap.recommend_button)
+        dialog = controller.recommend_dialog
+        self.assertTrue(dialog.isVisible())
+        dialog.activities["ui"].setChecked(True)
+        dialog.show_stage(2)
+        dialog.next()
+        dialog.open_detail("frontend")
+        self.assertEqual(before, {key: win.settings.value(key) for key in win.settings.allKeys()})
+        guikit.click(dialog.detail.goal_button)
+        saved = json.loads(win.settings.value("career/role/" + win.user))
+        self.assertEqual(set(saved), {"role_id", "catalog_version", "selected_at"})
+        self.assertEqual(saved["role_id"], "frontend")
+        self.assertEqual(controller.roadmap.saved_role_id, "frontend")
+        dialog.close()
+        guikit.pump()
+        self.assertIsNone(controller.recommend_dialog)
+        controller.show_recommendations()
+        fresh = controller.recommend_dialog
+        self.assertEqual(fresh.profile().activities, ())
+        self.assertEqual(fresh.saved_role_id, "frontend")
+        controller.stop()
+        guikit.pump()
+        self.assertIsNone(controller.recommend_dialog)
+
     def test_javascript_probe_from_career_locks_page_and_opens_journey(self):
         from PyQt6.QtTest import QTest
         from PyQt6.QtCore import Qt
