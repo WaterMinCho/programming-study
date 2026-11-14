@@ -145,11 +145,12 @@ class Catalog:
 
 
 def sort_videos(videos):
-    """확인한 업로드 날짜 내림차순으로 정렬하고 미확인 날짜를 뒤에 둠."""
+    """제작자 이름순으로 모으고 같은 제작자 안에서 최신 영상부터 정렬함."""
     def key(video):
         # 날짜만 아는 항목의 시각은 만들지 않으며 같은 날에는 ID로 순서를 고정함.
         stamp = video.uploaded_at_utc or ""
-        return (-(date.fromisoformat(video.upload_date).toordinal()) if video.upload_date else 0,
+        return (video.author.casefold(),
+                -(date.fromisoformat(video.upload_date).toordinal()) if video.upload_date else 0,
                 -datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp() if stamp else float("inf"), video.video_id)
     return tuple(sorted(videos, key=key))
 

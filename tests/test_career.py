@@ -48,13 +48,17 @@ class CareerCatalogTest(unittest.TestCase):
         self.assertIsNone(self.catalog.role("unknown"))
         self.assertEqual(self.catalog.roles_for("unknown"), ())
 
-    def test_video_ids_counts_and_newest_upload_first(self):
+    def test_video_ids_counts_and_newest_upload_within_author(self):
         videos = self.catalog.videos
         self.assertEqual(sum(video.origin == "selected" for video in videos), 18)
         self.assertEqual(sum(video.origin == "additional" for video in videos), 20)
         self.assertEqual(len({video.video_id for video in videos}), 38)
-        actual = [datetime.fromisoformat(video.uploaded_at_utc.replace("Z", "+00:00")) for video in videos]
-        self.assertEqual(actual, sorted(actual, reverse=True))
+        authors = [video.author.casefold() for video in videos]
+        self.assertEqual(authors, sorted(authors))
+        for author in set(authors):
+            actual = [datetime.fromisoformat(video.uploaded_at_utc.replace("Z", "+00:00"))
+                      for video in videos if video.author.casefold() == author]
+            self.assertEqual(actual, sorted(actual, reverse=True))
 
     def test_unknown_dates_ties_and_date_only_do_not_invent_times(self):
         video = self.catalog.videos[0]
@@ -62,6 +66,11 @@ class CareerCatalogTest(unittest.TestCase):
         first = replace(video, video_id="aaaaaaaaaaa", uploaded_at_utc=None)
         second = replace(first, video_id="bbbbbbbbbbb")
         self.assertEqual(sort_videos([unknown, second, first]), (first, second, unknown))
+        other = replace(first, video_id="ccccccccccc", author="다른 제작자", upload_date="2026-11-15")
+        older = replace(first, author="같은 제작자", upload_date="2020-01-01")
+        newer = replace(second, author="같은 제작자", upload_date="2026-01-01")
+        unknown = replace(unknown, author="같은 제작자")
+        self.assertEqual(sort_videos([other, older, unknown, newer]), (newer, older, unknown, other))
         self.assertIsNone(first.uploaded_at_utc)
         self.assertEqual(unknown.date_label, "업로드 날짜 미확인")
         self.assertEqual(replace(video, duration_seconds=None).duration_label, "길이 미확인")
