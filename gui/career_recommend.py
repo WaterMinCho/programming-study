@@ -231,6 +231,7 @@ class CareerRecommendDialog(QDialog):
         self.stage = stage
         titles = ("배운 분야를 알려주세요", "해본 일을 골라주세요", "어떤 결과를 만들고 싶나요?", "경험과 관심으로 연결한 직무", "업무와 학습 로드맵")
         self.shell.title.setText(titles[stage])
+        self.shell.header.setVisible(stage != 4)
         self.steps.setVisible(stage < 3)
         self.steps.set_steps([(i + 1, name, "done" if i < stage else "now" if i == stage else "ready")
                               for i, name in enumerate(("학력", "경험", "관심"))])
