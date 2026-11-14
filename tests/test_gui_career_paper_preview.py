@@ -9,10 +9,10 @@ from unittest.mock import Mock, patch
 from tests import guikit
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtTest import QSignalSpy, QTest
-from PyQt6.QtWidgets import QLabel, QPushButton
+from PyQt6.QtWidgets import QLabel, QPushButton, QStyle, QStyleOptionButton
 
 from career.catalog import Catalog, load_catalog
-from gui import theme
+from gui import kit, theme
 from gui.career_magazine import CareerMagazinePage, SourceDetails
 from gui.career_paper_preview import PREVIEW_STAGES
 from gui.paper_explainer import PaperDiagram, PaperExplanationDialog, load_explanations
@@ -63,6 +63,19 @@ class PaperPreviewTest(unittest.TestCase):
 
     def labels(self, widget):
         return [label.text() for label in widget.findChildren(QLabel)]
+
+    def text_start(self, button):
+        option = QStyleOptionButton()
+        button.initStyleOption(option)
+        return button.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, option, button).left()
+
+    def first_ink(self, widget, tone, left=0):
+        image = widget.grab().toImage()
+        ratio = image.devicePixelRatio()
+        for x in range(round(left * ratio), min(image.width(), round((left + 12) * ratio))):
+            if any(guikit.near(image.pixelColor(x, y), tone) for y in range(image.height())):
+                return x / ratio
+        self.fail("글자 시작 영역에서 실제 획을 찾지 못했음")
 
     def test_browse_reuses_representative_stage_and_keeps_conditions_and_boundary_visible(self):
         figure, paper_open, source, play, stop = (Mock() for _ in range(5))
@@ -128,6 +141,11 @@ class PaperPreviewTest(unittest.TestCase):
             self.assertIn(paper.summary, texts)
             self.assertIn(paper.beginner_explanation, texts)
             self.assertIn("읽기에 필요한 개념 · " + ", ".join(paper.prerequisites), texts)
+            for label in description.content.findChildren(QLabel):
+                role = "learn_caption" if label.text().startswith("읽기에 필요한 개념") else "learn_body"
+                self.assertEqual(label.property("role"), role)
+                self.assertEqual(label.font().pixelSize(), theme.TYPE[role][0])
+                self.assertEqual(label.mapTo(preview.parentWidget(), QPoint()).x(), 32)
             details = self.details(preview, "출처·검토 범위")
             guikit.click(details.button)
             self.settle(page)
@@ -135,7 +153,14 @@ class PaperPreviewTest(unittest.TestCase):
             for text in ("출처 · " + paper.title, paper.verification_scope, paper.license_label,
                          paper.license_scope, paper.examined_version, paper.checked_date):
                 self.assertIn(text, texts)
+            for label in details.content.findChildren(QLabel):
+                self.assertEqual(label.property("role"), "learn_caption")
+                self.assertEqual(label.font().pixelSize(), theme.TYPE["learn_caption"][0])
+                self.assertEqual(label.mapTo(preview.parentWidget(), QPoint()).x(), 32)
+                self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()))
             links = {row.text(): row for row in details.content.findChildren(QPushButton)}
+            for action in links.values():
+                self.assertEqual(action.mapTo(preview.parentWidget(), QPoint()).x() + self.text_start(action), 32)
             self.assertEqual(links["논문 원문 열기"].toolTip(), paper.url)
             guikit.click(links["논문 원문 열기"])
             paper_open.assert_called_once_with(paper)
@@ -169,9 +194,13 @@ class PaperPreviewTest(unittest.TestCase):
         self.assertEqual(preview.accessibleDescription(), bare.beginner_explanation)
         self.assertFalse(preview.isEnabled())
         theme.set_text("larger")
+        kit.refont(page)
         self.settle(page)
         self.assertGreaterEqual(preview.height(), preview.heightForWidth(preview.width()))
         for label in preview.findChildren(QLabel):
+            role = "learn_caption" if label.text() == "대표 그림을 표시할 수 없습니다." else "learn_body"
+            self.assertEqual(label.property("role"), role)
+            self.assertEqual(label.font().pixelSize(), theme.TYPE[role][0])
             self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()))
 
     def test_paper_data_absence_retains_distinct_messages_without_loading_diagrams(self):
@@ -187,15 +216,17 @@ class PaperPreviewTest(unittest.TestCase):
     def test_diagrams_fit_both_themes_maximum_font_and_small_and_wide_windows(self):
         page = self.show(on_figure=Mock(), on_paper=Mock(), on_source=Mock())
         self.capture_widget = page
-        requested = ((760, 480), (1280, 800))
+        requested = ((760, 480), (1280, 800), (1440, 900))
         native = os.name == "nt" and guikit.APP.platformName() == "windows"
         room = page.screen().availableGeometry()
-        sizes = (requested[0], (min(1280, room.width() - 32), min(800, room.height() - 64))) if native else requested
+        sizes = tuple((min(w, room.width() - 32), min(h, room.height() - 64))
+                      if native and w > 760 else (w, h) for w, h in requested)
         measurements = []
         for mode in ("light", "dark"):
             theme.set_mode(mode)
             for text in ("normal", "larger"):
                 theme.set_text(text)
+                kit.refont(page)
                 for wanted, (width, height) in zip(requested, sizes):
                     with self.subTest(mode=mode, text=text, width=width):
                         page.resize(width, height)
@@ -211,6 +242,33 @@ class PaperPreviewTest(unittest.TestCase):
                             self.assertTrue(room.contains(page.frameGeometry()), "창 전체를 표시할 작업 영역이 필요함")
                         self.assertLessEqual(page.content.width(), page.scroll.viewport().width())
                         for paper_id, preview in page.paper_previews.items():
+                            section = preview.parentWidget()
+                            heading = section.layout().itemAt(0).widget()
+                            self.assertEqual(heading.title.property("role"), "learn_heading")
+                            self.assertEqual(heading.description.property("role"), "learn_body")
+                            self.assertEqual(heading.layout().spacing(), theme.LEARN_GAP["title_description"])
+                            self.assertEqual(section.layout().spacing(), theme.LEARN_GAP["paragraph"])
+                            for label in section.findChildren(QLabel):
+                                if label.isVisibleTo(page.content):
+                                    role = label.property("role")
+                                    self.assertIn(role, ("learn_heading", "learn_body", "learn_caption"))
+                                    self.assertEqual(label.font().pixelSize(), theme.TYPE[role][0])
+                                    self.assertEqual(label.line, theme.TYPE[role][1])
+                                    self.assertEqual(label.mapTo(section, QPoint()).x(), 32)
+                                    self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()))
+                            for disclosure in section.findChildren(SourceDetails):
+                                button = disclosure.button
+                                start = self.text_start(button)
+                                self.assertEqual(button.mapTo(section, QPoint()).x() + start, 32)
+                                self.assertEqual(button.font().pixelSize(), theme.TYPE["learn_caption"][0])
+                                self.assertGreaterEqual(button.height(), theme.control_height("m"))
+                                self.assertTrue(section.rect().contains(button.mapTo(section, QPoint())))
+                                self.assertEqual(button.focusPolicy(), Qt.FocusPolicy.TabFocus)
+                                self.assertTrue(button.accessibleDescription())
+                                self.assertAlmostEqual(button.mapTo(section, QPoint()).x()
+                                                       + self.first_ink(button, "muted", start),
+                                                       heading.description.mapTo(section, QPoint()).x()
+                                                       + self.first_ink(heading.description, "ink"), delta=2)
                             self.assertGreaterEqual(preview.height(), preview.heightForWidth(preview.width()))
                             diagram = preview.diagram
                             scene = diagram.scene()
@@ -222,12 +280,12 @@ class PaperPreviewTest(unittest.TestCase):
                                 self.assertGreaterEqual(ink.top(), 0, paper_id)
                                 self.assertLessEqual(ink.bottom(), diagram.height(), paper_id)
                             layouts = [op[1] for op in scene.operations if op[0] == "text"]
-                            self.assertEqual(layouts[0].font().pixelSize(), theme.TYPE["body"][0])
+                            self.assertEqual(layouts[0].font().pixelSize(), theme.TYPE["learn_body"][0])
                             for button in preview.parentWidget().findChildren(QPushButton):
                                 if button.isVisibleTo(page.content):
                                     self.assertGreaterEqual(button.width(), button.sizeHint().width())
                         destination = os.environ.get("CAREER_EVIDENCE")
-                        if destination and text == "larger" and width == 760:
+                        if destination:
                             folder = Path(destination)
                             folder.mkdir(parents=True, exist_ok=True)
                             for paper_id, preview in page.paper_previews.items():
@@ -236,7 +294,9 @@ class PaperPreviewTest(unittest.TestCase):
                                 if not native or room.contains(page.frameGeometry()):
                                     page.repaint()
                                     guikit.pump()
-                                    self.assertTrue(page.grab().save(str(folder / f"{paper_id}-{mode}.png")))
+                                    stem = f"{mode}-{text}-{width}-{paper_id}"
+                                    self.assertTrue(page.grab().save(str(folder / f"{stem}-page.png")))
+                                    self.assertTrue(preview.parentWidget().grab().save(str(folder / f"{stem}-card.png")))
         if os.environ.get("CAREER_EVIDENCE"):
             folder = Path(os.environ["CAREER_EVIDENCE"])
             folder.mkdir(parents=True, exist_ok=True)
@@ -261,7 +321,10 @@ class PaperPreviewTest(unittest.TestCase):
         self.settle(page)
         before = details.button.mapTo(page.scroll.viewport(), QPoint()).y()
         for opened in (True, False, True):
-            guikit.click(details.button)
+            if opened:
+                guikit.click(details.button)
+            else:
+                QTest.keyClick(details.button, Qt.Key.Key_Space)
             self.settle(page)
             self.assertEqual(details.content.isVisible(), opened)
             self.assertAlmostEqual(details.button.mapTo(page.scroll.viewport(), QPoint()).y(), before, delta=1)
@@ -273,6 +336,7 @@ class PaperPreviewTest(unittest.TestCase):
         self.assertAlmostEqual(details.button.mapTo(page.scroll.viewport(), QPoint()).y(), before, delta=1)
         anchor, offset = page._anchor
         theme.set_text("larger")
+        kit.refont(page)
         self.settle(page)
         self.assertAlmostEqual(anchor.mapTo(page.scroll.viewport(), QPoint()).y(), offset, delta=1)
         for width in (1280, 760):

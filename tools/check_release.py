@@ -33,6 +33,7 @@ CASES = (
     "tests.test_gui_career_paper_preview.PaperPreviewTest.test_diagrams_fit_both_themes_maximum_font_and_small_and_wide_windows",
     "tests.test_gui_career.CareerGuiTest.test_existing_image_viewer_and_missing_image_preserve_role",
     "tests.test_gui_paper_explainer.PaperExplainerTest.test_all_scenes_fit_largest_text_in_small_window_and_both_themes",
+    "tests.test_gui_paper_explainer.PaperExplainerTest.test_reading_fonts_and_footer_keep_size_alignment_and_step_positions",
     "tests.test_gui_video_player.VideoDialogTest.test_small_large_windows_maximum_text_and_two_themes_keep_footer_visible",
     "tests.test_gui_video_player.VideoDialogTest.test_video_surface_fits_width_and_viewport_without_clipping_controls",
     "tests.test_gui_video_player.VideoDialogTest.test_fullscreen_escape_keeps_the_player_and_normal_geometry",

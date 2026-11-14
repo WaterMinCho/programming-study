@@ -27,7 +27,7 @@ class PaperPreview(QAbstractButton):
         self.setSizePolicy(policy)
         self.setMinimumWidth(0)
         inset = theme.GAP["title_description"]
-        box = kit.box(self, (inset, inset, inset, inset), theme.GAP["detail"])
+        box = kit.box(self, (inset, inset, inset, inset), theme.LEARN_GAP["detail"])
         if explanation and paper.paper_id in PAPER_IDS:
             self.diagram = PaperDiagram(paper.paper_id, self)
             step = explanation["steps"][self.stage]
@@ -35,9 +35,9 @@ class PaperPreview(QAbstractButton):
             self.diagram.set_stage(self.stage, description)
             box.addWidget(self.diagram)
         else:
-            box.addWidget(kit.para("대표 그림을 표시할 수 없습니다.", "caption", "secondary"))
+            box.addWidget(kit.para("대표 그림을 표시할 수 없습니다.", "learn_caption", "secondary"))
             description = "\n".join(paper.figure_description) or paper.beginner_explanation
-            box.addWidget(kit.para(description))
+            box.addWidget(kit.para(description, "learn_body"))
         self.setAccessibleDescription(description + ("\n" + self.toolTip() if paper.figure_description else ""))
         for child in self.findChildren(QWidget):
             child.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)

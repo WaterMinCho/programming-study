@@ -434,9 +434,20 @@ class CareerIntegrationTest(unittest.TestCase):
 
     def test_paper_callbacks_keep_study_records_and_footer_in_small_parent(self):
         from PyQt6.QtCore import QPoint
+        from PyQt6.QtWidgets import QLabel
+        from gui.career_magazine import SourceDetails
         win = self.boot()
         win.go_magazine()
         win.resize(760, 480)
+        page = win.career.magazine
+        page._change_tab(1)
+        for size in ("normal", "larger", "normal"):
+            win.set_text(size)
+            guikit.pump()
+            for label in page.paper_content.findChildren(QLabel):
+                self.assertEqual(label.font().pixelSize(), theme.TYPE[label.property("role")][0])
+            for details in page.paper_content.findChildren(SourceDetails):
+                self.assertEqual(details.button.font().pixelSize(), theme.TYPE["learn_caption"][0])
         before = win.session.collection.observation_context()
         for mode in ("light", "dark"):
             win.set_theme(mode)
