@@ -29,7 +29,9 @@
    "blank": 4,
    "choice": 2,
    "stmt": 0,
-   "gen": [],
+   "gen": [
+    "a02-g01"
+   ],
    "core": 3
   },
   "a2e": {

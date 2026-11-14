@@ -4165,6 +4165,11 @@
    "sha256": "9a643424509a3885a8473b38a23ba91b54c497989e3073a8a7f5b708e5a3af52",
    "script": "tools/ai_art/lesson_content_qt.py",
    "fn": "draw"
+  },
+  "learn/l08/assets/8f-6.png": {
+   "sha256": "314c80091aaaef8627dfaa3fbd6eb59fe79727a7f8863b30f34e292633d550f3",
+   "script": "tools/ai_art/pr_threshold.py",
+   "fn": "draw"
   }
  }
 }

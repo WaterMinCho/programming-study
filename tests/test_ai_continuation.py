@@ -234,7 +234,9 @@ class ContinuationTest(Base):
     def test_published_a02_refs_match_the_prior_complete_card_content(self):
         root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ai')
         data = bank.load_items({'id': 'a02'}, root)
-        cards = {card['id']: card for card in bank.cards_of({'id': 'a02'}, data)}
+        cards = {card['id']: card for card in bank.cards_of({'id': 'a02'}, data)
+                 if card['kind'] != 'gen'}
+        self.assertEqual(37, len(cards))
         fixes = data['meta']['resume_source_refs']
         self.assertEqual({'a02-b18', 'a02-c09', 'a02-c10'}, set(fixes))
         for cid, fix in fixes.items():
