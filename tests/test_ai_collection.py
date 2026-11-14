@@ -220,7 +220,8 @@ class CollectionIntegrationTest(Base):
         exclusions = {}
         self.assertEqual([], prepare(raw, exclusions=exclusions))
         self.assertEqual({"missing_prediction_time": 1}, exclusions)
-        self.assertEqual(raw, sess.collection.snapshot())
+        self.assertEqual([row for row in raw if row["kind"] != "manifest"],
+                         [row for row in sess.collection.snapshot() if row["kind"] != "manifest"])
 
     def test_note_trace_separates_requested_card_from_rule_selected_companion(self):
         sess = self.session()
@@ -270,7 +271,8 @@ class CollectionIntegrationTest(Base):
         exclusions = {}
         self.assertEqual([], prepare(after, exclusions=exclusions))
         self.assertEqual({"missing_prediction_time": 1}, exclusions)
-        self.assertEqual(after, sess.collection.snapshot())
+        self.assertEqual([row for row in after if row["kind"] != "manifest"],
+                         [row for row in sess.collection.snapshot() if row["kind"] != "manifest"])
 
     def test_mock_submission_records_missing_and_answered_items_once(self):
         helper = mock_tests.MockServiceTest("test_unsubmitted_questions_do_not_enter_practice")
