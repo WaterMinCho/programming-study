@@ -451,16 +451,18 @@ class CareerRoadmapPage(ReadingPage):
         path.addSpacing(theme.GAP["detail"])
         self.learning, self.learning_box = kit.well(pad_x=16, pad_y=16, spacing=16)
         path.addWidget(self.learning)
-        work.addSpacing(theme.GAP["section"])
-        self.sources_button = kit.button("직무 소개와 채용 공고 펼치기")
-        self.sources_button.setToolTip("직무 소개·채용 공고의 요약과 출처 링크를 펼치거나 접습니다.")
+        self.sources_section = QWidget()
+        sources = kit.box(self.sources_section, margins=(0, theme.GAP["section"], 0, 0))
+        work.addWidget(self.sources_section)
+        self.sources_button = kit.button("직무 소개 자료 펼치기")
+        self.sources_button.setToolTip("회사의 공식 직무·팀 소개와 출처 링크를 펼치거나 접습니다.")
         self.sources_button.setAccessibleDescription(self.sources_button.toolTip())
         self.sources_button.setCheckable(True)
         self.sources_button.setProperty("reading_anchor", True)
-        work.addWidget(self.sources_button, 0, Qt.AlignmentFlag.AlignLeft)
+        sources.addWidget(self.sources_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.source_box = QWidget()
         self.sources_layout = kit.box(self.source_box, margins=(0, theme.GAP["group"], 0, 0), spacing=24)
-        work.addWidget(self.source_box)
+        sources.addWidget(self.source_box)
         self.source_box.hide()
         self.sources_button.toggled.connect(self._toggle_sources)
         if on_video or on_magazine:
@@ -563,7 +565,7 @@ class CareerRoadmapPage(ReadingPage):
 
     def _toggle_sources(self, opened):
         self.source_box.setVisible(opened)
-        self.sources_button.setText("직무 소개와 채용 공고 접기" if opened else "직무 소개와 채용 공고 펼치기")
+        self.sources_button.setText("직무 소개 자료 접기" if opened else "직무 소개 자료 펼치기")
 
     def _industry_changed(self, *_):
         current = self.product.currentData()
@@ -629,6 +631,7 @@ class CareerRoadmapPage(ReadingPage):
         role = self.catalog.role(self.selected_role_id)
         clear_layout(self.learning_box)
         clear_layout(self.sources_layout)
+        self.sources_section.hide()
         self.image_notice.setText("")
         self.image_notice.hide()
         self.image_button.setEnabled(bool(role and role["goal_links"]))
@@ -663,7 +666,8 @@ class CareerRoadmapPage(ReadingPage):
         self.learning_path = CareerLearningPath(role["roadmap_nodes"], role["outputs"])
         self.learning_box.addWidget(self.learning_path)
         for source in self.catalog.sources:
-            if source["id"] not in role["source_ids"]:
+            if (source["id"] not in role["source_ids"]
+                    or source.get("kind") not in ("employer_team_catalog", "employer_role_catalog")):
                 continue
             box = QWidget()
             box.setProperty("reading_anchor", True)
@@ -672,14 +676,15 @@ class CareerRoadmapPage(ReadingPage):
             items.addWidget(kit.para(f"게시일 {source['published_date'] or '미확인'} · 확인일 {source['checked_date']}", "caption", "secondary"))
             items.addWidget(kit.para(source["summary"]))
             if self.on_source:
-                label = {"employer_job": "채용 공고 열기", "employer_team_catalog": "팀 소개 열기",
-                         "employer_role_catalog": "직무 소개 열기"}.get(source.get("kind"), "원문 열기")
+                label = {"employer_team_catalog": "팀 소개 열기",
+                         "employer_role_catalog": "직무 소개 열기"}[source["kind"]]
                 original = kit.button(label, "text")
                 original.setToolTip(source["url"])
                 original.setAccessibleDescription("브라우저에서 출처 원문을 엽니다.\n" + source["url"])
                 original.clicked.connect(lambda checked=False, url=source["url"]: self.on_source(url))
                 items.addWidget(flow_buttons(original))
             self.sources_layout.addWidget(box)
+        self.sources_section.setVisible(self.sources_layout.count() > 0)
 
     def choose_goal(self):
         role = self.catalog.role(self.selected_role_id)

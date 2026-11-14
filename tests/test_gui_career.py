@@ -139,12 +139,21 @@ class CareerGuiTest(unittest.TestCase):
 
     def test_roadmap_sources_and_related_videos_open_selected_targets(self):
         source, video, magazine = Mock(), Mock(), Mock()
-        page = self.show(CareerRoadmapPage, on_source=source, on_video=video, on_magazine=magazine)
+        role = self.catalog.role("backend")
+        expected = [row for row in self.catalog.sources if row["id"] in role["source_ids"]]
+        mixed_role = dict(role, source_ids=role["source_ids"] + self.catalog.role("frontend")["source_ids"])
+        catalog = replace(self.catalog, roles=tuple(mixed_role if row["id"] == "backend" else row
+                                                   for row in self.catalog.roles))
+        page = self.show(CareerRoadmapPage, catalog=catalog, on_source=source, on_video=video, on_magazine=magazine)
         page.select_role("frontend")
         self.settle(page)
         source.assert_not_called()
-        role = self.catalog.role("frontend")
-        expected = [row for row in self.catalog.sources if row["id"] in role["source_ids"]]
+        self.assertTrue(page.sources_section.isHidden())
+        self.assertEqual(page.sources_layout.count(), 0)
+        self.assertEqual(page.source_box.findChildren(QPushButton), [])
+        page.select_role("backend")
+        self.settle(page)
+        self.assertTrue(page.sources_section.isVisible())
         self.assertTrue(page.source_box.isHidden())
         guikit.click(page.sources_button)
         links = page.source_box.findChildren(QPushButton)
@@ -153,6 +162,11 @@ class CareerGuiTest(unittest.TestCase):
             self.assertEqual(link.toolTip(), row["url"])
             guikit.click(link)
             source.assert_called_with(row["url"])
+        page.select_role("frontend")
+        self.settle(page)
+        self.assertTrue(page.sources_section.isHidden())
+        self.assertEqual(page.sources_layout.count(), 0)
+        self.assertEqual(page.source_box.findChildren(QPushButton), [])
         buttons = {button.text(): button for button in page.findChildren(QPushButton)}
         for label, key in (("로봇 개발자의 업무", "H89Az-iZZrc"), ("로봇 개발 프로젝트 준비", "HCx2ICUe0eA")):
             guikit.click(buttons[label])
