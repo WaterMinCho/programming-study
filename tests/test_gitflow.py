@@ -454,7 +454,7 @@ class GitFlowTest(unittest.TestCase):
         target = Path(pc.path, rel)
         def incomplete_checkout(*args, **kwargs):
             result = real_git(*args, **kwargs)
-            if args[:3] == ("checkout", "-q", "-B"):
+            if args[:3] == ("read-tree", "-m", "-u"):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("OLD = True\n", encoding="utf-8")
             return result
@@ -558,6 +558,36 @@ class GitFlowTest(unittest.TestCase):
         self.assertEqual(gitflow.GitFlow(pc.path, pc.user).sync()["status"], "ok")
         self.assertFalse(target.exists())
         self.assertEqual(pc.read(), before)
+
+    @unittest.skipUnless(os.name == "nt", "Windows 파일 잠금 검사임")
+    def test_windows_locked_program_change_keeps_answers_and_retries(self):
+        import ctypes
+        from ctypes import wintypes
+        pc = self.pc
+        pc.ai(1)
+        answers = pc.read()
+        target = Path(pc.path, "gui/app.py")
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                                      wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+        kernel.CreateFileW.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+        handle = kernel.CreateFileW(str(target), 0x80000000, 1, None, 3, 0x80, None)
+        self.assertNotEqual(handle, ctypes.c_void_p(-1).value)
+        try:
+            self.server.add_files({"gui/app.py": "VERSION = 2\n", "study.py": "VERSION = 2\n"}, "실행 코드 수정")
+            result = gitflow.GitFlow(pc.path, pc.user).sync()
+            self.assertIn(result["status"], ("blocked", "error"), result)
+            self.assertEqual(pc.read(), answers)
+        finally:
+            kernel.CloseHandle(handle)
+        flow = gitflow.GitFlow(pc.path, pc.user)
+        self.assertEqual(flow.sync()["status"], "ok")
+        self.assertEqual(pc.read(), answers)
+        self.assertEqual(target.read_text(encoding="utf-8"), "VERSION = 2\n")
+        self.assertEqual(git(pc.path, "rev-parse", "HEAD").stdout, git(pc.path, "rev-parse", "origin/main").stdout)
+        self.assertEqual(git(pc.path, "branch", "--show-current").stdout.strip(), "main")
+        self.assertFalse(flow.sync()["restart"])
 
     def test_pending_looks_only_at_my_folder_without_writing(self):
         self.sync()

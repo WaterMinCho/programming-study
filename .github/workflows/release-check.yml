@@ -99,6 +99,11 @@ jobs:
           tests.test_gitflow.GitFlowTest.test_failed_program_deletion_is_retried_without_deleting_private_records
           tests.test_gitflow.GitFlowTest.test_learner_case_only_rename_keeps_the_new_tracked_file
           tests.test_gitflow.GitFlowTest.test_windows_locked_program_deletion_recovers_after_unlock
+      - name: main 갱신과 이전 설치의 풀이 보존 검사
+        if: matrix.scale == '1'
+        run: >-
+          python -m unittest -v tests.test_gitflow_main_update
+          tests.test_gitflow.GitFlowTest.test_windows_locked_program_change_keeps_answers_and_retries
       - name: 프로그램 설치 경로와 첫 사용 검사
         run: python tools/check_release.py --out "${{ runner.temp }}/release-check"
       - name: 환경·창 크기·검사 결과와 화면 보관
