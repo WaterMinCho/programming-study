@@ -1595,12 +1595,12 @@ def cloze_item(statement):
             "explain": statement.get("why", "")}
 
 
-def _gen_trim(sess, chosen, keep=()):
-    """묶음이 작아졌을 때 생성기를 GEN_SHARE 아래로 줄임(뒤의 것부터). keep 의 카드는 빼지 않음."""
+def _gen_trim(sess, chosen, keep=(), minimum=0):
+    """묶음 크기에 맞춰 생성기를 뒤에서 줄임. minimum개와 keep의 문항은 남김."""
     while True:
         gens = [n for n, (c, _) in enumerate(chosen) if sess.cards[c]["kind"] == "gen"]
         spare = [n for n in gens if chosen[n][0] not in keep]
-        if not spare or len(gens) <= int(len(chosen) * GEN_SHARE):
+        if not spare or len(gens) <= max(minimum, int(len(chosen) * GEN_SHARE)):
             return chosen
         del chosen[spare[-1]]
 
@@ -1835,7 +1835,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     keep = {card} if mode == "note" else set()
     if mode in ("review", "sweep"):
         keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
-    chosen = _gen_trim(sess, chosen, keep=keep)  # 직접 고른 문항과 예정일·미해결 생성기는 비율로 빼지 않음
+    chosen = _gen_trim(sess, chosen, keep=keep, minimum=1 if mode == "unit" else 0)
     if trace is not None:
         trace["selected_pools"] = dict(chosen)
         trace["selected_sources"] = {cid: "learner_choice" if mode == "note" and cid == card else "rules"

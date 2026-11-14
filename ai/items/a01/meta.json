@@ -22,7 +22,9 @@
    "blank": 3,
    "choice": 1,
    "stmt": 0,
-   "gen": [],
+   "gen": [
+    "a01-g01"
+   ],
    "core": 3
   },
   "a1d": {
