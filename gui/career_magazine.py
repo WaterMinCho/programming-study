@@ -49,20 +49,29 @@ class MagazineTabs(kit.TabBar):
 
 class SourceDetails(QWidget):
     """출처 설명을 접어 두고 펼칠 때 현재 문단 위치를 보존함."""
-    def __init__(self, owner, title="출처·검토 범위"):
+    def __init__(self, owner, title="출처·검토 범위", *, role=None):
         super().__init__()
         self.owner = owner
         self.title = title
-        box = kit.box(self, spacing=12)
+        self.role = role
+        spacing = theme.LEARN_GAP["paragraph"] if role else theme.GAP["title_description"]
+        box = kit.box(self, spacing=spacing)
         self.button = kit.button(title + " 펼치기", "text")
         self.button.setProperty("reading_anchor", True)
         self.button.setCheckable(True)
         box.addWidget(flow_buttons(self.button))
         self.content = QWidget()
-        self.body = kit.box(self.content, spacing=12)
+        inset = kit.FLUSH if role else 0
+        self.body = kit.box(self.content, (inset, 0, 0, 0), spacing=spacing)
         box.addWidget(self.content)
         self.content.hide()
         self.button.toggled.connect(self.toggle)
+        self.refont()
+
+    def refont(self):
+        if self.role:
+            kit.typed(self.button, self.role, True)
+            self.button.setStyleSheet(f"QPushButton {{ font-size: {theme.TYPE[self.role][0]}px; text-align: left; }}")
 
     def toggle(self, opened):
         self.owner._remember()
@@ -152,7 +161,7 @@ class CareerMagazinePage(ReadingPage):
         self.viewer_host.hide()
         self.info_dialog = None
         self.paper_content = QWidget()
-        self.paper_box = kit.box(self.paper_content, spacing=24)
+        self.paper_box = kit.box(self.paper_content, spacing=theme.LEARN_GAP["group"])
         self.body.addWidget(self.paper_content)
         self.body.addStretch(1)
         self.paper_content.hide()
@@ -367,10 +376,10 @@ class CareerMagazinePage(ReadingPage):
             self._open_source(video.url)
 
     def _restore(self):
-        # 열이 바뀔 때 같은 줄의 다른 표지를 임시 기준으로 삼지 않도록 기존 표지를 유지함.
+        # 재배치 중 가까워진 다른 요소로 기준을 바꾸지 않음. 사용자 동작의 _remember 호출은 유지함.
         anchor = self._anchor
         super()._restore()
-        if anchor and not self._settling and isinstance(anchor[0], VideoCard) and anchor[0].isVisibleTo(self.content):
+        if anchor and not self._settling and anchor[0].isVisibleTo(self.content):
             self._anchor = anchor
 
     def _change_tab(self, number):
@@ -390,18 +399,18 @@ class CareerMagazinePage(ReadingPage):
 
     def _show_papers(self):
         state = self.catalog.states["papers"]
-        self.paper_box.addWidget(kit.para("어떤 문제를 풀려는 논문인지 읽고, 그림으로 계산 과정을 따라가세요."))
+        self.paper_box.addWidget(kit.para("어떤 문제를 풀려는 논문인지 읽고, 그림으로 계산 과정을 따라가세요.", "learn_body"))
         if state != "ready":
             text = {"unavailable": "논문 해설 자료는 아직 제공하지 않습니다.", "empty": "공개한 논문 해설이 없습니다.",
                     "invalid": "논문 해설 자료를 읽지 못했습니다. 프로그램을 업데이트한 뒤 다시 열어 주세요."}[state]
-            self.paper_box.addWidget(kit.para(text, "body", "secondary"))
+            self.paper_box.addWidget(kit.para(text, "learn_body", "secondary"))
         try:
             explanations = load_explanations() if self.catalog.papers else {}
         except (OSError, UnicodeError, ValueError, KeyError, TypeError, AttributeError):
             explanations = {}
         self.paper_previews = {}
         for paper in self.catalog.papers:
-            section, box = kit.card(pad=24, spacing=24)
+            section, box = kit.card(pad=32, spacing=theme.LEARN_GAP["paragraph"])
             section.setProperty("reading_anchor", True)
             explanation = explanations.get(paper.paper_id)
             preview = PaperPreview(paper, explanation)
@@ -412,30 +421,32 @@ class CareerMagazinePage(ReadingPage):
             title = explanation["short_title"] if explanation else paper.title.split(":", 1)[0]
             step = explanation["steps"][preview.stage] if explanation else None
             question = step["question"] if step else paper.summary
-            box.addWidget(kit.heading(kit.para(title, "headline"), kit.para(question)))
+            heading = kit.heading(kit.para(title, "learn_heading"), kit.para(question, "learn_body"))
+            heading.layout().setSpacing(theme.LEARN_GAP["title_description"])
+            box.addWidget(heading)
             box.addWidget(preview)
             if explanation:
                 scope = QWidget()
                 scope.setProperty("reading_anchor", True)
-                scope_box = kit.box(scope, spacing=theme.GAP["detail"])
-                scope_box.addWidget(kit.para(f"대표 단계 {preview.stage + 1} · " + step["title"], "caption", "secondary"))
-                scope_box.addWidget(kit.para(step["shape"], "caption", "secondary"))
-                scope_box.addWidget(kit.para(step["text"]))
+                scope_box = kit.box(scope, spacing=theme.LEARN_GAP["detail"])
+                scope_box.addWidget(kit.para(f"대표 단계 {preview.stage + 1} · " + step["title"], "learn_caption", "secondary"))
+                scope_box.addWidget(kit.para(step["shape"], "learn_caption", "secondary"))
+                scope_box.addWidget(kit.para(step["text"], "learn_body"))
                 for text in (explanation["axes"], explanation["boundary"]):
-                    scope_box.addWidget(kit.para(text, "caption", "secondary"))
+                    scope_box.addWidget(kit.para(text, "learn_caption", "secondary"))
                 box.addWidget(scope)
-            description = SourceDetails(self, "논문 설명·선행 개념")
+            description = SourceDetails(self, "논문 설명·선행 개념", role="learn_caption")
             description.button.setToolTip("논문이 다루는 문제와 읽기 전에 알아둘 개념을 펼치거나 접습니다.")
             description.button.setAccessibleDescription(description.button.toolTip())
-            description.body.addWidget(kit.para(paper.summary))
-            description.body.addWidget(kit.para(paper.beginner_explanation))
-            description.body.addWidget(kit.para("읽기에 필요한 개념 · " + ", ".join(paper.prerequisites), "caption", "secondary"))
-            details = SourceDetails(self)
+            description.body.addWidget(kit.para(paper.summary, "learn_body"))
+            description.body.addWidget(kit.para(paper.beginner_explanation, "learn_body"))
+            description.body.addWidget(kit.para("읽기에 필요한 개념 · " + ", ".join(paper.prerequisites), "learn_caption", "secondary"))
+            details = SourceDetails(self, role="learn_caption")
             details.button.setToolTip("출처와 확인한 논문 버전·범위, 이용 조건을 펼치거나 접습니다.")
             details.button.setAccessibleDescription(details.button.toolTip())
-            details.body.addWidget(kit.para(f"출처 · {paper.title}\n발표일 {paper.published_date or '미확인'}\n확인일 {paper.checked_date}", "caption", "secondary"))
-            details.body.addWidget(kit.para(f"검토한 버전 {paper.examined_version or '미확인'}\n{paper.verification_scope}", "caption", "secondary"))
-            details.body.addWidget(kit.para(f"논문 이용 조건 · {paper.license_label}\n{paper.license_scope}", "caption", "secondary"))
+            details.body.addWidget(kit.para(f"출처 · {paper.title}\n발표일 {paper.published_date or '미확인'}\n확인일 {paper.checked_date}", "learn_caption", "secondary"))
+            details.body.addWidget(kit.para(f"검토한 버전 {paper.examined_version or '미확인'}\n{paper.verification_scope}", "learn_caption", "secondary"))
+            details.body.addWidget(kit.para(f"논문 이용 조건 · {paper.license_label}\n{paper.license_scope}", "learn_caption", "secondary"))
             button = kit.button("논문 원문 열기", "text")
             button.setToolTip(paper.url)
             button.setAccessibleDescription("브라우저에서 논문 원문을 엽니다.\n" + paper.url)
@@ -448,14 +459,19 @@ class CareerMagazinePage(ReadingPage):
             license_button.setToolTip(paper.license_url)
             license_button.setAccessibleDescription("브라우저에서 논문 이용 조건을 확인합니다.\n" + paper.license_url)
             license_button.clicked.connect(lambda checked=False, url=paper.license_url: self.on_source(url))
-            details.body.addWidget(flow_buttons(license_button))
-            details.body.addWidget(flow_buttons(button))
+            for action in (button, figure, license_button):
+                action.setProperty("figurecontrol", True)
+            for action in (license_button, button):
+                row = flow_buttons(action)
+                details.body.addWidget(row)
+                kit.flush_left(details.body, row, widen=True)
             box.addWidget(flow_buttons(figure))
             button.setVisible(self.on_paper is not None)
             figure.setVisible(bool(self.on_figure and paper.figure_description))
             license_button.setVisible(bool(self.on_source and paper.license_url))
-            box.addWidget(description)
-            box.addWidget(details)
+            for disclosure in (description, details):
+                box.addWidget(disclosure)
+                kit.flush_left(box, disclosure, widen=True)
             self.paper_box.addWidget(section)
 
     def open_paper(self, paper):
