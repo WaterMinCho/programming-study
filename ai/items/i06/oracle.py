@@ -53,3 +53,48 @@ def i06_g04(params):
     """클래스 c 의 가중치 = 전체 데이터 수 ÷ (클래스 수 × n_c)."""
     counts = params["counts"]
     return [_text(Fraction(sum(counts), len(counts) * counts[params["cls"]]))]
+
+
+def _positive_integer(value, name):
+    """양의 정수 조건을 확인함."""
+    if type(value) is not int or value <= 0:
+        raise ValueError(f"{name}은 양의 정수여야 함.")
+    return value
+
+
+def _boolean(value, name):
+    """불리언 조건을 확인함."""
+    if type(value) is not bool:
+        raise ValueError(f"{name}은 참 또는 거짓이어야 함.")
+    return value
+
+
+def _shape(value):
+    """축 크기 목록을 비교 가능한 튜플로 바꿈."""
+    if not isinstance(value, (list, tuple)) or not value:
+        raise ValueError("배치 축을 포함하는 모양이 필요함.")
+    return tuple(_positive_integer(size, "축 크기") for size in value)
+
+
+def i06_g05(params):
+    """모양과 입력 의미를 대조하고 새 보기 문구를 반환함."""
+    batch = _positive_integer(params["batch"], "batch")
+    output_shape = _shape(params["output_shape"])
+    label_shape = _shape(params["label_shape"])
+    if output_shape[0] != batch or label_shape[0] != batch:
+        raise ValueError("배치 크기와 모양의 첫 축이 서로 맞지 않음.")
+    has_probability = _boolean(params["apply_sigmoid"], "apply_sigmoid")
+    loss_name = params["loss_name"]
+    if loss_name not in ("BCELoss", "BCEWithLogitsLoss"):
+        raise ValueError("공개 조건에 없는 손실 함수임.")
+    shape_matches = output_shape == label_shape
+    kind_matches = has_probability == (loss_name == "BCELoss")
+    if shape_matches and kind_matches:
+        answer = "모양이 같고 손실에 맞는 값을 넣었습니다."
+    elif shape_matches:
+        answer = "모양은 같지만 logit과 확률 중 잘못된 쪽을 넣었습니다."
+    elif kind_matches:
+        answer = "손실에 넣은 값은 맞지만 출력과 정답의 모양을 맞춰야 합니다."
+    else:
+        answer = "모양과 logit·확률 구분을 모두 고쳐야 합니다."
+    return [answer]

@@ -88,7 +88,7 @@ class PatternGeneratorServiceTest(PatternBase):
             practice.answer(self.right(practice, practice.current()), 1, True)
             practice.next()
         view = practice.current()
-        self.assertEqual(["학습 루프", "빈칸", "숫자 바뀜"], view["chips"])
+        self.assertEqual(["학습 루프", "빈칸", "조건 변형"], view["chips"])
         practice.answer(["-1"], 2, True)
         self.assertEqual(view["stem"], sess.wrong_item("pc-g90")["stem"])
         restored = self.session()

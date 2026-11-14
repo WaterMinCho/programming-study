@@ -9,7 +9,7 @@
 from aiprep.skel import PART_CHIP
 
 STATES = ("wrong", "skipped", "fixed")
-KIND_LABEL = {"blank": "빈칸", "choice": "고르기", "stmt": "고르기", "gen": "숫자 바뀜", "skel": "코드", "mock": "모의고사"}
+KIND_LABEL = {"blank": "빈칸", "choice": "고르기", "stmt": "고르기", "gen": "조건 변형", "skel": "코드", "mock": "모의고사"}
 
 
 def card_note(events, read_day=None):

@@ -67,3 +67,53 @@ def i17_g05(p):
     if 2 * r >= v.denominator:
         q += 1
     return [f"{sign}{q // 10000}.{q % 10000:04d}"]
+
+
+def _positive_integer(value, name):
+    """양의 정수 조건을 확인함."""
+    if type(value) is not int or value <= 0:
+        raise ValueError(f"{name}은 양의 정수여야 함.")
+    return value
+
+
+def _boolean(value, name):
+    """불리언 조건을 확인함."""
+    if type(value) is not bool:
+        raise ValueError(f"{name}은 참 또는 거짓이어야 함.")
+    return value
+
+
+def i17_g06(params):
+    """projection이 없는 LSTM 반환값의 모양·배치 축·연결 축을 계산함."""
+    batch = _positive_integer(params["batch"], "batch")
+    length = _positive_integer(params["length"], "length")
+    _positive_integer(params["input_size"], "input_size")
+    hidden = _positive_integer(params["hidden_size"], "hidden_size")
+    layers = _positive_integer(params["layers"], "layers")
+    bidirectional = _boolean(params["bidirectional"], "bidirectional")
+    if params.get("batch_first", True) is not True:
+        raise ValueError("공개 조건은 batch_first=True임.")
+    if params.get("proj_size", 0) != 0:
+        raise ValueError("공개 조건은 proj_size=0임.")
+    directions = 2 if bidirectional else 1
+    readout = params["readout"]
+    if readout == "output":
+        shape, batch_axis = [batch, length, directions * hidden], 0
+    elif readout in ("h_n", "c_n"):
+        shape, batch_axis = [layers * directions, batch, hidden], 1
+    elif readout == "last":
+        shape, batch_axis = [batch, directions * hidden], 0
+    else:
+        raise ValueError("공개 조건에 없는 반환값임.")
+    ask = params["ask"]
+    if ask == "concat_axis":
+        if readout != "last" or not bidirectional:
+            raise ValueError("연결 축 질문은 양방향 last에만 적용함.")
+        # [B, H]의 마지막 축은 1과 -1로 지정할 수 있음.
+        # 빈칸 순서 배열을 유지하며 대표 답 1을 반환함. -1도 같은 정답임.
+        return ["1"]
+    if ask == "shape":
+        return [str(shape)]
+    if ask == "batch_axis":
+        return [str(batch_axis)]
+    raise ValueError("공개 조건에 없는 질문 종류임.")

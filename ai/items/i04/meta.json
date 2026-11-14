@@ -2,7 +2,7 @@
  "units": {
   "4a": {"blank": 4, "choice": 2, "stmt": 0, "gen": ["i04-g01"], "core": 4},
   "4b": {"blank": 3, "choice": 4, "stmt": 0, "gen": ["i04-g02"], "core": 4},
-  "4c": {"blank": 5, "choice": 5, "stmt": 0, "gen": ["i04-g03"], "core": 4},
+  "4c": {"blank": 5, "choice": 5, "stmt": 0, "gen": ["i04-g03", "i04-g09"], "core": 4},
   "4d": {"blank": 2, "choice": 4, "stmt": 9, "gen": ["i04-g04"], "core": 4},
   "4e": {"blank": 3, "choice": 4, "stmt": 0, "gen": ["i04-g05"], "core": 4},
   "4f": {"blank": 3, "choice": 2, "stmt": 0, "gen": ["i04-g06"], "core": 4},
