@@ -305,7 +305,7 @@ class CareerRoadmapPage(ReadingPage):
     goal_requested = pyqtSignal(str, str)
 
     def __init__(self, parent=None, *, catalog=None, repository=None, on_back=None, on_select_goal=None,
-                 on_video=None, on_magazine=None, on_source=None):
+                 on_video=None, on_magazine=None, on_source=None, on_recommend=None):
         super().__init__(parent, on_back)
         self._on_back = on_back
         if on_back:
@@ -328,6 +328,12 @@ class CareerRoadmapPage(ReadingPage):
         title.setProperty("reading_anchor", True)
         intro.addWidget(title)
         intro.addWidget(kit.para("관심 있는 직무를 고르세요. 하는 일과 준비할 기술을 그림으로 확인할 수 있습니다.", "body", "secondary"))
+        if on_recommend is not None:
+            self.recommend_button = kit.button("내 경험으로 직무 추천받기", "primary", "l")
+            self.recommend_button.setToolTip("전공·경력·해본 활동과 관심을 함께 비교합니다. 입력은 서버로 보내지 않습니다.")
+            self.recommend_button.setAccessibleDescription(self.recommend_button.toolTip())
+            self.recommend_button.clicked.connect(on_recommend)
+            intro.addWidget(self.recommend_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.body.addWidget(self.intro)
         self.catalog_gap = QWidget()
         self.catalog_gap.setFixedHeight(theme.GAP["paragraph"])
