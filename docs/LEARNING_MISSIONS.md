@@ -23,13 +23,19 @@ WaterMinCho가 프로그램·서버·공통 자료와 앱 연결을 맡습니다
 
 ## 입력 실습 뒤 모델별 개발 PR과 확인 방법
 
-담당 이슈에는 GitHub에 올라온 코드와 PR을 기준으로 지금 할 일을 적습니다. 세 팀원이 `main`에 합친 입력 실습에서 [다음 작업](STUDY_START.md#담당과-이번-작업을-확인합니다)으로 이어갑니다. 입력 확인 문서의 승인이나 모델 전체 완성을 기다리지 않고 코드·확인 결과·설명을 같은 PR에 올립니다.
+담당 이슈에는 GitHub에 올라온 코드와 PR을 기준으로 지금 할 일을 적습니다. [현재 제출과 다음 작업](STUDY_START.md#담당과-이번-작업을-확인합니다)에서 열린 PR과 머지된 PR을 구분합니다. 입력 확인 문서의 승인이나 모델 전체 완성을 기다리지 않고 코드·확인 결과·설명을 같은 PR에 올립니다.
 
 | 담당 이슈 | 지금 만들 것 | 직접 확인할 결과 | 다음 단계 |
 |---|---|---|---|
-| [michae18 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | `model.py`에 과거 풀이와 현재 문제를 받아 확률을 내는 작은 LSTM을 만듭니다. | 합성 예제 4개에서 확률 4개가 나오고, 과거 풀이가 없는 예제도 오류 없이 처리합니다. | 학습·검증을 연결하고 저장·불러오기 후 같은 예측이 나오는지 확인합니다. 이후 기본 코드와 설정을 간격 담당자에게 공유합니다. |
-| [wamangdoo · #120](https://github.com/WaterMinCho/programming-study/issues/120) | `model.py`에 순서 정보와 빈 자리 구분을 반영한 작은 Transformer를 만듭니다. | 합성 예제 4개에서 확률 4개가 나오고, 모든 과거 자리가 비어도 숫자가 유효합니다. 빈 자리에 넣은 값을 바꿔도 예측이 달라지지 않는지 확인합니다. | 학습·검증과 저장·불러오기를 연결한 뒤 같은 조건의 LSTM과 비교합니다. |
+| [michae18 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | [PR #226](https://github.com/WaterMinCho/programming-study/pull/226)의 학습 전 예측 구현에서 이어갑니다. 다음 학습 작업에서는 기존 `train.py`에 손실 계산·역전파·가중치 갱신을 추가합니다. | 학습 구간에서 가중치가 바뀌고 검증 구간에서는 바뀌지 않는지 확인합니다. 모델 출력과 손실 함수를 고른 이유를 설명합니다. | 저장·불러오기 후 같은 예측이 나오는지 확인하고 기본 코드의 커밋·설정을 간격 담당자에게 공유합니다. |
+| [wamangdoo · #120](https://github.com/WaterMinCho/programming-study/issues/120) | LSTM과 비교할 입력 항목을 정하고, `model.py`에 순서 정보와 빈 자리 구분을 반영한 작은 Transformer를 만듭니다. | 합성 예제 4개에서 확률 4개가 나오고, 모든 과거 자리가 비어도 숫자가 유효합니다. 빈 자리에 넣은 값을 바꿔도 예측이 달라지지 않는지 확인합니다. | 학습·검증과 저장·불러오기를 연결한 뒤 같은 조건의 LSTM과 비교합니다. |
 | [kimjs85529-a11y · #121](https://github.com/WaterMinCho/programming-study/issues/121) | `inspect_gaps.py`에 이번 문제의 개념에 해당하는 간격과 확인 여부를 고르는 함수를 만듭니다. | `query_concepts`로 필요한 칸을 고르고, 시간을 모르는 `0.0·False`를 0초 경과로 바꾸지 않습니다. | 공유받은 기본 LSTM의 커밋을 고정하고, 시간 입력을 넣고 뺀 경우를 같은 조건으로 비교합니다. |
+
+2026년 11월 14일 #226의 [고정 커밋 코드][lstm-train]에는 `eval()`·`no_grad()`로 예측하는 동작만 있습니다. 예측과 테스트의 실행 결과는 작성자의 README 기록이며 학습·평가 완료 근거는 아닙니다. 현재 PR의 보완은 같은 브랜치에 올리고, 머지되면 다음 작업은 갱신한 `main`의 새 브랜치에서 진행합니다.
+
+#226의 LSTM은 입력 6개를 사용하고 [#189의 Transformer README][transformer-readme]는 9개를 계획합니다. 차이는 `mask`·`courses`·`query_course`이며, `mask`는 빈 자리를 구분하는 정보입니다. 모델 구조를 비교할 때는 과정 정보 등 예측에 사용하는 정보를 맞추고, 입력 정보가 다른 경우는 별도 실험으로 적습니다. 구체적인 입력 처리와 모델 구조는 각 담당자가 정합니다.
+
+[같은 실제 자료의 입력 검사](LEARNING_DATA_ACCESS.md#자료-파일-검증-명령과-정상-결과)를 마치면 수신·검사 성공 여부를 본인 담당 이슈 #119·#120·#121에 적습니다. 실제 기록이 담긴 상세 출력은 비공개로 전달합니다.
 
 파일 이름은 예시입니다. 이미 같은 역할의 코드가 있다면 이어서 고칩니다. 확률은 0부터 1 사이의 숫자여야 하며 `NaN`처럼 계산 결과를 알 수 없는 값이 나오면 처리 방법을 확인합니다. 첫 예측 확인에서는 학습 전 모델을 써도 됩니다. 예측값이 나온 사실과 실제로 학습한 결과는 나눠 적습니다.
 
@@ -313,3 +319,5 @@ PR에는 이번에 직접 구현한 부분, 실행 명령과 결과, 막힌 점�
 [torch-eval]: https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html#torch.nn.Module.eval
 [torch-packed]: https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/PackedSequence.cpp
 [torch-padding]: https://docs.pytorch.org/docs/stable/generated/torch.nn.modules.transformer.Transformer.html
+[lstm-train]: https://github.com/michae18/programming-study/blob/0ba3146e89d11eff97d7826fda41c15ca06efd89/experiments/michae18/train.py
+[transformer-readme]: https://github.com/wamangdoo/programming-study/blob/eacb0f8855aa3071a779c974cbb716ccc4650ed8/experiments/wamangdoo/README.md

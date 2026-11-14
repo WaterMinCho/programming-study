@@ -16,10 +16,10 @@ Git 작업은 SourceTree 또는 터미널 중 편한 방법으로 진행합니�
 |---|---|
 | 같은 작업의 PR이 열려 있습니다. | 그 PR의 브랜치에서 파일을 고치고 추가 커밋을 Push합니다. 새 PR 없이 기존 PR이 갱신됩니다. |
 | 이전 PR이 Merged로 표시됩니다. | 이전 작업은 공통 프로젝트에 합쳐졌습니다. 본인 fork의 `main`을 Sync fork로 갱신합니다. SourceTree에서 로컬 `main`을 더블클릭해 전환하고 Pull로 `origin/main`을 받은 뒤 `main`에서 다음 작업 브랜치와 새 PR을 만듭니다. |
-| 작업 브랜치는 있고 PR은 없습니다. | 기존 브랜치에서 이어서 작업하고 그 브랜치로 첫 PR을 만듭니다. 구현 중이면 Draft PR로 공유합니다. |
+| 다음 작업용 새 브랜치가 있고 아직 PR로 보내지 않았습니다. | 그 브랜치에서 이어서 작업하고 첫 PR을 만듭니다. 구현 중이면 Draft PR로 공유합니다. |
 | 아직 fork나 로컬 저장소가 없습니다. | 아래 1~3절부터 시작합니다. |
 
-열린 PR에서 보완하는 커밋과 머지 후 다음 작업을 시작하는 새 PR은 구분합니다. 입력 실습 PR #150·#158·#189는 모두 머지됐습니다. [팀원별 다음 작업](STUDY_START.md#담당과-이번-작업을-확인합니다)은 갱신한 `main`에서 새 브랜치를 만들어 진행합니다. 실제 출력이 빠졌다면 다음 코드 PR의 README에 함께 채웁니다.
+입력 실습 PR #150·#158·#189는 모두 머지됐습니다. 2026년 11월 14일 기준 michae18의 [PR #226](https://github.com/WaterMinCho/programming-study/pull/226)은 열려 있으므로 해당 PR의 보완은 `model/michae18-lstm-v2`에서 진행합니다. [팀원별 다음 작업](STUDY_START.md#담당과-이번-작업을-확인합니다)을 새로 시작할 때는 갱신한 `main`에서 새 브랜치를 만듭니다. 머지된 입력 실습 브랜치를 다음 작업에 재사용하지 않습니다.
 
 기존 작업 브랜치에 최신 공통 변경이 필요하면 [작업 브랜치에 공통 변경 받기](#작업-브랜치에-공통-변경-받기)를 따릅니다. 새 명령이 없다는 오류가 나도 작업 파일이나 자료를 지우지 않습니다.
 
@@ -59,7 +59,7 @@ flowchart TD
 
 ## 1. GitHub 보드에서 내 담당 이슈 열기
 
-[스터디 보드](https://github.com/users/WaterMinCho/projects/2/views/1)의 **내 작업**에서 본인 카드를 엽니다. 보드를 열 수 없거나 카드가 없으면 WaterMinCho에게 GitHub ID를 알려주세요.
+[작업 보드](https://github.com/users/WaterMinCho/projects/2/views/1)에서 본인 담당 이슈 카드를 찾습니다. 보드를 열 수 없거나 카드가 없으면 WaterMinCho에게 GitHub ID를 알려주세요.
 
 | 담당 | 모델과 작업 폴더 |
 |---|---|
@@ -68,9 +68,11 @@ flowchart TD
 | [wamangdoo · Transformer](https://github.com/WaterMinCho/programming-study/issues/120) | `experiments/wamangdoo/` |
 | [kimjs85529-a11y · LSTM + 풀이 간격](https://github.com/WaterMinCho/programming-study/issues/121) | `experiments/kimjs85529-a11y/` |
 
-작업을 시작하면 카드를 **진행**, 검토받을 PR을 올리면 **검토**로 옮깁니다.
+카드 제목을 눌러 이슈를 열고, 오른쪽 Projects의 **Status**에서 작업을 시작할 때는 **진행**, 검토받을 PR이 준비됐을 때는 **검토**를 선택합니다. 작업 보드에서 카드를 해당 열로 끌어 옮겨도 Status가 바뀝니다. 카드 아래 Status 배지를 누르면 필터가 적용됩니다.
 
-아직 구현 중이면 PR을 Draft로 열고 카드는 진행에 둡니다. 자동 코드 리뷰를 받을 때 **Ready for review**로 바꾸고 카드를 **검토**로 옮깁니다.
+아직 구현 중이면 PR을 Draft로 열고 Status는 진행으로 둡니다. 검토받을 준비가 되면 PR을 **Ready for review**로 바꾸고 Status도 **검토**로 바꿉니다.
+
+[개발 로드맵](https://github.com/users/WaterMinCho/projects/2/views/4)의 **개발 단계**는 이슈의 목적을 나눕니다. `01 · 자료 준비 → 02 · 모델 구현 → 03 · 비교·평가 → 04 · 추천 연결 → 05 · ROS 확장` 순서이며 진행 여부는 **Status**로 표시합니다. `03 · 비교·평가`는 제출물을 검토하고, 같은 조건의 비교 평가를 준비하는 단계입니다. #122가 이 단계에 있다는 것은 평가 완료를 뜻하지 않습니다. 상태를 바꿀 때는 이슈 오른쪽 Projects의 Status나 작업 보드의 열 이동을 사용합니다.
 
 <a id="2-개인-모델-저장소를-만듭니다"></a>
 
@@ -156,13 +158,15 @@ git merge origin/main
 현재 `programming-study` 안에 `study.py`와 `learning_server`가 보이는지 확인합니다. SourceTree를 쓰는 사람도 이 폴더에서 터미널을 열고 다음 Python 명령을 실행합니다.
 
 ```sh
-python -m learning_server.starter --synthetic --out ../learning-demo-f5
-python -m learning_server.input_example --dataset ../learning-demo-f5 --track python --batch-size 4 --length 4
+python -m learning_server.starter --synthetic --out ../learning-demo-f6
+python -m learning_server.input_example --dataset ../learning-demo-f6 --track python --batch-size 4 --length 4
 ```
 
 첫 명령은 가상 풀이 자료를 만들고 두 번째 명령은 입력 예시 4개를 읽습니다. 각 예시의 과거 풀이를 최대 4개까지 확인하며 모델을 학습하지는 않습니다. `inputs`와 이번 정답표인 `targets`, 과거 풀이의 실제 자리인 `mask`, 실제 길이인 `lengths`를 [공통 입력 설명](LEARNING_STARTER.md#세-모델의-공통-입력-형식)과 대조합니다. 오답 0과 빈 자리를 구분해보세요. `--track python`을 `--track ai`로 바꾸면 AI 과목의 합성 예제를 읽습니다. 이 예제의 과정은 미기록입니다.
 
-`python`을 찾지 못하면 Windows는 `py`, Mac은 `python3`로 바꿉니다. `No module named learning_server`가 나오면 현재 폴더부터 확인합니다. `learning-demo-f5`가 이미 있으면 두 번째 명령으로 읽습니다. 새 자료를 만들 때는 `--out`과 `--dataset`에 같은 새 폴더 이름을 쓰며 기존 자료는 덮어쓰지 않습니다.
+최신 `main`에서 새로 만드는 자료는 버전 6입니다. 공유 실제 ZIP은 버전 4, 고정 커밋의 Colab 예제는 버전 5입니다. [자료별 버전](LEARNING_STARTER.md#세-팀원이-사용할-자료-버전을-맞춥니다)을 확인하고, 폴더 이름 대신 `manifest.json`의 `features_version`과 생성에 쓴 코드 커밋을 실험 기록에 적습니다.
+
+`python`을 찾지 못하면 Windows는 `py`, Mac은 `python3`로 바꿉니다. `No module named learning_server`가 나오면 현재 폴더부터 확인합니다. `learning-demo-f6`가 이미 있으면 두 번째 명령으로 읽습니다. 새 자료를 만들 때는 `--out`과 `--dataset`에 같은 새 폴더 이름을 쓰며 기존 자료는 덮어쓰지 않습니다.
 
 <a id="4-본인이-이해한-내용을-저장합니다"></a>
 <a id="5-공통-프로젝트로-보낼-첫-변경을-만듭니다"></a>
@@ -237,10 +241,10 @@ PR 주소를 담당 이슈에 붙입니다. 검토를 요청할 때 카드를 **
 
 ### 담당 이슈와 PR 연결하기
 
-예를 들어 michae18이 [LSTM 담당 이슈 #119](https://github.com/WaterMinCho/programming-study/issues/119)의 입력 처리부터 구현했다면, PR 본문에 아래처럼 적습니다. 코드와 결과 설명은 본인이 실제로 한 작업으로 바꾸세요.
+커밋 메시지와 PR 본문의 이슈 참조는 `Refs WaterMinCho/programming-study#119`처럼 공통 저장소 이름까지 적습니다. 본인 fork의 같은 번호 이슈와 구분하기 위해서입니다. 예를 들어 michae18이 [LSTM 담당 이슈 #119](https://github.com/WaterMinCho/programming-study/issues/119)의 입력 처리부터 구현했다면, PR 본문에 아래처럼 적습니다. 코드와 결과 설명은 본인이 실제로 한 작업으로 바꾸세요.
 
 ```text
-관련 이슈 WaterMinCho/programming-study#119
+Refs WaterMinCho/programming-study#119
 
 LSTM에 넣을 입력과 빈 이력 처리 코드를 추가했음. 합성 자료로 입력 크기와 빈 이력 처리를 확인했음. 모델 학습은 다음 작업에서 진행함.
 ```
@@ -259,7 +263,7 @@ wamangdoo는 `WaterMinCho/programming-study#120`, kimjs85529-a11y는 `WaterMinCh
 Closes WaterMinCho/programming-study#119
 ```
 
-PR의 base가 공통 저장소의 기본 브랜치 `main`인지 확인합니다. PR을 만든 뒤 오른쪽 **Development**에서 해당 이슈가 연결됐는지 확인하세요. 이 PR이 `main`에 머지되면 이슈도 자동으로 닫힙니다. 아직 남은 작업이 있는 PR에 `Closes`를 적었다면 PR 본문의 **Edit**에서 위의 ‘관련 이슈’ 형식으로 고칩니다.
+PR의 base가 공통 저장소의 기본 브랜치 `main`인지 확인합니다. PR을 만든 뒤 오른쪽 **Development**에서 해당 이슈가 연결됐는지 확인하세요. 이 PR이 `main`에 머지되면 이슈도 자동으로 닫힙니다. 아직 남은 작업이 있는 PR에 `Closes`를 적었다면 PR 본문의 **Edit**에서 위의 `Refs` 형식으로 고칩니다.
 
 <a id="7-같은-fork에서-모델을-개발합니다"></a>
 
@@ -286,7 +290,7 @@ model-study/
         figures/                 합성 자료의 학습곡선
         REVIEW_NOTES.md          피드백과 수정 이유
   study-data/                   비공개 실제 자료와 샘플 · 저장소 밖에 보관
-  learning-demo-f5/              가상 자료 · 저장소 밖에 보관
+  learning-demo-f6/              가상 자료 · 저장소 밖에 보관
 ```
 
 공통 `learning_server`를 불러오는 모델은 `programming-study` 폴더에서 `python -m experiments.본인ID.train`처럼 실행합니다. 예를 들어 `python -m experiments.kimjs85529-a11y.train`입니다. 아직 `train.py`를 만들지 않았다면 실행할 수 없으며 파일 이름과 명령을 본인 README에 맞춰 적습니다.

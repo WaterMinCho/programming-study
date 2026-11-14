@@ -12,9 +12,19 @@
 
 ## 팀원이 함께 쓸 자료 버전
 
-새로 만드는 공통 입력 버전은 `features_version: 6`입니다. 버전 4·5와 현재 공유 폴더의 `common-input-f4-20261112` 자료도 계속 읽을 수 있습니다. 합성 자료는 파이썬·AI를 각각 학습 8건·검증 2건·평가 2건으로 준비했습니다. 사용 범위를 확인한 기존 파이썬 기록은 학습 84건·검증 29건·평가 18건입니다. 실제 AI 기록과 수강생 전원의 자료가 준비됐다는 뜻은 아닙니다.
+자료를 만든 코드에 따라 공통 입력 버전이 다릅니다.
 
-세 팀원은 Drive의 **ROKEY 모델 스터디 · 공통 학습 자료** 폴더에서 번호표가 포함된 같은 ZIP을 내려받습니다. 묶음 SHA-256은 `b5dd2a5daa4af4ec05de7ee1ac91a93ac485d93003f10ca3b6bbabc718c00bff`입니다. 아래 명령으로 새로 만드는 합성 예제는 버전 5입니다. 실험에는 사용한 폴더의 `manifest.json`에서 `features_version`을 확인해 적습니다. 담당 이슈에는 자료를 열었는지만 적습니다.
+| 자료 | `features_version` |
+|---|---|
+| 최신 `main`에서 새로 만드는 자료 | 6 |
+| 공유 ZIP `common-input-f4-20261112` | 4 |
+| 고정 커밋 `cc87ec96`의 [Colab 합성 예제](LEARNING_DATA_ACCESS.md) | 5 |
+
+최신 `main`의 입력 읽기·자료 검사 도구는 버전 4·5·6을 지원합니다. [지원 버전 선언][supported-versions]과 [입력 읽기 조건][input-load]에서 버전과 파일 해시를 확인합니다. 공유 ZIP은 최신 `main`으로 읽고 [자료 검사 명령](LEARNING_DATA_ACCESS.md#자료-파일-검증-명령과-정상-결과)으로 본인이 받은 파일을 확인합니다.
+
+합성 자료는 파이썬·AI를 각각 학습 8건·검증 2건·평가 2건으로 준비했습니다. 사용 범위를 확인한 기존 파이썬 기록은 학습 84건·검증 29건·평가 18건입니다. 실제 AI 기록과 수강생 전원의 자료가 준비됐다는 뜻은 아닙니다.
+
+세 팀원은 Drive의 **ROKEY 모델 스터디 · 공통 학습 자료** 폴더에서 번호표가 포함된 같은 ZIP을 내려받습니다. 묶음 SHA-256은 `b5dd2a5daa4af4ec05de7ee1ac91a93ac485d93003f10ca3b6bbabc718c00bff`입니다. 폴더 이름만으로 버전을 정하지 않고, `manifest.json`의 `features_version`과 생성에 쓴 코드 커밋을 실험 기록에 적습니다. 자료 수신·입력 검사 성공 여부는 본인 담당 이슈 #119·#120·#121에 적습니다.
 
 기존 실제 자료는 한 사람의 기록이며 과거 문항 버전과 일부 시각을 확인할 수 없습니다. 새 학습자에 대한 성능이나 추천 효과로 해석하지 않습니다. 검증·평가에 번호표에 없는 문항이 있으므로 UNK와 개념 입력도 확인합니다.
 
@@ -47,9 +57,9 @@ python -m learning_server.starter --input ../learning-events.jsonl --out ../lear
 실제 기록을 전달받기 전에는 기존 합성 예제로 입력 모양을 확인합니다. 이 작은 예제의 점수를 실제 학습자 성능으로 쓰지 않습니다.
 
 ```sh
-python -m learning_server.starter --synthetic --out ../learning-demo-f5
-python -m learning_server.input_example --dataset ../learning-demo-f5 --track python --batch-size 4 --length 32
-python -m learning_server.input_example --dataset ../learning-demo-f5 --track ai --batch-size 4 --length 32
+python -m learning_server.starter --synthetic --out ../learning-demo-f6
+python -m learning_server.input_example --dataset ../learning-demo-f6 --track python --batch-size 4 --length 32
+python -m learning_server.input_example --dataset ../learning-demo-f6 --track ai --batch-size 4 --length 32
 ```
 
 추가 라이브러리 설치나 모델 학습 없이 실행할 수 있습니다. 자료에 있는 과목만 선택합니다. 기존 파이썬 프로필로 만든 자료에는 파이썬만 들어 있습니다.
@@ -119,3 +129,6 @@ AI 자료는 같은 과정·문항 버전·풀이 위치의 반환 기록이 하
 AI 개론·응용은 같은 `ai` 자료에서 함께 준비합니다. 원자료의 `course`가 관측값이고 예전 기록의 추정은 `course_inferred`로 나눕니다. 모델 입력의 `courses`는 과거 각 풀이의 과정 번호, `query_course`는 현재 문제의 과정 번호입니다. 번호표는 학습 구간에만 맞추며 없는 값은 UNK로 처리합니다. `baseline.json`의 `by_course`에서 과정별 결과를 따로 봅니다.
 
 이전 공통 자료와 ZIP은 덮어쓰지 않습니다. 현재 도구가 이전 버전을 알리면 같은 허락받은 원본을 새 출력 폴더로 다시 준비합니다. 모델의 자료 버전·번호표·가중치도 함께 맞춥니다.
+
+[supported-versions]: https://github.com/WaterMinCho/programming-study/blob/6b9d8f3aaa0503ae6d0fce97b63ae1315fd4d1a6/learning_server/dataset.py#L16
+[input-load]: https://github.com/WaterMinCho/programming-study/blob/6b9d8f3aaa0503ae6d0fce97b63ae1315fd4d1a6/learning_server/input_example.py#L14

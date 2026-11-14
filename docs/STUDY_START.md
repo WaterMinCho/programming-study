@@ -12,17 +12,28 @@
 
 <a id="팀원별-담당-모델과-첫-작업"></a>
 
-## 입력 실습 다음에 만들 코드
+<a id="입력-실습-다음에-만들-코드"></a>
 
-| 담당 | 공통 `main`에 합쳐진 입력 실습 | 다음 개발 PR에서 확인할 동작 |
+## 담당별 현재 제출과 다음 작업
+
+| 담당 | 현재 제출 | 다음에 할 작업 |
 |---|---|---|
-| [michae18 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | [기본 LSTM 입력 설명 · #150](https://github.com/WaterMinCho/programming-study/pull/150) | 작은 LSTM으로 합성 예제 4개의 확률을 계산합니다. 빈 이력을 테스트하고 기존 `Readme.md`의 빈 출력란에 실제 결과를 적습니다. |
-| [wamangdoo · #120](https://github.com/WaterMinCho/programming-study/issues/120) | [Transformer 입력과 마스킹 기록 · #189](https://github.com/WaterMinCho/programming-study/pull/189) | 순서를 반영한 작은 Transformer로 확률 4개를 계산합니다. 빈 이력을 처리하고 빈 자리의 값만 바꿔도 예측이 같은지 확인합니다. |
-| [kimjs85529-a11y · #121](https://github.com/WaterMinCho/programming-study/issues/121) | [개념별 풀이 간격 확인 · #158](https://github.com/WaterMinCho/programming-study/pull/158) | 이번 문제의 개념에 해당하는 간격과 확인 여부를 함께 고르는 함수를 만듭니다. 다른 개념의 간격과 시간을 모르는 경우를 테스트합니다. |
+| [michae18 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | [입력 실습 #150](https://github.com/WaterMinCho/programming-study/pull/150)은 머지됐고, [학습 전 LSTM 예측 #226](https://github.com/WaterMinCho/programming-study/pull/226)은 열려 있습니다. | 현재 PR의 수정은 같은 브랜치에 올립니다. 다음 학습 작업에서는 기존 `train.py`에 오차 계산·역전파·가중치 갱신을 추가하고 검증 구간을 연결합니다. |
+| [wamangdoo · #120](https://github.com/WaterMinCho/programming-study/issues/120) | [Transformer 입력과 마스킹 기록 · #189](https://github.com/WaterMinCho/programming-study/pull/189)이 머지됐습니다. | LSTM과 비교할 입력 항목을 정하고 작은 Transformer로 확률 4개를 계산합니다. 빈 이력과 빈 자리 처리를 테스트합니다. |
+| [kimjs85529-a11y · #121](https://github.com/WaterMinCho/programming-study/issues/121) | [개념별 풀이 간격 확인 · #158](https://github.com/WaterMinCho/programming-study/pull/158)이 머지됐습니다. | 이번 문제의 개념에 해당하는 간격과 확인 여부를 함께 고르는 함수를 만듭니다. 다른 개념의 간격과 시간을 모르는 경우를 테스트합니다. |
 
-[GitHub 스터디 보드](https://github.com/users/WaterMinCho/projects/2)에서 내 이슈를 여세요. 보드에 404가 뜨면 초대받은 GitHub 계정으로 로그인했는지 확인하세요. [프로젝트 구조 그림](ARCHITECTURE.md)에는 내 모델이 받을 입력과 돌려줄 값이, [담당별 미션](LEARNING_MISSIONS.md)에는 다음 PR에 담을 코드와 실험 결과가 나와 있습니다.
+2026년 11월 14일 기준 #226의 [제출 코드][lstm-train]는 학습 전 모델로 두 묶음의 예측을 계산하며 가중치를 갱신하지 않습니다. 합성 자료의 예측·빈 이력·패딩 테스트 결과는 [작성자의 README][lstm-readme]에 적혀 있고, 학습·성능 평가는 미실행으로 표시되어 있습니다.
 
-세 입력 실습 PR은 모두 머지됐습니다. 다음 작업은 본인 fork의 `main`을 갱신한 뒤 새 브랜치에서 시작해 [새 PR을 엽니다](LEARNING_WORKFLOW.md#6-커밋푸시하고-첫-pr을-엽니다). 해당 작업의 PR이 이미 열려 있으면 [같은 브랜치에 수정 커밋을 추가합니다](LEARNING_WORKFLOW.md#리뷰-질문에-답하고-수정한-커밋-남기기).
+[작업 보드](https://github.com/users/WaterMinCho/projects/2/views/1)에서 카드 제목을 눌러 내 이슈를 여세요. 오른쪽 Projects의 Status에서 작업을 시작하면 **진행**, 검토받을 PR이 준비되면 **검토**를 선택합니다. [상태 바꾸는 방법](LEARNING_WORKFLOW.md#1-github-보드에서-내-담당-이슈-열기)을 따라 하세요.
+
+[개발 로드맵](https://github.com/users/WaterMinCho/projects/2/views/4)의 **개발 단계**는 자료 준비·모델 구현 등 이슈의 목적을 나타냅니다. 작업의 진행 여부는 Status로 확인합니다.
+
+[프로젝트 구조 그림](ARCHITECTURE.md)에서 모델이 받을 입력과 돌려줄 값을, [담당별 미션](LEARNING_MISSIONS.md)에서 코드와 실험 조건을 확인합니다. 보드에 404가 뜨면 초대받은 GitHub 계정으로 로그인했는지 확인하세요.
+
+#226이 열려 있는 동안 michae18은 `model/michae18-lstm-v2`에서 [추가 커밋을 올립니다](LEARNING_WORKFLOW.md#리뷰-질문에-답하고-수정한-커밋-남기기). #226이 머지되면 다음 작업은 갱신한 fork의 `main`에서 새 브랜치로 시작합니다. wamangdoo·kimjs85529-a11y도 머지된 입력 실습 브랜치 대신 새 작업 브랜치를 만듭니다. 이미 다음 작업을 시작했고 아직 PR로 보내지 않은 새 브랜치가 있다면 그 브랜치에서 이어갑니다.
+
+[lstm-train]: https://github.com/michae18/programming-study/blob/0ba3146e89d11eff97d7826fda41c15ca06efd89/experiments/michae18/train.py
+[lstm-readme]: https://github.com/michae18/programming-study/blob/0ba3146e89d11eff97d7826fda41c15ca06efd89/experiments/michae18/Readme.md
 
 <a id="첫-pr까지-진행합니다"></a>
 
