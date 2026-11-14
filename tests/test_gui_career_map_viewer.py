@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 from tests import guikit
 from PyQt6.QtCore import QPoint, QPointF, Qt
-from PyQt6.QtGui import QNativeGestureEvent, QPointingDevice, QWheelEvent
+from PyQt6.QtGui import QColor, QNativeGestureEvent, QPainter, QPointingDevice, QWheelEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QAbstractScrollArea
 
@@ -75,6 +75,12 @@ class MapViewerTest(unittest.TestCase):
         from PyQt6 import sip
 
         view = self.view
+        # 원본 끝이 빈 여백이어도 모서리의 이동과 색 보존을 확인할 표식을 넣음.
+        view.original = view.original.copy()
+        painter = QPainter(view.original)
+        painter.fillRect(view.original.width() - 120, view.original.height() - 80,
+                         80, 40, QColor("#5279a3"))
+        painter.end()
         view.zoom(1)
         guikit.pump()
         for bar in (view.horizontalScrollBar(), view.verticalScrollBar()):
