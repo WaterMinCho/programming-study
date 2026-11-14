@@ -1,10 +1,46 @@
 # -*- coding: utf-8 -*-
 """과목 이동 단추의 아이콘과 글자를 같은 좌표에 배치함."""
+import math
+
 from PyQt6.QtCore import QPointF, QRectF, QSize, Qt
-from PyQt6.QtGui import QIcon, QPainterPath, QPen
-from PyQt6.QtWidgets import QPushButton, QStyle, QStyleOptionButton, QStylePainter
+from PyQt6.QtGui import QFontMetricsF, QIcon, QPainterPath, QPen
+from PyQt6.QtWidgets import QComboBox, QPushButton, QStyle, QStyleOptionButton, QStylePainter
 
 from gui import kit, theme
+
+
+def draw_chevron(painter, center, color, expanded):
+    painter.save()
+    painter.translate(center)
+    if not expanded:
+        painter.rotate(-90)
+    painter.setRenderHint(painter.RenderHint.Antialiasing)
+    painter.setPen(QPen(color, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    path = QPainterPath(QPointF(-9, -4.5))
+    path.lineTo(0, 4.5)
+    path.lineTo(9, -4.5)
+    painter.drawPath(path)
+    painter.restore()
+
+
+class NavigationPicker(QComboBox):
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("subject_picker")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setStyleSheet("QComboBox::drop-down { width: 44px; border: none; }"
+                           "QComboBox::down-arrow { width: 0; height: 0; image: none; }")
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QStylePainter(self)
+        color = theme.qcolor("muted" if self.isEnabled() else "faint")
+        draw_chevron(painter, QPointF(self.width() - 24, self.height() / 2), color, True)
+        if self.hasFocus():
+            painter.setPen(QPen(theme.qcolor("focus"), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(self.rect().adjusted(1, 1, -1, -1))
 
 
 class NavigationButton(QPushButton):
@@ -18,7 +54,7 @@ class NavigationButton(QPushButton):
         self.setCheckable(True)
         self.setAutoDefault(False)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName(title)
         self.setToolTip(title)
         kit.typed(self, "label")
@@ -30,12 +66,35 @@ class NavigationButton(QPushButton):
         self.update()
 
     def sizeHint(self):
-        return QSize(max(200, self.fontMetrics().horizontalAdvance(self.text()) + 80 + 12 * self.depth), self.minimumHeight())
+        width = math.ceil(QFontMetricsF(theme.font("label", True)).horizontalAdvance(self.text()))
+        return QSize(max(200, self.text_left() + width + self.text_right_margin()), self.minimumHeight())
+
+    def text_left(self):
+        return 48 + 12 * self.depth
+
+    def text_right_margin(self):
+        return 44 if self.key == "career" else 16
 
     def text_rect(self):
-        left = 48 + 12 * self.depth
-        right = 36 if self.key == "career" else 16
-        return QRectF(left, 0, max(0, self.width() - left - right), self.height())
+        left = self.text_left()
+        return QRectF(left, 0, max(0, self.width() - left - self.text_right_margin()), self.height())
+
+    def nextCheckState(self):
+        # 현재 페이지가 바뀌었을 때 Workspace가 선택 표시를 갱신함.
+        pass
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if not event.isAutoRepeat():
+                self.click()
+        elif self.key == "career" and key in (Qt.Key.Key_Left, Qt.Key.Key_Right):
+            if (key == Qt.Key.Key_Right) != self.property("expanded"):
+                self.click()
+        else:
+            super().keyPressEvent(event)
+            return
+        event.accept()
 
     def paintEvent(self, event):
         painter = QStylePainter(self)
@@ -102,10 +161,4 @@ class NavigationButton(QPushButton):
         painter.setPen(color)
         painter.drawText(self.text_rect(), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, self.text())
         if self.key == "career":
-            x, y = self.width() - 22, self.height() / 2
-            if self.property("expanded"):
-                painter.drawLine(QPointF(x - 4, y - 2), QPointF(x, y + 2))
-                painter.drawLine(QPointF(x, y + 2), QPointF(x + 4, y - 2))
-            else:
-                painter.drawLine(QPointF(x - 2, y - 4), QPointF(x + 2, y))
-                painter.drawLine(QPointF(x + 2, y), QPointF(x - 2, y + 4))
+            draw_chevron(painter, QPointF(self.width() - 24, self.height() / 2), color, self.property("expanded"))

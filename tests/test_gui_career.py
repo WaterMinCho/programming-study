@@ -96,6 +96,44 @@ class CareerGuiTest(unittest.TestCase):
         self.assertEqual(page.selected_role_id, "qa")
         self.assertEqual(page.role_picker.currentData(), "qa")
 
+    def test_role_scenes_pair_on_wide_windows_and_switch_on_small_windows(self):
+        saved = Mock()
+        page = self.show(CareerRoadmapPage, on_select_goal=saved)
+        scene = page.scene
+        for role in self.catalog.roles:
+            page.select_role(role["id"])
+            self.assertFalse(scene.picture.pixmap.isNull(), role["id"])
+            self.assertTrue(scene.picture.accessibleDescription())
+        page.select_role("robot_navigation")
+        self.assertTrue(scene.tabs.isVisible())
+        guikit.click(scene.tabs.buttons[1])
+        self.assertTrue(scene.artifact.isVisible())
+        self.assertFalse(scene.picture.isVisible())
+        self.assertEqual(scene.caption.text(), scene.artifact.accessibleDescription())
+        page.resize(1350, 800)
+        self.settle(page)
+        self.assertTrue(scene.picture.isVisible() and scene.artifact.isVisible())
+        self.assertTrue(scene.tabs.isHidden())
+        self.assertEqual(scene.picture.mapTo(page, QPoint()).y(), scene.artifact.mapTo(page, QPoint()).y())
+        self.assertEqual(scene.picture.height(), scene.artifact.height())
+        page.resize(760, 480)
+        self.settle(page)
+        self.assertTrue(scene.artifact.isVisible())
+        self.assertTrue(page.filters.isHidden())
+        guikit.click(page.filter_toggle)
+        self.assertTrue(page.filters.isVisible())
+        saved.assert_not_called()
+
+    def test_missing_scene_shows_the_result_and_next_role_restores_preferred_view(self):
+        page = self.show(CareerRoadmapPage)
+        with tempfile.TemporaryDirectory() as directory, patch("gui.career_scene.SCENES", Path(directory)):
+            page.select_role("frontend")
+            self.assertTrue(page.scene.tabs.isHidden())
+            self.assertTrue(page.scene.artifact.isVisible())
+        page.select_role("robot_vision")
+        self.assertTrue(page.scene.picture.isVisible())
+        self.assertTrue(page.scene.tabs.isVisible())
+
     def test_roadmap_sources_and_related_videos_open_selected_targets(self):
         source, video, magazine = Mock(), Mock(), Mock()
         page = self.show(CareerRoadmapPage, on_source=source, on_video=video, on_magazine=magazine)
@@ -104,6 +142,8 @@ class CareerGuiTest(unittest.TestCase):
         source.assert_not_called()
         role = self.catalog.role("frontend")
         expected = [row for row in self.catalog.sources if row["id"] in role["source_ids"]]
+        self.assertTrue(page.source_box.isHidden())
+        guikit.click(page.sources_button)
         links = page.source_box.findChildren(QPushButton)
         self.assertEqual(len(links), len(expected))
         for link, row in zip(links, expected):
@@ -397,6 +437,7 @@ class CareerGuiTest(unittest.TestCase):
 
     def test_small_windows_themes_fonts_and_flow_bounds(self):
         page = self.show(CareerRoadmapPage, on_select_goal=Mock(), on_back=Mock())
+        guikit.click(page.team_toggle)
         for scheme in ("light", "dark"):
             theme.set_mode(scheme)
             theme.set_text("larger")

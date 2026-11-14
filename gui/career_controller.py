@@ -67,6 +67,7 @@ class CareerController:
                     "selected_at": datetime.now(timezone.utc).isoformat()}
         self.win.settings.setValue("career/role/" + self.win.user, json.dumps(selected, ensure_ascii=False))
         self.roadmap.set_saved_role(role_id)
+        self.roadmap.image_notice.show()
         self.roadmap.image_notice.setText("관심 직무를 저장했습니다: " + role["title"])
 
     def play_video(self, video):

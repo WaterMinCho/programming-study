@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """과목 이동, 과목별 현황 카드와 제출 작업 영역을 공통으로 배치함."""
-from PyQt6.QtCore import QEvent, QPoint, QSignalBlocker, QSize, Qt
+from PyQt6.QtCore import QEvent, QPoint, QSignalBlocker, QSize, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF
-from PyQt6.QtWidgets import QApplication, QComboBox, QFrame, QGridLayout, QLayout, QScrollArea, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QFrame, QGridLayout, QLayout, QScrollArea, QSizePolicy, QWidget
 
 import study
 from gui import kit, theme
 from gui.mascot import Mascot
-from gui.navigation import NavigationButton
+from gui.navigation import NavigationButton, NavigationPicker
 
 SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home"),
             ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI", "go_ai"),
@@ -234,16 +234,18 @@ class Workspace(QWidget):
         nav.addSpacing(24)
         self.buttons = {}
         self.career_toggle = NavigationButton("career", "커리어")
-        self.career_toggle.setProperty("expanded", True)
-        self.career_toggle.setToolTip("커리어 메뉴 접기")
-        self.career_toggle.setAccessibleDescription("개발자 로드맵과 매거진 메뉴를 접거나 펼칩니다.")
         self.career_toggle.clicked.connect(self.toggle_career)
-        self.career_expanded = True
+        self.career_expanded = False
         for tid, title, action in self.subjects:
             if tid == "career_roadmap":
                 nav.addSpacing(16)
                 nav.addWidget(self.career_toggle)
             button = NavigationButton(tid, title, depth=int(tid.startswith("career_")))
+            if button.depth:
+                # 접은 상태에서도 펼친 목록이 들어가는지를 같은 높이로 판단함.
+                policy = button.sizePolicy()
+                policy.setRetainSizeWhenHidden(True)
+                button.setSizePolicy(policy)
             button.clicked.connect(lambda checked=False, action=action: self.navigate(action))
             self.buttons[tid] = button
             nav.addWidget(button)
@@ -252,8 +254,7 @@ class Workspace(QWidget):
         self.body = QWidget()
         self.body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         box = kit.box(self.body)
-        self.compact = QComboBox()
-        self.compact.setObjectName("subject_picker")
+        self.compact = NavigationPicker()
         self.compact.setAccessibleName("메뉴 이동")
         for tid, title, action in self.subjects:
             self.compact.addItem("커리어 · " + title if tid.startswith("career_") else title, action)
@@ -292,30 +293,49 @@ class Workspace(QWidget):
 
     def toggle_career(self):
         self.career_expanded = not self.career_expanded
-        self.career_toggle.setChecked(not self.career_expanded and self.win.area.startswith("career_"))
+        self.refresh_navigation()
+
+    def refont(self):
+        # 하위 단추와 상단 제목에도 새 글꼴을 적용한 뒤 목록 크기를 다시 잼.
+        QTimer.singleShot(0, self.refresh_navigation)
+
+    def refresh_navigation(self):
+        active = self.win.area
+        focused = QApplication.focusWidget()
         self.career_toggle.setProperty("expanded", self.career_expanded)
-        self.career_toggle.setToolTip("커리어 메뉴 접기" if self.career_expanded else "커리어 메뉴 펼치기")
-        for key, button in self.buttons.items():
-            if key.startswith("career_"):
+        action = "커리어 메뉴 접기" if self.career_expanded else "커리어 메뉴 펼치기"
+        self.career_toggle.setToolTip(action)
+        self.career_toggle.setAccessibleDescription(action)
+        self.career_toggle.setChecked(not self.career_expanded and active.startswith("career_"))
+        for index, (tid, _, _) in enumerate(self.subjects):
+            button = self.buttons[tid]
+            if button.depth:
+                if focused is button and not self.career_expanded:
+                    self.career_toggle.setFocus(Qt.FocusReason.OtherFocusReason)
                 button.setVisible(self.career_expanded)
+            button.setChecked(tid == active and not button.isHidden())
+            if tid == active:
+                with QSignalBlocker(self.compact):
+                    self.compact.setCurrentIndex(index)
         self.career_toggle.update()
 
-    def refresh(self, *_):
-        started = self.win.session is not None and self.pages.currentWidget() is not self.win.start
-        overview = self.pages.currentWidget() in self.overview_pages
-        rail_width = max(232, max(button.sizeHint().width() for button in self.buttons.values()) + 32)
+        rail_width = max(button.sizeHint().width() for button in (self.career_toggle, *self.buttons.values())) + 32
         self.rail.setFixedWidth(rail_width)
         breakpoint = max(1120, rail_width + 760)
         rail_fits = self.width() >= breakpoint and self.height() >= self.rail.minimumSizeHint().height()
-        self.rail.setVisible(started and overview and rail_fits)
-        self.compact.setVisible(started and overview and not rail_fits)
-        for index, (tid, _, _) in enumerate(self.subjects):
-            self.buttons[tid].setChecked(self.win.area == tid)
-            if self.win.area == tid:
-                blocker = QSignalBlocker(self.compact)
-                self.compact.setCurrentIndex(index)
-                del blocker
-        self.career_toggle.setChecked(not self.career_expanded and self.win.area.startswith("career_"))
+        show_navigation = self.win.session is not None and self.pages.currentWidget() in self.overview_pages
+        self.rail.setVisible(show_navigation and rail_fits)
+        self.compact.setVisible(show_navigation and not rail_fits)
+        if show_navigation and rail_fits and focused is self.compact:
+            target = self.buttons.get(active)
+            if target is not None:
+                (self.career_toggle if target.isHidden() else target).setFocus(Qt.FocusReason.OtherFocusReason)
+        elif show_navigation and not rail_fits and focused and self.rail.isAncestorOf(focused):
+            self.compact.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def refresh(self, *_):
+        self.refresh_navigation()
+        started = self.win.session is not None and self.pages.currentWidget() is not self.win.start
         busy = self.win.job is not None or self.win.pending_close or self.win.close_pending
         self.rail.setEnabled(not busy)
         self.compact.setEnabled(not busy)

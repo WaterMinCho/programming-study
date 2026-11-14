@@ -42,57 +42,169 @@ class CareerIntegrationTest(unittest.TestCase):
             self.assertEqual(old["epoch"], new["epoch"])
             self.assertEqual(old["goal"], new["goal"])
 
+    def assert_career_menu(self, workspace, expanded, active):
+        toggle = workspace.career_toggle
+        self.assertEqual(toggle.property("expanded"), expanded)
+        action = "커리어 메뉴 접기" if expanded else "커리어 메뉴 펼치기"
+        self.assertEqual(toggle.toolTip(), action)
+        self.assertEqual(toggle.accessibleDescription(), action)
+        for key in ("career_roadmap", "career_magazine"):
+            self.assertEqual(workspace.buttons[key].isHidden(), not expanded)
+        selected = [button.key for button in (*workspace.buttons.values(), toggle) if button.isChecked()]
+        self.assertEqual(selected, ["career" if active.startswith("career_") and not expanded else active])
+        self.assertEqual(workspace.win.area, active)
+        self.assertEqual(workspace.compact.currentData(),
+                         next(action for key, _, action in workspace.subjects if key == active))
+
+    def assert_career_icon(self, toggle, expanded):
+        image = toggle.grab().toImage()
+        ratio = image.devicePixelRatio()
+        ink = "selection_ink" if toggle.isChecked() else "muted"
+        # 중앙에 그린 실제 화소에서 두 아이콘의 크기와 방향·중심을 구함.
+        for left, right, center, chevron in ((5, 45, 26, False),
+                                              (toggle.width() - 42, toggle.width() - 5, toggle.width() - 24, True)):
+            points = []
+            for x in range(round(left * ratio), round(right * ratio)):
+                for y in range(round(8 * ratio), image.height() - round(8 * ratio)):
+                    color = image.pixelColor(x, y)
+                    if color.alpha() >= 220 and guikit.near(color, ink):
+                        points.append(((x + 0.5) / ratio, (y + 0.5) / ratio))
+            self.assertTrue(points, (ink, left, right))
+            xs, ys = zip(*points)
+            width, height = max(xs) - min(xs), max(ys) - min(ys)
+            self.assertAlmostEqual((min(xs) + max(xs)) / 2, center, delta=1.5)
+            self.assertAlmostEqual((min(ys) + max(ys)) / 2, toggle.height() / 2, delta=1.5)
+            if chevron:
+                self.assertGreaterEqual(max(width, height), 17)
+                self.assertGreaterEqual(min(width, height), 9)
+                self.assertEqual(width > height, expanded)
+            else:
+                self.assertGreaterEqual(min(width, height), 17)
+
+    def capture_navigation(self, win, name):
+        if not os.environ.get("CAREER_EVIDENCE"):
+            return
+        from PyQt6.QtCore import QPoint
+        out = Path(os.environ["CAREER_EVIDENCE"])
+        out.mkdir(parents=True, exist_ok=True)
+        win.repaint()
+        guikit.pump()
+        self.assertTrue(win.grab().save(str(out / (name + ".png"))))
+        if guikit.APP.platformName() == "offscreen":
+            return
+        screen = win.screen()
+        self.assertTrue(screen.availableGeometry().contains(win.frameGeometry()))
+        if sys.platform == "win32":
+            desktop = screen.grabWindow(0)
+            ratio = desktop.devicePixelRatioF()
+            origin = win.mapToGlobal(QPoint()) - screen.geometry().topLeft()
+            native = desktop.copy(round(origin.x() * ratio), round(origin.y() * ratio),
+                                  round(win.width() * ratio), round(win.height() * ratio))
+        else:
+            native = screen.grabWindow(int(win.winId()))
+        self.assertTrue(native.save(str(out / (name + "-native.png"))))
+
     def test_career_navigation_hierarchy_fits_and_compact_keeps_both_entries(self):
+        from PyQt6.QtCore import QPoint, Qt
+        from PyQt6.QtGui import QFontMetricsF
+        from PyQt6.QtTest import QTest
+
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        self.addCleanup(theme.set_text, theme.state["text"])
         win = self.boot()
-        win.go_career()
+        win.activateWindow()
+        workspace = win.workspace
+        toggle, picker = workspace.career_toggle, workspace.compact
+        roadmap = workspace.buttons["career_roadmap"]
+        magazine = workspace.buttons["career_magazine"]
+        self.assert_career_menu(workspace, False, "hub")
+        win.set_text("larger")
+        bounds = win.screen().availableGeometry()
+        large = (1600, 900)
+        if guikit.APP.platformName() != "offscreen":
+            margins = win.windowHandle().frameMargins()
+            large = (min(1600, bounds.width() - margins.left() - margins.right() - 24),
+                     min(900, bounds.height() - margins.top() - margins.bottom() - 24))
+        win.move(bounds.topLeft() + QPoint(12, 12))
         for mode in ("light", "dark"):
-            win.set_theme(mode)
-            win.set_text("larger")
-            win.resize(1600, 900)
-            guikit.pump()
-            workspace = win.workspace
-            self.assertTrue(workspace.rail.isVisible())
-            for key, button in workspace.buttons.items():
-                self.assertLessEqual(button.fontMetrics().horizontalAdvance(button.text()), button.text_rect().width())
-                if key.startswith("career_"):
-                    self.assertGreater(button.text_rect().left(), workspace.career_toggle.text_rect().left())
-            guikit.click(workspace.career_toggle)
-            self.assertTrue(workspace.buttons["career_roadmap"].isHidden())
-            self.assertTrue(workspace.career_toggle.isChecked())
-            guikit.click(workspace.career_toggle)
-            self.assertFalse(workspace.buttons["career_roadmap"].isHidden())
-            win.resize(1200, 480)
-            guikit.pump()
-            self.assertEqual((win.width(), win.height()), (1200, 480))
-            self.assertFalse(workspace.rail.isVisible())
-            self.assertTrue(workspace.compact.isVisible())
-            evidence = os.environ.get("CAREER_EVIDENCE")
-            if evidence:
-                destination = Path(evidence)
-                destination.mkdir(parents=True, exist_ok=True)
-                win.repaint()
+            with self.subTest(theme=mode):
+                win.set_theme(mode)
+                win.resize(*large)
+                win.go_career()
                 guikit.pump()
-                win.grab().save(str(destination / f"career-wide-short-{mode}.png"))
-                if sys.platform == "win32":
-                    from PyQt6.QtCore import QPoint
-                    screen = win.screen()
-                    desktop = screen.grabWindow(0)
-                    ratio = desktop.devicePixelRatioF()
-                    origin = win.mapToGlobal(QPoint()) - screen.geometry().topLeft()
-                    native = desktop.copy(round(origin.x()*ratio), round(origin.y()*ratio),
-                                          round(win.width()*ratio), round(win.height()*ratio))
-                    native.save(str(destination / f"career-wide-short-{mode}-native.png"))
-            win.resize(760, 480)
-            guikit.pump()
-            self.assertEqual((win.width(), win.height()), (760, 480))
-            self.assertFalse(workspace.rail.isVisible())
-            self.assertTrue(workspace.compact.isVisible())
-            index = workspace.compact.findData("go_magazine")
-            self.assertGreaterEqual(index, 0)
-            self.assertTrue(workspace.compact.itemText(index).startswith("커리어 · "))
-            workspace.compact.activated.emit(index)
-            guikit.pump()
-            self.assertIs(win.pages.currentWidget(), win.career.magazine)
+                self.assertEqual((win.width(), win.height()), large)
+                self.assertTrue(workspace.rail.isVisible())
+                self.assert_career_menu(workspace, False, "career_roadmap")
+                self.assert_career_icon(toggle, False)
+                self.capture_navigation(win, f"career-large-collapsed-{mode}")
+                toggle.setFocus()
+                for _ in range(2):
+                    QTest.keyClick(toggle, Qt.Key.Key_Right)
+                    self.assert_career_menu(workspace, True, "career_roadmap")
+                self.assert_career_icon(toggle, True)
+                if mode == "light":
+                    win.set_text("normal")
+                    guikit.pump()
+                    win.set_text("larger")
+                    guikit.pump()
+                metrics = QFontMetricsF(theme.font("label", True))
+                for button in (toggle, *workspace.buttons.values()):
+                    self.assertLessEqual(metrics.horizontalAdvance(button.text()), button.text_rect().width())
+                    self.assertTrue(workspace.rail.rect().contains(button.geometry()))
+                    if button.depth:
+                        self.assertGreater(button.text_rect().left(), toggle.text_rect().left())
+                self.capture_navigation(win, f"career-large-expanded-{mode}")
+                QTest.keyClick(toggle, Qt.Key.Key_Tab)
+                self.assertTrue(roadmap.hasFocus())
+                QTest.keyClick(roadmap, Qt.Key.Key_Tab)
+                self.assertTrue(magazine.hasFocus())
+                QTest.keyClick(magazine, Qt.Key.Key_Return)
+                self.assertIs(win.pages.currentWidget(), win.career.magazine)
+                self.assert_career_menu(workspace, True, "career_magazine")
+                toggle.setFocus()
+                QTest.keyClick(toggle, Qt.Key.Key_Space)
+                self.assert_career_menu(workspace, False, "career_magazine")
+                QTest.keyClick(toggle, Qt.Key.Key_Left)
+                self.assert_career_menu(workspace, False, "career_magazine")
+
+                win.resize(1200, 480)
+                guikit.pump()
+                self.assertEqual((win.width(), win.height()), (1200, 480))
+                self.assertFalse(workspace.rail.isVisible())
+                self.assertTrue(picker.hasFocus())
+                self.capture_navigation(win, f"career-wide-short-{mode}")
+                win.resize(760, 480)
+                guikit.pump()
+                self.assertEqual((win.width(), win.height()), (760, 480))
+                self.assertTrue(picker.isVisible())
+                self.assertEqual(picker.currentText(), "커리어 · 매거진")
+                self.capture_navigation(win, f"career-small-{mode}")
+                QTest.mouseClick(picker, guikit.LEFT, pos=QPoint(picker.width() - 24, picker.height() // 2))
+                guikit.wait_until(picker.view().isVisible)
+                QTest.keyClick(picker.view(), Qt.Key.Key_Escape)
+                guikit.wait_until(lambda: not picker.view().isVisible())
+                if guikit.APP.platformName() == "offscreen":
+                    # 창 관리자가 없는 플랫폼에서는 팝업을 닫은 뒤 활성 창을 복원함.
+                    win.activateWindow()
+                    guikit.pump()
+                self.assertTrue(picker.hasFocus())
+                QTest.keyClick(picker, Qt.Key.Key_Up)
+                self.assertEqual(picker.currentText(), "커리어 · 개발자 로드맵")
+                self.assertIs(win.pages.currentWidget(), win.career.roadmap)
+                win.resize(*large)
+                guikit.pump()
+                self.assertTrue(toggle.hasFocus())
+                self.assert_career_menu(workspace, False, "career_roadmap")
+                guikit.click(toggle)
+                win.resize(760, 480)
+                guikit.pump()
+                win.resize(*large)
+                guikit.pump()
+                self.assertTrue(roadmap.hasFocus())
+                self.assert_career_menu(workspace, True, "career_roadmap")
+                toggle.setFocus()
+                QTest.keyClick(toggle, Qt.Key.Key_Left)
+                self.assert_career_menu(workspace, False, "career_roadmap")
         self.capture_widget = win
 
     def test_related_video_opens_without_playing_and_page_exit_requests_stop(self):
