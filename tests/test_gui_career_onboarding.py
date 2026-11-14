@@ -4,12 +4,12 @@ import os
 import unittest
 from unittest import mock
 
+from tests import guikit, test_gui_hub
 from PyQt6.QtCore import QEvent, QPoint, QSettings, Qt
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QDialog
 
-from tests import guikit, test_gui_hub
 from gui import motion, theme
 from gui.career_onboarding import TOUR_KEYS
 
