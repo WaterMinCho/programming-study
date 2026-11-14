@@ -276,6 +276,10 @@ def probe(out):
         # 복원 후 커서가 같은 자리에 있어도 누를 수 있음. 이동 이벤트는 통과 조건이 아님.
         QTest.mouseMove(proxy, point)
         pump()
+        if app.platformName() == "windows":
+            hit = QApplication.widgetAt(proxy.mapToGlobal(point))
+            require(hit is not None and (hit is engine.widget or engine.widget.isAncestorOf(hit)),
+                    "전체화면 단추 위에 다른 위젯이 있습니다.")
         QTest.mousePress(proxy, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, point)
         try:
             wait("button_press", lambda: js("window.fixtureSnapshot()"),
@@ -317,7 +321,9 @@ def probe(out):
         require(any(row["toggle_on"] for row in report["requests"]), "WebEngine 전체화면 요청이 없습니다.")
         capture("fullscreen", full)
         # WebEngine에 초점이 있는 실제 Escape 경로로 창과 DOM을 함께 복원함.
-        QTest.keyClick(engine.widget.focusProxy(), Qt.Key.Key_Escape)
+        focused = QApplication.focusWidget()
+        require(focused is engine.widget.focusProxy(), "재생기에 키보드 초점이 없습니다.")
+        QTest.keyClick(focused, Qt.Key.Key_Escape)
         restored = wait("restored", sample,
                         lambda value: normal_ready(value) and value["geometry"] == normal_geometry)
         require(any(not row["toggle_on"] for row in report["requests"]), "전체화면 해제 요청이 없습니다.")
@@ -325,6 +331,9 @@ def probe(out):
         click_fullscreen()
         again = wait("reentered", sample, fullscreen_ready)
         require(again["dom"]["clicks"] == 2 and len(engines) == 1, "재진입 중 문서 또는 엔진이 교체되었습니다.")
+        require(again["dom"]["activeGesture"] and not again["dom"]["error"]
+                and sum(row["toggle_on"] for row in report["requests"]) == 2,
+                "두 번째 클릭의 전체화면 요청을 확인하지 못했습니다.")
         report["snapshots"]["reentered"] = again
         dialog.close()
         require(dialog.closed and not dialog.isVisible() and dialog.engine is None and engine.closed,

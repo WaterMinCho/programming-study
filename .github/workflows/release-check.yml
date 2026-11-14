@@ -120,7 +120,9 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $changed = @(git diff --name-only "$env:VIDEO_BASE_SHA" HEAD --)
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            $targets = @('gui/video_viewer.py', 'career/player_html.py', 'tools/check_video_fullscreen.py', '.github/workflows/release-check.yml')
+            $targets = @('gui/video_viewer.py', 'career/player_html.py', 'tools/video_setup.py',
+                         'gui/dialogs.py', 'gui/dialog_layout.py', 'gui/theme.py', 'gui/motion.py',
+                         'tools/check_video_fullscreen.py', '.github/workflows/release-check.yml')
             if (-not ($changed | Where-Object { $_ -in $targets })) {
               Write-Output '영상 전체화면 관련 변경이 없어 추가 설치와 검사를 생략합니다.'
               exit 0
