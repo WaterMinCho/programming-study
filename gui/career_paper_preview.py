@@ -18,7 +18,7 @@ class PaperPreview(QAbstractButton):
         self.stage = PREVIEW_STAGES.get(paper.paper_id, 0)
         self.diagram = None
         self.setAccessibleName(f"{paper.title} 그림 설명 보기")
-        self.setToolTip("그림 설명 보기")
+        self.setToolTip("앱에서 그림을 단계별로 넘기며 논문의 계산 과정을 읽습니다.")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         policy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -37,7 +37,7 @@ class PaperPreview(QAbstractButton):
             box.addWidget(kit.para("대표 그림을 표시할 수 없습니다.", "caption", "secondary"))
             description = "\n".join(paper.figure_description) or paper.beginner_explanation
             box.addWidget(kit.para(description))
-        self.setAccessibleDescription(description)
+        self.setAccessibleDescription(description + "\n" + self.toolTip())
         for child in self.findChildren(QWidget):
             child.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
             child.setFocusPolicy(Qt.FocusPolicy.NoFocus)

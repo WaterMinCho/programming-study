@@ -46,9 +46,11 @@ class SettingsMenu(QWidget):
         box.addSpacing(theme.GAP["paragraph"] - theme.GAP["detail"])
         self.identity_btn = self.action(box, "본인 확인 다시 하기", lambda: hub.win.ensure_identity(force=True))
         self.replay_tour = self.action(box, "첫 화면 튜토리얼 다시 보기", lambda: hub.win.show_hub_tour(replay=True))
+        self.replay_career = self.action(box, "커리어 튜토리얼 다시 보기", lambda: hub.win.career.replay_tours())
+        self.replay_career.setToolTip("직무 목록부터 다시 시작합니다. 직무 상세와 매거진 안내도 다음 방문에 표시합니다.")
         self.update_btn = self.action(box, "업데이트 확인", lambda: hub.win.check_updates())
         self.report_btn = self.action(box, "불편한 점 알리기", lambda: QDesktopServices.openUrl(QUrl(feedback.issue_url(hub.win))))
-        self.actions = (self.identity_btn, self.replay_tour, self.update_btn, self.report_btn)
+        self.actions = (self.identity_btn, self.replay_tour, self.replay_career, self.update_btn, self.report_btn)
         self.anchor_timer = QTimer(self)
         self.anchor_timer.setSingleShot(True)
         self.anchor_timer.timeout.connect(self.reanchor)
@@ -109,6 +111,7 @@ class SettingsMenu(QWidget):
         self.update_btn.setEnabled(not busy and flow is not None and hasattr(flow, "updates"))
         self.identity_btn.setEnabled(not busy)
         self.replay_tour.setEnabled(not busy)
+        self.replay_career.setEnabled(not busy)
         explanation = "프로그램 파일을 바꾸지 않고 새 버전이 있는지 확인합니다."
         if busy:
             explanation += " 다른 작업이 끝난 뒤 사용할 수 있습니다."
