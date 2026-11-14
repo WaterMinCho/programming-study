@@ -1974,7 +1974,10 @@ class PracticeSet(object):
             if entry["again"] and isinstance(item.get("alt"), dict):  # 묶음 안에서 다시 낼 때 바꿔 쓴 문항
                 item = dict(item, **item["alt"])
         elif card["kind"] == "gen":
+            source = bank.generation_source(card["gen"])
             item = gen.run(card["gen"], entry["seed"])
+            # 실제 생성 때의 소스를 초안에 보존함. 예전 캐시에는 값을 소급하지 않음.
+            item["_generation"] = source
         elif card["kind"] == "skel":
             item = self._skel_view(card, state, entry)
         elif view["form"] == "blank":

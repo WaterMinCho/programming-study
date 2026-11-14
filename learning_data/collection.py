@@ -10,7 +10,7 @@ import sqlite3
 import tempfile
 import uuid
 
-from learning_data import goals
+from learning_data import generation, goals
 
 AI_INPUT_SCHEMA = 1
 FORMAT = 1
@@ -43,7 +43,8 @@ def digest(value):
 def runtime_revision(track="ai"):
     folder = os.path.dirname(os.path.dirname(__file__))
     values = {}
-    paths = ("learning_data/collection.py", "aiprep/service.py", "aiprep/mock.py", "aiprep/grade.py", "aiprep/gen.py", "aiprep/skel.py")
+    paths = ("learning_data/collection.py", "learning_data/generation.py", "aiprep/bank.py",
+             "aiprep/service.py", "aiprep/mock.py", "aiprep/grade.py", "aiprep/gen.py", "aiprep/skel.py")
     if track == "python":
         paths = ("session.py", "learning_data/python.py", "adaptive.py", "study.py", "learning_data/collection.py")
     for name in paths:
@@ -65,6 +66,8 @@ def question(item, **metadata):
     visible = {key: item[key] for key in ("stem", "kind", "pick", "multi") if key in item}
     visible["blanks"] = [{key: b[key] for key in ("mode", "hint", "slot") if key in b} for b in item.get("blanks") or []]
     visible["options"] = [{"no": n, "text": item["options"][n]["text"]} for n in order]
+    if item.get("_generation") is not None:
+        visible["generation"] = generation.capture(item["_generation"], item, visible)
     metadata["runtime_revision"] = runtime_revision(metadata.pop("track", "ai"))
     visible.update(metadata)
     revision = digest({"item": item, "metadata": metadata, "order": order})

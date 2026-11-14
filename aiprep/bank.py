@@ -8,6 +8,8 @@ index.json 은 웹 꼴(missions·topics·pages·order)에 exam, lessons, pattern
 봉인된 work/items.json·statements.json·facts.json·review.json 임. 차시가 "출제됨"이라는 것은 학습 노트 meta.json, 문항
 meta.json, 봉인(또는 평문 작업본 work/)이 모두 있다는 것임. 경로 상수는 쓸 때 bank.AI_DIR 로 읽음(테스트가 바꿔 끼움).
 """
+import copy
+import hashlib
 import json
 import os
 import re
@@ -15,6 +17,8 @@ import re
 import study
 from aiprep import gen as genlib
 from aiprep.grade import BLANK, MODES
+from learning_data import generation
+from learning_data.collection import digest
 from webprep import bank as webbank
 
 AI_DIR = os.path.join(study.ROOT, "ai")
@@ -594,6 +598,26 @@ def blanks_in_code(stem):
 
 # 문항 묶음
 
+def _source_hash(path):
+    """저장소 서명처럼 UTF-8 텍스트의 줄바꿈을 LF로 맞춰 해시를 구함."""
+    try:
+        with open(path, encoding="utf-8") as source:
+            return hashlib.sha256(source.read().encode("utf-8")).hexdigest()
+    except FileNotFoundError:
+        return None
+
+
+def generation_source(spec):
+    """로드한 소스와 실행할 공용 함수의 스냅샷을 사용함. 디스크의 새 파일을 다시 읽지 않음."""
+    source = copy.deepcopy(getattr(spec, "collection_source", None))
+    if source is not None:
+        base = genlib.bases().get(spec.meta.get("base"))
+        source["source_hashes"]["common"] = getattr(base, "collection_source_hash", None)
+        source["version_hash"] = digest({"id": spec.id, "metadata_hash": spec.collection_metadata_hash,
+                                         "sources": source["source_hashes"]})
+    return source
+
+
 def load_items(lesson, root=None, with_gens=True):
     """문항 묶음 ai/items/<id>/ 을 읽음. {"dir", "meta", "items", "topics", "facts": {id: 사실}, "errata": {id: 오류},
     "review"(글 또는 None), "gens": [GenSpec], "sources"}. 봉인과 평문 작업본은 webprep.bank.load_secrets 규칙(평문이 이김)."""
@@ -619,8 +643,31 @@ def load_items(lesson, root=None, with_gens=True):
         raise AiBankError("%s 의 봉인 안 JSON 을 읽을 수 없습니다: %s" % (lesson["id"], error))
     if with_gens:
         try:
-            out["gens"] = genlib.load_module(os.path.join(idir, "gens.py"), "ai_gens_%s" % lesson["id"])
-        except genlib.GenError as error:
+            path = os.path.join(idir, "gens.py")
+            source_hash = _source_hash(path)
+            out["gens"] = genlib.load_module(path, "ai_gens_%s" % lesson["id"])
+            if source_hash != _source_hash(path):
+                raise genlib.GenError("생성기를 읽는 동안 파일이 바뀌었습니다.")
+            for spec in out["gens"]:
+                try:
+                    generation.validate_declaration(spec.meta)
+                    base = genlib.bases().get(spec.meta.get("base"))
+                    hashes = {"generator": source_hash, "common": getattr(base, "collection_source_hash", None),
+                              "runtime": genlib.RUNTIME_SOURCE_HASH}
+                    spec.collection_metadata_hash = digest(spec.meta)
+                    spec.collection_source = {
+                        "generator_id": spec.id, "template_id": spec.meta.get("template_id") or spec.meta.get("base") or spec.id,
+                        "template_revision": spec.meta.get("template_revision"), "source_hashes": hashes,
+                        "display_params": copy.deepcopy(spec.meta.get("display_params"))}
+                    if spec.meta.get("display_params") is not None:
+                        # 선언한 키·값은 시드 0으로 미리 확인하며 실제 생성 시에도 다시 검증함.
+                        try:
+                            generation.capture(generation_source(spec), genlib.run(spec, 0), {})
+                        except Exception as error:  # noqa: BLE001 - 생성기의 사전 실행 오류를 차시 안내로 바꿈
+                            raise AiBankError("%s/%s: %s" % (lesson["id"], spec.id, error)) from error
+                except (ValueError, TypeError, genlib.GenError) as error:
+                    raise AiBankError("%s/%s: %s" % (lesson["id"], spec.id, error)) from error
+        except (genlib.GenError, OSError, UnicodeError) as error:
             raise AiBankError("%s: %s" % (lesson["id"], error))
     return out
 
@@ -629,8 +676,16 @@ def load_common(root=None):
     """공용 생성기 ai/items/common/gens.py 를 읽어 @base 를 등록함. 없으면 아무것도 안 함."""
     path = os.path.join(root or AI_DIR, "items", "common", "gens.py")
     try:
-        return genlib.load_module(path, "ai_gens_common")
-    except genlib.GenError as error:
+        source_hash = _source_hash(path)
+        previous = genlib.bases()
+        specs = genlib.load_module(path, "ai_gens_common")
+        if source_hash != _source_hash(path):
+            raise genlib.GenError("공용 생성기를 읽는 동안 파일이 바뀌었습니다.")
+        for name, fn in genlib.bases().items():
+            if fn is not previous.get(name):
+                fn.collection_source_hash = source_hash
+        return specs
+    except (genlib.GenError, OSError, UnicodeError) as error:
         raise AiBankError("common: %s" % error)
 
 

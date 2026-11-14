@@ -18,10 +18,15 @@ Rng 는 random.Random(seed).random() 의 열만 써서 int·pick·sample·shuffl
 Rng(seed * 1009 + 시도 번호)로 다시 부르고 TRIES 번을 넘기면 GenError 임.
 """
 import decimal
+import hashlib
 import importlib.util
 import os
+from pathlib import Path
 import random
 import sys
+
+# 로드한 런타임의 소스를 고정함. 실행 중 디스크 수정은 다음 import부터 반영함.
+RUNTIME_SOURCE_HASH = hashlib.sha256(Path(__file__).read_text(encoding="utf-8").encode("utf-8")).hexdigest()
 
 TRIES = 50
 BASIS = ("lecture-example", "lecture-formula")
