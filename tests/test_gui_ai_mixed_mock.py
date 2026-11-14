@@ -44,6 +44,7 @@ class MixedMockPageTest(unittest.TestCase):
                 win.switch_ai_course(course)
                 self.idle()
                 self.assertNotIn('m4',win.ai.mocks)
+                guikit.click(win.ai_home.browser.buttons['mocks'])
                 self.assertTrue(win.ai_home.mock_pending.isVisible())
                 self.assertIn('메타데이터',win.ai_home.mock_pending.text())
                 self.assertFalse(win.open_ai_mock('m4'))

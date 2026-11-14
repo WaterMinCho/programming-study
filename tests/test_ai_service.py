@@ -1044,10 +1044,10 @@ class PatternNotesTest(PatternBase):
         self.assertEqual(([o["text"] for o in view["options"]], True, [view["options"][wrong[0]]["text"]]),
                          (detail["options"], detail["code_options"], detail["mine"]))
         groups = sess.wrong_notes()
-        group = next(g for g in groups if g["title"] == "상황별 코드")
+        group = next(g for g in groups if g["title"] == "코딩으로 실전학습하기")
         labels = {i["key"]: i["label"] for i in group["items"]}
-        self.assertEqual("코드 빈칸 · 상황별 코드", labels["pc-k02"])
-        self.assertEqual("순서 고르기 · 상황별 코드", labels["pc-o01"])
+        self.assertEqual("코드 빈칸 · 코딩으로 실전학습하기", labels["pc-k02"])
+        self.assertEqual("순서 고르기 · 코딩으로 실전학습하기", labels["pc-o01"])
 
     def test_masked_only_wrong_shows_what_i_wrote(self):
         sess = self.opened_slots()

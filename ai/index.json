@@ -21,7 +21,7 @@
   {"id": "l15", "title": "15차시 사용자 데이터 분류"},
   {"id": "l16", "title": "16차시 CNN 스크래치 구현"},
   {"id": "l17", "title": "17차시 자연어 처리 종합 실습"},
-  {"id": "l18", "title": "상황별 코드"},
+  {"id": "l18", "title": "코딩으로 실전학습하기"},
   {"id": "al01", "title": "응용 1차시 이미지를 숫자로 읽고 모델 입력으로 준비하기"},
   {"id": "al02", "title": "응용 2차시 주변 값과 좌표를 바꿔 입력 준비하기"},
   {"id": "al03", "title": "응용 3차시 프레임에서 경계와 영역의 위치 찾기"}
@@ -51,7 +51,7 @@
   {"id": "a03", "no": 3, "course": "app", "title": "프레임에서 경계와 영역의 위치 찾기", "page": "al03", "date": null, "weight": 1, "units": 5, "hw_due": null}
  ],
  "patterns": [
-  {"id": "pc", "page": "l18", "title": "상황별 코드", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}}
+  {"id": "pc", "page": "l18", "title": "코딩으로 실전학습하기", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}}
  ],
  "mocks": [
   {"id": "m1", "title": "모의고사 1회", "minutes": 60, "count": 30, "range": [1, 12], "window": ["2026-11-14", "2026-11-16"]},

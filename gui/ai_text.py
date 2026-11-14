@@ -17,6 +17,8 @@ def teaching_text(text):
     """옛 해설의 출처 대조 머리말만 뺌. 정확한 조건과 설명은 그대로 남김."""
     return re.sub(r"(^|(?<=[.!?])\s+|\n)정정:\s*", r"\1", text)
 
+CODING_TITLE = bank.CODING_TITLE
+
 TRACK = "AI"
 COURSES = {"intro": "개론", "app": "응용"}
 STEPS = ("1. [학습 시작]을 눌러 단원을 읽습니다.",

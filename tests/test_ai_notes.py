@@ -86,7 +86,7 @@ class GroupTest(unittest.TestCase):
         mocks = {"m1": {"title": "모의고사 1회"}, "m2": {"title": "모의고사 2회"}}
         groups, counts = notes.wrong_notes(review.card_events(log), cards, {}, lessons, mocks, leeches={"i05-b01"},
                                            mock_order=["m2", "m1"])
-        self.assertEqual(["모의고사 2회", "모의고사 1회", "3차시 PyTorch 텐서", "5차시 경사하강법 구현", "상황별 코드"],
+        self.assertEqual(["모의고사 2회", "모의고사 1회", "3차시 PyTorch 텐서", "5차시 경사하강법 구현", "코딩으로 실전학습하기"],
                          [g["title"] for g in groups])
         self.assertEqual({"wrong": 6, "skipped": 1, "fixed": 0}, counts)
         five = groups[3]["items"]
@@ -104,9 +104,9 @@ class GroupTest(unittest.TestCase):
                  "pc-o01": {"id": "pc-o01", "kind": "skel", "part": "order", "lesson": "pc"},
                  "pc-x01": {"id": "pc-x01", "kind": "skel", "part": "change", "lesson": "pc"}}
         groups, _ = notes.wrong_notes(review.card_events(log), cards, {}, {}, {})
-        self.assertEqual(["상황별 코드"], [g["title"] for g in groups])
+        self.assertEqual(["코딩으로 실전학습하기"], [g["title"] for g in groups])
         labels = {i["key"]: i["label"] for i in groups[0]["items"]}
-        self.assertEqual({"pc-k01": "코드 빈칸 · 상황별 코드", "pc-o01": "순서 고르기 · 상황별 코드", "pc-x01": "고르기 · 상황별 코드"}, labels)
+        self.assertEqual({"pc-k01": "코드 빈칸 · 코딩으로 실전학습하기", "pc-o01": "순서 고르기 · 코딩으로 실전학습하기", "pc-x01": "고르기 · 코딩으로 실전학습하기"}, labels)
 
 
 if __name__ == "__main__":

@@ -39,6 +39,8 @@ on:
       - 'gui/settings_menu.py'
       - 'gui/ai_learn.py'
       - 'gui/ai_home.py'
+      - 'gui/section_browser.py'
+      - 'tests/test_gui_section_browser.py'
       - 'gui/hub_page.py'
       - 'gui/motion.py'
       - 'tests/test_gui_settings_menu.py'

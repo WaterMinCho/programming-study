@@ -46,6 +46,7 @@ CASES = (
     "tests.test_gui_dialogs.DialogTest.test_identity_footer_and_code_fit_max_text_both_themes",
     "tests.test_gui_dialogs.DialogTest.test_long_message_keeps_all_actions_outside_body_scroll",
     "tests.test_gui_onboarding.OnboardingTest.test_visible_controls_fit_and_switch_without_activating_targets",
+    "tests.test_gui_section_browser.AiSectionBrowserTest.test_categories_fit_small_wide_max_text_both_themes_and_remain_visible",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_tab_and_content_commit_together_at_max_text_in_both_themes",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",

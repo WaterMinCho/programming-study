@@ -489,7 +489,7 @@ class MainWindow(QMainWindow):
         if not self.leave_pages(self.go_ai, "저장하지 않고 나가기"):
             return
         if self.ai is None:
-            self.ask("알림", self.ai_error or "AI 비전 개론 기록을 열지 못했습니다.")
+            self.ask("알림", self.ai_error or "AI 학습 기록을 열지 못했습니다.")
             return
         self.ai_home.refresh()
         self.area = "ai"
@@ -525,7 +525,6 @@ class MainWindow(QMainWindow):
             self.ai_courses[course] = (stamp, selected)
             self.settings.setValue("ai/course/" + self.user, course)
             self.ai_home.refresh()
-            self.ai_home.scroll.verticalScrollBar().setValue(0)
         finally:
             self.ai_home.setUpdatesEnabled(updates)
 
