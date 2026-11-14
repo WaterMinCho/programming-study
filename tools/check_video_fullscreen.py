@@ -170,6 +170,25 @@ def probe(out):
     def rect_in(widget, parent):
         return QRect(widget.mapTo(parent, QPoint()), widget.size())
 
+    def paint_state():
+        # DOM 준비만으로는 Chromium의 첫 화면과 iframe 입력 영역이 준비되지 않음.
+        # 배경·양쪽 하단 표식이 실제로 그려진 뒤 클릭하며 고정 시간은 기다리지 않음.
+        picture = engine.widget.grab().toImage()
+        if picture.isNull():
+            return {"ready": False, "colors": {}}
+        ratio = picture.devicePixelRatio()
+        width, height = engine.widget.width(), engine.widget.height()
+        points = {"background": (width // 2, height // 2, "#17324d"),
+                  "bottom_left": (5, height - 5, "#06d6a0"),
+                  "bottom_right": (width - 5, height - 5, "#ffd166")}
+        colors = {}
+        for name, (x, y, expected) in points.items():
+            point = QPoint(round(x * ratio), round(y * ratio))
+            if not picture.rect().contains(point):
+                return {"ready": False, "colors": colors}
+            colors[name] = picture.pixelColor(point).name()
+        return {"ready": all(colors[name] == point[2] for name, point in points.items()), "colors": colors}
+
     def sample():
         require(dialog.engine is engine and not engine.closed, "재생 엔진이 중간에 교체되거나 닫혔습니다.")
         require(not report["external_urls"], "외부 브라우저 열기가 요청되었습니다.")
@@ -191,11 +210,12 @@ def probe(out):
                 "same_engine": dialog.engine is engine, "player_state": dialog.state,
                 "page_visible": engine.page.isVisible(), "view_visible": engine.widget.isVisible(),
                 "focus_proxy_ready": proxy is not None and proxy.isVisible(),
-                "dom": dom}
+                "dom": dom, "paint": paint_state()}
 
     def dom_ready(value):
         dom = value["dom"]
         return (dom and dom["ready"] and dom["frames"] >= 2 and value["focus_proxy_ready"]
+                and value["paint"]["ready"]
                 and value["player_state"] == "ready"
                 and dom["viewport"] == [engine.widget.width(), engine.widget.height()]
                 and dom["childViewport"] == dom["viewport"])

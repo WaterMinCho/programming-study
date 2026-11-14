@@ -464,6 +464,7 @@ class VideoDialogTest(unittest.TestCase):
                     expected = max(200, min(round(dialog.surface.width() * 9 / 16), viewport.height()))
                     self.assertLessEqual(abs(dialog.surface.height() - expected), 1)
                     self.assertTrue(viewport.rect().contains(view.rect().translated(view.mapTo(viewport, QPoint()))))
+        self.capture_widget = dialog
 
     def test_autoplay_requires_more_than_half_the_surface_in_the_viewport(self):
         viewport = QWidget(self.host)
@@ -527,6 +528,7 @@ class VideoDialogTest(unittest.TestCase):
         self.assertTrue(dialog.isVisible())
         engine.exit_fullscreen.assert_called_once()
         engine.close.assert_not_called()
+        self.capture_widget = dialog
 
 
 class EnginePolicyTest(unittest.TestCase):
