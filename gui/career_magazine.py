@@ -42,7 +42,7 @@ class CareerMagazinePage(ReadingPage):
 
     def __init__(self, parent=None, *, catalog=None, on_back=None, on_video=None, on_stop=None,
                  on_paper=None, on_source=None, on_figure=None):
-        super().__init__(parent, on_back)
+        super().__init__(parent, on_back, back_label="← 개발자 로드맵")
         self.catalog = catalog if catalog is not None else load_catalog()
         self.on_video, self.on_stop, self.on_paper, self.on_source = on_video, on_stop, on_paper, on_source
         self.on_figure = on_figure
