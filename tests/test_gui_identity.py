@@ -313,6 +313,11 @@ class TeamDashboardTest(unittest.TestCase):
             show.assert_called_once()
             QTest.keyClick(info, Qt.Key.Key_Escape)
             self.assertTrue(hide.called)
+        result["activity"]["distinct_cards"] = 0
+        result["activity"]["opens"] = [dict(row, python=0, ai=0) for row in open_rows]
+        self.card.fetch()
+        self.assertEqual("0개", self.card.values["cards"].text())
+        self.assertEqual("0회", self.card.values["opens"].text())
 
     def test_count_tooltips_follow_max_text_and_fit_both_themes(self):
         theme.set_text("larger")
@@ -361,6 +366,8 @@ class TeamDashboardTest(unittest.TestCase):
         measured['activity'] = dict(distinct_cards=128, opens=open_rows, inputs=[dict(row, ai=None) for row in rows],
             graded_metadata=dict(stem=1, concepts=2, revision=3, difficulty=4, ordered_timed=5, linked_input=0),
             period_first_ai_measurement_at=None, ai_input_schema=1)
+        self.assertLessEqual(measured['activity']['distinct_cards'],
+                             sum(row['python'] + row['ai'] for row in open_rows))
         unmeasured = self.result(7)
         unsupported = dict(self.result(7), graded=None, period_total=None)
         self.identity.summary.side_effect = None
