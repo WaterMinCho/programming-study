@@ -138,6 +138,12 @@ AI의 개론·응용 전환은 같은 홈의 탭으로 구분합니다. 과정 �
 
 ## 커리어의 단계와 논문 그림
 
+매거진의 [영상]과 [논문 해설]은 제목 아래에서 같은 폭·글자 크기·높이로 표시합니다. 선택한 탭은 배경과 밑줄로 구분하고, 본문을 스크롤해도 두 탭은 화면 위에 남습니다. 탐색 줄의 좌우 끝은 본문과 맞추며 검색 조건과 탭별 읽던 위치를 유지합니다.
+
+2026년 11월 15일 [Carbon의 탭 지침][carbon-tabs]에서 짧은 항목 이름과 동일 폭 배치를 참고했습니다. 색과 글꼴은 기존 프로그램의 테마를 사용합니다.
+
+[carbon-tabs]: https://www.carbondesignsystem.com/building-blocks/core/components/tabs/guidelines
+
 직무 탐색은 업무 장면·직무 이름·산출물을 함께 보여 줍니다. 목록에서 선택하는 동작과 관심 직무를 저장하는 동작을 구분합니다. 상세에서는 업무와 학습 순서를 탭으로 나누고 선택한 직무 이름을 유지합니다. [직무 목록]으로 돌아가면 필터와 읽던 위치를 복원합니다.
 
 2026년 11월 14일 [roadmap.sh의 직무별 탐색](https://roadmap.sh/), [Codecademy의 목록과 분류](https://www.codecademy.com/catalog), [Duolingo의 화면 위계 개편](https://blog.duolingo.com/core-tabs-redesign/)을 참고했습니다. 그림·글자의 배치와 탐색 방식을 비교했으며 외부 디자인 자산은 사용하지 않았습니다.
