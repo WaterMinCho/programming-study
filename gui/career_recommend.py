@@ -158,7 +158,7 @@ class CareerRecommendDialog(QDialog):
         self.result_focus = None
         self.setWindowTitle("내 경험과 연결되는 직무")
         self.setModal(True)
-        self.shell = DialogLayout(self, "배운 분야를 알려주세요")
+        self.shell = DialogLayout(self, "배운 분야 입력하기")
         self.shell.scroll.verticalScrollBar().rangeChanged.connect(self._restore_result_position)
         self.steps = kit.Stepper()
         self.steps.setAccessibleName("학력, 경험, 관심의 세 단계")
@@ -229,7 +229,7 @@ class CareerRecommendDialog(QDialog):
     def show_stage(self, stage):
         self.restore_result = False
         self.stage = stage
-        titles = ("배운 분야를 알려주세요", "해본 일을 골라주세요", "어떤 결과를 만들고 싶나요?", "경험과 관심으로 연결한 직무", "업무와 학습 로드맵")
+        titles = ("배운 분야 입력하기", "해본 일 고르기", "어떤 결과를 만들고 싶나요?", "경험과 관심으로 연결한 직무", "업무와 학습 로드맵")
         self.shell.title.setText(titles[stage])
         self.shell.header.setVisible(stage != 4)
         self.steps.setVisible(stage < 3)

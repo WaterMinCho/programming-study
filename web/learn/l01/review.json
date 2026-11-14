@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제 1",
- "resolver": "재풀이 1",
- "reviewer": "검토 1",
+ "writer": "제목 수정",
+ "resolver": "기존 재풀이 보존",
+ "reviewer": "제목 교차 검토",
  "files": {
   "assets/l01-1.gif": "0c97ec32346f1b701d684a797651eddb4c988035213d733754a98c77fa15d02f",
   "assets/l01-2.gif": "ba438b3b61f6584618e4c1b92e1cfdbc84113df8af80efa34ab9ee8495f49878",
@@ -12,8 +12,8 @@
   "assets/l01-6.gif": "06ad82934741f15daa25dc4ccf235699a2ad3d45106c870d966c0114f684d1ec",
   "assets/l01-7.gif": "9c9cc8aaf843219f0ebab2c2cd8f5312e3d4f6a1c557579ccc7bfae4675420c5",
   "assets/l01-8.gif": "5f06241d23d6c3bfb4c86564bb8f159ae64a5ef87ae33e505e71112361e9bd58",
-  "meta.json": "2f4335ed6b85a9001df22a477f5e72767dfb0a469a6e2cce1e71a2d1407dc292",
-  "page.md": "e27a2f52197ccab3fa25ff3d0f39cbe0645cd9b6a79e9e35c1490461b06b71d7"
+  "meta.json": "9805e00f75ba2133dae26e31ef6ef56d7e46c58348caccec98131b87ee7c3834",
+  "page.md": "d64dfec5d9ff3e0f0971084402f70fa8ea877f7211a2eb8472ffdc582ca105c1"
  },
  "findings": [
   "직접 해 보기의 결과를 따로 절로 옮기고 setTimeout 줄을 옮긴 경우의 결과를 더함",
@@ -21,6 +21,7 @@
   "목록 한 행을 뜻하던 줄을 목록 항목으로 고치고 1-A 질문 인용을 풀어 씀",
   "useDeferredValue 절과 고르는 기준에 가상화를 더함",
   "그림 6의 롱 태스크 표시와 700ms 글자 자리, 그림 7 제목, 그림 8 글자 자리를 고침",
-  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함.",
+  "2026-11-15 제목·목차 문구를 짧은 행동형으로 수정했음. 제목의 조건·수치·API를 교차 검토하고 본문·코드·물음·정답이 바뀌지 않았음을 대조했음. 기존 물음의 재풀이를 반복하지 않았음."
  ]
 }

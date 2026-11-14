@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제 7",
- "resolver": "재풀이 7",
- "reviewer": "검토 7",
+ "writer": "제목 수정",
+ "resolver": "기존 재풀이 보존",
+ "reviewer": "제목 교차 검토",
  "files": {
   "assets/7a-1.gif": "d1732788fab7f13e1e17f8bfb608ec6821e2f957afbf132a96a315e1387fd41b",
   "assets/7a-2.png": "1d12f0ea59b7cfe76ffd088a4ba083841f6ec33f72309eac7742a38a59a7e1ff",
@@ -11,12 +11,13 @@
   "assets/7c-1.gif": "8fdbcce5bdcce8945bfa627801eb7d326cb8d6872a32f0ce8773637e9f202c91",
   "assets/7c-2.png": "434ac0f4d0afce995c13f641f8c7b3f88438678ad905c62f7a68186d957f37ef",
   "meta.json": "f823c00f4936dcf873601ae4e8a6e36b0ff919f5df8d89db090881d35bcfcd6c",
-  "page.md": "3106180c6b215c79184195b41fa8613be7ef1ef3950f7f470bdee4a7ddfddf2c"
+  "page.md": "1777f75805977b067096287be75b58aabe14abf18a2f789cfe2c3ad9bc6248ba"
  },
  "findings": [
   "useProducts 실패 뒤 화면 설명을 탭을 다시 누를 때까지 머문다로 고침",
   "StockBadge 예상 문제의 질문 문단을 코드 앞으로 옮김",
   "쿼리 키 공유 설명에 그림 7C-1과 같은 목록과 상품 수 배지 예를 넣음",
-  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함.",
+  "2026-11-15 제목·목차 문구를 짧은 행동형으로 수정했음. 제목의 조건·수치·API를 교차 검토하고 본문·코드·물음·정답이 바뀌지 않았음을 대조했음. 기존 물음의 재풀이를 반복하지 않았음."
  ]
 }
