@@ -530,7 +530,7 @@ class PaperExplanationDialog(QDialog):
         self.text = kit.para("")
         self.panel.content.addWidget(self.text)
         self.question = kit.para("")
-        self.panel.content.addWidget(kit.heading(kit.para("직접 확인해 보세요", "body", bold=True), self.question))
+        self.panel.content.addWidget(kit.heading(kit.para("직접 확인해 보기", "body", bold=True), self.question))
         self.answer_button = kit.button("풀이 펼치기", "text")
         self.answer_button.setCheckable(True)
         self.answer_button.toggled.connect(self._toggle_answer)

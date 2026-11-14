@@ -1,17 +1,18 @@
 {
  "format": 1,
- "writer": "출제 W",
- "resolver": "재풀이 S",
- "reviewer": "검토 R",
+ "writer": "제목 수정",
+ "resolver": "기존 재풀이 보존",
+ "reviewer": "제목 교차 검토",
  "files": {
   "assets/l21-1.png": "0ff446f44df44b7518ecb68a563b7c93eeda2eef2adc6d5532cc11c8292e5b66",
   "assets/l21-2.png": "d2aefaa36ba5f1d5520cca2aefdbcaaab98ba1ff5ddc1aceea4597df406c6420",
   "assets/l21-3.gif": "3e322c185af19c1bf497239dd030e38b17f8f4da3335fc194d23f8ac6536c575",
-  "meta.json": "49195e658f6881b62c57b1a40a3aa67a8db5a38fa14e8a54355cee20ec43f63c",
-  "page.md": "ea555072cc5210e1f144137f1eab1865b0d84a29510cb1fafdee2806dff5def1"
+  "meta.json": "3b9d93665b27debd0f1b807a34a4cfbeb639f406e99010cb592db7c8284b835b",
+  "page.md": "3aad103ba02db55043dce6d57cb1d54446869433f6e9be4d416772f9fbfb76f1"
  },
  "findings": [
   "kit/self_check.md 의 연결어미 쉼표를 걷어낸 문장에 맞춰 스스로 점검 항목 인용을 고침",
-  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함.",
+  "2026-11-15 제목·목차 문구를 짧은 행동형으로 수정했음. 제목의 조건·수치·API를 교차 검토하고 본문·코드·물음·정답이 바뀌지 않았음을 대조했음. 기존 물음의 재풀이를 반복하지 않았음."
  ]
 }
