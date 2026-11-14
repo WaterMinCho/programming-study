@@ -272,9 +272,9 @@ class TeamDashboardTest(unittest.TestCase):
 
     def test_metric_switch_uses_cached_period_and_preserves_unmeasured_inputs(self):
         result = self.result(7)
-        empty = [dict(row, python=0, ai=0) for row in result["series"]]
-        result["activity"] = dict(distinct_cards=4, opens=empty,
-                                  inputs=[dict(row, python=1, ai=None, ai_unmeasured=True) for row in empty],
+        open_rows = [dict(row, python=1, ai=0) for row in result["series"]]
+        result["activity"] = dict(distinct_cards=4, opens=open_rows,
+                                  inputs=[dict(row, python=1, ai=None, ai_unmeasured=True) for row in open_rows],
                                   graded_metadata=dict(stem=1, concepts=2, revision=3, difficulty=0, ordered_timed=4,
                                                        linked_input=0), period_first_ai_measurement_at=None, ai_input_schema=1)
         self.identity.summary.side_effect = None
@@ -289,6 +289,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.assertEqual("최근 7일 첫 실행 11대", self.card.device_period.text())
         self.assertIs(self.card.raw_info.anchor, self.card.raw)
         self.assertEqual("4개", self.card.values["cards"].text())
+        self.assertEqual("7회", self.card.values["opens"].text())
         self.assertEqual("7회", self.card.values["inputs"].text())
         self.assertIn("기록된 입력 변경", self.card.infos["inputs"].accessibleName())
         self.assertNotIn("다시 풀고", self.card.note.text())
@@ -356,7 +357,8 @@ class TeamDashboardTest(unittest.TestCase):
 
         measured = self.result(7)
         rows = measured['graded']['series']
-        measured['activity'] = dict(distinct_cards=128, opens=rows, inputs=[dict(row, ai=None) for row in rows],
+        open_rows = [dict(row, python=row['python'] + 12) for row in rows]
+        measured['activity'] = dict(distinct_cards=128, opens=open_rows, inputs=[dict(row, ai=None) for row in rows],
             graded_metadata=dict(stem=1, concepts=2, revision=3, difficulty=4, ordered_timed=5, linked_input=0),
             period_first_ai_measurement_at=None, ai_input_schema=1)
         unmeasured = self.result(7)
