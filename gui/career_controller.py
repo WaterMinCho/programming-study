@@ -3,8 +3,9 @@ import json
 from datetime import datetime, timezone
 
 from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QApplication
 
-from gui import motion
+from gui import kit, motion
 from gui.worker import Job
 
 
@@ -13,6 +14,11 @@ class CareerController:
         self.win = win
         self.catalog = self.roadmap = self.magazine = None
         self.video = self.paper = self.setup_job = None
+        self.tour = self.tour_page = self.waiting_modal = None
+        self.tour_replay = False
+        self.tour_timer = QTimer(win)
+        self.tour_timer.setSingleShot(True)
+        self.tour_timer.timeout.connect(self._start_tour)
 
     def _catalog(self):
         if self.catalog is None:
@@ -23,7 +29,62 @@ class CareerController:
     def _attach(self, page):
         self.win.pages.addWidget(page)
         self.win.workspace.overview_pages += (page,)
+        page.tour_help = kit.button("사용법", "text")
+        page.tour_help.setToolTip("이 화면의 버튼 위치와 사용 순서를 다시 안내합니다.")
+        page.tour_help.clicked.connect(lambda: self.queue_tour(page, replay=True))
+        page.top.row.addWidget(page.tour_help)
+        page.busy_changed.connect(lambda busy: self.dismiss_tour() if busy else self.queue_tour(page))
         return page
+
+    def dismiss_tour(self):
+        self.tour_timer.stop()
+        self.tour_page = None
+        if self.tour is not None:
+            self.tour.dismiss()
+            self.tour.deleteLater()
+            self.tour = None
+
+    def queue_tour(self, page, replay=False):
+        if self.tour is not None and self.tour.active:
+            return
+        self.tour_page, self.tour_replay = page, replay
+        self.tour_timer.start(0)
+
+    def _start_tour(self):
+        from gui.career_onboarding import CareerTour, TOUR_KEYS
+        page = self.tour_page
+        if (page is None or self.win.pages.currentWidget() is not page or not page.isVisible()
+                or self.win.close_pending or self.win.pending_close):
+            return
+        context = "magazine" if page is self.magazine else "catalog" if page.browsing else "detail"
+        if not self.tour_replay and self.win.settings.value(TOUR_KEYS[context], False, type=bool):
+            return
+        modal = QApplication.activeModalWidget()
+        if modal is not None:
+            if modal is not self.waiting_modal and hasattr(modal, "finished"):
+                self.waiting_modal = modal
+                modal.finished.connect(lambda *_: self.tour_timer.start(0))
+            return
+        if self.win.job is not None or self.win.identity_dialog is not None or page._settling:
+            self.tour_timer.start(100)
+            return
+        self.waiting_modal = None
+        replay = self.tour_replay
+        self.tour_page, self.tour_replay = None, False
+        if self.tour is not None:
+            self.tour.deleteLater()
+        self.tour = CareerTour(page, self.win.settings, context)
+        self.tour.begin(page.tour_help if replay else None)
+
+    def replay_tours(self):
+        from gui.career_onboarding import TOUR_KEYS
+        self.dismiss_tour()
+        for key in TOUR_KEYS.values():
+            self.win.settings.remove(key)
+        self.show_roadmap()
+        if self.roadmap is not None and self.roadmap.isVisible():
+            self.roadmap.show_catalog()
+            self.queue_tour(self.roadmap)
 
     def show_roadmap(self):
         if not self.win.leave_pages(self.show_roadmap, "저장하지 않고 나가기"):
@@ -34,6 +95,8 @@ class CareerController:
                 catalog=self._catalog(), on_back=self.win.go_hub,
                 on_select_goal=self.select_role, on_magazine=lambda: self.show_magazine(),
                 on_video=self.show_magazine, on_source=self.win.open_url))
+            self.roadmap.view_changing.connect(self.dismiss_tour)
+            self.roadmap.view_changed.connect(lambda: self.queue_tour(self.roadmap))
             try:
                 saved = json.loads(self.win.settings.value("career/role/" + self.win.user, "{}"))
             except (ValueError, TypeError):
@@ -43,6 +106,7 @@ class CareerController:
                 self.roadmap.show_catalog()
         self.win.area = "career_roadmap"
         motion.switch(self.win.pages, self.roadmap)
+        self.queue_tour(self.roadmap)
 
     def show_magazine(self, video_id=None):
         if not self.win.leave_pages(lambda: self.show_magazine(video_id), "저장하지 않고 나가기"):
@@ -59,6 +123,8 @@ class CareerController:
         if video_id is not None:
             self.magazine._change_tab(0)
             self.magazine.select_video(video_id, reveal=True)
+        else:
+            self.queue_tour(self.magazine)
 
     def select_role(self, role_id, coarse_goal_id):
         role = self._catalog().role(role_id)
@@ -136,6 +202,7 @@ class CareerController:
         dialog.open()
 
     def stop(self):
+        self.dismiss_tour()
         self.stop_video()
         if self.paper is not None:
             self.paper.close()

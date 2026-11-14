@@ -119,6 +119,8 @@ class HubTest(unittest.TestCase):
         self.git = FakeGitFlow()
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
         self.settings.setValue("onboarding/hub/v1", True)  # 첫 안내는 전용 화면 검사에서 확인함.
+        for context in ("catalog", "detail", "magazine"):
+            self.settings.setValue(f"onboarding/career/{context}/v1", True)
         self.win = None
 
     def tearDown(self):

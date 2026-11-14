@@ -86,6 +86,7 @@ class RoleHeading(QWidget):
 
 class ReadingPage(QWidget):
     """화면 설정과 왕복 때 현재 문단의 화면 위치를 보관함."""
+    busy_changed = pyqtSignal(bool)
     def __init__(self, parent=None, on_back=None, back_label="← 학습 현황"):
         super().__init__(parent)
         kit.page(self)
@@ -119,6 +120,13 @@ class ReadingPage(QWidget):
     def _appearance_changed(self):
         kit.refont(self)
         self.update()
+
+    def set_busy(self, busy, text=""):
+        self.busy_changed.emit(busy)
+        self.setEnabled(not busy)
+        self.top.title.setText(text if busy else "")
+        self.top.title.setToolTip(text if busy else "")
+        self.top.title.setVisible(busy and bool(text))
 
     def _remember(self, *_):
         if self._settling:
@@ -292,6 +300,8 @@ class CareerFlow(QWidget):
 
 
 class CareerRoadmapPage(ReadingPage):
+    view_changing = pyqtSignal()
+    view_changed = pyqtSignal()
     goal_requested = pyqtSignal(str, str)
 
     def __init__(self, parent=None, *, catalog=None, repository=None, on_back=None, on_select_goal=None,
@@ -330,9 +340,17 @@ class CareerRoadmapPage(ReadingPage):
             combo.setMinimumContentsLength(1)
             combo.setMinimumWidth(0)
             combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.industry.setToolTip("선택한 산업에 해당하는 제품 예시와 직무만 보여 줍니다.")
+        self.industry.setAccessibleDescription(self.industry.toolTip())
+        self.product.setToolTip("선택한 제품과 관련된 직무만 보여 줍니다. 모든 제품 예시를 고르면 제품 필터를 해제합니다.")
+        self.product.setAccessibleDescription(self.product.toolTip())
+        self.role_picker.setToolTip("선택한 직무의 업무와 학습 로드맵을 엽니다. 관심 직무는 따로 저장하세요.")
+        self.role_picker.setAccessibleDescription(self.role_picker.toolTip())
         controls = self.controls = QWidget()
         select = kit.box(controls, spacing=theme.GAP["detail"], horizontal=True)
         self.catalog_button = kit.button("직무 목록", "secondary", "l")
+        self.catalog_button.setToolTip("산업·제품 필터를 유지한 채 직무 목록으로 돌아갑니다.")
+        self.catalog_button.setAccessibleDescription(self.catalog_button.toolTip())
         self.catalog_button.clicked.connect(self.show_catalog)
         select.addWidget(self.catalog_button)
         select.addWidget(self.role_picker, 1)
@@ -340,7 +358,8 @@ class CareerRoadmapPage(ReadingPage):
         select.addWidget(self.catalog_count, 1)
         self.filter_toggle = kit.button("산업·제품 필터", "secondary", "l")
         self.filter_toggle.setCheckable(True)
-        self.filter_toggle.setToolTip("산업과 제품으로 직무 좁히기")
+        self.filter_toggle.setToolTip("산업·제품 선택란을 펼치거나 접습니다. 접어도 선택한 필터는 유지됩니다.")
+        self.filter_toggle.setAccessibleDescription(self.filter_toggle.toolTip())
         select.addWidget(self.filter_toggle)
         self.body.addWidget(controls)
         self.filters = CareerFilters([kit.heading(kit.para(name, "label"), combo)
@@ -366,12 +385,18 @@ class CareerRoadmapPage(ReadingPage):
         self.role_title = kit.para("", "title")
         self.role_title.setProperty("reading_anchor", True)
         self.goal_button = kit.button("관심 직무로 저장")
+        self.goal_button.setToolTip("이 컴퓨터의 내 설정에 관심 직무를 저장합니다. 다른 직무를 저장하면 이전 선택을 바꿉니다.")
+        self.goal_button.setAccessibleDescription(self.goal_button.toolTip() + " 학습 목표와 지난 풀이 기록은 바꾸지 않습니다.")
         self.goal_button.clicked.connect(self.choose_goal)
         self.role_heading = RoleHeading(self.role_title, self.goal_button)
         self.goal_button.setVisible(on_select_goal is not None)
         details.addWidget(self.role_heading)
         details.addSpacing(theme.GAP["description_content"])
         self.detail_tabs = kit.TabBar(("업무·결과", "학습 로드맵"))
+        self.detail_tabs.buttons[0].setToolTip("직무의 업무 장면과 산출물 예시를 확인합니다.")
+        self.detail_tabs.buttons[0].setAccessibleDescription(self.detail_tabs.buttons[0].toolTip())
+        self.detail_tabs.buttons[1].setToolTip("준비할 기술을 추천 순서대로 읽고 ROKEY 수업에서 다루는 범위를 확인합니다.")
+        self.detail_tabs.buttons[1].setAccessibleDescription(self.detail_tabs.buttons[1].toolTip())
         details.addWidget(self.detail_tabs)
         details.addSpacing(theme.GAP["description_content"])
         self.work_panel, self.path_panel = QWidget(), QWidget()
@@ -383,6 +408,8 @@ class CareerRoadmapPage(ReadingPage):
         path = kit.box(self.path_panel)
         self.detail_tabs.picked.connect(self.show_detail_tab)
         self.image_button = kit.button("학습 로드맵 크게 보기", "primary")
+        self.image_button.setToolTip("새 창에서 로드맵 그림을 확대하고 드래그로 이동할 수 있습니다.")
+        self.image_button.setAccessibleDescription(self.image_button.toolTip())
         self.image_button.clicked.connect(self.open_image)
         self.scene = RoleScene()
         work.addWidget(self.scene)
@@ -390,6 +417,8 @@ class CareerRoadmapPage(ReadingPage):
         self.image_notice.hide()
         work.addSpacing(theme.GAP["section"])
         self.team_toggle = kit.button("팀과 담당 업무 펼치기")
+        self.team_toggle.setToolTip("조직 사례와 입력·업무·산출물의 흐름을 펼치거나 접습니다.")
+        self.team_toggle.setAccessibleDescription(self.team_toggle.toolTip())
         self.team_toggle.setCheckable(True)
         self.team_toggle.setProperty("reading_anchor", True)
         work.addWidget(self.team_toggle, 0, Qt.AlignmentFlag.AlignLeft)
@@ -424,6 +453,8 @@ class CareerRoadmapPage(ReadingPage):
         path.addWidget(self.learning)
         work.addSpacing(theme.GAP["section"])
         self.sources_button = kit.button("직무 소개와 채용 공고 펼치기")
+        self.sources_button.setToolTip("직무 소개·채용 공고의 요약과 출처 링크를 펼치거나 접습니다.")
+        self.sources_button.setAccessibleDescription(self.sources_button.toolTip())
         self.sources_button.setCheckable(True)
         self.sources_button.setProperty("reading_anchor", True)
         work.addWidget(self.sources_button, 0, Qt.AlignmentFlag.AlignLeft)
@@ -441,10 +472,14 @@ class CareerRoadmapPage(ReadingPage):
             if on_video:
                 for label, video_id in (("로봇 개발자의 업무", "H89Az-iZZrc"), ("로봇 개발 프로젝트 준비", "HCx2ICUe0eA")):
                     link = kit.button(label)
+                    link.setToolTip("매거진에서 관련 영상의 표지를 찾습니다. 표지를 누르면 재생 창을 엽니다.")
+                    link.setAccessibleDescription(link.toolTip())
                     link.clicked.connect(lambda checked=False, key=video_id: on_video(key))
                     links.append(link)
             if on_magazine:
                 magazine = kit.button("매거진 열기", "text")
+                magazine.setToolTip("관련 영상과 논문 해설을 찾아봅니다.")
+                magazine.setAccessibleDescription(magazine.toolTip())
                 magazine.clicked.connect(on_magazine)
                 links.append(magazine)
             work.addWidget(flow_buttons(*links))
@@ -474,6 +509,7 @@ class CareerRoadmapPage(ReadingPage):
         self.details.setVisible(not self.browsing and has_role)
 
     def show_catalog(self):
+        self.view_changing.emit()
         self._reset_reading()
         self.browsing = True
         self._show_mode()
@@ -482,6 +518,7 @@ class CareerRoadmapPage(ReadingPage):
         card = self.gallery.cards.get(self.selected_role_id)
         if card is not None and self._catalog_anchor is not None:
             card.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.view_changed.emit()
 
     def _open_catalog_role(self, role_id):
         index = self.role_picker.findData(role_id)
@@ -496,12 +533,14 @@ class CareerRoadmapPage(ReadingPage):
         self.show_detail_tab(0)
 
     def _pick_role(self, *_):
+        self.view_changing.emit()
         self._reset_reading()
         self._detail_anchors.clear()
         self.browsing = False
         self._show_role()
         self.scroll.verticalScrollBar().setValue(0)
         (self.top.back if self._on_back else self.catalog_button).setFocus(Qt.FocusReason.OtherFocusReason)
+        self.view_changed.emit()
 
     def show_detail_tab(self, index):
         if index == self._detail_index:
@@ -637,6 +676,7 @@ class CareerRoadmapPage(ReadingPage):
                          "employer_role_catalog": "직무 소개 열기"}.get(source.get("kind"), "원문 열기")
                 original = kit.button(label, "text")
                 original.setToolTip(source["url"])
+                original.setAccessibleDescription("브라우저에서 출처 원문을 엽니다.\n" + source["url"])
                 original.clicked.connect(lambda checked=False, url=source["url"]: self.on_source(url))
                 items.addWidget(flow_buttons(original))
             self.sources_layout.addWidget(box)

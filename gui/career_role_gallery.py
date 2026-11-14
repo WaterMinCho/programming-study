@@ -40,8 +40,8 @@ class RoleCard(QAbstractButton):
         text = self.role["outputs"][0]
         if self.saved:
             text += " · 관심 직무"
-        self.setAccessibleDescription(text)
-        self.setToolTip(self.role["title"] + "\n" + text)
+        self.setAccessibleDescription(text + "\n업무와 학습 로드맵을 엽니다. 관심 직무는 상세 화면에서 따로 저장하세요.")
+        self.setToolTip(self.role["title"] + "\n" + self.accessibleDescription())
 
     def set_saved(self, saved):
         self.saved = bool(saved)
