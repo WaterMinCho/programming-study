@@ -4,7 +4,8 @@ import os
 import unittest
 from unittest import mock
 
-from PyQt6.QtCore import QPoint, QSettings, Qt
+from PyQt6.QtCore import QEvent, QPoint, QSettings, Qt
+from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QDialog
 
@@ -34,6 +35,8 @@ class CareerOnboardingTest(unittest.TestCase):
         keys = set(win.settings.allKeys())
         win.go_career()
         tour = self.visible_tour(win, "catalog")
+        win.career._start_tour()
+        self.assertIs(win.career.tour, tour)
         guikit.click(tour.skip)
         self.assertTrue(win.settings.value(TOUR_KEYS["catalog"], False, type=bool))
         page = win.career.roadmap
@@ -140,6 +143,30 @@ class CareerOnboardingTest(unittest.TestCase):
             guikit.pump(motion.FADE_MS + 20)
             self.assertFalse(tour.active)
             self.assertFalse(win.settings.contains(TOUR_KEYS["catalog"]))
+
+    def test_held_key_deleted_target_and_missing_previous_focus(self):
+        win = self.fixture.boot()
+        win.go_career()
+        tour = self.visible_tour(win, "catalog")
+        for _ in range(4):
+            guikit.APP.sendEvent(tour.next, QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Return,
+                                                     Qt.KeyboardModifier.NoModifier, "", True))
+        self.assertEqual(tour.step, 0)
+        self.assertFalse(win.settings.contains(TOUR_KEYS["catalog"]))
+        tour.previous_focus = None
+        guikit.click(tour.skip)
+        self.assertTrue(win.career.roadmap.tour_help.hasFocus())
+        QTest.keyClick(guikit.APP.focusWidget(), Qt.Key.Key_Tab)
+        self.assertTrue(guikit.APP.focusWidget().isVisible())
+        self.assertNotIn(guikit.APP.focusWidget(), (tour.skip, tour.back, tour.next))
+        win.settings.remove(TOUR_KEYS["catalog"])
+        guikit.click(win.career.roadmap.tour_help)
+        tour = self.visible_tour(win, "catalog")
+        tour.steps[1][0].deleteLater()
+        guikit.pump()
+        guikit.click(tour.next)
+        self.assertFalse(tour.active)
+        self.assertFalse(win.settings.contains(TOUR_KEYS["catalog"]))
 
     def test_small_window_large_text_both_themes_and_all_contexts(self):
         self.win = win = self.fixture.boot()

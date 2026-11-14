@@ -67,10 +67,12 @@ class CareerController:
             self.tour_timer.start(100)
             return
         self.waiting_modal = None
+        replay = self.tour_replay
+        self.tour_page, self.tour_replay = None, False
         if self.tour is not None:
             self.tour.deleteLater()
         self.tour = CareerTour(page, self.win.settings, context)
-        self.tour.begin(page.tour_help if self.tour_replay else None)
+        self.tour.begin(page.tour_help if replay else None)
 
     def replay_tours(self):
         from gui.career_onboarding import TOUR_KEYS

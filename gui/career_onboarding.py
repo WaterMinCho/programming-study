@@ -17,14 +17,14 @@ def steps_for(page, context):
                    (card, "하는 일부터 살펴보기", "직무를 누르면 업무와 준비할 기술을 그림으로 볼 수 있습니다."))
     elif context == "detail":
         choices = ((page.detail_tabs, "업무에서 학습으로", "하는 일을 살펴본 뒤, 학습 로드맵에서 준비할 순서를 확인하세요."),
-                   (page.goal_button, "관심 직무 저장", "이 컴퓨터에 관심 직무를 저장합니다. 다른 직무로 바꿀 수도 있습니다."))
+                   (page.goal_button, "관심 직무 저장", "누르면 이 컴퓨터에 관심 직무를 저장합니다. 나중에 바꿀 수도 있습니다."))
     else:
         papers = page.paper_content.isVisibleTo(page)
         target = next((item for item in page.paper_previews.values() if item.isVisibleTo(page)), None) if papers else next(
             (card.cover for card in page.cards.values() if card.isVisibleTo(page)), None)
-        choices = ((page.tabs, "영상과 논문 해설", "영상으로 배우거나, 논문의 핵심 과정을 그림으로 따라가세요."),
+        choices = ((page.tabs, "영상과 논문 해설", "영상으로 배우거나, 논문의 계산 과정을 그림으로 따라가세요."),
                    (target, "그림을 눌러 해설 열기" if papers else "썸네일을 눌러 재생",
-                    "그림을 누르면 단계별 설명이 열립니다." if papers else "영상 정보에서 주제와 길이를 먼저 확인할 수도 있습니다."))
+                    "그림을 누르면 단계별 설명이 열립니다." if papers else "썸네일 아래 [영상 정보]에서 주제와 길이를 먼저 확인할 수도 있습니다."))
     return [(target, title, text) for target, title, text in choices
             if target is not None and target.isEnabled() and target.isVisibleTo(page)]
 
@@ -104,11 +104,14 @@ class CareerTour(QWidget):
             return
         self.step = max(0, number)
         self.target, title, text = self.steps[self.step]
+        if sip.isdeleted(self.target) or not self.target.isVisibleTo(self.page):
+            self.dismiss()
+            return
         self.title.setText(title)
         self.description.setText(text)
         self.count.setText(f"{self.step + 1} / {len(self.steps)}")
         self.back.setEnabled(self.step > 0)
-        self.next.setText("마침" if self.step == len(self.steps) - 1 else "다음")
+        self.next.setText("완료" if self.step == len(self.steps) - 1 else "다음")
         self.next.setAccessibleDescription(f"{self.count.text()} · {title}. {text}")
         if self.page.scroll.isAncestorOf(self.target):
             viewport = self.page.scroll.viewport()
@@ -173,7 +176,9 @@ class CareerTour(QWidget):
         self.page._settling = False
         self.page._schedule_restore()
         focus = self.previous_focus
-        if self.page.isVisible() and focus is not None and not sip.isdeleted(focus) and focus.isVisible() and focus.isEnabled():
+        if focus is None or sip.isdeleted(focus) or not focus.isVisible() or not focus.isEnabled():
+            focus = self.page.tour_help
+        if self.page.isVisible():
             focus.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def eventFilter(self, watched, event):
@@ -189,6 +194,8 @@ class CareerTour(QWidget):
                 event.accept()
                 return True
             if kind == QEvent.Type.KeyPress:
+                if event.isAutoRepeat():
+                    return True
                 key = event.key()
                 if key == Qt.Key.Key_Escape:
                     self.finish()
@@ -201,6 +208,8 @@ class CareerTour(QWidget):
         return False
 
     def focusNextPrevChild(self, forward):
+        if not self.active:
+            return super().focusNextPrevChild(forward)
         buttons = [button for button in (self.skip, self.back, self.next) if button.isEnabled()]
         focus = QApplication.focusWidget()
         index = buttons.index(focus) if focus in buttons else -1
