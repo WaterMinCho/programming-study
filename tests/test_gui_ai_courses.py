@@ -31,7 +31,7 @@ class CourseGuiTest(AiTest):
         self.assertEqual(['a01', 'a02', 'a03'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
-        self.assertEqual({'m4'},set(win.ai.mocks))
+        self.assertEqual({'m4', 'm5'}, set(win.ai.mocks))
         guikit.click(win.ai_home.browser.buttons['mocks'])
         self.assertTrue(win.ai_home.mock_section.isVisible())
         self.assertIn('응용', win.ai_home.lesson_list.rows[0].title.text())
