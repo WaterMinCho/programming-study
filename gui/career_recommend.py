@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QApplication, QComboBox, QDialog, QSizePolicy, QWidg
 from career.recommend import (ACTIVITIES, DEGREES, EXPERIENCES, INTERESTS, MAJORS, RULES,
                               Education, Profile, first_group, recommend)
 from gui import kit, theme
+from gui.career_profile import ProfileStorageError
 from gui.career_roadmap import CareerRoadmapPage, clear_layout, flow_buttons
 from gui.career_role_gallery import RoleGallery
 from gui.dialog_layout import DialogLayout
@@ -149,10 +150,12 @@ class ResultGallery(RoleGallery):
 
 
 class CareerRecommendDialog(QDialog):
-    def __init__(self, catalog, parent=None, on_select_goal=None, on_source=None, saved_role_id=None):
+    def __init__(self, catalog, parent=None, on_select_goal=None, on_source=None, saved_role_id=None, profile_store=None):
         super().__init__(parent)
         self.catalog, self.on_select_goal = catalog, on_select_goal
         self.saved_role_id = saved_role_id
+        self.profile_store = profile_store
+        self.restoring_profile, self.unreadable_profile = False, False
         self.stage, self.results = 0, ()
         self.result_position, self.restore_result = 0, False
         self.result_focus = None
@@ -173,7 +176,8 @@ class CareerRecommendDialog(QDialog):
         self.panels[0].layout().addWidget(kit.para(
             "취득한 학위와 전공 분야를 추가하세요. 학사·석사·박사의 전공이 다르면 각각 넣습니다. 입력 없이 다음으로 넘어가도 됩니다.", "body"))
         self.panels[0].layout().addWidget(kit.para(
-            "학교·회사 이름은 묻지 않습니다. 입력은 서버로 보내지 않으며, 이 창을 닫으면 지워집니다.", "caption", "secondary"))
+            "학교·회사 이름은 묻지 않습니다. 입력은 이 기기에 자동 저장되며 다시 열어 수정하거나 삭제할 수 있습니다. 서버로 보내지 않습니다."
+            if profile_store else "학교·회사 이름은 묻지 않습니다. 입력은 이 창에서만 사용합니다.", "caption", "secondary"))
         self.panels[0].layout().addWidget(self.education)
         self.experiences = EntryRows()
         self.panels[1].layout().addWidget(kit.para(
@@ -204,16 +208,71 @@ class CareerRecommendDialog(QDialog):
         self.back_button = kit.button("이전")
         self.next_button = kit.button("다음", "primary")
         self.close_button = kit.button("닫기", "text")
-        self.close_button.setToolTip("이 창을 닫고 입력한 학력·경력·활동·관심을 지웁니다.")
-        self.clear_button = kit.button("입력 지우기", "text")
+        self.close_button.setToolTip("입력은 이 기기에 남습니다. 다시 열어 이어서 수정할 수 있습니다." if profile_store else "이 창을 닫고 입력을 지웁니다.")
+        self.clear_button = kit.button("저장한 입력 삭제" if profile_store else "입력 지우기", "text")
+        self.clear_button.setToolTip("추천에 입력한 학력·경력·활동·관심을 지웁니다. 따로 저장한 관심 직무는 유지됩니다.")
         self.back_button.clicked.connect(self.back)
         self.next_button.clicked.connect(self.next)
         self.close_button.clicked.connect(self.reject)
         self.clear_button.clicked.connect(self.clear_profile)
         self.shell.actions.set_actions([self.clear_button, self.close_button], [self.back_button, self.next_button])
+        self.storage_error = kit.para("", "caption", "danger")
+        self.storage_error.setContentsMargins(32, 8, 32, 8)
+        self.storage_error.hide()
+        self.shell.insertWidget(self.shell.indexOf(self.shell.footer), self.storage_error)
+        self.education.changed.connect(self._save_profile)
+        self.experiences.changed.connect(self._save_profile)
+        self.interests.changed.connect(self._save_profile)
+        for button in self.activities.values():
+            button.toggled.connect(self._save_profile)
         theme.signals.changed.connect(self._appearance_changed)
+        self._load_profile()
         self.show_stage(0)
         self.shell.fit(960, 720)
+
+    def _load_profile(self):
+        if self.profile_store is None:
+            return
+        try:
+            profile = self.profile_store.load()
+        except ProfileStorageError as error:
+            self.unreadable_profile = True
+            for panel in self.panels[:3]:
+                panel.setEnabled(False)
+            self.next_button.setEnabled(False)
+            self._storage_failed(error)
+            return
+        self.restoring_profile = True
+        try:
+            for entry in profile.education:
+                self.education.add_row()
+                for field, value in zip(self.education.rows[-1][1], (entry.degree, entry.major)):
+                    field.setCurrentIndex(field.findData(value))
+            for value in profile.experiences:
+                self.experiences.add_row()
+                field = self.experiences.rows[-1][1][0]
+                field.setCurrentIndex(field.findData(value))
+            for key in profile.activities:
+                self.activities[key].setChecked(True)
+            self.interests.choices = set(profile.interests)
+            self.interests._describe_choices()
+            self.interests.changed.emit()
+        finally:
+            self.restoring_profile = False
+
+    def _storage_failed(self, error):
+        self.storage_error.setText(str(error))
+        self.storage_error.show()
+
+    def _save_profile(self):
+        if self.profile_store is None or self.restoring_profile or self.unreadable_profile:
+            return
+        try:
+            self.profile_store.save(self.profile())
+        except ProfileStorageError as error:
+            self._storage_failed(error)
+        else:
+            self.storage_error.hide()
 
     def _appearance_changed(self):
         kit.refont(self)
@@ -374,6 +433,21 @@ class CareerRecommendDialog(QDialog):
             self.detail.set_saved_role(role_id)
 
     def clear_profile(self):
+        if self.profile_store is not None:
+            try:
+                self.profile_store.delete()
+            except ProfileStorageError as error:
+                self._storage_failed(error)
+                return
+        self.unreadable_profile = False
+        for panel in self.panels[:3]:
+            panel.setEnabled(True)
+        self.next_button.setEnabled(True)
+        self.storage_error.hide()
+        self._clear_fields()
+
+    def _clear_fields(self):
+        self.restoring_profile = True
         self.education.clear()
         self.experiences.clear()
         for button in self.activities.values():
@@ -384,9 +458,10 @@ class CareerRecommendDialog(QDialog):
         self.result_focus = None
         clear_layout(self.panels[3].layout())
         self.show_stage(0)
+        self.restoring_profile = False
 
     def done(self, result):
-        self.clear_profile()
+        self._clear_fields()
         super().done(result)
 
     def keyPressEvent(self, event):

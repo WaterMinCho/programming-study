@@ -1,17 +1,20 @@
 """추천 입력·왕복·폐기와 작은 창의 조작 영역을 확인함."""
 from pathlib import Path
 import os
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
 from tests import guikit
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QPoint, Qt, QSettings
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QPushButton, QWidget
 
 from career.catalog import load_catalog
 from gui import theme
 from gui.career_recommend import CareerRecommendDialog
+from gui.career_profile import ProfileStore, ProfileStorageError, decode
+from career.recommend import Profile
 
 
 class CareerRecommendGuiTest(unittest.TestCase):
@@ -19,6 +22,10 @@ class CareerRecommendGuiTest(unittest.TestCase):
         self.catalog = load_catalog()
         self.state = dict(theme.state)
         self.windows = []
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.settings = QSettings(str(Path(self.tmp.name) / "settings.ini"), QSettings.Format.IniFormat)
+        self.store = ProfileStore(self.settings, "tester")
 
     def tearDown(self):
         for window in self.windows:
@@ -28,12 +35,12 @@ class CareerRecommendGuiTest(unittest.TestCase):
         theme.set_text(self.state["text"])
         theme.set_mode(self.state["mode"])
 
-    def show(self, callback=None):
+    def show(self, callback=None, store=None):
         parent = QWidget()
         parent.resize(792, 512)
         self.windows.append(parent)
         parent.show()
-        dialog = CareerRecommendDialog(self.catalog, parent, on_select_goal=callback)
+        dialog = CareerRecommendDialog(self.catalog, parent, on_select_goal=callback, profile_store=store)
         self.windows.append(dialog)
         dialog.resize(760, 480)
         dialog.move(dialog.screen().availableGeometry().topLeft() + QPoint(16, 32))
@@ -158,7 +165,8 @@ class CareerRecommendGuiTest(unittest.TestCase):
         theme.set_text("larger")
         for mode in ("light", "dark"):
             theme.set_mode(mode)
-            dialog = self.show()
+            dialog = self.show(store=self.store)
+            dialog.clear_profile()
             for _ in range(6):
                 self.add_education(dialog)
             dialog.activities["ui"].setChecked(True)
@@ -178,6 +186,161 @@ class CareerRecommendGuiTest(unittest.TestCase):
             guikit.pump()
             self.assertEqual(bar.value(), previous)
             self.assertEqual(len(dialog.profile().education), 6)
+
+    def test_saved_input_survives_all_close_routes_and_can_be_edited_and_deleted(self):
+        for exit_kind in ("button", "escape", "close"):
+            with self.subTest(exit_kind=exit_kind), patch("socket.socket", side_effect=AssertionError("네트워크 사용")):
+                dialog = self.show(store=self.store)
+                self.add_education(dialog)
+                dialog.education.add_row()  # 아직 고르지 않은 항목도 초안으로 보존함.
+                dialog.experiences.add_row()
+                dialog.activities["ui"].setChecked(True)
+                dialog.interests._pick("frontend")
+                expected = dialog.profile()
+                if exit_kind == "button":
+                    dialog.close_button.click()
+                elif exit_kind == "escape":
+                    QTest.keyClick(dialog, Qt.Key.Key_Escape)
+                else:
+                    dialog.close()
+                guikit.pump()
+                # 새 QSettings 인스턴스로 디스크 저장을 확인함.
+                settings = QSettings(self.settings.fileName(), QSettings.Format.IniFormat)
+                reopened = self.show(store=ProfileStore(settings, "tester"))
+                self.assertEqual(reopened.profile(), expected)
+                self.assertEqual(reopened.interest_count.text(), "1 / 3개 선택")
+                field = reopened.education.rows[0][1][1]
+                field.setCurrentIndex(field.findData("math"))
+                self.assertEqual(self.store.load().education[0].major, "math")
+                self.assertEqual(ProfileStore(settings, "someone-else").load(), Profile())
+                settings.setValue("career/role/tester", "frontend")
+                reopened.clear_button.click()
+                self.assertEqual(reopened.profile(), Profile())
+                self.assertFalse(settings.contains(self.store.key))
+                reopened.close()
+                guikit.pump()
+                self.assertFalse(settings.contains(self.store.key))
+                self.assertEqual(settings.value("career/role/tester"), "frontend")
+                self.assertEqual(self.store.load(), Profile())
+
+    def test_unreadable_input_is_preserved_until_explicit_delete(self):
+        for raw in ('{broken', '{"version": 42}', '{"version": true}',
+                    '{"version":1,"education":[],"experiences":[],"activities":[],"interests":["unknown"]}'):
+            with self.subTest(raw=raw):
+                self.settings.setValue(self.store.key, raw)
+                dialog = self.show(store=self.store)
+                self.assertTrue(dialog.storage_error.isVisible())
+                self.assertFalse(dialog.next_button.isEnabled())
+                self.assertFalse(dialog.education.isEnabled())
+                dialog.close()
+                guikit.pump()
+                self.assertEqual(self.settings.value(self.store.key), raw)
+                dialog = self.show(store=self.store)
+                dialog.clear_button.click()
+                self.assertTrue(dialog.next_button.isEnabled())
+                self.assertTrue(dialog.education.isEnabled())
+                self.assertFalse(self.settings.contains(self.store.key))
+                self.add_education(dialog)
+                self.assertEqual(self.store.load(), dialog.profile())
+                dialog.close()
+
+    def test_failed_save_or_delete_keeps_input_and_displays_error(self):
+        dialog = self.show(store=self.store)
+        self.assertFalse(self.settings.contains(self.store.key))
+        self.add_education(dialog)
+        expected = dialog.profile()
+        raw = self.settings.value(self.store.key)
+        with patch.object(QSettings, "status", return_value=QSettings.Status.AccessError):
+            dialog.clear_button.click()
+            self.assertTrue(dialog.storage_error.isVisible())
+            theme.set_text("larger")
+            self.assert_layout(dialog, "light", "storage-error")
+            self.assertEqual(dialog.profile(), expected)
+            self.assertEqual(self.settings.value(self.store.key), raw)
+            dialog.activities["ui"].setChecked(True)
+            self.assertEqual(self.settings.value(self.store.key), raw)
+            dialog.show_stage(1)
+            self.assertTrue(dialog.storage_error.isVisible())
+        dialog.activities["ui"].setChecked(False)
+        dialog.activities["ui"].setChecked(True)
+        self.assertFalse(dialog.storage_error.isVisible())
+        self.assertEqual(self.store.load(), dialog.profile())
+
+    def test_profile_keys_and_values_cannot_escape_the_saved_scope(self):
+        import json
+        self.store.save(Profile(activities=("ui",)))
+        for user in ("", "a/b", "a\\b", None):
+            with self.assertRaises(ValueError):
+                ProfileStore(self.settings, user)
+        other = ProfileStore(self.settings, "someone-else")
+        other.delete()
+        self.assertEqual(self.store.load().activities, ("ui",))
+        self.assertEqual(ProfileStore(self.settings, "TESTER").load(), self.store.load())
+        value = json.loads(self.settings.value(self.store.key))
+        for field, invalid in (("version", True), ("version", 2), ("education", [["bachelor"]]),
+                               ("education", [[[], "math"]]), ("experiences", [1]),
+                               ("activities", [["ui"]]), ("interests", ["interaction"] * 4),
+                               ("activities", ["ui", "ui"]), ("school", "not allowed")):
+            with self.subTest(field=field, invalid=invalid), self.assertRaises(ValueError):
+                decode(json.dumps(dict(value, **{field: invalid})))
+
+    def test_actual_settings_write_failure_is_reported_without_input(self):
+        parent_file = Path(self.tmp.name) / "not-a-directory"
+        parent_file.write_text("unchanged")
+        settings = QSettings(str(parent_file / "settings.ini"), QSettings.Format.IniFormat)
+        store = ProfileStore(settings, "tester")
+        with self.assertRaises(ProfileStorageError) as caught:
+            store.save(Profile(activities=("ui",)))
+        self.assertNotIn("ui", str(caught.exception))
+        self.assertEqual(parent_file.read_text(), "unchanged")
+
+    def test_actual_storage_failure_can_be_retried_after_repair(self):
+        blocker = Path(self.tmp.name) / "blocker"
+        blocker.write_text("unchanged")
+        settings = QSettings(str(blocker / "settings.ini"), QSettings.Format.IniFormat)
+        store = ProfileStore(settings, "tester")
+        with self.assertRaises(ProfileStorageError):
+            store.save(Profile(activities=("ui",)))
+        blocker.unlink()
+        store.save(Profile(activities=("ui",)))
+        self.assertEqual(store.load().activities, ("ui",))
+        store.delete()
+        self.assertEqual(store.load(), Profile())
+
+    def test_read_failure_does_not_unlock_or_claim_deletion(self):
+        with patch.object(QSettings, "status", return_value=QSettings.Status.AccessError):
+            dialog = self.show(store=self.store)
+            self.assertFalse(dialog.next_button.isEnabled())
+            dialog.clear_button.click()
+            self.assertFalse(dialog.next_button.isEnabled())
+            self.assertTrue(dialog.storage_error.isVisible())
+        dialog.clear_button.click()
+        self.assertTrue(dialog.next_button.isEnabled())
+        self.assertFalse(dialog.storage_error.isVisible())
+
+    def test_malformed_settings_file_is_not_treated_as_deleted(self):
+        path = Path(self.tmp.name) / "malformed.ini"
+        original = "[broken section\ncareer=value\n"
+        path.write_text(original)
+        store = ProfileStore(QSettings(str(path), QSettings.Format.IniFormat), "tester")
+        dialog = self.show(store=store)
+        self.assertFalse(dialog.next_button.isEnabled())
+        dialog.clear_button.click()
+        self.assertFalse(dialog.next_button.isEnabled())
+        self.assertTrue(dialog.storage_error.isVisible())
+        dialog.close()
+        guikit.pump()
+        self.assertEqual(path.read_text(), original)
+
+    def test_format_failure_stays_blocked_across_dialog_store_instances(self):
+        with patch.object(QSettings, "status", side_effect=[QSettings.Status.NoError,
+                          QSettings.Status.FormatError, QSettings.Status.FormatError]):
+            with self.assertRaises(ProfileStorageError):
+                self.store.load()
+        fresh = ProfileStore(self.settings, "tester")
+        with self.assertRaises(ProfileStorageError):
+            fresh.delete()
+        self.assertFalse(self.settings.contains("careerProfileFormatError"))
 
     def assert_layout(self, dialog, mode, stage):
         guikit.pump(100)
