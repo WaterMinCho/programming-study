@@ -125,6 +125,7 @@ class NoteVariationTest(Base):
 
     def test_answering_new_variant_consumes_daily_budget_before_next_note(self):
         sess = self.opened()
+        sess.review_variants = {}  # 생성기 경로의 하루 새 문항 상한을 확인함.
         self.assertTrue(sess.cards['i01-b07']['core'])
         self.wrong(sess, 'i01-b07')
         with mock.patch.object(service, 'NEW_PER_DAY', 1):

@@ -1,10 +1,120 @@
-{"format": 1, "id": "i01", "no": 1, "page": "l01",
+{
+ "format": 1,
+ "id": "i01",
+ "no": 1,
+ "page": "l01",
  "units": {
-  "1a": {"blank": 2, "choice": 3, "stmt": 0, "gen": ["i01-g01"], "core": 3},
-  "1b": {"blank": 3, "choice": 2, "stmt": 8, "gen": [], "core": 3},
-  "1c": {"blank": 3, "choice": 2, "stmt": 0, "gen": ["i01-g02"], "core": 3},
-  "1d": {"blank": 2, "choice": 3, "stmt": 0, "gen": ["i01-g03"], "core": 3},
-  "1e": {"blank": 3, "choice": 2, "stmt": 0, "gen": [], "core": 3},
-  "1f": {"blank": 3, "choice": 3, "stmt": 0, "gen": [], "core": 3},
-  "1g": {"blank": 3, "choice": 2, "stmt": 0, "gen": ["i01-g04"], "core": 3}},
- "sources": []}
+  "1a": {
+   "blank": 2,
+   "choice": 3,
+   "stmt": 0,
+   "gen": [
+    "i01-g01"
+   ],
+   "core": 3
+  },
+  "1b": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 8,
+   "gen": [],
+   "core": 3
+  },
+  "1c": {
+   "blank": 3,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [
+    "i01-g02"
+   ],
+   "core": 3
+  },
+  "1d": {
+   "blank": 2,
+   "choice": 3,
+   "stmt": 0,
+   "gen": [
+    "i01-g03"
+   ],
+   "core": 3
+  },
+  "1e": {
+   "blank": 3,
+   "choice": 3,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "1f": {
+   "blank": 4,
+   "choice": 3,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "1g": {
+   "blank": 4,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [
+    "i01-g04"
+   ],
+   "core": 3
+  }
+ },
+ "sources": [],
+ "card_order": [
+  "i01-b01",
+  "i01-b02",
+  "i01-c01",
+  "i01-c02",
+  "i01-c03",
+  "i01-b04",
+  "i01-b05",
+  "i01-c04",
+  "i01-c05",
+  "i01-b06",
+  "i01-b07",
+  "i01-b08",
+  "i01-c07",
+  "i01-b09",
+  "i01-c08",
+  "i01-b11",
+  "i01-c09",
+  "i01-b12",
+  "i01-c10",
+  "i01-c11",
+  "i01-b14",
+  "i01-b15",
+  "i01-c12",
+  "i01-b16",
+  "i01-c13",
+  "i01-c15",
+  "i01-b18",
+  "i01-b19",
+  "i01-b20",
+  "i01-c16",
+  "i01-c17",
+  "i01-b21",
+  "i01-b22",
+  "i01-c18",
+  "i01-b23",
+  "i01-c19",
+  "i01-s01",
+  "i01-s02",
+  "i01-s03",
+  "i01-s04",
+  "i01-s05",
+  "i01-s06",
+  "i01-s07",
+  "i01-s08",
+  "i01-g01",
+  "i01-g02",
+  "i01-g03",
+  "i01-g04",
+  "i01-b90",
+  "i01-c100",
+  "i01-b100",
+  "i01-b101"
+ ]
+}
