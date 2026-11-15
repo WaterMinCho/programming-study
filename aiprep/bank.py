@@ -86,6 +86,23 @@ def _list(value):
     return [str(v) for v in (value or [])]
 
 
+def read_review_variants(root=None):
+    """내용을 대조한 변형 연결을 읽음. 예전 은행은 빈 연결을 사용함."""
+    path = os.path.join(root or AI_DIR, "review_variants.json")
+    if not os.path.isfile(path):
+        return {}
+    data = _read_json(path, "복습 변형 목록")
+    if (not isinstance(data, dict) or data.get("version") != 1
+            or not isinstance(data.get("pairs"), dict)):
+        raise AiBankError("복습 변형 목록의 형식을 확인해 주세요.")
+    pairs = data["pairs"]
+    if any(not CARD_ID.fullmatch(cid) or not isinstance(ids, list)
+           or any(not isinstance(other, str) or not CARD_ID.fullmatch(other) for other in ids)
+           for cid, ids in pairs.items()):
+        raise AiBankError("복습 변형 목록의 문항 번호를 확인해 주세요.")
+    return pairs
+
+
 # index.json, terms.json, retired.json
 
 def read_index(root=None):
@@ -717,6 +734,16 @@ def cards_of(lesson, data):
             add(str(statement["id"]), "stmt", source, stmt=statement, topic=topic)
     for spec in data["gens"]:
         add(spec.id, "gen", spec.meta, gen=spec, family=str(spec.meta.get("family") or spec.id))
+    saved_order = data.get("meta", {}).get("card_order")
+    if saved_order is not None:
+        ids = {card["id"] for card in cards}
+        if (not isinstance(saved_order, list) or not all(isinstance(cid, str) for cid in saved_order)
+                or len(saved_order) != len(ids) or set(saved_order) != ids):
+            raise AiBankError("%s의 문항 순서 목록을 확인해 주세요." % lesson["id"])
+        positions = {cid: n for n, cid in enumerate(saved_order)}
+        for card in cards:
+            card["order"] = positions[card["id"]]
+        cards.sort(key=lambda card: card["order"])
     return cards
 
 
