@@ -160,8 +160,9 @@ class AiSession(object):
                 continue
             accepted_mocks.append(spec)
         self.index["mocks"] = accepted_mocks
-        if os.path.isfile(os.path.join(bank.mock_dir("m4", self.root), "meta.json")) and not any(m["id"] == "m4" for m in accepted_mocks):
-            pending_mocks.setdefault("m4", "혼합 모의고사의 문항 검토와 목록 연결을 준비하고 있습니다.")
+        for mid in mixed_mock.PUBLISHED_IDS:
+            if os.path.isfile(os.path.join(bank.mock_dir(mid, self.root), "meta.json")) and not any(m["id"] == mid for m in accepted_mocks):
+                pending_mocks.setdefault(mid, "혼합 모의고사의 문항 검토와 목록 연결을 준비하고 있습니다.")
         self.index["lessons"] = [e for e in self.index["lessons"] if e["course"] == course]
         if course != "intro":
             self.index["patterns"] = []
@@ -292,6 +293,9 @@ class AiSession(object):
                     if row.get('results', {}).get(card['id']) not in ('stuck', 'blank', 'partial'):
                         continue
                     card['mock'], card['after'] = mid, card['item'].get('lesson')
+                    related = (row.get('related_by_question') or {}).get(card['id'])
+                    if related:
+                        card['related_practice'] = related
                     self.cards[card['id']] = card
             except mock.MockError as error:
                 self.errors[mid] = str(error)
@@ -1016,7 +1020,8 @@ class AiSession(object):
         elif card.get('mock'):
             try:
                 first = state.index.mocks.get(card['mock'], {})
-                path = os.path.join(self.home, 'mocks', '%s-%d.json' % (card['mock'], int(first.get('try') or 1)))
+                home = self.mock_home if mixed_mock.candidate(self.mocks.get(card['mock'], {})) else self.home
+                path = os.path.join(home, 'mocks', '%s-%d.json' % (card['mock'], int(first.get('try') or 1)))
                 draft = study.read_json(path)
                 saved = None
                 if first.get('fingerprint') and draft.get('fingerprint') == first['fingerprint']:
@@ -1530,16 +1535,18 @@ def _choose(sess, state, pools, size, rng, taken=()):
     seen = {c for c, _ in taken}
     all_ids = [cid for _, ids in pools for cid in ids]
 
-    def can(cid):
+    def can(cid, pool):
         card = sess.cards[cid]
-        if cid in seen or card["family"] in families:
+        paired = pool == "transfer" and any(sess.cards[c].get("mock") and p == "lead"
+                    and sess.cards[c]["family"] == card["family"] for c, p in chosen)
+        if cid in seen or card["family"] in families and not paired:
             return False
         if card["kind"] == "skel" and any(_overlapping_pattern_answers(sess, cid, other) for other, _ in chosen
                                           if sess.cards[other]["kind"] == "skel"):
             return False
-        if card["kind"] == "gen" and gens >= gen_cap:
+        if card["kind"] == "gen" and gens >= max(1 if pool == "transfer" else 0, gen_cap):
             return False
-        if card["deep"] and deeps >= deep_cap:
+        if card["deep"] and deeps >= deep_cap and pool != "transfer":
             return False
         return True
 
@@ -1556,13 +1563,14 @@ def _choose(sess, state, pools, size, rng, taken=()):
         for cid in ids:
             if len(chosen) >= size:
                 break
-            if cid not in sess.cards or not can(cid):
+            if cid not in sess.cards or not can(cid, pool):
                 continue
             take(cid, pool)
             card = sess.cards[cid]
-            if card["deep"] and card["confuse"] and len(chosen) < size:  # 심화 짝을 같은 묶음에
+            if (card["deep"] and card["confuse"] and len(chosen) < size
+                    and not (pool == "lead" and any(p == "transfer" and ids for p, ids in pools))):
                 mate = next((m for m in all_ids if m in sess.cards and sess.cards[m]["deep"] and m != cid
-                             and set(sess.cards[m]["confuse"]) & set(card["confuse"]) and can(m)), None)
+                             and set(sess.cards[m]["confuse"]) & set(card["confuse"]) and can(m, pool)), None)
                 if mate:
                     take(mate, pool)
     return chosen
@@ -1775,7 +1783,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     size = SET_SIZE
     pattern = None
     overflow = []
-    protected = {"again", "due", "new", "lead"}
+    protected = {"again", "due", "new", "lead", "transfer"}
     if mode == "unit":
         fresh = new_cards(lambda c: c["lesson"] == lesson and c["unit"] == unit)
         # 핵심을 푼 뒤에는 고정 문항 뒤에 밀린 변형 문항도 한 장 먼저 연습함.
@@ -1825,12 +1833,19 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         mates = []
         if target:
             mates = [i["key"] for i in target[0]["items"] if i["state"] == target[1]["state"] and i["key"] != card]
-        pools = [("lead", [card]), ("rest", mates)]
+        transfer = []
+        if cards[card].get("mock"):
+            candidates = mixed_mock.practice_candidates(cards[card]["item"], cards, [card])
+            if candidates:
+                saved = cards[card].get("related_practice")
+                transfer = [saved if any(c["id"] == saved for c in candidates) else candidates[0]["id"]]
+        pools = [("lead", [card]), ("transfer", transfer), ("rest", mates)]
         size = NOTE_MAX
     else:
         raise AiError("모르는 연습 모드입니다: %s" % mode)
     if trace is not None:
-        trace.update(policy="rules-v2", runtime_revision=collection.runtime_revision(),
+        trace.update(policy="rules-v3" if any(name == "transfer" and ids for name, ids in pools) else "rules-v2",
+                     runtime_revision=collection.runtime_revision(),
                      trigger="learner_choice" if mode == "note" else "rules",
                      requested_card=card if mode == "note" else None,
                      candidate_scope="mode_pools_before_choose",
@@ -1843,6 +1858,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
     chosen = _fix_blanks(sess, state, chosen, pools, protected)
     keep = {card} if mode == "note" else set()
+    keep.update(cid for cid, pool in chosen if pool == "transfer")
     if mode in ("review", "sweep"):
         keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
     chosen = _gen_trim(sess, chosen, keep=keep, minimum=1 if mode == "unit" else 0)
@@ -1855,8 +1871,8 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         if trace is not None:
             trace["selected"] = list(selected)
         return selected
-    lead = [c for c, pool in chosen if pool == "lead"]
-    rest = [(c, pool) for c, pool in chosen if pool != "lead"]
+    lead = [c for c, pool in chosen if pool in ("lead", "transfer")]
+    rest = [(c, pool) for c, pool in chosen if pool not in ("lead", "transfer")]
     if mode == "mixed":  # [다시 풀기](note)의 lead 는 학습자가 고른 카드라 옮기지 않음
         lead, rest = _hold_lead(sess, lead, rest)
     selected = lead + _arrange(sess, state, rest, rng)
