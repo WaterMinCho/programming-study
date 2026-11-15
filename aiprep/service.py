@@ -1537,7 +1537,7 @@ def _choose(sess, state, pools, size, rng, taken=()):
 
     def can(cid, pool):
         card = sess.cards[cid]
-        paired = pool == "transfer" and any(sess.cards[c].get("mock") and p == "lead"
+        paired = pool == "transfer" and any(p == "lead"
                     and sess.cards[c]["family"] == card["family"] for c, p in chosen)
         if cid in seen or card["family"] in families and not paired:
             return False
@@ -1736,6 +1736,26 @@ def _arrange(sess, state, chosen, rng, pattern=None):
     return seq
 
 
+def _note_variant(state, lead):
+    """일반 오답과 같은 단원·근거의 열린 조건 변형 한 장을 고름."""
+    if lead["kind"] not in ("blank", "choice", "stmt") or lead["deep"] and lead["confuse"]:
+        return []
+    facts = set(lead.get("facts") or [])
+    candidates = []
+    for card in state._units.get((lead["lesson"], lead["unit"]), []):
+        overlap = facts & set(card.get("facts") or [])
+        if card["kind"] != "gen" or not overlap or card.get("errata") or card["deep"]:
+            continue
+        if not state.is_open(card):
+            if not state.eligible_new(card) or not card["core"] and state.new_cap_left() <= 0:
+                continue
+        events = state.events.get(card["id"], [])
+        rank = (card["family"] != lead["family"], -len(overlap), len(events),
+                events[-1]["at"] if events else "", card["order"], card["id"])
+        candidates.append((rank, card["id"]))
+    return [min(candidates)[1]] if candidates else []
+
+
 def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=None):
     """모드별 묶음 카드 id 목록(설계 2.9). 화면 순서까지 정해서 돌려줌."""
     cards = sess.cards
@@ -1839,12 +1859,17 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
             if candidates:
                 saved = cards[card].get("related_practice")
                 transfer = [saved if any(c["id"] == saved for c in candidates) else candidates[0]["id"]]
+        elif target:
+            transfer = _note_variant(state, cards[card])
         pools = [("lead", [card]), ("transfer", transfer), ("rest", mates)]
         size = NOTE_MAX
     else:
         raise AiError("모르는 연습 모드입니다: %s" % mode)
     if trace is not None:
-        trace.update(policy="rules-v3" if any(name == "transfer" and ids for name, ids in pools) else "rules-v2",
+        policy = "rules-v2"
+        if mode == "note" and any(name == "transfer" and ids for name, ids in pools):
+            policy = "rules-v3" if cards[card].get("mock") else "rules-v2"
+        trace.update(policy=policy,
                      runtime_revision=collection.runtime_revision(),
                      trigger="learner_choice" if mode == "note" else "rules",
                      requested_card=card if mode == "note" else None,
@@ -1863,6 +1888,8 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
     chosen = _gen_trim(sess, chosen, keep=keep, minimum=1 if mode == "unit" else 0)
     if trace is not None:
+        if mode == "note" and not cards[card].get("mock") and any(pool == "transfer" for _, pool in chosen):
+            trace["policy"] = "rules-v4"
         trace["selected_pools"] = dict(chosen)
         trace["selected_sources"] = {cid: "learner_choice" if mode == "note" and cid == card else "rules"
                                      for cid, _ in chosen}
