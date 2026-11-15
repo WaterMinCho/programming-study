@@ -1736,7 +1736,7 @@ def _arrange(sess, state, chosen, rng, pattern=None):
     return seq
 
 
-def _note_variant(sess, state, lead):
+def _note_variant(state, lead):
     """일반 오답과 같은 단원·근거의 열린 조건 변형 한 장을 고름."""
     if lead["kind"] not in ("blank", "choice", "stmt") or lead["deep"] and lead["confuse"]:
         return []
@@ -1860,14 +1860,14 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
                 saved = cards[card].get("related_practice")
                 transfer = [saved if any(c["id"] == saved for c in candidates) else candidates[0]["id"]]
         elif target:
-            transfer = _note_variant(sess, state, cards[card])
+            transfer = _note_variant(state, cards[card])
         pools = [("lead", [card]), ("transfer", transfer), ("rest", mates)]
         size = NOTE_MAX
     else:
         raise AiError("모르는 연습 모드입니다: %s" % mode)
     if trace is not None:
         policy = "rules-v2"
-        if any(name == "transfer" and ids for name, ids in pools):
+        if mode == "note" and any(name == "transfer" and ids for name, ids in pools):
             policy = "rules-v3" if cards[card].get("mock") else "rules-v2"
         trace.update(policy=policy,
                      runtime_revision=collection.runtime_revision(),

@@ -113,6 +113,32 @@ class NoteVariationTest(Base):
         self.assertEqual(['i01-g01'], ids)
         self.assertEqual('rules-v2', trace['policy'])
 
+    def test_pair_stays_first_with_other_wrong_answers_and_a_different_family(self):
+        sess = self.opened()
+        self.wrong(sess, 'i01-b07')
+        sess.cards['i01-g01']['family'] = 'other-update-example'
+        with mock.patch.object(service, 'GEN_SHARE', 0):
+            ids, trace = self.select(sess, 'i01-b02')
+        self.assertEqual(['i01-b02', 'i01-g01'], ids[:2])
+        self.assertIn('i01-b07', ids[2:])
+        self.assertEqual('rules-v4', trace['policy'])
+
+    def test_answering_new_variant_consumes_daily_budget_before_next_note(self):
+        sess = self.opened()
+        self.assertTrue(sess.cards['i01-b07']['core'])
+        self.wrong(sess, 'i01-b07')
+        with mock.patch.object(service, 'NEW_PER_DAY', 1):
+            practice = sess.start_set('note', card='i01-b02', seed=7)
+            for cid in ('i01-b02', 'i01-g01'):
+                cur = practice.current()
+                self.assertEqual(cid, cur['card'])
+                practice.answer(self.right(practice, cur), 2, True)
+                practice.next()
+            self.assertEqual(0, sess._state().new_cap_left())
+            ids, trace = self.select(sess, 'i01-b07')
+            self.assertNotIn('i01-g02', ids)
+            self.assertNotIn('transfer', trace['selected_pools'].values())
+
     def test_no_existing_variant_keeps_original_flow(self):
         sess = self.opened()
         del sess.cards['i01-g01']
