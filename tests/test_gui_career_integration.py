@@ -18,7 +18,7 @@ class CareerIntegrationTest(unittest.TestCase):
     boot = HubTest.boot
     idle = HubTest.idle
 
-    def test_recommendation_inputs_do_not_enter_settings_or_goal_callback(self):
+    def test_recommendation_input_stays_local_and_goal_is_saved_separately(self):
         from gui.career_onboarding import TOUR_KEYS
         win = self.boot()
         for key in TOUR_KEYS.values():
@@ -26,6 +26,18 @@ class CareerIntegrationTest(unittest.TestCase):
         win.go_career()
         guikit.pump()
         controller = win.career
+        from learning_data.submission import snapshot
+        collections = [win.session.collection, win.ai.collection]
+        contexts = [collection.observation_context() for collection in collections]
+        for collection in collections:
+            collection.set_enabled(True)
+            collection.emit("answer", {"result": "pass", "response": "synthetic answer"})
+        records = [collection.snapshot(include_answers=True)[1:] for collection in collections]
+        answer = Path(self.tmp) / "submissions" / win.user / "r01" / "quiz.py"
+        answer.parent.mkdir(parents=True, exist_ok=True)
+        answer.write_text("print(1)\n")
+        submitted = snapshot(self.tmp, win.user)
+        self.assertIn("r01/quiz.py", submitted)
         before = {key: win.settings.value(key) for key in win.settings.allKeys()}
         guikit.click(controller.roadmap.recommend_button)
         dialog = controller.recommend_dialog
@@ -34,7 +46,16 @@ class CareerIntegrationTest(unittest.TestCase):
         dialog.show_stage(2)
         dialog.next()
         dialog.open_detail("frontend")
-        self.assertEqual(before, {key: win.settings.value(key) for key in win.settings.allKeys()})
+        profile_key = "career/profile/" + win.user
+        self.assertEqual(before, {key: win.settings.value(key) for key in win.settings.allKeys() if key != profile_key})
+        self.assertEqual(json.loads(win.settings.value(profile_key))["activities"], ["ui"])
+        from gui.feedback import environment, issue_url
+        with mock.patch("gui.feedback.commit", return_value="0" * 40):
+            feedback_before = (environment(win), issue_url(win))
+            dialog.education.add_row()
+            for field, value in zip(dialog.education.rows[0][1], ("doctor", "health")):
+                field.setCurrentIndex(field.findData(value))
+            self.assertEqual(feedback_before, (environment(win), issue_url(win)))
         guikit.click(dialog.detail.goal_button)
         saved = json.loads(win.settings.value("career/role/" + win.user))
         self.assertEqual(set(saved), {"role_id", "catalog_version", "selected_at"})
@@ -45,11 +66,18 @@ class CareerIntegrationTest(unittest.TestCase):
         self.assertIsNone(controller.recommend_dialog)
         controller.show_recommendations()
         fresh = controller.recommend_dialog
-        self.assertEqual(fresh.profile().activities, ())
+        self.assertEqual(fresh.profile().activities, ("ui",))
+        self.assertEqual(fresh.profile().education[0].degree, "doctor")
         self.assertEqual(fresh.saved_role_id, "frontend")
+        self.assertEqual(records, [collection.snapshot(include_answers=True)[1:] for collection in collections])
+        self.assertEqual(submitted, snapshot(self.tmp, win.user))
+        for context, collection in zip(contexts, collections):
+            self.assertEqual(context["goal"], collection.observation_context()["goal"])
+        stored = win.settings.value(profile_key)
         controller.stop()
         guikit.pump()
         self.assertIsNone(controller.recommend_dialog)
+        self.assertEqual(win.settings.value(profile_key), stored)
 
     def test_javascript_probe_from_career_locks_page_and_opens_journey(self):
         from PyQt6.QtTest import QTest

@@ -133,9 +133,11 @@ class CareerController:
             self.recommend_dialog.raise_()
             return
         from gui.career_recommend import CareerRecommendDialog
+        from gui.career_profile import ProfileStore
         self.recommend_dialog = dialog = CareerRecommendDialog(
             self._catalog(), self.win, on_select_goal=self.select_role, on_source=self.win.open_url,
-            saved_role_id=self.roadmap.saved_role_id)
+            saved_role_id=self.roadmap.saved_role_id,
+            profile_store=ProfileStore(self.win.settings, self.win.user))
 
         def closed(*_):
             self.recommend_dialog = None
