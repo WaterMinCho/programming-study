@@ -48,14 +48,30 @@ class ProfileStore:
         self.settings = settings
         self.key = "career/profile/" + user.casefold()
 
+    def _open(self):
+        # status()가 이전 오류를 유지하므로 작업마다 같은 저장 위치를 새로 읽음.
+        base = self.settings
+        # 이미 파싱한 잘못된 INI 내용은 새 핸들에도 공유됨. 손상 판정은 덮어쓰지 않음.
+        if base.property("careerProfileFormatError") or base.status() == QSettings.Status.FormatError:
+            raise ProfileStorageError("기기 설정 파일을 읽지 못했습니다. 설정 파일을 확인한 뒤 프로그램을 다시 실행해 주세요.")
+        if base.organizationName():
+            settings = QSettings(base.format(), base.scope(), base.organizationName(), base.applicationName())
+        else:
+            settings = QSettings(base.fileName(), base.format())
+        settings.setFallbacksEnabled(False)
+        settings.sync()
+        if settings.status() == QSettings.Status.FormatError:
+            base.setProperty("careerProfileFormatError", True)
+        if settings.status() != QSettings.Status.NoError:
+            raise ProfileStorageError("기기 설정을 읽지 못했습니다. 저장 공간과 설정 파일 권한을 확인해 주세요.")
+        return settings
+
     def load(self):
         try:
-            self.settings.sync()
-            if self.settings.status() != QSettings.Status.NoError:
-                raise ProfileStorageError("기기 설정을 읽지 못했습니다. 저장 공간과 설정 파일 권한을 확인해 주세요.")
-            if not self.settings.contains(self.key):
+            settings = self._open()
+            if not settings.contains(self.key):
                 return Profile()
-            raw = self.settings.value(self.key, type=str)
+            raw = settings.value(self.key, type=str)
             return decode(raw)
         except ProfileStorageError:
             raise
@@ -67,7 +83,10 @@ class ProfileStore:
                  "experiences": list(profile.experiences), "activities": list(profile.activities),
                  "interests": list(profile.interests)}
         raw = json.dumps(value, ensure_ascii=False)
-        decode(raw)
+        try:
+            decode(raw)
+        except (TypeError, ValueError):
+            raise ProfileStorageError("저장할 입력의 형식을 확인하지 못했습니다. 항목을 다시 선택해 주세요.") from None
         if not any((profile.education, profile.experiences, profile.activities, profile.interests)):
             self.delete()
             return
@@ -77,18 +96,19 @@ class ProfileStore:
         self._write(None)
 
     def _write(self, raw):
-        before = self.settings.value(self.key)
+        settings = self._open()
+        before = settings.value(self.key)
         if raw == before or (raw is None and before is None):
             return
         if raw is None:
-            self.settings.remove(self.key)
+            settings.remove(self.key)
         else:
-            self.settings.setValue(self.key, raw)
-        self.settings.sync()
-        if self.settings.status() != QSettings.Status.NoError:
+            settings.setValue(self.key, raw)
+        settings.sync()
+        if settings.status() != QSettings.Status.NoError:
             # 저장 실패 때 메모리 설정도 이전 값으로 되돌림. 원문은 오류 메시지에 넣지 않음.
             if before is None:
-                self.settings.remove(self.key)
+                settings.remove(self.key)
             else:
-                self.settings.setValue(self.key, before)
+                settings.setValue(self.key, before)
             raise ProfileStorageError("기기 저장을 마치지 못했습니다. 변경한 내용이 남지 않을 수 있습니다. 저장 공간과 설정 파일 권한을 확인해 주세요.")

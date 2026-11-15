@@ -250,7 +250,7 @@ class CareerRecommendGuiTest(unittest.TestCase):
         self.add_education(dialog)
         expected = dialog.profile()
         raw = self.settings.value(self.store.key)
-        with patch.object(self.settings, "status", return_value=QSettings.Status.AccessError):
+        with patch.object(QSettings, "status", return_value=QSettings.Status.AccessError):
             dialog.clear_button.click()
             self.assertTrue(dialog.storage_error.isVisible())
             theme.set_text("larger")
@@ -292,8 +292,55 @@ class CareerRecommendGuiTest(unittest.TestCase):
         with self.assertRaises(ProfileStorageError) as caught:
             store.save(Profile(activities=("ui",)))
         self.assertNotIn("ui", str(caught.exception))
-        self.assertNotEqual(settings.status(), QSettings.Status.NoError)
         self.assertEqual(parent_file.read_text(), "unchanged")
+
+    def test_actual_storage_failure_can_be_retried_after_repair(self):
+        blocker = Path(self.tmp.name) / "blocker"
+        blocker.write_text("unchanged")
+        settings = QSettings(str(blocker / "settings.ini"), QSettings.Format.IniFormat)
+        store = ProfileStore(settings, "tester")
+        with self.assertRaises(ProfileStorageError):
+            store.save(Profile(activities=("ui",)))
+        blocker.unlink()
+        store.save(Profile(activities=("ui",)))
+        self.assertEqual(store.load().activities, ("ui",))
+        store.delete()
+        self.assertEqual(store.load(), Profile())
+
+    def test_read_failure_does_not_unlock_or_claim_deletion(self):
+        with patch.object(QSettings, "status", return_value=QSettings.Status.AccessError):
+            dialog = self.show(store=self.store)
+            self.assertFalse(dialog.next_button.isEnabled())
+            dialog.clear_button.click()
+            self.assertFalse(dialog.next_button.isEnabled())
+            self.assertTrue(dialog.storage_error.isVisible())
+        dialog.clear_button.click()
+        self.assertTrue(dialog.next_button.isEnabled())
+        self.assertFalse(dialog.storage_error.isVisible())
+
+    def test_malformed_settings_file_is_not_treated_as_deleted(self):
+        path = Path(self.tmp.name) / "malformed.ini"
+        original = "[broken section\ncareer=value\n"
+        path.write_text(original)
+        store = ProfileStore(QSettings(str(path), QSettings.Format.IniFormat), "tester")
+        dialog = self.show(store=store)
+        self.assertFalse(dialog.next_button.isEnabled())
+        dialog.clear_button.click()
+        self.assertFalse(dialog.next_button.isEnabled())
+        self.assertTrue(dialog.storage_error.isVisible())
+        dialog.close()
+        guikit.pump()
+        self.assertEqual(path.read_text(), original)
+
+    def test_format_failure_stays_blocked_across_dialog_store_instances(self):
+        with patch.object(QSettings, "status", side_effect=[QSettings.Status.NoError,
+                          QSettings.Status.FormatError, QSettings.Status.FormatError]):
+            with self.assertRaises(ProfileStorageError):
+                self.store.load()
+        fresh = ProfileStore(self.settings, "tester")
+        with self.assertRaises(ProfileStorageError):
+            fresh.delete()
+        self.assertFalse(self.settings.contains("careerProfileFormatError"))
 
     def assert_layout(self, dialog, mode, stage):
         guikit.pump(100)
