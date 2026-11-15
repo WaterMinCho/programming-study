@@ -84,8 +84,10 @@ class LegacyTransferTest(unittest.TestCase):
         self.transfer()
         events = [json.loads(row[0]) for row in self.rows()]
         answers = [row for row in events if row["kind"] == "answer"]
-        prepared = dataset.prepare(events)
-        self.assertEqual(4, len(prepared))
+        exclusions = {}
+        prepared = dataset.prepare(events, exclusions=exclusions)
+        self.assertEqual([], prepared)
+        self.assertEqual({"missing_prediction_time": 4}, exclusions)
         for row in answers:
             self.assertIsNone(row["item_revision"])
             self.assertIsNone(row["data"]["observed_at"])
