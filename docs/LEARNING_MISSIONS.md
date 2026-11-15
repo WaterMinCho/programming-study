@@ -13,9 +13,9 @@ WaterMinCho가 프로그램·서버·공통 자료와 앱 연결을 맡습니다
 | 담당 | 맡은 일 |
 |---|---|
 | WaterMinCho | 공통 자료·입력 설명·서버를 준비하고 팀원의 PR과 모델 연결을 검토합니다. |
-| michae18 | 과거 문제와 정오답을 읽고 작은 LSTM으로 예측값 하나를 만듭니다. |
-| wamangdoo | 같은 입력의 순서와 빈 자리를 확인하고 순서를 반영한 작은 Transformer를 만듭니다. |
-| kimjs85529-a11y | 간격과 시간 확인 여부를 출력하고, 이후 공유받은 LSTM에 시간 입력을 더합니다. |
+| 민혁 님 · michae18 | 과거 문제와 정오답을 읽고 작은 LSTM으로 예측값 하나를 만듭니다. |
+| 정규 님 · wamangdoo | 같은 입력의 순서와 빈 자리를 확인하고 순서를 반영한 작은 Transformer를 만듭니다. |
+| 준성 님 · kimjs85529-a11y | 간격과 시간 확인 여부를 출력하고 기본 LSTM에 시간 입력을 더합니다. |
 
 <a id="이번-pr에-만들고-확인할-것"></a>
 
@@ -23,15 +23,15 @@ WaterMinCho가 프로그램·서버·공통 자료와 앱 연결을 맡습니다
 
 ## 입력 실습 뒤 모델별 개발 PR과 확인 방법
 
-담당 이슈에는 GitHub에 올라온 코드와 PR을 기준으로 지금 할 일을 적습니다. [현재 제출과 다음 작업](STUDY_START.md#담당과-이번-작업을-확인합니다)에서 열린 PR과 머지된 PR을 구분합니다. 입력 확인 문서의 승인이나 모델 전체 완성을 기다리지 않고 코드·확인 결과·설명을 같은 PR에 올립니다.
+[팀원별 끝낸 작업과 다음 할 일](STUDY_START.md#담당과-이번-작업을-확인합니다)에서 현재 진행 상태를 확인하세요. 아래는 담당 이슈 #119·#120·#121에 맞춘 다음 작업의 구현·확인 방법입니다. 코드·테스트·설명은 한 PR에 함께 올립니다. 이전 PR이 머지됐다면 갱신한 `main`에서 새 브랜치와 PR을 만듭니다.
 
 | 담당 이슈 | 지금 만들 것 | 직접 확인할 결과 | 다음 단계 |
 |---|---|---|---|
-| [michae18 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | [PR #226](https://github.com/WaterMinCho/programming-study/pull/226)의 학습 전 예측 구현에서 이어갑니다. 다음 학습 작업에서는 기존 `train.py`에 손실 계산·역전파·가중치 갱신을 추가합니다. | 학습 구간에서 가중치가 바뀌고 검증 구간에서는 바뀌지 않는지 확인합니다. 모델 출력과 손실 함수를 고른 이유를 설명합니다. | 저장·불러오기 후 같은 예측이 나오는지 확인하고 기본 코드의 커밋·설정을 간격 담당자에게 공유합니다. |
-| [wamangdoo · #120](https://github.com/WaterMinCho/programming-study/issues/120) | LSTM과 비교할 입력 항목을 정하고, `model.py`에 순서 정보와 빈 자리 구분을 반영한 작은 Transformer를 만듭니다. | 합성 예제 4개에서 확률 4개가 나오고, 모든 과거 자리가 비어도 숫자가 유효합니다. 빈 자리에 넣은 값을 바꿔도 예측이 달라지지 않는지 확인합니다. | 학습·검증과 저장·불러오기를 연결한 뒤 같은 조건의 LSTM과 비교합니다. |
-| [kimjs85529-a11y · #121](https://github.com/WaterMinCho/programming-study/issues/121) | `inspect_gaps.py`에 이번 문제의 개념에 해당하는 간격과 확인 여부를 고르는 함수를 만듭니다. | `query_concepts`로 필요한 칸을 고르고, 시간을 모르는 `0.0·False`를 0초 경과로 바꾸지 않습니다. | 공유받은 기본 LSTM의 커밋을 고정하고, 시간 입력을 넣고 뺀 경우를 같은 조건으로 비교합니다. |
+| [민혁 님 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | #226으로 머지된 `train.py`에 손실 계산·역전파·가중치 갱신을 추가합니다. | 학습 구간에서 가중치가 바뀌고 검증 구간에서는 바뀌지 않는지 확인합니다. 모델 출력과 손실 함수를 고른 이유를 설명합니다. | 저장·불러오기 후 같은 예측이 나오는지 확인하고 기본 코드의 커밋·설정·실행 방법을 준성 님에게 공유합니다. |
+| [정규 님 · #120](https://github.com/WaterMinCho/programming-study/issues/120) | LSTM과 비교할 입력 항목을 정하고, `model.py`에 순서 정보와 빈 자리 구분을 반영한 작은 Transformer를 만듭니다. | 합성 예제 4개에서 확률 4개가 나오고, 모든 과거 자리가 비어도 유효한 확률이 나오는지 확인합니다. 평가 모드에서 빈 자리의 값만 바꿔도 예측이 같은지 확인합니다. | 학습·검증과 저장·불러오기를 연결한 뒤 같은 조건의 LSTM과 비교합니다. |
+| [준성 님 · #121](https://github.com/WaterMinCho/programming-study/issues/121) | 현재 `main`의 #226 LSTM에 #235의 `inspect_gaps.py`에서 고른 시간값과 확인 여부를 연결합니다. 사용할 코드 커밋·자료·설정은 민혁 님과 맞춥니다. | 모델에 넘긴 뒤에도 시간 미확인 `0.0·False`와 0초 경과 `0.0·True`가 구분되는지 확인합니다. #235에 적은 `<UNK>`의 한계가 모델 입력에 어떤 영향을 주는지 설명합니다. | 민혁 님이 학습 코드의 커밋·설정을 공유하면 그 코드를 기준으로 시간 입력을 넣고 뺀 경우를 학습·비교합니다. 차이가 난 결과와 오류 사례를 기록합니다. |
 
-2026년 11월 14일 #226의 [고정 커밋 코드][lstm-train]에는 `eval()`·`no_grad()`로 예측하는 동작만 있습니다. 예측과 테스트의 실행 결과는 작성자의 README 기록이며 학습·평가 완료 근거는 아닙니다. 현재 PR의 보완은 같은 브랜치에 올리고, 머지되면 다음 작업은 갱신한 `main`의 새 브랜치에서 진행합니다.
+민혁 님의 다음 작업에서는 기존 `Readme.md`의 자료 버전과 명령을 이번에 실제로 실행한 자료에 맞춥니다. 버전은 자료 폴더의 `manifest.json`에서 읽습니다. 두 번째 배치인 `rows[4:8]`의 예측 결과는 직접 실행한 값만 적습니다.
 
 #226의 LSTM은 입력 6개를 사용하고 [#189의 Transformer README][transformer-readme]는 9개를 계획합니다. 차이는 `mask`·`courses`·`query_course`이며, `mask`는 빈 자리를 구분하는 정보입니다. 모델 구조를 비교할 때는 과정 정보 등 예측에 사용하는 정보를 맞추고, 입력 정보가 다른 경우는 별도 실험으로 적습니다. 구체적인 입력 처리와 모델 구조는 각 담당자가 정합니다.
 
@@ -64,7 +64,7 @@ LSTM에 `pack_padded_sequence`를 쓰면 길이 0인 행을 그대로 넣을 수
 
 ### 코드와 함께 올릴 확인 결과
 
-1. 본인 폴더의 `test_model.py` 또는 `test_gaps.py`에 위 표의 정상 입력·빈 이력·시간 미확인 중 해당하는 경우를 확인하는 작은 테스트를 만듭니다.
+1. 본인 폴더의 테스트에서 위 표의 정상 입력·빈 이력·시간 미확인 중 이번 변경에 해당하는 경우를 확인합니다. 빠진 경우는 기존 테스트 파일에 추가하고, 파일이 없다면 `test_model.py`처럼 역할에 맞는 이름으로 만듭니다.
 2. 기존 README에 실행한 명령, 실제 나온 출력, 코드 선택 이유와 아직 실행하지 않은 부분을 적습니다. `Readme.md`처럼 이미 있는 파일은 이름을 유지하고 새 `README.md`를 중복 생성하지 않습니다.
 3. 코드·테스트·설명을 같은 작업 브랜치에서 Commit·Push합니다. [열린 PR·머지된 PR·아직 없는 PR에 따라 이어가기](LEARNING_WORKFLOW.md#기존-작업에서-어디부터-이어가나요)를 확인합니다.
 
@@ -235,7 +235,7 @@ flowchart TD
 
 풀이 내역·순서와 예측할 문제가 같아도 간격은 다를 수 있습니다. 기본 두 모델에는 이 시간을 넣지 않으므로 시간 차이를 직접 구별할 정보가 없습니다. 간격 추가 모델은 시간과 실제 정오답의 관계를 학습합니다. 7일이 지났다고 무조건 확률을 낮추는 규칙을 넣지 않습니다.
 
-기본 LSTM을 기다리는 동안 입력 예제의 `query_gap_seconds`와 `query_gap_known`을 확인합니다. 전자는 개념별 간격이고 후자는 그 간격을 확인할 수 있는지 나타냅니다. Q17에 개념이 여러 개 붙으면 개념마다 간격과 확인 여부가 있습니다. 필요한 개념의 값을 어떻게 모델에 전달했는지 설명합니다. 시각이 없는 값의 숫자 0을 당일 복습으로 해석하지 않습니다. 서버에 업로드한 시각을 풀이 시각으로 대신 쓰지 않습니다.
+시간 입력에는 `query_gap_seconds`와 `query_gap_known`을 함께 사용합니다. 전자는 개념별 간격이고 후자는 그 간격을 확인할 수 있는지 나타냅니다. Q17에 개념이 여러 개 붙으면 개념마다 간격과 확인 여부가 있습니다. 필요한 개념의 값을 어떻게 모델에 전달했는지 설명합니다. 시각이 없는 값의 숫자 0을 당일 복습으로 해석하지 않습니다. 서버에 업로드한 시각을 풀이 시각으로 대신 쓰지 않습니다.
 
 이후 michae18의 기본 LSTM 커밋을 고정하고 간격을 넣은 경우와 뺀 경우를 비교합니다. 시간 단위와 변환 방법을 기록하며 변환에 필요한 기준값은 학습 자료에서만 구합니다. 자기 설명에는 다른 조건을 고정하는 이유와 시간 미확인 값을 처리한 방법을 적습니다.
 
@@ -325,5 +325,4 @@ PR에는 이번에 직접 구현한 부분, 실행 명령과 결과, 막힌 점�
 [torch-eval]: https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html#torch.nn.Module.eval
 [torch-packed]: https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/PackedSequence.cpp
 [torch-padding]: https://docs.pytorch.org/docs/stable/generated/torch.nn.modules.transformer.Transformer.html
-[lstm-train]: https://github.com/michae18/programming-study/blob/0ba3146e89d11eff97d7826fda41c15ca06efd89/experiments/michae18/train.py
 [transformer-readme]: https://github.com/wamangdoo/programming-study/blob/eacb0f8855aa3071a779c974cbb716ccc4650ed8/experiments/wamangdoo/README.md
