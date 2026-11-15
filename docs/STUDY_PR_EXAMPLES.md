@@ -1,14 +1,14 @@
 # 이슈 상태를 바꾸고 커밋·PR 보내기
 
-작업할 브랜치는 [기존 작업에서 이어가기](LEARNING_WORKFLOW.md#기존-작업에서-어디부터-이어가나요)에서 확인하세요. 아래는 민혁 님의 입력 확인 결과를 README에 적는 상황을 가정한 예시입니다. 제목과 설명은 실제로 만든 내용으로 바꿔 적으세요.
+작업할 브랜치는 [기존 작업에서 이어가기](LEARNING_WORKFLOW.md#기존-작업에서-어디부터-이어가나요)에서 확인하세요. 아래는 michae18의 입력 확인 결과를 README에 적는 상황을 가정한 예시입니다. 제목과 설명은 실제로 만든 내용으로 바꿔 적으세요.
 
 SourceTree 화면은 Mac에서 작성한 예시입니다. Windows에서는 메뉴 위치와 이름이 다를 수 있습니다. 커밋·PR 입력 예시는 게시하지 않고 촬영했습니다. 이미지를 누르면 크게 볼 수 있습니다.
 
 | 담당 | 담당 이슈 | 복사할 문장 |
 |---|---|---|
-| 민혁 님 · michae18 | [#119](https://github.com/WaterMinCho/programming-study/issues/119) | `Refs WaterMinCho/programming-study#119` |
-| 정규 님 · wamangdoo | [#120](https://github.com/WaterMinCho/programming-study/issues/120) | `Refs WaterMinCho/programming-study#120` |
-| 준성 님 · kimjs85529-a11y | [#121](https://github.com/WaterMinCho/programming-study/issues/121) | `Refs WaterMinCho/programming-study#121` |
+| michae18 | [#119](https://github.com/WaterMinCho/programming-study/issues/119) | `Refs WaterMinCho/programming-study#119` |
+| wamangdoo | [#120](https://github.com/WaterMinCho/programming-study/issues/120) | `Refs WaterMinCho/programming-study#120` |
+| kimjs85529-a11y | [#121](https://github.com/WaterMinCho/programming-study/issues/121) | `Refs WaterMinCho/programming-study#121` |
 
 복사할 문장은 2번 커밋 메시지와 3번 PR 설명에서 씁니다.
 
@@ -67,11 +67,11 @@ Refs WaterMinCho/programming-study#119
 
 [![리뷰를 받은 PR의 브랜치와 추가 커밋을 확인하는 위치](img/study-pr-followup.png)](img/study-pr-followup.png)
 
-위 화면은 민혁 님의 #226 PR에 커밋 두 개가 들어간 실제 예시입니다. 고친 내용과 다시 확인한 결과를 PR 댓글에 남기세요. 같은 작업의 수정은 새 PR을 만들지 않습니다. 자세한 조작은 [리뷰 수정 순서](LEARNING_WORKFLOW.md#리뷰-질문에-답하고-수정한-커밋-남기기)를 참고하세요.
+위 화면은 michae18의 #226 PR에 커밋 두 개가 들어간 실제 예시입니다. 고친 내용과 다시 확인한 결과를 PR 댓글에 남기세요. 같은 작업의 수정은 새 PR을 만들지 않습니다. 자세한 조작은 [리뷰 수정 순서](LEARNING_WORKFLOW.md#리뷰-질문에-답하고-수정한-커밋-남기기)를 참고하세요.
 
 ## 작업을 모두 마쳤을 때
 
-담당 이슈의 완료 조건을 모두 채운 마지막 PR에서만 **PR 설명의 `Refs` 줄**을 아래처럼 바꾸세요. 정규 님은 `#120`, 준성 님은 `#121`을 사용하세요.
+담당 이슈의 완료 조건을 모두 채운 마지막 PR에서만 **PR 설명의 `Refs` 줄**을 아래처럼 바꾸세요. wamangdoo는 `#120`, kimjs85529-a11y는 `#121`을 사용하세요.
 
 ```text
 Closes WaterMinCho/programming-study#119
