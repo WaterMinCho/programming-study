@@ -84,10 +84,11 @@ def related_cards(sess, with_gens=False):
         try:
             note = bank.load_note({"id": entry["page"], "title": entry["title"]}, sess.root)
             data = bank.load_items(entry, sess.root, with_gens=with_gens)
+            lesson_cards = bank.cards_of(entry, data)
         except bank.AiBankError as error:
             sess.errors[entry["id"]] = str(error)
             continue
-        cards.update((card["id"], card) for card in bank.cards_of(entry, data) if card["unit"] in note["visible"])
+        cards.update((card["id"], card) for card in lesson_cards if card["unit"] in note["visible"])
     return cards
 
 

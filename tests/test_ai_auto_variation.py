@@ -323,6 +323,34 @@ class AutoVariationTest(Base):
 
 
 class StableCardOrderTest(Base):
+    def test_fixed_only_loading_keeps_full_order_and_rejects_missing_fixed_cards(self):
+        bank.load_common()
+        for lid in ('i01', 'a02'):
+            with self.subTest(lesson=lid):
+                full = bank.cards_of({'id': lid}, bank.load_items({'id': lid}))
+                with mock.patch.object(bank.genlib, 'load_module', side_effect=AssertionError('생성기는 읽지 않음')):
+                    partial = bank.load_items({'id': lid}, with_gens=False)
+                fixed = bank.cards_of({'id': lid}, partial)
+                expected = {card['id']: card['order'] for card in full if card['kind'] != 'gen'}
+                self.assertEqual(expected, {card['id']: card['order'] for card in fixed})
+                original = copy.deepcopy(partial)
+                for defect in ('missing_fixed', 'duplicate_fixed', 'unknown_order', 'duplicate_order', 'missing_generator'):
+                    with self.subTest(defect=defect):
+                        partial = copy.deepcopy(original)
+                        if defect == 'missing_fixed':
+                            partial['items'].pop()
+                        elif defect == 'duplicate_fixed':
+                            partial['items'].append(copy.deepcopy(partial['items'][0]))
+                        elif defect == 'unknown_order':
+                            partial['meta']['card_order'].append(lid + '-unknown')
+                        elif defect == 'duplicate_order':
+                            partial['meta']['card_order'].append(fixed[0]['id'])
+                        else:
+                            gid = next(card['id'] for card in full if card['kind'] == 'gen')
+                            partial['meta']['card_order'].remove(gid)
+                        with self.assertRaises(bank.AiBankError):
+                            bank.cards_of({'id': lid}, partial)
+
     def test_adding_fixed_question_keeps_saved_statement_and_generator(self):
         sess = self.session()
         data = copy.deepcopy(sess.items['i90'])

@@ -638,7 +638,7 @@ def generation_source(spec):
 
 def load_items(lesson, root=None, with_gens=True):
     """문항 묶음 ai/items/<id>/ 을 읽음. {"dir", "meta", "items", "topics", "facts": {id: 사실}, "errata": {id: 오류},
-    "review"(글 또는 None), "gens": [GenSpec], "sources"}. 봉인과 평문 작업본은 webprep.bank.load_secrets 규칙(평문이 이김)."""
+    "review"(글 또는 None), "gens": [GenSpec], "gens_loaded": bool, "sources"}. 봉인과 평문 작업본은 webprep.bank.load_secrets 규칙(평문이 이김)."""
     idir = items_dir(lesson["id"], root)
     meta = _read_json(os.path.join(idir, "meta.json"), "%s/meta.json" % lesson["id"])
     try:
@@ -646,7 +646,7 @@ def load_items(lesson, root=None, with_gens=True):
     except webbank.BankError as error:
         raise AiBankError("%s: %s" % (lesson["id"], error))
     out = {"dir": idir, "meta": meta, "items": [], "topics": [], "facts": {}, "errata": {}, "review": secrets.get("review.json"),
-           "gens": [], "sources": {}}
+           "gens": [], "gens_loaded": bool(with_gens), "sources": {}}
     try:
         if "items.json" in secrets:
             out["items"] = list(json.loads(secrets["items.json"]).get("items") or [])
@@ -737,8 +737,18 @@ def cards_of(lesson, data):
     saved_order = data.get("meta", {}).get("card_order")
     if saved_order is not None:
         ids = {card["id"] for card in cards}
+        expected = set(ids)
+        if data.get("gens_loaded") is False:
+            units = data.get("meta", {}).get("units", {})
+            if not isinstance(units, dict):
+                raise AiBankError("%s의 생성 문항 목록을 확인해 주세요." % lesson["id"])
+            for unit in units.values():
+                declared = unit.get("gen", []) if isinstance(unit, dict) else None
+                if not isinstance(declared, list) or not all(isinstance(cid, str) for cid in declared):
+                    raise AiBankError("%s의 생성 문항 목록을 확인해 주세요." % lesson["id"])
+                expected.update(declared)
         if (not isinstance(saved_order, list) or not all(isinstance(cid, str) for cid in saved_order)
-                or len(saved_order) != len(ids) or set(saved_order) != ids):
+                or len(cards) != len(ids) or len(saved_order) != len(expected) or set(saved_order) != expected):
             raise AiBankError("%s의 문항 순서 목록을 확인해 주세요." % lesson["id"])
         positions = {cid: n for n, cid in enumerate(saved_order)}
         for card in cards:

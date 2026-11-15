@@ -234,8 +234,11 @@ class ContinuationTest(Base):
     def test_published_a02_refs_match_the_prior_complete_card_content(self):
         root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ai')
         data = bank.load_items({'id': 'a02'}, root)
+        # 출처 정정 직전 d7346a8에 있던 37문항만 비교함. 이후 추가한 문항은 제외함.
+        previous_ids = {f'a02-b{n:02d}' for n in range(1, 25)} | {f'a02-c{n:02d}' for n in range(1, 14)}
         cards = {card['id']: card for card in bank.cards_of({'id': 'a02'}, data)
-                 if card['kind'] != 'gen'}
+                 if card['id'] in previous_ids}
+        self.assertEqual(previous_ids, set(cards))
         self.assertEqual(37, len(cards))
         fixes = data['meta']['resume_source_refs']
         self.assertEqual({'a02-b18', 'a02-c09', 'a02-c10'}, set(fixes))
