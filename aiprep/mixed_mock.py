@@ -9,10 +9,11 @@ from aiprep import bank
 
 _LOCKS = {}
 _EXAMS = weakref.WeakValueDictionary()
+PUBLISHED_IDS = ("m4", "m5")
 
 
 def candidate(spec):
-    return spec.get("id") == "m4" or spec.get("scope") == "mixed"
+    return spec.get("id") in PUBLISHED_IDS or spec.get("scope") == "mixed"
 
 
 def validate(spec, meta, items=None, lessons=None):
@@ -74,7 +75,7 @@ def course_entry(row, course):
     return out
 
 
-def related_cards(sess):
+def related_cards(sess, with_gens=False):
     """혼합 오답의 후보만 따로 읽음. 일반 연습 목록에는 추가하지 않음."""
     cards = {}
     for entry in sess.mock_lessons.values():
@@ -82,12 +83,31 @@ def related_cards(sess):
             continue
         try:
             note = bank.load_note({"id": entry["page"], "title": entry["title"]}, sess.root)
-            data = bank.load_items(entry, sess.root, with_gens=False)
+            data = bank.load_items(entry, sess.root, with_gens=with_gens)
         except bank.AiBankError as error:
             sess.errors[entry["id"]] = str(error)
             continue
         cards.update((card["id"], card) for card in bank.cards_of(entry, data) if card["unit"] in note["visible"])
     return cards
+
+
+def practice_candidates(item, cards, excluded=()):
+    """같은 과정의 관련 문항을 고름. 같은 근거에서는 조건 변형을 먼저 둠."""
+    family, facts = item.get("family"), set(item.get("facts") or [])
+    tags = set(item.get("tags") or [])
+    course = item.get("course") or bank.course_of(item.get("lesson"))
+    ranked = []
+    for card in cards.values():
+        if (card["id"] in excluded or card.get("mock") or card.get("errata")
+                or bank.course_of(card.get("lesson")) != course):
+            continue
+        same_family = bool(family and card.get("family") == family)
+        overlap = len(facts & set(card.get("facts") or [])) if card.get("lesson") == item.get("lesson") else 0
+        common_tags = len(tags & set(card.get("tags") or []))
+        if not (same_family or overlap or common_tags and card.get("lesson") == item.get("lesson")):
+            continue
+        ranked.append(((not same_family, -overlap, card.get("kind") != "gen", -common_tags, card["id"]), card))
+    return [card for _, card in sorted(ranked, key=lambda row: row[0])]
 
 
 def collection_course(exam, sess, kind, data):

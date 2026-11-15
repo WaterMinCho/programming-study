@@ -152,3 +152,60 @@ class PublishedSecretCheckTest(unittest.TestCase):
         verify_ai.check_secrets(verifier,str(root))
         self.assertEqual([],verifier.failures)
         self.assertIsNotNone(verify_ai.SECRET.search('sk-'+'test'*8))
+
+
+class AdditionalMixedExamTest(unittest.TestCase):
+    def test_new_mixed_exam_keeps_count_source_draft_and_duplicate_checks(self):
+        old = MixedValidationTest()
+        old.setUp()
+        old.meta['draft'] = False
+        old.save()
+        self.addCleanup(old.doCleanups)
+        index = old.fixture.read('index.json')
+        spec = dict(old.spec, id='m5', blueprint_revision='transfer-v1')
+        index['mocks'].append(spec)
+        old.fixture.write('index.json', index)
+        axes = ['condition', 'application', 'code_analysis', 'comparison']
+        meta = dict(spec, format=1, draft=True, time_basis='연습 시간입니다.', variation_types=axes)
+        items = copy.deepcopy(old.items)
+        for n, item in enumerate(items):
+            item['transferaxis'] = axes[n % 4]
+            item['id'] = item['id'].replace('m4-', 'm5-')
+            item['blueprint_revision'] = 'transfer-v1'
+            item['stem'] = '달라진 조건을 비교합니다. ' + item['stem']
+        old.fixture.write('mocks/m5/meta.json', meta)
+        old.fixture.write('mocks/m5/work/items.json', {'items': items})
+
+        def verify(*args):
+            output = io.StringIO()
+            code = verify_ai.main(['m5', '--bank', str(old.bank), '--seeds', '2', *args], output)
+            return code, output.getvalue()
+
+        code, output = verify()
+        self.assertEqual(0, code, output)
+        self.assertIn('초안 상태', verify('--sign', *legacy.NAMES)[1])
+        items[0]['stem'] = old.items[0]['stem']
+        old.fixture.write('mocks/m5/work/items.json', {'items': items})
+        self.assertIn('회차 간 같은 문항', verify()[1])
+        items[0]['course'] = 'app'
+        old.fixture.write('mocks/m5/work/items.json', {'items': items})
+        self.assertIn('실제 course 배분', verify()[1])
+
+    def test_unfinished_mixed_draft_does_not_block_published_exam_and_cannot_be_signed(self):
+        old = MixedValidationTest()
+        old.setUp()
+        self.addCleanup(old.doCleanups)
+        index = old.fixture.read('index.json')
+        spec = dict(old.spec, id='m6')
+        index['mocks'].append(spec)
+        old.fixture.write('index.json', index)
+        old.fixture.write('mocks/m6/meta.json', dict(spec, format=1, draft=True, time_basis='연습 시간입니다.'))
+        old.meta['draft'] = False
+        old.save()
+        code, output = old.verify()
+        self.assertEqual(0, code, output)
+        opts = type('Options', (), {'sign': True, 'require_review': False})()
+        output = io.StringIO()
+        verifier = verify_ai.Verifier(opts, output)
+        verify_ai.signature_step(verifier, str(old.bank), 'm6', str(old.bank/'mocks/m6'))
+        self.assertIn('초안 상태', output.getvalue())
