@@ -255,23 +255,33 @@ class CareerOnboardingTest(unittest.TestCase):
         page = win.career.magazine
         for mode in ("light", "dark"):
             theme.set_mode(mode)
-            win.career.queue_tour(page, replay=True)
-            tour = self.visible_tour(win, "magazine")
-            self.settle_tour(tour)
-            # 운영체제 글꼴 폭 차이로 설명이 한 줄 더 생긴 조건을 재현함.
-            font = QFont(tour.description.font())
-            font.setStretch(120)
-            tour.description.setFont(font)
-            guikit.click(tour.next)
-            self.settle_tour(tour)
-            self.assertTrue(tour.rect().contains(tour.card.geometry()))
-            self.assertFalse(tour.anchor.intersects(tour.card.geometry()))
-            self.assertEqual(1, tour.step)
-            for button in (tour.skip, tour.back, tour.next):
-                self.assertTrue(tour.card.rect().contains(button.rect().translated(button.mapTo(tour.card, QPoint()))))
-            self.capture(win, f"career-tour-wider-text-{mode}")
-            guikit.click(tour.next)
-            self.assertFalse(tour.isVisible())
+            for extra_height in (0, 4):
+                guikit.wait_until(lambda: not page._settling, timeout=5)
+                original_scroll = page.scroll.verticalScrollBar().value()
+                win.career.queue_tour(page, replay=True)
+                tour = self.visible_tour(win, "magazine")
+                self.settle_tour(tour)
+                # 임시 화면에서 글꼴 폭과 높이가 모두 늘어난 조건을 재현함.
+                font = QFont(tour.description.font())
+                font.setStretch(120)
+                font.setPixelSize(font.pixelSize() + extra_height)
+                tour.description.setFont(font)
+                guikit.click(tour.next)
+                self.settle_tour(tour)
+                self.assertTrue(tour.rect().contains(tour.card.geometry()))
+                self.assertFalse(tour.anchor.intersects(tour.card.geometry()))
+                self.assertEqual(1, tour.step)
+                viewport = page.scroll.viewport()
+                room = viewport.rect().translated(viewport.mapTo(tour.page, QPoint()))
+                self.assertTrue(room.contains(tour.anchor))
+                self.assertGreaterEqual(tour.anchor.height(), min(tour.target.height(), theme.control_height("l")))
+                for button in (tour.skip, tour.back, tour.next):
+                    self.assertTrue(tour.card.rect().contains(button.rect().translated(button.mapTo(tour.card, QPoint()))))
+                self.capture(win, f"career-tour-wider-text-{mode}-{extra_height}")
+                guikit.click(tour.next)
+                self.assertFalse(tour.isVisible())
+                guikit.wait_until(lambda: not page._settling, timeout=5)
+                self.assertEqual(original_scroll, page.scroll.verticalScrollBar().value())
 
     def capture(self, win, name):
         if not os.environ.get("CAREER_EVIDENCE"):
@@ -282,6 +292,7 @@ class CareerOnboardingTest(unittest.TestCase):
         measured = dict(active=tour.active, context=tour.context, step=tour.step,
                         window=[win.width(), win.height()], page=[tour.width(), tour.height()],
                         anchor=tour.anchor.getRect(), card=tour.card.geometry().getRect(),
+                        scroll=tour.page.scroll.verticalScrollBar().value(), previous_scroll=tour.previous_scroll,
                         platform=guikit.APP.platformName(), dpr=win.devicePixelRatioF())
         (Path(os.environ["CAREER_EVIDENCE"]) / (name + ".json")).write_text(
             json.dumps(measured, indent=2), encoding="utf-8")

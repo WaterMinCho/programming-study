@@ -22,6 +22,7 @@ CASES = (
     "tests.test_gui_design_system.DesignSystemTest.test_submission_actions_fit_without_losing_callbacks_or_visibility",
     "tests.test_gui_career_recommend.CareerRecommendGuiTest.test_small_window_large_text_two_themes_and_detail_round_trip",
     "tests.test_gui_career_onboarding.CareerOnboardingTest.test_small_window_large_text_both_themes_and_all_contexts",
+    "tests.test_gui_career_onboarding.CareerOnboardingTest.test_magazine_tour_fits_wider_text_without_dismissing",
     "tests.test_gui_career_integration.CareerIntegrationTest.test_update_check_from_both_career_pages_restores_controls_and_position",
     "tests.test_gui.FirstRunTest.test_from_first_run_to_regrade",
     "tests.test_gui_local_identity_guard.LocalIdentityGuardTest.test_error_and_retry_fit_small_window_at_max_text_both_themes",
