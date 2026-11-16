@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """코드의 짧은 사용 설명과 앞 학습 단계의 읽기 전용 참조를 표시함."""
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QDialog, QWidget
 
 from aiprep import bank
@@ -60,6 +60,10 @@ class CodeHelpBlock(QWidget):
         self.block, self.ctx = block, ctx
         self.reference_links = ctx.reference_links and not ctx.readonly
         self.dialog, self.docs = None, []
+        self.return_state = None
+        self.restore_timer = QTimer(self)
+        self.restore_timer.setSingleShot(True)
+        self.restore_timer.timeout.connect(self.restore_source)
         column = kit.box(self, spacing=theme.LEARN_GAP["detail"])
         if block.get("code"):
             self.docs.append(doc("```python\n%s\n```" % block["code"], ctx.base_dir, column))
@@ -78,9 +82,23 @@ class CodeHelpBlock(QWidget):
         if self.dialog is not None:
             self.dialog.raise_()
             return
+        self.restore_timer.stop()
+        if self.return_state is not None:
+            reader, view, _, fields = self.return_state
+            if reader.view is view:
+                self.restore_selections(view, fields)
+            self.return_state = None
+        from gui.ai_guide import ViewState
+        reader = self.ctx.win.ai_learn
+        reader.remember_view()
+        _, saved = reader.view_states[reader.view_key[0]]
+        position = ViewState(reader)
+        position.focus, position.selection = self.button, None
+        self.return_state = (reader, reader.view, position, saved["fields"])
         try:
             dialog = CodeReferenceDialog(self.ctx.win, self.block["reference"])
         except bank.AiBankError:
+            self.return_state = None
             self.error.show()
             return
         self.error.hide()
@@ -92,14 +110,46 @@ class CodeHelpBlock(QWidget):
 
     def clear_dialog(self, dialog):
         if self.dialog is dialog:
-            self.dialog = None
+            self.closed(0)
 
     def closed(self, _result):
         self.dialog = None
         if self.isVisible():
+            self.restore_timer.start(0)
+
+    def restore_source(self):
+        saved = self.return_state
+        if saved is None or not self.isVisible() or self.dialog is not None:
+            self.return_state = None
+            return
+        reader, view, position, fields = saved
+        if reader.view is not view:
+            self.return_state = None
+        elif position is not None:
+            self.return_state = (reader, view, None, fields)
+            position.restore()
             self.button.setFocus(Qt.FocusReason.OtherFocusReason)
+            self.restore_timer.start(0)
+        else:
+            self.return_state = None
+            self.restore_selections(view, fields)
+
+    @staticmethod
+    def restore_selections(view, fields):
+        """글자와 undo 이력을 유지하며 바뀌지 않은 입력의 선택·커서만 복원함."""
+        from gui.ai_learn import RecallBlock, _view_widget
+        for path, (text, cursor, start, length) in fields.items():
+            block = _view_widget(view, path)
+            if not isinstance(block, RecallBlock) or block.field.text() != text:
+                continue
+            if start >= 0:
+                block.field.setSelection(start + length if cursor == start else start, -length if cursor == start else length)
+            else:
+                block.field.setCursorPosition(cursor)
 
     def hideEvent(self, event):
+        self.restore_timer.stop()
+        self.return_state = None
         if self.dialog is not None:
             self.dialog.close()
         super().hideEvent(event)

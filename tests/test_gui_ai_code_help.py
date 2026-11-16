@@ -166,6 +166,55 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
         self.assertEqual(("i15", "15b"), (reader.lid, reader.key))
         self.capture_widget = win
 
+    def test_modal_focus_reset_keeps_input_selection_in_both_directions(self):
+        win = self.boot((760, 480))
+        win.go_ai()
+        win.open_ai_unit("i15", "15b", 4)
+        self.settled()
+        reader = win.ai_learn
+        block, = reader.view.findChildren(CodeHelpBlock)
+        field = reader.view.findChildren(ai_learn.RecallBlock)[0].field
+        reader.scroll.ensureWidgetVisible(block.button)
+        block.button.setFocus()
+        self.settled()
+        for start, length in ((0, 3), (3, -3)):
+            field.setText("미완성 ")
+            field.setFocus()
+            QTest.keyClicks(field, "17")
+            block.button.setFocus()
+            reader.scroll.ensureWidgetVisible(block.button)
+            self.settled()
+            field.setSelection(start, length)
+            self.assertTrue(field.isUndoAvailable())
+            selected = (field.text(), field.selectedText(), field.cursorPosition())
+            at = reader.scroll.verticalScrollBar().value()
+            before = self.stored()
+            guikit.click(block.button)
+            popup = block.dialog
+            # 모달의 기본 초점 복귀가 선택을 지우는 경로를 재현함.
+            popup.finished.connect(lambda _: field.deselect())
+            with mock.patch.object(win.ai.collection, "emit", side_effect=AssertionError("참조에서 수집")):
+                QTest.keyClick(popup, Qt.Key.Key_Escape)
+                self.settled()
+            self.assertEqual(selected, (field.text(), field.selectedText(), field.cursorPosition()))
+            self.assertIs(win.focusWidget(), block.button)
+            self.assertEqual(at, reader.scroll.verticalScrollBar().value())
+            self.assertEqual(before, self.stored())
+            self.assertTrue(field.isUndoAvailable())
+            field.undo()
+            self.assertEqual("미완성 ", field.text())
+        guikit.click(block.button)
+        popup = block.dialog
+        field.setText("열어 둔 동안 바뀐 입력")
+        with mock.patch.object(field, "setSelection", wraps=field.setSelection) as select, \
+                mock.patch.object(field, "setCursorPosition", wraps=field.setCursorPosition) as cursor:
+            QTest.keyClick(popup, Qt.Key.Key_Escape)
+            self.settled()
+            select.assert_not_called()
+            cursor.assert_not_called()
+        self.assertEqual("열어 둔 동안 바뀐 입력", field.text())
+        self.capture_widget = win
+
     def test_page_hide_and_dialog_destruction_close_only_the_owned_reference(self):
         win = self.boot((760, 480))
         win.go_ai()
