@@ -20,9 +20,17 @@ def initialize(db):
     db.execute("CREATE TABLE IF NOT EXISTS identity_receipts (request_hash TEXT PRIMARY KEY, member INTEGER NOT NULL, expires INTEGER NOT NULL)")
     if "member" not in {row[1] for row in db.execute("PRAGMA table_info(identity_grants)")}:
         db.execute("ALTER TABLE identity_grants ADD COLUMN member INTEGER NOT NULL DEFAULT 1")
+    grant_columns = {row[1] for row in db.execute("PRAGMA table_info(identity_grants)")}
+    if "account_hash" not in grant_columns:
+        db.execute("ALTER TABLE identity_grants ADD COLUMN account_hash TEXT")
+    if "account_recovery_at" not in grant_columns:
+        db.execute("ALTER TABLE identity_grants ADD COLUMN account_recovery_at REAL")
     if "account_hash" not in {row[1] for row in db.execute("PRAGMA table_info(identity_receipts)")}:
         db.execute("ALTER TABLE identity_receipts ADD COLUMN account_hash TEXT NOT NULL DEFAULT ''")
     db.execute("CREATE TABLE IF NOT EXISTS identity_accounts (account_hash TEXT PRIMARY KEY, first_seen INTEGER NOT NULL)")
+    db.execute("""CREATE TABLE IF NOT EXISTS identity_study_days (
+        account_hash TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(account_hash,date)) WITHOUT ROWID""")
+    db.execute("CREATE INDEX IF NOT EXISTS identity_study_days_date ON identity_study_days(date)")
     db.execute("CREATE TABLE IF NOT EXISTS identity_policy (slot INTEGER PRIMARY KEY CHECK(slot=1), value TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS identity_installations (device_hash TEXT PRIMARY KEY, first_seen INTEGER NOT NULL)")
     db.execute("CREATE INDEX IF NOT EXISTS identity_installations_time ON identity_installations(first_seen)")
@@ -252,7 +260,9 @@ class Access:
             db.execute("INSERT OR IGNORE INTO identity_receipts (request_hash,member,expires,account_hash) VALUES (?,?,?,?)", (request_hash, int(member), now + 300, account_hash))
             db.execute("INSERT OR IGNORE INTO identity_installations VALUES (?,?)", (self.digest("installation:" + nonce), now))
             db.execute("INSERT OR IGNORE INTO identity_accounts VALUES (?,?)", (account_hash, now))
-            db.execute("INSERT OR IGNORE INTO identity_grants (token_hash,policy,created,member) VALUES (?,?,?,?)", (hashed(viewer), policy, now, int(member)))
+            db.execute("""INSERT INTO identity_grants (token_hash,policy,created,member,account_hash)
+                VALUES (?,?,?,?,?) ON CONFLICT(token_hash) DO UPDATE SET account_hash=excluded.account_hash""",
+                (hashed(viewer), policy, now, int(member), account_hash))
         return {"verified": True, "team": member, "token": viewer}
 
     def authenticate(self, authorization, require_team=True):
@@ -267,6 +277,51 @@ class Access:
             raise ApiError(403, "스터디원에게만 제공하는 통계입니다.")
         return {"verified": True, "team": bool(allowed[0])}
 
+    def study_activity(self, authorization, data, *, delete=False, now=None):
+        """앱이 확인한 당일 채점 신호를 셈. 연구 참가자와 풀이 기록에는 연결하지 않음."""
+        from learning_server.app import ApiError, hashed
+        self.authenticate(authorization, require_team=False)
+        now = (now or datetime.datetime.now(KST)).astimezone(KST)
+        today = now.date().isoformat()
+        fields = {"nonce"} if delete else {"date", "nonce", "accepted"}
+        if not isinstance(data, dict) or set(data) - fields or (not delete and data.get("date") != today):
+            raise ApiError(400, "오늘 날짜의 학습 확인만 보낼 수 있습니다." if not delete else "삭제 요청 내용을 확인해 주세요.")
+        if not delete and data.get("accepted") is not True:
+            raise ApiError(403, "오늘 학습한 계정 집계에 동의한 뒤 보내 주세요.")
+        nonce = data.get("nonce")
+        if nonce is not None and (not isinstance(nonce, str) or not re.fullmatch(r"[a-f0-9]{64}", nonce)):
+            raise ApiError(400, "기기 확인 코드를 확인해 주세요.")
+        policy = self.policy()
+        token = authorization[7:]
+        token_hash = hashed(token)
+        with self.database.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("DELETE FROM identity_study_days WHERE date<?", (today,))
+            grant = db.execute("""SELECT account_hash,policy,account_recovery_at FROM identity_grants
+                WHERE token_hash=? AND (policy=? OR member=0)""", (token_hash, policy)).fetchone()
+            if not grant:
+                raise ApiError(401, "기기 본인 확인을 다시 받아 주세요.")
+            account_hash, grant_policy, recovery_at = grant
+            if not account_hash and nonce is not None:
+                if recovery_at is not None and now.timestamp() - recovery_at < 30:
+                    raise ApiError(429, "기기 연결 확인은 잠시 뒤 다시 시도해 주세요.", "activity_recovery_retry")
+                db.execute("UPDATE identity_grants SET account_recovery_at=? WHERE token_hash=?",
+                           (now.timestamp(), token_hash))
+                for candidate, in db.execute("SELECT account_hash FROM identity_accounts"):
+                    expected = self.digest("viewer:" + grant_policy + ":" + candidate + ":" + nonce)
+                    if hmac.compare_digest(expected, token):
+                        account_hash = candidate
+                        break
+                if account_hash:
+                    db.execute("UPDATE identity_grants SET account_hash=? WHERE token_hash=?", (account_hash, token_hash))
+            if not account_hash:
+                return {"eligible": False, "deleted": False} if delete else {"eligible": False, "date": today}
+            if delete:
+                db.execute("DELETE FROM identity_study_days WHERE account_hash=?", (account_hash,))
+                return {"eligible": True, "deleted": True}
+            db.execute("INSERT OR IGNORE INTO identity_study_days VALUES (?,?)", (account_hash, today))
+        return {"eligible": True, "date": today}
+
     def summary(self, authorization, days, now=None):
         from learning_server.app import ApiError
         self.authenticate(authorization)
@@ -278,6 +333,9 @@ class Access:
         step, size = (3600, 24) if days == 1 else (86400, days)
         begin, end = int(start.timestamp()), int(now.timestamp()) + 1
         with self.database.connect() as db:
+            today_date = now.date().isoformat()
+            db.execute("DELETE FROM identity_study_days WHERE date<?", (today_date,))
+            db.commit()
             db.execute("BEGIN")
             joined = " FROM team_events LEFT JOIN team_attempts USING (participant, track, event_id) WHERE synthetic=0"
             total, undated, graded, graded_undated, unknown = db.execute("""
@@ -290,13 +348,19 @@ class Access:
             activity = activity_summary(db, start, step, size, end)
             installations = db.execute("SELECT count(*),coalesce(sum(first_seen>=? AND first_seen<?),0) FROM identity_installations", (begin, end)).fetchone()
             accounts = db.execute("SELECT count(*),coalesce(sum(first_seen>=? AND first_seen<?),0) FROM identity_accounts", (begin, end)).fetchone()
+            eligible = db.execute("""SELECT count(DISTINCT g.account_hash) FROM identity_grants g
+                JOIN identity_accounts a ON a.account_hash=g.account_hash""").fetchone()[0]
+            today_count = db.execute("SELECT count(*) FROM identity_study_days WHERE date=?", (today_date,)).fetchone()[0]
+            today = {"date": today_date, "accounts": today_count,
+                     "coverage": "all" if eligible == accounts[0] else "partial",
+                     "eligible_accounts": eligible, "authenticated_accounts": accounts[0]}
         series = [{"at": (start + datetime.timedelta(seconds=n * step)).isoformat(), "python": 0, "ai": 0} for n in range(size)]
         graded_series = [row.copy() for row in series]
         for slot, track, count, attempts in values:
             if 0 <= slot < size and track in ("python", "ai"):
                 series[slot][track] = count
                 graded_series[slot][track] = attempts
-        return {"activity": activity, "total": total, "period_total": sum(row["python"] + row["ai"] for row in series),
+        return {"today": today, "activity": activity, "total": total, "period_total": sum(row["python"] + row["ai"] for row in series),
                 "graded": {"total": graded, "undated": graded_undated, "unknown": unknown, "series": graded_series,
                            "period_total": sum(row["python"] + row["ai"] for row in graded_series)},
                 "undated": undated, "days": days, "series": series, "as_of": now.isoformat(), "time_basis": "recorded_at",

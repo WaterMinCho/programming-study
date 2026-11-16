@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*-
 """기존 사용자의 첫 본인 확인과 팀 전용 통계의 배치를 확인함."""
 import datetime
+import json
+import os
+from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest import mock
 from tests import guikit
 
 from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QToolTip, QWidget
 
 from gui import kit, theme
-from gui.team_dashboard import MetricCard, MetricInfo, PERIODS, TeamCard
+from gui.team_dashboard import KST, MetricCard, MetricInfo, PERIODS, TeamCard
 from learning_data.collection import CollectionError
 from tests.test_gui_hub import HubTest
 
@@ -110,7 +114,142 @@ class TeamDashboardTest(unittest.TestCase):
         return {"total": 20000, "period_total": 4000, "undated": 20, "series": [dict(row, ai=0) for row in rows],
                 "graded": {"total": 12000, "period_total": sum(row["python"] + row["ai"] for row in rows),
                            "undated": 9, "unknown": 13, "series": rows}, "days": days, "as_of": "2026-11-13T17:20:00+09:00",
+                "today": {"date": datetime.datetime.now(KST).date().isoformat(), "accounts": 6, "coverage": "all",
+                          "eligible_accounts": 8, "authenticated_accounts": 8},
                 "installations": 41, "period_installations": 11, "accounts": 32, "period_accounts": 8}
+
+    def test_today_accounts_are_period_independent_and_clear_on_failure_or_revocation(self):
+        for days in PERIODS:
+            self.card.select(days)
+            self.assertEqual("확인된 6개", self.card.today_value.text())
+        today = self.result(7)["today"]
+        self.card.set_today(dict(today, coverage="partial"))
+        self.assertEqual("확인된 6개", self.card.today_value.text())
+        self.assertIn("기기 확인 코드가 남아 있으면 자동으로 확인", self.card.today_info.toolTip())
+        self.assertIn("채점 완료 신호", self.card.today_info.toolTip())
+        self.assertIn("[오늘 공부한 계정 수에 포함]을 선택", self.card.today_info.toolTip())
+        self.assertIn("구버전 앱", self.card.today_info.toolTip())
+        self.card.set_today(dict(today, accounts=0))
+        self.assertEqual("확인된 0개", self.card.today_value.text())
+        self.card.set_today(None)
+        self.assertEqual("집계 준비 중", self.card.today_value.text())
+        self.assertIn("아직 제공하지 않습니다", self.card.today_info.toolTip())
+        self.card.set_today(dict(today, accounts=-1))
+        self.assertEqual("확인 불가", self.card.today_value.text())
+        self.card.set_today(today)
+        self.controller.run_job.side_effect = None
+        self.controller.run_job.return_value = True
+        self.card.fetch()
+        self.assertEqual("확인 중", self.card.today_value.text())
+        self.assertIsNone(self.card.today_summary)
+        self.controller.run_job.call_args.kwargs["on_fail"]()
+        self.assertEqual("조회 실패", self.card.today_value.text())
+        self.card.set_today(today)
+        self.card.fetch()
+        done = self.controller.run_job.call_args.args[2]
+        self.identity.settings.return_value = {"team": False, "verified": True}
+        self.card.refresh_identity()
+        done(self.result(7))
+        self.assertIsNone(self.card.today_summary)
+        self.assertEqual("확인 불가", self.card.today_value.text())
+        self.assertFalse(self.card.today_timer.isActive())
+        self.assertTrue(self.card.isHidden())
+
+    def test_today_accounts_expire_at_korean_midnight_without_changing_as_of(self):
+        real_datetime = datetime.datetime
+        before = real_datetime(2026, 11, 16, 14, 59, 59, tzinfo=datetime.timezone.utc)
+        today = dict(self.result(7)["today"], date="2026-11-16", coverage="partial")
+        with mock.patch("gui.team_dashboard.datetime.datetime", wraps=real_datetime) as clock:
+            clock.now.return_value = before.astimezone(KST)
+            self.card.set_today(today)
+            self.assertEqual("확인된 6개", self.card.today_value.text())
+            self.assertEqual(1000, self.card.today_timer.interval())
+            clock.now.return_value = (before + datetime.timedelta(seconds=1)).astimezone(KST)
+            self.card.today_timer.timeout.emit()
+        self.assertEqual("11/16 · 확인된 6개", self.card.today_value.text())
+        self.assertEqual("secondary", self.card.today_value.property("tone"))
+        self.assertIn("오늘의 수치가 아닙니다", self.card.today_info.toolTip())
+        self.assertEqual("11월 13일 17:20 기준", self.card.as_of.text())
+        self.assertFalse(self.card.today_timer.isActive())
+        self.card.fetch()
+        self.assertEqual("확인된 6개", self.card.today_value.text())
+        self.assertFalse(self.card.today_value.property("tone"))
+
+    def test_today_status_and_theme_changes_keep_the_selected_font_size(self):
+        theme.set_text("larger")
+        today = self.result(7)["today"]
+        yesterday = (datetime.date.fromisoformat(today["date"]) - datetime.timedelta(days=1)).isoformat()
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            kit.refont(self.root)
+            for state, value in (("ready", today), ("loading", None), ("ready", today),
+                                 ("failed", None), ("ready", dict(today, accounts=0)),
+                                 ("ready", None), ("ready", dict(today, date=yesterday)),
+                                 ("ready", dict(today, coverage="partial"))):
+                self.card.set_today(value, state=state)
+                guikit.pump()
+                self.assertEqual(theme.TYPE["caption"][0], self.card.today_value.font().pixelSize())
+                self.assertTrue(self.card.today_value.font().bold())
+
+    def test_today_header_fits_small_window_and_aligns_text_in_both_themes(self):
+        samples = []
+        directory = os.environ.get("STUDY_UI_ARTIFACT_DIR")
+        available = self.root.screen().availableGeometry()
+        def bounds(widget):
+            return widget.rect().translated(widget.mapTo(self.root, QPoint()))
+
+        def baseline(widget):
+            metrics = QFontMetricsF(widget.font())
+            return bounds(widget).top() + (widget.height() - metrics.height()) / 2 + metrics.ascent()
+
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            for step in ("normal", "larger"):
+                theme.set_text(step)
+                kit.refont(self.root)
+                for requested in ((1400, 900), (760, 480)):
+                    size = requested if guikit.APP.platformName() == "offscreen" else (
+                        min(requested[0], available.width() - 48), min(requested[1], available.height() - 96))
+                    self.root.resize(*size)
+                    self.root.move(available.topLeft() + QPoint(24, 24))
+                    self.card.set_today(dict(self.result(7)["today"], coverage="partial"))
+                    self.scroll.verticalScrollBar().setValue(0)
+                    previous, settled = None, 0
+                    def stable():
+                        nonlocal previous, settled
+                        current = [bounds(w).getRect() for w in (self.card.heading, self.card.as_of,
+                                   self.card.today_surface, self.card.reload, self.card.filter_row)]
+                        settled = settled + 1 if current == previous else 0
+                        previous = current
+                        return settled >= 2
+                    guikit.wait_until(stable, timeout=5)
+                    surface, reload = bounds(self.card.today_surface), bounds(self.card.reload)
+                    self.assertFalse(surface.intersects(reload))
+                    self.assertFalse(surface.intersects(bounds(self.card.heading)))
+                    self.assertFalse(surface.intersects(bounds(self.card.as_of)))
+                    self.assertLess(surface.bottom(), bounds(self.card.filter_row).top())
+                    self.assertEqual(0, self.scroll.horizontalScrollBar().maximum())
+                    for widget in (self.card.today_title, self.card.today_value, self.card.today_info, self.card.reload):
+                        self.assertTrue(bounds(self.scroll.viewport()).contains(bounds(widget)))
+                        if widget is not self.card.today_info:
+                            self.assertGreaterEqual(widget.width(), widget.sizeHint().width())
+                    if self.card.today_row.side:
+                        self.assertLessEqual(abs(baseline(self.card.today_title) - baseline(self.card.today_value)), 1)
+                    self.assertEqual("오늘 열심히 공부한 계정", self.card.today_title.text())
+                    self.assertEqual(Qt.CursorShape.ArrowCursor, self.card.today_surface.cursor().shape())
+                    name = f"today-{mode}-{step}-{requested[0]}"
+                    samples.append(dict(name=name, requested=requested, actual=[self.root.width(), self.root.height()],
+                                        platform=guikit.APP.platformName(), dpr=self.root.devicePixelRatioF(),
+                                        title=bounds(self.card.today_title).getRect(), value=bounds(self.card.today_value).getRect(),
+                                        info=bounds(self.card.today_info).getRect(), reload=reload.getRect(),
+                                        label_baseline=baseline(self.card.today_title), value_baseline=baseline(self.card.today_value)))
+                    if directory:
+                        Path(directory).mkdir(parents=True, exist_ok=True)
+                        self.root.grab().save(str(Path(directory) / (name + ".png")))
+                        self.card.header.grab().save(str(Path(directory) / (name + "-header.png")))
+        if directory:
+            (Path(directory) / "today-header.json").write_text(json.dumps(samples, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.capture_widget = self.root
 
     def test_period_changes_all_visible_counts_and_never_replaces_the_lifetime_totals(self):
         for days in (1, 7, 15, 30):
@@ -254,6 +393,7 @@ class TeamDashboardTest(unittest.TestCase):
     def test_old_server_keeps_accounts_without_showing_event_counts_as_attempts(self):
         old = self.result(7)
         del old["graded"]
+        del old["today"]
         self.identity.summary.side_effect = None
         self.identity.summary.return_value = old
         self.card.fetch()
@@ -264,6 +404,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.assertEqual("최근 7일 채점 미확인", self.card.graded_period.text())
         self.assertTrue(self.card.plot_card.isHidden())
         self.assertEqual("32개", self.card.accounts.text())
+        self.assertEqual("집계 준비 중", self.card.today_value.text())
         self.assertIn("아직 제공하지 않습니다", self.card.note.text())
         self.identity.summary.side_effect = self.result
         self.card.fetch()

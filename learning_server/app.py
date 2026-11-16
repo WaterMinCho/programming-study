@@ -351,6 +351,17 @@ def application(database, *, legacy_contract=False):
                 if set(query) - {"days"} or len(query.get("days", ["7"])) != 1:
                     raise ApiError(400, "조회 기간을 확인해 주세요.")
                 result = identity.summary(environ.get("HTTP_AUTHORIZATION", ""), int(query.get("days", ["7"])[0]))
+            elif method in ("POST", "DELETE") and path == "/v1/identity/study-activity":
+                length = int(environ.get("CONTENT_LENGTH") or 0)
+                if not 0 <= length <= 2048 or (method == "POST" and length == 0):
+                    raise ApiError(413, "학습 확인 요청 크기를 확인해 주세요.")
+                if length and environ.get("CONTENT_TYPE", "").split(";")[0].strip() != "application/json":
+                    raise ApiError(415, "JSON 형식으로 보내 주세요.")
+                raw = environ["wsgi.input"].read(length)
+                if len(raw) != length:
+                    raise ApiError(400, "학습 확인 요청을 끝까지 받지 못했습니다.")
+                data = json.loads(raw.decode("utf-8")) if length else {}
+                result = identity.study_activity(environ.get("HTTP_AUTHORIZATION", ""), data, delete=method == "DELETE")
             elif method == "POST" and path == "/v1/identity/verify":
                 length = int(environ.get("CONTENT_LENGTH") or 0)
                 if not 1 <= length <= 2048:
