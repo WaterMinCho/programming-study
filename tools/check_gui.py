@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,7 +47,7 @@ def worker(modules):
         faulthandler.cancel_dump_traceback_later()
 
 
-def run(batches):
+def run(batches, timeout_seconds=17 * 60):
     jobs = []
     with tempfile.TemporaryDirectory(prefix="study-gui-check-") as directory:
         try:
@@ -57,8 +58,15 @@ def run(batches):
                                                cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT)
                 jobs.append((process, path))
             success = True
+            deadline = time.monotonic() + timeout_seconds
             for index, (process, path) in enumerate(jobs):
-                code = process.wait()
+                try:
+                    code = process.wait(timeout=max(0, deadline - time.monotonic()))
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+                    code = 1
+                    print(f"화면 검사 {index + 1}/{len(jobs)} · 시간 초과", flush=True)
                 print(f"화면 검사 {index + 1}/{len(jobs)} · 종료 코드 {code}", flush=True)
                 sys.stdout.write(path.read_text(encoding="utf-8", errors="replace"))
                 success = success and code == 0
