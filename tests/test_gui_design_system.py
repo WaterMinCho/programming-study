@@ -29,7 +29,7 @@ class DesignSystemTest(test_gui_hub.HubTest):
         step.status.setText("같은 글자")
         path.show()
 
-        def first_line_center(widget, token):
+        def first_line_bounds(widget, token):
             image = widget.grab().toImage()
             target = theme.qcolor(token)
             rows = []
@@ -45,17 +45,26 @@ class DesignSystemTest(test_gui_hub.HubTest):
                         break
                     rows.append(y)
             self.assertTrue(rows)
-            return widget.y() + (rows[0] + rows[-1]) / (2 * image.devicePixelRatio())
+            return tuple(widget.y() * image.devicePixelRatio() + row for row in (rows[0], rows[-1]))
 
         for mode in ("light", "dark"):
-            for text in ("normal", "larger", "normal"):
+            for cycle, text in enumerate(("normal", "larger", "normal")):
                 theme.set_mode(mode)
                 theme.set_text(text)
                 kit.refont(path)
                 path.resize(656, path.heightForWidth(656))
                 guikit.pump()
-                self.assertLessEqual(abs(first_line_center(step.title, "ink") -
-                                         first_line_center(step.status, "muted")), 1)
+                destination = os.environ.get("STUDY_UI_ARTIFACT_DIR")
+                if destination:
+                    target = Path(destination)
+                    target.mkdir(parents=True, exist_ok=True)
+                    self.assertTrue(step.grab().save(str(target / f"course-badge-{mode}-{cycle}-{text}.png")))
+                title_bounds = first_line_bounds(step.title, "ink")
+                status_bounds = first_line_bounds(step.status, "muted")
+                for title_edge, status_edge in zip(title_bounds, status_bounds):
+                    self.assertLessEqual(abs(title_edge - status_edge), 1, (mode, text, title_bounds, status_bounds))
+                self.assertGreaterEqual(step.title.height(), step.title.heightForWidth(step.title.width()))
+                self.assertGreaterEqual(step.status.height(), step.status.heightForWidth(step.status.width()))
 
     def test_settings_reuse_actions_across_subject_and_career_overviews(self):
         win = self.boot()

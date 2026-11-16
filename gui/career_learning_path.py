@@ -259,9 +259,8 @@ class _Step(QWidget):
         label = node["label"]
         kind, description = EXAMPLES.get(label, ("pipeline", f"{label}의 입력과 처리 결과를 연결해 확인합니다."))
         self.title = kit.para(f"{number}. {label}", "body", bold=True)
-        tones = {"taught": "accent", "partial": "warning", "extra": "", "unverified": ""}
-        self.status = kit.badge(COURSE_LABELS[node["course_status"]], tones[node["course_status"]])
-        kit.typed(self.status, "body", True)
+        self.status = kit.para(COURSE_LABELS[node["course_status"]], "body", bold=True)
+        self.status.setObjectName("career_step_status")
         self.status.setToolTip({
             "taught": "ROKEY 11기 정규 교육과정에 포함된 내용입니다.",
             "partial": "ROKEY 11기 수업에서는 이 주제의 일부만 다룹니다. 나머지는 별도 학습이 필요합니다.",
@@ -273,7 +272,6 @@ class _Step(QWidget):
         for child in (self.title, self.status, self.caption):
             child.setParent(self)
             child.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._align_header()
         self.example = _Example(kind, f"{label}. {description}", self)
         self.setProperty("reading_anchor", True)
@@ -289,10 +287,14 @@ class _Step(QWidget):
         return title_width, status_width, header, figure, caption_y
 
     def _align_header(self):
-        self.status.ensurePolished()
-        text_height = math.ceil(QFontMetricsF(theme.font("body", True)).height())
-        offset = max(0, (self.status.sizeHint().height() - text_height) // 2)
-        self.title.setContentsMargins(0, offset, 0, 0)
+        # 같은 Para의 첫 줄과 위 여백을 사용해 플랫폼별 일반 라벨의 세로 정렬 차이를 없앰.
+        self.title.setContentsMargins(0, 4, 0, 4)
+        self.status.setContentsMargins(8, 4, 8, 4)
+        background, ink = {"taught": ("selection", "selection_ink"),
+                           "partial": ("retry_weak", "retry")}.get(
+                               self.node["course_status"], ("surface_alt", "muted"))
+        self.status.setStyleSheet(f"QLabel#career_step_status {{ background: {theme.color(background)}; "
+                                 f"color: {theme.color(ink)}; border-radius: 12px; }}")
 
     def heightForWidth(self, width):
         *_, y = self._plan(width)
@@ -308,7 +310,7 @@ class _Step(QWidget):
     def _place(self):
         title_w, status_w, header, figure, caption_y = self._plan(self.width())
         self.title.setGeometry(16, 16, title_w, header)
-        self.status.setGeometry(self.width() - 16 - status_w, 16, status_w, self.status.sizeHint().height())
+        self.status.setGeometry(self.width() - 16 - status_w, 16, status_w, self.status.heightForWidth(status_w))
         self.example.setGeometry(16, 16 + header + theme.GAP["title_description"], max(1, self.width() - 32), figure)
         self.caption.setGeometry(16, caption_y, max(1, self.width() - 32), self.height() - caption_y - 16)
 
