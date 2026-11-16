@@ -22,8 +22,22 @@ class AiSectionBrowserTest(AiTest):
         return win, win.ai_home, win.ai_home.browser
 
     def settle(self):
-        guikit.pump()
-        guikit.wait_until(lambda: self.win.ai_home.browser.pending is None)
+        home = self.win.ai_home
+        browser = home.browser
+        previous, stable = None, 0
+
+        def ready():
+            nonlocal previous, stable
+            buttons = home.course_tabs.buttons + list(browser.buttons.values())
+            current = (tuple((button.mapTo(home, QPoint()), button.size()) for button in buttons),
+                       home.scroll.viewport().size(),
+                       home.scroll.verticalScrollBar().maximum())
+            stable = stable + 1 if current == previous else 0
+            previous = current
+            heights_ready = all(button.height() == button.sizeHint().height() for button in home.course_tabs.buttons)
+            return stable >= 3 and heights_ready and browser.pending is None
+
+        guikit.wait_until(ready)
 
     def test_categories_fit_small_wide_max_text_both_themes_and_remain_visible(self):
         win, home, browser = self.home()
@@ -42,6 +56,7 @@ class AiSectionBrowserTest(AiTest):
                 win.resize(width, height)
                 if native:
                     win.move(room.topLeft() + QPoint(16, 16))
+                heights = []
                 for step in ("larger", "normal", "larger"):
                     win.set_text(step)
                     self.settle()
@@ -53,6 +68,7 @@ class AiSectionBrowserTest(AiTest):
                     self.assertEqual(courses[0].font(), courses[1].font())
                     self.assertEqual(theme.TYPE["headline"][0], courses[0].font().pixelSize())
                     self.assertEqual(courses[0].height(), courses[1].height())
+                    heights.append(courses[0].height())
                     self.assertEqual(courses[0].mapTo(home, QPoint()).y(), courses[1].mapTo(home, QPoint()).y())
                     self.assertEqual(courses[1].mapTo(home, QPoint(courses[1].width(), 0)).x(),
                                      browser.navigation.mapTo(home, QPoint(browser.navigation.width(), 0)).x())
@@ -98,6 +114,8 @@ class AiSectionBrowserTest(AiTest):
                     self.assertFalse(home.next_card.isVisible())
                     guikit.click(browser.buttons["lessons"])
                     self.settle()
+                self.assertGreater(heights[0], heights[1], (mode, size, heights))
+                self.assertEqual(heights[0], heights[2], (mode, size, heights))
         self.capture_widget = win
 
     def test_refresh_and_course_switch_restore_each_category_position(self):
