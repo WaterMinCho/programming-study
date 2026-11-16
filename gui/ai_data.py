@@ -2,7 +2,7 @@
 """과목별 기록 제공 상태와 파일 저장·희망 직무 설정을 다룸."""
 import os
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPoint, Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QWidget
 
 from learning_data.collection import CollectionError
@@ -126,6 +126,15 @@ class LearningDataDialog(QDialog):
         self.message.hide()
         body.addStretch(1)
         self.scroll = self.shell.scroll
+        self._reading = None
+        self._layout_sample = None
+        self.position_timer = QTimer(self)
+        self.position_timer.setSingleShot(True)
+        self.position_timer.setInterval(16)
+        self.position_timer.timeout.connect(self.restore_reading_position)
+        self.scroll.verticalScrollBar().actionTriggered.connect(self.cancel_reading_restore)
+        self.scroll.verticalScrollBar().sliderPressed.connect(self.cancel_reading_restore)
+        self.finished.connect(self.cancel_reading_restore)
         self.privacy_button = kit.button("동의·삭제 관리", "text", "l")
         self.privacy_button.setToolTip("내 정보·데이터에서 동의 내용을 확인하거나 모든 과목의 연구용 기록을 삭제합니다.")
         self.privacy_button.clicked.connect(self.open_privacy)
@@ -157,6 +166,9 @@ class LearningDataDialog(QDialog):
         return self.controller is not None and self.controller.job is not None
 
     def refresh_transfer(self):
+        if self._reading is None:
+            self._reading = self.reading_position()
+            self._layout_sample = None
         status = self.collection.status()
         self.export_button.setEnabled(os.path.exists(self.collection.path) and not status["error"])
         self.goal_combo.setEnabled(status["enabled"] and not status["error"] and not self.goal_error)
@@ -219,6 +231,44 @@ class LearningDataDialog(QDialog):
             self.send_button.setEnabled(False)
             self.toggle.setEnabled(False)
             self.toggle.hide()
+        if self._reading is not None:
+            self.position_timer.start()
+
+    def reading_position(self):
+        if not self.isVisible() or not self.scroll.verticalScrollBar().value():
+            return None
+        viewport = self.scroll.viewport()
+        focus = QApplication.focusWidget()
+        candidates = [focus, self.transfer_section, self.export_section, self.goal_section]
+        for widget in candidates:
+            if widget is None or not self.shell.body.isAncestorOf(widget) or not widget.isVisible():
+                continue
+            top = widget.mapTo(viewport, QPoint()).y()
+            if top < viewport.height() and top + widget.height() > 0:
+                return widget, top, viewport.width()
+        return None
+
+    def restore_reading_position(self):
+        if self._reading is None:
+            return
+        widget, top, width = self._reading
+        viewport = self.scroll.viewport()
+        if not self.isVisible() or not widget.isVisible() or width != viewport.width():
+            self._reading = None
+            return
+        current = widget.mapTo(viewport, QPoint()).y()
+        sample = current, self.shell.body.height(), viewport.height()
+        if sample != self._layout_sample:
+            self._layout_sample = sample
+            self.position_timer.start()
+            return
+        self._reading = None
+        bar = self.scroll.verticalScrollBar()
+        bar.setValue(bar.value() + current - top)
+
+    def cancel_reading_restore(self, *args):
+        self.position_timer.stop()
+        self._reading = None
 
     def send(self):
         if self.controller is not None:

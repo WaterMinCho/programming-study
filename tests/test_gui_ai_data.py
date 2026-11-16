@@ -10,7 +10,7 @@ from tests import guikit
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QAbstractSlider, QApplication
 
 from gui import theme
 from gui.ai_data import LearningDataDialog
@@ -123,6 +123,36 @@ class AiDataTest(AiTest):
             send.assert_not_called()
         self.assertEqual(before, win.privacy.consent.path.read_bytes())
         self.assertIsNone(win.ai.collection.status()["goal"]["goal_id"])
+        dialog.close()
+
+    def test_transfer_status_keeps_the_focused_goal_at_its_reading_position(self):
+        win = self.boot(size=(760, 480))
+        dialog = LearningDataDialog(win, win.ai.collection)
+        dialog.show()
+        dialog.goal_section.set_opened(True)
+        dialog.goal_combo.setCurrentIndex(dialog.goal_combo.findData("vision"))
+        guikit.pump()
+        dialog.scroll.ensureWidgetVisible(dialog.goal_combo)
+        dialog.goal_combo.setFocus()
+        guikit.pump()
+        top = dialog.goal_combo.mapTo(dialog.scroll.viewport(), QPoint()).y()
+        with mock.patch.dict("os.environ", {"STUDY_AUTO_SYNC": "1"}):
+            for failed in (True, False):
+                win.privacy.failures = int(failed)
+                win.privacy.message = "서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요." if failed else "서버에 새 기록 1건을 전송했습니다."
+                win.privacy.changed.emit()
+                guikit.wait_until(lambda: dialog._reading is None)
+                self.assertEqual(top, dialog.goal_combo.mapTo(dialog.scroll.viewport(), QPoint()).y())
+                self.assertIs(dialog.goal_combo, QApplication.focusWidget())
+                self.assertEqual("vision", dialog.goal_combo.currentData())
+            win.privacy.failures = 1
+            win.privacy.changed.emit()
+            bar = dialog.scroll.verticalScrollBar()
+            bar.triggerAction(QAbstractSlider.SliderAction.SliderPageStepSub)
+            chosen = bar.value()
+            guikit.pump()
+            self.assertIsNone(dialog._reading)
+            self.assertEqual(chosen, bar.value())
         dialog.close()
 
     def test_declined_paused_and_withdrawal_states_have_distinct_actions(self):
