@@ -534,7 +534,7 @@ class JourneyMapPage(QWidget):
         self.cache_size = info["bytes"]
         self.clear_cache_btn.setVisible(shown)
         left, top, _, bottom = self.top.row.getContentsMargins()
-        self.top.row.setContentsMargins(left, top, kit.MARGIN - kit.FLUSH if shown else kit.MARGIN, bottom)
+        self.top.row.setContentsMargins(left, top, kit.MARGIN - kit.FLUSH if shown or hasattr(self, "settings_btn") else kit.MARGIN, bottom)
 
     def show_dungeon(self, did):
         """오른쪽 구역에 던전 did 의 보조 줄, 문제 목록, 소개를 보여 줌."""

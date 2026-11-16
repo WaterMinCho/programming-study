@@ -246,11 +246,6 @@ class Workspace(QWidget):
         brand_row.addWidget(mark)
         brand_row.addSpacing(12)
         brand_row.addWidget(kit.para("프로그래밍\n스터디", "label", bold=True), 1)
-        self.rail_settings = kit.button("설정", "text", "s")
-        policy = self.rail_settings.sizePolicy()
-        policy.setRetainSizeWhenHidden(True)
-        self.rail_settings.setSizePolicy(policy)
-        brand_row.addWidget(self.rail_settings)
         nav.addWidget(brand)
         nav.addSpacing(24)
         self.buttons = {}
@@ -284,8 +279,6 @@ class Workspace(QWidget):
         self.compact_row = QWidget()
         compact_layout = kit.box(self.compact_row, spacing=theme.GAP["detail"], horizontal=True)
         compact_layout.addWidget(self.compact, 1)
-        self.compact_settings = kit.button("설정", "text", "m")
-        compact_layout.addWidget(self.compact_settings)
         box.addWidget(self.compact_row)
         box.addWidget(pages, 1)
         self.submissions = SubmissionBar(win)
@@ -306,13 +299,25 @@ class Workspace(QWidget):
         self.body.installEventFilter(self)
         QApplication.instance().focusChanged.connect(self.reveal_focus)
         outer.addWidget(self.body, 1)
-        self.settings_menus = tuple(SettingsMenu(self, trigger)
-                                    for trigger in (self.rail_settings, self.compact_settings))
-        for trigger in (self.rail_settings, self.compact_settings):
-            trigger.setToolTip("글자 크기·테마·업데이트·사용법·문의")
+        self.settings_menus = []
+        for page in self.overview_pages:
+            if page is not win.hub:
+                self.add_settings(page)
         pages.currentChanged.connect(self.close_settings)
         pages.currentChanged.connect(self.refresh)
         self.refresh()
+
+    def add_settings(self, page):
+        """과목·커리어 화면의 같은 상단 막대 오른쪽 끝에 설정을 붙임."""
+        controls = [widget for widget in page.top.findChildren(QWidget)
+                    if widget.focusPolicy() & Qt.FocusPolicy.TabFocus]
+        page.settings_btn = kit.button("설정", "text", "s", onbg=True)
+        page.settings_btn.setToolTip("글자 크기·테마·업데이트·사용법·문의")
+        page.top.add_right(page.settings_btn, flush=True)
+        for previous, following in zip(controls, [*controls[1:], page.settings_btn]):
+            QWidget.setTabOrder(previous, following)
+        page.settings_panel = SettingsMenu(self, page.settings_btn)
+        self.settings_menus.append(page.settings_panel)
 
     def minimumSizeHint(self):
         """넓은 창의 이동 목록 때문에 좁은 배치로 줄일 수 없게 되는 것을 막음."""
@@ -362,9 +367,6 @@ class Workspace(QWidget):
         self.rail.setFixedWidth(rail_width)
         breakpoint = max(1120, rail_width + 760)
         show_navigation = self.win.session is not None and self.pages.currentWidget() in self.overview_pages
-        outside_hub = self.pages.currentWidget() is not self.win.hub
-        self.rail_settings.setVisible(outside_hub)
-        self.compact_settings.setVisible(outside_hub)
         rail_fits = self.width() >= breakpoint and self.height() >= self.rail.minimumSizeHint().height()
         self.rail.setVisible(show_navigation and rail_fits)
         self.compact_row.setVisible(show_navigation and not rail_fits)
@@ -382,8 +384,8 @@ class Workspace(QWidget):
         busy = self.win.job is not None or self.win.pending_close or self.win.close_pending
         self.rail.setEnabled(not busy)
         self.compact.setEnabled(not busy)
-        self.compact_settings.setEnabled(not busy)
         for menu in self.settings_menus:
+            menu.trigger.setEnabled(not busy)
             menu.refresh_actions(busy)
         usable = started and self.pages.currentWidget() in self.submission_pages and self.win.gitflow is not None
         allowed = self.win.has_submission_consent()
