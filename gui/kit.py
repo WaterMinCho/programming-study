@@ -927,6 +927,7 @@ class NavigationTabs(TabBar):
     """상위 탐색 항목을 같은 폭과 큰 글자로 표시함."""
     def __init__(self, names, deferred=False):
         super().__init__(names, deferred=deferred)
+        self.layout().itemAt(1).widget().hide()
         row = self.layout().itemAt(0).layout()
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(theme.GAP["detail"])
@@ -943,12 +944,11 @@ class NavigationTabs(TabBar):
             QPushButton#tab {{ background: {color('surface')}; color: {color('ink')};
                 font-size: {theme.TYPE['headline'][0]}px; font-weight: 700;
                 min-height: {height}px; max-height: {height}px; padding: 0 16px;
-                border: 1px solid transparent; border-bottom: 3px solid {color('line')}; }}
+                border: 2px solid {color('line')}; border-radius: {theme.RADIUS['control']}px; }}
             QPushButton#tab:hover {{ background: {color('hover')}; }}
             QPushButton#tab:checked {{ background: {color('selection')}; color: {color('selection_ink')};
-                border-bottom-color: {color('link')}; }}
-            QPushButton#tab:focus {{ border-top-color: {color('focus')};
-                border-left-color: {color('focus')}; border-right-color: {color('focus')}; }}
+                border-color: {color('link')}; }}
+            QPushButton#tab:focus {{ border-color: {color('focus')}; border-style: dashed; }}
             QPushButton#tab:disabled {{ color: {color('faint')}; background: {color('bg')}; }}
             QPushButton#tab:checked:disabled {{ background: {color('selection')}; }}
         """)
@@ -1190,12 +1190,13 @@ class NextCard(QFrame):
     def __init__(self):
         super().__init__()
         self.setObjectName("card")
+        self.setProperty("next_action", True)
         self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
-        self.row.setContentsMargins(32, 32, 32, 32)
-        self.row.setSpacing(24)
+        self.row.setContentsMargins(24, 24, 24, 24)
+        self.row.setSpacing(theme.GAP["group"])
         self.text_box = QWidget()
         column_box = box(self.text_box, spacing=theme.GAP["detail"])
-        self.caption = label("이어서 할 일", "caption", "tertiary")
+        self.caption = label("이어서 할 일", "caption", "accent")
         self.title = para("", "headline")
         self.line = para("", "body", "secondary")
         column_box.addWidget(self.caption)
@@ -1215,7 +1216,8 @@ class NextCard(QFrame):
 
     def arrange(self):
         """좁은 카드에서는 단추를 글 아래에 둬 제목과 설명의 폭을 확보함."""
-        room = self.width() - 64 - self.button.sizeHint().width() - 24
+        margins = self.row.contentsMargins()
+        room = self.width() - margins.left() - margins.right() - self.button.sizeHint().width() - self.row.spacing()
         minimum = 24 * theme.TYPE["body"][0] if self.line.isVisibleTo(self) else 12 * theme.TYPE["headline"][0]
         stacked = not self.button.isHidden() and room < minimum
         self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)

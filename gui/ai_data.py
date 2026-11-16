@@ -4,7 +4,7 @@ import os
 
 from PyQt6.QtCore import QPoint, Qt, QTimer
 from PyQt6.QtWidgets import (QAbstractButton, QApplication, QCheckBox, QComboBox, QDialog,
-                             QFileDialog, QLabel, QWidget)
+                             QFileDialog, QFrame, QLabel, QWidget)
 
 from learning_data.collection import CollectionError
 from learning_data import goals
@@ -12,21 +12,32 @@ from gui import kit, motion, theme
 from gui.dialog_layout import DialogLayout
 
 
-class DataSection(QWidget):
+class DataSection(QFrame):
     """필요한 설정만 펼치고 입력값은 접은 뒤에도 유지함."""
     def __init__(self, title, parent):
         super().__init__(parent)
+        self.setObjectName("data_section")
         self.opened = False
-        layout = kit.box(self)
+        padding = theme.GAP["detail"]
+        layout = kit.box(self, (padding,) * 4)
+        inset = theme.GAP["group"] - padding - 1  # 초점선 여백·테두리를 포함해 본문 시작점을 맞춤.
         self.header = kit.Row(title, end="펼치기", strong=True, wrap=True)
+        self.header.layout().setContentsMargins(inset, 0, inset, 0)
         self.header.chevron.hide()
+        self.header.setStyleSheet("QFrame#row { border-radius: %dpx; }" % theme.RADIUS["control"])
         self.header.setAccessibleName(title + " 펼치기")
         layout.addWidget(self.header)
         self.body = QWidget()
-        self.content = kit.box(self.body, (24, 8, 24, 24), theme.GAP["paragraph"])
+        self.content = kit.box(self.body, (inset, theme.GAP["title_description"], inset, inset), theme.GAP["paragraph"])
         layout.addWidget(self.body)
         self.body.hide()
         self.header.clicked.connect(lambda: self.set_opened(not self.opened))
+        theme.signals.changed.connect(self.apply_surface)
+        self.apply_surface()
+
+    def apply_surface(self):
+        self.setStyleSheet("QFrame#data_section { background: %s; border: 1px solid %s; border-radius: %dpx; }" %
+                          (theme.color("surface"), theme.color("border"), theme.RADIUS["card"]))
 
     def set_opened(self, opened):
         self.opened = bool(opened)
@@ -57,14 +68,16 @@ class LearningDataDialog(QDialog):
         self.shell = DialogLayout(self, title)
         body = self.shell.content
         body.setSpacing(theme.GAP["group"])
-        status_card, summary = kit.card(spacing=theme.GAP["paragraph"])
+        self.status_card, summary = kit.card(spacing=theme.GAP["title_description"])
         self.status_text = kit.para("", "headline", bold=True)
         self.status_hint = kit.para("", "body", "secondary")
         summary.addWidget(kit.heading(self.status_text, self.status_hint))
+        self.record_count = kit.para("", "caption", "secondary")
+        summary.addWidget(self.record_count)
         self.toggle = kit.button("", scale="m")
         self.toggle.clicked.connect(self.change_consent)
         summary.addWidget(self.toggle, 0, Qt.AlignmentFlag.AlignLeft)
-        body.addWidget(status_card)
+        body.addWidget(self.status_card)
 
         self.transfer_section = DataSection("전송 상태와 수집 항목", self)
         transfer = self.transfer_section.content
@@ -75,8 +88,6 @@ class LearningDataDialog(QDialog):
         self.send_button.setToolTip("동의한 모든 과목의 아직 보내지 않은 연구용 기록을 비공개 서버로 전송합니다. 답안 파일은 보내지 않습니다.")
         self.send_button.clicked.connect(self.send)
         transfer.addWidget(self.send_button, 0, Qt.AlignmentFlag.AlignLeft)
-        self.record_count = kit.para("", "caption", "secondary")
-        transfer.addWidget(self.record_count)
         notice = ("이 과목에서는 프로그램에 저장한 입력 변경·채점 결과·문항과 개념을 수집합니다. "
                   "외부 편집기의 입력 시각과 읽은 시간은 측정하지 않습니다.") if collection.track == "python" else (
                   "개론·응용의 연습·모의고사·학습 중 답안과 채점 결과, 문항을 연 순서·응답 시간·확신 여부를 수집합니다.")
@@ -193,7 +204,7 @@ class LearningDataDialog(QDialog):
                 hint = "기록을 제공하지 않아도 문제를 풀고 채점할 수 있습니다."
                 toggle = "동의 내용 확인" if state.get("accepted") else "기록 제공 동의하기"
             elif not status["enabled"]:
-                title, hint = "이 과목 수집 중단", "이 과목의 새 기록을 수집하거나 전송하지 않습니다."
+                title, hint = "이 과목 수집 꺼짐", "이 과목의 새 기록을 수집하거나 전송하지 않습니다."
             elif not automatic:
                 hint = "현재 실행 환경에서는 자동 전송을 껐습니다. 기록은 이 기기에 보관합니다."
             if status["error"]:
@@ -219,7 +230,7 @@ class LearningDataDialog(QDialog):
             self.sync_status.setText(sync)
             if active and automatic and not pending and not status["error"]:
                 if self.working:
-                    self.status_text.setText("기록 전송 중" if status["enabled"] else "이 과목 수집 중단")
+                    self.status_text.setText("기록 전송 중" if status["enabled"] else "이 과목 수집 꺼짐")
                     self.status_hint.setText(sync)
                 elif self.controller.failures:
                     self.status_text.setText("전송 확인 필요")

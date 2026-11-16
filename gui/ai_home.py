@@ -42,13 +42,13 @@ class AiHomePage(QWidget):
         self.scroll = self.browser.scroll
         outer.addWidget(self.browser, 1)
         from gui import ai_guide
-        self.guide_btn = kit.button("학습·사용 안내", "text", onbg=True)
+        self.guide_btn = kit.button("학습·사용 안내", "text", "s", onbg=True)
         self.guide_btn.clicked.connect(lambda: ai_guide.open_guide(self))
-        self.data_btn = kit.button("학습 기록 설정", "text", onbg=True)
+        self.data_btn = kit.button("학습 기록 설정", "text", "s", onbg=True)
         self.data_btn.setToolTip("AI 기록 제공 상태를 확인하고 수집을 중단하거나 기록 파일을 저장합니다.")
         self.data_btn.clicked.connect(self.open_data)
         guide_flow = QWidget()
-        flow = kit.FlowLayout(guide_flow, spacing=12)
+        flow = kit.FlowLayout(guide_flow, spacing=theme.GAP["detail"])
         flow.addWidget(self.guide_btn)
         flow.addWidget(self.data_btn)
         self.notice = kit.banner("", "danger")
@@ -249,7 +249,7 @@ class AiHomePage(QWidget):
                 continue
             ready += 1
             line = kit.Row(ai_text.lesson_title(row["no"], row["title"], row.get("course", "intro")), ai_text.lesson_line(row), "예습" if row["preview"] else "",
-                           kit.Dot(ai_text.lesson_dot(row)), row["id"])
+                           kit.Dot(ai_text.lesson_dot(row)), row["id"], wrap=True)
             line.clicked.connect(lambda lid=row["id"]: self.open_lesson(lid))
             self.lesson_list.add(line)
         self.lesson_list.add_more(waiting, ai_text.PREPARING)

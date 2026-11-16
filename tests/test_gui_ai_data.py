@@ -7,8 +7,8 @@ from unittest import mock
 
 from tests import guikit
 
-from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtGui import QFontMetricsF
+from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
+from PyQt6.QtGui import QFontMetricsF, QPainterPath
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QAbstractSlider, QApplication
 
@@ -73,6 +73,88 @@ class AiDataTest(AiTest):
             for button in (dialog.privacy_button, dialog.close_button):
                 self.assertTrue(dialog.rect().contains(button.mapTo(dialog, button.rect().bottomRight())))
             dialog.close()
+
+    def test_status_count_and_section_edges_fit_at_max_text_in_both_themes(self):
+        win = self.boot(size=(760, 480))
+        win.set_text("larger")
+        win.ai.collection.emit("answer", {"result": "pass", "card_id": "i90-c01"})
+        status = win.ai.collection.status()
+        dialog = LearningDataDialog(win, win.ai.collection)
+        dialog.show()
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            guikit.pump()
+            sections = (dialog.transfer_section, dialog.export_section, dialog.goal_section)
+            self.assertTrue(dialog.status_card.isAncestorOf(dialog.record_count))
+            self.assertEqual("이 기기에 보관한 연구 기록 %d건 · 문항 버전 %d개" %
+                             (status["events"], status["items"]), dialog.record_count.text())
+            viewport = dialog.scroll.viewport()
+            dialog.scroll.verticalScrollBar().setValue(0)
+            guikit.pump()
+            for widget in (dialog.status_text, dialog.status_hint, dialog.record_count, dialog.toggle):
+                self.assertTrue(widget.isVisible())
+                top = widget.mapTo(viewport, QPoint())
+                self.assertGreaterEqual(top.y(), 0)
+                self.assertLessEqual(top.y() + widget.height(), viewport.height())
+                self.assertLessEqual(top.x() + widget.width(), viewport.width())
+            for section in sections:
+                self.assertFalse(section.opened)
+                self.assertEqual(dialog.status_card.x(), section.x())
+                self.assertEqual(dialog.status_card.width(), section.width())
+                image = section.grab().toImage()
+                self.assertTrue(guikit.near(image.pixelColor(image.width() // 2, 0), "border"))
+                section.set_opened(True)
+                guikit.pump()
+                dialog.scroll.ensureWidgetVisible(section.header)
+                guikit.pump()
+                title = section.header.title
+                self.assertLessEqual(title.heightForWidth(title.width()), title.height())
+                self.assertEqual(dialog.status_text.mapTo(dialog, QPoint()).x(), title.mapTo(dialog, QPoint()).x())
+                first = section.content.itemAt(0).widget()
+                self.assertEqual(title.mapTo(section, QPoint()).x(), first.mapTo(section, QPoint()).x())
+                self.assertLessEqual(first.mapTo(section, QPoint()).x() + first.width(), section.width())
+                section.set_opened(False)
+                guikit.pump()
+            self.assertEqual(theme.TYPE["headline"][0], dialog.status_text.font().pixelSize())
+            self.assertEqual(theme.TYPE["caption"][0], dialog.record_count.font().pixelSize())
+        dialog.close()
+
+    def test_closed_headers_keep_keyboard_focus_inside_rounded_cards(self):
+        win = self.boot(size=(760, 480))
+        win.set_text("larger")
+        dialog = LearningDataDialog(win, win.ai.collection)
+        self.capture_widget = dialog
+        dialog.show()
+        dialog.activateWindow()
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            for section in (dialog.transfer_section, dialog.export_section, dialog.goal_section):
+                with self.subTest(theme=mode, section=section.header.title.text()):
+                    dialog.scroll.ensureWidgetVisible(section.header)
+                    section.header.setFocus(Qt.FocusReason.TabFocusReason)
+                    guikit.pump()
+                    self.assertTrue(section.header.hasFocus())
+                    self.assertFalse(section.opened)
+                    image = section.grab().toImage()
+                    ratio = image.devicePixelRatio()
+                    card = QPainterPath()
+                    radius = theme.RADIUS["card"]
+                    card.addRoundedRect(QRectF(section.rect()).adjusted(-1, -1, 1, 1), radius, radius)
+                    # 경계의 1px 렌더링 차이는 허용하고 초점선 전체의 이탈을 확인함.
+                    focus = [QPointF((x + .5) / ratio, (y + .5) / ratio)
+                             for y in range(image.height()) for x in range(image.width())
+                             if guikit.near(image.pixelColor(x, y), "focus")]
+                    self.assertGreater(len(focus), section.width())
+                    self.assertFalse(any(not card.contains(point) for point in focus))
+                    self.assertEqual(dialog.status_text.mapTo(dialog, QPoint()).x(),
+                                     section.header.title.mapTo(dialog, QPoint()).x())
+                    QTest.keyClick(section.header, Qt.Key.Key_Space)
+                    guikit.pump()
+                    self.assertTrue(section.opened)
+                    QTest.keyClick(section.header, Qt.Key.Key_Space)
+                    guikit.pump()
+                    self.assertFalse(section.opened)
+                    self.assertTrue(section.header.hasFocus())
 
     def test_sections_keep_export_choice_and_unsaved_goal_during_sync(self):
         win = self.boot(size=(760, 480))
@@ -162,7 +244,7 @@ class AiDataTest(AiTest):
         guikit.pump()
         dialog.change_consent()
         self.assertEqual("수집 다시 시작", dialog.toggle.text())
-        self.assertIn("수집 중단", dialog.status_text.text())
+        self.assertEqual("이 과목 수집 꺼짐", dialog.status_text.text())
         with mock.patch.object(win, "show_privacy") as show:
             win.privacy.consent.choose(False)
             dialog.refresh()
@@ -181,29 +263,43 @@ class AiDataTest(AiTest):
 
     def test_open_transfer_details_keep_visible_content_when_footer_has_focus(self):
         win = self.boot(size=(760, 480))
-        dialog = LearningDataDialog(win, win.ai.collection)
-        dialog.show()
-        dialog.transfer_section.set_opened(True)
-        dialog.goal_section.set_opened(True)
-        guikit.pump()
-        dialog.scroll.ensureWidgetVisible(dialog.goal_combo)
-        bar = dialog.scroll.verticalScrollBar()
-        bar.setValue(bar.value() - 64)
-        dialog.close_button.setFocus()
-        guikit.pump()
-        viewport = dialog.scroll.viewport()
-        top = dialog.goal_combo.mapTo(viewport, QPoint()).y()
-        transfer_top = dialog.transfer_section.mapTo(viewport, QPoint()).y()
-        self.assertLess(transfer_top, 0)
-        self.assertGreater(transfer_top + dialog.transfer_section.height(), 0)
-        with mock.patch.dict("os.environ", {"STUDY_AUTO_SYNC": "1"}):
-            win.privacy.failures = 1
-            win.privacy.message = "서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요."
-            win.privacy.changed.emit()
-            guikit.wait_until(lambda: dialog._reading is None)
-        self.assertEqual(top, dialog.goal_combo.mapTo(viewport, QPoint()).y())
-        self.assertIs(dialog.close_button, QApplication.focusWidget())
-        dialog.close()
+        for step in ("normal", "large", "larger"):
+            with self.subTest(text=step):
+                win.set_text(step)
+                win.privacy.failures = 0
+                win.privacy.message = ""
+                dialog = LearningDataDialog(win, win.ai.collection)
+                dialog.show()
+                dialog.transfer_section.set_opened(True)
+                dialog.goal_section.set_opened(True)
+                guikit.pump()
+                transfer = dialog.transfer_section.content
+                notice = transfer.itemAt(transfer.count() - 1).widget()
+                bar = dialog.scroll.verticalScrollBar()
+                # 글꼴별 줄바꿈 높이가 달라도 전송 설명을 실제로 읽는 위치에서 시작함.
+                bar.setValue(notice.mapTo(dialog.shell.body, QPoint()).y() - theme.GAP["detail"])
+                dialog.close_button.setFocus()
+                guikit.pump()
+                viewport = dialog.scroll.viewport()
+                top = dialog.goal_combo.mapTo(viewport, QPoint()).y()
+                notice_top = notice.mapTo(viewport, QPoint()).y()
+                transfer_top = dialog.transfer_section.mapTo(viewport, QPoint()).y()
+                self.assertLess(transfer_top, 0)
+                self.assertGreater(transfer_top + dialog.transfer_section.height(), 0)
+                self.assertGreaterEqual(notice_top, 0)
+                self.assertLessEqual(notice_top + notice.height(), viewport.height())
+                body_height = dialog.shell.body.height()
+                with mock.patch.dict("os.environ", {"STUDY_AUTO_SYNC": "1"}):
+                    win.privacy.failures = 1
+                    win.privacy.message = ("서버에 연결하지 못했습니다.\n인터넷 연결을 확인해 주세요.\n"
+                                           "기록은 이 기기에 보관하고 있습니다.")
+                    win.privacy.changed.emit()
+                    guikit.wait_until(lambda: dialog._reading is None)
+                self.assertGreater(dialog.shell.body.height(), body_height)
+                self.assertEqual(top, dialog.goal_combo.mapTo(viewport, QPoint()).y())
+                self.assertEqual(notice_top, notice.mapTo(viewport, QPoint()).y())
+                self.assertIs(dialog.close_button, QApplication.focusWidget())
+                dialog.close()
 
     def test_keyboard_focus_change_takes_priority_over_pending_restore(self):
         win = self.boot(size=(760, 480))
