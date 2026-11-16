@@ -490,6 +490,12 @@ class HubScreenTest(HubTest):
         self.assertEqual(len(set(metrics)), 1)
         win.set_text("larger")
         guikit.pump()
+        initial = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
+        # 자식의 글꼴·최소 높이가 바뀐 뒤 부모 그리드의 높이 배분까지 기다림.
+        guikit.wait_until(lambda: grid.columns == 2 and all(grid.rect().contains(row.geometry()) for row in grid.rows))
+        settled = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
+        if initial != settled:
+            print("SubjectGrid layout after font update:", initial, "->", settled)
         self.assertEqual(grid.columns, 2)
         for row in grid.rows:
             self.assertTrue(grid.rect().contains(row.geometry()))
