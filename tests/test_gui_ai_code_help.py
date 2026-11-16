@@ -3,15 +3,98 @@
 import json
 import os
 from pathlib import Path
+import time
 from unittest import mock
 
 from tests import guikit, test_gui_ai
 from PyQt6 import sip
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QEvent, QObject, QPoint, Qt
 from PyQt6.QtTest import QTest
 from gui import ai_learn, theme
-from gui.ai_code_help import CodeHelpBlock
+from gui.ai_code_help import CodeHelpBlock, CodeReferenceDialog
 from aiprep import bank, service
+
+
+class SelectionTrace(QObject):
+    """검사 입력의 선택·초점 이벤트만 기록함. 글자나 실제 학습 기록은 출력하지 않음."""
+
+    def __init__(self, win, block, field, label):
+        super().__init__()
+        self.win, self.block, self.field, self.label = win, block, field, label
+        self.rows, self.connections, self.running = [], [], True
+        self.started = time.monotonic()
+        guikit.APP.installEventFilter(self)
+        for signal, phase in ((block.button.pressed, "button.pressed"),
+                              (block.button.released, "button.released.before_open"),
+                              (block.button.clicked, "button.clicked.after_open"),
+                              (block.restore_timer.timeout, "restore_timer.after"),
+                              (guikit.APP.focusChanged, "application.focusChanged")):
+            self.connect(signal, phase)
+        if field is not None:
+            self.connect(field.selectionChanged, "input.selectionChanged")
+            self.connect(field.cursorPositionChanged, "input.cursorPositionChanged")
+
+    def connect(self, signal, phase):
+        callback = lambda *args: self.record(phase)
+        signal.connect(callback)
+        self.connections.append((signal, callback))
+
+    def name(self, widget):
+        if widget is None:
+            return None
+        for target, name in ((self.win, "main"), (self.block.button, "button"), (self.field, "input"),
+                             (self.block.restore_timer, "restore_timer")):
+            if widget is target:
+                return name
+        return "popup" if isinstance(widget, CodeReferenceDialog) else type(widget).__name__
+
+    def record(self, phase, **extra):
+        if not self.running or sip.isdeleted(self.block) or sip.isdeleted(self.win):
+            return
+        field = self.field if self.field is not None and not sip.isdeleted(self.field) else None
+        saved = self.block.return_state
+        cached = [{"cursor": cursor, "start": start, "length": length,
+                   "same_text": field is not None and text == field.text()}
+                  for text, cursor, start, length in saved[3].values()] if saved else None
+        self.rows.append({"ms": round((time.monotonic() - self.started) * 1000, 2), "phase": phase,
+                          "input": [field.selectionStart(), field.selectionLength(), field.cursorPosition()] if field else None,
+                          "focus": self.name(guikit.APP.focusWidget()), "active": self.name(guikit.APP.activeWindow()),
+                          "main_active": self.win.isActiveWindow(), "timer": self.block.restore_timer.isActive(),
+                          "saved": cached, "position_pending": saved is not None and saved[2] is not None, **extra})
+
+    def eventFilter(self, watched, event):
+        if not self.running or sip.isdeleted(self.block):
+            return False
+        selected = (self.win, self.block.button, self.field, self.block.restore_timer)
+        events = (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease, QEvent.Type.FocusIn,
+                  QEvent.Type.FocusOut, QEvent.Type.WindowActivate, QEvent.Type.WindowDeactivate)
+        if (any(watched is item for item in selected) or isinstance(watched, CodeReferenceDialog)) and (
+                event.type() in events or watched is self.block.restore_timer and event.type() == QEvent.Type.Timer):
+            reason = event.reason().name if event.type() in (QEvent.Type.FocusIn, QEvent.Type.FocusOut) else None
+            self.record("event.before." + event.type().name, target=self.name(watched), reason=reason,
+                        spontaneous=event.spontaneous())
+        return False
+
+    def message(self):
+        return json.dumps({"case": self.label, "platform": guikit.APP.platformName(),
+                           "dpr": self.win.devicePixelRatioF(), "events": self.rows}, ensure_ascii=False)
+
+    def save(self):
+        folder = os.environ.get("STUDY_UI_ARTIFACT_DIR")
+        if folder:
+            out = Path(folder)
+            out.mkdir(parents=True, exist_ok=True)
+            (out / ("code-help-focus-" + self.label + ".json")).write_text(self.message() + "\n", encoding="utf-8")
+
+    def stop(self):
+        self.running = False
+        guikit.APP.removeEventFilter(self)
+        for signal, callback in self.connections:
+            try:
+                signal.disconnect(callback)
+            except (RuntimeError, TypeError):
+                pass
+        self.connections = []
 
 
 class CodeHelpGuiTest(test_gui_ai.AiTest):
@@ -72,10 +155,15 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
                 at = (reader.lid, reader.key, reader.index, reader.scroll.verticalScrollBar().value())
                 draft = (field.text(), field.selectedText()) if field is not None else None
                 selected_course = win.settings.value("ai/course/" + win.user)
+                trace = SelectionTrace(win, block, field, lid + "-" + mode)
+                self.addCleanup(trace.stop)
+                trace.record("baseline.before_capture")
                 self.capture(win, "code-help-%s-%s-reader" % (lid, mode))
                 with mock.patch.object(service.AiSession, "__init__", side_effect=AssertionError("참조에서 세션 생성")), \
                         mock.patch.object(source.collection, "emit", side_effect=AssertionError("참조에서 수집")):
+                    trace.record("before_click")
                     guikit.click(block.button)
+                    trace.record("after_click")
                     popup = block.dialog
                     self.assertIsNotNone(popup)
                     self.addCleanup(lambda p=popup: p.close() if not sip.isdeleted(p) else None)
@@ -101,15 +189,21 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
                     popup.panel.scroll.verticalScrollBar().setValue(popup.panel.scroll.verticalScrollBar().maximum())
                     guikit.pump()
                     self.assertEqual(fixed, (popup.panel.title.mapTo(popup, QPoint()), popup.close_btn.mapTo(popup, QPoint())))
+                    trace.record("before_escape")
                     QTest.keyClick(popup, Qt.Key.Key_Escape)
+                    trace.record("escape_return")
                     self.settled()
+                    trace.record("settled")
+                    trace.save()
+                diagnostic = trace.message()
+                trace.stop()
                 self.assertIsNone(block.dialog)
                 self.assertIs(win.focusWidget(), block.button)
                 self.assertIs(source, win.ai)
                 self.assertEqual(selected_course, win.settings.value("ai/course/" + win.user))
                 self.assertEqual(at, (reader.lid, reader.key, reader.index, reader.scroll.verticalScrollBar().value()))
                 if field is not None:
-                    self.assertEqual(draft, (field.text(), field.selectedText()))
+                    self.assertEqual(draft, (field.text(), field.selectedText()), diagnostic)
                 self.assertEqual(before, self.stored())
         # 마지막 참조 창을 운영체제 캡처에서도 확인할 수 있게 열어 둠.
         guikit.click(block.button)
