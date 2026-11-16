@@ -266,6 +266,12 @@ class AiFigure(FigureView):
         if hasattr(self, "frame_text"):
             self.hold_frames()
 
+    def refont(self):
+        super().refont()
+        if hasattr(self, "frame_text"):
+            kit.refont(self.frame_text)
+        self.draw()  # 글자 크기를 줄여도 다음 장을 넘기기 전에 그림 높이를 맞춤.
+
     def _play_if_visible(self):
         if not motion.enabled:
             return
