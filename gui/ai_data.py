@@ -10,6 +10,7 @@ from learning_data.collection import CollectionError
 from learning_data import goals
 from gui import kit, motion, theme
 from gui.dialog_layout import DialogLayout
+from gui.disclosure import DisclosureButton
 
 
 class DataSection(QFrame):
@@ -21,17 +22,17 @@ class DataSection(QFrame):
         padding = theme.GAP["detail"]
         layout = kit.box(self, (padding,) * 4)
         inset = theme.GAP["group"] - padding  # 상태 카드와 같은 테두리 안쪽 여백으로 제목·본문을 맞춤.
-        self.header = kit.Row(title, end="펼치기", strong=True, wrap=True)
-        self.header.layout().setContentsMargins(inset, 0, inset, 0)
-        self.header.chevron.hide()
-        self.header.setStyleSheet("QFrame#row { border-radius: %dpx; }" % theme.RADIUS["control"])
+        self.title = title
+        self.header = DisclosureButton(title, role="label")
         self.header.setAccessibleName(title + " 펼치기")
-        layout.addWidget(self.header)
+        header_row = QWidget()
+        kit.box(header_row, (inset, 0, inset, 0)).addWidget(self.header)
+        layout.addWidget(header_row)
         self.body = QWidget()
         self.content = kit.box(self.body, (inset, theme.GAP["title_description"], inset, inset), theme.GAP["paragraph"])
         layout.addWidget(self.body)
         self.body.hide()
-        self.header.clicked.connect(lambda: self.set_opened(not self.opened))
+        self.header.toggled.connect(self.set_opened)
         theme.signals.changed.connect(self.apply_surface)
         self.apply_surface()
 
@@ -42,8 +43,10 @@ class DataSection(QFrame):
     def set_opened(self, opened):
         self.opened = bool(opened)
         action = "접기" if self.opened else "펼치기"
-        self.header.end.setText(action)
-        self.header.setAccessibleName(self.header.title.text() + " " + action)
+        blocked = self.header.blockSignals(True)
+        self.header.setChecked(self.opened)
+        self.header.blockSignals(blocked)
+        self.header.setAccessibleName(self.title + " " + action)
         if not self.opened and self.body.isAncestorOf(QApplication.focusWidget()):
             self.header.setFocus(Qt.FocusReason.OtherFocusReason)
         self.body.setEnabled(self.opened)

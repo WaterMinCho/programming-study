@@ -23,8 +23,8 @@ from aiprep import bank, skel
 from aiprep.grade import BLANK
 from gui import motion, ai_text, kit, theme
 from gui.docview import Doc, FigureView, TextPiece
+from gui.disclosure import DisclosureButton
 from gui.widgets import AnswerLine, Para
-from gui.wrong_page import Arrow
 from session import SessionError
 
 BOX_LINE = re.compile(r"^\s*>\s?\*\*\[(정정|보충 설명)\]\*\*\s*")
@@ -1012,90 +1012,33 @@ class WhyBlock(QFrame):
         column.addWidget(head(ai_text.WHY_HEAD))
         column.addWidget(rich(block.get("q", "")))
         self.answer = rich(block.get("a", ""), "body", "secondary")
-        self.button = kit.button("답 보기", "secondary", "l")
-        self.button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        column.addWidget(self.button)
-        column.addWidget(self.answer)
-        self.button.clicked.connect(self.toggle)
+        self.button = DisclosureButton("답 보기", role="learn_caption")
+        answer_group = QWidget()
+        answer_box = kit.box(answer_group, spacing=theme.LEARN_GAP["detail"])
+        answer_box.addWidget(self.button)
+        answer_box.addWidget(self.answer)
+        column.addWidget(answer_group)
+        self.button.toggled.connect(self.toggle)
         self.answer.setVisible(ctx.readonly)
         self.button.setVisible(not ctx.readonly)
 
-    def toggle(self):
-        opened = not self.answer.isVisible()
+    def toggle(self, opened):
         self.answer.setVisible(opened)
         self.button.setText("답 접기" if opened else "답 보기")
 
 
-class FoldRow(QFrame):
-    """누르면 아래 내용을 펴고 접는 줄. 꺾쇠와 줄바꿈하는 글. 줄 전체를 누르거나 Enter·Space 로 바꾸고, → 는 펴고 ← 는 접음.
-    초점이 있으면 ←·→ 를 단계 넘김보다 먼저 받음."""
-    toggled = pyqtSignal(bool)
-
+class FoldRow(DisclosureButton):
+    """줄 전체로 내용을 펼치고 접으며 기존 열린 상태 이름을 유지함."""
     def __init__(self, text, role="body", bold=False):
-        super().__init__()
-        self.setObjectName("row")
-        self.opened, self.down = False, False
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        row = kit.box(self, (0, 12, 0, 12), 12, horizontal=True)
-        self.role = READ_ROLES.get(role, role)
-        self.arrow = Arrow()
-        self.arrow.set_opened(False)
-        self.label = rich(text, role, bold=bold)
-        self.pair = kit.FirstLine(self.arrow, self.label)
-        self.mark = self.pair.mark_holder
-        row.addWidget(self.pair, 1)
-        self.refont()
+        super().__init__(text, role=READ_ROLES.get(role, role), bold=bold,
+                         text_widget=rich(text, role, bold=bold), arrow_keys=True)
 
-    def refont(self):
-        self.pair.refont()
+    @property
+    def opened(self):
+        return self.isChecked()
 
     def set_opened(self, opened):
-        self.opened = opened
-        self.arrow.set_opened(opened)
-        self.toggled.emit(opened)
-
-    def event(self, event):
-        if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) \
-                and not event.modifiers() & Qt.KeyboardModifier.AltModifier:
-            event.accept()
-            return True
-        return super().event(event)
-
-    def mousePressEvent(self, event):
-        self.down = event.button() == Qt.MouseButton.LeftButton
-        event.accept()
-
-    def mouseReleaseEvent(self, event):
-        down, self.down = self.down, False
-        if down and event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
-            self.set_opened(not self.opened)
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
-            if not event.isAutoRepeat():
-                self.set_opened(not self.opened)
-        elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right):
-            self.set_opened(key == Qt.Key.Key_Right)
-        else:
-            super().keyPressEvent(event)
-
-    def focusInEvent(self, event):
-        super().focusInEvent(event)
-        self.update()
-
-    def focusOutEvent(self, event):
-        super().focusOutEvent(event)
-        self.update()
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        if self.hasFocus():
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setPen(QPen(theme.qcolor("focus"), 2))
-            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), theme.RADIUS["small"], theme.RADIUS["small"])
+        self.setChecked(opened)
 
 
 def fold(row, body):
@@ -1115,7 +1058,7 @@ class MemoBlock(QWidget):
         for item in items:
             row = FoldRow(item.get("q", ""))
             answer = QWidget()
-            kit.box(answer, (kit.MARK + 12, 0, 0, 12)).addWidget(rich(item.get("a", ""), "body", "secondary"))
+            kit.box(answer, (0, 12, 0, 24)).addWidget(rich(item.get("a", ""), "body", "secondary"))
             column.addWidget(row)
             column.addWidget(answer)
             fold(row, answer)
@@ -1132,7 +1075,7 @@ class TrendBlock(QWidget):
         column = kit.box(self, spacing=8)
         self.row = FoldRow(block.get("title") or ai_text.SCOPE_BADGE["trend"], "label", bold=True)
         body = QWidget()
-        body_box = kit.box(body, (kit.MARK + 12, 0, 0, 0))
+        body_box = kit.box(body, (0, 0, 0, 0))
         self.doc = doc(block.get("text", ""), base_dir, body_box)
         column.addWidget(self.row)
         column.addWidget(body)

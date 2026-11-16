@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QApplication, QDialog
 
 from gui import kit
 from gui.dialog_layout import DialogLayout
+from gui.disclosure import DisclosureButton
 from gui.worker import Job
 from learning_data.collection import CollectionError
 
@@ -36,9 +37,8 @@ class IdentityDialog(QDialog):
         content.addWidget(self.code_panel)
         self.status = kit.para("아래 버튼을 누르면 브라우저에서 GitHub 확인 화면이 열립니다.", "body", "secondary")
         content.addWidget(self.status)
-        self.details_button = kit.button("보관하는 정보", "text", "s")
-        self.details_button.setCheckable(True)
-        content.addWidget(self.details_button, 0, Qt.AlignmentFlag.AlignLeft)
+        self.details_button = DisclosureButton("보관하는 정보", role="body")
+        content.addWidget(self.details_button)
         self.details = kit.para("실명·이메일·사진과 GitHub 계정 번호 원문은 저장하지 않습니다. 계정 중복 집계용 HMAC 값과 임의 기기 코드만 보관합니다. "
                                "GitHub 토큰은 확인 후 해제합니다. 다음 실행부터는 이 기기를 자동으로 확인합니다. 임의 기기 코드로 첫 실행 기기 수를 집계합니다. "
                                "학습 기록 제공은 다음 화면에서 따로 선택합니다.",

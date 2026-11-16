@@ -13,6 +13,7 @@ from gui.career_map_viewer import RoadmapImageDialog
 from gui.career_scene import RoleScene
 from gui.career_role_gallery import RoleGallery
 from gui.dialog_layout import DialogLayout
+from gui.disclosure import DisclosureButton
 
 
 class OrganisationGuide(QDialog):
@@ -476,12 +477,11 @@ class CareerRoadmapPage(ReadingPage):
         work.addSpacing(theme.GAP["group"])
         team_panel, team_panel_box = kit.card(pad=24, spacing=0)
         work.addWidget(team_panel)
-        self.team_toggle = kit.button("팀과 담당 업무 펼치기")
+        self.team_toggle = DisclosureButton("팀과 담당 업무 펼치기")
         self.team_toggle.setToolTip("조직 사례와 입력·업무·산출물의 흐름을 펼치거나 접습니다.")
         self.team_toggle.setAccessibleDescription(self.team_toggle.toolTip())
-        self.team_toggle.setCheckable(True)
         self.team_toggle.setProperty("reading_anchor", True)
-        team_panel_box.addWidget(self.team_toggle, 0, Qt.AlignmentFlag.AlignLeft)
+        team_panel_box.addWidget(self.team_toggle)
         team_details = QWidget()
         team_box = kit.box(team_details, margins=(0, theme.GAP["paragraph"], 0, 0))
         team_panel_box.addWidget(team_details)
@@ -519,12 +519,11 @@ class CareerRoadmapPage(ReadingPage):
         work.addWidget(self.sources_section)
         source_panel, source_panel_box = kit.card(pad=24, spacing=0)
         sources.addWidget(source_panel)
-        self.sources_button = kit.button("직무 소개 자료 펼치기")
+        self.sources_button = DisclosureButton("직무 소개 자료 펼치기")
         self.sources_button.setToolTip("회사의 공식 직무·팀 소개와 출처 링크를 펼치거나 접습니다.")
         self.sources_button.setAccessibleDescription(self.sources_button.toolTip())
-        self.sources_button.setCheckable(True)
         self.sources_button.setProperty("reading_anchor", True)
-        source_panel_box.addWidget(self.sources_button, 0, Qt.AlignmentFlag.AlignLeft)
+        source_panel_box.addWidget(self.sources_button)
         self.source_box = QWidget()
         self.sources_layout = kit.box(self.source_box, margins=(0, theme.GAP["group"], 0, 0), spacing=24)
         source_panel_box.addWidget(self.source_box)

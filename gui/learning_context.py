@@ -9,6 +9,7 @@ from PyQt6.QtGui import QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QFrame, QSizePolicy, QWidget
 
 from gui import kit, theme
+from gui.disclosure import DisclosureButton
 
 ORDER = ("data", "predict", "loss", "gradient", "update")
 DETAIL = {"data": "데이터·정답", "predict": "모델 출력", "loss": "오차 크기", "gradient": "손실의 변화율", "update": "파라미터"}
@@ -122,11 +123,10 @@ class LearningContext(QFrame):
         evaluation = kit.para("별도 평가: 새 자료 → 예측 → 손실·지표 확인. 기울기 계산과 파라미터 갱신은 하지 않습니다.",
                               "learn_caption", "accent" if "evaluate" in focus else "secondary", bold="evaluate" in focus)
         diagram_box.addWidget(evaluation)
-        self.flow_btn = kit.button("전체 흐름 접기" if expanded else "전체 흐름 보기", "text", "m")
-        self.flow_btn.setCheckable(True)
+        self.flow_btn = DisclosureButton("전체 흐름 접기" if expanded else "전체 흐름 보기", role="learn_caption")
         self.flow_btn.setChecked(expanded)
         self.diagram.setVisible(expanded)
-        box.addWidget(self.flow_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        box.addWidget(self.flow_btn)
         box.addWidget(self.diagram)
         self.flow_btn.toggled.connect(self.show_diagram)
         if reflect:
@@ -134,9 +134,8 @@ class LearningContext(QFrame):
             box.addWidget(kit.para(stage["question"], "learn_body", bold=True))
             self.answer = kit.para(stage["answer"], "learn_body", "secondary")
             self.answer.hide()
-            self.toggle = kit.button("이유 확인", "secondary", "l")
-            self.toggle.setCheckable(True)
-            box.addWidget(self.toggle, 0, Qt.AlignmentFlag.AlignLeft)
+            self.toggle = DisclosureButton("이유 확인", role="learn_caption")
+            box.addWidget(self.toggle)
             box.addWidget(self.answer)
             self.toggle.toggled.connect(self.show_reason)
         self.map.refont()
