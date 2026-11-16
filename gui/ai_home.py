@@ -4,6 +4,7 @@
 읽던 단계, 단원 연습, 날짜를 띄운 복습 기록을 구분해 표시함.
 분류 선택을 고정하고 현재 과정의 목록과 공개 준비 상태를 표시함.
 혼합 모의고사는 두 탭에서 같은 응시 기록을 사용함."""
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
 
 from aiprep import bank, mixed_mock
@@ -24,9 +25,9 @@ class AiHomePage(QWidget):
         outer = kit.box(self)
         header = QWidget()
         row = kit.box(header, (0, theme.GAP["detail"], 0, 0),
-                      spacing=theme.GAP["paragraph"], horizontal=True)
+                      spacing=theme.GAP["detail"])
         self.hub_btn = kit.button("← 처음 화면", "text", "m", onbg=True)
-        row.addWidget(self.hub_btn)
+        row.addWidget(self.hub_btn, 0, Qt.AlignmentFlag.AlignLeft)
         self.course_tabs = kit.NavigationTabs(["AI 개론", "AI 응용"], deferred=True)
         self.course_tabs.setAccessibleName("AI 학습 과정")
         for tab, description in zip(self.course_tabs.buttons, (
@@ -35,14 +36,14 @@ class AiHomePage(QWidget):
             tab.setToolTip(description)
             tab.setAccessibleDescription(description)
         self.course_tabs.picked.connect(lambda n: self.win.switch_ai_course(("intro", "app")[n]))
-        row.addWidget(self.course_tabs, 1)
+        row.addWidget(self.course_tabs)
         self.browser = SectionBrowser(header=header)
         self.scroll = self.browser.scroll
         outer.addWidget(self.browser, 1)
         from gui import ai_guide
-        self.guide_btn = kit.button("학습·사용 안내")
+        self.guide_btn = kit.button("학습·사용 안내", "text", onbg=True)
         self.guide_btn.clicked.connect(lambda: ai_guide.open_guide(self))
-        self.data_btn = kit.button("학습 데이터")
+        self.data_btn = kit.button("학습 데이터", "text", onbg=True)
         self.data_btn.clicked.connect(self.open_data)
         guide_flow = QWidget()
         flow = kit.FlowLayout(guide_flow, spacing=12)

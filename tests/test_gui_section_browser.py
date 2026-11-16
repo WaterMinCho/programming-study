@@ -70,8 +70,12 @@ class AiSectionBrowserTest(AiTest):
                     self.assertEqual(courses[0].height(), courses[1].height())
                     heights.append(courses[0].height())
                     self.assertEqual(courses[0].mapTo(home, QPoint()).y(), courses[1].mapTo(home, QPoint()).y())
+                    self.assertEqual(courses[0].mapTo(home, QPoint()).x(),
+                                     browser.navigation.mapTo(home, QPoint()).x())
                     self.assertEqual(courses[1].mapTo(home, QPoint(courses[1].width(), 0)).x(),
                                      browser.navigation.mapTo(home, QPoint(browser.navigation.width(), 0)).x())
+                    self.assertLess(home.hub_btn.mapTo(home, QPoint(0, home.hub_btn.height())).y(),
+                                    courses[0].mapTo(home, QPoint()).y())
                     self.assertGreaterEqual(home.scroll.viewport().height(), 200)
                     for button in courses:
                         self.assertTrue(win.rect().contains(button.rect().translated(button.mapTo(win, QPoint()))))
@@ -80,12 +84,9 @@ class AiSectionBrowserTest(AiTest):
                     course_positions = [button.mapTo(home, QPoint()) for button in courses]
                     buttons = list(browser.buttons.values())
                     ys = {button.mapTo(home, QPoint()).y() for button in buttons}
-                    single_line_width = max(button.sizeHint().width() for button in buttons) * 4 + 24
+                    single_line_width = sum(max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons) + 24
                     self.assertEqual(1 if browser.navigation.width() >= single_line_width else 2, len(ys))
-                    if size[0] == 760:
-                        self.assertEqual(2, len(ys))
-                    elif not native:
-                        self.assertEqual(1, len(ys))
+                    self.assertEqual(1, len(ys))
                     self.assertEqual(1, len({button.height() for button in buttons}))
                     self.assertEqual(0, home.scroll.horizontalScrollBar().maximum())
                     before = [button.mapTo(home, QPoint()) for button in buttons]
@@ -93,7 +94,8 @@ class AiSectionBrowserTest(AiTest):
                         rectangle = button.rect().translated(button.mapTo(win, QPoint()))
                         self.assertTrue(win.rect().contains(rectangle))
                         metrics = QFontMetricsF(theme.font("label", True))
-                        text = metrics.boundingRect(QRectF(0, 0, button.width() - 40, 1000),
+                        self.assertGreaterEqual(button.width() - 24, metrics.horizontalAdvance(button.text()))
+                        text = metrics.boundingRect(QRectF(0, 0, button.width() - 24, 1000),
                                                     Qt.TextFlag.TextWordWrap, button.text())
                         self.assertLessEqual(text.height(), button.height() - 16)
                         self.assertTrue(button.accessibleName())
@@ -208,13 +210,48 @@ class AiSectionBrowserTest(AiTest):
         QTest.keyClick(home.course_tabs.buttons[0], Qt.Key.Key_Tab)
         self.assertTrue(browser.buttons["lessons"].hasFocus())
         QTest.keyClick(browser.buttons["lessons"], Qt.Key.Key_Down)
-        self.assertTrue(browser.buttons["coding"].hasFocus())
-        QTest.keyClick(browser.buttons["coding"], Qt.Key.Key_Up)
+        self.assertTrue(browser.buttons["lessons"].hasFocus())
+        self.assertIsNone(browser.pending)
         QTest.keyClick(browser.buttons["lessons"], Qt.Key.Key_Right)
         QTest.keyClick(browser.buttons["books"], Qt.Key.Key_Home)
         self.assertTrue(browser.buttons["lessons"].hasFocus())
         QTest.keyClick(browser.buttons["lessons"], Qt.Key.Key_Tab)
         self.assertTrue(home.guide_btn.hasFocus())
+
+    def test_narrow_category_row_wraps_and_keyboard_follows_visual_rows(self):
+        win, home, browser = self.home()
+        win.set_text("larger")
+        browser.setFixedWidth(480)
+        self.settle()
+        buttons = list(browser.buttons.values())
+        self.assertEqual(2, browser.columns)
+        self.assertEqual(2, len({button.mapTo(home, QPoint()).y() for button in buttons}))
+        for button in buttons:
+            text = QFontMetricsF(button.font()).boundingRect(
+                QRectF(0, 0, button.width() - 24, 1000), Qt.TextFlag.TextWordWrap, button.text())
+            self.assertLessEqual(text.width(), button.width() - 24)
+            self.assertLessEqual(text.height(), button.height() - 16)
+        buttons[0].setFocus()
+        QTest.keyClick(buttons[0], Qt.Key.Key_Down)
+        self.assertTrue(buttons[2].hasFocus())
+        self.assertEqual("coding", browser.current)
+        QTest.keyClick(buttons[2], Qt.Key.Key_Up)
+        self.assertTrue(buttons[0].hasFocus())
+        browser.setMaximumWidth(16777215)
+        browser.setMinimumWidth(0)
+        self.settle()
+        self.assertEqual(4, browser.columns)
+        win.set_text("normal")
+        self.settle()
+        needed = sum(max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons) + 24
+        browser.navigation.setFixedWidth(needed - 1)
+        self.settle()
+        self.assertEqual(2, browser.columns)
+        browser.navigation.setFixedWidth(needed)
+        self.settle()
+        self.assertEqual(4, browser.columns)
+        for button in buttons:
+            self.assertGreaterEqual(button.width() - 24, QFontMetricsF(button.font()).horizontalAdvance(button.text()))
 
     def test_partial_read_error_and_mock_error_are_visible_in_their_lists(self):
         win, home, browser = self.home()

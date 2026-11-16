@@ -10,7 +10,7 @@ from gui import kit, theme
 
 
 class SectionButton(QPushButton):
-    """긴 분류 이름을 줄이지 않고 같은 글자 시작점에 그림."""
+    """분류를 글자와 밑줄로 표시하고 긴 이름은 가용 폭 안에서 줄바꿈함."""
     def __init__(self, key, title, description):
         super().__init__(title)
         self.key = key
@@ -27,7 +27,7 @@ class SectionButton(QPushButton):
 
     def sizeHint(self):
         metrics = QFontMetricsF(theme.font("label", True))
-        return QSize(math.ceil(metrics.horizontalAdvance(self.text())) + 40,
+        return QSize(math.ceil(metrics.horizontalAdvance(self.text())) + 24,
                      max(48, theme.TYPE["label"][1] + 24))
 
     def minimumSizeHint(self):
@@ -35,7 +35,7 @@ class SectionButton(QPushButton):
 
     def heightForWidth(self, width):
         metrics = QFontMetricsF(theme.font("label", True))
-        bounds = metrics.boundingRect(QRectF(0, 0, max(1, width - 40), 1000),
+        bounds = metrics.boundingRect(QRectF(0, 0, max(1, width - 24), 1000),
                                       Qt.TextFlag.TextWordWrap, self.text())
         return max(self.sizeHint().height(), math.ceil(bounds.height()) + 24)
 
@@ -46,13 +46,12 @@ class SectionButton(QPushButton):
         option.text, option.icon = "", QIcon()
         painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
         painter.setFont(theme.font("label", True))
-        painter.setPen(theme.qcolor("selection_ink" if self.isChecked() else "ink"))
-        painter.drawText(QRectF(self.rect()).adjusted(20, 8, -20, -8),
-                         Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
+        painter.setPen(theme.qcolor("link" if self.isChecked() else "ink"))
+        painter.drawText(QRectF(self.rect()).adjusted(12, 8, -12, -8),
+                         Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
                          self.text())
-        if self.isChecked():
-            painter.setPen(QPen(theme.qcolor("link"), 3))
-            painter.drawLine(2, 12, 2, self.height() - 12)
+        painter.setPen(QPen(theme.qcolor("link" if self.isChecked() else "line"), 3 if self.isChecked() else 1))
+        painter.drawLine(3, self.height() - 4, self.width() - 3, self.height() - 4)
 
 
 class SectionBrowser(QWidget):
@@ -173,12 +172,11 @@ class SectionBrowser(QWidget):
     def refont(self):
         color = theme.color
         self.setStyleSheet(f"""
-            QPushButton#section_choice {{ background: {color('surface')}; color: {color('ink')};
-                border: 1px solid {color('line')}; border-radius: 8px; padding: 0;
+            QPushButton#section_choice {{ background: transparent; color: {color('ink')};
+                border: 2px solid transparent; border-radius: 0; padding: 0;
                 min-height: 0; max-height: 16777200px; min-width: 0; }}
             QPushButton#section_choice:hover {{ background: {color('hover')}; }}
-            QPushButton#section_choice:checked {{ background: {color('selection')}; border-color: {color('link')}; }}
-            QPushButton#section_choice:focus {{ border: 2px solid {color('focus')}; }}
+            QPushButton#section_choice:focus {{ border-color: {color('focus')}; }}
         """)
         self._place()
 
@@ -187,18 +185,24 @@ class SectionBrowser(QWidget):
             return
         buttons = list(self.buttons.values())
         width = max(1, self.navigation.width())
-        needed = max(button.sizeHint().width() for button in buttons)
-        columns = len(buttons) if width >= needed * len(buttons) + 8 * (len(buttons) - 1) else min(2, len(buttons))
+        needed = [max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons]
+        single_line = width >= sum(needed) + self.grid.spacing() * (len(buttons) - 1)
+        columns = len(buttons) if single_line else min(2, len(buttons))
         if columns != self.columns:
             self.columns = columns
             for button in buttons:
                 self.grid.removeWidget(button)
             for number, button in enumerate(buttons):
                 self.grid.addWidget(button, number // columns, number % columns)
-            for column in range(len(buttons)):
-                self.grid.setColumnStretch(column, 1 if column < columns else 0)
-        cell_width = max(1, (width - 8 * (columns - 1)) // columns)
-        height = max(button.heightForWidth(cell_width) for button in buttons)
+        available = max(1, width - self.grid.spacing() * (columns - 1))
+        if single_line:
+            extra = (available - sum(needed)) // columns
+            widths = [size + extra for size in needed]
+        else:
+            widths = [max(1, available // columns)] * len(buttons)
+        for column in range(len(buttons)):
+            self.grid.setColumnStretch(column, widths[column] if column < columns else 0)
+        height = max(button.heightForWidth(cell_width) for button, cell_width in zip(buttons, widths))
         for button in buttons:
             button.setFixedHeight(height)
 
@@ -222,8 +226,9 @@ class SectionBrowser(QWidget):
                      Qt.Key.Key_Up: -self.columns, Qt.Key.Key_Down: self.columns}
             if key in moves or key in (Qt.Key.Key_Home, Qt.Key.Key_End):
                 index = 0 if key == Qt.Key.Key_Home else len(buttons) - 1 if key == Qt.Key.Key_End else (at + moves[key]) % len(buttons)
-                buttons[index].setFocus(Qt.FocusReason.TabFocusReason)
-                self.select(buttons[index].key)
+                if index != at:
+                    buttons[index].setFocus(Qt.FocusReason.TabFocusReason)
+                    self.select(buttons[index].key)
                 return True
             if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                 if not event.isAutoRepeat():
