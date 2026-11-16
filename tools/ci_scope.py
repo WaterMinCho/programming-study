@@ -46,7 +46,7 @@ def server_only(path):
 
 
 def automation_only(path):
-    if path in (".github/workflows/release-check.yml", "tools/slack_threads.py", "tools/server_incident_alerts.py",
+    if path in (".github/workflows/pr-title.yml", ".github/workflows/release-check.yml", "tools/slack_threads.py", "tools/server_incident_alerts.py",
                 "tests/test_server_incident_alerts.py", ".github/workflows/server-incidents.yml"):
         return True
     return path in (".github/workflows/ci.yml", ".github/workflows/style.yml", ".github/workflows/slack-notify.yml", "tools/ci_scope.py", "tools/pr_checks.py", "tests/test_pr_checks.py", "tools/check_style.py", "tests/test_style.py", "tools/pr_title.py", "tools/study_checks.py", "tools/study_review_worker.py", "tools/slack_summary.py", "tools/slack_notify.py", "tools/learning_review.py") or path.startswith(("tests/test_ci_scope", "tests/test_pr_title", "tests/test_study_", "tests/test_slack_", "tests/test_learning_review"))
