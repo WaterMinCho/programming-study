@@ -13,10 +13,10 @@ TOUR_KEYS = {name: f"onboarding/career/{name}/v1" for name in ("catalog", "detai
 def steps_for(page, context):
     if context == "catalog":
         card = next((card for card in page.gallery.cards.values() if card.isVisibleTo(page)), None)
-        choices = ((page.filter_toggle, "관심 분야로 좁히기", "산업과 제품을 고르면 관련 직무만 남습니다."),
+        choices = ((page.filter_toggle, "관심 직무 찾기", "산업과 제품을 선택하면 관련 직무를 볼 수 있습니다."),
                    (card, "하는 일부터 살펴보기", "직무를 누르면 업무와 준비할 기술을 그림으로 볼 수 있습니다."))
     elif context == "detail":
-        choices = ((page.detail_tabs, "업무에서 학습으로", "하는 일을 살펴본 뒤, 학습 로드맵에서 준비할 순서를 확인하세요."),
+        choices = ((page.detail_tabs, "직무별 학습 순서", "하는 일을 살펴본 뒤, 학습 로드맵에서 준비할 순서를 확인하세요."),
                    (page.goal_button, "관심 직무 저장", "누르면 이 컴퓨터에 관심 직무를 저장합니다. 나중에 바꿀 수도 있습니다."))
     else:
         papers = page.paper_content.isVisibleTo(page)
