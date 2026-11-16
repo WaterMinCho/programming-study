@@ -28,7 +28,7 @@ import study  # noqa: E402
 from gui import journey_html, journey_text, kit, theme  # noqa: E402
 from gui.cases_dialog import HINT, TITLE, CasesDialog  # noqa: E402
 from gui.dialogs import MessageDialog  # noqa: E402
-from gui.docview import CodeView, FigureView, TextPiece  # noqa: E402
+from gui.docview import PAD, CodeView, FigureView, TextPiece  # noqa: E402
 from gui.editor import JAVASCRIPT, PYTHON  # noqa: E402
 from gui.guard import Guard  # noqa: E402
 from gui.journey_map import ALL_CLEAR, BROKEN, CACHE_TIP, CLEAR_TEXT, WAITING, JourneyMapPage, MapView  # noqa: E402
@@ -794,6 +794,10 @@ class WorkFrameTest(Base):
         self.assertLess(caption, result.head.height(), "caption 이 머리 안에 다 보임")
         self.assertTrue(result.bar.isVisible())
         self.assertEqual(result.minimumHeight(), result.height())
+        self.assertEqual(2 * result.frameWidth() + result.head.height() + result.box.spacing() + result.scroll.minimumHeight(),
+                         result.height(), "카드 높이에 위아래 테두리를 포함함")
+        self.assertTrue(result.contentsRect().contains(result.head.geometry()))
+        self.assertTrue(result.contentsRect().contains(result.scroll.geometry()))
 
     def test_language_switch_keeps_the_card_open_without_a_result(self):
         win = self.boot()
@@ -1080,7 +1084,11 @@ class WorkFrameTest(Base):
         win = self.boot()
         page = self.open("p1")
         piece = next(piece for piece in page.problem_view.pieces if isinstance(piece, TextPiece))
-        self.assertEqual(534, piece.width(), "1280×800 의 6:6 칸")
+        border = 2 * page.problem_card.frameWidth()
+        scroll = page.problem_view.verticalScrollBar().sizeHint().width()
+        half = (win.width() - 2 * kit.MARGIN - page.split.handleWidth()) // 2
+        self.assertEqual(half, page.problem_card.width(), "1280×800의 6:6 칸은 테두리를 포함한 폭임")
+        self.assertEqual(half - border - 2 * PAD - scroll, piece.width(), "본문에서 테두리·여백·스크롤바 폭을 뺌")
         win.set_text("large")
         win.resize(2000, 1070)
         guikit.pump()
@@ -1088,8 +1096,12 @@ class WorkFrameTest(Base):
         self.assertEqual(1341, doc)
         self.assertLessEqual(piece.width(), doc)
         self.assertGreaterEqual(piece.width(), 800)
-        self.assertLessEqual(page.problem_card.width(), doc + 62)
+        self.assertLessEqual(page.problem_card.width(), doc + border + 2 * PAD + scroll)
         self.assertGreaterEqual(page.code_panel.width(), page.problem_card.width(), "편집기 칸도 설명 칸만큼의 폭을 확보함")
+        win.resize(3200, 1070)
+        guikit.pump()
+        self.assertEqual(doc + border + 2 * PAD + scroll, page.problem_card.width(), "넓은 창에서는 카드 바깥 폭이 상한에 닿음")
+        self.assertEqual(doc, piece.width(), "테두리가 본문 읽기 폭을 줄이지 않음")
 
     def test_the_page_never_widens_a_small_window(self):
         """더 크게, 보스, Node 없음, 긴 상태 글에서도 문제 화면의 최소 폭이 1024 이하라 1024 창이 넓어지지 않음."""
@@ -1567,7 +1579,7 @@ class CasesDialogTest(Base):
             guikit.pump()
             self.assertEqual(theme.TYPE["code"][0], edits[0].font().pixelSize(), step)
             heights = [button.height() for button in (dialog.save_btn, close, dialog.add_btn, dialog.example_btn, remove)]
-            self.assertEqual([48, 48, 40, 40, 32] if step == 'normal' else [48, 48, 44, 44, 32], heights, step)
+            self.assertEqual([theme.CONTROL[scale] for scale in ("l", "l", "m", "m", "s")], heights, step)
             self.assertEqual(48, edits[0].height(), step)
             self.assertEqual("삭제", remove.text())
             self.assertEqual(("primary", "", "text", "text", "danger_text"),

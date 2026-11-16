@@ -519,7 +519,7 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(kit.splitter(Qt.Orientation.Horizontal, ratio=0.4).ratio, 0.4)  # 설정이 없으면 기억하지 않음
 
     def test_banner_action_sits_right_of_the_text(self):
-        """띠의 행동 단추는 글 오른쪽의 보조 단추 m 임. 높이는 보통 글자에서 40, 큰 글자에서 44임. 바탕은 띠 바탕과 구분되는 surface 이고
+        """띠의 행동 단추는 글 오른쪽의 보조 단추 m 임. 보통·큰 글자에서 높이 44임. 바탕은 띠 바탕과 구분되는 surface 이고
         꺼지면 띠가 비치며 글만 faint 가 됨. 글이 한 줄이면 단추와 같은 가운데 높이에 옴. 두 줄이면 앞 낱말이 첫 줄에 붙고 글이 잘리지 않음.
         단추가 없는 띠의 action 은 None."""
         plain = kit.banner("단추 없는 띠입니다.", "warning")
@@ -534,15 +534,15 @@ class PartsTest(unittest.TestCase):
         self.assertIsNone(plain.action)
         for banner in (one, two):
             button = banner.action
-            self.assertEqual((button.height(), button.objectName(), button.property("scale")), (40, "", "m"))
+            self.assertEqual((button.height(), button.objectName(), button.property("scale")), (44, "", "m"))
             self.assertGreater(button.x(), banner.text.mapTo(banner, QPoint(banner.text.width(), 0)).x())
             image = banner.grab().toImage()
             self.assertEqual(image.pixelColor(button.x() + 8, button.y() + 20).name(), theme.color("surface"))
             self.assertEqual(image.pixelColor(4, banner.height() // 2).name(), theme.color("ok_weak"))
-        self.assertLessEqual(abs(one.text.mapTo(one, QPoint(0, one.text.height() // 2)).y() - (one.action.y() + 20)), 2)
-        self.assertEqual(one.height(), 12 + 40 + 12)
+        self.assertLessEqual(abs(one.text.mapTo(one, QPoint(0, one.text.height() // 2)).y() - (one.action.y() + 22)), 2)
+        self.assertEqual(one.height(), 12 + 44 + 12)
         self.assertGreaterEqual(two.text.height(), two.text.heightForWidth(two.text.width()))
-        self.assertGreater(two.text.height(), 40)
+        self.assertGreater(two.text.height(), 44)
         mark_center = two.word.mapTo(two.pair, QPoint()).y() + two.word.sizeHint().height() / 2
         text_center = two.text.mapTo(two.pair, QPoint()).y() + two.pair.text_center()
         self.assertLessEqual(abs(mark_center - text_center), 1)
@@ -558,7 +558,7 @@ class PartsTest(unittest.TestCase):
         self.assertEqual((one.action.height(), one.action.font().pixelSize()), (44, 19))
 
     def test_chips_on_the_background_and_switched_off(self):
-        """바탕 위 칩(onbg)은 높이 40 이고 평소에는 바탕이 비치며 고르면 흰 알약(surface)이 됨. 꺼진 칩은 고른 알약을 남기고 글만
+        """바탕 위 칩(onbg)은 높이 44이고 평소에는 바탕이 비치며 고르면 흰 알약(surface)이 됨. 꺼진 칩은 고른 알약을 남기고 글만
         faint 로 바뀜. 표준 칩과 바탕 위 칩의 고름·안 고름 넷을 밝게·어둡게에서 봄."""
         self.addCleanup(theme.set_mode, "light")
         chips = {}
@@ -572,7 +572,7 @@ class PartsTest(unittest.TestCase):
                     chips[onbg, checked, enabled] = chip
         self.root.resize(600, 520)
         self.show()
-        backs = {(False, False): "surface_alt", (False, True): "selection", (True, False): "bg", (True, True): "surface"}
+        backs = {(False, False): "surface", (False, True): "selection", (True, False): "bg", (True, True): "surface"}
         offs = {(False, False): "primary_off", (False, True): "selection", (True, False): "bg", (True, True): "surface"}
         for scheme in ("light", "dark"):
             theme.set_mode(scheme)
@@ -580,7 +580,7 @@ class PartsTest(unittest.TestCase):
             image = self.root.grab().toImage()
             for (onbg, checked, enabled), chip in chips.items():
                 where = (scheme, onbg, checked, enabled)
-                self.assertEqual(chip.height(), 40, where)
+                self.assertEqual(chip.height(), 44, where)
                 self.assertEqual(chip.property("onbg"), True if onbg else None, where)
                 box = chip.geometry()
                 back = theme.color((backs if enabled else offs)[onbg, checked])

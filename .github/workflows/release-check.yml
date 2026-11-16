@@ -173,6 +173,7 @@ jobs:
             ${{ runner.temp }}/release-check/report.json
             ${{ runner.temp }}/release-check/career-tall-layout.json
             ${{ runner.temp }}/release-check/ai-home-header.json
+            ${{ runner.temp }}/release-check/round-window-geometry.json
             ${{ runner.temp }}/release-check/*.png
             ${{ runner.temp }}/release-check/video-fullscreen/*.json
             ${{ runner.temp }}/release-check/video-fullscreen/*.png

@@ -81,12 +81,17 @@ class GuideTest(unittest.TestCase):
     def test_published_guide_numbers_do_not_cover_the_target_buttons(self):
         for step in ai_guide.load_steps(ai_guide.MANIFEST):
             view = ai_guide.ScreenshotView(step)
-            for width in (640, 1280, 3000):
-                view.resize(width, view.heightForWidth(width))
-                for target in step["targets"]:
-                    marker = view.badge_rect(target)
-                    self.assertTrue(view.image_rect().contains(marker), step["id"])
-                    self.assertFalse(marker.intersects(view.target_rect(target)), (step["id"], target["label"]))
+            for text in theme.TEXT_STEPS:
+                theme.set_text(text)
+                for width in (640, 1280, 3000):
+                    with self.subTest(step=step["id"], text=text, width=width):
+                        view.resize(width, view.heightForWidth(width))
+                        for target in step["targets"]:
+                            marker = view.badge_rect(target)
+                            self.assertTrue(view.image_rect().contains(marker), step["id"])
+                            for other in step["targets"]:
+                                self.assertFalse(marker.intersects(view.target_rect(other)),
+                                                 (step["id"], target["label"], other["label"]))
             view.deleteLater()
 
     def test_navigation_is_bounded_and_keeps_the_dialog_open(self):

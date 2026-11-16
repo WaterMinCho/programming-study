@@ -211,7 +211,7 @@ class CareerIntegrationTest(unittest.TestCase):
     def assert_career_icon(self, toggle, expanded):
         image = toggle.grab().toImage()
         ratio = image.devicePixelRatio()
-        ink = "selection_ink" if toggle.isChecked() else "muted"
+        ink = "primary_ink" if toggle.isChecked() else "muted"
         # 중앙에 그린 실제 화소에서 두 아이콘의 크기와 방향·중심을 구함.
         for left, right, center, chevron in ((5, 45, 26, False),
                                               (toggle.width() - 42, toggle.width() - 5, toggle.width() - 24, True)):

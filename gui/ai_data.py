@@ -20,7 +20,7 @@ class DataSection(QFrame):
         self.opened = False
         padding = theme.GAP["detail"]
         layout = kit.box(self, (padding,) * 4)
-        inset = theme.GAP["group"] - padding - 1  # 초점선 여백·테두리를 포함해 본문 시작점을 맞춤.
+        inset = theme.GAP["group"] - padding  # 상태 카드와 같은 테두리 안쪽 여백으로 제목·본문을 맞춤.
         self.header = kit.Row(title, end="펼치기", strong=True, wrap=True)
         self.header.layout().setContentsMargins(inset, 0, inset, 0)
         self.header.chevron.hide()
