@@ -949,6 +949,20 @@ assert logits.shape == (2,4)
 
 14차시에서 eval과 no_grad를 분리했습니다. 앞 단원에서 설명한 24×24 입력의 작은 CNN은 Conv·ReLU·Pool·Linear로 구성하며 BN과 Dropout은 쓰지 않습니다. 이 구성만으로는 eval이 순전파 수식을 바꾸지 않습니다. 그래도 나중에 BN이나 Dropout을 넣은 모델에도 같은 평가 함수를 쓰려면 평가 전에 model.eval()을 호출해 둡니다. no_grad는 별도로 새 역전파 그래프 기록을 끕니다. 잔차 연결 블록을 추가할 때는 14차시의 두 경로 모양 검사도 함께 적용합니다.
 
+```ai-code-help
+{
+  "title": "평가 코드의 두 설정",
+  "explanation": "model.eval()과 torch.no_grad()를 함께 쓰는 이유는 서로 다릅니다. 평가 코드에서 각 줄이 맡은 일을 다시 확인하세요.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l14",
+    "unit": "14h",
+    "step": 4,
+    "title": "평가에는 모드 전환과 기록 중단 같이 쓰기"
+  }
+}
+```
+
 ```figure
 파일: assets/16f-3.png
 캡션: 그림 3. 존재하는 모듈에 따라 모드의 영향을 읽습니다.

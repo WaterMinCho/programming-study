@@ -29,7 +29,7 @@ def unfreeze(r):
                  blanks=[{'answer':[str(count)],'mode':'number','unit':'개'}],explain=f'해제 수는 min(4,({epoch}-1)//{k})={count}입니다. 첫 구간에는 백본을 해제하지 않습니다.',params=dict(k=k,epoch=epoch))
 
 
-@gen('i14-g04',unit='14g',tags=['잔차 연결'],ref=['14차시 노트북 01 [14]','문서 ResNet 원 논문'],facts=['F14-703'],step='14g/3',basis='lecture-formula',family='residual-shape')
+@gen('i14-g04',unit='14g',tags=['잔차 연결'],ref=['14차시 슬 p3','문서 ResNet 원 논문'],facts=['F14-703'],step='14g/3',basis='lecture-formula',family='residual-shape')
 def projection(r):
     """직접 경로의 bias 없는 1×1 합성곱 weight만 셈. BN 원소는 포함하지 않음."""
     ci=r.int(4,64); co=r.int(65,192)
@@ -41,7 +41,7 @@ def projection(r):
 @gen("i14-g05", unit="14b", step="14b/4", level=3, core=False, deep=False, prio=2,
      tags=["동결과 갱신", "optimizer 등록"], family="trainable-registered", basis="lecture-example",
      facts=["F14-201", "F14-202", "F14-205"],
-     ref=["14차시 노트북 01 [14]", "14차시 노트북 02 [33]", "PyTorch 문서 Optimizer"])
+     ref=["14차시 노트북 01 [17]", "14차시 노트북 01 [18]", "14차시 노트북 02 [33]", "PyTorch 문서 Optimizer"])
 def registered_sgd_update(r):
     """등록 여부와 저장된 grad로 SGD 갱신을 판단함. requires_grad 변경은 남은 grad를 지우지 않음."""
     initial = r.int(-8, 8)

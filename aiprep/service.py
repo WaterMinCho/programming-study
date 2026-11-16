@@ -64,6 +64,55 @@ class AiError(session.SessionError):
     """사용자에게 그대로 보여 줄 수 있는 AI 비전 개론 오류."""
 
 
+def _skeleton_block(block, skeletons):
+    """ai-diff·ai-rotate 블록에 채울 값. diff 는 skel.diff 결과, rotate 는 skel.rotate_block 결과(code, slots). 모르는 뼈대·코드 예제·
+    자리면 {"error"}."""
+    skeleton = skeletons.get(str(block.get("skel")))
+    if skeleton is None:
+        return {"error": "뼈대를 찾을 수 없습니다: %s" % block.get("skel")}
+    try:
+        if block["kind"] == "diff":
+            return skel.diff(skeleton, block.get("left"), block.get("right"))
+        slots = block.get("slots")
+        return skel.rotate_block(skeleton, block.get("variant"), slots if isinstance(slots, list) else None)
+    except bank.AiBankError as error:
+        return {"error": str(error)}
+
+
+def _note_blocks(unit, step, guesses, skeletons):
+    """단계 블록을 화면용으로. guess 는 답을 빼고 고른 번호를, reveal 은 짐작한 답과 정답을, figure 는 파일 경로를, diff 는
+    두 코드 예제의 행을, rotate 는 예제 코드와 자리마다 그 자리만 가린 코드를 채움."""
+    out = []
+    for block in step["blocks"]:
+        block = dict(block)
+        if block["kind"] == "guess":
+            block["picked"] = guesses.get(block.get("id"))
+            block.pop("answer", None)
+        elif block["kind"] == "reveal":
+            gid = block.get("guess") or block.get("id")
+            source = next((b for s in unit["steps"] for b in s["blocks"]
+                           if b["kind"] == "guess" and b.get("id") == gid), None)
+            if source:
+                block.update(guess=gid, q=source.get("q"), options=source.get("options"), answer=source.get("answer"),
+                             picked=guesses.get(gid))
+        elif block["kind"] in ("diff", "rotate") and not block.get("error"):
+            block.update(_skeleton_block(block, skeletons))
+        out.append(block)
+    return out
+
+
+def read_note_reference(reference, root=None):
+    """공개 단계의 설명만 읽음. 학습자 세션을 만들거나 물음의 답을 펼치지 않음."""
+    data = bank.resolve_code_reference(reference, root)
+    unit = data["unit"]
+    explanatory = {"text", "figure", "diff", "code-help"}
+    step = {k: data["step"][k] for k in ("no", "title", "scope", "facts")}
+    step["blocks"] = [b for b in data["step"]["blocks"] if b["kind"] in explanatory]
+    skeletons = skel.load_patterns(root) if any(b["kind"] == "diff" for b in step["blocks"]) else {}
+    step["blocks"] = _note_blocks(unit, step, {}, skeletons)
+    return dict(data, unit=unit["key"], step=step)
+
+
 class AiRecord(record.Record):
     """record.Record 와 같은 파일 꼴. 자기가 마지막으로 읽거나 쓴 파일의 (mtime_ns, 크기)가 그대로면 다시 읽지 않고
     메모리의 기록에 덧붙여 씀(4주 기록 1MB 안팎을 답마다 다시 읽지 않으려는 것). 파일 식별값과 변경 시각도 비교해서
@@ -521,41 +570,10 @@ class AiSession(object):
         return out
 
     def _skel_block(self, block):
-        """ai-diff·ai-rotate 블록에 채울 값. diff 는 skel.diff 결과, rotate 는 skel.rotate_block 결과(code, slots). 모르는 뼈대·코드 예제·
-        자리면 {"error"}."""
-        skeleton = self.skeletons.get(str(block.get("skel")))
-        if skeleton is None:
-            return {"error": "뼈대를 찾을 수 없습니다: %s" % block.get("skel")}
-        try:
-            if block["kind"] == "diff":
-                return skel.diff(skeleton, block.get("left"), block.get("right"))
-            slots = block.get("slots")
-            return skel.rotate_block(skeleton, block.get("variant"), slots if isinstance(slots, list) else None)
-        except bank.AiBankError as error:
-            return {"error": str(error)}
+        return _skeleton_block(block, self.skeletons)
 
     def _blocks(self, lid, key, step, state):
-        """단계 블록을 화면용으로. guess 는 답을 빼고 고른 번호를, reveal 은 짐작한 답과 정답을, figure 는 파일 경로를, diff 는
-        두 코드 예제의 행을, rotate 는 예제 코드와 자리마다 그 자리만 가린 코드를 채움."""
-        guesses = state.guesses.get((lid, key), {})
-        out = []
-        unit = self.notes[lid]["units"][key]
-        for block in step["blocks"]:
-            block = dict(block)
-            if block["kind"] == "guess":
-                block["picked"] = guesses.get(block.get("id"))
-                block.pop("answer", None)
-            elif block["kind"] == "reveal":
-                gid = block.get("guess") or block.get("id")
-                source = next((b for s in unit["steps"] for b in s["blocks"]
-                               if b["kind"] == "guess" and b.get("id") == gid), None)
-                if source:
-                    block.update(guess=gid, q=source.get("q"), options=source.get("options"), answer=source.get("answer"),
-                                 picked=guesses.get(gid))
-            elif block["kind"] in ("diff", "rotate") and not block.get("error"):
-                block.update(self._skel_block(block))
-            out.append(block)
-        return out
+        return _note_blocks(self.notes[lid]["units"][key], step, state.guesses.get((lid, key), {}), self.skeletons)
 
     def unit_steps(self, lid, key):
         """학습 단원의 단계. {"lesson", "unit", "title", "name"(단원 이름), "steps": [{"no", "title", "scope", "facts", "blocks"}],

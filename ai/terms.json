@@ -34,7 +34,7 @@
   {"term": "튜플", "also": [], "accept": ["tuple"], "page": "l01"},
   {"term": "딕셔너리", "also": [], "accept": ["dict", "dictionary", "사전"], "page": "l01"},
   {"term": "f-string", "also": [], "accept": ["f 문자열", "f문자열", "포맷 문자열"], "page": "l01"},
-  {"term": "자료형", "also": ["데이터 타입"], "accept": ["dtype", "data type"], "intro": "l02", "page": "l03"},
+  {"term": "자료형", "also": ["데이터 타입"], "accept": ["dtype", "data type"], "intro": "l01", "page": "l03"},
   {"term": "벡터화", "also": [], "accept": ["vectorization"], "page": "l02"},
   {"term": "행렬", "also": [], "accept": ["matrix"], "intro": "l02", "page": "l03"},
   {"term": "벡터", "also": [], "accept": ["vector"], "intro": "l02", "page": "l03"},

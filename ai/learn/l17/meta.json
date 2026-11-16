@@ -97,6 +97,11 @@
       "what": "검증 선택과 최종 테스트 분리",
       "url": "https://scikit-learn.org/stable/modules/cross_validation.html",
       "checked": "2026-11-10"
+    },
+    {
+      "what": "모델 이름으로 토크나이저와 번호표 불러오기",
+      "url": "https://huggingface.co/docs/transformers/en/model_doc/auto#transformers.AutoTokenizer.from_pretrained",
+      "checked": "2026-11-16"
     }
   ],
   "credits": [],

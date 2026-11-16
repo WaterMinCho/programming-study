@@ -277,6 +277,20 @@ Embedding의 dtype과 입출력 모양 및 padding_idx의 범위를 확인합니
 
 입력은 정수 번호이며 출력은 weight와 같은 실수 dtype입니다. 이 예는 CPU float32 weight와 long 번호를 사용합니다. 입력의 번호와 꺼낸 실수 벡터를 구분하세요.
 
+```ai-code-help
+{
+  "title": "long과 float",
+  "explanation": "토큰 번호는 행을 고르는 정수이고 꺼낸 벡터는 모델이 학습하는 실수입니다. 이 예는 번호를 long으로, weight를 float32로 둡니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l03",
+    "unit": "3b",
+    "step": 3,
+    "title": ".float()와 .long()으로 자료형 바꾸기"
+  }
+}
+```
+
 ```figure
 파일: assets/17b-2.png
 캡션: 그림 2. 기존 문장·토큰 축 뒤에 벡터 축을 추가합니다.
@@ -679,11 +693,15 @@ Self-Attention과 동적 패딩 및 DistilBERT 수치의 조건을 구분합니�
 ### 배치마다 최장 길이에 맞춰 채우기
 <!-- facts: F17-401 F17-402 F17-403 -->
 
-AutoTokenizer는 모델에 맞는 토큰화와 번호 변환을 준비할 때 씁니다. 모델 이름을 맞춰야 토큰 번호의 뜻이 맞습니다. 길이가 다른 변환 결과를 배치로 합칠 때 쓰는 DataCollatorWithPadding은 기본적으로 배치 최장 길이에 맞춰 채웁니다.
+AutoTokenizer.from_pretrained(model_name)은 지정한 모델의 토큰 분리 규칙과 번호표를 불러와 토크나이저를 만듭니다. 이 예에서는 토크나이저와 모델을 모두 distilbert-base-uncased로 불러와 토큰 번호의 대응을 맞춥니다. 다른 토크나이저를 섞으면 같은 번호가 다른 토큰을 가리킬 수 있습니다.
 
-원래 길이 3과 6이면 두 문장을 길이 6으로 묶습니다. pad_to_multiple_of 같은 설정이 있으면 더 길어질 수 있습니다. attention_mask는 tokenizer가 만든 실제 토큰 표시를 패딩에 맞춰 채웁니다. 아래 예에서 tokenizer는 모델에 맞게 준비한 토크나이저이고 texts는 문장 목록입니다.
+길이가 다른 변환 결과를 배치로 합칠 때 쓰는 DataCollatorWithPadding은 기본적으로 배치 최장 길이에 맞춰 채웁니다. 원래 길이 3과 6이면 두 문장을 길이 6으로 묶습니다. pad_to_multiple_of 같은 설정이 있으면 더 길어질 수 있습니다. attention_mask는 tokenizer가 만든 실제 토큰 표시를 패딩에 맞춰 채웁니다. 아래 예에서 texts는 문장 목록입니다. 토크나이저 파일을 처음 불러올 때는 다운로드가 필요할 수 있습니다.
 
 ```python
+from transformers import AutoTokenizer, DataCollatorWithPadding
+
+model_name = "distilbert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
 features = [tokenizer(text) for text in texts]
 batch = collator(features)

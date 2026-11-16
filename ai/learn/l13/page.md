@@ -68,6 +68,20 @@
 
 파라미터를 고정하는 일과 층의 실행 모드를 바꾸는 일도 구분합니다. `requires_grad=False`는 그 파라미터에 대한 새 기울기 계산을 끕니다. BatchNorm의 이동 평균과 이동 분산은 학습 파라미터가 아닌 버퍼입니다. 기본 BatchNorm은 train 모드에서 이 버퍼를 계속 갱신합니다.
 
+```ai-code-help
+{
+  "title": "requires_grad",
+  "explanation": "이 설정은 해당 파라미터의 기울기를 구할지 정합니다. train·eval 모드와는 따로 적용합니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l03",
+    "unit": "3g",
+    "step": 2,
+    "title": "기울기 기록이 켜진 상태에서 미분 가능한 계산 기록하기"
+  }
+}
+```
+
 ```figure
 파일: assets/13a-2.png
 캡션: 그림 2. 각 전략에서 갱신하는 파라미터를 비교합니다.

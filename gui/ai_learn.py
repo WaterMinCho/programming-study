@@ -1268,10 +1268,12 @@ def guess_answers(steps):
 class Ctx:
     """블록이 서비스에 남기는 일. readonly 면 기록하지 않고 정답을 편 채로 그림. answers 는 읽기 전용 먼저 풀어 보기의 정답(guess_answers)."""
 
-    def __init__(self, win, lid, key, readonly=False, answers=None):
+    def __init__(self, win, lid, key, readonly=False, answers=None, *, base_dir=None, reference_links=True):
         self.win, self.lid, self.key, self.readonly = win, lid, key, readonly
         self.answers = answers or {}
-        self.base_dir = win.ai.notes[lid]["dir"] if win.ai is not None and lid in win.ai.notes else ""
+        self.reference_links = reference_links
+        self.base_dir = base_dir if base_dir is not None else (
+            win.ai.notes[lid]["dir"] if win.ai is not None and lid in win.ai.notes else "")
 
     def save_guess(self, block, picked):
         if self.readonly:
@@ -1322,10 +1324,11 @@ class StepView(QWidget):
 
     reloading = pyqtSignal()
 
-    def __init__(self, step, ctx, extra=(), title_role="headline"):
+    def __init__(self, step, ctx, extra=(), title_role="headline", show_title=True):
         super().__init__()
         self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
         self.formulas = []  # 수식 창의 글자와 색을 갱신할 부품
+        self.code_help = []
         self.levels = []  # 세 수준 블록. 펼 때 만든 글 조각과 그림을 restyle 때 다시 그림
         column = kit.box(self, spacing=theme.LEARN_GAP["group"])
         if not ctx.readonly:
@@ -1352,11 +1355,12 @@ class StepView(QWidget):
         for index, block in enumerate(list(step["blocks"]) + list(extra)):
             widget = self.block(block, ctx)
             if widget is not None:
-                if index == 0 and block.get("kind") == "text":
+                if show_title and index == 0 and block.get("kind") == "text":
                     top = reading_heading(top, widget)
                 else:
                     content.append(widget)
         column.addWidget(top)
+        top.setVisible(show_title)
         for widget in content:
             column.addWidget(widget)
         learning_texts(self)
@@ -1405,6 +1409,11 @@ class StepView(QWidget):
             out = FormulaBlock(block, ctx)
             self.formulas.append(out)
             return out
+        if kind == "code-help":
+            from gui.ai_code_help import CodeHelpBlock
+            out = CodeHelpBlock(block, ctx)
+            self.code_help.append(out)
+            return out
         return kit.para(ai_text.BLOCK_BROKEN, "body", "secondary")  # 이 판이 모르는 블록
 
     def restyle(self):
@@ -1412,7 +1421,7 @@ class StepView(QWidget):
             piece.restyle(theme.learning_css())
         for widget in self.figures:
             widget.draw()
-        for widget in self.codes + self.levels + self.formulas:
+        for widget in self.codes + self.levels + self.formulas + self.code_help:
             widget.restyle()
         for widget in self.findChildren(RichPara):
             widget.restyle()

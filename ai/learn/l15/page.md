@@ -316,8 +316,40 @@ val_tf = transforms.Compose([
 
 두 설정 모두 크기를 맞추고 중앙을 자른 다음 텐서로 변환해 정규화합니다. 정규화 상수는 사용하는 가중치와 학습 조건에 맞춥니다. 위 코드는 각 채널에서 0.5를 빼고 0.5로 나누는 예입니다.
 
+훈련에는 원래 라벨이 유지되는 범위에서 무작위 변형을 넣습니다. RandomResizedCrop(224)는 무작위로 고른 영역을 224×224로 맞춥니다. RandomHorizontalFlip은 지정한 확률로 이미지를 좌우로 뒤집습니다. 그다음 ToTensor와 Normalize를 적용합니다. 일부 영역을 가리는 RandomErasing은 텐서를 받으므로 ToTensor 뒤에 둡니다. Normalize 뒤에 value=0으로 가리면 정규화한 공간의 값 0으로 채웁니다.
+
+검증에는 무작위 변형을 빼고 위 val_tf처럼 고정한 변환을 적용합니다. 같은 이미지를 매번 같은 조건으로 평가하도록 훈련용 변환과 구분합니다.
+
+```ai-code-help
+{
+  "title": "훈련용 Compose",
+  "explanation": "크롭과 반전, 텐서 변환, 정규화, 영역 가리기를 연결한 코드입니다. RandomErasing의 확률과 채울 값도 함께 확인합니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l14",
+    "unit": "14f",
+    "step": 3,
+    "title": "PIL에서 Tensor로 바꾼 뒤 지우기"
+  }
+}
+```
+
 ```ai-recall
 {"id": "r3", "q": "정사각형 이미지를 Resize(226) 뒤 CenterCrop(224)로 자르면 위쪽에서 버리는 폭은 ____ 픽셀입니다.", "answer": ["1"], "mode": "number", "unit": "픽셀", "why": "세로 길이 차이 226−224=2를 위아래에 나누므로 위쪽에서 1픽셀을 버립니다."}
+```
+
+```ai-code-help
+{
+  "title": "Compose",
+  "explanation": "괄호 안 목록의 위쪽 변환부터 실행하고 그 결과를 다음 변환에 넘깁니다. 텐서 변환과 정규화도 적힌 순서대로 적용합니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l10",
+    "unit": "10b",
+    "step": 4,
+    "title": "변환을 이은 뒤 이미 바꾼 입력을 다시 바꾸지 않기"
+  }
+}
 ```
 
 ```figure
@@ -402,6 +434,20 @@ uint8 변환 조건과 정규화 역변환을 확인합니다.
 
 이렇게 바꾼 값에 정한 상수를 빼고 나누는 정규화를 이어 적용할 수 있습니다. 상수 0.5로 계산했다고 실제 자료의 평균이 0이 된다고 보장하지 않습니다. 다음 단계에서는 픽셀 값 0.4가 어떻게 바뀌는지 계산합니다.
 
+```ai-code-help
+{
+  "title": "ToTensor",
+  "explanation": "ToTensor는 uint8 픽셀을 255로 나눈 실수로 바꾸고 HWC를 CHW로 옮깁니다. 앞에서는 흑백 한 장으로 255로 나누는 계산과 채널 축을 봤습니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l10",
+    "unit": "10b",
+    "step": 2,
+    "title": "밝기를 나누고 채널 축 붙이기"
+  }
+}
+```
+
 ```figure
 파일: assets/15c-1.png
 캡션: 그림 1. dtype 조건을 정한 뒤 값과 축을 계산합니다.
@@ -432,6 +478,21 @@ uint8 변환 조건과 정규화 역변환을 확인합니다.
 정규화 식은 z=(x-0.5)÷0.5입니다. 앞 단계의 0.4를 x에 넣으면 (0.4-0.5)÷0.5=-0.2입니다. 세 채널 값 0, 0.5, 1에도 같은 식을 각각 적용하면 -1, 0, 1을 얻습니다. 이 상수는 데이터에서 실제로 측정한 평균과 표준편차라고 가정하지 않습니다.
 
 원래 값을 구하려면 계산 순서를 되돌립니다. z에 0.5를 곱한 뒤 0.5를 더하면 x를 얻습니다. 이 역변환으로 정규화한 이미지를 표시할 값을 준비합니다.
+
+```ai-code-help
+{
+  "title": "Normalize",
+  "explanation": "Normalize의 첫 번째 인수는 뺄 값, 두 번째 인수는 나눌 값입니다. 이 예는 세 채널에 같은 0.5를 넣었습니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l10",
+    "unit": "10b",
+    "step": 3,
+    "title": "가운데를 빼고 지정한 간격으로 나누기"
+  },
+  "code": "transforms.Normalize((0.5,)*3, (0.5,)*3)"
+}
+```
 
 ```figure
 파일: assets/15c-2.png
@@ -602,6 +663,20 @@ Dataset의 원소와 DataLoader의 배치 축 및 마지막 배치를 확인합�
 
 표본 14개를 5개씩 묶고 남은 표본도 보내면 5개, 5개, 4개를 차례로 보냅니다. 배치 앞의 축은 이처럼 실제로 묶은 표본 수입니다.
 
+```ai-code-help
+{
+  "title": "DataLoader",
+  "explanation": "Dataset에서 꺼낸 이미지와 라벨을 최대 batch_size개씩 묶습니다. 샘플 수와 배치 수가 다르다는 점을 앞선 그림과 연결해 보세요.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l10",
+    "unit": "10c",
+    "step": 2,
+    "title": "샘플 수와 배치 수 따로 세기"
+  }
+}
+```
+
 ```figure
 파일: assets/15d-1.png
 캡션: 그림 1. 표본의 앞에 배치 축을 붙입니다.
@@ -717,6 +792,20 @@ Dataset의 원소와 DataLoader의 배치 축 및 마지막 배치를 확인합�
 
 기본 샘플링에서 shuffle=True는 표본을 중복하지 않고 한 에폭의 순서를 섞습니다. 학습용으로는 이 순서를 섞어 쓸 수 있습니다. 검증용은 같은 순서로 두면 파일별 예측을 추적하기 쉽습니다. 평가 모드의 독립된 표본별 예측을 모두 합산한다면 shuffle 여부 자체가 정확도를 바꾸는 규칙은 아닙니다.
 
+```ai-code-help
+{
+  "title": "shuffle과 batch_size",
+  "explanation": "shuffle은 자료 순서를, batch_size는 한 묶음의 최대 크기를 정합니다. 둘을 바꿨을 때 달라지는 값을 따로 확인하세요.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l10",
+    "unit": "10c",
+    "step": 3,
+    "title": "섞는 순서와 배치 크기 따로 고르기"
+  }
+}
+```
+
 ```figure
 파일: assets/15d-3.png
 캡션: 그림 3. 순서·묶음 크기·나머지 처리를 따로 봅니다.
@@ -809,6 +898,20 @@ class LabeledImages(Dataset):
         return self.images[i], int(self.targets[i])
 ```
 
+```ai-code-help
+{
+  "title": "Dataset과 DataLoader",
+  "explanation": "__len__은 전체 표본 수를, __getitem__은 한 표본과 라벨을 돌려줍니다. DataLoader는 이렇게 꺼낸 표본들을 묶습니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l10",
+    "unit": "10c",
+    "step": 2,
+    "title": "샘플 수와 배치 수 따로 세기"
+  }
+}
+```
+
 ```figure
 파일: assets/15e-1.png
 캡션: 그림 1. 표본을 읽는 계약을 유지합니다.
@@ -892,6 +995,20 @@ model.eval()
 ```
 
 `train_one_epoch`는 학습과 갱신을 수행하고 `validate`는 eval 모드와 no_grad에서 검증 손실을 계산한다고 가정합니다. 에폭마다 학습을 다시 시작할 때는 train 모드를 적용합니다. 시험 자료는 선택을 마친 뒤 최종 평가에 쓰며 최적 에폭이나 설정을 고르는 데 쓰지 않습니다. 위 예는 평가할 모델 상태를 보관합니다. 학습을 중단한 자리부터 이어가려면 옵티마이저 상태와 에폭 번호 등도 함께 보관합니다.
+
+```ai-code-help
+{
+  "title": "state_dict와 deepcopy",
+  "explanation": "state_dict로 얻은 텐서를 이후 학습과 따로 보관하려고 deepcopy를 씁니다. 값이 함께 바뀌는 경우와 비교할 수 있습니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l10",
+    "unit": "10e",
+    "step": 4,
+    "title": "좋았던 시점의 텐서 따로 복사하기"
+  }
+}
+```
 
 ```figure
 파일: assets/15e-4.png

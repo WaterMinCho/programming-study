@@ -62,6 +62,16 @@
       "what": "state_dict의 파라미터와 저장 대상 버퍼",
       "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html#torch.nn.Module.state_dict",
       "checked": "2026-11-08"
+    },
+    {
+      "what": "훈련용 무작위 크롭의 영역 선택과 출력 크기",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomResizedCrop.html",
+      "checked": "2026-11-16"
+    },
+    {
+      "what": "RandomErasing의 텐서 입력과 정규화 뒤 적용 예",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomErasing.html",
+      "checked": "2026-11-16"
     }
   ],
   "credits": [],

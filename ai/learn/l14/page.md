@@ -1319,6 +1319,20 @@ with torch.no_grad():
     loss = criterion(logits, labels)
 ```
 
+```ai-code-help
+{
+  "title": "가중치 고정과 평가 모드",
+  "explanation": "앞에서는 requires_grad와 실행 모드를 나눠 봤습니다. 여기서 no_grad는 파라미터 설정을 바꾸지 않고 블록 안 계산의 기울기 기록을 끕니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l13",
+    "unit": "13a",
+    "step": 4,
+    "title": "가중치 고정과 실행 모드 따로 보기"
+  }
+}
+```
+
 ```figure
 파일: assets/14h-3.png
 캡션: 그림 3. 모드 설정과 그래프 기록 범위를 함께 읽습니다.
