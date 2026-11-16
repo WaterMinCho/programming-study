@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 CASES = (
+    "tests.test_gui_ai_data.AiDataTest.test_closed_headers_keep_keyboard_focus_inside_rounded_cards",
+    "tests.test_gui_section_browser.AiSectionBrowserTest.test_real_lesson_titles_wrap_and_selection_stays_distinct_from_focus",
     "tests.test_gui_section_browser.AiSectionBrowserTest.test_home_back_matches_shared_topbar_outside_content_column",
     "tests.test_gui_section_browser.AiSectionBrowserTest.test_application_course_keeps_topbar_and_tab_reaches_selected_course",
     "tests.test_gui_design_system.DesignSystemTest.test_course_badge_matches_title_text_pixels_in_both_themes",

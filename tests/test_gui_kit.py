@@ -290,6 +290,22 @@ class PartsTest(unittest.TestCase):
         card.set_item("끝", "", "")
         self.assertFalse(card.button.isVisibleTo(self.root))
 
+    def test_next_card_uses_current_margins_when_stacking_the_action(self):
+        from PyQt6.QtWidgets import QBoxLayout
+        card = kit.NextCard()
+        card.set_item("다음 단원", "설명과 예제를 읽습니다.", "학습 시작")
+        self.box.addWidget(card)
+        self.show()
+        minimum = 24 * theme.TYPE["body"][0]
+        width = minimum + card.button.sizeHint().width() + card.row.spacing() + 80
+        card.setFixedWidth(width)
+        card.row.setContentsMargins(24, 16, 24, 16)
+        card.arrange()
+        self.assertEqual(card.row.direction(), QBoxLayout.Direction.LeftToRight)
+        card.row.setContentsMargins(48, 16, 48, 16)
+        card.arrange()
+        self.assertEqual(card.row.direction(), QBoxLayout.Direction.TopToBottom)
+
     def test_stepper_and_dots_paint_every_state(self):
         stepper = kit.Stepper()
         stepper.set_steps([(0, "코드 설명", "done"), (1, "세 가지 화면", "now"), (2, "건너뜀", "skip"), (3, "", "lock")])

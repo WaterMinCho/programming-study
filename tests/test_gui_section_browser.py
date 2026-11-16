@@ -11,7 +11,7 @@ from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QAbstractSlider
 
-from gui import kit, theme
+from gui import ai_text, kit, theme
 from gui.career_roadmap import ReadingPage
 from session import SessionError
 
@@ -206,19 +206,21 @@ class AiSectionBrowserTest(AiTest):
                     course_positions = [button.mapTo(home, QPoint()) for button in courses]
                     buttons = list(browser.buttons.values())
                     ys = {button.mapTo(home, QPoint()).y() for button in buttons}
-                    single_line_width = sum(max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons) + 24
+                    single_line_width = max(sum(button.sizeHint().width() for button in buttons),
+                                            max(button.minimumSizeHint().width() for button in buttons) * len(buttons)) + 24
                     self.assertEqual(1 if browser.navigation.width() >= single_line_width else 2, len(ys))
                     self.assertEqual(1, len(ys))
                     self.assertEqual(1, len({button.height() for button in buttons}))
+                    self.assertLessEqual(max(button.width() for button in buttons) - min(button.width() for button in buttons), 1)
                     self.assertEqual(0, home.scroll.horizontalScrollBar().maximum())
                     before = [button.mapTo(home, QPoint()) for button in buttons]
                     for button in buttons:
                         rectangle = button.rect().translated(button.mapTo(win, QPoint()))
                         self.assertTrue(win.rect().contains(rectangle))
                         metrics = QFontMetricsF(theme.font("label", True))
-                        self.assertGreaterEqual(button.width() - 24, metrics.horizontalAdvance(button.text()))
                         text = metrics.boundingRect(QRectF(0, 0, button.width() - 24, 1000),
                                                     Qt.TextFlag.TextWordWrap, button.text())
+                        self.assertLessEqual(text.width(), button.width() - 24)
                         self.assertLessEqual(text.height(), button.height() - 16)
                         self.assertTrue(button.accessibleName())
                         self.assertTrue(button.toolTip())
@@ -241,6 +243,82 @@ class AiSectionBrowserTest(AiTest):
                 self.assertGreater(heights[0], heights[1], (mode, size, heights))
                 self.assertEqual(heights[0], heights[2], (mode, size, heights))
         self.capture_widget = win
+
+    def test_real_lesson_titles_wrap_and_selection_stays_distinct_from_focus(self):
+        win, home, browser = self.home()
+        self.capture_widget = win
+        destination = os.environ.get("STUDY_UI_ARTIFACT_DIR")
+        measurements = []
+        room = win.screen().availableGeometry()
+        native = guikit.APP.platformName() != "offscreen"
+        frame = win.frameGeometry().size() - win.size()
+        win.set_text("larger")
+        for mode in ("light", "dark"):
+            win.set_theme(mode)
+            for requested in ((760, 480), (1600, 1000)):
+                width, height = requested
+                if native:
+                    width = min(width, room.width() - frame.width() - 32)
+                    height = min(height, room.height() - frame.height() - 32)
+                    win.move(room.topLeft() + QPoint(16, 16))
+                win.resize(width, height)
+                for course, count in (("intro", 17), ("app", 3)):
+                    win.switch_ai_course(course)
+                    browser.select("lessons")
+                    self.settle()
+                    self.assertEqual((width, height), (win.width(), win.height()))
+                    overview = win.ai.overview()
+                    expected = [row for row in overview["lessons"] if row["ready"]]
+                    self.assertEqual(count, len(home.lesson_list.rows))
+                    self.assertEqual([row["id"] for row in expected], [row.data for row in home.lesson_list.rows])
+                    for row, spec in zip(home.lesson_list.rows, expected):
+                        self.assertTrue(row.wrap)
+                        self.assertNotIsInstance(row.title, kit.ElideLabel)
+                        self.assertEqual(ai_text.lesson_title(spec["no"], spec["title"], course), row.title.text())
+                        self.assertEqual("예습" if spec["preview"] else "", row.end.text())
+                        self.assertGreaterEqual(row.title.height(), row.title.heightForWidth(row.title.width()))
+                        self.assertTrue(row.rect().contains(row.title.rect().translated(row.title.mapTo(row, QPoint()))))
+                    pending = [row for row in overview["lessons"] if not row["ready"] and not row.get("error")]
+                    self.assertEqual(bool(pending), home.lesson_list.more_btn is not None)
+                    self.assertGreaterEqual(home.scroll.viewport().height(), 200)
+                    self.assertEqual(0, home.scroll.horizontalScrollBar().maximum())
+                    self.assertEqual(home.guide_btn.y(), home.data_btn.y())
+                    for button in (home.guide_btn, home.data_btn):
+                        self.assertGreaterEqual(button.width(), button.sizeHint().width())
+                    selected, other = browser.buttons["lessons"], browser.buttons["books"]
+                    home.hub_btn.setFocus()
+                    guikit.pump()
+                    unfocused = selected.grab().toImage()
+                    selected.setFocus()
+                    guikit.pump()
+                    self.assertNotEqual(unfocused, selected.grab().toImage())
+                    other.setFocus()
+                    guikit.pump()
+                    self.assertTrue(selected.isChecked())
+                    self.assertTrue(other.hasFocus())
+                    self.assertFalse(other.isChecked())
+                    home.hub_btn.setFocus()
+                    guikit.pump()
+                    image = selected.grab().toImage()
+                    scale = image.devicePixelRatio()
+                    self.assertTrue(guikit.near(image.pixelColor(int(selected.width() * scale / 2), int(6 * scale)), "selection"))
+                    if destination:
+                        target = Path(destination)
+                        target.mkdir(parents=True, exist_ok=True)
+                        stem = "ai-sections-%s-%s-%d-larger" % (course, mode, requested[0])
+                        home.scroll.verticalScrollBar().setValue(0)
+                        guikit.pump()
+                        self.assertTrue(win.grab().save(str(target / (stem + ".png"))))
+                        longest = max(home.lesson_list.rows, key=lambda row: row.title.height())
+                        home.scroll.ensureWidgetVisible(longest)
+                        guikit.pump()
+                        self.assertTrue(win.grab().save(str(target / (stem + "-lesson.png"))))
+                        measurements.append(dict(course=course, mode=mode, requested=requested,
+                                                 window=[win.width(), win.height()], viewport=home.scroll.viewport().height(),
+                                                 section_sizes=[[button.width(), button.height()] for button in browser.buttons.values()],
+                                                 lessons=count, pending=len(pending), platform=guikit.APP.platformName(),
+                                                 dpr=win.devicePixelRatioF(), head_sha=os.environ.get("STUDY_UI_HEAD_SHA", "")))
+                        (target / "ai-sections.json").write_text(json.dumps(measurements, indent=2), encoding="utf-8")
 
     def test_refresh_and_course_switch_restore_each_category_position(self):
         win, home, browser = self.home()
@@ -310,6 +388,34 @@ class AiSectionBrowserTest(AiTest):
         self.assertTrue(home.mock_list.isVisible())
         self.assertEqual(before, self.log())
 
+    def test_disabled_category_keeps_selection_without_changing_busy_navigation(self):
+        win, home, browser = self.home()
+        self.capture_widget = win
+        for mode in ("light", "dark"):
+            win.set_theme(mode)
+            home.set_busy(True)
+            self.settle()
+            self.assertFalse(home.course_tabs.isEnabled())
+            self.assertTrue(all(button.isEnabled() for button in browser.buttons.values()))
+            selected, other = browser.buttons["lessons"], browser.buttons["books"]
+            browser.setEnabled(False)
+            try:
+                guikit.click(other)
+                self.assertEqual("lessons", browser.current)
+                self.assertTrue(selected.isChecked())
+                self.assertFalse(other.isChecked())
+                for button, token in ((selected, "selection"), (other, "surface_alt")):
+                    self.assertFalse(button.isEnabled())
+                    image = button.grab().toImage()
+                    scale = image.devicePixelRatio()
+                    color = image.pixelColor(int(button.width() * scale / 2), int(6 * scale))
+                    self.assertTrue(guikit.near(color, token), (mode, token))
+            finally:
+                browser.setEnabled(True)
+                home.set_busy(False)
+            self.assertTrue(selected.isChecked())
+            self.assertTrue(home.course_tabs.isEnabled())
+
     def test_manual_scroll_takes_priority_over_pending_position_restore(self):
         win, home, browser = self.home()
         bar = home.scroll.verticalScrollBar()
@@ -365,7 +471,8 @@ class AiSectionBrowserTest(AiTest):
         self.assertEqual(4, browser.columns)
         win.set_text("normal")
         self.settle()
-        needed = sum(max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons) + 24
+        needed = max(sum(button.sizeHint().width() for button in buttons),
+                     max(button.minimumSizeHint().width() for button in buttons) * len(buttons)) + 24
         browser.navigation.setFixedWidth(needed - 1)
         self.settle()
         self.assertEqual(2, browser.columns)
@@ -373,7 +480,10 @@ class AiSectionBrowserTest(AiTest):
         self.settle()
         self.assertEqual(4, browser.columns)
         for button in buttons:
-            self.assertGreaterEqual(button.width() - 24, QFontMetricsF(button.font()).horizontalAdvance(button.text()))
+            text = QFontMetricsF(button.font()).boundingRect(
+                QRectF(0, 0, button.width() - 24, 1000), Qt.TextFlag.TextWordWrap, button.text())
+            self.assertLessEqual(text.width(), button.width() - 24)
+            self.assertLessEqual(text.height(), button.height() - 16)
 
     def test_partial_read_error_and_mock_error_are_visible_in_their_lists(self):
         win, home, browser = self.home()

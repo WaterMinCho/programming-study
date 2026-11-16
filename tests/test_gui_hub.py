@@ -472,6 +472,30 @@ class HubScreenTest(HubTest):
         guikit.pump()
         self.assertEqual((win.pages.currentWidget(), win.area), (win.hub, "hub"))
 
+    def test_wide_subject_grid_uses_three_columns_and_reflows_with_larger_text(self):
+        win = self.boot()
+        win.resize(1600, 1000)
+        guikit.pump()
+        grid = win.hub.tracks
+        self.assertEqual(grid.columns, 3)
+        for index, row in enumerate(grid.rows):
+            self.assertEqual(grid.grid.getItemPosition(grid.grid.indexOf(row))[:2], (0, index))
+            self.assertTrue(grid.rect().contains(row.geometry()))
+        win.hub.ai_row.set_second("응용 · 긴 학습 제목을 여러 줄에 걸쳐 표시하는 차시 목록의 다음 단원과 미완료 연습으로 돌아갑니다.")
+        guikit.pump()
+        self.assertEqual(len({row.height() for row in grid.rows}), 1)
+        titles = [row.title.mapTo(grid, QPoint()).y() for row in grid.rows]
+        metrics = [row.metric.mapTo(grid, QPoint()).y() for row in grid.rows]
+        self.assertEqual(len(set(titles)), 1)
+        self.assertEqual(len(set(metrics)), 1)
+        win.set_text("larger")
+        guikit.pump()
+        self.assertEqual(grid.columns, 2)
+        for row in grid.rows:
+            self.assertTrue(grid.rect().contains(row.geometry()))
+        guikit.click(win.hub.ai_row)
+        self.assertEqual(win.area, "ai")
+
     def test_starts_at_the_hub_and_the_rows_show_their_numbers(self):
         prof = self.graded_round()
         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat(timespec="seconds")

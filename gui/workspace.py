@@ -22,16 +22,21 @@ class SubjectTile(kit.Row):
     def __init__(self, title, token):
         super().__init__(title, "", mark=kit.Dot(token, 10), strong=True, wrap=True)
         self.setProperty("subject", True)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.setAccessibleName(title + " 학습 열기")
         kit.typed(self.title, "headline", True)
         kit.typed(self.second, "body")
         self.second.setProperty("tone", "secondary")
-        text_box = self.title.parentWidget().layout()
+        text = self.title.parentWidget()
+        self.layout().setAlignment(text, Qt.AlignmentFlag(0))
+        self.layout().setAlignment(self.mark, Qt.AlignmentFlag.AlignTop)
+        text_box = text.layout()
         text_box.setSpacing(theme.GAP["title_description"])
-        self.metric = kit.label("", "caption", "secondary")
+        self.metric = kit.label("", "label", "secondary", bold=True)
         self.meter = kit.progress(thin=True)
         self.meter.setProperty("series", token)
-        text_box.addSpacing(12)
+        text_box.addSpacing(theme.GAP["title_description"])
+        text_box.addStretch(1)
         text_box.addWidget(self.metric)
         text_box.addSpacing(4)
         text_box.addWidget(self.meter)
@@ -47,6 +52,7 @@ class SubjectTile(kit.Row):
         self.fit_height()
 
     def fit_height(self):
+        self.mark.setFixedHeight(theme.TYPE["headline"][1] + 24)
         text = self.title.parentWidget()
         row = self.layout()
         others = [row.itemAt(i) for i in range(row.count())
@@ -56,7 +62,7 @@ class SubjectTile(kit.Row):
         width = max(1, self.contentsRect().width() - left - right - sum(item.sizeHint().width() for item in others)
                     - row.spacing() * len(others))
         height = text.layout().heightForWidth(width)
-        self.setFixedHeight(max(160 + theme.text_px() * 4, height + 2 * self.frameWidth()))
+        self.setMinimumHeight(max(160 + theme.text_px() * 4, height + 2 * self.frameWidth()))
 
     def event(self, event):
         result = super().event(event)
@@ -66,7 +72,7 @@ class SubjectTile(kit.Row):
 
 
 class SubjectGrid(QWidget):
-    """창의 폭에 따라 두 열과 한 열 사이에서 배치를 바꿈."""
+    """넓은 창에서는 세 과목을 나란히 두고 글자 크기에 맞춰 열을 줄임."""
 
     def __init__(self):
         super().__init__()
@@ -82,14 +88,15 @@ class SubjectGrid(QWidget):
         return tile
 
     def arrange(self):
-        columns = 2 if self.width() >= theme.TYPE["body"][0] * 32 else 1
+        columns = 3 if self.width() >= theme.TYPE["body"][0] * 64 else 2 if self.width() >= theme.TYPE["body"][0] * 32 else 1
         if columns == self.columns:
             return
         self.columns = columns
         for index, tile in enumerate(self.rows):
             self.grid.addWidget(tile, index // columns, index % columns)
         self.grid.setColumnStretch(0, 1)
-        self.grid.setColumnStretch(1, int(columns == 2))
+        self.grid.setColumnStretch(1, int(columns >= 2))
+        self.grid.setColumnStretch(2, int(columns == 3))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
