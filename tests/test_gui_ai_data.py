@@ -179,6 +179,52 @@ class AiDataTest(AiTest):
         self.assertFalse(dialog.send_button.isEnabled())
         dialog.close()
 
+    def test_open_transfer_details_keep_visible_content_when_footer_has_focus(self):
+        win = self.boot(size=(760, 480))
+        dialog = LearningDataDialog(win, win.ai.collection)
+        dialog.show()
+        dialog.transfer_section.set_opened(True)
+        dialog.goal_section.set_opened(True)
+        guikit.pump()
+        dialog.scroll.ensureWidgetVisible(dialog.goal_combo)
+        bar = dialog.scroll.verticalScrollBar()
+        bar.setValue(bar.value() - 64)
+        dialog.close_button.setFocus()
+        guikit.pump()
+        viewport = dialog.scroll.viewport()
+        top = dialog.goal_combo.mapTo(viewport, QPoint()).y()
+        transfer_top = dialog.transfer_section.mapTo(viewport, QPoint()).y()
+        self.assertLess(transfer_top, 0)
+        self.assertGreater(transfer_top + dialog.transfer_section.height(), 0)
+        with mock.patch.dict("os.environ", {"STUDY_AUTO_SYNC": "1"}):
+            win.privacy.failures = 1
+            win.privacy.message = "서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요."
+            win.privacy.changed.emit()
+            guikit.wait_until(lambda: dialog._reading is None)
+        self.assertEqual(top, dialog.goal_combo.mapTo(viewport, QPoint()).y())
+        self.assertIs(dialog.close_button, QApplication.focusWidget())
+        dialog.close()
+
+    def test_keyboard_focus_change_takes_priority_over_pending_restore(self):
+        win = self.boot(size=(760, 480))
+        dialog = LearningDataDialog(win, win.ai.collection)
+        dialog.show()
+        dialog.goal_section.set_opened(True)
+        guikit.pump()
+        dialog.scroll.ensureWidgetVisible(dialog.goal_combo)
+        dialog.goal_combo.setFocus()
+        guikit.pump()
+        win.privacy.changed.emit()
+        dialog.focusNextChild()
+        chosen = QApplication.focusWidget()
+        self.assertIs(dialog.goal_save, chosen)
+        guikit.wait_until(lambda: dialog._reading is None)
+        top = chosen.mapTo(dialog.scroll.viewport(), QPoint()).y()
+        self.assertGreaterEqual(top, 0)
+        self.assertLessEqual(top + chosen.height(), dialog.scroll.viewport().height())
+        self.assertIs(chosen, QApplication.focusWidget())
+        dialog.close()
+
     def test_goal_selection_consent_reset_and_export(self):
         win = self.boot(size=(760, 480))
         win.go_ai()

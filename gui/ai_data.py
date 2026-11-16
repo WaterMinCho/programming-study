@@ -3,7 +3,8 @@
 import os
 
 from PyQt6.QtCore import QPoint, Qt, QTimer
-from PyQt6.QtWidgets import QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QWidget
+from PyQt6.QtWidgets import (QAbstractButton, QApplication, QCheckBox, QComboBox, QDialog,
+                             QFileDialog, QLabel, QWidget)
 
 from learning_data.collection import CollectionError
 from learning_data import goals
@@ -239,22 +240,38 @@ class LearningDataDialog(QDialog):
             return None
         viewport = self.scroll.viewport()
         focus = QApplication.focusWidget()
-        candidates = [focus, self.transfer_section, self.export_section, self.goal_section]
+        preferred = self.goal_combo if self.goal_combo.view().isVisible() else focus
+        candidates = [preferred] + self.shell.body.findChildren(QWidget)
+        visible = []
         for widget in candidates:
             if widget is None or not self.shell.body.isAncestorOf(widget) or not widget.isVisible():
                 continue
+            if widget is not preferred and not isinstance(widget, (QLabel, QAbstractButton, QComboBox)):
+                continue
             top = widget.mapTo(viewport, QPoint()).y()
             if top < viewport.height() and top + widget.height() > 0:
-                return widget, top, viewport.width()
-        return None
+                if widget is preferred:
+                    return widget, top, viewport.width(), focus
+                visible.append((widget, top))
+        if not visible:
+            return None
+        widget, top = min(visible, key=lambda item: (item[1] < 0, abs(item[1])))
+        return widget, top, viewport.width(), focus
 
     def restore_reading_position(self):
         if self._reading is None:
             return
-        widget, top, width = self._reading
+        widget, top, width, focus = self._reading
         viewport = self.scroll.viewport()
         if not self.isVisible() or not widget.isVisible() or width != viewport.width():
             self._reading = None
+            return
+        current_focus = QApplication.focusWidget()
+        if current_focus is not focus:
+            self._reading = None
+            if (current_focus is not None and current_focus.window() is self
+                    and self.shell.body.isAncestorOf(current_focus)):
+                self.scroll.ensureWidgetVisible(current_focus)
             return
         current = widget.mapTo(viewport, QPoint()).y()
         sample = current, self.shell.body.height(), viewport.height()
