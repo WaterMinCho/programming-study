@@ -80,6 +80,24 @@ class ScopeTest(unittest.TestCase):
 
 
 class SelectionTest(unittest.TestCase):
+    def test_mac_shell_launcher_keeps_functions_without_screen_or_question_checks(self):
+        for paths in (["start.command"], ["tests/test_mac_start.py"],
+                      ["start.command", "tests/test_mac_start.py", "docs/LEARNER_START.md",
+                       "gui/README.md", "docs/CHANGE_IMPACT.md", "tools/ci_scope.py", "tests/test_ci_scope.py"]):
+            with self.subTest(paths=paths):
+                self.assertEqual(dict(bank=False, unit=True, gui=False, model=False), ci_scope.selection(paths))
+
+    def test_launcher_exemption_does_not_cover_mixed_or_unknown_paths(self):
+        for path in ("gui/app.py", "bootstrap.py", "start.pyw", "ai/learning/i01.md",
+                     "tests/test_gui_launcher.py", "start.command.bak", "tests/test_mac_start_extra.py"):
+            with self.subTest(path=path):
+                selected = ci_scope.selection(["start.command", path])
+                self.assertTrue(selected["unit"])
+                self.assertTrue(selected["gui"])
+                self.assertTrue(selected["bank"])
+        selected = ci_scope.selection(["start.command", "experiments/alice/train.py"])
+        self.assertEqual(dict(bank=False, unit=True, gui=False, model=True), selected)
+
     def test_readme_and_model_notes_do_not_run_product_or_bank(self):
         self.assertEqual(dict(bank=False, unit=False, gui=False, model=False), ci_scope.selection(["README.md", "experiments/alice/README.md"]))
         self.assertEqual(dict(bank=False, unit=False, gui=False, model=False), ci_scope.selection(["docs/LEGACY_RECORDS.md", "docs/LEARNING_SERVER.md"]))

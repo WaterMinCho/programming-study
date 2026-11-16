@@ -55,7 +55,11 @@ SourceTree가 없다면 [공식 설치 페이지](https://www.sourcetreeapp.com/
 
 ## 2. start 파일로 첫 실행
 
-Windows는 `start.bat`, macOS는 `start.command`를 엽니다. 화면 도구 설치 안내가 나오면 [설치]를 누릅니다.
+Windows는 `start.bat`을 열고 화면 도구 설치 안내에서 [설치]를 누릅니다. macOS는 `start.command`를 열고 터미널에 `설치할까요? [y/N]`이 나오면 `y`를 입력한 뒤 Enter를 누릅니다. 터미널이나 iTerm에서 실행한다면 내려받은 폴더에서 `./start.command`를 입력합니다.
+
+**Mac에서 ‘Apple은 start.command에 악성 코드가 없음을 확인할 수 없습니다’가 나오면** 아직 설치를 시작하지 못한 상태입니다. 위의 GitHub 저장소에서 받은 파일이 맞는지 확인한 뒤 [완료]를 누르세요. **시스템 설정 → 개인정보 보호 및 보안 → 보안 → [그래도 열기] → [열기]**로 해당 파일의 실행을 허용합니다. [Apple의 실행 허용 안내](https://support.apple.com/ko-kr/102445)
+
+Mac에서 Python을 찾지 못했다는 안내가 나오면 안내된 Python을 설치한 뒤 `start.command`를 다시 여세요. 다른 오류가 나면 바로 창을 닫지 말고 오류 내용을 복사해 주세요. [Mac 첫 실행 오류 해결](../gui/README.md#mac-first-launch)
 
 다음부터는 start 파일이나 바로가기만 열면 됩니다. 실행할 때마다 저장소의 main 브랜치에서 프로그램·문제·그림·코드 변경을 함께 받습니다. 필요한 경우 자동으로 다시 실행하며 답안과 진도는 유지합니다.
 
