@@ -297,7 +297,7 @@ python3 tools/ai_seal.py brief i05 --out DIR              재풀이용 문제지
 python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, whole.md, skel.md)와 빈 답안·노트 답안
 python3 tools/ai_seal.py levels l04 [l05 ...] --out DIR   세 수준 블록 재풀이 공개본(블록마다 0_step.md 와 수준 파일 셋)과 빈 답안 levels_answers.json
 python3 tools/verify_ai.py [i05 a01 ...]               문항 꼴, 빈칸 규칙, 객관식, 문장, 생성기 300 시드, 사실 확인, 노트 블록, 근거, 말투, 그림
-python3 tools/verify_ai.py pc                             상황별 코드. 위 검사에 더해 뼈대(코드 예제, 자리, 순서 300 시드, 객관식, 고칠 줄 300 시드)
+python3 tools/verify_ai.py pc                             상황별 코드. 위 검사에 더해 뼈대(코드 예제, 자리, 순서 300 시드, 알맞은 코드 줄 선택, 고칠 줄 300 시드)
 python3 tools/verify_ai.py i05 --answers DIR/answers.json 재풀이 답안을 채점
 python3 tools/verify_ai.py --levels-answers DIR/levels_answers.json   세 수준 물음 재풀이 답안을 채점(문항 재풀이와 따로 셈)
 python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4" \
