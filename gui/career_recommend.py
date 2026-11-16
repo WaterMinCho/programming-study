@@ -1,6 +1,6 @@
 """학력·경험·관심을 창 안에서 대조하고 직무 그림과 학습 순서로 연결함."""
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QApplication, QComboBox, QDialog, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QComboBox, QDialog, QSizePolicy, QToolTip, QWidget
 
 from career.recommend import (ACTIVITIES, DEGREES, EXPERIENCES, INTERESTS, MAJORS, RULES,
                               Education, Profile, first_group, recommend)
@@ -159,7 +159,7 @@ class CareerRecommendDialog(QDialog):
         self.stage, self.results = 0, ()
         self.result_position, self.restore_result = 0, False
         self.result_focus = None
-        self.setWindowTitle("내 경험과 연결되는 직무")
+        self.setWindowTitle("내 경험으로 직무 찾기")
         self.setModal(True)
         self.shell = DialogLayout(self, "배운 분야 입력하기")
         self.shell.scroll.verticalScrollBar().rangeChanged.connect(self._restore_result_position)
@@ -176,7 +176,7 @@ class CareerRecommendDialog(QDialog):
         self.panels[0].layout().addWidget(kit.para(
             "취득한 학위와 전공 분야를 추가하세요. 학사·석사·박사의 전공이 다르면 각각 넣습니다. 입력 없이 다음으로 넘어가도 됩니다.", "body"))
         self.panels[0].layout().addWidget(kit.para(
-            "학교·회사 이름은 묻지 않습니다. 입력은 이 기기에 자동 저장되며 다시 열어 수정하거나 삭제할 수 있습니다. 서버로 보내지 않습니다."
+            "학교·회사 이름은 묻지 않습니다. 입력은 이 기기에 자동 저장됩니다. [추천받기]를 누르면 결과도 저장되며 다시 열어 수정하거나 삭제할 수 있습니다. 서버로 보내지 않습니다."
             if profile_store else "학교·회사 이름은 묻지 않습니다. 입력은 이 창에서만 사용합니다.", "caption", "secondary"))
         self.panels[0].layout().addWidget(self.education)
         self.experiences = EntryRows()
@@ -210,7 +210,7 @@ class CareerRecommendDialog(QDialog):
         self.close_button = kit.button("닫기", "text")
         self.close_button.setToolTip("입력은 이 기기에 남습니다. 다시 열어 이어서 수정할 수 있습니다." if profile_store else "이 창을 닫고 입력을 지웁니다.")
         self.clear_button = kit.button("저장한 입력 삭제" if profile_store else "입력 지우기", "text")
-        self.clear_button.setToolTip("추천에 입력한 학력·경력·활동·관심을 지웁니다. 따로 저장한 관심 직무는 유지됩니다.")
+        self.clear_button.setToolTip("추천에 입력한 학력·경력·활동·관심과 추천 결과를 지웁니다. 따로 저장한 관심 직무는 유지됩니다.")
         self.back_button.clicked.connect(self.back)
         self.next_button.clicked.connect(self.next)
         self.close_button.clicked.connect(self.reject)
@@ -227,7 +227,7 @@ class CareerRecommendDialog(QDialog):
             button.toggled.connect(self._save_profile)
         theme.signals.changed.connect(self._appearance_changed)
         self._load_profile()
-        self.show_stage(0)
+        self.show_stage(3 if self._load_result() else 0)
         self.shell.fit(960, 720)
 
     def _load_profile(self):
@@ -264,8 +264,25 @@ class CareerRecommendDialog(QDialog):
         self.storage_error.setText(str(error))
         self.storage_error.show()
 
+    def _load_result(self):
+        if self.profile_store is None or self.unreadable_profile:
+            return False
+        try:
+            results = self.profile_store.load_result(self.profile(), self.catalog)
+        except ProfileStorageError as error:
+            self._storage_failed(error)
+            return False
+        if not results:
+            return False
+        self.results = results
+        self._render_results()
+        return True
+
     def _save_profile(self):
-        if self.profile_store is None or self.restoring_profile or self.unreadable_profile:
+        if self.restoring_profile or self.unreadable_profile:
+            return
+        self.results = ()
+        if self.profile_store is None:
             return
         try:
             self.profile_store.save(self.profile())
@@ -288,7 +305,7 @@ class CareerRecommendDialog(QDialog):
     def show_stage(self, stage):
         self.restore_result = False
         self.stage = stage
-        titles = ("배운 분야 입력하기", "해본 일 고르기", "어떤 결과를 만들고 싶나요?", "경험과 관심으로 연결한 직무", "업무와 학습 로드맵")
+        titles = ("배운 분야 입력하기", "해본 일 고르기", "어떤 결과를 만들고 싶나요?", "추천 직무", "업무와 학습 로드맵")
         self.shell.title.setText(titles[stage])
         self.shell.header.setVisible(stage != 4)
         self.steps.setVisible(stage < 3)
@@ -302,7 +319,7 @@ class CareerRecommendDialog(QDialog):
         self.back_button.setVisible(stage > 0)
         self.back_button.setText("추천으로 돌아가기" if stage == 4 else "답변 수정" if stage == 3 else "이전")
         self.next_button.setVisible(stage < 3)
-        self.next_button.setText("추천 보기" if stage == 2 else "다음")
+        self.next_button.setText("추천받기" if stage == 2 else "다음")
         self.clear_button.setVisible(stage != 4)
         kit.refont(self)
         self.shell.scroll.verticalScrollBar().setValue(0)
@@ -316,7 +333,16 @@ class CareerRecommendDialog(QDialog):
             self.shell.scroll.ensureWidgetVisible(self.focusWidget())
             return
         if self.stage == 2:
-            self.results = recommend(self.profile(), self.catalog)
+            profile = self.profile()
+            self.results = recommend(profile, self.catalog, include_experience_only=True)
+            if self.profile_store is not None and self.catalog.roles:
+                try:
+                    self.profile_store.save(profile)
+                    self.profile_store.save_result(profile, self.catalog, self.results)
+                except ProfileStorageError as error:
+                    self._storage_failed(error)
+                else:
+                    self.storage_error.hide()
             self._render_results()
         self.show_stage(min(3, self.stage + 1))
 
@@ -355,21 +381,29 @@ class CareerRecommendDialog(QDialog):
             return
         count = sum(role["id"] in RULES for role in self.catalog.roles)
         box.addWidget(kit.para(
-            f"현재 로드맵의 {count}개 직무 안에서 관심·활동·경력·전공을 정해진 기준으로 비교했습니다. 취업 가능성이나 실력을 판정한 결과는 아닙니다.",
+            f"관심·활동·경력·전공을 현재 로드맵의 {count}개 직무와 비교한 결과입니다.",
             "caption", "secondary"))
         if not self.results:
-            entered = self.profile().activities or self.profile().interests
-            title = "현재 직무 목록에서 연결 근거를 찾지 못했습니다." if entered else "해본 활동이나 관심 결과를 하나만 골라보세요."
+            profile = self.profile()
+            entered = profile.experiences or profile.activities or profile.interests
+            title = "추천할 직무를 찾지 못했습니다." if entered else "해본 일이나 만들어보고 싶은 결과물을 골라보세요."
             box.addWidget(kit.para(title, "headline", bold=True))
-            box.addWidget(kit.para("학력·경력만으로 직무를 정하지 않습니다. 창을 닫고 직무 그림부터 둘러봐도 됩니다.", "body"))
+            box.addWidget(kit.para("직접 해본 활동이나 관심 있는 결과물을 추가해 보세요. 학위만으로는 추천하지 않습니다.", "body"))
             return
         shown = first_group(self.results)
-        box.addWidget(kit.para("관심 → 직접 해본 활동 → 경력 → 전공 순으로 비교합니다. 항목별 근거 수가 같으면 함께 표시합니다.", "caption", "secondary"))
+        criteria = kit.button("추천 기준", "text")
+        criteria.setToolTip("관심 → 직접 해본 활동 → 경력 → 전공 순으로 비교합니다. 항목별 근거 수가 같으면 함께 표시합니다. 취업 가능성이나 실력을 판정하지 않습니다.")
+        criteria.setAccessibleDescription(criteria.toolTip())
+        criteria.clicked.connect(lambda: QToolTip.showText(
+            criteria.mapToGlobal(criteria.rect().bottomLeft()), criteria.toolTip(), criteria))
+        box.addWidget(criteria, 0, Qt.AlignmentFlag.AlignLeft)
+        if not self.profile().activities and not self.profile().interests:
+            box.addWidget(kit.para("입력한 경력과 관련 있는 직무입니다. 해본 활동과 관심 분야를 더 고르면 추천에 함께 반영합니다.", "body"))
         for result in shown:
             self._result_card(box, result)
         rest = self.results[len(shown):]
         if rest:
-            more = kit.button(f"다른 연결 직무 {len(rest)}개 펼치기", "text")
+            more = kit.button(f"함께 살펴볼 직무 {len(rest)}개 펼치기", "text")
             extra = QWidget()
             extra_box = kit.box(extra, spacing=theme.GAP["description_content"])
             extra.hide()
@@ -380,7 +414,7 @@ class CareerRecommendDialog(QDialog):
                         self._result_card(extra_box, result)
                     kit.refont(extra)
                 extra.setVisible(checked)
-                more.setText(f"다른 연결 직무 {len(rest)}개 " + ("접기" if checked else "펼치기"))
+                more.setText(f"함께 살펴볼 직무 {len(rest)}개 " + ("접기" if checked else "펼치기"))
             more.toggled.connect(expand)
             box.addWidget(more, 0, Qt.AlignmentFlag.AlignLeft)
             box.addWidget(extra)
@@ -394,7 +428,7 @@ class CareerRecommendDialog(QDialog):
         gallery.cards[role["id"]].setAccessibleDescription("업무와 학습 로드맵을 엽니다. 돌아오면 추천 결과와 입력이 유지됩니다.")
         content.addWidget(gallery)
         if result.interests:
-            content.addWidget(kit.heading(kit.para("관심을 둔 결과", "label", bold=True),
+            content.addWidget(kit.heading(kit.para("만들어보고 싶은 결과물", "label", bold=True),
                 kit.para(" · ".join(INTERESTS[key][0] for key in result.interests), "body")))
         if result.activities:
             content.addWidget(kit.heading(kit.para("직접 해본 활동", "label", bold=True),
@@ -402,7 +436,7 @@ class CareerRecommendDialog(QDialog):
         background = [EXPERIENCES[key] for key in result.experiences]
         background += [f"{DEGREES[row.degree]} · {MAJORS[row.major]}" for row in result.education]
         if background:
-            content.addWidget(kit.heading(kit.para("함께 참고한 배경", "label", bold=True),
+            content.addWidget(kit.heading(kit.para("관련 경력·전공", "label", bold=True),
                 kit.para(" / ".join(background), "body", "secondary")))
         preparation = " → ".join(node["label"] for node in role["roadmap_nodes"][:3])
         content.addWidget(kit.heading(kit.para("이 직무에서 준비할 기술", "label", bold=True),

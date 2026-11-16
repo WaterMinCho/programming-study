@@ -259,24 +259,40 @@ class _Step(QWidget):
         label = node["label"]
         kind, description = EXAMPLES.get(label, ("pipeline", f"{label}의 입력과 처리 결과를 연결해 확인합니다."))
         self.title = kit.para(f"{number}. {label}", "body", bold=True)
-        self.status = kit.para(COURSE_LABELS[node["course_status"]], "body", "secondary")
-        self.status.setToolTip("ROKEY 11기 수업에서 다루는 범위입니다.")
+        tones = {"taught": "accent", "partial": "warning", "extra": "", "unverified": ""}
+        self.status = kit.badge(COURSE_LABELS[node["course_status"]], tones[node["course_status"]])
+        kit.typed(self.status, "body", True)
+        self.status.setToolTip({
+            "taught": "ROKEY 11기 정규 교육과정에 포함된 내용입니다.",
+            "partial": "ROKEY 11기 수업에서는 이 주제의 일부만 다룹니다. 나머지는 별도 학습이 필요합니다.",
+            "extra": "ROKEY 11기 수업 범위 밖의 내용입니다. 이 직무를 준비할 때 추가로 학습할 주제입니다.",
+            "unverified": "수업 포함 여부를 아직 확인하지 못했습니다.",
+        }[node["course_status"]])
+        self.status.setAccessibleDescription(self.status.toolTip())
         self.caption = kit.para(description, "body")
         for child in (self.title, self.status, self.caption):
             child.setParent(self)
             child.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._align_header()
         self.example = _Example(kind, f"{label}. {description}", self)
         self.setProperty("reading_anchor", True)
         _sizing(self)
 
     def _plan(self, width):
         inside = max(1, width - 32)
-        status_width = min(inside // 2, math.ceil(QFontMetricsF(self.status.font()).horizontalAdvance(self.status.text())) + 2)
+        status_width = min(inside // 2, self.status.sizeHint().width())
         title_width = max(1, inside - status_width - theme.GAP["title_description"])
         header = max(self.title.heightForWidth(title_width), self.status.heightForWidth(status_width))
         figure = max(112, theme.TYPE["body"][1] * 4)
         caption_y = 16 + header + theme.GAP["title_description"] + figure + theme.GAP["title_description"]
         return title_width, status_width, header, figure, caption_y
+
+    def _align_header(self):
+        self.status.ensurePolished()
+        text_height = math.ceil(QFontMetricsF(theme.font("body", True)).height())
+        offset = max(0, (self.status.sizeHint().height() - text_height) // 2)
+        self.title.setContentsMargins(0, offset, 0, 0)
 
     def heightForWidth(self, width):
         *_, y = self._plan(width)
@@ -292,11 +308,12 @@ class _Step(QWidget):
     def _place(self):
         title_w, status_w, header, figure, caption_y = self._plan(self.width())
         self.title.setGeometry(16, 16, title_w, header)
-        self.status.setGeometry(self.width() - 16 - status_w, 16, status_w, header)
+        self.status.setGeometry(self.width() - 16 - status_w, 16, status_w, self.status.sizeHint().height())
         self.example.setGeometry(16, 16 + header + theme.GAP["title_description"], max(1, self.width() - 32), figure)
         self.caption.setGeometry(16, caption_y, max(1, self.width() - 32), self.height() - caption_y - 16)
 
     def refont(self):
+        self._align_header()
         self._place()
         self.updateGeometry()
         self.update()

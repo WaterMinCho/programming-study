@@ -4,14 +4,40 @@ from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, QSizeF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QPixmap, QTextLayout, QTextOption
-from PyQt6.QtWidgets import QBoxLayout, QComboBox, QGridLayout, QMenu, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QBoxLayout, QComboBox, QDialog, QGridLayout, QMenu, QSizePolicy, QWidget
 
-from career.catalog import RELATION_LABELS, load_catalog
+from career.catalog import COURSE_LABELS, RELATION_LABELS, load_catalog
 from gui import kit, theme
 from gui.career_learning_path import CareerLearningPath
 from gui.career_map_viewer import RoadmapImageDialog
 from gui.career_scene import RoleScene
 from gui.career_role_gallery import RoleGallery
+from gui.dialog_layout import DialogLayout
+
+
+class OrganisationGuide(QDialog):
+    """조직 소속과 담당 업무를 구분하는 예시를 표시함."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setWindowTitle("조직과 직무 구분하기")
+        self.chrome = DialogLayout(self, "조직과 직무 구분하기")
+        for title, examples in (("조직 · 어디에서 일하나요?", "사업부 · 연구소 · 개발팀"),
+                                ("직무 · 어떤 일을 하나요?", "비전 개발 · 로봇 제어 · 서버 개발")):
+            area, layout = kit.well(pad_x=24, pad_y=24, spacing=theme.GAP["title_description"])
+            layout.addWidget(kit.para(title, "headline", bold=True))
+            layout.addWidget(kit.para(examples, "body", "secondary"))
+            self.chrome.content.addWidget(area)
+        self.chrome.content.addWidget(kit.para(
+            "사업부 안에도 연구·개발팀이 있습니다. 같은 비전 개발 직무라도 연구소에서는 모델 연구를, "
+            "제품팀에서는 적용·검증을 맡을 수 있습니다.", "body"))
+        self.chrome.content.addWidget(kit.para(
+            "직무 목록은 하는 일을 기준으로 나눴습니다. 각 직무의 [팀과 담당 업무 펼치기]에서 "
+            "회사의 조직·업무 사례를 확인할 수 있습니다.", "body", "secondary"))
+        self.close_button = kit.button("닫기", "primary")
+        self.close_button.clicked.connect(self.accept)
+        self.chrome.actions.set_actions([], [self.close_button])
+        self.chrome.fit(640)
 
 
 def flow_buttons(*buttons):
@@ -342,6 +368,10 @@ class CareerRoadmapPage(ReadingPage):
         title.setProperty("reading_anchor", True)
         intro.addWidget(title)
         intro.addWidget(kit.para("관심 있는 직무를 고르세요. 하는 일과 준비할 기술을 그림으로 확인할 수 있습니다.", "body", "secondary"))
+        self.organisation_help = kit.button("조직과 직무 구분하기", "text")
+        self.organisation_help.setToolTip("R&D·사업부와 비전·제어 개발은 어떻게 다른지 예시로 확인합니다.")
+        self.organisation_help.clicked.connect(self.show_organisation_guide)
+        intro.addWidget(self.organisation_help, 0, Qt.AlignmentFlag.AlignLeft)
         if on_recommend is not None:
             self.recommend_button = kit.button("내 경험으로 직무 추천받기", "primary", "l")
             self.recommend_button.setToolTip("전공·경력·해본 활동과 관심을 함께 비교합니다. 입력은 서버로 보내지 않습니다.")
@@ -461,7 +491,7 @@ class CareerRoadmapPage(ReadingPage):
         team_box.addSpacing(theme.GAP["description_content"])
         self.work_flow = CareerFlow()
         team_box.addWidget(self.work_flow)
-        learn_title = kit.para("ROKEY 11기 수업 범위와 추천 순서", "caption", "secondary")
+        learn_title = kit.para("학습 순서와 수업 포함 여부", "headline", bold=True)
         learn_title.setProperty("reading_anchor", True)
         path.addWidget(flow_buttons(self.image_button))
         path.addWidget(self.image_notice)
@@ -472,6 +502,10 @@ class CareerRoadmapPage(ReadingPage):
         path.addSpacing(theme.GAP["description_content"])
         path.addWidget(learn_title)
         path.addSpacing(theme.GAP["detail"])
+        self.course_scope = QWidget()
+        self.course_scope_layout = kit.FlowLayout(self.course_scope, spacing=theme.GAP["detail"])
+        path.addWidget(self.course_scope)
+        path.addSpacing(theme.GAP["paragraph"])
         self.learning, self.learning_box = kit.well(pad_x=16, pad_y=16, spacing=16)
         path.addWidget(self.learning)
         self.sources_section = QWidget()
@@ -662,6 +696,13 @@ class CareerRoadmapPage(ReadingPage):
         self._pick_role()
         return True
 
+    def show_organisation_guide(self):
+        dialog = OrganisationGuide(self)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+
     def _show_role(self, *_):
         self._anchor = None
         role = self.catalog.role(self.selected_role_id)
@@ -705,6 +746,13 @@ class CareerRoadmapPage(ReadingPage):
         self.relation.setText(f"{RELATION_LABELS[link['relation']]} · {goal['title']}" if goal else "연결한 기존 로드맵이 없습니다.")
         self.learning_path = CareerLearningPath(role["roadmap_nodes"], role["outputs"])
         self.learning_box.addWidget(self.learning_path)
+        clear_layout(self.course_scope_layout)
+        for status, label in COURSE_LABELS.items():
+            count = sum(node["course_status"] == status for node in role["roadmap_nodes"])
+            if count:
+                badge = kit.badge(f"{label} {count}", {"taught": "accent", "partial": "warning"}.get(status, ""))
+                badge.setToolTip("아래 단계에서 같은 표시를 찾으세요. 숫자는 해당 단계의 개수입니다.")
+                self.course_scope_layout.addWidget(badge)
         for source in self.catalog.sources:
             if (source["id"] not in role["source_ids"]
                     or source.get("kind") not in ("employer_team_catalog", "employer_role_catalog")):

@@ -6,8 +6,10 @@ from PyQt6.QtWidgets import QApplication, QFrame, QGridLayout, QLayout, QScrollA
 
 import study
 from gui import kit, theme
+from gui.action_layout import ActionLayout
 from gui.mascot import Mascot
 from gui.navigation import NavigationButton, NavigationPicker
+from gui.settings_menu import SettingsMenu
 
 SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home"),
             ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI", "go_ai"),
@@ -109,7 +111,8 @@ class SubmissionBar(QFrame):
         self.message = kit.para("", "caption", "secondary")
         self.row.addWidget(self.message, 1)
         self.actions = QWidget()
-        buttons = kit.box(self.actions, spacing=12, horizontal=True)
+        buttons = self.action_row = ActionLayout(self.actions, margins=(0, 0, 0, 0),
+                                                spacing=theme.GAP["detail"], reverse_stacked=False)
         self.submit = kit.button("풀이 제출", "secondary", "l")
         self.submit.setObjectName("submit_work")
         self.submit.setAccessibleDescription("아직 올리지 않은 풀이와 학습 기록을 제출합니다.")
@@ -192,9 +195,14 @@ class SubmissionBar(QFrame):
         return text, text != original.strip() or bool(self.result.get("detail"))
 
     def arrange(self):
-        need = QFontMetricsF(self.message.font()).horizontalAdvance(self.message.text()) + self.actions.layout().sizeHint().width() + 64
+        need = QFontMetricsF(self.message.font()).horizontalAdvance(self.message.text()) + self.action_row.natural_width() + 64
         vertical = self.width() < need
         self.row.setDirection(self.row.Direction.TopToBottom if vertical else self.row.Direction.LeftToRight)
+        left, _, right, _ = self.row.getContentsMargins()
+        width = max(1, self.width() - left - right)
+        action_width = min(width, self.action_row.natural_width())
+        self.actions.setFixedWidth(action_width)
+        self.actions.setFixedHeight(self.action_row.heightForWidth(action_width))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -250,6 +258,11 @@ class Workspace(QWidget):
             self.buttons[tid] = button
             nav.addWidget(button)
         nav.addStretch(1)
+        self.rail_settings = kit.button("설정", "text", "m")
+        policy = self.rail_settings.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        self.rail_settings.setSizePolicy(policy)
+        nav.addWidget(self.rail_settings)
         outer.addWidget(self.rail)
         self.body = QWidget()
         self.body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -260,7 +273,12 @@ class Workspace(QWidget):
             self.compact.addItem("커리어 · " + title if tid.startswith("career_") else title, action)
         self.compact.setMinimumHeight(48)
         self.compact.activated.connect(lambda index: self.navigate(self.compact.itemData(index)))
-        box.addWidget(self.compact)
+        self.compact_row = QWidget()
+        compact_layout = kit.box(self.compact_row, spacing=theme.GAP["detail"], horizontal=True)
+        compact_layout.addWidget(self.compact, 1)
+        self.compact_settings = kit.button("설정", "text", "m")
+        compact_layout.addWidget(self.compact_settings)
+        box.addWidget(self.compact_row)
         box.addWidget(pages, 1)
         self.submissions = SubmissionBar(win)
         self.submissions.setParent(self.body)
@@ -280,12 +298,24 @@ class Workspace(QWidget):
         self.body.installEventFilter(self)
         QApplication.instance().focusChanged.connect(self.reveal_focus)
         outer.addWidget(self.body, 1)
+        self.settings_menus = tuple(SettingsMenu(self, trigger)
+                                    for trigger in (self.rail_settings, self.compact_settings))
+        for trigger in (self.rail_settings, self.compact_settings):
+            trigger.setToolTip("글자 크기·테마·업데이트·사용법·문의")
+        pages.currentChanged.connect(self.close_settings)
         pages.currentChanged.connect(self.refresh)
         self.refresh()
 
     def minimumSizeHint(self):
         """넓은 창의 이동 목록 때문에 좁은 배치로 줄일 수 없게 되는 것을 막음."""
         return QSize(760, 480)
+
+    def close_settings(self, *_):
+        for menu in self.settings_menus:
+            menu.action_timer.stop()
+            menu.pending_action = None
+            if menu.isVisible():
+                menu.dismiss(immediate=True, restore_focus=False)
 
     def navigate(self, action):
         getattr(self.win, action)()
@@ -322,9 +352,13 @@ class Workspace(QWidget):
         rail_width = max(button.sizeHint().width() for button in (self.career_toggle, *self.buttons.values())) + 32
         self.rail.setFixedWidth(rail_width)
         breakpoint = max(1120, rail_width + 760)
-        rail_fits = self.width() >= breakpoint and self.height() >= self.rail.minimumSizeHint().height()
         show_navigation = self.win.session is not None and self.pages.currentWidget() in self.overview_pages
+        outside_hub = self.pages.currentWidget() is not self.win.hub
+        self.rail_settings.setVisible(outside_hub)
+        self.compact_settings.setVisible(outside_hub)
+        rail_fits = self.width() >= breakpoint and self.height() >= self.rail.minimumSizeHint().height()
         self.rail.setVisible(show_navigation and rail_fits)
+        self.compact_row.setVisible(show_navigation and not rail_fits)
         self.compact.setVisible(show_navigation and not rail_fits)
         if show_navigation and rail_fits and focused is self.compact:
             target = self.buttons.get(active)
@@ -339,6 +373,9 @@ class Workspace(QWidget):
         busy = self.win.job is not None or self.win.pending_close or self.win.close_pending
         self.rail.setEnabled(not busy)
         self.compact.setEnabled(not busy)
+        self.compact_settings.setEnabled(not busy)
+        for menu in self.settings_menus:
+            menu.refresh_actions(busy)
         usable = started and self.pages.currentWidget() in self.submission_pages and self.win.gitflow is not None
         allowed = self.win.has_submission_consent()
         pending = self.win.pending_submission.get("status") == "ok" and self.win.pending_submission.get("pending", False) and allowed
@@ -369,7 +406,7 @@ class Workspace(QWidget):
         bar.setGeometry((self.body.width() - width) // 2, bottom - height - 16, width, height)
         bar.raise_()
         # 상태 변경으로 스크롤 범위가 달라지지 않도록 두 동작의 높이를 항상 남김.
-        reserve = 48 + 2 * theme.TYPE["caption"][1] + bar.submit.sizeHint().height()
+        reserve = max(height + 16, 48 + 2 * theme.TYPE["caption"][1] + bar.submit.sizeHint().height())
         for layout, (left, top, right, bottom) in self.reminder_padding:
             layout.setContentsMargins(left, top, right, bottom + reserve)
 
