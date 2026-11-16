@@ -42,7 +42,8 @@ ANCHOR_MARK = re.compile(r'^\s*<a (?:id|name)="[\w-]+"></a>\s*$')
 SKEL_MARK = re.compile(r"^\s*<!--\s*skel:\s*(S\d+)\s+(.*?)\s*-->\s*$")  # 바로 아래 코드 울타리가 그 뼈대 판과 같아야 함
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
 BLOCK_KINDS = {"ai-guess": "guess", "ai-reveal": "reveal", "ai-recall": "recall", "ai-why": "why", "ai-diff": "diff",
-               "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend", "ai-levels": "levels", "ai-formula": "formula"}
+               "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend", "ai-levels": "levels", "ai-formula": "formula",
+               "ai-code-help": "code-help"}
 FORMULA_TEXT_KEYS = ("id", "title", "input", "terms", "operation", "output", "q", "a")
 LEVELS = (7, 15, 20)
 LEVEL_KEYS = ("level", "text", "figure", "q", "answer", "mode", "places", "unit", "why")
@@ -318,6 +319,53 @@ def _formula_block(text, folder=None):
                 path=os.path.join(folder, *fig["file"].split("/")) if folder else ""))
 
 
+def valid_code_reference(ref):
+    """노트 페이지와 단계 번호·제목을 모두 지정한 참조인지 확인함."""
+    return (isinstance(ref, dict) and set(ref) == {"course", "lesson", "unit", "step", "title"}
+            and ref["course"] in ("intro", "applied")
+            and isinstance(ref["lesson"], str) and bool(PAGE_ID.fullmatch(ref["lesson"]))
+            and isinstance(ref["unit"], str) and bool(UNIT_KEY.fullmatch(ref["unit"]))
+            and type(ref["step"]) is int and ref["step"] > 0
+            and isinstance(ref["title"], str) and bool(ref["title"].strip()))
+
+
+def _code_help_block(text):
+    """짧은 사용 설명과 참조를 읽음. 바로 위에 코드가 있으면 code를 생략함."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return {"kind": "code-help", "error": "코드 설명의 JSON을 읽을 수 없습니다."}
+    required = {"title", "explanation", "reference"}
+    if (not isinstance(data, dict) or not required <= set(data) <= required | {"code"}
+            or any(not isinstance(data[k], str) or not data[k].strip() for k in ("title", "explanation"))
+            or "\n" in data["title"] or not valid_code_reference(data["reference"])
+            or ("code" in data and (not isinstance(data["code"], str) or not data["code"].strip()
+                                   or "```" in data["code"] or "~~~" in data["code"]))):
+        return {"kind": "code-help", "error": "코드 설명의 제목·설명·참고 단계를 확인해 주세요."}
+    return dict(data, kind="code-help")
+
+
+def resolve_code_reference(ref, root=None):
+    """공개 노트에서 번호와 제목이 함께 일치하는 단계만 읽음. 다른 단계로 대체하지 않음."""
+    if not valid_code_reference(ref):
+        raise AiBankError("참고 단계의 형식을 확인해 주세요.")
+    course = {"intro": "intro", "applied": "app"}[ref["course"]]
+    entries = [e for e in read_index(root)["lessons"] if e["page"] == ref["lesson"] and e["course"] == course]
+    if len(entries) != 1 or not is_ready(entries[0], root):
+        raise AiBankError("공개된 참고 차시를 찾을 수 없습니다.")
+    entry = entries[0]
+    note = load_note({"id": entry["page"], "title": entry["title"]}, root)
+    if note["lesson"] != entry["id"] or ref["unit"] not in note["visible"]:
+        raise AiBankError("공개된 참고 단원을 찾을 수 없습니다.")
+    unit = note["units"][ref["unit"]]
+    matches = [s for s in unit["steps"] if s["scope"] != "trend" and s["no"] == ref["step"]
+               and s["title"] == ref["title"]]
+    if len(matches) != 1:
+        raise AiBankError("참고 단계의 번호와 제목이 현재 학습 내용과 맞지 않습니다.")
+    name = "%s %d차시 · %s" % (COURSES[course], entry["no"], unit["title"])
+    return {"lesson": entry["id"], "unit": unit, "step": matches[0], "name": name, "base_dir": note["dir"]}
+
+
 def _json_block(kind, text):
     try:
         data = json.loads(text)
@@ -487,6 +535,8 @@ def parse_blocks(lines, folder=None):
                 blocks.append(_levels_block("\n".join(body), folder))
             elif fence == "ai-formula":
                 blocks.append(_formula_block("\n".join(body), folder))
+            elif fence == "ai-code-help":
+                blocks.append(_code_help_block("\n".join(body)))
             else:
                 blocks.append(_json_block(BLOCK_KINDS[fence], "\n".join(body)))
             fence, body = None, []

@@ -719,6 +719,14 @@ def check_note_blocks(v, les, terms=None):
                     fig = block["figure"]
                     for text in [fig["caption"], fig["content"]] + [f["text"] for f in fig["frames"]]:
                         v.style(label, "%s 수식 그림" % spot, text)
+                elif kind == "code-help":
+                    root = os.path.dirname(os.path.dirname(note["dir"]))
+                    try:
+                        aibank.resolve_code_reference(block.get("reference"), root)
+                    except aibank.AiBankError as error:
+                        v.fail(label, 8, "%s 의 코드 설명 참조: %s" % (spot, error))
+                    v.style(label, "%s 코드 설명 제목" % spot, block["title"])
+                    v.style(label, "%s 코드 설명" % spot, block["explanation"], markdown=True)
             spots = [n for n, b in enumerate(step["blocks"]) if b["kind"] == "levels"]
             level_blocks += len(spots)
             if len(spots) > 1:

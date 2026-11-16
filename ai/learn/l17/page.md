@@ -277,6 +277,20 @@ Embedding의 dtype과 입출력 모양 및 padding_idx의 범위를 확인합니
 
 입력은 정수 번호이며 출력은 weight와 같은 실수 dtype입니다. 이 예는 CPU float32 weight와 long 번호를 사용합니다. 입력의 번호와 꺼낸 실수 벡터를 구분하세요.
 
+```ai-code-help
+{
+  "title": "long과 float",
+  "explanation": "토큰 번호는 행을 고르는 정수이고 꺼낸 벡터는 모델이 학습하는 실수입니다. 이 예는 번호를 long으로, weight를 float32로 둡니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l03",
+    "unit": "3b",
+    "step": 3,
+    "title": ".float()와 .long()으로 자료형 바꾸기"
+  }
+}
+```
+
 ```figure
 파일: assets/17b-2.png
 캡션: 그림 2. 기존 문장·토큰 축 뒤에 벡터 축을 추가합니다.

@@ -430,6 +430,20 @@ Flatten의 기본 start_dim=1은 0번 배치 축을 남기고 1번 축부터 합
 
 두 장에 적힌 숫자를 한 줄씩 옮겨 적을 때도 어느 종이의 숫자인지 구분해서 적습니다. 이 예의 Flatten도 두 장의 숫자를 섞지 않고 한 장마다 8개씩 놓습니다.
 
+```ai-code-help
+{
+  "title": "view와 원소 수",
+  "explanation": "nn.Flatten()은 기본 설정에서 첫 축을 남기고 나머지 축을 합칩니다. view는 원소 수가 같은 모양을 직접 적어 바꿉니다. 첫 축에 샘플 수를 적었는지 확인하세요.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l03",
+    "unit": "3d",
+    "step": 2,
+    "title": "view로 원소 수를 지키며 모양만 바꾸기"
+  }
+}
+```
+
 ```figure
 파일: assets/11e-2.png
 캡션: 그림 11e-2. 한 샘플의 값만 한 축으로 합칩니다.

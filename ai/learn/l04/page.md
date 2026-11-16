@@ -587,6 +587,20 @@ for epoch in range(500):
 
 앞 단계의 루프는 `optimizer.zero_grad()`를 맨 앞에 두었습니다. 이 줄을 루프 맨 끝(step 뒤)으로 옮길 수도 있습니다. backward는 기울기를 `.grad`에 더하므로, 이번 `backward()`를 부르기 전에 지난 기울기가 지워져 있기만 하면 두 자리의 결과는 같습니다. 이 노트는 루프 맨 앞에 둡니다.
 
+```ai-code-help
+{
+  "title": "zero_grad",
+  "explanation": "이전 기울기가 남으면 이번 backward의 결과에 더해집니다. 기울기가 누적되는 그림을 다시 확인할 수 있습니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l03",
+    "unit": "3g",
+    "step": 5,
+    "title": "backward를 다시 부르면 더해지는 기울기"
+  }
+}
+```
+
 ```figure
 파일: assets/4c-5.png
 캡션: 그림 5. 기울기를 지우는 두 위치를 비교합니다. 파랑은 역전파 전 초기화, 초록은 갱신 뒤 초기화입니다.
