@@ -67,8 +67,27 @@ permissions:
   contents: read
 
 jobs:
+  scope:
+    name: 첫 실행 검사 범위
+    runs-on: ubuntu-latest
+    outputs:
+      release_gui: ${{ steps.scope.outputs.release_gui }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 실행기와 화면 변경 구분
+        id: scope
+        env:
+          SCOPE_BASE: ${{ github.event.pull_request.base.sha }}
+          SCOPE_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 tools/ci_scope.py
+
   windows:
     name: 새 설치와 작은 창 (배율 ${{ matrix.scale }})
+    needs: scope
+    if: github.event_name == 'workflow_dispatch' || needs.scope.outputs.release_gui == 'true'
     runs-on: windows-latest
     timeout-minutes: 12
     strategy:

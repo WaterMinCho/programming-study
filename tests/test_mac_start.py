@@ -39,6 +39,8 @@ class MacStartTest(unittest.TestCase):
         self.script.write_text(script)
         self.script.chmod(0o755)
         (self.repo / "bootstrap.py").touch()
+        (self.repo / "tools").mkdir()
+        shutil.copyfile(ROOT / "tools/install_python_macos.sh", self.repo / "tools/install_python_macos.sh")
         (self.repo / "study.py").write_text("print('APP_STARTED')\n")
         os.symlink(shutil.which("dirname"), self.bin / "dirname")
         self.fake_python("python3")
@@ -85,7 +87,8 @@ class MacStartTest(unittest.TestCase):
         self.assertIn("Python=" + str(self.bin / "python3") + "\n", self.log())
 
     def test_existing_environment_is_still_checked_when_only_old_python_is_available(self):
-        self.fake_python("python3", probe_status=3)
+        python = self.fake_python("python3", probe_status=3)
+        python.write_text(python.read_text().replace('case "$2" in', 'case "$2" in "import PyQt6.QtWidgets") exit 0 ;;'))
         result = self.run_start()
         self.assertEqual(result.returncode, 0)
         self.assertIn("APP_STARTED", result.stdout)
@@ -103,14 +106,15 @@ class MacStartTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("UMASK=18", result.stdout)
 
-    def test_missing_and_unsupported_python_explain_installation(self):
+    def test_missing_and_unusable_python_offer_installation_without_network_on_eof(self):
         for exists in (True, False):
             with self.subTest(exists=exists):
                 self.fake_python("python3", probe_ok=False)
                 if not exists:
                     (self.bin / "python3").unlink()
                 result = self.run_start()
-                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("설치를 취소했습니다", result.stdout)
                 self.assertIn("Python 3.10~3.14", result.stdout)
                 self.assertIn("python.org", result.stdout)
                 self.assertNotIn("APP_STARTED", result.stdout)
@@ -272,3 +276,170 @@ Host.call = lambda self, command: self.say("FAKE_APP_STARTED") or 0
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_certificate_retry_does_not_block_a_working_python(self):
+        pending = self.home / ".rokey-study/python-certificates.pending"
+        pending.parent.mkdir()
+        pending.touch()
+        for code in (1, 2):
+            (self.repo / "tools/install_python_macos.sh").write_text("exit %d\n" % code)
+            result = self.run_start()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("APP_STARTED", result.stdout)
+            self.assertTrue(pending.exists())
+
+    def test_install_success_continues_to_the_program(self):
+        (self.bin / "python3").unlink()
+        path = self.base / "Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14"
+        helper = self.repo / "tools/install_python_macos.sh"
+        helper.write_text("#!/bin/sh\n/bin/mkdir -p " + shlex.quote(str(path.parent)) +
+                          "\n/bin/ln -s " + shlex.quote(sys.executable) + " " + shlex.quote(str(path)) + "\n")
+        result = self.run_start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("APP_STARTED", result.stdout)
+
+    def test_existing_healthy_environment_does_not_download_python(self):
+        (self.bin / "python3").unlink()
+        python = self.fake_python("python", folder=self.home / ".rokey-study/venv/bin")
+        python.write_text(python.read_text().replace('case "$2" in', 'case "$2" in "import PyQt6.QtWidgets") exit 0 ;;'))
+        result = self.run_start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("APP_STARTED", result.stdout)
+        self.assertNotIn("내려받", result.stdout)
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS 앱 실행 경로")
+    def test_app_opens_start_command_when_python_is_missing(self):
+        script = (ROOT / "ROKEY.app/Contents/MacOS/ROKEY").read_text()
+        script = script.replace('extra="/opt/homebrew/bin:/usr/local/bin:/Library/Frameworks/Python.framework/Versions/Current/bin"', 'extra=""')
+        launcher = self.repo / "ROKEY.app/Contents/MacOS/ROKEY"
+        launcher.parent.mkdir(parents=True)
+        opened = self.base / "opened"
+        opener = self.bin / "open"
+        opener.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > ' + shlex.quote(str(opened)) + '\n')
+        opener.chmod(0o755)
+        script = script.replace('/usr/bin/open', shlex.quote(str(opener)))
+        launcher.write_text(script)
+        (self.repo / "start.pyw").touch()
+        self.fake_python("python3", probe_ok=False, probe_status=1).write_text('#!/bin/sh\nexit 1\n')
+        result = subprocess.run(["/bin/zsh", "-f", str(launcher)], cwd=self.base, env=self.env,
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(opened.read_text().strip(), str(self.script))
+
+
+@unittest.skipUnless(os.name == "posix", "POSIX 설치 경로 검사")
+class MacPythonInstallTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="mac-python-install-")
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name) / "한글 설치 폴더"
+        self.base.mkdir()
+        self.home = self.base / "home"
+        self.home.mkdir()
+        self.trace = self.base / "calls"
+        self.env = dict(os.environ, HOME=str(self.home), TRACE=str(self.trace))
+        self.script = self.base / "install.sh"
+        source = (ROOT / "tools/install_python_macos.sh").read_text()
+        self.commands = {}
+        for name in ("curl", "shasum", "pkgutil", "osascript", "lockf"):
+            path = self.base / name
+            self.commands[name] = path
+            original = ("/usr/sbin/" if name == "pkgutil" else "/usr/bin/") + name
+            self.assertIn(original, source)
+            source = source.replace(original, shlex.quote(str(path)))
+        self.runtime = self.base / "python"
+        source = source.replace("runtime=/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+                                "runtime=" + shlex.quote(str(self.runtime)))
+        self.certificates = self.base / "Install Certificates.command"
+        source = source.replace("'/Applications/Python 3.14/Install Certificates.command'", shlex.quote(str(self.certificates)))
+        self.script.write_text(source)
+        self.stub("curl", 'printf "download\\n" >> "$TRACE"; exit "${DOWNLOAD_STATUS:-0}"')
+        self.stub("shasum", 'printf "%s  python.pkg\\n" "${HASH:-286c7018aa2730f6747ca433dccdc2b31be45f078a9ea0ffa44d5f06368fd2d7}"')
+        self.stub("pkgutil", 'printf "%s\\n" "${SIGNER:-Developer ID Installer: Python Software Foundation (BMM5U3QVKW)}"; exit "${SIGNATURE_STATUS:-0}"')
+        self.stub("lockf", '[ "${LOCK_STATUS:-0}" = 0 ] || exit "$LOCK_STATUS"; shift 4; exec "$@"')
+        self.stub("osascript", 'printf "install\\n" >> "$TRACE"; /bin/cat >/dev/null; printf "%s" "${INSTALL_RESULT:-installed}"; exit "${INSTALL_STATUS:-0}"')
+        self.runtime.write_text('#!/bin/sh\ncase "$2" in "import ssl, venv") exit 1 ;; esac\nprintf "python\\n" >> "$TRACE"\n')
+        self.runtime.chmod(0o755)
+        self.certificates.write_text('printf "certificates\\n" >> "$TRACE"; exit "${CERT_STATUS:-0}"\n')
+
+    def stub(self, name, text):
+        self.commands[name].write_text("#!/bin/sh\n" + text + "\n")
+        self.commands[name].chmod(0o755)
+
+    def run_install(self, answer="y\n", **values):
+        return subprocess.run(["/bin/sh", str(self.script)], env=dict(self.env, **values), input=answer,
+                              capture_output=True, text=True, timeout=10)
+
+    def calls(self):
+        return self.trace.read_text().splitlines() if self.trace.exists() else []
+
+    def assert_clean(self):
+        folder = self.home / ".rokey-study"
+        self.assertEqual([p.name for p in folder.iterdir() if p.name != "python-certificates.pending"] if folder.exists() else [], [])
+
+    def test_decline_then_retry_only_downloads_after_yes(self):
+        for answer in ("n\n", "", "\n"):
+            self.assertEqual(self.run_install(answer).returncode, 2)
+            self.assertEqual(self.calls(), [])
+            self.assert_clean()
+        result = self.run_install()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls(), ["download", "install", "python"])
+        self.assert_clean()
+
+    def test_bad_hash_or_signature_never_runs_installer(self):
+        for env in ({"HASH": "wrong"}, {"SIGNER": "someone else"}, {"SIGNATURE_STATUS": "1"}):
+            with self.subTest(env=env):
+                self.trace.unlink(missing_ok=True)
+                result = self.run_install(**env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(self.calls(), ["download"])
+                self.assert_clean()
+
+    def test_download_or_os_permission_failure_is_retryable(self):
+        for env, expected in (({"DOWNLOAD_STATUS": "22"}, ["download"]),
+                              ({"INSTALL_STATUS": "1"}, ["download", "install"])):
+            with self.subTest(env=env):
+                self.trace.unlink(missing_ok=True)
+                self.assertNotEqual(self.run_install(**env).returncode, 0)
+                self.assertEqual(self.calls(), expected)
+                self.assert_clean()
+                self.assertEqual(self.run_install().returncode, 0)
+                self.assert_clean()
+
+    def test_another_install_never_downloads_or_removes_its_lock(self):
+        folder = self.home / ".rokey-study"
+        folder.mkdir()
+        lock = folder / "python-install.lock"
+        lock.write_text("another process")
+        self.assertNotEqual(self.run_install(LOCK_STATUS="1").returncode, 0)
+        self.assertEqual(self.calls(), [])
+        self.assertEqual(lock.read_text(), "another process")
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS lockf 검사")
+    def test_system_lock_reuses_a_file_after_owner_exit(self):
+        lock = self.base / "lock"
+        lock.write_text("previous process\n")
+        for _ in range(2):
+            subprocess.run(["/usr/bin/lockf", "-sk", "-t", "0", str(lock), "/usr/bin/true"], check=True)
+
+    def test_cancel_admin_dialog_keeps_previous_certificate_retry(self):
+        self.assertEqual(self.run_install(INSTALL_RESULT="cancelled").returncode, 2)
+        pending = self.home / ".rokey-study/python-certificates.pending"
+        self.assertFalse(pending.exists())
+        self.assertNotEqual(self.run_install(INSTALL_STATUS="1").returncode, 0)
+        self.assertTrue(pending.exists())
+        self.assertEqual(self.run_install(INSTALL_RESULT="cancelled").returncode, 2)
+        self.assertTrue(pending.exists())
+        self.assertEqual(self.run_install().returncode, 0)
+        self.assertFalse(pending.exists())
+
+    def test_certificate_only_retry_skips_the_pkg_download(self):
+        folder = self.home / ".rokey-study"
+        folder.mkdir()
+        pending = folder / "python-certificates.pending"
+        pending.touch()
+        self.runtime.write_text('#!/bin/sh\nexit 0\n')
+        self.assertEqual(self.run_install().returncode, 0)
+        self.assertEqual(self.calls(), ["install"])
+        self.assertFalse(pending.exists())

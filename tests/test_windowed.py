@@ -250,6 +250,9 @@ class StartBatTest(unittest.TestCase):
         self.tmp = tempfile.mkdtemp(prefix="start_bat_test_")
         self.addCleanup(shutil.rmtree, self.tmp, True)
         shutil.copyfile(os.path.join(ROOT, "start.bat"), os.path.join(self.tmp, "start.bat"))
+        os.makedirs(os.path.join(self.tmp, "tools"))
+        shutil.copyfile(os.path.join(ROOT, "tools", "install_python.ps1"),
+                        os.path.join(self.tmp, "tools", "install_python.ps1"))
         for name in ("study.py", "start.pyw"):
             self.write(name, FAKE)
 

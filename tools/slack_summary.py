@@ -11,7 +11,7 @@ from urllib.error import HTTPError
 
 from tools.slack_notify import GitHub, REPO, WEB, RELAY, WORKFLOWS, association, card, development, endpoint, metadata, plain, read_url, send
 from tools.study_checks import AUTHORS, checks_state, NOTIFY_CONTEXT
-from tools.ci_scope import model_path
+from tools.ci_scope import model_path, needs_launcher, needs_release_gui
 from tools.slack_threads import DailyThreads
 
 SERVER_PATHS = ("learning_server/**", "learning_data/**", ".dockerignore", "tests/test_project_structure.py", "aiprep/collection.py", "aiprep/sharing.py", "aiprep/privacy.py", "aiprep/sync_schedule.py", "submission_api.py", "tests/test_submission_api.py",
@@ -54,13 +54,15 @@ def rollup(pr):
 
 def required_names(files, pr=None):
     names = ["필수 검사", "PR 제목", "문장 검사", "변경 범위", "기능·자료 검사", "화면 테스트"]
+    if needs_launcher(files):
+        names += ["실행기 검사 (windows-latest)", "실행기 검사 (macos-latest)"]
     if any(model_path(path) and path.endswith(".py") for path in files):
         names.append("모델 제출 검사")
     if touches(files, SERVER_PATHS):
         names += ["운영 경로 (ubuntu-latest)", "운영 경로 (windows-latest)"]
     if touches(files, JOURNEY_PATHS):
         names += ["바뀐 곳 보기", "여정 문제 검증", "여정 JS 검증 (Node 22)"]
-    if release_expected(files, pr):
+    if release_expected(files, pr) and needs_release_gui(files):
         names += ["새 설치와 작은 창 (배율 1)", "새 설치와 작은 창 (배율 1.5)"]
     return names
 

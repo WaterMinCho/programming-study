@@ -13,15 +13,24 @@
 ## 처음 설치할 때
 
 <a id="python과-git을-설치합니다"></a>
+<a id="python과-git-설치"></a>
 
-### Python과 Git 설치
+### Git을 준비하고 Python은 첫 실행에서 설치하기
 
-이미 설치했다면 터미널에서 `python --version`과 `git --version`으로 확인합니다. Windows에서 `python`을 찾지 못하면 `py --version`, macOS에서는 `python3 --version`을 사용합니다.
+Git은 프로그램을 받기 전에 준비합니다. Windows에는 [Git for Windows](https://git-scm.com/install/windows)를 설치하고 설치 중 PATH 선택 화면에서 명령줄과 다른 프로그램에서 Git을 쓰는 항목을 고릅니다. macOS는 터미널에서 `git --version`을 입력하고 설치 안내가 나오면 진행합니다. 설치 뒤에는 터미널과 프로그램을 닫았다 다시 엽니다.
 
-- 화면 도구를 새로 설치할 때 이 프로그램이 지원하는 Python은 **3.10\~3.14, 64비트**입니다. Windows ARM64는 3.11 이상이 필요합니다. 새로 준비한다면 [Python 3.14 공식 설치 페이지](https://www.python.org/downloads/latest/python3.14/)에서 운영체제에 맞는 설치 파일을 받습니다. Windows에서는 페이지의 `Python install manager`를 설치하고 새 터미널에서 `py install 3.14`를 실행합니다. 끝나면 `py -3.14 --version`으로 확인합니다. 이미 지원 버전이 있으면 새로 설치하지 않아도 됩니다. macOS는 `macOS 64-bit universal2 installer`를 고릅니다.
-- Windows에는 [Git for Windows](https://git-scm.com/install/windows)를 설치합니다. 설치 중 PATH 선택 화면에서는 명령줄과 다른 프로그램에서 Git을 쓰는 항목을 고릅니다. macOS는 터미널에서 `git --version`을 입력하고 설치 안내가 나오면 진행합니다.
+Python은 미리 설치하지 않아도 됩니다. start 파일이 지원하는 Python과 기존 실행 환경을 먼저 확인해 재사용합니다. 없으면 설치 동의를 받은 뒤 [python.org의 공식 Python 3.14.10](https://www.python.org/downloads/release/python-31410/)을 내려받아 설치하고 화면 도구 준비로 이어집니다.
 
-설치가 끝나면 열어 둔 터미널과 프로그램을 닫았다 다시 엽니다.
+<a id="manual-python-install"></a>
+
+<details>
+<summary>자동 설치가 실패하면 Python 직접 설치하기</summary>
+
+오류 내용을 확인한 뒤 [Python 3.14.10 공식 설치 페이지](https://www.python.org/downloads/release/python-31410/)에서 설치 파일을 받습니다. Windows는 PC에 맞는 `Windows installer (64-bit)` 또는 `Windows installer (ARM64)`를, macOS는 `macOS installer`를 고릅니다. Mac 설치를 마치면 설치 안내의 `Install Certificates.command`도 실행하세요. [Python의 Mac 설치 안내](https://docs.python.org/3.14/using/mac.html#installation-steps)
+
+화면 도구를 새로 설치할 때 지원하는 Python은 **3.10\~3.14, 64비트**이며 Windows ARM64는 3.11 이상이 필요합니다. 이미 지원 버전이 있으면 다시 설치하지 않습니다. 새 터미널에서 Windows는 `python --version` 또는 `py --version`, macOS는 `python3 --version`으로 확인하고 같은 start 파일을 다시 엽니다.
+
+</details>
 
 <a id="프로그램-폴더를-받습니다"></a>
 
@@ -41,13 +50,16 @@
 ### 첫 실행과 학습 데이터 수집 동의
 
 1. Windows는 받은 폴더의 `start.bat`을 더블클릭합니다. 확장자가 안 보이면 탐색기에서 파일 확장명 표시를 켜서 확인합니다. macOS는 `start.command`를 엽니다.
-2. Windows에서는 ‘프로그래밍 스터디 준비’ 창의 [설치]를 누릅니다. macOS에서는 터미널의 `설치할까요? [y/N]`에 `y`를 입력하고 Enter를 누릅니다. 화면 도구인 PyQt6를 인터넷으로 내려받아 설치합니다. Mac이 파일 열기를 차단하면 [Mac 첫 실행 오류 해결](#mac-first-launch)을 먼저 확인하세요.
-3. 기존 사용자도 기기마다 처음 한 번 [GitHub에서 확인하기]를 누르고 열린 GitHub 화면에 확인 코드를 입력합니다. 다음 실행부터는 프로그램의 기기 키로 자동 확인합니다. [기기 본인 확인과 계정·기기 집계 기준](../docs/DEVICE_IDENTITY.md)
-4. [학습 데이터 제공 안내]를 읽습니다. 새 풀이 기록을 제공하려면 [학습 데이터 제공 동의 (선택)]와 [비공개 서버 보관 동의 (선택)]에 모두 표시하고 [동의하고 시작]을 누르세요. [동의하지 않고 시작]을 선택해도 학습할 수 있습니다. 풀이 ID는 자동 생성하며 기존 설치의 ID와 기록은 유지합니다.
-5. 연구에 동의하면 답안 파일 자동 제출 여부를 한 번 더 묻습니다. 업데이트 전이나 지금 선택하기 전에 작성한 풀이 파일도 보내려면 [답안 파일도 자동 제출]을 누르세요. [기록만 자동 전송]을 선택하면 파일은 [풀이 제출]로 직접 보낼 수 있습니다.
-6. **학습 현황** 화면이 열리면 아래 안내에 따라 과목을 고릅니다. AI나 알고리즘부터 시작해도 됩니다.
+2. Python 설치 안내가 나오면 내용을 확인하고 동의합니다. Windows는 현재 사용자용으로 설치합니다. macOS는 공식 설치 파일을 확인한 뒤 관리자 확인 창을 열며, 설치를 계속하려면 관리자 인증이 필요합니다.
+3. 화면 도구인 PyQt6 설치 안내가 나오면 Windows에서는 ‘프로그래밍 스터디 준비’ 창의 [설치]를 누릅니다. macOS에서는 터미널의 `설치할까요? [y/N]`에 `y`를 입력하고 Enter를 누릅니다. PyQt6는 인터넷으로 내려받아 `~/.rokey-study/venv`에 설치합니다.
+4. 기존 사용자도 기기마다 처음 한 번 [GitHub에서 확인하기]를 누르고 열린 GitHub 화면에 확인 코드를 입력합니다. 다음 실행부터는 프로그램의 기기 키로 자동 확인합니다. [기기 본인 확인과 계정·기기 집계 기준](../docs/DEVICE_IDENTITY.md)
+5. [학습 데이터 제공 안내]를 읽습니다. 새 풀이 기록을 제공하려면 [학습 데이터 제공 동의 (선택)]와 [비공개 서버 보관 동의 (선택)]에 모두 표시하고 [동의하고 시작]을 누르세요. [동의하지 않고 시작]을 선택해도 학습할 수 있습니다. 풀이 ID는 자동 생성하며 기존 설치의 ID와 기록은 유지합니다.
+6. 연구에 동의하면 답안 파일 자동 제출 여부를 한 번 더 묻습니다. 업데이트 전이나 지금 선택하기 전에 작성한 풀이 파일도 보내려면 [답안 파일도 자동 제출]을 누르세요. [기록만 자동 전송]을 선택하면 파일은 [풀이 제출]로 직접 보낼 수 있습니다.
+7. **학습 현황** 화면이 열리면 아래 안내에 따라 과목을 고릅니다. AI나 알고리즘부터 시작해도 됩니다.
 
-터미널 설치 안내에 `설치할까요? [y/N]`이 나오면 설치할 때 `y`를 입력하고 Enter를 누릅니다. macOS의 `start.command`로 연 터미널은 프로그램을 쓰는 동안 열어 둡니다.
+Mac의 Python은 공식 pkg로 `/Library/Frameworks/Python.framework`와 `/Applications/Python 3.14`에 설치합니다. 다른 사용자도 사용하는 설치이며 설치된 Python은 프로그램이 직접 찾아 실행합니다. [공식 설치 범위](https://docs.python.org/3.14/using/mac.html#installation-steps)
+
+설치 동의나 Mac 관리자 확인을 취소했다면 같은 start 파일을 다시 열어 이어서 설치하세요. 터미널의 `설치할까요? [y/N]`에서 `n`을 입력해 취소한 경우도 같습니다. Mac의 파일 실행 차단은 설치 동의와 별개이므로 [Mac 첫 실행 오류 해결](#mac-first-launch)을 따릅니다. `start.command`로 연 터미널은 프로그램을 쓰는 동안 열어 둡니다.
 
 <a id="켜기와-첫-화면"></a>
 
@@ -59,7 +71,7 @@
 
 프로그램 폴더나 Python 위치를 옮겨 바로가기가 열리지 않으면 폴더 안의 `프로그래밍 스터디.lnk`만 지우고 `start.bat`을 다시 실행하세요. 답안과 학습 기록은 지우지 않습니다. 바탕화면에 복사한 바로가기도 새 파일로 바꿉니다.
 
-macOS는 `start.command` 등을 엽니다. 왼쪽 메뉴에서 [학습 현황]·[파이썬]·[알고리즘]·[AI]를 선택합니다. 창이 좁거나 낮아 왼쪽 메뉴가 접히면 위쪽의 [메뉴 이동]을 사용하세요.
+macOS는 설치 후 `ROKEY.app`을 열거나 `start.command`로 실행합니다. `ROKEY.app`에서 사용할 Python을 찾지 못하면 기본 터미널에서 `start.command`를 열어 설치 안내로 이어집니다. 왼쪽 메뉴에서 [학습 현황]·[파이썬]·[알고리즘]·[AI]를 선택합니다. 창이 좁거나 낮아 왼쪽 메뉴가 접히면 위쪽의 [메뉴 이동]을 사용하세요.
 
 [![이어서 할 일과 과목별 학습이 보이는 첫 화면](../docs/img/hub.png)](../docs/img/hub.png)
 
@@ -141,11 +153,12 @@ Windows의 사용자 홈은 보통 `C:\Users\계정명`, macOS는 `/Users/계정
 
 아래 명령은 **`study.py`가 있는 `programming-study` 폴더**에서 실행합니다. Windows는 탐색기로 그 폴더를 열고 주소 칸에 `cmd`를 입력합니다.
 
-```bash
-python study.py
+```bat
+set STUDY_CONSOLE=1
+start.bat
 ```
 
-Windows에서 Python을 못 찾으면 `py -3.14 study.py`로 실행합니다. 설치한 Python 버전이 다르면 `-3.14`도 그 버전에 맞춥니다. 오류가 표시되면 내용을 복사해 문의합니다. 창 없이 실행하다 실패한 기록은 `~/.rokey-study/launch.log`에 있습니다.
+Mac은 터미널에서 `./start.command`를 실행합니다. 오류가 표시되면 내용을 복사해 문의합니다. 창 없이 실행하다 실패한 기록은 `~/.rokey-study/launch.log`에 있습니다.
 
 <a id="mac-first-launch"></a>
 
@@ -159,13 +172,14 @@ Windows에서 Python을 못 찾으면 `py -3.14 study.py`로 실행합니다. �
 
 허용 버튼은 파일을 열려고 시도한 뒤 약 한 시간 동안 표시됩니다. 버튼이 없으면 `start.command`를 다시 열어 경고를 확인한 뒤 설정으로 돌아오세요. 이 파일은 허용한 항목으로 저장됩니다. [Apple의 실행 허용 안내](https://support.apple.com/ko-kr/102445) · [버튼 표시 시간](https://support.apple.com/ko-kr/guide/mac-help/mh40617/mac)
 
-터미널이나 iTerm에서 내려받은 폴더를 열고 `./start.command`를 실행하세요. 설치된 Python 중 지원 버전을 찾으며, 오류가 나면 Enter를 누를 때까지 안내를 남깁니다. 프로그램을 정상적으로 닫았을 때는 기다리지 않습니다.
+터미널이나 iTerm에서 내려받은 폴더를 열고 `./start.command`를 실행하세요. 지원하는 Python과 기존 실행 환경이 없으면 공식 Python 설치 안내가 나옵니다. 설치에 동의하면 macOS 관리자 확인 창으로 이어집니다. 오류가 나면 Enter를 누를 때까지 안내를 남기며 프로그램을 정상적으로 닫았을 때는 기다리지 않습니다.
 
-- `Python 3.10~3.14(64비트)를 찾지 못했습니다`가 나오면 [Python 3.14 공식 설치 페이지](https://www.python.org/downloads/latest/python3.14/)에서 `macOS 64-bit universal2 installer`를 설치한 뒤 다시 실행합니다.
+- Python 자동 설치가 실패하면 [Python 직접 설치하기](#manual-python-install)를 펼쳐 확인한 뒤 같은 `start.command`를 다시 엽니다.
+- 설치 동의나 관리자 확인을 취소했다면 `start.command`를 다시 열어 설치를 선택합니다.
 - `설치할까요? [y/N]`이 나오면 `y`를 입력하고 Enter를 누릅니다.
 - 다른 오류가 나면 종료 안내 위의 오류 내용을 복사해 문의해 주세요. `~/.rokey-study/launch.log`에는 선택한 Python 경로와 종료 코드가 남습니다. 경로에 개인 폴더 이름이 들어갈 수 있으니 공유 전에 확인합니다.
 
-`ROKEY.app` 대신 `start.command`로 실행할 수도 있습니다. 이 파일도 차단되면 위의 실행 허용 절차를 먼저 따릅니다.
+`ROKEY.app`은 Python이 없으면 기본 터미널에서 `start.command`의 설치 안내를 엽니다. 이 파일도 macOS에서 차단되면 위의 실행 허용 절차를 먼저 따릅니다.
 
 ### 예전 버전을 받아 뒀거나 문제 받기가 계속 오류로 끝날 때
 

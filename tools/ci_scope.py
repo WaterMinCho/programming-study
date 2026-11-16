@@ -15,6 +15,10 @@ GUIDE_READMES = frozenset(("README.md", "gui/README.md", "ai/README.md", "proble
                           "docs/LEARNING_WORKFLOW.md", "docs/LEARNING_STARTER.md", "docs/LEARNING_ROADMAP.md", "docs/LEARNING_EXPERIMENT_TEMPLATE.md",
                           "docs/LEARNING_PILOT.md", "docs/LEARNING_READINESS.md", "docs/COLLECTOR_BACKUP.md"))
 
+LAUNCHER_PATHS = frozenset(("start.bat", "start.command", "ROKEY.app/Contents/MacOS/ROKEY",
+                           "tools/install_python.ps1", "tools/install_python_macos.sh",
+                           "tests/test_windows_start.py", "tests/test_mac_start.py", "tests/test_windowed.py"))
+
 
 def needs_gui(paths):
     return selection(paths)["gui"]
@@ -42,14 +46,23 @@ def server_only(path):
 
 
 def automation_only(path):
-    if path in ("tools/slack_threads.py", "tools/server_incident_alerts.py",
+    if path in (".github/workflows/release-check.yml", "tools/slack_threads.py", "tools/server_incident_alerts.py",
                 "tests/test_server_incident_alerts.py", ".github/workflows/server-incidents.yml"):
         return True
     return path in (".github/workflows/ci.yml", ".github/workflows/style.yml", ".github/workflows/slack-notify.yml", "tools/ci_scope.py", "tools/pr_checks.py", "tests/test_pr_checks.py", "tools/check_style.py", "tests/test_style.py", "tools/pr_title.py", "tools/study_checks.py", "tools/study_review_worker.py", "tools/slack_summary.py", "tools/slack_notify.py", "tools/learning_review.py") or path.startswith(("tests/test_ci_scope", "tests/test_pr_title", "tests/test_study_", "tests/test_slack_", "tests/test_learning_review"))
 
 
 def terminal_launcher_only(path):
-    return path in ("start.command", "tests/test_mac_start.py")
+    return path in LAUNCHER_PATHS
+
+
+def needs_launcher(paths):
+    return not paths or any(terminal_launcher_only(path) for path in paths)
+
+
+def needs_release_gui(paths):
+    """실행기와 기존 경량 검사 대상만 함께 바뀐 경우에만 화면 매트릭스를 생략함."""
+    return not needs_launcher(paths) or needs_gui(paths)
 
 
 def selection(paths):
@@ -68,6 +81,7 @@ def selection(paths):
 
 def main():
     run = True
+    launcher = release_gui = True
     selected = selection([])
     base, head = os.environ.get("SCOPE_BASE"), os.environ.get("SCOPE_HEAD")
     if base and head:
@@ -75,6 +89,8 @@ def main():
             paths = changed_paths(base, head)
             selected = selection(paths)
             run = selected["gui"]
+            launcher = needs_launcher(paths)
+            release_gui = needs_release_gui(paths)
             print("실제 변경 파일: %d개" % len(paths))
             print("모델 코드·설명: %d개, 공통 파일: %d개" % (sum(model_path(path) for path in paths), sum(not model_path(path) for path in paths)))
         except (OSError, ValueError, subprocess.SubprocessError):
@@ -83,11 +99,14 @@ def main():
     value = "true" if run else "false"
     print("화면 검사 실행: %s" % value)
     print("문항=%s 기능=%s 모델구문=%s" % tuple(str(selected[name]).lower() for name in ("bank", "unit", "model")))
+    print("실행기=%s 첫실행화면=%s" % (str(launcher).lower(), str(release_gui).lower()))
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
             output.write("gui=%s\n" % value)
             for name in ("bank", "unit", "model"):
                 output.write("%s=%s\n" % (name, "true" if selected[name] else "false"))
+            for name, enabled in (("launcher", launcher), ("release_gui", release_gui)):
+                output.write("%s=%s\n" % (name, "true" if enabled else "false"))
 
 
 if __name__ == "__main__":
