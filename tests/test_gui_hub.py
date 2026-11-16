@@ -491,14 +491,27 @@ class HubScreenTest(HubTest):
         win.set_text("larger")
         guikit.pump()
         initial = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
-        # 자식의 글꼴·최소 높이가 바뀐 뒤 부모 그리드의 높이 배분까지 기다림.
-        guikit.wait_until(lambda: grid.columns == 2 and all(grid.rect().contains(row.geometry()) for row in grid.rows))
+        # 자식과 부모 배치가 연속 이벤트 처리에서도 같은 크기를 유지하는지 확인함.
+        previous, repeats = None, 0
+
+        def stable_grid():
+            nonlocal previous, repeats
+            current = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
+            fits = grid.columns == 2 and all(grid.rect().contains(row.geometry()) for row in grid.rows)
+            repeats = repeats + 1 if fits and current == previous else 0
+            previous = current
+            return repeats >= 3
+
+        guikit.wait_until(stable_grid, timeout=5)
         settled = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
         if initial != settled:
             print("SubjectGrid layout after font update:", initial, "->", settled)
         self.assertEqual(grid.columns, 2)
-        for row in grid.rows:
-            self.assertTrue(grid.rect().contains(row.geometry()))
+        for index, row in enumerate(grid.rows):
+            self.assertEqual(grid.grid.getItemPosition(grid.grid.indexOf(row))[:2], (index // 2, index % 2))
+            self.assertTrue(grid.rect().contains(row.geometry()), (initial, settled))
+            for other in grid.rows[:index]:
+                self.assertFalse(row.geometry().intersects(other.geometry()))
         guikit.click(win.hub.ai_row)
         self.assertEqual(win.area, "ai")
 
