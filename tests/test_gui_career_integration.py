@@ -46,9 +46,14 @@ class CareerIntegrationTest(unittest.TestCase):
         dialog.show_stage(2)
         dialog.next()
         dialog.open_detail("frontend")
-        profile_key = "career/profile/" + win.user
-        self.assertEqual(before, {key: win.settings.value(key) for key in win.settings.allKeys() if key != profile_key})
+        profile_key = "career/profile/" + win.user.casefold()
+        result_key = "career/recommendation/" + win.user.casefold()
+        self.assertEqual(before, {key: win.settings.value(key) for key in win.settings.allKeys()
+                                  if key not in (profile_key, result_key)})
         self.assertEqual(json.loads(win.settings.value(profile_key))["activities"], ["ui"])
+        result = json.loads(win.settings.value(result_key))
+        self.assertEqual(set(result), {"input_fingerprint", "rules_version", "catalog_fingerprint", "role_ids"})
+        self.assertIn("frontend", result["role_ids"])
         from gui.feedback import environment, issue_url
         with mock.patch("gui.feedback.commit", return_value="0" * 40):
             feedback_before = (environment(win), issue_url(win))
@@ -56,6 +61,7 @@ class CareerIntegrationTest(unittest.TestCase):
             for field, value in zip(dialog.education.rows[0][1], ("doctor", "health")):
                 field.setCurrentIndex(field.findData(value))
             self.assertEqual(feedback_before, (environment(win), issue_url(win)))
+            self.assertFalse(win.settings.contains(result_key))
         guikit.click(dialog.detail.goal_button)
         saved = json.loads(win.settings.value("career/role/" + win.user))
         self.assertEqual(set(saved), {"role_id", "catalog_version", "selected_at"})

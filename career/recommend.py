@@ -1,7 +1,9 @@
 """선택한 관심·활동·경력·전공을 직무 과제와 대조함. 저장과 통신은 수행하지 않음."""
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+import hashlib
+import json
 
-VERSION = "2026-11-15-v1"
+VERSION = "2026-11-16-v2"
 DEGREES = {"associate": "전문학사", "bachelor": "학사", "master": "석사", "doctor": "박사", "other": "그 외 과정"}
 MAJORS = {
     "computing": "컴퓨터·소프트웨어", "electronics": "전기·전자·통신", "mechanical": "기계·자동차·로봇",
@@ -96,6 +98,26 @@ RULES = {
         "입력 조건 하나를 정하고 정상·경계·오류 사례의 기대 결과를 적어보세요."),
 }
 
+# 구체적인 개발·운영 분야만 경력 단독 검토에 사용함. 넓은 직무명은 활동 확인을 기다림.
+DIRECT_EXPERIENCES = frozenset(("frontend", "backend", "data", "ml", "embedded", "robot", "infra", "qa"))
+
+
+def _fingerprint(value):
+    raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def profile_fingerprint(profile):
+    """입력의 변경 여부를 비교하며 원래 선택값은 결과 저장소에 복사하지 않음."""
+    return _fingerprint(asdict(profile))
+
+
+def catalog_fingerprint(catalog):
+    """직무·학습 연결·출처의 내용 변경도 버전 이름과 함께 비교함."""
+    return _fingerprint({key: getattr(catalog, key) for key in (
+        "version", "roles", "industries", "products", "goals", "sources",
+        "roadmap_revision", "roadmap_updated", "organization_caption")})
+
 
 @dataclass(frozen=True)
 class Recommendation:
@@ -108,13 +130,14 @@ class Recommendation:
     first_step: str
 
 
-def recommend(profile, catalog):
-    """관심·활동 근거가 있을 때만 추천하며 동률을 잘라내지 않음."""
+def recommend(profile, catalog, *, include_experience_only=False):
+    """관심·활동을 우선하고 명시적으로 요청한 경력 단독 검토를 지원함."""
     interests = set(profile.interests) & INTERESTS.keys()
     activities = set(profile.activities) & ACTIVITIES.keys()
-    if not interests and not activities:
-        return ()
     experiences = set(profile.experiences) & EXPERIENCES.keys()
+    experience_only = include_experience_only and not interests and not activities
+    if not interests and not activities and not (experience_only and experiences & DIRECT_EXPERIENCES):
+        return ()
     education = {row for row in profile.education if row.degree in DEGREES and row.major in MAJORS}
     results = []
     for role in catalog.roles:
@@ -123,9 +146,9 @@ def recommend(profile, catalog):
             continue
         picked = tuple(key for key in rule.interests if key in interests)
         done = tuple(key for key in rule.activities if key in activities)
-        if not picked and not done:
-            continue
         work = tuple(key for key in rule.experiences if key in experiences)
+        if not picked and not done and not (experience_only and set(work) & DIRECT_EXPERIENCES):
+            continue
         study = tuple(sorted((row for row in education if row.major in rule.majors),
                              key=lambda row: (row.major, row.degree)))
         # 범주별 근거 수를 대조함. 학위의 높이·행 수·경력 연수는 가산하지 않음.

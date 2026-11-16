@@ -1094,7 +1094,18 @@ class TopBar(QFrame):
 class BottomBar(QFrame):
     """작업 화면 아래 막대. 최소 높이 80이고 좁은 창에서는 도구를 위로 옮김. 주 단추는 오른쪽 끝에 둠."""
 
+    class _Actions(QWidget):
+        def sizeHint(self):
+            layout = self.layout()
+            width = layout.natural_width()
+            size = layout.minimumSize()
+            size.setWidth(width)
+            size.setHeight(layout.heightForWidth(width))
+            return size
+
     def __init__(self):
+        from gui.action_layout import ActionLayout
+
         super().__init__()
         self.setObjectName("bottombar")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -1103,10 +1114,13 @@ class BottomBar(QFrame):
         self.row.setSpacing(8)
         self.tool_box = QWidget()
         self.tools = FlowLayout(self.tool_box, spacing=24)
-        self.actions = QWidget()
-        self.action_row = box(self.actions, spacing=8, horizontal=True)
+        self.actions = self._Actions()
+        self.action_row = ActionLayout(self.actions, margins=(0, 0, 0, 0),
+                                       spacing=theme.GAP["detail"], reverse_stacked=False)
         self.row.addWidget(self.tool_box, 1, Qt.AlignmentFlag.AlignVCenter)
         self.row.addWidget(self.actions, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.tool_box.installEventFilter(self)
+        self.actions.installEventFilter(self)
         self.setMinimumHeight(theme.CONTROL["bottombar"])
 
     def add_tool(self, widget):
@@ -1130,11 +1144,17 @@ class BottomBar(QFrame):
         tools = [item for item in self.tools.items if not item.isEmpty()]
         self.tool_box.setVisible(bool(tools))
         tool_width = sum(item.sizeHint().expandedTo(item.minimumSize()).width() for item in tools) + max(0, len(tools) - 1) * self.tools.spacing()
-        action = self.action_row.sizeHint()
-        stacked = bool(tools) and tool_width + 24 + action.width() > width
-        self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
-        tool_height = self.tools.heightForWidth(width if stacked else max(1, width - action.width() - 8)) if tools else 0
-        height = tool_height + 8 + action.height() if stacked else max(tool_height, action.height())
+        action_width = self.action_row.natural_width()
+        stacked = bool(tools) and tool_width + theme.GAP["group"] + action_width > width
+        direction = QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight
+        if self.row.direction() != direction:
+            self.row.setDirection(direction)
+        action_height = self.action_row.heightForWidth(min(width, action_width))
+        self.actions.setFixedHeight(action_height)
+        gap = self.row.spacing()
+        tool_height = self.tools.heightForWidth(width if stacked else max(1, width - action_width - gap)) if tools else 0
+        self.tool_box.setFixedHeight(tool_height)
+        height = tool_height + gap + action_height if stacked else max(tool_height, action_height)
         self.setFixedHeight(max(theme.CONTROL["bottombar"], top + height + bottom))
 
     def refont(self):
@@ -1157,6 +1177,11 @@ class BottomBar(QFrame):
         if event.type() == QEvent.Type.LayoutRequest:
             self.arrange()
         return result
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.arrange()
+        return super().eventFilter(watched, event)
 
 
 class NextCard(QFrame):
