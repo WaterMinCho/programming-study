@@ -42,12 +42,13 @@ class MacStartTest(unittest.TestCase):
         os.symlink(shutil.which("dirname"), self.bin / "dirname")
         self.fake_python("python3")
 
-    def fake_python(self, name, probe_ok=True, folder=None):
+    def fake_python(self, name, probe_ok=True, folder=None, probe_status=None):
         path = (folder or self.bin) / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        probe_status = 0 if probe_ok else 1
+        if probe_status is None:
+            probe_status = 0 if probe_ok else 1
         path.write_text(
-            '#!/bin/sh\nif [ "$1" = -c ]; then exit %d; fi\nexec %s "$@"\n'
+            '#!/bin/sh\ncase "$2" in "import sys; ok ="*) exit %d ;; esac\nexec %s "$@"\n'
             % (probe_status, shlex.quote(sys.executable)))
         path.chmod(0o755)
         return path
@@ -81,6 +82,25 @@ class MacStartTest(unittest.TestCase):
         result = self.run_start()
         self.assertEqual(result.returncode, 0)
         self.assertIn("Python=" + str(self.bin / "python3") + "\n", self.log())
+
+    def test_existing_environment_is_still_checked_when_only_old_python_is_available(self):
+        self.fake_python("python3", probe_status=3)
+        result = self.run_start()
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("APP_STARTED", result.stdout)
+
+    def test_log_failure_does_not_prevent_launch(self):
+        (self.home / ".rokey-study" / "launch.log").mkdir(parents=True)
+        result = self.run_start()
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("APP_STARTED", result.stdout)
+
+    def test_log_privacy_does_not_change_the_app_umask(self):
+        (self.repo / "study.py").write_text("import os\nprint('UMASK=' + str(os.umask(0)))\n")
+        result = subprocess.run(['/bin/sh', '-c', 'umask 022; exec "$1"', 'sh', str(self.script)],
+                                cwd=self.base, env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("UMASK=18", result.stdout)
 
     def test_missing_and_unsupported_python_explain_installation(self):
         for exists in (True, False):
@@ -146,16 +166,17 @@ class MacStartTest(unittest.TestCase):
                 output += os.read(master, 8192)
 
         until("INSTALL?")
-        os.write(master, b"y\n")
+        os.write(master, b"y\n\n")
         until("Enter를 누르면 종료")
-        self.assertIsNone(proc.poll())
+        with self.assertRaises(subprocess.TimeoutExpired):
+            proc.wait(timeout=0.5)
         self.assertIn(b"ANSWER=y", output)
         os.write(master, b"\n")
         self.assertEqual(proc.wait(timeout=5), 23)
 
     def test_probe_agrees_with_bootstrap_version_and_bits(self):
         script = (ROOT / "start.command").read_text()
-        probe = script.split("-c '", 1)[1].split("'", 1)[0]
+        probe = script.split("try_python()", 1)[1].split("-c '", 1)[1].split("'", 1)[0]
         # 실제 실행기의 검사식을 여러 버전과 비트 수로 실행함.
         for version in ((3, 9), (3, 10), (3, 14), (3, 15)):
             for bits in (32, 64):

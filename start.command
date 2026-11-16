@@ -1,8 +1,7 @@
 #!/bin/sh
 # macOS 첫 실행. 오류가 나면 안내를 읽을 때까지 터미널을 유지함.
-umask 077
 launch_log="$HOME/.rokey-study/launch.log"
-if /bin/mkdir -p "$HOME/.rokey-study" && : >> "$launch_log"; then
+if (umask 077; /bin/mkdir -p "$HOME/.rokey-study" && : >> "$launch_log") 2>/dev/null; then
     /bin/chmod 600 "$launch_log"
 else
     launch_log=/dev/null
@@ -22,6 +21,9 @@ finish() {
             printf '실행 기록: %s (Python 경로와 종료 코드)\n' "$launch_log"
         fi
         if [ -t 0 ]; then
+            if [ -n "$launch_python" ]; then
+                "$launch_python" -c 'import termios; termios.tcflush(0, termios.TCIFLUSH)' 2>/dev/null
+            fi
             printf '\n오류 화면을 복사한 뒤 Enter를 누르면 종료합니다. '
             read -r launch_reply
         fi
@@ -35,10 +37,11 @@ try_python() {
     if [ "$1" = /usr/bin/python3 ] && ! /usr/bin/xcode-select -p >/dev/null 2>&1; then
         return 1
     fi
-    if "$1" -c 'import sys; sys.exit(not ((3, 10) <= sys.version_info[:2] <= (3, 14) and sys.maxsize > 2**32))' </dev/null >/dev/null 2>&1; then
-        launch_python=$1
-        return 0
-    fi
+    "$1" -c 'import sys; ok = (3, 10) <= sys.version_info[:2] <= (3, 14) and sys.maxsize > 2**32; sys.exit(0 if ok else 3)' </dev/null >/dev/null 2>&1
+    case $? in
+        0) launch_python=$1; return 0 ;;
+        3) [ -n "$launch_fallback" ] || launch_fallback=$1 ;;
+    esac
     record "Python unavailable or unsupported: $1"
     return 1
 }
@@ -51,6 +54,7 @@ launch() {
     fi
 
     launch_python=
+    launch_fallback=
     try_python "$(command -v python3)" || {
         for minor in 14 13 12 11 10; do
             try_python "$(command -v "python3.$minor")" && break
@@ -59,6 +63,8 @@ launch() {
             done
         done
     }
+    # 이미 쓸 수 있는 PyQt6·전용 환경은 bootstrap이 먼저 확인함.
+    [ -n "$launch_python" ] || launch_python=$launch_fallback
     if [ -z "$launch_python" ]; then
         printf 'Python 3.10~3.14(64비트)를 찾지 못했습니다.\n'
         printf 'https://www.python.org/downloads/latest/python3.14/ 에서 macOS 설치 파일을 받아 설치해 주세요.\n'
