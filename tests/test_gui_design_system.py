@@ -1,5 +1,7 @@
 """공통 설정의 진입·종료와 하단 알림, 수업 범위 표시를 합성 상태로 확인함."""
 import copy
+import os
+from pathlib import Path
 from unittest import mock
 
 from tests import guikit, test_gui_hub
@@ -77,6 +79,12 @@ class DesignSystemTest(test_gui_hub.HubTest):
                 self.assertTrue(menu.isVisible())
                 self.assertEqual([b.text() for b in menu.actions], [b.text() for b in win.hub.settings_panel.actions])
                 self.assertTrue(menu.screen().availableGeometry().contains(menu.geometry()))
+                destination = os.environ.get("STUDY_UI_ARTIFACT_DIR")
+                if destination and move == win.go_magazine:
+                    target = Path(destination)
+                    target.mkdir(parents=True, exist_ok=True)
+                    self.assertTrue(win.grab().save(str(target / f"workspace-settings-{mode}.png")))
+                    self.assertTrue(menu.grab().save(str(target / f"workspace-settings-popup-{mode}.png")))
                 menu.dismiss(immediate=True)
                 guikit.pump()
         self.assertEqual(before, win.session.prof)

@@ -230,7 +230,7 @@ class Workspace(QWidget):
         self.rail.setProperty("ui", "2")
         self.rail.setFixedWidth(232)
         nav = kit.box(self.rail, (16, 24, 16, 24), 8)
-        brand = QWidget()
+        self.brand = brand = QWidget()
         brand_row = kit.box(brand, spacing=12, horizontal=True)
         mark = QWidget()
         mark.setFixedWidth(36)
@@ -238,6 +238,11 @@ class Workspace(QWidget):
         mark_row.addWidget(Mascot(32), 0, Qt.AlignmentFlag.AlignCenter)
         brand_row.addWidget(mark)
         brand_row.addWidget(kit.para("프로그래밍\n스터디", "label", bold=True), 1)
+        self.rail_settings = kit.button("설정", "text", "m")
+        policy = self.rail_settings.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        self.rail_settings.setSizePolicy(policy)
+        brand_row.addWidget(self.rail_settings)
         nav.addWidget(brand)
         nav.addSpacing(24)
         self.buttons = {}
@@ -258,11 +263,6 @@ class Workspace(QWidget):
             self.buttons[tid] = button
             nav.addWidget(button)
         nav.addStretch(1)
-        self.rail_settings = kit.button("설정", "text", "m")
-        policy = self.rail_settings.sizePolicy()
-        policy.setRetainSizeWhenHidden(True)
-        self.rail_settings.setSizePolicy(policy)
-        nav.addWidget(self.rail_settings)
         outer.addWidget(self.rail)
         self.body = QWidget()
         self.body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -350,6 +350,7 @@ class Workspace(QWidget):
         self.career_toggle.update()
 
         rail_width = max(button.sizeHint().width() for button in (self.career_toggle, *self.buttons.values())) + 32
+        rail_width = max(rail_width, self.brand.sizeHint().width() + 32)
         self.rail.setFixedWidth(rail_width)
         breakpoint = max(1120, rail_width + 760)
         show_navigation = self.win.session is not None and self.pages.currentWidget() in self.overview_pages
