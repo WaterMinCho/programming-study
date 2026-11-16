@@ -185,9 +185,12 @@ class CareerNavigationTest(unittest.TestCase):
         guikit.pump()
         back = Mock()
         p = self.page = CareerRoadmapPage(on_back=back, on_select_goal=self.saved)
+        self.capture_widget = p
         theme.set_text("larger")
         kit.refont(p)
         p.resize(760, 480)
+        if guikit.APP.platformName() != "offscreen":
+            p.move(p.screen().availableGeometry().topLeft() + QPoint(16, 16))
         p.show()
         self.settle(p)
         origin = p.catalog.roles[-1]["id"]
