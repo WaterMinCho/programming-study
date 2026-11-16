@@ -147,6 +147,12 @@ class CareerTour(QWidget):
         below = self.anchor.bottom() + gap
         above = self.anchor.top() - gap - height
         if below + height > self.height() - margin and above < margin:
+            # 줄바꿈으로 안내가 높아지면 페이지 안의 가로 여유를 먼저 사용함.
+            width = self.width() - 2 * margin
+            height = self.card.layout().totalHeightForWidth(width)
+            x = margin
+            above = self.anchor.top() - gap - height
+        if below + height > self.height() - margin and above < margin:
             # 큰 그림의 위아래에 공간이 없을 때만 누를 수 있는 상단 부분을 강조함.
             self.anchor.setHeight(min(self.anchor.height(), theme.control_height("l")))
             below = self.anchor.bottom() + gap

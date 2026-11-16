@@ -1,13 +1,15 @@
 """커리어 첫 안내의 표시·키보드·기록 보존과 실제 배치를 검사함."""
 import copy
+import json
 import os
+from pathlib import Path
 import threading
 import unittest
 from unittest import mock
 
 from tests import guikit, test_gui_hub
 from PyQt6.QtCore import QEvent, QPoint, QSettings, Qt
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QFont, QKeyEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QDialog
 
@@ -29,6 +31,21 @@ class CareerOnboardingTest(unittest.TestCase):
         tour = win.career.tour
         self.assertEqual(tour.context, context)
         return tour
+
+    def settle_tour(self, tour):
+        previous, stable = None, 0
+
+        def ready():
+            nonlocal previous, stable
+            self.assertTrue(tour.active, (tour.context, tour.step, tour.anchor, tour.card.geometry()))
+            self.assertTrue(tour.isVisible())
+            current = (tour.size(), tour.anchor, tour.card.geometry(), tour.target.size(),
+                       tour.target.mapTo(tour.page, QPoint()), tour.description.size())
+            stable = stable + 1 if current == previous else 0
+            previous = current
+            return stable >= 2 and not tour.timer.isActive()
+
+        guikit.wait_until(ready, timeout=5)
 
     def test_first_visits_skip_complete_and_settings_replay(self):
         win = self.fixture.boot()
@@ -209,7 +226,7 @@ class CareerOnboardingTest(unittest.TestCase):
                     win.go_magazine()
                 tour = self.visible_tour(win, context)
                 for step in range(len(tour.steps)):
-                    guikit.pump()
+                    self.settle_tour(tour)
                     self.assertTrue(tour.rect().contains(tour.card.geometry()), (context, step, tour.card.geometry(), tour.rect()))
                     self.assertFalse(tour.anchor.intersects(tour.card.geometry()), (context, step))
                     for button in (tour.skip, tour.back, tour.next):
@@ -222,16 +239,52 @@ class CareerOnboardingTest(unittest.TestCase):
             guikit.click(page.tour_help)
             tour = self.visible_tour(win, "magazine")
             guikit.click(tour.next)
+            self.settle_tour(tour)
             self.assertTrue(tour.rect().contains(tour.card.geometry()))
             self.assertFalse(tour.anchor.intersects(tour.card.geometry()))
             self.capture(win, f"career-tour-paper-{mode}")
             guikit.click(tour.next)
+
+    def test_magazine_tour_fits_wider_text_without_dismissing(self):
+        for key in TOUR_KEYS.values():
+            self.fixture.settings.setValue(key, True)
+        self.win = win = self.fixture.boot()
+        win.resize(760, 480)
+        win.set_text("larger")
+        win.go_magazine()
+        page = win.career.magazine
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            win.career.queue_tour(page, replay=True)
+            tour = self.visible_tour(win, "magazine")
+            self.settle_tour(tour)
+            # 운영체제 글꼴 폭 차이로 설명이 한 줄 더 생긴 조건을 재현함.
+            font = QFont(tour.description.font())
+            font.setStretch(120)
+            tour.description.setFont(font)
+            guikit.click(tour.next)
+            self.settle_tour(tour)
+            self.assertTrue(tour.rect().contains(tour.card.geometry()))
+            self.assertFalse(tour.anchor.intersects(tour.card.geometry()))
+            self.assertEqual(1, tour.step)
+            for button in (tour.skip, tour.back, tour.next):
+                self.assertTrue(tour.card.rect().contains(button.rect().translated(button.mapTo(tour.card, QPoint()))))
+            self.capture(win, f"career-tour-wider-text-{mode}")
+            guikit.click(tour.next)
+            self.assertFalse(tour.isVisible())
 
     def capture(self, win, name):
         if not os.environ.get("CAREER_EVIDENCE"):
             return
         from tests.test_gui_career_integration import CareerIntegrationTest
         CareerIntegrationTest.capture_navigation(self, win, name)
+        tour = win.career.tour
+        measured = dict(active=tour.active, context=tour.context, step=tour.step,
+                        window=[win.width(), win.height()], page=[tour.width(), tour.height()],
+                        anchor=tour.anchor.getRect(), card=tour.card.geometry().getRect(),
+                        platform=guikit.APP.platformName(), dpr=win.devicePixelRatioF())
+        (Path(os.environ["CAREER_EVIDENCE"]) / (name + ".json")).write_text(
+            json.dumps(measured, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

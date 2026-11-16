@@ -263,29 +263,43 @@ class AiDataTest(AiTest):
 
     def test_open_transfer_details_keep_visible_content_when_footer_has_focus(self):
         win = self.boot(size=(760, 480))
-        dialog = LearningDataDialog(win, win.ai.collection)
-        dialog.show()
-        dialog.transfer_section.set_opened(True)
-        dialog.goal_section.set_opened(True)
-        guikit.pump()
-        dialog.scroll.ensureWidgetVisible(dialog.goal_combo)
-        bar = dialog.scroll.verticalScrollBar()
-        bar.setValue(bar.value() - 64)
-        dialog.close_button.setFocus()
-        guikit.pump()
-        viewport = dialog.scroll.viewport()
-        top = dialog.goal_combo.mapTo(viewport, QPoint()).y()
-        transfer_top = dialog.transfer_section.mapTo(viewport, QPoint()).y()
-        self.assertLess(transfer_top, 0)
-        self.assertGreater(transfer_top + dialog.transfer_section.height(), 0)
-        with mock.patch.dict("os.environ", {"STUDY_AUTO_SYNC": "1"}):
-            win.privacy.failures = 1
-            win.privacy.message = "서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요."
-            win.privacy.changed.emit()
-            guikit.wait_until(lambda: dialog._reading is None)
-        self.assertEqual(top, dialog.goal_combo.mapTo(viewport, QPoint()).y())
-        self.assertIs(dialog.close_button, QApplication.focusWidget())
-        dialog.close()
+        for step in ("normal", "large", "larger"):
+            with self.subTest(text=step):
+                win.set_text(step)
+                win.privacy.failures = 0
+                win.privacy.message = ""
+                dialog = LearningDataDialog(win, win.ai.collection)
+                dialog.show()
+                dialog.transfer_section.set_opened(True)
+                dialog.goal_section.set_opened(True)
+                guikit.pump()
+                transfer = dialog.transfer_section.content
+                notice = transfer.itemAt(transfer.count() - 1).widget()
+                bar = dialog.scroll.verticalScrollBar()
+                # 글꼴별 줄바꿈 높이가 달라도 전송 설명을 실제로 읽는 위치에서 시작함.
+                bar.setValue(notice.mapTo(dialog.shell.body, QPoint()).y() - theme.GAP["detail"])
+                dialog.close_button.setFocus()
+                guikit.pump()
+                viewport = dialog.scroll.viewport()
+                top = dialog.goal_combo.mapTo(viewport, QPoint()).y()
+                notice_top = notice.mapTo(viewport, QPoint()).y()
+                transfer_top = dialog.transfer_section.mapTo(viewport, QPoint()).y()
+                self.assertLess(transfer_top, 0)
+                self.assertGreater(transfer_top + dialog.transfer_section.height(), 0)
+                self.assertGreaterEqual(notice_top, 0)
+                self.assertLessEqual(notice_top + notice.height(), viewport.height())
+                body_height = dialog.shell.body.height()
+                with mock.patch.dict("os.environ", {"STUDY_AUTO_SYNC": "1"}):
+                    win.privacy.failures = 1
+                    win.privacy.message = ("서버에 연결하지 못했습니다.\n인터넷 연결을 확인해 주세요.\n"
+                                           "기록은 이 기기에 보관하고 있습니다.")
+                    win.privacy.changed.emit()
+                    guikit.wait_until(lambda: dialog._reading is None)
+                self.assertGreater(dialog.shell.body.height(), body_height)
+                self.assertEqual(top, dialog.goal_combo.mapTo(viewport, QPoint()).y())
+                self.assertEqual(notice_top, notice.mapTo(viewport, QPoint()).y())
+                self.assertIs(dialog.close_button, QApplication.focusWidget())
+                dialog.close()
 
     def test_keyboard_focus_change_takes_priority_over_pending_restore(self):
         win = self.boot(size=(760, 480))
