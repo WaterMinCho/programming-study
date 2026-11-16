@@ -55,6 +55,7 @@ launch() {
 
     launch_python=
     launch_fallback=
+    # 설치한 Python이 PATH에서 빠져도 기존 전용 환경을 찾을 수 있게 함.
     try_python "$(command -v python3)" || {
         for minor in 14 13 12 11 10; do
             try_python "$(command -v "python3.$minor")" && break
@@ -64,12 +65,29 @@ launch() {
         done
     }
     # 이미 쓸 수 있는 PyQt6·전용 환경은 bootstrap이 먼저 확인함.
-    [ -n "$launch_python" ] || launch_python=$launch_fallback
     if [ -z "$launch_python" ]; then
-        printf 'Python 3.10~3.14(64비트)를 찾지 못했습니다.\n'
-        printf 'https://www.python.org/downloads/latest/python3.14/ 에서 macOS 설치 파일을 받아 설치해 주세요.\n'
-        printf '설치 후 이 start.command 파일을 다시 열어주세요.\n'
-        finish 1
+        existing="${STUDY_VENV:-$HOME/.rokey-study/venv}/bin/python"
+        if [ -x "$existing" ] && "$existing" -c 'import PyQt6.QtWidgets' >/dev/null 2>&1; then
+            try_python "$existing" || :
+        fi
+        if [ -z "$launch_python" ] && [ -n "$launch_fallback" ] &&
+            "$launch_fallback" -c 'import PyQt6.QtWidgets' >/dev/null 2>&1; then
+            launch_python=$launch_fallback
+        fi
+    fi
+    if [ -z "$launch_python" ] || [ -f "$HOME/.rokey-study/python-certificates.pending" ]; then
+        /bin/sh tools/install_python_macos.sh
+        install_status=$?
+        if [ "$install_status" -eq 2 ]; then
+            printf '설치를 취소했습니다. 다음 실행에서 다시 설치할 수 있습니다.\n'
+            [ -n "$launch_python" ] || finish 0
+        elif [ "$install_status" -ne 0 ]; then
+            [ -n "$launch_python" ] || finish "$install_status"
+            printf 'Python 준비를 마치지 못했습니다. 기존 실행 환경으로 프로그램을 엽니다.\n'
+        fi
+        if [ -z "$launch_python" ]; then
+            try_python /Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14 || finish 1
+        fi
     fi
 
     record "start.command Python=$launch_python"

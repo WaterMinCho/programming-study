@@ -22,6 +22,7 @@ jobs:
       unit: ${{ steps.scope.outputs.unit }}
       gui: ${{ steps.scope.outputs.gui }}
       model: ${{ steps.scope.outputs.model }}
+      launcher: ${{ steps.scope.outputs.launcher }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -74,6 +75,35 @@ jobs:
         run: python -m unittest discover -s tests
         env:
           STUDY_LEAN_CI: "1"
+
+  launcher:
+    name: 실행기 검사 (${{ matrix.os }})
+    needs: scope
+    if: needs.scope.outputs.launcher == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            module: tests.test_windows_start tests.test_windowed.StartBatTest
+          - os: macos-latest
+            module: tests.test_mac_start
+    env:
+      PYTHONUTF8: '1'
+      STUDY_AUTO_SYNC: '0'
+      STUDY_NODE_PROBE: '0'
+      STUDY_VERIFY_PYTHON_INSTALLER: ${{ matrix.os == 'windows-latest' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: 임시 환경에서 설치 선택과 실행 경로 검사
+        run: python -m unittest -v ${{ matrix.module }}
 
   model:
     name: 모델 제출 검사
@@ -133,7 +163,7 @@ jobs:
 
   required:
     name: 필수 검사
-    needs: [scope, bank, gui, model]
+    needs: [scope, bank, gui, model, launcher]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -148,7 +178,8 @@ jobs:
           assert result['scope']['result'] == 'success'
           outputs = result['scope']['outputs']
           planned = {'bank': any(outputs[name] == 'true' for name in ('bank', 'unit')),
-                     'gui': outputs['gui'] == 'true', 'model': outputs['model'] == 'true'}
+                     'gui': outputs['gui'] == 'true', 'model': outputs['model'] == 'true',
+                     'launcher': outputs['launcher'] == 'true'}
           for name, required in planned.items():
               expected = 'success' if required else 'skipped'
               assert result[name]['result'] == expected, (name, result[name]['result'], expected)
