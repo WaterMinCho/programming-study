@@ -24,21 +24,31 @@ class DesignSystemTest(test_gui_hub.HubTest):
         kit.page(path)
         self.addCleanup(path.deleteLater)
         self.addCleanup(path.close)
+        self.capture_widget = path
         step = path.steps[0]
         step.title.setText("같은 글자\n둘째 줄")
         step.status.setText("같은 글자")
         path.show()
 
-        def first_line_bounds(widget, token):
+        def first_line_bounds(widget, token, bg_token):
             image = widget.grab().toImage()
             target = theme.qcolor(token)
+            background = theme.qcolor(bg_token)
+            bg = (background.red(), background.green(), background.blue())
+            delta = tuple(fg - base for fg, base in zip((target.red(), target.green(), target.blue()), bg))
+            norm = sum(channel * channel for channel in delta)
+            self.assertGreater(norm, 0)
             rows = []
             for y in range(image.height()):
                 count = 0
                 for x in range(1, image.width() - 1):
                     color = image.pixelColor(x, y)
-                    if max(abs(color.red() - target.red()), abs(color.green() - target.green()),
-                           abs(color.blue() - target.blue())) < 24:
+                    # 전경·배경 대비로 정규화해 서로 다른 색의 글자 가장자리를 같은 비율로 셈.
+                    coverage = sum((channel - base) * direction for channel, base, direction in
+                                   zip((color.red(), color.green(), color.blue()), bg, delta)) / norm
+                    # 투명 위젯 캡처는 지정한 배경에 알파 합성한 뒤 같은 커버리지로 비교함.
+                    coverage *= color.alphaF()
+                    if coverage >= .5:
                         count += 1
                 if count >= 3:
                     if rows and y - rows[-1] > 3:
@@ -52,15 +62,19 @@ class DesignSystemTest(test_gui_hub.HubTest):
                 theme.set_mode(mode)
                 theme.set_text(text)
                 kit.refont(path)
-                path.resize(656, path.heightForWidth(656))
+                area = path.screen().availableGeometry()
+                width = min(656, max(1, area.width() - 32))
+                path.resize(width, path.heightForWidth(width))
+                path.move(area.topLeft() + QPoint(16, 16))
                 guikit.pump()
+                self.assertTrue(area.contains(path.frameGeometry()))
                 destination = os.environ.get("STUDY_UI_ARTIFACT_DIR")
                 if destination:
                     target = Path(destination)
                     target.mkdir(parents=True, exist_ok=True)
                     self.assertTrue(step.grab().save(str(target / f"course-badge-{mode}-{cycle}-{text}.png")))
-                title_bounds = first_line_bounds(step.title, "ink")
-                status_bounds = first_line_bounds(step.status, "muted")
+                title_bounds = first_line_bounds(step.title, "ink", "surface")
+                status_bounds = first_line_bounds(step.status, "muted", "surface_alt")
                 for title_edge, status_edge in zip(title_bounds, status_bounds):
                     self.assertLessEqual(abs(title_edge - status_edge), 1, (mode, text, title_bounds, status_bounds))
                 self.assertGreaterEqual(step.title.height(), step.title.heightForWidth(step.title.width()))
