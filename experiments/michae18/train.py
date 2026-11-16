@@ -3,7 +3,7 @@ import torch
 from learning_server.input_example import load, batch
 from experiments.michae18.model import SmallLSTM
 
-torch.manual_seed(2026)
+torch.manual_seed(42)
 
 # 데이터 로딩
 rows, vocabulary = load("../learning-demo-f4","python","train")
@@ -66,6 +66,7 @@ second_inputs = {
 }
 
 with torch.no_grad():
-    second_probabilities = model(second_inputs)
-
+    second_logits = model(second_inputs)
+    second_probabilities = torch.sigmoid(second_logits)
+print("\n두 번째 배치 예측 확률:", second_probabilities.tolist())
 print("두 번째 배치 예측 개수:", second_probabilities.numel())
