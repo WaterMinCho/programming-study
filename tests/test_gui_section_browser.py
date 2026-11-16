@@ -47,6 +47,21 @@ class AiSectionBrowserTest(AiTest):
                     self.settle()
                     if native:
                         self.assertTrue(room.contains(win.frameGeometry()))
+                    courses = home.course_tabs.buttons
+                    self.assertEqual(["AI 개론", "AI 응용"], [button.text() for button in courses])
+                    self.assertAlmostEqual(courses[0].width(), courses[1].width(), delta=1)
+                    self.assertEqual(courses[0].font(), courses[1].font())
+                    self.assertEqual(theme.TYPE["headline"][0], courses[0].font().pixelSize())
+                    self.assertEqual(courses[0].height(), courses[1].height())
+                    self.assertEqual(courses[0].mapTo(home, QPoint()).y(), courses[1].mapTo(home, QPoint()).y())
+                    self.assertEqual(courses[1].mapTo(home, QPoint(courses[1].width(), 0)).x(),
+                                     browser.navigation.mapTo(home, QPoint(browser.navigation.width(), 0)).x())
+                    self.assertGreaterEqual(home.scroll.viewport().height(), 200)
+                    for button in courses:
+                        self.assertTrue(win.rect().contains(button.rect().translated(button.mapTo(win, QPoint()))))
+                        self.assertGreaterEqual(button.width() - 32, QFontMetricsF(button.font()).horizontalAdvance(button.text()))
+                        self.assertTrue(button.accessibleDescription())
+                    course_positions = [button.mapTo(home, QPoint()) for button in courses]
                     buttons = list(browser.buttons.values())
                     ys = {button.mapTo(home, QPoint()).y() for button in buttons}
                     single_line_width = max(button.sizeHint().width() for button in buttons) * 4 + 24
@@ -71,6 +86,7 @@ class AiSectionBrowserTest(AiTest):
                     bar.setValue(bar.maximum())
                     guikit.pump()
                     self.assertEqual(before, [button.mapTo(home, QPoint()) for button in buttons])
+                    self.assertEqual(course_positions, [button.mapTo(home, QPoint()) for button in courses])
                     guikit.click(browser.buttons["mocks"])
                     self.settle()
                     self.assertEqual(before, [button.mapTo(home, QPoint()) for button in buttons])

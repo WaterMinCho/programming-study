@@ -923,6 +923,37 @@ class TabBar(QWidget):
         self.buttons[number].setVisible(visible)
 
 
+class NavigationTabs(TabBar):
+    """상위 탐색 항목을 같은 폭과 큰 글자로 표시함."""
+    def __init__(self, names, deferred=False):
+        super().__init__(names, deferred=deferred)
+        row = self.layout().itemAt(0).layout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(theme.GAP["detail"])
+        row.takeAt(row.count() - 1)
+        for number, tab in enumerate(self.buttons):
+            typed(tab, "headline", True)
+            row.setStretch(number, 1)
+        self.refont()
+
+    def refont(self):
+        height = theme.TYPE["headline"][1] + theme.GAP["group"]
+        color = lambda key: theme.qcolor(key).name()
+        self.setStyleSheet(f"""
+            QPushButton#tab {{ background: {color('surface')}; color: {color('ink')};
+                font-size: {theme.TYPE['headline'][0]}px; font-weight: 700;
+                min-height: {height}px; max-height: {height}px; padding: 0 16px;
+                border: 1px solid transparent; border-bottom: 3px solid {color('line')}; }}
+            QPushButton#tab:hover {{ background: {color('hover')}; }}
+            QPushButton#tab:checked {{ background: {color('selection')}; color: {color('selection_ink')};
+                border-bottom-color: {color('link')}; }}
+            QPushButton#tab:focus {{ border-top-color: {color('focus')};
+                border-left-color: {color('focus')}; border-right-color: {color('focus')}; }}
+            QPushButton#tab:disabled {{ color: {color('faint')}; background: {color('bg')}; }}
+            QPushButton#tab:checked:disabled {{ background: {color('selection')}; }}
+        """)
+
+
 class SplitHandle(QSplitterHandle):
     """칸 나누기의 손잡이. 바탕은 스타일시트(bg)가 칠하고 가운데에 GRIP 무늬(가로로 누운 손잡이는 32×4, 모서리 2)를 그림.
     무늬 색은 평소 border 이고 마우스를 올리면 scroll_hover 로 바뀜. 두 번 누르면 처음 몫으로 돌아감. 칸 나누기가 잠기면 무늬를 그리지 않음."""
