@@ -316,6 +316,24 @@ val_tf = transforms.Compose([
 
 두 설정 모두 크기를 맞추고 중앙을 자른 다음 텐서로 변환해 정규화합니다. 정규화 상수는 사용하는 가중치와 학습 조건에 맞춥니다. 위 코드는 각 채널에서 0.5를 빼고 0.5로 나누는 예입니다.
 
+훈련에는 원래 라벨이 유지되는 범위에서 무작위 변형을 넣습니다. RandomResizedCrop(224)는 무작위로 고른 영역을 224×224로 맞춥니다. RandomHorizontalFlip은 지정한 확률로 이미지를 좌우로 뒤집습니다. 그다음 ToTensor와 Normalize를 적용합니다. 일부 영역을 가리는 RandomErasing은 텐서를 받으므로 ToTensor 뒤에 둡니다. Normalize 뒤에 value=0으로 가리면 정규화한 공간의 값 0으로 채웁니다.
+
+검증에는 무작위 변형을 빼고 위 val_tf처럼 고정한 변환을 적용합니다. 같은 이미지를 매번 같은 조건으로 평가하도록 훈련용 변환과 구분합니다.
+
+```ai-code-help
+{
+  "title": "훈련용 Compose",
+  "explanation": "크롭과 반전, 텐서 변환, 정규화, 영역 가리기를 연결한 코드입니다. RandomErasing의 확률과 채울 값도 함께 확인합니다.",
+  "reference": {
+    "course": "intro",
+    "lesson": "l14",
+    "unit": "14f",
+    "step": 3,
+    "title": "PIL에서 Tensor로 바꾼 뒤 지우기"
+  }
+}
+```
+
 ```ai-recall
 {"id": "r3", "q": "정사각형 이미지를 Resize(226) 뒤 CenterCrop(224)로 자르면 위쪽에서 버리는 폭은 ____ 픽셀입니다.", "answer": ["1"], "mode": "number", "unit": "픽셀", "why": "세로 길이 차이 226−224=2를 위아래에 나누므로 위쪽에서 1픽셀을 버립니다."}
 ```

@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """코드의 짧은 사용 설명과 앞 학습 단계의 읽기 전용 참조를 표시함."""
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QDialog, QWidget
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer
+from PyQt6.QtWidgets import QApplication, QDialog, QWidget
 
 from aiprep import bank
 from gui import kit, theme
 from gui.dialog_layout import DialogLayout
+
+_RESTORE_SELECTION = QEvent.Type(QEvent.registerEventType())
 
 
 class CodeReferenceDialog(QDialog):
@@ -82,14 +84,15 @@ class CodeHelpBlock(QWidget):
         if self.dialog is not None:
             self.dialog.raise_()
             return
-        self.restore_timer.stop()
-        if self.return_state is not None:
-            reader, view, _, fields = self.return_state
-            if reader.view is view:
-                self.restore_selections(view, fields)
-            self.return_state = None
-        from gui.ai_guide import ViewState
         reader = self.ctx.win.ai_learn
+        for source in reader.view.findChildren(CodeHelpBlock):
+            if source.dialog is None and source.return_state is not None:
+                _, view, _, fields = source.return_state
+                if reader.view is view:
+                    source.restore_selections(view, fields)
+                source.cancel_restore()
+        self.cancel_restore()
+        from gui.ai_guide import ViewState
         reader.remember_view()
         _, saved = reader.view_states[reader.view_key[0]]
         position = ViewState(reader)
@@ -103,6 +106,7 @@ class CodeHelpBlock(QWidget):
             return
         self.error.hide()
         self.dialog = dialog
+        self.ctx.win.installEventFilter(self)
         self.destroyed.connect(dialog.deleteLater)
         dialog.finished.connect(self.closed)
         dialog.destroyed.connect(lambda: self.clear_dialog(dialog))
@@ -120,19 +124,47 @@ class CodeHelpBlock(QWidget):
     def restore_source(self):
         saved = self.return_state
         if saved is None or not self.isVisible() or self.dialog is not None:
-            self.return_state = None
+            self.cancel_restore()
             return
         reader, view, position, fields = saved
         if reader.view is not view:
-            self.return_state = None
+            self.cancel_restore()
+            return
         elif position is not None:
             self.return_state = (reader, view, None, fields)
             position.restore()
             self.button.setFocus(Qt.FocusReason.OtherFocusReason)
-            self.restore_timer.start(0)
-        else:
-            self.return_state = None
-            self.restore_selections(view, fields)
+        if QApplication.activeWindow() is self.ctx.win:
+            self.queue_selection_restore()
+
+    def queue_selection_restore(self):
+        # QLineEdit가 창 활성화 뒤 예약한 선택 해제를 먼저 처리함.
+        QCoreApplication.removePostedEvents(self, _RESTORE_SELECTION)
+        QCoreApplication.postEvent(self, QEvent(_RESTORE_SELECTION), Qt.EventPriority.LowEventPriority.value)
+
+    def eventFilter(self, watched, event):
+        if (watched is self.ctx.win and event.type() == QEvent.Type.WindowActivate
+                and self.return_state is not None and self.dialog is None):
+            self.queue_selection_restore()
+        return False
+
+    def event(self, event):
+        if event.type() == _RESTORE_SELECTION:
+            saved = self.return_state
+            if (saved is not None and saved[2] is None and QApplication.activeWindow() is self.ctx.win
+                    and self.isVisible() and self.dialog is None):
+                reader, view, _, fields = saved
+                self.cancel_restore()
+                if reader.view is view:
+                    self.restore_selections(view, fields)
+            return True
+        return super().event(event)
+
+    def cancel_restore(self):
+        self.restore_timer.stop()
+        QCoreApplication.removePostedEvents(self, _RESTORE_SELECTION)
+        self.ctx.win.removeEventFilter(self)
+        self.return_state = None
 
     @staticmethod
     def restore_selections(view, fields):
@@ -142,14 +174,15 @@ class CodeHelpBlock(QWidget):
             block = _view_widget(view, path)
             if not isinstance(block, RecallBlock) or block.field.text() != text:
                 continue
+            if (block.field.cursorPosition(), block.field.selectionStart(), block.field.selectionLength()) == (cursor, start, length):
+                continue
             if start >= 0:
                 block.field.setSelection(start + length if cursor == start else start, -length if cursor == start else length)
             else:
                 block.field.setCursorPosition(cursor)
 
     def hideEvent(self, event):
-        self.restore_timer.stop()
-        self.return_state = None
+        self.cancel_restore()
         if self.dialog is not None:
             self.dialog.close()
         super().hideEvent(event)

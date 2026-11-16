@@ -3,102 +3,28 @@
 import json
 import os
 from pathlib import Path
-import time
 from unittest import mock
 
 from tests import guikit, test_gui_ai
 from PyQt6 import sip
-from PyQt6.QtCore import QEvent, QObject, QPoint, Qt
+from PyQt6.QtCore import QEvent, QPoint, Qt
 from PyQt6.QtTest import QTest
 from gui import ai_learn, theme
-from gui.ai_code_help import CodeHelpBlock, CodeReferenceDialog
+from gui.ai_code_help import CodeHelpBlock
 from aiprep import bank, service
-
-
-class SelectionTrace(QObject):
-    """검사 입력의 선택·초점 이벤트만 기록함. 글자나 실제 학습 기록은 출력하지 않음."""
-
-    def __init__(self, win, block, field, label):
-        super().__init__()
-        self.win, self.block, self.field, self.label = win, block, field, label
-        self.rows, self.connections, self.running = [], [], True
-        self.started = time.monotonic()
-        guikit.APP.installEventFilter(self)
-        for signal, phase in ((block.button.pressed, "button.pressed"),
-                              (block.button.released, "button.released.before_open"),
-                              (block.button.clicked, "button.clicked.after_open"),
-                              (block.restore_timer.timeout, "restore_timer.after"),
-                              (guikit.APP.focusChanged, "application.focusChanged")):
-            self.connect(signal, phase)
-        if field is not None:
-            self.connect(field.selectionChanged, "input.selectionChanged")
-            self.connect(field.cursorPositionChanged, "input.cursorPositionChanged")
-
-    def connect(self, signal, phase):
-        callback = lambda *args: self.record(phase)
-        signal.connect(callback)
-        self.connections.append((signal, callback))
-
-    def name(self, widget):
-        if widget is None:
-            return None
-        for target, name in ((self.win, "main"), (self.block.button, "button"), (self.field, "input"),
-                             (self.block.restore_timer, "restore_timer")):
-            if widget is target:
-                return name
-        return "popup" if isinstance(widget, CodeReferenceDialog) else type(widget).__name__
-
-    def record(self, phase, **extra):
-        if not self.running or sip.isdeleted(self.block) or sip.isdeleted(self.win):
-            return
-        field = self.field if self.field is not None and not sip.isdeleted(self.field) else None
-        saved = self.block.return_state
-        cached = [{"cursor": cursor, "start": start, "length": length,
-                   "same_text": field is not None and text == field.text()}
-                  for text, cursor, start, length in saved[3].values()] if saved else None
-        self.rows.append({"ms": round((time.monotonic() - self.started) * 1000, 2), "phase": phase,
-                          "input": [field.selectionStart(), field.selectionLength(), field.cursorPosition()] if field else None,
-                          "focus": self.name(guikit.APP.focusWidget()), "active": self.name(guikit.APP.activeWindow()),
-                          "main_active": self.win.isActiveWindow(), "timer": self.block.restore_timer.isActive(),
-                          "saved": cached, "position_pending": saved is not None and saved[2] is not None, **extra})
-
-    def eventFilter(self, watched, event):
-        if not self.running or sip.isdeleted(self.block):
-            return False
-        selected = (self.win, self.block.button, self.field, self.block.restore_timer)
-        events = (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonRelease, QEvent.Type.FocusIn,
-                  QEvent.Type.FocusOut, QEvent.Type.WindowActivate, QEvent.Type.WindowDeactivate)
-        if (any(watched is item for item in selected) or isinstance(watched, CodeReferenceDialog)) and (
-                event.type() in events or watched is self.block.restore_timer and event.type() == QEvent.Type.Timer):
-            reason = event.reason().name if event.type() in (QEvent.Type.FocusIn, QEvent.Type.FocusOut) else None
-            self.record("event.before." + event.type().name, target=self.name(watched), reason=reason,
-                        spontaneous=event.spontaneous())
-        return False
-
-    def message(self):
-        return json.dumps({"case": self.label, "platform": guikit.APP.platformName(),
-                           "dpr": self.win.devicePixelRatioF(), "events": self.rows}, ensure_ascii=False)
-
-    def save(self):
-        folder = os.environ.get("STUDY_UI_ARTIFACT_DIR")
-        if folder:
-            out = Path(folder)
-            out.mkdir(parents=True, exist_ok=True)
-            (out / ("code-help-focus-" + self.label + ".json")).write_text(self.message() + "\n", encoding="utf-8")
-
-    def stop(self):
-        self.running = False
-        guikit.APP.removeEventFilter(self)
-        for signal, callback in self.connections:
-            try:
-                signal.disconnect(callback)
-            except (RuntimeError, TypeError):
-                pass
-        self.connections = []
 
 
 class CodeHelpGuiTest(test_gui_ai.AiTest):
     real_bank = True
+
+    def code_help(self, reader):
+        blocks = reader.view.findChildren(CodeHelpBlock)
+        if reader.lid == "i15":
+            blocks = [block for block in blocks
+                      if tuple(block.block["reference"][key] for key in ("course", "lesson", "unit", "step"))
+                      == ("intro", "l10", "10b", 4)]
+        self.assertEqual(1, len(blocks))
+        return blocks[0]
 
     def stored(self):
         return {str(p.relative_to(self.tmp)): p.read_bytes() for p in Path(self.tmp).rglob("*")
@@ -133,7 +59,7 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
             self.assertTrue(win.open_ai_unit(lid, key, number))
             reader = win.ai_learn
             self.settled()
-            block, = reader.view.findChildren(CodeHelpBlock)
+            block = self.code_help(reader)
             fields = reader.view.findChildren(ai_learn.RecallBlock)
             field = fields[0].field if fields else None
             if field is not None:
@@ -155,15 +81,10 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
                 at = (reader.lid, reader.key, reader.index, reader.scroll.verticalScrollBar().value())
                 draft = (field.text(), field.selectedText()) if field is not None else None
                 selected_course = win.settings.value("ai/course/" + win.user)
-                trace = SelectionTrace(win, block, field, lid + "-" + mode)
-                self.addCleanup(trace.stop)
-                trace.record("baseline.before_capture")
                 self.capture(win, "code-help-%s-%s-reader" % (lid, mode))
                 with mock.patch.object(service.AiSession, "__init__", side_effect=AssertionError("참조에서 세션 생성")), \
                         mock.patch.object(source.collection, "emit", side_effect=AssertionError("참조에서 수집")):
-                    trace.record("before_click")
                     guikit.click(block.button)
-                    trace.record("after_click")
                     popup = block.dialog
                     self.assertIsNotNone(popup)
                     self.addCleanup(lambda p=popup: p.close() if not sip.isdeleted(p) else None)
@@ -189,21 +110,15 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
                     popup.panel.scroll.verticalScrollBar().setValue(popup.panel.scroll.verticalScrollBar().maximum())
                     guikit.pump()
                     self.assertEqual(fixed, (popup.panel.title.mapTo(popup, QPoint()), popup.close_btn.mapTo(popup, QPoint())))
-                    trace.record("before_escape")
                     QTest.keyClick(popup, Qt.Key.Key_Escape)
-                    trace.record("escape_return")
                     self.settled()
-                    trace.record("settled")
-                    trace.save()
-                diagnostic = trace.message()
-                trace.stop()
                 self.assertIsNone(block.dialog)
                 self.assertIs(win.focusWidget(), block.button)
                 self.assertIs(source, win.ai)
                 self.assertEqual(selected_course, win.settings.value("ai/course/" + win.user))
                 self.assertEqual(at, (reader.lid, reader.key, reader.index, reader.scroll.verticalScrollBar().value()))
                 if field is not None:
-                    self.assertEqual(draft, (field.text(), field.selectedText()), diagnostic)
+                    self.assertEqual(draft, (field.text(), field.selectedText()), (lid, mode))
                 self.assertEqual(before, self.stored())
         # 마지막 참조 창을 운영체제 캡처에서도 확인할 수 있게 열어 둠.
         guikit.click(block.button)
@@ -215,7 +130,7 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
         win.open_ai_unit("i15", "15b", 4)
         self.settled()
         reader = win.ai_learn
-        block, = reader.view.findChildren(CodeHelpBlock)
+        block = self.code_help(reader)
         reader.scroll.ensureWidgetVisible(block.button)
         guikit.click(block.button)
         popup = block.dialog
@@ -266,7 +181,7 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
         win.open_ai_unit("i15", "15b", 4)
         self.settled()
         reader = win.ai_learn
-        block, = reader.view.findChildren(CodeHelpBlock)
+        block = self.code_help(reader)
         field = reader.view.findChildren(ai_learn.RecallBlock)[0].field
         reader.scroll.ensureWidgetVisible(block.button)
         block.button.setFocus()
@@ -289,6 +204,11 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
             popup.finished.connect(lambda _: field.deselect())
             with mock.patch.object(win.ai.collection, "emit", side_effect=AssertionError("참조에서 수집")):
                 QTest.keyClick(popup, Qt.Key.Key_Escape)
+                block.restore_timer.stop()
+                block.restore_source()
+                # Windows처럼 복원 콜백 뒤에 Qt의 활성화 처리가 실행되게 함.
+                guikit.APP.sendEvent(win, QEvent(QEvent.Type.WindowActivate))
+                block.restore_source()
                 self.settled()
             self.assertEqual(selected, (field.text(), field.selectedText(), field.cursorPosition()))
             self.assertIs(win.focusWidget(), block.button)
@@ -314,7 +234,40 @@ class CodeHelpGuiTest(test_gui_ai.AiTest):
         win.go_ai()
         win.open_ai_unit("i15", "15b", 4)
         self.settled()
-        block, = win.ai_learn.view.findChildren(CodeHelpBlock)
+        reader = win.ai_learn
+        block = self.code_help(reader)
+        other, = [item for item in reader.view.findChildren(CodeHelpBlock) if item is not block]
+        field = reader.view.findChildren(ai_learn.RecallBlock)[0].field
+        field.setText("미완성 17")
+        reader.scroll.ensureWidgetVisible(block.button)
+        block.button.setFocus()
+        self.settled()
+        field.setSelection(3, -3)
+        selected = (field.text(), field.selectedText(), field.cursorPosition())
+        before = self.stored()
+        block.open_reference()
+        guikit.pump()
+        block.dialog.close()
+        pending_position = block.return_state[2]
+        field.deselect()
+        reader.scroll.ensureWidgetVisible(other.button)
+        at = reader.scroll.verticalScrollBar().value()
+        # 첫 창의 복원을 처리하기 전에 같은 단계의 다른 참조를 엶.
+        with mock.patch.object(pending_position, "restore", wraps=pending_position.restore) as restore:
+            other.open_reference()
+            self.assertIsNone(block.return_state)
+            self.assertFalse(block.restore_timer.isActive())
+            self.assertEqual(selected, (field.text(), field.selectedText(), field.cursorPosition()))
+            guikit.pump()
+            restore.assert_not_called()
+            self.assertIs(guikit.APP.activeWindow(), other.dialog)
+            self.assertEqual(at, reader.scroll.verticalScrollBar().value())
+        other.dialog.close()
+        self.settled()
+        self.assertIs(win.focusWidget(), other.button)
+        self.assertEqual(selected, (field.text(), field.selectedText(), field.cursorPosition()))
+        self.assertEqual(at, reader.scroll.verticalScrollBar().value())
+        self.assertEqual(before, self.stored())
         block.open_reference()
         old = block.dialog
         old.close()
