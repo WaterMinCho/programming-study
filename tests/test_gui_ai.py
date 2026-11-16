@@ -667,6 +667,7 @@ class LessonAndLearnTest(AiTest):
         holder.resize(700, 600)
         holder.show()
         self.addCleanup(holder.close)
+        self.capture_widget = holder
         guikit.pump(200)
         self.assertEqual((figure.frame(), figure.playing, figure.frame_text.text()), (0, True, "1장 설명"))
         for _ in range(6):

@@ -442,6 +442,7 @@ class FigureViewTest(unittest.TestCase):
     def figure(self):
         holder = QWidget()
         holder.resize(440, 280)
+        self.capture_widget = holder
         self.addCleanup(holder.deleteLater)
         self.addCleanup(holder.close)
         figure = FigureView(self.path, "그림 1-1a. 장부 줄이 모이는 모습", parent=holder)
@@ -592,6 +593,9 @@ class FigureViewTest(unittest.TestCase):
         self.assertEqual(figure.play_btn.accessibleName(), "일시 정지")
         figure.hide()  # 가려지면 멈춤
         self.assertFalse(figure.playing or figure.timer.isActive())
+        figure.show()
+        guikit.pump(30)
+        self.assertTrue(figure.playing)
 
     def test_scrolling_pauses_offscreen_loop_and_resumes_only_playing_figure(self):
         motion.enabled = True
@@ -775,6 +779,16 @@ class FigureViewTest(unittest.TestCase):
                         for button in (figure.next_btn, figure.zoom_btn):
                             self.assertGreaterEqual(button.width(), button.sizeHint().width())
             root.close()
+        holder = kit.page(QScrollArea())
+        holder.setWidget(root)
+        holder.setWidgetResizable(True)
+        holder.resize(760, 480)
+        holder.show()
+        self.addCleanup(holder.close)
+        self.capture_widget = holder
+        guikit.pump()
+        holder.ensureWidgetVisible(figure.controls)
+        guikit.pump()
 
 
 def painted_text_bottom(widget):
