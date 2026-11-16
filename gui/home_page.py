@@ -27,7 +27,7 @@ class HomePage(QWidget):
         kit.page(self)
         self.win = win
         outer = kit.box(self)
-        top = kit.TopBar("학습 현황", "파이썬 스터디")
+        self.top = top = kit.TopBar("학습 현황", "파이썬 스터디")
         self.hub_btn = top.back
         self.wrong_btn = top.add_right(kit.button("오답 노트", "text"))
         self.theme_btn = top.add_right(kit.button("", "text"))

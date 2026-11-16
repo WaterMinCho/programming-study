@@ -34,6 +34,7 @@ class CareerController:
         page.tour_help.setToolTip("이 화면의 버튼 위치와 사용 순서를 다시 안내합니다.")
         page.tour_help.clicked.connect(lambda: self.queue_tour(page, replay=True))
         page.top.row.addWidget(page.tour_help)
+        self.win.workspace.add_settings(page)
         page.busy_changed.connect(lambda busy: self.dismiss_tour() if busy else self.queue_tour(page))
         return page
 

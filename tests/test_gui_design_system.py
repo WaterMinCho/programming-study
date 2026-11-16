@@ -5,7 +5,8 @@ from pathlib import Path
 from unittest import mock
 
 from tests import guikit, test_gui_hub
-from PyQt6.QtCore import QPoint
+from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtTest import QTest
 from gui import theme
 from gui.career_roadmap import OrganisationGuide
 from gui.career_learning_path import CareerLearningPath
@@ -83,38 +84,74 @@ class DesignSystemTest(test_gui_hub.HubTest):
     def test_settings_reuse_actions_across_subject_and_career_overviews(self):
         win = self.boot()
         before = copy.deepcopy(win.session.prof)
-        for move in (win.go_home, win.go_ai, win.go_career, win.go_magazine):
+        for move in (win.go_hub, win.go_home, win.go_journey, win.go_ai,
+                     lambda: win.open_ai_lesson("i90"), win.go_career, win.go_magazine):
             move()
             guikit.wait_until(lambda: win.job is None)
             guikit.pump()
-            for mode, size in zip(("light", "dark"), self.window_sizes(win)):
+            for mode, size in ((mode, size) for mode in ("light", "dark") for size in self.window_sizes(win)):
                 win.set_theme(mode)
                 win.set_text("larger")
                 win.resize(*size)
                 guikit.pump()
                 workspace = win.workspace
-                index = 0 if workspace.rail.isVisible() else 1
-                trigger = (workspace.rail_settings, workspace.compact_settings)[index]
+                page = win.pages.currentWidget()
+                trigger = page.settings_btn
+                if page is win.journey_map:
+                    page.show_cache({"bytes": 10 * 1024 * 1024})
+                    guikit.pump()
+                if page.top.back is not None:
+                    win.activateWindow()
+                    guikit.pump()
+                    page.top.back.setFocus()
+                    self.assertTrue(page.top.back.hasFocus(), (type(page).__name__, page.top.back.isEnabled()))
+                    for _ in range(20):
+                        focused = guikit.APP.focusWidget()
+                        if focused is trigger:
+                            break
+                        self.assertIsNotNone(focused)
+                        self.assertTrue(page.top.isAncestorOf(focused), (type(page).__name__, mode, size, focused, trigger.isEnabled(), trigger.isVisible()))
+                        QTest.keyClick(focused, Qt.Key.Key_Tab)
+                    self.assertTrue(trigger.hasFocus())
                 self.assertTrue(trigger.isVisible())
                 self.assertGreaterEqual(trigger.width(), trigger.sizeHint().width())
                 guikit.click(trigger)
-                menu = workspace.settings_menus[index]
+                menu = page.settings_panel
+                self.assertIs(trigger.parentWidget(), page.top.controls if page is win.hub else page.top)
+                rect = trigger.rect().translated(trigger.mapTo(page.top, QPoint()))
+                self.assertTrue(page.top.rect().contains(rect), (page, rect, page.top.rect()))
+                self.assertLessEqual(abs(page.top.width() - rect.right() - 1 - (kit.MARGIN - kit.FLUSH)), 1)
+                self.assertEqual(trigger.sizeHint().height(), win.hub.settings_btn.sizeHint().height())
+                # 같은 막대의 기존 도구를 밀어 가리거나 겹치지 않는지 확인함.
+                siblings = []
+                for sibling in page.top.findChildren(type(trigger)):
+                    if sibling is trigger or not sibling.isVisible():
+                        continue
+                    other = sibling.rect().translated(sibling.mapTo(page.top, QPoint()))
+                    self.assertTrue(page.top.rect().contains(other), (sibling.text(), other, page.top.rect()))
+                    self.assertGreaterEqual(sibling.width(), sibling.sizeHint().width(), sibling.text())
+                    self.assertFalse(rect.intersects(other), (trigger.text(), sibling.text()))
+                    for seen in siblings:
+                        self.assertFalse(seen.intersects(other), sibling.text())
+                    siblings.append(other)
+                if page.top.title.isVisible():
+                    self.assertGreater(page.top.title.width(), 0)
                 self.assertTrue(menu.isVisible())
                 self.assertEqual([b.text() for b in menu.actions], [b.text() for b in win.hub.settings_panel.actions])
                 self.assertTrue(menu.screen().availableGeometry().contains(menu.geometry()))
                 destination = os.environ.get("STUDY_UI_ARTIFACT_DIR")
-                if destination and move == win.go_magazine:
+                if destination:
                     target = Path(destination)
                     target.mkdir(parents=True, exist_ok=True)
-                    self.assertTrue(win.grab().save(str(target / f"workspace-settings-{mode}.png")))
-                    self.assertTrue(menu.grab().save(str(target / f"workspace-settings-popup-{mode}.png")))
+                    self.assertTrue(win.grab().save(str(target / f"workspace-settings-{win.area}-{type(page).__name__}-{mode}-{win.width()}.png")))
+                    self.assertTrue(menu.grab().save(str(target / f"workspace-settings-popup-{win.area}-{type(page).__name__}-{mode}-{win.width()}.png")))
                 menu.dismiss(immediate=True)
                 guikit.pump()
+                self.assertTrue(trigger.hasFocus(), (type(page).__name__, mode, size, guikit.APP.activePopupWidget(), guikit.APP.activeModalWidget(), guikit.APP.focusWidget()))
         self.assertEqual(before, win.session.prof)
         win.go_hub()
         guikit.pump()
-        self.assertFalse(win.workspace.compact_settings.isVisible())
-        self.assertFalse(win.workspace.rail_settings.isVisible())
+        self.assertEqual(sum(menu.trigger.isVisible() for menu in win.workspace.settings_menus), 0)
         self.assertTrue(win.hub.settings_btn.isVisible())
 
     def test_settings_cancel_pending_actions_on_navigation_and_lock_during_jobs(self):
@@ -122,7 +159,7 @@ class DesignSystemTest(test_gui_hub.HubTest):
         win.go_home()
         guikit.pump()
         workspace = win.workspace
-        menu = workspace.settings_menus[0 if workspace.rail.isVisible() else 1]
+        menu = win.home.settings_panel
         menu.open_menu()
         callback = mock.Mock()
         menu.dismiss(after=callback, immediate=True)
@@ -160,7 +197,7 @@ class DesignSystemTest(test_gui_hub.HubTest):
         win = self.boot()
         win.go_ai()
         guikit.pump()
-        menu = win.workspace.settings_menus[1]
+        menu = win.ai_home.settings_panel
         seen = []
         with mock.patch.object(win, "show_hub_tour", side_effect=lambda **kw: seen.append((win.pages.currentWidget(), kw))):
             menu.show_first_tour()

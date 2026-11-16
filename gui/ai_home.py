@@ -124,7 +124,10 @@ class AiHomePage(QWidget):
         self.browser.begin_refresh((self.win.user, course))
         course_index = 1 if course == "app" else 0
         self.course_tabs.set_current(course_index)
-        QWidget.setTabOrder(self.hub_btn, self.course_tabs.buttons[course_index])
+        anchor = getattr(self, "settings_btn", self.hub_btn)
+        if anchor is not self.hub_btn:
+            QWidget.setTabOrder(self.hub_btn, anchor)
+        QWidget.setTabOrder(anchor, self.course_tabs.buttons[course_index])
         self.course_intro.setText("AI 응용 · 이미지를 준비하고 분류·검출에 연결합니다. 자료는 확인을 마친 단원부터 공개합니다." if course == "app" else
                                   "AI 개론 · 데이터와 모델, 손실과 기울기를 연결해 학습 원리를 익힙니다.")
         try:
@@ -359,6 +362,7 @@ class AiLessonPage(QWidget):
         outer = kit.box(self)
         self.top = kit.TopBar("← AI 비전 개론", "")
         self.back_btn, self.title = self.top.back, self.top.title
+        self.top.row.addStretch(1)
         self.note_btn = self.top.add_right(kit.button("전체 노트", "text", "s"))
         self.memo_btn = self.top.add_right(kit.button("복습 질문", "text", "s"), flush=True)
         self.note_btn.setToolTip("이 차시의 모든 단원을 정답을 편 채로 다시 읽습니다. 다시 읽기는 복습 확인 기록으로 세지 않습니다.")
