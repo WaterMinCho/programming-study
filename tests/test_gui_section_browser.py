@@ -123,6 +123,8 @@ class AiSectionBrowserTest(AiTest):
                     self.settle()
                     back.setFocus()
                     QTest.keyClick(back, Qt.Key.Key_Tab)
+                    self.assertTrue(home.settings_btn.hasFocus())
+                    QTest.keyClick(home.settings_btn, Qt.Key.Key_Tab)
                     self.assertTrue(home.course_tabs.buttons[0].hasFocus())
                     if destination:
                         target = Path(destination)
