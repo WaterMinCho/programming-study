@@ -16,7 +16,7 @@ from aiprep import bank
 from aiprep.gen import Rng
 
 PART_LETTER = {"slot": "k", "order": "o", "pick": "p", "change": "x"}
-PART_CHIP = {"slot": "코드 빈칸", "order": "순서 고르기", "pick": "고르기", "change": "고르기"}
+PART_CHIP = {"slot": "코드 빈칸", "order": "객관식", "pick": "객관식", "change": "객관식"}
 PART_KEY = {"slot": "slots", "order": "orders", "pick": "picks", "change": "changes"}
 CARD_ORDER = ("order", "pick", "change", "slot")  # 같은 코드 예제 고르기 카드가 slot 카드보다 먼저 나오게 매기는 순서
 SIMILAR = 0.5  # diff 짝 풀기 기준

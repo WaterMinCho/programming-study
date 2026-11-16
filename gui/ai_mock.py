@@ -102,10 +102,10 @@ class MockPage(QWidget):
         self.lesson_results.hide()
         self.clock_box.hide()
         if mixed_mock.candidate(info):
-            self.heading.setText(mixed_mock.description(info) + '\n빈칸 %d · 고르기 %d' % (info['blanks'], info['choices']))
+            self.heading.setText(mixed_mock.description(info) + '\n빈칸 %d · 객관식 %d' % (info['blanks'], info['choices']))
             doc('120분은 약 2시간 연습을 위한 기본값입니다. 공식 평가 시간을 뜻하지 않습니다.', '', self.card_box)
         else:
-            self.heading.setText('%d문항 · %d분 · %d~%d차시 · 빈칸 %d · 고르기 %d' %
+            self.heading.setText('%d문항 · %d분 · %d~%d차시 · 빈칸 %d · 객관식 %d' %
                                  (info['count'], info['minutes'], *info['range'], info['blanks'], info['choices']))
         doc('시작하면 시계가 멈추지 않습니다. 프로그램을 꺼도 시간이 흐르고, 시간이 다 되면 그때까지 쓴 답으로 제출됩니다. 부분 점수는 없습니다.', '', self.card_box)
         if self.restart_required:

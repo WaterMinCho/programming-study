@@ -2230,7 +2230,7 @@ class PracticeSet(object):
         if card["kind"] == "skel":
             chips.append(skel.PART_CHIP[card["part"]])
         else:
-            chips.append(("코드 빈칸" if code else "빈칸") if form == "blank" else "고르기")
+            chips.append(("코드 빈칸" if code else "빈칸") if form == "blank" else "객관식")
         if card["kind"] == "gen":
             chips.append("조건 변형")
         if entry["again"]:
