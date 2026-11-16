@@ -109,6 +109,19 @@ jobs:
           tests.test_gitflow.GitFlowTest.test_windows_locked_program_change_keeps_answers_and_retries
       - name: 프로그램 설치 경로와 첫 사용 검사
         run: python tools/check_release.py --out "${{ runner.temp }}/release-check"
+      - name: QHD 큰 창에서 직무 그림 간격 검사
+        shell: pwsh
+        env:
+          CAREER_QHD: '1'
+          CAREER_EVIDENCE: ${{ runner.temp }}/release-check
+        run: |
+          Set-DisplayResolution -Width 2560 -Height 1440 -Force
+          $resolution = (Get-DisplayResolution | Out-String).Replace([string][char]0, '').Trim()
+          if ($resolution -notmatch '2560\s*x\s*1440') {
+            throw "Failed to configure QHD screen: $resolution"
+          }
+          & "${{ runner.temp }}/release-check/venv/Scripts/python.exe" -m unittest -v tests.test_gui_career.CareerGuiTest.test_tall_windows_keep_scene_labels_and_pictures_together
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: 실제 재생기의 전체화면과 복원 검사
         shell: pwsh
         env:

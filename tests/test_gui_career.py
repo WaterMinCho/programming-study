@@ -137,6 +137,54 @@ class CareerGuiTest(unittest.TestCase):
         self.assertTrue(page.scene.picture.isVisible())
         self.assertTrue(page.scene.tabs.isVisible())
 
+    def test_tall_windows_keep_scene_labels_and_pictures_together(self):
+        page = self.show(CareerRoadmapPage, on_back=Mock(), on_select_goal=Mock(),
+                         on_video=Mock(), on_magazine=Mock())
+        self.capture_widget = page
+        room = page.screen().availableGeometry()
+        native = os.name == "nt" and os.environ.get("QT_QPA_PLATFORM") != "offscreen"
+        width = min(2311, room.width() - 32) if native else 2311
+        tall = min(1361, room.height() - 64) if native else 1361
+        if os.environ.get("CAREER_QHD"):
+            self.assertGreaterEqual(round(page.screen().size().width() * page.devicePixelRatioF()), 2560)
+            self.assertGreater(tall, 700)
+        page.move(room.topLeft() + QPoint(16, 32))
+        for mode, text in (("light", "normal"), ("dark", "larger")):
+            theme.set_mode(mode)
+            theme.set_text(text)
+            kit.refont(page)
+            for role in self.catalog.roles:
+                page.select_role(role["id"])
+                positions = []
+                for height in (700, tall, 700):
+                    page.resize(width, height)
+                    self.settle(page)
+                    page.scroll.verticalScrollBar().setValue(0)
+                    self.settle(page)
+                    scene = page.scene
+                    self.assertTrue(scene.wide)
+                    self.assertEqual(page.scroll.horizontalScrollBar().maximum(), 0)
+                    for number in range(2):
+                        panel = scene.panels.itemAt(number).widget()
+                        label = panel.layout().itemAt(0).widget()
+                        visual = panel.layout().itemAt(1).widget()
+                        self.assertAlmostEqual(label.height(), label.heightForWidth(label.width()), delta=1)
+                        self.assertEqual(visual.y() - label.y() - label.height(), theme.GAP["detail"])
+                    self.assertEqual(scene.picture.mapTo(page, QPoint()).y(), scene.artifact.mapTo(page, QPoint()).y())
+                    self.assertEqual(scene.picture.height(), scene.artifact.height())
+                    positions.append(scene.picture.mapTo(page.content, QPoint()).y())
+                    if role["id"] == "robot_control" and height == tall:
+                        self._capture(page, f"career-tall-{mode}-{text}")
+                self.assertLessEqual(max(positions) - min(positions), 1)
+            page.resize(760, 480)
+            self.settle(page)
+            page.scene.show_view(1)
+            self.settle(page)
+            self.assertTrue(page.scene.artifact.isVisible())
+            self.assertFalse(page.scene.picture.isVisible())
+            self.assertEqual(page.scene.caption.text(), page.scene.artifact.accessibleDescription())
+            self._capture(page, f"career-tall-return-{mode}-{text}")
+
     def test_roadmap_sources_and_related_videos_open_selected_targets(self):
         source, video, magazine = Mock(), Mock(), Mock()
         role = self.catalog.role("backend")

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, QSizeF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QPixmap, QTextLayout, QTextOption
-from PyQt6.QtWidgets import QBoxLayout, QComboBox, QGridLayout, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QBoxLayout, QComboBox, QGridLayout, QMenu, QSizePolicy, QWidget
 
 from career.catalog import RELATION_LABELS, load_catalog
 from gui import kit, theme
@@ -320,8 +320,22 @@ class CareerRoadmapPage(ReadingPage):
         self.saved_role_id = None
         self.browsing = True
         self._catalog_anchor = None
+        self._catalog_role_id = None
         self._detail_anchors = {}
         self._detail_index = 0
+        self.role_switch_button = kit.button("직무 바꾸기", "secondary", "l")
+        self.role_switch_button.setToolTip("다른 직무의 상세 화면으로 이동합니다. 목록으로 돌아가면 선택한 필터와 위치가 유지됩니다.")
+        self.role_switch_button.setAccessibleDescription(self.role_switch_button.toolTip())
+        self.role_menu = kit.typed(QMenu(self), "body")
+        self.role_menu.setAccessibleName("직무 선택")
+        for role in self.catalog.roles:
+            action = self.role_menu.addAction(role["title"])
+            action.setData(role["id"])
+            action.setCheckable(True)
+            action.triggered.connect(lambda checked=False, key=role["id"]: self._switch_detail_role(key))
+        self.role_switch_button.setMenu(self.role_menu)
+        if on_back:
+            self.top.row.insertWidget(1, self.role_switch_button)
         self.intro = QWidget()
         intro = kit.box(self.intro, spacing=theme.GAP["title_description"])
         title = kit.para("개발자 로드맵", "title")
@@ -359,6 +373,8 @@ class CareerRoadmapPage(ReadingPage):
         self.catalog_button.setAccessibleDescription(self.catalog_button.toolTip())
         self.catalog_button.clicked.connect(self.show_catalog)
         select.addWidget(self.catalog_button)
+        if not on_back:
+            select.addWidget(self.role_switch_button)
         select.addWidget(self.role_picker, 1)
         self.catalog_count = kit.para("", "label", "secondary")
         select.addWidget(self.catalog_count, 1)
@@ -387,6 +403,7 @@ class CareerRoadmapPage(ReadingPage):
         self.body.addWidget(self.gallery)
         self.details = QWidget()
         self.body.addWidget(self.details)
+        self.body.addStretch(1)
         details = kit.box(self.details)
         self.role_title = kit.para("", "title")
         self.role_title.setProperty("reading_anchor", True)
@@ -513,6 +530,7 @@ class CareerRoadmapPage(ReadingPage):
         self.controls.setVisible(self.browsing or self._on_back is None)
         self.controls_gap.setVisible(self.browsing or self._on_back is None)
         self.catalog_button.setVisible(not self.browsing)
+        self.role_switch_button.setVisible(not self.browsing and has_role)
         self.top.back.setText("← 학습 현황" if self.browsing else "← 직무 목록")
         self.details.setVisible(not self.browsing and has_role)
 
@@ -523,7 +541,7 @@ class CareerRoadmapPage(ReadingPage):
         self._show_mode()
         self._anchor = self._catalog_anchor
         self._schedule_restore()
-        card = self.gallery.cards.get(self.selected_role_id)
+        card = self.gallery.cards.get(self._catalog_role_id)
         if card is not None and self._catalog_anchor is not None:
             card.setFocus(Qt.FocusReason.OtherFocusReason)
         self.view_changed.emit()
@@ -534,21 +552,32 @@ class CareerRoadmapPage(ReadingPage):
             return
         self._remember()
         self._catalog_anchor = self._anchor
+        self._catalog_role_id = role_id
         self.role_picker.blockSignals(True)
         self.role_picker.setCurrentIndex(index)
         self.role_picker.blockSignals(False)
         self._pick_role()
         self.show_detail_tab(0)
 
-    def _pick_role(self, *_):
+    def _pick_role(self, *_, role_id=None):
         self.view_changing.emit()
         self._reset_reading()
         self._detail_anchors.clear()
         self.browsing = False
+        self.selected_role_id = role_id if role_id is not None else self.role_picker.currentData()
         self._show_role()
         self.scroll.verticalScrollBar().setValue(0)
         (self.top.back if self._on_back else self.catalog_button).setFocus(Qt.FocusReason.OtherFocusReason)
         self.view_changed.emit()
+
+    def _switch_detail_role(self, role_id):
+        if self.browsing or self.catalog.role(role_id) is None:
+            return
+        if role_id != self.selected_role_id:
+            self._pick_role(role_id=role_id)
+        for action in self.role_menu.actions():
+            action.setChecked(action.data() == self.selected_role_id)
+        self.role_switch_button.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def show_detail_tab(self, index):
         if index == self._detail_index:
@@ -589,7 +618,7 @@ class CareerRoadmapPage(ReadingPage):
         self._filter_roles()
 
     def _filter_roles(self, *_):
-        current = self.selected_role_id
+        current = self._catalog_role_id or self.selected_role_id
         self.role_picker.blockSignals(True)
         self.role_picker.clear()
         roles = self.catalog.roles_for(self.industry.currentData(), self.product.currentData())
@@ -600,7 +629,7 @@ class CareerRoadmapPage(ReadingPage):
         self.role_picker.blockSignals(False)
         self.gallery.set_roles(roles)
         self.gallery.set_saved(self.saved_role_id)
-        self.gallery.set_selected(self.selected_role_id)
+        self.gallery.set_selected(current)
         self.catalog_count.setText(f"직무 {len(roles)}개")
         active = any(combo.currentData() is not None for combo in (self.industry, self.product))
         self.filter_toggle.setText("산업·제품 필터 적용 중" if active else "산업·제품 필터")
@@ -621,6 +650,8 @@ class CareerRoadmapPage(ReadingPage):
         if self.catalog.role(role_id) is None:
             return False
         self.selected_role_id = role_id
+        self._catalog_role_id = role_id
+        self._catalog_anchor = None
         self.industry.blockSignals(True)
         self.industry.setCurrentIndex(0)
         self.industry.blockSignals(False)
@@ -633,8 +664,9 @@ class CareerRoadmapPage(ReadingPage):
 
     def _show_role(self, *_):
         self._anchor = None
-        self.selected_role_id = self.role_picker.currentData()
         role = self.catalog.role(self.selected_role_id)
+        for action in self.role_menu.actions():
+            action.setChecked(action.data() == self.selected_role_id)
         clear_layout(self.learning_box)
         clear_layout(self.sources_layout)
         self.sources_section.hide()
@@ -650,9 +682,11 @@ class CareerRoadmapPage(ReadingPage):
             return
         self.role_title.setText(role["title"])
         self.role_heading.refont()
-        self.gallery.set_selected(self.selected_role_id)
+        self.gallery.set_selected(self._catalog_role_id)
         self.scene.set_role(role)
         industry_id = self.industry.currentData()
+        if industry_id not in role["industry_ids"]:
+            industry_id = None
         candidates = [item for item in self.catalog.products if item["id"] in role["product_ids"]
                       and (not industry_id or industry_id in item["industry_ids"])]
         product_row = next((item for item in candidates if item["id"] == self.product.currentData()), candidates[0])

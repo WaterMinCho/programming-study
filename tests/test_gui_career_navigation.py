@@ -90,6 +90,181 @@ class CareerNavigationTest(unittest.TestCase):
         self.assertLessEqual(abs(anchor.mapTo(p.scroll.viewport(), QPoint()).y() - offset), 1)
         self.saved.assert_not_called()
 
+    def test_detail_switch_outside_filter_restores_original_catalog_card(self):
+        p = self.page
+        p.industry.setCurrentIndex(p.industry.findData("mobility"))
+        self.settle(p)
+        expected = list(p.gallery.cards)
+        filters = (p.industry.currentData(), p.product.currentData())
+        origin = expected[-1]
+        card = p.gallery.cards[origin]
+        p.scroll.ensureWidgetVisible(card)
+        card.setFocus()
+        self.settle(p)
+        p._remember()
+        anchor, offset = p._anchor
+        QTest.keyClick(card, Qt.Key.Key_Return)
+        self.settle(p)
+        catalog_anchor = p._catalog_anchor
+        self.assertEqual(p._catalog_role_id, origin)
+        actions = {action.data(): action for action in p.role_menu.actions()}
+        self.assertEqual(set(actions), {role["id"] for role in p.catalog.roles})
+        outside = [role["id"] for role in p.catalog.roles if role["id"] not in expected]
+        self.assertGreaterEqual(len(outside), 2)
+        p.show_detail_tab(1)
+        self.settle(p)
+        for role_id in outside[:2] + outside[:1]:
+            p.scroll.verticalScrollBar().setValue(p.scroll.verticalScrollBar().maximum())
+            self.settle(p)
+            actions[role_id].trigger()
+            self.settle(p)
+            self.assertFalse(p.browsing)
+            self.assertEqual(p.selected_role_id, role_id)
+            self.assertTrue(p.path_panel.isVisible())
+            self.assertTrue(p.detail_tabs.buttons[1].isChecked())
+            self.assertEqual(p.scroll.verticalScrollBar().value(), 0)
+            self.assertEqual(p._catalog_anchor, catalog_anchor)
+            self.assertEqual(p._catalog_role_id, origin)
+            self.assertEqual((p.industry.currentData(), p.product.currentData()), filters)
+        guikit.click(p.catalog_button)
+        self.settle(p)
+        self.assertTrue(p.browsing)
+        self.assertTrue(p.gallery.isVisible())
+        self.assertTrue(p.details.isHidden())
+        self.assertEqual(list(p.gallery.cards), expected)
+        self.assertEqual((p.industry.currentData(), p.product.currentData()), filters)
+        self.assertIs(p.focusWidget(), card)
+        self.assertTrue(card.isChecked())
+        self.assertAlmostEqual(anchor.mapTo(p.scroll.viewport(), QPoint()).y(), offset, delta=1)
+        self.saved.assert_not_called()
+        p.select_role(outside[-1])
+        self.settle(p)
+        self.assertIsNone(p._catalog_anchor)
+        self.assertEqual(p._catalog_role_id, outside[-1])
+        p.show_catalog()
+        self.settle(p)
+        self.assertTrue(p.gallery.cards[outside[-1]].isChecked())
+
+    def test_detail_menu_updates_content_checks_and_only_saves_on_request(self):
+        p = self.page
+        p._open_catalog_role("qa")
+        p.set_saved_role("qa")
+        self.settle(p)
+        self.assertEqual(p.role_switch_button.text(), "직무 바꾸기")
+        self.assertTrue(p.controls.isAncestorOf(p.role_switch_button))
+        actions = {action.data(): action for action in p.role_menu.actions()}
+        self.assertEqual([a.data() for a in actions.values() if a.isChecked()], ["qa"])
+        for role_id in ("backend", "frontend"):
+            actions[role_id].trigger()
+            self.settle(p)
+            role = p.catalog.role(role_id)
+            self.assertEqual(p.role_title.text(), role["title"])
+            self.assertEqual(p.scene.role["id"], role_id)
+            self.assertEqual(p.learning_path.nodes, tuple(role["roadmap_nodes"]))
+            self.assertEqual(p.learning_path.outputs, tuple(role["outputs"]))
+            self.assertEqual(p.work_flow.nodes[1], ("하는 일", "\n".join(role["tasks"])))
+            self.assertEqual([a.data() for a in actions.values() if a.isChecked()], [role_id])
+            self.assertEqual(p.goal_button.text(), "관심 직무로 저장")
+            self.assertEqual(p.saved_role_id, "qa")
+            self.saved.assert_not_called()
+        guikit.click(p.goal_button)
+        self.saved.assert_called_once_with("frontend", p.catalog.role("frontend")["goal_links"][0]["goal_id"])
+        p.set_saved_role("frontend")
+        self.assertEqual(p.goal_button.text(), "저장한 관심 직무")
+        actions["qa"].trigger()
+        self.settle(p)
+        self.assertEqual(p.goal_button.text(), "관심 직무로 저장")
+        actions["frontend"].trigger()
+        self.settle(p)
+        self.assertEqual(p.goal_button.text(), "저장한 관심 직무")
+        self.saved.assert_called_once()
+
+    def test_fixed_detail_menu_keyboard_cancel_choose_and_return_to_list(self):
+        self.page.close()
+        self.page.deleteLater()
+        guikit.pump()
+        back = Mock()
+        p = self.page = CareerRoadmapPage(on_back=back, on_select_goal=self.saved)
+        theme.set_text("larger")
+        kit.refont(p)
+        p.resize(760, 480)
+        p.show()
+        self.settle(p)
+        origin = p.catalog.roles[-1]["id"]
+        p._open_catalog_role(origin)
+        self.settle(p)
+        button, menu = p.role_switch_button, p.role_menu
+        self.assertTrue(p.top.isAncestorOf(button))
+        self.assertTrue(p.controls.isHidden())
+        position = button.mapTo(p, QPoint())
+        p.scroll.verticalScrollBar().setValue(p.scroll.verticalScrollBar().maximum())
+        self.settle(p)
+        self.assertEqual(button.mapTo(p, QPoint()), position)
+        self.assertFalse(button.visibleRegion().isEmpty())
+        actions = [action for action in menu.actions() if action.data() is not None]
+        self.assertGreaterEqual(len(actions), 3)
+        target = actions[1]
+        self.assertNotEqual(target.data(), origin)
+
+        def assert_button_focus():
+            self.assertIs(p.focusWidget(), button)
+            if guikit.APP.platformName() == "offscreen":
+                # 메뉴 닫기 뒤 offscreen이 창을 비활성화하므로 창만 다시 활성화함.
+                p.activateWindow()
+                guikit.pump()
+            self.assertTrue(button.hasFocus())
+
+        try:
+            for mode in ("light", "dark"):
+                theme.set_mode(mode)
+                kit.refont(p)
+                self.settle(p)
+                centers = [widget.mapTo(p, QPoint(0, widget.height() // 2)).y()
+                           for widget in (p.top.back, button)]
+                self.assertLessEqual(max(centers) - min(centers), 1)
+                self.assertGreaterEqual(button.width(), button.fontMetrics().horizontalAdvance(button.text()))
+                menu.popup(button.mapToGlobal(QPoint(0, button.height())))
+                guikit.pump()
+                for action in actions:
+                    self.assertGreaterEqual(menu.actionGeometry(action).width(),
+                                            menu.fontMetrics().horizontalAdvance(action.text()) + 44)
+                menu.hide()
+                self.capture(mode + "-detail-switch")
+            p.activateWindow()
+            guikit.pump()
+            button.setFocus()
+            self.assertTrue(button.hasFocus())
+            before = p.scroll.verticalScrollBar().value()
+            QTest.keyClick(button, Qt.Key.Key_Space)
+            guikit.wait_until(menu.isVisible)
+            menu.setActiveAction(actions[0])
+            QTest.keyClick(menu, Qt.Key.Key_Down)
+            self.assertIs(menu.activeAction(), target)
+            QTest.keyClick(menu, Qt.Key.Key_Escape)
+            self.settle(p)
+            self.assertFalse(menu.isVisible())
+            self.assertEqual(p.selected_role_id, origin)
+            self.assertEqual(p.scroll.verticalScrollBar().value(), before)
+            assert_button_focus()
+            QTest.keyClick(button, Qt.Key.Key_Space)
+            guikit.wait_until(menu.isVisible)
+            menu.setActiveAction(actions[0])
+            QTest.keyClick(menu, Qt.Key.Key_Down)
+            QTest.keyClick(menu, Qt.Key.Key_Return)
+            self.settle(p)
+            self.assertFalse(menu.isVisible())
+            self.assertEqual(p.selected_role_id, target.data())
+            self.assertEqual([a.data() for a in actions if a.isChecked()], [target.data()])
+            assert_button_focus()
+            guikit.click(p.top.back)
+            self.settle(p)
+            self.assertTrue(p.browsing)
+            self.assertIs(p.focusWidget(), p.gallery.cards[origin])
+            back.assert_not_called()
+            self.saved.assert_not_called()
+        finally:
+            menu.hide()
+
     def test_filters_preserve_choice_without_rebuilding_hidden_details(self):
         p = self.page
         self.assertIsNone(p.selected_role_id)
