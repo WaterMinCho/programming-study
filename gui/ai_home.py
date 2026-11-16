@@ -22,16 +22,21 @@ class AiHomePage(QWidget):
         self.overview, self.target, self.busy, self.mixed_ready = None, None, False, False
         self.mixed_row, self.notes_row = None, None
         outer = kit.box(self)
-        top = kit.TopBar("← 처음 화면", plain=True)
-        self.hub_btn = top.back
-        top.row.addStretch(1)  # 제목이 없는 막대라 돌아가기를 왼쪽 끝에 붙임
-        outer.addWidget(top)
-
-        self.course_tabs = kit.TabBar(["개론", "응용"], deferred=True)
+        header = QWidget()
+        row = kit.box(header, (0, theme.GAP["detail"], 0, 0),
+                      spacing=theme.GAP["paragraph"], horizontal=True)
+        self.hub_btn = kit.button("← 처음 화면", "text", "m", onbg=True)
+        row.addWidget(self.hub_btn)
+        self.course_tabs = kit.NavigationTabs(["AI 개론", "AI 응용"], deferred=True)
         self.course_tabs.setAccessibleName("AI 학습 과정")
+        for tab, description in zip(self.course_tabs.buttons, (
+                "데이터와 모델, 딥러닝 학습 원리를 익힙니다.",
+                "OpenCV로 이미지와 동영상을 다루는 방법을 익힙니다.")):
+            tab.setToolTip(description)
+            tab.setAccessibleDescription(description)
         self.course_tabs.picked.connect(lambda n: self.win.switch_ai_course(("intro", "app")[n]))
-        top.row.insertWidget(1, self.course_tabs)
-        self.browser = SectionBrowser()
+        row.addWidget(self.course_tabs, 1)
+        self.browser = SectionBrowser(header=header)
         self.scroll = self.browser.scroll
         outer.addWidget(self.browser, 1)
         from gui import ai_guide
@@ -332,6 +337,7 @@ class AiHomePage(QWidget):
             kit.set_inert(row, busy or self.overview is None or (row is self.mixed_row and not self.mixed_ready))
 
     def restyle(self):
+        self.course_tabs.refont()
         self.browser.refont()
         for widget in self.findChildren(kit.Dot) + self.findChildren(kit.Chevron):
             widget.update()

@@ -57,7 +57,7 @@ class SectionButton(QPushButton):
 
 class SectionBrowser(QWidget):
     """같은 분류 선택과 스크롤을 여러 과정에서 재사용함. 상태는 메모리에만 둠."""
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, header=None):
         super().__init__(parent)
         self.current, self.context = None, None
         self.panels, self.buttons, self.states = {}, {}, {}
@@ -73,7 +73,13 @@ class SectionBrowser(QWidget):
         self.grid.setContentsMargins(0, 8, 0, 12)
         self.grid.setSpacing(8)
         self.group = QButtonGroup(self)
-        self.navigation_column = kit.column(self.navigation)
+        navigation = self.navigation
+        if header is not None:
+            navigation = QWidget()
+            stack = kit.box(navigation)
+            stack.addWidget(header)
+            stack.addWidget(self.navigation)
+        self.navigation_column = kit.column(navigation)
         self.navigation_column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
         outer.addWidget(self.navigation_column)
         self.content = QWidget()

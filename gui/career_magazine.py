@@ -14,7 +14,7 @@ from gui.dialog_layout import DialogLayout
 from gui.paper_explainer import load_explanations
 
 
-class MagazineTabs(kit.TabBar):
+class MagazineTabs(kit.NavigationTabs):
     """영상과 논문 입구를 같은 폭으로 표시하고 공통 탭 동작을 유지함."""
     def __init__(self):
         super().__init__(["영상", "논문 해설"])
@@ -22,29 +22,6 @@ class MagazineTabs(kit.TabBar):
         self.buttons[0].setAccessibleDescription(self.buttons[0].toolTip())
         self.buttons[1].setToolTip("논문이 다루는 문제와 계산 과정을 그림 해설로 읽습니다.")
         self.buttons[1].setAccessibleDescription(self.buttons[1].toolTip())
-        row = self.layout().itemAt(0).layout()
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(theme.GAP["detail"])
-        row.takeAt(row.count() - 1)
-        for number, tab in enumerate(self.buttons):
-            kit.typed(tab, "headline", True)
-            row.setStretch(number, 1)
-        self.refont()
-
-    def refont(self):
-        height = theme.TYPE["headline"][1] + theme.GAP["group"]
-        color = lambda key: theme.qcolor(key).name()
-        self.setStyleSheet(f"""
-            QPushButton#tab {{ background: {color('surface')}; color: {color('ink')};
-                font-size: {theme.TYPE['headline'][0]}px; font-weight: 700;
-                min-height: {height}px; max-height: {height}px; padding: 0 16px;
-                border: 1px solid transparent; border-bottom: 3px solid {color('line')}; }}
-            QPushButton#tab:hover {{ background: {color('hover')}; }}
-            QPushButton#tab:checked {{ background: {color('selection')}; color: {color('selection_ink')};
-                border-bottom-color: {color('link')}; }}
-            QPushButton#tab:focus {{ border-top-color: {color('focus')};
-                border-left-color: {color('focus')}; border-right-color: {color('focus')}; }}
-        """)
 
 
 class SourceDetails(QWidget):
