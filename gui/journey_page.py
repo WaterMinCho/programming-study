@@ -548,10 +548,11 @@ class JourneyPage(QWidget):
     # 폭
 
     def fit_columns(self):
-        """지문 카드는 읽는 글의 단 폭(창 폭을 따라 넓어짐)에 안쪽 여백과 스크롤 막대 자리를 더한 폭까지이고 넘는 폭은 편집기 칸이 받음.
+        """지문 카드는 읽는 글의 단 폭(창 폭을 따라 넓어짐)에 테두리·안쪽 여백·스크롤 막대 자리를 더한 폭까지이고 넘는 폭은 편집기 칸이 받음.
         두 칸의 몫은 창 크기가 바뀌어도 기억한 몫대로 다시 나눔."""
         doc = kit.doc_width(self.width())
-        self.problem_card.setMaximumWidth(doc + 2 * PAD + self.problem_view.verticalScrollBar().sizeHint().width())
+        self.problem_card.setMaximumWidth(doc + 2 * self.problem_card.frameWidth() + 2 * PAD
+                                         + self.problem_view.verticalScrollBar().sizeHint().width())
         for view in self.views:
             view.sheet.setMaximumWidth(doc + 2 * PAD)
         self.split.place()

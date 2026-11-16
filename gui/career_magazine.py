@@ -74,7 +74,7 @@ class CareerMagazinePage(ReadingPage):
         self.playback_state = "idle"
         self._requested_id = None
         self._tab_anchors = {}
-        title = kit.para("매거진", "title")
+        title = kit.para("매거진", "display")
         header = QWidget()
         heading = kit.box(header, (0, theme.GAP["group"], 0, 0), spacing=theme.GAP["paragraph"])
         heading.addWidget(title)
@@ -87,7 +87,7 @@ class CareerMagazinePage(ReadingPage):
         self.layout().insertWidget(1, self.navigation_column)
 
         self.video_content = QWidget()
-        self.video_box = kit.box(self.video_content, spacing=theme.GAP["paragraph"])
+        self.video_box = kit.box(self.video_content, spacing=theme.GAP["group"])
         self.body.addWidget(self.video_content)
         self.search = kit.typed(QLineEdit(), "body")
         self.search.setPlaceholderText("제목·제작자·주제 검색")
@@ -101,7 +101,9 @@ class CareerMagazinePage(ReadingPage):
         self.origin.setAccessibleDescription(self.origin.toolTip())
         for text, key in (("모든 영상", None), ("스터디 선정", "selected"), ("추가 자료", "additional")):
             self.origin.addItem(text, key)
-        self.video_box.addWidget(VideoFilters(self.search, self.origin))
+        filters, filter_box = kit.card(pad=16, spacing=0)
+        filter_box.addWidget(VideoFilters(self.search, self.origin))
+        self.video_box.addWidget(filters)
         self.network_note = kit.para("", "caption", "secondary")
         self.video_box.addWidget(self.network_note)
         self.network_note.hide()
@@ -388,6 +390,7 @@ class CareerMagazinePage(ReadingPage):
         self.paper_previews = {}
         for paper in self.catalog.papers:
             section, box = kit.card(pad=32, spacing=theme.LEARN_GAP["paragraph"])
+            section.setStyleSheet("QFrame#card { border: 0; }")  # 테두리는 대표 그림에 두고 바깥 문단은 같은 시작점에 맞춤.
             section.setProperty("reading_anchor", True)
             explanation = explanations.get(paper.paper_id)
             preview = PaperPreview(paper, explanation)
@@ -442,7 +445,7 @@ class CareerMagazinePage(ReadingPage):
                 row = flow_buttons(action)
                 details.body.addWidget(row)
                 kit.flush_left(details.body, row, widen=True)
-            box.addWidget(flow_buttons(figure))
+            box.insertWidget(2, flow_buttons(figure))
             button.setVisible(self.on_paper is not None)
             figure.setVisible(bool(self.on_figure and paper.figure_description))
             license_button.setVisible(bool(self.on_source and paper.license_url))

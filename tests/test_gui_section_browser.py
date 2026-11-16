@@ -143,6 +143,31 @@ class AiSectionBrowserTest(AiTest):
         self.settle()
         return win, win.ai_home, win.ai_home.browser
 
+    def test_category_cards_keep_descriptions_inside_and_compact_when_height_shrinks(self):
+        """넓은 분류 카드의 설명을 확인하고 낮은 창에서 본문 공간을 되돌림."""
+        win, home, browser = self.home((1600, 1000))
+        win.set_text("larger")
+        for mode in ("light", "dark"):
+            win.set_theme(mode)
+            for height, expanded in ((1000, True), (600, False), (1000, True)):
+                win.resize(1600, height)
+                self.settle()
+                self.assertEqual("lessons", browser.current)
+                self.assertGreaterEqual(home.scroll.viewport().height(), 200)
+                self.assertEqual(0, home.scroll.horizontalScrollBar().maximum())
+                for button in browser.buttons.values():
+                    self.assertEqual(expanded, button.expanded)
+                    if not expanded:
+                        continue
+                    title = QFontMetricsF(theme.font("label", True)).boundingRect(
+                        QRectF(0, 0, button.width() - 64, 1000), Qt.TextFlag.TextWordWrap, button.text())
+                    detail = QFontMetricsF(theme.font("caption")).boundingRect(
+                        QRectF(0, 0, button.width() - 32, 1000), Qt.TextFlag.TextWordWrap, button.description)
+                    top = max(56, title.height() + 32)
+                    self.assertLessEqual(top + detail.height() + 8, button.height())
+                    self.assertLessEqual(title.width(), button.width() - 64)
+                    self.assertLessEqual(detail.width(), button.width() - 32)
+
     def settle(self):
         home = self.win.ai_home
         browser = home.browser

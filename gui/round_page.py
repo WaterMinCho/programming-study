@@ -130,7 +130,8 @@ class RoundPage(QWidget):
         self.listw.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         mid = QWidget()
         mid_box = QVBoxLayout(mid)
-        mid_box.setContentsMargins(0, 0, 0, 0)
+        pane_pad = theme.GAP["detail"]
+        mid_box.setContentsMargins(pane_pad, 0, pane_pad, 0)
         mid_box.setSpacing(theme.GAP["title_description"])
         self.item_title = kit.para("", "headline")
         self.body = QTextBrowser()
@@ -140,12 +141,13 @@ class RoundPage(QWidget):
         mid_box.addWidget(self.body, 1)
         right = QWidget()
         right_box = QVBoxLayout(right)
-        right_box.setContentsMargins(0, 0, 0, 0)
-        right_box.setSpacing(theme.GAP["description_content"])
+        right_box.setContentsMargins(pane_pad, 0, pane_pad, 0)
+        right_box.setSpacing(theme.GAP["title_description"])
         self.pane_title = kit.label("답안", "headline")
         self.stack = QStackedWidget()
         self.choice_panel, self.text_panel, self.code_panel = ChoicePanel(), TextPanel(), CodePanel()
         for panel in (self.choice_panel, self.text_panel, self.code_panel):
+            panel.layout().setSpacing(theme.GAP["paragraph"])
             self.stack.addWidget(panel)
             panel.changed.connect(self.on_answer_changed)
         self.paste_block = PasteBlock(self)
@@ -162,12 +164,15 @@ class RoundPage(QWidget):
         split.setSizes([245, 515, 495])
         split.setChildrenCollapsible(False)
         root.addWidget(split, 1)
+        self.split, self.panes = split, (mid, right)
+        self.compact = None
+        self.wide_sizes = [245, 515, 495]
 
         self.bar = kit.BottomBar()
         self.prev_btn = kit.button("이전", "secondary", "l")
         self.next_btn = kit.button("다음", "secondary", "l")
         self.status = kit.ElideLabel("", "caption", "secondary")
-        self.status.setFixedWidth(10 * theme.TYPE["caption"][0])  # 자동 저장 안내가 생겨도 답안 칸 높이가 바뀌지 않게 자리를 남김
+        self.status.setFixedWidth(8 * theme.TYPE["caption"][0])  # 자동 저장 안내의 자리를 남기고 작은 창에서도 행동 줄을 유지함
         self.paste_note = kit.label(NOTE, "caption", "warning")
         self.paste_note.setMinimumWidth(1)
         self.paste_note.hide()
@@ -202,6 +207,27 @@ class RoundPage(QWidget):
         self.code_panel.reset_btn.clicked.connect(self.ask_reset)
         self.home_btn.clicked.connect(win.go_home)
         self.back_btn.clicked.connect(self.back)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange_panes()
+
+    def arrange_panes(self):
+        """작은 창에서는 목록과 여백을 줄여 지문과 코드에 높이와 폭을 남김."""
+        compact = self.width() < 2 * kit.PANE_MIN + 245 + 2 * kit.MARGIN
+        if compact == self.compact:
+            return
+        if compact:
+            self.wide_sizes = self.split.sizes()
+        self.compact = compact
+        pad = 0 if compact else theme.GAP["detail"]
+        for pane in self.panes:
+            pane.layout().setContentsMargins(pad, 0, pad, 0)
+        self.listw.setMinimumWidth(160 if compact else 200)
+        left = 160 if compact else self.wide_sizes[0]
+        rest = max(1, self.split.contentsRect().width() - 2 * self.split.handleWidth() - left)
+        middle = round(rest * self.wide_sizes[1] / max(1, sum(self.wide_sizes[1:])))
+        self.split.setSizes([left, middle, rest - middle])
 
     # 불러오기
 
@@ -300,6 +326,7 @@ class RoundPage(QWidget):
                 bar.setValue(place)
         for item in self.view["items"] if self.view else []:  # 목록의 동그라미 색도 테마를 따라감
             self._fill_row(item)
+        self.arrange_panes()
 
     # 자동 저장
 
