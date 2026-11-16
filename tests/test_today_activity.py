@@ -3,7 +3,6 @@
 import contextlib
 import json
 from pathlib import Path
-import sqlite3
 import tempfile
 import unittest
 from unittest import mock
@@ -157,7 +156,7 @@ class DailyStudyTest(unittest.TestCase):
                 self.assertNotIn(private, output)
         for value in ("bad-json", "[]", json.dumps(dict(self.marker(), choice="invalid")),
                       json.dumps(dict(self.marker(), date="invalid")), json.dumps(dict(self.marker(), extra=True))):
-            with sqlite3.connect(self.store.path) as conn:
+            with self.store._connect() as conn:
                 conn.execute("UPDATE meta SET value=? WHERE key='daily_study'", (value,))
             self.assertEqual({}, self.store.daily_study())
 
