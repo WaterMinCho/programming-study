@@ -655,8 +655,8 @@ class LessonAndLearnTest(AiTest):
                 holder.close()
                 guikit.pump(20)
 
-    def test_figure_autoplays_once_and_moves_the_frame_line(self):
-        """그림은 한 번 재생한 뒤 멈추고, 수동으로 장을 옮기면 장 설명도 바뀜. 뒤로 한 장 갈 때 frame_changed 는 한 번."""
+    def test_figure_loops_and_moves_the_frame_line(self):
+        """반복 재생의 첫 장에서도 설명을 바꾸며, 수동 정지와 장 넘김을 유지함."""
         self.addCleanup(setattr, motion, "enabled", motion.enabled)
         motion.enabled = True
         frames = [{"text": "%d장 설명" % n, "ms": 2000} for n in range(1, 7)]
@@ -667,11 +667,14 @@ class LessonAndLearnTest(AiTest):
         holder.resize(700, 600)
         holder.show()
         self.addCleanup(holder.close)
+        self.capture_widget = holder
         guikit.pump(200)
         self.assertEqual((figure.frame(), figure.playing, figure.frame_text.text()), (0, True, "1장 설명"))
-        for _ in range(5):
+        for _ in range(6):
             figure._tick()
-        self.assertFalse(figure.playing)
+        self.assertTrue(figure.playing)
+        self.assertEqual((figure.frame(), figure.frame_text.text()), (0, "1장 설명"))
+        figure.stop()
         figure.hide()
         figure.show()
         guikit.pump(20)
@@ -688,6 +691,9 @@ class LessonAndLearnTest(AiTest):
         shown = figure.picture.pixmap().deviceIndependentSize()
         self.assertGreater(shown.height(), 300)
         self.assertAlmostEqual(shown.width() / shown.height(), figure.source.width() / figure.source.height(), delta=0.01)
+        self.assertLess(figure.picture.geometry().bottom(), figure.controls.y())
+        self.assertLess(figure.controls.geometry().bottom(), figure.frame_text.y())
+        self.assertLess(figure.frame_text.geometry().bottom(), figure.caption.y())
 
     def test_figure_buttons_stay_put_when_frame_lines_differ(self):
         """장 설명 줄 수가 장마다 달라도 설명 칸이 가장 긴 설명의 높이를 지켜 넘김 줄과 캡션이 움직이지 않음. 폭이 바뀌면 다시 잼."""

@@ -19,7 +19,7 @@ from PyQt6 import sip  # noqa: E402
 from PyQt6.QtCore import QPoint, Qt  # noqa: E402
 from PyQt6.QtGui import QColor, QFontMetricsF, QPalette, QPixmap, QRegion, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QLabel, QPushButton, QWidget  # noqa: E402
+from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea, QWidget  # noqa: E402
 
 import mdlite  # noqa: E402
 from gui import kit, motion, theme  # noqa: E402
@@ -442,6 +442,7 @@ class FigureViewTest(unittest.TestCase):
     def figure(self):
         holder = QWidget()
         holder.resize(440, 280)
+        self.capture_widget = holder
         self.addCleanup(holder.deleteLater)
         self.addCleanup(holder.close)
         figure = FigureView(self.path, "그림 1-1a. 장부 줄이 모이는 모습", parent=holder)
@@ -517,8 +518,7 @@ class FigureViewTest(unittest.TestCase):
         self.assertTrue(second.isVisible())
 
     def test_moving_figure_keeps_its_buttons_in_the_dialog(self):
-        """움직이는 그림의 넘김 단추는 kit 단추 m 이고, 줄어 보일 때 [크게 보기]는 넘김 줄에 자리가 있으면 그 오른쪽 끝에, 없으면
-        그림 아래 줄에 있어 글자가 잘리지 않음. 그림 창은 누른 때의 장과 넘김 단추를 가지고 저절로 재생하지 않음."""
+        """GIF의 크게 보기는 좁은 폭에서도 조작부 안에서 줄바꿈함. 확대창은 누른 장에서 멈춰 엶."""
         self.addCleanup(setattr, docview, "SCALE", docview.SCALE)
         docview.SCALE = 0.125  # 80 폭 시험 그림을 640 폭으로 그려 넘김 줄이 들어가는 폭에서도 줄어 보이게 함
         figure = kit.page(FigureView(self.path))
@@ -543,10 +543,10 @@ class FigureViewTest(unittest.TestCase):
         self.assertGreater(figure.zoom_btn.x(), figure.counter.geometry().right())
         figure.resize(320, 800)  # 줄바꿈하는 넘김 줄의 최소 힌트 폭과 별개로 좁은 그림 칸을 검사함.
         guikit.pump()
-        self.assertIs(figure.zoom_btn.parentWidget(), figure.zoom_row)  # 넘김 줄에 자리가 없으면 그림 아래 줄로 내려감
-        self.assertTrue(figure.zoom_row.isVisible() and figure.zoom_btn.isVisible())
-        self.assertGreater(figure.zoom_row.y(), figure.controls.geometry().bottom())
-        self.assertGreater(figure.zoom_row.y(), figure.caption.geometry().bottom(), "넘김 줄과 캡션 사이에 끼지 않음")
+        self.assertIs(figure.zoom_btn.parentWidget(), figure.controls)
+        self.assertTrue(figure.zoom_row.isHidden() and figure.zoom_btn.isVisible())
+        self.assertGreater(figure.zoom_btn.y(), figure.first_btn.y())
+        self.assertLessEqual(figure.zoom_btn.geometry().bottom(), figure.controls.height())
         self.assertGreaterEqual(figure.zoom_btn.width(), figure.zoom_btn.sizeHint().width())
         guikit.click(figure.zoom_btn)
         dialog = figure.dialog
@@ -563,19 +563,114 @@ class FigureViewTest(unittest.TestCase):
         self.assertFalse(figure.playing or figure.timer.isActive())
         self.assertEqual(figure.play_btn.accessibleName(), "재생")
 
-    def test_plays_once_and_stops_on_the_last_frame(self):
+    def test_loops_through_last_frame_until_paused(self):
         motion.enabled = True
         self.addCleanup(setattr, motion, "enabled", False)
         figure = self.figure()
-        guikit.wait_until(lambda: not figure.playing, timeout=10)
-        self.assertEqual(figure.counter.text(), "3 / 3")
-        self.assertTrue(green_at(figure, 2))
+        figure.timer.stop()
+        figure.go(0)
+        frames = []
+        for _ in range(8):
+            figure._tick()
+            self.assertEqual(100, figure.timer.interval())
+            figure.timer.stop()
+            frames.append(figure.frame())
+            self.assertTrue(green_at(figure, figure.frame()))
+        self.assertEqual(frames, [1, 2, 0, 1, 2, 0, 1, 2])
+        self.assertTrue(figure.playing)
+        self.assertEqual(figure.play_btn.accessibleName(), "일시 정지")
+        guikit.click(figure.play_btn)
+        guikit.pump(400)
+        self.assertEqual(figure.frame(), 2)
         self.assertEqual(figure.play_btn.accessibleName(), "재생")
+        figure.hide()
+        figure.show()
+        guikit.pump(150)
+        self.assertFalse(figure.playing or figure.timer.isActive())
         guikit.click(figure.play_btn)  # 마지막 장에서 누르면 처음부터 다시 재생함
         self.assertTrue(figure.playing)
         self.assertEqual(figure.counter.text(), "1 / 3")
         self.assertEqual(figure.play_btn.accessibleName(), "일시 정지")
         figure.hide()  # 가려지면 멈춤
+        self.assertFalse(figure.playing or figure.timer.isActive())
+        figure.show()
+        guikit.pump(30)
+        self.assertTrue(figure.playing)
+
+    def test_scrolling_pauses_offscreen_loop_and_resumes_only_playing_figure(self):
+        motion.enabled = True
+        self.addCleanup(setattr, motion, "enabled", False)
+        holder = QScrollArea()
+        body = QWidget()
+        box = kit.box(body)
+        figure = FigureView(self.path)
+        box.addWidget(figure)
+        spacer = QWidget()
+        spacer.setFixedHeight(1000)
+        box.addWidget(spacer)
+        holder.setWidget(body)
+        holder.setWidgetResizable(True)
+        holder.resize(700, 400)
+        holder.show()
+        self.addCleanup(holder.close)
+        guikit.pump(30)
+        self.assertTrue(figure.playing)
+        holder.verticalScrollBar().setValue(holder.verticalScrollBar().maximum())
+        guikit.pump(200)
+        self.assertFalse(figure.playing or figure.timer.isActive())
+        frame = figure.frame()
+        self.assertEqual(figure.play_btn.accessibleName(), "일시 정지")
+        guikit.pump(200)
+        self.assertEqual(frame, figure.frame())
+        holder.verticalScrollBar().setValue(0)
+        guikit.pump(30)
+        self.assertTrue(figure.playing)
+        figure.stop()
+        holder.verticalScrollBar().setValue(holder.verticalScrollBar().maximum())
+        holder.verticalScrollBar().setValue(0)
+        guikit.pump(150)
+        self.assertFalse(figure.playing or figure.timer.isActive())
+
+    def test_pause_cancels_pending_offscreen_resume(self):
+        figure = self.figure()
+        figure.play()
+        figure._suspend_playback()
+        self.assertEqual(figure.play_btn.accessibleName(), "일시 정지")
+        guikit.click(figure.play_btn)
+        figure._resume_if_visible()
+        self.assertFalse(figure.playing or figure.timer.isActive() or figure._resume_playback)
+        self.assertEqual(figure.play_btn.accessibleName(), "재생")
+
+    def test_loop_keeps_focused_frame_button_and_minimized_window_stops_timer(self):
+        figure = self.figure()
+        figure.play()
+        for button in (figure.first_btn, figure.prev_btn, figure.next_btn):
+            button.setFocus()
+            self.assertTrue(button.hasFocus())
+            for _ in range(figure.count * 2):
+                figure._tick()
+                figure.timer.stop()
+                self.assertTrue(button.hasFocus())
+        frame = figure.frame()
+        figure.window().showMinimized()
+        guikit.pump(20)
+        figure._tick()
+        self.assertEqual(frame, figure.frame())
+        self.assertFalse(figure.playing or figure.timer.isActive())
+        figure.window().showNormal()
+        guikit.pump(30)
+        self.assertTrue(figure.playing)
+
+    def test_reduced_motion_stops_automatic_loop_and_late_tick_cannot_restart_it(self):
+        motion.enabled = True
+        self.addCleanup(setattr, motion, "enabled", False)
+        figure = self.figure()
+        self.assertTrue(figure.playing)
+        motion.enabled = False
+        frame = figure.frame()
+        figure._tick()
+        figure._tick()
+        self.assertEqual(frame, figure.frame())
         self.assertFalse(figure.playing or figure.timer.isActive())
 
     def test_file_can_be_renamed_and_removed_while_shown(self):
@@ -605,6 +700,13 @@ class FigureViewTest(unittest.TestCase):
         QTest.keyClick(button, Qt.Key.Key_Space)
         self.assertTrue(figure.playing and figure.timer.isActive())
         self.assertEqual((button.accessibleName(), button.toolTip()), ("일시 정지", "일시 정지"))
+        figure.timer.stop()
+        figure.go(0)
+        for _ in range(figure.count):
+            figure._tick()
+            figure.timer.stop()
+        self.assertTrue(figure.playing)
+        self.assertEqual(figure.frame(), 0)
         self.assertNotEqual(button.icon().cacheKey(), play)
         QTest.keyClick(button, Qt.Key.Key_Space)
         frame = figure.frame()
@@ -622,7 +724,8 @@ class FigureViewTest(unittest.TestCase):
         self.addCleanup(setattr, motion, "enabled", motion.enabled)
         motion.enabled = False
         path = os.path.join(guikit.ROOT, "ai", "learn", "l04", "assets", "4a-2.gif")
-        for make in (lambda: FigureView(path, scale=0.5, autoplay=False), lambda: AiFigure(path)):
+        for make in (lambda: FigureView(path, "그림 설명", scale=0.5, autoplay=False),
+                     lambda: AiFigure(path, "그림 설명", [{"text": "현재 장면 설명"}] * 6)):
             root = kit.page(QWidget())
             column = kit.box(root, (24, 24, 24, 24))
             figure = make()
@@ -638,6 +741,16 @@ class FigureViewTest(unittest.TestCase):
                     for width in (1100, 760, 440):
                         root.resize(width, 650)
                         guikit.pump()
+                        self.assertLess(figure.picture.geometry().bottom(), figure.controls.y())
+                        self.assertLess(figure.controls.geometry().bottom(), figure.caption.y())
+                        if isinstance(figure, AiFigure):
+                            self.assertLess(figure.controls.geometry().bottom(), figure.frame_text.y())
+                            self.assertLess(figure.frame_text.geometry().bottom(), figure.caption.y())
+                        for control in (figure.first_btn, figure.prev_btn, figure.play_btn, figure.next_btn,
+                                        figure.counter, figure.zoom_btn):
+                            if control.isVisibleTo(figure):
+                                self.assertIs(control.parentWidget(), figure.controls)
+                                self.assertTrue(figure.controls.rect().contains(control.geometry()), control.geometry())
                         entries = []
                         for widget in (figure.controls_heading, figure.next_btn, figure.counter, figure.zoom_btn):
                             if not widget.isVisibleTo(figure):
@@ -666,6 +779,16 @@ class FigureViewTest(unittest.TestCase):
                         for button in (figure.next_btn, figure.zoom_btn):
                             self.assertGreaterEqual(button.width(), button.sizeHint().width())
             root.close()
+        holder = kit.page(QScrollArea())
+        holder.setWidget(root)
+        holder.setWidgetResizable(True)
+        holder.resize(760, 480)
+        holder.show()
+        self.addCleanup(holder.close)
+        self.capture_widget = holder
+        guikit.pump()
+        holder.ensureWidgetVisible(figure.controls)
+        guikit.pump()
 
 
 def painted_text_bottom(widget):

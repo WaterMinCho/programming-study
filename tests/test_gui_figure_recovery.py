@@ -10,7 +10,7 @@ from tests.test_gui_learning_state import LearningWindow, PROSE, recall
 from PyQt6.QtCore import QPoint, QRect, Qt
 from PyQt6.QtWidgets import QScrollArea
 
-from gui import ai_learn, kit, theme
+from gui import ai_learn, kit, motion, theme
 from gui.docview import FigureView, TextPiece
 
 
@@ -98,6 +98,9 @@ class FigureRecoveryTest(unittest.TestCase):
         self.assertTrue(figure.available)
         self.assertEqual((figure.frame(), figure.count, figure.frame_text.text()), (0, 3, "1장 설명입니다."))
         self.assertTrue(figure.frame_text.isVisible())
+        self.assertLess(figure.picture.geometry().bottom(), figure.controls.y())
+        self.assertLess(figure.controls.geometry().bottom(), figure.frame_text.y())
+        self.assertLess(figure.frame_text.geometry().bottom(), figure.caption.y())
         self.assertFalse(figure.error_box.isVisible() or figure.playing or figure.timer.isActive())
         figure.next()
         self.assertEqual((figure.frame(), figure.frame_text.text()), (1, "2장 설명입니다."))
@@ -110,6 +113,23 @@ class FigureRecoveryTest(unittest.TestCase):
         guikit.click(figure.retry_btn)
         self.assertEqual((figure.frame(), figure.frame_text.text()), (2, "3장 설명입니다."))
         self.assertFalse(figure.playing)
+
+    def test_missing_gif_retry_autoplays_both_views_but_keeps_restored_last_frame_paused(self):
+        self.addCleanup(setattr, motion, "enabled", motion.enabled)
+        motion.enabled = True
+        for make, autoplay in ((lambda: FigureView(self.path), True),
+                               (lambda: ai_learn.figure(self.block()), True),
+                               (lambda: ai_learn.figure(self.block(), last=True), False)):
+            if os.path.exists(self.path):
+                os.remove(self.path)
+            figure = make()
+            self.shown(figure)
+            self.assertFalse(figure.available)
+            self.write(GIF)
+            guikit.click(figure.retry_btn)
+            guikit.pump(20)
+            self.assertEqual(autoplay, figure.playing)
+            figure.close()
 
     def test_small_column_large_text_keeps_description_and_retry_readable(self):
         for mode in ("light", "dark"):

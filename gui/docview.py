@@ -634,9 +634,9 @@ def playback_icon(playing, normal, disabled):
 class FigureView(QWidget):
     """해설 그림 하나와 캡션. 파일은 처음에 한 번 바이트로 읽고 열어 두지 않아서, 보이는 동안에도 [문제 받기]가 파일을 바꾸거나 지울 수 있음.
     그림 파일은 2배 크기라 화면에는 그 절반 폭까지만 보이고, 칸이 좁으면 칸 폭에 맞춰 줄임. 줄어 보일 때는 [크게 보기]가 보이고,
-    그 단추나 그림을 누르면 그린 크기(절반 폭)로 FigureDialog 를 띄움. 움직이는 그림의 단추는 넘김 줄 오른쪽 끝, 정지 그림이나 넘김 줄에
-    자리가 없는 그림은 캡션 아래 오른쪽이라 캡션이 그림 바로 아래에 붙음.
-    GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 움직임이 켜져 있고 autoplay 면 처음 보일 때 한 번 재생하고 마지막 장에서 멈춤.
+    그 단추나 그림을 누르면 그린 크기(절반 폭)로 FigureDialog 를 띄움. 움직이는 그림의 단추는 그림 바로 아래 조작부에 모으고,
+    정지 그림의 크게 보기는 캡션 아래 오른쪽에 둠.
+    GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 재생 중에는 마지막 장 다음에 첫 장으로 돌아감.
     data 를 주면 파일을 읽지 않고 그 바이트를 씀. zoomable 이 거짓이면(그림 창 안) 줄어도 크게 보기를 두지 않음.
     frame_changed 는 장을 옮긴 뒤 한 번 부르는 함수(장 번호를 받음). 뒤로 갈 때 0번 장부터 다시 넘기며 지나는 장에서는 부르지 않음.
     파일이 없거나 해독되지 않으면 캡션·description과 재시도를 보임. 다시 읽을 때 위젯을 교체하지 않음."""
@@ -650,6 +650,7 @@ class FigureView(QWidget):
         self.scale = scale
         self.autoplay, self.frame_changed = autoplay, frame_changed
         self.movie, self.count, self.playing, self.shown, self.drawn_width = None, 1, False, False, -1
+        self._resume_playback, self._resume_scheduled, self._automatic_playback = False, False, False
         self.shrunk, self.down, self.dialog = False, False, None
         self.source = QPixmap()
         box = QVBoxLayout(self)
@@ -680,7 +681,7 @@ class FigureView(QWidget):
         self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         box.addWidget(self.caption)
         self.caption.setVisible(bool(alt))  # 부모에 붙인 뒤에 보임. 먼저 보이면 잠깐 따로 창으로 떠서 화면의 창이 초점을 잃음
-        self.zoom_row = QWidget()  # [크게 보기]를 캡션 아래 오른쪽에 두는 줄. 움직이는 그림은 넘김 줄에 자리가 있으면 그 오른쪽 끝에 둠
+        self.zoom_row = QWidget()  # 정지 그림의 [크게 보기]를 캡션 아래 오른쪽에 둠
         row = kit.box(self.zoom_row, horizontal=True)
         row.addStretch(1)
         row.addWidget(self.zoom_btn)
@@ -692,6 +693,7 @@ class FigureView(QWidget):
     def _clear_movie(self):
         self.timer.stop()
         self.playing = False
+        self._resume_playback = False
         if self.movie is not None:
             self.movie.stop()
             self.movie.deleteLater()
@@ -736,7 +738,7 @@ class FigureView(QWidget):
                 self.controls.setObjectName("figure_controls")
                 bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"])
                 bar.setContentsMargins(16, 12, 16, 12)
-                self.controls_heading = kit.label("그림 넘기기", "learn_caption", "secondary", bold=True)
+                self.controls_heading = kit.label("그림 재생", "learn_caption", "secondary", bold=True)
                 bar.addWidget(self.controls_heading)
                 self.first_btn = self._button(bar, "처음", self.first)
                 self.prev_btn = self._button(bar, "이전 장", self.prev)
@@ -745,7 +747,7 @@ class FigureView(QWidget):
                 self.counter = kit.label("", "learn_caption", "secondary", bold=True)
                 bar.addWidget(self.counter)
                 self.controls.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-                self.layout().insertWidget(self.layout().indexOf(self.caption), self.controls)
+                self.layout().insertWidget(self.layout().indexOf(self.error_box) + 1, self.controls)
             self.refont()
             if not self.movie.jumpToFrame(0) or self.source.isNull():
                 return self._unavailable()
@@ -769,6 +771,10 @@ class FigureView(QWidget):
             self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
             self.setFocus(Qt.FocusReason.OtherFocusReason)
         loaded = self._read()
+        if loaded and self.movie and self.count > 1 and self.autoplay and motion.enabled:
+            self._automatic_playback = True
+            self._resume_playback = True
+            self.update()
         if self.frame_changed is not None:
             self.frame_changed(self.frame())
         self.draw()
@@ -828,31 +834,71 @@ class FigureView(QWidget):
         self.go(self.frame() + 1)
 
     def toggle(self):
-        if self.playing:
+        if self.playing or self._resume_playback:
             self.stop()
         else:
             self.play()
 
-    def play(self):
-        """지금 장부터 마지막 장까지 GIF 에 적힌 시간대로 넘기고 멈춤. 마지막 장에서 누르면 처음부터 다시 함."""
+    def play(self, automatic=False):
+        """GIF에 적힌 시간대로 반복함. 마지막 장에서 재생을 누르면 처음부터 시작함."""
+        if not self.movie or self.count <= 1:
+            return
         if self.frame() >= self.count - 1:
             self.go(0)
+        self._resume_playback = False
+        self._automatic_playback = automatic
         self.playing = True
         self.timer.start(self.movie.nextFrameDelay())
         self._sync()
 
     def stop(self):
+        self._resume_playback = False
         if self.movie:
             self.playing = False
             self.timer.stop()
             self._sync()
 
     def _tick(self):
-        self.go(self.frame() + 1)
-        if self.frame() >= self.count - 1:
+        if not self.playing or not self.movie:
+            return
+        if self._automatic_playback and not motion.enabled:
             self.stop()
-        else:
+            return
+        if not self._picture_visible():
+            self._suspend_playback()
+            return
+        self.go((self.frame() + 1) % self.count)
+        self.timer.start(self.movie.nextFrameDelay())
+
+    def _picture_visible(self):
+        return (self.isVisible() and not self.window().isMinimized()
+                and self.visibleRegion().intersects(self.picture.geometry()))
+
+    def _suspend_playback(self):
+        """가려진 그림의 타이머를 멈추고, 재생 중이던 그림만 다시 보일 때 이어감."""
+        self._resume_playback = self.playing or self._resume_playback
+        self.playing = False
+        self.timer.stop()
+        if self.movie:
+            self._sync()
+
+    def _resume_if_visible(self):
+        self._resume_scheduled = False
+        if not self._resume_playback or not self.movie:
+            return
+        if self._automatic_playback and not motion.enabled:
+            self.stop()
+        elif self._picture_visible():
+            self._resume_playback = False
+            self.playing = True
             self.timer.start(self.movie.nextFrameDelay())
+            self._sync()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._resume_playback and not self._resume_scheduled and self._picture_visible():
+            self._resume_scheduled = True
+            QTimer.singleShot(0, self._resume_if_visible)
 
     def _took_frame(self, number):
         self.source = self.movie.currentPixmap()
@@ -862,17 +908,19 @@ class FigureView(QWidget):
     def _sync(self):
         frame = self.frame()
         self.counter.setText("%d / %d" % (frame + 1, self.count))
-        self.first_btn.setEnabled(frame > 0)
-        self.prev_btn.setEnabled(frame > 0)
-        self.next_btn.setEnabled(frame < self.count - 1)
+        running = self.playing or self._resume_playback
+        self.first_btn.setEnabled(running or frame > 0)
+        self.prev_btn.setEnabled(running or frame > 0)
+        self.next_btn.setEnabled(running or frame < self.count - 1)
         self._playback()
 
     def _playback(self):
-        name = "일시 정지" if self.playing else "재생"
+        running = self.playing or self._resume_playback
+        name = "일시 정지" if running else "재생"
         if self.play_btn.accessibleName() != name:
             self.play_btn.setAccessibleName(name)
             self.play_btn.setToolTip(name)
-        icon = playback_icon(self.playing, theme.color("primary"), theme.color("primary_off_ink"))
+        icon = playback_icon(running, theme.color("primary"), theme.color("primary_off_ink"))
         if self.play_btn.icon().cacheKey() != icon.cacheKey():
             self.play_btn.setIcon(icon)
 
@@ -952,9 +1000,8 @@ class FigureView(QWidget):
         self.place_zoom(zoom)
 
     def place_zoom(self, zoom):
-        """[크게 보기]를 보이거나 숨김. 움직이는 그림은 넘김 줄에 단추가 다 들어가면 그 오른쪽 끝에, 아니면 캡션 아래 줄에 둠.
-        글자 크기 단계가 커지면 1024 창의 지문 칸에서 넘김 단추 넷, 장 번호와 이 단추가 한 줄에 들어가지 않아 글자가 잘렸음."""
-        inline = zoom and self.count > 1 and self.bar_room() >= self.zoom_btn.sizeHint().width()
+        """GIF의 크게 보기도 조작부 안에서 줄바꿈함. 설명 아래로 단추를 분리하지 않음."""
+        inline = zoom and self.movie is not None and self.count > 1
         if inline != (self.zoom_btn.parentWidget() is self.controls):
             (self.zoom_row if inline else self.controls).layout().removeWidget(self.zoom_btn)
             (self.controls if inline else self.zoom_row).layout().addWidget(self.zoom_btn)
@@ -967,18 +1014,6 @@ class FigureView(QWidget):
             height = self.controls.layout().heightForWidth(width) + frame.top() + frame.bottom()
             if self.controls.minimumHeight() != height or self.controls.maximumHeight() != height:
                 self.controls.setFixedHeight(height)
-
-    def bar_room(self):
-        """넘김 줄에서 단추·장 번호와 그 사이 간격을 뺀 남는 폭."""
-        parts = (self.controls_heading, self.first_btn, self.prev_btn, self.play_btn, self.next_btn, self.counter)
-        self.controls.ensurePolished()
-        for part in parts:
-            part.ensurePolished()
-        layout = self.controls.layout()
-        left, _, right, _ = layout.getContentsMargins()
-        frame = self.controls.contentsMargins()
-        return self.width() - frame.left() - frame.right() - left - right - \
-            sum(part.sizeHint().width() for part in parts) - layout.spacing() * len(parts)
 
     def open_dialog(self):
         """지금 장을 그린 크기로 보는 창을 띄움."""
@@ -1014,11 +1049,11 @@ class FigureView(QWidget):
         if not self.shown:
             self.shown = True
             if self.movie and self.count > 1 and motion.enabled and self.autoplay:
-                self.play()
+                self.play(automatic=True)
 
     def hideEvent(self, event):
         super().hideEvent(event)
-        self.stop()
+        self._suspend_playback()
 
 
 class FigureDialog(QDialog):

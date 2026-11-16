@@ -99,7 +99,7 @@ class FormulaGuiTest(AiTest):
         guikit.click(block.close_button)
         note.close()
 
-    def test_new_figure_keeps_once_manual_and_reduced_motion_behavior(self):
+    def test_new_figure_loops_and_keeps_manual_and_reduced_motion_behavior(self):
         win, block = self.open_formula_step()
         self.addCleanup(setattr, motion, "enabled", motion.enabled)
         win.ai_learn.scroll.ensureWidgetVisible(block.button)
@@ -116,7 +116,12 @@ class FormulaGuiTest(AiTest):
         guikit.pump()
         picture._play_if_visible()
         self.assertTrue(picture.playing)
-        guikit.wait_until(lambda: picture.frame() == 3 and not picture.playing, timeout=12)
+        guikit.wait_until(lambda: picture.frame() == 3, timeout=12)
+        self.assertTrue(picture.playing)
+        guikit.wait_until(lambda: picture.frame() == 0, timeout=4)
+        self.assertTrue(picture.playing)
+        picture.stop()
+        picture.go(3)
         guikit.click(block.close_button)
         guikit.click(block.button)
         self.assertEqual(3, picture.frame())
