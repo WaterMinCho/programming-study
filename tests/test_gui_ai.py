@@ -408,9 +408,9 @@ class TextTest(unittest.TestCase):
         self.assertEqual(ai_text.track_line(dict(overview, next={"kind": "again", "count": 2})), ai_text.START_LINE)
 
     def test_same_row_labels_are_numbered_by_card(self):
-        items = ai_text.numbered([{"key": "i01-s03", "label": "고르기 · 같은 지문"}, {"key": "i01-s01", "label": "고르기 · 같은 지문"},
+        items = ai_text.numbered([{"key": "i01-s03", "label": "객관식 · 같은 지문"}, {"key": "i01-s01", "label": "객관식 · 같은 지문"},
                                   {"key": "i01-b01", "label": "빈칸 · 다른 지문"}])
-        self.assertEqual([i["label"] for i in items], ["고르기 · 같은 지문 (2)", "고르기 · 같은 지문 (1)", "빈칸 · 다른 지문"])
+        self.assertEqual([i["label"] for i in items], ["객관식 · 같은 지문 (2)", "객관식 · 같은 지문 (1)", "빈칸 · 다른 지문"])
 
     def test_note_html_lines(self):
         item = {"lines": ["2번 틀림", "확실하다고 했지만 틀림"], "ref": [], "stem": "지문", "options": ["가", "나"], "mine": ["가"]}
@@ -1115,7 +1115,7 @@ class PracticeTest(AiTest):
     def test_choice_marks_every_option_and_errata(self):
         page = self.start()
         self.skip_to(lambda item: item["card"] == "i90-c01")
-        self.assertEqual(page.item["chips"][:2], ["90차시", "고르기"])
+        self.assertEqual(page.item["chips"][:2], ["90차시", "객관식"])
         self.assertIsInstance(page.choices.rows[0].box, ai_learn.RadioMark)
         self.answer(right=False)
         tags = {row.tag.text() for row in page.choices.rows if row.tag.isVisible()}
@@ -1543,8 +1543,8 @@ class PatternTest(AiTest):
         self.assertTrue(win.open_ai_practice("unit", lesson="pc", unit="18a"))
         page = win.ai_quiz
         self.assertEqual((page.title.text(), page.item["card"]), (self.UNIT, "pc-o01"))
-        self.assertEqual(page.item["chips"][:2], ["학습 루프", "순서 고르기"])
-        self.assertEqual(self.badges(), ["순서 고르기"])
+        self.assertEqual(page.item["chips"][:2], ["학습 루프", "객관식"])
+        self.assertEqual(self.badges(), ["객관식"])
         choices = page.choices
         self.assertIsInstance(choices, ai_learn.CodeChoices)
         self.assertIsInstance(choices.rows[0].box, ai_learn.RadioMark)
@@ -1579,7 +1579,7 @@ class PatternTest(AiTest):
         win.ai.mark_read("pc", "18a")
         self.assertTrue(win.open_ai_practice("note", card="pc-x01"))
         page = win.ai_quiz
-        self.assertEqual(self.badges()[:2], ["학습 루프", "고르기"])
+        self.assertEqual(self.badges()[:2], ["학습 루프", "객관식"])
         self.assertNotIsInstance(page.choices.rows[0].box, ai_learn.RadioMark)  # 여러 개 고르기는 네모 상자
         self.answer()
         self.assertEqual(page.verdict_text.text(), "맞았습니다")
@@ -1635,7 +1635,7 @@ class PatternTest(AiTest):
         self.assertTrue(win.open_ai_practice("lesson", lesson="i90"))
         page = win.ai_quiz
         self.assertEqual(page.chips({"chips": ["90차시", "빈칸"], "lesson": "i90"}), ["빈칸"])
-        self.assertEqual(page.chips({"chips": ["학습 루프", "고르기"], "lesson": "pc"}), ["학습 루프", "고르기"])
+        self.assertEqual(page.chips({"chips": ["학습 루프", "객관식"], "lesson": "pc"}), ["학습 루프", "객관식"])
 
     def test_next_card_and_revisit_use_the_unit_name(self):
         win = self.boot()
@@ -1677,7 +1677,7 @@ class PatternTest(AiTest):
         guikit.click(win.ai_home.notes_row)
         page = win.wrong_page
         self.assertEqual((page.list.row_of("pc-k02").title.text(), page.list.row_of("pc-o01").title.text()),
-                         ("코드 빈칸 · opt.____()", "순서 고르기 · 줄 순서로 옳은 것 고르기"))
+                         ("코드 빈칸 · opt.____()", "객관식 · 줄 순서로 옳은 것 고르기"))
         page.list.pick(page.list.row_of("pc-o01"))
         self.assertEqual(page.item_title.text(), self.UNIT)
         guikit.click(page.explain_btn)

@@ -94,7 +94,7 @@ class GroupTest(unittest.TestCase):
         self.assertEqual(("빈칸 · 5차시", True, False), (five[0]["label"], five[0]["sure"], five[0]["leech"]))
         self.assertTrue(five[1]["leech"])
         self.assertTrue(five[2]["deep"])
-        self.assertEqual(("고르기 · 5차시", "모의고사 · 모의고사 2회"), (five[2]["label"], groups[0]["items"][0]["label"]))
+        self.assertEqual(("객관식 · 5차시", "모의고사 · 모의고사 2회"), (five[2]["label"], groups[0]["items"][0]["label"]))
         keys = [i["key"] for g in groups for i in g["items"]]
         self.assertEqual(len(keys), len(set(keys)))
 
@@ -106,7 +106,7 @@ class GroupTest(unittest.TestCase):
         groups, _ = notes.wrong_notes(review.card_events(log), cards, {}, {}, {})
         self.assertEqual(["코딩으로 실전학습하기"], [g["title"] for g in groups])
         labels = {i["key"]: i["label"] for i in groups[0]["items"]}
-        self.assertEqual({"pc-k01": "코드 빈칸 · 코딩으로 실전학습하기", "pc-o01": "순서 고르기 · 코딩으로 실전학습하기", "pc-x01": "고르기 · 코딩으로 실전학습하기"}, labels)
+        self.assertEqual({"pc-k01": "코드 빈칸 · 코딩으로 실전학습하기", "pc-o01": "객관식 · 코딩으로 실전학습하기", "pc-x01": "객관식 · 코딩으로 실전학습하기"}, labels)
 
 
 if __name__ == "__main__":
