@@ -7,7 +7,7 @@
 ai-levels 는 아래의 블록 위젯. 서비스가 error 를 단 블록과 모르는 블록은 안내 글만 둠. 상황별 코드 단원(차시가 아닌 무리)은 위 막대가
 홈으로 돌아감.
 
-AiFigure 는 GIF 를 처음 열면 한 번 재생하고 마지막 장에서 멈추며, 지금 장의 `프레임:` 설명을 그림 바로 아래에 두어 장을 넘길 때 같이 바꿈. 설명 칸은 가장 긴 장
+AiFigure 는 GIF를 화면에 보이는 동안 반복 재생하며, 지금 장의 `프레임:` 설명을 조작부 아래에 두어 장을 넘길 때 같이 바꿈. 설명 칸은 가장 긴 장
 설명의 높이를 지켜서 장을 넘겨도 넘김 단추가 움직이지 않음. 그림에 초점이 있으면 ←·→ 가 장을 넘김. 단계 이동은 아래 막대와 ←·→ 이고,
 입력 칸·그림·외울 것 줄에 초점이 있으면 그쪽이 ←·→ 를 쓰므로 Alt+←·→ 로만 넘김.
 마지막 단계를 보인 순간 단원을 읽은 것으로 기록하고, 단계를 옮길 때마다 중간 자리를 로컬에 남김. 읽기 화면이라 복사를 막지 않음."""
@@ -189,9 +189,9 @@ class TextBlock(QWidget):
 
 
 class AiFigure(FigureView):
-    """학습 단원 그림. 처음 열면 한 번 재생하고 마지막 장에서 멈춤. frames 는 figure 블록의 `프레임:` 줄([{"text", "ms"}])이고 지금 장의
-    설명을 그림 바로 아래(넘김 줄 위)에 가운데 맞춰 둠. 설명 칸의 최소 높이는 지금 폭에서 가장 긴 장 설명의 높이라 장마다 설명 줄 수가
-    달라도 넘김 줄과 캡션이 제자리에 있음. 넘김 단추는 단계 넘김 [이전]·[다음]과 헷갈리지 않게 [이전 장]·[다음 장]으로 씀.
+    """학습 단원 그림. 화면에 보이는 동안 반복 재생함. frames 는 figure 블록의 `프레임:` 줄([{"text", "ms"}])이고 지금 장의
+    설명을 그림 조작부 아래에 가운데 맞춰 둠. 설명 칸의 최소 높이는 지금 폭에서 가장 긴 장 설명의 높이라 장마다 설명 줄 수가
+    달라도 캡션이 제자리에 있음. 넘김 단추는 단계 넘김 [이전]·[다음]과 헷갈리지 않게 [이전 장]·[다음 장]으로 씀.
     초점이 있으면 ←·→ 가 장을 넘기고(Alt 가 붙으면 단계 넘김으로 보냄) 그림 둘레에 초점 테두리를 그림. last 면 마지막 장에서 엶."""
 
     def __init__(self, path, caption="", frames=(), last=False, description=""):
@@ -204,7 +204,7 @@ class AiFigure(FigureView):
         self.held = None  # 설명 칸 높이를 잰 폭·실제 글꼴·줄 높이
         self.frame_text = rich("", "body", "secondary")
         self.frame_text.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        self.layout().insertWidget(self.layout().indexOf(self.picture) + 1, self.frame_text)
+        self.layout().insertWidget(self.layout().indexOf(self.caption), self.frame_text)
         if self.movie:
             self.prev_btn.setText("이전 장")
             self.next_btn.setText("다음 장")
@@ -272,7 +272,7 @@ class AiFigure(FigureView):
         if not self.isVisible() or not self.visibleRegion().intersects(self.picture.geometry()):
             self.autoplay_pending = True
             return
-        self.play()
+        self.play(automatic=True)
 
     def event(self, event):
         if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) and self.movie \
