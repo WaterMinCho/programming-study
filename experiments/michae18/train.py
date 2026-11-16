@@ -20,21 +20,12 @@ inputs = {
     "query_concepts": torch.tensor(raw["query_concepts"], dtype=torch.float32)
 }
 
-# 문제 ID의 최댓값을 이용해 Embedding 크기 설정 (수정 전)
-# num_questions = max(
-#     inputs["questions"].max().item(),
-#     inputs["query_question"].max().item()
-# ) + 1
-# 개념 수 가져오기
-# num_concepts = inputs["query_concepts"].shape[-1]
-
 # 문제 ID의 최댓값을 이용해 Embedding 크기 설정 (수정 후)
 num_questions = len(vocabulary["questions"])
 # 개념 수 가져오기 (수정 후)
 num_concepts = len(vocabulary["concepts"])
 
-# 개념 수 가져오기
-num_concepts = inputs["query_concepts"].shape[-1]
+
 # SmallLSTM 모델 생성
 model = SmallLSTM(num_questions, num_concepts)
 
@@ -42,7 +33,10 @@ model = SmallLSTM(num_questions, num_concepts)
 model.eval()
 # 학습 안한다~!
 with torch.no_grad():
-    probabilities = model(inputs)
+    # model은 logit값으로 반환
+    logits = model(inputs)
+    # 출력 확인용 확률로 변환
+    probabilities = torch.sigmoid(logits)
 
 print("예측 확률:", probabilities.tolist())
 print("예측 개수:", probabilities.numel())

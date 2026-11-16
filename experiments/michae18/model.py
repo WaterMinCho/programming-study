@@ -79,7 +79,9 @@ class SmallLSTM(nn.Module):
 
         #  logits 값으로 전달
         logits = self.fc(combined).squeeze(-1)
-        # sigmoid로 출력
-        probabilities = torch.sigmoid(logits)
 
-        return probabilities
+        return logits
+        # # sigmoid로 출력
+        # probabilities = torch.sigmoid(logits)
+
+        # return probabilities

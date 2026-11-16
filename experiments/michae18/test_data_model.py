@@ -26,10 +26,13 @@ def make_inputs(lengths):
     }
 
 
-def check_probabilities(output):
-    assert output.shape == (4,)
-    assert torch.isfinite(output).all().item()
-    assert ((output >= 0) & (output <= 1)).all().item()
+def check_logits(logits):
+    # 모델 출력 크기 확인
+    assert logits.shape == (4,)
+    # Nan, 무한대 없는 지 확인
+    assert torch.isfinite(logits).all().item()
+    probabilities = torch.sigmoid(logits)
+    assert ((probabilities >= 0) & (probabilities <= 1)).all().item()
 
 
 def test_mixed_empty_history():
@@ -39,9 +42,9 @@ def test_mixed_empty_history():
     inputs = make_inputs([0, 2, 0, 4])
 
     with torch.no_grad():
-        output = model(inputs)
+        logits = model(inputs)
 
-    check_probabilities(output)
+    check_logits(logits)
 
 
 def test_all_empty_history():
@@ -51,9 +54,9 @@ def test_all_empty_history():
     inputs = make_inputs([0, 0, 0, 0])
 
     with torch.no_grad():
-        output = model(inputs)
+        logits = model(inputs)
 
-    check_probabilities(output)
+    check_logits(logits)
 
 
 def test_padding_does_not_change_prediction():
