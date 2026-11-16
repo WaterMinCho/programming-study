@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QApplication, QDialog, QSizePolicy, QWidget
 
 from gui import kit, motion, theme
 from gui.dialog_layout import DialogLayout
+from gui.disclosure import DisclosureButton
 
 EXPLANATIONS = Path(__file__).resolve().parents[1] / "career/data/paper_explanations.json"
 PAPER_IDS = ("paper-mobilenetv4", "paper-convnext-v2", "paper-dinov2", "paper-sam2", "paper-dora-weight-decomposed")
@@ -585,16 +586,10 @@ class PaperExplanationDialog(QDialog):
         question_group = kit.heading(kit.para("직접 확인해 보기", "learn_activity", bold=True), self.question)
         question_group.layout().setSpacing(theme.LEARN_GAP["title_description"])
         self.panel.content.addWidget(question_group)
-        self.answer_button = kit.button("풀이 펼치기", "text")
+        self.answer_button = DisclosureButton("풀이 펼치기", role="learn_caption")
         self.answer_button.setProperty("figurecontrol", True)
-        self.answer_button.setCheckable(True)
         self.answer_button.toggled.connect(self._toggle_answer)
-        answer_row = QWidget()
-        answer_actions = kit.box(answer_row, horizontal=True)
-        answer_actions.addWidget(self.answer_button)
-        answer_actions.addStretch(1)
-        self.panel.content.addWidget(answer_row)
-        kit.flush_left(self.panel.content, answer_row, widen=True)
+        self.panel.content.addWidget(self.answer_button)
         self.answer, self.answer_layout = kit.well(pad_x=16, pad_y=16, spacing=0)
         self.answer_text = kit.para("", "learn_body")
         self.answer_layout.addWidget(self.answer_text)

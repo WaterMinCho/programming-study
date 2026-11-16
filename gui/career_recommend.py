@@ -9,6 +9,7 @@ from gui.career_profile import ProfileStorageError
 from gui.career_roadmap import CareerRoadmapPage, clear_layout, flow_buttons
 from gui.career_role_gallery import RoleGallery
 from gui.dialog_layout import DialogLayout
+from gui.disclosure import DisclosureButton
 
 
 def picker(options, prompt):
@@ -403,11 +404,10 @@ class CareerRecommendDialog(QDialog):
             self._result_card(box, result)
         rest = self.results[len(shown):]
         if rest:
-            more = kit.button(f"함께 살펴볼 직무 {len(rest)}개 펼치기", "text")
+            more = DisclosureButton(f"함께 살펴볼 직무 {len(rest)}개 펼치기")
             extra = QWidget()
             extra_box = kit.box(extra, spacing=theme.GAP["description_content"])
             extra.hide()
-            more.setCheckable(True)
             def expand(checked):
                 if checked and not extra_box.count():
                     for result in rest:
@@ -416,7 +416,7 @@ class CareerRecommendDialog(QDialog):
                 extra.setVisible(checked)
                 more.setText(f"함께 살펴볼 직무 {len(rest)}개 " + ("접기" if checked else "펼치기"))
             more.toggled.connect(expand)
-            box.addWidget(more, 0, Qt.AlignmentFlag.AlignLeft)
+            box.addWidget(more)
             box.addWidget(extra)
 
     def _result_card(self, box, result):

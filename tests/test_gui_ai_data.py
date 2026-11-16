@@ -107,7 +107,7 @@ class AiDataTest(AiTest):
                 guikit.pump()
                 dialog.scroll.ensureWidgetVisible(section.header)
                 guikit.pump()
-                title = section.header.title
+                title = section.header.label
                 self.assertLessEqual(title.heightForWidth(title.width()), title.height())
                 self.assertEqual(dialog.status_text.mapTo(dialog, QPoint()).x(), title.mapTo(dialog, QPoint()).x())
                 first = section.content.itemAt(0).widget()
@@ -129,12 +129,14 @@ class AiDataTest(AiTest):
         for mode in ("light", "dark"):
             theme.set_mode(mode)
             for section in (dialog.transfer_section, dialog.export_section, dialog.goal_section):
-                with self.subTest(theme=mode, section=section.header.title.text()):
+                with self.subTest(theme=mode, section=section.header.label.text()):
                     dialog.scroll.ensureWidgetVisible(section.header)
                     section.header.setFocus(Qt.FocusReason.TabFocusReason)
                     guikit.pump()
                     self.assertTrue(section.header.hasFocus())
                     self.assertFalse(section.opened)
+                    closed_name = section.header.accessibleName()
+                    self.assertEqual(closed_name, section.title + " 펼치기")
                     image = section.grab().toImage()
                     ratio = image.devicePixelRatio()
                     card = QPainterPath()
@@ -147,7 +149,7 @@ class AiDataTest(AiTest):
                     self.assertGreater(len(focus), section.width())
                     self.assertFalse(any(not card.contains(point) for point in focus))
                     self.assertEqual(dialog.status_text.mapTo(dialog, QPoint()).x(),
-                                     section.header.title.mapTo(dialog, QPoint()).x())
+                                     section.header.label.mapTo(dialog, QPoint()).x())
                     QTest.keyClick(section.header, Qt.Key.Key_Space)
                     guikit.pump()
                     self.assertTrue(section.opened)
@@ -155,6 +157,7 @@ class AiDataTest(AiTest):
                     guikit.pump()
                     self.assertFalse(section.opened)
                     self.assertTrue(section.header.hasFocus())
+                    self.assertEqual(section.header.accessibleName(), closed_name)
 
     def test_sections_keep_export_choice_and_unsaved_goal_during_sync(self):
         win = self.boot(size=(760, 480))

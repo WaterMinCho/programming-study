@@ -11,6 +11,7 @@ from gui.career_gallery import VideoCard, VideoFilters, VideoGallery
 from gui.career_paper_preview import PaperPreview
 from gui.career_roadmap import ReadingPage, flow_buttons
 from gui.dialog_layout import DialogLayout
+from gui.disclosure import DisclosureButton
 from gui.paper_explainer import load_explanations
 
 
@@ -30,25 +31,16 @@ class SourceDetails(QWidget):
         super().__init__()
         self.owner = owner
         self.title = title
-        self.role = role
         spacing = theme.LEARN_GAP["paragraph"] if role else theme.GAP["title_description"]
         box = kit.box(self, spacing=spacing)
-        self.button = kit.button(title + " 펼치기", "text")
+        self.button = DisclosureButton(title + " 펼치기", role=role or "body")
         self.button.setProperty("reading_anchor", True)
-        self.button.setCheckable(True)
-        box.addWidget(flow_buttons(self.button))
+        box.addWidget(self.button)
         self.content = QWidget()
-        inset = kit.FLUSH if role else 0
-        self.body = kit.box(self.content, (inset, 0, 0, 0), spacing=spacing)
+        self.body = kit.box(self.content, (0, 0, 0, 0), spacing=spacing)
         box.addWidget(self.content)
         self.content.hide()
         self.button.toggled.connect(self.toggle)
-        self.refont()
-
-    def refont(self):
-        if self.role:
-            kit.typed(self.button, self.role, True)
-            self.button.setStyleSheet(f"QPushButton {{ font-size: {theme.TYPE[self.role][0]}px; text-align: left; }}")
 
     def toggle(self, opened):
         self.owner._remember()
@@ -442,16 +434,15 @@ class CareerMagazinePage(ReadingPage):
             for action in (button, figure, license_button):
                 action.setProperty("figurecontrol", True)
             for action in (license_button, button):
+                action.setStyleSheet("QPushButton#text { padding-left: 0; border-left-width: 0; text-align: left; }")
                 row = flow_buttons(action)
                 details.body.addWidget(row)
-                kit.flush_left(details.body, row, widen=True)
             box.insertWidget(2, flow_buttons(figure))
             button.setVisible(self.on_paper is not None)
             figure.setVisible(bool(self.on_figure and paper.figure_description))
             license_button.setVisible(bool(self.on_source and paper.license_url))
             for disclosure in (description, details):
                 box.addWidget(disclosure)
-                kit.flush_left(box, disclosure, widen=True)
             self.paper_box.addWidget(section)
 
     def open_paper(self, paper):

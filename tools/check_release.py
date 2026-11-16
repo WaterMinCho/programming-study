@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 CASES = (
+    "tests.test_gui_disclosure.DisclosureTest.test_question_answer_and_wrapped_arrow_align_in_both_themes",
     "tests.test_gui_docview.FigureViewTest.test_movie_controls_share_the_painted_text_line_in_learning_and_explanations",
     "tests.test_gui_docview.FigureViewTest.test_loops_through_last_frame_until_paused",
     "tests.test_gui_docview.FigureViewTest.test_loop_keeps_focused_frame_button_and_minimized_window_stops_timer",

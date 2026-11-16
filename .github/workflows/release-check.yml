@@ -27,6 +27,8 @@ on:
       - 'gui/identity.py'
       - 'gui/dialogs.py'
       - 'gui/dialog_layout.py'
+      - 'gui/disclosure.py'
+      - 'tests/test_gui_disclosure.py'
       - 'gui/action_layout.py'
       - 'tests/test_gui_action_layout.py'
       - 'tests/test_gui_design_system.py'
