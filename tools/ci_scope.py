@@ -48,6 +48,10 @@ def automation_only(path):
     return path in (".github/workflows/ci.yml", ".github/workflows/style.yml", ".github/workflows/slack-notify.yml", "tools/ci_scope.py", "tools/pr_checks.py", "tests/test_pr_checks.py", "tools/check_style.py", "tests/test_style.py", "tools/pr_title.py", "tools/study_checks.py", "tools/study_review_worker.py", "tools/slack_summary.py", "tools/slack_notify.py", "tools/learning_review.py") or path.startswith(("tests/test_ci_scope", "tests/test_pr_title", "tests/test_study_", "tests/test_slack_", "tests/test_learning_review"))
 
 
+def terminal_launcher_only(path):
+    return path in ("start.command", "tests/test_mac_start.py")
+
+
 def selection(paths):
     if not paths:
         return dict(bank=True, unit=True, gui=True, model=True)
@@ -56,8 +60,8 @@ def selection(paths):
     models = [path for path in work if model_path(path)]
     other = [path for path in work if path not in models]
     server = lambda path: server_only(path) or path in ("submission_api.py", "aiprep/privacy.py", "aiprep/sharing.py", "learning_data/submission.py", "learning_data/privacy.py", "learning_data/sharing.py")
-    return dict(bank=any(not server(path) and not automation_only(path) and not path.startswith("docs/") for path in other),
-                unit=bool(other), gui=any(not server_only(path) and not automation_only(path) and not
+    return dict(bank=any(not server(path) and not automation_only(path) and not terminal_launcher_only(path) and not path.startswith("docs/") for path in other),
+                unit=bool(other), gui=any(not server_only(path) and not automation_only(path) and not terminal_launcher_only(path) and not
                                         (path.startswith("docs/") and path.endswith(".md")) for path in other),
                 model=any(path.endswith(".py") for path in models))
 
