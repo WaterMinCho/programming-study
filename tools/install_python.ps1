@@ -1,5 +1,8 @@
 ﻿param([string]$Root = (Split-Path $PSScriptRoot -Parent))
 $ErrorActionPreference = 'Stop'
+foreach ($module in @('Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Security')) {
+    Import-Module (Join-Path $PSHOME ("Modules\$module\$module.psd1")) -ErrorAction Stop
+}
 
 function Test-StudyPython {
     param([string]$Path, [string[]]$Prefix = @(), [switch]$RequireQt)

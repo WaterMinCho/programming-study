@@ -1,4 +1,5 @@
 """Windows 첫 실행의 탐색·취소·설치 검증과 콘솔 연결을 격리해 확인함."""
+import json
 import os
 from pathlib import Path
 import shutil
@@ -96,6 +97,17 @@ $shim = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\python.exe'
 [IO.File]::WriteAllText($shim, 'must not execute')
 Assert (!(Test-StudyPython $shim)) 'Store alias accepted'
 Assert (!(Test-StudyPython (Join-Path $env:LOCALAPPDATA 'missing.exe'))) 'missing Python accepted'
+''')
+
+    def test_standard_verification_commands_ignore_inherited_module_path(self):
+        self.env["PSModulePath"] = str(self.folder / "다른 PowerShell 모듈")
+        sample = self.folder / "해시 확인.txt"
+        sample.write_bytes(b"abc")
+        self.run_ps(rf'''
+$actual = Get-FileHash -LiteralPath {ps_quote(sample)} -Algorithm SHA256
+Assert ($actual.Hash -eq 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad') 'SHA256 command failed'
+Assert ((Get-Command Get-FileHash).ModuleName -eq 'Microsoft.PowerShell.Utility') 'hash module mismatch'
+Assert ((Get-Command Get-AuthenticodeSignature).ModuleName -eq 'Microsoft.PowerShell.Security') 'signature module mismatch'
 ''')
 
     def test_healthy_venv_precedes_path_and_registry(self):
@@ -237,11 +249,17 @@ Assert ((Start-Study {ps_quote(self.folder)}) -eq 0) 'stdin handoff failed'
             "param([string]$Root)\n"
             f"if ($Root -ne {ps_quote(self.folder)}) {{ exit 3 }}\n"
             "if ($env:STUDY_CONSOLE -ne '1') { exit 4 }\n"
-            "if ($pwd.Path -ne $Root) { exit 5 }\nexit 0\n", encoding="utf-8-sig")
+            "@{root=$Root; cwd=$pwd.Path} | ConvertTo-Json -Compress | "
+            "Set-Content -LiteralPath (Join-Path $Root 'handoff.json') -Encoding UTF8\n"
+            "exit 0\n", encoding="utf-8-sig")
         result = subprocess.run(["cmd.exe", "/d", "/c", str(self.folder / "start.bat")],
                                 env=dict(self.env, STUDY_CONSOLE="1"), stdin=subprocess.DEVNULL,
                                 capture_output=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        handoff = json.loads((self.folder / "handoff.json").read_text(encoding="utf-8-sig"))
+        self.assertEqual(handoff["root"], str(self.folder))
+        # RUNNER~1 같은 짧은 경로와 긴 경로가 같은 폴더인지 확인함.
+        self.assertTrue(os.path.samefile(handoff["cwd"], self.folder), handoff)
 
     @unittest.skipUnless(os.environ.get("STUDY_VERIFY_PYTHON_INSTALLER") == "1", "공식 설치 파일 확인은 명시적으로 실행함")
     def test_official_download_hash_and_signature_without_installing(self):
