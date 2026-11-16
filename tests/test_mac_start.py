@@ -1,4 +1,5 @@
 """Mac 실행기를 임시 폴더에서 검사함. 설치·화면·사용자 설정은 건드리지 않음."""
+import errno
 import os
 from pathlib import Path
 import select
@@ -184,6 +185,89 @@ class MacStartTest(unittest.TestCase):
                 result = subprocess.run([sys.executable, "-c", source], capture_output=True, timeout=5)
                 expected = bootstrap.python_problem({"version": version, "bits64": bits == 64, "platform": "macosx"})
                 self.assertEqual(result.returncode == 0, expected is None, (version, bits))
+
+    def test_decline_then_reopen_asks_again_without_an_error(self):
+        import pty
+        self.env["PYTHONDONTWRITEBYTECODE"] = "1"
+        shutil.copyfile(ROOT / "study.py", self.repo / "study.py")
+        # 실제 진입·동의 경로를 쓰고 설치·화면 실행만 대역으로 바꿈.
+        (self.repo / "bootstrap.py").write_text((ROOT / "bootstrap.py").read_text() + '''
+Host.python_info = lambda self: {"version": (3, 14), "bits64": True, "platform": "macosx", "prefix": "/test-python"}
+Host.pyqt_error = lambda self: "ModuleNotFoundError: No module named PyQt6"
+Host.can_venv = lambda self: True
+Host.probe = lambda self, python: False
+Host.remove = lambda self, path: self.say("FAKE_REMOVE")
+Host.create_venv = lambda self, path: self.say("FAKE_CREATE")
+Host.pip_install = lambda self, python: (0, "")
+Host.call = lambda self, command: self.say("FAKE_APP_STARTED") or 0
+''')
+
+        def run_once(answer):
+            master, slave = pty.openpty()
+            proc = subprocess.Popen([str(self.script)], cwd=self.base, env=self.env,
+                                    stdin=slave, stdout=slave, stderr=slave)
+            os.close(slave)
+            output = b""
+            answered = dismissed = False
+            deadline = time.monotonic() + 10
+            try:
+                while time.monotonic() < deadline:
+                    ready, _, _ = select.select([master], [], [], 0.1)
+                    if ready:
+                        try:
+                            chunk = os.read(master, 8192)
+                        except OSError as error:
+                            if error.errno == errno.EIO:  # Linux PTY는 자식 종료 뒤 EIO를 돌려줌.
+                                break
+                            raise
+                        if not chunk:
+                            break
+                        output += chunk
+                    if not answered and "설치할까요? [y/N] ".encode() in output:
+                        os.write(master, answer.encode() + b"\n")
+                        answered = True
+                    if not dismissed and "Enter를 누르면 종료".encode() in output:
+                        os.write(master, b"\n")
+                        dismissed = True
+                    if proc.poll() is not None and not ready:
+                        break
+                self.assertTrue(answered, output.decode(errors="replace"))
+                return proc.wait(timeout=2), output.decode(errors="replace")
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.wait()
+                os.close(master)
+
+        def files():
+            return {p.relative_to(self.home): p.read_bytes() if p.is_file() else None
+                    for p in self.home.rglob("*") if p != self.home / ".rokey-study"}
+
+        for state in ("none", "empty", "broken"):
+            with self.subTest(state=state):
+                venv = self.home / ".rokey-study" / ("venv-" + state)
+                self.env["STUDY_VENV"] = str(venv)
+                if state != "none":
+                    venv.mkdir(parents=True)
+                if state == "broken":
+                    (venv / "pyvenv.cfg").write_text("existing environment\n")
+                before = files()
+                code, text = run_once("n")
+                self.assertEqual(code, 0, text)
+                self.assertIn("설치를 취소했습니다", text)
+                self.assertNotIn("프로그램을 열지 못했습니다", text)
+                self.assertNotIn("Enter를 누르면 종료", text)
+                self.assertNotIn("FAKE_", text)
+                after = files()
+                before.pop(Path(".rokey-study/launch.log"), None)
+                after.pop(Path(".rokey-study/launch.log"))
+                self.assertEqual(before, after)
+                code, text = run_once("y")
+                self.assertEqual(code, 0, text)
+                self.assertIn("FAKE_CREATE", text)
+                self.assertIn("FAKE_APP_STARTED", text)
+                self.assertEqual("FAKE_REMOVE" in text, state == "broken")
+                self.assertNotIn("Enter를 누르면 종료", text)
 
 
 if __name__ == "__main__":
