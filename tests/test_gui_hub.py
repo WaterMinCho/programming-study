@@ -207,6 +207,24 @@ class HubTest(unittest.TestCase):
 
 
 class HubScreenTest(HubTest):
+    def test_week_activity_uses_only_visible_subjects_and_keeps_their_colours(self):
+        self.graded_round()
+        win = self.boot()
+        hub = win.hub
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        web = {"activity": [today.isoformat(), yesterday.isoformat()],
+               "activity_counts": {today.isoformat(): 777, yesterday.isoformat(): 888}}
+        hub.show_week(win.session.overview(), {"activity": {today.isoformat(): 2}, "recent": []}, web,
+                      {"activity_counts": {today.isoformat(): 3}, "recent": []})
+        self.assertEqual(hub.chart.tracks, (("python", "파이썬"), ("journey", "알고리즘"), ("ai", "AI")))
+        self.assertEqual(hub.chart.colors, ("series_python", "series_algorithm", "series_ai"))
+        self.assertEqual(hub.chart.visible_days()[-1], (today, 1, 2, 3))
+        self.assertEqual((hub.total.text(), hub.streak.text()), ("기록된 활동 6회", "연속 학습 1일"))
+        self.assertNotIn("웹", hub.chart.toolTip())
+        self.assertIn("AI 3", hub.chart.toolTip())
+        self.assertNotIn("웹 면접", [label.text() for label in hub.week_card.findChildren(QLabel)])
+
     def test_commented_web_entry_is_absent_from_hub_and_both_navigation_layouts(self):
         self.assertNotIn("web", study.ENTRY_TRACKS)
         win = self.boot()
