@@ -22,9 +22,8 @@ class AiHomePage(QWidget):
         self.overview, self.target, self.busy, self.mixed_ready = None, None, False, False
         self.mixed_row, self.notes_row = None, None
         outer = kit.box(self)
-        self.top = kit.TopBar("← 처음 화면", plain=True)
+        self.top = kit.TopBar("← 처음 화면", "AI", plain=True)
         self.hub_btn = self.top.back
-        self.top.row.addStretch(1)
         outer.addWidget(self.top)
         header = QWidget()
         row = kit.box(header, (0, theme.GAP["detail"], 0, 0),

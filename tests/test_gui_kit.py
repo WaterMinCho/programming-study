@@ -28,7 +28,7 @@ V2_FILES = ("gui/kit.py", "gui/hub_page.py", "gui/web_home.py", "gui/web_mission
             "gui/journey_text.py", "gui/cases_dialog.py", "gui/docview.py", "gui/ai_home.py", "gui/ai_learn.py", "gui/ai_quiz.py",
             "gui/ai_text.py")  # 새 규칙을 따르는 파일
 WEIGHTS = {400, 700}
-TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover")
+TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover", "navigation", "hero", "hero_alt")
 WEAK = {"ok": "ok_weak", "retry": "retry_weak", "wrong": "wrong_weak", "info": "info_weak", "selection_ink": "selection",
         "primary_off_ink": "primary_off", "primary_ink": "primary"}
 
@@ -88,6 +88,8 @@ class ContrastTest(unittest.TestCase):
             for ink in ("ink", "muted", "faint", "link"):
                 for back in TEXT_BACKS:
                     self.assertGreaterEqual(contrast(tokens[ink], tokens[back]), 4.5, "%s: %s / %s" % (scheme, ink, back))
+            for back in ("hero", "hero_alt"):
+                self.assertGreaterEqual(contrast(tokens["accent_ink"], tokens[back]), 4.5, "%s: accent_ink / %s" % (scheme, back))
             for ink, back in WEAK.items():
                 self.assertGreaterEqual(contrast(tokens[ink], tokens[back]), 4.5, "%s: %s / %s" % (scheme, ink, back))
             for ink in ("ok", "retry", "wrong"):
@@ -212,9 +214,33 @@ class PartsTest(unittest.TestCase):
         for widget in list(buttons.values()) + [plain, text]:
             self.box.addWidget(widget)
         self.show()
-        self.assertEqual({scale: button.height() for scale, button in buttons.items()}, {"l": 48, "m": 40, "s": 32})
-        self.assertEqual((plain.height(), text.height()), (40, 32))
+        self.assertEqual({scale: button.height() for scale, button in buttons.items()}, {"l": 48, "m": 44, "s": 32})
+        self.assertEqual((plain.height(), text.height()), (44, 32))
         self.assertEqual(buttons["l"].objectName(), "primary")
+
+    def test_text_button_focus_remains_visible_in_both_themes(self):
+        """Tab으로 글자 단추에 진입하면 초점 테두리가 보이고 크기·동작은 유지됨."""
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        previous = kit.button("이전 항목")
+        target = kit.button("학습·사용 안내", "text")
+        self.box.addWidget(previous)
+        self.box.addWidget(target)
+        clicked = []
+        target.clicked.connect(lambda: clicked.append(True))
+        self.show()
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            previous.setFocus()
+            guikit.pump()
+            bounds = target.geometry()
+            QTest.keyClick(previous, Qt.Key.Key_Tab)
+            guikit.pump()
+            self.assertTrue(target.hasFocus())
+            self.assertEqual(bounds, target.geometry())
+            picture = target.grab().toImage()
+            self.assertTrue(guikit.near(picture.pixelColor(picture.width() // 2,
+                                                          round(picture.devicePixelRatio())), "focus"), mode)
+            self.assertEqual([], clicked)
 
     def test_rows_are_56_or_80_high_and_open_on_one_click(self):
         rows = kit.RowList()

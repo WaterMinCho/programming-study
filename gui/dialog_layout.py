@@ -21,10 +21,10 @@ class DialogLayout(QVBoxLayout):
         heading = self.title
         if description:
             heading = kit.heading(self.title, kit.para(description, "body", "secondary"))
-        kit.box(self.header, (32, 32, 32, 16 if description else 4)).addWidget(heading)
+        kit.box(self.header, (32, 24, 32, 16 if description else 12)).addWidget(heading)
         self.addWidget(self.header)
         self.body = QWidget()
-        self.content = kit.box(self.body, (32, 8, 32, 24), theme.GAP["paragraph"])
+        self.content = kit.box(self.body, (32, 16, 32, 24), theme.GAP["paragraph"])
         self.content.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll = kit.scroll(self.body)
         self.scroll.setObjectName("dialog_scroll")

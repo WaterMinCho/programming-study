@@ -57,16 +57,16 @@ class NavigationButton(QPushButton):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName(title)
         self.setToolTip(title)
-        kit.typed(self, "label")
+        kit.typed(self, "navigation")
         self.refont()
 
     def refont(self):
-        self.setMinimumHeight(max(56, theme.TYPE["label"][1] + 24))
+        self.setMinimumHeight(max(56, theme.TYPE["navigation"][1] + 24))
         self.updateGeometry()
         self.update()
 
     def sizeHint(self):
-        width = math.ceil(QFontMetricsF(theme.font("label", True)).horizontalAdvance(self.text()))
+        width = math.ceil(QFontMetricsF(theme.font("navigation", True)).horizontalAdvance(self.text()))
         return QSize(max(200, self.text_left() + width + self.text_right_margin()), self.minimumHeight())
 
     def text_left(self):
@@ -103,7 +103,7 @@ class NavigationButton(QPushButton):
         option.text, option.icon = "", QIcon()
         painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
         painter.setRenderHint(painter.RenderHint.Antialiasing)
-        color = theme.qcolor("faint" if not self.isEnabled() else "selection_ink" if self.isChecked() else "muted")
+        color = theme.qcolor("primary_ink" if self.isChecked() else "faint" if not self.isEnabled() else "muted")
         painter.setPen(QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.save()
@@ -157,7 +157,7 @@ class NavigationButton(QPushButton):
                 painter.drawEllipse(QPointF(14, 7), 1.5, 1.5)
                 painter.drawLine(QPointF(8.5, 8), QPointF(12.5, 7))
         painter.restore()
-        painter.setFont(theme.font("label", self.isChecked()))
+        painter.setFont(theme.font("navigation", self.isChecked()))
         painter.setPen(color)
         painter.drawText(self.text_rect(), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, self.text())
         if self.key == "career":

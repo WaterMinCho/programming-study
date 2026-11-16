@@ -247,7 +247,7 @@ class _TabButton(QPushButton):
 
 
 def button(text="", kind="secondary", scale="m", onbg=False):
-    """단추. kind 는 primary·secondary·text·danger·danger_text·chip·tab 가운데 하나, scale 은 l(48)·m(40)·s(32). onbg 는 회색 바탕 위의 글자 단추(올리면 line 색)."""
+    """단추. kind 는 primary·secondary·text·danger·danger_text·chip·tab 가운데 하나, scale 은 l(48)·m(44)·s(32). onbg 는 회색 바탕 위의 글자 단추(올리면 line 색)."""
     out = _TabButton(text) if kind == "tab" else QPushButton(text)
     if kind != "secondary":
         out.setObjectName(kind)
@@ -304,7 +304,7 @@ def box(widget, margins=(0, 0, 0, 0), spacing=0, horizontal=False):
 
 
 def card(pad=24, spacing=16):
-    """흰 카드(surface, 모서리 16, 테두리 없음)와 그 안의 세로 상자."""
+    """흰 카드(surface, 모서리 16, 얇은 테두리)와 그 안의 세로 상자."""
     out = frame("card")
     return out, box(out, (pad, pad, pad, pad), spacing)
 
@@ -1196,8 +1196,8 @@ class NextCard(QFrame):
         self.row.setSpacing(theme.GAP["group"])
         self.text_box = QWidget()
         column_box = box(self.text_box, spacing=theme.GAP["detail"])
-        self.caption = label("이어서 할 일", "caption", "accent")
-        self.title = para("", "headline")
+        self.caption = label("이어서 할 일", "caption", "teal", bold=True)
+        self.title = para("", "title")
         self.line = para("", "body", "secondary")
         column_box.addWidget(self.caption)
         column_box.addWidget(heading(self.title, self.line))

@@ -325,7 +325,14 @@ class _Step(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(QPen(theme.qcolor("border"), 1))
         painter.setBrush(theme.qcolor("surface"))
-        painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 12, 12)
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5),
+                                theme.RADIUS["card"], theme.RADIUS["card"])
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(theme.qcolor("selection"))
+        painter.drawRoundedRect(QRectF(self.example.geometry()).adjusted(0, -4, 0, 4),
+                                theme.RADIUS["control"], theme.RADIUS["control"])
+        painter.setPen(QPen(theme.qcolor("link"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawLine(QPointF(16, 4), QPointF(min(72, self.width() - 16), 4))
 
 
 class CareerLearningPath(QWidget):
@@ -391,13 +398,16 @@ class CareerLearningPath(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(QPen(theme.qcolor("muted"), 2))
+        connection_pen = QPen(theme.qcolor("link"), 2, Qt.PenStyle.SolidLine,
+                              Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        p.setPen(connection_pen)
         columns, rects, output, _ = self._geometry(self.width())
         if self.outputs:
             p.setBrush(theme.qcolor("surface"))
             p.setPen(QPen(theme.qcolor("border"), 1))
-            p.drawRoundedRect(QRectF(output).adjusted(.5, .5, -.5, -.5), 12, 12)
-            p.setPen(QPen(theme.qcolor("muted"), 2))
+            p.drawRoundedRect(QRectF(output).adjusted(.5, .5, -.5, -.5),
+                              theme.RADIUS["card"], theme.RADIUS["card"])
+            p.setPen(connection_pen)
         self.connections = []
         for i, rect in enumerate(rects):
             if i + 1 < len(rects):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """첫 화면(허브): 위 막대의 이름·ID·설정 팝업, 이어서 할 일 카드 하나, 과목별 학습과 오답 노트, 최근 7일 학습 카드를 표시함.
-구역은 위아래로 쌓고 창이 작으면 스크롤함.
+넓은 창에서는 과목 아래 오답과 최근 활동을 나란히 두고 좁은 창에서는 원래 순서로 쌓음.
 
 카드의 수치는 네 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service,
 AI 비전 개론은 aiprep.service 의 overview).
@@ -23,6 +23,7 @@ from aiprep import service as ai_service
 from gui import ai_text, journey_text, kit, theme, web_text
 from gui.mascot import Mascot
 from gui.settings_menu import SettingsMenu
+from gui.team_dashboard import DashboardRow, TeamCard
 from gui.workspace import SubjectGrid, SubjectTile
 from gui.wrong_page import count_line
 from session import SessionError
@@ -358,10 +359,10 @@ class HubPage(QWidget):
         root.addWidget(stack)
         root.addSpacing(theme.GAP["section"])
 
+        notes_card, notes_box = kit.card(spacing=theme.GAP["description_content"])
         head, _, _ = kit.section("오답 노트")
-        root.addLayout(head)
-        root.addSpacing(theme.GAP["description_content"])
-        self.notes = kit.RowList()  # 오답 노트 트랙마다 한 줄. 누르면 오답 노트를 그 트랙으로 엶
+        notes_box.addLayout(head)
+        self.notes = kit.RowList(flush=True)  # 카드 제목과 줄의 시작점을 맞추고 과목별 오답 노트를 엶.
         self.note_rows = []  # [(공급자, 줄)]
         series = dict(zip((tid for tid, _ in TRACKS), theme.SERIES))  # 공부 트랙 줄과 같은 점. 점 색이 없는 트랙은 점 없이 둠
         for track in win.wrong_tracks:
@@ -369,13 +370,11 @@ class HubPage(QWidget):
             row = self.notes.add(kit.Row(track.name, "", mark=mark, strong=True, wrap=True))
             row.clicked.connect(lambda tid=track.tid: win.show_wrong(tid, "hub"))
             self.note_rows.append((track, row))
-        root.addWidget(self.notes)
-        root.addSpacing(theme.GAP["section"])
+        notes_box.addWidget(self.notes)
 
+        self.week_card, box = kit.card(spacing=theme.GAP["description_content"])
         head, _, self.streak = kit.section("최근 7일 학습")
-        root.addLayout(head)
-        root.addSpacing(theme.GAP["description_content"])
-        self.week_card, box = kit.card(spacing=0)
+        box.addLayout(head)
         plot = QWidget()  # 막대 칸: 범례 줄과 막대. 채점 수가 막대의 오른쪽 끝에 맞아서 나란히 둔 최근 채점 칸의 수로 읽히지 않음
         plot_box = kit.box(plot, spacing=8)
         legend = QHBoxLayout()
@@ -400,7 +399,13 @@ class HubPage(QWidget):
         recent.addWidget(self.recent)
         self.week = WeekBody(plot, self.recent_box, self.recent)
         box.addWidget(self.week)
-        root.addWidget(self.week_card)
+        self.activity_row = DashboardRow([notes_card, self.week_card],
+                                         lambda: [max(notes_card.minimumSizeHint().width(), theme.TYPE["body"][0] * 16),
+                                                  max(self.week_card.minimumSizeHint().width(), theme.TYPE["body"][0] * 32)], [1, 2],
+                                         spacing=theme.GAP["group"])
+        for card in (notes_card, self.week_card):
+            self.activity_row.row.setAlignment(card, Qt.AlignmentFlag.AlignTop)
+        root.addWidget(self.activity_row)
         root.addSpacing(theme.GAP["section"])
 
         self.git_hint = kit.banner("", "warning")  # 제출을 쓸 수 없는 이유. 그동안 두 줄은 눌리지 않음
@@ -415,7 +420,6 @@ class HubPage(QWidget):
         root.addWidget(self.status)
         root.addSpacing(8)
         root.addWidget(self.busy_bar)
-        from gui.team_dashboard import TeamCard
         self.team_card = TeamCard(win)
         root.addSpacing(24)
         root.addWidget(self.team_card)

@@ -89,6 +89,6 @@ class PaperPreview(QAbstractButton):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         edge = "focus" if self.hasFocus() else "link" if self.underMouse() and self.isEnabled() else "line"
         painter.setPen(QPen(theme.qcolor(edge), 2 if edge != "line" else 1))
-        painter.setBrush(theme.qcolor("surface_alt"))
+        painter.setBrush(theme.qcolor("surface"))
         painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1),
-                                theme.RADIUS["control"], theme.RADIUS["control"])
+                                theme.RADIUS["card"], theme.RADIUS["card"])

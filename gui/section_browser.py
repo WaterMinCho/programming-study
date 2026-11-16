@@ -1,8 +1,8 @@
 """분류 선택을 고정하고 선택한 목록의 읽던 위치를 보관함."""
 import math
 
-from PyQt6.QtCore import QEvent, QRectF, QSize, Qt, QTimer
-from PyQt6.QtGui import QFontMetricsF, QIcon
+from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer
+from PyQt6.QtGui import QFontMetricsF, QIcon, QPainterPath, QPen
 from PyQt6.QtWidgets import (QButtonGroup, QGridLayout, QPushButton, QSizePolicy,
                              QStyle, QStyleOptionButton, QStylePainter, QWidget)
 
@@ -14,6 +14,8 @@ class SectionButton(QPushButton):
     def __init__(self, key, title, description):
         super().__init__(title)
         self.key = key
+        self.description = description
+        self.expanded = True
         self.setObjectName("section_choice")
         self.setCheckable(True)
         self.setAutoDefault(False)
@@ -27,19 +29,53 @@ class SectionButton(QPushButton):
 
     def sizeHint(self):
         metrics = QFontMetricsF(theme.font("label", True))
-        return QSize(math.ceil(metrics.horizontalAdvance(self.text())) + 24,
-                     max(48, theme.TYPE["label"][1] + 24))
+        inset = 64 if self.expanded else 24
+        return QSize(math.ceil(metrics.horizontalAdvance(self.text())) + inset,
+                     max(56 if self.expanded else 48, theme.TYPE["label"][1] + (32 if self.expanded else 24)))
 
     def minimumSizeHint(self):
         metrics = QFontMetricsF(theme.font("label", True))
         word_width = max((metrics.horizontalAdvance(word) for word in self.text().split()), default=0)
-        return QSize(max(80, math.ceil(word_width) + 24), self.sizeHint().height())
+        return QSize(max(80, math.ceil(word_width) + (64 if self.expanded else 24)), self.sizeHint().height())
 
     def heightForWidth(self, width):
         metrics = QFontMetricsF(theme.font("label", True))
-        bounds = metrics.boundingRect(QRectF(0, 0, max(1, width - 24), 1000),
+        bounds = metrics.boundingRect(QRectF(0, 0, max(1, width - (64 if self.expanded else 24)), 1000),
                                       Qt.TextFlag.TextWordWrap, self.text())
-        return max(self.sizeHint().height(), math.ceil(bounds.height()) + 24)
+        height = max(self.sizeHint().height(), math.ceil(bounds.height()) + (32 if self.expanded else 24))
+        if self.expanded:
+            detail = QFontMetricsF(theme.font("caption")).boundingRect(
+                QRectF(0, 0, max(1, width - 32), 1000), Qt.TextFlag.TextWordWrap, self.description)
+            height += math.ceil(detail.height()) + 8
+        return height
+
+    def paint_icon(self, painter, color):
+        painter.save()
+        painter.translate(16, 18)
+        painter.setPen(QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        if self.key == "mocks":
+            painter.drawEllipse(QRectF(2, 3, 18, 18))
+            painter.drawLine(QPointF(11, 7), QPointF(11, 12))
+            painter.drawLine(QPointF(11, 12), QPointF(15, 14))
+            painter.drawLine(QPointF(8, 0), QPointF(14, 0))
+        elif self.key == "coding":
+            path = QPainterPath(QPointF(7, 5))
+            for point in ((2, 11), (7, 17)):
+                path.lineTo(*point)
+            path.moveTo(16, 5)
+            for point in ((21, 11), (16, 17)):
+                path.lineTo(*point)
+            path.moveTo(13, 3)
+            path.lineTo(10, 19)
+            painter.drawPath(path)
+        else:
+            painter.drawRoundedRect(QRectF(2, 1, 18, 20), 2, 2)
+            if self.key == "lessons":
+                painter.drawLine(QPointF(7, 1), QPointF(7, 21))
+            for y in (7, 12, 17):
+                painter.drawLine(QPointF(10, y), QPointF(16, y))
+        painter.restore()
 
     def paintEvent(self, event):
         painter = QStylePainter(self)
@@ -47,12 +83,27 @@ class SectionButton(QPushButton):
         self.initStyleOption(option)
         option.text, option.icon = "", QIcon()
         painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
+        painter.setRenderHint(painter.RenderHint.Antialiasing)
         painter.setFont(theme.font("label", True))
         tone = "faint" if not self.isEnabled() else "selection_ink" if self.isChecked() else "muted"
         painter.setPen(theme.qcolor(tone))
-        painter.drawText(QRectF(self.rect()).adjusted(12, 8, -12, -8),
-                         Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
+        if not self.expanded:
+            painter.drawText(QRectF(self.rect()).adjusted(12, 8, -12, -8),
+                             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, self.text())
+            return
+        self.paint_icon(painter, theme.qcolor(tone))
+        title = QFontMetricsF(painter.font()).boundingRect(QRectF(0, 0, max(1, self.width() - 64), 1000),
+                                                         Qt.TextFlag.TextWordWrap, self.text())
+        painter.drawText(QRectF(48, 16, self.width() - 64, title.height()),
+                         Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
                          self.text())
+        if self.expanded:
+            painter.setFont(theme.font("caption"))
+            painter.setPen(theme.qcolor("faint" if not self.isEnabled() else "muted"))
+            top = max(56, math.ceil(title.height()) + 32)
+            painter.drawText(QRectF(16, top, self.width() - 32, self.height() - top - 8),
+                             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
+                             self.description)
 
 
 class SectionBrowser(QWidget):
@@ -173,12 +224,12 @@ class SectionBrowser(QWidget):
     def refont(self):
         color = theme.color
         self.setStyleSheet(f"""
-            QPushButton#section_choice {{ background: transparent; color: {color('ink')};
-                border: 2px solid transparent; border-radius: 12px; padding: 0;
+            QPushButton#section_choice {{ background: {color('surface')}; color: {color('ink')};
+                border: 1px solid {color('border')}; border-radius: 12px; padding: 0;
                 min-height: 0; max-height: 16777200px; min-width: 0; }}
             QPushButton#section_choice:hover {{ background: {color('hover')}; }}
-            QPushButton#section_choice:checked {{ background: {color('selection')}; }}
-            QPushButton#section_choice:focus {{ border-color: {color('focus')}; border-style: dashed; }}
+            QPushButton#section_choice:checked {{ background: {color('selection')}; border: 2px solid {color('primary')}; }}
+            QPushButton#section_choice:focus {{ border: 2px dashed {color('focus')}; }}
             QPushButton#section_choice:disabled {{ background: {color('surface_alt')}; border-color: transparent; }}
             QPushButton#section_choice:checked:disabled {{ background: {color('selection')}; }}
         """)
@@ -189,6 +240,8 @@ class SectionBrowser(QWidget):
             return
         buttons = list(self.buttons.values())
         width = max(1, self.navigation.width())
+        for button in buttons:
+            button.expanded = self.window().height() >= 700 and width >= 1100
         needed = [max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons]
         equal_minimum = max(button.minimumSizeHint().width() for button in buttons) * len(buttons)
         single_line = width >= max(sum(needed), equal_minimum) + self.grid.spacing() * (len(buttons) - 1)
