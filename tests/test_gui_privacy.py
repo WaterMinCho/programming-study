@@ -15,6 +15,43 @@ from aiprep.collection import CollectionError
 
 
 class PrivacyGuiTest(HubTest):
+    def test_daily_activity_is_opt_in_and_its_failure_does_not_block_research_deletion(self):
+        win = self.boot()
+        win.show_privacy()
+        dialog = win.privacy.dialog
+        self.assertFalse(dialog.daily.isChecked())
+        research_before = win.privacy.consent.path.read_bytes()
+        dialog.daily.setChecked(True)
+        self.assertTrue(win.privacy.daily().enabled())
+        self.assertEqual(research_before, win.privacy.consent.path.read_bytes())
+        store = win.privacy.consent.collections["ai"]
+        self.assertTrue(store.emit("answer", {"card": "fixture", "result": "pass", "response": [0]}))
+        self.assertEqual(win.privacy.daily().fingerprint(), store.daily_study()["identity"])
+        day = store.daily_study()["date"]
+        with mock.patch.object(win.privacy.consent, "synchronize", return_value={"sent": 0, "errors": []}), \
+                mock.patch("learning_data.daily_study.request", return_value={"eligible": True, "date": day}) as request:
+            self.assertFalse(win.privacy.synchronize()["errors"])
+            self.assertEqual("POST", request.call_args.kwargs["method"])
+        win.privacy.withdraw()
+        with mock.patch.object(win.privacy.consent, "synchronize", return_value={"sent": 0, "errors": [], "withdrawn": True}) as research, \
+                mock.patch("learning_data.daily_study.request", side_effect=CollectionError("offline")):
+            self.assertTrue(win.privacy.synchronize()["errors"])
+            research.assert_called_once()
+        self.assertTrue(win.privacy.consent.settings()["withdraw_pending"])
+        from learning_data.privacy import save
+        state = win.privacy.consent.settings()
+        state["withdraw_pending"] = False
+        save(win.privacy.consent.path, state)
+        win.privacy.cancel.clear()
+        with mock.patch.object(win.privacy.consent, "synchronize", return_value={"sent": 0, "errors": []}), \
+                mock.patch("learning_data.daily_study.request", return_value={"eligible": True, "deleted": True}) as request:
+            result = win.privacy.synchronize()
+            self.assertTrue(result["daily_deleted"])
+            win.privacy.finish(result)
+            self.assertEqual("오늘 계정 집계에서 삭제한 것을 확인했습니다.", win.privacy.message)
+            self.assertEqual("DELETE", request.call_args.kwargs["method"])
+        self.assertFalse(win.privacy.daily().enabled())
+
     def test_first_decline_can_close_when_consent_settings_cannot_be_saved(self):
         win, dialog = self.open_first()
         for store in win.privacy.consent.collections.values():

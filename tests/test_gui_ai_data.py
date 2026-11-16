@@ -381,7 +381,7 @@ class AiDataTest(AiTest):
         dialog.show()
         release = threading.Event()
         with mock.patch.dict("os.environ", {"STUDY_AUTO_SYNC": "1"}), mock.patch.object(
-                win.privacy.consent, "synchronize", side_effect=lambda *args, **kwargs: (release.wait(2), {"sent": 3})[1]):
+                win.privacy.consent, "synchronize", side_effect=lambda *args, **kwargs: (release.wait(2), {"sent": 3, "errors": []})[1]):
             dialog.send()
             self.assertTrue(dialog.working)
             self.assertFalse(dialog.send_button.isEnabled())
