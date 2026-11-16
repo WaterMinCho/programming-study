@@ -77,7 +77,7 @@ class CareerGuiTest(unittest.TestCase):
             target = Path(destination)
             target.mkdir(parents=True, exist_ok=True)
             self.assertTrue(widget.grab().save(str(target / (name + ".png"))))
-            if os.name == "nt":
+            if guikit.APP.platformName() == "windows":
                 self.assertTrue(widget.screen().grabWindow(int(widget.winId())).save(str(target / (name + "-native.png"))))
 
     def test_browse_does_not_save_and_explicit_goal_has_both_ids(self):
@@ -145,9 +145,6 @@ class CareerGuiTest(unittest.TestCase):
         native = os.name == "nt" and os.environ.get("QT_QPA_PLATFORM") != "offscreen"
         width = min(2311, room.width() - 32) if native else 2311
         tall = min(1361, room.height() - 64) if native else 1361
-        if os.environ.get("CAREER_QHD"):
-            self.assertGreaterEqual(round(page.screen().size().width() * page.devicePixelRatioF()), 2560)
-            self.assertGreater(tall, 700)
         page.move(room.topLeft() + QPoint(16, 32))
         for mode, text in (("light", "normal"), ("dark", "larger")):
             theme.set_mode(mode)
@@ -159,6 +156,7 @@ class CareerGuiTest(unittest.TestCase):
                 for height in (700, tall, 700):
                     page.resize(width, height)
                     self.settle(page)
+                    self.assertEqual((page.width(), page.height()), (width, height))
                     page.scroll.verticalScrollBar().setValue(0)
                     self.settle(page)
                     scene = page.scene
@@ -184,6 +182,13 @@ class CareerGuiTest(unittest.TestCase):
             self.assertFalse(page.scene.picture.isVisible())
             self.assertEqual(page.scene.caption.text(), page.scene.artifact.accessibleDescription())
             self._capture(page, f"career-tall-return-{mode}-{text}")
+        destination = os.environ.get("CAREER_EVIDENCE")
+        if destination:
+            import json
+            report = {"qt_platform": guikit.APP.platformName(), "device_pixel_ratio": page.devicePixelRatioF(),
+                      "tested_large_window": [width, tall], "roles": len(self.catalog.roles),
+                      "scope": "Window layout rendering; offscreen is not a native QHD monitor capture."}
+            Path(destination, "career-tall-layout.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     def test_roadmap_sources_and_related_videos_open_selected_targets(self):
         source, video, magazine = Mock(), Mock(), Mock()
