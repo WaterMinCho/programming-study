@@ -264,8 +264,11 @@ class LaunchTest(LaunchCase):
     def test_decline_installs_nothing(self):
         host = FakeHost(answer="n")
         code = bootstrap.launch([], host)
-        self.assert_guidance(host, code)
+        self.assertEqual(code, 0)
+        self.assertIn("설치를 취소했습니다", host.text())
+        self.assertNotIn("python study.py go", host.text())
         self.assertEqual(host.names(), ["ask"])
+        self.assertFalse(os.path.exists(self.venv))
 
     def test_pip_command_installs_wheels_only(self):
         self.assertEqual(bootstrap.PIP_INSTALL[:3], ["-m", "pip", "install"])
@@ -344,8 +347,10 @@ class LaunchTest(LaunchCase):
         self.make_venv()
         host = FakeHost(healthy=False, answer="n")
         code = bootstrap.launch([], host)
-        self.assert_guidance(host, code)
+        self.assertEqual(code, 0)
+        self.assertIn("설치를 취소했습니다", host.text())
         self.assertEqual(host.names(), ["probe", "ask"])
+        self.assertTrue(os.path.isfile(os.path.join(self.venv, "pyvenv.cfg")))
 
     def test_broken_venv_without_terminal(self):
         self.make_venv()
@@ -727,7 +732,7 @@ class WindowLaunchTest(LaunchCase):
 
     def test_close_button_installs_nothing(self):
         fake = FakeHost()
-        self.assertEqual(self.launch(fake, install=False), 1)
+        self.assertEqual(self.launch(fake, install=False), 0)
         self.assertEqual(fake.calls, [])
         window, = self.windows  # 닫은 창을 실패 안내로 다시 띄우지 않음
         self.assertEqual(window.calls, ["ask", "close"])
