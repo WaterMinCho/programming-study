@@ -145,9 +145,19 @@ Windows의 사용자 홈은 보통 `C:\Users\계정명`, macOS는 `/Users/계정
 python study.py
 ```
 
-Windows에서 Python을 못 찾으면 `py -3.14 study.py`, macOS는 `python3 study.py`로 실행합니다. 설치한 Python 버전이 다르면 `-3.14`도 그 버전에 맞춥니다. 오류가 표시되면 내용을 복사해 문의합니다. 창 없이 실행하다 실패한 기록은 `~/.rokey-study/launch.log`에 있습니다.
+Windows에서 Python을 못 찾으면 `py -3.14 study.py`로 실행합니다. 설치한 Python 버전이 다르면 `-3.14`도 그 버전에 맞춥니다. 오류가 표시되면 내용을 복사해 문의합니다. 창 없이 실행하다 실패한 기록은 `~/.rokey-study/launch.log`에 있습니다.
 
-macOS가 `ROKEY.app` 실행을 막으면 `start.command`나 위 터미널 명령을 사용합니다.
+<a id="mac-first-launch"></a>
+
+### Mac에서 실행이 바로 끝나는 경우
+
+터미널이나 iTerm에서 내려받은 폴더를 열고 `./start.command`를 실행하세요. 설치된 Python 중 지원 버전을 찾으며, 오류가 나면 Enter를 누를 때까지 안내를 남깁니다. 프로그램을 정상적으로 닫았을 때는 기다리지 않습니다.
+
+- `Python 3.10~3.14(64비트)를 찾지 못했습니다`가 나오면 [Python 3.14 공식 설치 페이지](https://www.python.org/downloads/latest/python3.14/)에서 `macOS 64-bit universal2 installer`를 설치한 뒤 다시 실행합니다.
+- `설치할까요? [y/N]`이 나오면 `y`를 입력하고 Enter를 누릅니다.
+- 다른 오류가 나면 종료 안내 위의 오류 내용을 복사해 문의해 주세요. `~/.rokey-study/launch.log`에는 선택한 Python 경로와 종료 코드가 남습니다. 경로에 개인 폴더 이름이 들어갈 수 있으니 공유 전에 확인합니다.
+
+macOS가 `ROKEY.app` 실행을 막는 경우에도 `start.command`를 사용합니다.
 
 ### 예전 버전을 받아 뒀거나 문제 받기가 계속 오류로 끝날 때
 
