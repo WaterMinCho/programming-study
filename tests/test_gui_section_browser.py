@@ -1,4 +1,7 @@
 """자료가 늘어나도 분류를 찾고 읽던 목록으로 돌아오는지 확인함."""
+import json
+import os
+from pathlib import Path
 from unittest import mock
 
 from tests import guikit
@@ -8,12 +11,131 @@ from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QAbstractSlider
 
-from gui import theme
+from gui import kit, theme
+from gui.career_roadmap import ReadingPage
 from session import SessionError
 
 
 class AiSectionBrowserTest(AiTest):
     real_bank = True
+
+    def test_application_course_keeps_topbar_and_tab_reaches_selected_course(self):
+        win, home, browser = self.home()
+        self.capture_widget = win
+        win.set_theme("dark")
+        win.set_text("larger")
+        self.settle()
+        before = (home.top.geometry(), home.hub_btn.mapTo(win, QPoint()), home.hub_btn.size())
+        guikit.click(home.course_tabs.buttons[1])
+        self.settle()
+        self.assertEqual("app", win.ai.course)
+        self.assertEqual(before, (home.top.geometry(), home.hub_btn.mapTo(win, QPoint()), home.hub_btn.size()))
+        self.assertIs(home.hub_btn, home.top.back)
+        home.hub_btn.setFocus()
+        QTest.keyClick(home.hub_btn, Qt.Key.Key_Tab)
+        self.assertTrue(home.course_tabs.buttons[1].isChecked())
+        self.assertTrue(home.course_tabs.buttons[1].hasFocus())
+        QTest.keyClick(home.course_tabs.buttons[1], Qt.Key.Key_Tab, Qt.KeyboardModifier.ShiftModifier)
+        self.assertTrue(home.hub_btn.hasFocus())
+        QTest.keyClick(home.hub_btn, Qt.Key.Key_Tab)
+        self.assertTrue(home.course_tabs.buttons[1].hasFocus())
+        self.assertFalse(browser.isAncestorOf(home.hub_btn))
+        destination = os.environ.get("STUDY_UI_ARTIFACT_DIR")
+        if destination:
+            target = Path(destination)
+            target.mkdir(parents=True, exist_ok=True)
+            self.assertTrue(win.grab().save(str(target / "ai-home-header-app-dark-760-larger.png")))
+
+    def test_home_back_matches_shared_topbar_outside_content_column(self):
+        self.settings.setValue("onboarding/career/catalog/v1", True)
+        win, home, browser = self.home()
+        self.capture_widget = win
+        self.assertIsInstance(home.top, kit.TopBar)
+        self.assertIs(home.hub_btn, home.top.back)
+        self.assertIs(home.top.parentWidget(), home)
+        self.assertFalse(browser.isAncestorOf(home.hub_btn))
+        native = guikit.APP.platformName() != "offscreen"
+        room = win.screen().availableGeometry()
+        frame_width = win.frameGeometry().width() - win.width()
+        frame_height = win.frameGeometry().height() - win.height()
+        destination = os.environ.get("STUDY_UI_ARTIFACT_DIR")
+        measurements = []
+        for mode in ("light", "dark"):
+            win.set_theme(mode)
+            for requested in ((760, 480), (2048, 1000)):
+                width, height = requested
+                if native:
+                    width = min(width, room.width() - frame_width - 32)
+                    height = min(height, room.height() - frame_height - 32)
+                win.resize(width, height)
+                if native:
+                    win.move(room.topLeft() + QPoint(16, 16))
+                for step in ("normal", "larger"):
+                    win.set_text(step)
+                    self.settle()
+                    if native:
+                        self.assertTrue(room.contains(win.frameGeometry()))
+                    top, back = home.top, home.hub_btn
+                    self.assertEqual((0, 0, home.width(), theme.CONTROL["topbar"]), top.geometry().getRect())
+                    self.assertEqual(top.height(), browser.y())
+                    self.assertEqual(kit.MARGIN - kit.FLUSH, back.x())
+                    self.assertGreaterEqual(back.width(), back.sizeHint().width())
+                    self.assertGreaterEqual(back.height(), back.sizeHint().height())
+                    bounds = back.rect().translated(back.mapTo(win, QPoint()))
+                    self.assertTrue(win.rect().contains(bounds))
+                    global_back = back.mapToGlobal(QPoint())
+                    comparisons = []
+                    for move in (win.go_home, win.go_career):
+                        move()
+                        self.idle()
+                        page = win.pages.currentWidget()
+                        if move == win.go_home:
+                            self.assertIs(page, win.home)
+                            other = page.hub_btn
+                        else:
+                            self.assertIsInstance(page, ReadingPage)
+                            other = page.top.back
+                        other_top = other.parentWidget()
+                        self.assertEqual(global_back.x(), other.mapToGlobal(QPoint()).x())
+                        self.assertEqual(top.mapToGlobal(QPoint()), other_top.mapToGlobal(QPoint()))
+                        self.assertEqual(back.height(), other.height())
+                        self.assertEqual(top.height(), other_top.height())
+                        # 선이 있는 파이썬 막대는 안쪽 높이가 1px 작음. 각 막대의 실제 내용 칸에서 가운데를 확인함.
+                        self.assertEqual(other_top.contentsRect().y() + (other_top.contentsRect().height() - other.height()) // 2,
+                                         other.y())
+                        if isinstance(page, ReadingPage):
+                            self.assertEqual(global_back, other.mapToGlobal(QPoint()))
+                        comparisons.append(dict(page=type(page).__name__,
+                                                back_global=[other.mapToGlobal(QPoint()).x(), other.mapToGlobal(QPoint()).y()],
+                                                button_height=other.height(), top_height=other.parentWidget().height()))
+                    win.go_ai()
+                    self.settle()
+                    bar = home.scroll.verticalScrollBar()
+                    bar.setValue(bar.maximum())
+                    guikit.pump()
+                    self.assertEqual(bounds, back.rect().translated(back.mapTo(win, QPoint())))
+                    bar.setValue(0)
+                    self.settle()
+                    back.setFocus()
+                    QTest.keyClick(back, Qt.Key.Key_Tab)
+                    self.assertTrue(home.course_tabs.buttons[0].hasFocus())
+                    if destination:
+                        target = Path(destination)
+                        target.mkdir(parents=True, exist_ok=True)
+                        stem = "ai-home-header-%s-%d-%s" % (mode, requested[0], step)
+                        self.assertTrue(win.grab().save(str(target / (stem + ".png"))))
+                        measurements.append(dict(mode=mode, text=step, requested=requested,
+                                                 window=[win.width(), win.height()], back=bounds.getRect(),
+                                                 top=top.geometry().getRect(), viewport=home.scroll.viewport().height(),
+                                                 back_global=[global_back.x(), global_back.y()], comparisons=comparisons,
+                                                 head_sha=os.environ.get("STUDY_UI_HEAD_SHA", ""),
+                                                 platform=guikit.APP.platformName(), dpr=win.devicePixelRatioF()))
+                        (target / "ai-home-header.json").write_text(json.dumps(measurements, indent=2), encoding="utf-8")
+        guikit.click(home.hub_btn)
+        self.assertIs(win.pages.currentWidget(), win.hub)
+        win.go_ai()
+        win.resize(760, 480)
+        self.settle()
 
     def home(self, size=(760, 480)):
         win = self.boot(size)

@@ -4,7 +4,6 @@
 읽던 단계, 단원 연습, 날짜를 띄운 복습 기록을 구분해 표시함.
 분류 선택을 고정하고 현재 과정의 목록과 공개 준비 상태를 표시함.
 혼합 모의고사는 두 탭에서 같은 응시 기록을 사용함."""
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
 
 from aiprep import bank, mixed_mock
@@ -23,11 +22,13 @@ class AiHomePage(QWidget):
         self.overview, self.target, self.busy, self.mixed_ready = None, None, False, False
         self.mixed_row, self.notes_row = None, None
         outer = kit.box(self)
+        self.top = kit.TopBar("← 처음 화면", plain=True)
+        self.hub_btn = self.top.back
+        self.top.row.addStretch(1)
+        outer.addWidget(self.top)
         header = QWidget()
         row = kit.box(header, (0, theme.GAP["detail"], 0, 0),
                       spacing=theme.GAP["detail"])
-        self.hub_btn = kit.button("← 처음 화면", "text", "m", onbg=True)
-        row.addWidget(self.hub_btn, 0, Qt.AlignmentFlag.AlignLeft)
         self.course_tabs = kit.NavigationTabs(["AI 개론", "AI 응용"], deferred=True)
         self.course_tabs.setAccessibleName("AI 학습 과정")
         for tab, description in zip(self.course_tabs.buttons, (
@@ -111,7 +112,7 @@ class AiHomePage(QWidget):
         root.addWidget(self.mock_empty)
         self.browser.add_section("mocks", "모의고사", "회차를 골라 제한 시간 안에 풉니다.", mocks)
         self.browser.body.addStretch(1)
-        focus_order = [*self.course_tabs.buttons, *self.browser.buttons.values(), self.guide_btn, self.data_btn, self.next_btn]
+        focus_order = [self.hub_btn, *self.course_tabs.buttons, *self.browser.buttons.values(), self.guide_btn, self.data_btn, self.next_btn]
         for first, second in zip(focus_order, focus_order[1:]):
             QWidget.setTabOrder(first, second)
 
@@ -122,7 +123,9 @@ class AiHomePage(QWidget):
         """서비스에서 현황을 다시 읽어 칸을 채움. 기록을 읽지 못하면 띠에 이유를 보이고 수치 줄과 목록을 비움."""
         course = getattr(self.win.ai, "course", "intro")
         self.browser.begin_refresh((self.win.user, course))
-        self.course_tabs.set_current(1 if course == "app" else 0)
+        course_index = 1 if course == "app" else 0
+        self.course_tabs.set_current(course_index)
+        QWidget.setTabOrder(self.hub_btn, self.course_tabs.buttons[course_index])
         self.course_intro.setText("AI 응용 · 이미지를 준비하고 분류·검출에 연결합니다. 자료는 확인을 마친 단원부터 공개합니다." if course == "app" else
                                   "AI 개론 · 데이터와 모델, 손실과 기울기를 연결해 학습 원리를 익힙니다.")
         try:
