@@ -79,6 +79,7 @@ class JourneySession:
         self.node_path = node_path or None
         self._lock = threading.RLock()
         self._secrets = {}
+        self.activity_mark = None
         self.folder = os.path.join(study.SUBMISSIONS_DIR, user, "journey")
         self.progress_path = os.path.join(self.folder, "progress.json")
         self.root = bank.BANK_DIR
@@ -549,6 +550,11 @@ class JourneySession:
         gen_source = self._secret_files(did).get(pid + "/gen.py")
         state = self._state(before, did, pid)
         reveal = state["passed"] or state["explained"]
+        code_path = self._code_path(did, pid, lang)
+        try:
+            answered = os.path.isfile(code_path) and study.read_text(code_path) != values.starter(problem["signature"], lang)
+        except (OSError, ValueError):
+            answered = False
         try:
             with runner.workspace() as tmp:
                 result = grading.grade(problem, problem["role"], tests, gen_source, lang,
@@ -567,6 +573,11 @@ class JourneySession:
         if result["fatal"]:
             entry["fatal"] = result["fatal"].get("kind")
         self._append(entry)
+        if answered and callable(self.activity_mark):
+            try:
+                self.activity_mark()
+            except Exception:
+                pass  # 오늘 계정 집계의 실패는 채점 기록과 따로 둠
         after = self._states()
         if result["passed"] and not state["passed"]:
             result["first_pass"] = True

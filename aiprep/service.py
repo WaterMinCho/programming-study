@@ -2345,7 +2345,10 @@ class PracticeSet(object):
                 row["picked"] = picked
         row["result"] = graded["result"]
         feedback["sure_wrong"] = bool(sure) and graded["result"] != "pass"
-        return self._settle(entry, row, feedback, response=list(value or []))
+        out = self._settle(entry, row, feedback, response=list(value or []))
+        if any(str(v).strip() for v in value or []):
+            self.sess.collection.mark_graded()
+        return out
 
     @staticmethod
     def _skel_row(card, item, row):

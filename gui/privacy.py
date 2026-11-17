@@ -74,16 +74,7 @@ class ConsentDialog(QDialog):
         body.addWidget(self.status_text)
         for title, text in NOTICE_ROWS:
             body.addWidget(kit.heading(kit.label(title, "headline"), kit.para(text)))
-        self.daily = QCheckBox("오늘 공부한 계정 수에 포함 (선택)")
-        self.daily.setProperty("role", "body")
-        self.daily.setFont(theme.font("body"))
-        self.daily.setMinimumHeight(theme.control_height("s"))
-        try:
-            self.daily.setChecked(bool(controller.daily() and controller.daily().enabled()))
-        except CollectionError:
-            self.daily.setChecked(False)
-        self.daily.toggled.connect(self.change_daily)
-        self.daily_area = kit.spaced(self.daily, kit.para(DAILY_NOTICE, "body", "secondary"), spacing=theme.GAP["detail"])
+        self.daily_area = kit.heading(kit.label("오늘 열심히 공부한 계정", "headline"), kit.para(DAILY_NOTICE))
         body.addWidget(self.daily_area)
         body.addWidget(kit.heading(kit.label("답안 파일 자동 제출 (추가 선택)", "headline"), kit.para(AUTO_NOTICE)))
         self.submission_files = kit.button("보낼 풀이 파일 보기", "text", "l")
@@ -140,7 +131,6 @@ class ConsentDialog(QDialog):
             self.status_text.setText(text)
             self.message.setText(self.controller.message)
             self.daily_area.setVisible(self.controller.daily() is not None)
-            self.daily.setEnabled(not pending)
             self.automatic.setVisible(active and not pending)
             scope = state.get("receipt", {}).get("automatic_submission", {})
             self.automatic.setText("답안 파일 자동 제출: " + ("사용 중" if scope.get("accepted") else "사용 안 함") + " · 설정")
@@ -169,27 +159,9 @@ class ConsentDialog(QDialog):
                 self.controller.changed.emit()
                 self.accept()
             return
-        if accepted and self.daily.isChecked() and self.controller.daily():
-            try:
-                self.controller.daily().choose(True)
-            except (CollectionError, OSError) as error:
-                self.controller.message = str(error)
         self.controller.changed.emit()
         self.controller.tick()
         self.accept()
-
-    def change_daily(self, enabled):
-        try:
-            state = self.controller.consent.settings()
-            if not state.get("accepted") or state.get("withdraw_pending"):
-                return
-            self.controller.daily().choose(enabled)
-            self.controller.tick()
-        except (CollectionError, OSError) as error:
-            self.message.setText(str(error))
-            self.daily.blockSignals(True)
-            self.daily.setChecked(not enabled)
-            self.daily.blockSignals(False)
 
     def confirm_withdraw(self):
         def chosen(key):
@@ -214,12 +186,13 @@ class ConsentDialog(QDialog):
 
 class SyncController(QObject):
     changed = pyqtSignal()
+    marked = pyqtSignal()
 
     def __init__(self, parent, collections):
         super().__init__(parent)
         self.consent = Consent(collections)
-        for store in collections.values():
-            store.activity_identity = self.activity_identity
+        self.attach(collections)
+        self.marked.connect(self.tick)
         self.message, self.job = "", None
         self.cancel, self.closing = threading.Event(), False
         self.failures = 0
@@ -237,46 +210,32 @@ class SyncController(QObject):
         identity = getattr(self.parent(), "identity", None)
         return DailyStudy(identity) if identity is not None and hasattr(identity, "path") else None
 
-    def activity_identity(self):
-        state = self.consent.settings()
-        daily = self.daily()
-        if daily and state.get("accepted") and not state.get("withdraw_pending") and daily.enabled():
-            return {"identity": daily.fingerprint(), "choice": daily.settings()["choice"]}
-        return None
+    def attach(self, collections):
+        """채점하는 쪽이 오늘 계정 집계에 알릴 수 있게 연결함. 학습 기록 제공 동의와는 따로 동작함."""
+        for store in collections.values():
+            store.activity_mark = self.activity_mark
 
-    def daily_pending(self):
+    def activity_mark(self):
+        daily = self.daily()
+        if daily is not None and daily.mark():
+            self.marked.emit()
+
+    def daily_due(self):
         try:
             daily = self.daily()
-            return bool(daily and daily.settings().get("identity") == daily.fingerprint() and daily.settings().get("delete_pending"))
+            return bool(daily and daily.due())
         except CollectionError:
             return False
 
     def synchronize(self):
-        daily = self.daily()
         state = self.consent.settings()
-        daily_result = None
-        daily_errors = []
-        if daily and state.get("withdraw_pending"):
+        result = self.consent.synchronize(self.cancel.is_set) if state.get("accepted") or state.get("withdraw_pending") else {"errors": []}
+        daily = self.daily()
+        if daily:
             try:
-                if daily.enabled():
-                    daily.choose(False)
-                daily_result = daily.synchronize({}, allowed=False)
+                daily.synchronize(self.cancel.is_set)
             except (CollectionError, OSError) as error:
-                daily_errors.append(str(error))
-        result = self.consent.synchronize(self.cancel.is_set)
-        if daily and not state.get("withdraw_pending"):
-            try:
-                latest = self.consent.settings()
-                daily_result = daily.synchronize(self.consent.collections,
-                                                 allowed=bool(latest.get("accepted") and not latest.get("withdraw_pending")),
-                                                 canceled=self.cancel.is_set)
-            except (CollectionError, OSError) as error:
-                daily_errors.append(str(error))
-        result["errors"].extend(daily_errors)
-        if daily_errors:
-            result["withdrawn"] = False
-        elif daily_result == "deleted":
-            result["daily_deleted"] = True
+                result["errors"].append(str(error))
         return result
 
     def withdraw(self):
@@ -305,7 +264,7 @@ class SyncController(QObject):
             self.failures = min(4, self.failures + 1)
             self.timer.start(sync_schedule.delay_ms(self.failures))
             return
-        if not state.get("accepted") and not state.get("withdraw_pending") and not self.daily_pending():
+        if not state.get("accepted") and not state.get("withdraw_pending") and not self.daily_due():
             return
         self.cancel.clear()
         self.job_choice = state.get("choice")
@@ -320,8 +279,7 @@ class SyncController(QObject):
         self.failures = min(4, self.failures + 1) if result.get("errors") else 0
         self.message = ("처리 대기 · " + result["errors"][0] if result.get("errors") else
                         "서버의 비공개 기록 삭제를 확인했습니다." if result.get("withdrawn") else
-                        "오늘 계정 집계에서 삭제한 것을 확인했습니다." if result.get("daily_deleted") else
-                        "서버에 새 기록 %d건을 전송했습니다." % result.get("sent", 0))
+                        "서버에 새 기록 %d건을 전송했습니다." % result["sent"] if "sent" in result else "")
         self.changed.emit()
 
     def release_job(self):
@@ -344,7 +302,7 @@ class SyncController(QObject):
             self.failures = 0
             QTimer.singleShot(0, self.tick)
         elif os.environ.get("STUDY_AUTO_SYNC", "1") != "0":
-            if state.get("accepted") or state.get("withdraw_pending") or self.daily_pending():
+            if state.get("accepted") or state.get("withdraw_pending") or self.daily_due():
                 self.timer.start(sync_schedule.delay_ms(self.failures, bool(state.get("withdraw_pending"))))
 
     def stop(self):

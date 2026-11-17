@@ -579,6 +579,7 @@ class Session:
             return self._result(rnd, items, untouched=True)
         with self._lock:
             try:
+                attempts = len(self.prof["attempts"])
                 adaptive.record(self.prof, rnd, items, finalize=finalize)
                 completed_now, next_id = False, None
                 if not rnd.get("completed_at") and rnd["unanswered"] == 0:
@@ -596,6 +597,8 @@ class Session:
                 self._reload()  # 저장하지 못한 채점 결과를 메모리에 두면 해설이 열리고, 그 뒤의 다시 채점이 첫 제출로 기록됨
                 raise SessionError("채점 결과를 저장하지 못했습니다. 기록은 바뀌지 않았으니 잠시 뒤 다시 눌러 주세요.\n%s" % error)
             self.collection.after_grade(self, rnd, items, snapshot)
+            if any(not attempt.get("skipped") for attempt in self.prof["attempts"][attempts:]):
+                self.collection.mark_graded()
         return self._result(rnd, items, completed_now=completed_now, next_round=next_id)
 
     def _result(self, rnd, items, untouched=False, completed_now=False, next_round=None):

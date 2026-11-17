@@ -609,9 +609,8 @@ class TeamCard(QWidget):
         self.today_summary = None
         if state == "ready" and not self.allowed(getattr(self.win, "identity", None)):
             state = "unavailable"
-        tip = ("[오늘 공부한 계정 수에 포함]을 선택한 인증 계정 중 한국 시간 오늘 파이썬·AI 문제에 답을 적거나 고른 뒤 채점한 계정 수입니다. "
-               "앱의 당일 채점 완료 신호를 서버가 받은 계정만 한 번씩 셉니다. "
-               "선택 기간과 관계없으며 실제 사람 수와 다를 수 있습니다. 구버전 앱의 활동은 빠질 수 있습니다.")
+        tip = "한국 시간 오늘 문제를 하나라도 풀고 채점한 인증 계정 수입니다."
+        retry = " [새로고침]을 눌러 다시 불러와 주세요."
         text = {"loading": "확인 중", "failed": "조회 실패", "unavailable": "확인 불가"}.get(state, "집계 준비 중")
         stale = False
         if state == "ready" and today is not None:
@@ -624,27 +623,20 @@ class TeamCard(QWidget):
                 if date > now.date():
                     raise ValueError
                 self.today_summary = dict(today)
-                text = f"확인된 {accounts:,}개"
-                tip += f" 집계 날짜는 {date:%Y년 %m월 %d일}입니다."
-                if coverage == "partial":
-                    tip += " 일부 이전 인증은 계정을 확인하지 못해 집계에서 빠질 수 있습니다. 기기 확인 코드가 남아 있으면 자동으로 확인합니다."
+                text = f"{accounts:,}개"
                 stale = date < now.date()
                 if stale:
                     text = f"{date.month}/{date.day} · " + text
-                    tip += " 오늘의 수치가 아닙니다. [새로고침]으로 다시 확인해 주세요."
+                    tip += " 오늘 수치가 아니니 [새로고침]을 눌러 주세요."
                 else:
                     midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(), KST)
                     self.today_timer.start(max(1, math.ceil((midnight - now).total_seconds() * 1000)))
             except (KeyError, TypeError, ValueError):
                 text = "확인 불가"
-                tip += " 오늘 통계의 응답을 확인하지 못했습니다."
-        elif state == "ready":
-            tip += " 이 서버는 오늘의 참여 계정 수를 아직 제공하지 않습니다."
+                tip += retry
         elif state == "failed":
-            tip += " 통계를 불러오지 못했습니다. [새로고침]으로 다시 확인해 주세요."
-        elif state == "loading":
-            tip += " 새 통계를 확인하고 있습니다."
-        else:
+            tip += retry
+        elif state == "unavailable":
             tip += " 통계를 볼 권한을 확인하지 못했습니다."
         self.today_value.setText(text)
         kit.set_tone(self.today_value, "secondary" if stale or self.today_summary is None else "")

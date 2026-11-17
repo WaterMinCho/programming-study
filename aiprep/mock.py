@@ -411,6 +411,8 @@ class MockExam:
                 self.result = self.sess.record.append(event, at=_moment(self.clock()).isoformat())
             except record.RecordError as error:
                 raise MockError(str(error)) from error
+            if any(value != "blank" for value in results.values()) and hasattr(self.sess, "collection"):
+                self.sess.collection.mark_graded()
             if hasattr(self.sess, "_collect_record"):
                 consent = self.sess.collection.observation_context() or {}
                 included = {cid for cid in self.draft["order"] if not self.draft["answers"].get(cid)

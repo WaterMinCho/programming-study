@@ -1,51 +1,48 @@
 # -*- coding: utf-8 -*-
-"""채점 시점의 계정·동의 표식이 과거 기록과 내보내기에 섞이지 않는지 확인함."""
-import contextlib
+"""채점한 곳마다 오늘 계정 집계를 알리고, 학습 기록 수집과는 섞이지 않는지 확인함."""
 import json
+import os
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 from unittest import mock
 
+import adaptive
+import study
+from aiprep import service
 from learning_data.collection import Collection
+from python_collection import PythonCollection
+from tests import test_journey_service, test_session
+from tests.test_ai_service import Base as AiBase, FIXTURE
 
 
-class DailyStudyTest(unittest.TestCase):
+class CollectionMarkTest(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         self.repo = self.root / "repo"
         self.repo.mkdir()
-        self.activity = {"identity": "a" * 64, "choice": "11111111-1111-4111-8111-111111111111"}
-        self.callback = mock.Mock(side_effect=lambda: dict(self.activity))
-        self.store = Collection(self.root / "private", self.repo, activity_identity=self.callback)
-        clock = mock.patch("learning_data.collection.stamp", return_value="2026-11-16T14:59:00+00:00")
-        self.clock = clock.start()
-        self.addCleanup(clock.stop)
+        self.callback = mock.Mock()
+        self.store = Collection(self.root / "private", self.repo, activity_mark=self.callback)
 
     def answer(self, **changes):
-        return dict({"card": "fixture-card", "answered": True, "result": "pass"}, **changes)
+        return dict({"card": "fixture-card", "result": "pass", "response": ["값"]}, **changes)
 
-    def marker(self, date="2026-11-16"):
-        return dict(self.activity, date=date)
-
-    def test_missing_or_stopped_collection_never_calls_identity_or_creates_a_file(self):
-        self.assertEqual({}, self.store.daily_study())
-        self.assertFalse(self.store.emit("answer", self.answer()))
+    def test_mark_reaches_the_counter_with_or_without_research_collection(self):
+        # 예전에는 수집 중인 기기에서만 표식을 남겼음. 지금은 수집 파일이 없거나 꺼져 있어도 알림.
+        self.store.mark_graded()
         self.assertFalse(Path(self.store.path).exists())
         self.store.set_enabled(True)
-        self.assertTrue(self.store.emit("answer", self.answer()))
-        self.assertEqual(self.marker(), self.store.daily_study())
+        self.store.mark_graded()
         self.store.set_enabled(False)
-        self.callback.reset_mock()
-        self.assertEqual({}, self.store.daily_study())
-        self.assertFalse(self.store.emit("answer", self.answer()))
-        self.callback.assert_not_called()
-        self.store.set_enabled(True)
-        self.assertEqual({}, self.store.daily_study())
+        self.store.mark_graded()
+        self.assertEqual(3, self.callback.call_count)
+        Collection(self.root / "other", self.repo).mark_graded()
 
-    def test_new_event_uses_emission_identity_and_choice_without_relabelling_old_events(self):
+    def test_emit_no_longer_writes_a_marker_into_research_records(self):
+        # 예전에는 채점 기록과 같은 파일에 계정 지문·선택 구분값을 남겼음. 지금은 수집 기록에 아무것도 남기지 않음.
         self.store.set_enabled(True)
         with self.store._connect() as conn:
             conn.executescript("""
@@ -53,112 +50,146 @@ class DailyStudyTest(unittest.TestCase):
                 CREATE TRIGGER count_marker AFTER INSERT ON meta WHEN NEW.key='daily_study'
                 BEGIN INSERT INTO marker_writes VALUES (NEW.value); END;
             """)
-        self.store.emit("answer", self.answer(), key="first")
-        original = self.marker()
-        self.store.emit("answer", self.answer(), key="second")
-        with self.store._connect() as conn:
-            self.assertEqual(1, conn.execute("SELECT count(*) FROM marker_writes").fetchone()[0])
-        self.activity["identity"] = "b" * 64
-        self.assertEqual(original, self.store.daily_study())
-        self.callback.reset_mock()
         self.assertTrue(self.store.emit("answer", self.answer(), key="first"))
-        self.callback.assert_not_called()
-        self.assertEqual(original, self.store.daily_study())
-        self.store.emit("answer", self.answer(), key="third")
-        self.assertEqual(self.marker(), self.store.daily_study())
-        previous_choice = self.marker()
-        self.activity["choice"] = "22222222-2222-4222-8222-222222222222"
-        self.assertEqual(previous_choice, self.store.daily_study())
-        self.store.emit("answer", self.answer(), key="fourth")
-        self.assertEqual(self.marker(), self.store.daily_study())
-        self.clock.return_value = "2026-11-16T15:00:00+00:00"
-        self.store.emit("answer", self.answer(), key="next-day")
-        self.assertEqual(self.marker("2026-11-17"), self.store.daily_study())
+        self.assertTrue(self.store.emit("mock_answer", self.answer(), key="second"))
         with self.store._connect() as conn:
-            self.assertEqual(4, conn.execute("SELECT count(*) FROM marker_writes").fetchone()[0])
-
-    def test_only_current_answered_grades_mark_activity(self):
-        for track, kind, result in (("ai", "answer", "pass"), ("ai", "answer", "partial"),
-                                    ("ai", "answer", "stuck"), ("ai", "mock_answer", "pass"),
-                                    ("ai", "mock_answer", "stuck"), ("python", "answer", "ok"),
-                                    ("python", "answer", "wrong")):
-            with self.subTest(track=track, kind=kind, result=result):
-                store = Collection(self.root / (track + kind + result), self.repo, track, activity_identity=self.callback)
-                store.set_enabled(True)
-                self.assertTrue(store.emit(kind, self.answer(result=result), at="2026-11-16T23:58:59+09:00"))
-                self.assertEqual(self.marker(), store.daily_study())
-        self.store.set_enabled(True)
-        excluded = [("legacy_answer", self.answer()), ("question_returned", self.answer()),
-                    ("mock_submit", self.answer()), ("mock_answer", self.answer(result="partial"))]
-        excluded += [("answer", self.answer(**changes)) for changes in (
-            {"card": " "}, {"card": None}, {"card": 1}, {"answered": False}, {"answered": 1},
-            {"answered": "true"}, {"dontknow": True}, {"result": "blank"}, {"result": "not_collected"},
-            {"result": "ok"}, {"result": {}}, {"synthetic": True}, {"synthetic": "false"},
-            {"provenance": {"kind": "legacy_profile"}}, {"response": [" "]},
-            {"source_at": "2026-11-15T23:59:59+09:00"}, {"source_at": "2026-11-16T23:59:01+09:00"},
-            {"source_at": "2026-11-16T23:58:00"}, {"source_at": "unknown"}, {"source_at": None})]
-        missing = self.answer()
-        missing.pop("answered")
-        excluded.append(("answer", missing))
-        self.callback.reset_mock()
-        for kind, payload in excluded:
-            with self.subTest(kind=kind, payload=payload):
-                self.assertTrue(self.store.emit(kind, payload))
-                self.assertEqual({}, self.store.daily_study())
+            self.assertEqual(0, conn.execute("SELECT count(*) FROM marker_writes").fetchone()[0])
+            conn.execute("INSERT INTO meta VALUES ('daily_study', ?)", (json.dumps({"identity": "a" * 64}),))
         self.callback.assert_not_called()
-
-    def test_old_consent_context_and_failed_insert_do_not_mark_activity(self):
-        self.store.set_enabled(True)
-        context = self.store.observation_context()
         self.store.set_enabled(False)
         self.store.set_enabled(True)
-        self.assertTrue(self.store.emit("mock_answer", self.answer(response=["fixture"]), observation_context=context))
-        self.assertEqual({}, self.store.daily_study())
-        self.assertFalse(self.store.emit("answer", self.answer(bad=float("nan"))))
-        self.assertEqual({}, self.store.daily_study())
-        self.callback.assert_not_called()
-
-    def test_bad_or_failing_identity_callback_does_not_lose_the_grade(self):
-        self.store.set_enabled(True)
-        invalid = [None, "a" * 64, {}, {"identity": "not-a-fingerprint", "choice": self.activity["choice"]},
-                   {"identity": "a" * 64}, dict(self.activity, choice="not-a-uuid"), dict(self.activity, extra="no")]
-        self.callback.side_effect = None
-        for index, value in enumerate(invalid):
-            with self.subTest(index=index):
-                self.callback.return_value = value
-                self.assertTrue(self.store.emit("answer", self.answer()))
-                self.assertEqual({}, self.store.daily_study())
-        self.callback.side_effect = RuntimeError("fixture callback failure")
-        self.assertTrue(self.store.emit("answer", self.answer()))
-        self.assertEqual(len(invalid) + 1, self.store.status()["events"])
-        self.assertEqual(0, self.store.missed)
-        self.assertEqual({}, self.store.daily_study())
-
-    def test_marker_is_local_metadata_and_reading_never_scans_or_writes_events(self):
-        self.store.set_enabled(True)
-        self.store.emit("answer", self.answer())
-        statements = []
-        connect = self.store._connect
-        @contextlib.contextmanager
-        def traced(*args, **kwargs):
-            with connect(*args, **kwargs) as conn:
-                conn.set_trace_callback(statements.append)
-                changes = conn.total_changes
-                yield conn
-                self.assertEqual(changes, conn.total_changes)
-        with mock.patch.object(self.store, "_connect", traced), mock.patch.object(self.store, "snapshot", side_effect=AssertionError):
-            self.assertEqual(self.marker(), self.store.daily_study())
-        self.assertFalse(any("events" in sql.lower() or "items" in sql.lower() for sql in statements))
         destination = self.root / "export.jsonl"
         self.store.export(destination)
         for output in (destination.read_text(encoding="utf-8"), json.dumps(self.store.snapshot(include_answers=True))):
-            for private in ("daily_study", self.activity["identity"], self.activity["choice"]):
-                self.assertNotIn(private, output)
-        for value in ("bad-json", "[]", json.dumps(dict(self.marker(), choice="invalid")),
-                      json.dumps(dict(self.marker(), date="invalid")), json.dumps(dict(self.marker(), extra=True))):
-            with self.store._connect() as conn:
-                conn.execute("UPDATE meta SET value=? WHERE key='daily_study'", (value,))
-            self.assertEqual({}, self.store.daily_study())
+            self.assertNotIn("daily_study", output)
+            self.assertNotIn("a" * 64, output)
+        with self.store._connect() as conn:
+            self.assertIsNone(conn.execute("SELECT value FROM meta WHERE key='daily_study'").fetchone())
+
+    def test_failing_callback_does_not_lose_the_grade(self):
+        self.store.set_enabled(True)
+        self.callback.side_effect = RuntimeError("fixture callback failure")
+        self.store.mark_graded()
+        self.assertTrue(self.store.emit("answer", self.answer()))
+        self.assertEqual(1, self.store.status()["events"])
+        self.assertEqual(0, self.store.missed)
+
+
+class AiMarkTest(AiBase):
+    def session(self):
+        sess = super().session()
+        self.marks = mock.Mock()
+        sess.collection.activity_mark = self.marks
+        return sess
+
+    def test_practice_answer_marks_without_research_consent_but_dont_know_does_not(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        self.assertFalse(os.path.exists(sess.collection.path))
+        ps = service.PracticeSet(sess, "today1", "unit", ["i90-b01"], 3)
+        ps.dont_know(2)
+        self.marks.assert_not_called()
+        other = service.PracticeSet(sess, "today2", "unit", ["i90-b01"], 3)
+        other.answer([""], 1, False)
+        self.marks.assert_not_called()
+        again = service.PracticeSet(sess, "today3", "unit", ["i90-b01"], 3)
+        again.answer(["다른 답"], 1, False)
+        self.marks.assert_called_once()
+        self.assertFalse(os.path.exists(sess.collection.path))
+
+    def test_broken_research_record_still_marks(self):
+        # 예전에는 수집 저장이 실패하면 표식을 남기지 않았음. 지금은 수집과 따로 알림.
+        sess = self.session()
+        sess.collection.set_enabled(True)
+        Path(sess.collection.path).write_bytes(b"broken")
+        sess.mark_read("i90", "90a")
+        service.PracticeSet(sess, "today4", "unit", ["i90-b01"], 3).answer(["반대"], 1, True)
+        self.marks.assert_called_once()
+        self.assertTrue(sess.collection.status()["error"])
+
+
+class MockMarkTest(AiBase):
+    def setUp(self):
+        super().setUp()
+        self.root = os.path.join(self.tmp, "bank")
+        shutil.copytree(FIXTURE, self.root)
+        index_path = os.path.join(self.root, "index.json")
+        index = study.read_json(index_path)
+        index["mocks"][0]["count"] = 1
+        study.write_text(index_path, json.dumps(index, ensure_ascii=False))
+        folder = Path(self.root) / "mocks/m90"
+        (folder / "work").mkdir(parents=True)
+        (folder / "meta.json").write_text("{}", encoding="utf-8")
+        items = [{"id": "m90-01", "kind": "blank", "lesson": "i90", "unit": "90a", "step": "90a/1",
+                  "stem": "숫자를 쓰세요: ____", "blanks": [{"answer": ["3"], "mode": "number"}],
+                  "explain": "정답은 3입니다.", "ref": ["검증 기록"]}]
+        (folder / "work/items.json").write_text(json.dumps({"items": items}, ensure_ascii=False), encoding="utf-8")
+
+    def test_submit_marks_only_when_an_answer_was_graded(self):
+        sess = self.session()
+        sess.collection.activity_mark = marks = mock.Mock()
+        sess.start_mock("m90", seed=1).submit()
+        marks.assert_not_called()
+        retry = sess.start_mock("m90", repeat=True, seed=2)
+        retry.save_answer(["4"], "m90-01")
+        retry.submit()
+        retry.submit()
+        marks.assert_called_once()
+
+
+class PythonMarkTest(unittest.TestCase):
+    make_round = test_session.SessionTest.make_round
+
+    def setUp(self):
+        test_session.SessionTest.setUp(self)
+        self.sess.collection = PythonCollection(str(Path(self.tmp) / "private"), adaptive.study.ROOT)
+        self.marks = self.sess.collection.activity_mark = mock.Mock()
+
+    tearDown = test_session.SessionTest.tearDown
+
+    def test_grade_marks_new_answers_but_not_untouched_or_unchanged_rounds(self):
+        key = next(key for key, item in self.sess.cat.items() if item["kind"] == "quiz")
+        self.make_round("r90", [key])
+        item = self.sess.open_round("r90")["items"][0]
+        self.sess.grade("r90")
+        self.marks.assert_not_called()
+        self.sess.set_answer("r90", item["id"], test_session.wrong_answer(item))
+        self.sess.grade("r90")
+        self.assertEqual(1, self.marks.call_count)
+        self.sess.grade("r90")
+        self.assertEqual(1, self.marks.call_count)
+        self.sess.set_answer("r90", item["id"], test_session.right_answer(self.sess, item))
+        self.sess.grade("r90")
+        self.assertEqual(2, self.marks.call_count)
+        self.assertFalse(Path(self.sess.collection.path).exists())
+
+
+class JourneyMarkTest(test_journey_service.Base):
+    def result(self):
+        return {"cancelled": False, "score": 40.0, "acc": 40.0, "eff": 0.0, "passed": False,
+                "tests": [1, 1, 0, 0], "fatal": None}
+
+    def test_grade_marks_only_edited_code(self):
+        journey = self.session()
+        journey.activity_mark = marks = mock.Mock()
+        with mock.patch("journey.service.grading.grade", side_effect=lambda *args, **kwargs: self.result()):
+            journey.grade("t01", "p1", "python")
+            marks.assert_not_called()
+            journey.save_code("t01", "p1", "python", "def solution(nums):\n    return 0\n")
+            journey.grade("t01", "p1", "python")
+            marks.assert_called_once()
+            with mock.patch("journey.service.grading.grade", return_value=dict(self.result(), cancelled=True)):
+                journey.grade("t01", "p1", "python")
+            marks.assert_called_once()
+        self.assertEqual(2, len(self.read_log()))
+
+    def test_failing_callback_keeps_the_grade_record(self):
+        journey = self.session()
+        journey.activity_mark = mock.Mock(side_effect=RuntimeError("fixture callback failure"))
+        journey.save_code("t01", "p1", "python", "def solution(nums):\n    return 0\n")
+        with mock.patch("journey.service.grading.grade", return_value=self.result()):
+            journey.grade("t01", "p1", "python")
+        self.assertEqual(1, len(self.read_log()))
 
 
 if __name__ == "__main__":
