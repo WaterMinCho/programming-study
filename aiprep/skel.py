@@ -8,6 +8,9 @@
 바꿀 때 고칠 줄 모두 고르기임. 카드 id 는 무리 id 를 앞에 붙인 pc-k01(slot), pc-o01(order), pc-p01(pick), pc-x01(change) 꼴이고
 응용 무리는 apc-k01 처럼 씀. 보기를 섞는 난수는
 gen.Rng 라 파이썬 버전이 달라도 같은 시드면 같은 보기가 나옴.
+
+slots 항목에 "note_only": true 를 적은 자리(id 는 apc-n101 꼴)는 학습 노트의 돌려 가며 빈칸(ai-rotate)에서만 씀. cards 가 카드로
+만들지 않고 slot 카드의 점차 지우기에서도 가리지 않음. rotate_block 과 slot_spots 는 이 자리도 돌려줌.
 """
 import difflib
 import os
@@ -153,6 +156,23 @@ def lines_of(skeleton, name):
     return [str(line) for line in variant_of(skeleton, name).get("lines") or []]
 
 
+def note_only(entry):
+    """노트의 돌려 가며 빈칸에서만 쓰는 자리인지. 참 값이면 카드로 만들지 않음(true 만 적는지는 verify_ai 가 봄)."""
+    return bool(entry.get("note_only"))
+
+
+def card_skeleton(skeleton):
+    """문항 버전 해시와 묶음 fingerprint 에 넣는 뼈대. note_only 자리를 뺌. 없으면 받은 dict 를 그대로 돌려줘 예전 해시와 같음."""
+    if not isinstance(skeleton, dict) or not any(note_only(e) for e in skeleton.get("slots") or []):
+        return skeleton
+    return dict(skeleton, slots=[e for e in skeleton["slots"] if not note_only(e)])
+
+
+def card_entries(skeleton):
+    """카드가 되는 항목 [(part, entry)]. CARD_ORDER 순이고 note_only 자리는 뺌."""
+    return [(part, entry) for part in CARD_ORDER for entry in skeleton.get(PART_KEY[part]) or [] if not note_only(entry)]
+
+
 def entry_of(skeleton, part, cid):
     """뼈대에서 그 카드의 원본 dict. 없으면 None."""
     return next((e for e in skeleton.get(PART_KEY[part]) or [] if e.get("id") == cid), None)
@@ -203,7 +223,7 @@ def _head(part, entry, skeleton):
 
 def cards(group, skeletons, units):
     """뼈대들에서 카드 목록을 만듦. group 은 bank.read_index 의 patterns 항목, units 는 {단원 키: {"after", "name", "title"}}
-    (l18 meta 에 공개된 단원만). step 의 단원이 units 에 없는 카드는 만들지 않음.
+    (l18 meta 에 공개된 단원만). step 의 단원이 units 에 없는 카드와 note_only 자리는 만들지 않음.
 
     카드는 bank.cards_of 와 같은 키(id, kind "skel", lesson=무리 id, unit, step, facts, core, prio, family, confuse, level, tags,
     deep, errata, ref, order)에 part, pattern(뼈대 id), variant(change 는 from), after, name(단원 이름), head, situations
@@ -212,28 +232,27 @@ def cards(group, skeletons, units):
     out = []
     for sid in sorted(skeletons, key=_number):
         skeleton = skeletons[sid]
-        for part in CARD_ORDER:
-            for entry in skeleton.get(PART_KEY[part]) or []:
-                step = str(entry.get("step") or "")
-                unit = step.split("/")[0]
-                if unit not in units:
-                    continue
-                cid = str(entry["id"])
-                variant = entry.get("from") if part == "change" else entry.get("variant")
-                shown = [variant] + ([entry.get("to")] if part == "change" else [])
-                situations = {}
-                for name in shown:
-                    if isinstance((skeleton.get("variants") or {}).get(name), dict):
-                        situations[name] = _situation(skeleton, name)
-                out.append({"id": cid, "kind": "skel", "lesson": group["id"], "unit": unit, "step": entry.get("step"),
-                            "facts": _list(entry.get("facts")), "core": bool(entry.get("core")),
-                            "prio": int(entry.get("prio") or skeleton.get("prio") or 2), "family": str(entry.get("family") or cid),
-                            "confuse": _list(entry.get("confuse")), "level": int(entry.get("level") or 2),
-                            "tags": _list(entry.get("tags") or skeleton.get("tags")), "deep": False,
-                            "errata": _list(entry.get("errata")), "ref": _list(entry.get("ref")), "order": len(out),
-                            "part": part, "pattern": sid, "variant": variant, "after": units[unit].get("after", ""),
-                            "name": units[unit].get("name", ""), "head": _head(part, entry, skeleton), "situations": situations,
-                            "entry": entry})
+        for part, entry in card_entries(skeleton):
+            step = str(entry.get("step") or "")
+            unit = step.split("/")[0]
+            if unit not in units:
+                continue
+            cid = str(entry["id"])
+            variant = entry.get("from") if part == "change" else entry.get("variant")
+            shown = [variant] + ([entry.get("to")] if part == "change" else [])
+            situations = {}
+            for name in shown:
+                if isinstance((skeleton.get("variants") or {}).get(name), dict):
+                    situations[name] = _situation(skeleton, name)
+            out.append({"id": cid, "kind": "skel", "lesson": group["id"], "unit": unit, "step": entry.get("step"),
+                        "facts": _list(entry.get("facts")), "core": bool(entry.get("core")),
+                        "prio": int(entry.get("prio") or skeleton.get("prio") or 2), "family": str(entry.get("family") or cid),
+                        "confuse": _list(entry.get("confuse")), "level": int(entry.get("level") or 2),
+                        "tags": _list(entry.get("tags") or skeleton.get("tags")), "deep": False,
+                        "errata": _list(entry.get("errata")), "ref": _list(entry.get("ref")), "order": len(out),
+                        "part": part, "pattern": sid, "variant": variant, "after": units[unit].get("after", ""),
+                        "name": units[unit].get("name", ""), "head": _head(part, entry, skeleton), "situations": situations,
+                        "entry": entry})
     return out
 
 
@@ -285,7 +304,8 @@ def slot_view(card, skeleton, boxes, again=0, masked=None, whole=None):
     None 으로 넣음). f = fade(boxes.values()). 함께 가릴 후보는 주 자리 말고 나머지를 (상자, 주 자리에서 떨어진 줄 수, id) 순으로 세운
     것이고, start = (again * f) % 후보 수 에서 min(f, 후보 수)개를 고리처럼 고름. whole 은 f 가 3 이고 주 자리 상자가 4 이상이고
     line_answer 가 있을 때 참이며, 그러면 주 자리 줄 전체를 가리고(들여쓰기는 남김) 같은 줄의 다른 자리는 masked 에서 뺌.
-    masked·whole 을 주면(오답 노트, 기록 다시 그리기) 그 값으로 다시 만들고 코드 예제에 없는 자리 id 는 버림.
+    masked·whole 을 주면(오답 노트, 기록 다시 그리기) 그 값으로 다시 만들고 코드 예제에 없는 자리 id 는 버림. note_only 자리는
+    boxes·masked 에 있어도 버려 함께 가리지 않음.
 
     돌려주는 값 {"kind": "blank", "stem", "blanks": [{"answer", "mode", "hint", "slot", "main"}](코드 안 위치 순), "explain",
     "skel": {"part": "slot", "fade", "masked", "whole"}}."""
@@ -293,7 +313,7 @@ def slot_view(card, skeleton, boxes, again=0, masked=None, whole=None):
     main = card["id"]
     variant = entry.get("variant")
     lines = lines_of(skeleton, variant)
-    spots = slot_spots(skeleton, variant)
+    spots = {sid: spot for sid, spot in slot_spots(skeleton, variant).items() if not note_only(spot[3])}
     if main not in spots:
         raise bank.AiBankError("자리 %s 가 뼈대 %s 의 %s 코드 예제에 없습니다." % (main, skeleton.get("id"), variant))
     boxes = {sid: box for sid, box in (boxes or {}).items() if sid in spots}
@@ -538,7 +558,8 @@ def diff(skeleton, left, right):
 
 def rotate_block(skeleton, variant, slot_ids=None):
     """돌려 가며 빈칸 블록 값 {"code": 코드 예제 전체 글, "slots": [{"id", "line", "token", "hint", "mode", "code"(그 자리만 ____)}]}.
-    slot_ids 가 없으면 그 코드 예제의 모든 자리. 순서는 코드 위치(줄, 줄 안 위치). 모르는 코드 예제·자리면 AiBankError."""
+    slot_ids 가 없으면 그 코드 예제의 모든 자리(note_only 자리 포함). 순서는 코드 위치(줄, 줄 안 위치). 모르는 코드 예제·자리면
+    AiBankError. note_only 자리가 있는 뼈대는 slots 에 note_only 자리만 적어야 하고 이 규칙은 verify_ai 가 봄."""
     lines = lines_of(skeleton, variant)
     spots = slot_spots(skeleton, variant)
     ids = list(spots) if slot_ids is None else _unique(str(s) for s in slot_ids)

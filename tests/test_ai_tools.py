@@ -1424,6 +1424,107 @@ class AppPatternVerifyTest(AppPatternCase):
         self.assertFails("S190 의 가 코드 예제 input 그림이 없습니다: learn/al18/assets/a18a-1.png", "apc")
 
 
+class AppNoteOnlySlotTest(AppPatternCase):
+    """S190 의 apc-n101·apc-n102 는 note_only 자리이고 al18 의 ai-rotate t1 이 둘을 가리킴."""
+
+    def edit_rotate(self, old, new):
+        path = "learn/al18/page.md"
+        text = study.read_text(self.path(path))
+        self.assertIn(old, text)
+        self.write(path, text.replace(old, new))
+
+    def entry(self, sid):
+        def find(data):
+            return next(e for e in data["slots"] if e["id"] == sid)
+        return find
+
+    def test_note_only_slots_pass_and_are_not_counted(self):
+        code, out = self.verify("apc", "--seeds", "300")
+        self.assertEqual(0, code, out)
+        self.assertEqual(6, study.read_json(self.path("items/apc/meta.json"))["units"]["a18a"]["slot"])
+
+    def test_rotate_on_a_skeleton_with_note_only_slots_must_list_them(self):
+        old = '"variant": "가", "slots": ["apc-n101", "apc-n102"]}'
+        self.edit_rotate(old, '"variant": "가"}')
+        self.assertFails("ai-rotate 은 slots 에 note_only 자리만 적어야 합니다", "apc")
+        self.edit_rotate('"variant": "가"}', '"variant": "가", "slots": ["apc-n101", "apc-n102", "apc-k01"]}')
+        self.assertFails("카드 자리 apc-k01", "apc")
+        self.edit_rotate('"slots": ["apc-n101", "apc-n102", "apc-k01"]}', '"slots": ["apc-n101"]}')
+        self.assertFails("어느 ai-rotate 블록도 가리키지 않는 note_only 자리: apc-n102", "apc")
+
+    def test_note_only_entry_form(self):
+        self.edit_app_skeleton(lambda d: self.entry("apc-n102")(d).update(id="apc-k102"))
+        self.edit_rotate('"apc-n102"]', '"apc-k102"]')
+        self.assertFails("S190 apc-k102 의 id 꼴이 apc-n101 이 아닙니다(note_only 자리).", "apc")
+        self.edit_app_skeleton(lambda d: self.entry("apc-k102")(d).update(id="apc-n102", note_only="yes"))
+        self.edit_rotate('"apc-k102"]', '"apc-n102"]')
+        self.assertFails("S190 apc-n102 의 note_only 는 true 만 적습니다.", "apc")
+        self.edit_app_skeleton(lambda d: self.entry("apc-n102")(d).update(note_only=True))
+        self.edit_app_skeleton(lambda d: d["orders"][0].update(note_only=True))
+        self.assertFails("S190 apc-o01 의 note_only 는 slots 에만 적습니다.", "apc")
+
+    def test_note_only_slot_must_not_cover_a_card_spot(self):
+        self.edit_app_skeleton(lambda d: self.entry("apc-n102")(d).update(line=0, token="train", answer=["train"]))
+        self.assertFails("S190 apc-n102 는 카드 apc-k01 와 같은 자리입니다", "apc")
+
+    def test_note_only_slot_takes_no_facts_or_step(self):
+        for extra in ({"facts": ["FA18-01"]}, {"step": "a18a/1"}):
+            self.edit_app_skeleton(lambda d: self.entry("apc-n101")(d).update(extra))
+            self.assertFails("S190 apc-n101 는 note_only 자리라 facts·step 을 적지 않습니다", "apc")
+            self.edit_app_skeleton(lambda d: [self.entry("apc-n101")(d).pop(k) for k in extra])
+        code, out = self.verify("apc")
+        self.assertEqual(0, code, out)
+
+    def test_note_only_text_is_style_checked(self):
+        self.edit_app_skeleton(lambda d: self.entry("apc-n101")(d).update(explain="crit \u2014 손실을 계산합니다."))
+        self.assertFails("apc-n101:explain", "apc")
+
+    def test_note_only_answer_may_repeat_a_card_answer(self):
+        self.edit_app_skeleton(lambda d: self.entry("apc-n102")(d).update(answer=["data", "train"]))
+        code, out = self.verify("apc")
+        self.assertEqual(0, code, out)
+
+    @unittest.skipUnless(shutil.which("git"), "git 이 있어야 함")
+    def test_removed_note_only_slot_needs_no_retired_entry(self):
+        import subprocess
+        env = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid"}
+        with mock.patch.dict(os.environ, env):
+            quiet(ai_seal.main, ["seal", "--bank", self.bank])
+            for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "chore: 시작"]):
+                subprocess.run(["git"] + args, cwd=self.bank, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.edit_app_skeleton(lambda d: d.update(slots=[e for e in d["slots"] if e["id"] != "apc-n102"]))
+            self.edit_rotate('"slots": ["apc-n101", "apc-n102"]}', '"slots": ["apc-n101"]}')
+            code, out = self.verify("apc")
+            self.assertEqual(0, code, out)
+
+
+class AppGeneratorVerifyTest(AppPatternCase):
+    def test_generator_id_and_oracle_are_checked(self):
+        path = self.path("items/apc/oracle.py")
+        text = study.read_text(path)
+        self.write("items/apc/oracle.py", text.replace("count + bool(rest)", "count"))
+        self.assertFails("apc-g101", "apc")
+        self.write("items/apc/oracle.py", text)
+        gens = study.read_text(self.path("items/apc/gens.py"))
+        self.write("items/apc/gens.py", gens.replace('"apc-g101"', '"apc-b101"'))
+        self.edit_json("items/apc/meta.json", lambda d: d["units"]["a18a"].update(gen=["apc-b101"]))
+        self.assertFails("apc-b101 의 id 꼴이 apc-g07 이 아닙니다.", "apc")
+
+
+class MockPatternSourceTest(AppPatternCase):
+    def test_pattern_item_reads_only_the_group_of_its_unit(self):
+        shutil.rmtree(self.path("items/apc"))
+        index = verify_ai.aibank.read_index(self.bank)
+        sources = verify_ai._MockSources(self.bank, index, 3, verify_ai.skel.load_all_patterns(self.bank))
+        sources.entries["i90"] = next(e for e in index["lessons"] if e["id"] == "i90")
+        item = {"id": "m1-01", "kind": "blank", "lesson": "i90", "pattern": "S90", "unit": "18a", "step": "18a/1",
+                "facts": ["F18-01"], "ref": ["90차시 노트북 01 [2]"]}
+        failures = []
+        checker = mock.Mock(fail=lambda *args: failures.append(args))
+        verify_ai._mock_evidence(checker, "m1", item, sources)
+        self.assertEqual([], failures)
+
 class AppPatternSignTest(AppPatternCase):
     def test_each_group_signature_covers_only_its_folder(self):
         for gid in ("pc", "apc"):
@@ -1431,7 +1532,7 @@ class AppPatternSignTest(AppPatternCase):
             self.assertEqual(0, code, out)
         app = json.loads(study.read_text(self.path("items/apc/work/review.json")))["files"]
         intro = json.loads(study.read_text(self.path("items/pc/work/review.json")))["files"]
-        self.assertEqual({"meta.json", "patterns/apc/S190.json", "work/facts.json"}, set(app))
+        self.assertEqual({"meta.json", "gens.py", "oracle.py", "patterns/apc/S190.json", "work/facts.json"}, set(app))
         self.assertEqual({"meta.json", "patterns/S90.json", "work/facts.json"}, set(intro))
         self.edit_app_skeleton(lambda d: d["slots"][2].update(hint="메서드"))
         self.assertFails("검토 뒤에 바뀐 파일: patterns/apc/S190.json", "apc", "--require-review")
@@ -1452,9 +1553,14 @@ class AppPatternSignTest(AppPatternCase):
         self.assertEqual(["S190"], list(skeletons))
         cards = {c["id"]: c for c in made}
         skeleton = skeletons["S190"]
+        self.assertFalse([key for key in answers if "apc-n" in key])
+        self.assertEqual(6, len(answers["S190 가 전체"]))
+        spec = next(s for s in genlib.load_module(self.path("items/apc/gens.py")) if s.id == "apc-g101")
         for key in answers:
             whole, sample, seed = ai_seal.WHOLE_KEY.match(key), ai_seal.SAMPLE_KEY.match(key), ai_seal.SEED_KEY.match(key)
-            if whole:
+            if key == "apc-g101":
+                answers[key] = {n: [genlib.run(spec, int(n))["blanks"][0]["answer"][0]] for n in answers[key]}
+            elif whole:
                 answers[key] = [b["answer"][0] for b in ai_seal.whole_view(skeleton, "가", list(cards.values()))["blanks"]]
             elif sample:
                 view = dict(ai_seal.skel_samples(cards[sample.group(1)], skeleton, list(cards.values())))[sample.group(2)]
@@ -1475,6 +1581,8 @@ class AppPatternOverlapTest(AppPatternCase):
         names = [t[0] for t in ai_overlap.targets(self.bank, ["apc"])]
         self.assertIn("al18 page.md", names)
         self.assertIn("patterns/apc/S190.json apc-p01", names)
+        self.assertIn("patterns/apc/S190.json apc-n101", names)
+        self.assertIn("apc apc-g101 시드 1", names)
         self.assertIn("apc facts FA18-02", names)
         self.assertFalse([n for n in names if n.startswith(("l18 ", "patterns/S90", "pc "))])
         self.assertEqual(names, [t[0] for t in ai_overlap.targets(self.bank, ["al18"])])

@@ -3,6 +3,8 @@
 apc(뼈대 patterns/apc/S190)를 함께 둔 은행이고, app_lesson 은 응용 차시 a90 을 실제로 읽히게 함.
 
 과정별 노출, 기록·수집의 과정 값, 복습·오답 후보, 뼈대 폴더 분리와 같은 id 오류, 뼈대 오류 격리, 미완료 묶음 복원, 카드 키 집합을 봄.
+S190 의 note_only 자리(apc-n101, apc-n102)는 노트의 돌려 가며 빈칸에서만 쓰고 카드가 되지 않는지, 응용 무리의 생성 문항
+apc-g101 이 단원 연습·수집에 응용 과정으로 들어가는지도 봄.
 
 실행: python -m unittest tests.test_ai_coding_courses
 """
@@ -26,7 +28,8 @@ from tests import aifix  # noqa: E402
 
 SKEL_CARD_KEYS = {"id", "kind", "lesson", "unit", "step", "facts", "core", "prio", "family", "confuse", "level", "tags", "deep",
                   "errata", "ref", "order", "part", "pattern", "variant", "after", "name", "head", "situations", "entry"}
-APC_CARDS = ["apc-k01", "apc-k02", "apc-k03", "apc-k04", "apc-k05", "apc-k06", "apc-o01", "apc-p01", "apc-x01"]
+APC_CARDS = ["apc-g101", "apc-k01", "apc-k02", "apc-k03", "apc-k04", "apc-k05", "apc-k06", "apc-o01", "apc-p01", "apc-x01"]
+NOTE_SLOTS = ["apc-n101", "apc-n102"]
 
 
 class CodingBase(unittest.TestCase):
@@ -345,6 +348,152 @@ class NoteReferenceTest(CodingBase):
         self.assertEqual("S190", diff["skel"])
         self.assertNotIn("error", diff)
 
+
+
+class NoteOnlySlotTest(CodingBase):
+    def group(self, sess):
+        return sess.patterns["apc"]
+
+    def test_note_only_slots_do_not_become_cards(self):
+        app = self.session("app")
+        self.assertEqual({}, app.errors)
+        for sid in NOTE_SLOTS:
+            self.assertNotIn(sid, app.cards)
+        group = next(g for g in bank.read_index(self.root)["patterns"] if g["id"] == "apc")
+        units = {"a18a": {"after": "a90", "name": "응용 루프", "title": "시험 응용 단원"}}
+        skeletons = skel.load_patterns(self.root, "apc")
+        for entry in skeletons["S190"]["slots"]:  # 카드가 될 수 있는 step 을 붙여도 note_only 자리는 빠짐
+            if entry["id"] in NOTE_SLOTS:
+                entry.update(step="a18a/1", facts=["FA18-01"], level=1, ref=["시험"])
+        made = skel.cards(group, skeletons, units)
+        self.assertEqual([c for c in APC_CARDS if c != "apc-g101"], sorted(c["id"] for c in made))
+        self.assertEqual(list(range(len(made))), [c["order"] for c in made])
+        self.assertEqual(SKEL_CARD_KEYS, set(app.cards["apc-k06"]))
+
+    def test_note_only_text_changes_no_card_version_or_set(self):
+        app = self.session("app")
+        app.mark_read("apc", "a18a")
+        practice = app.start_set("unit", lesson="apc", unit="a18a", seed=4)
+        saved = practice.snapshot()
+        before = app._card_versions()
+        path = self.path("patterns/apc/S190.json")
+        data = study.read_json(path)
+        for entry in data["slots"]:
+            if entry["id"] == "apc-n101":
+                entry.update(hint="손실 함수", explain="crit 은 손실을 계산합니다.")
+        study.write_text(path, json.dumps(data, ensure_ascii=False, indent=1) + "\n")
+        app = self.session("app")
+        self.assertEqual("손실 함수", next(e for e in app.skeletons["S190"]["slots"] if e["id"] == "apc-n101")["hint"])
+        self.assertEqual(before, app._card_versions())
+        self.assertEqual(saved["fingerprint"], type(practice).restore(app, saved).fingerprint())
+
+    def test_rotate_block_lists_only_the_note_only_slots(self):
+        app = self.session("app")
+        steps = app.unit_steps("apc", "a18a")["steps"]
+        rotate = next(b for s in steps for b in s["blocks"] if b["kind"] == "rotate")
+        self.assertNotIn("error", rotate)
+        self.assertEqual(["apc-n102", "apc-n101"], [s["id"] for s in rotate["slots"]])
+        self.assertIn("for a, b in ____:", rotate["slots"][0]["code"])
+        self.assertIn("    e = ____(c, b)", rotate["slots"][1]["code"])
+
+    def test_rotate_grades_a_note_only_slot_without_touching_cards(self):
+        app = self.session("app")
+        app.mark_read("apc", "a18a")
+        app.collection.set_enabled(True)
+        got = app.check_rotate("apc", "a18a", "t1", "apc-n101", "crit")
+        self.assertEqual((True, "crit", "crit 은 예측과 정답으로 손실을 계산합니다."), (got["ok"], got["answer"], got["explain"]))
+        self.assertFalse(app.check_rotate("apc", "a18a", "t1", "apc-n102", "loader")["ok"])
+        row = app.record.log[-1]
+        self.assertEqual(("recall", "apc", "a18a", "t1", "apc-n102", False),
+                         (row["kind"], row["lesson"], row["unit"], row["id"], row["slot"], row["ok"]))
+        with self.assertRaises(service.AiError):
+            app.check_rotate("apc", "a18a", "t1", "apc-k01", "train")
+        self.at = "2026-11-10T20:00:00"
+        app = self.session("app")
+        state = app._state()
+        for sid in NOTE_SLOTS:
+            self.assertNotIn(sid, state.due_cards())
+            self.assertIsNone(state.box(sid))
+        keys = [item["key"] for group in app.wrong_notes() for item in group["items"]]
+        self.assertFalse([key for key in keys if key in NOTE_SLOTS])
+        cards = [r["item"].get("card") for r in app.collection.snapshot() if r.get("item")]
+        self.assertFalse([cid for cid in cards if cid in NOTE_SLOTS])
+
+    def test_fading_never_masks_a_note_only_slot(self):
+        skeleton = skel.load_patterns(self.root, "apc")["S190"]
+        app = self.session("app")
+        card = app.cards["apc-k01"]
+        every = {e["id"]: 4 for e in skeleton["slots"]}
+        for again in range(6):
+            made = skel.slot_view(card, skeleton, every, again)
+            self.assertEqual(3, made["skel"]["fade"])
+            self.assertFalse([b["slot"] for b in made["blanks"] if b["slot"] in NOTE_SLOTS])
+        made = skel.view(card, skeleton, 1, record={"masked": ["apc-n101", "apc-k02"], "whole": False, "fade": 1})
+        self.assertEqual(["apc-k01", "apc-k02"], [b["slot"] for b in made["blanks"]])
+
+    def test_unit_set_never_shows_a_note_only_slot(self):
+        app = self.session("app")
+        app.mark_read("apc", "a18a")
+        for day in ("09", "10"):
+            self.at = "2026-11-%sT20:00:00" % day
+            for cid in ("apc-k01", "apc-o01", "apc-p01"):
+                app._append({"kind": "answer", "set": "s" + day, "card": cid, "result": "pass", "again": 0})
+        self.at = "2026-11-12T20:00:00"
+        app = self.session("app")
+        practice = app.start_set("unit", lesson="apc", unit="a18a", seed=4)
+        seen = []
+        while True:
+            cur = practice.current()
+            if cur is None:
+                break
+            seen.append(cur["card"])
+            self.assertFalse([b for b in cur.get("blanks") or [] if b.get("slot") in NOTE_SLOTS])
+            practice.dont_know(2)
+            practice.next()
+        self.assertFalse(set(seen) & set(NOTE_SLOTS))
+        self.assertIn("apc-g101", seen)
+        self.assertIn("apc-k02", seen)
+
+
+class AppGeneratorTest(CodingBase):
+    def test_generator_card_belongs_to_the_app_group(self):
+        app, intro = self.session("app"), self.session("intro")
+        card = app.cards["apc-g101"]
+        self.assertEqual(("gen", "apc", "a18a", "a18a/1", "a90", "응용 루프"),
+                         (card["kind"], card["lesson"], card["unit"], card["step"], card["after"], card["name"]))
+        self.assertNotIn("apc-g101", intro.cards)
+        self.assertIn("apc-g101", app._card_versions())
+
+    def test_generator_answer_is_collected_as_app(self):
+        app = self.session("app")
+        app.mark_read("apc", "a18a")
+        for day in ("09", "10"):
+            self.at = "2026-11-%sT20:00:00" % day
+            for cid in ("apc-k01", "apc-o01", "apc-p01"):
+                app._append({"kind": "answer", "set": "s" + day, "card": cid, "result": "pass", "again": 0})
+        self.at = "2026-11-12T20:00:00"
+        app = self.session("app")
+        app.collection.set_enabled(True)
+        practice = app.start_set("unit", lesson="apc", unit="a18a", seed=4)
+        while practice.current() is not None and practice.current()["card"] != "apc-g101":
+            practice.dont_know(2)
+            practice.next()
+        self.assertIsNotNone(practice.current())
+        practice.dont_know(2)
+        items = [r["item"] for r in app.collection.snapshot() if r.get("item") and r["item"].get("card") == "apc-g101"]
+        self.assertTrue(items)
+        for item in items:
+            self.assertEqual(("app", "apc", None), (item["course"], item["lesson"], item["course_no"]))
+            self.assertIn("generation", item)
+        answers = [e for e in app.record.log if e.get("kind") == "answer" and e.get("card") == "apc-g101"]
+        self.assertTrue(answers)
+        self.assertTrue(all(e.get("course") == "app" for e in answers))
+
+    def test_broken_app_skeleton_drops_the_generator_card_too(self):
+        study.write_text(self.path("patterns/apc/S190.json"), "{ 깨진 파일")
+        app = self.session("app")
+        self.assertIn("apc", app.errors)
+        self.assertNotIn("apc-g101", app.cards)
 
 if __name__ == "__main__":
     unittest.main()

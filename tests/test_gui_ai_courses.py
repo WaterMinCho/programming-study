@@ -68,6 +68,38 @@ class CodingWithAppGroupTest(AiTest):
         guikit.pump()
         self.assertEqual("apc", win.ai_learn.lid)
 
+    def test_app_rotate_block_hides_only_note_only_slots(self):
+        """S190 의 돌려 가며 빈칸 t1 은 note_only 자리 apc-n102·apc-n101 만 가리고 카드 상자는 움직이지 않음."""
+        win = self.boot((1024, 700))
+        win.go_ai()
+        win.switch_ai_course("app")
+        self.idle()
+        self.assertTrue(win.open_ai_unit("apc", "a18a", 3))
+        guikit.pump()
+        block = win.ai_learn.view.findChildren(ai_learn.RotateBlock)[0]
+        self.assertEqual("1 / 2", block.count.text())
+        self.assertEqual(["apc-n102", "apc-n101"], block.queue)
+        field = block.field()
+        self.assertEqual("변수 이름", field.placeholderText())
+        field.setText("loader")
+        guikit.click(block.check_btn)
+        self.assertEqual(("틀렸습니다", "정답: `data`"), (block.verdict.text(), block.answer.text()))
+        self.assertEqual([("a18a", "t1", "apc-n102", False)], [(r["unit"], r["id"], r["slot"], r["ok"]) for r in self.log("recall")])
+        tokens = {spot["id"]: spot["token"] for spot in block.block["slots"]}
+        guikit.click(block.next_btn)
+        for _ in range(5):
+            if block.done.isVisible():
+                break
+            block.field().setText(tokens[block.queue[block.pos]])
+            guikit.click(block.check_btn)
+            self.assertEqual("맞았습니다", block.verdict.text())
+            guikit.click(block.next_btn)
+        self.assertTrue(block.done.isVisible())
+        self.assertEqual(["apc-n102", "apc-n101", "apc-n102"], block.queue)
+        state = win.ai._state()
+        self.assertFalse([cid for cid in ("apc-n101", "apc-n102", "apc-k05") if state.box(cid) is not None])
+        self.assertNotIn("apc-n101", win.ai.cards)
+
 
 class CourseGuiTest(AiTest):
     real_bank = True
