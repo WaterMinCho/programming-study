@@ -900,13 +900,14 @@ class WorkflowTest(unittest.TestCase):
     def test_ci_workflow_keeps_scoped_bank_model_and_gui_checks(self):
         text, data = self.load("ci.yml")
         jobs = data["jobs"]
-        self.assertEqual(["scope", "bank", "model", "gui", "required"], list(jobs))
-        self.assertEqual(["변경 범위", "기능·자료 검사", "모델 제출 검사", "화면 테스트", "필수 검사"],
+        self.assertEqual(["scope", "bank", "launcher", "model", "gui", "required"], list(jobs))
+        self.assertEqual(["변경 범위", "기능·자료 검사", "실행기 검사 (${{ matrix.os }})", "모델 제출 검사", "화면 테스트", "필수 검사"],
                          [job["name"] for job in jobs.values()])
+        self.assertEqual("needs.scope.outputs.launcher == 'true'", jobs["launcher"]["if"])
         self.assertEqual("needs.scope.outputs.bank == 'true' || needs.scope.outputs.unit == 'true'", jobs["bank"]["if"])
         self.assertEqual("needs.scope.outputs.model == 'true'", jobs["model"]["if"])
         self.assertIn("python -m tools.pr_checks model", runs(jobs["model"]))
-        self.assertEqual(["scope", "bank", "gui", "model"], jobs["required"]["needs"])
+        self.assertEqual(["scope", "bank", "gui", "model", "launcher"], jobs["required"]["needs"])
         self.assertEqual("always()", jobs["required"]["if"])
         bank_runs = runs(jobs["bank"])
         at = bank_runs.index("python tools/verify_bank.py")
