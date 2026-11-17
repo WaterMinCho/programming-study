@@ -90,7 +90,7 @@ class NextCardTest(unittest.TestCase):
 
     def test_order_of_six(self):
         got = plan.next_card(self.ctx(again=["a", "b"], mock=self.MOCK, due=50))
-        self.assertEqual(("again", 2, "오늘 틀린 문항 2개가 남았습니다"), (got["kind"], got["count"], got["title"]))
+        self.assertEqual(("again", 2, "오늘 다시 볼 문항 2개가 남았습니다"), (got["kind"], got["count"], got["title"]))
         got = plan.next_card(self.ctx(mock=self.MOCK, due=50))
         self.assertEqual(("mock", "m1"), (got["kind"], got["mock"]))
         self.assertIn("11월 16일까지", got["why"])

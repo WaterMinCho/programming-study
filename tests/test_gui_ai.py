@@ -380,7 +380,15 @@ class TextTest(unittest.TestCase):
         self.assertEqual(ai_text.recent_label({"kind": "set", "n": 3, "first_pass": 1}), "AI 연습 1/3")
         self.assertEqual(ai_text.requeue_line(False, 3), "이 문항은 3문항 뒤에 다시 나옵니다.")
         self.assertEqual(ai_text.requeue_line(False, 0), "이 문항은 바로 다음에 다시 나옵니다.")
-        self.assertTrue(ai_text.requeue_line(True, 5).startswith("한 번 더 맞히면 이 묶음에서 빠집니다."))
+        self.assertEqual(ai_text.requeue_line(True, 5), "이 문항은 5문항 뒤에 다시 나옵니다. 그때도 맞히면 이 묶음에서 더 나오지 않습니다.")
+        self.assertEqual(ai_text.requeue_line(False, 9, 3), "같은 내용을 다르게 묻는 문항이 3문항 뒤에 나옵니다. 이 문항은 9문항 뒤에 다시 나옵니다.")
+        self.assertEqual(ai_text.requeue_line(False, None), ai_text.KEPT)
+        self.assertEqual(ai_text.requeue_line(False, None, 0), "같은 내용을 다르게 묻는 문항이 바로 다음에 나옵니다. " + ai_text.KEPT)
+        self.assertEqual(ai_text.requeue_line(True, None), ai_text.CONFIRM_NEXT)
+        self.assertEqual(ai_text.fill_line(None, 8), "")
+        self.assertEqual(ai_text.fill_line({"done": 0, "skipped": 9}, 11), "오늘 마친 문항을 빼고 11문항이 나옵니다.")
+        self.assertEqual(ai_text.fill_line({"done": 4, "skipped": 9}, 8), "아직 마치지 않은 문항은 4개입니다. 오늘 마친 문항 4개를 더해 8문항이 나옵니다.")
+        self.assertEqual(ai_text.fill_line({"done": 8, "skipped": 9}, 8), "이 묶음에 나올 수 있는 문항을 오늘 모두 마쳤습니다. 그 가운데 8문항이 다시 나옵니다.")
 
     def test_unit_line_reads_the_lesson_date_not_the_engine_sentence(self):
         overview = {"lessons": [{"id": "i05", "date": "2026-11-04", "units": [{"key": "5a", "minutes": 7}]}]}
@@ -427,6 +435,9 @@ class TextTest(unittest.TestCase):
                                        "next": None, "early": 0}, unlisted=1)
         self.assertEqual(lines, ["오늘 새로 접한 문항 중 이번 묶음에서 마친 문항 2개", "이전 학습일에 풀었던 문항 중 이번 첫 답에 맞힌 문항 1개",
                                  "단원을 읽은 날 틀린 1문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다."])
+        lines = ai_text.summary_lines({"first_today": 0, "again_day": 0, "up": 0, "down": 0, "memorised": 0, "sure_wrong": 0,
+                                       "left": ["i90-b02"], "again": ["i90-b02", "i90-b03"], "next": None, "early": 0})
+        self.assertEqual(lines, ["오늘 다시 볼 문항 2개"])
 
     def test_pattern_texts(self):
         """상황별 코드 줄, 나란히 보기 caption, 함께 가린 칸 줄, 뼈대 카드 오답 노트 줄과 코드 보기 HTML, 단원 이름을 쓰는 이어서 할 일."""
@@ -1001,7 +1012,7 @@ class PracticeTest(AiTest):
         self.assertEqual((page.item["card"], page.item["at"]), ("i90-b01", at + 4))
         self.assertIn("다시 나온 문항", page.item["chips"])
         self.answer()
-        self.assertTrue(page.requeue.text().startswith("한 번 더 맞히면 이 묶음에서 빠집니다."))
+        self.assertTrue(page.requeue.text().endswith("그때도 맞히면 이 묶음에서 더 나오지 않습니다."))
         seen = 2
         guikit.click(page.next_btn)
         while page.item is not None:
@@ -1017,6 +1028,34 @@ class PracticeTest(AiTest):
         self.assertTrue(self.log("set_end"))
         answers = [r for r in self.log("answer") if r["result"] == "pass"]
         self.assertFalse([r for r in answers if "value" in r])  # 맞힌 답의 글은 남기지 않음
+
+    def test_wrong_fixed_blank_brings_variant_then_moves_to_next_set(self):
+        page = self.start()
+        item = self.skip_to(lambda item: item["card"] == "i90-b03")
+        self.answer(right=False)
+        self.assertRegex(page.requeue.text(), r"^같은 내용을 다르게 묻는 문항이 (\d+문항 뒤에|바로 다음에) 나옵니다\. "
+                                              r"이 문항은 \d+문항 뒤에 다시 나옵니다\.$")
+        self.assertEqual(page.count.text(), "%d / %d" % (item["at"], item["total"] + 2))
+        guikit.click(page.next_btn)
+        while page.item["card"] != "i90-b03":
+            self.answer()
+            guikit.click(page.next_btn)
+        self.answer(right=False)
+        self.assertEqual(page.requeue.text(), ai_text.KEPT)
+        self.assertTrue(page.requeue.isVisible())
+
+    def test_next_set_says_cards_done_today_were_used(self):
+        page = self.start()
+        self.assertFalse(page.fill_note.isVisible())
+        while page.item is not None:
+            if page.feedback is None:
+                self.answer()
+            guikit.click(page.next_btn)
+        guikit.click(page.again_btn)
+        self.assertEqual(page.item["at"], 1)
+        self.assertTrue(page.fill_note.isVisible())
+        self.assertEqual(page.fill_note.text(), ai_text.fill_line(page.practice.fill, page.item["total"]))
+        self.assertTrue(page.fill_note.text().startswith("아직 마치지 않은 문항은 "))
 
     def test_sure_wrong_dont_know_and_override(self):
         page = self.start()

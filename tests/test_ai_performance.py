@@ -24,11 +24,10 @@ class CachedStateTest(Base):
     def test_weighted_selection_keeps_fixed_seed_order(self):
         sess = self.session()
         self.read_and_answer(sess)
+        # 2026-11-17 #220: 모든 카드를 오늘 맞힌 기록이라 오늘 마친 문항 풀(done)에서 SET_MIN 까지만 채움. 예전 기대값은 16장이었음.
         expected = {
-            7: ['i90-s01', 'i90-g02', 'i90-s04', 'i90-c01', 'i90-s08', 'i90-b01', 'i90-s07', 'i90-b02',
-                'i90-b04', 'i90-c03', 'i90-s06', 'i90-b03', 'i90-s05', 'i90-s02', 'i90-c02', 'i90-s03'],
-            12: ['i90-s06', 'i90-b02', 'i90-s04', 'i90-c01', 'i90-b01', 'i90-s08', 'i90-g01', 'i90-s02',
-                 'i90-g02', 'i90-c03', 'i90-b04', 'i90-s01', 'i90-s07', 'i90-s03', 'i90-s05', 'i90-c02'],
+            7: ['i90-b03', 'i90-s05', 'i90-b01', 'i90-s01', 'i90-b02', 'i90-s06', 'i90-s04', 'i90-c02'],
+            12: ['i90-s05', 'i90-g01', 'i90-s01', 'i90-b01', 'i90-c02', 'i90-b02', 'i90-s06', 'i90-s02'],
         }
         for seed, cards in expected.items():
             with self.subTest(seed=seed):

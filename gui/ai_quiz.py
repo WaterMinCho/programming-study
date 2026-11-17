@@ -239,6 +239,9 @@ class PracticePage(QWidget):
         self.guide = kit.para(ai_text.FIRST_HINT.get(item["kind"], ai_text.FIRST_HINT["blank"]) + ai_text.FIRST_HINT_TAIL, "body", "secondary")
         self.card_box.addWidget(self.guide)
         self.guide.setVisible(item["at"] == 1)  # 묶음 첫 문항에만
+        self.fill_note = kit.para(ai_text.fill_line(getattr(self.practice, "fill", None), item["total"]), "body", "secondary")
+        self.card_box.addWidget(self.fill_note)
+        self.fill_note.setVisible(item["at"] == 1 and bool(self.fill_note.text()))
         self.after = QWidget()
         self.after_box = kit.box(self.after, spacing=16)
         self.card_box.addWidget(self.after)
@@ -538,14 +541,18 @@ class PracticePage(QWidget):
         self.answer_line.setVisible(bool(shown))
 
     def show_requeue(self, passed):
-        """방금 답한 문항이 묶음 뒤에 다시 들어갔으면 몇 문항 뒤에 나오는지 쓰고 위 막대의 전체 문항 수를 늘림. 묶음 길이가 늘어난 까닭을 알림."""
+        """방금 답한 문항이 묶음 뒤에 다시 들어갔으면 몇 문항 뒤에 나오는지 쓰고 위 막대의 전체 문항 수를 늘림. 묶음 길이가 늘어난 까닭을 알림.
+        끼운 변형이 있으면 그 자리도 쓰고, 다시 넣지 않았으면 오늘 다시 볼 문항으로 남는다고 씀."""
         practice = self.practice
-        gap = None
-        if len(practice.queue) > self.queued:
-            gap = next((j - practice.pos - 1 for j in range(practice.pos + 1, len(practice.queue))
-                        if practice.queue[j]["card"] == self.item["card"]), None)
-        self.requeue.setText(ai_text.requeue_line(passed, gap) if gap is not None else "")
-        self.requeue.setVisible(gap is not None)
+        card = self.item["card"]
+        later = practice.queue[practice.pos + 1:] if len(practice.queue) > self.queued else []
+        gap = next((n for n, e in enumerate(later) if e["card"] == card), None)
+        variant = next((n for n, e in enumerate(later) if e.get("for") == card), None)
+        st = practice.stats.get(card) or {}
+        kept = st.get("left") if not passed else st.get("done") and st.get("fails") and st.get("streak") == 1
+        show = gap is not None or variant is not None or bool(kept)
+        self.requeue.setText(ai_text.requeue_line(passed, gap, variant) if show else "")
+        self.requeue.setVisible(show)
         self.count.setText("%d / %d" % (self.item["at"], len(practice.queue)))  # 늘어난 전체 문항 수를 바로 보임
 
     def explain(self, feedback):

@@ -297,7 +297,7 @@ def next_item(overview, today):
             out.update(title="이어서 열 단원이 없습니다", line="문제집이나 복습에서 더 연습할 수 있습니다.")
         return out
     if kind == "again":
-        out.update(title="오늘 틀린 문항 %d개가 남았습니다" % item["count"],
+        out.update(title="오늘 다시 볼 문항 %d개가 남았습니다" % item["count"],
                    line="복습 묶음 맨 앞에 나옵니다. 두 번 이어 맞히면 오늘은 더 나오지 않습니다.", action="복습 시작")
     elif kind == "review":
         out.update(title=due_part(item["count"]), line="며칠 전에 푼 문항을 다시 풀 날이 되었습니다.", action="복습 시작")
@@ -397,8 +397,8 @@ def summary_lines(summary, unlisted=0):
         lines.append("복습 기준을 충족한 묶음 %d개" % summary["memorised"])
     if summary["sure_wrong"]:
         lines.append("확실하다고 했지만 틀린 문항 %d개" % summary["sure_wrong"])
-    if summary["left"]:
-        lines.append("네 번 틀려 오늘 다시 볼 문항 %d개" % len(summary["left"]))
+    if summary.get("again"):
+        lines.append("오늘 다시 볼 문항 %d개" % len(summary["again"]))
     if summary["next"]:
         lines.append("다음 복습: %s %d문항" % (summary["next"]["text"], summary["next"]["count"]))
     if summary["early"]:
@@ -408,12 +408,34 @@ def summary_lines(summary, unlisted=0):
     return lines
 
 
-def requeue_line(passed, gap):
-    """방금 답한 문항이 묶음 뒤에 다시 들어갔을 때의 줄. gap 은 사이에 놓인 문항 수."""
-    when = "바로 다음에" if gap == 0 else "%d문항 뒤에" % gap
+KEPT = "이 문항은 이 묶음에서 더 나오지 않습니다. 오늘 다시 볼 문항으로 남아 다음 묶음에서 먼저 나옵니다."
+CONFIRM_NEXT = "이 문항은 이 묶음에서 더 나오지 않습니다. 다음 묶음에서 한 번 더 맞히면 오늘 다시 볼 문항에서 빠집니다."
+
+
+def requeue_line(passed, gap, variant=None):
+    """방금 답한 문항의 다시 내기 줄. gap 은 다시 넣은 자리까지 사이에 놓인 문항 수이고 다시 넣지 않았으면 None.
+    variant 는 같은 내용을 다르게 묻는 문항을 끼웠을 때 그 문항까지 사이에 놓인 문항 수."""
+    def when(n):
+        return "바로 다음에" if n == 0 else "%d문항 뒤에" % n
     if passed:
-        return "한 번 더 맞히면 이 묶음에서 빠집니다. 이 문항은 %s 다시 나옵니다." % when
-    return "이 문항은 %s 다시 나옵니다." % when
+        if gap is None:
+            return CONFIRM_NEXT
+        return "이 문항은 %s 다시 나옵니다. 그때도 맞히면 이 묶음에서 더 나오지 않습니다." % when(gap)
+    lines = ["같은 내용을 다르게 묻는 문항이 %s 나옵니다." % when(variant)] if variant is not None else []
+    lines.append("이 문항은 %s 다시 나옵니다." % when(gap) if gap is not None else KEPT)
+    return " ".join(lines)
+
+
+def fill_line(fill, total):
+    """오늘 마친 문항을 빼거나 채운 묶음의 첫 문항에 쓰는 줄. fill 은 PracticeSet.fill, total 은 묶음 문항 수."""
+    if not fill:
+        return ""
+    if fill["done"] >= total:
+        return "이 묶음에 나올 수 있는 문항을 오늘 모두 마쳤습니다. 그 가운데 %d문항이 다시 나옵니다." % total
+    if fill["done"]:
+        return "아직 마치지 않은 문항은 %d개입니다. 오늘 마친 문항 %d개를 더해 %d문항이 나옵니다." % (
+            total - fill["done"], fill["done"], total)
+    return "오늘 마친 문항을 빼고 %d문항이 나옵니다." % total
 
 
 # 오답 노트 공급자(설계 2.11)
