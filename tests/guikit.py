@@ -4,11 +4,13 @@
 가져오는 쪽에서 QApplication 을 하나 만들고 테마를 입히며 움직임을 끔. PyQt6 가 없으면 SkipTest 를 일으켜서
 이 모듈을 가져오는 테스트 모듈이 통째로 건너뛰어짐.
 """
+import faulthandler
 import os
 import sys
 import time
 import unittest
 
+faulthandler.enable()  # Qt 안에서 프로세스가 죽으면 그때의 파이썬 호출 위치를 stderr 에 남김
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("STUDY_NODE_PROBE", "0")  # 로그인 셸로 node 를 찾지 않음
 os.environ.setdefault("STUDY_AUTO_SYNC", "0")  # 화면 검사에서 실제 운영 서버로 전송하지 않음

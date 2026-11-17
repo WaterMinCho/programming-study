@@ -224,7 +224,10 @@ def main():
             raise RuntimeError("이미 설치된 PyQt6가 없는 새 파이썬에서 실행해 주세요.")
 
         def call(self, command):
-            return subprocess.call([command[0], str(Path(__file__).resolve()), "--gui", "--out", str(out)])
+            code = subprocess.call([command[0], str(Path(__file__).resolve()), "--gui", "--out", str(out)])
+            if code:  # GitHub 러너는 0xC0000005(접근 위반)로 끝난 단계도 exit code 1 로 찍음
+                print("화면 검사 프로세스가 종료 코드 %d (0x%08X) 로 끝났습니다." % (code, code & 0xFFFFFFFF), flush=True)
+            return code
 
     code = bootstrap.launch(host=InstallHost())
     if code:

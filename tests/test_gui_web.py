@@ -6,6 +6,7 @@ PyQt6 가 없으면 전부 건너뜀."""
 import ast
 import base64
 import datetime
+import gc
 import os
 import re
 import shutil
@@ -23,7 +24,7 @@ from tests import guikit  # noqa: E402
 
 from PyQt6.QtCore import QPoint, QRect, QSettings, Qt  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QLabel, QPushButton, QScrollArea  # noqa: E402
 
 import adaptive  # noqa: E402
 import session  # noqa: E402
@@ -239,6 +240,20 @@ class WebTest(unittest.TestCase):
 
 
 class HubRowTest(WebTest):
+    def test_deleted_window_leaves_no_parentless_widget_behind(self):
+        """웹 홈에 들어가지 않은 창을 지운 뒤에 GC 가 지울 위젯이 남지 않음. 남으면 뒤에 스타일을 다시 입히는 도중에 지워져 프로세스가 죽을 수 있음."""
+        win = self.boot()
+        self.assertIs(win.web_home.more_topics_btn.window(), win)
+        gc.collect()  # 앞선 테스트가 남긴 객체를 먼저 치움
+        self.win = None
+        win.close()
+        win.deleteLater()
+        del win
+        guikit.pump()
+        alive = len(QApplication.topLevelWidgets())
+        gc.collect()
+        self.assertEqual(len(QApplication.topLevelWidgets()), alive)
+
     def test_a_due_review_becomes_the_next_card_on_both_homes(self):
         """한 번 푼 사슬의 복습 날이 되면 첫 화면과 웹 홈의 이어서 할 일이 그 사슬이고, 단추를 누르면 드릴이 열림."""
         web = self.web()

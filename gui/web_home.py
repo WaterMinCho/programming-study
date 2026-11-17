@@ -99,6 +99,7 @@ class WebHomePage(QWidget):
         self.chip_group = QButtonGroup(self)
         self.chip_group.setExclusive(True)
         self.more_topics_btn = kit.button("", "text", "s")
+        self.more_topics_btn.setParent(chips_holder)  # 부모가 없으면 창이 지워진 뒤에도 남아서 GC 가 아무 때나 지움
         self.more_topics_btn.hide()
         self.more_topics = QWidget()
         self.more_topics_box = kit.box(self.more_topics, (24, 0, 24, 16), 4)
@@ -278,7 +279,7 @@ class WebHomePage(QWidget):
         if waiting:
             self.more_topics_btn.setText("준비 중 %d개 보기" % len(waiting))
             self.chip_row.addWidget(self.more_topics_btn)
-            self.more_topics_btn.show()  # 줄에 붙여 부모가 생긴 뒤에 보임. 먼저 보이면 잠깐 따로 창으로 뜸
+            self.more_topics_btn.show()
             for name in waiting:
                 self.more_topics_box.addWidget(kit.label(name, "caption", "tertiary"))
         self.topic_count.setText("사슬 %d개 중 %d개 끝남" % (sum(t["total"] for t in ready), sum(t["done"] for t in ready)) if ready else "")
