@@ -409,13 +409,16 @@ class RepeatTest(Base):
                 stems.append(cur["stem"])
             return decide(cur)
         seen = self.play(ps, watch)
-        self.assertEqual(3, seen.count(target))
+        # 2026-11-17 #220: 세 문항 묶음이라 확인 출제가 alt 지문을 바로 다음에 잇게 되어 내지 않음. 두 번째 확인은
+        # 오늘 다시 볼 문항으로 다음 묶음에서 함. 예전 기대값은 3번, [(stuck,0),(pass,1),(pass,2)] 였음.
+        self.assertEqual(2, seen.count(target))
         self.assertEqual(sess.cards[target]["item"]["stem"], stems[0])
         self.assertEqual(sess.cards[target]["item"]["alt"]["stem"], stems[1])
         self.assertTrue(original["card"] == target)
         rows = [e for e in self.log(sess, "answer") if e["card"] == target]
-        self.assertEqual([("stuck", 0), ("pass", 1), ("pass", 2)], [(e["result"], e["again"]) for e in rows])
+        self.assertEqual([("stuck", 0), ("pass", 1)], [(e["result"], e["again"]) for e in rows])
         self.assertIn(target, seen[1:])
+        self.assertIn(target, sess._state().again)
 
     def test_requeue_gaps(self):
         sess = self.session()
@@ -432,7 +435,9 @@ class RepeatTest(Base):
         sess, ps = self.start()
         target = ps.current()["card"]
         seen = self.play(ps, lambda cur: "fail" if cur["card"] == target else "pass")
-        self.assertEqual(service.MAX_FAIL, seen.count(target))
+        # 2026-11-17 #220: 처음 지문 한 번, alt 지문 한 번 뒤에는 같은 alt 지문을 바로 다음에 잇게 되어 묶음에서 뺌.
+        # 예전 기대값은 MAX_FAIL(4)번이었음. 지문이 매번 바뀌는 문항의 MAX_FAIL 은 test_ai_repeat_limit 에서 봄.
+        self.assertEqual(2, seen.count(target))
         self.assertEqual([target], ps.summary()["left"])
         self.assertEqual([target], sess._state().again)
         self.assertEqual("again", sess.overview()["next"]["kind"])

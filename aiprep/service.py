@@ -16,6 +16,7 @@ skel.cards 가 만들고 note_only 자리는 노트의 돌려 가며 빈칸(chec
 import copy
 import datetime
 import hashlib
+import itertools
 import json
 import os
 import random
@@ -38,6 +39,13 @@ UNIT_OTHER_SHARE = 0.3
 GAP_WRONG = 3
 GAP_CONFIRM = 5
 MAX_FAIL = 4
+# 2026-11-17 #220: 같은 지문은 한 묶음에서 1 + SAME_MAX 번까지 냄.
+# 틀린 고정 지문 뒤에 끼우는 검토한 변형은 문항마다 RETRY_VARIANT_PER_CARD 개, 묶음마다 RETRY_VARIANT_MAX 개까지임.
+# 끼울 변형의 지문이 원문항과 같으면 seed 를 LINK_RESEED 번까지 다시 뽑음.
+SAME_MAX = 1
+RETRY_VARIANT_PER_CARD = 2
+RETRY_VARIANT_MAX = 3
+LINK_RESEED = 3
 REVIEW_FIRST = plan.REVIEW_FIRST
 BACKLOG_HALF = plan.BACKLOG_HALF
 # 2026-11-03 사용자 답(설계 14.4 질문 1): 하루 시간 예산을 두지 않고 문제집을 원하는 만큼 풂. 그래서 비핵심 새 카드 하루 상한과
@@ -1003,6 +1011,15 @@ class AiSession(object):
         self._append(entry, private={"selection": selection})
         practice = PracticeSet(self, set_id, mode, picked, seed, lesson=lesson, unit=unit)
         practice.card = card
+        pools = selection.get("candidate_pools", [])
+        done = next((p["ids"] for p in pools if p["name"] == "done" and p["overflow"]), None)
+        if done:
+            # 오늘 마친 문항을 빼지 않았다면 그 문항이 들어갔을 때(묶음이 짧아졌을 때)나 채웠을 때만 화면에 알림
+            used = sum(1 for cid in picked if selection["selected_pools"].get(cid) == "done")
+            main = [(p["name"], p["ids"]) for p in pools if not p["overflow"]]
+            shut = sum(1 for _, pool in _choose(self, state, main + [("done", done)], SET_SIZE, None) if pool == "done")
+            if used or shut:
+                practice.fill = {"done": used, "skipped": len(done) - used}
         self._active_set = practice
         self.save_practice(practice, activate=True)
         return practice
@@ -1271,9 +1288,10 @@ class _State(object):
             return 10 ** 6
         return max(0, NEW_PER_DAY - self.new_today)
 
-    def eligible_new(self, card):
+    def eligible_new(self, card, ready=True):
         """아직 답한 적 없고 오늘 새로 낼 수 있는 카드인지. 차시 풀기로 연 차시(문제집)는 모든 카드, 읽은 단원은 핵심 카드와
-        핵심이 모두 상자 2 이상인 단원의 비핵심 카드(last_new 뒤에는 비핵심을 새로 열지 않음). 비핵심 하루 상한은 묶음을 만들 때 셈."""
+        핵심이 모두 상자 2 이상인 단원의 비핵심 카드(last_new 뒤에는 비핵심을 새로 열지 않음). 비핵심 하루 상한은 묶음을 만들 때 셈.
+        ready 가 False 면 핵심 상자 조건을 보지 않음(묶음 안에서 틀린 문항 뒤에 끼우는 변형)."""
         if card["id"] in self.events or card['id'] in self.related_due or not self.unlocked(card):
             return False
         if card["core"] or card["lesson"] in self.opened:
@@ -1281,7 +1299,7 @@ class _State(object):
         last_new = self.exam.get("last_new")
         if last_new is not None and self.today > last_new:
             return False
-        return self.core_ready(card["lesson"], card["unit"])
+        return not ready or self.core_ready(card["lesson"], card["unit"])
 
     def due_day(self, cid):
         card = self.sess.cards.get(cid)
@@ -1794,8 +1812,8 @@ def _arrange(sess, state, chosen, rng, pattern=None, after=None):
     return seq
 
 
-def _variants(state, lead, fixed=False, skip=()):
-    """같은 단원·근거의 조건 변형과 검토한 고정 문항을 우선순위로 고름."""
+def _variants(state, lead, fixed=False, skip=(), ready=True):
+    """같은 단원·근거의 조건 변형과 검토한 고정 문항을 우선순위로 고름. ready 는 _State.eligible_new 로 넘김."""
     if lead["kind"] not in ("blank", "choice", "stmt") or lead["deep"] and lead["confuse"]:
         return []
     if lead.get("mock"):
@@ -1817,7 +1835,7 @@ def _variants(state, lead, fixed=False, skip=()):
         if card["kind"] != "gen" and not mapped:
             continue
         if not state.is_open(card):
-            if not state.eligible_new(card) or not card["core"] and state.new_cap_left() <= 0:
+            if not state.eligible_new(card, ready) or not card["core"] and state.new_cap_left() <= 0:
                 continue
         events = state.events.get(card["id"], [])
         rank = (card["kind"] != "gen", card["family"] != lead["family"], -len(overlap), len(events),
@@ -1889,6 +1907,15 @@ def _review_pairs(sess, state, chosen, pools, size):
     return chosen, pairs, candidates, deferred
 
 
+def _split_done(state, ids):
+    """오늘 마친 문항을 떼어 (나머지, 오늘 마친 문항)으로 돌려줌. 오늘 마친 문항은 오늘 틀렸던 문항, 마지막 답이 오래된 문항 순."""
+    def key(cid):
+        rows = [e for e in state.events.get(cid, []) if e["src"] == "answer" and e["day"] == state.today]
+        return all(e["result"] == "pass" for e in rows), rows[-1]["at"] if rows else ""
+    done = [cid for cid in ids if cid in state.completed_today]
+    return [cid for cid in ids if cid not in state.completed_today], sorted(done, key=key)
+
+
 def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=None):
     """모드별 묶음 카드 id 목록(설계 2.9). 화면 순서까지 정해서 돌려줌."""
     cards = sess.cards
@@ -1951,8 +1978,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
                 fresh.insert(len(cores), candidate)
         others = [c for c in read_cards(lambda c: (c["lesson"], c["unit"]) != (lesson, unit)) if c not in due and c not in again]
         rng.shuffle(others)
+        others, done = _split_done(state, others)
         pools = [("again", again), ("new", fresh[:UNIT_NEW]), ("due", due[:UNIT_REVIEW]), ("other", others)]
-        overflow = [("new", fresh[UNIT_NEW:]), ("due", due[UNIT_REVIEW:])]  # 묶음이 SET_MIN 보다 작을 때만 씀
+        # 묶음이 SET_MIN 보다 작을 때만 씀. 오늘 마친 문항은 맨 뒤에 둠
+        overflow = [("new", fresh[UNIT_NEW:]), ("due", due[UNIT_REVIEW:]), ("done", done)]
         pattern = "NNR"
     elif mode in ("review", "sweep"):
         low = sorted([c for c in read_cards() if c not in due and c not in again and c not in state.completed_today
@@ -1968,8 +1997,9 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
             again = [c for c in again if where(cards[c])]
             due = [c for c in due if where(cards[c])]
         fresh = new_cards(where)
-        rest = weighted([c for c in read_cards(where) if c not in due and c not in again])
+        rest, done = _split_done(state, weighted([c for c in read_cards(where) if c not in due and c not in again]))
         pools = [("again", again), ("due", due), ("new", fresh), ("rest", rest)]
+        overflow = [("done", done)]  # 오늘 마친 문항은 묶음이 SET_MIN 보다 작을 때만 채움
         if mode == "mixed" and lesson and unit:  # 다시 보기 뒤: 맨 앞 REVISIT_LEAD 문항을 그 단원 카드로
             mine = [c["id"] for c in state._units.get((lesson, unit), []) if state.is_open(c)]
             mine.sort(key=lambda c: (c not in due, state.box(c) or 0, cards[c]["order"]))
@@ -2060,7 +2090,8 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
 class PracticeSet(object):
     """묶음 하나(설계 2.7). current() → answer()/dont_know() → (override()) → next() 를 되풀이하고 끝나면 summary().
     틀리면 GAP_WRONG 문항 뒤에, 틀린 적 있는 카드를 처음 맞히면 GAP_CONFIRM 문항 뒤에 다시 내고, 두 번 이어 맞히면 끝냄.
-    같은 묶음에서 MAX_FAIL 번째로 틀리면 빼서 오늘 다시 볼 카드로 남김."""
+    같은 묶음에서 MAX_FAIL 번째로 틀리면 빼서 오늘 다시 볼 카드로 남김. 같은 지문은 1 + SAME_MAX 번까지 내고 바로 잇지 않음.
+    다시 낼 지문이 같은 문항을 틀리면 검토한 변형을 GAP_WRONG 문항 뒤에 끼우고 원문항은 그 뒤 GAP_CONFIRM 문항 뒤로 미룸."""
 
     def __init__(self, sess, set_id, mode, cards, seed, lesson=None, unit=None):
         self.sess, self.id, self.mode, self.lesson, self.unit = sess, set_id, mode, lesson, unit
@@ -2080,6 +2111,7 @@ class PracticeSet(object):
         self.title = sess.title_of(mode, lesson, unit)
         self.ended = False
         self.card, self.draft = None, {}
+        self.fill = None  # 오늘 마친 문항을 빼거나 채운 수 {"done", "skipped"}. start_set 이 정함
 
     def fingerprint(self, previous_refs=False, skeletons=None):
         """묶음 전체를 대조함. 출처 정정은 등록한 이전 ref로만 다시 계산함. skeletons 를 주면 세션 뼈대 대신 그 값을 넣음."""
@@ -2122,7 +2154,7 @@ class PracticeSet(object):
         names = ("id", "mode", "lesson", "unit", "card", "queue", "pos", "stats", "answered", "_undo", "answers",
                  "before", "had_before", "memorised_before", "title", "ended", "draft")
         data = {name: getattr(self, name) for name in names}
-        data.update(rng=self.rng.getstate(), sure_before=sorted(self.sure_before),
+        data.update(rng=self.rng.getstate(), sure_before=sorted(self.sure_before), fill=self.fill,
                     before_due={k: d.isoformat() if d else None for k, d in self.before_due.items()},
                     fingerprint=self.fingerprint(), set_records=[e for e in self.sess.record.log if e.get("set") == self.id])
         return data
@@ -2147,6 +2179,7 @@ class PracticeSet(object):
                 raise ValueError("문항이 바뀐 묶음")
         result.before_due = {k: datetime.date.fromisoformat(d) if d else None for k, d in saved["before_due"].items()}
         result.sure_before = set(saved["sure_before"])
+        result.fill = copy.deepcopy(saved.get("fill"))  # 예전 저장분에는 없음
         result.rng = random.Random()
         state = saved["rng"]
         result.rng.setstate((state[0], tuple(state[1]), state[2]))
@@ -2186,7 +2219,9 @@ class PracticeSet(object):
         elif view["form"] == "blank":
             item = cloze_item(card["stmt"])
         else:
-            item = self._statement_choice(card, state, rng, entry["again"])
+            seen = [set(e["view"]["shown"]) for e in self.queue if entry["again"] and e is not entry
+                    and e["card"] == card["id"] and (e.get("view") or {}).get("shown")]
+            item = self._statement_choice(card, state, rng, entry["again"], seen)
             view["shown"] = [o["id"] for o in item["options"]]
         view["item"] = item
         order = list(range(len(item.get("options") or [])))
@@ -2209,9 +2244,10 @@ class PracticeSet(object):
         except (bank.AiBankError, KeyError) as error:
             raise AiError("문항을 만들 수 없습니다: %s" % error)
 
-    def _statement_choice(self, card, state, rng, again):
+    def _statement_choice(self, card, state, rng, again, seen=()):
         """문장 카드의 고르기판. 참 문장이면 거짓 문장 셋과 pick right, 거짓이면 참 문장 셋과 pick wrong. 함께 낼 문장은 열린
-        것부터 상자가 낮은 순(다시 낼 때는 열린 것 가운데 아무거나), 모자라면 같은 차시 같은 tag 주제에서 빌림."""
+        것부터 상자가 낮은 순(다시 낼 때는 열린 것 가운데 아무거나), 모자라면 같은 차시 같은 tag 주제에서 빌림. 다시 낼 때는
+        seen(이 묶음에서 이미 보인 보기 id 집합들)과 같은 조합을 피함."""
         sess, statement, topic = self.sess, card["stmt"], card["topic"]
         want = not bool(statement.get("ok"))
         pool = [s for s in topic.get("statements", []) if bool(s.get("ok")) == want and s["id"] != statement["id"]]
@@ -2227,6 +2263,9 @@ class PracticeSet(object):
         if not again:
             opened.sort(key=lambda s: state.box(s["id"]) or 0)
         mates = (opened + closed)[:3]
+        if again and seen:
+            mates = next((list(combo) for combo in itertools.combinations(opened + closed, 3)
+                          if {statement["id"]} | {s["id"] for s in combo} not in seen), mates)
         options = [{"id": s["id"], "text": s["text"], "ok": bool(s.get("ok")), "why": s.get("why", "")} for s in [statement] + mates]
         rng.shuffle(options)
         return {"kind": "choice", "stem": "%s에 대한 설명으로 **%s** 것을 고르세요." % (topic.get("title", ""), "옳은" if statement.get("ok") else "옳지 않은"),
@@ -2406,7 +2445,7 @@ class PracticeSet(object):
                                        "first_in_set": self.stats[entry["card"]]["first"] is None,
                                        "feedback_returned": True}, item=lambda: self._collection_item(entry))
         self.answers += 1
-        snapshot = (list(self.queue), {k: dict(v) for k, v in self.stats.items()})
+        snapshot = (list(self.queue), {k: dict(v) for k, v in self.stats.items()}, self.memorised_before)
         self._undo = (snapshot, entry, row)
         self._apply(entry, row["result"])
         self.answered = feedback
@@ -2424,31 +2463,102 @@ class PracticeSet(object):
                 st["done"] = True
                 return
             st["streak"] += 1
-            if st["streak"] >= 2:
+            if st["streak"] >= 2 or not self._requeue(entry, at + 1 + GAP_CONFIRM):
                 st["done"] = True
-                return
-            self._requeue(entry, at + 1 + GAP_CONFIRM)
             return
         st["fails"] += 1
         st["streak"] = 0
         if st["fails"] >= MAX_FAIL:
             st["left"] = True
             return
-        self._requeue(entry, at + 1 + GAP_WRONG)
+        again = self._again(entry)
+        where = at + 1 + GAP_WRONG
+        if not entry.get("for") and self._text(again) == self._text(entry):
+            spot = self._link(entry, where)
+            if spot is not None:
+                where = spot + 1 + GAP_CONFIRM
+        if not self._requeue(entry, where, again):
+            st["left"] = True
 
-    def _requeue(self, entry, where):
+    def _again(self, entry):
+        """다시 낼 항목. 지문을 비교하려고 화면 값을 새 seed 로 미리 만들어 둠."""
         again = {"card": entry["card"], "again": entry["again"] + 1, "seed": self.rng.randrange(2 ** 31)}
-        if where >= len(self.queue):
-            self.queue.append(again)
-        else:
-            self.queue.insert(where, again)
+        self._view(again)
+        return again
+
+    def _text(self, entry):
+        """보기 순서를 뺀 지문 대조값. 꼴·지문·코드·보기 글 집합·빈칸 정답을 봄. 문장 카드 고르기 꼴은 다시 낼 때 오답 보기만
+        바뀌므로 보기 글 대신 정답 문장 id 를 봄."""
+        view = self._view(entry)
+        item = view["item"]
+        card = self.sess.cards[entry["card"]]
+        options = sorted(str(o.get("text")) for o in item.get("options") or [])
+        if card["kind"] == "stmt" and item.get("kind") == "choice":
+            options = [card["stmt"]["id"]]
+        return json.dumps([item.get("kind") or view["form"], item.get("stem"), item.get("code"), options,
+                           [b.get("answer") for b in item.get("blanks") or []]], ensure_ascii=False, sort_keys=True, default=str)
+
+    def _requeue(self, entry, where, again=None):
+        """다시 낼 문항을 넣고 True. 같은 지문이 이 묶음에서 이미 1 + SAME_MAX 번 나왔거나, 같은 지문을 사이에 다른 문항 없이
+        바로 다음에 내야 하면 넣지 않고 False."""
+        again = again or self._again(entry)
+        text = self._text(again)
+        same = sum(1 for e in self.queue[:self.pos + 1] if e["card"] == entry["card"] and self._text(e) == text)
+        where = min(where, len(self.queue))
+        if same > SAME_MAX or same and where <= self.pos + 1:
+            return False
+        self.queue.insert(where, again)
+        return True
+
+    def _link(self, entry, where):
+        """틀린 고정 지문 뒤에 같은 단원의 검토한 변형을 끼우고 그 자리를 돌려줌. 이 묶음에 아직 안 나온 변형이 있으면 그 자리를
+        씀. 핵심 상자 조건은 보지 않고, 이 묶음에 있는 카드·오늘 마친 카드·다른 과정 카드는 넣지 않음. 변형의 지문이 원문항과
+        같으면 seed 를 LINK_RESEED 번까지 다시 뽑고, 그래도 같으면 다음 후보로 넘어감. 없으면 None."""
+        sess, cid = self.sess, entry["card"]
+        state = sess._state()
+        options = _variants(state, sess.cards[cid], fixed=True, ready=False)
+        later = next((n for n in range(self.pos + 1, len(self.queue)) if self.queue[n]["card"] in options), None)
+        if later is not None:
+            return later
+        linked = [e for e in self.queue if e.get("for")]
+        if sum(e["for"] == cid for e in linked) >= RETRY_VARIANT_PER_CARD or len(linked) >= RETRY_VARIANT_MAX:
+            return None
+        lead = sess.cards[cid]
+        families = {sess.cards[c]["family"] for c in self.stats}
+        original = self._text(entry)
+        pick = None
+        for v in options:
+            if not (v in sess.cards and v not in self.stats and v not in state.completed_today
+                    and bank.course_of(sess.cards[v]["lesson"]) == bank.course_of(lead["lesson"])
+                    and (sess.cards[v]["family"] == lead["family"] or sess.cards[v]["family"] not in families)):
+                continue
+            for _ in range(1 + LINK_RESEED):
+                linked_entry = {"card": v, "again": 0, "seed": self.rng.randrange(2 ** 31), "for": cid}
+                if self._text(linked_entry) != original:
+                    pick = v
+                    break
+            if pick is not None:
+                break
+        if pick is None:
+            return None
+        before = families_memorised([sess.cards[c] for c in self.stats], state.sched, state.revised)
+        self.stats[pick] = {"fails": 0, "streak": 0, "shown": 0, "first": None, "done": False, "left": False}
+        self.memorised_before += families_memorised([sess.cards[c] for c in self.stats], state.sched, state.revised) - before
+        self.before[pick] = state.box(pick)
+        self.before_due[pick] = state.due_day(pick)
+        self.had_before[pick] = any(e["day"] < state.today for e in state.events.get(pick, []))
+        if state.sure_wrong(pick):
+            self.sure_before.add(pick)
+        where = min(where, len(self.queue))
+        self.queue.insert(where, linked_entry)
+        return where
 
     def override(self):
         """[내 답도 맞음]. 방금 틀린 빈칸 답을 맞음으로 바꾸고 override 기록을 남김. 뼈대 빈칸은 함께 가린 칸이 틀린 것도
         바꿀 수 있고(also_value), 한 번에 틀린 칸 모두를 맞음으로 봄."""
         if self._undo is None or self.answered is None:
             raise AiError("바꿀 답이 없습니다.")
-        (queue, stats), entry, row = self._undo
+        saved, entry, row = self._undo
         main = row["result"] != "pass" and "value" in row
         if not main and not row.get("also_value"):
             raise AiError("빈칸을 틀린 답만 바꿀 수 있습니다.")
@@ -2458,7 +2568,13 @@ class PracticeSet(object):
         if row.get("also_value"):
             out["also_value"] = dict(row["also_value"])
         self.sess._append(out)
-        self.queue, self.stats = queue, stats
+        self.queue, self.stats = saved[0], saved[1]
+        if len(saved) > 2:  # 예전 초안의 되돌리기 값에는 외운 문항 수가 없음
+            self.memorised_before = saved[2]
+        for cid in set(self.before) - set(self.stats):  # 답 뒤에 끼운 변형을 뺌
+            for values in (self.before, self.before_due, self.had_before):
+                values.pop(cid, None)
+            self.sure_before.discard(cid)
         self._apply(entry, "pass")
         self.answered = dict(self.answered, result="pass", overridden=True, also=[])
         self._undo = None
@@ -2523,7 +2639,8 @@ class PracticeSet(object):
         if nexts:
             upcoming = {"date": nexts[0].isoformat(), "text": _md(nexts[0]), "count": nexts.count(nexts[0])}
         left = [cid for cid, st in self.stats.items() if st["left"]]
+        again = [cid for cid, st in self.stats.items() if st["shown"] and cid in state.again]
         return {"set": self.id, "mode": self.mode, "lesson": self.lesson, "unit": self.unit, "n": len(self.stats),
                 "answers": self.answers, "first_today": first_today, "again_day": again_day, "up": up, "same": same,
                 "down": down, "sure_wrong": sure_wrong, "memorised": max(0, memorised), "next": upcoming, "early": early,
-                "left": left, "first_pass": sum(1 for st in self.stats.values() if st["first"] == "pass")}
+                "left": left, "again": again, "first_pass": sum(1 for st in self.stats.values() if st["first"] == "pass")}

@@ -109,7 +109,7 @@ def next_card(ctx):
     out = {"kind": "none", "lesson": None, "unit": None, "mock": None, "title": "", "count": 0, "why": "", "name": ""}
     again = ctx.get("again") or []
     if again:
-        out.update(kind="again", count=len(again), title="오늘 틀린 문항 %d개가 남았습니다" % len(again),
+        out.update(kind="again", count=len(again), title="오늘 다시 볼 문항 %d개가 남았습니다" % len(again),
                    why="두 번 이어 맞히면 오늘 복습에서 빠집니다.")
         return out
     mock = ctx.get("mock")
