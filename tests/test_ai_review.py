@@ -194,6 +194,13 @@ class RuleTest(unittest.TestCase):
         got = schedule(log, D(2026, 11, 30))
         self.assertEqual((1, D(2026, 12, 1), False), (got["box"], got["due"], got["done"]))
 
+    def test_partial_on_the_pulled_sweep_day_counts_as_a_review(self):
+        log = [answer("2026-11-10T20:00:00", "pass"), answer("2026-11-12T20:00:00", "pass"), answer("2026-11-16T20:00:00", "pass"),
+               answer("2026-11-23T20:00:00", "pass"), answer("2026-11-30T20:00:00", "partial")]
+        got = schedule(log, D(2026, 11, 30))
+        self.assertEqual((5, D(2026, 11, 30), D(2026, 12, 1), False), (got["box"], got["last"], got["due"], got["done"]))
+        self.assertEqual(D(2026, 12, 1), review.due_on(got, CARD, EXAM, D(2026, 11, 30)))
+
     def test_sweep_spreads_open_cards_same_way(self):
         log = [answer("2026-11-10T20:00:00", "pass"), answer("2026-11-12T20:00:00", "pass"), answer("2026-11-16T20:00:00", "pass"),
                answer("2026-11-23T20:00:00", "pass")]
