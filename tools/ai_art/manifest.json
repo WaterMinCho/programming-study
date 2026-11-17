@@ -562,7 +562,7 @@
    "fn": "a4c-3"
   },
   "learn/al04/assets/a4d-1.gif": {
-   "sha256": "40166a5b9ca6c018fd729f436ccdec240b446a85e22a890346bd65ac2615f05d",
+   "sha256": "87c119f5ca4f06c95fa4d5c287a108d41789517664f260a7d0ce24d646c5c496",
    "script": "tools/ai_art/al04.py",
    "fn": "a4d-1"
   },
