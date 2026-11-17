@@ -94,6 +94,46 @@
    "what": "윤곽선 검색과 점 압축",
    "url": "https://docs.opencv.org/4.13.0/d3/dc0/group__imgproc__shape.html",
    "checked": "2026-11-14"
+  },
+  {
+   "what": "영상 속성 조회와 미지원 값",
+   "url": "https://docs.opencv.org/4.13.0/d8/dfe/classcv_1_1VideoCapture.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "영상 FPS·크기·프레임 수",
+   "url": "https://docs.opencv.org/4.13.0/d4/d15/group__videoio__flags__base.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "기울기 크기·정규화",
+   "url": "https://docs.opencv.org/4.13.0/d2/de8/group__core__array.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "표시 범위 제한",
+   "url": "https://numpy.org/doc/2.4/reference/generated/numpy.clip.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "ROI 슬라이스 범위",
+   "url": "https://numpy.org/doc/2.4/user/basics.indexing.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "한 채널의 RGB 표시",
+   "url": "https://docs.opencv.org/4.13.0/de/d25/imgproc_color_conversions.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "선분 결과의 끝점 배열",
+   "url": "https://docs.opencv.org/4.13.0/d9/db0/tutorial_hough_lines.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "배열 원소 순서를 유지한 모양 변경",
+   "url": "https://numpy.org/doc/2.4/reference/generated/numpy.reshape.html",
+   "checked": "2026-11-17"
   }
  ],
  "units": {

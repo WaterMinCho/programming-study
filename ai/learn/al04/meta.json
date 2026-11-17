@@ -1,0 +1,98 @@
+{
+ "format": 1,
+ "id": "al04",
+ "lesson": "a04",
+ "title": "응용 4차시 프레임 사이의 위치와 움직임 추적하기",
+ "defines": [],
+ "needs": [
+  "al03",
+  "l03",
+  "l04",
+  "l10"
+ ],
+ "sections": {
+  "a4a": "점수 지도로 템플릿 위치 찾기",
+  "a4b": "배경 모델로 전경 마스크 만들기",
+  "a4c": "대상의 색상 분포로 위치 추적하기",
+  "a4d": "CamShift의 회전 영역과 다음 창 구분하기",
+  "a4e": "성공한 특징점만 다음 프레임으로 잇기",
+  "a4f": "모든 픽셀의 이동을 두 채널로 읽기",
+  "a4g": "RAFT의 입력과 반복 추론 연결하기"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "점수 지도로 템플릿 위치 찾기",
+   "url": "https://docs.opencv.org/4.13.0/d4/dc6/tutorial_py_template_matching.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "배경 모델로 전경 마스크 만들기",
+   "url": "https://docs.opencv.org/4.13.0/d1/dc5/tutorial_background_subtraction.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "대상의 색상 분포로 위치 추적하기",
+   "url": "https://docs.opencv.org/4.13.0/d7/d00/tutorial_meanshift.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "CamShift의 회전 영역과 다음 창 구분하기",
+   "url": "https://docs.opencv.org/4.13.0/d7/d00/tutorial_meanshift.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "성공한 특징점만 다음 프레임으로 잇기",
+   "url": "https://docs.opencv.org/4.13.0/dc/d6b/group__video__track.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "모든 픽셀의 이동을 두 채널로 읽기",
+   "url": "https://docs.opencv.org/4.13.0/d4/dee/tutorial_optical_flow.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "RAFT의 입력과 반복 추론 연결하기",
+   "url": "https://docs.pytorch.org/vision/stable/auto_examples/others/plot_optical_flow.html",
+   "checked": "2026-11-17"
+  }
+ ],
+ "units": {
+  "a4a": {
+   "minutes": 8,
+   "key_figure": "assets/a4a-1.gif",
+   "kind": "concept"
+  },
+  "a4b": {
+   "minutes": 8,
+   "key_figure": "assets/a4b-1.gif",
+   "kind": "concept"
+  },
+  "a4c": {
+   "minutes": 8,
+   "key_figure": "assets/a4c-1.gif",
+   "kind": "concept"
+  },
+  "a4d": {
+   "minutes": 8,
+   "key_figure": "assets/a4d-1.gif",
+   "kind": "concept"
+  },
+  "a4e": {
+   "minutes": 8,
+   "key_figure": "assets/a4e-1.gif",
+   "kind": "concept"
+  },
+  "a4f": {
+   "minutes": 8,
+   "key_figure": "assets/a4f-1.gif",
+   "kind": "concept"
+  },
+  "a4g": {
+   "minutes": 8,
+   "key_figure": "assets/a4g-1.gif",
+   "kind": "concept"
+  }
+ }
+}

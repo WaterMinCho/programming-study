@@ -501,6 +501,156 @@
    "script": "tools/ai_art/course03_followup.py",
    "fn": "a3g-4"
   },
+  "learn/al04/assets/a4a-1.gif": {
+   "sha256": "35fd232ed76aab521325a0220a29c146d1e20cb710885cb51a4cef4d74114caf",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4a-1"
+  },
+  "learn/al04/assets/a4a-2.png": {
+   "sha256": "da9b0d2951840cd1916c96853d7dc0c45e0e3a989c56cc920f54871d4ee5cb43",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4a-2"
+  },
+  "learn/al04/assets/a4a-3.png": {
+   "sha256": "63d8b6c59f9f7af1a73bd5b4031f8cdf8448e6331ce491dda6e30ad522887f48",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4a-3"
+  },
+  "learn/al04/assets/a4a-41.png": {
+   "sha256": "bc339dbc89ca6cbea138dddda9ae4bc846c418bb3df46e88a59f569cadb0e217",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4a-41"
+  },
+  "learn/al04/assets/a4a-42.png": {
+   "sha256": "ecc1bce7eac64ab4b4d87eacb510c4152be9ad687d6669ea209058ae409cb561",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4a-42"
+  },
+  "learn/al04/assets/a4a-43.png": {
+   "sha256": "a05f14399a33245438e08e7dea414b5fadf4f789d8d05b9084a09c58cfbd9dce",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4a-43"
+  },
+  "learn/al04/assets/a4b-1.gif": {
+   "sha256": "a020e4e6503d204a2b1dd5784b95ba559708fbf4c3ca58e9a0c9147ed3eb0653",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4b-1"
+  },
+  "learn/al04/assets/a4b-2.png": {
+   "sha256": "79af3db15029d6f38d7aff2436078437cc4ee31451f9adcd3ba20fca28a562c9",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4b-2"
+  },
+  "learn/al04/assets/a4b-3.png": {
+   "sha256": "93e3ccbcf61750a0ef09f48059a201844a8720c65f6eeb327bbd689592f7b176",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4b-3"
+  },
+  "learn/al04/assets/a4c-1.gif": {
+   "sha256": "7fccbca59592fa3bec0c21883dbd4052cb2ccf1ef18eec9671bbe88785d22ba8",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4c-1"
+  },
+  "learn/al04/assets/a4c-2.png": {
+   "sha256": "10959beaf7bb67edcdb5f30a27ae845cae303dd8bd6cd06226f0e80c75e04b96",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4c-2"
+  },
+  "learn/al04/assets/a4c-3.png": {
+   "sha256": "9b878b24ffe96ca5be392817afdf1ac654c711b4165787e73ef7cbff619ccc7c",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4c-3"
+  },
+  "learn/al04/assets/a4d-1.gif": {
+   "sha256": "40166a5b9ca6c018fd729f436ccdec240b446a85e22a890346bd65ac2615f05d",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4d-1"
+  },
+  "learn/al04/assets/a4d-2.png": {
+   "sha256": "a708499fabbb6b7cc401b25f4058029659836eb7858778c0c126951df98c9fc2",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4d-2"
+  },
+  "learn/al04/assets/a4d-3.png": {
+   "sha256": "8912f225c47a06c3a930afc99507fd77c38e905e6905ccd5286b4134d5193d63",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4d-3"
+  },
+  "learn/al04/assets/a4e-1.gif": {
+   "sha256": "491791fb295fc6669f0eefc9e104cef2cde40ced6f24f6655a831569c33f9309",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4e-1"
+  },
+  "learn/al04/assets/a4e-2.png": {
+   "sha256": "243b25251eb39b89ce36bcc271a143feaaaaf90f2db646f97f7910605586cb7c",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4e-2"
+  },
+  "learn/al04/assets/a4e-3.png": {
+   "sha256": "a92cc5dae3d39303fc597023b97392f992fa94abedd097d037a480bc6cd99d98",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4e-3"
+  },
+  "learn/al04/assets/a4e-41.png": {
+   "sha256": "d2eb47311f4604203d996c990eda6fd044bc02975826a776b3bf4a3ed62ec050",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4e-41"
+  },
+  "learn/al04/assets/a4e-42.png": {
+   "sha256": "c23615c04e8e0871e24a25f4d65ed09bed7e9811234c5aa7d02c7fc017aa1f37",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4e-42"
+  },
+  "learn/al04/assets/a4e-43.png": {
+   "sha256": "e0928eb53ef8ab0567c31305e55381352d3c7a9f7731af03dbdbd721c3924b11",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4e-43"
+  },
+  "learn/al04/assets/a4f-1.gif": {
+   "sha256": "be84d16070d7ba812873c9da3a151ac43a9bd6fe8bca1ce5219ae73e835bcf9b",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4f-1"
+  },
+  "learn/al04/assets/a4f-2.png": {
+   "sha256": "82797dc7074031076b9752122e524802e08d5aab3056019c150fe96a61a8156e",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4f-2"
+  },
+  "learn/al04/assets/a4f-3.png": {
+   "sha256": "5276ed1ffc863a4c64a408e64aef57e034bf9dbc769ddb680c717d911bf32c13",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4f-3"
+  },
+  "learn/al04/assets/a4g-1.gif": {
+   "sha256": "c2524834a9c63c2c64f17caca1b5ca1b2d5c8970d57516d7ff3ffdb7a33da3d6",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4g-1"
+  },
+  "learn/al04/assets/a4g-2.png": {
+   "sha256": "4215e6594fbd4accab4f49b72bb5a6ee63486c3641d9fcab8b319367843b882b",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4g-2"
+  },
+  "learn/al04/assets/a4g-3.png": {
+   "sha256": "161c7f36eac7a8898183822736e861763caaf3fbb4a48159c1e1f25ad1faf6ba",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4g-3"
+  },
+  "learn/al04/assets/a4g-41.png": {
+   "sha256": "753cdb4d2f68dc22b801ebc875eb4bff706c1fdbfee807080165bb40c65092d2",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4g-41"
+  },
+  "learn/al04/assets/a4g-42.png": {
+   "sha256": "f9c3fd0de0ecf536baf151eaf49fbe0d462840b496bee2af9328699b4405ed31",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4g-42"
+  },
+  "learn/al04/assets/a4g-43.png": {
+   "sha256": "f4604f201f5191ab13285063ac5bac1092447d40d984f9af17508a6e1a16e438",
+   "script": "tools/ai_art/al04.py",
+   "fn": "a4g-43"
+  },
   "learn/l01/assets/1a-1.png": {
    "sha256": "eeab4fe61fdabc999edc282a30b0f1c24824e179526053db8be1c5fd500b97f3",
    "script": "tools/ai_art/l01.py",
@@ -2216,6 +2366,11 @@
    "script": "tools/ai_art/l08.py",
    "fn": "8f-53"
   },
+  "learn/l08/assets/8f-6.png": {
+   "sha256": "314c80091aaaef8627dfaa3fbd6eb59fe79727a7f8863b30f34e292633d550f3",
+   "script": "tools/ai_art/pr_threshold.py",
+   "fn": "draw"
+  },
   "learn/l08/assets/8g-1.png": {
    "sha256": "201b3bafa488e746a644fd178c51a6bd9838593746d6c60725ff42f9c4764ace",
    "script": "tools/ai_art/l08.py",
@@ -3586,6 +3741,11 @@
    "script": "tools/ai_art/level_repairs_qt.py",
    "fn": "15b-33"
   },
+  "learn/l15/assets/15b-6.png": {
+   "sha256": "9a643424509a3885a8473b38a23ba91b54c497989e3073a8a7f5b708e5a3af52",
+   "script": "tools/ai_art/lesson_content_qt.py",
+   "fn": "draw"
+  },
   "learn/l15/assets/15c-1.png": {
    "sha256": "4751c9f3ffaab79f918bf30d2fa9f5fe42e2af79b0870f2ce6a205729d45cc9a",
    "script": "tools/ai_art/l15.py",
@@ -4160,16 +4320,6 @@
    "sha256": "7c5f86571dc7a0692fd90a9871a91dcf47aba4e35cb53e01c79136d68bd95dd9",
    "script": "tools/ai_art/l18.py",
    "fn": "18h-5"
-  },
-  "learn/l15/assets/15b-6.png": {
-   "sha256": "9a643424509a3885a8473b38a23ba91b54c497989e3073a8a7f5b708e5a3af52",
-   "script": "tools/ai_art/lesson_content_qt.py",
-   "fn": "draw"
-  },
-  "learn/l08/assets/8f-6.png": {
-   "sha256": "314c80091aaaef8627dfaa3fbd6eb59fe79727a7f8863b30f34e292633d550f3",
-   "script": "tools/ai_art/pr_threshold.py",
-   "fn": "draw"
   }
  }
 }
