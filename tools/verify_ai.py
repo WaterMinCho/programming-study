@@ -1587,13 +1587,28 @@ def _mock_evidence(v, label, item, sources, mixed=False):
 
 
 MIXED_BLUEPRINT = dict({"i%02d" % n: 1 for n in range(1, 18) if n != 10}, a01=5, a02=6, a03=5)
+MIXED_APPLIED04_BLUEPRINT = dict({"i%02d" % n: 1 for n in range(1, 18) if n != 10}, a01=4, a02=4, a03=4, a04=4)
+MIXED_BLUEPRINTS = {"mixed32-blueprint-v1": MIXED_BLUEPRINT,
+                    "mixed32-transfer-v1": MIXED_BLUEPRINT,
+                    "mixed32-applied04-v1": MIXED_APPLIED04_BLUEPRINT}
+VARIATION_REVISIONS = ("mixed32-transfer-v1", "mixed32-applied04-v1")
+
+
+def _mixed_blueprint(entry):
+    """회차의 배분 버전으로 차시 배분을 고름. 등록되지 않은 값이면 None을 돌려줌."""
+    revision = entry.get("blueprint_revision")
+    return MIXED_BLUEPRINTS.get(revision) if isinstance(revision, str) else None
 
 
 def _mixed_mock_problems(entry, meta, items, sources):
     """혼합 회차의 문항 배분과 분류를 대조함. 초안도 검사함."""
     out, label = [], entry["id"]
+    blueprint = _mixed_blueprint(entry)
+    if blueprint is None:
+        out.append(f"{label}의 blueprint_revision이 등록되지 않았습니다.")
+        blueprint = MIXED_BLUEPRINT
     expected = {"scope": "mixed", "courses": ["intro", "app"], "count": 32, "minutes": 120,
-                "course_counts": {"intro": 16, "app": 16}, "blueprint": MIXED_BLUEPRINT, "range": [1, 17]}
+                "course_counts": {"intro": 16, "app": 16}, "blueprint": blueprint, "range": [1, 17]}
     for name, data in (("index", entry), ("meta.json", meta)):
         for key, value in expected.items():
             if data.get(key) != value or (key in ("count", "minutes") and type(data.get(key)) is not int):
@@ -1610,14 +1625,14 @@ def _mixed_mock_problems(entry, meta, items, sources):
         out.append(f"{label} meta.json의 draft는 bool이어야 합니다.")
     if not isinstance(meta.get("time_basis"), str) or not meta["time_basis"].strip():
         out.append(f"{label}의 time_basis에 연습 기본 시간의 근거를 적으세요.")
-    for field, expected_counts in (("course", {"intro": 16, "app": 16}), ("lesson", MIXED_BLUEPRINT),
+    for field, expected_counts in (("course", {"intro": 16, "app": 16}), ("lesson", blueprint),
                                    ("kind", {"blank": 16, "choice": 16}), ("level", {1: 8, 2: 16, 3: 8})):
         counts = collections.Counter(item.get(field) for item in items if isinstance(item.get(field), (str, int)))
         if counts != expected_counts:
             out.append(f"{label}의 실제 %s 배분이 일치하지 않습니다: %s" % (field, dict(counts)))
     if sorted(item["id"] for item in items) != ["%s-%02d" % (label, n) for n in range(1, 33)]:
         out.append(f"{label}의 문항 ID는 {label}-01부터 {label}-32까지 한 번씩 사용하세요.")
-    if label == "m5" or "variation_types" in meta:
+    if revision in VARIATION_REVISIONS or "variation_types" in meta:
         axes = ["condition", "application", "code_analysis", "comparison"]
         if meta.get("variation_types") != axes:
             out.append(f"{label}의 variation_types에 조건 변형·개념 응용·코드 분석·개념 비교를 적으세요.")
@@ -1629,9 +1644,9 @@ def _mixed_mock_problems(entry, meta, items, sources):
     for item in items:
         cid, lid = item["id"], item.get("lesson")
         lesson = sources.entries.get(lid) if isinstance(lid, str) else None
-        if (not lesson or lid not in MIXED_BLUEPRINT or lesson.get("course") != item.get("course")
+        if (not lesson or lid not in blueprint or lesson.get("course") != item.get("course")
                 or aibank.course_of(lid) != item.get("course")):
-            out.append("%s의 course·lesson이 개론 1~17차시·응용 1~3차시와 일치하지 않습니다." % cid)
+            out.append("%s의 course·lesson이 해당 회차의 공개 차시 배분과 일치하지 않습니다." % cid)
         for key in ("concept", "family", "format", "transferaxis", "level_reason"):
             if not isinstance(item.get(key), str) or not item[key].strip():
                 out.append("%s의 %s는 비어 있지 않은 글이어야 합니다." % (cid, key))
@@ -1663,8 +1678,8 @@ def _mixed_duplicates(items, exams):
     return out
 
 
-def _mixed_mock_evidence(v, label, item, sources):
-    """보조 차시까지 사실 목록을 대조하며 정정·미확인 사실을 제외함."""
+def _mixed_mock_evidence(v, label, item, sources, blueprint):
+    """보조 차시까지 사실 목록을 대조하며 정정·미확인 사실을 제외함. 응용 차시는 회차 배분에 있는 것만 받음."""
     cid = item["id"]
     try:
         related = item.get("related_sources")
@@ -1674,7 +1689,7 @@ def _mixed_mock_evidence(v, label, item, sources):
         expected = []
         for group in groups:
             lid, fids = group["lesson"], group["facts"]
-            if (lid not in sources.entries or not re.fullmatch(r"i(?:0[1-9]|1[0-7])|a0[1-3]", lid)
+            if (lid not in sources.entries or not (re.fullmatch(r"i(?:0[1-9]|1[0-7])", lid) or lid in blueprint)
                     or not isinstance(fids, list) or not fids or not all(isinstance(f, str) for f in fids)):
                 raise ValueError("sourcefacts의 차시·사실이 공개 범위와 일치하지 않습니다.")
             data, note = sources.source(lid), sources.note(lid)
@@ -1790,10 +1805,11 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
                 v.fail(label, 12, message)
         except (aibank.AiBankError, genlib.GenError, OSError, ValueError, TypeError, KeyError) as error:
             v.fail(label, 12, "모의고사 비교 자료를 읽지 못합니다: %s" % error)
+        blueprint = (_mixed_blueprint(mock) or MIXED_BLUEPRINT) if mixed else None
         for item in items:
             _mock_evidence(v, label, item, sources, mixed=mixed)
             if mixed:
-                _mixed_mock_evidence(v, label, item, sources)
+                _mixed_mock_evidence(v, label, item, sources, blueprint)
     data = {"dir": aibank.mock_dir(label, bank_dir), "items": items, "topics": [], "facts": {}, "errata": {}, "sources": {}, "gens": []}
     try:
         return Lesson({"id": label}, None, data, aibank.cards_of({"id": label}, data))

@@ -182,3 +182,8 @@ class PublishedMixedMockPageTest(unittest.TestCase):
 class TransferMixedMockPageTest(PublishedMixedMockPageTest):
     mid = "m5"
     app_item = "21"
+
+
+class Applied04MixedMockPageTest(PublishedMixedMockPageTest):
+    mid = "m6"
+    app_item = "29"

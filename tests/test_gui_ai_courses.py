@@ -31,7 +31,7 @@ class CourseGuiTest(AiTest):
         self.assertEqual(['a01', 'a02', 'a03', 'a04'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
-        self.assertEqual({'m4', 'm5'}, set(win.ai.mocks))
+        self.assertEqual({'m4', 'm5', 'm6'}, set(win.ai.mocks))
         guikit.click(win.ai_home.browser.buttons['mocks'])
         self.assertTrue(win.ai_home.mock_section.isVisible())
         self.assertIn('응용', win.ai_home.lesson_list.rows[0].title.text())
@@ -41,7 +41,7 @@ class CourseGuiTest(AiTest):
         self.assertEqual(2, win.ai.unit_steps('i01', '1a')['at_step'])
         self.assertNotIn('a01', win.ai.lessons)
         self.assertEqual('intro', win.settings.value('ai/course/' + win.user))
-        self.assertTrue({'m1','m2','m3'}.issubset(win.ai.mocks))
+        self.assertEqual({'m1','m2','m3','m4','m5','m6'}, set(win.ai.mocks))
         self.capture_widget=win
 
     def test_missing_mixed_fixture_keeps_application_mock_section_hidden(self):
