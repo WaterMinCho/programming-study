@@ -1,0 +1,43 @@
+{
+ "format": 1,
+ "writer": "학습 본문·그림 작성",
+ "resolver": "신규·변경 문항 재풀이",
+ "reviewer": "출처·계산·문맥 대조",
+ "files": {
+  "assets/a4a-1.gif": "35fd232ed76aab521325a0220a29c146d1e20cb710885cb51a4cef4d74114caf",
+  "assets/a4a-2.png": "da9b0d2951840cd1916c96853d7dc0c45e0e3a989c56cc920f54871d4ee5cb43",
+  "assets/a4a-3.png": "63d8b6c59f9f7af1a73bd5b4031f8cdf8448e6331ce491dda6e30ad522887f48",
+  "assets/a4a-41.png": "bc339dbc89ca6cbea138dddda9ae4bc846c418bb3df46e88a59f569cadb0e217",
+  "assets/a4a-42.png": "ecc1bce7eac64ab4b4d87eacb510c4152be9ad687d6669ea209058ae409cb561",
+  "assets/a4a-43.png": "a05f14399a33245438e08e7dea414b5fadf4f789d8d05b9084a09c58cfbd9dce",
+  "assets/a4b-1.gif": "a020e4e6503d204a2b1dd5784b95ba559708fbf4c3ca58e9a0c9147ed3eb0653",
+  "assets/a4b-2.png": "79af3db15029d6f38d7aff2436078437cc4ee31451f9adcd3ba20fca28a562c9",
+  "assets/a4b-3.png": "93e3ccbcf61750a0ef09f48059a201844a8720c65f6eeb327bbd689592f7b176",
+  "assets/a4c-1.gif": "7fccbca59592fa3bec0c21883dbd4052cb2ccf1ef18eec9671bbe88785d22ba8",
+  "assets/a4c-2.png": "10959beaf7bb67edcdb5f30a27ae845cae303dd8bd6cd06226f0e80c75e04b96",
+  "assets/a4c-3.png": "9b878b24ffe96ca5be392817afdf1ac654c711b4165787e73ef7cbff619ccc7c",
+  "assets/a4d-1.gif": "87c119f5ca4f06c95fa4d5c287a108d41789517664f260a7d0ce24d646c5c496",
+  "assets/a4d-2.png": "a708499fabbb6b7cc401b25f4058029659836eb7858778c0c126951df98c9fc2",
+  "assets/a4d-3.png": "8912f225c47a06c3a930afc99507fd77c38e905e6905ccd5286b4134d5193d63",
+  "assets/a4e-1.gif": "491791fb295fc6669f0eefc9e104cef2cde40ced6f24f6655a831569c33f9309",
+  "assets/a4e-2.png": "243b25251eb39b89ce36bcc271a143feaaaaf90f2db646f97f7910605586cb7c",
+  "assets/a4e-3.png": "a92cc5dae3d39303fc597023b97392f992fa94abedd097d037a480bc6cd99d98",
+  "assets/a4e-41.png": "d2eb47311f4604203d996c990eda6fd044bc02975826a776b3bf4a3ed62ec050",
+  "assets/a4e-42.png": "c23615c04e8e0871e24a25f4d65ed09bed7e9811234c5aa7d02c7fc017aa1f37",
+  "assets/a4e-43.png": "e0928eb53ef8ab0567c31305e55381352d3c7a9f7731af03dbdbd721c3924b11",
+  "assets/a4f-1.gif": "be84d16070d7ba812873c9da3a151ac43a9bd6fe8bca1ce5219ae73e835bcf9b",
+  "assets/a4f-2.png": "82797dc7074031076b9752122e524802e08d5aab3056019c150fe96a61a8156e",
+  "assets/a4f-3.png": "5276ed1ffc863a4c64a408e64aef57e034bf9dbc769ddb680c717d911bf32c13",
+  "assets/a4g-1.gif": "c2524834a9c63c2c64f17caca1b5ca1b2d5c8970d57516d7ff3ffdb7a33da3d6",
+  "assets/a4g-2.png": "4215e6594fbd4accab4f49b72bb5a6ee63486c3641d9fcab8b319367843b882b",
+  "assets/a4g-3.png": "161c7f36eac7a8898183822736e861763caaf3fbb4a48159c1e1f25ad1faf6ba",
+  "assets/a4g-41.png": "753cdb4d2f68dc22b801ebc875eb4bff706c1fdbfee807080165bb40c65092d2",
+  "assets/a4g-42.png": "f9c3fd0de0ecf536baf151eaf49fbe0d462840b496bee2af9328699b4405ed31",
+  "assets/a4g-43.png": "f4604f201f5191ab13285063ac5bac1092447d40d984f9af17508a6e1a16e438",
+  "meta.json": "06d8417cbc34c205fa969b09d20a70e6ebac4525b072971e3d60ffd1560cc774",
+  "page.md": "17fb4f692718bacfede4c445f6ceea86b6adb6a4e8fb8b5958af67ad3fe0b161"
+ },
+ "findings": [
+  "3차시 변경 단계와 4차시 전체 본문·질문을 대조했음. 새 그림 30개를 확인했고 작은 창·최대 글자·두 테마에서 4차시 대표 단계를 캡처했음."
+ ]
+}
