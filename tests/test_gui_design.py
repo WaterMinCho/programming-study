@@ -81,10 +81,11 @@ class DesignTest(WebTest):
             self.assertEqual(page.property("ui"), "2", name)
             primaries = kit.visible_primary_buttons(page)
             self.assertLessEqual(len(primaries), 1, "%s: %s" % (name, [b.text() for b in primaries]))
+            dense = page in (win.hub, win.wrong_page)  # 학습 현황·오답 노트는 촘촘한 배치라 주 단추가 m(44)
             for button in kit_buttons(page):
                 if not shown(button, win):
                     continue
-                least = theme.CONTROL["l"] if button.objectName() == "primary" else theme.CONTROL["s"]
+                least = theme.CONTROL["m" if dense else "l"] if button.objectName() == "primary" else theme.CONTROL["s"]
                 self.assertGreaterEqual(button.height(), least, "%s: %s" % (name, button.text()))
                 if button.objectName() != "chip":  # 칩은 주제 제목이라 길이 규칙에서 뺌
                     self.assertLessEqual(len(button.text().replace(" ", "")), 8, "%s: %s" % (name, button.text()))

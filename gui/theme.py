@@ -36,27 +36,27 @@ AVATARS = ("#2a62f0", "#6d4df2", "#0b7f6a", "#b4530a", "#b83280", "#0e7490")  # 
 # 파란색은 누를 수 있는 것, 고른 것, 진행에만 쓰고 제목(heading·doc_heading)은 글자색과 같음
 LIGHT = {
     "navigation": "#ffffff", "hero": "#e8f1ff", "hero_alt": "#e5f6f1", "hero_edge": "#91b9cf",
-    "accent": "#0d9488", "accent_ink": "#0f766e",
+    "accent": "#0d9488", "accent_ink": "#0f766e", "emphasis_bg": "#eff6ff",
     "highlight_bg": "#ffe8a3", "highlight_ink": "#252016",
-    "bg": "#f4f7fb", "surface": "#ffffff", "surface_alt": "#edf3f9", "hover": "#e7effa", "surface_raised": "#ffffff",
-    "border": "#d0dceb", "border_strong": "#7588a3", "field_edge": "#7588a3", "line": "#dce5f1", "track": "#dce5f1",
+    "bg": "#f8fafc", "surface": "#ffffff", "surface_alt": "#f1f5f9", "hover": "#e7effa", "surface_raised": "#ffffff",
+    "border": "#d0dceb", "border_strong": "#7588a3", "field_edge": "#7588a3", "line": "#e2e8f0", "track": "#dce5f1",
     "scroll": "#cdd3db", "scroll_hover": "#a9b0ba", "focus": "#2563eb",
     "ink": "#15243b", "heading": "#15243b", "muted": "#42566f", "placeholder": "#53657e", "faint": "#53657e",
-    "primary": "#2563eb", "primary_hover": "#1d4ed8", "primary_ink": "#ffffff", "primary_off": "#e5edf7", "primary_off_ink": "#53657e",
+    "primary": "#1d4ed8", "primary_hover": "#1e40af", "primary_ink": "#ffffff", "primary_off": "#e5edf7", "primary_off_ink": "#53657e",
     "selection": "#e8f0ff", "selection_ink": "#1d4ed8", "text_selection": "#bed6ff",
     "notice_bg": "#fff2d6", "notice_border": "#fff2d6",
     "code_bg": "#dce5f1", "codebox_bg": "#edf3f9", "table_head": "#edf3f9", "grid": "#d0dceb",
     "doc_heading": "#15243b", "link": "#1d4ed8", "indicator_border": "#7588a3",
     "ok": "#007840", "wrong": "#c2272d", "blank": "#616a76", "up": "#1d63ed", "retry": "#a1540f",
-    "ok_weak": "#e3f8e9", "wrong_weak": "#ffecec", "retry_weak": "#fff2d6", "info": "#42566f", "info_weak": "#edf3f9",
+    "ok_weak": "#dcfce7", "wrong_weak": "#fee2e2", "retry_weak": "#fef3c7", "info": "#42566f", "info_weak": "#edf3f9",
     "series_python": "#0d9488", "series_algorithm": "#9476ff", "series_web": "#99007a", "series_ai": "#b35c00",
-    "unit_mastered": "#1f883d", "unit_mastered_ink": "#ffffff", "unit_level2": "#9cd0ff", "unit_level2_ink": "#1f2328",
-    "unit_level1": "#f5d776", "unit_level1_ink": "#1f2328", "unit_retry": "#f0883e", "unit_retry_ink": "#1f2328",
-    "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#818a95",
+    "unit_mastered": "#059669", "unit_mastered_ink": "#06120a", "unit_level2": "#2563eb", "unit_level2_ink": "#ffffff",
+    "unit_level1": "#38bdf8", "unit_level1_ink": "#0b1220", "unit_retry": "#ea580c", "unit_retry_ink": "#0b1220",
+    "unit_none": "#cbd5e1", "unit_none_ink": "#334155", "unit_none_edge": "#818a95",
 }
 DARK = {
     "navigation": "#141b2b", "hero": "#142b43", "hero_alt": "#173b3e", "hero_edge": "#427d91",
-    "accent": "#2dd4bf", "accent_ink": "#5eead4",
+    "accent": "#2dd4bf", "accent_ink": "#5eead4", "emphasis_bg": "#142b43",
     "highlight_bg": "#57461b", "highlight_ink": "#fff1b8",
     "bg": "#0c1322", "surface": "#141b2b", "surface_alt": "#1c273b", "hover": "#22314a", "surface_raised": "#192338",
     "border": "#30415d", "border_strong": "#7890b4", "field_edge": "#7890b4", "line": "#293a55", "track": "#293a55",
@@ -87,8 +87,11 @@ TYPE = dict(BASE_TYPE)
 SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 간격이 아니라 선으로 셈
 GAP = {"detail": 8, "title_description": 12, "paragraph": 16, "description_content": 24, "group": 24, "section": 48}
 LEARN_GAP = {"detail": 16, "title_description": 16, "paragraph": 24, "group": 48}
-RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16}
+# dense_* 는 density="dense" 를 준 묶음 아래(학습 현황·파이썬 홈·회차·결과·오답 노트)의 카드·단추와 입력칸·꼬리표 모서리
+RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16, "dense_card": 8, "dense_control": 6, "dense_chip": 4}
+# topbar_dense·bottombar_dense 는 kit.TopBar(dense=True)·kit.BottomBar(dense=True) 의 높이. 큰 글자에서는 아래 막대가 내용 높이만큼 늘어남
 CONTROL = {"l": 48, "m": 44, "s": 32, "field": 48, "row": 56, "row2": 80, "topbar": 64, "bottombar": 80, "stepper": 56,
+           "topbar_dense": 56, "bottombar_dense": 64,
            "slot": 30}  # slot 은 코드 줄 안 빈칸의 높이. 보통 글자의 코드 줄 높이 22 에 8 을 더한 값이고 글자 단계를 따라 같이 커짐(slot_height)
 SERIES = ("series_python", "series_algorithm", "series_web", "series_ai")  # 7일 그래프와 트랙 이름 앞 점에만 쓰는 트랙 색
 
@@ -430,6 +433,34 @@ QComboBox#subject_picker QAbstractItemView { background: %(surface)s; color: %(i
 """
 STYLE_V2 += "".join('QWidget[ui="2"] QProgressBar[series="%s"]::chunk { background: %%(%s)s; }\n' % (name, name) for name in SERIES)
 
+# 촘촘한 묶음(kit.dense 로 density="dense" 를 준 위젯 아래)의 모서리와 단추. 선택자가 위 규칙보다 길어 같은 부품의 모서리를 덮음.
+# 편집기(QPlainTextEdit#code)와 목록 글(#plain)은 objectName 규칙이 더 우선이라 그대로임.
+# 테두리 글자 단추(outlined)와 다음 할 일 작은 카드(compact)는 속성을 준 부품에만 걸림. 테두리 글자 단추는 올림·누름·초점·꺼짐 상태를
+# 같은 길이의 선택자로 다시 적어 바탕과 초점 테두리가 덮이지 않게 함
+STYLE_V2 += """
+QWidget[ui="2"] QWidget[density="dense"] QFrame#card { border-radius: %(dense_card)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#card QFrame#card { border-radius: %(dense_control)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#row[subject="true"] { border-radius: %(dense_card)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#team_metric, QWidget[ui="2"] QWidget[density="dense"] QFrame#team_plot {
+    border-radius: %(dense_card)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#team_breakdown, QWidget[ui="2"] QWidget[density="dense"] QFrame#team_periods,
+QWidget[ui="2"] QWidget[density="dense"] QFrame#team_today { border-radius: %(dense_control)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#well, QWidget[ui="2"] QWidget[density="dense"] QFrame#banner {
+    border-radius: %(dense_control)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QPushButton { border-radius: %(dense_control)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QPushButton#primary[scale="m"] { padding: 0 24px; }
+QWidget[ui="2"] QWidget[density="dense"] QLineEdit, QWidget[ui="2"] QWidget[density="dense"] QPlainTextEdit,
+QWidget[ui="2"] QWidget[density="dense"] QTextBrowser { border-radius: %(dense_control)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QLabel#badge { border-radius: %(dense_chip)spx; }
+QWidget[ui="2"] QPushButton#text[outlined="true"] { background: %(surface)s; color: %(ink)s; border-color: %(border)s; }
+QWidget[ui="2"] QPushButton#text[outlined="true"]:hover { background: %(hover)s; border-color: %(border_strong)s; }
+QWidget[ui="2"] QPushButton#text[outlined="true"]:pressed { background: %(track)s; }
+QWidget[ui="2"] QPushButton#text[outlined="true"]:checked { background: %(selection)s; color: %(selection_ink)s; }
+QWidget[ui="2"] QPushButton#text[outlined="true"]:disabled { background: %(surface)s; color: %(faint)s; border-color: %(border)s; }
+QWidget[ui="2"] QPushButton#text[outlined="true"]:focus { border-color: %(focus)s; }
+QWidget[ui="2"] QFrame#card[compact="true"] { background: %(emphasis_bg)s; border: 1px solid %(hero_edge)s; }
+"""
+
 # 본문 CSS(mdlite.CSS)에 화면이 더하는 것: 결과·판정 글자색과 결과 화면의 구역 띠
 DOC_CSS = """
 .muted { color: %(muted)s; }
@@ -549,6 +580,7 @@ def style_tokens(scheme):
                 slot_focus=slot_height() - 4, learn_slot_focus=learning_slot_height() - 4,
                 field_height=CONTROL["field"] - 2, field_focus=CONTROL["field"] - 4,
                 navigation_height=max(56, TYPE["navigation"][1] + 24) - 4,
+                dense_card=RADIUS["dense_card"], dense_control=RADIUS["dense_control"], dense_chip=RADIUS["dense_chip"],
                 **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
 
 

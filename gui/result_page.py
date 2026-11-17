@@ -3,14 +3,24 @@
 import html
 import re
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QHBoxLayout, QListWidget, QSplitter, QTextBrowser, QVBoxLayout, QWidget
+from PyQt6.QtCore import QRectF, QSize, Qt
+from PyQt6.QtGui import QFont, QFontMetrics, QPainter
+from PyQt6.QtWidgets import (QBoxLayout, QListWidget, QSplitter, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
+                             QTextBrowser, QWidget)
 
 import mdlite
 from gui import kit, motion, theme
 from gui.mascot import Mascot
 
 PARTY_RATIO = 90  # 득점률이 이 이상이면 마스코트가 웃고, 방금 제출한 회차면 색종이가 떨어짐
+ROW_HEIGHT = 40  # 문항 목록 한 줄의 최소 높이. 큰 글자에서는 글자 높이를 따라 늘어남
+COMPACT_ROW = 32  # 작은 창에서 목록 한 줄의 최소 높이
+COMPACT_WIDTH = 944  # 이 폭보다 좁은 창에서는 여백·칸 사이·줄 높이를 줄여 표와 목록에 자리를 남김. 회차 풀이가 작은 배치로 바꾸는 폭과 같음
+COMPACT_HEIGHT = 760  # 결과 화면이 이 높이보다 낮으면 폭이 넓어도 여백·칸 사이·줄 높이를 줄여 목록에 줄을 남김. 1280×800 은 넓은 배치를 유지함
+COMPACT_MARGIN = 16  # 작은 창의 내용 단 여백과 카드 안 여백
+TAG_BG = {"ok": "ok_weak", "wrong": "wrong_weak", "blank": "surface_alt"}  # 판정 꼬리표 바탕. 글자색은 판정 색(theme.RESULT)
+TAG_TOKEN = {name: token for name, token in theme.RESULT.values()}
+SPLIT_SIZES = [420, 792]  # 문항 목록 카드와 오른쪽 카드의 처음 폭
 
 
 def md_html(text):
@@ -62,6 +72,140 @@ def explain_html(item, info, space=(14, 8)):
     return "".join(parts)
 
 
+class TagDelegate(QStyledItemDelegate):
+    """문항 목록의 줄. 첫 낱말(정답·오답·미응답)을 약한 바탕의 꼬리표로 그리고 나머지 글을 그 오른쪽에 이어 그림.
+    꼬리표 폭은 가장 긴 판정 이름에 맞춰 문항 번호가 한 줄로 늘어섬. 맨 위 '단원별 판정' 줄은 기본 그리기를 씀."""
+
+    row_height = ROW_HEIGHT
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        return QSize(size.width(), max(self.row_height, size.height()))
+
+    def paint(self, painter, option, index):
+        name, _, rest = (index.data() or "").partition("  ")
+        if name not in TAG_TOKEN:
+            super().paint(painter, option, index)
+            return
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        style = opt.widget.style()
+        rect = QRectF(style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, opt.widget))
+        opt.text = ""
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, opt.widget)  # 바탕, 고른 줄, 줄 사이 선
+        tag_font = QFont(opt.font)
+        tag_font.setBold(True)
+        tag_metrics = QFontMetrics(tag_font)
+        pad = 8
+        tag_w = max(tag_metrics.horizontalAdvance(n) for n in TAG_TOKEN) + 2 * pad
+        tag_h = theme.TYPE["caption"][1] + 2  # 꼬리표(QLabel#badge)와 같은 높이
+        token = TAG_TOKEN[name]
+        tag = QRectF(rect.left(), rect.center().y() - tag_h / 2, tag_w, tag_h)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(theme.qcolor(TAG_BG[token]))
+        painter.drawRoundedRect(tag, theme.RADIUS["dense_chip"], theme.RADIUS["dense_chip"])
+        painter.setFont(tag_font)
+        painter.setPen(theme.qcolor(token))
+        painter.drawText(tag, Qt.AlignmentFlag.AlignCenter, name)
+        text = rect.adjusted(tag_w + pad, 0, 0, 0)
+        selected = bool(opt.state & QStyle.StateFlag.State_Selected)  # 고른 줄의 글자색은 스타일시트(selection_ink)를 따름
+        brush = index.data(Qt.ItemDataRole.ForegroundRole)
+        painter.setFont(opt.font)
+        painter.setPen(theme.qcolor("selection_ink") if selected or brush is None else brush.color())
+        painter.drawText(text, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                         opt.fontMetrics.elidedText(rest, Qt.TextElideMode.ElideRight, int(text.width())))
+        painter.restore()
+
+
+class VLine(QWidget):
+    """폭 1px 세로선. 색은 테마의 line 이고 그릴 때마다 읽어 테마가 바뀌어도 따라감."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFixedWidth(1)
+
+    def paintEvent(self, event):
+        QPainter(self).fillRect(self.rect(), theme.qcolor("line"))
+
+
+class ScoreRow(QWidget):
+    """점수 카드의 한 줄. 왼쪽에 점수 묶음, 세로선 너머 오른쪽에 숙달 묶음을 두고 두 묶음이 폭을 반씩 나눠 선이 가운데에 옴.
+    두 묶음이 한 줄에 들어가지 않으면 숙달 묶음을 점수 아래 줄로 내리고 선을 숨김."""
+
+    def __init__(self, scores, ready):
+        super().__init__()
+        self.scores, self.ready = scores, ready
+        self.line = VLine()
+        self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self.row.setContentsMargins(0, 0, 0, 0)
+        self.row.setSpacing(theme.GAP["group"])
+        self.row.addWidget(scores, 1, Qt.AlignmentFlag.AlignVCenter)
+        self.row.addWidget(self.line)
+        self.row.addWidget(ready, 1, Qt.AlignmentFlag.AlignVCenter)
+
+    def arrange(self):
+        # 반씩 나눌 폭이 모자라도 두 묶음이 한 줄에 들어가면 쌓지 않음. 작은 창에서 점수 카드가 낮아져 목록 줄이 남음
+        need = self.scores.sizeHint().width() + self.ready.minimumSizeHint().width() + 1 + 2 * theme.GAP["group"]
+        stacked = self.width() < need
+        direction = QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight
+        if self.row.direction() != direction:
+            self.row.setDirection(direction)
+            self.row.setSpacing(theme.GAP["paragraph"] if stacked else theme.GAP["group"])
+            self.row.setAlignment(self.ready, (Qt.AlignmentFlag.AlignLeft if stacked else Qt.AlignmentFlag.AlignVCenter))
+            self.row.setAlignment(self.scores, (Qt.AlignmentFlag.AlignLeft if stacked else Qt.AlignmentFlag.AlignVCenter))
+        self.line.setVisible(not stacked)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()
+
+
+class CardHead(QWidget):
+    """오른쪽 카드의 머리 줄. 제목 오른쪽에 두 단추를 두고, 작은 창에서는 제목이 카드 폭을 다 쓰게 단추를 제목 위 줄로 따로 둠.
+    문항마다 제목 길이가 달라도 단추 자리가 바뀌지 않게 창 폭으로만 정함."""
+
+    def __init__(self, title, *buttons):
+        super().__init__()
+        self.title = title
+        self.buttons = QWidget()
+        buttons_box = kit.box(self.buttons, spacing=12, horizontal=True)
+        for button in buttons:
+            buttons_box.addWidget(button)
+        self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self.row.setContentsMargins(0, 0, 0, 0)
+        self.row.setSpacing(12)
+        self.row.addWidget(title, 1, Qt.AlignmentFlag.AlignVCenter)
+        self.row.addWidget(self.buttons, 0, Qt.AlignmentFlag.AlignVCenter)
+
+    def set_stacked(self, stacked):
+        # 내린 단추 줄은 제목 위에 둠. 작은 창에서 떠 있는 제출 알림이 처음 화면의 단추를 가리지 않게 함
+        direction = QBoxLayout.Direction.BottomToTop if stacked else QBoxLayout.Direction.LeftToRight
+        if self.row.direction() != direction:
+            self.row.setDirection(direction)
+            self.row.setSpacing(theme.GAP["detail"] if stacked else 12)
+            self.row.setAlignment(self.buttons, Qt.AlignmentFlag.AlignLeft if stacked else Qt.AlignmentFlag.AlignVCenter)
+
+
+class Column(QWidget):
+    """결과 화면의 내용 단. 위·아래·좌우 여백은 margin(DENSE_MARGIN, 작은 창은 COMPACT_MARGIN)이고, 창이 넓으면 홈과 같은 최대 폭(HOME_WIDTH)을
+    넘는 만큼 좌우 여백을 똑같이 늘려 가운데에 둠. 제출 알림이 보일 때는 Workspace 가 바깥 상자에 알림 자리를 더함."""
+
+    def __init__(self):
+        super().__init__()
+        self.margin = kit.DENSE_MARGIN
+        kit.box(self, (self.margin,) * 4, theme.GAP["paragraph"])
+
+    def place(self):
+        side = self.margin + max(0, self.width() - kit.HOME_WIDTH - 2 * self.margin) // 2
+        self.layout().setContentsMargins(side, self.margin, side, self.margin)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.place()
+
+
 class ResultPage(QWidget):
     def __init__(self, win):
         super().__init__()
@@ -70,23 +214,26 @@ class ResultPage(QWidget):
         self.view, self.verdicts, self.revealed, self.busy = None, None, set(), False
 
         root = kit.box(self)
-        top = kit.TopBar("파이썬 스터디")
+        top = kit.TopBar("파이썬 스터디", dense=True)
         self.home_btn, self.title = top.back, top.title
         root.addWidget(top)
-        content = QWidget()
-        content_box = kit.box(content)
-        root.addWidget(kit.scroll(content), 1)
+        content = kit.dense(Column())
+        content_box = content.layout()
+        outer = QWidget()  # 제출 알림이 보이면 이 위젯의 상자에 Workspace 가 알림 자리만큼 아래 여백을 더함
+        kit.box(outer).addWidget(content)
+        root.addWidget(kit.scroll(outer), 1)
         card, card_box = kit.card()
+        self.content, self.score_card = content, card
         scores = QWidget()
         score_box = kit.box(scores, spacing=16, horizontal=True)
         self.mascot = Mascot(52)
         self.score = kit.label("", "display")
         self.ratio = kit.label("", "caption", "secondary")
         self.note = kit.para("", "caption", "secondary")
-        ready_box = QVBoxLayout()
+        ready = QWidget()
+        ready_box = kit.box(ready, spacing=theme.GAP["detail"])
         self.ready = kit.label("", "label")
         self.ready_bar = kit.progress()
-        self.ready_bar.setMaximumWidth(260)
         self.ready_bar.setMinimumWidth(120)
         ready_box.addWidget(self.ready)
         ready_box.addWidget(self.ready_bar)
@@ -94,50 +241,51 @@ class ResultPage(QWidget):
         score_box.addWidget(self.score, 0, Qt.AlignmentFlag.AlignBottom)
         score_box.addWidget(self.ratio, 0, Qt.AlignmentFlag.AlignBottom)
         kit.baseline(self.score, self.ratio)
-        score_box.addStretch(1)
-        score_box.addLayout(ready_box)
-        card_box.addWidget(scores)
+        score_box.addStretch(1)  # 점수 묶음이 왼쪽 절반을 받아도 점수는 왼쪽에 모임
+        self.score_row = ScoreRow(scores, ready)
+        card_box.addWidget(self.score_row)
         card_box.addWidget(self.note)
         content_box.addWidget(card)
 
         split = QSplitter(Qt.Orientation.Horizontal)
+        split.setHandleWidth(20)
+        list_card, list_box = kit.card(8, 0)
         self.listw = QListWidget()
+        self.listw.setObjectName("plain")
         kit.typed(self.listw, "caption")
         self.listw.setMinimumWidth(260)
         self.listw.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        right = QWidget()
-        right_box = QVBoxLayout(right)
-        right_box.setContentsMargins(0, 0, 0, 0)
-        right_box.setSpacing(theme.GAP["title_description"])
-        top = QHBoxLayout()
+        self.listw.setItemDelegate(TagDelegate(self.listw))
+        list_box.addWidget(self.listw)
+        right, right_box = kit.card(kit.DENSE_MARGIN, theme.GAP["title_description"])
         self.item_title = kit.ElideLabel("", "headline")
         self.explain_btn = kit.button("해설 보기", "secondary")
         self.retry_btn = kit.button("다시 풀기", "secondary")
         self.retry_btn.setToolTip("같은 회차를 열어 선택한 문항을 다시 풉니다.")
-        top.addWidget(self.item_title, 1)
-        top.addWidget(self.explain_btn)
-        top.addWidget(self.retry_btn)
+        self.head = CardHead(self.item_title, self.explain_btn, self.retry_btn)
         self.detail = QTextBrowser()
+        self.detail.setObjectName("plain")
         self.detail.setOpenLinks(False)
-        self.detail.document().setDocumentMargin(14)
-        right_box.addLayout(top)
+        self.detail.document().setDocumentMargin(0)
+        right_box.addWidget(self.head)
         right_box.addWidget(self.detail, 1)
-        split.addWidget(self.listw)
+        split.addWidget(list_card)
         split.addWidget(right)
-        split.setStretchFactor(0, 0)
-        split.setStretchFactor(1, 1)
-        split.setSizes([345, 905])
+        split.setStretchFactor(0, SPLIT_SIZES[0])  # 창 폭이 바뀌어도 두 카드가 처음 폭의 비율대로 늘고 줄게 함
+        split.setStretchFactor(1, SPLIT_SIZES[1])
+        split.setSizes(SPLIT_SIZES)
         split.setChildrenCollapsible(False)
         content_box.addWidget(split, 1)
+        self.split, self.right_card, self.compact, self.narrow = split, right, None, None
 
-        self.bar = kit.BottomBar()
+        self.bar = kit.BottomBar(dense=True)
         self.status = kit.label("", "caption", "secondary")
         self.busy_bar = kit.progress()
         self.busy_bar.setRange(0, 0)
         self.busy_bar.setFixedWidth(140)
         self.busy_bar.hide()
-        self.git_btn = kit.button("풀이 제출", "secondary", "l")
-        self.next_btn = kit.button("", "primary", "l")
+        self.git_btn = kit.button("풀이 제출", "secondary", "m")
+        self.next_btn = kit.button("", "primary", "m")
         self.bar.add_tool(self.status)
         self.bar.add_tool(self.busy_bar)
         self.bar.add_action(self.git_btn)
@@ -150,6 +298,29 @@ class ResultPage(QWidget):
         self.home_btn.clicked.connect(win.go_home)
         self.git_btn.clicked.connect(win.submit_pr)
         self.next_btn.clicked.connect(win.start_next)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()
+
+    def arrange(self):
+        """좁거나 낮은 창에서는 내용 단·카드 안 여백, 카드 사이, 목록 줄 높이를 줄임. 좁은 창에서는 두 카드 사이 폭도 줄이고
+        오른쪽 카드 단추를 제목과 다른 줄에 둠."""
+        narrow = self.width() < COMPACT_WIDTH
+        compact = narrow or self.height() < COMPACT_HEIGHT
+        if (compact, narrow) == (self.compact, self.narrow):
+            return
+        self.compact, self.narrow = compact, narrow
+        pad = COMPACT_MARGIN if compact else kit.DENSE_MARGIN
+        self.content.margin = pad
+        self.content.layout().setSpacing(theme.GAP["detail"] if compact else theme.GAP["paragraph"])
+        self.content.place()
+        for card in (self.score_card, self.right_card):
+            card.layout().setContentsMargins(pad, pad, pad, pad)
+        self.split.setHandleWidth(theme.GAP["detail"] if narrow else 20)
+        self.head.set_stacked(narrow)
+        self.listw.itemDelegate().row_height = COMPACT_ROW if compact else ROW_HEIGHT
+        self.listw.doItemsLayout()
 
     def load(self, rid, result=None):
         """끝난 회차의 결과를 올림. result 는 방금 채점한 결과(session.grade)이고, 없으면 기록된 결과를 보여 줌."""
@@ -176,6 +347,7 @@ class ResultPage(QWidget):
         first = view["first_score"]
         self.note.setText("첫 제출은 %s점이었습니다. 숙달 판정에는 첫 제출만 반영됩니다." % first.replace("/", " / ")
                           if first and first != "%d/%d" % (earned, total) else "")
+        self.note.setVisible(bool(self.note.text()))  # 빈 안내가 점수 카드 아래에 빈 줄을 남기지 않게
         self.ready.setText("숙달한 단원 %d / %d" % (overview["mastered"], overview["total_units"]))
         self.ready_bar.setRange(0, max(1, overview["total_units"]))
         self.ready_bar.setValue(overview["mastered"])

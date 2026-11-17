@@ -474,20 +474,53 @@ class HubScreenTest(HubTest):
 
     def test_wide_subject_grid_uses_three_columns_and_reflows_with_larger_text(self):
         win = self.boot()
+        # 과목 격자가 세 열 기준 폭보다 넓으면 세 과목을 한 줄에 같은 높이로 둠.
+        # 화면에서는 과목 열이 본문 폭의 66% 라 1600 창에서도 이 폭에 닿지 않아 격자만 따로 띄워 확인함.
+        wide = hub_page.HubGrid()
+        self.addCleanup(wide.deleteLater)
+        tiles = [wide.add(hub_page.SubjectTile(name, token)) for name, token in
+                 (("파이썬 스터디", "series_python"), ("알고리즘 여행", "series_algorithm"), ("AI", "series_ai"))]
+        for tile in tiles:
+            tile.set_metric(1, 20, "숙달 단원")
+        wide.resize(theme.TYPE["body"][0] * 64 + 16, 400)
+        wide.show()
+        guikit.pump()
+        self.assertEqual(wide.columns, 3)
+        for index, row in enumerate(tiles):
+            self.assertEqual(wide.grid.getItemPosition(wide.grid.indexOf(row)), (0, index, 1, 1))
+            self.assertTrue(wide.rect().contains(row.geometry()))
+        tiles[2].set_second("응용 · 긴 학습 제목을 여러 줄에 걸쳐 표시하는 차시 목록의 다음 단원과 미완료 연습으로 돌아갑니다.")
+        guikit.pump()
+        self.assertEqual(len({row.height() for row in tiles}), 1)
+        self.assertEqual(len({row.title.mapTo(wide, QPoint()).y() for row in tiles}), 1)
+        self.assertEqual(len({row.metric.mapTo(wide, QPoint()).y() for row in tiles}), 1)
+        wide.hide()
+
+        # 화면의 넓은 창에서는 두 열이고 마지막 줄에 혼자 남은 AI 칸이 두 열을 다 씀.
         win.resize(1600, 1000)
         guikit.pump()
         grid = win.hub.tracks
-        self.assertEqual(grid.columns, 3)
+        self.assertEqual(grid.columns, 2)
+        positions = [grid.grid.getItemPosition(grid.grid.indexOf(row)) for row in grid.rows]
+        self.assertEqual(positions, [(0, 0, 1, 1), (0, 1, 1, 1), (1, 0, 1, 2)])
+        first, second, ai = grid.rows
+        self.assertEqual(first.height(), second.height())
+        self.assertEqual((ai.geometry().left(), ai.geometry().right()), (first.geometry().left(), second.geometry().right()))
         for index, row in enumerate(grid.rows):
-            self.assertEqual(grid.grid.getItemPosition(grid.grid.indexOf(row))[:2], (0, index))
             self.assertTrue(grid.rect().contains(row.geometry()))
+            for other in grid.rows[:index]:
+                self.assertFalse(row.geometry().intersects(other.geometry()))
+        # 화면의 같은 줄 두 칸은 한쪽 둘째 줄이 길어져도 높이·제목·숫자 줄을 맞춤.
+        before = second.second.text()
+        second.set_second("다음은 긴 학습 제목을 여러 줄에 걸쳐 표시하는 문제와 아직 끝내지 않은 연습으로 돌아갑니다.")
+        guikit.pump()
+        self.assertGreater(second.second.height(), theme.TYPE["body"][1] * 1.5)
+        self.assertEqual(first.height(), second.height())
+        self.assertEqual(first.title.mapTo(grid, QPoint()).y(), second.title.mapTo(grid, QPoint()).y())
+        self.assertEqual(first.metric.mapTo(grid, QPoint()).y(), second.metric.mapTo(grid, QPoint()).y())
+        second.set_second(before)
         win.hub.ai_row.set_second("응용 · 긴 학습 제목을 여러 줄에 걸쳐 표시하는 차시 목록의 다음 단원과 미완료 연습으로 돌아갑니다.")
         guikit.pump()
-        self.assertEqual(len({row.height() for row in grid.rows}), 1)
-        titles = [row.title.mapTo(grid, QPoint()).y() for row in grid.rows]
-        metrics = [row.metric.mapTo(grid, QPoint()).y() for row in grid.rows]
-        self.assertEqual(len(set(titles)), 1)
-        self.assertEqual(len(set(metrics)), 1)
         win.set_text("larger")
         guikit.pump()
         initial = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
@@ -567,16 +600,18 @@ class HubScreenTest(HubTest):
         self.assertEqual((self.page(), win.journey_page.pid), (win.journey_page, "boss"))
 
     def test_sections_reflow_and_week_body_keeps_its_layout(self):
-        """오답과 최근 학습은 창 폭에 맞춰 나란히 두거나 쌓고 최근 학습 안의 막대·채점 배치를 유지함."""
+        """넓은 창은 왼쪽에 과목, 오른쪽에 오답과 최근 학습을 두고 좁은 창은 과목, 오답, 최근 학습 순서로 쌓으며
+        최근 학습 안의 막대·채점 배치를 유지함."""
         self.addCleanup(theme.set_mode, theme.state["mode"])
         self.addCleanup(theme.set_text, theme.state["text"])
         self.graded_round()
         win = self.boot()
         hub = win.hub
         notes_card = hub.notes.parentWidget()
+        subjects = hub.body_row.row.itemAt(0).widget()  # 과목별 학습 머리와 과목 칸 묶음
 
         def settle():
-            watched = (hub.tracks, hub.activity_row, notes_card, hub.week_card, hub.week,
+            watched = (hub.tracks, hub.body_row, subjects, notes_card, hub.week_card, hub.week,
                        hub.week.plot, hub.week.recent_box, hub.chart, hub.total,
                        *(row.second for row in hub.tracks.rows))
             previous, stable = None, 0
@@ -592,6 +627,9 @@ class HubScreenTest(HubTest):
 
             guikit.wait_until(ready)
 
+        def rect(widget):
+            return widget.rect().translated(widget.mapTo(hub, QPoint()))
+
         for mode in ("light", "dark"):
             win.set_theme(mode)
             for size, step, side in (((1280, 800), "large", True),
@@ -602,31 +640,37 @@ class HubScreenTest(HubTest):
                     win.resize(*size)
                     settle()
                     self.assertEqual(size, (win.width(), win.height()))
-                    self.assertEqual(side, hub.activity_row.side)
-                    notes = notes_card.rect().translated(notes_card.mapTo(hub, QPoint()))
-                    week = hub.week_card.rect().translated(hub.week_card.mapTo(hub, QPoint()))
-                    tracks = hub.tracks.rect().translated(hub.tracks.mapTo(hub, QPoint()))
-                    activity = hub.activity_row.rect().translated(hub.activity_row.mapTo(hub, QPoint()))
-                    self.assertLess(tracks.bottom(), notes.top())
-                    self.assertEqual((tracks.left(), tracks.width()), (activity.left(), activity.width()))
-                    self.assertEqual(notes.left(), activity.left())
-                    self.assertEqual(week.right(), activity.right())
+                    self.assertEqual(side, hub.body_row.side)
+                    notes, week, tracks = rect(notes_card), rect(hub.week_card), rect(hub.tracks)
+                    column, body = rect(subjects), rect(hub.body_row)
+                    self.assertEqual((column.left(), tracks.left()), (body.left(), body.left()))
+                    self.assertEqual(week.right(), body.right())
+                    self.assertLess(notes.bottom(), week.top())
+                    self.assertEqual((notes.left(), notes.width()), (week.left(), week.width()))
                     if side:
-                        self.assertEqual(notes.top(), week.top())
-                        self.assertLess(notes.right(), week.left())
-                        self.assertGreater(week.width(), notes.width())
+                        self.assertLess(tracks.right(), notes.left())
+                        self.assertEqual(notes.top(), column.top())
+                        self.assertGreater(tracks.width(), notes.width())
                     else:
-                        self.assertLess(notes.bottom(), week.top())
-                        self.assertEqual(notes.left(), week.left())
-                        self.assertEqual(notes.width(), week.width())
+                        self.assertLess(tracks.bottom(), notes.top())
+                        self.assertEqual((notes.left(), notes.width()), (body.left(), body.width()))
+                        self.assertEqual(tracks.width(), body.width())
                     self.assertEqual(0, hub.scroll.horizontalScrollBar().maximum())
                     self.assertLessEqual(tracks.width(), kit.HOME_WIDTH)
                     for row in hub.tracks.rows:
                         self.assertGreaterEqual(row.second.height(), row.second.heightForWidth(row.second.width()))
 
+        # 오른쪽 열은 SIDE_MIN 보다 좁아 최근 학습 칸이 막대 아래로 채점을 쌓음. 나란히 둘 때의 배치는 칸의 최소 폭을 넓혀 확인함
+        week = hub.week
+
+        def widen():
+            """막대 칸과 최근 채점 줄이 다 보이게 나란히 놓이는 폭."""
+            fits = int(hub.recent.natural_width() / hub_page.RECENT_SHARE) + hub_page.SIDE_GAP
+            week.setMinimumWidth(max(hub_page.SIDE_MIN * theme.TYPE["body"][0], fits) + 8)
+
+        widen()
         win.resize(2000, 1000)
         settle()
-        week = hub.week
         self.assertTrue(week.side)
         chart, recent = week.plot.geometry(), week.recent_box.geometry()
         self.assertEqual(chart.top(), recent.top())
@@ -636,11 +680,13 @@ class HubScreenTest(HubTest):
         self.assertEqual(total, hub.chart.mapTo(week, QPoint(hub.chart.width(), 0)).x())
         self.assertLess(total, recent.left())
         self.assertGreaterEqual(recent.width(), hub.recent.natural_width())  # 최근 채점 줄이 다 보임
+        week.setMinimumWidth(0)
         week.resize(560, week.height())  # 좁으면 막대 아래로 내려가고 폭을 다 씀
         self.assertFalse(week.side)
         self.assertEqual(week.row.direction(), week.row.Direction.TopToBottom)
         self.assertEqual(week.recent_box.maximumWidth(), hub_page.QWIDGETSIZE_MAX)
         win.set_text("larger")
+        widen()
         settle()
         self.assertTrue(week.side)
         self.assertEqual(week.recent_box.width(), min(hub.recent.natural_width(), int((week.width() - hub_page.SIDE_GAP) * hub_page.RECENT_SHARE)))

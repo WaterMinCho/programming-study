@@ -101,10 +101,14 @@ class AiSectionBrowserTest(AiTest):
                             self.assertIsInstance(page, ReadingPage)
                             other = page.top.back
                         other_top = other.parentWidget()
-                        self.assertEqual(global_back.x(), other.mapToGlobal(QPoint()).x())
+                        # 파이썬 홈은 학습 현황과 같은 촘촘한 위 막대(높이 topbar_dense, 좌우 여백 DENSE_MARGIN)를 씀.
+                        # 그래서 돌아가기 단추가 두 여백 차이만큼 왼쪽에 있고 막대가 낮음. 단추 높이·막대 위치·가운데 맞춤은 같게 봄.
+                        dense = move == win.go_home
+                        shift = kit.MARGIN - kit.DENSE_MARGIN if dense else 0
+                        self.assertEqual(global_back.x() - shift, other.mapToGlobal(QPoint()).x())
                         self.assertEqual(top.mapToGlobal(QPoint()), other_top.mapToGlobal(QPoint()))
                         self.assertEqual(back.height(), other.height())
-                        self.assertEqual(top.height(), other_top.height())
+                        self.assertEqual(theme.CONTROL["topbar_dense"] if dense else top.height(), other_top.height())
                         # 선이 있는 파이썬 막대는 안쪽 높이가 1px 작음. 각 막대의 실제 내용 칸에서 가운데를 확인함.
                         self.assertEqual(other_top.contentsRect().y() + (other_top.contentsRect().height() - other.height()) // 2,
                                          other.y())

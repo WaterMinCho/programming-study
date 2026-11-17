@@ -120,7 +120,9 @@ class DesignSystemTest(test_gui_hub.HubTest):
                 self.assertIs(trigger.parentWidget(), page.top.controls if page is win.hub else page.top)
                 rect = trigger.rect().translated(trigger.mapTo(page.top, QPoint()))
                 self.assertTrue(page.top.rect().contains(rect), (page, rect, page.top.rect()))
-                self.assertLessEqual(abs(page.top.width() - rect.right() - 1 - (kit.MARGIN - kit.FLUSH)), 1)
+                # 글자 단추는 글자를 내용 선에 맞추려고 FLUSH 만큼 내어 둠. 테두리 단추(학습 현황·파이썬 홈)는 테두리를 내용 선에 맞춤
+                edge = page.top.margin if trigger.property("outlined") else kit.MARGIN - kit.FLUSH
+                self.assertLessEqual(abs(page.top.width() - rect.right() - 1 - edge), 1)
                 self.assertEqual(trigger.sizeHint().height(), win.hub.settings_btn.sizeHint().height())
                 # 같은 막대의 기존 도구를 밀어 가리거나 겹치지 않는지 확인함.
                 siblings = []

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """첫 화면(허브): 위 막대의 이름·ID·설정 팝업, 이어서 할 일 카드 하나, 과목별 학습과 오답 노트, 최근 7일 학습 카드를 표시함.
-넓은 창에서는 과목 아래 오답과 최근 활동을 나란히 두고 좁은 창에서는 원래 순서로 쌓음.
+넓은 창에서는 왼쪽에 과목, 오른쪽에 오답과 최근 활동을 두고 좁은 창에서는 과목, 오답, 최근 활동 순서로 쌓음.
 
 카드의 수치는 네 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service,
 AI 비전 개론은 aiprep.service 의 overview).
@@ -17,7 +17,7 @@ import study
 
 from PyQt6.QtCore import QEvent, QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF, QPainter
-from PyQt6.QtWidgets import QApplication, QBoxLayout, QHBoxLayout, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QBoxLayout, QSizePolicy, QWidget
 
 from aiprep import service as ai_service
 from gui import ai_text, journey_text, kit, theme, web_text
@@ -43,6 +43,9 @@ SIDE_GAP = 32  # 나란히 둘 때 막대와 최근 채점 사이
 RECENT_SHARE = 0.45  # 나란히 둘 때 최근 채점 칸이 받는 폭의 상한(막대가 더 넓게)
 QWIDGETSIZE_MAX = 16777215  # Qt 위젯 크기의 상한. 최근 채점 칸의 고정 폭을 풀 때 씀
 ACCOUNT_WIDTH = 240  # ID 는 이 폭까지 보이고 긴 이름은 도움말에 남김
+SIDE_SHARE = 34  # 넓은 창에서 오답 노트·최근 7일 열이 받는 폭(%). 나머지는 과목 열
+MAIN_GAP = 20  # 과목 열과 오른쪽 열 사이
+COLUMN_GAP = 16  # 한 열 안의 카드 사이
 
 
 def python_gradings(attempts):
@@ -195,11 +198,12 @@ class WeekChart(QWidget):
 class WeekBody(QWidget):
     """최근 7일 카드의 막대 칸(범례 줄과 막대)과 최근 채점 칸. 폭이 SIDE_MIN 이상이면 막대 칸 오른쪽에 최근 채점을 두고, 좁으면 막대 아래에 둠.
     나란히 둘 때 최근 채점 칸은 가장 긴 줄이 다 보이는 폭이되 RECENT_SHARE 를 넘지 않고, 남는 폭은 막대 칸이 받음.
-    최근 채점 칸이 숨으면 막대 칸이 폭을 다 받음."""
+    최근 채점 칸이 숨으면 막대 칸이 폭을 다 받음. legend 는 (범례 줄, 이름 묶음, 활동 수 라벨)이고 막대 칸 폭에 이름과 활동 수가
+    한 줄로 안 들어가면 활동 수를 이름 아래 줄로 내림."""
 
-    def __init__(self, plot, recent_box, recent):
+    def __init__(self, plot, recent_box, recent, legend=None):
         super().__init__()
-        self.plot, self.recent_box, self.recent = plot, recent_box, recent
+        self.plot, self.recent_box, self.recent, self.legend = plot, recent_box, recent, legend
         self.row = QBoxLayout(QBoxLayout.Direction.TopToBottom, self)
         self.row.setContentsMargins(0, 0, 0, 0)
         self.row.addWidget(plot, 1)
@@ -219,6 +223,14 @@ class WeekBody(QWidget):
         else:
             self.recent_box.setMinimumWidth(0)
             self.recent_box.setMaximumWidth(QWIDGETSIZE_MAX)
+        if self.legend:
+            line, names, total = self.legend
+            flow = names.layout()
+            widths = [flow.itemAt(i).sizeHint().width() for i in range(flow.count())]
+            room = self.width() - (SIDE_GAP + self.recent_box.width() if side and not self.recent_box.isHidden() else 0)
+            under = sum(widths) + flow.spacing() * (len(widths) - 1) + 16 + total.sizeHint().width() > room
+            line.setDirection(QBoxLayout.Direction.TopToBottom if under else QBoxLayout.Direction.LeftToRight)
+            line.setSpacing(8 if under else 16)
 
     def minimumSizeHint(self):
         size = super().minimumSizeHint()
@@ -229,18 +241,30 @@ class WeekBody(QWidget):
         self.arrange()
 
 
+class HubGrid(SubjectGrid):
+    """과목 칸 격자. 마지막 줄에 칸이 하나만 남으면 그 칸이 줄 전체 폭을 씀. 칸의 줄·열 시작 위치는 SubjectGrid 와 같음."""
+
+    def arrange(self):
+        before = self.columns
+        super().arrange()
+        last = len(self.rows) - 1
+        if self.columns != before and self.columns > 1 and last % self.columns == 0:
+            self.grid.addWidget(self.rows[last], last // self.columns, 0, 1, self.columns)
+
+
 class HubBar(kit.TopBar):
     """앱 이름과 ID, 글자 크기와 테마 도구를 담음. 폭이 모자라면 도구를 아래 줄에 둠."""
 
     def __init__(self):
-        super().__init__(plain=True)
+        super().__init__(plain=True, dense=True)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.row.removeWidget(self.title)
         self.identity = QWidget()
         self.identity_row = kit.box(self.identity, spacing=12, horizontal=True)
         self.controls = QWidget()
         self.control_row = kit.box(self.controls, spacing=8, horizontal=True)
-        self.row.setContentsMargins(32, 16, kit.MARGIN - kit.FLUSH, 16)
+        # 오른쪽 도구는 테두리 단추라 단추 가장자리를 내용 선(24)에 맞춤
+        self.row.setContentsMargins(kit.DENSE_MARGIN, 8, kit.DENSE_MARGIN, 8)
         self.row.setSpacing(8)
         self.row.addWidget(self.identity, 1)
         self.row.addWidget(self.controls, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -259,7 +283,7 @@ class HubBar(kit.TopBar):
         stacked = identity.width() + 24 + max(controls.width(), reserved) > self.width() - left - right
         self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
         height = identity.height() + 8 + controls.height() if stacked else max(identity.height(), controls.height())
-        self.setFixedHeight(max(theme.CONTROL["topbar"], top + height + bottom))
+        self.setFixedHeight(max(theme.CONTROL["topbar_dense"], top + height + bottom))
 
     def refont(self):
         self.arrange()
@@ -314,9 +338,11 @@ class HubPage(QWidget):
         self.identity_btn = self.settings_panel.identity_btn
         self.replay_tour = self.settings_panel.replay_tour
         top.add_right(self.settings_btn, flush=True)
+        for button in (self.privacy_btn, self.submission_setup, self.server_connection, self.manual_sync, self.settings_btn):
+            button.setProperty("outlined", True)
         outer.addWidget(top)
 
-        inner = QWidget()
+        inner = kit.dense(QWidget())
         root = kit.box(inner, (0, 16, 0, 48))
         self.summary = kit.para("", "body", "secondary")
         root.addWidget(kit.heading(kit.label("내 학습 현황", "title"), self.summary))
@@ -324,20 +350,21 @@ class HubPage(QWidget):
         self.notice_banner, self.notice = kit.link_banner("warning")  # refresh 가 html.escape 한 글을 넣음
         self.notice.linkActivated.connect(lambda _: win.show_notice_detail())
         self.notice_banner.hide()
-        self.next_card = kit.NextCard()
-        self.next_card.row.setContentsMargins(24, 16, 24, 16)
+        self.next_card = kit.NextCard(compact=True)
         self.next_btn = self.next_card.button
         lead = QWidget()  # 숨은 알림 자리를 비우고 다음 행동까지 묶음.
         lead_box = kit.box(lead, spacing=theme.GAP["group"])
         lead_box.addWidget(self.notice_banner)
         lead_box.addWidget(self.next_card)
         root.addWidget(lead)
-        root.addSpacing(theme.GAP["section"])
+        root.addSpacing(theme.GAP["group"])
 
+        # 넓은 창은 왼쪽에 과목, 오른쪽에 오답 노트와 최근 7일을 두고(66:34) 좁은 창은 과목, 오답, 최근 7일 순서로 쌓음
+        subjects = QWidget()
+        subjects_box = kit.box(subjects, spacing=COLUMN_GAP)
         head, _, _ = kit.section("과목별 학습")
-        root.addLayout(head)
-        root.addSpacing(theme.GAP["description_content"])
-        self.tracks = SubjectGrid()
+        subjects_box.addLayout(head)
+        self.tracks = HubGrid()
         self.python_row = self.tracks.add(SubjectTile("파이썬 스터디", "series_python"))
         self.journey_row = self.tracks.add(SubjectTile("알고리즘 여행", "series_algorithm"))
         self.web_row = SubjectTile("웹 면접 준비", "series_web")
@@ -350,14 +377,13 @@ class HubPage(QWidget):
         self.journey_error = kit.banner("", "danger")  # 여행 기록을 읽지 못한 이유. 그동안 여행 줄은 눌리지 않음
         self.web_error = kit.banner("", "danger")
         self.ai_error = kit.banner("", "danger")
-        stack = QWidget()  # 목록과 띠 사이 12. 숨은 띠 옆에는 간격이 생기지 않아 띠가 없으면 구역 사이가 48 로 남음
+        stack = QWidget()  # 목록과 띠 사이 12. 숨은 띠 옆에는 간격이 생기지 않음
         stack_box = kit.box(stack, spacing=12)
         stack_box.addWidget(self.tracks)
         for banner in (self.journey_error, self.web_error, self.ai_error):
             banner.hide()
             stack_box.addWidget(banner)
-        root.addWidget(stack)
-        root.addSpacing(theme.GAP["section"])
+        subjects_box.addWidget(stack)
 
         notes_card, notes_box = kit.card(spacing=theme.GAP["description_content"])
         head, _, _ = kit.section("오답 노트")
@@ -377,19 +403,21 @@ class HubPage(QWidget):
         box.addLayout(head)
         plot = QWidget()  # 막대 칸: 범례 줄과 막대. 채점 수가 막대의 오른쪽 끝에 맞아서 나란히 둔 최근 채점 칸의 수로 읽히지 않음
         plot_box = kit.box(plot, spacing=8)
-        legend = QHBoxLayout()
+        legend = QBoxLayout(QBoxLayout.Direction.LeftToRight)
         legend.setContentsMargins(0, 0, 0, 0)
         legend.setSpacing(16)
         self.chart = WeekChart()
+        names = QWidget()  # 범례 이름. 한 줄에 다 안 들어가면 다음 줄로 넘김
+        names_flow = kit.FlowLayout(names, spacing=12)
         for token, (_, name) in zip(self.chart.colors, self.chart.tracks):
-            item = QHBoxLayout()
-            item.setSpacing(8)
-            item.addWidget(kit.Dot(token, 8))
-            item.addWidget(kit.label(name, "caption", "secondary"))
-            legend.addLayout(item)
-        legend.addStretch(1)
+            item = QWidget()
+            item_row = kit.box(item, spacing=8, horizontal=True)
+            item_row.addWidget(kit.Dot(token, 8))
+            item_row.addWidget(kit.label(name, "caption", "secondary"))
+            names_flow.addWidget(item)
+        legend.addWidget(names, 1)
         self.total = kit.label("", "caption", "tertiary")
-        legend.addWidget(self.total)
+        legend.addWidget(self.total, 0, Qt.AlignmentFlag.AlignTop)
         plot_box.addLayout(legend)
         plot_box.addWidget(self.chart, 1)
         self.recent_box = QWidget()  # 최근 채점 칸. 채점 기록이 없으면 숨겨서 카드가 막대만 보임
@@ -397,36 +425,42 @@ class HubPage(QWidget):
         self.recent = RecentList()
         recent.addWidget(kit.label("최근 채점", "caption", "tertiary"))
         recent.addWidget(self.recent)
-        self.week = WeekBody(plot, self.recent_box, self.recent)
+        self.week = WeekBody(plot, self.recent_box, self.recent, (legend, names, self.total))
         box.addWidget(self.week)
-        self.activity_row = DashboardRow([notes_card, self.week_card],
-                                         lambda: [max(notes_card.minimumSizeHint().width(), theme.TYPE["body"][0] * 16),
-                                                  max(self.week_card.minimumSizeHint().width(), theme.TYPE["body"][0] * 32)], [1, 2],
-                                         spacing=theme.GAP["group"])
-        for card in (notes_card, self.week_card):
-            self.activity_row.row.setAlignment(card, Qt.AlignmentFlag.AlignTop)
-        root.addWidget(self.activity_row)
-        root.addSpacing(theme.GAP["section"])
+        side = QWidget()
+        side_box = kit.box(side, spacing=COLUMN_GAP)
+        side_box.addWidget(notes_card)
+        side_box.addWidget(self.week_card)
 
+        def widths():
+            # 왼쪽은 과목 두 열이 들어가는 폭, 오른쪽은 그 폭에 비율을 맞춘 폭. 이 합보다 좁으면 쌓음
+            left = theme.TYPE["body"][0] * 32
+            right = math.ceil(left * SIDE_SHARE / (100 - SIDE_SHARE))
+            return [left, max(notes_card.minimumSizeHint().width(), self.week_card.minimumSizeHint().width(), right)]
+
+        self.body_row = DashboardRow([subjects, side], widths, [100 - SIDE_SHARE, SIDE_SHARE], spacing=MAIN_GAP)
+        for column in (subjects, side):
+            self.body_row.row.setAlignment(column, Qt.AlignmentFlag.AlignTop)
+        root.addWidget(self.body_row)
+        root.addSpacing(theme.GAP["group"])
+
+        tail = QWidget()  # 제출 안내, 진행 표시, 팀 영역. 숨은 것은 간격을 남기지 않음
+        tail_box = kit.box(tail, spacing=COLUMN_GAP)
         self.git_hint = kit.banner("", "warning")  # 제출을 쓸 수 없는 이유. 그동안 두 줄은 눌리지 않음
         self.git_hint.hide()
-        root.addSpacing(12)
-        root.addWidget(self.git_hint)
+        tail_box.addWidget(self.git_hint)
         self.status = kit.para("", "caption", "secondary")
         self.status.hide()
         self.busy_bar = kit.progress()
         self.busy_bar.setRange(0, 0)
         self.busy_bar.hide()
-        root.addWidget(self.status)
-        root.addSpacing(8)
-        root.addWidget(self.busy_bar)
+        tail_box.addWidget(self.status)
+        tail_box.addWidget(self.busy_bar)
         self.team_card = TeamCard(win)
-        root.addSpacing(24)
-        root.addWidget(self.team_card)
-        root.addSpacing(24)
-        column = kit.column(inner)
-        column.layout().setContentsMargins(32, 0, 32, 0)
-        self.scroll = kit.scroll(column)
+        tail_box.addWidget(self.team_card)
+        root.addWidget(tail)
+        root.addStretch(1)  # 넓은 창에서 남는 높이를 과목 카드가 받지 않게 아래에 둠
+        self.scroll = kit.scroll(kit.dense_column(inner))
         outer.addWidget(self.scroll, 1)
 
         self.next_btn.clicked.connect(self.open_next)
