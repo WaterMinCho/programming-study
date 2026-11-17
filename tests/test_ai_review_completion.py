@@ -134,6 +134,23 @@ class ReviewCompletionTest(Base):
         self.at = "2026-11-10T20:00:00"
         self.assertTrue(sess.review_status()["available"])
 
+    def test_card_answered_on_its_sweep_day_leaves_the_review(self):
+        sess = self.history(["i90-b01"])
+        for day in ("10", "12", "16", "23"):
+            self.at = "2026-11-%sT20:00:00" % day
+            sess._append({"kind": "answer", "set": "set-" + day, "card": "i90-b01", "result": "pass", "again": 0})
+        self.at = "2026-11-27T20:00:00"
+        self.assertEqual(datetime.date(2026, 11, 27), sess._state().due_day("i90-b01"))
+        for mode in ("review", "sweep"):
+            self.assertEqual(["i90-b01"], self.picked(sess, mode), mode)
+        sess._append({"kind": "answer", "set": "sweep-set", "card": "i90-b01", "result": "pass", "again": 0})
+        self.assertEqual(datetime.date(2026, 12, 3), sess._state().due_day("i90-b01"))
+        for mode in ("review", "sweep"):
+            self.assertEqual([], self.picked(sess, mode), mode)
+        self.assertFalse(sess.review_status()["available"])
+        self.at = "2026-11-28T20:00:00"
+        self.assertEqual([], self.picked(sess, "review"))
+
     def test_empty_review_does_not_request_reading_or_write_a_set(self):
         sess = self.session()
         self.assertEqual({"available": False, "next": None}, sess.review_status())
