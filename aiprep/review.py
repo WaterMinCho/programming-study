@@ -193,7 +193,7 @@ def card_schedule(events, read_day, exam, today, card=None):
         before = box
         result = first["result"]
         moved = False
-        early = box is not None and due is not None and day < due
+        early = box is not None and due is not None and day < _shown_due(due, last, done, card, exam, day)
         if early or (box is not None and first["again"] > 0):
             # 규칙 3: 날짜 전(또는 묶음 안에서 다시 나온 답). pass 는 무시, stuck 은 적용, partial 은 머물고 날짜를 늦추지 않음
             if result == "stuck":
@@ -227,15 +227,22 @@ def card_schedule(events, read_day, exam, today, card=None):
             "days": days, "times": len(events), "sure_wrong": sure_wrong}
 
 
+def _shown_due(due, last, done, card, exam, day):
+    """day 에 학습자에게 보이는 다음 날짜. 훑기 기간에는 상자를 정한 날이 훑기 시작 전이고 시험 전 확인이 끝나지 않은 카드를
+    sweep_day 로 당김. card_schedule 도 이 날짜로 날짜 전 답을 가려서, 당겨 보여 준 날에 맞힌 답을 무시하지 않음."""
+    if card is not None and due is not None and last is not None and not done and in_sweep(exam, day) \
+            and last < exam["sweep_from"]:
+        return min(due, sweep_day(card, exam))
+    return due
+
+
 def due_on(schedule, card, exam, today, open_card=True):
     """오늘 기준 다음 날짜. 훑기 기간에는 마지막 답이 훑기 시작 전인 열린 카드를 sweep_day 로 당김."""
     if schedule is None:
         return None
-    due = schedule["due"]
-    if open_card and in_sweep(exam, today) and schedule["last"] is not None and schedule["last"] < exam["sweep_from"] \
-            and not schedule["done"]:
-        due = min(due, sweep_day(card, exam))
-    return due
+    if not open_card:
+        return schedule["due"]
+    return _shown_due(schedule["due"], schedule["last"], schedule["done"], card, exam, today)
 
 
 def memorised(schedule):

@@ -168,6 +168,32 @@ class RuleTest(unittest.TestCase):
         self.assertEqual((4, D(2026, 12, 3), True), (got["box"], got["due"], got["done"]))
         self.assertEqual(D(2026, 12, 3), review.due_on(got, CARD, EXAM, D(2026, 11, 26)))
 
+    def test_pass_on_the_pulled_sweep_day_finishes_the_card(self):
+        log = [answer("2026-11-10T20:00:00", "pass"), answer("2026-11-12T20:00:00", "pass"), answer("2026-11-16T20:00:00", "pass"),
+               answer("2026-11-23T20:00:00", "pass")]
+        shown = review.sweep_day(CARD, EXAM)
+        before = schedule(log, shown)
+        self.assertEqual((D(2026, 11, 30), D(2026, 12, 1)), (shown, before["due"]))
+        self.assertEqual(shown, review.due_on(before, CARD, EXAM, shown))
+        log.append(answer("2026-11-30T20:00:00", "pass"))
+        got = schedule(log, shown)
+        self.assertEqual((5, D(2026, 11, 30), D(2026, 12, 3), True), (got["box"], got["last"], got["due"], got["done"]))
+        for day in (D(2026, 11, 30), D(2026, 12, 1)):
+            self.assertEqual(D(2026, 12, 3), review.due_on(got, CARD, EXAM, day))
+
+    def test_pass_before_the_pulled_sweep_day_is_still_early(self):
+        log = [answer("2026-11-10T20:00:00", "pass"), answer("2026-11-12T20:00:00", "pass"), answer("2026-11-16T20:00:00", "pass"),
+               answer("2026-11-23T20:00:00", "pass"), answer("2026-11-26T20:00:00", "pass")]
+        got = schedule(log, D(2026, 11, 26))
+        self.assertEqual((5, D(2026, 11, 23), D(2026, 12, 1), False), (got["box"], got["last"], got["due"], got["done"]))
+        self.assertEqual(D(2026, 11, 30), review.due_on(got, CARD, EXAM, D(2026, 11, 30)))
+
+    def test_wrong_on_the_pulled_sweep_day_drops_the_box(self):
+        log = [answer("2026-11-10T20:00:00", "pass"), answer("2026-11-12T20:00:00", "pass"), answer("2026-11-16T20:00:00", "pass"),
+               answer("2026-11-23T20:00:00", "pass"), answer("2026-11-30T20:00:00", "stuck")]
+        got = schedule(log, D(2026, 11, 30))
+        self.assertEqual((1, D(2026, 12, 1), False), (got["box"], got["due"], got["done"]))
+
     def test_sweep_spreads_open_cards_same_way(self):
         log = [answer("2026-11-10T20:00:00", "pass"), answer("2026-11-12T20:00:00", "pass"), answer("2026-11-16T20:00:00", "pass"),
                answer("2026-11-23T20:00:00", "pass")]
