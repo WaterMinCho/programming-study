@@ -4,7 +4,7 @@ import datetime
 import math
 
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, Qt, QTimer
-from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen, QTextLayout
+from PyQt6.QtGui import QFontMetricsF, QImage, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QFrame, QPushButton, QSizePolicy, QToolTip, QWidget
 
 from gui import kit, theme
@@ -46,23 +46,35 @@ class MetricInfo(QPushButton):
         self.setFixedSize(side, side)
         self.update()
 
+    def text_ink(self):
+        """anchor 글자를 같은 글꼴·정렬로 그려 본 화소의 세로 가운데(anchor 위에서부터, 논리 px). 글리프 상자로 어림하면 글꼴
+        힌팅 때문에 실제 화소와 1px 넘게 어긋나는 글자가 있어 그려서 잼. 그릴 수 없으면 None."""
+        anchor = self.anchor
+        if anchor.width() < 1 or anchor.height() < 1 or not anchor.text():
+            return None
+        ratio = anchor.devicePixelRatioF()
+        image = QImage(max(1, round(anchor.width() * ratio)), max(1, round(anchor.height() * ratio)),
+                       QImage.Format.Format_ARGB32_Premultiplied)
+        image.setDevicePixelRatio(ratio)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        painter.setFont(anchor.font())
+        painter.setPen(Qt.GlobalColor.black)
+        painter.drawText(QRectF(anchor.contentsRect()), anchor.alignment(), anchor.text())
+        painter.end()
+        stride, data = image.bytesPerLine(), image.constBits().asstring(image.sizeInBytes())
+        rows = [y for y in range(image.height()) if max(data[y * stride + 3:(y + 1) * stride:4]) > 64]
+        return (rows[0] + rows[-1] + 1) / 2 / ratio if rows else None
+
     def icon_rect(self):
         center = self.height() / 2
         if self.anchor is not None:
-            key = self.anchor.font().toString(), self.anchor.text()
+            key = (self.anchor.font().toString(), self.anchor.text(), self.anchor.width(), self.anchor.height(),
+                   self.anchor.devicePixelRatioF())
             if self.ink_cache is None or self.ink_cache[0] != key:
-                layout = QTextLayout(self.anchor.text(), self.anchor.font())
-                layout.beginLayout()
-                line = layout.createLine()
-                line.setLineWidth(max(1, self.anchor.width()))
-                layout.endLayout()
-                glyphs = [run.rawFont().boundingRect(glyph).translated(position)
-                          for run in layout.glyphRuns() for glyph, position in zip(run.glyphIndexes(), run.positions())
-                          if not run.rawFont().boundingRect(glyph).isEmpty()]
-                ink = (min(rect.top() for rect in glyphs) + max(rect.bottom() for rect in glyphs)) / 2 if glyphs else line.height() / 2
-                self.ink_cache = key, line.height(), ink
-            top = self.mapFromGlobal(self.anchor.mapToGlobal(QPoint())).y()
-            center = top + (self.anchor.height() - self.ink_cache[1]) / 2 + self.ink_cache[2]
+                ink = self.text_ink()
+                self.ink_cache = key, self.anchor.height() / 2 if ink is None else ink
+            center = self.mapFromGlobal(self.anchor.mapToGlobal(QPoint())).y() + self.ink_cache[1]
         size = theme.TYPE["caption"][0] * .85
         return QRectF((self.width() - size) / 2, center - size / 2, size, size)
 
