@@ -1,0 +1,371 @@
+{
+ "format": 1,
+ "id": "S104",
+ "title": "성공한 점만 골라 변위를 구하고 다음 프레임으로 넘기기",
+ "ref": [
+  "응용 4차시 노트북 05 [5]",
+  "응용 4차시 노트북 06 [6]",
+  "문서 calcOpticalFlowPyrLK"
+ ],
+ "tags": [
+  "특징점 변위"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "`old_gray`와 `gray`는 너비 320·높이 240인 영상의 이전·현재 회색조 배열이고 shape는 (240, 320)입니다. `prev_pts`는 이전 영상에서 고른 점의 (x, y) 좌표이며 float32 (N, 1, 2) 배열입니다. 이 코드 앞에서 `prev_pts`에 점이 3개 이상 있는지 확인했고, `shifts`는 반복 앞에서 빈 리스트로 만들었습니다. 성공한 점이 3개 이상이면 평균 변위 (dx, dy)를 `shifts`에 넣고 성공한 점만 다음 프레임으로 넘깁니다. 3개보다 적으면 `shifts`에 None을 넣고 현재 영상에서 점을 다시 찾습니다.",
+   "lines": [
+    "next_pts, status, err = cv2.calcOpticalFlowPyrLK(",
+    "    old_gray, gray, prev_pts, None)",
+    "keep = status.ravel() == 1",
+    "old_ok = prev_pts[keep].reshape(-1, 2)",
+    "new_ok = next_pts[keep].reshape(-1, 2)",
+    "if len(new_ok) >= 3:",
+    "    moves = new_ok - old_ok",
+    "    shifts.append(moves.mean(axis=0))",
+    "    prev_pts = new_ok.reshape(-1, 1, 2)",
+    "else:",
+    "    shifts.append(None)",
+    "    prev_pts = cv2.goodFeaturesToTrack(gray, 50, 0.01, 7)",
+    "old_gray = gray.copy()"
+   ]
+  },
+  "펴지 않은 마스크": {
+   "situation": "표준형과 같은 입력에서 `status`를 펴지 않고 그대로 1과 비교한 코드입니다. `status`의 shape는 (N, 1)입니다.",
+   "lines": [
+    "next_pts, status, err = cv2.calcOpticalFlowPyrLK(",
+    "    old_gray, gray, prev_pts, None)",
+    "keep = status == 1",
+    "old_ok = prev_pts[keep]",
+    "new_ok = next_pts[keep]",
+    "if len(new_ok) >= 3:",
+    "    moves = new_ok - old_ok",
+    "    shifts.append(moves.mean(axis=0))",
+    "    prev_pts = new_ok.reshape(-1, 1, 2)",
+    "else:",
+    "    shifts.append(None)",
+    "    prev_pts = cv2.goodFeaturesToTrack(gray, 50, 0.01, 7)",
+    "old_gray = gray.copy()"
+   ]
+  },
+  "거르지 않은 코드": {
+   "situation": "`old_gray`와 `gray`는 이전·현재 회색조 영상입니다. `prev_pts`는 이전 영상에서 고른 점의 (x, y) 좌표이며 float32 (N, 1, 2) 배열이고, `status`는 (N, 1) 배열입니다. `shifts`는 반복 앞에서 빈 리스트로 만들었습니다.",
+   "lines": [
+    "next_pts, status, err = cv2.calcOpticalFlowPyrLK(",
+    "    old_gray, gray, prev_pts, None)",
+    "keep = status.ravel() == 1",
+    "old_ok = prev_pts.reshape(-1, 2)",
+    "new_ok = next_pts[keep].reshape(-1, 2)",
+    "if len(new_ok) >= 3:",
+    "    moves = new_ok - old_ok",
+    "    shifts.append(moves.mean(axis=1))",
+    "    prev_pts = next_pts",
+    "else:",
+    "    shifts.append(None)",
+    "    prev_pts = cv2.goodFeaturesToTrack(gray, 50, 0.01, 7)",
+    "old_gray = gray.copy()"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-k401",
+   "variant": "표준형",
+   "line": 0,
+   "token": "next_pts, status, err",
+   "answer": [
+    "next_pts, status, err"
+   ],
+   "mode": "code",
+   "hint": "반환값 이름 세 개",
+   "facts": [
+    "FA18-401"
+   ],
+   "step": "a18d/2",
+   "family": "apc-lk-call",
+   "level": 1,
+   "tags": [
+    "특징점 변위",
+    "반환값 순서"
+   ],
+   "ref": [
+    "응용 4차시 노트북 06 [6]",
+    "응용 4차시 노트북 05 [5]",
+    "문서 calcOpticalFlowPyrLK"
+   ],
+   "explain": "`calcOpticalFlowPyrLK`는 점마다 찾은 현재 좌표, 성공 여부, 오차를 이 순서로 돌려줍니다. 둘째 값 `status`가 1이면 그 점의 추적에 성공했습니다. 순서를 바꿔 받으면 좌표 배열에 성공 여부가 들어갑니다."
+  },
+  {
+   "id": "apc-k402",
+   "variant": "표준형",
+   "line": 1,
+   "token": "old_gray, gray",
+   "answer": [
+    "old_gray, gray"
+   ],
+   "mode": "code",
+   "hint": "영상 이름 두 개",
+   "facts": [
+    "FA18-401"
+   ],
+   "step": "a18d/2",
+   "family": "apc-lk-call",
+   "level": 1,
+   "tags": [
+    "특징점 변위",
+    "인자 순서"
+   ],
+   "ref": [
+    "응용 4차시 노트북 06 [6]",
+    "응용 4차시 노트북 05 [5]",
+    "문서 calcOpticalFlowPyrLK"
+   ],
+   "explain": "첫 인자는 `prev_pts`를 고른 영상이고, 둘째 인자는 점을 새로 찾을 영상입니다. `prev_pts`는 `old_gray`에서 고른 점이므로 첫 인자는 `old_gray`, 둘째 인자는 `gray`입니다."
+  },
+  {
+   "id": "apc-n401",
+   "variant": "표준형",
+   "line": 0,
+   "token": "calcOpticalFlowPyrLK",
+   "answer": [
+    "calcOpticalFlowPyrLK"
+   ],
+   "mode": "code",
+   "hint": "함수 이름",
+   "note_only": true,
+   "explain": "`cv2.calcOpticalFlowPyrLK`는 이전 영상, 현재 영상, 이전 점을 받아 현재 점, `status`, `err`를 돌려줍니다."
+  },
+  {
+   "id": "apc-n402",
+   "variant": "표준형",
+   "line": 2,
+   "token": "ravel",
+   "answer": [
+    "ravel"
+   ],
+   "mode": "code",
+   "hint": "배열을 1차원으로 펴는 메서드 이름",
+   "note_only": true,
+   "explain": "`status.ravel()`은 (N, 1)인 `status`를 길이 N인 1차원 배열로 폅니다."
+  },
+  {
+   "id": "apc-n403",
+   "variant": "표준형",
+   "line": 11,
+   "token": "goodFeaturesToTrack",
+   "answer": [
+    "goodFeaturesToTrack"
+   ],
+   "mode": "code",
+   "hint": "함수 이름",
+   "note_only": true,
+   "explain": "`cv2.goodFeaturesToTrack(gray, 50, 0.01, 7)`은 `gray`에서 최고 점수의 0.01배 이상인 점을 서로 7픽셀 이상 떨어지게 최대 50개 고릅니다."
+  }
+ ],
+ "orders": [
+  {
+   "id": "apc-o401",
+   "variant": "표준형",
+   "lines": [
+    2,
+    3,
+    4
+   ],
+   "valid": [
+    [
+     0,
+     1,
+     2
+    ],
+    [
+     0,
+     2,
+     1
+    ]
+   ],
+   "stem": "`status`는 점마다 성공 여부를 담은 (N, 1) 배열입니다. 성공한 점의 이전·현재 좌표를 같은 조건으로 고르는 세 줄입니다. 줄 순서로 **옳은** 것을 고르세요.",
+   "facts": [
+    "FA18-404",
+    "FA18-407"
+   ],
+   "step": "a18d/3",
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 4차시 노트북 06 [6]",
+    "응용 4차시 노트북 05 [5]",
+    "문서 calcOpticalFlowPyrLK"
+   ],
+   "explain": "`keep`을 먼저 만들어야 두 고르기 줄이 `keep`을 쓸 수 있습니다. `old_ok`와 `new_ok`는 서로의 값을 쓰지 않으므로 둘 중 어느 줄이 먼저 와도 됩니다."
+  }
+ ],
+ "picks": [
+  {
+   "id": "apc-p401",
+   "variant": "표준형",
+   "line": 2,
+   "stem": "`status`는 [[1], [1], [0], [1]]처럼 점마다 0이나 1을 담은 uint8 (N, 1) 배열입니다. 성공한 점만 True인 길이 N의 배열 `keep`을 만드는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "keep = status.ravel()",
+     "aim": "0과 1을 그대로 True·False로 봅니다.",
+     "why": "uint8 배열로 고르면 값을 점 번호로 읽습니다. 이 예에서는 1번, 1번, 0번, 1번 점을 꺼내 네 행이 나오고, 실패한 점을 빼지 못합니다."
+    },
+    {
+     "text": "keep = status.ravel() == 0",
+     "aim": "0을 성공 표시로 봅니다.",
+     "why": "`status`는 성공한 점이 1, 실패한 점이 0입니다. 이 줄은 실패한 점만 고릅니다."
+    },
+    {
+     "text": "keep = err.ravel() < 0.03",
+     "aim": "오차가 작은 점을 성공한 점으로 봅니다.",
+     "why": "성공 여부는 `status`가 알려 줍니다. 실패한 점의 `err`는 값이 정해져 있지 않아 기준으로 쓸 수 없습니다."
+    }
+   ],
+   "facts": [
+    "FA18-402",
+    "FA18-404"
+   ],
+   "step": "a18d/3",
+   "family": "apc-keep",
+   "level": 2,
+   "ref": [
+    "응용 4차시 노트북 06 [6]",
+    "응용 4차시 노트북 05 [5]",
+    "문서 calcOpticalFlowPyrLK"
+   ],
+   "explain": "`status.ravel()`은 (4, 1)을 길이 4로 펴고, `== 1`이 [True, True, False, True]를 만듭니다. 이 배열로 고르면 True인 0번, 1번, 3번 점만 남습니다."
+  },
+  {
+   "id": "apc-p402",
+   "variant": "표준형",
+   "line": 3,
+   "stem": "`prev_pts`와 `next_pts`에서 같은 번호의 행은 같은 점입니다. `keep`은 성공한 점만 True인 길이 N의 배열이고 `new_ok`는 `next_pts[keep].reshape(-1, 2)`입니다. 예를 들어 점 4개의 `status`가 [[1], [1], [0], [1]]이면 2번 점만 실패했습니다. 성공한 점의 이전 좌표를 `old_ok`에 담는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "old_ok = prev_pts.reshape(-1, 2)",
+     "aim": "이전 점은 고르지 않아도 된다고 봅니다.",
+     "why": "실패한 점이 있으면 `old_ok`는 N행, `new_ok`는 K행이라 같은 점끼리 뺄 수 없습니다. 이 예에서는 뒤에서 `new_ok - old_ok`를 계산할 때 (3, 2)에서 (4, 2)를 빼게 되어 ValueError가 납니다."
+    },
+    {
+     "text": "old_ok = next_pts[keep].reshape(-1, 2)",
+     "aim": "현재 좌표를 한 번 더 고릅니다.",
+     "why": "이전 좌표는 `prev_pts`에 있습니다. 이 줄을 쓰면 `old_ok`와 `new_ok`가 같아 변위가 모두 0이 됩니다."
+    },
+    {
+     "text": "old_ok = prev_pts[status].reshape(-1, 2)",
+     "aim": "`status`를 그대로 넣어 고릅니다.",
+     "why": "uint8 배열 `status`는 점 번호로 읽힙니다. 이 예에서는 1번 점이 세 번, 0번 점이 한 번 나와 성공한 점과 짝이 맞지 않습니다."
+    }
+   ],
+   "facts": [
+    "FA18-404",
+    "FA18-407",
+    "FA18-410"
+   ],
+   "step": "a18d/3",
+   "core": true,
+   "family": "apc-same-mask",
+   "level": 2,
+   "ref": [
+    "응용 4차시 노트북 06 [6]",
+    "응용 4차시 노트북 05 [5]",
+    "문서 calcOpticalFlowPyrLK"
+   ],
+   "explain": "`new_ok`와 같은 `keep`으로 `prev_pts`를 골라야 `old_ok`의 i번 행과 `new_ok`의 i번 행이 같은 점이 됩니다. 이 예에서는 두 배열 모두 0번, 1번, 3번 점의 좌표를 담은 (3, 2) 배열이 됩니다."
+  },
+  {
+   "id": "apc-p403",
+   "variant": "표준형",
+   "line": 7,
+   "stem": "`moves`는 성공한 점마다 (dx, dy)를 한 행에 담은 (K, 2) 배열입니다. 예를 들어 성공한 점이 세 개인 프레임에서 `moves`는 [[3, -2], [4, -1], [2, -3]]입니다. 이번 프레임의 평균 dx와 평균 dy 두 값을 `shifts`에 넣는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "shifts.append(moves.mean(axis=1))",
+     "aim": "열마다 평균을 내는 축을 1번 축으로 봅니다.",
+     "why": "`axis=1`은 1번 축을 줄여 점마다 dx와 dy의 평균을 냅니다. 이 예에서는 [0.5, 1.5, -0.5]처럼 점 수만큼 값이 나옵니다."
+    },
+    {
+     "text": "shifts.append(moves.mean())",
+     "aim": "축을 정하지 않고 평균을 냅니다.",
+     "why": "`axis`를 주지 않으면 모든 원소의 평균 하나가 나옵니다. 이 예에서는 dx와 dy를 섞은 0.5가 됩니다."
+    },
+    {
+     "text": "shifts.append(moves.sum(axis=0))",
+     "aim": "합을 평균 대신 씁니다.",
+     "why": "점 수로 나누지 않아 이 예에서는 [9, -6]이 나옵니다. 성공한 점 수가 프레임마다 달라지면 같은 움직임도 다른 값으로 기록됩니다."
+    }
+   ],
+   "facts": [
+    "FA18-406"
+   ],
+   "step": "a18d/4",
+   "core": true,
+   "family": "apc-axis",
+   "level": 2,
+   "ref": [
+    "응용 4차시 노트북 06 [6]",
+    "문서 numpy indexing",
+    "문서 numpy.mean"
+   ],
+   "explain": "`axis=0`은 0번 축인 점 방향을 줄여 열마다 평균을 냅니다. 이 예에서 dx 열의 평균은 3, dy 열의 평균은 -2라서 [3, -2]가 `shifts`에 들어갑니다."
+  },
+  {
+   "id": "apc-p404",
+   "variant": "표준형",
+   "line": 12,
+   "stem": "반복마다 `frame`을 읽고 `gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)`로 현재 회색조 영상을 만든 뒤 이 코드를 실행합니다. 다음 반복의 `calcOpticalFlowPyrLK`가 지금의 `gray`를 이전 영상으로 받도록 반복의 마지막에 두는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "gray = old_gray.copy()",
+     "aim": "대입의 방향을 바꿔 씁니다.",
+     "why": "이 줄은 현재 영상 `gray`를 이전 영상으로 덮어쓰고 `old_gray`는 그대로 둡니다. 다음 반복도 처음의 이전 영상과 비교합니다."
+    },
+    {
+     "text": "old_gray = frame.copy()",
+     "aim": "읽은 컬러 프레임을 그대로 넘깁니다.",
+     "why": "`frame`은 세 채널 BGR 영상입니다. 다음 호출에서 이전 영상과 현재 영상의 채널 수가 달라집니다."
+    },
+    {
+     "text": "old_gray = old_gray.copy()",
+     "aim": "이전 영상을 다시 복사합니다.",
+     "why": "`old_gray`에는 같은 영상이 남습니다. 다음 반복에서도 한 프레임 전이 아닌 처음 영상과 비교합니다."
+    }
+   ],
+   "facts": [
+    "FA18-408"
+   ],
+   "step": "a18d/5",
+   "family": "apc-old-gray",
+   "level": 2,
+   "ref": [
+    "응용 4차시 노트북 06 [6]"
+   ],
+   "explain": "`old_gray = gray.copy()`가 지금의 회색조 영상을 새 배열에 복사해 `old_gray`에 담습니다. 다음 반복의 `calcOpticalFlowPyrLK`는 이 `old_gray`를 이전 영상으로 받습니다. `copy()`로 만든 배열이라 이 코드 뒤에 `gray[0, 0] = 255`처럼 `gray`의 값을 바꾸는 줄이 붙어도 `old_gray`는 바뀌지 않습니다."
+  }
+ ],
+ "changes": [
+  {
+   "id": "apc-x401",
+   "from": "거르지 않은 코드",
+   "to": "표준형",
+   "stem": "성공한 점끼리만 변위를 구하고, 프레임마다 평균 dx와 평균 dy 두 값을 `shifts`에 넣고, 성공한 점만 다음 프레임으로 넘기려고 합니다. 고쳐야 할 줄을 **모두** 고르세요.",
+   "back": null,
+   "facts": [
+    "FA18-406",
+    "FA18-407",
+    "FA18-403"
+   ],
+   "step": "a18d/5",
+   "core": true,
+   "family": "apc-filter-all",
+   "level": 3,
+   "ref": [
+    "응용 4차시 노트북 06 [6]",
+    "응용 4차시 노트북 05 [5]",
+    "문서 calcOpticalFlowPyrLK"
+   ],
+   "explain": "`old_ok`도 `keep`으로 골라야 `new_ok`와 같은 점끼리 뺄 수 있습니다. `axis=0`으로 평균을 내야 dx 열과 dy 열에서 값이 하나씩 남습니다. `axis=1`은 점마다 평균을 냅니다. 다음 프레임에는 `next_pts` 전체가 아니라 성공한 점 `new_ok`를 (K, 1, 2)로 바꿔 넘깁니다."
+  }
+ ]
+}

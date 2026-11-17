@@ -1,0 +1,399 @@
+{
+ "format": 1,
+ "id": "S102",
+ "title": "펼친 영상에서 정한 색 범위만 남기기",
+ "ref": [
+  "응용 2차시 노트북 02 [50]",
+  "응용 1차시 노트북 02 [29]",
+  "응용 2차시 노트북 01 [35]"
+ ],
+ "tags": [
+  "색 범위 남기기"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "`photo`는 읽기에 성공한 uint8 BGR 사진이고 종이 한 장이 비스듬히 찍혀 있습니다. `corners`는 종이의 네 모서리를 왼쪽 위, 오른쪽 위, 오른쪽 아래, 왼쪽 아래 순서의 (x, y)로 적은 float32 배열이고 모양은 (4, 2)입니다. 종이를 너비 240·높이 160으로 펼친 뒤 H가 40~80이고 S와 V가 60~255인 초록 글씨만 남기고, 남은 픽셀을 모두 담는 가장 작은 직사각형을 잘라 냅니다. `kernel`은 값이 모두 1인 3×3 uint8 배열입니다.",
+   "lines": [
+    "target = np.float32([[0, 0], [239, 0], [239, 159], [0, 159]])",
+    "M = cv2.getPerspectiveTransform(corners, target)",
+    "flat = cv2.warpPerspective(photo, M, (240, 160))",
+    "hsv = cv2.cvtColor(flat, cv2.COLOR_BGR2HSV)",
+    "mask = cv2.inRange(hsv, (40, 60, 60), (80, 255, 255))",
+    "mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)",
+    "kept = cv2.bitwise_and(flat, flat, mask=mask)",
+    "ys, xs = np.nonzero(mask)",
+    "if len(xs) == 0:",
+    "    raise ValueError(\"정한 색의 픽셀이 없습니다.\")",
+    "left, right = int(xs.min()), int(xs.max())",
+    "top, bottom = int(ys.min()), int(ys.max())",
+    "patch = kept[top:bottom + 1, left:right + 1]"
+   ]
+  },
+  "세로로 펼친 코드": {
+   "situation": "다른 사진에서는 종이가 세로로 길게 찍혔습니다. `corners`는 같은 순서의 (x, y)로 적었고 종이를 너비 160·높이 240으로 펼칩니다. 남길 색 범위와 `kernel`은 표준형과 같습니다.",
+   "lines": [
+    "target = np.float32([[0, 0], [159, 0], [159, 239], [0, 239]])",
+    "M = cv2.getPerspectiveTransform(corners, target)",
+    "flat = cv2.warpPerspective(photo, M, (160, 240))",
+    "hsv = cv2.cvtColor(flat, cv2.COLOR_BGR2HSV)",
+    "mask = cv2.inRange(hsv, (40, 60, 60), (80, 255, 255))",
+    "mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)",
+    "kept = cv2.bitwise_and(flat, flat, mask=mask)",
+    "ys, xs = np.nonzero(mask)",
+    "if len(xs) == 0:",
+    "    raise ValueError(\"정한 색의 픽셀이 없습니다.\")",
+    "left, right = int(xs.min()), int(xs.max())",
+    "top, bottom = int(ys.min()), int(ys.max())",
+    "patch = kept[top:bottom + 1, left:right + 1]"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-k201",
+   "variant": "표준형",
+   "line": 1,
+   "token": "corners, target",
+   "answer": [
+    "corners, target"
+   ],
+   "mode": "code",
+   "hint": "두 인자",
+   "line_answer": [
+    "M = cv2.getPerspectiveTransform(corners, target)"
+   ],
+   "facts": [
+    "FA18-201"
+   ],
+   "step": "a18b/2",
+   "family": "apc-corner",
+   "level": 2,
+   "tags": [
+    "색 범위 남기기",
+    "getPerspectiveTransform"
+   ],
+   "ref": [
+    "응용 2차시 노트북 02 [50]",
+    "OpenCV 문서 getPerspectiveTransform"
+   ],
+   "explain": "`getPerspectiveTransform`은 옮기기 전 네 점을 먼저, 옮긴 뒤 네 점을 다음에 받습니다. 사진 속 모서리 `corners`를 출력 모서리 `target`으로 보내는 행렬이어야 `warpPerspective`가 종이를 펼칩니다. 두 인자를 바꿔 넣으면 출력에서 사진 쪽으로 가는 반대 방향 행렬을 받습니다."
+  },
+  {
+   "id": "apc-k202",
+   "variant": "표준형",
+   "line": 7,
+   "token": "ys, xs",
+   "answer": [
+    "ys, xs"
+   ],
+   "mode": "code",
+   "hint": "받는 이름 두 개",
+   "line_answer": [
+    "ys, xs = np.nonzero(mask)",
+    "ys, xs = mask.nonzero()",
+    "ys, xs = np.where(mask)",
+    "ys, xs = np.nonzero(mask == 255)",
+    "ys, xs = np.nonzero(mask > 0)",
+    "ys, xs = np.nonzero(mask != 0)"
+   ],
+   "facts": [
+    "FA18-207"
+   ],
+   "step": "a18b/4",
+   "core": true,
+   "family": "apc-rowcol",
+   "level": 2,
+   "tags": [
+    "색 범위 남기기",
+    "nonzero"
+   ],
+   "ref": [
+    "응용 1차시 노트북 03 [5]",
+    "NumPy 문서 numpy.nonzero"
+   ],
+   "explain": "`np.nonzero`는 0이 아닌 칸의 번호를 축마다 배열 하나씩 돌려줍니다. 2차원 마스크면 0번 축의 행 번호가 먼저, 1번 축의 열 번호가 다음입니다. 행 번호는 y, 열 번호는 x이므로 `ys, xs` 순서로 받습니다. 순서를 바꿔 받으면 `left`, `right`에 행 번호가 들어갑니다."
+  },
+  {
+   "id": "apc-n201",
+   "variant": "표준형",
+   "line": 4,
+   "token": "inRange",
+   "answer": [
+    "inRange"
+   ],
+   "mode": "code",
+   "hint": "함수 이름",
+   "note_only": true,
+   "explain": "`cv2.inRange(hsv, 하한, 상한)`은 세 성분이 모두 하한과 상한 사이인 위치를 255, 나머지를 0으로 표시한 마스크를 돌려줍니다."
+  },
+  {
+   "id": "apc-n202",
+   "variant": "표준형",
+   "line": 5,
+   "token": "MORPH_OPEN",
+   "answer": [
+    "MORPH_OPEN"
+   ],
+   "mode": "code",
+   "hint": "연산 종류",
+   "note_only": true,
+   "explain": "`cv2.MORPH_OPEN`은 침식 뒤 팽창하는 열기입니다. `kernel`로 열면 주변이 모두 0인 한 칸짜리 점은 사라지고 가로와 세로가 모두 3칸 이상인 직사각형은 그대로 남습니다."
+  },
+  {
+   "id": "apc-n203",
+   "variant": "표준형",
+   "line": 6,
+   "token": "mask=mask",
+   "answer": [
+    "mask=mask"
+   ],
+   "mode": "code",
+   "hint": "남길 위치를 정하는 인자",
+   "note_only": true,
+   "explain": "`mask=mask`를 주어야 마스크가 0이 아닌 위치만 남고 나머지가 0이 됩니다. 이 인자를 빼면 `flat`이 그대로 나옵니다."
+  },
+  {
+   "id": "apc-n204",
+   "variant": "표준형",
+   "line": 7,
+   "token": "nonzero",
+   "answer": [
+    "nonzero"
+   ],
+   "mode": "code",
+   "hint": "함수 이름",
+   "note_only": true,
+   "explain": "`np.nonzero(mask)`는 0이 아닌 칸의 행 번호 배열과 열 번호 배열을 차례로 담은 튜플을 돌려줍니다."
+  }
+ ],
+ "orders": [
+  {
+   "id": "apc-o201",
+   "variant": "표준형",
+   "lines": [
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "valid": [
+    [
+     0,
+     1,
+     2,
+     3,
+     4
+    ],
+    [
+     0,
+     1,
+     2,
+     4,
+     3
+    ]
+   ],
+   "stem": "`flat`은 펼친 BGR 영상입니다. 초록 범위의 마스크를 만들고, 떨어진 점을 지운 마스크로 픽셀을 남기고, 남은 칸의 번호를 구하는 다섯 줄입니다. 줄 순서로 **옳은** 것을 고르세요.",
+   "facts": [
+    "FA18-205",
+    "FA18-207"
+   ],
+   "step": "a18b/3",
+   "core": true,
+   "level": 2,
+   "tags": [
+    "색 범위 남기기",
+    "열기"
+   ],
+   "ref": [
+    "응용 2차시 노트북 01 [35]",
+    "응용 1차시 노트북 02 [30]"
+   ],
+   "explain": "`inRange`는 HSV 영상을 받으므로 `cvtColor`가 먼저입니다. `morphologyEx`는 `inRange`가 만든 마스크를 다듬습니다. `bitwise_and`와 `np.nonzero`는 다듬은 마스크를 쓰므로 열기 뒤에 둡니다. 이 두 줄은 서로의 결과를 쓰지 않아 순서를 바꿔도 됩니다. 열기보다 먼저 위치를 구하면 떨어진 점까지 범위에 들어가 글씨가 없는 열까지 잘라 냅니다."
+  }
+ ],
+ "picks": [
+  {
+   "id": "apc-p201",
+   "variant": "표준형",
+   "line": 0,
+   "stem": "`corners`는 왼쪽 위, 오른쪽 위, 오른쪽 아래, 왼쪽 아래 순서의 (x, y)입니다. 너비 240·높이 160인 출력의 네 모서리 픽셀을 같은 순서의 (x, y)로 적는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "target = np.float32([[0, 0], [0, 159], [239, 159], [239, 0]])",
+     "aim": "모서리를 반대 방향으로 돌며 적습니다.",
+     "why": "둘째 점 (0, 159)는 왼쪽 아래입니다. 사진의 오른쪽 위가 출력의 왼쪽 아래와 짝이 되어 종이가 왼쪽 위와 오른쪽 아래를 잇는 대각선을 기준으로 뒤집혀 펼쳐집니다."
+    },
+    {
+     "text": "target = np.float32([[0, 0], [0, 239], [159, 239], [159, 0]])",
+     "aim": "점을 (y, x)로 적습니다.",
+     "why": "x 자리에 y 값을 적었습니다. 네 점은 너비 160·높이 240인 직사각형을 이루어 출력 240×160과 맞지 않고, 둘째 점이 왼쪽 아래라 모서리 짝도 어긋납니다."
+    },
+    {
+     "text": "target = np.float32([[0, 0], [239, 0], [0, 159], [239, 159]])",
+     "aim": "위 두 점 다음에 아래 두 점을 왼쪽부터 적습니다.",
+     "why": "셋째 점 (0, 159)는 왼쪽 아래입니다. `corners`의 셋째 점은 오른쪽 아래이므로 아래쪽 두 모서리의 짝이 서로 바뀌어 의도한 펼치기가 되지 않습니다."
+    }
+   ],
+   "facts": [
+    "FA18-203"
+   ],
+   "step": "a18b/2",
+   "core": false,
+   "family": "apc-corner",
+   "level": 2,
+   "tags": [
+    "색 범위 남기기",
+    "대응점"
+   ],
+   "ref": [
+    "응용 2차시 노트북 02 [50]",
+    "응용 1차시 노트북 03 [5]"
+   ],
+   "explain": "출력 모서리 픽셀은 x가 0~239, y가 0~159입니다. 점은 (x, y)로 적으므로 왼쪽 위부터 (0, 0), (239, 0), (239, 159), (0, 159)입니다. `corners`와 같은 순서로 적어야 같은 모서리끼리 짝이 됩니다."
+  },
+  {
+   "id": "apc-p202",
+   "variant": "표준형",
+   "line": 4,
+   "stem": "`hsv`는 `flat`을 일반적인 8비트 HSV로 바꾼 영상입니다. H가 40~80이고 S와 V가 60~255인 위치를 255로 표시하는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "mask = cv2.inRange(flat, (40, 60, 60), (80, 255, 255))",
+     "aim": "BGR 영상에서 같은 숫자로 고릅니다.",
+     "why": "`flat`은 BGR 순서입니다. 이 줄은 파랑 성분이 40~80이고 초록과 빨강 성분이 60~255인 픽셀을 고르므로 색상 H로 고른 위치와 다릅니다."
+    },
+    {
+     "text": "mask = cv2.inRange(hsv, (80, 60, 60), (160, 255, 255))",
+     "aim": "H를 0~360 범위로 적습니다.",
+     "why": "8비트 HSV의 H는 0~179입니다. 이 줄은 H가 80~160인 위치를 고릅니다. 정한 초록 범위 40~80과는 H가 80인 경우만 겹칩니다."
+    },
+    {
+     "text": "mask = cv2.inRange(hsv, (80, 255, 255), (40, 60, 60))",
+     "aim": "상한을 먼저 적습니다.",
+     "why": "`inRange`는 영상, 하한, 상한 순서로 받습니다. 하한이 상한보다 커서 조건에 맞는 픽셀이 없고 마스크가 모두 0이 됩니다."
+    }
+   ],
+   "facts": [
+    "FA18-204"
+   ],
+   "step": "a18b/3",
+   "core": false,
+   "family": "apc-inrange",
+   "level": 2,
+   "tags": [
+    "색 범위 남기기",
+    "inRange"
+   ],
+   "ref": [
+    "응용 1차시 노트북 02 [29]",
+    "응용 1차시 노트북 06 [30]"
+   ],
+   "explain": "`inRange(hsv, 하한, 상한)`은 세 성분이 모두 하한과 상한 사이인 위치를 255, 나머지를 0으로 표시합니다. 하한 (40, 60, 60)과 상한 (80, 255, 255)는 H, S, V 순서입니다."
+  },
+  {
+   "id": "apc-p203",
+   "variant": "표준형",
+   "line": 6,
+   "stem": "`mask`는 열기까지 마친 0·255 배열이고 `flat`과 높이·너비가 같습니다. 펼친 영상에서 마스크가 255인 위치의 BGR 값은 그대로 두고 나머지를 0으로 만드는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "kept = cv2.bitwise_and(flat, flat)",
+     "aim": "`mask` 인자를 빼도 된다고 봅니다.",
+     "why": "영상을 자기 자신과 비트 AND하면 원래 값이 나옵니다. `mask`를 주지 않으면 모든 위치가 남습니다."
+    },
+    {
+     "text": "kept = cv2.bitwise_and(hsv, hsv, mask=mask)",
+     "aim": "범위를 고른 HSV 영상에서 픽셀을 남깁니다.",
+     "why": "`hsv`의 세 값은 H, S, V입니다. 이 결과를 BGR 영상으로 다루면 원래와 다른 색으로 보입니다."
+    },
+    {
+     "text": "kept = cv2.bitwise_and(flat, flat, mask=255 - mask)",
+     "aim": "남길 곳과 지울 곳을 뒤집습니다.",
+     "why": "`255 - mask`는 255와 0을 맞바꾼 배열입니다. 초록 글씨 위치가 0이 되어 글씨는 지워지고 나머지가 남습니다."
+    }
+   ],
+   "facts": [
+    "FA18-206"
+   ],
+   "step": "a18b/3",
+   "core": false,
+   "family": "apc-bitwise",
+   "level": 2,
+   "tags": [
+    "색 범위 남기기",
+    "bitwise_and"
+   ],
+   "ref": [
+    "응용 1차시 노트북 02 [30]"
+   ],
+   "explain": "`bitwise_and(flat, flat, mask=mask)`에서 `flat`을 자기 자신과 비트 AND해도 값은 바뀌지 않습니다. `mask`가 0이 아닌 위치만 그 값이 결과에 남고 나머지 위치는 0이 됩니다."
+  },
+  {
+   "id": "apc-p204",
+   "variant": "표준형",
+   "line": 12,
+   "stem": "`left`, `right`는 남은 픽셀의 x 범위이고 `top`, `bottom`은 y 범위입니다. 네 값 모두 끝 픽셀의 번호입니다. 남은 픽셀을 모두 담는 가장 작은 직사각형을 `kept`에서 잘라 내는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "patch = kept[left:right + 1, top:bottom + 1]",
+     "aim": "슬라이스를 (x, y) 순서로 적습니다.",
+     "why": "배열의 첫 인덱스는 행 번호이고 행 번호는 y입니다. `left` 1, `right` 4, `top` 1, `bottom` 3이면 이 줄은 `kept[1:5, 1:4]`라서 모양이 (3, 4, 3) 대신 (4, 3, 3)입니다."
+    },
+    {
+     "text": "patch = kept[top:bottom, left:right]",
+     "aim": "끝 번호를 그대로 슬라이스 끝에 씁니다.",
+     "why": "슬라이스는 끝 번호를 넣지 않습니다. `left` 1, `right` 4, `top` 1, `bottom` 3이면 이 줄은 `kept[1:3, 1:4]`라서 마지막 행과 마지막 열이 빠지고 모양이 (3, 4, 3) 대신 (2, 3, 3)입니다."
+    },
+    {
+     "text": "patch = kept[ys, xs]",
+     "aim": "남은 칸의 번호로 바로 꺼냅니다.",
+     "why": "`kept[ys, xs]`는 남은 칸의 픽셀만 한 줄로 꺼냅니다. 남은 칸이 12개이면 모양이 (12, 3)인 배열이 되어 직사각형 모양이 사라집니다."
+    }
+   ],
+   "facts": [
+    "FA18-208",
+    "FA18-207"
+   ],
+   "step": "a18b/4",
+   "core": true,
+   "family": "apc-rowcol-slice",
+   "level": 2,
+   "tags": [
+    "색 범위 남기기",
+    "슬라이스"
+   ],
+   "ref": [
+    "응용 1차시 노트북 03 [5]",
+    "NumPy 문서 indexing"
+   ],
+   "explain": "행 범위가 먼저, 열 범위가 다음입니다. 끝 칸까지 넣으려면 슬라이스 끝에 1을 더합니다. `left` 1, `right` 4, `top` 1, `bottom` 3이면 `kept[1:4, 1:5]`이고 모양은 (3, 4, 3)입니다."
+  }
+ ],
+ "changes": [
+  {
+   "id": "apc-x201",
+   "from": "표준형",
+   "to": "세로로 펼친 코드",
+   "stem": "다른 사진에서는 종이가 세로로 길게 찍혀 너비 160·높이 240으로 펼치려고 합니다. `corners`의 순서와 남길 색 범위는 그대로 둡니다. 표준형에서 고쳐야 할 줄을 **모두** 고르세요.",
+   "back": "이번에는 종이가 가로로 길게 찍혀 너비 240·높이 160으로 펼치려고 합니다. `corners`의 순서와 남길 색 범위는 그대로 둡니다. 세로로 펼친 코드에서 고쳐야 할 줄을 **모두** 고르세요.",
+   "facts": [
+    "FA18-202"
+   ],
+   "step": "a18b/5",
+   "core": true,
+   "family": "apc-size",
+   "level": 2,
+   "tags": [
+    "색 범위 남기기",
+    "출력 크기"
+   ],
+   "ref": [
+    "응용 2차시 노트북 02 [50]",
+    "OpenCV 문서 warpPerspective"
+   ],
+   "explain": "출력 모서리 `target`과 출력 크기가 함께 바뀝니다. 모서리는 (x, y)라서 너비 160·높이 240이면 오른쪽 아래가 (159, 239)이고, 크기는 (너비, 높이)라서 (160, 240)입니다. 너비 240·높이 160이면 (239, 159)와 (240, 160)입니다. 마스크와 자르기 줄은 `flat`의 크기를 따라가므로 고치지 않습니다."
+  }
+ ]
+}

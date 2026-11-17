@@ -384,7 +384,8 @@ class AiSectionBrowserTest(AiTest):
         self.settle()
         guikit.click(browser.buttons["coding"])
         self.settle()
-        self.assertTrue(home.pattern_empty.isVisible())
+        self.assertTrue(home.pattern_section.isVisible())
+        self.assertFalse(home.pattern_empty.isVisible())
         guikit.click(home.course_tabs.buttons[0])
         self.settle()
         self.assertTrue(browser.buttons["books"].isChecked())
@@ -555,8 +556,14 @@ class AiSectionBrowserTest(AiTest):
         guikit.click(home.course_tabs.buttons[1])
         guikit.click(browser.buttons["coding"])
         self.settle()
-        self.assertIn("아직", home.pattern_empty.text())
-        self.assertEqual("", home.pattern_count.text())
+        self.assertFalse(home.pattern_empty.isVisible())
+        self.assertEqual("공개된 단원 4개", home.pattern_count.text())
+        empty = dict(win.ai.overview(), patterns=[])  # 응용 코딩 실습을 공개했으므로 무리가 없는 목록은 바꿔 넣어 확인함
+        with mock.patch.object(win.ai, "overview", return_value=empty):
+            home.refresh()
+            self.settle()
+            self.assertIn("아직", home.pattern_empty.text())
+            self.assertEqual("", home.pattern_count.text())
         with mock.patch.object(win.ai, "overview", side_effect=SessionError("기록 확인 필요")):
             home.refresh()
             self.settle()

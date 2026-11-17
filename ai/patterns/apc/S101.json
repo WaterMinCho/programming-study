@@ -1,0 +1,478 @@
+{
+ "format": 1,
+ "id": "S101",
+ "title": "사진 한 장을 잘라 모델 입력으로 바꾸기",
+ "ref": [
+  "응용 1차시 노트북 01 [20]",
+  "응용 1차시 노트북 06 [17]",
+  "응용 1차시 노트북 03 [10]"
+ ],
+ "tags": [
+  "입력 준비"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "tray.jpg는 높이 8·너비 12인 컬러 사진입니다. 자를 영역의 왼쪽 위 점은 (`left`, `top`) = (2, 3)이고 너비 `w`는 8, 높이 `h`는 4입니다. 모델은 RGB 순서, 0~1 범위의 float32, (1, 3, 2, 4) 모양인 입력을 받습니다.",
+   "lines": [
+    "image = cv2.imread(\"tray.jpg\")",
+    "if image is None:",
+    "    raise ValueError(\"tray.jpg를 읽지 못했습니다.\")",
+    "rows, cols = image.shape[:2]",
+    "if top + h > rows or left + w > cols:",
+    "    raise ValueError(\"자를 영역이 사진 밖으로 나갑니다.\")",
+    "preview = image.copy()",
+    "corner = (left + w - 1, top + h - 1)",
+    "cv2.rectangle(preview, (left, top), corner, (0, 0, 255), -1)",
+    "ok = cv2.imwrite(\"tray_preview.png\", preview)",
+    "if not ok:",
+    "    raise OSError(\"tray_preview.png를 저장하지 못했습니다.\")",
+    "x = image[top:top + h, left:left + w]",
+    "x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)",
+    "x = cv2.resize(x, (4, 2))",
+    "x = x.astype(\"float32\") / 255.0",
+    "x = x.transpose(2, 0, 1)",
+    "x = x[None, ...]"
+   ]
+  },
+  "채널을 끝에 두는 입력": {
+   "situation": "사진과 자를 영역은 표준형과 같습니다. 이번 모델은 BGR 순서, 0~1 범위의 float32, (1, 2, 4, 3) 모양인 입력을 받습니다. 축 순서는 배치·높이·너비·채널입니다.",
+   "lines": [
+    "image = cv2.imread(\"tray.jpg\")",
+    "if image is None:",
+    "    raise ValueError(\"tray.jpg를 읽지 못했습니다.\")",
+    "rows, cols = image.shape[:2]",
+    "if top + h > rows or left + w > cols:",
+    "    raise ValueError(\"자를 영역이 사진 밖으로 나갑니다.\")",
+    "preview = image.copy()",
+    "corner = (left + w - 1, top + h - 1)",
+    "cv2.rectangle(preview, (left, top), corner, (0, 0, 255), -1)",
+    "ok = cv2.imwrite(\"tray_preview.png\", preview)",
+    "if not ok:",
+    "    raise OSError(\"tray_preview.png를 저장하지 못했습니다.\")",
+    "x = image[top:top + h, left:left + w]",
+    "x = cv2.resize(x, (4, 2))",
+    "x = x.astype(\"float32\") / 255.0",
+    "x = x[None, ...]"
+   ]
+  },
+  "두 값을 거꾸로 적은 코드": {
+   "situation": "표준형과 같은 사진, 같은 영역, 같은 모델 조건에서 쓴 코드입니다.",
+   "lines": [
+    "image = cv2.imread(\"tray.jpg\")",
+    "if image is None:",
+    "    raise ValueError(\"tray.jpg를 읽지 못했습니다.\")",
+    "cols, rows = image.shape[:2]",
+    "if top + h > rows or left + w > cols:",
+    "    raise ValueError(\"자를 영역이 사진 밖으로 나갑니다.\")",
+    "preview = image.copy()",
+    "corner = (top + h - 1, left + w - 1)",
+    "cv2.rectangle(preview, (left, top), corner, (0, 0, 255), -1)",
+    "ok = cv2.imwrite(\"tray_preview.png\", preview)",
+    "if not ok:",
+    "    raise OSError(\"tray_preview.png를 저장하지 못했습니다.\")",
+    "x = image[left:left + w, top:top + h]",
+    "x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)",
+    "x = cv2.resize(x, (4, 2))",
+    "x = x.astype(\"float32\") / 255.0",
+    "x = x.transpose(2, 0, 1)",
+    "x = x[None, ...]"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-k101",
+   "variant": "표준형",
+   "line": 3,
+   "token": "rows, cols",
+   "answer": [
+    "rows, cols",
+    "(rows, cols)"
+   ],
+   "mode": "code",
+   "hint": "shape 앞 두 값을 받는 이름의 순서",
+   "line_answer": [
+    "rows, cols = image.shape[:2]",
+    "rows, cols, _ = image.shape",
+    "rows, cols = image.shape[0], image.shape[1]",
+    "(rows, cols) = image.shape[:2]"
+   ],
+   "facts": [
+    "FA18-102"
+   ],
+   "step": "a18a/3",
+   "family": "apc-shape-order",
+   "level": 2,
+   "tags": [
+    "입력 준비",
+    "shape 순서"
+   ],
+   "ref": [
+    "응용 1차시 노트북 01 [22]",
+    "NumPy 문서 ndarray.shape"
+   ],
+   "explain": "컬러 사진의 `shape`는 높이·너비·채널 순서입니다. `image.shape[:2]`는 (8, 12)이므로 앞의 8을 행 수 `rows`, 뒤의 12를 열 수 `cols`로 받습니다. 다음 줄은 `top + h`를 `rows`와, `left + w`를 `cols`와 비교합니다."
+  },
+  {
+   "id": "apc-k102",
+   "variant": "표준형",
+   "line": 7,
+   "token": "left + w - 1",
+   "answer": [
+    "left + w - 1",
+    "left + (w - 1)",
+    "w + left - 1",
+    "left - 1 + w"
+   ],
+   "mode": "code",
+   "hint": "오른쪽 아래 꼭짓점의 x 좌표",
+   "line_answer": [
+    "corner = (left + w - 1, top + h - 1)",
+    "corner = (w + left - 1, h + top - 1)",
+    "corner = (left + (w - 1), top + (h - 1))"
+   ],
+   "facts": [
+    "FA18-104"
+   ],
+   "step": "a18a/3",
+   "family": "apc-corner",
+   "level": 2,
+   "tags": [
+    "입력 준비",
+    "꼭짓점"
+   ],
+   "ref": [
+    "응용 1차시 노트북 03 [10]",
+    "OpenCV 문서 rectangle"
+   ],
+   "explain": "점은 (x, y) 순서라 앞자리에 x 좌표를 적습니다. 채운 사각형은 두 꼭짓점이 놓인 칸까지 칠하므로 너비 8인 영역의 오른쪽 끝 x는 2 + 8 − 1 = 9입니다. `left + w`로 적으면 x = 10 열까지 칠해 한 열이 늘어납니다.",
+   "core": true
+  },
+  {
+   "id": "apc-n101",
+   "variant": "표준형",
+   "line": 12,
+   "token": "top:top + h, left:left + w",
+   "note_only": true,
+   "answer": [
+    "top:top + h, left:left + w",
+    "top:h + top, left:w + left",
+    "top:top + h, left:left + w, :",
+    "top:(top + h), left:(left + w)"
+   ],
+   "mode": "code",
+   "hint": "행 범위와 열 범위",
+   "line_answer": [
+    "x = image[top:top + h, left:left + w]",
+    "x = image[top:top + h, left:left + w, :]",
+    "x = image[top:h + top, left:w + left]",
+    "x = image[top:top + h][:, left:left + w]"
+   ],
+   "explain": "배열 인덱스는 [행 범위, 열 범위] 순서입니다. 행은 y 좌표라 `top:top + h`로 3~6행을, 열은 x 좌표라 `left:left + w`로 2~9열을 고릅니다."
+  },
+  {
+   "id": "apc-n102",
+   "variant": "표준형",
+   "line": 13,
+   "token": "COLOR_BGR2RGB",
+   "note_only": true,
+   "answer": [
+    "COLOR_BGR2RGB"
+   ],
+   "mode": "code",
+   "hint": "BGR 순서를 RGB 순서로 바꾸는 변환 코드",
+   "line_answer": [
+    "x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)"
+   ],
+   "explain": "`cv2.imread`가 읽은 배열은 BGR 순서입니다. 모델은 RGB 순서를 받으므로 `cv2.COLOR_BGR2RGB`로 0번과 2번 채널을 맞바꿉니다."
+  },
+  {
+   "id": "apc-n103",
+   "variant": "표준형",
+   "line": 14,
+   "token": "4, 2",
+   "note_only": true,
+   "answer": [
+    "4, 2"
+   ],
+   "mode": "code",
+   "hint": "너비와 높이 두 값",
+   "line_answer": [
+    "x = cv2.resize(x, (4, 2))",
+    "x = cv2.resize(x, dsize=(4, 2))",
+    "x = cv2.resize(x, (4, 2), interpolation=cv2.INTER_LINEAR)"
+   ],
+   "explain": "모델 입력은 (1, 3, 2, 4)라 높이 2·너비 4가 필요합니다. `cv2.resize`의 크기는 너비·높이 순서이므로 (4, 2)를 줍니다."
+  },
+  {
+   "id": "apc-n104",
+   "variant": "표준형",
+   "line": 16,
+   "token": "2, 0, 1",
+   "note_only": true,
+   "answer": [
+    "2, 0, 1",
+    "(2, 0, 1)"
+   ],
+   "mode": "code",
+   "hint": "새 축 자리에 놓을 원래 축 번호",
+   "line_answer": [
+    "x = x.transpose(2, 0, 1)",
+    "x = x.transpose((2, 0, 1))",
+    "x = np.transpose(x, (2, 0, 1))"
+   ],
+   "explain": "높이·너비·채널 순서의 (2, 4, 3)에서 채널은 2번 축입니다. 새 0번 축에 2번 축, 새 1번 축에 0번 축, 새 2번 축에 1번 축을 놓아 (3, 2, 4)를 만듭니다."
+  }
+ ],
+ "orders": [
+  {
+   "id": "apc-o101",
+   "variant": "표준형",
+   "lines": [
+    12,
+    14,
+    16,
+    17
+   ],
+   "valid": [
+    [
+     0,
+     1,
+     2,
+     3
+    ]
+   ],
+   "stem": "`x`는 앞 줄의 결과를 받아 다음 줄로 넘깁니다. 사진에서 영역을 잘라 (1, 3, 2, 4) 입력을 만드는 줄 가운데 색 순서와 자료형을 바꾸는 줄은 빼고 네 줄만 보여 줍니다. 줄 순서로 **옳은** 것을 고르세요.",
+   "facts": [
+    "FA18-103",
+    "FA18-108",
+    "FA18-110",
+    "FA18-111"
+   ],
+   "step": "a18a/4",
+   "core": false,
+   "level": 2,
+   "tags": [
+    "입력 준비",
+    "줄 순서"
+   ],
+   "ref": [
+    "응용 1차시 노트북 01 [20]",
+    "NumPy 문서 numpy.transpose"
+   ],
+   "explain": "네 줄 가운데 자르기 줄만 `image`에서 `x`를 새로 만듭니다. 다른 줄 뒤에 두면 앞 줄의 결과를 덮어쓰므로 맨 앞에 둡니다. `resize`는 높이·너비·채널 순서의 배열을 받으므로 축을 옮기기 전에 둡니다. `transpose(2, 0, 1)`은 축 셋인 배열을 받으므로 배치 축을 붙인 뒤에 두면 ValueError가 납니다."
+  }
+ ],
+ "picks": [
+  {
+   "id": "apc-p101",
+   "variant": "표준형",
+   "line": 12,
+   "stem": "`image.shape`는 (8, 12, 3)이고 크기 검사를 통과했습니다. 왼쪽 위 점 (x, y) = (2, 3)에서 너비 8·높이 4인 영역을 잘라 (4, 8, 3) 배열을 받는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "x = image[left:left + w, top:top + h]",
+     "aim": "점의 (x, y) 순서대로 인덱스를 적습니다.",
+     "why": "이 줄은 2~9행, 3~6열을 고릅니다. 사진의 행은 7번까지라 오류 없이 2~7행만 남아 (6, 4, 3)이 나옵니다. 배열은 행 범위를 먼저 적습니다."
+    },
+    {
+     "text": "x = image[top:h, left:w]",
+     "aim": "슬라이스 끝에 크기를 적습니다.",
+     "why": "슬라이스의 끝에는 크기가 아니라 끝 위치를 적습니다. 이 줄은 3행 한 줄과 2~7열을 골라 (1, 6, 3)을 돌려줍니다."
+    },
+    {
+     "text": "x = image[top:top + h - 1, left:left + w - 1]",
+     "aim": "슬라이스가 끝 위치를 포함한다고 봅니다.",
+     "why": "슬라이스는 끝 위치의 칸을 고르지 않습니다. 끝에서 1을 더 빼면 3~5행, 2~8열만 남아 (3, 7, 3)이 됩니다. 사각형의 꼭짓점에는 끝 칸을 적고, 슬라이스 끝에는 끝 칸 다음 위치를 적습니다."
+    }
+   ],
+   "facts": [
+    "FA18-103",
+    "FA18-104"
+   ],
+   "step": "a18a/3",
+   "core": true,
+   "family": "apc-crop",
+   "level": 2,
+   "tags": [
+    "입력 준비",
+    "슬라이스"
+   ],
+   "ref": [
+    "응용 1차시 노트북 06 [17]",
+    "NumPy 문서 Indexing on ndarrays"
+   ],
+   "explain": "y 좌표 범위가 행, x 좌표 범위가 열입니다. `image[3:7, 2:10]`은 3~6행의 4개, 2~9열의 8개를 골라 (4, 8, 3)을 돌려줍니다."
+  },
+  {
+   "id": "apc-p102",
+   "variant": "표준형",
+   "line": 15,
+   "stem": "앞 줄의 `x`는 uint8 (2, 4, 3) 배열입니다. 값을 0~1 범위로 바꾸고 자료형을 float32로 두는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "x = x / 255.0",
+     "aim": "나누기만 하면 float32가 된다고 봅니다.",
+     "why": "uint8 배열을 파이썬 실수 255.0으로 나누면 float64 배열이 나옵니다. 값은 0~1이지만 자료형이 모델 조건과 다릅니다."
+    },
+    {
+     "text": "x = x.astype(\"float32\")",
+     "aim": "자료형을 바꾸면 범위도 바뀐다고 봅니다.",
+     "why": "`astype`은 자료형만 바꿉니다. 255였던 값은 255.0으로 남습니다."
+    },
+    {
+     "text": "x = (x / 255).astype(\"uint8\")",
+     "aim": "나눈 뒤 원래 자료형으로 되돌립니다.",
+     "why": "0~1 사이 실수를 uint8로 바꾸면 소수점 아래를 버립니다. 255였던 값만 1이 되고 나머지는 모두 0이 됩니다."
+    }
+   ],
+   "facts": [
+    "FA18-109"
+   ],
+   "step": "a18a/4",
+   "core": false,
+   "family": "apc-dtype",
+   "level": 2,
+   "tags": [
+    "입력 준비",
+    "자료형"
+   ],
+   "ref": [
+    "응용 1차시 노트북 01 [24]",
+    "NumPy 문서 numpy.ndarray.astype"
+   ],
+   "explain": "`astype(\"float32\")`로 자료형을 먼저 바꾼 뒤 255.0으로 나눕니다. float32 배열을 파이썬 실수 255.0으로 나누면 결과도 float32입니다. 픽셀 [255, 51, 0]은 [1.0, 0.2, 0.0]이 됩니다."
+  },
+  {
+   "id": "apc-p103",
+   "variant": "표준형",
+   "line": 16,
+   "stem": "앞 줄의 `x`는 높이·너비·채널 순서의 (2, 4, 3) 배열입니다. 채널 축을 맨 앞으로 옮겨 (3, 2, 4)로 만드는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "x = x.reshape(3, 2, 4)",
+     "aim": "모양만 맞추면 축이 옮겨진다고 봅니다.",
+     "why": "`reshape`는 값을 앞에서부터 차례로 다시 채웁니다. 모양은 (3, 2, 4)가 되지만 `x[0]`에 한 픽셀의 세 색이 섞여 들어갑니다."
+    },
+    {
+     "text": "x = x.transpose(1, 2, 0)",
+     "aim": "축 번호를 한 칸씩 밀어 적습니다.",
+     "why": "새 축 순서가 너비, 채널, 높이라 (4, 3, 2)가 됩니다. 채널은 원래 2번 축이므로 2를 맨 앞에 적습니다."
+    },
+    {
+     "text": "x = x.transpose(0, 2, 1)",
+     "aim": "뒤의 두 축만 맞바꿉니다.",
+     "why": "높이 축이 맨 앞에 남아 (2, 3, 4)가 됩니다."
+    }
+   ],
+   "facts": [
+    "FA18-110"
+   ],
+   "step": "a18a/4",
+   "family": "apc-axes",
+   "level": 2,
+   "tags": [
+    "입력 준비",
+    "축 순서"
+   ],
+   "ref": [
+    "응용 1차시 노트북 01 [20]",
+    "NumPy 문서 numpy.transpose"
+   ],
+   "explain": "`transpose(2, 0, 1)`은 새 0번 축에 원래 2번 축인 채널, 새 1번 축에 원래 0번 축인 높이, 새 2번 축에 원래 1번 축인 너비를 놓습니다. (2, 4, 3)이 (3, 2, 4)가 되고 `x[0]`에는 R 값만 모입니다."
+  },
+  {
+   "id": "apc-p104",
+   "variant": "표준형",
+   "line": 17,
+   "stem": "앞 줄의 `x`는 채널·높이·너비 순서의 (3, 2, 4) 배열입니다. 사진 한 장을 담은 배치로 만들어 (1, 3, 2, 4)를 받는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "x = x[..., None]",
+     "aim": "새 축을 끝에 붙입니다.",
+     "why": "`...` 뒤에 `None`을 두면 크기 1인 축이 맨 뒤에 붙어 (3, 2, 4, 1)이 됩니다."
+    },
+    {
+     "text": "x = x[:, None]",
+     "aim": "첫 축 뒤에 새 축을 넣습니다.",
+     "why": "`:`가 채널 축을 그대로 두고 그 뒤에 새 축을 넣어 (3, 1, 2, 4)가 됩니다."
+    },
+    {
+     "text": "x = x.reshape(1, 3, 4, 2)",
+     "aim": "높이와 너비를 너비, 높이 순서로 적습니다.",
+     "why": "원소 수가 같아 오류는 없지만 (1, 3, 4, 2)가 됩니다. 값도 앞에서부터 다시 채워져 행과 열이 맞지 않습니다."
+    }
+   ],
+   "facts": [
+    "FA18-111"
+   ],
+   "step": "a18a/4",
+   "family": "apc-batch",
+   "level": 2,
+   "tags": [
+    "입력 준비",
+    "배치 축"
+   ],
+   "ref": [
+    "응용 1차시 노트북 01 [20]",
+    "NumPy 문서 Indexing on ndarrays"
+   ],
+   "explain": "`None`을 맨 앞 인덱스 자리에 두면 크기 1인 축이 맨 앞에 붙습니다. (3, 2, 4)가 (1, 3, 2, 4)가 되어 배치·채널·높이·너비 순서와 맞습니다."
+  }
+ ],
+ "changes": [
+  {
+   "id": "apc-x101",
+   "from": "두 값을 거꾸로 적은 코드",
+   "to": "표준형",
+   "stem": "아래 코드로는 표준형과 같은 결과가 나오지 않습니다. 표준형과 같은 결과를 내도록 고쳐야 할 줄을 **모두** 고르세요.",
+   "back": null,
+   "facts": [
+    "FA18-102",
+    "FA18-103",
+    "FA18-104"
+   ],
+   "step": "a18a/5",
+   "core": true,
+   "family": "apc-order-mix",
+   "level": 3,
+   "tags": [
+    "입력 준비",
+    "좌표와 행열"
+   ],
+   "ref": [
+    "응용 1차시 노트북 03 [10]",
+    "응용 1차시 노트북 01 [22]",
+    "NumPy 문서 Indexing on ndarrays"
+   ],
+   "explain": "`shape[:2]`는 높이·너비 순서라 `cols, rows`로 받으면 `cols`가 8이 됩니다. 검사 줄에서 2 + 8 = 10 > 8이 되어 영역이 사진 안에 있는데도 오류가 납니다. 꼭짓점은 (x, y)로 적어야 하는데 (6, 9)로 적어 오른쪽 아래가 x = 6, y = 9를 가리킵니다. 슬라이스는 [행, 열]로 적어야 하는데 `image[2:10, 3:7]`로 적어 (6, 4, 3)을 받습니다. 세 줄을 `rows, cols`, `(left + w - 1, top + h - 1)`, `image[top:top + h, left:left + w]`로 고칩니다."
+  },
+  {
+   "id": "apc-x102",
+   "from": "표준형",
+   "to": "채널을 끝에 두는 입력",
+   "stem": "모델 입력 조건이 BGR 순서, 0~1 범위의 float32, (1, 2, 4, 3) 모양으로 바뀌었습니다. 축 순서는 배치·높이·너비·채널입니다. 표준형에서 빼야 할 줄을 **모두** 고르세요.",
+   "back": null,
+   "facts": [
+    "FA18-101",
+    "FA18-107",
+    "FA18-110"
+   ],
+   "step": "a18a/4",
+   "family": "apc-channel-last",
+   "level": 3,
+   "tags": [
+    "입력 준비",
+    "채널 위치"
+   ],
+   "ref": [
+    "응용 1차시 노트북 01 [12]",
+    "응용 1차시 노트북 01 [20]",
+    "OpenCV 문서 cvtColor"
+   ],
+   "explain": "`cv2.imread`가 읽은 배열은 이미 BGR 순서라 `cvtColor` 줄을 빼야 BGR이 남습니다. 자른 배열은 높이·너비·채널 순서라 `transpose(2, 0, 1)`을 빼면 크기를 줄인 (2, 4, 3)에 배치 축만 붙어 (1, 2, 4, 3)이 됩니다.",
+   "core": true
+  }
+ ]
+}

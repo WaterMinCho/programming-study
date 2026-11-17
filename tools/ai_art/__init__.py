@@ -53,7 +53,7 @@ COLORS = {"ink": "#1f2937", "muted": "#6b7280", "faint": "#d1d5db", "grid": "#ee
 FIXED = ("#ffffff",) + tuple(COLORS.values()) + (
     "#9ca3af", "#e5e7eb", "#f3f4f6", "#f8fafc", "#fafafa", "#eff6ff", "#dbeafe", "#bfdbfe", "#93c5fd", "#3b82f6",
     "#1d4ed8", "#fee2e2", "#b91c1c", "#ffedd5", "#c2410c", "#d1fae5", "#047857", "#ede9fe", "#6d28d9", "#fde68a",
-    "#253747", "#3d6187", "#9fb2c4", "#e0e8f0")
+    "#253747", "#3d6187", "#9fb2c4", "#e0e8f0", "#eab308")
 MINUS = "−"
 
 _FIGURES = []
