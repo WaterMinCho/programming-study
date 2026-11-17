@@ -5,6 +5,7 @@ import itertools
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -163,8 +164,52 @@ class RuleTest(unittest.TestCase):
                     self.assertRegex(value.strip(), r"\A(#[0-9a-f]{6}|transparent)\Z", "%s %s" % (scheme, name))
 
 
+# 부모 없는 창 100개를 순환 참조로만 붙잡아 버려 두고, 스타일이 바뀌는 이벤트 안에서 자동 GC 가 돌 만큼 객체를 만듦
+RESTYLE_WHILE_COLLECTING = """
+import gc
+from tests import guikit
+from PyQt6.QtCore import QEvent
+from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from gui import theme
+
+
+class Busy(QWidget):
+    def event(self, event):
+        if event.type() == QEvent.Type.StyleChange:
+            gc.set_threshold(1)
+            self.made = [[] for _ in range(64)]
+        return super().event(event)
+
+
+def abandon():
+    window = QWidget()
+    layout = QVBoxLayout(window)
+    for _ in range(3):
+        layout.addWidget(QLabel("x"))
+    window.keep = window
+    window.show()
+
+
+gc.set_threshold(10 ** 9)
+kept = [Busy() for _ in range(20)]
+for window in kept:
+    window.show()
+for _ in range(100):
+    abandon()
+guikit.pump()
+theme.set_text("larger")
+print("restyled")
+"""
+
+
 class TextStepTest(unittest.TestCase):
     """글자 크기 단계. 크게는 모든 크기 +2, 더 크게는 +4 이고 줄 높이는 비례해 키워 4 단위에 맞춤."""
+
+    def test_restyle_survives_collecting_abandoned_windows(self):
+        """스타일을 다시 입히는 도중에 GC 가 버려진 창을 지우면 프로세스가 죽으므로 따로 띄운 프로세스의 종료 코드로 확인함."""
+        done = subprocess.run([sys.executable, "-c", RESTYLE_WHILE_COLLECTING], cwd=guikit.ROOT, env=dict(os.environ, QT_QPA_PLATFORM="offscreen"),
+                              capture_output=True, encoding="utf-8", errors="replace", timeout=120)
+        self.assertEqual((done.returncode, done.stdout.strip()), (0, "restyled"), done.stderr)
 
     def test_steps_add_px_and_keep_line_heights_on_the_grid(self):
         self.assertEqual(theme.scaled_type("normal"), theme.BASE_TYPE)

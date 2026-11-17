@@ -2,6 +2,7 @@
 """테마(시스템 · 밝게 · 어둡게) · 글자 크기 단계(보통 · 크게 · 더 크게) · 글꼴 · 색. 화면 코드는 색 값을 직접 적지 않고 color(토큰 이름)으로,
 코드 편집기의 색은 editor(토큰 이름)으로 꺼내 씀. 테마가 바뀌면 signals.changed 가 나옴. 직접 그리는 위젯과 HTML 을 만들어 넣는 화면은
 이 신호를 받아 다시 그림. 글자 크기 단계는 set_text 가 TYPE 을 그 단계의 값으로 바꾸고, 창(gui/window.py)이 부품의 글꼴을 다시 줌."""
+import gc
 import os
 import re
 import sys
@@ -565,10 +566,17 @@ def _style(scheme):
                        (role.HighlightedText, "ink"), (role.PlaceholderText, "placeholder"), (role.ToolTipBase, "surface"),
                        (role.ToolTipText, "ink"), (role.Link, "link")):
         palette.setColor(part, qcolor(name))
-    app.setPalette(palette)
-    QToolTip.setFont(font("caption"))
-    tokens = style_tokens(scheme)
-    app.setStyleSheet(STYLE % tokens + STYLE_V2 % tokens + EDITOR_STYLE)
+    # Qt 가 모든 위젯을 돌며 색과 스타일을 다시 입히는 동안 GC 가 버려진 위젯을 지우면 Qt 가 지워진 위젯을 읽어 프로세스가 죽음
+    collecting = gc.isenabled()
+    gc.disable()
+    try:
+        app.setPalette(palette)
+        QToolTip.setFont(font("caption"))
+        tokens = style_tokens(scheme)
+        app.setStyleSheet(STYLE % tokens + STYLE_V2 % tokens + EDITOR_STYLE)
+    finally:
+        if collecting:
+            gc.enable()
 
 
 def style_tokens(scheme):
