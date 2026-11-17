@@ -1,0 +1,90 @@
+{
+ "format": 1,
+ "id": "al18",
+ "title": "코딩으로 실전학습하기",
+ "lesson": "apc",
+ "defines": [],
+ "needs": [
+  "al01",
+  "al02",
+  "al03",
+  "al04"
+ ],
+ "sections": {
+  "a18a": "사진 한 장을 잘라 모델 입력으로 바꾸기",
+  "a18b": "펼친 영상에서 정한 색 범위만 남기기",
+  "a18c": "프레임마다 물체의 중심을 원본 좌표로 기록하기",
+  "a18d": "성공한 점만 골라 변위를 구하고 다음 프레임으로 넘기기"
+ },
+ "outputs": [],
+ "sources": [
+  {
+   "what": "OpenCV imread·imwrite: 읽지 못하면 빈 행렬, 저장 결과는 bool",
+   "url": "https://github.com/opencv/opencv/blob/4.x/modules/imgcodecs/include/opencv2/imgcodecs.hpp",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "OpenCV rectangle·resize·cvtColor·warpPerspective·getPerspectiveTransform·morphologyEx·threshold·findContours·goodFeaturesToTrack 의 인자와 반환값",
+   "url": "https://github.com/opencv/opencv/blob/4.x/modules/imgproc/include/opencv2/imgproc.hpp",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "OpenCV threshold: 오츠·삼각형 방식이 아니면 받은 기준값을 그대로 돌려줌",
+   "url": "https://github.com/opencv/opencv/blob/4.x/modules/imgproc/src/thresh.cpp",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "OpenCV inRange·bitwise_and: 하한과 상한을 범위에 넣고, mask 가 0 이 아닌 위치만 바꿈",
+   "url": "https://github.com/opencv/opencv/blob/4.x/modules/core/include/opencv2/core.hpp",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "OpenCV VideoCapture.read: 읽지 못하면 false 와 빈 영상",
+   "url": "https://github.com/opencv/opencv/blob/4.x/modules/videoio/include/opencv2/videoio.hpp",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "OpenCV calcOpticalFlowPyrLK: status 는 찾으면 1, 못 찾으면 0 이고 그때 err 는 정해지지 않음. winSize 기본 (21, 21), maxLevel 기본 3",
+   "url": "https://github.com/opencv/opencv/blob/4.x/modules/video/include/opencv2/video/tracking.hpp",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "NumPy 인덱싱: 첫 인덱스가 0번 축, 슬라이스 끝 위치 제외, 불리언 배열로 고르기, None 으로 축 넣기",
+   "url": "https://numpy.org/doc/stable/user/basics.indexing.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "NumPy nonzero: 축마다 번호 배열 하나, 행 우선 순서",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.nonzero.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "NumPy transpose·mean·astype 와 자료형 승격",
+   "url": "https://numpy.org/doc/stable/reference/generated/numpy.transpose.html",
+   "checked": "2026-11-17"
+  }
+ ],
+ "credits": [],
+ "units": {
+  "a18a": {
+   "minutes": 9,
+   "key_figure": "assets/a18a-5.png",
+   "kind": "pattern"
+  },
+  "a18b": {
+   "minutes": 9,
+   "key_figure": "assets/a18b-5.png",
+   "kind": "pattern"
+  },
+  "a18c": {
+   "minutes": 9,
+   "key_figure": "assets/a18c-5.png",
+   "kind": "pattern"
+  },
+  "a18d": {
+   "minutes": 9,
+   "key_figure": "assets/a18d-5.png",
+   "kind": "pattern"
+  }
+ }
+}

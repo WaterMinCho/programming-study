@@ -1,0 +1,62 @@
+{
+ "format": 1,
+ "id": "apc",
+ "page": "al18",
+ "units": {
+  "a18a": {
+   "slot": 2,
+   "order": 1,
+   "pick": 4,
+   "change": 2,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [
+    "apc-g101",
+    "apc-g102"
+   ],
+   "core": 4
+  },
+  "a18b": {
+   "slot": 2,
+   "order": 1,
+   "pick": 4,
+   "change": 1,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [
+    "apc-g201"
+   ],
+   "core": 4
+  },
+  "a18c": {
+   "slot": 1,
+   "order": 1,
+   "pick": 3,
+   "change": 1,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [
+    "apc-g301"
+   ],
+   "core": 4
+  },
+  "a18d": {
+   "slot": 2,
+   "order": 1,
+   "pick": 4,
+   "change": 1,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [
+    "apc-g401",
+    "apc-g402"
+   ],
+   "core": 4
+  }
+ },
+ "sources": []
+}

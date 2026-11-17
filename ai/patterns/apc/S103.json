@@ -1,0 +1,328 @@
+{
+ "format": 1,
+ "id": "S103",
+ "title": "프레임마다 물체의 중심을 원본 좌표로 기록하기",
+ "ref": [
+  "응용 3차시 노트북 02 [7]",
+  "응용 3차시 노트북 01 [4]",
+  "응용 3차시 노트북 03 [58]",
+  "NumPy 문서 indexing"
+ ],
+ "tags": [
+  "프레임 중심 기록"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "belt.mp4는 높이 360·너비 480인 BGR 영상입니다. 어두운 벨트 위로 밝은 상자가 지나갑니다. 상자 윗면의 왼쪽 위에 붙은 어두운 스티커는 이진 영상에서 구멍으로 남고, 구멍 경계의 면적도 300과 5000 사이입니다. 살필 영역은 `y0` = 120행부터 `y1` = 280행 앞까지, `x0` = 80열부터 `x1` = 400열 앞까지이고 네 값은 코드 앞에서 정했습니다. 밝기가 200보다 큰 위치를 255로 둡니다. 프레임마다 면적이 300보다 크고 5000보다 작은 바깥 윤곽은 없거나 한 개입니다. 상자의 중심을 원본 좌표 (x, y)로 구해 프레임마다 `centers`에 한 칸씩 넣고, 찾지 못한 프레임에는 None을 넣습니다.",
+   "lines": [
+    "cap = cv2.VideoCapture(\"belt.mp4\")",
+    "centers = []",
+    "while cap.isOpened():",
+    "    ok, frame = cap.read()",
+    "    if not ok:",
+    "        break",
+    "    roi = frame[y0:y1, x0:x1]",
+    "    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)",
+    "    soft = cv2.GaussianBlur(gray, (3, 3), 0)",
+    "    level, binary = cv2.threshold(soft, 200, 255, cv2.THRESH_BINARY)",
+    "    contours, hierarchy = cv2.findContours(",
+    "        binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)",
+    "    center = None",
+    "    for contour in contours:",
+    "        M = cv2.moments(contour)",
+    "        if 300 < cv2.contourArea(contour) < 5000 and M[\"m00\"] != 0:",
+    "            center = (M[\"m10\"] / M[\"m00\"] + x0, M[\"m01\"] / M[\"m00\"] + y0)",
+    "    centers.append(center)",
+    "cap.release()"
+   ]
+  },
+  "기록을 놓친 코드": {
+   "situation": "표준형과 같은 영상, 같은 영역에서 쓴 코드입니다. 이 코드는 `center = None`을 while 문 앞에서 한 번만 실행하고, `centers.append(center)`를 for 문 안의 if 아래에 두었습니다.",
+   "lines": [
+    "cap = cv2.VideoCapture(\"belt.mp4\")",
+    "centers = []",
+    "center = None",
+    "while cap.isOpened():",
+    "    ok, frame = cap.read()",
+    "    if not ok:",
+    "        break",
+    "    roi = frame[y0:y1, x0:x1]",
+    "    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)",
+    "    soft = cv2.GaussianBlur(gray, (3, 3), 0)",
+    "    level, binary = cv2.threshold(soft, 200, 255, cv2.THRESH_BINARY)",
+    "    contours, hierarchy = cv2.findContours(",
+    "        binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)",
+    "    for contour in contours:",
+    "        M = cv2.moments(contour)",
+    "        if 300 < cv2.contourArea(contour) < 5000 and M[\"m00\"] != 0:",
+    "            center = (M[\"m10\"] / M[\"m00\"] + x0, M[\"m01\"] / M[\"m00\"] + y0)",
+    "            centers.append(center)",
+    "cap.release()"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-n301",
+   "variant": "표준형",
+   "line": 3,
+   "token": "ok, frame",
+   "note_only": true,
+   "answer": [
+    "ok, frame"
+   ],
+   "mode": "code",
+   "hint": "read가 돌려주는 두 값",
+   "line_answer": [
+    "ok, frame = cap.read()"
+   ],
+   "explain": "`cap.read()`는 읽기 성공 여부를 먼저, 읽은 프레임을 다음에 돌려줍니다. 다음 줄의 `if not ok:`가 성공 여부를, 그 뒤의 `frame[y0:y1, x0:x1]`이 프레임을 씁니다."
+  },
+  {
+   "id": "apc-k301",
+   "variant": "표준형",
+   "line": 6,
+   "token": "y0:y1, x0:x1",
+   "answer": [
+    "y0:y1, x0:x1",
+    "y0:y1, x0:x1, :",
+    "120:280, 80:400",
+    "120:280, 80:400, :"
+   ],
+   "mode": "code",
+   "hint": "행 범위와 열 범위",
+   "line_answer": [
+    "roi = frame[y0:y1, x0:x1]",
+    "roi = frame[y0:y1, x0:x1, :]",
+    "roi = frame[120:280, 80:400]",
+    "roi = frame[120:280, 80:400, :]"
+   ],
+   "facts": [
+    "FA18-302"
+   ],
+   "step": "a18c/3",
+   "core": true,
+   "family": "apc-slice",
+   "level": 2,
+   "tags": [
+    "프레임 중심 기록",
+    "행과 열"
+   ],
+   "ref": [
+    "응용 3차시 노트북 02 [7]",
+    "NumPy 문서 indexing"
+   ],
+   "explain": "배열은 행을 먼저, 열을 다음에 적습니다. 행 번호가 y 좌표라 `y0:y1`, 열 번호가 x 좌표라 `x0:x1`입니다. `frame[120:280, 80:400]`의 shape는 (160, 320, 3)입니다."
+  },
+  {
+   "id": "apc-n302",
+   "variant": "표준형",
+   "line": 9,
+   "token": "level, binary",
+   "note_only": true,
+   "answer": [
+    "level, binary",
+    "_, binary"
+   ],
+   "mode": "code",
+   "hint": "threshold가 돌려주는 두 값",
+   "line_answer": [
+    "level, binary = cv2.threshold(soft, 200, 255, cv2.THRESH_BINARY)",
+    "_, binary = cv2.threshold(soft, 200, 255, cv2.THRESH_BINARY)"
+   ],
+   "explain": "`threshold`는 사용한 기준값을 먼저, 결과 영상을 다음에 돌려줍니다. 다음 줄의 `findContours`가 둘째 이름 `binary`를 씁니다."
+  },
+  {
+   "id": "apc-n303",
+   "variant": "표준형",
+   "line": 10,
+   "token": "contours, hierarchy",
+   "note_only": true,
+   "answer": [
+    "contours, hierarchy",
+    "contours, _"
+   ],
+   "mode": "code",
+   "hint": "findContours가 돌려주는 두 값",
+   "explain": "OpenCV 4의 `findContours`는 윤곽 목록을 먼저, 계층 정보를 다음에 돌려줍니다. 아래 `for contour in contours:`가 윤곽 목록을 씁니다."
+  },
+  {
+   "id": "apc-n304",
+   "variant": "표준형",
+   "line": 11,
+   "token": "RETR_EXTERNAL",
+   "note_only": true,
+   "answer": [
+    "RETR_EXTERNAL"
+   ],
+   "mode": "code",
+   "hint": "가장 바깥 윤곽만 찾는 설정",
+   "line_answer": [
+    "binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)"
+   ],
+   "explain": "`RETR_EXTERNAL`은 가장 바깥 윤곽만 찾습니다. 스티커 구멍의 경계는 `contours`에 들어오지 않습니다."
+  }
+ ],
+ "orders": [
+  {
+   "id": "apc-o301",
+   "variant": "표준형",
+   "lines": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "valid": [
+    [
+     0,
+     1,
+     2,
+     3
+    ]
+   ],
+   "stem": "읽은 프레임에서 살필 영역을 잘라 상자가 255인 이진 영상을 만들기까지의 네 줄입니다. 줄 순서로 **옳은** 것을 고르세요.",
+   "facts": [
+    "FA18-309"
+   ],
+   "step": "a18c/3",
+   "core": false,
+   "level": 1,
+   "ref": [
+    "응용 3차시 노트북 02 [7]"
+   ],
+   "explain": "`roi`를 먼저 자르고, `cvtColor`가 그 `roi`를 회색조 `gray`로 바꿉니다. `GaussianBlur`가 `gray`의 잡음을 줄인 `soft`를 만들고, `threshold`가 `soft`에 기준 200을 적용해 `binary`를 만듭니다. 줄마다 앞 줄이 만든 이름을 받으므로 순서를 바꿀 수 없습니다."
+  }
+ ],
+ "picks": [
+  {
+   "id": "apc-p301",
+   "variant": "표준형",
+   "line": 9,
+   "stem": "`soft`는 어두운 벨트와 밝은 상자가 찍힌 회색조 영상입니다. 밝기가 200보다 큰 위치를 255로, 나머지를 0으로 둔 영상을 `binary`에 받는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "level, binary = cv2.threshold(soft, 200, 255, cv2.THRESH_BINARY_INV)",
+     "aim": "어두운 물체를 고르던 `THRESH_BINARY_INV`를 그대로 씁니다.",
+     "why": "`THRESH_BINARY_INV`는 200 이하인 위치를 255로 둡니다. 어두운 벨트가 255가 되고 밝은 상자는 0이 됩니다."
+    },
+    {
+     "text": "binary = cv2.threshold(soft, 200, 255, cv2.THRESH_BINARY)",
+     "aim": "반환값 두 개를 변수 하나에 받습니다.",
+     "why": "`threshold`는 사용한 기준값과 결과 영상을 차례로 돌려줍니다. 변수 하나에 받으면 `binary`는 두 값을 묶은 튜플이 됩니다."
+    },
+    {
+     "text": "binary, level = cv2.threshold(soft, 200, 255, cv2.THRESH_BINARY)",
+     "aim": "반환값의 순서를 바꿔 받습니다.",
+     "why": "첫째 반환값이 기준값이고 둘째가 결과 영상입니다. 이 줄의 `binary`에는 기준값 200이 들어갑니다."
+    }
+   ],
+   "facts": [
+    "FA18-303"
+   ],
+   "step": "a18c/3",
+   "core": true,
+   "family": "apc-threshold",
+   "level": 2,
+   "ref": [
+    "응용 3차시 노트북 03 [5]",
+    "OpenCV 문서 threshold"
+   ],
+   "explain": "밝은 상자를 255로 남기려면 기준보다 큰 위치를 255로 두는 `THRESH_BINARY`를 씁니다. 반환값은 기준값, 결과 영상 순서라 `level, binary`로 받습니다. 어두운 물체를 고를 때 쓰던 `THRESH_BINARY_INV`를 그대로 가져오면 벨트가 255, 상자가 0이 됩니다."
+  },
+  {
+   "id": "apc-p302",
+   "variant": "표준형",
+   "line": 12,
+   "stem": "어떤 프레임에서는 조건을 통과하는 윤곽이 하나도 없습니다. 그런 프레임에도 `centers`에 찾지 못했다는 표시가 한 칸 들어가도록, 윤곽을 살피는 for 문 바로 앞에 두는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "center = centers[-1]",
+     "aim": "직전 프레임의 중심을 이번 값으로 둡니다.",
+     "why": "못 찾은 프레임에 직전 중심이 다시 기록되어 이번 프레임에서 찾은 것처럼 보입니다. 프레임 0을 처리할 때는 `centers`가 비어 있어 IndexError가 납니다."
+    },
+    {
+     "text": "center = (0, 0)",
+     "aim": "찾지 못한 프레임을 좌표로 표시합니다.",
+     "why": "(0, 0)은 좌표 꼴이라 `centers`를 읽는 쪽이 `is None`으로 걸러 낼 수 없습니다. 이동 거리나 평균 위치를 구할 때 실제 위치처럼 섞입니다."
+    },
+    {
+     "text": "center = (x0, y0)",
+     "aim": "영역의 시작점을 기본값으로 둡니다.",
+     "why": "`(x0, y0)`은 원본의 (80, 120)이라는 좌표 꼴입니다. `is None`으로 걸러 낼 수 없어 이동 거리나 평균 위치를 구할 때 실제 위치처럼 섞입니다."
+    }
+   ],
+   "facts": [
+    "FA18-307",
+    "FA18-308"
+   ],
+   "step": "a18c/5",
+   "core": false,
+   "family": "apc-none",
+   "level": 2,
+   "ref": [
+    "응용 3차시 노트북 02 [7]",
+    "파이썬 문서 list"
+   ],
+   "explain": "for 문 앞에서 `center`를 None으로 두면 조건을 통과한 윤곽이 있을 때만 좌표로 바뀝니다. 통과한 윤곽이 없으면 None이 그대로 `centers.append(center)`에 들어가 찾지 못한 프레임이 표시됩니다."
+  },
+  {
+   "id": "apc-p303",
+   "variant": "표준형",
+   "line": 16,
+   "stem": "`roi`는 원본의 `y0`행, `x0`열에서 시작해 잘랐습니다. `roi` 안에서 구한 모멘트 `M`으로 원본 좌표 (x, y)의 중심을 만드는 줄로 **옳은** 것을 고르세요.",
+   "wrong": [
+    {
+     "text": "center = (M[\"m10\"] / M[\"m00\"], M[\"m01\"] / M[\"m00\"] + y0)",
+     "aim": "위쪽만 잘랐을 때처럼 y에만 시작 위치를 더합니다.",
+     "why": "이 코드의 `roi`는 왼쪽 80열도 잘라 냈습니다. x에 `x0`를 더하지 않으면 x가 80만큼 작게 기록됩니다."
+    },
+    {
+     "text": "center = (M[\"m10\"] / M[\"m00\"] + y0, M[\"m01\"] / M[\"m00\"] + x0)",
+     "aim": "시작 행과 시작 열을 바꿔 더합니다.",
+     "why": "x는 열 방향이라 시작 열 `x0`를, y는 행 방향이라 시작 행 `y0`를 더합니다. 이 줄은 x를 40만큼 크게, y를 40만큼 작게 기록합니다."
+    },
+    {
+     "text": "center = (M[\"m01\"] / M[\"m00\"] + x0, M[\"m10\"] / M[\"m00\"] + y0)",
+     "aim": "m10과 m01의 자리를 바꿉니다.",
+     "why": "m10을 m00으로 나눈 값이 `roi` 안의 x이고, m01을 m00으로 나눈 값이 `roi` 안의 y입니다. 이 줄은 x 자리에 y를 넣습니다."
+    }
+   ],
+   "facts": [
+    "FA18-305",
+    "FA18-306"
+   ],
+   "step": "a18c/4",
+   "core": true,
+   "family": "apc-offset",
+   "level": 2,
+   "ref": [
+    "응용 3차시 노트북 02 [7]",
+    "OpenCV 문서 moments"
+   ],
+   "explain": "`roi` 안의 중심은 (m10/m00, m01/m00)입니다. 원본 좌표로 옮기려면 x에 시작 열 `x0` = 80을, y에 시작 행 `y0` = 120을 더합니다. 모멘트가 (m00, m10, m01) = (1600, 96000, 128000)이면 `roi` 안의 중심은 (60, 80)이고 원본 좌표는 (140, 200)입니다."
+  }
+ ],
+ "changes": [
+  {
+   "id": "apc-x301",
+   "from": "기록을 놓친 코드",
+   "to": "표준형",
+   "stem": "읽기에 성공한 프레임마다 `centers`에 한 칸씩 넣고, 상자를 찾지 못한 프레임에는 None을 넣으려고 합니다. 고쳐야 할 줄을 **모두** 고르세요.",
+   "back": null,
+   "facts": [
+    "FA18-307"
+   ],
+   "step": "a18c/5",
+   "core": true,
+   "family": "apc-none",
+   "level": 3,
+   "ref": [
+    "응용 3차시 노트북 02 [7]",
+    "파이썬 문서 list"
+   ],
+   "explain": "`centers.append(center)`가 if 안에 있으면 상자를 찾은 프레임만 기록됩니다. 프레임 셋 가운데 하나에서 못 찾으면 `centers`에는 두 칸만 남습니다. 그래서 이 줄을 for 문이 끝난 뒤, while 안에 둡니다. 이렇게 옮기면 못 찾은 프레임에도 한 칸이 들어갑니다. 이때 `center = None`이 while 앞에서 한 번만 실행되면 그 칸에 직전 프레임의 중심이 들어갑니다. 그래서 `center = None`도 while 안, for 문 바로 앞으로 옮깁니다."
+  }
+ ]
+}
