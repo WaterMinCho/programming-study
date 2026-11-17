@@ -28,8 +28,8 @@ SAMPLES = 10
 SKEL_SEEDS = (1, 2, 3)  # 순서·고칠 줄 카드 견본 시드
 SKEL_FADES = (("f0", None), ("f2", 2), ("f3", 4))  # 뼈대 빈칸 견본 이름과 같은 코드 예제 자리 모두에 줄 상자
 WHOLE_KEY = re.compile(r"(S\d+) (.+) 전체\Z")
-SEED_KEY = re.compile(r"(pc-[ox]\d{2,3}) 시드 (\d+)\Z")
-SAMPLE_KEY = re.compile(r"(pc-k\d{2,3}) (f\d)\Z")
+SEED_KEY = re.compile(r"([a-z]+-[ox]\d{2,3}) 시드 (\d+)\Z")  # 무리 id(pc, apc)를 앞에 붙인 뼈대 카드. 차시·모의고사 id 는 숫자가 있어 맞지 않음
+SAMPLE_KEY = re.compile(r"([a-z]+-k\d{2,3}) (f\d)\Z")
 LEVEL_FILES = {7: "1_l7.md", 15: "2_l15.md", 20: "3_l20.md"}  # 세 수준 공개본의 수준 파일. 이 순서로 엶
 LEVELS_ANSWERS = "levels_answers.json"
 USAGE = """AI 비전 개론 봉인 도구 (출제자용)
@@ -42,6 +42,7 @@ USAGE = """AI 비전 개론 봉인 도구 (출제자용)
   python tools/ai_seal.py check                        봉인 안 된 평문이 있거나 sealed.json 이 깨졌으면 실패
   python tools/ai_seal.py brief i05 --out DIR          재풀이자에게 줄 공개본(정답 없음)을 저장소 밖 DIR 에 만듦
   python tools/ai_seal.py brief pc --out DIR           상황별 코드 공개본. sheet.md, whole.md, skel.md를 순서대로 풉니다
+                                                       응용 무리는 pc 대신 apc 처럼 그 무리 id 를 씁니다
   python tools/ai_seal.py levels l04 [l05 ...] --out DIR
                                                        학습 노트의 세 수준 블록 재풀이 공개본. 블록마다 폴더 하나이고
                                                        수준 파일을 하나씩 열며 levels_answers.json 을 채웁니다
@@ -149,8 +150,9 @@ def statement_rows(topic):
 # 상황별 코드 공개본(뼈대 카드)
 
 def pattern_cards(bank_dir, group):
-    """무리 하나의 뼈대와 공개 단원 카드 (skeletons, cards). l18 meta 의 units 에 적은 단원만."""
-    skeletons = skel.load_patterns(bank_dir)
+    """무리 하나의 뼈대와 공개 단원 카드 (skeletons, cards). 뼈대는 그 무리 폴더(folder 가 없으면 patterns 맨 위)에서만 읽고, 카드는
+    무리 노트 meta 의 units 에 적은 단원만."""
+    skeletons = skel.load_patterns(bank_dir, group.get("folder") or "")
     note = aibank.load_note({"id": group["page"], "title": group["title"]}, bank_dir)
     units = {key: {"after": info["after"], "name": info["name"], "title": note["units"][key]["title"]}
              for key, info in group["units"].items() if key in note["visible"]}

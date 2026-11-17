@@ -10,9 +10,63 @@ from tests import guikit
 from tests.test_gui_ai import AiTest
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtTest import QTest
-from gui import ai_learn, theme
+from gui import ai_learn, ai_text, theme
 from aiprep import service as ai_service
 from gui.docview import FigureView
+
+
+
+class CodingWithoutAppGroupTest(AiTest):
+    """응용 무리가 없는 고정 은행(pc 만 있음). 실제 은행으로 응용 코딩 구역이 숨는 것을 보던 확인을 무리 수와 상관없이 남김."""
+    pc = True
+
+    def test_app_course_without_group_hides_rows_and_says_not_yet(self):
+        win = self.boot((760, 480))
+        win.go_ai()
+        home = win.ai_home
+        guikit.click(home.browser.buttons["coding"])
+        self.idle()
+        self.assertTrue(home.pattern_section.isVisible())
+        win.switch_ai_course("app")
+        self.idle()
+        guikit.click(home.browser.buttons["coding"])
+        self.idle()
+        self.assertEqual({}, win.ai.patterns)
+        self.assertFalse(home.pattern_section.isVisible())
+        self.assertTrue(home.pattern_empty.isVisible())
+        self.assertIn("아직", home.pattern_empty.text())
+        self.assertEqual("", home.pattern_count.text())
+        self.assertEqual(ai_text.CODING_ABOUT["app"], home.pattern_about.text())
+
+
+class CodingWithAppGroupTest(AiTest):
+    """개론 무리 pc 와 응용 무리 apc 가 함께 든 고정 은행. 과정마다 자기 무리만 보이고 권하는 차시 글이 과정을 따름."""
+    apc = True
+
+    def rows(self, home):
+        return [(r.title.text(), r.second.text()) for r in home.pattern_list.rows]
+
+    def test_each_course_lists_its_own_coding_units(self):
+        win = self.boot((1024, 700))
+        win.go_ai()
+        home = win.ai_home
+        guikit.click(home.browser.buttons["coding"])
+        self.idle()
+        self.assertEqual([("학습 루프 · 시험 뼈대 단원", "90차시 뒤에 권함 · 약 6분")], self.rows(home))
+        self.assertEqual(ai_text.CODING_ABOUT["intro"], home.pattern_about.text())
+        win.switch_ai_course("app")
+        self.idle()
+        guikit.click(home.browser.buttons["coding"])
+        self.idle()
+        self.assertEqual(["apc"], list(win.ai.patterns))
+        self.assertTrue(home.pattern_section.isVisible())
+        self.assertFalse(home.pattern_empty.isVisible())
+        self.assertEqual([("응용 루프 · 시험 응용 단원", "응용 90차시 뒤에 권함 · 약 6분")], self.rows(home))
+        self.assertEqual(ai_text.CODING_ABOUT["app"], home.pattern_about.text())
+        self.assertEqual("공개된 단원 1개", home.pattern_count.text())
+        self.assertTrue(win.open_ai_unit("apc", "a18a"))
+        guikit.pump()
+        self.assertEqual("apc", win.ai_learn.lid)
 
 
 class CourseGuiTest(AiTest):

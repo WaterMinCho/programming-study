@@ -1341,5 +1341,149 @@ class PatternOverridesTest(PatternCase):
         self.assertNotIn("pc-k02:", out)
 
 
+
+class AppPatternCase(PatternCase):
+    """tests/aifix.apc_bank 로 개론 무리 pc(patterns/S90)와 응용 무리 apc(patterns/apc/S190)를 함께 둔 사본."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ai_tools_apc_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.bank = aifix.apc_bank(os.path.join(self.tmp, "bank"))
+
+    def edit_app_skeleton(self, fn):
+        self.edit_json("patterns/apc/S190.json", fn)
+
+    def edit_app_index(self, fn):
+        self.edit_json("index.json", lambda d: fn(next(g for g in d["patterns"] if g["id"] == "apc"), d))
+
+
+class AppPatternVerifyTest(AppPatternCase):
+    def test_two_groups_pass_and_each_target_runs_alone(self):
+        code, out = self.verify()
+        self.assertEqual(0, code, out)
+        self.assertIn("OK: 묶음 4개 통과", out)
+        self.assertIn("[pc] 상황별 코드", out)
+        self.assertIn("[apc] 상황별 코드", out)
+        code, out = self.verify("apc")
+        self.assertEqual(0, code, out)
+        self.assertIn("OK: 묶음 1개 통과", out)
+        self.assertNotIn("[pc]", out)
+        code, out = self.verify("pc")
+        self.assertEqual(0, code, out)
+        self.assertNotIn("[apc]", out)
+
+    def test_unit_key_course_and_after_follow_the_group(self):
+        self.edit_app_index(lambda g, d: g["units"].update({"18c": {"after": "a90", "name": "잘못 쓴 키"}}))
+        self.assertFails("patterns 의 단원 키는 a18a~a18h 여야 합니다: 18c")
+        self.edit_app_index(lambda g, d: g["units"].pop("18c"))
+        self.edit_app_index(lambda g, d: g["units"]["a18a"].update(after="i90"))
+        self.assertFails("patterns a18a 의 after i90 는 다른 과정의 차시입니다.")
+        self.edit_app_index(lambda g, d: g["units"]["a18a"].update(after="a90"))
+        self.edit_app_index(lambda g, d: g.update(page="l18"))
+        self.assertFails("patterns apc 의 course app 가 page l18 와 맞지 않습니다.")
+        self.edit_app_index(lambda g, d: g.update(page="al18", folder=""))
+        self.assertFails("patterns pc 와 apc 의 뼈대 폴더가 같습니다.")
+
+    def test_lesson_page_must_differ_from_group_page(self):
+        self.edit_app_index(lambda group, data: data["lessons"].append(dict(aifix.APP_LESSON, id="a18", no=18, page="al18")))
+        self.assertFails("lessons a18 의 page al18 가 patterns apc 의 page 와 같습니다.")
+
+    def test_card_id_head_is_the_group_id(self):
+        def rename(old, new):
+            def change(data):
+                for entry in data["slots"]:
+                    if entry["id"] == old:
+                        entry["id"] = new
+            return change
+        self.edit_app_skeleton(rename("apc-k06", "pc-k16"))
+        self.assertFails("S190 pc-k16 의 id 꼴이 apc-k01 이 아닙니다.", "apc")
+        self.edit_app_skeleton(rename("pc-k16", "apc-k06"))
+        self.edit_skeleton(lambda d: d["slots"][5].update(id="apc-k16"))
+        self.assertFails("S90 apc-k16 의 id 꼴이 pc-k01 이 아닙니다.", "pc")
+
+    def test_same_skeleton_id_in_two_folders_fails_the_sub_folder_group(self):
+        shutil.copy(self.path("patterns/S90.json"), self.path("patterns/apc/S90.json"))
+        code, out = self.verify()
+        self.assertEqual(1, code, out)
+        self.assertIn("patterns/apc 의 뼈대 id 가 patterns/ 에도 있습니다: S90", out)
+        code, out = self.verify("pc")
+        self.assertEqual(0, code, out)
+
+    def test_review_variants_refuse_coding_cards(self):
+        self.write("review_variants.json", json.dumps({"version": 1, "pairs": {"i90-b01": ["i90-b02"]}}))
+        code, out = self.verify()
+        self.assertEqual(0, code, out)
+        self.write("review_variants.json", json.dumps({"version": 1, "pairs": {"i90-b01": ["apc-k01"]}}))
+        self.assertFails("복습 변형 목록에 코딩 실습 카드를 넣지 않습니다: apc-k01")
+        self.write("review_variants.json", json.dumps({"version": 1, "pairs": {"i90-b01": ["pc-k01"]}}))
+        code, out = self.verify()
+        self.assertNotIn("코딩 실습 카드를 넣지 않습니다", out)  # pc 카드는 CARD_ID 가 받으므로 이 검사로 막지 않음
+
+    def test_variant_figures_must_exist(self):
+        self.edit_app_skeleton(lambda d: d["variants"]["가"].update(figures={"input": "learn/al18/assets/a18a-1.png"}))
+        self.assertFails("S190 의 가 코드 예제 input 그림이 없습니다: learn/al18/assets/a18a-1.png", "apc")
+
+
+class AppPatternSignTest(AppPatternCase):
+    def test_each_group_signature_covers_only_its_folder(self):
+        for gid in ("pc", "apc"):
+            code, out = self.verify(gid, "--sign", *NAMES)
+            self.assertEqual(0, code, out)
+        app = json.loads(study.read_text(self.path("items/apc/work/review.json")))["files"]
+        intro = json.loads(study.read_text(self.path("items/pc/work/review.json")))["files"]
+        self.assertEqual({"meta.json", "patterns/apc/S190.json", "work/facts.json"}, set(app))
+        self.assertEqual({"meta.json", "patterns/S90.json", "work/facts.json"}, set(intro))
+        self.edit_app_skeleton(lambda d: d["slots"][2].update(hint="메서드"))
+        self.assertFails("검토 뒤에 바뀐 파일: patterns/apc/S190.json", "apc", "--require-review")
+        code, out = self.verify("pc", "--require-review")
+        self.assertEqual(0, code, out)
+
+    def test_brief_keys_use_the_group_id_and_grade(self):
+        out_dir = os.path.join(self.tmp, "brief")
+        code, out = quiet(ai_seal.main, ["brief", "apc", "--out", out_dir, "--bank", self.bank])
+        self.assertEqual(0, code, out)
+        answers = study.read_json(os.path.join(out_dir, "answers.json"))
+        self.assertIn("apc-o01 시드 1", answers)
+        self.assertIn("S190 가 전체", answers)
+        self.assertFalse([key for key in answers if key.startswith("pc-") or key.startswith("S90 ")])
+        self.assertEqual(18, len([k for k in answers if ai_seal.SAMPLE_KEY.match(k)]))
+        group = next(g for g in verify_ai.aibank.read_index(self.bank)["patterns"] if g["id"] == "apc")
+        skeletons, made = ai_seal.pattern_cards(self.bank, group)
+        self.assertEqual(["S190"], list(skeletons))
+        cards = {c["id"]: c for c in made}
+        skeleton = skeletons["S190"]
+        for key in answers:
+            whole, sample, seed = ai_seal.WHOLE_KEY.match(key), ai_seal.SAMPLE_KEY.match(key), ai_seal.SEED_KEY.match(key)
+            if whole:
+                answers[key] = [b["answer"][0] for b in ai_seal.whole_view(skeleton, "가", list(cards.values()))["blanks"]]
+            elif sample:
+                view = dict(ai_seal.skel_samples(cards[sample.group(1)], skeleton, list(cards.values())))[sample.group(2)]
+                answers[key] = [b["answer"][-1] for b in view["blanks"]]
+            else:
+                card = cards[seed.group(1) if seed else key]
+                view = ai_seal.skel_choice(card, skeleton, int(seed.group(2)) if seed else None)
+                order = ai_seal.skel_option_order(card, len(view["options"]))
+                answers[key] = {"picked": [order.index(n) + 1 for n, o in enumerate(view["options"]) if o["ok"]]}
+        path = os.path.join(self.tmp, "answers.json")
+        study.write_text(path, json.dumps(answers, ensure_ascii=False))
+        code, out = self.verify("apc", "--answers", path)
+        self.assertIn("재풀이 대조: 맞음 %d / %d" % (len(answers), len(answers)), out)
+
+
+class AppPatternOverlapTest(AppPatternCase):
+    def test_targets_are_split_by_group(self):
+        names = [t[0] for t in ai_overlap.targets(self.bank, ["apc"])]
+        self.assertIn("al18 page.md", names)
+        self.assertIn("patterns/apc/S190.json apc-p01", names)
+        self.assertIn("apc facts FA18-02", names)
+        self.assertFalse([n for n in names if n.startswith(("l18 ", "patterns/S90", "pc "))])
+        self.assertEqual(names, [t[0] for t in ai_overlap.targets(self.bank, ["al18"])])
+        self.assertEqual(names, [t[0] for t in ai_overlap.targets(self.bank, ["S190"])])
+        intro = [t[0] for t in ai_overlap.targets(self.bank, ["pc"])]
+        only_pc = [t[0] for t in ai_overlap.targets(aifix.pc_bank(os.path.join(self.tmp, "pc_only")), ["pc"])]
+        self.assertEqual(only_pc, intro)
+        self.assertEqual(17, len(intro))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,8 @@ def teaching_text(text):
     return re.sub(r"(^|(?<=[.!?])\s+|\n)정정:\s*", r"\1", text)
 
 CODING_TITLE = bank.CODING_TITLE
+CODING_ABOUT = {"intro": "학습·평가·분류에 쓰는 코드를 읽고 빈칸과 실행 순서를 연습합니다.",
+                "app": "이미지와 영상 프레임을 다루는 코드를 읽고 빈칸과 실행 순서를 연습합니다."}
 
 TRACK = "AI"
 COURSES = {"intro": "개론", "app": "응용"}
@@ -243,8 +245,9 @@ def unit_line(unit):
 
 
 def pattern_line(unit):
-    """상황별 코드의 권장 순서와 읽기·연습·복습 기록을 표시함."""
-    parts = ["%d차시 뒤에 권함" % unit["after_no"]] if unit.get("after_no") else []
+    """상황별 코드의 권장 순서와 읽기·연습·복습 기록을 표시함. 권하는 차시가 응용이면 "응용 N차시 뒤에 권함"."""
+    label = "응용 %d차시" if bank.course_of(unit.get("after")) == "app" else "%d차시"
+    parts = ["%s 뒤에 권함" % (label % unit["after_no"])] if unit.get("after_no") else []
     if unit["read"]:
         parts.append("읽기 마침")
         if "practiced" in unit:

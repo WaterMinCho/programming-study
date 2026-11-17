@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-"""상황별 코드 뼈대(ai/patterns/S*.json)와 뼈대 카드(설계 3.7, 3.7.1, 3.7.2). 화면과 서비스, verify_ai, ai_seal, ai_overlap 이
-같이 씀. 코드는 실행하지 않고 줄 글만 다룸.
+"""상황별 코드 뼈대와 뼈대 카드(설계 3.7, 3.7.1, 3.7.2). 화면과 서비스, verify_ai, ai_seal, ai_overlap 이 같이 씀. 코드는
+실행하지 않고 줄 글만 다룸. 뼈대 파일은 무리마다 폴더를 따로 둠. index.json 무리 항목에 folder 가 없으면 ai/patterns/S*.json
+(개론 pc), 있으면 ai/patterns/<folder>/S*.json(응용 apc 는 patterns/apc) 이고 뼈대 id 는 은행 전체에서 하나씩임.
 
 뼈대 하나는 코드 예제(variants)마다 상황 글(situation)과 줄(lines)을 갖고, 카드 넷을 적음. slot 은 코드 예제 전체를 보이고 주 자리와 점차
 지우기 단계만큼의 다른 자리를 가린 빈칸, order 는 줄 순서 고르기, pick 은 그 자리에 맞는 줄 고르기, change 는 한 코드 예제를 다른 코드 예제로
-바꿀 때 고칠 줄 모두 고르기임. 카드 id 는 pc-k01(slot), pc-o01(order), pc-p01(pick), pc-x01(change). 보기를 섞는 난수는
+바꿀 때 고칠 줄 모두 고르기임. 카드 id 는 무리 id 를 앞에 붙인 pc-k01(slot), pc-o01(order), pc-p01(pick), pc-x01(change) 꼴이고
+응용 무리는 apc-k01 처럼 씀. 보기를 섞는 난수는
 gen.Rng 라 파이썬 버전이 달라도 같은 시드면 같은 보기가 나옴.
 """
 import difflib
@@ -22,6 +24,8 @@ CARD_ORDER = ("order", "pick", "change", "slot")  # 같은 코드 예제 고르�
 SIMILAR = 0.5  # diff 짝 풀기 기준
 ROTATE_GAP = 3  # 돌려 가며 빈칸에서 틀린 자리를 다시 넣는 거리
 PATTERN_FILE = re.compile(r"(S\d+)\.json\Z")
+FIGURE_KEYS = ("input", "output")  # 코드 예제 figures 에 둘 수 있는 그림. 화면 값에만 넘기고 카드 dict 에는 넣지 않음
+FIGURE_PATH = re.compile(r"learn/a?l\d{2}/assets/[\w.-]+\.png")
 SLOT_STEM = "빈칸에 들어갈 코드를 쓰세요."
 ORDER_STEM = "줄의 순서로 **옳은** 것을 고르세요."
 ORDER_HEAD = "줄 순서로 옳은 것 고르기"
@@ -46,35 +50,95 @@ def _list(value):
 
 # 읽기
 
-def load_patterns(root=None):
-    """ai/patterns/S*.json 을 {"S1": 뼈대 dict} 로. 폴더가 없으면 {}. 못 읽거나 id 가 파일 이름과 다르거나 코드 예제가 꼴에 맞지
-    않으면 bank.AiBankError. 카드 필드의 뜻은 verify_ai 가 보고 여기서는 화면이 멈추지 않을 만큼만 봄."""
-    folder = os.path.join(root or bank.AI_DIR, "patterns")
-    if not os.path.isdir(folder):
+def _folders(root):
+    """뼈대를 둘 수 있는 폴더 이름 목록. "" 은 patterns 맨 위, 나머지는 patterns 아래 하위 폴더임."""
+    top = os.path.join(root or bank.AI_DIR, "patterns")
+    if not os.path.isdir(top):
+        return []
+    return [""] + sorted(n for n in os.listdir(top) if bank.PATTERN_FOLDER.fullmatch(n) and os.path.isdir(os.path.join(top, n)))
+
+
+def _ids_in(root, folder):
+    path = os.path.join(root or bank.AI_DIR, "patterns", folder)
+    try:
+        return {PATTERN_FILE.match(n).group(1) for n in os.listdir(path) if PATTERN_FILE.match(n)}
+    except OSError:
+        return set()
+
+
+def load_patterns(root=None, folder=""):
+    """ai/patterns 의 S*.json 을 {"S1": 뼈대 dict} 로. folder 가 "" 이면 맨 위만, 이름이면 patterns/<folder> 만 읽음. 폴더가 없으면
+    {}. 못 읽거나 id 가 파일 이름과 다르거나 코드 예제가 꼴에 맞지 않으면 bank.AiBankError. 하위 폴더를 읽을 때는 같은 뼈대 id 가 다른
+    폴더에 있어도 오류임(맨 위를 읽을 때는 하위 폴더를 보지 않아 하위 폴더의 잘못이 개론 무리를 닫지 않음). 카드 필드의 뜻은
+    verify_ai 가 보고 여기서는 화면이 멈추지 않을 만큼만 봄."""
+    path = os.path.join(root or bank.AI_DIR, "patterns", folder)
+    if not os.path.isdir(path):
         return {}
+    shown = "patterns/%s" % (folder + "/" if folder else "")
     out = {}
-    names = [n for n in os.listdir(folder) if PATTERN_FILE.match(n)]
+    names = [n for n in os.listdir(path) if PATTERN_FILE.match(n)]
+    if folder:
+        for other in _folders(root):
+            if other != folder:
+                same = sorted(_ids_in(root, other) & {PATTERN_FILE.match(n).group(1) for n in names}, key=_number)
+                if same:
+                    raise bank.AiBankError("%s 의 뼈대 id 가 patterns/%s 에도 있습니다: %s" % (shown.rstrip("/"), other or "", ", ".join(same)))
     for name in sorted(names, key=lambda n: _number(n[:-5])):
         sid = PATTERN_FILE.match(name).group(1)
         try:
-            data = study.read_json(os.path.join(folder, name))
+            data = study.read_json(os.path.join(path, name))
         except (OSError, ValueError) as error:
-            raise bank.AiBankError("patterns/%s 을 읽을 수 없습니다: %s" % (name, error))
+            raise bank.AiBankError("%s%s 을 읽을 수 없습니다: %s" % (shown, name, error))
         if not isinstance(data, dict) or data.get("id") != sid:
-            raise bank.AiBankError("patterns/%s 의 id 가 파일 이름과 다릅니다: %r" % (name, data.get("id") if isinstance(data, dict) else None))
+            raise bank.AiBankError("%s%s 의 id 가 파일 이름과 다릅니다: %r" % (shown, name, data.get("id") if isinstance(data, dict) else None))
         variants = data.get("variants")
         if not isinstance(variants, dict) or not variants:
-            raise bank.AiBankError("patterns/%s 에 코드 예제(variants)이 없습니다." % name)
+            raise bank.AiBankError("%s%s 에 코드 예제(variants)이 없습니다." % (shown, name))
         for vname, variant in variants.items():
             lines = variant.get("lines") if isinstance(variant, dict) else None
             if not isinstance(lines, list) or not lines or not all(isinstance(line, str) for line in lines):
-                raise bank.AiBankError("patterns/%s 의 %s 코드 예제 lines 는 글 목록이어야 합니다." % (name, vname))
+                raise bank.AiBankError("%s%s 의 %s 코드 예제 lines 는 글 목록이어야 합니다." % (shown, name, vname))
+            figures = variant.get("figures")
+            if figures is not None and (not isinstance(figures, dict) or not figures or set(figures) - set(FIGURE_KEYS)
+                                        or not all(isinstance(v, str) and FIGURE_PATH.fullmatch(v) for v in figures.values())):
+                raise bank.AiBankError("%s%s 의 %s 코드 예제 figures 는 input·output 키와 learn/<노트>/assets/<이름>.png 경로만 받습니다."
+                                       % (shown, name, vname))
         for key in PART_KEY.values():
             entries = data.get(key) or []
             if not isinstance(entries, list) or not all(isinstance(e, dict) and isinstance(e.get("id"), str) for e in entries):
-                raise bank.AiBankError("patterns/%s 의 %s 는 id 가 있는 객체 목록이어야 합니다." % (name, key))
+                raise bank.AiBankError("%s%s 의 %s 는 id 가 있는 객체 목록이어야 합니다." % (shown, name, key))
         out[sid] = data
     return out
+
+
+def load_all_patterns(root=None):
+    """맨 위와 모든 하위 폴더의 뼈대를 한 dict 로. 같은 뼈대 id 가 두 폴더에 있으면 bank.AiBankError. 도구(verify_ai, 모의고사
+    pattern 대조)가 씀. 세션은 과정 무리의 폴더만 읽음."""
+    out = {}
+    for folder in _folders(root):
+        for sid, data in load_patterns(root, folder).items():
+            if sid in out:
+                raise bank.AiBankError("뼈대 id %s 가 두 폴더에 있습니다." % sid)
+            out[sid] = data
+    return dict(sorted(out.items(), key=lambda pair: _number(pair[0])))
+
+
+def course_patterns(root, groups, course):
+    """과정의 뼈대. 그 과정 무리의 폴더를 모두 읽고, 그 과정에 무리가 없으면 맨 위 폴더를 읽음(무리를 나누기 전과 같은 값)."""
+    folders = list(dict.fromkeys(g.get("folder") or "" for g in groups if g.get("course") == course))
+    out = {}
+    for folder in folders or [""]:
+        out.update(load_patterns(root, folder))
+    return out
+
+
+def figures_of(skeleton, name, root=None):
+    """코드 예제의 입력·결과 그림 {"input", "output"} 을 은행 기준 절대 경로로. 적지 않았으면 {}."""
+    variant = (skeleton.get("variants") or {}).get(name)
+    figures = variant.get("figures") if isinstance(variant, dict) else None
+    if not isinstance(figures, dict):
+        return {}
+    return {key: os.path.join(root or bank.AI_DIR, *value.split("/")) for key, value in figures.items()}
 
 
 def variant_of(skeleton, name):
