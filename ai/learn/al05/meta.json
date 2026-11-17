@@ -1,0 +1,82 @@
+{
+ "format": 1,
+ "id": "al05",
+ "lesson": "a05",
+ "title": "응용 5차시 사전학습 CNN을 새 분류와 추론에 맞추기",
+ "defines": [],
+ "needs": [
+  "al04",
+  "l06",
+  "l09",
+  "l10",
+  "l11",
+  "l12",
+  "l13",
+  "l14",
+  "l15",
+  "l16"
+ ],
+ "sections": {
+  "a5a": "AlexNet 공간 크기를 내림으로 따라가기",
+  "a5b": "한 함수에서 학습 단계와 검증 단계 나누기",
+  "a5c": "손실 기준과 정확도 기준으로 고른 에폭 비교하기",
+  "a5d": "1000개 출력 번호를 라벨 사전으로 이름 바꾸기",
+  "a5e": "Inception 갈래를 합치고 코드에 적힌 층으로 계산량 세기"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "AlexNet 공간 크기를 내림으로 따라가기",
+   "url": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.alexnet.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "한 함수에서 학습 단계와 검증 단계 나누기",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.autograd.grad_mode.set_grad_enabled.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "손실 기준과 정확도 기준으로 고른 에폭 비교하기",
+   "url": "https://docs.pytorch.org/docs/2.15/data.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "1000개 출력 번호를 라벨 사전으로 이름 바꾸기",
+   "url": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.vgg13.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "Inception 갈래를 합치고 코드에 적힌 층으로 계산량 세기",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Conv2d.html",
+   "checked": "2026-11-17"
+  }
+ ],
+ "units": {
+  "a5a": {
+   "minutes": 7,
+   "key_figure": "assets/a5a-1.gif",
+   "kind": "concept"
+  },
+  "a5b": {
+   "minutes": 6,
+   "key_figure": "assets/a5b-2.gif",
+   "kind": "concept"
+  },
+  "a5c": {
+   "minutes": 7,
+   "key_figure": "assets/a5c-2.gif",
+   "kind": "concept"
+  },
+  "a5d": {
+   "minutes": 6,
+   "key_figure": "assets/a5d-1.gif",
+   "kind": "concept"
+  },
+  "a5e": {
+   "minutes": 8,
+   "key_figure": "assets/a5e-1.gif",
+   "kind": "concept"
+  }
+ }
+}
