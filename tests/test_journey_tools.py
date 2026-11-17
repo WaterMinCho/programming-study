@@ -900,13 +900,14 @@ class WorkflowTest(unittest.TestCase):
     def test_ci_workflow_keeps_scoped_bank_model_and_gui_checks(self):
         text, data = self.load("ci.yml")
         jobs = data["jobs"]
-        self.assertEqual(["scope", "bank", "model", "gui", "required"], list(jobs))
-        self.assertEqual(["변경 범위", "기능·자료 검사", "모델 제출 검사", "화면 테스트", "필수 검사"],
+        self.assertEqual(["scope", "bank", "launcher", "model", "gui", "required"], list(jobs))
+        self.assertEqual(["변경 범위", "기능·자료 검사", "실행기 검사 (${{ matrix.os }})", "모델 제출 검사", "화면 테스트", "필수 검사"],
                          [job["name"] for job in jobs.values()])
+        self.assertEqual("needs.scope.outputs.launcher == 'true'", jobs["launcher"]["if"])
         self.assertEqual("needs.scope.outputs.bank == 'true' || needs.scope.outputs.unit == 'true'", jobs["bank"]["if"])
         self.assertEqual("needs.scope.outputs.model == 'true'", jobs["model"]["if"])
         self.assertIn("python -m tools.pr_checks model", runs(jobs["model"]))
-        self.assertEqual(["scope", "bank", "gui", "model"], jobs["required"]["needs"])
+        self.assertEqual(["scope", "bank", "gui", "model", "launcher"], jobs["required"]["needs"])
         self.assertEqual("always()", jobs["required"]["if"])
         bank_runs = runs(jobs["bank"])
         at = bank_runs.index("python tools/verify_bank.py")
@@ -917,9 +918,12 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual({"STUDY_LEAN_CI": "1"}, jobs["bank"]["steps"][-1]["env"])
         self.assertEqual(9, len(jobs["bank"]["steps"]))
         gui = jobs["gui"]["steps"][-1]
-        self.assertIn('unittest.defaultTestLoader.discover("tests", pattern="test_gui*.py", top_level_dir=".")', gui["run"])
-        self.assertIn('sys.exit(not result.wasSuccessful())', gui["run"])
-        self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', gui["run"])
+        self.assertEqual("python tools/check_gui.py", gui["run"])
+        with open(os.path.join(ROOT, "tools", "check_gui.py"), encoding="utf-8") as handle:
+            script = handle.read()
+        self.assertIn('pattern="test_gui*.py"', script)
+        self.assertIn('return 0 if result.wasSuccessful() else 1', script)
+        self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', script)
         self.assertEqual({"QT_QPA_PLATFORM": "offscreen"}, gui["env"])
         setup = next(step for step in jobs["gui"]["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
         self.assertEqual("3.13", setup["with"]["python-version"])

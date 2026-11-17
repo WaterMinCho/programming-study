@@ -121,19 +121,19 @@ class TeamDashboardTest(unittest.TestCase):
     def test_today_accounts_are_period_independent_and_clear_on_failure_or_revocation(self):
         for days in PERIODS:
             self.card.select(days)
-            self.assertEqual("확인된 6개", self.card.today_value.text())
+            self.assertEqual("6개", self.card.today_value.text())
+        # 예전 툴팁은 선택 항목·신호·구버전·이전 인증을 여러 문장으로 설명했음. 지금은 기준 한 문장만 둠.
+        tip = "한국 시간 오늘 문제를 하나라도 풀고 채점한 인증 계정 수입니다."
+        self.assertEqual(tip, self.card.today_info.toolTip())
         today = self.result(7)["today"]
         self.card.set_today(dict(today, coverage="partial"))
-        self.assertEqual("확인된 6개", self.card.today_value.text())
-        self.assertIn("기기 확인 코드가 남아 있으면 자동으로 확인", self.card.today_info.toolTip())
-        self.assertIn("채점 완료 신호", self.card.today_info.toolTip())
-        self.assertIn("[오늘 공부한 계정 수에 포함]을 선택", self.card.today_info.toolTip())
-        self.assertIn("구버전 앱", self.card.today_info.toolTip())
+        self.assertEqual("6개", self.card.today_value.text())
+        self.assertEqual(tip, self.card.today_info.toolTip())
         self.card.set_today(dict(today, accounts=0))
-        self.assertEqual("확인된 0개", self.card.today_value.text())
+        self.assertEqual("0개", self.card.today_value.text())
         self.card.set_today(None)
         self.assertEqual("집계 준비 중", self.card.today_value.text())
-        self.assertIn("아직 제공하지 않습니다", self.card.today_info.toolTip())
+        self.assertEqual(tip, self.card.today_info.toolTip())
         self.card.set_today(dict(today, accounts=-1))
         self.assertEqual("확인 불가", self.card.today_value.text())
         self.card.set_today(today)
@@ -144,6 +144,7 @@ class TeamDashboardTest(unittest.TestCase):
         self.assertIsNone(self.card.today_summary)
         self.controller.run_job.call_args.kwargs["on_fail"]()
         self.assertEqual("조회 실패", self.card.today_value.text())
+        self.assertEqual(tip + " [새로고침]을 눌러 다시 불러와 주세요.", self.card.today_info.toolTip())
         self.card.set_today(today)
         self.card.fetch()
         done = self.controller.run_job.call_args.args[2]
@@ -162,17 +163,18 @@ class TeamDashboardTest(unittest.TestCase):
         with mock.patch("gui.team_dashboard.datetime.datetime", wraps=real_datetime) as clock:
             clock.now.return_value = before.astimezone(KST)
             self.card.set_today(today)
-            self.assertEqual("확인된 6개", self.card.today_value.text())
+            self.assertEqual("6개", self.card.today_value.text())
             self.assertEqual(1000, self.card.today_timer.interval())
             clock.now.return_value = (before + datetime.timedelta(seconds=1)).astimezone(KST)
             self.card.today_timer.timeout.emit()
-        self.assertEqual("11/16 · 확인된 6개", self.card.today_value.text())
+        self.assertEqual("11/16 · 6개", self.card.today_value.text())
         self.assertEqual("secondary", self.card.today_value.property("tone"))
-        self.assertIn("오늘의 수치가 아닙니다", self.card.today_info.toolTip())
+        self.assertEqual("한국 시간 오늘 문제를 하나라도 풀고 채점한 인증 계정 수입니다. 오늘 수치가 아니니 [새로고침]을 눌러 주세요.",
+                         self.card.today_info.toolTip())
         self.assertEqual("11월 13일 17:20 기준", self.card.as_of.text())
         self.assertFalse(self.card.today_timer.isActive())
         self.card.fetch()
-        self.assertEqual("확인된 6개", self.card.today_value.text())
+        self.assertEqual("6개", self.card.today_value.text())
         self.assertFalse(self.card.today_value.property("tone"))
 
     def test_today_status_and_theme_changes_keep_the_selected_font_size(self):

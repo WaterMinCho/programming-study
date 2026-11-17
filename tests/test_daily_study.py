@@ -1,4 +1,4 @@
-"""계정별 당일 신호의 선택·날짜·재전송·철회를 확인함."""
+"""인증 계정의 당일 채점 표식과 전송을 확인함. 학습 기록 제공 동의와는 따로 동작함."""
 import datetime
 import json
 import tempfile
@@ -8,7 +8,7 @@ from unittest import mock
 
 import study
 from learning_data.collection import CollectionError
-from learning_data.daily_study import DailyStudy, KST
+from learning_data.daily_study import DailyStudy, KST, VERSION
 from learning_data.identity import Identity
 from learning_data.privacy import save
 
@@ -21,107 +21,111 @@ class DailyStudyTest(unittest.TestCase):
         self.identity.save({"verified": True, "team": False, "token": "a" * 64})
         self.daily = DailyStudy(self.identity)
         self.day = datetime.datetime.now(KST).date().isoformat()
-        self.store = mock.Mock()
-        self.stores = {"ai": self.store}
 
-    def marker(self):
-        return {"date": self.day, "identity": self.daily.fingerprint(), "choice": self.daily.settings()["choice"]}
+    def sent(self):
+        return {"eligible": True, "date": self.day}
 
-    def test_default_off_and_explicit_choice_does_not_send_prior_answers(self):
+    def test_nothing_is_sent_before_a_grade_today(self):
+        # 예전에는 기본 꺼짐과 선택을 확인했음. 선택이 없어져 채점 표식이 없으면 보내지 않는지 봄.
         with mock.patch("learning_data.daily_study.request") as request:
-            self.daily.synchronize(self.stores, allowed=True)
-            self.assertFalse(self.daily.enabled())
-            self.daily.choose(True)
-            self.store.daily_study.return_value = {}
-            self.daily.synchronize(self.stores, allowed=True)
+            self.daily.synchronize()
+            self.assertFalse(self.daily.due())
             request.assert_not_called()
 
     def test_current_grade_is_sent_once_and_only_date_and_existing_nonce_leave(self):
-        self.daily.choose(True)
         nonce = self.identity.installation_nonce()
-        self.store.daily_study.return_value = self.marker()
-        with mock.patch("learning_data.daily_study.request", return_value={"eligible": True, "date": self.day}) as request:
-            self.daily.synchronize(self.stores, allowed=True)
-            self.daily.synchronize(self.stores, allowed=True)
+        self.assertTrue(self.daily.mark())
+        self.assertFalse(self.daily.mark())
+        self.assertTrue(self.daily.due())
+        with mock.patch("learning_data.daily_study.request", return_value=self.sent()) as request:
+            self.daily.synchronize()
+            self.daily.synchronize()
             request.assert_called_once()
             self.assertEqual({"date": self.day, "accepted": True, "nonce": nonce}, request.call_args.args[2])
+            self.assertEqual("POST", request.call_args.kwargs["method"])
+            self.assertEqual("/v1/identity/study-activity", request.call_args.args[1])
+        self.assertFalse(self.daily.due())
         saved = self.daily.path.read_text()
         self.assertNotIn("a" * 64, saved)
         self.assertNotIn(nonce, saved)
+        self.assertEqual({"version", "date", "graded", "sent"}, set(json.loads(saved)))
 
-    def test_wrong_account_day_or_choice_and_stopped_collection_are_not_sent(self):
-        self.daily.choose(True)
-        marker = self.marker()
+    def test_unverified_or_canceled_or_other_account_is_not_sent(self):
+        # 예전에는 다른 날짜·선택 구분값·수집 중지도 확인했음. 표식에 선택 구분값이 없어져 계정과 취소만 봄.
+        with tempfile.TemporaryDirectory() as home:
+            unverified = DailyStudy(Identity(study.ROOT, "tester", home=home))
+            self.assertFalse(unverified.mark())
+            self.assertFalse(unverified.path.exists())
+            with mock.patch("learning_data.daily_study.request") as request:
+                unverified.synchronize()
+                request.assert_not_called()
+        self.daily.mark()
         with mock.patch("learning_data.daily_study.request") as request:
-            for change in ({"date": "2000-01-01"}, {"date": "2099-01-01"}, {"identity": "b" * 64}, {"choice": "previous"}):
-                self.store.daily_study.return_value = dict(marker, **change)
-                self.daily.synchronize(self.stores, allowed=True)
-            self.store.daily_study.return_value = marker
-            self.daily.synchronize(self.stores, allowed=False)
-            self.daily.synchronize(self.stores, allowed=True, canceled=lambda: True)
+            self.daily.synchronize(canceled=lambda: True)
             self.identity.save({"verified": True, "team": False, "token": "b" * 64})
-            self.daily.synchronize(self.stores, allowed=True)
-            self.assertFalse(self.daily.enabled())
+            self.daily.synchronize()
+            self.assertFalse(self.daily.due())
             request.assert_not_called()
 
-    def test_network_failure_retries_and_account_switch_does_not_reuse_marker(self):
-        self.daily.choose(True)
-        self.store.daily_study.return_value = self.marker()
-        with mock.patch("learning_data.daily_study.request", side_effect=[CollectionError("offline"), {"eligible": True, "date": self.day}]) as request:
+    def test_network_failure_retries(self):
+        self.daily.mark()
+        with mock.patch("learning_data.daily_study.request", side_effect=[CollectionError("offline"), self.sent()]) as request:
             with self.assertRaises(CollectionError):
-                self.daily.synchronize(self.stores, allowed=True)
-            self.assertNotIn("sent_date", self.daily.settings())
-            self.daily.synchronize(self.stores, allowed=True)
+                self.daily.synchronize()
+            self.assertTrue(self.daily.due())
+            self.daily.synchronize()
             self.assertEqual(2, request.call_count)
+        self.assertFalse(self.daily.due())
 
-    def test_disable_deletes_even_without_research_permission_and_waits_for_confirmation(self):
-        self.daily.choose(True)
-        old_choice = self.daily.settings()["choice"]
-        self.daily.choose(False)
-        self.assertFalse(self.daily.enabled())
-        with self.assertRaises(CollectionError):
-            self.daily.choose(True)
-        with mock.patch("learning_data.daily_study.request", return_value={"eligible": True, "deleted": True}) as request:
-            self.assertEqual("deleted", self.daily.synchronize({}, allowed=False))
-            self.assertEqual("DELETE", request.call_args.kwargs["method"])
-            self.assertEqual({}, request.call_args.args[2])
-        self.assertFalse(self.daily.settings()["delete_pending"])
-        self.assertFalse(self.identity.path.with_name("identity-device.json").exists())
-        self.daily.choose(True)
-        self.assertNotEqual(old_choice, self.daily.settings()["choice"])
+    def test_never_sends_a_delete_request(self):
+        # 예전에는 선택을 끄면 삭제 요청을 보냈음. 선택이 없어져 삭제 요청을 보내지 않음.
+        self.daily.mark()
+        with mock.patch("learning_data.daily_study.request", return_value=self.sent()) as request:
+            self.daily.synchronize()
+            self.daily.synchronize()
+        self.assertEqual(["POST"], [call.kwargs["method"] for call in request.call_args_list])
 
-    def test_old_server_or_unlinked_grant_never_mark_the_signal_as_sent(self):
-        self.daily.choose(True)
-        self.store.daily_study.return_value = self.marker()
-        with mock.patch("learning_data.daily_study.request", return_value={"eligible": False, "date": self.day}):
-            self.daily.synchronize(self.stores, allowed=True)
-        self.assertNotIn("sent_date", self.daily.settings())
+    def test_unlinked_grant_is_not_sent_again_that_day(self):
+        # 예전에는 eligible:false 뒤에도 due 가 참으로 남아 1분마다 다시 보냈음. 그날은 다시 보내지 않아야 함.
+        self.daily.mark()
+        with mock.patch("learning_data.daily_study.request", return_value={"eligible": False, "date": self.day}) as request:
+            self.daily.synchronize()
+            self.daily.synchronize()
+        self.assertEqual(1, request.call_count)
+        self.assertFalse(self.daily.due())
+
+    def test_old_server_error_keeps_the_signal_due(self):
+        self.daily.mark()
         with mock.patch("learning_data.daily_study.request", side_effect=CollectionError("old server", status=404)):
             with self.assertRaises(CollectionError):
-                self.daily.synchronize(self.stores, allowed=True)
-        self.assertNotIn("sent_date", self.daily.settings())
+                self.daily.synchronize()
+        self.assertTrue(self.daily.due())
 
-    def test_consent_change_during_request_keeps_delete_pending(self):
-        self.daily.choose(True)
-        self.store.daily_study.return_value = self.marker()
+    def test_account_switch_during_request_keeps_the_new_account_due(self):
+        # 예전에는 요청 중에 선택을 끄면 삭제 대기가 남는지 봤음. 지금은 요청 중 바뀐 계정의 표식이 보존되는지 봄.
+        self.daily.mark()
         def response(*args, **kwargs):
-            self.daily.choose(False)
-            return {"eligible": True, "date": self.day}
-        with mock.patch("learning_data.daily_study.request", side_effect=response):
-            self.daily.synchronize(self.stores, allowed=True)
-        self.assertTrue(self.daily.settings()["delete_pending"])
-        self.assertNotIn("sent_date", self.daily.settings())
+            self.identity.save({"verified": True, "team": False, "token": "b" * 64})
+            DailyStudy(self.identity).mark()
+            return self.sent()
+        with mock.patch("learning_data.daily_study.request", side_effect=response) as request:
+            self.daily.synchronize()
+            self.assertEqual("a" * 64, request.call_args.kwargs["token"])
+        self.assertTrue(self.daily.due())
+        with mock.patch("learning_data.daily_study.request", return_value=self.sent()) as request:
+            self.daily.synchronize()
+            self.assertEqual("b" * 64, request.call_args.kwargs["token"])
+        self.assertFalse(self.daily.due())
 
-    def test_disable_waits_for_response_save_in_another_instance(self):
-        self.daily.choose(True)
-        self.store.daily_study.return_value = self.marker()
-        other = DailyStudy(self.identity)
+    def test_mark_waits_for_response_save_in_another_instance(self):
+        # 예전에는 다른 인스턴스의 선택 끄기가 응답 저장을 기다리는지 봤음. 지금은 다른 계정의 표식이 덮이지 않는지 봄.
+        self.daily.mark()
         saving, release = threading.Event(), threading.Event()
-        choosing, chosen = threading.Event(), threading.Event()
+        marking, marked = threading.Event(), threading.Event()
         failures = []
 
         def delayed_save(path, value):
-            if value.get("sent_date") == self.day:
+            if value.get("sent"):
                 saving.set()
                 if not release.wait(3):
                     raise AssertionError("응답 저장 대기를 끝내지 못함")
@@ -129,159 +133,164 @@ class DailyStudyTest(unittest.TestCase):
 
         def synchronize():
             try:
-                self.daily.synchronize(self.stores, allowed=True)
+                self.daily.synchronize()
             except BaseException as error:
                 failures.append(error)
 
-        def disable():
-            choosing.set()
+        def mark_other():
+            marking.set()
             try:
-                other.choose(False)
+                with mock.patch.object(DailyStudy, "fingerprint", return_value="b" * 64):
+                    DailyStudy(self.identity).mark()
             except BaseException as error:
                 failures.append(error)
             finally:
-                chosen.set()
+                marked.set()
 
-        worker, chooser = threading.Thread(target=synchronize), threading.Thread(target=disable)
+        worker, other = threading.Thread(target=synchronize), threading.Thread(target=mark_other)
         with mock.patch("learning_data.daily_study.save", side_effect=delayed_save), \
-                mock.patch("learning_data.daily_study.request", return_value={"eligible": True, "date": self.day}):
+                mock.patch("learning_data.daily_study.request", return_value=self.sent()):
             worker.start()
             try:
                 self.assertTrue(saving.wait(3))
-                chooser.start()
-                self.assertTrue(choosing.wait(3))
-                self.assertFalse(chosen.wait(0.05))
+                other.start()
+                self.assertTrue(marking.wait(3))
+                self.assertFalse(marked.wait(0.05))
             finally:
                 release.set()
                 worker.join(3)
-                if chooser.ident is not None:
-                    chooser.join(3)
+                if other.ident is not None:
+                    other.join(3)
         self.assertFalse(worker.is_alive())
-        self.assertFalse(chooser.is_alive())
+        self.assertFalse(other.is_alive())
         self.assertEqual([], failures)
-        self.assertFalse(self.daily.enabled())
-        self.assertTrue(self.daily.settings()["delete_pending"])
-        self.assertNotIn("sent_date", self.daily.settings())
+        state = json.loads(self.daily.path.read_text())
+        self.assertEqual(2, len(state["graded"]))
+        self.assertEqual(1, len(state["sent"]))
+        self.assertFalse(self.daily.due())
 
-    def test_network_wait_does_not_lock_out_disable_in_another_instance(self):
-        self.daily.choose(True)
-        self.store.daily_study.return_value = self.marker()
-        entered, disabled = threading.Event(), threading.Event()
+    def test_network_wait_does_not_block_marking_in_another_instance(self):
+        self.daily.mark()
+        entered, done = threading.Event(), threading.Event()
         failures = []
 
         def response(*args, **kwargs):
             entered.set()
-            if not disabled.wait(3):
-                raise AssertionError("통신 대기가 선택 변경을 막음")
-            return {"eligible": True, "date": self.day}
+            if not done.wait(3):
+                raise AssertionError("통신 대기가 채점 표식을 막음")
+            return self.sent()
 
         def synchronize():
             try:
-                self.daily.synchronize(self.stores, allowed=True)
+                self.daily.synchronize()
             except BaseException as error:
                 failures.append(error)
 
-        def disable():
+        def mark_other():
             try:
-                DailyStudy(self.identity).choose(False)
+                with mock.patch.object(DailyStudy, "fingerprint", return_value="b" * 64):
+                    DailyStudy(self.identity).mark()
             except BaseException as error:
                 failures.append(error)
             finally:
-                disabled.set()
+                done.set()
 
-        worker, chooser = threading.Thread(target=synchronize), threading.Thread(target=disable)
+        worker, other = threading.Thread(target=synchronize), threading.Thread(target=mark_other)
         with mock.patch("learning_data.daily_study.request", side_effect=response):
             worker.start()
             try:
                 self.assertTrue(entered.wait(3))
-                chooser.start()
-                self.assertTrue(disabled.wait(3))
+                other.start()
+                self.assertTrue(done.wait(3))
             finally:
-                disabled.set()
+                done.set()
                 worker.join(3)
-                if chooser.ident is not None:
-                    chooser.join(3)
+                if other.ident is not None:
+                    other.join(3)
         self.assertFalse(worker.is_alive())
-        self.assertFalse(chooser.is_alive())
+        self.assertFalse(other.is_alive())
         self.assertEqual([], failures)
-        self.assertFalse(self.daily.enabled())
-        self.assertTrue(self.daily.settings()["delete_pending"])
+        self.assertEqual(2, len(json.loads(self.daily.path.read_text())["graded"]))
 
-    def test_account_switch_preserves_deletion_without_token_and_retries_on_return(self):
-        self.daily.choose(True)
-        fingerprint_a = self.daily.fingerprint()
-        self.daily.choose(False)
-        with mock.patch("learning_data.daily_study.request", side_effect=CollectionError("offline")):
-            with self.assertRaises(CollectionError):
-                self.daily.synchronize({}, allowed=False)
-        self.identity.save({"verified": True, "team": False, "token": "b" * 64})
-        self.daily.choose(True)
-        choice_b = self.daily.settings()["choice"]
-        pending = [{"identity": fingerprint_a, "date": self.day}]
-        self.assertEqual(pending, self.daily.settings()["unresolved_deletions"])
-        with mock.patch("learning_data.daily_study.request") as request:
-            self.daily.synchronize({}, allowed=False)
-            request.assert_not_called()
+    def test_each_account_is_sent_separately_with_its_own_token(self):
+        # 예전에는 계정을 바꿔도 이전 계정의 삭제 대기가 남는지 봤음. 지금은 계정마다 따로 한 번씩 보내는지 봄.
+        self.daily.mark()
+        with mock.patch("learning_data.daily_study.request", return_value=self.sent()) as request:
+            self.daily.synchronize()
+            self.identity.save({"verified": True, "team": False, "token": "b" * 64})
+            self.daily.synchronize()
+            self.assertEqual(1, request.call_count)
+            self.assertTrue(self.daily.mark())
+            self.daily.synchronize()
+            self.identity.save({"verified": True, "team": False, "token": "a" * 64})
+            self.assertFalse(self.daily.mark())
+            self.daily.synchronize()
+        self.assertEqual(["a" * 64, "b" * 64], [call.kwargs["token"] for call in request.call_args_list])
         saved = self.daily.path.read_text()
         for token in ("a" * 64, "b" * 64):
             self.assertNotIn(token, saved)
 
-        self.identity.save({"verified": True, "team": False, "token": "a" * 64})
-        self.assertEqual(fingerprint_a, self.daily.settings()["identity"])
-        self.assertTrue(self.daily.settings()["delete_pending"])
-        self.assertFalse(self.daily.enabled())
-        with self.assertRaises(CollectionError):
-            self.daily.choose(True)
-        with mock.patch("learning_data.daily_study.request", return_value={"eligible": True, "deleted": True}) as request:
-            self.assertEqual("deleted", self.daily.synchronize({}, allowed=False))
-            self.assertEqual("a" * 64, request.call_args.kwargs["token"])
-            self.assertEqual("DELETE", request.call_args.kwargs["method"])
-        self.assertEqual([], self.daily.settings()["unresolved_deletions"])
-        self.identity.save({"verified": True, "team": False, "token": "b" * 64})
-        self.assertTrue(self.daily.enabled())
-        self.assertEqual(choice_b, self.daily.settings()["choice"])
-
-    def test_previous_day_deletion_stays_unconfirmed_without_deleting_new_day(self):
-        self.daily.choose(False)
-        pending = [{"identity": self.daily.fingerprint(), "date": self.day}]
+    def test_next_day_sends_again(self):
+        # 예전에는 지난 날짜의 삭제 대기를 봤음. 지금은 날짜가 바뀌면 그날 채점으로 다시 보내는지 봄.
+        self.daily.mark()
         tomorrow = datetime.datetime.now(KST) + datetime.timedelta(days=1)
-        with mock.patch("learning_data.daily_study.datetime.datetime") as clock, \
-                mock.patch("learning_data.daily_study.request") as request:
-            clock.now.return_value = tomorrow
-            self.assertIsNone(self.daily.synchronize({}, allowed=False))
-            self.assertFalse(self.daily.settings()["delete_pending"])
-            self.assertEqual(pending, self.daily.settings()["unresolved_deletions"])
-            self.daily.choose(True)
-            self.assertTrue(self.daily.enabled())
-            self.assertEqual(pending, self.daily.settings()["unresolved_deletions"])
-            request.assert_not_called()
+        with mock.patch("learning_data.daily_study.request", return_value=self.sent()) as request:
+            self.daily.synchronize()
+            with mock.patch("learning_data.daily_study.datetime.datetime") as clock:
+                clock.now.return_value = tomorrow
+                next_day = tomorrow.date().isoformat()
+                self.assertFalse(self.daily.due())
+                self.daily.synchronize()
+                self.assertEqual(1, request.call_count)
+                self.assertTrue(self.daily.mark())
+                request.return_value = {"eligible": True, "date": next_day}
+                self.daily.synchronize()
+        self.assertEqual([self.day, next_day], [call.args[2]["date"] for call in request.call_args_list])
 
-    def test_legacy_pending_date_is_preserved_on_account_switch(self):
-        self.daily.choose(False)
-        old = json.loads(self.daily.path.read_text())
-        old.pop("delete_date")
-        old.pop("unresolved_deletions")
-        save(self.daily.path, old)
-        self.identity.save({"verified": True, "team": False, "token": "b" * 64})
-        self.daily.choose(True)
-        self.assertEqual([{"identity": old["identity"], "date": self.day}], self.daily.settings()["unresolved_deletions"])
+    def test_previous_settings_file_is_replaced_without_sending_deletions(self):
+        # 예전 선택 파일을 켰던 사람도 껐던 사람도 새 기준으로 셈. 삭제 대기 기록은 보내지 않고 지움.
+        fingerprint = self.daily.fingerprint()
+        for enabled in (True, False):
+            with self.subTest(enabled=enabled):
+                save(self.daily.path, {"version": "2026-11-16-v1", "enabled": enabled, "identity": fingerprint,
+                                       "choice": "11111111-1111-4111-8111-111111111111", "at": "2026-11-16T10:00:00+09:00",
+                                       "delete_pending": not enabled, "delete_date": self.day, "sent_date": self.day,
+                                       "unresolved_deletions": [{"identity": fingerprint, "date": self.day}]})
+                with mock.patch("learning_data.daily_study.request", return_value=self.sent()) as request:
+                    self.assertFalse(self.daily.due())
+                    self.daily.synchronize()
+                    request.assert_not_called()
+                    self.assertEqual({"version": VERSION, "date": self.day, "graded": [], "sent": []},
+                                     json.loads(self.daily.path.read_text()))
+                    self.assertTrue(self.daily.mark())
+                    self.daily.synchronize()
+                    request.assert_called_once()
+                    self.assertEqual("POST", request.call_args.kwargs["method"])
 
-    def test_invalid_delete_response_never_confirms_or_drops_pending(self):
-        self.daily.choose(False)
-        pending = self.daily.settings()["unresolved_deletions"]
-        for result in ({"eligible": False, "deleted": False}, {"eligible": True, "deleted": False}):
-            with self.subTest(result=result), mock.patch("learning_data.daily_study.request", return_value=result):
-                with self.assertRaises(CollectionError):
-                    self.daily.synchronize({}, allowed=False)
-                self.assertEqual(pending, self.daily.settings()["unresolved_deletions"])
-                self.assertTrue(self.daily.settings()["delete_pending"])
+    def test_broken_settings_file_does_not_stop_marking_or_sending(self):
+        for broken in ("{", "[]", json.dumps({"version": VERSION, "date": self.day, "graded": "x", "sent": []})):
+            with self.subTest(broken=broken):
+                self.daily.path.write_text(broken, encoding="utf-8")
+                self.assertFalse(self.daily.due())
+                self.assertTrue(self.daily.mark())
+                with mock.patch("learning_data.daily_study.request", return_value=self.sent()) as request:
+                    self.daily.synchronize()
+                    request.assert_called_once()
+
+    def test_invalid_response_does_not_mark_sent(self):
+        # 예전에는 잘못된 삭제 응답을 봤음. 지금은 날짜가 다른 응답을 전송 완료로 남기지 않는지 봄.
+        self.daily.mark()
+        with mock.patch("learning_data.daily_study.request", return_value={"eligible": True, "date": "2000-01-01"}):
+            with self.assertRaises(CollectionError):
+                self.daily.synchronize()
+        self.assertTrue(self.daily.due())
 
     def test_alternate_server_cannot_receive_identity_or_study_signal(self):
-        self.daily.choose(True)
-        self.store.daily_study.return_value = self.marker()
+        self.daily.mark()
         self.identity.base = "https://other.example"
+        self.assertFalse(self.daily.due())
         with mock.patch("learning_data.daily_study.request") as request:
-            self.daily.synchronize(self.stores, allowed=True)
+            self.daily.synchronize()
             request.assert_not_called()
 
 

@@ -6,7 +6,6 @@ import functools
 import hashlib
 import json
 import os
-import re
 import sqlite3
 import tempfile
 import uuid
@@ -19,7 +18,6 @@ NOTICE = "2026-11-08-v2"
 FILENAME = "learning-data.sqlite3"
 SYNC_FILENAME = "learning-data-sharing.json"
 CURRENT_CONTEXT = object()
-KST = datetime.timezone(datetime.timedelta(hours=9))
 
 
 class CollectionError(Exception):
@@ -77,7 +75,7 @@ def question(item, **metadata):
 
 
 class Collection:
-    def __init__(self, home, repository, track="ai", *, activity_identity=None):
+    def __init__(self, home, repository, track="ai", *, activity_mark=None):
         if track not in ("ai", "python"):
             raise ValueError("수집 과목을 확인해 주세요.")
         self.track = track
@@ -85,7 +83,7 @@ class Collection:
         self.repository = repository
         self.error = ""
         self.missed = 0
-        self.activity_identity = activity_identity
+        self.activity_mark = activity_mark
 
     def _check_path(self):
         if inside(self.path, self.repository):
@@ -215,7 +213,7 @@ class Collection:
                     self._remember_stop(False)
                 return
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('enabled', ?)", ("1" if enabled else "0",))
-            conn.execute("DELETE FROM meta WHERE key='daily_study'")
+            conn.execute("DELETE FROM meta WHERE key='daily_study'")  # 이전 버전이 남긴 오늘 집계 표식을 지움
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('notice', ?)", (NOTICE,))
             goal = goals.unselected()
             conn.execute("INSERT OR REPLACE INTO meta VALUES ('goal', ?)", (packed(goal),))
@@ -299,71 +297,21 @@ class Collection:
                 revision = item["revision"] if item else None
                 if item:
                     conn.execute("INSERT OR IGNORE INTO items VALUES (?, ?)", (revision, packed(item["content"])))
-                recorded_at = stamp()
-                inserted = conn.execute("INSERT OR IGNORE INTO events(event_id, at, kind, payload, item_revision) VALUES (?, ?, ?, ?, ?)",
-                                        (eid, recorded_at, kind, packed(payload), revision))
-                if inserted.rowcount > 0:
-                    self._mark_daily_study(conn, meta, kind, payload, recorded_at)
+                conn.execute("INSERT OR IGNORE INTO events(event_id, at, kind, payload, item_revision) VALUES (?, ?, ?, ?, ?)",
+                             (eid, stamp(), kind, packed(payload), revision))
             return True
         except (CollectionError, KeyError, ValueError) as error:
             self.missed += 1
             self.error = "추가 학습 데이터 %d건을 저장하지 못했습니다. 기존 풀이 기록은 유지됩니다. %s" % (self.missed, error)
             return False
 
-    def _mark_daily_study(self, conn, meta, kind, payload, recorded_at):
-        """새 채점의 계정 지문만 남기며 표식 실패는 채점 저장과 분리함."""
-        card = payload.get("card")
-        if (not callable(self.activity_identity) or kind not in ("answer", "mock_answer")
-                or not isinstance(card, str) or not card.strip() or payload.get("answered") is not True
-                or payload.get("dontknow") or payload.get("synthetic", False) is not False):
-            return
-        results = {"ok", "wrong"} if self.track == "python" and kind == "answer" else (
-            {"pass", "stuck", "partial"} if self.track == "ai" and kind == "answer" else
-            {"pass", "stuck"} if self.track == "ai" else set())
-        if not isinstance(payload.get("result"), str) or payload["result"] not in results:
-            return
-        provenance = payload.get("provenance")
-        if isinstance(provenance, dict) and str(provenance.get("kind", "")).startswith("legacy"):
-            return
-        try:
-            now = datetime.datetime.fromisoformat(recorded_at)
-            source = datetime.datetime.fromisoformat(payload.get("source_at", recorded_at))
-            if (now.tzinfo is None or source.tzinfo is None or source > now
-                    or source.astimezone(KST).date() != now.astimezone(KST).date()):
-                return
-            activity = self.activity_identity()
-            if not isinstance(activity, dict) or set(activity) != {"identity", "choice"}:
-                return
-            identity, choice = activity["identity"], activity["choice"]
-            if (not isinstance(identity, str) or re.fullmatch(r"[0-9a-f]{64}", identity) is None
-                    or not isinstance(choice, str) or str(uuid.UUID(choice)) != choice):
-                return
-            marker = packed({"date": now.astimezone(KST).date().isoformat(), "identity": identity, "choice": choice})
-            if meta.get("daily_study") != marker:
-                conn.execute("INSERT OR REPLACE INTO meta VALUES ('daily_study', ?)", (marker,))
-        except Exception:
-            pass
-
-    def daily_study(self):
-        """수집 중인 기기에서만 채점 시점의 날짜·계정 지문·동의 구분값을 읽음."""
-        if not os.path.exists(self.path) or os.path.exists(self.stop_path):
-            return {}
-        try:
-            with self._connect() as conn:
-                meta = dict(conn.execute("SELECT key, value FROM meta WHERE key IN ('enabled', 'privacy_state_path', 'daily_study')"))
-                if not self._active(meta):
-                    return {}
-                marker = json.loads(meta.get("daily_study", "{}"))
-                if (not isinstance(marker, dict) or set(marker) != {"date", "identity", "choice"}
-                        or not isinstance(marker["identity"], str) or re.fullmatch(r"[0-9a-f]{64}", marker["identity"]) is None):
-                    return {}
-                if not isinstance(marker["choice"], str) or str(uuid.UUID(marker["choice"])) != marker["choice"]:
-                    return {}
-                if datetime.date.fromisoformat(marker["date"]).isoformat() != marker["date"]:
-                    return {}
-                return marker
-        except (CollectionError, KeyError, TypeError, ValueError):
-            return {}
+    def mark_graded(self):
+        """답을 내고 채점한 일을 오늘 계정 집계에 알림. 수집 동의와 상관없고 실패해도 채점을 막지 않음."""
+        if callable(self.activity_mark):
+            try:
+                self.activity_mark()
+            except Exception:
+                pass
 
     def snapshot(self, after=0, limit=None, include_answers=False):
         """현재 저장한 기록을 읽음. 전송을 확인한 순서 뒤부터 묶어 읽을 수 있음."""

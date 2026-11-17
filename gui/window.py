@@ -351,6 +351,9 @@ class MainWindow(QMainWindow):
             self.first_boot = True
             self.tour_ready = False
         self.privacy = self.privacy_controllers[new_privacy_path]
+        self.privacy.attach(collections)
+        if self.journey is not None:
+            self.journey.activity_mark = self.privacy.activity_mark
         if self.privacy.job is None:
             self.privacy.consent.collections = collections
         self.start.show_error("")
@@ -523,6 +526,7 @@ class MainWindow(QMainWindow):
             self.ai_mock.clear()
             self.ai = selected
             self.ai_courses[course] = (stamp, selected)
+            self.privacy.attach({"ai": selected.collection})
             self.settings.setValue("ai/course/" + self.user, course)
             self.ai_home.refresh()
         finally:
