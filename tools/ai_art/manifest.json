@@ -3556,6 +3556,11 @@
    "script": "tools/ai_art/l12.py",
    "fn": "paint"
   },
+  "learn/l12/assets/12f-5.png": {
+   "sha256": "c6ea60c97a4ad08b0a73bec5dddbea0741adfb70f621dd94b3afccf82b21d8ba",
+   "script": "tools/ai_art/l12.py",
+   "fn": "paint"
+  },
   "learn/l12/assets/12g-1.png": {
    "sha256": "0cfd81e29f070f738eac8b7aaa2b2e4659a40349e861d554752a2a6c31dc2a53",
    "script": "tools/ai_art/l12.py",
