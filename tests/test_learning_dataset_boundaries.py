@@ -168,7 +168,8 @@ class DatasetBoundaryTest(unittest.TestCase):
             root = Path(folder) / "starter"
             manifest = starter.write_starter(events, root)
             records = json.loads((root / "records/manifest.json").read_text())
-            self.assertEqual(7, manifest["features_version"])
+            # 문항 번호표를 문항 id 단위로 바꾸면서 자료 버전을 8 로 올림(2026-11-17)
+            self.assertEqual(dataset.FEATURES_VERSION, manifest["features_version"])
             self.assertEqual(23, records["eligible_rows"])
             self.assertEqual({"missing_prediction_time": 1}, records["excluded_rows"])
             rows, vocabulary = input_example.load(root, "ai", "train")

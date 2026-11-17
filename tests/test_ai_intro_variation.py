@@ -48,7 +48,8 @@ class IntroVariationTest(Base):
         self.assertEqual([f'i04-test-{n}' for n in range(7)], fresh[1:])
         self.assertIn('i04-g03', chosen)
         self.assertEqual('new', trace['selected_pools']['i04-g03'])
-        self.assertEqual('rules-v2', trace['policy'])
+        # 2026-11-17 #278 부터 단원 풀기는 오늘 마친 문항을 후보에서 빼므로 선정 규칙 이름이 rules-v6 임
+        self.assertEqual('rules-v6', trace['policy'])
         self.assertEqual(len(chosen), len({sess.cards[c]['family'] for c in chosen}))
         self.assertLessEqual(sum(sess.cards[c]['kind'] == 'gen' for c in chosen), max(1, int(len(chosen) * service.GEN_SHARE)))
 

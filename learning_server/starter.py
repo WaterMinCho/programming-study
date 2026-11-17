@@ -6,14 +6,25 @@ import json
 import math
 import numbers
 import os
+from collections import Counter
 from pathlib import Path
 
 from learning_data.collection import inside, packed
 from learning_server import dataset
 
 
-def question_token(row):
-    return packed([row["question_id"], row.get("question_revision")])
+QUESTION_UNITS = ("question_id",)
+MIN_COUNT = 2
+
+
+def question_token(row, unit="question_id"):
+    """번호표 토큰. 버전 8 은 문항 id 하나, unit 이 None 이면 버전 4~7 의 (문항 id, 문항 버전) 쌍임.
+    AI 문항 버전 해시는 seed·보기 순서·실행 코드 해시가 들어가 화면에 낼 때마다 바뀌므로 버전 8 에서 토큰에서 뺌."""
+    if unit is None:
+        return packed([row["question_id"], row.get("question_revision")])
+    if unit not in QUESTION_UNITS:
+        raise ValueError("번호표 규칙을 확인해 주세요: %s" % unit)
+    return row["question_id"]
 
 
 def metrics(targets, probabilities):
@@ -71,21 +82,29 @@ def baseline(rows):
             "by_course": by_course, "predictions": predictions}
 
 
-def write_starter(events, destination, source_sha256=None):
+def write_starter(events, destination, source_sha256=None, min_count=MIN_COUNT, exclude_linked=False):
+    """min_count 는 학습 구간에서 예측할 문제로 나온 횟수의 하한임. 이보다 적게 나온 문항은 번호표에서 빼서 학습·검증·평가 모두 UNK 로 감.
+    학습 이력에만 나오고 예측할 문제로는 0번인 문항도 min_count 가 2 이상이면 빠지고, min_count 가 1 이면 학습 구간 문항을 모두 남김.
+    횟수는 학습 구간만 세므로 검증·평가 구간의 문항 id 와 정답은 번호표에 영향을 주지 않음.
+    기본값 2 는 학습으로 비교해 보지 않은 값임. 학습 중에도 UNK 번호가 나오게 하려고 고른 값이고 비교 실험으로 다시 정함."""
     events = list(events)
+    if type(min_count) is not int or min_count < 1:
+        raise ValueError("드문 문항 기준 횟수는 1 이상의 정수로 지정해 주세요.")
     root = Path(__file__).resolve().parent.parent
     destination = Path(destination)
     if inside(destination, root):
         raise ValueError("공통 학습 자료는 공개 저장소 밖에 저장해 주세요.")
     os.mkdir(destination, mode=0o700)
-    record_manifest = dataset.write_dataset(events, str(destination / "records"), source_sha256=source_sha256)
+    record_manifest = dataset.write_dataset(events, str(destination / "records"), source_sha256=source_sha256,
+                                            exclude_linked=exclude_linked)
     tracks = sorted({name.split("-", 1)[0] for name in record_manifest["files"]})
     vocabulary, comparisons = {}, {}
     for track in tracks:
         rows = {part: [json.loads(line) for line in (destination / "records" / (track + "-" + part + ".jsonl")).read_text(encoding="utf-8").splitlines()]
                 for part in ("train", "validation", "test")}
         train = rows["train"]
-        questions = {question_token(r) for r in train}
+        counts = Counter(question_token(r) for r in train)
+        questions = set(counts)
         concepts = {c for r in train for c in r["concepts"]}
         courses = {r["course"] for r in train if r.get("course") is not None}
         for row in train:
@@ -94,7 +113,10 @@ def write_starter(events, destination, source_sha256=None):
                 concepts.update(past["concepts"])
                 if past.get("course") is not None:
                     courses.add(past["course"])
-        vocabulary[track] = {"questions": ["<PAD>", "<UNK>"] + sorted(questions),
+        kept = questions if min_count == 1 else {token for token in questions if counts[token] >= min_count}
+        vocabulary[track] = {"questions": ["<PAD>", "<UNK>"] + sorted(kept),
+                             "question_unit": "question_id", "question_min_count": min_count,
+                             "rare_questions": len(questions - kept),
                              "concepts": ["<PAD>", "<UNK>"] + sorted(concepts),
                              "courses": ["<PAD>", "<UNK>"] + sorted(courses)}
         comparisons[track] = {part: baseline(part_rows) for part, part_rows in rows.items()}
@@ -125,6 +147,9 @@ def main():
     parser.add_argument("--agree", action="store_true", help="기존 기록 소유자의 연구 사용 동의를 확인합니다")
     parser.add_argument("--timezone", help="기존 기록에 시간대가 없을 때 적용할 가정")
     parser.add_argument("--out", required=True)
+    parser.add_argument("--min-count", type=int, default=MIN_COUNT,
+                        help="학습 구간에서 예측할 문제로 나온 횟수가 이 값보다 적은 문항은 UNK 로 보냅니다. 2 이상이면 이력에만 나온 문항도 보내고, 1 이면 모두 남깁니다")
+    parser.add_argument("--exclude-linked", action="store_true", help="틀린 문항 뒤에 끼운 변형 행을 예측 대상에서 뺍니다")
     args = parser.parse_args()
     try:
         raw = None
@@ -140,7 +165,8 @@ def main():
             events = [json.loads(line) for line in raw.splitlines()]
         else:
             events = dataset.synthetic_events()
-        result = write_starter(events, args.out, hashlib.sha256(raw).hexdigest() if raw is not None else None)
+        result = write_starter(events, args.out, hashlib.sha256(raw).hexdigest() if raw is not None else None,
+                               args.min_count, args.exclude_linked)
         print("공통 입력과 비교 자료를 저장하고 다시 읽어 확인했습니다. %s" % args.out)
         print(packed(result))
     except (OSError, ValueError, KeyError, TypeError) as error:

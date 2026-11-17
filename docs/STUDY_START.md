@@ -18,18 +18,18 @@
 
 ## 팀원별 끝낸 작업과 다음 할 일
 
-2026년 11월 16일 기준, 공통 저장소에 머지된 코드와 각 담당 이슈를 맞춘 내용입니다. 모델 학습·성능 비교는 아직 확인하지 않았습니다.
+2026년 11월 17일 기준, 공통 저장소에 머지된 코드와 각 담당 이슈를 맞춘 내용입니다. 모델 학습·성능 비교는 아직 확인하지 않았습니다.
 
 | 담당 | 끝낸 작업 | 다음에 할 일 |
 |---|---|---|
-| [michae18 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | [#226](https://github.com/WaterMinCho/programming-study/pull/226)에서 학습 전 LSTM 예측과 빈 이력·빈 자리 테스트를 반영했습니다. | 기존 `train.py`에 손실 계산·역전파·가중치 갱신을 추가합니다. 검증 때는 가중치를 바꾸지 않는지 확인합니다. |
+| [michae18 · #119](https://github.com/WaterMinCho/programming-study/issues/119) | [#226](https://github.com/WaterMinCho/programming-study/pull/226)에서 학습 전 LSTM 예측과 빈 이력·빈 자리 테스트를 반영했습니다. [#265](https://github.com/WaterMinCho/programming-study/pull/265)에서 모델이 logit을 돌려주게 바꿨습니다. | #265의 `train.py`에 손실 계산·역전파·가중치 갱신을 추가합니다. 검증 때는 가중치를 바꾸지 않는지 확인합니다. |
 | [wamangdoo · #120](https://github.com/WaterMinCho/programming-study/issues/120) | [#189](https://github.com/WaterMinCho/programming-study/pull/189)에서 공통 입력과 빈 자리 구분을 설명한 README를 제출했습니다. | 작은 Transformer로 합성 예제 4개의 확률을 계산합니다. 빈 이력·빈 자리 처리를 테스트합니다. |
-| [kimjs85529-a11y · #121](https://github.com/WaterMinCho/programming-study/issues/121) | [#235](https://github.com/WaterMinCho/programming-study/pull/235)에서 이번 문제의 개념에 맞는 시간값을 고르는 함수와 테스트를 반영했습니다. | 현재 #226의 LSTM에 고른 시간값과 시간 확인 여부를 연결합니다. 학습 비교는 michae18의 학습 코드가 공유된 뒤 진행합니다. |
+| [kimjs85529-a11y · #121](https://github.com/WaterMinCho/programming-study/issues/121) | [#235](https://github.com/WaterMinCho/programming-study/pull/235)에서 이번 문제의 개념에 맞는 시간값을 고르는 함수와 테스트를 반영했습니다. | 현재 #265의 LSTM에 고른 시간값과 시간 확인 여부를 연결합니다. 학습 비교는 michae18의 학습 코드가 공유된 뒤 진행합니다. |
 | WaterMinCho · [#118](https://github.com/WaterMinCho/programming-study/issues/118) · [#122](https://github.com/WaterMinCho/programming-study/issues/122) | 공통 입력 도구와 비공개 공유 자료, 예측값 비교 도구를 준비했습니다. | 세 분의 실제 자료 수신·입력 검사를 확인하고 비교할 자료·입력 항목을 맞춥니다. 모델 학습·저장·불러오기가 준비되면 공통 평가와 앱 연결을 진행합니다. |
 
 [담당별 구현·확인 방법](LEARNING_MISSIONS.md#이번-pr에-만들고-확인할-것)에서 이번에 고칠 코드와 확인할 결과를 이어서 읽으세요. 합성 자료로 예측값을 출력한 결과와 실제 자료를 읽어 본 결과는 따로 적습니다.
 
-#226·#189·#235는 모두 머지됐습니다. 다음 작업은 fork의 `main`을 갱신한 뒤 새 브랜치에서 시작합니다. 이미 다음 작업용으로 만든 브랜치가 있다면 이어서 사용하세요. 리뷰를 받고 고칠 때는 PR을 올린 그 브랜치에 **Stage → Commit → Push**합니다. [상태별 SourceTree·터미널 안내](LEARNING_WORKFLOW.md#기존-작업에서-어디부터-이어가나요)
+#226·#265·#189·#235는 모두 머지됐습니다. 다음 작업은 fork의 `main`을 갱신한 뒤 새 브랜치에서 시작합니다. 이미 다음 작업용으로 만든 브랜치가 있다면 이어서 사용하세요. 리뷰를 받고 고칠 때는 PR을 올린 그 브랜치에 **Stage → Commit → Push**합니다. [상태별 SourceTree·터미널 안내](LEARNING_WORKFLOW.md#기존-작업에서-어디부터-이어가나요)
 
 [작업 보드](https://github.com/users/WaterMinCho/projects/2/views/1)에서 카드 제목을 눌러 내 이슈를 여세요. 오른쪽 Projects의 Status에서 작업을 시작하면 **진행**, 검토받을 PR이 준비되면 **검토**를 선택합니다. [상태 바꾸는 방법](LEARNING_WORKFLOW.md#1-github-보드에서-내-담당-이슈-열기)을 따라 하세요.
 
