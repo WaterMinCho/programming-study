@@ -461,7 +461,7 @@ class FirstRunTest(GuiTest):
         QTest.keyClicks(dialog.edit, "tester")
         click(dialog.ok)
         self.assertTrue(dialog.isVisible())  # 아직 저장하지 않음
-        self.assertIsNone(session.saved_user())
+        self.assertFalse(os.path.lexists(study.USER_FILE))
         self.assertIn("Tester 의 풀이 기록", dialog.error.text())
         self.assertEqual(dialog.ok.text(), "이 기록으로 시작")
         for label in dialog.findChildren(QLabel):  # 안내가 두 줄로 늘어도 위의 설명이 눌려 잘리지 않음

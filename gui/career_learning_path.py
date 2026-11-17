@@ -259,24 +259,42 @@ class _Step(QWidget):
         label = node["label"]
         kind, description = EXAMPLES.get(label, ("pipeline", f"{label}의 입력과 처리 결과를 연결해 확인합니다."))
         self.title = kit.para(f"{number}. {label}", "body", bold=True)
-        self.status = kit.para(COURSE_LABELS[node["course_status"]], "body", "secondary")
-        self.status.setToolTip("ROKEY 11기 수업에서 다루는 범위입니다.")
+        self.status = kit.para(COURSE_LABELS[node["course_status"]], "body", bold=True)
+        self.status.setObjectName("career_step_status")
+        self.status.setToolTip({
+            "taught": "ROKEY 11기 정규 교육과정에 포함된 내용입니다.",
+            "partial": "ROKEY 11기 수업에서는 이 주제의 일부만 다룹니다. 나머지는 별도 학습이 필요합니다.",
+            "extra": "ROKEY 11기 수업 범위 밖의 내용입니다. 이 직무를 준비할 때 추가로 학습할 주제입니다.",
+            "unverified": "수업 포함 여부를 아직 확인하지 못했습니다.",
+        }[node["course_status"]])
+        self.status.setAccessibleDescription(self.status.toolTip())
         self.caption = kit.para(description, "body")
         for child in (self.title, self.status, self.caption):
             child.setParent(self)
             child.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self._align_header()
         self.example = _Example(kind, f"{label}. {description}", self)
         self.setProperty("reading_anchor", True)
         _sizing(self)
 
     def _plan(self, width):
         inside = max(1, width - 32)
-        status_width = min(inside // 2, math.ceil(QFontMetricsF(self.status.font()).horizontalAdvance(self.status.text())) + 2)
+        status_width = min(inside // 2, self.status.sizeHint().width())
         title_width = max(1, inside - status_width - theme.GAP["title_description"])
         header = max(self.title.heightForWidth(title_width), self.status.heightForWidth(status_width))
         figure = max(112, theme.TYPE["body"][1] * 4)
         caption_y = 16 + header + theme.GAP["title_description"] + figure + theme.GAP["title_description"]
         return title_width, status_width, header, figure, caption_y
+
+    def _align_header(self):
+        # 같은 Para의 첫 줄과 위 여백을 사용해 플랫폼별 일반 라벨의 세로 정렬 차이를 없앰.
+        self.title.setContentsMargins(0, 4, 0, 4)
+        self.status.setContentsMargins(8, 4, 8, 4)
+        background, ink = {"taught": ("selection", "selection_ink"),
+                           "partial": ("retry_weak", "retry")}.get(
+                               self.node["course_status"], ("surface_alt", "muted"))
+        self.status.setStyleSheet(f"QLabel#career_step_status {{ background: {theme.color(background)}; "
+                                 f"color: {theme.color(ink)}; border-radius: 12px; }}")
 
     def heightForWidth(self, width):
         *_, y = self._plan(width)
@@ -292,11 +310,12 @@ class _Step(QWidget):
     def _place(self):
         title_w, status_w, header, figure, caption_y = self._plan(self.width())
         self.title.setGeometry(16, 16, title_w, header)
-        self.status.setGeometry(self.width() - 16 - status_w, 16, status_w, header)
+        self.status.setGeometry(self.width() - 16 - status_w, 16, status_w, self.status.heightForWidth(status_w))
         self.example.setGeometry(16, 16 + header + theme.GAP["title_description"], max(1, self.width() - 32), figure)
         self.caption.setGeometry(16, caption_y, max(1, self.width() - 32), self.height() - caption_y - 16)
 
     def refont(self):
+        self._align_header()
         self._place()
         self.updateGeometry()
         self.update()
@@ -306,7 +325,14 @@ class _Step(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(QPen(theme.qcolor("border"), 1))
         painter.setBrush(theme.qcolor("surface"))
-        painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 12, 12)
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5),
+                                theme.RADIUS["card"], theme.RADIUS["card"])
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(theme.qcolor("selection"))
+        painter.drawRoundedRect(QRectF(self.example.geometry()).adjusted(0, -4, 0, 4),
+                                theme.RADIUS["control"], theme.RADIUS["control"])
+        painter.setPen(QPen(theme.qcolor("link"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawLine(QPointF(16, 4), QPointF(min(72, self.width() - 16), 4))
 
 
 class CareerLearningPath(QWidget):
@@ -372,13 +398,16 @@ class CareerLearningPath(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(QPen(theme.qcolor("muted"), 2))
+        connection_pen = QPen(theme.qcolor("link"), 2, Qt.PenStyle.SolidLine,
+                              Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        p.setPen(connection_pen)
         columns, rects, output, _ = self._geometry(self.width())
         if self.outputs:
             p.setBrush(theme.qcolor("surface"))
             p.setPen(QPen(theme.qcolor("border"), 1))
-            p.drawRoundedRect(QRectF(output).adjusted(.5, .5, -.5, -.5), 12, 12)
-            p.setPen(QPen(theme.qcolor("muted"), 2))
+            p.drawRoundedRect(QRectF(output).adjusted(.5, .5, -.5, -.5),
+                              theme.RADIUS["card"], theme.RADIUS["card"])
+            p.setPen(connection_pen)
         self.connections = []
         for i, rect in enumerate(rects):
             if i + 1 < len(rects):

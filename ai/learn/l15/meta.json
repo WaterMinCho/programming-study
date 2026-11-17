@@ -1,7 +1,7 @@
 {
   "format": 1,
   "id": "l15",
-  "title": "15차시 이미지 파일을 학습 배치로 연결합니다",
+  "title": "15차시 이미지 파일을 학습 배치로 연결하기",
   "lesson": "i15",
   "defines": [
     "ImageFolder",
@@ -15,11 +15,11 @@
     "l14"
   ],
   "sections": {
-    "15a": "폴더 이름과 클래스 번호를 맞춥니다",
-    "15b": "비율을 맞춘 뒤 중앙 영역을 자릅니다",
-    "15c": "픽셀 범위와 표시용 축을 되돌립니다",
-    "15d": "데이터셋의 원소를 배치로 묶습니다",
-    "15e": "사용자 자료를 같은 학습 계약에 연결합니다"
+    "15a": "폴더 이름과 클래스 번호 맞추기",
+    "15b": "비율을 맞춘 뒤 중앙 영역 자르기",
+    "15c": "픽셀 범위와 표시용 축 되돌리기",
+    "15d": "데이터셋의 원소를 배치로 묶기",
+    "15e": "사용자 자료를 같은 학습 조건에 맞추기"
   },
   "outputs": [],
   "sources": [
@@ -62,6 +62,16 @@
       "what": "state_dict의 파라미터와 저장 대상 버퍼",
       "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.Module.html#torch.nn.Module.state_dict",
       "checked": "2026-11-08"
+    },
+    {
+      "what": "훈련용 무작위 크롭의 영역 선택과 출력 크기",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomResizedCrop.html",
+      "checked": "2026-11-16"
+    },
+    {
+      "what": "RandomErasing의 텐서 입력과 정규화 뒤 적용 예",
+      "url": "https://docs.pytorch.org/vision/stable/generated/torchvision.transforms.RandomErasing.html",
+      "checked": "2026-11-16"
     }
   ],
   "credits": [],

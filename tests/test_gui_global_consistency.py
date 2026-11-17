@@ -117,8 +117,10 @@ class GlobalConsistencyTest(test_gui_hub.HubTest):
         with mock.patch.dict("os.environ", {"STUDY_OPEN_REGISTRATION": "1"}), mock.patch(
                 "aiprep.sharing.request", side_effect=wire.transport):
             self.assertGreater(win.privacy.consent.synchronize()["sent"], 0)
-            dialog.confirm_delete()
-            guikit.click(dialog.confirmation.buttons["delete"])
+            dialog.open_privacy()
+            privacy_dialog = win.privacy.dialog
+            privacy_dialog.confirm_withdraw()
+            guikit.click(privacy_dialog.confirmation.buttons["withdraw"])
             self.assertTrue(win.privacy.consent.settings()["withdraw_pending"])
             for store in win.privacy.consent.collections.values():
                 self.assertFalse(store.status()["enabled"])

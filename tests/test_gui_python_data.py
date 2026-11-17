@@ -28,7 +28,7 @@ class PythonDataGuiTest(fixtures.GuiTest):
         dialog = self.win.home.data_dialog
         guikit.pump()
         self.assertEqual("python", dialog.collection.track)
-        self.assertEqual("파이썬 학습 데이터", dialog.windowTitle())
+        self.assertEqual("파이썬 학습 기록", dialog.windowTitle())
         self.assertTrue(dialog.collection.status()["enabled"])
         ai_enabled = self.win.ai.collection.status()["enabled"] if self.win.ai else False
         guikit.click(dialog.toggle)
@@ -56,6 +56,7 @@ class PythonDataGuiTest(fixtures.GuiTest):
             self.assertGreaterEqual(point.y(), 0)
             self.assertLessEqual(point.x() + button.width(), home_scroll.viewport().width())
             self.assertLessEqual(point.y() + button.height(), home_scroll.viewport().height())
+            self.assertLess(button.width(), home_scroll.viewport().width() / 2)
             self.win.home.show_data()
             dialog = self.win.home.data_dialog
             dialog.resize(640, 420)
@@ -71,7 +72,9 @@ class PythonDataGuiTest(fixtures.GuiTest):
                 dialog.grab().save(str(root / ("python-data-top-" + mode + ".png")))
                 if QApplication.platformName() == "windows":
                     screen.grabWindow(int(dialog.winId())).save(str(root / ("python-data-native-top-" + mode + ".png")))
-            for button in (dialog.toggle, dialog.goal_save, dialog.export_button, dialog.delete_button, dialog.send_button, dialog.privacy_button):
+            for section in (dialog.transfer_section, dialog.export_section, dialog.goal_section):
+                guikit.click(section.header)
+            for button in (dialog.toggle, dialog.goal_save, dialog.export_button, dialog.send_button):
                 dialog.scroll.ensureWidgetVisible(button)
                 guikit.pump()
                 point = button.mapTo(dialog.scroll.viewport(), QPoint())
@@ -81,6 +84,8 @@ class PythonDataGuiTest(fixtures.GuiTest):
                 self.assertLessEqual(point.x() + button.width(), dialog.scroll.viewport().width())
                 self.assertLessEqual(point.y() + button.height(), dialog.scroll.viewport().height())
                 condition["buttons"].append({"text":button.text(),"x":point.x(),"y":point.y(),"width":button.width(),"height":button.height()})
+            for button in (dialog.privacy_button, dialog.close_button):
+                self.assertTrue(dialog.rect().contains(button.mapTo(dialog, button.rect().bottomRight())))
             if output:
                 root = Path(output)
                 root.mkdir(parents=True, exist_ok=True)

@@ -28,7 +28,7 @@ V2_FILES = ("gui/kit.py", "gui/hub_page.py", "gui/web_home.py", "gui/web_mission
             "gui/journey_text.py", "gui/cases_dialog.py", "gui/docview.py", "gui/ai_home.py", "gui/ai_learn.py", "gui/ai_quiz.py",
             "gui/ai_text.py")  # 새 규칙을 따르는 파일
 WEIGHTS = {400, 700}
-TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover")
+TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover", "navigation", "hero", "hero_alt")
 WEAK = {"ok": "ok_weak", "retry": "retry_weak", "wrong": "wrong_weak", "info": "info_weak", "selection_ink": "selection",
         "primary_off_ink": "primary_off", "primary_ink": "primary"}
 
@@ -88,6 +88,8 @@ class ContrastTest(unittest.TestCase):
             for ink in ("ink", "muted", "faint", "link"):
                 for back in TEXT_BACKS:
                     self.assertGreaterEqual(contrast(tokens[ink], tokens[back]), 4.5, "%s: %s / %s" % (scheme, ink, back))
+            for back in ("hero", "hero_alt"):
+                self.assertGreaterEqual(contrast(tokens["accent_ink"], tokens[back]), 4.5, "%s: accent_ink / %s" % (scheme, back))
             for ink, back in WEAK.items():
                 self.assertGreaterEqual(contrast(tokens[ink], tokens[back]), 4.5, "%s: %s / %s" % (scheme, ink, back))
             for ink in ("ok", "retry", "wrong"):
@@ -212,9 +214,33 @@ class PartsTest(unittest.TestCase):
         for widget in list(buttons.values()) + [plain, text]:
             self.box.addWidget(widget)
         self.show()
-        self.assertEqual({scale: button.height() for scale, button in buttons.items()}, {"l": 48, "m": 40, "s": 32})
-        self.assertEqual((plain.height(), text.height()), (40, 32))
+        self.assertEqual({scale: button.height() for scale, button in buttons.items()}, {"l": 48, "m": 44, "s": 32})
+        self.assertEqual((plain.height(), text.height()), (44, 32))
         self.assertEqual(buttons["l"].objectName(), "primary")
+
+    def test_text_button_focus_remains_visible_in_both_themes(self):
+        """Tab으로 글자 단추에 진입하면 초점 테두리가 보이고 크기·동작은 유지됨."""
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        previous = kit.button("이전 항목")
+        target = kit.button("학습·사용 안내", "text")
+        self.box.addWidget(previous)
+        self.box.addWidget(target)
+        clicked = []
+        target.clicked.connect(lambda: clicked.append(True))
+        self.show()
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            previous.setFocus()
+            guikit.pump()
+            bounds = target.geometry()
+            QTest.keyClick(previous, Qt.Key.Key_Tab)
+            guikit.pump()
+            self.assertTrue(target.hasFocus())
+            self.assertEqual(bounds, target.geometry())
+            picture = target.grab().toImage()
+            self.assertTrue(guikit.near(picture.pixelColor(picture.width() // 2,
+                                                          round(picture.devicePixelRatio())), "focus"), mode)
+            self.assertEqual([], clicked)
 
     def test_rows_are_56_or_80_high_and_open_on_one_click(self):
         rows = kit.RowList()
@@ -289,6 +315,22 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(card.button.height(), 48)
         card.set_item("끝", "", "")
         self.assertFalse(card.button.isVisibleTo(self.root))
+
+    def test_next_card_uses_current_margins_when_stacking_the_action(self):
+        from PyQt6.QtWidgets import QBoxLayout
+        card = kit.NextCard()
+        card.set_item("다음 단원", "설명과 예제를 읽습니다.", "학습 시작")
+        self.box.addWidget(card)
+        self.show()
+        minimum = 24 * theme.TYPE["body"][0]
+        width = minimum + card.button.sizeHint().width() + card.row.spacing() + 80
+        card.setFixedWidth(width)
+        card.row.setContentsMargins(24, 16, 24, 16)
+        card.arrange()
+        self.assertEqual(card.row.direction(), QBoxLayout.Direction.LeftToRight)
+        card.row.setContentsMargins(48, 16, 48, 16)
+        card.arrange()
+        self.assertEqual(card.row.direction(), QBoxLayout.Direction.TopToBottom)
 
     def test_stepper_and_dots_paint_every_state(self):
         stepper = kit.Stepper()
@@ -477,7 +519,7 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(kit.splitter(Qt.Orientation.Horizontal, ratio=0.4).ratio, 0.4)  # 설정이 없으면 기억하지 않음
 
     def test_banner_action_sits_right_of_the_text(self):
-        """띠의 행동 단추는 글 오른쪽의 보조 단추 m 임. 높이는 보통 글자에서 40, 큰 글자에서 44임. 바탕은 띠 바탕과 구분되는 surface 이고
+        """띠의 행동 단추는 글 오른쪽의 보조 단추 m 임. 보통·큰 글자에서 높이 44임. 바탕은 띠 바탕과 구분되는 surface 이고
         꺼지면 띠가 비치며 글만 faint 가 됨. 글이 한 줄이면 단추와 같은 가운데 높이에 옴. 두 줄이면 앞 낱말이 첫 줄에 붙고 글이 잘리지 않음.
         단추가 없는 띠의 action 은 None."""
         plain = kit.banner("단추 없는 띠입니다.", "warning")
@@ -492,15 +534,15 @@ class PartsTest(unittest.TestCase):
         self.assertIsNone(plain.action)
         for banner in (one, two):
             button = banner.action
-            self.assertEqual((button.height(), button.objectName(), button.property("scale")), (40, "", "m"))
+            self.assertEqual((button.height(), button.objectName(), button.property("scale")), (44, "", "m"))
             self.assertGreater(button.x(), banner.text.mapTo(banner, QPoint(banner.text.width(), 0)).x())
             image = banner.grab().toImage()
             self.assertEqual(image.pixelColor(button.x() + 8, button.y() + 20).name(), theme.color("surface"))
             self.assertEqual(image.pixelColor(4, banner.height() // 2).name(), theme.color("ok_weak"))
-        self.assertLessEqual(abs(one.text.mapTo(one, QPoint(0, one.text.height() // 2)).y() - (one.action.y() + 20)), 2)
-        self.assertEqual(one.height(), 12 + 40 + 12)
+        self.assertLessEqual(abs(one.text.mapTo(one, QPoint(0, one.text.height() // 2)).y() - (one.action.y() + 22)), 2)
+        self.assertEqual(one.height(), 12 + 44 + 12)
         self.assertGreaterEqual(two.text.height(), two.text.heightForWidth(two.text.width()))
-        self.assertGreater(two.text.height(), 40)
+        self.assertGreater(two.text.height(), 44)
         mark_center = two.word.mapTo(two.pair, QPoint()).y() + two.word.sizeHint().height() / 2
         text_center = two.text.mapTo(two.pair, QPoint()).y() + two.pair.text_center()
         self.assertLessEqual(abs(mark_center - text_center), 1)
@@ -516,7 +558,7 @@ class PartsTest(unittest.TestCase):
         self.assertEqual((one.action.height(), one.action.font().pixelSize()), (44, 19))
 
     def test_chips_on_the_background_and_switched_off(self):
-        """바탕 위 칩(onbg)은 높이 40 이고 평소에는 바탕이 비치며 고르면 흰 알약(surface)이 됨. 꺼진 칩은 고른 알약을 남기고 글만
+        """바탕 위 칩(onbg)은 높이 44이고 평소에는 바탕이 비치며 고르면 흰 알약(surface)이 됨. 꺼진 칩은 고른 알약을 남기고 글만
         faint 로 바뀜. 표준 칩과 바탕 위 칩의 고름·안 고름 넷을 밝게·어둡게에서 봄."""
         self.addCleanup(theme.set_mode, "light")
         chips = {}
@@ -530,7 +572,7 @@ class PartsTest(unittest.TestCase):
                     chips[onbg, checked, enabled] = chip
         self.root.resize(600, 520)
         self.show()
-        backs = {(False, False): "surface_alt", (False, True): "selection", (True, False): "bg", (True, True): "surface"}
+        backs = {(False, False): "surface", (False, True): "selection", (True, False): "bg", (True, True): "surface"}
         offs = {(False, False): "primary_off", (False, True): "selection", (True, False): "bg", (True, True): "surface"}
         for scheme in ("light", "dark"):
             theme.set_mode(scheme)
@@ -538,7 +580,7 @@ class PartsTest(unittest.TestCase):
             image = self.root.grab().toImage()
             for (onbg, checked, enabled), chip in chips.items():
                 where = (scheme, onbg, checked, enabled)
-                self.assertEqual(chip.height(), 40, where)
+                self.assertEqual(chip.height(), 44, where)
                 self.assertEqual(chip.property("onbg"), True if onbg else None, where)
                 box = chip.geometry()
                 back = theme.color((backs if enabled else offs)[onbg, checked])

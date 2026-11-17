@@ -108,3 +108,28 @@ def grad_quadratic(r):
         explain += " 기울기를 지우지 않고 backward()를 두 번 불러 같은 값이 한 번 더 더해지므로 %d입니다." % grad
     return blank(stem=stem, blanks=[{"answer": [str(grad)], "mode": "number"}], explain=explain.replace("-", "−"),
                  params={"a": a, "c": c, "x0": x0, "twice": twice})
+
+
+@gen("i03-g04", unit="3c", step="3c/4", facts=["F03-39"], level=2,
+     family="sum-axis-values", basis="lecture-example", tags=["sum", "축"],
+     ref=["3차시 노트북 02 [51]", "3차시 노트북 02 [52]", "3차시 노트북 02 [54]"])
+def sum_axis(r):
+    """직사각형 배열의 합과 결과 모양을 축 0·1 조건으로 바꿔 물음."""
+    rows, cols = r.pick([(2, 3), (3, 2), (2, 4), (4, 2)])
+    values = [[r.int(-4, 9) for _ in range(cols)] for _ in range(rows)]
+    dim = r.pick([0, 1])
+    groups = list(zip(*values)) if dim == 0 else values
+    sums = [sum(group) for group in groups]
+    code = f"x = torch.tensor({values})\ny = x.sum(dim={dim})"
+    return blank(
+        stem=f"다음 코드를 실행한 뒤 y의 값은 ____ 이고, y.shape은 ____ 입니다. 값과 shape은 숫자 목록으로 쓰세요.\n\n```python\n{code}\n```",
+        blanks=[{"answer": [str(sums)], "mode": "values"},
+                {"answer": [str([len(sums)])], "mode": "shape"}],
+        explain=(f"dim={dim}은 {'세로 방향으로 같은 열' if dim == 0 else '가로 방향으로 같은 행'}의 값을 더합니다. "
+                 f"합은 {sums}입니다. 더한 축이 사라져 shape은 [{len(sums)}]입니다. "
+                 f"dim={1 - dim}을 사용하면 {'행마다' if dim == 0 else '열마다'} 합을 구합니다."),
+        params={"values": values, "dim": dim})
+
+
+sum_axis.gen_spec.meta.update(template_revision="sum-axis-values-1", author_difficulty=2,
+                              display_params=["values", "dim"])

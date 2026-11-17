@@ -289,6 +289,15 @@ class StatusInstallCliTest(CliBase):
         with mock.patch.dict(os.environ, {"STUDY_USER": ""}), mock.patch.object(study, "USER_FILE", os.path.join(self.tmp, "nouser")):
             code = cli.main(["status"], out=lines.append, repo=self.repo, home=self.home)
         self.assertEqual(1, code)
+        self.assertIn("풀이 ID를 확인하지 못했습니다", "\n".join(lines))
+        self.assertIn("풀이 파일은 그대로 있습니다", "\n".join(lines))
+        self.assertEqual("learn", self.kinds()[-1])
+        lines = []
+        with mock.patch.dict(os.environ, {"STUDY_USER": ""}), \
+                mock.patch.object(study, "USER_FILE", os.path.join(self.tmp, "nouser")), \
+                mock.patch.object(study, "SUBMISSIONS_DIR", os.path.join(self.tmp, "empty-submissions")):
+            code = cli.main(["status"], out=lines.append, repo=self.repo, home=self.home)
+        self.assertEqual(1, code)
         self.assertIn("내 ID 를 모릅니다", "\n".join(lines))
         lines = []
         code = cli.main(["--user", "bob", "show", "l90"], out=lines.append, repo=self.repo, home=self.home)

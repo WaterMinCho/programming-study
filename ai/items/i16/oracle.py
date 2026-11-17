@@ -76,3 +76,28 @@ def i16_g06(p):
             raise ValueError("hidden must be positive")
         return [str(feat * hidden + hidden)]
     raise ValueError("form must be features or linear")
+
+
+
+def i16_g07(params):
+    """배치를 보존하고 잘못된 설정만 고치는 보기 문자열을 반환함."""
+    for name in ("n", "c", "h", "w", "classes", "in_features"):
+        if type(params[name]) is not int or params[name] <= 0:
+            raise ValueError(f"{name}은 양의 정수여야 함.")
+    start_dim = params["start_dim"]
+    if type(start_dim) is not int or start_dim not in (0, 1):
+        raise ValueError("공개 조건의 시작 축은 0 또는 1임.")
+    per_image = params["c"] * params["h"] * params["w"]
+    change_flat = start_dim != 1
+    change_fc = params["in_features"] != per_image
+    # 공개 보기 문자열의 조사와 마침표를 유지함.
+    if change_flat and change_fc:
+        choice = (f"flat의 start_dim을 1로, fc의 첫 인자를 "
+                  f"{per_image}로 바꿉니다.")
+    elif change_flat:
+        choice = "flat의 start_dim만 1로 바꿉니다."
+    elif change_fc:
+        choice = f"fc의 첫 인자만 {per_image}로 바꿉니다."
+    else:
+        choice = "수정하지 않습니다."
+    return [choice]

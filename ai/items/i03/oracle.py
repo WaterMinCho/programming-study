@@ -32,3 +32,28 @@ def i03_g02(params):
 def i03_g03(params):
     grad = 2 * params["a"] * params["x0"] * (2 if params["twice"] else 1)
     return [str(grad)]
+
+
+
+def i03_g04(params):
+    """선택한 축을 합산한 원소 목록과 남은 축의 크기를 반환함."""
+    values = params["values"]
+    dim = params["dim"]
+    if type(dim) is not int or dim not in (0, 1):
+        raise ValueError("공개 조건의 합산 축은 0 또는 1임.")
+    if not isinstance(values, (list, tuple)) or not values:
+        raise ValueError("한 행 이상인 배열이 필요함.")
+    if not isinstance(values[0], (list, tuple)) or not values[0]:
+        raise ValueError("한 열 이상인 배열이 필요함.")
+    rows, columns = len(values), len(values[0])
+    if any(not isinstance(row, (list, tuple)) or len(row) != columns
+           for row in values):
+        raise ValueError("모든 행의 길이가 같아야 함.")
+    if any(type(value) is not int for row in values for value in row):
+        raise ValueError("공개 조건의 원소는 정수임.")
+    if dim == 0:
+        reduced = [sum(values[r][c] for r in range(rows))
+                   for c in range(columns)]
+    else:
+        reduced = [sum(row) for row in values]
+    return [str(reduced), str([len(reduced)])]

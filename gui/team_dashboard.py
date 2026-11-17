@@ -162,10 +162,11 @@ class MetricCard(QFrame):
         self.setObjectName("team_metric")
         layout = kit.box(self, (16, 16, 16, 16), 8)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout.addWidget(kit.para(title, "caption", "secondary"))
+        self.title = kit.label(title, "caption", "secondary")
+        layout.addWidget(self.title)
         line = QWidget()
         number = kit.box(line, horizontal=True, spacing=8)
-        self.value = kit.label("–", "headline", bold=True)
+        self.value = kit.label("–", "title", bold=True)
         self.info = MetricInfo(title, explanation, self.value)
         number.addWidget(self.value)
         number.addWidget(self.info)
@@ -174,6 +175,13 @@ class MetricCard(QFrame):
         if detail:
             self.detail = kit.para("", "caption", "secondary")
             layout.addWidget(self.detail)
+
+
+class DashboardHeaderRow(DashboardRow):
+    def sizeHint(self):
+        size = super().sizeHint()
+        size.setWidth(sum(self.widths()) + self.row.spacing() * (self.row.count() - 1))
+        return size
 
 
 def metric_row(cards, column_width):
@@ -341,6 +349,10 @@ class TeamCard(QWidget):
         super().__init__()
         self.win, self.days, self.loaded, self.loading = win, 7, None, False
         self.metric, self.result = "graded", None
+        self.today_summary = None
+        self.today_timer = QTimer(self)
+        self.today_timer.setSingleShot(True)
+        self.today_timer.timeout.connect(lambda: self.set_today(self.today_summary))
         self.setProperty("ui", "2")
         box = kit.box(self, spacing=24)
         self.heading = kit.label("스터디 수집 현황", "title", bold=True)
@@ -355,11 +367,32 @@ class TeamCard(QWidget):
         kit.baseline(self.heading, self.as_of)
         self.reload = kit.button("새로고침", "secondary")
         self.reload.clicked.connect(self.fetch)
-        header = DashboardRow([title_row, self.reload],
-                              lambda: [self.heading.sizeHint().width(), self.reload.sizeHint().width()], [1, 0], 16)
-        header.row.setAlignment(title_row, Qt.AlignmentFlag.AlignVCenter)
-        header.row.setAlignment(self.reload, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        box.addWidget(header)
+        self.today_surface = kit.frame("team_today")
+        today_box = kit.box(self.today_surface, (16, 8, 16, 8))
+        self.today_title = kit.label("오늘 열심히 공부한 계정", "caption", "secondary")
+        self.today_value = kit.label("확인 중", "caption", bold=True)
+        self.today_info = MetricInfo(self.today_title.text(), "", self.today_value)
+        today_number = QWidget()
+        number = kit.box(today_number, horizontal=True, spacing=4)
+        number.addWidget(self.today_value)
+        number.addWidget(self.today_info)
+        self.today_row = DashboardHeaderRow([self.today_title, today_number],
+                                      lambda: [self.today_title.sizeHint().width(), today_number.sizeHint().width()], [0, 0], 8)
+        for widget in (self.today_title, today_number):
+            self.today_row.row.setAlignment(widget, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        today_box.addWidget(self.today_row)
+        today_width = lambda: sum(self.today_row.widths()) + self.today_row.row.spacing() + 32
+        self.header_actions = DashboardHeaderRow([self.today_surface, self.reload],
+                                          lambda: [today_width(), self.reload.sizeHint().width()], [0, 0], 12)
+        for widget in (self.today_surface, self.reload):
+            self.header_actions.row.setAlignment(widget, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.header = DashboardRow([title_row, self.header_actions],
+                                  lambda: [self.heading.sizeHint().width() + (0 if self.as_of.isHidden() else self.as_of.sizeHint().width() + 12),
+                                           sum(self.header_actions.widths()) + 12], [1, 0], 16)
+        self.header.row.setAlignment(title_row, Qt.AlignmentFlag.AlignVCenter)
+        self.header.row.setAlignment(self.header_actions, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        box.addWidget(self.header)
+        self.set_today(state="loading")
         self.period_title = kit.para("최근 7일 학습 활동", "headline", bold=True)
         self.periods = PeriodSelector()
         self.periods.setObjectName("team_periods")
@@ -407,7 +440,6 @@ class TeamCard(QWidget):
         summary = kit.box(self.summary, spacing=16)
         summary.addWidget(kit.para("전체 누적", "headline", bold=True))
         summary.addWidget(metric_row(totals, column_width))
-        box.addWidget(self.summary)
         self.plot_card = kit.frame("team_plot")
         plot_box = kit.box(self.plot_card, (24, 24, 24, 24), 16)
         self.period_name = kit.para("최근 7일 채점", "caption", "secondary")
@@ -469,6 +501,7 @@ class TeamCard(QWidget):
             facts.addWidget(label)
         plot_box.addWidget(self.metadata)
         box.addWidget(self.plot_card)
+        box.addWidget(self.summary)
         self.note = kit.para("", "caption", "secondary")
         box.addWidget(self.note)
         self.note.hide()
@@ -488,8 +521,11 @@ class TeamCard(QWidget):
         identity = getattr(self.win, "identity", None)
         if not self.allowed(identity):
             self.loaded = None
+            self.set_today(state="unavailable")
             self.hide()
             return
+        if self.loaded is not identity:
+            self.set_today(state="loading")
         if self.loaded is not identity and not self.loading:
             self.loading = True
             QTimer.singleShot(0, self.fetch)
@@ -567,6 +603,55 @@ class TeamCard(QWidget):
         self.as_of.setText(label)
         self.as_of.show()
 
+    def set_today(self, today=None, *, state="ready"):
+        """기간 합계와 별도로 받은 한국 시간 오늘의 인증 계정 수를 표시함."""
+        self.today_timer.stop()
+        self.today_summary = None
+        if state == "ready" and not self.allowed(getattr(self.win, "identity", None)):
+            state = "unavailable"
+        tip = ("[오늘 공부한 계정 수에 포함]을 선택한 인증 계정 중 한국 시간 오늘 파이썬·AI 문제에 답을 적거나 고른 뒤 채점한 계정 수입니다. "
+               "앱의 당일 채점 완료 신호를 서버가 받은 계정만 한 번씩 셉니다. "
+               "선택 기간과 관계없으며 실제 사람 수와 다를 수 있습니다. 구버전 앱의 활동은 빠질 수 있습니다.")
+        text = {"loading": "확인 중", "failed": "조회 실패", "unavailable": "확인 불가"}.get(state, "집계 준비 중")
+        stale = False
+        if state == "ready" and today is not None:
+            try:
+                date = datetime.date.fromisoformat(today["date"])
+                accounts, coverage = today["accounts"], today["coverage"]
+                if type(accounts) is not int or accounts < 0 or coverage not in ("partial", "all"):
+                    raise ValueError
+                now = datetime.datetime.now(KST)
+                if date > now.date():
+                    raise ValueError
+                self.today_summary = dict(today)
+                text = f"확인된 {accounts:,}개"
+                tip += f" 집계 날짜는 {date:%Y년 %m월 %d일}입니다."
+                if coverage == "partial":
+                    tip += " 일부 이전 인증은 계정을 확인하지 못해 집계에서 빠질 수 있습니다. 기기 확인 코드가 남아 있으면 자동으로 확인합니다."
+                stale = date < now.date()
+                if stale:
+                    text = f"{date.month}/{date.day} · " + text
+                    tip += " 오늘의 수치가 아닙니다. [새로고침]으로 다시 확인해 주세요."
+                else:
+                    midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(), KST)
+                    self.today_timer.start(max(1, math.ceil((midnight - now).total_seconds() * 1000)))
+            except (KeyError, TypeError, ValueError):
+                text = "확인 불가"
+                tip += " 오늘 통계의 응답을 확인하지 못했습니다."
+        elif state == "ready":
+            tip += " 이 서버는 오늘의 참여 계정 수를 아직 제공하지 않습니다."
+        elif state == "failed":
+            tip += " 통계를 불러오지 못했습니다. [새로고침]으로 다시 확인해 주세요."
+        elif state == "loading":
+            tip += " 새 통계를 확인하고 있습니다."
+        else:
+            tip += " 통계를 볼 권한을 확인하지 못했습니다."
+        self.today_value.setText(text)
+        kit.set_tone(self.today_value, "secondary" if stale or self.today_summary is None else "")
+        kit.typed(self.today_value, "caption", bold=True)
+        self.today_info.set_explanation(tip)
+        self.today_surface.setAccessibleName(self.today_title.text() + " " + text)
+
     def fetch(self):
         if self.win.job is not None:
             self.loading = False
@@ -575,9 +660,11 @@ class TeamCard(QWidget):
         if not self.allowed(identity):
             self.loading = False
             self.loaded = None
+            self.set_today(state="unavailable")
             self.hide()
             return
         self.loading = True
+        self.set_today(state="loading")
         for button in self.buttons.values():
             button.setEnabled(False)
         self.reload.setEnabled(False)
@@ -595,11 +682,13 @@ class TeamCard(QWidget):
             self.reload.setEnabled(True)
             if not self.allowed(identity):
                 self.loaded = None
+                self.set_today(state="unavailable")
                 self.hide()
                 self.refresh_identity()
                 return
             self.loaded = identity
             if result.get("error"):
+                self.set_today(state="failed")
                 self.result = None
                 self.as_of.hide()
                 self.filter_row.hide()
@@ -621,6 +710,7 @@ class TeamCard(QWidget):
             self.period_title.setText(PERIODS[days] + " 학습 활동")
             self.result = result
             self.set_as_of(result.get("as_of"))
+            self.set_today(result.get("today"))
             raw_period = result.get("period_total")
             period_text = "미확인" if raw_period is None else f"{raw_period:,}건"
             self.raw.setText(f"{result['total']:,}건")
@@ -675,6 +765,7 @@ class TeamCard(QWidget):
                                    on_fail=lambda: done({"error": "통계를 불러오지 못했습니다. 잠시 후 [새로고침]을 눌러 주세요.", "auth": False}))
         if started is False:
             self.loading = False
+            self.set_today(state="failed")
             for button in self.buttons.values():
                 button.setEnabled(True)
             self.reload.setEnabled(True)

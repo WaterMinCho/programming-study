@@ -11,16 +11,16 @@ from urllib.error import HTTPError
 
 from tools.slack_notify import GitHub, REPO, WEB, RELAY, WORKFLOWS, association, card, development, endpoint, metadata, plain, read_url, send
 from tools.study_checks import AUTHORS, checks_state, NOTIFY_CONTEXT
-from tools.ci_scope import model_path
+from tools.ci_scope import model_path, needs_launcher, needs_release_gui
 from tools.slack_threads import DailyThreads
 
 SERVER_PATHS = ("learning_server/**", "learning_data/**", ".dockerignore", "tests/test_project_structure.py", "aiprep/collection.py", "aiprep/sharing.py", "aiprep/privacy.py", "aiprep/sync_schedule.py", "submission_api.py", "tests/test_submission_api.py",
-                "tests/test_learning_privacy.py", "tests/test_private_submission.py", "tests/test_learning_server.py", "tests/test_team_access.py", "tests/test_identity.py", "tests/test_learning_sample.py", "tests/test_learning_starter.py", "tests/test_learning_operations.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", "tests/test_legacy_transfer.py", ".github/workflows/learning-server.yml")
+                "tests/test_learning_privacy.py", "tests/test_private_submission.py", "tests/test_learning_server.py", "tests/test_team_access.py", "tests/test_identity.py", "tests/test_daily_study.py", "tests/test_today_activity.py", "tests/test_team_study_activity.py", "tests/test_learning_sample.py", "tests/test_learning_starter.py", "tests/test_learning_operations.py", "tests/test_storage_capacity.py", "tests/test_sync_schedule.py", "tests/test_legacy_ai.py", "tests/test_legacy_transfer.py", ".github/workflows/learning-server.yml")
 JOURNEY_PATHS = ("dungeons/**", "journey/**", "study.py", "tools/verify_journey.py", "tools/journey_seal.py", "tools/journey_art/**",
                  "tests/test_journey_*.py", "tests/journey_bank/**", ".github/workflows/journey.yml")
 RELEASE = ".github/workflows/release-check.yml"
-RELEASE_PATHS = ("tools/check_release.py", RELEASE, "bootstrap.py", "gitflow.py", "start.bat", "start.pyw", "gui/app.py", "gui/icon.py",
-                 "gui/launcher_shortcut.py", "gui/navigation.py", "gui/career_*.py", "gui/paper_explainer.py", "gui/video_viewer.py", "career/**", "tools/video_setup.py", "tests/test_gui_career*.py", "tests/test_gui_paper_explainer.py", "tests/test_gui_video_player.py", "gui/identity.py", "gui/dialogs.py", "gui/dialog_layout.py", "gui/privacy.py", "gui/auto_submission.py", "gui/submission_setup.py", "gui/ai_data.py", "gui/onboarding.py", "gui/team_dashboard.py", "gui/window.py", "gui/workspace.py", "gui/theme.py", "gui/settings_menu.py", "gui/ai_learn.py", "gui/ai_home.py", "gui/hub_page.py", "gui/motion.py", "tests/test_gui_settings_menu.py", "tests/test_gui_refresh.py", "learning_data/identity.py", "gui/ai_mock.py", "gui/kit.py", "tests/test_gui_ai_mock.py", "tests/test_gui_ai_courses.py", "tests/test_gui_navigation.py", "tests/test_gui_identity.py", "tests/test_gui_dialogs.py", "tests/test_gui_auto_submission.py", "tests/test_gui_submission.py", "tests/test_gui_onboarding.py", "tests/test_launcher_shortcut.py", "tests/test_gui_launcher.py")
+RELEASE_PATHS = ("tools/check_release.py", "tools/check_video_fullscreen.py", RELEASE, "bootstrap.py", "gitflow.py", "start.bat", "start.pyw", "gui/app.py", "gui/icon.py",
+                 "gui/launcher_shortcut.py", "gui/navigation.py", "gui/career_*.py", "gui/paper_explainer.py", "gui/video_viewer.py", "career/**", "tools/video_setup.py", "tests/test_gui_career*.py", "tests/test_gui_paper_explainer.py", "tests/test_gui_video_player.py", "gui/identity.py", "gui/dialogs.py", "gui/dialog_layout.py", "gui/disclosure.py", "tests/test_gui_disclosure.py", "gui/action_layout.py", "tests/test_gui_action_layout.py", "tests/test_gui_design_system.py", "gui/privacy.py", "gui/auto_submission.py", "gui/submission_setup.py", "gui/ai_data.py", "gui/onboarding.py", "gui/team_dashboard.py", "gui/window.py", "gui/workspace.py", "gui/theme.py", "gui/settings_menu.py", "gui/ai_learn.py", "gui/ai_home.py", "gui/section_browser.py", "tests/test_gui_section_browser.py", "gui/hub_page.py", "gui/motion.py", "tests/test_gui_settings_menu.py", "tests/test_gui_local_identity_guard.py", "tests/test_gui_refresh.py", "learning_data/identity.py", "gui/ai_mock.py", "gui/kit.py", "tests/test_gui_ai_mock.py", "tests/test_gui_ai_courses.py", "tests/test_gui_navigation.py", "tests/test_gui_identity.py", "tests/test_gui_dialogs.py", "tests/test_gui_auto_submission.py", "tests/test_gui_submission.py", "tests/test_gui_onboarding.py", "tests/test_launcher_shortcut.py", "tests/test_gui_launcher.py")
 
 
 def touches(files, patterns):
@@ -54,13 +54,15 @@ def rollup(pr):
 
 def required_names(files, pr=None):
     names = ["필수 검사", "PR 제목", "문장 검사", "변경 범위", "기능·자료 검사", "화면 테스트"]
+    if needs_launcher(files):
+        names += ["실행기 검사 (windows-latest)", "실행기 검사 (macos-latest)"]
     if any(model_path(path) and path.endswith(".py") for path in files):
         names.append("모델 제출 검사")
     if touches(files, SERVER_PATHS):
         names += ["운영 경로 (ubuntu-latest)", "운영 경로 (windows-latest)"]
     if touches(files, JOURNEY_PATHS):
         names += ["바뀐 곳 보기", "여정 문제 검증", "여정 JS 검증 (Node 22)"]
-    if release_expected(files, pr):
+    if release_expected(files, pr) and needs_release_gui(files):
         names += ["새 설치와 작은 창 (배율 1)", "새 설치와 작은 창 (배율 1.5)"]
     return names
 

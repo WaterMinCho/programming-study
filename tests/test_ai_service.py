@@ -902,8 +902,8 @@ class PatternSetTest(PatternBase):
             chips[cur["card"]] = (cur["chips"], cur["kind"], cur["code_options"], cur["grid"], cur["code"])
             ps.answer(self.right(ps, cur), 1, True)
             ps.next()
-        self.assertEqual((["학습 루프", "순서 고르기"], "choice", True, 2, False), chips["pc-o01"])
-        self.assertEqual((["학습 루프", "고르기"], "choice", True, 1, False), chips["pc-p01"])
+        self.assertEqual((["학습 루프", "객관식"], "choice", True, 2, False), chips["pc-o01"])
+        self.assertEqual((["학습 루프", "객관식"], "choice", True, 1, False), chips["pc-p01"])
         self.assertEqual((["학습 루프", "코드 빈칸"], "blank", False, 1, True), chips["pc-k01"])
 
     def test_pick_cards_before_slot_cards_and_one_family(self):
@@ -1044,10 +1044,10 @@ class PatternNotesTest(PatternBase):
         self.assertEqual(([o["text"] for o in view["options"]], True, [view["options"][wrong[0]]["text"]]),
                          (detail["options"], detail["code_options"], detail["mine"]))
         groups = sess.wrong_notes()
-        group = next(g for g in groups if g["title"] == "상황별 코드")
+        group = next(g for g in groups if g["title"] == "코딩으로 실전학습하기")
         labels = {i["key"]: i["label"] for i in group["items"]}
-        self.assertEqual("코드 빈칸 · 상황별 코드", labels["pc-k02"])
-        self.assertEqual("순서 고르기 · 상황별 코드", labels["pc-o01"])
+        self.assertEqual("코드 빈칸 · 코딩으로 실전학습하기", labels["pc-k02"])
+        self.assertEqual("객관식 · 코딩으로 실전학습하기", labels["pc-o01"])
 
     def test_masked_only_wrong_shows_what_i_wrote(self):
         sess = self.opened_slots()
@@ -1067,7 +1067,7 @@ class PatternNotesTest(PatternBase):
         ps = service.PracticeSet(sess, "s1", "unit", ["pc-x01"], 1)
         ps.queue[0]["again"] = 1
         cur = ps.current()
-        self.assertEqual(["학습 루프", "고르기", "다시 나온 문항"], cur["chips"])
+        self.assertEqual(["학습 루프", "객관식", "다시 나온 문항"], cur["chips"])
         ps.answer([cur["options"][0]["no"]], 2, False)
         row = self.log(sess, "answer")[-1]
         self.assertTrue(row["back"])

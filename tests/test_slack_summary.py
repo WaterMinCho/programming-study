@@ -194,7 +194,53 @@ class SummaryTest(unittest.TestCase):
             self.assertNotIn("새 설치와 작은 창 (배율 1)", summary.required_names(files, self.github.pr))
         for path in summary.RELEASE_PATHS:
             self.assertTrue(summary.release_expected([path], self.github.pr))
-            self.assertIn("새 설치와 작은 창 (배율 1.5)", summary.required_names([path], self.github.pr))
+            if path == "start.bat":
+                self.assertNotIn("새 설치와 작은 창 (배율 1.5)", summary.required_names([path], self.github.pr))
+            else:
+                self.assertIn("새 설치와 작은 창 (배율 1.5)", summary.required_names([path], self.github.pr))
+
+    def test_launcher_waits_for_both_os_and_accepts_skipped_screen_matrix(self):
+        self.github.files = [{"filename": "start.bat"}]
+        self.rows = self.checks_for(["start.bat"])
+        self.rows.append(job("새 설치와 작은 창 (배율 )", "SKIPPED"))
+        for name in ("실행기 검사 (windows-latest)", "실행기 검사 (macos-latest)"):
+            original = self.rows
+            self.rows = [row for row in original if row.get("name") != name]
+            self.assertIsNone(self.aggregate())
+            for state in ("IN_PROGRESS", "COMPLETED"):
+                self.rows.append(dict(job(name), status=state))
+                if state == "IN_PROGRESS":
+                    self.assertIsNone(self.aggregate())
+                    self.rows.pop()
+                else:
+                    self.assertTrue(self.final()[1]["passed"])
+            self.rows = original
+        self.rows[-2] = job("실행기 검사 (macos-latest)", "FAILURE")
+        self.assertFalse(self.final()[1]["passed"])
+
+    def test_launcher_only_still_waits_for_triggered_release_scope(self):
+        self.github.files = [{"filename": "start.bat"}]
+        self.rows = self.checks_for(["start.bat"])
+        self.github.runs["release-check.yml"][0]["status"] = "in_progress"
+        self.assertIsNone(self.aggregate())
+        self.github.runs["release-check.yml"][0]["status"] = "completed"
+        self.assertTrue(self.final()[1]["passed"])
+        self.github.files = [{"filename": "start.command"}]
+        self.github.runs["release-check.yml"] = []
+        self.assertTrue(self.final()[1]["passed"])
+
+    def test_launcher_mixed_changes_and_renames_wait_for_screen_checks(self):
+        for other in ("gui/window.py", "bootstrap.py", "start.pyw", "tests/test_bootstrap.py", "unknown.py"):
+            files = ["start.bat", other]
+            with self.subTest(other=other):
+                names = summary.required_names(files, self.github.pr)
+                self.assertIn("실행기 검사 (macos-latest)", names)
+                self.assertIn("새 설치와 작은 창 (배율 1.5)", names)
+        self.github.files = [{"filename": "start.bat", "previous_filename": "bootstrap.py"}]
+        self.rows = self.checks_for(["start.bat"])
+        self.assertIsNone(self.aggregate())
+        self.rows += [job("새 설치와 작은 창 (배율 1)"), job("새 설치와 작은 창 (배율 1.5)")]
+        self.assertTrue(self.final()[1]["passed"])
 
     def test_planned_paths_and_names_match_the_actual_workflow_files(self):
         root = Path(__file__).resolve().parents[1]/".github/workflows"
@@ -214,6 +260,15 @@ class SummaryTest(unittest.TestCase):
         release = (root/"release-check.yml").read_text(encoding="utf-8")
         self.assertIn("name: 새 설치와 작은 창 (배율 ${{ matrix.scale }})", release)
         self.assertIn("scale: ['1', '1.5']", release)
+        self.assertIn("needs.scope.outputs.release_gui == 'true'", release)
+        self.assertIn("github.event_name == 'workflow_dispatch'", release)
+        ci = (root/"ci.yml").read_text(encoding="utf-8")
+        self.assertIn("name: 실행기 검사 (${{ matrix.os }})", ci)
+        self.assertIn("needs.scope.outputs.launcher == 'true'", ci)
+        for system, module in (("windows", "windows"), ("macos", "mac")):
+            self.assertIn("- os: %s-latest\n            module: tests.test_%s_start" % (system, module), ci)
+        self.assertIn("python -m unittest -v ${{ matrix.module }}", ci)
+        self.assertIn("module: tests.test_windows_start tests.test_windowed.StartBatTest", ci)
 
     def test_release_waits_for_fork_pr_but_excludes_legacy_submissions(self):
         self.github.pr["head"].update(ref="study/learner")

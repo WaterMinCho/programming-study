@@ -21,12 +21,13 @@
   {"id": "l15", "title": "15차시 사용자 데이터 분류"},
   {"id": "l16", "title": "16차시 CNN 스크래치 구현"},
   {"id": "l17", "title": "17차시 자연어 처리 종합 실습"},
-  {"id": "l18", "title": "상황별 코드"},
-  {"id": "al01", "title": "응용 1차시 이미지를 숫자로 읽고 모델 입력으로 준비합니다"},
-  {"id": "al02", "title": "응용 2차시 주변 값과 좌표를 바꿔 입력을 준비합니다"},
-  {"id": "al03", "title": "응용 3차시 프레임에서 경계와 영역의 위치를 찾습니다"}
+  {"id": "l18", "title": "코딩으로 실전학습하기"},
+  {"id": "al01", "title": "응용 1차시 이미지를 숫자로 읽고 모델 입력으로 준비하기"},
+  {"id": "al02", "title": "응용 2차시 주변 값과 좌표를 바꿔 입력 준비하기"},
+  {"id": "al03", "title": "응용 3차시 프레임에서 경계와 영역의 위치 찾기"},
+  {"id": "al04", "title": "응용 4차시 프레임 사이의 위치와 움직임 추적하기"}
  ],
- "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03"],
+ "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03", "al04"],
  "exam": {"date": "2026-12-02", "last_new": "2026-11-24", "sweep_from": "2026-11-25", "last_review": "2026-12-01"},
  "lessons": [
   {"id": "i01", "no": 1, "title": "딥러닝에 필요한 파이썬", "page": "l01", "date": "2026-10-19", "weight": 0.8, "units": 7, "hw_due": null},
@@ -41,22 +42,24 @@
   {"id": "i10", "no": 10, "title": "다중 분류 2", "page": "l10", "date": "2026-10-30", "weight": 1.5, "units": 9, "hw_due": null},
   {"id": "i11", "no": 11, "title": "CNN 이미지 분류", "page": "l11", "date": "2026-11-02", "weight": 1.3, "units": 7, "hw_due": null},
   {"id": "i12", "no": 12, "title": "튜닝·최적화와 과적합 대응", "page": "l12", "date": "2026-11-03", "weight": 1.1, "units": 7, "hw_due": null},
-  {"id": "i13", "no": 13, "title": "13차시 사전학습한 특징을 새 분류에 사용합니다", "page": "l13", "date": "2026-11-04", "weight": 0.8, "units": 7, "hw_due": null},
-  {"id": "i14", "no": 14, "title": "14차시 학습할 범위와 실행 조건을 맞춥니다", "page": "l14", "date": "2026-11-05", "weight": 0.8, "units": 8, "hw_due": null},
-  {"id": "i15", "no": 15, "title": "15차시 이미지 파일을 학습 배치로 연결합니다", "page": "l15", "date": "2026-11-06", "weight": 0.6, "units": 5, "hw_due": null},
-  {"id": "i16", "no": 16, "title": "16차시 작은 CNN을 만들며 모양과 수를 검산합니다", "page": "l16", "date": "2026-11-09", "weight": 0.8, "units": 7, "hw_due": null},
-  {"id": "i17", "no": 17, "title": "17차시 토큰에서 문장 분류까지 연결합니다", "page": "l17", "date": "2026-11-10", "weight": 0.2, "units": 6, "hw_due": null},
-  {"id": "a01", "no": 1, "course": "app", "title": "이미지를 숫자로 읽고 모델 입력으로 준비합니다", "page": "al01", "date": "2026-11-11", "weight": 1, "units": 8, "hw_due": null},
-  {"id": "a02", "no": 2, "course": "app", "title": "주변 값과 좌표를 바꿔 입력을 준비합니다", "page": "al02", "date": null, "weight": 1, "units": 6, "hw_due": null},
-  {"id": "a03", "no": 3, "course": "app", "title": "프레임에서 경계와 영역의 위치를 찾습니다", "page": "al03", "date": null, "weight": 1, "units": 5, "hw_due": null}
+  {"id": "i13", "no": 13, "title": "13차시 사전학습한 특징을 새 분류에 사용하기", "page": "l13", "date": "2026-11-04", "weight": 0.8, "units": 7, "hw_due": null},
+  {"id": "i14", "no": 14, "title": "14차시 학습할 범위와 실행 조건 맞추기", "page": "l14", "date": "2026-11-05", "weight": 0.8, "units": 8, "hw_due": null},
+  {"id": "i15", "no": 15, "title": "15차시 이미지 파일을 학습 배치로 연결하기", "page": "l15", "date": "2026-11-06", "weight": 0.6, "units": 5, "hw_due": null},
+  {"id": "i16", "no": 16, "title": "16차시 작은 CNN을 만들며 모양과 수 검산하기", "page": "l16", "date": "2026-11-09", "weight": 0.8, "units": 7, "hw_due": null},
+  {"id": "i17", "no": 17, "title": "17차시 토큰에서 문장 분류까지 연결하기", "page": "l17", "date": "2026-11-10", "weight": 0.2, "units": 6, "hw_due": null},
+  {"id": "a01", "no": 1, "course": "app", "title": "이미지를 숫자로 읽고 모델 입력으로 준비하기", "page": "al01", "date": "2026-11-11", "weight": 1, "units": 8, "hw_due": null},
+  {"id": "a02", "no": 2, "course": "app", "title": "주변 값과 좌표를 바꿔 입력 준비하기", "page": "al02", "date": null, "weight": 1, "units": 6, "hw_due": null},
+  {"id": "a03", "no": 3, "course": "app", "title": "프레임에서 경계와 영역의 위치 찾기", "page": "al03", "date": null, "weight": 1, "units": 7, "hw_due": null},
+  {"id": "a04", "no": 4, "course": "app", "title": "프레임 사이의 위치와 움직임 추적하기", "page": "al04", "date": null, "weight": 1, "units": 7, "hw_due": null}
  ],
  "patterns": [
-  {"id": "pc", "page": "l18", "title": "상황별 코드", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}}
+  {"id": "pc", "page": "l18", "title": "코딩으로 실전학습하기", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}}
  ],
  "mocks": [
   {"id": "m1", "title": "모의고사 1회", "minutes": 60, "count": 30, "range": [1, 12], "window": ["2026-11-14", "2026-11-16"]},
   {"id": "m2", "title": "모의고사 2회", "minutes": 60, "count": 30, "range": [1, 17], "window": ["2026-11-21", "2026-11-23"]},
   {"id": "m3", "title": "모의고사 3회", "minutes": 60, "count": 30, "range": [1, 17], "window": ["2026-11-27", "2026-11-29"]},
-  {"id": "m4", "title": "개론·응용 혼합 모의고사", "minutes": 120, "count": 32, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 16, "app": 16}, "blueprint": {"i01": 1, "i02": 1, "i03": 1, "i04": 1, "i05": 1, "i06": 1, "i07": 1, "i08": 1, "i09": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i15": 1, "i16": 1, "i17": 1, "a01": 5, "a02": 6, "a03": 5}, "blueprint_revision": "mixed32-blueprint-v1"}
+  {"id": "m4", "title": "개론·응용 혼합 모의고사", "minutes": 120, "count": 32, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 16, "app": 16}, "blueprint": {"i01": 1, "i02": 1, "i03": 1, "i04": 1, "i05": 1, "i06": 1, "i07": 1, "i08": 1, "i09": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i15": 1, "i16": 1, "i17": 1, "a01": 5, "a02": 6, "a03": 5}, "blueprint_revision": "mixed32-blueprint-v1"},
+  {"id": "m5", "title": "조건을 바꿔 푸는 개론·응용 모의고사", "minutes": 120, "count": 32, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 16, "app": 16}, "blueprint": {"i01": 1, "i02": 1, "i03": 1, "i04": 1, "i05": 1, "i06": 1, "i07": 1, "i08": 1, "i09": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i15": 1, "i16": 1, "i17": 1, "a01": 5, "a02": 6, "a03": 5}, "blueprint_revision": "mixed32-transfer-v1"}
  ]
 }

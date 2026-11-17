@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """첫 화면(허브): 위 막대의 이름·ID·설정 팝업, 이어서 할 일 카드 하나, 과목별 학습과 오답 노트, 최근 7일 학습 카드를 표시함.
-구역은 위아래로 쌓고 창이 작으면 스크롤함.
+넓은 창에서는 과목 아래 오답과 최근 활동을 나란히 두고 좁은 창에서는 원래 순서로 쌓음.
 
 카드의 수치는 네 서비스가 계산한 값을 그대로 보여 줌(파이썬은 session.overview, 여행은 journey.service, 웹은 webprep.service,
 AI 비전 개론은 aiprep.service 의 overview).
@@ -23,6 +23,7 @@ from aiprep import service as ai_service
 from gui import ai_text, journey_text, kit, theme, web_text
 from gui.mascot import Mascot
 from gui.settings_menu import SettingsMenu
+from gui.team_dashboard import DashboardRow, TeamCard
 from gui.workspace import SubjectGrid, SubjectTile
 from gui.wrong_page import count_line
 from session import SessionError
@@ -32,7 +33,7 @@ from webprep.service import WebError
 DAYS = 7  # 막대로 보이는 날 수(오늘 포함)
 RECENT = 5  # 최근 채점 줄 수
 WEEKDAYS = "월화수목금토일"
-TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면접"), ("ai", "AI"))  # 막대 순서와 범례 이름. 트랙 색(theme.SERIES)도 이 순서
+TRACKS = (("python", "파이썬"), ("journey", "알고리즘"), ("web", "웹 면접"), ("ai", "AI"))  # 기록 열과 트랙 색(theme.SERIES)의 대응 순서
 BAR_GAP = 2  # 한 날의 막대 사이
 EMPTY = "최근 7일 학습 기록이 없습니다.\n공부 트랙에서 시작할 수 있습니다."
 PYTHON_ABOUT = "파이썬 교과목 평가에 나오는 문제를 회차로 나눠 풀고 채점합니다."
@@ -123,20 +124,26 @@ class RecentList(QWidget):
 
 
 class WeekChart(QWidget):
-    """최근 7일의 날짜별 학습 수. 날마다 파이썬, 알고리즘, 웹, AI 비전 막대를 트랙 색(theme.SERIES)으로 TRACKS 순서로 나란히 그리고, 바탕은 track 색.
+    """최근 7일의 날짜별 학습 수. 공개한 과목만 원래 트랙 색(theme.SERIES)으로 나란히 그리고, 바탕은 track 색.
     기록이 없는 날의 바탕은 옅게 그리고, 7일 모두 없으면 막대 자리 가운데에 EMPTY 를 씀.
     막대 아래에 요일과 날짜를 micro 13 으로 쓰고 오늘은 굵게 씀. 하루 칸이 좁아 날짜(10/15)끼리 붙으면 날만(15) 씀. 범례는 막대 칸의 위 줄에 있음."""
 
     def __init__(self):
         super().__init__()
         self.days = []  # [(날짜, 파이썬 채점 수, 알고리즘 채점 수, 웹 검사·드릴 수, AI 하루 수)], 오늘이 마지막
+        self.columns = tuple(i for i, (tid, _) in enumerate(TRACKS) if tid in study.ENTRY_TRACKS)
+        self.tracks = tuple(TRACKS[i] for i in self.columns)
+        self.colors = tuple(theme.SERIES[i] for i in self.columns)
         self.setMinimumHeight(136)
+
+    def visible_days(self):
+        return [(day, *(values[i] for i in self.columns)) for day, *values in self.days]
 
     def set_days(self, days):
         self.days = list(days)
-        self.setToolTip("\n".join("%d/%d(%s) 파이썬 %d · 알고리즘 %d · 웹 %d · AI %d" % (day.month, day.day, WEEKDAYS[day.weekday()], python, journey,
-                                                                                    web, ai)
-                                  for day, python, journey, web, ai in self.days))
+        self.setToolTip("\n".join("%d/%d(%s) %s" % (day.month, day.day, WEEKDAYS[day.weekday()],
+                            " · ".join("%s %d" % (name, value) for (_, name), value in zip(self.tracks, values)))
+                                  for day, *values in self.visible_days()))
         self.update()
 
     def paintEvent(self, event):
@@ -147,18 +154,19 @@ class WeekChart(QWidget):
         label_top = self.height() - 2 * line - 4
         top, bottom = 2.0, label_top - 8.0
         span = max(1.0, bottom - top)
-        peak = max([1] + [max(values) for _, *values in self.days])
-        column = self.width() / max(1, len(self.days))
-        bar = max(8.0, min(16.0, (column - 12) / len(TRACKS) - BAR_GAP))
+        days = self.visible_days()
+        peak = max([1] + [value for _, *values in days for value in values])
+        column = self.width() / max(1, len(days))
+        bar = max(8.0, min(16.0, (column - 12) / max(1, len(self.tracks)) - BAR_GAP))
         day_only = column < QFontMetricsF(small).horizontalAdvance("10/15") + 12
-        for number, (day, *values) in enumerate(self.days):
+        for number, (day, *values) in enumerate(days):
             middle = column * (number + 0.5)
             painter.setPen(Qt.PenStyle.NoPen)
             track = theme.qcolor("track")
             if not any(values):
                 track.setAlphaF(0.6)
-            first = middle - (len(TRACKS) * bar + (len(TRACKS) - 1) * BAR_GAP) / 2
-            for slot, (value, token) in enumerate(zip(values, theme.SERIES)):
+            first = middle - (len(self.tracks) * bar + (len(self.tracks) - 1) * BAR_GAP) / 2
+            for slot, (value, token) in enumerate(zip(values, self.colors)):
                 left = first + slot * (bar + BAR_GAP)
                 painter.setBrush(track)
                 painter.drawRoundedRect(QRectF(left, top, bar, span), 4, 4)
@@ -172,7 +180,7 @@ class WeekChart(QWidget):
             painter.drawText(QRectF(column * number, label_top, column, line), Qt.AlignmentFlag.AlignCenter, WEEKDAYS[day.weekday()])
             painter.drawText(QRectF(column * number, label_top + line + 4, column, line), Qt.AlignmentFlag.AlignCenter,
                              "%d" % day.day if day_only else "%d/%d" % (day.month, day.day))
-        if self.days and not any(any(values) for _, *values in self.days):
+        if days and not any(any(values) for _, *values in days):
             painter.setFont(theme.font("caption"))
             area = QRectF(0, top, self.width(), span)
             flags = Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap
@@ -351,10 +359,10 @@ class HubPage(QWidget):
         root.addWidget(stack)
         root.addSpacing(theme.GAP["section"])
 
+        notes_card, notes_box = kit.card(spacing=theme.GAP["description_content"])
         head, _, _ = kit.section("오답 노트")
-        root.addLayout(head)
-        root.addSpacing(theme.GAP["description_content"])
-        self.notes = kit.RowList()  # 오답 노트 트랙마다 한 줄. 누르면 오답 노트를 그 트랙으로 엶
+        notes_box.addLayout(head)
+        self.notes = kit.RowList(flush=True)  # 카드 제목과 줄의 시작점을 맞추고 과목별 오답 노트를 엶.
         self.note_rows = []  # [(공급자, 줄)]
         series = dict(zip((tid for tid, _ in TRACKS), theme.SERIES))  # 공부 트랙 줄과 같은 점. 점 색이 없는 트랙은 점 없이 둠
         for track in win.wrong_tracks:
@@ -362,19 +370,18 @@ class HubPage(QWidget):
             row = self.notes.add(kit.Row(track.name, "", mark=mark, strong=True, wrap=True))
             row.clicked.connect(lambda tid=track.tid: win.show_wrong(tid, "hub"))
             self.note_rows.append((track, row))
-        root.addWidget(self.notes)
-        root.addSpacing(theme.GAP["section"])
+        notes_box.addWidget(self.notes)
 
+        self.week_card, box = kit.card(spacing=theme.GAP["description_content"])
         head, _, self.streak = kit.section("최근 7일 학습")
-        root.addLayout(head)
-        root.addSpacing(theme.GAP["description_content"])
-        self.week_card, box = kit.card(spacing=0)
+        box.addLayout(head)
         plot = QWidget()  # 막대 칸: 범례 줄과 막대. 채점 수가 막대의 오른쪽 끝에 맞아서 나란히 둔 최근 채점 칸의 수로 읽히지 않음
         plot_box = kit.box(plot, spacing=8)
         legend = QHBoxLayout()
         legend.setContentsMargins(0, 0, 0, 0)
         legend.setSpacing(16)
-        for token, (_, name) in zip(theme.SERIES, TRACKS):
+        self.chart = WeekChart()
+        for token, (_, name) in zip(self.chart.colors, self.chart.tracks):
             item = QHBoxLayout()
             item.setSpacing(8)
             item.addWidget(kit.Dot(token, 8))
@@ -384,7 +391,6 @@ class HubPage(QWidget):
         self.total = kit.label("", "caption", "tertiary")
         legend.addWidget(self.total)
         plot_box.addLayout(legend)
-        self.chart = WeekChart()
         plot_box.addWidget(self.chart, 1)
         self.recent_box = QWidget()  # 최근 채점 칸. 채점 기록이 없으면 숨겨서 카드가 막대만 보임
         recent = kit.box(self.recent_box, spacing=4)
@@ -393,7 +399,13 @@ class HubPage(QWidget):
         recent.addWidget(self.recent)
         self.week = WeekBody(plot, self.recent_box, self.recent)
         box.addWidget(self.week)
-        root.addWidget(self.week_card)
+        self.activity_row = DashboardRow([notes_card, self.week_card],
+                                         lambda: [max(notes_card.minimumSizeHint().width(), theme.TYPE["body"][0] * 16),
+                                                  max(self.week_card.minimumSizeHint().width(), theme.TYPE["body"][0] * 32)], [1, 2],
+                                         spacing=theme.GAP["group"])
+        for card in (notes_card, self.week_card):
+            self.activity_row.row.setAlignment(card, Qt.AlignmentFlag.AlignTop)
+        root.addWidget(self.activity_row)
         root.addSpacing(theme.GAP["section"])
 
         self.git_hint = kit.banner("", "warning")  # 제출을 쓸 수 없는 이유. 그동안 두 줄은 눌리지 않음
@@ -408,7 +420,6 @@ class HubPage(QWidget):
         root.addWidget(self.status)
         root.addSpacing(8)
         root.addWidget(self.busy_bar)
-        from gui.team_dashboard import TeamCard
         self.team_card = TeamCard(win)
         root.addSpacing(24)
         root.addWidget(self.team_card)
@@ -639,7 +650,11 @@ class HubPage(QWidget):
         """막대, 연속 학습일, 최근 채점. overview 는 파이썬 쪽, journey·web·ai 는 여행·웹·AI 쪽 overview(읽지 못했으면 None).
         웹 막대는 검사 한 번과 끝낸 사슬 하나를 1 로 세고(activity_counts), 연속 학습일은 검사나 드릴 기록이 있는 날(activity)로 셈.
         AI 막대는 끝낸 연습 묶음, 끝까지 읽은 단원, 제출한 모의고사를 1 로 셈(달력 날짜)."""
-        gradings = python_gradings(self.win.session.prof["attempts"])
+        enabled = {tid for tid, _ in self.chart.tracks}
+        journey = journey if "journey" in enabled else None
+        web = web if "web" in enabled else None
+        ai = ai if "ai" in enabled else None
+        gradings = python_gradings(self.win.session.prof["attempts"]) if "python" in enabled else []
         python = {}
         for at, _ in gradings:
             python[at[:10]] = python.get(at[:10], 0) + 1

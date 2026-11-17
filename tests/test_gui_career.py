@@ -34,6 +34,8 @@ class CareerGuiTest(unittest.TestCase):
 
     def show(self, cls, **kwargs):
         window = cls(catalog=kwargs.pop("catalog", self.catalog), **kwargs)
+        if isinstance(window, CareerRoadmapPage) and window.role_picker.currentData():
+            window.select_role(window.role_picker.currentData())
         self.windows.append(window)
         window.resize(760, 480)
         window.show()
@@ -75,7 +77,7 @@ class CareerGuiTest(unittest.TestCase):
             target = Path(destination)
             target.mkdir(parents=True, exist_ok=True)
             self.assertTrue(widget.grab().save(str(target / (name + ".png"))))
-            if os.name == "nt":
+            if guikit.APP.platformName() == "windows":
                 self.assertTrue(widget.screen().grabWindow(int(widget.winId())).save(str(target / (name + "-native.png"))))
 
     def test_browse_does_not_save_and_explicit_goal_has_both_ids(self):
@@ -120,6 +122,7 @@ class CareerGuiTest(unittest.TestCase):
         self.settle(page)
         self.assertTrue(scene.artifact.isVisible())
         self.assertTrue(page.filters.isHidden())
+        page.show_catalog()
         guikit.click(page.filter_toggle)
         self.assertTrue(page.filters.isVisible())
         saved.assert_not_called()
@@ -134,14 +137,76 @@ class CareerGuiTest(unittest.TestCase):
         self.assertTrue(page.scene.picture.isVisible())
         self.assertTrue(page.scene.tabs.isVisible())
 
+    def test_tall_windows_keep_scene_labels_and_pictures_together(self):
+        page = self.show(CareerRoadmapPage, on_back=Mock(), on_select_goal=Mock(),
+                         on_video=Mock(), on_magazine=Mock())
+        self.capture_widget = page
+        room = page.screen().availableGeometry()
+        native = os.name == "nt" and os.environ.get("QT_QPA_PLATFORM") != "offscreen"
+        width = min(2311, room.width() - 32) if native else 2311
+        tall = min(1361, room.height() - 64) if native else 1361
+        page.move(room.topLeft() + QPoint(16, 32))
+        for mode, text in (("light", "normal"), ("dark", "larger")):
+            theme.set_mode(mode)
+            theme.set_text(text)
+            kit.refont(page)
+            for role in self.catalog.roles:
+                page.select_role(role["id"])
+                positions = []
+                for height in (700, tall, 700):
+                    page.resize(width, height)
+                    self.settle(page)
+                    self.assertEqual((page.width(), page.height()), (width, height))
+                    page.scroll.verticalScrollBar().setValue(0)
+                    self.settle(page)
+                    scene = page.scene
+                    self.assertTrue(scene.wide)
+                    self.assertEqual(page.scroll.horizontalScrollBar().maximum(), 0)
+                    for number in range(2):
+                        panel = scene.panels.itemAt(number).widget()
+                        label = panel.layout().itemAt(0).widget()
+                        visual = panel.layout().itemAt(1).widget()
+                        self.assertAlmostEqual(label.height(), label.heightForWidth(label.width()), delta=1)
+                        self.assertEqual(visual.y() - label.y() - label.height(), theme.GAP["detail"])
+                    self.assertEqual(scene.picture.mapTo(page, QPoint()).y(), scene.artifact.mapTo(page, QPoint()).y())
+                    self.assertEqual(scene.picture.height(), scene.artifact.height())
+                    positions.append(scene.picture.mapTo(page.content, QPoint()).y())
+                    if role["id"] == "robot_control" and height == tall:
+                        self._capture(page, f"career-tall-{mode}-{text}")
+                self.assertLessEqual(max(positions) - min(positions), 1)
+            page.resize(760, 480)
+            self.settle(page)
+            page.scene.show_view(1)
+            self.settle(page)
+            self.assertTrue(page.scene.artifact.isVisible())
+            self.assertFalse(page.scene.picture.isVisible())
+            self.assertEqual(page.scene.caption.text(), page.scene.artifact.accessibleDescription())
+            self._capture(page, f"career-tall-return-{mode}-{text}")
+        destination = os.environ.get("CAREER_EVIDENCE")
+        if destination:
+            import json
+            report = {"qt_platform": guikit.APP.platformName(), "device_pixel_ratio": page.devicePixelRatioF(),
+                      "tested_large_window": [width, tall], "roles": len(self.catalog.roles),
+                      "scope": "Window layout rendering; offscreen is not a native QHD monitor capture."}
+            Path(destination, "career-tall-layout.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+
     def test_roadmap_sources_and_related_videos_open_selected_targets(self):
         source, video, magazine = Mock(), Mock(), Mock()
-        page = self.show(CareerRoadmapPage, on_source=source, on_video=video, on_magazine=magazine)
+        role = self.catalog.role("backend")
+        expected = [row for row in self.catalog.sources if row["id"] in role["source_ids"]]
+        mixed_role = dict(role, source_ids=role["source_ids"] + self.catalog.role("frontend")["source_ids"])
+        catalog = replace(self.catalog, roles=tuple(mixed_role if row["id"] == "backend" else row
+                                                   for row in self.catalog.roles))
+        page = self.show(CareerRoadmapPage, catalog=catalog, on_source=source, on_video=video, on_magazine=magazine)
         page.select_role("frontend")
         self.settle(page)
         source.assert_not_called()
-        role = self.catalog.role("frontend")
-        expected = [row for row in self.catalog.sources if row["id"] in role["source_ids"]]
+        self.assertTrue(page.sources_section.isHidden())
+        self.assertEqual(page.sources_layout.count(), 0)
+        self.assertEqual(page.source_box.findChildren(QPushButton), [])
+        page.select_role("backend")
+        self.settle(page)
+        self.assertTrue(page.sources_section.isVisible())
         self.assertTrue(page.source_box.isHidden())
         guikit.click(page.sources_button)
         links = page.source_box.findChildren(QPushButton)
@@ -150,6 +215,11 @@ class CareerGuiTest(unittest.TestCase):
             self.assertEqual(link.toolTip(), row["url"])
             guikit.click(link)
             source.assert_called_with(row["url"])
+        page.select_role("frontend")
+        self.settle(page)
+        self.assertTrue(page.sources_section.isHidden())
+        self.assertEqual(page.sources_layout.count(), 0)
+        self.assertEqual(page.source_box.findChildren(QPushButton), [])
         buttons = {button.text(): button for button in page.findChildren(QPushButton)}
         for label, key in (("로봇 개발자의 업무", "H89Az-iZZrc"), ("로봇 개발 프로젝트 준비", "HCx2ICUe0eA")):
             guikit.click(buttons[label])
@@ -414,6 +484,43 @@ class CareerGuiTest(unittest.TestCase):
         self.assertEqual(page.selected_video_id, "H89Az-iZZrc")
         self.assertEqual(bar.value(), before)
 
+    def test_magazine_pinned_tabs_keep_filters_scroll_and_keyboard_navigation(self):
+        page = self.show(CareerMagazinePage, on_back=Mock())
+        page.top.back.setFocus()
+        QTest.keyClick(page.top.back, Qt.Key.Key_Tab)
+        self.assertTrue(page.tabs.buttons[0].hasFocus())
+        QTest.keyClick(page.tabs.buttons[0], Qt.Key.Key_Tab)
+        self.assertTrue(page.search.hasFocus())
+        page.search.setText("AI")
+        page.origin.setCurrentIndex(2)
+        self.settle(page)
+        bar = page.scroll.verticalScrollBar()
+        bar.setValue(min(400, bar.maximum()))
+        self.assertGreater(bar.value(), 0)
+        before = bar.value()
+        tabs = page.tabs.buttons
+        top = tabs[1].mapTo(page, QPoint()).y()
+        guikit.click(tabs[1])
+        self.settle(page)
+        self.assertTrue(page.paper_content.isVisible())
+        bar.setValue(min(600, bar.maximum()))
+        paper_position = bar.value()
+        self.assertEqual(tabs[1].mapTo(page, QPoint()).y(), top)
+        tabs[1].setFocus()
+        QTest.keyClick(tabs[1], Qt.Key.Key_Left)
+        self.settle(page)
+        self.assertTrue(tabs[0].hasFocus())
+        self.assertTrue(tabs[0].isChecked())
+        self.assertTrue(page.video_content.isVisible())
+        self.assertEqual(page.search.text(), "AI")
+        self.assertEqual(page.origin.currentIndex(), 2)
+        self.assertEqual(bar.value(), before)
+        QTest.keyClick(tabs[0], Qt.Key.Key_Right)
+        self.settle(page)
+        self.assertTrue(tabs[1].hasFocus())
+        self.assertTrue(page.paper_content.isVisible())
+        self.assertEqual(bar.value(), paper_position)
+
     def test_font_theme_and_page_roundtrip_keep_selection_and_reading_anchor(self):
         page = self.show(CareerRoadmapPage)
         page.select_role("robot_policy")
@@ -480,6 +587,22 @@ class CareerGuiTest(unittest.TestCase):
                     self.settle(page)
                     self.assertEqual(page.width(), width)
                     self.assertLessEqual(page.content.width(), width)
+                    first, second = page.tabs.buttons
+                    self.assertAlmostEqual(first.width(), second.width(), delta=1)
+                    self.assertEqual(first.height(), second.height())
+                    self.assertEqual(first.font().pixelSize(), theme.TYPE["headline"][0])
+                    self.assertEqual(first.font(), second.font())
+                    self.assertEqual(first.mapTo(page, QPoint()).x(), page.content.mapTo(page, QPoint()).x())
+                    self.assertEqual(second.mapTo(page, QPoint(second.width(), 0)).x(),
+                                     page.content.mapTo(page, QPoint(page.content.width(), 0)).x())
+                    self.assertGreaterEqual(page.scroll.viewport().height(), 200)
+                    fixed_position = second.mapTo(page, QPoint())
+                    page.scroll.verticalScrollBar().setValue(page.scroll.verticalScrollBar().maximum())
+                    self.settle(page)
+                    self.assertEqual(second.mapTo(page, QPoint()), fixed_position)
+                    self.assertTrue(page.rect().contains(second.mapTo(page, second.rect().bottomRight())))
+                    page.scroll.verticalScrollBar().setValue(0)
+                    self.settle(page)
                     for child in page.content.findChildren(QWidget):
                         if child.isVisibleTo(page.content):
                             x = child.mapTo(page.content, QPoint()).x()

@@ -88,14 +88,14 @@ class PatternGeneratorServiceTest(PatternBase):
             practice.answer(self.right(practice, practice.current()), 1, True)
             practice.next()
         view = practice.current()
-        self.assertEqual(["학습 루프", "빈칸", "숫자 바뀜"], view["chips"])
+        self.assertEqual(["학습 루프", "빈칸", "조건 변형"], view["chips"])
         practice.answer(["-1"], 2, True)
         self.assertEqual(view["stem"], sess.wrong_item("pc-g90")["stem"])
         restored = self.session()
         self.assertEqual(view["stem"], restored.wrong_item("pc-g90")["stem"])
         target = restored.note_target("pc-g90")
         self.assertEqual(("pc", "18a/1"), (target["lesson"], target["step"]))
-        self.assertEqual("상황별 코드", restored.wrong_notes()[0]["title"])
+        self.assertEqual("코딩으로 실전학습하기", restored.wrong_notes()[0]["title"])
         self.assertEqual("i90", restored.card_info("pc-g90")["after"])
 
 

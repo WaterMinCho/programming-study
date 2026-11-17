@@ -84,8 +84,7 @@ class StartPage(QWidget):
         self.setObjectName("page")
         box = QVBoxLayout(self)
         box.setSpacing(14)
-        title = QLabel("프로그래밍 스터디")
-        title.setObjectName("h1")
+        title = kit.label("프로그래밍 스터디", "title", bold=True)
         self.status = QLabel("")
         self.status.setObjectName("muted")
         self.busy_bar = QProgressBar()
@@ -94,10 +93,13 @@ class StartPage(QWidget):
         self.busy_bar.setFixedWidth(260)
         self.busy_bar.hide()
         self.error = Para(name="error")
+        kit.typed(self.error, "body")
         self.error.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.retry = QPushButton("다시 시도")
+        kit.typed(self.retry, "label")
         self.retry.hide()
-        self.retry.clicked.connect(lambda: win.open_session())
+        self.retry_boot = False
+        self.retry.clicked.connect(lambda: win.boot() if self.retry_boot else win.open_session())
         box.addStretch(2)
         for widget in (title, self.status, self.busy_bar):
             box.addWidget(widget, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -201,9 +203,18 @@ class MainWindow(QMainWindow):
 
     def boot(self):
         self.first_boot = True
-        user = session.saved_user()
-        if not user:
-            user = session.save_user("learner-" + uuid.uuid4().hex[:10])
+        try:
+            user = session.saved_user()
+            if not user:
+                user = session.save_user("learner-" + uuid.uuid4().hex[:10])
+        except SessionError as error:
+            self.start.retry_boot = True
+            self.start.set_busy(False)
+            self.start.show_error(str(error))
+            motion.switch(self.pages, self.start)
+            return
+        self.start.retry_boot = False
+        self.start.show_error("")
         self.sync_first(user)
 
     def sync_first(self, user):
@@ -478,7 +489,7 @@ class MainWindow(QMainWindow):
         if not self.leave_pages(self.go_ai, "저장하지 않고 나가기"):
             return
         if self.ai is None:
-            self.ask("알림", self.ai_error or "AI 비전 개론 기록을 열지 못했습니다.")
+            self.ask("알림", self.ai_error or "AI 학습 기록을 열지 못했습니다.")
             return
         self.ai_home.refresh()
         self.area = "ai"
@@ -514,7 +525,6 @@ class MainWindow(QMainWindow):
             self.ai_courses[course] = (stamp, selected)
             self.settings.setValue("ai/course/" + self.user, course)
             self.ai_home.refresh()
-            self.ai_home.scroll.verticalScrollBar().setValue(0)
         finally:
             self.ai_home.setUpdatesEnabled(updates)
 

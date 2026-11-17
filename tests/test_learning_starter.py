@@ -123,10 +123,10 @@ class StarterTest(unittest.TestCase):
                 input_example.load(root, "python", "train")
 
     def test_missing_query_time_is_not_a_zero_day_observation(self):
-        events = dataset.synthetic_events()[:3]
-        for row in events:
-            row["data"].pop("prediction_at")
-        rows = dataset.prepare(events)
+        rows = dataset.prepare(dataset.synthetic_events()[:3])
+        # 이전 버전 자료의 미확인 시각도 계속 읽을 수 있는지 확인함.
+        for row in rows:
+            row["prediction_at"] = None
         vocabulary = {"questions": ["<PAD>", "<UNK>"], "concepts": ["<PAD>", "<UNK>", "demo"]}
         result = input_example.batch(rows, vocabulary)
         self.assertFalse(any(any(values) for values in result["inputs"]["query_gap_known"]))

@@ -215,6 +215,21 @@ class Identity:
                 raise ValueError()
             if "activity" in result:
                 validate_activity(result["activity"], result["series"], result["graded"])
+            if "today" in result:
+                today = result["today"]
+                date = datetime.date.fromisoformat(today["date"])
+                moment = datetime.datetime.fromisoformat(result["as_of"])
+                if moment.tzinfo is None or date != moment.astimezone(datetime.timezone(datetime.timedelta(hours=9))).date():
+                    raise ValueError()
+                for key in ("accounts", "eligible_accounts", "authenticated_accounts"):
+                    if type(today[key]) is not int or today[key] < 0:
+                        raise ValueError()
+                if (today["accounts"] > today["authenticated_accounts"] or
+                        not today["eligible_accounts"] <= today["authenticated_accounts"] == result["accounts"]):
+                    raise ValueError()
+                expected = "all" if today["eligible_accounts"] == today["authenticated_accounts"] else "partial"
+                if today["coverage"] != expected:
+                    raise ValueError()
         except (KeyError, TypeError, ValueError):
             raise CollectionError("통계 응답을 읽지 못했습니다. 프로그램을 업데이트한 뒤 다시 확인해 주세요.") from None
         return result

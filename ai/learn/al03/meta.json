@@ -2,7 +2,7 @@
  "format": 1,
  "id": "al03",
  "lesson": "a03",
- "title": "응용 3차시 프레임에서 경계와 영역의 위치를 찾습니다",
+ "title": "응용 3차시 프레임에서 경계와 영역의 위치 찾기",
  "defines": [
   "프레임",
   "특징",
@@ -29,13 +29,13 @@
   "al02"
  ],
  "sections": {
-  "a3a": "프레임을 읽고 실패하면 멈춥니다",
-  "a3b": "공간의 밝기 변화와 시간 변화를 구분합니다",
-  "a3c": "Canny로 얇고 이어진 경계를 고릅니다",
-  "a3d": "경계점의 표를 모아 직선을 찾습니다",
-  "a3e": "선택한 영역의 중심을 원본 좌표로 옮깁니다",
-  "a3f": "밝기 기준과 윤곽선 검색 범위를 고릅니다",
-  "a3g": "모서리와 원을 다른 조건으로 찾습니다"
+  "a3a": "프레임을 읽고 실패하면 멈추기",
+  "a3b": "공간의 밝기 변화와 시간 변화 구분하기",
+  "a3c": "Canny로 얇고 이어진 경계 고르기",
+  "a3d": "경계점의 표를 모아 직선 찾기",
+  "a3e": "선택한 영역의 중심을 원본 좌표로 옮기기",
+  "a3f": "밝기 기준과 윤곽선 검색 범위 고르기",
+  "a3g": "모서리와 원을 다른 조건으로 찾기"
  },
  "outputs": [],
  "credits": [],
@@ -94,6 +94,46 @@
    "what": "윤곽선 검색과 점 압축",
    "url": "https://docs.opencv.org/4.13.0/d3/dc0/group__imgproc__shape.html",
    "checked": "2026-11-14"
+  },
+  {
+   "what": "영상 속성 조회와 미지원 값",
+   "url": "https://docs.opencv.org/4.13.0/d8/dfe/classcv_1_1VideoCapture.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "영상 FPS·크기·프레임 수",
+   "url": "https://docs.opencv.org/4.13.0/d4/d15/group__videoio__flags__base.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "기울기 크기·정규화",
+   "url": "https://docs.opencv.org/4.13.0/d2/de8/group__core__array.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "표시 범위 제한",
+   "url": "https://numpy.org/doc/2.4/reference/generated/numpy.clip.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "ROI 슬라이스 범위",
+   "url": "https://numpy.org/doc/2.4/user/basics.indexing.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "한 채널의 RGB 표시",
+   "url": "https://docs.opencv.org/4.13.0/de/d25/imgproc_color_conversions.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "선분 결과의 끝점 배열",
+   "url": "https://docs.opencv.org/4.13.0/d9/db0/tutorial_hough_lines.html",
+   "checked": "2026-11-17"
+  },
+  {
+   "what": "배열 원소 순서를 유지한 모양 변경",
+   "url": "https://numpy.org/doc/2.4/reference/generated/numpy.reshape.html",
+   "checked": "2026-11-17"
   }
  ],
  "units": {

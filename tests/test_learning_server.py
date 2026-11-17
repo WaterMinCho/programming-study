@@ -123,7 +123,8 @@ class ServerTest(unittest.TestCase):
         viewer = "c" * 64
         policy = Access(self.db).policy()
         with self.db.connect() as db:
-            db.execute("INSERT INTO identity_grants VALUES (?,?,0,1)", (app.hashed(viewer), policy))
+            db.execute("INSERT INTO identity_grants (token_hash,policy,created,member) VALUES (?,?,0,1)",
+                       (app.hashed(viewer), policy))
 
         groups = {
             "python": [

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""첫 화면의 설정 단추 아래에서 화면 선택과 보조 동작을 묶어 표시함."""
+"""설정 단추 위치에 맞춰 화면 설정과 보조 동작을 공통으로 표시함."""
 from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QRectF, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices, QPainter, QPen
@@ -16,9 +16,9 @@ TEXT_TIP = "화면의 글자 크기를 바꿉니다. Ctrl(맥은 Cmd)과 +, -, 0
 class SettingsMenu(QWidget):
     closed = pyqtSignal()
 
-    def __init__(self, hub, trigger):
-        super().__init__(hub, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
-        self.hub, self.trigger = hub, trigger
+    def __init__(self, host, trigger):
+        super().__init__(host, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        self.host, self.trigger = host, trigger
         self.closing = False
         self.pending_action = self.focus_target = None
         self.action_timer = QTimer(self)
@@ -44,11 +44,13 @@ class SettingsMenu(QWidget):
         box.addWidget(kit.label("테마", "caption", "secondary"))
         self.theme_buttons = self.choices(box, THEME_LABELS, self.choose_theme)
         box.addSpacing(theme.GAP["paragraph"] - theme.GAP["detail"])
-        self.identity_btn = self.action(box, "본인 확인 다시 하기", lambda: hub.win.ensure_identity(force=True))
-        self.replay_tour = self.action(box, "첫 화면 튜토리얼 다시 보기", lambda: hub.win.show_hub_tour(replay=True))
-        self.update_btn = self.action(box, "업데이트 확인", lambda: hub.win.check_updates())
-        self.report_btn = self.action(box, "불편한 점 알리기", lambda: QDesktopServices.openUrl(QUrl(feedback.issue_url(hub.win))))
-        self.actions = (self.identity_btn, self.replay_tour, self.update_btn, self.report_btn)
+        self.identity_btn = self.action(box, "본인 확인 다시 하기", lambda: host.win.ensure_identity(force=True))
+        self.replay_tour = self.action(box, "첫 화면 튜토리얼 다시 보기", self.show_first_tour)
+        self.replay_career = self.action(box, "커리어 튜토리얼 다시 보기", lambda: host.win.career.replay_tours())
+        self.replay_career.setToolTip("직무 목록부터 다시 시작합니다. 직무 상세와 매거진 안내도 다음 방문에 표시합니다.")
+        self.update_btn = self.action(box, "업데이트 확인", lambda: host.win.check_updates())
+        self.report_btn = self.action(box, "불편한 점 알리기", lambda: QDesktopServices.openUrl(QUrl(feedback.issue_url(host.win))))
+        self.actions = (self.identity_btn, self.replay_tour, self.replay_career, self.update_btn, self.report_btn)
         self.anchor_timer = QTimer(self)
         self.anchor_timer.setSingleShot(True)
         self.anchor_timer.timeout.connect(self.reanchor)
@@ -56,6 +58,12 @@ class SettingsMenu(QWidget):
         self.trigger.clicked.connect(self.toggle)
         theme.signals.changed.connect(self.restyle)
         self.hide()
+
+    def show_first_tour(self):
+        win = self.host.win
+        if win.pages.currentWidget() is not win.hub:
+            win.go_hub()
+        QTimer.singleShot(0, lambda: win.show_hub_tour(replay=True))
 
     def choices(self, box, labels, choose):
         row = QHBoxLayout()
@@ -81,11 +89,11 @@ class SettingsMenu(QWidget):
         return button
 
     def choose_text(self, step):
-        self.hub.win.set_text(step)
+        self.host.win.set_text(step)
         self.restyle()
 
     def choose_theme(self, mode):
-        self.hub.win.set_theme(mode)
+        self.host.win.set_theme(mode)
         self.restyle()
 
     def restyle(self):
@@ -103,12 +111,13 @@ class SettingsMenu(QWidget):
         self.schedule_anchor()
 
     def refresh_actions(self, busy=False):
-        win = self.hub.win
+        win = self.host.win
         busy = busy or win.job is not None or win.submission_running or win.pending_close or win.close_pending
         flow = win.gitflow
         self.update_btn.setEnabled(not busy and flow is not None and hasattr(flow, "updates"))
         self.identity_btn.setEnabled(not busy)
         self.replay_tour.setEnabled(not busy)
+        self.replay_career.setEnabled(not busy)
         explanation = "프로그램 파일을 바꾸지 않고 새 버전이 있는지 확인합니다."
         if busy:
             explanation += " 다른 작업이 끝난 뒤 사용할 수 있습니다."
@@ -143,6 +152,7 @@ class SettingsMenu(QWidget):
         self.move(x, y)
 
     def open_menu(self, focus=True):
+        self.refresh_actions()
         QApplication.instance().installEventFilter(self)
         reversing = self.closing
         self.action_timer.stop()
@@ -194,16 +204,16 @@ class SettingsMenu(QWidget):
     def restore_focus_now(self):
         app, widget = QApplication.instance(), self.focus_target
         self.focus_target = None
-        if (widget is None or sip.isdeleted(widget) or sip.isdeleted(self.hub) or not self.hub.window().isVisible()
+        if (widget is None or sip.isdeleted(widget) or sip.isdeleted(self.host) or not self.host.window().isVisible()
                 or not widget.isVisible() or not widget.isEnabled()
                 or app.activePopupWidget() is not None or app.activeModalWidget() is not None):
             return
-        self.hub.window().activateWindow()
+        self.host.window().activateWindow()
         widget.setFocus(Qt.FocusReason.PopupFocusReason)
 
     def run_action(self):
         callback, self.pending_action = self.pending_action, None
-        if callback is not None and not sip.isdeleted(self.hub) and self.hub.isVisible() and self.hub.window().isVisible():
+        if callback is not None and not sip.isdeleted(self.host) and self.host.isVisible() and self.host.window().isVisible():
             callback()
 
     def hideEvent(self, event):
@@ -235,11 +245,11 @@ class SettingsMenu(QWidget):
         return True
 
     def eventFilter(self, watched, event):
-        if sip.isdeleted(self.hub) or sip.isdeleted(self.trigger):
+        if sip.isdeleted(self.host) or sip.isdeleted(self.trigger):
             QApplication.instance().removeEventFilter(self)
             return False
         kind = event.type()
-        if watched in (self.hub, self.hub.window()) and kind in (QEvent.Type.Close, QEvent.Type.Hide):
+        if watched in (self.host, self.host.window()) and kind in (QEvent.Type.Close, QEvent.Type.Hide):
             self.action_timer.stop()
             self.focus_timer.stop()
             self.pending_action = self.focus_target = None
@@ -248,7 +258,7 @@ class SettingsMenu(QWidget):
             return False
         if not self.isVisible():
             return False
-        if watched in (self.trigger, self.hub, self.hub.window()) and kind in (QEvent.Type.Move, QEvent.Type.Resize, QEvent.Type.LayoutRequest):
+        if watched in (self.trigger, self.host, self.host.window()) and kind in (QEvent.Type.Move, QEvent.Type.Resize, QEvent.Type.LayoutRequest):
             self.schedule_anchor()
         elif kind == QEvent.Type.MouseButtonPress and not self.rect().contains(self.mapFromGlobal(event.globalPosition().toPoint())):
             on_trigger = self.trigger.rect().contains(self.trigger.mapFromGlobal(event.globalPosition().toPoint()))

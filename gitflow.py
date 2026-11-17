@@ -3,6 +3,7 @@
 """프로그램 업데이트와 이전 공개 제출 버전의 Git 동작을 처리함.
 
 현재 앱의 [풀이 제출]은 learning_data.submission에서 비공개 서버로 보냄.
+일반 업데이트는 로컬 main을 origin/main에 맞추고 답안은 작업 폴더에 보존함.
 아래 study/<ID> 푸시는 이전 공개 제출 계약에만 적용함.
 
 submissions/<ID>/ 는 나만 쓰므로 작업 폴더의 내용을 정답으로 봄. 그 밖은 origin/main 과 같게 맞춤.
@@ -73,6 +74,9 @@ M_BROKEN_JOURNEY = "알고리즘 여행 기록 파일(journey/progress.json)을 
 M_BROKEN_AI = "AI 비전 개론 기록 파일(ai/record.json)을 읽을 수 없어 멈췄습니다. 풀이 폴더는 건드리지 않았습니다."
 M_BROKEN = "읽을 수 없는 풀이 파일이 있어 올리지 않았습니다: %s 고친 뒤 [제출]을 다시 눌러 주세요."
 M_DEV = "작업 중인 브랜치(%s)를 보호하기 위해 프로그램 업데이트를 멈췄습니다."
+M_MAIN_AHEAD = "main에 이 컴퓨터에서 만든 커밋이 있어 업데이트를 멈췄습니다. 작업 내용을 보존했으니 [자세히]의 내용을 스터디장에게 보내 주세요."
+M_MAIN_IN_USE = "다른 작업 폴더에서 main을 사용하고 있어 업데이트를 멈췄습니다. 개발 작업을 마친 뒤 다시 시도해 주세요."
+M_STAGED_ANSWERS = "Git에 저장할 답안과 현재 파일의 내용이 달라 업데이트를 멈췄습니다. SourceTree에서 스테이지에 올린 답안을 확인해 주세요."
 M_LOCKED = "파일 %%d개를 새 버전으로 바꾸지 못했습니다: %%s. 이 파일을 연 프로그램을 닫고 스터디 프로그램을 다시 실행해 주세요(%s)." % SAFE
 M_UNSTALLED = "멈춰 있던 git 작업을 되돌렸습니다."
 M_UNSTALLED_KEPT = "멈춰 있던 git 작업을 되돌렸습니다. 그 전의 풀이 폴더는 보관함에 복사해 두었습니다."
@@ -651,6 +655,9 @@ class GitFlow:
     def _park_outside(self, target):
         """내 폴더 밖에서 고치거나 지운 파일, target 이 새로 만들 경로를 차지한 미추적 파일을 보관함에 복사하고 원래대로 돌림.
         손으로 커밋해 버린 밖 변경은 브랜치를 옮기면 작업 폴더에서 사라지므로 사본만 남김. 사본을 남긴 경로를 돌려줌."""
+        rename_mode = [] if self.legacy_contract else ["--no-renames"]
+        incoming = set(self._paths("diff", *rename_mode, "--name-only", "-z", "--diff-filter=A", "HEAD", target, "--", *self.outside))
+        preserved = self._incoming_collisions(incoming) if not self.legacy_contract else set()
         changed = set(self._paths("diff", "--name-only", "-z", "HEAD", "--", *self.outside))
         changed |= set(self._paths("diff", "--name-only", "-z", "--cached", "HEAD", "--", *self.outside))
         related = self._ok("merge-base", MAIN, "HEAD")  # main 기록이 다시 쓰였으면 갈라진 지점이 없어 손으로 커밋한 변경을 가려내지 못함
@@ -660,8 +667,7 @@ class GitFlow:
             self._git("checkout", "-q", "HEAD", "--", *self.outside)  # 사본을 만든 뒤 추적 파일을 원본으로
             self._git("reset", "-q", "--", *self.outside)  # 손으로 add 해 둔 새 파일은 add 만 취소하고 파일은 남김
         untracked = set(self._paths("ls-files", "-z", "--others", "--exclude-standard", "--", *self.outside))
-        incoming = set(self._paths("diff", "--name-only", "-z", "--diff-filter=A", "HEAD", target, "--", *self.outside))
-        collide = untracked & incoming
+        collide = (untracked & incoming) | preserved
         self._copy_out(collide)
         for rel in collide:
             os.remove(os.path.join(self.root, rel))
@@ -669,6 +675,40 @@ class GitFlow:
         if parked:
             self._notes.append(M_PARKED % len(parked))
         return parked
+
+    def _incoming_collisions(self, incoming):
+        """새 프로그램 경로에 겹치는 미추적 파일만 조회함. 무시된 파일도 보존함."""
+        occupied = set()
+        for rel in incoming:
+            path = os.path.join(self.root, rel)
+            nearest = None
+            while path != self.root:
+                if os.path.islink(path):
+                    raise Stop("blocked", "업데이트할 경로에 연결 파일이 있습니다. [자세히]의 경로를 확인해 주세요.", rel)
+                if nearest is None and os.path.lexists(path):
+                    nearest = os.path.relpath(path, self.root).replace(os.sep, "/")
+                path = os.path.dirname(path)
+            if nearest is not None:
+                occupied.add(nearest)
+        # 없는 경로의 상위 폴더 전체를 조회하지 않음.
+        occupied = {rel for rel in occupied if rel in incoming or os.path.isfile(os.path.join(self.root, rel))}
+        collide = set()
+        paths = sorted(occupied)
+        for start in range(0, len(paths), 64):
+            group = paths[start:start + 64]
+            candidates = self._paths("ls-files", "-z", "--others", "--",
+                                     *[":(icase,literal)" + rel for rel in group])
+            for rel in candidates:
+                source = os.path.join(self.root, rel)
+                for target_rel in group:
+                    target = os.path.join(self.root, target_rel)
+                    if os.path.isfile(target) and os.path.samefile(source, target):
+                        if os.path.islink(source):
+                            raise Stop("blocked", "업데이트할 경로에 연결 파일이 있습니다. [자세히]의 경로를 확인해 주세요.", rel)
+                        collide.add(rel)
+                    elif os.path.isdir(target) and os.path.commonpath([os.path.realpath(source), os.path.realpath(target)]) == os.path.realpath(target):
+                        raise Stop("blocked", "업데이트할 파일 경로에 개인 폴더가 있습니다. 폴더를 다른 위치에 보관한 뒤 다시 시도해 주세요.", target_rel)
+        return collide
 
     def _copy_out(self, paths):
         for rel in sorted(paths):
@@ -840,15 +880,101 @@ class GitFlow:
                                          *(":(literal)" + rel for rel in ordered[start:start + 64])))
         return {rel for rel in paths & untracked if os.path.lexists(os.path.join(self.root, rel))}
 
+    def _learner_main(self):
+        """다른 개발 브랜치·main의 별도 커밋·다른 작업 폴더를 파일 변경 전에 보호함."""
+        name = self._branch()
+        if name != "main" and not name.startswith("study/"):
+            raise Stop("blocked", M_DEV % (name or "분리된 HEAD"))
+        root = os.path.normcase(os.path.realpath(self.root))
+        listing = self._git("worktree", "list", "--porcelain", "-z", check=False)
+        separator = "\0" if listing.code == 0 else "\n"
+        output = listing.out if listing.code == 0 else self._out("worktree", "list", "--porcelain")
+        for record in output.split(separator * 2):
+            fields = record.split(separator)
+            if "branch refs/heads/main" not in fields:
+                continue
+            path = next((field[9:] for field in fields if field.startswith("worktree ")), "")
+            if separator == "\n" and path.startswith('"'):
+                path = json.loads(path)
+            if os.path.normcase(os.path.realpath(path)) != root:
+                raise Stop("blocked", M_MAIN_IN_USE)
+        main = self._commit_of("refs/heads/main")
+        if main and not self._is_ancestor(main, self._base):
+            raise Stop("blocked", M_MAIN_AHEAD, "local_main=%s\norigin_main=%s" % (main, self._base))
+        return main
+
+    def _check_staged_answers(self):
+        """작업 파일과 별도로 보관한 답안이 인덱스에서 사라지지 않도록 막음."""
+        if self._branch() != "main" or self._commit_of("HEAD") != self._base:
+            staged = set(self._paths("diff", "--cached", "--name-only", "-z", "HEAD", "--", self.rel))
+            unstaged = set(self._paths("diff", "--name-only", "-z", "--", self.rel))
+            if staged & unstaged:
+                raise Stop("blocked", M_STAGED_ANSWERS)
+
+    def _apply_learner_main(self, before, main):
+        """개인 풀이의 기존 트리를 그대로 둔 채 프로그램을 갱신하고 main을 연결함."""
+        env = {"GIT_INDEX_FILE": self._drop_index()}
+        try:
+            self._git("read-tree", self._base, env=env)
+            self._git("reset", "-q", before, "--", self.rel, env=env)
+            tree = self._out("write-tree", env=env)
+        finally:
+            self._drop_index()
+        if self._folder_tree(before) != self._out("rev-parse", "-q", "--verify", tree + ":" + self.rel, check=False):
+            raise Stop("error", M_ERROR["sync"])
+        index, branch = os.path.join(self._gitdir(), "index"), self._branch()
+        with open(index, "rb") as stream:
+            original = stream.read()
+        owned = None
+        try:
+            # 답안 영역의 이전·대상 트리가 같아 수정·삭제·미추적 답안을 그대로 유지함.
+            self._git("read-tree", "-m", "-u", before, tree)
+            with open(index, "rb") as stream:
+                owned = stream.read()
+            self._git("read-tree", self._base)  # 작업 파일을 쓰지 않고 인덱스만 main으로 맞춤.
+            with open(index, "rb") as stream:
+                owned = stream.read()
+            self._git("update-ref", "-m", "프로그램 main 업데이트", "refs/heads/main", self._base,
+                      main or "0" * len(self._base))
+            self._git("symbolic-ref", "-m", "프로그램 main 업데이트", "HEAD", "refs/heads/main")
+        except (GitError, OSError):
+            # 브랜치 연결에 실패하면 답안이 삭제된 것으로 스테이징되지 않도록 복구함.
+            if owned is not None and self._branch() == branch and self._commit_of("HEAD") == before:
+                with open(index, "rb") as stream:
+                    unchanged = stream.read() == owned
+                if unchanged:
+                    lock = index + ".lock"
+                    created = False
+                    try:
+                        with open(lock, "xb") as stream:
+                            created = True
+                            stream.write(original)
+                        os.replace(lock, index)
+                    except OSError:
+                        with open(os.path.join(self._backup_dir(), "index-before-update"), "wb") as stream:
+                            stream.write(original)
+                        if created and os.path.exists(lock):
+                            os.remove(lock)
+            raise
+
     def _sync(self):
-        dev = self._dev_branch()
-        if dev:
-            raise Stop("blocked", M_DEV % dev)
-        self._preflight()
-        self._fetch()
         if self.legacy_contract:
+            dev = self._dev_branch()
+            if dev:
+                raise Stop("blocked", M_DEV % dev)
+            self._preflight()
+            self._fetch()
             self._reconcile()
-        snap = self._snapshot("프로그램과 학습 자료 업데이트")
+        else:
+            name = self._branch()
+            if name != "main" and not name.startswith("study/"):
+                raise Stop("blocked", M_DEV % (name or "분리된 HEAD"))
+            self._fetch()
+            main = self._learner_main()
+            self._preflight()
+            self._check_staged_answers()
+        snap = self._snapshot("프로그램과 학습 자료 업데이트") if self.legacy_contract else self._base
+        branch = self.branch if self.legacy_contract else "main"
         before = self._out("rev-parse", "HEAD^{commit}")
         pending = self._pending_removals() if not self.legacy_contract else set()
         moved = self._park_outside(snap)
@@ -867,10 +993,15 @@ class GitFlow:
                 except OSError:
                     pass
         try:
-            if before != snap or self._branch() != self.branch:
-                if os.path.isdir(self.folder) or self._paths("ls-files", "-z", "--", self.rel):
-                    self._git("add", "-A", "--", self.rel)  # 인덱스의 내 폴더를 스냅샷에 맞춤
-                self._git("checkout", "-q", "-B", self.branch, snap)
+            if before != snap or self._branch() != branch:
+                if self.legacy_contract:
+                    if os.path.isdir(self.folder) or self._paths("ls-files", "-z", "--", self.rel):
+                        self._git("add", "-A", "--", self.rel)
+                    self._git("checkout", "-q", "-B", branch, snap)
+                else:
+                    self._apply_learner_main(before, main)
+            if not self.legacy_contract and self._out("rev-parse", "--abbrev-ref", "main@{upstream}", check=False) != "origin/main":
+                self._git("branch", "--set-upstream-to=origin/main", "main")
             stale = set(self._paths("diff", "--name-only", "-z", "HEAD", "--", *self.outside))
             if not self.legacy_contract:
                 remaining = self._remaining_removals(removed)
@@ -879,7 +1010,12 @@ class GitFlow:
         except (GitError, OSError) as error:
             if self.legacy_contract:
                 raise
-            return self._result("error", M_ERROR["sync"], str(error), restart=bool(moved), changed=bool(moved))
+            try:
+                applied = set(self._paths("diff", "--name-only", "-z", before, "--", *self.outside))
+            except (GitError, OSError):
+                applied = set()
+            return self._result("error", M_ERROR["sync"], str(error),
+                                restart=any(is_tool(path) for path in applied), changed=bool(applied))
         restart = any(is_tool(path) for path in moved | stale)
         changed = bool(moved)
         if stale:  # checkout 은 파일을 못 바꿔도 0 으로 끝나서 직접 확인함. 나머지 파일은 이미 바뀌었으니 restart·changed 도 같이 알림

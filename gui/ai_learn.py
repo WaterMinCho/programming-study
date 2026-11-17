@@ -7,7 +7,7 @@
 ai-levels 는 아래의 블록 위젯. 서비스가 error 를 단 블록과 모르는 블록은 안내 글만 둠. 상황별 코드 단원(차시가 아닌 무리)은 위 막대가
 홈으로 돌아감.
 
-AiFigure 는 GIF 를 처음 열면 한 번 재생하고 마지막 장에서 멈추며, 지금 장의 `프레임:` 설명을 그림 바로 아래에 두어 장을 넘길 때 같이 바꿈. 설명 칸은 가장 긴 장
+AiFigure 는 GIF를 화면에 보이는 동안 반복 재생하며, 지금 장의 `프레임:` 설명을 조작부 아래에 두어 장을 넘길 때 같이 바꿈. 설명 칸은 가장 긴 장
 설명의 높이를 지켜서 장을 넘겨도 넘김 단추가 움직이지 않음. 그림에 초점이 있으면 ←·→ 가 장을 넘김. 단계 이동은 아래 막대와 ←·→ 이고,
 입력 칸·그림·외울 것 줄에 초점이 있으면 그쪽이 ←·→ 를 쓰므로 Alt+←·→ 로만 넘김.
 마지막 단계를 보인 순간 단원을 읽은 것으로 기록하고, 단계를 옮길 때마다 중간 자리를 로컬에 남김. 읽기 화면이라 복사를 막지 않음."""
@@ -23,8 +23,8 @@ from aiprep import bank, skel
 from aiprep.grade import BLANK
 from gui import motion, ai_text, kit, theme
 from gui.docview import Doc, FigureView, TextPiece
+from gui.disclosure import DisclosureButton
 from gui.widgets import AnswerLine, Para
-from gui.wrong_page import Arrow
 from session import SessionError
 
 BOX_LINE = re.compile(r"^\s*>\s?\*\*\[(정정|보충 설명)\]\*\*\s*")
@@ -189,9 +189,9 @@ class TextBlock(QWidget):
 
 
 class AiFigure(FigureView):
-    """학습 단원 그림. 처음 열면 한 번 재생하고 마지막 장에서 멈춤. frames 는 figure 블록의 `프레임:` 줄([{"text", "ms"}])이고 지금 장의
-    설명을 그림 바로 아래(넘김 줄 위)에 가운데 맞춰 둠. 설명 칸의 최소 높이는 지금 폭에서 가장 긴 장 설명의 높이라 장마다 설명 줄 수가
-    달라도 넘김 줄과 캡션이 제자리에 있음. 넘김 단추는 단계 넘김 [이전]·[다음]과 헷갈리지 않게 [이전 장]·[다음 장]으로 씀.
+    """학습 단원 그림. 화면에 보이는 동안 반복 재생함. frames 는 figure 블록의 `프레임:` 줄([{"text", "ms"}])이고 지금 장의
+    설명을 그림 조작부 아래에 가운데 맞춰 둠. 설명 칸의 최소 높이는 지금 폭에서 가장 긴 장 설명의 높이라 장마다 설명 줄 수가
+    달라도 캡션이 제자리에 있음. 넘김 단추는 단계 넘김 [이전]·[다음]과 헷갈리지 않게 [이전 장]·[다음 장]으로 씀.
     초점이 있으면 ←·→ 가 장을 넘기고(Alt 가 붙으면 단계 넘김으로 보냄) 그림 둘레에 초점 테두리를 그림. last 면 마지막 장에서 엶."""
 
     def __init__(self, path, caption="", frames=(), last=False, description=""):
@@ -204,7 +204,7 @@ class AiFigure(FigureView):
         self.held = None  # 설명 칸 높이를 잰 폭·실제 글꼴·줄 높이
         self.frame_text = rich("", "body", "secondary")
         self.frame_text.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        self.layout().insertWidget(self.layout().indexOf(self.picture) + 1, self.frame_text)
+        self.layout().insertWidget(self.layout().indexOf(self.caption), self.frame_text)
         if self.movie:
             self.prev_btn.setText("이전 장")
             self.next_btn.setText("다음 장")
@@ -266,13 +266,19 @@ class AiFigure(FigureView):
         if hasattr(self, "frame_text"):
             self.hold_frames()
 
+    def refont(self):
+        super().refont()
+        if hasattr(self, "frame_text"):
+            kit.refont(self.frame_text)
+        self.draw()  # 글자 크기를 줄여도 다음 장을 넘기기 전에 그림 높이를 맞춤.
+
     def _play_if_visible(self):
         if not motion.enabled:
             return
         if not self.isVisible() or not self.visibleRegion().intersects(self.picture.geometry()):
             self.autoplay_pending = True
             return
-        self.play()
+        self.play(automatic=True)
 
     def event(self, event):
         if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) and self.movie \
@@ -1006,90 +1012,33 @@ class WhyBlock(QFrame):
         column.addWidget(head(ai_text.WHY_HEAD))
         column.addWidget(rich(block.get("q", "")))
         self.answer = rich(block.get("a", ""), "body", "secondary")
-        self.button = kit.button("답 보기", "secondary", "l")
-        self.button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        column.addWidget(self.button)
-        column.addWidget(self.answer)
-        self.button.clicked.connect(self.toggle)
+        self.button = DisclosureButton("답 보기", role="learn_caption")
+        answer_group = QWidget()
+        answer_box = kit.box(answer_group, spacing=theme.LEARN_GAP["detail"])
+        answer_box.addWidget(self.button)
+        answer_box.addWidget(self.answer)
+        column.addWidget(answer_group)
+        self.button.toggled.connect(self.toggle)
         self.answer.setVisible(ctx.readonly)
         self.button.setVisible(not ctx.readonly)
 
-    def toggle(self):
-        opened = not self.answer.isVisible()
+    def toggle(self, opened):
         self.answer.setVisible(opened)
         self.button.setText("답 접기" if opened else "답 보기")
 
 
-class FoldRow(QFrame):
-    """누르면 아래 내용을 펴고 접는 줄. 꺾쇠와 줄바꿈하는 글. 줄 전체를 누르거나 Enter·Space 로 바꾸고, → 는 펴고 ← 는 접음.
-    초점이 있으면 ←·→ 를 단계 넘김보다 먼저 받음."""
-    toggled = pyqtSignal(bool)
-
+class FoldRow(DisclosureButton):
+    """줄 전체로 내용을 펼치고 접으며 기존 열린 상태 이름을 유지함."""
     def __init__(self, text, role="body", bold=False):
-        super().__init__()
-        self.setObjectName("row")
-        self.opened, self.down = False, False
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        row = kit.box(self, (0, 12, 0, 12), 12, horizontal=True)
-        self.role = READ_ROLES.get(role, role)
-        self.arrow = Arrow()
-        self.arrow.set_opened(False)
-        self.label = rich(text, role, bold=bold)
-        self.pair = kit.FirstLine(self.arrow, self.label)
-        self.mark = self.pair.mark_holder
-        row.addWidget(self.pair, 1)
-        self.refont()
+        super().__init__(text, role=READ_ROLES.get(role, role), bold=bold,
+                         text_widget=rich(text, role, bold=bold), arrow_keys=True)
 
-    def refont(self):
-        self.pair.refont()
+    @property
+    def opened(self):
+        return self.isChecked()
 
     def set_opened(self, opened):
-        self.opened = opened
-        self.arrow.set_opened(opened)
-        self.toggled.emit(opened)
-
-    def event(self, event):
-        if event.type() == QEvent.Type.ShortcutOverride and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right) \
-                and not event.modifiers() & Qt.KeyboardModifier.AltModifier:
-            event.accept()
-            return True
-        return super().event(event)
-
-    def mousePressEvent(self, event):
-        self.down = event.button() == Qt.MouseButton.LeftButton
-        event.accept()
-
-    def mouseReleaseEvent(self, event):
-        down, self.down = self.down, False
-        if down and event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
-            self.set_opened(not self.opened)
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
-            if not event.isAutoRepeat():
-                self.set_opened(not self.opened)
-        elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right):
-            self.set_opened(key == Qt.Key.Key_Right)
-        else:
-            super().keyPressEvent(event)
-
-    def focusInEvent(self, event):
-        super().focusInEvent(event)
-        self.update()
-
-    def focusOutEvent(self, event):
-        super().focusOutEvent(event)
-        self.update()
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        if self.hasFocus():
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setPen(QPen(theme.qcolor("focus"), 2))
-            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), theme.RADIUS["small"], theme.RADIUS["small"])
+        self.setChecked(opened)
 
 
 def fold(row, body):
@@ -1109,7 +1058,7 @@ class MemoBlock(QWidget):
         for item in items:
             row = FoldRow(item.get("q", ""))
             answer = QWidget()
-            kit.box(answer, (kit.MARK + 12, 0, 0, 12)).addWidget(rich(item.get("a", ""), "body", "secondary"))
+            kit.box(answer, (0, 12, 0, 24)).addWidget(rich(item.get("a", ""), "body", "secondary"))
             column.addWidget(row)
             column.addWidget(answer)
             fold(row, answer)
@@ -1126,7 +1075,7 @@ class TrendBlock(QWidget):
         column = kit.box(self, spacing=8)
         self.row = FoldRow(block.get("title") or ai_text.SCOPE_BADGE["trend"], "label", bold=True)
         body = QWidget()
-        body_box = kit.box(body, (kit.MARK + 12, 0, 0, 0))
+        body_box = kit.box(body, (0, 0, 0, 0))
         self.doc = doc(block.get("text", ""), base_dir, body_box)
         column.addWidget(self.row)
         column.addWidget(body)
@@ -1268,10 +1217,12 @@ def guess_answers(steps):
 class Ctx:
     """블록이 서비스에 남기는 일. readonly 면 기록하지 않고 정답을 편 채로 그림. answers 는 읽기 전용 먼저 풀어 보기의 정답(guess_answers)."""
 
-    def __init__(self, win, lid, key, readonly=False, answers=None):
+    def __init__(self, win, lid, key, readonly=False, answers=None, *, base_dir=None, reference_links=True):
         self.win, self.lid, self.key, self.readonly = win, lid, key, readonly
         self.answers = answers or {}
-        self.base_dir = win.ai.notes[lid]["dir"] if win.ai is not None and lid in win.ai.notes else ""
+        self.reference_links = reference_links
+        self.base_dir = base_dir if base_dir is not None else (
+            win.ai.notes[lid]["dir"] if win.ai is not None and lid in win.ai.notes else "")
 
     def save_guess(self, block, picked):
         if self.readonly:
@@ -1322,10 +1273,11 @@ class StepView(QWidget):
 
     reloading = pyqtSignal()
 
-    def __init__(self, step, ctx, extra=(), title_role="headline"):
+    def __init__(self, step, ctx, extra=(), title_role="headline", show_title=True):
         super().__init__()
         self.docs, self.figures, self.codes = [], [], []  # codes 는 글자 단계를 따라 다시 그릴 코드 블록(나란히 보기, 돌려 가며 빈칸)
         self.formulas = []  # 수식 창의 글자와 색을 갱신할 부품
+        self.code_help = []
         self.levels = []  # 세 수준 블록. 펼 때 만든 글 조각과 그림을 restyle 때 다시 그림
         column = kit.box(self, spacing=theme.LEARN_GAP["group"])
         if not ctx.readonly:
@@ -1352,11 +1304,12 @@ class StepView(QWidget):
         for index, block in enumerate(list(step["blocks"]) + list(extra)):
             widget = self.block(block, ctx)
             if widget is not None:
-                if index == 0 and block.get("kind") == "text":
+                if show_title and index == 0 and block.get("kind") == "text":
                     top = reading_heading(top, widget)
                 else:
                     content.append(widget)
         column.addWidget(top)
+        top.setVisible(show_title)
         for widget in content:
             column.addWidget(widget)
         learning_texts(self)
@@ -1405,6 +1358,11 @@ class StepView(QWidget):
             out = FormulaBlock(block, ctx)
             self.formulas.append(out)
             return out
+        if kind == "code-help":
+            from gui.ai_code_help import CodeHelpBlock
+            out = CodeHelpBlock(block, ctx)
+            self.code_help.append(out)
+            return out
         return kit.para(ai_text.BLOCK_BROKEN, "body", "secondary")  # 이 판이 모르는 블록
 
     def restyle(self):
@@ -1412,7 +1370,7 @@ class StepView(QWidget):
             piece.restyle(theme.learning_css())
         for widget in self.figures:
             widget.draw()
-        for widget in self.codes + self.levels + self.formulas:
+        for widget in self.codes + self.levels + self.formulas + self.code_help:
             widget.restyle()
         for widget in self.findChildren(RichPara):
             widget.restyle()

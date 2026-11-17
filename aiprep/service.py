@@ -64,6 +64,55 @@ class AiError(session.SessionError):
     """사용자에게 그대로 보여 줄 수 있는 AI 비전 개론 오류."""
 
 
+def _skeleton_block(block, skeletons):
+    """ai-diff·ai-rotate 블록에 채울 값. diff 는 skel.diff 결과, rotate 는 skel.rotate_block 결과(code, slots). 모르는 뼈대·코드 예제·
+    자리면 {"error"}."""
+    skeleton = skeletons.get(str(block.get("skel")))
+    if skeleton is None:
+        return {"error": "뼈대를 찾을 수 없습니다: %s" % block.get("skel")}
+    try:
+        if block["kind"] == "diff":
+            return skel.diff(skeleton, block.get("left"), block.get("right"))
+        slots = block.get("slots")
+        return skel.rotate_block(skeleton, block.get("variant"), slots if isinstance(slots, list) else None)
+    except bank.AiBankError as error:
+        return {"error": str(error)}
+
+
+def _note_blocks(unit, step, guesses, skeletons):
+    """단계 블록을 화면용으로. guess 는 답을 빼고 고른 번호를, reveal 은 짐작한 답과 정답을, figure 는 파일 경로를, diff 는
+    두 코드 예제의 행을, rotate 는 예제 코드와 자리마다 그 자리만 가린 코드를 채움."""
+    out = []
+    for block in step["blocks"]:
+        block = dict(block)
+        if block["kind"] == "guess":
+            block["picked"] = guesses.get(block.get("id"))
+            block.pop("answer", None)
+        elif block["kind"] == "reveal":
+            gid = block.get("guess") or block.get("id")
+            source = next((b for s in unit["steps"] for b in s["blocks"]
+                           if b["kind"] == "guess" and b.get("id") == gid), None)
+            if source:
+                block.update(guess=gid, q=source.get("q"), options=source.get("options"), answer=source.get("answer"),
+                             picked=guesses.get(gid))
+        elif block["kind"] in ("diff", "rotate") and not block.get("error"):
+            block.update(_skeleton_block(block, skeletons))
+        out.append(block)
+    return out
+
+
+def read_note_reference(reference, root=None):
+    """공개 단계의 설명만 읽음. 학습자 세션을 만들거나 물음의 답을 펼치지 않음."""
+    data = bank.resolve_code_reference(reference, root)
+    unit = data["unit"]
+    explanatory = {"text", "figure", "diff", "code-help"}
+    step = {k: data["step"][k] for k in ("no", "title", "scope", "facts")}
+    step["blocks"] = [b for b in data["step"]["blocks"] if b["kind"] in explanatory]
+    skeletons = skel.load_patterns(root) if any(b["kind"] == "diff" for b in step["blocks"]) else {}
+    step["blocks"] = _note_blocks(unit, step, {}, skeletons)
+    return dict(data, unit=unit["key"], step=step)
+
+
 class AiRecord(record.Record):
     """record.Record 와 같은 파일 꼴. 자기가 마지막으로 읽거나 쓴 파일의 (mtime_ns, 크기)가 그대로면 다시 읽지 않고
     메모리의 기록에 덧붙여 씀(4주 기록 1MB 안팎을 답마다 다시 읽지 않으려는 것). 파일 식별값과 변경 시각도 비교해서
@@ -160,8 +209,9 @@ class AiSession(object):
                 continue
             accepted_mocks.append(spec)
         self.index["mocks"] = accepted_mocks
-        if os.path.isfile(os.path.join(bank.mock_dir("m4", self.root), "meta.json")) and not any(m["id"] == "m4" for m in accepted_mocks):
-            pending_mocks.setdefault("m4", "혼합 모의고사의 문항 검토와 목록 연결을 준비하고 있습니다.")
+        for mid in mixed_mock.PUBLISHED_IDS:
+            if os.path.isfile(os.path.join(bank.mock_dir(mid, self.root), "meta.json")) and not any(m["id"] == mid for m in accepted_mocks):
+                pending_mocks.setdefault(mid, "혼합 모의고사의 문항 검토와 목록 연결을 준비하고 있습니다.")
         self.index["lessons"] = [e for e in self.index["lessons"] if e["course"] == course]
         if course != "intro":
             self.index["patterns"] = []
@@ -174,6 +224,11 @@ class AiSession(object):
         self.notes, self.items, self.cards, self.errors = {}, {}, {}, {}
         self.errors.update(pending_mocks)
         self.mock_pending = pending_mocks
+        self.review_variants = {}
+        try:
+            self.review_variants = bank.read_review_variants(self.root)
+        except bank.AiBankError as error:
+            self.errors["review_variants"] = str(error)
         try:
             bank.load_common(self.root)
         except bank.AiBankError as error:
@@ -184,11 +239,12 @@ class AiSession(object):
             try:
                 note = bank.load_note({"id": entry["page"], "title": entry["title"]}, self.root)
                 data = bank.load_items(entry, self.root)
+                cards = bank.cards_of(entry, data)
             except bank.AiBankError as error:
                 self.errors[entry["id"]] = str(error)
                 continue
             self.notes[entry["id"]], self.items[entry["id"]] = note, data
-            for card in bank.cards_of(entry, data):
+            for card in cards:
                 if card["unit"] in note["visible"]:
                     self.cards[card["id"]] = card
         self.patterns = {g["id"]: g for g in self.index["patterns"]}
@@ -292,6 +348,9 @@ class AiSession(object):
                     if row.get('results', {}).get(card['id']) not in ('stuck', 'blank', 'partial'):
                         continue
                     card['mock'], card['after'] = mid, card['item'].get('lesson')
+                    related = (row.get('related_by_question') or {}).get(card['id'])
+                    if related:
+                        card['related_practice'] = related
                     self.cards[card['id']] = card
             except mock.MockError as error:
                 self.errors[mid] = str(error)
@@ -511,41 +570,10 @@ class AiSession(object):
         return out
 
     def _skel_block(self, block):
-        """ai-diff·ai-rotate 블록에 채울 값. diff 는 skel.diff 결과, rotate 는 skel.rotate_block 결과(code, slots). 모르는 뼈대·코드 예제·
-        자리면 {"error"}."""
-        skeleton = self.skeletons.get(str(block.get("skel")))
-        if skeleton is None:
-            return {"error": "뼈대를 찾을 수 없습니다: %s" % block.get("skel")}
-        try:
-            if block["kind"] == "diff":
-                return skel.diff(skeleton, block.get("left"), block.get("right"))
-            slots = block.get("slots")
-            return skel.rotate_block(skeleton, block.get("variant"), slots if isinstance(slots, list) else None)
-        except bank.AiBankError as error:
-            return {"error": str(error)}
+        return _skeleton_block(block, self.skeletons)
 
     def _blocks(self, lid, key, step, state):
-        """단계 블록을 화면용으로. guess 는 답을 빼고 고른 번호를, reveal 은 짐작한 답과 정답을, figure 는 파일 경로를, diff 는
-        두 코드 예제의 행을, rotate 는 예제 코드와 자리마다 그 자리만 가린 코드를 채움."""
-        guesses = state.guesses.get((lid, key), {})
-        out = []
-        unit = self.notes[lid]["units"][key]
-        for block in step["blocks"]:
-            block = dict(block)
-            if block["kind"] == "guess":
-                block["picked"] = guesses.get(block.get("id"))
-                block.pop("answer", None)
-            elif block["kind"] == "reveal":
-                gid = block.get("guess") or block.get("id")
-                source = next((b for s in unit["steps"] for b in s["blocks"]
-                               if b["kind"] == "guess" and b.get("id") == gid), None)
-                if source:
-                    block.update(guess=gid, q=source.get("q"), options=source.get("options"), answer=source.get("answer"),
-                                 picked=guesses.get(gid))
-            elif block["kind"] in ("diff", "rotate") and not block.get("error"):
-                block.update(self._skel_block(block))
-            out.append(block)
-        return out
+        return _note_blocks(self.notes[lid]["units"][key], step, state.guesses.get((lid, key), {}), self.skeletons)
 
     def unit_steps(self, lid, key):
         """학습 단원의 단계. {"lesson", "unit", "title", "name"(단원 이름), "steps": [{"no", "title", "scope", "facts", "blocks"}],
@@ -1016,7 +1044,8 @@ class AiSession(object):
         elif card.get('mock'):
             try:
                 first = state.index.mocks.get(card['mock'], {})
-                path = os.path.join(self.home, 'mocks', '%s-%d.json' % (card['mock'], int(first.get('try') or 1)))
+                home = self.mock_home if mixed_mock.candidate(self.mocks.get(card['mock'], {})) else self.home
+                path = os.path.join(home, 'mocks', '%s-%d.json' % (card['mock'], int(first.get('try') or 1)))
                 draft = study.read_json(path)
                 saved = None
                 if first.get('fingerprint') and draft.get('fingerprint') == first['fingerprint']:
@@ -1530,16 +1559,18 @@ def _choose(sess, state, pools, size, rng, taken=()):
     seen = {c for c, _ in taken}
     all_ids = [cid for _, ids in pools for cid in ids]
 
-    def can(cid):
+    def can(cid, pool):
         card = sess.cards[cid]
-        if cid in seen or card["family"] in families:
+        paired = pool == "transfer" and any(p == "lead"
+                    and sess.cards[c]["family"] == card["family"] for c, p in chosen)
+        if cid in seen or card["family"] in families and not paired:
             return False
         if card["kind"] == "skel" and any(_overlapping_pattern_answers(sess, cid, other) for other, _ in chosen
                                           if sess.cards[other]["kind"] == "skel"):
             return False
-        if card["kind"] == "gen" and gens >= gen_cap:
+        if card["kind"] == "gen" and gens >= max(1 if pool == "transfer" else 0, gen_cap):
             return False
-        if card["deep"] and deeps >= deep_cap:
+        if card["deep"] and deeps >= deep_cap and pool != "transfer":
             return False
         return True
 
@@ -1556,13 +1587,14 @@ def _choose(sess, state, pools, size, rng, taken=()):
         for cid in ids:
             if len(chosen) >= size:
                 break
-            if cid not in sess.cards or not can(cid):
+            if cid not in sess.cards or not can(cid, pool):
                 continue
             take(cid, pool)
             card = sess.cards[cid]
-            if card["deep"] and card["confuse"] and len(chosen) < size:  # 심화 짝을 같은 묶음에
+            if (card["deep"] and card["confuse"] and len(chosen) < size
+                    and not (pool == "lead" and any(p == "transfer" and ids for p, ids in pools))):
                 mate = next((m for m in all_ids if m in sess.cards and sess.cards[m]["deep"] and m != cid
-                             and set(sess.cards[m]["confuse"]) & set(card["confuse"]) and can(m)), None)
+                             and set(sess.cards[m]["confuse"]) & set(card["confuse"]) and can(m, pool)), None)
                 if mate:
                     take(mate, pool)
     return chosen
@@ -1638,7 +1670,7 @@ def _hold_lead(sess, lead, rest):
     return sorted(lead, key=lambda c: rank[c]), rest
 
 
-def _arrange(sess, state, chosen, rng, pattern=None):
+def _arrange(sess, state, chosen, rng, pattern=None, after=None):
     """순서 정하기. 같은 confuse 카드는 사이에 한 문항만 두고, 같은 차시·tags 는 붙이지 않고, 고르기는 CHOICE_RUN 개 넘게
     잇지 않음. 같은 코드 예제 뼈대 카드가 아직 남았으면 SKEL_RANK 가 높은 카드를 미룸(slot 은 코드 예제 전체를 보여 고르기의 답이 되고, change 는
     같은 줄 보기로 pick 의 답을 보임). 맞지 않으면 confuse → 차시·tags → 고르기 → 뼈대 순으로 풂. pattern 이 있으면(단원 모드)
@@ -1646,6 +1678,16 @@ def _arrange(sess, state, chosen, rng, pattern=None):
     올 새 고르기까지 세어 고르기를 잇는 수를 지킴."""
     def form(cid):
         return sess.card_form(sess.cards[cid], state.box(cid))
+
+    after = after or {}
+
+    def choice_len(cid):
+        count = 0
+        for current in (cid, after.get(cid)):
+            if current is None or form(current) != "choice":
+                break
+            count += 1
+        return count
 
     def blockers(cid, waiting):
         return _blockers(sess, cid, waiting)
@@ -1698,7 +1740,7 @@ def _arrange(sess, state, chosen, rng, pattern=None):
             card = sess.cards[cid]
             if level < 4 and held(cid, new + pool):
                 return False
-            if level < 3 and run >= CHOICE_RUN and form(cid) == "choice":
+            if level < 3 and choice_len(cid) and run + choice_len(cid) > CHOICE_RUN:
                 return False
             if level < 2 and prev is not None and ((spread and prev["lesson"] == card["lesson"])
                                                     or (loose and set(prev["tags"]) & set(card["tags"]))):
@@ -1710,8 +1752,9 @@ def _arrange(sess, state, chosen, rng, pattern=None):
                     return bool(set(two["confuse"]) & set(card["confuse"]))
             return True
 
-        choices = sum(1 for c in pool if form(c) == "choice")
-        dense = choices >= CHOICE_RUN * (len(pool) - choices)  # 고르기가 많으면 빈칸을 칸막이로 아껴 둠
+        remaining = [c for cid in pool for c in ([cid, after[cid]] if cid in after else [cid])]
+        choices = sum(1 for c in remaining if form(c) == "choice")
+        dense = choices >= CHOICE_RUN * (len(remaining) - choices)  # 고르기가 많으면 빈칸을 칸막이로 아껴 둠
         pick = None
         for level in range(5):
             allowed = [c for c in pool if ok(c, level)]
@@ -1725,7 +1768,104 @@ def _arrange(sess, state, chosen, rng, pattern=None):
                 break
         pool.remove(pick)
         seq.append(pick)
+        if pick in after:
+            seq.append(after[pick])
     return seq
+
+
+def _variants(state, lead, fixed=False, skip=()):
+    """같은 단원·근거의 조건 변형과 검토한 고정 문항을 우선순위로 고름."""
+    if lead["kind"] not in ("blank", "choice", "stmt") or lead["deep"] and lead["confuse"]:
+        return []
+    if lead.get("mock"):
+        return []
+    facts = set(lead.get("facts") or [])
+    candidates = []
+    approved = state.sess.review_variants.get(lead["id"], []) if fixed else []
+    for card in state._units.get((lead["lesson"], lead["unit"]), []):
+        overlap = facts & set(card.get("facts") or [])
+        mapped = (fixed and card["id"] in approved and card["kind"] in ("blank", "choice")
+                  and card["deep"] == lead["deep"] and not (card["deep"] and card["confuse"]))
+        if (card["id"] == lead["id"] or card["id"] in skip
+                or card["deep"] and not mapped or card.get("mock")):
+            continue
+        # 명시적 연결은 정정 근거가 붙은 문항도 내용 대조를 마친 뒤 목록에 등록함.
+        reviewed_gen = card["kind"] == "gen" and card["id"] in approved
+        if card["kind"] == "gen" and (not overlap or card.get("errata")) and not reviewed_gen:
+            continue
+        if card["kind"] != "gen" and not mapped:
+            continue
+        if not state.is_open(card):
+            if not state.eligible_new(card) or not card["core"] and state.new_cap_left() <= 0:
+                continue
+        events = state.events.get(card["id"], [])
+        rank = (card["kind"] != "gen", card["family"] != lead["family"], -len(overlap), len(events),
+                events[-1]["at"] if events else "", card["order"], card["id"])
+        candidates.append((rank, card["id"]))
+    return [cid for _, cid in sorted(candidates)]
+
+
+def _note_variant(state, lead):
+    """일반 오답의 조건 변형을 먼저 고르고 없으면 검토한 고정 문항을 연결함."""
+    return _variants(state, lead, fixed=True)[:1]
+
+
+def _review_pairs(sess, state, chosen, pools, size):
+    """다시 풀 원문항에 변형을 최대 세 장 연결함. 복습 일정과 정오답은 바꾸지 않음."""
+    chosen = list(chosen)
+    pending = {cid for name, ids in pools if name in ("again", "due") for cid in ids}
+    skip = pending | state.completed_today
+    waiting = pending - {cid for cid, _ in chosen}
+    pairs, candidates, deferred = {}, {}, []
+    opened = 0
+    cap = state.new_cap_left()
+    for source, pool in list(chosen):
+        if pool not in ("again", "due") or source not in dict(chosen) or len(pairs) >= 3:
+            continue
+        options = _variants(state, sess.cards[source], fixed=True, skip=skip)
+        candidates[source] = options
+        for target in options:
+            card = sess.cards[target]
+            selected = dict(chosen)
+            if target in pairs.values():
+                continue
+            if any(cid != source and cid != target and sess.cards[cid]["family"] == card["family"]
+                   for cid, _ in chosen):
+                continue
+            fresh = target not in state.events and target not in state.related_due and not card["core"]
+            if fresh and opened >= cap:
+                continue
+            victim = None
+            if card["kind"] == "gen" and target not in selected:
+                count = sum(sess.cards[cid]["kind"] == "gen" for cid, _ in chosen)
+                if count >= max(1, int(size * GEN_SHARE)):
+                    victim = next((cid for cid, name in reversed(chosen) if name in ("low", "gen")
+                                   and sess.cards[cid]["kind"] == "gen"
+                                   and not (sess.cards[cid]["deep"] and sess.cards[cid]["confuse"])), None)
+                    if victim is None:
+                        continue
+            if victim is None and target not in selected and len(chosen) >= size:
+                # 짝·미해결 오답·심화 비교는 그대로 두고 보충 문항부터 비움.
+                victim = next((cid for cid, name in reversed(chosen) if name in ("low", "gen")
+                               and not (sess.cards[cid]["deep"] and sess.cards[cid]["confuse"])), None)
+                if victim is None and waiting:
+                    victim = next((cid for cid, name in reversed(chosen)
+                                   if name == "due" and cid != source and cid not in pairs
+                                   and not (sess.cards[cid]["deep"] and sess.cards[cid]["confuse"])), None)
+                if victim is None:
+                    continue
+            if victim is not None:
+                if selected[victim] == "due":
+                    deferred.append(victim)
+                chosen = [(cid, name) for cid, name in chosen if cid != victim]
+            if target in selected:
+                chosen = [(cid, "pair" if cid == target else name) for cid, name in chosen]
+            else:
+                chosen.append((target, "pair"))
+            pairs[source] = target
+            opened += int(fresh)
+            break
+    return chosen, pairs, candidates, deferred
 
 
 def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=None):
@@ -1775,9 +1915,19 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     size = SET_SIZE
     pattern = None
     overflow = []
-    protected = {"again", "due", "new", "lead"}
+    protected = {"again", "due", "new", "lead", "transfer", "pair"}
     if mode == "unit":
         fresh = new_cards(lambda c: c["lesson"] == lesson and c["unit"] == unit)
+        # 핵심을 푼 뒤에는 고정 문항 뒤에 밀린 변형 문항도 한 장 먼저 연습함.
+        # 이미 복습할 생성기가 있으면 기존 순서와 생성기 상한을 유지함.
+        cores = [cid for cid in fresh if cards[cid]["core"]]
+        if len(cores) < UNIT_NEW and not any(cards[cid]["kind"] == "gen" for cid in again + due):
+            occupied = {cards[cid]["family"] for cid in again + cores + due}
+            candidate = next((cid for cid in fresh if cards[cid]["kind"] == "gen"
+                              and not cards[cid]["core"] and cards[cid]["family"] not in occupied), None)
+            if candidate is not None:
+                fresh.remove(candidate)
+                fresh.insert(len(cores), candidate)
         others = [c for c in read_cards(lambda c: (c["lesson"], c["unit"]) != (lesson, unit)) if c not in due and c not in again]
         rng.shuffle(others)
         pools = [("again", again), ("new", fresh[:UNIT_NEW]), ("due", due[:UNIT_REVIEW]), ("other", others)]
@@ -1815,12 +1965,24 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         mates = []
         if target:
             mates = [i["key"] for i in target[0]["items"] if i["state"] == target[1]["state"] and i["key"] != card]
-        pools = [("lead", [card]), ("rest", mates)]
+        transfer = []
+        if cards[card].get("mock"):
+            candidates = mixed_mock.practice_candidates(cards[card]["item"], cards, [card])
+            if candidates:
+                saved = cards[card].get("related_practice")
+                transfer = [saved if any(c["id"] == saved for c in candidates) else candidates[0]["id"]]
+        elif target:
+            transfer = _note_variant(state, cards[card])
+        pools = [("lead", [card]), ("transfer", transfer), ("rest", mates)]
         size = NOTE_MAX
     else:
         raise AiError("모르는 연습 모드입니다: %s" % mode)
     if trace is not None:
-        trace.update(policy="rules-v1", runtime_revision=collection.runtime_revision(),
+        policy = "rules-v2"
+        if mode == "note" and any(name == "transfer" and ids for name, ids in pools):
+            policy = "rules-v3" if cards[card].get("mock") else "rules-v2"
+        trace.update(policy=policy,
+                     runtime_revision=collection.runtime_revision(),
                      trigger="learner_choice" if mode == "note" else "rules",
                      requested_card=card if mode == "note" else None,
                      candidate_scope="mode_pools_before_choose",
@@ -1831,12 +1993,29 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     chosen = _choose(sess, state, pools, size, rng)
     if len(chosen) < SET_MIN and overflow:
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
+    pairs = {}
+    if mode in ("review", "sweep"):
+        chosen, pairs, pair_candidates, deferred = _review_pairs(sess, state, chosen, pools, size)
+        if trace is not None and pairs:
+            trace.update(policy="rules-v5", paired=pairs, pair_candidates=pair_candidates, deferred=deferred)
+            trace["candidate_scope"] = "mode_pools_and_review_pairs_before_choose"
+            trace["candidate_pools"].append({"name": "pair", "ids": list(dict.fromkeys(
+                cid for ids in pair_candidates.values() for cid in ids)), "overflow": False})
+            trace["candidate_ids"] = list(dict.fromkeys(trace["candidate_ids"] + [
+                cid for ids in pair_candidates.values() for cid in ids]))
     chosen = _fix_blanks(sess, state, chosen, pools, protected)
     keep = {card} if mode == "note" else set()
+    keep.update(cid for cid, pool in chosen if pool in ("transfer", "pair"))
     if mode in ("review", "sweep"):
         keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
     chosen = _gen_trim(sess, chosen, keep=keep, minimum=1 if mode == "unit" else 0)
     if trace is not None:
+        if mode == "note" and not cards[card].get("mock") and any(pool == "transfer" for _, pool in chosen):
+            trace["policy"] = "rules-v4" if any(cards[cid]["kind"] == "gen"
+                                               and cid not in sess.review_variants.get(card, []) for cid, pool in chosen
+                                               if pool == "transfer") else "rules-v5"
+        if trace["policy"] == "rules-v5":
+            trace["variant_catalog_revision"] = collection.digest(sess.review_variants)
         trace["selected_pools"] = dict(chosen)
         trace["selected_sources"] = {cid: "learner_choice" if mode == "note" and cid == card else "rules"
                                      for cid, _ in chosen}
@@ -1845,11 +2024,11 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         if trace is not None:
             trace["selected"] = list(selected)
         return selected
-    lead = [c for c, pool in chosen if pool == "lead"]
-    rest = [(c, pool) for c, pool in chosen if pool != "lead"]
+    lead = [c for c, pool in chosen if pool in ("lead", "transfer")]
+    rest = [(c, pool) for c, pool in chosen if pool not in ("lead", "transfer", "pair")]
     if mode == "mixed":  # [다시 풀기](note)의 lead 는 학습자가 고른 카드라 옮기지 않음
         lead, rest = _hold_lead(sess, lead, rest)
-    selected = lead + _arrange(sess, state, rest, rng)
+    selected = lead + _arrange(sess, state, rest, rng, after=pairs)
     if trace is not None:
         trace["selected"] = list(selected)
     return selected
@@ -2051,9 +2230,9 @@ class PracticeSet(object):
         if card["kind"] == "skel":
             chips.append(skel.PART_CHIP[card["part"]])
         else:
-            chips.append(("코드 빈칸" if code else "빈칸") if form == "blank" else "고르기")
+            chips.append(("코드 빈칸" if code else "빈칸") if form == "blank" else "객관식")
         if card["kind"] == "gen":
-            chips.append("숫자 바뀜")
+            chips.append("조건 변형")
         if entry["again"]:
             chips.append("다시 나온 문항")
         if card["id"] in self.sure_before:

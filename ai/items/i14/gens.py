@@ -29,10 +29,55 @@ def unfreeze(r):
                  blanks=[{'answer':[str(count)],'mode':'number','unit':'개'}],explain=f'해제 수는 min(4,({epoch}-1)//{k})={count}입니다. 첫 구간에는 백본을 해제하지 않습니다.',params=dict(k=k,epoch=epoch))
 
 
-@gen('i14-g04',unit='14g',tags=['잔차 연결'],ref=['14차시 노트북 01 [14]','문서 ResNet 원 논문'],facts=['F14-703'],step='14g/3',basis='lecture-formula',family='residual-shape')
+@gen('i14-g04',unit='14g',tags=['잔차 연결'],ref=['14차시 슬 p3','문서 ResNet 원 논문'],facts=['F14-703'],step='14g/3',basis='lecture-formula',family='residual-shape')
 def projection(r):
     """직접 경로의 bias 없는 1×1 합성곱 weight만 셈. BN 원소는 포함하지 않음."""
     ci=r.int(4,64); co=r.int(65,192)
     answer=ci*co
     return blank(stem=f'잔차 블록의 직접 경로에서 입력 {ci}채널을 출력 {co}채널로 맞추는 1×1 합성곱을 사용합니다. groups=1이고 bias=False입니다. 이 합성곱의 weight 원소는 ____ 개입니다. BN 파라미터는 포함하지 않습니다.',
                  blanks=[{'answer':[str(answer)],'mode':'number','unit':'개'}],explain=f'출력 채널×입력 채널×1×1={co}×{ci}={answer}개입니다.',params=dict(ci=ci,co=co))
+
+
+@gen("i14-g05", unit="14b", step="14b/4", level=3, core=False, deep=False, prio=2,
+     tags=["동결과 갱신", "optimizer 등록"], family="trainable-registered", basis="lecture-example",
+     facts=["F14-201", "F14-202", "F14-205"],
+     ref=["14차시 노트북 01 [17]", "14차시 노트북 01 [18]", "14차시 노트북 02 [33]", "PyTorch 문서 Optimizer"])
+def registered_sgd_update(r):
+    """등록 여부와 저장된 grad로 SGD 갱신을 판단함. requires_grad 변경은 남은 grad를 지우지 않음."""
+    initial = r.int(-8, 8)
+    lr = r.pick(["0.1", "0.2", "0.5"])
+    registered = r.chance(0.5)
+    requires_grad = r.chance(0.5)
+    stored_grad = r.pick([None, -4, -2, -1, 1, 2, 4])
+    parameters = "[p]" if registered else "[q]"
+    grad_text = "None" if stored_grad is None else f"torch.tensor({stored_grad}.0)"
+    code = (f"optimizer = torch.optim.SGD({parameters}, lr={lr}, momentum=0, weight_decay=0)\n"
+            f"p.requires_grad_({requires_grad})\n"
+            "optimizer.step()")
+    stem = ("p와 q는 서로 다른 실수 스칼라 Parameter입니다. 코드 실행 전 p.requires_grad는 True이고 "
+            f"p의 값은 {initial}.0, p.grad는 {grad_text}입니다. "
+            "아래 세 줄만 실행하며 기울기를 새로 계산하거나 비우는 호출은 없습니다. "
+            "부동소수점의 반올림 오차는 무시하세요.\n\n"
+            f"```python\n{code}\n```\n\n"
+            "optimizer.step() 직후 p의 값은 ____ 입니다.")
+    value = Decimal(initial)
+    if not registered:
+        explain = ("이 optimizer에는 q만 등록했습니다. p의 requires_grad나 저장된 grad와 관계없이 "
+                   f"이 step은 p를 갱신하지 않아 값은 {initial}입니다.")
+    elif stored_grad is None:
+        explain = ("p를 등록했지만 p.grad가 None이므로 SGD가 p를 건너뜁니다. "
+                   f"requires_grad 값과 관계없이 저장된 기울기가 없어 값은 {initial}입니다.")
+    else:
+        value -= Decimal(lr) * stored_grad
+        explain = (f"등록한 p에 저장된 기울기 {stored_grad}를 사용합니다. "
+                   f"{initial} − {lr} × ({stored_grad}) = {value}입니다.")
+        if not requires_grad:
+            explain += " requires_grad를 False로 바꿔도 기존 grad를 지우지 않으므로 이번 step은 p를 갱신합니다."
+    return blank(stem=stem, blanks=[{"answer": [str(value)], "mode": "number"}], explain=explain,
+                 params={"initial": initial, "lr": lr, "registered": registered,
+                         "requires_grad": requires_grad, "stored_grad": stored_grad})
+
+
+registered_sgd_update.gen_spec.meta.update(
+    template_revision="intro-registered-sgd-update-1", author_difficulty=3,
+    display_params=["initial", "lr", "registered", "requires_grad", "stored_grad"])

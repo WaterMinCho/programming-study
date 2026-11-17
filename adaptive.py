@@ -301,17 +301,15 @@ def target_level(st, deep):
 
 
 def pick_one(prof, cat, unit_id, level, exclude, rng, prefer):
-    """단원·레벨에서 안 풀어 본 문항 하나(가능하면 prefer 유형). 없으면 틀렸던 문항, 그래도 없으면 None."""
+    """단원·레벨에서 안 풀어 본 문항 하나를 고름. 오답은 별도 재출제 몫에서만 고름."""
     attempted = {a["item"] for a in prof["attempts"]}
-    wrong = {a["item"] for a in first_attempts(prof) if not a["ok"]}
     pool = [k for k, it in cat.items() if it["unit"] == unit_id and it["level"] == level and k not in exclude]
     fresh = [k for k in pool if k not in attempted]
-    for group in (fresh, [k for k in pool if k in wrong]):
-        preferred = [k for k in group if cat[k]["kind"] == prefer]
-        others = [k for k in group if cat[k]["kind"] != prefer]
-        for cands in (preferred, others):
-            if cands:
-                return rng.choice(cands)
+    preferred = [k for k in fresh if cat[k]["kind"] == prefer]
+    others = [k for k in fresh if cat[k]["kind"] != prefer]
+    for cands in (preferred, others):
+        if cands:
+            return rng.choice(cands)
     return None
 
 
@@ -319,21 +317,20 @@ RETEST_GAP = 2  # 틀린 문항은 이만큼 회차가 지난 뒤에 다시 냄
 RETEST_SLOTS = 2  # 한 회차에 다시 내는 오답 문항 수 상한
 
 
-def retest_pool(prof, cat):
-    """첫 시도에 틀렸고 아직 다른 회차에서 맞히지 못한 문항 중, 마지막으로 본 지 RETEST_GAP 회차 이상 지난 것."""
+def retest_pool(prof, cat, gap=RETEST_GAP):
+    """가장 최근 회차의 첫 시도가 오답인 문항을 마지막 시도 회차·문항 순으로 돌려줌."""
     index_of = {r["id"]: i for i, r in enumerate(prof["rounds"])}
-    last_seen, ever_wrong, later_ok = {}, set(), set()
+    last_seen, first_ok = {}, {}
     for a in sorted(prof["attempts"], key=lambda a: index_of.get(a["round"], 0)):
         key = a["item"]
         if key not in cat:
             continue
         last_seen[key] = index_of.get(a["round"], 0)
-        if a["try"] == 1 and not a["ok"]:
-            ever_wrong.add(key)
-        elif a["try"] == 1 and a["ok"] and key in ever_wrong:
-            later_ok.add(key)
+        if a["try"] == 1:
+            first_ok[key] = a["ok"]
     current = len(prof["rounds"])
-    return [k for k in ever_wrong - later_ok if current - last_seen[k] >= RETEST_GAP]
+    return sorted((k for k, ok in first_ok.items() if not ok and current - last_seen[k] >= gap),
+                  key=lambda k: (last_seen[k], k))
 
 
 def weighted_choice(rng, weights):
@@ -407,6 +404,26 @@ def build_round(prof, cat):
         counts[unit_id] += 1
         if cat[key]["kind"] == "code":
             code_n += 1
+    relaxed = False
+    if not items:
+        # 새 문항도 간격을 채운 오답도 없을 때만 진행을 위한 짧은 복습을 만듦.
+        retest = retest_pool(prof, cat, gap=0)
+        if not retest:
+            # 다시 맞힌 문항만 남아도 현재 레벨을 아직 통과하지 못했다면 연습을 이어감.
+            wrong = {a["item"] for a in first_attempts(prof) if not a["ok"]}
+            indices = {r["id"]: i for i, r in enumerate(prof["rounds"])}
+            seen = {}
+            for attempt in prof["attempts"]:
+                key = attempt["item"]
+                seen[key] = max(seen.get(key, -1), indices.get(attempt["round"], 0))
+            retest = sorted((k for k in wrong if k in cat
+                             and not by_unit[cat[k]["unit"]]["passed"][cat[k]["level"]]
+                             and cat[k]["level"] == by_unit[cat[k]["unit"]]["level"]),
+                            key=lambda k: (seen.get(k, -1), k))
+        for key in retest[:RETEST_SLOTS]:
+            items.append(key)
+            counts[cat[key]["unit"]] += 1
+        relaxed = bool(items)
     if not items:
         return None
     items.sort(key=lambda k: (cat[k]["kind"] != "quiz", study.natural_key(k)))  # 퀴즈 먼저, 단원 순
@@ -414,7 +431,7 @@ def build_round(prof, cat):
     focus.sort(key=lambda f: -f["count"])
     rid = "r%02d" % (1 + sum(1 for r in prof["rounds"] if r["id"].startswith("r")))
     return {"id": rid, "kind": "round", "size_reason": reason, "focus": focus, "items": items,
-            "retest": [k for k in items if k in retest],
+            "retest": [k for k in items if k in retest], "retest_progress_fallback": relaxed,
             "shortages": [{"unit": u, "level": L, "missing": n} for (u, L), n in sorted(shortages.items())],
             "created": now(), "tries": 0,
             "avg_level": round(sum(cat[k]["level"] for k in items) / len(items), 2)}

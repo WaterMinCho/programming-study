@@ -151,10 +151,11 @@ class SpacingTest(unittest.TestCase):
             self.assertEqual(figure.dialog.view.counter.text(), "3 / 3")
 
     def test_ten_frame_counter_and_play_labels_keep_the_same_rows(self):
+        theme.set_text("larger")  # 첫 그림을 크게 그린 뒤 normal로 줄이는 경로도 확인함.
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp, "ten.gif")
             path.write_bytes(ten_frame_gif())
-            figure = kit.page(AiFigure(os.fspath(path), frames=[{"text": "장 설명"}] * 10))
+            figure = kit.page(AiFigure(os.fspath(path), "그림 설명", frames=[{"text": "장 설명"}] * 10))
             self.show(figure)
             self.assertEqual(figure.count, 10)
             for step in ("normal", "larger"):
@@ -176,7 +177,8 @@ class SpacingTest(unittest.TestCase):
                             figure.first()
                             guikit.pump()
                             def positions():
-                                return (figure.controls.geometry(), [w.geometry() for w in (*buttons, figure.counter)])
+                                return (figure.controls.geometry(), [w.geometry() for w in (*buttons, figure.counter)],
+                                        figure.frame_text.minimumHeight(), figure.caption.geometry())
                             before = positions()
                             for frame in range(10):
                                 figure.go(frame)

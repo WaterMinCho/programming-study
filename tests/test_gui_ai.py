@@ -227,9 +227,12 @@ class HubAndHomeTest(AiTest):
             return widget.mapTo(home, QPoint(0, 0)).y()
         steps = home.guide_btn
         terms = next(w for w in home.findChildren(QLabel) if w.text() == ai_text.TERMS)
-        # 사용 안내 단추, 카드, 학습 단원, 낱말 풀이, 문제집 줄 순임.
-        self.assertEqual(sorted([steps, home.next_card, home.lesson_list, terms, home.books], key=top),
-                         [steps, home.next_card, home.lesson_list, terms, home.books])
+        self.assertLess(top(steps), top(home.next_card))
+        self.assertLess(top(home.next_card), top(home.lesson_list))
+        guikit.click(home.browser.buttons["books"])
+        self.assertTrue(terms.isVisible())
+        self.assertFalse(home.lesson_list.isVisible())
+        self.assertLess(top(terms), top(home.books))
         guikit.click(book)
         self.assertEqual((self.page(), win.ai_quiz.title.text()), (win.ai_quiz, "90차시 풀기"))
 
@@ -405,9 +408,9 @@ class TextTest(unittest.TestCase):
         self.assertEqual(ai_text.track_line(dict(overview, next={"kind": "again", "count": 2})), ai_text.START_LINE)
 
     def test_same_row_labels_are_numbered_by_card(self):
-        items = ai_text.numbered([{"key": "i01-s03", "label": "고르기 · 같은 지문"}, {"key": "i01-s01", "label": "고르기 · 같은 지문"},
+        items = ai_text.numbered([{"key": "i01-s03", "label": "객관식 · 같은 지문"}, {"key": "i01-s01", "label": "객관식 · 같은 지문"},
                                   {"key": "i01-b01", "label": "빈칸 · 다른 지문"}])
-        self.assertEqual([i["label"] for i in items], ["고르기 · 같은 지문 (2)", "고르기 · 같은 지문 (1)", "빈칸 · 다른 지문"])
+        self.assertEqual([i["label"] for i in items], ["객관식 · 같은 지문 (2)", "객관식 · 같은 지문 (1)", "빈칸 · 다른 지문"])
 
     def test_note_html_lines(self):
         item = {"lines": ["2번 틀림", "확실하다고 했지만 틀림"], "ref": [], "stem": "지문", "options": ["가", "나"], "mine": ["가"]}
@@ -652,8 +655,8 @@ class LessonAndLearnTest(AiTest):
                 holder.close()
                 guikit.pump(20)
 
-    def test_figure_autoplays_once_and_moves_the_frame_line(self):
-        """그림은 한 번 재생한 뒤 멈추고, 수동으로 장을 옮기면 장 설명도 바뀜. 뒤로 한 장 갈 때 frame_changed 는 한 번."""
+    def test_figure_loops_and_moves_the_frame_line(self):
+        """반복 재생의 첫 장에서도 설명을 바꾸며, 수동 정지와 장 넘김을 유지함."""
         self.addCleanup(setattr, motion, "enabled", motion.enabled)
         motion.enabled = True
         frames = [{"text": "%d장 설명" % n, "ms": 2000} for n in range(1, 7)]
@@ -664,11 +667,14 @@ class LessonAndLearnTest(AiTest):
         holder.resize(700, 600)
         holder.show()
         self.addCleanup(holder.close)
+        self.capture_widget = holder
         guikit.pump(200)
         self.assertEqual((figure.frame(), figure.playing, figure.frame_text.text()), (0, True, "1장 설명"))
-        for _ in range(5):
+        for _ in range(6):
             figure._tick()
-        self.assertFalse(figure.playing)
+        self.assertTrue(figure.playing)
+        self.assertEqual((figure.frame(), figure.frame_text.text()), (0, "1장 설명"))
+        figure.stop()
         figure.hide()
         figure.show()
         guikit.pump(20)
@@ -685,6 +691,9 @@ class LessonAndLearnTest(AiTest):
         shown = figure.picture.pixmap().deviceIndependentSize()
         self.assertGreater(shown.height(), 300)
         self.assertAlmostEqual(shown.width() / shown.height(), figure.source.width() / figure.source.height(), delta=0.01)
+        self.assertLess(figure.picture.geometry().bottom(), figure.controls.y())
+        self.assertLess(figure.controls.geometry().bottom(), figure.frame_text.y())
+        self.assertLess(figure.frame_text.geometry().bottom(), figure.caption.y())
 
     def test_figure_buttons_stay_put_when_frame_lines_differ(self):
         """장 설명 줄 수가 장마다 달라도 설명 칸이 가장 긴 설명의 높이를 지켜 넘김 줄과 캡션이 움직이지 않음. 폭이 바뀌면 다시 잼."""
@@ -1112,7 +1121,7 @@ class PracticeTest(AiTest):
     def test_choice_marks_every_option_and_errata(self):
         page = self.start()
         self.skip_to(lambda item: item["card"] == "i90-c01")
-        self.assertEqual(page.item["chips"][:2], ["90차시", "고르기"])
+        self.assertEqual(page.item["chips"][:2], ["90차시", "객관식"])
         self.assertIsInstance(page.choices.rows[0].box, ai_learn.RadioMark)
         self.answer(right=False)
         tags = {row.tag.text() for row in page.choices.rows if row.tag.isVisible()}
@@ -1389,9 +1398,11 @@ class PatternTest(AiTest):
         win = self.boot((1024, 700))
         win.go_ai()
         home = win.ai_home
+        guikit.click(home.browser.buttons["coding"])
         self.assertTrue(home.pattern_section.isVisibleTo(home))
         self.idle()
-        self.assertGreater(home.pattern_section.mapTo(home, QPoint(0, 0)).y(), home.books.mapTo(home, QPoint(0, 0)).y())  # 맨 아래 구역
+        self.assertFalse(home.books.isVisible())
+        self.assertTrue(home.browser.buttons["mocks"].isVisible())
         self.assertEqual([(r.title.text(), r.second.text(), r.mark.state) for r in home.pattern_list.rows],
                          [(self.UNIT, "90차시 뒤에 권함 · 약 6분", "todo")])  # 권하는 차시를 읽기 전에도 열 수 있음
         self.assertEqual(home.pattern_list.more_btn.text(), "준비 중 1개 보기")
@@ -1538,8 +1549,8 @@ class PatternTest(AiTest):
         self.assertTrue(win.open_ai_practice("unit", lesson="pc", unit="18a"))
         page = win.ai_quiz
         self.assertEqual((page.title.text(), page.item["card"]), (self.UNIT, "pc-o01"))
-        self.assertEqual(page.item["chips"][:2], ["학습 루프", "순서 고르기"])
-        self.assertEqual(self.badges(), ["순서 고르기"])
+        self.assertEqual(page.item["chips"][:2], ["학습 루프", "객관식"])
+        self.assertEqual(self.badges(), ["객관식"])
         choices = page.choices
         self.assertIsInstance(choices, ai_learn.CodeChoices)
         self.assertIsInstance(choices.rows[0].box, ai_learn.RadioMark)
@@ -1574,7 +1585,7 @@ class PatternTest(AiTest):
         win.ai.mark_read("pc", "18a")
         self.assertTrue(win.open_ai_practice("note", card="pc-x01"))
         page = win.ai_quiz
-        self.assertEqual(self.badges()[:2], ["학습 루프", "고르기"])
+        self.assertEqual(self.badges()[:2], ["학습 루프", "객관식"])
         self.assertNotIsInstance(page.choices.rows[0].box, ai_learn.RadioMark)  # 여러 개 고르기는 네모 상자
         self.answer()
         self.assertEqual(page.verdict_text.text(), "맞았습니다")
@@ -1630,7 +1641,7 @@ class PatternTest(AiTest):
         self.assertTrue(win.open_ai_practice("lesson", lesson="i90"))
         page = win.ai_quiz
         self.assertEqual(page.chips({"chips": ["90차시", "빈칸"], "lesson": "i90"}), ["빈칸"])
-        self.assertEqual(page.chips({"chips": ["학습 루프", "고르기"], "lesson": "pc"}), ["학습 루프", "고르기"])
+        self.assertEqual(page.chips({"chips": ["학습 루프", "객관식"], "lesson": "pc"}), ["학습 루프", "객관식"])
 
     def test_next_card_and_revisit_use_the_unit_name(self):
         win = self.boot()
@@ -1672,7 +1683,7 @@ class PatternTest(AiTest):
         guikit.click(win.ai_home.notes_row)
         page = win.wrong_page
         self.assertEqual((page.list.row_of("pc-k02").title.text(), page.list.row_of("pc-o01").title.text()),
-                         ("코드 빈칸 · opt.____()", "순서 고르기 · 줄 순서로 옳은 것 고르기"))
+                         ("코드 빈칸 · opt.____()", "객관식 · 줄 순서로 옳은 것 고르기"))
         page.list.pick(page.list.row_of("pc-o01"))
         self.assertEqual(page.item_title.text(), self.UNIT)
         guikit.click(page.explain_btn)

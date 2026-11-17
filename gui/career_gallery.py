@@ -16,8 +16,8 @@ class VideoCover(QAbstractButton):
         self.video = video
         self.image = None
         self.setAccessibleName(f"{video.title} 재생")
-        self.setAccessibleDescription(f"{video.author} · {video.duration_label}")
-        self.setToolTip(f"{video.title} 재생")
+        self.setToolTip("누르면 영상 재생 창을 엽니다. 인터넷 연결이 필요합니다.")
+        self.setAccessibleDescription(f"{video.author} · {video.duration_label}\n" + self.toolTip())
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCheckable(True)
@@ -131,6 +131,8 @@ class VideoCard(QWidget):
         line.addWidget(self.author, 1)
         self.info = kit.button("영상 정보", "text", "s")
         self.info.setAccessibleName(f"{video.title} 영상 정보")
+        self.info.setToolTip("영상을 재생하지 않고 요약과 출처, 확인한 범위를 읽습니다.")
+        self.info.setAccessibleDescription(self.info.toolTip())
         line.addWidget(self.info)
         box.addWidget(byline)
         self.error = kit.para("", "caption", "danger")

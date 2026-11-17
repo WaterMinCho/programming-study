@@ -44,6 +44,7 @@ class MixedMockPageTest(unittest.TestCase):
                 win.switch_ai_course(course)
                 self.idle()
                 self.assertNotIn('m4',win.ai.mocks)
+                guikit.click(win.ai_home.browser.buttons['mocks'])
                 self.assertTrue(win.ai_home.mock_pending.isVisible())
                 self.assertIn('메타데이터',win.ai_home.mock_pending.text())
                 self.assertFalse(win.open_ai_mock('m4'))
@@ -100,6 +101,8 @@ class MixedMockPageTest(unittest.TestCase):
 
 
 class PublishedMixedMockPageTest(unittest.TestCase):
+    mid = "m4"
+    app_item = "20"
     real_bank = True
     pc = False
     setUp = test_gui_ai.AiTest.setUp
@@ -110,7 +113,7 @@ class PublishedMixedMockPageTest(unittest.TestCase):
     def test_actual_32_items_restore_across_tabs_at_largest_text_in_both_themes(self):
         self.addCleanup(theme.set_text,'normal')
         win=self.boot((760,480))
-        self.assertTrue(win.open_ai_mock('m4'))
+        self.assertTrue(win.open_ai_mock(self.mid))
         page=win.ai_mock
         page.begin()
         exam=page.exam
@@ -120,7 +123,7 @@ class PublishedMixedMockPageTest(unittest.TestCase):
         win.set_text('larger')
         for mode in ('light','dark'):
             theme.set_mode(mode);win.restyle();self.idle()
-            for cid,label in (('m4-10','intro-code'),('m4-20','app-choice')):
+            for cid,label in ((self.mid+'-10','intro-code'),(self.mid+'-'+self.app_item,'app-choice')):
                 page.go(exam.draft['order'].index(cid));self.idle()
                 if page.inputs:
                     for field in page.inputs:
@@ -145,7 +148,7 @@ class PublishedMixedMockPageTest(unittest.TestCase):
         mine=list(page.values())
         page.flag()
         win.go_ai();win.switch_ai_course('app')
-        self.assertTrue(win.open_ai_mock('m4'));self.idle()
+        self.assertTrue(win.open_ai_mock(self.mid));self.idle()
         self.assertIs(exam,page.exam)
         self.assertEqual(current,page.item['card'])
         self.assertEqual(mine,page.values())
@@ -174,3 +177,8 @@ class PublishedMixedMockPageTest(unittest.TestCase):
                 capture(mode+'-result',win,{'theme':mode,'text':'larger','submitted':32,
                         'same_exam_after_tab_switch':True,'fingerprint':fingerprint})
         self.capture_widget=win
+
+
+class TransferMixedMockPageTest(PublishedMixedMockPageTest):
+    mid = "m5"
+    app_item = "21"

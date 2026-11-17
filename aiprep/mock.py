@@ -363,30 +363,22 @@ class MockExam:
         return [{"card": cid, "answered": self.answered(cid), "flagged": cid in self.draft["flags"]}
                 for cid in self.draft["order"]]
 
-    def _related(self, results):
+    def _related(self, results, links=None):
         """첫 풀이의 오답마다 같은 주제의 연습 카드 하나를 고름. 답한 것으로 기록하지 않음."""
         if submissions(self._log(), self.id):
             return []
         cards, out = getattr(self.sess, 'cards', {}), []
         if self.mixed:
-            cards = mixed_mock.related_cards(self.sess)
+            cards = mixed_mock.related_cards(self.sess, with_gens=True)
         for cid in self.draft['order']:
             if results[cid] == 'pass':
                 continue
             item = self.items[cid]
-            family, tags = item.get('family'), set(item.get('tags') or [])
-            choices = [card for card in cards.values() if not card.get('mock') and card['id'] not in out
-                       and (not self.mixed or bank.course_of(card.get('lesson')) == item['course'])
-                       and (family and card.get('family') == family or tags & set(card.get('tags') or []))]
-            choices.sort(key=lambda card: (card.get('family') != family, -len(tags & set(card.get('tags') or [])), card['id']))
-            if not choices and self.mixed:
-                facts = set(item.get('facts') or [])
-                choices = [card for card in cards.values() if not card.get('mock') and not card.get('errata')
-                           and card['id'] not in out and bank.course_of(card.get('lesson')) == item['course']
-                           and card.get('lesson') == item.get('lesson') and facts & set(card.get('facts') or [])]
-                choices.sort(key=lambda card: (-len(facts & set(card.get('facts') or [])), card['id']))
+            choices = mixed_mock.practice_candidates(item, cards, out)
             if choices:
                 out.append(choices[0]['id'])
+                if links is not None:
+                    links[cid] = choices[0]['id']
         return out
 
     def submit(self, auto=False):
@@ -412,7 +404,9 @@ class MockExam:
                      "secs": min(self.draft["duration"], max(0, round(elapsed))), "auto": bool(auto or self.remaining() <= 0),
                      "seed": self.draft["seed"], 'fingerprint': self.fingerprint}
             event.update(self.scope_fields())
-            event['related'] = self._related(results)
+            related_links = {}
+            event['related'] = self._related(results, related_links)
+            event['related_by_question'] = related_links
             try:
                 self.result = self.sess.record.append(event, at=_moment(self.clock()).isoformat())
             except record.RecordError as error:
@@ -423,7 +417,7 @@ class MockExam:
                             or consent.get("epoch") and self.draft.get("collection_epochs", {}).get(cid) == consent["epoch"]}
                 partial = dict(self.result, results={cid: results[cid] for cid in included}, of=len(included),
                                score=sum(results[cid] == "pass" for cid in included), scope="current_consent",
-                               omitted_before_consent=len(results) - len(included), related=[])
+                               omitted_before_consent=len(results) - len(included), related=[], related_by_question={})
                 if self.mixed:
                     partial["collection_scope"] = partial.pop("scope")
                     partial["scope"] = "mixed"

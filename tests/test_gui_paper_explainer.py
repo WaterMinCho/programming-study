@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import QPushButton, QWidget
 
 from career import load_catalog
 from gui import kit, motion, theme
-from gui.paper_explainer import EXPLANATIONS, MASK, PAPER_IDS, PaperExplanationDialog, load_explanations, small_examples
+from gui.paper_explainer import EXPLANATIONS, MASK, PAPER_IDS, PaperDiagram, PaperExplanationDialog, load_explanations, small_examples
 
 
 class PaperExplainerTest(unittest.TestCase):
@@ -202,6 +202,67 @@ class PaperExplainerTest(unittest.TestCase):
         self.capture_widget.panel.scroll.verticalScrollBar().setValue(0)
         self.settle(self.capture_widget)
         self.assertTrue(self.capture_widget.isVisible())
+
+    def test_reading_fonts_and_footer_keep_size_alignment_and_step_positions(self):
+        dialog = self.show()
+        for step in ("normal", "larger", "normal"):
+            theme.set_text(step)
+            kit.refont(dialog)
+            self.settle(dialog)
+            self.assertGreaterEqual(dialog.text.font().pixelSize(), 22)
+            self.assertGreaterEqual(dialog.text.line, 40)
+            self.assertGreaterEqual(dialog.axes.font().pixelSize(), 18)
+            self.assertEqual(dialog.answer_button.font().pixelSize(), theme.TYPE["learn_caption"][0])
+            self.assertGreater(dialog.stage_heading.font().pixelSize(), dialog.text.font().pixelSize())
+            self.assertGreater(dialog.panel.title.font().pixelSize(), dialog.stage_heading.font().pixelSize())
+            before = [w.mapTo(dialog.panel.footer, QPoint()) for w in (dialog.previous, dialog.counter, dialog.next)]
+            for stage in range(4):
+                dialog.set_stage(stage)
+                self.settle(dialog)
+                self.assertEqual(before, [w.mapTo(dialog.panel.footer, QPoint()) for w in (dialog.previous, dialog.counter, dialog.next)])
+            centers = [w.mapTo(dialog.panel.footer, QPoint()).y() + w.height() / 2
+                       for w in (dialog.previous, dialog.counter, dialog.next, dialog.close_button)]
+            self.assertLessEqual(max(centers) - min(centers), 1)
+            self.assertEqual(dialog.counter.font().pixelSize(), dialog.next.font().pixelSize())
+
+    def test_matrix_cell_padding_and_token_labels_align_with_their_rows(self):
+        theme.set_text("larger")
+        for width in (682, 486):
+            diagram = PaperDiagram(PAPER_IDS[4])
+            diagram.stage = 1
+            scene = diagram.scene(width)
+            for cell, ink in scene.glyph_cells:
+                self.assertGreaterEqual(ink.left() - cell.left(), 10)
+                self.assertGreaterEqual(cell.right() - ink.right(), 10)
+            diagram = PaperDiagram(PAPER_IDS[2])
+            diagram.stage = 2
+            scene = diagram.scene(width)
+            rendered = [op for op in scene.operations if op[0] in ("text", "glyph")]
+            labels = {op[1].text(): ink for op, ink in zip(rendered, scene.ink_groups) if op[0] == "text"}
+            for row, name in enumerate(("CLS", "패치 1", "패치 2", "패치 3", "패치 4")):
+                self.assertLessEqual(abs(labels[name].center().y() - scene.glyph_cells[row * 4][1].center().y()), 1)
+
+    def test_narrow_diagrams_keep_text_clear_of_other_labels_and_connectors(self):
+        theme.set_text("larger")
+        for paper_id in PAPER_IDS:
+            diagram = PaperDiagram(paper_id)
+            for stage in range(4):
+                diagram.stage = stage
+                scene = diagram.scene(486)
+                for index, first in enumerate(scene.ink_groups):
+                    self.assertGreaterEqual(first.left(), 0)
+                    self.assertLessEqual(first.right(), 486)
+                    for second in scene.ink_groups[index + 1:]:
+                        self.assertFalse(first.adjusted(.5, .5, -.5, -.5).intersects(second), (paper_id, stage))
+                for op in scene.operations:
+                    if op[0] != "line":
+                        continue
+                    segment = QLineF(op[1], op[2])
+                    for ink in scene.ink_groups:
+                        box = ink.adjusted(1, 1, -1, -1)
+                        edges = (QLineF(box.topLeft(), box.topRight()), QLineF(box.topRight(), box.bottomRight()),
+                                 QLineF(box.bottomRight(), box.bottomLeft()), QLineF(box.bottomLeft(), box.topLeft()))
+                        self.assertFalse(any(segment.intersects(edge)[0] == QLineF.IntersectionType.BoundedIntersection for edge in edges), (paper_id, stage))
 
     def test_diagrams_differ_and_glyphs_stay_centered_in_cells(self):
         operation_sets=[]

@@ -29,6 +29,7 @@ MOCK_ID = re.compile(r"m(\d{1,2})\Z")
 UNIT_KEY = re.compile(r"(a?\d{1,2})([a-i])\Z")
 CARD_ID = re.compile(r"(?:[ia]\d{2}|pc|m\d{1,2})-[a-z]\d{2,3}\Z")
 COURSES = {"intro": "AI 개론", "app": "AI 응용"}
+CODING_TITLE = "코딩으로 실전학습하기"
 
 
 def course_of(lid):
@@ -41,7 +42,8 @@ ANCHOR_MARK = re.compile(r'^\s*<a (?:id|name)="[\w-]+"></a>\s*$')
 SKEL_MARK = re.compile(r"^\s*<!--\s*skel:\s*(S\d+)\s+(.*?)\s*-->\s*$")  # 바로 아래 코드 울타리가 그 뼈대 판과 같아야 함
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
 BLOCK_KINDS = {"ai-guess": "guess", "ai-reveal": "reveal", "ai-recall": "recall", "ai-why": "why", "ai-diff": "diff",
-               "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend", "ai-levels": "levels", "ai-formula": "formula"}
+               "ai-rotate": "rotate", "ai-memo": "memo", "ai-trend": "trend", "ai-levels": "levels", "ai-formula": "formula",
+               "ai-code-help": "code-help"}
 FORMULA_TEXT_KEYS = ("id", "title", "input", "terms", "operation", "output", "q", "a")
 LEVELS = (7, 15, 20)
 LEVEL_KEYS = ("level", "text", "figure", "q", "answer", "mode", "places", "unit", "why")
@@ -85,6 +87,23 @@ def _list(value):
     return [str(v) for v in (value or [])]
 
 
+def read_review_variants(root=None):
+    """내용을 대조한 변형 연결을 읽음. 예전 은행은 빈 연결을 사용함."""
+    path = os.path.join(root or AI_DIR, "review_variants.json")
+    if not os.path.isfile(path):
+        return {}
+    data = _read_json(path, "복습 변형 목록")
+    if (not isinstance(data, dict) or data.get("version") != 1
+            or not isinstance(data.get("pairs"), dict)):
+        raise AiBankError("복습 변형 목록의 형식을 확인해 주세요.")
+    pairs = data["pairs"]
+    if any(not CARD_ID.fullmatch(cid) or not isinstance(ids, list)
+           or any(not isinstance(other, str) or not CARD_ID.fullmatch(other) for other in ids)
+           for cid, ids in pairs.items()):
+        raise AiBankError("복습 변형 목록의 문항 번호를 확인해 주세요.")
+    return pairs
+
+
 # index.json, terms.json, retired.json
 
 def read_index(root=None):
@@ -112,7 +131,7 @@ def read_index(root=None):
         for item in data.get("patterns") or []:
             units = {str(k): {"after": str((v or {}).get("after", "")), "name": str((v or {}).get("name", ""))}
                      for k, v in (item.get("units") or {}).items()}
-            patterns.append({"id": str(item["id"]), "page": str(item["page"]), "title": str(item.get("title", "상황별 코드")),
+            patterns.append({"id": str(item["id"]), "page": str(item["page"]), "title": str(item.get("title", CODING_TITLE)),
                              "units": units})
         mocks = []
         for item in data.get("mocks") or []:
@@ -300,6 +319,53 @@ def _formula_block(text, folder=None):
                 path=os.path.join(folder, *fig["file"].split("/")) if folder else ""))
 
 
+def valid_code_reference(ref):
+    """노트 페이지와 단계 번호·제목을 모두 지정한 참조인지 확인함."""
+    return (isinstance(ref, dict) and set(ref) == {"course", "lesson", "unit", "step", "title"}
+            and ref["course"] in ("intro", "applied")
+            and isinstance(ref["lesson"], str) and bool(PAGE_ID.fullmatch(ref["lesson"]))
+            and isinstance(ref["unit"], str) and bool(UNIT_KEY.fullmatch(ref["unit"]))
+            and type(ref["step"]) is int and ref["step"] > 0
+            and isinstance(ref["title"], str) and bool(ref["title"].strip()))
+
+
+def _code_help_block(text):
+    """짧은 사용 설명과 참조를 읽음. 바로 위에 코드가 있으면 code를 생략함."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return {"kind": "code-help", "error": "코드 설명의 JSON을 읽을 수 없습니다."}
+    required = {"title", "explanation", "reference"}
+    if (not isinstance(data, dict) or not required <= set(data) <= required | {"code"}
+            or any(not isinstance(data[k], str) or not data[k].strip() for k in ("title", "explanation"))
+            or "\n" in data["title"] or not valid_code_reference(data["reference"])
+            or ("code" in data and (not isinstance(data["code"], str) or not data["code"].strip()
+                                   or "```" in data["code"] or "~~~" in data["code"]))):
+        return {"kind": "code-help", "error": "코드 설명의 제목·설명·참고 단계를 확인해 주세요."}
+    return dict(data, kind="code-help")
+
+
+def resolve_code_reference(ref, root=None):
+    """공개 노트에서 번호와 제목이 함께 일치하는 단계만 읽음. 다른 단계로 대체하지 않음."""
+    if not valid_code_reference(ref):
+        raise AiBankError("참고 단계의 형식을 확인해 주세요.")
+    course = {"intro": "intro", "applied": "app"}[ref["course"]]
+    entries = [e for e in read_index(root)["lessons"] if e["page"] == ref["lesson"] and e["course"] == course]
+    if len(entries) != 1 or not is_ready(entries[0], root):
+        raise AiBankError("공개된 참고 차시를 찾을 수 없습니다.")
+    entry = entries[0]
+    note = load_note({"id": entry["page"], "title": entry["title"]}, root)
+    if note["lesson"] != entry["id"] or ref["unit"] not in note["visible"]:
+        raise AiBankError("공개된 참고 단원을 찾을 수 없습니다.")
+    unit = note["units"][ref["unit"]]
+    matches = [s for s in unit["steps"] if s["scope"] != "trend" and s["no"] == ref["step"]
+               and s["title"] == ref["title"]]
+    if len(matches) != 1:
+        raise AiBankError("참고 단계의 번호와 제목이 현재 학습 내용과 맞지 않습니다.")
+    name = "%s %d차시 · %s" % (COURSES[course], entry["no"], unit["title"])
+    return {"lesson": entry["id"], "unit": unit, "step": matches[0], "name": name, "base_dir": note["dir"]}
+
+
 def _json_block(kind, text):
     try:
         data = json.loads(text)
@@ -469,6 +535,8 @@ def parse_blocks(lines, folder=None):
                 blocks.append(_levels_block("\n".join(body), folder))
             elif fence == "ai-formula":
                 blocks.append(_formula_block("\n".join(body), folder))
+            elif fence == "ai-code-help":
+                blocks.append(_code_help_block("\n".join(body)))
             else:
                 blocks.append(_json_block(BLOCK_KINDS[fence], "\n".join(body)))
             fence, body = None, []
@@ -620,7 +688,7 @@ def generation_source(spec):
 
 def load_items(lesson, root=None, with_gens=True):
     """문항 묶음 ai/items/<id>/ 을 읽음. {"dir", "meta", "items", "topics", "facts": {id: 사실}, "errata": {id: 오류},
-    "review"(글 또는 None), "gens": [GenSpec], "sources"}. 봉인과 평문 작업본은 webprep.bank.load_secrets 규칙(평문이 이김)."""
+    "review"(글 또는 None), "gens": [GenSpec], "gens_loaded": bool, "sources"}. 봉인과 평문 작업본은 webprep.bank.load_secrets 규칙(평문이 이김)."""
     idir = items_dir(lesson["id"], root)
     meta = _read_json(os.path.join(idir, "meta.json"), "%s/meta.json" % lesson["id"])
     try:
@@ -628,7 +696,7 @@ def load_items(lesson, root=None, with_gens=True):
     except webbank.BankError as error:
         raise AiBankError("%s: %s" % (lesson["id"], error))
     out = {"dir": idir, "meta": meta, "items": [], "topics": [], "facts": {}, "errata": {}, "review": secrets.get("review.json"),
-           "gens": [], "sources": {}}
+           "gens": [], "gens_loaded": bool(with_gens), "sources": {}}
     try:
         if "items.json" in secrets:
             out["items"] = list(json.loads(secrets["items.json"]).get("items") or [])
@@ -716,6 +784,26 @@ def cards_of(lesson, data):
             add(str(statement["id"]), "stmt", source, stmt=statement, topic=topic)
     for spec in data["gens"]:
         add(spec.id, "gen", spec.meta, gen=spec, family=str(spec.meta.get("family") or spec.id))
+    saved_order = data.get("meta", {}).get("card_order")
+    if saved_order is not None:
+        ids = {card["id"] for card in cards}
+        expected = set(ids)
+        if data.get("gens_loaded") is False:
+            units = data.get("meta", {}).get("units", {})
+            if not isinstance(units, dict):
+                raise AiBankError("%s의 생성 문항 목록을 확인해 주세요." % lesson["id"])
+            for unit in units.values():
+                declared = unit.get("gen", []) if isinstance(unit, dict) else None
+                if not isinstance(declared, list) or not all(isinstance(cid, str) for cid in declared):
+                    raise AiBankError("%s의 생성 문항 목록을 확인해 주세요." % lesson["id"])
+                expected.update(declared)
+        if (not isinstance(saved_order, list) or not all(isinstance(cid, str) for cid in saved_order)
+                or len(cards) != len(ids) or len(saved_order) != len(expected) or set(saved_order) != expected):
+            raise AiBankError("%s의 문항 순서 목록을 확인해 주세요." % lesson["id"])
+        positions = {cid: n for n, cid in enumerate(saved_order)}
+        for card in cards:
+            card["order"] = positions[card["id"]]
+        cards.sort(key=lambda card: card["order"])
     return cards
 
 

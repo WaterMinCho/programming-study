@@ -662,7 +662,10 @@ def build_parser():
 
 
 def resolve_user(name):
-    user = name or session.saved_user()
+    try:
+        user = name or session.saved_user()
+    except session.SessionError as error:
+        raise WebError(str(error)) from None
     if not user:
         raise WebError("내 ID 를 모릅니다. `python study.py init <내 깃허브 ID>` 로 풀이 폴더를 먼저 만들거나 --user 를 적어 주세요.")
     if not session.valid_user(user):

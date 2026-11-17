@@ -142,10 +142,10 @@ class JourneyResult(QFrame):
             self.setMaximumHeight(height)
         else:
             self.head.layout().invalidate()
-            height = self.head.heightForWidth(max(1, self.width()))
+            height = self.head.heightForWidth(max(1, self.contentsRect().width()))
             if height < 0:
                 height = self.head.sizeHint().height()
-            self.setMinimumHeight(height + self.box.spacing() + 1)
+            self.setMinimumHeight(2 * self.frameWidth() + height + self.box.spacing() + self.scroll.minimumHeight())
             self.setMaximumHeight(16777215)
 
     def resizeEvent(self, event):
@@ -154,10 +154,11 @@ class JourneyResult(QFrame):
             self.fit_height()
 
     def folded_height(self):
-        """접힌 카드의 높이를 제목·설명 사이 간격과 위아래 여백까지 더해 구함."""
-        width = max(1, (self.width() if self.width() > 2 * PAD else self.sizeHint().width()) - 2 * PAD)
+        """접힌 카드의 높이를 테두리와 제목·설명 사이 간격, 위아래 여백까지 더해 구함."""
+        border = 2 * self.frameWidth()
+        width = max(1, (self.width() if self.width() > 2 * PAD else self.sizeHint().width()) - border - 2 * PAD)
         lines = sum(label.heightForWidth(width) for label in (self.title, self.caption) if label.text())
-        return 2 * PAD + theme.GAP["title_description"] + lines
+        return border + 2 * PAD + theme.GAP["title_description"] + lines
 
     # 글자 크기 · 테마
 

@@ -247,7 +247,7 @@ class _TabButton(QPushButton):
 
 
 def button(text="", kind="secondary", scale="m", onbg=False):
-    """단추. kind 는 primary·secondary·text·danger·danger_text·chip·tab 가운데 하나, scale 은 l(48)·m(40)·s(32). onbg 는 회색 바탕 위의 글자 단추(올리면 line 색)."""
+    """단추. kind 는 primary·secondary·text·danger·danger_text·chip·tab 가운데 하나, scale 은 l(48)·m(44)·s(32). onbg 는 회색 바탕 위의 글자 단추(올리면 line 색)."""
     out = _TabButton(text) if kind == "tab" else QPushButton(text)
     if kind != "secondary":
         out.setObjectName(kind)
@@ -304,7 +304,7 @@ def box(widget, margins=(0, 0, 0, 0), spacing=0, horizontal=False):
 
 
 def card(pad=24, spacing=16):
-    """흰 카드(surface, 모서리 16, 테두리 없음)와 그 안의 세로 상자."""
+    """흰 카드(surface, 모서리 16, 얇은 테두리)와 그 안의 세로 상자."""
     out = frame("card")
     return out, box(out, (pad, pad, pad, pad), spacing)
 
@@ -923,6 +923,37 @@ class TabBar(QWidget):
         self.buttons[number].setVisible(visible)
 
 
+class NavigationTabs(TabBar):
+    """상위 탐색 항목을 같은 폭과 큰 글자로 표시함."""
+    def __init__(self, names, deferred=False):
+        super().__init__(names, deferred=deferred)
+        self.layout().itemAt(1).widget().hide()
+        row = self.layout().itemAt(0).layout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(theme.GAP["detail"])
+        row.takeAt(row.count() - 1)
+        for number, tab in enumerate(self.buttons):
+            typed(tab, "headline", True)
+            row.setStretch(number, 1)
+        self.refont()
+
+    def refont(self):
+        height = theme.TYPE["headline"][1] + theme.GAP["group"]
+        color = lambda key: theme.qcolor(key).name()
+        self.setStyleSheet(f"""
+            QPushButton#tab {{ background: {color('surface')}; color: {color('ink')};
+                font-size: {theme.TYPE['headline'][0]}px; font-weight: 700;
+                min-height: {height}px; max-height: {height}px; padding: 0 16px;
+                border: 2px solid {color('line')}; border-radius: {theme.RADIUS['control']}px; }}
+            QPushButton#tab:hover {{ background: {color('hover')}; }}
+            QPushButton#tab:checked {{ background: {color('selection')}; color: {color('selection_ink')};
+                border-color: {color('link')}; }}
+            QPushButton#tab:focus {{ border-color: {color('focus')}; border-style: dashed; }}
+            QPushButton#tab:disabled {{ color: {color('faint')}; background: {color('bg')}; }}
+            QPushButton#tab:checked:disabled {{ background: {color('selection')}; }}
+        """)
+
+
 class SplitHandle(QSplitterHandle):
     """칸 나누기의 손잡이. 바탕은 스타일시트(bg)가 칠하고 가운데에 GRIP 무늬(가로로 누운 손잡이는 32×4, 모서리 2)를 그림.
     무늬 색은 평소 border 이고 마우스를 올리면 scroll_hover 로 바뀜. 두 번 누르면 처음 몫으로 돌아감. 칸 나누기가 잠기면 무늬를 그리지 않음."""
@@ -1063,7 +1094,18 @@ class TopBar(QFrame):
 class BottomBar(QFrame):
     """작업 화면 아래 막대. 최소 높이 80이고 좁은 창에서는 도구를 위로 옮김. 주 단추는 오른쪽 끝에 둠."""
 
+    class _Actions(QWidget):
+        def sizeHint(self):
+            layout = self.layout()
+            width = layout.natural_width()
+            size = layout.minimumSize()
+            size.setWidth(width)
+            size.setHeight(layout.heightForWidth(width))
+            return size
+
     def __init__(self):
+        from gui.action_layout import ActionLayout
+
         super().__init__()
         self.setObjectName("bottombar")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -1072,10 +1114,13 @@ class BottomBar(QFrame):
         self.row.setSpacing(8)
         self.tool_box = QWidget()
         self.tools = FlowLayout(self.tool_box, spacing=24)
-        self.actions = QWidget()
-        self.action_row = box(self.actions, spacing=8, horizontal=True)
+        self.actions = self._Actions()
+        self.action_row = ActionLayout(self.actions, margins=(0, 0, 0, 0),
+                                       spacing=theme.GAP["detail"], reverse_stacked=False)
         self.row.addWidget(self.tool_box, 1, Qt.AlignmentFlag.AlignVCenter)
         self.row.addWidget(self.actions, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.tool_box.installEventFilter(self)
+        self.actions.installEventFilter(self)
         self.setMinimumHeight(theme.CONTROL["bottombar"])
 
     def add_tool(self, widget):
@@ -1099,11 +1144,17 @@ class BottomBar(QFrame):
         tools = [item for item in self.tools.items if not item.isEmpty()]
         self.tool_box.setVisible(bool(tools))
         tool_width = sum(item.sizeHint().expandedTo(item.minimumSize()).width() for item in tools) + max(0, len(tools) - 1) * self.tools.spacing()
-        action = self.action_row.sizeHint()
-        stacked = bool(tools) and tool_width + 24 + action.width() > width
-        self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
-        tool_height = self.tools.heightForWidth(width if stacked else max(1, width - action.width() - 8)) if tools else 0
-        height = tool_height + 8 + action.height() if stacked else max(tool_height, action.height())
+        action_width = self.action_row.natural_width()
+        stacked = bool(tools) and tool_width + theme.GAP["group"] + action_width > width
+        direction = QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight
+        if self.row.direction() != direction:
+            self.row.setDirection(direction)
+        action_height = self.action_row.heightForWidth(min(width, action_width))
+        self.actions.setFixedHeight(action_height)
+        gap = self.row.spacing()
+        tool_height = self.tools.heightForWidth(width if stacked else max(1, width - action_width - gap)) if tools else 0
+        self.tool_box.setFixedHeight(tool_height)
+        height = tool_height + gap + action_height if stacked else max(tool_height, action_height)
         self.setFixedHeight(max(theme.CONTROL["bottombar"], top + height + bottom))
 
     def refont(self):
@@ -1127,6 +1178,11 @@ class BottomBar(QFrame):
             self.arrange()
         return result
 
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.arrange()
+        return super().eventFilter(watched, event)
+
 
 class NextCard(QFrame):
     """홈 화면 맨 위의 이어서 할 일 카드. caption, headline 제목, body 설명 줄(여러 줄일 수 있음), 오른쪽 아래 주 단추 l(화면에 하나뿐인 주 단추)."""
@@ -1134,13 +1190,14 @@ class NextCard(QFrame):
     def __init__(self):
         super().__init__()
         self.setObjectName("card")
+        self.setProperty("next_action", True)
         self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
-        self.row.setContentsMargins(32, 32, 32, 32)
-        self.row.setSpacing(24)
+        self.row.setContentsMargins(24, 24, 24, 24)
+        self.row.setSpacing(theme.GAP["group"])
         self.text_box = QWidget()
         column_box = box(self.text_box, spacing=theme.GAP["detail"])
-        self.caption = label("이어서 할 일", "caption", "tertiary")
-        self.title = para("", "headline")
+        self.caption = label("이어서 할 일", "caption", "teal", bold=True)
+        self.title = para("", "title")
         self.line = para("", "body", "secondary")
         column_box.addWidget(self.caption)
         column_box.addWidget(heading(self.title, self.line))
@@ -1159,7 +1216,8 @@ class NextCard(QFrame):
 
     def arrange(self):
         """좁은 카드에서는 단추를 글 아래에 둬 제목과 설명의 폭을 확보함."""
-        room = self.width() - 64 - self.button.sizeHint().width() - 24
+        margins = self.row.contentsMargins()
+        room = self.width() - margins.left() - margins.right() - self.button.sizeHint().width() - self.row.spacing()
         minimum = 24 * theme.TYPE["body"][0] if self.line.isVisibleTo(self) else 12 * theme.TYPE["headline"][0]
         stacked = not self.button.isHidden() and room < minimum
         self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)

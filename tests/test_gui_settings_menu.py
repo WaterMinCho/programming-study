@@ -31,7 +31,7 @@ class SettingsMenuTest(test_gui_hub.HubTest):
         self.assertEqual(menu.windowType(), Qt.WindowType.Popup)
         self.assertFalse(menu.testAttribute(Qt.WidgetAttribute.WA_QuitOnClose))
         self.assertEqual(hub.layout().indexOf(menu), -1)
-        self.assertEqual(len(menu.actions), 4)
+        self.assertEqual(len(menu.actions), 5)
         self.assertEqual([button.text() for button in menu.theme_buttons.values()], ["시스템 따르기", "밝게", "어둡게"])
         available = menu.screen().availableGeometry()
         sizes = ((1280, 800), (1024, 700), (760, 480))

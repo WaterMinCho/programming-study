@@ -10,8 +10,23 @@ esac
 export STUDY_WINDOW=1
 # 내려받아 격리된 앱은 macOS 가 다른 경로에서 실행해서 옆에 start.pyw 가 없음
 # /usr/bin/python3 는 명령어 도구를 설치하지 않은 맥에도 있어서 command -v 로는 가릴 수 없음. 실제로 실행해 봄
-if [ ! -f start.pyw ] || ! python3 -c '' >/dev/null 2>&1; then
+if [ ! -f start.pyw ]; then
     osascript -e 'display alert "프로그래밍 스터디" message "창을 열지 못했습니다. start.command 로 실행해 주세요."'
+    exit 1
+fi
+python_ready() {
+    if [ "$(command -v python3)" = /usr/bin/python3 ] && ! /usr/bin/xcode-select -p >/dev/null 2>&1; then
+        return 1
+    fi
+    python3 -c 'import sys; (3, 10) <= sys.version_info[:2] <= (3, 14) and sys.maxsize > 2**32 or __import__("PyQt6.QtWidgets")' >/dev/null 2>&1
+}
+if ! python_ready; then
+    # 설치 입력을 받을 터미널로 연결함. 기본 연결 앱(iTerm 등)을 유지함.
+    unset STUDY_WINDOW
+    if [ -f start.command ]; then
+        exec /usr/bin/open "$PWD/start.command"
+    fi
+    osascript -e 'display alert "프로그래밍 스터디" message "설치를 시작하지 못했습니다. 저장소의 start.command를 열어주세요."'
     exit 1
 fi
 exec python3 start.pyw

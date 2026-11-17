@@ -6,8 +6,10 @@ from PyQt6.QtWidgets import QApplication, QFrame, QGridLayout, QLayout, QScrollA
 
 import study
 from gui import kit, theme
+from gui.action_layout import ActionLayout
 from gui.mascot import Mascot
 from gui.navigation import NavigationButton, NavigationPicker
+from gui.settings_menu import SettingsMenu
 
 SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home"),
             ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI", "go_ai"),
@@ -20,16 +22,21 @@ class SubjectTile(kit.Row):
     def __init__(self, title, token):
         super().__init__(title, "", mark=kit.Dot(token, 10), strong=True, wrap=True)
         self.setProperty("subject", True)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.setAccessibleName(title + " 학습 열기")
         kit.typed(self.title, "headline", True)
         kit.typed(self.second, "body")
         self.second.setProperty("tone", "secondary")
-        text_box = self.title.parentWidget().layout()
+        text = self.title.parentWidget()
+        self.layout().setAlignment(text, Qt.AlignmentFlag(0))
+        self.layout().setAlignment(self.mark, Qt.AlignmentFlag.AlignTop)
+        text_box = text.layout()
         text_box.setSpacing(theme.GAP["title_description"])
-        self.metric = kit.label("", "caption", "secondary")
+        self.metric = kit.label("", "label", "secondary", bold=True)
         self.meter = kit.progress(thin=True)
         self.meter.setProperty("series", token)
-        text_box.addSpacing(12)
+        text_box.addSpacing(theme.GAP["title_description"])
+        text_box.addStretch(1)
         text_box.addWidget(self.metric)
         text_box.addSpacing(4)
         text_box.addWidget(self.meter)
@@ -45,6 +52,7 @@ class SubjectTile(kit.Row):
         self.fit_height()
 
     def fit_height(self):
+        self.mark.setFixedHeight(theme.TYPE["headline"][1] + 24)
         text = self.title.parentWidget()
         row = self.layout()
         others = [row.itemAt(i) for i in range(row.count())
@@ -54,7 +62,7 @@ class SubjectTile(kit.Row):
         width = max(1, self.contentsRect().width() - left - right - sum(item.sizeHint().width() for item in others)
                     - row.spacing() * len(others))
         height = text.layout().heightForWidth(width)
-        self.setFixedHeight(max(160 + theme.text_px() * 4, height + 2 * self.frameWidth()))
+        self.setMinimumHeight(max(160 + theme.text_px() * 4, height + 2 * self.frameWidth()))
 
     def event(self, event):
         result = super().event(event)
@@ -64,7 +72,7 @@ class SubjectTile(kit.Row):
 
 
 class SubjectGrid(QWidget):
-    """창의 폭에 따라 두 열과 한 열 사이에서 배치를 바꿈."""
+    """넓은 창에서는 세 과목을 나란히 두고 글자 크기에 맞춰 열을 줄임."""
 
     def __init__(self):
         super().__init__()
@@ -80,14 +88,15 @@ class SubjectGrid(QWidget):
         return tile
 
     def arrange(self):
-        columns = 2 if self.width() >= theme.TYPE["body"][0] * 32 else 1
+        columns = 3 if self.width() >= theme.TYPE["body"][0] * 64 else 2 if self.width() >= theme.TYPE["body"][0] * 32 else 1
         if columns == self.columns:
             return
         self.columns = columns
         for index, tile in enumerate(self.rows):
             self.grid.addWidget(tile, index // columns, index % columns)
         self.grid.setColumnStretch(0, 1)
-        self.grid.setColumnStretch(1, int(columns == 2))
+        self.grid.setColumnStretch(1, int(columns >= 2))
+        self.grid.setColumnStretch(2, int(columns == 3))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -109,7 +118,8 @@ class SubmissionBar(QFrame):
         self.message = kit.para("", "caption", "secondary")
         self.row.addWidget(self.message, 1)
         self.actions = QWidget()
-        buttons = kit.box(self.actions, spacing=12, horizontal=True)
+        buttons = self.action_row = ActionLayout(self.actions, margins=(0, 0, 0, 0),
+                                                spacing=theme.GAP["detail"], reverse_stacked=False)
         self.submit = kit.button("풀이 제출", "secondary", "l")
         self.submit.setObjectName("submit_work")
         self.submit.setAccessibleDescription("아직 올리지 않은 풀이와 학습 기록을 제출합니다.")
@@ -192,9 +202,14 @@ class SubmissionBar(QFrame):
         return text, text != original.strip() or bool(self.result.get("detail"))
 
     def arrange(self):
-        need = QFontMetricsF(self.message.font()).horizontalAdvance(self.message.text()) + self.actions.layout().sizeHint().width() + 64
+        need = QFontMetricsF(self.message.font()).horizontalAdvance(self.message.text()) + self.action_row.natural_width() + 64
         vertical = self.width() < need
         self.row.setDirection(self.row.Direction.TopToBottom if vertical else self.row.Direction.LeftToRight)
+        left, _, right, _ = self.row.getContentsMargins()
+        width = max(1, self.width() - left - right)
+        action_width = min(width, self.action_row.natural_width())
+        self.actions.setFixedWidth(action_width)
+        self.actions.setFixedHeight(self.action_row.heightForWidth(action_width))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -222,13 +237,14 @@ class Workspace(QWidget):
         self.rail.setProperty("ui", "2")
         self.rail.setFixedWidth(232)
         nav = kit.box(self.rail, (16, 24, 16, 24), 8)
-        brand = QWidget()
-        brand_row = kit.box(brand, spacing=12, horizontal=True)
+        self.brand = brand = QWidget()
+        brand_row = kit.box(brand, horizontal=True)
         mark = QWidget()
         mark.setFixedWidth(36)
         mark_row = kit.box(mark)
         mark_row.addWidget(Mascot(32), 0, Qt.AlignmentFlag.AlignCenter)
         brand_row.addWidget(mark)
+        brand_row.addSpacing(12)
         brand_row.addWidget(kit.para("프로그래밍\n스터디", "label", bold=True), 1)
         nav.addWidget(brand)
         nav.addSpacing(24)
@@ -260,7 +276,10 @@ class Workspace(QWidget):
             self.compact.addItem("커리어 · " + title if tid.startswith("career_") else title, action)
         self.compact.setMinimumHeight(48)
         self.compact.activated.connect(lambda index: self.navigate(self.compact.itemData(index)))
-        box.addWidget(self.compact)
+        self.compact_row = QWidget()
+        compact_layout = kit.box(self.compact_row, spacing=theme.GAP["detail"], horizontal=True)
+        compact_layout.addWidget(self.compact, 1)
+        box.addWidget(self.compact_row)
         box.addWidget(pages, 1)
         self.submissions = SubmissionBar(win)
         self.submissions.setParent(self.body)
@@ -280,12 +299,36 @@ class Workspace(QWidget):
         self.body.installEventFilter(self)
         QApplication.instance().focusChanged.connect(self.reveal_focus)
         outer.addWidget(self.body, 1)
+        self.settings_menus = []
+        for page in self.overview_pages:
+            if page is not win.hub:
+                self.add_settings(page)
+        pages.currentChanged.connect(self.close_settings)
         pages.currentChanged.connect(self.refresh)
         self.refresh()
+
+    def add_settings(self, page):
+        """과목·커리어 화면의 같은 상단 막대 오른쪽 끝에 설정을 붙임."""
+        controls = [widget for widget in page.top.findChildren(QWidget)
+                    if widget.focusPolicy() & Qt.FocusPolicy.TabFocus]
+        page.settings_btn = kit.button("설정", "text", "s", onbg=True)
+        page.settings_btn.setToolTip("글자 크기·테마·업데이트·사용법·문의")
+        page.top.add_right(page.settings_btn, flush=True)
+        for previous, following in zip(controls, [*controls[1:], page.settings_btn]):
+            QWidget.setTabOrder(previous, following)
+        page.settings_panel = SettingsMenu(self, page.settings_btn)
+        self.settings_menus.append(page.settings_panel)
 
     def minimumSizeHint(self):
         """넓은 창의 이동 목록 때문에 좁은 배치로 줄일 수 없게 되는 것을 막음."""
         return QSize(760, 480)
+
+    def close_settings(self, *_):
+        for menu in self.settings_menus:
+            menu.action_timer.stop()
+            menu.pending_action = None
+            if menu.isVisible():
+                menu.dismiss(immediate=True, restore_focus=False)
 
     def navigate(self, action):
         getattr(self.win, action)()
@@ -320,11 +363,13 @@ class Workspace(QWidget):
         self.career_toggle.update()
 
         rail_width = max(button.sizeHint().width() for button in (self.career_toggle, *self.buttons.values())) + 32
+        rail_width = max(rail_width, self.brand.sizeHint().width() + 32)
         self.rail.setFixedWidth(rail_width)
         breakpoint = max(1120, rail_width + 760)
-        rail_fits = self.width() >= breakpoint and self.height() >= self.rail.minimumSizeHint().height()
         show_navigation = self.win.session is not None and self.pages.currentWidget() in self.overview_pages
+        rail_fits = self.width() >= breakpoint and self.height() >= self.rail.minimumSizeHint().height()
         self.rail.setVisible(show_navigation and rail_fits)
+        self.compact_row.setVisible(show_navigation and not rail_fits)
         self.compact.setVisible(show_navigation and not rail_fits)
         if show_navigation and rail_fits and focused is self.compact:
             target = self.buttons.get(active)
@@ -339,6 +384,9 @@ class Workspace(QWidget):
         busy = self.win.job is not None or self.win.pending_close or self.win.close_pending
         self.rail.setEnabled(not busy)
         self.compact.setEnabled(not busy)
+        for menu in self.settings_menus:
+            menu.trigger.setEnabled(not busy)
+            menu.refresh_actions(busy)
         usable = started and self.pages.currentWidget() in self.submission_pages and self.win.gitflow is not None
         allowed = self.win.has_submission_consent()
         pending = self.win.pending_submission.get("status") == "ok" and self.win.pending_submission.get("pending", False) and allowed
@@ -369,7 +417,7 @@ class Workspace(QWidget):
         bar.setGeometry((self.body.width() - width) // 2, bottom - height - 16, width, height)
         bar.raise_()
         # 상태 변경으로 스크롤 범위가 달라지지 않도록 두 동작의 높이를 항상 남김.
-        reserve = 48 + 2 * theme.TYPE["caption"][1] + bar.submit.sizeHint().height()
+        reserve = max(height + 16, 48 + 2 * theme.TYPE["caption"][1] + bar.submit.sizeHint().height())
         for layout, (left, top, right, bottom) in self.reminder_padding:
             layout.setContentsMargins(left, top, right, bottom + reserve)
 

@@ -7,9 +7,10 @@
 또 다른 날 한 번 더 맞히면 목록에서 내려감. 다시 틀리면 wrong 으로 돌아감.
 """
 from aiprep.skel import PART_CHIP
+from aiprep.bank import CODING_TITLE
 
 STATES = ("wrong", "skipped", "fixed")
-KIND_LABEL = {"blank": "빈칸", "choice": "고르기", "stmt": "고르기", "gen": "숫자 바뀜", "skel": "코드", "mock": "모의고사"}
+KIND_LABEL = {"blank": "빈칸", "choice": "객관식", "stmt": "객관식", "gen": "조건 변형", "skel": "코드", "mock": "모의고사"}
 
 
 def card_note(events, read_day=None):
@@ -45,7 +46,7 @@ def card_note(events, read_day=None):
             "at": last_at, "mock": mock}
 
 
-def group_title(card, lessons, mocks, patterns_title="상황별 코드"):
+def group_title(card, lessons, mocks, patterns_title=CODING_TITLE):
     """카드가 들어갈 묶음 제목과 정렬 키. 모의고사 카드는 그 회차, 상황별 코드 카드는 한 묶음, 나머지는 차시."""
     cid = card["id"]
     if card.get("kind") == "mock" or cid.startswith("m"):
@@ -83,7 +84,7 @@ def wrong_notes(events, cards, read_days, lessons, mocks, leeches=(), mock_order
             where = "%s%d차시" % (prefix, lesson.get("no", 0))
         else:
             where = title
-        kind = PART_CHIP.get(card.get("part")) if card.get("kind") == "skel" else None  # 뼈대 카드는 꼴(코드 빈칸·순서 고르기·고르기)
+        kind = PART_CHIP.get(card.get("part")) if card.get("kind") == "skel" else None  # 코드 빈칸·객관식 유형을 표시함.
         item = {"key": cid, "label": "%s · %s" % (kind or KIND_LABEL.get(card.get("kind"), "문항"), where), "state": note["state"],
                 "sure": note["sure"], "leech": cid in leeches, "deep": bool(card.get("deep")), "fails": note["fails"],
                 "days": [d.isoformat() for d in note["days"]], "at": note["at"]}

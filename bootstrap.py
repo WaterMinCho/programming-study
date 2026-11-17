@@ -6,7 +6,7 @@
 환경 변수 STUDY_VENV 로 바꿀 수 있음)의 파이썬으로 study.py 를 다시 실행함. 전용 환경이 없거나 깨졌으면 터미널에서 동의를 받아
 새로 만들고 PyQt6 를 설치한 뒤 다시 실행함. 파이썬이 3.10~3.14 64비트가 아니면 PyQt6 를 설치할 수 없어서 안내만 함.
 
-막히면 원인과 선택지를 알리고 0 이 아닌 코드로 끝냄. 터미널 모드(go)는 실행하자마자 채점해서
+실패하면 원인과 선택지를 알리고 0 이 아닌 코드로 끝냄. 설치 취소는 0 으로 끝냄. 터미널 모드(go)는 실행하자마자 채점해서
 화면에서 풀다 만 답이 첫 시도로 기록되므로 go 로 넘기지 않음.
 
 start.pyw 나 ROKEY.app 으로 켜면 터미널이 없는 창 모드로 돎. 흐름은 같고 안내, 동의, 진행 표시를 준비 창에 띄움.
@@ -445,7 +445,7 @@ def consent(host, venv, broken):
 
 
 def launch(argv=None, host=None):
-    """화면을 띄우고 종료 코드를 돌려줌. 띄우지 못하면 0 이 아닌 값."""
+    """화면을 띄우고 종료 코드를 돌려줌. 설치 취소는 0, 실행 실패는 0 이 아닌 값."""
     argv = list(argv or [])
     if host is None and windowed():
         host = WindowHost(connect_log())
@@ -491,7 +491,8 @@ def launch(argv=None, host=None):
     if not host.isatty():
         return fail(host, "화면에 필요한 PyQt6 를 설치해야 합니다. 설치 전에 동의를 받아야 하니 터미널에서 직접 실행해 주세요.")
     if not consent(host, venv, broken=state == "venv"):
-        return fail(host, "PyQt6 를 설치하지 않아 화면을 열 수 없습니다.")
+        host.say("설치를 취소했습니다. 다음 실행에서 다시 설치할 수 있습니다.")
+        return 0
 
     try:
         if state == "venv":

@@ -12,7 +12,10 @@ import ast
 import os
 import re
 import shutil
+import stat
+import subprocess
 import threading
+import time
 
 import adaptive
 import mdlite
@@ -52,11 +55,128 @@ def has_record(name):
 
 
 def saved_user():
-    """환경 변수 STUDY_USER, .study_user 파일 순으로 찾음. 없으면 None."""
+    """환경 변수와 ID 파일을 확인함. 설정과 로컬 기록이 모두 없을 때만 None을 돌려줌."""
     name = os.environ.get("STUDY_USER")
-    if not name and os.path.isfile(study.USER_FILE):
-        name = study.read_text(study.USER_FILE).strip()
-    return user_folder(name) if valid_user(name) else None
+    if name:
+        if not valid_user(name):
+            raise _identity_error("STUDY_USER 설정의 ID 형식이 올바르지 않습니다.")
+        return user_folder(name)
+    try:
+        name = study.read_text(study.USER_FILE).removeprefix("\ufeff").strip()
+    except FileNotFoundError:
+        if os.path.lexists(study.USER_FILE):
+            raise _identity_error(".study_user 파일을 읽지 못했습니다.")
+        _check_unidentified_records()
+        return None
+    except (OSError, UnicodeError):
+        raise _identity_error(".study_user 파일을 읽지 못했습니다.") from None
+    if not valid_user(name):
+        raise _identity_error(".study_user 파일의 ID 형식이 올바르지 않습니다.")
+    return user_folder(name)
+
+
+def _identity_error(reason):
+    return SessionError("풀이 ID를 확인하지 못했습니다. 풀이 파일은 그대로 있습니다.\n"
+                        + reason + "\n원본을 복사해 보관한 뒤 gui/README.md의 ‘기존 풀이 기록 찾기’를 확인해 주세요.")
+
+
+def _check_unidentified_records():
+    """ID가 없을 때 풀이 파일을 origin/main과 대조함. Git 정규화 뒤 같은 공유 파일만 제외함."""
+    deadline = time.monotonic() + 3
+    records, total, visited = [], 0, 0
+    def scan_error(error):
+        raise error
+    try:
+        with os.scandir(study.SUBMISSIONS_DIR) as entries:
+            for count, entry in enumerate(entries):
+                if count >= 256 or time.monotonic() >= deadline:
+                    raise OSError("record scan limit")
+                if not valid_user(entry.name):
+                    continue
+                if entry.is_symlink():
+                    raise OSError("record directory link")
+                if not entry.is_dir():
+                    continue
+                for folder, dirs, files in os.walk(entry.path, onerror=scan_error):
+                    visited += 1
+                    if visited > 4096 or time.monotonic() >= deadline:
+                        raise OSError("record scan limit")
+                    if any(os.path.islink(os.path.join(folder, name)) for name in dirs):
+                        raise OSError("record directory link")
+                    for name in files:
+                        if name.casefold() in (".ds_store", "thumbs.db", "desktop.ini"):
+                            continue
+                        path = os.path.join(folder, name)
+                        info = os.lstat(path)
+                        total += info.st_size
+                        if (not stat.S_ISREG(info.st_mode) or info.st_size > 8 * 1024 * 1024
+                                or total > 32 * 1024 * 1024 or len(records) >= 4096):
+                            raise OSError("record file limit")
+                        records.append(path)
+    except FileNotFoundError:
+        if os.path.lexists(study.SUBMISSIONS_DIR):
+            raise _identity_error("ID 설정이 없고, 기록 폴더를 확인하지 못했습니다.") from None
+        return
+    except OSError:
+        raise _identity_error("ID 설정이 없고, 로컬 기록 파일을 확인하지 못했습니다.") from None
+    if not records:
+        return
+    try:
+        root = os.path.abspath(study.ROOT)
+        relative_dir = os.path.relpath(study.SUBMISSIONS_DIR, root).replace(os.sep, "/")
+        if relative_dir == ".." or relative_dir.startswith("../") or not os.path.exists(os.path.join(root, ".git")):
+            raise ValueError("repository unavailable")
+        paths = [os.path.relpath(path, root).replace(os.sep, "/") for path in records]
+        env = {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
+        env.update(GIT_OPTIONAL_LOCKS="0", GIT_NO_LAZY_FETCH="1", GIT_TERMINAL_PROMPT="0",
+                   GIT_ALLOW_PROTOCOL="", GIT_CEILING_DIRECTORIES=os.path.dirname(root))
+        def query(*args, data=None):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ValueError("record scan timeout")
+            result = subprocess.run(["git", "--literal-pathspecs", "-C", root, *args], input=data,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=remaining, env=env,
+                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            if result.returncode:
+                raise ValueError("local git unavailable")
+            return result.stdout
+        location = os.fsdecode(query("rev-parse", "--show-toplevel")).rstrip("\r\n")
+        if os.path.normcase(os.path.realpath(location)) != os.path.normcase(os.path.realpath(root)):
+            raise ValueError("repository root mismatch")
+        tree = query("ls-tree", "-r", "-z", "--full-tree", "refs/remotes/origin/main", "--", relative_dir)
+        if len(tree) > 4 * 1024 * 1024:
+            raise ValueError("baseline size limit")
+        baseline = {}
+        for row in tree.split(b"\0"):
+            if row:
+                meta, path = row.split(b"\t", 1)
+                mode, kind, oid = meta.split()
+                if kind == b"blob" and mode in (b"100644", b"100755") and re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", oid):
+                    baseline[os.fsdecode(path)] = oid
+        if any(path not in baseline for path in paths):
+            raise _identity_error(".study_user 설정이 없지만 로컬 기록 파일이 있습니다.")
+        attributes = query("check-attr", "-z", "--stdin", "filter", data=b"\0".join(map(os.fsencode, paths)) + b"\0").split(b"\0")
+        if len(attributes) != 3 * len(paths) + 1 or any(value not in (b"unspecified", b"unset") for value in attributes[2:-1:3]):
+            raise ValueError("external record filter")
+        # 외부 clean 필터를 실행하지 않고 Git의 줄바꿈·속성 변환만 적용함. 객체를 저장하는 -w는 쓰지 않음.
+        quoted = [b'"' + os.fsencode(path).replace(b'\\', b'\\\\').replace(b'"', b'\\"')
+                  .replace(b"\n", b"\\n").replace(b"\r", b"\\r").replace(b"\t", b"\\t") + b'"' for path in paths]
+        hashes = query("hash-object", "--stdin-paths", data=b"\n".join(quoted) + b"\n").splitlines()
+        if len(hashes) != len(paths):
+            raise ValueError("record hash unavailable")
+        changed = [(path, line) for path, line, oid in zip(paths, quoted, hashes) if oid != baseline[path]]
+        if changed:
+            # CRLF를 그대로 담은 공유 blob은 변환 전 바이트도 대조함.
+            raw = query("hash-object", "--no-filters", "--stdin-paths",
+                        data=b"\n".join(line for _, line in changed) + b"\n").splitlines()
+            if len(raw) != len(changed):
+                raise ValueError("record hash unavailable")
+            if any(oid != baseline[path] for (path, _), oid in zip(changed, raw)):
+                raise _identity_error(".study_user 설정이 없지만 로컬에서 바뀐 기록 파일이 있습니다.")
+        if time.monotonic() >= deadline:
+            raise ValueError("record scan timeout")
+    except (OSError, ValueError, subprocess.SubprocessError):
+        raise _identity_error("ID 설정이 없고, 기록 파일을 로컬 Git의 공유 기록과 대조하지 못했습니다.") from None
 
 
 def save_user(name):
@@ -64,8 +184,11 @@ def save_user(name):
     if not valid_user(name):
         raise SessionError("ID 는 영문·숫자·-·_ 만 쓸 수 있습니다(깃허브 ID 권장).")
     name = user_folder(name)
-    os.makedirs(os.path.join(study.SUBMISSIONS_DIR, name), exist_ok=True)
-    study.write_text(study.USER_FILE, name + "\n")
+    try:
+        os.makedirs(os.path.join(study.SUBMISSIONS_DIR, name), exist_ok=True)
+        study.write_text(study.USER_FILE, name + "\n")
+    except OSError:
+        raise SessionError("풀이 ID 설정을 저장하지 못했습니다. 폴더의 쓰기 권한을 확인해 주세요.") from None
     return name
 
 

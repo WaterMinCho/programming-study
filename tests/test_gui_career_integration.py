@@ -18,6 +18,157 @@ class CareerIntegrationTest(unittest.TestCase):
     boot = HubTest.boot
     idle = HubTest.idle
 
+    def test_recommendation_input_stays_local_and_goal_is_saved_separately(self):
+        from gui.career_onboarding import TOUR_KEYS
+        win = self.boot()
+        for key in TOUR_KEYS.values():
+            win.settings.setValue(key, True)
+        win.go_career()
+        guikit.pump()
+        controller = win.career
+        from learning_data.submission import snapshot
+        collections = [win.session.collection, win.ai.collection]
+        contexts = [collection.observation_context() for collection in collections]
+        for collection in collections:
+            collection.set_enabled(True)
+            collection.emit("answer", {"result": "pass", "response": "synthetic answer"})
+        records = [collection.snapshot(include_answers=True)[1:] for collection in collections]
+        answer = Path(self.tmp) / "submissions" / win.user / "r01" / "quiz.py"
+        answer.parent.mkdir(parents=True, exist_ok=True)
+        answer.write_text("print(1)\n")
+        submitted = snapshot(self.tmp, win.user)
+        self.assertIn("r01/quiz.py", submitted)
+        before = {key: win.settings.value(key) for key in win.settings.allKeys()}
+        guikit.click(controller.roadmap.recommend_button)
+        dialog = controller.recommend_dialog
+        self.assertTrue(dialog.isVisible())
+        dialog.activities["ui"].setChecked(True)
+        dialog.show_stage(2)
+        dialog.next()
+        dialog.open_detail("frontend")
+        profile_key = "career/profile/" + win.user.casefold()
+        result_key = "career/recommendation/" + win.user.casefold()
+        self.assertEqual(before, {key: win.settings.value(key) for key in win.settings.allKeys()
+                                  if key not in (profile_key, result_key)})
+        self.assertEqual(json.loads(win.settings.value(profile_key))["activities"], ["ui"])
+        result = json.loads(win.settings.value(result_key))
+        self.assertEqual(set(result), {"input_fingerprint", "rules_version", "catalog_fingerprint", "role_ids"})
+        self.assertIn("frontend", result["role_ids"])
+        from gui.feedback import environment, issue_url
+        with mock.patch("gui.feedback.commit", return_value="0" * 40):
+            feedback_before = (environment(win), issue_url(win))
+            dialog.education.add_row()
+            for field, value in zip(dialog.education.rows[0][1], ("doctor", "health")):
+                field.setCurrentIndex(field.findData(value))
+            self.assertEqual(feedback_before, (environment(win), issue_url(win)))
+            self.assertFalse(win.settings.contains(result_key))
+        guikit.click(dialog.detail.goal_button)
+        saved = json.loads(win.settings.value("career/role/" + win.user))
+        self.assertEqual(set(saved), {"role_id", "catalog_version", "selected_at"})
+        self.assertEqual(saved["role_id"], "frontend")
+        self.assertEqual(controller.roadmap.saved_role_id, "frontend")
+        dialog.close()
+        guikit.pump()
+        self.assertIsNone(controller.recommend_dialog)
+        controller.show_recommendations()
+        fresh = controller.recommend_dialog
+        self.assertEqual(fresh.profile().activities, ("ui",))
+        self.assertEqual(fresh.profile().education[0].degree, "doctor")
+        self.assertEqual(fresh.saved_role_id, "frontend")
+        self.assertEqual(records, [collection.snapshot(include_answers=True)[1:] for collection in collections])
+        self.assertEqual(submitted, snapshot(self.tmp, win.user))
+        for context, collection in zip(contexts, collections):
+            self.assertEqual(context["goal"], collection.observation_context()["goal"])
+        stored = win.settings.value(profile_key)
+        controller.stop()
+        guikit.pump()
+        self.assertIsNone(controller.recommend_dialog)
+        self.assertEqual(win.settings.value(profile_key), stored)
+
+    def test_javascript_probe_from_career_locks_page_and_opens_journey(self):
+        from PyQt6.QtTest import QTest
+        from PyQt6.QtCore import Qt
+        win = self.boot()
+        win.go_career()
+        guikit.pump()
+        page = win.career.roadmap
+        win.settings.setValue("journey/lang", "javascript")
+        checked, threads, release = [False], [], threading.Event()
+
+        def runtime(language):
+            threads.append(threading.current_thread() is threading.main_thread())
+            release.wait(3)
+            checked[0] = True
+            return {"ok": True, "path": "/fake/node", "version": "22.23.2", "major": 22}
+
+        with mock.patch.object(win.journey, "node_checked", side_effect=lambda: checked[0]), \
+                mock.patch.object(win.journey, "runtime", side_effect=runtime):
+            try:
+                win.workspace.navigate("go_journey")
+                self.assertIsNotNone(win.job)
+                self.assertFalse(page.isEnabled())
+                self.assertFalse(win.workspace.rail.isEnabled())
+                self.assertTrue(page.top.title.isVisible())
+                QTest.keyClick(page.top.back, Qt.Key.Key_Return)
+                self.assertIs(win.pages.currentWidget(), page)
+            finally:
+                release.set()
+            self.idle()
+        self.assertIs(win.pages.currentWidget(), win.journey_map)
+        self.assertTrue(page.isEnabled())
+        self.assertFalse(page.top.title.isVisibleTo(page))
+        self.assertFalse(threads[0])
+
+    def test_update_check_from_both_career_pages_restores_controls_and_position(self):
+        from session import SessionError
+        win = self.boot()
+        win.resize(760, 480)
+        win.set_text("larger")
+        for open_page, mode in ((win.go_career, "light"), (win.go_career, "dark"),
+                                (win.go_magazine, "light"), (win.go_magazine, "dark")):
+            theme.set_mode(mode)
+            open_page()
+            guikit.pump()
+            page = win.pages.currentWidget()
+            bar = page.scroll.verticalScrollBar()
+            bar.setValue(bar.maximum() // 2)
+            original = bar.value()
+            release = threading.Event()
+
+            def updates():
+                release.wait(3)
+                return {"status": "ok", "available": False, "count": 0}
+
+            with mock.patch.object(win.gitflow, "updates", side_effect=updates) as check:
+                try:
+                    win.check_updates()
+                    self.assertFalse(page.isEnabled())
+                    self.assertFalse(page.tour_help.isEnabled())
+                    self.assertIn("업데이트", page.top.title.text())
+                    self.assertGreater(page.top.title.width(), 80)
+                    self.capture_navigation(win, f"career-busy-{win.area}-{mode}")
+                    win.check_updates()
+                finally:
+                    release.set()
+                self.idle()
+                self.assertEqual(check.call_count, 1)
+            self.assertTrue(page.isEnabled())
+            self.assertEqual(bar.value(), original)
+            self.assertEqual(win.dialog.windowTitle(), "업데이트 확인")
+            win.dialog.close()
+            guikit.pump()
+            with mock.patch.object(win.gitflow, "updates", side_effect=SessionError("연결을 확인해 주세요.")):
+                win.check_updates()
+                self.idle()
+            self.assertIsNone(win.job)
+            self.assertTrue(page.isEnabled())
+            win.dialog.close()
+            guikit.pump()
+
+        for index in range(win.pages.count()):
+            self.assertTrue(callable(getattr(win.pages.widget(index), "set_busy", None)),
+                            type(win.pages.widget(index)).__name__)
+
     def test_career_is_lazy_and_selection_does_not_reclassify_learning_records(self):
         win = self.boot()
         self.assertIsNone(win.career.catalog)
@@ -28,6 +179,7 @@ class CareerIntegrationTest(unittest.TestCase):
         page = win.career.roadmap
         self.assertIs(win.pages.currentWidget(), page)
         self.assertEqual(win.area, "career_roadmap")
+        page.select_role("qa")
         page.choose_goal()
         selected = json.loads(win.settings.value("career/role/" + win.user))
         self.assertEqual(selected["role_id"], page.selected_role_id)
@@ -59,7 +211,7 @@ class CareerIntegrationTest(unittest.TestCase):
     def assert_career_icon(self, toggle, expanded):
         image = toggle.grab().toImage()
         ratio = image.devicePixelRatio()
-        ink = "selection_ink" if toggle.isChecked() else "muted"
+        ink = "primary_ink" if toggle.isChecked() else "muted"
         # 중앙에 그린 실제 화소에서 두 아이콘의 크기와 방향·중심을 구함.
         for left, right, center, chevron in ((5, 45, 26, False),
                                               (toggle.width() - 42, toggle.width() - 5, toggle.width() - 24, True)):
@@ -316,9 +468,20 @@ class CareerIntegrationTest(unittest.TestCase):
 
     def test_paper_callbacks_keep_study_records_and_footer_in_small_parent(self):
         from PyQt6.QtCore import QPoint
+        from PyQt6.QtWidgets import QLabel
+        from gui.career_magazine import SourceDetails
         win = self.boot()
         win.go_magazine()
         win.resize(760, 480)
+        page = win.career.magazine
+        page._change_tab(1)
+        for size in ("normal", "larger", "normal"):
+            win.set_text(size)
+            guikit.pump()
+            for label in page.paper_content.findChildren(QLabel):
+                self.assertEqual(label.font().pixelSize(), theme.TYPE[label.property("role")][0])
+            for details in page.paper_content.findChildren(SourceDetails):
+                self.assertEqual(details.button.font().pixelSize(), theme.TYPE["learn_caption"][0])
         before = win.session.collection.observation_context()
         for mode in ("light", "dark"):
             win.set_theme(mode)

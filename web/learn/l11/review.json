@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제 11",
- "resolver": "재풀이 11",
- "reviewer": "검토 11",
+ "writer": "제목 수정",
+ "resolver": "기존 재풀이 보존",
+ "reviewer": "제목 교차 검토",
  "files": {
   "assets/11a-1.png": "993411002a80352a0650442a248d5681236342b9520a7e6e85b00dc0980c47d0",
   "assets/11b-1.png": "4f671eb31337747d53d707a81eb0ce0bfcb3fe9c98b3ebd82ba238f2d3d59513",
@@ -10,13 +10,14 @@
   "assets/11c-1.gif": "92a3e956f7cb5b5618fa37059f586e9506109859039060b4cfa7d8395488e963",
   "assets/11c-2.gif": "02722c2dcbbd206a54194f2f6972da67246ee52fab8a790d8d8dd8b50f130c80",
   "assets/11c-3.png": "98e87effbe7d699e5c32d517acce89918b3c8949ffd1b3dea47832ecdd87d708",
-  "meta.json": "50b55b8ae483995452501d66e2b376c768614afc3ab14a9f98b7c7fba45a50d7",
-  "page.md": "c1aa23b6c87c084ed491641e1e304961b6acfb182027057093a62b7d30121480"
+  "meta.json": "e5afb81dace86489c60c41f00a8e02b55c476971233bfd425b48e5e50d61ebec",
+  "page.md": "99f7039b4e2660ddda2ac26ae90b1c60aea667680c7bad9e68a8421dc1be86d3"
  },
  "findings": [
   "Context 정의를 처음 쓰는 문장 앞으로 옮김",
   "React Query로 옮길 때 QueryClientProvider와 wrapper가 필요하다고 적음",
   "호출부와 CI를 풀어 쓰고 짧은 문장을 앞 문장에 합침",
-  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함."
+  "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함.",
+  "2026-11-15 제목·목차 문구를 짧은 행동형으로 수정했음. 제목의 조건·수치·API를 교차 검토하고 본문·코드·물음·정답이 바뀌지 않았음을 대조했음. 기존 물음의 재풀이를 반복하지 않았음."
  ]
 }

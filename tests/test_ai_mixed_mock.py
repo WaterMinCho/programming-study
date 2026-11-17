@@ -88,6 +88,17 @@ class MixedMockTest(unittest.TestCase):
     def tick(self, seconds=1):
         self.at = (datetime.datetime.fromisoformat(self.at)+datetime.timedelta(seconds=seconds)).isoformat()
 
+    def test_bad_card_order_does_not_hide_other_lessons_related_cards(self):
+        sess = self.session()
+        path = self.bank / 'items/i90/meta.json'
+        meta = study.read_json(path)
+        meta['card_order'] = ['i90-missing']
+        study.write_text(path, json.dumps(meta))
+        cards = mixed_mock.related_cards(sess)
+        self.assertIn('i90', sess.errors)
+        self.assertTrue(cards)
+        self.assertTrue(all(card['lesson'] == 'a90' for card in cards.values()))
+
     def rows(self, sess, kind):
         return [r for r in sess.collection.snapshot(include_answers=True) if r['kind']==kind]
 

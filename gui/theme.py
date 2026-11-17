@@ -32,40 +32,44 @@ BRAND = ("#2f6bff", "#7b5cff", "#ffffff")  # 아이콘의 바탕 그라데이션
 AVATARS = ("#2a62f0", "#6d4df2", "#0b7f6a", "#b4530a", "#b83280", "#0e7490")  # 팀 현황의 이니셜 원. 글자는 BRAND 의 글자 색
 
 # 글자와 바탕의 대비는 4.5:1 이상으로 맞춤(tests/test_gui.py 의 ThemeTest 가 확인함).
-# 같은 색 값을 뜻이 다른 토큰이 나눠 씀(surface_alt·hover·primary_off·info_weak는 밝게에서 같음).
+# 같은 색 값도 바탕·올림·비활성·안내의 역할에 따라 토큰을 나눠 씀.
 # 파란색은 누를 수 있는 것, 고른 것, 진행에만 쓰고 제목(heading·doc_heading)은 글자색과 같음
 LIGHT = {
+    "navigation": "#ffffff", "hero": "#e8f1ff", "hero_alt": "#e5f6f1", "hero_edge": "#91b9cf",
+    "accent": "#0d9488", "accent_ink": "#0f766e",
     "highlight_bg": "#ffe8a3", "highlight_ink": "#252016",
-    "bg": "#f6f7f9", "surface": "#ffffff", "surface_alt": "#eef1f5", "hover": "#eef1f5", "surface_raised": "#ffffff",
-    "border": "#cdd3db", "border_strong": "#818a95", "field_edge": "#818a95", "line": "#e0e5eb", "track": "#e0e5eb",
-    "scroll": "#cdd3db", "scroll_hover": "#a9b0ba", "focus": "#1d63ed",
-    "ink": "#171b22", "heading": "#171b22", "muted": "#464e59", "placeholder": "#616a76", "faint": "#616a76",
-    "primary": "#1d63ed", "primary_hover": "#1251cc", "primary_ink": "#ffffff", "primary_off": "#eef1f5", "primary_off_ink": "#616a76",
-    "selection": "#e5efff", "selection_ink": "#1251cc", "text_selection": "#c4d8fd",
+    "bg": "#f4f7fb", "surface": "#ffffff", "surface_alt": "#edf3f9", "hover": "#e7effa", "surface_raised": "#ffffff",
+    "border": "#d0dceb", "border_strong": "#7588a3", "field_edge": "#7588a3", "line": "#dce5f1", "track": "#dce5f1",
+    "scroll": "#cdd3db", "scroll_hover": "#a9b0ba", "focus": "#2563eb",
+    "ink": "#15243b", "heading": "#15243b", "muted": "#42566f", "placeholder": "#53657e", "faint": "#53657e",
+    "primary": "#2563eb", "primary_hover": "#1d4ed8", "primary_ink": "#ffffff", "primary_off": "#e5edf7", "primary_off_ink": "#53657e",
+    "selection": "#e8f0ff", "selection_ink": "#1d4ed8", "text_selection": "#bed6ff",
     "notice_bg": "#fff2d6", "notice_border": "#fff2d6",
-    "code_bg": "#e0e5eb", "codebox_bg": "#eef1f5", "table_head": "#eef1f5", "grid": "#cdd3db",
-    "doc_heading": "#171b22", "link": "#1d63ed", "indicator_border": "#818a95",
+    "code_bg": "#dce5f1", "codebox_bg": "#edf3f9", "table_head": "#edf3f9", "grid": "#d0dceb",
+    "doc_heading": "#15243b", "link": "#1d4ed8", "indicator_border": "#7588a3",
     "ok": "#007840", "wrong": "#c2272d", "blank": "#616a76", "up": "#1d63ed", "retry": "#a1540f",
-    "ok_weak": "#e3f8e9", "wrong_weak": "#ffecec", "retry_weak": "#fff2d6", "info": "#464e59", "info_weak": "#eef1f5",
-    "series_python": "#0f9b89", "series_algorithm": "#9476ff", "series_web": "#99007a", "series_ai": "#b35c00",
+    "ok_weak": "#e3f8e9", "wrong_weak": "#ffecec", "retry_weak": "#fff2d6", "info": "#42566f", "info_weak": "#edf3f9",
+    "series_python": "#0d9488", "series_algorithm": "#9476ff", "series_web": "#99007a", "series_ai": "#b35c00",
     "unit_mastered": "#1f883d", "unit_mastered_ink": "#ffffff", "unit_level2": "#9cd0ff", "unit_level2_ink": "#1f2328",
     "unit_level1": "#f5d776", "unit_level1_ink": "#1f2328", "unit_retry": "#f0883e", "unit_retry_ink": "#1f2328",
     "unit_none": "#e1e5ea", "unit_none_ink": "#57606a", "unit_none_edge": "#818a95",
 }
 DARK = {
+    "navigation": "#141b2b", "hero": "#142b43", "hero_alt": "#173b3e", "hero_edge": "#427d91",
+    "accent": "#2dd4bf", "accent_ink": "#5eead4",
     "highlight_bg": "#57461b", "highlight_ink": "#fff1b8",
-    "bg": "#121418", "surface": "#1d2228", "surface_alt": "#282d34", "hover": "#252a30", "surface_raised": "#252a30",
-    "border": "#42474d", "border_strong": "#7b8189", "field_edge": "#7b8189", "line": "#33373d", "track": "#33373d",
-    "scroll": "#42474d", "scroll_hover": "#595e65", "focus": "#7aa8ff",
-    "ink": "#eaf1fa", "heading": "#eaf1fa", "muted": "#c5cbd4", "placeholder": "#9ea3ac", "faint": "#9ea3ac",
-    "primary": "#3168e8", "primary_hover": "#2755c7", "primary_ink": "#ffffff", "primary_off": "#282d34", "primary_off_ink": "#9ea3ac",
-    "selection": "#1c2f53", "selection_ink": "#c2d8ff", "text_selection": "#294375",
+    "bg": "#0c1322", "surface": "#141b2b", "surface_alt": "#1c273b", "hover": "#22314a", "surface_raised": "#192338",
+    "border": "#30415d", "border_strong": "#7890b4", "field_edge": "#7890b4", "line": "#293a55", "track": "#293a55",
+    "scroll": "#30415d", "scroll_hover": "#526888", "focus": "#8eb5ff",
+    "ink": "#edf4ff", "heading": "#edf4ff", "muted": "#b7c6dc", "placeholder": "#9aacc4", "faint": "#9aacc4",
+    "primary": "#2563eb", "primary_hover": "#1d4ed8", "primary_ink": "#ffffff", "primary_off": "#1c273b", "primary_off_ink": "#9aacc4",
+    "selection": "#1c3556", "selection_ink": "#c5ddff", "text_selection": "#214f83",
     "notice_bg": "#382810", "notice_border": "#382810",
-    "code_bg": "#33373d", "codebox_bg": "#282d34", "table_head": "#282d34", "grid": "#42474d",
-    "doc_heading": "#eaf1fa", "link": "#7aa8ff", "indicator_border": "#7b8189",
+    "code_bg": "#293a55", "codebox_bg": "#1c273b", "table_head": "#1c273b", "grid": "#30415d",
+    "doc_heading": "#edf4ff", "link": "#9ac0ff", "indicator_border": "#7890b4",
     "ok": "#5ccb89", "wrong": "#f87e77", "blank": "#9ea3ac", "up": "#7aa8ff", "retry": "#eeb154",
-    "ok_weak": "#182f20", "wrong_weak": "#3e1e1c", "retry_weak": "#382810", "info": "#c5cbd4", "info_weak": "#282d34",
-    "series_python": "#0aa99b", "series_algorithm": "#8a7cfd", "series_web": "#c231ac", "series_ai": "#e8833a",
+    "ok_weak": "#182f20", "wrong_weak": "#3e1e1c", "retry_weak": "#382810", "info": "#b7c6dc", "info_weak": "#1c273b",
+    "series_python": "#2dd4bf", "series_algorithm": "#8a7cfd", "series_web": "#c231ac", "series_ai": "#e8833a",
     "unit_mastered": "#2ea043", "unit_mastered_ink": "#06120a", "unit_level2": "#58a6ff", "unit_level2_ink": "#0b1220",
     "unit_level1": "#d9b44a", "unit_level1_ink": "#0b1220", "unit_retry": "#e2673a", "unit_retry_ink": "#0b1220",
     "unit_none": "#2b323c", "unit_none_ink": "#b7c1cc", "unit_none_edge": "#7b8189",
@@ -75,8 +79,8 @@ TOKENS = {"light": LIGHT, "dark": DARK}
 # 새 화면(첫 화면, 웹 면접 준비)의 글자 단계: 이름 → (글자 크기 px, 줄 높이 px, 굵기). 굵기는 번들 나눔고딕에 있는 400·700 만 씀.
 # 한 화면 상태에서 쓰는 크기는 넷 이하. micro 는 직접 그리는 그래프 눈금에만 씀. BASE_TYPE 은 보통 단계의 설계값이고
 # TYPE 은 지금 단계의 값(set_text 가 바꿈). 화면 코드는 TYPE 을 읽음
-BASE_TYPE = {"display": (36, 44, 700), "title": (28, 36, 700), "headline": (22, 30, 700), "body": (17, 28, 400), "label": (17, 24, 400),
-             "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400),
+BASE_TYPE = {"display": (36, 44, 700), "title": (30, 40, 700), "headline": (22, 30, 700), "body": (17, 28, 400), "label": (17, 24, 400),
+             "navigation": (18, 24, 400), "caption": (14, 22, 400), "code": (15, 22, 400), "micro": (13, 16, 400),
              "learn_body": (22, 40, 400), "learn_heading": (30, 44, 700), "learn_caption": (18, 30, 400),
              "learn_activity": (24, 36, 700), "learn_code": (20, 32, 400)}
 TYPE = dict(BASE_TYPE)
@@ -84,7 +88,7 @@ SPACE = (4, 8, 12, 16, 24, 32, 48, 64)  # 간격은 이 값만 씀. 1px 선은 �
 GAP = {"detail": 8, "title_description": 12, "paragraph": 16, "description_content": 24, "group": 24, "section": 48}
 LEARN_GAP = {"detail": 16, "title_description": 16, "paragraph": 24, "group": 48}
 RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16}
-CONTROL = {"l": 48, "m": 40, "s": 32, "field": 48, "row": 56, "row2": 80, "topbar": 64, "bottombar": 80, "stepper": 56,
+CONTROL = {"l": 48, "m": 44, "s": 32, "field": 48, "row": 56, "row2": 80, "topbar": 64, "bottombar": 80, "stepper": 56,
            "slot": 30}  # slot 은 코드 줄 안 빈칸의 높이. 보통 글자의 코드 줄 높이 22 에 8 을 더한 값이고 글자 단계를 따라 같이 커짐(slot_height)
 SERIES = ("series_python", "series_algorithm", "series_web", "series_ai")  # 7일 그래프와 트랙 이름 앞 점에만 쓰는 트랙 색
 
@@ -228,8 +232,9 @@ STYLE += "QLabel#unit_none { border: 1px solid %(unit_none_edge)s; }\n"  # 미�
 STYLE_V2 = """
 QWidget[ui="2"] { background: %(bg)s; }
 QDialog[ui="2"] { background: %(surface_raised)s; }
-QDialog[ui="2"] QFrame#dialog_header, QDialog[ui="2"] QWidget#dialog_body,
-QDialog[ui="2"] QScrollArea#dialog_scroll, QDialog[ui="2"] QScrollArea#dialog_scroll > QWidget { background: %(surface_raised)s; }
+QDialog[ui="2"] QFrame#dialog_header { background: %(surface_raised)s; border-bottom: 1px solid %(line)s; }
+QDialog[ui="2"] QWidget#dialog_body, QDialog[ui="2"] QScrollArea#dialog_scroll,
+QDialog[ui="2"] QScrollArea#dialog_scroll > QWidget { background: %(bg)s; }
 QDialog[ui="2"] QFrame#dialog_actions { background: %(surface_raised)s; border-top: 1px solid %(line)s; }
 QDialog[ui="2"] QFrame#verification_code { background: %(surface_alt)s; border: 1px solid %(line)s; border-radius: 12px; }
 QDialog[ui="2"] QLabel#verification_code_text { font-family: "D2Coding"; padding: 4px 0; color: %(ink)s; }
@@ -237,6 +242,7 @@ QWidget[ui="2"] QLabel { color: %(ink)s; background: transparent; }
 QWidget[ui="2"] QLabel[tone="secondary"] { color: %(muted)s; }
 QWidget[ui="2"] QLabel[tone="tertiary"] { color: %(faint)s; }
 QWidget[ui="2"] QLabel[tone="accent"] { color: %(link)s; }
+QWidget[ui="2"] QLabel[tone="teal"] { color: %(accent_ink)s; }
 QWidget[ui="2"] QLabel[tone="success"] { color: %(ok)s; }
 QWidget[ui="2"] QLabel[tone="warning"] { color: %(retry)s; }
 QWidget[ui="2"] QLabel[tone="danger"] { color: %(wrong)s; }
@@ -246,11 +252,15 @@ QWidget[ui="2"] QLabel#badge[tone="accent"] { background: %(selection)s; color: 
 QWidget[ui="2"] QLabel#badge[tone="success"] { background: %(ok_weak)s; color: %(ok)s; }
 QWidget[ui="2"] QLabel#badge[tone="warning"] { background: %(retry_weak)s; color: %(retry)s; }
 QWidget[ui="2"] QLabel#badge[tone="danger"] { background: %(wrong_weak)s; color: %(wrong)s; }
-QWidget[ui="2"] QFrame#card { background: %(surface)s; border: 0; border-radius: 16px; }
+QWidget[ui="2"] QFrame#card { background: %(surface)s; border: 1px solid %(line)s; border-radius: 16px; }
 QWidget[ui="2"] QFrame#card QFrame#card { background: %(surface_alt)s; border-radius: 12px; }
+QWidget[ui="2"] QFrame#card[next_action="true"] {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 %(hero)s, stop:1 %(hero_alt)s);
+    border: 1px solid %(hero_edge)s; border-radius: 16px; }
 QWidget[ui="2"] QFrame#well { background: %(surface_alt)s; border: 0; border-radius: 12px; }
 QWidget[ui="2"] QFrame#team_metric, QWidget[ui="2"] QFrame#team_plot { background: %(surface)s; border: 1px solid %(line)s; border-radius: 16px; }
 QWidget[ui="2"] QFrame#team_breakdown, QWidget[ui="2"] QFrame#team_periods { background: %(surface_alt)s; border: 0; border-radius: 12px; }
+QWidget[ui="2"] QFrame#team_today { background: %(surface_alt)s; border: 0; border-radius: 12px; }
 QWidget[ui="2"] QPushButton#metric_info { min-width: 0; min-height: 0; padding: 0; border: 2px solid transparent; border-radius: 8px; background: transparent; }
 QWidget[ui="2"] QPushButton#metric_info:hover { background: %(surface_alt)s; }
 QWidget[ui="2"] QPushButton#metric_info:focus { border-color: %(focus)s; }
@@ -282,8 +292,8 @@ QWidget[ui="2"] QFrame#row[picked="true"] QLabel { color: %(selection_ink)s; }
 QWidget[ui="2"] QFrame#row QLabel:disabled { color: %(faint)s; }
 QWidget[ui="2"] QFrame#rowline { background: %(line)s; border: 0; }
 QWidget[ui="2"] QPushButton { font-size: %(btn)spx; font-weight: 700; border-radius: 12px; padding: 0 20px; min-height: %(button_m)spx; max-height: %(button_m)spx;
-    min-width: 48px; border: 2px solid transparent; background: %(surface_alt)s; color: %(ink)s; }
-QWidget[ui="2"] QPushButton:hover { background: %(track)s; }
+    min-width: 48px; border: 2px solid %(border)s; background: %(surface)s; color: %(ink)s; }
+QWidget[ui="2"] QPushButton:hover { background: %(hover)s; border-color: %(border_strong)s; }
 QWidget[ui="2"] QPushButton:pressed { background: %(border)s; }
 QWidget[ui="2"] QPushButton:focus { border-color: %(focus)s; }
 QWidget[ui="2"] QPushButton:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; }
@@ -298,7 +308,8 @@ QWidget[ui="2"] QPushButton[figureplay="true"] { background: %(surface)s; color:
 QWidget[ui="2"] QPushButton[figureplay="true"]:hover, QWidget[ui="2"] QPushButton[figureplay="true"]:pressed { background: %(selection)s; }
 QWidget[ui="2"] QPushButton[figureplay="true"]:focus { border-color: %(focus)s; }
 QWidget[ui="2"] QPushButton[figureplay="true"]:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; border-color: %(border)s; }
-QWidget[ui="2"] QPushButton#text { background: transparent; color: %(muted)s; padding: 0 12px; }
+QWidget[ui="2"] QPushButton#text { background: transparent; color: %(muted)s; border-color: transparent; padding: 0 12px; }
+QWidget[ui="2"] QPushButton#text:focus { border-color: %(focus)s; }
 QWidget[ui="2"] QPushButton#text:hover { background: %(hover)s; color: %(ink)s; }
 QWidget[ui="2"] QPushButton#text[onbg="true"]:hover { background: %(line)s; }
 QWidget[ui="2"] QPushButton#text:pressed { background: %(track)s; }
@@ -396,10 +407,12 @@ QFrame#find QPushButton#tool:disabled { background: transparent; color: %(faint)
 """ % EDITOR
 
 STYLE_V2 += """
-QFrame#navigation { background: %(surface)s; border-right: 1px solid %(line)s; }
-QWidget[ui="2"] QPushButton[navigation="true"] { text-align: left; padding: 0; border: 2px solid transparent; border-radius: 10px; min-height: %(navigation_height)spx; max-height: %(navigation_height)spx; }
-QWidget[ui="2"] QPushButton[navigation="true"]:checked { background: %(selection)s; color: %(selection_ink)s; border-left-color: %(focus)s; }
-QWidget[ui="2"] QPushButton[navigation="true"]:focus { border-color: %(focus)s; }
+QFrame#navigation { background: %(navigation)s; border-right: 1px solid %(line)s; }
+QWidget[ui="2"] QPushButton#text[navigation="true"] { text-align: left; padding: 0; border: 2px solid transparent; border-radius: 12px; min-height: %(navigation_height)spx; max-height: %(navigation_height)spx; }
+QWidget[ui="2"] QPushButton#text[navigation="true"]:checked { background: %(primary)s; color: %(primary_ink)s; }
+QWidget[ui="2"] QPushButton#text[navigation="true"]:checked:disabled { background: %(primary)s; color: %(primary_ink)s; }
+QWidget[ui="2"] QPushButton#text[navigation="true"]:focus { border-color: %(focus)s; }
+QWidget[ui="2"] QPushButton#text[navigation="true"]:checked:focus { border-color: %(primary_ink)s; }
 QFrame#submissionbar { background: %(surface)s; border: 1px solid %(border)s; border-radius: 16px; }
 QFrame#figure_controls { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 12px; }
 QFrame#learning_activity { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
@@ -535,7 +548,7 @@ def style_tokens(scheme):
                 slot=slot_height() - 2, learn_slot=learning_slot_height() - 2,
                 slot_focus=slot_height() - 4, learn_slot_focus=learning_slot_height() - 4,
                 field_height=CONTROL["field"] - 2, field_focus=CONTROL["field"] - 4,
-                navigation_height=max(56, TYPE["label"][1] + 24) - 4,
+                navigation_height=max(56, TYPE["navigation"][1] + 24) - 4,
                 **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
 
 

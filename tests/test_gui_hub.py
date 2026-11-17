@@ -119,6 +119,8 @@ class HubTest(unittest.TestCase):
         self.git = FakeGitFlow()
         self.settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.Format.IniFormat)
         self.settings.setValue("onboarding/hub/v1", True)  # 첫 안내는 전용 화면 검사에서 확인함.
+        for context in ("catalog", "detail", "magazine"):
+            self.settings.setValue(f"onboarding/career/{context}/v1", True)
         self.win = None
 
     def tearDown(self):
@@ -205,6 +207,24 @@ class HubTest(unittest.TestCase):
 
 
 class HubScreenTest(HubTest):
+    def test_week_activity_uses_only_visible_subjects_and_keeps_their_colours(self):
+        self.graded_round()
+        win = self.boot()
+        hub = win.hub
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        web = {"activity": [today.isoformat(), yesterday.isoformat()],
+               "activity_counts": {today.isoformat(): 777, yesterday.isoformat(): 888}}
+        hub.show_week(win.session.overview(), {"activity": {today.isoformat(): 2}, "recent": []}, web,
+                      {"activity_counts": {today.isoformat(): 3}, "recent": []})
+        self.assertEqual(hub.chart.tracks, (("python", "파이썬"), ("journey", "알고리즘"), ("ai", "AI")))
+        self.assertEqual(hub.chart.colors, ("series_python", "series_algorithm", "series_ai"))
+        self.assertEqual(hub.chart.visible_days()[-1], (today, 1, 2, 3))
+        self.assertEqual((hub.total.text(), hub.streak.text()), ("기록된 활동 6회", "연속 학습 1일"))
+        self.assertNotIn("웹", hub.chart.toolTip())
+        self.assertIn("AI 3", hub.chart.toolTip())
+        self.assertNotIn("웹 면접", [label.text() for label in hub.week_card.findChildren(QLabel)])
+
     def test_commented_web_entry_is_absent_from_hub_and_both_navigation_layouts(self):
         self.assertNotIn("web", study.ENTRY_TRACKS)
         win = self.boot()
@@ -452,6 +472,49 @@ class HubScreenTest(HubTest):
         guikit.pump()
         self.assertEqual((win.pages.currentWidget(), win.area), (win.hub, "hub"))
 
+    def test_wide_subject_grid_uses_three_columns_and_reflows_with_larger_text(self):
+        win = self.boot()
+        win.resize(1600, 1000)
+        guikit.pump()
+        grid = win.hub.tracks
+        self.assertEqual(grid.columns, 3)
+        for index, row in enumerate(grid.rows):
+            self.assertEqual(grid.grid.getItemPosition(grid.grid.indexOf(row))[:2], (0, index))
+            self.assertTrue(grid.rect().contains(row.geometry()))
+        win.hub.ai_row.set_second("응용 · 긴 학습 제목을 여러 줄에 걸쳐 표시하는 차시 목록의 다음 단원과 미완료 연습으로 돌아갑니다.")
+        guikit.pump()
+        self.assertEqual(len({row.height() for row in grid.rows}), 1)
+        titles = [row.title.mapTo(grid, QPoint()).y() for row in grid.rows]
+        metrics = [row.metric.mapTo(grid, QPoint()).y() for row in grid.rows]
+        self.assertEqual(len(set(titles)), 1)
+        self.assertEqual(len(set(metrics)), 1)
+        win.set_text("larger")
+        guikit.pump()
+        initial = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
+        # 자식과 부모 배치가 연속 이벤트 처리에서도 같은 크기를 유지하는지 확인함.
+        previous, repeats = None, 0
+
+        def stable_grid():
+            nonlocal previous, repeats
+            current = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
+            fits = grid.columns == 2 and all(grid.rect().contains(row.geometry()) for row in grid.rows)
+            repeats = repeats + 1 if fits and current == previous else 0
+            previous = current
+            return repeats >= 3
+
+        guikit.wait_until(stable_grid, timeout=5)
+        settled = (grid.geometry().getRect(), [row.geometry().getRect() for row in grid.rows])
+        if initial != settled:
+            print("SubjectGrid layout after font update:", initial, "->", settled)
+        self.assertEqual(grid.columns, 2)
+        for index, row in enumerate(grid.rows):
+            self.assertEqual(grid.grid.getItemPosition(grid.grid.indexOf(row))[:2], (index // 2, index % 2))
+            self.assertTrue(grid.rect().contains(row.geometry()), (initial, settled))
+            for other in grid.rows[:index]:
+                self.assertFalse(row.geometry().intersects(other.geometry()))
+        guikit.click(win.hub.ai_row)
+        self.assertEqual(win.area, "ai")
+
     def test_starts_at_the_hub_and_the_rows_show_their_numbers(self):
         prof = self.graded_round()
         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat(timespec="seconds")
@@ -503,21 +566,66 @@ class HubScreenTest(HubTest):
         self.idle()
         self.assertEqual((self.page(), win.journey_page.pid), (win.journey_page, "boss"))
 
-    def test_sections_stack_and_each_uses_the_whole_column(self):
-        """공부 트랙, 오답 노트, 최근 7일 학습은 위아래로 쌓이고 저마다 가운데 단의 폭을 다 씀. 최근 7일 카드 안에서는 폭이 넉넉하면
-        막대 칸(범례 줄과 막대) 오른쪽에 최근 채점이 오고(막대가 더 넓음), 좁으면 막대 아래로 내려감."""
+    def test_sections_reflow_and_week_body_keeps_its_layout(self):
+        """오답과 최근 학습은 창 폭에 맞춰 나란히 두거나 쌓고 최근 학습 안의 막대·채점 배치를 유지함."""
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        self.addCleanup(theme.set_text, theme.state["text"])
         self.graded_round()
         win = self.boot()
         hub = win.hub
-        parts = (hub.tracks, hub.notes, hub.week_card)
-        tops = [part.mapTo(hub, QPoint(0, 0)) for part in parts]
-        for upper, top in zip(parts, tops[1:]):
-            self.assertLess(upper.mapTo(hub, QPoint(0, upper.height())).y(), top.y())
-        self.assertEqual({top.x() for top in tops}, {tops[0].x()})
-        self.assertEqual(len({part.width() for part in parts}), 1)
-        self.assertLessEqual(parts[0].width(), kit.HOME_WIDTH)
-        second = hub.python_row.second
-        self.assertGreaterEqual(second.height(), second.heightForWidth(second.width()))  # 트랙 설명이 줄바꿈한 높이만큼 다 보임
+        notes_card = hub.notes.parentWidget()
+
+        def settle():
+            watched = (hub.tracks, hub.activity_row, notes_card, hub.week_card, hub.week,
+                       hub.week.plot, hub.week.recent_box, hub.chart, hub.total,
+                       *(row.second for row in hub.tracks.rows))
+            previous, stable = None, 0
+
+            def ready():
+                nonlocal previous, stable
+                current = (tuple((widget.mapTo(hub, QPoint()), widget.size()) for widget in watched),
+                           hub.scroll.viewport().size(), hub.scroll.verticalScrollBar().maximum(),
+                           hub.scroll.horizontalScrollBar().maximum())
+                stable = stable + 1 if current == previous else 0
+                previous = current
+                return stable >= 3
+
+            guikit.wait_until(ready)
+
+        for mode in ("light", "dark"):
+            win.set_theme(mode)
+            for size, step, side in (((1280, 800), "large", True),
+                                     ((760, 480), "larger", False),
+                                     ((1280, 800), "large", True)):
+                with self.subTest(mode=mode, size=size, text=step):
+                    win.set_text(step)
+                    win.resize(*size)
+                    settle()
+                    self.assertEqual(size, (win.width(), win.height()))
+                    self.assertEqual(side, hub.activity_row.side)
+                    notes = notes_card.rect().translated(notes_card.mapTo(hub, QPoint()))
+                    week = hub.week_card.rect().translated(hub.week_card.mapTo(hub, QPoint()))
+                    tracks = hub.tracks.rect().translated(hub.tracks.mapTo(hub, QPoint()))
+                    activity = hub.activity_row.rect().translated(hub.activity_row.mapTo(hub, QPoint()))
+                    self.assertLess(tracks.bottom(), notes.top())
+                    self.assertEqual((tracks.left(), tracks.width()), (activity.left(), activity.width()))
+                    self.assertEqual(notes.left(), activity.left())
+                    self.assertEqual(week.right(), activity.right())
+                    if side:
+                        self.assertEqual(notes.top(), week.top())
+                        self.assertLess(notes.right(), week.left())
+                        self.assertGreater(week.width(), notes.width())
+                    else:
+                        self.assertLess(notes.bottom(), week.top())
+                        self.assertEqual(notes.left(), week.left())
+                        self.assertEqual(notes.width(), week.width())
+                    self.assertEqual(0, hub.scroll.horizontalScrollBar().maximum())
+                    self.assertLessEqual(tracks.width(), kit.HOME_WIDTH)
+                    for row in hub.tracks.rows:
+                        self.assertGreaterEqual(row.second.height(), row.second.heightForWidth(row.second.width()))
+
+        win.resize(2000, 1000)
+        settle()
         week = hub.week
         self.assertTrue(week.side)
         chart, recent = week.plot.geometry(), week.recent_box.geometry()
@@ -533,7 +641,7 @@ class HubScreenTest(HubTest):
         self.assertEqual(week.row.direction(), week.row.Direction.TopToBottom)
         self.assertEqual(week.recent_box.maximumWidth(), hub_page.QWIDGETSIZE_MAX)
         win.set_text("larger")
-        guikit.pump()
+        settle()
         self.assertTrue(week.side)
         self.assertEqual(week.recent_box.width(), min(hub.recent.natural_width(), int((week.width() - hub_page.SIDE_GAP) * hub_page.RECENT_SHARE)))
 

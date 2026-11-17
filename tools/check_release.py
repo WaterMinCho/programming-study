@@ -13,7 +13,26 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 CASES = (
+    "tests.test_gui_disclosure.DisclosureTest.test_question_answer_and_wrapped_arrow_align_in_both_themes",
+    "tests.test_gui_docview.FigureViewTest.test_movie_controls_share_the_painted_text_line_in_learning_and_explanations",
+    "tests.test_gui_docview.FigureViewTest.test_loops_through_last_frame_until_paused",
+    "tests.test_gui_docview.FigureViewTest.test_loop_keeps_focused_frame_button_and_minimized_window_stops_timer",
+    "tests.test_gui_ai.LessonAndLearnTest.test_figure_loops_and_moves_the_frame_line",
+    "tests.test_gui_round_layout.RoundLayoutTest.test_small_max_text_keeps_title_editor_and_result_separate",
+    "tests.test_gui_ai_code_help.CodeHelpGuiTest.test_real_references_keep_draft_course_and_records_in_small_max_text_both_themes",
+    "tests.test_gui_ai_data.AiDataTest.test_closed_headers_keep_keyboard_focus_inside_rounded_cards",
+    "tests.test_gui_section_browser.AiSectionBrowserTest.test_real_lesson_titles_wrap_and_selection_stays_distinct_from_focus",
+    "tests.test_gui_section_browser.AiSectionBrowserTest.test_home_back_matches_shared_topbar_outside_content_column",
+    "tests.test_gui_section_browser.AiSectionBrowserTest.test_application_course_keeps_topbar_and_tab_reaches_selected_course",
+    "tests.test_gui_design_system.DesignSystemTest.test_course_badge_matches_title_text_pixels_in_both_themes",
+    "tests.test_gui_design_system.DesignSystemTest.test_settings_reuse_actions_across_subject_and_career_overviews",
+    "tests.test_gui_design_system.DesignSystemTest.test_submission_actions_fit_without_losing_callbacks_or_visibility",
+    "tests.test_gui_career_recommend.CareerRecommendGuiTest.test_small_window_large_text_two_themes_and_detail_round_trip",
+    "tests.test_gui_career_onboarding.CareerOnboardingTest.test_small_window_large_text_both_themes_and_all_contexts",
+    "tests.test_gui_career_onboarding.CareerOnboardingTest.test_magazine_tour_fits_wider_text_without_dismissing",
+    "tests.test_gui_career_integration.CareerIntegrationTest.test_update_check_from_both_career_pages_restores_controls_and_position",
     "tests.test_gui.FirstRunTest.test_from_first_run_to_regrade",
+    "tests.test_gui_local_identity_guard.LocalIdentityGuardTest.test_error_and_retry_fit_small_window_at_max_text_both_themes",
     "tests.test_gui.HomeAndGitTest.test_tool_update_at_start_restarts",
     "tests.test_gui.HomeAndGitTest.test_tool_update_during_learning_waits_for_restart_choice",
     "tests.test_gui.HomeAndGitTest.test_blocked_startup_update_does_not_restart_in_a_loop",
@@ -23,12 +42,18 @@ CASES = (
     "tests.test_gui_career_integration.CareerIntegrationTest.test_career_navigation_hierarchy_fits_and_compact_keeps_both_entries",
     "tests.test_gui_career_integration.CareerIntegrationTest.test_paper_callbacks_keep_study_records_and_footer_in_small_parent",
     "tests.test_gui_career.CareerGuiTest.test_small_windows_themes_fonts_and_flow_bounds",
+    "tests.test_gui_career_navigation.CareerNavigationTest.test_small_window_maximum_text_two_themes_catalog_and_tabs",
+    "tests.test_gui_career_navigation.CareerNavigationTest.test_fixed_detail_menu_keyboard_cancel_choose_and_return_to_list",
     "tests.test_gui_career_learning_path.CareerLearningPathTest.test_page_maximum_font_all_roles_keep_text_and_fit_work_area",
     "tests.test_gui_career.CareerGuiTest.test_magazine_small_windows_keep_text_and_actions_inside_content",
     "tests.test_gui_career_paper_preview.PaperPreviewTest.test_diagrams_fit_both_themes_maximum_font_and_small_and_wide_windows",
+    "tests.test_gui_career_paper_preview.PaperPreviewTest.test_toggles_tabs_font_and_detail_dialog_preserve_reading_position",
     "tests.test_gui_career.CareerGuiTest.test_existing_image_viewer_and_missing_image_preserve_role",
     "tests.test_gui_paper_explainer.PaperExplainerTest.test_all_scenes_fit_largest_text_in_small_window_and_both_themes",
+    "tests.test_gui_paper_explainer.PaperExplainerTest.test_reading_fonts_and_footer_keep_size_alignment_and_step_positions",
     "tests.test_gui_video_player.VideoDialogTest.test_small_large_windows_maximum_text_and_two_themes_keep_footer_visible",
+    "tests.test_gui_video_player.VideoDialogTest.test_video_surface_fits_width_and_viewport_without_clipping_controls",
+    "tests.test_gui_video_player.VideoDialogTest.test_fullscreen_escape_keeps_the_player_and_normal_geometry",
     "tests.test_gui_settings_menu.SettingsMenuTest.test_popup_fits_and_reanchors_at_max_text_in_both_themes",
     "tests.test_gui_identity.IdentityGuiTest.test_unverified_existing_device_is_prompted_and_fits_max_text_both_themes",
     "tests.test_gui_identity.IdentityGuiTest.test_team_statistics_switch_period_and_are_hidden_for_other_users",
@@ -39,6 +64,7 @@ CASES = (
     "tests.test_gui_dialogs.DialogTest.test_identity_footer_and_code_fit_max_text_both_themes",
     "tests.test_gui_dialogs.DialogTest.test_long_message_keeps_all_actions_outside_body_scroll",
     "tests.test_gui_onboarding.OnboardingTest.test_visible_controls_fit_and_switch_without_activating_targets",
+    "tests.test_gui_section_browser.AiSectionBrowserTest.test_categories_fit_small_wide_max_text_both_themes_and_remain_visible",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_switch_keeps_participant_old_cursor_and_scoped_lists",
     "tests.test_gui_ai_courses.CourseGuiTest.test_course_tab_and_content_commit_together_at_max_text_in_both_themes",
     "tests.test_gui_ai_courses.CourseGuiTest.test_application_steps_keep_image_ratio_at_max_text_and_both_themes",
@@ -51,6 +77,8 @@ CASES = (
     "tests.test_gui_ai_mock.MockPageTest.test_choice_text_size_returns_to_the_same_size_after_the_first_change",
     "tests.test_gui_submission.ApiSetupTest.test_setup_fits_small_window_max_text_and_both_themes",
     "tests.test_gui_privacy.PrivacyGuiTest.test_consent_fits_small_window_max_text_and_both_themes",
+    "tests.test_gui_python_data.PythonDataGuiTest.test_small_window_largest_text_and_both_themes",
+    "tests.test_gui_ai_data.AiDataTest.test_small_dialog_buttons_are_reachable_in_both_themes",
     "tests.test_gui_submission.ApiSetupTest.test_connection_error_keeps_answers_and_shows_message",
     "tests.test_gui_submission.DirectSubmissionTest.test_pending_submission_and_result_fit_small_window_largest_text_both_themes",
     "tests.test_gui_submission.DirectSubmissionTest.test_file_preview_is_optional_and_server_connection_requires_verified_team",
@@ -60,6 +88,7 @@ CLOSED_CASES = frozenset(name for name in CASES if ".HomeAndGitTest." in name)
 
 
 def gui_check(out):
+    os.environ["STUDY_UI_ARTIFACT_DIR"] = str(out)
     os.environ["CAREER_EVIDENCE"] = str(out)
     os.environ["CAREER_LEARNING_EVIDENCE"] = str(out)
     os.environ["VIDEO_EVIDENCE"] = str(out)
