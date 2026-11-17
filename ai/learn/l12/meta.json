@@ -115,6 +115,41 @@
         "p71",
         "p76"
       ]
+    },
+    {
+      "what": "2_1_하이퍼파라미터_최적화_실습.ipynb · 입력 셀 [3] [7] [8] [12] [13] [16] [17] [21]~[24]",
+      "url": "https://drive.google.com/file/d/1yW3U7WJPVxf4Yhvn4TiLq5Fj23lFcfyB/view",
+      "checked": "2026-11-18",
+      "file": "보충교안 및 실습 /2_1_하이퍼파라미터_최적화_실습.ipynb",
+      "drive_id": "1yW3U7WJPVxf4Yhvn4TiLq5Fj23lFcfyB",
+      "locations": [
+        "[3]",
+        "[7]",
+        "[8]",
+        "[12]",
+        "[13]",
+        "[16]",
+        "[17]",
+        "[21]",
+        "[22]",
+        "[23]",
+        "[24]"
+      ]
+    },
+    {
+      "what": "np.logspace의 시작 지수·끝 지수·개수와 끝 값 포함",
+      "url": "https://numpy.org/doc/stable/reference/generated/numpy.logspace.html",
+      "checked": "2026-11-18"
+    },
+    {
+      "what": "random.uniform과 random.choice의 뽑기",
+      "url": "https://docs.python.org/3/library/random.html",
+      "checked": "2026-11-18"
+    },
+    {
+      "what": "무작위 탐색과 로그 균등 분포로 후보 뽑기",
+      "url": "https://scikit-learn.org/stable/modules/grid_search.html#randomized-parameter-optimization",
+      "checked": "2026-11-18"
     }
   ],
   "credits": [],
