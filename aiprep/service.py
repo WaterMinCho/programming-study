@@ -9,7 +9,8 @@ set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 
 
 상황별 코드(index.json patterns, 개론 무리 pc·응용 무리 apc)는 학습 노트(l18·al18), 사실·검토 기록과 수치 생성기(items/<무리 id>)를
 가짐. 세션은 자기 과정의 무리만 싣고 그 무리 뼈대 폴더(folder 가 없으면 ai/patterns 맨 위)만 읽음. 과정에 무리가 없으면 맨 위 폴더를
-읽어 예전 미완료 묶음 fingerprint 를 지킴. 코드 카드는 뼈대에서 skel.cards 가 만듦. 카드 lesson 은 무리 id, after 는 권하는 차시이고,
+읽어 예전 미완료 묶음 fingerprint 를 지킴. 뼈대 폴더를 못 읽은 무리는 뼈대 카드와 생성 문항을 모두 싣지 않음. 코드 카드는 뼈대에서
+skel.cards 가 만들고 note_only 자리는 노트의 돌려 가며 빈칸(check_rotate)에서만 씀. 카드 lesson 은 무리 id, after 는 권하는 차시이고,
 차시를 묻는 곳(정렬, 무게, 차시 풀기)은 after 차시를 씀. 단원 이름은 unit_name 한 규칙("5차시 · 단원 제목", "학습 루프 · 단원 제목")을 모든 화면값이 씀.
 """
 import copy
@@ -252,17 +253,19 @@ class AiSession(object):
                     self.cards[card["id"]] = card
         self.patterns = {g["id"]: g for g in self.index["patterns"]}
         self.skeletons = {}
+        broken = set()
         for folder in list(dict.fromkeys(g["folder"] for g in self.index["patterns"])) or [""]:
             try:  # 무리가 없는 과정도 맨 위 폴더를 읽어 미완료 묶음 fingerprint 를 예전과 같게 둠
                 self.skeletons.update(skel.load_patterns(self.root, folder))
             except bank.AiBankError as error:  # 맨 위 폴더 오류는 patterns, 하위 폴더 오류는 그 폴더 무리에만 둠
+                broken.add(folder)
                 if not folder:
                     self.errors["patterns"] = str(error)
                 for group in self.index["patterns"]:
                     if folder and group["folder"] == folder:
                         self.errors[group["id"]] = str(error)
-        for group in self.index["patterns"]:
-            if bank.pattern_ready(group, self.root):
+        for group in self.index["patterns"]:  # 뼈대 폴더를 못 읽은 무리는 생성 문항도 싣지 않음
+            if group["folder"] not in broken and bank.pattern_ready(group, self.root):
                 self._load_pattern(group)
         self._cache_key, self._cache = None, None
         self._index, self._index_log = None, None
@@ -481,7 +484,7 @@ class AiSession(object):
                     source_text.append(text)
                 content["generator"] = {"id": spec.id, "meta": spec.meta, "doc": spec.doc, "sources": hashes}
             if card["kind"] == "skel":
-                content["skeleton"] = self.skeletons.get(card["pattern"])
+                content["skeleton"] = skel.card_skeleton(self.skeletons.get(card["pattern"]))
             content = content_only(content)
             text = grade.norm("word", collection.packed(content) + " ".join(source_text))
             terms = {key: sorted(values) for key, values in self.term_map.items() if key in text}
@@ -2092,8 +2095,9 @@ class PracticeSet(object):
                     sources.append(None)
             return {"id": value.id, "meta": value.meta, "doc": value.doc, "sources": sources}
 
+        skeletons = self.sess.skeletons if skeletons is None else skeletons
         content = {"cards": [self.sess.cards[c] for c in self.stats], "terms": self.sess.terms,
-                   "skeletons": self.sess.skeletons if skeletons is None else skeletons}
+                   "skeletons": {sid: skel.card_skeleton(value) for sid, value in skeletons.items()}}
         if previous_refs:
             cards, replaced = [], False
             for card in content["cards"]:

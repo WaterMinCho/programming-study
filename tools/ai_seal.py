@@ -165,7 +165,7 @@ def _slot_cards(cards, pattern, variant):
 
 def whole_view(skeleton, variant, cards):
     """코드 예제 하나의 모든 slot 카드 자리를 한꺼번에 토큰으로 가린 견본(1단계, 키 "S1 표준형 전체"). 카드가 없으면 None.
-    칸은 코드 위치 순이고 칸마다 slot 이 그 자리 id 임."""
+    칸은 코드 위치 순이고 칸마다 slot 이 그 자리 id 임. note_only 자리는 카드가 아니라 가리지 않고 코드에 그대로 보임."""
     mine = _slot_cards(cards, skeleton["id"], variant)
     if not mine:
         return None
@@ -236,7 +236,8 @@ def _note_answers(bank_dir, page_id):
 def brief_patterns(bank_dir, group, out_dir):
     """상황별 코드 공개본. sheet.md에는 순서·줄·고칠 줄 고르기, whole.md에는 모든 자리를 가린 코드 예제를 둠.
     skel.md 에는 slot 카드마다 f0·f2·f3 견본을 둠. whole.md는 sheet.md 답을 다 적은 뒤, skel.md는 whole.md 답을 다 적은 뒤에 엶(뼈대 빈칸 견본끼리 서로의 답을 보여 줌).
-    line_answer·valid·wrong why·aim·facts.json 은 넣지 않음."""
+    line_answer·valid·wrong why·aim·facts.json 은 넣지 않음. 채점 키는 카드와 생성 문항뿐이고 note_only 자리(노트의 돌려 가며 빈칸 전용)는
+    키를 만들지 않음."""
     skeletons, cards = pattern_cards(bank_dir, group)
     gid = group["id"]
     lines = ["# %s 재풀이 문제지" % gid, "",
