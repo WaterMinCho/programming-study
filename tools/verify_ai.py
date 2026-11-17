@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 문항 묶음·학습 노트 블록·그림·서명 검증(설계 4.6, 8.7). 실패가 하나라도 있으면 1 로 끝남.
 
-  python tools/verify_ai.py [i05 common pc ...]        출제된 문항 묶음 전부(또는 적은 것)를 봄. pc 는 상황별 코드(뼈대 카드)
+  python tools/verify_ai.py [i05 common pc apc ...]    출제된 문항 묶음 전부(또는 적은 것)를 봄. pc·apc 는 상황별 코드 무리(뼈대 카드)
   python tools/verify_ai.py i05 --seeds 50             생성기를 50 시드만 돌림(기본 300)
   python tools/verify_ai.py i05 --answers FILE         재풀이 답안(ai_seal.py brief 가 만든 answers.json)을 채점함
   python tools/verify_ai.py --levels-answers FILE      세 수준 물음 재풀이 답안(ai_seal.py levels 가 만든 levels_answers.json)을 채점함
@@ -19,8 +19,11 @@ verify_web.py --bank ai 와 web_lint.py --bank ai 가 보고, 여기서는 ai-* 
 check_level_figure 가 여기서 봄.
 검사 번호와 이름은 STEP_NAMES 에 있음. 표준 라이브러리만 씀.
 
-상황별 코드(pc)는 차시와 같은 흐름을 탐. 학습 노트 l18, items/pc 의 facts.json, ai/patterns/S*.json 에서 만든 뼈대 카드를 Lesson
-하나로 묶어 check_lesson 을 돌리고, 19 뼈대 검사로 코드 예제·자리·순서·고르기·고칠 줄을 봄. pc 서명은 ai/patterns/*.json 을 모두 덮음.
+상황별 코드 무리(index.json patterns)는 차시와 같은 흐름을 탐. 무리마다 학습 노트(pc 는 l18, apc 는 al18), items/<무리 id> 의
+facts.json, 무리 뼈대 폴더(folder 가 없으면 ai/patterns 맨 위, apc 는 ai/patterns/apc)의 S*.json 에서 만든 뼈대 카드를 Lesson 하나로
+묶어 check_lesson 을 돌리고, 19 뼈대 검사로 코드 예제·자리·순서·고르기·고칠 줄과 카드 id 머리(무리 id)를 봄. 무리 서명은 그 무리
+뼈대 폴더의 *.json 만 덮음(pc 는 ai/patterns/*.json, apc 는 ai/patterns/apc/*.json). 단원 키는 무리 노트 번호를 따름(l18 은 18a~,
+al18 은 a18a~). 같은 뼈대 id 가 두 폴더에 있으면 하위 폴더 무리가 실패함. 복습 변형 목록에는 코딩 실습 카드를 넣지 않음.
 """
 import argparse
 import ast
@@ -187,14 +190,28 @@ def check_index(v, bank_dir):
             v.fail("index", 1, "%s 의 date 는 YYYY-MM-DD 여야 합니다: %s" % (lid, lesson["date"]))
         if lesson["hw_due"] is not None and review.parse_day(lesson["hw_due"]) is None:
             v.fail("index", 1, "%s 의 hw_due 는 null 이나 YYYY-MM-DD 여야 합니다." % lid)
+    lesson_pages = {lesson["page"]: lesson["id"] for lesson in index["lessons"]}
+    folders = {}
     for pattern in index["patterns"]:
         if pattern["page"] not in pages:
             v.fail("index", 1, "patterns %s 의 page %s 가 pages 에 없습니다." % (pattern["id"], pattern["page"]))
+        if pattern["page"] in lesson_pages:
+            v.fail("index", 1, "lessons %s 의 page %s 가 patterns %s 의 page 와 같습니다." % (lesson_pages[pattern["page"]],
+                                                                                    pattern["page"], pattern["id"]))
+        page_no = aibank.PAGE_ID.fullmatch(pattern["page"])
+        if page_no is None or aibank.course_of(pattern["page"]) != pattern["course"]:
+            v.fail("index", 1, "patterns %s 의 course %s 가 page %s 와 맞지 않습니다." % (pattern["id"], pattern["course"], pattern["page"]))
+        head = ("a" if pattern["course"] == "app" else "") + (page_no.group(1).lstrip("0") if page_no else "18")
+        if pattern["folder"] in folders:
+            v.fail("index", 1, "patterns %s 와 %s 의 뼈대 폴더가 같습니다." % (folders[pattern["folder"]], pattern["id"]))
+        folders.setdefault(pattern["folder"], pattern["id"])
         for key, unit in pattern["units"].items():
-            if not re.match(r"18[a-h]\Z", key):
-                v.fail("index", 1, "patterns 의 단원 키는 18a~18h 여야 합니다: %s" % key)
+            if not re.match(r"%s[a-h]\Z" % head, key):
+                v.fail("index", 1, "patterns 의 단원 키는 %sa~%sh 여야 합니다: %s" % (head, head, key))
             if unit["after"] and unit["after"] not in seen_ids:
                 v.fail("index", 1, "patterns %s 의 after %s 가 lessons 에 없습니다." % (key, unit["after"]))
+            elif unit["after"] and aibank.course_of(unit["after"]) != pattern["course"]:
+                v.fail("index", 1, "patterns %s 의 after %s 는 다른 과정의 차시입니다." % (key, unit["after"]))
     nos = sorted(no for course, no in seen_no if course == "intro")
     for mock in index["mocks"]:
         if len(mock["range"]) != 2 or mock["range"][0] > mock["range"][1] or (nos and not (nos[0] <= mock["range"][0]
@@ -220,7 +237,7 @@ class Lesson(object):
         self.id = entry["id"]
         self.units = note["units"] if note else {}
         self.group = None  # 상황별 코드면 index.json patterns 항목
-        self.skeletons = {}  # 노트의 ai-diff·ai-rotate·skel 울타리와 뼈대 카드가 쓰는 뼈대
+        self.skeletons = {}  # 노트의 ai-diff·ai-rotate·skel 울타리와 뼈대 카드가 쓰는 뼈대(그 과정의 뼈대)
 
 
 def ref_kind(ref):
@@ -1015,9 +1032,9 @@ def git_root(bank_dir):
     return top.stdout.strip() if top.returncode == 0 else None
 
 
-def git_pattern_ids(bank_dir, root):
-    """직전 커밋(HEAD)의 ai/patterns/S*.json 카드 id. 그 커밋에 폴더가 없으면 None."""
-    rel = os.path.relpath(os.path.realpath(os.path.join(bank_dir, "patterns")), os.path.realpath(root)).replace(os.sep, "/")
+def git_pattern_ids(bank_dir, root, folder=""):
+    """직전 커밋(HEAD)의 무리 뼈대 폴더(folder 가 "" 이면 ai/patterns 맨 위) S*.json 카드 id. 그 커밋에 폴더가 없으면 None."""
+    rel = os.path.relpath(os.path.realpath(os.path.join(bank_dir, "patterns", folder)), os.path.realpath(root)).replace(os.sep, "/")
     listed = subprocess.run(["git", "ls-tree", "--name-only", "HEAD", rel + "/"], cwd=root, stdin=subprocess.DEVNULL,
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     names = [n for n in listed.stdout.decode("utf-8", "replace").split("\n") if re.search(r"/S\d+\.json\Z", n)]
@@ -1035,16 +1052,16 @@ def git_pattern_ids(bank_dir, root):
     return ids
 
 
-def git_ids(bank_dir, lid):
-    """직전 커밋(HEAD)의 그 차시 카드·문장 id. 상황별 코드(pc)는 ai/patterns 뼈대 카드 id 도 더함. git 이 없거나 그 커밋에
-    없으면 None."""
+def git_ids(bank_dir, lid, group=None):
+    """직전 커밋(HEAD)의 그 차시 카드·문장 id. 상황별 코드 무리(group)는 그 무리 뼈대 폴더의 카드 id 도 더함. git 이 없거나 그
+    커밋에 없으면 None."""
     folder = aibank.items_dir(lid, bank_dir)
     root = git_root(bank_dir)
     if root is None:
         return None
     rel = os.path.relpath(os.path.realpath(folder), os.path.realpath(root)).replace(os.sep, "/")
     ids = set()
-    patterns = git_pattern_ids(bank_dir, root) if lid == "pc" else None
+    patterns = git_pattern_ids(bank_dir, root, group["folder"]) if group is not None else None
     shown = subprocess.run(["git", "show", "HEAD:%s/sealed.json" % rel], cwd=root, stdin=subprocess.DEVNULL,
                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if shown.returncode != 0:
@@ -1085,7 +1102,7 @@ def load_lesson(v, bank_dir, entry):
 
 
 def load_pattern_group(v, bank_dir, group, skeletons):
-    """상황별 코드 무리 하나를 Lesson 꼴로. entry {"id", "no": None, "page", "title"}, note(l18), data(items/<무리>, facts·review
+    """상황별 코드 무리 하나를 Lesson 꼴로. entry {"id", "no": None, "page", "title"}, note(무리 노트), data(items/<무리>, facts·review
     와 생성기), cards(공개 단원의 뼈대·수치 문항). 정적 카드(items.json·statements.json)가 있으면 실패(엔진이 읽지 않음)."""
     label = group["id"]
     entry = {"id": label, "no": None, "page": group["page"], "title": group["title"]}
@@ -1175,7 +1192,7 @@ def check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, seeds):
     check_note_blocks(v, les, terms)
     check_levels_context(v, les, bank_dir, terms)
     check_context(v, les, terms, pages_no)
-    before = git_ids(bank_dir, les.id)
+    before = git_ids(bank_dir, les.id, les.group)
     if before is not None:
         now_ids = {c["id"] for c in les.cards}
         if les.group is not None:  # 공개 전 단원의 뼈대 카드는 카드로 만들지 않아도 파일에 남아 있음
@@ -1196,7 +1213,7 @@ def _entry_where(skeleton, part, entry):
     return "%s %s" % (skeleton.get("id"), entry.get("id"))
 
 
-def check_skeletons(v, les, seeds):
+def check_skeletons(v, les, seeds, bank_dir=None):
     """ai/patterns 뼈대 파일(설계 3.7, 계획 8.1). 코드 예제의 situation·lines, slot 의 토큰과 답, order 의 valid 와 시드마다 오답 보기,
     pick 보기, change 의 다른 줄, 카드마다 level·ref·facts·step, 카드 id 꼴과 겹침."""
     label = les.id
@@ -1213,6 +1230,9 @@ def check_skeletons(v, les, seeds):
                 v.fail(label, 19, "%s 의 %s 코드 예제에 situation 이 없습니다." % (sid, name))
             elif aibank.BLANK.search(variant["situation"]):
                 v.fail(label, 19, "%s 의 %s 코드 예제 situation 에 ____ 가 있습니다." % (sid, name))
+            for key, path in skel.figures_of(skeleton, name, bank_dir).items() if bank_dir else ():
+                if not os.path.isfile(path):
+                    v.fail(label, 19, "%s 의 %s 코드 예제 %s 그림이 없습니다: %s" % (sid, name, key, variant["figures"][key]))
             for n, line in enumerate(variant.get("lines") or []):
                 if "\t" in line or aibank.BLANK.search(line) or SKEL_COMMENT.search(line):
                     v.fail(label, 19, "%s 의 %s 코드 예제 %d번 줄에 탭·____·# 주석이 있습니다: %s" % (sid, name, n, clip(line, 40)))
@@ -1220,8 +1240,8 @@ def check_skeletons(v, les, seeds):
             for entry in skeleton.get(key) or []:
                 cid = str(entry.get("id"))
                 where = _entry_where(skeleton, part, entry)
-                if not re.match(r"pc-%s\d{2,3}\Z" % skel.PART_LETTER[part], cid):
-                    v.fail(label, 19, "%s 의 id 꼴이 pc-%s01 이 아닙니다." % (where, skel.PART_LETTER[part]))
+                if not re.match(r"%s-%s\d{2,3}\Z" % (re.escape(label), skel.PART_LETTER[part]), cid):
+                    v.fail(label, 19, "%s 의 id 꼴이 %s-%s01 이 아닙니다." % (where, label, skel.PART_LETTER[part]))
                 if cid in seen:
                     v.fail(label, 19, "카드 id 가 두 뼈대에 있습니다: %s (%s, %s)" % (cid, seen[cid], sid))
                 seen[cid] = sid
@@ -1786,7 +1806,7 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
     if strict:
         if sources is None:
             try:
-                sources = _MockSources(bank_dir, aibank.read_index(bank_dir), v.opts.seeds, skel.load_patterns(bank_dir))
+                sources = _MockSources(bank_dir, aibank.read_index(bank_dir), v.opts.seeds, skel.load_all_patterns(bank_dir))
                 aibank.load_common(bank_dir)
             except (aibank.AiBankError, ValueError) as error:
                 v.fail(label, 12, "모의고사 비교 자료를 읽지 못합니다: %s" % error)
@@ -1977,11 +1997,37 @@ def check_secrets(v, bank_dir):
                     v.fail("secrets", 15, "%s/%s 봉인 안 %s 에 키나 토큰처럼 보이는 글이 있습니다: %s…" % (parent, name, rel, found.group(0)[:6]))
 
 
+def check_review_variants(v, bank_dir, index):
+    """복습 변형 목록(review_variants.json)이 엔진이 읽는 꼴인지와 bank.CARD_ID 가 받지 않는 코딩 실습 무리(apc 등)의 카드 id 가
+    없는지 봄. 그런 카드 한 장만 넣어도 두 과정의 변형 연결이 모두 꺼짐. pc 카드는 CARD_ID 가 받으므로 여기서 막지 않음."""
+    path = os.path.join(bank_dir, "review_variants.json")
+    if not os.path.isfile(path):
+        return
+    try:
+        data = study.read_json(path)
+    except (OSError, ValueError) as error:
+        v.fail("review_variants", 1, "복습 변형 목록을 읽을 수 없습니다: %s" % error)
+        return
+    pairs = data.get("pairs") if isinstance(data, dict) else None
+    groups = {g["id"] for g in index["patterns"]}
+    if isinstance(pairs, dict):
+        ids = [cid for key, others in pairs.items() for cid in [key] + (others if isinstance(others, list) else [])]
+        found = sorted({cid for cid in ids if isinstance(cid, str) and cid.split("-")[0] in groups
+                        and not aibank.CARD_ID.fullmatch(cid)})
+        if found:
+            v.fail("review_variants", 1, "복습 변형 목록에 코딩 실습 카드를 넣지 않습니다: %s" % verify_web.listing(found))
+    try:
+        aibank.read_review_variants(bank_dir)
+    except aibank.AiBankError as error:
+        v.fail("review_variants", 1, str(error))
+
+
 # 16. 서명
 
-def review_files(folder, secrets, bank_dir=None, patterns=False):
+def review_files(folder, secrets, bank_dir=None, patterns=None):
     """서명이 덮는 파일의 sha256. 폴더의 공개 파일 전부(sealed.json 뺌)와 work/ 의 봉인 글(review.json 뺌). 글 파일은 LF 기준
-    글로(.py 포함, Windows CRLF 에서도 맞음), 그림은 바이트로. patterns 면 ai/patterns/*.json 을 patterns/… 키로 더함."""
+    글로(.py 포함, Windows CRLF 에서도 맞음), 그림은 바이트로. patterns 는 무리의 뼈대 폴더 이름이고 "" 이면 ai/patterns/*.json 을
+    patterns/… 키로(pc), "apc" 면 ai/patterns/apc/*.json 을 patterns/apc/… 키로 더함. None 이면 뼈대를 넣지 않음."""
     files = {}
     for rel, path in verify_web.walk_files(folder, skip=("work", "__pycache__")):
         if rel == webbank.SEALED_NAME:
@@ -1990,11 +2036,12 @@ def review_files(folder, secrets, bank_dir=None, patterns=False):
     for rel, text in (secrets or {}).items():
         if rel != "review.json":
             files["work/" + rel] = verify_web.text_sha(text)
-    if patterns and bank_dir:
-        pdir = os.path.join(bank_dir, "patterns")
+    if patterns is not None and bank_dir:
+        pdir = os.path.join(bank_dir, "patterns", patterns)
+        head = "patterns/%s" % (patterns + "/" if patterns else "")
         for name in sorted(os.listdir(pdir)) if os.path.isdir(pdir) else []:
             if name.endswith(".json"):
-                files["patterns/" + name] = verify_web.text_sha(study.read_text(os.path.join(pdir, name)))
+                files[head + name] = verify_web.text_sha(study.read_text(os.path.join(pdir, name)))
     return files
 
 
@@ -2004,7 +2051,7 @@ def grade_skel_answer(key, value, lessons, terms):
     "pc-k02 f2"(뼈대 빈칸 견본, 칸마다 글). 빈칸은 모든 칸이 맞아야 맞음이고 틀린 칸은 자리 id 로 보임."""
     groups = [les for les in lessons if les.group is not None]
     cards = {c["id"]: c for les in groups for c in les.cards if c["kind"] == "skel"}
-    skeletons = next((les.skeletons for les in groups), {})
+    skeletons = {sid: data for les in groups for sid, data in les.skeletons.items()}
 
     def blanks(view):
         values = value if isinstance(value, list) else [value]
@@ -2251,7 +2298,7 @@ def check_signature(v, label, folder, secrets, files):
             v.fail(label, 16, "대조자(%s)가 출제자나 재풀이자와 같습니다." % data.get("checker"))
 
 
-def signature_step(v, bank_dir, label, folder, lessons=None, patterns=False):
+def signature_step(v, bank_dir, label, folder, lessons=None, patterns=None):
     """--sign·--require-review. 서명 대상 폴더 하나(문항 묶음, common, pc, 모의고사)."""
     o = v.opts
     if not (o.sign or o.require_review):
@@ -2439,19 +2486,27 @@ def main(argv=None, out=None):
         aibank.load_common(bank_dir)
     except aibank.AiBankError as error:
         v.fail("common", 6, str(error))
-    skeletons, skeleton_error = {}, None
-    try:
-        skeletons = skel.load_patterns(bank_dir)
-    except aibank.AiBankError as error:
-        skeleton_error = str(error)
+    folder_skeletons, folder_errors = {}, {}  # 뼈대 폴더마다 따로 읽어 한 폴더의 오류가 다른 무리 검사를 막지 않게 함
+    for folder in dict.fromkeys([""] + [g["folder"] for g in index["patterns"]]):
+        try:
+            folder_skeletons[folder] = skel.load_patterns(bank_dir, folder)
+        except aibank.AiBankError as error:
+            folder_skeletons[folder], folder_errors[folder] = {}, str(error)
+    try:  # 모의고사 pattern 값은 모든 폴더의 뼈대 id 와 견줌. 같은 id 가 두 폴더에 있으면 그 하위 폴더 무리가 실패함
+        all_skeletons = skel.load_all_patterns(bank_dir)
+    except aibank.AiBankError:
+        all_skeletons = {sid: data for found in folder_skeletons.values() for sid, data in found.items()}
+
+    def course_skeletons(course):
+        folders = [g["folder"] for g in index["patterns"] if g["course"] == course] or [""]
+        return {sid: data for folder in dict.fromkeys(folders) for sid, data in folder_skeletons[folder].items()}
     pages_no = {p["id"]: int(aibank.PAGE_ID.fullmatch(p["id"]).group(1)) for p in index["pages"] if aibank.PAGE_ID.fullmatch(p["id"])}
     entries = [e for e in index["lessons"] if os.path.isfile(os.path.join(aibank.items_dir(e["id"], bank_dir), "meta.json"))]
     mocks = [m for m in index["mocks"] if os.path.isfile(os.path.join(aibank.mock_dir(m["id"], bank_dir), "meta.json"))]
     common = os.path.join(bank_dir, "items", "common")
     has_common = os.path.isfile(os.path.join(common, "gens.py"))
-    patterns = os.path.join(bank_dir, "items", "pc")
-    has_pc = os.path.isfile(os.path.join(patterns, "meta.json"))
-    known = {e["id"] for e in entries} | {m["id"] for m in mocks} | ({"common"} if has_common else set()) | ({"pc"} if has_pc else set())
+    groups = [g for g in index["patterns"] if os.path.isfile(os.path.join(aibank.items_dir(g["id"], bank_dir), "meta.json"))]
+    known = {e["id"] for e in entries} | {m["id"] for m in mocks} | ({"common"} if has_common else set()) | {g["id"] for g in groups}
     if opts.targets:
         missing = [t for t in opts.targets if t not in known]
         if missing:
@@ -2460,18 +2515,19 @@ def main(argv=None, out=None):
         entries = [e for e in entries if e["id"] in opts.targets]
         mocks = [m for m in mocks if m["id"] in opts.targets]
         has_common = has_common and "common" in opts.targets
-        has_pc = has_pc and "pc" in opts.targets
+        groups = [g for g in groups if g["id"] in opts.targets]
     else:
         intro_definitions(v, bank_dir, terms, index)
         check_figures(v, bank_dir, index, opts.manifest)
         check_secrets(v, bank_dir)
+        check_review_variants(v, bank_dir, index)
     ids = {}
     lessons = []
     for entry in entries:
         les = load_lesson(v, bank_dir, entry)
         if les is None:
             continue
-        les.skeletons = skeletons
+        les.skeletons = course_skeletons(entry["course"])
         lessons.append(les)
         check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, opts.seeds)
         signature_step(v, bank_dir, les.id, les.data["dir"], [les])
@@ -2479,22 +2535,20 @@ def main(argv=None, out=None):
         v.head("common", "공용 생성기")
         check_imports(v, "common", common)
         signature_step(v, bank_dir, "common", common)
-    if has_pc:  # 상황별 코드 뼈대 카드. 서명이 ai/patterns/*.json 을 같이 덮음
-        v.head("pc", "상황별 코드")
-        group = next((g for g in index["patterns"] if g["id"] == "pc"), None)
+    for group in groups:  # 상황별 코드 뼈대 카드. 서명이 그 무리 뼈대 폴더의 *.json 을 같이 덮음(pc 는 ai/patterns 맨 위)
+        gid = group["id"]
+        v.head(gid, "상황별 코드")
         les = None
-        if skeleton_error:
-            v.fail("pc", 19, skeleton_error)
-        elif group is None:
-            v.fail("pc", 1, "index.json patterns 에 pc 가 없습니다.")
+        if group["folder"] in folder_errors:
+            v.fail(gid, 19, folder_errors[group["folder"]])
         else:
-            les = load_pattern_group(v, bank_dir, group, skeletons)
+            les = load_pattern_group(v, bank_dir, group, folder_skeletons[group["folder"]])
         if les is not None:
             lessons.append(les)
             check_lesson(v, bank_dir, les, ids, retired, terms, pages_no, opts.seeds)
-            check_skeletons(v, les, opts.seeds)
-        signature_step(v, bank_dir, "pc", patterns, [les] if les else [], patterns=True)
-    mock_sources = _MockSources(bank_dir, index, opts.seeds, skeletons) if mocks else None
+            check_skeletons(v, les, opts.seeds, bank_dir)
+        signature_step(v, bank_dir, gid, aibank.items_dir(gid, bank_dir), [les] if les else [], patterns=group["folder"])
+    mock_sources = _MockSources(bank_dir, index, opts.seeds, all_skeletons) if mocks else None
     mock_lessons = []
     for mock in mocks:
         les = check_mock(v, bank_dir, mock, ids, mock_sources)
@@ -2505,7 +2559,7 @@ def main(argv=None, out=None):
         grade_answers(v, "answers", opts.answers, lessons + mock_lessons, bank_dir)
     if opts.sources:
         check_sources(v, lessons, os.path.abspath(os.path.expanduser(opts.sources)))
-    count = sum(1 for les in lessons if les.group is None) + len(mocks) + int(has_common) + int(has_pc)
+    count = sum(1 for les in lessons if les.group is None) + len(mocks) + int(has_common) + len(groups)
     if v.failures:
         v.say("실패 %d개, 경고 %d개 (묶음 %d개)" % (len(v.failures), len(v.warnings), count))
         return 1

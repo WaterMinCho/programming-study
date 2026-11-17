@@ -1,0 +1,15 @@
+{
+ "format": 1,
+ "id": "al18",
+ "title": "코딩으로 실전학습하기",
+ "defines": [],
+ "needs": [],
+ "sections": {"a18a": "시험 응용 단원"},
+ "outputs": [],
+ "sources": [],
+ "lesson": "apc",
+ "credits": [],
+ "units": {
+  "a18a": {"minutes": 6, "kind": "pattern"}
+ }
+}

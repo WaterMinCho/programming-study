@@ -26,9 +26,12 @@ ai/
       facts.json            확인된 사실과 강의 자료 오류
       review.json           문항 묶음 서명(verify_ai.py --sign 이 씀)
   items/common/gens.py      여러 차시에서 같은 생성기를 쓸 때 추가하는 선택 파일(@base)
-  items/pc/                 상황별 코드. meta.json, gens.py, oracle.py, sealed.json(facts.json과 review.json)
-  patterns/S1.json          상황별 코드 뼈대. 공개라 봉인하지 않고 카드는 엔진이 여기서 만듭니다
-  learn/l18/                상황별 코드 학습 노트(단원 키 18a~18h)
+  items/pc/                 개론 상황별 코드. meta.json, gens.py, oracle.py, sealed.json(facts.json과 review.json)
+  patterns/S1.json          개론 상황별 코드 뼈대. 공개라 봉인하지 않고 카드는 엔진이 여기서 만듭니다
+  learn/l18/                개론 상황별 코드 학습 노트(단원 키 18a~18h)
+  items/apc/                응용 상황별 코드. 파일 구성은 items/pc/ 와 같습니다
+  patterns/apc/S101.json    응용 상황별 코드 뼈대(하위 폴더, 뼈대 id 는 S101 부터)
+  learn/al18/               응용 상황별 코드 학습 노트(단원 키 a18a~a18h)
   mocks/m1/                 모의고사
 tools/ai_art/
   lNN.py                    그 노트의 그림 스크립트(출제할 때 사용)
@@ -41,7 +44,7 @@ tools/ai_art/
 
 제목은 ‘출력 모양 비교하기’, ‘기울기 구하기’처럼 짧게 씁니다. 원리를 설명하는 제목은 ‘기울기가 줄어드는 이유’처럼 무엇을 배울지 드러냅니다. 제목을 바꿀 때는 목차와 `meta.json`의 이름, 단계 분류, 링크, 검토 서명을 함께 확인합니다. 본문의 조건·수식·정답은 제목과 구분해 검토합니다.
 
-`#` 은 노트 제목, `##` 는 단원, `###` 는 단계입니다. 단원 제목은 `meta.json` 의 `sections` 값과 같아야 하고, 단원 키는 `<차시 번호><a~i>`(5c), 응용은 `a1a`처럼 앞에 a를 붙이고, 상황별 코드는 `18a`~`18h`입니다. `sections` 에 없는 `##`(그림 출처 등)는 단원으로 세지 않습니다. `##` 바로 밑에는 글을 두지 않고 첫 `###` 안에 씁니다.
+`#` 은 노트 제목, `##` 는 단원, `###` 는 단계입니다. 단원 제목은 `meta.json` 의 `sections` 값과 같아야 하고, 단원 키는 `<차시 번호><a~i>`(5c), 응용은 `a1a`처럼 앞에 a를 붙이고, 상황별 코드는 무리 노트 번호를 따라 개론 `18a`~`18h`, 응용 `a18a`~`a18h`입니다. `sections` 에 없는 `##`(그림 출처 등)는 단원으로 세지 않습니다. `##` 바로 밑에는 글을 두지 않고 첫 `###` 안에 씁니다.
 
 단계 제목 바로 밑 줄에 그 단계가 설명하는 사실 id 를 적습니다. 이 줄은 화면에 넘기기 전에 지워지고 verify_ai 가 카드의 `step` 과 맞춰 봅니다.
 
@@ -220,7 +223,26 @@ def linear_params(r):
 
 ## 4. 상황별 코드 뼈대
 
-상황별 코드 단원(l18)의 카드는 `ai/patterns/S1.json` 같은 뼈대 파일에서 엔진이 만듭니다. `ai/items/pc/` 에는 단원별 카드 수를 적은 `meta.json`, 계산 문항의 `gens.py`와 독립 정답 함수 `oracle.py`를 둡니다. `facts.json`과 `review.json`은 `sealed.json`에 묶습니다. 사실 id 는 `F18-01`, 강의 자료 오류는 `X18-01` 이고, 차시 사실을 옮긴 것은 `from` 에 원래 id 를 적습니다.
+상황별 코드 단원의 카드는 뼈대 파일에서 엔진이 만듭니다. 과정마다 무리를 하나씩 두고 `index.json` 의 `patterns` 에 적습니다. 개론 무리 `pc` 는 노트 `l18`, 뼈대 `ai/patterns/S1.json`~, 문항 폴더 `ai/items/pc/` 를 씁니다. 응용 무리 `apc` 는 노트 `al18`, 뼈대 `ai/patterns/apc/S101.json`~, 문항 폴더 `ai/items/apc/` 를 씁니다. 문항 폴더에는 단원별 카드 수를 적은 `meta.json`, 계산 문항의 `gens.py`와 독립 정답 함수 `oracle.py`를 둡니다. `facts.json`과 `review.json`은 `sealed.json`에 묶습니다. 사실 id 는 개론 `F18-01`, 응용 `FA18-01` 이고 강의 자료 오류는 `X18-01`, `XA18-01` 입니다. 차시 사실을 옮긴 것은 `from` 에 원래 id 를 적습니다.
+
+`patterns` 항목에는 `course` 와 `folder` 를 적을 수 있습니다. `course` 를 적지 않으면 무리 id 로 정하고(a 로 시작하면 응용), 적은 값이 id 와 다르면 목록을 읽지 못합니다. `folder` 를 적지 않으면 뼈대를 `ai/patterns` 맨 위에서 찾습니다. pc 항목은 두 키 없이 지금 글자 그대로 둡니다. 키를 더하거나 단원 `name` 을 바꾸면 개론 카드의 문항 버전이 바뀔 수 있어서입니다. 응용 무리는 `{"id": "apc", "course": "app", "folder": "apc", "page": "al18", ...}` 처럼 둘 다 적습니다.
+
+- 세션은 고른 과정의 무리만 읽고 그 무리 폴더의 뼈대만 씁니다. 응용 뼈대 파일이 깨져도 개론 코딩 실습은 열립니다.
+- 뼈대 id 는 은행 전체에서 하나씩입니다. 같은 id 가 두 폴더에 있으면 하위 폴더 무리를 읽지 못하고 `verify_ai.py` 가 실패합니다. 응용 뼈대는 `S101` 부터 씁니다.
+- 카드 id 는 무리 id 를 앞에 붙입니다(`pc-k01`, `apc-k01`). 단원의 `after` 는 같은 과정의 차시여야 합니다.
+- 응용 무리를 넣을 때 `terms.json` 을 고치지 않습니다. 용어를 하나만 더해도 두 과정의 미완료 묶음이 복원되지 않습니다. 동의어는 slot 의 `answer` 와 `line_answer` 에 직접 적습니다.
+- 한 무리의 뼈대를 고치거나 늘리면 그 과정의 미완료 묶음은 복원되지 않습니다(개론 pc 와 같은 규칙). 공개한 뒤에 고칠 때는 이 점을 PR 에 적습니다.
+- 응용 코딩 실습 카드(`apc-…`)는 `review_variants.json` 에 넣지 않습니다. 엔진의 카드 번호 규칙이 apc 를 받지 않아 한 장만 넣어도 두 과정의 변형 연결이 모두 꺼집니다. `verify_ai.py` 는 이 카드만 막고 pc 카드는 막지 않습니다.
+- `patterns` 항목 하나라도 형식이 틀리면(id 와 다른 `course`, `..` 이 든 `folder` 등) `index.json` 을 읽지 못해 개론과 응용이 모두 열리지 않습니다. 뼈대 파일과 달리 과정끼리 갈라 두지 않으니 `verify_ai.py` 를 통과한 뒤에 올립니다.
+- 응용 차시가 늘어 차시 노트 번호가 무리 노트(`al18`)와 같아지면 `verify_ai.py` 가 실패합니다. 그때는 무리 노트를 다른 번호로 옮깁니다.
+
+새 무리는 아래 순서로 출제합니다.
+
+1. `index.json` 의 `pages`, `order` 에 무리 노트를, `patterns` 에 무리 항목을 넣습니다.
+2. 노트 `ai/learn/<노트 id>/meta.json`(`lesson` 은 무리 id, 단원 `kind` 는 `pattern`)과 `page.md` 를 씁니다. `ai/learning-map.json` 에도 단원을 등록합니다.
+3. 뼈대를 `ai/patterns/<folder>/` 에 쓰고, 문항 폴더 `ai/items/<무리 id>/` 에 `meta.json`, `work/facts.json` 을 둡니다.
+4. `verify_ai.py <무리 id>`, `verify_web.py --bank ai --total-mb 32 <노트 id>`, `ai_overlap.py --lecture "<그 과정 강의 폴더>" <무리 id>` 를 통과시킵니다.
+5. `ai_seal.py brief <무리 id>` 로 재풀이를 받고, 노트와 카드를 서명한 뒤 봉인합니다(7절).
 
 뼈대는 강의의 입력 조건과 호출 순서를 확인한 뒤 이 트랙의 예제로 씁니다. 변수 이름만 바꾼 것을 새 설명이나 독립 계산으로 세지 않습니다. 겹침 검사에서 같은 줄이 나오면 원문과 문맥을 직접 대조합니다. `loss.backward()`, `optimizer.step()`, `model.eval()`, `with torch.no_grad():`만으로 이뤄진 세 줄은 공통 호출 순서로 봅니다. 이 경우에도 코드 120자 전체 일치와 직접 쓴 계산이 포함된 세 줄, 산문 검사는 유지합니다. 예제의 변수 이름이 원문과 다르면 학습 노트에서 한 문장으로 밝힙니다.
 
@@ -238,9 +260,10 @@ def linear_params(r):
 ```
 
 - 코드 예제마다 `situation` 과 `lines` 를 둡니다. `situation` 은 가이드 말투 한두 문장이고 그 코드 예제로 만든 카드 지문의 첫 줄이 됩니다. `lines` 는 들여쓰기 4칸이고 주석, 탭, `____` 를 넣지 않습니다. 줄 번호는 0부터 셉니다.
-- slot(`pc-k01`)은 코드 예제 전체를 보이고 그 자리를 가린 코드 빈칸, order(`pc-o01`)는 줄 순서 고르기, pick(`pc-p01`)은 그 자리에 맞는 줄 고르기, change(`pc-x01`)는 from 코드 예제를 to 코드 예제로 바꿀 때 고칠 줄을 모두 고르는 문항입니다.
+- 아래 id 는 개론 무리 예이고 응용 무리는 `apc-k01` 처럼 씁니다. slot(`pc-k01`)은 코드 예제 전체를 보이고 그 자리를 가린 코드 빈칸, order(`pc-o01`)는 줄 순서 고르기, pick(`pc-p01`)은 그 자리에 맞는 줄 고르기, change(`pc-x01`)는 from 코드 예제를 to 코드 예제로 바꿀 때 고칠 줄을 모두 고르는 문항입니다.
 - 모든 카드에 `facts`, `step`, `level`, `ref`, `explain` 을 적습니다. `level` 과 `ref` 는 머리에서 물려받지 않고, `tags` 와 `prio` 는 적지 않으면 머리 값을 씁니다. 첫 ref 는 그 줄을 가르친 강의 슬라이드·노트북·과제·강의노트나 요약본입니다.
 - slot 의 `token` 은 그 코드 예제 전체에서 한 번만 나와야 합니다. slot 문항은 코드 예제 전체를 보여서 같은 토큰이 다른 줄에 있으면 그 줄에서 답을 옮겨 쓸 수 있습니다. 두 번 나오는 토큰(`to`, `item`, `size`)은 pick 으로 묻습니다. `answer` 첫째는 `token` 과 같고, `line_answer` 첫째는 들여쓰기를 뺀 그 줄입니다. 같은 코드 예제 자리끼리 답이 겹치면 함께 가렸을 때 칸을 구별할 수 없어 실패입니다.
+- 코드 예제에 `figures` 로 입력·결과 그림을 적을 수 있습니다(`{"input": "learn/al18/assets/a18a-1.png", "output": "..."}`). 엔진은 이 값을 연습 화면 값에만 넘기고 카드에는 넣지 않습니다. 파일이 없으면 `verify_ai.py` 가 실패합니다.
 - order 의 `valid` 는 `lines` 안 위치의 순열 목록이고 코드 예제 순서(`[0, 1, 2, 3, 4]`)를 꼭 넣습니다. 오답 보기는 엔진이 valid 하나에서 이웃 두 줄을 바꾸거나 한 줄을 옮겨 만듭니다.
 - pick 의 `wrong` 에는 오답 보기 세 개를 적고 보기마다 `text`, `aim`(노리는 착각), `why`(바른 설명)를 둡니다.
 - change 의 정답은 두 코드 예제를 difflib 로 견줬을 때 다른 줄이라 두 코드 예제는 다른 줄이 둘 이상이어야 합니다. `back` 에 반대 방향 지문을 적으면 묶음 안에서 다시 낼 때 반대 방향으로 냅니다.
@@ -248,7 +271,7 @@ def linear_params(r):
 
 slot 카드가 나올 때 엔진은 같은 코드 예제의 열린 자리 상자 평균으로 함께 가릴 자리 수(0~3)를 정하고, 상자가 낮은 자리부터 함께 가립니다. 함께 가린 칸을 틀리면 그 자리 카드가 다음 학습일 복습에 나옵니다. 함께 가릴 자리 수가 3 이고 주 자리 상자가 4 이상이면 `line_answer` 가 있는 줄은 줄 전체를 가립니다. 그래서 `line_answer` 에는 같은 동작을 하는 다른 꼴을 모두 적습니다.
 
-CNN의 특징 수처럼 숫자를 바꿔 계산하는 문항은 `items/pc/gens.py`에 `pc-g01` 같은 ID로 등록합니다. 차시 생성기와 같은 필드를 쓰고 `unit`과 `step`은 해당 상황별 단원에 연결합니다. `meta.json`의 단원별 `gen` 목록에도 넣습니다. 코드 자리의 답을 숫자로 바꾸어 만들지 않습니다. 독립 계산 함수는 `oracle.py`에 두고 공개 지문 재풀이와 300개 시드 대조를 거칩니다. 이 문항도 단원을 읽은 뒤 열리며 권장 차시의 문제집과 상황별 오답 노트에 함께 나옵니다.
+CNN의 특징 수처럼 숫자를 바꿔 계산하는 문항은 무리 문항 폴더의 `gens.py`(개론 `items/pc/gens.py`)에 `pc-g01` 같은 ID로 등록합니다. 차시 생성기와 같은 필드를 쓰고 `unit`과 `step`은 해당 상황별 단원에 연결합니다. `meta.json`의 단원별 `gen` 목록에도 넣습니다. 코드 자리의 답을 숫자로 바꾸어 만들지 않습니다. 독립 계산 함수는 `oracle.py`에 두고 공개 지문 재풀이와 300개 시드 대조를 거칩니다. 이 문항도 단원을 읽은 뒤 열리며 권장 차시의 문제집과 상황별 오답 노트에 함께 나옵니다.
 
 ## 5. 사실 확인(facts.json)
 
@@ -294,10 +317,10 @@ python3 tools/ai_seal.py seal [i05 ...] [--keep]          work/ → sealed.json
 python3 tools/ai_seal.py unseal i05                       sealed.json → work/
 python3 tools/ai_seal.py check                            평문이 남았거나 봉인이 깨졌으면 실패
 python3 tools/ai_seal.py brief i05 --out DIR              재풀이용 문제지(sheet.md, cloze.md)와 빈 답안(answers.json), 저장소 밖에만
-python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, whole.md, skel.md)와 빈 답안·노트 답안
+python3 tools/ai_seal.py brief pc --out DIR               상황별 코드 문제지(sheet.md, whole.md, skel.md)와 빈 답안·노트 답안(응용은 apc)
 python3 tools/ai_seal.py levels l04 [l05 ...] --out DIR   세 수준 블록 재풀이 공개본(블록마다 0_step.md 와 수준 파일 셋)과 빈 답안 levels_answers.json
 python3 tools/verify_ai.py [i05 a01 ...]               문항 꼴, 빈칸 규칙, 객관식, 문장, 생성기 300 시드, 사실 확인, 노트 블록, 근거, 말투, 그림
-python3 tools/verify_ai.py pc                             상황별 코드. 위 검사에 더해 뼈대(코드 예제, 자리, 순서 300 시드, 알맞은 코드 줄 선택, 고칠 줄 300 시드)
+python3 tools/verify_ai.py pc                             상황별 코드(응용은 apc). 위 검사에 더해 뼈대(코드 예제, 자리, 순서 300 시드, 알맞은 코드 줄 선택, 고칠 줄 300 시드)
 python3 tools/verify_ai.py i05 --answers DIR/answers.json 재풀이 답안을 채점
 python3 tools/verify_ai.py --levels-answers DIR/levels_answers.json   세 수준 물음 재풀이 답안을 채점(문항 재풀이와 따로 셈)
 python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 2" --checker "대조 3" --reviewer "검토 4" \
@@ -308,13 +331,13 @@ python3 tools/verify_ai.py --require-review               문항 묶음·모의�
 python3 tools/verify_web.py --bank ai --total-mb 32 l05 --require-review   학습 노트 형식·그림과 기존 서명 확인
 python3 tools/web_lint.py --bank ai --no-external         학습 노트 말투와 맥락(낱말을 쓰기 전에 소개)
 python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l05 i05   강의 글 겹침(출제자 컴퓨터에서만, PDF 는 pypdf)
-python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l18       l18·pc·S1 가운데 하나만 줘도 l18, 뼈대 전부, items/pc 를 모든 차시 강의와 견줌
+python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l18       l18·pc·S1 가운데 하나만 줘도 그 무리의 노트, 뼈대 폴더, 문항 폴더(items/<무리 id>)를 모든 차시 강의와 견줌(응용은 al18·apc·S101)
 python3 tools/verify_ai.py --sources "$AI_LECTURE_DIR"    강의 폴더 sha256 을 facts.json 과 견줌
 python3 tools/verify_ai.py --overrides                    [내 답도 맞음] 답 모아 보기
 python3 tools/verify_ai.py --leeches                      자주 틀리는 문항 모아 보기
 ```
 
-상황별 코드는 학습 노트 l18 을 `verify_web.py --bank ai --total-mb 32 l18 --sign …` 로, 카드를 `verify_ai.py pc --sign …` 으로 따로 서명합니다. pc 서명은 `ai/patterns/*.json` 을 모두 덮어서 뼈대를 더하거나 고치면 pc 를 다시 재풀이·대조·검토하고 서명합니다.
+상황별 코드는 학습 노트 l18 을 `verify_web.py --bank ai --total-mb 32 l18 --sign …` 로, 카드를 `verify_ai.py pc --sign …` 으로 따로 서명합니다. 무리 서명은 그 무리 뼈대 폴더의 `*.json` 만 덮습니다. pc 서명은 `ai/patterns/*.json`(맨 위)을, apc 서명은 `ai/patterns/apc/*.json` 을 덮습니다. 맨 위 폴더에 파일을 더하거나 고치면 pc 를 다시 재풀이·대조·검토하고 서명합니다. 응용 뼈대를 맨 위 폴더에 두면 pc 서명이 깨지므로 하위 폴더에만 둡니다.
 
 서명은 글 파일(.py, .json, .md)을 줄 끝 LF 로 읽어 해시를 세므로 Windows 에서 받아도 맞습니다. 봉인은 내용을 바꾸지 않아 봉인 앞뒤로 서명이 맞습니다. 서명 뒤에 한 글자라도 고치면 `--require-review` 가 떨어지고, 바뀐 카드를 다시 재풀이·대조·검토한 뒤 다시 서명합니다.
 
@@ -332,7 +355,7 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 1. 출제가 factcheck·차시 분석·요약본·코드 보충을 읽고 쓸 사실을 facts.json 에 옮깁니다. 새 사실은 대조가 판정한 뒤에만 넣습니다.
 2. 출제가 work/ 평문으로 노트·문항·생성기·그림을 쓰고 verify_web, web_lint, verify_ai, ai_overlap 을 통과시킵니다.
 3. `ai_seal.py brief` 로 만든 공개본을 재풀이에게 넘깁니다. 재풀이는 answers.json 과 oracle.py, 걸린 시간, 막힌 곳을 돌려줍니다. 문제지는 주제 문장을 섞은 순서로 꼬리표(`i05-t01-3`)만 붙여 보여 주고, 빈칸판은 참 문장에만 있어서 cloze.md 로 따로 뺍니다. 재풀이는 문장 판정을 모두 적은 뒤에 cloze.md 를 엽니다.
-   상황별 코드 공개본은 l18을 읽기 전에 sheet.md부터 풉니다. 순서·줄·고칠 줄 고르기의 첫 답을 저장한 뒤 whole.md를 엽니다. whole.md에는 코드 예제마다 모든 자리를 함께 가린 코드가 있습니다. 이 답도 저장한 뒤 skel.md의 부분 빈칸 견본을 풉니다. 앞에서 기록한 답은 고치지 않습니다. 코드 한 줄을 받는 칸은 그 입력 범위를 표시합니다. first_pass는 sheet.md와 whole.md의 첫 답으로 셉니다. 노트 물음은 note-answers.json에 별도로 적고 검토자가 본문과 대조합니다.
+   상황별 코드 공개본은 그 무리의 노트(l18, al18)를 읽기 전에 sheet.md부터 풉니다. 순서·줄·고칠 줄 고르기의 첫 답을 저장한 뒤 whole.md를 엽니다. whole.md에는 코드 예제마다 모든 자리를 함께 가린 코드가 있습니다. 이 답도 저장한 뒤 skel.md의 부분 빈칸 견본을 풉니다. 앞에서 기록한 답은 고치지 않습니다. 코드 한 줄을 받는 칸은 그 입력 범위를 표시합니다. first_pass는 sheet.md와 whole.md의 첫 답으로 셉니다. 노트 물음은 note-answers.json에 별도로 적고 검토자가 본문과 대조합니다.
    세 수준 블록은 `ai_seal.py levels` 공개본으로 따로 풉니다. 블록 폴더마다 0_step.md 를 읽고, 1_l7.md 의 물음 답을 levels_answers.json 에 적은 뒤에 2_l15.md 를 열고, 같은 방식으로 3_l20.md 까지 갑니다. page.md 는 블록 JSON 에 정답이 있어 열지 않습니다. 결과는 학습 노트 서명의 `--finding` 에 적습니다.
 4. 대조가 `verify_ai.py --answers` 로 채점하고 틀린 카드마다 원인을 하나로 정합니다(정답 틀림, 두 가지로 읽힘, 받는 답 빠짐, 공정한 함정, oracle 불일치).
 5. 검토가 아래 체크 목록을 보고, 새로 걸린 말투 문장은 `tools/check_style.py` 패턴에 더합니다.
@@ -391,7 +414,7 @@ python3 tools/verify_ai.py --leeches                      자주 틀리는 문�
 - 같은 `family` 는 한 묶음에 하나만 나오고, 외운 문항 수도 family 로 셉니다.
 - 같은 `confuse` 태그의 카드는 가능하면 사이에 한 문항을 두고 배치합니다.
 - 문장 카드는 상자 1 까지 객관식, 상자 2 부터 빈칸판으로 나옵니다.
-- 상황별 코드 카드는 그 단원을 읽어야 열립니다. 차시 풀기에서는 index.json patterns 의 `after` 차시 문제집에 함께 들어갑니다.
+- 상황별 코드 카드는 그 단원을 읽어야 열립니다. 차시 풀기에서는 index.json patterns 의 `after` 차시 문제집에 함께 들어갑니다. `after` 는 같은 과정의 차시라 응용 무리 카드는 응용 차시 문제집에만 들어갑니다.
 - 하루 새 카드 상한과 오늘 목표 단원은 기본으로 꺼 두었습니다(학습자가 문제집을 원하는 만큼 풂). 켜려면 `aiprep/service.py` 의 `NEW_PER_DAY`, `DAILY_GOAL` 을 바꿉니다.
 
 <a id="모의고사를-검증합니다"></a>

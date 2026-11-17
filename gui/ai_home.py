@@ -86,7 +86,8 @@ class AiHomePage(QWidget):
         patterns = QWidget()
         root = kit.box(patterns, spacing=theme.GAP["description_content"])
         head, _, self.pattern_count = kit.section(ai_text.CODING_TITLE)
-        root.addWidget(kit.heading(head, kit.para("학습·평가·분류에 쓰는 코드를 읽고 빈칸과 실행 순서를 연습합니다.", "caption", "secondary")))
+        self.pattern_about = kit.para(ai_text.CODING_ABOUT["intro"], "caption", "secondary")
+        root.addWidget(kit.heading(head, self.pattern_about))
         self.pattern_section = QWidget()
         pattern_box = kit.box(self.pattern_section)
         self.pattern_list = kit.RowList()
@@ -265,7 +266,8 @@ class AiHomePage(QWidget):
     def show_patterns(self, overview):
         """상황별 코드 구역. 공개된 단원은 한 줄(제목은 단원 이름 "학습 루프 · 미니배치 학습 한 에폭", 점은 읽음 체크·안 읽음 빈 원),
         준비 중 단원은 끝의 글자 단추로 접음. 무리를 읽지 못했으면 그 무리 줄은 그리지 않고 띠가 까닭을 알림(차시와 같음).
-        그릴 줄이 없으면 구역을 숨김."""
+        그릴 줄이 없으면 구역을 숨김. 구역 설명은 고른 과정을 따름."""
+        self.pattern_about.setText(ai_text.CODING_ABOUT.get(overview.get("course"), ai_text.CODING_ABOUT["intro"]))
         self.pattern_list.clear()
         waiting = []
         for group in overview["patterns"]:

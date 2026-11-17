@@ -46,24 +46,25 @@ def card_note(events, read_day=None):
             "at": last_at, "mock": mock}
 
 
-def group_title(card, lessons, mocks, patterns_title=CODING_TITLE):
-    """카드가 들어갈 묶음 제목과 정렬 키. 모의고사 카드는 그 회차, 상황별 코드 카드는 한 묶음, 나머지는 차시."""
+def group_title(card, lessons, mocks, patterns_title=CODING_TITLE, patterns=()):
+    """카드가 들어갈 묶음 제목과 정렬 키. 모의고사 카드는 그 회차, 상황별 코드 카드는 무리마다 한 묶음(정렬 키 (2, 무리 id)), 나머지는
+    차시. patterns 는 세션의 무리 id 들이고, 주지 않아도 pc 카드는 지금처럼 코딩 실습 묶음으로 봄."""
     cid = card["id"]
     if card.get("kind") == "mock" or cid.startswith("m"):
         mid = cid.split("-")[0]
         mock = mocks.get(mid, {})
         return mock.get("title", mid), (0, mid)
-    if cid.startswith("pc-"):
-        return patterns_title, (2, "pc")  # 상황별 코드 카드는 한 묶음(카드 id 를 키로 두면 카드마다 묶음이 갈림)
+    if cid.startswith("pc-") or card.get("lesson") in patterns:
+        return patterns_title, (2, card.get("lesson") or "pc")  # 무리마다 한 묶음(카드 id 를 키로 두면 카드마다 묶음이 갈림)
     lesson = lessons.get(card.get("lesson"), {})
     prefix = "응용 " if lesson.get("course") == "app" else ""
     return "%s%d차시 %s" % (prefix, lesson.get("no", 0), lesson.get("title", "")), (1, lesson.get("no", 0))
 
 
-def wrong_notes(events, cards, read_days, lessons, mocks, leeches=(), mock_order=()):
+def wrong_notes(events, cards, read_days, lessons, mocks, leeches=(), mock_order=(), patterns=()):
     """오답 노트 묶음과 갈래 수. events 는 review.card_events 결과, cards 는 {카드 id: 카드}(모의고사 카드는 kind "mock"),
     read_days 는 {카드 id: 그 단원을 처음 읽은 학습일}, lessons·mocks 는 {id: index 항목}, leeches 는 자주 틀리는 카드 id,
-    mock_order 는 최근에 낸 회차부터의 id 목록. 돌려주는 값 ([{"title", "items"}], {"wrong", "skipped", "fixed"})."""
+    mock_order 는 최근에 낸 회차부터의 id 목록, patterns 는 세션의 무리 id 들. 돌려주는 값 ([{"title", "items"}], {"wrong", "skipped", "fixed"})."""
     groups, counts = {}, {state: 0 for state in STATES}
     rank = {mid: n for n, mid in enumerate(mock_order)}
     leeches = set(leeches)
@@ -75,7 +76,7 @@ def wrong_notes(events, cards, read_days, lessons, mocks, leeches=(), mock_order
         if note["state"] is None:
             continue
         counts[note["state"]] += 1
-        title, order = group_title(card, lessons, mocks)
+        title, order = group_title(card, lessons, mocks, patterns=patterns)
         if order[0] == 0:
             order = (0, rank.get(order[1], len(rank)), order[1])
         if order[0] == 1:

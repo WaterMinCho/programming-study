@@ -66,6 +66,7 @@ def visible_text(widget):
 class AiTest(unittest.TestCase):
     real_bank = False
     pc = False  # 참이면 상황별 코드(뼈대 S90, 노트 l18, 묶음 pc)를 더한 고정 은행 사본을 씀
+    apc = False  # 참이면 pc 에 응용 무리(뼈대 patterns/apc/S190, 노트 al18, 묶음 apc)를 더한 사본을 씀
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="gui_ai_")
@@ -75,7 +76,10 @@ class AiTest(unittest.TestCase):
                    (runner, "CACHE_DIR", os.path.join(self.tmp, "cache")), (journey_bank, "BANK_DIR", JOURNEY_FIXTURE),
                    (web_bank, "BANK_DIR", WEB_FIXTURE), (stack, "find_node", lambda saved=None, probe=False: FAKE_NODE),
                    (service, "now", lambda: self.clock), (service.secrets, "randbelow", lambda n: 7)]  # 묶음 시드를 고정함
-        if self.pc:
+        if getattr(self, "apc", False):  # setUp 만 빌려 쓰는 클래스에는 apc 속성이 없음
+            self.root = aifix.apc_bank(os.path.join(self.tmp, "ai_bank"))
+            patches.append((ai_bank, "AI_DIR", self.root))
+        elif self.pc:
             self.root = aifix.pc_bank(os.path.join(self.tmp, "ai_bank"))
             patches.append((ai_bank, "AI_DIR", self.root))
         elif not self.real_bank:
@@ -429,6 +433,7 @@ class TextTest(unittest.TestCase):
         unit = {"after_no": 6, "read": False, "minutes": 6, "memorised": 0, "families": 8, "due": 0}
         self.assertEqual(ai_text.pattern_line(unit), "6차시 뒤에 권함 · 약 6분")
         self.assertEqual(ai_text.pattern_line(dict(unit, read=True, due=2)), "6차시 뒤에 권함 · 읽기 마침 · 복습 확인 전 · 전체 8묶음 · 복습 2문항")
+        self.assertEqual(ai_text.pattern_line(dict(unit, after="a04", after_no=4)), "응용 4차시 뒤에 권함 · 약 6분")
         self.assertEqual(ai_text.diff_caption(2, 13), "다른 줄 2개 · 같은 줄 13개")
         self.assertEqual(ai_text.also_line([1, 3]), "①·③ 칸은 틀렸습니다. 그 칸을 묻는 문항이 내일 복습에 나옵니다.")
         self.assertEqual(ai_text.card_head({"kind": "skel", "head": "opt.____()"}, None), "opt.____()")

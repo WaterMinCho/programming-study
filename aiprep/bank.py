@@ -30,6 +30,7 @@ UNIT_KEY = re.compile(r"(a?\d{1,2})([a-i])\Z")
 CARD_ID = re.compile(r"(?:[ia]\d{2}|pc|m\d{1,2})-[a-z]\d{2,3}\Z")
 COURSES = {"intro": "AI 개론", "app": "AI 응용"}
 CODING_TITLE = "코딩으로 실전학습하기"
+PATTERN_FOLDER = re.compile(r"[a-z][a-z0-9]*\Z")  # index.json patterns 의 folder(ai/patterns 아래 하위 폴더 이름)
 
 
 def course_of(lid):
@@ -107,7 +108,8 @@ def read_review_variants(root=None):
 # index.json, terms.json, retired.json
 
 def read_index(root=None):
-    """index.json 을 {"pages", "order", "exam", "lessons", "patterns", "mocks"} 로. 날짜는 글 그대로 둠(review.exam_dates 로 바꿈)."""
+    """index.json 을 {"pages", "order", "exam", "lessons", "patterns", "mocks"} 로. 날짜는 글 그대로 둠(review.exam_dates 로 바꿈).
+    patterns 항목은 course(적지 않으면 id 로 정함, id 와 다르면 오류)와 folder(적지 않으면 "" 이고 뼈대가 patterns 맨 위에 있음)를 가짐."""
     root = root or AI_DIR
     try:
         web = webbank.read_index(root)
@@ -131,8 +133,15 @@ def read_index(root=None):
         for item in data.get("patterns") or []:
             units = {str(k): {"after": str((v or {}).get("after", "")), "name": str((v or {}).get("name", ""))}
                      for k, v in (item.get("units") or {}).items()}
-            patterns.append({"id": str(item["id"]), "page": str(item["page"]), "title": str(item.get("title", CODING_TITLE)),
-                             "units": units})
+            gid = str(item["id"])
+            course = str(item.get("course") or course_of(gid))
+            if course not in COURSES or course != course_of(gid):
+                raise ValueError("patterns 의 course %r" % course)
+            folder = str(item.get("folder") or "")
+            if folder and not PATTERN_FOLDER.fullmatch(folder):
+                raise ValueError("patterns 의 folder %r" % folder)
+            patterns.append({"id": gid, "page": str(item["page"]), "title": str(item.get("title", CODING_TITLE)),
+                             "units": units, "course": course, "folder": folder})
         mocks = []
         for item in data.get("mocks") or []:
             mid = str(item["id"])
@@ -199,10 +208,11 @@ def is_ready(lesson, root=None):
 
 
 def pattern_ready(group, root=None):
-    """상황별 코드 무리가 출제됐는지. 학습 노트 meta.json, items/<무리 id>/meta.json, 봉인(또는 평문 작업본), patterns 폴더의
-    S*.json 하나 이상이 모두 있어야 함."""
+    """상황별 코드 무리가 출제됐는지. 학습 노트 meta.json, items/<무리 id>/meta.json, 봉인(또는 평문 작업본), 무리 뼈대 폴더
+    (folder 가 없으면 patterns 맨 위, 있으면 patterns/<folder>)의 S*.json 하나 이상이 모두 있어야 함."""
     try:
-        skeletons = [n for n in os.listdir(os.path.join(root or AI_DIR, "patterns")) if re.match(r"S\d+\.json\Z", n)]
+        folder = os.path.join(root or AI_DIR, "patterns", group.get("folder") or "")
+        skeletons = [n for n in os.listdir(folder) if re.match(r"S\d+\.json\Z", n)]
     except OSError:
         skeletons = []
     return (bool(skeletons) and os.path.isfile(os.path.join(page_dir(group["page"], root), "meta.json"))

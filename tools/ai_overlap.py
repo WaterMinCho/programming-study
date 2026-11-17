@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 글이 강의 글을 옮기지 않았는지 보는 겹침 검사(설계 8.8, 부록 A.5). 출제자 컴퓨터에서만 돌림(강의 자료는 저장소 밖).
 
-  python tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" [l05 i05 m1 l18 pc S1 ...] [--no-pdf]
+  python tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" [l05 i05 m1 l18 pc S1 apc ...] [--no-pdf]
 
 강의 폴더는 인자나 환경 변수 AI_LECTURE_DIR 로만 받고 저장소에 적지 않음. 말뭉치는 대상 차시와 앞뒤 한 차시 폴더의 노트북
 (markdown·code 셀, 출력 제외), docx, PDF 와 맨 위의 요약본·LectureNote.docx·대학원_강의안 전부. PDF 는 pypdf 로 읽고 pypdf 가
@@ -11,9 +11,10 @@
 실패: 산문에서 한글 10자 이상을 포함한 20자 이상 같은 구간, 코드에서 공백을 뺀 120자 이상 같은 구간이나 10자 넘는 줄 셋이 이어
 같은 곳. 14~19자 근접 구간은 10개까지 검토자에게 보임. 결과에는 우리 글 쪽 위치와 앞 30자만 적고 강의 글은 찍지 않음.
 대상은 학습 노트(글, 캡션, 프레임 줄, ai-* 블록 글), 문항(지문, 보기, why, 해설), 문장, facts.json 의 text, 생성기 견본 5개, 모의고사,
-상황별 코드 뼈대(ai/patterns/S*.json 의 판 줄과 고르기 오답 줄은 코드, 상황·지문·해설·why·aim·hint 는 산문)와 items/pc 의
-facts·errata 글과 공개 단원의 생성기 견본. 뼈대는 노트북 원문을 옮기지 않고 같은 API 를 이 트랙 이름(x, y, out, loader)으로 써서 겹침 규칙을 면제 없이
-통과시킴. 대상에 l18·pc·S1 가운데 하나라도 있으면 l18 노트, 뼈대 전부, items/pc 가 함께 대상이 되고 말뭉치에 모든 차시 폴더를 넣음.
+상황별 코드 뼈대(무리 뼈대 폴더의 S*.json 에서 코드 예제 줄과 고르기 오답 줄은 코드, 상황·지문·해설·why·aim·hint 는 산문)와
+items/<무리 id> 의 facts·errata 글과 공개 단원의 생성기 견본. 뼈대는 노트북 원문을 옮기지 않고 같은 API 를 이 트랙 이름(x, y, out, loader)으로 써서
+겹침 규칙을 면제 없이 통과시킴. 대상에 무리 id(pc, apc), 그 노트 id(l18, al18), 그 무리 폴더의 뼈대 id(S1, S101) 가운데 하나라도 있으면
+그 무리의 노트, 뼈대 폴더, items/<무리 id> 가 함께 대상이 되고 말뭉치에 모든 차시 폴더를 넣음. 다른 과정 무리는 넣지 않음.
 """
 import argparse
 import json
@@ -36,7 +37,18 @@ COMMON_TRAINING_LINES = frozenset(("loss.backward()", "optimizer.step()", "model
 GEN_SAMPLES = 5
 HANGUL = re.compile("[가-힣]")
 FENCE = re.compile(r"^\s*(```|~~~)\s*([\w-]*)\s*$")
-PATTERN_TARGET = re.compile(r"(l18|pc|S\d+)\Z")
+
+
+def pattern_groups(bank_dir, index, wanted):
+    """대상이 가리키는 상황별 코드 무리 목록. 무리 id, 그 무리 노트 id, 그 무리 폴더의 뼈대 id 가운데 하나가 대상에 있으면 그 무리를
+    고름. 대상이 없으면 모든 무리."""
+    out = []
+    for group in index.get("patterns") or []:
+        folder = os.path.join(bank_dir, "patterns", group.get("folder") or "")
+        names = {n[:-5] for n in os.listdir(folder) if re.match(r"S\d+\.json\Z", n)} if os.path.isdir(folder) else set()
+        if not wanted or {group["id"], group["page"]} & set(wanted) or names & set(wanted):
+            out.append(group)
+    return out
 
 
 def prose_norm(text):
@@ -169,14 +181,19 @@ def _strings(value):
             yield from _strings(item)
 
 
-def pattern_targets(bank_dir, index):
-    """상황별 코드 대상 [(어디, 산문, 코드)]. 뼈대 파일마다 판 줄·오답 줄(코드)과 글(산문), 무리 문항 폴더의 facts·errata 글."""
+def pattern_targets(bank_dir, index, groups=None):
+    """상황별 코드 대상 [(어디, 산문, 코드)]. 고른 무리(없으면 모든 무리)마다 그 무리 뼈대 폴더의 파일별 코드 예제 줄·오답 줄(코드)과
+    글(산문), 무리 문항 폴더의 facts·errata 글. 무리를 적지 않은 은행은 patterns 맨 위 뼈대만 봄."""
     out = []
-    folder = os.path.join(bank_dir, "patterns")
-    for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
-        if not re.match(r"S\d+\.json\Z", name):
-            continue
-        data = json.loads(study.read_text(os.path.join(folder, name)))
+    groups = list(index.get("patterns") or []) if groups is None else groups
+    folders = list(dict.fromkeys(g.get("folder") or "" for g in groups)) if index.get("patterns") else [""]
+    files = []
+    for sub in folders:
+        folder = os.path.join(bank_dir, "patterns", sub)
+        files += [((sub + "/" if sub else "") + name, os.path.join(folder, name))
+                  for name in (sorted(os.listdir(folder)) if os.path.isdir(folder) else []) if re.match(r"S\d+\.json\Z", name)]
+    for name, path in files:
+        data = json.loads(study.read_text(path))
         for vname, variant in (data.get("variants") or {}).items():
             out.append(("patterns/%s %s 판" % (name, vname), str(variant.get("situation") or ""), "\n".join(variant.get("lines") or [])))
         for key in ("slots", "orders", "picks", "changes"):
@@ -188,7 +205,7 @@ def pattern_targets(bank_dir, index):
                         code.append(str(wrong.get("text") or ""))
                         prose += [str(wrong.get("why") or ""), str(wrong.get("aim") or "")]
                 out.append(("patterns/%s %s" % (name, entry.get("id")), "\n".join(p for p in prose if p), "\n".join(code)))
-    for group in index.get("patterns") or []:
+    for group in groups:
         idir = aibank.items_dir(group["id"], bank_dir)
         if not os.path.isfile(os.path.join(idir, "meta.json")):
             continue
@@ -210,13 +227,14 @@ def pattern_targets(bank_dir, index):
 
 
 def targets(bank_dir, wanted):
-    """[(어디, 산문, 코드)]. wanted 는 lNN·iNN·mN·pc·SN 목록(없으면 전부). l18·pc·SN 가운데 하나라도 있으면 l18 노트와 상황별 코드
-    대상 전부."""
+    """[(어디, 산문, 코드)]. wanted 는 lNN·iNN·mN·무리 id·무리 노트 id·SN 목록(없으면 전부). 무리 id(pc, apc), 그 노트 id(l18, al18),
+    그 무리 폴더의 뼈대 id 가운데 하나라도 있으면 그 무리의 노트와 상황별 코드 대상만 넣음."""
     out = []
     index = aibank.read_index(bank_dir)
-    patterns = not wanted or any(PATTERN_TARGET.match(t) for t in wanted)
+    groups = pattern_groups(bank_dir, index, wanted)
+    patterns = not wanted or bool(groups)
     pages = [p["id"] for p in index["pages"] if not wanted or p["id"] in wanted
-             or ("i" + p["id"][1:]) in wanted or (patterns and p["id"] in [g["page"] for g in index["patterns"]])]
+             or ("i" + p["id"][1:]) in wanted or (patterns and p["id"] in [g["page"] for g in groups])]
     for pid in pages:
         path = os.path.join(aibank.page_dir(pid, bank_dir), "page.md")
         if os.path.isfile(path):
@@ -257,7 +275,7 @@ def targets(bank_dir, wanted):
             prose, code = split_markdown("\n".join(texts))
             out.append(("%s %s" % (mock["id"], item.get("id")), prose, code))
     if patterns:
-        out += pattern_targets(bank_dir, index)
+        out += pattern_targets(bank_dir, index, groups)
     return out
 
 
@@ -316,7 +334,7 @@ def overlaps(our, lecture):
 def main(argv=None, out=None):
     out = out or sys.stdout
     parser = argparse.ArgumentParser(prog="ai_overlap.py")
-    parser.add_argument("targets", nargs="*", help="lNN·iNN·mN (없으면 전부)")
+    parser.add_argument("targets", nargs="*", help="lNN·iNN·mN·무리 id(pc, apc) (없으면 전부)")
     parser.add_argument("--lecture", default=os.environ.get("AI_LECTURE_DIR"))
     parser.add_argument("--bank", default=aibank.AI_DIR)
     parser.add_argument("--no-pdf", action="store_true")
@@ -335,10 +353,11 @@ def main(argv=None, out=None):
             print("PDF 를 읽을 pypdf 가 없습니다. 출제자 컴퓨터의 /opt/homebrew/bin/python3 로 돌리거나 --no-pdf 로 PDF 를 건너뛰세요.", file=out)
             return 1
     numbers = sorted({int(t[1:]) for t in opts.targets if re.match(r"[il]\d{2}\Z", t)})
-    if any(PATTERN_TARGET.match(t) for t in opts.targets):
+    bank_dir = os.path.abspath(opts.bank)
+    if opts.targets and pattern_groups(bank_dir, aibank.read_index(bank_dir), opts.targets):
         numbers = []  # 상황별 코드는 여러 차시 코드를 모으므로 모든 차시 폴더와 견줌
     lecture = corpus(lecture_dir, numbers, not opts.no_pdf)
-    ours = targets(os.path.abspath(opts.bank), opts.targets)
+    ours = targets(bank_dir, opts.targets)
     found = overlaps(ours, lecture)
     for where, head, why in found["fail"]:
         print("실패 %s: %s (%s…)" % (where, why, head), file=out)

@@ -7,9 +7,10 @@
 (STUDY_AI_HOME 으로 바꿈)에 둬서 제출에 들어가지 않음. 묶음은 secrets.randbelow 로 고른 시드 하나의 random.Random 으로 만들고
 set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 나옴. 모의고사는 제출 전 답안을 로컬에만 두고 첫 제출의 오답을 복습에 넣음.
 
-상황별 코드(index.json patterns, 무리 id pc)는 학습 노트(l18), 사실·검토 기록과 수치 생성기(items/pc)를 가짐. 코드 카드는
-ai/patterns/S*.json 뼈대에서 skel.cards 가 만듦. 카드 lesson 은 무리 id, after 는 권하는 차시이고, 차시를 묻는 곳(정렬, 무게,
-차시 풀기)은 after 차시를 씀. 단원 이름은 unit_name 한 규칙("5차시 · 단원 제목", "학습 루프 · 단원 제목")을 모든 화면값이 씀.
+상황별 코드(index.json patterns, 개론 무리 pc·응용 무리 apc)는 학습 노트(l18·al18), 사실·검토 기록과 수치 생성기(items/<무리 id>)를
+가짐. 세션은 자기 과정의 무리만 싣고 그 무리 뼈대 폴더(folder 가 없으면 ai/patterns 맨 위)만 읽음. 과정에 무리가 없으면 맨 위 폴더를
+읽어 예전 미완료 묶음 fingerprint 를 지킴. 코드 카드는 뼈대에서 skel.cards 가 만듦. 카드 lesson 은 무리 id, after 는 권하는 차시이고,
+차시를 묻는 곳(정렬, 무게, 차시 풀기)은 after 차시를 씀. 단원 이름은 unit_name 한 규칙("5차시 · 단원 제목", "학습 루프 · 단원 제목")을 모든 화면값이 씀.
 """
 import copy
 import datetime
@@ -108,7 +109,9 @@ def read_note_reference(reference, root=None):
     explanatory = {"text", "figure", "diff", "code-help"}
     step = {k: data["step"][k] for k in ("no", "title", "scope", "facts")}
     step["blocks"] = [b for b in data["step"]["blocks"] if b["kind"] in explanatory]
-    skeletons = skel.load_patterns(root) if any(b["kind"] == "diff" for b in step["blocks"]) else {}
+    skeletons = {}
+    if any(b["kind"] == "diff" for b in step["blocks"]):
+        skeletons = skel.course_patterns(root, bank.read_index(root)["patterns"], bank.course_of(data["lesson"]))
     step["blocks"] = _note_blocks(unit, step, {}, skeletons)
     return dict(data, unit=unit["key"], step=step)
 
@@ -213,8 +216,8 @@ class AiSession(object):
             if os.path.isfile(os.path.join(bank.mock_dir(mid, self.root), "meta.json")) and not any(m["id"] == mid for m in accepted_mocks):
                 pending_mocks.setdefault(mid, "혼합 모의고사의 문항 검토와 목록 연결을 준비하고 있습니다.")
         self.index["lessons"] = [e for e in self.index["lessons"] if e["course"] == course]
+        self.index["patterns"] = [g for g in self.index["patterns"] if g["course"] == course]
         if course != "intro":
-            self.index["patterns"] = []
             self.index["exam"] = {}
         self.exam = review.exam_dates(self.index["exam"])
         self.term_map = grade.term_map(self.terms)
@@ -249,10 +252,15 @@ class AiSession(object):
                     self.cards[card["id"]] = card
         self.patterns = {g["id"]: g for g in self.index["patterns"]}
         self.skeletons = {}
-        try:
-            self.skeletons = skel.load_patterns(self.root)
-        except bank.AiBankError as error:
-            self.errors["patterns"] = str(error)
+        for folder in list(dict.fromkeys(g["folder"] for g in self.index["patterns"])) or [""]:
+            try:  # 무리가 없는 과정도 맨 위 폴더를 읽어 미완료 묶음 fingerprint 를 예전과 같게 둠
+                self.skeletons.update(skel.load_patterns(self.root, folder))
+            except bank.AiBankError as error:  # 맨 위 폴더 오류는 patterns, 하위 폴더 오류는 그 폴더 무리에만 둠
+                if not folder:
+                    self.errors["patterns"] = str(error)
+                for group in self.index["patterns"]:
+                    if folder and group["folder"] == folder:
+                        self.errors[group["id"]] = str(error)
         for group in self.index["patterns"]:
             if bank.pattern_ready(group, self.root):
                 self._load_pattern(group)
@@ -265,6 +273,16 @@ class AiSession(object):
         self._mock_loaded = set()
         self._mock_exams = {}
         self._recover_mocks()
+
+    def legacy_skeletons(self):
+        """뼈대 폴더를 무리마다 나누기 전 엔진이 이 세션에 읽던 뼈대(맨 위 폴더, 못 읽으면 {}). 지금 읽는 폴더가 맨 위뿐이면 None.
+        그 전에 저장한 미완료 묶음을 복원할 때만 씀."""
+        if all(not g["folder"] for g in self.index["patterns"]):
+            return None
+        try:
+            return skel.load_patterns(self.root)
+        except bank.AiBankError:
+            return {}
 
     def resume_course(self):
         """자료는 재사용하고 다른 과정에서 바뀐 기록·연습·모의고사를 다시 읽음."""
@@ -1323,7 +1341,7 @@ class _State(object):
         return plan.pick_revisit(rows, self.revisited_today)
 
     def note_title(self, card):
-        return notes.group_title(card, self.sess.lessons, self.sess.mocks)[0]
+        return notes.group_title(card, self.sess.lessons, self.sess.mocks, patterns=self.sess.patterns)[0]
 
     def notes(self):
         if self._notes is None:
@@ -1337,7 +1355,7 @@ class _State(object):
                 if e.get("kind") == "mock_submit" and e.get("mock") not in mock_order:
                     mock_order.append(e.get("mock"))
             self._notes = notes.wrong_notes(self.events, cards, read, self.sess.lessons, self.sess.mocks, self.leeches,
-                                            mock_order)
+                                            mock_order, patterns=self.sess.patterns)
         return self._notes
 
     def _units_read_before_today(self):
@@ -1422,7 +1440,7 @@ class _State(object):
             gid = group["id"]
             note = sess.notes.get(gid)
             row = {"id": gid, "title": group["title"], "ready": note is not None,
-                   "error": sess.errors.get(gid) or sess.errors.get("patterns"), "units": []}
+                   "error": sess.errors.get(gid) or (None if group["folder"] else sess.errors.get("patterns")), "units": []}
             for key, info in group["units"].items():
                 after = sess.lessons.get(info["after"])
                 unit = {"key": key, "name": info["name"], "title": "", "label": info["name"], "after": info["after"],
@@ -2060,8 +2078,8 @@ class PracticeSet(object):
         self.ended = False
         self.card, self.draft = None, {}
 
-    def fingerprint(self, previous_refs=False):
-        """묶음 전체를 대조함. 출처 정정은 등록한 이전 ref로만 다시 계산함."""
+    def fingerprint(self, previous_refs=False, skeletons=None):
+        """묶음 전체를 대조함. 출처 정정은 등록한 이전 ref로만 다시 계산함. skeletons 를 주면 세션 뼈대 대신 그 값을 넣음."""
         def generator(value):
             if not isinstance(value, gen.GenSpec):
                 raise TypeError(type(value).__name__)
@@ -2075,7 +2093,7 @@ class PracticeSet(object):
             return {"id": value.id, "meta": value.meta, "doc": value.doc, "sources": sources}
 
         content = {"cards": [self.sess.cards[c] for c in self.stats], "terms": self.sess.terms,
-                   "skeletons": self.sess.skeletons}
+                   "skeletons": self.sess.skeletons if skeletons is None else skeletons}
         if previous_refs:
             cards, replaced = [], False
             for card in content["cards"]:
@@ -2117,9 +2135,11 @@ class PracticeSet(object):
             setattr(result, key, copy.deepcopy(saved[key]))
         if not 0 <= result.pos < len(result.queue) or any(e["card"] not in sess.cards for e in result.queue):
             raise ValueError("문항이 바뀐 묶음")
-        if saved["fingerprint"] != result.fingerprint():
-            previous = result.fingerprint(previous_refs=True)
-            if previous is None or saved["fingerprint"] != previous:
+        fingerprint = saved["fingerprint"]
+        if fingerprint not in (result.fingerprint(), result.fingerprint(previous_refs=True)):
+            legacy = sess.legacy_skeletons()  # 뼈대 폴더를 나누기 전에 저장한 묶음은 예전 뼈대 구성으로 한 번 더 대조함
+            if legacy is None or fingerprint not in (result.fingerprint(skeletons=legacy),
+                                                     result.fingerprint(previous_refs=True, skeletons=legacy)):
                 raise ValueError("문항이 바뀐 묶음")
         result.before_due = {k: datetime.date.fromisoformat(d) if d else None for k, d in saved["before_due"].items()}
         result.sure_before = set(saved["sure_before"])
@@ -2212,7 +2232,7 @@ class PracticeSet(object):
     def current(self, *, measure_input=False):
         """지금 문항. 끝났으면 None. {"card", "kind", "chips", "stem", "blanks": [{"mode", "hint"}], "options": [{"no", "text"}],
         "multi", "pick", "code", "code_options"(보기가 코드), "grid"(보기 열 수 1·2), "again", "step", "lesson", "at", "total",
-        "answered"}. chips 첫째는 자리 꼬리표(차시 "5차시", 상황별 코드는 단원 name), 둘째는 꼴."""
+        "answered"}, 뼈대 코드 예제에 그림을 적었으면 "figures": {"input", "output"}(절대 경로)도 넣음. chips 첫째는 자리 꼬리표(차시 "5차시", 상황별 코드는 단원 name), 둘째는 꼴."""
         if self.pos >= len(self.queue):
             return None
         entry = self.queue[self.pos]
@@ -2245,11 +2265,16 @@ class PracticeSet(object):
                                                      **({"input_schema": collection.AI_INPUT_SCHEMA} if measure_input else {})},
                                 item=lambda: self._collection_item(entry),
                                 key="question:%s:%d:%s:%d" % (self.id, self.pos, card["id"], entry["seed"]))
-        return {"card": card["id"], "kind": form, "chips": chips, "stem": item.get("stem", ""),
-                "blanks": [{"mode": b.get("mode") or "word", "hint": b.get("hint", "")} for b in item.get("blanks") or []],
-                "options": options, "multi": bool(item.get("multi")), "pick": item.get("pick", "right"), "code": code,
-                "code_options": bool(item.get("code_options")), "grid": int(item.get("grid") or 1), "again": entry["again"], "step": card.get("step"), "lesson": card.get('after') if card.get('mock') else card["lesson"], "at": self.pos + 1,
-                "total": len(self.queue), "answered": self.answered is not None}
+        shown = {"card": card["id"], "kind": form, "chips": chips, "stem": item.get("stem", ""),
+                 "blanks": [{"mode": b.get("mode") or "word", "hint": b.get("hint", "")} for b in item.get("blanks") or []],
+                 "options": options, "multi": bool(item.get("multi")), "pick": item.get("pick", "right"), "code": code,
+                 "code_options": bool(item.get("code_options")), "grid": int(item.get("grid") or 1), "again": entry["again"], "step": card.get("step"), "lesson": card.get('after') if card.get('mock') else card["lesson"], "at": self.pos + 1,
+                 "total": len(self.queue), "answered": self.answered is not None}
+        if card["kind"] == "skel":  # 뼈대 코드 예제의 입력·결과 그림. 적은 뼈대에서만 키가 생김
+            figures = skel.figures_of(self.sess.skeletons.get(card["pattern"]) or {}, card["variant"], self.sess.root)
+            if figures:
+                shown["figures"] = figures
+        return shown
 
     # 답하기
 
