@@ -15,7 +15,7 @@ from tests import guikit  # noqa: E402
 from PyQt6.QtCore import QBuffer, QByteArray, QEvent, QIODevice, QObject, QPoint, QSettings, Qt  # noqa: E402
 from PyQt6.QtGui import QColor, QKeyEvent, QPixmap  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QWidget  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QPushButton, QWidget  # noqa: E402
 
 from gui import dialogs, kit, theme  # noqa: E402
 from gui.docview import FigureView  # noqa: E402
@@ -28,7 +28,7 @@ V2_FILES = ("gui/kit.py", "gui/hub_page.py", "gui/web_home.py", "gui/web_mission
             "gui/journey_text.py", "gui/cases_dialog.py", "gui/docview.py", "gui/ai_home.py", "gui/ai_learn.py", "gui/ai_quiz.py",
             "gui/ai_text.py")  # 새 규칙을 따르는 파일
 WEIGHTS = {400, 700}
-TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover", "navigation", "hero", "hero_alt")
+TEXT_BACKS = ("bg", "surface", "surface_raised", "surface_alt", "hover", "navigation", "hero", "hero_alt", "emphasis_bg")
 WEAK = {"ok": "ok_weak", "retry": "retry_weak", "wrong": "wrong_weak", "info": "info_weak", "selection_ink": "selection",
         "primary_off_ink": "primary_off", "primary_ink": "primary"}
 
@@ -331,6 +331,119 @@ class PartsTest(unittest.TestCase):
         card.row.setContentsMargins(48, 16, 48, 16)
         card.arrange()
         self.assertEqual(card.row.direction(), QBoxLayout.Direction.TopToBottom)
+
+    def test_compact_next_card_uses_a_badge_a_headline_and_an_m_button(self):
+        """작은 다음 할 일 카드는 꼬리표 24, 주 단추 44, 최소 높이 108, 강조 바탕 한 색. 좁으면 단추를 글 아래로 내림."""
+        from PyQt6.QtWidgets import QBoxLayout
+        card = kit.NextCard(compact=True)
+        card.caption.setText("다음 회차")
+        card.set_item("2회차", "", "회차 시작")
+        self.box.addWidget(card)
+        self.box.addStretch(1)
+        self.show()
+        self.assertEqual((card.caption.objectName(), card.caption.text(), card.caption.height()), ("badge", "다음 회차", 24))
+        self.assertEqual(card.title.property("role"), "headline")
+        self.assertEqual(card.button.height(), theme.CONTROL["m"])
+        self.assertGreaterEqual(card.height(), 108)
+        self.assertEqual(kit.visible_primary_buttons(self.root), [card.button])
+        self.assertEqual(card.row.direction(), QBoxLayout.Direction.LeftToRight)
+        middle = card.button.geometry().center().y()
+        self.assertLessEqual(abs(middle - card.height() / 2), 1)
+        picture = self.root.grab().toImage()
+        spot = card.mapTo(self.root, QPoint(card.width() // 2, card.height() - 4))
+        self.assertTrue(guikit.near(picture.pixelColor(spot), "emphasis_bg"), picture.pixelColor(spot).name())
+        card.setFixedWidth(12 * theme.TYPE["headline"][0])
+        card.arrange()
+        self.assertEqual(card.row.direction(), QBoxLayout.Direction.TopToBottom)
+        card.set_item("끝", "", "")
+        self.assertFalse(card.button.isVisibleTo(self.root))
+
+    def test_dense_bars_are_56_and_64_with_24_side_margins(self):
+        """dense 위 막대는 56, 아래 막대는 64 이고 좌우 여백 24. 기본 막대(64·80, 여백 32)는 그대로. 더 큰 글자에서도 m 단추가 64 막대에 들어감."""
+        theme.set_text("larger")
+        tops = {dense: kit.TopBar("← 학습 현황", "파이썬 스터디", dense=dense) for dense in (False, True)}
+        for top in tops.values():
+            top.add_right(kit.button("설정", "text", "s"), flush=True)
+        bars = {dense: kit.BottomBar(dense=dense) for dense in (False, True)}
+        for bar in bars.values():
+            bar.add_action(kit.button("이전", "secondary", "m"))
+            bar.add_action(kit.button("회차 제출", "primary", "m"))
+        for widget in list(tops.values()) + list(bars.values()):
+            self.box.addWidget(widget)
+        self.show()
+        self.assertEqual((tops[False].height(), tops[True].height()), (theme.CONTROL["topbar"], theme.CONTROL["topbar_dense"]))
+        self.assertEqual((theme.CONTROL["topbar_dense"], theme.CONTROL["bottombar_dense"]), (56, 64))
+        self.assertEqual(tops[True].row.getContentsMargins(), (24 - kit.FLUSH, 0, 24 - kit.FLUSH, 0))
+        self.assertEqual(tops[False].row.getContentsMargins(), (kit.MARGIN - kit.FLUSH, 0, kit.MARGIN - kit.FLUSH, 0))
+        self.assertEqual((bars[False].height(), bars[True].height()), (theme.CONTROL["bottombar"], theme.CONTROL["bottombar_dense"]))
+        self.assertEqual(bars[True].row.getContentsMargins(), (24 - kit.FLUSH, 10, 24, 10))
+        for bar in bars.values():
+            for button in bar.actions.findChildren(QPushButton):
+                self.assertEqual(button.height(), theme.CONTROL["m"], button.text())
+                self.assertTrue(bar.rect().contains(button.geometry().translated(button.parentWidget().pos())), button.text())
+        self.assertEqual(tops[True].property("density"), "dense")
+        self.assertIsNone(tops[False].property("density"))
+
+    def test_dense_area_rounds_cards_at_8_and_outlined_text_buttons_keep_focus(self):
+        """dense 아래 카드는 모서리 8 이라 왼쪽 위 (3, 3) 이 카드 면이고 기본 카드(16)는 바탕임. 테두리 글자 단추는 border 테두리가 보이고
+        Tab 초점이 오면 초점 색으로 바뀜. 테두리 없는 글자 단추는 그 자리가 바탕임."""
+        area = kit.dense(QWidget())
+        inner = kit.box(area, spacing=8)
+        tight, _ = kit.card()
+        loose, _ = kit.card()
+        for widget in (tight, loose):
+            widget.setFixedSize(120, 60)
+        inner.addWidget(tight)
+        self.box.addWidget(area)
+        self.box.addWidget(loose)
+        outlined = kit.button("설정", "text", "s")
+        outlined.setProperty("outlined", True)
+        plain = kit.button("오답 노트", "text", "s")
+        holder = kit.button("앞 단추")  # 창이 뜨면 처음 초점이 갈 단추
+        self.box.addWidget(holder)
+        self.box.addWidget(outlined)
+        self.box.addWidget(plain)
+        self.box.addStretch(1)
+        self.show()
+        holder.setFocus()
+        guikit.pump()
+
+        def ink(widget, x, y):
+            return self.root.grab().toImage().pixelColor(widget.mapTo(self.root, QPoint(x, y)))
+
+        self.assertEqual(ink(tight, 3, 3), ink(tight, 60, 30))
+        self.assertNotEqual(ink(loose, 3, 3), ink(loose, 60, 30))
+        self.assertEqual(ink(loose, 3, 3), ink(self.root, 2, 2))
+        top = (outlined.width() // 2, 0)
+        self.assertTrue(guikit.near(ink(outlined, *top), "border"), ink(outlined, *top).name())
+        self.assertTrue(guikit.near(ink(plain, plain.width() // 2, 0), "bg"))
+        bounds = outlined.geometry()
+        outlined.setFocus(Qt.FocusReason.TabFocusReason)
+        guikit.pump()
+        self.assertTrue(outlined.hasFocus())
+        self.assertTrue(guikit.near(ink(outlined, *top), "focus"), ink(outlined, *top).name())
+        self.assertEqual(bounds, outlined.geometry())
+        later = kit.button("나중", "secondary", "m")  # 칠한 뒤에 dense 를 걸어도 아래 부품을 다시 칠함
+        self.box.addWidget(later)
+        guikit.pump()
+        kit.dense(self.root)
+        self.assertEqual(self.root.property("density"), "dense")
+        self.assertEqual(later.height(), theme.CONTROL["m"])
+
+    def test_card_head_puts_the_title_left_and_the_rest_centred_right(self):
+        card, body = kit.card()
+        action = kit.button("해설 보기", "secondary", "m")
+        row, head = kit.card_head("단원별 학습", action)
+        body.addLayout(row)
+        self.box.addWidget(card)
+        self.box.addStretch(1)
+        self.show()
+        self.assertEqual((head.text(), head.property("role")), ("단원별 학습", "headline"))
+        self.assertLess(head.geometry().right(), action.geometry().left())
+        self.assertEqual(action.geometry().right(), card.contentsRect().right() - 24)
+        self.assertLessEqual(abs(head.geometry().center().y() - action.geometry().center().y()), 1)
+        title = kit.para("긴 제목", "headline")
+        self.assertIs(kit.card_head(title)[1], title)
 
     def test_stepper_and_dots_paint_every_state(self):
         stepper = kit.Stepper()

@@ -14,6 +14,7 @@ from gui.settings_menu import SettingsMenu
 SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home"),
             ("journey", "알고리즘", "go_journey"), ("web", "웹 면접", "go_web"), ("ai", "AI", "go_ai"),
             ("career_roadmap", "개발자 로드맵", "go_career"), ("career_magazine", "매거진", "go_magazine"))
+TILE_MIN = 116  # 과목 칸의 보통 글자 최소 높이. 큰 글자 단계에서는 text_px 의 4배만큼 늘고, 글이 길면 글 높이를 따름
 
 
 class SubjectTile(kit.Row):
@@ -31,20 +32,20 @@ class SubjectTile(kit.Row):
         self.layout().setAlignment(text, Qt.AlignmentFlag(0))
         self.layout().setAlignment(self.mark, Qt.AlignmentFlag.AlignTop)
         text_box = text.layout()
-        text_box.setSpacing(theme.GAP["title_description"])
+        text_box.setSpacing(theme.GAP["detail"])  # 보통 글자에서 칸 높이가 TILE_MIN 에 맞게 촘촘히 둠
         self.metric = kit.label("", "label", "secondary", bold=True)
         self.meter = kit.progress(thin=True)
         self.meter.setProperty("series", token)
-        text_box.addSpacing(theme.GAP["title_description"])
+        text_box.addSpacing(4)  # 설명과 진도 줄 사이는 제목과 설명 사이보다 넓게
         text_box.addStretch(1)
         text_box.addWidget(self.metric)
-        text_box.addSpacing(4)
         text_box.addWidget(self.meter)
         self.set_metric(None, None, "")
 
     def set_metric(self, count, total, name):
         known = count is not None and total is not None
         self.metric.setText("%s %d / %d" % (name, count, total) if known else "현황을 확인하지 못했습니다.")
+        self.metric.setAlignment(Qt.AlignmentFlag.AlignRight if known else Qt.AlignmentFlag.AlignLeft)  # 진도 숫자는 막대 오른쪽 끝에 맞춤
         self.meter.setVisible(known and total > 0)
         if known:
             self.meter.setRange(0, max(1, total))
@@ -62,7 +63,7 @@ class SubjectTile(kit.Row):
         width = max(1, self.contentsRect().width() - left - right - sum(item.sizeHint().width() for item in others)
                     - row.spacing() * len(others))
         height = text.layout().heightForWidth(width)
-        self.setMinimumHeight(max(160 + theme.text_px() * 4, height + 2 * self.frameWidth()))
+        self.setMinimumHeight(max(TILE_MIN + theme.text_px() * 4, height + 2 * self.frameWidth()))
 
     def event(self, event):
         result = super().event(event)
@@ -285,6 +286,8 @@ class Workspace(QWidget):
         self.submissions.setParent(self.body)
         self.reminder_padding = []
         self.reminder_viewports = []
+        # 결과 화면은 카드가 남는 높이를 채우므로 알림이 보일 때만 알림 높이만큼 자리를 잡음. 목록 화면은 스크롤 범위가 바뀌지 않게 늘 잡아 둠
+        self.fill_pages = (win.result_page,)
         for page in self.submission_pages:
             scrolls = page.findChildren(QScrollArea)
             if scrolls:
@@ -293,9 +296,9 @@ class Workspace(QWidget):
                     scroll.viewport().installEventFilter(self)
                     layout = scroll.widget().layout() if scroll.widget() else None
                     if layout:
-                        self.reminder_padding.append((layout, layout.getContentsMargins()))
+                        self.reminder_padding.append((page, layout, layout.getContentsMargins()))
             else:
-                self.reminder_padding.append((page.layout(), page.layout().getContentsMargins()))
+                self.reminder_padding.append((page, page.layout(), page.layout().getContentsMargins()))
         self.body.installEventFilter(self)
         QApplication.instance().focusChanged.connect(self.reveal_focus)
         outer.addWidget(self.body, 1)
@@ -418,8 +421,9 @@ class Workspace(QWidget):
         bar.raise_()
         # 상태 변경으로 스크롤 범위가 달라지지 않도록 두 동작의 높이를 항상 남김.
         reserve = max(height + 16, 48 + 2 * theme.TYPE["caption"][1] + bar.submit.sizeHint().height())
-        for layout, (left, top, right, bottom) in self.reminder_padding:
-            layout.setContentsMargins(left, top, right, bottom + reserve)
+        for page, layout, (left, top, right, bottom) in self.reminder_padding:
+            extra = reserve if page not in self.fill_pages else (height + 16) * (not bar.isHidden())
+            layout.setContentsMargins(left, top, right, bottom + extra)
 
     def eventFilter(self, watched, event):
         if (watched is self.body or watched in self.reminder_viewports) and event.type() == QEvent.Type.Resize:

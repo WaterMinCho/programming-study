@@ -10,7 +10,7 @@ from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QTextCursor
 from PyQt6.QtTest import QSignalSpy
 
-from gui import theme
+from gui import round_page, theme
 
 
 class RoundLayoutTest(test_gui.GuiTest):
@@ -77,7 +77,7 @@ class RoundLayoutTest(test_gui.GuiTest):
                 resize_settled(wide_size, mode + "-wide-before")
                 wide = page.split.sizes()
                 resize_settled((760, 480), mode + "-small")
-                self.assertEqual(page.bar.height(), theme.CONTROL["bottombar"])
+                self.assertEqual(page.bar.height(), theme.CONTROL["bottombar_dense"])
                 self.assertEqual(page.listw.width(), 160)
                 self.assertEqual((self.win.width(), self.win.height()), (760, 480))
                 self.assertGreaterEqual(page.item_title.height(), page.item_title.heightForWidth(page.item_title.width()))
@@ -101,3 +101,23 @@ class RoundLayoutTest(test_gui.GuiTest):
 
         resize_settled((760, 480), "capture-small")
         self.capture_widget = self.win
+
+    def test_first_wide_window_splits_panes_by_the_wide_sizes(self):
+        """처음 연 넓은 창은 목록 240, 지문과 답안을 480:488 로 나눔. 숨은 페이지의 처음 크기 비율이 남지 않음."""
+        self.boot()
+        self.make_round("r90", [self.first(kind="code", type="fill")])
+        page = self.win.round_page
+        middle, right = round_page.WIDE_SIZES[1:]
+        for size in ((1280, 800), (1920, 1080)):
+            with self.subTest(size=size):
+                self.win.resize(*size)
+                self.win.open_round("r90")
+                self.idle()
+                guikit.wait_until(lambda: page.split.width() == page.width() and not page.compact, timeout=3)
+                sizes = page.split.sizes()
+                self.assertEqual(sizes[0], round_page.WIDE_SIZES[0])
+                self.assertLessEqual(abs(sizes[1] - round((sizes[1] + sizes[2]) * middle / (middle + right))), 1, sizes)
+                if size == (1280, 800):
+                    self.assertEqual(sizes, round_page.WIDE_SIZES)
+                self.win.go_home()
+                self.idle()

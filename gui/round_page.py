@@ -7,7 +7,7 @@ import textwrap
 from PyQt6.QtCore import QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPen, QPixmap, QTextCursor
 from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QSplitter, QStackedWidget, QStyle, QStyledItemDelegate,
-                             QStyleOptionViewItem, QTextBrowser, QVBoxLayout, QWidget)
+                             QStyleOptionViewItem, QTextBrowser, QWidget)
 
 import mdlite
 import study
@@ -19,6 +19,14 @@ from session import SessionError
 SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
 DOT_PX = 12
 ROW_GAP = 5  # 문항 목록 한 줄 안에서 윗줄과 아랫줄 사이
+PICK_BAR = 3  # 고른 줄 왼쪽에 긋는 주 색 막대의 폭
+WIDE_SIZES = [240, 480, 488]  # 넓은 창의 목록·지문·답안 폭
+HANDLE = 12  # 세 칸 사이와 편집기·실행 결과 사이 간격
+PANE_PAD = 16  # 지문·답안 카드 안 여백
+COMPACT_PAD = 8  # 작은 창에서 지문과 코드에 폭을 남기려고 줄인 카드 안 여백
+COMPACT_MARGINS = (16, 8, 16, 8)  # 작은 창의 세 칸 바깥 여백. 넓은 창은 좌우 24, 위아래 16
+COMPACT_HANDLE = 8
+COMPACT_SAVING = 2 * (PANE_PAD - COMPACT_PAD) + (16 - COMPACT_MARGINS[1]) + (16 - COMPACT_MARGINS[3])  # 작은 배치에서 줄어드는 높이
 _dots = {}
 
 
@@ -76,7 +84,8 @@ def run_html(run):
 
 
 class RowDelegate(QStyledItemDelegate):
-    """문항 목록의 줄. 같이 배포하는 글꼴은 줄 높이가 글자 크기와 같아 두 줄이 붙어 보이므로 줄 사이를 띄워 그림."""
+    """문항 목록의 줄. 같이 배포하는 글꼴은 줄 높이가 글자 크기와 같아 두 줄이 붙어 보이므로 줄 사이를 띄워 그림.
+    고른 줄은 바탕색 위에 왼쪽 주 색 막대를 그음."""
 
     def sizeHint(self, option, index):
         size = super().sizeHint(option, index)
@@ -93,6 +102,8 @@ class RowDelegate(QStyledItemDelegate):
         height = opt.fontMetrics.height()
         top = rect.center().y() - (len(lines) * (height + ROW_GAP) - ROW_GAP) / 2
         painter.save()
+        if opt.state & QStyle.StateFlag.State_Selected:
+            painter.fillRect(QRectF(opt.rect.left(), opt.rect.top(), PICK_BAR, opt.rect.height()), theme.qcolor("primary"))
         painter.setFont(opt.font)
         painter.setPen(theme.qcolor("selection_ink" if opt.state & QStyle.StateFlag.State_Selected else "ink"))
         for n, line in enumerate(lines):
@@ -111,38 +122,36 @@ class RoundPage(QWidget):
         self.dirty = {}  # 아직 파일에 쓰지 않은 답 {문항 ID: 값}
 
         root = kit.box(self)
-        top = kit.TopBar("파이썬 스터디")
+        top = kit.TopBar("파이썬 스터디", dense=True)
         self.home_btn, self.title = top.back, top.title
-        self.progress = top.add_right(kit.label("", "caption", "secondary"))
+        self.progress = top.add_right(kit.badge("", "accent"))
         self.back_btn = top.add_right(kit.button("결과로 돌아가기", "text"))
         root.addWidget(top)
         self.banner = QLabel("다시 풀기는 연습이라 숙달 판정에는 첫 제출만 반영됩니다. 고친 뒤 '다시 채점'을 누르면 점수만 다시 계산합니다.")
         self.banner.setObjectName("notice")
         root.addWidget(self.banner)
 
-        split = QSplitter(Qt.Orientation.Horizontal)
-        split.setContentsMargins(24, 16, 24, 16)
+        split = kit.dense(QSplitter(Qt.Orientation.Horizontal))
+        split.setContentsMargins(kit.DENSE_MARGIN, 16, kit.DENSE_MARGIN, 16)
+        split.setHandleWidth(HANDLE)
         self.listw = QListWidget()
+        self.listw.setObjectName("plain")
         kit.typed(self.listw, "caption")
         self.listw.setMinimumWidth(200)
         self.listw.setIconSize(QSize(DOT_PX, DOT_PX))
         self.listw.setItemDelegate(RowDelegate(self.listw))
         self.listw.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        mid = QWidget()
-        mid_box = QVBoxLayout(mid)
-        pane_pad = theme.GAP["detail"]
-        mid_box.setContentsMargins(pane_pad, 0, pane_pad, 0)
-        mid_box.setSpacing(theme.GAP["title_description"])
+        list_card, list_box = kit.card(0, 0)
+        list_box.addWidget(self.listw)
+        mid, mid_box = kit.card(PANE_PAD, theme.GAP["title_description"])
         self.item_title = kit.para("", "headline")
         self.body = QTextBrowser()
+        self.body.setObjectName("plain")
         self.body.setOpenLinks(False)
-        self.body.document().setDocumentMargin(14)
+        self.body.document().setDocumentMargin(0)
         mid_box.addWidget(self.item_title)
         mid_box.addWidget(self.body, 1)
-        right = QWidget()
-        right_box = QVBoxLayout(right)
-        right_box.setContentsMargins(pane_pad, 0, pane_pad, 0)
-        right_box.setSpacing(theme.GAP["title_description"])
+        right, right_box = kit.card(PANE_PAD, theme.GAP["title_description"])
         self.pane_title = kit.label("답안", "headline")
         self.stack = QStackedWidget()
         self.choice_panel, self.text_panel, self.code_panel = ChoicePanel(), TextPanel(), CodePanel()
@@ -150,27 +159,32 @@ class RoundPage(QWidget):
             panel.layout().setSpacing(theme.GAP["paragraph"])
             self.stack.addWidget(panel)
             panel.changed.connect(self.on_answer_changed)
+        code_split = self.code_panel.findChild(QSplitter)
+        code_split.setHandleWidth(HANDLE)
+        code_split.setStyleSheet("QSplitter::handle { background: transparent; }")  # 카드 안이라 바탕색 띠가 보이지 않게 함
         self.paste_block = PasteBlock(self)
         for edit in (self.code_panel.editor, self.text_panel.multi, self.text_panel.single, self.choice_panel.entry):
             self.paste_block.watch(edit)
         right_box.addWidget(self.pane_title)
         right_box.addWidget(self.stack, 1)
         self.find_bar = FindBar(self.code_panel.editor, right)  # 실행·채점 중에 답안 칸을 잠가도 쓰이게 그 밖에 둠
-        for widget in (self.listw, mid, right):
+        for widget in (list_card, mid, right):
             split.addWidget(widget)
         split.setStretchFactor(0, 0)
         split.setStretchFactor(1, 5)
         split.setStretchFactor(2, 4)
-        split.setSizes([245, 515, 495])
+        split.setSizes(WIDE_SIZES)
         split.setChildrenCollapsible(False)
         root.addWidget(split, 1)
         self.split, self.panes = split, (mid, right)
         self.compact = None
-        self.wide_sizes = [245, 515, 495]
+        self.wide_sizes = list(WIDE_SIZES)
 
-        self.bar = kit.BottomBar()
-        self.prev_btn = kit.button("이전", "secondary", "l")
-        self.next_btn = kit.button("다음", "secondary", "l")
+        self.bar = kit.BottomBar(dense=True)
+        _, bar_top, bar_right, bar_bottom = self.bar.row.getContentsMargins()
+        self.bar.row.setContentsMargins(kit.DENSE_MARGIN, bar_top, bar_right, bar_bottom)  # 왼쪽 끝이 글자 단추가 아니라 안내 글이라 FLUSH 만큼 내지 않음
+        self.prev_btn = kit.button("이전", "secondary", "m")
+        self.next_btn = kit.button("다음", "secondary", "m")
         self.status = kit.ElideLabel("", "caption", "secondary")
         self.status.setFixedWidth(8 * theme.TYPE["caption"][0])  # 자동 저장 안내의 자리를 남기고 작은 창에서도 행동 줄을 유지함
         self.paste_note = kit.label(NOTE, "caption", "warning")
@@ -180,8 +194,8 @@ class RoundPage(QWidget):
         self.busy_bar.setRange(0, 0)
         self.busy_bar.setFixedWidth(140)
         self.busy_bar.hide()
-        self.run_btn = kit.button("코드 실행", "text", "l")
-        self.submit_btn = kit.button("회차 제출", "primary", "l")
+        self.run_btn = kit.button("코드 실행", "secondary", "m")
+        self.submit_btn = kit.button("회차 제출", "primary", "m")
         for widget in (self.status, self.paste_note, self.busy_bar, self.run_btn):
             self.bar.add_tool(widget)
         self.bar.add_action(self.prev_btn)
@@ -212,17 +226,32 @@ class RoundPage(QWidget):
         super().resizeEvent(event)
         self.arrange_panes()
 
+    def minimumSizeHint(self):
+        """넓은 배치의 카드 안 여백 때문에 창 최소 높이가 커지지 않게, 낮은 창에서 쓰는 작은 배치의 최소 높이를 알림."""
+        size = super().minimumSizeHint()
+        if not self.compact:
+            size.setHeight(size.height() - COMPACT_SAVING)
+        return size
+
+    def wide_height(self):
+        """넓은 배치의 최소 높이. 창이 이보다 낮으면 작은 배치로 바꿈."""
+        height = super().minimumSizeHint().height()
+        return height + COMPACT_SAVING if self.compact else height
+
     def arrange_panes(self):
-        """작은 창에서는 목록과 여백을 줄여 지문과 코드에 높이와 폭을 남김."""
-        compact = self.width() < 2 * kit.PANE_MIN + 245 + 2 * kit.MARGIN
+        """작은 창이나 낮은 창에서는 목록·여백·칸 사이를 줄여 지문과 코드에 높이와 폭을 남김."""
+        compact = (self.width() < 2 * kit.PANE_MIN + WIDE_SIZES[0] + 2 * kit.MARGIN
+                   or self.height() < self.wide_height())
         if compact == self.compact:
             return
-        if compact:
+        if compact and self.compact is False:  # 넓은 배치를 거친 뒤에만 그때 폭을 기억함. 숨은 처음 크기의 비율로 덮지 않음
             self.wide_sizes = self.split.sizes()
         self.compact = compact
-        pad = 0 if compact else theme.GAP["detail"]
+        pad = COMPACT_PAD if compact else PANE_PAD
         for pane in self.panes:
-            pane.layout().setContentsMargins(pad, 0, pad, 0)
+            pane.layout().setContentsMargins(pad, pad, pad, pad)
+        self.split.setContentsMargins(*(COMPACT_MARGINS if compact else (kit.DENSE_MARGIN, 16, kit.DENSE_MARGIN, 16)))
+        self.split.setHandleWidth(COMPACT_HANDLE if compact else HANDLE)
         self.listw.setMinimumWidth(160 if compact else 200)
         left = 160 if compact else self.wide_sizes[0]
         rest = max(1, self.split.contentsRect().width() - 2 * self.split.handleWidth() - left)

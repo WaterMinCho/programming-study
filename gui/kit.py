@@ -18,6 +18,8 @@ from gui.widgets import LinkLabel, Para
 
 FLUSH = 14  # 글자 단추의 안쪽 여백 12 과 테두리 2. 막대 가장자리의 글자 단추는 이만큼 바깥으로 내어 글자가 내용 선에 맞게 함
 MARGIN = 32  # 창 좌우 여백
+DENSE_MARGIN = 24  # 촘촘한 화면(dense)의 위아래 막대 좌우 여백
+DENSE_BAR_PAD = (theme.CONTROL["bottombar_dense"] - theme.CONTROL["m"]) // 2  # 촘촘한 아래 막대의 위아래 여백. m 단추가 64 막대에 꼭 맞음
 MARK = 20  # 목록 줄 앞 상태 점의 칸 폭
 ROW_TEXT = 24 + MARK + 12  # 목록 줄의 글이 시작하는 자리(안쪽 여백, 점 칸, 점과 글 사이)
 HOME_WIDTH = 1600  # 홈 화면 내용 단의 최대 폭
@@ -52,6 +54,16 @@ def doc_width(window_width):
 def page(widget):
     """화면이나 대화상자의 맨 위 위젯에 새 규칙을 걸음."""
     widget.setProperty("ui", "2")
+    return widget
+
+
+def dense(widget):
+    """widget 아래 카드·단추·입력칸·꼬리표에 촘촘한 모서리(theme.RADIUS 의 dense_*)와 m 주 단추 좌우 24 를 걸고 widget 을 돌려줌.
+    widget 자신이 아니라 그 아래 부품에 걸림. 이미 칠한 뒤에 부르면 아래 부품을 다시 칠함."""
+    widget.setProperty("density", "dense")
+    if widget.testAttribute(Qt.WidgetAttribute.WA_WState_Polished):
+        for child in [widget] + widget.findChildren(QWidget):
+            repolish(child)
     return widget
 
 
@@ -327,6 +339,29 @@ def column(widget, width=HOME_WIDTH):
     return outer
 
 
+class DenseColumn(QWidget):
+    """widget 을 좌우 여백 DENSE_MARGIN 에 두고, 창이 넓으면 width 를 넘는 만큼 좌우 여백을 똑같이 늘려 가운데에 둠.
+    column 과 달리 최대 폭보다 좁을 때 양옆에 늘림 몫이 생기지 않아 본문 좌우가 촘촘한 위 막대의 내용 선과 맞음."""
+
+    def __init__(self, widget, width=HOME_WIDTH):
+        super().__init__()
+        self.cap = width
+        box(self, (DENSE_MARGIN, 0, DENSE_MARGIN, 0)).addWidget(widget)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        side = DENSE_MARGIN + max(0, self.width() - self.cap - 2 * DENSE_MARGIN) // 2
+        if self.layout().contentsMargins().left() != side:
+            self.layout().setContentsMargins(side, 0, side, 0)
+
+
+def dense_column(widget, width=HOME_WIDTH):
+    """DenseColumn 을 감싼 위젯. 바깥 상자의 여백은 Workspace 가 제출 알림 자리를 더할 때 쓰므로 DenseColumn 의 여백과 나눔."""
+    outer = QWidget()
+    box(outer).addWidget(DenseColumn(widget, width))
+    return outer
+
+
 def scroll(inner):
     """창이 작으면 내용을 찌그러뜨리지 않고 스크롤하는 칸. inner 는 바탕색을 가진 page 위젯."""
     inner.setObjectName("page")
@@ -351,6 +386,19 @@ def section(title, caption=""):
     row.addWidget(note, 0, Qt.AlignmentFlag.AlignBottom)
     baseline(head, note)
     return row, head, note
+
+
+def card_head(title, *right):
+    """카드 머리 줄. (줄, 제목). title 은 글이면 headline 라벨을 만들고 위젯이면 그대로 씀. 제목이 남는 폭을 받고
+    right 의 위젯들은 오른쪽 끝에 세로 가운데로 둠."""
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(12)
+    head = label(title, "headline") if isinstance(title, str) else title
+    row.addWidget(head, 1, Qt.AlignmentFlag.AlignVCenter)
+    for widget in right:
+        row.addWidget(widget, 0, Qt.AlignmentFlag.AlignVCenter)
+    return row, head
 
 
 def spaced(*items, spacing=4):
@@ -1063,17 +1111,22 @@ def splitter(orientation, key="", ratio=0.5, handle=24, settings=None):
 
 class TopBar(QFrame):
     """화면 위 막대(높이 64). plain 이면 홈처럼 바탕색이고 선이 없음, steps 이면 아래에 단계 표시가 이어져 선을 그쪽이 그림.
-    왼쪽에 back 글자 단추(← 도착 화면 이름)와 제목, 오른쪽에 부른 쪽이 넣는 것. 가장자리의 글자 단추는 FLUSH 만큼 내어 글자를 내용 선에 맞춤."""
+    왼쪽에 back 글자 단추(← 도착 화면 이름)와 제목, 오른쪽에 부른 쪽이 넣는 것. 가장자리의 글자 단추는 FLUSH 만큼 내어 글자를 내용 선에 맞춤.
+    dense 면 높이 CONTROL["topbar_dense"](56), 좌우 여백 DENSE_MARGIN(24)이고 막대 안 부품에 촘촘한 모서리를 씀."""
 
-    def __init__(self, back_text="", title="", plain=False, steps=False):
+    def __init__(self, back_text="", title="", plain=False, steps=False, dense=False):
         super().__init__()
         self.setObjectName("topbar")
-        self.setFixedHeight(theme.CONTROL["topbar"])
+        self.margin = DENSE_MARGIN if dense else MARGIN
+        self.setFixedHeight(theme.CONTROL["topbar_dense" if dense else "topbar"])
         if plain:
             self.setProperty("plain", True)
         if steps:
             self.setProperty("steps", True)
-        self.row = box(self, (MARGIN - FLUSH if back_text else MARGIN, 0, MARGIN, 0), 12, horizontal=True)
+        if dense:
+            self.setProperty("density", "dense")  # 아직 칠하기 전이라 kit.dense 와 같음
+        margin = self.margin
+        self.row = box(self, (margin - FLUSH if back_text else margin, 0, margin, 0), 12, horizontal=True)
         self.back = None
         if back_text:
             self.back = button(back_text, "text", "m", onbg=plain)
@@ -1086,13 +1139,14 @@ class TopBar(QFrame):
         """오른쪽 끝에 위젯을 더함. flush 면 글자 단추라 오른쪽 여백을 FLUSH 만큼 줄임."""
         if flush:
             left, top, _, bottom = self.row.getContentsMargins()
-            self.row.setContentsMargins(left, top, MARGIN - FLUSH, bottom)
+            self.row.setContentsMargins(left, top, self.margin - FLUSH, bottom)
         self.row.addWidget(widget, 0, Qt.AlignmentFlag.AlignVCenter)
         return widget
 
 
 class BottomBar(QFrame):
-    """작업 화면 아래 막대. 최소 높이 80이고 좁은 창에서는 도구를 위로 옮김. 주 단추는 오른쪽 끝에 둠."""
+    """작업 화면 아래 막대. 최소 높이 80이고 좁은 창에서는 도구를 위로 옮김. 주 단추는 오른쪽 끝에 둠.
+    dense 면 최소 높이 CONTROL["bottombar_dense"](64), 좌우 여백 DENSE_MARGIN(24)이고 막대 안 단추에 촘촘한 모서리를 씀."""
 
     class _Actions(QWidget):
         def sizeHint(self):
@@ -1103,14 +1157,19 @@ class BottomBar(QFrame):
             size.setHeight(layout.heightForWidth(width))
             return size
 
-    def __init__(self):
+    def __init__(self, dense=False):
         from gui.action_layout import ActionLayout
 
         super().__init__()
         self.setObjectName("bottombar")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.least = theme.CONTROL["bottombar_dense" if dense else "bottombar"]
         self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
-        self.row.setContentsMargins(MARGIN - FLUSH, 16, MARGIN, 16)
+        if dense:
+            self.setProperty("density", "dense")  # 아직 칠하기 전이라 kit.dense 와 같음
+            self.row.setContentsMargins(DENSE_MARGIN - FLUSH, DENSE_BAR_PAD, DENSE_MARGIN, DENSE_BAR_PAD)
+        else:
+            self.row.setContentsMargins(MARGIN - FLUSH, 16, MARGIN, 16)
         self.row.setSpacing(8)
         self.tool_box = QWidget()
         self.tools = FlowLayout(self.tool_box, spacing=24)
@@ -1121,7 +1180,7 @@ class BottomBar(QFrame):
         self.row.addWidget(self.actions, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.tool_box.installEventFilter(self)
         self.actions.installEventFilter(self)
-        self.setMinimumHeight(theme.CONTROL["bottombar"])
+        self.setMinimumHeight(self.least)
 
     def add_tool(self, widget):
         self.tools.addWidget(widget)
@@ -1137,7 +1196,7 @@ class BottomBar(QFrame):
     def arrange(self):
         """도구와 행동 단추가 한 줄에 안 들어가면 도구를 윗줄로 옮김. 주 단추는 오른쪽 끝에 둠."""
         if not self.isVisible():
-            self.setFixedHeight(theme.CONTROL["bottombar"])
+            self.setFixedHeight(self.least)
             return
         left, top, right, bottom = self.row.getContentsMargins()
         width = max(1, self.width() - left - right)
@@ -1155,7 +1214,7 @@ class BottomBar(QFrame):
         tool_height = self.tools.heightForWidth(width if stacked else max(1, width - action_width - gap)) if tools else 0
         self.tool_box.setFixedHeight(tool_height)
         height = tool_height + gap + action_height if stacked else max(tool_height, action_height)
-        self.setFixedHeight(max(theme.CONTROL["bottombar"], top + height + bottom))
+        self.setFixedHeight(max(self.least, top + height + bottom))
 
     def refont(self):
         self.arrange()
@@ -1185,25 +1244,36 @@ class BottomBar(QFrame):
 
 
 class NextCard(QFrame):
-    """홈 화면 맨 위의 이어서 할 일 카드. caption, headline 제목, body 설명 줄(여러 줄일 수 있음), 오른쪽 아래 주 단추 l(화면에 하나뿐인 주 단추)."""
+    """홈 화면 맨 위의 이어서 할 일 카드. caption, title 제목, body 설명 줄(여러 줄일 수 있음), 오른쪽 아래 주 단추 l(화면에 하나뿐인 주 단추).
+    compact 면 caption 이 accent 꼬리표, 제목이 headline, 단추가 m 이고 오른쪽 가운데에 옴. 여백 24·16, 최소 높이 108,
+    바탕은 emphasis_bg 한 색과 hero_edge 테두리."""
 
-    def __init__(self):
+    def __init__(self, compact=False):
         super().__init__()
         self.setObjectName("card")
         self.setProperty("next_action", True)
         self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
-        self.row.setContentsMargins(24, 24, 24, 24)
+        if compact:
+            self.setProperty("compact", True)
+            self.setMinimumHeight(108)
+            self.row.setContentsMargins(24, 16, 24, 16)
+        else:
+            self.row.setContentsMargins(24, 24, 24, 24)
         self.row.setSpacing(theme.GAP["group"])
         self.text_box = QWidget()
         column_box = box(self.text_box, spacing=theme.GAP["detail"])
-        self.caption = label("이어서 할 일", "caption", "teal", bold=True)
-        self.title = para("", "title")
+        if compact:
+            self.caption = badge("이어서 할 일", "accent")
+        else:
+            self.caption = label("이어서 할 일", "caption", "teal", bold=True)
+        self.title = para("", "headline" if compact else "title")
         self.line = para("", "body", "secondary")
         column_box.addWidget(self.caption)
         column_box.addWidget(heading(self.title, self.line))
         self.row.addWidget(self.text_box, 1)
-        self.button = button("", "primary", "l")
-        self.row.addWidget(self.button, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
+        self.button = button("", "primary", "m" if compact else "l")
+        place = Qt.AlignmentFlag.AlignVCenter if compact else Qt.AlignmentFlag.AlignBottom
+        self.row.addWidget(self.button, 0, Qt.AlignmentFlag.AlignRight | place)
 
     def set_item(self, title, line, action):
         """제목, 설명 줄(여러 줄일 수 있음), 단추 글자. action 이 비면 단추를 숨김."""

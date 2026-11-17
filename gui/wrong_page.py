@@ -12,7 +12,7 @@ detail(문항, 해설) 은 (제목, 본문 HTML)이고 해설 구역 앞에 answ
 import html
 
 from PyQt6.QtCore import QEvent, QPointF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QFontMetrics, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QApplication, QButtonGroup, QFrame, QLabel, QScrollArea, QStackedWidget, QTextBrowser, QWidget
 
 from gui import kit, theme
@@ -22,7 +22,9 @@ from session import SessionError
 
 CATEGORIES = (("wrong", "틀린 문항"), ("skipped", "미응답 문항"), ("fixed", "다시 맞힌 문항"))  # 목록의 갈래 순서와 이름
 OPENED = {"wrong": True, "skipped": True, "fixed": False}  # 갈래를 처음에 펴 두는지
-SPLIT = 0.45  # 왼쪽 목록 카드의 처음 몫. 1024 창에서 목록 카드 421, 문항 줄의 글 자리 341(크게 19px 로 "빈칸 채우기 · 12회차 미니 모의고사" 가 다 들어감)
+SPLIT = 0.28  # 왼쪽 목록 카드의 처음 몫(1280 창에서 339). 이 몫이 LONG_LABEL 이 다 들어가는 폭보다 좁으면 그 폭을 씀(WrongPage.fit_list, 1280 창 보통 글자에서 353)
+LONG_LABEL = "빈칸 채우기 · 12회차 미니 모의고사"  # 기본 몫일 때 목록 카드의 폭을 재는 긴 문항 줄 글. 창이 넉넉하면 이 글이 줄임표 없이 들어감
+GUTTER = 20  # 두 카드 사이(손잡이 폭)
 BACK_TEXT = {"python": "← 파이썬 스터디", "hub": "← 처음 화면", "ai": "← AI"}
 PICK = "왼쪽 목록에서 문항을 고르세요."
 ALL_FIXED = "틀린 문항을 모두 다시 맞혔습니다. 왼쪽의 '다시 맞힌 문항'을 펴면 다시 볼 수 있습니다."
@@ -173,13 +175,18 @@ class Fold(KeyRing, kit.Row):
 
 class NoteRow(KeyRing, kit.Row):
     """문항 줄. 꺾쇠 없는 한 줄(label)이고 글은 갈래 이름과 같은 세로선(kit.ROW_TEXT)에서 시작함. 문항은 data 에 둠.
-    고르면 picked 모양(selection 바탕)이 됨. Tab 은 고른 줄 하나에만 닿고 나머지 줄은 누르거나 화살표로 옮김."""
+    고르면 picked 모양(selection 바탕과 왼쪽 primary 막대)이 됨. Tab 은 고른 줄 하나에만 닿고 나머지 줄은 누르거나 화살표로 옮김."""
 
     def __init__(self, item):
         super().__init__(item["label"], data=item)
         self.chevron.hide()
         self.layout().setContentsMargins(kit.ROW_TEXT, 0, 24, 0)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+
+    def paintEvent(self, event):
+        if self.property("picked"):  # 고른 줄은 selection 바탕에 더해 왼쪽 끝에 primary 3px 막대. 바탕은 이미 칠해져 있고 초점 테두리가 막대 위에 오게 먼저 그림
+            QPainter(self).fillRect(0, 0, 3, self.height(), theme.qcolor("primary"))
+        super().paintEvent(event)
 
     def set_picked(self, picked):
         if self.property("picked") != picked:
@@ -327,7 +334,7 @@ class WrongPage(QWidget):
         self.opened = {track.tid: dict(OPENED) for track in self.tracks}
         root = kit.box(self)
 
-        self.top = kit.TopBar(BACK_TEXT["python"], "오답 노트")
+        self.top = kit.TopBar(BACK_TEXT["python"], "오답 노트", dense=True)
         self.back_btn = self.top.back
         self.chips = {}
         self.chip_row = chips = QWidget()  # 트랙이 둘 이상일 때만 보임. 하나뿐이면 돌아가기 단추와 같은 이름이 한 번 더 보여서 숨김
@@ -345,7 +352,7 @@ class WrongPage(QWidget):
         root.addWidget(self.top)
 
         self.list = NoteList()
-        list_card, list_box = kit.card(0, 0)
+        self.list_card, list_box = kit.card(0, 0)
         list_box.addWidget(self.list)
         detail_card, detail_box = kit.card(24, theme.GAP["title_description"])
         self.item_title = kit.para("", "headline")  # 긴 코드 문제 제목은 줄을 바꿈
@@ -356,14 +363,14 @@ class WrongPage(QWidget):
         self.detail.document().setDocumentMargin(0)
         detail_box.addWidget(self.item_title)
         detail_box.addWidget(self.detail, 1)
-        self.split = kit.splitter(Qt.Orientation.Horizontal, "wrong/split", SPLIT, 24, win.settings)
-        self.split.addWidget(list_card)
+        self.split = kit.splitter(Qt.Orientation.Horizontal, "wrong/split", SPLIT, GUTTER, win.settings)
+        self.split.addWidget(self.list_card)
         self.split.addWidget(detail_card)
-        body = QWidget()
-        kit.box(body, (kit.MARGIN, 24, kit.MARGIN, 24)).addWidget(self.split)
-        self.bar = kit.BottomBar()
-        self.explain_btn = self.bar.add_action(kit.button("해설 보기", "secondary", "l"))
-        self.retry_btn = self.bar.add_action(kit.button("다시 풀기", "primary", "l"))
+        body = kit.dense(QWidget())
+        kit.box(body, (kit.DENSE_MARGIN, 16, kit.DENSE_MARGIN, 16)).addWidget(self.split)
+        self.bar = kit.BottomBar(dense=True)
+        self.explain_btn = self.bar.add_action(kit.button("해설 보기", "secondary", "m"))
+        self.retry_btn = self.bar.add_action(kit.button("다시 풀기", "primary", "m"))
         self.retry_btn.setToolTip("선택한 문항을 다시 푸는 화면을 엽니다.")
         self.filled = QWidget()  # 오답이 있는 트랙: 두 카드와 아래 막대
         filled_box = kit.box(self.filled)
@@ -489,8 +496,25 @@ class WrongPage(QWidget):
         self.explain_btn.setEnabled(not busy and self.explainable)
         self.retry_btn.setEnabled(not busy and self.selected() is not None)
 
+    def fit_list(self):
+        """사람이 칸을 옮기지 않아 기본 몫(SPLIT)이면 목록 카드를 지금 글자 크기의 LONG_LABEL 이 문항 줄에 다 들어가는 폭 이상으로 넓힘.
+        목록 카드가 문항 카드보다 넓어지지는 않음. 칸의 최소 폭은 바꾸지 않아 창의 최소 크기와 사람이 끌어 옮길 수 있는 범위는 그대로임."""
+        if self.split.ratio != SPLIT:
+            return
+        room = self.split.width() - self.split.handleWidth()
+        need = (kit.ROW_TEXT + 24 + QFontMetrics(theme.font("label")).horizontalAdvance(LONG_LABEL)
+                + self.list.verticalScrollBar().sizeHint().width() + 2 * self.list_card.frameWidth())
+        width = max(round(SPLIT * room), min(need, room // 2))
+        if room > 0 and self.split.sizes()[0] != width:
+            self.split.setSizes([width, room - width])
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)  # 안쪽 칸 나누기는 이 앞에서 새 크기를 받음
+        self.fit_list()
+
     def restyle(self):
         """글자 크기나 테마가 바뀌면 부름. 본문 CSS 를 다시 주고 꺾쇠를 다시 칠하며, 읽던 자리는 지킴."""
+        self.fit_list()
         self.detail.document().setDefaultStyleSheet(detail_css())
         for arrow in self.findChildren(Arrow):
             arrow.update()

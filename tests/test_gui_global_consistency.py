@@ -182,7 +182,9 @@ class GlobalConsistencyTest(test_gui_hub.HubTest):
         win.round_page.listw.setCurrentRow(2)
         for step in ("normal", "larger", "normal"):
             win.set_text(step)
-            for widget in (win.home.rounds, win.round_page.listw, win.result_page.listw):
+            # 홈의 지난 회차 목록은 줄 높이 56 에 맞춰 글자 역할을 caption 에서 label 로 바꿨음
+            self.assertEqual(theme.TYPE["label"][0], win.home.rounds.font().pixelSize())
+            for widget in (win.round_page.listw, win.result_page.listw):
                 self.assertEqual(theme.TYPE["caption"][0], widget.font().pixelSize())
             self.assertEqual(theme.TYPE["body"][0], dialog.confirm_private.font().pixelSize())
             self.assertEqual(2, win.round_page.listw.currentRow())

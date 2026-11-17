@@ -1680,7 +1680,8 @@ class WrongNotesTest(GuiTest):
         for button in (page.back_btn, page.explain_btn, page.retry_btn) + tuple(page.chips.values()):
             corner = button.mapTo(self.win, QPoint(button.width(), button.height()))
             self.assertTrue(button.isVisible() and corner.x() <= self.win.width() and corner.y() <= self.win.height(), button.text())
-        self.assertEqual(page.retry_btn.mapTo(self.win, QPoint(page.retry_btn.width(), 0)).x(), self.win.width() - 32)
+        # 오답 노트 아래 막대는 촘촘한 막대라 오른쪽 여백이 MARGIN(32) 대신 DENSE_MARGIN(24)임
+        self.assertEqual(page.retry_btn.mapTo(self.win, QPoint(page.retry_btn.width(), 0)).x(), self.win.width() - kit.DENSE_MARGIN)
         for widget in page.list.rows + page.list.folds:
             self.assertGreaterEqual(widget.height(), theme.CONTROL["row"])
             self.assertEqual(QLabel.text(widget.title), widget.title.full)  # 줄임표 없이 다 보임
@@ -3676,6 +3677,119 @@ def save_delay():
     """자동 저장이 돌 만큼의 시간(ms)."""
     from gui.round_page import SAVE_DELAY_MS
     return SAVE_DELAY_MS + 250
+
+
+class ResultLayoutTest(GuiTest):
+    """결과 화면의 두 카드와 떠 있는 제출 알림의 자리."""
+
+    def show(self, size, step="normal"):
+        self.boot()
+        keys = sorted(self.win.session.cat, key=study.natural_key)[:14]
+        self.make_round("r95", keys, completed=True)
+        self.win.set_text(step)
+        self.win.resize(*size)
+        self.win.show_result("r95")
+        self.idle()
+        return self.win.result_page
+
+    def remind(self, shown):
+        self.win.pending_submission = {"status": "ok", "pending": shown, "count": int(shown)}
+        self.win.workspace.refresh()
+        pump()
+        self.assertEqual(shown, self.win.workspace.submissions.isVisible())
+
+    def scroll(self, page):
+        from PyQt6.QtWidgets import QScrollArea
+        return max((area for area in page.findChildren(QScrollArea) if area.isVisible()), key=lambda area: area.height())
+
+    def bottom(self, widget):
+        return widget.mapToGlobal(QPoint(0, widget.height())).y()
+
+    def test_cards_fill_the_height_and_the_reminder_takes_room_only_while_shown(self):
+        page = self.show((1280, 800))
+        reminder = self.win.workspace.submissions
+        for step in ("normal", "larger"):
+            self.win.set_text(step)
+            for size in ((1280, 800), (1024, 700), (1920, 1080)):
+                self.win.resize(*size)
+                self.remind(False)
+                where = "%s %s" % (step, size)
+                gap = page.bar.mapToGlobal(QPoint()).y() - self.bottom(page.split)
+                self.assertEqual(page.content.margin, gap, where)
+                rows = page.listw.viewport().height()
+                self.remind(True)
+                self.assertLessEqual(self.bottom(page.split), reminder.mapToGlobal(QPoint()).y(), where)
+                self.assertLess(page.listw.viewport().height(), rows, where)
+                self.remind(False)
+                self.assertEqual(rows, page.listw.viewport().height(), where)
+
+    def test_list_pages_keep_the_reminder_room_whether_it_is_shown_or_not(self):
+        self.show((1280, 800))
+        self.win.go_home()
+        pump()
+        rooms = []
+        for shown in (False, True, False):
+            self.remind(shown)
+            rooms.append([layout.contentsMargins().bottom() for page, layout, _ in self.win.workspace.reminder_padding
+                          if page is not self.win.result_page])
+        self.assertEqual(rooms[0], rooms[1])
+        self.assertEqual(rooms[0], rooms[2])
+
+    def test_reminder_toggle_keeps_the_reading_position_and_focus(self):
+        page = self.show((760, 480), "larger")
+        # 점수와 숙달을 한 줄에 둔 뒤로 760×480 은 알림이 없으면 스크롤할 것이 없음. 첫 제출 안내를 붙여 읽던 위치가 생기게 함
+        page.note.setText("첫 제출은 71 / 100점이었습니다. 숙달 판정에는 첫 제출만 반영됩니다.")
+        page.note.setVisible(True)
+        self.remind(False)
+        bar = self.scroll(page).verticalScrollBar()
+        page.listw.setFocus(Qt.FocusReason.OtherFocusReason)
+        bar.setValue(min(10, bar.maximum()))
+        pump()
+        value = bar.value()
+        self.assertGreater(value, 0)
+        for shown in (True, False):
+            self.remind(shown)
+            self.assertEqual(value, bar.value(), shown)
+            self.assertIs(page.listw, QApplication.focusWidget(), shown)
+
+    def test_low_wide_window_keeps_as_many_rows_as_before(self):
+        # 기준 커밋의 1024×700 결과 화면은 보통 9줄, 더 큰 글자 8줄이 보였음
+        page = self.show((1024, 700))
+        for step, least in (("normal", 9), ("larger", 8)):
+            self.win.set_text(step)
+            pump()
+            for shown in (False, True):
+                self.remind(shown)
+                listw = page.listw
+                limit = self.win.workspace.submissions.mapToGlobal(QPoint()).y() if shown else self.bottom(listw.viewport())
+                seen = sum(1 for row in range(listw.count())
+                           if listw.viewport().mapToGlobal(QPoint(0, listw.visualItemRect(listw.item(row)).bottom())).y() < limit
+                           and listw.visualItemRect(listw.item(row)).bottom() < listw.viewport().height())
+                self.assertGreaterEqual(seen, least, "%s %s" % (step, shown))
+                self.assertTrue(page.compact)
+                self.assertEqual(page.head.row.Direction.LeftToRight, page.head.row.direction())
+        self.win.resize(1280, 800)
+        pump()
+        self.assertFalse(page.compact)
+
+    def test_narrow_window_keeps_the_card_buttons_above_the_reminder(self):
+        page = self.show((760, 480), "larger")
+        self.remind(True)
+        for note in ("", "첫 제출은 71 / 100점이었습니다. 숙달 판정에는 첫 제출만 반영됩니다."):
+            page.note.setText(note)  # 다시 제출한 회차는 점수 카드에 첫 제출 안내가 한 줄 더 붙음
+            page.note.setVisible(bool(note))
+            self.scroll(page).verticalScrollBar().setValue(0)
+            pump()
+            top = self.win.workspace.submissions.mapToGlobal(QPoint()).y()
+            for button in (page.explain_btn, page.retry_btn):
+                self.assertTrue(button.isVisible())
+                self.assertLessEqual(self.bottom(button), top, "%s %s" % (note, button.text()))
+            # 기준 커밋은 알림 위로 목록 3줄이 보였음(첫 제출 안내가 붙어도 3줄)
+            listw = page.listw
+            limit = min(top, self.bottom(listw.viewport()))
+            seen = sum(1 for row in range(listw.count())
+                       if listw.viewport().mapToGlobal(QPoint(0, listw.visualItemRect(listw.item(row)).bottom())).y() < limit)
+            self.assertGreaterEqual(seen, 3, note)
 
 
 if __name__ == "__main__":
