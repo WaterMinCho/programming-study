@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """혼합 회차의 공통 초안과 과정별 수집·복습을 임시 자료로 확인함."""
 import copy
+from collections import Counter
 import datetime
 import hashlib
 import json
@@ -177,6 +178,40 @@ class MixedMockTest(unittest.TestCase):
                          options=[{k:o.get(k) for k in ('text','ok')} for o in i.get('options') or []]) for i in items.values()]
             self.assertEqual(fingerprint,hashlib.sha256(json.dumps(stable,ensure_ascii=False,sort_keys=True).encode()).hexdigest())
 
+    def test_published_mixed_exam_fingerprints_do_not_change(self):
+        root = Path(__file__).resolve().parents[1]/'ai'
+        index = READ_INDEX(str(root))
+        lessons = {entry['id']: entry for entry in index['lessons']}
+        specs = {spec['id']: spec for spec in index['mocks']}
+        expected = {'m4': 'f5839fda6b66cf4ceaa3b16193b33a312d81275620b9b4f17d6fdbe45883d2e6',
+                    'm5': 'c9ca185b1eb54f8fb960ecc5a3726857525aedd617ffb8a65bffeb6086c02448',
+                    'm6': 'fea01ba8705ff910899cfe983307b2653810adacc369eadf70ae935b40e4e236'}
+        for mid, fingerprint in expected.items():
+            with self.subTest(mock=mid):
+                self.assertEqual(fingerprint, load_items(str(root), specs[mid], lessons)[1])
+
+    def test_applied04_blueprint_and_published_lists_match_both_courses(self):
+        root = Path(__file__).resolve().parents[1]/'ai'
+        expected = dict({'i%02d' % n: 1 for n in range(1, 18) if n != 10}, a01=4, a02=4, a03=4, a04=4)
+        axes = {'condition', 'application', 'code_analysis', 'comparison'}
+        for course in ('intro', 'app'):
+            with self.subTest(course=course):
+                sess = service.AiSession('synthetic', home=str(self.root/'published-home'), root=str(root), course=course)
+                wanted = {'m4', 'm5', 'm6'} | ({'m1', 'm2', 'm3'} if course == 'intro' else set())
+                self.assertEqual(wanted, set(sess.mocks))
+                spec = sess.mocks['m6']
+                self.assertEqual('mixed32-applied04-v1', spec['blueprint_revision'])
+                self.assertEqual(expected, spec['blueprint'])
+                self.assertEqual({'intro':16, 'app':16}, spec['course_counts'])
+                items, _ = load_items(str(root), spec, sess.mock_lessons)
+                self.assertEqual({'m6-%02d' % n for n in range(1, 33)}, set(items))
+                self.assertEqual(expected, Counter(item['lesson'] for item in items.values()))
+                self.assertEqual({'intro':16, 'app':16}, Counter(item['course'] for item in items.values()))
+                self.assertEqual({'blank':16, 'choice':16}, Counter(item['kind'] for item in items.values()))
+                self.assertEqual({1:8, 2:16, 3:8}, Counter(item['level'] for item in items.values()))
+                for owner in ('intro', 'app'):
+                    self.assertEqual(axes, {item['transferaxis'] for item in items.values() if item['course'] == owner})
+
     def test_item_course_snapshot_dedup_and_future_labels_are_preserved(self):
         sess=self.session();sess.collection.set_enabled(True);exam=sess.start_mock('m4',seed=41)
         for cid in ('m4-01','m4-17'):
@@ -346,14 +381,22 @@ class MixedMockTest(unittest.TestCase):
             self.assertEqual([],exam._related(results))
 
     def test_actual_32_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m4')
+
+    def test_applied04_32_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m6')
+
+    def check_actual_snapshots(self, mid):
         source=Path(__file__).resolve().parents[1]/'ai'
-        raw=load_secrets(str(source/'mocks/m4')).get('items.json')
+        raw=load_secrets(str(source/'mocks'/mid)).get('items.json')
+        if mid == 'm6':
+            self.assertIsNotNone(raw, 'm6 문항이 필요합니다.')
         if raw is None:
             self.skipTest('초안 문항은 검토 경로에서만 보관함')
         root=self.root/'snapshot-bank'
         shutil.copytree(source,root)
-        meta=study.read_json(root/'mocks/m4/meta.json')
-        study.write_text(root/'mocks/m4/meta.json',json.dumps(dict(meta,draft=False)))
+        meta=study.read_json(root/'mocks'/mid/'meta.json')
+        study.write_text(root/'mocks'/mid/'meta.json',json.dumps(dict(meta,draft=False)))
         observed={}
         for owner in ('intro','app'):
             with self.subTest(owner=owner):
@@ -361,9 +404,9 @@ class MixedMockTest(unittest.TestCase):
                 user='synthetic-'+owner
                 sess=service.AiSession(user,home=home,root=str(root),course=owner)
                 sess.collection.set_enabled(True)
-                exam=sess.start_mock('m4',seed=103)
+                exam=sess.start_mock(mid,seed=103)
                 other=service.AiSession(user,home=home,root=str(root),course='app' if owner=='intro' else 'intro')
-                self.assertIs(exam,other.start_mock('m4'))
+                self.assertIs(exam,other.start_mock(mid))
                 self.assertEqual(sess.collection.path,other.collection.path)
                 for position,cid in enumerate(exam.draft['order']):
                     exam.question(position)
@@ -376,6 +419,8 @@ class MixedMockTest(unittest.TestCase):
                 answered={r['data']['card']:r for r in self.rows(sess,'mock_answer')}
                 self.assertEqual(32,len(returned))
                 self.assertEqual(32,len(answered))
+                self.assertEqual({'intro':16,'app':16},Counter(row['data']['course'] for row in returned))
+                self.assertEqual(exam.spec['blueprint'],Counter(row['item']['lesson'] for row in returned))
                 for row in returned:
                     cid=row['data']['card'];item=exam.items[cid];content=row['item']
                     for key in ('course','concept','format','transferaxis','conditions','sourcefacts'):

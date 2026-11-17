@@ -9,7 +9,7 @@ from aiprep import bank
 
 _LOCKS = {}
 _EXAMS = weakref.WeakValueDictionary()
-PUBLISHED_IDS = ("m4", "m5")
+PUBLISHED_IDS = ("m4", "m5", "m6")
 
 
 def candidate(spec):

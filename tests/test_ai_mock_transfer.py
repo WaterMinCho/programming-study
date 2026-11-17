@@ -26,15 +26,23 @@ class MockTransferTest(Base):
         return sess, result
 
     def test_new_exam_links_all_32_wrong_answers_within_each_course(self):
+        self.check_wrong_links('m5')
+
+    def test_applied04_wrong_practice_and_repeat_preserve_first_score(self):
+        self.check_wrong_links('m6', complete=True)
+
+    def check_wrong_links(self, mid, complete=False):
         sess = self.session()
-        exam = sess.start_mock('m5', seed=31)
-        exam.submit()
+        exam = sess.start_mock(mid, seed=31)
+        self.assertFalse(set(exam.items) & set(sess.cards))
+        first = copy.deepcopy(exam.submit())
         checked = set()
         for course in ('intro', 'app'):
-            current = service.AiSession(sess.user, home=sess.mock_home, root=bank.AI_DIR, course=course)
+            current = service.AiSession(sess.user, home=os.path.join(self.tmp, 'home'), root=bank.AI_DIR, course=course)
             state = current._state()
             wrong = [cid for cid, item in exam.items.items() if item['course'] == course]
             self.assertEqual(16, len(wrong))
+            self.assertEqual(set(wrong), {cid for cid, card in current.cards.items() if card.get('mock') == mid})
             for cid in wrong:
                 with self.subTest(card=cid, course=course):
                     selected = service.build_set(current, state, 'note', random.Random(7), card=cid)
@@ -44,8 +52,38 @@ class MockTransferTest(Base):
                     self.assertEqual(course, bank.course_of(linked['lesson']))
                     self.assertFalse(linked.get('mock'))
                     self.assertTrue(set(exam.items[cid]['facts']) & set(linked['facts']))
+                    if complete:
+                        self.assertEqual(exam.items[cid]['lesson'], linked['lesson'])
+                        self.assertEqual(exam.items[cid]['lesson'], current.wrong_item(cid)['lesson'])
+                        target = current.note_target(cid)
+                        self.assertIsNotNone(target, cid)
+                        self.assertEqual((exam.items[cid]['lesson'], exam.items[cid]['step']),
+                                         (target['lesson'], target['step']))
+                        ps = current.start_set('note', card=cid, seed=7)
+                        self.assertEqual(selected[:2], [entry['card'] for entry in ps.queue[:2]])
+                        played = self.play(ps, lambda _: 'pass')
+                        self.assertIn(cid, played)
+                        self.assertIn(linked['id'], played)
                     checked.add(cid)
+            if complete:
+                self.assertEqual(0, current.mock_state(mid)['first_score'])
         self.assertEqual(set(exam.items), checked)
+        if complete:
+            saved = [row for row in sess.record.reload() if row.get('kind') == 'mock_submit' and row['mock'] == mid]
+            self.assertEqual([first], saved)
+            repeated = sess.start_mock(mid, repeat=True, seed=32)
+            for cid, item in repeated.items.items():
+                answer = [b['answer'][0] for b in item['blanks']] if item['kind'] == 'blank' else grade.right_options(item)
+                repeated.save_answer(answer, cid)
+            self.assertEqual(32, repeated.submit()['score'])
+            self.assertEqual(2, repeated.attempt)
+            self.assertEqual(0, repeated.summary()['first_score'])
+            for course in ('intro', 'app'):
+                reopened = service.AiSession(sess.user, home=os.path.join(self.tmp, 'home'), root=bank.AI_DIR, course=course)
+                self.assertEqual(0, reopened.mock_state(mid)['first_score'])
+                rows = [row for row in reopened.record.log if row.get('kind') == 'mock_submit' and row['mock'] == mid]
+                self.assertEqual(2, len(rows))
+                self.assertEqual(first, rows[0])
 
     def test_both_courses_connect_one_wrong_to_a_generator_and_keep_first_result(self):
         for course, cid, genid in [('intro', 'm4-02', 'i02-g03'), ('app', 'm4-19', 'a01-g01')]:
