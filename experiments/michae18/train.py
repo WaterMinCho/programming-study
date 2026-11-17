@@ -3,7 +3,7 @@ import torch
 from learning_server.input_example import load, batch
 from experiments.michae18.model import SmallLSTM
 
-torch.manual_seed(2026)
+torch.manual_seed(42)
 
 # 데이터 로딩
 rows, vocabulary = load("../learning-demo-f4","python","train")
@@ -20,21 +20,12 @@ inputs = {
     "query_concepts": torch.tensor(raw["query_concepts"], dtype=torch.float32)
 }
 
-# 문제 ID의 최댓값을 이용해 Embedding 크기 설정 (수정 전)
-# num_questions = max(
-#     inputs["questions"].max().item(),
-#     inputs["query_question"].max().item()
-# ) + 1
-# 개념 수 가져오기
-# num_concepts = inputs["query_concepts"].shape[-1]
-
 # 문제 ID의 최댓값을 이용해 Embedding 크기 설정 (수정 후)
 num_questions = len(vocabulary["questions"])
 # 개념 수 가져오기 (수정 후)
 num_concepts = len(vocabulary["concepts"])
 
-# 개념 수 가져오기
-num_concepts = inputs["query_concepts"].shape[-1]
+
 # SmallLSTM 모델 생성
 model = SmallLSTM(num_questions, num_concepts)
 
@@ -42,7 +33,10 @@ model = SmallLSTM(num_questions, num_concepts)
 model.eval()
 # 학습 안한다~!
 with torch.no_grad():
-    probabilities = model(inputs)
+    # model은 logit값으로 반환
+    logits = model(inputs)
+    # 출력 확인용 확률로 변환
+    probabilities = torch.sigmoid(logits)
 
 print("예측 확률:", probabilities.tolist())
 print("예측 개수:", probabilities.numel())
@@ -72,6 +66,7 @@ second_inputs = {
 }
 
 with torch.no_grad():
-    second_probabilities = model(second_inputs)
-
+    second_logits = model(second_inputs)
+    second_probabilities = torch.sigmoid(second_logits)
+print("\n두 번째 배치 예측 확률:", second_probabilities.tolist())
 print("두 번째 배치 예측 개수:", second_probabilities.numel())
