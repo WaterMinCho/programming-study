@@ -67,6 +67,15 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(409, self.call("/v1/events", self.packet([collision]), self.token)[0])
         self.assertEqual(1, self.count())
 
+    def test_selection_and_linked_source_fields_are_accepted_as_they_are(self):
+        shown = self.row()
+        shown.update(kind="question_returned", data={"set": "s1", "card": "c", "position": 1, "again": 0,
+                                                      "retry_policy": "retry-v2", "queued_for": "b"})
+        picked = self.row(2)
+        picked.update(kind="set", data={"set": "s1", "selection": {"policy": "rules-v6", "retry_policy": "retry-v2"}})
+        self.assertEqual(200, self.call("/v1/events", self.packet([shown, picked]), self.token)[0])
+        self.assertEqual(2, self.count())
+
     def test_participant_mismatch_and_input_boundaries(self):
         row = self.row()
         row["participant"] = str(uuid.uuid4())

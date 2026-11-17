@@ -12,8 +12,8 @@ from collections import Counter, deque
 from learning_data.collection import inside, packed
 from learning_data import generation
 
-FEATURES_VERSION = 7
-SUPPORTED_FEATURES_VERSIONS = (4, 5, 6, FEATURES_VERSION)
+FEATURES_VERSION = 8
+SUPPORTED_FEATURES_VERSIONS = (4, 5, 6, 7, FEATURES_VERSION)
 
 
 def author_difficulty(item, track=None):
@@ -76,7 +76,20 @@ def course_fields(track, item, data):
             "course_inferred_from": "item.lesson" if course is None and inferred is not None else None}
 
 
-def prepare(events, synthetic=None, exclusions=None):
+def selection_fields(chosen, shown, card):
+    """묶음 선정 기록과 문항 반환 기록에서 선정 규칙과 끼운 변형 출처를 읽음. 기록에 없는 값은 추정하지 않음."""
+    data = (shown or {}).get("data") or {}
+    if chosen is None and "retry_policy" not in data and "queued_for" not in data:
+        return None
+    chosen = chosen or {}
+    pool = (chosen.get("selected_pools") or {}).get(card)
+    if data.get("queued_for") is not None or pool is None and card not in chosen.get("selected", [card]):
+        pool = "linked"  # 묶음을 만든 뒤 틀린 문항 뒤에 끼운 변형
+    return {"policy": chosen.get("policy"), "retry_policy": data.get("retry_policy", chosen.get("retry_policy")),
+            "pool": pool, "queued_for": data.get("queued_for")}
+
+
+def prepare(events, synthetic=None, exclusions=None, exclude_linked=False):
     events = source_events(events, synthetic)
     events = [row for row in events if row.get("data", {}).get("training_eligible") is not False]
     events = sorted(events, key=lambda row: (row["participant"], row["track"], row["sequence"]))
@@ -105,7 +118,7 @@ def prepare(events, synthetic=None, exclusions=None):
             mock_last[mock_key(row)] = row["sequence"]
     history, moments, observed, mock_before, pending, output = {}, {}, {}, {}, {}, []
     sequences, group_sequences = {}, {}
-    released_history, group_history_lengths, questions = {}, {}, {}
+    released_history, group_history_lengths, questions, selections = {}, {}, {}, {}
     correction_times, group_corrections = {}, {}
     blank = {"attempts": 0, "correct": 0, "last_at": None, "overrides": 0}
     for row in events:
@@ -132,6 +145,8 @@ def prepare(events, synthetic=None, exclusions=None):
                 shown = questions.setdefault(key, {})
                 # 같은 위치의 반환 기록이 여럿이면 관찰 시각을 임의로 고르지 않음.
                 shown[shown_key] = row if shown_key not in shown else None
+        if row["track"] == "ai" and row["kind"] == "set" and isinstance(data.get("selection"), dict):
+            selections[(row["participant"], row["track"], data.get("course"), data.get("set"))] = data["selection"]
         if row["kind"] in ("mock_start", "mock_question_returned", "batch_start"):
             mock_before.setdefault(mock_key(row), {tag: dict(value) for tag, value in prior.items()})
             group_sequences.setdefault(mock_key(row), list(sequence))
@@ -198,10 +213,16 @@ def prepare(events, synthetic=None, exclusions=None):
         if shown is not None and prediction_at is not None and datetime.datetime.fromisoformat(shown["at"]) <= cutoff:
             variant = generation.from_item(shown.get("item") or {})
         target = int(data["result"] in ("pass", "ok"))
+        selection = None if is_mock else selection_fields(
+            selections.get((row["participant"], row["track"], data.get("course"), data.get("set"))), shown, card)
+        linked = exclude_linked and selection is not None and selection["pool"] == "linked"
+        if (linked and exclusions is not None and answer_key(row) not in corrected and before is not None
+                and prediction_at is not None):
+            exclusions["linked_variant"] = exclusions.get("linked_variant", 0) + 1
         if answer_key(row) not in corrected and before is not None and prediction_at is None:
             if exclusions is not None:
                 exclusions["missing_prediction_time"] = exclusions.get("missing_prediction_time", 0) + 1
-        if answer_key(row) not in corrected and before is not None and prediction_at is not None:
+        if answer_key(row) not in corrected and before is not None and prediction_at is not None and not linked:
             output.append({"participant": row["participant"], "track": row["track"], "event_id": row["event_id"],
                            "sequence": row["sequence"], "at": row["at"], "session": session, "question_id": card,
                            "question_revision": row.get("item_revision"), "concepts": tags, "source": row["kind"],
@@ -212,6 +233,7 @@ def prepare(events, synthetic=None, exclusions=None):
                            "provenance": data.get("provenance", "collected"),
                            "prediction_at": prediction_at,
                            "prediction_source": prediction_source, "prediction_event": prediction_event,
+                           "selection": selection,
                            "features": {"observed_history": before,
                                         "sequence_history": sequence_before},
                            "target": target})
@@ -276,7 +298,9 @@ def synthetic_events():
             for day in range(1, 7):
                 rows.append({"participant": participant, "track": track, "sequence": day, "synthetic": True,
                              "event_id": str(uuid.uuid5(uuid.UUID(participant), "%s-%d" % (track, day))),
-                             "at": "2026-01-%02dT10:00:00+00:00" % day, "kind": "answer", "item_revision": "0" * 64,
+                             "at": "2026-01-%02dT10:00:00+00:00" % day, "kind": "answer",
+                             # 같은 문항도 날마다 버전 해시가 바뀌는 실제 기록처럼 두 값을 번갈아 씀
+                             "item_revision": "%d" % ((day + 1) % 2) * 64,
                              "item": {"card": track + "-demo", "tags": ["demo"], "difficulty": 2},
                              "data": {"set": "demo-%d" % day, "card": track + "-demo", "again": 0,
                                       "result": "pass" if (person + day) % 3 else "stuck", "first_in_set": True,
@@ -290,12 +314,14 @@ def write_private(path, text):
         output.write(text)
 
 
-def write_dataset(events, destination, synthetic=None, source_sha256=None):
+def write_dataset(events, destination, synthetic=None, source_sha256=None, exclude_linked=False):
     root = Path(__file__).resolve().parent.parent
     if inside(destination, root):
         raise ValueError("학습 자료는 공개 저장소 밖에 저장해 주세요.")
     exclusions = {"missing_prediction_time": 0}
-    records = prepare(events, synthetic=synthetic, exclusions=exclusions)
+    if exclude_linked:
+        exclusions["linked_variant"] = 0
+    records = prepare(events, synthetic=synthetic, exclusions=exclusions, exclude_linked=exclude_linked)
     parts = {track: split([row for row in records if row["track"] == track]) for track in sorted({row["track"] for row in records})}
     if not parts:
         raise ValueError("사용할 첫 시도 답안이 없습니다.")
@@ -322,12 +348,13 @@ def main():
     source.add_argument("--input")
     source.add_argument("--synthetic", action="store_true")
     parser.add_argument("--out", required=True)
+    parser.add_argument("--exclude-linked", action="store_true", help="틀린 문항 뒤에 끼운 변형 행을 예측 대상에서 뺍니다")
     args = parser.parse_args()
     try:
         raw = Path(args.input).read_bytes() if args.input else None
         events = [json.loads(line) for line in raw.splitlines()] if raw is not None else synthetic_events()
         result = write_dataset(events, args.out, True if args.synthetic else None,
-                               hashlib.sha256(raw).hexdigest() if raw is not None else None)
+                               hashlib.sha256(raw).hexdigest() if raw is not None else None, args.exclude_linked)
         print("과목별 학습 자료를 저장하고 다시 읽어 확인했습니다. %s" % args.out)
         print(packed(result))
     except (OSError, ValueError, KeyError, TypeError) as error:

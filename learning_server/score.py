@@ -1,0 +1,226 @@
+# -*- coding: utf-8 -*-
+"""팀원이 낸 예측 파일을 공통 자료의 같은 구간에서 채점하고 기준선과 한 표로 냄. 모델을 학습하지 않음."""
+import argparse
+import csv
+import hashlib
+import json
+import math
+from collections import Counter
+from pathlib import Path
+
+from learning_data.collection import packed
+from learning_server import dataset, sample, starter
+
+PARTS = ("train", "validation", "test")
+METRICS = ("log_loss", "brier", "roc_auc", "accuracy")
+LABELS = {"log_loss": "로그 손실", "brier": "Brier", "roc_auc": "ROC-AUC", "accuracy": "정확도"}
+MIN_WRONG, MIN_PEOPLE = 50, 5
+
+
+def read_predictions(path):
+    """CSV(event_id,probability,model_version 머리줄) 또는 JSONL 을 읽음. 확률·버전만 확인하고 행 내용은 돌려주지 않음."""
+    path = sample.private_path(path)
+    if path.suffix == ".csv":
+        # Windows Excel 이 앞에 붙이는 BOM 을 머리줄로 읽지 않도록 utf-8-sig 로 읽음
+        with path.open(encoding="utf-8-sig", newline="") as source:
+            reader = csv.DictReader(source)
+            if not {"event_id", "probability", "model_version"} <= set(reader.fieldnames or ()):
+                raise ValueError("예측 파일 머리줄은 event_id,probability,model_version 으로 적어 주세요.")
+            rows = list(reader)
+    elif path.suffix == ".jsonl":
+        rows = []
+        for number, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+            if not line.strip():
+                continue
+            rows.append(json.loads(line))
+            if not isinstance(rows[-1], dict):
+                raise ValueError("예측 파일 %d번째 줄을 {\"event_id\": ..., \"probability\": ..., \"model_version\": ...} 꼴로 적어 주세요." % number)
+    else:
+        raise ValueError("예측 파일은 .csv 또는 .jsonl 로 저장해 주세요.")
+    versions = {row.get("model_version") for row in rows}
+    if len(versions) != 1 or not isinstance(next(iter(versions)), str) or not next(iter(versions)):
+        raise ValueError("model_version 은 파일 하나에 비어 있지 않은 한 값만 넣어 주세요.")
+    counts = Counter(row.get("event_id") for row in rows)
+    twice = sum(1 for value in counts.values() if value > 1)
+    if twice:
+        raise ValueError("같은 event_id 가 두 번 이상 나온 것이 %d개 있습니다." % twice)
+    probabilities = {}
+    for row in rows:
+        value = row.get("probability")
+        try:
+            if isinstance(value, bool):
+                raise ValueError
+            value = float(value)
+        except (TypeError, ValueError):
+            value = float("nan")
+        if not math.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError("예측값에는 0 이상 1 이하의 유한한 숫자를 넣어 주세요.")
+        probabilities[row.get("event_id")] = value
+    return probabilities, next(iter(versions)), hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _mean_se(values):
+    if len(values) < 2:
+        return None
+    mean = sum(values) / len(values)
+    return math.sqrt(sum((v - mean) ** 2 for v in values) / (len(values) - 1) / len(values))
+
+
+def _values(targets, probabilities, constant):
+    losses = [-(y * math.log(max(1e-12, p)) + (1 - y) * math.log(max(1e-12, 1 - p))) for y, p in zip(targets, probabilities)]
+    squares = [(p - y) ** 2 for y, p in zip(targets, probabilities)]
+    hits = [int((p >= 0.5) == bool(y)) for y, p in zip(targets, probabilities)]
+    auc = None if constant else starter.metrics(targets, probabilities)["roc_auc"]
+    return {"log_loss": None if constant else sum(losses) / len(losses), "brier": sum(squares) / len(squares),
+            "roc_auc": auc, "accuracy": sum(hits) / len(hits)}, {"log_loss": losses, "brier": squares}
+
+
+def measure(targets, probabilities, groups, constant=False):
+    """네 지표와 표준오차 두 가지. 행 독립 표준오차는 정확도 √(p(1-p)/n), 로그 손실·Brier 는 행별 값의 표준편차/√n,
+    AUC 는 Hanley–McNeil 근사임. 가명 묶음 표준오차는 가명 하나씩 빼고 다시 계산하는 잭나이프임.
+    constant 는 늘 같은 값을 내는 기준선이라 로그 손실·AUC 를 내지 않음."""
+    values, per_row = _values(targets, probabilities, constant)
+    n = len(targets)
+    rows = {"log_loss": None if constant else _mean_se(per_row["log_loss"]), "brier": _mean_se(per_row["brier"]),
+            "accuracy": math.sqrt(values["accuracy"] * (1 - values["accuracy"]) / n), "roc_auc": None}
+    auc = values["roc_auc"]
+    if auc is not None:
+        positive = sum(targets)
+        negative = n - positive
+        q1, q2 = auc / (2 - auc), 2 * auc ** 2 / (1 + auc)
+        rows["roc_auc"] = math.sqrt((auc * (1 - auc) + (positive - 1) * (q1 - auc ** 2)
+                                     + (negative - 1) * (q2 - auc ** 2)) / (positive * negative))
+    names = sorted(set(groups))
+    leave = {metric: [] for metric in METRICS}
+    if len(names) >= 2:
+        for name in names:
+            keep = [i for i, group in enumerate(groups) if group != name]
+            partial = _values([targets[i] for i in keep], [probabilities[i] for i in keep], constant)[0]
+            for metric in METRICS:
+                leave[metric].append(partial[metric])
+    result = {}
+    for metric in METRICS:
+        part = leave[metric]
+        group = None
+        if part and values[metric] is not None and all(value is not None for value in part):
+            center = sum(part) / len(part)
+            group = math.sqrt((len(part) - 1) / len(part) * sum((value - center) ** 2 for value in part))
+        result[metric] = {"value": values[metric], "se_row": rows[metric], "se_group": group}
+    return result
+
+
+def warning(wrong, people):
+    if wrong < MIN_WRONG or people < MIN_PEOPLE:
+        return "이 구간은 오답 %d행, 가명 %d개라 모델 비교 근거로 쓰기 어렵습니다." % (wrong, people)
+    return None
+
+
+def baselines(train, rows, saved):
+    """학습 구간으로 정한 기준선. 비율은 학습 평균 m 을 2건 섞어 (정답 수 + 2m) / (답 수 + 2) 로 평활함."""
+    mean = sum(row["target"] for row in train) / len(train)
+
+    def ratios(keys):
+        totals = {}
+        for row in train:
+            for key in keys(row):
+                hit = totals.setdefault(key, [0, 0])
+                hit[0] += row["target"]
+                hit[1] += 1
+        return {key: (correct + 2 * mean) / (count + 2) for key, (correct, count) in totals.items()}
+
+    question = ratios(lambda row: [row["question_id"]])
+    concept = ratios(lambda row: row["concepts"])
+    person = ratios(lambda row: [row["participant"]])
+    return [
+        ("majority", [float(mean >= 0.5)] * len(rows), True),
+        ("overall-mean", [mean] * len(rows), False),
+        ("per-question", [question.get(row["question_id"], mean) for row in rows], False),
+        ("per-concept", [sum(concept.get(c, mean) for c in row["concepts"]) / len(row["concepts"])
+                         if row["concepts"] else mean for row in rows], False),
+        ("per-participant", [person.get(row["participant"], mean) for row in rows], False),
+        ("past-concept-ratio-v1", [saved[row["event_id"]] for row in rows], False),
+    ]
+
+
+def evaluate(folder, track, split, predictions):
+    if split not in PARTS:
+        raise ValueError("채점할 구간은 train, validation, test 가운데 하나로 지정해 주세요.")
+    probabilities, version, predictions_sha256 = read_predictions(predictions)
+    report, content, manifest_sha256 = sample.inspect(folder)
+    if track not in content:
+        raise ValueError("이 자료에는 %s 과목이 없습니다." % track)
+    root = sample.private_path(folder)
+    manifest_raw = (root / "manifest.json").read_bytes()
+    baseline_raw = (root / "baseline.json").read_bytes()
+    if (hashlib.sha256(manifest_raw).hexdigest() != manifest_sha256
+            or hashlib.sha256(baseline_raw).hexdigest() != json.loads(manifest_raw)["files"]["baseline.json"]):
+        raise ValueError("채점 도중 자료가 바뀌었습니다. 받은 원본을 확인해 주세요.")
+    rows, train = content[track][split][0], content[track]["train"][0]
+    expected = {row["event_id"] for row in rows}
+    missing, extra = len(expected - set(probabilities)), len(set(probabilities) - expected)
+    if missing:
+        raise ValueError("예측 파일에 빠진 event_id 가 %d개 있습니다." % missing)
+    if extra:
+        raise ValueError("채점할 구간에 없는 event_id 가 %d개 있습니다." % extra)
+    saved = {p["event_id"]: p["probability"] for p in json.loads(baseline_raw)[track][split]["predictions"]}
+    targets = [row["target"] for row in rows]
+    groups = [row["participant"] for row in rows]
+    lines = [(version, [probabilities[row["event_id"]] for row in rows], False)] + baselines(train, rows, saved)
+    table = [{"name": name, "metrics": measure(targets, values, groups, constant)} for name, values, constant in lines]
+    wrong, people = len(rows) - sum(targets), len(set(groups))
+    return {"dataset_manifest_sha256": manifest_sha256, "features_version": report["features_version"],
+            "synthetic": report["synthetic"], "track": track, "split": split,
+            "predictions_sha256": predictions_sha256, "model_version": version,
+            "cell": {"rows": len(rows), "wrong": wrong, "participants": people,
+                     "linked_rows": sum(1 for row in rows if (row.get("selection") or {}).get("pool") == "linked")},
+            "table": table, "warning": warning(wrong, people)}
+
+
+def render(result):
+    def cell(value):
+        if value["value"] is None:
+            return "-"
+        group = "계산할 수 없음" if value["se_group"] is None else "%.4f" % value["se_group"]
+        row = "-" if value["se_row"] is None else "%.4f" % value["se_row"]
+        return "%.4f ± %s / %s" % (value["value"], row, group)
+
+    info = result["cell"]
+    out = ["%s %s 구간: %d행, 오답 %d행, 가명 %d개, 끼운 변형 %d행 (자료 버전 %s, 묶음 %s)" % (
+        result["track"], result["split"], info["rows"], info["wrong"], info["participants"], info["linked_rows"],
+        result["features_version"], result["dataset_manifest_sha256"][:12])]
+    if result["synthetic"]:
+        out.append("합성 자료입니다. 실행 확인용이며 모델 비교 근거로 쓰지 않습니다.")
+    out.append("표의 값: 값 ± 행 독립 표준오차 / 가명 묶음 표준오차")
+    out.append(" | ".join(["이름"] + [LABELS[metric] for metric in METRICS]))
+    for line in result["table"]:
+        out.append(" | ".join([line["name"]] + [cell(line["metrics"][metric]) for metric in METRICS]))
+    if result["warning"]:
+        out.append(result["warning"])
+    return "\n".join(out)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="예측 파일을 공통 자료의 같은 구간에서 기준선과 함께 채점합니다.")
+    parser.add_argument("--dataset", required=True)
+    parser.add_argument("--track", choices=sample.TRACKS, required=True)
+    parser.add_argument("--split", choices=PARTS, default="validation",
+                        help="기본은 검증 구간입니다. 평가 구간(test)은 설정을 모두 정한 뒤 한 번만 채점합니다")
+    parser.add_argument("--predictions", required=True)
+    parser.add_argument("--out", help="결과 JSON. Git 저장소 밖의 새 파일만 받습니다")
+    args = parser.parse_args()
+    try:
+        target = None
+        if args.out:
+            target = sample.private_path(args.out)
+            if target.exists():
+                raise ValueError("이미 있는 결과 파일은 덮어쓰지 않습니다. 다른 파일 이름을 지정해 주세요.")
+        result = evaluate(args.dataset, args.track, args.split, args.predictions)
+        print(render(result))
+        if target is not None:
+            dataset.write_private(target, packed(result) + "\n")
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        parser.exit(1, "오류: %s\n" % error)
+
+
+if __name__ == "__main__":
+    main()

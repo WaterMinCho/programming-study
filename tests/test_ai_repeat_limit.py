@@ -4,9 +4,11 @@
 
 실행: python -m unittest tests.test_ai_repeat_limit
 """
+import contextlib
 import json
 import os
 import random
+import sqlite3
 from unittest import mock
 
 from aiprep import bank, service
@@ -389,3 +391,43 @@ class CompletedTodayTest(Base):
         self.finish(sess, "unit", lesson="i90", unit="90b")
         ps = sess.start_set("unit", lesson="i90", unit="90a", seed=5)
         self.assertTrue(ps.queue)
+
+
+class LinkedSourceRecordTest(VariantTest):
+    """끼운 변형의 원문항과 묶음 규칙 이름이 수집 기록에만 남고 학습 기록 행은 그대로인지 확인함."""
+
+    def collected(self, sess, kind):
+        with contextlib.closing(sqlite3.connect(sess.collection.path)) as conn:
+            return [json.loads(r[0]) for r in conn.execute("SELECT payload FROM events WHERE kind=? ORDER BY seq", (kind,))]
+
+    def test_linked_variant_records_original_card_and_rules(self):
+        sess = self.session()
+        sess.collection.set_enabled(True)
+        sess.mark_read("i90", "90a")
+        ps = sess.start_set("unit", lesson="i90", unit="90a", seed=3)
+        self.until(ps, "i90-b03")
+        ps.answer(["틀린 답"], 1, False)
+        ps.next()
+        self.assertEqual("i90-g01", ps.current()["card"])
+        shown = {(e["card"], e["again"]): e for e in self.collected(sess, "question_returned")}
+        self.assertEqual("i90-b03", shown[("i90-g01", 0)]["queued_for"])
+        self.assertNotIn("queued_for", shown[("i90-b03", 0)])
+        self.assertEqual({"retry-v2"}, {e["retry_policy"] for e in shown.values()})
+        selection = self.collected(sess, "set")[0]["selection"]
+        self.assertEqual(("rules-v6", "retry-v2"), (selection["policy"], selection["retry_policy"]))
+        for row in self.log(sess):
+            self.assertFalse({"queued_for", "retry_policy", "selection"} & set(row))
+
+    def test_policy_name_rises_only_for_modes_that_skip_cards_done_today(self):
+        sess = self.session()
+        sess.mark_read("i90", "90a")
+        state = sess._state()
+        for mode in ("unit", "mixed", "lesson", "review", "sweep", "note"):
+            kwargs = {"lesson": "i90", "unit": "90a"}
+            if mode == "note":
+                kwargs["card"] = "i90-b01"
+            trace = {}
+            service.build_set(sess, state, mode, random.Random(4), trace=trace, **kwargs)
+            with self.subTest(mode=mode):
+                self.assertEqual("retry-v2", trace["retry_policy"])
+                self.assertEqual(mode in ("unit", "mixed", "lesson"), trace["policy"] == "rules-v6")

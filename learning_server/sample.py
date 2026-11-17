@@ -28,6 +28,7 @@ def inspect(folder):
         raise ValueError("선택한 폴더에 manifest.json이 없습니다. 압축을 푼 뒤 recorded-python 또는 synthetic 폴더를 지정해 주세요.")
     raw = path.read_bytes()
     manifest = json.loads(raw)
+    input_example.newer(manifest.get("features_version"))
     if (manifest.get("format") != 1 or type(manifest.get("features_version")) is not int
             or manifest["features_version"] not in dataset.SUPPORTED_FEATURES_VERSIONS):
         raise ValueError("지원하는 공통 입력 버전의 자료를 지정해 주세요.")

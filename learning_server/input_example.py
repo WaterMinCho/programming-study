@@ -6,8 +6,8 @@ import hashlib
 import json
 from pathlib import Path
 
-from learning_server.starter import question_token
-from learning_server.dataset import SUPPORTED_FEATURES_VERSIONS, author_difficulty
+from learning_server.starter import QUESTION_UNITS, question_token
+from learning_server.dataset import FEATURES_VERSION, SUPPORTED_FEATURES_VERSIONS, author_difficulty
 from learning_data import generation
 
 
@@ -22,21 +22,32 @@ def load(folder, track, part):
             raise ValueError("자료가 바뀌었습니다. 파일 해시를 확인해 주세요.")
         return raw
     records = json.loads(verified(root / "records/manifest.json", manifest["records_manifest_sha256"]))
+    newer(manifest.get("features_version"))
     if (type(manifest.get("features_version")) is not int
             or type(records.get("features_version")) is not int
             or manifest["features_version"] not in SUPPORTED_FEATURES_VERSIONS
             or records.get("features_version") != manifest["features_version"]):
         raise ValueError("이전 이력 집계로 만든 자료입니다. 원본을 보존하고 새 폴더에 공통 자료를 다시 준비해 주세요.")
     vocabulary = json.loads(verified(root / "vocabulary.json", manifest["files"]["vocabulary.json"]))[track]
+    unit = vocabulary.get("question_unit")
+    # 버전 4~7 번호표에는 규칙이 없고 (문항 id, 문항 버전) 쌍으로 읽음. 버전 8 은 규칙이 있어야 함
+    if unit is not None and unit not in QUESTION_UNITS or unit is None and manifest["features_version"] >= 8:
+        raise ValueError("버전 8 자료의 번호표 규칙이 없거나 모르는 값입니다. 같은 묶음의 원본을 다시 받아 주세요.")
     name = track + "-" + part + ".jsonl"
     rows = [json.loads(line) for line in verified(root / "records" / name, records["files"][name]["sha256"]).splitlines()]
     return rows, vocabulary
+
+
+def newer(version):
+    if type(version) is int and version > FEATURES_VERSION:
+        raise ValueError("더 새 도구로 만든 자료입니다. 저장소를 최신 main 으로 갱신한 뒤 읽어 주세요.")
 
 
 def batch(rows, vocabulary, length=32):
     if not 1 <= length <= 128:
         raise ValueError("풀이 이력 길이는 1~128로 지정해 주세요.")
     questions = {value: n for n, value in enumerate(vocabulary["questions"])}
+    unit = vocabulary.get("question_unit")
     concepts = {value: n for n, value in enumerate(vocabulary["concepts"])}
     courses = {value: n for n, value in enumerate(vocabulary.get("courses", ["<PAD>", "<UNK>"]))}
     width = len(concepts)
@@ -57,14 +68,14 @@ def batch(rows, vocabulary, length=32):
         inputs["difficulty_known"].append([value is not None for value in difficulties] + [False] * (length-size))
         inputs["query_difficulty"].append(query_difficulty or 0)
         inputs["query_difficulty_known"].append(query_difficulty is not None)
-        inputs["questions"].append([questions.get(question_token(past), 1) for past in history] + [0] * (length-size))
+        inputs["questions"].append([questions.get(question_token(past, unit), 1) for past in history] + [0] * (length-size))
         inputs["concepts"].append([multi_hot(past["concepts"]) for past in history] + [[0]*width for _ in range(length-size)])
         inputs["courses"].append([courses.get(past.get("course"), 1) for past in history] + [0] * (length-size))
         inputs["query_course"].append(courses.get(row.get("course"), 1))
         inputs["results"].append([past["result"] for past in history] + [0] * (length-size))
         inputs["mask"].append([True]*size + [False]*(length-size))
         inputs["lengths"].append(size)
-        inputs["query_question"].append(questions.get(question_token(row), 1))
+        inputs["query_question"].append(questions.get(question_token(row, unit), 1))
         inputs["query_concepts"].append(multi_hot(row["concepts"]))
         gaps, known = [0.0]*width, [False]*width
         now = datetime.datetime.fromisoformat(row["prediction_at"]) if row.get("prediction_at") else None

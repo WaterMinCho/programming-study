@@ -46,6 +46,8 @@ SAME_MAX = 1
 RETRY_VARIANT_PER_CARD = 2
 RETRY_VARIANT_MAX = 3
 LINK_RESEED = 3
+# 묶음 안에서 다시 내는 규칙 이름. 수집 기록의 선정 기록과 문항 반환 기록에 남김. 값이 없는 기록은 #278 전 규칙이거나 갱신 전 앱임
+RETRY_POLICY = "retry-v2"
 REVIEW_FIRST = plan.REVIEW_FIRST
 BACKLOG_HALF = plan.BACKLOG_HALF
 # 2026-11-03 사용자 답(설계 14.4 질문 1): 하루 시간 예산을 두지 않고 문제집을 원하는 만큼 풂. 그래서 비핵심 새 카드 하루 상한과
@@ -2029,10 +2031,11 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     else:
         raise AiError("모르는 연습 모드입니다: %s" % mode)
     if trace is not None:
-        policy = "rules-v2"
+        # 2026-11-17 #278 부터 unit·lesson·mixed 는 오늘 마친 문항을 후보에서 빼고 모자랄 때만 채우므로 rules-v6
+        policy = "rules-v6" if mode in ("unit", "lesson", "mixed") else "rules-v2"
         if mode == "note" and any(name == "transfer" and ids for name, ids in pools):
             policy = "rules-v3" if cards[card].get("mock") else "rules-v2"
-        trace.update(policy=policy,
+        trace.update(policy=policy, retry_policy=RETRY_POLICY,
                      runtime_revision=collection.runtime_revision(),
                      trigger="learner_choice" if mode == "note" else "rules",
                      requested_card=card if mode == "note" else None,
@@ -2305,6 +2308,8 @@ class PracticeSet(object):
         options = [{"no": n, "text": item["options"][n]["text"]} for n in view["order"]]
         self.sess.collect_event("question_returned", {"set": self.id, "card": card["id"], "position": self.pos,
                                                      "again": entry["again"], "mode": self.mode,
+                                                     "retry_policy": RETRY_POLICY,
+                                                     **({"queued_for": entry["for"]} if entry.get("for") else {}),
                                                      **({"input_schema": collection.AI_INPUT_SCHEMA} if measure_input else {})},
                                 item=lambda: self._collection_item(entry),
                                 key="question:%s:%d:%s:%d" % (self.id, self.pos, card["id"], entry["seed"]))
