@@ -918,9 +918,12 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual({"STUDY_LEAN_CI": "1"}, jobs["bank"]["steps"][-1]["env"])
         self.assertEqual(9, len(jobs["bank"]["steps"]))
         gui = jobs["gui"]["steps"][-1]
-        self.assertIn('unittest.defaultTestLoader.discover("tests", pattern="test_gui*.py", top_level_dir=".")', gui["run"])
-        self.assertIn('sys.exit(not result.wasSuccessful())', gui["run"])
-        self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', gui["run"])
+        self.assertEqual("python tools/check_gui.py", gui["run"])
+        with open(os.path.join(ROOT, "tools", "check_gui.py"), encoding="utf-8") as handle:
+            script = handle.read()
+        self.assertIn('pattern="test_gui*.py"', script)
+        self.assertIn('return 0 if result.wasSuccessful() else 1', script)
+        self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', script)
         self.assertEqual({"QT_QPA_PLATFORM": "offscreen"}, gui["env"])
         setup = next(step for step in jobs["gui"]["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
         self.assertEqual("3.13", setup["with"]["python-version"])
