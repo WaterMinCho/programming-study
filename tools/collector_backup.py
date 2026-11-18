@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""운영자 맥에서 전용 콘솔의 일관된 백업을 내려받고 해시·복구 상태를 확인함.
+"""전용 콘솔에서 만든 백업 사본을 운영자 맥으로 내려받고 해시와 무결성을 확인함.
 
 콘솔이 꺼져 있어 API 가 412 를 돌려줄 때만 파일 API 로 운영 DB 를 직접 받아 맥에서 백업 사본을 만듦.
-실패·오래됨·용량 경고는 state.json 과 출력 줄에 남기고 맥 알림으로 알림.
+실패·오래됨·용량 경고는 state.json 과 출력 줄에 남기고 맥 알림센터에 띄움.
 """
 import argparse
 import base64
@@ -33,8 +33,9 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 DB_LIMIT = 256 * 1024 * 1024
 TITLE = "수집 서버 백업"
 MESSAGES = {
-    "stale": "마지막 백업을 받은 지 12시간이 넘었습니다.",
-    "console_unavailable": "전용 콘솔이 꺼져 있어 파일을 직접 받아 백업했습니다. 콘솔을 다시 열어야 용량을 점검합니다.",
+    "stale": "마지막 백업 사본이 만들어진 지 12시간이 넘었습니다.",
+    "console_unavailable": ("전용 콘솔이 꺼져 있어 파일을 직접 받아 백업했습니다. "
+                            "서버 용량을 재고 이전 자동 사본을 정리하려면 콘솔을 다시 열어 주세요."),
     "capacity": "서버 용량 경고가 있습니다.",
 }
 START_FAILED = "수집 서버 백업을 시작하지 못했습니다. 정기 실행 로그의 마지막 줄을 확인해 주세요."
@@ -47,7 +48,7 @@ class ApiError(ValueError):
 
 
 class BackupError(ValueError):
-    """실패한 단계 이름과 HTTP 코드만 담음. 출력 줄에는 문구 없이 이 두 값만 찍음."""
+    """문구와 함께 실패한 단계 이름과 HTTP 코드를 담음. 출력 줄에는 문구 없이 단계 이름과 HTTP 코드만 찍음."""
     def __init__(self, message, stage, http=None):
         super().__init__(message)
         self.stage = stage
@@ -192,7 +193,7 @@ finally:
 
 
 def trusted(root, identity):
-    """맥에 검증된 사본이 있는 작업 번호만 돌려줌. 없으면 서버 정리를 맡기지 않음."""
+    """맥에 검증된 사본이 있는 작업 번호만 돌려줌. 없으면 None 을 돌려줘 서버 정리를 하지 않게 함."""
     if not identity:
         return None
     try:
@@ -244,7 +245,7 @@ def direct_copy(config, api, root, identity, *, tries=3, pause=time.sleep):
                 raise BackupError("받는 동안 인증 키가 바뀌었습니다.", "direct_key")
         break
     else:
-        raise BackupError("운영 DB 가 받는 동안 계속 바뀌었습니다.", last)
+        raise BackupError("운영 DB 를 세 번 받아 보는 동안 계속 쓰는 중이었거나 내용이 바뀌었습니다.", last)
     checkpoint = {"purpose": "offsite_checkpoint", "identity": identity, "path": "files",
                   "capacity": {"status": "unknown", "warnings": ["capacity_unchecked"]}}
     source = root / (identity + ".direct")

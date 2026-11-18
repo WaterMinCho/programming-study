@@ -10,7 +10,7 @@ grade 는 숨은 테스트(tests)를 첫 실패에서 멈추지 않고 모두 �
 실행기의 pass 는 쓰지 않으며, 돌려받은 값을 부모가 허용 오차로 비교함.
 
 실행 환경 실패: 임시 폴더·Popen 의 OSError, 또는 학습자 결과가 충돌 꼴이고 그 뒤 새 임시 폴더에서 모범 답안을 공개 예시
-하나로 돌려도 충돌 꼴인 경우임. 모범 답안 폴더는 학습자 코드를 다 돌리고 그 폴더를 지운 뒤에 만들고, 판정 뒤 지움.
+하나로 돌려도 충돌 꼴인 경우임. 모범 답안 폴더는 학습자 코드를 다 돌리고 그 폴더를 지운 뒤에 만들고, 모범 답안을 다 돌린 뒤 지움.
 
 Windows 에서 다를 수 있는 곳
 - 경로: 임시 폴더는 %TEMP% 아래에 생기고, 자식의 명령줄과 job.json 에는 작업 폴더 기준 상대 경로만 들어감(runner.command,
@@ -84,11 +84,11 @@ def _kind(value):
 
 
 def _where(path):
-    return "의 ".join("%d번째 원소" % (index + 1) for index in path) + "의 " if path else "돌려준 값의 "
+    return "돌려준 값에서 " + " 안의 ".join("%d번째 원소" % (index + 1) for index in path) + "의 " if path else "돌려준 값의 "
 
 
 def _difference(actual, expected, tol, path=()):
-    """처음 다른 곳의 이유 글. 같으면 None. 자료형, 길이, 값 순서로 보고 값은 쓰지 않음.
+    """처음 다른 곳의 이유 글. 같으면 None. 자료형, 길이, 값 순서로 보고 이유 글에 값은 넣지 않음.
 
     실수 기대값 자리에는 같은 값의 정수도 맞음. 정수 기대값 자리의 실수와 숫자 자리의 불리언은 자료형이 다름."""
     want, got = _kind(expected), _kind(actual)
@@ -197,7 +197,7 @@ def grade(item, lines, workers=None):
 def try_code(starter, entry, examples, lines, limit_ms=None, tol=None, workers=None):
     """[코드 실행]. 공개 예시만 돌리고 기록하지 않음. 숨은 테스트는 인자로 받지 않음.
 
-    예시 결과는 입력·기대값·돌려준 값·출력·오류 글을 그대로 담음. 결과 모양은 grade 와 같고 cases 칸이 더 많음."""
+    예시 결과는 입력·기대값·돌려준 값·출력·오류 글을 그대로 담음. 결과 모양은 grade 와 같고 cases 항목마다 칸이 더 많음."""
     tol = _tol(tol)
     try:
         raw = _run(source(starter, entry, lines), [_case(example, limit_ms or LIMIT_MS) for example in examples],

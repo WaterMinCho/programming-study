@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""공개 스위치(hidden)·예전 회차(legacy) 표시와 회차 계약 표를 합성 은행에서 확인함."""
+"""공개 여부(hidden)·예전 회차(legacy) 표시와 회차 계약 표를 합성 은행에서 확인함."""
 import datetime
 import io
 import json
@@ -205,7 +205,7 @@ class MockVisibilityTest(unittest.TestCase):
 
 class PublishedBankListTest(unittest.TestCase):
     def test_actual_bank_lists_every_published_mock_as_before(self):
-        """실제 은행에는 hidden·legacy 회차가 없으므로 목록이 index.json 그대로여야 함."""
+        """실제 은행에는 hidden·legacy 회차가 없으므로 목록이 index.json 의 회차 목록과 같아야 함."""
         root = Path(__file__).resolve().parents[1]/"ai"
         specs = READ_INDEX(str(root))["mocks"]
         self.assertFalse(any("hidden" in spec or "legacy" in spec for spec in specs))
