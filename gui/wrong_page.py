@@ -70,7 +70,7 @@ def options_html(item, info=None):
     """객관식 지문과 보기 줄 표. 고른 보기는 약한 오답 바탕에 '내 답' 꼬리표를 붙임. 정답은 해설을 펴야 보이므로
     info(해설)가 있을 때만 정답 보기 줄에 '정답' 꼬리표를 붙임. 정답 번호는 해설의 '정답: N번' 글에서 읽음.
     꼬리표는 그 줄의 보기 칸 안 작은 표(note-mark)의 오른쪽 칸에 둠. 표 전체에 꼬리표 열을 두면 꼬리표가 없는 줄도
-    그 폭만큼 일찍 접혀서, 꼬리표가 없는 줄의 보기 글은 줄 끝까지 씀."""
+    그 폭만큼 일찍 접힘. 그래서 작은 표는 꼬리표가 붙은 줄에만 넣고, 꼬리표가 없는 줄의 보기 글은 줄 끝까지 씀."""
     answer = item["answer"]
     picked = set(answer if isinstance(answer, (list, tuple)) else [answer]) if item["answered"] else set()
     right = {int(n) for n in re.findall(r"(\d+)번", info["answer"] or "")} if info else set()

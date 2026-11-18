@@ -264,7 +264,7 @@ class SectionBrowser(QWidget):
             return width >= max(sum(needed), equal_minimum) + self.grid.spacing() * (len(buttons) - 1)
 
         # 접힌 꼴의 아이콘은 줄 수와 단추 높이를 바꾸지 않을 때만 그림. 한 줄이 안 되면 두 열 칸에 글이 한 줄로 들어갈 때만 그림
-        # 아이콘을 빼면 한 줄에 들어가는 폭이면 열 수는 아이콘 없는 폭으로 정함
+        # 아이콘을 빼야 단추가 모두 한 줄에 들어가는 폭이면 아이콘을 빼고 한 줄로 둠
         single_line = fits(True) or fits(False)
         columns = len(buttons) if single_line else min(2, len(buttons))
         if not single_line and not expanded:

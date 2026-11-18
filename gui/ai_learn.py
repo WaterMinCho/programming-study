@@ -770,7 +770,7 @@ class RecallBlock(QFrame):
         self.check_btn.setStyleSheet("QPushButton { min-height: %dpx; max-height: %dpx; }" % (height, height))
 
     def refont(self):
-        self.field.setFont(theme.font("learn_body"))  # kit.refont 는 이 상자를 칸보다 먼저 부르므로 칸 글꼴을 먼저 바꿔 높이를 잼
+        kit.set_font(self.field, theme.font("learn_body"))  # kit.refont 는 이 상자를 칸보다 먼저 부르므로 칸 글꼴을 먼저 바꿔 높이를 잼
         self.fit_check()
 
     def showEvent(self, event):

@@ -656,7 +656,7 @@ class JourneyMapPage(QWidget):
         """문제 목록 줄. 앞 점은 통과 done, 시도함 progress, 안 함 todo, 잠긴 보스 lock 이고 그 뒤에 번호 칩(보스는 역할 이름 칩), 끝 caption 은 역할.
         둘째 줄(row_line)의 번호 조각은 칩이 보이므로 빼고, 준비 문제 조각은 제목 옆 회색 꼬리표로 옮김(자리가 모자라면 fit_row 가 둘째 줄 끝에 둠).
         줄의 접근 이름은 번호와 제목.
-        이어서 할 일과 같은 문제 줄은 강조 바탕(next_row)과 주 색으로 채운 번호 칩. 미리 고른 줄은 없음."""
+        이어서 할 일과 같은 문제 줄은 강조 바탕(next_row)과 주 색으로 채운 번호 칩을 씀. 미리 고른 줄은 없음."""
         info = self.info
         target = self.target or {}
         for row in info["problems"]:

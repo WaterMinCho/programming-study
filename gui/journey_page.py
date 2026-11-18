@@ -306,8 +306,8 @@ class PrepLink(LinkLabel):
 
 
 class FactLine(QWidget):
-    """문제 탭의 지문 머리. 첫 줄(난이도와 지금 언어의 시간 제한)은 탭 막대 아래 카드 전폭 강조 띠(band, 좌우 24·위아래 8)에 두고
-    문제 화면이 문제 탭에서만 보임. 이 위젯은 둘째 줄을 담아 DocView.set_head 로 지문 맨 위에 둠. 둘째 줄은 역할마다 다름:
+    """문제 탭의 지문 머리. 첫 줄(난이도와 지금 언어의 시간 제한)은 카드 전폭 강조 띠(band, 좌우 24·위아래 8)에 둠.
+    문제 화면이 이 띠를 탭 막대 아래로 옮겨 넣고 문제 탭에서만 보이게 함. 이 위젯은 둘째 줄을 담아 DocView.set_head 로 지문 맨 위에 둠. 둘째 줄은 역할마다 다름:
     보스는 이 보스에 쓰는 앞 문제, 선택 문제는 보스와 상관없다는 말, 중급은 준비 문제 링크와 통과 꼬리표. 둘째 줄이 없으면 숨음.
     링크를 누르면 opened(문제 id)를 냄. text() 는 보이는 글을 이은 것(시험용)."""
     opened = pyqtSignal(str)
@@ -763,7 +763,7 @@ class JourneyPage(QWidget):
         data = self.data
         self.title.setText(data["title"])
         self.badge.setText(data["role_label"])
-        kit.set_tone(self.badge, "accent" if data["role"] == "boss" else "")  # 보스는 번호 칩 "던전 N 보스" 와 겹쳐 보여 꼬리표 색만 다르게 둠
+        kit.set_tone(self.badge, "accent" if data["role"] == "boss" else "")  # 보스는 번호 칩 "던전 N 보스" 와 같은 말이 이어 보여서 꼬리표 색만 다르게 둠
         self.number.setText(number_text(data))
         self.facts.set_problem(data, self.lang)
         self.facts.setEnabled(not self.busy)

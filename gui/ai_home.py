@@ -86,7 +86,7 @@ class TailRow(kit.Row):
 
 
 def read_bar(read, total):
-    """읽은 단원 막대와 '읽은 수 / 단원 수' 숫자. 다 읽으면 막대를 success 로 칠함. (묶음, 막대, 숫자)."""
+    """읽은 단원 막대와 '읽은 수 / 단원 수' 숫자. 다 읽으면 막대를 success 로 칠함. (묶음, 막대, 숫자) 를 돌려줌."""
     out = QWidget()
     row = kit.box(out, spacing=12, horizontal=True)
     bar = kit.progress(thin=True)

@@ -1533,12 +1533,12 @@ class ProblemHeadTest(Base):
         count = page.tabs.counts[1]
         self.assertEqual(("힌트 0/3", "힌트", "0/3", "힌트 0/3"), (page.tabs.tabText(1), button.text(), count.text(), button.accessibleName()))
         self.assertTrue(count.isVisibleTo(button))
-        self.assertLessEqual(QFontMetricsF(button.font()).horizontalAdvance("힌트"), count.x(), "숫자 칩이 글 뒤")
+        self.assertLessEqual(QFontMetricsF(button.font()).horizontalAdvance("힌트"), count.x(), "숫자 꼬리표가 글 뒤")
         self.assertLessEqual(count.geometry().right(), button.width() - 1)
         guikit.click(page.hint_btn)
         self.assertEqual(("힌트 1/3", "1/3"), (page.tabs.tabText(1), count.text()))
         guikit.click(button)
-        self.assertEqual(1, page.tabs.currentIndex(), "칩 자리를 눌러도 탭이 바뀜")
+        self.assertEqual(1, page.tabs.currentIndex(), "꼬리표 자리를 눌러도 탭이 바뀜")
 
     def test_facts_band_sits_under_the_tabs_on_the_problem_tab_only(self):
         self.boot()
