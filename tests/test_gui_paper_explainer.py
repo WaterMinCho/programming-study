@@ -327,7 +327,7 @@ class PaperExplainerTest(unittest.TestCase):
             dialog=self.show(self.papers[0])
             dialog.set_stage(1)
             self.settle(dialog)
-            image=dialog.diagram.grab().toImage()
+            image=guikit.shot(dialog.diagram)
             scene=dialog.diagram.last_scene
             rect=next(op[1] for op in scene.operations if op[0]=="rect")
             edge_x=round(rect.x()+scene.cell*3)
