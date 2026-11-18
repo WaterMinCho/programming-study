@@ -794,11 +794,13 @@ class RowList(QFrame):
 
 
 class FlowLayout(QLayout):
-    """가로로 늘어놓다가 폭이 모자라면 다음 줄로 넘기는 배치(주제 칩). 줄 사이와 칸 사이 간격은 spacing 하나로 씀."""
+    """가로로 늘어놓다가 폭이 모자라면 다음 줄로 넘기는 배치(주제 칩). 줄 사이와 칸 사이 간격은 spacing 하나로 씀.
+    centered 면 줄마다 남는 폭을 좌우로 똑같이 나눠 그 줄을 가운데에 둠."""
 
-    def __init__(self, parent=None, spacing=8):
+    def __init__(self, parent=None, spacing=8, centered=False):
         super().__init__(parent)
         self.items = []
+        self.centered = centered
         self.setContentsMargins(0, 0, 0, 0)
         self.setSpacing(spacing)
 
@@ -846,8 +848,9 @@ class FlowLayout(QLayout):
 
         def place_line():
             if move:
+                shift = max(0, area.right() + 1 - (x - gap)) // 2 if self.centered else 0
                 for child, start, size in pending:
-                    child.setGeometry(QRect(QPoint(start, y + (line - size.height()) // 2), size))
+                    child.setGeometry(QRect(QPoint(start + shift, y + (line - size.height()) // 2), size))
 
         for item in self.items:
             if item.widget() is not None and not item.widget().isVisibleTo(item.widget().parentWidget()):

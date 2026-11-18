@@ -794,6 +794,43 @@ class FigureViewTest(unittest.TestCase):
         holder.ensureWidgetVisible(figure.controls)
         guikit.pump()
 
+    def test_movie_controls_sit_in_the_middle_of_each_line(self):
+        """조작부의 제목·단추·장 번호·크게 보기는 줄마다 가운데에 모임. 조작부 가운데가 그림 가운데와 맞음."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        self.addCleanup(setattr, motion, "enabled", motion.enabled)
+        motion.enabled = False
+        path = os.path.join(guikit.ROOT, "ai", "learn", "l04", "assets", "4a-2.gif")
+        root = kit.page(QWidget())
+        column = kit.box(root, (24, 24, 24, 24))
+        figure = FigureView(path, "그림 설명", scale=0.5, autoplay=False)
+        column.addWidget(figure)
+        column.addStretch(1)
+        self.addCleanup(root.close)
+        root.show()
+        wrapped = False
+        for step in (theme.TEXT_STEPS[0], theme.TEXT_STEPS[-1]):
+            theme.set_text(step)
+            kit.refont(root)
+            for width in (1100, 760, 440):
+                root.resize(width, 650)
+                guikit.pump()
+                cells = [each.geometry() for each in (figure.controls_heading, figure.first_btn, figure.prev_btn,
+                                                      figure.play_btn, figure.next_btn, figure.counter, figure.zoom_btn)
+                         if each.isVisibleTo(figure) and each.parentWidget() is figure.controls]
+                lines = []
+                for rect in sorted(cells, key=lambda each: (each.center().y(), each.x())):
+                    if lines and abs(lines[-1][0].center().y() - rect.center().y()) <= rect.height() // 2:
+                        lines[-1].append(rect)
+                    else:
+                        lines.append([rect])
+                wrapped = wrapped or len(lines) > 1
+                middle = figure.controls.width() / 2
+                for line in lines:
+                    left, right = min(each.left() for each in line), max(each.right() for each in line) + 1
+                    self.assertLessEqual(abs((left + right) / 2 - middle), 1, (step, width, left, right))
+                self.assertLessEqual(abs(figure.controls.geometry().center().x() - figure.picture.geometry().center().x()), 1)
+        self.assertTrue(wrapped, "좁은 폭에서 줄이 나뉜 경우도 확인해야 함")
+
 
 def painted_text_bottom(widget):
     """단추의 테두리를 빼고 한 줄 글의 실제 아랫끝을 읽음. 가는 숫자 획도 포함함."""
