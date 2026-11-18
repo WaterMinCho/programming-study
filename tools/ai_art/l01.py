@@ -25,7 +25,7 @@ from PIL import Image  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
-from tools.ai_art import quantize  # noqa: E402
+from tools.ai_art import iso, quantize  # noqa: E402
 
 OUT = os.path.join(ROOT, "ai", "learn", "l01", "assets")
 FONTS = os.path.join(ROOT, "gui", "fonts")
@@ -40,7 +40,7 @@ plt.rcParams.update({
 
 INK, MUTED, FAINT, GRID = "#1f2937", "#6b7280", "#d1d5db", "#eef0f3"
 BLUE, RED, ORANGE, GREEN, PURPLE = "#2563eb", "#dc2626", "#ea580c", "#059669", "#7c3aed"
-BLUE_L, RED_L, ORANGE_L, GREEN_L, GRAY_L, HL = "#dbeafe", "#fee2e2", "#ffedd5", "#d1fae5", "#f3f4f6", "#fef3c7"
+BLUE_L, ORANGE_L, GREEN_L, GRAY_L, HL = "#dbeafe", "#ffedd5", "#d1fae5", "#f3f4f6", "#fef3c7"
 PURPLE_L = "#ede9fe"
 CODE = ["D2Coding", "DejaVu Sans Mono"]
 # 한 단원 안에서 한 색은 한 뜻이고, 뜻은 그 그림의 캡션이나 장 설명에 적음. 검정과 회색은 뜻 없는 글자, 선, 바탕임
@@ -219,31 +219,35 @@ def loss_png():
     return save_png("1a-1", to_image(fig))
 
 
-RING = {"순전파": (30, 40), "손실 계산": (50, 24), "역전파": (30, 8), "갱신": (10, 24)}
-RING_COLOR = {"순전파": BLUE, "손실 계산": RED, "역전파": ORANGE, "갱신": GREEN}
-RING_FILL = {"순전파": BLUE_L, "손실 계산": RED_L, "역전파": ORANGE_L, "갱신": GREEN_L}
+# 1a-2 는 iso.Sheet(파일 px, y 아래로)로 그림. 고리 카드는 지금 단계만 진한 칠과 흰 굵은 글(solid), 나머지는 옅은 칠(seen).
+# 화살표는 출발 카드 색. 오른쪽 판의 옅은 칠 띠는 그 장에서 새로 계산한 줄
+RING = {"순전파": (310, 112), "손실 계산": (510, 272), "역전파": (310, 432), "갱신": (110, 272)}
+RING_TONE = {"순전파": "blue", "손실 계산": "red", "역전파": "orange", "갱신": "green"}
+RING_ARROWS = [(((404, 120), (510, 236)), "blue"), (((510, 308), (404, 424)), "red"),
+               (((216, 424), (110, 308)), "orange"), (((110, 236), (216, 120)), "green")]
+PANEL = (640, 70, 1090, 456)
 
 
-def ring(ax, on=None):
-    order = ["순전파", "손실 계산", "역전파", "갱신"]
-    for name in order:
-        x, y = RING[name]
-        lit = name == on
-        box(ax, x - 9, y - 3.5, 18, 7, name, fc=RING_FILL[name] if lit else "white",
-            ec=RING_COLOR[name] if lit else FAINT, lw=3.5 if lit else 2, size=22,
-            color=RING_COLOR[name] if lit else MUTED, weight="bold" if lit else "normal")
-    arrow(ax, 39.5, 39, 48, 28, color=MUTED, rad=-0.25)
-    arrow(ax, 48, 20, 39.5, 9, color=MUTED, rad=-0.25)
-    arrow(ax, 20.5, 9, 12, 20, color=MUTED, rad=-0.25)
-    arrow(ax, 12, 28, 20.5, 39, color=MUTED, rad=-0.25)
+def ring(s, on=None):
+    for name, at in RING.items():
+        s.card(at, [name], RING_TONE[name], "solid" if name == on else "seen", size=26, pad=(20, 14), width=176)
+    for (start, end), tone in RING_ARROWS:
+        s.arrow(start, end, iso.TONES[tone][1], bend=0.28, width=3)
 
 
-def panel(ax, lines, top=44):
-    box(ax, 64, 4, 45, top - 4, fc=GRAY_L, ec=FAINT)
-    y = top - 5
-    for text, color in lines:
-        label(ax, 67, y, text, size=22, color=color)
-        y -= 6
+def panel(s, lines):
+    """lines 항목은 (글, 색, 띠 색 이름 또는 None). 띠 색이 같은 줄이 이어지면 띠 하나로 묶음."""
+    s.plate(PANEL)
+    ys = [PANEL[1] + 48 + 64 * k for k in range(len(lines))]
+    assert ys[-1] + 32 <= PANEL[3]
+    for k, (_, _, tone) in enumerate(lines):
+        if tone and (k == 0 or lines[k - 1][2] != tone):
+            end = k
+            while end + 1 < len(lines) and lines[end + 1][2] == tone:
+                end += 1
+            s.plate((PANEL[0] + 12, ys[k] - 28, PANEL[2] - 12, ys[end] + 28), iso.TONES[tone][0], None, 8)
+    for y, (text, color, tone) in zip(ys, lines):
+        s.prose((PANEL[0] + 26, y), text, 28, color, bold=tone is not None)
 
 
 @figure("1a-2")
@@ -251,30 +255,33 @@ def cycle_gif():
     frames, durs = [], []
     r1, r2, r3 = R1A
     steps = [
-        (None, [("시작: w = 2", INK), ("입력 x = 2, 정답 5", MUTED), ("학습률 0.1", MUTED)], 2200),
-        ("순전파", [("w = 2", INK), ("예측 = 2 × 2 = %s" % dec(r1[1]), BLUE)], 2000),
-        ("손실 계산", [("w = 2", INK), ("예측 4", BLUE), ("손실 = $(4 - 5)^2$ = %s" % dec(r1[2]), RED)], 2000),
-        ("역전파", [("w = 2", INK), ("예측 4, 손실 1", MUTED), ("w의 기울기 = %s" % dec(r1[3]), ORANGE)], 2200),
-        ("갱신", [("w = 2 %s 0.1 × (%s)" % (M, dec(r1[3])), GREEN), ("   = %s" % dec(r1[4]), GREEN), ("기울기가 음수라 w가 커집니다", MUTED)], 2400),
-        (None, [("둘째 바퀴", INK), ("예측 %s" % dec(r2[1]), BLUE), ("손실 %s" % dec(r2[2]), RED), ("기울기 %s" % dec(r2[3]), ORANGE),
-                ("새 w = %s" % dec(r2[4]), GREEN)], 2400),
+        (None, [("시작: w = 2", INK, None), ("입력 x = 2, 정답 5", MUTED, None), ("학습률 0.1", MUTED, None)], 2200),
+        ("순전파", [("w = 2", INK, None), ("예측 = 2 × 2 = %s" % dec(r1[1]), BLUE, "blue")], 2000),
+        ("손실 계산", [("w = 2", INK, None), ("예측 4", BLUE, None),
+                   ("손실 = (4 %s 5)² = %s" % (M, dec(r1[2])), RED, "red")], 2000),
+        ("역전파", [("w = 2", INK, None), ("예측 4, 손실 1", MUTED, None), ("w의 기울기 = %s" % dec(r1[3]), ORANGE, "orange")],
+         2200),
+        ("갱신", [("w = 2 %s 0.1 × (%s)" % (M, dec(r1[3])), GREEN, "green"), ("   = %s" % dec(r1[4]), GREEN, "green"),
+                ("기울기가 음수라 w가 커집니다", MUTED, None)], 2400),
+        (None, [("둘째 바퀴", INK, None), ("예측 %s" % dec(r2[1]), BLUE, None), ("손실 %s" % dec(r2[2]), RED, None),
+                ("기울기 %s" % dec(r2[3]), ORANGE, None), ("새 w = %s" % dec(r2[4]), GREEN, None)], 2400),
     ]
     for on, lines, ms in steps:
-        fig, ax = canvas(50)
-        title(ax, "학습 한 바퀴", 50)
-        ring(ax, on)
-        panel(ax, lines)
-        frames.append(to_image(fig))
+        s = iso.Sheet(WIDTH, 500)
+        s.text((30, 34), "학습 한 바퀴", 30, INK, True, anchor="lm")
+        ring(s, on)
+        panel(s, lines)
+        frames.append(s.image())
         durs.append(ms)
-    fig, ax = canvas(50)
-    title(ax, "학습 한 바퀴를 세 번", 50)
-    ring(ax)
-    box(ax, 64, 4, 45, 40, fc=GRAY_L, ec=FAINT)
-    label(ax, 67, 39, "바퀴    w       손실", size=22, color=MUTED, family=CODE)
-    for k, r in enumerate(R1A):
-        label(ax, 67, 32 - 7 * k, "%d       %-7s %s" % (k + 1, dec(r[0]), dec(r[2])), size=24, family=CODE)
-    label(ax, 67, 9, "손실이 1 → 0.04 → 0.0016", size=22, color=RED)
-    frames.append(to_image(fig))
+    s = iso.Sheet(WIDTH, 500)
+    s.text((30, 34), "학습 한 바퀴를 세 번", 30, INK, True, anchor="lm")
+    ring(s)
+    rows = [[str(k + 1), dec(r[0]), dec(r[2])] for k, r in enumerate(R1A)]
+    assert [row[2] for row in rows] == ["1", "0.04", "0.0016"]
+    rect = s.table(PANEL[0], PANEL[1], [120, 140, 150], ["바퀴", ("w", MUTED, False, True), "손실"], rows, "llr", size=28,
+                   row_h=66, band=("손실이 1 → %s → %s" % (rows[1][2], rows[2][2]), "red"))
+    assert rect == PANEL, rect
+    frames.append(s.image())
     durs.append(2500)
     frames[-1].save(os.path.join(OUT, "_1a-5.tmp.png"))
     out = save_gif("1a-2", frames, durs)

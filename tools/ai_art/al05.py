@@ -15,11 +15,11 @@ a5d 색: 파랑 = 꺼낸 307~312번과 ImageNet 번호, 파랑 칠과 굵은 테
 빨강 = 오류와 섞어 쓴 번호, 회색 테두리 = 두 변환에서 같은 단계, 주황 = 설명용 값 표시와 값이 다른 단계(정규화).
 a5e 색: 파랑 = block1, 주황 = block2, 초록 = block3, 보라 = block4, 옅은 칸 = block2·block3 의 첫 층과 첫 층 출력.
 """
-from math import ceil, floor
+from math import ceil, floor, sqrt
 
 from PIL import Image, ImageDraw
 
-from tools.ai_art import COLORS, figure
+from tools.ai_art import COLORS, figure, iso
 from tools.ai_art.al04 import arrow
 from tools.ai_art.al18 import _dash, _dash_line, _face, _w
 from tools.ai_art import levels
@@ -116,14 +116,35 @@ def _a5a_numbers():
     assert (224 + 4 - 11) / 4 == 54.25 and _out(224, 11, 4, 2) == 55 and ceil(54.25) + 1 == 56
 
 
+def _a5a_shape(sheet, x, y, dims, size=21):
+    """Sheet 에 [8, 64, 55, 55] 꼴 모양 글을 씀. _shape 와 같이 첫 값(배치 축)만 주황 굵게. 오른쪽 끝 x 를 돌려줌."""
+    parts = [("[", INK, False), (str(dims[0]), ORANGE, True)] + [(", " + str(v), INK, False) for v in dims[1:]] + [("]", INK, False)]
+    for value, color, bold in parts:
+        sheet.text((x, y), value, size, color, bold, code=True, anchor="lm")
+        x += sheet.measure(value, size, bold, True)
+    return x
+
+
+def _a5a_px(side):
+    """한 변 → 상자 앞면 한 변(파일 px). 224 를 185px 로 두고 제곱근 7할, 비례 3할로 섞어 줄임. 그대로 비례하면 6 이 5px 라
+    보이지 않음. 제곱근만 쓰면 세로축 눈금 224 와 168 사이가 25px 로 붙음. 섞으면 6 은 23px, 두 눈금 사이는 31px 임.
+    세로축 눈금도 같은 식으로 찍음."""
+    r = side / 224.0
+    return 185.0 * (0.7 * sqrt(r) + 0.3 * r)
+
+
+def _a5a_depth(channels):
+    """채널 수 → 상자 깊이(파일 px). 앞면과 같은 까닭으로 제곱근을 씀. 3채널은 5px, 256채널은 48px."""
+    return 3.0 * sqrt(channels)
+
+
 @figure("a5a-1", 560, 300)
 def a5a_sides():
-    """AlexNet features 를 지나는 한 변 막대 네 장."""
+    """AlexNet features 를 지나는 한 변 상자 네 장. 층마다 입체 상자 하나이고 앞면 가로·세로는 한 변, 깊이는 채널 수를 나타냄.
+    이번 장에서 새로 나온 층은 진한 파랑(strong), 앞 장에서 나온 층은 옅은 파랑(seen), 입력은 회색(normal)."""
     _a5a_numbers()
     sides = _alex_chain(224) + [6]
-    widths = [100, 112, 112, 112, 112, 170, 112, 140]
-    x0, base, top = 110, 404, 120
-    scale = (base - top) / 224.0
+    x0, base = 96, 404
     groups = [(0, 1), (2, 3), (4, 5), (6, 7)]
     texts = [
         ([8, 3, 224, 224], [8, 64, 55, 55]),
@@ -131,49 +152,60 @@ def a5a_sides():
         ([8, 192, 27, 27], [8, 192, 13, 13], [8, 256, 13, 13]),
         ([8, 256, 13, 13], [8, 256, 6, 6], [8, 256, 6, 6]),
     ]
+    channel = ["채널 %d" % ch if n != 5 else "채널 384→256" for n, ch in enumerate(ALEX_CH)]
+    probe = iso.Sheet(8, 8)
+    sizes = [(_a5a_px(side), _a5a_depth(ch)) for side, ch in zip(sides, ALEX_CH)]
+    spans = [w + d * iso.DEPTH[0] for w, d in sizes]
+    labels = [max([probe.measure(name, 19, code=True), probe.measure(channel[n], 19), probe.measure(side, 24, True, True)]
+                  + [probe.measure(part, 19) for part in kind.split("|")])
+              for n, ((name, kind, _), side) in enumerate(zip(ALEX, sides))]
+    # 칸 폭은 상자 사이가 28px 이상, 글 사이가 22px 이상 벌어지게 잡음
+    widths = [max(span + 28, label + 22) for span, label in zip(spans, labels)]
+    assert x0 + sum(widths) <= W - 20, widths
+    centers = [x0 + sum(widths[:n]) + widths[n] / 2.0 for n in range(len(widths))]
+    ticks = [base - _a5a_px(v) for v in (0, 56, 112, 168, 224)]
+    assert min(a - b for a, b in zip(ticks, ticks[1:])) >= 28, ticks
     frames = []
     for k in range(4):
-        image, d = _new(600)
-        _t(d, (40, 18), "AlexNet features를 지나는 한 변", 24, INK, True)
-        _box(d, (900, 14, 1080, 58), [("배치 8", ORANGE, True, False)], ORANGE_L, ORANGE, 22, width=3)
-        d.line((x0 - 10, base, x0 + sum(widths), base), fill=LIGHT, width=2)
-        d.line((x0 - 10, top, x0 - 10, base), fill=LIGHT, width=2)
+        s = iso.Sheet(W, 600)
+        s.text((40, 18), "AlexNet features를 지나는 한 변", 24, INK, True)
+        s.card((990, 36), ["배치 8"], "orange", "new", size=22, pad=(20, 9), width=180)
+        s.path([(x0 - 10, base), (x0 + sum(widths), base)], LIGHT, 2)
+        s.path([(x0 - 10, base - _a5a_px(224)), (x0 - 10, base)], LIGHT, 2)
         for v in (0, 56, 112, 168, 224):
-            y = base - v * scale
-            d.line((x0 - 16, y, x0 - 10, y), fill=LIGHT, width=2)
-            _t(d, (x0 - 22, y), v, 19, MUTED, anchor="rm")
-        _t(d, (40, 70), "한 변", 19, MUTED)
+            y = base - _a5a_px(v)
+            s.path([(x0 - 16, y), (x0 - 10, y)], LIGHT, 2)
+            s.text((x0 - 22, y), v, 19, MUTED, anchor="rm")
+        s.text((x0 - 10, base - _a5a_px(224) - 22), "한 변", 19, MUTED, anchor="mb")
         shown = max(groups[k])
-        x = x0
-        for n, ((name, kind, _), side, ch) in enumerate(zip(ALEX, sides, ALEX_CH)):
-            w = widths[n]
-            cx = x + w / 2.0
-            _t(d, (cx, base + 22), name, 19, INK, code=True, anchor="mm")
+        for n, ((name, kind, _), side) in enumerate(zip(ALEX, sides)):
+            cx = centers[n]
+            s.text((cx, base + 22), name, 19, INK, code=True, anchor="mm")
             for j, part in enumerate(kind.split("|")):
                 if part:
-                    _t(d, (cx, base + 50 + j * 24), part, 19, MUTED, anchor="mm")
-            if n <= shown:
-                active = n in groups[k] and n > 0 or (k == 0 and n == 0)
-                fill, edge = (BLUE, BLUE) if active and n > 0 else (BLUE_L, "#93c5fd")
-                if n == 0:
-                    fill, edge = NOTE, LIGHT
-                h = side * scale
-                d.rectangle((cx - 26, base - h, cx + 26, base), fill=fill, outline=edge, width=2)
-                _t(d, (cx, base - h - 14), side, 24, BLUE if active and n > 0 else INK, True, anchor="mb")
-                _t(d, (cx, base - h - 44), "채널 %d" % ch if n != 5 else "채널 384→256", 19, MUTED, anchor="mb")
-            x += w
+                    s.text((cx, base + 50 + j * 24), part, 19, MUTED, anchor="mm")
+            if n > shown:
+                continue
+            active = n > 0 and n in groups[k]
+            state = "normal" if n == 0 else ("strong" if active else "seen")
+            w, depth = sizes[n]
+            a = s.box(cx - spans[n] / 2.0, base - w, w, w, depth, state)
+            s.text((cx, a["above"][1] - 12), side, 24, BLUE if active else INK, True, True, anchor="mb")
+            s.text((cx, a["above"][1] - 46), channel[n], 19, MUTED, anchor="mb")
+            if n:
+                left, right = centers[n - 1] + spans[n - 1] / 2.0 + 5, cx - spans[n] / 2.0 - 5
+                assert right - left >= 18, (n, left, right)
+                s.arrow((left, base - 12), (right, base - 12), LIGHT, width=iso.ARROW_W, size=(10, 5))
         fx0, fx1 = x0 + widths[0] + 6, x0 + sum(widths[:7]) - 6
-        d.line((fx0, base + 104, fx1, base + 104), fill=MUTED, width=2)
-        d.line((fx0, base + 96, fx0, base + 104), fill=MUTED, width=2)
-        d.line((fx1, base + 96, fx1, base + 104), fill=MUTED, width=2)
-        _t(d, ((fx0 + fx1) / 2.0, base + 112), "features", 19, MUTED, code=True, anchor="ma", bg="white")
+        s.path([(fx0, base + 96), (fx0, base + 104), (fx1, base + 104), (fx1, base + 96)], MUTED, 2)
+        s.text(((fx0 + fx1) / 2.0, base + 112), "features", 19, MUTED, code=True, anchor="ma")
         x = 40
         for j, dims in enumerate(texts[k]):
             if j:
-                _t(d, (x + 12, 562), "→", 22, MUTED, anchor="lm")
+                s.text((x + 12, 562), "→", 22, MUTED, anchor="lm")
                 x += 46
-            x = _shape(d, x, 562, dims, 21)
-        frames.append(image)
+            x = _a5a_shape(s, x, 562, dims, 21)
+        frames.append(s.image())
     for k, dims in enumerate(texts):
         assert dims[-1][2] == sides[max(groups[k])] and all(row[0] == 8 for row in dims)
     return frames, [2200, 2200, 2200, 2400]

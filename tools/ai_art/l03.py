@@ -24,7 +24,7 @@ from PIL import Image  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
-from tools.ai_art import quantize  # noqa: E402
+from tools.ai_art import iso, quantize  # noqa: E402
 
 OUT = os.path.join(ROOT, "ai", "learn", "l03", "assets")
 for _font in ("NanumGothic-Regular.ttf", "NanumGothic-Bold.ttf", "D2Coding-Regular.ttf", "D2Coding-Bold.ttf"):
@@ -232,38 +232,56 @@ R2 = [[1, 5, 6], [4, 3, 2]]  # 3차시 노트북 01 [13] 의 r2
 
 @figure("3a-1", 560, 230)
 def fig_3a_1():
+    """축을 하나씩 늘린 텐서 여섯 장. 칸은 입체 상자로 그리고 3차원 텐서는 2행 2열 판 세 장을 뒤로 비껴 겹침.
+    이번 장에 새로 채운 텐서와 이름표는 파랑 면에 진한 파랑 테두리·굵은 보라(new), 앞 장에서 채운 것은 옅은 파랑·보통 보라(seen),
+    아직 채우지 않은 자리는 회색 이름 글과 회색 점선 윤곽. 1장은 이름표 넷이 모두 보라이고 6장에만 축 개수 이름표가 나옴.
+    6장은 텐서와 이름표를 모두 seen 으로 두고 새로 나온 축 개수 이름표만 굵은 테두리(new)로 그림."""
     vec = [1, 5, 6]
     shapes = [[], shape_of(vec), shape_of(R2), [3, 2, 2]]
     assert shapes == [[], [3], [2, 3], [3, 2, 2]]
     names = ["스칼라", "벡터", "행렬", "3차원 텐서"]
     centers = [150, 390, 650, 930]
+    mid = 238                                  # 텐서 그림 묶음의 세로 가운데
+    cw, ch, depth = 62, 56, 30                 # 스칼라·벡터·행렬의 칸과 깊이
+    side, thick, step = 50, 10, (30, -24)      # 3차원 텐서 판 한 칸, 판 두께, 뒤 판이 비끼는 간격
+    values = [[[num(1.0, True)]], [[num(v, True) for v in vec]], [[num(v, True) for v in row] for row in R2], None]
+
+    def solid(s, k, state):
+        """k 번째 텐서를 가운데 (centers[k], mid) 에 그림. 칸 수는 shapes[k] 에서 가져옴."""
+        cx, dx, dy = centers[k], iso.DEPTH[0] * depth, iso.DEPTH[1] * depth
+        if k < 3:
+            rows, cols = ([1] * (2 - len(shapes[k])) + shapes[k])[-2:]
+            assert [len(values[k]), len(values[k][0])] == [rows, cols]
+            w, h = cols * cw, rows * ch
+            s.slab(cx - (w + dx) / 2.0, mid - (h + dy) / 2.0, cw, ch, rows, cols, depth, state, values[k], size=24)
+            return
+        n, rows, cols = shapes[k]
+        w, h = cols * side, rows * side
+        tx, ty = iso.DEPTH[0] * thick, iso.DEPTH[1] * thick
+        x = cx - (w + (n - 1) * step[0] + tx) / 2.0
+        y = mid - (h + (n - 1) * step[1] + ty) / 2.0
+        for _, ox, oy in iso.stack_offsets(n, step):  # 뒤 판부터 그려 앞 판이 위에 옴
+            s.slab(x + ox, y + oy, side, side, rows, cols, thick, state)
 
     def draw(upto, summary=False):
-        c = Canvas(1120, 460)
-        c.title("축을 하나씩 늘린 텐서")
+        s = iso.Sheet(1120, 460)
+        s.text((36, 20), "축을 하나씩 늘린 텐서", 28, INK, True)
         for k, (cx, name) in enumerate(zip(centers, names)):
             on = k < upto
-            c.text(cx, 100, name, size=21, color=PURPLE if on or upto == 0 else MUTED, bold=on,
-                   bg=PURPLE_BG if on or upto == 0 else None, ec=PURPLE)
-            if not on:
-                c.box(cx - 95, 150, 190, 170, fc="white", ec=FAINT, lw=2, ls="--", rounded=True)
-                continue
-            if k == 0:
-                c.cells(cx - 40, 205, [["1."]], cw=80, ch=60, fill=lambda i, j: BLUE_BG)
-            elif k == 1:
-                c.cells(cx - 105, 205, [[num(v, True) for v in vec]], cw=70, ch=60, fill=lambda i, j: BLUE_BG)
-            elif k == 2:
-                c.cells(cx - 105, 175, [[num(v, True) for v in row] for row in R2], cw=70, ch=60,
-                        fill=lambda i, j: BLUE_BG)
+            state = "new" if k == upto - 1 and not summary else "seen"
+            if on or upto == 0:
+                s.label((cx, 100), name, "purple", state if on else "seen", size=24)
             else:
-                for s in range(3):  # 뒤 장부터 그려 앞 장이 위에 오게 함
-                    off = (2 - s) * 22
-                    c.cells(cx - 70 + off, 205 - off, [["", ""], ["", ""]], cw=55, ch=50,
-                            fill=lambda i, j, s=s: ["#93c5fd", "#bfdbfe", BLUE_BG][s])
-            c.text(cx, 365, "shape " + shape_text(shapes[k]), size=21, mono=True, color=INK)
+                s.text((cx, 100), name, 24, MUTED, anchor="mm")
+            if not on:
+                s.path(iso.rounded((cx - 95, 150, cx + 95, 320), 12), iso.GRAY, iso.DASH_W, (6, 5), closed=True)
+                continue
+            solid(s, k, state)
+            s.text((cx, 365), "shape " + shape_text(shapes[k]), 26, INK, True, True, anchor="mm")
             if summary:
-                c.text(cx, 418, "축 %d개" % len(shapes[k]), size=22, color=INK, bold=True, bg="white", ec=MUTED)
-        return c.image()
+                s.card((cx, 418), [("축 %d개" % len(shapes[k]), INK, True, False)], "gray", "new", size=26,
+                       pad=(14, 5))
+        return s.image()
 
     frames = [draw(0), draw(1), draw(2), draw(3), draw(4), draw(4, summary=True)]
     return frames, [2000, 2000, 2000, 2000, 2000, 2500]

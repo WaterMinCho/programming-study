@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """11차시 그림의 숫자를 계산하고 학습 단계별 그림을 만듦."""
-from tools.ai_art import figure
+from tools.ai_art import figure, iso
 from tools.ai_art.levels import chain, grid, graph, SIZE
 
 def side(h, k, p=0, s=1):
@@ -31,42 +31,6 @@ PANELS = {'11a-1': {'rows': [[1, 2, 0], [0, 3, 1], [2, 1, 4]],
            'top': '',
            'marks': (),
            'color': 'blue'},
- '11a-2': {'frames': [{'rows': [[1, 2, 0], [0, 3, 1], [2, 1, 4]],
-                       'col_names': (),
-                       'row_names': (),
-                       'top': '입력 3 × 3',
-                       'marks': (),
-                       'color': 'blue'},
-                      {'rows': [[1, 0], [1, 0]],
-                       'col_names': (),
-                       'row_names': (),
-                       'top': '같은 필터 2 × 2',
-                       'marks': (),
-                       'color': 'blue'},
-                      {'rows': [[1, 2, 0], [0, 3, 1], [2, 1, 4]],
-                       'col_names': (),
-                       'row_names': (),
-                       'top': '왼쪽 위 1 + 0 = 1',
-                       'marks': [(0, 0), (1, 0)],
-                       'color': 'blue'},
-                      {'rows': [[1, 2, 0], [0, 3, 1], [2, 1, 4]],
-                       'col_names': (),
-                       'row_names': (),
-                       'top': '오른쪽 위 2 + 3 = 5',
-                       'marks': [(0, 1), (1, 1)],
-                       'color': 'blue'},
-                      {'rows': [[1, 5], [2, 4]],
-                       'col_names': (),
-                       'row_names': (),
-                       'top': '아래쪽도 같은 필터',
-                       'marks': (),
-                       'color': 'blue'},
-                      {'rows': [[1, 5], [2, 4]],
-                       'col_names': (),
-                       'row_names': (),
-                       'top': '특징 맵 2 × 2',
-                       'marks': [(0, 0), (0, 1), (1, 0), (1, 1)],
-                       'color': 'blue'}]},
  '11a-21': {'type': 'chain', 'values': ['2', '3'], 'labels': ['윗칸', '아랫칸'], 'note': ''},
  '11a-22': {'rows': [[3, 1, 3], [1, 0, 0], [1, 1, 1], [4, 0, 0]],
             'col_names': ['입력', '가중치', '곱'],
@@ -349,3 +313,50 @@ def make(spec):
 
 for name, spec in PANELS.items():
     globals()["draw_" + name.replace("-", "_")] = figure(name, *SIZE)(make(spec))
+
+
+def window_sum(y, x):
+    """(y, x) 에서 시작한 2×2 구역에 kernel 을 곱해 더한 값과, kernel 값이 1이라 합에 들어가는 입력 칸 목록."""
+    total = sum(image[y + dy][x + dx] * kernel[dy][dx] for dy in range(2) for dx in range(2))
+    return total, [(y + dy, x + dx) for dy in range(2) for dx in range(2) if kernel[dy][dx]]
+
+
+@figure("11a-2", *SIZE)
+def conv_steps():
+    """커널로 결과 2×2 를 채우는 과정을 여섯 장으로 그림. 왼쪽은 입력 3×3 타일과 그 위에 띄운 2×2 커널 창, 오른쪽은 결과 2×2 타일.
+    타일은 행렬의 위·아래·왼쪽·오른쪽이 화면에서도 같은 쪽에 놓이게 비껴 그림. 합에 들어가는 입력 칸과 창의 값 1 칸은 new,
+    지금 계산한 결과 칸은 strong, 앞 장에서 계산한 결과 칸은 seen, 아직 계산하지 않은 결과 칸은 todo(점선 윤곽).
+    5장은 아래 두 칸을 한꺼번에 채우므로 입력 칸을 칠하지 않음. 네 칸을 함께 칠하면 창 하나의 합으로 읽힘.
+    위 이름표에는 장마다 바뀌는 글을 씀."""
+    sums = {(y, x): window_sum(y, x) for y in range(2) for x in range(2)}
+    assert [[sums[y, x][0] for x in range(2)] for y in range(2)] == result
+    (left, left_cells), (right, right_cells) = sums[0, 0], sums[0, 1]
+    left_text = "왼쪽 위 %d + %d = %d" % (image[0][0], image[1][0], left)
+    right_text = "오른쪽 위 %d + %d = %d" % (image[0][1], image[1][1], right)
+    assert left_text == "왼쪽 위 1 + 0 = 1" and right_text == "오른쪽 위 2 + 3 = 5"
+    mark = lambda seen, strong: dict([(cell, "seen") for cell in seen] + [(cell, "strong") for cell in strong])
+    # (위 글, 창 자리, 입력 new 칸, 값을 쓴 결과 칸의 상태, 화살표 파랑)
+    frames = [
+        ("입력 3 × 3", None, "all", {}, False),
+        ("같은 필터 2 × 2", (0, 0), (), {}, False),
+        (left_text, (0, 0), left_cells, mark((), [(0, 0)]), True),
+        (right_text, (0, 1), right_cells, mark([(0, 0)], [(0, 1)]), True),
+        ("아래쪽도 같은 필터", None, (), mark([(0, 0), (0, 1)], [(1, 0), (1, 1)]), True),
+        ("특징 맵 2 × 2", None, (), mark((), sums), False),
+    ]
+    inp = iso.Oblique((186, 320), cell=96, thick=16)
+    out = iso.Oblique((764, 321), cell=96, thick=18)
+    images = []
+    for top, at, marked, states, flowing in frames:
+        sheet = iso.Sheet(1040, 560)
+        sheet.label((520, 50), top, "blue", "seen", size=26, code=True)
+        sheet.tiles(inp, image, lambda r, c: "new" if marked == "all" or (r, c) in marked else "normal", size=28)
+        if at:
+            # 커널이 처음 나온 장은 창 네 칸이 모두 new, 계산하는 장은 값 1 칸만 new
+            sheet.window(inp, at[0], at[1], kernel, lambda r, c: "new" if kernel[r][c] or not marked else "seen",
+                         lift=180, thick=8, size=28, corners=(0, 1, 2, 3))
+        values = [[result[r][c] if (r, c) in states else None for c in range(2)] for r in range(2)]
+        sheet.tiles(out, values, lambda r, c: states.get((r, c), "todo"), size=32)
+        sheet.arrow((502, 360), (640, 360), iso.FACES["new"]["line"] if flowing else iso.GRAY, width=3)
+        images.append(sheet.image())
+    return images, [2000] * len(images)

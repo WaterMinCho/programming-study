@@ -1,14 +1,14 @@
 {
  "format": 1,
- "writer": "본문 보완 작성",
- "resolver": "변경 물음 독립 재풀이",
- "reviewer": "기술·참조 대조",
+ "writer": "그림 다시 그림",
+ "resolver": "기존 재풀이 보존",
+ "reviewer": "그림 장별 대조",
  "files": {
   "assets/1a-1.png": "eeab4fe61fdabc999edc282a30b0f1c24824e179526053db8be1c5fd500b97f3",
-  "assets/1a-2.gif": "5ffa1add2b6db57e0d924bdd9d5f1c82f291bb576829adc14b8b7c28bd43b4b0",
+  "assets/1a-2.gif": "a7545cd3e404fa2070d5d1826d67f8851f90ab41e89f0b0339c5299d1b3f156d",
   "assets/1a-3.gif": "2f0e2d8015d5df732c23cd49de6cbd070a0e1ce0a21fbce580a11e3efe9f0234",
   "assets/1a-4.png": "24f8243df80738e11444fe5d4bc8689bab153e99f91e3c3717fa92843d419bc8",
-  "assets/1a-5.png": "852b0b72a8b7a07f603fb6f3a503c60241de6073dd6b38864308a772045c4fe9",
+  "assets/1a-5.png": "904d8a40ecf85d7ddcc5d7dc57d0fb77b9319e5356e6803edc0429a85731df8a",
   "assets/1b-1.png": "53d5b4ad9f125030243fcc71bf52aba82b64de8d4aeacfc1cdcec40f1d70dca0",
   "assets/1b-2.gif": "1cdd5e6290d5d08a6ab4a36c577fd4c615926bd85d0aad6f771835e8b71f36e6",
   "assets/1b-3.png": "cbb2bb97f7ecdb692e258e8bc879802a7fc9a706a7b4412d3c01459f5819509c",
@@ -82,6 +82,7 @@
   "노트 물음의 독립 재풀이와 서술형 의미 대조를 완료했음. 바뀐 지문·해설·그림의 입력 조건과 답을 다시 확인하고 첫 답안은 별도로 보존했음.",
   "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함.",
   "2026-11-15 제목·목차 문구를 짧은 행동형으로 수정했음. 제목의 조건·수치·API를 교차 검토하고 본문·코드·물음·정답·단계 ID와 분류가 바뀌지 않았음을 대조했음. 기존 물음의 재풀이를 반복하지 않았음.",
-  "클래스 속성·자료형·SGD 조건 전환·HoughLinesP 인수의 변경 설명과 물음을 독립 검토함. 기존 본문 전체의 새 재풀이로 세지 않음."
+  "클래스 속성·자료형·SGD 조건 전환·HoughLinesP 인수의 변경 설명과 물음을 독립 검토함. 기존 본문 전체의 새 재풀이로 세지 않음.",
+  "1a-2·1a-5 를 색 카드 고리와 표 카드로 다시 그림. 장 수, 장 시간, 숫자, 글자가 같고 캡션의 네 색과 맞는지 그린 사람과 다른 검토자가 장마다 대조했음."
  ]
 }
