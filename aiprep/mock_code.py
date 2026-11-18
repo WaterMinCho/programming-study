@@ -23,6 +23,8 @@ Windows 에서 다를 수 있는 곳
   같은 폴더의 python.exe 를 고름.
 - 첫 실행이 백신 검사로 늦어 START_LIMIT_S(10초)를 넘으면 충돌 꼴로 보고 모범 답안을 돌려 봄.
 """
+import functools
+import hashlib
 import json
 import os
 
@@ -30,6 +32,7 @@ import study
 from journey import runner, values
 
 FILL = "____"
+RUNTIME_FILES = ("aiprep/mock_code.py", "journey/runner.py", "journey/harness.py", "journey/values.py")
 LANG = "python"
 LIMIT_MS = 2000
 TOL = 1e-6
@@ -51,15 +54,26 @@ def fill_count(starter):
     return sum(1 for row in starter.split("\n") if row.strip() == FILL)
 
 
+@functools.lru_cache(maxsize=1)
+def runtime_revision():
+    """코드 채점에 쓰는 RUNTIME_FILES 의 해시. code 문항의 수집 문항 버전에만 넣음."""
+    folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    hashes = {}
+    for name in RUNTIME_FILES:
+        with open(os.path.join(folder, name), "rb") as stream:
+            hashes[name] = hashlib.sha256(stream.read()).hexdigest()
+    return hashlib.sha256(json.dumps(hashes, sort_keys=True).encode("utf-8")).hexdigest()
+
+
 def source(starter, entry, lines):
-    """채울 줄을 시작 코드에 넣은 solution.py 원문. 들여쓰기는 시작 코드의 `____` 줄을 따름."""
+    """채울 줄을 시작 코드에 넣은 solution.py 원문. 들여쓰기는 시작 코드의 `____` 줄이 정하므로 채울 줄 앞 공백은 버림."""
     rows = starter.split("\n")
     slots = [index for index, row in enumerate(rows) if row.strip() == FILL]
     if len(lines) != len(slots):
         raise ValueError("채울 줄 수가 시작 코드와 다릅니다.")
     for index, text in zip(slots, lines):
         row = rows[index]
-        rows[index] = row[:len(row) - len(row.lstrip())] + text
+        rows[index] = row[:len(row) - len(row.lstrip())] + text.lstrip()
     return "\n".join(rows).rstrip("\n") + "\n\n\nsolution = %s\n" % entry
 
 

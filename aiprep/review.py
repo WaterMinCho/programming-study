@@ -109,6 +109,8 @@ class EventIndex(object):
                     continue
                 self._mocks.add(mid)
                 for cid, result in (entry.get("results") or {}).items():
+                    if result == "ungraded":
+                        continue  # 이 기기에서 채점하지 못한 코드 작성 문항은 맞음·틀림을 몰라 복습 기록에 넣지 않음
                     self._add(str(cid), {"at": at, "day": day, "result": "pass" if result == "pass" else "stuck", "sure": None,
                                          "again": 0, "set": entry.get("mock"), "dontknow": result == "blank", "src": "mock",
                                          "override": False, "mock": entry.get("mock")})

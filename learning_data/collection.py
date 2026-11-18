@@ -66,6 +66,9 @@ def question(item, **metadata):
     visible = {key: item[key] for key in ("stem", "kind", "pick", "multi") if key in item}
     visible["blanks"] = [{key: b[key] for key in ("mode", "hint", "slot") if key in b} for b in item.get("blanks") or []]
     visible["options"] = [{"no": n, "text": item["options"][n]["text"]} for n in order]
+    if item.get("kind") == "code" and isinstance(item.get("code"), dict):
+        # 모의고사 코드 작성 문항. 숨은 테스트·모범 답안은 빼고 화면에 보인 시작 코드·함수 이름·예시만 둠
+        visible.update({key: item["code"][key] for key in ("starter", "entry", "examples")})
     if item.get("_generation") is not None:
         visible["generation"] = generation.capture(item["_generation"], item, visible)
     metadata["runtime_revision"] = runtime_revision(metadata.pop("track", "ai"))
