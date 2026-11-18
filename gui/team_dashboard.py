@@ -13,7 +13,7 @@ from learning_data.collection import CollectionError
 KST = datetime.timezone(datetime.timedelta(hours=9))
 PERIODS = {1: "오늘", 7: "최근 7일", 15: "최근 15일", 30: "최근 30일"}
 
-METRICS = {"opens": "문제 열기", "inputs": "입력 변경", "graded": "채점"}
+METRICS = {"opens": "열린 문제", "inputs": "입력한 답", "graded": "채점"}
 
 
 def observed_total(row):
@@ -220,10 +220,10 @@ class CollectionChart(QWidget):
     def set_data(self, rows, days, message="", metric="graded"):
         self.rows, self.days, self.active = rows, days, None
         self.metric = metric
-        empty = {"opens": "이 기간에 기록된 문제 열기가 없습니다.", "inputs": "이 기간에 기록된 입력 변경이 없습니다.",
+        empty = {"opens": "이 기간에 열린 문제가 없습니다.", "inputs": "이 기간에 입력한 답이 없습니다.",
                  "graded": "이 기간에 채점한 풀이가 없습니다."}
         if metric == "inputs" and all(row["ai"] is None for row in rows):
-            empty["inputs"] = "파이썬 입력 변경이 없습니다. AI 입력은 미측정입니다."
+            empty["inputs"] = "파이썬에서 입력한 답이 없습니다. AI 입력은 미측정입니다."
         self.message = message or (empty[metric] if not any(map(observed_total, rows)) else "")
         self.setAccessibleName(("시간별 " if days == 1 else "일별 ") + METRICS[metric])
         self.setAccessibleDescription("\n".join(self.describe(n) for n in range(len(rows))) or self.message)
@@ -423,9 +423,9 @@ class TeamCard(QWidget):
                                        lambda: [text_width(self.period_title), self.periods.sizeHint().width()], [1, 0], 16)
         box.addWidget(self.filter_row)
         definitions = {
-            "cards": ("열어 본 문항", "선택 기간에 문제 열기가 기록된 서로 다른 문항 수입니다. 같은 과목의 같은 문항은 여러 사람이 여러 번 열어도 한 번만 셉니다."),
-            "opens": ("문제 열기", "선택 기간에 파이썬·AI 연습과 모의고사에서 문항을 반환한 기록 수입니다. 같은 기록을 다시 보내도 한 번만 셉니다."),
-            "inputs": ("기록된 입력 변경", "선택 기간에 바뀐 답을 저장한 횟수입니다. 키 입력, 같은 값 재저장, 기존 초안 다시 열기는 세지 않습니다. AI는 새 계측으로 관측한 횟수만 표시합니다."),
+            "cards": ("열어 본 문항", "선택 기간에 한 번이라도 열린 서로 다른 문항 수입니다."),
+            "opens": ("열린 문제", "선택 기간에 파이썬·AI 연습과 모의고사에서 문제가 화면에 열린 횟수입니다."),
+            "inputs": ("입력한 답", "선택 기간에 답을 쓰거나 고쳐서 저장한 횟수입니다."),
             "graded": ("채점", "선택 기간에 답을 쓰거나 고른 뒤 채점한 문항을 셉니다. 다시 풀고 채점하면 한 건 더 셉니다. "
                                "미응답과 [모르겠어요], 같은 기록의 재전송은 제외합니다."),
         }
@@ -719,7 +719,7 @@ class TeamCard(QWidget):
             period_text = "미확인" if raw_period is None else f"{raw_period:,}건"
             self.raw.setText(f"{result['total']:,}건")
             self.raw_period.setText(f"{PERIODS[days]} 수집 {period_text}")
-            raw_tip = "문제 열기·입력 변경·채점 등 서버에 저장된 기록의 합계입니다. 한 문항에서도 기록이 여러 개 생길 수 있습니다. 같은 기록을 다시 보내도 한 번만 셉니다."
+            raw_tip = "열린 문제·입력한 답·채점처럼 서버에 저장된 기록을 모두 더한 수입니다. 한 문항에서도 기록이 여러 개 생길 수 있습니다. 같은 기록을 다시 보내도 한 번만 셉니다."
             if raw_period is None:
                 raw_tip += " 이 서버는 기간별 수집 기록 수를 아직 제공하지 않습니다."
             if result.get("undated"):
@@ -761,7 +761,7 @@ class TeamCard(QWidget):
             if days != 1:
                 dates += " – %d.%d.%d" % (last.year, last.month, last.day)
             self.range.setText(dates + "  ·  한국 시간 · " + ("시간별 합계" if days == 1 else "일별 합계"))
-            note = "" if result.get("activity") else "이 서버는 문항·열기·입력 통계를 아직 제공하지 않습니다."
+            note = "" if result.get("activity") else "이 서버는 열어 본 문항·열린 문제·입력한 답 통계를 아직 제공하지 않습니다."
             self.note.setText(note)
             self.note.setVisible(bool(note))
             self.show()
