@@ -159,6 +159,20 @@ class AccessTest(unittest.TestCase):
             if days != 1:
                 self.assertEqual(1, graded["series"][-2]["python"])
 
+    def test_ungraded_code_answer_is_not_a_graded_attempt(self):
+        """이 기기에서 채점하지 못한 모의고사 코드 작성 답(ungraded)은 채점 건수와 확인 못 한 건수에 넣지 않음."""
+        rows = [("pass", True), ("ungraded", True), ("ungraded", None)]
+        with self.database.connect() as db:
+            for n, (result, answered) in enumerate(rows, 1):
+                data = {"card": "m11-0%d" % n, "result": result}
+                if answered is not None:
+                    data["answered"] = answered
+                payload = json.dumps({"kind": "mock_answer", "data": data, "at": "2026-11-13T09:00:00+09:00"})
+                db.execute("INSERT INTO events VALUES (?,?,?,?,?)", ("participant", "ai", str(n), n, payload))
+        viewer = "Bearer " + self.access.verify(self.data)["token"]
+        graded = self.access.summary(viewer, 1, datetime.datetime(2026, 11, 13, 12, tzinfo=KST))["graded"]
+        self.assertEqual((1, 0, 0), (graded["total"], graded["undated"], graded["unknown"]))
+
     def test_period_activity_preserves_raw_and_counts_cards_across_days_and_people(self):
         now = datetime.datetime(2026, 11, 13, 12, tzinfo=KST)
         viewer = "Bearer " + self.access.verify(self.data)["token"]

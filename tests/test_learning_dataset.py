@@ -173,3 +173,20 @@ class DatasetTest(unittest.TestCase):
         after = dataset.prepare([start] + events[1:])
         self.assertEqual(before[1]["features"], after[1]["features"])
         self.assertEqual(0, before[1]["features"]["observed_history"]["demo"]["attempts"])
+
+    def test_ungraded_and_blank_mock_answers_make_no_rows(self):
+        """이 기기에서 채점하지 못한 코드 작성 답(ungraded)과 빈 답은 학습 행이 되지 않음."""
+        events = dataset.synthetic_events()[:3]
+        start = copy.deepcopy(events[0])
+        start.update(kind="mock_start", sequence=1)
+        start["data"] = {"mock": "m", "try": 1}
+        for n, row in enumerate(events[1:], 2):
+            row.update(kind="mock_answer", sequence=n)
+            row["data"].update({"mock": "m", "try": 1})
+        self.assertEqual(2, len(dataset.prepare([start] + events[1:])))
+        for result in ("ungraded", "blank"):
+            with self.subTest(result=result):
+                changed = copy.deepcopy(events)
+                changed[1]["data"]["result"] = result
+                rows = dataset.prepare([start] + changed[1:])
+                self.assertEqual([changed[2]["event_id"]], [row["event_id"] for row in rows])

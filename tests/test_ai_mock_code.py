@@ -52,10 +52,12 @@ def hidden_texts(code_item):
 
 class SourceTest(unittest.TestCase):
     def test_lines_take_the_indent_of_each_slot_and_entry_becomes_solution(self):
+        """채울 줄 앞에 학습자가 넣은 공백은 버리고 시작 코드의 들여쓰기를 씀."""
         starter = "def f(a):\n    ____\n    if a:\n        ____\n    return a\n"
         text = mock_code.source(starter, "f", ["a += 1", "a *= 2"])
         self.assertEqual(text, "def f(a):\n    a += 1\n    if a:\n        a *= 2\n    return a\n\n\nsolution = f\n")
         self.assertEqual(mock_code.fill_count(starter), 2)
+        self.assertEqual(text, mock_code.source(starter, "f", ["    a += 1", "\ta *= 2"]))
         with self.assertRaises(ValueError):
             mock_code.source(starter, "f", ["a += 1"])
 

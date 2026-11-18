@@ -17,10 +17,15 @@ import time
 
 import study
 import session
-from aiprep import bank, grade, mixed_mock
+from aiprep import bank, grade, mixed_mock, mock_code
 from learning_data import collection
 from webprep import bank as webbank
 from webprep import record
+
+CODE_KEYS = ("starter", "entry", "examples", "tests", "limit_ms", "tol")
+ENV_LIMIT = 3
+SUBMITTING = "제출한 답안을 채점하고 있습니다. 채점이 끝날 때까지 답을 바꿀 수 없습니다."
+ENV_FAILED = "이 기기에서 코드 작성 문항을 채점하지 못해 제출하지 않았습니다. 잠시 뒤 다시 제출해 주세요."
 
 
 class MockError(session.SessionError):
@@ -36,6 +41,39 @@ def _moment(value):
 
 def _now():
     return datetime.datetime.now().astimezone()
+
+
+def _check_code(item):
+    """코드 작성 문항이 채점할 수 있는 꼴인지 봄. 숨은 테스트 수 같은 출제 기준은 여기서 보지 않음."""
+    code = item.get("code")
+    if not isinstance(code, dict) or not isinstance(code.get("starter"), str) or not isinstance(code.get("entry"), str):
+        raise ValueError("코드 작성 문항의 시작 코드가 맞지 않습니다")
+    count = mock_code.fill_count(code["starter"])
+    if not count or not code["entry"].isidentifier():
+        raise ValueError("코드 작성 문항의 채울 줄이나 함수 이름이 맞지 않습니다")
+    for name in ("examples", "tests"):
+        cases = code.get(name)
+        if not isinstance(cases, list) or not cases or any(not isinstance(case, dict) or "expected" not in case
+                                                            or not isinstance(case.get("args"), list) for case in cases):
+            raise ValueError("코드 작성 문항의 예시나 숨은 테스트가 맞지 않습니다")
+    limit, tol = code.get("limit_ms"), code.get("tol")
+    if limit is not None and (type(limit) is not int or limit <= 0) or tol is not None and (
+            type(tol) not in (int, float) or tol < 0):
+        raise ValueError("코드 작성 문항의 시간 제한이나 허용 오차가 맞지 않습니다")
+    solution = item.get("solution")
+    if not isinstance(solution, list) or len(solution) != count or any(not isinstance(line, str) for line in solution):
+        raise ValueError("코드 작성 문항의 모범 답안 줄 수가 맞지 않습니다")
+
+
+def _stable(item):
+    """fingerprint 에 넣는 문항 내용. code 묶음은 kind=code 문항에만 더해 다른 문항의 해시는 예전과 같음."""
+    row = dict({key: item.get(key) for key in ("id", "kind", "stem", "pick", "multi")},
+               blanks=[{key: blank.get(key) for key in ("answer", "mode", "places", "unit", "term", "context")}
+                       for blank in item.get("blanks") or []],
+               options=[{key: option.get(key) for key in ("text", "ok")} for option in item.get("options") or []])
+    if item.get("kind") == "code":
+        row["code"] = {key: item["code"].get(key) for key in CODE_KEYS}
+    return row
 
 
 def load_items(root, spec, lessons=None):
@@ -54,17 +92,15 @@ def load_items(root, spec, lessons=None):
         if len(set(ids)) != len(ids) or not all(isinstance(cid, str) and cid for cid in ids):
             raise ValueError("문항 id가 비었거나 겹칩니다")
         for item in items:
-            if item.get("kind") not in ("blank", "choice") or item.get("errata"):
-                raise ValueError("빈칸과 고르기만 쓰고 정정 주제는 넣지 않습니다")
+            if item.get("kind") not in ("blank", "choice", "code") or item.get("errata"):
+                raise ValueError("빈칸·고르기·코드 작성만 쓰고 정정 주제는 넣지 않습니다")
             if item["kind"] == "blank" and not 1 <= len(item.get("blanks") or []) <= 2:
                 raise ValueError("빈칸 수가 맞지 않습니다")
             if item["kind"] == "choice" and len(item.get("options") or []) != 4:
                 raise ValueError("고르기 보기 수가 맞지 않습니다")
-        stable = [dict({key: item.get(key) for key in ("id", "kind", "stem", "pick", "multi")},
-                       blanks=[{key: blank.get(key) for key in ("answer", "mode", "places", "unit", "term", "context")}
-                               for blank in item.get("blanks") or []],
-                       options=[{key: option.get(key) for key in ("text", "ok")} for option in item.get("options") or []])
-                  for item in items]
+            if item["kind"] == "code":
+                _check_code(item)
+        stable = [_stable(item) for item in items]
         if mixed_mock.candidate(spec):
             stable = {"items": stable, "blueprint_revision": spec["blueprint_revision"],
                       "classification": [{k: i.get(k) for k in ("id", "course", "lesson", "family", "concept", "format",
@@ -78,6 +114,12 @@ def load_items(root, spec, lessons=None):
 def submissions(log, mid):
     """회차 제출 기록을 실제로 기록된 순서로 돌려줌."""
     return [row for row in log if row.get("kind") == "mock_submit" and row.get("mock") == mid]
+
+
+def _blank(item, value):
+    """답을 비웠는지 봄. 빈칸과 코드 작성은 모든 칸이 공백뿐이면 비운 것이고 주석만 있는 줄은 답한 것임.
+    수집의 answered(learning_data/collection.py)도 같은 규칙임."""
+    return not value or item["kind"] != "choice" and not any(text.strip() for text in value)
 
 
 class MockExam:
@@ -98,6 +140,8 @@ class MockExam:
         self.local_answers = True
         self.pending_inputs = {}
         self.recovered_draft = False
+        self.has_code = any(item["kind"] == "code" for item in self.items.values())
+        self.submitting = False  # submit 이 답을 복사한 뒤 기록을 마칠 때까지 참. 초안 파일에는 쓰지 않음
         with self.lock:
             log = self._log()
             starts = [row for row in log if row.get("kind") == "mock_start" and row.get("mock") == mid]
@@ -174,6 +218,9 @@ class MockExam:
                             concept=item.get("concept"), format=item.get("format"), transferaxis=item.get("transferaxis"),
                             conditions=item.get("conditions") or [], sourcefacts=item.get("sourcefacts") or [],
                             classification_basis="author")
+        if item["kind"] == "code":
+            # 채점 실행기 파일이 바뀌면 code 문항의 버전만 바뀌게 전역 runtime_revision 과 따로 둠
+            metadata["code_runtime_revision"] = mock_code.runtime_revision()
         return collection.question(item, **metadata)
 
     def _log(self):
@@ -252,11 +299,14 @@ class MockExam:
         elapsed = max(0.0, self.monotonic() - self._anchor)
         return max(0, math.ceil(min(self._wall_remaining(), self._budget - elapsed)))
 
-    def _active(self):
-        if self.result is not None:
+    def _active(self, submit=True):
+        """submit 이 거짓이면 시간이 다 돼도 제출하지 않음. save_answer·move·toggle_flag 는 잠금 안에서 부르므로
+        코드 작성 회차에서는 거짓을 넘기고, 만료 제출은 expire_mocks 가 맡음."""
+        if self.result is not None or self.submitting:
             return False
         if self.remaining() <= 0:
-            self.submit(auto=True)
+            if submit:
+                self.submit(auto=True)
             return False
         return True
 
@@ -267,6 +317,13 @@ class MockExam:
         if item["kind"] == "blank":
             if len(answer) != len(item["blanks"]) or any(not isinstance(value, str) for value in answer):
                 raise MockError("빈칸 답안 형식이 맞지 않습니다.")
+        elif item["kind"] == "code":
+            if len(answer) != mock_code.fill_count(item["code"]["starter"]) or any(not isinstance(value, str) for value in answer):
+                raise MockError("코드 답안 형식이 맞지 않습니다.")
+            if any("\n" in value or "\r" in value for value in answer):
+                raise MockError("채울 줄 하나에는 코드 한 줄만 쓸 수 있습니다.")
+            if any(value.strip() == mock_code.FILL for value in answer):
+                raise MockError("____ 자리에 코드를 써 주세요.")
         elif any(type(value) is not int or not 0 <= value < len(item["options"]) for value in answer):
             raise MockError("고른 보기 번호가 맞지 않습니다.")
         elif not item.get("multi") and len(set(answer)) > 1:
@@ -274,13 +331,17 @@ class MockExam:
 
     def save_answer(self, value, cid=None, flush=True):
         with self.lock:
-            if not self._active():
+            if self.submitting:
+                raise MockError(SUBMITTING)
+            if not self._active(submit=not self.has_code):
                 return False
             cid = cid or self.draft["order"][self.draft["current"]]
             self._validate_answer(cid, value)
             previous_draft = copy.deepcopy(self.draft)
             was_pending = cid in self.pending_inputs
-            empty = [""] * len(self.items[cid].get("blanks", [])) if self.items[cid]["kind"] == "blank" else []
+            item = self.items[cid]
+            empty = ([""] * len(item.get("blanks", [])) if item["kind"] == "blank"
+                     else [""] * mock_code.fill_count(item["code"]["starter"]) if item["kind"] == "code" else [])
             previous = self.draft["answers"].get(cid)
             if previous != list(value) and hasattr(self.sess, "collection"):
                 context = self.sess.collection.observation_context()
@@ -302,7 +363,7 @@ class MockExam:
 
     def move(self, position):
         with self.lock:
-            if not self._active():
+            if not self._active(submit=not self.has_code):
                 return False
             if type(position) is not int or not 0 <= position < len(self.items):
                 raise MockError("문항 번호가 맞지 않습니다.")
@@ -317,7 +378,7 @@ class MockExam:
 
     def toggle_flag(self):
         with self.lock:
-            if not self._active():
+            if not self._active(submit=not self.has_code):
                 return False
             cid = self.draft["order"][self.draft["current"]]
             previous = list(self.draft["flags"])
@@ -353,10 +414,14 @@ class MockExam:
                 "options": [{"no": n, "text": item["options"][n]["text"]} for n in self.draft["shuffle"][cid]],
                 "mine": list(self.draft["answers"].get(cid, [])) if self.local_answers else None,
                 "flagged": cid in self.draft["flags"],
-                **({"course": item["course"], "course_no": self.sess.mock_lessons[item["lesson"]]["no"]} if self.mixed else {})}
+                **({"course": item["course"], "course_no": self.sess.mock_lessons[item["lesson"]]["no"]} if self.mixed else {}),
+                **({key: copy.deepcopy(item["code"][key]) for key in ("starter", "entry", "examples")}
+                   if item["kind"] == "code" else {})}
 
     def answered(self, cid):
         value = self.draft["answers"].get(cid) or []
+        if self.items[cid]["kind"] == "code":
+            return not _blank(self.items[cid], value)
         return bool(value) and (all(text.strip() for text in value) if self.items[cid]["kind"] == "blank" else True)
 
     def progress(self):
@@ -371,7 +436,7 @@ class MockExam:
         if self.mixed:
             cards = mixed_mock.related_cards(self.sess, with_gens=True)
         for cid in self.draft['order']:
-            if results[cid] == 'pass':
+            if results[cid] in ('pass', 'ungraded'):
                 continue
             item = self.items[cid]
             choices = mixed_mock.practice_candidates(item, cards, out)
@@ -381,27 +446,63 @@ class MockExam:
                     links[cid] = choices[0]['id']
         return out
 
+    def _submitted(self):
+        done = next((row for row in submissions(self._log(), self.id) if int(row.get("try") or 1) == self.attempt), None)
+        if done is not None:
+            self.result = done
+        return done
+
     def submit(self, auto=False):
+        """채점해 mock_submit 을 남김. 코드 작성 문항은 잠금을 놓은 채 채점하며, 답을 복사한 뒤 기록을 마칠 때까지
+        save_answer 를 거절함. 코드를 실행하지 못하면 기록 없이 MockError 를 내고, 같은 시도에서 ENV_LIMIT 번째 실패면
+        그 문항만 ungraded 로 기록함."""
         with self.lock:
-            done = next((row for row in submissions(self._log(), self.id)
-                         if int(row.get("try") or 1) == self.attempt), None)
+            done = self._submitted()
             if done is not None:
-                self.result = done
                 return dict(done)
+            if self.submitting:
+                raise MockError(SUBMITTING)
             self._write_draft()
+            answers = copy.deepcopy(self.draft["answers"])
+            elapsed = self.draft["duration"] - self._wall_remaining()
+            elapsed = max(elapsed, self.draft["duration"] - self._budget + max(0, self.monotonic() - self._anchor))
+            auto = bool(auto or self.remaining() <= 0)
+            codes = [cid for cid, item in self.items.items() if item["kind"] == "code" and not _blank(item, answers.get(cid))]
+            self.submitting = True
+        try:
+            graded = {cid: mock_code.grade(self.items[cid], answers[cid]) for cid in codes}
+        except BaseException:
+            with self.lock:
+                self.submitting = False
+            raise
+        self.lock.acquire()
+        try:
+            done = self._submitted()  # 잠금을 놓은 사이 다른 곳에서 같은 시도를 제출했는지 다시 봄
+            if done is not None:
+                return dict(done)
+            if any(value["result"] == mock_code.ENV for value in graded.values()):
+                self.draft["env_failures"] = int(self.draft.get("env_failures") or 0) + 1
+                if self.draft["env_failures"] < ENV_LIMIT:
+                    self._write_draft()
+                    raise MockError(ENV_FAILED)
             results = {}
             for cid, item in self.items.items():
-                value = self.draft["answers"].get(cid) or []
-                if not value or item["kind"] == "blank" and not any(text.strip() for text in value):
+                value = answers.get(cid) or []
+                if _blank(item, value):
                     results[cid] = "blank"
+                elif item["kind"] == "code":
+                    results[cid] = "ungraded" if graded[cid]["result"] == mock_code.ENV else graded[cid]["result"]
                 else:
                     answer = grade.grade_item(item, value, self.sess.term_map) if item["kind"] == "blank" else grade.grade_choice(item, value)
                     results[cid] = "pass" if answer["result"] == "pass" else "stuck"
-            elapsed = self.draft["duration"] - self._wall_remaining()
-            elapsed = max(elapsed, self.draft["duration"] - self._budget + max(0, self.monotonic() - self._anchor))
+            if graded:
+                # 통과 수는 이 기기 초안에만 둠. 제출 기록과 수집에는 맞음·틀림만 남김
+                self.draft["code_passed"] = {cid: [value["passed"], value["total"]] for cid, value in graded.items()
+                                             if value["result"] != mock_code.ENV}
+                self._write_draft()
             event = {"kind": "mock_submit", "mock": self.id, "try": self.attempt, "results": results,
                      "score": sum(value == "pass" for value in results.values()), "of": len(results),
-                     "secs": min(self.draft["duration"], max(0, round(elapsed))), "auto": bool(auto or self.remaining() <= 0),
+                     "secs": min(self.draft["duration"], max(0, round(elapsed))), "auto": auto,
                      "seed": self.draft["seed"], 'fingerprint': self.fingerprint}
             event.update(self.scope_fields())
             related_links = {}
@@ -415,7 +516,7 @@ class MockExam:
                 self.sess.collection.mark_graded()
             if hasattr(self.sess, "_collect_record"):
                 consent = self.sess.collection.observation_context() or {}
-                included = {cid for cid in self.draft["order"] if not self.draft["answers"].get(cid)
+                included = {cid for cid in self.draft["order"] if not answers.get(cid)
                             or consent.get("epoch") and self.draft.get("collection_epochs", {}).get(cid) == consent["epoch"]}
                 partial = dict(self.result, results={cid: results[cid] for cid in included}, of=len(included),
                                score=sum(results[cid] == "pass" for cid in included), scope="current_consent",
@@ -433,7 +534,7 @@ class MockExam:
                         context = {"epoch": self.draft.get("collection_epochs", {}).get(cid),
                                    "goal": None, "observed_at": None}
                     self.sess.collect_event("mock_answer", {"mock": self.id, "try": self.attempt, "card": cid, "position": position,
-                                                           "response": list(self.draft["answers"].get(cid) or []) if cid in included else None,
+                                                           "response": list(answers.get(cid) or []) if cid in included else None,
                                                            "result": results[cid] if cid in included else "not_collected",
                                                            "secs": None, "auto": event["auto"]},
                                             item=lambda cid=cid: self.collection_item(cid),
@@ -441,6 +542,9 @@ class MockExam:
                                             at=self.result["at"], observation_context=context,
                                             **({"_mock_exam": self} if self.mixed else {}))
             return dict(self.result)
+        finally:
+            self.submitting = False
+            self.lock.release()
 
     def summary(self):
         if self.result is None:
@@ -467,4 +571,5 @@ class MockExam:
                 "correct": [b["answer"][0] for b in item.get("blanks") or []],
                 "right": grade.right_options(item) if item["kind"] == "choice" else [],
                 "explain": item.get("explain", ""), "why": {n: o.get("why", "") for n, o in enumerate(item.get("options") or [])},
-                "ref": list(item.get("ref") or [])}
+                "ref": list(item.get("ref") or []),
+                **({"solution": list(item["solution"])} if item["kind"] == "code" else {})}

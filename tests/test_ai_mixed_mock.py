@@ -13,10 +13,11 @@ import unittest
 from unittest import mock
 
 import study
-from aiprep import bank, mixed_mock, service
+from aiprep import bank, mixed_mock, mock_code, service
 from aiprep.mock import MockError, MockExam, load_items
 from learning_data import collection
 from learning_server import dataset
+from tests.test_ai_mock import WRONG, code_item, stuck_grade
 from webprep.bank import load_secrets
 
 READ_INDEX = bank.read_index
@@ -319,6 +320,60 @@ class MixedMockTest(unittest.TestCase):
         self.assertEqual('a90',app.wrong_item('m4-17')['lesson'])
         self.assertEqual('a90a/2',app.note_target('m4-17')['step'])
 
+    def code_exam(self):
+        """합성 m4 의 응용 문항 32번을 코드 작성 문항으로 바꾸고 개론 세션에서 풂. 32번만 틀리고 나머지는 맞힘."""
+        path=self.bank/'mocks/m4/work/items.json'
+        items=study.read_json(path)['items']
+        code=dict(code_item('m4-32','a90'),format='code')
+        code.update({key:items[31][key] for key in ('course','unit','step','family','tags','level','concept',
+                                                     'transferaxis','conditions','sourcefacts')})
+        items[31]=code
+        study.write_text(path,json.dumps({'items':items}))
+        sess=self.session();sess.collection.set_enabled(True);exam=sess.start_mock('m4',seed=103)
+        for position,cid in enumerate(exam.draft['order']):
+            exam.question(position)
+            self.tick();exam.save_answer(WRONG if cid=='m4-32' else ['3'],cid)
+        return code,sess,exam
+
+    def test_code_item_in_mixed_exam_keeps_hidden_tests_out_of_collection_and_stays_in_its_course(self):
+        code,sess,exam=self.code_exam()
+        with mock.patch.object(mock_code,'grade',side_effect=stuck_grade):
+            result=exam.submit()
+        self.assertEqual('stuck',result['results']['m4-32'])
+        self.assertIn('m4-32',result['related_by_question'])
+        snapshot=sess.collection.snapshot()
+        rows=[r for r in snapshot[1:] if (r['data'] or {}).get('card')=='m4-32']
+        self.assertEqual({'mock_question_returned','ai_input','mock_answer'},{r['kind'] for r in rows})
+        self.assertEqual({'app'},{r['data']['course'] for r in rows})
+        for row in rows:
+            if row.get('item'):
+                self.assertEqual(code['code']['starter'],row['item']['starter'])
+                self.assertEqual(code['code']['examples'],row['item']['examples'])
+                for hidden in ('tests','solution','code','limit_ms'):
+                    self.assertNotIn(hidden,row['item'])
+        text=json.dumps(snapshot,ensure_ascii=False)
+        for hidden in ('40017','40019','50013','total = a','"passed"','code_passed'):
+            self.assertNotIn(hidden,text)
+        prepared=[r for r in dataset.prepare(snapshot) if r['question_id']=='m4-32']
+        self.assertEqual([(0,'app')],[(r['target'],r['course']) for r in prepared])
+        app=self.session('app');sess.resume_course()
+        notes={owner.course:{i['key']:i['label'] for g in owner.wrong_notes() for i in g['items']} for owner in (sess,app)}
+        self.assertTrue(notes['app']['m4-32'].startswith('코드 작성 · '))
+        self.assertNotIn('m4-32',notes['intro'])
+        self.assertNotIn('m4-32',app.cards)
+
+    def test_ungraded_code_item_gets_no_related_card_or_dataset_row(self):
+        _,sess,exam=self.code_exam()
+        failed={'result':mock_code.ENV,'passed':0,'total':2,'reason':mock_code.ENV_REASON,'cases':[]}
+        with mock.patch.object(mock_code,'grade',return_value=failed):
+            for _ in range(2):
+                with self.assertRaises(MockError):
+                    exam.submit()
+            result=exam.submit()
+        self.assertEqual('ungraded',result['results']['m4-32'])
+        self.assertNotIn('m4-32',result['related_by_question'])
+        self.assertEqual([],[r for r in dataset.prepare(sess.collection.snapshot()) if r['question_id']=='m4-32'])
+
     def test_return_in_old_epoch_then_edit_in_new_epoch_keeps_summary_and_answer_together(self):
         sess=self.session();sess.collection.set_enabled(True);exam=sess.start_mock('m4')
         exam.question(exam.draft['order'].index('m4-01'));exam.save_answer(['4'],'m4-01')
@@ -431,7 +486,7 @@ class MixedMockTest(unittest.TestCase):
                     self.assertEqual(int(item['lesson'][1:]),content['course_no'])
                     self.assertEqual(103,content['seed'])
                     self.assertEqual(row['item_revision'],answered[cid]['item_revision'])
-                    for hidden in ('answer','allowed_answers','explain','ok'):
+                    for hidden in ('answer','allowed_answers','explain','ok','tests','solution','code'):
                         self.assertNotIn(hidden,content)
                     for option in content['options']:
                         self.assertNotIn('ok',option)

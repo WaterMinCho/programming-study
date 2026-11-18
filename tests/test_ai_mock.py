@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """모의고사 시간·초안 복구·제출 판정과 기록을 임시 자료로 확인함."""
+import copy
 import datetime
 import json
 import os
@@ -10,8 +11,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from aiprep import grade, review
-from aiprep.mock import MockError, MockExam
+from aiprep import grade, mock_code, review
+from aiprep.mock import MockError, MockExam, load_items
+from learning_data import collection
 from aiprep.service import AiError
 from webprep.record import Record, RecordError
 from tests.test_ai_service import Base, FIXTURE
@@ -143,6 +145,30 @@ class ExamTest(unittest.TestCase):
         self.assertFalse(exam.save_answer(['3'], 'm1-03'))
         self.assertNotIn('m1-03', exam.draft['answers'])
         self.assertEqual(0, exam.result['score'])
+
+    def test_submit_checks_the_same_try_again_after_releasing_the_lock(self):
+        exam = self.exam(seed=2)
+        exam.save_answer(['3'], 'm1-03')
+        other = self.exam(seed=2)
+        out = {}
+
+        def meanwhile():
+            calls = (('save', lambda: exam.save_answer(['4'], 'm1-03')), ('submit', exam.submit),
+                     ('other', lambda: other.submit(auto=True)))
+            for name, call in calls:
+                try:
+                    out[name] = call()
+                except MockError as error:
+                    out[name] = str(error)
+
+        exam.lock = BeforeSecondLock(exam.lock, lambda: in_thread(meanwhile))
+        result = exam.submit()
+        self.assertIn('채점하고 있습니다', out['save'])
+        self.assertIn('채점하고 있습니다', out['submit'])
+        self.assertEqual(out['other'], result)
+        self.assertEqual(1, len(mock_submits(self.session.record.reload())))
+        self.assertEqual(['3'], study.read_json(exam.path)['answers']['m1-03'])
+        self.assertFalse(exam.submitting)
 
     def test_backwards_wall_clock_does_not_extend_time(self):
         exam = self.exam()
@@ -513,6 +539,392 @@ class MockServiceTest(Base):
         self.assertIn('i90-b01', [row['card'] for row in practice.queue])
         self.play(practice, lambda _: 'pass')
         self.assertNotIn('i90-b01', sess._state().related_due)
+
+
+def code_item(cid, lesson):
+    """두 줄을 채우는 코드 작성 문항. 숨은 테스트 값은 예시와 겹치지 않음."""
+    return {"id": cid, "kind": "code", "lesson": lesson, "unit": "90a", "step": "90a/1",
+            "stem": "두 수를 더한 값을 돌려주는 함수를 완성하세요.",
+            "code": {"starter": "def add(a, b):\n    ____\n    ____\n", "entry": "add",
+                     "examples": [{"args": [1, 2], "expected": 3}, {"args": [10, 20], "expected": 30}],
+                     "tests": [{"args": [40017, 2], "expected": 40019}, {"args": [-50013, 50013], "expected": 0}],
+                     "limit_ms": 2000, "tol": None},
+            "solution": ["total = a + b", "return total"], "explain": "두 값을 더해 돌려줍니다.", "ref": ["검증 기록"]}
+
+
+RIGHT = ["total = a + b", "return total"]
+WRONG = ["total = a - b", "return total"]
+
+
+def env_grade(item, lines, workers=None):
+    return {"result": mock_code.ENV, "passed": 0, "total": 2, "reason": mock_code.ENV_REASON, "cases": []}
+
+
+def stuck_grade(item, lines, workers=None):
+    return {"result": "stuck", "passed": 1, "total": 2, "reason": "숨은 테스트 2번: 돌려준 값이 다릅니다.", "cases": []}
+
+
+class CodeExamTest(unittest.TestCase):
+    setUp_base, write_items, exam = ExamTest.setUp, ExamTest.write_items, ExamTest.exam
+
+    def setUp(self):
+        self.setUp_base()
+        self.items.append(code_item("m1-05", "i05"))
+        self.write_items()
+        self.session.mocks["m1"]["count"] = 5
+
+    def test_question_shows_only_public_code_and_rejects_broken_lines(self):
+        exam = self.exam(seed=3)
+        position = exam.draft["order"].index("m1-05")
+        question = exam.question(position)
+        self.assertEqual(("code", "add"), (question["kind"], question["entry"]))
+        self.assertEqual(self.items[-1]["code"]["starter"], question["starter"])
+        self.assertEqual(self.items[-1]["code"]["examples"], question["examples"])
+        text = json.dumps(question, ensure_ascii=False)
+        for hidden in ("40017", "40019", "50013", "total = a + b", "tests", "solution"):
+            self.assertNotIn(hidden, text)
+        self.assertFalse(exam.answered("m1-05"))
+        for broken, message in ((["return a + b"], "형식"), (["return a", 1], "형식"),
+                                (["x = 1\nreturn x", ""], "한 줄"), (["  ____", ""], "____")):
+            with self.subTest(broken=broken):
+                with self.assertRaisesRegex(MockError, message):
+                    exam.save_answer(broken, "m1-05")
+        self.assertNotIn("m1-05", exam.draft["answers"])
+
+    def test_fingerprint_follows_hidden_tests_but_not_the_explanation(self):
+        before = self.exam(seed=1).fingerprint
+        self.items[-1]["explain"] = "다른 해설입니다."
+        self.write_items()
+        self.assertEqual(before, load_items(self.session.root, self.session.mocks["m1"])[1])
+        self.items[-1]["code"]["tests"][0]["expected"] = 40020
+        self.write_items()
+        self.assertNotEqual(before, load_items(self.session.root, self.session.mocks["m1"])[1])
+
+    def test_broken_code_item_is_not_loaded(self):
+        def drop_tests(item):
+            item["code"]["tests"] = []
+
+        def short_solution(item):
+            item["solution"] = ["return a + b"]
+
+        def no_examples(item):
+            del item["code"]["examples"]
+
+        def bad_entry(item):
+            item["code"]["entry"] = "add numbers"
+
+        def bad_limit(key, value):
+            def breaker(item):
+                item["code"][key] = value
+            breaker.__name__ = "%s=%r" % (key, value)
+            return breaker
+
+        limits = [bad_limit("limit_ms", value) for value in (0, -1, 1.5, True)]
+        limits += [bad_limit("tol", value) for value in (-0.1, "0.1")]
+        for breaker in (drop_tests, short_solution, no_examples, bad_entry, *limits):
+            with self.subTest(breaker=breaker.__name__):
+                broken = copy.deepcopy(self.items)
+                breaker(broken[-1])
+                text = json.dumps({"items": broken}, ensure_ascii=False)
+                (self.folder / "work/items.json").write_text(text, encoding="utf-8")
+                with self.assertRaisesRegex(MockError, "코드 작성 문항"):
+                    load_items(self.session.root, self.session.mocks["m1"])
+
+    def test_blank_rule_is_the_same_for_submit_progress_and_collection(self):
+        repo = self.root / "repo"
+        repo.mkdir()
+        store = collection.Collection(str(self.root / "private"), str(repo))
+        store.set_enabled(True)
+        cases = [(["", ""], True), ([" ", "　"], True), (["\t", "  "], True),
+                 (["# 아직 모름", ""], False), (["", "return a"], False)]
+        for n, (value, blank) in enumerate(cases):
+            with self.subTest(value=value):
+                exam = self.exam(repeat=n > 0, seed=n)
+                exam.save_answer(value, "m1-05")
+                progress = {row["card"]: row["answered"] for row in exam.progress()}
+                with mock.patch.object(mock_code, "grade", side_effect=stuck_grade) as grader:
+                    result = exam.submit()["results"]["m1-05"]
+                store.emit("mock_answer", {"card": "m1-05", "response": value, "result": result}, key="case-%d" % n)
+                collected = store.snapshot()[-1]["data"]["answered"]
+                self.assertEqual(blank, result == "blank")
+                self.assertEqual(not blank, exam.answered("m1-05"))
+                self.assertEqual(not blank, progress["m1-05"])
+                self.assertEqual(not blank, collected)
+                self.assertEqual(0 if blank else 1, grader.call_count)
+
+    def test_code_is_graded_by_hidden_tests_and_pass_count_stays_in_the_draft(self):
+        exam = self.exam(seed=2)
+        exam.save_answer(["  total = a + b", "    return total"], "m1-05")  # 앞 공백은 시작 코드 들여쓰기로 바뀜
+        self.clock.advance(12)
+        result = exam.submit()
+        self.assertEqual(("pass", 1, 5, 12), (result["results"]["m1-05"], result["score"], result["of"], result["secs"]))
+        self.assertEqual({"m1-05": [2, 2]}, study.read_json(exam.path)["code_passed"])
+        self.assertEqual(RIGHT, exam.explain("m1-05")["solution"])
+        saved = json.dumps(self.session.record.load(), ensure_ascii=False)
+        for text in ("total = a + b", "code_passed", "passed"):
+            self.assertNotIn(text, saved)
+        retry = self.exam(repeat=True, seed=3)
+        retry.save_answer(WRONG, "m1-05")
+        self.assertEqual("stuck", retry.submit()["results"]["m1-05"])
+        self.assertEqual({"m1-05": [0, 2]}, study.read_json(retry.path)["code_passed"])
+
+    def test_environment_failures_keep_the_attempt_open_until_the_third_try(self):
+        exam = self.exam(seed=2)
+        exam.save_answer(["3"], "m1-03")
+        exam.save_answer(WRONG, "m1-05")
+        with mock.patch.object(mock_code, "grade", side_effect=env_grade):
+            for count in (1, 2):
+                with self.assertRaisesRegex(MockError, "채점하지 못해"):
+                    exam.submit()
+                self.assertEqual(count, study.read_json(exam.path)["env_failures"])
+                self.assertEqual(["mock_start"], [row["kind"] for row in self.session.record.log])
+                self.assertIsNone(exam.result)
+            result = exam.submit()
+        self.assertEqual("ungraded", result["results"]["m1-05"])
+        self.assertEqual(("pass", "blank"), (result["results"]["m1-03"], result["results"]["m1-01"]))
+        self.assertEqual((1, 5), (result["score"], result["of"]))
+        self.assertNotIn("m1-05", review.card_events(self.session.record.log))
+        self.assertEqual({}, study.read_json(exam.path)["code_passed"])
+
+    def test_answers_are_refused_while_code_is_graded_outside_the_lock(self):
+        exam = self.exam(seed=2)
+        exam.save_answer(RIGHT, "m1-05")
+        started, release = threading.Event(), threading.Event()
+
+        def slow_grade(item, lines, workers=None):
+            started.set()
+            release.wait(5)
+            return {"result": "pass", "passed": 2, "total": 2, "reason": "", "cases": []}
+
+        out = {}
+        with mock.patch.object(mock_code, "grade", side_effect=slow_grade):
+            worker = threading.Thread(target=lambda: out.setdefault("result", exam.submit()))
+            worker.start()
+            self.assertTrue(started.wait(5))
+            self.assertTrue(exam.lock.acquire(timeout=1))
+            exam.lock.release()
+            self.assertEqual(exam.draft["order"][0], exam.question(0)["card"])
+            with self.assertRaisesRegex(MockError, "채점하고 있습니다"):
+                exam.save_answer(WRONG, "m1-05")
+            with self.assertRaisesRegex(MockError, "채점하고 있습니다"):
+                exam.submit()
+            release.set()
+            worker.join(5)
+        self.assertEqual("pass", out["result"]["results"]["m1-05"])
+        self.assertEqual(RIGHT, study.read_json(exam.path)["answers"]["m1-05"])
+        self.assertEqual(1, len(mock_submits(self.session.record.log)))
+        self.assertFalse(exam.submitting)
+
+    def test_expired_code_exam_is_not_graded_while_the_lock_is_held(self):
+        exam = self.exam(seed=2)
+        exam.save_answer(WRONG, "m1-05")
+        self.clock.advance(61)
+        with mock.patch.object(mock_code, "grade", side_effect=stuck_grade) as grader:
+            self.assertFalse(exam.save_answer(RIGHT, "m1-05"))
+            self.assertFalse(exam.move(1))
+            self.assertFalse(exam.toggle_flag())
+            self.assertEqual(0, grader.call_count)
+            self.assertEqual([], mock_submits(self.session.record.log))
+            self.assertIsNone(exam.result)
+            result = exam.submit()
+        self.assertEqual(("stuck", True, 1), (result["results"]["m1-05"], result["auto"], grader.call_count))
+        self.assertEqual(WRONG, study.read_json(exam.path)["answers"]["m1-05"])
+
+    def test_only_code_revision_follows_the_runner_files(self):
+        exam = self.exam(seed=2)
+        code_before, blank_before = exam.collection_item("m1-05"), exam.collection_item("m1-03")
+        self.assertEqual(mock_code.runtime_revision(), code_before["content"]["code_runtime_revision"])
+        self.assertNotIn("code_runtime_revision", blank_before["content"])
+        content = json.dumps(code_before["content"], ensure_ascii=False)
+        for hidden in ("40017", "total = a + b", "solution", "tests"):
+            self.assertNotIn(hidden, content)
+        with mock.patch.object(mock_code, "runtime_revision", return_value="changed"):
+            self.assertNotEqual(code_before["revision"], exam.collection_item("m1-05")["revision"])
+            self.assertEqual(blank_before["revision"], exam.collection_item("m1-03")["revision"])
+        copy_root = self.root / "copy"
+        for name in mock_code.RUNTIME_FILES:
+            (copy_root / name).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(os.path.join(study.ROOT, name), copy_root / name)
+        with mock.patch.object(mock_code, "__file__", str(copy_root / "aiprep/mock_code.py")):
+            first = mock_code.runtime_revision.__wrapped__()
+            with open(copy_root / "journey/values.py", "a", encoding="utf-8") as stream:
+                stream.write("\n")
+            self.assertNotEqual(first, mock_code.runtime_revision.__wrapped__())
+
+
+def mock_submits(log):
+    return [row for row in log if row["kind"] == "mock_submit"]
+
+
+class BeforeSecondLock:
+    """submit 이 채점 뒤 잠금을 다시 잡기 직전에 hook 을 한 번 부름. 엔진에서 acquire 를 직접 부르는 곳은 submit 뿐임."""
+
+    def __init__(self, inner, hook):
+        self.inner, self.hook = inner, hook
+
+    def __enter__(self):
+        return self.inner.__enter__()
+
+    def __exit__(self, *exc):
+        return self.inner.__exit__(*exc)
+
+    def acquire(self, *args, **kwargs):
+        hook, self.hook = self.hook, None
+        if hook:
+            hook()
+        return self.inner.acquire(*args, **kwargs)
+
+    def release(self):
+        return self.inner.release()
+
+
+def in_thread(target):
+    worker = threading.Thread(target=target)
+    worker.start()
+    worker.join(5)
+
+
+class CodeServiceTest(Base):
+    def setUp(self):
+        super().setUp()
+        self.root = os.path.join(self.tmp, "bank")
+        shutil.copytree(FIXTURE, self.root)
+        index_path = os.path.join(self.root, "index.json")
+        index = study.read_json(index_path)
+        index["mocks"][0]["count"] = 5
+        study.write_text(index_path, json.dumps(index, ensure_ascii=False))
+        folder = Path(self.root) / "mocks/m90"
+        (folder / "work").mkdir(parents=True)
+        (folder / "meta.json").write_text("{}", encoding="utf-8")
+        items = [{"id": "m90-%02d" % n, "kind": "blank", "lesson": "i90", "unit": "90a", "step": "90a/1",
+                  "stem": "숫자를 쓰세요: ____", "blanks": [{"answer": ["3"], "mode": "number"}]} for n in range(1, 5)]
+        items.append(code_item("m90-05", "i90"))
+        (folder / "work/items.json").write_text(json.dumps({"items": items}, ensure_ascii=False), encoding="utf-8")
+
+    def test_wrong_code_answer_is_a_read_only_wrong_note(self):
+        sess = self.session()
+        self.assertEqual((4, 0, 1), tuple(sess.mock_info("m90")[k] for k in ("blanks", "choices", "codes")))
+        exam = sess.start_mock("m90", seed=1)
+        exam.save_answer(["3"], "m90-01")
+        exam.save_answer(["4"], "m90-02")
+        exam.save_answer(WRONG, "m90-05")
+        self.assertEqual("stuck", exam.submit()["results"]["m90-05"])
+        labels = {item["key"]: item["label"] for group in sess.wrong_notes() for item in group["items"]}
+        self.assertNotIn("m90-05", sess.cards)
+        self.assertEqual("code", sess.card_info("m90-05")["kind"])
+        self.assertTrue(labels["m90-05"].startswith("코드 작성 · "))
+        note = sess.wrong_item("m90-05")
+        self.assertEqual(("code", [], WRONG), (note["kind"], note["options"], note["mine"]))
+        self.assertIn("def add(a, b):", note["stem"])
+        self.assertEqual(RIGHT, sess.explain("m90-05")["answer"])
+        self.at = "2026-11-10T20:00:00"
+        self.assertEqual(3, sess.overview()["due"])
+        self.assertNotIn("m90-05", [row["card"] for row in sess.start_set("review", seed=7).queue])
+        self.assertNotIn("m90-05", [row["card"] for row in sess.start_set("note", card="m90-02", seed=7).queue])
+        with self.assertRaisesRegex(AiError, "문항을 찾을 수 없습니다"):
+            sess.start_set("note", card="m90-05")
+
+    def test_expired_code_exam_waits_for_the_worker_and_ungraded_is_left_out(self):
+        exam = self.session().start_mock("m90", seed=1)
+        exam.save_answer(WRONG, "m90-05")
+        self.at = "2026-11-09T21:01:00"
+        with mock.patch.object(mock_code, "grade", side_effect=env_grade) as grader:
+            restored = self.session()
+            self.assertEqual((0, {"m90"}), (grader.call_count, restored.expired_code_mocks))
+            self.assertEqual([], self.log(restored, "mock_submit"))
+            with mock.patch.object(restored.collection, "mark_graded") as marked:
+                for count in (1, 2):
+                    restored.expire_mocks()
+                    self.assertIn("채점하지 못해", restored.errors["m90"])
+                    self.assertEqual([], self.log(restored, "mock_submit"))
+                marked.assert_not_called()
+                restored.expire_mocks()
+            marked.assert_called_once()  # ungraded 는 답한 것이라 오늘 공부한 계정에 듦
+        submitted = self.log(restored, "mock_submit")
+        self.assertEqual(1, len(submitted))
+        self.assertEqual(("ungraded", True, 5), (submitted[0]["results"]["m90-05"], submitted[0]["auto"], submitted[0]["of"]))
+        self.assertEqual(set(), restored.expired_code_mocks)
+        self.assertNotIn("m90", restored.errors)
+        self.assertNotIn("m90-05", submitted[0]["related_by_question"])
+        keys = {item["key"] for group in restored.wrong_notes() for item in group["items"]}
+        self.assertEqual({"m90-01", "m90-02", "m90-03", "m90-04"}, keys)
+        self.assertNotIn("m90-05", restored.mock_code_cards)
+
+    def test_answer_saved_after_grading_is_refused_and_the_graded_answer_is_collected(self):
+        sess = self.session()
+        sess.collection.set_enabled(True)
+        exam = sess.start_mock("m90", seed=1)
+        exam.save_answer(RIGHT, "m90-05")
+        out = {}
+
+        def save_wrong():
+            try:
+                out["saved"] = exam.save_answer(WRONG, "m90-05")
+            except MockError as error:
+                out["saved"] = str(error)
+
+        exam.lock = BeforeSecondLock(exam.lock, lambda: in_thread(save_wrong))
+        self.assertEqual("pass", exam.submit()["results"]["m90-05"])
+        self.assertIn("채점하고 있습니다", out["saved"])
+        self.assertEqual(RIGHT, study.read_json(exam.path)["answers"]["m90-05"])
+        rows = [row["data"] for row in sess.collection.snapshot(include_answers=True)
+                if row["kind"] == "mock_answer" and row["data"]["card"] == "m90-05"]
+        self.assertEqual([(RIGHT, "pass")], [(row["response"], row["result"]) for row in rows])
+        keys = {item["key"] for group in sess.wrong_notes() for item in group["items"]}
+        self.assertEqual({"m90-01", "m90-02", "m90-03", "m90-04"}, keys)
+        self.assertNotIn("m90-05", sess.mock_code_cards)
+
+    def test_ticker_skips_an_exam_while_its_code_is_graded(self):
+        sess = self.session()
+        exam = sess.start_mock("m90", seed=1)
+        exam.save_answer(RIGHT, "m90-05")
+        self.at = "2026-11-09T21:01:00"
+        started, release = threading.Event(), threading.Event()
+
+        def slow_grade(item, lines, workers=None):
+            started.set()
+            release.wait(5)
+            return {"result": "pass", "passed": 2, "total": 2, "reason": "", "cases": []}
+
+        with mock.patch.object(mock_code, "grade", side_effect=slow_grade) as grader:
+            worker = threading.Thread(target=sess.expire_mocks)
+            worker.start()
+            self.assertTrue(started.wait(5))
+            sess.expire_mocks()
+            self.assertNotIn("m90", sess.errors)
+            release.set()
+            worker.join(5)
+        self.assertEqual(1, grader.call_count)
+        self.assertEqual(1, len(self.log(sess, "mock_submit")))
+
+    def test_untouched_code_answer_is_not_counted_and_code_text_stays_local(self):
+        sess = self.session()
+        sess.collection.set_enabled(True)
+        exam = sess.start_mock("m90", seed=1)
+        exam.save_answer(["", ""], "m90-05")
+        with mock.patch.object(sess.collection, "mark_graded") as marked:
+            self.assertEqual("blank", exam.submit()["results"]["m90-05"])
+        marked.assert_not_called()
+        answers = [row["data"] for row in sess.collection.snapshot() if row["kind"] == "mock_answer"]
+        self.assertEqual([False], [row["answered"] for row in answers if row["card"] == "m90-05"])
+
+        retry = sess.start_mock("m90", repeat=True, seed=2)
+        retry.save_answer(RIGHT, "m90-05")
+        with mock.patch.object(sess.collection, "mark_graded") as marked:
+            self.assertEqual("pass", retry.submit()["results"]["m90-05"])
+        marked.assert_called_once()
+        inputs = [row["data"] for row in sess.collection.snapshot() if row["kind"] == "ai_input"]
+        self.assertEqual([(1, "m90-05")], [(row["input_schema"], row["card"]) for row in inputs])
+        shared = json.dumps(sess.collection.snapshot(), ensure_ascii=False)
+        record_text = Path(sess.record.path).read_text(encoding="utf-8")
+        for text in ("total = a + b", "passed", "40017", "solution"):
+            self.assertNotIn(text, shared)
+            self.assertNotIn(text, record_text)
+        items = [row["item"] for row in sess.collection.snapshot()
+                 if row["kind"] == "mock_answer" and row["data"]["card"] == "m90-05"]
+        self.assertEqual({"def add(a, b):\n    ____\n    ____\n"}, {item["starter"] for item in items})
+        self.assertEqual({2}, {len(item["examples"]) for item in items})
+        self.assertNotIn("tests", items[0])
 
 
 if __name__ == '__main__':
