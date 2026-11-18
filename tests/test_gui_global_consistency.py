@@ -54,6 +54,7 @@ class GlobalConsistencyTest(test_gui_hub.HubTest):
 
     def test_canceling_close_keeps_sync_timer_and_resumes_a_deferred_close(self):
         win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)  # 제출 확인이 도는 동안에는 닫기가 취소되지 않고 미뤄짐
         controller = win.privacy
         controller.timer.start(60000)
         with mock.patch.object(win, "leave_pages", return_value=False):
