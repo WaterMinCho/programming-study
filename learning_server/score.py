@@ -15,6 +15,7 @@ PARTS = ("train", "validation", "test")
 METRICS = ("log_loss", "brier", "roc_auc", "accuracy")
 LABELS = {"log_loss": "로그 손실", "brier": "Brier", "roc_auc": "ROC-AUC", "accuracy": "정확도"}
 MIN_WRONG, MIN_PEOPLE = 50, 5
+FEW_PEOPLE, FEW_LABEL = 3, "3개 미만"
 
 
 def read_predictions(path):
@@ -109,8 +110,11 @@ def measure(targets, probabilities, groups, constant=False):
     return result
 
 
-def warning(wrong, people):
+def warning(wrong, people, shown=None):
+    """경고 여부는 실제 가명 수로 정함. shown 이 "3개 미만"이면 문구의 가명 수 자리에 그 표시를 씀."""
     if wrong < MIN_WRONG or people < MIN_PEOPLE:
+        if shown == FEW_LABEL:
+            return "이 구간은 오답 %d행, 가명 %s이라 모델 비교 근거로 쓰기 어렵습니다." % (wrong, FEW_LABEL)
         return "이 구간은 오답 %d행, 가명 %d개라 모델 비교 근거로 쓰기 어렵습니다." % (wrong, people)
     return None
 
@@ -165,15 +169,23 @@ def evaluate(folder, track, split, predictions):
     saved = {p["event_id"]: p["probability"] for p in json.loads(baseline_raw)[track][split]["predictions"]}
     targets = [row["target"] for row in rows]
     groups = [row["participant"] for row in rows]
-    lines = [(version, [probabilities[row["event_id"]] for row in rows], False)] + baselines(train, rows, saved)
-    table = [{"name": name, "metrics": measure(targets, values, groups, constant)} for name, values, constant in lines]
     wrong, people = len(rows) - sum(targets), len(set(groups))
+    # 실제 자료에서 가명이 3개보다 적으면 수를 가림. 가명 묶음 표준오차도 가명 1개일 때처럼 비워 1개·2개가 갈리지 않게 함
+    # per-participant 줄은 값이 한 가지인지로 가명 1개·2개가 갈려서 "-" 로 냄
+    masked = report["synthetic"] is not True and people < FEW_PEOPLE
+    shown = FEW_LABEL if masked else people
+    if masked:
+        groups = [None] * len(rows)
+    blank = {metric: {"value": None, "se_row": None, "se_group": None} for metric in METRICS}
+    lines = [(version, [probabilities[row["event_id"]] for row in rows], False)] + baselines(train, rows, saved)
+    table = [{"name": name, "metrics": blank if masked and name == "per-participant"
+              else measure(targets, values, groups, constant)} for name, values, constant in lines]
     return {"dataset_manifest_sha256": manifest_sha256, "features_version": report["features_version"],
             "synthetic": report["synthetic"], "track": track, "split": split,
             "predictions_sha256": predictions_sha256, "model_version": version,
-            "cell": {"rows": len(rows), "wrong": wrong, "participants": people,
+            "cell": {"rows": len(rows), "wrong": wrong, "participants": shown,
                      "linked_rows": sum(1 for row in rows if (row.get("selection") or {}).get("pool") == "linked")},
-            "table": table, "warning": warning(wrong, people)}
+            "table": table, "warning": warning(wrong, people, shown)}
 
 
 def render(result):
@@ -185,8 +197,9 @@ def render(result):
         return "%.4f ± %s / %s" % (value["value"], row, group)
 
     info = result["cell"]
-    out = ["%s %s 구간: %d행, 오답 %d행, 가명 %d개, 끼운 변형 %d행 (자료 버전 %s, 묶음 %s)" % (
-        result["track"], result["split"], info["rows"], info["wrong"], info["participants"], info["linked_rows"],
+    people = info["participants"] if info["participants"] == FEW_LABEL else "%d개" % info["participants"]
+    out = ["%s %s 구간: %d행, 오답 %d행, 가명 %s, 끼운 변형 %d행 (자료 버전 %s, 묶음 %s)" % (
+        result["track"], result["split"], info["rows"], info["wrong"], people, info["linked_rows"],
         result["features_version"], result["dataset_manifest_sha256"][:12])]
     if result["synthetic"]:
         out.append("합성 자료입니다. 실행 확인용이며 모델 비교 근거로 쓰지 않습니다.")
