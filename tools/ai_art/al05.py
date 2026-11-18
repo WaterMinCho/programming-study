@@ -141,7 +141,7 @@ def _a5a_depth(channels):
 @figure("a5a-1", 560, 300)
 def a5a_sides():
     """AlexNet features 를 지나는 한 변 상자 네 장. 층마다 입체 상자 하나이고 앞면 가로·세로는 한 변, 깊이는 채널 수를 나타냄.
-    이번 장에서 새로 나온 층은 진한 파랑(strong), 앞 장에서 지난 층은 옅은 파랑(seen), 입력은 회색(normal)."""
+    이번 장에서 새로 나온 층은 진한 파랑(strong), 앞 장에서 나온 층은 옅은 파랑(seen), 입력은 회색(normal)."""
     _a5a_numbers()
     sides = _alex_chain(224) + [6]
     x0, base = 96, 404

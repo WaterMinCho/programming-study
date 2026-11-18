@@ -2,7 +2,7 @@
 """입체 도식 그리기 도우미. 등각 타일, 상자, 층으로 겹친 판, 떠 있는 창과 점선 투영선, 카드, 이름표, 화살표, 표 카드를 그림.
 
 위쪽(상수와 좌표 계산)은 표준 라이브러리만 써서 테스트가 Pillow 없이 import 함. 아래쪽 Sheet 는 만들 때 Pillow 를 import 함.
-Sheet 는 파일 px 좌표(왼쪽 위가 원점, y 는 아래로)를 받아 SS 배 큰 판에 그린 뒤 BOX 로 줄임. 비스듬한 변과 곡선의 가장자리에
+Sheet 는 파일 px 좌표(왼쪽 위가 원점, y 는 아래로)를 받아 SS 배 큰 캔버스에 그린 뒤 BOX 로 줄임. 비스듬한 변과 곡선의 가장자리에
 중간색이 생겨 계단이 보이지 않음. 저장은 지금처럼 ai_art.save 나 스크립트의 save 가 하고 quantize 가 64색으로 줄임.
 
     from tools.ai_art.iso import Grid, Sheet
@@ -14,14 +14,14 @@ Sheet 는 파일 px 좌표(왼쪽 위가 원점, y 는 아래로)를 받아 SS �
     frame = sheet.image()
 
 상태 이름: new = 지금 장에서 새로 나온 것(강조 면), seen = 앞 장에서 나온 것(옅은 파랑), todo = 아직 안 나온 것(회색 점선 윤곽),
-normal = 강조하지 않는 것(회색 면), strong = 가장 바깥 강조(진한 파랑 면). 면 이름은 빛이 왼쪽 위에서 온다고 보고 붙임.
+normal = 강조하지 않는 것(회색 면), strong = 가장 진한 강조(진한 파랑 면). 면 이름은 빛이 왼쪽 위에서 온다고 보고 붙임.
 top 은 윗면, left 는 빛을 받는 옆면(상자는 앞면), right 는 그늘진 옆면임.
 """
 from math import cos, hypot, radians, sin
 
 from tools.ai_art import COLORS
 
-SS = 4                 # 크게 그리는 배율. 1.5px 선이 큰 판에서 6px 로 떨어짐
+SS = 4                 # 크게 그리는 배율. 1.5px 선이 큰 캔버스에서 6px 가 됨
 MIN_SIZE = 19          # 글자 하한(파일 px). al05·al18 과 같음
 LINE = 1.5             # 윤곽
 DIVIDE = 1.2           # 상자·판 안 나눔선
@@ -29,7 +29,7 @@ DASH_W = 1.5           # 투영선·연결 점선
 DASH = (3, 3)          # 점선 길이와 빈칸
 ARROW_W = 2.5          # 화살표 줄기(2.5~3)
 HEAD = (14, 6.5)       # 화살표 머리 길이와 반폭
-LAYER = (16, -12)      # 뒤 장이 비끼는 간격(오른쪽 16, 위 12)
+LAYER = (16, -12)      # 뒤 판이 비끼는 간격(오른쪽 16, 위 12)
 DEPTH = (0.8, -0.6)    # 상자 깊이 방향. LAYER 와 같은 방향의 단위 벡터
 ANGLE = 30             # 등각 격자의 기울기(도)
 
@@ -161,12 +161,12 @@ def box_anchors(x, y, w, h, depth, direction=DEPTH):
 
 
 def stack_offsets(n, step=LAYER):
-    """판 n 장을 뒤에서 앞으로 그릴 [(앞에서 센 번호, dx, dy)]. 맨 앞 장이 (0, 0, 0)."""
+    """판 n 장을 뒤에서 앞으로 그릴 [(앞에서 센 번호, dx, dy)]. 맨 앞 판이 (0, 0, 0)."""
     return [(k, k * step[0], k * step[1]) for k in reversed(range(n))]
 
 
 def stack_anchors(x, y, w, h, n, thick, step=LAYER, direction=DEPTH):
-    """판 n 장 묶음의 글 자리. above = 묶음 위 가운데, bbox = 묶음 전체, below·center = 맨 앞 장."""
+    """판 n 장 묶음의 글 자리. above = 묶음 위 가운데, bbox = 묶음 전체, below·center = 맨 앞 판."""
     front = box_anchors(x, y, w, h, thick, direction)
     back = box_anchors(x + (n - 1) * step[0], y + (n - 1) * step[1], w, h, thick, direction)
     bbox = box_of([front["bbox"][:2], front["bbox"][2:], back["bbox"][:2], back["bbox"][2:]])
@@ -290,7 +290,7 @@ def column_x(x, widths, align):
 # 그리기(출제자 컴퓨터에서만)
 
 class Sheet:
-    """파일 px 좌표로 받아 SS 배 판에 그리는 그림 한 장. image() 가 줄인 RGB 그림을 돌려줌."""
+    """파일 px 좌표로 받아 SS 배 캔버스에 그리는 그림 한 장. image() 가 줄인 RGB 그림을 돌려줌."""
 
     def __init__(self, width, height, ss=SS, background=WHITE):
         from PIL import Image, ImageDraw
@@ -437,9 +437,9 @@ class Sheet:
         return anchors
 
     def stack(self, x, y, w, h, n, rows=1, cols=1, thick=6, states=None, default="new", step=LAYER):
-        """판 n 장을 겹침. 맨 앞 장 앞면이 (x, y, w, h) 이고 뒤 장일수록 step 만큼 오른쪽 위로 비낌. 판마다 앞면을
+        """판 n 장을 겹침. 맨 앞 판 앞면이 (x, y, w, h) 이고 뒤 판일수록 step 만큼 오른쪽 위로 비낌. 판마다 앞면을
         rows×cols 로 나눔. states 는 앞에서 센 번호 → 상태(목록이나 dict). 글 자리를 돌려줌. above·bbox 는 판 전체,
-        below·center 는 맨 앞 장 기준."""
+        below·center 는 맨 앞 판 기준."""
         anchors = stack_anchors(x, y, w, h, n, thick, step)
         for k, dx, dy in stack_offsets(n, step):
             if isinstance(states, (list, tuple)):
