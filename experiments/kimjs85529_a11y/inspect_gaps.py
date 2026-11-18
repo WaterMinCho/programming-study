@@ -1,8 +1,6 @@
 import sys
 import math
 import random
-import numpy as np
-import torch
 from pathlib import Path
 
 # 1. 프로젝트 경로 설정
@@ -10,13 +8,28 @@ CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT_FILE.parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from learning_server.input_example import load, batch
-
-# 팀원 input_check.py와 동일한 시드 설정
+# 팀원과 동일한 시드 값
 SEED = 42
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
+
+
+def set_seed():
+    random.seed(SEED)
+
+    try:
+        import numpy as np
+    except ModuleNotFoundError as exc:
+        if exc.name != "numpy":
+            raise
+    else:
+        np.random.seed(SEED)
+
+    try:
+        import torch
+    except ModuleNotFoundError as exc:
+        if exc.name != "torch":
+            raise
+    else:
+        torch.manual_seed(SEED)
 
 
 # 2. 이번 문제의 개념별 시간 선택 함수
@@ -33,15 +46,16 @@ def select_query_gaps(concepts, seconds, known, names):
 
     selected = []
 
-    # 3. 이번 문제에 해당하는 개념 선택
+    # 3. 이번 문제에 해당하는 등록 개념 선택
     for j in range(len(concepts)):
 
         # 관련 없는 개념 제외
         if concepts[j] != 1:
             continue
 
-        # PAD 제외 (기존과 같이 UNK는 유지)
-        if j == 0:
+        # PAD(0)와 UNK(1)는 최단 시간 후보에서 제외한다.
+        # UNK는 서로 다른 미등록 개념의 시간이 합쳐질 수 있기 때문이다.
+        if j in (0, 1):
             continue
 
         gap_known = bool(known[j])
@@ -78,14 +92,19 @@ def select_query_gaps(concepts, seconds, known, names):
             "time_feature": [gap_log, int(gap_known)]
         })
 
-    # 여러 개념이면 확인 가능한 경과 시간 중 가장 짧은 하나 선택
+    # 등록 개념이 없으면 시간 정보를 생성할 수 없음
     if not selected:
         return []
 
-    confirmed = [item for item in selected if item["known"]]
+    # 확인된 등록 개념의 시간만 후보에 포함
+    confirmed = [
+        item for item in selected
+        if item["known"]
+    ]
 
     if confirmed:
-        # 시간값이 같으면 더 작은 concept_id 선택
+        # 가장 짧은 시간 하나 선택
+        # 시간값이 같으면 concept_id가 작은 개념 선택
         shortest = min(
             confirmed,
             key=lambda item: (
@@ -95,7 +114,7 @@ def select_query_gaps(concepts, seconds, known, names):
         )
         return [shortest]
 
-    # 관련 개념은 있으나 시간이 모두 미확인일 때
+    # 등록 개념은 있지만 시간이 모두 미확인일 때
     return [selected[0]]
 
 
@@ -117,7 +136,9 @@ def build_time_feature(concepts, seconds, known, names):
 
 # 8. 공통 v8 실제 데이터 확인
 if __name__ == "__main__":
+    set_seed()
 
+    # 비공개 자료는 Git 저장소 밖에 유지
     DATASET_PATH = (
         PROJECT_ROOT.parent
         / "study-data"
@@ -128,12 +149,13 @@ if __name__ == "__main__":
     TRACK = "ai"
     SPLIT = "train"
 
-
     # 9. 데이터 불러오기
     if not (DATASET_PATH / "manifest.json").is_file():
         raise FileNotFoundError(
             f"데이터를 찾을 수 없습니다: {DATASET_PATH}"
         )
+
+    from learning_server.input_example import load, batch
 
     rows, vocabulary = load(
         str(DATASET_PATH),
@@ -146,7 +168,7 @@ if __name__ == "__main__":
 
     # 10. 첫 4개 데이터를 배치로 변환
     HISTORY_LENGTH = 32
-    BATCH_SIZE = 4  # 입력 확인용 배치 크기
+    BATCH_SIZE = 4
 
     example = batch(
         rows[:BATCH_SIZE],
@@ -154,16 +176,12 @@ if __name__ == "__main__":
         length=HISTORY_LENGTH
     )
 
-    # 팀원 input_check.py와 동일한 입력 변수명
     raw_inputs = example["inputs"]
-
-    # 이번 정답(targets)은 시간 특성 검사에 사용하지 않음
 
     # 11. 시간 관련 입력 추출
     concepts = raw_inputs["query_concepts"]
     seconds = raw_inputs["query_gap_seconds"]
     known = raw_inputs["query_gap_known"]
-
     names = vocabulary["concepts"]
 
     # 12. 예제별 시간 선택
@@ -171,7 +189,6 @@ if __name__ == "__main__":
     unknown_count = 0
 
     for i in range(len(concepts)):
-
         result = select_query_gaps(
             concepts[i],
             seconds[i],
@@ -194,7 +211,7 @@ if __name__ == "__main__":
         else:
             unknown_count += 1
 
-        # 실제 학습자 기록과 개별 입력값은 출력하지 않음
+        # 실제 학습자 기록은 출력하지 않음
 
     print("===== 공통 입력 데이터 확인 (v8) =====")
     print("확인한 예제 수:", len(concepts))
