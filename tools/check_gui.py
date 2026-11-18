@@ -1,4 +1,4 @@
-"""기존 화면 검사 모듈을 세 프로세스에 나누고 모든 결과를 합침."""
+"""기존 화면 검사 모듈을 두 프로세스에 나누고 모든 결과를 합침."""
 import argparse
 from collections import Counter
 import faulthandler
@@ -11,7 +11,15 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PROCESSES = 3  # 둘로 나누면 느린 모듈이 한 묶음에 몰려 시간 제한에 닿은 적이 있음. GitHub 러너의 CPU 는 4개임
+# 느린 모듈이 걸리는 시간(초). 2026-11-18 에 잰 값이고 묶음을 나눌 때 비율로만 씀. 표에 없는 모듈은 테스트 하나를 REST 초로 셈.
+# 테스트 수로만 나누면 느린 모듈이 한 묶음에 몰려 시간 제한에 닿음(958초와 551초였음). 세 프로세스로 나누면 GitHub 러너에서 묶음마다 느려져 전체 시간이 늘었음
+SLOW = {"tests.test_gui_ai": 142, "tests.test_gui_section_browser": 141, "tests.test_gui": 137,
+        "tests.test_gui_career_learning_path": 114, "tests.test_gui_web": 94, "tests.test_gui_ai_courses": 54,
+        "tests.test_gui_global_consistency": 46, "tests.test_gui_settings_menu": 45, "tests.test_gui_hub": 33,
+        "tests.test_gui_design_system": 30, "tests.test_gui_refresh": 30, "tests.test_gui_career_integration": 28,
+        "tests.test_gui_journey": 27, "tests.test_gui_ai_mixed_mock": 23, "tests.test_gui_career": 23,
+        "tests.test_gui_ai_mock": 21}
+REST = 0.7
 sys.path.insert(0, str(ROOT))
 
 
@@ -30,11 +38,12 @@ def groups():
     planned = unittest.defaultTestLoader.loadTestsFromNames(modules)
     if Counter(case_ids(discovered)) != Counter(case_ids(planned)):
         raise RuntimeError("화면 검사 목록에 누락이나 중복이 있습니다.")
-    batches, sizes = [[] for _ in range(PROCESSES)], [0] * PROCESSES
-    for name, count in sorted(counted, key=lambda item: (-item[1], item[0])):
-        target = min(range(PROCESSES), key=lambda index: sizes[index])
+    batches, sizes, loads = [[], []], [0, 0], [0.0, 0.0]
+    for name, count in sorted(counted, key=lambda item: (-SLOW.get(item[0], item[1] * REST), item[0])):
+        target = min(range(2), key=lambda index: loads[index])
         batches[target].append(name)
         sizes[target] += count
+        loads[target] += SLOW.get(name, count * REST)
     return [sorted(batch) for batch in batches], sizes
 
 

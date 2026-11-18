@@ -937,7 +937,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('pattern="test_gui*.py"', script)
         self.assertIn('return 0 if result.wasSuccessful() else 1', script)
         self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', script)
-        self.assertIn('PROCESSES = 3', script)
+        self.assertIn('loads[target] += SLOW.get(name, count * REST)', script)  # 묶음을 테스트 수가 아니라 걸린 시간으로 나눔
         installs = "\n".join(step.get("run", "") for step in jobs["gui"]["steps"])
         self.assertIn("libfontconfig1", installs)
         self.assertNotIn("fonts-nanum", installs)  # 같이 배포하는 글꼴과 이름이 같은 시스템 글꼴을 깔면 줄 높이가 실행마다 달라짐
