@@ -83,9 +83,17 @@ def set_tone(widget, tone):
         repolish(child)
 
 
+def set_font(widget, font):
+    """위젯 글꼴을 바꿈. Qt 는 스타일시트를 처음 입힐 때의 글꼴을 이 속성에 저장해 두고 스타일을 다시 입힐 때마다 그 글꼴로 되돌리므로,
+    저장된 글꼴도 같이 바꿔야 테마를 바꾼 뒤에 새 글꼴이 남음."""
+    widget.setFont(font)
+    if widget.property("_q_styleSheetWidgetFont") is not None:
+        widget.setProperty("_q_styleSheetWidgetFont", font)
+
+
 def typed(widget, role, bold=None):
     """위젯에 theme.TYPE 의 role 글꼴을 주고 역할을 적어 둠(refont 가 다시 줄 때 읽음)."""
-    widget.setFont(theme.font(role, bold))
+    set_font(widget, theme.font(role, bold))
     widget.setProperty("role", role)
     if bold is not None:
         widget.setProperty("bold", bool(bold))
@@ -99,7 +107,7 @@ def refont(root):
         widget.ensurePolished()
         role = widget.property("role")
         if role:
-            widget.setFont(theme.font(role, widget.property("bold")))
+            set_font(widget, theme.font(role, widget.property("bold")))
             if isinstance(widget, Para):  # 줄 높이를 바꾸고 글을 다시 넣어 새 글꼴로 줄 높이를 다시 셈
                 widget.line = theme.TYPE[role][1]
                 widget.setText(widget.text())

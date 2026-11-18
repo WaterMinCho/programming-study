@@ -24,7 +24,7 @@ from tests import guikit  # noqa: E402
 
 from PyQt6.QtCore import QPoint, QRect, QSettings, Qt  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QLabel, QPushButton, QScrollArea  # noqa: E402
+from PyQt6.QtWidgets import QAbstractButton, QApplication, QLabel, QPushButton, QScrollArea, QWidget  # noqa: E402
 
 import adaptive  # noqa: E402
 import session  # noqa: E402
@@ -1252,6 +1252,24 @@ class DrillTest(WebTest):
 class TextSizeTest(WebTest):
     """글자 크기 단계. 새로 설치하면 크게이고, 단계를 바꾸면 이름표·문단·단추·문서의 글자가 같이 커지며, 첫 화면의 단추와 Ctrl 키로 바꾸고
     창을 다시 열어도 남음. 옛 확대 단계(zoom)는 단계로 옮김."""
+
+    def test_theme_change_keeps_the_chosen_text_size(self):
+        """이름표와 문단의 글자 크기가 첫 화면, 단계를 바꾼 뒤, 테마를 바꾼 뒤에 모두 지금 단계의 값인지 봄. 단추 글자는 스타일시트가 정함."""
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        win = self.boot()
+
+        def off():
+            guikit.pump()
+            return [(type(widget).__name__, widget.property("role"), widget.font().pixelSize()) for widget in win.findChildren(QWidget)
+                    if widget.property("role") in theme.TYPE and not isinstance(widget, QAbstractButton)
+                    and widget.font().pixelSize() != theme.TYPE[widget.property("role")][0]]
+
+        self.assertEqual(off(), [])
+        win.set_text("larger")
+        self.assertEqual(off(), [])
+        for mode in ("dark", "light"):
+            win.set_theme(mode)
+            self.assertEqual(off(), [], mode)
 
     def test_default_is_large_and_the_step_scales_labels_buttons_and_documents(self):
         win = self.boot()

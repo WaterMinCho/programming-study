@@ -225,6 +225,31 @@ class TextStepTest(unittest.TestCase):
         self.assertEqual((theme.scaled_type("large")["body"], theme.scaled_type("larger")["body"]), ((19, 32, 400), (21, 36, 400)))
         self.assertEqual((theme.scaled_type("large")["headline"], theme.scaled_type("larger")["caption"]), ((24, 32, 700), (18, 28, 400)))
 
+    def test_role_fonts_survive_a_restyle(self):
+        """Qt 는 스타일을 다시 입힐 때 위젯 글꼴을 스타일을 처음 입힌 때의 글꼴로 되돌림. 역할 글꼴이 테마를 바꾼 뒤에도 남는지 봄."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        theme.set_text("normal")
+        theme.set_mode("light")
+        root = kit.page(QWidget())
+        self.addCleanup(root.deleteLater)
+        self.addCleanup(root.close)
+        box = kit.box(root)
+        caption, body, late = kit.label("글자", "caption"), kit.para("문단"), kit.para("제목", "label")
+        for widget in (caption, body, late):
+            box.addWidget(widget)
+        root.show()
+        guikit.pump()
+        kit.typed(late, "headline", True)  # 화면에 보인 뒤에 역할을 바꾼 부품
+        for step in ("larger", "normal"):
+            theme.set_text(step)
+            kit.refont(root)
+            for mode in ("dark", "light"):
+                theme.set_mode(mode)
+                guikit.pump()
+                self.assertEqual([widget.font().pixelSize() for widget in (caption, body, late)],
+                                 [theme.TYPE[role][0] for role in ("caption", "body", "headline")], (step, mode))
+
     def test_set_text_changes_type_and_falls_back_to_the_default(self):
         self.addCleanup(theme.set_text, "normal")
         theme.set_text("normal")
