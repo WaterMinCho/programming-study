@@ -344,6 +344,10 @@ def application(database, *, legacy_contract=False):
                 result = identity.public_config()
             elif method == "GET" and path == "/v1/identity/status":
                 result = identity.authenticate(environ.get("HTTP_AUTHORIZATION", ""), require_team=False)
+            elif method == "GET" and path == "/v1/identity/today":
+                if environ.get("QUERY_STRING"):
+                    raise ApiError(400, "요청 내용을 읽을 수 없습니다.")
+                result = identity.today(environ.get("HTTP_AUTHORIZATION", ""))
             elif method == "GET" and path == "/v1/identity/complete":
                 result = {"message": "프로그램으로 돌아가 본인 확인 결과를 확인해 주세요."}
             elif method == "GET" and path == "/v1/team/summary":
