@@ -13,6 +13,7 @@ set 기록에 시드를 남겨 같은 기록·같은 시드면 같은 묶음이 
 skel.cards 가 만들고 note_only 자리는 노트의 돌려 가며 빈칸(check_rotate)에서만 씀. 카드 lesson 은 무리 id, after 는 권하는 차시이고,
 차시를 묻는 곳(정렬, 무게, 차시 풀기)은 after 차시를 씀. 단원 이름은 unit_name 한 규칙("5차시 · 단원 제목", "학습 루프 · 단원 제목")을 모든 화면값이 씀.
 """
+import collections
 import copy
 import datetime
 import hashlib
@@ -376,7 +377,9 @@ class AiSession(object):
                             and not any(int(row.get("try") or 1) == int(latest.get("try") or 1) for row in rows))
         return dict(self.mocks[mid], blanks=sum(item['kind'] == 'blank' for item in items.values()),
                     choices=sum(item['kind'] == 'choice' for item in items.values()),
-                    codes=sum(item['kind'] == 'code' for item in items.values()), taken=bool(rows),
+                    codes=sum(item['kind'] == 'code' for item in items.values()),
+                    formats=dict(collections.Counter(item['format'] for item in items.values()
+                                                     if isinstance(item.get('format'), str))), taken=bool(rows),
                     restart_required=restart_required,
                     first_score=rows[0]['score'] if rows else None, last_score=rows[-1]['score'] if rows else None,
                     active=exam is not None and exam.result is None,

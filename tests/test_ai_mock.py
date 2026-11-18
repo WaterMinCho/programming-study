@@ -801,6 +801,23 @@ class CodeServiceTest(Base):
         items.append(code_item("m90-05", "i90"))
         (folder / "work/items.json").write_text(json.dumps({"items": items}, ensure_ascii=False), encoding="utf-8")
 
+    def test_format_counts_skip_items_without_format(self):
+        """mock_info()와 summary()는 format별 수를 세고, format이 없는 문항(m1~m3 꼴)은 칸을 만들지 않음. 화면은 아직 이 값을 쓰지 않음."""
+        path = Path(self.root) / "mocks/m90/work/items.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for item, form in zip(data["items"], ("predict", "predict", None, None, "code")):
+            if form:
+                item["format"] = form
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        sess = self.session()
+        self.assertEqual({"predict": 2, "code": 1}, sess.mock_info("m90")["formats"])
+        exam = sess.start_mock("m90", seed=1)
+        exam.save_answer(["3"], "m90-01")
+        exam.save_answer(["3"], "m90-03")
+        exam.save_answer(WRONG, "m90-05")
+        exam.submit()
+        self.assertEqual({"predict": [1, 2], "code": [0, 1]}, exam.summary()["formats"])
+
     def test_wrong_code_answer_is_a_read_only_wrong_note(self):
         sess = self.session()
         self.assertEqual((4, 0, 1), tuple(sess.mock_info("m90")[k] for k in ("blanks", "choices", "codes")))

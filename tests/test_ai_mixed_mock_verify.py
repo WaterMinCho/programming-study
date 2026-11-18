@@ -531,3 +531,214 @@ class CodeItemVerifyTest(unittest.TestCase):
         messages, output, _, _ = self.check()
         self.assertTrue(any('예시는 2~3개' in message for message in messages), output)
         self.assertNotIn('--show-hidden-tests', output)
+
+
+ALL44_FORMATS = ['choice'] * 16 + ['bug'] * 5 + ['order'] * 3 + ['blank'] * 8 + ['predict'] * 8 + ['code'] * 4
+ALL44_LEVELS = [1] * 11 + [2] * 20 + [3] * 9 + [2, 2, 3, 3]
+
+
+def all44_items(mid, fact_no=20, revision='all44-v1'):
+    """allocate 배분대로 44문항을 만듦. 코드 작성 4문항은 level 2 둘, level 3 둘이고 맨 뒤에 둠."""
+    lessons = [lid for lid, count in legacy.ALL44.items() for _ in range(count)]
+    items = []
+    for n, (lid, form, level) in enumerate(zip(lessons, ALL44_FORMATS, ALL44_LEVELS)):
+        app = lid.startswith('a')
+        no = int(lid[1:])
+        unit = ('a%da' if app else '%da') % no
+        fid = ('FA%02d-%02d' if app else 'F%02d-%02d') % (no, fact_no)
+        marker = '%s_case_%d' % (mid, n)
+        item = dict(id='%s-%02d' % (mid, n + 1), lesson=lid, course='app' if app else 'intro', unit=unit, step=unit + '/1',
+                    facts=[fid], sourcefacts=[{'lesson': lid, 'id': fid}], related_sources=[],
+                    ref=[('응용 %d차시 슬 p1' if app else '%d차시 슬 p1') % no], family='all-case-%d' % n,
+                    concept='연산 비교', topic='연산 비교', level=level, format=form, transferaxis='comparison',
+                    conditions=['입력을 고정함'], level_reason='연산 조건을 비교함.', blueprint_revision=revision,
+                    explain='입력과 연산의 조건을 비교합니다.')
+        if form in ('blank', 'predict'):
+            item.update(kind='blank', stem='%s cobalt quartz의 값을 쓰세요. ____' % marker,
+                        blanks=[{'mode': 'number', 'answer': ['2']}], allowed_answers=[['2']])
+        elif form == 'code':
+            item.update(kind='code', stem='%s 합성곱 출력 크기를 돌려주는 함수 out_size를 완성하세요.' % marker,
+                        solution=list(CODE_SOLUTION),
+                        code={'starter': CODE_STARTER, 'entry': 'out_size', 'examples': copy.deepcopy(CODE_EXAMPLES),
+                              'tests': copy.deepcopy(CODE_TESTS), 'limit_ms': 2000, 'tol': None})
+        else:
+            item.update(kind='choice', stem='%s copper velvet에서 옳은 것을 고르세요.' % marker, pick='right', multi=False,
+                        options=[{'text': '조건 %d' % k, 'ok': k == 0, 'why': '입력 조건을 비교합니다.', 'aim': '입력 혼동'}
+                                 for k in range(4)])
+        items.append(item)
+    return items
+
+
+class AllLessonValidationTest(unittest.TestCase):
+    """개론 1~17차시와 응용 1~5차시를 모두 담은 44문항 합성 회차(all44-v1)의 계약 검사.
+    코드 작성 문항의 실행 검사는 CodeItemVerifyTest 가 맡으므로 통과 확인 한 번만 실제로 돌리고 나머지는 건너뜀."""
+    mid = 'm11'
+
+    def setUp(self):
+        self.fixture = legacy.ValidationTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.bank = self.fixture.bank
+        index = self.fixture.read('index.json')
+        for n in range(1, 6):
+            self.add_app_lesson(index, n)
+        self.spec = self.round_spec(self.mid)
+        self.meta = dict(self.spec, format=1, draft=True, time_basis='연습 기본 시간입니다. 공식 시간은 아닙니다.', round_set=1)
+        self.meta.pop('hidden')
+        index['mocks'].append(self.spec)
+        self.fixture.write('index.json', index)
+        self.items = all44_items(self.mid)
+        self.save()
+
+    def round_spec(self, mid):
+        return dict(id=mid, title='모의고사', count=44, minutes=120, range=[1, 17], window=[], scope='mixed',
+                    courses=['intro', 'app'], course_counts={'intro': 31, 'app': 13}, blueprint=dict(legacy.ALL44),
+                    blueprint_revision='all44-v1', hidden=True)
+
+    add_app_lesson = MixedValidationTest.add_app_lesson
+    publish_app_lesson = MixedValidationTest.publish_app_lesson
+
+    def save(self):
+        self.fixture.write('mocks/'+self.mid+'/meta.json', self.meta)
+        self.fixture.write('mocks/'+self.mid+'/work/items.json', {'format': 1, 'items': self.items})
+
+    def update_index(self):
+        index = self.fixture.read('index.json')
+        index['mocks'] = [self.spec if row['id'] == self.mid else row for row in index['mocks']]
+        self.fixture.write('index.json', index)
+
+    def verify(self, *args, run_code=False):
+        output = io.StringIO()
+        argv = [self.mid, '--bank', str(self.bank), '--seeds', '2'] + list(args)
+        if run_code:
+            code = verify_ai.main(argv, output)
+        else:
+            with mock.patch.object(verify_ai, '_code_run_problems', return_value=[]):
+                code = verify_ai.main(argv, output)
+        return code, output.getvalue()
+
+    def assert_fails(self, text):
+        code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn(text, output)
+
+    def test_synthetic_all44_round_passes_with_real_code_checks(self):
+        self.assertEqual(legacy.ALL44, verify_ai._mixed_blueprint(self.spec))
+        code, output = self.verify(run_code=True)
+        self.assertEqual(0, code, output)
+        self.assertIn('OK: 묶음 1개 통과, 경고 0개', output)
+
+    def test_contract_counts_ids_and_formats_fail_one_by_one(self):
+        original = copy.deepcopy(self.items)
+
+        def retag(rows, n, **fields):
+            rows[n].update(fields)
+
+        cases = (
+            ('format 수', lambda rows: retag(rows, 0, format='bug'), '실제 format 배분'),
+            ('kind 수', lambda rows: rows[24].update(kind='choice', format='choice', pick='right', multi=False,
+                                                     options=copy.deepcopy(rows[0]['options'])), '실제 kind 배분'),
+            ('format과 kind', lambda rows: (retag(rows, 0, format='blank'), retag(rows, 24, format='choice')),
+             'm11-01의 format은 kind가 choice일 때 choice, bug, order 가운데 하나여야 합니다.'),
+            ('m4 꼴 format', lambda rows: retag(rows, 0, format='concept_judgment'), 'm11-01의 format은 kind가 choice일 때'),
+            ('코드 작성 format', lambda rows: retag(rows, 40, format='blank'), 'm11-41의 format은 kind가 code일 때 code여야 합니다.'),
+            ('과정 수', lambda rows: retag(rows, 0, course='app'), '실제 course 배분'),
+            ('level', lambda rows: retag(rows, 0, level=2), '실제 level 배분'),
+            ('문항 id', lambda rows: retag(rows, 43, id='m11-45'), 'm11-01부터 m11-44까지'),
+        )
+        for name, edit, expected in cases:
+            with self.subTest(name=name):
+                self.items = copy.deepcopy(original)
+                edit(self.items)
+                self.save()
+                self.assert_fails(expected)
+
+    def test_declared_contract_must_follow_registry_and_allocate(self):
+        target = next(item for item in self.items if item['lesson'] == 'i04')
+        moved = next(item for item in self.items if item['lesson'] == 'i05')
+        for key in ('lesson', 'unit', 'step', 'facts', 'sourcefacts', 'ref'):
+            moved[key] = copy.deepcopy(target[key])
+        self.spec['blueprint'] = dict(legacy.ALL44, i04=4, i05=1)
+        self.meta['blueprint'] = dict(self.spec['blueprint'])
+        self.update_index()
+        self.save()
+        code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('m11 index의 blueprint가 혼합 배분과 일치하지 않습니다.', output)
+        self.assertIn('실제 lesson 배분', output)
+        self.spec = self.round_spec(self.mid)
+        self.spec['count'] = self.meta['count'] = 32
+        self.meta['blueprint'] = dict(legacy.ALL44)
+        self.update_index()
+        self.save()
+        self.assert_fails('m11 index의 count가 혼합 배분과 일치하지 않습니다.')
+
+    def test_published_lesson_missing_from_blueprint_fails(self):
+        self.publish_app_lesson(6)
+        code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('m11 index의 blueprint에 빠진 공개 차시가 있습니다: a06. 그 차시 값을 tools/ai_mock_rules.py의 '
+                      'LESSON_SCORES에 넣고 새 배분 버전으로 다시 나누세요.', output)
+        self.assertIn('m11 meta.json의 blueprint에 빠진 공개 차시가 있습니다: a06.', output)
+
+    def test_round_set_is_required(self):
+        for value in (None, 0, '1', True):
+            with self.subTest(value=value):
+                self.meta['round_set'] = value
+                self.save()
+                self.assert_fails('round_set은 1 이상 정수')
+
+    def add_signed_round(self, mid, round_set, shared_fact):
+        """다른 all44 회차를 서명 전 공개 상태(draft=False)로 더함. shared_fact가 참이면 첫 문항이 m11 첫 문항과 같은 사실을 씀."""
+        index = self.fixture.read('index.json')
+        spec = self.round_spec(mid)
+        if all(row['id'] != mid for row in index['mocks']):
+            index['mocks'].append(spec)
+            self.fixture.write('index.json', index)
+        items = all44_items(mid, fact_no=21)
+        if shared_fact:
+            items[0]['facts'] = list(self.items[0]['facts'])
+            items[0]['sourcefacts'] = copy.deepcopy(self.items[0]['sourcefacts'])
+        meta = dict(spec, format=1, draft=False, time_basis='연습 기본 시간입니다.', round_set=round_set)
+        meta.pop('hidden')
+        self.fixture.write('mocks/%s/meta.json' % mid, meta)
+        self.fixture.write('mocks/%s/work/items.json' % mid, {'format': 1, 'items': items})
+
+    def test_same_fact_fails_in_the_same_round_set_and_warns_across_sets(self):
+        self.add_signed_round('m12', 1, shared_fact=False)
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.add_signed_round('m13', 1, shared_fact=True)
+        self.assert_fails('round_set이 같은 m11·m13에 같은 사실이 있습니다: i01/F01-20. 한쪽 문항을 다른 사실로 바꾸세요.')
+        self.add_signed_round('m13', 2, shared_fact=True)
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.assertIn('round_set이 다른 m11·m13에 같은 사실이 있습니다', output)
+        self.assertIn('i01/F01-20', output)
+
+    def test_32_question_round_is_not_compared_for_facts(self):
+        """32문항 회차(m4 꼴)와는 같은 사실을 써도 round_set 실패나 경고를 내지 않음."""
+        index = self.fixture.read('index.json')
+        spec = dict(self.round_spec('m14'), count=32, course_counts={'intro': 16, 'app': 16},
+                    blueprint_revision='mixed32-blueprint-v1')
+        index['mocks'].append(spec)
+        self.fixture.write('index.json', index)
+        items = all44_items('m14', fact_no=21, revision='mixed32-blueprint-v1')
+        items[0]['facts'] = list(self.items[0]['facts'])
+        items[0]['sourcefacts'] = copy.deepcopy(self.items[0]['sourcefacts'])
+        meta = dict(spec, format=1, draft=False, time_basis='연습 기본 시간입니다.')
+        meta.pop('hidden')
+        self.fixture.write('mocks/m14/meta.json', meta)
+        self.fixture.write('mocks/m14/work/items.json', {'format': 1, 'items': items})
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.assertNotIn('round_set이', output)
+
+    def test_related_sources_are_not_counted_as_shared_facts(self):
+        self.add_signed_round('m12', 1, shared_fact=False)
+        row = self.items[0]
+        row['related_sources'] = [{'lesson': 'i02', 'facts': ['F02-21']}]
+        row['sourcefacts'].append({'lesson': 'i02', 'id': 'F02-21'})
+        self.save()
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
