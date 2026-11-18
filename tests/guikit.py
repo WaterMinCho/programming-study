@@ -36,6 +36,7 @@ motion.enabled = False  # 움직임은 그것을 보는 테스트에서만 켬
 LEFT = Qt.MouseButton.LeftButton
 SHIFT = Qt.KeyboardModifier.ShiftModifier
 CTRL = Qt.KeyboardModifier.ControlModifier
+ROUNDS = 32  # pump 이 시간과 관계없이 처리하는 이벤트 차례 수. 배치는 위젯이 겹친 깊이만큼 차례가 필요함
 SYNTAX = ("keyword", "def", "builtin", "string", "comment", "number", "decorator", "self", "blank")  # 문법 색칠이 나누는 종류
 
 
@@ -71,10 +72,13 @@ def identity_factory(repository, user):
 
 
 def pump(ms=30):
-    """이벤트 루프를 ms 동안 돌림."""
+    """이벤트 루프를 ms 동안 돌린 뒤 쌓인 이벤트를 ROUNDS 차례 더 처리함. 부하로 프로세스가 늦게 깨어나면 루프가 한 차례만 처리하고 끝나서,
+    여러 차례에 걸쳐 정해지는 배치나 연달아 건 0ms 타이머가 덜 끝난 채로 남기 때문임."""
     loop = QEventLoop()
     QTimer.singleShot(ms, loop.quit)
     loop.exec()
+    for _ in range(ROUNDS):
+        APP.processEvents()
 
 
 def wait_until(predicate, timeout=30.0):
