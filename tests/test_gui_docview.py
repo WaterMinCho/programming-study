@@ -563,12 +563,13 @@ class FigureViewTest(unittest.TestCase):
     def test_dialog_fits_controls_on_one_line_at_largest_text(self):
         """가장 큰 글자에서 확대 창은 조작부를 한 줄로 두고, 화면이 넉넉하면 스크롤바 없이 다 보임.
         화면이 모자라면 스크롤해서 조작부 칸과 그림 칸 아래 끝까지 닿음. 창은 화면 작업 영역을 넘지 않음.
-        그림 폭 320 은 조작부 한 줄보다 좁고, 800 은 그림 칸 기본 폭 640 보다 넓음. 800×600 에서 그림 폭 680 은 세로 스크롤바만 생기는 크기임.
-        bars 는 (가로, 세로) 스크롤바가 보이는지."""
+        그림 폭 320 은 조작부 한 줄보다 좁고, 800 은 그림 칸 기본 폭 640 보다 넓음. 800×600 에서 그림 폭 680·800 은 줄어서 들어감.
+        800×280 은 그림을 빼도 제목, 조작부, 닫기 단추가 작업 영역보다 높아 세로 스크롤바가 생기는 크기임. bars 는 (가로, 세로) 스크롤바가 보이는지."""
         self.addCleanup(theme.set_text, theme.state["text"])
         theme.set_text(theme.TEXT_STEPS[-1])
         cases = (((1920, 1080), 320, (False, False)), ((1920, 1080), 800, (False, False)),
-                 ((800, 600), 320, (False, False)), ((800, 600), 680, (False, True)), ((800, 600), 800, (True, True)))
+                 ((800, 600), 320, (False, False)), ((800, 600), 680, (False, False)), ((800, 600), 800, (False, False)),
+                 ((800, 280), 800, (False, True)))
         for (screen_width, screen_height), drawn, bars in cases:
             with self.subTest(screen=(screen_width, screen_height), drawn=drawn):
                 scale = 80 / drawn
@@ -594,6 +595,48 @@ class FigureViewTest(unittest.TestCase):
                     scroll.ensureWidgetVisible(part, 0, 0)
                     guikit.pump()
                     self.assertTrue(viewport.rect().contains(QRect(part.mapTo(viewport, QPoint(0, 0)), part.size())), part)
+
+    def test_dialog_shrinks_picture_to_fit_screen(self):
+        """가장 큰 글자에서 작업 영역보다 높거나 넓던 확대 그림은 같은 비율로 줄어 조작부와 닫기 단추가 스크롤 없이 보임.
+        이미 들어가던 그림은 크기를 그대로 둠. 작업 영역이 800×450 처럼 작으면 본문 그림(500 폭)보다 작게 줄여서라도 스크롤 없이 보이게 함.
+        정지 그림(200×20)도 같은 규칙을 씀. 창은 작업 영역을 넘지 않음. how 는 fit(줄임), keep(그대로), below(본문 그림보다 작게 줄임)."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text(theme.TEXT_STEPS[-1])
+        png = write(self.folder, "assets/1-1b.png", PNG)
+        cases = ((self.path, (1280, 800), 1200, "fit"), (self.path, (1920, 1080), 1600, "fit"), (png, (1280, 800), 2000, "fit"),
+                 (self.path, (1920, 1080), 600, "keep"), (png, (1280, 800), 800, "keep"), (self.path, (800, 450), 1000, "below"))
+        for path, (screen_width, screen_height), drawn, how in cases:
+            with self.subTest(path=os.path.basename(path), screen=(screen_width, screen_height), drawn=drawn):
+                body = 500 if how == "below" else 300
+                room = QRect(0, 0, screen_width, screen_height)
+                figure = FigureView(path, "그림 1-1a. 장부 줄이 모이는 모습", scale=(80 if path == self.path else 200) / drawn)
+                figure.resize(body, 200)
+                self.addCleanup(figure.deleteLater)
+                with mock.patch.object(docview.FigureDialog, "screen", lambda dialog: mock.Mock(availableGeometry=lambda: QRect(room))):
+                    dialog = docview.FigureDialog(None, figure, figure.caption.text())
+                self.addCleanup(lambda dialog=dialog: sip.isdeleted(dialog) or dialog.close())
+                dialog.show()
+                guikit.pump(30)
+                view, scroll = dialog.view, dialog.findChild(QScrollArea)
+                viewport = scroll.viewport()
+                self.assertLessEqual(dialog.width(), room.width() - 40)
+                self.assertLessEqual(dialog.height(), room.height() - 60)
+                picture = dialog.picture.pixmap().deviceIndependentSize()
+                if how == "keep":
+                    self.assertEqual(picture.width(), drawn)
+                elif how == "fit":
+                    self.assertLess(picture.width(), drawn)
+                    self.assertGreater(picture.width(), body)
+                else:
+                    self.assertLess(picture.width(), body)
+                source = view.source
+                self.assertLessEqual(abs(picture.height() - picture.width() * source.height() / source.width()), 1, "가로세로 비율이 그대로")
+                bars = (scroll.horizontalScrollBar().isVisible(), scroll.verticalScrollBar().isVisible())
+                below = view.controls if view.movie else view.picture
+                close = [button for button in dialog.findChildren(QPushButton) if button.text() == "닫기"][0]
+                self.assertTrue(dialog.rect().contains(QRect(close.mapTo(dialog, QPoint(0, 0)), close.size())), "닫기 단추가 창 안에 보임")
+                self.assertEqual(bars, (False, False))
+                self.assertTrue(viewport.rect().contains(QRect(below.mapTo(viewport, QPoint(0, 0)), below.size())), "조작부 아랫변까지 보임")
 
     def test_does_not_play_when_motion_is_off(self):
         self.assertFalse(motion.enabled)

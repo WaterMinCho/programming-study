@@ -1057,7 +1057,8 @@ class FigureView(QWidget):
 
 
 class FigureDialog(QDialog):
-    """해설 그림 한 장을 그린 크기(파일 폭의 1/SCALE)로 보여 주는 창. 제목은 그림 캡션이고 화면보다 크면 스크롤함.
+    """해설 그림 한 장을 그린 크기(파일 폭의 1/SCALE)로 보여 주는 창. 제목은 그림 캡션임.
+    제목, 그림, 조작부, 닫기 단추가 화면 작업 영역보다 크면 그림을 같은 비율로 줄여 스크롤 없이 보이게 함. 본문 칸이 넓으면 확대 그림이 본문 그림보다 작을 수 있음.
     움직이는 그림은 같은 넘김 단추를 달고 누른 때의 장부터 보여 주며, 저절로 재생하지 않음."""
 
     def __init__(self, parent, figure, title=""):
@@ -1095,18 +1096,31 @@ class FigureDialog(QDialog):
             self.view.refont()  # 창 스타일이 풀어 놓은 재생 단추 고정 폭을 다시 정한 뒤 잼
             frame = self.view.controls.contentsMargins()
             bar_width = self.view.controls.layout().line_width() + frame.left() + frame.right()
-        width = math.ceil(max(drawn, bar_width, min(title_width, kit.DOC_MIN))) + 48
+        least = max(bar_width, min(title_width, kit.DOC_MIN))
         room = self.screen().availableGeometry()
-        width = min(width, room.width() - 40)
-        if self.view.movie:
-            # 보이기 전에는 폭을 바꿔도 다시 그리지 않아 그림과 넘김 줄 높이가 기본 폭 640 기준으로 남음. 창 폭으로 다시 그린 뒤 높이를 잼
-            self.view.resize(max(drawn, width - 48), self.view.height())
-            self.view.draw()
+        limit = room.height() - 60
+        ratio = self.view.source.height() / self.view.source.width()
+        fit = max(1, min(drawn, room.width() - 88))  # 그림이 작업 영역 폭을 넘으면 먼저 폭에 맞춤
+        while True:
+            if fit < drawn:
+                drawn = fit
+                self.view.scale = self.view.source.width() / drawn
+                self.view.setMinimumWidth(drawn)
+            width, height = self._measure(box, scroll, drawn, least, room)
+            # 창이 작업 영역 높이를 넘으면 넘친 만큼 그림을 같은 비율로 줄이고 다시 잼. 좁아진 창에서 제목이 더 꺾이면 한 번 더 줄임
+            fit = max(1, math.floor(drawn - max(0, height - limit) / ratio))
+            if fit >= drawn:
+                break
+        self.resize(width, min(height, limit))
+
+    def _measure(self, box, scroll, drawn, least, room):
+        """확대 그림 폭이 drawn 일 때의 창 폭과 높이. least 는 넘김 줄 한 줄과 제목을 담는 데 필요한 폭임."""
+        width = min(math.ceil(max(drawn, least)) + 48, room.width() - 40)
+        # 보이기 전에는 폭을 바꿔도 다시 그리지 않아 그림과 넘김 줄 높이가 기본 폭 640 기준으로 남음. 창 폭으로 다시 그린 뒤 높이를 잼
+        self.view.resize(max(drawn, width - 48), self.view.height())
+        self.view.draw()
         height = box.totalHeightForWidth(width) if box.hasHeightForWidth() else box.sizeHint().height()
         height += self.view.sizeHint().height() - scroll.sizeHint().height()
-        if self.view.movie:
-            if width - 48 < drawn:  # 가로 스크롤바가 생기면 그 높이를 더해 넘김 줄을 가리지 않게 함
-                height += scroll.horizontalScrollBar().sizeHint().height()
-            if height > room.height() - 60:  # 세로 스크롤바가 생기면 그 폭을 더해 넘김 줄이 두 줄로 나뉘지 않게 함
-                width = min(width + scroll.verticalScrollBar().sizeHint().width(), room.width() - 40)
-        self.resize(width, min(height, room.height() - 60))
+        if height > room.height() - 60:  # 세로 스크롤바가 생기면 그 폭을 더해 넘김 줄이 두 줄로 나뉘지 않게 함
+            width = min(width + scroll.verticalScrollBar().sizeHint().width(), room.width() - 40)
+        return width, height
