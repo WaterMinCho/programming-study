@@ -791,7 +791,7 @@ class FigureViewTest(unittest.TestCase):
         guikit.pump()
 
     def test_movie_controls_sit_in_the_middle_of_each_line(self):
-        """조작부의 제목·단추·장 번호·크게 보기는 줄마다 가운데에 모임. 그림과 같은 세로 중심을 씀."""
+        """조작부의 제목·단추·장 번호·크게 보기는 줄마다 가운데에 모임. 조작부 가운데가 그림 가운데와 맞음."""
         self.addCleanup(theme.set_text, theme.state["text"])
         self.addCleanup(setattr, motion, "enabled", motion.enabled)
         motion.enabled = False
