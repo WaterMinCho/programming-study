@@ -487,6 +487,24 @@ class TeamDashboardTest(unittest.TestCase):
         QToolTip.hideText()
         self.capture_widget = self.root
 
+    def test_metric_info_keeps_the_control_size_after_text_and_theme_changes(self):
+        infos = self.card.findChildren(MetricInfo)
+
+        def sizes():
+            guikit.pump()
+            return {(info.width(), info.height()) for info in infos}
+
+        side = theme.control_height("s")
+        self.assertEqual(sizes(), {(side, side)})
+        for step in ("normal", "larger", "large"):
+            theme.set_text(step)
+            kit.refont(self.root)
+            side = theme.control_height("s")
+            self.assertEqual(sizes(), {(side, side)}, step)
+            for mode in ("dark", "light"):
+                theme.set_mode(mode)
+                self.assertEqual(sizes(), {(side, side)}, (step, mode))
+
     def test_metric_info_matches_actual_text_pixels_in_both_themes_and_sizes(self):
         self.alignment_samples = []
         def center(widget):

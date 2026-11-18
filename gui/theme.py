@@ -265,7 +265,8 @@ QWidget[ui="2"] QFrame#well { background: %(surface_alt)s; border: 0; border-rad
 QWidget[ui="2"] QFrame#team_metric, QWidget[ui="2"] QFrame#team_plot { background: %(surface)s; border: 1px solid %(line)s; border-radius: 16px; }
 QWidget[ui="2"] QFrame#team_breakdown, QWidget[ui="2"] QFrame#team_periods { background: %(surface_alt)s; border: 0; border-radius: 12px; }
 QWidget[ui="2"] QFrame#team_today { background: %(surface_alt)s; border: 0; border-radius: 12px; }
-QWidget[ui="2"] QPushButton#metric_info { min-width: 0; min-height: 0; padding: 0; border: 2px solid transparent; border-radius: 8px; background: transparent; }
+QWidget[ui="2"] QPushButton#metric_info { min-width: %(button_s)spx; max-width: %(button_s)spx; min-height: %(button_s)spx; max-height: %(button_s)spx;
+    padding: 0; border: 2px solid transparent; border-radius: 8px; background: transparent; }
 QWidget[ui="2"] QPushButton#metric_info:hover { background: %(surface_alt)s; }
 QWidget[ui="2"] QPushButton#metric_info:focus { border-color: %(focus)s; }
 QWidget[ui="2"] QProgressBar#team_python, QWidget[ui="2"] QProgressBar#team_ai { background: %(track)s; border: 0; border-radius: 3px; }
