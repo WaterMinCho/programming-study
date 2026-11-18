@@ -168,7 +168,7 @@ flowchart TD
 | 상단·탭·분류 | `test_gui_navigation.py`, `test_gui_section_browser.py`, `test_gui_ai_courses.py`, `test_gui_career_navigation.py` | AI 분류 영역의 1100px와 창 높이 700px 조건, 4열·2열 전환을 각각 확인합니다. 표시와 자료, 과정·학습자별 선택·스크롤, 아이콘·설명을 접은 상태의 키보드 순서를 대조합니다. |
 | 설정 진입 추가 | `test_gui_settings_menu.py`, `test_gui_navigation.py`, `test_gui_learning_state.py`, `test_gui_ai_mock.py`와 변경한 화면 검사 | 허용한 `overview_pages`와 새 진입을 두지 않는 학습·시험·코딩 화면을 나눠 확인합니다. Hub 중복 숨김, 넓은 창·좁은 창의 앵커, 화면 이동·앵커 숨김의 취소, 공통 잠금과 첫 화면 안내의 Hub 이동을 대조합니다. 기존 답안·선택·마감도 보존하는지 확인합니다. |
 | 비동기·제출·동의 표시 | `test_gui_dialogs.py`, `test_gui_submission.py`, `test_gui_privacy.py`, `test_gui_ai_data.py` | 반복 대기·실패·재시도·취소·닫기·늦은 응답에서 중복 전송과 입력 덮어쓰기를 확인합니다. |
-| 학습 본문·그림·편집기 배치 | `test_gui_learning_readability.py`, `test_gui_learning_state.py`, `test_gui_docview.py`와 변경한 과목 검사 | 동적 입력과 심화 창, GIF 반복·일시 정지·화면 밖 타이머 정지, 조작부와 설명 순서, 조작부 가운데 정렬, 한글 입력·되돌리기·답안 복원을 확인합니다. |
+| 학습 본문·그림·편집기 배치 | `test_gui_learning_readability.py`, `test_gui_learning_state.py`, `test_gui_docview.py`와 변경한 과목 검사 | 동적 입력과 심화 창, GIF 반복·일시 정지·화면 밖 타이머 정지, 조작부와 설명 순서, 조작부 가운데 정렬, 가장 큰 글자에서 크게 보기 창의 조작부 한 줄과 스크롤, 한글 입력·되돌리기·답안 복원을 확인합니다. |
 
 배치나 글꼴이 바뀌면 Windows/macOS에서 실제 760×480 창과 글자 3단계·두 테마를 대조합니다. 작은 창과 큰 창을 왕복하고 글자를 키웠다가 줄인 뒤에도 같은 상태와 배치로 돌아오는지 확인합니다. 과목 탐색은 1119·1120px 주변뿐 아니라 실제 메뉴 글자 폭으로 계산한 전환점도 확인합니다. 물리 화면 배율과 Qt 배율 대체 시험은 따로 기록합니다.
 

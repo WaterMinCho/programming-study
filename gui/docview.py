@@ -1088,12 +1088,25 @@ class FigureDialog(QDialog):
         close.clicked.connect(self.close)
         row.addWidget(close)
         box.addLayout(row)
-        # 폭은 그림, 넘김 줄, 한 줄로 쓴 제목(읽는 글 단까지) 가운데 넓은 것. 작은 그림에서 제목이 몇 글자씩 꺾이거나 넘김 단추가 눌리지 않게 함
+        # 폭은 그림, 넘김 줄 한 줄, 한 줄로 쓴 제목(읽는 글 단까지) 가운데 넓은 것. 작은 그림에서 제목이 몇 글자씩 꺾이거나 넘김 줄이 두 줄로 나뉘지 않게 함
         title_width = QFontMetricsF(theme.font("headline")).horizontalAdvance(title) if title else 0
-        bar_width = self.view.controls.sizeHint().width() if self.view.movie else 0
+        bar_width = 0
+        if self.view.movie:
+            self.view.refont()  # 창 스타일이 풀어 놓은 재생 단추 고정 폭을 다시 정한 뒤 잼
+            frame = self.view.controls.contentsMargins()
+            bar_width = self.view.controls.layout().line_width() + frame.left() + frame.right()
         width = math.ceil(max(drawn, bar_width, min(title_width, kit.DOC_MIN))) + 48
         room = self.screen().availableGeometry()
         width = min(width, room.width() - 40)
+        if self.view.movie:
+            # 보이기 전에는 폭을 바꿔도 다시 그리지 않아 그림과 넘김 줄 높이가 기본 폭 640 기준으로 남음. 창 폭으로 다시 그린 뒤 높이를 잼
+            self.view.resize(max(drawn, width - 48), self.view.height())
+            self.view.draw()
         height = box.totalHeightForWidth(width) if box.hasHeightForWidth() else box.sizeHint().height()
         height += self.view.sizeHint().height() - scroll.sizeHint().height()
+        if self.view.movie:
+            if width - 48 < drawn:  # 가로 스크롤바가 생기면 그 높이를 더해 넘김 줄을 가리지 않게 함
+                height += scroll.horizontalScrollBar().sizeHint().height()
+            if height > room.height() - 60:  # 세로 스크롤바가 생기면 그 폭을 더해 넘김 줄이 두 줄로 나뉘지 않게 함
+                width = min(width + scroll.verticalScrollBar().sizeHint().width(), room.width() - 40)
         self.resize(width, min(height, room.height() - 60))

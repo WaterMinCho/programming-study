@@ -10,13 +10,14 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 os.environ.setdefault("STUDY_NODE_PROBE", "0")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
 from PyQt6 import sip  # noqa: E402
-from PyQt6.QtCore import QPoint, Qt  # noqa: E402
+from PyQt6.QtCore import QPoint, QRect, Qt  # noqa: E402
 from PyQt6.QtGui import QColor, QFontMetricsF, QPalette, QPixmap, QRegion, qGray  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QLabel, QPushButton, QScrollArea, QWidget  # noqa: E402
@@ -558,6 +559,41 @@ class FigureViewTest(unittest.TestCase):
         self.assertEqual(dialog.view.counter.text(), "2 / 3")
         self.assertFalse(dialog.view.zoom_btn.isVisible() or dialog.view.playing)
         self.assertGreaterEqual(dialog.width(), min(dialog.view.controls.sizeHint().width() + 48, dialog.screen().availableGeometry().width() - 40))
+
+    def test_dialog_fits_controls_on_one_line_at_largest_text(self):
+        """가장 큰 글자에서 확대 창은 조작부를 한 줄로 두고, 화면이 넉넉하면 스크롤바 없이 다 보임.
+        화면이 모자라면 스크롤해서 조작부 칸과 그림 칸 아래 끝까지 닿음. 창은 화면 작업 영역을 넘지 않음.
+        그림 폭 320 은 조작부 한 줄보다 좁고, 800 은 그림 칸 기본 폭 640 보다 넓음. 800×600 에서 그림 폭 680 은 세로 스크롤바만 생기는 크기임.
+        bars 는 (가로, 세로) 스크롤바가 보이는지."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text(theme.TEXT_STEPS[-1])
+        cases = (((1920, 1080), 320, (False, False)), ((1920, 1080), 800, (False, False)),
+                 ((800, 600), 320, (False, False)), ((800, 600), 680, (False, True)), ((800, 600), 800, (True, True)))
+        for (screen_width, screen_height), drawn, bars in cases:
+            with self.subTest(screen=(screen_width, screen_height), drawn=drawn):
+                scale = 80 / drawn
+                room = QRect(0, 0, screen_width, screen_height)
+                figure = FigureView(self.path, "그림 1-1a. 장부 줄이 모이는 모습", scale=scale)
+                self.addCleanup(figure.deleteLater)
+                with mock.patch.object(docview.FigureDialog, "screen", lambda dialog: mock.Mock(availableGeometry=lambda: QRect(room))):
+                    dialog = docview.FigureDialog(None, figure, figure.caption.text())
+                self.addCleanup(lambda dialog=dialog: sip.isdeleted(dialog) or dialog.close())
+                dialog.show()
+                guikit.pump(30)
+                view, scroll = dialog.view, dialog.findChild(QScrollArea)
+                viewport = scroll.viewport()
+                self.assertLessEqual(dialog.width(), room.width())
+                self.assertLessEqual(dialog.height(), room.height())
+                parts = [view.controls_heading, view.first_btn, view.prev_btn, view.play_btn, view.next_btn, view.counter]
+                self.assertEqual(len({part.geometry().center().y() for part in parts}), 1, "조작부가 한 줄")
+                self.assertEqual((scroll.horizontalScrollBar().isVisible(), scroll.verticalScrollBar().isVisible()), bars)
+                scroll.verticalScrollBar().setValue(scroll.verticalScrollBar().maximum())
+                guikit.pump()
+                self.assertLessEqual(view.mapTo(viewport, QPoint(0, view.height())).y(), viewport.height(), "가로 스크롤바가 아래 끝을 가리지 않음")
+                for part in parts:
+                    scroll.ensureWidgetVisible(part, 0, 0)
+                    guikit.pump()
+                    self.assertTrue(viewport.rect().contains(QRect(part.mapTo(viewport, QPoint(0, 0)), part.size())), part)
 
     def test_does_not_play_when_motion_is_off(self):
         self.assertFalse(motion.enabled)

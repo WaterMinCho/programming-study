@@ -839,6 +839,13 @@ class FlowLayout(QLayout):
         left, top, right, bottom = self.getContentsMargins()
         return size + QSize(left + right, top + bottom)
 
+    def line_width(self):
+        """보이는 칸을 모두 한 줄에 놓는 폭(좌우 여백 포함). sizeHint 는 가장 넓은 칸 하나의 폭이라 한 줄 폭이 필요할 때 씀."""
+        left, _, right, _ = self.getContentsMargins()
+        widths = [item.sizeHint().expandedTo(item.minimumSize()).width() for item in self.items
+                  if item.widget() is None or item.widget().isVisibleTo(item.widget().parentWidget())]
+        return sum(widths) + self.spacing() * max(0, len(widths) - 1) + left + right
+
     def _place(self, rect, move):
         left, top, right, bottom = self.getContentsMargins()
         area = rect.adjusted(left, top, -right, -bottom)
