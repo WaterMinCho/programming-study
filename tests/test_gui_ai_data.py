@@ -7,12 +7,12 @@ from unittest import mock
 
 from tests import guikit
 
-from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
+from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
 from PyQt6.QtGui import QFontMetricsF, QPainterPath
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QAbstractSlider, QApplication
 
-from gui import theme
+from gui import motion, theme
 from gui.ai_data import LearningDataDialog
 from learning_data.collection import CollectionError
 from tests.test_gui_ai import AiTest
@@ -396,4 +396,130 @@ class AiDataTest(AiTest):
             self.assertFalse(dialog.working)
             self.assertTrue(dialog.send_button.isEnabled())
             self.assertIn("3건", dialog.sync_status.text())
+        dialog.close()
+
+    def open_from_home(self, size, text="normal"):
+        win = self.boot(size=size)
+        win.set_text(text)
+        win.go_ai()
+        guikit.pump()
+        win.ai_home.open_data()
+        guikit.pump()
+        return win, win.ai_home.data_dialog
+
+    def assert_inside_parent_and_screen(self, win, dialog):
+        # 시험 창(1280)이 offscreen 화면(800)보다 넓을 수 있어 가로는 창 안인지만 봄. 세로는 창, 화면 작업 영역, 부모 페이지의 아래 끝까지 봄.
+        frame = dialog.frameGeometry()
+        page = dialog.parentWidget()
+        area = dialog.screen().availableGeometry()
+        self.assertTrue(win.frameGeometry().contains(frame), (win.frameGeometry(), frame))
+        self.assertGreaterEqual(frame.top(), area.top())
+        self.assertLessEqual(frame.bottom(), min(area.bottom(), QRect(page.mapToGlobal(QPoint()), page.size()).bottom()))
+
+    def test_wheel_over_open_sections_status_and_goal_scrolls_the_dialog_body(self):
+        win, dialog = self.open_from_home((760, 480), "larger")
+        bar = dialog.scroll.verticalScrollBar()
+        for section in (dialog.transfer_section, dialog.export_section, dialog.goal_section):
+            with self.subTest(section=section.title):
+                section.set_opened(True)
+                guikit.pump()
+                targets = [section.body, dialog.status_card]
+                if section is dialog.goal_section:
+                    targets.append(dialog.goal_combo)
+                for target in targets:
+                    bar.setValue(0)
+                    guikit.pump()
+                    choice = dialog.goal_combo.currentIndex()
+                    guikit.wheel(target)
+                    self.assertGreater(bar.value(), 0)
+                    self.assertEqual(choice, dialog.goal_combo.currentIndex())
+                section.set_opened(False)
+                guikit.pump()
+        dialog.close()
+
+    def test_goal_choice_changes_by_wheel_only_while_the_box_has_focus(self):
+        win, dialog = self.open_from_home((760, 480), "larger")
+        dialog.goal_section.set_opened(True)
+        dialog.goal_section.header.setFocus()
+        guikit.pump()
+        bar = dialog.scroll.verticalScrollBar()
+        bar.setValue(0)
+        guikit.pump()
+        self.assertEqual(Qt.FocusPolicy.StrongFocus, dialog.goal_combo.focusPolicy())
+        self.assertFalse(dialog.goal_combo.hasFocus())
+        self.assertIsNot(dialog.goal_combo, guikit.wheel(dialog.goal_combo))
+        self.assertFalse(dialog.goal_combo.hasFocus())
+        self.assertEqual(0, dialog.goal_combo.currentIndex())
+        self.assertGreater(bar.value(), 0)
+        dialog.goal_combo.setFocus()
+        guikit.pump()
+        self.assertIs(dialog.goal_combo, guikit.wheel(dialog.goal_combo))
+        self.assertEqual(1, dialog.goal_combo.currentIndex())
+        self.assertIsNone(win.ai.collection.status()["goal"]["goal_id"])
+        dialog.close()
+
+    def test_sections_drop_the_fade_effect_and_open_again_without_errors(self):
+        win, dialog = self.open_from_home((1280, 800))
+        sections = (dialog.transfer_section, dialog.export_section, dialog.goal_section)
+        for moving in (False, True):
+            motion.enabled = moving
+            self.addCleanup(setattr, motion, "enabled", False)
+            for section in sections:
+                for _ in range(2):
+                    with self.subTest(motion=moving, section=section.title):
+                        section.set_opened(True)
+                        if moving:
+                            self.assertIsNotNone(section.body.graphicsEffect())
+                        guikit.wait_until(lambda: getattr(section.body, "_motion", None) is None)
+                        self.assertIsNone(section.body.graphicsEffect())
+                        self.assertTrue(section.body.isVisible())
+                        section.set_opened(False)
+                        guikit.wait_until(lambda: section.body.isHidden())
+                        self.assertIsNone(section.body.graphicsEffect())
+        dialog.close()
+
+    def test_open_section_grows_the_dialog_inside_parent_and_screen_and_closing_restores_it(self):
+        win, dialog = self.open_from_home((1280, 800))
+        page = dialog.parentWidget()
+        self.assertIs(win.ai_home, page)
+        limit = min(dialog.screen().availableGeometry().height() - 64, page.height() - 32)
+        closed = dialog.size()
+        self.assertEqual(min(800, dialog.screen().availableGeometry().width() - 32, page.width() - 32), closed.width())
+        self.assert_inside_parent_and_screen(win, dialog)
+        viewport = dialog.scroll.viewport()
+        for section in (dialog.transfer_section, dialog.export_section, dialog.goal_section):
+            with self.subTest(section=section.title):
+                dialog.scroll.ensureWidgetVisible(section.header)
+                guikit.pump()
+                guikit.click(section.header)
+                self.assertTrue(section.opened)
+                top = section.header.mapTo(viewport, QPoint()).y()
+                self.assertGreaterEqual(top, 0)
+                self.assertLess(top, viewport.height())
+                self.assertEqual(closed.width(), dialog.width())
+                self.assertLessEqual(dialog.height(), limit)
+                if closed.height() < limit:
+                    self.assertGreater(dialog.height(), closed.height())
+                self.assert_inside_parent_and_screen(win, dialog)
+                guikit.click(section.header)
+                self.assertFalse(section.opened)
+                self.assertEqual(closed, dialog.size())
+                self.assert_inside_parent_and_screen(win, dialog)
+        for section in (dialog.transfer_section, dialog.export_section, dialog.goal_section):
+            section.set_opened(True)
+        guikit.pump()
+        self.assertEqual(limit, dialog.height())
+        self.assertGreater(dialog.scroll.verticalScrollBar().maximum(), 0)
+        self.assert_inside_parent_and_screen(win, dialog)
+        dialog.close()
+
+    def test_small_window_largest_text_keeps_the_dialog_inside_the_page(self):
+        win, dialog = self.open_from_home((760, 480), "larger")
+        page = dialog.parentWidget()
+        for section in (dialog.transfer_section, dialog.export_section, dialog.goal_section):
+            section.set_opened(True)
+            guikit.pump()
+            self.assertLessEqual(dialog.width(), page.width() - 32)
+            self.assertLessEqual(dialog.height(), page.height() - 32)
+            self.assert_inside_parent_and_screen(win, dialog)
         dialog.close()

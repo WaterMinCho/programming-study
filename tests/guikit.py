@@ -16,8 +16,8 @@ os.environ.setdefault("STUDY_NODE_PROBE", "0")  # 로그인 셸로 node 를 찾�
 os.environ.setdefault("STUDY_AUTO_SYNC", "0")  # 화면 검사에서 실제 운영 서버로 전송하지 않음
 
 try:
-    from PyQt6.QtCore import QEventLoop, QPoint, Qt, QTimer, qInstallMessageHandler
-    from PyQt6.QtGui import QColor
+    from PyQt6.QtCore import QEventLoop, QPoint, QPointF, Qt, QTimer, qInstallMessageHandler
+    from PyQt6.QtGui import QColor, QWheelEvent
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication
 except ImportError:
@@ -93,6 +93,27 @@ def wait_until(predicate, timeout=30.0):
 def click(widget):
     QTest.mouseClick(widget, LEFT)
     pump()
+
+
+def wheel(widget, pos=None, dy=-120):
+    """widget 의 pos(기본은 가운데)에 놓인 가장 안쪽 위젯에 휠을 한 칸 보내고 받은 위젯을 돌려줌.
+    받지 않으면 부모로 넘기는 실제 흐름을 따라 함. Qt 6 은 코드로 보낸 휠을 부모로 넘기지 않기 때문임."""
+    local = pos if pos is not None else widget.rect().center()
+    point = widget.mapToGlobal(local)
+    target = widget.childAt(local) or widget
+    while target is not None:
+        event = QWheelEvent(QPointF(target.mapFromGlobal(point)), QPointF(point), QPoint(), QPoint(0, dy), Qt.MouseButton.NoButton,
+                            Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
+        event.setAccepted(True)
+        QApplication.sendEvent(target, event)
+        if event.isAccepted():
+            pump()
+            return target
+        if target.isWindow():
+            break
+        target = target.parentWidget()
+    pump()
+    return None
 
 
 def drag(handle, dx, dy=0):

@@ -2,7 +2,7 @@
 """과목별 기록 제공 상태와 파일 저장·희망 직무 설정을 다룸."""
 import os
 
-from PyQt6.QtCore import QPoint, Qt, QTimer
+from PyQt6.QtCore import QEvent, QPoint, QRect, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (QAbstractButton, QApplication, QCheckBox, QComboBox, QDialog,
                              QFileDialog, QFrame, QLabel, QWidget)
 
@@ -15,6 +15,8 @@ from gui.disclosure import DisclosureButton
 
 class DataSection(QFrame):
     """필요한 설정만 펼치고 입력값은 접은 뒤에도 유지함."""
+    size_changed = pyqtSignal()
+
     def __init__(self, title, parent):
         super().__init__(parent)
         self.setObjectName("data_section")
@@ -52,9 +54,16 @@ class DataSection(QFrame):
         self.body.setEnabled(self.opened)
         if self.opened:
             self.body.show()
-            motion.fade_opacity(self.body, True)
-        else:
-            motion.fade_opacity(self.body, False, self.body.hide)
+            self.size_changed.emit()
+        motion.fade_opacity(self.body, self.opened, self.finish_fade)
+
+    def finish_fade(self):
+        """움직임이 끝나면 투명도 효과를 떼고 `_opacity_effect` 속성도 비움. 남겨 두면 다음 fade_opacity 가 이미 지워진 효과를 다시 써서 오류가 남."""
+        if not self.opened:
+            self.body.hide()
+        self.body.setGraphicsEffect(None)
+        self.body._opacity_effect = None
+        self.size_changed.emit()
 
 
 class LearningDataDialog(QDialog):
@@ -121,6 +130,8 @@ class LearningDataDialog(QDialog):
         self.goal_combo.setAccessibleName("희망 직무")
         kit.typed(self.goal_combo, "body")
         self.goal_combo.setMinimumHeight(theme.control_height("m"))
+        self.goal_combo.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.goal_combo.installEventFilter(self)
         self.goal_combo.addItem("선택 안 함", None)
         self.goal_error = ""
         try:
@@ -140,6 +151,8 @@ class LearningDataDialog(QDialog):
         body.addWidget(self.message)
         self.message.hide()
         body.addStretch(1)
+        for section in (self.transfer_section, self.export_section, self.goal_section):
+            section.size_changed.connect(self.fit_to_content)
         self.scroll = self.shell.scroll
         self._reading = None
         self._layout_sample = None
@@ -159,7 +172,29 @@ class LearningDataDialog(QDialog):
         if self.controller is not None:
             self.controller.changed.connect(self.refresh_transfer)
         self.refresh()
-        self.shell.fit(720, 600)
+        self.fit_to_content()
+
+    def fit_to_content(self):
+        """구역을 펼치거나 접을 때 높이를 다시 맞춤. 위쪽 끝은 두고 아래가 부모나 화면 작업 영역을 넘을 때만 넘친 만큼 올림."""
+        QApplication.sendPostedEvents(None, QEvent.Type.LayoutRequest)  # 숨긴 구역은 배치 요청이 처리된 뒤에야 내용 높이에서 빠짐
+        self.shell.fit(800, 600)
+        if not self.isVisible():
+            return
+        room = self.screen().availableGeometry()
+        parent = self.parentWidget()
+        if parent is not None:
+            room = room.intersected(QRect(parent.mapToGlobal(QPoint()), parent.size()))
+        frame = self.frameGeometry()
+        over = frame.bottom() - room.bottom()
+        if over > 0:
+            self.move(frame.x(), max(room.top(), frame.y() - over))
+
+    def eventFilter(self, watched, event):
+        # Fusion 은 초점이 없는 선택 상자도 휠로 선택을 바꾸므로, 초점이 없을 때는 휠을 무시해 본문 스크롤로 넘김.
+        if watched is self.goal_combo and event.type() == QEvent.Type.Wheel and not watched.hasFocus():
+            event.ignore()
+            return True
+        return super().eventFilter(watched, event)
 
     def refresh(self):
         status = self.collection.status()
