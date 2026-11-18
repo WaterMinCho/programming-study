@@ -11,6 +11,7 @@ import json
 import math
 import os
 import random
+import re
 import secrets
 import threading
 import time
@@ -26,6 +27,9 @@ CODE_KEYS = ("starter", "entry", "examples", "tests", "limit_ms", "tol")
 ENV_LIMIT = 3
 SUBMITTING = "제출한 답안을 채점하고 있습니다. 채점이 끝날 때까지 답을 바꿀 수 없습니다."
 ENV_FAILED = "이 기기에서 코드 작성 문항을 채점하지 못해 제출하지 않았습니다. 잠시 뒤 다시 제출해 주세요."
+VERSIONS = "versions"  # 봉인 묶음 안에서 예전 버전 문항을 두는 폴더. versions/<fingerprint>/items.json 과 spec.json
+VERSION_KEYS = ("minutes", "count", "scope", "courses", "course_counts", "blueprint", "blueprint_revision")  # spec.json 에 남기는 회차 줄 값
+FINGERPRINT = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class MockError(session.SessionError):
@@ -88,27 +92,64 @@ def load_items(root, spec, lessons=None):
             raise ValueError("제한 시간이 맞지 않습니다")
         if mixed_mock.candidate(spec):
             mixed_mock.validate(spec, meta, items, lessons)
-        ids = [item["id"] for item in items]
-        if len(set(ids)) != len(ids) or not all(isinstance(cid, str) and cid for cid in ids):
-            raise ValueError("문항 id가 비었거나 겹칩니다")
-        for item in items:
-            if item.get("kind") not in ("blank", "choice", "code") or item.get("errata"):
-                raise ValueError("빈칸·객관식·코드 작성 문항만 쓰고 정정 주제는 넣지 않습니다")
-            if item["kind"] == "blank" and not 1 <= len(item.get("blanks") or []) <= 2:
-                raise ValueError("빈칸 수가 맞지 않습니다")
-            if item["kind"] == "choice" and len(item.get("options") or []) != 4:
-                raise ValueError("객관식 보기 수가 맞지 않습니다")
-            if item["kind"] == "code":
-                _check_code(item)
-        stable = [_stable(item) for item in items]
-        if mixed_mock.candidate(spec):
-            stable = {"items": stable, "blueprint_revision": spec["blueprint_revision"],
-                      "classification": [{k: i.get(k) for k in ("id", "course", "lesson", "family", "concept", "format",
-                                                               "level", "transferaxis", "conditions", "sourcefacts")} for i in items]}
-        fingerprint = hashlib.sha256(json.dumps(stable, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+        _check_items(items)
+        fingerprint = fingerprint_of(spec, items)
     except (OSError, ValueError, KeyError, TypeError, AttributeError, webbank.BankError) as error:
         raise MockError("모의고사 자료를 읽을 수 없습니다. %s" % error) from error
     return {item["id"]: item for item in items}, fingerprint
+
+
+def _check_items(items):
+    ids = [item["id"] for item in items]
+    if len(set(ids)) != len(ids) or not all(isinstance(cid, str) and cid for cid in ids):
+        raise ValueError("문항 id가 비었거나 겹칩니다")
+    for item in items:
+        if item.get("kind") not in ("blank", "choice", "code") or item.get("errata"):
+            raise ValueError("빈칸·객관식·코드 작성 문항만 쓰고 정정 주제는 넣지 않습니다")
+        if item["kind"] == "blank" and not 1 <= len(item.get("blanks") or []) <= 2:
+            raise ValueError("빈칸 수가 맞지 않습니다")
+        if item["kind"] == "choice" and len(item.get("options") or []) != 4:
+            raise ValueError("객관식 보기 수가 맞지 않습니다")
+        if item["kind"] == "code":
+            _check_code(item)
+
+
+def fingerprint_of(spec, items):
+    """회차 버전 해시. 혼합 회차는 배분 버전과 문항 분류도 넣음. 회차 줄 값 가운데 해시에 들어가는 것은 혼합 회차인지(id, scope)와
+    blueprint_revision 뿐임."""
+    stable = [_stable(item) for item in items]
+    if mixed_mock.candidate(spec):
+        stable = {"items": stable, "blueprint_revision": spec["blueprint_revision"],
+                  "classification": [{k: i.get(k) for k in ("id", "course", "lesson", "family", "concept", "format",
+                                                           "level", "transferaxis", "conditions", "sourcefacts")} for i in items]}
+    return hashlib.sha256(json.dumps(stable, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def load_version(root, spec, fingerprint):
+    """제출한 뒤 문항이 바뀐 회차의 예전 버전 (그 버전의 회차 줄, {문항 id: 문항}). 보존본이 없으면 None.
+    봉인 묶음의 versions/<fingerprint>/ 에서 items.json 과 그 버전의 회차 줄 값(spec.json)을 읽고, 다시 계산한 fingerprint 가
+    이름과 같을 때만 돌려줌. 예전 버전은 지금 계약과 다를 수 있어 지금 회차 줄의 배분 계약과 meta.json 은 대조하지 않음."""
+    if not isinstance(fingerprint, str) or not FINGERPRINT.match(fingerprint):
+        return None
+    head = "%s/%s/" % (VERSIONS, fingerprint)
+    try:
+        saved = webbank.load_secrets(bank.mock_dir(spec["id"], root))
+        if head + "items.json" not in saved:
+            return None
+        kept = json.loads(saved[head + "spec.json"])
+        if not isinstance(kept, dict) or not set(kept) <= set(VERSION_KEYS):
+            raise ValueError("보존한 시험 설정이 맞지 않습니다")
+        old = dict({key: value for key, value in spec.items() if key not in VERSION_KEYS}, **kept)
+        items = json.loads(saved[head + "items.json"])["items"]
+        if type(old["minutes"]) is not int or old["minutes"] <= 0 or not isinstance(items, list) or not items \
+                or len(items) != old["count"]:
+            raise ValueError("보존한 문항 수나 제한 시간이 맞지 않습니다")
+        _check_items(items)
+        if fingerprint_of(old, items) != fingerprint:
+            raise ValueError("보존한 문항이 제출 당시 문항과 맞지 않습니다")
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, webbank.BankError) as error:
+        raise MockError("보존한 예전 버전 문항을 읽을 수 없습니다. %s" % error) from error
+    return old, {item["id"]: item for item in items}
 
 
 def submissions(log, mid):
@@ -152,6 +193,15 @@ class MockExam:
             submitted = {int(row.get("try") or 1): row for row in done}
             active = latest is not None and int(latest.get("try") or 1) not in submitted
             changed = latest is not None and latest.get("fingerprint") != self.fingerprint
+            if changed and not repeat and not active:
+                # 제출한 시도는 그 시도의 버전 보존본으로 결과·해설을 엶. 보존본이 없으면 아래에서 예전처럼 멈춤
+                kept = load_version(session.root, self.spec, latest.get("fingerprint"))
+                if kept is not None:
+                    self.spec, self.items = kept
+                    self.fingerprint = latest["fingerprint"]
+                    self.mixed = mixed_mock.candidate(self.spec)
+                    self.has_code = any(item["kind"] == "code" for item in self.items.values())
+                    changed = False
             if changed and not repeat:
                 if not latest.get("fingerprint"):
                     raise MockError("시작한 문항 버전을 확인하지 못해 이어풀기를 멈췄습니다. 이전 기록은 보존했습니다.")

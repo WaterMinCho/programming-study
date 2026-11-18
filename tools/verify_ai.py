@@ -2047,6 +2047,61 @@ def _report_code(v, label, item, problems):
     return not show and any(number for _, number in problems)
 
 
+def git_versions(bank_dir, mid):
+    """직전 커밋(HEAD)의 그 회차 봉인에 있던 versions/ 파일 {경로: 글}. git 이 없거나 그 커밋에 봉인이 없으면 빈 dict."""
+    root = git_root(bank_dir)
+    if root is None:
+        return {}
+    rel = os.path.relpath(os.path.realpath(aibank.mock_dir(mid, bank_dir)), os.path.realpath(root)).replace(os.sep, "/")
+    shown = subprocess.run(["git", "show", "HEAD:%s/%s" % (rel, webbank.SEALED_NAME)], cwd=root, stdin=subprocess.DEVNULL,
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if shown.returncode != 0:
+        return {}
+    try:
+        files = study.unseal_blob(json.loads(shown.stdout.decode("utf-8"))["blob"])
+    except (ValueError, KeyError, TypeError):
+        return {}
+    return {name: text for name, text in files.items() if name.startswith(aimock.VERSIONS + "/")}
+
+
+def mock_version(mock, secrets):
+    """서명이 덮는 회차 버전 {"fingerprint", "spec"}. spec 은 회차 줄의 VERSION_KEYS 값이고 ai_seal.py 가 unseal 때 이 값으로
+    예전 문항의 이름을 정함. 문항을 읽지 못하면 None."""
+    try:
+        fingerprint = aimock.fingerprint_of(mock, json.loads(secrets["items.json"])["items"])
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+    return {"fingerprint": fingerprint, "spec": {key: mock[key] for key in aimock.VERSION_KEYS if key in mock}}
+
+
+def _version_problems(bank_dir, mock):
+    """봉인 묶음의 versions/ 에 남긴 예전 버전 문항 검사. 파일 이름 꼴, items.json·spec.json 짝, 다시 계산한 fingerprint 가 폴더
+    이름과 같은지, 직전 커밋의 봉인에 있던 보존본이 같은 글로 남아 있는지 봄. 메시지에는 fingerprint 앞 12자만 씀."""
+    secrets = webbank.load_secrets(aibank.mock_dir(mock["id"], bank_dir))
+    parts, problems = {}, []
+    for rel in sorted(secrets):
+        if not rel.startswith(aimock.VERSIONS + "/"):
+            continue
+        found = re.fullmatch(re.escape(aimock.VERSIONS) + r"/([0-9a-f]{64})/(items|spec)\.json", rel)
+        if found is None:
+            problems.append("%s/ 에는 <fingerprint>/items.json 과 spec.json 만 둡니다: %s" % (aimock.VERSIONS, rel))
+            continue
+        parts.setdefault(found.group(1), set()).add(found.group(2))
+    for fingerprint, names in sorted(parts.items()):
+        if names != {"items", "spec"}:
+            problems.append("예전 버전 %s 에 items.json 과 spec.json 이 함께 있어야 합니다." % fingerprint[:12])
+            continue
+        try:
+            aimock.load_version(bank_dir, mock, fingerprint)
+        except aimock.MockError as error:
+            problems.append("예전 버전 %s: %s" % (fingerprint[:12], error))
+    gone = sorted({rel.split("/")[1][:12] for rel, text in git_versions(bank_dir, mock["id"]).items() if secrets.get(rel) != text})
+    if gone:
+        problems.append("직전 커밋의 봉인에 있던 예전 버전 문항이 빠지거나 바뀌었습니다: %s. 그 버전으로 제출한 사람의 결과와 오답 "
+                        "복습이 열리지 않습니다. sealed.json 을 git 에서 되돌리세요." % ", ".join(gone))
+    return problems
+
+
 def check_mock(v, bank_dir, mock, ids, sources=None):
     """회차별 배분·근거·연습 및 회차 간 겹침을 확인함."""
     label = mock["id"]
@@ -2060,6 +2115,8 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
         return None
     if len(raw_items) != mock["count"]:
         v.fail(label, 12, "문항이 %d개입니다(%d개)." % (len(raw_items), mock["count"]))
+    for message in _version_problems(bank_dir, mock):
+        v.fail(label, 12, message)
     items, numbered = [], False
     for item in raw_items:
         if not isinstance(item, dict):
@@ -2580,7 +2637,7 @@ def valid_first_pass(value):
     return True
 
 
-def sign(v, label, folder, secrets, first_pass, files):
+def sign(v, label, folder, secrets, first_pass, files, version=None):
     o = v.opts
     names = {"writer": o.writer, "resolver": o.resolver, "checker": o.checker, "reviewer": o.reviewer}
     missing = [key for key, value in names.items() if not (value or "").strip()]
@@ -2594,21 +2651,38 @@ def sign(v, label, folder, secrets, first_pass, files):
     if names["resolver"] == names["checker"]:
         v.fail(label, 16, "재풀이자와 대조자는 달라야 합니다(%s)." % names["resolver"])
         return
-    findings = []
+    findings, signed, before = [], {}, None
     old = secrets.get("review.json")
     if old:
         try:
-            findings = json.loads(old).get("findings", [])
+            previous = json.loads(old)
+            findings = previous.get("findings", [])
             if not isinstance(findings, list) or not all(isinstance(text, str) for text in findings):
                 raise ValueError("findings")
             findings = list(findings)
+            signed = previous.get("files") if isinstance(previous.get("files"), dict) else {}
+            before = previous.get("version") if isinstance(previous.get("version"), dict) else None
         except (ValueError, AttributeError, TypeError):
             v.fail(label, 16, "이전 검토 메모를 읽을 수 없어 서명하지 않았습니다.")
             return
+    gone = sorted(rel for rel in signed if rel.startswith("work/%s/" % aimock.VERSIONS) and rel not in files)
+    if gone:
+        v.fail(label, 16, "이전 서명에 있던 예전 버전 문항이 봉인에서 빠졌습니다: %s. 그 버전으로 제출한 사람의 결과와 오답 복습이 "
+                          "열리지 않으므로 서명하지 않았습니다. sealed.json 을 git 에서 되돌리세요." % verify_web.listing(gone, 4))
+        return
+    old_print = str(before.get("fingerprint")) if before else ""
+    if version and before and old_print != version["fingerprint"] \
+            and "work/%s/%s/items.json" % (aimock.VERSIONS, old_print) not in files:
+        v.fail(label, 16, "서명한 뒤 회차 버전이 바뀌었는데(서명 %s, 지금 %s) 서명한 버전의 문항을 work/%s/ 에 남기지 않아 "
+                          "서명하지 않았습니다. `python tools/ai_seal.py unseal %s` 로 예전 문항을 남긴 뒤 다시 서명하세요."
+                          % (old_print[:12], version["fingerprint"][:12], aimock.VERSIONS, label))
+        return
     findings += [text for text in (o.finding or []) if text.strip()]
     data = {"format": 1, "id": label}
     data.update(names)
     data.update({"first_pass": first_pass or {}, "files": dict(sorted(files.items())), "findings": findings})
+    if version:
+        data["version"] = version
     target = review_target(folder)
     study.write_text(target, json.dumps(data, ensure_ascii=False, indent=1) + "\n")
     v.note(label, "서명했습니다: %s (파일 %d개). ai_seal.py seal 로 다시 묶어 커밋하세요." % (study.shown_path(target), len(files)))
@@ -2638,8 +2712,8 @@ def check_signature(v, label, folder, secrets, files):
             v.fail(label, 16, "대조자(%s)가 출제자나 재풀이자와 같습니다." % data.get("checker"))
 
 
-def signature_step(v, bank_dir, label, folder, lessons=None, patterns=None):
-    """--sign·--require-review. 서명 대상 폴더 하나(문항 묶음, common, pc, 모의고사)."""
+def signature_step(v, bank_dir, label, folder, lessons=None, patterns=None, mock=None):
+    """--sign·--require-review. 서명 대상 폴더 하나(문항 묶음, common, pc, 모의고사). mock 은 모의고사의 index.json 회차 줄."""
     o = v.opts
     if not (o.sign or o.require_review):
         return
@@ -2658,6 +2732,7 @@ def signature_step(v, bank_dir, label, folder, lessons=None, patterns=None):
         v.fail(label, 16, str(error))
         return
     files = review_files(folder, secrets, bank_dir, patterns)
+    version = mock_version(mock, secrets) if mock is not None else None
     if o.sign:
         if v.failed(label):
             v.fail(label, 16, "실패가 있어 서명하지 않았습니다.")
@@ -2677,7 +2752,7 @@ def signature_step(v, bank_dir, label, folder, lessons=None, patterns=None):
                 return
             if first is not None and o.minutes:
                 first["minutes"] = o.minutes
-            sign(v, label, folder, secrets, first, files)
+            sign(v, label, folder, secrets, first, files, version)
             secrets = webbank.load_secrets(folder)
     if o.require_review:
         check_signature(v, label, folder, secrets, files)
@@ -2897,7 +2972,7 @@ def main(argv=None, out=None):
         les = check_mock(v, bank_dir, mock, ids, mock_sources)
         if les is not None:
             mock_lessons.append(les)
-        signature_step(v, bank_dir, mock["id"], aibank.mock_dir(mock["id"], bank_dir), [les] if les else [])
+        signature_step(v, bank_dir, mock["id"], aibank.mock_dir(mock["id"], bank_dir), [les] if les else [], mock=mock)
     if opts.answers and not opts.sign:
         grade_answers(v, "answers", opts.answers, lessons + mock_lessons, bank_dir)
     if opts.sources:
