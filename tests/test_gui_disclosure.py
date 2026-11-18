@@ -75,6 +75,7 @@ class DisclosureTest(unittest.TestCase):
         self.settle()
 
     def test_keyboard_and_child_clicks_change_state_once_without_moving_header(self):
+        theme.set_text("normal")
         button = DisclosureButton("추가 설명과 관련 자료 펼치기", role="learn_caption")
         self.column.addWidget(button)
         self.column.addStretch()

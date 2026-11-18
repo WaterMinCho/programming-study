@@ -121,6 +121,8 @@ def green_at(figure, frame):
 
 class DocViewTest(unittest.TestCase):
     def setUp(self):
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text("normal")
         self.folder = tempfile.mkdtemp()
         write(self.folder, "assets/1-1a.gif", GIF)
         self.view = DocView()
@@ -519,6 +521,8 @@ class FigureViewTest(unittest.TestCase):
 
     def test_moving_figure_keeps_its_buttons_in_the_dialog(self):
         """GIF의 크게 보기는 좁은 폭에서도 조작부 안에서 줄바꿈함. 확대창은 누른 장에서 멈춰 엶."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text("normal")
         self.addCleanup(setattr, docview, "SCALE", docview.SCALE)
         docview.SCALE = 0.125  # 80 폭 시험 그림을 640 폭으로 그려 넘김 줄이 들어가는 폭에서도 줄어 보이게 함
         figure = kit.page(FigureView(self.path))

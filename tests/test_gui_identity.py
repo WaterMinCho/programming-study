@@ -86,6 +86,7 @@ class TeamDashboardTest(unittest.TestCase):
     def setUp(self):
         self.addCleanup(theme.set_text, theme.state["text"])
         self.addCleanup(theme.set_mode, theme.state["mode"])
+        theme.set_text("normal")
         self.identity = mock.Mock()
         self.identity.settings.return_value = {"verified": True, "team": True}
         self.identity.summary.side_effect = self.result

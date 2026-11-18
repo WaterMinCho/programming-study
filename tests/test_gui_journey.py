@@ -749,6 +749,8 @@ class WorkFrameTest(Base):
     def test_the_result_card_folds_until_the_first_run(self):
         """1024×700 에서 결과 전에는 결과 카드가 머리 글만 남아 편집기가 길어지고 손잡이가 잠김. [코드 실행]을 누르는 순간 펼치고,
         옮긴 몫은 0~1 값으로 남아 다시 열어도 같음. 기억한 결과가 있는 문제는 펼친 채 열림."""
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text("normal")
         win = self.small()
         win.journey.save_cases("t01", "p3", [{"args": ["ab"], "expected": "ba"}])
         page = self.open("p3")

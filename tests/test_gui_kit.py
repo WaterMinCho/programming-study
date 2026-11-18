@@ -227,6 +227,7 @@ class TextStepTest(unittest.TestCase):
 
     def test_set_text_changes_type_and_falls_back_to_the_default(self):
         self.addCleanup(theme.set_text, "normal")
+        theme.set_text("normal")
         self.assertTrue(theme.set_text("larger"))
         self.assertEqual((theme.state["text"], theme.TYPE["body"], theme.text_px(), theme.font("body").pixelSize()), ("larger", (21, 36, 400), 4, 21))
         self.assertFalse(theme.set_text("larger"))
