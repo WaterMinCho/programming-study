@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import QLabel, QPushButton, QStyle, QStyleOptionButton
 
 from career.catalog import Catalog, load_catalog
 from gui import kit, theme
-from gui.career_magazine import CareerMagazinePage, SourceDetails
+from gui.career_magazine import PAPER_GROUPS, CareerMagazinePage, SourceDetails
 from gui.career_paper_preview import PREVIEW_STAGES
 from gui.paper_explainer import PaperDiagram, PaperExplanationDialog, load_explanations
 
@@ -84,7 +84,7 @@ class PaperPreviewTest(unittest.TestCase):
             page = self.show(on_figure=figure, on_paper=paper_open, on_source=source,
                              on_video=play, on_stop=stop)
             expected = {"paper-mobilenetv4": 1, "paper-convnext-v2": 0, "paper-dinov2": 0,
-                        "paper-sam2": 0, "paper-dora-weight-decomposed": 0}
+                        "paper-sam2": 0, "paper-dora-weight-decomposed": 0, "paper-resnet": 1}
             self.assertEqual(PREVIEW_STAGES, expected)
             for paper in self.catalog.papers:
                 preview = page.paper_previews[paper.paper_id]
@@ -104,6 +104,34 @@ class PaperPreviewTest(unittest.TestCase):
                     self.assertTrue(self.details(preview, title).content.isHidden())
             for callback in (figure, paper_open, source, play, stop):
                 callback.assert_not_called()
+
+    def test_paper_groups_show_titles_in_order_and_keep_cards_under_their_group(self):
+        page = self.show()
+        items = [page.paper_box.itemAt(index).widget() for index in range(page.paper_box.count())]
+        recent = [paper.paper_id for paper in self.catalog.papers if paper.group == "recent"]
+        foundation = [paper.paper_id for paper in self.catalog.papers if paper.group == "foundation"]
+        self.assertEqual(recent, ["paper-mobilenetv4", "paper-convnext-v2", "paper-dinov2", "paper-sam2",
+                                  "paper-dora-weight-decomposed"])
+        self.assertEqual(foundation, ["paper-resnet"])
+        cards = [page.paper_previews[paper_id].parentWidget() for paper_id in recent + foundation]
+        self.assertEqual(items, [items[0], page.paper_groups["recent"], *cards[:5], page.paper_groups["foundation"], cards[5]])
+        intro_x = items[0].mapTo(page.paper_content, QPoint()).x()
+        for (_, name, note), heading in zip(PAPER_GROUPS, (page.paper_groups["recent"], page.paper_groups["foundation"])):
+            self.assertEqual((heading.title.text(), heading.description.text()), (name, note))
+            self.assertEqual(heading.title.property("role"), "learn_heading")
+            self.assertEqual(heading.description.property("role"), "learn_body")
+            self.assertEqual(heading.description.property("tone"), "secondary")
+            self.assertEqual(heading.layout().spacing(), theme.LEARN_GAP["title_description"])
+            self.assertEqual(heading.title.mapTo(page.paper_content, QPoint()).x(), intro_x)
+            self.assertTrue(heading.isVisibleTo(page.content))
+        for papers, shown in ((self.catalog.papers[:5], {"최근 연구"}), (self.catalog.papers[5:], {"기초 논문"})):
+            single = self.show(catalog=replace(self.catalog, papers=papers))
+            self.assertEqual(set(single.paper_groups), {papers[0].group})
+            labels = set(self.labels(single.paper_content))
+            self.assertEqual(labels & {"최근 연구", "기초 논문"}, shown)
+        empty = self.show(catalog=Catalog(states={"roles": "invalid", "videos": "invalid", "papers": "invalid"}))
+        self.assertEqual(empty.paper_groups, {})
+        self.assertFalse(set(self.labels(empty.paper_content)) & {"최근 연구", "기초 논문"})
 
     def test_picture_keyboard_and_button_request_the_same_paper_once(self):
         figure = Mock()

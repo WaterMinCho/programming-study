@@ -14,6 +14,10 @@ from gui.dialog_layout import DialogLayout
 from gui.disclosure import DisclosureButton
 from gui.paper_explainer import load_explanations
 
+PAPER_GROUPS = (("recent", "최근 연구", "2023~2024년에 나온 연구입니다. 노트에서 배운 연산이 최근 모델에서 어떻게 쓰이는지 봅니다."),
+                ("foundation", "기초 논문", "노트에서 이미 배운 개념이 처음 나온 논문입니다. "
+                                        "이 논문이 만든 연산은 지금 PyTorch나 OpenCV에 들어 있습니다."))
+
 
 class MagazineTabs(kit.NavigationTabs):
     """영상과 논문 입구를 같은 폭으로 표시하고 공통 탭 동작을 유지함."""
@@ -379,8 +383,14 @@ class CareerMagazinePage(ReadingPage):
             explanations = load_explanations() if self.catalog.papers else {}
         except (OSError, UnicodeError, ValueError, KeyError, TypeError, AttributeError):
             explanations = {}
-        self.paper_previews = {}
-        for paper in self.catalog.papers:
+        self.paper_previews, self.paper_groups = {}, {}
+        for paper in [row for group in PAPER_GROUPS for row in self.catalog.papers if row.group == group[0]]:
+            if paper.group not in self.paper_groups:
+                _, name, note = next(group for group in PAPER_GROUPS if group[0] == paper.group)
+                group_heading = kit.heading(kit.para(name, "learn_heading"), kit.para(note, "learn_body", "secondary"))
+                group_heading.layout().setSpacing(theme.LEARN_GAP["title_description"])
+                self.paper_groups[paper.group] = group_heading
+                self.paper_box.addWidget(group_heading)
             section, box = kit.card(pad=32, spacing=theme.LEARN_GAP["paragraph"])
             section.setStyleSheet("QFrame#card { border: 0; }")  # 테두리는 대표 그림에 두고 바깥 문단은 같은 시작점에 맞춤.
             section.setProperty("reading_anchor", True)

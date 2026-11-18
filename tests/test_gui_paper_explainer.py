@@ -55,10 +55,10 @@ class PaperExplainerTest(unittest.TestCase):
         self.capture_widget = window
         return window
 
-    def test_five_papers_have_four_stages_and_no_external_image_dependencies(self):
+    def test_papers_have_four_stages_and_no_external_image_dependencies(self):
         data = load_explanations()
         self.assertEqual(set(data), set(PAPER_IDS))
-        self.assertEqual(sum(len(row["steps"]) for row in data.values()), 20)
+        self.assertEqual(sum(len(row["steps"]) for row in data.values()), 24)
         text = EXPLANATIONS.read_text()
         for forbidden in ("/Users/", "<img", "data:image", ".png", ".jpg", "transcript"):
             self.assertNotIn(forbidden, text)
@@ -85,6 +85,45 @@ class PaperExplainerTest(unittest.TestCase):
         self.assertEqual(examples["dora"]["output"], [[3,0],[4,2]])
         for col in range(2):
             self.assertAlmostEqual(math.hypot(*(row[col] for row in examples["dora"]["unit"])), 1)
+
+    def test_small_examples_recalculate_residual_block_gradient_and_projection(self):
+        resnet = small_examples()["resnet"]
+        self.assertEqual(resnet["hidden"], [1, -1])
+        self.assertEqual(resnet["active"], [1, 0])
+        for actual, expected in zip(resnet["residual"] + resnet["added"] + resnet["output"], (0.1, -0.2, 1.1, 1.8, 1.1, 1.8)):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(resnet["plain_output"][1], 0)
+
+        def block(x, path):
+            return (x if path else 0) + 0.1 * max(0, 0.1 * x)
+
+        def chain(x, path):
+            for _ in range(3):
+                x = block(x, path)
+            return x
+
+        h = 1e-6
+        for path, one, three in ((False, resnet["block"], resnet["plain_three"]),
+                                 (True, resnet["block_with_path"], resnet["residual_three"])):
+            self.assertAlmostEqual((block(2 + h, path) - block(2 - h, path)) / (2 * h), one, places=6)
+            self.assertAlmostEqual((chain(2 + h, path) - chain(2 - h, path)) / (2 * h), three, places=6)
+        self.assertAlmostEqual(resnet["block"], 0.01)
+        self.assertAlmostEqual(resnet["block_with_path"], 1.01)
+        self.assertAlmostEqual(resnet["plain_three"], 0.000001)
+        self.assertAlmostEqual(resnet["residual_three"], 1.030301)
+        self.assertEqual(resnet["padded"], (1, 2, 0, 0))
+        self.assertEqual(resnet["projected"], [1, 2, 1, 2])
+        for actual, expected in zip(resnet["padded_sum"] + resnet["projected_sum"], (1.1, 1.8, 0.3, 0.1, 1.1, 1.8, 1.3, 2.1)):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(resnet["projection_weights"], 8)
+        diagram = PaperDiagram(PAPER_IDS[5])
+        diagram.stage = 1
+        self.assertEqual([op[1] for op in diagram.scene(682).operations if op[0] == "glyph"],
+                         ["1", "2", "0.1", "−0.2", "+", "1.1", "1.8"])
+        diagram.stage = 2
+        texts = [op[1].text() for op in diagram.scene(682).operations if op[0] == "text"]
+        for text in ("블록 하나: 1 + 0.01 = 1.01", "0.01³ = 0.000001", "1.01³ ≈ 1.0303"):
+            self.assertIn(text, texts)
 
     def test_patch_and_mask_shapes_and_zero_based_coordinates(self):
         examples = small_examples()
@@ -279,7 +318,7 @@ class PaperExplainerTest(unittest.TestCase):
                         bounds=QFontMetricsF(theme.font("body")).tightBoundingRect(op[1]).translated(op[2])
                         self.assertGreaterEqual(bounds.left(),0)
             operation_sets.append(tuple(shapes))
-        self.assertEqual(len(set(operation_sets)),5)
+        self.assertEqual(len(set(operation_sets)),len(self.papers))
 
     def test_selected_convolution_window_keeps_outline_and_numeric_glyphs(self):
         for mode in ("light","dark"):
