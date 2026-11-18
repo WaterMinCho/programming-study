@@ -937,6 +937,10 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('pattern="test_gui*.py"', script)
         self.assertIn('return 0 if result.wasSuccessful() else 1', script)
         self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', script)
+        self.assertIn('PROCESSES = 3', script)
+        installs = "\n".join(step.get("run", "") for step in jobs["gui"]["steps"])
+        self.assertIn("libfontconfig1", installs)
+        self.assertNotIn("fonts-nanum", installs)  # 같이 배포하는 글꼴과 이름이 같은 시스템 글꼴을 깔면 줄 높이가 실행마다 달라짐
         self.assertEqual({"QT_QPA_PLATFORM": "offscreen"}, gui["env"])
         setup = next(step for step in jobs["gui"]["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
         self.assertEqual("3.13", setup["with"]["python-version"])

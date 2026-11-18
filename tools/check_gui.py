@@ -1,4 +1,4 @@
-"""기존 화면 검사 모듈을 두 프로세스에 나누고 모든 결과를 합침."""
+"""기존 화면 검사 모듈을 세 프로세스에 나누고 모든 결과를 합침."""
 import argparse
 from collections import Counter
 import faulthandler
@@ -11,6 +11,7 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+PROCESSES = 3  # 둘로 나누면 느린 모듈이 한 묶음에 몰려 시간 제한에 닿은 적이 있음. GitHub 러너의 CPU 는 4개임
 sys.path.insert(0, str(ROOT))
 
 
@@ -29,9 +30,9 @@ def groups():
     planned = unittest.defaultTestLoader.loadTestsFromNames(modules)
     if Counter(case_ids(discovered)) != Counter(case_ids(planned)):
         raise RuntimeError("화면 검사 목록에 누락이나 중복이 있습니다.")
-    batches, sizes = [[], []], [0, 0]
+    batches, sizes = [[] for _ in range(PROCESSES)], [0] * PROCESSES
     for name, count in sorted(counted, key=lambda item: (-item[1], item[0])):
-        target = min(range(2), key=lambda index: sizes[index])
+        target = min(range(PROCESSES), key=lambda index: sizes[index])
         batches[target].append(name)
         sizes[target] += count
     return [sorted(batch) for batch in batches], sizes
