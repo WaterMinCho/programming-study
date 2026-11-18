@@ -110,11 +110,15 @@ def main():
     parser.add_argument("--plan", action="store_true")
     parser.add_argument("--worker", nargs="+")
     parser.add_argument("--scale", type=float, default=1, help="화면 배율. 1.5 를 주면 QT_SCALE_FACTOR=1.5 와 1200×1200 가상 화면으로 돌림")
+    parser.add_argument("names", nargs="*", help="돌릴 검사 이름(모듈·클래스·함수). 주지 않으면 화면 검사 전체를 돌림")
     args = parser.parse_args()
     if args.scale < 1:
         parser.error("--scale 은 1 이상이어야 합니다.")
     if args.worker:
         return worker(args.worker)
+    if args.names:
+        print(json.dumps({"groups": [args.names]}, ensure_ascii=False), flush=True)
+        return 0 if args.plan else run([args.names], scale=args.scale)
     batches, sizes = groups()
     print(json.dumps({"groups": batches, "tests": sizes}, ensure_ascii=False), flush=True)
     return 0 if args.plan else run(batches, scale=args.scale)
