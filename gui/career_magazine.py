@@ -15,8 +15,8 @@ from gui.disclosure import DisclosureButton
 from gui.paper_explainer import load_explanations
 
 PAPER_GROUPS = (("recent", "최근 연구", "2023~2024년에 나온 연구입니다. 노트에서 배운 연산이 최근 모델에서 어떻게 쓰이는지 봅니다."),
-                ("foundation", "기초 논문", "노트에서 이미 배운 개념이 처음 나온 논문입니다. "
-                                        "이 논문이 만든 연산은 지금 PyTorch나 OpenCV에 들어 있습니다."))
+                ("foundation", "기초 논문", "노트에서 다루는 개념이 처음 나온 논문입니다. "
+                                        "여기 실린 논문이 제안한 연산이나 구조는 지금 PyTorch나 OpenCV에 들어 있습니다."))
 
 
 class MagazineTabs(kit.NavigationTabs):

@@ -110,6 +110,25 @@ def near(color, token):
     return max(abs(color.red() - want.red()), abs(color.green() - want.green()), abs(color.blue() - want.blue())) <= 8
 
 
+def logical(image):
+    """그림을 논리 화소 크기로 줄임. 화면 배율이 1이 아니면 찍은 그림의 화소 수가 논리 크기보다 많아서, 위젯 좌표로 읽으면 다른 자리를 읽음.
+    논리 화소마다 그 가운데가 놓인 화소 하나를 고르므로 색이 섞이지 않음."""
+    ratio = image.devicePixelRatio()
+    if ratio == 1:
+        return image
+    size = image.deviceIndependentSize().toSize()
+    if ratio % 2 == 0:  # 짝수 배율에서는 가운데가 화소 사이에 놓여 Qt 가 묶음의 앞쪽 화소를 고르므로, 가운데 바로 뒤 화소가 뽑히게 한 화소 밀어 둠
+        image = image.copy(1, 1, image.width(), image.height())
+    small = image.scaled(size, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation)
+    small.setDevicePixelRatio(1)
+    return small
+
+
+def shot(widget, *area):
+    """위젯(area 를 주면 그 영역)을 찍어 논리 화소 크기의 그림으로 돌려줌."""
+    return logical(widget.grab(*area).toImage())
+
+
 def ink(image, back, rect=None):
     """그림(rect 를 주면 그 안)에서 바탕색 back 과 가장 먼 화소의 색(QColor). 글자를 그린 색을 찾을 때 씀."""
     base, best, found = QColor(back), -1, None

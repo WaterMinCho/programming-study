@@ -2168,7 +2168,7 @@ class WidgetTest(unittest.TestCase):
         across, down = edit.horizontalScrollBar(), edit.verticalScrollBar()
         self.assertTrue(across.isVisible() and down.isVisible())
         left, top = down.mapTo(edit, QPoint(0, 0)).x(), across.mapTo(edit, QPoint(0, 0)).y()
-        image = edit.grab().toImage()
+        image = guikit.shot(edit)
         colors = {image.pixelColor(left + x, top + y).name() for x in range(8) for y in range(8)}  # 바깥쪽은 입력칸의 둥근 테두리와 겹침
         self.assertEqual(colors, {theme.EDITOR["bg"]})
 
@@ -3444,7 +3444,7 @@ class HighlightTest(unittest.TestCase):
         cursor.setPosition(first + 4, QTextCursor.MoveMode.KeepAnchor)
         self.ed.setTextCursor(cursor)
         pump()
-        image, view = self.ed.grab().toImage(), self.ed.viewport()
+        image, view = guikit.shot(self.ed), self.ed.viewport()
 
         def ground(position):
             """position 번째 글자 칸의 바탕색. 밑줄 글자가 닿지 않는 위쪽을 봄."""
@@ -3473,7 +3473,7 @@ class HighlightTest(unittest.TestCase):
         for mode in ("light", "dark"):
             theme.set_mode(mode)
             pump()
-            image = self.ed.grab().toImage()
+            image = guikit.shot(self.ed)
             view, handle = self.ed.viewport().geometry(), down.mapTo(self.ed, QPoint(down.width() // 2, 12))
             seen.append((image.pixelColor(view.right() - 20, view.bottom() - 4).name(),  # 글이 없는 바탕
                          image.pixelColor(view.left() + 10, view.top() + 14).name(),  # 선택한 들여쓰기
@@ -3481,7 +3481,7 @@ class HighlightTest(unittest.TestCase):
                          image.pixelColor(3, image.height() // 2).name(),  # 줄 번호 칸
                          self.ed.palette().color(self.ed.foregroundRole()).name()))  # 기본 글자색. 커서도 이 색으로 그림
             for box in (other.multi, self.panel.console):  # 다른 답 칸과 실행 결과 칸은 앱 테마를 따름
-                shot = box.grab().toImage()
+                shot = guikit.shot(box)
                 self.assertEqual(shot.pixelColor(shot.width() // 2, shot.height() // 2).name(), theme.TOKENS[mode]["surface"])
         ground = theme.EDITOR["bg"]
         self.assertEqual(seen, [(ground, theme.EDITOR["selection"], theme.EDITOR["scroll"], theme.EDITOR["gutter"], theme.EDITOR["ink"])] * 2)

@@ -509,7 +509,7 @@ class StylesTest(BankCase):
         self.assertEqual(0, code, out)
 
     def test_cache_styles_skip_the_limit_row(self):
-        """@cache 재귀의 limit 칸은 운영체제와 Python 버전에 따라 갈리므로 보지 않음. 그래서 plain 코드를 raised_small 로 적어도 실패로 보지 않음."""
+        """raised_small·cache 는 둘 다 한도를 올린 @cache 재귀라 limit 칸의 판정이 운영체제와 Python 버전에 따라 갈리므로 보지 않음. 그래서 plain 코드를 raised_small 로 적어도 실패로 보지 않음."""
         code, out = self.styles({"rec_cache": ("cache", "cache"), "rec_small": ("raised_small", "plain")})
         self.assertEqual(0, code, out)
 
@@ -937,11 +937,25 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('pattern="test_gui*.py"', script)
         self.assertIn('return 0 if result.wasSuccessful() else 1', script)
         self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', script)
+        self.assertIn('loads[target] += SLOW.get(name, count * REST)', script)  # 묶음을 테스트 수가 아니라 걸린 시간으로 나눔
+        installs = "\n".join(step.get("run", "") for step in jobs["gui"]["steps"])
+        self.assertIn("libfontconfig1", installs)
+        self.assertNotIn("fonts-nanum", installs)  # 같이 배포하는 글꼴과 이름이 같은 시스템 글꼴을 깔면 줄 높이가 실행마다 달라짐
         self.assertEqual({"QT_QPA_PLATFORM": "offscreen"}, gui["env"])
         setup = next(step for step in jobs["gui"]["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
         self.assertEqual("3.13", setup["with"]["python-version"])
         self.assertEqual("needs.scope.outputs.gui == 'true'", jobs["gui"]["if"])
         self.assertEqual([], check_style.check(text, path=".github/workflows/ci.yml"))
+
+    def test_gui_check_scale_option_enlarges_the_virtual_screen(self):
+        from tools import check_gui
+        with tempfile.TemporaryDirectory() as directory:
+            environment = check_gui.scaled_environment(1.5, directory)
+            platform, _, path = environment["QT_QPA_PLATFORM"].partition(":configfile=")
+            with open(path, encoding="utf-8") as handle:
+                screen = json.load(handle)["screens"][0]
+        self.assertEqual(("offscreen", "1.5"), (platform, environment["QT_SCALE_FACTOR"]))
+        self.assertEqual((1200, 1200), (screen["width"], screen["height"]))  # 800 × 1.5 라 논리 크기는 800×800 으로 남음
 
     def test_style_workflow_reads_as_yaml(self):
         _, data = self.load("style.yml")

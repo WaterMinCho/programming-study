@@ -224,7 +224,7 @@ def validate(records, k):
 
 커리큘럼의 흔한 오답과 "알려진 다른 풀이와 판정" 표의 풀이를 모두 넣습니다. 다시 푼 풀이 alt 는 적지 않아도 `pass` 로 보고, 재풀이자가 느린 다른 방법으로 풀었으면 `alt` 라는 이름으로 `timeout` 항목을 적습니다. 그 항목의 파일은 `wrong/` 이 아니라 문제 폴더의 `alt.py`, `alt.js` 입니다.
 
-트리, 그래프, DP 처럼 재귀로 풀기 쉬운 문제에는 재귀 방식 항목을 모두 둡니다. 기대 판정은 테스트의 `depth` 와 `style` 로 정해지고 Python 버전이나 Node 버전마다 다른 값을 두지 않습니다. `raised_small`, `cache` 의 `limit` 칸만 예외로 두고 `--styles` 가 판정을 보지 않습니다.
+트리, 그래프, DP 처럼 재귀로 풀기 쉬운 문제에는 재귀 방식 항목을 모두 둡니다. 기대 판정은 테스트의 `depth` 와 `style` 로 정해지고 Python 버전이나 Node 버전마다 다른 값을 두지 않습니다. 다만 `raised_small`·`cache` 의 `limit` 칸은 운영체제와 Python 버전에 따라 판정이 갈려서 `--styles` 가 보지 않습니다.
 
 | 재귀 깊이 | `iterative` | `plain`, `cache_default`, `builtin` | `raised` | `raised_small`, `cache` | JS `recursive`, `heavy` |
 |---|---|---|---|---|---|
@@ -232,7 +232,7 @@ def validate(records, k):
 | 1,000~1,500(`limit`) | 통과 | 런타임 에러 | 통과 | 보지 않음 | 통과 |
 | 2×10^5 이상(`chain`) | 통과 | 런타임 에러 | 런타임 에러 | 런타임 에러 | 런타임 에러 |
 
-Python 의 `plain` 은 한도를 그대로 둔 재귀, `raised` 는 `sys.setrecursionlimit(10**6)`, `raised_small` 은 `@cache` 재귀에 깊이의 두 배보다 작은 한도, `cache` 는 `@cache`·`@lru_cache` 재귀에 한도 10^6, `cache_default` 는 한도를 그대로 둔 `@cache` 재귀, `builtin` 은 `max(f(m) for m in …)` 처럼 내장 함수를 거치는 재귀, `iterative` 는 반복문입니다. JavaScript 의 `recursive` 는 보통 재귀, `heavy` 는 인자 7개와 지역 변수 8개, 배열 구조 분해가 있는 무거운 프레임 재귀입니다. 채점기는 1,000 보다 큰 재귀 한도를 모두 10,000 으로 맞춥니다.
+Python 의 `plain` 은 한도를 그대로 둔 재귀, `raised` 는 `sys.setrecursionlimit(10**6)`, `raised_small` 은 `@cache` 재귀에 깊이의 두 배보다 작은 한도, `cache` 는 `@cache`·`@lru_cache` 재귀에 한도 10^6, `cache_default` 는 한도를 그대로 둔 `@cache` 재귀, `builtin` 은 한도를 그대로 둔 채 `max(f(m) for m in …)` 처럼 내장 함수를 거치는 재귀, `iterative` 는 반복문입니다. JavaScript 의 `recursive` 는 보통 재귀, `heavy` 는 인자 7개와 지역 변수 8개, 배열 구조 분해가 있는 무거운 프레임 재귀입니다. 채점기는 1,000 보다 큰 재귀 한도를 모두 10,000 으로 맞춥니다.
 
 Python 3.12·3.13 은 C 로 만든 함수를 거치는 호출 깊이를 재귀 한도와 따로 막습니다. 그래서 `@cache`·`@lru_cache` 로 감싼 재귀는 한도를 10,000 으로 올려도 그보다 먼저 멈춥니다. macOS·Linux 에서는 약 3,300단계까지 가지만 Windows 에서는 약 1,000단계에서 멈춥니다. Windows ARM64 의 3.13 은 약 330단계, 3.12.0~3.12.2 는 운영체제와 상관없이 약 500단계에서 멈춥니다. 3.10·3.11 은 약 5,000단계, 3.14 는 운영체제와 상관없이 약 10,000단계까지 갑니다. `max(f(m) for m in …)` 처럼 내장 함수에 제너레이터를 넘기는 재귀도 한도를 올렸을 때 Windows x64 의 3.12·3.13 에서 깊이 1,500 에 닿기 전에 멈춥니다. 같은 풀이가 `limit` 테스트에서 학습자의 운영체제와 Python 버전에 따라 통과하기도 하고 런타임 에러가 나기도 하므로, `limit` 테스트로 한도를 올린 채 C 로 만든 함수를 거치는 재귀를 통과시키거나 떨어뜨리려 하지 않습니다.
 

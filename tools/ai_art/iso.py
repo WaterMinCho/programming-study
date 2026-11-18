@@ -2,8 +2,8 @@
 """입체 도식 그리기 도우미. 등각 타일, 상자, 층으로 겹친 판, 떠 있는 창과 점선 투영선, 카드, 이름표, 화살표, 표 카드를 그림.
 
 위쪽(상수와 좌표 계산)은 표준 라이브러리만 써서 테스트가 Pillow 없이 import 함. 아래쪽 Sheet 는 만들 때 Pillow 를 import 함.
-Sheet 는 파일 px 좌표(왼쪽 위가 원점, y 는 아래로)를 받아 SS 배 큰 캔버스에 그린 뒤 BOX 로 줄임. 비스듬한 변과 곡선의 가장자리에
-중간색이 생겨 계단이 보이지 않음. 저장은 지금처럼 ai_art.save 나 스크립트의 save 가 하고 quantize 가 64색으로 줄임.
+Sheet 는 파일 px 좌표(왼쪽 위가 원점, y 는 아래로)를 받아 SS 배 큰 캔버스에 그린 뒤 BOX 방식으로 줄임. 줄이면서 비스듬한 변과
+곡선의 가장자리에 중간색이 생겨 계단이 보이지 않음. 저장은 ai_art.save 나 스크립트의 save 가 하고 quantize 가 64색으로 줄임.
 
     from tools.ai_art.iso import Grid, Sheet
 
@@ -66,7 +66,7 @@ def faces_of(state):
 def card_style(tone, state):
     """카드 한 장의 (칠, 테두리, 테두리 굵기, 글자색, 굵게, 점선). new 는 굵은 테두리와 굵은 글자, seen 은 옅은 칠과 가는
     테두리, normal 은 흰 칠과 회색 테두리, todo 는 회색 점선 윤곽. solid 는 테두리 색으로 칠하고 흰 굵은 글자를 씀.
-    옅은 칠 카드 여럿 가운데 지금 단계 하나를 진하게 보일 때 씀."""
+    옅은 칠 카드 여럿 가운데 지금 단계 하나를 진하게 보이게 할 때 씀."""
     if tone not in TONES:
         raise ValueError("색 이름은 %s 가운데 하나여야 합니다: %r" % (", ".join(sorted(TONES)), tone))
     pale, line, dark = TONES[tone]
@@ -252,7 +252,7 @@ def dashes(points, on=DASH[0], off=DASH[1], closed=False):
 
 
 def edges(polygons):
-    """다각형 목록의 변을 한 번씩만 [(점, 점)]. 이웃한 면이 같이 쓰는 변을 점선으로 두 번 긋지 않게 씀."""
+    """다각형 목록의 변을 한 번씩만 모은 목록 [(점, 점)]. 이웃한 면이 같이 쓰는 변을 점선으로 두 번 긋지 않게 씀."""
     seen, out = set(), []
     for poly in polygons:
         for a, b in zip(poly, poly[1:] + poly[:1]):

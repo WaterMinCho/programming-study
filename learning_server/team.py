@@ -7,12 +7,14 @@ import hmac
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
 
 PERIODS = (1, 7, 15, 30)
 KST = datetime.timezone(datetime.timedelta(hours=9))
+TODAY_CACHE_SECONDS = 300
 
 
 def initialize(db):
@@ -186,6 +188,9 @@ def github(method, client_id, secret, token):
 class Access:
     def __init__(self, database, call=github):
         self.database, self.call = database, call
+        self.clock = time.monotonic
+        self.today_cache = None
+        self.today_lock = threading.Lock()
 
     def config(self):
         cid = os.environ.get("STUDY_IDENTITY_CLIENT_ID", "")
@@ -321,6 +326,20 @@ class Access:
                 return {"eligible": True, "deleted": True}
             db.execute("INSERT OR IGNORE INTO identity_study_days VALUES (?,?)", (account_hash, today))
         return {"eligible": True, "date": today}
+
+    def today(self, authorization, now=None):
+        """팀원이 아닌 기기에도 오늘 날짜와 계정 수만 돌려줌. 행을 지우지 않고 같은 날짜의 값은 300초 동안 다시 씀."""
+        self.authenticate(authorization, require_team=False)
+        today_date = (now or datetime.datetime.now(KST)).astimezone(KST).date().isoformat()
+        with self.today_lock:
+            moment = self.clock()
+            cached = self.today_cache
+            if cached is not None and cached[0] == today_date and moment - cached[1] < TODAY_CACHE_SECONDS:
+                return {"date": today_date, "accounts": cached[2]}
+            with self.database.connect() as db:
+                accounts = db.execute("SELECT count(*) FROM identity_study_days WHERE date=?", (today_date,)).fetchone()[0]
+            self.today_cache = (today_date, moment, accounts)
+        return {"date": today_date, "accounts": accounts}
 
     def summary(self, authorization, days, now=None):
         from learning_server.app import ApiError

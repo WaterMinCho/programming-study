@@ -73,7 +73,7 @@ class GuideTest(unittest.TestCase):
         drawn = view.target_rect(target)
         self.assertAlmostEqual((drawn.left() - image.left()) / image.width(), 30 / view.pixmap.width())
         self.assertAlmostEqual(drawn.width() / image.width(), 200 / view.pixmap.width())
-        rendered = view.grab().toImage()
+        rendered = guikit.shot(view)
         point = QPoint(round(drawn.center().x()), round(drawn.top() + 2))
         self.assertTrue(guikit.near(rendered.pixelColor(point), "primary"))
         self.assertEqual(hashlib.sha256(self.image.read_bytes()).hexdigest(), original)

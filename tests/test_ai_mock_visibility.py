@@ -121,7 +121,7 @@ class MockVisibilityTest(unittest.TestCase):
         self.assertEqual([], self.rows("mock_submit"))
 
     def test_unexpired_hidden_draft_is_not_reported_as_a_legacy_draft(self):
-        """hidden 회차는 시작만 하고 시간이 남아도 legacy_drafts 에 넣지 않음."""
+        """학습자가 hidden 회차를 시작하고 시간이 남아 있어도 legacy_drafts 에 넣지 않음."""
         exam = self.session().start_mock("m4", seed=5)
         exam.save_answer(["3"], "m4-01")
         draft = Path(exam.path)
