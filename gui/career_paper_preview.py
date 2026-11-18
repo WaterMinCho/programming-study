@@ -7,7 +7,7 @@ from gui import kit, theme
 from gui.paper_explainer import PAPER_IDS, PaperDiagram
 
 PREVIEW_STAGES = {"paper-mobilenetv4": 1, "paper-convnext-v2": 0, "paper-dinov2": 0,
-                  "paper-sam2": 0, "paper-dora-weight-decomposed": 0}
+                  "paper-sam2": 0, "paper-dora-weight-decomposed": 0, "paper-resnet": 1}
 
 
 class PaperPreview(QAbstractButton):

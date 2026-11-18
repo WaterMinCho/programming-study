@@ -27,6 +27,12 @@
             "type": "string",
             "minLength": 1
           },
+          "group": {
+            "enum": [
+              "recent",
+              "foundation"
+            ]
+          },
           "title": {
             "type": "string",
             "minLength": 1

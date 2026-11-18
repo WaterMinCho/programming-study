@@ -114,6 +114,7 @@ class Paper:
     examined_version: str = ""
     method_url: str = ""
     adoption_urls: tuple[str, ...] = ()
+    group: str = "recent"
 
 
 @dataclass
@@ -239,6 +240,9 @@ def _roles(raw):
 def _papers(raw):
     result = []
     for row in raw["papers"]:
+        group = row.get("group", "recent")
+        if group not in ("recent", "foundation"):
+            raise CatalogError("논문 묶음을 확인하지 못했습니다.")
         result.append(Paper(_text(row["paper_id"]), _text(row["title"]), _url(row["url"]), _date(row.get("published_date")),
                             _text(row["summary"]), _text(row["beginner_explanation"]), _date(row["checked_date"]),
                             _text(row.get("verification_scope", "검토 범위 미확인")),
@@ -246,7 +250,7 @@ def _papers(raw):
                             _url(row["license_url"]) if row.get("license_url") else "", row.get("license_scope", ""),
                             _items(row.get("prerequisites", [])), _items(row.get("figure_description", [])),
                             row.get("examined_version", ""), _url(row["method_url"]) if row.get("method_url") else "",
-                            tuple(_url(url) for url in row.get("adoption_urls", []))))
+                            tuple(_url(url) for url in row.get("adoption_urls", [])), group))
     if len({paper.paper_id for paper in result}) != len(result):
         raise CatalogError("논문 식별자가 겹칩니다.")
     return tuple(result)

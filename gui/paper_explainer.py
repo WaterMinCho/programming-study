@@ -13,7 +13,8 @@ from gui.dialog_layout import DialogLayout
 from gui.disclosure import DisclosureButton
 
 EXPLANATIONS = Path(__file__).resolve().parents[1] / "career/data/paper_explanations.json"
-PAPER_IDS = ("paper-mobilenetv4", "paper-convnext-v2", "paper-dinov2", "paper-sam2", "paper-dora-weight-decomposed")
+PAPER_IDS = ("paper-mobilenetv4", "paper-convnext-v2", "paper-dinov2", "paper-sam2", "paper-dora-weight-decomposed",
+             "paper-resnet")
 MASK = ((0, 0, 0, 0, 0), (0, 1, 1, 1, 0), (0, 1, 1, 1, 0), (0, 0, 0, 0, 0))
 
 
@@ -53,12 +54,30 @@ def small_examples():
     column_norms = [math.hypot(*(row[c] for row in direction)) for c in range(2)]
     unit = [[direction[r][c] / column_norms[c] for c in range(2)] for r in range(2)]
     dora = [[unit[r][c] * (5, 2)[c] for c in range(2)] for r in range(2)]
+    x, first_weight, second_weight = (1, 2), ((1, 0), (1, -1)), ((0.1, 0), (-0.2, 0))
+    hidden = [sum(w * v for w, v in zip(row, x)) for row in first_weight]
+    active = [max(0, value) for value in hidden]
+    residual = [sum(w * v for w, v in zip(row, active)) for row in second_weight]
+    added = [a + b for a, b in zip(x, residual)]
+    # 3단계는 F(x) = 0.1·ReLU(0.1·x), x = 2 인 한 채널 블록이며 0.1·x 가 양수라 ReLU 미분값은 1임.
+    block = 0.1 * (1 if 0.1 * 2 > 0 else 0) * 0.1
+    wide = (0.1, -0.2, 0.3, 0.1)
+    projection = ((1, 0), (0, 1), (1, 0), (0, 1))
+    padded = x + (0,) * (len(wide) - len(x))
+    projected = [sum(w * v for w, v in zip(row, x)) for row in projection]
     return {"mobile": {"input": inputs, "depthwise": depthwise, "output": outputs},
             "grn": {"planes": channel_planes, "norms": norms, "mean": mean,
                     "relative": [value / mean for value in norms], "actual_relative": [value / (mean + 1e-6) for value in norms]},
             "dino": {"patches": (28 // 14) ** 2, "patch_values": 3 * 14 * 14, "tokens": 5, "width": 4},
             "sam": {"mask": MASK, "shape": (len(MASK), len(MASK[0])), "point_value": MASK[1][2]},
-            "dora": {"norms": column_norms, "unit": unit, "output": dora}}
+            "dora": {"norms": column_norms, "unit": unit, "output": dora},
+            "resnet": {"x": x, "hidden": hidden, "active": active, "residual": residual, "added": added,
+                       "output": [max(0, value) for value in added], "plain_output": [max(0, value) for value in residual],
+                       "block": block, "block_with_path": 1 + block, "plain_three": block ** 3,
+                       "residual_three": (1 + block) ** 3, "wide": wide, "padded": padded,
+                       "padded_sum": [a + b for a, b in zip(padded, wide)], "projected": projected,
+                       "projected_sum": [a + b for a, b in zip(projected, wide)],
+                       "projection_weights": len(projection) * len(projection[0])}}
 
 
 class VectorScene:
@@ -480,6 +499,106 @@ def _dora(scene, stage, example):
         scene.text("이 예의 양수 m을 곱하면 방향을 유지하고 길이가 바뀝니다.", 16, scene.bottom + 40, w - 32, center=True)
 
 
+def _number(value, digits=6):
+    """부동소수 꼬리를 그리지 않고 해설 글과 같은 자릿수·빼기 기호로 씀."""
+    return f"{value:.{digits}f}".rstrip("0").rstrip(".").replace("-", "−")
+
+
+def _vector(values):
+    return "[" + ", ".join(_number(value) for value in values) + "]"
+
+
+def _resnet(scene, stage, example):
+    w = scene.width
+    x = _vector(example["x"])
+    if stage in (0, 3):
+        if stage == 0:
+            planes = (((1, 0), (0, 1)), ((0, 0), (0, 0)))
+            names = ("일반 층 · W", "잔차 블록 · F의 W")
+            captions = (f"ReLU(W·{x})\n= {x}", f"{x} + [0, 0]\n= {x}")
+            start = 16
+        else:
+            planes = tuple(tuple((_number(value),) for value in column) for column in (example["padded"], example["projected"]))
+            names = ("A · 0 채우기 · 가중치 0개", f"B · 투영 Ws·x · 가중치 {example['projection_weights']}개")
+            captions = tuple("F(x)를 더하면\n" + _vector(total) for total in (example["padded_sum"], example["projected_sum"]))
+            start = 32 + scene.text(f"F(x) = {_vector(example['wide'])} · 채널 {len(example['wide'])}", 16, 16, w - 32,
+                                    center=True)
+        # 제목이나 계산 글의 한 줄이 반쪽 폭을 넘으면 벡터가 중간에서 끊기지 않게 한 줄에 하나씩 놓음.
+        bold, plain = QFontMetricsF(theme.font("learn_body", True)), QFontMetricsF(theme.font("learn_body"))
+        pane = (w - 56) / 2
+        if (any(bold.horizontalAdvance(name) > pane for name in names)
+                or any(plain.horizontalAdvance(line) > pane for text in captions for line in text.split("\n"))):
+            pane = w - 32
+        tail = 24 + max(scene.measure(text, pane) for text in captions)
+        rects = scene.planes(planes, names, start=start, tail_space=tail,
+                             columns=2 if pane < w - 32 else 1)
+        for rect, text in zip(rects, captions):
+            scene.text(text, rect.center().x() - pane / 2, rect.bottom() + 24, pane, center=True)
+        notes = (("두 경우 모두 출력이 입력과 같습니다.",) if stage == 0 else
+                 ("A의 아래 두 칸은 0을 채운 칸입니다.", "B의 Ws는 [[1, 0], [0, 1], [1, 0], [0, 1]]로 가정했습니다."))
+        for text in notes:
+            scene.text(text, 16, scene.bottom + 16, w - 32, role="caption", color="muted", center=True)
+    elif stage == 1:
+        metrics = QFontMetricsF(theme.font("learn_body"))
+        values = (example["x"], example["residual"], example["output"])
+        cell = max(scene.cell, math.ceil(max(metrics.horizontalAdvance(_number(value)) for row in values for value in row)) + 24)
+        path_label = "직접 경로"
+        line_x = 16 + math.ceil(metrics.horizontalAdvance(path_label)) + 16
+        left, right = line_x + 24, w - 16
+        center = (left + right) / 2
+        name_width = right - center - cell - 12
+        top = 16
+        grid = scene.grid(center - cell, top, [[_number(value) for value in example["x"]]], cell=cell)
+        scene.text("x", grid.right() + 12, top, name_width, align_height=cell)
+        text = "변환 경로 F\nW1 → ReLU → W2"
+        box_top = grid.bottom() + 48
+        box_width = min(right - left, 360)
+        box = QRectF(center - box_width / 2, box_top, box_width, scene.measure(text, box_width - 16) + 24)
+        scene.line((center, grid.bottom() + 8), (center, box.top() - 8), arrow=True)
+        scene.rect(box, edge="link")
+        scene.text(text, box.x() + 8, box.y(), box.width() - 16, center=True, align_height=box.height())
+        f_grid = scene.grid(center - cell, box.bottom() + 48, [[_number(value) for value in example["residual"]]], cell=cell)
+        scene.line((center, box.bottom() + 8), (center, f_grid.top() - 8), arrow=True)
+        scene.text("F(x)", f_grid.right() + 12, f_grid.top(), name_width, align_height=cell)
+        radius = 28
+        plus_y = f_grid.bottom() + 48 + radius
+        scene.line((center, f_grid.bottom() + 8), (center, plus_y - radius - 8), arrow=True)
+        scene.circle((center, plus_y), radius)
+        scene.glyph("+", QRectF(center - radius, plus_y - radius, 2 * radius, 2 * radius))
+        scene.line((grid.left() - 8, grid.center().y()), (line_x, grid.center().y()), color="ok")
+        scene.line((line_x, grid.center().y()), (line_x, plus_y), color="ok")
+        scene.line((line_x, plus_y), (center - radius - 6, plus_y), color="ok", arrow=True)
+        label_height = scene.measure(path_label, line_x - 28)
+        scene.text(path_label, 16, (grid.center().y() + plus_y - label_height) / 2, line_x - 28, color="ok")
+        y_top = plus_y + radius + 64
+        scene.line((center, plus_y + radius + 8), (center, y_top - 8), arrow=True)
+        scene.text("ReLU", center + 16, plus_y + radius + 8, right - center - 16, align_height=48)
+        y_grid = scene.grid(center - cell, y_top, [[_number(value) for value in example["output"]]], cell=cell,
+                            selected=((0, 0), (0, 1)))
+        scene.text("y", y_grid.right() + 12, y_top, name_width, align_height=cell)
+    else:
+        block = _number(example["block"])
+        scene.text(f"블록 하나: 1 + {block} = {_number(example['block_with_path'])}", 16, 16, w - 32, bold=True, center=True)
+        gap = 40
+        box_width = (w - 32 - 2 * gap) / 3
+        rows = (("직접 경로 없음", block, f"{block}³ = {_number(example['plain_three'])}"),
+                ("직접 경로 있음", _number(example["block_with_path"]),
+                 f"{_number(example['block_with_path'])}³ ≈ {_number(example['residual_three'], 4)}"))
+        for name, factor, result in rows:
+            scene.text(name, 16, scene.bottom + 32, w - 32, color="link", bold=True)
+            label = "× " + factor
+            top = scene.bottom + 12
+            height = scene.measure(label, box_width - 16) + 24
+            for index in range(3):
+                box_x = 16 + index * (box_width + gap)
+                scene.rect(QRectF(box_x, top, box_width, height), edge="link")
+                scene.text(label, box_x + 8, top, box_width - 16, center=True, align_height=height)
+                if index:
+                    scene.line((box_x - 6, top + height / 2), (box_x - gap + 6, top + height / 2), arrow=True)
+            scene.text(result, 16, top + height + 12, w - 32, center=True)
+        scene.text("화살표는 역전파 방향입니다.", 16, scene.bottom + 24, w - 32, role="caption", color="muted", center=True)
+
+
 class PaperDiagram(QWidget):
     """가용 폭과 공통 글꼴을 사용해 학습용 도식을 직접 그림."""
     def __init__(self, paper_id, parent=None):
@@ -505,6 +624,8 @@ class PaperDiagram(QWidget):
             _sam(scene, self.stage)
         elif self.paper_id == PAPER_IDS[4]:
             _dora(scene, self.stage, self.examples["dora"])
+        elif self.paper_id == PAPER_IDS[5]:
+            _resnet(scene, self.stage, self.examples["resnet"])
         return scene
 
     def hasHeightForWidth(self):
