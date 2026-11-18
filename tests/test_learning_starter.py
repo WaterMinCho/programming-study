@@ -12,6 +12,48 @@ import unittest
 from learning_server import dataset, input_example, legacy, starter
 
 
+MOCK_CARDS = {"m4": (("m4-01", "i01", "intro"), ("m4-32", "a03", "app")),
+              "m11": (("m11-01", "i01", "intro"), ("m11-25", "i09", "intro"), ("m11-41", "a01", "app"))}
+
+
+def mixed_mock_events():
+    """두 사람이 홀수 날에 m4, 짝수 날에 m11 을 푼 합성 수집 기록. 둘째 날 m11 의 빈칸은 비우고 코드 작성은 채점하지 못함."""
+    rows = []
+    for person in range(2):
+        participant = "synthetic-person-%d" % person
+        sequence = 0
+        for day in range(1, 7):
+            mid, attempt = ("m4" if day % 2 else "m11"), (day + 1) // 2
+            at = "2026-01-%02dT10:%02d:00+00:00"
+
+            def add(kind, minute, data, card=None):
+                nonlocal sequence
+                sequence += 1
+                row = {"participant": participant, "track": "ai", "sequence": sequence, "synthetic": True,
+                       "event_id": "%s-%d" % (participant, sequence), "at": at % (day, minute), "kind": kind,
+                       "data": dict(data, mock=mid, **{"try": attempt})}
+                if card:
+                    cid, lesson, course = card
+                    row["item_revision"] = hashlib.sha256(cid.encode()).hexdigest()
+                    row["item"] = {"card": cid, "lesson": lesson, "course": course, "tags": ["concept-" + lesson], "difficulty": 2}
+                    row["data"].update(card=cid, course=course)
+                rows.append(row)
+
+            add("mock_start", 0, {"course": "intro"})
+            for position, card in enumerate(MOCK_CARDS[mid]):
+                add("mock_question_returned", 1 + position, {"position": position}, card)
+            for position, card in enumerate(MOCK_CARDS[mid]):
+                result = "pass" if (person + day + position) % 2 else "stuck"
+                if day == 2 and card[0] == "m11-25":
+                    result = "blank"
+                elif day == 2 and card[0] == "m11-41":
+                    result = "ungraded"
+                elif card[0] == "m11-41":
+                    result = "pass" if person == 0 else "stuck"
+                add("mock_answer", 30 + position, {"position": position, "result": result}, card)
+    return rows
+
+
 class StarterTest(unittest.TestCase):
     def test_same_batch_answers_cannot_use_each_others_labels(self):
         events = dataset.synthetic_events()[:3]
@@ -187,6 +229,47 @@ class StarterTest(unittest.TestCase):
         self.assertGreaterEqual(result["log_loss"], 0.)
         self.assertEqual([0, 1], targets)
         self.assertEqual([1., 0.], probabilities)
+
+    def test_old_and_all_lesson_mock_records_share_version_8_inputs(self):
+        """예전 회차 m4 와 모든 차시 회차 m11 기록이 섞여도 공통 입력 버전은 8 로 남고 두 회차 문항이 번호표에 들어감.
+        모의고사 빈 답(blank)과 이 기기에서 채점하지 못한 코드 작성 답(ungraded)은 학습 행이 되지 않음."""
+        events = mixed_mock_events()
+        skipped = {row["event_id"] for row in events if row["data"].get("result") in ("blank", "ungraded")}
+        self.assertEqual(4, len(skipped))
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "starter"
+            manifest = starter.write_starter(events, root)
+            self.assertEqual(8, manifest["features_version"])
+            records = json.loads((root / "records/manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual((8, {"missing_prediction_time": 0}), (records["features_version"], records["excluded_rows"]))
+            rows, vocabulary = [], None
+            for part in ("train", "validation", "test"):
+                part_rows, vocabulary = input_example.load(root, "ai", part)
+                rows += part_rows
+        self.assertLessEqual({"m4-01", "m4-32", "m11-01", "m11-25", "m11-41"}, set(vocabulary["questions"]))
+        self.assertEqual(["app", "intro"], sorted(set(vocabulary["courses"]) - {"<PAD>", "<UNK>"}))
+        self.assertFalse(skipped & {row["event_id"] for row in rows})
+        sessions = {}
+        for row in rows:
+            sessions.setdefault((row["participant"], row["session"]), set()).add(row["question_id"].split("-")[0])
+        self.assertTrue(all(len(mocks) == 1 for mocks in sessions.values()), sessions)
+        self.assertEqual({"m4:1", "m4:2", "m4:3", "m11:1", "m11:2", "m11:3"}, {session for _, session in sessions})
+
+    def test_answer_whose_revision_changed_after_return_counts_as_missing_prediction_time(self):
+        """응시 중에 프로그램이 갱신되어 문항 버전 해시가 바뀌면(코드 작성 문항은 실행기 파일이 바뀔 때 code_runtime_revision 으로 바뀜)
+        답 기록이 반환 기록과 이어지지 않아 예측 시각 없음(missing_prediction_time)으로 세고 학습 행에서 뺌.
+        이 경우를 줄이려고 예전 회차의 응시 기간에는 모의고사 엔진을 바꾸는 변경을 합치지 않음."""
+        events = mixed_mock_events()
+        changed = next(row for row in events if row["kind"] == "mock_answer" and row["data"]["card"] == "m11-41"
+                       and row["data"]["result"] == "pass")
+        changed["item_revision"] = "f" * 64
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "starter"
+            starter.write_starter(events, root)
+            records = json.loads((root / "records/manifest.json").read_text(encoding="utf-8"))
+            rows = [row for part in ("train", "validation", "test") for row in input_example.load(root, "ai", part)[0]]
+        self.assertEqual({"missing_prediction_time": 1}, records["excluded_rows"])
+        self.assertNotIn(changed["event_id"], {row["event_id"] for row in rows})
 
     def test_metrics_accept_zero_dimensional_scalars_but_not_array_rows(self):
         class Scalar:

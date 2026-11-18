@@ -549,18 +549,23 @@ class MockExam:
     def summary(self):
         if self.result is None:
             raise MockError("제출한 뒤 결과를 볼 수 있습니다.")
-        lessons = {}
+        lessons, formats = {}, {}
         for cid, result in self.result["results"].items():
             lesson = self.items[cid].get("lesson", "")
             counts = lessons.setdefault(lesson, {"correct": 0, "total": 0})
             counts["total"] += 1
             counts["correct"] += result == "pass"
+            form = self.items[cid].get("format")
+            if isinstance(form, str):  # format이 없는 m1~m3 문항은 칸을 만들지 않음
+                pair = formats.setdefault(form, [0, 0])
+                pair[0] += result == "pass"
+                pair[1] += 1
         done = submissions(self._log(), self.id)
         if not done:
             raise MockError('제출 기록을 찾을 수 없습니다. 기록 파일을 확인하세요.')
         first = done[0]
         return {"mock": self.id, "try": self.attempt, "score": self.result["score"], "of": self.result["of"],
-                "secs": self.result["secs"], "first_score": first["score"], "lessons": lessons,
+                "secs": self.result["secs"], "first_score": first["score"], "lessons": lessons, "formats": formats,
                 "results": dict(self.result["results"]), "auto": self.result["auto"]}
 
     def explain(self, cid):

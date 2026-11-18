@@ -2,6 +2,7 @@
 """모의고사의 회차별 배분과 문항 구성·겹침을 계산함. 코드와 강의 내용을 실행하지 않음."""
 import ast
 import collections
+import fractions
 import re
 import unicodedata
 
@@ -11,6 +12,18 @@ LESSON_COUNTS = {
     "m2": (1, 2, 2, 3, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 1, 2, 0),
     "m3": (2, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 1, 2, 2, 2, 2, 1),
 }
+# 모든 차시 회차의 배분 근거. 차시마다 (카드, 단원, 시험, 현직자, 의존)이고 앞 둘은 meta.json 에서 센 수,
+# 뒤 셋은 0~3 으로 매긴 값임. 새 차시를 공개하면 그 차시 값을 넣고 앞 차시의 의존 값도 고침
+LESSON_SCORES = {
+    "i01": (52, 7, 2, 1, 2), "i02": (50, 6, 2, 2, 3), "i03": (50, 8, 2, 3, 3), "i04": (73, 8, 3, 3, 3),
+    "i05": (68, 7, 3, 3, 2), "i06": (53, 6, 2, 2, 2), "i07": (74, 7, 2, 2, 1), "i08": (71, 7, 3, 3, 2),
+    "i09": (68, 7, 2, 2, 2), "i10": (73, 9, 2, 3, 2), "i11": (60, 7, 3, 3, 3), "i12": (69, 7, 3, 3, 2),
+    "i13": (53, 7, 2, 3, 2), "i14": (59, 8, 2, 2, 1), "i15": (40, 5, 2, 2, 1), "i16": (66, 7, 2, 2, 1),
+    "i17": (59, 6, 1, 1, 0),
+    "a01": (44, 8, 2, 3, 3), "a02": (41, 6, 1, 2, 1), "a03": (57, 7, 2, 3, 1), "a04": (44, 7, 1, 1, 0),
+    "a05": (36, 5, 2, 3, 1),
+}
+LESSON_CAP = 4
 TOKEN = re.compile(r"\d+(?:\.\d+)?(?:e[+-]?\d+)?|[^\W\d]\w*", re.UNICODE)
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})\s*([^\s]*)\s*$")
 BLANK = re.compile(r"_{4,}")
@@ -107,6 +120,44 @@ def numeric_choices(item):
 
 def blueprint(mid):
     return {"i%02d" % n: count for n, count in enumerate(LESSON_COUNTS[mid], 1) if count}
+
+
+def points(scores):
+    """다섯 값을 0.25·0.10·0.20·0.25·0.20 으로 더한 차시 점수. 같은 점수를 가르려고 분수로 셈."""
+    cards = max(row[0] for row in scores.values())
+    units = max(row[1] for row in scores.values())
+    weight = fractions.Fraction
+    return {lid: (weight(1, 4) * weight(card, cards) + weight(1, 10) * weight(unit, units)
+                  + weight(1, 5) * weight(exam, 3) + weight(1, 4) * weight(job, 3) + weight(1, 5) * weight(need, 3))
+            for lid, (card, unit, exam, job, need) in scores.items()}
+
+
+def apportion(marks, seats):
+    """차시마다 1문항을 주고, 남은 자리를 점수² ÷ (더 준 수 + 1) 이 가장 큰 차시에 하나씩 줌.
+    차시당 LESSON_CAP 까지이고 값이 같으면 marks 에서 앞에 있는 차시에 줌."""
+    order = list(marks)
+    if not len(order) <= seats <= LESSON_CAP * len(order):
+        raise ValueError("문항 수 %d는 차시 %d개에 1~%d문항씩 나눌 수 없습니다." % (seats, len(order), LESSON_CAP))
+    out = dict.fromkeys(order, 1)
+    for _ in range(seats - len(order)):
+        best = max((lid for lid in order if out[lid] < LESSON_CAP),
+                   key=lambda lid: (marks[lid] ** 2 / out[lid], -order.index(lid)))
+        out[best] += 1
+    return out
+
+
+def exam_size(lessons):
+    """차시가 22개 이하면 44문항, 넘으면 하나에 2문항씩 늘리고 56문항에서 멈춤."""
+    return min(56, 44 + 2 * max(0, lessons - 22))
+
+
+def allocate(scores, total):
+    """응용 몫은 (3T + 5) // 10(반올림한 30%), 개론은 나머지. 과정마다 apportion 으로 나눔."""
+    marks = points(scores)
+    app = (3 * total + 5) // 10
+    out = apportion({lid: mark for lid, mark in marks.items() if lid.startswith("i")}, total - app)
+    out.update(apportion({lid: mark for lid, mark in marks.items() if lid.startswith("a")}, app))
+    return out
 
 
 def exam_problems(mid, entry, meta, items, pattern_ids):
