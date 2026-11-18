@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """모의고사 답안을 로컬에 저장하고 제출한 뒤에만 판정과 해설을 보임."""
+import math
+
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from aiprep import bank, mixed_mock
@@ -16,6 +19,25 @@ from session import SessionError
 
 SUMMARY_LEAST = 128  # 제출 뒤 요약 카드 최소 높이
 BAR_WIDTH = 120  # 보통 글자에서 차시별 막대 폭
+
+
+class FirstScore(QWidget):
+    """제출 뒤 '처음 점수' 줄. 이름은 label 글, 점수 숫자는 주 색 굵은 글로 나눠 둠. text() 는 두 글을 이어 붙인 글."""
+
+    def __init__(self):
+        super().__init__()
+        row = kit.box(self, spacing=theme.SPACE[0], horizontal=True)
+        self.name = kit.label('처음 점수', 'label')
+        self.value = kit.label('', 'label', 'accent', bold=True)
+        row.addWidget(self.name)
+        row.addWidget(self.value)
+        row.addStretch(1)
+
+    def set_value(self, text):
+        self.value.setText(text)
+
+    def text(self):
+        return '%s %s' % (self.name.text(), self.value.text())
 
 
 class MockPage(QWidget):
@@ -44,12 +66,27 @@ class MockPage(QWidget):
         self.notice = kit.banner('', 'danger')
         self.notice.hide()
         self.body.addWidget(self.notice)
-        self.summary, summary_box = kit.card(24, 0)
+        self.summary, summary_box = kit.card(24, 8)
         self.summary.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        # 제출 뒤에는 자동 제출 안내, 맞은 수 줄, 처음 점수를 따로 두고 heading 에는 복습 안내와 내 답 없음 안내만 둠
+        self.auto_note = kit.para('', 'label')
+        self.score_row = QWidget()
+        score_box = kit.box(self.score_row, spacing=8, horizontal=True)
+        self.score_num = kit.label('', 'title', bold=True)
+        self.score_of = kit.label('', 'headline')
+        self.score_time = kit.label('', 'caption', 'secondary')
+        for widget in (self.score_num, self.score_of, self.score_time):
+            score_box.addWidget(widget, 0, Qt.AlignmentFlag.AlignBottom)
+        score_box.addStretch(1)
+        kit.baseline(self.score_num, self.score_of, self.score_time)
+        self.first_score = FirstScore()
         self.heading = kit.para('', 'body', 'secondary')
+        for widget in (self.auto_note, self.score_row, self.first_score):
+            summary_box.addWidget(widget)
+            widget.hide()
         summary_box.addWidget(self.heading)
         self.body.addWidget(self.summary)
-        self.lesson_results = kit.RowList(least=48, pad=12)
+        self.lesson_results = kit.RowList(least=48, pad=12, striped=True)
         self.body.addWidget(self.lesson_results)
         self.lesson_results.hide()
         self.summary_key = None
@@ -315,27 +352,49 @@ class MockPage(QWidget):
                 for lid, counts in rows:
                     entries = self.exam.sess.mock_lessons if self.exam.mixed else self.win.ai.lessons
                     entry = entries.get(lid, {})
-                    title = ai_text.lesson_title(entry.get('no', lid), entry.get('title', ''), entry.get('course', 'intro'))
-                    row = self.lesson_results.add(kit.Row(title.strip(), end='%d / %d' % (counts['correct'], counts['total']), inert=True))
+                    no, course = entry.get('no', lid), entry.get('course', 'intro')
+                    title = ai_text.lesson_title(no, entry.get('title', ''), course).strip()
+                    prefix = ai_text.lesson_title(no, '', course)  # 'N차시' 나 '응용 N차시'
+                    name = title[len(prefix):].strip() if title.startswith(prefix) else title
+                    where = kit.label(prefix, 'caption', 'secondary')
+                    row = self.lesson_results.add(kit.Row(name, end='%d / %d' % (counts['correct'], counts['total']), inert=True, lead=where))
+                    row.setAccessibleName(title)
+                    row.where = where
                     bar = kit.progress(thin=True)
                     bar.setValue(round(100 * counts['correct'] / counts['total']))
                     row.layout().insertWidget(row.layout().indexOf(row.end), bar, 0, Qt.AlignmentFlag.AlignVCenter)
                     row.bar = bar
                 self.size_bars()
                 self.summary_key = summary_key
-            self.heading.setText('%d / %d문항 맞음 · 걸린 시간 %d분 %d초\n처음 점수 %d / %d\n틀리거나 비운 문항은 첫 풀이 결과를 기준으로 다음 날부터 복습합니다.' %
-                                 (summary['score'], summary['of'], summary['secs'] // 60, summary['secs'] % 60,
-                                  summary['first_score'], summary['of']))
-            if summary['auto']:
-                self.heading.setText('시간이 끝나 자동으로 제출했습니다.\n' + self.heading.text())
+            self.auto_note.setText('시간이 끝나 자동으로 제출했습니다.' if summary['auto'] else '')
+            self.auto_note.setVisible(bool(summary['auto']))
+            self.score_num.setText('%d' % summary['score'])
+            self.score_of.setText('/ %d문항 맞음' % summary['of'])
+            self.score_time.setText('· 걸린 시간 %d분 %d초' % (summary['secs'] // 60, summary['secs'] % 60))
+            self.first_score.set_value('%d / %d' % (summary['first_score'], summary['of']))
+            self.heading.setText('틀리거나 비운 문항은 첫 풀이 결과를 기준으로 다음 날부터 복습합니다.')
             if not self.exam.local_answers:
                 self.heading.setText(self.heading.text() + '\n이 기기에 저장된 답안이 없어 내 답은 표시하지 않습니다.')
         else:
             answered = sum(row['answered'] for row in self.exam.progress())
             self.heading.setText('%d / %d문항 답함 · 답은 자동으로 저장됩니다.\n제출한 뒤 정답과 해설을 확인할 수 있습니다.' % (answered, len(self.exam.items)))
 
+    def summary_text(self):
+        """요약 카드에 보이는 글 전체. 맞은 수 줄은 한 줄로 잇고 나머지는 줄을 바꿔 이음."""
+        lines = [self.auto_note.text()] if not self.auto_note.isHidden() else []
+        if not self.score_row.isHidden():
+            lines.append(' '.join(label.text() for label in (self.score_num, self.score_of, self.score_time)))
+        if not self.first_score.isHidden():
+            lines.append(self.first_score.text())
+        return '\n'.join(lines + [self.heading.text()])
+
     def show_summary(self, done):
-        """제출 뒤에는 요약 카드를 최소 128 로 두고 결과 글을 label ink 로 보임. 그 밖에는 최소 높이 없이 body secondary 로 둠."""
+        """제출 뒤에는 요약 카드를 최소 128 로 두고 맞은 수 줄·처음 점수를 따로 보이며 안내 글을 label ink 로 보임.
+        그 밖에는 최소 높이 없이 heading 하나를 body secondary 로 둠."""
+        if not done:
+            self.auto_note.hide()
+        self.score_row.setVisible(done)
+        self.first_score.setVisible(done)
         role = 'label' if done else 'body'
         if self.heading.property('role') != role:
             kit.typed(self.heading, role)
@@ -345,10 +404,14 @@ class MockPage(QWidget):
         self.summary.setMinimumHeight(SUMMARY_LEAST if done else 0)
 
     def size_bars(self):
-        """차시별 막대 폭을 본문 글자 크기에 비례해 둠(보통 120)."""
+        """차시별 막대 폭을 본문 글자 크기에 비례해 둠(보통 120). 차시 칸은 가장 긴 'N차시' 글 폭으로 맞춰 이름이 한 세로선에서 시작함."""
         width = round(BAR_WIDTH * theme.TYPE['body'][0] / theme.BASE_TYPE['body'][0])
-        for row in self.lesson_results.rows:
+        rows = self.lesson_results.rows
+        column = max((math.ceil(QFontMetricsF(row.where.font()).horizontalAdvance(row.where.text())) for row in rows), default=0)
+        for row in rows:
             row.bar.setFixedWidth(width)
+            row.where.setFixedWidth(column + 2)
+            row.fit_height()
 
     def refont(self):
         self.size_bars()
@@ -412,13 +475,24 @@ class MockPage(QWidget):
                 self.win.auto_submission.request()
                 self.show_question(self.item['at'] - 1)
                 return
+            self.set_clock_role('label')
             self.time.setText('제출 완료')
             return
         seconds = self.exam.remaining()
+        self.set_clock_role('display')
         self.time.setText('%02d:%02d' % divmod(seconds, 60))
         kit.set_tone(self.time, 'danger' if seconds <= 60 else ('warning' if seconds <= 600 else ''))
         if seconds == 0:
             self.submit(auto=True)
+
+    def set_clock_role(self, role):
+        """시계 숫자 글자. 시험 중에는 display, 제출한 뒤 '제출 완료' 는 label 굵게. 최소 폭은 그 글꼴의 '88:88' 폭으로 다시 잼."""
+        if self.time.property('role') == role:
+            return
+        kit.typed(self.time, role, True if role == 'label' else None)
+        if role != 'label':
+            self.time.setProperty('bold', None)
+        self.time.setMinimumWidth(math.ceil(QFontMetricsF(self.time.font()).horizontalAdvance(self.time.property('measure'))))
 
     def go_back(self):
         if self.persist():

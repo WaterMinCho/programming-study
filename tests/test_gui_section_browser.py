@@ -510,6 +510,8 @@ class AiSectionBrowserTest(AiTest):
         self.assertEqual(4, browser.columns)
         win.set_text("normal")
         self.settle()
+        for button in buttons:  # 접힌 꼴의 아이콘은 자리가 모자라면 먼저 빠지므로 한 줄 기준은 아이콘 없는 폭임
+            button.iconic = False
         needed = max(sum(button.sizeHint().width() for button in buttons),
                      max(button.minimumSizeHint().width() for button in buttons) * len(buttons)) + 24
         browser.navigation.setFixedWidth(needed - 1)
@@ -523,6 +525,23 @@ class AiSectionBrowserTest(AiTest):
                 QRectF(0, 0, button.width() - 24, 1000), Qt.TextFlag.TextWordWrap, button.text())
             self.assertLessEqual(text.width(), button.width() - 24)
             self.assertLessEqual(text.height(), button.height() - 16)
+
+    def test_collapsed_tabs_draw_icons_only_when_they_keep_rows_and_height(self):
+        win, home, browser = self.home((1280, 800))
+        buttons = list(browser.buttons.values())
+        self.assertFalse(buttons[0].expanded)
+        self.assertEqual(len(buttons), browser.columns)
+        self.assertTrue(all(button.iconic for button in buttons))
+        height = buttons[0].height()
+        for button in buttons:
+            button.iconic = False
+        self.assertEqual(height, max(button.heightForWidth(button.width()) for button in buttons))
+        browser.setFixedWidth(480)
+        self.settle()
+        self.assertEqual(2, browser.columns)
+        for button in buttons:
+            if button.iconic:
+                self.assertLessEqual(button.sizeHint().width(), button.width())
 
     def test_partial_read_error_and_mock_error_are_visible_in_their_lists(self):
         win, home, browser = self.home()

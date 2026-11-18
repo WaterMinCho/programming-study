@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import QApplication, QFrame, QMainWindow, QPushButton, QSta
 
 import adaptive  # noqa: E402
 import study  # noqa: E402
-from gui import journey_html, journey_text, kit, theme  # noqa: E402
+from gui import journey_html, journey_result, journey_text, kit, theme  # noqa: E402
 from gui.cases_dialog import HINT, TITLE, CasesDialog  # noqa: E402
 from gui.dialogs import MessageDialog  # noqa: E402
 from gui.docview import PAD, CodeView, FigureView, TextPiece  # noqa: E402
@@ -329,10 +329,12 @@ class MapTest(Base):
         self.assertEqual("t01", page.view.selected)
         self.assertEqual(("던전 1 「시험 마을」", "4문제 중 0개 통과"), (page.title.text(), page.count.text()))
         self.assertEqual("합·최댓값 · 보스 난이도 S5 / Lv2", page.meta.text())
-        self.assertEqual("보스 문제는 백준 실버 5, 프로그래머스 레벨 2 수준입니다.", page.meta.toolTip())
+        self.assertEqual(["합·최댓값", "보스 난이도 S5 / Lv2"], [tag.text() for tag in page.meta.tags])
+        self.assertEqual("보스 문제는 백준 실버 5, 프로그래머스 레벨 2 수준입니다.", page.meta.tags[1].toolTip(), "도움말은 보스 난이도 꼬리표에")
         self.assertFalse(page.meta_more.isVisible())
         self.assertEqual("4문제 중 0개 통과 · 클리어 0개", page.passed.text())
         self.assertEqual("todo", MapView.state(page.view.rows[0]), "시작 전 원은 흰 바탕에 테두리")
+        self.assertEqual(("시작 전", None), (page.state_tag.text(), page.state_tag.property("tone")), "목록 머리 꼬리표는 범례 이름")
         self.assertTrue(page.bank_banner.isVisible())
         self.assertIn("던전 2", page.bank_banner.text.text())
         self.assertNotIn("t02", page.bank_banner.text.text())
@@ -357,8 +359,8 @@ class MapTest(Base):
         self.assertFalse(page.note_box.isVisible())
         self.assertIn("물통에 담긴 물의 양을 더하고", doc_text(page.intro))
         self.assertEqual("배열 합, 최댓값 찾기, 문자열 뒤집기", page.skills.text())
-        self.assertEqual([("물통 합계", "1-1 · B2 / Lv1", "기초"), ("가장 큰 물통", "1-2 · B1 / Lv1 · 준비 문제 1-1", "중급"),
-                          ("이름 뒤집기", "1-3 · B3 / Lv1", "선택"), ("물통 정리", "중급 문제를 통과하면 열립니다.", "보스")], rows_of(page))
+        self.assertEqual([("물통 합계", "B2 / Lv1", "기초"), ("가장 큰 물통", "B1 / Lv1", "중급"),
+                          ("이름 뒤집기", "B3 / Lv1", "선택"), ("물통 정리", "중급 문제를 통과하면 열립니다.", "보스")], rows_of(page))
         self.assertEqual(["todo", "todo", "todo", "lock"], [row.mark.state for row in page.rows.rows])
         boss = page.rows.rows[3]
         self.assertTrue(boss.inert)
@@ -392,13 +394,13 @@ class MapTest(Base):
     def test_next_card_holds_the_only_primary_button(self):
         win = self.boot([passed("p1")])
         page = win.journey_map
-        self.assertEqual((page.next_card.title.text(), page.next_card.line.text(), page.next_btn.text()),
+        self.assertEqual((page.next_card.title.text(), page.next_card.side.text(), page.next_btn.text()),
                          ("가장 큰 물통", "던전 1 「시험 마을」 · 중급", "문제 풀기"))
         self.assertEqual([page.next_btn], kit.visible_primary_buttons(page))
         win.settings.setValue("journey/last", "t01/p3")  # 지난번에 연 문제가 아직 통과 전이면 서비스 추천보다 먼저
         win.go_journey()
         guikit.pump()
-        self.assertEqual((page.next_card.title.text(), page.next_card.line.text()), ("이름 뒤집기", "던전 1 「시험 마을」 · 선택"))
+        self.assertEqual((page.next_card.title.text(), page.next_card.side.text()), ("이름 뒤집기", "던전 1 「시험 마을」 · 선택"))
         guikit.click(page.next_btn)
         self.assertEqual((win.pages.currentWidget(), win.journey_page.did, win.journey_page.pid), (win.journey_page, "t01", "p3"))
 
@@ -410,6 +412,8 @@ class MapTest(Base):
         self.assertEqual([], kit.visible_primary_buttons(page))
         self.assertEqual("cleared", MapView.state(page.view.rows[0]))
         self.assertEqual("t01", page.view.selected, "다음이 없으면 첫 준비된 던전")
+        self.assertEqual(("클리어", "success"), (page.state_tag.text(), page.state_tag.property("tone")))
+        self.assertFalse(any(row.property("next_row") for row in page.rows.rows), "이어서 할 일이 없으면 강조 줄도 없음")
         page.show_dungeon("t03")
         win.go_journey()
         self.assertEqual("t03", page.view.selected, "모두 클리어한 뒤에는 마지막으로 고른 던전에 머묾")
@@ -418,8 +422,10 @@ class MapTest(Base):
         win = self.boot([passed("p2"), passed("p1", "javascript"), {"at": adaptive.now(), "kind": "grade", "item": "t01/p3",
                                                                     "lang": "python", "score": 40.0, "passed": False}])
         page = win.journey_map
-        self.assertEqual(["1-1 · B2 / Lv1 · 통과 · JavaScript", "1-2 · B1 / Lv1 · 통과 · Python · 준비 문제 1-1",
-                          "1-3 · B3 / Lv1 · 최고 40점", "S5 / Lv2"], [row.second.text() for row in page.rows.rows])
+        self.assertEqual(["B2 / Lv1 · 통과 · JavaScript", "B1 / Lv1 · 통과 · Python", "B3 / Lv1 · 최고 40점", "S5 / Lv2"],
+                         [row.second.text() for row in page.rows.rows], "번호는 칩, 준비 문제는 제목 옆 꼬리표")
+        self.assertEqual(["1-1", "1-2", "1-3", "보스"], [row.lead.text() for row in page.rows.rows])
+        self.assertEqual("준비 문제 1-1", page.rows.rows[1].prep.text())
         self.assertEqual(["done", "done", "progress", "todo"], [row.mark.state for row in page.rows.rows])
         self.assertFalse(page.rows.rows[3].inert)
         self.assertFalse(page.boss_new.isVisible())
@@ -547,7 +553,7 @@ class MapTest(Base):
         self.assertEqual([], [row for row in page.rows.rows if row.isEnabled()], "바쁜 동안 새로 만든 줄도 꺼짐")
         guikit.pump()
         row = page.rows.rows[0]
-        back = theme.color("surface")
+        back = theme.color("emphasis_bg" if row.property("next_row") else "surface")  # 첫 줄은 이어서 할 일 줄이라 강조 바탕
 
         def drawn(widget):
             return win.grab(QRect(widget.mapTo(win, QPoint(0, 0)), widget.size())).toImage()
@@ -584,6 +590,48 @@ class MapTest(Base):
         win = self.boot()
         guikit.click(win.journey_map.home_btn)
         self.assertEqual(["hub"], win.went)
+
+    def test_list_head_shows_the_map_state_and_rows_show_number_chips(self):
+        """목록 머리 꼬리표는 지도 상태의 범례 이름, 주제 꼬리표는 보조 줄 첫 줄의 조각, 줄 앞 칩은 번호(보스는 역할 이름)이고
+        이어서 할 일 줄만 강조 바탕과 주 색으로 채운 칩임. 줄의 접근 이름에는 번호가 남음."""
+        win = self.boot([passed("p1")])
+        page = win.journey_map
+        self.assertEqual(("진행 중", "accent"), (page.state_tag.text(), page.state_tag.property("tone")))
+        self.assertEqual("합·최댓값 · 보스 난이도 S5 / Lv2", " · ".join(tag.text() for tag in page.meta.tags))
+        rows = page.rows.rows
+        self.assertEqual(["1-1", "1-2", "1-3", "보스"], [row.lead.text() for row in rows])
+        self.assertEqual(["1-1 물통 합계", "1-2 가장 큰 물통", "1-3 이름 뒤집기", "물통 정리"], [row.accessibleName() for row in rows])
+        self.assertEqual("가장 큰 물통", page.next_card.title.text())
+        self.assertEqual([False, True, False, False], [bool(row.property("next_row")) for row in rows])
+        self.assertEqual([None, "solid", None, "accent"], [row.lead.property("tone") for row in rows])  # 이어서 할 일 줄은 채운 칩
+        prep = rows[1].prep
+        self.assertEqual(prep.parentWidget(), rows[1].title.parentWidget(), "준비 문제 꼬리표는 제목 옆")
+        self.assertLessEqual(rows[1].title.geometry().right() + 8, prep.x() + 1, "꼬리표가 제목 바로 뒤")
+        width = rows[1].width()
+        rows[1].resize(320, rows[1].height())
+        page.fit_row(rows[1])
+        self.assertEqual((True, "B1 / Lv1 · 준비 문제 1-1"), (prep.isHidden(), rows[1].second.text()), "좁으면 꼬리표 글을 둘째 줄 끝에")
+        rows[1].resize(width, rows[1].height())
+        page.fit_row(rows[1])
+        self.assertEqual((False, "B1 / Lv1"), (prep.isHidden(), rows[1].second.text()))
+        page.show_dungeon("t03")
+        self.assertEqual(("준비 중", None), (page.state_tag.text(), page.state_tag.property("tone")))
+        self.assertEqual(["주제 3", "보스 난이도 G5 / Lv3"], [tag.text() for tag in page.meta.tags])
+
+    def test_language_chips_are_one_joined_group(self):
+        """두 언어 칩은 붙은 묶음 하나이고 고른 칩 하나만 체크됨. 칩은 위 막대 s 단추 높이이고 묶음은 테두리만큼 2 더 높음."""
+        win = self.boot()
+        page = win.journey_map
+        bar = page.lang_bar
+        self.assertEqual("soft", bar.chips.property("segmented"))
+        self.assertEqual(["first", "last"], [chip.property("seg") for chip in page.lang_btns.values()])
+        self.assertEqual([True, False], [chip.isChecked() for chip in page.lang_btns.values()])
+        self.assertEqual([theme.control_height("s")] * 2, [chip.height() for chip in page.lang_btns.values()])
+        self.assertEqual(theme.control_height("s") + 2, bar.chips.height())
+        self.assertTrue(bar.layout().itemAt(0).widget().text() == "풀이 언어", "이름표는 묶음 밖 앞")
+        with mock.patch.object(win.journey, "runtime", lambda lang: HAS_NODE):
+            guikit.click(page.lang_btns["javascript"])
+        self.assertEqual([False, True], [chip.isChecked() for chip in page.lang_btns.values()])
 
 
 class PageTest(Base):
@@ -758,8 +806,10 @@ class WorkFrameTest(Base):
         panel, result, editor = page.code_panel, page.result, page.code_panel.editor
         self.assertEqual("[코드 실행]은 입출력 예와 내 테스트 1개를 돌립니다.", result.caption.text())
         self.assertTrue(result.collapsed)
-        self.assertLessEqual(result.height(), 120)
+        self.assertLessEqual(result.height(), 120 + 2 * journey_result.WELL_PAD)  # 빈 상태 회색 칸의 위아래 안 여백만큼 늘어남
         self.assertEqual(result.height(), result.folded_height())
+        self.assertEqual("result_empty", result.well.objectName())  # 결과 전에는 머리 글 두 줄을 회색 칸 가운데에 둠
+        self.assertTrue(result.title.alignment() & Qt.AlignmentFlag.AlignHCenter)
         self.assertGreaterEqual(full_lines(editor), 19)
         self.assertTrue(panel.split.locked)
         self.assertFalse(panel.split.handle(1).isEnabled())
@@ -768,6 +818,8 @@ class WorkFrameTest(Base):
         with mock.patch.object(win.journey, "run", fake_run([run_case(1)], check=lambda: seen.append(result.height()))):
             guikit.click(page.run_btn)
         self.assertGreaterEqual(min(seen), 160, "누른 순간 펼침")
+        self.assertEqual("", result.well.objectName())
+        self.assertTrue(result.title.alignment() & Qt.AlignmentFlag.AlignLeft)
         self.assertFalse(panel.split.locked)
         self.assertGreaterEqual(result.height(), 160)
         self.assertGreaterEqual(full_lines(editor), 10, "펼친 뒤에도 편집기 10줄")
@@ -909,8 +961,8 @@ class WorkFrameTest(Base):
                            "buttons": (page.run_btn.text(), page.run_btn.isEnabled(), page.grade_btn.text(), page.grade_btn.isEnabled()),
                            "stop": (page.stop_btn.isVisible(), page.stop_btn.isEnabled(), page.stop_btn.text()), "reset": page.reset_btn.isVisible(),
                            "link": has_underline(page.facts.links[0]), "cases_x": page.cases_btn.x(),
-                           "chip": (guikit.near(image.pixelColor(image.width() // 2, 4), "selection"),
-                                    guikit.near(guikit.ink(image, theme.color("selection")), "faint"))})
+                           "chip": (guikit.near(image.pixelColor(image.width() // 2, 4), "surface_alt"),
+                                    guikit.near(guikit.ink(image, theme.color("surface_alt"), image.rect().adjusted(6, 4, -6, -4)), "faint"))})
 
         with mock.patch.object(win.journey, "run", fake_run([run_case(1)], check=check)):
             guikit.click(page.run_btn)
@@ -1471,6 +1523,48 @@ class HintExplainTest(Base):
         with mock.patch.object(win.journey, "open_explain", side_effect=broken):
             page = self.open("p1")
         self.assertEqual(journey_text.REFETCH, doc_text(page.explain_view))
+
+
+class ProblemHeadTest(Base):
+    def test_hint_count_is_a_chip_but_the_tab_text_stays(self):
+        self.boot()
+        page = self.open("p1")
+        button = page.tabs.bar.buttons[1]
+        count = page.tabs.counts[1]
+        self.assertEqual(("힌트 0/3", "힌트", "0/3", "힌트 0/3"), (page.tabs.tabText(1), button.text(), count.text(), button.accessibleName()))
+        self.assertTrue(count.isVisibleTo(button))
+        self.assertLessEqual(QFontMetricsF(button.font()).horizontalAdvance("힌트"), count.x(), "숫자 칩이 글 뒤")
+        self.assertLessEqual(count.geometry().right(), button.width() - 1)
+        guikit.click(page.hint_btn)
+        self.assertEqual(("힌트 1/3", "1/3"), (page.tabs.tabText(1), count.text()))
+        guikit.click(button)
+        self.assertEqual(1, page.tabs.currentIndex(), "칩 자리를 눌러도 탭이 바뀜")
+
+    def test_facts_band_sits_under_the_tabs_on_the_problem_tab_only(self):
+        self.boot()
+        page = self.open("p2")
+        band = page.facts.band
+        self.assertIs(band.parentWidget(), page.tabs)
+        self.assertEqual("난이도 B1 / Lv1 · 시간 제한 2초", page.facts.first.text())
+        self.assertTrue(band.isVisible())
+        self.assertGreaterEqual(band.y(), page.tabs.bar.geometry().bottom())
+        self.assertEqual(page.tabs.width(), band.width(), "카드 전폭")
+        page.tabs.setCurrentIndex(1)
+        self.assertFalse(band.isVisible())
+        page.tabs.setCurrentIndex(0)
+        self.assertTrue(band.isVisible())
+        self.assertTrue(page.facts.isVisible(), "준비 문제 줄은 지문 머리에 남음")
+        page = self.open("p1")
+        self.assertFalse(page.facts.isVisible(), "둘째 줄이 없으면 지문 머리를 숨김")
+
+    def test_number_is_a_chip_and_boss_tag_is_accent(self):
+        self.boot([passed("p1"), passed("p2")])
+        page = self.open("p2")
+        self.assertEqual(("1-2", "badge", True), (page.number.text(), page.number.objectName(), page.number.property("number")))
+        self.assertIsNone(page.badge.property("tone"))
+        page = self.open("boss")
+        self.assertEqual(("던전 1 보스", "accent"), (page.number.text(), page.badge.property("tone")))
+        self.assertIsNone(page.number.property("tone"))
 
 
 class CasesDialogTest(Base):

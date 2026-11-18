@@ -4,7 +4,7 @@
 읽던 단계, 단원 연습, 날짜를 띄운 복습 기록을 구분해 표시함.
 분류 선택을 고정하고 현재 과정의 목록과 공개 준비 상태를 표시함.
 혼합 모의고사는 두 탭에서 같은 응시 기록을 사용함."""
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QEvent, Qt
 from PyQt6.QtWidgets import QBoxLayout, QWidget
 
 from aiprep import bank, mixed_mock
@@ -46,6 +46,58 @@ class CourseTabs(kit.NavigationTabs):
             QPushButton#tab:disabled {{ color: {color('faint')}; }}
             QPushButton#tab:checked:disabled {{ background: {color(picked)}; }}
         """)
+
+
+TAIL_BAR = 120  # 차시 줄·단원 카드 머리의 읽은 단원 막대 폭
+
+
+class TailRow(kit.Row):
+    """꺾쇠 왼쪽에 tail 위젯(막대와 숫자, 꼬리표 묶음)을 더 둔 목록 줄. 줄바꿈 높이를 잴 때 앞 위젯과 tail 폭도 뺌.
+    줄이 처음 보이기 전에는 새로 넣은 위젯이 아직 숨김 상태라 isHidden 을 보지 않고 늘 폭을 뺌."""
+    tail = None
+
+    def __init__(self, *args, tail=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tail = tail
+        if tail is not None:
+            self.layout().insertWidget(self.layout().indexOf(self.end) + 1, tail, 0, Qt.AlignmentFlag.AlignVCenter)
+
+    def fit_height(self):
+        super().fit_height()
+        if not self.wrap or self.tail is None:
+            return
+        gap = self.text_box.spacing()
+        pad = self.pad if self.least is not None else self.text_box.getContentsMargins()[1]
+        size = lambda widget: widget.sizeHint().expandedTo(widget.minimumSize()).width() + 12
+        width = max(1, self.width() - 2 * self.frameWidth() - 48 - 12 - kit.MARK - (kit.MARK + 12 if self.mark is not None else 0)
+                    - (size(self.lead) if self.lead is not None else 0)
+                    - (size(self.end) if self.end.text() else 0) - size(self.tail))
+        text_height = self.title.heightForWidth(width)
+        if self.second.text():
+            text_height += gap + self.second.heightForWidth(width)
+        self.setFixedHeight(max(self.height(), text_height + 2 * pad))
+
+    def event(self, event):
+        # 글자 크기를 바꾸면 refont 가 줄을 자식보다 먼저 다시 재므로, 자식 크기가 바뀐 뒤 오는 배치 요청 때 한 번 더 잼
+        result = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.fit_height()
+        return result
+
+
+def read_bar(read, total):
+    """읽은 단원 막대와 '읽은 수 / 단원 수' 숫자. 다 읽으면 막대를 success 로 칠함. (묶음, 막대, 숫자)."""
+    out = QWidget()
+    row = kit.box(out, spacing=12, horizontal=True)
+    bar = kit.progress(thin=True)
+    bar.setFixedWidth(TAIL_BAR)
+    bar.setValue(round(100 * read / total) if total else 0)
+    if total and read >= total:
+        kit.set_tone(bar, "success")
+    number = kit.label("%d / %d" % (read, total), "caption", "secondary")
+    row.addWidget(bar, 0, Qt.AlignmentFlag.AlignVCenter)
+    row.addWidget(number, 0, Qt.AlignmentFlag.AlignVCenter)
+    return out, bar, number
 
 
 class GuideLine(QWidget):
@@ -112,6 +164,9 @@ class AiHomePage(QWidget):
         guide_flow = QWidget()
         flow = kit.FlowLayout(guide_flow, spacing=theme.GAP["detail"])
         flow.addWidget(self.guide_btn)
+        self.guide_divider = kit.frame("rowline")  # 두 단추 사이 세로 구분
+        self.guide_divider.setFixedSize(1, 12)
+        flow.addWidget(self.guide_divider)
         flow.addWidget(self.data_btn)
         self.notice = kit.banner("", "danger")
         self.browser.body.addWidget(self.notice)
@@ -122,6 +177,9 @@ class AiHomePage(QWidget):
         self.info = kit.label("", "caption", "secondary")
         self.guide_line = GuideLine(guide_flow, self.info)
         root.addWidget(self.guide_line)
+        self.guide_rule = kit.frame("rowline")
+        self.guide_rule.setFixedHeight(1)
+        root.addWidget(self.guide_rule)
         self.revision_note = kit.para("", "caption", "secondary")
         self.revision_note.hide()
         root.addWidget(self.revision_note)
@@ -131,6 +189,9 @@ class AiHomePage(QWidget):
         head, _, self.lesson_count = kit.section("학습 단원")
         self.course_intro = kit.para("", "body", "secondary")
         root.addWidget(kit.heading(head, self.course_intro))
+        self.lessons_rule = kit.frame("rowline")  # 머리와 차시 목록 사이 1px 가로선
+        self.lessons_rule.setFixedHeight(1)
+        root.addWidget(self.lessons_rule)
         self.lesson_list = kit.RowList(separate=True, least=72, pad=11, gap=4)
         root.addWidget(self.lesson_list)
         self.lesson_empty = kit.para("", "body", "secondary")
@@ -305,7 +366,11 @@ class AiHomePage(QWidget):
 
     def show_next(self, overview):
         target = self.target = ai_text.next_item(overview, self.win.ai.today())
-        self.next_card.set_item(target["title"], target["line"], target["action"])
+        side, line = "", target["line"]
+        if line.startswith("「") and "\n" in line:  # 「단원 이름」 줄은 제목 옆에 두고 나머지 줄을 설명으로 둠
+            side, line = line.split("\n", 1)
+        self.next_card.set_item(target["title"], line, target["action"])
+        self.next_card.set_side(side)
         self.next_card.show()
 
     def show_lessons(self, overview):
@@ -318,8 +383,11 @@ class AiHomePage(QWidget):
                     waiting.append(ai_text.lesson_title(row["no"], row["title"], row.get("course", "intro")))
                 continue
             ready += 1
-            line = kit.Row(ai_text.lesson_title(row["no"], row["title"], row.get("course", "intro")), ai_text.lesson_line(row), "예습" if row["preview"] else "",
-                           kit.Dot(ai_text.lesson_dot(row)), row["id"], wrap=True)
+            tail, line_bar, line_number = read_bar(row["read"], row["units_total"])
+            line = TailRow(ai_text.lesson_title(row["no"], row["title"], row.get("course", "intro")), ai_text.lesson_line(row), "예습" if row["preview"] else "",
+                           kit.Dot(ai_text.lesson_dot(row)), row["id"], strong=True, wrap=True,
+                           lead=kit.number_chip("%02d" % row["no"], "accent", tile=True), tail=tail)
+            line.bar, line.number = line_bar, line_number
             line.clicked.connect(lambda lid=row["id"]: self.open_lesson(lid))
             self.lesson_list.add(line)
         self.lesson_list.add_more(waiting, ai_text.PREPARING)
@@ -442,8 +510,14 @@ class AiLessonPage(QWidget):
         outer.addWidget(self.top)
         inner = kit.dense(QWidget())
         root = kit.box(inner, (0, 16, 0, 24))
-        head, _, self.unit_count = kit.section("단원")
-        root.addWidget(kit.heading(head, kit.para("읽기·단원 연습·날짜를 띄운 복습 확인 기록을 따로 표시합니다.", "caption", "secondary")))
+        self.unit_card, card_box = kit.card(16, 0)
+        self.unit_bar = kit.progress(thin=True)
+        self.unit_bar.setFixedWidth(TAIL_BAR)
+        self.unit_count = kit.label("", "caption", bold=True)
+        head, _ = kit.card_head(kit.heading(kit.label("단원", "headline"), kit.para(
+            "읽기·단원 연습·날짜를 띄운 복습 확인 기록을 따로 표시합니다.", "caption", "secondary")), self.unit_bar, self.unit_count)
+        card_box.addLayout(head)
+        root.addWidget(self.unit_card)
         root.addSpacing(theme.GAP["description_content"])
         self.unit_list = kit.RowList(separate=True, least=64, pad=7, gap=4)  # 두 줄 글 높이 50 + 2 × 7 = 64
         root.addWidget(self.unit_list)
@@ -472,15 +546,26 @@ class AiLessonPage(QWidget):
         self.back_btn.setText("← " + bank.COURSES[self.win.ai.course])
         self.title.show()
         self.unit_list.clear()
-        for unit in data["units"]:
+        for order, unit in enumerate(data["units"], 1):
             dot = "done" if unit.get("practiced") else "progress" if unit["read"] else "todo"
-            row = kit.Row(unit["title"], ai_text.unit_line(unit), " · ".join(ai_text.unit_badges(unit)),
-                          kit.Dot(dot), unit["key"], wrap=True)
+            badges = ai_text.unit_badges(unit)
+            tail = None
+            if badges:
+                tail = QWidget()
+                tail_box = kit.box(tail, spacing=8, horizontal=True)
+                for text in badges:
+                    tail_box.addWidget(kit.badge(text, "accent"), 0, Qt.AlignmentFlag.AlignVCenter)
+            row = TailRow(unit["title"], ai_text.unit_line(unit), "", kit.Dot(dot), unit["key"], wrap=True,
+                          lead=kit.number_chip("%02d" % order, "neutral"), tail=tail)
+            row.badges = [tail_box.itemAt(n).widget() for n in range(tail_box.count())] if badges else []
             row.setToolTip(ai_text.TERMS)
             row.clicked.connect(lambda key=unit["key"]: self.open_unit(key))
             self.unit_list.add(row)
         read = sum(1 for unit in data["units"] if unit["read"])
-        self.unit_count.setText("%d개 중 %d개 읽음" % (len(data["units"]), read))
+        total = len(data["units"])
+        self.unit_count.setText("%d개 중 %d개 읽음" % (total, read))
+        self.unit_bar.setValue(round(100 * read / total) if total else 0)
+        kit.set_tone(self.unit_bar, "success" if total and read >= total else "")
 
     def open_unit(self, key):
         if not self.busy:

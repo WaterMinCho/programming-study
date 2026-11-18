@@ -29,6 +29,7 @@ READ_MIN = 1120  # 카드 하나로 읽는 화면의 시작 폭. 작은 창에�
 DOT_STATES = {"progress": "primary", "review": "retry", "done": "ok", "todo": "faint", "ready": "ok", "lock": "faint"}  # 상태 점의 색 토큰
 PANE_MIN = 320  # 끌어 옮기는 칸 나누기에서 가로로 놓인 칸 하나의 최소 폭
 GRIP = (4, 32)  # 칸 나누기 손잡이 가운데 무늬의 짧은 변과 긴 변
+SEG_EDGE = 1  # 붙은 칩 묶음(segmented)의 바깥 테두리 두께. 간격이 아니라 선이라 SPACE 값이 아님
 
 
 def doc_max():
@@ -182,6 +183,59 @@ def badge(text="", tone=""):
         out.setProperty("tone", tone)
     out.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     return out
+
+
+class NumberChip(QLabel):
+    """번호 칩. 꼬리표와 같은 높이(caption 줄 높이 + 2)이고 모서리 4. 폭은 두 자리 숫자 폭 + 16 이상이라 한 자리 번호도
+    같은 폭으로 줄이 맞음. 글자 크기 단계가 바뀌면 refont 가 폭을 다시 잼."""
+
+    def refont(self):
+        metrics = QFontMetricsF(self.font())
+        if self.property("tile"):  # 정사각 칩. 높이는 스타일시트가 theme.number_tile 로 정함
+            self.setMinimumWidth(theme.number_tile())
+        else:
+            self.setMinimumWidth(max(theme.TYPE["caption"][1] + 2, math.ceil(metrics.horizontalAdvance("00")) + 16))
+        self.updateGeometry()
+
+
+def number_chip(text, tone="", tile=False):
+    """줄 앞 번호 칩. text 는 이미 있는 순번 글('01', '3')이고 tone 은 accent·success·solid(주 색 바탕에 흰 글), neutral 이나 빈 값이면 회색.
+    tile 이면 테두리 1px 를 두른 정사각(theme.number_tile)으로 그림."""
+    out = typed(NumberChip(str(text)), "caption", True)
+    out.setObjectName("badge")
+    out.setProperty("number", True)
+    out.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    if tone and tone != "neutral":
+        out.setProperty("tone", tone)
+    if tile:
+        out.setProperty("tile", True)
+    out.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+    out.refont()
+    return out
+
+
+def segmented(widget, kind="soft"):
+    """칩 묶음 widget 을 붙은 칩 모양으로 바꾸고 돌려줌. kind 는 soft(고르면 강조 바탕에 파란 글)·solid(고르면 파란 바탕에 흰 글).
+    칩 사이 간격을 0, 상자 여백을 테두리 두께 1 로 두고 양 끝 칩에 seg 속성(first·last·only)을 줘 바깥쪽 모서리만 둥글게 함.
+    묶음 높이는 칩 높이 + 2 가 됨. 고름·눌림 동작은 그대로임."""
+    widget.setProperty("segmented", kind)
+    widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+    widget.setSizePolicy(widget.sizePolicy().horizontalPolicy(), QSizePolicy.Policy.Fixed)  # 남는 높이를 받아 테두리가 늘어나지 않게 함
+    layout = widget.layout()
+    if layout is not None:
+        layout.setSpacing(0)
+        layout.setContentsMargins(SEG_EDGE, SEG_EDGE, SEG_EDGE, SEG_EDGE)  # 칩이 묶음 테두리를 덮지 않게 함
+    chips = []
+    for index in range(layout.count() if layout is not None else 0):
+        item = layout.itemAt(index).widget()
+        if isinstance(item, QPushButton) and item.objectName() == "chip":
+            chips.append(item)
+    for index, item in enumerate(chips):
+        item.setProperty("seg", "only" if len(chips) == 1 else "first" if index == 0 else "last" if index == len(chips) - 1 else "middle")
+    for item in [widget] + chips:
+        if item.testAttribute(Qt.WidgetAttribute.WA_WState_Polished):
+            repolish(item)
+    return widget
 
 
 class FirstLine(QWidget):
@@ -594,13 +648,13 @@ class Chevron(QWidget):
 
 
 class Row(QFrame):
-    """목록 줄. 왼쪽 상태 점(없을 수 있음), 제목과 둘째 줄, 오른쪽 caption 과 꺾쇠. 줄 전체를 한 번 누르면 clicked 가 남.
+    """목록 줄. 왼쪽 상태 점(없을 수 있음), 앞 위젯 lead(번호 칩 등, 없을 수 있음), 제목과 둘째 줄, 오른쪽 caption 과 꺾쇠. 줄 전체를 한 번 누르면 clicked 가 남.
     한 줄이면 최소 높이 56, 둘째 줄이 있으면 80을 확보함. wrap이면 긴 글을 줄바꿈하고 그 높이를 더함. 나머지는 줄임표로 줄임.
     올리면 hover 색, 누르면 surface_alt, 키보드 초점은 안쪽 2px 테두리.
     꺼지면 글이 faint 색이 되고 꺾쇠를 그리지 않음(theme.STYLE_V2, Chevron)."""
     clicked = pyqtSignal()
 
-    def __init__(self, title, second="", end="", mark=None, data=None, strong=False, inert=False, wrap=False):
+    def __init__(self, title, second="", end="", mark=None, data=None, strong=False, inert=False, wrap=False, lead=None):
         super().__init__()
         self.setObjectName("row")
         self.data, self.inert, self.down = data, inert, False
@@ -611,6 +665,9 @@ class Row(QFrame):
         self.mark = mark
         if mark is not None:
             row.addWidget(mark, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.lead = lead
+        if lead is not None:
+            row.addWidget(lead, 0, Qt.AlignmentFlag.AlignVCenter)
         self.least, self.pad = None, 12
         text = QWidget()
         column_box = self.text_box = box(text, (0, 12, 0, 12), theme.GAP["detail"])
@@ -673,6 +730,7 @@ class Row(QFrame):
             height = max(self.least, text_height + 2 * pad)
         if self.wrap:
             width = max(1, self.width() - 48 - 12 - MARK - (MARK + 12 if self.mark is not None else 0)
+                        - (self.lead.sizeHint().width() + 12 if self.lead is not None and not self.lead.isHidden() else 0)
                         - (self.end.sizeHint().width() + 12 if self.end.text() else 0))
             text_height = self.title.heightForWidth(width)
             if self.second.text():
@@ -760,13 +818,14 @@ class RowList(QFrame):
     """줄을 세로로 쌓은 흰 목록. 줄 사이에만 line 색 1px 선(좌우 24 들여서). 준비 중 항목은 끝의 글자 단추 하나로 접음.
     flush 면 카드 안 이름표 아래에 두는 목록이라 줄과 선을 들이지 않고 이름표와 같은 세로선에 맞춤.
     separate 면 선 없이 줄마다 따로 테두리 상자가 되고 줄 사이를 8 띄움. 상자 모양은 kit.dense 아래에서만 걸림(theme.STYLE_V2).
-    least 를 주면 더하는 줄마다 Row.set_least(least, pad, gap) 를 부름."""
+    least 를 주면 더하는 줄마다 Row.set_least(least, pad, gap) 를 부름.
+    striped 면 줄 사이 선을 긋지 않고 짝수 번째 줄에 stripe 속성을 줘 surface_alt 바탕을 칠함."""
 
-    def __init__(self, inside_card=False, flush=False, separate=False, least=None, pad=12, gap=8):
+    def __init__(self, inside_card=False, flush=False, separate=False, least=None, pad=12, gap=8, striped=False):
         super().__init__()
         self.setObjectName("rows" if inside_card or flush or separate else "card")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.flush, self.separate = flush, separate
+        self.flush, self.separate, self.striped = flush, separate, striped
         self.least, self.pad, self.gap = least, pad, gap
         self.box = box(self, spacing=8 if separate else 0)
         self.rows, self.lines, self.more_btn, self.more_list = [], [], None, None
@@ -786,7 +845,10 @@ class RowList(QFrame):
             repolish(row)
         if self.least is not None:
             row.set_least(self.least, self.pad, self.gap)
-        if self.rows and not self.separate:
+        if self.striped and len(self.rows) % 2:
+            row.setProperty("stripe", True)
+            repolish(row)
+        if self.rows and not self.separate and not self.striped:
             line = frame("rowline")
             line.setFixedHeight(1)
             line.setContentsMargins(0, 0, 0, 0)
@@ -913,13 +975,14 @@ class FlowLayout(QLayout):
 class Stepper(QWidget):
     """미션 단계 표시. steps 는 (번호, 이름, 상태) 목록이고 상태는 done·now·skip·lock. 원 28, 원 사이 2px 선, 끝난 구간은 link 색.
     이름표는 caption 14 이고 지금 단계만 굵게, 잠긴 단계는 번호만 보임(이름 없음). 높이 56 의 줄 안에서 그림.
-    dense 면 높이 48(CONTROL["stepper_dense"]) 의 줄 안에서 그림."""
+    dense 면 높이 48(CONTROL["stepper_dense"]) 의 줄 안에서 그리고, 원 사이 선을 CONN_MAX 대신 DENSE_CONN_MAX 까지 늘려 줄 폭을 채움."""
 
-    CIRCLE, GAP, LABEL_MAX, CONN_MIN, CONN_MAX = 28, 8, 120, 16, 160
+    CIRCLE, GAP, LABEL_MAX, CONN_MIN, CONN_MAX, DENSE_CONN_MAX = 28, 8, 120, 16, 160, 400
 
     def __init__(self, dense=False):
         super().__init__()
         self.steps = []
+        self.dense = dense
         self.setFixedHeight(theme.CONTROL["stepper_dense" if dense else "stepper"] - 1)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -946,7 +1009,7 @@ class Stepper(QWidget):
                   for _, title, state in self.steps]
         conns = max(0, len(self.steps) - 1)
         room = self.width() - sum(widths) - conns * 24
-        conn = max(self.CONN_MIN, min(self.CONN_MAX, room / conns)) if conns else 0
+        conn = max(self.CONN_MIN, min(self.DENSE_CONN_MAX if self.dense else self.CONN_MAX, room / conns)) if conns else 0
         x, middle = 0.0, float(self.height() // 2)  # 정수 줄에 맞춰 2px 선과 원이 반 화소로 번지지 않게
         for number, ((no, title, state), width) in enumerate(zip(self.steps, widths)):
             circle = QRectF(x, middle - self.CIRCLE / 2, self.CIRCLE, self.CIRCLE)
@@ -1304,8 +1367,9 @@ class BottomBar(QFrame):
 
 class NextCard(QFrame):
     """홈 화면 맨 위의 이어서 할 일 카드. caption, title 제목, body 설명 줄(여러 줄일 수 있음), 오른쪽 아래 주 단추 l(화면에 하나뿐인 주 단추).
-    compact 면 caption 이 accent 꼬리표, 제목이 headline, 단추가 m 이고 오른쪽 가운데에 옴. 여백 24·16, 최소 높이 108,
-    바탕은 emphasis_bg 한 색과 hero_edge 테두리."""
+    compact 면 caption 이 accent 꼬리표, 제목이 headline, 단추가 m 이고 오른쪽 가운데에 옴. 여백 24·16, 글 사이 4, 최소 높이 108,
+    바탕은 emphasis_bg 한 색과 hero_edge 테두리(plain_next 속성을 주면 surface 바탕과 line 테두리).
+    set_side 로 제목 오른쪽에 body secondary 옆 글을 둘 수 있음. 한 줄에 안 들어가면 옆 글이 제목 아래로 내려가고 빈 글이면 숨김."""
 
     def __init__(self, compact=False):
         super().__init__()
@@ -1326,9 +1390,21 @@ class NextCard(QFrame):
         else:
             self.caption = label("이어서 할 일", "caption", "teal", bold=True)
         self.title = para("", "headline" if compact else "title")
+        self.side = para("", "body", "secondary")
         self.line = para("", "body", "secondary")
+        self.title_box = QWidget()
+        self.title_row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self.title_box)
+        self.title_row.setContentsMargins(0, 0, 0, 0)
+        self.title_row.setSpacing(theme.GAP["title_description"])
+        self.title_row.addWidget(self.title, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.title_row.addWidget(self.side, 1, Qt.AlignmentFlag.AlignVCenter)
         column_box.addWidget(self.caption)
-        column_box.addWidget(heading(self.title, self.line))
+        self.head = heading(self.title_box, self.line)
+        column_box.addWidget(self.head)
+        if compact:  # 보통 글자에서 꼬리표 24·제목·설명 한 줄이 최소 높이 108 안에 들게 꼬리표-제목, 제목-설명 사이를 4 로 좁힘
+            column_box.setSpacing(theme.SPACE[0])
+            self.head.layout().setSpacing(theme.SPACE[0])
+        self.side.hide()
         self.row.addWidget(self.text_box, 1)
         self.button = button("", "primary", "m" if compact else "l")
         place = Qt.AlignmentFlag.AlignVCenter if compact else Qt.AlignmentFlag.AlignBottom
@@ -1343,13 +1419,26 @@ class NextCard(QFrame):
         self.button.setVisible(bool(action))
         self.arrange()
 
+    def set_side(self, text):
+        """제목 오른쪽 옆 글. 빈 글이면 숨김."""
+        self.side.setText(text)
+        self.side.setVisible(bool(text))
+        self.arrange()
+
     def arrange(self):
-        """좁은 카드에서는 단추를 글 아래에 둬 제목과 설명의 폭을 확보함."""
+        """좁은 카드에서는 단추를 글 아래에 둬 제목과 설명의 폭을 확보함. 옆 글이 제목과 한 줄에 안 들어가면 제목 아래로 내림."""
         margins = self.row.contentsMargins()
-        room = self.width() - margins.left() - margins.right() - self.button.sizeHint().width() - self.row.spacing()
+        width = self.width() - margins.left() - margins.right()
+        room = width - self.button.sizeHint().width() - self.row.spacing()
         minimum = 24 * theme.TYPE["body"][0] if self.line.isVisibleTo(self) else 12 * theme.TYPE["headline"][0]
         stacked = not self.button.isHidden() and room < minimum
         self.row.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
+        text_room = width if stacked or self.button.isHidden() else room
+        widths = [math.ceil(max(QFontMetricsF(part.font()).horizontalAdvance(line) for line in part.text().split("\n"))) + 2
+                  for part in (self.title, self.side)]
+        below = not self.side.isHidden() and sum(widths) + self.title_row.spacing() > text_room
+        self.title_row.setDirection(QBoxLayout.Direction.TopToBottom if below else QBoxLayout.Direction.LeftToRight)
+        self.title_row.setAlignment(self.side, Qt.AlignmentFlag.AlignLeft if below else Qt.AlignmentFlag.AlignVCenter)
 
     def refont(self):
         self.arrange()

@@ -38,6 +38,8 @@ class NavigationTest(HubTest):
                 self.assertEqual(tid, win.area)
                 self.assertTrue(button.isChecked())
                 self.assertEqual(1, sum(item.isChecked() for item in buttons.values()))
+                back = button.grab().toImage().pixelColor(button.width() - 6, button.height() // 2)
+                self.assertEqual(theme.qcolor("emphasis_bg").name(), back.name())  # 고른 줄은 연한 파랑 바탕에 파란 글
                 metrics = QFontMetricsF(theme.font("label", True))
                 self.assertLessEqual(metrics.horizontalAdvance(button.text()), button.text_rect().width())
                 self.assertLessEqual(metrics.height(), button.text_rect().height())

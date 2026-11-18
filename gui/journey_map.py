@@ -37,6 +37,7 @@ CARD_GAP = 16  # 띠·이어서 할 일·두 구역 카드 사이
 COLUMN_GAP = 20  # 두 구역 사이
 INTRO_WIDTH = 640  # 던전 소개 글의 최대 폭. 목록 카드가 넓어도 한 줄이 이보다 길어지지 않음
 LEGEND_ITEMS = (("cleared", "클리어"), ("progress", "진행 중"), ("todo", "시작 전"), ("waiting", "준비 중"))
+STATE_TONE = {"cleared": "success", "progress": "accent"}  # 목록 머리 상태 꼬리표의 색. 시작 전·준비 중은 회색
 ARROWS = {Qt.Key.Key_Left: (0, -1), Qt.Key.Key_Right: (0, 1), Qt.Key.Key_Up: (-1, 0), Qt.Key.Key_Down: (1, 0)}  # 화면의 이웃: (줄, 칸)
 
 ABOUT = "코딩 테스트 유형을 던전 %d개로 나눴습니다. 던전마다 문제를 차례로 풀고 보스 문제로 마무리합니다."
@@ -353,6 +354,40 @@ class Legend(QFrame):
             self.items.append(item)
 
 
+def paint_next(line):
+    """이어서 할 일 줄의 강조 바탕. 촘촘한 화면의 떨어진 줄(separate) 규칙이 next_row 규칙보다 구체적이라 줄 자신의 스타일시트로 칠함.
+    올림·누름 바탕은 그대로 보이게 같은 시트에 다시 적음. 테마가 바뀌면 restyle 이 다시 부름."""
+    line.setStyleSheet('QFrame#row { background: %s; } QFrame#row[over="true"] { background: %s; } QFrame#row[down="true"] { background: %s; }'
+                       % (theme.color("emphasis_bg"), theme.color("hover"), theme.color("surface_alt")))
+
+
+class TagLine(QWidget):
+    """던전 카드의 주제·보스 난이도 줄. dungeon_lines 첫 줄을 " · "(앞뒤 빈칸)로 나눈 조각마다 회색 꼬리표를 두고 폭이 모자라면
+    다음 줄로 넘김. 주제 안의 "해시·투 포인터" 처럼 붙은 가운뎃점에서는 자르지 않음. 보스 난이도 꼬리표에는 난이도 도움말을 둠.
+    text() 는 조각을 다시 이은 글이라 앞의 한 줄 글과 같음."""
+
+    def __init__(self):
+        super().__init__()
+        self.flow = kit.FlowLayout(self, 8)
+        self.tags, self.line = [], ""
+
+    def set_line(self, text, tip=""):
+        for tag in self.tags:
+            self.flow.removeWidget(tag)
+            tag.hide()
+            tag.deleteLater()
+        self.line = text
+        self.tags = [kit.badge(part) for part in text.split(" · ") if part]
+        for tag in self.tags:
+            if tag.text().startswith("보스 난이도"):
+                tag.setToolTip(tip)
+            self.flow.addWidget(tag)
+        self.updateGeometry()
+
+    def text(self):
+        return self.line
+
+
 class JourneyMapPage(QWidget):
     def __init__(self, win):
         super().__init__()
@@ -414,7 +449,7 @@ class JourneyMapPage(QWidget):
         self.passed = kit.label("", "caption", "secondary")
         map_head = QWidget()
         map_head_box = kit.box(map_head, (24, 0, 24, 0))
-        map_head_box.addLayout(kit.card_head("던전 지도", self.passed)[0])
+        map_head_box.addWidget(kit.heading(kit.label("던전 지도", "headline"), self.passed))  # 진도 글은 제목 아래 작은 글
         self.view = MapView()
         self.view.setMinimumWidth(WIDTH_HINT)  # 3:5 몫이 이보다 좁으면 던전 이름이 줄임표로 더 줄어듦. 카드 머리가 더 넓으면 카드는 머리를 따름
         self.legend = Legend()
@@ -432,13 +467,19 @@ class JourneyMapPage(QWidget):
         right_box = kit.box(right)
         self.card, card_box = kit.card(0, 0)
         self.title = kit.label("", "headline")
+        self.state_tag = kit.badge()  # 고른 던전의 지도 상태. 범례와 같은 이름
+        title_row = QWidget()
+        title_box = kit.box(title_row, spacing=8, horizontal=True)
+        title_box.addWidget(self.title, 0, Qt.AlignmentFlag.AlignVCenter)
+        title_box.addWidget(self.state_tag, 0, Qt.AlignmentFlag.AlignVCenter)
+        title_box.addStretch(1)
         self.count = kit.label("", "caption", "secondary")
         card_head = QWidget()
-        kit.box(card_head, (24, 24, 24, 0)).addLayout(kit.card_head(self.title, self.count)[0])
+        kit.box(card_head, (24, 24, 24, 0)).addLayout(kit.card_head(title_row, self.count)[0])
         card_box.addWidget(card_head)
         lines = QWidget()
-        lines_box = kit.box(lines, (24, 16, 24, 8), 4)
-        self.meta = kit.para("", "caption", "secondary")  # 주제와 보스 난이도. 도움말은 난이도를 풀어 씀
+        lines_box = kit.box(lines, (24, 16, 24, 8), 8)
+        self.meta = TagLine()  # 주제와 보스 난이도 꼬리표. 보스 난이도 꼬리표의 도움말은 난이도를 풀어 씀
         self.meta_more = kit.para("", "caption", "secondary")  # 권장 선행 던전(있을 때만)
         lines_box.addWidget(self.meta)
         lines_box.addWidget(self.meta_more)
@@ -490,8 +531,31 @@ class JourneyMapPage(QWidget):
         direction = self.columns.Direction.LeftToRight if width >= needed else self.columns.Direction.TopToBottom
         self.columns.setDirection(direction)
 
+    @staticmethod
+    def fit_row(line):
+        """좁은 창·큰 글자에서 줄의 글이 칩 때문에 줄임표로 줄지 않게 함. 글 칸 폭은 줄 폭에서 여백 24·24, 점·칩·끝 글·꺾쇠와 사이 12 를 뺀 값.
+        준비 문제 꼬리표는 제목 전체와 한 줄에 들어갈 때만 제목 바로 뒤에 두고, 아니면 숨기고 같은 글을 둘째 줄 끝에 " · " 로 이어 씀.
+        보스 줄의 끝 글 "보스" 는 둘째 줄(여는 조건)이 들어갈 때만 보임. 같은 말이 줄 앞 칩에 있음."""
+        def width(part):  # 점·꺾쇠는 크기를 고정해 sizeHint 가 없음
+            return max(part.sizeHint().width(), part.minimumWidth())
+
+        room = line.width() - 48 - sum(width(part) + 12 for part in (line.mark, line.lead, line.chevron)) - 12
+        if line.boss_lead:
+            line.end.setVisible(line.second.sizeHint().width() <= room - width(line.end) - 12)
+        if not line.end.isHidden():
+            room -= width(line.end) + 12
+        if getattr(line, "prep", None) is not None:
+            fits = line.title.sizeHint().width() + 8 + line.prep.sizeHint().width() <= room
+            line.prep.setVisible(fits)
+            line.second.setText(line.base_second if fits else " · ".join(part for part in (line.base_second, line.prep.text()) if part))
+            line.second.setVisible(bool(line.second.text()))
+
     def eventFilter(self, watched, event):
-        if hasattr(self, "scroll") and watched is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
+        if hasattr(watched, "boss_lead") and event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest):  # 글자 단계가 바뀌면 LayoutRequest
+            if event.type() == QEvent.Type.LayoutRequest:
+                self.even_leads()
+            self.fit_row(watched)
+        elif hasattr(self, "scroll") and watched is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
             self.arrange_columns()
         elif hasattr(self, "column_body") and watched is self.column_body and event.type() == QEvent.Type.LayoutRequest:
             QTimer.singleShot(0, self.arrange_columns)
@@ -540,7 +604,8 @@ class JourneyMapPage(QWidget):
         if target is None:
             self.next_note.setText(ALL_CLEAR if overview["ready"] else NO_DUNGEON)
             return
-        self.next_card.set_item(target["title"], item_line(target), target["action"])
+        self.next_card.set_item(target["title"], "", target["action"])
+        self.next_card.set_side(item_line(target))
 
     def show_cache(self, info):
         """[캐시 비우기]는 캐시가 1MB 이상일 때만 보임. 막대 끝이 글자 단추([캐시 비우기])면 오른쪽 여백을 FLUSH 만큼 줄이고,
@@ -559,10 +624,13 @@ class JourneyMapPage(QWidget):
         info = self.info = self.win.journey.dungeon(did)
         numbers = {row["id"]: row["no"] for row in (self.overview or {"dungeons": []})["dungeons"]}
         self.title.setText(place(info))
+        row = next((row for row in (self.overview or {"dungeons": []})["dungeons"] if row["id"] == did), None)
+        state = MapView.state(row) if row else "waiting"
+        self.state_tag.setText(dict(LEGEND_ITEMS)[state])
+        kit.set_tone(self.state_tag, STATE_TONE.get(state, ""))
         self.count.setText(dungeon_count(info))
         lines = dungeon_lines(info, numbers)
-        self.meta.setText(lines[0])
-        self.meta.setToolTip(tier_tip(info["boss_target"], boss=True))
+        self.meta.set_line(lines[0], tier_tip(info["boss_target"], boss=True))
         self.meta_more.setText(lines[1] if len(lines) > 1 else "")
         self.meta_more.setVisible(len(lines) > 1)
         ready = info["ready"]
@@ -585,8 +653,12 @@ class JourneyMapPage(QWidget):
         self.arrange_columns()
 
     def fill_list(self):
-        """문제 목록 줄. 앞 점은 통과 done, 시도함 progress, 안 함 todo, 잠긴 보스 lock 이고 끝 caption 은 역할. 미리 고른 줄은 없음."""
+        """문제 목록 줄. 앞 점은 통과 done, 시도함 progress, 안 함 todo, 잠긴 보스 lock 이고 그 뒤에 번호 칩(보스는 역할 이름 칩), 끝 caption 은 역할.
+        둘째 줄(row_line)의 번호 조각은 칩이 보이므로 빼고, 준비 문제 조각은 제목 옆 회색 꼬리표로 옮김(자리가 모자라면 fit_row 가 둘째 줄 끝에 둠).
+        줄의 접근 이름은 번호와 제목.
+        이어서 할 일과 같은 문제 줄은 강조 바탕(next_row)과 주 색으로 채운 번호 칩. 미리 고른 줄은 없음."""
         info = self.info
+        target = self.target or {}
         for row in info["problems"]:
             if row["locked"]:
                 state = "lock"
@@ -597,8 +669,32 @@ class JourneyMapPage(QWidget):
             dot = kit.Dot(state)
             if row["locked"]:
                 dot.setToolTip("잠김")
-            line = kit.Row(row["title"], row_line(row, info), row["role_label"], dot, row["id"], strong=row["role"] == "boss",
-                           inert=row["locked"])
+            boss = row["role"] == "boss"
+            pieces = row_line(row, info).split(" · ")
+            if not row["locked"] and not boss and pieces[0] == row["no"]:
+                pieces = pieces[1:]
+            prep = pieces.pop() if pieces and pieces[-1].startswith("준비 문제 ") else ""
+            upnext = (target.get("did"), target.get("pid")) == (self.did, row["id"])
+            chip = kit.number_chip(row["role_label"] if boss else row["no"], "solid" if upnext else "accent" if boss else "")
+            line = kit.Row(row["title"], " · ".join(pieces), row["role_label"], dot, row["id"], strong=boss, inert=row["locked"],
+                           lead=chip)
+            line.setAccessibleName(row["title"] if boss else "%s %s" % (row["no"], row["title"]))
+            line.base_second = " · ".join(pieces)
+            line.boss_lead = boss
+            line.installEventFilter(self)  # 폭이 바뀌면 fit_row 가 칩과 꼬리표 자리를 다시 정함
+            if prep:
+                line.prep = kit.badge(prep)
+                title_row = QWidget()
+                title_box = kit.box(title_row, spacing=8, horizontal=True)
+                line.text_box.replaceWidget(line.title, title_row)
+                title_box.addWidget(line.title, 0, Qt.AlignmentFlag.AlignVCenter)
+                title_box.addWidget(line.prep, 0, Qt.AlignmentFlag.AlignVCenter)
+                title_box.addStretch(1)
+                line.title.setSizePolicy(QSizePolicy.Policy.Preferred, line.title.sizePolicy().verticalPolicy())  # 글 폭까지만 받고 꼬리표가 바로 뒤에 옴
+                line.title.setMinimumWidth(1)
+            if upnext:
+                line.setProperty("next_row", True)
+                paint_next(line)
             if row["locked"]:  # 숨긴 꺾쇠 자리를 남겨 끝 caption "보스" 가 다른 줄의 역할과 같은 열에 옴
                 policy = line.chevron.sizePolicy()
                 policy.setRetainSizeWhenHidden(True)
@@ -606,6 +702,17 @@ class JourneyMapPage(QWidget):
             line.clicked.connect(lambda pid=row["id"]: self.open_problem(pid))
             line.setEnabled(not self.busy)
             self.rows.add(line)
+        self.even_leads()
+
+    def even_leads(self):
+        """줄 앞 칩을 가장 넓은 칩("보스")의 폭으로 맞춰 제목이 같은 세로선에서 시작하게 함. 칩마다의 폭은 kit.NumberChip.refont 와 같은 셈에
+        글 폭을 더해 잼. 글자 단계가 바뀌면 줄의 LayoutRequest 에서 다시 부름."""
+        leads = [line.lead for line in self.rows.rows]
+        least = max(theme.TYPE["caption"][1] + 2, math.ceil(QFontMetricsF(theme.font("caption", True)).horizontalAdvance("00")) + 16)
+        widest = max([least] + [lead.sizeHint().width() for lead in leads])
+        for lead in leads:
+            if lead.minimumWidth() != widest:
+                lead.setMinimumWidth(widest)
 
     def focus_rows(self, did):
         """지도에서 Enter·Space 를 누르면 그 던전의 첫 열 수 있는 줄로 초점을 옮김."""
@@ -676,6 +783,11 @@ class JourneyMapPage(QWidget):
         self.intro.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
         self.lang_bar.fit()
         self.view.refont()
+        self.even_leads()
+        for line in self.rows.rows:
+            if line.property("next_row"):
+                paint_next(line)
+            self.fit_row(line)
         self.arrange_columns()
         for widget in self.findChildren(kit.Dot) + self.findChildren(Mark) + self.findChildren(kit.Chevron):
             widget.update()

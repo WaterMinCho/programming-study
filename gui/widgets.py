@@ -519,6 +519,7 @@ class CodePanel(QWidget):
         split = QSplitter(Qt.Orientation.Vertical)
         self.editor = CodeEditor(lang=lang or PYTHON, paste=paste)
         self.console = QTextBrowser()
+        self.console.setObjectName("console")  # theme.STYLE_V2 가 테두리 line·모서리 8 로 그림
         self.console.setOpenLinks(False)
         split.addWidget(self.editor)
         split.addWidget(self.console)
@@ -530,7 +531,9 @@ class CodePanel(QWidget):
         self.console_html = ""
 
     def arrange(self):
-        need = self.hint.minimumSizeHint().width() + self.reset_btn.sizeHint().width() + self.top.spacing()
+        """안내와 복원 단추가 한 줄에 안 들어가면 세로로 쌓음. 화면이 복원 단추를 다른 자리로 옮겼으면 안내 폭만 봄."""
+        here = self.top.indexOf(self.reset_btn) >= 0
+        need = self.hint.minimumSizeHint().width() + (self.reset_btn.sizeHint().width() + self.top.spacing() if here else 0)
         vertical = self.isVisible() and self.width() < need
         self.top.setDirection(self.top.Direction.TopToBottom if vertical else self.top.Direction.LeftToRight)
         self.top.setStretch(0, 0 if vertical else 1)

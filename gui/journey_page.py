@@ -17,7 +17,7 @@ import time
 
 from PyQt6.QtCore import QEvent, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QGuiApplication, QKeySequence, QShortcut, QTextCursor
-from PyQt6.QtWidgets import QButtonGroup, QSizePolicy, QStackedWidget, QWidget
+from PyQt6.QtWidgets import QButtonGroup, QFrame, QSizePolicy, QStackedWidget, QWidget
 
 from gui import kit, motion, theme
 from gui.cases_dialog import CasesDialog
@@ -55,6 +55,8 @@ RESULT_SPLIT = 340 / 608  # 펼친 결과 카드에서 편집기가 받는 처�
 TITLE_MIN, TITLE_CAP = 120, 260  # 위 막대 문제 이름의 가장 좁은 폭과 다 보이는 상한(보통 headline 22px 기준, 글자에 비례)
 STATUS_LOW, STATUS_MAX = 120, 420  # 위 막대 상태 글의 하한(보통 caption 14px 기준, 글자에 비례)과 상한. 넘으면 두 줄
 STATUS_GAP = 4  # 번호와 상태 글 사이를 막대 간격 12 에 더해 16 으로 둠
+TAB_COUNT = re.compile(r"(.+) (\d+/\d+)\Z")  # "힌트 1/3" 처럼 숫자 꼬리표로 나눠 그리는 탭 글
+COUNT_GAP = 6  # 탭 글과 숫자 꼬리표 사이
 SAVE_ERROR = "코드를 저장하지 못했습니다"  # 저장 실패를 창으로 알릴 때의 첫 문장. 서비스 문구도 이것으로 시작함
 
 
@@ -135,7 +137,7 @@ def ask_node(win, on_ready, first=""):
 
 
 class LangChips(QWidget):
-    """풀이 언어 칩 두 개와 "Node.js 필요" 글자. 누르면 picked(언어)를 내고, 고른 언어는 부른 쪽이 set_lang 으로 표시함.
+    """풀이 언어 칩 두 개를 붙인 묶음(kit.segmented soft)과 "Node.js 필요" 글자. 누르면 picked(언어)를 내고, 고른 언어는 부른 쪽이 set_lang 으로 표시함.
     칩은 누르는 순간 체크가 옮겨 가므로 Node.js 가 없어 거절할 때는 부른 쪽이 set_lang(지금 언어)로 되돌림.
     onbg 면 회색 바탕 위의 칩(지도 위 막대)이고 앞에 "풀이 언어" 이름표를 둠. 칩의 최소 폭은 글자 폭(fit)이라 좁은 막대에서도 글자가 잘리지 않음."""
     picked = pyqtSignal(str)
@@ -144,16 +146,21 @@ class LangChips(QWidget):
         super().__init__(parent)
         row = kit.box(self, spacing=8, horizontal=True)
         if onbg:
-            row.addWidget(kit.label("풀이 언어", "caption", "tertiary"))
+            row.addWidget(kit.label("풀이 언어", "caption", "tertiary"), 0, Qt.AlignmentFlag.AlignVCenter)
         self.group = QButtonGroup(self)
         self.group.setExclusive(True)
         self.buttons = {}
+        self.chips = QWidget()  # 두 칩을 붙인 묶음. 이름표와 "Node.js 필요" 는 묶음 밖에 둠
+        chips_box = kit.box(self.chips, horizontal=True)
         for lang, text in LANG_LABEL.items():
             chip = kit.chip(text, lang, onbg)
+            chip.setProperty("scale", "s")
             chip.clicked.connect(lambda checked=False, lang=lang: self.picked.emit(lang))
             self.group.addButton(chip)
-            row.addWidget(chip)
+            chips_box.addWidget(chip)
             self.buttons[lang] = chip
+        kit.segmented(self.chips, "soft")
+        row.addWidget(self.chips, 0, Qt.AlignmentFlag.AlignVCenter)
         self.note = kit.label("Node.js 필요", "caption", "tertiary")
         self.note.setToolTip("JavaScript 로 풀려면 Node.js %d 이상이 필요합니다." % MIN_MAJOR)
         self.note.hide()
@@ -167,7 +174,8 @@ class LangChips(QWidget):
             chip.setChecked(name == lang)
 
     def fit(self):
-        """칩마다 최소 폭을 지금 글자의 폭으로 묶음. 글자 크기 단계가 바뀌면 화면의 restyle 이 다시 부름."""
+        """칩마다 최소 폭을 지금 글자의 폭으로 묶음. 칩은 s 단추 높이(보통 32)이고 묶음은 테두리만큼 2 더 높음.
+        글자 크기 단계가 바뀌면 화면의 restyle 이 다시 부름."""
         for chip in self.buttons.values():
             pin(chip)
 
@@ -200,7 +208,8 @@ def text_width(widget, text):
 
 
 class TabBarStack(QWidget):
-    """지문 카드의 탭 막대(kit.TabBar)와 그 아래 쌓인 칸. QTabWidget 처럼 tabText·setTabText·setCurrentIndex·currentIndex·currentChanged 를 씀."""
+    """지문 카드의 탭 막대(kit.TabBar)와 그 아래 쌓인 칸. QTabWidget 처럼 tabText·setTabText·setCurrentIndex·currentIndex·currentChanged 를 씀.
+    탭 글이 "힌트 1/3" 꼴이면 단추에는 "힌트" 만 쓰고 "1/3" 은 그 오른쪽 회색 꼬리표로 그림. tabText 와 단추의 접근 이름은 넘긴 글 그대로임."""
     currentChanged = pyqtSignal(int)
 
     def __init__(self, names, pages):
@@ -212,13 +221,52 @@ class TabBarStack(QWidget):
             self.stack.addWidget(page)
         box.addWidget(self.bar)
         box.addWidget(self.stack, 1)
+        self.texts = {}  # setTabText 로 넘긴 글 {번호: 글}
+        self.counts = {}  # 숫자 꼬리표 {번호: QLabel}
         self.bar.picked.connect(self.setCurrentIndex)
 
     def tabText(self, number):
-        return self.bar.buttons[number].text()
+        return self.texts.get(number, self.bar.buttons[number].text())
 
     def setTabText(self, number, text):
-        self.bar.buttons[number].setText(text)
+        self.texts[number] = text
+        button = self.bar.buttons[number]
+        found = TAB_COUNT.match(text)
+        count = self.counts.get(number)
+        if found and count is None:
+            count = self.counts[number] = kit.badge()
+            count.setParent(button)
+            count.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            button.installEventFilter(self)
+        button.setText(found.group(1) if found else text)
+        button.setAccessibleName(text)
+        if count is not None:
+            count.setText(found.group(2) if found else "")
+            count.setVisible(bool(found))
+            self.place_count(number)
+
+    def place_count(self, number):
+        """숫자 꼬리표 자리. 단추 오른쪽 안쪽 여백을 꼬리표 폭 + COUNT_GAP 으로 넓혀 그 자리에 꼬리표를 둠. 아래 선(2)을 뺀 높이의 가운데."""
+        button, count = self.bar.buttons[number], self.counts[number]
+        count.ensurePolished()
+        count.resize(count.sizeHint())
+        room = count.width() + COUNT_GAP if count.isVisibleTo(button) else 0
+        sheet = "QPushButton#tab { padding-right: %dpx; }" % room if room else ""
+        if button.styleSheet() != sheet:
+            button.setStyleSheet(sheet)
+        count.move(button.width() - count.width(), (button.height() - 2 - count.height()) // 2)
+
+    def refont(self):
+        """글자 크기 단계가 바뀌면 꼬리표 폭과 단추 여백을 다시 잡음."""
+        for number in self.counts:
+            self.place_count(number)
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.Resize:
+            for number, count in self.counts.items():
+                if self.bar.buttons[number] is watched:
+                    self.place_count(number)
+        return super().eventFilter(watched, event)
 
     def currentIndex(self):
         return self.stack.currentIndex()
@@ -258,20 +306,28 @@ class PrepLink(LinkLabel):
 
 
 class FactLine(QWidget):
-    """문제 탭 맨 위의 지문 머리(DocView.set_head). caption secondary 줄 하나나 둘, 줄 사이 4.
-    첫 줄은 난이도와 지금 언어의 시간 제한, 둘째 줄은 역할마다 다름: 보스는 이 보스에 쓰는 앞 문제, 선택 문제는 보스와 상관없다는 말,
-    중급은 준비 문제 링크와 통과 꼬리표. 링크를 누르면 opened(문제 id)를 냄. text() 는 보이는 글을 이은 것(시험용)."""
+    """문제 탭의 지문 머리. 첫 줄(난이도와 지금 언어의 시간 제한)은 탭 막대 아래 카드 전폭 강조 띠(band, 좌우 24·위아래 8)에 두고
+    문제 화면이 문제 탭에서만 보임. 이 위젯은 둘째 줄을 담아 DocView.set_head 로 지문 맨 위에 둠. 둘째 줄은 역할마다 다름:
+    보스는 이 보스에 쓰는 앞 문제, 선택 문제는 보스와 상관없다는 말, 중급은 준비 문제 링크와 통과 꼬리표. 둘째 줄이 없으면 숨음.
+    링크를 누르면 opened(문제 id)를 냄. text() 는 보이는 글을 이은 것(시험용)."""
     opened = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
-        box = kit.box(self, spacing=4)
+        box = kit.box(self)
+        self.band = QFrame(self)  # 문제 화면이 탭 막대 아래로 옮겨 넣음
+        self.band.setObjectName("fact_band")
         self.first = kit.para("", "caption", "secondary")
+        kit.box(self.band, (24, 8, 24, 8)).addWidget(self.first)
+        self.paint_band()
         self.second = QWidget()
         self.second_box = kit.box(self.second, spacing=8, horizontal=True)
-        box.addWidget(self.first)
         box.addWidget(self.second)
         self.links = []
+
+    def paint_band(self):
+        """띠 바탕을 지금 테마의 emphasis_bg 로 칠함. 테마가 바뀌면 문제 화면의 restyle 이 다시 부름."""
+        self.band.setStyleSheet("QFrame#fact_band { background: %s; border: 0; }" % theme.color("emphasis_bg"))
 
     def set_problem(self, data, lang):
         self.first.setText(fact_line(data, lang))
@@ -298,6 +354,7 @@ class FactLine(QWidget):
                     self.second_box.addWidget(kit.badge("통과", "success"))
             self.second_box.addStretch(1)
         self.second.setVisible(self.second_box.count() > 0)
+        self.setVisible(self.second_box.count() > 0)
 
     def text(self):
         parts = [self.first.text()]
@@ -428,10 +485,10 @@ class JourneyPage(QWidget):
         self.title.show()
         self.top.row.setStretchFactor(self.title, 0)
         self.title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        self.heads = QWidget()  # 역할 꼬리표와 번호
+        self.heads = QWidget()  # 역할 꼬리표와 번호 칩
         heads_box = kit.box(self.heads, spacing=8, horizontal=True)
         self.badge = kit.badge()
-        self.number = kit.label("", "caption", "tertiary")
+        self.number = kit.number_chip("", "neutral")
         heads_box.addWidget(self.badge, 0, Qt.AlignmentFlag.AlignVCenter)
         heads_box.addWidget(self.number, 0, Qt.AlignmentFlag.AlignVCenter)
         self.status = kit.para("", "caption", "tertiary")  # 동작 결과 한 문장. 두 줄까지
@@ -476,6 +533,8 @@ class JourneyPage(QWidget):
         explain_box.addWidget(self.next_box)
         self.explain_view.set_tail(self.explain_tail, flush=True)
         self.tabs = TabBarStack(["문제", "힌트", "해설"], self.views)
+        self.tabs.layout().insertWidget(1, self.facts.band)  # 탭 막대 아래 선 바로 밑, 카드 전폭
+        self.tabs.currentChanged.connect(lambda number: self.facts.band.setVisible(number == 0))
         self.problem_card, card_box = kit.card(0, 0)
         card_box.addWidget(self.tabs)
 
@@ -704,6 +763,7 @@ class JourneyPage(QWidget):
         data = self.data
         self.title.setText(data["title"])
         self.badge.setText(data["role_label"])
+        kit.set_tone(self.badge, "accent" if data["role"] == "boss" else "")  # 보스는 번호 칩 "던전 N 보스" 와 겹쳐 보여 꼬리표 색만 다르게 둠
         self.number.setText(number_text(data))
         self.facts.set_problem(data, self.lang)
         self.facts.setEnabled(not self.busy)
@@ -1121,6 +1181,7 @@ class JourneyPage(QWidget):
         다시 그림. 읽던 자리는 지킴. 글 폭이 바뀌므로 칸 폭, 위 막대, 접힌 카드 높이도 다시 잡음."""
         for view in self.views:
             view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
+        self.facts.paint_band()
         self.code_panel.editor.setFont(theme.code_font(theme.text_px()))
         self.result.redraw()
         self.code_panel.refit()

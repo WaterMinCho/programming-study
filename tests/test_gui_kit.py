@@ -97,6 +97,15 @@ class ContrastTest(unittest.TestCase):
                 for back in ("bg", "surface", "surface_alt"):
                     self.assertGreaterEqual(contrast(tokens[ink], tokens[back]), 4.5, "%s: %s / %s" % (scheme, ink, back))
 
+    def test_new_backs_keep_text_readable(self):
+        """새로 쓰는 바탕 위 글자: 판정 입력칸 약한 바탕 위 글·안내 글, 미응답 꼬리표, 진급 꼬리표, 강조 바탕 위 파란 글(붙은 칩·이어서 할 일 줄)."""
+        pairs = [("ink", "wrong_weak"), ("ink", "ok_weak"), ("faint", "wrong_weak"), ("faint", "ok_weak"), ("blank", "surface_alt"),
+                 ("selection_ink", "selection"), ("link", "emphasis_bg"), ("muted", "surface_alt"), ("primary_ink", "primary")]
+        for scheme, tokens in theme.TOKENS.items():
+            for ink, back in pairs:
+                self.assertGreaterEqual(contrast(tokens[ink], tokens[back]), 4.5, "%s: %s / %s" % (scheme, ink, back))
+            self.assertGreaterEqual(contrast(tokens["focus"], tokens["emphasis_bg"]), 3, "%s: focus / emphasis_bg" % scheme)
+
     def test_edges_and_marks_stand_out(self):
         """입력칸 테두리, 초점 테두리, 진행 막대 채움, 주 단추 면, 그래프 색은 바탕과 3:1 이상."""
         for scheme, tokens in theme.TOKENS.items():
@@ -402,6 +411,18 @@ class PartsTest(unittest.TestCase):
         card.row.setContentsMargins(48, 16, 48, 16)
         card.arrange()
         self.assertEqual(card.row.direction(), QBoxLayout.Direction.TopToBottom)
+
+    def test_compact_next_card_with_one_line_fits_the_minimum_height(self):
+        """보통 글자에서 꼬리표·제목·설명 한 줄인 작은 카드는 최소 높이 108 그대로이고 글 사이는 4 임."""
+        card = kit.NextCard(compact=True)
+        card.set_item("2회차", "작성한 문항 1개", "회차 시작")
+        self.box.addWidget(card)
+        self.box.addStretch(1)
+        self.show()
+        self.root.resize(1000, 400)  # 단추가 글 옆에 오는 폭
+        guikit.pump()
+        self.assertEqual(card.height(), 108)
+        self.assertEqual(card.title_box.mapTo(card, QPoint(0, 0)).y() - card.caption.mapTo(card, QPoint(0, card.caption.height())).y(), 4)
 
     def test_compact_next_card_uses_a_badge_a_headline_and_an_m_button(self):
         """작은 다음 할 일 카드는 꼬리표 24, 주 단추 44, 최소 높이 108, 강조 바탕 한 색. 좁으면 단추를 글 아래로 내림."""
@@ -1039,6 +1060,222 @@ class PartsTest(unittest.TestCase):
         guikit.pump()
         self.addCleanup(ask.close)
         return [ask.buttons[item[1]] for item in buttons]
+
+
+class LayoutPartsTest(unittest.TestCase):
+    """번호 칩, 줄 앞 위젯, 옆 글, 줄무늬 목록, 붙은 칩 묶음, 판정 입력칸 바탕, 실행 결과 칸, 판정 표. 보통 글자 밝은 테마에서 봄."""
+
+    def setUp(self):
+        self.addCleanup(theme.set_text, theme.state["text"])
+        self.addCleanup(theme.set_mode, theme.state["mode"])
+        theme.set_text("normal")
+        theme.set_mode("light")
+        self.root = kit.page(QWidget())
+        self.box = kit.box(self.root, (24, 24, 24, 24), 8)
+        self.addCleanup(self.root.close)
+
+    def show(self, width=720, height=480):
+        self.root.resize(width, height)
+        self.root.show()
+        guikit.pump()
+
+    def ink(self, widget, x, y):
+        return self.root.grab().toImage().pixelColor(widget.mapTo(self.root, QPoint(x, y)))
+
+    def test_number_chip_keeps_two_digit_width_and_follows_the_text_step(self):
+        """번호 칩은 꼬리표 높이(caption 줄 높이 + 2, 24 이상)이고 한 자리와 두 자리 번호의 폭이 같음. 글자 단계를 키우면 높이와 폭이 같이 커짐."""
+        heights = []
+        for step in ("normal", "larger"):
+            theme.set_text(step)
+            one, two = kit.number_chip("3"), kit.number_chip("12", "accent")
+            for chip in (one, two):
+                self.box.addWidget(chip, 0, Qt.AlignmentFlag.AlignLeft)
+            self.show()
+            kit.refont(self.root)
+            guikit.pump()
+            self.assertEqual((one.objectName(), one.property("number"), one.text()), ("badge", True, "3"), step)
+            self.assertEqual(one.height(), max(24, theme.TYPE["caption"][1] + 2), step)
+            self.assertEqual(one.width(), two.width(), step)
+            self.assertGreaterEqual(two.width(), two.fontMetrics().horizontalAdvance("00") + 16, step)
+            heights.append(one.height())
+            if step == "normal":
+                self.assertTrue(guikit.near(self.ink(two, 3, two.height() // 2), "selection"))
+                self.assertIsNone(kit.number_chip("1", "neutral").property("tone"))
+        self.assertLess(heights[0], heights[1])
+        theme.set_text("normal")
+        solid = kit.number_chip("4", "solid")  # 이어서 할 일 줄의 채운 칩
+        self.box.addWidget(solid, 0, Qt.AlignmentFlag.AlignLeft)
+        self.show()
+        self.assertTrue(guikit.near(self.ink(solid, 3, solid.height() // 2), "primary"))
+
+    def test_row_lead_sits_between_the_mark_and_the_text(self):
+        """lead 를 주면 상태 점 다음, 제목 앞에 놓임. 주지 않은 줄은 제목 자리가 그대로임. 높이·클릭은 그대로임."""
+        rows = kit.RowList()
+        lead = kit.number_chip("07", "accent")
+        with_lead = rows.add(kit.Row("문제", "둘째 줄", mark=kit.Dot("todo"), lead=lead))
+        plain = rows.add(kit.Row("문제", "둘째 줄", mark=kit.Dot("todo")))
+        self.box.addWidget(rows)
+        self.show()
+        self.assertIs(with_lead.lead, lead)
+        self.assertIsNone(plain.lead)
+        self.assertGreater(lead.x(), with_lead.mark.geometry().right())
+        title_x = with_lead.title.mapTo(with_lead, QPoint(0, 0)).x()
+        self.assertGreaterEqual(title_x, lead.geometry().right() + 12)
+        self.assertEqual(plain.title.mapTo(plain, QPoint(0, 0)).x(), kit.ROW_TEXT)
+        self.assertEqual((with_lead.height(), plain.height()), (theme.CONTROL["row2"], theme.CONTROL["row2"]))
+        self.assertLessEqual(abs(lead.geometry().center().y() - with_lead.height() / 2), 1)
+        opened = []
+        with_lead.clicked.connect(lambda: opened.append(True))
+        guikit.click(with_lead)
+        self.assertEqual(opened, [True])
+
+    def test_next_card_side_text_sits_right_of_the_title_and_drops_below_when_narrow(self):
+        """옆 글은 처음에 숨어 있고 set_side 로 제목 오른쪽 같은 줄에 옴. 좁은 카드에서는 제목 아래로 내려가고 빈 글이면 숨음.
+        plain_next 카드는 surface 바탕임. 최소 높이 108 은 그대로임."""
+        from PyQt6.QtWidgets import QBoxLayout
+        card = kit.NextCard(compact=True)
+        card.setProperty("plain_next", True)
+        card.set_item("반복문", "", "이어서 풀기")
+        self.box.addWidget(card)
+        self.box.addStretch(1)
+        self.show(1000)
+        self.assertFalse(card.side.isVisibleTo(card))
+        card.set_side("파이썬 스터디 3회차")
+        guikit.pump()
+        self.assertTrue(card.side.isVisibleTo(card))
+        self.assertEqual(card.title_row.direction(), QBoxLayout.Direction.LeftToRight)
+        self.assertGreater(card.side.x(), card.title.geometry().right())
+        self.assertLessEqual(abs(card.side.geometry().center().y() - card.title.geometry().center().y()), 2)
+        self.assertGreaterEqual(card.height(), 108)
+        self.assertEqual(card.title.text(), "반복문")
+        self.assertTrue(guikit.near(self.ink(card, card.width() // 2, card.height() - 4), "surface"))
+        card.setFixedWidth(220)
+        guikit.pump()
+        card.arrange()
+        guikit.pump()
+        self.assertEqual(card.title_row.direction(), QBoxLayout.Direction.TopToBottom)
+        self.assertGreater(card.side.y(), card.title.geometry().bottom())
+        card.set_side("")
+        self.assertFalse(card.side.isVisibleTo(card))
+
+    def test_striped_row_list_shades_every_second_row_without_lines(self):
+        """striped 목록은 줄 사이 선이 없고 둘째·넷째 줄에 stripe 속성과 surface_alt 바탕을 줌. 첫째 줄은 카드 바탕(surface)임."""
+        rows = kit.RowList(striped=True)
+        for name in ("하나", "둘", "셋", "넷"):
+            rows.add(kit.Row(name, inert=True))
+        self.box.addWidget(rows)
+        self.box.addStretch(1)
+        self.show()
+        self.assertEqual(rows.lines, [])
+        self.assertEqual([row.property("stripe") for row in rows.rows], [None, True, None, True])
+        first, second = rows.rows[:2]
+        self.assertTrue(guikit.near(self.ink(second, second.width() // 2, second.height() // 2), "surface_alt"))
+        self.assertTrue(guikit.near(self.ink(first, first.width() // 2, first.height() // 2), "surface"))
+        self.assertEqual(second.y(), first.geometry().bottom() + 1)
+
+    def test_segmented_chips_touch_and_keep_one_checked(self):
+        """붙은 칩 묶음은 칩 사이 간격이 0 이고 양 끝 칩에 seg 속성이 붙음. 누르면 하나만 골라지고 고른 칩은 soft 면 emphasis_bg,
+        solid 면 primary 바탕임. 묶음 테두리는 line 색임."""
+        from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout
+        groups = {}
+        for kind in ("soft", "solid"):
+            holder = QWidget()
+            row = QHBoxLayout(holder)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(8)
+            group = QButtonGroup(holder)
+            chips = [kit.chip(name) for name in ("Python", "JavaScript", "Node.js")]
+            for chip in chips:
+                group.addButton(chip)
+                row.addWidget(chip)
+            chips[0].setChecked(True)
+            self.assertIs(kit.segmented(holder, kind), holder)
+            self.box.addWidget(holder, 0, Qt.AlignmentFlag.AlignLeft)
+            groups[kind] = (holder, chips)
+        self.box.addStretch(1)
+        self.show()
+        for kind, (holder, chips) in groups.items():
+            self.assertEqual(holder.layout().spacing(), 0)
+            self.assertEqual([chip.property("seg") for chip in chips], ["first", "middle", "last"])
+            self.assertEqual(chips[1].x(), chips[0].geometry().right() + 1, kind)
+            guikit.click(chips[1])
+            self.assertEqual([chip.isChecked() for chip in chips], [False, True, False], kind)
+            back = {"soft": "emphasis_bg", "solid": "primary"}[kind]
+            self.assertTrue(guikit.near(self.ink(chips[1], chips[1].width() // 2, 6), back), kind)
+            self.assertTrue(guikit.near(self.ink(holder, holder.width() // 2, 0), "line"), kind)
+
+    def test_judged_line_edit_gets_a_weak_background(self):
+        """판정한 입력칸(읽기 전용)은 테두리와 같은 색 계열의 약한 바탕(wrong_weak·ok_weak)을 칠함. 판정 전과 고칠 수 있는 칸은 surface 임."""
+        from PyQt6.QtWidgets import QLineEdit
+        fields = {tone: QLineEdit("답") for tone in ("", "danger", "success")}
+        for tone, field in fields.items():
+            field.setReadOnly(True)
+            self.box.addWidget(field)
+            kit.set_tone(field, tone)
+        self.box.addStretch(1)
+        self.show()
+        for tone, back in (("", "surface"), ("danger", "wrong_weak"), ("success", "ok_weak")):
+            field = fields[tone]
+            self.assertTrue(guikit.near(self.ink(field, field.width() - 8, field.height() // 2), back), tone)
+        typing = QLineEdit("고치는 중")  # 테스트 추가 창처럼 아직 고칠 수 있는 칸은 테두리만 칠하고 바탕은 그대로 둠
+        self.box.insertWidget(0, typing)
+        kit.set_tone(typing, "danger")
+        guikit.pump()
+        self.assertTrue(guikit.near(self.ink(typing, typing.width() - 8, typing.height() // 2), "surface"))
+
+    def test_code_panel_console_has_a_line_edge_and_a_movable_reset_button(self):
+        """실행 결과 칸은 line 색 테두리를 그림. 복원 단추는 공개 속성이라 화면이 다른 자리로 옮길 수 있고, 옮기면 안내 줄을 세로로 쌓지 않음."""
+        from gui.widgets import CodePanel
+        area = kit.dense(QWidget())
+        inner = kit.box(area)
+        panel = CodePanel()
+        inner.addWidget(panel)
+        self.box.addWidget(area, 1)
+        self.show(720, 520)
+        console = panel.console
+        self.assertEqual(console.objectName(), "console")
+        self.assertTrue(guikit.near(self.ink(console, console.width() // 2, 0), "line"))
+        holder = QWidget()
+        kit.box(holder).addWidget(panel.reset_btn)
+        self.box.insertWidget(0, holder)
+        panel.resize(120, panel.height())
+        panel.arrange()
+        self.assertEqual(panel.top.direction(), panel.top.Direction.LeftToRight)
+
+    def test_dense_stepper_lines_fill_the_row(self):
+        """dense 단계 표시는 원 사이 선을 늘려 줄 폭을 채우고(상한 400), 기본 단계 표시는 선 상한 160 을 지킴."""
+        steps = [(0, "먼저", "done"), (1, "개념", "now"), (2, "확인", "lock")]
+        bars = {dense: kit.Stepper(dense=dense) for dense in (False, True)}
+        for bar in bars.values():
+            bar.set_steps(steps)
+            self.box.addWidget(bar)
+        self.box.addStretch(1)
+        self.show(900)
+
+        def last_mark(bar):
+            image = bar.grab().toImage()
+            back = image.pixelColor(image.width() - 1, 2)
+            return max(x for x in range(image.width()) if image.pixelColor(x, image.height() // 2) != back)
+
+        self.assertGreater(last_mark(bars[True]), bars[True].width() - 40)
+        self.assertLess(last_mark(bars[False]), bars[False].width() - 100)
+
+    def test_verdict_table_draws_bottom_lines_only_and_tags_use_weak_backs(self):
+        """판정 표(table.verdict, border=0)는 칸 아래에 grid 색 선만 긋고 세로선이 없음. 꼬리표 span 은 약한 바탕을 칠함."""
+        from PyQt6.QtWidgets import QTextBrowser
+        view = QTextBrowser()
+        view.document().setDefaultStyleSheet(theme.web_css())
+        view.setHtml('<body><table class="verdict" border="0" cellspacing="0" cellpadding="10"><tr><th>단원</th><th>판정</th></tr>'
+                     '<tr><td>1</td><td><span class="tag-wrong">오답</span></td></tr></table></body>')
+        self.box.addWidget(view)
+        self.show()
+        image = view.viewport().grab().toImage()
+        column = [image.pixelColor(20, y).name() for y in range(image.height())]
+        self.assertIn(theme.color("grid"), column)
+        colors = {image.pixelColor(x, y).name() for x in range(image.width()) for y in range(0, min(image.height(), 140))}
+        self.assertIn(theme.color("wrong_weak"), colors)
+        self.assertIn(theme.color("surface_alt"), colors)
+        self.assertNotIn("#000000", colors)
 
 
 if __name__ == "__main__":

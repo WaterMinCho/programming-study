@@ -266,7 +266,7 @@ class MockPageTest(AiTest):
         self.assertIs(self.win.pages.currentWidget(), self.win.ai_home)
         self.assertTrue(self.win.open_ai_mock('m90'))
         page.begin()
-        self.assertIn('0 / 4문항 맞음', page.heading.text())
+        self.assertIn('0 / 4문항 맞음', page.summary_text())
 
     def test_preview_does_not_start_the_clock_or_write_a_record(self):
         page = self.open_mock(start=False)
@@ -294,7 +294,7 @@ class MockPageTest(AiTest):
         self.assertGreaterEqual(page.summary.height(), 128)
         self.assertEqual('label', page.heading.property('role'))
         self.assertIsNone(page.heading.property('tone'))
-        self.assertIn('0 / 4문항 맞음', page.heading.text())
+        self.assertIn('0 / 4문항 맞음', page.summary_text())
         rows = page.lesson_results.rows
         self.assertTrue(rows)
         summary = page.exam.summary()['lessons']
@@ -316,6 +316,29 @@ class MockPageTest(AiTest):
         self.assertTrue(self.win.open_ai_mock('m90'))
         self.assertEqual(0, page.summary.minimumHeight())
         self.assertEqual('body', page.heading.property('role'))
+
+    def test_result_summary_splits_score_labels_and_lesson_prefix_column(self):
+        page = self.open_mock((1280, 800))
+        self.assertFalse(page.score_row.isVisible())
+        page.submit()
+        self.idle()
+        summary = page.exam.summary()
+        self.assertEqual(str(summary['score']), page.score_num.text())
+        self.assertTrue(page.score_num.font().bold())
+        self.assertEqual('/ %d문항 맞음' % summary['of'], page.score_of.text())
+        self.assertEqual('· 걸린 시간 %d분 %d초' % (summary['secs'] // 60, summary['secs'] % 60), page.score_time.text())
+        self.assertEqual('처음 점수 %d / %d' % (summary['first_score'], summary['of']), page.first_score.text())
+        self.assertEqual(('accent', True), (page.first_score.value.property('tone'), page.first_score.value.font().bold()))  # 숫자만 주 색 굵게
+        self.assertIn('%d / %d문항 맞음 · 걸린 시간' % (summary['score'], summary['of']), page.summary_text())
+        self.assertEqual('제출 완료', page.time.text())
+        self.assertEqual('label', page.time.property('role'))
+        rows = page.lesson_results.rows
+        self.assertEqual(1, len({row.where.width() for row in rows}))
+        self.assertEqual(1, len({row.title.mapTo(page, row.title.rect().topLeft()).x() for row in rows}))
+        for row in rows:
+            self.assertRegex(row.where.text(), r'^(응용 )?\d+차시$')
+            self.assertEqual(row.accessibleName(), (row.where.text() + ' ' + row.title.text()).strip())
+        self.assertEqual([bool(row.property('stripe')) for row in rows], [n % 2 == 1 for n in range(len(rows))])
 
     def test_narrow_page_keeps_primary_action_inside(self):
         self.addCleanup(theme.set_text, 'normal')

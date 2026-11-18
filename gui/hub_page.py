@@ -253,10 +253,10 @@ class HubGrid(SubjectGrid):
 
 
 class HubBar(kit.TopBar):
-    """앱 이름과 ID, 글자 크기와 테마 도구를 담음. 폭이 모자라면 도구를 아래 줄에 둠."""
+    """앱 이름과 ID, 글자 크기와 테마 도구를 담음. 폭이 모자라면 도구를 아래 줄에 둠. 흰 바탕에 아랫선을 둠."""
 
     def __init__(self):
-        super().__init__(plain=True, dense=True)
+        super().__init__(dense=True)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.row.removeWidget(self.title)
         self.identity = QWidget()
@@ -317,19 +317,19 @@ class HubPage(QWidget):
         top.identity_row.addWidget(kit.label("프로그래밍 스터디", "headline"))
         top.identity_row.addStretch(1)
         top.identity_row.addWidget(self.user)
-        self.settings_btn = kit.button("설정", "text", "s", onbg=True)
-        self.privacy_btn = kit.button("내 정보·데이터", "text", "s", onbg=True)
+        self.settings_btn = kit.button("설정", "text", "s")
+        self.privacy_btn = kit.button("내 정보·데이터", "text", "s")
         self.privacy_btn.clicked.connect(win.show_privacy)
         top.add_right(self.privacy_btn)
-        self.submission_setup = kit.button("풀이 제출", "text", "s", onbg=True)
+        self.submission_setup = kit.button("풀이 제출", "text", "s")
         self.submission_setup.setProperty("submission_action", True)
         self.submission_setup.clicked.connect(win.submit_pr)
         top.add_right(self.submission_setup)
-        self.server_connection = kit.button("다른 서버 연결", "text", "s", onbg=True)
+        self.server_connection = kit.button("다른 서버 연결", "text", "s")
         self.server_connection.clicked.connect(win.show_submission_setup)
         self.server_connection.setVisible(win.can_configure_submission())
         top.add_right(self.server_connection)
-        self.manual_sync = kit.button("프로그램 업데이트", "text", "s", onbg=True)
+        self.manual_sync = kit.button("프로그램 업데이트", "text", "s")
         self.manual_sync.clicked.connect(win.fetch_problems)
         top.add_right(self.manual_sync)
         self.settings_panel = SettingsMenu(self, self.settings_btn)
@@ -351,7 +351,16 @@ class HubPage(QWidget):
         self.notice.linkActivated.connect(lambda _: win.show_notice_detail())
         self.notice_banner.hide()
         self.next_card = kit.NextCard(compact=True)
+        self.next_card.setProperty("plain_next", True)
         self.next_btn = self.next_card.button
+        # 꼬리표 옆에 이어서 할 과목 이름을 둠. 설명 줄의 첫 조각과 같은 글임
+        self.next_subject = kit.label("", "caption", "secondary")
+        caption_line = QWidget()
+        caption_row = kit.box(caption_line, spacing=8, horizontal=True)
+        self.next_card.text_box.layout().replaceWidget(self.next_card.caption, caption_line)
+        caption_row.addWidget(self.next_card.caption, 0, Qt.AlignmentFlag.AlignVCenter)
+        caption_row.addWidget(self.next_subject, 0, Qt.AlignmentFlag.AlignVCenter)
+        caption_row.addStretch(1)
         lead = QWidget()  # 숨은 알림 자리를 비우고 다음 행동까지 묶음.
         lead_box = kit.box(lead, spacing=theme.GAP["group"])
         lead_box.addWidget(self.notice_banner)
@@ -363,6 +372,8 @@ class HubPage(QWidget):
         subjects = QWidget()
         subjects_box = kit.box(subjects, spacing=COLUMN_GAP)
         head, _, _ = kit.section("과목별 학습")
+        self.track_count = kit.badge()  # 보이는 과목 칸 수
+        head.insertWidget(1, self.track_count, 0, Qt.AlignmentFlag.AlignVCenter)
         subjects_box.addLayout(head)
         self.tracks = HubGrid()
         self.python_row = self.tracks.add(SubjectTile("파이썬 스터디", "series_python"))
@@ -374,6 +385,7 @@ class HubPage(QWidget):
             self.web_row.setParent(self.tracks)
             self.web_row.hide()
         self.ai_row = self.tracks.add(SubjectTile(ai_text.TRACK, "series_ai"))
+        self.track_count.setText(str(len(self.tracks.rows)))
         self.journey_error = kit.banner("", "danger")  # 여행 기록을 읽지 못한 이유. 그동안 여행 줄은 눌리지 않음
         self.web_error = kit.banner("", "danger")
         self.ai_error = kit.banner("", "danger")
@@ -674,6 +686,9 @@ class HubPage(QWidget):
 
     def set_next(self, title, line, action, target):
         self.next_card.set_item(title, line, action)
+        subject, mark, _ = line.partition(" · ")
+        self.next_subject.setText(subject if mark else "")
+        self.next_subject.setVisible(bool(mark))
         self.target = target
 
     def open_next(self):

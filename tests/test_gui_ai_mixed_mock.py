@@ -92,7 +92,7 @@ class MixedMockPageTest(unittest.TestCase):
             self.assertTrue(win.rect().contains(page.next_btn.mapTo(win,page.next_btn.rect().center())))
             self.assertGreaterEqual(page.next_btn.width(),page.next_btn.sizeHint().width())
         page.submit();self.idle()
-        self.assertIn('0 / 32문항 맞음',page.heading.text())
+        self.assertIn('0 / 32문항 맞음',page.summary_text())
         text=visible_text(page.lesson_results)
         self.assertIn('응용 90차시',text)
         self.assertIn('90차시',text)

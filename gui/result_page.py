@@ -228,19 +228,24 @@ class ResultPage(QWidget):
         score_box = kit.box(scores, spacing=16, horizontal=True)
         self.mascot = Mascot(52)
         self.score = kit.label("", "display")
-        self.ratio = kit.label("", "caption", "secondary")
+        self.ratio = kit.badge("", "accent")
         self.note = kit.para("", "caption", "secondary")
         ready = QWidget()
         ready_box = kit.box(ready, spacing=theme.GAP["detail"])
-        self.ready = kit.label("", "label")
+        self.ready_name = kit.label("숙달한 단원", "label", "secondary")
+        self.ready = kit.label("", "label", bold=True)  # 숙달한 단원 수 / 전체 단원 수. 막대 오른쪽 끝에 맞춤
+        ready_head = QWidget()
+        ready_row = kit.box(ready_head, spacing=12, horizontal=True)
+        ready_row.addWidget(self.ready_name, 0, Qt.AlignmentFlag.AlignVCenter)
+        ready_row.addStretch(1)
+        ready_row.addWidget(self.ready, 0, Qt.AlignmentFlag.AlignVCenter)
         self.ready_bar = kit.progress()
         self.ready_bar.setMinimumWidth(120)
-        ready_box.addWidget(self.ready)
+        ready_box.addWidget(ready_head)
         ready_box.addWidget(self.ready_bar)
         score_box.addWidget(self.mascot, 0, Qt.AlignmentFlag.AlignVCenter)
-        score_box.addWidget(self.score, 0, Qt.AlignmentFlag.AlignBottom)
-        score_box.addWidget(self.ratio, 0, Qt.AlignmentFlag.AlignBottom)
-        kit.baseline(self.score, self.ratio)
+        score_box.addWidget(self.score, 0, Qt.AlignmentFlag.AlignVCenter)
+        score_box.addWidget(self.ratio, 0, Qt.AlignmentFlag.AlignVCenter)
         score_box.addStretch(1)  # 점수 묶음이 왼쪽 절반을 받아도 점수는 왼쪽에 모임
         self.score_row = ScoreRow(scores, ready)
         card_box.addWidget(self.score_row)
@@ -348,7 +353,7 @@ class ResultPage(QWidget):
         self.note.setText("첫 제출은 %s점이었습니다. 숙달 판정에는 첫 제출만 반영됩니다." % first.replace("/", " / ")
                           if first and first != "%d/%d" % (earned, total) else "")
         self.note.setVisible(bool(self.note.text()))  # 빈 안내가 점수 카드 아래에 빈 줄을 남기지 않게
-        self.ready.setText("숙달한 단원 %d / %d" % (overview["mastered"], overview["total_units"]))
+        self.ready.setText("%d / %d" % (overview["mastered"], overview["total_units"]))
         self.ready_bar.setRange(0, max(1, overview["total_units"]))
         self.ready_bar.setValue(overview["mastered"])
         self.next_btn.setText(self.win.next_action(overview)[0])
@@ -394,13 +399,14 @@ class ResultPage(QWidget):
         count = {"ok": 0, "wrong": 0, "blank": 0}
         for item in self.view["items"]:
             count[item["state"] if item["state"] in count else "blank"] += 1
-        parts = ["<p>정답 %d문항 · 오답 %d문항 · 미응답 %d문항</p>" % (count["ok"], count["wrong"], count["blank"])]
+        parts = ["<p>%s</p>" % " · ".join('<span class="%s">●</span> %s %d문항' % (state, name, count[state])
+                                           for state, name in (("ok", "정답"), ("wrong", "오답"), ("blank", "미응답")))]
         if self.verdicts:
-            rows = "".join('<tr><td><b><span class="%s">%s</span></b></td><td>%s %s</td><td>%s</td></tr>' % (
-                theme.VERDICT[v["kind"]][1], theme.VERDICT[v["kind"]][0], v["unit"], html.escape(v["title"]), html.escape(v["text"]))
+            rows = "".join('<tr><td><span class="tag-verdict-%s">&nbsp;%s&nbsp;</span></td><td><span class="muted">%s</span> %s</td><td>%s</td></tr>' % (
+                v["kind"], theme.VERDICT[v["kind"]][0], v["unit"], html.escape(v["title"]), self.verdict_text(v["text"]))
                 for v in self.verdicts)
-            parts.append('<table class="grid" border="1" cellspacing="0" cellpadding="6">'
-                         "<tr><th>판정</th><th>단원</th><th>내용</th></tr>%s</table>" % rows)
+            parts.append('<table class="verdict" width="100%%" border="0" cellspacing="0" cellpadding="10">'
+                         '<tr><th align="left">판정</th><th align="left">단원</th><th align="left">내용</th></tr>%s</table>' % rows)
         elif self.view["kind"] == "diag":
             parts.append("<p>진단 결과로 단원별 출발 레벨을 정했습니다. 단원별 상태는 홈의 단원 띠에서 볼 수 있습니다.</p>")
         else:
@@ -409,6 +415,14 @@ class ResultPage(QWidget):
                      "<p>왼쪽에서 문항을 고르면 문제와 내 답이 나옵니다. 틀린 문항은 '다시 풀기'로 먼저 고쳐 보고, "
                      "'해설 보기'로 정답과 해설을 확인하세요.</p>")
         return "<body>%s</body>" % "".join(parts)
+
+    @staticmethod
+    def verdict_text(text):
+        """판정 내용의 '→' 뒤(다음에 할 일)를 주 색으로 씀. 글은 그대로임."""
+        before, arrow, after = text.partition("→")
+        if not arrow:
+            return html.escape(text)
+        return '%s→<span style="color: %s;">%s</span>' % (html.escape(before), theme.color("link"), html.escape(after))
 
     def item_html(self, item):
         name, mark = theme.result_label(item["state"])
@@ -423,8 +437,9 @@ class ResultPage(QWidget):
         return "<body>%s</body>" % "".join(parts)
 
     def color_rows(self):
+        """문항 줄의 글자색. 판정은 줄 앞 꼬리표가 알려서 글은 본문 색으로 씀."""
         for row, item in enumerate(self.view["items"], 1):
-            self.listw.item(row).setForeground(theme.qcolor(theme.result_label(item["state"])[1]))
+            self.listw.item(row).setForeground(theme.qcolor("ink"))
 
     def restyle(self):
         """글자 크기나 테마가 바뀌면 부름. 본문 CSS 와 목록의 결과 색을 다시 주고, 읽던 자리는 지킴."""

@@ -29,6 +29,7 @@ from session import SessionError
 
 
 VERDICT_LEAST = 64  # 판정 띠 최소 높이. 글이 길거나 글자가 크면 글 높이를 따름
+CARD_MOST = 976  # 문제 카드 최대 폭. 1024 창에서 카드가 차지하던 폭이라 그 창의 코드 줄 접힘이 바뀌지 않음
 
 
 def commit_input():
@@ -100,7 +101,14 @@ class PracticePage(QWidget):
         root = kit.box(self)
         self.top = kit.TopBar("← AI 비전 개론", "", dense=True)
         self.back_btn, self.title = self.top.back, self.top.title
-        self.count = self.top.add_right(kit.label("", "caption", "secondary"))
+        progress_box = QWidget()
+        progress_row = kit.box(progress_box, spacing=4, horizontal=True)
+        self.at_label = kit.label("", "label", bold=True)  # 지금 문항 번호. count 는 '/ 전체'
+        self.count = kit.label("", "caption", "secondary")
+        progress_row.addWidget(self.at_label, 0, Qt.AlignmentFlag.AlignBottom)
+        progress_row.addWidget(self.count, 0, Qt.AlignmentFlag.AlignBottom)
+        kit.baseline(self.at_label, self.count)
+        self.top.add_right(progress_box)
         root.addWidget(self.top)
         self.bar_line = kit.progress(thin=True)
         root.addWidget(self.bar_line)
@@ -109,7 +117,7 @@ class PracticePage(QWidget):
         kit.dense(self.scroll)  # 카드·판정 띠·해설 칸·입력 칸·꼬리표에 촘촘한 모서리
         root.addWidget(self.scroll, 1)
         self.bar = kit.BottomBar(dense=True)
-        self.dont_btn = self.bar.add_tool(kit.button("모르겠어요", "text", "m"))
+        self.dont_btn = self.bar.add_tool(kit.button("모르겠어요", "secondary", "m"))
         self.note_btn = self.bar.add_tool(kit.button("노트 보기", "text", "m"))
         self.mine_btn = self.bar.add_tool(kit.button("내 답도 맞음", "text", "m"))
         self.home_btn = self.bar.add_action(kit.button("홈으로", "secondary", "m"))
@@ -213,7 +221,7 @@ class PracticePage(QWidget):
         self.close_note()
         self.empty_card()
         self.item, self.feedback, self.dontknow = item, None, False
-        self.count.setText("%d / %d" % (item["at"], item["total"]))
+        self.set_count(item["at"], item["total"])
         self.bar_line.setValue(round(100 * (item["at"] - 1) / max(1, item["total"])))
         chips = QWidget()
         chip_row = kit.FlowLayout(chips, 8)
@@ -222,9 +230,9 @@ class PracticePage(QWidget):
         self.card_box.addWidget(chips)
         self.verdict = kit.frame("banner")  # 판정 띠. 바탕색은 판정에 따라 set_verdict 가 바꿈
         self.verdict.setMinimumHeight(VERDICT_LEAST)
-        verdict_col = kit.box(self.verdict, (16, 16, 16, 16), theme.GAP["title_description"])
+        verdict_col = kit.box(self.verdict, (16, 16, 16, 16), 6)
         self.verdict_text = kit.label("", "headline")
-        self.answer_line = rich("")
+        self.answer_line = rich("", "caption")  # 판정 문장(headline)보다 한 단계 낮은 글로 둠
         self.also_text = kit.para("", "body", "secondary")  # 뼈대 빈칸에서 함께 가린 칸이 틀렸을 때
         self.requeue = kit.para("", "body", "secondary")
         verdict_col.addWidget(self.verdict_text)
@@ -562,7 +570,7 @@ class PracticePage(QWidget):
         show = gap is not None or variant is not None or bool(kept)
         self.requeue.setText(ai_text.requeue_line(passed, gap, variant) if show else "")
         self.requeue.setVisible(show)
-        self.count.setText("%d / %d" % (self.item["at"], len(practice.queue)))  # 늘어난 전체 문항 수를 바로 보임
+        self.set_count(self.item["at"], len(practice.queue))  # 늘어난 전체 문항 수를 바로 보임
 
     def explain(self, feedback):
         box = self.after_box
@@ -575,6 +583,10 @@ class PracticePage(QWidget):
             self.docs.append(doc(ai_text.teaching_text(feedback["explain"]), "", box))
         target = self.note_reference()
         if target:
+            if box.count():  # 해설과 참고가 둘 다 있으면 사이에 선을 둠
+                rule = kit.frame("rowline")
+                rule.setFixedHeight(1)
+                box.addWidget(rule)
             link = kit.typed(LinkLabel('<a href="study-note">참고: %s</a>' % html.escape(target["label"]),
                                        line=theme.TYPE["caption"][1], font=theme.font("caption")), "caption")
             link.linkActivated.connect(self.open_reference)
@@ -620,7 +632,7 @@ class PracticePage(QWidget):
         self.close_note()
         self.empty_card()
         self.item, self.feedback = None, None
-        self.count.setText("끝남")
+        self.set_count()
         self.bar_line.setValue(100)
         self.card_box.addWidget(kit.heading(kit.para(ai_text.REVIEW_COMPLETE, "headline"),
                                            kit.para(ai_text.review_next(self.review_state["next"]))))
@@ -639,7 +651,7 @@ class PracticePage(QWidget):
         self.close_note()
         self.empty_card()
         self.item, self.feedback = None, None
-        self.count.setText("끝남")
+        self.set_count()
         self.bar_line.setValue(100)
         title = kit.heading(kit.para(ai_text.SET_FIRST, "caption", "secondary"),
                             kit.para(ai_text.summary_head(summary), "headline"))
@@ -705,6 +717,9 @@ class PracticePage(QWidget):
                            (self.home_btn, ended or complete), (self.again_btn, ended and not complete)):
             button.setVisible(bool(on))
             button.setEnabled(not self.busy)
+        # [모르겠어요]는 테두리 단추라 막대 여백에 맞추고, 글자 단추만 남으면 글자가 내용 선에 오게 FLUSH 만큼 내어 둠
+        _, top, right, bottom = self.bar.row.getContentsMargins()
+        self.bar.row.setContentsMargins(kit.DENSE_MARGIN - (0 if asking else kit.FLUSH), top, right, bottom)
         if ended:
             mode = self.args[0]
             if mode == "note":
@@ -761,8 +776,18 @@ class PracticePage(QWidget):
         else:
             self.win.go_ai()
 
+    def set_count(self, at=None, total=None):
+        """위 막대 진행 숫자. 지금 번호는 굵게 따로, count 에는 '/ 전체'. 묶음이 끝나면 번호를 숨기고 count 에 '끝남'."""
+        self.at_label.setText("" if at is None else str(at))
+        self.at_label.setVisible(at is not None)
+        self.count.setText("끝남" if at is None else "/ %d" % total)
+
+    def count_text(self):
+        """위 막대에 보이는 진행 글 전체('3 / 20' 이나 '끝남')."""
+        return " ".join(label.text() for label in (self.at_label, self.count) if not label.isHidden() and label.text())
+
     def fit_column(self):
-        self.card.setMaximumWidth(reading_width(self.width()) + 2 * CARD_PAD)
+        self.card.setMaximumWidth(min(CARD_MOST, reading_width(self.width()) + 2 * CARD_PAD))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

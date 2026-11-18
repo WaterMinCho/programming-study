@@ -257,6 +257,12 @@ QWidget[ui="2"] QLabel#badge[tone="accent"] { background: %(selection)s; color: 
 QWidget[ui="2"] QLabel#badge[tone="success"] { background: %(ok_weak)s; color: %(ok)s; }
 QWidget[ui="2"] QLabel#badge[tone="warning"] { background: %(retry_weak)s; color: %(retry)s; }
 QWidget[ui="2"] QLabel#badge[tone="danger"] { background: %(wrong_weak)s; color: %(wrong)s; }
+QWidget[ui="2"] QLabel#badge[fold="wrong"] { background: %(wrong_weak)s; color: %(wrong)s; }
+QWidget[ui="2"] QLabel#badge[fold="skipped"] { background: %(surface_alt)s; color: %(muted)s; }
+QWidget[ui="2"] QLabel#badge[fold="fixed"] { background: %(ok_weak)s; color: %(ok)s; }
+QWidget[ui="2"] QLabel#badge[number="true"] { border-radius: %(dense_chip)spx; }
+QWidget[ui="2"] QLabel#badge[number="true"][tone="solid"] { background: %(primary)s; color: %(primary_ink)s; }
+QWidget[ui="2"] QLabel#badge[number="true"][tile="true"] { min-height: %(number_tile)spx; max-height: %(number_tile)spx; border: 1px solid %(hero_edge)s; padding: 0; }
 QWidget[ui="2"] QFrame#card { background: %(surface)s; border: 1px solid %(line)s; border-radius: 16px; }
 QWidget[ui="2"] QFrame#card QFrame#card { background: %(surface_alt)s; border-radius: 12px; }
 QWidget[ui="2"] QFrame#card[next_action="true"] {
@@ -291,6 +297,8 @@ QWidget[ui="2"] QFrame#banner QPushButton { background: %(surface)s; }
 QWidget[ui="2"] QFrame#banner QPushButton:hover, QWidget[ui="2"] QFrame#banner QPushButton:pressed { background: %(line)s; }
 QWidget[ui="2"] QFrame#banner QPushButton:disabled { background: transparent; color: %(faint)s; }
 QWidget[ui="2"] QFrame#row { background: transparent; border: 0; border-radius: 0; }
+QWidget[ui="2"] QFrame#row[stripe="true"] { background: %(surface_alt)s; }
+QWidget[ui="2"] QFrame#row[next_row="true"] { background: %(emphasis_bg)s; }
 QWidget[ui="2"] QFrame#row[over="true"] { background: %(hover)s; }
 QWidget[ui="2"] QFrame#row[down="true"] { background: %(surface_alt)s; }
 QWidget[ui="2"] QFrame#row[picked="true"] { background: %(selection)s; }
@@ -352,6 +360,8 @@ QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QPlainTextEdit:focus { border: 
 QWidget[ui="2"] QPlainTextEdit:focus { padding: 7px 14px; }
 QWidget[ui="2"] QLineEdit[tone="danger"] { border: 2px solid %(wrong)s; padding: 0 14px; }
 QWidget[ui="2"] QLineEdit[tone="success"] { border: 2px solid %(ok)s; padding: 0 14px; }
+QWidget[ui="2"] QLineEdit[tone="danger"][readOnly="true"] { background: %(wrong_weak)s; }
+QWidget[ui="2"] QLineEdit[tone="success"][readOnly="true"] { background: %(ok_weak)s; }
 QWidget[ui="2"] QLineEdit:focus, QWidget[ui="2"] QLineEdit[tone="danger"], QWidget[ui="2"] QLineEdit[tone="success"] {
     min-height: %(field_focus)spx; max-height: %(field_focus)spx; }
 QWidget[ui="2"] QLineEdit[role="learn_body"]:focus, QWidget[ui="2"] QLineEdit[role="learn_body"][tone="danger"],
@@ -415,14 +425,15 @@ QFrame#find QPushButton#tool:disabled { background: transparent; color: %(faint)
 STYLE_V2 += """
 QFrame#navigation { background: %(navigation)s; border-right: 1px solid %(line)s; }
 QWidget[ui="2"] QPushButton#text[navigation="true"] { text-align: left; padding: 0; border: 2px solid transparent; border-radius: 12px; min-height: %(navigation_height)spx; max-height: %(navigation_height)spx; }
-QWidget[ui="2"] QPushButton#text[navigation="true"]:checked { background: %(primary)s; color: %(primary_ink)s; }
-QWidget[ui="2"] QPushButton#text[navigation="true"]:checked:disabled { background: %(primary)s; color: %(primary_ink)s; }
+QWidget[ui="2"] QPushButton#text[navigation="true"]:checked { background: %(emphasis_bg)s; color: %(link)s; }
+QWidget[ui="2"] QPushButton#text[navigation="true"]:checked:disabled { background: %(emphasis_bg)s; color: %(link)s; }
 QWidget[ui="2"] QPushButton#text[navigation="true"]:focus { border-color: %(focus)s; }
-QWidget[ui="2"] QPushButton#text[navigation="true"]:checked:focus { border-color: %(primary_ink)s; }
+QWidget[ui="2"] QPushButton#text[navigation="true"]:checked:focus { border-color: %(focus)s; }
 QFrame#submissionbar { background: %(surface)s; border: 1px solid %(border)s; border-radius: 16px; }
 QFrame#figure_controls { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 12px; }
 QFrame#learning_activity { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
-QFrame#learning_context { background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 16px; }
+QFrame#result_empty { background: %(surface_alt)s; border: 0; border-radius: %(dense_card)spx; }
+QFrame#learning_context { background: %(emphasis_bg)s; border: 1px solid %(hero_edge)s; border-radius: 16px; }
 QWidget[ui="2"] QPushButton#submit_work { background: %(primary)s; color: %(primary_ink)s; border: 2px solid %(primary)s; }
 QWidget[ui="2"] QPushButton#submit_work:hover { background: %(primary_hover)s; border-color: %(primary_hover)s; }
 QWidget[ui="2"] QPushButton#submit_work:disabled { background: %(primary_off)s; color: %(primary_off_ink)s; border-color: %(border)s; }
@@ -470,9 +481,32 @@ QWidget[ui="2"] QPushButton#text[outlined="true"]:checked { background: %(select
 QWidget[ui="2"] QPushButton#text[outlined="true"]:disabled { background: %(surface)s; color: %(faint)s; border-color: %(border)s; }
 QWidget[ui="2"] QPushButton#text[outlined="true"]:focus { border-color: %(focus)s; }
 QWidget[ui="2"] QFrame#card[compact="true"] { background: %(emphasis_bg)s; border: 1px solid %(hero_edge)s; }
+QWidget[ui="2"] QFrame#card[compact="true"][plain_next="true"] { background: %(surface)s; border: 1px solid %(line)s; }
+QWidget[ui="2"] QTextBrowser#console { border: 1px solid %(line)s; border-radius: 8px; }
 """
 
-# 본문 CSS(mdlite.CSS)에 화면이 더하는 것: 결과·판정 글자색과 결과 화면의 구역 띠
+# 붙은 칩 묶음(kit.segmented). 묶음이 바깥 테두리 하나와 모서리 6 을 그리고 칩은 사이 간격 없이 붙음. 양 끝 칩만 바깥쪽 모서리가 둥글고
+# 고른 칩은 soft 면 강조 바탕에 파란 글, solid 면 파란 바탕에 흰 글. 초점은 칩의 2px 테두리가 focus 색이 됨
+STYLE_V2 += """
+QWidget[ui="2"] QWidget[segmented="soft"], QWidget[ui="2"] QWidget[segmented="solid"] {
+    background: %(surface)s; border: 1px solid %(line)s; border-radius: 6px; }
+QWidget[ui="2"] QWidget[segmented] QPushButton#chip { background: transparent; color: %(muted)s; border: 2px solid transparent;
+    border-radius: 0; font-weight: 400; }
+QWidget[ui="2"] QWidget[segmented] QPushButton#chip[seg="first"] { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
+QWidget[ui="2"] QWidget[segmented] QPushButton#chip[seg="last"] { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
+QWidget[ui="2"] QWidget[segmented] QPushButton#chip[seg="only"] { border-radius: 5px; }
+QWidget[ui="2"] QWidget[segmented] QPushButton#chip:hover { background: %(hover)s; color: %(ink)s; }
+QWidget[ui="2"] QWidget[segmented="soft"] QPushButton#chip:checked { background: %(emphasis_bg)s; color: %(link)s; font-weight: 700; }
+QWidget[ui="2"] QWidget[segmented="solid"] QPushButton#chip:checked { background: %(primary)s; color: %(primary_ink)s; font-weight: 700; }
+QWidget[ui="2"] QWidget[segmented] QPushButton#chip:focus { border-color: %(focus)s; }
+QWidget[ui="2"] QWidget[segmented="solid"] QPushButton#chip:checked:focus { border-color: %(surface)s; }
+QWidget[ui="2"] QWidget[segmented] QPushButton#chip:disabled { background: transparent; color: %(faint)s; }
+QWidget[ui="2"] QWidget[segmented] QPushButton#chip:checked:disabled { background: %(surface_alt)s; color: %(faint)s; }
+"""
+
+# 본문 CSS(mdlite.CSS)에 화면이 더하는 것: 결과·판정 글자색, 결과 화면의 구역 띠, 약한 바탕 꼬리표(span.tag-*), 가로선만 긋는 판정 표
+# (table.verdict, 세로선이 없게 border="0" 으로 씀), 강조 칸(td.callout). Qt 문서는 표 폭을 CSS 로 받지 않아 꽉 찬 표는 width="100%" 속성으로 줌.
+# doc_css 에서 line 은 줄 간격 값이라 칸 선 색은 grid 로 씀. 칸 선은 줄임 표기(border-bottom: 1px solid ...)를 읽지 않아 세 속성으로 나눠 적음
 DOC_CSS = """
 .muted { color: %(muted)s; }
 .ok { color: %(ok)s; }
@@ -481,6 +515,16 @@ DOC_CSS = """
 .up { color: %(up)s; }
 .retry { color: %(retry)s; }
 td.band { background-color: %(table_head)s; }
+span.tag-ok { background-color: %(ok_weak)s; color: %(ok)s; font-weight: 700; }
+span.tag-wrong { background-color: %(wrong_weak)s; color: %(wrong)s; font-weight: 700; }
+span.tag-blank { background-color: %(surface_alt)s; color: %(blank)s; font-weight: 700; }
+span.tag-verdict-up { background-color: %(selection)s; color: %(selection_ink)s; font-weight: 700; }
+span.tag-verdict-mastered, span.tag-verdict-done { background-color: %(ok_weak)s; color: %(ok)s; font-weight: 700; }
+span.tag-verdict-keep { background-color: %(surface_alt)s; color: %(muted)s; font-weight: 700; }
+span.tag-verdict-retry { background-color: %(retry_weak)s; color: %(retry)s; font-weight: 700; }
+table.verdict th { background-color: %(surface_alt)s; }
+table.verdict td { border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: %(grid)s; }
+td.callout { background-color: %(emphasis_bg)s; }
 """
 
 # 새 화면의 문서(웹 면접 준비의 미션 지문·해설·학습 노트·드릴 배경, 알고리즘 여행의 지문·힌트·해설·던전 소개)가 본문 CSS 뒤에 더하는 것.
@@ -598,8 +642,13 @@ def style_tokens(scheme):
                 slot_focus=slot_height() - 4, learn_slot_focus=learning_slot_height() - 4,
                 field_height=CONTROL["field"] - 2, field_focus=CONTROL["field"] - 4,
                 navigation_height=max(56, TYPE["navigation"][1] + 24) - 4,
-                dense_card=RADIUS["dense_card"], dense_control=RADIUS["dense_control"], dense_chip=RADIUS["dense_chip"],
+                dense_card=RADIUS["dense_card"], dense_control=RADIUS["dense_control"], dense_chip=RADIUS["dense_chip"], number_tile=number_tile() - 2,
                 **{"button_" + scale: control_height(scale) - 4 for scale in ("s", "m", "l")})
+
+
+def number_tile():
+    """정사각 번호 칩(AI 홈 차시 줄)의 한 변. 보통 글자 36, 큰 글자 단계에서는 caption 줄 높이 + 12 로 늘어남. 테두리 1px 를 포함함."""
+    return max(36, TYPE["caption"][1] + 12)
 
 
 def control_height(scale):

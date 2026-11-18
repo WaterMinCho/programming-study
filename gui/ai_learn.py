@@ -724,7 +724,7 @@ class RecallBlock(QFrame):
         super().__init__()
         self.setObjectName("learning_activity")
         self.block, self.ctx = block, ctx
-        column = kit.box(self, (32, 32, 32, 32), spacing=24)
+        column = kit.box(self, (24, 24, 24, 24), spacing=24)
         column.addWidget(head(title))
         column.addWidget(rich(block.get("q", "")))
         self.field = AnswerLine()
@@ -761,6 +761,21 @@ class RecallBlock(QFrame):
         self.entry.setVisible(not ctx.readonly)
         self.result.setVisible(ctx.readonly)
         self.verdict.setVisible(not ctx.readonly)
+
+    def fit_check(self):
+        """[확인] 높이를 입력 칸 높이에 맞춤. 칸 높이는 learn_body 글자 단계를 따르므로 단추 자신의 스타일시트로 같은 높이를 줌.
+        스타일시트 높이는 테두리 두 줄(2px씩)을 뺀 값임."""
+        self.field.ensurePolished()
+        height = self.field.sizeHint().expandedTo(self.field.minimumSize()).height() - 4
+        self.check_btn.setStyleSheet("QPushButton { min-height: %dpx; max-height: %dpx; }" % (height, height))
+
+    def refont(self):
+        self.field.setFont(theme.font("learn_body"))  # kit.refont 는 이 상자를 칸보다 먼저 부르므로 칸 글꼴을 먼저 바꿔 높이를 잼
+        self.fit_check()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.fit_check()
 
     def check(self):
         """칸이 비면 채점하지 않고 안내만 함(잘못 누른 [확인]이 틀린 기록으로 남지 않게)."""
@@ -1532,6 +1547,8 @@ class AiLearnPage(QWidget):
         _, top, right, bottom = self.bar.row.getContentsMargins()
         self.bar.row.setContentsMargins(kit.DENSE_MARGIN, top, right, bottom)  # 왼쪽 도구가 테두리 단추라 글자 단추처럼 내지 않음
         self.prev_btn = self.bar.add_tool(kit.button("이전", "secondary", "m"))
+        self.step_count = self.bar.add_action(kit.label("", "caption", "secondary"))  # 지금 단계 / 단계 수. 초점을 받지 않음
+        self.bar.action_row.addSpacing(8)
         self.next_btn = self.bar.add_action(kit.button("다음", "primary", "m"))
         self.prev_btn.setToolTip("← 키로도 넘깁니다. 입력 칸이나 그림을 고른 동안에는 Alt+←")
         self.next_btn.setToolTip("→ 키로도 넘깁니다. 입력 칸이나 그림을 고른 동안에는 Alt+→")
@@ -1610,6 +1627,7 @@ class AiLearnPage(QWidget):
         self.stepper.set_steps(step_dots(self.steps, index))
         self.stepper.setToolTip("\n".join("%d %s" % (n + 1, s["title"]) for n, s in enumerate(self.steps)))
         self.prev_btn.setEnabled(index > 0)
+        self.step_count.setText("%d / %d" % (index + 1, len(self.steps)))
         self.next_btn.setText("연습 시작" if last else "다음")
         self.memo_btn.setVisible(not last)
         self.win.ai.save_step(self.lid, self.key, index + 1)
