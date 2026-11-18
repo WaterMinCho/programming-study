@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""모의고사 코드 작성 문항 채점을 진짜 하네스로 확인함. 비교 규칙, 숨은 테스트 내용이 결과 글에 나가지 않는지,
+"""모의고사 코드 작성 문항 채점을 실제 하네스로 확인함. 비교 규칙, 숨은 테스트 내용이 결과 글에 나가지 않는지,
 [코드 실행]의 임시 폴더, 실행 환경 실패 판정을 봄.
 
 실행: python -m unittest tests.test_ai_mock_code
@@ -69,7 +69,7 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(diff(True, 1.0, 1e-6), "돌려준 값의 자료형이 다릅니다.")
         self.assertEqual(diff(1, True, 1e-6), "돌려준 값의 자료형이 다릅니다.")
         self.assertEqual(diff([1, 2], [1, 2, 3], 1e-6), "돌려준 값의 길이가 다릅니다.")
-        self.assertEqual(diff([1, [2, 4]], [1, [2, 3]], 1e-6), "2번째 원소의 2번째 원소의 값이 다릅니다.")
+        self.assertEqual(diff([1, [2, 4]], [1, [2, 3]], 1e-6), "돌려준 값에서 2번째 원소 안의 2번째 원소의 값이 다릅니다.")
         self.assertEqual(diff(5, 4, 1e-6), "돌려준 값이 다릅니다.")
         self.assertEqual(diff(1.1, 1.0, 1e-6), "돌려준 값이 다릅니다.")
         self.assertIsNone(diff(1.1, 1.0, 0.2))

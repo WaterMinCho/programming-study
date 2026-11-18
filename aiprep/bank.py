@@ -156,7 +156,7 @@ def read_index(root=None):
             for key in ("hidden", "legacy"):
                 if key in item:
                     if type(item[key]) is not bool:
-                        raise ValueError("mocks %s 의 %s %r" % (mid, key, item[key]))
+                        raise ValueError("mocks %s 의 %s 값은 true 나 false 여야 합니다: %r" % (mid, key, item[key]))
                     mocks[-1][key] = item[key]
     except (KeyError, TypeError, ValueError) as error:
         raise AiBankError("%s 의 형식이 맞지 않습니다: %s" % (INDEX_NAME, webbank._why(error)))

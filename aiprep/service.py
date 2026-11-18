@@ -220,7 +220,7 @@ class AiSession(object):
             raise AiError("AI 비전 개론 목록을 읽을 수 없습니다. %s" % error)
         self.mock_lessons = {e["id"]: e for e in self.index["lessons"]}
         pending_mocks, accepted_mocks, unlisted, self.legacy_drafts = {}, [], set(), []
-        # hidden·legacy 는 과정으로 거르지 않은 원본 기록으로 판정함. 시간이 끝난 legacy 시도는 넣어 두면 _recover_mocks 가 제출함
+        # hidden·legacy 는 과정으로 거르지 않은 원본 기록으로 판정함. 시간이 끝난 legacy 시도는 목록에 남겨 두면 _recover_mocks 가 제출함
         submitted = {row.get("mock") for row in self.record.log if row.get("kind") == "mock_submit"}
         starts = {row.get("mock"): row for row in self.record.log if row.get("kind") == "mock_start"}
         for spec in self.index["mocks"]:
