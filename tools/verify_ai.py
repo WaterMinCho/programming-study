@@ -1686,9 +1686,9 @@ MIXED_BLUEPRINTS = {"mixed32-blueprint-v1": MIXED_BLUEPRINT,
                     "mixed32-transfer-v1": MIXED_BLUEPRINT,
                     "mixed32-applied04-v1": MIXED_APPLIED04_BLUEPRINT}
 VARIATION_REVISIONS = ("mixed32-transfer-v1", "mixed32-applied04-v1")
-# 모든 차시 회차의 배분 버전마다 format별 문항 수와 level별 문항 수. kind 수는 format 수에서 셈
+# 모든 차시 회차의 배분 버전마다 format별 문항 수, level별 문항 수, 코드 작성 문항의 level별 수. kind 수는 format 수에서 셈
 ALL_LESSON_RULES = {"all44-v1": {"format": {"choice": 16, "bug": 5, "order": 3, "blank": 8, "predict": 8, "code": 4},
-                                 "level": {1: 11, 2: 22, 3: 11}}}
+                                 "level": {1: 11, 2: 22, 3: 11}, "code_level": {2: 2, 3: 2}}}
 FORMAT_KINDS = {"choice": "choice", "bug": "choice", "order": "choice", "blank": "blank", "predict": "blank", "code": "code"}
 
 
@@ -1782,18 +1782,39 @@ def _mixed_mock_problems(entry, meta, items, sources):
 
 
 def _all_lesson_mock_problems(entry, meta, items, sources):
-    """모든 차시 회차의 계약(format·kind·level 수, 문항 ID), allocate 배분, 빠진 공개 차시, round_set을 대조함. 초안도 검사함."""
+    """모든 차시 회차의 계약(문항 수와 exam_size, format·kind·level 수, 코드 작성 level 수, 문항 ID), allocate 배분,
+    빠진 공개 차시, round_set을 대조함. 초안도 검사함."""
     out, label = [], entry["id"]
-    contract, blueprint = _mixed_contract(entry), _mixed_blueprint(entry)
+    contract = _mixed_contract(entry)
+    size = ai_mock_rules.exam_size(len(ai_mock_rules.LESSON_SCORES))
+    if contract["count"] != size:
+        out.append(f"{label}의 배분 버전 {entry['blueprint_revision']}은 {contract['count']}문항인데 LESSON_SCORES의 차시 "
+                   f"{len(ai_mock_rules.LESSON_SCORES)}개로 계산한 문항 수는 {size}개입니다. 새 배분 버전을 "
+                   "aiprep/mixed_mock.py의 CONTRACTS와 tools/verify_ai.py의 ALL_LESSON_RULES에 함께 등록하고 "
+                   "이 회차를 그 버전으로 다시 출제하세요.")
+    # 응용 차시가 늘면 계약 문항 수로 allocate 가 나누지 못해 ValueError 를 냄. 멈추지 않고 실패 목록에 넣음
+    try:
+        blueprint = _mixed_blueprint(entry)
+    except ValueError as error:
+        out.append(f"{label}의 문항을 LESSON_SCORES의 차시에 나누지 못합니다: {error} 새 배분 버전을 "
+                   "aiprep/mixed_mock.py의 CONTRACTS와 tools/verify_ai.py의 ALL_LESSON_RULES에 함께 등록하고 "
+                   "이 회차를 그 버전으로 다시 출제하세요.")
+        blueprint = {}
     rules = ALL_LESSON_RULES.get(entry["blueprint_revision"])
-    if rules is None:
+    registered = rules is not None
+    if not registered:
         out.append(f"{label}의 blueprint_revision에 format·level 배분이 등록되지 않았습니다.")
-        rules = {"format": {}, "level": {}}
+        rules = {"format": {}, "level": {}, "code_level": {}}
     kinds = collections.Counter()
     for name, number in rules["format"].items():
         kinds[FORMAT_KINDS[name]] += number
     out += _mixed_shared_problems(entry, meta, items, sources, contract, blueprint,
                                   (("kind", dict(kinds)), ("format", rules["format"]), ("level", rules["level"])))
+    code_levels = collections.Counter(item["level"] for item in items if item["kind"] == "code" and type(item.get("level")) is int)
+    if registered and code_levels != rules["code_level"]:
+        wanted = ", ".join("level %d %d개" % pair for pair in sorted(rules["code_level"].items()))
+        found = ", ".join("level %d %d개" % pair for pair in sorted(code_levels.items())) or "0개"
+        out.append(f"{label}의 코드 작성 문항은 {wanted}여야 합니다. 지금은 {found}입니다.")
     for item in items:
         form = item.get("format")
         if not isinstance(form, str) or FORMAT_KINDS.get(form) != item["kind"]:
@@ -1933,7 +1954,7 @@ def _leaks(part, text):
 
 def _code_form_problems(item):
     """aiprep/mock.py 의 _check_code 를 통과한 코드 작성 문항의 출제 꼴을 봄. 예시·숨은 테스트 수, 입력 겹침, 기대값 꼴,
-    모범 답안의 채울 줄 꼴(study.check_fill), 화면과 수집에 나가는 stem·starter·conditions·sourcefacts 의 숨은 테스트 글.
+    모범 답안의 채울 줄 꼴(study.check_fill), boundaries 꼴, stem·starter·conditions·sourcefacts·boundaries·explain 의 숨은 테스트 글.
     [(메시지, 숨은 테스트 번호 또는 None)] 을 돌려줌. 메시지에는 숨은 테스트의 입력·기대값을 쓰지 않음."""
     cid, code, out = item["id"], item["code"], []
     examples, tests = code["examples"], code["tests"]
@@ -1958,9 +1979,13 @@ def _code_form_problems(item):
                                                 mock_code.source(code["starter"], code["entry"], item["solution"]))
     if guide:
         out.append(("%s의 모범 답안이 시작 코드의 채울 줄 꼴을 지키지 않습니다: %s" % (cid, guide.replace("\n", " ")), None))
+    boundaries = item.get("boundaries")
+    if not isinstance(boundaries, list) or not boundaries or not all(isinstance(text, str) and text.strip() for text in boundaries):
+        out.append(("%s의 boundaries를 글 목록으로 적으세요. 목록 한 칸에 숨은 테스트로 확인하는 경계 하나를 "
+                    "적고, 빈 글은 두지 않습니다." % cid, None))
     public = set().union(*(_value_texts(case) for case in examples))
     fields = (("stem", item.get("stem")), ("starter", code["starter"]), ("conditions", item.get("conditions")),
-              ("sourcefacts", item.get("sourcefacts")))
+              ("sourcefacts", item.get("sourcefacts")), ("boundaries", boundaries), ("explain", item.get("explain")))
     for number, test in enumerate(tests, 1):
         hidden = _value_texts(test) - public
         for name, value in fields:
@@ -2210,7 +2235,11 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
                     v.warn(label, 12, message)
         except (aibank.AiBankError, genlib.GenError, OSError, ValueError, TypeError, KeyError) as error:
             v.fail(label, 12, "모의고사 비교 자료를 읽지 못합니다: %s" % error)
-        blueprint = (_mixed_blueprint(mock) or MIXED_BLUEPRINT) if mixed else None
+        try:
+            blueprint = (_mixed_blueprint(mock) or MIXED_BLUEPRINT) if mixed else None
+        except ValueError:
+            # 나누지 못한 배분은 _all_lesson_mock_problems 가 실패로 알림. 근거 검사는 LESSON_SCORES 의 차시를 받음
+            blueprint = dict.fromkeys(ai_mock_rules.LESSON_SCORES)
         for item in items:
             _mock_evidence(v, label, item, sources, mixed=mixed)
             if mixed:
