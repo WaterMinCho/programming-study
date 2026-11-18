@@ -6,6 +6,7 @@ import json
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 from aiprep import bank
 from tools import ai_seal, verify_ai
@@ -355,3 +356,178 @@ class AdditionalMixedExamTest(unittest.TestCase):
         verifier = verify_ai.Verifier(opts, output)
         verify_ai.signature_step(verifier, str(old.bank), 'm7', str(old.bank/'mocks/m7'))
         self.assertIn('초안 상태', output.getvalue())
+
+
+CODE_STARTER = 'def out_size(w, f, p, s):\n    if f == w:\n        return 1\n    ____\n    return size'
+CODE_SOLUTION = ['size = (w - f + 2 * p) // s + 1']
+CODE_EXAMPLES = [{'args': [32, 3, 1, 1], 'expected': 32}, {'args': [28, 5, 0, 1], 'expected': 24}]
+CODE_TESTS = [{'args': [7, 3, 0, 2], 'expected': 3}, {'args': [9, 4, 1, 2], 'expected': 4},
+              {'args': [224, 11, 2, 4], 'expected': 55}, {'args': [13, 3, 1, 3], 'expected': 5},
+              {'args': [64, 7, 3, 2], 'expected': 32}, {'args': [17, 6, 2, 3], 'expected': 6}]
+
+
+class CodeItemVerifyTest(unittest.TestCase):
+    """혼합 회차 32번을 코드 작성 문항으로 바꿔 꼴 검사·출제 검증·재풀이 채점과 메시지 규칙을 봄.
+    32문항 계약은 코드 작성을 받지 않으므로 실제 kind 배분 실패는 따로 빼고 셈."""
+
+    def setUp(self):
+        self.old = MixedValidationTest()
+        self.old.setUp()
+        self.addCleanup(self.old.doCleanups)
+        row = self.old.items[31]
+        for key in ('options', 'pick', 'multi'):
+            row.pop(key)
+        row.update(kind='code', stem='합성곱 출력 크기를 돌려주는 함수 out_size를 완성하세요.', solution=list(CODE_SOLUTION),
+                   code={'starter': CODE_STARTER, 'entry': 'out_size', 'examples': copy.deepcopy(CODE_EXAMPLES),
+                         'tests': copy.deepcopy(CODE_TESTS), 'limit_ms': 2000, 'tol': None})
+        self.row = row
+
+    def check(self, *args):
+        self.old.save()
+        output = io.StringIO()
+        v = verify_ai.Verifier(verify_ai.parse_args(['--bank', str(self.old.bank), '--seeds', '2', *args]), output)
+        spec = next(m for m in bank.read_index(str(self.old.bank))['mocks'] if m['id'] == 'm4')
+        les = verify_ai.check_mock(v, str(self.old.bank), spec, {}, None)
+        messages = [message for _, _, message in v.failures if '실제 kind 배분' not in message]
+        return messages, output.getvalue(), les, v
+
+    def hidden_texts(self):
+        public = set().union(*(verify_ai._value_texts(case) for case in self.row['code']['examples']))
+        return {text for case in self.row['code']['tests'] for text in verify_ai._value_texts(case)} - public
+
+    def assert_no_hidden(self, text):
+        flat = ''.join(text.split())
+        for hidden in self.hidden_texts():
+            self.assertNotIn(hidden, flat)
+
+    def test_synthetic_code_item_passes_and_is_graded_by_the_resolver_answers(self):
+        messages, output, les, v = self.check()
+        self.assertEqual([], messages, output)
+        self.assertIn('실제 kind 배분', output)
+        self.assertIn('m4-32', [card['id'] for card in les.cards if card['kind'] == 'code'])
+        path = self.old.bank / 'answers.json'
+        for answer, correct in ((list(CODE_SOLUTION), 1), (['size = (w - f) // s + 1'], 0), (['a', 'b'], 0), ('size', 0)):
+            with self.subTest(answer=answer):
+                path.write_text(json.dumps({'m4-32': answer}), encoding='utf-8')
+                graded = verify_ai.grade_answers(v, 'answers', str(path), [les], str(self.old.bank))
+                self.assertEqual((1, correct), (graded['cards'], graded['correct']))
+
+    def test_each_broken_code_item_fails_without_printing_hidden_values(self):
+        def tests_like(expected):
+            return [dict(case, expected=expected) for case in CODE_TESTS]
+        same = [{'args': [64, 7, 3, 2], 'expected': 32}, {'args': [32, 5, 2, 1], 'expected': 32},
+                {'args': [34, 3, 0, 1], 'expected': 32}, {'args': [63, 1, 0, 2], 'expected': 32},
+                {'args': [32, 1, 0, 1], 'expected': 32}, {'args': [36, 5, 0, 1], 'expected': 32}]
+        cases = (
+            ('모르는 유형', {}, {'kind': 'essay'}, 'm4-32는 빈칸, 객관식, 코드 작성 가운데 하나여야 합니다.'),
+            ('엔진이 읽지 못하는 꼴', {}, {'solution': CODE_SOLUTION * 2}, '코드 작성 꼴이 맞지 않습니다'),
+            ('숨은 테스트 수', {'tests': CODE_TESTS[:5]}, None, '숨은 테스트는 6~10개'),
+            ('예시 수', {'examples': CODE_EXAMPLES[:1]}, None, '예시는 2~3개'),
+            ('입력 겹침', {'tests': [dict(CODE_TESTS[0], args=[32, 3, 1, 1])] + CODE_TESTS[1:]}, None,
+             '숨은 테스트 1번 입력이 예시 입력과 같습니다'),
+            ('반환 꼴', {'tests': CODE_TESTS[:5] + [dict(CODE_TESTS[5], expected={'size': 5})]}, None,
+             '숨은 테스트 6번 기대값은 실행기가 돌려받을 수 없는 꼴'),
+            ('None 반환', {'examples': [dict(CODE_EXAMPLES[0], expected=None), CODE_EXAMPLES[1]]}, None,
+             '예시 1번 기대값은 실행기가'),
+            ('지문 누출', {}, {'stem': '합성곱 출력 크기를 돌려주는 함수 out_size를 완성하세요. out_size(224, 11, 2, 4)도 확인합니다.'},
+             'stem에 숨은 테스트 3번'),
+            ('조건 누출', {}, {'conditions': ['입력 7, 3, 0, 2를 넣음']}, 'conditions에 숨은 테스트 1번'),
+            ('모범 답안 오답', {'tests': CODE_TESTS[:2] + [dict(CODE_TESTS[2], expected=54)] + CODE_TESTS[3:]}, None,
+             '숨은 테스트 3번에서 모범 답안이 틀립니다'),
+            ('시작 코드 통과', {'tests': CODE_TESTS[:3] + [{'args': [5, 5, 0, 1], 'expected': 1}] + CODE_TESTS[4:]}, None,
+             '시작 코드가 숨은 테스트 4번을 통과합니다'),
+            ('첫 예시의 기대값만 돌려주는 답', {'tests': same}, None,
+             '가짜 답(첫 예시의 기대값만 돌려주는 답)이 숨은 테스트를 모두 통과합니다. 첫 예시와 기대값이 다른 숨은 테스트를 넣으세요.'),
+            ('빈 모범 답안 줄', {}, {'solution': ['']}, 'm4-32의 모범 답안 1번째 줄이 비어 있습니다.'),
+            ('예시 오답', {'examples': [CODE_EXAMPLES[0], dict(CODE_EXAMPLES[1], expected=25)]}, None,
+             '예시 2번에서 모범 답안이 틀립니다'),
+            ('문장 끝 누출', {}, {'stem': '합성곱 출력 크기를 돌려주는 함수 out_size를 완성하세요. 입력은 224, 11, 2, 4.'},
+             'stem에 숨은 테스트 3번'),
+            ('3.10 문법', {}, {'solution': ['type Size = int; size = (w - f + 2 * p) // s + 1']}, 'Python 3.10 문법'),
+        )
+        original = copy.deepcopy(self.row)
+        for name, code, fields, expected in cases:
+            with self.subTest(name=name):
+                self.row.clear()
+                self.row.update(copy.deepcopy(original))
+                self.row['code'].update(copy.deepcopy(code))
+                self.row.update(copy.deepcopy(fields or {}))
+                messages, output, _, _ = self.check()
+                self.assertTrue(any(expected in message for message in messages), output)
+                self.assert_no_hidden(output)
+
+    def test_sourcefacts_leak_is_found(self):
+        self.row['sourcefacts'] = self.row['sourcefacts'] + [{'lesson': 'a03', 'id': '224,11,2,4'}]
+        messages = [message for message, _ in verify_ai._code_form_problems(self.row)]
+        self.assertIn('m4-32의 sourcefacts에 숨은 테스트 3번의 입력이나 기대값이 적혀 있습니다.', messages)
+
+    def test_string_values_leak_in_any_quote_style(self):
+        self.row['solution'] = ['out = s[::-1]']
+        self.row['code'].update(starter='def flip(s):\n    ____\n    return out', entry='flip',
+                                examples=[{'args': ['abc'], 'expected': 'cba'}, {'args': ['rokey'], 'expected': 'yekor'}],
+                                tests=[{'args': [word], 'expected': word[::-1]}
+                                       for word in ('hello', 'python', 'ab', 'level', 'tensor', 'data')])
+        for stem, number in (("문자열을 뒤집습니다. 'hello' 를 넣으면 'olleh' 가 나옵니다.", 1),
+                             ('문자열을 뒤집습니다. "hello" 를 넣으면 "olleh" 가 나옵니다.', 1),
+                             ('문자열을 뒤집습니다. hello 를 넣으면 olleh 가 나옵니다.', 1),
+                             ("문자열을 뒤집습니다. 'ab' 를 넣으면 'ba' 가 나옵니다.", 3),
+                             ("문자열을 뒤집습니다. 'abc' 를 넣으면 'cba' 가 나옵니다.", None)):
+            with self.subTest(stem=stem):
+                self.row['stem'] = stem
+                found = [number for message, number in verify_ai._code_form_problems(self.row) if 'stem에' in message]
+                self.assertEqual([number] if number else [], found)
+
+    def test_number_leak_needs_number_boundaries(self):
+        self.row['stem'] = '합성곱 출력 크기를 돌려주는 함수입니다. 예: out_size(77, 3, 0, 21) 처럼 부릅니다.'
+        self.assertEqual([], verify_ai._code_form_problems(self.row))
+
+    def test_table_of_example_answers_must_fail_a_hidden_test(self):
+        """입력 겹침 검사가 먼저 막는 경우라 실행 검사만 따로 부름."""
+        self.row['code']['tests'] = copy.deepcopy(CODE_EXAMPLES) * 3
+        messages = [message for message, _ in verify_ai._code_run_problems(self.row)]
+        self.assertIn('m4-32의 가짜 답(예시 입력과 기대값을 표로 외운 답)이 숨은 테스트를 모두 통과합니다. '
+                      '예시와 다른 입력을 숨은 테스트에 넣으세요.', messages)
+        self.assertFalse(any('첫 예시의 기대값만' in message for message in messages), messages)
+
+    def test_same_expected_values_report_only_the_constant_answer(self):
+        """입력은 모두 예시와 다르고 기대값이 모두 첫 예시와 같으면 표 답도 통과하지만 입력을 바꾸라는 안내는 틀린 처방임."""
+        self.row['code']['tests'] = [dict(case, expected=32) for case in CODE_TESTS]
+        messages = [message for message, _ in verify_ai._code_run_problems(self.row) if '가짜 답' in message]
+        self.assertEqual(['m4-32의 가짜 답(첫 예시의 기대값만 돌려주는 답)이 숨은 테스트를 모두 통과합니다. '
+                          '첫 예시와 기대값이 다른 숨은 테스트를 넣으세요.'], messages)
+
+    def test_solution_must_finish_in_a_quarter_of_the_limit_and_repeat_its_result(self):
+        self.row['code']['limit_ms'] = 400
+        self.row['solution'] = ['import time; time.sleep(0.15); size = (w - f + 2 * p) // s + 1']
+        messages, output, _, _ = self.check()
+        self.assertIn('m4-32의 숨은 테스트 1번에서 모범 답안 호출이 시간 제한의 4분의 1(100ms)을 넘깁니다.', messages, output)
+        self.assertFalse(any('모범 답안이 틀립니다' in message for message in messages), output)
+        self.row['solution'] = list(CODE_SOLUTION)
+        real = verify_ai.mock_code.grade
+
+        def flaky(item, lines, workers=None):
+            result = real(item, lines, workers)
+            if item['code'].get('limit_ms') == 100 and lines == CODE_SOLUTION:
+                result = dict(result, result='stuck', cases=[{'status': 'wrong', 'reason': '돌려준 값이 다릅니다.'}] * 6)
+            return result
+        with mock.patch.object(verify_ai.mock_code, 'grade', flaky):
+            messages, output, _, _ = self.check()
+        self.assertEqual(['m4-32의 모범 답안을 두 번 돌린 결과가 다릅니다.'], messages, output)
+
+    def test_hidden_values_appear_only_with_the_author_option(self):
+        self.row['code']['tests'][2]['expected'] = 54
+        self.row['code']['tests'][4]['expected'] = 33
+        messages, output, _, _ = self.check()
+        self.assertIn('m4-32의 숨은 테스트 3번에서 모범 답안이 틀립니다. 돌려준 값이 다릅니다.', messages, output)
+        self.assert_no_hidden(output)
+        how = '걸린 숨은 테스트의 입력과 기대값은 출제자 컴퓨터에서 python tools/verify_ai.py m4 --show-hidden-tests 로 확인합니다.'
+        self.assertEqual(1, output.count(how), output)
+        messages, output, _, _ = self.check('--show-hidden-tests')
+        self.assertIn('숨은 테스트 3번 입력 [224, 11, 2, 4], 기대값 54', output)
+        self.assertNotIn(how, output)
+
+    def test_how_to_see_hidden_values_is_not_printed_without_numbered_failures(self):
+        self.row['code']['examples'] = CODE_EXAMPLES[:1]
+        messages, output, _, _ = self.check()
+        self.assertTrue(any('예시는 2~3개' in message for message in messages), output)
+        self.assertNotIn('--show-hidden-tests', output)
