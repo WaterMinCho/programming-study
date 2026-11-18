@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "학습 본문·그림 작성",
+ "writer": "조사 수정",
  "resolver": "신규·변경 문항 재풀이",
- "reviewer": "출처·계산·문맥 대조",
+ "reviewer": "조사 교차 검토",
  "files": {
   "assets/a4a-1.gif": "35fd232ed76aab521325a0220a29c146d1e20cb710885cb51a4cef4d74114caf",
   "assets/a4a-2.png": "da9b0d2951840cd1916c96853d7dc0c45e0e3a989c56cc920f54871d4ee5cb43",
@@ -35,9 +35,10 @@
   "assets/a4g-42.png": "f9c3fd0de0ecf536baf151eaf49fbe0d462840b496bee2af9328699b4405ed31",
   "assets/a4g-43.png": "f4604f201f5191ab13285063ac5bac1092447d40d984f9af17508a6e1a16e438",
   "meta.json": "06d8417cbc34c205fa969b09d20a70e6ebac4525b072971e3d60ffd1560cc774",
-  "page.md": "17fb4f692718bacfede4c445f6ceea86b6adb6a4e8fb8b5958af67ad3fe0b161"
+  "page.md": "75437cafc9f6ab572df7f3e9fc0ecf431668d671d30ea9345e5bf01e3f5017f6"
  },
  "findings": [
-  "3차시 변경 단계와 4차시 전체 본문·질문을 대조했음. 새 그림 30개를 확인했고 작은 창·최대 글자·두 테마에서 4차시 대표 단계를 캡처했음."
+  "3차시 변경 단계와 4차시 전체 본문·질문을 대조했음. 새 그림 30개를 확인했고 작은 창·최대 글자·두 테마에서 4차시 대표 단계를 캡처했음.",
+  "2026-11-18 그림 1 캡션과 내용, 장 설명 두 곳에서 '점수 지도' 뒤 조사 네 곳(는·를·와)을 바로잡았음. 고친 사람과 다른 검토자가 노트 전체의 조사를 다시 읽었고 물음·정답·그림은 바뀌지 않았음."
  ]
 }
