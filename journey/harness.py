@@ -48,7 +48,11 @@ INPUT_NOTE = "이 문제는 input() 으로 읽지 않고 solution 의 매개변�
 LIMIT_LOW_NOTE = ("sys.setrecursionlimit 으로 한도를 늘리거나 반복문으로 바꾸세요. "
                   "이 채점기는 1,000보다 큰 한도를 모두 10,000으로 맞춥니다.")
 LIMIT_HIGH_NOTE = "이 채점기는 1,000보다 큰 한도를 모두 10,000으로 맞추므로 더 깊이 내려가야 하면 반복문과 직접 만든 스택으로 바꾸세요."
-CACHE_NOTE = "@cache·@lru_cache 로 감싼 재귀는 Python 3.12·3.13 에서 한도와 상관없이 약 3,300단계에서 멈춥니다."
+# Python 3.12·3.13 은 C 함수를 거치는 호출 깊이를 한도와 따로 막고, 그 칸 수가 운영체제와 버전마다 다름.
+# @cache 재귀는 단계마다 3칸을 써서 아래 깊이에서 멈춤. 2026-11-18 에 Linux·macOS·Windows 와 3.10~3.14 에서 잼
+CACHE_NOTE = ("@cache·@lru_cache 로 감싼 재귀는 Python 3.12·3.13 에서 한도를 올려도 한도 10,000 에 닿기 전에 멈춥니다. "
+              "macOS·Linux 는 약 3,300단계, Windows 는 약 1,000단계이고, Windows ARM64 의 3.13 은 약 330단계입니다. "
+              "3.12.0~3.12.2 는 운영체제와 상관없이 약 500단계에서 멈춥니다.")
 ENCODE_NOTE = "반환값을 채점용 JSON 으로 바꾸지 못했습니다(%s)."
 
 
@@ -169,9 +173,8 @@ def error_text(error, line):
 def recursion_note(error, source):
     limit = getrecursionlimit()
     note = "재귀가 멈췄습니다(%s, 지금 한도 %d). " % (error, limit)
-    if limit <= BASE_LIMIT:
-        return note + LIMIT_LOW_NOTE
-    note += LIMIT_HIGH_NOTE
+    # 한도 1,000 에서 멈춘 @cache 재귀도 Python 3.12·3.13 에서는 한도를 올려도 더 깊이 가지 못할 수 있어 CACHE_NOTE 를 붙임
+    note += LIMIT_LOW_NOTE if limit <= BASE_LIMIT else LIMIT_HIGH_NOTE
     if CACHE_DECORATOR.search(source):
         note += " " + CACHE_NOTE
     return note

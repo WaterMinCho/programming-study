@@ -42,14 +42,25 @@ jobs:
         run: python3 tools/verify_journey.py --plan "${BASE:+origin/$BASE}" >> "$GITHUB_OUTPUT"
 
   runner:
-    name: 여정 실행기 (Python ${{ matrix.python }})
+    name: 여정 실행기 (Python ${{ matrix.python }}${{ matrix.suffix }})
     needs: plan
     if: needs.plan.outputs.engine == 'true' || needs.plan.outputs.styles == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONUTF8: '1'
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        # Windows 의 Python 3.12 는 @cache 재귀가 Ubuntu 보다 얕은 깊이에서 멈춰서 재귀 판정을 Windows 에서도 봄. 3.13 은 C 호출 깊이 상수가 3.12 와 같아 칸을 두지 않음
+        include:
+          - os: windows-latest
+            python: "3.12"
+            suffix: ", Windows"
     steps:
       - uses: actions/checkout@v5
         with:
