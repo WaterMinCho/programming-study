@@ -943,6 +943,16 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual("needs.scope.outputs.gui == 'true'", jobs["gui"]["if"])
         self.assertEqual([], check_style.check(text, path=".github/workflows/ci.yml"))
 
+    def test_gui_check_scale_option_enlarges_the_virtual_screen(self):
+        from tools import check_gui
+        with tempfile.TemporaryDirectory() as directory:
+            environment = check_gui.scaled_environment(1.5, directory)
+            platform, _, path = environment["QT_QPA_PLATFORM"].partition(":configfile=")
+            with open(path, encoding="utf-8") as handle:
+                screen = json.load(handle)["screens"][0]
+        self.assertEqual(("offscreen", "1.5"), (platform, environment["QT_SCALE_FACTOR"]))
+        self.assertEqual((1200, 1200), (screen["width"], screen["height"]))  # 800 × 1.5 라 논리 크기는 800×800 으로 남음
+
     def test_style_workflow_reads_as_yaml(self):
         _, data = self.load("style.yml")
         self.assertEqual("문장 검사", data["name"])

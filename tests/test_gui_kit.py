@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import QApplication, QPushButton, QWidget  # noqa: E402
 from gui import dialogs, kit, theme  # noqa: E402
 from gui.docview import FigureView  # noqa: E402
 from gui.journey_map import COLUMNS, PILL_GAP, MapView  # noqa: E402
+from tools import check_gui  # noqa: E402
 from journey import bank  # noqa: E402
 
 ROOT = guikit.ROOT
@@ -200,6 +201,42 @@ guikit.pump()
 theme.set_text("larger")
 print("restyled")
 """
+
+# 200×120 창의 (150, 90) 에 20×10 빨간 칸을 두고, 화면 크기와 배율, 줄인 그림과 찍은 그대로의 그림에서 읽은 색을 적음
+SHOT_AT_SCALE = """
+from tests import guikit
+from PyQt6.QtGui import QColor, QPalette
+from PyQt6.QtWidgets import QWidget
+
+def filled(parent, color):
+    widget = QWidget(parent)
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Window, QColor(color))
+    widget.setPalette(palette)
+    widget.setAutoFillBackground(True)
+    return widget
+
+root = filled(None, "#ffffff")
+root.resize(200, 120)
+filled(root, "#ff0000").setGeometry(150, 90, 20, 10)
+root.show()
+guikit.pump()
+screen, image = root.screen(), guikit.shot(root)
+print(screen.geometry().width(), screen.geometry().height(), screen.devicePixelRatio(), image.width(), image.height(),
+      image.pixelColor(160, 95).name(), image.pixelColor(140, 95).name(), root.grab().toImage().pixelColor(160, 95).name())
+"""
+
+
+class ScaleTest(unittest.TestCase):
+    """화면 배율 1.5 로 띄운 프로세스에서 화면의 논리 크기가 800×800 으로 남고, guikit.shot 이 위젯 좌표의 색을 돌려줌."""
+
+    @unittest.skipIf(sys.platform == "win32", "화면 없는 플랫폼의 설정 파일 경로를 Windows 에서 확인하지 않았음")
+    def test_scaled_check_keeps_the_logical_screen_and_shot_reads_by_widget_coordinates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            done = subprocess.run([sys.executable, "-c", SHOT_AT_SCALE], cwd=guikit.ROOT, env=check_gui.scaled_environment(1.5, directory),
+                                  capture_output=True, encoding="utf-8", errors="replace", timeout=120)
+        # 찍은 그대로의 그림은 300×180 이라 (160, 95) 가 빨간 칸 밖임
+        self.assertEqual(done.stdout.split(), ["800", "800", "1.5", "200", "120", "#ff0000", "#ffffff", "#ffffff"], done.stderr)
 
 
 class TextStepTest(unittest.TestCase):
