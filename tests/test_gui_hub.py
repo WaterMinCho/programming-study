@@ -338,6 +338,39 @@ class HubScreenTest(HubTest):
         self.assertEqual(bar.geometry(), before)
         self.assertTrue(bar.submit.isVisible())
 
+    def test_update_notice_text_is_level_with_its_button(self):
+        """알림 글의 글자 가운데와 단추 글자 가운데가 같은 높이에 있음. 제출할 풀이가 함께 있어도 글은 업데이트만 알림."""
+        from PyQt6.QtCore import QRect
+
+        def glyph_middle(image, rect):
+            ratio = image.devicePixelRatio()
+            left, right = int(rect.left() * ratio), int(rect.right() * ratio)
+            top, bottom = int(rect.top() * ratio), int(rect.bottom() * ratio)
+            base = qGray(image.pixel(right, top))
+            rows = [y for y in range(top, bottom + 1)
+                    if any(abs(qGray(image.pixel(x, y)) - base) > 48 for x in range(left, right + 1))]
+            return (rows[0] + rows[-1]) / 2 / ratio
+
+        self.git.has_pending, self.git.has_updates = False, True
+        win = self.boot()
+        guikit.wait_until(lambda: win.pending_job is None)
+        win.pending_timer.stop()
+        self.addCleanup(theme.set_text, theme.state["text"])
+        bar = win.workspace.submissions
+        for step in ("normal", "larger"):
+            for pending in (False, True):
+                with self.subTest(step=step, pending=pending):
+                    win.set_text(step)
+                    win.pending_submission = {"status": "ok", "pending": pending, "count": int(pending)}
+                    win.workspace.refresh()
+                    guikit.pump()
+                    self.assertEqual(bar.message.text(), "새로운 업데이트 내역이 있습니다.")
+                    self.assertEqual(bar.submit.isVisible(), pending)
+                    image = bar.grab().toImage()
+                    words = bar.message.geometry()
+                    button = QRect(bar.sync.mapTo(bar, bar.sync.rect().topLeft()), bar.sync.size()).adjusted(8, 8, -8, -8)
+                    self.assertLessEqual(abs(glyph_middle(image, words) - glyph_middle(image, button)), 2)
+
     def test_new_material_reminder_is_throttled_and_clears_after_receiving(self):
         self.git.has_pending, self.git.has_updates = False, True
         win = self.boot()
@@ -349,7 +382,7 @@ class HubScreenTest(HubTest):
         self.assertTrue(bar.sync.isVisible())
         self.assertTrue(win.hub.manual_sync.isVisible())
         self.assertEqual(win.hub.manual_sync.text(), "프로그램 업데이트")
-        self.assertEqual(bar.message.text(), "새 업데이트가 있습니다.")
+        self.assertEqual(bar.message.text(), "새로운 업데이트 내역이 있습니다.")
         checks = self.git.update_checks
         win.check_pending_submission()
         guikit.wait_until(lambda: win.pending_job is None)

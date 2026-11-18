@@ -961,7 +961,7 @@ class MainWindow(QMainWindow):
                 self.problem_updates = result
                 self.next_update_check = time.monotonic() + 300
                 self.workspace.refresh()
-                message = ("새 업데이트가 있습니다. [프로그램 업데이트]를 눌러 적용하세요."
+                message = ("새로운 업데이트 내역이 있습니다. [프로그램 업데이트]를 눌러 적용하세요."
                            if result.get("available") else "최신 버전을 사용하고 있습니다.")
             else:
                 message = "업데이트를 확인하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요."
