@@ -10,6 +10,10 @@ from aiprep import bank
 _LOCKS = {}
 _EXAMS = weakref.WeakValueDictionary()
 PUBLISHED_IDS = ("m4", "m5", "m6")
+_MIXED32 = {"count": 32, "minutes": 120, "course_counts": {"intro": 16, "app": 16}}
+# 배분 버전마다 문항 수·시간·과정 수를 둠. 표에 없는 배분 버전은 학습자 목록에서 숨김
+CONTRACTS = {"mixed32-blueprint-v1": _MIXED32, "mixed32-transfer-v1": _MIXED32, "mixed32-applied04-v1": _MIXED32,
+             "all44-v1": {"count": 44, "minutes": 120, "course_counts": {"intro": 31, "app": 13}, "all_lessons": True}}
 
 
 def candidate(spec):
@@ -18,11 +22,14 @@ def candidate(spec):
 
 def validate(spec, meta, items=None, lessons=None):
     """파서가 보존한 명시적 계약만 받음. 원본 index를 우회해 읽지 않음."""
-    if (spec.get("scope") != "mixed" or spec.get("courses") != ["intro", "app"]
-            or spec.get("count") != 32 or not isinstance(spec.get("blueprint_revision"), str)
-            or not spec["blueprint_revision"].strip()
-            or spec.get("course_counts") != {"intro": 16, "app": 16}
-            or not isinstance(spec.get("blueprint"), dict)):
+    revision = spec.get("blueprint_revision")
+    contract = CONTRACTS.get(revision) if isinstance(revision, str) else None
+    blueprint = spec.get("blueprint")
+    if (spec.get("scope") != "mixed" or spec.get("courses") != ["intro", "app"] or contract is None
+            or spec.get("count") != contract["count"] or spec.get("minutes") != contract["minutes"]
+            or spec.get("course_counts") != contract["course_counts"]
+            or not isinstance(blueprint, dict) or not blueprint
+            or any(type(n) is not int or n < 1 for n in blueprint.values())):
         raise ValueError("혼합 모의고사의 과정·배분 메타데이터 연결을 준비하고 있습니다.")
     if not isinstance(meta, dict):
         raise ValueError("혼합 모의고사의 배분 자료를 읽을 수 없습니다.")
@@ -140,5 +147,12 @@ def collection_course(exam, sess, kind, data):
 
 
 def description(spec):
+    if CONTRACTS.get(spec.get("blueprint_revision"), {}).get("all_lessons"):
+        spans = []
+        for course, name in (("intro", "개론"), ("app", "응용")):
+            nos = sorted(int(lid[1:]) for lid in spec["blueprint"] if bank.course_of(lid) == course)
+            if nos:
+                spans.append("%s %d~%d차시" % (name, nos[0], nos[-1]))
+        return " · ".join(["%d문항" % spec["count"], "%d분" % spec["minutes"]] + spans)
     return "%d문항 · 개론 %d · 응용 %d · 연습 기본 %d분" % (
         spec["count"], spec["course_counts"]["intro"], spec["course_counts"]["app"], spec["minutes"])

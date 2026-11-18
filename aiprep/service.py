@@ -179,6 +179,14 @@ def _md(day):
     return "%d월 %d일" % (day.month, day.day)
 
 
+def _start_expired(start, minutes):
+    """mock_start 시각에 제한 시간을 더한 마감이 지났는지 봄. MockExam 이 초안 없이 마감을 셀 때와 같은 식임."""
+    try:
+        return mock._moment(start.get("at")) + datetime.timedelta(minutes=minutes) <= mock._moment(now())
+    except mock.MockError:
+        return False
+
+
 class AiSession(object):
     def __init__(self, user, home=None, root=None, course="intro"):
         """은행과 record.json 을 읽음. index.json·terms.json 이나 기록이 깨졌으면 AiError. 차시 하나가 깨지면 그 차시만 빼고
@@ -211,8 +219,18 @@ class AiSession(object):
         except bank.AiBankError as error:
             raise AiError("AI 비전 개론 목록을 읽을 수 없습니다. %s" % error)
         self.mock_lessons = {e["id"]: e for e in self.index["lessons"]}
-        pending_mocks, accepted_mocks = {}, []
+        pending_mocks, accepted_mocks, unlisted, self.legacy_drafts = {}, [], set(), []
+        # hidden·legacy 는 과정으로 거르지 않은 원본 기록으로 판정함. 시간이 끝난 legacy 시도는 넣어 두면 _recover_mocks 가 제출함
+        submitted = {row.get("mock") for row in self.record.log if row.get("kind") == "mock_submit"}
+        starts = {row.get("mock"): row for row in self.record.log if row.get("kind") == "mock_start"}
         for spec in self.index["mocks"]:
+            if spec["id"] not in submitted and (spec.get("hidden") or spec.get("legacy")):
+                start = starts.get(spec["id"])
+                if spec.get("hidden") or start is None or not _start_expired(start, spec["minutes"]):
+                    if not spec.get("hidden") and start is not None and (course == "intro" or mixed_mock.candidate(spec)):
+                        self.legacy_drafts.append(spec["id"])
+                    unlisted.add(spec["id"])
+                    continue
             if mixed_mock.candidate(spec):
                 try:
                     mixed_mock.validate(spec, study.read_json(os.path.join(bank.mock_dir(spec["id"], self.root), "meta.json")))
@@ -224,7 +242,7 @@ class AiSession(object):
             accepted_mocks.append(spec)
         self.index["mocks"] = accepted_mocks
         for mid in mixed_mock.PUBLISHED_IDS:
-            if os.path.isfile(os.path.join(bank.mock_dir(mid, self.root), "meta.json")) and not any(m["id"] == mid for m in accepted_mocks):
+            if mid not in unlisted and os.path.isfile(os.path.join(bank.mock_dir(mid, self.root), "meta.json")) and not any(m["id"] == mid for m in accepted_mocks):
                 pending_mocks.setdefault(mid, "혼합 모의고사의 문항 검토와 목록 연결을 준비하고 있습니다.")
         self.index["lessons"] = [e for e in self.index["lessons"] if e["course"] == course]
         self.index["patterns"] = [g for g in self.index["patterns"] if g["course"] == course]
@@ -1521,7 +1539,7 @@ class _State(object):
                  for m in sess.index["mocks"]]
         last_at = max((str(e.get("at") or "") for e in self.log), default=None) or None
         return {"course": sess.course, "lessons": lessons, "patterns": self.pattern_rows(), "mocks": mocks,
-                "mock_pending": " ".join(sess.mock_pending.values()), "due": len(due), "again": len(self.again),
+                "mock_pending": " ".join(sess.mock_pending.values()), "legacy_drafts": list(sess.legacy_drafts), "due": len(due), "again": len(self.again),
                 "today_answers": moved, "today_extra": max(0, len(today_rows) - moved),
                 "memorised": families_memorised(list(sess.cards.values()), self.sched, self.revised), "cards": len(sess.cards),
                 "families": len({c["family"] for c in sess.cards.values()}), "plan": plan_row, "next": self.next(plan_row, len(due)),
