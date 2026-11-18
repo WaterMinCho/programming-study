@@ -25,7 +25,7 @@ def inspect(folder):
     root = private_path(folder)
     path = root / "manifest.json"
     if not path.is_file():
-        raise ValueError("선택한 폴더에 manifest.json이 없습니다. 압축을 푼 뒤 recorded-python 또는 synthetic 폴더를 지정해 주세요.")
+        raise ValueError("선택한 폴더에 manifest.json이 없습니다. 압축을 푼 뒤 recorded 또는 synthetic 폴더를 지정해 주세요.")
     raw = path.read_bytes()
     manifest = json.loads(raw)
     input_example.newer(manifest.get("features_version"))
