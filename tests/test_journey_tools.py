@@ -957,6 +957,14 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(("offscreen", "1.5"), (platform, environment["QT_SCALE_FACTOR"]))
         self.assertEqual((1200, 1200), (screen["width"], screen["height"]))  # 800 × 1.5 라 논리 크기는 800×800 으로 남음
 
+    def test_gui_check_runs_only_the_named_checks_at_the_given_scale(self):
+        from tools import check_gui
+        names = ["tests.test_gui_kit", "tests.test_gui_docview.DocViewTest"]
+        with mock.patch.object(sys, "argv", ["check_gui.py", "--scale", "1.5"] + names), \
+                mock.patch.object(check_gui, "run", return_value=0) as run, contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(0, check_gui.main())
+        run.assert_called_once_with([names], scale=1.5)
+
     def test_style_workflow_reads_as_yaml(self):
         _, data = self.load("style.yml")
         self.assertEqual("문장 검사", data["name"])
