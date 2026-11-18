@@ -360,6 +360,7 @@ class AdditionalMixedExamTest(unittest.TestCase):
 
 CODE_STARTER = 'def out_size(w, f, p, s):\n    if f == w:\n        return 1\n    ____\n    return size'
 CODE_SOLUTION = ['size = (w - f + 2 * p) // s + 1']
+CODE_BOUNDARIES = ['홀수 크기', '나누어떨어지지 않는 간격']
 CODE_EXAMPLES = [{'args': [32, 3, 1, 1], 'expected': 32}, {'args': [28, 5, 0, 1], 'expected': 24}]
 CODE_TESTS = [{'args': [7, 3, 0, 2], 'expected': 3}, {'args': [9, 4, 1, 2], 'expected': 4},
               {'args': [224, 11, 2, 4], 'expected': 55}, {'args': [13, 3, 1, 3], 'expected': 5},
@@ -378,7 +379,7 @@ class CodeItemVerifyTest(unittest.TestCase):
         for key in ('options', 'pick', 'multi'):
             row.pop(key)
         row.update(kind='code', stem='합성곱 출력 크기를 돌려주는 함수 out_size를 완성하세요.', solution=list(CODE_SOLUTION),
-                   code={'starter': CODE_STARTER, 'entry': 'out_size', 'examples': copy.deepcopy(CODE_EXAMPLES),
+                   boundaries=list(CODE_BOUNDARIES), code={'starter': CODE_STARTER, 'entry': 'out_size', 'examples': copy.deepcopy(CODE_EXAMPLES),
                          'tests': copy.deepcopy(CODE_TESTS), 'limit_ms': 2000, 'tol': None})
         self.row = row
 
@@ -444,6 +445,9 @@ class CodeItemVerifyTest(unittest.TestCase):
             ('문장 끝 누출', {}, {'stem': '합성곱 출력 크기를 돌려주는 함수 out_size를 완성하세요. 입력은 224, 11, 2, 4.'},
              'stem에 숨은 테스트 3번'),
             ('3.10 문법', {}, {'solution': ['type Size = int; size = (w - f + 2 * p) // s + 1']}, 'Python 3.10 문법'),
+            ('해설 누출', {}, {'explain': '입력 224, 11, 2, 4에서는 (224 - 11 + 4) // 4 + 1을 셉니다.'}, 'explain에 숨은 테스트 3번'),
+            ('경계 누출', {}, {'boundaries': ['나누어떨어지지 않는 간격', '입력 [13, 3, 1, 3]']}, 'boundaries에 숨은 테스트 4번'),
+            ('경계 없음', {}, {'boundaries': None}, 'm4-32의 boundaries를 글 목록으로 적으세요.'),
         )
         original = copy.deepcopy(self.row)
         for name, code, fields, expected in cases:
@@ -476,6 +480,20 @@ class CodeItemVerifyTest(unittest.TestCase):
                 self.row['stem'] = stem
                 found = [number for message, number in verify_ai._code_form_problems(self.row) if 'stem에' in message]
                 self.assertEqual([number] if number else [], found)
+
+    def test_boundaries_must_be_a_list_of_texts(self):
+        message = 'm4-32의 boundaries를 글 목록으로 적으세요. 목록 한 칸에 숨은 테스트로 확인하는 경계 하나를 적고, 빈 글은 두지 않습니다.'
+        for value in ([], ['홀수 크기', ' '], ['홀수 크기', 3], '홀수 크기', {'경계': '홀수 크기'}):
+            with self.subTest(value=value):
+                self.row['boundaries'] = value
+                self.assertIn((message, None), verify_ai._code_form_problems(self.row))
+        self.row.pop('boundaries')
+        self.assertIn((message, None), verify_ai._code_form_problems(self.row))
+
+    def test_example_values_in_explain_and_boundaries_are_not_leaks(self):
+        self.row['explain'] = '예시 out_size(32, 3, 1, 1)은 (32 - 3 + 2) // 1 + 1 = 32를 돌려줍니다. 간격이 2 이상이면 몫만 남깁니다.'
+        self.row['boundaries'] = ['홀수 크기', '나누어떨어지지 않는 간격', '예시 [28, 5, 0, 1]과 같은 패딩 0']
+        self.assertEqual([], verify_ai._code_form_problems(self.row))
 
     def test_number_leak_needs_number_boundaries(self):
         self.row['stem'] = '합성곱 출력 크기를 돌려주는 함수입니다. 예: out_size(77, 3, 0, 21) 처럼 부릅니다.'
@@ -558,7 +576,7 @@ def all44_items(mid, fact_no=20, revision='all44-v1'):
                         blanks=[{'mode': 'number', 'answer': ['2']}], allowed_answers=[['2']])
         elif form == 'code':
             item.update(kind='code', stem='%s 합성곱 출력 크기를 돌려주는 함수 out_size를 완성하세요.' % marker,
-                        solution=list(CODE_SOLUTION),
+                        solution=list(CODE_SOLUTION), boundaries=list(CODE_BOUNDARIES),
                         code={'starter': CODE_STARTER, 'entry': 'out_size', 'examples': copy.deepcopy(CODE_EXAMPLES),
                               'tests': copy.deepcopy(CODE_TESTS), 'limit_ms': 2000, 'tol': None})
         else:
@@ -644,6 +662,8 @@ class AllLessonValidationTest(unittest.TestCase):
             ('코드 작성 format', lambda rows: retag(rows, 40, format='blank'), 'm11-41의 format은 kind가 code일 때 code여야 합니다.'),
             ('과정 수', lambda rows: retag(rows, 0, course='app'), '실제 course 배분'),
             ('level', lambda rows: retag(rows, 0, level=2), '실제 level 배분'),
+            ('코드 작성 level', lambda rows: (retag(rows, 42, level=2), retag(rows, 11, level=3)),
+             'm11의 코드 작성 문항은 level 2 2개, level 3 2개여야 합니다. 지금은 level 2 3개, level 3 1개입니다.'),
             ('문항 id', lambda rows: retag(rows, 43, id='m11-45'), 'm11-01부터 m11-44까지'),
         )
         for name, edit, expected in cases:
@@ -672,6 +692,38 @@ class AllLessonValidationTest(unittest.TestCase):
         self.update_index()
         self.save()
         self.assert_fails('m11 index의 count가 혼합 배분과 일치하지 않습니다.')
+
+    def test_code_level_rule_passes_in_any_order(self):
+        """코드 작성 문항의 level 순서만 바꾸면 회차 전체 level 수도 같아 실패하지 않음."""
+        for row, level in zip(self.items[40:], (3, 2, 3, 2)):
+            row['level'] = level
+        self.save()
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.assertNotIn('코드 작성 문항은 level', output)
+
+    def test_contract_count_must_match_exam_size_of_scored_lessons(self):
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.assertNotIn('계산한 문항 수', output)
+        scores = dict(verify_ai.ai_mock_rules.LESSON_SCORES, a06=(40, 6, 1, 1, 0))
+        with mock.patch.object(verify_ai.ai_mock_rules, 'LESSON_SCORES', scores):
+            self.assert_fails('m11의 배분 버전 all44-v1은 44문항인데 LESSON_SCORES의 차시 23개로 계산한 문항 수는 46개입니다. '
+                              '새 배분 버전을 aiprep/mixed_mock.py의 CONTRACTS와 tools/verify_ai.py의 ALL_LESSON_RULES에 '
+                              '함께 등록하고 이 회차를 그 버전으로 다시 출제하세요.')
+
+    def test_app_lessons_beyond_contract_count_fail_without_stopping(self):
+        """응용 차시가 14개면 44문항의 응용 몫 13문항을 차시 14개에 나누지 못함. traceback 없이 실패 메시지로 끝나야 함."""
+        extra = {'a%02d' % n: (40, 6, 1, 1, 0) for n in range(6, 15)}
+        scores = dict(verify_ai.ai_mock_rules.LESSON_SCORES, **extra)
+        with mock.patch.object(verify_ai.ai_mock_rules, 'LESSON_SCORES', scores):
+            code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('m11의 문항을 LESSON_SCORES의 차시에 나누지 못합니다: 문항 수 13는 차시 14개에 1~4문항씩 나눌 수 없습니다. '
+                      '새 배분 버전을 aiprep/mixed_mock.py의 CONTRACTS와 tools/verify_ai.py의 ALL_LESSON_RULES에 '
+                      '함께 등록하고 이 회차를 그 버전으로 다시 출제하세요.', output)
+        self.assertIn('계산한 문항 수는 56개입니다.', output)
+        self.assertNotIn('Traceback', output)
 
     def test_published_lesson_missing_from_blueprint_fails(self):
         self.publish_app_lesson(6)
