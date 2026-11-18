@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 from tests import guikit
 
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QPoint, QRect, Qt
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QToolTip, QWidget
@@ -86,7 +86,6 @@ class TeamDashboardTest(unittest.TestCase):
     def setUp(self):
         self.addCleanup(theme.set_text, theme.state["text"])
         self.addCleanup(theme.set_mode, theme.state["mode"])
-        theme.set_text("normal")
         self.identity = mock.Mock()
         self.identity.settings.return_value = {"verified": True, "team": True}
         self.identity.summary.side_effect = self.result
@@ -480,7 +479,8 @@ class TeamDashboardTest(unittest.TestCase):
                         and w.isVisible() and getattr(w, "text", lambda: "")() == info.toolTip()]
                 self.assertEqual(len(tips), 1)
                 tip = tips[0]
-                self.assertTrue(tip.screen().availableGeometry().contains(tip.frameGeometry()))
+                # 화면 없는 플랫폼은 툴팁 창에 2px 테두리를 붙이고 Qt 는 테두리를 뺀 크기로 자리를 정하므로 테두리를 뺀 사각형을 봄
+                self.assertTrue(tip.screen().availableGeometry().contains(QRect(tip.pos(), tip.size())))
                 self.assertEqual(tip.font().pixelSize(), theme.TYPE["caption"][0])
                 self.assertEqual(info.accessibleDescription(), info.toolTip())
                 QTest.keyClick(info, Qt.Key.Key_Escape)
