@@ -153,6 +153,11 @@ def read_index(root=None):
             for key in ("scope", "courses", "course_counts", "blueprint", "blueprint_revision"):
                 if key in item:
                     mocks[-1][key] = item[key]
+            for key in ("hidden", "legacy"):
+                if key in item:
+                    if type(item[key]) is not bool:
+                        raise ValueError("mocks %s 의 %s %r" % (mid, key, item[key]))
+                    mocks[-1][key] = item[key]
     except (KeyError, TypeError, ValueError) as error:
         raise AiBankError("%s 의 형식이 맞지 않습니다: %s" % (INDEX_NAME, webbank._why(error)))
     return {"pages": web["pages"], "order": web["order"], "exam": exam, "lessons": lessons, "patterns": patterns,

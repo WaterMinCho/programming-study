@@ -41,7 +41,7 @@ def make_bank(root):
     index['lessons'].append(dict(index['lessons'][0], id='a90', page='al90', course='app'))
     spec = dict(id='m4', title='혼합 모의고사', scope='mixed', courses=['intro','app'], minutes=120,
                 count=32, range=[90,90], window=[], course_counts={'intro':16,'app':16},
-                blueprint={'i90':16,'a90':16}, blueprint_revision='fixture-v1')
+                blueprint={'i90':16,'a90':16}, blueprint_revision='mixed32-blueprint-v1')
     index['mocks'].append(spec)
     study.write_text(root/'index.json', json.dumps(index))
     folder = root/'mocks/m4'
@@ -151,8 +151,8 @@ class MixedMockTest(unittest.TestCase):
         with self.assertRaisesRegex(service.AiError,'자료가 바뀌었습니다'): self.session().start_mock('m4')
         self.assertEqual(before,Path(exam.path).read_bytes())
         source['items'][0]['family']='shared-topic';study.write_text(path,json.dumps(source))
-        spec=dict(sess.mocks['m4'],blueprint_revision='fixture-v2')
-        meta=study.read_json(self.bank/'mocks/m4/meta.json');meta.update(blueprint_revision='fixture-v2')
+        spec=dict(sess.mocks['m4'],blueprint_revision='mixed32-transfer-v1')
+        meta=study.read_json(self.bank/'mocks/m4/meta.json');meta.update(blueprint_revision='mixed32-transfer-v1')
         study.write_text(self.bank/'mocks/m4/meta.json',json.dumps(meta))
         self.assertNotEqual(exam.fingerprint,load_items(str(self.bank),spec,sess.mock_lessons)[1])
         first=load_items(str(self.bank),spec,sess.mock_lessons)[1]
