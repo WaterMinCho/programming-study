@@ -97,3 +97,37 @@ class PythonDataGuiTest(fixtures.GuiTest):
             dialog.close()
         if os.environ.get("STUDY_UI_ARTIFACT_DIR"):
             (Path(os.environ["STUDY_UI_ARTIFACT_DIR"]) / "report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
+
+    def test_wheel_scrolls_the_dialog_body_and_open_sections_stay_inside_the_page(self):
+        self.boot()
+        self.win.resize(760, 480)
+        self.win.set_text("larger")
+        guikit.pump()
+        self.win.home.show_data()
+        dialog = self.win.home.data_dialog
+        guikit.pump()
+        page = dialog.parentWidget()
+        self.assertIs(self.win.home, page)
+        bar = dialog.scroll.verticalScrollBar()
+        for section in (dialog.transfer_section, dialog.export_section, dialog.goal_section):
+            with self.subTest(section=section.title):
+                section.set_opened(True)
+                guikit.pump()
+                self.assertIsNone(section.body.graphicsEffect())
+                self.assertLessEqual(dialog.width(), page.width() - 32)
+                self.assertLessEqual(dialog.height(), page.height() - 32)
+                frame = dialog.frameGeometry()
+                self.assertTrue(self.win.frameGeometry().contains(frame), (self.win.frameGeometry(), frame))
+                targets = [section.body, dialog.status_card]
+                if section is dialog.goal_section:
+                    targets.append(dialog.goal_combo)
+                for target in targets:
+                    bar.setValue(0)
+                    guikit.pump()
+                    choice = dialog.goal_combo.currentIndex()
+                    guikit.wheel(target)
+                    self.assertGreater(bar.value(), 0)
+                    self.assertEqual(choice, dialog.goal_combo.currentIndex())
+                section.set_opened(False)
+                guikit.pump()
+        dialog.close()
