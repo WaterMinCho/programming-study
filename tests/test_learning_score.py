@@ -129,6 +129,85 @@ class ScoreTest(unittest.TestCase):
         self.assertIn("가명 4개", score.warning(50, 4))
         self.assertIsNone(score.warning(50, 5))
 
+    def scored(self, synthetic, names, split="validation", train=None):
+        """합성 자료의 synthetic 표시와 구간 행의 가명을 바꿔 채점함. train 을 주면 학습 구간 행에 그 가명을 돌려 붙임.
+        결과, 화면 출력, JSON 문자열을 돌려줌."""
+        inspect = score.sample.inspect
+
+        def changed(folder):
+            report, content, digest = inspect(folder)
+            for index, row in enumerate(content["ai"][split][0] if names else ()):
+                row["participant"] = names[index % len(names)]
+            for index, row in enumerate(content["ai"]["train"][0] if train else ()):
+                row["participant"] = train[index % len(train)]
+            return dict(report, synthetic=synthetic), content, digest
+
+        rows, _ = input_example.load(self.data, "ai", split)
+        with mock.patch.object(score.sample, "inspect", changed):
+            result = score.evaluate(self.data, "ai", split, self.predictions(split + ".csv", rows=rows))
+        return result, score.render(result), json.dumps(result, ensure_ascii=False)
+
+    def test_real_data_hides_one_or_two_participants(self):
+        shown = []
+        for names in (["p1"], ["p1", "p2"]):
+            with self.subTest(people=len(names)):
+                result, text, saved = self.scored(False, names)
+                first, last = text.splitlines()[0], text.splitlines()[-1]
+                self.assertIn("가명 3개 미만,", first)
+                self.assertEqual("이 구간은 오답 1행, 가명 3개 미만이라 모델 비교 근거로 쓰기 어렵습니다.", last)
+                self.assertEqual("3개 미만", result["cell"]["participants"])
+                self.assertEqual(result["warning"], last)
+                for count in ("가명 1개", "가명 2개", '"participants": 1', '"participants": 2'):
+                    self.assertNotIn(count, text + saved)
+                for line in result["table"]:
+                    for value in line["metrics"].values():
+                        self.assertIsNone(value["se_group"])
+                person = [line for line in text.splitlines() if line.startswith("per-participant ")]
+                self.assertEqual(["per-participant | - | - | - | -"], person)
+                shown.append((first.split(",")[2], last, result["cell"]["participants"], person,
+                              [[value["se_group"] for value in line["metrics"].values()] for line in result["table"]]))
+        self.assertEqual(shown[0], shown[1])
+        # synthetic 표시가 True 가 아니면 형이 어긋나도 가리는 쪽으로 감
+        self.assertEqual("3개 미만", self.scored("false", ["p1", "p2"])[0]["cell"]["participants"])
+
+    def test_masked_bucket_hides_per_participant_baseline(self):
+        # 학습 구간에서 두 가명의 정답 비율이 다르면 per-participant 값이 가명 1개일 때만 한 가지라 1개·2개가 갈림
+        names = ["p1", "p2", "p2"]
+        rows = input_example.load(self.data, "ai", "train")[0]
+        ratio = {name: statistics.mean(row["target"] for index, row in enumerate(rows) if names[index % 3] == name)
+                 for name in ("p1", "p2")}
+        self.assertNotEqual(ratio["p1"], ratio["p2"])
+        result, _, _ = self.scored(True, ["p1", "p2"], train=names)
+        person = result["table"][5]
+        self.assertEqual("per-participant", person["name"])
+        self.assertIsNotNone(person["metrics"]["brier"]["value"])
+        shown = []
+        for people in (["p1"], ["p1", "p2"]):
+            result, text, _ = self.scored(False, people, train=names)
+            person = result["table"][5]
+            self.assertEqual("per-participant", person["name"])
+            for value in person["metrics"].values():
+                self.assertEqual({"value": None, "se_row": None, "se_group": None}, value)
+            shown.append([line for line in text.splitlines() if line.startswith("per-participant ")])
+        self.assertEqual([["per-participant | - | - | - | -"]] * 2, shown)
+
+    def test_synthetic_or_three_participants_keep_exact_count(self):
+        result, text, _ = self.scored(True, None)
+        self.assertTrue(text.startswith("ai validation 구간: 2행, 오답 1행, 가명 2개, 끼운 변형 0행 "))
+        self.assertEqual("이 구간은 오답 1행, 가명 2개라 모델 비교 근거로 쓰기 어렵습니다.", result["warning"])
+        self.assertEqual(2, result["cell"]["participants"])
+        self.assertIsNotNone(result["table"][0]["metrics"]["brier"]["se_group"])
+        plain = score.evaluate(self.data, "ai", "validation", self.predictions())
+        self.assertEqual(score.render(plain), text)
+        result, text, _ = self.scored(True, ["p1"])
+        self.assertIn("가명 1개,", text.splitlines()[0])
+        self.assertIn("가명 1개라", result["warning"])
+        result, text, saved = self.scored(False, ["p1", "p2", "p3"], split="train")
+        self.assertIn("가명 3개,", text.splitlines()[0])
+        self.assertIn("가명 3개라", result["warning"])
+        self.assertIn('"participants": 3', saved)
+        self.assertIsNotNone(result["table"][0]["metrics"]["brier"]["se_group"])
+
 
 if __name__ == "__main__":
     unittest.main()
