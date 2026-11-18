@@ -170,8 +170,8 @@ def evaluate(folder, track, split, predictions):
     targets = [row["target"] for row in rows]
     groups = [row["participant"] for row in rows]
     wrong, people = len(rows) - sum(targets), len(set(groups))
-    # 실제 자료에서 가명이 3개보다 적으면 수를 가림. 가명 묶음 표준오차도 가명 1개일 때처럼 비워 1개·2개가 갈리지 않게 함
-    # per-participant 줄은 값이 한 가지인지로 가명 1개·2개가 갈려서 "-" 로 냄
+    # 실제 자료에서 가명이 3개보다 적으면 가명 수를 가림. 가명 묶음 표준오차도 가명 1개일 때처럼 비워서 1개인지 2개인지 드러나지 않게 함
+    # per-participant 줄은 값이 모두 같은지만 봐도 가명이 1개인지 2개인지 알 수 있어 "-" 로 냄
     masked = report["synthetic"] is not True and people < FEW_PEOPLE
     shown = FEW_LABEL if masked else people
     if masked:

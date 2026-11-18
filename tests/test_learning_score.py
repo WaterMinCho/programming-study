@@ -167,11 +167,11 @@ class ScoreTest(unittest.TestCase):
                 shown.append((first.split(",")[2], last, result["cell"]["participants"], person,
                               [[value["se_group"] for value in line["metrics"].values()] for line in result["table"]]))
         self.assertEqual(shown[0], shown[1])
-        # synthetic 표시가 True 가 아니면 형이 어긋나도 가리는 쪽으로 감
+        # synthetic 값이 True 가 아니면 문자열 "false" 처럼 자료형이 어긋나도 가명 수를 가림
         self.assertEqual("3개 미만", self.scored("false", ["p1", "p2"])[0]["cell"]["participants"])
 
     def test_masked_bucket_hides_per_participant_baseline(self):
-        # 학습 구간에서 두 가명의 정답 비율이 다르면 per-participant 값이 가명 1개일 때만 한 가지라 1개·2개가 갈림
+        # 학습 구간에서 두 가명의 정답 비율이 다르면 per-participant 값은 가명이 1개일 때만 모두 같아서, 값만 보고 가명이 1개인지 2개인지 알 수 있음
         names = ["p1", "p2", "p2"]
         rows = input_example.load(self.data, "ai", "train")[0]
         ratio = {name: statistics.mean(row["target"] for index, row in enumerate(rows) if names[index % 3] == name)

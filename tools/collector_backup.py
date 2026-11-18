@@ -245,7 +245,7 @@ def direct_copy(config, api, root, identity, *, tries=3, pause=time.sleep):
                 raise BackupError("받는 동안 인증 키가 바뀌었습니다.", "direct_key")
         break
     else:
-        raise BackupError("운영 DB 를 세 번 받아 보는 동안 계속 쓰는 중이었거나 내용이 바뀌었습니다.", last)
+        raise BackupError("운영 DB 를 세 번 받으려 했지만 매번 쓰는 중이었거나 받는 동안 내용이 바뀌었습니다.", last)
     checkpoint = {"purpose": "offsite_checkpoint", "identity": identity, "path": "files",
                   "capacity": {"status": "unknown", "warnings": ["capacity_unchecked"]}}
     source = root / (identity + ".direct")

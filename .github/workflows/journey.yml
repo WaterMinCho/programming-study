@@ -56,7 +56,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        # Windows 의 Python 3.12 는 @cache 재귀가 Ubuntu 보다 얕은 깊이에서 멈춰서 재귀 판정을 Windows 에서도 봄. 3.13 은 C 호출 깊이 상수가 3.12 와 같아 칸을 두지 않음
+        # Windows 의 Python 3.12 에서는 @cache 재귀가 Ubuntu 보다 얕은 깊이에서 멈추므로 재귀 판정을 Windows 에서도 봄. 3.13 은 C 호출 깊이 상수가 3.12 와 같아 Windows 작업을 따로 두지 않음
         include:
           - os: windows-latest
             python: "3.12"

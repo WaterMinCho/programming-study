@@ -509,7 +509,7 @@ class StylesTest(BankCase):
         self.assertEqual(0, code, out)
 
     def test_cache_styles_skip_the_limit_row(self):
-        """@cache 재귀의 limit 칸은 운영체제와 Python 버전에 따라 갈리므로 보지 않음. 그래서 plain 코드를 raised_small 로 적어도 실패로 보지 않음."""
+        """raised_small·cache 는 둘 다 한도를 올린 @cache 재귀라 limit 칸의 판정이 운영체제와 Python 버전에 따라 갈리므로 보지 않음. 그래서 plain 코드를 raised_small 로 적어도 실패로 보지 않음."""
         code, out = self.styles({"rec_cache": ("cache", "cache"), "rec_small": ("raised_small", "plain")})
         self.assertEqual(0, code, out)
 

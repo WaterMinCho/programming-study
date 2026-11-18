@@ -662,7 +662,7 @@ class FigureView(QWidget):
         box.addWidget(self.picture)
         self.zoom_btn = kit.button("크게 보기", "text", "s")
         self.zoom_btn.clicked.connect(self.open_dialog)
-        self.controls = None  # 움직이는 그림의 넘김 줄
+        self.controls = None  # 움직이는 그림의 조작부
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._tick)
@@ -685,7 +685,7 @@ class FigureView(QWidget):
         row = kit.box(self.zoom_row, horizontal=True)
         row.addStretch(1)
         row.addWidget(self.zoom_btn)
-        self.zoom_row.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)  # 넘김 줄과 같은 까닭
+        self.zoom_row.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)  # 조작부와 같은 까닭
         box.addWidget(self.zoom_row)
         self.zoom_row.hide()
         self._read(data)
@@ -934,7 +934,7 @@ class FigureView(QWidget):
             self.zoom_btn.updateGeometry()
 
     def refont(self):
-        """장 번호와 재생 상태가 바뀌어도 넘김 줄의 폭을 유지함."""
+        """장 번호와 재생 상태가 바뀌어도 조작부의 폭을 유지함."""
         self._zoom_style()
         if not self.controls:
             return
@@ -1059,7 +1059,7 @@ class FigureView(QWidget):
 class FigureDialog(QDialog):
     """해설 그림 한 장을 그린 크기(파일 폭의 1/SCALE)로 보여 주는 창. 제목은 그림 캡션임.
     제목, 그림, 조작부, 닫기 단추가 화면 작업 영역보다 크면 그림을 같은 비율로 줄여 스크롤 없이 보이게 함. 본문 칸이 넓으면 확대 그림이 본문 그림보다 작을 수 있음.
-    움직이는 그림은 같은 넘김 단추를 달고 누른 때의 장부터 보여 주며, 저절로 재생하지 않음."""
+    움직이는 그림은 같은 조작부를 달고 누른 때의 장부터 보여 주며, 저절로 재생하지 않음."""
 
     def __init__(self, parent, figure, title=""):
         super().__init__(parent)
@@ -1089,11 +1089,11 @@ class FigureDialog(QDialog):
         close.clicked.connect(self.close)
         row.addWidget(close)
         box.addLayout(row)
-        # 폭은 그림, 넘김 줄 한 줄, 한 줄로 쓴 제목(읽는 글 단까지) 가운데 넓은 것. 작은 그림에서 제목이 몇 글자씩 꺾이거나 넘김 줄이 두 줄로 나뉘지 않게 함
+        # 폭은 그림, 조작부 한 줄, 한 줄로 쓴 제목(읽는 글 단까지) 가운데 넓은 것. 작은 그림에서 제목이 몇 글자씩 꺾이거나 조작부가 두 줄로 나뉘지 않게 함
         title_width = QFontMetricsF(theme.font("headline")).horizontalAdvance(title) if title else 0
         bar_width = 0
         if self.view.movie:
-            self.view.refont()  # 창 스타일이 풀어 놓은 재생 단추 고정 폭을 다시 정한 뒤 잼
+            self.view.refont()  # 창 스타일이 재생 단추의 고정 폭을 풀어 놓으므로 고정 폭을 다시 정한 뒤 폭을 잼
             frame = self.view.controls.contentsMargins()
             bar_width = self.view.controls.layout().line_width() + frame.left() + frame.right()
         least = max(bar_width, min(title_width, kit.DOC_MIN))
@@ -1114,13 +1114,13 @@ class FigureDialog(QDialog):
         self.resize(width, min(height, limit))
 
     def _measure(self, box, scroll, drawn, least, room):
-        """확대 그림 폭이 drawn 일 때의 창 폭과 높이. least 는 넘김 줄 한 줄과 제목을 담는 데 필요한 폭임."""
+        """확대 그림 폭이 drawn 일 때의 창 폭과 높이. least 는 조작부 한 줄과 제목을 담는 데 필요한 폭임."""
         width = min(math.ceil(max(drawn, least)) + 48, room.width() - 40)
-        # 보이기 전에는 폭을 바꿔도 다시 그리지 않아 그림과 넘김 줄 높이가 기본 폭 640 기준으로 남음. 창 폭으로 다시 그린 뒤 높이를 잼
+        # 보이기 전에는 폭을 바꿔도 다시 그리지 않아 그림과 조작부 높이가 기본 폭 640 기준으로 남음. 창 폭으로 다시 그린 뒤 높이를 잼
         self.view.resize(max(drawn, width - 48), self.view.height())
         self.view.draw()
         height = box.totalHeightForWidth(width) if box.hasHeightForWidth() else box.sizeHint().height()
         height += self.view.sizeHint().height() - scroll.sizeHint().height()
-        if height > room.height() - 60:  # 세로 스크롤바가 생기면 그 폭을 더해 넘김 줄이 두 줄로 나뉘지 않게 함
+        if height > room.height() - 60:  # 세로 스크롤바가 생기면 그 폭을 더해 조작부가 두 줄로 나뉘지 않게 함
             width = min(width + scroll.verticalScrollBar().sizeHint().width(), room.width() - 40)
         return width, height

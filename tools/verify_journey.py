@@ -62,7 +62,7 @@ EXPECTS = ("wrong", "timeout", "runtime", "fail", "pass")
 STYLES = {"python": ("plain", "raised", "raised_small", "cache", "cache_default", "builtin", "iterative"),
           "javascript": ("recursive", "heavy")}
 # 재귀 방식별 기대 판정. 열은 테스트의 depth 가 없음(300 이하), limit(1,000~1,500), chain(2×10^5 이상)
-# None 은 판정을 보지 않는 칸. @cache 재귀는 Python 3.12·3.13 의 Windows 와 3.12.0~3.12.2 에서 깊이 1,000 에 닿기 전에 멈춤
+# None 은 판정을 보지 않는 칸. raised_small·cache 는 한도를 올린 @cache 재귀라 Python 3.12·3.13 의 Windows 와 3.12.0~3.12.2 에서 깊이 1,000 에 닿기 전에 멈출 수 있음
 STYLE_TABLE = {
     "iterative": ("pass", "pass", "pass"),
     "plain": ("pass", "runtime", "runtime"), "cache_default": ("pass", "runtime", "runtime"),

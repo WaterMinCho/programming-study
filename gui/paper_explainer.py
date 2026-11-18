@@ -519,7 +519,7 @@ def _resnet(scene, stage, example):
             start = 16
         else:
             planes = tuple(tuple((_number(value),) for value in column) for column in (example["padded"], example["projected"]))
-            names = ("A · 0 채우기 · 가중치 0개", f"B · 투영 Ws·x · 가중치 {example['projection_weights']}개")
+            names = ("A · 0 채우기 · 늘어난 가중치 0개", f"B · 투영 Ws·x · 늘어난 가중치 {example['projection_weights']}개")
             captions = tuple("F(x)를 더하면\n" + _vector(total) for total in (example["padded_sum"], example["projected_sum"]))
             start = 32 + scene.text(f"F(x) = {_vector(example['wide'])} · 채널 {len(example['wide'])}", 16, 16, w - 32,
                                     center=True)

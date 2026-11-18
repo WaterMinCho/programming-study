@@ -241,7 +241,7 @@ class WebTest(unittest.TestCase):
 
 class HubRowTest(WebTest):
     def test_deleted_window_leaves_no_parentless_widget_behind(self):
-        """웹 홈에 들어가지 않은 창을 지운 뒤에 GC 가 지울 위젯이 남지 않음. 남으면 뒤에 스타일을 다시 입히는 도중에 지워져 프로세스가 죽을 수 있음."""
+        """웹 홈을 한 번도 열지 않은 창을 지운 뒤에도 GC 가 지울 부모 없는 위젯이 남지 않음. 남으면 뒤에 스타일을 다시 입히는 도중에 지워져 프로세스가 죽을 수 있음."""
         win = self.boot()
         self.assertIs(win.web_home.more_topics_btn.window(), win)
         gc.collect()  # 앞선 테스트가 남긴 객체를 먼저 치움

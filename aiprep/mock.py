@@ -93,11 +93,11 @@ def load_items(root, spec, lessons=None):
             raise ValueError("문항 id가 비었거나 겹칩니다")
         for item in items:
             if item.get("kind") not in ("blank", "choice", "code") or item.get("errata"):
-                raise ValueError("빈칸·고르기·코드 작성만 쓰고 정정 주제는 넣지 않습니다")
+                raise ValueError("빈칸·객관식·코드 작성 문항만 쓰고 정정 주제는 넣지 않습니다")
             if item["kind"] == "blank" and not 1 <= len(item.get("blanks") or []) <= 2:
                 raise ValueError("빈칸 수가 맞지 않습니다")
             if item["kind"] == "choice" and len(item.get("options") or []) != 4:
-                raise ValueError("고르기 보기 수가 맞지 않습니다")
+                raise ValueError("객관식 보기 수가 맞지 않습니다")
             if item["kind"] == "code":
                 _check_code(item)
         stable = [_stable(item) for item in items]
@@ -300,8 +300,8 @@ class MockExam:
         return max(0, math.ceil(min(self._wall_remaining(), self._budget - elapsed)))
 
     def _active(self, submit=True):
-        """submit 이 거짓이면 시간이 다 돼도 제출하지 않음. save_answer·move·toggle_flag 는 잠금 안에서 부르므로
-        코드 작성 회차에서는 거짓을 넘기고, 만료 제출은 expire_mocks 가 맡음."""
+        """submit 이 거짓이면 시간이 다 돼도 제출하지 않음. save_answer·move·toggle_flag 는 잠금을 쥔 채 이 함수를 부르는데,
+        코드 작성 채점은 잠금을 놓고 해야 함. 그래서 코드 작성 회차에서는 거짓을 넘기고 만료 제출은 expire_mocks 가 맡음."""
         if self.result is not None or self.submitting:
             return False
         if self.remaining() <= 0:
@@ -454,8 +454,8 @@ class MockExam:
 
     def submit(self, auto=False):
         """채점해 mock_submit 을 남김. 코드 작성 문항은 잠금을 놓은 채 채점하며, 답을 복사한 뒤 기록을 마칠 때까지
-        save_answer 를 거절함. 코드를 실행하지 못하면 기록 없이 MockError 를 내고, 같은 시도에서 ENV_LIMIT 번째 실패면
-        그 문항만 ungraded 로 기록함."""
+        save_answer 를 거절함. 코드를 실행하지 못하면 ENV_LIMIT 번째 전까지는 mock_submit 을 남기지 않고 MockError 를 냄. 같은 시도에서
+        ENV_LIMIT 번째로 실패하면 실행하지 못한 코드 작성 문항만 ungraded 로 기록하고 제출함."""
         with self.lock:
             done = self._submitted()
             if done is not None:
