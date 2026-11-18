@@ -163,12 +163,10 @@ class SubmissionBar(QFrame):
             text = "풀이 결과를 서버로 제출합니다." if self.win.submission_running else "작업이 끝나면 제출 현황을 갱신합니다."
         elif self.result is not None:
             text, detail = self.result_summary()
-        elif pending and available:
-            text = "제출할 풀이와 새 업데이트가 있습니다."
-        elif pending:
-            text = "제출할 풀이가 있습니다."
+        elif available:  # 제출할 풀이가 함께 있어도 글은 업데이트만 알림. 제출할 풀이는 [풀이 제출] 단추가 알림
+            text = "새로운 업데이트 내역이 있습니다."
         else:
-            text = "새 업데이트가 있습니다."
+            text = "제출할 풀이가 있습니다."
         self.message.setText(text)
         self.details.setVisible(detail and not busy)
         self.details.setEnabled(not busy)
@@ -206,6 +204,8 @@ class SubmissionBar(QFrame):
         need = QFontMetricsF(self.message.font()).horizontalAdvance(self.message.text()) + self.action_row.natural_width() + 64
         vertical = self.width() < need
         self.row.setDirection(self.row.Direction.TopToBottom if vertical else self.row.Direction.LeftToRight)
+        # 글은 줄 아래 간격까지 넣은 높이로 가운데에 놓여 단추보다 위로 보임. 가로로 놓일 때 그 간격만큼 위를 띄워 글자 가운데를 단추에 맞춤
+        self.message.setContentsMargins(0, 0 if vertical else self.message.tail(), 0, 0)
         left, _, right, _ = self.row.getContentsMargins()
         width = max(1, self.width() - left - right)
         action_width = min(width, self.action_row.natural_width())
