@@ -78,6 +78,7 @@ class ActionLayoutTest(unittest.TestCase):
         self.assertTrue(buttons[1].isHidden())
 
     def test_natural_width_uses_visible_minimums_margins_and_spacing(self):
+        theme.set_text("normal")
         footer = QWidget()
         self.outer.addWidget(footer)
         layout = ActionLayout(footer, margins=(11, 7, 13, 9), spacing=8, reverse_stacked=False)
