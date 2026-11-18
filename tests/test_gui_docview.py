@@ -316,7 +316,7 @@ class DocViewTest(unittest.TestCase):
             self.view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
             piece = self.shown("앞 문단입니다.\n\n```python\nx = 1\ny = 2\n```\n\n뒤 문단입니다.")[0]
             guikit.pump(30)
-            image = self.view.grab().toImage()
+            image = guikit.shot(self.view)
             box = piece.code_boxes()[0].translated(piece.mapTo(self.view, QPoint(0, 0)).toPointF())
             left, top, right = round(box.left()), round(box.top()), round(box.right()) - 1
             self.assertEqual(image.pixelColor(left + 1, top + 1).name(), theme.color("surface"), scheme)
@@ -332,7 +332,7 @@ class DocViewTest(unittest.TestCase):
             self.view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
             piece = self.shown("앞 문단입니다.\n\n```python\nx = 1\n```\n\n뒤 문단입니다.")[0]
             guikit.pump(30)
-            rows = ink_rows(self.view.grab().toImage(), theme.color("surface"), theme.color("surface_alt"))
+            rows = ink_rows(guikit.shot(self.view), theme.color("surface"), theme.color("surface_alt"))
             box = piece.code_boxes()[0].translated(piece.mapTo(self.view, QPoint(0, 0)).toPointF())
             above = round(box.top()) - max(y for y in rows if y < box.top()) - 1
             below = min(y for y in rows if y > box.bottom()) - round(box.bottom()) - 1
@@ -349,7 +349,7 @@ class DocViewTest(unittest.TestCase):
             for code in ("solution(nums)", "def solution(nums):\n    return max(nums)"):
                 piece = self.shown("앞 문단입니다.\n\n```python\n%s\n```\n\n뒤 문단입니다." % code)[0]
                 guikit.pump(30)
-                rows = ink_rows(self.view.grab().toImage(), theme.color("surface"), theme.color("surface_alt"))
+                rows = ink_rows(guikit.shot(self.view), theme.color("surface"), theme.color("surface_alt"))
                 box = piece.code_boxes()[0].translated(piece.mapTo(self.view, QPoint(0, 0)).toPointF())
                 inside = [y for y in rows if box.top() < y < box.bottom()]
                 above, below = min(inside) - round(box.top()), round(box.bottom()) - 1 - max(inside)
@@ -365,7 +365,8 @@ class DocViewTest(unittest.TestCase):
             self.view.restyle(theme.journey_css(), theme.code_font(theme.text_px() - 1))
             piece = self.shown("앞 문단입니다.\n\n## 함수\n\n```python\nsolution(nums)\n```\n\n## 제한사항\n\n끝 문단입니다.")[0]
             guikit.pump(30)
-            rows = sorted(ink_rows(self.view.grab().toImage(), theme.color("surface"), theme.color("surface_alt")))
+            image = self.view.grab().toImage()
+            rows = sorted(y / image.devicePixelRatio() for y in ink_rows(image, theme.color("surface"), theme.color("surface_alt")))
             runs = [[rows[0], rows[0]]]
             for y in rows[1:]:
                 if y - runs[-1][1] > 3:  # 한글 글자 안의 빈 줄은 한 덩어리로 봄
@@ -376,8 +377,9 @@ class DocViewTest(unittest.TestCase):
             first, heading = outside[0], outside[1]
             after = next(run for run in outside if run[0] > box.bottom())
             gap_paragraph = heading[0] - first[1]
-            gap_code = after[0] - round(box.bottom())
-            self.assertLessEqual(abs(gap_code - gap_paragraph), 3, (step, ruled, gap_paragraph, gap_code))
+            gap_code = after[0] - box.bottom()
+            # 배율 1에서는 간격이 1px 단위로만 재져서 3 이하가 4 미만과 같음. 다른 배율에서는 소수로 재지므로 4 미만으로 견줌
+            self.assertLess(abs(gap_code - gap_paragraph), 4, (step, ruled, gap_paragraph, gap_code))
 
     def test_head_and_tail_stay_outside_the_pieces(self):
         """set_head 위젯은 조각 위, set_tail 위젯은 조각 아래에 있고 set_markdown·clear 가 지우지 않음. 새로 주면 앞 위젯은 숨음."""

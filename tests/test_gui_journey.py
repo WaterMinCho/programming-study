@@ -263,15 +263,17 @@ def edge_ink(edit):
 
 def ring(view, center):
     """지도 원 가운데 center 의 오른쪽 23~26 에 그린 고름 고리의 색 토큰("ink"·"focus"). 둘 다 아니면 None."""
-    image = view.grab().toImage()
-    colors = [image.pixelColor(center + QPoint(step, 0)) for step in range(23, 27)]
+    image = view.grab().toImage()  # 부드럽게 그린 가는 고리는 배율에 따라 놓이는 화소가 달라 그 구간의 화소를 모두 봄
+    ratio = image.devicePixelRatio()
+    y = int((center.y() + .5) * ratio)
+    colors = [image.pixelColor(x, y) for x in range(round((center.x() + 23) * ratio), round((center.x() + 27) * ratio))]
     return next((token for token in ("ink", "focus") if any(guikit.near(color, token) for color in colors)), None)
 
 
 def has_underline(link):
     """링크 글을 그린 그림에 글 폭의 9할 넘게 이어지는 가로 줄(밑줄)이 있는지. 글자 획은 그만큼 길게 이어지지 않음."""
-    image, back = link.grab().toImage(), link.palette().color(link.backgroundRole())
-    width = QFontMetricsF(link.font()).horizontalAdvance(link.text().split(">", 1)[1].split("<", 1)[0])
+    image, back = link.grab().toImage(), link.palette().color(link.backgroundRole())  # 1px 밑줄은 배율에 따라 놓이는 줄이 달라 실제 화소 줄을 모두 봄
+    width = QFontMetricsF(link.font()).horizontalAdvance(link.text().split(">", 1)[1].split("<", 1)[0]) * image.devicePixelRatio()
     for y in range(image.height()):
         run = sum(1 for x in range(image.width()) if abs(image.pixelColor(x, y).lightness() - back.lightness()) > 40)
         if run >= 0.9 * width:
@@ -902,7 +904,7 @@ class WorkFrameTest(Base):
 
         def check():
             chip = page.lang_btns["python"]
-            image = chip.grab().toImage()
+            image = guikit.shot(chip)
             states.append({"tabs": page.tabs.isEnabled() and all(tab.isEnabled() for tab in page.tabs.bar.buttons),
                            "locked": [widget.isEnabled() for widget in (page.code_panel.editor, page.map_btn, page.cases_btn, page.hint_btn,
                                                                         page.facts.links[0])] + [chip.isEnabled() for chip in page.lang_btns.values()],

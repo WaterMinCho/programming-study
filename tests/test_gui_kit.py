@@ -13,7 +13,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import guikit  # noqa: E402
 
-from PyQt6.QtCore import QBuffer, QByteArray, QEvent, QIODevice, QObject, QPoint, QSettings, Qt  # noqa: E402
+from PyQt6.QtCore import QBuffer, QByteArray, QEvent, QIODevice, QObject, QPoint, QRect, QSettings, Qt  # noqa: E402
 from PyQt6.QtGui import QColor, QKeyEvent, QPixmap  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QPushButton, QWidget  # noqa: E402
@@ -480,7 +480,7 @@ class PartsTest(unittest.TestCase):
         guikit.pump()
 
         def ink(widget, x, y):
-            return self.root.grab().toImage().pixelColor(widget.mapTo(self.root, QPoint(x, y)))
+            return guikit.shot(self.root).pixelColor(widget.mapTo(self.root, QPoint(x, y)))
 
         self.assertEqual(ink(tight, 3, 3), ink(tight, 60, 30))
         self.assertNotEqual(ink(loose, 3, 3), ink(loose, 60, 30))
@@ -523,7 +523,7 @@ class PartsTest(unittest.TestCase):
         for state in ("progress", "review", "done", "todo", "ready", "series_web"):
             self.box.addWidget(kit.Dot(state))
         self.show()
-        image = stepper.grab().toImage()
+        image = guikit.shot(stepper)
         self.assertEqual(stepper.height(), theme.CONTROL["stepper"] - 1)
         colors = {image.pixelColor(x, image.height() // 2).name() for x in range(0, image.width(), 2)}
         self.assertIn(theme.color("primary"), colors)  # 지금 단계의 원
@@ -535,11 +535,13 @@ class PartsTest(unittest.TestCase):
         shades = {image.pixelColor(x, y).name() for x in line for y in range(middle - 3, middle + 4)} - {background}
         self.assertEqual(shades, {link})  # 2px 연결선이 반 화소로 번진 옅은 줄 없이 그려짐
         for dot in self.root.findChildren(kit.Dot):
-            middle = dot.grab().toImage().pixelColor(kit.MARK // 2, kit.MARK // 2).name()
-            edge = dot.grab().toImage().pixelColor(kit.MARK // 2, kit.MARK // 2 - 4).name()
+            middle = guikit.shot(dot).pixelColor(kit.MARK // 2, kit.MARK // 2).name()
+            raw = dot.grab().toImage()  # 부드럽게 그린 2px 테두리는 배율에 따라 놓이는 화소가 달라, 가운데에서 4px 위 언저리의 가장 진한 화소를 봄
+            ratio = raw.devicePixelRatio()
+            ring = QRect(int((kit.MARK // 2 + .5) * ratio), round((kit.MARK // 2 - 5) * ratio), 1, round(3 * ratio))
             token = theme.color(kit.DOT_STATES.get(dot.state, dot.state))
             if dot.state == "todo":  # 테두리만 칠하고 가운데는 비움
-                self.assertEqual(edge, token)
+                self.assertEqual(guikit.ink(raw, raw.pixelColor(0, 0), ring).name(), token)
                 self.assertNotEqual(middle, token)
             elif dot.state != "done":  # done 은 가운데에 체크를 그림
                 self.assertEqual(middle, token, dot.state)
@@ -549,7 +551,7 @@ class PartsTest(unittest.TestCase):
         lock = kit.Dot("lock")
         self.box.addWidget(lock)
         self.show()
-        image = lock.grab().toImage()
+        image = guikit.shot(lock)
         faint, back = theme.color("faint"), image.pixelColor(0, 0).name()
         self.assertEqual((lock.width(), lock.height()), (kit.MARK, kit.MARK))
         for x, y in ((10, 14), (6, 16), (13, 11), (10, 3), (6, 8), (13, 8)):  # 몸통, 고리 꼭대기, 고리 양옆
@@ -614,7 +616,7 @@ class PartsTest(unittest.TestCase):
             view.clearFocus()  # 창이 켜질 때 첫 초점을 받으므로 먼저 뺌
             guikit.pump()
             self.assertEqual(view.height(), height, step)
-            image = view.grab().toImage()
+            image = guikit.shot(view)
             center = view.nodes()[0][1].center().toPoint()
             filled = [x for x in range(center.x() - 30, center.x() + 30) if guikit.near(image.pixelColor(x, center.y()), "ok")]
             self.assertTrue(38 <= filled[-1] - filled[0] + 1 <= 40, (step, filled))  # 가운데 번호 글자는 빼고 양 끝 사이를 잼
@@ -644,7 +646,7 @@ class PartsTest(unittest.TestCase):
             view.setFocus(Qt.FocusReason.TabFocusReason)  # 마우스로 누른 초점은 글자색 고리라 키보드 초점으로 다시 줌
             guikit.pump()
             self.assertTrue(view.hasFocus(), step)
-            image = view.grab().toImage()
+            image = guikit.shot(view)
             self.assertTrue(guikit.near(image.pixelColor(center.x() + 24, center.y()), "focus"), step)
 
     def test_splitter_keeps_and_remembers_the_ratio(self):
@@ -669,11 +671,11 @@ class PartsTest(unittest.TestCase):
         self.assertLessEqual(abs(wide.sizes()[0] - wide.sizes()[1]), 1)
         self.assertAlmostEqual(tall.sizes()[0] / sum(tall.sizes()), 340 / 608, delta=0.01)
         middle = QPoint(handle.width() // 2, handle.height() // 2)
-        self.assertEqual(handle.grab().toImage().pixelColor(middle).name(), theme.color("border"))
-        self.assertEqual(handle.grab().toImage().pixelColor(2, 2).name(), theme.color("bg"))
+        self.assertEqual(guikit.shot(handle).pixelColor(middle).name(), theme.color("border"))
+        self.assertEqual(guikit.shot(handle).pixelColor(2, 2).name(), theme.color("bg"))
         QTest.mouseMove(handle, middle)  # 올리면 무늬가 짙어짐
         guikit.pump()
-        self.assertEqual(handle.grab().toImage().pixelColor(middle).name(), theme.color("scroll_hover"))
+        self.assertEqual(guikit.shot(handle).pixelColor(middle).name(), theme.color("scroll_hover"))
         guikit.drag(handle, -100)
         ratio = wide.sizes()[0] / sum(wide.sizes())
         self.assertLess(ratio, 0.45)
@@ -691,7 +693,7 @@ class PartsTest(unittest.TestCase):
         guikit.drag(wide.handle(1), -150)
         self.assertEqual(wide.sizes(), before)
         self.assertEqual(float(settings.value("test/split")), 0.5)
-        self.assertEqual(wide.handle(1).grab().toImage().pixelColor(middle).name(), theme.color("bg"))
+        self.assertEqual(guikit.shot(wide.handle(1)).pixelColor(middle).name(), theme.color("bg"))
         self.assertEqual(wide.handle(1).cursor().shape(), Qt.CursorShape.ArrowCursor)
         wide.set_locked(False)
         guikit.drag(wide.handle(1), -150)
@@ -720,7 +722,7 @@ class PartsTest(unittest.TestCase):
             button = banner.action
             self.assertEqual((button.height(), button.objectName(), button.property("scale")), (44, "", "m"))
             self.assertGreater(button.x(), banner.text.mapTo(banner, QPoint(banner.text.width(), 0)).x())
-            image = banner.grab().toImage()
+            image = guikit.shot(banner)
             self.assertEqual(image.pixelColor(button.x() + 8, button.y() + 20).name(), theme.color("surface"))
             self.assertEqual(image.pixelColor(4, banner.height() // 2).name(), theme.color("ok_weak"))
         self.assertLessEqual(abs(one.text.mapTo(one, QPoint(0, one.text.height() // 2)).y() - (one.action.y() + 22)), 2)
@@ -732,7 +734,7 @@ class PartsTest(unittest.TestCase):
         self.assertLessEqual(abs(mark_center - text_center), 1)
         one.action.setEnabled(False)
         guikit.pump()
-        image = one.grab().toImage()
+        image = guikit.shot(one)
         button = one.action.geometry()
         self.assertEqual(image.pixelColor(button.x() + 8, button.y() + 20).name(), theme.color("ok_weak"))
         self.assertEqual(guikit.ink(image, theme.color("ok_weak"), button.adjusted(12, 8, -12, -8)).name(), theme.color("faint"))
@@ -761,7 +763,7 @@ class PartsTest(unittest.TestCase):
         for scheme in ("light", "dark"):
             theme.set_mode(scheme)
             guikit.pump()
-            image = self.root.grab().toImage()
+            image = guikit.shot(self.root)
             for (onbg, checked, enabled), chip in chips.items():
                 where = (scheme, onbg, checked, enabled)
                 self.assertEqual(chip.height(), 44, where)
@@ -785,7 +787,7 @@ class PartsTest(unittest.TestCase):
             views[flat] = card
         self.root.resize(500, 500)
         self.show()
-        image = self.root.grab().toImage()
+        image = guikit.shot(self.root)
         for flat, card in views.items():
             box = card.geometry()
             corners = {image.pixelColor(x, y).name() for x, y in ((box.left() + 1, box.top() + 1), (box.right() - 1, box.top() + 1),
@@ -810,7 +812,7 @@ class PartsTest(unittest.TestCase):
             self.assertEqual(bar.prev_btn.font().pixelSize(), theme.TYPE["code"][0], step)
             bar.dismiss()
         guikit.pump()
-        image = self.root.grab().toImage()
+        image = guikit.shot(self.root)
         box = editor.geometry()
         for x, y in ((box.left() + 2, box.top() + 2), (box.left() + 2, box.bottom() - 2), (box.right() - 2, box.top() + 2)):
             self.assertEqual(image.pixelColor(x, y).name(), theme.color("bg"), (x, y))  # 모서리 6 이면 편집기 색

@@ -340,7 +340,7 @@ class JourneyDesignTest(test_gui_journey.Base):
                 spot = card.mapTo(area.widget(), QPoint(x, y))
                 area.ensureVisible(spot.x(), spot.y(), 24, 24)
                 guikit.pump()
-            inks.append(self.win.grab().toImage().pixelColor(card.mapTo(self.win, QPoint(x, y))))
+            inks.append(guikit.shot(self.win).pixelColor(card.mapTo(self.win, QPoint(x, y))))
         return inks
 
     def test_cards_keep_round_corners(self):
