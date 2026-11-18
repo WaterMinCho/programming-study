@@ -3,6 +3,7 @@ import argparse
 from collections import Counter
 import faulthandler
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -57,15 +58,26 @@ def worker(modules):
         faulthandler.cancel_dump_traceback_later()
 
 
-def run(batches, timeout_seconds=17 * 60):
+def scaled_environment(scale, directory):
+    """화면 배율 scale 로 검사를 돌릴 환경 변수. 화면 없는 플랫폼의 기본 화면은 800×800 화소라 배율만 주면 논리 크기가 줄어 창이 요구한 크기를
+    받지 못함. 가상 화면을 800 × 배율로 키우는 설정 파일을 directory 에 쓰고 그 경로를 같이 넘김."""
+    side = round(800 * scale)
+    config = Path(directory) / "screen.json"
+    config.write_text(json.dumps({"screens": [{"name": "scaled", "x": 0, "y": 0, "width": side, "height": side,
+                                               "logicalDpi": 96, "logicalBaseDpi": 96, "dpr": 1}]}), encoding="utf-8")
+    return dict(os.environ, QT_QPA_PLATFORM=f"offscreen:configfile={config}", QT_SCALE_FACTOR=f"{scale:g}")
+
+
+def run(batches, timeout_seconds=17 * 60, scale=1):
     jobs = []
     with tempfile.TemporaryDirectory(prefix="study-gui-check-") as directory:
+        environment = scaled_environment(scale, directory) if scale != 1 else None
         try:
             for index, batch in enumerate(batches):
                 path = Path(directory) / f"{index}.log"
                 with path.open("w", encoding="utf-8") as stream:
                     process = subprocess.Popen([sys.executable, __file__, "--worker", *batch],
-                                               cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT)
+                                               cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT, env=environment)
                 jobs.append((process, path))
             success = True
             deadline = time.monotonic() + timeout_seconds
@@ -97,12 +109,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan", action="store_true")
     parser.add_argument("--worker", nargs="+")
+    parser.add_argument("--scale", type=float, default=1, help="화면 배율. 1.5 를 주면 QT_SCALE_FACTOR=1.5 와 1200×1200 가상 화면으로 돌림")
     args = parser.parse_args()
+    if args.scale < 1:
+        parser.error("--scale 은 1 이상이어야 합니다.")
     if args.worker:
         return worker(args.worker)
     batches, sizes = groups()
     print(json.dumps({"groups": batches, "tests": sizes}, ensure_ascii=False), flush=True)
-    return 0 if args.plan else run(batches)
+    return 0 if args.plan else run(batches, scale=args.scale)
 
 
 if __name__ == "__main__":
