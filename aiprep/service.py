@@ -400,12 +400,16 @@ class AiSession(object):
             if mid in self._mock_loaded or mid not in self.mocks:
                 continue
             try:
-                items, fingerprint = mock.load_items(self.root, self.mocks[mid], self.mock_lessons)
+                spec = self.mocks[mid]
+                items, fingerprint = mock.load_items(self.root, spec, self.mock_lessons)
                 if row.get('fingerprint') != fingerprint:
-                    raise mock.MockError('제출한 뒤 문제 자료가 바뀌었습니다. 이전 결과와 답안은 보존했습니다.')
+                    kept = mock.load_version(self.root, spec, row.get('fingerprint'))  # 첫 제출 버전의 보존본으로 복습 카드를 만듦
+                    if kept is None:
+                        raise mock.MockError('제출한 뒤 문제 자료가 바뀌었습니다. 이전 결과와 답안은 보존했습니다.')
+                    spec, items = kept
                 cards = bank.cards_of({'id': mid}, {'items': list(items.values()), 'topics': [], 'gens': []})
                 for card in cards:
-                    if mixed_mock.candidate(self.mocks[mid]) and card["item"]["course"] != self.course:
+                    if mixed_mock.candidate(spec) and card["item"]["course"] != self.course:
                         continue
                     if row.get('results', {}).get(card['id']) not in ('stuck', 'blank', 'partial'):
                         continue
@@ -417,7 +421,7 @@ class AiSession(object):
                 for cid, item in items.items():  # cards_of 는 code 를 카드로 만들지 않으므로 오답 노트용으로만 따로 둠
                     if item['kind'] != 'code' or row.get('results', {}).get(cid) not in ('stuck', 'blank'):
                         continue
-                    if mixed_mock.candidate(self.mocks[mid]) and item['course'] != self.course:
+                    if mixed_mock.candidate(spec) and item['course'] != self.course:
                         continue
                     self.mock_code_cards[cid] = {'id': cid, 'kind': 'code', 'mock': mid, 'lesson': mid,
                                                  'after': item.get('lesson'), 'unit': str(item.get('unit', '')),

@@ -17,6 +17,7 @@ sys.path.insert(0, ROOT)
 import study  # noqa: E402
 from aiprep import bank as aibank  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
+from aiprep import mock as aimock  # noqa: E402
 from aiprep import skel  # noqa: E402
 from tools import web_seal  # noqa: E402
 from webprep import bank  # noqa: E402
@@ -47,6 +48,10 @@ USAGE = """AI 비전 개론 봉인 도구 (출제자용)
                                                        학습 노트의 세 수준 블록 재풀이 공개본. 블록마다 폴더 하나이고
                                                        수준 파일을 하나씩 열며 levels_answers.json 을 채웁니다
 
+서명한 모의고사를 unseal 하면 서명한 문항을 work/versions/<fingerprint>/ 에 남깁니다. 문항을 고쳐 다시 seal 하면 이 예전 문항도
+함께 묶여, 그 버전으로 제출한 사람이 결과·해설·오답 복습을 예전 문항으로 엽니다. fingerprint 는 서명할 때 review.json 에 적은
+회차 줄 값으로 계산합니다. 이 값이 없는 예전 서명이면 index.json 의 회차 줄을 unseal 한 뒤에 고칩니다.
+
 --bank DIR 로 은행 폴더를 바꿀 수 있습니다(기본 ai/).
 """
 
@@ -75,8 +80,94 @@ def targets(bank_dir, tokens):
     return [(iid, found[iid]) for iid in (tokens or sorted(found))]
 
 
+def _sealed_only(idir):
+    """평문 작업본을 섞지 않은 sealed.json 묶음. 없으면 빈 dict. 깨진 봉인은 앞서 부른 secrets_of 가 먼저 멈춤."""
+    path = os.path.join(idir, bank.SEALED_NAME)
+    return study.unseal_blob(study.read_json(path)["blob"]) if os.path.isfile(path) else {}
+
+
+def _mock_spec(idir, iid):
+    """모의고사 폴더(<은행>/mocks/<id>)면 index.json 의 그 회차 줄, 아니면 None."""
+    parent = os.path.dirname(os.path.abspath(idir))
+    if os.path.basename(parent) != "mocks":
+        return None
+    try:
+        mocks = aibank.read_index(os.path.dirname(parent))["mocks"]
+    except aibank.AiBankError as error:
+        raise SystemExit("%s: index.json 을 읽지 못해 회차 버전 해시를 계산할 수 없습니다. %s" % (iid, error))
+    return next((spec for spec in mocks if spec["id"] == iid), None)
+
+
+def _fingerprint(spec, text):
+    """items.json 글의 회차 버전 해시. 읽지 못하는 글이면 None."""
+    try:
+        return aimock.fingerprint_of(spec, json.loads(text)["items"])
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def _signed_version(sealed, spec):
+    """서명한 봉인 문항의 (fingerprint, 그 버전의 회차 줄, items.json 글). 서명할 때 review.json 에 적은 회차 줄 값(version 의
+    spec)으로 계산하므로 그 뒤 회차 줄을 고쳐도 학습자 기록의 fingerprint 와 같음. 이 값이 없는 예전 서명은 지금 회차 줄로 계산함.
+    검토 서명이 없는 봉인(초안)이나 학습자 프로그램도 읽지 못하는 문항이면 None."""
+    if "items.json" not in sealed or "review.json" not in sealed:
+        return None
+    try:
+        recorded = json.loads(sealed["review.json"]).get("version", {}).get("spec")
+    except (ValueError, AttributeError):
+        recorded = None
+    if isinstance(recorded, dict):
+        spec = dict({key: value for key, value in spec.items() if key not in aimock.VERSION_KEYS},
+                    **{key: value for key, value in recorded.items() if key in aimock.VERSION_KEYS})
+    fingerprint = _fingerprint(spec, sealed["items.json"])
+    return None if fingerprint is None else (fingerprint, spec, sealed["items.json"])
+
+
+def keep_version(idir, iid, files):
+    """unseal 할 때 서명한 모의고사 문항을 versions/<fingerprint>/ 로 files 에 더하고 fingerprint 를 돌려줌. 그 이름의 보존본이
+    이미 있거나 _signed_version 이 None 이면 남기지 않고 None."""
+    spec = _mock_spec(idir, iid)
+    signed = _signed_version(_sealed_only(idir), spec) if spec is not None else None
+    if signed is None:
+        return None
+    fingerprint, spec, text = signed
+    head = "%s/%s/" % (aimock.VERSIONS, fingerprint)
+    if head + "items.json" in files:
+        return None
+    files[head + "items.json"] = text
+    files[head + "spec.json"] = json.dumps({key: spec[key] for key in aimock.VERSION_KEYS if key in spec},
+                                           ensure_ascii=False, indent=1) + "\n"
+    return fingerprint
+
+
+def settle_versions(idir, iid, files):
+    """seal 하기 전에 모의고사의 versions/ 를 정리함. 서명한 버전과 fingerprint 가 달라졌는데 그 버전의 보존본이 없으면 멈춤.
+    unseal 이 남긴 버전이 지금 문항과 fingerprint 가 같으면(해시에 드는 문항 값과 회차 줄을 고치지 않았으면) 뺌. 봉인에 이미 있던 버전과 작업본
+    review.json 의 files 에 든 버전(그 사본을 둔 채 다시 서명함)은 빼지 않음."""
+    spec = _mock_spec(idir, iid)
+    if spec is None:
+        return
+    sealed = _sealed_only(idir)
+    signed = _signed_version(sealed, spec)
+    current = _fingerprint(spec, files.get("items.json", ""))
+    if signed is not None and signed[0] != current and "%s/%s/items.json" % (aimock.VERSIONS, signed[0]) not in files:
+        raise SystemExit("%s: 서명한 뒤 문항이나 회차 줄이 바뀌었는데 서명한 버전의 문항을 work/versions/ 에 남기지 않았습니다. "
+                         "`python tools/ai_seal.py unseal %s` 로 예전 문항을 남긴 뒤 다시 seal 하세요. unseal 은 고친 작업본을 "
+                         "덮어쓰지 않습니다." % (iid, iid))
+    head = "%s/%s/" % (aimock.VERSIONS, current)
+    try:
+        signed_files = json.loads(files.get("review.json", "{}")).get("files") or {}
+    except (ValueError, AttributeError):
+        signed_files = {}
+    if current is not None and head + "items.json" in files and head + "items.json" not in sealed \
+            and "work/" + head + "items.json" not in signed_files:
+        files.pop(head + "items.json")
+        files.pop(head + "spec.json", None)
+
+
 def seal(idir, iid, keep=False):
     files = web_seal.secrets_of(idir, iid)
+    settle_versions(idir, iid, files)
     sealed = os.path.join(idir, bank.SEALED_NAME)
     if not files:
         if os.path.isfile(sealed):
@@ -93,9 +184,13 @@ def seal(idir, iid, keep=False):
 
 def unseal(idir, iid):
     files = web_seal.secrets_of(idir, iid)
+    kept = keep_version(idir, iid, files)
     for rel, text in sorted(files.items()):
         study.write_text(os.path.join(idir, bank.WORK_DIR, *rel.split("/")), text)
     print("봉인 해제: %s (파일 %d개). 고친 뒤 verify_ai.py 로 확인하고 seal 로 다시 묶으세요." % (iid, len(files)))
+    if kept:
+        print("서명한 문항을 %s/%s/%s/ 에 남겼습니다. fingerprint 가 바뀌지 않았고 다시 서명하지 않았으면 seal 할 때 이 사본을 뺍니다."
+              % (bank.WORK_DIR, aimock.VERSIONS, kept))
 
 
 def check(bank_dir):
