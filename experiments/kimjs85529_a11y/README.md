@@ -1,5 +1,5 @@
 ﻿
-# kimjs85529_a11y — LSTM + Time Gap 실험 기록
+# kimjs85529_a11y - LSTM + Time Gap 실험 기록
 
 - **담당 모델:** LSTM + 풀이 간격(Time Gap)
 - **담당 이슈:** https://github.com/WaterMinCho/programming-study/issues/121
