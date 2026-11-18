@@ -15,7 +15,7 @@
       "method_url": "https://arxiv.org/html/2404.10518v2",
       "license_label": "arXiv perpetual non-exclusive license",
       "license_url": "https://arxiv.org/html/2404.10518v2",
-      "license_scope": "게시 허용을 원논문 그림의 번역·개작 허용으로 확대하지 않습니다. 이 앱은 원논문 그림을 복제하지 않습니다.",
+      "license_scope": "arXiv에 공개된 논문이라도 원논문 그림을 번역하거나 고쳐 실어도 된다고 보지 않습니다. 이 앱은 원논문 그림을 복제하지 않습니다.",
       "prerequisites": [
         "C/H/W 축",
         "합성곱 한 칸의 곱과 합",
@@ -185,13 +185,13 @@
       "published_date": "2015-12-10",
       "checked_date": "2026-11-18",
       "summary": "몇 개 층의 출력에 그 입력을 더하는 잔차 연결로 150층이 넘는 신경망도 학습할 수 있게 만든 연구입니다.",
-      "beginner_explanation": "층은 원하는 출력에서 입력을 뺀 나머지만 배웁니다. 입력과 층의 결과를 같은 위치끼리 더하므로 두 값의 모양이 같아야 합니다.",
+      "beginner_explanation": "잔차 연결을 쓰면 층은 원하는 출력에서 입력을 뺀 나머지만 배웁니다. 입력과 층의 결과를 같은 위치끼리 더하므로 두 값의 모양이 같아야 합니다.",
       "verification_scope": "1·3절의 잔차 블록 정의와 식 (1)·(2), 3.3절의 A·B 방식, 4.1절의 일반 망과 잔차 망 비교 조건을 검토했습니다. 모델 학습과 오차 표의 값은 재현하지 않았습니다.",
       "examined_version": "v1",
       "method_url": "https://arxiv.org/html/1512.03385v1",
       "license_label": "arXiv perpetual non-exclusive license",
       "license_url": "https://arxiv.org/licenses/nonexclusive-distrib/1.0/license.html",
-      "license_scope": "게시 허용을 원논문 그림의 번역·개작 허용으로 확대하지 않습니다. 이 앱은 원논문 그림을 복제하지 않습니다.",
+      "license_scope": "arXiv에 공개된 논문이라도 원논문 그림을 번역하거나 고쳐 실어도 된다고 보지 않습니다. 이 앱은 원논문 그림을 복제하지 않습니다.",
       "prerequisites": [
         "벡터의 원소별 덧셈",
         "행렬과 벡터의 곱",
@@ -204,7 +204,7 @@
       "figure_description": [
         "일반 층과 잔차 블록이 입력을 그대로 내보내는 데 필요한 가중치를 나란히 놓습니다.",
         "변환 경로의 값과 직접 경로의 입력을 같은 위치끼리 더합니다.",
-        "블록 셋을 지날 때 직접 경로가 있을 때와 없을 때의 기울기 곱을 비교합니다.",
+        "블록 셋을 지나는 기울기 곱을 직접 경로가 있는 블록과 없는 블록으로 비교합니다.",
         "채널 수가 다를 때 0 채우기와 투영으로 직접 경로의 채널 수를 맞춥니다."
       ],
       "figure_status": "original_diagram_proposal",
