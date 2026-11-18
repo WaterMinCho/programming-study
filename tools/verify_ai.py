@@ -12,6 +12,8 @@
   python tools/verify_ai.py --require-review           문항 묶음·공용 생성기·모의고사 서명이 없거나 서명 뒤 바뀐 파일이 있으면 실패
   python tools/verify_ai.py --overrides | --leeches    submissions 기록에서 [내 답도 맞음] 답과 자주 틀리는 문항을 모아 보임
   python tools/verify_ai.py --sources DIR              강의 폴더의 sha256 을 facts.json sources 와 견줌(출제자 컴퓨터에서만)
+  python tools/verify_ai.py m4 --show-hidden-tests     코드 작성 문항 검사에 걸린 숨은 테스트의 입력·기대값도 보임(출제자 컴퓨터에서만)
+                                                       이 옵션이 없으면 메시지에 문항 id 와 테스트 번호만 씀
 
 그 밖의 옵션: --bank DIR(기본 ai/), --manifest FILE(기본 tools/ai_art/manifest.json). 학습 노트의 글 꼴·말투·맥락과 서명은
 verify_web.py --bank ai 와 web_lint.py --bank ai 가 보고, 여기서는 ai-* 블록·프레임 줄·단계 사실 줄·그림 한도와 manifest 를 봄.
@@ -47,7 +49,9 @@ sys.path.insert(0, ROOT)
 import study  # noqa: E402
 from aiprep import bank as aibank  # noqa: E402
 from aiprep import gen as genlib  # noqa: E402
-from aiprep import grade, mixed_mock, review, skel  # noqa: E402
+from aiprep import grade, mixed_mock, mock_code, review, skel  # noqa: E402
+from aiprep import mock as aimock  # noqa: E402
+from journey import values as journey_values  # noqa: E402
 from tools import ai_art, ai_mock_rules, ai_seal, check_style, lecture_locations, verify_web, web_lint  # noqa: E402
 from webprep import bank as webbank  # noqa: E402
 
@@ -268,7 +272,7 @@ def card_texts(card):
         return skel.card_texts(card)
     out = []
     cid = card["id"]
-    if card["kind"] in ("blank", "choice"):
+    if card["kind"] in ("blank", "choice", "code"):
         item = card["item"]
         out.append(("%s:stem" % cid, item.get("stem", ""), True))
         out.append(("%s:explain" % cid, item.get("explain", ""), True))
@@ -1590,11 +1594,18 @@ class _MockSources:
 
 
 def _mock_code(v, label, item):
-    """코드 울타리와 등록 답으로 채운 빈칸 코드의 구문을 확인함. 실행하지 않음."""
+    """코드 울타리, 등록 답으로 채운 빈칸 코드, 모범 답안을 채운 코드 작성 문항의 구문을 확인함. 실행하지 않음."""
     cid = item["id"]
     for where, text, _ in card_texts({"id": cid, "kind": item["kind"], "item": item}):
         if ai_mock_rules.code_blocks(text)[1]:
             v.fail(label, 12, "%s의 %s에 닫히지 않은 코드 울타리가 있습니다." % (cid, where))
+    if item["kind"] == "code":
+        code = item["code"]
+        try:
+            ast.parse(mock_code.source(code["starter"], code["entry"], item["solution"]), feature_version=(3, 10))
+        except (SyntaxError, ValueError) as error:
+            v.fail(label, 12, "%s의 시작 코드에 모범 답안을 채운 코드가 Python 3.10 문법에 맞지 않습니다: %s" % (cid, error))
+        return
     if item["kind"] != "blank":
         return
     answers = iter((blank.get("answer") or ["____"])[0] if isinstance(blank.get("answer"), list)
@@ -1798,6 +1809,162 @@ def _mixed_mock_evidence(v, label, item, sources, blueprint):
         v.fail(label, 12, "%s의 혼합 근거를 읽지 못합니다: %s" % (cid, error))
 
 
+CODE_EXAMPLES = (2, 3)
+CODE_TESTS = (6, 10)
+LEAK_MIN = 3  # 0·13 같은 짧은 값 글은 보통 지문에도 나와서 지문 누출 검사에서 보지 않음
+
+
+def _json_text(value):
+    return re.sub(r"\s+", "", json.dumps(value, ensure_ascii=False, separators=(",", ":")))
+
+
+def _leak_text(text):
+    """누출 비교용 글. 공백을 지우고 작은따옴표를 큰따옴표로 맞춰 'hello' 와 "hello" 를 같은 글로 봄."""
+    return re.sub(r"\s+", "", text).replace("'", '"')
+
+
+def _strings(value):
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [text for row in value for text in _strings(row)]
+    return []
+
+
+def _value_texts(case):
+    """지문 누출 검사에 쓰는 케이스 글. 입력 목록, 바깥 괄호를 뗀 입력, 기대값을 공백 없는 JSON 글로 만들고, 그 안의 문자열은
+    따옴표 없는 글로도 넣음."""
+    args = _json_text(case["args"])
+    texts = [args, args[1:-1], _json_text(case["expected"])] + _strings([case["args"], case["expected"]])
+    return {_leak_text(text) for text in texts if len(_leak_text(text)) >= LEAK_MIN}
+
+
+def _leaks(part, text):
+    """숫자로 시작하거나 끝나는 글은 앞뒤에 다른 숫자가 붙어 있으면 세지 않음. 7,3,0,2 가 77,3,0,21 에 걸리지 않게 함."""
+    pattern = re.escape(part)
+    if part[0].isdigit():
+        pattern = r"(?<!\d)(?<!\d\.)" + pattern
+    if part[-1].isdigit():
+        pattern += r"(?!\.?\d)"
+    return re.search(pattern, text) is not None
+
+
+def _code_form_problems(item):
+    """aiprep/mock.py 의 _check_code 를 통과한 코드 작성 문항의 출제 꼴을 봄. 예시·숨은 테스트 수, 입력 겹침, 기대값 꼴,
+    모범 답안의 채울 줄 꼴(study.check_fill), 화면과 수집에 나가는 stem·starter·conditions·sourcefacts 의 숨은 테스트 글.
+    [(메시지, 숨은 테스트 번호 또는 None)] 을 돌려줌. 메시지에는 숨은 테스트의 입력·기대값을 쓰지 않음."""
+    cid, code, out = item["id"], item["code"], []
+    examples, tests = code["examples"], code["tests"]
+    if not CODE_EXAMPLES[0] <= len(examples) <= CODE_EXAMPLES[1]:
+        out.append(("%s의 예시는 %d~%d개여야 합니다(%d개)." % (cid, CODE_EXAMPLES[0], CODE_EXAMPLES[1], len(examples)), None))
+    if not CODE_TESTS[0] <= len(tests) <= CODE_TESTS[1]:
+        out.append(("%s의 숨은 테스트는 %d~%d개여야 합니다(%d개)." % (cid, CODE_TESTS[0], CODE_TESTS[1], len(tests)), None))
+    shown = {_json_text(case["args"]) for case in examples}
+    for number, test in enumerate(tests, 1):
+        if _json_text(test["args"]) in shown:
+            out.append(("%s의 숨은 테스트 %d번 입력이 예시 입력과 같습니다." % (cid, number), number))
+    for name, cases in (("예시", examples), ("숨은 테스트", tests)):
+        for number, case in enumerate(cases, 1):
+            if journey_values.encode_py(case["expected"])[1]:
+                out.append(("%s의 %s %d번 기대값은 실행기가 돌려받을 수 없는 꼴입니다. 정수·실수·문자열·불리언이나 그 리스트로 "
+                            "적으세요." % (cid, name, number), number if cases is tests else None))
+    empty = [number for number, line in enumerate(item["solution"], 1) if not line.strip()]
+    for number in empty:
+        out.append(("%s의 모범 답안 %d번째 줄이 비어 있습니다." % (cid, number), None))
+    blanks = [mock_code.FILL] * mock_code.fill_count(code["starter"])
+    guide = None if empty else study.check_fill(mock_code.source(code["starter"], code["entry"], blanks),
+                                                mock_code.source(code["starter"], code["entry"], item["solution"]))
+    if guide:
+        out.append(("%s의 모범 답안이 시작 코드의 채울 줄 꼴을 지키지 않습니다: %s" % (cid, guide.replace("\n", " ")), None))
+    public = set().union(*(_value_texts(case) for case in examples))
+    fields = (("stem", item.get("stem")), ("starter", code["starter"]), ("conditions", item.get("conditions")),
+              ("sourcefacts", item.get("sourcefacts")))
+    for number, test in enumerate(tests, 1):
+        hidden = _value_texts(test) - public
+        for name, value in fields:
+            text = _leak_text(value if isinstance(value, str) else _json_text(value))
+            if any(_leaks(part, text) for part in hidden):
+                out.append(("%s의 %s에 숨은 테스트 %d번의 입력이나 기대값이 적혀 있습니다." % (cid, name, number), number))
+    return out
+
+
+def _fake_answers(code):
+    """숨은 테스트가 막아야 하는 가짜 답 둘 [(이름, 함수 전체 줄, 고칠 방법)]. 채울 줄 꼴로는 만들 수 없어 함수 전체를 씀."""
+    entry, examples = code["entry"], code["examples"]
+    table = {repr(case["args"]): case["expected"] for case in examples}
+    first = repr(examples[0]["expected"])
+    return (("예시 입력과 기대값을 표로 외운 답", ["def %s(*args):" % entry, "    table = %r" % (table,),
+                                              "    return table.get(repr(list(args)), %s)" % first],
+             "예시와 다른 입력을 숨은 테스트에 넣으세요."),
+            ("첫 예시의 기대값만 돌려주는 답", ["def %s(*args):" % entry, "    return %s" % first],
+             "첫 예시와 기대값이 다른 숨은 테스트를 넣으세요."))
+
+
+def _run_whole(code, rows):
+    """함수 전체 줄을 mock_code.grade 로 돌림. 들여쓰기만 남긴 `____` 줄을 시작 코드로 삼아 줄의 들여쓰기를 살림."""
+    lines = [row.lstrip() for row in rows]
+    starter = "\n".join(row[:len(row) - len(row.lstrip())] + mock_code.FILL for row in rows)
+    return mock_code.grade({"code": dict(code, starter=starter), "solution": lines}, lines)
+
+
+def _code_run_problems(item):
+    """코드 작성 문항을 실행기로 돌려 봄. 모범 답안은 숨은 테스트와 예시를 모두 통과하고, 시간 제한을 4분의 1로 줄여 다시
+    돌려도 같은 결과를 내야 함. 시작 코드는 숨은 테스트를 모두 틀리고, 가짜 답 둘은 숨은 테스트를 하나 이상 틀려야 함.
+    돌려주는 꼴과 메시지 규칙은 _code_form_problems 와 같음."""
+    cid, code, solution, out = item["id"], item["code"], item["solution"], []
+    first = mock_code.grade(item, solution)
+    if first["result"] == mock_code.ENV:
+        out.append(("%s의 모범 답안을 이 기기에서 실행하지 못해 숨은 테스트를 확인하지 못했습니다." % cid, None))
+    for number, case in enumerate(first["cases"], 1):
+        if case["status"] != "pass":
+            out.append(("%s의 숨은 테스트 %d번에서 모범 답안이 틀립니다. %s" % (cid, number, case["reason"]), number))
+    shown = mock_code.grade(dict(item, code=dict(code, tests=code["examples"])), solution)
+    if shown["result"] == mock_code.ENV:
+        out.append(("%s의 모범 답안을 이 기기에서 실행하지 못해 예시를 확인하지 못했습니다." % cid, None))
+    for number, case in enumerate(shown["cases"], 1):
+        if case["status"] != "pass":
+            out.append(("%s의 예시 %d번에서 모범 답안이 틀립니다. %s" % (cid, number, case["reason"]), None))
+    if first["result"] == mock_code.PASS:
+        quarter = max(1, (code.get("limit_ms") or mock_code.LIMIT_MS) // 4)
+        again = mock_code.grade(dict(item, code=dict(code, limit_ms=quarter)), solution)
+        slow = [number for number, case in enumerate(again["cases"], 1) if case["status"] == "timeout"]
+        for number in slow:
+            out.append(("%s의 숨은 테스트 %d번에서 모범 답안 호출이 시간 제한의 4분의 1(%dms)을 넘깁니다." % (cid, number, quarter), number))
+        if again["result"] == mock_code.ENV:
+            out.append(("%s의 모범 답안을 이 기기에서 다시 실행하지 못했습니다." % cid, None))
+        elif not slow and again != first:
+            out.append(("%s의 모범 답안을 두 번 돌린 결과가 다릅니다." % cid, None))
+    start = mock_code.grade(item, [mock_code.FILL] * mock_code.fill_count(code["starter"]))
+    if start["result"] == mock_code.ENV:
+        out.append(("%s의 시작 코드를 이 기기에서 실행하지 못했습니다." % cid, None))
+    for number, case in enumerate(start["cases"], 1):
+        if case["status"] == "pass":
+            out.append(("%s의 시작 코드가 숨은 테스트 %d번을 통과합니다." % (cid, number), number))
+    fakes = [(name, advice, _run_whole(code, rows)["result"]) for name, rows, advice in _fake_answers(code)]
+    if fakes[1][2] == mock_code.PASS:
+        # 기대값이 모두 첫 예시와 같으면 표 답도 통과하므로 둘째 답의 고칠 방법만 보임
+        fakes = fakes[1:]
+    for name, advice, result in fakes:
+        if result == mock_code.ENV:
+            out.append(("%s의 가짜 답(%s)을 이 기기에서 실행하지 못했습니다." % (cid, name), None))
+        elif result == mock_code.PASS:
+            out.append(("%s의 가짜 답(%s)이 숨은 테스트를 모두 통과합니다. %s" % (cid, name, advice), None))
+    return out
+
+
+def _report_code(v, label, item, problems):
+    """코드 작성 문항 검사 결과를 실패로 보임. --show-hidden-tests 를 준 경우에만 걸린 숨은 테스트의 입력과 기대값을 따로 보임.
+    옵션 없이 숨은 테스트 번호가 붙은 실패를 냈으면 참을 돌려줌."""
+    show = getattr(v.opts, "show_hidden_tests", False)
+    for message, number in problems:
+        v.fail(label, 12, message)
+        if number and show:
+            test = item["code"]["tests"][number - 1]
+            v.note(label, "숨은 테스트 %d번 입력 %s, 기대값 %s" % (
+                number, json.dumps(test["args"], ensure_ascii=False), json.dumps(test["expected"], ensure_ascii=False)))
+    return not show and any(number for _, number in problems)
+
+
 def check_mock(v, bank_dir, mock, ids, sources=None):
     """회차별 배분·근거·연습 및 회차 간 겹침을 확인함."""
     label = mock["id"]
@@ -1811,7 +1978,7 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
         return None
     if len(raw_items) != mock["count"]:
         v.fail(label, 12, "문항이 %d개입니다(%d개)." % (len(raw_items), mock["count"]))
-    items = []
+    items, numbered = [], False
     for item in raw_items:
         if not isinstance(item, dict):
             v.fail(label, 12, "문항은 객체여야 합니다.")
@@ -1823,8 +1990,8 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
         if cid in ids:
             v.fail(label, 12, "id 가 두 번 쓰였습니다: %s" % cid)
         ids[cid] = label
-        if kind not in ("blank", "choice"):
-            v.fail(label, 12, "%s는 빈칸이나 고르기여야 합니다." % cid)
+        if kind not in ("blank", "choice", "code"):
+            v.fail(label, 12, "%s는 빈칸, 객관식, 코드 작성 가운데 하나여야 합니다." % cid)
             continue
         if item.get("errata"):
             v.fail(label, 12, "%s 는 정정 주제(errata)라 모의고사에 넣지 않습니다." % cid)
@@ -1843,6 +2010,13 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
             if not 1 <= len(blanks) <= 2:
                 v.fail(label, 12, "%s의 빈칸 수는 1~2개여야 합니다." % cid)
             check_blank(v, les, card)
+        elif kind == "code":
+            try:
+                aimock._check_code(item)  # 엔진이 회차를 읽을 때와 같은 꼴 검사
+            except ValueError as error:
+                v.fail(label, 12, "%s의 코드 작성 꼴이 맞지 않습니다: %s." % (cid, error))
+                continue
+            numbered = _report_code(v, label, item, _code_form_problems(item) or _code_run_problems(item)) or numbered
         else:
             options = item.get("options")
             if not isinstance(options, list) or not all(isinstance(option, dict) for option in options):
@@ -1862,6 +2036,9 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
             for where, text, markdown in card_texts(card):
                 v.style(label, where, text, markdown)
         items.append(item)
+    if numbered:
+        v.note(label, "걸린 숨은 테스트의 입력과 기대값은 출제자 컴퓨터에서 python tools/verify_ai.py %s --show-hidden-tests 로 "
+                      "확인합니다." % label)
     if sum(bool(item.get("deep")) for item in items) > 2:
         v.fail(label, 12, "deep 문항은 2개 이하여야 합니다.")
     if strict:
@@ -1893,7 +2070,9 @@ def check_mock(v, bank_dir, mock, ids, sources=None):
                 _mixed_mock_evidence(v, label, item, sources, blueprint)
     data = {"dir": aibank.mock_dir(label, bank_dir), "items": items, "topics": [], "facts": {}, "errata": {}, "sources": {}, "gens": []}
     try:
-        return Lesson({"id": label}, None, data, aibank.cards_of({"id": label}, data))
+        # cards_of 는 코드 작성 문항을 연습 카드로 만들지 않으므로 재풀이 채점(grade_answers)용 카드를 따로 더함
+        codes = [{"id": item["id"], "kind": "code", "item": item} for item in items if item["kind"] == "code"]
+        return Lesson({"id": label}, None, data, aibank.cards_of({"id": label}, data) + codes)
     except (TypeError, ValueError, KeyError) as error:
         v.fail(label, 12, "모의고사 채점 카드를 읽지 못합니다: %s" % error)
         return None
@@ -2150,7 +2329,8 @@ def grade_answers(v, label, path, lessons, bank_dir, first=False):
     상황별 코드 키는 grade_skel_answer 가 채점하고, first 면(서명의 first_pass) 2단계 견본(skel.md 의 "pc-k02 f2")은 세지 않음.
     문장 칸은 공개본 꼬리표(<주제 id>-<번호>)를 ai_seal.statement_rows 로 문장 id 로 되돌림. 빈칸판이 있는 문장은 ok 와 cloze 가
     둘 다 맞아야 맞음이고, 빈칸판이 없는 문장의 cloze 는 보지 않음. 고르기 칸에 order 가 없으면 ai_seal.option_order 로 공개본의
-    보기 순서를 다시 만듦. 생성기 고르기 표본이 {"picked"} 꼴이면 ai_seal.gen_option_order 로 섞은 순서를 되돌림. 예전 꼴(문장
+    보기 순서를 다시 만듦. 모의고사 코드 작성 칸은 채울 줄 글의 목록이고 mock_code.grade 로 숨은 테스트를 모두 통과해야 맞음.
+    생성기 고르기 표본이 {"picked"} 꼴이면 ai_seal.gen_option_order 로 섞은 순서를 되돌림. 예전 꼴(문장
     id 를 키로 쓴 답안, order 를 적은 고르기, 원래 번호를 적은 생성기 표본)도 그대로 채점함."""
     try:
         answers = study.read_json(path)
@@ -2183,6 +2363,15 @@ def grade_answers(v, label, path, lessons, bank_dir, first=False):
             order = value.get("order") or ai_seal.option_order(card["item"])
             picked = [order[p - 1] for p in value.get("picked") or [] if 1 <= p <= len(order)]
             ok = grade.grade_choice(card["item"], picked)["result"] == "pass"
+        elif card["kind"] == "code":
+            starter = card["item"]["code"]["starter"]
+            if (isinstance(value, list) and all(isinstance(text, str) and "\n" not in text for text in value)
+                    and len(value) == mock_code.fill_count(starter)):
+                result = mock_code.grade(card["item"], value)["result"]
+                if result == mock_code.ENV:
+                    v.fail(label, 17, "%s 의 재풀이 답을 이 기기에서 실행하지 못해 채점하지 않았습니다." % cid)
+                    continue
+                ok = result == mock_code.PASS
         elif card["kind"] == "stmt":
             got = value if isinstance(value, dict) else {}
             ok = got.get("ok") is card["stmt"].get("ok")
@@ -2509,6 +2698,8 @@ def parse_args(argv):
     parser.add_argument("--minutes", type=int)
     parser.add_argument("--finding", action="append")
     parser.add_argument("--require-review", action="store_true")
+    parser.add_argument("--show-hidden-tests", action="store_true",
+                        help="코드 작성 문항 검사에 걸린 숨은 테스트의 입력과 기대값을 보입니다. 출제자 컴퓨터에서만 씁니다")
     parser.add_argument("--overrides", action="store_true")
     parser.add_argument("--leeches", action="store_true")
     parser.add_argument("--sources")
