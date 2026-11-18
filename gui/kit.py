@@ -1401,7 +1401,7 @@ class NextCard(QFrame):
         column_box.addWidget(self.caption)
         self.head = heading(self.title_box, self.line)
         column_box.addWidget(self.head)
-        if compact:  # 보통 글자에서 꼬리표 24·제목·설명 한 줄이 최소 높이 108 안에 들게 꼬리표-제목, 제목-설명 사이를 4 로 좁힘
+        if compact:  # 보통 글자에서 꼬리표 24·제목·설명 한 줄이 최소 높이 108 안에 들게 꼬리표-제목, 제목-설명 사이를 4 로 좁힘. 굵은 글자 줄 높이가 큰 글꼴 환경에서는 내용만큼 커짐
             column_box.setSpacing(theme.SPACE[0])
             self.head.layout().setSpacing(theme.SPACE[0])
         self.side.hide()

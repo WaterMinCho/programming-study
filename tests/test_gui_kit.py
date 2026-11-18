@@ -450,7 +450,8 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(card.row.direction(), QBoxLayout.Direction.TopToBottom)
 
     def test_compact_next_card_with_one_line_fits_the_minimum_height(self):
-        """보통 글자에서 꼬리표·제목·설명 한 줄인 작은 카드는 최소 높이 108 그대로이고 글 사이는 4 임."""
+        """보통 글자에서 꼬리표·제목·설명 한 줄인 작은 카드는 최소 높이 108 을 지키고 내용보다 커지지 않으며 글 사이는 4 임.
+        굵은 글자 줄 높이가 큰 글꼴 환경에서는 내용이 108 을 넘어 카드가 내용만큼 커짐."""
         card = kit.NextCard(compact=True)
         card.set_item("2회차", "작성한 문항 1개", "회차 시작")
         self.box.addWidget(card)
@@ -458,7 +459,7 @@ class PartsTest(unittest.TestCase):
         self.show()
         self.root.resize(1000, 400)  # 단추가 글 옆에 오는 폭
         guikit.pump()
-        self.assertEqual(card.height(), 108)
+        self.assertEqual(card.height(), max(108, card.sizeHint().height()))
         self.assertEqual(card.title_box.mapTo(card, QPoint(0, 0)).y() - card.caption.mapTo(card, QPoint(0, card.caption.height())).y(), 4)
 
     def test_compact_next_card_uses_a_badge_a_headline_and_an_m_button(self):
