@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 from tests.test_gui_ai import AI_FIXTURE, AiTest, visible_text
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QInputMethodEvent, QPainter
 from PyQt6.QtWidgets import QApplication
 from aiprep import bank
@@ -275,6 +276,46 @@ class MockPageTest(AiTest):
         guikit.click(page.start_btn)
         self.assertIsNotNone(page.exam)
         self.assertEqual(['mock_start'], [row['kind'] for row in self.win.ai.record.log])
+
+    def test_result_summary_card_and_lesson_rows_follow_the_dense_layout(self):
+        self.addCleanup(theme.set_text, 'normal')
+        page = self.open_mock((1280, 800))
+        self.win.set_text('normal')
+        self.idle()
+        self.assertEqual(56, page.top.height())
+        self.assertEqual(64, page.bar.height())
+        self.assertEqual(0, page.summary.minimumHeight())
+        self.assertEqual('secondary', page.heading.property('tone'))
+        buttons = (page.flag_btn, page.previous_btn, page.next_btn, page.submit_btn, page.retry_btn, page.home_btn, page.notes_btn, page.start_btn)
+        self.assertEqual({'m'}, {button.property('scale') for button in buttons})
+        page.submit()
+        self.idle()
+        self.assertEqual(128, page.summary.minimumHeight())
+        self.assertGreaterEqual(page.summary.height(), 128)
+        self.assertEqual('label', page.heading.property('role'))
+        self.assertIsNone(page.heading.property('tone'))
+        self.assertIn('0 / 4문항 맞음', page.heading.text())
+        rows = page.lesson_results.rows
+        self.assertTrue(rows)
+        summary = page.exam.summary()['lessons']
+        for row in rows:
+            self.assertEqual(48, row.height())
+            self.assertEqual(Qt.FocusPolicy.NoFocus, row.focusPolicy())
+            self.assertTrue(row.bar.isVisible())
+            self.assertEqual(120, row.bar.width())
+            self.assertLess(row.bar.geometry().right(), row.end.geometry().left())
+            correct, total = (int(n) for n in row.end.text().split(' / '))
+            self.assertEqual(round(100 * correct / total), row.bar.value())
+        self.assertEqual(sum(c['total'] for c in summary.values()), sum(int(row.end.text().split(' / ')[1]) for row in rows))
+        self.win.set_text('larger')
+        self.idle()
+        scale = theme.TYPE['body'][0] / theme.BASE_TYPE['body'][0]
+        for row in rows:
+            self.assertEqual(round(120 * scale), row.bar.width())
+            self.assertGreaterEqual(row.height(), theme.TYPE['label'][1] + 24)
+        self.assertTrue(self.win.open_ai_mock('m90'))
+        self.assertEqual(0, page.summary.minimumHeight())
+        self.assertEqual('body', page.heading.property('role'))
 
     def test_narrow_page_keeps_primary_action_inside(self):
         self.addCleanup(theme.set_text, 'normal')

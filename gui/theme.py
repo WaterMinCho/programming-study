@@ -91,8 +91,9 @@ LEARN_GAP = {"detail": 16, "title_description": 16, "paragraph": 24, "group": 48
 # dense_* 는 density="dense" 를 준 묶음 아래(학습 현황·파이썬 홈·회차·결과·오답 노트)의 카드·단추와 입력칸·꼬리표 모서리
 RADIUS = {"check": 6, "small": 8, "control": 12, "card": 16, "dense_card": 8, "dense_control": 6, "dense_chip": 4}
 # topbar_dense·bottombar_dense 는 kit.TopBar(dense=True)·kit.BottomBar(dense=True) 의 높이. 큰 글자에서는 아래 막대가 내용 높이만큼 늘어남
+# stepper_dense 는 kit.Stepper(dense=True) 를 담는 단계 표시줄 높이(AI 단원 학습)
 CONTROL = {"l": 48, "m": 44, "s": 32, "field": 48, "row": 56, "row2": 80, "topbar": 64, "bottombar": 80, "stepper": 56,
-           "topbar_dense": 56, "bottombar_dense": 64,
+           "topbar_dense": 56, "bottombar_dense": 64, "stepper_dense": 48,
            "slot": 30}  # slot 은 코드 줄 안 빈칸의 높이. 보통 글자의 코드 줄 높이 22 에 8 을 더한 값이고 글자 단계를 따라 같이 커짐(slot_height)
 SERIES = ("series_python", "series_algorithm", "series_web", "series_ai")  # 7일 그래프와 트랙 이름 앞 점에만 쓰는 트랙 색
 
@@ -438,7 +439,9 @@ STYLE_V2 += "".join('QWidget[ui="2"] QProgressBar[series="%s"]::chunk { backgrou
 # 촘촘한 묶음(kit.dense 로 density="dense" 를 준 위젯 아래)의 모서리와 단추. 선택자가 위 규칙보다 길어 같은 부품의 모서리를 덮음.
 # 편집기(QPlainTextEdit#code)와 목록 글(#plain)은 objectName 규칙이 더 우선이라 그대로임.
 # 테두리 글자 단추(outlined)와 다음 할 일 작은 카드(compact)는 속성을 준 부품에만 걸림. 테두리 글자 단추는 올림·누름·초점·꺼짐 상태를
-# 같은 길이의 선택자로 다시 적어 바탕과 초점 테두리가 덮이지 않게 함
+# 같은 길이의 선택자로 다시 적어 바탕과 초점 테두리가 덮이지 않게 함.
+# 따로 떨어진 목록 줄(RowList(separate=True))은 흰 상자로 그리고 올림·누름·고름 바탕을 같은 길이의 선택자로 다시 적음.
+# 키보드 초점 테두리는 Row.paintEvent 가 그리므로 그대로 보임
 STYLE_V2 += """
 QWidget[ui="2"] QWidget[density="dense"] QFrame#card { border-radius: %(dense_card)spx; }
 QWidget[ui="2"] QWidget[density="dense"] QFrame#card QFrame#card { border-radius: %(dense_control)spx; }
@@ -454,6 +457,12 @@ QWidget[ui="2"] QWidget[density="dense"] QPushButton#primary[scale="m"] { paddin
 QWidget[ui="2"] QWidget[density="dense"] QLineEdit, QWidget[ui="2"] QWidget[density="dense"] QPlainTextEdit,
 QWidget[ui="2"] QWidget[density="dense"] QTextBrowser { border-radius: %(dense_control)spx; }
 QWidget[ui="2"] QWidget[density="dense"] QLabel#badge { border-radius: %(dense_chip)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#row[separate="true"] { background: %(surface)s; border: 1px solid %(line)s;
+    border-radius: %(dense_card)spx; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#row[separate="true"][over="true"] { background: %(hover)s; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#row[separate="true"][down="true"] { background: %(surface_alt)s; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#row[separate="true"][picked="true"] { background: %(selection)s; }
+QWidget[ui="2"] QWidget[density="dense"] QFrame#learning_context { border-radius: %(dense_card)spx; }
 QWidget[ui="2"] QPushButton#text[outlined="true"] { background: %(surface)s; color: %(ink)s; border-color: %(border)s; }
 QWidget[ui="2"] QPushButton#text[outlined="true"]:hover { background: %(hover)s; border-color: %(border_strong)s; }
 QWidget[ui="2"] QPushButton#text[outlined="true"]:pressed { background: %(track)s; }

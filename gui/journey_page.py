@@ -423,7 +423,7 @@ class JourneyPage(QWidget):
         root = kit.box(self)
 
         # 위 막대
-        self.top = kit.TopBar("← 알고리즘 여행", "")
+        self.top = kit.TopBar("← 알고리즘 여행", "", dense=True)
         self.map_btn, self.title = self.top.back, self.top.title
         self.title.show()
         self.top.row.setStretchFactor(self.title, 0)
@@ -486,15 +486,17 @@ class JourneyPage(QWidget):
         kit.typed(self.find_bar.input, "code")
         kit.typed(self.find_bar.count, "caption")
         self.find_bar.installEventFilter(self)  # 막대가 뜨고 닫힐 때 편집기의 Esc 를 끄고 켬
-        self.split = kit.splitter(Qt.Orientation.Horizontal, "journey/split", 0.5, 24, win.settings)
+        self.split = kit.splitter(Qt.Orientation.Horizontal, "journey/split", 0.5, 20, win.settings)
         self.split.addWidget(self.problem_card)
         self.split.addWidget(self.code_panel)
-        body = QWidget()
-        kit.box(body, (kit.MARGIN, 24, kit.MARGIN, 24)).addWidget(self.split)
+        body = kit.dense(QWidget())
+        kit.box(body, (kit.DENSE_MARGIN, 16, kit.DENSE_MARGIN, 16)).addWidget(self.split)
         root.addWidget(body, 1)
 
         # 아래 막대
-        self.bar = kit.BottomBar()
+        self.bar = kit.BottomBar(dense=True)
+        _, top, right, bottom = self.bar.row.getContentsMargins()
+        self.bar.row.setContentsMargins(kit.DENSE_MARGIN, top, right, bottom)  # 왼쪽 끝 [코드 되돌리기]는 테두리가 보여 테두리를 내용 선 24 에 맞춤
         self.reset_btn = self.bar.add_tool(kit.button("코드 되돌리기", "danger_text", "m"))
         self.reset_btn.setToolTip("시작 코드로 되돌립니다.")
         policy = self.reset_btn.sizePolicy()
@@ -503,11 +505,11 @@ class JourneyPage(QWidget):
         self.code_panel.reset_btn = self.reset_btn
         self.cases_btn = self.bar.add_tool(kit.button("테스트 추가", "text", "m"))
         self.cases_btn.setToolTip("직접 만든 입력과 예상 출력을 추가·수정하는 창을 엽니다.")
-        self.stop_btn = self.bar.add_action(kit.button("중지", "secondary", "l"))
+        self.stop_btn = self.bar.add_action(kit.button("중지", "secondary", "m"))
         self.stop_btn.hide()
-        self.run_btn = self.bar.add_action(kit.button("코드 실행", "secondary", "l"))
+        self.run_btn = self.bar.add_action(kit.button("코드 실행", "secondary", "m"))
         self.run_btn.setToolTip(RUN_TIP)
-        self.grade_btn = self.bar.add_action(kit.button("채점하기", "primary", "l"))
+        self.grade_btn = self.bar.add_action(kit.button("채점하기", "primary", "m"))
         self.grade_btn.setToolTip(GRADE_TIP)
         root.addWidget(self.bar)
 

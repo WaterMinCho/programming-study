@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """알고리즘 여행의 던전 지도. 첫 화면·웹 홈과 같은 홈 틀임: 위 막대(← 처음 화면, 풀이 언어 칩, 캐시 비우기), 제목과 한 줄 설명,
-주의 띠(Node.js 없음, 읽지 못한 던전), 이어서 할 일 카드(화면에 하나뿐인 주 단추), 그 아래 5:7 두 구역(왼쪽 던전 지도 카드,
-오른쪽 고른 던전의 목록 카드). 가용 폭이 부족하면 두 구역을 세로로 놓고 스크롤함.
+주의 띠(Node.js 없음, 읽지 못한 던전), 이어서 할 일 카드(화면에 하나뿐인 주 단추), 그 아래 3:5 두 구역(왼쪽 던전 지도 카드,
+오른쪽 고른 던전의 목록 카드). 구역 이름은 카드 안 머리 줄에 둠. 가용 폭이 부족하면 두 구역을 세로로 놓고 스크롤함.
 
 던전은 모두 열려 있고 지도는 권장 순서만 보여 줌. 보스 줄은 그 던전의 중급 문제를 모두 통과하기 전에는 눌리지 않음.
 "보스에서 익힌 기술" 은 보스를 통과했거나 보스 해설을 연 뒤에만 서비스가 내용을 줌. 화면 낱말은 gui/journey_text.py 가 만듦."""
@@ -9,7 +9,7 @@ import math
 
 from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPen
-from PyQt6.QtWidgets import QHBoxLayout, QSizePolicy, QToolTip, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QSizePolicy, QToolTip, QWidget
 
 from gui import kit, theme
 from gui.docview import Doc
@@ -33,6 +33,9 @@ PILL_PAD = 4  # 이름 글 양옆의 알약 여백
 PILL_GAP = 4  # 이웃 이름 알약 사이의 최소 간격. 알약은 카드와 같은 색이라 글 사이로는 12 가 보임
 MARK = 16  # 범례 표시의 지름
 WIDTH_HINT = 390  # 1280 창의 지도 카드 폭. 실제 폭은 카드 폭을 따름
+CARD_GAP = 16  # 띠·이어서 할 일·두 구역 카드 사이
+COLUMN_GAP = 20  # 두 구역 사이
+INTRO_WIDTH = 640  # 던전 소개 글의 최대 폭. 목록 카드가 넓어도 한 줄이 이보다 길어지지 않음
 LEGEND_ITEMS = (("cleared", "클리어"), ("progress", "진행 중"), ("todo", "시작 전"), ("waiting", "준비 중"))
 ARROWS = {Qt.Key.Key_Left: (0, -1), Qt.Key.Key_Right: (0, 1), Qt.Key.Key_Up: (-1, 0), Qt.Key.Key_Down: (1, 0)}  # 화면의 이웃: (줄, 칸)
 
@@ -331,13 +334,15 @@ class Mark(QWidget):
         painter.end()
 
 
-class Legend(QWidget):
-    """지도 아래 범례. 표시 16 과 8 띄운 caption 이름 넷을 사이 16 으로 늘어놓고, 폭이 모자라면 다음 줄로 넘김."""
+class Legend(QFrame):
+    """지도 아래 범례. 카드 안 좌우 24 에 둔 회색 칸(well) 한 줄에 표시 16 과 8 띄운 caption 이름 넷을 사이 12 로 늘어놓고,
+    폭이 모자라면 다음 줄로 넘김. 사이 12 는 1280 창 보통 글자의 지도 카드(390)에서 넷이 한 줄에 들어가는 값임."""
 
     def __init__(self):
         super().__init__()
-        flow = kit.FlowLayout(self, 16)
-        flow.setContentsMargins(24, 0, 24, 0)
+        self.setObjectName("well")
+        flow = kit.FlowLayout(self, 12)
+        flow.setContentsMargins(16, 12, 16, 12)
         self.items = []
         for state, name in LEGEND_ITEMS:
             item = QWidget()
@@ -358,7 +363,7 @@ class JourneyMapPage(QWidget):
         self.cache_size = 0  # show_cache 가 읽어 둔 캐시 크기(바이트). 확인 창 본문에 씀
         outer = kit.box(self)
 
-        self.top = kit.TopBar("← 처음 화면", plain=True)
+        self.top = kit.TopBar("← 처음 화면", plain=True, dense=True)
         self.home_btn = self.top.back
         self.top.row.addStretch(1)  # 제목이 없는 막대라 돌아가기는 왼쪽 끝, 나머지는 오른쪽 끝에 붙임
         self.busy_label = kit.ElideLabel("", "caption", "secondary")  # Node.js 찾는 중처럼 도는 일의 이름. 막대가 좁으면 줄임표로 줄임
@@ -378,52 +383,61 @@ class JourneyMapPage(QWidget):
         self.top.add_right(self.clear_cache_btn, flush=True)
         outer.addWidget(self.top)
 
-        inner = QWidget()
-        root = kit.box(inner, (0, 24, 0, 48))
+        inner = kit.dense(QWidget())
+        root = kit.box(inner, (0, 16, 0, 24))
         self.about = kit.para(ABOUT % 16, "body", "secondary")
         root.addWidget(kit.heading(kit.label("알고리즘 여행", "title"), self.about))
         root.addSpacing(theme.GAP["description_content"])
         self.node_banner = kit.banner(NODE_TEXT, "warning", action="Node 찾기")
         self.bank_banner = kit.banner("", "warning")  # 읽지 못한 던전. 서비스가 남긴 원문은 도움말에만
         banners = QWidget()  # 숨은 알림 자리를 비우고 다음 행동까지 묶음.
-        banner_box = kit.box(banners, spacing=theme.GAP["group"])
+        banner_box = kit.box(banners, spacing=CARD_GAP)
         for banner in (self.node_banner, self.bank_banner):
             banner.hide()
             banner_box.addWidget(banner)
         root.addWidget(banners)
-        self.next_card = kit.NextCard()
+        self.next_card = kit.NextCard(compact=True)
         self.next_btn = self.next_card.button
         self.next_note = kit.para("", "body", "secondary")  # 이어서 할 일이 없을 때 카드 대신 보이는 한 줄
         self.next_note.hide()
         banner_box.addWidget(self.next_card)
         banner_box.addWidget(self.next_note)
-        root.addSpacing(theme.GAP["section"])
+        root.addSpacing(CARD_GAP)
 
         self.columns = cols = QHBoxLayout()
         cols.setContentsMargins(0, 0, 0, 0)
-        cols.setSpacing(24)
+        cols.setSpacing(COLUMN_GAP)
         left = QWidget()
         left_box = kit.box(left)
-        head, _, self.passed = kit.section("던전 지도")
-        left_box.addLayout(head)
-        left_box.addSpacing(theme.GAP["description_content"])
-        self.map_card, map_box = kit.card(pad=0)
+        self.map_card, map_box = kit.card(pad=0, spacing=0)
         map_box.setContentsMargins(0, 24, 0, 24)
+        self.passed = kit.label("", "caption", "secondary")
+        map_head = QWidget()
+        map_head_box = kit.box(map_head, (24, 0, 24, 0))
+        map_head_box.addLayout(kit.card_head("던전 지도", self.passed)[0])
         self.view = MapView()
+        self.view.setMinimumWidth(WIDTH_HINT)  # 3:5 몫이 이보다 좁으면 던전 이름이 줄임표로 더 줄어듦. 카드 머리가 더 넓으면 카드는 머리를 따름
         self.legend = Legend()
+        legend_box = QWidget()
+        kit.box(legend_box, (24, 0, 24, 0)).addWidget(self.legend)
+        map_box.addWidget(map_head)
+        map_box.addSpacing(16)
         map_box.addWidget(self.view)
-        map_box.addWidget(self.legend)
+        map_box.addSpacing(16)
+        map_box.addWidget(legend_box)
         left_box.addWidget(self.map_card)
         left_box.addStretch(1)
 
         right = QWidget()
         right_box = kit.box(right)
-        head, self.title, self.count = kit.section("")
-        right_box.addLayout(head)
-        right_box.addSpacing(theme.GAP["description_content"])
         self.card, card_box = kit.card(0, 0)
+        self.title = kit.label("", "headline")
+        self.count = kit.label("", "caption", "secondary")
+        card_head = QWidget()
+        kit.box(card_head, (24, 24, 24, 0)).addLayout(kit.card_head(self.title, self.count)[0])
+        card_box.addWidget(card_head)
         lines = QWidget()
-        lines_box = kit.box(lines, (24, 24, 24, 8), 4)
+        lines_box = kit.box(lines, (24, 16, 24, 8), 4)
         self.meta = kit.para("", "caption", "secondary")  # 주제와 보스 난이도. 도움말은 난이도를 풀어 씀
         self.meta_more = kit.para("", "caption", "secondary")  # 권장 선행 던전(있을 때만)
         lines_box.addWidget(self.meta)
@@ -431,10 +445,12 @@ class JourneyMapPage(QWidget):
         self.note = kit.para("", "body", "secondary")  # 준비 중이거나 읽지 못한 던전의 안내
         self.note_box = QWidget()
         kit.box(self.note_box, (24, 8, 24, 24)).addWidget(self.note)
-        self.rows = kit.RowList(inside_card=True)
+        self.rows = kit.RowList(inside_card=True, separate=True, least=56, pad=8, gap=4)
+        self.rows.box.setContentsMargins(24, 8, 24, 24)  # 줄 상자는 카드 안 좌우 24 에 두고 아래 선까지 24 를 띄움
         self.rule = kit.frame("rowline")
         self.rule.setFixedHeight(1)
         self.intro = Doc()
+        self.intro.setMaximumWidth(INTRO_WIDTH)
         self.skills = kit.para()
         self.boss_new = kit.para()
         self.intro_box = kit.heading(kit.label("던전 소개", "caption", "tertiary"), self.intro)
@@ -448,13 +464,11 @@ class JourneyMapPage(QWidget):
             card_box.addWidget(widget)
         right_box.addWidget(self.card)
         right_box.addStretch(1)
-        cols.addWidget(left, 5)
-        cols.addWidget(right, 7)
+        cols.addWidget(left, 3)
+        cols.addWidget(right, 5)
         root.addLayout(cols)
         root.addStretch(1)
-        column = kit.column(inner)
-        column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
-        self.scroll = kit.scroll(column)
+        self.scroll = kit.scroll(kit.dense_column(inner))
         self.scroll.viewport().installEventFilter(self)
         self.column_body = inner
         inner.installEventFilter(self)
@@ -472,7 +486,7 @@ class JourneyMapPage(QWidget):
         if not hasattr(self, "scroll"):
             return
         needed = sum(self.columns.itemAt(i).minimumSize().width() for i in range(self.columns.count())) + self.columns.spacing()
-        width = self.scroll.viewport().width() - 2 * kit.MARGIN
+        width = self.scroll.viewport().width() - 2 * kit.DENSE_MARGIN
         direction = self.columns.Direction.LeftToRight if width >= needed else self.columns.Direction.TopToBottom
         self.columns.setDirection(direction)
 
@@ -529,12 +543,14 @@ class JourneyMapPage(QWidget):
         self.next_card.set_item(target["title"], item_line(target), target["action"])
 
     def show_cache(self, info):
-        """[캐시 비우기]는 캐시가 1MB 이상일 때만 보임. 숨으면 칩이 막대 끝이라 오른쪽 여백을 글자 단추 몫만큼 되돌림."""
+        """[캐시 비우기]는 캐시가 1MB 이상일 때만 보임. 막대 끝이 글자 단추([캐시 비우기])면 오른쪽 여백을 FLUSH 만큼 줄이고,
+        칩이나 테두리 있는 [설정]이 끝이면 막대 여백으로 둠."""
         shown = info["bytes"] >= CACHE_SHOWN
         self.cache_size = info["bytes"]
         self.clear_cache_btn.setVisible(shown)
         left, top, _, bottom = self.top.row.getContentsMargins()
-        self.top.row.setContentsMargins(left, top, kit.MARGIN - kit.FLUSH if shown or hasattr(self, "settings_btn") else kit.MARGIN, bottom)
+        margin = self.top.margin
+        self.top.row.setContentsMargins(left, top, margin - kit.FLUSH if shown and not hasattr(self, "settings_btn") else margin, bottom)
 
     def show_dungeon(self, did):
         """오른쪽 구역에 던전 did 의 보조 줄, 문제 목록, 소개를 보여 줌."""
@@ -608,7 +624,8 @@ class JourneyMapPage(QWidget):
 
     def showEvent(self, event):
         """화면을 보일 때 초점은 화면 자체에 둠. 첫 TabFocus 단추(← 처음 화면)가 초점 테두리를 단 채 열리지 않게 함.
-        내려 둔 창을 다시 띄울 때(운영체제가 보내는 보이기)는 고르던 자리를 지킴."""
+        내려 둔 창을 다시 띄울 때(운영체제가 보내는 보이기)는 고르던 자리를 지킴. 창이 붙인 [설정]에는 칩과 같은 테두리를 줌."""
+        kit.outline_settings(self)
         super().showEvent(event)
         if not event.spontaneous():
             self.setFocus(Qt.FocusReason.OtherFocusReason)

@@ -7,7 +7,7 @@ import unittest
 from tests import guikit
 from gui import kit, theme
 from gui.ai_learn import OptionRow, RevealBlock
-from gui.learning_context import LearningContext
+from gui.learning_context import ContextHead, LearningContext
 from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import QWidget
@@ -60,6 +60,58 @@ class LearningLayoutTest(unittest.TestCase):
         self.assertTrue(context.answer.isVisible())
         guikit.click(context.flow_btn)
         self.assertTrue(context.diagram.isHidden())
+
+
+    def context_in(self, width, step, focus=("data", "predict", "loss", "gradient", "update")):
+        self.addCleanup(theme.set_text, theme.state["text"])
+        theme.set_text(step)
+        data = json.loads((Path(guikit.ROOT) / "ai" / "learning-map.json").read_text(encoding="utf-8"))
+        root = kit.page(QWidget())
+        box = kit.box(root)
+        context = LearningContext(data, list(focus), expanded=False)
+        box.addWidget(context)
+        box.addStretch()
+        root.resize(width, 900)
+        root.show()
+        self.addCleanup(root.close)
+        guikit.pump()
+        return context
+
+    def test_context_title_and_connection_share_a_line_with_the_flow_button_at_the_right(self):
+        context = self.context_in(1200, "normal")
+        head, title, link = context.head, context.head.title, context.head.link
+        self.assertEqual(head.mode, "wide")
+        middle = lambda widget: widget.mapTo(context, QPoint()).y() + widget.height() / 2
+        self.assertLessEqual(abs(middle(title) - middle(link)), 1)
+        self.assertLessEqual(abs(middle(head) - middle(context.flow_btn)), 1)
+        self.assertGreater(link.mapTo(context, QPoint()).x(), title.mapTo(context, QPoint(title.width(), 0)).x())
+        self.assertEqual(context.flow_btn.mapTo(context, QPoint(context.flow_btn.width(), 0)).x(), context.contentsRect().right() + 1 - 20)
+        self.assertGreater(context.flow_btn.mapTo(context, QPoint()).x(), link.mapTo(context, QPoint()).x() + ContextHead.natural(link))
+        self.assertEqual(title.heightForWidth(title.width()), title.heightForWidth(10000))
+
+    def test_narrow_context_moves_the_connection_below_the_title_and_wraps_it(self):
+        context = self.context_in(560, "larger")
+        head, title, link, button = context.head, context.head.title, context.head.link, context.flow_btn
+        self.assertEqual(head.mode, "split")
+        self.assertGreaterEqual(link.mapTo(context, QPoint()).y(), title.mapTo(context, QPoint(0, title.height())).y())
+        self.assertGreaterEqual(link.height(), link.heightForWidth(link.width()))
+        self.assertGreater(link.heightForWidth(link.width()), link.heightForWidth(10000))
+        self.assertEqual(title.heightForWidth(title.width()), title.heightForWidth(10000))
+        # 단추는 제목 줄 오른쪽 끝에 남고 연결할 과정은 아래 줄에서 단추 밑까지 줄 전체 폭을 씀
+        middle = lambda widget: widget.mapTo(context, QPoint()).y() + widget.height() / 2
+        self.assertLessEqual(abs(middle(title) - middle(button)), 1)
+        self.assertEqual(button.mapTo(context, QPoint(button.width(), 0)).x(), context.contentsRect().right() + 1 - 20)
+        self.assertEqual(link.mapTo(context, QPoint()).x(), title.mapTo(context, QPoint()).x())
+        self.assertEqual(link.mapTo(context, QPoint(link.width(), 0)).x(), button.mapTo(context, QPoint(button.width(), 0)).x())
+        self.assertLessEqual(head.mapTo(context, QPoint(0, head.height())).y(), context.height() - 16)
+
+    def test_very_narrow_context_puts_the_flow_button_on_its_own_line(self):
+        context = self.context_in(300, "larger")
+        head, title, link, button = context.head, context.head.title, context.head.link, context.flow_btn
+        self.assertEqual(head.mode, "stacked")
+        self.assertGreaterEqual(button.mapTo(context, QPoint()).y(), link.mapTo(context, QPoint(0, link.height())).y())
+        self.assertEqual(button.mapTo(context, QPoint()).x(), title.mapTo(context, QPoint()).x())
+        self.assertLessEqual(context.minimumSizeHint().width(), 300)
 
 
 if __name__ == "__main__":

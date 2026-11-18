@@ -438,7 +438,7 @@ class MapTest(Base):
         page = win.journey_map
         self.assertFalse(page.clear_cache_btn.isVisible())
         chips = page.lang_bar.mapTo(page.top, page.lang_bar.rect().topRight())
-        self.assertEqual(page.top.width() - 1 - chips.x(), kit.MARGIN, "단추가 숨으면 칩이 막대 끝 여백 32 에 맞음")
+        self.assertEqual(page.top.width() - 1 - chips.x(), kit.DENSE_MARGIN, "단추가 숨으면 칩이 촘촘한 막대 끝 여백 24 에 맞음")
         os.makedirs(runner.CACHE_DIR)
         with open(os.path.join(runner.CACHE_DIR, "a" * 64 + ".json"), "wb") as handle:
             handle.write(b"0" * (3 * 1024 * 1024))
@@ -1088,7 +1088,7 @@ class WorkFrameTest(Base):
         piece = next(piece for piece in page.problem_view.pieces if isinstance(piece, TextPiece))
         border = 2 * page.problem_card.frameWidth()
         scroll = page.problem_view.verticalScrollBar().sizeHint().width()
-        half = (win.width() - 2 * kit.MARGIN - page.split.handleWidth()) // 2
+        half = (win.width() - 2 * kit.DENSE_MARGIN - page.split.handleWidth()) // 2
         self.assertEqual(half, page.problem_card.width(), "1280×800의 6:6 칸은 테두리를 포함한 폭임")
         self.assertEqual(half - border - 2 * PAD - scroll, piece.width(), "본문에서 테두리·여백·스크롤바 폭을 뺌")
         win.set_text("large")

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """모의고사 답안을 로컬에 저장하고 제출한 뒤에만 판정과 해설을 보임."""
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from aiprep import bank, mixed_mock
 from aiprep.grade import BLANK
@@ -12,6 +12,10 @@ from gui.docview import Doc
 from gui.ai_quiz import commit_input, split_stem
 from gui.widgets import AnswerLine, PasteBlock
 from session import SessionError
+
+
+SUMMARY_LEAST = 128  # 제출 뒤 요약 카드 최소 높이
+BAR_WIDTH = 120  # 보통 글자에서 차시별 막대 폭
 
 
 class MockPage(QWidget):
@@ -27,7 +31,7 @@ class MockPage(QWidget):
         self.paste = PasteBlock(self)
         self.paste.blocked.connect(self.note_blocked)
         root = kit.box(self)
-        self.top = kit.TopBar('← AI 개론', '')
+        self.top = kit.TopBar('← AI 개론', '', dense=True)
         self.clock_box, self.clock_caption, self.time = kit.clock()
         self.top.add_right(self.clock_box)
         self.top_submit = self.top.add_right(kit.button('제출', 'text', 's'))
@@ -35,14 +39,17 @@ class MockPage(QWidget):
         self.top_submit.clicked.connect(self.confirm_submit)
         self.top.back.clicked.connect(self.go_back)
         root.addWidget(self.top)
-        body = QWidget()
-        self.body = kit.box(body, spacing=theme.GAP["group"])
+        body = kit.dense(QWidget())
+        self.body = kit.box(body, spacing=theme.GAP["paragraph"])
         self.notice = kit.banner('', 'danger')
         self.notice.hide()
         self.body.addWidget(self.notice)
+        self.summary, summary_box = kit.card(24, 0)
+        self.summary.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         self.heading = kit.para('', 'body', 'secondary')
-        self.body.addWidget(self.heading)
-        self.lesson_results = kit.RowList()
+        summary_box.addWidget(self.heading)
+        self.body.addWidget(self.summary)
+        self.lesson_results = kit.RowList(least=48, pad=12)
         self.body.addWidget(self.lesson_results)
         self.lesson_results.hide()
         self.summary_key = None
@@ -53,17 +60,17 @@ class MockPage(QWidget):
         self.body.addWidget(self.card)
         self.scroll, _ = reading_column(body)
         root.addWidget(self.scroll, 1)
-        self.bar = kit.BottomBar()
-        self.flag_btn = self.bar.add_tool(kit.button('나중에 보기', 'text', 'l'))
-        self.previous_btn = self.bar.add_action(kit.button('이전', 'secondary', 'l'))
-        self.next_btn = self.bar.add_action(kit.button('다음', 'primary', 'l'))
-        self.submit_btn = self.bar.add_action(kit.button('제출', 'primary', 'l'))
+        self.bar = kit.BottomBar(dense=True)
+        self.flag_btn = self.bar.add_tool(kit.button('나중에 보기', 'text', 'm'))
+        self.previous_btn = self.bar.add_action(kit.button('이전', 'secondary', 'm'))
+        self.next_btn = self.bar.add_action(kit.button('다음', 'primary', 'm'))
+        self.submit_btn = self.bar.add_action(kit.button('제출', 'primary', 'm'))
         self.submit_btn.setToolTip(self.top_submit.toolTip())
-        self.retry_btn = self.bar.add_action(kit.button('다시 풀기', 'secondary', 'l'))
+        self.retry_btn = self.bar.add_action(kit.button('다시 풀기', 'secondary', 'm'))
         self.retry_btn.setToolTip('같은 모의고사의 새 응시를 시작합니다. 이전 응시 기록은 보관합니다.')
-        self.home_btn = self.bar.add_action(kit.button('홈으로', 'secondary', 'l'))
-        self.notes_btn = self.bar.add_action(kit.button('오답 노트로', 'primary', 'l'))
-        self.start_btn = self.bar.add_action(kit.button('시작', 'primary', 'l'))
+        self.home_btn = self.bar.add_action(kit.button('홈으로', 'secondary', 'm'))
+        self.notes_btn = self.bar.add_action(kit.button('오답 노트로', 'primary', 'm'))
+        self.start_btn = self.bar.add_action(kit.button('시작', 'primary', 'm'))
         root.addWidget(self.bar)
         self.flag_btn.clicked.connect(self.flag)
         self.previous_btn.clicked.connect(lambda: self.move(-1))
@@ -101,6 +108,7 @@ class MockPage(QWidget):
         self.numbers.hide()
         self.lesson_results.hide()
         self.clock_box.hide()
+        self.show_summary(False)
         if mixed_mock.candidate(info):
             self.heading.setText(mixed_mock.description(info) + '\n빈칸 %d · 객관식 %d' % (info['blanks'], info['choices']))
             doc('120분은 약 2시간 연습을 위한 기본값입니다. 공식 평가 시간을 뜻하지 않습니다.', '', self.card_box)
@@ -289,6 +297,7 @@ class MockPage(QWidget):
         self.flag_btn.setVisible(not done)
         self.previous_btn.show()
         self.lesson_results.setVisible(done)
+        self.show_summary(done)
         self.next_btn.setVisible(done or not last)
         self.next_btn.setObjectName('' if done else 'primary')
         kit.repolish(self.next_btn)
@@ -307,7 +316,12 @@ class MockPage(QWidget):
                     entries = self.exam.sess.mock_lessons if self.exam.mixed else self.win.ai.lessons
                     entry = entries.get(lid, {})
                     title = ai_text.lesson_title(entry.get('no', lid), entry.get('title', ''), entry.get('course', 'intro'))
-                    self.lesson_results.add(kit.Row(title.strip(), end='%d / %d' % (counts['correct'], counts['total']), inert=True))
+                    row = self.lesson_results.add(kit.Row(title.strip(), end='%d / %d' % (counts['correct'], counts['total']), inert=True))
+                    bar = kit.progress(thin=True)
+                    bar.setValue(round(100 * counts['correct'] / counts['total']))
+                    row.layout().insertWidget(row.layout().indexOf(row.end), bar, 0, Qt.AlignmentFlag.AlignVCenter)
+                    row.bar = bar
+                self.size_bars()
                 self.summary_key = summary_key
             self.heading.setText('%d / %d문항 맞음 · 걸린 시간 %d분 %d초\n처음 점수 %d / %d\n틀리거나 비운 문항은 첫 풀이 결과를 기준으로 다음 날부터 복습합니다.' %
                                  (summary['score'], summary['of'], summary['secs'] // 60, summary['secs'] % 60,
@@ -319,6 +333,25 @@ class MockPage(QWidget):
         else:
             answered = sum(row['answered'] for row in self.exam.progress())
             self.heading.setText('%d / %d문항 답함 · 답은 자동으로 저장됩니다.\n제출한 뒤 정답과 해설을 확인할 수 있습니다.' % (answered, len(self.exam.items)))
+
+    def show_summary(self, done):
+        """제출 뒤에는 요약 카드를 최소 128 로 두고 결과 글을 label ink 로 보임. 그 밖에는 최소 높이 없이 body secondary 로 둠."""
+        role = 'label' if done else 'body'
+        if self.heading.property('role') != role:
+            kit.typed(self.heading, role)
+            self.heading.line = theme.TYPE[role][1]
+            self.heading.setText(self.heading.text())
+            kit.set_tone(self.heading, '' if done else 'secondary')
+        self.summary.setMinimumHeight(SUMMARY_LEAST if done else 0)
+
+    def size_bars(self):
+        """차시별 막대 폭을 본문 글자 크기에 비례해 둠(보통 120)."""
+        width = round(BAR_WIDTH * theme.TYPE['body'][0] / theme.BASE_TYPE['body'][0])
+        for row in self.lesson_results.rows:
+            row.bar.setFixedWidth(width)
+
+    def refont(self):
+        self.size_bars()
 
     def go(self, pos):
         if self.busy or not self.persist():

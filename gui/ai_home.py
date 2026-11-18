@@ -4,13 +4,76 @@
 읽던 단계, 단원 연습, 날짜를 띄운 복습 기록을 구분해 표시함.
 분류 선택을 고정하고 현재 과정의 목록과 공개 준비 상태를 표시함.
 혼합 모의고사는 두 탭에서 같은 응시 기록을 사용함."""
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QBoxLayout, QWidget
 
 from aiprep import bank, mixed_mock
 from gui import ai_text, kit, theme
 from gui.wrong_page import count_line
 from gui.section_browser import SectionBrowser
 from session import SessionError
+
+
+class CourseTabs(kit.NavigationTabs):
+    """AI 개론·응용 과정 탭. 공통 탭 동작은 그대로 두고 surface_alt 바탕(모서리 8, 안쪽 4) 위에 두 탭을 둠.
+    고른 탭만 흰 면과 주 색 글자로 띄우고 안 고른 탭은 바탕 없이 muted 글자로 둠.
+    어두운 테마에서는 surface 가 surface_alt 보다 어두워 고른 탭이 꺼져 보이므로 틀을 surface, 고른 탭을 hover,
+    안 고른 탭에 마우스를 올린 바탕을 surface_alt 로 두어 틀 < 올림 < 고름 순으로 밝게 함."""
+    def __init__(self, names, deferred=False):
+        super().__init__(names, deferred=deferred)
+        self.setObjectName("course_tabs")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        row = self.layout().itemAt(0).layout()
+        row.setContentsMargins(4, 4, 4, 4)
+        row.setSpacing(4)
+
+    def refont(self):
+        # 테두리 굵기가 고름(1)·초점(2)에 따라 달라도 탭 높이·글 자리가 같게, 테두리와 안쪽 여백의 합을 2 로 맞춤
+        height = max(48, theme.TYPE["headline"][1] + 16) - 4
+        color = lambda key: theme.qcolor(key).name()
+        dark = theme.state["scheme"] == "dark"
+        frame, over, picked = ("surface", "surface_alt", "hover") if dark else ("surface_alt", "hover", "surface")
+        self.setStyleSheet(f"""
+            QWidget#course_tabs {{ background: {color(frame)}; border-radius: {theme.RADIUS['dense_card']}px; }}
+            QPushButton#tab {{ background: transparent; color: {color('muted')};
+                font-size: {theme.TYPE['headline'][0]}px; font-weight: 700;
+                min-height: {height}px; max-height: {height}px; padding: 1px 17px;
+                border: 1px solid transparent; border-radius: {theme.RADIUS['dense_control']}px; }}
+            QPushButton#tab:hover {{ background: {color(over)}; }}
+            QPushButton#tab:checked {{ background: {color(picked)}; color: {color('primary')};
+                border-color: {color('line')}; }}
+            QPushButton#tab:focus {{ border: 2px dashed {color('focus')}; padding: 0 16px; }}
+            QPushButton#tab:disabled {{ color: {color('faint')}; }}
+            QPushButton#tab:checked:disabled {{ background: {color(picked)}; }}
+        """)
+
+
+class GuideLine(QWidget):
+    """안내 단추 묶음과 시험 날짜 글을 한 줄에 둠. 둘이 한 줄에 들어가지 않으면 날짜 글을 아래 줄로 내림."""
+    def __init__(self, buttons, info):
+        super().__init__()
+        self.buttons, self.info = buttons, info
+        self.row = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self.row.setContentsMargins(0, 0, 0, 0)
+        self.row.setSpacing(theme.GAP["detail"])
+        self.row.addWidget(buttons, 1)
+        self.row.addWidget(info, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+    def arrange(self):
+        flow = self.buttons.layout()
+        shown = [flow.itemAt(n).widget() for n in range(flow.count()) if not flow.itemAt(n).widget().isHidden()]
+        need = (sum(widget.sizeHint().width() for widget in shown) + flow.spacing() * max(0, len(shown) - 1)
+                + self.row.spacing() + self.info.sizeHint().width())
+        stacked = not self.info.isHidden() and self.width() < need
+        direction = QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight
+        if self.row.direction() != direction:
+            self.row.setDirection(direction)
+            place = Qt.AlignmentFlag.AlignLeft if stacked else Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            self.row.setAlignment(self.info, place)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.arrange()
 
 
 class AiHomePage(QWidget):
@@ -22,13 +85,13 @@ class AiHomePage(QWidget):
         self.overview, self.target, self.busy, self.mixed_ready = None, None, False, False
         self.mixed_row, self.notes_row = None, None
         outer = kit.box(self)
-        self.top = kit.TopBar("← 처음 화면", "AI", plain=True)
+        self.top = kit.TopBar("← 처음 화면", "AI", plain=True, dense=True)
         self.hub_btn = self.top.back
         outer.addWidget(self.top)
         header = QWidget()
         row = kit.box(header, (0, theme.GAP["detail"], 0, 0),
                       spacing=theme.GAP["detail"])
-        self.course_tabs = kit.NavigationTabs(["AI 개론", "AI 응용"], deferred=True)
+        self.course_tabs = CourseTabs(["AI 개론", "AI 응용"], deferred=True)
         self.course_tabs.setAccessibleName("AI 학습 과정")
         for tab, description in zip(self.course_tabs.buttons, (
                 "데이터와 모델, 딥러닝 학습 원리를 익힙니다.",
@@ -55,42 +118,41 @@ class AiHomePage(QWidget):
         self.notice.hide()
 
         lessons = QWidget()
-        root = kit.box(lessons, spacing=theme.GAP["description_content"])
-        root.addWidget(guide_flow)
+        root = kit.box(lessons, spacing=16)
         self.info = kit.label("", "caption", "secondary")
-        root.addWidget(self.info)
+        self.guide_line = GuideLine(guide_flow, self.info)
+        root.addWidget(self.guide_line)
         self.revision_note = kit.para("", "caption", "secondary")
         self.revision_note.hide()
         root.addWidget(self.revision_note)
-        self.next_card = kit.NextCard()
+        self.next_card = kit.NextCard(compact=True)
         self.next_btn = self.next_card.button
         root.addWidget(self.next_card)
-        root.addSpacing(theme.GAP["group"])
         head, _, self.lesson_count = kit.section("학습 단원")
         self.course_intro = kit.para("", "body", "secondary")
         root.addWidget(kit.heading(head, self.course_intro))
-        self.lesson_list = kit.RowList()
+        self.lesson_list = kit.RowList(separate=True, least=72, pad=11, gap=4)
         root.addWidget(self.lesson_list)
         self.lesson_empty = kit.para("", "body", "secondary")
         root.addWidget(self.lesson_empty)
         self.browser.add_section("lessons", "학습 단원", "그림과 예제를 읽고 단원별로 연습합니다.", lessons)
 
         books = QWidget()
-        root = kit.box(books, spacing=theme.GAP["description_content"])
+        root = kit.box(books, spacing=16)
         head, _, _ = kit.section("문제집")
         root.addWidget(kit.heading(head, kit.para(ai_text.TERMS, "caption", "secondary")))
-        self.books = kit.RowList()
+        self.books = kit.RowList(separate=True, least=72, pad=11, gap=4)
         root.addWidget(self.books)
         self.browser.add_section("books", "문제집", "차시 문제집, 섞어 풀기와 오답 노트를 엽니다.", books)
 
         patterns = QWidget()
-        root = kit.box(patterns, spacing=theme.GAP["description_content"])
+        root = kit.box(patterns, spacing=16)
         head, _, self.pattern_count = kit.section(ai_text.CODING_TITLE)
         self.pattern_about = kit.para(ai_text.CODING_ABOUT["intro"], "caption", "secondary")
         root.addWidget(kit.heading(head, self.pattern_about))
         self.pattern_section = QWidget()
         pattern_box = kit.box(self.pattern_section)
-        self.pattern_list = kit.RowList()
+        self.pattern_list = kit.RowList(separate=True, least=72, pad=11, gap=4)
         pattern_box.addWidget(self.pattern_list)
         root.addWidget(self.pattern_section)
         self.pattern_empty = kit.para("", "body", "secondary")
@@ -98,12 +160,12 @@ class AiHomePage(QWidget):
         self.browser.add_section("coding", ai_text.CODING_TITLE, "상황에 맞는 코드와 실행 순서를 연습합니다.", patterns)
 
         mocks = QWidget()
-        root = kit.box(mocks, spacing=theme.GAP["description_content"])
+        root = kit.box(mocks, spacing=16)
         head, _, self.mock_count = kit.section("모의고사")
         root.addWidget(kit.heading(head, kit.para("제한 시간 동안 풀고 제출한 뒤 정답과 해설을 확인합니다. 중간에 나가도 시간은 계속 흐릅니다.", "caption", "secondary")))
         self.mock_section = QWidget()
         mock_box = kit.box(self.mock_section, spacing=theme.GAP["description_content"])
-        self.mock_list = kit.RowList()
+        self.mock_list = kit.RowList(separate=True, least=72, pad=11, gap=4)
         mock_box.addWidget(self.mock_list)
         self.mock_pending = kit.para("", "body", "secondary")
         mock_box.addWidget(self.mock_pending)
@@ -118,6 +180,10 @@ class AiHomePage(QWidget):
 
         self.hub_btn.clicked.connect(lambda: self.win.go_hub())
         self.next_btn.clicked.connect(self.open_next)
+
+    def showEvent(self, event):
+        kit.outline_settings(self)
+        super().showEvent(event)
 
     def refresh(self):
         """서비스에서 현황을 다시 읽어 칸을 채움. 기록을 읽지 못하면 띠에 이유를 보이고 수치 줄과 목록을 비움."""
@@ -177,6 +243,7 @@ class AiHomePage(QWidget):
         self.revision_note.setVisible(bool(revision_notes))
         self.info.setText(ai_text.exam_line(overview, self.win.ai.today()))
         self.info.setVisible(bool(self.info.text()))
+        self.guide_line.arrange()
         self.show_next(overview)
         self.show_books(overview)
         self.show_lessons(overview)
@@ -362,36 +429,40 @@ class AiLessonPage(QWidget):
         self.win = win
         self.lid, self.busy = None, False
         outer = kit.box(self)
-        self.top = kit.TopBar("← AI 비전 개론", "")
+        self.top = kit.TopBar("← AI 비전 개론", "", dense=True)
         self.back_btn, self.title = self.top.back, self.top.title
         self.top.row.addStretch(1)
         self.note_btn = self.top.add_right(kit.button("전체 노트", "text", "s"))
-        self.memo_btn = self.top.add_right(kit.button("복습 질문", "text", "s"), flush=True)
+        self.memo_btn = self.top.add_right(kit.button("복습 질문", "text", "s"))
+        for button in (self.note_btn, self.memo_btn):
+            button.setProperty("outlined", True)
         self.note_btn.setToolTip("이 차시의 모든 단원을 정답을 편 채로 다시 읽습니다. 다시 읽기는 복습 확인 기록으로 세지 않습니다.")
         self.memo_btn.setToolTip("이 차시의 복습 질문을 모아 엽니다. 질문을 누르면 답이 펼쳐집니다.")
         self.memo_btn.setAccessibleDescription(self.memo_btn.toolTip())
         outer.addWidget(self.top)
-        inner = QWidget()
-        root = kit.box(inner, (0, 24, 0, 48))
+        inner = kit.dense(QWidget())
+        root = kit.box(inner, (0, 16, 0, 24))
         head, _, self.unit_count = kit.section("단원")
         root.addWidget(kit.heading(head, kit.para("읽기·단원 연습·날짜를 띄운 복습 확인 기록을 따로 표시합니다.", "caption", "secondary")))
         root.addSpacing(theme.GAP["description_content"])
-        self.unit_list = kit.RowList()
+        self.unit_list = kit.RowList(separate=True, least=64, pad=7, gap=4)  # 두 줄 글 높이 50 + 2 × 7 = 64
         root.addWidget(self.unit_list)
         root.addSpacing(16)
         root.addWidget(kit.para(ai_text.LESSON_PRACTICE, "caption", "secondary"))
         root.addStretch(1)
-        column = kit.column(inner)
-        column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
-        outer.addWidget(kit.scroll(column), 1)
-        self.bar = kit.BottomBar()
-        self.practice_btn = self.bar.add_action(kit.button("이 차시 풀기", "primary", "l"))
+        outer.addWidget(kit.scroll(kit.dense_column(inner)), 1)
+        self.bar = kit.BottomBar(dense=True)
+        self.practice_btn = self.bar.add_action(kit.button("이 차시 풀기", "primary", "m"))
         self.practice_btn.setToolTip(ai_text.LESSON_PRACTICE)
         outer.addWidget(self.bar)
         self.back_btn.clicked.connect(lambda: self.win.go_ai())
         self.note_btn.clicked.connect(lambda: self.win.open_ai_note(self.lid))
         self.memo_btn.clicked.connect(lambda: self.win.open_ai_note(self.lid, only_memo=True))
         self.practice_btn.clicked.connect(lambda: self.win.open_ai_practice("lesson", lesson=self.lid))
+
+    def showEvent(self, event):
+        kit.outline_settings(self)
+        super().showEvent(event)
 
     def load(self, lid):
         """차시를 올림. 준비 중이거나 읽지 못한 차시면 AiError."""

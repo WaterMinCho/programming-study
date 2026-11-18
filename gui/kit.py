@@ -611,8 +611,9 @@ class Row(QFrame):
         self.mark = mark
         if mark is not None:
             row.addWidget(mark, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.least, self.pad = None, 12
         text = QWidget()
-        column_box = box(text, (0, 12, 0, 12), theme.GAP["detail"])
+        column_box = self.text_box = box(text, (0, 12, 0, 12), theme.GAP["detail"])
         if wrap:
             self.title = para(title, "label", bold=strong)
             self.second = para(second, "caption", "secondary")
@@ -648,16 +649,35 @@ class Row(QFrame):
             self.second.setFixedHeight(theme.TYPE["caption"][1])
         self.fit_height()
 
+    def set_least(self, least, pad=12, gap=8):
+        """최소 높이를 least 로 바꾸고 글 묶음 위아래 여백을 pad, 두 줄 사이를 gap 으로 둠.
+        높이는 max(least, 글 높이 + 2 * pad) 라 큰 글자에서는 글만큼 늘어남."""
+        self.least, self.pad = least, pad
+        self.text_box.setSpacing(gap)
+        self.fit_height()
+
     def fit_height(self):
-        """줄바꿈한 글과 안쪽 여백이 들어갈 높이를 확보함. 짧은 글로 바꾸면 높이도 줄임."""
-        height = theme.CONTROL["row2"] if self.second.text() else theme.CONTROL["row"]
+        """줄바꿈한 글과 안쪽 여백이 들어갈 높이를 확보함. 짧은 글로 바꾸면 높이도 줄임.
+        set_least 를 불렀으면 CONTROL 의 row·row2 대신 그 최소 높이와 여백을 씀. 이때 pad 는 줄 테두리 바깥에서 글까지라
+        테두리가 있는 줄(separate)은 글 묶음 여백에서 테두리 두께를 뺌."""
+        gap = self.text_box.spacing()
+        if self.least is None:
+            _, pad, _, _ = self.text_box.getContentsMargins()
+            height = theme.CONTROL["row2"] if self.second.text() else theme.CONTROL["row"]
+        else:
+            pad, inset = self.pad, max(0, self.pad - self.frameWidth())
+            self.text_box.setContentsMargins(0, inset, 0, inset)
+            text_height = theme.TYPE["label"][1]
+            if self.second.text():
+                text_height += gap + theme.TYPE["caption"][1]
+            height = max(self.least, text_height + 2 * pad)
         if self.wrap:
             width = max(1, self.width() - 48 - 12 - MARK - (MARK + 12 if self.mark is not None else 0)
                         - (self.end.sizeHint().width() + 12 if self.end.text() else 0))
             text_height = self.title.heightForWidth(width)
             if self.second.text():
-                text_height += theme.GAP["detail"] + self.second.heightForWidth(width)
-            height = max(height, text_height + 24)
+                text_height += gap + self.second.heightForWidth(width)
+            height = max(height, text_height + 2 * pad)
         if self.wrap:
             self.setFixedHeight(height)
         else:
@@ -738,14 +758,17 @@ def link_banner(tone=""):
 
 class RowList(QFrame):
     """줄을 세로로 쌓은 흰 목록. 줄 사이에만 line 색 1px 선(좌우 24 들여서). 준비 중 항목은 끝의 글자 단추 하나로 접음.
-    flush 면 카드 안 이름표 아래에 두는 목록이라 줄과 선을 들이지 않고 이름표와 같은 세로선에 맞춤."""
+    flush 면 카드 안 이름표 아래에 두는 목록이라 줄과 선을 들이지 않고 이름표와 같은 세로선에 맞춤.
+    separate 면 선 없이 줄마다 따로 테두리 상자가 되고 줄 사이를 8 띄움. 상자 모양은 kit.dense 아래에서만 걸림(theme.STYLE_V2).
+    least 를 주면 더하는 줄마다 Row.set_least(least, pad, gap) 를 부름."""
 
-    def __init__(self, inside_card=False, flush=False):
+    def __init__(self, inside_card=False, flush=False, separate=False, least=None, pad=12, gap=8):
         super().__init__()
-        self.setObjectName("rows" if inside_card or flush else "card")
+        self.setObjectName("rows" if inside_card or flush or separate else "card")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.flush = flush
-        self.box = box(self)
+        self.flush, self.separate = flush, separate
+        self.least, self.pad, self.gap = least, pad, gap
+        self.box = box(self, spacing=8 if separate else 0)
         self.rows, self.lines, self.more_btn, self.more_list = [], [], None, None
 
     def clear(self):
@@ -758,7 +781,12 @@ class RowList(QFrame):
             self.box.takeAt(0)
 
     def add(self, row):
-        if self.rows:
+        if self.separate:
+            row.setProperty("separate", True)
+            repolish(row)
+        if self.least is not None:
+            row.set_least(self.least, self.pad, self.gap)
+        if self.rows and not self.separate:
             line = frame("rowline")
             line.setFixedHeight(1)
             line.setContentsMargins(0, 0, 0, 0)
@@ -884,14 +912,15 @@ class FlowLayout(QLayout):
 
 class Stepper(QWidget):
     """미션 단계 표시. steps 는 (번호, 이름, 상태) 목록이고 상태는 done·now·skip·lock. 원 28, 원 사이 2px 선, 끝난 구간은 link 색.
-    이름표는 caption 14 이고 지금 단계만 굵게, 잠긴 단계는 번호만 보임(이름 없음). 높이 56 의 줄 안에서 그림."""
+    이름표는 caption 14 이고 지금 단계만 굵게, 잠긴 단계는 번호만 보임(이름 없음). 높이 56 의 줄 안에서 그림.
+    dense 면 높이 48(CONTROL["stepper_dense"]) 의 줄 안에서 그림."""
 
     CIRCLE, GAP, LABEL_MAX, CONN_MIN, CONN_MAX = 28, 8, 120, 16, 160
 
-    def __init__(self):
+    def __init__(self, dense=False):
         super().__init__()
         self.steps = []
-        self.setFixedHeight(theme.CONTROL["stepper"] - 1)
+        self.setFixedHeight(theme.CONTROL["stepper_dense" if dense else "stepper"] - 1)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def set_steps(self, steps):
@@ -1160,6 +1189,18 @@ class TopBar(QFrame):
             self.row.setContentsMargins(left, top, self.margin - FLUSH, bottom)
         self.row.addWidget(widget, 0, Qt.AlignmentFlag.AlignVCenter)
         return widget
+
+
+def outline_settings(screen):
+    """창이 add_settings 로 위 막대에 붙인 설정 단추에 테두리를 주고, 줄였던 오른쪽 여백을 막대 여백으로 되돌림.
+    설정 단추는 화면이 처음 보일 때 붙어 있으므로 showEvent 에서 부름. 이미 테두리가 있으면 아무것도 하지 않음."""
+    settings = getattr(screen, "settings_btn", None)
+    if settings is None or settings.property("outlined"):
+        return
+    settings.setProperty("outlined", True)
+    repolish(settings)
+    left, top, _, bottom = screen.top.row.getContentsMargins()
+    screen.top.row.setContentsMargins(left, top, screen.top.margin, bottom)
 
 
 class BottomBar(QFrame):

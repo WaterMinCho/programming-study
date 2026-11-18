@@ -31,7 +31,7 @@ class SectionButton(QPushButton):
         metrics = QFontMetricsF(theme.font("label", True))
         inset = 64 if self.expanded else 24
         return QSize(math.ceil(metrics.horizontalAdvance(self.text())) + inset,
-                     max(56 if self.expanded else 48, theme.TYPE["label"][1] + (32 if self.expanded else 24)))
+                     max(56 if self.expanded else 44, theme.TYPE["label"][1] + (32 if self.expanded else 20)))
 
     def minimumSizeHint(self):
         metrics = QFontMetricsF(theme.font("label", True))
@@ -42,7 +42,7 @@ class SectionButton(QPushButton):
         metrics = QFontMetricsF(theme.font("label", True))
         bounds = metrics.boundingRect(QRectF(0, 0, max(1, width - (64 if self.expanded else 24)), 1000),
                                       Qt.TextFlag.TextWordWrap, self.text())
-        height = max(self.sizeHint().height(), math.ceil(bounds.height()) + (32 if self.expanded else 24))
+        height = max(self.sizeHint().height(), math.ceil(bounds.height()) + (32 if self.expanded else 20))
         if self.expanded:
             detail = QFontMetricsF(theme.font("caption")).boundingRect(
                 QRectF(0, 0, max(1, width - 32), 1000), Qt.TextFlag.TextWordWrap, self.description)
@@ -85,7 +85,7 @@ class SectionButton(QPushButton):
         painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
         painter.setRenderHint(painter.RenderHint.Antialiasing)
         painter.setFont(theme.font("label", True))
-        tone = "faint" if not self.isEnabled() else "selection_ink" if self.isChecked() else "muted"
+        tone = "faint" if not self.isEnabled() else "primary_ink" if self.isChecked() else "muted"
         painter.setPen(theme.qcolor(tone))
         if not self.expanded:
             painter.drawText(QRectF(self.rect()).adjusted(12, 8, -12, -8),
@@ -99,7 +99,7 @@ class SectionButton(QPushButton):
                          self.text())
         if self.expanded:
             painter.setFont(theme.font("caption"))
-            painter.setPen(theme.qcolor("faint" if not self.isEnabled() else "muted"))
+            painter.setPen(theme.qcolor(tone))
             top = max(56, math.ceil(title.height()) + 32)
             painter.drawText(QRectF(16, top, self.width() - 32, self.height() - top - 8),
                              Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
@@ -130,14 +130,11 @@ class SectionBrowser(QWidget):
             stack = kit.box(navigation)
             stack.addWidget(header)
             stack.addWidget(self.navigation)
-        self.navigation_column = kit.column(navigation)
-        self.navigation_column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
+        self.navigation_column = kit.dense_column(navigation)
         outer.addWidget(self.navigation_column)
-        self.content = QWidget()
+        self.content = kit.dense(QWidget())
         self.body = kit.box(self.content, (0, 16, 0, 48), 16)
-        column = kit.column(self.content)
-        column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
-        self.scroll = kit.scroll(column)
+        self.scroll = kit.scroll(kit.dense_column(self.content))
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.navigation.installEventFilter(self)
         self.scroll.viewport().installEventFilter(self)
@@ -225,11 +222,12 @@ class SectionBrowser(QWidget):
         color = theme.color
         self.setStyleSheet(f"""
             QPushButton#section_choice {{ background: {color('surface')}; color: {color('ink')};
-                border: 1px solid {color('border')}; border-radius: 12px; padding: 0;
+                border: 1px solid {color('border')}; border-radius: {theme.RADIUS['dense_control']}px; padding: 0;
                 min-height: 0; max-height: 16777200px; min-width: 0; }}
             QPushButton#section_choice:hover {{ background: {color('hover')}; }}
-            QPushButton#section_choice:checked {{ background: {color('selection')}; border: 2px solid {color('primary')}; }}
+            QPushButton#section_choice:checked {{ background: {color('primary')}; border-color: {color('primary')}; }}
             QPushButton#section_choice:focus {{ border: 2px dashed {color('focus')}; }}
+            QPushButton#section_choice:checked:focus {{ border: 2px dashed {color('primary_ink')}; }}
             QPushButton#section_choice:disabled {{ background: {color('surface_alt')}; border-color: transparent; }}
             QPushButton#section_choice:checked:disabled {{ background: {color('selection')}; }}
         """)
@@ -271,7 +269,7 @@ class SectionBrowser(QWidget):
             self._place()
         if target is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
             gutter = self.scroll.width() - self.scroll.viewport().width()
-            self.navigation_column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN + gutter, 0)
+            self.navigation_column.layout().setContentsMargins(0, 0, gutter, 0)
             self._place()
         if target in self.buttons.values() and event.type() == QEvent.Type.KeyPress:
             buttons = list(self.buttons.values())

@@ -28,6 +28,9 @@ from learning_data.collection import AI_INPUT_SCHEMA
 from session import SessionError
 
 
+VERDICT_LEAST = 64  # 판정 띠 최소 높이. 글이 길거나 글자가 크면 글 높이를 따름
+
+
 def commit_input():
     """조합 중인 한글을 확정함(gui/round_page.py 의 flush 와 같음). 테스트가 가짜로 바꿈."""
     QGuiApplication.inputMethod().commit()
@@ -95,24 +98,25 @@ class PracticePage(QWidget):
         self.paste.blocked.connect(self.note_blocked)
         self.note_dialog, self.queued = None, 0
         root = kit.box(self)
-        self.top = kit.TopBar("← AI 비전 개론", "")
+        self.top = kit.TopBar("← AI 비전 개론", "", dense=True)
         self.back_btn, self.title = self.top.back, self.top.title
         self.count = self.top.add_right(kit.label("", "caption", "secondary"))
         root.addWidget(self.top)
         self.bar_line = kit.progress(thin=True)
         root.addWidget(self.bar_line)
-        self.card, self.card_box = kit.card(CARD_PAD, 32)
+        self.card, self.card_box = kit.card(CARD_PAD, 24)
         self.scroll, _ = reading_column(self.card)
+        kit.dense(self.scroll)  # 카드·판정 띠·해설 칸·입력 칸·꼬리표에 촘촘한 모서리
         root.addWidget(self.scroll, 1)
-        self.bar = kit.BottomBar()
-        self.dont_btn = self.bar.add_tool(kit.button("모르겠어요", "text", "l"))
-        self.note_btn = self.bar.add_tool(kit.button("노트 보기", "text", "l"))
-        self.mine_btn = self.bar.add_tool(kit.button("내 답도 맞음", "text", "l"))
-        self.home_btn = self.bar.add_action(kit.button("홈으로", "secondary", "l"))
-        self.unsure_btn = self.bar.add_action(kit.button("긴가민가", "secondary", "l"))
-        self.sure_btn = self.bar.add_action(kit.button("확실함", "primary", "l"))
-        self.next_btn = self.bar.add_action(kit.button("다음", "primary", "l"))
-        self.again_btn = self.bar.add_action(kit.button("한 번 더", "primary", "l"))
+        self.bar = kit.BottomBar(dense=True)
+        self.dont_btn = self.bar.add_tool(kit.button("모르겠어요", "text", "m"))
+        self.note_btn = self.bar.add_tool(kit.button("노트 보기", "text", "m"))
+        self.mine_btn = self.bar.add_tool(kit.button("내 답도 맞음", "text", "m"))
+        self.home_btn = self.bar.add_action(kit.button("홈으로", "secondary", "m"))
+        self.unsure_btn = self.bar.add_action(kit.button("긴가민가", "secondary", "m"))
+        self.sure_btn = self.bar.add_action(kit.button("확실함", "primary", "m"))
+        self.next_btn = self.bar.add_action(kit.button("다음", "primary", "m"))
+        self.again_btn = self.bar.add_action(kit.button("한 번 더", "primary", "m"))
         self.dont_btn.setToolTip("정답과 해설을 표시하고 모르는 문항으로 기록해 복습에 반영합니다.")
         self.sure_btn.setToolTip("입력한 답을 채점하고 확신한 답으로 기록합니다.\n" + ai_text.SHORTCUTS)
         self.unsure_btn.setToolTip("입력한 답을 채점하고 확신하지 못한 답으로 기록합니다.\n" + ai_text.SHORTCUTS)
@@ -216,8 +220,9 @@ class PracticePage(QWidget):
         for text in self.chips(item):
             chip_row.addWidget(kit.badge(text, "accent" if text in ("다시 나온 문항", "지난번 확실했던 문항") else ""))
         self.card_box.addWidget(chips)
-        self.verdict = QWidget()
-        verdict_col = kit.box(self.verdict, spacing=theme.GAP["title_description"])
+        self.verdict = kit.frame("banner")  # 판정 띠. 바탕색은 판정에 따라 set_verdict 가 바꿈
+        self.verdict.setMinimumHeight(VERDICT_LEAST)
+        verdict_col = kit.box(self.verdict, (16, 16, 16, 16), theme.GAP["title_description"])
         self.verdict_text = kit.label("", "headline")
         self.answer_line = rich("")
         self.also_text = kit.para("", "body", "secondary")  # 뼈대 빈칸에서 함께 가린 칸이 틀렸을 때
@@ -242,8 +247,7 @@ class PracticePage(QWidget):
         self.fill_note = kit.para(ai_text.fill_line(getattr(self.practice, "fill", None), item["total"]), "body", "secondary")
         self.card_box.addWidget(self.fill_note)
         self.fill_note.setVisible(item["at"] == 1 and bool(self.fill_note.text()))
-        self.after = QWidget()
-        self.after_box = kit.box(self.after, spacing=16)
+        self.after, self.after_box = kit.well(16, 16, 16)
         self.card_box.addWidget(self.after)
         self.after.hide()
         for widget in self.inputs:
@@ -467,8 +471,7 @@ class PracticePage(QWidget):
             word = ai_text.SURE_WRONG
         if self.dontknow:
             word, tone = ai_text.DONT_KNOW, "secondary"
-        self.verdict_text.setText(word)
-        kit.set_tone(self.verdict_text, tone)
+        self.set_verdict(word, tone)
         if self.item["kind"] == "blank":
             self.mark_blanks(feedback["per_blank"], feedback["correct"])
         else:
@@ -483,6 +486,12 @@ class PracticePage(QWidget):
         self.next_btn.setFocus(Qt.FocusReason.OtherFocusReason)
         self.scroll.verticalScrollBar().setValue(0)
         self.save_progress()
+
+    def set_verdict(self, word, tone):
+        """판정 글과 글자색, 띠 바탕색을 바꿈. 모르겠어요(secondary)는 띠에 tone 을 주지 않아 안내 바탕으로 둠."""
+        self.verdict_text.setText(word)
+        kit.set_tone(self.verdict_text, tone)
+        kit.set_tone(self.verdict, tone if tone in ("success", "warning", "danger") else "")
 
     def mark_blanks(self, per, correct):
         """칸마다 테두리 색, 판정 줄 아래 정답 목록. 빈칸이 둘 이상이면 칸마다 "맞음"·"틀림" 글을 더함(글 칸은 칸 아래, 코드 칸은 코드 아래
@@ -581,8 +590,7 @@ class PracticePage(QWidget):
             self.win.ask("알림", str(error))
             return
         self.feedback = feedback
-        self.verdict_text.setText(ai_text.OVERRIDDEN)
-        kit.set_tone(self.verdict_text, "success")
+        self.set_verdict(ai_text.OVERRIDDEN, "success")
         self.mark_blanks([True] * len(self.inputs), self.answers_of())
         self.also_text.hide()
         self.show_requeue(True)

@@ -544,6 +544,100 @@ class PartsTest(unittest.TestCase):
             elif dot.state != "done":  # done 은 가운데에 체크를 그림
                 self.assertEqual(middle, token, dot.state)
 
+    def test_dense_stepper_is_48_high(self):
+        """dense 단계 표시는 48 줄 안(높이 47)에 그리고 지금 단계의 원이 보임. 기본 단계 표시(55)는 그대로."""
+        stepper = kit.Stepper(dense=True)
+        stepper.set_steps([(0, "먼저", "done"), (1, "", "now"), (2, "복습 질문", "lock")])
+        self.box.addWidget(stepper)
+        self.show()
+        self.assertEqual(theme.CONTROL["stepper_dense"], 48)
+        self.assertEqual(stepper.height(), theme.CONTROL["stepper_dense"] - 1)
+        self.assertEqual(kit.Stepper().height(), theme.CONTROL["stepper"] - 1)
+        image = stepper.grab().toImage()
+        colors = {image.pixelColor(x, image.height() // 2).name() for x in range(0, image.width(), 2)}
+        self.assertIn(theme.color("primary"), colors)
+
+    def test_row_least_sets_the_floor_and_grows_with_the_text(self):
+        """set_least 를 부른 줄은 max(least, 글 높이 + 2 * pad) 높이임. 부르지 않은 줄은 56·80 그대로.
+        더 큰 글자에서도 글보다 낮아지지 않고, 줄바꿈 글은 줄 수만큼 늘어남."""
+        for step in ("normal", "larger"):
+            theme.set_text(step)
+            plain = kit.Row("제목", "둘째 줄")
+            one = kit.Row("제목")
+            two = kit.Row("제목", "둘째 줄")
+            for row in (one, two):
+                row.set_least(56, pad=8, gap=4)
+            long = kit.Row("줄바꿈할 긴 제목 " * 12, "둘째 줄", wrap=True)
+            long.set_least(56, pad=8, gap=4)
+            holder = QWidget()
+            holder_box = kit.box(holder, spacing=8)
+            for row in (plain, one, two, long):
+                holder_box.addWidget(row)
+            self.box.addWidget(holder)
+            self.show()
+            label_line, caption_line = theme.TYPE["label"][1], theme.TYPE["caption"][1]
+            self.assertEqual(plain.height(), theme.CONTROL["row2"], step)
+            self.assertEqual(one.height(), max(56, label_line + 16), step)
+            self.assertEqual(two.height(), max(56, label_line + 4 + caption_line + 16), step)
+            self.assertGreater(long.height(), two.height(), step)
+            self.assertGreaterEqual(long.height(), long.title.height() + 4 + long.second.height() + 16, step)
+            self.box.removeWidget(holder)
+            holder.deleteLater()
+
+    def test_separate_row_list_draws_boxes_without_lines(self):
+        """separate 목록은 줄 사이 선 없이 8 을 띄우고 줄마다 separate 속성을 줌. dense 아래에서 줄은 surface 면의 상자이고
+        모서리(1, 1)는 상자 밖 바탕임. least 를 주면 줄마다 그 최소 높이를 씀. 키보드 초점 테두리는 그대로 그림."""
+        area = kit.dense(QWidget())
+        inner = kit.box(area)
+        rows = kit.RowList(separate=True, least=64, pad=8, gap=4)
+        for name in ("첫째", "둘째", "셋째"):
+            rows.add(kit.Row(name, "설명"))
+        inner.addWidget(rows)
+        self.box.addWidget(area)
+        self.box.addStretch(1)
+        holder = kit.button("앞 단추")
+        self.box.insertWidget(0, holder)
+        self.show()
+        holder.setFocus()
+        guikit.pump()
+        self.assertEqual(rows.lines, [])
+        self.assertEqual(rows.objectName(), "rows")
+        self.assertEqual([row.property("separate") for row in rows.rows], [True, True, True])
+        self.assertEqual(rows.rows[1].y() - rows.rows[0].geometry().bottom() - 1, 8)
+        least = max(64, theme.TYPE["label"][1] + 4 + theme.TYPE["caption"][1] + 16)
+        self.assertEqual([row.height() for row in rows.rows], [least] * 3)
+
+        def ink(widget, x, y):
+            return self.root.grab().toImage().pixelColor(widget.mapTo(self.root, QPoint(x, y)))
+
+        first = rows.rows[0]
+        self.assertTrue(guikit.near(ink(first, first.width() // 2, first.height() // 2), "surface"))
+        self.assertTrue(guikit.near(ink(first, first.width() // 2, 0), "line"))
+        self.assertEqual(ink(first, 1, 1), ink(self.root, 2, 2))
+        first.setFocus(Qt.FocusReason.TabFocusReason)
+        guikit.pump()
+        self.assertTrue(guikit.near(ink(first, first.width() // 2, 1), "focus"))
+        plain = kit.RowList()
+        plain.add(kit.Row("하나"))
+        plain.add(kit.Row("둘"))
+        self.assertEqual((len(plain.lines), plain.objectName(), plain.rows[0].property("separate")), (1, "card", None))
+
+    def test_outline_settings_borders_the_settings_button_once(self):
+        """outline_settings 는 설정 단추에 테두리를 주고 위 막대 오른쪽 여백을 막대 여백(24)으로 되돌림. 두 번 불러도 그대로임."""
+        page_widget = QWidget()
+        page_box = kit.box(page_widget)
+        page_widget.top = kit.TopBar("← 처음 화면", "", plain=True, dense=True)
+        page_widget.settings_btn = page_widget.top.add_right(kit.button("설정", "text", "s"), flush=True)
+        page_box.addWidget(page_widget.top)
+        self.box.addWidget(page_widget)
+        self.show()
+        self.assertEqual(page_widget.top.row.getContentsMargins()[2], kit.DENSE_MARGIN - kit.FLUSH)
+        kit.outline_settings(page_widget)
+        kit.outline_settings(page_widget)
+        self.assertTrue(page_widget.settings_btn.property("outlined"))
+        self.assertEqual(page_widget.top.row.getContentsMargins()[2], kit.DENSE_MARGIN)
+        kit.outline_settings(QWidget())  # 설정 단추가 없는 화면은 그냥 지나감
+
     def test_lock_dot_draws_a_padlock_in_the_mark_box(self):
         """잠김 점은 점 칸 20 안에 높이 16(2~18)의 자물쇠를 그림. faint 색 2px 고리와 그 아래 채운 몸통이 있고 고리 안은 비어 있음."""
         lock = kit.Dot("lock")

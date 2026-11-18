@@ -1623,6 +1623,35 @@ class PatternTest(AiTest):
         self.assertEqual(page.answer_line.text(), "정답: `train`")
         self.assertFalse(page.also_text.isVisible() or page.mine_btn.isVisible())
 
+    def test_order_options_stack_when_two_columns_do_not_fit(self):
+        """2×2 코드 보기는 두 열이 가장 긴 줄을 담지 못하면 한 열로 쌓고 칸 폭 아래로 최소 폭을 고집하지 않음. 넓어지면 다시 2×2로 놓음."""
+        choices = ai_learn.CodeChoices(["a" * 30 + "\nb = 1", "c = 2", "d = 3", "e" * 30], grid=2)
+        holder = kit.page(QWidget())
+        kit.box(holder).addWidget(choices)
+        need = choices.two_columns_width()
+        holder.resize(need + 40, 600)
+        holder.show()
+        self.addCleanup(holder.close)
+        guikit.pump()
+
+        def corners():
+            return [row.mapTo(choices, QPoint(0, 0)) for row in choices.rows]
+
+        wide = corners()
+        self.assertEqual((wide[0].y(), wide[0].x()), (wide[1].y(), wide[2].x()))
+        self.assertLess(wide[0].x(), wide[1].x())
+        holder.resize(need - 40, 600)
+        guikit.pump()
+        self.assertEqual(len({corner.x() for corner in corners()}), 1)
+        self.assertEqual([corner.y() for corner in corners()], sorted({corner.y() for corner in corners()}))  # 보기 순서대로 위에서 아래
+        self.assertLessEqual(choices.width(), holder.width())
+        self.assertLessEqual(choices.minimumSizeHint().width(), choices.width())
+        holder.resize(need + 40, 600)
+        guikit.pump()
+        self.assertEqual(corners(), wide)
+        guikit.click(choices.rows[3])
+        self.assertEqual(choices.picked(), [3])  # 다시 놓아도 고르기는 같음
+
     def test_change_card_picks_several_lines_and_note_dialog_shows_the_diff(self):
         win = self.boot((1024, 700))
         self.at(9)
@@ -1805,10 +1834,12 @@ class DesignTest(AiTest):
                 self.assertEqual(page.property("ui"), "2", name)
                 primaries = kit.visible_primary_buttons(page)
                 self.assertLessEqual(len(primaries), 1, "%s: %s" % (name, [b.text() for b in primaries]))
+                # 홈·차시·단원 학습·연습·모의고사는 촘촘한 배치라 주 단추가 m(44)이고 아래 막대 좌우 여백이 DENSE_MARGIN(24)임
+                dense = page in (win.ai_home, win.ai_lesson, win.ai_learn, win.ai_quiz, win.ai_mock)
                 for button in page.findChildren(QPushButton):
                     if not (button.property("scale") and button.isVisible()):
                         continue
-                    least = theme.CONTROL["l"] if button.objectName() == "primary" else theme.CONTROL["s"]
+                    least = theme.CONTROL["m" if dense else "l"] if button.objectName() == "primary" else theme.CONTROL["s"]
                     self.assertGreaterEqual(button.height(), least, "%s: %s" % (name, button.text()))
                     self.assertLessEqual(len(button.text().replace(" ", "")), 8, "%s: %s" % (name, button.text()))
                 for row in page.findChildren(kit.Row):
@@ -1816,7 +1847,8 @@ class DesignTest(AiTest):
                         self.assertGreaterEqual(row.height(), theme.CONTROL["row"], "%s: %s" % (name, row.title.text()))
                 if primaries and page is not win.ai_home:
                     corner = primaries[0].mapTo(win, QPoint(primaries[0].width(), primaries[0].height()))
-                    self.assertEqual(corner.x(), win.width() - kit.MARGIN, "%s: %s" % (name, primaries[0].text()))
+                    margin = kit.DENSE_MARGIN if dense else kit.MARGIN
+                    self.assertEqual(corner.x(), win.width() - margin, "%s: %s" % (name, primaries[0].text()))
                 self.assertLessEqual(page.minimumSizeHint().width(), win.width(), name)
                 text = visible_text(page)
                 for word in GOAL_WORDS:

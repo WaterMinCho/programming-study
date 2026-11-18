@@ -81,9 +81,9 @@ class AiSectionBrowserTest(AiTest):
                     if native:
                         self.assertTrue(room.contains(win.frameGeometry()))
                     top, back = home.top, home.hub_btn
-                    self.assertEqual((0, 0, home.width(), theme.CONTROL["topbar"]), top.geometry().getRect())
+                    self.assertEqual((0, 0, home.width(), theme.CONTROL["topbar_dense"]), top.geometry().getRect())
                     self.assertEqual(top.height(), browser.y())
-                    self.assertEqual(kit.MARGIN - kit.FLUSH, back.x())
+                    self.assertEqual(kit.DENSE_MARGIN - kit.FLUSH, back.x())
                     self.assertGreaterEqual(back.width(), back.sizeHint().width())
                     self.assertGreaterEqual(back.height(), back.sizeHint().height())
                     bounds = back.rect().translated(back.mapTo(win, QPoint()))
@@ -101,19 +101,17 @@ class AiSectionBrowserTest(AiTest):
                             self.assertIsInstance(page, ReadingPage)
                             other = page.top.back
                         other_top = other.parentWidget()
-                        # 파이썬 홈은 학습 현황과 같은 촘촘한 위 막대(높이 topbar_dense, 좌우 여백 DENSE_MARGIN)를 씀.
-                        # 그래서 돌아가기 단추가 두 여백 차이만큼 왼쪽에 있고 막대가 낮음. 단추 높이·막대 위치·가운데 맞춤은 같게 봄.
+                        # AI 홈과 파이썬 홈은 촘촘한 위 막대(높이 topbar_dense, 좌우 여백 DENSE_MARGIN)를 쓰고 커리어만 높이 64·여백 MARGIN 임.
+                        # 그래서 커리어의 돌아가기 단추가 두 여백 차이만큼 오른쪽에 있고 막대가 높음. 단추 높이·막대 위치·가운데 맞춤은 같게 봄.
                         dense = move == win.go_home
-                        shift = kit.MARGIN - kit.DENSE_MARGIN if dense else 0
-                        self.assertEqual(global_back.x() - shift, other.mapToGlobal(QPoint()).x())
+                        shift = 0 if dense else kit.MARGIN - kit.DENSE_MARGIN
+                        self.assertEqual(global_back.x() + shift, other.mapToGlobal(QPoint()).x())
                         self.assertEqual(top.mapToGlobal(QPoint()), other_top.mapToGlobal(QPoint()))
                         self.assertEqual(back.height(), other.height())
-                        self.assertEqual(theme.CONTROL["topbar_dense"] if dense else top.height(), other_top.height())
+                        self.assertEqual(top.height() if dense else theme.CONTROL["topbar"], other_top.height())
                         # 선이 있는 파이썬 막대는 안쪽 높이가 1px 작음. 각 막대의 실제 내용 칸에서 가운데를 확인함.
                         self.assertEqual(other_top.contentsRect().y() + (other_top.contentsRect().height() - other.height()) // 2,
                                          other.y())
-                        if isinstance(page, ReadingPage):
-                            self.assertEqual(global_back, other.mapToGlobal(QPoint()))
                         comparisons.append(dict(page=type(page).__name__,
                                                 back_global=[other.mapToGlobal(QPoint()).x(), other.mapToGlobal(QPoint()).y()],
                                                 button_height=other.height(), top_height=other.parentWidget().height()))
@@ -228,10 +226,14 @@ class AiSectionBrowserTest(AiTest):
                     self.assertEqual(courses[0].height(), courses[1].height())
                     heights.append(courses[0].height())
                     self.assertEqual(courses[0].mapTo(home, QPoint()).y(), courses[1].mapTo(home, QPoint()).y())
-                    self.assertEqual(courses[0].mapTo(home, QPoint()).x(),
-                                     browser.navigation.mapTo(home, QPoint()).x())
-                    self.assertEqual(courses[1].mapTo(home, QPoint(courses[1].width(), 0)).x(),
+                    # 두 탭은 surface_alt 틀 안에 안쪽 4 를 두고 놓임. 틀의 양 끝이 구역 탭 줄과 같은 세로선에 옴
+                    frame = home.course_tabs
+                    self.assertEqual(frame.mapTo(home, QPoint()).x(), browser.navigation.mapTo(home, QPoint()).x())
+                    self.assertEqual(frame.mapTo(home, QPoint(frame.width(), 0)).x(),
                                      browser.navigation.mapTo(home, QPoint(browser.navigation.width(), 0)).x())
+                    self.assertEqual(courses[0].mapTo(home, QPoint()).x(), frame.mapTo(home, QPoint(4, 0)).x())
+                    self.assertEqual(courses[1].mapTo(home, QPoint(courses[1].width(), 0)).x(),
+                                     frame.mapTo(home, QPoint(frame.width() - 4, 0)).x())
                     self.assertLess(home.hub_btn.mapTo(home, QPoint(0, home.hub_btn.height())).y(),
                                     courses[0].mapTo(home, QPoint()).y())
                     self.assertGreaterEqual(home.scroll.viewport().height(), 200)
@@ -337,7 +339,7 @@ class AiSectionBrowserTest(AiTest):
                     guikit.pump()
                     image = selected.grab().toImage()
                     scale = image.devicePixelRatio()
-                    self.assertTrue(guikit.near(image.pixelColor(int(selected.width() * scale / 2), int(6 * scale)), "selection"))
+                    self.assertTrue(guikit.near(image.pixelColor(int(selected.width() * scale / 2), int(6 * scale)), "primary"))
                     if destination:
                         target = Path(destination)
                         target.mkdir(parents=True, exist_ok=True)

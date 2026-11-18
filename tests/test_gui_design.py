@@ -267,7 +267,7 @@ class JourneyDesignTest(test_gui_journey.Base):
         if page is win.journey_page:
             button = primaries[0]
             right = button.mapTo(win, QPoint(button.width(), button.height()))
-            self.assertEqual(win.width() - MARGIN, right.x(), name)
+            self.assertEqual(win.width() - kit.DENSE_MARGIN, right.x(), name)  # 문제 화면 아래 막대는 촘촘한 막대라 오른쪽 여백이 24
             self.assertTrue(inside(win, button), name)
         elif page.next_btn.isVisible():
             self.assertEqual(0, page.scroll.verticalScrollBar().value(), name)
