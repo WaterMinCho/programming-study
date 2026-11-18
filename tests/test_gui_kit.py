@@ -450,8 +450,9 @@ class PartsTest(unittest.TestCase):
         self.assertEqual(card.row.direction(), QBoxLayout.Direction.TopToBottom)
 
     def test_compact_next_card_with_one_line_fits_the_minimum_height(self):
-        """보통 글자에서 꼬리표·제목·설명 한 줄인 작은 카드는 최소 높이 108 을 지키고 내용보다 커지지 않으며 글 사이는 4 임.
-        굵은 글자 줄 높이가 큰 글꼴 환경에서는 내용이 108 을 넘어 카드가 내용만큼 커짐."""
+        """꼬리표·제목·설명 한 줄인 작은 카드는 테두리, 여백 16, 글 사이 4 로 쌓은 내용이 108 보다 작으면 108 이고 108 을 넘으면 내용만큼 커짐.
+        글 높이는 sizeHint 로 읽음. 카드가 내용보다 크면 남는 높이가 글 높이에 더해져서 실제 높이로 더하면 최소 높이가 커진 결함을 잡지 못함.
+        맥에서는 108 이 되고 굵은 글자 줄 높이가 큰 리눅스에서는 내용만큼 커짐."""
         card = kit.NextCard(compact=True)
         card.set_item("2회차", "작성한 문항 1개", "회차 시작")
         self.box.addWidget(card)
@@ -459,7 +460,9 @@ class PartsTest(unittest.TestCase):
         self.show()
         self.root.resize(1000, 400)  # 단추가 글 옆에 오는 폭
         guikit.pump()
-        self.assertEqual(card.height(), max(108, card.sizeHint().height()))
+        texts = [part.sizeHint().height() for part in (card.caption, card.title_box, card.line)]
+        content = card.frameWidth() * 2 + 16 + texts[0] + 4 + texts[1] + 4 + texts[2] + 16
+        self.assertEqual(card.height(), max(108, content))
         self.assertEqual(card.title_box.mapTo(card, QPoint(0, 0)).y() - card.caption.mapTo(card, QPoint(0, card.caption.height())).y(), 4)
 
     def test_compact_next_card_uses_a_badge_a_headline_and_an_m_button(self):
@@ -669,7 +672,7 @@ class PartsTest(unittest.TestCase):
         self.assertEqual([row.height() for row in rows.rows], [least] * 3)
 
         def ink(widget, x, y):
-            return self.root.grab().toImage().pixelColor(widget.mapTo(self.root, QPoint(x, y)))
+            return guikit.shot(self.root).pixelColor(widget.mapTo(self.root, QPoint(x, y)))
 
         first = rows.rows[0]
         self.assertTrue(guikit.near(ink(first, first.width() // 2, first.height() // 2), "surface"))
@@ -1120,7 +1123,7 @@ class LayoutPartsTest(unittest.TestCase):
         guikit.pump()
 
     def ink(self, widget, x, y):
-        return self.root.grab().toImage().pixelColor(widget.mapTo(self.root, QPoint(x, y)))
+        return guikit.shot(self.root).pixelColor(widget.mapTo(self.root, QPoint(x, y)))
 
     def test_number_chip_keeps_two_digit_width_and_follows_the_text_step(self):
         """번호 칩은 꼬리표 높이(caption 줄 높이 + 2, 24 이상)이고 한 자리와 두 자리 번호의 폭이 같음. 글자 단계를 키우면 높이와 폭이 같이 커짐."""
@@ -1171,7 +1174,7 @@ class LayoutPartsTest(unittest.TestCase):
 
     def test_next_card_side_text_sits_right_of_the_title_and_drops_below_when_narrow(self):
         """옆 글은 처음에 숨어 있고 set_side 로 제목 오른쪽 같은 줄에 옴. 좁은 카드에서는 제목 아래로 내려가고 빈 글이면 숨음.
-        plain_next 카드는 surface 바탕임. 최소 높이 108 은 그대로임."""
+        plain_next 카드는 surface 바탕임. 옆 글이 생겨도 카드 높이는 108 아래로 줄지 않음."""
         from PyQt6.QtWidgets import QBoxLayout
         card = kit.NextCard(compact=True)
         card.setProperty("plain_next", True)
@@ -1293,7 +1296,7 @@ class LayoutPartsTest(unittest.TestCase):
         self.show(900)
 
         def last_mark(bar):
-            image = bar.grab().toImage()
+            image = guikit.shot(bar)
             back = image.pixelColor(image.width() - 1, 2)
             return max(x for x in range(image.width()) if image.pixelColor(x, image.height() // 2) != back)
 
