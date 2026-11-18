@@ -4,25 +4,28 @@
 트랙마다 공급자 하나가 오답을 줌. 창(gui/window.py)의 WRONG_TRACKS 에 적은 순서로 칩과 첫 화면의 줄이 놓이고, 공급자는 PythonNotes 와 같은 모양임:
 tid·name·empty(오답이 없을 때의 안내), groups() 는 [{"title": 묶음 이름, "items": [문항]}] 이고 문항 dict에 key·label·state를 둠.
 detail(문항, 해설) 은 (제목, 본문 HTML)이고 해설 구역 앞에 answer 닻을 둠, explain(문항) 은 detail 에 다시 넘길 해설 값, retry(문항) 은
-다시 푸는 화면을 엶. 읽지 못한 것은 SessionError 로 알리고 groups() 는 예외를 내지 않음. state 는 wrong·skipped·fixed 가운데 하나.
+다시 푸는 화면을 엶. tags(문항) 은 있어도 되고 없어도 되며, [(글, 꼬리표 색)] 을 돌려주면 제목 위 꼬리표 줄에 놓임. 읽지 못한 것은 SessionError 로 알리고 groups() 는 예외를 내지 않음. state 는 wrong·skipped·fixed 가운데 하나.
 
 왼쪽 목록은 state 로 갈래(틀린 문항 · 미응답 문항 · 다시 맞힌 문항)를 나누고, 갈래 안에서는 묶음 이름(파이썬 스터디는 차시)을 작은 제목으로 둠.
-상태는 갈래로만 알리고 줄에는 색이나 꼬리 글을 붙이지 않음. 처음에는 앞의 두 갈래를 펴고 다시 맞힌 문항은 접어 둠. 편 상태는 창이 열려 있는 동안
+문항 줄 오른쪽 끝에는 state 를 채점 결과 이름(오답 · 미응답)의 꼬리표로 붙임. 다시 맞힌 문항 줄에는 꼬리표를 두지 않음. 처음에는 앞의 두 갈래를 펴고 다시 맞힌 문항은 접어 둠. 편 상태는 창이 열려 있는 동안
 트랙마다 기억함. 위·아래 화살표, Home·End, PageUp·PageDown 은 갈래 머리 줄과 묶음 이름을 건너뛰고 보이는 문항 줄 사이에서만 고름."""
 import html
+import re
 
 from PyQt6.QtCore import QEvent, QPointF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFontMetrics, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QApplication, QButtonGroup, QFrame, QLabel, QScrollArea, QStackedWidget, QTextBrowser, QWidget
+from PyQt6.QtWidgets import QApplication, QButtonGroup, QFrame, QLabel, QScrollArea, QSizePolicy, QStackedWidget, QTextBrowser, QWidget
+
+import mdlite
 
 from gui import kit, theme
 from gui.mascot import Mascot
-from gui.result_page import band, explain_html, md_html, my_answer_html, ref_html
+from gui.result_page import explain_html, md_html, my_answer_html
 from session import SessionError
 
 CATEGORIES = (("wrong", "틀린 문항"), ("skipped", "미응답 문항"), ("fixed", "다시 맞힌 문항"))  # 목록의 갈래 순서와 이름
 OPENED = {"wrong": True, "skipped": True, "fixed": False}  # 갈래를 처음에 펴 두는지
-SPLIT = 0.28  # 왼쪽 목록 카드의 처음 몫(1280 창에서 339). 이 몫이 LONG_LABEL 이 다 들어가는 폭보다 좁으면 그 폭을 씀(WrongPage.fit_list, 1280 창 보통 글자에서 353)
+SPLIT = 0.28  # 왼쪽 목록 카드의 처음 몫(1280 창에서 339). 이 몫이 LONG_LABEL 과 줄 끝 꼬리표가 다 들어가는 폭보다 좁으면 그 폭을 씀(WrongPage.fit_list, 1280 창 보통 글자에서 약 420)
 LONG_LABEL = "빈칸 채우기 · 12회차 미니 모의고사"  # 기본 몫일 때 목록 카드의 폭을 재는 긴 문항 줄 글. 창이 넉넉하면 이 글이 줄임표 없이 들어감
 GUTTER = 20  # 두 카드 사이(손잡이 폭)
 BACK_TEXT = {"python": "← 파이썬 스터디", "hub": "← 처음 화면", "ai": "← AI"}
@@ -30,6 +33,9 @@ PICK = "왼쪽 목록에서 문항을 고르세요."
 ALL_FIXED = "틀린 문항을 모두 다시 맞혔습니다. 왼쪽의 '다시 맞힌 문항'을 펴면 다시 볼 수 있습니다."
 NONE_YET = "아직 틀린 문항이 없습니다."
 BAND = (32, 4)  # 문항 칸 띠의 (위, 아래) 여백. 새 문서 규칙은 문단 아래가 16 이고 줄 높이가 넓어서 기본값(14, 8)이면 띠가 위 글에 붙어 보임. 위를 넓히고 아래를 좁혀 띠가 제 아래 글과 묶이게 함
+# 문항 줄 꼬리표: 갈래 → (채점 결과, 꼬리표 색). 다시 맞힌 문항은 첫 시도에 틀렸으므로 '정답' 을 붙이면 첫 결과로 읽힐 수 있어 꼬리표를 두지 않음.
+# 그 줄은 '다시 맞힌 문항' 갈래 이름이 상태를 알림
+STATE_TAG = {"wrong": ("wrong", "danger"), "skipped": ("blank", "neutral")}
 NAV_KEYS = (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_Home, Qt.Key.Key_End, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown)
 
 
@@ -48,26 +54,81 @@ def count_line(groups):
     return " · ".join(parts) if parts else NONE_YET
 
 
-def item_html(note, item, info):
-    """첫 시도의 결과와 틀린 회차, 참고 자료, 문제, 내 답. info(해설)가 있으면 결과 화면과 같은 정답과 해설을 덧붙임.
-    참고 자료는 정답을 알려 주지 않아서 해설을 펴기 전에도 보여 줌. 은행 문항에 ref 가 없으면 참고 자료와 문제 띠를 넣지 않음.
-    상태는 왼쪽 분류가 알려 주므로 첫 줄은 색 없이 첫 시도 결과와 회차만 적고, 다시 맞힘은 따로 적지 않음."""
-    name, _ = theme.result_label("skipped" if note["skipped"] else "wrong")
-    facts = [note["round_title"]]
+def tag(text, kind):
+    """문서 안 꼬리표. kind 는 theme.DOC_CSS 의 tag-ok·tag-wrong·tag-blank 나 detail_css 의 tag-mine 가운데 하나의 뒷말."""
+    return '<span class="tag-%s">&nbsp;%s&nbsp;</span>' % (kind, html.escape(text, quote=False))
+
+
+def note_box(inner, kind, head=""):
+    """오답 노트 문항 칸의 상자 한 칸. kind 는 detail_css 의 td.note-* 뒷말(ref 참고 자료, problem 문제, mine 적은 답, blank 미응답)."""
+    title = '<p class="note-head">%s</p>' % head if head else ""
+    return ('<table width="100%%" cellspacing="0" cellpadding="16" border="0" style="margin-top:16px;">'
+            '<tr><td class="note-%s">%s%s</td></tr></table>' % (kind, title, inner))
+
+
+def options_html(item, info=None):
+    """객관식 지문과 보기 줄 표. 고른 보기는 약한 오답 바탕에 '내 답' 꼬리표를 붙임. 정답은 해설을 펴야 보이므로
+    info(해설)가 있을 때만 정답 보기 줄에 '정답' 꼬리표를 붙임. 정답 번호는 해설의 '정답: N번' 글에서 읽음.
+    꼬리표는 그 줄의 보기 칸 안 작은 표(note-mark)의 오른쪽 칸에 둠. 표 전체에 꼬리표 열을 두면 꼬리표가 없는 줄도
+    그 폭만큼 일찍 접힘. 그래서 작은 표는 꼬리표가 붙은 줄에만 넣고, 꼬리표가 없는 줄의 보기 글은 줄 끝까지 씀."""
+    answer = item["answer"]
+    picked = set(answer if isinstance(answer, (list, tuple)) else [answer]) if item["answered"] else set()
+    right = {int(n) for n in re.findall(r"(\d+)번", info["answer"] or "")} if info else set()
+    marks = [[tag("내 답", "mine")] * (number in picked) + [tag("정답", "ok")] * (number in right) for number in range(1, len(item["options"]) + 1)]
+    rows = []
+    for number, (blocks, mark) in enumerate(zip(item["options"], marks), 1):
+        cell = ' class="note-mine"' if number in picked else ""
+        text = mdlite.blocks_html(blocks)[len("<body>"):-len("</body>")]
+        if mark:
+            text = ('<table class="note-mark" width="100%%" border="0" cellspacing="0" cellpadding="0"><tr valign="top">'
+                    '<td>%s</td><td align="right" nowrap><p>&nbsp;%s</p></td></tr></table>' % (text, "&nbsp;".join(mark)))
+        rows.append('<tr><td%s width="32"><p class="muted">%d</p></td><td%s>%s</td></tr>' % (cell, number, cell, text))
+    return (mdlite.blocks_html(item["stem"])[len("<body>"):-len("</body>")]
+            + '<table class="note-options" width="100%%" border="0" cellspacing="0" cellpadding="10">%s</table>' % "".join(rows))
+
+
+def note_tags(note):
+    """제목 위 꼬리표 줄에 놓을 첫 시도 결과·회차·틀린 회차 수. 다시 맞힘은 왼쪽 분류가 알려 주므로 따로 적지 않음."""
+    skipped = bool(note["skipped"])
+    name, _ = theme.result_label("skipped" if skipped else "wrong")
+    tags = [(name, "neutral" if skipped else "danger"), (note["round_title"], "neutral")]
     if note["wrong_count"] > 1:
-        facts.append("%d개 회차에서 틀림" % note["wrong_count"])
-    parts = ['<p><b>%s</b> <span class="muted">· %s</span></p>' % (name, " · ".join(facts))]
-    if item["ref"]:  # 문제 본문이 참고 자료 목록에 이어 붙어 보이지 않게 문제에도 띠를 붙임
-        parts += [ref_html(item["ref"], BAND), band("문제", space=BAND)]
-    parts += [md_html(item["body_md"]), band("내 답", space=BAND), my_answer_html(item)]
+        tags.append(("%d개 회차에서 틀림" % note["wrong_count"], "neutral"))
+    return tags
+
+
+def item_html(note, item, info):
+    """참고 자료, 문제, 내 답. info(해설)가 있으면 결과 화면과 같은 정답과 해설을 덧붙임.
+    참고 자료는 정답을 알려 주지 않아서 해설을 펴기 전에도 보여 줌. 은행 문항에 ref 가 없으면 참고 자료와 문제 머리를 넣지 않음.
+    첫 시도 결과·회차·틀린 회차 수는 note_tags 가 제목 위 꼬리표 줄로 보냄.
+    참고 자료·문제·내 답은 상자 칸으로 나눔. 보기를 나눌 수 있는 객관식은 문제 상자에 보기 줄 표를 둠."""
+    parts = []
+    if item["ref"]:
+        parts.append(note_box("<p>%s</p>" % " · ".join(html.escape(ref, quote=False) for ref in item["ref"]), "ref", "참고 자료"))
+    problem = options_html(item, info) if item.get("options") else md_html(item["body_md"])
+    parts.append(note_box(problem, "problem", "문제" if item["ref"] else ""))
+    parts.append(note_box(my_answer_html(item), "mine" if item["answered"] else "blank", "내 답"))
     if info is not None:
         parts.append(explain_html(item, info, BAND))
     return "<body>%s</body>" % "".join(parts)
 
 
 def detail_css():
-    """문항 칸의 CSS. 새 화면 문서 규칙(theme.web_css)에 코드 상자 바탕을 더함. web_css 는 상자 바탕을 DocView 가 칠한다고 보고 투명하게 둠."""
-    return theme.web_css() + "td.codebox { background-color: %s; }" % theme.color("codebox_bg")
+    """문항 칸의 CSS. 새 화면 문서 규칙(theme.web_css)에 코드 상자 바탕과 문항 칸 상자(note_box)를 더함.
+    web_css 는 상자 바탕을 DocView 가 칠한다고 보고 투명하게 둠. 상자 머리는 caption 굵게."""
+    colors = {name: theme.color(name) for name in ("codebox_bg", "emphasis_bg", "line", "wrong_weak", "surface_alt", "muted", "surface", "wrong")}
+    return theme.web_css() + (
+        "td.codebox { background-color: %(codebox_bg)s; }"
+        "td.note-ref { background-color: %(emphasis_bg)s; }"
+        "td.note-problem { border: 1px solid %(line)s; }"
+        "td.note-mine { background-color: %(wrong_weak)s; }"
+        "span.tag-mine { background-color: %(surface)s; color: %(wrong)s; font-weight: 700; }"  # 약한 오답 바탕 줄 위에서도 꼬리표로 보이게 흰 바탕
+        "td.note-blank { background-color: %(surface_alt)s; }"
+        "table.note-options td { border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: %(line)s; }"
+        "table.note-mark td { border-bottom-style: none; }"
+        "p.note-head { font-weight: 700; font-size: %(caption)dpx; line-height: %(caption_line)dpx; color: %(muted)s; margin-bottom: 8px; }"
+        "td.note-ref p, td.note-mine p, td.note-blank p, table.note-options p { margin-bottom: 0px; }"
+        % dict(colors, caption=theme.TYPE["caption"][0], caption_line=theme.TYPE["caption"][1]))
 
 
 class PythonNotes:
@@ -89,6 +150,10 @@ class PythonNotes:
         item = self.win.session.wrong_item(note["round"], note["id"])
         label = "%s · %s · %d점" % (item["type_label"], item["unit_title"], item["points"])
         return ("%s · %s" % (item["title"], label) if item["kind"] == "code" else label), item_html(note, item, info)
+
+    @staticmethod
+    def tags(note):
+        return note_tags(note)
 
     def explain(self, note):
         """터미널에서 일부만 채점해 아직 끝나지 않은 회차면 SessionError."""
@@ -140,7 +205,7 @@ class KeyRing:
 
 
 class Fold(KeyRing, kit.Row):
-    """갈래 머리 줄: 꺾쇠, 갈래 이름(headline), 문항 수 꼬리표. 누르거나 Enter·Space 를 치면 펴고 접고, ← 는 접고 → 는 폄.
+    """갈래 머리 줄: 꺾쇠, 갈래 이름(headline), 이름 바로 오른쪽의 문항 수 꼬리표(갈래 색). 누르거나 Enter·Space 를 치면 펴고 접고, ← 는 접고 → 는 폄.
     body 는 그 갈래의 묶음 이름과 문항 줄을 담은 위젯이고 접으면 숨김."""
     toggled = pyqtSignal(bool)
 
@@ -149,7 +214,12 @@ class Fold(KeyRing, kit.Row):
         self.state, self.body, self.opened = state, None, True
         kit.typed(self.title, "headline", True)
         self.count = kit.badge(str(count))
-        self.layout().insertWidget(self.layout().indexOf(self.end), self.count, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.count.setProperty("fold", state)
+        row, text = self.layout(), self.title.parentWidget()
+        self.title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)  # 이름 폭만 차지해 꼬리표가 바로 옆에 옴
+        row.setStretchFactor(text, 0)
+        row.insertWidget(row.indexOf(text) + 1, self.count, 0, Qt.AlignmentFlag.AlignVCenter)
+        row.insertStretch(row.indexOf(self.count) + 1, 1)
         self.chevron.hide()
         self.refont()
         self.title.refont()
@@ -175,6 +245,7 @@ class Fold(KeyRing, kit.Row):
 
 class NoteRow(KeyRing, kit.Row):
     """문항 줄. 꺾쇠 없는 한 줄(label)이고 글은 갈래 이름과 같은 세로선(kit.ROW_TEXT)에서 시작함. 문항은 data 에 둠.
+    오른쪽 끝에 state 꼬리표(오답 · 미응답)를 둠. 다시 맞힌 문항(fixed)과 알 수 없는 state 면 꼬리표를 숨김.
     고르면 picked 모양(selection 바탕과 왼쪽 primary 막대)이 됨. Tab 은 고른 줄 하나에만 닿고 나머지 줄은 누르거나 화살표로 옮김."""
 
     def __init__(self, item):
@@ -182,6 +253,10 @@ class NoteRow(KeyRing, kit.Row):
         self.chevron.hide()
         self.layout().setContentsMargins(kit.ROW_TEXT, 0, 24, 0)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        result, tone = STATE_TAG.get(item.get("state"), ("", ""))
+        self.tag = kit.badge(theme.result_label(result)[0] if result else "", tone)
+        self.layout().insertWidget(self.layout().indexOf(self.end), self.tag, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.tag.setVisible(bool(result))
 
     def paintEvent(self, event):
         if self.property("picked"):  # 고른 줄은 selection 바탕에 더해 왼쪽 끝에 primary 3px 막대. 바탕은 이미 칠해져 있고 초점 테두리가 막대 위에 오게 먼저 그림
@@ -347,6 +422,8 @@ class WrongPage(QWidget):
             self.chip_group.addButton(chip)
             chip_box.addWidget(chip)
             self.chips[track.tid] = chip
+            chip.setProperty("scale", "s")  # 위 막대의 다른 단추와 같은 높이 32
+        kit.segmented(chips, "solid")
         self.top.add_right(chips)
         chips.setVisible(len(self.tracks) > 1)
         root.addWidget(self.top)
@@ -355,12 +432,17 @@ class WrongPage(QWidget):
         self.list_card, list_box = kit.card(0, 0)
         list_box.addWidget(self.list)
         detail_card, detail_box = kit.card(24, theme.GAP["title_description"])
+        self.item_tags = QWidget()  # 제목 위 꼬리표 줄. 공급자에 tags 가 있을 때만 채움
+        self.item_tags.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        kit.FlowLayout(self.item_tags, spacing=theme.GAP["detail"])
+        self.item_tags.hide()
         self.item_title = kit.para("", "headline")  # 긴 코드 문제 제목은 줄을 바꿈
         self.detail = QTextBrowser()
         self.detail.setObjectName("plain")
         self.detail.setOpenLinks(False)
         self.detail.anchorClicked.connect(self.open_reference)
         self.detail.document().setDocumentMargin(0)
+        detail_box.addWidget(self.item_tags)
         detail_box.addWidget(self.item_title)
         detail_box.addWidget(self.detail, 1)
         self.split = kit.splitter(Qt.Orientation.Horizontal, "wrong/split", SPLIT, GUTTER, win.settings)
@@ -433,8 +515,9 @@ class WrongPage(QWidget):
         return self.list.selected()
 
     def show_item(self, item):
-        """고른 문항의 제목과 본문. 고른 것이 없으면 안내 한 줄."""
+        """고른 문항의 꼬리표·제목과 본문. 고른 것이 없으면 안내 한 줄."""
         self.item_title.setText("")
+        self.set_tags([])
         self.explainable = False  # [해설 보기]를 누를 수 있는지. 본문을 읽었고 해설을 아직 펴지 않은 문항만 누름
         if item is None:
             items = [i for group in self.groups for i in group["items"]]
@@ -448,11 +531,23 @@ class WrongPage(QWidget):
                 self.detail.setHtml("<body><p>%s</p></body>" % html.escape(str(error)))
             else:
                 self.item_title.setText(title)
+                self.set_tags(self.track.tags(item) if hasattr(self.track, "tags") else [])
                 self.detail.setHtml(body)
                 self.explainable = (self.track.tid, item["key"]) not in self.revealed
         self.item_title.setVisible(bool(self.item_title.text()))
         self.explain_btn.setEnabled(self.explainable and not self.busy)
         self.retry_btn.setEnabled(item is not None and not self.busy)
+
+    def set_tags(self, tags):
+        """제목 위 꼬리표 줄을 [(글, 꼬리표 색)] 로 다시 채움. 빈 목록이면 줄을 숨김."""
+        flow = self.item_tags.layout()
+        while flow.count():
+            old = flow.takeAt(0).widget()
+            old.setParent(None)
+            old.deleteLater()
+        for text, tone in tags:
+            flow.addWidget(kit.badge(text, "" if tone == "neutral" else tone))
+        self.item_tags.setVisible(bool(tags))
 
     def reveal(self):
         item = self.selected()
@@ -502,7 +597,8 @@ class WrongPage(QWidget):
         if self.split.ratio != SPLIT:
             return
         room = self.split.width() - self.split.handleWidth()
-        need = (kit.ROW_TEXT + 24 + QFontMetrics(theme.font("label")).horizontalAdvance(LONG_LABEL)
+        tag = max(QFontMetrics(theme.font("caption", True)).horizontalAdvance(theme.result_label(result)[0]) for result, _ in STATE_TAG.values())
+        need = (kit.ROW_TEXT + 24 + QFontMetrics(theme.font("label")).horizontalAdvance(LONG_LABEL) + 12 + tag + 16
                 + self.list.verticalScrollBar().sizeHint().width() + 2 * self.list_card.frameWidth())
         width = max(round(SPLIT * room), min(need, room // 2))
         if room > 0 and self.split.sizes()[0] != width:

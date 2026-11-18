@@ -33,11 +33,11 @@ import adaptive  # noqa: E402
 import mdlite  # noqa: E402
 import session  # noqa: E402
 import study  # noqa: E402
-from gui import app, dialogs, errors, icon, kit, motion, theme, widgets, window, wrong_page  # noqa: E402
+from gui import app, dialogs, errors, home_page, icon, kit, motion, theme, widgets, window, wrong_page  # noqa: E402
 from gui.mascot import Mascot  # noqa: E402
 from gui.guard import NOTE as PASTE_NOTE  # noqa: E402
 from tests.legacy_team_page import Avatar, EmptyCard, MemberCard, MainWindow  # noqa: E402
-from gui.round_page import ROW_GAP  # noqa: E402
+from gui.round_page import DOT_EDGE, DOT_PX, ROW_GAP  # noqa: E402
 from gui.widgets import ChoiceCard, ChoicePanel, CodeEditor, Para, TextPanel, content_height  # noqa: E402
 from aiprep import bank as ai_bank  # noqa: E402
 from webprep import bank as web_bank  # noqa: E402
@@ -303,7 +303,7 @@ class FirstRunTest(GuiTest):
         self.assertEqual(self.git.calls, ["sync"])
         self.assertIs(self.page(), home)
         self.assertEqual(home.action_btn.text(), "진단 테스트 시작")
-        self.assertEqual(home.ready.text(), "0 / %d" % len(adaptive.units()))
+        self.assertEqual(home.ready.text() + " " + home.ready_total.text(), "0 / %d" % len(adaptive.units()))  # 숙달 수와 전체 수를 두 라벨로 나눔
         self.assertEqual(home.strip.cells.count(), len(adaptive.units()))
         first_unit = adaptive.units()[0]
         self.assertEqual(home.strip.cells.itemAt(0).widget().toolTip(),
@@ -358,7 +358,8 @@ class FirstRunTest(GuiTest):
         self.assertEqual(result.listw.count(), size + 1)
         self.assertIn("진단 테스트 결과", result.title.text())
         self.assertTrue(result.title.isVisible())
-        self.assertIn("숙달한 단원", result.ready.text())
+        self.assertEqual(result.ready_name.text(), "숙달한 단원")  # 숙달 줄은 이름과 숫자 라벨로 나눔
+        self.assertRegex(result.ready.text(), r"^\d+ / \d+$")
         self.assertIn("미응답 2문항", result.detail.toPlainText())
         self.assertFalse(result.explain_btn.isEnabled())
         result.listw.setCurrentRow(2)  # 비워 둔 2번
@@ -412,7 +413,8 @@ class FirstRunTest(GuiTest):
         self.assertIn("진단 테스트", home.rounds.item(1).text())
         self.assertEqual(home.action_btn.text(), "2회차 시작")
         overview = win.session.overview()
-        self.assertEqual(home.ready.text(), "%d / %d" % (overview["mastered"], overview["total_units"]))
+        self.assertEqual(home.ready.text() + " " + home.ready_total.text(), "%d / %d" % (overview["mastered"], overview["total_units"]))
+        self.assertEqual(home.ready.property("tone"), "accent")
         self.assertIn("정답률", home.strip.cells.itemAt(0).widget().toolTip())
 
         # 지난 회차를 눌러 결과 보기 → 틀린 문항 다시 풀기 → 다시 채점(연습)
@@ -878,7 +880,8 @@ class BankTest(GuiTest):
         self.assertEqual(listw.sizeHintForRow(1), plain.sizeHintForRow(0) + ROW_GAP)
         image = listw.viewport().grab(listw.visualItemRect(listw.item(1))).toImage()  # 고르지 않은 줄
         left, back = image.width() // 4, gray(image.pixel(image.width() - 4, 4))
-        inked = [any(abs(gray(image.pixel(x, y)) - back) > 60 for x in range(left, image.width())) for y in range(image.height())]
+        right = image.width() - round((DOT_EDGE + DOT_PX + 4) * image.devicePixelRatio())  # 오른쪽 끝 상태 동그라미는 두 줄 사이에 걸쳐 그려져 빼고 봄
+        inked = [any(abs(gray(image.pixel(x, y)) - back) > 60 for x in range(left, right)) for y in range(image.height())]
         strokes = re.finditer("1+", "".join("1" if row else "0" for row in inked))
         bands = []
         for stroke in strokes:
@@ -1318,7 +1321,7 @@ class TeamTest(GuiTest):
             self.assertEqual(card.weak.text(), "약한 단원: " + (", ".join(titles[unit] for unit in row["weak"]) or "-"))
             self.assertEqual(card.strong.text(), "능숙한 단원: " + (", ".join(titles[unit] for unit in row["strong"]) or "-"))
         self.assertEqual(len(rows[2]["weak"]), 3)
-        self.assertEqual(team.cards[1].ready.text(), win.home.ready.text())
+        self.assertEqual(team.cards[1].ready.text(), win.home.ready.text() + " " + win.home.ready_total.text())
         click(team.home_btn)
         self.assertIs(self.page(), win.home)
 
@@ -1369,7 +1372,7 @@ class RoundScoreTest(GuiTest):
         win.open_round("r91")
         for key in (choice, code):
             item = self.select(lambda it: it["key"] == key)
-            self.assertTrue(page.item_title.text().endswith(" · %d점" % points[key]), page.item_title.text())
+            self.assertEqual(page.points_tag.text(), "%d점" % points[key])  # 배점은 지문 제목 위 꼬리표 줄에 둠
             self.fill(item, right_answer(sess, item))
         self.submit_round()
         first = points[choice] + points[code]
@@ -1390,6 +1393,81 @@ class RoundScoreTest(GuiTest):
         self.idle()
         self.assertEqual(result.score.text(), "100 / 100점")
         self.assertEqual(result.note.text(), "첫 제출은 %d / 100점이었습니다. 숙달 판정에는 첫 제출만 반영됩니다." % first)
+
+
+class LayoutPartsScreenTest(GuiTest):
+    """화면에 더한 표시 요소(번호·꼬리표·나눈 라벨)가 이미 있는 값을 그대로 보여 주는지 봄."""
+
+    def test_home_unit_cells_show_two_digit_numbers_and_names(self):
+        self.boot()
+        home, units = self.win.home, self.win.session.overview()["units"]
+        cell = home.strip.cells.itemAt(0).widget()
+        self.assertIsInstance(cell, home_page.UnitCell)
+        self.assertEqual((cell.text(), cell.name), ("%02d" % int(units[0]["unit"][1:]), units[0]["title"]))
+        self.assertTrue(cell.toolTip().startswith(units[0]["unit"]))
+        self.assertTrue(cell.name_shown())
+        cell.resize(30, cell.height())  # 이름 세 글자가 들어가지 않는 좁은 칸은 번호만 보임
+        self.assertFalse(cell.name_shown())
+        self.addCleanup(theme.set_text, theme.state["text"])  # 아래 단언이 실패해도 글자 단계를 되돌림
+        self.win.set_text("larger")
+        pump()
+        self.assertGreaterEqual(home.strip.cells.itemAt(0).widget().minimumHeight(), theme.TYPE["label"][1] + theme.TYPE["caption"][1])
+
+    def test_home_track_dot_and_weak_concept_head(self):
+        self.boot()
+        home, session = self.win.home, self.win.session
+        row = home.top.row
+        self.assertEqual(row.indexOf(home.track_dot) + 1, row.indexOf(home.top.title))  # 점은 위 막대 제목 바로 앞
+        self.assertEqual(home.track_dot.focusPolicy(), Qt.FocusPolicy.NoFocus)
+        self.assertTrue(home.weak_head.isHidden())  # 태그가 없으면 머리 라벨을 숨기고 안내 글을 그대로 둠
+        self.assertIn(home.weak.text(), ("아직 틀린 문항이 없습니다.", "문제를 풀면 다시 볼 개념을 모아 보여 줍니다."))
+        overview = session.overview()
+        tags = ["리스트", "반복문"]
+        with mock.patch.object(session, "overview", return_value=dict(overview, weak_tags=tags)):
+            home.refresh()
+        self.assertFalse(home.weak_head.isHidden())
+        self.assertEqual((home.weak_head.text(), home.weak.text()), ("다시 볼 개념", ", ".join(tags)))
+
+    def test_home_past_rounds_count_and_painted_rows_keep_item_text(self):
+        self.boot()
+        home = self.win.home
+        self.assertTrue(home.rounds_count.isHidden())
+        self.assertTrue(home.rounds.isHidden())
+        self.make_round("r91", [self.first(type="choice")], completed=True)
+        self.win.go_home()
+        pump()
+        self.assertEqual((home.rounds.count(), home.rounds_count.text(), home.rounds_count.isHidden()), (1, "1", False))
+        item = home.rounds.item(0)
+        self.assertEqual(item.text(), "91회차 미니 모의고사    0 / 100점 (0%)")  # 대리 그리기를 써도 항목 글은 그대로
+        self.assertIsInstance(home.rounds.itemDelegate(), home_page.RoundDelegate)
+        self.assertEqual((item.data(home_page.ROLE_TITLE), item.data(home_page.ROLE_SCORE)), ("91회차 미니 모의고사", "0 / 100점 (0%)"))
+        self.assertEqual(home.rounds.height(), home_page.RoundDelegate.row_height() + 2 * home.rounds.frameWidth())
+
+    def test_round_tags_match_the_title_parts_and_run_comes_first(self):
+        self.boot()
+        choice, code = self.first(type="choice"), self.first(type="return")
+        self.make_round("r90", [choice, code])
+        self.win.open_round("r90")
+        pump()
+        page = self.win.round_page
+        self.assertEqual(page.count.text(), "2문항")
+        self.assertIs(page.bar.tools.items[0].widget(), page.run_btn)
+        for key in (choice, code):
+            item = self.select(lambda it: it["key"] == key)
+            self.assertEqual((page.type_tag.full, page.unit_tag.full, page.points_tag.full),
+                             (item["type_label"], item["unit_title"], "%d점" % item["points"]))
+            self.assertEqual(page.item_title.text(), "%d. %s" % (item["no"], item["title"] if item["kind"] == "code" else item["type_label"]))
+            self.assertEqual(page.retest_tag.isVisibleTo(page), bool(item["retest"]))
+            self.assertEqual(page.reset_btn.isVisibleTo(page), item["kind"] == "code")
+
+    def test_result_ready_line_splits_name_and_numbers(self):
+        self.boot()
+        self.make_round("r91", [self.first(type="choice")], completed=True)
+        self.win.show_result("r91")
+        pump()
+        result, overview = self.win.result_page, self.win.session.overview()
+        self.assertEqual((result.ready_name.text(), result.ready.text()), ("숙달한 단원", "%d / %d" % (overview["mastered"], overview["total_units"])))
+        self.assertEqual(result.ratio.objectName(), "badge")
 
 
 class FakeNotes:
@@ -1434,6 +1512,34 @@ class WrongNotesTest(GuiTest):
                 self.fill(item, right_answer(self.win.session, item) if key in right else "print('오답')\n")
         self.submit_round()
         self.assertIs(self.page(), self.win.result_page)
+
+    def test_note_rows_and_home_button_show_states_and_counts(self):
+        """문항 줄 꼬리표는 갈래의 채점 결과 이름이고, 홈 [오답 노트] 단추 꼬리표는 파이썬 트랙의 틀린 문항 수(0 이면 숨김)."""
+        self.boot()
+        home = self.win.home
+        self.assertTrue(home.wrong_count.isHidden())
+        self.assertEqual(home.wrong_btn.accessibleDescription(), "")
+        output, code = self.first(type="output"), self.first(type="return")
+        self.submit("r91", [output, code], wrong=[code])
+        self.win.go_home()
+        python = next(track for track in self.win.wrong_tracks if track.tid == "python")
+        wrong = sum(1 for group in python.groups() for item in group["items"] if item["state"] == "wrong")
+        self.assertEqual(wrong, 1)
+        self.assertEqual((home.wrong_count.text(), home.wrong_count.isHidden(), home.wrong_btn.text()), ("1", False, "오답 노트"))
+        self.assertEqual(home.wrong_btn.accessibleDescription(), "틀린 문항 1개")
+        page = self.open_notes()
+        self.assertEqual(page.chip_row.property("segmented"), "solid")
+        for fold in page.list.folds:
+            self.assertEqual(fold.count.property("fold"), fold.state)
+        names = {"wrong": "오답", "skipped": "미응답"}
+        self.assertEqual({row.data["state"] for row in page.list.rows}, {"wrong", "skipped"})
+        for row in page.list.rows:
+            result = wrong_page.STATE_TAG[row.data["state"]][0]
+            self.assertEqual(row.tag.text(), theme.result_label(result)[0])
+            self.assertEqual(row.tag.text(), names[row.data["state"]])
+        fixed = wrong_page.NoteRow({"key": "k", "label": "출력 예측 · 1회차", "state": "fixed"})  # 다시 맞힌 문항 줄은 꼬리표 없음
+        self.addCleanup(fixed.deleteLater)
+        self.assertEqual((fixed.tag.text(), fixed.tag.isHidden()), ("", True))
 
     def open_notes(self):
         """파이썬 스터디 홈의 [오답 노트]로 엶. 늘 파이썬 탭이고 돌아가기는 홈으로 감."""
@@ -1522,7 +1628,10 @@ class WrongNotesTest(GuiTest):
         item = self.win.session.wrong_item("r91", adaptive.fname_of(output))
         self.assertEqual(page.item_title.text(), "출력 예측 · %s · %d점" % (cat[output]["unit_title"], adaptive.round_points([choice, output, code], cat)[output]))
         text = page.detail.toPlainText()
-        self.assertIn("미응답 · 91회차 미니 모의고사", text)
+        flow = page.item_tags.layout()  # 결과 이름과 회차 꼬리표는 제목 위 꼬리표 줄에 옴(본문 첫 줄에서 옮김)
+        self.assertEqual([flow.itemAt(n).widget().text() for n in range(flow.count())], ["미응답", "91회차 미니 모의고사"])
+        self.assertLess(page.item_tags.y(), page.item_title.y())
+        self.assertNotIn("91회차 미니 모의고사", text)
         self.assertIn(mdlite.inline_plain(item["body_md"].split("\n")[0]), text)
         self.assertIn("내 답", text)
         self.assertIn("(작성하지 않았습니다)", text)
@@ -1704,7 +1813,8 @@ class WrongNotesTest(GuiTest):
             text = page.detail.toPlainText()
             self.assertNotIn("정답과 해설", text)
             self.assertRegex(text, shown + r"\s+문제\n")  # 문제 본문이 참고 자료에 이어 붙어 보이지 않게 띠로 나눔
-            self.assertLess(text.index("미응답 · 91회차 미니 모의고사"), text.index("참고 자료"))
+            flow = page.item_tags.layout()
+            self.assertIn("91회차 미니 모의고사", [flow.itemAt(n).widget().text() for n in range(flow.count())])  # 꼬리표는 문서 위 꼬리표 줄
             self.assertLess(text.index("참고 자료"), text.index("내 답"))
             click(page.explain_btn)
             self.assertRegex(page.detail.toPlainText().split("정답과 해설")[1], shown)
@@ -1844,32 +1954,62 @@ class WrongNotesTest(GuiTest):
         self.assertLessEqual(page.list.sheet.width(), page.list.viewport().width())
         self.assertTrue(QLabel.text(head).endswith("…"), QLabel.text(head))
 
+    def test_option_rows_mark_the_answer_only_after_the_explanation(self):
+        """보기 줄 표는 고른 보기에 '내 답' 꼬리표를 붙이고, 해설을 편 뒤에만 정답 보기 줄에 '정답' 꼬리표를 붙임.
+        꼬리표가 하나도 없으면 꼬리표 칸을 두지 않음."""
+        item = {"stem": [], "options": [[{"t": "para", "text": "가"}], [{"t": "para", "text": "나"}], [{"t": "para", "text": "다"}]],
+                "answered": True, "answer": [1]}
+        before = wrong_page.options_html(item)
+        self.assertEqual((before.count('class="tag-mine"'), before.count('class="tag-ok"')), (1, 0))
+        after = wrong_page.options_html(item, {"answer": "3번"})
+        self.assertEqual((after.count('class="tag-mine"'), after.count('class="tag-ok"')), (1, 1))
+        rows = after.split("<tr>")[1:]
+        self.assertIn("tag-ok", rows[2])
+        self.assertNotIn("tag-ok", rows[0] + rows[1])
+        blank = wrong_page.options_html(dict(item, answered=False))
+        self.assertEqual(blank.count("nowrap"), 0)
+
+    def test_option_rows_without_marks_keep_the_full_width(self):
+        """꼬리표는 그 줄의 보기 칸 안에만 들어가고, 꼬리표가 없는 줄은 꼬리표 폭을 비워 두지 않음.
+        표의 줄마다 칸 수가 같고(번호·보기 두 칸), 꼬리표 칸(nowrap)은 꼬리표가 붙은 줄에만 있음."""
+        item = {"stem": [], "options": [[{"t": "para", "text": "가"}], [{"t": "para", "text": "나"}], [{"t": "para", "text": "다"}]],
+                "answered": True, "answer": [1]}
+        rows = wrong_page.options_html(item).split("<tr>")[1:]
+        self.assertIn("nowrap", rows[0])
+        self.assertIn('class="note-mark"', rows[0])
+        for row in rows[1:]:
+            self.assertNotIn("nowrap", row)
+            self.assertNotIn("note-mark", row)
+            self.assertEqual(row.count("<td"), 2)
+
     def test_bands_sit_closer_to_their_own_text(self):
-        """문항 칸의 띠(참고 자료, 문제, 내 답)는 위 글보다 제 아래 글에 가까이 붙음. 세 글자 단계에서 그려진 화소로 봄."""
+        """문항 칸의 구역(참고 자료, 내 답)은 바탕을 칠한 상자이고 머리 글과 제 글이 그 상자 안에 함께 들어감.
+        참고 자료 상자가 내 답 상자보다 위에 옴. 세 글자 단계에서 그려진 화소로 봄."""
         self.open_with(ManyNotes)
         self.win.show_wrong("fake", "hub")
         page = self.win.wrong_page
         note = {"round_title": "91회차 미니 모의고사", "wrong_count": 1, "fixed": False, "skipped": False}
         item = {"ref": ["강의 3차시 12쪽"], "body_md": "다음 중 옳은 것을 고르세요.", "answered": True, "answer": [2], "type": "choice"}
-        band = QColor(theme.color("table_head")).rgb()
         for step in theme.TEXT_STEPS:
             self.win.set_text(step)
             page.detail.setHtml(wrong_page.item_html(note, item, None))
             pump()
             view = page.detail.viewport()  # 문항 칸은 바탕이 투명해서 카드 바탕까지 그리게 화면에서 그 자리를 찍음
             image = page.grab(QRect(view.mapTo(page, QPoint(0, 0)), view.size())).toImage()
-            back = image.pixel(2, 2)
-            width = image.width()  # 글자 가장자리 화소가 띠 색과 같을 수 있어 오른쪽 세 군데가 모두 띠 색인 줄만 셈
-            filled = {y for y in range(image.height()) if all(image.pixel(x, y) == band for x in (width // 2, width * 3 // 4, width - 8))}
-            tops = sorted(y for y in filled if y - 1 not in filled)
-            bottoms = sorted(y for y in filled if y + 1 not in filled)
-            ink = [y for y in range(image.height()) if y not in filled
-                   and any(abs(QColor(image.pixel(x, y)).lightness() - QColor(back).lightness()) > 60 for x in range(0, image.width(), 2))]
-            self.assertEqual(len(tops), 3, step)
-            for top, bottom in zip(tops, bottoms):
-                above = top - max(y for y in ink if y < top)
-                below = min(y for y in ink if y > bottom) - bottom
-                self.assertLess(below + 8, above, (step, top, above, below))
+            width = image.width()  # 글자 가장자리 화소가 상자 색과 같을 수 있어 글이 닿지 않는 오른쪽 끝 세 군데가 모두 상자 색인 줄만 셈
+            boxes = []
+            for token in ("emphasis_bg", "wrong_weak"):
+                color = QColor(theme.color(token))
+                filled = {y for y in range(image.height()) if all(image.pixel(x, y) == color.rgb() for x in (width - 24, width - 16, width - 8))}
+                tops = sorted(y for y in filled if y - 1 not in filled)
+                bottoms = sorted(y for y in filled if y + 1 not in filled)
+                self.assertEqual(len(tops), 1, (step, token))
+                ink = [y for y in range(tops[0], bottoms[-1] + 1)
+                       if any(abs(QColor(image.pixel(x, y)).lightness() - color.lightness()) > 60 for x in range(0, width // 2, 2))]
+                self.assertTrue(ink, (step, token))  # 머리 글과 내용이 상자 안에 있음
+                self.assertLess(ink[0] - tops[0], 24 * image.devicePixelRatio() + theme.TYPE["caption"][1], (step, token))
+                boxes.append(tops[0])
+            self.assertLess(boxes[0], boxes[1], step)
 
     def test_a_second_track_gets_its_own_tab_and_hub_row(self):
         """공급자를 하나 더 등록하면 칩과 첫 화면 줄이 생기고, 트랙마다 고르던 문항을 따로 기억함."""
@@ -2604,7 +2744,7 @@ class ThemeTest(GuiTest):
         self.assertIs(self.page(), result)
         check(win)
         for row, item in enumerate(result.view["items"], 1):
-            self.assertEqual(result.listw.item(row).foreground().color().name(), theme.DARK[theme.result_label(item["state"])[1]])
+            self.assertEqual(result.listw.item(row).foreground().color().name(), theme.DARK["ink"])  # 판정은 줄 앞 꼬리표가 알리고 글은 본문 색
             result.listw.setCurrentRow(row)
             result.reveal()
             check(win, result.detail)  # 구역 띠, 코드 상자, 해설
@@ -2646,7 +2786,7 @@ class ThemeTest(GuiTest):
         pump()
         self.assertGreater(bright_share(win), 0.5)
         self.assertIn(theme.LIGHT["ink"], result.detail.document().defaultStyleSheet())
-        self.assertEqual(result.listw.item(1).foreground().color().name(), theme.LIGHT[theme.result_label(result.view["items"][0]["state"])[1]])
+        self.assertEqual(result.listw.item(1).foreground().color().name(), theme.LIGHT["ink"])  # 판정은 줄 앞 꼬리표가 알리고 글은 본문 색
 
 
 SAMPLE = "def solution(numbers):\n    total = 0\n    for n in numbers:\n        total += n\n    Total = total\n    return Total\n"

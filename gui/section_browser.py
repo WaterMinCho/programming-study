@@ -8,6 +8,8 @@ from PyQt6.QtWidgets import (QButtonGroup, QGridLayout, QPushButton, QSizePolicy
 
 from gui import kit, theme
 
+ICON_ROOM = 30  # 접힌 분류 단추에서 아이콘 22 와 글자 사이 8
+
 
 class SectionButton(QPushButton):
     """분류의 선택과 초점을 나눠 표시하고 긴 이름은 같은 폭 안에서 줄바꿈함."""
@@ -16,6 +18,7 @@ class SectionButton(QPushButton):
         self.key = key
         self.description = description
         self.expanded = True
+        self.iconic = True  # 접힌 꼴에서 아이콘을 그림. 자리가 모자라면 SectionBrowser 가 끔
         self.setObjectName("section_choice")
         self.setCheckable(True)
         self.setAutoDefault(False)
@@ -29,29 +32,33 @@ class SectionButton(QPushButton):
 
     def sizeHint(self):
         metrics = QFontMetricsF(theme.font("label", True))
-        inset = 64 if self.expanded else 24
+        inset = 64 if self.expanded else self.inset()
         return QSize(math.ceil(metrics.horizontalAdvance(self.text())) + inset,
-                     max(56 if self.expanded else 48, theme.TYPE["label"][1] + (32 if self.expanded else 24)))
+                     max(56 if self.expanded else 44, theme.TYPE["label"][1] + (32 if self.expanded else 20)))
+
+    def inset(self):
+        """접힌 꼴의 좌우 여백 합. 아이콘을 그리면 그 자리를 더함."""
+        return 24 + (ICON_ROOM if self.iconic else 0)
 
     def minimumSizeHint(self):
         metrics = QFontMetricsF(theme.font("label", True))
         word_width = max((metrics.horizontalAdvance(word) for word in self.text().split()), default=0)
-        return QSize(max(80, math.ceil(word_width) + (64 if self.expanded else 24)), self.sizeHint().height())
+        return QSize(max(80, math.ceil(word_width) + (64 if self.expanded else self.inset())), self.sizeHint().height())
 
     def heightForWidth(self, width):
         metrics = QFontMetricsF(theme.font("label", True))
-        bounds = metrics.boundingRect(QRectF(0, 0, max(1, width - (64 if self.expanded else 24)), 1000),
+        bounds = metrics.boundingRect(QRectF(0, 0, max(1, width - (64 if self.expanded else self.inset())), 1000),
                                       Qt.TextFlag.TextWordWrap, self.text())
-        height = max(self.sizeHint().height(), math.ceil(bounds.height()) + (32 if self.expanded else 24))
+        height = max(self.sizeHint().height(), math.ceil(bounds.height()) + (32 if self.expanded else 20))
         if self.expanded:
             detail = QFontMetricsF(theme.font("caption")).boundingRect(
                 QRectF(0, 0, max(1, width - 32), 1000), Qt.TextFlag.TextWordWrap, self.description)
             height += math.ceil(detail.height()) + 8
         return height
 
-    def paint_icon(self, painter, color):
+    def paint_icon(self, painter, color, origin=QPointF(16, 18)):
         painter.save()
-        painter.translate(16, 18)
+        painter.translate(origin)
         painter.setPen(QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         if self.key == "mocks":
@@ -85,11 +92,20 @@ class SectionButton(QPushButton):
         painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
         painter.setRenderHint(painter.RenderHint.Antialiasing)
         painter.setFont(theme.font("label", True))
-        tone = "faint" if not self.isEnabled() else "selection_ink" if self.isChecked() else "muted"
+        tone = "faint" if not self.isEnabled() else "primary_ink" if self.isChecked() else "muted"
         painter.setPen(theme.qcolor(tone))
-        if not self.expanded:
+        if not self.expanded and not self.iconic:
             painter.drawText(QRectF(self.rect()).adjusted(12, 8, -12, -8),
                              Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, self.text())
+            return
+        if not self.expanded:  # 아이콘과 글자를 한 묶음으로 가운데에 둠
+            room = QRectF(self.rect()).adjusted(12 + ICON_ROOM, 8, -12, -8)
+            bounds = QFontMetricsF(painter.font()).boundingRect(QRectF(0, 0, max(1, room.width()), 1000),
+                                                                Qt.TextFlag.TextWordWrap, self.text())
+            left = (self.width() - ICON_ROOM - bounds.width()) / 2
+            self.paint_icon(painter, theme.qcolor(tone), QPointF(left, (self.height() - 22) / 2))
+            painter.drawText(QRectF(left + ICON_ROOM, room.top(), bounds.width() + 1, room.height()),
+                             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap, self.text())
             return
         self.paint_icon(painter, theme.qcolor(tone))
         title = QFontMetricsF(painter.font()).boundingRect(QRectF(0, 0, max(1, self.width() - 64), 1000),
@@ -99,7 +115,7 @@ class SectionButton(QPushButton):
                          self.text())
         if self.expanded:
             painter.setFont(theme.font("caption"))
-            painter.setPen(theme.qcolor("faint" if not self.isEnabled() else "muted"))
+            painter.setPen(theme.qcolor(tone))
             top = max(56, math.ceil(title.height()) + 32)
             painter.drawText(QRectF(16, top, self.width() - 32, self.height() - top - 8),
                              Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
@@ -130,14 +146,11 @@ class SectionBrowser(QWidget):
             stack = kit.box(navigation)
             stack.addWidget(header)
             stack.addWidget(self.navigation)
-        self.navigation_column = kit.column(navigation)
-        self.navigation_column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
+        self.navigation_column = kit.dense_column(navigation)
         outer.addWidget(self.navigation_column)
-        self.content = QWidget()
+        self.content = kit.dense(QWidget())
         self.body = kit.box(self.content, (0, 16, 0, 48), 16)
-        column = kit.column(self.content)
-        column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN, 0)
-        self.scroll = kit.scroll(column)
+        self.scroll = kit.scroll(kit.dense_column(self.content))
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.navigation.installEventFilter(self)
         self.scroll.viewport().installEventFilter(self)
@@ -225,11 +238,12 @@ class SectionBrowser(QWidget):
         color = theme.color
         self.setStyleSheet(f"""
             QPushButton#section_choice {{ background: {color('surface')}; color: {color('ink')};
-                border: 1px solid {color('border')}; border-radius: 12px; padding: 0;
+                border: 1px solid {color('border')}; border-radius: {theme.RADIUS['dense_control']}px; padding: 0;
                 min-height: 0; max-height: 16777200px; min-width: 0; }}
             QPushButton#section_choice:hover {{ background: {color('hover')}; }}
-            QPushButton#section_choice:checked {{ background: {color('selection')}; border: 2px solid {color('primary')}; }}
+            QPushButton#section_choice:checked {{ background: {color('primary')}; border-color: {color('primary')}; }}
             QPushButton#section_choice:focus {{ border: 2px dashed {color('focus')}; }}
+            QPushButton#section_choice:checked:focus {{ border: 2px dashed {color('primary_ink')}; }}
             QPushButton#section_choice:disabled {{ background: {color('surface_alt')}; border-color: transparent; }}
             QPushButton#section_choice:checked:disabled {{ background: {color('selection')}; }}
         """)
@@ -240,12 +254,25 @@ class SectionBrowser(QWidget):
             return
         buttons = list(self.buttons.values())
         width = max(1, self.navigation.width())
-        for button in buttons:
-            button.expanded = self.window().height() >= 700 and width >= 1100
-        needed = [max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons]
-        equal_minimum = max(button.minimumSizeHint().width() for button in buttons) * len(buttons)
-        single_line = width >= max(sum(needed), equal_minimum) + self.grid.spacing() * (len(buttons) - 1)
+        expanded = self.window().height() >= 700 and width >= 1100
+
+        def fits(iconic):
+            for button in buttons:
+                button.expanded, button.iconic = expanded, iconic
+            needed = [max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons]
+            equal_minimum = max(button.minimumSizeHint().width() for button in buttons) * len(buttons)
+            return width >= max(sum(needed), equal_minimum) + self.grid.spacing() * (len(buttons) - 1)
+
+        # 접힌 꼴의 아이콘은 줄 수와 단추 높이를 바꾸지 않을 때만 그림. 한 줄이 안 되면 두 열 칸에 글이 한 줄로 들어갈 때만 그림
+        # 아이콘을 빼야 단추가 모두 한 줄에 들어가는 폭이면 아이콘을 빼고 한 줄로 둠
+        single_line = fits(True) or fits(False)
         columns = len(buttons) if single_line else min(2, len(buttons))
+        if not single_line and not expanded:
+            cell = max(1, width - self.grid.spacing() * (columns - 1)) // columns
+            fits(True)
+            iconic = all(button.sizeHint().width() <= cell for button in buttons)
+            for button in buttons:
+                button.iconic = iconic
         if columns != self.columns:
             self.columns = columns
             for button in buttons:
@@ -257,8 +284,16 @@ class SectionBrowser(QWidget):
         for column in range(len(buttons)):
             self.grid.setColumnStretch(column, 1 if column < columns else 0)
         height = max(button.heightForWidth(cell_width) for button, cell_width in zip(buttons, widths))
+        if not expanded and buttons[0].iconic:  # 아이콘 자리 때문에 글이 한 줄 더 접히면 아이콘을 뺌
+            for button in buttons:
+                button.iconic = False
+            plain = max(button.heightForWidth(cell_width) for button, cell_width in zip(buttons, widths))
+            for button in buttons:
+                button.iconic = plain >= height
+            height = min(height, plain)
         for button in buttons:
             button.setFixedHeight(height)
+            button.update()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -271,7 +306,7 @@ class SectionBrowser(QWidget):
             self._place()
         if target is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
             gutter = self.scroll.width() - self.scroll.viewport().width()
-            self.navigation_column.setContentsMargins(kit.MARGIN, 0, kit.MARGIN + gutter, 0)
+            self.navigation_column.layout().setContentsMargins(0, 0, gutter, 0)
             self._place()
         if target in self.buttons.values() and event.type() == QEvent.Type.KeyPress:
             buttons = list(self.buttons.values())

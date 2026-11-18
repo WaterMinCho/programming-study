@@ -5,8 +5,8 @@ import html
 import textwrap
 
 from PyQt6.QtCore import QRectF, QSize, Qt, QTimer
-from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPen, QPixmap, QTextCursor
-from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QSplitter, QStackedWidget, QStyle, QStyledItemDelegate,
+from PyQt6.QtGui import QColor, QFontMetricsF, QGuiApplication, QIcon, QPainter, QPen, QPixmap, QTextCursor
+from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QSizePolicy, QSplitter, QStackedWidget, QStyle, QStyledItemDelegate,
                              QStyleOptionViewItem, QTextBrowser, QWidget)
 
 import mdlite
@@ -20,6 +20,7 @@ SAVE_DELAY_MS = 400  # 입력이 멈춘 뒤 자동 저장까지
 DOT_PX = 12
 ROW_GAP = 5  # 문항 목록 한 줄 안에서 윗줄과 아랫줄 사이
 PICK_BAR = 3  # 고른 줄 왼쪽에 긋는 주 색 막대의 폭
+DOT_EDGE = 12  # 문항 목록 줄 오른쪽 끝에서 상태 동그라미까지
 WIDE_SIZES = [240, 480, 488]  # 넓은 창의 목록·지문·답안 폭
 HANDLE = 12  # 세 칸 사이와 편집기·실행 결과 사이 간격
 PANE_PAD = 16  # 지문·답안 카드 안 여백
@@ -48,6 +49,11 @@ def dot(color, filled):
         _dots[color, filled] = icon
     return _dots[color, filled]
 PASTE_NOTE_MS = 4000  # 복사·붙여넣기를 막았다는 안내를 보여 주는 시간
+# 지문 칸에만 덧붙이는 규칙. 소제목 위를 넓히고 코드 상자 위아래 안 여백을 16 으로 둠. 좌우는 표의 cellpadding 그대로 둠.
+# 좌우까지 늘리면 줄바꿈 없는 코드 줄의 최소 폭이 칸보다 넓어져 760×480 가장 큰 글자에서 가로 스크롤이 생김. Qt 문서는 칸의 둥근 모서리를 그리지 않음
+BODY_CSS = "p.h2 { margin-top: 24px; } td.codebox { padding-top: 16px; padding-bottom: 16px; }"
+# 실행 결과 칸에만 덧붙이는 규칙. 통과 비율 막대의 채운 칸과 남은 칸
+CONSOLE_CSS = "td.bar-ok { background-color: %(ok)s; } td.bar-rest { background-color: %(track)s; }"
 
 
 def split_input(text):
@@ -62,10 +68,15 @@ def run_html(run):
     """'코드 실행' 결과(session.try_run)를 예시별 표로 만듦. 색은 본문 CSS 의 클래스로 주어 테마가 바뀌어도 그대로 다시 넣을 수 있음."""
     note = '<span class="muted">예시만 실행하며 기록되지 않습니다.</span>'
     cases = run["cases"]
-    if cases:
-        parts = ["<p><b>예시 %d개 중 %d개 통과</b> · %s</p>" % (len(cases), sum(1 for case in cases if case["ok"]), note)]
-    else:
-        parts = ["<p>%s</p>" % note]
+    passed = sum(1 for case in cases if case["ok"])
+    summary = "<b>예시 %d개 중 %d개 통과</b> · %s" % (len(cases), passed, note) if cases else note
+    parts = ['<table width="100%%" cellspacing="0" cellpadding="12" border="0" style="margin-bottom:8px;">'
+             '<tr><td class="callout">%s</td></tr></table>' % summary]
+    if cases:  # 통과한 예시의 비율 막대. 숫자는 위 요약에 있어 막대에는 쓰지 않음
+        share = round(100 * passed / len(cases))
+        cells = "".join('<td class="%s" width="%d%%" style="font-size:5px;">&nbsp;</td>' % (name, width)
+                        for name, width in (("bar-ok", share), ("bar-rest", 100 - share)) if width)
+        parts.append('<table width="100%%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:12px;"><tr>%s</tr></table>' % cells)
     if run["message"]:
         parts.append('<p class="wrong" style="white-space:pre-wrap;"><b>%s</b></p>' % html.escape(run["message"], quote=False))
     elif not cases:
@@ -77,15 +88,16 @@ def run_html(run):
         rows = [(head, body), ("기대한 " + value, case["want"]), ("실제 " + value, case["got"])]
         if case["printed"]:
             rows.append(("함수 안 출력", case["printed"]))
-        parts.append('<p><b>예시 %d · <span class="%s">%s</span></b></p>' % (number, mark, label))
-        parts.append('<table class="grid" border="1" cellspacing="0" cellpadding="4">%s</table>' % "".join(
+        parts.append('<p><b>예시 %d</b> <span class="tag-%s">&nbsp;%s&nbsp;</span></p>' % (number, mark, label))
+        parts.append('<table class="grid" width="100%%" border="1" cellspacing="0" cellpadding="4">%s</table>' % "".join(
             '<tr><th align="left">%s</th><td><pre>%s</pre></td></tr>' % (name, html.escape(text, quote=False)) for name, text in rows))
     return "<body>%s</body>" % "".join(parts)
 
 
 class RowDelegate(QStyledItemDelegate):
     """문항 목록의 줄. 같이 배포하는 글꼴은 줄 높이가 글자 크기와 같아 두 줄이 붙어 보이므로 줄 사이를 띄워 그림.
-    고른 줄은 바탕색 위에 왼쪽 주 색 막대를 그음."""
+    첫 줄의 'N.' 은 두 자리 폭의 번호 열(보조 글색)에 두고 나머지 글은 번호 열 오른쪽 같은 세로선에서 시작함.
+    상태 동그라미는 줄 오른쪽 끝에 그림. 고른 줄은 바탕색 위에 왼쪽 주 색 막대를 그음. 항목 글과 툴팁은 바꾸지 않음."""
 
     def sizeHint(self, option, index):
         size = super().sizeHint(option, index)
@@ -96,21 +108,69 @@ class RowDelegate(QStyledItemDelegate):
         self.initStyleOption(opt, index)
         style = opt.widget.style()
         margin = style.pixelMetric(QStyle.PixelMetric.PM_FocusFrameHMargin, opt, opt.widget) + 1  # 기본 그리기가 글 양옆에 두는 여백
+        icon = QIcon(opt.icon)  # 아래에서 opt.icon 을 비우므로 복사해 둠
+        opt.icon = QIcon()
+        opt.features &= ~QStyleOptionViewItem.ViewItemFeature.HasDecoration
         rect = QRectF(style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, opt.widget)).adjusted(margin, 0, -margin, 0)
+        rect.setRight(opt.rect.right() - DOT_EDGE - DOT_PX - 4)  # 오른쪽 끝 동그라미 자리를 비움. 글 폭을 덜 줄이게 동그라미 앞은 4 만 띄움
         lines, opt.text = (index.data() or "").split("\n"), ""
-        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, opt.widget)  # 바탕과 동그라미
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, opt.widget)  # 바탕
+        selected = bool(opt.state & QStyle.StateFlag.State_Selected)
+        icon.paint(painter, opt.rect.right() - DOT_EDGE - DOT_PX + 1, round(opt.rect.center().y() - DOT_PX / 2), DOT_PX, DOT_PX)
         height = opt.fontMetrics.height()
         top = rect.center().y() - (len(lines) * (height + ROW_GAP) - ROW_GAP) / 2
+        number, sep, first = lines[0].partition(". ")
+        if sep and number.isdigit():
+            lines[0] = first
+        else:
+            number = ""
+        column = QFontMetricsF(opt.font).horizontalAdvance("00.") + 4  # 두 자리 번호 열. 번호 뒤는 빈칸 한 자 정도인 4 만 띄움
         painter.save()
-        if opt.state & QStyle.StateFlag.State_Selected:
+        if selected:
             painter.fillRect(QRectF(opt.rect.left(), opt.rect.top(), PICK_BAR, opt.rect.height()), theme.qcolor("primary"))
         painter.setFont(opt.font)
-        painter.setPen(theme.qcolor("selection_ink" if opt.state & QStyle.StateFlag.State_Selected else "ink"))
+        if number:
+            painter.setPen(theme.qcolor("selection_ink" if selected else "muted"))
+            painter.drawText(QRectF(rect.left(), top, column, height), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, number + ".")
+        painter.setPen(theme.qcolor("selection_ink" if selected else "ink"))
+        text = rect.adjusted(column, 0, 0, 0)
         for n, line in enumerate(lines):
-            painter.drawText(QRectF(rect.left(), top + n * (height + ROW_GAP), rect.width(), height),
+            painter.drawText(QRectF(text.left(), top + n * (height + ROW_GAP), text.width(), height),
                              Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                             opt.fontMetrics.elidedText(line, Qt.TextElideMode.ElideRight, int(rect.width())))
+                             opt.fontMetrics.elidedText(line, Qt.TextElideMode.ElideRight, int(text.width())))
         painter.restore()
+
+
+class TagRow(QWidget):
+    """지문 제목 위 꼬리표 줄(유형, 단원, 배점, 지난번에 틀린 문항). 폭이 모자라면 다음 줄로 넘김.
+    칸의 최소 폭을 늘리지 않게 최소 폭을 두지 않고, 칸보다 긴 꼬리표는 줄임표로 줄이고 전체 글은 툴팁과 full 에 둠."""
+
+    def __init__(self, *tags):
+        super().__init__()
+        self.items = tags
+        flow = kit.FlowLayout(self, spacing=theme.GAP["detail"])
+        for tag in tags:
+            tag.full = ""
+            flow.addWidget(tag)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+
+    def set_text(self, tag, text):
+        tag.full = text
+        self.fit(tag)
+
+    def fit(self, tag):
+        room = max(1, self.width() - 2 * 8 - 2)  # 꼬리표 좌우 안 여백 8
+        shown = QFontMetricsF(tag.font()).elidedText(tag.full, Qt.TextElideMode.ElideRight, room) if self.width() > 0 else tag.full
+        tag.setText(shown)
+        tag.setToolTip(tag.full if shown != tag.full else "")
+
+    def refont(self):
+        for tag in self.items:
+            self.fit(tag)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.refont()
 
 
 class RoundPage(QWidget):
@@ -142,17 +202,28 @@ class RoundPage(QWidget):
         self.listw.setItemDelegate(RowDelegate(self.listw))
         self.listw.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         list_card, list_box = kit.card(0, 0)
+        self.count = kit.badge("")  # 문항 수
+        count_head = QWidget()
+        count_row = kit.box(count_head, (16, 12, 16, 4), horizontal=True)
+        count_row.addStretch(1)
+        count_row.addWidget(self.count)
+        list_box.addWidget(count_head)
         list_box.addWidget(self.listw)
         mid, mid_box = kit.card(PANE_PAD, theme.GAP["title_description"])
+        self.type_tag, self.unit_tag, self.points_tag = kit.badge("", "accent"), kit.badge(""), kit.badge("")
+        self.retest_tag = kit.badge("", "warning")
+        self.tags = TagRow(self.type_tag, self.unit_tag, self.points_tag, self.retest_tag)  # 지문 제목 위 꼬리표 줄
+        self.tags.set_text(self.retest_tag, "지난번에 틀린 문항")
         self.item_title = kit.para("", "headline")
         self.body = QTextBrowser()
         self.body.setObjectName("plain")
         self.body.setOpenLinks(False)
         self.body.document().setDocumentMargin(0)
+        mid_box.addWidget(self.tags)
         mid_box.addWidget(self.item_title)
         mid_box.addWidget(self.body, 1)
         right, right_box = kit.card(PANE_PAD, theme.GAP["title_description"])
-        self.pane_title = kit.label("답안", "headline")
+        self.pane_title = kit.ElideLabel("답안", "headline")  # 옆의 [시작 코드 복원]과 한 줄에 두어도 칸의 최소 폭을 늘리지 않음
         self.stack = QStackedWidget()
         self.choice_panel, self.text_panel, self.code_panel = ChoicePanel(), TextPanel(), CodePanel()
         for panel in (self.choice_panel, self.text_panel, self.code_panel):
@@ -165,7 +236,12 @@ class RoundPage(QWidget):
         self.paste_block = PasteBlock(self)
         for edit in (self.code_panel.editor, self.text_panel.multi, self.text_panel.single, self.choice_panel.entry):
             self.paste_block.watch(edit)
-        right_box.addWidget(self.pane_title)
+        pane_head = QWidget()
+        pane_row = kit.box(pane_head, spacing=12, horizontal=True)
+        pane_row.addWidget(self.pane_title, 1, Qt.AlignmentFlag.AlignVCenter)
+        self.reset_btn = self.code_panel.reset_btn  # [시작 코드 복원]을 코드 칸 안내 줄에서 카드 머리 오른쪽으로 옮김
+        pane_row.addWidget(self.reset_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        right_box.addWidget(pane_head)
         right_box.addWidget(self.stack, 1)
         self.find_bar = FindBar(self.code_panel.editor, right)  # 실행·채점 중에 답안 칸을 잠가도 쓰이게 그 밖에 둠
         for widget in (list_card, mid, right):
@@ -182,11 +258,11 @@ class RoundPage(QWidget):
 
         self.bar = kit.BottomBar(dense=True)
         _, bar_top, bar_right, bar_bottom = self.bar.row.getContentsMargins()
-        self.bar.row.setContentsMargins(kit.DENSE_MARGIN, bar_top, bar_right, bar_bottom)  # 왼쪽 끝이 글자 단추가 아니라 안내 글이라 FLUSH 만큼 내지 않음
+        self.bar.row.setContentsMargins(kit.DENSE_MARGIN, bar_top, bar_right, bar_bottom)  # 왼쪽 끝이 테두리 있는 [코드 실행]이나 안내 글이라 FLUSH 만큼 내지 않음
         self.prev_btn = kit.button("이전", "secondary", "m")
         self.next_btn = kit.button("다음", "secondary", "m")
         self.status = kit.ElideLabel("", "caption", "secondary")
-        self.status.setFixedWidth(8 * theme.TYPE["caption"][0])  # 자동 저장 안내의 자리를 남기고 작은 창에서도 행동 줄을 유지함
+        self.status.setMinimumWidth(8 * theme.TYPE["caption"][0])  # 자동 저장 안내의 자리를 남김. 남는 폭이 있으면 줄이지 않고 다 보임
         self.paste_note = kit.label(NOTE, "caption", "warning")
         self.paste_note.setMinimumWidth(1)
         self.paste_note.hide()
@@ -196,7 +272,7 @@ class RoundPage(QWidget):
         self.busy_bar.hide()
         self.run_btn = kit.button("코드 실행", "secondary", "m")
         self.submit_btn = kit.button("회차 제출", "primary", "m")
-        for widget in (self.status, self.paste_note, self.busy_bar, self.run_btn):
+        for widget in (self.run_btn, self.status, self.paste_note, self.busy_bar):
             self.bar.add_tool(widget)
         self.bar.add_action(self.prev_btn)
         self.bar.add_action(self.next_btn)
@@ -218,7 +294,9 @@ class RoundPage(QWidget):
         self.next_btn.clicked.connect(lambda: self.listw.setCurrentRow(self.listw.currentRow() + 1))
         self.run_btn.clicked.connect(self.run_code)
         self.submit_btn.clicked.connect(self.submit)
-        self.code_panel.reset_btn.clicked.connect(self.ask_reset)
+        self.reset_btn.clicked.connect(self.ask_reset)
+        for first, second in ((self.listw, self.body), (self.body, self.reset_btn), (self.reset_btn, self.code_panel.editor)):
+            QWidget.setTabOrder(first, second)  # 옮긴 [시작 코드 복원]도 목록 → 지문 → 복원 → 편집기 순서로 둠
         self.home_btn.clicked.connect(win.go_home)
         self.back_btn.clicked.connect(self.back)
 
@@ -300,6 +378,7 @@ class RoundPage(QWidget):
     def _update_progress(self):
         items = self.view["items"]
         self.progress.setText("작성 %d / %d문항" % (sum(1 for item in items if item["answered"]), len(items)))
+        self.count.setText("%d문항" % len(items))
 
     def show_item(self, row):
         self.flush()  # 앞 문항에 남은 입력부터 저장
@@ -307,10 +386,11 @@ class RoundPage(QWidget):
             return
         item = self.view["items"][row]
         self.find_bar.dismiss(select=False)
-        label = "%s · %s · %d점" % (item["type_label"], item["unit_title"], item["points"])
-        if item["kind"] == "code":
-            label = "%s · %s" % (item["title"], label)
-        self.item_title.setText("%d. %s%s" % (item["no"], label, " · 지난번에 틀린 문항" if item["retest"] else ""))
+        self.tags.set_text(self.type_tag, item["type_label"])
+        self.tags.set_text(self.unit_tag, item["unit_title"])
+        self.tags.set_text(self.points_tag, "%d점" % item["points"])
+        self.retest_tag.setVisible(bool(item["retest"]))
+        self.item_title.setText("%d. %s" % (item["no"], item["title"] if item["kind"] == "code" else item["type_label"]))
         self.body.setHtml(self.body_html(item))
         if item["kind"] == "code":
             panel, name = self.code_panel, "코드"
@@ -322,6 +402,7 @@ class RoundPage(QWidget):
         self.stack.setCurrentWidget(panel)
         self.current = item  # 패널을 바꾼 뒤에 옮김. 위에서 오류가 나도 보이는 입력칸과 저장할 문항이 어긋나지 않음
         self.pane_title.setText(name)
+        self.reset_btn.setVisible(item["kind"] == "code")
         self.run_btn.setVisible(item["kind"] == "code")
         self.prev_btn.setEnabled(row > 0)
         self.next_btn.setEnabled(row < len(self.view["items"]) - 1)
@@ -341,8 +422,8 @@ class RoundPage(QWidget):
     def restyle(self):
         """글자 크기나 테마가 바뀌면 부름. 본문 CSS 와 입력칸 글꼴을 다시 주고, 읽던 자리는 지킴."""
         css, font = theme.doc_css(self.win.zoom), theme.code_font(self.win.zoom)
-        for browser in (self.body, self.code_panel.console):
-            browser.document().setDefaultStyleSheet(css)
+        self.body.document().setDefaultStyleSheet(css + BODY_CSS)
+        self.code_panel.console.document().setDefaultStyleSheet(css + CONSOLE_CSS % {name: theme.color(name) for name in ("ok", "track")})
         self.choice_panel.restyle(css)
         for widget in (self.code_panel.editor, self.text_panel.multi, self.text_panel.single, self.choice_panel.entry):
             widget.setFont(font)
@@ -406,7 +487,7 @@ class RoundPage(QWidget):
 
     def set_busy(self, busy, text=""):
         """채점하는 파일과 화면이 어긋나지 않게 실행·채점 중에는 입력을 잠금."""
-        for widget in (self.listw, self.stack, self.prev_btn, self.next_btn, self.run_btn, self.submit_btn, self.home_btn, self.back_btn):
+        for widget in (self.listw, self.stack, self.reset_btn, self.prev_btn, self.next_btn, self.run_btn, self.submit_btn, self.home_btn, self.back_btn):
             widget.setEnabled(not busy)
         self.busy_bar.setVisible(busy)
         if busy:

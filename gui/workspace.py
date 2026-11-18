@@ -2,7 +2,7 @@
 """과목 이동, 과목별 현황 카드와 제출 작업 영역을 공통으로 배치함."""
 from PyQt6.QtCore import QEvent, QPoint, QSignalBlocker, QSize, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF
-from PyQt6.QtWidgets import QApplication, QFrame, QGridLayout, QLayout, QScrollArea, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QBoxLayout, QFrame, QGridLayout, QLayout, QScrollArea, QSizePolicy, QWidget
 
 import study
 from gui import kit, theme
@@ -17,8 +17,29 @@ SUBJECTS = (("hub", "학습 현황", "go_hub"), ("python", "파이썬", "go_home
 TILE_MIN = 116  # 과목 칸의 보통 글자 최소 높이. 큰 글자 단계에서는 text_px 의 4배만큼 늘고, 글이 길면 글 높이를 따름
 
 
+class TileMetric(QWidget):
+    """과목 칸의 진도 줄. 왼쪽에 이름, 오른쪽에 굵은 숫자를 둠. text() 는 두 글을 이어 붙인 글을 돌려줌."""
+
+    def __init__(self):
+        super().__init__()
+        row = kit.box(self, spacing=12, horizontal=True)
+        self.name = kit.label("", "label", "secondary")
+        self.count = kit.label("", "label", bold=True)
+        row.addWidget(self.name, 1)
+        row.addWidget(self.count, 0, Qt.AlignmentFlag.AlignRight)
+
+    def set_parts(self, name, count):
+        self.name.setText(name)
+        self.count.setText(count)
+        self.count.setVisible(bool(count))
+
+    def text(self):
+        return " ".join(part.text() for part in (self.name, self.count) if part.text())
+
+
 class SubjectTile(kit.Row):
-    """과목 이름·학습 현황·다음 행동을 한 영역에 모음. 키보드와 클릭은 목록 줄의 동작을 유지함."""
+    """과목 이름·학습 현황·다음 행동을 한 영역에 모음. 키보드와 클릭은 목록 줄의 동작을 유지함.
+    위 줄에 점·제목·설명·꺾쇠를 두고, 그 아래 카드 안쪽 전체 폭에 진도 이름·숫자 줄과 막대를 둠."""
 
     def __init__(self, title, token):
         super().__init__(title, "", mark=kit.Dot(token, 10), strong=True, wrap=True)
@@ -29,23 +50,38 @@ class SubjectTile(kit.Row):
         kit.typed(self.second, "body")
         self.second.setProperty("tone", "secondary")
         text = self.title.parentWidget()
-        self.layout().setAlignment(text, Qt.AlignmentFlag(0))
-        self.layout().setAlignment(self.mark, Qt.AlignmentFlag.AlignTop)
-        text_box = text.layout()
-        text_box.setSpacing(theme.GAP["detail"])  # 보통 글자에서 칸 높이가 TILE_MIN 에 맞게 촘촘히 둠
-        self.metric = kit.label("", "label", "secondary", bold=True)
+        text.layout().setContentsMargins(0, 0, 0, 0)
+        text.layout().setSpacing(theme.GAP["detail"])  # 보통 글자에서 칸 높이가 TILE_MIN 에 맞게 촘촘히 둠
+        row = self.layout()
+        self.head = QWidget()
+        head_row = kit.box(self.head, spacing=12, horizontal=True)
+        for widget in (self.mark, text, self.end, self.chevron):
+            row.removeWidget(widget)
+        head_row.addWidget(self.mark, 0, Qt.AlignmentFlag.AlignTop)
+        head_row.addWidget(text, 1)
+        head_row.addWidget(self.end, 0, Qt.AlignmentFlag.AlignVCenter)
+        head_row.addWidget(self.chevron, 0, Qt.AlignmentFlag.AlignVCenter)
+        row.setDirection(QBoxLayout.Direction.TopToBottom)
+        row.setContentsMargins(24, 12, 24, 12)
+        row.setSpacing(0)
+        self.metric = TileMetric()
         self.meter = kit.progress(thin=True)
         self.meter.setProperty("series", token)
-        text_box.addSpacing(4)  # 설명과 진도 줄 사이는 제목과 설명 사이보다 넓게
-        text_box.addStretch(1)
-        text_box.addWidget(self.metric)
-        text_box.addWidget(self.meter)
+        row.addWidget(self.head)
+        row.addStretch(1)  # 같은 줄 칸의 높이가 맞춰질 때 진도 줄을 아래에 붙여 두 칸의 숫자 줄을 맞춤
+        row.addSpacing(8)
+        self.rule = kit.frame("rowline")  # 설명과 진도 줄 사이 1px 가로선
+        self.rule.setFixedHeight(1)
+        row.addWidget(self.rule)
+        row.addSpacing(8)
+        row.addWidget(self.metric)
+        row.addSpacing(8)
+        row.addWidget(self.meter)
         self.set_metric(None, None, "")
 
     def set_metric(self, count, total, name):
         known = count is not None and total is not None
-        self.metric.setText("%s %d / %d" % (name, count, total) if known else "현황을 확인하지 못했습니다.")
-        self.metric.setAlignment(Qt.AlignmentFlag.AlignRight if known else Qt.AlignmentFlag.AlignLeft)  # 진도 숫자는 막대 오른쪽 끝에 맞춤
+        self.metric.set_parts(name if known else "현황을 확인하지 못했습니다.", "%d / %d" % (count, total) if known else "")
         self.meter.setVisible(known and total > 0)
         if known:
             self.meter.setRange(0, max(1, total))
@@ -53,16 +89,20 @@ class SubjectTile(kit.Row):
         self.fit_height()
 
     def fit_height(self):
-        self.mark.setFixedHeight(theme.TYPE["headline"][1] + 24)
+        """칸 높이를 글 상자의 줄바꿈 높이로 직접 셈. 겹친 상자의 높이 기억에 기대지 않아 글이 바뀐 직후에도 맞음."""
+        self.mark.setFixedHeight(theme.TYPE["headline"][1])  # 점을 제목 첫 줄 가운데에 둠
         text = self.title.parentWidget()
+        head = self.head.layout()
         row = self.layout()
-        others = [row.itemAt(i) for i in range(row.count())
-                  if row.itemAt(i).widget() is not None and row.itemAt(i).widget() is not text
-                  and not row.itemAt(i).widget().isHidden()]
-        left, _, right, _ = row.getContentsMargins()
-        width = max(1, self.contentsRect().width() - left - right - sum(item.sizeHint().width() for item in others)
-                    - row.spacing() * len(others))
-        height = text.layout().heightForWidth(width)
+        left, top, right, bottom = row.getContentsMargins()
+        others = [widget for widget in (self.mark, self.end, self.chevron) if not widget.isHidden()]
+        width = max(1, self.contentsRect().width() - left - right - sum(widget.sizeHint().width() for widget in others)
+                    - head.spacing() * len(others))
+        line = max([text.layout().heightForWidth(width)] + [widget.sizeHint().height() for widget in others])
+        below = 8 + self.rule.height() + 8 + self.metric.sizeHint().height()
+        if not self.meter.isHidden():
+            below += 8 + self.meter.sizeHint().height()
+        height = top + line + below + bottom
         self.setMinimumHeight(max(TILE_MIN + theme.text_px() * 4, height + 2 * self.frameWidth()))
 
     def event(self, event):

@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests import aifix, guikit  # noqa: E402
 
 from PyQt6 import sip  # noqa: E402
-from PyQt6.QtCore import QMimeData, QPoint, QPointF, QRect, QSettings, Qt, QUrl  # noqa: E402
+from PyQt6.QtCore import QMimeData, QPoint, QPointF, QRect, QSettings, QSize, Qt, QUrl  # noqa: E402
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QFontMetricsF  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QAbstractButton, QApplication, QLabel, QPushButton, QScrollArea, QWidget  # noqa: E402
@@ -224,8 +224,8 @@ class HubAndHomeTest(AiTest):
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(home)], ["학습 시작"])
         button = home.next_btn
         self.assertTrue(win.rect().contains(button.mapTo(win, QPoint(button.width(), button.height()))), "주 단추가 스크롤 없이 보임")
-        self.assertEqual((home.next_card.title.text(), home.next_card.line.text()),
-                         ("90차시 첫째 단원 읽기", "「기울기로 걸음 정하기」\n읽은 뒤 이 단원 문항부터 풉니다. 약 5분."))  # 할 일이 제목, 단원 제목은 둘째 줄
+        self.assertEqual((home.next_card.title.text(), home.next_card.side.text() + "\n" + home.next_card.line.text()),
+                         ("90차시 첫째 단원 읽기", "「기울기로 걸음 정하기」\n읽은 뒤 이 단원 문항부터 풉니다. 약 5분."))  # 할 일이 제목, 단원 제목은 제목 옆 글
 
         def top(widget):
             return widget.mapTo(home, QPoint(0, 0)).y()
@@ -475,7 +475,7 @@ class LessonAndLearnTest(AiTest):
         page = win.ai_lesson
         self.assertIs(self.page(), page)
         self.assertEqual(page.title.text(), "90차시 시험 차시")
-        rows = [(row.title.text(), row.second.text(), row.end.text()) for row in page.unit_list.rows]
+        rows = [(row.title.text(), row.second.text(), " · ".join(badge.text() for badge in row.badges)) for row in page.unit_list.rows]
         self.assertEqual(rows, [("기울기로 걸음 정하기", "읽기 전 · 단원 연습 미완료 · 약 5분", ""),
                                 ("과적합 알아보기", "읽기 전 · 단원 연습 미완료 · 약 4분", "심화 있음")])
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["이 차시 풀기"])
@@ -485,6 +485,46 @@ class LessonAndLearnTest(AiTest):
         self.assertEqual(self.log("open")[-1]["lesson"], "i90")
         guikit.click(quiz.back_btn)
         self.assertIs(self.page(), win.ai_home)
+
+    def test_lesson_rows_show_number_chip_and_read_bar_from_existing_counts(self):
+        """차시 줄 번호 칩은 차시 번호 두 자리, 막대와 숫자는 둘째 줄의 읽은 단원 수와 같음. 단원 줄 번호는 순번, 꼬리표는 unit_badges 수."""
+        win = self.boot()
+        win.go_ai()
+        home = win.ai_home
+        overview = win.ai.overview()
+        ready = [row for row in overview["lessons"] if row["ready"]]
+        self.assertEqual(len(ready), len(home.lesson_list.rows))
+        for row, spec in zip(home.lesson_list.rows, ready):
+            self.assertEqual("%02d" % spec["no"], row.lead.text())
+            self.assertEqual("accent", row.lead.property("tone"))
+            self.assertEqual((row.lead.width(), row.lead.height()), (theme.number_tile(), theme.number_tile()))  # 테두리 두른 정사각 칩
+            self.assertEqual("%d / %d" % (spec["read"], spec["units_total"]), row.number.text())
+            self.assertEqual(round(100 * spec["read"] / spec["units_total"]), row.bar.value())
+            self.assertEqual(ai_text.lesson_line(spec), row.second.text())
+        rule = home.lessons_rule  # 학습 단원 머리와 첫 차시 줄 사이 1px 가로선
+        self.assertEqual(1, rule.height())
+        self.assertLess(rule.mapTo(home, QPoint(0, 0)).y(), home.lesson_list.rows[0].mapTo(home, QPoint(0, 0)).y())
+        win.ai.mark_read("i90", "90a")
+        win.go_ai()
+        self.assertEqual("1 / 2", home.lesson_list.rows[0].number.text())
+        guikit.click(home.lesson_list.rows[0])
+        page = win.ai_lesson
+        data = win.ai.lesson("i90")
+        self.assertEqual(["%02d" % n for n in range(1, len(data["units"]) + 1)], [row.lead.text() for row in page.unit_list.rows])
+        self.assertEqual([len(ai_text.unit_badges(unit)) for unit in data["units"]], [len(row.badges) for row in page.unit_list.rows])
+        self.assertTrue(all(badge.property("tone") == "accent" for row in page.unit_list.rows for badge in row.badges))
+        self.assertEqual("2개 중 1개 읽음", page.unit_count.text())
+        self.assertEqual(50, page.unit_bar.value())
+        self.assertTrue(page.unit_count.font().bold())
+
+    def test_bottom_bar_shows_the_step_number_without_taking_focus(self):
+        win = self.boot()
+        learn = self.open_unit()
+        self.assertEqual("1 / %d" % len(learn.steps), learn.step_count.text())
+        self.assertEqual(Qt.FocusPolicy.NoFocus, learn.step_count.focusPolicy())
+        guikit.click(learn.next_btn)
+        self.assertEqual("2 / %d" % len(learn.steps), learn.step_count.text())
+        self.assertLess(learn.step_count.geometry().right(), learn.next_btn.geometry().left())
 
     def open_unit(self, key="90a", step=None):
         win = self.win
@@ -560,6 +600,24 @@ class LessonAndLearnTest(AiTest):
         self.assertFalse(guess.choices.rows[0].box.isEnabled())
         guikit.click(learn.memo_btn)
         self.assertEqual(len(self.log("learn")), 1)  # 이미 읽은 단원을 다시 끝까지 보아도 읽기 기록은 하나
+
+    def test_recall_check_button_matches_the_field_height(self):
+        """떠올리기 [확인]은 글자 단계마다 입력 칸과 높이가 같고 위아래 끝이 맞음."""
+        self.boot()
+        learn = self.open_unit(step=2)
+        recall = learn.view.findChildren(ai_learn.RecallBlock)[0]
+        self.addCleanup(theme.set_text, theme.state["text"])
+        for step in theme.TEXT_STEPS:
+            with self.subTest(step=step):
+                self.win.set_text(step)
+                guikit.pump()
+                self.assertEqual(recall.check_btn.height(), recall.field.height())
+                self.assertEqual(recall.check_btn.y(), recall.field.y())
+        tall = QSize(recall.field.width(), recall.field.height() + 16)  # 글꼴에 따라 칸이 48 보다 높아지는 경우(배포 글꼴 64)도 따라감
+        with mock.patch.object(recall.field, "sizeHint", return_value=tall):
+            recall.fit_check()
+            guikit.pump()
+        self.assertEqual(recall.check_btn.height(), tall.height())
 
     def test_step_keys_and_the_recall_field(self):
         """←·→ 는 단계를 넘기되 떠올리기 칸에서는 글자 커서를 옮기고, 그때 단계는 Alt+←·→ 로만 넘김. 중간 자리는 로컬에 남음."""
@@ -941,6 +999,21 @@ class PracticeTest(AiTest):
                 guikit.click(page.next_btn)
             self.assertTrue(last)
 
+    def test_card_width_is_capped_and_centered_on_wide_windows(self):
+        page = self.start()
+        for width in (1024, 1920):
+            self.win.resize(width, 900)
+            self.idle()
+            self.assertLessEqual(page.card.width(), ai_quiz.CARD_MOST)
+            column = page.card.parentWidget()
+            left = page.card.x()
+            right = column.width() - page.card.geometry().right() - 1
+            self.assertLessEqual(abs(left - right), 1)
+        self.assertEqual(ai_quiz.CARD_MOST, page.card.width())
+        self.assertEqual("1", page.at_label.text())
+        self.assertTrue(page.at_label.font().bold())
+        self.assertEqual("/ %d" % page.item["total"], page.count.text())
+
     def start(self, mode="lesson"):
         win = self.boot()
         self.at(4)
@@ -980,7 +1053,7 @@ class PracticeTest(AiTest):
 
     def test_wrong_blank_shows_answers_and_comes_back_three_later(self):
         page = self.start()
-        self.assertEqual(page.count.text(), "1 / %d" % page.item["total"])
+        self.assertEqual(page.count_text(), "1 / %d" % page.item["total"])
         self.assertTrue(page.guide.isVisible())  # 묶음 첫 문항에 [확실함]·[긴가민가] 안내
         self.assertIn("[확실함]", page.guide.text())
         item = self.skip_to(lambda item: item["card"] == "i90-b01")
@@ -994,10 +1067,11 @@ class PracticeTest(AiTest):
         self.assertEqual(page.verdict_text.text(), "틀렸습니다")
         self.assertEqual(page.verdict_text.property("tone"), "danger")
         self.assertEqual(page.answer_line.text(), "정답: 반대")  # 정답은 판정 아래 한 곳에만
+        self.assertEqual(page.answer_line.property("role"), "learn_caption")  # 판정 문장보다 낮은 단계 글
         self.assertEqual(page.fields[0].property("tone"), "danger")
         self.assertFalse(page.results[0].isVisible())  # 칸이 하나면 테두리와 판정 줄이 말함
         self.assertEqual(page.requeue.text(), "이 문항은 3문항 뒤에 다시 나옵니다.")  # 묶음 길이가 늘어난 까닭
-        self.assertEqual(page.count.text(), "%d / %d" % (item["at"], item["total"] + 1))
+        self.assertEqual(page.count_text(), "%d / %d" % (item["at"], item["total"] + 1))
         self.assertIn("참고:", visible_text(page.after))
         self.assertIn("단계", visible_text(page.after))
         self.assertNotIn("슬라이드", visible_text(page.after))
@@ -1035,7 +1109,7 @@ class PracticeTest(AiTest):
         self.answer(right=False)
         self.assertRegex(page.requeue.text(), r"^같은 내용을 다르게 묻는 문항이 (\d+문항 뒤에|바로 다음에) 나옵니다\. "
                                               r"이 문항은 \d+문항 뒤에 다시 나옵니다\.$")
-        self.assertEqual(page.count.text(), "%d / %d" % (item["at"], item["total"] + 2))
+        self.assertEqual(page.count_text(), "%d / %d" % (item["at"], item["total"] + 2))
         guikit.click(page.next_btn)
         while page.item["card"] != "i90-b03":
             self.answer()
@@ -1246,7 +1320,7 @@ class PracticeTest(AiTest):
                 self.answer()
             guikit.click(page.next_btn)
         self.assertEqual([b.text() for b in kit.visible_primary_buttons(page)], ["다음 단원"])
-        self.assertEqual(page.count.text(), "끝남")
+        self.assertEqual(page.count_text(), "끝남")
         guikit.click(page.again_btn)
         self.assertEqual((self.page(), win.ai_learn.key), (win.ai_learn, "90b"))
         win.ai.mark_read("i90", "90b")
@@ -1623,6 +1697,35 @@ class PatternTest(AiTest):
         self.assertEqual(page.answer_line.text(), "정답: `train`")
         self.assertFalse(page.also_text.isVisible() or page.mine_btn.isVisible())
 
+    def test_order_options_stack_when_two_columns_do_not_fit(self):
+        """2×2 코드 보기는 두 열이 가장 긴 줄을 담지 못하면 한 열로 쌓고 칸 폭 아래로 최소 폭을 고집하지 않음. 넓어지면 다시 2×2로 놓음."""
+        choices = ai_learn.CodeChoices(["a" * 30 + "\nb = 1", "c = 2", "d = 3", "e" * 30], grid=2)
+        holder = kit.page(QWidget())
+        kit.box(holder).addWidget(choices)
+        need = choices.two_columns_width()
+        holder.resize(need + 40, 600)
+        holder.show()
+        self.addCleanup(holder.close)
+        guikit.pump()
+
+        def corners():
+            return [row.mapTo(choices, QPoint(0, 0)) for row in choices.rows]
+
+        wide = corners()
+        self.assertEqual((wide[0].y(), wide[0].x()), (wide[1].y(), wide[2].x()))
+        self.assertLess(wide[0].x(), wide[1].x())
+        holder.resize(need - 40, 600)
+        guikit.pump()
+        self.assertEqual(len({corner.x() for corner in corners()}), 1)
+        self.assertEqual([corner.y() for corner in corners()], sorted({corner.y() for corner in corners()}))  # 보기 순서대로 위에서 아래
+        self.assertLessEqual(choices.width(), holder.width())
+        self.assertLessEqual(choices.minimumSizeHint().width(), choices.width())
+        holder.resize(need + 40, 600)
+        guikit.pump()
+        self.assertEqual(corners(), wide)
+        guikit.click(choices.rows[3])
+        self.assertEqual(choices.picked(), [3])  # 다시 놓아도 고르기는 같음
+
     def test_change_card_picks_several_lines_and_note_dialog_shows_the_diff(self):
         win = self.boot((1024, 700))
         self.at(9)
@@ -1700,7 +1803,7 @@ class PatternTest(AiTest):
         win.go_ai()
         home = win.ai_home
         self.assertEqual((home.target["kind"], home.next_card.title.text(), home.next_btn.text()), ("unit", "학습 루프 단원 읽기", "학습 시작"))
-        self.assertEqual(home.next_card.line.text(), "「시험 뼈대 단원」\n읽은 뒤 이 단원 문항부터 풉니다. 약 6분.")  # 읽는 시간은 상황별 코드 단원 값
+        self.assertEqual(home.next_card.side.text() + "\n" + home.next_card.line.text(), "「시험 뼈대 단원」\n읽은 뒤 이 단원 문항부터 풉니다. 약 6분.")  # 읽는 시간은 상황별 코드 단원 값
         guikit.click(home.next_btn)
         self.assertEqual((self.page(), win.ai_learn.lid, win.ai_learn.key), (win.ai_learn, "pc", "18a"))
         for card in sess.cards.values():
@@ -1805,10 +1908,12 @@ class DesignTest(AiTest):
                 self.assertEqual(page.property("ui"), "2", name)
                 primaries = kit.visible_primary_buttons(page)
                 self.assertLessEqual(len(primaries), 1, "%s: %s" % (name, [b.text() for b in primaries]))
+                # 홈·차시·단원 학습·연습·모의고사는 촘촘한 배치라 주 단추가 m(44)이고 아래 막대 좌우 여백이 DENSE_MARGIN(24)임
+                dense = page in (win.ai_home, win.ai_lesson, win.ai_learn, win.ai_quiz, win.ai_mock)
                 for button in page.findChildren(QPushButton):
                     if not (button.property("scale") and button.isVisible()):
                         continue
-                    least = theme.CONTROL["l"] if button.objectName() == "primary" else theme.CONTROL["s"]
+                    least = theme.CONTROL["m" if dense else "l"] if button.objectName() == "primary" else theme.CONTROL["s"]
                     self.assertGreaterEqual(button.height(), least, "%s: %s" % (name, button.text()))
                     self.assertLessEqual(len(button.text().replace(" ", "")), 8, "%s: %s" % (name, button.text()))
                 for row in page.findChildren(kit.Row):
@@ -1816,7 +1921,8 @@ class DesignTest(AiTest):
                         self.assertGreaterEqual(row.height(), theme.CONTROL["row"], "%s: %s" % (name, row.title.text()))
                 if primaries and page is not win.ai_home:
                     corner = primaries[0].mapTo(win, QPoint(primaries[0].width(), primaries[0].height()))
-                    self.assertEqual(corner.x(), win.width() - kit.MARGIN, "%s: %s" % (name, primaries[0].text()))
+                    margin = kit.DENSE_MARGIN if dense else kit.MARGIN
+                    self.assertEqual(corner.x(), win.width() - margin, "%s: %s" % (name, primaries[0].text()))
                 self.assertLessEqual(page.minimumSizeHint().width(), win.width(), name)
                 text = visible_text(page)
                 for word in GOAL_WORDS:

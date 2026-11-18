@@ -32,13 +32,14 @@ WIDE = 16777215  # Qt 위젯 크기의 상한. Doc 의 최대 폭(640)을 풀어
 STEP_KEYS = (("Left", -1), ("Right", 1), ("Alt+Left", -1), ("Alt+Right", 1))
 SLOT_CHARS = 8  # 코드 칸의 처음 폭(코드 글자 수). 적는 만큼 넓어짐
 READ_WIDTH = 1200  # 기본 학습 본문의 폭. 작은 창에서는 바깥 스크롤 칸의 가용 폭을 따름
-CARD_PAD = 32
+CARD_PAD = 24
+CODE_PAD_X = 20  # 빈칸 코드 상자의 좌우 안쪽 여백. 주요 열 사이(hub_page.MAIN_GAP)처럼 간격 토큰 밖의 정한 값임
 READ_ROLES = {"body": "learn_body", "label": "learn_body", "caption": "learn_caption", "headline": "learn_heading"}
 
 
 def reading_width(window_width):
     """학습 본문을 1200~1600px까지 넓히고 창의 바깥 여백을 남김."""
-    return max(READ_WIDTH, min(1600, window_width - 2 * kit.MARGIN - 2 * CARD_PAD))
+    return max(READ_WIDTH, min(1600, window_width - 2 * kit.DENSE_MARGIN - 2 * CARD_PAD))
 
 
 def learning_texts(root):
@@ -455,7 +456,7 @@ class CodeSlots(QFrame):
         self.code, self.hints, self.marks = code, list(hints), list(marks)
         self.fields, self.lines = [], []
         self.result = rich("", "body")
-        outer = kit.box(self, (16, 12, 16, 12))
+        outer = kit.box(self, (CODE_PAD_X, 16, CODE_PAD_X, 16))
         self.area = QScrollArea()
         self.area.setProperty("flat", True)
         self.area.setFrameShape(QFrame.Shape.NoFrame)
@@ -587,7 +588,7 @@ class CodeChoices(ChoiceList):
         layout.setHorizontalSpacing(16)
         layout.setVerticalSpacing(8)
         self.layout().addLayout(layout)
-        columns = 2 if grid == 2 else 1
+        self.grid, self.cells, self.wide = layout, [], 2 if grid == 2 else 1
         for n, text in enumerate(texts):
             row = CodeOptionRow(text, single)
             row.box.toggled.connect(lambda on, row=row: self._toggled(row, on))
@@ -599,11 +600,38 @@ class CodeChoices(ChoiceList):
             cell_box.addWidget(why)
             cell_box.addStretch(1)
             why.hide()
-            layout.addWidget(cell, n // columns, n % columns)
+            self.cells.append(cell)
             self.rows.append(row)
             self.whys.append(why)
-        for n in range(columns):
-            layout.setColumnStretch(n, 1)
+        self.columns = 0
+        self.place(self.wide)
+
+    def place(self, columns):
+        """보기 칸을 columns 열로 다시 놓음. 칸을 만든 순서는 그대로라 초점 순서가 같음."""
+        if columns == self.columns:
+            return
+        self.columns = columns
+        for cell in self.cells:
+            self.grid.removeWidget(cell)
+        for n, cell in enumerate(self.cells):
+            self.grid.addWidget(cell, n // columns, n % columns)
+        for n in range(2):
+            self.grid.setColumnStretch(n, 1 if n < columns else 0)
+
+    def two_columns_width(self):
+        return 2 * max((cell.minimumSizeHint().width() for cell in self.cells), default=0) + self.grid.horizontalSpacing()
+
+    def minimumSizeHint(self):
+        """2×2 보기도 한 열 폭까지 줄어들게 함. 좁으면 resizeEvent 가 한 열로 쌓음."""
+        hint = super().minimumSizeHint()
+        if self.wide == 2:
+            hint.setWidth(max((cell.minimumSizeHint().width() for cell in self.cells), default=0))
+        return hint
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.wide == 2:
+            self.place(2 if self.width() >= self.two_columns_width() else 1)
 
 
 class GuessBlock(QWidget):
@@ -696,7 +724,7 @@ class RecallBlock(QFrame):
         super().__init__()
         self.setObjectName("learning_activity")
         self.block, self.ctx = block, ctx
-        column = kit.box(self, (32, 32, 32, 32), spacing=24)
+        column = kit.box(self, (24, 24, 24, 24), spacing=24)
         column.addWidget(head(title))
         column.addWidget(rich(block.get("q", "")))
         self.field = AnswerLine()
@@ -733,6 +761,21 @@ class RecallBlock(QFrame):
         self.entry.setVisible(not ctx.readonly)
         self.result.setVisible(ctx.readonly)
         self.verdict.setVisible(not ctx.readonly)
+
+    def fit_check(self):
+        """[확인] 높이를 입력 칸 높이에 맞춤. 칸 높이는 learn_body 글자 단계를 따르므로 단추 자신의 스타일시트로 같은 높이를 줌.
+        스타일시트 높이는 테두리 두 줄(2px씩)을 뺀 값임."""
+        self.field.ensurePolished()
+        height = self.field.sizeHint().expandedTo(self.field.minimumSize()).height() - 4
+        self.check_btn.setStyleSheet("QPushButton { min-height: %dpx; max-height: %dpx; }" % (height, height))
+
+    def refont(self):
+        kit.set_font(self.field, theme.font("learn_body"))  # kit.refont 는 이 상자를 칸보다 먼저 부르므로 칸 글꼴을 먼저 바꿔 높이를 잼
+        self.fit_check()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.fit_check()
 
     def check(self):
         """칸이 비면 채점하지 않고 안내만 함(잘못 누른 [확인]이 틀린 기록으로 남지 않게)."""
@@ -1389,11 +1432,37 @@ def step_dots(steps, index):
     return out
 
 
+class ReadingColumn(QWidget):
+    """카드를 좌우 DENSE_MARGIN 에 두고, 칸이 카드의 최대 폭보다 넓을 때만 남는 폭을 양옆에 똑같이 나눔.
+    최대 폭은 화면의 fit_column 이 창 폭에 맞춰 바꾸므로 크기가 바뀔 때와 배치 요청 때 다시 읽음."""
+
+    def __init__(self, card):
+        super().__init__()
+        self.card = card
+        kit.box(self, (kit.DENSE_MARGIN, 0, kit.DENSE_MARGIN, 0)).addWidget(card)
+
+    def fit(self):
+        side = kit.DENSE_MARGIN + max(0, self.width() - self.card.maximumWidth() - 2 * kit.DENSE_MARGIN) // 2
+        if self.layout().contentsMargins().left() != side:
+            self.layout().setContentsMargins(side, 0, side, 0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.fit()
+        return result
+
+
 def reading_column(card):
     """카드를 읽기용 폭과 안쪽 여백에 둔 스크롤 칸. (칸, 바깥 상자)."""
+    card.setMaximumWidth(READ_WIDTH + 2 * CARD_PAD)
     inner = QWidget()
-    outer = kit.box(inner, (kit.MARGIN, 32, kit.MARGIN, 48))
-    outer.addWidget(kit.column(card, READ_WIDTH + 2 * CARD_PAD))
+    outer = kit.box(inner, (0, 16, 0, 24))
+    outer.addWidget(ReadingColumn(card))
     outer.addStretch(1)
     return kit.scroll(inner), outer
 
@@ -1455,26 +1524,32 @@ class AiLearnPage(QWidget):
         self.position_timer.setSingleShot(True)
         self.position_timer.timeout.connect(self.restore_position)
         root = kit.box(self)
-        self.top = kit.TopBar("← AI 비전 개론", "", steps=True)
+        self.top = kit.TopBar("← AI 비전 개론", "", steps=True, dense=True)
         self.back_btn, self.title = self.top.back, self.top.title
-        self.memo_btn = self.top.add_right(kit.button("복습 질문", "text", "s"), flush=True)
+        self.memo_btn = self.top.add_right(kit.button("복습 질문", "text", "s"))
+        self.memo_btn.setProperty("outlined", True)  # 차시 목록의 [복습 질문]과 같은 테두리 단추라 오른쪽 여백을 막대 여백 그대로 둠
         self.memo_btn.setToolTip("이 단원의 복습 질문으로 이동합니다. 답을 생각한 뒤 펼쳐 확인하세요.")
         self.memo_btn.setAccessibleDescription(self.memo_btn.toolTip())
         root.addWidget(self.top)
         stepper_frame = kit.frame("stepper")
-        stepper_frame.setFixedHeight(theme.CONTROL["stepper"])
-        self.stepper = kit.Stepper()
-        kit.box(stepper_frame, (kit.MARGIN, 0, kit.MARGIN, 0), horizontal=True).addWidget(self.stepper)
+        stepper_frame.setFixedHeight(theme.CONTROL["stepper_dense"])
+        self.stepper = kit.Stepper(dense=True)
+        kit.box(stepper_frame, (kit.DENSE_MARGIN, 0, kit.DENSE_MARGIN, 0), horizontal=True).addWidget(self.stepper)
         root.addWidget(stepper_frame)
         self.card, self.card_box = kit.card(CARD_PAD, 0)
         self.scroll, _ = reading_column(self.card)
+        kit.dense(self.scroll.widget())
         self.scroll.viewport().installEventFilter(self)
         self.scroll.widget().installEventFilter(self)
         self.scroll.verticalScrollBar().rangeChanged.connect(self.position_changed)
         root.addWidget(self.scroll, 1)
-        self.bar = kit.BottomBar()
-        self.prev_btn = self.bar.add_action(kit.button("이전", "secondary", "l"))
-        self.next_btn = self.bar.add_action(kit.button("다음", "primary", "l"))
+        self.bar = kit.BottomBar(dense=True)
+        _, top, right, bottom = self.bar.row.getContentsMargins()
+        self.bar.row.setContentsMargins(kit.DENSE_MARGIN, top, right, bottom)  # 왼쪽 도구가 테두리 단추라 글자 단추처럼 내지 않음
+        self.prev_btn = self.bar.add_tool(kit.button("이전", "secondary", "m"))
+        self.step_count = self.bar.add_action(kit.label("", "caption", "secondary"))  # 지금 단계 / 단계 수. 초점을 받지 않음
+        self.bar.action_row.addSpacing(8)
+        self.next_btn = self.bar.add_action(kit.button("다음", "primary", "m"))
         self.prev_btn.setToolTip("← 키로도 넘깁니다. 입력 칸이나 그림을 고른 동안에는 Alt+←")
         self.next_btn.setToolTip("→ 키로도 넘깁니다. 입력 칸이나 그림을 고른 동안에는 Alt+→")
         root.addWidget(self.bar)
@@ -1552,6 +1627,7 @@ class AiLearnPage(QWidget):
         self.stepper.set_steps(step_dots(self.steps, index))
         self.stepper.setToolTip("\n".join("%d %s" % (n + 1, s["title"]) for n, s in enumerate(self.steps)))
         self.prev_btn.setEnabled(index > 0)
+        self.step_count.setText("%d / %d" % (index + 1, len(self.steps)))
         self.next_btn.setText("연습 시작" if last else "다음")
         self.memo_btn.setVisible(not last)
         self.win.ai.save_step(self.lid, self.key, index + 1)

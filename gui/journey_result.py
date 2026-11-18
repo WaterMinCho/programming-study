@@ -11,6 +11,8 @@ from PyQt6.QtWidgets import QFrame, QScrollArea, QSizePolicy, QWidget
 from gui import journey_html, journey_text, kit, theme
 from gui.docview import PAD, TextPiece  # 카드 안쪽 여백은 문서 칸의 안쪽 여백과 같은 24
 
+WELL_PAD = 16  # 결과가 없을 때 머리 글을 감싸는 회색 칸의 안 여백
+
 
 class JourneyResult(QFrame):
     """결과 카드. show_empty 는 결과가 아직 없을 때, show_result 는 실행·채점 결과(진행 중이면 done=False)를 그림.
@@ -33,8 +35,12 @@ class JourneyResult(QFrame):
         self.bar = kit.progress()
         kit.box(self.bar_box, (0, 12, 0, 8)).addWidget(self.bar)
         self.caption = kit.para("", "caption", "secondary")
+        self.well = QFrame()  # 결과가 없을 때만 회색 칸(result_empty)으로 칠하고 두 글을 가운데에 둠
+        well_box = kit.box(self.well)
         for widget in (self.title, self.gap, self.bar_box, self.caption):
-            head_box.addWidget(widget)
+            well_box.addWidget(widget)
+        head_box.addWidget(self.well)
+        self.empty = False
         self.head.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)  # 카드를 줄여도 머리는 눌리지 않고 스크롤 칸이 줄어듦
         self.box.addWidget(self.head)
 
@@ -63,6 +69,7 @@ class JourneyResult(QFrame):
         """결과가 없을 때의 머리. best 는 지금 언어의 최고 점수(기록이 없으면 None), mine 은 내 테스트 수. 스크롤 칸은 비움."""
         self.shown = (None, {"best": best, "mine": mine}, True, "", 0)
         self.following = False
+        self.set_empty(True)
         self._head(journey_text.result_head(best=best, mine=mine))
         self._body("<body></body>", [])
 
@@ -79,9 +86,26 @@ class JourneyResult(QFrame):
     def show_head(self, kind, result, done=True, stage="", seconds=0):
         """머리만 다시 그림(채점 중 1초마다 지난 초). 그린 머리 dict 를 돌려줌."""
         self.shown = (kind, result, done, stage, seconds)
+        self.set_empty(False)
         head = journey_text.result_head(kind, result, done, stage=stage, seconds=seconds)
         self._head(head)
         return head
+
+    def set_empty(self, empty):
+        """결과가 없을 때는 머리 글 두 줄을 회색 칸(안 여백 WELL_PAD) 가운데에 두고, 결과가 있으면 칸 없이 왼쪽에 둠.
+        회색 칸은 카드 왼쪽·오른쪽 끝에서 PAD - WELL_PAD(8) 떨어짐."""
+        if empty == self.empty:
+            return
+        self.empty = empty
+        self.well.setObjectName("result_empty" if empty else "")
+        kit.repolish(self.well)
+        pad = WELL_PAD if empty else 0
+        self.well.layout().setContentsMargins(pad, pad, pad, pad)
+        side = PAD - pad  # 회색 칸을 카드 안 여백 쪽으로 넓혀 머리 글의 폭은 결과가 있을 때와 같게 둠(1024 창 caption 한 줄)
+        self.head.layout().setContentsMargins(side, PAD, side, 0)
+        align = Qt.AlignmentFlag.AlignHCenter if empty else Qt.AlignmentFlag.AlignLeft
+        for label in (self.title, self.caption):
+            label.setAlignment(align | Qt.AlignmentFlag.AlignTop)
 
     def _head(self, head):
         self.title.setText(head["title"])
@@ -141,6 +165,8 @@ class JourneyResult(QFrame):
             self.setMinimumHeight(height)
             self.setMaximumHeight(height)
         else:
+            self.well.layout().invalidate()  # 머리 글은 회색 칸 안에 있어 그 칸 상자와 칸 위젯의 높이 기억도 지움
+            self.well.updateGeometry()
             self.head.layout().invalidate()
             height = self.head.heightForWidth(max(1, self.contentsRect().width()))
             if height < 0:
@@ -156,9 +182,10 @@ class JourneyResult(QFrame):
     def folded_height(self):
         """접힌 카드의 높이를 테두리와 제목·설명 사이 간격, 위아래 여백까지 더해 구함."""
         border = 2 * self.frameWidth()
+        well = 2 * WELL_PAD if self.empty else 0  # 회색 칸은 위아래만 늘림. 좌우는 카드 안 여백을 나눠 씀
         width = max(1, (self.width() if self.width() > 2 * PAD else self.sizeHint().width()) - border - 2 * PAD)
         lines = sum(label.heightForWidth(width) for label in (self.title, self.caption) if label.text())
-        return border + 2 * PAD + theme.GAP["title_description"] + lines
+        return border + 2 * PAD + well + theme.GAP["title_description"] + lines
 
     # 글자 크기 · 테마
 

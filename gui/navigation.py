@@ -103,7 +103,7 @@ class NavigationButton(QPushButton):
         option.text, option.icon = "", QIcon()
         painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
         painter.setRenderHint(painter.RenderHint.Antialiasing)
-        color = theme.qcolor("primary_ink" if self.isChecked() else "faint" if not self.isEnabled() else "muted")
+        color = theme.qcolor("link" if self.isChecked() else "faint" if not self.isEnabled() else "muted")
         painter.setPen(QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.save()

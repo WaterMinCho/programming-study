@@ -247,6 +247,59 @@ class HubScreenTest(HubTest):
             refresh.assert_not_called()
         self.assertEqual("hub", win.area)
         self.assertFalse(win.hub.web_error.isVisible())
+        # 과목 개수 꼬리표는 숨긴 웹 칸을 세지 않음
+        self.assertEqual(win.hub.track_count.text(), str(len(win.hub.tracks.rows)))
+        self.assertEqual(win.hub.track_count.text(), str(sum(row.isVisible() for row in win.hub.tracks.rows)))
+        self.assertEqual(win.hub.track_count.text(), "3")
+
+    def test_web_entry_is_counted_in_the_subject_badge(self):
+        entries = mock.patch.object(study, "ENTRY_TRACKS", study.ENTRY_TRACKS + ("web",))
+        entries.start()
+        self.addCleanup(entries.stop)
+        win = self.boot()
+        self.assertIn(win.hub.web_row, win.hub.tracks.rows)
+        self.assertEqual(win.hub.track_count.text(), "4")
+        self.assertEqual(win.hub.track_count.text(), str(sum(row.isVisible() for row in win.hub.tracks.rows)))
+
+    def test_top_bar_card_and_tile_parts(self):
+        """위 막대는 흰 바탕(plain 아님), 이어서 할 일 카드는 흰 카드이고 꼬리표 옆에 설명 줄 첫 조각의 과목 이름을 둠.
+        과목 칸의 진도 줄은 이름과 숫자를 따로 보이고 막대와 함께 카드 안쪽 전체 폭을 씀."""
+        win = self.boot()
+        hub = win.hub
+        self.assertNotEqual(hub.top.property("plain"), True)
+        self.assertEqual(hub.top.property("density"), "dense")
+        self.assertTrue(hub.next_card.property("plain_next"))
+        line = hub.next_card.line.text()
+        self.assertIn(" · ", line)
+        self.assertEqual(hub.next_subject.text(), line.partition(" · ")[0])
+        self.assertEqual(hub.next_subject.text(), "파이썬 스터디")
+        self.assertTrue(hub.next_subject.isVisible())
+        caption = hub.next_card.caption
+        self.assertEqual(caption.mapTo(hub, QPoint()).y() + caption.height() // 2,
+                         hub.next_subject.mapTo(hub, QPoint()).y() + hub.next_subject.height() // 2)
+        self.assertLess(caption.mapTo(hub, QPoint()).x(), hub.next_subject.mapTo(hub, QPoint()).x())
+        hub.set_next("문제", "설명만 있는 줄", "시작", None)
+        self.assertFalse(hub.next_subject.isVisible())
+        hub.refresh()
+        self.assertEqual(hub.next_subject.text(), "파이썬 스터디")
+
+        row = hub.python_row
+        overview = win.session.overview()
+        self.assertEqual((row.metric.name.text(), row.metric.count.text()),
+                         ("숙달 단원", "%d / %d" % (overview["mastered"], overview["total_units"])))
+        self.assertTrue(row.metric.count.font().bold())
+        self.assertFalse(row.metric.name.font().bold())
+        self.assertEqual(row.metric.count.geometry().right(), row.metric.width() - 1)
+        left = row.metric.mapTo(row, QPoint()).x()
+        self.assertEqual(row.meter.mapTo(row, QPoint()).x(), left)
+        self.assertEqual(row.meter.width(), row.metric.width())
+        self.assertLess(left, row.title.mapTo(row, QPoint()).x())  # 진도 줄은 점 칸까지 써서 제목보다 왼쪽에서 시작함
+        self.assertGreater(row.metric.mapTo(row, QPoint()).y(), row.second.mapTo(row, QPoint()).y() + row.second.height())
+        self.assertLessEqual(row.meter.mapTo(row, QPoint()).y() + row.meter.height(), row.height())
+        row.set_metric(None, None, "")
+        self.assertEqual(row.metric.text(), "현황을 확인하지 못했습니다.")
+        self.assertFalse(row.metric.count.isVisible())
+        self.assertFalse(row.meter.isVisible())
 
     def test_submission_actions_remain_available_on_all_subject_overviews(self):
         entries = mock.patch.object(study, "ENTRY_TRACKS", study.ENTRY_TRACKS + ("web",))
@@ -773,7 +826,8 @@ class HubScreenTest(HubTest):
         self.idle()
         page = win.journey_map
         self.assertEqual((self.page(), page.view.selected), (page, "t03"), "지도도 첫 화면이 말한 던전을 고름")
-        self.assertEqual((page.next_card.title.text(), page.next_card.line.text()), ("물통 합계", "던전 3 「준비 중 던전 3」 · 기초"))
+        # 지도 카드는 던전 설명을 제목 옆 글로 보임
+        self.assertEqual((page.next_card.title.text(), page.next_card.side.text()), ("물통 합계", "던전 3 「준비 중 던전 3」 · 기초"))
         guikit.click(page.home_btn)
         guikit.click(hub.next_btn)
         self.idle()

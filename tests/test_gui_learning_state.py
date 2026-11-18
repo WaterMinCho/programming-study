@@ -294,6 +294,31 @@ class LearningStateTest(unittest.TestCase):
                 self.assertTrue(self.win.rect().contains(self.page.next_btn.mapTo(self.win, QPoint())))
                 self.assertTrue(self.win.rect().contains(self.page.next_btn.mapTo(self.win, self.page.next_btn.rect().bottomRight())))
 
+    def test_dense_bars_keep_previous_left_next_right_and_focus_order(self):
+        for size in ((1024, 700), (1280, 800), (760, 480)):
+            with self.subTest(size=size):
+                self.win.resize(*size)
+                self.settle()
+                page = self.page
+                self.assertEqual(page.top.height(), theme.CONTROL["topbar_dense"])
+                self.assertEqual(page.stepper.height(), theme.CONTROL["stepper_dense"] - 1)
+                prev_left = page.prev_btn.mapTo(page, QPoint()).x()
+                next_right = page.next_btn.mapTo(page, QPoint(page.next_btn.width(), 0)).x()
+                card_left = page.card.mapTo(page, QPoint()).x()
+                self.assertEqual(prev_left, kit.DENSE_MARGIN)
+                self.assertEqual(card_left, kit.DENSE_MARGIN)
+                self.assertEqual(next_right, page.width() - kit.DENSE_MARGIN)
+                self.assertEqual(page.prev_btn.height(), theme.control_height("m"))
+                self.assertEqual(page.next_btn.height(), theme.control_height("m"))
+                self.assertGreaterEqual(page.bar.height(), theme.CONTROL["bottombar_dense"])
+        focus, chain = self.page.prev_btn, []
+        for _ in range(200):
+            focus = focus.nextInFocusChain()
+            if focus in (self.page.next_btn, self.page.prev_btn):
+                chain.append(focus)
+                break
+        self.assertEqual(chain, [self.page.next_btn])
+
     def test_resize_keeps_the_active_input_and_its_selection(self):
         field = self.field()
         field.setText("계속 적던 문장")

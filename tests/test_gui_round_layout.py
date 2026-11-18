@@ -121,3 +121,25 @@ class RoundLayoutTest(test_gui.GuiTest):
                     self.assertEqual(sizes, round_page.WIDE_SIZES)
                 self.win.go_home()
                 self.idle()
+
+    def test_body_code_box_does_not_scroll_sideways_at_the_largest_step(self):
+        """지문 코드 상자의 안 여백 때문에 가장 큰 글자에서 지문 칸에 가로 스크롤이 새로 생기지 않음.
+        s01/p03 은 760×480, s09/p13 은 1024×700 에서 코드 상자 좌우 여백을 16 으로 늘리면 가로 스크롤이 생기던 문항임."""
+        self.boot()
+        keys = {"s01/p03": (760, 480), "s09/p13": (1024, 700)}
+        for key in keys:
+            self.assertEqual(self.win.session.cat[key]["kind"], "code")
+        self.make_round("r90", list(keys))
+        self.win.open_round("r90")
+        self.idle()
+        page = self.win.round_page
+        self.addCleanup(theme.set_text, theme.state["text"])
+        self.win.set_text("larger")
+        for row, (key, size) in enumerate(keys.items()):
+            with self.subTest(key=key, size=size):
+                self.win.resize(*size)
+                guikit.wait_until(lambda: (self.win.width(), self.win.height()) == size, timeout=3)
+                page.listw.setCurrentRow(row)
+                self.idle()
+                self.assertIn("codebox", page.body_html(page.current))
+                self.assertEqual(page.body.horizontalScrollBar().maximum(), 0)
