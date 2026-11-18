@@ -634,7 +634,7 @@ def playback_icon(playing, normal, disabled):
 class FigureView(QWidget):
     """해설 그림 하나와 캡션. 파일은 처음에 한 번 바이트로 읽고 열어 두지 않아서, 보이는 동안에도 [문제 받기]가 파일을 바꾸거나 지울 수 있음.
     그림 파일은 2배 크기라 화면에는 그 절반 폭까지만 보이고, 칸이 좁으면 칸 폭에 맞춰 줄임. 줄어 보일 때는 [크게 보기]가 보이고,
-    그 단추나 그림을 누르면 그린 크기(절반 폭)로 FigureDialog 를 띄움. 움직이는 그림의 단추는 그림 바로 아래 조작부에 모으고,
+    그 단추나 그림을 누르면 그린 크기(절반 폭)로 FigureDialog 를 띄움. 움직이는 그림의 단추는 그림 바로 아래 조작부 가운데에 모으고,
     정지 그림의 크게 보기는 캡션 아래 오른쪽에 둠.
     GIF 는 아래 막대(처음·이전·재생·다음, "2 / 3")로 한 장씩 넘겨 봄. 재생 중에는 마지막 장 다음에 첫 장으로 돌아감.
     data 를 주면 파일을 읽지 않고 그 바이트를 씀. zoomable 이 거짓이면(그림 창 안) 줄어도 크게 보기를 두지 않음.
@@ -736,7 +736,7 @@ class FigureView(QWidget):
             if self.controls is None:
                 self.controls = QFrame()
                 self.controls.setObjectName("figure_controls")
-                bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"])
+                bar = kit.FlowLayout(self.controls, spacing=theme.GAP["detail"], centered=True)
                 bar.setContentsMargins(16, 12, 16, 12)
                 self.controls_heading = kit.label("그림 재생", "learn_caption", "secondary", bold=True)
                 bar.addWidget(self.controls_heading)
