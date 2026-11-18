@@ -252,8 +252,9 @@ class SummaryTest(unittest.TestCase):
         journey = (root/"journey.yml").read_text(encoding="utf-8")
         for name in ("바뀐 곳 보기", "여정 문제 검증", "여정 JS 검증 (Node 22)"):
             self.assertIn("    name: "+name+"\n", journey)
-        self.assertIn("name: 여정 실행기 (Python ${{ matrix.python }})", journey)
+        self.assertIn("name: 여정 실행기 (Python ${{ matrix.python }}${{ matrix.suffix }})", journey)
         self.assertIn('python: ["3.10", "3.11", "3.12", "3.13", "3.14"]', journey)
+        self.assertIn('- os: windows-latest\n            python: "3.12"\n            suffix: ", Windows"', journey)
         server = (root/"learning-server.yml").read_text(encoding="utf-8")
         self.assertIn("name: 운영 경로 (${{ matrix.os }})", server)
         self.assertIn("os: [ubuntu-latest, windows-latest]", server)
@@ -298,7 +299,7 @@ class SummaryTest(unittest.TestCase):
     def test_journey_uses_actual_job_names_and_waits_for_late_matrix(self):
         self.github.files = [{"filename": "tools/verify_journey.py"}]
         self.rows = self.checks_for(["tools/verify_journey.py"])
-        for version in ("3.10", "3.11", "3.12", "3.13", "3.14"):
+        for version in ("3.10", "3.11", "3.12", "3.13", "3.14", "3.12, Windows"):
             self.rows.append(job("여정 실행기 (Python %s)" % version))
         self.rows[-1]["status"] = "QUEUED"
         self.assertIsNone(self.aggregate())

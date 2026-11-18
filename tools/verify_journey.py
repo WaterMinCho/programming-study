@@ -7,7 +7,7 @@
   python tools/verify_journey.py d01/p3 --fill                비어 있는 기대값을 solution.py 의 결과로 채움(평문 tests.json)
   python tools/verify_journey.py d01 --timing --pythons P1,P2 --nodes N1,N2 [--report]
                                                               기준 컴퓨터에서 시간 여유와 회색 지대를 잼
-  python tools/verify_journey.py --styles [--changed REF]     wrong.json 의 재귀 방식(style) 항목만 이 Python 판에서 봄
+  python tools/verify_journey.py --styles [--changed REF]     wrong.json 의 재귀 방식(style) 항목만 이 Python 버전에서 봄
   python tools/verify_journey.py d01/p3 --alt DIR             아직 넣지 않은 다시 푼 풀이(DIR 의 alt.py, alt.js)로 스트레스와 전체 테스트 대조
   python tools/verify_journey.py d01/p3 --sign --writer W --resolver R --reviewer V [--finding 글 ...]
                                                               검증을 통과하면 review.json 을 씀(d01 처럼 던전을 주면 던전 폴더의 것)
@@ -62,11 +62,12 @@ EXPECTS = ("wrong", "timeout", "runtime", "fail", "pass")
 STYLES = {"python": ("plain", "raised", "raised_small", "cache", "cache_default", "builtin", "iterative"),
           "javascript": ("recursive", "heavy")}
 # 재귀 방식별 기대 판정. 열은 테스트의 depth 가 없음(300 이하), limit(1,000~1,500), chain(2×10^5 이상)
+# None 은 판정을 보지 않는 칸. @cache 재귀는 Python 3.12·3.13 의 Windows 와 3.12.0~3.12.2 에서 깊이 1,000 에 닿기 전에 멈춤
 STYLE_TABLE = {
     "iterative": ("pass", "pass", "pass"),
     "plain": ("pass", "runtime", "runtime"), "cache_default": ("pass", "runtime", "runtime"),
     "builtin": ("pass", "runtime", "runtime"),
-    "raised": ("pass", "pass", "runtime"), "raised_small": ("pass", "pass", "runtime"), "cache": ("pass", "pass", "runtime"),
+    "raised": ("pass", "pass", "runtime"), "raised_small": ("pass", None, "runtime"), "cache": ("pass", None, "runtime"),
     "recursive": ("pass", "pass", "runtime"), "heavy": ("pass", "pass", "runtime"),
 }
 DEPTHS = (None, "limit", "chain")
@@ -1752,6 +1753,8 @@ def step_styles(v, p):
                     continue
                 row = DEPTHS.index(test.get("depth")) if test.get("depth") in DEPTHS else 0
                 want = STYLE_TABLE[style][row]
+                if want is None:
+                    continue
                 status = status_of(found[test["id"]])
                 if status != want:
                     bad.append("%s(기대 %s, 실제 %s)" % (test["id"], VERDICT_TEXT[want], describe(found[test["id"]])))

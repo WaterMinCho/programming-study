@@ -41,6 +41,11 @@ STYLES = {
              "    memo[n] = 0 if n == 0 else 1 + f(n - 1)\n    return memo[n]\n"),
 }
 SOLUTION_F = "\n\ndef solution(n):\n    return f(n)\n"
+# Python 3.12·3.13 은 C 함수를 거치는 호출 깊이를 한도와 따로 막아서 @cache 재귀가 한도 10,000 보다 먼저 멈춤.
+# 3.12.0~3.12.2 는 운영체제와 상관없이 약 500단계, 3.12.3 이후와 3.13 의 Windows 는 약 1,000단계에서 멈춰 깊이 1,500 에 닿지 못함.
+# Windows ARM64 의 3.13 은 약 330단계임. 그 밖의 3.12·3.13 은 약 3,300단계, 3.10·3.11 은 약 5,000단계, 3.14 는 약 10,000단계까지 감
+CACHE_SHORT_OF_1500 = ((3, 12) <= sys.version_info[:2] <= (3, 13)
+                       and (sys.platform == "win32" or sys.version_info[:3] < (3, 12, 3)))
 NEST_PY = "def solution(n):\n    x = []\n    for _ in range(n - 1):\n        x = [x]\n    return x\n"
 NEST_JS = "function solution(n) {\n    let x = [];\n    for (let i = 1; i < n; i++) {\n        x = [x];\n    }\n    return x;\n}\n"
 
@@ -342,10 +347,19 @@ class RecursionTest(RunnerCase):
             result = self.style(name, 1200, False)
             self.assertIn("sys.setrecursionlimit", result["note"])
             self.assertIn("지금 한도 1000", result["note"])
+            if name == "cache_default":
+                self.assertIn("@cache", result["note"])
+            else:
+                self.assertNotIn("@cache", result["note"])
 
     def test_depth_1500_passes_with_raised_limit(self):
-        for name in ("raised", "raised_small", "cache", "memo"):
+        for name in ("raised", "memo"):
             self.style(name, 1500, True)
+        for name in ("raised_small", "cache"):
+            result = self.style(name, 1500, not CACHE_SHORT_OF_1500)
+            if CACHE_SHORT_OF_1500:
+                self.assertIn("지금 한도 10000", result["note"])
+                self.assertIn("@cache", result["note"])
 
     def test_depth_200000_fails_without_crash(self):
         for name in ("raised", "cache", "memo"):

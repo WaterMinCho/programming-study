@@ -479,6 +479,9 @@ STYLE_CODE = {
     "iterative": "def solution(nums):\n    total = 0\n    for x in nums:\n        total += x\n    return total\n",
 }
 STYLE_CODE["raised"] = "import sys\nsys.setrecursionlimit(10 ** 6)\n\n\n" + STYLE_CODE["plain"]
+STYLE_CODE["cache"] = ("import sys\nfrom functools import cache\nsys.setrecursionlimit(10 ** 6)\n\n\n"
+                       "def solution(nums):\n    @cache\n    def go(i):\n        return 0 if i == len(nums) else nums[i] + go(i + 1)\n\n"
+                       "    return go(0)\n")
 
 
 class StylesTest(BankCase):
@@ -503,6 +506,11 @@ class StylesTest(BankCase):
     def test_styles_follow_the_recursion_table(self):
         code, out = self.styles({"rec_plain": ("plain", "plain"), "rec_raised": ("raised", "raised"),
                                  "loop": ("iterative", "iterative")})
+        self.assertEqual(0, code, out)
+
+    def test_cache_styles_skip_the_limit_row(self):
+        """@cache 재귀의 limit 칸은 운영체제와 Python 버전에 따라 갈리므로 보지 않음. 그래서 plain 코드를 raised_small 로 적어도 실패로 보지 않음."""
+        code, out = self.styles({"rec_cache": ("cache", "cache"), "rec_small": ("raised_small", "plain")})
         self.assertEqual(0, code, out)
 
     def test_wrong_style_label_fails(self):
@@ -880,6 +888,11 @@ class WorkflowTest(unittest.TestCase):
         runner_job = jobs["runner"]
         self.assertEqual("plan", runner_job["needs"])
         self.assertEqual(["3.10", "3.11", "3.12", "3.13", "3.14"], runner_job["strategy"]["matrix"]["python"])
+        self.assertEqual(["ubuntu-latest"], runner_job["strategy"]["matrix"]["os"])
+        self.assertEqual([{"os": "windows-latest", "python": "3.12", "suffix": ", Windows"}],
+                         runner_job["strategy"]["matrix"]["include"])
+        self.assertEqual("${{ matrix.os }}", runner_job["runs-on"])
+        self.assertEqual("bash", runner_job["defaults"]["run"]["shell"])
         self.assertEqual("false", runner_job["strategy"]["fail-fast"])
         self.assertIn("python -m unittest tests.test_journey_values tests.test_journey_runner tests.test_journey_service "
                       "tests.test_journey_tools", runs(runner_job))
