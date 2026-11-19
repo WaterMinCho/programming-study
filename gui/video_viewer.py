@@ -4,7 +4,7 @@ from __future__ import annotations
 from importlib.util import find_spec
 from time import monotonic
 
-from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QEvent, QMargins, QObject, QPoint, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QDialog, QSizePolicy, QWidget
 
@@ -550,6 +550,8 @@ class VideoDialog(QDialog):
         self.fullscreen_escape.setEnabled(enabled)
         if enabled:
             self._normal_geometry = self.saveGeometry()
+            # 전체 화면을 나오면 처음 본문 여백으로 되돌려 재생 영역 크기가 들어가기 전과 같게 함
+            self._normal_margins = self.shell.content.contentsMargins()
         self.surface.fullscreen = enabled
         for widget in (self.shell.header, self.shell.footer, self.heading_row, self.status, self.privacy):
             widget.setVisible(not enabled)
@@ -557,7 +559,7 @@ class VideoDialog(QDialog):
         if enabled:
             self.surface.fit_viewport(None)
         self.shell.content.setAlignment(self.surface, Qt.AlignmentFlag(0) if enabled else Qt.AlignmentFlag.AlignHCenter)
-        self.shell.content.setContentsMargins(*( (0, 0, 0, 0) if enabled else (32, 8, 32, 24)))
+        self.shell.content.setContentsMargins(QMargins() if enabled else self._normal_margins)
         self.surface.setSizePolicy(QSizePolicy.Policy.Expanding,
                                    QSizePolicy.Policy.Expanding if enabled else QSizePolicy.Policy.Preferred)
         self.surface.setMinimumHeight(200 if enabled else self.surface.heightForWidth(self.surface.width()))

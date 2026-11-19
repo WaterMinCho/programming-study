@@ -701,6 +701,7 @@ class VideoDialogTest(unittest.TestCase):
         dialog.setGeometry(30, 40, 720, 440)
         guikit.pump()
         normal = dialog.geometry()
+        area = dialog.surface.geometry()
         engine.on_event("fullscreen", True)
         engine.widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         engine.widget.keyPressEvent = lambda event: event.accept()
@@ -711,6 +712,8 @@ class VideoDialogTest(unittest.TestCase):
         self.assertFalse(dialog._fullscreen)
         self.assertFalse(dialog.fullscreen_escape.isEnabled())
         self.assertEqual(normal, dialog.geometry())
+        # 전체 화면을 나온 뒤 재생 영역 위치와 크기가 들어가기 전과 같아야 함
+        self.assertEqual(area, dialog.surface.geometry())
         self.assertIs(engine, dialog.engine)
         self.assertTrue(dialog.isVisible())
         engine.exit_fullscreen.assert_called_once()
