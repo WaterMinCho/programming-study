@@ -145,12 +145,13 @@ def validate(data, assessment, author):
     if any(not isinstance(question, str) or not question.strip() or len(question) > 1000 for question in assessment["questions"]):
         raise review.ReviewError("확인 질문의 형식을 확인하지 못했습니다.")
     review.check_text(review.packed(assessment))
-    prefix = "experiments/"+author+"/"
+    # 폴더 이름의 밑줄을 붙임표로 바꿔 GitHub ID 와 견줌. GitHub ID 에는 밑줄을 쓸 수 없어 다른 사람 폴더와 겹치지 않음.
+    own = lambda path: len(path.split("/")) >= 3 and path.split("/")[0] == "experiments" and path.split("/")[1].replace("_", "-") == author
     changed_paths = data.get("changed_paths")
     permitted = (isinstance(changed_paths, list) and bool(changed_paths)
                  and all(path in changed_paths for path in data["files"])
                  and not data.get("previous_review_skipped") and not data.get("unreviewed_images") and len(data["files"]) <= 15 and len(data["diff"].encode()) <= 60000
-                 and all(isinstance(path, str) and path.startswith(prefix) and ".." not in Path(path).parts
+                 and all(isinstance(path, str) and own(path) and ".." not in Path(path).parts
                          and Path(path).suffix.lower() in {".py", ".md", ".txt"}
                          and Path(path).name.lower() not in {"setup.py", "conftest.py"} for path in changed_paths))
     if any(item["blocking"] for item in assessment["findings"]):

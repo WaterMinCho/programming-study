@@ -27,7 +27,7 @@ def needs_gui(paths):
 def model_path(path):
     parts = path.split("/")
     return ("\\" not in path and len(parts) >= 3 and parts[0] == "experiments" and
-            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}", parts[1]) is not None and
+            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,38}", parts[1]) is not None and
             not any(part in ("", ".", "..") for part in parts))
 
 

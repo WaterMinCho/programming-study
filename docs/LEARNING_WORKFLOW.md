@@ -51,7 +51,7 @@ flowchart TD
 | `WaterMinCho/programming-study`의 PR | 본인이 바꾼 코드와 설명을 검토하고 공통 프로젝트에 합칩니다. |
 | [스터디 보드](https://github.com/users/WaterMinCho/projects/2/views/1)와 담당 이슈 | 진행 상태, 질문과 관련 PR 주소를 남깁니다. |
 
-이 문서의 `본인ID`는 실제 GitHub ID로 바꿉니다. `origin`은 clone한 본인 fork의 주소 이름입니다. 프로그램으로 문제를 풀던 기존 폴더는 별도로 두고 모델 작업용 폴더를 준비합니다.
+이 문서의 `본인ID`는 실제 GitHub ID로 바꿉니다. Python의 `import` 문에는 붙임표(-)가 든 폴더 이름을 쓸 수 없습니다. 그래서 GitHub ID에 붙임표가 있으면 폴더 이름에서는 밑줄(_)로 바꿔 써도 됩니다. `origin`은 clone한 본인 fork의 주소 이름입니다. 프로그램으로 문제를 풀던 기존 폴더는 별도로 두고 모델 작업용 폴더를 준비합니다.
 
 <a id="1-본인-카드부터-엽니다"></a>
 
@@ -64,7 +64,7 @@ flowchart TD
 | WaterMinCho | 프로그램·수집 서버·공통 자료·검토와 앱 연결 |
 | [michae18 · 기본 LSTM](https://github.com/WaterMinCho/programming-study/issues/119) | `experiments/michae18/` |
 | [wamangdoo · Transformer](https://github.com/WaterMinCho/programming-study/issues/120) | `experiments/wamangdoo/` |
-| [kimjs85529-a11y · LSTM + 풀이 간격](https://github.com/WaterMinCho/programming-study/issues/121) | `experiments/kimjs85529-a11y/` |
+| [kimjs85529-a11y · LSTM + 풀이 간격](https://github.com/WaterMinCho/programming-study/issues/121) | `experiments/kimjs85529_a11y/` |
 
 카드 제목을 눌러 이슈를 열고, 오른쪽 Projects의 **Status**에서 작업을 시작할 때는 **진행**, 검토받을 PR이 준비됐을 때는 **검토**를 선택합니다. 작업 보드에서 카드를 해당 열로 끌어 옮겨도 Status가 바뀝니다. 카드 아래 Status 배지를 누르면 필터가 적용됩니다.
 
@@ -275,7 +275,7 @@ model-study/
   learning-demo-f8/              가상 자료 · 저장소 밖에 보관
 ```
 
-공통 `learning_server`를 불러오는 모델은 `programming-study` 폴더에서 `python -m experiments.본인ID.train`처럼 실행합니다. 예를 들어 `python -m experiments.kimjs85529-a11y.train`입니다. 아직 `train.py`를 만들지 않았다면 실행할 수 없으며 파일 이름과 명령을 본인 README에 맞춰 적습니다.
+공통 `learning_server`를 불러오는 모델은 `programming-study` 폴더에서 `python -m experiments.본인ID.train`처럼 실행합니다. GitHub ID의 붙임표를 밑줄로 바꾼 폴더라면 `본인ID` 자리에 폴더 이름을 넣습니다. 예를 들어 `python -m experiments.kimjs85529_a11y.train`입니다. 아직 `train.py`를 만들지 않았다면 실행할 수 없으며 파일 이름과 명령을 본인 README에 맞춰 적습니다.
 
 폴더 이름에 붙임표가 들어 있으면 같은 모델 폴더의 파일은 `from .model import Model`처럼 상대 경로로 불러옵니다. 이 예시의 `model.py`와 `Model`은 본인이 만든 파일·클래스 이름으로 바꿉니다. 표준 `unittest`로 `test_model.py`를 만들었다면 저장소 루트에서 `python -m unittest experiments.본인ID.test_model`을 실행합니다. 간격 테스트 파일이 `test_gaps.py`라면 마지막 이름을 `test_gaps`로 바꾸세요.
 

@@ -295,6 +295,19 @@ class WorkerTest(unittest.TestCase):
         data["changed_paths"] = [FILE, "experiments/michae18/old_train.py"]
         self.assertEqual("APPROVE", worker.validate(data, assessment(), "michae18"))
 
+    def test_underscore_folder_of_hyphen_id_is_author_folder(self):
+        own, old = "experiments/kimjs85529_a11y/train.py", "experiments/kimjs85529-a11y/train.py"
+        data = {"files": [own], "changed_paths": [own], "diff": DIFF, "title": self.pr["title"]}
+        self.assertEqual("APPROVE", worker.validate(data, assessment(), "kimjs85529-a11y"))
+        self.assertEqual("APPROVE", worker.validate(dict(data, changed_paths=[own, old]), assessment(), "kimjs85529-a11y"))
+        for other in ("experiments/kimjs85529_a11y2/train.py", "experiments/kimjs85529_a11y_x/train.py",
+                      "experiments/kimjs85529a11y/train.py", "experiments/michae18/train.py",
+                      "experiments/kimjs85529_a11y/../michae18/train.py", "experiments/Kimjs85529_a11y/train.py"):
+            with self.subTest(other=other):
+                self.assertEqual("COMMENT", worker.validate(dict(data, files=[other], changed_paths=[other]), assessment(), "kimjs85529-a11y"))
+        self.assertEqual("COMMENT", worker.validate(dict(data, changed_paths=[own, "tools/ci_scope.py"]), assessment(), "kimjs85529-a11y"))
+        self.assertEqual("COMMENT", worker.validate(data, assessment(), "michae18"))
+
     def test_all_changed_paths_must_use_permitted_text_types(self):
         data = {"files": [FILE], "diff": DIFF, "title": self.pr["title"]}
         for old in ("old.ipynb", "old.jsonl", "setup.py", "conftest.py", "../other/train.py"):
