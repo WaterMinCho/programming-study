@@ -166,6 +166,7 @@ FOLLOWUP_GUIDE = """파일을 고쳤다면 같은 작업 브랜치에 Commit·Pu
 [SourceTree·터미널로 수정 커밋 올리기](https://github.com/WaterMinCho/programming-study/blob/main/docs/LEARNING_WORKFLOW.md#리뷰-질문에-답하고-수정한-커밋-남기기)
 """
 DISCUSSION_GUIDE = "확인할 내용은 이 PR의 댓글로 답해 주세요."
+CONFLICT_NOTICE = "main 브랜치와 충돌하는 파일이 있어 승인하지 않았습니다. [기존 작업 브랜치에 최신 공통 코드 반영하기](https://github.com/WaterMinCho/programming-study/blob/main/docs/LEARNING_WORKFLOW.md#작업-브랜치에-공통-변경-받기) 순서대로 main의 변경을 작업 브랜치에 받아 주세요. 충돌 안내가 나오면 파일을 지우거나 강제로 Push하지 말고 파일 이름과 오류를 담당 이슈에 남겨 주세요."
 
 
 def finding_text(data, item, *, required):
@@ -186,11 +187,13 @@ def finding_text(data, item, *, required):
     return text
 
 
-def body_for(data, assessment, marker, event, *, checked=None):
+def body_for(data, assessment, marker, event, *, checked=None, conflicted=False):
     if event == "APPROVE":
         outcome = "현재 변경을 승인했습니다."
     elif event == "REQUEST_CHANGES":
         outcome = "수정이 필요합니다."
+    elif conflicted and checked == "APPROVE":
+        outcome = CONFLICT_NOTICE
     elif data.get("previous_review_skipped"):
         outcome = "이전 리뷰의 참고 내용을 포함하지 못해 자동 승인을 보류했습니다."
     elif checked == "APPROVE":
@@ -199,6 +202,8 @@ def body_for(data, assessment, marker, event, *, checked=None):
         outcome = "현재 변경은 자동 승인 범위 밖이어서 의견으로 남깁니다."
     else:
         outcome = "추가 확인이 필요합니다."
+    if conflicted and outcome != CONFLICT_NOTICE:
+        outcome += "\n\n"+CONFLICT_NOTICE
     text = marker+"\n\n"+outcome+"\n\n"+assessment["summary"]
     required = [item for item in assessment["findings"] if item["blocking"]]
     optional = [item for item in assessment["findings"] if not item["blocking"]]
@@ -473,11 +478,18 @@ def process(pr, root):
     current = api("pulls/%d" % number)
     if not same(current, data):
         return "새 커밋 대기"
+    # 충돌 여부를 아직 계산하지 못했으면 게시하지 않고 시도 횟수를 늘리지 않은 채 다음 실행에서 이어 감.
+    if current.get("mergeable") is None:
+        save(state_path, {"phase": "reviewing", "attempts": attempts-1, "at": now()})
+        return "충돌 확인 대기"
+    conflicted = current["mergeable"] is False
+    if conflicted and event == "APPROVE":
+        event = "COMMENT"
     try:
-        body = body_for(data, assessment, marker, event, checked=checked)
+        body = body_for(data, assessment, marker, event, checked=checked, conflicted=conflicted)
     except (review.ReviewError, OSError, ValueError, KeyError, TypeError):
         failed_attempt(folder, attempts, "body_failed")
-    passed = passed_review(event, checked, reviews, data["head"])
+    passed = passed_review(event, checked, reviews, data["head"]) and not conflicted
     save(folder/"publish-ready.json", {"commit_id": data["head"], "base": data["base"], "event": event, "body": body, "passed": passed})
     save(state_path, {"phase": "posting", "at": now()})
     result = api("pulls/%d/reviews" % number, {"commit_id": data["head"], "event": event, "body": body})
