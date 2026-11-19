@@ -10,11 +10,12 @@ from PyQt6.QtWidgets import QDialog, QSizePolicy, QWidget
 
 from career.player_html import (APP_ORIGIN, EMBED_HOST, checked_video_id, error_message,
                                 external_video_link, is_embed_url, is_playback_frame, player_html, watch_url)
-from gui import kit
+from gui import kit, theme
 from gui.dialog_layout import DialogLayout
 
 
 PLAYER_TIMEOUT_MS = 25_000
+QWIDGETSIZE_MAX = (1 << 24) - 1
 
 
 class EngineUnavailable(RuntimeError):
@@ -24,7 +25,7 @@ class EngineUnavailable(RuntimeError):
 
 
 class VideoSurface(QWidget):
-    """16:9를 기본으로 가용 높이에 맞추며 최소 재생 높이 200px를 보존함."""
+    """16:9를 기본으로 가용 높이에 맞추며 최소 재생 높이 200px를 보존함. 높이 상한이 있으면 폭도 그 높이의 16/9 배를 넘지 않게 함."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -43,15 +44,22 @@ class VideoSurface(QWidget):
         height = round(width * 9 / 16)
         if self.viewport_height is not None:
             height = min(height, self.viewport_height)
-        return max(200, height)
+        # 재생기 없음 칸의 문장이 잘리지 않도록 재생 영역을 그 칸이 필요한 높이보다 낮게 줄이지 않음
+        return max(200, height, self.box.totalHeightForWidth(width))
 
     def fit_viewport(self, height):
-        if height != self.viewport_height:
+        width = QWIDGETSIZE_MAX if height is None or self.fullscreen else max(round(height * 16 / 9), round(200 * 16 / 9))
+        if height != self.viewport_height or width != self.maximumWidth():
             self.viewport_height = height
-            self.setMinimumHeight(200 if self.fullscreen else self.heightForWidth(self.width()))
+            self.setMaximumWidth(width)
             self.updateGeometry()
+        # 상한이 그대로여도 재생기 없음 칸의 문장이 바뀌면 필요한 높이가 달라지므로 매번 다시 잼
+        self.setMinimumHeight(200 if self.fullscreen else self.heightForWidth(self.width()))
 
     def sizeHint(self):
+        # 가운데 정렬한 칸은 sizeHint 폭까지만 넓어지므로 폭 상한이 있으면 그 폭을 sizeHint 로 돌려줌
+        if self.maximumWidth() < QWIDGETSIZE_MAX:
+            return QSize(self.maximumWidth(), 360)
         return QSize(640, 360)
 
     def minimumSizeHint(self):
@@ -70,9 +78,19 @@ class VideoSurface(QWidget):
             widget = widget.parentWidget()
         return 2 * visible.width() * visible.height() > self.width() * self.height()
 
+    def event(self, event):
+        handled = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest:
+            # 안쪽 칸의 글이나 글꼴이 바뀌면 상자를 다시 계산한 뒤에야 새 높이를 알 수 있어 여기서 최소 높이를 다시 잼
+            self.setMinimumHeight(200 if self.fullscreen else self.heightForWidth(self.width()))
+        return handled
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.setMinimumHeight(200 if self.fullscreen else self.heightForWidth(self.width()))
+        if self.size() != event.size():
+            # 최소 높이를 올려 위젯이 커지면 Resize 이벤트가 다시 오지 않을 때가 있어 안쪽 상자를 지금 크기에 맞춤
+            self.box.setGeometry(self.rect())
 
 
 def create_engine(parent, on_event, open_url):
@@ -263,15 +281,32 @@ class VideoDialog(QDialog):
         self.setWindowTitle("영상 보기")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.shell = DialogLayout(self, "영상 보기")
-        self.title = kit.para(video.title, "headline", bold=True)
-        self.author = kit.para(video.author, "caption", "secondary")
+        # 제목 줄은 스크롤 밖에 두어 본문을 스크롤해도 창 위에 남게 함
+        self.heading_row = QWidget()
+        row = kit.box(self.heading_row, (32, 12, 32, 12), theme.GAP["title_description"], horizontal=True)
+        self.title = kit.ElideLabel(video.title, "headline", bold=True)
+        self.author = kit.label(video.author, "caption", "secondary")
+        row.addWidget(self.title, 1, Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(self.author, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.shell.insertWidget(1, self.heading_row)
         self.status = kit.para("")
         self.surface = VideoSurface(self)
         self.surface.hide()
+        # 재생기가 없을 때 재생 영역 자리에 상태 문장을 보임
+        self.placeholder, inner = kit.well(24, 24, theme.GAP["detail"])
+        self.warning = kit.label("주의", "body", "warning", True, Qt.AlignmentFlag.AlignHCenter)
+        self.placeholder_text = kit.para("")
+        self.placeholder_text.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        inner.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        inner.addWidget(self.warning)
+        inner.addWidget(self.placeholder_text)
+        self.placeholder.hide()
+        self.surface.box.addWidget(self.placeholder)
         self.privacy = kit.para("이 창에서는 YouTube 쿠키와 캐시를 메모리에만 보관합니다.", "caption", "secondary")
         self.size_note = kit.para("영상 영역이 작습니다. 창을 넓히거나 YouTube에서 열어 주세요.", "caption", "secondary")
         self.size_note.hide()
-        for widget in (self.title, self.author, self.status, self.surface, self.size_note, self.privacy):
+        self.shell.content.addWidget(self.surface, 0, Qt.AlignmentFlag.AlignHCenter)
+        for widget in (self.status, self.size_note, self.privacy):
             self.shell.content.addWidget(widget)
         self.prepare_button = kit.button("앱 내 재생기 설치", "primary", "l")
         self.retry_button = kit.button("다시 재생", "primary", "l")
@@ -281,7 +316,7 @@ class VideoDialog(QDialog):
         for button in (self.prepare_button, self.retry_button, self.stop_button, self.source_button, self.close_button):
             button.setAutoDefault(False)
             button.setDefault(False)
-        self.shell.actions.set_actions([self.source_button], [self.close_button, self.stop_button,
+        self.shell.actions.set_actions([self.source_button], [self.stop_button, self.close_button,
                                                                self.prepare_button, self.retry_button])
         self.prepare_button.clicked.connect(self.prepare)
         self.retry_button.clicked.connect(self.play)
@@ -295,9 +330,16 @@ class VideoDialog(QDialog):
         self._buttons()
 
     def _buttons(self):
-        self.prepare_button.setVisible(self.state == "unavailable" and self.on_prepare is not None)
-        self.retry_button.setVisible(self.state in ("stopped", "ended", "error"))
+        prepare = self.state == "unavailable" and self.on_prepare is not None
+        retry = self.state in ("stopped", "ended", "error")
+        self.prepare_button.setVisible(prepare)
+        self.retry_button.setVisible(retry)
         self.stop_button.setVisible(self.engine is not None)
+        # 보이는 주 단추가 없으면 [닫기]가 주 단추를 맡음
+        primary = "" if prepare or retry else "primary"
+        if self.close_button.objectName() != primary:
+            self.close_button.setObjectName(primary)
+            kit.repolish(self.close_button)
         self.close_button.setText("설치 취소하고 닫기" if self.state == "preparing" else "닫기")
         for button in (self.prepare_button, self.retry_button, self.stop_button, self.source_button, self.close_button):
             button.setMinimumWidth(0)
@@ -308,12 +350,25 @@ class VideoDialog(QDialog):
     def refont(self):
         self._buttons()
         self.shell.content.invalidate()
+        self._fit_video()
 
     def _state(self, state, message):
         self.state = state
         self.status.setText(message)
+        self.placeholder_text.setText(message)
         self._buttons()
+        self._placeholder()
         self.state_changed.emit(state)
+
+    def _placeholder(self):
+        """재생기가 없고 보일 상태 문장이 있으면 재생 영역 자리에 문장을 보이고 아래 상태 글은 숨김."""
+        shown = self.engine is None and self.state not in ("idle", "requesting", "closed")
+        # 학습자가 멈추거나 설치를 취소한 결과에는 '주의'를 붙이지 않음
+        self.warning.setVisible(self.state == "error" or (self.state == "unavailable" and self.status.text() != "설치를 취소했습니다."))
+        self.placeholder.setVisible(shown)
+        self.surface.setVisible(shown or self.engine is not None)
+        self.status.setVisible(not shown and not self._fullscreen)
+        self._fit_video()
 
     def open(self):
         if not self.closed and self.state == "idle":
@@ -356,8 +411,8 @@ class VideoDialog(QDialog):
                 return
             self.engine = engine
             self.surface.box.addWidget(engine.widget)
-            self.surface.show()
             self._buttons()
+            self._placeholder()
             if not self.isVisible():
                 super().open()
             if self.closed or self.generation != current:
@@ -449,7 +504,7 @@ class VideoDialog(QDialog):
         if engine is not None:
             self.surface.box.removeWidget(engine.widget)
             engine.close()
-        self.surface.hide()
+        self._placeholder()
 
     def stop(self):
         if self.closed:
@@ -493,9 +548,12 @@ class VideoDialog(QDialog):
         if enabled:
             self._normal_geometry = self.saveGeometry()
         self.surface.fullscreen = enabled
-        for widget in (self.shell.header, self.shell.footer, self.title, self.author, self.status, self.privacy):
+        for widget in (self.shell.header, self.shell.footer, self.heading_row, self.status, self.privacy):
             widget.setVisible(not enabled)
         self.size_note.hide()
+        if enabled:
+            self.surface.fit_viewport(None)
+        self.shell.content.setAlignment(self.surface, Qt.AlignmentFlag(0) if enabled else Qt.AlignmentFlag.AlignHCenter)
         self.shell.content.setContentsMargins(*( (0, 0, 0, 0) if enabled else (32, 8, 32, 24)))
         self.surface.setSizePolicy(QSizePolicy.Policy.Expanding,
                                    QSizePolicy.Policy.Expanding if enabled else QSizePolicy.Policy.Preferred)
@@ -517,9 +575,17 @@ class VideoDialog(QDialog):
             self._fit_video()
 
     def _fit_video(self):
-        if self.engine is None or self._fullscreen or self.closed:
+        if (self.engine is None and self.placeholder.isHidden()) or self._fullscreen or self.closed:
             return
-        self.surface.fit_viewport(self.shell.scroll.viewport().height())
+        # 재생 영역 아래 글까지 스크롤 없이 보이도록 그 높이를 뺀 나머지를 영역 높이 상한으로 줌
+        content, viewport = self.shell.content, self.shell.scroll.viewport()
+        margins = content.contentsMargins()
+        width = viewport.width() - margins.left() - margins.right()
+        below = sum(content.spacing() + max(widget.minimumSizeHint().height(), widget.heightForWidth(width))
+                    for widget in (self.status, self.size_note, self.privacy) if not widget.isHidden())
+        self.surface.fit_viewport(viewport.height() - margins.top() - margins.bottom() - below)
+        if self.engine is None:
+            return
         if not self._video_reveal_pending:
             self._video_reveal_pending = True
             QTimer.singleShot(0, self._reveal_video)
@@ -543,11 +609,13 @@ class VideoDialog(QDialog):
 
     def eventFilter(self, watched, event):
         if event.type() == QEvent.Type.Resize and self.engine is not None and not self._fullscreen:
-            self._fit_video()
             small = self.shell.scroll.viewport().width() - 64 < 200
             self.size_note.setVisible(small)
+            self._fit_video()
             if small:
                 self.stop()
+        elif event.type() == QEvent.Type.Resize and not self.placeholder.isHidden():
+            self._fit_video()
         return super().eventFilter(watched, event)
 
     def hideEvent(self, event):

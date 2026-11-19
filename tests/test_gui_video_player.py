@@ -9,7 +9,7 @@ from unittest import mock
 
 from tests import guikit
 from PyQt6.QtCore import QObject, QPoint, Qt, QUrl, pyqtSignal
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QLabel, QWidget
 
 from gui import kit, theme
 from gui.video_viewer import EngineUnavailable, PLAYER_TIMEOUT_MS, VideoDialog, VideoSurface, create_engine
@@ -269,6 +269,7 @@ class VideoDialogTest(unittest.TestCase):
             guikit.click(dialog.prepare_button)
             self.assertEqual(state, dialog.state)
             self.assertIsNone(dialog.cancel_prepare)
+            self.assertEqual(result.get("status") == "error", dialog.warning.isVisible())
             dialog.close()
 
     def test_stop_invalidates_even_a_synchronous_completion_from_cancel(self):
@@ -361,6 +362,25 @@ class VideoDialogTest(unittest.TestCase):
             self.assertGreaterEqual(button.width(), button.sizeHint().width(), button.text())
             self.assertGreater(rect.top(), dialog.shell.scroll.geometry().bottom())
             self.assertGreater(button.grab().toImage().width(), 0)
+        # 오른쪽 단추는 [재생 멈추기] [닫기] 뒤에 주 단추가 오는 차례로 놓임
+        right = [b for b in (dialog.stop_button, dialog.close_button, dialog.prepare_button, dialog.retry_button) if b.isVisible()]
+        self.assertEqual(right, sorted(right, key=lambda b: b.mapTo(dialog, QPoint()).x()))
+
+    def assert_fits(self, dialog):
+        """재생 영역이 16:9로 가운데에 놓이고 아래 글까지 스크롤 없이 뷰포트 안에 들어오는지 봄."""
+        viewport = dialog.shell.scroll.viewport()
+        margins = dialog.shell.content.contentsMargins()
+        surface = dialog.surface.geometry()
+        content = viewport.width() - margins.left() - margins.right()
+        self.assertLessEqual(abs((surface.left() - margins.left()) - (margins.left() + content - 1 - surface.right())), 1)
+        self.assertLessEqual(abs(surface.width() * 9 - surface.height() * 16), 16)
+        self.assertEqual(0, dialog.shell.scroll.verticalScrollBar().maximum())
+        inside = dialog.engine.widget if dialog.engine is not None else dialog.placeholder
+        self.assertEqual(dialog.surface.size(), inside.size())
+        for widget in (dialog.surface, dialog.status, dialog.privacy):
+            if widget.isVisible():
+                rect = widget.rect().translated(widget.mapTo(viewport, QPoint()))
+                self.assertTrue(viewport.rect().contains(rect), (widget, rect, viewport.size()))
 
     def test_small_large_windows_maximum_text_and_two_themes_keep_footer_visible(self):
         theme.set_text("larger")
@@ -438,15 +458,25 @@ class VideoDialogTest(unittest.TestCase):
             theme.set_text(step)
             kit.refont(dialog)
             self.assert_footer(dialog)
-            peer = kit.para(dialog.status.text(), "body")
-            peer.setParent(dialog.shell.body)
-            peer.setGeometry(dialog.status.geometry())
+            # 재생기가 없으면 상태 문장은 재생 영역 자리의 글에 나오고 아래 상태 글은 숨음
+            self.assertTrue(dialog.status.isHidden())
+            text = dialog.placeholder_text
+            self.assertEqual(dialog.status.text(), text.text())
+            peer = kit.para(text.text(), "body")
+            peer.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            peer.setParent(text.parentWidget())
+            peer.setGeometry(text.geometry())
             peer.show()
             guikit.pump()
-            self.assertEqual(dialog.status.font(), peer.font())
-            self.assertEqual(dialog.status.grab().toImage(), peer.grab().toImage())
+            self.assertEqual(text.font(), peer.font())
+            self.assertEqual(text.grab().toImage(), peer.grab().toImage())
             peer.hide()
             peer.deleteLater()
+        playing = self.dialog()
+        playing.engine.on_event("state", 1)
+        guikit.pump()
+        self.assertTrue(playing.status.isVisible())
+        self.assertEqual(theme.font("body"), playing.status.font())
 
     def test_video_surface_fits_width_and_viewport_without_clipping_controls(self):
         dialog = self.dialog()
@@ -461,9 +491,15 @@ class VideoDialogTest(unittest.TestCase):
                     viewport = dialog.shell.scroll.viewport()
                     self.assertGreaterEqual(view.width(), 200)
                     self.assertGreaterEqual(view.height(), 200)
-                    expected = max(200, min(round(dialog.surface.width() * 9 / 16), viewport.height()))
+                    margins = dialog.shell.content.contentsMargins()
+                    content = viewport.width() - margins.left() - margins.right()
+                    below = dialog.privacy.geometry().bottom() - dialog.surface.geometry().bottom()
+                    room = viewport.height() - margins.top() - margins.bottom() - below
+                    expected = max(200, min(round(content * 9 / 16), room))
                     self.assertLessEqual(abs(dialog.surface.height() - expected), 1)
                     self.assertTrue(viewport.rect().contains(view.rect().translated(view.mapTo(viewport, QPoint()))))
+                    if room >= 200:
+                        self.assert_fits(dialog)
         self.capture_widget = dialog
 
     def test_autoplay_requires_more_than_half_the_surface_in_the_viewport(self):
@@ -500,12 +536,163 @@ class VideoDialogTest(unittest.TestCase):
         guikit.pump()
         viewport = dialog.shell.scroll.viewport()
         self.assertFalse(dialog.surface.hasHeightForWidth())
+        self.assertTrue(dialog.heading_row.isHidden())
         self.assertEqual(viewport.size(), engine.widget.size())
         self.assertEqual(0, dialog.shell.scroll.verticalScrollBar().maximum())
         engine.on_event("fullscreen", False)
         guikit.pump()
+        self.assertTrue(dialog.heading_row.isVisible())
         self.assertTrue(dialog.surface.hasHeightForWidth())
         self.assertEqual(dialog.surface.heightForWidth(dialog.surface.width()), dialog.surface.height())
+
+    def test_heading_stays_above_scroll_and_player_fits_without_scrolling(self):
+        dialog = self.dialog()
+        # 처음 연 크기에서도 재생기가 재생 영역을 다 채움
+        self.assertEqual(dialog.surface.size(), dialog.engine.widget.size())
+        dialog.engine.on_event("state", 1)
+        dialog.resize(1000, 680)
+        guikit.pump()
+        self.assertEqual((1000, 680), (dialog.width(), dialog.height()))
+        self.assert_footer(dialog)
+        row = dialog.heading_row.geometry()
+        self.assertTrue(dialog.heading_row.isVisible())
+        self.assertGreater(row.top(), dialog.shell.header.geometry().bottom())
+        self.assertLess(row.bottom(), dialog.shell.scroll.geometry().top())
+        for widget in (dialog.title, dialog.author):
+            rect = widget.geometry().translated(widget.parentWidget().mapTo(dialog, QPoint()))
+            self.assertTrue(row.contains(rect), (widget, rect, row))
+        self.assertEqual(VIDEO.title, dialog.title.text())
+        self.assert_fits(dialog)
+        self.assertTrue(dialog.status.isVisible())
+        self.assertTrue(dialog.privacy.isVisible())
+
+    def test_small_window_maximum_text_keeps_player_height_and_notes_apart(self):
+        theme.set_text("larger")
+        dialog = self.dialog()
+        kit.refont(dialog)
+        dialog.resize(720, 440)
+        dialog.engine.on_event("state", 1)
+        self.assert_footer(dialog)
+        self.assertGreaterEqual(dialog.surface.height(), 200)
+        self.assertGreaterEqual(dialog.engine.widget.height(), 200)
+        surface = dialog.surface.geometry()
+        for widget in (dialog.status, dialog.privacy):
+            self.assertGreater(widget.geometry().top(), surface.bottom())
+        self.assertGreater(dialog.privacy.geometry().top(), dialog.status.geometry().bottom())
+
+    def test_long_title_elides_with_full_tooltip_and_channel_stays_whole(self):
+        theme.set_text("larger")
+        video = SimpleNamespace(**dict(vars(VIDEO), title="긴 제목 " * 30))
+        dialog = self.dialog(video=video)
+        kit.refont(dialog)
+        dialog.resize(720, 440)
+        self.assert_footer(dialog)
+        self.assertTrue(QLabel.text(dialog.title).endswith("…"))
+        self.assertEqual(video.title, dialog.title.toolTip())
+        self.assertGreaterEqual(dialog.author.width(), dialog.author.sizeHint().width())
+
+    def test_each_state_has_one_primary_button_at_the_right_end(self):
+        def check(dialog, primary):
+            guikit.pump()
+            self.assertEqual([primary], kit.visible_primary_buttons(dialog))
+            self.assert_footer(dialog)
+        dialog = self.dialog()
+        check(dialog, dialog.close_button)
+        for kind, code in (("ready", None), ("state", 1)):
+            dialog.engine.on_event(kind, code)
+            check(dialog, dialog.close_button)
+        dialog.stop()
+        check(dialog, dialog.retry_button)
+        self.assertTrue(dialog.warning.isHidden())
+        self.assertEqual("", dialog.close_button.objectName())
+        dialog.play()
+        dialog.engine.on_event("error", 100)
+        check(dialog, dialog.retry_button)
+        unavailable = self.unavailable()
+        check(unavailable, unavailable.prepare_button)
+        self.assertEqual("", unavailable.close_button.objectName())
+
+    def test_missing_player_keeps_a_sixteen_by_nine_area_with_the_status_message(self):
+        for mode in ("light", "dark"):
+            theme.set_mode(mode)
+            dialog = self.unavailable()
+            dialog.resize(1000, 680)
+            guikit.pump()
+            self.assertEqual((1000, 680), (dialog.width(), dialog.height()))
+            self.assert_footer(dialog)
+            self.assertEqual("unavailable", dialog.state)
+            self.assertTrue(dialog.placeholder.isVisible())
+            self.assertTrue(dialog.warning.isVisible())
+            self.assertTrue(dialog.status.isHidden())
+            self.assertEqual(dialog.status.text(), dialog.placeholder_text.text())
+            self.assertIn("기본 브라우저를 열지 못했습니다.", dialog.placeholder_text.text())
+            self.assertEqual(dialog.surface.size(), dialog.placeholder.size())
+            self.assert_fits(dialog)
+            image = dialog.placeholder.grab().toImage()
+            ratio = image.devicePixelRatio()
+            self.assertEqual(theme.color("surface_alt"), image.pixelColor(round(image.width() / 2), round(4 * ratio)).name())
+            dialog.close()
+        self.prepare.side_effect = lambda done: None
+        pending = self.unavailable()
+        guikit.click(pending.prepare_button)
+        self.assertEqual("preparing", pending.state)
+        self.assertTrue(pending.placeholder.isVisible())
+        self.assertTrue(pending.warning.isHidden())
+        self.external.return_value = False
+        restart = self.dialog(mock.Mock(side_effect=EngineUnavailable("다시 시작해 주세요.", "restart")))
+        self.assertEqual("restart", restart.state)
+        self.assertTrue(restart.placeholder.isVisible())
+        self.assertTrue(restart.warning.isHidden())
+
+    def test_missing_player_area_stays_sixteen_by_nine_in_a_tall_window(self):
+        for text in ("normal", "larger"):
+            theme.set_text(text)
+            dialog = self.dialog()
+            kit.refont(dialog)
+            dialog.resize(800, 900)
+            dialog.engine.on_event("state", 1)
+            playing = dialog.surface.size()
+            dialog.stop()
+            guikit.pump()
+            self.assertTrue(dialog.placeholder.isVisible())
+            surface = dialog.surface.size()
+            self.assertLessEqual(abs(surface.width() * 9 - surface.height() * 16), 16, surface)
+            self.assertEqual(playing, surface)
+            dialog.close()
+
+    def test_longest_status_message_fits_in_a_small_window_with_maximum_text(self):
+        # 창이 자리를 잡은 뒤 문장만 길어지는 경우와 창이 열린 채 가장 큰 글자로 바꾸는 경우를 따로 봄
+        message = "기본 브라우저를 열지 못했습니다. YouTube가 앱 식별 정보를 확인하지 못했습니다. YouTube에서 열어 주세요."
+
+        def check(dialog):
+            text = dialog.placeholder_text
+            self.assertGreaterEqual(text.height(), text.heightForWidth(text.width()))
+            self.assertEqual(dialog.surface.size(), dialog.placeholder.size())
+            self.assertGreater(dialog.privacy.geometry().top(), dialog.surface.geometry().bottom())
+
+        with self.subTest(case="message"):
+            theme.set_text("larger")
+            dialog = self.unavailable()
+            kit.refont(dialog)
+            dialog.resize(720, 440)
+            guikit.pump()
+            dialog._state("error", message)
+            guikit.pump()
+            check(dialog)
+            dialog.close()
+        for size in ((720, 440), (640, 420), (600, 400)):
+            with self.subTest(case="refont", size=size):
+                theme.set_text("normal")
+                dialog = self.unavailable()
+                kit.refont(dialog)
+                dialog.resize(*size)
+                dialog._state("error", message)
+                guikit.pump()
+                theme.set_text("larger")
+                kit.refont(dialog)
+                guikit.pump()
+                check(dialog)
+                dialog.close()
 
     def test_fullscreen_escape_keeps_the_player_and_normal_geometry(self):
         from PyQt6.QtTest import QTest
