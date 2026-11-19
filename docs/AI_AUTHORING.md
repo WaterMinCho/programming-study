@@ -512,7 +512,7 @@ blueprint는 `tools/ai_mock_rules.py`의 `allocate(LESSON_SCORES, 44)`가 내는
 - format별 문항 수는 choice 16, bug 5, order 3, blank 8, predict 8, code 4입니다. choice·bug·order는 kind=choice, blank·predict는 kind=blank, code는 kind=code로 적으므로 객관식 24, 빈칸 16, 코드 작성 4문항이 됩니다.
 - level 1/2/3은 11/22/11개입니다. 이 가운데 코드 작성 4문항은 level 2 2개, level 3 2개입니다.
 - `CONTRACTS`의 문항 수는 `exam_size(LESSON_SCORES의 차시 수)`와 같아야 합니다. `LESSON_SCORES`에 차시를 넣어 문항 수가 바뀌거나, 개론과 응용의 몫을 그 과정의 차시마다 1~4문항씩 나눌 수 없으면 지금 배분 버전으로 낸 회차가 실패합니다. 새 배분 버전을 `CONTRACTS`와 `ALL_LESSON_RULES`에 함께 등록하고 그 회차를 새 버전으로 다시 출제합니다.
-- 문항 ID는 m11-01부터 m11-44까지 한 번씩 씁니다.
+- 문항 ID는 회차 ID 뒤에 -01부터 -44까지 붙여 한 번씩 씁니다. m12이면 m12-01부터 m12-44까지입니다.
 - 공개된 개론·응용 차시가 blueprint에 하나라도 빠지면 실패합니다. 학습 노트 meta.json, 문항 meta.json, 봉인이나 작업본이 모두 있는 차시를 공개된 차시로 봅니다.
 - round_set이 같은 모든 차시 회차끼리 facts에 같은 사실 ID를 쓰면 실패합니다. round_set이 다르면 경고만 냅니다. 경고가 난 사실은 다른 단계나 조건으로 냈는지 회차 기록에 적습니다. related_sources의 보조 사실은 세지 않습니다. meta.json이 draft=true인 모든 차시 회차도 대조하므로, 두 회차를 모두 초안으로 쓰는 동안에도 같은 사실을 쓰면 실패합니다. 회차 사이의 같은 지문·보기 검사도 초안인 모든 차시 회차와 대조합니다. 32문항 회차를 검사할 때도 초안인 모든 차시 회차와 대조합니다.
 
