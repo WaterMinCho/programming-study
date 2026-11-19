@@ -118,10 +118,15 @@ class CourseGuiTest(AiTest):
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
         self.assertEqual({'m4', 'm5', 'm6'}, set(win.ai.mocks))
-        guikit.click(win.ai_home.browser.buttons['mocks'])
-        self.assertTrue(win.ai_home.mock_section.isVisible())
         self.assertIn('응용', win.ai_home.lesson_list.rows[0].title.text())
         win.ai.save_step('a01', 'a1b', 3)
+        guikit.click(win.ai_home.course_tabs.buttons[2])
+        self.assertEqual('intro', win.ai.course)
+        self.assertTrue(win.ai_home.mock_section.isVisible())
+        listed = [m['title'] for m in win.ai.overview()['mocks'] if m['ready']]
+        self.assertEqual(listed, [row.title.text() for row in win.ai_home.mock_list.rows])
+        self.assertEqual({'m1','m2','m3','m4','m5','m6'}, set(win.ai.mocks))
+        self.assertEqual('app', win.settings.value('ai/course/' + win.user))
         guikit.click(win.ai_home.course_tabs.buttons[0])
         self.assertEqual('intro', win.ai.course)
         self.assertEqual(2, win.ai.unit_steps('i01', '1a')['at_step'])
@@ -142,9 +147,12 @@ class CourseGuiTest(AiTest):
             win=self.boot((760,480))
             win.go_ai();win.switch_ai_course('app');self.idle()
             self.assertEqual({},win.ai.mocks)
-            guikit.click(win.ai_home.browser.buttons['mocks'])
+            self.assertNotIn('mocks',win.ai_home.browser.buttons)
+            self.assertFalse(win.ai_home.mock_list.isVisible())
+            guikit.click(win.ai_home.course_tabs.buttons[2])
             self.assertFalse(win.ai_home.mock_section.isVisible())
             self.assertTrue(win.ai_home.mock_empty.isVisible())
+            self.assertEqual('아직 공개된 모의고사가 없습니다.',win.ai_home.mock_empty.text())
             self.capture_widget=win
 
     def test_switch_reuses_the_course_and_keeps_the_old_tab_until_content_is_ready(self):
@@ -165,16 +173,23 @@ class CourseGuiTest(AiTest):
             guikit.pump()
             applied = win.ai
             self.assertEqual([(True, True)], observed)
-            self.assertEqual([False, True], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
+            self.assertEqual([False, True, False], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
             with mock.patch.object(win.ai_home, "show_books", wraps=win.ai_home.show_books) as books:
                 guikit.click(win.ai_home.course_tabs.buttons[0])
                 self.assertIs(intro, win.ai)
-                self.assertEqual([True, False], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
+                self.assertEqual([True, False, False], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
                 books.assert_called_once()
             guikit.click(win.ai_home.course_tabs.buttons[1])
             self.assertIs(applied, win.ai)
             guikit.click(win.ai_home.course_tabs.buttons[1])
-            self.assertEqual([False, True], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
+            self.assertEqual([False, True, False], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
+            guikit.click(win.ai_home.course_tabs.buttons[2])
+            self.assertIs(intro, win.ai)
+            guikit.click(win.ai_home.course_tabs.buttons[0])
+            self.assertIs(intro, win.ai)
+            guikit.click(win.ai_home.course_tabs.buttons[2])
+            self.assertIs(intro, win.ai)
+            self.assertEqual([False, False, True], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
             factory.assert_called_once()
         self.assertTrue(win.ai_home.updatesEnabled())
 
@@ -223,15 +238,15 @@ class CourseGuiTest(AiTest):
         for mode in ("light", "dark"):
             theme.set_mode(mode)
             win.restyle()
-            for number, course in ((1, "app"), (0, "intro")):
+            for number, course in ((1, "app"), (2, "intro"), (0, "intro")):
                 with mock.patch.object(win.ai_home, "show_lessons", side_effect=update):
                     guikit.click(win.ai_home.course_tabs.buttons[number])
                 self.assertEqual(course, win.ai.course)
                 self.assertTrue(win.ai_home.course_tabs.buttons[number].isChecked())
-                self.assertEqual([n == number for n in range(2)], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
+                self.assertEqual([n == number for n in range(3)], [button.isChecked() for button in win.ai_home.course_tabs.buttons])
                 self.assertTrue(win.ai_home.updatesEnabled())
                 self.assertEqual(0, win.ai_home.scroll.horizontalScrollBar().maximum())
-        self.assertEqual([False] * 4, phases)
+        self.assertEqual([False] * 6, phases)
 
     def test_version_notice_fits_small_window_max_text_and_both_themes(self):
         from unittest import mock

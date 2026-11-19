@@ -44,10 +44,11 @@ class MixedMockPageTest(unittest.TestCase):
                 win.switch_ai_course(course)
                 self.idle()
                 self.assertNotIn('m4',win.ai.mocks)
-                guikit.click(win.ai_home.browser.buttons['mocks'])
+                self.assertFalse(win.open_ai_mock('m4'))
+                win.go_ai()
+                guikit.click(win.ai_home.course_tabs.buttons[2])
                 self.assertTrue(win.ai_home.mock_pending.isVisible())
                 self.assertIn('메타데이터',win.ai_home.mock_pending.text())
-                self.assertFalse(win.open_ai_mock('m4'))
 
     def test_both_tabs_restore_the_same_timed_answer_and_attempt(self):
         win=self.boot((760,480))

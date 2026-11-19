@@ -133,7 +133,7 @@ class MockPage(QWidget):
             raise MockError('쓰던 답안을 먼저 저장하세요.')
         self.mid = mid
         info = self.win.ai.mock_info(mid)
-        self.top.back.setText('← ' + bank.COURSES[self.win.ai.course])
+        self.top.back.setText('← 모의고사' if self.win.ai_home.tab == 'mock' else '← ' + bank.COURSES[self.win.ai.course])
         self.restart_required = info["restart_required"]
         self.top.title.setText(info['title'])
         self.top.title.show()

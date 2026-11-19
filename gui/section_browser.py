@@ -61,12 +61,7 @@ class SectionButton(QPushButton):
         painter.translate(origin)
         painter.setPen(QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        if self.key == "mocks":
-            painter.drawEllipse(QRectF(2, 3, 18, 18))
-            painter.drawLine(QPointF(11, 7), QPointF(11, 12))
-            painter.drawLine(QPointF(11, 12), QPointF(15, 14))
-            painter.drawLine(QPointF(8, 0), QPointF(14, 0))
-        elif self.key == "coding":
+        if self.key == "coding":
             path = QPainterPath(QPointF(7, 5))
             for point in ((2, 11), (7, 17)):
                 path.lineTo(*point)
@@ -159,14 +154,18 @@ class SectionBrowser(QWidget):
         self.scroll.verticalScrollBar().sliderPressed.connect(self._cancel_restore)
         outer.addWidget(self.scroll, 1)
 
-    def add_section(self, key, title, description, panel):
+    def add_section(self, key, title, description, panel, listed=True):
+        """listed 가 거짓이면 분류 단추 없이 패널만 둠. 그 분류를 고르면 분류 줄을 숨김."""
+        self.panels[key] = panel
+        self.body.addWidget(panel)
+        panel.hide()
+        if not listed:
+            return
         button = SectionButton(key, title, description)
-        self.buttons[key], self.panels[key] = button, panel
+        self.buttons[key] = button
         self.group.addButton(button)
         button.installEventFilter(self)
         button.clicked.connect(lambda checked=False, key=key: self.select(key))
-        self.body.addWidget(panel)
-        panel.hide()
         self.columns = 0
         self.refont()
         if self.current is None:
@@ -182,12 +181,16 @@ class SectionBrowser(QWidget):
         state["section"] = self.current
         state["positions"][self.current] = self.pending if self.pending is not None else self.scroll.verticalScrollBar().value()
 
-    def begin_refresh(self, context):
+    def begin_refresh(self, context, section=None):
+        """section 을 주면 그 context 에서 보일 분류를 section 으로 정함. 새 context 는 지금 분류에서 시작하고, 지금 분류에 단추가 없으면 첫 분류에서 시작함."""
         self.remember()
         self._timer.stop()
         self.pending = None
         self.context = context
-        self.states.setdefault(context, {"section": self.current, "positions": {}})
+        start = self.current if self.current in self.buttons else next(iter(self.buttons), self.current)
+        state = self.states.setdefault(context, {"section": start, "positions": {}})
+        if section is not None:
+            state["section"] = section
 
     def finish_refresh(self):
         state = self.states[self.context]
@@ -201,10 +204,12 @@ class SectionBrowser(QWidget):
         self.current = key
         for name, panel in self.panels.items():
             panel.setVisible(name == key)
-            self.buttons[name].setChecked(name == key)
-            self.buttons[name].setFocusPolicy(Qt.FocusPolicy.StrongFocus if name == key else Qt.FocusPolicy.ClickFocus)
+            if name in self.buttons:
+                self.buttons[name].setChecked(name == key)
+                self.buttons[name].setFocusPolicy(Qt.FocusPolicy.StrongFocus if name == key else Qt.FocusPolicy.ClickFocus)
+        self.navigation.setVisible(key in self.buttons)
         focused = self.window().focusWidget()
-        if focused in self.buttons.values() and focused is not self.buttons[key]:
+        if key in self.buttons and focused in self.buttons.values() and focused is not self.buttons[key]:
             self.buttons[key].setFocus(Qt.FocusReason.OtherFocusReason)
         state = self.states.setdefault(self.context, {"section": key, "positions": {}})
         state["section"] = key
