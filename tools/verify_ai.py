@@ -1584,7 +1584,8 @@ class _MockSources:
                 meta = study.read_json(os.path.join(aibank.mock_dir(mid, self.bank_dir), "meta.json"))
                 if not isinstance(meta, dict):
                     raise ValueError("%s의 배분 자료는 객체여야 합니다." % mid)
-                if mixed_mock.candidate(entry) and meta.get("draft") is True:
+                # 모든 차시 회차는 초안이어도 비교 대상에 넣음. 둘 다 초안인 회차 사이의 같은 사실과 같은 지문도 찾기 위함
+                if mixed_mock.candidate(entry) and meta.get("draft") is True and not _all_lessons(entry):
                     continue
                 _, items = _mock_payload(self.bank_dir, mid)
                 if not all(isinstance(item, dict) for item in items):

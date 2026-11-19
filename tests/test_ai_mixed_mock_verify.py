@@ -740,8 +740,9 @@ class AllLessonValidationTest(unittest.TestCase):
                 self.save()
                 self.assert_fails('round_set은 1 이상 정수')
 
-    def add_signed_round(self, mid, round_set, shared_fact):
-        """다른 all44 회차를 서명 전 공개 상태(draft=False)로 더함. shared_fact가 참이면 첫 문항이 m11 첫 문항과 같은 사실을 씀."""
+    def add_signed_round(self, mid, round_set, shared_fact, draft=False):
+        """다른 all44 회차를 더함. 기본은 서명 전 공개 상태(draft=False)이고, draft가 참이면 초안으로 더함.
+        shared_fact가 참이면 첫 문항이 m11 첫 문항과 같은 사실을 씀."""
         index = self.fixture.read('index.json')
         spec = self.round_spec(mid)
         if all(row['id'] != mid for row in index['mocks']):
@@ -751,7 +752,7 @@ class AllLessonValidationTest(unittest.TestCase):
         if shared_fact:
             items[0]['facts'] = list(self.items[0]['facts'])
             items[0]['sourcefacts'] = copy.deepcopy(self.items[0]['sourcefacts'])
-        meta = dict(spec, format=1, draft=False, time_basis='연습 기본 시간입니다.', round_set=round_set)
+        meta = dict(spec, format=1, draft=draft, time_basis='연습 기본 시간입니다.', round_set=round_set)
         meta.pop('hidden')
         self.fixture.write('mocks/%s/meta.json' % mid, meta)
         self.fixture.write('mocks/%s/work/items.json' % mid, {'format': 1, 'items': items})
@@ -768,23 +769,74 @@ class AllLessonValidationTest(unittest.TestCase):
         self.assertIn('round_set이 다른 m11·m13에 같은 사실이 있습니다', output)
         self.assertIn('i01/F01-20', output)
 
+    def test_draft_round_is_compared_for_facts(self):
+        """초안 회차도 같은 round_set의 다른 모든 차시 회차와 사실을 견줌. 초안인 m12 쪽에서 검사해도 실패가 나고, round_set이 다르면 경고만 냄."""
+        same = 'round_set이 같은 %s·%s에 같은 사실이 있습니다: i01/F01-20. 한쪽 문항을 다른 사실로 바꾸세요.'
+        self.add_signed_round('m12', 1, shared_fact=False, draft=True)
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.assertNotIn('round_set이', output)
+        for draft in (True, False):
+            with self.subTest(m11_draft=draft):
+                self.meta['draft'] = draft
+                self.save()
+                self.add_signed_round('m12', 1, shared_fact=True, draft=True)
+                self.assert_fails(same % ('m11', 'm12'))
+                output = io.StringIO()
+                with mock.patch.object(verify_ai, '_code_run_problems', return_value=[]):
+                    code = verify_ai.main(['m12', '--bank', str(self.bank), '--seeds', '2'], output)
+                self.assertEqual(1, code, output.getvalue())
+                self.assertIn(same % ('m12', 'm11'), output.getvalue())
+        self.meta['draft'] = True
+        self.save()
+        self.add_signed_round('m12', 2, shared_fact=True, draft=True)
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.assertIn('round_set이 다른 m11·m12에 같은 사실이 있습니다', output)
+
+    def test_draft_round_is_compared_for_same_question(self):
+        """초안 회차끼리도 회차 사이의 같은 지문·보기를 찾음."""
+        self.add_signed_round('m12', 1, shared_fact=False, draft=True)
+        path = 'mocks/m12/work/items.json'
+        data = self.fixture.read(path)
+        row = data['items'][1]
+        data['items'][1] = dict(copy.deepcopy(self.items[1]), id=row['id'], facts=row['facts'], sourcefacts=row['sourcefacts'])
+        self.fixture.write(path, data)
+        self.assert_fails('회차 간 같은 문항입니다: m12-02 / m11-02')
+
+    def test_related_sources_shared_with_draft_round_are_not_counted(self):
+        self.add_signed_round('m12', 1, shared_fact=False, draft=True)
+        row = self.items[0]
+        row['related_sources'] = [{'lesson': 'i02', 'facts': ['F02-21']}]
+        row['sourcefacts'].append({'lesson': 'i02', 'id': 'F02-21'})
+        self.save()
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.assertNotIn('round_set이', output)
+
     def test_32_question_round_is_not_compared_for_facts(self):
-        """32문항 회차(m4 꼴)와는 같은 사실을 써도 round_set 실패나 경고를 내지 않음."""
+        """32문항 회차(m4 꼴)와는 같은 사실을 써도 round_set 실패나 경고를 내지 않음. 32문항 회차가 초안이면 지문·보기도 견주지 않음."""
         index = self.fixture.read('index.json')
         spec = dict(self.round_spec('m14'), count=32, course_counts={'intro': 16, 'app': 16},
                     blueprint_revision='mixed32-blueprint-v1')
         index['mocks'].append(spec)
         self.fixture.write('index.json', index)
-        items = all44_items('m14', fact_no=21, revision='mixed32-blueprint-v1')
-        items[0]['facts'] = list(self.items[0]['facts'])
-        items[0]['sourcefacts'] = copy.deepcopy(self.items[0]['sourcefacts'])
-        meta = dict(spec, format=1, draft=False, time_basis='연습 기본 시간입니다.')
-        meta.pop('hidden')
-        self.fixture.write('mocks/m14/meta.json', meta)
-        self.fixture.write('mocks/m14/work/items.json', {'format': 1, 'items': items})
-        code, output = self.verify()
-        self.assertEqual(0, code, output)
-        self.assertNotIn('round_set이', output)
+        for draft in (False, True):
+            with self.subTest(m14_draft=draft):
+                items = all44_items('m14', fact_no=21, revision='mixed32-blueprint-v1')
+                items[0]['facts'] = list(self.items[0]['facts'])
+                items[0]['sourcefacts'] = copy.deepcopy(self.items[0]['sourcefacts'])
+                if draft:
+                    items[1] = dict(copy.deepcopy(self.items[1]), id=items[1]['id'], facts=items[1]['facts'],
+                                    sourcefacts=items[1]['sourcefacts'])
+                meta = dict(spec, format=1, draft=draft, time_basis='연습 기본 시간입니다.')
+                meta.pop('hidden')
+                self.fixture.write('mocks/m14/meta.json', meta)
+                self.fixture.write('mocks/m14/work/items.json', {'format': 1, 'items': items})
+                code, output = self.verify()
+                self.assertEqual(0, code, output)
+                self.assertNotIn('round_set이', output)
+                self.assertNotIn('회차 간 같은 문항', output)
 
     def test_related_sources_are_not_counted_as_shared_facts(self):
         self.add_signed_round('m12', 1, shared_fact=False)
