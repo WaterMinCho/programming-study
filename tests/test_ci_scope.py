@@ -154,6 +154,14 @@ class SelectionTest(unittest.TestCase):
     def test_model_code_gets_syntax_check(self):
         self.assertEqual(dict(bank=False, unit=False, gui=False, model=True), ci_scope.selection(["experiments/alice/train.py"]))
 
+    def test_underscore_model_folder_matches_hyphen_folder(self):
+        self.assertTrue(ci_scope.model_path("experiments/kimjs85529_a11y/train.py"))
+        for paths in (["experiments/kimjs85529_a11y/train.py"], ["experiments/kimjs85529_a11y/README.md"],
+                      ["experiments/kimjs85529_a11y/train.py", "gui/window.py"]):
+            with self.subTest(paths=paths):
+                hyphen = [path.replace("kimjs85529_a11y", "kimjs85529-a11y") for path in paths]
+                self.assertEqual(ci_scope.selection(hyphen), ci_scope.selection(paths))
+
     def test_unlisted_markdown_guides_keep_units_without_screen_tests(self):
         self.assertEqual(dict(bank=False, unit=True, gui=False, model=False),
                          ci_scope.selection(["docs/new-screen-guide.md"]))
