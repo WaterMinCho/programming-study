@@ -444,10 +444,13 @@ class MixedMockTest(unittest.TestCase):
     def test_all_lessons_44_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
         self.check_actual_snapshots('m11')
 
+    def test_all_lessons_round2_44_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m12')
+
     def check_actual_snapshots(self, mid):
         source=Path(__file__).resolve().parents[1]/'ai'
         raw=load_secrets(str(source/'mocks'/mid)).get('items.json')
-        if mid in ('m6','m11'):
+        if mid in ('m6','m11','m12'):
             self.assertIsNotNone(raw, '%s 문항이 필요합니다.' % mid)
         if raw is None:
             self.skipTest('초안 문항은 검토 경로에서만 보관함')

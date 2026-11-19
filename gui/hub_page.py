@@ -594,7 +594,7 @@ class HubPage(QWidget):
         overview, error = None, win.ai_error
         if win.ai is not None:
             try:
-                overview = win.ai.hub_overview()
+                overview = win.course_ai().hub_overview()
             except (SessionError, RecordError) as caught:
                 error = str(caught)
         ready = overview is not None
@@ -666,7 +666,13 @@ class HubPage(QWidget):
                 return
 
     def open_ai(self, item):
-        """저장한 AI 학습 단계나 연습 묶음을 엶. 예전 추천 값도 기존 화면으로 연결함."""
+        """저장한 AI 학습 단계나 연습 묶음을 엶. 예전 추천 값도 기존 화면으로 연결함.
+        win.ai 의 과정이 마지막으로 고른 과정(ai/course)과 다르면 그 과정 탭으로 먼저 돌아감. 돌아가지 못하면 아무것도 열지 않음."""
+        course = self.win.ai_course()
+        if self.win.ai is not None and self.win.ai.course != course:
+            self.win.select_ai_tab(course)
+            if self.win.ai.course != course:
+                return
         if item["kind"] == "unit":
             self.win.open_ai_unit(item["lesson"], item["unit"], item.get("step"))
         elif item["kind"] == "practice":
