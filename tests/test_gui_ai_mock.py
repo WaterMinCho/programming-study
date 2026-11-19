@@ -9,7 +9,7 @@ from unittest import mock
 from tests.test_gui_ai import AI_FIXTURE, AiTest, visible_text
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QInputMethodEvent, QPainter
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QLabel
 from aiprep import bank
 from aiprep.mock import MockError
 from gui import kit, theme
@@ -149,6 +149,201 @@ class MockPageTest(AiTest):
             win.ai_mock.begin()
         self.idle()
         return win.ai_mock
+
+    def use_items(self, items):
+        """임시 회차의 문항을 바꿔 씀. 44문항처럼 긴 회차는 m90 문항 넷을 번호만 바꿔 되풀이함."""
+        if isinstance(items, int):
+            items = [dict(self.items[n % 4], id='m90-%02d' % (n + 1)) for n in range(items)]
+        (Path(self.root) / 'mocks/m90/work/items.json').write_text(json.dumps({'items': items}, ensure_ascii=False), encoding="utf-8")
+        index_path = os.path.join(self.root, 'index.json')
+        index = study.read_json(index_path)
+        index['mocks'][0]['count'] = len(items)
+        study.write_text(index_path, json.dumps(index, ensure_ascii=False))
+        return items
+
+    def test_number_chips_keep_one_width_and_grid_height_through_submit(self):
+        theme.set_text('normal')
+        self.addCleanup(theme.set_text, 'normal')
+        self.use_items(44)
+        page = self.open_mock((1280, 800))
+        self.assertEqual(44, len(page.nav))
+        self.assertTrue(page.grid_toggle.isChecked())
+        widths = {}
+        for size in ('normal', 'larger', 'normal'):
+            self.win.set_text(size)
+            self.idle()
+            self.assertEqual(1, len({button.width() for button in page.nav}), size)
+            for button in page.nav:
+                self.assertGreaterEqual(button.width(), button.sizeHint().width(), button.text())
+            widths.setdefault(size, page.nav[0].width())
+            self.assertEqual(widths[size], page.nav[0].width(), size)
+        self.assertGreater(widths['larger'], widths['normal'])
+        before = (page.grid.height(), page.nav[0].width())
+        for pos in (0, 9, 43):
+            page.go(pos)
+            if page.inputs:
+                page.inputs[0].setText('3')
+            else:
+                page.choices.rows[0].box.setChecked(True)
+            page.changed()
+            page.flag()
+        self.idle()
+        self.assertEqual(before, (page.grid.height(), page.nav[0].width()))
+        self.assertTrue(page.nav[9].text().endswith(' ★'))
+        self.assertEqual('10번 · 답함 · 나중에 보기', page.nav[9].accessibleName())
+        self.assertEqual('2번 · 비움', page.nav[1].accessibleName())
+        page.submit()
+        self.idle()
+        self.assertEqual(before, (page.grid.height(), page.nav[0].width()))
+        names = {'○': '맞음', '×': '틀림', '−': '비움'}
+        for n, button in enumerate(page.nav):
+            number, mark = button.text().split(' ')
+            self.assertEqual(str(n + 1), number)
+            self.assertEqual('%d번 · %s' % (n + 1, names[mark]), button.accessibleName())
+            self.assertGreaterEqual(button.width(), button.sizeHint().width(), button.text())
+        self.win.set_text('larger')
+        self.idle()
+        self.assertEqual(widths['larger'], page.nav[0].width())
+        self.assertEqual(1, len({button.width() for button in page.nav}))
+
+    def test_small_window_folds_the_grid_until_the_learner_picks(self):
+        theme.set_text('normal')
+        self.addCleanup(theme.set_text, 'normal')
+        page = self.open_mock((760, 480))
+        self.assertTrue(page.grid_toggle.isChecked())  # 4문항은 작은 창에서도 펼침
+        self.assertTrue(page.nav[0].isVisible())
+        self.win.close()
+        self.use_items(44)
+        page = self.open_mock((760, 480))
+        self.assertFalse(page.grid_toggle.isChecked())
+        self.assertFalse(page.grid.isVisible())
+        self.assertTrue(page.grid_toggle.isVisible())
+        self.assertEqual('문항 번호 · 1 / 44', page.grid_toggle.text())
+        self.assertEqual('내용 접힘', page.grid_toggle.accessibleDescription())
+        card = page.card.width()
+        guikit.click(page.grid_toggle)
+        self.assertTrue(page.grid.isVisible())
+        self.assertTrue(all(button.isVisible() for button in page.nav))
+        self.assertEqual('내용 펼쳐짐', page.grid_toggle.accessibleDescription())
+        self.assertEqual(card, page.card.width())
+        page.move(1)
+        self.assertEqual('문항 번호 · 2 / 44', page.grid_toggle.text())
+        self.assertTrue(page.grid.isVisible())
+        self.win.resize(1280, 800)
+        self.idle()
+        self.assertTrue(page.grid.isVisible())
+        guikit.click(page.grid_toggle)
+        self.win.resize(760, 480)
+        self.idle()
+        self.win.resize(1280, 800)
+        self.idle()
+        self.assertFalse(page.grid.isVisible())
+        page.begin()
+        self.idle()
+        self.assertTrue(page.grid_toggle.isChecked())  # 화면을 새로 열면 창 크기로 다시 정함
+        self.win.resize(760, 480)
+        self.idle()
+        self.assertFalse(page.grid_toggle.isChecked())
+
+    def test_grid_toggle_keyboard_and_focus_when_folding(self):
+        from PyQt6.QtTest import QTest
+
+        self.use_items(44)
+        page = self.open_mock((1280, 800))
+        self.assertEqual(Qt.FocusPolicy.TabFocus, page.grid_toggle.focusPolicy())
+        self.assertIs(page.nav[0], page.grid_toggle.nextInFocusChain())
+        self.assertIs(page.nav[1], page.nav[0].nextInFocusChain())
+        page.grid_toggle.setFocus(Qt.FocusReason.TabFocusReason)
+        self.idle()
+        QTest.keyClick(page.grid_toggle, Qt.Key.Key_Tab)
+        self.idle()
+        self.assertIs(page.nav[0], QApplication.focusWidget())
+        page.nav[3].setFocus(Qt.FocusReason.TabFocusReason)
+        self.idle()
+        QTest.keyClick(page.nav[3], Qt.Key.Key_Space)
+        self.idle()
+        self.assertEqual(4, page.item['at'])
+        page.nav[3].setFocus(Qt.FocusReason.TabFocusReason)
+        self.idle()
+        self.assertIs(page.nav[3], QApplication.focusWidget())
+        page.grid_toggle.click()
+        self.idle()
+        self.assertFalse(page.grid.isVisible())
+        self.assertIs(page.grid_toggle, QApplication.focusWidget())
+        QTest.keyClick(page.grid_toggle, Qt.Key.Key_Space)
+        self.idle()
+        self.assertTrue(page.grid.isVisible())
+        self.assertEqual('내용 펼쳐짐', page.grid_toggle.accessibleDescription())
+
+    def test_blank_cards_keep_number_name_and_format_lines(self):
+        from gui import ai_text
+        from gui.ai_learn import CodeSlots
+
+        items = [dict(item) for item in self.items]
+        items[3]['blanks'] = [{'answer': ['3'], 'mode': 'number', 'hint': '첫 값'}, {'answer': ['3'], 'mode': 'shape'}]
+        self.use_items(items)
+        page = self.open_mock((760, 480))
+        order = page.exam.draft['order']
+
+        def lines(text):
+            return [label for label in page.card.findChildren(QLabel) if label.text() == text and label.isVisible()]
+
+        page.go(order.index('m90-01'))
+        self.idle()
+        self.assertEqual(1, len(lines(ai_text.MODE_FORMAT['number'])))
+        page.inputs[0].setText('3')
+        page.changed()
+        self.idle()
+        self.assertEqual(1, len(lines(ai_text.MODE_FORMAT['number'])))
+        self.assertEqual([], [label for label in page.card.findChildren(QLabel) if label.text() == ai_text.number_mark(1)])
+        page.go(order.index('m90-04'))
+        self.idle()
+        self.assertEqual(1, len(lines(ai_text.MODE_FORMAT['number'])))
+        self.assertEqual(1, len(lines(ai_text.MODE_FORMAT['shape'])))
+        self.assertEqual(1, len(lines('첫 값')))
+        self.assertTrue(lines('첫 값')[0].property('bold'))
+        self.assertEqual(1, len(lines(ai_text.number_mark(2))))
+        self.assertEqual(['① 첫 값', '② 모양'], [field.accessibleName() for field in page.inputs])
+        self.assertEqual([ai_text.MODE_FORMAT['number'], ai_text.MODE_FORMAT['shape']], [field.accessibleDescription() for field in page.inputs])
+        for label in lines(ai_text.MODE_FORMAT['shape']):
+            self.assertLessEqual(label.width(), page.inputs[1].width())
+        page.go(order.index('m90-03'))
+        self.idle()
+        slots = page.card.findChildren(CodeSlots)[0]
+        self.assertEqual(page.card.contentsRect().width() - 48, slots.width())
+        self.assertEqual(1, len(lines(ai_text.MODE_FORMAT['code'])))
+        self.assertEqual(('코드', ai_text.MODE_FORMAT['code']), (page.inputs[0].accessibleName(), page.inputs[0].accessibleDescription()))
+        page.go(order.index('m90-01'))
+        page.submit()
+        self.idle()
+        page.go(order.index('m90-01'))
+        self.idle()
+        self.assertTrue(page.inputs[0].isReadOnly())
+        self.assertEqual(1, len(lines(ai_text.MODE_FORMAT['number'])))
+
+    def test_card_head_is_on_the_first_screen(self):
+        theme.set_text('normal')
+        self.addCleanup(theme.set_text, 'normal')
+        items = self.use_items(44)
+        code = '\n'.join('x%d = %d' % (n, n) for n in range(18))
+        items[1] = dict(items[0], id='m90-02', stem='```python\n%s\n```\n\n마지막 값을 쓰세요: ____' % code)
+        self.use_items(items)
+        page = self.open_mock((760, 480))
+        order = page.exam.draft['order']
+        for size in ((760, 480), (1024, 700), (1280, 800)):
+            for text in ('normal', 'larger'):
+                for card in ('m90-01', 'm90-02'):
+                    self.win.resize(*size)
+                    self.win.set_text(text)
+                    page.go(order.index(card))
+                    self.idle()
+                    at = '%d / 44' % (order.index(card) + 1)
+                    head = next(label for label in page.card.findChildren(QLabel) if label.text() == at)
+                    view = page.scroll.viewport()
+                    top = head.mapTo(view, head.rect().topLeft())
+                    bottom = head.mapTo(view, head.rect().bottomRight())
+                    self.assertTrue(view.rect().contains(top) and view.rect().contains(bottom), (size, text, card))
+                    self.assertIs(page.inputs[0], QApplication.focusWidget())
 
     def test_changed_active_exam_offers_a_new_attempt_from_the_start_button(self):
         self.addCleanup(theme.set_text, 'normal')

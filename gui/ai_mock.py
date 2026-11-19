@@ -2,15 +2,16 @@
 """모의고사 답안을 로컬에 저장하고 제출한 뒤에만 판정과 해설을 보임."""
 import math
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF
-from PyQt6.QtWidgets import QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QSizePolicy, QWidget
 
 from aiprep import bank, mixed_mock
 from aiprep.grade import BLANK
 from aiprep.mock import MockError
 from gui import ai_text, kit, theme
 from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, RichPara, doc, reading_column
+from gui.disclosure import DisclosureButton
 from gui.docview import Doc
 from gui.ai_quiz import commit_input, split_stem
 from gui.widgets import AnswerLine, PasteBlock
@@ -19,6 +20,16 @@ from session import SessionError
 
 SUMMARY_LEAST = 128  # 제출 뒤 요약 카드 최소 높이
 BAR_WIDTH = 120  # 보통 글자에서 차시별 막대 폭
+GRID_SHARE = 3  # 펼친 번호 칸 묶음이 스크롤 영역 높이의 1/3 을 넘으면 접음
+RESULT_NAME = {'pass': '맞음', 'stuck': '틀림', 'blank': '비움'}
+
+
+def name_blank(field, blanks, n):
+    """빈칸 입력 칸의 접근성 이름은 번호와 이름표(없으면 입력 종류), 설명은 형식 줄과 같은 글로 둠."""
+    blank = blanks[n]
+    mark = ai_text.number_mark(n + 1) if len(blanks) > 1 else ''
+    field.setAccessibleName(' '.join(filter(None, (mark, blank.get('hint') or ai_text.MODE_HINT.get(blank['mode'], '')))))
+    field.setAccessibleDescription(ai_text.MODE_FORMAT[blank['mode']])
 
 
 class FirstScore(QWidget):
@@ -91,11 +102,21 @@ class MockPage(QWidget):
         self.lesson_results.hide()
         self.summary_key = None
         self.numbers = QWidget()
-        self.number_row = kit.FlowLayout(self.numbers, 8)
+        numbers_box = kit.box(self.numbers)
+        self.grid_toggle = DisclosureButton('문항 번호', role='label')
+        self.grid_toggle.setChecked(True)
+        self.grid = QWidget()
+        self.number_row = kit.FlowLayout(self.grid, 8)
+        numbers_box.addWidget(self.grid_toggle)
+        numbers_box.addWidget(self.grid)
+        self.grid_toggle.toggled.connect(self.show_grid)
+        self.grid_toggle.clicked.connect(self.pick_grid)
+        self.fold_auto = True  # 참이면 창 높이로 접고 펼침. 학습자가 접거나 펼치면 거짓이 되어 그 회차 화면이 열려 있는 동안 고른 상태를 지킴
         self.body.addWidget(self.numbers)
         self.card, self.card_box = kit.card(24, theme.GAP["group"])
         self.body.addWidget(self.card)
         self.scroll, _ = reading_column(body)
+        self.scroll.installEventFilter(self)
         root.addWidget(self.scroll, 1)
         self.bar = kit.BottomBar(dense=True)
         self.flag_btn = self.bar.add_tool(kit.button('나중에 보기', 'text', 'm'))
@@ -124,6 +145,9 @@ class MockPage(QWidget):
         self.save_timer.setSingleShot(True)
         self.save_timer.setInterval(2000)
         self.save_timer.timeout.connect(self.persist)
+        self.head_timer = QTimer(self)  # 창이 초점 받은 칸을 보이게 하는 타이머보다 나중에 시작해 그 뒤에 돎
+        self.head_timer.setSingleShot(True)
+        self.head_timer.timeout.connect(self.keep_head)
         for button in (self.flag_btn, self.previous_btn, self.next_btn, self.submit_btn, self.retry_btn, self.home_btn, self.notes_btn, self.start_btn, self.top_submit):
             button.hide()
         self.timer.start()
@@ -192,8 +216,13 @@ class MockPage(QWidget):
             button.clicked.connect(lambda checked=False, pos=pos: self.go(pos))
             self.number_row.addWidget(button)
             self.nav.append(button)
+        for before, after in zip([self.grid_toggle] + self.nav, self.nav):
+            QWidget.setTabOrder(before, after)
+        self.fold_auto = True
+        self.size_chips()
         self.notice.hide()
         self.show_question()
+        self.fit_grid()
         if self.exam.recovered_draft:
             self.notice.text.setText("이 기기의 모의고사 초안이 없어 저장된 답을 복원하지 못했습니다. 원래 시작 시각과 제한 시간을 적용합니다.")
             self.notice.show()
@@ -210,7 +239,7 @@ class MockPage(QWidget):
             if item.widget() is not None:
                 item.widget().hide()
                 item.widget().deleteLater()
-        self.inputs, self.choices = [], None
+        self.inputs, self.choices, self.head = [], None, None
 
     def fail(self, error):
         self.notice.text.setText(str(error))
@@ -254,9 +283,13 @@ class MockPage(QWidget):
         done = self.exam.result is not None
         self.showing_result = done
         self.dirty = False
-        self.card_box.addWidget(kit.label('%d / %d' % (item['at'], item['total']), 'headline'))
+        self.head = top = QWidget()
+        head = kit.box(top, spacing=theme.SPACE[2], horizontal=True)
+        head.addWidget(kit.label('%d / %d' % (item['at'], item['total']), 'headline'))
         if item.get('course'):
-            self.card_box.addWidget(kit.para(ai_text.lesson_title(item['course_no'], '', item['course']), 'caption', 'secondary'))
+            head.addWidget(kit.badge(ai_text.lesson_title(item['course_no'], '', item['course']), 'accent'))
+        head.addStretch(1)
+        self.card_box.addWidget(top)
         if item['kind'] == 'blank':
             blanks, count = item['blanks'], 0
             stem = bank.number_blanks(item['stem']) if len(blanks) > 1 else item['stem']
@@ -267,6 +300,12 @@ class MockPage(QWidget):
                     slots = CodeSlots(text, hints, [ai_text.number_mark(count + n + 1) if len(blanks) > 1 else '' for n in range(here)])
                     self.card_box.addWidget(slots)
                     self.inputs += list(slots.fields)
+                    for n, field in enumerate(slots.fields):
+                        name_blank(field, blanks, count + n)
+                    for n, blank in enumerate(blanks[count:count + here]):
+                        parts = [ai_text.number_mark(count + n + 1)] if len(blanks) > 1 else []
+                        parts.append(' · '.join(filter(None, (blank.get('hint'), ai_text.MODE_FORMAT[blank['mode']]))))
+                        self.card_box.addWidget(kit.para(' '.join(parts), 'caption', 'secondary'))
                     count += here
                 else:
                     doc(text, '', self.card_box)
@@ -274,14 +313,20 @@ class MockPage(QWidget):
                         field = AnswerLine()
                         kit.typed(field, 'body')
                         field.setPlaceholderText(blanks[count].get('hint') or ai_text.MODE_HINT.get(blanks[count]['mode'], ''))
-                        if len(blanks) > 1:
-                            holder = QWidget()
-                            row = kit.box(holder, spacing=12, horizontal=True)
-                            row.addWidget(kit.label(ai_text.number_mark(count + 1), 'label'))
-                            row.addWidget(field, 1)
-                            self.card_box.addWidget(holder)
-                        else:
-                            self.card_box.addWidget(field)
+                        name_blank(field, blanks, count)
+                        holder = QWidget()
+                        column = kit.box(holder, spacing=theme.SPACE[1])
+                        if len(blanks) > 1 or blanks[count].get('hint'):
+                            row = kit.box(None, spacing=theme.SPACE[1], horizontal=True)
+                            if len(blanks) > 1:
+                                row.addWidget(kit.label(ai_text.number_mark(count + 1), 'label'))
+                            if blanks[count].get('hint'):
+                                row.addWidget(kit.label(blanks[count]['hint'], 'label', bold=True))
+                            row.addStretch(1)
+                            column.addLayout(row)
+                        column.addWidget(field)
+                        column.addWidget(kit.para(ai_text.MODE_FORMAT[blanks[count]['mode']], 'caption', 'secondary'))
+                        self.card_box.addWidget(holder)
                         self.inputs.append(field)
                         count += 1
             for n, field in enumerate(self.inputs):
@@ -300,7 +345,7 @@ class MockPage(QWidget):
             self.choices.changed.connect(self.changed)
         if done:
             info = self.exam.explain(item['card'])
-            self.card_box.addWidget(kit.label({'pass': '맞음', 'stuck': '틀림', 'blank': '비움'}[info['result']], 'headline'))
+            self.card_box.addWidget(kit.label(RESULT_NAME[info['result']], 'headline'))
             correct = info['correct'] if item['kind'] == 'blank' else [self.exam.items[item['card']]['options'][n]['text'] for n in info['right']]
             doc('정답: ' + ' / '.join(correct), '', self.card_box)
             doc(info['explain'], '', self.card_box)
@@ -313,18 +358,30 @@ class MockPage(QWidget):
         self.scroll.verticalScrollBar().setValue(0)
         if not done and self.inputs:
             self.inputs[0].setFocus(Qt.FocusReason.OtherFocusReason)
+            self.head_timer.start(0)
         self.tick()
+
+    def keep_head(self):
+        """첫 칸에 초점을 준 뒤 창이 그 칸까지 스크롤해도 카드 머리는 화면에 남게 함."""
+        if self.head is None:
+            return
+        bar = self.scroll.verticalScrollBar()
+        bar.setValue(min(bar.value(), max(0, self.head.mapTo(self.scroll.widget(), self.head.rect().topLeft()).y() - 16)))
 
     def update_navigation(self):
         done = self.exam.result is not None
         for n, (button, progress) in enumerate(zip(self.nav, self.exam.progress())):
             suffix = ' ★' if progress['flagged'] else (' ✓' if progress['answered'] else '')
             if done:
-                suffix = ' · ' + {'pass': '맞음', 'stuck': '틀림', 'blank': '비움'}[self.exam.result['results'][progress['card']]]
-            button.setText(str(n + 1) + suffix)
-            button.setToolTip('%d번 · %s%s' % (n + 1, '답함' if progress['answered'] else '비움', ' · 나중에 보기' if progress['flagged'] else ''))
+                result = self.exam.result['results'][progress['card']]
+                button.setText('%d %s' % (n + 1, ai_text.RESULT_MARK[result]))
+                button.setToolTip('%d번 · %s' % (n + 1, RESULT_NAME[result]))
+            else:
+                button.setText(str(n + 1) + suffix)
+                button.setToolTip('%d번 · %s%s' % (n + 1, '답함' if progress['answered'] else '비움', ' · 나중에 보기' if progress['flagged'] else ''))
             button.setAccessibleName(button.toolTip())
             button.setChecked(self.item['at'] == n + 1)
+        self.grid_toggle.setText('문항 번호 · %d / %d' % (self.item['at'], self.item['total']))
         self.previous_btn.setEnabled(self.item['at'] > 1 and not self.busy)
         last = self.item['at'] == self.item['total']
         self.next_btn.setEnabled(not last and not self.busy)
@@ -413,8 +470,64 @@ class MockPage(QWidget):
             row.where.setFixedWidth(column + 2)
             row.fit_height()
 
+    def size_chips(self):
+        """번호 칸을 모두 같은 폭으로 둠. 가장 큰 번호에 상태 기호를 하나씩 붙인 글을 고른 칸과 고르지 않은 칸 양쪽으로 재서
+        그중 가장 넓은 폭을 씀. 고른 칸은 굵은 글자라 보통 그쪽이 가장 넓음.
+        그래서 답하거나 표시를 달거나 제출해도 칸 폭과 줄 수가 바뀌지 않음."""
+        if not self.nav:
+            return
+        probe, text, checked = self.nav[-1], self.nav[-1].text(), self.nav[-1].isChecked()
+        probe.setMinimumWidth(0)
+        probe.setMaximumWidth(16777215)
+        widest = 0
+        marks = ['', ' ★', ' ✓'] + [' ' + mark for mark in ai_text.RESULT_MARK.values()]
+        for state in (False, True):
+            probe.setChecked(state)
+            kit.repolish(probe)
+            for mark in marks:
+                probe.setText(str(len(self.nav)) + mark)
+                widest = max(widest, probe.sizeHint().width())
+        probe.setText(text)
+        probe.setChecked(checked)
+        kit.repolish(probe)
+        for button in self.nav:
+            button.setFixedWidth(widest)
+
+    def show_grid(self, opened):
+        focus = QApplication.focusWidget()
+        if not opened and focus is not None and self.grid.isAncestorOf(focus):
+            self.grid_toggle.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.grid.setVisible(opened)
+
+    def pick_grid(self):
+        self.fold_auto = False
+
+    def fit_grid(self):
+        """학습자가 고르지 않았으면 펼친 번호 칸 묶음의 높이가 스크롤 영역 높이의 1/3 이하면 펼치고 넘으면 접음.
+        폭은 스크롤 영역 폭에서 세로 스크롤 막대 폭을 미리 빼서 셈. 그래서 막대가 생기거나 없어져도 값이 바뀌지 않음.
+        묶음 높이는 한 줄에 들어가는 칸 수로 줄 수를 구해 셈. 새로 만든 칸은 아직 보이기 전이라 FlowLayout 이 높이를 0으로 돌려주기 때문임.
+        창이 아직 그려지지 않아 높이가 0이면 미룸."""
+        if not self.fold_auto or not self.nav or self.scroll.height() <= 0:
+            return
+        width = min(self.scroll.width() - 2 * kit.DENSE_MARGIN - self.scroll.verticalScrollBar().sizeHint().width(),
+                    self.numbers.parentWidget().maximumWidth())
+        if width <= 0:
+            return
+        gap, chip = self.number_row.spacing(), self.nav[0]
+        rows = math.ceil(len(self.nav) / max(1, (width + gap) // (chip.width() + gap)))
+        opened = (rows * (chip.sizeHint().height() + gap) - gap) * GRID_SHARE <= self.scroll.height()
+        if opened != self.grid_toggle.isChecked():
+            self.grid_toggle.setChecked(opened)
+
+    def eventFilter(self, watched, event):
+        if watched is self.scroll and event.type() == QEvent.Type.Resize:
+            self.fit_grid()
+        return super().eventFilter(watched, event)
+
     def refont(self):
         self.size_bars()
+        self.size_chips()
+        self.fit_grid()
 
     def go(self, pos):
         if self.busy or not self.persist():
