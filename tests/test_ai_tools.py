@@ -16,6 +16,7 @@ import shutil
 import struct
 import sys
 import tempfile
+import types
 import unicodedata
 import unittest
 from unittest import mock
@@ -611,6 +612,30 @@ class LeechTest(Case):
         self.assertIn("자주 틀리는 문항 0개", out)
 
 
+LECTURE_FOLDERS = ("강의_11기_AI응용_4차시_추적", "강의_11기_AI응용_14차시_비전", "강의_11기_AI개론_4차시_x",
+                   "강의_11기_AI개론_14차시_사전학습", "강의_11기_AI개론_15차시_y", "강의_04차시_실습")
+
+
+def read_lecture_pdfs(tmp, bank, wanted):
+    """가짜 차시 폴더(과정 이름이 없는 폴더 하나 포함)마다 작은 PDF 를 두고 main 이 읽은 PDF 의 폴더 이름(NFC)을 돌려줌. pypdf 없이 _pdf_text 를 바꿔 봄."""
+    lecture = os.path.join(tmp, "courses")
+    if not os.path.isdir(lecture):
+        for name in LECTURE_FOLDERS:
+            folder = os.path.join(lecture, unicodedata.normalize("NFD", name))
+            os.makedirs(folder)
+            with open(os.path.join(folder, "x.pdf"), "wb") as fh:
+                fh.write(b"%PDF-1.4\n")
+    seen = []
+
+    def fake_pdf(path):
+        seen.append(unicodedata.normalize("NFC", os.path.basename(os.path.dirname(path))))
+        return ""
+    with mock.patch.object(ai_overlap, "_pdf_text", side_effect=fake_pdf), \
+            mock.patch.dict(sys.modules, {"pypdf": types.ModuleType("pypdf")}):
+        ai_overlap.main(["--lecture", lecture, "--bank", bank] + list(wanted), io.StringIO())
+    return sorted(seen)
+
+
 class OverlapTest(Case):
     def test_standard_training_calls_alone_do_not_claim_copied_code(self):
         block = "loss.backward()\noptimizer.step()\nmodel.eval()\nwith torch.no_grad():"
@@ -653,9 +678,50 @@ class OverlapTest(Case):
             folder = os.path.join(lecture, unicodedata.normalize("NFD", name))
             os.makedirs(folder)
             study.write_text(os.path.join(folder, "a.py"), "print('%s')\n" % name)
-        self.assertEqual(1, len(ai_overlap.lesson_folders(lecture, [90])))
-        found = ai_overlap.corpus(lecture, [90], use_pdf=False)["code"]
+        self.assertEqual(1, len(ai_overlap.lesson_folders(lecture, [("intro", 90)])))
+        found = ai_overlap.corpus(lecture, [("intro", 90)], use_pdf=False)["code"]
         self.assertEqual(["print('강의_90차시_실습')\n", "print('대학원_강의안')\n"], [unicodedata.normalize("NFC", t) for t in found])
+
+    def test_lesson_folders_follow_course(self):
+        app4, app14, intro4, intro14, intro15, plain4 = LECTURE_FOLDERS
+        self.assertEqual(sorted([app4, plain4]), read_lecture_pdfs(self.tmp, self.bank, ["a04", "al04"]))
+        self.assertEqual(sorted([intro14, intro15]), read_lecture_pdfs(self.tmp, self.bank, ["i14"]))
+        self.assertEqual(sorted([intro4, plain4]), read_lecture_pdfs(self.tmp, self.bank, ["l04", "i04"]))
+        self.assertEqual(sorted(LECTURE_FOLDERS), read_lecture_pdfs(self.tmp, self.bank, []))
+
+    def test_unreadable_pdf_is_skipped_and_reported(self):
+        lecture = os.path.join(self.tmp, "broken")
+        for name, files in (("강의_11기_AI응용_13차시_x", ("a.pdf",)), ("강의_11기_AI응용_14차시_y", ("BERT.pdf", "b.pdf"))):
+            folder = os.path.join(lecture, unicodedata.normalize("NFD", name))
+            os.makedirs(folder)
+            for file in files:
+                with open(os.path.join(folder, file), "wb") as fh:
+                    fh.write(b"%PDF-1.4\n")
+        errors = types.ModuleType("pypdf.errors")
+
+        class PdfReadError(Exception):
+            pass
+        errors.PdfReadError = PdfReadError
+
+        class Page:
+            def extract_text(self):
+                return ""
+
+        class PdfReader:
+            def __init__(self, path):
+                if os.path.basename(path) == "BERT.pdf":
+                    raise PdfReadError("Could not read Boolean object")
+                self.pages = [Page()]
+        pypdf = types.ModuleType("pypdf")
+        pypdf.PdfReader, pypdf.errors = PdfReader, errors
+        out = io.StringIO()
+        with mock.patch.dict(sys.modules, {"pypdf": pypdf, "pypdf.errors": errors}):
+            code = ai_overlap.main(["--lecture", lecture, "--bank", self.bank, "a14"], out)
+        self.assertEqual(0, code, out.getvalue())
+        lines = unicodedata.normalize("NFC", out.getvalue()).splitlines()
+        self.assertIn("pypdf 가 읽지 못해 건너뛴 PDF: %s" % os.path.join("강의_11기_AI응용_14차시_y", "BERT.pdf"), lines)
+        self.assertEqual(1, sum("건너뛴 PDF" in line for line in lines))
+        self.assertTrue(lines[-1].endswith(" · 못 읽은 PDF 1개"), lines[-1])
 
     def test_needs_lecture_dir(self):
         out = io.StringIO()
@@ -1591,6 +1657,11 @@ class AppPatternOverlapTest(AppPatternCase):
         only_pc = [t[0] for t in ai_overlap.targets(aifix.pc_bank(os.path.join(self.tmp, "pc_only")), ["pc"])]
         self.assertEqual(only_pc, intro)
         self.assertEqual(17, len(intro))
+
+    def test_group_reads_only_its_course_folders(self):
+        app4, app14, intro4, intro14, intro15, plain4 = LECTURE_FOLDERS
+        self.assertEqual(sorted([app4, app14, plain4]), read_lecture_pdfs(self.tmp, self.bank, ["apc"]))
+        self.assertEqual(sorted([intro4, intro14, intro15, plain4]), read_lecture_pdfs(self.tmp, self.bank, ["pc"]))
 
 
 if __name__ == "__main__":

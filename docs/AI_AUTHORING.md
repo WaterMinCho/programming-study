@@ -339,8 +339,8 @@ python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 
 python3 tools/verify_ai.py --require-review               문항 묶음·모의고사와 등록된 공용 생성기의 서명 확인(CI)
 python3 tools/verify_web.py --bank ai --total-mb 32 l05 --require-review   학습 노트 형식·그림과 기존 서명 확인
 python3 tools/web_lint.py --bank ai --no-external         학습 노트 말투와 맥락(낱말을 쓰기 전에 소개)
-python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l05 i05   강의 글 겹침(출제자 컴퓨터에서만, PDF 는 pypdf)
-python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l18       l18·pc·S1 가운데 하나만 줘도 그 무리의 노트, 뼈대 폴더, 문항 폴더(items/<무리 id>)를 모든 차시 강의와 견줌(응용은 al18·apc·S101)
+python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l05 i05   강의 글 겹침(출제자 컴퓨터에서만). PDF 는 pypdf 로 읽고, pypdf 가 읽지 못한 PDF 는 건너뛰고 파일 이름을 적음. 응용은 al05 a05 로 주면 이름에 AI개론 이 든 차시 폴더를 빼고 견줌
+python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l18       l18·pc·S1 가운데 하나만 줘도 그 무리의 노트, 뼈대 폴더, 문항 폴더(items/<무리 id>)를 그 과정의 모든 차시 강의와 견줌(응용은 al18·apc·S101)
 python3 tools/verify_ai.py --sources "$AI_LECTURE_DIR"    강의 폴더 sha256 을 facts.json 과 견줌
 python3 tools/verify_ai.py --overrides                    [내 답도 맞음] 답 모아 보기
 python3 tools/verify_ai.py --leeches                      자주 틀리는 문항 모아 보기
