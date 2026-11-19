@@ -179,7 +179,7 @@ class MockTabTest(AiTest):
         win.go_ai()
         home = win.ai_home
         guikit.click(home.course_tabs.buttons[2])
-        for size in ((760, 480), (1024, 700)):
+        for size in ((1024, 700), (760, 480)):
             win.resize(*size)
             for step in ("normal", "larger"):
                 win.set_text(step)
