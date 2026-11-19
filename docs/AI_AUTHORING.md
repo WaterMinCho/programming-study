@@ -514,7 +514,7 @@ blueprint는 `tools/ai_mock_rules.py`의 `allocate(LESSON_SCORES, 44)`가 내는
 - `CONTRACTS`의 문항 수는 `exam_size(LESSON_SCORES의 차시 수)`와 같아야 합니다. `LESSON_SCORES`에 차시를 넣어 문항 수가 바뀌거나, 개론과 응용의 몫을 그 과정의 차시마다 1~4문항씩 나눌 수 없으면 지금 배분 버전으로 낸 회차가 실패합니다. 새 배분 버전을 `CONTRACTS`와 `ALL_LESSON_RULES`에 함께 등록하고 그 회차를 새 버전으로 다시 출제합니다.
 - 문항 ID는 m11-01부터 m11-44까지 한 번씩 씁니다.
 - 공개된 개론·응용 차시가 blueprint에 하나라도 빠지면 실패합니다. 학습 노트 meta.json, 문항 meta.json, 봉인이나 작업본이 모두 있는 차시를 공개된 차시로 봅니다.
-- round_set이 같은 모든 차시 회차끼리 facts에 같은 사실 ID를 쓰면 실패합니다. round_set이 다르면 경고만 냅니다. 경고가 난 사실은 다른 단계나 조건으로 냈는지 회차 기록에 적습니다. related_sources의 보조 사실은 세지 않습니다. meta.json이 draft=true인 다른 회차와는 대조하지 않으므로, 두 회차를 모두 초안으로 쓰는 동안에는 같은 사실을 써도 이 검사가 실패하지 않습니다.
+- round_set이 같은 모든 차시 회차끼리 facts에 같은 사실 ID를 쓰면 실패합니다. round_set이 다르면 경고만 냅니다. 경고가 난 사실은 다른 단계나 조건으로 냈는지 회차 기록에 적습니다. related_sources의 보조 사실은 세지 않습니다. meta.json이 draft=true인 모든 차시 회차도 대조하므로, 두 회차를 모두 초안으로 쓰는 동안에도 같은 사실을 쓰면 실패합니다. 회차 사이의 같은 지문·보기 검사도 초안인 모든 차시 회차와 대조합니다. 32문항 회차를 검사할 때도 초안인 모든 차시 회차와 대조합니다.
 
 빠진 차시 검사는 지금 `all44-v1` 회차에만 걸립니다. 새 차시를 공개하면 그 차시의 다섯 값을 `LESSON_SCORES`에 넣고 앞 차시의 의존 값을 고칩니다. 그다음 `exam_size`로 새 문항 수를 정하고 `allocate`로 새 배분을 냅니다. 새 배분 버전은 `CONTRACTS`와 `tools/verify_ai.py`의 `ALL_LESSON_RULES`에 함께 등록합니다. `all44-v1`의 blueprint 기대값은 그때의 `LESSON_SCORES`로 다시 계산합니다. 새 차시를 넣거나 값을 고쳐 `allocate` 결과가 바뀐 PR에서는 `all44-v1` 회차가 모두 배분 불일치로 실패하므로, 그 PR에서 기존 회차를 새 배분 버전으로 함께 옮깁니다. 18차시 이상을 공개할 때는 1~17차시만 받는 `_MockSources.entries`, 보조 차시를 i01~i17로 거르는 `_mixed_mock_evidence`, `range`를 [1, 17]로 기대하는 `_mixed_shared_problems`도 고칩니다.
 
