@@ -49,6 +49,9 @@ class VideoSurface(QWidget):
 
     def fit_viewport(self, height):
         width = QWIDGETSIZE_MAX if height is None or self.fullscreen else max(round(height * 16 / 9), round(200 * 16 / 9))
+        if width < QWIDGETSIZE_MAX:
+            # 배율 1.5 에서 홀수 폭은 화면 화소 수가 정수가 아니라 웹 화면 폭이 위젯 폭과 어긋나므로 짝수로 맞춤
+            width -= width % 2
         if height != self.viewport_height or width != self.maximumWidth():
             self.viewport_height = height
             self.setMaximumWidth(width)
