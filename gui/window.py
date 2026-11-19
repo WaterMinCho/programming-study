@@ -328,8 +328,7 @@ class MainWindow(QMainWindow):
         self.ai_mock.clear()
         self.ai_courses.clear()
         try:
-            course = self.settings.value("ai/course/" + self.user, "intro", type=str)
-            course = course if course in ("intro", "app") else "intro"
+            course = self.ai_course()
             mock_tab = self.settings.value("ai/tab/" + self.user, "course", type=str) == "mock"
             self.ai_home.tab = "mock" if mock_tab else course
             stamp = ai_bank.source_stamp()
@@ -510,9 +509,28 @@ class MainWindow(QMainWindow):
     def switch_ai_course(self, course):
         self.select_ai_tab(course)
 
+    def ai_course(self):
+        """학습자가 마지막으로 고른 AI 과정(intro·app). 저장한 값이 없거나 다른 값이면 intro."""
+        course = self.settings.value("ai/course/" + self.user, "intro", type=str)
+        return course if course in ("intro", "app") else "intro"
+
+    def course_ai(self):
+        """학습 현황이 쓰는 마지막 과정 세션. 모의고사 탭이 win.ai 를 개론 세션으로 바꿔도 ai/course 의 세션을 돌려줌.
+        캐시에 맞는 세션이 없으면 만들어 캐시에만 넣음. win.ai, 연습 화면, 오늘 표식 연결은 바꾸지 않음."""
+        course = self.ai_course()
+        if self.ai is None or self.ai.course == course:
+            return self.ai
+        stamp = ai_bank.source_stamp(self.ai.root)
+        saved, selected = self.ai_courses.get(course, (None, None))
+        if stamp is None or saved != stamp or selected is None or selected.user != self.user or selected.root != self.ai.root:
+            selected = ai_service.AiSession(self.user, root=self.ai.root, course=course)
+            self.ai_courses[course] = (stamp, selected)
+        return selected
+
     def select_ai_tab(self, tab):
         """AI 홈의 탭(intro·app·mock)을 바꿈. 과정별 읽던 위치와 연습을 보존함.
-        모의고사 탭은 개론 세션으로 그림. 탭 선택은 ai/tab 에 남기고 ai/course 는 과정 탭을 고를 때만 씀."""
+        모의고사 탭은 개론 세션으로 그림. 탭 선택은 ai/tab 에 남기고 ai/course 는 과정 탭을 고를 때만 씀.
+        학습 현황은 course_ai() 로 ai/course 의 세션을 씀."""
         home = self.ai_home
         course = "intro" if tab == "mock" else tab
         if self.ai is None or home.busy or (home.tab == tab and self.ai.course == course):
