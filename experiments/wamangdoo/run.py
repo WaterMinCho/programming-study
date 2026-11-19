@@ -1,9 +1,4 @@
 from pathlib import Path
-import sys
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 import torch
 from experiments.wamangdoo.model import SmallTransformer
@@ -23,7 +18,7 @@ def to_model_inputs(raw_inputs):
 def main():
     torch.manual_seed(42)
     # (programming-study 밖에서 실행하면 파일을 못 찾음)
-    dataset_path = Path(__file__).resolve().parents[3] / "learning-demo-v7"
+    dataset_path = Path(__file__).resolve().parents[3] / "learning-demo-f8"
     rows, vocabulary = load(str(dataset_path), "python", "train")
 
     num_questions = len(vocabulary["questions"])
