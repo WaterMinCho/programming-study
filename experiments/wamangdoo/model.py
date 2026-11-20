@@ -48,13 +48,10 @@ class SmallTransformer(nn.Module):
 
     def encode_history(self, inputs):
         # 과거 풀이 기록을 읽어 빈 이력(lengths==0)과 빈 자리(패딩)를 제외한 요약 상태를 반환함
-        device = self.embedding.weight.device
-        dtype = self.embedding.weight.dtype
-
-        questions = torch.as_tensor(inputs["questions"], dtype=torch.long, device=device)
-        concepts = torch.as_tensor(inputs["concepts"], dtype=dtype, device=device)
-        results = torch.as_tensor(inputs["results"], dtype=dtype, device=device)
-        mask = torch.as_tensor(inputs["mask"], dtype=torch.bool, device=device)
+        questions = inputs["questions"]
+        concepts = inputs["concepts"]
+        results = inputs["results"]
+        mask = inputs["mask"]
 
         # 과거 문제 번호 임베딩 후 개념, 정오답과 하나로 결합
         ## unsqueeze 옆으로 이어 붙일 수 있게.
@@ -65,7 +62,7 @@ class SmallTransformer(nn.Module):
         )
 
         # 위치(순서) 인덱스 생성 후 투영된 과거 특성에 위치 임베딩을 더함
-        positions = torch.arange(questions.size(1), device=device).unsqueeze(0)
+        positions = torch.arange(questions.size(1), device=questions.device).unsqueeze(0)
         history_embedding = self.input_proj(history_input) + self.position_embedding(positions)
 
         # 과거 풀이 기록이 없는 학생을 위해 기본 상태 벡터를 0으로 먼저 초기화함
@@ -91,12 +88,10 @@ class SmallTransformer(nn.Module):
 
     def forward(self, inputs):
         history_state = self.encode_history(inputs)
-        device = history_state.device
-        dtype = history_state.dtype
 
         # 이번에 풀 문제(Query) 정보 변환 (이번 정오답 targets는 데이터 누수 방지를 위해 절대 입력에 포함하지 않음)
-        query_question = torch.as_tensor(inputs["query_question"], dtype=torch.long, device=device)
-        query_concepts = torch.as_tensor(inputs["query_concepts"], dtype=dtype, device=device)
+        query_question = inputs["query_question"]
+        query_concepts = inputs["query_concepts"]
 
         query_embedding = self.embedding(query_question)
         query_vector = torch.cat([query_embedding, query_concepts], dim=-1)

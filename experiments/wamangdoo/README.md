@@ -11,7 +11,7 @@
 
 ### 1. 파일 구성
 - `model.py`: `SmallTransformer` 모델 본체 (과거 풀이 인코딩 + 이번 문제 결합 후 `logits` 반환)
-- `run.py`: 합성 자료(`learning-demo-f8`)에서 핵심 6개 입력만 골라 학습 전 예측 확률 출력
+- `run.py`: 합성 자료(`learning-demo-f8`)에서 핵심 6개 입력을 골라 `set_seed(42)`와 `get_device()`(`cuda` / `mps` / `cpu`) 적용 후 배치 단위로 `.to(device)` 이동해 학습 전 예측 확률 출력
 - `test_model.py`: 일부/전원 빈 이력, 평가 모드 패딩 변경 불변성, 과거 풀이 순서(위치 정보) 반영 검증 (`unittest`)
 
 ### 2. 실행 조건 및 환경
@@ -19,7 +19,7 @@
 |---|---|
 | 자료 묶음 | `..\learning-demo-f8` (합성 자료, `features_version: 8`)                                                           |
 | 과목 / 분할 / 길이 | `python` / `train` / `length=32`                                                                               |
-| 시드 / 모드 | `torch.manual_seed(42)`, `model.eval()`, `torch.no_grad()`                                                     |
+| 시드 / 장치 / 모드 | `set_seed(42)` (`random`/`numpy`/`torch`/`cuda`/`mps`), `get_device()`, `model.eval()`, `torch.no_grad()` |
 | 모델 설정 | `embed_num=16`, `hidden_num=16`, `nhead=4`, `num_layers=2`, `dim_feedforward=32`, `max_len=128`, `dropout=0.1` |
 | 실행 환경 | `Python 3.13.15` / `pytorch: 2.15.0+cu132` (Windows)                                                           |
 
@@ -37,6 +37,7 @@
 - `dim_feedforward=32` (`hidden_num * 2`), `num_layers=2`, `dropout=0.1`: 소규모 데이터에서 파라미터가 많아져 과적합되는 것을 줄이기 위해 기본 4배 대신 2배로 줄였습니다.
 - `max_len=128`: 공통 입력의 최대 이력 보관 개수(`128`)에 맞췄습니다.
 - `forward()` 반환값: 추후 학습 단계에서 `nn.BCEWithLogitsLoss`를 바로 연결할 수 있도록 시그모이드 전 로짓(`logits`)을 반환하고, 확률 확인(`run.py`, `test_model.py`)에서만 `torch.sigmoid()`를 적용했습니다.
+- **입력 장치 이동 분리**: `encode_history()`와 `forward()` 안에서 매 호출마다 `torch.as_tensor(..., device=device)`를 실행하지 않고, 호출부(`run.py` 및 추후 학습 루프)에서 모델과 배치를 한 번에 `.to(device)`로 옮기도록 분리해 CPU↔GPU(CUDA/MPS) 반복 복사 병목을 방지했습니다.
 
 ### 5. 직접 실행한 명령과 실제 출력
 > 아래 출력은 **학습 전 초기 가중치 상태**의 순전파·구조 검증 결과이며, 학습된 모델 성능이 아닙니다.
@@ -61,7 +62,7 @@ test_padding_does_not_change_prediction (experiments.wamangdoo.test_model.TestSm
 test_position_order_changes_prediction (experiments.wamangdoo.test_model.TestSmallTransformer.test_position_order_changes_prediction) ... ok
 
 ----------------------------------------------------------------------
-Ran 4 tests in 1.039s
+Ran 4 tests in 1.425s
 
 OK
 
