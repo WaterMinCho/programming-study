@@ -85,7 +85,7 @@ class SmallLSTM(nn.Module):
         dropout = self.dropout(combined)
         
         #  logits 값으로 전달
-        logits = self.fc(combined).squeeze(-1)
+        logits = self.fc(dropout).squeeze(-1)
 
         return logits
         # # sigmoid로 출력

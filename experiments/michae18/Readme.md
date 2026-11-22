@@ -21,7 +21,7 @@ Dropout (p=0.2)
 
 Adam Optimizer의 Weight Decay (1e-3)
 
-Validation Loss 기반 Early Stopping (patience=5)
+Validation Loss 기반 Early Stopping (patience=20)
 
 학습 및 검증 결과를 Epoch별로 기록하고, Train / Validation Loss와 Accuracy 그래프를 작성했습니다.
 
