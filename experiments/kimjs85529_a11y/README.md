@@ -2,343 +2,544 @@
 
 - **담당 모델:** LSTM + 풀이 간격(Time Gap)
 - **담당 이슈:** https://github.com/WaterMinCho/programming-study/issues/121
+- **기본 LSTM 참고 PR:** https://github.com/WaterMinCho/programming-study/pull/226
 - **이전 입력 확인 PR:** https://github.com/WaterMinCho/programming-study/pull/158
 - **피드백 반영 PR:** https://github.com/WaterMinCho/programming-study/pull/319
-- **작업 브랜치:** `model/kimjs85529_a11y_timegap_v8_fix`
-- **기록 기준일:** 2026-11-18
-
-이번 작업은 Time Gap **전처리와 테스트** 단계다. LSTM 학습, 모델 예측, 저장과 공식 채점은 수행하지 않았다. 문서는 `LEARNING_EXPERIMENT_TEMPLATE.md`의 항목에 맞췄다.
+- **작업 브랜치:** `model/kimjs85529_a11y_timegap_lstm`
+- **최종 확인일:** 2026-11-22
 
 ## 예측할 값과 모델을 고른 이유
 
-이전 문제의 ID, 개념, 정오답을 이용하는 기본 LSTM에, **현재 문제의 개념별 마지막 풀이 후 경과 시간**을 추가하여 정답 확률을 예측하려고 한다.
+기본 LSTM이 사용하는 과거 문제 ID, 개념, 정오답 및 현재 문제 정보에 풀이 간격(Time Gap)을 추가하여 다음 문제의 정답 확률을 예측하도록 모델을 구현했다.
 
-현재는 시간 정보를 `[gap_log, gap_known]` 숫자 두 개로 만드는 기능만 구현했다. 시간 입력이 성능을 높이는지는 아직 검증하지 않았다.
+목적은 동일한 기본 LSTM 구조에서 시간 정보 추가 여부에 따른 예측 성능 차이를 비교하는 것이다.
+
+시간 특성은 `[gap_log, gap_known]`으로 구성한다.
+
+- `gap_log`: 마지막 풀이 후 경과 시간(초)을 일 단위로 변환하고 `log1p()`를 적용한 값
+- `gap_known`: 시간 확인 여부를 나타내는 0.0 또는 1.0
+
+시간 미확인 상태 `[0.0, 0.0]`과 실제 0초 간격 `[0.0, 1.0]`을 구분한다.
+
+현재는 모델 구현과 기능 검증까지 완료했으며, 실제 데이터 기반 학습 및 성능 비교는 진행하지 않았다.
 
 ## 직접 구현한 부분
 
 | 파일 | 역할 |
 |---|---|
-| `experiments/kimjs85529_a11y/inspect_gaps.py` | `select_query_gaps()`와 `build_time_feature()` 및 v8 입력 확인 |
-| `experiments/kimjs85529_a11y/test_gaps.py` | 공개 입력 테스트 1~5, 실제 자료 테스트 6, `<UNK>` 혼합 방지 테스트 7 |
-| `experiments/kimjs85529_a11y/README.md` | 실행 조건, 실제 확인 결과, 피드백 기록 |
+| `inspect_gaps.py` | Time Gap 개별 전처리, PyTorch 배치 연산, 장치 및 시드 설정 |
+| `test_gaps.py` | 시간 전처리 테스트 10개 및 실제 데이터 검증 |
+| `model.py` | 기본 LSTM 상속, 시간 특성 연결 및 공통 가중치 복사 |
+| `test_data_model.py` | 기본 모델 비교, 시간 특성 반영, 역전파, 실제 데이터 순전파, 저장·복원 검증 |
+| `README.md` | 실행 환경, 검증 방법, 실행 결과 및 피드백 기록 |
 
-`select_query_gaps(concepts, seconds, known, names)`는 이번 문제에 포함된 개념 중 PAD(인덱스 0)와 UNK(인덱스 1)를 제외하고, **등록 개념의 확인된 시간 중 최단 간격 하나**를 선택한다.
+### 1. 기본 LSTM과의 관계
 
-UNK는 서로 다른 미등록 개념의 시간이 한 인덱스로 합쳐질 수 있어 정확한 개념 대응이 보장되지 않기 때문이다.
+팀원 `michae18`의 `SmallLSTM` 모델을 상속하여 `TimeGapLSTM`을 구현했다.
 
-시간이 확인된 등록 개념이 없으면 시간 미확인 상태를 반환한다.
+- 기본 모델 경로: `experiments/michae18/model.py`
+- 기본 모델 원본 전체 커밋 SHA: `1b95b0c6a45627ffde19afb7e60ff564b94c7254`
+- 기본 LSTM의 Embedding, LSTM 및 `encode_history()` 구조 유지
+- 최종 Linear 계층에 시간 특성 `[gap_log, gap_known]` 두 개 추가
 
-`build_time_feature()`는 이 함수를 내부에서 호출하여 `[gap_log, gap_known]`를 반환하며, 해당 등록 개념이 하나도 없으면 `[0.0, 0]`을 반환한다.
+`copy_baseline_weights()`를 이용하여 기본 LSTM의 공통 가중치를 복사하고 시간 특성 가중치를 0으로 초기화했다.
 
-최단 간격 선택 부분은 다음과 같다.
+동일한 입력에서 기본 LSTM과 TimeGapLSTM의 초기 Logit이 일치하는지 비교하여 기존 모델 구조가 유지되는지 확인했다.
 
-    confirmed = [item for item in selected if item["known"]]
+기본 LSTM의 SHA는 다음 명령으로 확인했다.
 
-    if confirmed:
-        shortest = min(
-            confirmed,
-            key=lambda item: (
-                item["gap_seconds"],
-                item["concept_id"]
-            )
-        )
-        return [shortest]
+```powershell
+git log -1 --format=%H -- experiments/michae18/model.py
+```
 
-확인된 초 단위 간격은 `math.log1p(gap_seconds / 86400.0)`로 변환한다.
+확인 결과:
 
-| 상황 | 모델 입력 |
-|---|---|
-| 경과 시간 미확인 | `[0.0, 0]` |
-| 실제 경과 시간 0초 | `[0.0, 1]` |
-| 1일 경과 | `[0.6931471805599453, 1]` |
-| 이번 문제의 등록 개념 없음 (`<UNK>`만 포함) | `[0.0, 0]` |
-| `<UNK>` 120초 + `demo` 7일 | `demo`의 7일을 변환한 `[2.0794415416798357, 1]` |
+```text
+1b95b0c6a45627ffde19afb7e60ff564b94c7254
+```
 
-팀원 `experiments/michae18/train.py`의 공통 `load()`와 `batch()` 사용 방식 및 이력 길이 32를 참고했다.
+### 2. 풀이 간격 선택 정책 및 UNK 제외 이유
 
-데이터 경로 설정은 기존 `pathlib.Path` 방식으로 유지했다.
+현재 문제에 포함된 개념 중 시간 정보가 확인된 **등록 개념의 최단 풀이 간격 하나**를 Time Gap 특성으로 사용한다.
 
-팀원 `input_check.py`의 Seed 42에 맞췄으나, 전처리 계산 자체는 난수를 사용하지 않는다. NumPy와 PyTorch는 설치된 경우에만 시드를 설정하며, 공개 입력 테스트 실행에 필수는 아니다.
+시간 선택 과정에서 PAD(개념 ID 0)와 UNK(개념 ID 1)는 제외한다.
 
-팀원의 `SmallLSTM`에 시간 특성을 연결하는 작업은 아직 수행하지 않았다.
+PAD는 실제 개념이 아닌 패딩이므로 풀이 간격 계산에 사용할 수 없다.
 
+UNK는 Vocabulary에 등록되지 않은 여러 개념이 하나의 ID로 통합되어 표현되는 값이다. 따라서 UNK에 기록된 마지막 풀이 시각이 현재 문제의 특정 개념을 마지막으로 풀이한 시각이라고 보장할 수 없다.
+
+예를 들어 서로 다른 미등록 개념 A와 B가 모두 UNK로 표현된다면, A의 풀이 기록이 B의 마지막 풀이 시각으로 잘못 해석될 가능성이 있다.
+
+이러한 부정확한 시간 정보가 모델에 입력되는 것을 방지하기 위해, 정확한 개념 대응이 가능한 등록 개념의 시간 정보만 사용하도록 구현했다.
+
+다만 UNK를 제외하면 다음과 같은 한계가 발생한다.
+
+- 현재 문제에 UNK만 포함되어 있고 UNK의 시간 정보가 확인되더라도, 등록 개념의 확인 가능한 시간이 없다면 `[gap_log, gap_known] = [0.0, 0.0]`을 반환한다.
+- 이 경우 원본 시간 정보가 실제로 없는 기록과 UNK 제외 정책으로 시간 정보를 사용하지 못한 기록이 모델에서 동일한 시간 입력으로 표현된다.
+- 실제 v8 Recorded 데이터의 AI 트랙을 확인한 결과, Train 953건에서는 UNK가 포함된 기록이 0건이었으며, Validation 299건에서는 12건, Test 260건에서는 39건으로 확인되었다. 이 중 UNK의 시간은 확인되었지만 등록 개념의 시간은 확인되지 않아 `[gap_log, gap_known] = [0.0, 0.0]`으로 처리된 기록은 Validation 6건, Test 6건이었다. 따라서 Train의 시간 미확인 196건은 UNK 제외 정책의 영향을 받지 않았으며, Validation과 Test에서는 일부 시간 정보가 제외되었음을 확인했다.
+
+UNK 제외 정책은 `test_gaps.py`의 테스트 7에서 인공 입력을 사용하여 확인했다.
+
+UNK의 간격이 등록 개념보다 짧더라도 UNK를 제외하고, 등록 개념 중 확인된 최단 풀이 간격을 선택하는지 검증했다.
+
+### 3. 시간 특성 생성
+
+선택된 풀이 간격은 다음 식으로 변환한다.
+
+```python
+gap_days = gap_seconds / 86400.0
+gap_log = math.log1p(gap_days)
+```
+
+시간이 확인되지 않으면 `[0.0, 0.0]`을 사용한다.
+
+실제 0초 간격이 확인되면 `[0.0, 1.0]`을 사용한다.
+
+개별 전처리에서는 두 값을 Python float로 반환하며, PyTorch 배치 전처리에서는 `(batch_size, 2)` 형태의 `torch.float32` 텐서를 생성한다.
 
 ## 실행 조건
 
-| 항목 | 사용 값 |
+| 항목 | 실제 사용한 값 |
 |---|---|
-| 운영체제 | Windows |
-| Python | 3.13.5 |
-| 프로젝트 경로 | `C:\programming-study` |
-| 작업 브랜치 | `model/kimjs85529_a11y_timegap_v8_fix` |
-| 실제 자료 경로 | `C:\study-data\common-input-f8-20261118\recorded` (Git 저장소 외부) |
-| 입력 버전 | `features_version: 8` |
-| 자료 종류 | Recorded Data (`synthetic: false`) |
-| 데이터 형식 | `format: 1` |
-| 트랙 및 분할 | `ai`, `train` |
-| AI Train 기록 수 | 953 (기존 데이터 점검 결과) |
-| 입력 확인용 배치 크기 | 4 |
-| 과거 이력 길이 | 32 |
-| 원본 manifest의 `history_limit` | 128 |
-| 시드 | 42 |
 | 본인 Fork | `kimjs85529-a11y/programming-study` |
-| 작업 기준 커밋 SHA | `caa18441e69aea2dbc0a410b8f2746cadf4b326c` (이번 수정 커밋 이전) |
-| 공통 원격 main SHA | `025dd44bf4a12fcac9783b3a7ef553cad02458a6` (2026-11-18 조회 시점) |
-| `manifest.json` SHA-256 | `40141519FA79D1F7050D8F5C65B7B7E38E41D9C86B6A98F01063A70B2A1D5BE5` |
+| 작업 브랜치 | `model/kimjs85529_a11y_timegap_lstm` |
+| 최초 구현 작업 전체 커밋 SHA | `187d7ba4a39fbb602a023bcb49623f656f97df1d` |
+| 작업 기준 공통 main 전체 SHA | `6e6327b964778fddfdae5fd19c61bed51d67e742` |
+| 기본 LSTM 원본 전체 커밋 SHA | `1b95b0c6a45627ffde19afb7e60ff564b94c7254` |
+| `manifest.json` SHA-256 | 비공개 관리, 현재 README에 미기재 |
+| 데이터 버전 | `features_version: 8` |
+| 데이터 묶음 | `common-input-f8-20261118` |
+| 자료 종류 | 실제 수집 자료(Recorded) |
 | `question_min_count` | 미확인 |
 | 변형 행 제외 여부 | 미확인 |
-| PyTorch 버전 | `2.14.1+cpu` |
-| CPU | Intel Core i5-10210U @ 1.60GHz |
-| GPU | Intel UHD Graphics |
-| hidden_size, 임베딩 차원, 파라미터 수 | 모델 통합 및 학습 미실행 |
+| 트랙 / 분할 | `ai` / `train` |
+| 실제 데이터 수 | 953건 |
+| 입력 확인 표본 | 무작위 4건, Seed 42 |
+| 실제 데이터 검증 배치 크기 | 32 |
+| 과거 이력 길이 | 32 |
+| 모델 초기화 Seed | 42 |
+| Embedding 차원 | 16 |
+| LSTM Hidden 차원 | 16 |
+| 문제 Vocabulary 크기 | 146 |
+| 개념 Vocabulary 크기 | 235 |
+| 기본 LSTM 파라미터 | 19,884개 |
+| TimeGapLSTM 파라미터 | 19,886개 |
+| 추가된 파라미터 | 2개 |
+| Python | 3.13.5 |
+| PyTorch | 2.14.1+cpu |
+| 운영체제 | Windows |
+| 검증 장치 | CPU |
 
-실제 기록과 개별 학습자 정보는 공개 PR에 포함하지 않는다.
+실제 데이터 경로:
 
-공통 원격 `main`의 SHA는 PowerShell에서 조회한 시점의 값이며, 실험 당시 기준 커밋이나 현재 작업 브랜치의 기반 커밋을 의미하지는 않는다.
+```text
+C:\study-data\common-input-f8-20261118\recorded
+```
 
-`manifest.json`의 `history_limit=128`은 자료에 기록된 설정이고, 이번 입력 확인에서 `batch(length=32)`로 사용한 과거 이력 길이는 32다. 두 값은 서로 다른 설정이다.
+실제 데이터는 Git 저장소 외부에서 관리하며 공개 PR에는 포함하지 않는다.
 
-`question_min_count`와 변형 행 제외 여부는 제공된 `manifest.json`만으로 확인되지 않아 미확인으로 유지했다.
+### 커밋 SHA 확인
 
-PyTorch는 설치되어 있지만 이번 전처리 테스트에서 신경망 학습을 수행하지 않았다.
+작업 당시 다음 명령으로 커밋을 확인했다.
 
+```powershell
+git log -1 --format=%H -- experiments/michae18/model.py
+git rev-parse HEAD
+git rev-parse origin/main
+git merge-base HEAD origin/main
+```
 
+확인 결과:
+
+```text
+기본 LSTM: 1b95b0c6a45627ffde19afb7e60ff564b94c7254
+작업 HEAD: 187d7ba4a39fbb602a023bcb49623f656f97df1d
+origin/main: 6e6327b964778fddfdae5fd19c61bed51d67e742
+merge-base: 6e6327b964778fddfdae5fd19c61bed51d67e742
+```
+
+README 수정 후 새 커밋을 생성하면 HEAD의 SHA는 변경되므로, 위 작업 SHA는 최초 모델 구현 커밋으로 기록한다.
+
+### 모델 파라미터 수 확인
+
+실제 AI Train 데이터의 Vocabulary를 이용하여 두 모델의 파라미터 수를 비교했다.
+
+```python
+rows, vocabulary = load(
+    str(DATASET_PATH),
+    TRACK,
+    SPLIT,
+)
+
+num_questions = len(vocabulary["questions"])
+num_concepts = len(vocabulary["concepts"])
+
+baseline = SmallLSTM(
+    num_questions=num_questions,
+    num_concepts=num_concepts,
+)
+
+timegap = TimeGapLSTM(
+    num_questions=num_questions,
+    num_concepts=num_concepts,
+)
+
+baseline_params = sum(
+    p.numel() for p in baseline.parameters()
+)
+
+timegap_params = sum(
+    p.numel() for p in timegap.parameters()
+)
+```
+
+실제 실행 결과:
+
+```text
+Track: ai
+Split: train
+전체 데이터: 953
+문제 Vocabulary: 146
+개념 Vocabulary: 235
+기본 LSTM 파라미터: 19884
+TimeGapLSTM 파라미터: 19886
+파라미터 증가량: 2
+```
+
+동일한 Vocabulary와 기본 모델 설정에서 시간 특성 두 개를 추가한 결과, 파라미터 수가 정확히 2개 증가했다.
+
+참고로 인공 테스트 설정(문제 10개, 개념 4개)에서는 기본 LSTM 2,693개, TimeGapLSTM 2,695개로 확인했다.
 
 ## 다른 사람이 실행할 방법
 
-Windows PowerShell에서 다음 명령어를 실행한다.
+저장소 루트 `C:\programming-study`에서 실행한다.
 
-    cd C:\programming-study
+실제 데이터 검증을 위해서는 공통 v8 Recorded 데이터와 프로젝트 의존성이 준비되어 있어야 한다.
 
-    python --version
+### 1. 실행 환경 확인
 
-    python -m py_compile .\experiments\kimjs85529_a11y\inspect_gaps.py
+```powershell
+cd C:\programming-study
 
-    python -m py_compile .\experiments\kimjs85529_a11y\test_gaps.py
+python --version
+python -c "import torch; print(torch.__version__)"
+```
 
-    python .\experiments\kimjs85529_a11y\inspect_gaps.py
+### 2. 시간 전처리 확인
 
-    python .\experiments\kimjs85529_a11y\test_gaps.py
+```powershell
+python -m experiments.kimjs85529_a11y.inspect_gaps
+```
 
-`inspect_gaps.py`는 실제 v8 recorded 자료가 있는 환경에서 실행한다.
+실제 AI Train 전체 데이터 953건 중 Seed 42로 무작위 4건을 선택하여 시간 특성 생성 결과를 확인한다.
 
-`test_gaps.py`는 실제 자료가 없어도 테스트 1~5와 테스트 7을 실행할 수 있다.
+이 실행 예제에서는 배치 크기 4를 사용하며, 실제 데이터 전체 검증에서는 배치 크기 32를 사용한다.
 
-실제 자료가 없으면 테스트 6은 `건너뜀(SKIP)`으로 표시된다. 자료가 존재하면 테스트 6에서 실제 AI Train의 빈 이력 레코드와 `<UNK>` 관련 집계를 진행한다.
+### 3. 시간 전처리 테스트
 
-데이터가 존재하는데 로딩이나 검증 과정에서 오류가 발생하면 테스트 실패로 처리한다.
+```powershell
+python -m experiments.kimjs85529_a11y.test_gaps
+```
 
-NumPy와 PyTorch 없이도 시간 선택 함수를 불러오고 공개 테스트를 실행할 수 있도록 선택적 시드 설정을 사용한다.
+시간 미확인, 실제 0초, 최단 간격 선택, UNK 제외, 자료형, 개별·배치 연산 및 대량 입력 처리 등을 검증한다.
 
-모델 학습·저장·불러오기·예측·공식 채점은 아직 미실행이다.
+### 4. 모델 기능 테스트
+
+```powershell
+python -m experiments.kimjs85529_a11y.test_data_model
+```
+
+또는 저장소 루트에서 직접 실행할 수 있다.
+
+```powershell
+python experiments\kimjs85529_a11y\test_data_model.py
+```
+
+기본 LSTM과 초기 출력 비교, 시간 특성 반영, 빈 이력 및 패딩, 역전파, 실제 데이터 순전파, 모델 저장·복원 등을 확인한다.
+
+### 5. 실제 학습 및 평가
+
+현재 실제 데이터 기반 학습, 공식 채점, 예측 성능 비교는 실행하지 않았다.
+
+인공 입력에 대한 SGD 1회 가중치 갱신은 학습 가능성을 확인하기 위한 기능 테스트이며, 실제 데이터 학습 결과가 아니다.
 
 ## 결과와 오류 사례
 
-### 1. v8 입력 확인 결과
+### 1. 시간 전처리 테스트 재검증
 
-`<UNK>` 제외 정책을 반영한 `inspect_gaps.py`를 Windows·Python 3.13.5 환경에서 실제 v8 recorded 데이터에 대해 재실행한 결과다.
+2026-11-22에 PR 최초 구현 커밋 `187d7ba4a39fbb602a023bcb49623f656f97df1d` 기준으로 전처리 코드를 다시 검증했다.
 
-    ===== 공통 입력 데이터 확인 (v8) =====
-    확인한 예제 수: 4
-    시간 확인 가능: 0
-    시간 미확인: 4
-    모델 시간 입력 형식: [gap_log, gap_known]
-    시간 선택 및 숫자 변환 확인 완료
+재검증 당시 작업 브랜치:
 
-첫 4개 예제의 상태만 나타내며 AI Train 전체를 대표하지 않는다.
+```text
+model/kimjs85529_a11y_timegap_lstm
+```
 
-### 2. 수정 코드의 전체 테스트 실행 결과
+재검증 당시 HEAD:
 
-`<UNK>` 제외 정책을 적용한 코드를 Windows·Python 3.13.5 환경에서 실제 v8 recorded 데이터를 사용해 실행했다.
+```text
+187d7ba4a39fbb602a023bcb49623f656f97df1d
+```
 
-Python 문법 검사 2개가 오류 없이 완료됐으며, 테스트 1~7이 모두 통과했다.
+먼저 다음 명령을 실행했다.
 
-테스트 6은 SKIP되지 않고 실제 AI Train 데이터를 대상으로 실행됐다.
+```powershell
+cd C:\programming-study
 
-    ===== 테스트 1. 시간 확인 가능 =====
-    통과: [0.6931471805599453, 1]
+git branch --show-current
+git rev-parse HEAD
 
-    ===== 테스트 2. 시간 미확인 =====
-    통과: [0.0, 0]
+git diff 187d7ba4a39fbb602a023bcb49623f656f97df1d -- experiments/kimjs85529_a11y/inspect_gaps.py experiments/kimjs85529_a11y/test_gaps.py
+```
 
-    ===== 테스트 3. 실제 0초 =====
-    실제 0초: [0.0, 1]
+`git diff`에서 아무 내용도 출력되지 않았으며, `inspect_gaps.py`와 `test_gaps.py`가 해당 커밋 대비 변경되지 않았음을 확인했다.
 
-    ===== 테스트 4. 다른 개념 제외 및 개념 없음 =====
-    통과: 관련 없는 개념 제외 및 개념 없음 [0.0, 0]
+이후 다음 명령으로 시간 전처리 테스트를 재실행했다.
 
-    ===== 테스트 5. 다중 개념의 최단 간격 =====
-    통과: 확인된 가장 짧은 시간 하나만 선택
+```powershell
+python -m experiments.kimjs85529_a11y.test_gaps
+```
 
-    ===== 테스트 6. 실제 자료의 빈 이력 =====
-    통과: 실제 빈 이력의 lengths=0, mask=False 및 시간 입력 일치
-    실제 AI Train 빈 이력 레코드 수: 3
-    빈 이력 중 observed_history의 last_at 보유 레코드 수: 0
-    빈 이력 중 이번 문제의 시간 확인 가능 레코드 수: 0
-    <UNK> 포함 + 등록 개념 시간 확인 레코드 수: 0
-    그중 <UNK>가 등록 개념보다 짧아 선택될 수 있는 레코드 수: 0
+실제 실행 결과:
 
-    ===== 테스트 7. UNK 시간 혼합 방지 =====
-    통과: UNK 시간을 제외하고 등록 개념 중 최단 간격 선택
-    통과: UNK만 있거나 등록 개념의 시간이 미확인이면 [0.0, 0]
+```text
+===== 테스트 1. 시간 확인 가능 =====
+통과: [0.6931471805599453, 1.0]
 
-    전체 7개 테스트 확인 완료
+===== 테스트 2. 시간 미확인 =====
+통과: [0.0, 0.0]
 
-이번 Windows 실행에서는 테스트 1~7이 모두 통과했고, 실제 자료가 존재하여 테스트 6도 실행됐다.
+===== 테스트 3. 실제 0초 =====
+실제 0초: [0.0, 1.0]
 
-실제 자료가 없는 다른 환경에서는 테스트 6만 SKIP되며, 이 경우 테스트 6을 통과한 것으로 간주하지 않는다.
+===== 테스트 4. 다른 개념 제외 및 개념 없음 =====
+통과: 관련 없는 개념 제외 및 개념 없음 [0.0, 0.0]
 
-### 3. 실제 v8 자료 집계 (2026-11-18 수정 후 재실행 결과)
+===== 테스트 5. 다중 개념의 최단 간격 =====
+통과: 확인된 가장 짧은 시간 하나만 선택
 
-`test_gaps.py`의 테스트 6은 실제 AI Train에서 모든 `sequence_history` 빈 이력 레코드를 찾고, `observed_history`에 `last_at`이 있는 경우와 현재 문제에서 시간 확인 가능한 경우를 구분한다.
+===== 테스트 6. 실제 자료의 빈 이력 =====
+실제 AI Train 전체 자료 수: 953
+시간 확인 가능: 757
+시간 미확인: 196
+개별·배치 결과 전체 비교 통과
+통과: 실제 빈 이력의 lengths=0, mask=False 및 시간 입력 일치
+실제 AI Train 빈 이력 레코드 수: 3
+빈 이력 중 observed_history의 last_at 보유 레코드 수: 0
+빈 이력 중 이번 문제의 시간 확인 가능 레코드 수: 0
+<UNK> 포함 + 등록 개념 시간 확인 레코드 수: 0
+그중 <UNK>가 등록 개념보다 짧아 선택될 수 있는 레코드 수: 0
 
-또한 `<UNK>`가 현재 문제에 포함되고 다른 등록 개념의 시간이 확인된 행을 집계한다.
+===== 테스트 7. UNK 시간 혼합 방지 =====
+통과: UNK 시간을 제외하고 등록 개념 중 최단 간격 선택
+통과: UNK만 있거나 등록 개념의 시간이 미확인이면 [0.0, 0.0]
 
-| 실제 자료 집계 항목 | 결과 |
-|---|---|
-| `sequence_history`가 빈 레코드 수 | 3개 |
-| 그중 `observed_history`에 `last_at`이 있는 레코드 수 | 0개 |
-| 빈 이력 중 이번 문제 시간 특성이 확인된 레코드 수 | 0개 |
-| `<UNK>` 포함 + 등록 개념의 시간이 확인된 레코드 수 | 0개 |
-| 그중 `<UNK>`가 등록 개념의 확인된 시간보다 짧은 레코드 수 | 0개 |
+===== 테스트 8. 시간 특성 자료형 =====
+통과: 두 값 모두 Python float
 
-위 수치는 Windows 환경에서 `<UNK>` 제외 정책을 반영한 `test_gaps.py`를 실제 AI Train 자료로 재실행해 측정한 결과다.
+===== 테스트 9. 배치 시간 특성 =====
+통과: 7건 개별·배치 결과 일치
 
-빈 이력 레코드 3개 모두 `lengths=0`, `mask=False` 조건 및 변환 결과가 통과했다.
+===== 테스트 10. 대량 배치 및 예외 처리 =====
+통과: 10,000건, 빈 배치 및 잘못된 입력 검사
 
-마지막 두 항목은 **기존 정책이었다면 `<UNK>`가 등록 개념의 간격을 대신할 수 있는 조건의 발생 건수**를 조사한 것이다.
+전체 테스트 확인 완료 (PyTorch 미설치 시 테스트 9~10 SKIP)
+```
 
-현재 자료에서는 0건이었지만 다른 자료에서도 0건임을 보장하지는 않는다.
+테스트 1~10이 모두 통과했으며, 실제 AI Train 데이터 953건의 개별·배치 전처리 결과가 일치했다.
 
-수정된 코드는 `<UNK>`를 최단 간격 후보에서 제외하여 이 위험을 방지한다.
+- 시간 확인 가능: 757건
+- 시간 미확인: 196건
+- 실제 빈 이력: 3건
+- 대량 배치 테스트: 10,000건 처리 통과
 
-`sequence_history`의 길이가 0이어도 `observed_history`에 시간이 있으면 시간 정보를 확인할 수 있다.
+마지막 출력 한 줄:
 
-따라서 테스트 6은 `[0.0, 0]`을 정답으로 고정하지 않고, 등록 개념 중 선택 가능한 `query_gap_known`과 변환 함수의 결과가 일치하는지 확인한다.
+```text
+전체 테스트 확인 완료 (PyTorch 미설치 시 테스트 9~10 SKIP)
+```
 
-이는 `<UNK>`를 후보에서 제외한 현재 정책을 반영한다.
+괄호 안의 SKIP은 PyTorch가 설치되지 않은 경우의 안내 문구이다. 이번 실행에서는 PyTorch가 설치되어 있었으므로 테스트 9와 테스트 10도 정상 실행되어 통과했다.
 
-### 4. 공식 모델 채점 결과
+따라서 기존 README에 기록했던 시간 전처리 테스트 10개 통과 및 757건·196건 집계는 이번 PR 최초 구현 커밋의 코드로 재검증된 결과임을 확인했다.
 
-아직 모델을 학습하거나 공식 채점을 수행하지 않았으므로 GitHub 공식 양식의 채점표는 미측정이다.
+다만 이 검증은 공통 입력으로 제공된 `query_gap_seconds`의 시간 선택 및 전처리 결과를 확인한 것이며, 원본 풀이 타임스탬프에서 경과 시간이 정확하게 생성됐는지를 독립적으로 검증한 결과는 아니다.
 
-| 항목 | 기록 |
-|---|---|
-| 채점 구간과 명령 | 미실행 |
-| 구간의 행 수·오답 수·가명 수 | 미측정 |
-| 모델 및 기준선 6개의 로그 손실·Brier·ROC-AUC·정확도 | 미측정 |
-| 행 독립 표준오차, 가명 묶음 표준오차 | 미측정 |
-| 로그 손실이 가장 낮은 기준선 | 미측정 |
-| 모델에서 기준선 로그 손실을 뺀 값 | 미측정 |
-| 경고 문구 | 채점 미실행 |
+### 2. 시간 전처리 입력 확인
 
-추후 공식 채점 표를 그대로 기록하고 경고 문구를 삭제하지 않는다.
+`inspect_gaps.py`에서 Seed 42로 무작위 4건을 선택한 실행 결과는 다음과 같다.
 
-실제 자료의 가명 수가 3개 미만이면 공개 표에는 `3개 미만`으로 표시한다.
+```text
+===== 공통 입력 데이터 확인 (v8) =====
+전체 데이터 수: 953
+무작위 선택 데이터 수: 4
+무작위 선택 Seed: 42
+PyTorch: 설치됨
+처리 방법: 개별 처리 + 배치 결과 대조
+사용 장치: cpu
+시간 특성 Shape: (4, 2)
+시간 특성 dtype: torch.float32
+시간 확인 가능: 3
+시간 미확인: 1
+모델 시간 입력 형식: [gap_log, gap_known]
+시간 선택 및 숫자 변환 확인 완료
+```
 
-## 입력 처리부터 학습·예측까지 코드 설명
+이 결과는 무작위 4건에 대한 확인이며 전체 953건의 집계와 구분한다.
 
-공통 입력 생성 흐름은 다음과 같다.
+### 3. 모델 기능 검증
 
-    load()
-        |
-    batch(length=32)
-        |
-    example["inputs"]
-        |
-    build_time_feature()
-        |
-    select_query_gaps()
-        |
-    [gap_log, gap_known]
+`test_data_model.py`를 Windows CPU 환경에서 실행한 결과는 다음과 같다.
 
-각 입력의 역할은 다음과 같다.
+```text
+사용 장치: cpu
+통과: 기본 LSTM과 초기 출력 일치
+통과: 출력 형상·확률·빈 이력·패딩
+통과: 시간 미확인/0초 구분
+통과: gap_log의 출력 반영
+통과: 역전파 및 가중치 갱신
+통과: 실제 데이터 전체 순전파 953 건
+통과: 모델 저장·복원 후 출력 일치
 
-- `query_concepts`: 현재 문제에 포함된 개념
-- `query_gap_seconds`: 개념별 마지막 풀이 후 경과 시간
-- `query_gap_known`: 해당 시간의 확인 가능 여부
-- `lengths`: 실제 과거 풀이 이력의 길이
-- `mask`: 실제 풀이와 패딩을 구분하는 값
-- `sequence_history`: 과거 풀이 순서 이력
-- `observed_history`: 개념별 관측 시각 정보
+기능 검증 완료
+실제 학습 및 성능 평가는 미실행
+```
 
-`batch()`는 `sequence_history`를 기준으로 `lengths`와 `mask`를 만들고, `observed_history`를 기준으로 시간 관련 정보를 생성한다.
+검증 항목은 다음과 같다.
 
-이 두 정보는 별도로 생성되므로 과거 풀이 이력이 없다는 사실만으로 시간도 미확인이라고 단정하지 않는다.
-
-이번 문제의 정답인 `example["targets"]`는 시간 선택 함수에 입력하지 않는다.
-
-### `<UNK>` 시간 혼합 방지 정책
-
-`<UNK>`(인덱스 1)는 서로 다른 미등록 개념을 하나의 인덱스로 묶는다.
-
-따라서 현재 문제와 관계없는 미등록 개념의 최근 풀이 시간이 현재 문제의 시간처럼 선택될 수 있다.
-
-이를 방지하기 위해 Time Gap 전처리에서 PAD(0)와 UNK(1)를 최단 시간 선택 대상에서 제외하도록 수정했다.
-
-공통 데이터와 공통 `batch()`는 수정하지 않았다.
-
-예를 들어 다음과 같은 입력이 있다고 가정한다.
-
-    names = ["<PAD>", "<UNK>", "demo", "loop"]
-
-    concepts = [0, 1, 1, 1]
-
-    seconds = [0.0, 120.0, 604800.0, 172800.0]
-
-    known = [False, True, True, True]
-
-각 개념의 시간 정보는 다음과 같다.
-
-| 개념 | 경과 시간 | 처리 |
+| 검증 항목 | 확인 내용 | 결과 |
 |---|---|---|
-| `<UNK>` | 120초 | 후보 제외 |
-| `demo` | 7일 | 후보 포함 |
-| `loop` | 2일 | 후보 포함 |
+| 기본 LSTM 비교 | 공통 가중치를 복사하고 초기 Logit 비교 | 통과 |
+| 출력 형상 | 인공 입력 2건의 Logit Shape 확인 | 통과 |
+| 확률 범위 | sigmoid 결과가 0~1 범위인지 확인 | 통과 |
+| 빈 이력 | 이력 길이 0에서 상태 벡터 처리 확인 | 통과 |
+| 패딩 | 패딩 영역 변경 전후 출력 비교 | 통과 |
+| 시간 미확인/0초 | 시간 확인 특성 변경에 따른 Logit 차이 비교 | 통과 |
+| gap_log 반영 | 0일과 1일 입력의 Logit 차이 비교 | 통과 |
+| 역전파 | 시간 가중치 및 LSTM 기울기 생성 확인 | 통과 |
+| 가중치 갱신 | SGD 1회 갱신 후 가중치 변경 확인 | 통과 |
+| 실제 데이터 | AI Train 953건 전체 순전파 | 통과 |
+| 저장·복원 | 복원 전후 Logit 일치 확인 | 통과 |
 
-최종적으로 등록 개념 중 시간이 가장 짧은 `loop`의 2일을 선택한다.
+시간 미확인 `[0.0, 0.0]`과 실제 0초 `[0.0, 1.0]`을 비교할 때 시간 가중치를 1로 설정하면 Logit 차이가 1이 되는지 확인했다.
 
-이는 최초 피드백에서 요청받은 **최단 시간 하나 선택 원칙을 유지하면서 미등록 개념의 시간 혼합을 방지하는 방식**이다.
+또한 0일과 1일의 `gap_log` 차이가 `log(2)`에 해당하는지 확인했다.
 
-테스트 7에서는 다음 상황을 직접 검증했다.
+이는 모델에 시간 특성이 정상적으로 연결됐다는 기능 검증이며, 실제 예측 정확도의 향상을 의미하지 않는다.
 
-- `<UNK>`가 더 짧더라도 등록 개념 중 최단 시간 선택
-- 등록 개념이 하나일 경우 해당 개념의 확인된 시간 선택
-- `<UNK>`만 존재할 경우 `[0.0, 0]` 반환
-- `<UNK>` 시간은 확인되지만 등록 개념 시간은 미확인인 경우 `[0.0, 0]` 반환
+### 4. 모델 저장·복원 검증
 
-다만 이 방식에서는 미등록 개념 자체의 정확한 풀이 간격도 사용하지 못한다.
+`torch.save(model.state_dict(), path)`를 사용해 모델 가중치를 임시 파일로 저장했다.
 
-이는 확인되지 않은 시간을 다른 개념의 시간으로 잘못 사용하는 것을 방지하기 위한 보수적인 처리 정책이다.
+새로운 TimeGapLSTM 객체를 생성하고 `torch.load(..., weights_only=True)`와 `load_state_dict()`로 복원했다.
 
-미등록 개념의 정확한 시간을 사용하려면 공통 입력에서 원래 개념을 구별할 수 있는 정보가 필요하다.
+동일한 입력에 대해 복원 전후 Logit이 일치하는지 확인했다.
+
+임시 파일은 `TemporaryDirectory()`를 사용하여 `with` 블록 종료 시 자동으로 삭제했다.
+
+현재는 같은 Python 프로세스에서 초기 모델의 가중치 저장·복원을 검증했다. 학습된 모델을 별도 프로세스에서 복원하는 과정은 검증하지 않았다.
+
+### 5. 현재 검증의 한계
+
+현재까지 확인한 내용은 다음과 같다.
+
+- 시간 선택 및 숫자 변환
+- 개별·배치 전처리 결과의 일치
+- UNK 제외 정책에 대한 인공 입력 검증
+- 기본 LSTM과 초기 출력 비교
+- 시간 특성의 Logit 반영
+- 역전파 및 가중치 갱신 가능 여부
+- 실제 데이터 953건 순전파
+- 모델 가중치 저장·복원
+
+아직 확인하지 않은 내용은 다음과 같다.
+
+- 원본 타임스탬프와 `query_gap_seconds`의 독립적인 대조
+- UNK 제외 정책이 실제 모델 예측 성능에 미치는 영향
+- 실제 데이터 기반 모델 학습
+- 기본 LSTM과 TimeGapLSTM의 예측 성능 비교
+- 별도 Python 프로세스에서 학습된 모델 복원
+- 공식 채점 결과
+
+따라서 현재 결과만으로 TimeGapLSTM의 성능이 기본 LSTM보다 높다고 판단할 수 없다.
+
+## 입력 처리부터 학습·예측까지 내 코드 설명
+
+### 1. 공통 데이터 입력
+
+`learning_server.input_example`의 `load()`와 `batch()`를 사용하여 실제 v8 AI Train 데이터를 읽는다.
+
+모델 입력에는 과거 문제 ID, 개념, 정오답, 현재 문제 정보 및 시간 특성을 사용한다.
+
+현재 문제의 정답은 모델 입력과 분리한다.
+
+### 2. 시간 특성 전처리
+
+현재 문제의 `query_concepts`, `query_gap_seconds`, `query_gap_known`을 이용하여 등록 개념의 확인된 최단 풀이 간격을 계산한다.
+
+선택된 시간은 `[gap_log, gap_known]`으로 변환한다.
+
+### 3. 모델 입력 생성
+
+`make_model_inputs()`에서 기존 LSTM 입력과 시간 특성을 PyTorch 텐서로 변환한다.
+
+### 4. TimeGapLSTM 순전파
+
+기본 LSTM의 이력 인코더를 유지하고, 최종 Linear 계층에 시간 특성 두 개를 추가한다.
+
+모델은 Logit을 반환하며, 정답 확률이 필요한 경우 sigmoid를 적용한다.
+
+### 5. 기본 모델과 비교
+
+`copy_baseline_weights()`로 공통 가중치를 복사하고 추가 시간 가중치를 0으로 초기화하여 초기 Logit이 일치하는지 확인한다.
+
+### 6. 역전파 및 가중치 갱신
+
+인공 입력에 대해 `BCEWithLogitsLoss()`를 계산하고 역전파를 수행한다.
+
+SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
+
+이는 학습 가능성을 확인하는 테스트이며 실제 데이터 학습은 아니다.
+
+### 7. 실제 데이터 순전파
+
+실제 AI Train 데이터 953건을 배치 크기 32로 나누어 순전파를 수행한다.
+
+출력 형상과 유한성을 검사하고 전체 기록 수가 일치하는지 확인한다.
+
+### 8. 모델 저장·복원
+
+`state_dict`를 임시 파일에 저장하고 새 모델 객체에 복원한 뒤 동일한 입력의 Logit이 일치하는지 확인한다.
+
+### 9. 향후 작업
+
+실제 데이터로 기본 LSTM과 TimeGapLSTM을 동일한 조건에서 학습시키고 성능을 비교할 예정이다.
 
 ## 질문을 받고 바꾼 부분
 
-| 받은 피드백 | 수정 내용 | 확인 방법 |
+| 피드백 및 수정 사항 | 반영 내용 | 확인 결과 |
 |---|---|---|
-| 빈 이력은 무조건 시간 미확인이라는 단정 | 테스트 6에서 `[0.0, 0]` 고정 비교 제거 | 실제 AI Train 빈 이력 3개 검증 통과 |
-| 빈 이력의 `observed_history` 시각 확인 | 빈 이력 전체에서 `last_at` 기록 보유 건수 집계 | 재실행 결과 0개 |
-| 변환 함수의 미확인·0초·개념 없음 직접 검증 | 테스트 2·3·4에 `build_time_feature()` 검증 추가 | 테스트 통과 |
-| 실제 자료가 없을 때 실패 | 테스트 6만 SKIP하고 나머지 테스트 실행 | 조건부 SKIP 처리 구현 |
-| PyTorch 없는 환경 지원 | NumPy·PyTorch 선택적 시드 설정, 공통 입력 모듈 지연 불러오기 | 공개 테스트 실행 구조 반영 |
-| `<UNK>`에 관계없는 시간 섞임 | `<UNK>`를 후보에서 제외하고 등록 개념 중 최단 시간 선택 | 테스트 7 통과 |
-| 실제 자료의 `<UNK>` 위험 조건 확인 | AI Train의 관련 조건을 만족하는 행 집계 | 0개 |
-| 팀원 입력 설정과 통일 | 이력 32, 배치 4, Seed 42 유지 | 수정 후 v8 입력 검사 통과 |
+| 기본 모델 기준 불명확 | `SmallLSTM` 원본 커밋 SHA 기록 | 실제 Git 명령으로 확인 |
+| 실행 조건 미기재 | 작업 기준 main SHA, Python·PyTorch 버전 기록 | 실제 실행 환경 확인 |
+| 모델 파라미터 수 재확인 | AI Train Vocabulary 기준 19,884 / 19,886개 기록 | 파라미터 증가량 2개 확인 |
+| 이전 테스트 결과의 재현성 | 커밋 `187d7ba`와 파일 차이 확인 후 테스트 재실행 | 테스트 1~10 통과 |
+| 시간 미확인과 실제 0초 구분 | `[gap_log, gap_known]` 두 값 사용 | 전처리 및 모델 검증 통과 |
+| 여러 개념의 시간 선택 | 등록 개념의 확인된 최단 간격 사용 | 전처리 테스트 통과 |
+| UNK 시간 혼합 문제 | PAD·UNK 제외 정책 적용 | 테스트 7 통과 |
+| UNK 제외에 따른 모델 입력 한계 | UNK만 시간이 확인된 경우에도 `[0.0, 0.0]`이 될 수 있음을 명시 | Train 0건, Validation 6건, Test 6건 확인 |
+| 시간 특성 자료형 | Python float와 PyTorch float32 사용 | 테스트 통과 |
+| 대량 입력 처리 | PyTorch 배치 연산 구현 | 10,000건 처리 테스트 통과 |
+| 기존 모델 구조 유지 | `SmallLSTM` 상속 및 공통 가중치 복사 | 초기 Logit 일치 |
+| 실제 데이터 처리 | AI Train 953건 순전파 검증 | 통과 |
+| 저장·복원 검증 | 초기 모델 가중치 저장 및 복원 | 출력 일치 |
+| 모델 테스트 간소화 | 주요 기능 검증 중심으로 정리 | 간소화 코드 실행 통과 |
 
-- **관련 이슈:** https://github.com/WaterMinCho/programming-study/issues/121
-- **관련 PR:** https://github.com/WaterMinCho/programming-study/pull/319
-- **이번 추가 수정 커밋 SHA:** PR #319의 Commits 탭에서 확인
+현재 제출 대상 파일은 다음 5개다.
 
-### 다음 단계
+- `inspect_gaps.py`
+- `test_gaps.py`
+- `model.py`
+- `test_data_model.py`
+- `README.md`
 
-Windows의 실제 v8 recorded 데이터를 사용하여 `<UNK>` 제외 정책이 적용된 `inspect_gaps.py`와 `test_gaps.py`를 재실행했다.
-
-Python 문법 검사와 공통 입력 확인이 정상적으로 완료됐으며, 테스트 1~7이 모두 통과했다.
-
-현재 단계에서는 Time Gap 전처리와 검증을 완료했다.
-
-다음 단계에서는 팀원의 최신 기본 LSTM과 동일한 데이터 및 학습 조건에서 Time Gap 입력을 연결하고 성능을 비교할 예정이다.
-
-실제 데이터, 개별 학습 기록, 실제 자료로 학습한 가중치는 공개 PR에 포함하지 않는다.
+현재까지 모델 구현 및 기능 검증을 완료했으며, 실제 데이터 학습과 예측 성능 비교는 향후 진행할 예정이다.
