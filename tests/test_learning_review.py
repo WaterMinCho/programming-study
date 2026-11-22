@@ -8,12 +8,15 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+import urllib.parse
 from unittest import mock
 
 SPEC = importlib.util.spec_from_file_location("learning_review", Path(__file__).parents[1] / "tools/learning_review.py")
 review = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(review)
 HEAD = "a" * 40
+MAIN = "e" * 40
+OTHER = "f" * 40
 AUTH = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
 
 
@@ -38,15 +41,15 @@ class ReviewTest(unittest.TestCase):
         self.folder = self.root / "review"
         self.info = pull()
 
-    def prepare(self, diff="+loss.backward()\n", files=None, previous_review=None):
+    def prepare(self, diff="+loss.backward()\n", files=None, previous_review=None, api=None):
         files = files or [{"filename": "experiments/michae18/train.py"}]
-        def api(path):
+        def default(path):
             if "/compare/" in path:
                 return {"merge_base_commit": {"sha": "d" * 40}}
             if "/files?" in path:
                 return files
             return {"encoding": "base64", "size": 7, "content": base64.b64encode(b"context").decode()}
-        with mock.patch.object(review, "pull", return_value=self.info), mock.patch.object(review, "api", side_effect=api), \
+        with mock.patch.object(review, "pull", return_value=self.info), mock.patch.object(review, "api", side_effect=api or default), \
                 mock.patch.object(review, "run", return_value=diff) as command:
             data = review.prepare(12, self.folder, previous_review=previous_review)
             self.assertEqual(["gh", "api", "repos/%s/compare/%s...%s" % (review.REPO, "c" * 40, HEAD),
@@ -78,6 +81,75 @@ class ReviewTest(unittest.TestCase):
         bounded = self.prepare(previous_review=dict(previous, body="x" * review.MAX_BYTES))
         self.assertNotIn("previous_review", bounded)
         self.assertEqual("size_limit", bounded["previous_review_skipped"])
+
+    def test_imports_find_repo_files_by_dotted_relative_and_sibling_names(self):
+        names = {"experiments/michae18/model.py", "experiments/kim/inspect_gaps.py", "experiments/kim/model.py",
+                 "learning_server/input_example.py"}
+        text = ("import torch\nfrom experiments.michae18.model import SmallLSTM\nfrom .inspect_gaps import pick\n"
+                "    from learning_server.input_example import batch\nimport numpy as np\n")
+        self.assertEqual(["experiments/michae18/model.py", "experiments/kim/inspect_gaps.py", "learning_server/input_example.py"],
+                         review.imports("experiments/kim/model.py", text, names))
+        self.assertEqual(["experiments/kim/inspect_gaps.py"], review.imports("experiments/kim/test_gaps.py", "from inspect_gaps import pick\n", names))
+
+    def related_api(self, other_text="from experiments.michae18.model import SmallLSTM\n"):
+        files = [{"filename": "experiments/michae18/model.py", "status": "modified"}]
+        sources = {("experiments/michae18/model.py", HEAD): "from learning_server.input_example import batch\n",
+                   ("experiments/kim/model.py", OTHER): other_text,
+                   ("experiments/old/use.py", MAIN): "from experiments.michae18.model import SmallLSTM\n",
+                   ("experiments/old/other.py", MAIN): "import torch\n"}
+        tree = ["experiments/michae18/model.py", "experiments/old/use.py", "experiments/old/other.py", "learning_server/input_example.py"]
+        def person(number, login, sha):
+            return {"number": number, "user": {"login": login}, "head": {"ref": "models/x", "sha": sha, "repo": {"full_name": login + "/programming-study"}}}
+        def api(path):
+            if path.endswith("/commits/main"):
+                return {"sha": MAIN}
+            if "/git/trees/" in path:
+                return {"tree": [{"type": "blob", "path": name} for name in tree]}
+            if "/compare/%s...%s" % ("d" * 40, MAIN) in path:
+                return {"files": [{"filename": "learning_server/input_example.py", "patch": "@@ -1 +1 @@\n-old\n+new"},
+                                  {"filename": "gui/unrelated.py", "patch": "+x"}]}
+            if "/compare/" in path:
+                return {"merge_base_commit": {"sha": "d" * 40}}
+            if "/pulls?state=open" in path:
+                return [person(12, "michae18", HEAD), person(34, "kimjs85529-a11y", OTHER), person(56, "stranger", "9" * 40)]
+            if "/pulls/34/files" in path:
+                return [{"filename": "experiments/kim/model.py", "status": "added", "patch": "+class TimeGapLSTM(SmallLSTM):"}]
+            if "/pulls/56/files" in path:
+                raise AssertionError("팀원이 아닌 PR 은 읽지 않음")
+            if "/files?" in path:
+                return files
+            name = urllib.parse.unquote(path.split("/contents/")[1].split("?ref=")[0])
+            text = sources.get((name, path.split("?ref=")[1]), "context")
+            return {"encoding": "base64", "size": len(text.encode()), "content": base64.b64encode(text.encode()).decode()}
+        return files, api
+
+    def test_related_code_from_main_and_other_open_prs_is_frozen_with_the_packet(self):
+        files, api = self.related_api()
+        data = self.prepare(files=files, api=api)
+        self.assertEqual(MAIN, data["main"])
+        self.assertEqual([("main_changed_since_merge_base", None, "learning_server/input_example.py"),
+                          ("open_pr_imports_changed_file", 34, "experiments/kim/model.py"),
+                          ("main_imports_changed_file", None, "experiments/old/use.py")],
+                         [(row["relation"], row.get("number"), row["path"]) for row in data["related"]])
+        self.assertEqual(["experiments/michae18/model.py"], data["related"][1]["imports"])
+        self.assertEqual((OTHER, "from experiments.michae18.model import SmallLSTM\n"), (data["related"][1]["revision"], data["related"][1]["content"]))
+        with mock.patch.object(review, "pull", return_value=self.info):
+            self.assertEqual(data["related"], review.snapshot(self.folder)[1]["related"])
+
+    def test_related_code_is_bounded_checked_and_optional(self):
+        files, api = self.related_api(other_text="from experiments.michae18.model import SmallLSTM\nkey = 'ghp_" + "a" * 30 + "'\n")
+        data = self.prepare(files=files, api=api)
+        self.assertEqual("content_check", data["related"][1]["skipped"])
+        self.assertNotIn("ghp_", (self.folder / "snapshot.json").read_text())
+        self.folder = self.root / "small"
+        files, api = self.related_api()
+        with mock.patch.object(review, "RELATED_BYTES", 10):
+            data = self.prepare(files=files, api=api)
+        self.assertEqual({"size_limit"}, {row["skipped"] for row in data["related"]})
+        self.assertFalse(any("content" in row or "patch" in row for row in data["related"]))
+        self.folder = self.root / "unavailable"
+        data = self.prepare()
+        self.assertEqual(([], "unavailable"), (data["related"], data["related_skipped"]))
 
     def test_rename_keeps_both_source_and_destination_in_review_packet(self):
         data = self.prepare(diff="rename from tools/helper.py\nrename to experiments/michae18/helper.py\n",

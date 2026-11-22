@@ -624,7 +624,8 @@ class WorkerTest(unittest.TestCase):
         for update in ({"diff": DIFF + "\n+token='ghp_" + "x" * 30 + "'"},
                        {"context": [{"path": "example.py", "content": "sk-" + "x" * 40}]},
                        {"discussion": [{"body": '{"participant":"11111111-1111-4111-8111-111111111111"}'}]},
-                       {"context": [{"participant": "11111111-1111-4111-8111-111111111111"}]}):
+                       {"context": [{"participant": "11111111-1111-4111-8111-111111111111"}]},
+                       {"related": [{"path": "experiments/kim/model.py", "content": "ghp_" + "x" * 30}]}):
             with self.subTest(update=update):
                 data = {"diff": DIFF, "context": [], "discussion": [], **update}
                 with self.assertRaises(worker.review.ReviewError):
