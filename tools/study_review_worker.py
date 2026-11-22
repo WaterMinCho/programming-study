@@ -140,6 +140,12 @@ def validate(data, assessment, author):
             raise review.ReviewError("지적의 줄과 판정을 확인해 주세요.")
         if any(not isinstance(item[k], str) or (not item[k].strip() and not (version == 2 and k == "hint" and item[k] == "")) or len(item[k]) > 2000 for k in item if k not in {"line", "blocking"}):
             raise review.ReviewError("지적의 설명을 확인하지 못했습니다.")
+        # 응답이 인용한 줄을 한두 줄 옆 번호로 적는 일이 있었음(2026-11-22 PR 334·337).
+        # 위아래 두 줄 안의 추가 줄 가운데 한 곳에만 인용이 있으면 그 줄로 바로잡고, 여러 곳이면 바로잡지 않음.
+        if item["quote"].strip() and item["quote"] not in added.get((item["path"], item["line"]), ""):
+            near = [n for n in range(item["line"] - 2, item["line"] + 3) if item["quote"] in added.get((item["path"], n), "")]
+            if len(near) == 1:
+                item["line"] = near[0]
         if item["path"] not in data["files"] or not item["quote"].strip() or item["quote"] not in added.get((item["path"], item["line"]), ""):
             raise review.ReviewError("지적의 파일·줄·인용이 실제 추가 코드와 맞지 않습니다.")
     if any(not isinstance(question, str) or not question.strip() or len(question) > 1000 for question in assessment["questions"]):

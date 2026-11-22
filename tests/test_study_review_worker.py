@@ -87,6 +87,25 @@ class WorkerTest(unittest.TestCase):
         with self.assertRaises(worker.review.ReviewError):
             worker.validate(data, result, "michae18")
 
+    def test_quote_one_or_two_lines_away_moves_the_line_only_when_unique(self):
+        lines = ["x = 1", "y = 2", "loss.backward()", "z = 3", "w = 4", "loss.backward()"]
+        diff = "diff --git a/{0} b/{0}\n--- a/{0}\n+++ b/{0}\n@@ -0,0 +1,6 @@\n".format(FILE) + "".join("+%s\n" % line for line in lines)
+        data = {"files": [FILE], "changed_paths": [FILE], "diff": diff, "title": self.pr["title"]}
+        for given, expected in ((2, 3), (1, 3), (3, 3), (8, 6)):
+            with self.subTest(given=given):
+                result = assessment(blocking=True)
+                result["findings"][0]["line"] = given
+                self.assertEqual("REQUEST_CHANGES", worker.validate(data, result, "michae18"))
+                self.assertEqual(expected, result["findings"][0]["line"])
+                body = worker.body_for({"head": HEAD}, result, "marker", "REQUEST_CHANGES")
+                self.assertIn(FILE+"#L%d" % expected, body)
+        # 4·5행은 두 줄 안(3행과 6행)에 같은 인용이 두 곳 있어 어느 줄인지 정하지 않음. 9행은 두 줄 안에 인용이 없음.
+        for given in (4, 5, 9):
+            with self.subTest(given=given), self.assertRaises(worker.review.ReviewError):
+                result = assessment(blocking=True)
+                result["findings"][0]["line"] = given
+                worker.validate(data, result, "michae18")
+
     def test_approved_legacy_questions_are_optional_and_quotes_cannot_hide_the_review(self):
         result = assessment(blocking=True)
         result["findings"][0].update(blocking=False, quote="</details><script>x</script>")
@@ -421,7 +440,8 @@ class WorkerTest(unittest.TestCase):
 
     def test_malformed_or_ungrounded_findings_are_rejected(self):
         data = {"files": [FILE], "diff": DIFF, "title": self.pr["title"]}
-        for update in ({"path": "other.py"}, {"line": 2}, {"line": True}, {"quote": "not in diff"}, {"blocking": "yes"}):
+        # 한두 줄 옆 번호는 바로잡으므로(test_quote_one_or_two_lines_away_moves_the_line_only_when_unique) 세 줄 떨어진 번호로 봄.
+        for update in ({"path": "other.py"}, {"line": 4}, {"line": True}, {"quote": "not in diff"}, {"blocking": "yes"}):
             value = assessment(blocking=True)
             value["findings"][0].update(update)
             with self.subTest(update=update), self.assertRaises(worker.review.ReviewError):
