@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 
+#  forward에 dropout 추가
 class SmallLSTM(nn.Module):
     def __init__(self,num_questions,num_concepts,
                  embeding_num = 16, hidden_num = 16):
@@ -10,6 +11,8 @@ class SmallLSTM(nn.Module):
         self.embedding = nn.Embedding(num_questions, embeding_num,padding_idx=0)
         # 과거 기록을 읽는 기억 장치(문제 푼 순서를 따라가며 학습 상태를 계산), 학습 가능한 내부 벡터 생성한다.
         self.lstm = nn.LSTM(embeding_num + num_concepts + 1, hidden_num,batch_first=True)
+
+        self. dropout = nn.Dropout(p = 0.2)
         # 점수 계산(분류기 생성한다.)
         self.fc = nn.Linear(hidden_num + embeding_num + num_concepts,1)
 
@@ -77,11 +80,15 @@ class SmallLSTM(nn.Module):
             dim=-1
         )
 
+        # dropout 추가하기(입력 값으로 combined 사용)
+        # 과적합을 막기 위한 수단
+        dropout = self.dropout(combined)
+        
         #  logits 값으로 전달
-        logits = self.fc(combined).squeeze(-1)
+        logits = self.fc(dropout).squeeze(-1)
 
         return logits
         # # sigmoid로 출력
         # probabilities = torch.sigmoid(logits)
 
-        # return probabilities
+        # return probabilities        
