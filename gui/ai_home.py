@@ -3,19 +3,20 @@
 
 읽던 단계, 단원 연습, 날짜를 띄운 복습 기록을 구분해 표시함.
 분류 선택을 고정하고 현재 과정의 목록과 공개 준비 상태를 표시함.
-혼합 모의고사는 두 탭에서 같은 응시 기록을 사용함."""
+모의고사 탭은 개론 세션으로 화면을 그리며 개론·응용 회차를 한 목록에 보임."""
 from PyQt6.QtCore import QEvent, Qt
 from PyQt6.QtWidgets import QBoxLayout, QWidget
 
 from aiprep import bank, mixed_mock
 from gui import ai_text, kit, theme
+from gui.disclosure import DisclosureButton
 from gui.wrong_page import count_line
 from gui.section_browser import SectionBrowser
 from session import SessionError
 
 
 class CourseTabs(kit.NavigationTabs):
-    """AI 개론·응용 과정 탭. 공통 탭 동작은 그대로 두고 surface_alt 바탕(모서리 8, 안쪽 4) 위에 두 탭을 둠.
+    """AI 개론·응용 과정 탭과 모의고사 탭. 공통 탭 동작은 그대로 두고 surface_alt 바탕(모서리 8, 안쪽 4) 위에 세 탭을 둠.
     고른 탭만 흰 면과 주 색 글자로 띄우고 안 고른 탭은 바탕 없이 muted 글자로 둠.
     어두운 테마에서는 surface 가 surface_alt 보다 어두워 고른 탭이 꺼져 보이므로 틀을 surface, 고른 탭을 hover,
     안 고른 탭에 마우스를 올린 바탕을 surface_alt 로 두어 틀 < 올림 < 고름 순으로 밝게 함."""
@@ -48,6 +49,7 @@ class CourseTabs(kit.NavigationTabs):
         """)
 
 
+TABS = ("intro", "app", "mock")  # AI 홈 탭 번호 순서. 셋째는 과정이 아니라 모의고사
 TAIL_BAR = 120  # 차시 줄·단원 카드 머리의 읽은 단원 막대 폭
 
 
@@ -143,14 +145,17 @@ class AiHomePage(QWidget):
         header = QWidget()
         row = kit.box(header, (0, theme.GAP["detail"], 0, 0),
                       spacing=theme.GAP["detail"])
-        self.course_tabs = CourseTabs(["AI 개론", "AI 응용"], deferred=True)
-        self.course_tabs.setAccessibleName("AI 학습 과정")
+        self.tab = "intro"  # 고른 탭. intro·app 은 과정, mock 은 모의고사
+        self.old_open = False
+        self.course_tabs = CourseTabs(["AI 개론", "AI 응용", "모의고사"], deferred=True)
+        self.course_tabs.setAccessibleName("AI 학습 과정과 모의고사")
         for tab, description in zip(self.course_tabs.buttons, (
                 "데이터와 모델, 딥러닝 학습 원리를 익힙니다.",
-                "OpenCV로 이미지와 동영상을 다루는 방법을 익힙니다.")):
+                "OpenCV로 이미지와 동영상을 다루는 방법을 익힙니다.",
+                "개론과 응용 회차를 제한 시간 안에 풀고 결과를 확인합니다.")):
             tab.setToolTip(description)
             tab.setAccessibleDescription(description)
-        self.course_tabs.picked.connect(lambda n: self.win.switch_ai_course(("intro", "app")[n]))
+        self.course_tabs.picked.connect(lambda n: self.win.select_ai_tab(TABS[n]))
         row.addWidget(self.course_tabs)
         self.browser = SectionBrowser(header=header)
         self.scroll = self.browser.scroll
@@ -224,6 +229,9 @@ class AiHomePage(QWidget):
         root = kit.box(mocks, spacing=16)
         head, _, self.mock_count = kit.section("모의고사")
         root.addWidget(kit.heading(head, kit.para("제한 시간 동안 풀고 제출한 뒤 정답과 해설을 확인합니다. 중간에 나가도 시간은 계속 흐릅니다.", "caption", "secondary")))
+        self.mock_notice = kit.banner("")
+        self.mock_notice.hide()
+        root.addWidget(self.mock_notice)
         self.mock_section = QWidget()
         mock_box = kit.box(self.mock_section, spacing=theme.GAP["description_content"])
         self.mock_list = kit.RowList(separate=True, least=72, pad=11, gap=4)
@@ -233,7 +241,14 @@ class AiHomePage(QWidget):
         root.addWidget(self.mock_section)
         self.mock_empty = kit.para("", "body", "secondary")
         root.addWidget(self.mock_empty)
-        self.browser.add_section("mocks", "모의고사", "회차를 골라 제한 시간 안에 풉니다.", mocks)
+        self.old_toggle = DisclosureButton("이전에 푼 회차")
+        self.old_toggle.toggled.connect(self.toggle_old)
+        self.old_toggle.hide()
+        root.addWidget(self.old_toggle)
+        self.old_list = kit.RowList(separate=True, least=72, pad=11, gap=4)
+        self.old_list.hide()
+        root.addWidget(self.old_list)
+        self.browser.add_section("mocks", "모의고사", "회차를 골라 제한 시간 안에 풉니다.", mocks, listed=False)
         self.browser.body.addStretch(1)
         focus_order = [self.hub_btn, *self.course_tabs.buttons, *self.browser.buttons.values(), self.guide_btn, self.data_btn, self.next_btn]
         for first, second in zip(focus_order, focus_order[1:]):
@@ -249,8 +264,11 @@ class AiHomePage(QWidget):
     def refresh(self):
         """서비스에서 현황을 다시 읽어 칸을 채움. 기록을 읽지 못하면 띠에 이유를 보이고 수치 줄과 목록을 비움."""
         course = getattr(self.win.ai, "course", "intro")
-        self.browser.begin_refresh((self.win.user, course))
-        course_index = 1 if course == "app" else 0
+        if self.tab == "mock":
+            self.browser.begin_refresh((self.win.user, "mock"), section="mocks")
+        else:
+            self.browser.begin_refresh((self.win.user, course))
+        course_index = TABS.index(self.tab)
         self.course_tabs.set_current(course_index)
         anchor = getattr(self, "settings_btn", self.hub_btn)
         if anchor is not self.hub_btn:
@@ -273,6 +291,10 @@ class AiHomePage(QWidget):
             self.pattern_section.hide()
             self.mock_list.clear()
             self.mock_section.hide()
+            self.old_list.clear()
+            self.old_list.hide()
+            self.old_toggle.hide()
+            self.mock_notice.hide()
             self.pattern_count.setText("")
             self.mock_count.setText("")
             for empty in (self.lesson_empty, self.pattern_empty, self.mock_empty):
@@ -312,34 +334,72 @@ class AiHomePage(QWidget):
         self.show_mocks(overview)
         self.set_busy(self.busy)
         self.browser.finish_refresh()
+        if self.tab == "mock":
+            chain = [self.course_tabs.buttons[course_index], *self.mock_list.rows]
+            if not self.old_toggle.isHidden():
+                chain += [self.old_toggle, *(self.old_list.rows if self.old_open else [])]
+            for first, second in zip(chain, chain[1:]):
+                QWidget.setTabOrder(first, second)
 
     def show_mocks(self, overview):
+        """모의고사 탭. 새 회차는 위 목록에, 예전 회차(legacy)와 제출한 숨긴 회차(hidden)는 접는 줄 아래에 둠.
+        예전 회차를 풀다 만 사람에게는 그 회차를 목록에서 빼고 안내 띠를 보임."""
         self.mock_list.clear()
-        rows = [row for row in overview['mocks'] if row['ready']]
+        self.old_list.clear()
+        ready = [row for row in overview['mocks'] if row['ready']]
+        rows = [row for row in ready if not (row.get('legacy') or row.get('hidden'))]
+        old = [row for row in ready if row.get('legacy') or row.get('hidden')]
         pending = overview.get('mock_pending', '')
         self.mock_pending.setText(pending)
         self.mock_pending.setVisible(bool(pending))
         self.mock_section.setVisible(bool(rows) or bool(pending))
         self.mock_count.setText('공개된 시험 %d개' % len(rows) if rows else '')
-        self.mock_empty.setText('이 과정의 모의고사는 아직 공개하지 않았습니다.')
+        self.mock_empty.setText('아직 공개된 모의고사가 없습니다.')
         self.mock_empty.setVisible(not rows and not pending)
         for spec in rows:
-            state = self.win.ai.mock_state(spec['id'])
-            end = '풀기 전'
-            if state['error']:
-                end = '자료 확인 필요'
-            elif state['active']:
-                end = '남은 시간 %d분' % ((state['remaining'] + 59) // 60)
-            elif state['first_score'] is not None:
-                end = '%d / %d' % (state['first_score'], spec['count'])
-            detail = mixed_mock.description(spec) if mixed_mock.candidate(spec) else '%d문항 · %d분 · %d~%d차시' % (
-                spec['count'], spec['minutes'], spec['range'][0], spec['range'][1])
-            if state['error']:
-                detail += '\n' + state['error']
-            row = self.mock_list.add(kit.Row(spec['title'], detail, end=end, wrap=True))
-            if state['error']:
-                row.setToolTip(state['error'])
-            row.clicked.connect(lambda checked=False, mid=spec['id']: self.win.open_ai_mock(mid))
+            self.mock_list.add(self.mock_row(spec))
+        for spec in old:
+            self.old_list.add(self.mock_row(spec))
+        self.old_toggle.setText('이전에 푼 회차 %d개' % len(old))
+        self.old_toggle.setVisible(bool(old))
+        self.old_toggle.blockSignals(True)
+        self.old_toggle.setChecked(self.old_open)
+        self.old_toggle.blockSignals(False)
+        self.old_list.setVisible(bool(old) and self.old_open)
+        drafts = overview.get('legacy_drafts') or []
+        self.mock_notice.text.setText('풀던 이전 회차는 문항이 바뀌어 이어 풀 수 없습니다. 아래 목록의 새 회차를 처음부터 풀어 주세요.')
+        self.mock_notice.setVisible(bool(drafts))
+
+    def mock_row(self, spec):
+        """회차 줄. 오른쪽 꼬리표는 풀기 전·푸는 중·첫 점수·자료 확인 필요 가운데 하나임."""
+        state = self.win.ai.mock_state(spec['id'])
+        end, tone, hint = '풀기 전', '', ''
+        if state['error']:
+            end, tone = '자료 확인 필요', 'danger'
+        elif state['active']:
+            end, tone = '푸는 중', 'accent'
+            hint = '남은 시간 %d분' % ((state['remaining'] + 59) // 60)
+        elif state['first_score'] is not None:
+            end = '%d / %d' % (state['first_score'], spec['count'])
+        detail = mixed_mock.description(spec) if mixed_mock.candidate(spec) else '%d문항 · %d분 · %d~%d차시' % (
+            spec['count'], spec['minutes'], spec['range'][0], spec['range'][1])
+        if state['error']:
+            detail += '\n' + state['error']
+        row = TailRow(spec['title'], detail, wrap=True, tail=kit.badge(end, tone))
+        if state['error'] or hint:
+            row.setToolTip(state['error'] or hint)
+        if hint:
+            row.setAccessibleDescription(hint)
+        row.clicked.connect(lambda checked=False, mid=spec['id']: self.win.open_ai_mock(mid))
+        return row
+
+    def toggle_old(self, opened):
+        self.old_open = bool(opened)
+        self.old_list.setVisible(self.old_open and not self.old_toggle.isHidden())
+        if self.tab == "mock":
+            chain = [self.old_toggle, *(self.old_list.rows if self.old_open else [])]
+            for first, second in zip(chain, chain[1:]):
+                QWidget.setTabOrder(first, second)
 
     def show_books(self, overview):
         """문제집 구역. 섞어 풀기, 공개된 차시마다 차시 문제집, 오답 노트 순. overview 가 None 이면(기록을 읽지 못함) 줄 이름만 두고 끔."""
@@ -475,15 +535,16 @@ class AiHomePage(QWidget):
     def set_busy(self, busy, text=""):
         """문제 받기·제출이 기록을 쓰는 동안 줄과 단추를 끔. 섞어 풀기는 끝나도 읽은 단원이 있을 때만 다시 켬."""
         self.busy = busy
-        for widget in (self.hub_btn, self.next_btn, self.data_btn, self.course_tabs):
+        for widget in (self.hub_btn, self.next_btn, self.data_btn, self.course_tabs, self.old_toggle):
             widget.setEnabled(not busy)
-        for row in self.books.rows + self.lesson_list.rows + self.pattern_list.rows + self.mock_list.rows:
+        for row in self.books.rows + self.lesson_list.rows + self.pattern_list.rows + self.mock_list.rows + self.old_list.rows:
             kit.set_inert(row, busy or self.overview is None or (row is self.mixed_row and not self.mixed_ready))
 
     def restyle(self):
         self.course_tabs.refont()
         self.browser.refont()
-        for widget in self.findChildren(kit.Dot) + self.findChildren(kit.Chevron):
+        self.old_toggle.refont()
+        for widget in self.findChildren(kit.Dot) + self.findChildren(kit.Chevron) + [self.old_toggle.arrow]:
             widget.update()
 
 

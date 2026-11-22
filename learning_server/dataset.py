@@ -24,15 +24,28 @@ def author_difficulty(item, track=None):
     return value
 
 
+RUNTIME_FIELDS = ("runtime_revision", "code_runtime_revision")
+
+
+def shown_revision(row):
+    """프로그램 파일 해시를 뺀 문항 내용으로 견줌. 응시 중에 업데이트해 버전 해시만 바뀐 답도 반환 기록과 이어짐.
+    내용에 프로그램 파일 해시가 없는 예전·합성 기록은 버전 해시로 견줌."""
+    item = row.get("item")
+    if isinstance(item, dict) and any(name in item for name in RUNTIME_FIELDS):
+        visible = {key: value for key, value in item.items() if key not in RUNTIME_FIELDS}
+        return hashlib.sha256(packed(visible).encode("utf-8")).hexdigest()
+    return row["item_revision"]
+
+
 def question_key(row):
-    """실제로 반환한 같은 문항 버전·풀이 위치만 연결함."""
+    """실제로 반환한 같은 문항 내용·풀이 위치만 연결함."""
     data, item = row["data"], row.get("item") or {}
     mock = row["kind"] in ("mock_question_returned", "mock_answer")
     fields = ("mock", "try", "card", "position") if mock else ("set", "card", "position", "again")
     if not row.get("item_revision") or any(data.get(name) is None for name in fields):
         return None
     return (row["participant"], row["track"], mock, item.get("course", data.get("course")),
-            row["item_revision"], (item.get("generation") or {}).get("instance_id"), *(data[name] for name in fields))
+            shown_revision(row), (item.get("generation") or {}).get("instance_id"), *(data[name] for name in fields))
 
 
 def source_events(events, synthetic=None):

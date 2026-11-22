@@ -441,17 +441,37 @@ class MixedMockTest(unittest.TestCase):
     def test_applied04_32_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
         self.check_actual_snapshots('m6')
 
+    def test_all_lessons_44_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m11')
+
+    def test_all_lessons_round2_44_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m12')
+
     def check_actual_snapshots(self, mid):
         source=Path(__file__).resolve().parents[1]/'ai'
         raw=load_secrets(str(source/'mocks'/mid)).get('items.json')
-        if mid == 'm6':
-            self.assertIsNotNone(raw, 'm6 문항이 필요합니다.')
+        if mid in ('m6','m11','m12'):
+            self.assertIsNotNone(raw, '%s 문항이 필요합니다.' % mid)
         if raw is None:
             self.skipTest('초안 문항은 검토 경로에서만 보관함')
         root=self.root/'snapshot-bank'
         shutil.copytree(source,root)
         meta=study.read_json(root/'mocks'/mid/'meta.json')
         study.write_text(root/'mocks'/mid/'meta.json',json.dumps(dict(meta,draft=False)))
+        # 공개 전 회차도 같은 검사를 받게 hidden 표시만 이 검사 안에서 뺌
+        def shown(path):
+            index=READ_INDEX(path)
+            for spec in index['mocks']:
+                if spec['id']==mid:
+                    spec.pop('hidden',None)
+            return index
+        unhide=mock.patch.object(bank,'read_index',shown)
+        unhide.start();self.addCleanup(unhide.stop)
+        spec=next(s for s in bank.read_index(str(root))['mocks'] if s['id']==mid)
+        contract=mixed_mock.CONTRACTS[spec['blueprint_revision']]
+        total=contract['count'];course_counts=contract['course_counts']
+        secret_lines={cid:[line.strip() for line in item.get('solution') or [] if line.strip()]
+                      for cid,item in ((i['id'],i) for i in json.loads(raw)['items']) if item['kind']=='code'}
         observed={}
         for owner in ('intro','app'):
             with self.subTest(owner=owner):
@@ -466,15 +486,18 @@ class MixedMockTest(unittest.TestCase):
                 for position,cid in enumerate(exam.draft['order']):
                     exam.question(position)
                     item=exam.items[cid]
-                    values=['검사답안']*len(item['blanks']) if item['kind']=='blank' else [0]
+                    if item['kind']=='code':
+                        values=['pass']*mock_code.fill_count(item['code']['starter'])
+                    else:
+                        values=['검사답안']*len(item['blanks']) if item['kind']=='blank' else [0]
                     self.tick();exam.save_answer(values,cid)
                 self.assertEqual([],self.rows(sess,'mock_answer'))
                 self.tick();exam.submit()
                 returned=self.rows(sess,'mock_question_returned')
                 answered={r['data']['card']:r for r in self.rows(sess,'mock_answer')}
-                self.assertEqual(32,len(returned))
-                self.assertEqual(32,len(answered))
-                self.assertEqual({'intro':16,'app':16},Counter(row['data']['course'] for row in returned))
+                self.assertEqual(total,len(returned))
+                self.assertEqual(total,len(answered))
+                self.assertEqual(course_counts,Counter(row['data']['course'] for row in returned))
                 self.assertEqual(exam.spec['blueprint'],Counter(row['item']['lesson'] for row in returned))
                 for row in returned:
                     cid=row['data']['card'];item=exam.items[cid];content=row['item']
@@ -486,21 +509,30 @@ class MixedMockTest(unittest.TestCase):
                     self.assertEqual(int(item['lesson'][1:]),content['course_no'])
                     self.assertEqual(103,content['seed'])
                     self.assertEqual(row['item_revision'],answered[cid]['item_revision'])
-                    for hidden in ('answer','allowed_answers','explain','ok','tests','solution','code'):
+                    for hidden in ('answer','allowed_answers','explain','ok','tests','solution','code','boundaries'):
                         self.assertNotIn(hidden,content)
+                    if item['kind']=='code':
+                        self.assertEqual(item['code']['starter'],content['starter'])
+                        self.assertEqual(['pass']*mock_code.fill_count(item['code']['starter']),
+                                         answered[cid]['data']['response'])
+                        shown_text=json.dumps(content,ensure_ascii=False)
+                        for line in secret_lines[cid]:
+                            self.assertNotIn(line,shown_text,(owner,cid))
                     for option in content['options']:
                         self.assertNotIn('ok',option)
                     for blank in content['blanks']:
                         self.assertNotIn('answer',blank)
                 prepared=dataset.prepare(sess.collection.snapshot())
-                self.assertEqual(32,len(prepared))
+                self.assertEqual(total,len(prepared))
                 self.assertTrue(all(not r['features']['sequence_history'] for r in prepared))
-                self.assertEqual([16,16],[r['data']['of'] for r in self.rows(sess,'mock_submit')])
+                submits=self.rows(sess,'mock_submit')
+                self.assertEqual(len(course_counts),len(submits))
+                self.assertEqual(course_counts,{r['data']['course']:r['data']['of'] for r in submits})
                 observed[owner]={'fingerprint':exam.fingerprint,'order':list(exam.draft['order']),
                                  'revisions':{r['data']['card']:r['item_revision'] for r in returned}}
         self.assertEqual({'intro','app'},set(observed))
         self.assertEqual(observed['intro'],observed['app'])
-        self.actual_snapshot_receipt={'items':32,'starting_courses':['intro','app'],
+        self.actual_snapshot_receipt={'items':total,'starting_courses':['intro','app'],
                                       'same_fingerprint_order_revisions':True,'author_metadata_preserved':True,
                                       'pre_submit_answers_absent':True,'same_exam_future_history_absent':True,
                                       'qa_copy_only_draft_false':True,'runtime':observed}

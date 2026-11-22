@@ -379,7 +379,8 @@ class AiSession(object):
                     choices=sum(item['kind'] == 'choice' for item in items.values()),
                     codes=sum(item['kind'] == 'code' for item in items.values()),
                     formats=dict(collections.Counter(item['format'] for item in items.values()
-                                                     if isinstance(item.get('format'), str))), taken=bool(rows),
+                                                     if isinstance(item.get('format'), str))),
+                    lessons=dict(collections.Counter(item.get('lesson', '') for item in items.values())), taken=bool(rows),
                     restart_required=restart_required,
                     first_score=rows[0]['score'] if rows else None, last_score=rows[-1]['score'] if rows else None,
                     active=exam is not None and exam.result is None,

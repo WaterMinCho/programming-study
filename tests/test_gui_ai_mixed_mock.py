@@ -6,6 +6,7 @@ from unittest import mock
 from aiprep import bank
 from tests import guikit, test_gui_ai
 from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import QLabel
 from gui import theme
 from tests.test_ai_mixed_mock import make_bank, without_mixed_metadata
 from tests.test_gui_ai import visible_text
@@ -44,10 +45,11 @@ class MixedMockPageTest(unittest.TestCase):
                 win.switch_ai_course(course)
                 self.idle()
                 self.assertNotIn('m4',win.ai.mocks)
-                guikit.click(win.ai_home.browser.buttons['mocks'])
+                self.assertFalse(win.open_ai_mock('m4'))
+                win.go_ai()
+                guikit.click(win.ai_home.course_tabs.buttons[2])
                 self.assertTrue(win.ai_home.mock_pending.isVisible())
                 self.assertIn('메타데이터',win.ai_home.mock_pending.text())
-                self.assertFalse(win.open_ai_mock('m4'))
 
     def test_both_tabs_restore_the_same_timed_answer_and_attempt(self):
         win=self.boot((760,480))
@@ -60,6 +62,11 @@ class MixedMockPageTest(unittest.TestCase):
         page.go(pos)
         self.idle()
         self.assertIn('응용 90차시',visible_text(page))
+        badge=next(label for label in page.card.findChildren(QLabel) if label.objectName()=='badge')
+        head=next(label for label in page.card.findChildren(QLabel) if label.text()=='%d / 32'%(pos+1))
+        self.assertEqual('응용 90차시',badge.text())
+        self.assertIs(head.parentWidget(),badge.parentWidget())
+        self.assertTrue(badge.isVisible())
         page.inputs[0].setText('4');page.changed();self.assertTrue(page.persist())
         page.flag()
         original=page.exam

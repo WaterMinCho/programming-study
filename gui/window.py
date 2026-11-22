@@ -18,7 +18,7 @@ import study
 from learning_data.collection import CollectionError
 from aiprep import bank as ai_bank, service as ai_service
 from gui import errors, journey_text, kit, motion, theme, web_text
-from gui.ai_home import AiHomePage, AiLessonPage
+from gui.ai_home import TABS as AI_TABS, AiHomePage, AiLessonPage
 from gui.ai_learn import AiLearnPage, AiNotePage, RevisitPage
 from gui.ai_quiz import PracticePage
 from gui.ai_mock import MockPage
@@ -328,9 +328,11 @@ class MainWindow(QMainWindow):
         self.ai_mock.clear()
         self.ai_courses.clear()
         try:
-            course = self.settings.value("ai/course/" + self.user, "intro", type=str)
+            course = self.ai_course()
+            mock_tab = self.settings.value("ai/tab/" + self.user, "course", type=str) == "mock"
+            self.ai_home.tab = "mock" if mock_tab else course
             stamp = ai_bank.source_stamp()
-            self.ai = ai_service.AiSession(self.user, course=course if course in ("intro", "app") else "intro")
+            self.ai = ai_service.AiSession(self.user, course="intro" if mock_tab else course)
             self.ai_courses[self.ai.course] = (stamp, self.ai)
             self.ai_error = ""
         except SessionError as error:
@@ -505,32 +507,63 @@ class MainWindow(QMainWindow):
         self.career.show_magazine()
 
     def switch_ai_course(self, course):
-        """과정별 읽던 위치와 연습을 보존한 채 같은 AI 홈을 바꿈."""
-        if self.ai is None or self.ai.course == course or self.ai_home.busy:
-            return
-        try:
-            stamp = ai_bank.source_stamp(self.ai.root)
-            saved, selected = self.ai_courses.get(course, (None, None))
-            if stamp is None or saved != stamp or selected is None or selected.user != self.user or selected.root != self.ai.root:
-                selected = ai_service.AiSession(self.user, root=self.ai.root, course=course)
-            else:
-                selected.resume_course()
-        except SessionError as error:
-            self.ai_home.course_tabs.set_current(1 if self.ai.course == "app" else 0)
-            self.ask("알림", str(error))
-            return
-        updates = self.ai_home.updatesEnabled()
-        self.ai_home.setUpdatesEnabled(False)
-        try:
-            self.ai_quiz.clear()
-            self.ai_mock.clear()
-            self.ai = selected
+        self.select_ai_tab(course)
+
+    def ai_course(self):
+        """학습자가 마지막으로 고른 AI 과정(intro·app). 저장한 값이 없거나 다른 값이면 intro."""
+        course = self.settings.value("ai/course/" + self.user, "intro", type=str)
+        return course if course in ("intro", "app") else "intro"
+
+    def course_ai(self):
+        """학습 현황이 쓰는 마지막 과정 세션. 모의고사 탭이 win.ai 를 개론 세션으로 바꿔도 ai/course 의 세션을 돌려줌.
+        캐시에 맞는 세션이 없으면 만들어 캐시에만 넣음. win.ai, 연습 화면, 오늘 표식 연결은 바꾸지 않음."""
+        course = self.ai_course()
+        if self.ai is None or self.ai.course == course:
+            return self.ai
+        stamp = ai_bank.source_stamp(self.ai.root)
+        saved, selected = self.ai_courses.get(course, (None, None))
+        if stamp is None or saved != stamp or selected is None or selected.user != self.user or selected.root != self.ai.root:
+            selected = ai_service.AiSession(self.user, root=self.ai.root, course=course)
             self.ai_courses[course] = (stamp, selected)
-            self.privacy.attach({"ai": selected.collection})
-            self.settings.setValue("ai/course/" + self.user, course)
-            self.ai_home.refresh()
+        return selected
+
+    def select_ai_tab(self, tab):
+        """AI 홈의 탭(intro·app·mock)을 바꿈. 과정별 읽던 위치와 연습을 보존함.
+        모의고사 탭은 개론 세션으로 그림. 탭 선택은 ai/tab 에 남기고 ai/course 는 과정 탭을 고를 때만 씀.
+        학습 현황은 course_ai() 로 ai/course 의 세션을 씀."""
+        home = self.ai_home
+        course = "intro" if tab == "mock" else tab
+        if self.ai is None or home.busy or (home.tab == tab and self.ai.course == course):
+            return
+        selected, stamp = self.ai, None
+        if self.ai.course != course:
+            try:
+                stamp = ai_bank.source_stamp(self.ai.root)
+                saved, selected = self.ai_courses.get(course, (None, None))
+                if stamp is None or saved != stamp or selected is None or selected.user != self.user or selected.root != self.ai.root:
+                    selected = ai_service.AiSession(self.user, root=self.ai.root, course=course)
+                else:
+                    selected.resume_course()
+            except SessionError as error:
+                home.course_tabs.set_current(AI_TABS.index(home.tab))
+                self.ask("알림", str(error))
+                return
+        updates = home.updatesEnabled()
+        home.setUpdatesEnabled(False)
+        try:
+            if selected is not self.ai:
+                self.ai_quiz.clear()
+                self.ai_mock.clear()
+                self.ai = selected
+                self.ai_courses[course] = (stamp, selected)
+                self.privacy.attach({"ai": selected.collection})
+            home.tab = tab
+            self.settings.setValue("ai/tab/" + self.user, "mock" if tab == "mock" else "course")
+            if tab != "mock":
+                self.settings.setValue("ai/course/" + self.user, course)
+            home.refresh()
         finally:
-            self.ai_home.setUpdatesEnabled(updates)
+            home.setUpdatesEnabled(updates)
 
     def _open_ai(self, page, load):
         """AI 비전 개론 화면 page 를 load() 로 채우고 엶. 서비스가 AiError 를 내면 알리고 지금 화면에 머묾."""

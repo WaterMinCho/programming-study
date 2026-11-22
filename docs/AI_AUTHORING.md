@@ -339,8 +339,8 @@ python3 tools/verify_ai.py i05 --sign --writer "출제 1" --resolver "재풀이 
 python3 tools/verify_ai.py --require-review               문항 묶음·모의고사와 등록된 공용 생성기의 서명 확인(CI)
 python3 tools/verify_web.py --bank ai --total-mb 32 l05 --require-review   학습 노트 형식·그림과 기존 서명 확인
 python3 tools/web_lint.py --bank ai --no-external         학습 노트 말투와 맥락(낱말을 쓰기 전에 소개)
-python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l05 i05   강의 글 겹침(출제자 컴퓨터에서만, PDF 는 pypdf)
-python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l18       l18·pc·S1 가운데 하나만 줘도 그 무리의 노트, 뼈대 폴더, 문항 폴더(items/<무리 id>)를 모든 차시 강의와 견줌(응용은 al18·apc·S101)
+python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l05 i05   강의 글 겹침(출제자 컴퓨터에서만). PDF 는 pypdf 로 읽고, pypdf 가 읽지 못한 PDF 는 건너뛰고 파일 이름을 적음. 응용은 al05 a05 로 주면 이름에 AI개론 이 든 차시 폴더를 빼고 견줌
+python3 tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" l18       l18·pc·S1 가운데 하나만 줘도 그 무리의 노트, 뼈대 폴더, 문항 폴더(items/<무리 id>)를 그 과정의 모든 차시 강의와 견줌(응용은 al18·apc·S101)
 python3 tools/verify_ai.py --sources "$AI_LECTURE_DIR"    강의 폴더 sha256 을 facts.json 과 견줌
 python3 tools/verify_ai.py --overrides                    [내 답도 맞음] 답 모아 보기
 python3 tools/verify_ai.py --leeches                      자주 틀리는 문항 모아 보기
@@ -510,10 +510,11 @@ blueprint는 `tools/ai_mock_rules.py`의 `allocate(LESSON_SCORES, 44)`가 내는
 `python3 tools/verify_ai.py m11`은 혼합 회차와 같은 근거, 중복, 연습 겹침 검사에 더해 아래 항목을 봅니다.
 
 - format별 문항 수는 choice 16, bug 5, order 3, blank 8, predict 8, code 4입니다. choice·bug·order는 kind=choice, blank·predict는 kind=blank, code는 kind=code로 적으므로 객관식 24, 빈칸 16, 코드 작성 4문항이 됩니다.
-- level 1/2/3은 11/22/11개입니다.
-- 문항 ID는 m11-01부터 m11-44까지 한 번씩 씁니다.
+- level 1/2/3은 11/22/11개입니다. 이 가운데 코드 작성 4문항은 level 2 2개, level 3 2개입니다.
+- `CONTRACTS`의 문항 수는 `exam_size(LESSON_SCORES의 차시 수)`와 같아야 합니다. `LESSON_SCORES`에 차시를 넣어 문항 수가 바뀌거나, 개론과 응용의 몫을 그 과정의 차시마다 1~4문항씩 나눌 수 없으면 지금 배분 버전으로 낸 회차가 실패합니다. 새 배분 버전을 `CONTRACTS`와 `ALL_LESSON_RULES`에 함께 등록하고 그 회차를 새 버전으로 다시 출제합니다.
+- 문항 ID는 회차 ID 뒤에 -01부터 -44까지 붙여 한 번씩 씁니다. m12이면 m12-01부터 m12-44까지입니다.
 - 공개된 개론·응용 차시가 blueprint에 하나라도 빠지면 실패합니다. 학습 노트 meta.json, 문항 meta.json, 봉인이나 작업본이 모두 있는 차시를 공개된 차시로 봅니다.
-- round_set이 같은 모든 차시 회차끼리 facts에 같은 사실 ID를 쓰면 실패합니다. round_set이 다르면 경고만 냅니다. 경고가 난 사실은 다른 단계나 조건으로 냈는지 회차 기록에 적습니다. related_sources의 보조 사실은 세지 않습니다. meta.json이 draft=true인 다른 회차와는 대조하지 않으므로, 두 회차를 모두 초안으로 쓰는 동안에는 같은 사실을 써도 이 검사가 실패하지 않습니다.
+- round_set이 같은 모든 차시 회차끼리 facts에 같은 사실 ID를 쓰면 실패합니다. round_set이 다르면 경고만 냅니다. 경고가 난 사실은 다른 단계나 조건으로 냈는지 회차 기록에 적습니다. related_sources의 보조 사실은 세지 않습니다. meta.json이 draft=true인 모든 차시 회차도 대조하므로, 두 회차를 모두 초안으로 쓰는 동안에도 같은 사실을 쓰면 실패합니다. 회차 사이의 같은 지문·보기 검사도 초안인 모든 차시 회차와 대조합니다. 32문항 회차를 검사할 때도 초안인 모든 차시 회차와 대조합니다.
 
 빠진 차시 검사는 지금 `all44-v1` 회차에만 걸립니다. 새 차시를 공개하면 그 차시의 다섯 값을 `LESSON_SCORES`에 넣고 앞 차시의 의존 값을 고칩니다. 그다음 `exam_size`로 새 문항 수를 정하고 `allocate`로 새 배분을 냅니다. 새 배분 버전은 `CONTRACTS`와 `tools/verify_ai.py`의 `ALL_LESSON_RULES`에 함께 등록합니다. `all44-v1`의 blueprint 기대값은 그때의 `LESSON_SCORES`로 다시 계산합니다. 새 차시를 넣거나 값을 고쳐 `allocate` 결과가 바뀐 PR에서는 `all44-v1` 회차가 모두 배분 불일치로 실패하므로, 그 PR에서 기존 회차를 새 배분 버전으로 함께 옮깁니다. 18차시 이상을 공개할 때는 1~17차시만 받는 `_MockSources.entries`, 보조 차시를 i01~i17로 거르는 `_mixed_mock_evidence`, `range`를 [1, 17]로 기대하는 `_mixed_shared_problems`도 고칩니다.
 
@@ -527,7 +528,8 @@ blueprint는 `tools/ai_mock_rules.py`의 `allocate(LESSON_SCORES, 44)`가 내는
 - 모범 답안은 예시와 숨은 테스트를 모두 통과하고, 시간 제한을 4분의 1로 줄여 다시 돌려도 같은 결과를 내야 합니다.
 - 시작 코드를 그대로 돌리면 숨은 테스트를 모두 틀려야 합니다.
 - 예시의 입력과 기대값을 표로 외운 답과 첫 예시의 기대값만 돌려주는 답은 숨은 테스트를 하나 이상 틀려야 합니다.
-- 화면과 수집 기록에 나가는 stem, starter, conditions, sourcefacts에 숨은 테스트의 입력 전체나 기대값을 적으면 실패합니다.
+- `boundaries`에는 숨은 테스트로 확인하는 경계를 글 목록으로 적습니다. 목록 한 칸에 경계 하나를 적습니다. 목록이 비었거나, 빈 글이나 글이 아닌 값이 있으면 실패합니다.
+- stem, starter, conditions, sourcefacts는 화면과 수집 기록에 나가고, explain은 제출 뒤에 보이고, boundaries는 출제 기록에 남습니다. 이 가운데 어느 칸에든 숨은 테스트의 입력 전체나 기대값을 적으면 실패합니다. boundaries에는 값 대신 "나누어떨어지지 않는 간격"처럼 경계의 뜻을 적습니다.
 
 인자가 여럿인 입력에서 인자 하나만 적은 값, 세 글자보다 짧은 값, 예시에도 있는 값, 다른 꼴로 풀어 쓴 값은 이 검사가 잡지 못하므로 재풀이 검토자가 확인합니다.
 

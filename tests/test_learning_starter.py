@@ -256,9 +256,9 @@ class StarterTest(unittest.TestCase):
         self.assertEqual({"m4:1", "m4:2", "m4:3", "m11:1", "m11:2", "m11:3"}, {session for _, session in sessions})
 
     def test_answer_whose_revision_changed_after_return_counts_as_missing_prediction_time(self):
-        """응시 중에 프로그램이 갱신되어 문항 버전 해시가 바뀌면(코드 작성 문항은 실행기 파일이 바뀔 때 code_runtime_revision 으로 바뀜)
-        답 기록이 반환 기록과 이어지지 않아 예측 시각 없음(missing_prediction_time)으로 세고 학습 행에서 뺌.
-        이 경우를 줄이려고 예전 회차의 응시 기간에는 모의고사 엔진을 바꾸는 변경을 합치지 않음."""
+        """문항 내용에 프로그램 파일 해시가 없는 기록은 버전 해시로 견줌. 반환 뒤 버전 해시가 바뀐 답은
+        반환 기록과 이어지지 않아 예측 시각 없음(missing_prediction_time)으로 세고 학습 행에서 뺌.
+        내용에 프로그램 파일 해시가 있으면 그 해시를 빼고 견줌(test_learning_dataset 의 프로그램 파일 해시 테스트)."""
         events = mixed_mock_events()
         changed = next(row for row in events if row["kind"] == "mock_answer" and row["data"]["card"] == "m11-41"
                        and row["data"]["result"] == "pass")

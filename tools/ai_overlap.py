@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 """AI 비전 개론 글이 강의 글을 옮기지 않았는지 보는 겹침 검사(설계 8.8, 부록 A.5). 출제자 컴퓨터에서만 돌림(강의 자료는 저장소 밖).
 
-  python tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" [l05 i05 m1 l18 pc S1 apc ...] [--no-pdf]
+  python tools/ai_overlap.py --lecture "$AI_LECTURE_DIR" [l05 i05 al05 a05 m1 l18 pc S1 apc ...] [--no-pdf]
 
 강의 폴더는 인자나 환경 변수 AI_LECTURE_DIR 로만 받고 저장소에 적지 않음. 말뭉치는 대상 차시와 앞뒤 한 차시 폴더의 노트북
-(markdown·code 셀, 출력 제외), docx, PDF 와 맨 위의 요약본·LectureNote.docx·대학원_강의안 전부. PDF 는 pypdf 로 읽고 pypdf 가
-없으면 실패함(--no-pdf 로 건너뛰면 결과에 "PDF 안 봄"을 적음).
+(markdown·code 셀, 출력 제외), docx, PDF 와 맨 위의 요약본·LectureNote.docx·대학원_강의안 전부. alNN·aNN 은 이름에 AI개론 이 든
+폴더를, lNN·iNN 은 AI응용 이 든 폴더를 빼고 봄. 과정 이름이 없는 폴더는 두 과정에 다 씀. PDF 는 pypdf 로 읽고 pypdf 가
+없으면 실패함(--no-pdf 로 건너뛰면 결과에 "PDF 안 봄"을 적음). pypdf 가 PdfReadError 를 내는 PDF 는 건너뛰고 결과에 그 파일과
+개수를 적음.
 
 실패: 산문에서 한글 10자 이상을 포함한 20자 이상 같은 구간, 코드에서 공백을 뺀 120자 이상 같은 구간이나 10자 넘는 줄 셋이 이어
 같은 곳. 14~19자 근접 구간은 10개까지 검토자에게 보임. 결과에는 우리 글 쪽 위치와 앞 30자만 적고 강의 글은 찍지 않음.
@@ -15,7 +17,7 @@
 카드가 되지 않는 note_only 자리의 hint·explain 도 넣음)와
 items/<무리 id> 의 facts·errata 글과 공개 단원의 생성기 견본. 뼈대는 노트북 원문을 옮기지 않고 같은 API 를 이 트랙 이름(x, y, out, loader)으로 써서
 겹침 규칙을 면제 없이 통과시킴. 대상에 무리 id(pc, apc), 그 노트 id(l18, al18), 그 무리 폴더의 뼈대 id(S1, S101) 가운데 하나라도 있으면
-그 무리의 노트, 뼈대 폴더, items/<무리 id> 가 함께 대상이 되고 말뭉치에 모든 차시 폴더를 넣음. 다른 과정 무리는 넣지 않음.
+그 무리의 노트, 뼈대 폴더, items/<무리 id> 가 함께 대상이 되고 말뭉치에 그 무리 과정의 모든 차시 폴더를 넣음. 다른 과정 무리는 넣지 않음.
 """
 import argparse
 import json
@@ -64,8 +66,13 @@ def code_norm(text):
 # 말뭉치
 
 def _pdf_text(path):
+    """PDF 글. pypdf 가 읽지 못하는 파일이면 None."""
     from pypdf import PdfReader
-    return "\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
+    from pypdf.errors import PdfReadError
+    try:
+        return "\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
+    except PdfReadError:
+        return None
 
 
 def _docx_text(path):
@@ -87,25 +94,30 @@ def _notebook(path):
     return "\n".join(prose), "\n".join(code)
 
 
-def lesson_folders(lecture, numbers):
-    """강의 폴더 아래에서 차시 번호(앞뒤 한 차시 포함)가 이름에 든 폴더."""
+def lesson_folders(lecture, numbers, courses=()):
+    """강의 폴더 아래에서 차시 번호(앞뒤 한 차시 포함)가 이름에 든 폴더. numbers 는 (과정, 차시 번호) 목록, courses 는 모든 차시 폴더를
+    넣을 과정 목록. 이름에 AI응용 이 들면 app, AI개론 이 들면 intro 폴더로 보고 둘 다 없으면 두 과정에 다 씀."""
     out = []
     wanted = set()
-    for n in numbers:
-        wanted |= {n - 1, n, n + 1}
+    for course, n in numbers:
+        wanted |= {(course, n - 1), (course, n), (course, n + 1)}
     for name in sorted(os.listdir(lecture)):
         path = os.path.join(lecture, name)
-        found = re.search(r"(?<!\d)(\d{1,2})차시", unicodedata.normalize("NFC", name))  # macOS 는 한글 이름을 NFD 로 줌
-        if os.path.isdir(path) and found and (not numbers or int(found.group(1)) in wanted):
+        nfc = unicodedata.normalize("NFC", name)  # macOS 는 한글 이름을 NFD 로 줌
+        found = re.search(r"(?<!\d)(\d{1,2})차시", nfc)
+        if not (os.path.isdir(path) and found):
+            continue
+        kinds = {"app"} if "AI응용" in nfc else {"intro"} if "AI개론" in nfc else {"app", "intro"}
+        if (not numbers and not courses) or kinds & set(courses) or any((k, int(found.group(1))) in wanted for k in kinds):
             out.append(path)
     return out
 
 
-def corpus(lecture, numbers, use_pdf=True):
-    """{"prose": [글], "code": [글], "skipped_pdf": bool}."""
-    prose, code = [], []
+def corpus(lecture, numbers, use_pdf=True, courses=()):
+    """{"prose": [글], "code": [글], "skipped_pdf": bool, "unread_pdf": [강의 폴더 기준 경로]}."""
+    prose, code, unread = [], [], []
     files = []
-    for folder in lesson_folders(lecture, numbers):
+    for folder in lesson_folders(lecture, numbers, courses):
         for here, _, names in os.walk(folder):
             files += [os.path.join(here, n) for n in sorted(names)]
     for name in sorted(os.listdir(lecture)):
@@ -124,12 +136,16 @@ def corpus(lecture, numbers, use_pdf=True):
         elif low.endswith(".docx"):
             prose.append(_docx_text(path))
         elif low.endswith(".pdf") and use_pdf:
-            prose.append(_pdf_text(path))
+            text = _pdf_text(path)
+            if text is None:
+                unread.append(unicodedata.normalize("NFC", os.path.relpath(path, lecture)))
+            else:
+                prose.append(text)
         elif low.endswith((".md", ".txt", ".py")):
             text = study.read_text(path)
             prose.append(text)
             code.append(text)
-    return {"prose": prose, "code": code, "skipped_pdf": not use_pdf}
+    return {"prose": prose, "code": code, "skipped_pdf": not use_pdf, "unread_pdf": unread}
 
 
 # 우리 글
@@ -335,7 +351,7 @@ def overlaps(our, lecture):
 def main(argv=None, out=None):
     out = out or sys.stdout
     parser = argparse.ArgumentParser(prog="ai_overlap.py")
-    parser.add_argument("targets", nargs="*", help="lNN·iNN·mN·무리 id(pc, apc) (없으면 전부)")
+    parser.add_argument("targets", nargs="*", help="lNN·iNN·alNN·aNN·mN·무리 id(pc, apc) (없으면 전부)")
     parser.add_argument("--lecture", default=os.environ.get("AI_LECTURE_DIR"))
     parser.add_argument("--bank", default=aibank.AI_DIR)
     parser.add_argument("--no-pdf", action="store_true")
@@ -353,11 +369,13 @@ def main(argv=None, out=None):
         except ImportError:
             print("PDF 를 읽을 pypdf 가 없습니다. 출제자 컴퓨터의 /opt/homebrew/bin/python3 로 돌리거나 --no-pdf 로 PDF 를 건너뛰세요.", file=out)
             return 1
-    numbers = sorted({int(t[1:]) for t in opts.targets if re.match(r"[il]\d{2}\Z", t)})
+    numbers = sorted({(aibank.course_of(t), int(t[-2:])) for t in opts.targets if re.fullmatch(r"(?:a|al|i|l)\d{2}", t)})
     bank_dir = os.path.abspath(opts.bank)
-    if opts.targets and pattern_groups(bank_dir, aibank.read_index(bank_dir), opts.targets):
-        numbers = []  # 상황별 코드는 여러 차시 코드를 모으므로 모든 차시 폴더와 견줌
-    lecture = corpus(lecture_dir, numbers, not opts.no_pdf)
+    courses = set()
+    if opts.targets:
+        # 상황별 코드는 여러 차시 코드를 모으므로 그 무리 과정의 모든 차시 폴더와 견줌
+        courses = {g["course"] for g in pattern_groups(bank_dir, aibank.read_index(bank_dir), opts.targets)}
+    lecture = corpus(lecture_dir, numbers, not opts.no_pdf, courses)
     ours = targets(bank_dir, opts.targets)
     found = overlaps(ours, lecture)
     for where, head, why in found["fail"]:
@@ -366,7 +384,11 @@ def main(argv=None, out=None):
         print("근접 구간(%d~%d자) 검토:" % (NEAR_MIN, PROSE_MIN - 1), file=out)
         for where, head in found["near"]:
             print("  %s: %s…" % (where, head), file=out)
+    for path in lecture["unread_pdf"]:
+        print("pypdf 가 읽지 못해 건너뛴 PDF: %s" % path, file=out)
     note = " · PDF 안 봄" if lecture["skipped_pdf"] else ""
+    if lecture["unread_pdf"]:
+        note += " · 못 읽은 PDF %d개" % len(lecture["unread_pdf"])
     print("대상 %d곳, 실패 %d곳%s" % (len(ours), len(found["fail"]), note), file=out)
     return 1 if found["fail"] else 0
 

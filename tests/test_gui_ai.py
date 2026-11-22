@@ -1520,7 +1520,7 @@ class PatternTest(AiTest):
         self.assertTrue(home.pattern_section.isVisibleTo(home))
         self.idle()
         self.assertFalse(home.books.isVisible())
-        self.assertTrue(home.browser.buttons["mocks"].isVisible())
+        self.assertTrue(home.course_tabs.buttons[2].isVisible())
         self.assertEqual([(r.title.text(), r.second.text(), r.mark.state) for r in home.pattern_list.rows],
                          [(self.UNIT, "90차시 뒤에 권함 · 약 6분", "todo")])  # 권하는 차시를 읽기 전에도 열 수 있음
         self.assertEqual(home.pattern_list.more_btn.text(), "준비 중 1개 보기")

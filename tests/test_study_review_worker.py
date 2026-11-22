@@ -150,7 +150,7 @@ class WorkerTest(unittest.TestCase):
         self.pr = {"number": 12, "state": "open", "draft": False, "user": {"login": "michae18"},
                    "head": {"sha": HEAD, "ref": "models/lstm"}, "base": {"sha": BASE, "ref": "main"},
                    "title": "feat(model): 입력 확인", "body": "작은 합성 입력을 확인했음.",
-                   "html_url": "https://github.com/example/pull/12"}
+                   "html_url": "https://github.com/example/pull/12", "mergeable": True}
         self.current = copy.deepcopy(self.pr)
         self.reviews, self.issues, self.inline, self.writes = [], [], [], []
         self.statuses = {}
@@ -272,6 +272,64 @@ class WorkerTest(unittest.TestCase):
         self.assertIn("자동 정적 검토이며", self.posted()[0]["body"])
         self.assertIn("PR 코드는 실행하지 않았습니다.", self.posted()[0]["body"])
 
+    def test_conflicted_pull_request_is_commented_not_approved(self):
+        self.current["mergeable"] = False
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(["COMMENT"], [row["event"] for row in self.posted()])
+        body = self.posted()[0]["body"]
+        self.assertEqual(1, body.count(worker.CONFLICT_NOTICE))
+        self.assertNotIn("현재 변경을 승인했습니다", body)
+        self.assertNotIn("자동 승인 범위 밖", body)
+        self.assertEqual(["pending", "failure"], self.states())
+        self.assertFalse(json.loads((self.folder()/"worker.json").read_text())["passed"])
+        self.assertFalse(any("merge" in path for path, _, _ in self.writes))
+
+    def test_conflict_blocks_success_even_with_prior_approval(self):
+        self.prior("APPROVED")
+        self.author_comment()
+        self.current["mergeable"] = False
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(["COMMENT"], [row["event"] for row in self.posted()])
+        self.assertNotIn("기존 승인은 유지", self.posted()[0]["body"])
+        self.assertEqual("failure", self.states()[-1])
+
+    def test_conflict_notice_is_added_once_to_requested_changes(self):
+        self.result = assessment(blocking=True)
+        self.current["mergeable"] = False
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(["REQUEST_CHANGES"], [row["event"] for row in self.posted()])
+        body = self.posted()[0]["body"]
+        self.assertEqual(1, body.count("수정이 필요합니다."))
+        self.assertEqual(1, body.count(worker.CONFLICT_NOTICE))
+
+    def test_unknown_mergeable_waits_without_posting(self):
+        self.current["mergeable"] = None
+        self.assertEqual("충돌 확인 대기", self.process())
+        self.assertEqual([], self.posted())
+        self.assertFalse({"success", "failure"} & set(self.states()))
+        self.current["mergeable"] = True
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(["APPROVE"], [row["event"] for row in self.posted()])
+        self.model_mock.assert_called_once()
+
+    def test_conflict_notice_follows_needs_context_comment(self):
+        self.result = assessment(decision="needs_context")
+        self.current["mergeable"] = False
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(["COMMENT"], [row["event"] for row in self.posted()])
+        body = self.posted()[0]["body"]
+        self.assertIn("추가 확인이 필요합니다.\n\n"+worker.CONFLICT_NOTICE, body)
+        self.assertEqual(1, body.count(worker.CONFLICT_NOTICE))
+
+    def test_repeated_unknown_mergeable_does_not_use_attempts(self):
+        self.current["mergeable"] = None
+        for _ in range(5):
+            self.assertEqual("충돌 확인 대기", self.process())
+        self.current["mergeable"] = True
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(["APPROVE"], [row["event"] for row in self.posted()])
+        self.model_mock.assert_called_once()
+
     def test_previous_review_is_context_without_triggering_a_self_review_loop(self):
         self.reviews.append({"id": 77, "user": {"login": "WaterMinCho"}, "body": "이전 제안", "commit_id": BASE, "state": "APPROVED"})
         self.assertEqual("리뷰 게시함", self.process())
@@ -294,6 +352,19 @@ class WorkerTest(unittest.TestCase):
         self.assertEqual("COMMENT", worker.validate(data, assessment(), "michae18"))
         data["changed_paths"] = [FILE, "experiments/michae18/old_train.py"]
         self.assertEqual("APPROVE", worker.validate(data, assessment(), "michae18"))
+
+    def test_underscore_folder_of_hyphen_id_is_author_folder(self):
+        own, old = "experiments/kimjs85529_a11y/train.py", "experiments/kimjs85529-a11y/train.py"
+        data = {"files": [own], "changed_paths": [own], "diff": DIFF, "title": self.pr["title"]}
+        self.assertEqual("APPROVE", worker.validate(data, assessment(), "kimjs85529-a11y"))
+        self.assertEqual("APPROVE", worker.validate(dict(data, changed_paths=[own, old]), assessment(), "kimjs85529-a11y"))
+        for other in ("experiments/kimjs85529_a11y2/train.py", "experiments/kimjs85529_a11y_x/train.py",
+                      "experiments/kimjs85529a11y/train.py", "experiments/michae18/train.py",
+                      "experiments/kimjs85529_a11y/../michae18/train.py", "experiments/Kimjs85529_a11y/train.py"):
+            with self.subTest(other=other):
+                self.assertEqual("COMMENT", worker.validate(dict(data, files=[other], changed_paths=[other]), assessment(), "kimjs85529-a11y"))
+        self.assertEqual("COMMENT", worker.validate(dict(data, changed_paths=[own, "tools/ci_scope.py"]), assessment(), "kimjs85529-a11y"))
+        self.assertEqual("COMMENT", worker.validate(data, assessment(), "michae18"))
 
     def test_all_changed_paths_must_use_permitted_text_types(self):
         data = {"files": [FILE], "diff": DIFF, "title": self.pr["title"]}

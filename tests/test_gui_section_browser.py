@@ -219,20 +219,21 @@ class AiSectionBrowserTest(AiTest):
                     if native:
                         self.assertTrue(room.contains(win.frameGeometry()))
                     courses = home.course_tabs.buttons
-                    self.assertEqual(["AI 개론", "AI 응용"], [button.text() for button in courses])
-                    self.assertAlmostEqual(courses[0].width(), courses[1].width(), delta=1)
-                    self.assertEqual(courses[0].font(), courses[1].font())
+                    self.assertEqual(["AI 개론", "AI 응용", "모의고사"], [button.text() for button in courses])
+                    for other in courses[1:]:
+                        self.assertAlmostEqual(courses[0].width(), other.width(), delta=1)
+                        self.assertEqual(courses[0].font(), other.font())
+                        self.assertEqual(courses[0].height(), other.height())
+                        self.assertEqual(courses[0].mapTo(home, QPoint()).y(), other.mapTo(home, QPoint()).y())
                     self.assertEqual(theme.TYPE["headline"][0], courses[0].font().pixelSize())
-                    self.assertEqual(courses[0].height(), courses[1].height())
                     heights.append(courses[0].height())
-                    self.assertEqual(courses[0].mapTo(home, QPoint()).y(), courses[1].mapTo(home, QPoint()).y())
-                    # 두 탭은 surface_alt 틀 안에 안쪽 4 를 두고 놓임. 틀의 양 끝이 구역 탭 줄과 같은 세로선에 옴
+                    # 세 탭은 surface_alt 틀 안에 안쪽 4 를 두고 놓임. 틀의 양 끝이 구역 탭 줄과 같은 세로선에 옴
                     frame = home.course_tabs
                     self.assertEqual(frame.mapTo(home, QPoint()).x(), browser.navigation.mapTo(home, QPoint()).x())
                     self.assertEqual(frame.mapTo(home, QPoint(frame.width(), 0)).x(),
                                      browser.navigation.mapTo(home, QPoint(browser.navigation.width(), 0)).x())
                     self.assertEqual(courses[0].mapTo(home, QPoint()).x(), frame.mapTo(home, QPoint(4, 0)).x())
-                    self.assertEqual(courses[1].mapTo(home, QPoint(courses[1].width(), 0)).x(),
+                    self.assertEqual(courses[-1].mapTo(home, QPoint(courses[-1].width(), 0)).x(),
                                      frame.mapTo(home, QPoint(frame.width() - 4, 0)).x())
                     self.assertLess(home.hub_btn.mapTo(home, QPoint(0, home.hub_btn.height())).y(),
                                     courses[0].mapTo(home, QPoint()).y())
@@ -245,7 +246,7 @@ class AiSectionBrowserTest(AiTest):
                     buttons = list(browser.buttons.values())
                     ys = {button.mapTo(home, QPoint()).y() for button in buttons}
                     single_line_width = max(sum(button.sizeHint().width() for button in buttons),
-                                            max(button.minimumSizeHint().width() for button in buttons) * len(buttons)) + 24
+                                            max(button.minimumSizeHint().width() for button in buttons) * len(buttons)) + browser.grid.spacing() * (len(buttons) - 1)
                     self.assertEqual(1 if browser.navigation.width() >= single_line_width else 2, len(ys))
                     self.assertEqual(1, len(ys))
                     self.assertEqual(1, len({button.height() for button in buttons}))
@@ -267,15 +268,21 @@ class AiSectionBrowserTest(AiTest):
                     guikit.pump()
                     self.assertEqual(before, [button.mapTo(home, QPoint()) for button in buttons])
                     self.assertEqual(course_positions, [button.mapTo(home, QPoint()) for button in courses])
-                    guikit.click(browser.buttons["mocks"])
+                    guikit.click(courses[2])
                     self.settle()
-                    self.assertEqual(before, [button.mapTo(home, QPoint()) for button in buttons])
+                    self.assertEqual(course_positions, [button.mapTo(home, QPoint()) for button in courses])
+                    self.assertFalse(browser.navigation.isVisible())
+                    self.assertEqual(0, home.scroll.horizontalScrollBar().maximum())
+                    self.assertGreaterEqual(home.scroll.viewport().height(), 200)
                     home.scroll.ensureWidgetVisible(home.mock_list.rows[0])
                     guikit.pump()
                     row = home.mock_list.rows[0]
                     self.assertTrue(row.isVisible())
                     self.assertFalse(home.lesson_list.isVisible())
                     self.assertFalse(home.next_card.isVisible())
+                    guikit.click(courses[0])
+                    self.settle()
+                    self.assertEqual(before, [button.mapTo(home, QPoint()) for button in buttons])
                     guikit.click(browser.buttons["lessons"])
                     self.settle()
                 self.assertGreater(heights[0], heights[1], (mode, size, heights))
@@ -408,7 +415,8 @@ class AiSectionBrowserTest(AiTest):
         self.assertTrue(home.books.isVisible())
         QTest.keyClick(browser.buttons["books"], Qt.Key.Key_End)
         self.settle()
-        self.assertTrue(home.mock_list.isVisible())
+        self.assertTrue(browser.buttons["coding"].hasFocus())
+        self.assertTrue(home.pattern_list.isVisible())
         home.set_busy(True)
         home.refresh()
         guikit.click(browser.buttons["coding"])
@@ -421,10 +429,15 @@ class AiSectionBrowserTest(AiTest):
         QTest.keyClick(first, Qt.Key.Key_Return)
         self.settle()
         self.assertTrue(home.lesson_list.isVisible())
-        browser.buttons["mocks"].setFocus()
-        QTest.keyClick(browser.buttons["mocks"], Qt.Key.Key_Space)
+        home.course_tabs.buttons[2].setFocus()
+        QTest.keyClick(home.course_tabs.buttons[2], Qt.Key.Key_Space)
         self.settle()
         self.assertTrue(home.mock_list.isVisible())
+        home.set_busy(True)
+        QTest.keyClick(home.course_tabs.buttons[0], Qt.Key.Key_Space)
+        self.settle()
+        self.assertEqual("mock", home.tab)
+        home.set_busy(False)
         self.assertEqual(before, self.log())
 
     def test_disabled_category_keeps_selection_without_changing_busy_navigation(self):
@@ -470,7 +483,7 @@ class AiSectionBrowserTest(AiTest):
     def test_tab_order_follows_selected_category_after_course_switch(self):
         win, home, browser = self.home()
         guikit.click(home.course_tabs.buttons[1])
-        guikit.click(browser.buttons["mocks"])
+        guikit.click(home.course_tabs.buttons[2])
         guikit.click(home.course_tabs.buttons[0])
         self.settle()
         home.course_tabs.buttons[0].setFocus()
@@ -507,19 +520,19 @@ class AiSectionBrowserTest(AiTest):
         browser.setMaximumWidth(16777215)
         browser.setMinimumWidth(0)
         self.settle()
-        self.assertEqual(4, browser.columns)
+        self.assertEqual(3, browser.columns)
         win.set_text("normal")
         self.settle()
         for button in buttons:  # 접힌 꼴의 아이콘은 자리가 모자라면 먼저 빠지므로 한 줄 기준은 아이콘 없는 폭임
             button.iconic = False
-        needed = max(sum(button.sizeHint().width() for button in buttons),
-                     max(button.minimumSizeHint().width() for button in buttons) * len(buttons)) + 24
+        needed = max(sum(max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons),
+                     max(button.minimumSizeHint().width() for button in buttons) * len(buttons)) + browser.grid.spacing() * (len(buttons) - 1)
         browser.navigation.setFixedWidth(needed - 1)
         self.settle()
         self.assertEqual(2, browser.columns)
         browser.navigation.setFixedWidth(needed)
         self.settle()
-        self.assertEqual(4, browser.columns)
+        self.assertEqual(3, browser.columns)
         for button in buttons:
             text = QFontMetricsF(button.font()).boundingRect(
                 QRectF(0, 0, button.width() - 24, 1000), Qt.TextFlag.TextWordWrap, button.text())
@@ -536,7 +549,9 @@ class AiSectionBrowserTest(AiTest):
         for button in buttons:
             button.iconic = False
         self.assertEqual(height, max(button.heightForWidth(button.width()) for button in buttons))
-        browser.setFixedWidth(480)
+        needed = max(sum(max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in buttons),
+                     max(button.minimumSizeHint().width() for button in buttons) * len(buttons)) + browser.grid.spacing() * (len(buttons) - 1)
+        browser.navigation.setFixedWidth(needed - 1)
         self.settle()
         self.assertEqual(2, browser.columns)
         for button in buttons:
@@ -558,14 +573,14 @@ class AiSectionBrowserTest(AiTest):
             self.settle()
             self.assertTrue(home.pattern_empty.isVisible())
             self.assertIn("일부 코딩 실습", home.pattern_empty.text())
-            guikit.click(browser.buttons["mocks"])
+            guikit.click(home.course_tabs.buttons[2])
             self.settle()
             self.assertIn("시험 자료 확인 필요", home.mock_list.rows[0].second.text())
             self.assertTrue(home.mock_list.rows[0].wrap)
 
     def test_selection_restoration_moves_focus_off_unselected_category(self):
         win, home, browser = self.home()
-        browser.buttons["mocks"].setFocus()
+        browser.buttons["coding"].setFocus()
         browser.select("lessons")
         self.assertTrue(browser.buttons["lessons"].hasFocus())
         home.course_tabs.buttons[0].setFocus()
@@ -606,9 +621,9 @@ class AiSectionBrowserTest(AiTest):
             self.settle()
             long_maximum = home.scroll.verticalScrollBar().maximum()
             home.scroll.verticalScrollBar().setValue(long_maximum)
-            guikit.click(browser.buttons["mocks"])
+            guikit.click(home.course_tabs.buttons[2])
             self.settle()
             self.assertEqual(0, home.scroll.verticalScrollBar().value())
             self.assertLess(home.scroll.verticalScrollBar().maximum(), long_maximum // 5)
             self.assertFalse(home.mock_list.rows[0].visibleRegion().isEmpty())
-            self.assertTrue(browser.buttons["lessons"].isVisible())
+            self.assertFalse(home.course_tabs.buttons[2].visibleRegion().isEmpty())
