@@ -162,7 +162,7 @@ def train_model(
                 'val_acc': val_acc
             })
 
-            # best_val_loss 값이 5번 이상 변화가 없다면 학습 중단
+            # best_val_loss 값이 20번 이상 변화가 없다면 학습 중단
             if counter >= patience:
                 print(f'early stopping at epoch {epoch + 1}')
                 break

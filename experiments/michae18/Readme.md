@@ -4,9 +4,9 @@
 
 - GitHub ID: `michae18`
 - 담당 모델: 기본 LSTM (`SmallLSTM`)
-- 작업 브랜치: `model/michae18-lstm-v2`
+- 작업 브랜치: `michae18-train-lstm`
 - 담당 미션: 기본 LSTM으로 다음 문제 예측하기
-- 작업 PR: https://github.com/WaterMinCho/programming-study/pull/226
+- 작업 PR: https://github.com/WaterMinCho/programming-study/pull/337
 - 모델 구현 파일: `experiments/michae18/model.py`
 - 학습 실행 파일: `experiments/michae18/train.py`
 - 입력 확인 파일: `experiments/michae18/input_check.py`
@@ -34,8 +34,8 @@ Validation Loss 기반 Early Stopping (patience=20)
 | 운영체제 | Windows |
 | Python | 3.13.5 |
 | 프로젝트 경로 | `C:\programming-study` |
-| 작업 브랜치 | `model/michae18_lstm_v2` |
-| 실제 자료 경로 | `C:\Users\user\Documents\model_study\study-data\common-input-f8-20261118` (Git 저장소 외부) |
+| 작업 브랜치 | `michae18-train-lstm` |
+| 실제 자료 경로 | `C:\Users\user\Documents\model_study\study-data\common-input-f8-20261118\recorded\` |
 | 입력 버전 | `features_version: 8` |
 | 자료 종류 | Recorded Data (`recorded`) |
 | 데이터 형식 | `format: 1` |
@@ -59,7 +59,8 @@ Validation Loss 기반 Early Stopping (patience=20)
 | PyTorch 버전 | `2.15.0` |
 | CPU | Intel Core i7-9750H @ 2.60GHz |
 | GPU | NVIDIA GeForce GTX 1650 |
-| hidden_size = 16, 임베딩 차원 = 16, 파라미터 수 | 모델 통합 및 학습 미실행 |
+| hidden_size = 16, 임베딩 차원 = 16, 파라미터 수 | Embedding + LSTM + Dropout + Linear = 19,884
+
 
 ## 실행한 명령과 결과
 
@@ -73,7 +74,7 @@ python -m zipfile -e ZIP파일경로 ../study-data/common-input-f8-20261118
 
 - 데이터 경로: `../study-data/common-input-f8-20261118/recorded/`
 - 데이터 유형: 실제 데이터
-- Track: `python`
+- Track: `ai`
 - 데이터 버전: 8
 
 ### 2. 입력 구조 확인
@@ -147,9 +148,11 @@ concepts: 235
 
 ```
 
-입력 배치 크기는 train은 953, validation은 299, test는 260이며, 최대 과거 이력 길이는 32입니다. 데이터 내용 전체를 출력하여 입력값과 출력값, vocabulary의 크기를 확인했습니다.
+입력 데이터의 Train(953개), Validation(299개), Test(260개) 샘플 수와 각 입력 Tensor의 Shape, Target Shape 및 Vocabulary 크기를 확인했습니다.
 
-### 3. LSTM 순전파 확인
+과거 풀이 이력의 최대 길이는 32이며, 실제 Tensor의 개별 값이나 전체 데이터 내용은 출력하지 않았습니다.
+
+### 3. LSTM 학습 및 검증
 
 ```bash
 python -m experiments.michae18.train
@@ -158,28 +161,28 @@ python -m experiments.michae18.train
 학습 로그:
 
 ```text
-epoch: 0 | train_loss: 0.6850 |
-                val_loss: 0.6797 | train_acc: 0.5950 | val_acc: 0.6087
-epoch: 100 | train_loss: 0.2769 |
-                val_loss: 0.3686 | train_acc: 0.9213 | val_acc: 0.8763
-epoch: 200 | train_loss: 0.2464 |
-                val_loss: 0.3490 | train_acc: 0.9234 | val_acc: 0.8763
-epoch: 300 | train_loss: 0.2266 |
-                val_loss: 0.3095 | train_acc: 0.9234 | val_acc: 0.8796
-early stopping at epoch 366
+epoch: 0 | train_loss: 0.6851 | 
+                val_loss: 0.6797 | train_acc: 0.5908 | val_acc: 0.6087
+epoch: 100 | train_loss: 0.2779 | 
+                val_loss: 0.3676 | train_acc: 0.9224 | val_acc: 0.8763
+epoch: 200 | train_loss: 0.2489 | 
+                val_loss: 0.3477 | train_acc: 0.9234 | val_acc: 0.8763
+epoch: 300 | train_loss: 0.2290 | 
+                val_loss: 0.3057 | train_acc: 0.9244 | val_acc: 0.8796
+early stopping at epoch 368
 ```
 
 마지막 Epoch 기록:
 ```text
 {
-    "epoch": 366,
-    "train_loss": 0.20130175352096558,
-    "train_acc": 0.9286463856697083,
-    "val_loss": 0.3001195192337036,
+    "epoch": 368,
+    "train_loss": 0.20542867481708527,
+    "train_acc": 0.929695725440979,
+    "val_loss": 0.2964141070842743,
     "val_acc": 0.8795986771583557
 }
 ```
-학습은 최대 500 Epoch로 설정했으나 Early Stopping에 의해 366 Epoch에서 종료됐습니다.
+학습은 최대 500 Epoch로 설정했으나 Early Stopping에 의해 368 Epoch에서 종료됐습니다.
 
 위 값은 마지막으로 기록된 Epoch의 성능입니다. 최적 Epoch와 최적 Validation Loss는 별도 출력으로 확인해야 합니다.
 
@@ -197,7 +200,7 @@ SmallLSTM(
 - 실 데이터의 train, validation, test 데이터를 사용하였으며, 손실 함수는 BCEWithLogitsLoss로 정하였으며, 최적화 함수는 adam으로 구현하였고,
 과적합 방지를 위해 early_stopping, weight_decay = 1e-3으로 사용하였으며 추가 검증이 필요합니다.
 - 모델은 학습과 검증을 진행하였으며, 추가적인 검증이 필요합니다.
-- 위 숫자는 실행 당시의 결과이며, seed 값과 합성 데이터에 따라 값이 달라질 수 있습니다.
+- 위 숫자는 실행 당시의 결과이며, seed 값에 따라 값이 달라질 수 있습니다.
 
 ### 4. 빈 이력과 패딩 테스트
 
@@ -223,31 +226,6 @@ PASS: 패딩 변경에 대한 예측 불변성
 
 테스트는 합성자료를 사용하지 않고 직접 만든 텐서를 사용하여 일부 빈 이력과 전체 빈 이력, 패딩 변경에 대한 예측 불변성에 대한  테스트를 진행하였으며, 정상 동작을 확인하였습니다.
 
-## 입력과 이번 정답을 구분한 방법
-
-### 모델 입력 6개
-
-과거 풀이 이력:
-
-- `questions`: 과거 문제 ID
-- `concepts`: 과거 문제의 개념 정보
-- `results`: 과거 문제의 정답 여부
-- `lengths`: 실제 과거 풀이 개수
-
-이번에 예측할 문제:
-
-- `query_question`: 이번 문제 ID
-- `query_concepts`: 이번 문제의 개념 정보
-
-### 입력과 정답 분리
-
-`results`에는 과거 문제의 정답 여부만 포함합니다.
-
-이번 문제의 실제 정답인 `targets`는 모델의 `forward()`에 전달하지 않습니다.
-
-학습 단계에서는 예측 확률과 `targets`를 비교해 손실을 계산할 예정입니다.
-
-이번 문제의 정답을 입력에 포함하면 데이터 누수(Data Leakage)가 발생할 수 있으므로 분리했습니다.
 
 ## LSTM 모델 구조
 
@@ -277,10 +255,6 @@ super().__init__()
             [history_state, query_vector],
             dim=-1
         )
-
-        # dropout 추가하기(입력 값으로 combined 사용)
-        # 과적합을 막기 위한 수단
-        dropout = self.dropout(combined)
 
         #  logits 값으로 전달
         logits = self.fc(combined).squeeze(-1)
@@ -312,11 +286,11 @@ super().__init__()
         dropout = self.dropout(combined)
         
         #  logits 값으로 전달
-        logits = self.fc(combined).squeeze(-1)
+        logits = self.fc(dropout).squeeze(-1)
 
         return logits
 ```
-이력 상태와 이번 문제의 임베딩 및 개념 정보가 결합된 데이터를 dropout의 입력값으로 넣어 과적합 방지를 하였습니다.
+이력 상태와 이번 문제의 임베딩 및 개념 정보가 결합된 데이터를 dropout의 입력값으로 넣어 과적합 방지 하였으며, dropout이 fc에 넘어가게 변경 완료
 ## 빈 이력과 패딩 처리
 
 ### 1. 빈 이력 (`lengths = 0`)
@@ -351,13 +325,10 @@ self.embedding = nn.Embedding(
 
 ## 막힌 부분과 해결 내용
 
-### 빈 이력 테스트
-
-추가적인 테스트를 진행해야 합니다.
 ## 다음 작업
 
 - 서로 다른 배치와 데이터 분할에서도 Embedding ID 범위 확인
-- train과 valid loss 값 차이 줄이기, test를 통한 검증 진행
+- 추가적인 개선 과제: train과 valid loss 값 차이 줄이기, test를 통한 검증 진행
 - 실행 환경과 전체 커밋 SHA 기록
 - 이슈 121의 담당자와 LSTM 구조 및 실험 결과 공유
 
