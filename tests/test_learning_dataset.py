@@ -43,6 +43,19 @@ class DatasetTest(unittest.TestCase):
             self.assertEqual(shown["event_id"], row["prediction_event"])
             self.assertEqual(original, [shown, answer])
 
+    def test_ai_return_join_ignores_program_file_hashes_but_not_question_content(self):
+        for mock in (False, True):
+            for field in dataset.RUNTIME_FIELDS:
+                shown, answer = self.shown_answer(mock)
+                shown["item"][field], answer["item"][field] = "before-update", "after-update"
+                answer["item_revision"] = "f" * 64
+                self.assertEqual(["returned"], [row["prediction_event"] for row in dataset.prepare([shown, answer])])
+        shown, answer = self.shown_answer()
+        shown["item"]["runtime_revision"], answer["item"]["runtime_revision"] = "before-update", "after-update"
+        answer["item"]["stem"] = "바뀐 지문"
+        answer["item_revision"] = "f" * 64
+        self.assert_excluded_for_missing_prediction_time([shown, answer])
+
     def test_ai_return_join_rejects_mismatch_ambiguity_and_collection_restart(self):
         for field, value in (("item_revision", "1" * 64), ("position", 1), ("course", "app")):
             shown, answer = self.shown_answer()

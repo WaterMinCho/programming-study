@@ -249,7 +249,8 @@ class CollectionIntegrationTest(Base):
         self.assertEqual(first["at"], row["prediction_at"])
         self.assertEqual(first["event_id"], row["prediction_event"])
 
-    def test_runtime_change_keeps_raw_answer_without_guessing_return_time(self):
+    def test_runtime_change_links_answer_to_first_return_time(self):
+        """풀던 중에 업데이트해 프로그램 파일 해시만 바뀌면 처음 반환 기록의 시각을 예측 시각으로 씀."""
         from learning_server.dataset import prepare
         sess = self.session()
         sess.collection.set_enabled(True)
@@ -269,8 +270,10 @@ class CollectionIntegrationTest(Base):
         answer = next(row for row in after if row['kind'] == 'answer')
         self.assertNotEqual(first['item_revision'], answer['item_revision'])
         exclusions = {}
-        self.assertEqual([], prepare(after, exclusions=exclusions))
-        self.assertEqual({"missing_prediction_time": 1}, exclusions)
+        rows = prepare(after, exclusions=exclusions)
+        self.assertEqual({}, exclusions)
+        self.assertEqual([(answer["event_id"], first["at"], first["event_id"])],
+                         [(row["event_id"], row["prediction_at"], row["prediction_event"]) for row in rows])
         self.assertEqual([row for row in after if row["kind"] != "manifest"],
                          [row for row in sess.collection.snapshot() if row["kind"] != "manifest"])
 
