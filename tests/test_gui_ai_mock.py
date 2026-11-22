@@ -7,14 +7,26 @@ from pathlib import Path
 from unittest import mock
 
 from tests.test_gui_ai import AI_FIXTURE, AiTest, visible_text
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QImage, QInputMethodEvent, QPainter
-from PyQt6.QtWidgets import QApplication, QLabel
+from PyQt6.QtWidgets import QApplication, QFrame, QLabel
 from aiprep import bank
 from aiprep.mock import MockError
 from gui import kit, theme
 from tests import guikit
 import study
+
+NATIVE = os.name == 'nt' and guikit.APP.platformName() == 'windows'
+
+
+def place(win, size):
+    """창 크기를 size 로 바꿈. Windows 실제 창에서 폭이 760 보다 넓은 창은 작업 영역 안으로 줄이고 왼쪽 위로 옮김.
+    배율 1.5 에서 1280x800 창은 1920x1080 화면을 넘어 tools/check_release.py 의 운영체제 캡처가 창 전체를 담지 못함."""
+    if NATIVE and size[0] > 760:
+        area = win.screen().availableGeometry()
+        size = min(size[0], area.width() - 32), min(size[1], area.height() - 64)
+        win.move(area.topLeft() + QPoint(16, 32))
+    win.resize(*size)
 
 
 class MockPageTest(AiTest):
@@ -144,6 +156,7 @@ class MockPageTest(AiTest):
 
     def open_mock(self, size=(1024, 700), start=True):
         win = self.boot(size)
+        place(win, size)
         self.assertTrue(win.open_ai_mock('m90'))
         if start:
             win.ai_mock.begin()
@@ -527,13 +540,208 @@ class MockPageTest(AiTest):
         self.assertIn('%d / %d문항 맞음 · 걸린 시간' % (summary['score'], summary['of']), page.summary_text())
         self.assertEqual('제출 완료', page.time.text())
         self.assertEqual('label', page.time.property('role'))
+        self.assertTrue(page.clock_caption.isHidden())
+        for rows in (table.rows for table in page.lesson_results.lists):
+            self.assertLessEqual(len({row.where.width() for row in rows}), 1)
+            self.assertLessEqual(len({row.title.mapTo(page, row.title.rect().topLeft()).x() for row in rows}), 1)
+            for row in rows:
+                self.assertRegex(row.where.text(), r'^(응용 )?\d+차시$')
+                self.assertEqual(row.accessibleName(), (row.where.text() + ' ' + row.title.text()).strip())
+            self.assertEqual([bool(row.property('stripe')) for row in rows], [n % 2 == 1 for n in range(len(rows))])
+
+    def split_items(self, code=False):
+        """m90 문항을 i90·i91 두 차시에 나눔. code 면 i91 코드 작성 문항을 하나 더함."""
+        from tests.test_ai_mock import code_item
+
+        items = [dict(item) for item in self.items]
+        items[1]['lesson'] = items[3]['lesson'] = 'i91'
+        if code:
+            items.append(code_item('m90-05', 'i91'))
+        return self.use_items(items)
+
+    def test_ready_screen_shows_type_cells_lesson_counts_and_one_clock_banner(self):
+        theme.set_text('normal')
+        self.addCleanup(theme.set_text, 'normal')
+        for code in (False, True):
+            if self.win is not None:  # 앞 차례 창을 닫음. 마지막 창은 tearDown 이 닫음
+                self.win.close()
+            items = self.split_items(code)
+            page = self.open_mock((1280, 800), start=False)
+            names = [cell.name.text() for cell in page.ready_types.cells]
+            self.assertEqual(['빈칸 3문항', '객관식 1문항'] + (['코드 작성 1문항'] if code else []), names)
+            self.assertEqual(len(items), sum(int(name.split()[-1][:-2]) for name in names))
+            self.assertTrue(page.ready_types.isVisible() and page.lesson_counts.isVisible())
+            self.assertFalse(page.result_types.isVisible() or page.lesson_results.isVisible())
+            rows = page.lesson_counts.rows
+            self.assertEqual(['90차시', '91차시'], [row.where.text() for row in rows])
+            self.assertEqual(len(items), sum(int(row.end.text()[:-2]) for row in rows))
+            self.assertTrue(all(row.bar is None for row in rows))
+            self.assertNotIn('빈칸', page.heading.text())
+            self.assertNotIn('객관식', page.heading.text())
+            banners = [widget for widget in page.findChildren(QFrame) if widget.objectName() == 'banner' and widget.isVisible()]
+            self.assertEqual([page.clock_note], banners)
+            self.assertIn('시계가 멈추지 않습니다', page.clock_note.text.text())
+            self.assertEqual('warning', page.clock_note.property('tone'))
+            self.assertLess(page.summary.geometry().bottom(), page.clock_note.geometry().top())
+            self.assertLess(page.clock_note.geometry().bottom(), page.ready_types.geometry().top())
+            # code=False 차례는 처음 응시라 다시 시작 안내와 지난 점수가 없어 카드를 숨김.
+            # code=True 차례는 앞 차례에 시작한 초안과 문항이 달라 카드에 다시 시작 안내가 있음
+            self.assertEqual(code, page.restart_required)
+            self.assertEqual('새 자료로 시작' if code else '시작', page.start_btn.text())
+            self.assertEqual(not code, page.card.isHidden())
+            guikit.click(page.start_btn)
+            self.idle()
+            self.assertFalse(page.ready_types.isVisible() or page.lesson_counts.isVisible() or page.clock_note.isVisible())
+            self.assertTrue(page.card.isVisible())
+
+    def test_result_type_cells_and_lesson_rows_in_lesson_order_with_zero_rows_in_danger(self):
+        theme.set_text('normal')
+        self.addCleanup(theme.set_text, 'normal')
+        self.split_items()
+        page = self.open_mock((1280, 800))
+        page.exam.save_answer(['3'], 'm90-01')  # i90 은 1 / 2, i91 은 0 / 2
+        page.submit()
+        self.idle()
+        summary = page.exam.summary()
+        cells = page.result_types.cells
+        self.assertTrue(page.result_types.isVisible())
+        self.assertEqual(['빈칸', '객관식'], [cell.name.text() for cell in cells])
+        pairs = [[int(n) for n in cell.second.text().replace(' 맞음', '').split(' / ')] for cell in cells]
+        self.assertEqual(summary['score'], sum(right for right, _ in pairs))
+        self.assertEqual(summary['of'], sum(total for _, total in pairs))
+        self.assertTrue(all(cell.bar.isVisible() and cell.third.isHidden() for cell in cells))
         rows = page.lesson_results.rows
-        self.assertEqual(1, len({row.where.width() for row in rows}))
-        self.assertEqual(1, len({row.title.mapTo(page, row.title.rect().topLeft()).x() for row in rows}))
-        for row in rows:
-            self.assertRegex(row.where.text(), r'^(응용 )?\d+차시$')
-            self.assertEqual(row.accessibleName(), (row.where.text() + ' ' + row.title.text()).strip())
-        self.assertEqual([bool(row.property('stripe')) for row in rows], [n % 2 == 1 for n in range(len(rows))])
+        self.assertEqual(['90차시', '91차시'], [row.where.text() for row in rows])
+        self.assertEqual(['1 / 2', '0 / 2'], [row.end.text() for row in rows])
+        for row, zero in zip(rows, (False, True)):
+            for widget in (row.where, row.title, row.end):
+                self.assertEqual(zero, widget.property('tone') == 'danger', widget.text())
+
+    def test_lesson_tables_switch_between_two_and_one_column_with_the_window(self):
+        theme.set_text('normal')
+        self.addCleanup(theme.set_text, 'normal')
+        self.split_items()
+        page = self.open_mock((1280, 800), start=False)
+
+        def lengthen(table):  # 두 열 기준은 가장 긴 차시 이름으로 재므로 이름을 14자로 늘려 760 에서 한 열이 되게 함
+            table.fill([(row[0], '가' * 14) + tuple(row[2:]) for row in table.data])
+
+        def check(table, columns):
+            self.assertEqual(columns, table.columns)
+            self.assertEqual(columns == 2, table.lists[1].isVisible())
+            self.assertEqual(2, len(table.rows))
+            self.assertEqual(['90차시 시험 차시', '91차시 준비 중 차시'], [row.accessibleName() for row in table.rows])
+            if columns == 2:
+                left, right = table.lists
+                self.assertLess(left.geometry().right(), right.geometry().left())
+
+        lengthen(page.lesson_counts)
+        for size, columns in (((1280, 800), 2), ((760, 480), 1), ((1280, 800), 2)):
+            place(self.win, size)
+            self.idle()
+            check(page.lesson_counts, columns)
+            if columns == 2:  # 두 열이면 열마다 가장 긴 이름이 줄지 않고 들어감
+                self.assertGreaterEqual(min(part.width() for part in page.lesson_counts.lists), page.lesson_counts.need())
+        page.begin()
+        page.submit()
+        self.idle()
+        lengthen(page.lesson_results)
+        totals = [row.end.text() for row in page.lesson_results.rows]
+        for size, columns in (((1280, 800), 2), ((760, 480), 1), ((1280, 800), 2)):
+            place(self.win, size)
+            self.idle()
+            check(page.lesson_results, columns)
+            self.assertEqual(totals, [row.end.text() for row in page.lesson_results.rows])
+            self.assertEqual(0, page.scroll.horizontalScrollBar().maximum())
+
+    def test_elided_lesson_names_show_the_whole_name_on_hover(self):
+        """한 열, 큰 글자, 760x480 에서 줄임표로 줄어든 차시 이름은 마우스를 올리면 툴팁으로 전체 이름이 보임."""
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QHelpEvent
+        from PyQt6.QtWidgets import QToolTip
+
+        self.addCleanup(theme.set_text, 'normal')
+        self.addCleanup(QToolTip.hideText)
+        self.split_items()
+        page = self.open_mock((760, 480), start=False)
+        self.win.set_text('larger')
+        self.idle()
+
+        def check(table):
+            names = ['가' * 40, '나' * 40]  # 760 큰 글자 한 열에서도 줄임표로 줄어들 만큼 긴 이름
+            table.fill([(row[0], name) + tuple(row[2:]) for row, name in zip(table.data, names)])
+            self.idle()
+            self.assertEqual(1, table.columns)
+            for row, name in zip(table.rows, names):
+                shown = QLabel.text(row.title)
+                self.assertTrue(shown.endswith('…') and len(shown) < len(name), shown)
+                self.assertEqual(name, row.title.toolTip())
+                center = row.title.rect().center()
+                QApplication.sendEvent(row.title, QHelpEvent(QEvent.Type.ToolTip, center, row.title.mapToGlobal(center)))
+                guikit.pump()
+                self.assertEqual(name, QToolTip.text())
+                QToolTip.hideText()
+
+        check(page.lesson_counts)
+        page.begin()
+        page.submit()
+        self.idle()
+        check(page.lesson_results)
+
+    def test_ungraded_code_item_is_marked_after_the_third_environment_failure(self):
+        from aiprep import mock_code
+        from tests.test_ai_mock import RIGHT, env_grade
+
+        self.split_items(code=True)
+        page = self.open_mock((1280, 800))
+        page.exam.save_answer(list(RIGHT), 'm90-05')
+        with mock.patch.object(mock_code, 'grade', side_effect=env_grade):
+            for _ in range(2):
+                page.submit()
+                self.idle()
+                self.assertIsNone(page.exam.result)
+                self.assertTrue(page.notice.isVisible())
+            page.submit()
+            self.idle()
+        self.assertEqual('ungraded', page.exam.result['results']['m90-05'])
+        button = page.nav[page.exam.draft['order'].index('m90-05')]
+        self.assertTrue(button.text().endswith(' ?'))
+        self.assertIn('이 기기에서 채점하지 못함', button.toolTip())
+        self.assertEqual(button.toolTip(), button.accessibleName())
+        self.assertIn('채점하지 못한 문항이 1개', page.heading.text())
+        code = page.result_types.cells[-1]
+        self.assertEqual(('코드 작성', '0 / 1 맞음', '채점하지 못한 문항 1개'), (code.name.text(), code.second.text(), code.third.text()))
+        self.assertTrue(code.third.isVisible())
+
+    def test_lesson_with_only_ungraded_items_is_not_marked_as_all_wrong(self):
+        from aiprep import mock_code
+        from tests.test_ai_mock import RIGHT, code_item, env_grade
+
+        self.use_items([dict(item) for item in self.items] + [code_item('m90-05', 'i91')])
+        page = self.open_mock((1280, 800))
+        page.exam.save_answer(list(RIGHT), 'm90-05')
+        with mock.patch.object(mock_code, 'grade', side_effect=env_grade):
+            for _ in range(3):
+                page.submit()
+                self.idle()
+        self.assertEqual('ungraded', page.exam.result['results']['m90-05'])
+        rows = page.lesson_results.rows
+        self.assertEqual(['0 / 4', '0 / 1'], [row.end.text() for row in rows])
+        for row, zero in zip(rows, (True, False)):
+            for widget in (row.where, row.title, row.end):
+                self.assertEqual(zero, widget.property('tone') == 'danger', widget.text())
+
+    def test_clock_caption_hides_after_submit_and_returns_on_retry(self):
+        page = self.open_mock((1280, 800))
+        self.assertTrue(page.clock_caption.isVisible())
+        page.submit()
+        self.idle()
+        self.assertTrue(page.clock_caption.isHidden())
+        self.assertEqual('제출 완료', page.time.text())
+        guikit.click(page.retry_btn)
+        self.idle()
+        self.assertTrue(page.clock_caption.isVisible())
+        self.assertRegex(page.time.text(), r'^\d\d:\d\d$')
 
     def test_narrow_page_keeps_primary_action_inside(self):
         self.addCleanup(theme.set_text, 'normal')
@@ -545,3 +753,49 @@ class MockPageTest(AiTest):
         self.assertEqual([primary], kit.visible_primary_buttons(page))
         self.assertLessEqual(page.submit_btn.geometry().right(), page.bar.width())
         self.assertGreater(page.card.width(), 0)
+
+
+class RealMockScreensTest(AiTest):
+    """실제 회차 m1(30문항)·m4(32문항)·m11(44문항)의 시작 전 유형 카드와 차시 표를 봄. m11 의 hidden 은 이 검사 안에서만 뺌."""
+    real_bank = True
+
+    def setUp(self):
+        super().setUp()
+        real = bank.read_index
+
+        def shown(path=None):
+            index = real(path)
+            for spec in index['mocks']:
+                if spec['id'] == 'm11':
+                    spec.pop('hidden', None)
+            return index
+
+        patcher = mock.patch.object(bank, 'read_index', shown)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_ready_tables_add_up_and_empty_m11_result_marks_every_lesson(self):
+        theme.set_text('normal')
+        self.addCleanup(theme.set_text, 'normal')
+        win = self.boot((1280, 800))
+        place(win, (1280, 800))
+        for mid, count in (('m1', 30), ('m4', 32), ('m11', 44)):
+            self.assertTrue(win.open_ai_mock(mid), mid)
+            page = win.ai_mock
+            self.idle()
+            self.assertEqual(count, sum(int(cell.name.text().split()[-1][:-2]) for cell in page.ready_types.cells), mid)
+            self.assertEqual(count, sum(int(row.end.text()[:-2]) for row in page.lesson_counts.rows), mid)
+            for row in page.lesson_counts.rows:
+                self.assertRegex(row.where.text(), r'^(응용 )?\d+차시$')
+                self.assertTrue(row.accessibleName().startswith(row.where.text() + ' '), row.accessibleName())
+            win.go_ai()
+        self.assertEqual(['빈칸', '객관식', '코드 작성'], [cell.name.text().rsplit(' ', 1)[0] for cell in page.ready_types.cells])
+        self.assertTrue(win.open_ai_mock('m11'))
+        page.begin()
+        page.submit()
+        self.idle()
+        rows = page.lesson_results.rows
+        self.assertEqual(44, sum(int(row.end.text().split(' / ')[1]) for row in rows))
+        for row in rows:
+            self.assertTrue(row.end.text().startswith('0 / '))
+            self.assertEqual('danger', row.title.property('tone'))

@@ -65,7 +65,7 @@ MODE_FORMAT = {"word": "낱말로 씁니다. 띄어쓰기와 끝 조사 하나�
                "shape": "모양을 (2, 3, 4) 처럼 씁니다. 대괄호나 torch.Size(...) 로 써도 됩니다.",
                "values": "값을 [1, 2, 3] 처럼 씁니다. tensor(...) 와 dtype= 부분은 빼도 됩니다. True 와 1, False 와 0 은 다른 값으로 채점합니다.",
                "exact": "출력된 글을 그대로 씁니다. 앞뒤 공백만 가리지 않습니다."}  # 빈칸 아래 형식 줄. aiprep/grade.py 의 모드별 정규화와 맞춤
-RESULT_MARK = {"pass": "○", "stuck": "×", "blank": "−"}  # 제출 뒤 번호 칸의 결과 기호
+RESULT_MARK = {"pass": "○", "stuck": "×", "blank": "−", "ungraded": "?"}  # 제출 뒤 번호 칸의 결과 기호
 SCOPE_BADGE = {"support": "보충 설명", "deep": "심화", "extra": "더 알아보기 · 시험 범위 밖", "trend": "2026 흐름 · 시험 범위 밖"}
 SCOPE_HEADS = ("심화", "보충 설명", "더 알아보기", "2026 흐름")  # 단계 제목 앞머리. 꼬리표가 같은 말을 하므로 제목에서는 뺌
 BOXES = {"정정": ("정정", "warning"), "보충 설명": ("보충 설명", "accent")}  # > **[정정]** 인용 상자의 꼬리표와 색
