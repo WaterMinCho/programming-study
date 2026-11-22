@@ -5,22 +5,24 @@
 - 이전 입력 확인 PR: https://github.com/WaterMinCho/programming-study/pull/189
 - 개인 모델 저장소 주소: https://github.com/wamangdoo/learning-transformer
 - README 고정 주소: https://github.com/wamangdoo/learning-transformer/blob/f601a2541c141995a0f29ff23cbf6b6e51876d41/README.md
-- 현재 단계: 학습 전 경량 Transformer(`model.py`), 실행 스크립트(`run.py`), 단위 테스트(`test_model.py`) 구현 및 동작 확인 완료 (모델 학습·검증·저장은 미실행)
+- 현재 단계: 경량 Transformer(`model.py`), 학습 전 예측(`run.py`), 모델 단위 테스트(`test_model.py`), 합성 자료 기반 학습·검증 및 저장·불러오기(`train.py`) 구현 및 실행 확인 완료 (실제 자료 학습·성능 비교·채점은 미실행)
 
-## 모델 구현 및 학습 전 예측 확인 (`model.py` / `run.py` / `test_model.py`)
+## 모델 구현, 예측 확인 및 학습·저장·불러오기 (`model.py` / `run.py` / `test_model.py` / `train.py`)
 
 ### 1. 파일 구성
 - `model.py`: `SmallTransformer` 모델 본체 (과거 풀이 인코딩 + 이번 문제 결합 후 `logits` 반환)
 - `run.py`: 합성 자료(`learning-demo-f8`)에서 핵심 6개 입력을 골라 `set_seed(42)`와 `get_device()`(`cuda` / `mps` / `cpu`) 적용 후 배치 단위로 `.to(device)` 이동해 학습 전 예측 확률 출력
 - `test_model.py`: 일부/전원 빈 이력, 평가 모드 패딩 변경 불변성, 과거 풀이 순서(위치 정보) 반영 검증 (`unittest`)
+- `train.py`: 합성 자료(`learning-demo-f8`)의 `train` / `validation` 구간으로 소량 과적합 확인, 학습·검증 루프(`BCEWithLogitsLoss`, `Adam`), CPU·평가 모드 저장·불러오기(`torch.save` / `torch.load`) 최대 오차 확인
 
 ### 2. 실행 조건 및 환경
 | 항목 | 실제 사용한 값                                                                                                       |
 |---|---|
 | 자료 묶음 | `..\learning-demo-f8` (합성 자료, `features_version: 8`)                                                           |
-| 과목 / 분할 / 길이 | `python` / `train` / `length=32`                                                                               |
-| 시드 / 장치 / 모드 | `set_seed(42)` (`random`/`numpy`/`torch`/`cuda`/`mps`), `get_device()`, `model.eval()`, `torch.no_grad()` |
+| 과목 / 분할 / 길이 | `python` / `train` (`run.py`, `train.py`), `validation` (`train.py`) / `length=32`                             |
+| 시드 / 장치 / 모드 | `set_seed(42)` (`random`/`numpy`/`torch`/`cuda`/`mps`), `get_device()`, 학습 `model.train()` / 검증·예측 `model.eval()` + `torch.no_grad()` |
 | 모델 설정 | `embed_num=16`, `hidden_num=16`, `nhead=4`, `num_layers=2`, `dim_feedforward=32`, `max_len=128`, `dropout=0.1` |
+| 학습 설정 (`train.py`) | `nn.BCEWithLogitsLoss()`, `Adam` (과적합 확인 `lr=1e-2` 50 epoch / 학습·검증 `lr=1e-3` 20 epoch), `batch_size=4` |
 | 실행 환경 | `Python 3.13.15` / `pytorch: 2.15.0+cu132` (Windows)                                                           |
 
 > `nn.TransformerEncoder`의 `enable_nested_tensor=False` 옵션은 PyTorch 버전에 따라 동작이나 패딩 오차 결과가 달라질 수 있어 실행한 PyTorch 버전을 함께 기록했습니다.
@@ -82,6 +84,38 @@ OK
   - `[3]` 평가 모드 패딩 변경 전/후 확률: 두 경우 일치 (오차 `<= 1e-6`)
   - `[4]` 위치 정보(과거 풀이 순서) 변경 결과: 순서 A(`1번O -> 2번X`) `0.675672` vs 순서 B(`2번X -> 1번O`) `0.669025` (순서 반영 확인)
 
+#### 학습·검증 및 저장·불러오기 실행 (`train.py`)
+> 아래 출력은 **합성 자료(`learning-demo-f8`, `train` 8건 / `validation` 2건)**에서 학습·검증 루프와 저장·불러오기가 정상 동작하는지 확인한 결과이며, 실제 학습자 성능 지표가 아닙니다.
+
+```powershell
+python -m experiments.wamangdoo.train
+```
+```text
+[1] 소량(8건) 과적합 확인: epoch 1 손실 0.954636 -> epoch 50 손실 0.362748
+
+[2] 학습·검증 시작 (device=cuda, train=8건, validation=2건)
+  epoch  1 | train_loss: 1.074712 | val_loss: 0.799450
+  epoch  5 | train_loss: 0.782603 | val_loss: 0.693849
+  epoch 10 | train_loss: 0.713906 | val_loss: 0.728333
+  epoch 15 | train_loss: 0.704884 | val_loss: 0.765250
+  epoch 20 | train_loss: 0.678125 | val_loss: 0.779956
+
+[3] 저장·불러오기 확인 (CPU, eval 모드)
+  저장 전 예측 확률: [0.697924, 0.698886]
+  불러온 뒤 예측 확률: [0.697924, 0.698886]
+  최대 절대 차이: 0.00000000 (기준 <= 0.000001)
+```
+- **학습·검증 구현 선택 이유**:
+  - `SmallTransformer`가 시그모이드 전 `logits`를 반환하므로 `nn.BCEWithLogitsLoss()`가 sigmoid와 손실 계산을 한 번에 처리해 줍니다. 그래서 실제 확률이 필요한 `predict_probabilities`에서만 시그모이드를 사용했습니다.
+  - 이번 정답표(`targets`)는 모델 입력(`inputs`)에 절대 넣지 않고 손실 계산에만 사용했으며, 과거 이력용 `mask`를 `targets`에 곱하지 않았습니다.
+  - 학습(`train_one_epoch`) 때는 `model.train()`으로 가중치를 업데이트하고, 검증(`evaluate_one_epoch`) 때는 `model.eval()`과 `torch.no_grad()`를 써서 가중치가 바뀌지 않게 막았습니다.
+  - 마지막 묶음은 4개보다 적을 수 있어서, 각 묶음 손실에 실제 행 개수를 곱해 더한 뒤 전체 개수로 나눠 평균을 냈습니다.
+  - `save_model`은 `model.state_dict()`와 모델 복원에 필요한 `num_questions`, `num_concepts`를 함께 저장하며, 저장소에 `.pt` 파일이 남지 않도록 Git 저장소 밖(`..\temp_small_transformer.pt`)에 임시 저장해 불러오기 확인 후 삭제했습니다.
+- **출력 결과 해석**:
+  - `[1]` 소량 8건 과적합 확인에서 손실이 `0.954636 → 0.362748`로 뚜렷하게 감소했습니다. `learning-demo-f8`의 `python-train.jsonl` 8건 중 2번째 행과 6번째 행은 모델 입력이 완전히 같고 정답(`target`)만 `1`과 `0`으로 반대이기 때문에 이론상 손실이 `0.0`까지 완전히 내려갈 수는 없습니다.
+  - `[2]` `train_loss`는 `1.074712 → 0.678125`로 감소했지만 `val_loss`는 epoch 5(`0.693849`) 이후 `0.779956`으로 다시 올라갔습니다. 데이터가 학습 8건·검증 2건뿐이라 모델이 학습 데이터 8건만 외워버려서(과적합) 검증 손실이 올라갔습니다.
+  - `[3]` 같은 CPU·평가 모드(`model.eval()`)에서 저장 전후 검증 2건의 예측 확률이 `[0.697924, 0.698886]`으로 일치하며 최대 절대 차이 `0.00000000` (`<= 0.000001`)을 확인했습니다.
+
 ### 6. 이번 작업을 하며 새로 알게 된 것들 (Transformer 기본 개념 정리)
 - **Transformer의 기본 원리**:
   - LSTM은 과거 풀이를 앞에서부터 한 칸씩 순서대로 읽으며 기억을 넘기지만, Transformer는 **과거 풀이 전체를 한꺼번에 펼쳐 놓고 서로 관련 있는 문제끼리 Attention(관련도 가중치)으로 연결해, 단독 문제 벡터를 앞뒤 맥락이 담긴 벡터로 변환(Transform)**합니다.
@@ -96,13 +130,15 @@ OK
 - **빈 이력과 빈 자리(패딩) 처리 원리**:
   - 과거 기록이 없는 학생을 위해 `history_state`를 먼저 `0`으로 초기화하고, `has_history = mask.any(dim=1)`로 실제 풀이가 1개 이상 있는 학생만 Transformer에 통과시켜 전원 빈 이력일 때의 `NaN`을 막습니다.
   - 공통 입력의 `mask=True`('실제 자리')와 PyTorch `src_key_padding_mask=True`('가릴 자리')는 뜻이 반대이므로 `~valid_mask`로 반전해 넘깁니다.
+  - `encode_history()`에는 이미 끝난 과거 풀이(`sequence_history`)만 들어가고 이번 문제(`query_question`)는 나중에 따로 합치므로, 시퀀스 내부에 미래 가림(causal mask)을 별도로 두지 않고 빈 자리 가림(`src_key_padding_mask`)만 사용했습니다.
   - Transformer 출력에서 그냥 평균을 내면 빈 칸 자리의 값까지 섞이므로, `valid_mask`를 `1.0`/`0.0`으로 바꿔 곱해 빈 칸을 `0`으로 지운 뒤 실제 푼 개수(`mask_float.sum(dim=1)`)로만 나누어 요약 벡터를 만듭니다.
 - **PyTorch 기본 개념**:
   - `unsqueeze(-1)` / `squeeze(-1)`: `torch.cat`으로 옆에 이어 붙이기 위해 맨 뒤 차원을 1칸 늘리거나, 최종 출력 `[B, 1]`에서 1칸을 벗겨 `[B]`로 모양을 맞출 때 사용합니다.
-  - `model.eval()` vs `torch.no_grad()`: `eval()`은 Dropout을 꺼서 같은 입력에 일정한 예측이 나오게 하고, `no_grad()`는 추론 시 불필요한 기울기(역전파) 계산을 꺼서 메모리를 아낍니다.
+  - `model.eval()` vs `torch.no_grad()`: `eval()`은 Dropout을 꺼서 같은 입력에 일정한 예측이 나오게 하고, `no_grad()`는 검증 시 불필요한 기울기(역전파) 계산을 꺼서 가중치가 바뀌지 않게 하고 메모리를 아낍니다.
   - `torch.as_tensor()`: 파이썬 리스트를 PyTorch 텐서로 바꾸되, 이미 같은 텐서면 불필요한 복사를 줄여 줍니다.
+  - 학습 5단계(`zero_grad → forward → BCEWithLogitsLoss → backward → step`): PyTorch는 기울기를 기본 누적하므로 매 배치 시작에 `zero_grad()`로 비운 뒤, `backward()`로 기울기를 계산하고 `step()`으로 가중치를 갱신합니다.
 
 ### 7. 현재 미실행 항목 (다음 단계)
-- 모델 학습·검증 루프(`train.py`: `BCEWithLogitsLoss`, 역전파·가중치 갱신, 검증 구간 가중치 고정 확인)
-- 모델 저장·불러오기(`torch.save` / `torch.load`, 새 실행에서 저장 전후 예측 차이 `<= 1e-6` 확인)
+- 학습·검증 가중치 갱신/고정 여부 및 새 실행 저장·불러오기 자동 테스트 코드 추가
+- 실제 자료 기반 학습·검증 실행 및 오류 사례 분석
 - 같은 조건의 `michae18`님 LSTM 모델과 성능 비교 및 `python -m learning_server.score` 채점
