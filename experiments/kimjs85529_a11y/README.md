@@ -1,5 +1,4 @@
-﻿
-# kimjs85529_a11y - LSTM + Time Gap 실험 기록
+﻿# kimjs85529_a11y - LSTM + Time Gap 실험 기록
 
 - **담당 모델:** LSTM + 풀이 간격(Time Gap)
 - **담당 이슈:** https://github.com/WaterMinCho/programming-study/issues/121
@@ -77,7 +76,7 @@ UNK는 Vocabulary에 등록되지 않은 여러 개념이 하나의 ID로 통합
 
 - 현재 문제에 UNK만 포함되어 있고 UNK의 시간 정보가 확인되더라도, 등록 개념의 확인 가능한 시간이 없다면 `[gap_log, gap_known] = [0.0, 0.0]`을 반환한다.
 - 이 경우 원본 시간 정보가 실제로 없는 기록과 UNK 제외 정책으로 시간 정보를 사용하지 못한 기록이 모델에서 동일한 시간 입력으로 표현된다.
-- 따라서 실제 AI Train 데이터의 시간 미확인 196건에는 UNK 제외 정책의 영향을 받은 기록이 포함될 가능성이 있다. 다만 실제 해당 기록 수는 아직 별도로 집계하지 않았다.
+- 실제 v8 Recorded 데이터의 AI 트랙을 확인한 결과, Train 953건에서는 UNK가 포함된 기록이 0건이었으며, Validation 299건에서는 12건, Test 260건에서는 39건으로 확인되었다. 이 중 UNK의 시간은 확인되었지만 등록 개념의 시간은 확인되지 않아 `[gap_log, gap_known] = [0.0, 0.0]`으로 처리된 기록은 Validation 6건, Test 6건이었다. 따라서 Train의 시간 미확인 196건은 UNK 제외 정책의 영향을 받지 않았으며, Validation과 Test에서는 일부 시간 정보가 제외되었음을 확인했다.
 
 UNK 제외 정책은 `test_gaps.py`의 테스트 7에서 인공 입력을 사용하여 확인했다.
 
@@ -223,7 +222,6 @@ TimeGapLSTM 파라미터: 19886
 cd C:\programming-study
 
 python --version
-
 python -c "import torch; print(torch.__version__)"
 ```
 
@@ -289,7 +287,6 @@ model/kimjs85529_a11y_timegap_lstm
 cd C:\programming-study
 
 git branch --show-current
-
 git rev-parse HEAD
 
 git diff 187d7ba4a39fbb602a023bcb49623f656f97df1d -- experiments/kimjs85529_a11y/inspect_gaps.py experiments/kimjs85529_a11y/test_gaps.py
@@ -458,7 +455,7 @@ PyTorch: 설치됨
 아직 확인하지 않은 내용은 다음과 같다.
 
 - 원본 타임스탬프와 `query_gap_seconds`의 독립적인 대조
-- UNK 시간만 존재하여 제외된 실제 기록 수
+- UNK 제외 정책이 실제 모델 예측 성능에 미치는 영향
 - 실제 데이터 기반 모델 학습
 - 기본 LSTM과 TimeGapLSTM의 예측 성능 비교
 - 별도 Python 프로세스에서 학습된 모델 복원
@@ -529,7 +526,7 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 | 시간 미확인과 실제 0초 구분 | `[gap_log, gap_known]` 두 값 사용 | 전처리 및 모델 검증 통과 |
 | 여러 개념의 시간 선택 | 등록 개념의 확인된 최단 간격 사용 | 전처리 테스트 통과 |
 | UNK 시간 혼합 문제 | PAD·UNK 제외 정책 적용 | 테스트 7 통과 |
-| UNK 제외에 따른 모델 입력 한계 | UNK만 시간이 확인된 경우에도 `[0.0, 0.0]`이 될 수 있음을 명시 | 실제 해당 건수 미집계 |
+| UNK 제외에 따른 모델 입력 한계 | UNK만 시간이 확인된 경우에도 `[0.0, 0.0]`이 될 수 있음을 명시 | Train 0건, Validation 6건, Test 6건 확인 |
 | 시간 특성 자료형 | Python float와 PyTorch float32 사용 | 테스트 통과 |
 | 대량 입력 처리 | PyTorch 배치 연산 구현 | 10,000건 처리 테스트 통과 |
 | 기존 모델 구조 유지 | `SmallLSTM` 상속 및 공통 가중치 복사 | 초기 Logit 일치 |

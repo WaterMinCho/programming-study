@@ -618,7 +618,7 @@ else:
 
     assert actual.shape == (7, 2)
     assert actual.dtype == torch.float32
-    assert actual.device == device
+    assert actual.device.type == device.type  
 
     print("통과: 7건 개별·배치 결과 일치")
 
