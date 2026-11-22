@@ -4,7 +4,7 @@ import math
 
 from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF
-from PyQt6.QtWidgets import QApplication, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QBoxLayout, QFrame, QSizePolicy, QWidget
 
 from aiprep import bank, mixed_mock
 from aiprep.grade import BLANK
@@ -21,7 +21,145 @@ from session import SessionError
 SUMMARY_LEAST = 128  # 제출 뒤 요약 카드 최소 높이
 BAR_WIDTH = 120  # 보통 글자에서 차시별 막대 폭
 GRID_SHARE = 3  # 펼친 번호 칸 묶음이 스크롤 영역 높이의 1/3 을 넘으면 접음
-RESULT_NAME = {'pass': '맞음', 'stuck': '틀림', 'blank': '비움'}
+RESULT_NAME = {'pass': '맞음', 'stuck': '틀림', 'blank': '비움', 'ungraded': '이 기기에서 채점하지 못함'}
+TYPE_CELL = 240  # 보통 글자에서 유형 카드 하나의 최소 폭. 카드 수만큼 들어가지 않으면 세로로 쌓음
+TYPES = (('blank', '빈칸', '지문이나 코드의 빈칸에 답을 씁니다.'), ('choice', '객관식', '보기에서 답을 고릅니다.'),
+         ('code', '코드 작성', '함수의 빈 줄을 채워 숨은 테스트를 모두 통과하면 맞습니다.'))
+
+
+def lesson_parts(entries, lid):
+    """차시 id 의 (앞 칸 'N차시'·'응용 N차시', 이름, 전체 이름, 정렬 키). 정렬은 개론 → 응용, 번호 순."""
+    entry = entries.get(lid, {})
+    no, course = entry.get('no', lid), entry.get('course', 'intro')
+    title = ai_text.lesson_title(no, entry.get('title', ''), course).strip()
+    prefix = ai_text.lesson_title(no, '', course)
+    name = title[len(prefix):].strip() if title.startswith(prefix) else title
+    return prefix, name, title, (course != 'intro', no if isinstance(no, int) else 10 ** 6, str(lid))
+
+
+def scaled(width):
+    return round(width * theme.TYPE['body'][0] / theme.BASE_TYPE['body'][0])
+
+
+class LessonTable(QFrame):
+    """차시별 표. 줄 자료를 받아 폭이 넉넉하면 두 열(왼쪽 앞 차시, 오른쪽 뒤 차시), 모자라면 한 열로 둠.
+    열마다 RowList(striped) 하나를 쓰고 'N차시' 칸 폭을 열마다 맞춤. rows 는 왼쪽 열 줄 다음 오른쪽 열 줄."""
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName('card')
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        row = kit.box(self, horizontal=True)
+        self.lists = [kit.RowList(inside_card=True, least=48, pad=12, striped=True) for _ in range(2)]
+        self.divider = kit.frame('rowline')
+        self.divider.setFixedWidth(1)
+        row.addWidget(self.lists[0], 1, Qt.AlignmentFlag.AlignTop)
+        row.addWidget(self.divider)
+        row.addWidget(self.lists[1], 1, Qt.AlignmentFlag.AlignTop)
+        self.data, self.columns = [], 0
+
+    @property
+    def rows(self):
+        return self.lists[0].rows + self.lists[1].rows
+
+    def fill(self, data):
+        """data 는 (앞 칸, 이름, 전체 이름, 끝 글, 막대 값 또는 None, danger 글자로 쓸지) 줄의 목록.
+        마지막 값은 채점한 문항이 있는데 하나도 못 맞힌 차시에서 참임."""
+        self.data = list(data)
+        self.columns = 0
+        self.refit()
+
+    def need(self):
+        """한 열에 필요한 폭. 줄 좌우 여백, 가장 긴 앞 칸, 가장 긴 이름, 막대, 가장 긴 끝 글과 그 사이 간격.
+        두 열에서 이름이 줄임표로 줄지 않게 가장 긴 이름을 재고, 줄 배치가 칸마다 정수 폭을 주므로 칸마다 올림함."""
+        caption, label = QFontMetricsF(theme.font('caption')), QFontMetricsF(theme.font('label'))
+        lead = max((math.ceil(caption.horizontalAdvance(row[0])) for row in self.data), default=0)
+        name = max((math.ceil(label.horizontalAdvance(row[1])) for row in self.data), default=0)
+        end = max((math.ceil(caption.horizontalAdvance(row[3])) for row in self.data), default=0)
+        bar = scaled(BAR_WIDTH) + 12 if any(row[4] is not None for row in self.data) else 0
+        return 48 + lead + 2 + 12 + name + 12 + bar + end
+
+    def refit(self):
+        """폭과 글자 크기에 맞춰 열 수를 정하고, 바뀌었으면 줄을 다시 만듦. 막대 폭과 앞 칸 폭은 늘 다시 맞춤."""
+        if not self.data:
+            return
+        room = (self.contentsRect().width() - 1 - 2 * self.layout().spacing()) // 2  # 세로선 1px 과 그 양옆 간격을 뺀 한 열 폭
+        columns = 2 if len(self.data) > 1 and room >= self.need() else 1
+        if columns != self.columns:
+            self.columns = columns
+            split = math.ceil(len(self.data) / columns)
+            for n, part in enumerate((self.data[:split], self.data[split:])):
+                self.lists[n].clear()
+                for prefix, name, title, end, value, zero in part:
+                    where = kit.label(prefix, 'caption', 'secondary')
+                    row = self.lists[n].add(kit.Row(name, end=end, inert=True, lead=where))
+                    row.setAccessibleName(title)
+                    row.where, row.bar = where, None
+                    if value is not None:
+                        row.bar = kit.progress(thin=True)
+                        row.bar.setValue(value)
+                        row.layout().insertWidget(row.layout().indexOf(row.end), row.bar, 0, Qt.AlignmentFlag.AlignVCenter)
+                    if zero:
+                        for widget in (where, row.title, row.end):
+                            kit.set_tone(widget, 'danger')
+            self.lists[1].setVisible(columns == 2)
+            self.divider.setVisible(columns == 2)
+        for rows in (self.lists[0].rows, self.lists[1].rows):
+            column = max((math.ceil(QFontMetricsF(theme.font('caption')).horizontalAdvance(row.where.text())) for row in rows), default=0)
+            for row in rows:
+                if row.bar is not None:
+                    row.bar.setFixedWidth(scaled(BAR_WIDTH))
+                row.where.setFixedWidth(column + 2)
+                row.fit_height()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.refit()
+
+
+class TypeCells(QWidget):
+    """문항 유형 카드. 카드마다 이름 줄과 설명(시작 전) 또는 맞은 수 줄과 막대(결과). 폭이 모자라면 세로로 쌓음."""
+
+    def __init__(self):
+        super().__init__()
+        self.row = kit.box(self, spacing=theme.SPACE[2], horizontal=True)
+        self.cells = []
+
+    def fill(self, cells):
+        """cells 는 (이름, 둘째 줄, 셋째 줄, 막대 값 또는 None) 의 목록. 빈 줄은 숨김."""
+        for cell in self.cells:
+            self.row.removeWidget(cell)
+            cell.hide()
+            cell.deleteLater()
+        self.cells = []
+        for name, second, third, value in cells:
+            cell, inner = kit.card(16, theme.SPACE[1])
+            cell.name = kit.label(name, 'label', bold=True)
+            cell.second = kit.para(second, 'caption', 'secondary')
+            cell.third = kit.para(third, 'caption', 'secondary')
+            inner.addWidget(cell.name)
+            inner.addWidget(cell.second)
+            inner.addWidget(cell.third)
+            cell.third.setVisible(bool(third))
+            cell.bar = None
+            if value is not None:
+                cell.bar = kit.progress(thin=True)
+                cell.bar.setValue(value)
+                inner.addWidget(cell.bar)
+            inner.addStretch(1)
+            self.row.addWidget(cell, 1)
+            self.cells.append(cell)
+        self.refit()
+
+    def refit(self):
+        wide = self.width() >= len(self.cells) * scaled(TYPE_CELL) + (len(self.cells) - 1) * self.row.spacing()
+        direction = QBoxLayout.Direction.LeftToRight if wide else QBoxLayout.Direction.TopToBottom
+        if self.row.direction() != direction:
+            self.row.setDirection(direction)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.refit()
 
 
 def name_blank(field, blanks, n):
@@ -97,9 +235,15 @@ class MockPage(QWidget):
             widget.hide()
         summary_box.addWidget(self.heading)
         self.body.addWidget(self.summary)
-        self.lesson_results = kit.RowList(least=48, pad=12, striped=True)
-        self.body.addWidget(self.lesson_results)
-        self.lesson_results.hide()
+        # 시작 전에는 시계 안내 띠, 유형 카드와 차시별 문항 수, 제출 뒤에는 유형별·차시별 맞은 수를 요약 카드 아래에 둠
+        self.clock_note = kit.banner('', 'warning')
+        self.clock_note.hide()
+        self.body.addWidget(self.clock_note)
+        self.ready_types, self.result_types = TypeCells(), TypeCells()
+        self.lesson_counts, self.lesson_results = LessonTable(), LessonTable()
+        for widget in (self.ready_types, self.lesson_counts, self.result_types, self.lesson_results):
+            self.body.addWidget(widget)
+            widget.hide()
         self.summary_key = None
         self.numbers = QWidget()
         numbers_box = kit.box(self.numbers)
@@ -168,20 +312,31 @@ class MockPage(QWidget):
         self.empty_card()
         self.numbers.hide()
         self.lesson_results.hide()
+        self.result_types.hide()
         self.clock_box.hide()
         self.show_summary(False)
+        clock_note = '시작하면 시계가 멈추지 않습니다. 프로그램을 꺼도 시간이 흐르고, 시간이 다 되면 그때까지 쓴 답으로 제출됩니다. 부분 점수는 없습니다.'
         if mixed_mock.candidate(info):
-            self.heading.setText(mixed_mock.description(info) + '\n빈칸 %d · 객관식 %d' % (info['blanks'], info['choices']))
-            doc('120분은 약 2시간 연습을 위한 기본값입니다. 공식 평가 시간을 뜻하지 않습니다.', '', self.card_box)
+            self.heading.setText(mixed_mock.description(info))
+            clock_note = '120분은 약 2시간 연습을 위한 기본값입니다. 공식 평가 시간을 뜻하지 않습니다. ' + clock_note
+            entries = self.win.ai.mock_lessons
         else:
-            self.heading.setText('%d문항 · %d분 · %d~%d차시 · 빈칸 %d · 객관식 %d' %
-                                 (info['count'], info['minutes'], *info['range'], info['blanks'], info['choices']))
-        doc('시작하면 시계가 멈추지 않습니다. 프로그램을 꺼도 시간이 흐르고, 시간이 다 되면 그때까지 쓴 답으로 제출됩니다. 부분 점수는 없습니다.', '', self.card_box)
+            self.heading.setText('%d문항 · %d분 · %d~%d차시' % (info['count'], info['minutes'], *info['range']))
+            entries = self.win.ai.lessons
+        counts = {'blank': info['blanks'], 'choice': info['choices'], 'code': info['codes']}
+        self.ready_types.fill([('%s %d문항' % (name, counts[kind]), note, '', None) for kind, name, note in TYPES if counts[kind]])
+        lessons = sorted(((lesson_parts(entries, lid), count) for lid, count in info['lessons'].items()), key=lambda pair: pair[0][3])
+        self.lesson_counts.fill([(prefix, name, title, '%d문항' % count, None, False) for (prefix, name, title, _), count in lessons])
+        self.ready_types.show()
+        self.lesson_counts.show()
+        self.clock_note.text.setText(clock_note)
+        self.clock_note.show()
         if self.restart_required:
             doc("시작 당시 문항 버전과 현재 자료가 일치하지 않습니다. [새 자료로 시작]을 누르면 새 응시를 시작합니다. 이전 초안과 응시 기록은 보관합니다.", "", self.card_box)
         if info['taken']:
             self.card_box.addWidget(kit.para('처음 점수 %d/%d · 마지막 점수 %d/%d' %
                                             (info['first_score'], info['count'], info['last_score'], info['count']), 'headline'))
+        self.card.setVisible(self.card_box.count() > 0)  # 다시 시작 안내와 지난 점수가 없으면 빈 카드를 숨김
         start_label = '결과 보기' if info['taken'] else '시작'
         if self.restart_required:
             start_label = "새 자료로 시작"
@@ -202,6 +357,10 @@ class MockPage(QWidget):
             return
         self.intro, self.leaving_hint = False, False
         self.restart_required = False
+        self.clock_note.hide()
+        self.card.show()
+        self.ready_types.hide()
+        self.lesson_counts.hide()
         self.numbers.show()
         self.clock_box.show()
         self.start_btn.hide()
@@ -391,6 +550,7 @@ class MockPage(QWidget):
         self.flag_btn.setVisible(not done)
         self.previous_btn.show()
         self.lesson_results.setVisible(done)
+        self.result_types.setVisible(done)
         self.show_summary(done)
         self.next_btn.setVisible(done or not last)
         self.next_btn.setObjectName('' if done else 'primary')
@@ -402,26 +562,31 @@ class MockPage(QWidget):
         self.notes_btn.setVisible(done)
         if done:
             summary = self.exam.summary()
-            rows = sorted(summary['lessons'].items(), key=lambda pair: (pair[1]['correct'] / pair[1]['total'], pair[0]))
             summary_key = (self.exam.id, summary['try'], tuple(summary['results'].items()))
+            ungraded = sum(result == 'ungraded' for result in summary['results'].values())
             if self.summary_key != summary_key:
-                self.lesson_results.clear()
-                for lid, counts in rows:
-                    entries = self.exam.sess.mock_lessons if self.exam.mixed else self.win.ai.lessons
-                    entry = entries.get(lid, {})
-                    no, course = entry.get('no', lid), entry.get('course', 'intro')
-                    title = ai_text.lesson_title(no, entry.get('title', ''), course).strip()
-                    prefix = ai_text.lesson_title(no, '', course)  # 'N차시' 나 '응용 N차시'
-                    name = title[len(prefix):].strip() if title.startswith(prefix) else title
-                    where = kit.label(prefix, 'caption', 'secondary')
-                    row = self.lesson_results.add(kit.Row(name, end='%d / %d' % (counts['correct'], counts['total']), inert=True, lead=where))
-                    row.setAccessibleName(title)
-                    row.where = where
-                    bar = kit.progress(thin=True)
-                    bar.setValue(round(100 * counts['correct'] / counts['total']))
-                    row.layout().insertWidget(row.layout().indexOf(row.end), bar, 0, Qt.AlignmentFlag.AlignVCenter)
-                    row.bar = bar
-                self.size_bars()
+                kinds = {kind: [0, 0, 0] for kind, _, _ in TYPES}
+                for cid, result in summary['results'].items():
+                    counts = kinds[self.exam.items[cid]['kind']]
+                    counts[0] += result == 'pass'
+                    counts[1] += 1
+                    counts[2] += result == 'ungraded'
+                cells = []
+                for kind, name, _ in TYPES:
+                    right, total, missed = kinds[kind]
+                    if total:
+                        cells.append((name, '%d / %d 맞음' % (right, total), '채점하지 못한 문항 %d개' % missed if missed else '', round(100 * right / total)))
+                self.result_types.fill(cells)
+                entries = self.exam.sess.mock_lessons if self.exam.mixed else self.win.ai.lessons
+                missed = {}
+                for cid, result in summary['results'].items():
+                    lesson = self.exam.items[cid].get('lesson', '')
+                    missed[lesson] = missed.get(lesson, 0) + (result == 'ungraded')
+                rows = sorted(((lesson_parts(entries, lid), counts, missed.get(lid, 0)) for lid, counts in summary['lessons'].items()),
+                              key=lambda row: row[0][3])
+                self.lesson_results.fill([(prefix, name, title, '%d / %d' % (counts['correct'], counts['total']),
+                                           round(100 * counts['correct'] / counts['total']), counts['correct'] == 0 and counts['total'] > skipped)
+                                          for (prefix, name, title, _), counts, skipped in rows])
                 self.summary_key = summary_key
             self.auto_note.setText('시간이 끝나 자동으로 제출했습니다.' if summary['auto'] else '')
             self.auto_note.setVisible(bool(summary['auto']))
@@ -432,6 +597,9 @@ class MockPage(QWidget):
             self.heading.setText('틀리거나 비운 문항은 첫 풀이 결과를 기준으로 다음 날부터 복습합니다.')
             if not self.exam.local_answers:
                 self.heading.setText(self.heading.text() + '\n이 기기에 저장된 답안이 없어 내 답은 표시하지 않습니다.')
+            if ungraded:
+                self.heading.setText(self.heading.text() + '\n이 기기에서 코드를 실행하지 못해 채점하지 못한 문항이 %d개 있습니다. '
+                                     '이 문항은 전체 문항 수에는 들어가지만 맞은 문항으로 세지 않고 복습에도 넣지 않습니다.' % ungraded)
         else:
             answered = sum(row['answered'] for row in self.exam.progress())
             self.heading.setText('%d / %d문항 답함 · 답은 자동으로 저장됩니다.\n제출한 뒤 정답과 해설을 확인할 수 있습니다.' % (answered, len(self.exam.items)))
@@ -459,16 +627,6 @@ class MockPage(QWidget):
             self.heading.setText(self.heading.text())
             kit.set_tone(self.heading, '' if done else 'secondary')
         self.summary.setMinimumHeight(SUMMARY_LEAST if done else 0)
-
-    def size_bars(self):
-        """차시별 막대 폭을 본문 글자 크기에 비례해 둠(보통 120). 차시 칸은 가장 긴 'N차시' 글 폭으로 맞춰 이름이 한 세로선에서 시작함."""
-        width = round(BAR_WIDTH * theme.TYPE['body'][0] / theme.BASE_TYPE['body'][0])
-        rows = self.lesson_results.rows
-        column = max((math.ceil(QFontMetricsF(row.where.font()).horizontalAdvance(row.where.text())) for row in rows), default=0)
-        for row in rows:
-            row.bar.setFixedWidth(width)
-            row.where.setFixedWidth(column + 2)
-            row.fit_height()
 
     def size_chips(self):
         """번호 칸을 모두 같은 폭으로 둠. 가장 큰 번호에 상태 기호를 하나씩 붙인 글을 고른 칸과 고르지 않은 칸 양쪽으로 재서
@@ -525,7 +683,8 @@ class MockPage(QWidget):
         return super().eventFilter(watched, event)
 
     def refont(self):
-        self.size_bars()
+        for widget in (self.lesson_counts, self.lesson_results, self.ready_types, self.result_types):
+            widget.refit()
         self.size_chips()
         self.fit_grid()
 
@@ -590,8 +749,10 @@ class MockPage(QWidget):
                 return
             self.set_clock_role('label')
             self.time.setText('제출 완료')
+            self.clock_caption.hide()  # '남은 시간 제출 완료' 로 읽히지 않게 함
             return
         seconds = self.exam.remaining()
+        self.clock_caption.show()
         self.set_clock_role('display')
         self.time.setText('%02d:%02d' % divmod(seconds, 60))
         kit.set_tone(self.time, 'danger' if seconds <= 60 else ('warning' if seconds <= 600 else ''))
