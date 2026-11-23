@@ -205,7 +205,8 @@ class MockVisibilityTest(unittest.TestCase):
 
 class PublishedBankListTest(unittest.TestCase):
     def test_actual_bank_lists_every_published_mock_as_before(self):
-        """실제 은행에는 legacy 회차가 없음. hidden 회차는 회차 목록(mocks)과 오류 목록(errors) 어디에도 나오지 않음. 준비 중 안내(mock_pending)는 비어 있음. hidden 회차를 뺀 목록은 index.json 의 회차 목록과 같음."""
+        """실제 은행에는 legacy 회차가 없음. hidden 회차는 회차 목록(mocks)과 오류 목록(errors) 어디에도 나오지 않음. 준비 중 안내(mock_pending)는 비어 있음. hidden 회차를 뺀 목록은 index.json 의 회차 목록과 같음.
+        모든 차시 회차 m11·m12 는 두 과정 목록에 모두 나옴."""
         root = Path(__file__).resolve().parents[1]/"ai"
         specs = READ_INDEX(str(root))["mocks"]
         self.assertFalse(any("legacy" in spec for spec in specs))
@@ -218,6 +219,7 @@ class PublishedBankListTest(unittest.TestCase):
                     sess = service.AiSession("synthetic", home=str(Path(tmp)/"home"), root=str(root), course=course)
                     wanted = {spec["id"]: spec for spec in specs if course == "intro" or mixed_mock.candidate(spec)}
                     self.assertEqual(wanted, sess.mocks)
+                    self.assertLessEqual({"m11", "m12"}, set(sess.mocks))
                     self.assertFalse(hidden & (set(sess.mocks) | set(sess.errors)))
                     self.assertEqual({}, sess.mock_pending)
                     self.assertEqual([], sess.legacy_drafts)
