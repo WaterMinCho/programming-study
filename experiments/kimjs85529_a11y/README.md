@@ -52,6 +52,8 @@ SmallLSTM을 기반으로 TimeGapLSTM을 구현하고, 실제 Recorded AI 데이
 
 동일한 입력에서 기본 LSTM과 TimeGapLSTM의 초기 Logit 일치를 확인했다. 비교 실험은 팀원의 `SmallLSTM` 클래스와 Dropout(p=0.2) 구조를 사용하되, 팀원의 학습된 가중치를 재사용하지 않고 `train_compare.py`로 두 모델을 각각 학습했다.
 
+TimeGapLSTM은 LSTM 상태·현재 문제 벡터·시간 특성 `[gap_log, gap_known]`을 결합한 `combined`에 `self.dropout(p=0.2)`을 적용한 후 최종 Linear 계층에 전달한다. 기존 SmallLSTM의 Dropout 적용 위치를 유지해 비교 구조를 맞춘 설정이지만, 학습 모드에서는 시간 특성 두 칸도 각각 무작위로 0이 될 수 있다. 이로 인해 확인된 시간 입력에서 `gap_known`만 0이 되거나 시간 특성이 소실되는 등 원본 데이터와 다른 조합이 생길 수 있다. PyTorch Dropout은 남은 값도 학습 중 `1/(1-p)`로 스케일하므로, 시간 특성의 값 자체가 달라질 수도 있다. 평가 모드(`model.eval()`)에서는 Dropout이 적용되지 않는다. 따라서 시간 신호의 학습 중 교란이 성능 비교에 영향을 줄 가능성을 실험 해석의 한계로 고려한다.
+
 기본 LSTM의 SHA는 다음 명령으로 확인했다.
 
 ```powershell
@@ -125,10 +127,11 @@ gap_log = math.log1p(gap_days)
 | 데이터 분할 크기 | Train 953건 / Validation 299건 / Test 260건 |
 | 학습 방식 | Full Batch(Train 953, Validation 299) |
 | Optimizer / 손실함수 | Adam(lr 0.001, weight_decay 0.001) / BCEWithLogitsLoss |
-| Dropout / Early Stopping | p=0.2 / 최대 500 Epoch, patience 20 |
+| Dropout / Early Stopping | p=0.2 (`combined` 전체, 시간 특성 포함) / 최대 500 Epoch, patience 20 |
 | 실제 데이터 수 | 953건 |
 | 입력 확인 표본 | 무작위 4건, Seed 42 |
-| 실제 데이터 검증 배치 크기 | 32 |
+| `test_gaps.py` 실제 데이터 검증 배치 크기 | 32 |
+| `test_data_model.py` 실제 데이터 순전파 방식 | Full Batch(953건) |
 | 과거 이력 길이 | 32 |
 | 모델 초기화 Seed | 42 |
 | Embedding 차원 | 16 |
@@ -421,14 +424,16 @@ PyTorch: 설치됨
 ```text
 사용 장치: cpu
 통과: 기본 LSTM과 초기 출력 일치
+통과: 최신 SmallLSTM Dropout(p=0.2) 적용
 통과: 출력 형상·확률·빈 이력·패딩
 통과: 시간 미확인/0초 구분
-통과: gap_log의 출력 적용
+통과: gap_log의 출력 반영
 통과: 역전파 및 가중치 갱신
-통과: 실제 데이터 전체 순전파 953 건
+통과: 실제 데이터 Full Batch 순전파 953 건
 통과: 모델 저장·복원 후 출력 일치
 
 기능 검증 완료
+실제 학습 및 성능 평가는 미실행
 ```
 
 검증 항목은 다음과 같다.
@@ -436,6 +441,7 @@ PyTorch: 설치됨
 | 검증 항목 | 확인 내용 | 결과 |
 |---|---|---|
 | 기본 LSTM 비교 | 공통 가중치를 복사하고 초기 Logit 비교 | 통과 |
+| Dropout 설정 | SmallLSTM의 Dropout(p=0.2) 적용 확인 | 통과 |
 | 출력 형상 | 인공 입력 2건의 Logit Shape 확인 | 통과 |
 | 확률 범위 | sigmoid 결과가 0~1 범위인지 확인 | 통과 |
 | 빈 이력 | 이력 길이 0에서 상태 벡터 처리 확인 | 통과 |
@@ -444,7 +450,7 @@ PyTorch: 설치됨
 | gap_log 적용 | 0일과 1일 입력의 Logit 차이 비교 | 통과 |
 | 역전파 | 시간 가중치 및 LSTM 기울기 생성 확인 | 통과 |
 | 가중치 갱신 | SGD 1회 갱신 후 가중치 변경 확인 | 통과 |
-| 실제 데이터 | AI Train 953건 전체 순전파 | 통과 |
+| 실제 데이터 | AI Train 953건 Full Batch 순전파 | 통과 |
 | 저장·복원 | 복원 전후 Logit 일치 확인 | 통과 |
 
 시간 미확인 `[0.0, 0.0]`과 실제 0초 `[0.0, 1.0]`을 비교할 때 시간 가중치를 1로 설정하면 Logit 차이가 1이 되는지 확인했다.
@@ -453,7 +459,7 @@ PyTorch: 설치됨
 
 이는 모델에 시간 특성이 정상적으로 연결됐다는 기능 검증이며, **이 검증 단독으로는** 실제 예측 정확도의 향상을 의미하지 않는다. 별도로 실행한 학습 및 평가 결과는 아래에 추가하였다.
 
-`test_data_model.py`는 기능 검증만 수행한다. 실제 데이터 학습과 평가는 각각 `train_compare.py`, `test_compare.py`에서 수행한다.
+`test_data_model.py`의 마지막 출력인 `실제 학습 및 성능 평가는 미실행`은 해당 기능 검증 스크립트의 실행 범위를 가리킨다. 실제 데이터 학습과 성능 평가는 각각 `train_compare.py`, `test_compare.py`에서 별도로 수행했다.
 
 ### 4. 모델 저장·복원 검증
 
@@ -716,6 +722,7 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 | 저장·복원 검증 | 초기 모델 가중치 저장 및 복원 | 출력 일치 |
 | 모델 테스트 간소화 | 주요 기능 검증 중심으로 정리 | 간소화 코드 실행 통과 |
 | 기본 모델 설정 | 팀원 참고 SHA `ae1d76a9834b8a43bdcd9632a515275f25d61fc6` 및 Dropout 0.2 사용 | Dropout 호출 테스트 통과 |
+| Dropout 적용 범위 | LSTM·현재 문제·시간 특성 결합 벡터 전체에 적용 | 학습 시 시간 특성 교란 가능성 및 평가 시 비활성화 명시 |
 | 실제 학습 비교 | `train_compare.py`로 동일 조건에서 모델 2개 학습 | 최적 Epoch 360 / 336 기록 |
 | 과적합 분석 파일 통합 | `analyze_overfitting.py` 기능을 `test_compare.py`에 통합 | 분석표·PNG 2개 저장 확인 |
 | VSCode 직접 실행 오류 | `test_compare.py`의 `sys.path`에 저장소 루트 추가 | `learning_server` import 문제 대응; 모듈 방식 실행 성공 |
