@@ -163,12 +163,11 @@ class TypeCells(QWidget):
             cell.deleteLater()
         self.cells = []
         for name, second, third, value in cells:
-            cell, inner = kit.card(16, theme.SPACE[1])
+            cell, inner = kit.card(16, theme.GAP["detail"])
             cell.name = kit.label(name, 'label', bold=True)
             cell.second = kit.para(second, 'caption', 'secondary')
             cell.third = kit.para(third, 'caption', 'secondary')
-            inner.addWidget(cell.name)
-            inner.addWidget(cell.second)
+            inner.addWidget(kit.heading(cell.name, cell.second))
             inner.addWidget(cell.third)
             cell.third.setVisible(bool(third))
             cell.bar = None
@@ -243,14 +242,14 @@ class MockPage(QWidget):
         self.top.back.clicked.connect(self.go_back)
         root.addWidget(self.top)
         body = kit.dense(QWidget())
-        self.body = kit.box(body, spacing=theme.GAP["paragraph"])
+        self.body = kit.box(body, spacing=theme.GAP["group"])
         self.notice = kit.banner('', 'danger')
         self.notice.hide()
         self.body.addWidget(self.notice)
         self.busy_note = kit.banner('', '')  # 채점과 [코드 실행]이 도는 동안 하는 일을 적는 띠. 글은 set_busy 와 wait_note 가 넣음
         self.busy_note.hide()
         self.body.addWidget(self.busy_note)
-        self.summary, summary_box = kit.card(24, 8)
+        self.summary, summary_box = kit.card(24, theme.GAP["title_description"])
         self.summary.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         # 제출 뒤에는 자동 제출 안내, 맞은 수 줄, 처음 점수를 따로 두고 heading 에는 복습 안내와 내 답 없음 안내만 둠
         self.auto_note = kit.para('', 'label')
@@ -281,7 +280,7 @@ class MockPage(QWidget):
             widget.hide()
         self.summary_key = None
         self.numbers = QWidget()
-        numbers_box = kit.box(self.numbers)
+        numbers_box = kit.box(self.numbers, spacing=theme.GAP["detail"])
         self.grid_toggle = DisclosureButton('문항 번호', role='label')
         self.grid_toggle.setChecked(True)
         self.grid = QWidget()
