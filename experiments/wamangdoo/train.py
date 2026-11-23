@@ -9,6 +9,9 @@ from learning_server.input_example import batch, load
 
 
 def train_one_epoch(model, rows, vocabulary, loss_fn, optimizer, device, batch_size=4, length=32):
+    if not rows:
+        raise ValueError("학습 데이터(rows)가 비어 있습니다.")
+
     # 학습 모드 켜기 (Dropout 활성화)
     model.train()
     total_loss = 0.0
@@ -30,13 +33,15 @@ def train_one_epoch(model, rows, vocabulary, loss_fn, optimizer, device, batch_s
         loss.backward()
         optimizer.step()
 
-        # 마지막 배치 크기가 다를 수 있으므로 행 개수를 곱해 누적
         total_loss += float(loss.item()) * len(slice_rows)
 
     return total_loss / len(rows)
 
 
 def evaluate_one_epoch(model, rows, vocabulary, loss_fn, device, batch_size=4, length=32):
+    if not rows:
+        raise ValueError("평가 데이터(rows)가 비어 있습니다.")
+
     # 평가 모드 켜기 (Dropout 끄기)
     model.eval()
     total_loss = 0.0
@@ -59,6 +64,9 @@ def evaluate_one_epoch(model, rows, vocabulary, loss_fn, device, batch_size=4, l
 
 
 def predict_probabilities(model, rows, vocabulary, device, batch_size=4, length=32):
+    if not rows:
+        raise ValueError("예측 데이터(rows)가 비어 있습니다.")
+
     # 평가 모드에서 0~1 사이 예측 확률을 계산
     model.eval()
     all_probabilities = []
@@ -108,7 +116,8 @@ def main():
     device = get_device()
 
     # 공통 합성 데이터(learning-demo-f8) 불러오기
-    dataset_path = Path(__file__).resolve().parents[3] / "learning-demo-f8"
+    base_dir = Path(__file__).resolve().parents[3]
+    dataset_path = base_dir / "learning-demo-f8"
     train_rows, vocabulary = load(str(dataset_path), "python", "train")
     val_rows, _ = load(str(dataset_path), "python", "validation")
 
@@ -118,14 +127,14 @@ def main():
     # 모델이 확률이 아닌 logit을 반환하므로 BCEWithLogitsLoss 사용
     loss_fn = nn.BCEWithLogitsLoss()
 
-    # 1) 소량(최대 32건) 학습 손실이 내려가는지 먼저 확인
+    # 1) 소량(최대 32건) 학습 손실이 내려가는지 먼저 확인 (학습 종료 후 평가 모드로 재측정)
     small_rows = train_rows[:32]
     check_model = SmallTransformer(num_questions=num_questions, num_concepts=num_concepts).to(device)
-    check_optimizer = torch.optim.Adam(check_model.parameters(), lr=1e-2)
+    check_optimizer = torch.optim.Adam(check_model.parameters(), lr=3e-3)
 
     first_loss = None
     last_loss = None
-    for epoch in range(1, 51):
+    for epoch in range(1, 201):
         loss = train_one_epoch(
             check_model,
             small_rows,
@@ -138,9 +147,11 @@ def main():
             first_loss = loss
         last_loss = loss
 
-    print(f"[1] 소량({len(small_rows)}건) 과적합 확인: epoch 1 손실 {first_loss:.6f} -> epoch 50 손실 {last_loss:.6f}")
+    eval_check_loss = evaluate_one_epoch(check_model, small_rows, vocabulary, loss_fn, device)
+    print(f"[1] 소량({len(small_rows)}건) 과적합 확인: epoch 1 손실 {first_loss:.6f} -> epoch 200 학습 손실 {last_loss:.6f}")
+    print(f"    학습 종료 후 평가 모드(eval) 손실: {eval_check_loss:.6f}")
 
-    # 2) 전체 학습·검증 루프 실행
+    # 2) 전체 학습·검증 루프 실행 (1단계와 독립된 새 모델로 시드 재고정 후 20 epoch 실행)
     set_seed(42)
     model = SmallTransformer(num_questions=num_questions, num_concepts=num_concepts).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -158,7 +169,7 @@ def main():
     before_probs = predict_probabilities(model_cpu, val_rows, vocabulary, cpu_device)
 
     # Git 저장소 밖에 임시로 저장했다가 확인이 끝나면 삭제 (저장소에 .pt 파일 남기지 않기 위함)
-    checkpoint_path = Path(__file__).resolve().parents[3] / "temp_small_transformer.pt"
+    checkpoint_path = base_dir / "temp_small_transformer.pt"
     save_model(checkpoint_path, model_cpu, num_questions, num_concepts)
     loaded_model = load_model(checkpoint_path, device=cpu_device)
     after_probs = predict_probabilities(loaded_model, val_rows, vocabulary, cpu_device)
