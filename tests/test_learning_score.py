@@ -152,7 +152,8 @@ class ScoreTest(unittest.TestCase):
         for names in (["p1"], ["p1", "p2"]):
             with self.subTest(people=len(names)):
                 result, text, saved = self.scored(False, names)
-                first, last = text.splitlines()[0], text.splitlines()[-1]
+                first = text.splitlines()[0]
+                last = next(line for line in text.splitlines() if line.startswith("이 구간은"))
                 self.assertIn("가명 3개 미만,", first)
                 self.assertEqual("이 구간은 오답 1행, 가명 3개 미만이라 모델 비교 근거로 쓰기 어렵습니다.", last)
                 self.assertEqual("3개 미만", result["cell"]["participants"])
