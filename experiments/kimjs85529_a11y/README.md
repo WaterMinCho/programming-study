@@ -4,10 +4,11 @@
 - **담당 이슈:** https://github.com/WaterMinCho/programming-study/issues/121
 - **기본 LSTM 참고 PR:** https://github.com/WaterMinCho/programming-study/pull/226
 - **이전 입력 확인 PR:** https://github.com/WaterMinCho/programming-study/pull/158
-- **피드백 반영 PR:** https://github.com/WaterMinCho/programming-study/pull/319
-- **작업 브랜치:** `model/kimjs85529_a11y_timegap_lstm`
-- **이전 PR 검증일:** 2026-11-22
-- **추가 학습·공식 채점·통합 평가 결과 반영:** 2026-11-24
+- **관련 PR:** https://github.com/WaterMinCho/programming-study/pull/319
+- **실험 구현 브랜치:** `model/kimjs85529_a11y_timegap_lstm`
+- **학습·평가 브랜치:** `model/kimjs85529_a11y_timegap_evaluation`
+- **전처리·기능 검증일:** 2026-11-22
+- **학습·평가 검증일:** 2026-11-24
 
 ## 예측할 값과 모델을 고른 이유
 
@@ -22,7 +23,7 @@
 
 시간 미확인 상태 `[0.0, 0.0]`과 실제 0초 간격 `[0.0, 1.0]`을 구분한다.
 
-이전 PR까지는 모델 구현과 기능 검증을 마쳤다. **2026-11-24 추가 작업에서는 실제 Recorded AI 데이터를 사용한 두 모델 학습, Validation·Test 자체 평가, 공식 Validation 채점, 과적합 분석까지 완료하였다.** 공식 채점은 표본 수가 부족하다는 경고가 있으므로 모델 우열의 확정 근거로 삼지 않는다.
+SmallLSTM을 기반으로 TimeGapLSTM을 구현하고, 실제 Recorded AI 데이터로 두 모델의 학습·Validation·Test 평가, 공식 Validation 채점 및 과적합 분석을 수행했다. 공식 채점에서 표본 수 부족 경고가 출력되었으므로 모델의 우열을 확정하지 않는다.
 
 ## 직접 구현한 부분
 
@@ -31,25 +32,25 @@
 | `inspect_gaps.py` | Time Gap 개별 전처리, PyTorch 배치 연산, 장치 및 시드 설정 |
 | `test_gaps.py` | 시간 전처리 테스트 10개 및 실제 데이터 검증 |
 | `model.py` | 기본 LSTM 상속, 시간 특성 연결 및 공통 가중치 복사 |
-| `test_data_model.py` | 기본 모델 비교, 시간 특성 반영, 역전파, 실제 데이터 순전파, 저장·복원 검증 |
+| `test_data_model.py` | 기본 모델 비교, 시간 특성 적용, 역전파, 실제 데이터 순전파, 저장·복원 검증 |
 | `train_compare.py` | SmallLSTM과 TimeGapLSTM 동일 조건 학습, Early Stopping, 학습 기록·최적 가중치 저장 |
 | `test_compare.py` | 저장된 모델의 Validation·Test 평가, 공식 채점용 예측 CSV 생성, 과적합 분석 및 그래프 출력 |
-| `README.md` | 실행 환경, 검증 방법, 학습·채점 결과 및 피드백 기록 |
+| `README.md` | 실행 환경, 검증 방법, 학습·채점 결과 및 제한 사항 |
 
 ### 1. 기본 LSTM과의 관계
 
 팀원 `michae18`의 `SmallLSTM` 모델을 상속하여 `TimeGapLSTM`을 구현했다.
 
 - 기본 모델 경로: `experiments/michae18/model.py`
-- 기본 모델 원본 전체 커밋 SHA(이전 PR 기준): `1b95b0c6a45627ffde19afb7e60ff564b94c7254`
-- **이번 학습에 참고한 팀원 커밋 SHA:** `ae1d76a9834b8a43bdcd9632a515275f25d61fc6`
+- 기본 모델 원본 전체 커밋 SHA: `1b95b0c6a45627ffde19afb7e60ff564b94c7254`
+- **학습에 사용한 기본 모델 참고 커밋 SHA:** `ae1d76a9834b8a43bdcd9632a515275f25d61fc6`
 - 기본 모델 참고 PR: https://github.com/WaterMinCho/programming-study/pull/226
 - 기본 LSTM의 Embedding, LSTM 및 `encode_history()` 구조 유지
 - 최종 Linear 계층에 시간 특성 `[gap_log, gap_known]` 두 개 추가
 
 `copy_baseline_weights()`를 이용하여 기본 LSTM의 공통 가중치를 복사하고 시간 특성 가중치를 0으로 초기화했다.
 
-동일한 입력에서 기본 LSTM과 TimeGapLSTM의 초기 Logit이 일치하는지 비교하여 기존 모델 구조가 유지되는지 확인했다. 이번 비교 실험에서는 **팀원의 `SmallLSTM` 클래스와 Dropout(p=0.2)을 참고**했으며, 팀원의 학습된 가중치를 가져온 것이 아니라 내 `train_compare.py`로 두 모델을 학습했다.
+동일한 입력에서 기본 LSTM과 TimeGapLSTM의 초기 Logit 일치를 확인했다. 비교 실험은 팀원의 `SmallLSTM` 클래스와 Dropout(p=0.2) 구조를 사용하되, 팀원의 학습된 가중치를 재사용하지 않고 `train_compare.py`로 두 모델을 각각 학습했다.
 
 기본 LSTM의 SHA는 다음 명령으로 확인했다.
 
@@ -107,17 +108,18 @@ gap_log = math.log1p(gap_days)
 | 항목 | 실제 사용한 값 |
 |---|---|
 | 본인 Fork | `kimjs85529-a11y/programming-study` |
-| 작업 브랜치 | `model/kimjs85529_a11y_timegap_lstm` |
+| 전처리·모델 구현 브랜치 | `model/kimjs85529_a11y_timegap_lstm` |
+| 학습·평가 브랜치 | `model/kimjs85529_a11y_timegap_evaluation` |
 | 최초 구현 작업 전체 커밋 SHA | `187d7ba4a39fbb602a023bcb49623f656f97df1d` |
-| 이전 PR 작업 기준 공통 main 전체 SHA | `6e6327b964778fddfdae5fd19c61bed51d67e742` |
+| 전처리·모델 구현 당시 공통 main 전체 SHA | `6e6327b964778fddfdae5fd19c61bed51d67e742` |
 | 2026-11-24 확인한 `main` 및 `origin/main` | `1b896bb4f25899daf07eb9d277c19b9fa3481642` |
-| **이번 비교 실험의 참고 모델 커밋 SHA** | `ae1d76a9834b8a43bdcd9632a515275f25d61fc6` |
+| **학습·평가에 사용한 참고 모델 커밋 SHA** | `ae1d76a9834b8a43bdcd9632a515275f25d61fc6` |
 | 기본 LSTM 원본 전체 커밋 SHA | `1b95b0c6a45627ffde19afb7e60ff564b94c7254` |
 | `manifest.json` SHA-256 | 비공개 관리, 현재 README에 미기재 |
 | 데이터 버전 | `features_version: 8` |
 | 데이터 묶음 | `common-input-f8-20261118` |
 | 자료 종류 | 실제 수집 자료(Recorded) |
-| `question_min_count` | 미확인 |
+| `question_min_count` | 사용 데이터의 `manifest.json`에 항목 없음 (값 확인 불가) |
 | 변형 행 제외 여부 | 공식 Validation 채점 출력에서 끼운 변형 0건; 다른 분할의 제외 설정은 미확인 |
 | 트랙 / 분할 | `ai` / Train·Validation·Test |
 | 데이터 분할 크기 | Train 953건 / Validation 299건 / Test 260건 |
@@ -245,11 +247,11 @@ python -m experiments.kimjs85529_a11y.test_data_model
 python experiments\kimjs85529_a11y\test_data_model.py
 ```
 
-기본 LSTM과 초기 출력 비교, 시간 특성 반영, 빈 이력 및 패딩, 역전파, 실제 데이터 순전파, 모델 저장·복원 등을 확인한다.
+기본 LSTM과 초기 출력 비교, 시간 특성 적용, 빈 이력 및 패딩, 역전파, 실제 데이터 순전파, 모델 저장·복원 등을 확인한다.
 
-### 5. 실제 데이터 학습 및 비교 (2026-11-24 추가)
+### 5. 실제 데이터 학습 및 비교
 
-이전 PR 제출 당시에는 실제 데이터 학습을 진행하지 않았지만, 이번 추가 작업에서 `train_compare.py`를 실행하여 두 모델을 동일한 조건으로 학습했다. **아래 명령은 재현 방법이며, 재실행하면 기존 체크포인트가 덮어써질 수 있으므로 현재 결과 확인만을 위해 다시 실행하지 않는다.**
+`train_compare.py`로 SmallLSTM과 TimeGapLSTM을 동일한 조건에서 학습했다. 아래 명령은 재현용이며, 재실행하면 `comparison_results/`의 기존 체크포인트와 학습 이력을 덮어쓴다.
 
 ```powershell
 python -m experiments.kimjs85529_a11y.train_compare
@@ -270,7 +272,7 @@ python -m experiments.kimjs85529_a11y.test_compare --split validation
 python -m experiments.kimjs85529_a11y.test_compare --analyze-overfitting
 ```
 
-`test_compare.py`는 VSCode 파일 직접 실행을 위해 프로젝트 루트를 `sys.path`에 추가하였다. 기본 실행 시 평가 종료 후 `SmallLSTM_overfitting.png`, `TimeGapLSTM_overfitting.png`를 생성한다. **2026-11-24 실행 로그에서 두 PNG 파일의 저장과 과적합 분석 완료가 확인되었다.** 실제 GUI 창이 화면에 표시됐는지는 해당 로그만으로 확인할 수 없다.
+`test_compare.py`는 모듈 실행과 파일 직접 실행 모두를 지원하도록 프로젝트 루트를 `sys.path`에 추가한다. 기본 실행 시 평가 종료 후 과적합 분석 결과를 출력하고 `SmallLSTM_overfitting.png`, `TimeGapLSTM_overfitting.png`를 저장한다. 2026-11-24 실행에서는 두 파일의 저장과 분석 완료를 확인했다. GUI 창의 실제 표시 여부는 로그만으로 확인되지 않는다.
 
 ### 7. 공식 Validation 채점용 예측 파일 생성
 
@@ -278,7 +280,7 @@ python -m experiments.kimjs85529_a11y.test_compare --analyze-overfitting
 python -m experiments.kimjs85529_a11y.test_compare --split validation --export-predictions
 ```
 
-예측 파일은 저장소 외부 `C:\study-data\model-predictions`에 `small-lstm-validation.csv`, `timegap-lstm-validation.csv` 이름으로 생성한다. CSV 열은 `event_id,probability,model_version`이며 이미 존재하는 예측 CSV는 덮어쓰지 않는다. 이 명령은 이번 실험에서 이미 실행했으므로 불필요하게 재생성하지 않는다.
+예측 파일은 저장소 외부 `C:\study-data\model-predictions`에 `small-lstm-validation.csv`, `timegap-lstm-validation.csv` 이름으로 생성한다. CSV 열은 `event_id,probability,model_version`이며 기존 파일이 존재하면 덮어쓰지 않고 `FileExistsError`가 발생한다.
 
 ### 8. 공식 `learning_server.score` 실행
 
@@ -294,15 +296,15 @@ python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118
 
 ### 1. 시간 전처리 테스트 재검증
 
-2026-11-22에 PR 최초 구현 커밋 `187d7ba4a39fbb602a023bcb49623f656f97df1d` 기준으로 전처리 코드를 다시 검증했다.
+2026-11-22에 전처리·모델 구현 커밋 `187d7ba4a39fbb602a023bcb49623f656f97df1d`의 코드를 기준으로 시간 전처리 테스트를 실행했다.
 
-재검증 당시 작업 브랜치:
+검증 시 브랜치:
 
 ```text
 model/kimjs85529_a11y_timegap_lstm
 ```
 
-재검증 당시 HEAD:
+검증 시 HEAD:
 
 ```text
 187d7ba4a39fbb602a023bcb49623f656f97df1d
@@ -370,7 +372,7 @@ python -m experiments.kimjs85529_a11y.test_gaps
 ===== 테스트 10. 대량 배치 및 예외 처리 =====
 통과: 10,000건, 빈 배치 및 잘못된 입력 검사
 
-전체 테스트 확인 완료 (PyTorch 미설치 시 테스트 9~10 SKIP)
+전체 테스트 확인 완료 (테스트 1~10 실행)
 ```
 
 테스트 1~10이 모두 통과했으며, 실제 AI Train 데이터 953건의 개별·배치 전처리 결과가 일치했다.
@@ -383,12 +385,10 @@ python -m experiments.kimjs85529_a11y.test_gaps
 마지막 출력 한 줄:
 
 ```text
-전체 테스트 확인 완료 (PyTorch 미설치 시 테스트 9~10 SKIP)
+전체 테스트 확인 완료 (테스트 1~10 실행)
 ```
 
-괄호 안의 SKIP은 PyTorch가 설치되지 않은 경우의 안내 문구이다. 이번 실행에서는 PyTorch가 설치되어 있었으므로 테스트 9와 테스트 10도 정상 실행되어 통과했다.
-
-따라서 기존 README에 기록했던 시간 전처리 테스트 10개 통과 및 757건·196건 집계는 이번 PR 최초 구현 커밋의 코드로 재검증된 결과임을 확인했다.
+실제 AI Train 953건의 개별·배치 처리 결과가 일치했으며, 시간 확인 가능 757건과 미확인 196건을 확인했다.
 
 다만 이 검증은 공통 입력으로 제공된 `query_gap_seconds`의 시간 선택 및 전처리 결과를 확인한 것이며, 원본 풀이 타임스탬프에서 경과 시간이 정확하게 생성됐는지를 독립적으로 검증한 결과는 아니다.
 
@@ -416,20 +416,19 @@ PyTorch: 설치됨
 
 ### 3. 모델 기능 검증
 
-`test_data_model.py`를 Windows CPU 환경에서 실행한 이전 PR 당시 결과는 다음과 같다.
+`test_data_model.py`를 Windows CPU 환경에서 실행하여 다음 항목을 확인했다.
 
 ```text
 사용 장치: cpu
 통과: 기본 LSTM과 초기 출력 일치
 통과: 출력 형상·확률·빈 이력·패딩
 통과: 시간 미확인/0초 구분
-통과: gap_log의 출력 반영
+통과: gap_log의 출력 적용
 통과: 역전파 및 가중치 갱신
 통과: 실제 데이터 전체 순전파 953 건
 통과: 모델 저장·복원 후 출력 일치
 
 기능 검증 완료
-실제 학습 및 성능 평가는 미실행
 ```
 
 검증 항목은 다음과 같다.
@@ -442,7 +441,7 @@ PyTorch: 설치됨
 | 빈 이력 | 이력 길이 0에서 상태 벡터 처리 확인 | 통과 |
 | 패딩 | 패딩 영역 변경 전후 출력 비교 | 통과 |
 | 시간 미확인/0초 | 시간 확인 특성 변경에 따른 Logit 차이 비교 | 통과 |
-| gap_log 반영 | 0일과 1일 입력의 Logit 차이 비교 | 통과 |
+| gap_log 적용 | 0일과 1일 입력의 Logit 차이 비교 | 통과 |
 | 역전파 | 시간 가중치 및 LSTM 기울기 생성 확인 | 통과 |
 | 가중치 갱신 | SGD 1회 갱신 후 가중치 변경 확인 | 통과 |
 | 실제 데이터 | AI Train 953건 전체 순전파 | 통과 |
@@ -454,7 +453,7 @@ PyTorch: 설치됨
 
 이는 모델에 시간 특성이 정상적으로 연결됐다는 기능 검증이며, **이 검증 단독으로는** 실제 예측 정확도의 향상을 의미하지 않는다. 별도로 실행한 학습 및 평가 결과는 아래에 추가하였다.
 
-※ 위 코드 블록에 포함된 `실제 학습 및 성능 평가는 미실행`은 **당시 `test_data_model.py`가 출력한 원문**이다. 전체 프로젝트의 최신 상태가 아니며, 이후 `train_compare.py`와 `test_compare.py`를 별도로 실행하여 학습·평가를 완료했다.
+`test_data_model.py`는 기능 검증만 수행한다. 실제 데이터 학습과 평가는 각각 `train_compare.py`, `test_compare.py`에서 수행한다.
 
 ### 4. 모델 저장·복원 검증
 
@@ -466,9 +465,9 @@ PyTorch: 설치됨
 
 임시 파일은 `TemporaryDirectory()`를 사용하여 `with` 블록 종료 시 자동으로 삭제했다.
 
-이전 PR에서는 같은 Python 프로세스에서 초기 모델의 가중치 저장·복원을 검증했다. **이번에는 `test_compare.py`가 저장된 최적 모델 `.pt`를 새 Python 프로세스에서 읽어 Validation·Test 평가를 성공적으로 완료했다.**
+`test_data_model.py`에서 초기 모델의 저장·복원을 검사했고, `test_compare.py`에서 저장된 최적 가중치(`.pt`)를 별도의 Python 실행에서 불러와 Validation·Test 평가를 수행했다.
 
-### 5. 2026-11-24 재실행 검증
+### 5. 기능 및 평가 재실행 검증
 
 ```powershell
 cd C:\programming-study
@@ -477,7 +476,7 @@ python -m experiments.kimjs85529_a11y.test_data_model
 python -m experiments.kimjs85529_a11y.test_compare
 ```
 
-전처리 테스트 **1~10 모두 통과**했고 `test_data_model.py`에서 **Dropout(p=0.2) 호출**, 초기 Logit 일치, 시간 반영, 역전파, AI Train 953건 Full Batch 순전파, 모델 저장·복원 등이 통과했다. 통합 `test_compare.py`는 Test 260건을 평가한 뒤 과적합 분석표를 출력하고 두 그래프를 저장했으며, 최적 모델을 재학습하지 않았다.
+전처리 테스트 **1~10 모두 통과**했고 `test_data_model.py`에서 **Dropout(p=0.2) 호출**, 초기 Logit 일치, 시간 특성 적용, 역전파, AI Train 953건 Full Batch 순전파, 모델 저장·복원 등이 통과했다. 통합 `test_compare.py`는 Test 260건을 평가한 뒤 과적합 분석표를 출력하고 두 그래프를 저장했으며, 최적 모델을 재학습하지 않았다.
 
 | 과적합 분석 | SmallLSTM | TimeGapLSTM |
 |---|---:|---:|
@@ -630,11 +629,11 @@ TimeGapLSTM은 SmallLSTM보다 전체 Validation 손실·Brier가 소폭 낮고 
 - **재현성:** Seed 42와 동일 코드·데이터·환경에서는 반복 학습 결과가 같을 것으로 기대되지만, 환경이 달라지면 비결정성이 발생할 수 있다. Test 추론은 동일 가중치와 데이터에서 동일 값이 기대된다.
 - **일반화 한계:** 실제 Validation/Test는 소수의 참가자가 남긴 기록이며, 새로운 학습자에 대한 예측 효과를 입증하지 않는다.
 
-### 12. 현재 검증의 한계와 미완료 항목
+### 12. 검증 범위와 한계
 
-이전 PR에서 진행하지 않았던 **실제 학습, 기본 LSTM과 TimeGapLSTM의 성능 비교, 학습된 모델의 별도 프로세스 로드, 공식 Validation 채점**은 이번 작업에서 완료하였다.
+**실제 데이터 학습, 두 모델 성능 비교, 최적 가중치 복원 및 공식 Validation 채점을 완료했다.**
 
-여전히 수행하거나 확인하지 않은 사항은 원본 풀이 타임스탬프와 `query_gap_seconds`의 독립적 대조, UNK 제외 정책의 성능 영향에 대한 별도 실험, 공식 Test 채점, 새로운 학습자에 대한 일반화 검증, `question_min_count` 및 원본 `manifest.json` SHA-256의 제출 전 확인이다.
+검증 범위에 포함되지 않은 항목은 원본 풀이 타임스탬프와 `query_gap_seconds`의 독립적 대조, UNK 제외 정책의 성능 영향 실험, 공식 Test 채점 및 새로운 학습자에 대한 일반화 검증이다. `question_min_count`는 사용 데이터의 `manifest.json`에서 확인할 수 없으며, 파일 자체의 전체 SHA-256은 기록하지 않았다.
 
 공식 Validation 전체는 **299행·오답 37행·가명 3개**, 처음 보는 문제 구간은 **72행·오답 13행·가명 3개 미만**이어서 공식 채점 도구가 모델 비교 근거로 쓰기 어렵다고 경고했다. 따라서 TimeGapLSTM의 로그 손실이 소폭 낮다는 사실을 통계적으로 입증된 우월성으로 표현하지 않는다.
 
@@ -700,7 +699,7 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 
 ## 질문을 받고 바꾼 부분
 
-| 피드백 및 수정 사항 | 반영 내용 | 확인 결과 |
+| 확인 항목 | 구현 및 검증 방법 | 확인 결과 |
 |---|---|---|
 | 기본 모델 기준 불명확 | `SmallLSTM` 원본 커밋 SHA 기록 | 실제 Git 명령으로 확인 |
 | 실행 조건 미기재 | 작업 기준 main SHA, Python·PyTorch 버전 기록 | 실제 실행 환경 확인 |
@@ -716,15 +715,15 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 | 실제 데이터 처리 | AI Train 953건 순전파 검증 | 통과 |
 | 저장·복원 검증 | 초기 모델 가중치 저장 및 복원 | 출력 일치 |
 | 모델 테스트 간소화 | 주요 기능 검증 중심으로 정리 | 간소화 코드 실행 통과 |
-| 최신 기본 모델 반영 | 팀원 참고 SHA `ae1d76a9834b8a43bdcd9632a515275f25d61fc6` 및 Dropout 0.2 반영 | Dropout 호출 테스트 통과 |
-| 실제 학습 비교 요구 | `train_compare.py`로 동일 조건에서 모델 2개 학습 | 최적 Epoch 360 / 336 기록 |
+| 기본 모델 설정 | 팀원 참고 SHA `ae1d76a9834b8a43bdcd9632a515275f25d61fc6` 및 Dropout 0.2 사용 | Dropout 호출 테스트 통과 |
+| 실제 학습 비교 | `train_compare.py`로 동일 조건에서 모델 2개 학습 | 최적 Epoch 360 / 336 기록 |
 | 과적합 분석 파일 통합 | `analyze_overfitting.py` 기능을 `test_compare.py`에 통합 | 분석표·PNG 2개 저장 확인 |
 | VSCode 직접 실행 오류 | `test_compare.py`의 `sys.path`에 저장소 루트 추가 | `learning_server` import 문제 대응; 모듈 방식 실행 성공 |
 | 공식 Validation 채점 기록 | `learning_server.score` 결과와 기준선 6개, 표준오차·UNK 구간 경고 기록 | 두 모델 공식 Validation 실행 완료 |
 | 최신 공통 main 기준 | `main`, `origin/main` SHA를 `1b896bb4f25899daf07eb9d277c19b9fa3481642`로 확인 | 2026-11-24 Git 명령 결과 |
 | 실행 재검증 | 전처리·모델 테스트·Test 비교·과적합 통합 실행 | 세 명령 모두 정상 종료 |
 
-이번 변경까지 반영한 제출 대상 소스 파일은 다음 7개다.
+공개 저장소의 실험 소스 파일은 다음 7개로 구성된다.
 
 - `inspect_gaps.py`
 - `test_gaps.py`
@@ -734,4 +733,4 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 - `test_compare.py`
 - `README.md`
 
-현재는 모델 구현 및 기능 검증뿐 아니라 실제 데이터 학습, Validation·Test 자체 평가, 과적합 분석, 공식 Validation 채점까지 완료했다. `analyze_overfitting.py`가 Git에 추적 중이라면 삭제 변경도 커밋에 포함한다. **현재 Git 브랜치는 `main`이므로 작업 브랜치로 이동한 뒤 PR을 제출하고, 실데이터·가중치·개별 예측 파일은 공개 저장소에 올리지 않는다.**
+모델 구현 및 기능 검증, 실제 Recorded AI 데이터 학습, Validation·Test 자체 평가, 과적합 분석, 공식 Validation 채점을 완료했다. 공개 PR에는 전처리·모델·학습·평가 코드와 실험 기록 README만 포함했으며, 실제 학습 데이터, 모델 가중치, 학습 이력 CSV, 그래프 이미지, 개별 예측 CSV 및 공식 채점 JSON은 포함하지 않았다.

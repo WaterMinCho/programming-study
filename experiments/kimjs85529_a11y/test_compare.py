@@ -101,8 +101,8 @@ def evaluate_model(model, inputs, targets):
         )
 
     result = {
-        "test_loss": loss,
-        "test_accuracy": accuracy,
+        "loss": loss,
+        "accuracy": accuracy,
         "precision": precision,
         "recall": recall,
         "f1_score": f1,
@@ -211,8 +211,8 @@ def compare_evaluation_results(
     )
 
     for key in (
-        "test_loss",
-        "test_accuracy",
+        "loss",
+        "accuracy",
         "precision",
         "recall",
         "f1_score"
@@ -246,8 +246,8 @@ def save_comparison_results(
 
     fieldnames = [
         "model",
-        "test_loss",
-        "test_accuracy",
+        "loss",
+        "accuracy",
         "precision",
         "recall",
         "f1_score",
