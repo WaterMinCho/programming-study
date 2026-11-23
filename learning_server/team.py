@@ -333,17 +333,23 @@ class Access:
         import uuid
         from learning_server.app import ApiError, hashed
         self.authenticate(authorization, require_team=False)
-        consented = None
-        if not delete:
-            try:
-                if not isinstance(data, dict) or set(data) != {"consented_at"} or len(data["consented_at"]) > 80:
-                    raise ValueError()
-                consented = datetime.datetime.fromisoformat(data["consented_at"])
-                if consented.tzinfo is None:
-                    raise ValueError()
-            except (ValueError, TypeError):
-                raise ApiError(400, "동의 시각을 확인해 주세요.") from None
-        now = (now or datetime.datetime.now(datetime.timezone.utc)).isoformat()
+        try:
+            if (not isinstance(data, dict) or "consented_at" not in data
+                    or set(data) - {"consented_at", "after_withdrawal"} or len(data["consented_at"]) > 80):
+                raise ValueError()
+            consented = datetime.datetime.fromisoformat(data["consented_at"])
+            if consented.tzinfo is None:
+                raise ValueError()
+            after = data.get("after_withdrawal")
+            if after is not None and (not isinstance(after, str) or len(after) > 80
+                                      or datetime.datetime.fromisoformat(after).tzinfo is None):
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ApiError(400, "동의 시각을 확인해 주세요.") from None
+        now = now or datetime.datetime.now(datetime.timezone.utc)
+        if consented > now:
+            raise ApiError(400, "동의 시각이 서버보다 미래입니다. 기기 시각을 확인하고 다시 동의해 주세요.")
+        now = now.isoformat()
         policy = self.policy()
         with self.database.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -355,14 +361,19 @@ class Access:
                 raise ApiError(409, "이 기기 인증으로는 계정을 찾지 못해 연구용 번호를 줄 수 없습니다.")
             key = self.digest("research:" + grant[0])
             row = db.execute("SELECT link, withdrawn FROM research_accounts WHERE account_key=?", (key,)).fetchone()
+            withdrawn = row[1] if row else None
+            if after != withdrawn:
+                if delete:
+                    return {"deleted": True, "withdrawn_at": withdrawn}
+                raise ApiError(401, "같은 계정의 다른 컴퓨터에서 동의를 철회했습니다.", code="revoked",
+                               withdrawn_at=withdrawn)
             if delete:
+                now = self.database.withdrawal_stamp(now, withdrawn)
                 if row and row[0]:
-                    self.database.remove_linked(db, row[0], now)
+                    now = self.database.remove_linked(db, row[0], now)
                 db.execute("INSERT INTO research_accounts VALUES (?, NULL, ?, ?) "
                            "ON CONFLICT(account_key) DO UPDATE SET link=NULL, withdrawn=excluded.withdrawn", (key, now, now))
-                return {"deleted": True}
-            if row and row[1] and datetime.datetime.fromisoformat(row[1]) >= consented:
-                raise ApiError(401, "같은 계정의 다른 컴퓨터에서 동의를 철회했습니다.", code="revoked")
+                return {"deleted": True, "withdrawn_at": now}
             link = row[0] if row and row[0] else str(uuid.uuid4())
             if not (row and row[0]):
                 db.execute("INSERT INTO research_accounts VALUES (?, ?, ?, NULL) "

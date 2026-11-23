@@ -52,16 +52,18 @@ def request(base, path, data=None, token=None, method="POST", timeout=5, error_d
     except urllib.error.HTTPError as error:
         message = "수집 서버가 요청을 받지 않았습니다. 상태 코드 %d입니다." % error.code
         reason = None
+        withdrawn_at = ...
         try:
             failure = json.loads(error.read(4096))
             detail = failure.get("error")
             reason = "revoked" if failure.get("code") == "revoked" else None
+            withdrawn_at = failure.get("withdrawn_at", ...)
             if error_detail and isinstance(detail, str) and len(detail) <= 500:
                 message += " " + detail
         except (OSError, ValueError, AttributeError):
             pass
         error.close()
-        raise CollectionError(message, status=error.code, code=reason) from None
+        raise CollectionError(message, status=error.code, code=reason, withdrawn_at=withdrawn_at) from None
     except (urllib.error.URLError, OSError, ValueError):
         raise CollectionError("수집 서버에 연결하지 못했습니다. 데이터는 이 기기에 남아 있으니 다시 보내 주세요.", code="network") from None
 
@@ -111,6 +113,8 @@ class Sharing:
             link["research_link"] = research["link"]
             if research.get("proof"):
                 link["research_proof"] = research["proof"]
+            if research.get("secret"):
+                link["research_secret"] = research["secret"]
         base = endpoint(base)
         status = self.collection.status()
         if not status["enabled"] or status["error"]:

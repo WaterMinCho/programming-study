@@ -5,6 +5,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import secrets
 import tempfile
 import threading
 import uuid
@@ -147,12 +149,17 @@ class Consent:
                 raise CollectionError("서버의 철회 처리를 마친 뒤 다시 동의할 수 있습니다.")
             value = {"policy": POLICY_VERSION, "policy_hash": POLICY_HASH, "accepted": bool(accepted), "choice": str(uuid.uuid4()),
                      "at": datetime.datetime.now().astimezone().isoformat(), "start": {}}
+            if "withdrawal_seen" in old:
+                value["withdrawal_seen"] = old["withdrawal_seen"]
+            value["after_withdrawal"] = old.get("withdrawal_seen") if accepted else old.get("after_withdrawal")
             self._stop_all()
             for track, store in self.collections.items():
                 if accepted:
                     value["start"][track] = store.latest_sequence()
             if accepted:
                 value["receipt"] = receipt()
+            elif old.get("receipt"):
+                value["receipt"] = old["receipt"]  # 거부 뒤 철회해도 삭제 대상 동의 시각을 보존함.
             save(self.path, value)
             try:
                 for store in self.collections.values():
@@ -235,23 +242,54 @@ class Consent:
     def _saved_research(self):
         try:
             value = json.loads(self.path.with_name(RESEARCH_FILE).read_text(encoding="utf-8"))
-            if str(uuid.UUID(value["link"])) != value["link"] or not isinstance(value.get("proof", ""), str):
+            if (str(uuid.UUID(value["link"])) != value["link"]
+                    or any(not isinstance(value[key], str) or not re.fullmatch(r"[a-f0-9]{64}", value[key])
+                           for key in ("proof", "secret") if key in value)):
                 raise ValueError()
             return value
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             return None
 
+    def _remember_withdrawal(self, at):
+        """서버에서 받은 철회 표식만 보관함. 진행 중인 동의의 차수는 바꾸지 않음."""
+        from learning_data.collection import CollectionError
+        if at is ...:
+            return
+        try:
+            if at is not None and (not isinstance(at, str) or len(at) > 80
+                                   or datetime.datetime.fromisoformat(at).tzinfo is None):
+                raise ValueError()
+        except ValueError:
+            raise CollectionError("서버의 철회 확인 시각을 읽지 못했습니다.") from None
+        with self.lock:
+            value = self.settings()
+            previous = value.get("withdrawal_seen")
+            if at and previous and datetime.datetime.fromisoformat(at) < datetime.datetime.fromisoformat(previous):
+                return
+            value["withdrawal_seen"] = at
+            save(self.path, value)
+
     def _research(self, value, identity):
         """여러 과목·컴퓨터의 기록을 잇는 연구용 번호를 정함. 본인 확인한 기기는 서버가 계정마다 정한 번호를 받고,
         본인 확인을 하지 않았거나 서버가 계정을 찾지 못하면 이 컴퓨터에서 만든 번호를 씀. 선택이 바뀌었으면 None."""
-        import re
         from learning_data.collection import CollectionError
-        from learning_data.sharing import request
+        from learning_data.sharing import Sharing, request
         saved, chosen = self._saved_research(), None
-        token = self._identity_token(identity)
+        if saved is None and self.path.with_name(RESEARCH_FILE).exists():
+            raise CollectionError("저장된 연구용 번호를 읽지 못했습니다. 파일을 보존하고 다시 확인해 주세요.")
+        if saved is None and any(Sharing(store).settings().get("research_link") for store in self.collections.values()):
+            raise CollectionError("기존 연구용 번호의 증명 파일을 복구해야 합니다. 설정을 보존하고 " + CONTACT + "로 문의해 주세요.")
+        if saved and saved.get("proof"):
+            status = request(self.server, "/v1/research-link/status",
+                             {"research_link": saved["link"], "research_proof": saved["proof"]}, error_detail=True)
+            if status.get("active") is not True:
+                raise CollectionError("연구용 번호의 철회 상태를 확인하지 못했습니다.")
+            chosen = saved  # 유효한 기존 증명값도 새 계정 번호로 덮어쓰지 않음.
+        token = self._identity_token(identity) if chosen is None else None
         if token:
             try:
-                result = request(self.server, "/v1/identity/research-link", {"consented_at": value["receipt"]["at"]},
+                result = request(self.server, "/v1/identity/research-link",
+                                 {"consented_at": value["receipt"]["at"], "after_withdrawal": value.get("after_withdrawal")},
                                  token=token, error_detail=True)
             except CollectionError as error:
                 if error.code == "revoked" or error.status not in (401, 403, 404, 409):
@@ -263,9 +301,10 @@ class Consent:
                         raise ValueError()
                 except (ValueError, TypeError, AttributeError):
                     raise CollectionError("연구용 번호 응답을 확인해 주세요.") from None
-                chosen = {"link": link, "proof": proof}
-        # 기기 키가 없어졌어도 이미 받은 계정 번호는 그대로 써서 이은 기록이 끊기지 않게 함.
-        chosen = chosen or saved or {"link": str(uuid.uuid4())}
+                chosen = {"link": link, "proof": proof, "after_withdrawal": value.get("after_withdrawal")}
+        if chosen is None:
+            # 비밀 값 없이 저장한 옛 번호는 새 번호로 옮기고 참가자 인증으로 기존 기록을 다시 이음.
+            chosen = saved if saved and saved.get("secret") else {"link": str(uuid.uuid4()), "secret": secrets.token_hex(32)}
         if chosen != saved:
             with self.lock:
                 if self.settings().get("choice") != value.get("choice"):
@@ -279,20 +318,31 @@ class Consent:
         from learning_data.sharing import request
         saved, token = self._saved_research(), self._identity_token(identity)
         try:
+            if saved is None and self.path.with_name(RESEARCH_FILE).exists():
+                raise CollectionError("저장된 연구용 번호를 확인해 주세요.")
             if token:
+                value = self.settings()
+                after = saved.get("after_withdrawal") if saved and saved.get("proof") else value.get("after_withdrawal")
                 try:
-                    request(self.server, "/v1/identity/research-link", token=token, method="DELETE")
-                except CollectionError as error:
-                    if error.status not in (401, 403, 409):
+                    confirmed = request(self.server, "/v1/identity/research-link",
+                                        {"consented_at": value.get("receipt", {}).get("at"),
+                                         "after_withdrawal": after}, token=token, method="DELETE")
+                    if confirmed.get("deleted") is not True:
+                        raise CollectionError("서버 삭제를 확인하지 못했습니다.")
+                    self._remember_withdrawal(confirmed.get("withdrawn_at", ...))
+                except CollectionError:
+                    if not (saved and saved.get("proof")):
                         raise
-            if saved and saved.get("proof"):
+            if saved and (saved.get("proof") or saved.get("secret")):
+                credential = {"research_proof": saved["proof"]} if saved.get("proof") else {"research_secret": saved["secret"]}
                 confirmed = request(self.server, "/v1/research-link/withdraw",
-                                    {"research_link": saved["link"], "research_proof": saved["proof"]})
+                                    {"research_link": saved["link"], **credential})
                 if confirmed.get("deleted") is not True:
                     raise CollectionError("서버 삭제를 확인하지 못했습니다.")
+                self._remember_withdrawal(confirmed.get("withdrawn_at", ...))
             self.path.with_name(RESEARCH_FILE).unlink(missing_ok=True)
         except (CollectionError, OSError):
-            return ["같은 계정으로 이은 다른 컴퓨터의 기록 삭제를 확인하지 못했습니다. 다시 시도합니다."]
+            return ["같은 계정으로 이은 다른 컴퓨터의 기록 삭제를 확인하지 못했습니다. 다시 시도합니다. 문의: " + CONTACT]
         return []
 
     def synchronize(self, canceled=lambda: False, identity=None):
@@ -302,6 +352,7 @@ class Consent:
         errors, sent = [], 0
         if value.get("withdraw_pending"):
             errors.extend(self._delete_local())
+            errors.extend(self._delete_research(identity))
             errors.extend(self._delete_submissions())
             for store in self.collections.values():
                 try:
@@ -310,7 +361,6 @@ class Consent:
                         share.delete_remote()
                 except CollectionError as error:
                     errors.append("서버 삭제를 확인하지 못했습니다. " + CONTACT + "로 문의해 주세요." if error.status == 401 else str(error))
-            errors.extend(self._delete_research(identity))
             if not errors:
                 with self.lock:
                     latest = self.settings()
@@ -320,23 +370,36 @@ class Consent:
             return {"sent": 0, "errors": errors, "withdrawn": not errors}
         if self.needs_choice() or not value.get("accepted"):
             return {"sent": 0, "errors": []}
-        research = None
+        if canceled():
+            return {"sent": 0, "errors": []}
+        try:
+            research = self._research(value, identity)
+            if research is None:
+                return {"sent": 0, "errors": []}
+        except CollectionError as error:
+            if error.code == "revoked":
+                self._remember_withdrawal(error.withdrawn_at)
+                with self.lock:
+                    if self.settings().get("choice") != value.get("choice"):
+                        return {"sent": 0, "errors": []}
+                    self.withdraw()
+            return {"sent": 0, "errors": [str(error)]}
         for track, store in self.collections.items():
             try:
                 if canceled() or self.settings().get("choice") != value.get("choice"):
                     break
                 if not store.status()["enabled"]:
                     continue
-                if research is None:
-                    research = self._research(value, identity)
-                    if research is None:
-                        break
                 share = Sharing(store)
                 share.connect_open(self.server, value["receipt"], after=value["start"].get(track, 0), research=research)
                 sent += share.sync(self.server, include_answers=False, canceled=canceled)["sent"]
             except CollectionError as error:
                 if error.code == "revoked":
-                    self.withdraw()
+                    self._remember_withdrawal(error.withdrawn_at)
+                    with self.lock:
+                        if self.settings().get("choice") != value.get("choice"):
+                            break
+                        self.withdraw()
                     errors.append("서버에서 철회를 확인해 수집을 멈추고 삭제를 확인합니다.")
                     break
                 errors.append(str(error))

@@ -22,9 +22,10 @@ CURRENT_CONTEXT = object()
 
 class CollectionError(Exception):
     """추가 풀이 데이터를 저장하거나 내보내지 못함."""
-    def __init__(self, message, status=None, code=None):
+    def __init__(self, message, status=None, code=None, *, withdrawn_at=...):
         super().__init__(message)
         self.status, self.code = status, code
+        self.withdrawn_at = withdrawn_at
 
 
 def stamp():

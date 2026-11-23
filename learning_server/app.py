@@ -25,9 +25,10 @@ REPOSITORY = str(Path(__file__).resolve().parent.parent)
 
 
 class ApiError(Exception):
-    def __init__(self, status, message, code=None):
+    def __init__(self, status, message, code=None, *, withdrawn_at=...):
         self.code = code
         self.status, self.message = status, message
+        self.withdrawn_at = withdrawn_at
 
 
 def hashed(value):
@@ -77,6 +78,10 @@ class Database:
                     source TEXT NOT NULL CHECK(source IN ('account', 'device'))
                 );
                 CREATE INDEX IF NOT EXISTS research_links_link ON research_links(link);
+                CREATE TABLE IF NOT EXISTS research_devices (
+                    link TEXT PRIMARY KEY, secret_hash TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0,
+                    created TEXT NOT NULL
+                );
             """)
             from learning_server.submissions import SCHEMA
             db.executescript(SCHEMA)
@@ -207,6 +212,27 @@ class Database:
     def research_proof(self, link):
         return hmac.new(self.secret, ("research-link:" + link).encode("utf-8"), hashlib.sha256).hexdigest()
 
+    def register_research_device(self, db, link, secret):
+        """번호와 별개인 기기 비밀 값의 해시를 등록·대조함. 철회한 번호는 다시 등록하지 않음."""
+        if not isinstance(secret, str) or not re.fullmatch(r"[a-f0-9]{64}", secret):
+            raise ApiError(403, "연구용 번호의 기기 인증을 확인해 주세요.")
+        if db.execute("SELECT 1 FROM research_accounts WHERE link=?", (link,)).fetchone():
+            raise ApiError(403, "연구용 번호의 기기 인증을 확인해 주세요.")
+        row = db.execute("SELECT secret_hash, revoked FROM research_devices WHERE link=?", (link,)).fetchone()
+        if row:
+            if not hmac.compare_digest(row[0], hashed(secret)):
+                raise ApiError(403, "연구용 번호의 기기 인증을 확인해 주세요.")
+            return bool(row[1])
+        if db.execute("SELECT 1 FROM research_links WHERE link=?", (link,)).fetchone():
+            raise ApiError(403, "새 기기 연구용 번호로 다시 연결해 주세요.")
+        now = datetime.datetime.now(datetime.timezone.utc)
+        count = db.execute("SELECT count(*) FROM research_devices WHERE created>=?",
+                           ((now-datetime.timedelta(days=1)).isoformat(),)).fetchone()[0]
+        if count >= 10000:
+            raise ApiError(429, "새 연구용 번호 처리가 많아 잠시 뒤 다시 확인합니다.")
+        db.execute("INSERT INTO research_devices VALUES (?, ?, 0, ?)", (link, hashed(secret), now.isoformat()))
+        return False
+
     def link_research(self, db, participant, data, consent):
         """동의서 v4 기기가 보낸 연구용 번호로 과목 참가자를 이음. 계정 확인값은 이 표에 넣지 않음."""
         from learning_data.privacy import POLICY_VERSION
@@ -219,8 +245,8 @@ class Database:
         proof = data.get("research_proof")
         account = db.execute("SELECT 1 FROM research_accounts WHERE link=?", (link,)).fetchone()
         if proof is None:
-            if account:
-                raise ApiError(403, "연구용 번호를 확인해 주세요.")
+            if self.register_research_device(db, link, data.get("research_secret")):
+                raise ApiError(401, "철회한 연구용 번호입니다.", code="revoked")
             # 이 컴퓨터에서 만든 번호는 이미 계정 번호로 옮긴 참가자를 되돌리지 않음.
             db.execute("INSERT INTO research_links VALUES (?, ?, 'device') ON CONFLICT(participant) "
                        "DO UPDATE SET link=excluded.link WHERE research_links.source='device'", (participant, link))
@@ -240,14 +266,23 @@ class Database:
             if not db.execute("SELECT 1 FROM participants WHERE participant=? AND revoked=0", (participant,)).fetchone():
                 raise ApiError(401, "철회한 참가자입니다.", code="revoked")
             previous = db.execute("SELECT receipt FROM open_enrollments WHERE participant=?", (participant,)).fetchone()
-            old_scope = json.loads(previous[0]).get("automatic_submission") if previous and previous[0] else None
+            old_consent = json.loads(previous[0]) if previous and previous[0] else {}
+            same_consent = False
+            if old_consent.get("at"):
+                old_at, new_at = (datetime.datetime.fromisoformat(value["at"]) for value in (old_consent, consent))
+                old_version, new_version = (int(value["policy"].rsplit("-v", 1)[1]) for value in (old_consent, consent))
+                if new_at < old_at or new_version < old_version:
+                    raise ApiError(409, "이전 동의 기록입니다. 현재 설정을 다시 보내 주세요.")
+                same_consent = old_consent["policy"] == consent["policy"] and old_at == new_at
+            old_scope = old_consent.get("automatic_submission") if same_consent else None
             new_scope = consent.get("automatic_submission")
             if old_scope is not None:
                 if new_scope is None:
                     consent["automatic_submission"] = old_scope
-                elif (datetime.datetime.fromisoformat(new_scope["at"]) < datetime.datetime.fromisoformat(old_scope["at"]) or
-                      (new_scope["at"] == old_scope["at"] and not old_scope["accepted"] and new_scope["accepted"])):
-                    raise ApiError(409, "이전 자동 제출 설정입니다. 현재 설정을 다시 보내 주세요.")
+                else:
+                    old_at, new_at = (datetime.datetime.fromisoformat(scope["at"]) for scope in (old_scope, new_scope))
+                    if new_at < old_at or (new_at == old_at and not old_scope["accepted"] and new_scope["accepted"]):
+                        raise ApiError(409, "이전 자동 제출 설정입니다. 현재 설정을 다시 보내 주세요.")
             db.execute("INSERT INTO open_enrollments VALUES (?, 'research', ?, ?, NULL) "
                        "ON CONFLICT(participant) DO UPDATE SET receipt=excluded.receipt",
                        (participant, packed(consent), datetime.datetime.now(datetime.timezone.utc).isoformat()))
@@ -346,9 +381,13 @@ class Database:
             children = [row[0] for row in db.execute("SELECT participant FROM submission_collections WHERE account=?", (participant,))]
             for target in [participant] + children:
                 self.erase(db, target, now)
-            link = db.execute("SELECT link FROM research_links WHERE participant=?", (participant,)).fetchone()
+            link = db.execute("SELECT link, source FROM research_links WHERE participant=?", (participant,)).fetchone()
             if link:
-                self.remove_linked(db, link[0], now)
+                if link[1] == "account" or db.execute("SELECT 1 FROM research_devices WHERE link=?", (link[0],)).fetchone():
+                    self.remove_linked(db, link[0], now)
+                else:
+                    # 비밀 값 없이 연결한 옛 기기 번호는 다른 참가자의 삭제 권한으로 쓰지 않음.
+                    db.execute("DELETE FROM research_links WHERE participant=?", (participant,))
             db.execute("DELETE FROM api_submissions WHERE participant=?", (participant,))
             db.execute("DELETE FROM submission_collections WHERE account=? OR participant=?", (participant, participant))
             db.execute("DELETE FROM submission_accounts WHERE participant=?", (participant,))
@@ -359,24 +398,50 @@ class Database:
         db.execute("UPDATE participants SET revoked=1 WHERE participant=?", (participant,))
         db.execute("UPDATE open_enrollments SET receipt=NULL, withdrawn=? WHERE participant=?", (now, participant))
 
+    @staticmethod
+    def withdrawal_stamp(now, previous):
+        """서버 시계가 되돌아가도 같은 계정의 철회 표식을 다시 쓰지 않음."""
+        instant = datetime.datetime.fromisoformat(now)
+        if previous:
+            instant = max(instant, datetime.datetime.fromisoformat(previous) + datetime.timedelta(microseconds=1))
+        return instant.isoformat()
+
     def remove_linked(self, db, link, now):
         """같은 연구용 번호로 이은 모든 과목·컴퓨터의 기록을 지우고 계정과 번호의 짝을 끊음.
-        계정 쪽에는 철회 시각만 남겨 철회 전에 동의한 다른 컴퓨터가 새 번호를 받지 못하게 함."""
+        계정 쪽에는 서버 철회 표식을 남겨 이전 동의로 새 번호를 받지 못하게 함."""
+        previous = db.execute("SELECT withdrawn FROM research_accounts WHERE link=?", (link,)).fetchone()
+        now = self.withdrawal_stamp(now, previous[0] if previous else None)
         for target, in db.execute("SELECT participant FROM research_links WHERE link=?", (link,)).fetchall():
             self.erase(db, target, now)
         db.execute("DELETE FROM research_links WHERE link=?", (link,))
         db.execute("UPDATE research_accounts SET link=NULL, withdrawn=? WHERE link=?", (now, link))
+        db.execute("UPDATE research_devices SET revoked=1 WHERE link=?", (link,))
+        return now
 
     def withdraw_research(self, data):
         """기기에 남은 연구용 번호와 증명값으로 그 번호의 기록을 지움. 과목 참가자가 서버에 없을 때도 쓸 수 있음."""
         link, proof = data.get("research_link"), data.get("research_proof")
         identifier(link)
-        if not isinstance(proof, str) or not hmac.compare_digest(proof, self.research_proof(link)):
+        if proof is not None and (not isinstance(proof, str) or not hmac.compare_digest(proof, self.research_proof(link))):
             raise ApiError(403, "연구용 번호를 확인해 주세요.")
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            self.remove_linked(db, link, datetime.datetime.now(datetime.timezone.utc).isoformat())
-        return {"deleted": True}
+            if proof is None:
+                self.register_research_device(db, link, data.get("research_secret"))
+            account = db.execute("SELECT 1 FROM research_accounts WHERE link=?", (link,)).fetchone()
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now = self.remove_linked(db, link, now)
+        return {"deleted": True, **({"withdrawn_at": now} if account else {})}
+
+    def research_status(self, data):
+        """기기 키가 없어도 저장된 계정 번호의 증명값으로 철회 여부를 확인함."""
+        link, proof = identifier(data.get("research_link")), data.get("research_proof")
+        if not isinstance(proof, str) or not hmac.compare_digest(proof, self.research_proof(link)):
+            raise ApiError(403, "연구용 번호를 확인해 주세요.")
+        with self.connect() as db:
+            if not db.execute("SELECT 1 FROM research_accounts WHERE link=?", (link,)).fetchone():
+                raise ApiError(401, "철회한 연구용 번호입니다.", code="revoked")
+        return {"active": True}
 
     def export(self, destination, include_answers=False):
         from learning_server.operations import export
@@ -434,17 +499,15 @@ def application(database, *, legacy_contract=False):
                 data = json.loads(raw.decode("utf-8")) if length else {}
                 result = identity.study_activity(environ.get("HTTP_AUTHORIZATION", ""), data, delete=method == "DELETE")
             elif method in ("POST", "DELETE") and path == "/v1/identity/research-link":
-                data = {}
-                if method == "POST":
-                    length = int(environ.get("CONTENT_LENGTH") or 0)
-                    if not 1 <= length <= 2048:
-                        raise ApiError(413, "연구용 번호 요청 크기를 확인해 주세요.")
-                    if environ.get("CONTENT_TYPE", "").split(";")[0].strip() != "application/json":
-                        raise ApiError(415, "JSON 형식으로 보내 주세요.")
-                    raw = environ["wsgi.input"].read(length)
-                    if len(raw) != length:
-                        raise ApiError(400, "연구용 번호 요청을 끝까지 받지 못했습니다.")
-                    data = json.loads(raw.decode("utf-8"))
+                length = int(environ.get("CONTENT_LENGTH") or 0)
+                if not 1 <= length <= 2048:
+                    raise ApiError(413, "연구용 번호 요청 크기를 확인해 주세요.")
+                if environ.get("CONTENT_TYPE", "").split(";")[0].strip() != "application/json":
+                    raise ApiError(415, "JSON 형식으로 보내 주세요.")
+                raw = environ["wsgi.input"].read(length)
+                if len(raw) != length:
+                    raise ApiError(400, "연구용 번호 요청을 끝까지 받지 못했습니다.")
+                data = json.loads(raw.decode("utf-8"))
                 result = identity.research_link(environ.get("HTTP_AUTHORIZATION", ""), data, delete=method == "DELETE")
             elif method == "POST" and path == "/v1/identity/verify":
                 length = int(environ.get("CONTENT_LENGTH") or 0)
@@ -459,14 +522,14 @@ def application(database, *, legacy_contract=False):
                 if not isinstance(data, dict):
                     raise ApiError(400, "본인 확인 응답을 확인해 주세요.")
                 result = identity.verify(data)
-            elif method == "POST" and path in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/withdraw/private", "/v1/research-link/withdraw", "/v1/events", "/v1/consent", "/v1/register", "/v1/register/open", "/v1/register/private", "/v1/submissions", "/v1/private/submissions", "/v1/submissions/publish"):
+            elif method == "POST" and path in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/withdraw/private", "/v1/research-link/withdraw", "/v1/research-link/status", "/v1/events", "/v1/consent", "/v1/register", "/v1/register/open", "/v1/register/private", "/v1/submissions", "/v1/private/submissions", "/v1/submissions/publish"):
                 length = int(environ.get("CONTENT_LENGTH") or 0)
                 limit = 6 * MAX_BODY if path in ("/v1/submissions", "/v1/private/submissions") else MAX_BODY
                 if length <= 0 or length > limit:
                     raise ApiError(413, "전송 크기를 확인해 주세요.")
                 if environ.get("CONTENT_TYPE", "").split(";")[0].strip() != "application/json":
                     raise ApiError(415, "JSON 형식으로 보내 주세요.")
-                participant = database.authenticate(environ.get("HTTP_AUTHORIZATION", "")) if path not in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/withdraw/private", "/v1/research-link/withdraw", "/v1/register", "/v1/register/open", "/v1/register/private") else None
+                participant = database.authenticate(environ.get("HTTP_AUTHORIZATION", "")) if path not in ("/v1/enroll", "/v1/enroll/open", "/v1/withdraw/open", "/v1/withdraw/private", "/v1/research-link/withdraw", "/v1/research-link/status", "/v1/register", "/v1/register/open", "/v1/register/private") else None
                 raw = environ["wsgi.input"].read(length)
                 if len(raw) != length:
                     raise ApiError(400, "전송 내용을 끝까지 받지 못했습니다.")
@@ -483,6 +546,8 @@ def application(database, *, legacy_contract=False):
                     result = database.withdraw_open(data, "private_submission")
                 elif path == "/v1/research-link/withdraw":
                     result = database.withdraw_research(data)
+                elif path == "/v1/research-link/status":
+                    result = database.research_status(data)
                 elif path == "/v1/consent":
                     result = database.record_consent(participant, data)
                 elif path == "/v1/events":
@@ -521,6 +586,8 @@ def application(database, *, legacy_contract=False):
             code, result = error.status, {"error": error.message}
             if error.code:
                 result["code"] = error.code
+            if error.withdrawn_at is not ...:
+                result["withdrawn_at"] = error.withdrawn_at
         except (ValueError, UnicodeError, RecursionError):
             code, result = 400, {"error": "요청 내용을 읽을 수 없습니다."}
         except (sqlite3.Error, OSError):
