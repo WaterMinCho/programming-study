@@ -1689,7 +1689,9 @@ MIXED_BLUEPRINTS = {"mixed32-blueprint-v1": MIXED_BLUEPRINT,
 VARIATION_REVISIONS = ("mixed32-transfer-v1", "mixed32-applied04-v1")
 # 모든 차시 회차의 배분 버전마다 format별 문항 수, level별 문항 수, 코드 작성 문항의 level별 수. kind 수는 format 수에서 셈
 ALL_LESSON_RULES = {"all44-v1": {"format": {"choice": 16, "bug": 5, "order": 3, "blank": 8, "predict": 8, "code": 4},
-                                 "level": {1: 11, 2: 22, 3: 11}, "code_level": {2: 2, 3: 2}}}
+                                 "level": {1: 11, 2: 22, 3: 11}, "code_level": {2: 2, 3: 2}},
+                    "all46-v1": {"format": {"choice": 17, "bug": 5, "order": 3, "blank": 8, "predict": 9, "code": 4},
+                                 "level": {1: 11, 2: 24, 3: 11}, "code_level": {2: 2, 3: 2}}}
 FORMAT_KINDS = {"choice": "choice", "bug": "choice", "order": "choice", "blank": "blank", "predict": "blank", "code": "code"}
 
 
@@ -1710,6 +1712,38 @@ def _mixed_blueprint(entry):
         return ai_mock_rules.allocate(ai_mock_rules.LESSON_SCORES, _mixed_contract(entry)["count"])
     revision = entry.get("blueprint_revision")
     return MIXED_BLUEPRINTS.get(revision) if isinstance(revision, str) else None
+
+
+def _item_id_problems(label, ids, retired, count):
+    """회차 문항 ID 규칙. 남는 ID 는 그대로 두고 새 ID 는 가장 큰 번호 다음을 씀. 뺀 ID 는 meta.json retired_items 에 적고
+    다시 쓰지 않음. 쓰는 ID 와 뺀 ID 를 합치면 {label}-01 부터 가장 큰 번호까지 빈 번호 없이 한 번씩 나와야 함.
+    처음 낸 회차인지는 알 수 없어서 빈 번호 안내 첫머리에 처음 낸 회차가 쓸 {label}-01..count 를 적음."""
+    out = []
+    if not isinstance(retired, list) or not all(isinstance(cid, str) for cid in retired):
+        out.append(f"{label} meta.json의 retired_items는 뺀 문항 ID 목록이어야 합니다.")
+        retired = []
+    numbers = {}
+    for cid in ids + retired:
+        match = re.fullmatch(re.escape(label) + r"-(\d{2,3})", str(cid))
+        if not match or str(cid) != "%s-%02d" % (label, int(match.group(1))) or int(match.group(1)) < 1:
+            out.append(f"{label}의 문항 ID {cid}는 {label}-01처럼 회차 ID와 두 자리 번호로 쓰세요.")
+        else:
+            numbers[cid] = int(match.group(1))
+    for name, rows in (("문항", ids), ("retired_items", retired)):
+        twice = sorted(cid for cid, n in collections.Counter(rows).items() if n > 1)
+        if twice:
+            out.append(f"{label}의 {name} ID가 두 번 나옵니다: {verify_web.listing(twice)}")
+    reused = sorted(set(ids) & set(retired))
+    if reused:
+        out.append(f"{label}의 retired_items에 있는 뺀 문항 ID를 다시 썼습니다: {verify_web.listing(reused)}. "
+                   f"새 문항은 가장 큰 번호 다음 번호를 쓰세요.")
+    top = max(numbers.values(), default=0)
+    gone = ["%s-%02d" % (label, n) for n in range(1, top + 1) if "%s-%02d" % (label, n) not in numbers]
+    if gone:
+        out.append(f"{label}의 문항 ID가 retired_items 없이 사라졌습니다: {verify_web.listing(gone)}. 처음 낸 회차는 "
+                   f"retired_items 없이 {label}-01부터 {label}-{count:02d}까지 한 번씩 쓰세요. 배분 버전을 바꿔 다시 낸 회차는 "
+                   f"남는 문항의 ID를 그대로 두고, 뺀 문항은 meta.json의 retired_items에 적고, 새 문항은 가장 큰 번호 다음 번호를 쓰세요.")
+    return out
 
 
 def _mixed_shared_problems(entry, meta, items, sources, contract, blueprint, counts):
@@ -1737,9 +1771,7 @@ def _mixed_shared_problems(entry, meta, items, sources, contract, blueprint, cou
         found = collections.Counter(item.get(field) for item in items if isinstance(item.get(field), (str, int)))
         if found != expected_counts:
             out.append(f"{label}의 실제 %s 배분이 일치하지 않습니다: %s" % (field, dict(found)))
-    count = contract["count"]
-    if sorted(item["id"] for item in items) != ["%s-%02d" % (label, n) for n in range(1, count + 1)]:
-        out.append(f"{label}의 문항 ID는 {label}-01부터 {label}-{count:02d}까지 한 번씩 사용하세요.")
+    out += _item_id_problems(label, [item["id"] for item in items], meta.get("retired_items", []), contract["count"])
     if revision in VARIATION_REVISIONS or "variation_types" in meta:
         axes = ["condition", "application", "code_analysis", "comparison"]
         if meta.get("variation_types") != axes:
