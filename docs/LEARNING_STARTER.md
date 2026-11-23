@@ -121,6 +121,56 @@ targets = example["targets"]
 
 이전 버전 4·5·6 자료도 실험을 재현할 수 있도록 계속 읽습니다. 읽기 성공만으로 버전 7의 이력 검사를 통과했다고 판단하지 않습니다. 과거 기록에 없던 난이도를 현재 문항 목록에서 가져와 채우지 않습니다. 버전 3 이하의 자료는 예측 시각과 이력 집계를 다시 확인하도록 거절합니다. 새 자료는 별도 폴더에 준비합니다.
 
+### 정답 없는 후보 문제의 입력 만들기
+
+학습·평가에는 `batch()`를, 아직 풀지 않은 문제에는 `candidate_batch()`를 씁니다. 두 함수가 만드는 `inputs`의 항목과 배열 크기는 같습니다. `candidate_batch()`는 정답인 `targets`를 만들지 않습니다. 모델에는 반환값 중 `inputs`만 넘기고, 예측 확률은 같은 순서의 `candidate_ids`와 연결합니다.
+
+아래 코드는 공통 자료에 저장된 예측 시점으로 돌아가 입력을 확인하는 예입니다. 해당 예시의 정답은 후보에 넣지 않습니다.
+
+```python
+from learning_server import input_example
+
+rows, vocabulary = input_example.load("../learning-demo-f8", "ai", "train")
+row = rows[0]
+snapshot = {"prediction_at": row["prediction_at"], "features": row["features"]}
+candidates = [{
+    "candidate_id": "candidate-1",
+    "question_id": row["question_id"],
+    "question_revision": row["question_revision"],
+    "concepts": row["concepts"],
+    "course": row.get("course"),
+    "difficulty": row.get("difficulty"),
+    "generation": row.get("generation"),
+}]
+example = input_example.candidate_batch(candidates, vocabulary, snapshot, length=32)
+print(example["candidate_ids"], example["inputs"]["query_question"])
+```
+
+`snapshot`은 추천 시각과 그때까지 공개된 풀이 이력입니다. 앱을 연결할 때는 호출하는 코드에서 채점 공개 시각·철회·정정을 반영해 준비해야 합니다. 예전 평가 데이터의 마지막 예시를 현재 이력으로 쓰지 않습니다. 모의고사는 답을 작성했더라도 전체 채점 결과가 공개되기 전에는 이력에 넣지 않습니다. 이 함수는 기록을 수집하거나 공개 여부를 다시 계산하지 않고, 전달된 풀이 시각이 추천 시각보다 앞서는지 확인합니다.
+
+가상 기록으로 `snapshot`을 채운 예입니다. `sequence_history`에는 채점이 공개된 지난 풀이를 시간순으로 넣습니다. `result`는 지난 문제의 정오답이며 이번 후보의 정답이 아닙니다.
+
+```python
+snapshot = {
+    "prediction_at": "2026-11-23T10:00:00+09:00",
+    "features": {
+        "sequence_history": [{
+            "question_id": "example-question", "question_revision": "example-v1",
+            "concepts": ["example-concept"], "result": 1,
+            "at": "2026-11-23T09:00:00+09:00", "course": "intro", "difficulty": 1,
+        }],
+        "observed_history": {
+            "example-concept": {"last_at": "2026-11-23T09:00:00+09:00"},
+            "other-concept": {"last_at": None},
+        },
+    },
+}
+```
+
+`observed_history`에는 후보들이 묻는 개념별로 마지막 풀이 시각인 `last_at`을 넣습니다. 함수는 각 후보와 관련된 개념만 골라 간격을 계산합니다. 순서 이력이 잘려도 개념별 마지막 시각은 공개된 전체 이력에서 구합니다. 시각에는 시간대를 붙이고 추천 시각보다 앞선 값만 넣습니다. 모르는 `last_at`은 `None`으로 둡니다. 반환된 `inputs`에서는 해당 간격이 `query_gap_seconds=0`, `query_gap_known=False`가 됩니다. 새로 시작한 학습자의 두 이력은 각각 `[]`과 `{}`입니다. 학습 때 사용한 `vocabulary`를 그대로 사용하며 새 문항·개념에 임의로 번호를 더하지 않습니다.
+
+후보마다 서로 다른 `candidate_id`를 지정합니다. 같은 문항의 변형도 후보 ID를 따로 붙이고 `question_revision`·`generation`에 실제 조건을 남깁니다. `target`·`result`·답안이 들어간 후보는 거절합니다. 후보가 없으면 빈 배열을 반환하므로 모델을 호출하지 않습니다. 이 입력 함수는 준비됐으며, 저장한 모델의 호출과 앱 추천 표시는 별도 연결 작업입니다.
+
 <a id="버전-8-문항-번호표와-드문-문항"></a>
 
 ### 버전 8: 문항 번호표와 드문 문항
@@ -161,7 +211,9 @@ for epoch in range(10):
     example = input_example.batch(hidden, vocabulary, length=32)
 ```
 
-기본은 문항 단위(`by="question"`)입니다. 문항 10개 중 1개꼴로 고른 문항을 이번 문제와 지난 풀이 양쪽에서 같이 바꿉니다. ROS2처럼 학습 때 한 번도 못 본 과목의 문제는 이번 문제와 이력 모두 1번으로 들어옵니다. 문항 단위로 바꾸면 그 꼴을 학습 중에도 만들 수 있습니다. `by="slot"`을 주면 이번 문제와 지난 풀이의 자리마다 따로 `rate` 확률로 바꿉니다. 같은 `seed`면 같은 문항이 바뀝니다. 위 예처럼 에폭마다 `seed`를 바꾸면 매번 다른 문항이 1번이 됩니다.
+기본은 문항 단위(`by="question"`)입니다. 문항 10개 중 1개꼴로 고른 문항을 이번 문제와 지난 풀이 양쪽에서 같이 바꿉니다. ROS2처럼 학습 때 한 번도 못 본 과목의 문제는 이번 문제와 이력 모두 1번으로 들어옵니다. 문항 단위로 바꾸면 그 꼴을 학습 중에도 만들 수 있습니다. `by="slot"`을 주면 이번 문제와 지난 풀이의 자리마다 따로 `rate` 확률로 바꿉니다. 같은 `seed`면 같은 문항이 바뀝니다. 위 예처럼 에폭마다 `seed`를 바꾸면 다시 무작위로 고르며, 이전 에폭과 같은 문항이 선택될 수도 있습니다.
+
+문항 단위에서는 후보 수에 비율을 곱해 반올림합니다. 비율이 양수이고 후보가 있으면 적어도 1개를 바꿉니다. 예를 들어 후보가 3개이고 비율이 0.1이면 1개가 바뀝니다. 후보가 적을수록 실제 비율은 지정값보다 커질 수 있습니다. `rate=0`이거나 번호표에 있는 후보가 없으면 바꾸지 않습니다.
 
 기본 비율 0.1도 모델을 학습해 비교해 보고 고른 값이 아닙니다. 문항 10개 중 9개의 번호 정보를 남기면서 1번의 임베딩도 학습되게 하려고 골랐습니다. 이 함수는 학습 구간에만 씁니다. 검증·평가 구간은 바꾸지 않고 채점해야 다른 모델과 같은 조건으로 비교할 수 있습니다. 실험 기록에는 자료의 `question_min_count`와 함께 `rate`, `by`, `seed`를 적습니다.
 
