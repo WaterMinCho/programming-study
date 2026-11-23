@@ -476,6 +476,31 @@ class MockPageTest(AiTest):
         page.begin()
         self.assertIn('0 / 4문항 맞음', page.summary_text())
 
+    def blocked_band_page(self):
+        """코드 작성 문항이 없는 회차를 열고, 답을 바꾸지 않은 채 붙여넣기를 막았다는 오류 띠를 띄움."""
+        page = self.open_mock((1024, 700))
+        self.assertFalse(page.exam.has_code)
+        page.note_blocked()
+        self.assertTrue(page.notice.isVisible())
+        return page
+
+    def assert_result_without_band(self, page):
+        self.idle()
+        self.assertIsNotNone(page.exam.result)
+        self.assertEqual('제출 완료', page.time.text())
+        self.assertFalse(page.notice.isVisible())
+
+    def test_error_band_hides_when_submitting_without_changing_the_answer(self):
+        page = self.blocked_band_page()
+        page.submit()
+        self.assert_result_without_band(page)
+
+    def test_error_band_hides_when_time_runs_out_without_changing_the_answer(self):
+        page = self.blocked_band_page()
+        self.clock = '2026-11-04T21:01:00'
+        page.tick()
+        self.assert_result_without_band(page)
+
     def test_preview_does_not_start_the_clock_or_write_a_record(self):
         page = self.open_mock(start=False)
         self.assertIsNone(page.exam)

@@ -21,6 +21,18 @@ from tests.test_ai_mock import WRONG, code_item, stuck_grade
 from webprep.bank import load_secrets
 
 READ_INDEX = bank.read_index
+HASH_KEYS = ('_revision', '_hash', 'sha256')
+
+
+def without_hashes(value):
+    """해시 칸(키가 _revision·_hash·sha256 으로 끝나고 값이 16자 이상의 16진 글자 0~9·a~f 인 칸)을 뺀 사본. 숨은 테스트 값과 같은 숫자가 해시 안에 우연히 들어가도 누설로 보지 않게 함."""
+    if isinstance(value, dict):
+        return {key: without_hashes(item) for key, item in value.items()
+                if not (key.endswith(HASH_KEYS) and isinstance(item, str) and len(item) >= 16
+                        and all(c in '0123456789abcdef' for c in item))}
+    if isinstance(value, list):
+        return [without_hashes(item) for item in value]
+    return value
 
 
 def make_bank(root):
@@ -351,7 +363,7 @@ class MixedMockTest(unittest.TestCase):
                 self.assertEqual(code['code']['examples'],row['item']['examples'])
                 for hidden in ('tests','solution','code','limit_ms'):
                     self.assertNotIn(hidden,row['item'])
-        text=json.dumps(snapshot,ensure_ascii=False)
+        text=json.dumps(without_hashes(snapshot),ensure_ascii=False)
         for hidden in ('40017','40019','50013','total = a','"passed"','code_passed'):
             self.assertNotIn(hidden,text)
         prepared=[r for r in dataset.prepare(snapshot) if r['question_id']=='m4-32']
