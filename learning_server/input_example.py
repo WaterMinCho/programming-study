@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 """파일 해시를 확인하고 딥러닝 모델에 넘길 배열을 표준 라이브러리로 준비함."""
 import argparse
+import copy
 import datetime
 import hashlib
 import json
+import random
 from pathlib import Path
 
 from learning_server.starter import QUESTION_UNITS, question_token
 from learning_server.dataset import FEATURES_VERSION, SUPPORTED_FEATURES_VERSIONS, author_difficulty
 from learning_data import generation
 
+HIDE_RATE = 0.1
 
 def load(folder, track, part):
     root = Path(folder)
@@ -102,6 +105,41 @@ def batch(rows, vocabulary, length=32):
             + [None] * (length - len(history)))
     return {"inputs": inputs, "question_provenance": provenance, "targets": [row["target"] for row in rows],
             "event_ids": [row["event_id"] for row in rows]}
+
+
+def hide_questions(rows, vocabulary, rate=HIDE_RATE, seed=0, by="question"):
+    """학습할 때만 쓰는 함수. rows 의 복사본에서 문항 일부의 id 를 번호표의 <UNK> 로 바꿔 돌려주고 rows 는 바꾸지 않음.
+    batch() 가 돌려받은 행을 읽으면 바뀐 자리의 문제 번호가 1번이 되고 개념·난이도·과정 칸은 그대로 남음.
+    by="question" 은 번호표에 있는 문항 가운데 rate 비율만큼 골라 이번 문제와 지난 풀이 양쪽에서 같이 바꿈.
+    학습 때 한 번도 못 본 문항(ROS2 같은 새 과목의 문항)은 이번 문제와 이력 모두 1번으로 들어오므로 그 꼴을 흉내 냄.
+    by="slot" 은 이번 문제와 지난 풀이의 자리마다 따로 rate 확률로 바꿈.
+    같은 seed 면 같은 문항이 바뀜. 에폭마다 seed 를 바꾸면 매번 다른 문항이 1번이 됨.
+    기본 비율 0.1 은 학습으로 비교해 보지 않은 값임. 문항 10개 중 9개의 번호 정보를 남기면서 1번 임베딩도 학습되게 하려고 고른 값이고 비교 실험으로 다시 정함."""
+    if isinstance(rate, bool) or not isinstance(rate, (int, float)) or not 0 <= rate <= 1:
+        raise ValueError("바꿀 비율은 0 이상 1 이하의 숫자로 지정해 주세요.")
+    if type(seed) is not int:
+        raise ValueError("바꾸기 시드는 정수로 지정해 주세요.")
+    if by not in ("question", "slot"):
+        raise ValueError("바꾸는 단위는 question 또는 slot 으로 지정해 주세요.")
+    unknown, unit = vocabulary["questions"][1], vocabulary.get("question_unit")
+    known = set(vocabulary["questions"][2:])
+    rows = copy.deepcopy(rows)
+    chooser = random.Random(seed)
+    def slots():
+        for row in rows:
+            yield row
+            yield from row["features"]["sequence_history"]
+    if by == "slot":
+        for item in slots():
+            if chooser.random() < rate:
+                item["question_id"] = unknown
+        return rows
+    pool = sorted({question_token(item, unit) for item in slots()} & known)
+    chosen = set(chooser.sample(pool, round(rate * len(pool))))
+    for item in slots():
+        if question_token(item, unit) in chosen:
+            item["question_id"] = unknown
+    return rows
 
 
 def main():

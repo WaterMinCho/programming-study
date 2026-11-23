@@ -110,12 +110,12 @@ def measure(targets, probabilities, groups, constant=False):
     return result
 
 
-def warning(wrong, people, shown=None):
+def warning(wrong, people, shown=None, subject="이 구간은"):
     """경고 여부는 실제 가명 수로 정함. shown 이 "3개 미만"이면 문구의 가명 수 자리에 그 표시를 씀."""
     if wrong < MIN_WRONG or people < MIN_PEOPLE:
         if shown == FEW_LABEL:
-            return "이 구간은 오답 %d행, 가명 %s이라 모델 비교 근거로 쓰기 어렵습니다." % (wrong, FEW_LABEL)
-        return "이 구간은 오답 %d행, 가명 %d개라 모델 비교 근거로 쓰기 어렵습니다." % (wrong, people)
+            return "%s 오답 %d행, 가명 %s이라 모델 비교 근거로 쓰기 어렵습니다." % (subject, wrong, FEW_LABEL)
+        return "%s 오답 %d행, 가명 %d개라 모델 비교 근거로 쓰기 어렵습니다." % (subject, wrong, people)
     return None
 
 
@@ -167,25 +167,46 @@ def evaluate(folder, track, split, predictions):
     if extra:
         raise ValueError("채점할 구간에 없는 event_id 가 %d개 있습니다." % extra)
     saved = {p["event_id"]: p["probability"] for p in json.loads(baseline_raw)[track][split]["predictions"]}
+    lines = [(version, [probabilities[row["event_id"]] for row in rows], False)] + baselines(train, rows, saved)
+    synthetic = report["synthetic"] is True
+    cell, table, message = _bucket(rows, lines, synthetic, "이 구간은")
+    # 처음 보는 문제는 학습 번호표에 없어 모델 입력에서 1번(UNK)이 되는 문제임. 학습 구간에서 드물어 번호표에서 뺀 문항도 들어감
+    vocabulary = content[track][split][1]
+    known, unit = set(vocabulary["questions"]), vocabulary.get("question_unit")
+    picked = [i for i, row in enumerate(rows) if starter.question_token(row, unit) not in known]
+    unseen_lines = [(name, [values[i] for i in picked], constant) for name, values, constant in lines]
+    unseen = dict(zip(("cell", "table", "warning"),
+                      _bucket([rows[i] for i in picked], unseen_lines, synthetic, "처음 보는 문제 행은")))
+    unseen["cell"]["questions"] = len({starter.question_token(rows[i], unit) for i in picked})
+    if not picked:
+        unseen["warning"] = "처음 보는 문제 행이 없어 표를 내지 않습니다."
+    elif unseen["warning"] is None and unseen["table"][0]["metrics"]["roc_auc"]["value"] is None:
+        unseen["warning"] = "처음 보는 문제 행은 정답이나 오답 한쪽만 있어 ROC-AUC 를 계산할 수 없습니다."
+    return {"dataset_manifest_sha256": manifest_sha256, "features_version": report["features_version"],
+            "synthetic": report["synthetic"], "track": track, "split": split,
+            "predictions_sha256": predictions_sha256, "model_version": version,
+            "cell": cell, "table": table, "warning": message, "unseen": unseen}
+
+
+def _bucket(rows, lines, synthetic, subject):
+    """행 묶음 하나의 행 수·오답·가명 수와 표, 경고를 냄. 행이 없으면 표와 경고를 비움."""
     targets = [row["target"] for row in rows]
     groups = [row["participant"] for row in rows]
     wrong, people = len(rows) - sum(targets), len(set(groups))
     # 실제 자료에서 가명이 3개보다 적으면 가명 수를 가림. 가명 묶음 표준오차도 가명 1개일 때처럼 비워서 1개인지 2개인지 드러나지 않게 함
     # per-participant 줄은 값이 모두 같은지만 봐도 가명이 1개인지 2개인지 알 수 있어 "-" 로 냄
-    masked = report["synthetic"] is not True and people < FEW_PEOPLE
+    masked = not synthetic and people < FEW_PEOPLE
     shown = FEW_LABEL if masked else people
     if masked:
         groups = [None] * len(rows)
+    cell = {"rows": len(rows), "wrong": wrong, "participants": shown,
+            "linked_rows": sum(1 for row in rows if (row.get("selection") or {}).get("pool") == "linked")}
+    if not rows:
+        return cell, [], None
     blank = {metric: {"value": None, "se_row": None, "se_group": None} for metric in METRICS}
-    lines = [(version, [probabilities[row["event_id"]] for row in rows], False)] + baselines(train, rows, saved)
     table = [{"name": name, "metrics": blank if masked and name == "per-participant"
               else measure(targets, values, groups, constant)} for name, values, constant in lines]
-    return {"dataset_manifest_sha256": manifest_sha256, "features_version": report["features_version"],
-            "synthetic": report["synthetic"], "track": track, "split": split,
-            "predictions_sha256": predictions_sha256, "model_version": version,
-            "cell": {"rows": len(rows), "wrong": wrong, "participants": shown,
-                     "linked_rows": sum(1 for row in rows if (row.get("selection") or {}).get("pool") == "linked")},
-            "table": table, "warning": warning(wrong, people, shown)}
+    return cell, table, warning(wrong, people, shown, subject)
 
 
 def render(result):
@@ -204,11 +225,24 @@ def render(result):
     if result["synthetic"]:
         out.append("합성 자료입니다. 실행 확인용이며 모델 비교 근거로 쓰지 않습니다.")
     out.append("표의 값: 값 ± 행 독립 표준오차 / 가명 묶음 표준오차")
-    out.append(" | ".join(["이름"] + [LABELS[metric] for metric in METRICS]))
-    for line in result["table"]:
-        out.append(" | ".join([line["name"]] + [cell(line["metrics"][metric]) for metric in METRICS]))
-    if result["warning"]:
-        out.append(result["warning"])
+
+    def table(lines, message):
+        if lines:
+            out.append(" | ".join(["이름"] + [LABELS[metric] for metric in METRICS]))
+        for line in lines:
+            out.append(" | ".join([line["name"]] + [cell(line["metrics"][metric]) for metric in METRICS]))
+        if message:
+            out.append(message)
+
+    table(result["table"], result["warning"])
+    unseen = result.get("unseen")
+    if unseen is not None:
+        info = unseen["cell"]
+        people = info["participants"] if info["participants"] == FEW_LABEL else "%d개" % info["participants"]
+        out.append("")
+        out.append("처음 보는 문제(학습 번호표에 없는 문제) %d개: %d행, 오답 %d행, 가명 %s, 끼운 변형 %d행" % (
+            info["questions"], info["rows"], info["wrong"], people, info["linked_rows"]))
+        table(unseen["table"], unseen["warning"])
     return "\n".join(out)
 
 
