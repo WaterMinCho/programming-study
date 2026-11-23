@@ -226,7 +226,7 @@ def check_index(v, bank_dir):
                                                                                             and mock["range"][1] <= nos[-1])):
             v.fail("index", 1, "%s 의 range 가 차시 범위가 아닙니다: %s" % (mock["id"], mock["range"]))
         days = [review.parse_day(d) for d in mock["window"]]
-        if mixed_mock.candidate(mock) and mock.get("scope") == "mixed" and not days:
+        if not days and (mock.get("legacy") or (mixed_mock.candidate(mock) and mock.get("scope") == "mixed")):
             continue
         if len(days) != 2 or None in days or days[0] > days[1]:
             v.fail("index", 1, "%s 의 window 는 [시작, 끝] 날짜여야 합니다." % mock["id"])

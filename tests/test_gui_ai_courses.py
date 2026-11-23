@@ -104,7 +104,24 @@ class CodingWithAppGroupTest(AiTest):
 class CourseGuiTest(AiTest):
     real_bank = True
 
+    def open_mocks(self, extra=()):
+        """실제 은행에서 이 사용자가 볼 회차. 새 사용자는 hidden·legacy 가 아닌 회차만, 예전 회차는 제출한 사람만 봄."""
+        from aiprep import bank
+        return {m['id'] for m in bank.read_index(bank.AI_DIR)['mocks'] if not m.get('hidden') and not m.get('legacy')} | set(extra)
+
     def test_course_switch_keeps_participant_old_cursor_and_scoped_lists(self):
+        self.assertEqual({'m11', 'm12'}, self.open_mocks())
+        self.check_course_switch(self.open_mocks())
+
+    def test_learner_who_submitted_an_old_round_sees_it_in_both_courses(self):
+        import os
+        from aiprep import bank
+        from tests.test_ai_mixed_mock import submitted_before
+        from tests.test_gui_ai import USER
+        submitted_before(USER, os.environ['STUDY_AI_HOME'], bank.AI_DIR, 'm4')
+        self.check_course_switch(self.open_mocks({'m4'}))
+
+    def check_course_switch(self, mocks):
         win = self.boot((760, 480))
         win.go_ai()
         self.assertEqual('AI', win.workspace.compact.currentText())
@@ -117,22 +134,23 @@ class CourseGuiTest(AiTest):
         self.assertEqual(['a01', 'a02', 'a03', 'a04', 'a05'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
-        self.assertEqual({'m4', 'm5', 'm6', 'm11', 'm12'}, set(win.ai.mocks))
+        self.assertEqual(mocks, set(win.ai.mocks))
         self.assertIn('응용', win.ai_home.lesson_list.rows[0].title.text())
         win.ai.save_step('a01', 'a1b', 3)
         guikit.click(win.ai_home.course_tabs.buttons[2])
         self.assertEqual('intro', win.ai.course)
         self.assertTrue(win.ai_home.mock_section.isVisible())
-        listed = [m['title'] for m in win.ai.overview()['mocks'] if m['ready']]
-        self.assertEqual(listed, [row.title.text() for row in win.ai_home.mock_list.rows])
-        self.assertEqual({'m1','m2','m3','m4','m5','m6','m11','m12'}, set(win.ai.mocks))
+        listed = [m for m in win.ai.overview()['mocks'] if m['ready']]
+        self.assertEqual([m['title'] for m in listed if not m.get('legacy')], [row.title.text() for row in win.ai_home.mock_list.rows])
+        self.assertEqual([m['title'] for m in listed if m.get('legacy')], [row.title.text() for row in win.ai_home.old_list.rows])
+        self.assertEqual(mocks, set(win.ai.mocks))
         self.assertEqual('app', win.settings.value('ai/course/' + win.user))
         guikit.click(win.ai_home.course_tabs.buttons[0])
         self.assertEqual('intro', win.ai.course)
         self.assertEqual(2, win.ai.unit_steps('i01', '1a')['at_step'])
         self.assertNotIn('a01', win.ai.lessons)
         self.assertEqual('intro', win.settings.value('ai/course/' + win.user))
-        self.assertEqual({'m1','m2','m3','m4','m5','m6','m11','m12'}, set(win.ai.mocks))
+        self.assertEqual(mocks, set(win.ai.mocks))
         self.capture_widget=win
 
     def test_missing_mixed_fixture_keeps_application_mock_section_hidden(self):
