@@ -13,7 +13,7 @@ import unittest
 from unittest import mock
 
 import study
-from aiprep import bank, mixed_mock, mock_code, service
+from aiprep import bank, grade, mixed_mock, mock_code, service
 from aiprep.mock import MockError, MockExam, load_items
 from learning_data import collection
 from learning_server import dataset
@@ -22,6 +22,29 @@ from webprep.bank import load_secrets
 
 READ_INDEX = bank.read_index
 HASH_KEYS = ('_revision', '_hash', 'sha256')
+
+
+def listing_legacy(*mids):
+    """실제 은행의 예전(legacy) 회차를 이 patch 안에서만 아무나 볼 수 있게 함."""
+    def read(path=None):
+        index = READ_INDEX(path)
+        for spec in index['mocks']:
+            if spec['id'] in mids:
+                spec.pop('legacy', None)
+        return index
+    return mock.patch.object(bank, 'read_index', read)
+
+
+def submitted_before(user, home, root, mid, seed=1):
+    """예전 회차를 이미 제출한 사람을 준비함. legacy 표시를 뺀 세션에서 모두 맞힌 답으로 내서 복습 카드가 생기지 않게 함."""
+    with listing_legacy(mid):
+        exam = service.AiSession(user, home=home, root=root, course='intro').start_mock(mid, seed=seed)
+        for cid, item in exam.items.items():
+            if item['kind'] == 'blank':
+                exam.save_answer([b['answer'][0] for b in item['blanks']], cid)
+            elif item['kind'] == 'choice':
+                exam.save_answer(grade.right_options(item), cid)
+        return exam.submit()
 
 
 def without_hashes(value):
@@ -207,11 +230,16 @@ class MixedMockTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]/'ai'
         expected = dict({'i%02d' % n: 1 for n in range(1, 18) if n != 10}, a01=4, a02=4, a03=4, a04=4)
         axes = {'condition', 'application', 'code_analysis', 'comparison'}
+        # m6 는 예전 회차라 제출한 사람만 봄. 새 사용자는 hidden·legacy 가 아닌 회차만 봄
+        fresh = {spec['id'] for spec in READ_INDEX(str(root))['mocks'] if not spec.get('hidden') and not spec.get('legacy')}
+        self.assertEqual({'m11', 'm12'}, fresh)
+        submitted_before('m6-taker', str(self.root/'published-home'), str(root), 'm6')
         for course in ('intro', 'app'):
             with self.subTest(course=course):
-                sess = service.AiSession('synthetic', home=str(self.root/'published-home'), root=str(root), course=course)
-                wanted = {'m4', 'm5', 'm6', 'm11', 'm12'} | ({'m1', 'm2', 'm3'} if course == 'intro' else set())
-                self.assertEqual(wanted, set(sess.mocks))
+                new = service.AiSession('synthetic', home=str(self.root/'published-home'), root=str(root), course=course)
+                self.assertEqual(fresh, set(new.mocks))
+                sess = service.AiSession('m6-taker', home=str(self.root/'published-home'), root=str(root), course=course)
+                self.assertEqual(fresh | {'m6'}, set(sess.mocks))
                 spec = sess.mocks['m6']
                 self.assertEqual('mixed32-applied04-v1', spec['blueprint_revision'])
                 self.assertEqual(expected, spec['blueprint'])
@@ -470,12 +498,13 @@ class MixedMockTest(unittest.TestCase):
         shutil.copytree(source,root)
         meta=study.read_json(root/'mocks'/mid/'meta.json')
         study.write_text(root/'mocks'/mid/'meta.json',json.dumps(dict(meta,draft=False)))
-        # 공개 전 회차도 같은 검사를 받게 hidden 표시만 이 검사 안에서 뺌
+        # 공개 전 회차와 예전 회차도 같은 검사를 받게 hidden·legacy 표시만 이 검사 안에서 뺌. 문항 스냅샷을 보는 검사라 목록 표시와 무관함
         def shown(path):
             index=READ_INDEX(path)
             for spec in index['mocks']:
                 if spec['id']==mid:
                     spec.pop('hidden',None)
+                    spec.pop('legacy',None)
             return index
         unhide=mock.patch.object(bank,'read_index',shown)
         unhide.start();self.addCleanup(unhide.stop)

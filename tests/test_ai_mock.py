@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from aiprep import grade, mock_code, review, service
+from aiprep import bank, grade, mock_code, review, service
 from aiprep.mock import MockError, MockExam, load_items
 from learning_data import collection
 from aiprep.service import AiError
@@ -861,15 +861,24 @@ class CodeServiceTest(Base):
 
     def test_lesson_counts_cover_every_item(self):
         """시작 전 차시 표가 쓰는 mock_info()['lessons'] 는 문항에서 센 차시별 수이고 합이 문항 수와 같음.
-        blueprint 가 있는 실제 회차(m4·m11)는 blueprint 와 같음."""
+        blueprint 가 있는 실제 회차(m4·m11)는 blueprint 와 같음. 예전 회차 m1·m4 의 legacy 는 이 검사 안에서만 뺌."""
         self.assertEqual({"i90": 5}, self.session().mock_info("m90")["lessons"])
         source = str(Path(__file__).resolve().parents[1] / "ai")
-        sess = service.AiSession("synthetic", home=os.path.join(self.tmp, "real-home"), root=source, course="intro")
-        for mid in ("m1", "m4", "m11"):
-            info = sess.mock_info(mid)
-            self.assertEqual(info["count"], sum(info["lessons"].values()), mid)
-            if "blueprint" in info:
-                self.assertEqual(info["blueprint"], info["lessons"], mid)
+        real = bank.read_index
+
+        def shown(path=None):
+            index = real(path)
+            for spec in index["mocks"]:
+                spec.pop("legacy", None)
+            return index
+
+        with mock.patch.object(bank, "read_index", shown):
+            sess = service.AiSession("synthetic", home=os.path.join(self.tmp, "real-home"), root=source, course="intro")
+            for mid in ("m1", "m4", "m11"):
+                info = sess.mock_info(mid)
+                self.assertEqual(info["count"], sum(info["lessons"].values()), mid)
+                if "blueprint" in info:
+                    self.assertEqual(info["blueprint"], info["lessons"], mid)
 
     def test_wrong_code_answer_is_a_read_only_wrong_note(self):
         sess = self.session()
