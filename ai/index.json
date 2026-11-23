@@ -27,9 +27,10 @@
   {"id": "al03", "title": "응용 3차시 프레임에서 경계와 영역의 위치 찾기"},
   {"id": "al04", "title": "응용 4차시 프레임 사이의 위치와 움직임 추적하기"},
   {"id": "al05", "title": "응용 5차시 사전학습 CNN을 새 분류와 추론에 맞추기"},
+  {"id": "al09", "title": "응용 9차시 3D 장면을 새 카메라 시점에서 그리기"},
   {"id": "al18", "title": "코딩으로 실전학습하기"}
  ],
- "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03", "al04", "al05", "al18"],
+ "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03", "al04", "al05", "al09", "al18"],
  "exam": {"date": "2026-12-02", "last_new": "2026-11-24", "sweep_from": "2026-11-25", "last_review": "2026-12-01"},
  "lessons": [
   {"id": "i01", "no": 1, "title": "딥러닝에 필요한 파이썬", "page": "l01", "date": "2026-10-19", "weight": 0.8, "units": 7, "hw_due": null},
@@ -53,7 +54,8 @@
   {"id": "a02", "no": 2, "course": "app", "title": "주변 값과 좌표를 바꿔 입력 준비하기", "page": "al02", "date": null, "weight": 1, "units": 6, "hw_due": null},
   {"id": "a03", "no": 3, "course": "app", "title": "프레임에서 경계와 영역의 위치 찾기", "page": "al03", "date": null, "weight": 1, "units": 7, "hw_due": null},
   {"id": "a04", "no": 4, "course": "app", "title": "프레임 사이의 위치와 움직임 추적하기", "page": "al04", "date": null, "weight": 1, "units": 7, "hw_due": null},
-  {"id": "a05", "no": 5, "course": "app", "title": "사전학습 CNN을 새 분류와 추론에 맞추기", "page": "al05", "date": null, "weight": 1, "units": 5, "hw_due": null}
+  {"id": "a05", "no": 5, "course": "app", "title": "사전학습 CNN을 새 분류와 추론에 맞추기", "page": "al05", "date": null, "weight": 1, "units": 5, "hw_due": null},
+  {"id": "a09", "no": 9, "course": "app", "title": "3D 장면을 새 카메라 시점에서 그리기", "page": "al09", "date": null, "weight": 1, "units": 6, "hw_due": null}
  ],
  "patterns": [
   {"id": "pc", "page": "l18", "title": "코딩으로 실전학습하기", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}},

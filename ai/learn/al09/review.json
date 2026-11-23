@@ -1,0 +1,35 @@
+{
+ "format": 1,
+ "writer": "출제 1",
+ "resolver": "재풀이 2",
+ "reviewer": "검토 3",
+ "files": {
+  "assets/a9a-1.png": "b0e118018390edee0c0d15ec25db6ce83182767bb9cefc4d793980427376d00f",
+  "assets/a9a-2.png": "d2c39e5473d4fd6d3e9848652a1fc2e262746c7d7ff641fccb2f0db8e2829b0d",
+  "assets/a9a-31.png": "aad328110363316f56465e2b639071916ee749d4170de8063d462d8239d30a81",
+  "assets/a9a-32.png": "b775ee515d3dd7a317fd8807aed876a95616f6bdfc6342cf2da39f092603b53b",
+  "assets/a9a-33.png": "15698b2432f1ff78da0cadbf87cbe5756f2e8acdbaea2fdb1c98bec2f092a580",
+  "assets/a9b-1.png": "8d75a676c82fa7e8c1c1abe2d54e3f5177b4cfc6112f8931b0023e330b15212a",
+  "assets/a9b-2.png": "bd44f64f84b1d9f6f70c8a675d6ad2f13a1831dbe0a97f7718eaf7e6c51efaba",
+  "assets/a9c-1.png": "7713bc8ac350c5ce40159668816349279fa4c5e435546144780db602a024071d",
+  "assets/a9c-2.png": "9645a8175760b02bd6c9a012da05aa381daa0fff75393888dd68f39f5bd93b41",
+  "assets/a9c-41.png": "2b61c7153154a2c1b22f7acdcbdf9a1a27fdf9e39804d8dc031ea34beb16e824",
+  "assets/a9c-42.png": "567b52020e049528fabf62ec1586ce5a48fb6d0448b6db9849cbbc47395878c1",
+  "assets/a9c-43.png": "f920b663dee176823e3b391eed596d359951dc953b25f07490cd4d898372130b",
+  "assets/a9d-1.png": "f19e8c8e95b3ca73a11605934ef17ec2395336866042ecc807c591e0bd4b3c86",
+  "assets/a9d-2.png": "8bbf4dcf89429ecfa45786fa3bd53cdf24a9981711f2bd44802a69aa8cb29f06",
+  "assets/a9e-1.png": "3a21c726987f23102e564941992a83806a859a9610e1d3f22f1761a5ffd20b1b",
+  "assets/a9e-2.png": "05cd860a41ded5ae2aa6a42b5ce350fe3a1c23a3381c0d614d02ded863431424",
+  "assets/a9f-1.png": "6c4e1a52f8baa7dff7d370af9faf4c0665f3fc2012122b2da4eb8238df6b989b",
+  "assets/a9f-2.png": "f40408b60f3bd36faf5941d632d7728ad613e3354db967b8be51835bc4571bae",
+  "assets/a9f-41.png": "ce940518803c140c2194a31cf1c7a3ec7891f022f1bf823fe9a5eca68e21e483",
+  "assets/a9f-42.png": "42b297819621b5dbdd9b65a75313011a78dc303cffc086768976f2ecadc783bf",
+  "assets/a9f-43.png": "bf93995b154f8e0575f98712b255d84ec49017708f6c79dd45602db323418472",
+  "meta.json": "de4a4c1aa4f1b99ae20f632529fed42988d3b7db008b6baf0f6aefc3b443f08e",
+  "page.md": "eac1e1feb5b0ea2bf601c19158279253715c1bb39987ee3990a30d3b00f2212d"
+ },
+ "findings": [
+  "광선·볼륨 합성·프레임 순서의 수준별 확인 물음 9개를 재풀이함. 그림 21장을 확인함.",
+  "구간별 무작위 추출과 계층 샘플링을 구분하고 픽셀 MSE 경계 조건을 확인함."
+ ]
+}

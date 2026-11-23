@@ -1,0 +1,71 @@
+{
+ "format": 1,
+ "id": "al09",
+ "lesson": "a09",
+ "title": "응용 9차시 3D 장면을 새 카메라 시점에서 그리기",
+ "defines": [],
+ "needs": [
+  "l06",
+  "l11",
+  "l17"
+ ],
+ "sections": {
+  "a9a": "메시를 이루는 점과 카메라 광선 찾기",
+  "a9b": "좌표를 숫자 묶음으로 바꿔 색과 밀도 구하기",
+  "a9c": "광선 위 점을 골라 한 픽셀의 색 합치기",
+  "a9d": "촬영한 픽셀과 합성한 픽셀의 오차로 학습하기",
+  "a9e": "3D 가우시안을 화면에 비춰 장면 그리기",
+  "a9f": "회전하는 큐브에서 프레임 순서로 방향 분류하기"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "NeRF의 공간 표현과 광선 기반 볼륨 렌더링",
+   "url": "https://arxiv.org/abs/2003.08934",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "3D Gaussian Splatting의 장면 표현과 가시성 합성",
+   "url": "https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "프레임 특징과 LSTM의 입력·마지막 상태",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.LSTM.html",
+   "checked": "2026-11-23"
+  }
+ ],
+ "units": {
+  "a9a": {
+   "minutes": 7,
+   "key_figure": "assets/a9a-1.png",
+   "kind": "concept"
+  },
+  "a9b": {
+   "minutes": 7,
+   "key_figure": "assets/a9b-1.png",
+   "kind": "concept"
+  },
+  "a9c": {
+   "minutes": 7,
+   "key_figure": "assets/a9c-1.png",
+   "kind": "concept"
+  },
+  "a9d": {
+   "minutes": 7,
+   "key_figure": "assets/a9d-1.png",
+   "kind": "concept"
+  },
+  "a9e": {
+   "minutes": 7,
+   "key_figure": "assets/a9e-1.png",
+   "kind": "concept"
+  },
+  "a9f": {
+   "minutes": 7,
+   "key_figure": "assets/a9f-1.png",
+   "kind": "concept"
+  }
+ }
+}

@@ -11,7 +11,7 @@ from tests.test_gui_ai import AiTest
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtTest import QTest
 from gui import ai_learn, ai_text, theme
-from aiprep import service as ai_service
+from aiprep import bank as ai_bank, service as ai_service
 from gui.docview import FigureView
 
 
@@ -114,7 +114,9 @@ class CourseGuiTest(AiTest):
         self.assertEqual('app', win.ai.course)
         from gui import ai_text
         self.assertNotIn('응용 · 응용', ai_text.track_line(win.ai.overview()))
-        self.assertEqual(['a01', 'a02', 'a03', 'a04', 'a05'], list(win.ai.lessons))
+        published = ai_bank.read_index(win.ai.root)['lessons']
+        applied = [lesson['id'] for lesson in published if lesson['course'] == 'app']
+        self.assertEqual(applied, list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
         self.assertEqual({'m4', 'm5', 'm6'}, set(win.ai.mocks))
@@ -357,7 +359,7 @@ class CourseGuiTest(AiTest):
         for mode in ('light', 'dark'):
             theme.set_mode(mode)
             win.restyle()
-            for lesson in ('a01', 'a02', 'a03', 'a04', 'a05'):
+            for lesson in win.ai.lessons:
                 for row in win.ai.unit_list(lesson):
                     unit = row['key']
                     for step in win.ai.unit_steps(lesson, unit)['steps']:
