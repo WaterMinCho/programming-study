@@ -133,7 +133,10 @@ class TimeGapLSTM(SmallLSTM):
             dim=-1
         )
 
-        return self.fc(combined).squeeze(-1)
+        # 팀원의 최신 SmallLSTM과 동일하게 Dropout 적용
+        dropout = self.dropout(combined)
+
+        return self.fc(dropout).squeeze(-1)
 
 
 def copy_baseline_weights(baseline_model, timegap_model):

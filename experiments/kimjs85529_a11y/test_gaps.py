@@ -1,16 +1,17 @@
 import math
+import torch
 from pathlib import Path
 
 # 프로젝트 모듈 실행과 파일 직접 실행 모두 지원
 if __package__:
     from .inspect_gaps import (
         select_query_gaps, build_time_feature, build_time_features_batch,
-        get_torch, get_device, set_seed
+        get_device, set_seed
     )
 else:
     from inspect_gaps import (
         select_query_gaps, build_time_feature, build_time_features_batch,
-        get_torch, get_device, set_seed
+        get_device, set_seed
     )
 
 # 팀원 입력 검사와 동일한 시드 값
@@ -308,8 +309,7 @@ else:
     unk_wins_shortest = 0
 
     BATCH_SIZE = 32
-    torch = get_torch()
-    device = get_device() if torch is not None else None
+    device = get_device()
     compared_count = 0
     confirmed_count = 0
 
@@ -334,39 +334,38 @@ else:
         compared_count += len(expected)
         confirmed_count += sum(int(value[1]) for value in expected)
 
-        if torch is not None:
-            actual = build_time_features_batch(
-                torch.as_tensor(
-                    inputs["query_concepts"],
-                    dtype=torch.float32,
-                    device=device
-                ),
-                torch.as_tensor(
-                    inputs["query_gap_seconds"],
-                    dtype=torch.float32,
-                    device=device
-                ),
-                torch.as_tensor(
-                    inputs["query_gap_known"],
-                    dtype=torch.bool,
-                    device=device
-                )
-            )
-            target = torch.tensor(
-                expected,
+        actual = build_time_features_batch(
+            torch.as_tensor(
+                inputs["query_concepts"],
                 dtype=torch.float32,
                 device=device
+            ),
+            torch.as_tensor(
+                inputs["query_gap_seconds"],
+                dtype=torch.float32,
+                device=device
+            ),
+            torch.as_tensor(
+                inputs["query_gap_known"],
+                dtype=torch.bool,
+                device=device
             )
-            torch.testing.assert_close(
-                actual,
-                target,
-                rtol=1e-5,
-                atol=1e-6
-            )
-            assert torch.equal(
-                actual[:, 1],
-                target[:, 1]
-            )
+        )
+        target = torch.tensor(
+            expected,
+            dtype=torch.float32,
+            device=device
+        )
+        torch.testing.assert_close(
+            actual,
+            target,
+            rtol=1e-5,
+            atol=1e-6
+        )
+        assert torch.equal(
+            actual[:, 1],
+            target[:, 1]
+        )
 
         for i in range(len(inputs["query_concepts"])):
             concepts = inputs["query_concepts"][i]
@@ -398,10 +397,7 @@ else:
     print("실제 AI Train 전체 자료 수:", compared_count)
     print("시간 확인 가능:", confirmed_count)
     print("시간 미확인:", compared_count - confirmed_count)
-    if torch is None:
-        print("PyTorch 미설치: 개별 전처리 검증 완료, 배치 비교는 SKIP")
-    else:
-        print("개별·배치 결과 전체 비교 통과")
+    print("개별·배치 결과 전체 비교 통과")
 
     print(
         "통과: 실제 빈 이력의 lengths=0, mask=False "
@@ -541,198 +537,190 @@ print("통과: 두 값 모두 Python float")
 # 10. 개별 전처리와 배치 전처리 비교 (신규 테스트 9)
 print("\n===== 테스트 9. 배치 시간 특성 =====")
 
-torch = get_torch()
+device = get_device()
 
-if torch is None:
-    print("건너뜀(SKIP): PyTorch 미설치")
-else:
-    device = get_device()
+concepts_batch = [
+    [0, 0, 1, 0],
+    [0, 0, 1, 0],
+    [0, 1, 1, 1],
+    [0, 1, 1, 0],
+    [0, 1, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 1, 0]
+]
 
-    concepts_batch = [
-        [0, 0, 1, 0],
-        [0, 0, 1, 0],
-        [0, 1, 1, 1],
-        [0, 1, 1, 0],
-        [0, 1, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 1, 0]
-    ]
+seconds_batch = [
+    [0, 0, 86400, 0],
+    [0, 0, 0, 0],
+    [0, 120, 604800, 172800],
+    [0, 120, 0, 0],
+    [0, 120, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+]
 
-    seconds_batch = [
-        [0, 0, 86400, 0],
-        [0, 0, 0, 0],
-        [0, 120, 604800, 172800],
-        [0, 120, 0, 0],
-        [0, 120, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0]
-    ]
+known_batch = [
+    [False, False, True, False],
+    [False, False, True, False],
+    [False, True, True, True],
+    [False, True, False, False],
+    [False, True, False, False],
+    [False] * 4,
+    [False] * 4
+]
 
-    known_batch = [
-        [False, False, True, False],
-        [False, False, True, False],
-        [False, True, True, True],
-        [False, True, False, False],
-        [False, True, False, False],
-        [False] * 4,
-        [False] * 4
-    ]
-
-    actual = build_time_features_batch(
-        torch.tensor(
-            concepts_batch,
-            dtype=torch.float32,
-            device=device
-        ),
-        torch.tensor(
-            seconds_batch,
-            dtype=torch.float32,
-            device=device
-        ),
-        torch.tensor(
-            known_batch,
-            dtype=torch.bool,
-            device=device
-        )
-    )
-
-    expected = torch.tensor(
-        [
-            build_time_feature(c, s, k, names)
-            for c, s, k in zip(
-                concepts_batch,
-                seconds_batch,
-                known_batch
-            )
-        ],
+actual = build_time_features_batch(
+    torch.tensor(
+        concepts_batch,
         dtype=torch.float32,
         device=device
+    ),
+    torch.tensor(
+        seconds_batch,
+        dtype=torch.float32,
+        device=device
+    ),
+    torch.tensor(
+        known_batch,
+        dtype=torch.bool,
+        device=device
     )
+)
 
-    torch.testing.assert_close(
-        actual,
-        expected,
-        rtol=1e-5,
-        atol=1e-6
-    )
+expected = torch.tensor(
+    [
+        build_time_feature(c, s, k, names)
+        for c, s, k in zip(
+            concepts_batch,
+            seconds_batch,
+            known_batch
+        )
+    ],
+    dtype=torch.float32,
+    device=device
+)
 
-    assert actual.shape == (7, 2)
-    assert actual.dtype == torch.float32
-    assert actual.device.type == device.type  
+torch.testing.assert_close(
+    actual,
+    expected,
+    rtol=1e-5,
+    atol=1e-6
+)
 
-    print("통과: 7건 개별·배치 결과 일치")
+assert actual.shape == (7, 2)
+assert actual.dtype == torch.float32
+assert actual.device.type == device.type
+
+print("통과: 7건 개별·배치 결과 일치")
 
 
 # 11. 대량 배치 및 예외 처리 (신규 테스트 10)
 print("\n===== 테스트 10. 대량 배치 및 예외 처리 =====")
 
-if torch is None:
-    print("건너뜀(SKIP): PyTorch 미설치")
-else:
-    concepts_large = torch.tensor(
-        [[0, 1, 1, 1]],
+concepts_large = torch.tensor(
+    [[0, 1, 1, 1]],
+    dtype=torch.float32,
+    device=device
+).repeat(10000, 1)
+
+seconds_large = torch.tensor(
+    [[0, 120, 604800, 172800]],
+    dtype=torch.float32,
+    device=device
+).repeat(10000, 1)
+
+known_large = torch.tensor(
+    [[False, True, True, True]],
+    dtype=torch.bool,
+    device=device
+).repeat(10000, 1)
+
+large = build_time_features_batch(
+    concepts_large,
+    seconds_large,
+    known_large
+)
+
+assert large.shape == (10000, 2)
+
+torch.testing.assert_close(
+    large,
+    torch.tensor(
+        [[math.log1p(2), 1.0]],
         dtype=torch.float32,
         device=device
     ).repeat(10000, 1)
+)
 
-    seconds_large = torch.tensor(
-        [[0, 120, 604800, 172800]],
-        dtype=torch.float32,
-        device=device
-    ).repeat(10000, 1)
+empty = torch.zeros(
+    (0, 4),
+    device=device
+)
 
-    known_large = torch.tensor(
-        [[False, True, True, True]],
-        dtype=torch.bool,
-        device=device
-    ).repeat(10000, 1)
+assert build_time_features_batch(
+    empty, empty, empty
+).shape == (0, 2)
 
-    large = build_time_features_batch(
-        concepts_large,
-        seconds_large,
-        known_large
-    )
+only_unk = torch.zeros(
+    (3, 2),
+    device=device
+)
 
-    assert large.shape == (10000, 2)
-
-    torch.testing.assert_close(
-        large,
-        torch.tensor(
-            [[math.log1p(2), 1.0]],
-            dtype=torch.float32,
-            device=device
-        ).repeat(10000, 1)
-    )
-
-    empty = torch.zeros(
-        (0, 4),
-        device=device
-    )
-
-    assert build_time_features_batch(
-        empty, empty, empty
-    ).shape == (0, 2)
-
-    only_unk = torch.zeros(
+assert torch.equal(
+    build_time_features_batch(
+        only_unk,
+        only_unk,
+        only_unk
+    ),
+    torch.zeros(
         (3, 2),
         device=device
     )
+)
 
-    assert torch.equal(
-        build_time_features_batch(
-            only_unk,
-            only_unk,
-            only_unk
-        ),
-        torch.zeros(
-            (3, 2),
-            device=device
-        )
+for bad in (
+    -1.0,
+    float("nan"),
+    float("inf")
+):
+    c = torch.tensor(
+        [[0, 0, 1]],
+        device=device
     )
 
-    for bad in (
-        -1.0,
-        float("nan"),
-        float("inf")
-    ):
-        c = torch.tensor(
-            [[0, 0, 1]],
-            device=device
-        )
+    s = torch.tensor(
+        [[0.0, 0.0, bad]],
+        device=device
+    )
 
-        s = torch.tensor(
-            [[0.0, 0.0, bad]],
-            device=device
-        )
-
-        k = torch.tensor(
-            [[False, False, True]],
-            device=device
-        )
-
-        try:
-            build_time_features_batch(c, s, k)
-        except ValueError:
-            pass
-        else:
-            raise AssertionError(
-                "잘못된 시간값이 허용되었습니다."
-            )
+    k = torch.tensor(
+        [[False, False, True]],
+        device=device
+    )
 
     try:
-        build_time_features_batch(
-            c,
-            s[:, :2],
-            k
-        )
+        build_time_features_batch(c, s, k)
     except ValueError:
         pass
     else:
         raise AssertionError(
-            "서로 다른 Shape가 허용되었습니다."
+            "잘못된 시간값이 허용되었습니다."
         )
 
-    print("통과: 10,000건, 빈 배치 및 잘못된 입력 검사")
+try:
+    build_time_features_batch(
+        c,
+        s[:, :2],
+        k
+    )
+except ValueError:
+    pass
+else:
+    raise AssertionError(
+        "서로 다른 Shape가 허용되었습니다."
+    )
+
+print("통과: 10,000건, 빈 배치 및 잘못된 입력 검사")
 
 
-print("\n전체 테스트 확인 완료 (PyTorch 미설치 시 테스트 9~10 SKIP)")
+print("\n전체 테스트 확인 완료 (테스트 1~10 실행)")
