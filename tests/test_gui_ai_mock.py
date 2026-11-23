@@ -607,8 +607,12 @@ class MockPageTest(AiTest):
             self.assertEqual([page.clock_note], banners)
             self.assertIn('시계가 멈추지 않습니다', page.clock_note.text.text())
             self.assertEqual('warning', page.clock_note.property('tone'))
-            self.assertLess(page.summary.geometry().bottom(), page.clock_note.geometry().top())
-            self.assertLess(page.clock_note.geometry().bottom(), page.ready_types.geometry().top())
+            for above, below in ((page.summary, page.clock_note), (page.clock_note, page.ready_types),
+                                 (page.ready_types, page.lesson_counts)):
+                self.assertEqual(theme.GAP['group'], below.y() - above.y() - above.height())
+            for cell in page.ready_types.cells:
+                self.assertEqual(theme.GAP['title_description'],
+                                 cell.second.y() - cell.name.y() - cell.name.height())
             # code=False 차례는 처음 응시라 다시 시작 안내와 지난 점수가 없어 카드를 숨김.
             # code=True 차례는 앞 차례에 시작한 초안과 문항이 달라 카드에 다시 시작 안내가 있음
             self.assertEqual(code, page.restart_required)
@@ -618,6 +622,9 @@ class MockPageTest(AiTest):
             self.idle()
             self.assertFalse(page.ready_types.isVisible() or page.lesson_counts.isVisible() or page.clock_note.isVisible())
             self.assertTrue(page.card.isVisible())
+            self.assertTrue(page.grid.isVisible())
+            self.assertEqual(theme.GAP['detail'],
+                             page.grid.y() - page.grid_toggle.y() - page.grid_toggle.height())
 
     def test_result_type_cells_and_lesson_rows_in_lesson_order_with_zero_rows_in_danger(self):
         theme.set_text('normal')
