@@ -8,7 +8,7 @@ import html
 import re
 
 import mdlite
-from aiprep import bank
+from aiprep import bank, mixed_mock
 from gui.result_page import band, code_box, md_html
 from session import SessionError
 
@@ -91,6 +91,12 @@ def lesson_title(no, title, course="intro"):
     prefix = ("응용 %s차시" if course == "app" else "%s차시") % no
     title = title.strip()
     return title if title == prefix or title.startswith(prefix + " ") else (prefix + " " + title).strip()
+
+
+def mock_description(spec):
+    if mixed_mock.candidate(spec):
+        return mixed_mock.description(spec)
+    return "%d문항 · %d분 · 개론 %d~%d차시" % (spec["count"], spec["minutes"], *spec["range"])
 
 
 def plain(text):

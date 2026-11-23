@@ -7,7 +7,7 @@
 from PyQt6.QtCore import QEvent, Qt
 from PyQt6.QtWidgets import QBoxLayout, QWidget
 
-from aiprep import bank, mixed_mock
+from aiprep import bank
 from gui import ai_text, kit, theme
 from gui.disclosure import DisclosureButton
 from gui.wrong_page import count_line
@@ -381,8 +381,7 @@ class AiHomePage(QWidget):
             hint = '남은 시간 %d분' % ((state['remaining'] + 59) // 60)
         elif state['first_score'] is not None:
             end = '%d / %d' % (state['first_score'], spec['count'])
-        detail = mixed_mock.description(spec) if mixed_mock.candidate(spec) else '%d문항 · %d분 · %d~%d차시' % (
-            spec['count'], spec['minutes'], spec['range'][0], spec['range'][1])
+        detail = ai_text.mock_description(spec)
         if state['error']:
             detail += '\n' + state['error']
         row = TailRow(spec['title'], detail, wrap=True, tail=kit.badge(end, tone))
