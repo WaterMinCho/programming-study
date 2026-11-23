@@ -210,7 +210,7 @@ class MixedMockTest(unittest.TestCase):
         for course in ('intro', 'app'):
             with self.subTest(course=course):
                 sess = service.AiSession('synthetic', home=str(self.root/'published-home'), root=str(root), course=course)
-                wanted = {'m4', 'm5', 'm6'} | ({'m1', 'm2', 'm3'} if course == 'intro' else set())
+                wanted = {'m4', 'm5', 'm6', 'm11', 'm12'} | ({'m1', 'm2', 'm3'} if course == 'intro' else set())
                 self.assertEqual(wanted, set(sess.mocks))
                 spec = sess.mocks['m6']
                 self.assertEqual('mixed32-applied04-v1', spec['blueprint_revision'])

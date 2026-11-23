@@ -781,23 +781,8 @@ class MockPageTest(AiTest):
 
 
 class RealMockScreensTest(AiTest):
-    """실제 회차 m1(30문항)·m4(32문항)·m11(44문항)의 시작 전 유형 카드와 차시 표를 봄. m11 의 hidden 은 이 검사 안에서만 뺌."""
+    """실제 회차 m1(30문항)·m4(32문항)·m11(44문항)의 시작 전 유형 카드와 차시 표를 봄."""
     real_bank = True
-
-    def setUp(self):
-        super().setUp()
-        real = bank.read_index
-
-        def shown(path=None):
-            index = real(path)
-            for spec in index['mocks']:
-                if spec['id'] == 'm11':
-                    spec.pop('hidden', None)
-            return index
-
-        patcher = mock.patch.object(bank, 'read_index', shown)
-        patcher.start()
-        self.addCleanup(patcher.stop)
 
     def test_ready_tables_add_up_and_empty_m11_result_marks_every_lesson(self):
         theme.set_text('normal')

@@ -475,6 +475,8 @@ errata가 붙은 문항과 기존 연습에서 정정 근거로 함께 쓴 사�
 
 서명한 회차의 문항이나 `ai/index.json` 회차 줄의 배분 버전(blueprint_revision)을 고칠 때는 `python3 tools/ai_seal.py unseal m4`처럼 먼저 풉니다. 학습자 기록에는 응시한 문항의 회차 버전 해시(fingerprint)가 남습니다. unseal은 서명한 문항을 이 해시 이름의 폴더 `work/versions/<fingerprint>/`에 items.json과 spec.json으로 남깁니다. 문항을 고쳐 seal하면 이 예전 문항도 함께 봉인됩니다. 그 버전으로 제출한 학습자는 결과·해설·오답 복습을 예전 문항으로 엽니다. 제출하지 않고 풀던 초안은 새 응시로 다시 시작합니다. `--sign`은 review.json에 그때의 fingerprint와 회차 줄 값을 적습니다. unseal은 이 회차 줄 값으로 fingerprint를 다시 계산해 예전 문항의 폴더 이름을 정합니다. 이 값이 없는 예전 서명은 지금 회차 줄로 계산하므로 회차 줄을 unseal한 뒤에 고칩니다. 서명한 뒤 fingerprint가 바뀌게 문항이나 회차 줄을 고치고 unseal을 건너뛰면 seal이 멈추고 unseal을 먼저 하라고 안내합니다. `verify_ai.py`는 남긴 예전 문항의 fingerprint를 다시 계산해 폴더 이름과 같은지 보고, 직전 커밋의 봉인에 있던 예전 문항이 빠지거나 바뀌면 실패합니다. 직전 커밋과 견주는 검사는 커밋하기 전의 작업 폴더에서만 차이를 찾습니다. `--sign`은 이전 서명에 있던 예전 문항이 빠졌거나, 서명한 버전의 예전 문항을 남기지 않은 채 fingerprint가 바뀌었으면 서명하지 않습니다.
 
+서명한 회차의 `ai/index.json` 회차 줄에 `"hidden": true`를 두면 그 회차는 학습자 목록에 나오지 않습니다. 그 회차를 제출한 기록이 있는 사람에게만 [이전에 푼 회차] 아래에 보입니다. 회차를 공개할 때는 이 값을 지우고 `ai/README.md`의 회차 안내와 `docs/GUIDE_INDEX.md`의 링크를 함께 고칩니다. `hidden`은 fingerprint와 검토 서명에 들지 않으므로 지워도 다시 서명하지 않습니다.
+
 <a id="혼합-회차-m4를-검증합니다"></a>
 
 <a id="혼합-회차-m4m5-검증하기"></a>

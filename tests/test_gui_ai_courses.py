@@ -117,7 +117,7 @@ class CourseGuiTest(AiTest):
         self.assertEqual(['a01', 'a02', 'a03', 'a04', 'a05'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
-        self.assertEqual({'m4', 'm5', 'm6'}, set(win.ai.mocks))
+        self.assertEqual({'m4', 'm5', 'm6', 'm11', 'm12'}, set(win.ai.mocks))
         self.assertIn('응용', win.ai_home.lesson_list.rows[0].title.text())
         win.ai.save_step('a01', 'a1b', 3)
         guikit.click(win.ai_home.course_tabs.buttons[2])
@@ -125,14 +125,14 @@ class CourseGuiTest(AiTest):
         self.assertTrue(win.ai_home.mock_section.isVisible())
         listed = [m['title'] for m in win.ai.overview()['mocks'] if m['ready']]
         self.assertEqual(listed, [row.title.text() for row in win.ai_home.mock_list.rows])
-        self.assertEqual({'m1','m2','m3','m4','m5','m6'}, set(win.ai.mocks))
+        self.assertEqual({'m1','m2','m3','m4','m5','m6','m11','m12'}, set(win.ai.mocks))
         self.assertEqual('app', win.settings.value('ai/course/' + win.user))
         guikit.click(win.ai_home.course_tabs.buttons[0])
         self.assertEqual('intro', win.ai.course)
         self.assertEqual(2, win.ai.unit_steps('i01', '1a')['at_step'])
         self.assertNotIn('a01', win.ai.lessons)
         self.assertEqual('intro', win.settings.value('ai/course/' + win.user))
-        self.assertEqual({'m1','m2','m3','m4','m5','m6'}, set(win.ai.mocks))
+        self.assertEqual({'m1','m2','m3','m4','m5','m6','m11','m12'}, set(win.ai.mocks))
         self.capture_widget=win
 
     def test_missing_mixed_fixture_keeps_application_mock_section_hidden(self):
