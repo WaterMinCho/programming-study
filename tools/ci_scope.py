@@ -7,7 +7,7 @@ import subprocess
 GUIDE_READMES = frozenset(("README.md", "gui/README.md", "ai/README.md", "problems/README.md",
                           "journey/README.md", "web/README.md", "tools/README.md",
                           "submissions/README.md", "learning_server/README.md", "learning_data/README.md", "docs/README.md",
-                          "docs/GIT_GUIDE.md", "docs/roadmap/README.md", "docs/LEARNER_START.md",
+                          "docs/roadmap/README.md", "docs/LEARNER_START.md",
                           "docs/STUDY_START.md", "docs/GUIDE_INDEX.md", "docs/PR_GUIDE.md",
                           "docs/LEARNING_REVIEW.md", "docs/SLACK_NOTIFICATIONS.md", "docs/LEGACY_RECORDS.md",
                           "docs/LEARNING_SERVER.md", "docs/LEARNING_DATA.md", "docs/LEARNING_DATA_ACCESS.md", "docs/LEARNING_PRIVACY.md",
