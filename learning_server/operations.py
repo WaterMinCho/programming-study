@@ -146,8 +146,14 @@ def export(path, destination, include_answers=False):
     try:
         expected, count = hashlib.sha256(), 0
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as output, read_database(path) as db:
-            for row in db.execute("SELECT payload FROM events ORDER BY participant, track, sequence"):
+            linked = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='research_links'").fetchone()
+            query = ("SELECT e.payload, l.link FROM events e LEFT JOIN research_links l ON l.participant=e.participant "
+                     "ORDER BY e.participant, e.track, e.sequence" if linked else
+                     "SELECT payload, NULL FROM events ORDER BY participant, track, sequence")
+            for row in db.execute(query):
                 value = json.loads(row[0])
+                if row[1]:
+                    value["research_link"] = row[1]  # 계정과 번호의 짝은 내보내지 않고 번호만 붙임
                 value.setdefault("synthetic", False)
                 if not include_answers:
                     value["data"].pop("response", None)

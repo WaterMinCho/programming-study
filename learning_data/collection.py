@@ -156,12 +156,12 @@ class Collection:
 
     def initialize_distribution(self):
         """첫 실행의 명시적 선택 전에는 수집하지 않음. 이전 버전의 기록을 보존하고 수집만 멈춤."""
-        from learning_data.privacy import SUPPORTED_POLICIES
+        from learning_data.privacy import POLICY_VERSION
         if not os.path.exists(self.path):
             return
         with self._connect() as conn:
             policy = conn.execute("SELECT value FROM meta WHERE key='consent_policy'").fetchone()
-            if policy is None or policy[0] not in SUPPORTED_POLICIES:
+            if policy is None or policy[0] != POLICY_VERSION:
                 conn.execute("INSERT OR REPLACE INTO meta VALUES ('enabled', '0')")
 
     def latest_sequence(self):
@@ -194,8 +194,8 @@ class Collection:
             try:
                 with open(meta["privacy_state_path"], encoding="utf-8") as source:
                     state = json.load(source)
-                from learning_data.privacy import known_policy
-                return (state.get("accepted") is True and known_policy(state)
+                from learning_data.privacy import current_policy
+                return (state.get("accepted") is True and current_policy(state)
                         and not state.get("withdraw_pending"))
             except (OSError, ValueError, AttributeError):
                 return False

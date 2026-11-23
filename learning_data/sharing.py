@@ -99,13 +99,18 @@ class Sharing:
             if path and os.path.exists(path):
                 os.unlink(path)
 
-    def connect_open(self, base, consent, after=0):
-        """동의 뒤의 기록을 개인 초대 코드 없이 연결함."""
+    def connect_open(self, base, consent, after=0, research=None):
+        """동의 뒤의 기록을 개인 초대 코드 없이 연결함. research 는 여러 과목·컴퓨터를 잇는 연구용 번호임."""
         from learning_data.privacy import validate_receipt, POLICY_VERSION
         try:
             receipt = validate_receipt(consent)
         except ValueError as error:
             raise CollectionError(str(error)) from error
+        link = {}
+        if research:
+            link["research_link"] = research["link"]
+            if research.get("proof"):
+                link["research_proof"] = research["proof"]
         base = endpoint(base)
         status = self.collection.status()
         if not status["enabled"] or status["error"]:
@@ -121,15 +126,18 @@ class Sharing:
             config.update(enroll_sent=True, consent_receipt=receipt)
             self._save(config)
             enrolled = request(base, "/v1/enroll/open", {"participant": config["participant"], "notice": NOTICE,
-                               "registration_secret": config["registration_secret"], "consent": receipt}, error_detail=True)
+                               "registration_secret": config["registration_secret"], "consent": receipt, **link}, error_detail=True)
             if enrolled.get("participant") != config["participant"] or not isinstance(enrolled.get("token"), str):
                 raise CollectionError("참가자 등록 응답을 확인해 주세요.")
             config["token"] = enrolled["token"]
             self._save(config)
-        if config.get("consent_policy") != POLICY_VERSION or config.get("consent_receipt") != receipt or after > config.get("sequence", 0):
-            request(base, "/v1/consent", {"consent": receipt}, token=config["token"], error_detail=True)
+        if (config.get("consent_policy") != POLICY_VERSION or config.get("consent_receipt") != receipt or after > config.get("sequence", 0)
+                or (research and config.get("research_link") != research["link"])):
+            request(base, "/v1/consent", {"consent": receipt, **link}, token=config["token"], error_detail=True)
             config.update(consent_policy=POLICY_VERSION, consent_receipt=receipt, include_answers=False,
                           sequence=max(config.get("sequence", 0), after))
+            if research:
+                config["research_link"] = research["link"]
             self._save(config)
 
     def sync(self, base, invite="", include_answers=False, canceled=lambda: False):

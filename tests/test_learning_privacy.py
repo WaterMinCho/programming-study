@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """동의·거부·재전송·철회와 공개 제출의 분리를 확인함."""
+import hashlib
 import io
 import json
 import os
 from pathlib import Path
 import secrets
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 import uuid
@@ -19,42 +21,70 @@ from submission_api import Client
 
 
 class PrivacyTest(unittest.TestCase):
-    def test_v2_consent_survives_server_wording_update_without_resetting_collection(self):
+    def test_purpose_update_asks_old_consenters_again_and_stops_collection_until_then(self):
         from learning_data import privacy
-        old_version = "2026-11-12-v2"
-        old_hash = privacy.SUPPORTED_POLICIES[old_version]
-        with mock.patch.multiple(privacy, POLICY_VERSION=old_version, POLICY_HASH=old_hash):
-            self.consent.choose(True)
-            self.consent.set_auto_submission(True)
-        before = self.consent.path.read_bytes()
-        starts = self.consent.settings()["start"].copy()
-        epochs = {name:store.status()["epoch"] for name,store in self.collections.items()}
-        for store in self.collections.values():
-            store.initialize_distribution()
-            self.assertTrue(store.status()["enabled"])
-            self.assertTrue(store.emit("answer", {"result": "pass", "card": "q1"}))
+        for old_version in ("2026-11-13-v3", "2026-11-12-v2"):
+            with self.subTest(old_version):
+                self.setUp()
+                old_hash = privacy.SUPPORTED_POLICIES[old_version]
+                with mock.patch.multiple(privacy, POLICY_VERSION=old_version, POLICY_HASH=old_hash):
+                    self.consent.choose(True)
+                    self.consent.set_auto_submission(True)
+                    for store in self.collections.values():
+                        self.assertTrue(store.emit("answer", {"result": "pass", "card": "q0"}))
+                old = self.consent.settings()["receipt"]
+                self.assertEqual(old, privacy.validate_receipt(old, automatic=True))
+                self.assertTrue(self.consent.needs_choice())
+                self.assertFalse(self.consent.needs_auto_choice())
+                for store in self.collections.values():
+                    store.initialize_distribution()
+                    self.assertFalse(store.status()["enabled"])
+                    self.assertFalse(store.emit("answer", {"result": "pass", "card": "q1"}))
+                self.assertEqual({"sent": 0, "errors": []}, self.consent.synchronize())
+                with self.db.connect() as db:
+                    self.assertEqual(0, db.execute("SELECT count(*) FROM participants").fetchone()[0])
+                epochs = {name: store.status()["epoch"] for name, store in self.collections.items()}
+                again = self.consent.choose(True)
+                self.assertEqual(privacy.POLICY_VERSION, again["policy"])
+                self.assertEqual(privacy.POLICY_VERSION, again["receipt"]["policy"])
+                self.assertFalse(self.consent.needs_choice())
+                self.assertTrue(self.consent.needs_auto_choice())
+                for name, store in self.collections.items():
+                    self.assertTrue(store.status()["enabled"])
+                    self.assertNotEqual(epochs[name], store.status()["epoch"])
+                    self.assertTrue(store.emit("answer", {"result": "pass", "card": "q2"}))
+                result = self.consent.synchronize()
+                self.assertFalse(result["errors"])
+                with self.db.connect() as db:
+                    cards = {json.loads(row[0])["data"].get("card") for row in db.execute("SELECT payload FROM events")}
+                self.assertIn("q2", cards)
+                self.assertFalse({"q0", "q1"} & cards)
+
+    def test_old_decline_or_withdrawal_is_not_asked_again(self):
+        from learning_data import privacy
+        old_version = "2026-11-13-v3"
+        with mock.patch.multiple(privacy, POLICY_VERSION=old_version, POLICY_HASH=privacy.SUPPORTED_POLICIES[old_version]):
+            self.consent.choose(False)
         self.assertFalse(self.consent.needs_choice())
-        self.assertFalse(self.consent.needs_auto_choice())
-        result = self.consent.synchronize()
-        self.assertFalse(result["errors"])
-        self.assertGreater(result["sent"], 0)
-        self.assertEqual(before, self.consent.path.read_bytes())
-        self.assertEqual(starts, self.consent.settings()["start"])
-        self.assertEqual(epochs, {name:store.status()["epoch"] for name,store in self.collections.items()})
-        old = self.consent.settings()["receipt"]
-        self.assertEqual(old, privacy.validate_receipt(old, automatic=True))
-        self.assertEqual(privacy.POLICY_VERSION, privacy.receipt()["policy"])
-        invalid = dict(old, policy_hash=privacy.POLICY_HASH)
-        with self.assertRaises(ValueError):
-            privacy.validate_receipt(invalid)
-        with self.assertRaises(ValueError):
-            privacy.validate_receipt(dict(old, policy=[]))
-        self.consent.withdraw()
-        self.assertTrue(self.consent.synchronize()["withdrawn"])
+        self.assertFalse(self.consent.settings()["accepted"])
+        with mock.patch.multiple(privacy, POLICY_VERSION=old_version, POLICY_HASH=privacy.SUPPORTED_POLICIES[old_version]):
+            self.consent.choose(True)
+            self.consent.withdraw()
+            self.assertTrue(self.consent.synchronize()["withdrawn"])
         self.assertFalse(self.consent.needs_choice())
         self.assertEqual(old_version, self.consent.settings()["policy"])
-        self.assertEqual(old_hash, self.consent.settings()["policy_hash"])
-        self.assertFalse(self.consent.settings()["accepted"])
+        for store in self.collections.values():
+            self.assertFalse(store.emit("answer", {"result": "pass"}))
+
+    def test_unknown_or_tampered_policy_is_asked_again(self):
+        from learning_data import privacy
+        self.consent.choose(True)
+        state = self.consent.settings()
+        for broken in (dict(state, policy_hash=privacy.SUPPORTED_POLICIES["2026-11-13-v3"]), dict(state, policy="2026-11-01-v1")):
+            privacy.save(self.consent.path, broken)
+            self.assertTrue(self.consent.needs_choice())
+            with self.assertRaises(ValueError):
+                privacy.validate_receipt(dict(state["receipt"], policy=broken["policy"], policy_hash=broken["policy_hash"]))
 
     def test_unmocked_http_is_rejected_by_the_fixture(self):
         import urllib.request
@@ -115,6 +145,125 @@ class PrivacyTest(unittest.TestCase):
         if status != 200:
             raise CollectionError(value["error"], status=status, code=value.get("code"))
         return value
+
+    def computer(self, name):
+        """같은 서버로 보내는 다른 컴퓨터의 수집 폴더와 동의 설정을 만듦."""
+        collections = {track: Collection(str(self.root / name / track), str(self.repo), track=track) for track in ("python", "ai")}
+        return Consent(collections, "https://example.test")
+
+    def verified(self, account):
+        """account 계정으로 본인 확인을 마친 기기 키를 서버에 넣고 그 키를 저장한 기기 인증을 돌려줌."""
+        from learning_server.app import hashed
+        from learning_server.team import Access
+        token = secrets.token_hex(32)
+        with self.db.connect() as db:
+            db.execute("INSERT INTO identity_grants (token_hash,policy,created,member,account_hash) VALUES (?,?,0,0,?)",
+                       (hashed(token), Access(self.db).policy(), hashlib.sha256(account.encode()).hexdigest()))
+        return SimpleNamespace(base="https://example.test", settings=lambda: {"verified": True, "team": False, "token": token})
+
+    def links(self):
+        with self.db.connect() as db:
+            return db.execute("SELECT link, source FROM research_links ORDER BY participant").fetchall()
+
+    def test_same_account_computers_share_one_link_and_one_withdrawal_removes_both(self):
+        first, second = self.verified("account-1"), self.verified("account-1")
+        other = self.computer("other")
+        for consent in (self.consent, other):
+            consent.choose(True)
+            for store in consent.collections.values():
+                self.assertTrue(store.emit("answer", {"result": "pass", "card": "q1"}))
+        self.assertFalse(self.consent.synchronize(identity=first)["errors"])
+        self.assertFalse(other.synchronize(identity=second)["errors"])
+        links = self.links()
+        self.assertEqual(4, len(links))
+        self.assertEqual(1, len(set(links)))
+        self.assertEqual("account", links[0][1])
+        target = self.root / "export.jsonl"
+        self.db.export(str(target))
+        text = target.read_text(encoding="utf-8")
+        self.assertEqual({links[0][0]}, {json.loads(line)["research_link"] for line in text.splitlines()})
+        with self.db.connect() as db:
+            secret = [row[0] for row in db.execute("SELECT account_hash FROM identity_grants UNION SELECT account_key FROM research_accounts")]
+        self.assertEqual(2, len(secret))
+        self.assertFalse([value for value in secret if value in text])
+        self.consent.withdraw()
+        self.assertTrue(self.consent.synchronize(identity=first)["withdrawn"])
+        with self.db.connect() as db:
+            self.assertEqual(0, db.execute("SELECT count(*) FROM events").fetchone()[0])
+            self.assertEqual(0, db.execute("SELECT count(*) FROM participants WHERE revoked=0").fetchone()[0])
+            self.assertEqual([(None,)], db.execute("SELECT link FROM research_accounts").fetchall())
+        self.assertEqual([], self.links())
+        self.assertFalse(self.consent.path.with_name("research-link.json").exists())
+        self.assertTrue(other.synchronize(identity=second)["errors"])
+        self.assertTrue(other.settings()["withdraw_pending"])
+        for store in other.collections.values():
+            self.assertFalse(store.status()["enabled"])
+            self.assertFalse(Path(store.path).exists())
+        self.assertTrue(other.synchronize(identity=second)["withdrawn"])
+        self.assertFalse(other.path.with_name("research-link.json").exists())
+
+    def test_unverified_computer_links_its_own_courses_and_moves_to_the_account_after_verification(self):
+        self.consent.choose(True)
+        for store in self.collections.values():
+            store.emit("answer", {"result": "pass"})
+        self.assertFalse(self.consent.synchronize()["errors"])
+        links = self.links()
+        self.assertEqual([links[0], links[0]], links)
+        self.assertEqual("device", links[0][1])
+        identity = self.verified("account-1")
+        self.assertFalse(self.consent.synchronize(identity=identity)["errors"])
+        moved = self.links()
+        self.assertEqual([moved[0], moved[0]], moved)
+        self.assertEqual("account", moved[0][1])
+        self.assertNotEqual(links[0][0], moved[0][0])
+        with self.db.connect() as db:
+            db.execute("DELETE FROM identity_grants")
+        self.assertFalse(self.consent.synchronize(identity=identity)["errors"])
+        self.assertEqual(moved, self.links())
+        other = self.computer("other")
+        other.choose(True)
+        self.assertFalse(other.synchronize(identity=self.verified("account-2"))["errors"])
+        self.assertEqual(2, len({link for link, source in self.links()}))
+
+    def test_withdrawal_from_a_computer_that_never_sent_records_still_reaches_the_account(self):
+        first = self.verified("account-1")
+        other, late = self.computer("other"), self.computer("late")
+        for consent in (self.consent, other, late):
+            consent.choose(True)
+        other.collections["ai"].emit("answer", {"result": "pass"})
+        self.assertFalse(other.synchronize(identity=self.verified("account-1"))["errors"])
+        old = self.links()[0][0]
+        self.consent.withdraw()
+        self.assertTrue(self.consent.synchronize(identity=first)["withdrawn"])
+        with self.db.connect() as db:
+            self.assertEqual(0, db.execute("SELECT count(*) FROM events").fetchone()[0])
+            self.assertEqual(0, db.execute("SELECT count(*) FROM participants WHERE revoked=0").fetchone()[0])
+        self.assertTrue(late.synchronize(identity=self.verified("account-1"))["errors"])
+        self.assertTrue(late.settings()["withdraw_pending"])
+        self.consent.choose(True)
+        self.assertFalse(self.consent.synchronize(identity=first)["errors"])
+        renewed = {link for link, source in self.links()}
+        self.assertEqual(1, len(renewed))
+        self.assertNotIn(old, renewed)
+
+    def test_server_rejects_copied_links_wrong_proofs_and_links_on_old_receipts(self):
+        from learning_data import privacy
+        token = self.verified("account-1").settings()["token"]
+        code, value = self.call("/v1/identity/research-link", {"consented_at": receipt()["at"]}, token)
+        self.assertEqual(200, code)
+        again = self.verified("account-1").settings()["token"]
+        self.assertEqual(value, self.call("/v1/identity/research-link", {"consented_at": receipt()["at"]}, again)[1])
+        other = self.verified("account-2").settings()["token"]
+        self.assertNotEqual(value["link"], self.call("/v1/identity/research-link", {"consented_at": receipt()["at"]}, other)[1]["link"])
+        self.assertEqual(400, self.call("/v1/identity/research-link", {"consented_at": "2026-11-23T12:00:00"}, token)[0])
+        packet = {"participant": str(uuid.uuid4()), "notice": NOTICE, "registration_secret": secrets.token_hex(32), "consent": receipt()}
+        self.assertEqual(403, self.call("/v1/enroll/open", dict(packet, research_link=value["link"]))[0])
+        self.assertEqual(403, self.call("/v1/enroll/open", dict(packet, research_link=value["link"], research_proof="0" * 64))[0])
+        self.assertEqual(403, self.call("/v1/research-link/withdraw", {"research_link": value["link"], "research_proof": "0" * 64})[0])
+        old = dict(receipt(), policy="2026-11-13-v3", policy_hash=privacy.SUPPORTED_POLICIES["2026-11-13-v3"])
+        self.assertEqual(400, self.call("/v1/enroll/open", dict(packet, consent=old, research_link=str(uuid.uuid4())))[0])
+        self.assertEqual(200, self.call("/v1/enroll/open", dict(packet, research_link=value["link"], research_proof=value["proof"]))[0])
+        self.assertEqual([(value["link"], "account")], self.links())
 
     def test_decline_does_not_collect_register_or_upload(self):
         self.consent.choose(False)

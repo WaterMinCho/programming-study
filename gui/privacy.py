@@ -229,7 +229,10 @@ class SyncController(QObject):
 
     def synchronize(self):
         state = self.consent.settings()
-        result = self.consent.synchronize(self.cancel.is_set) if state.get("accepted") or state.get("withdraw_pending") else {"errors": []}
+        identity = getattr(self.parent(), "identity", None)
+        identity = identity if hasattr(identity, "settings") else None
+        result = (self.consent.synchronize(self.cancel.is_set, identity=identity)
+                  if state.get("accepted") or state.get("withdraw_pending") else {"errors": []})
         daily = self.daily()
         if daily:
             try:

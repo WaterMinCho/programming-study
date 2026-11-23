@@ -327,6 +327,48 @@ class Access:
             db.execute("INSERT OR IGNORE INTO identity_study_days VALUES (?,?)", (account_hash, today))
         return {"eligible": True, "date": today}
 
+    def research_link(self, authorization, data, *, delete=False, now=None):
+        """연구 기록에 동의한 기기에 계정마다 하나인 연구용 번호를 줌. 계정 확인값은 번호를 찾는 데만 쓰고
+        연구 표에는 서버 키로 한 번 더 바꾼 값(account_key)만 둠. delete 는 그 계정으로 이은 기록을 모두 지움."""
+        import uuid
+        from learning_server.app import ApiError, hashed
+        self.authenticate(authorization, require_team=False)
+        consented = None
+        if not delete:
+            try:
+                if not isinstance(data, dict) or set(data) != {"consented_at"} or len(data["consented_at"]) > 80:
+                    raise ValueError()
+                consented = datetime.datetime.fromisoformat(data["consented_at"])
+                if consented.tzinfo is None:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                raise ApiError(400, "동의 시각을 확인해 주세요.") from None
+        now = (now or datetime.datetime.now(datetime.timezone.utc)).isoformat()
+        policy = self.policy()
+        with self.database.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            grant = db.execute("SELECT account_hash FROM identity_grants WHERE token_hash=? AND (policy=? OR member=0)",
+                               (hashed(authorization[7:]), policy)).fetchone()
+            if not grant:
+                raise ApiError(401, "기기 본인 확인을 다시 받아 주세요.")
+            if not grant[0]:
+                raise ApiError(409, "이 기기 인증으로는 계정을 찾지 못해 연구용 번호를 줄 수 없습니다.")
+            key = self.digest("research:" + grant[0])
+            row = db.execute("SELECT link, withdrawn FROM research_accounts WHERE account_key=?", (key,)).fetchone()
+            if delete:
+                if row and row[0]:
+                    self.database.remove_linked(db, row[0], now)
+                db.execute("INSERT INTO research_accounts VALUES (?, NULL, ?, ?) "
+                           "ON CONFLICT(account_key) DO UPDATE SET link=NULL, withdrawn=excluded.withdrawn", (key, now, now))
+                return {"deleted": True}
+            if row and row[1] and datetime.datetime.fromisoformat(row[1]) >= consented:
+                raise ApiError(401, "같은 계정의 다른 컴퓨터에서 동의를 철회했습니다.", code="revoked")
+            link = row[0] if row and row[0] else str(uuid.uuid4())
+            if not (row and row[0]):
+                db.execute("INSERT INTO research_accounts VALUES (?, ?, ?, NULL) "
+                           "ON CONFLICT(account_key) DO UPDATE SET link=excluded.link", (key, link, now))
+        return {"link": link, "proof": self.database.research_proof(link)}
+
     def today(self, authorization, now=None):
         """팀원이 아닌 기기에도 오늘 날짜와 계정 수만 돌려줌. 행을 지우지 않고 같은 날짜의 값은 300초 동안 다시 씀."""
         self.authenticate(authorization, require_team=False)

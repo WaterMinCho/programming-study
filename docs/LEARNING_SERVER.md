@@ -25,15 +25,18 @@ python -m learning_server --db /비공개경로/learning.sqlite3 serve
 |---|---|
 | `GET /health` | 실제 DB 연결과 수집 형식 버전 확인. DB를 열지 못하면 503 반환 |
 | `POST /v1/enroll` | 운영자용 기존 개인 초대 등록 |
-| `POST /v1/enroll/open` | 현재 동의서와 기기의 비밀 값으로 비공개 수집 등록 |
-| `POST /v1/consent` | 인증한 기기의 현재 수집 동의 확인 |
+| `POST /v1/enroll/open` | 현재 동의서와 기기의 비밀 값으로 비공개 수집 등록. 연구용 번호가 있으면 과목 참가자에 이음 |
+| `POST /v1/consent` | 인증한 기기의 현재 수집 동의 확인. 연구용 번호가 바뀌면 다시 이음 |
+| `POST /v1/identity/research-link` | 기기 키로 계정의 연구용 번호 받기. 철회 전에 동의한 기기는 철회 상태를 받음 |
+| `DELETE /v1/identity/research-link` | 기기 키의 계정으로 이은 연구 기록 삭제와 철회 시각 기록 |
+| `POST /v1/research-link/withdraw` | 기기에 남은 연구용 번호와 증명값으로 그 번호의 기록 삭제 |
 | `POST /v1/withdraw/open` | 등록 응답을 잃은 기기의 비밀 값으로 철회·등록 차단 |
 | `POST /v1/register/private` | 현재 동의 내역으로 비공개 파일 제출 계정 등록 |
 | `POST /v1/withdraw/private` | 등록 응답 유실 뒤 비공개 파일 계정의 철회 |
 | `POST /v1/private/submissions` | 파일 합계 4MiB·최대 1,000개를 6MiB 이하 요청 본문으로 접수 |
 | 이전 공개 등록·게시 경로 | 410 응답으로 종료하고 업데이트 안내 |
 | `POST /v1/events` | 개인 인증으로 최대 100건·1MiB씩 저장 |
-| `DELETE /v1/me` | 본인 풀이 삭제·업로드 인증 폐기 |
+| `DELETE /v1/me` | 본인 풀이 삭제·업로드 인증 폐기. 같은 연구용 번호로 이은 참가자도 함께 삭제 |
 
 다른 참가자의 데이터를 읽는 공개 API는 없습니다. 요청 묶음은 한 트랜잭션으로 저장합니다. 재전송은 중복 삽입하지 않으며 고유번호·순서 충돌은 묶음 전체를 취소합니다. 삭제와 업로드가 겹쳐도 철회한 참가자가 새로 업로드하지 못하도록 저장 직전 다시 확인합니다.
 
