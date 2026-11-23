@@ -31,4 +31,4 @@
 | `submissions/<내 ID>` | 내 회차, 풀이, 기록(`profile.json`) |
 | `submissions/<내 ID>/journey` | 알고리즘 여행의 내 코드(`d01/p1.py`, `d01/p1.js`), 내가 추가한 테스트 케이스(`d01/p1.cases.json`), 기록(`progress.json`) |
 | `submissions/<내 ID>/web` | 웹 면접 준비의 내 미션 코드(`missions/w03/`)와 기록(`record.json`) |
-| `docs` | [GIT_GUIDE](GIT_GUIDE.md)(프로그램 업데이트와 개발 PR), [CRITERIA](CRITERIA.md)(판정 규칙), [AUTHORING](AUTHORING.md)(스터디장용 운영 메모와 출제 규격), [JOURNEY_AUTHORING](JOURNEY_AUTHORING.md)(알고리즘 여행 출제 규격과 교차 검증), [WEB_AUTHORING](WEB_AUTHORING.md)(웹 면접 준비 출제 규격과 교차 검증) |
+| `docs` | [CRITERIA](CRITERIA.md)(판정 규칙), [AUTHORING](AUTHORING.md)(스터디장용 운영 메모와 출제 규격), [JOURNEY_AUTHORING](JOURNEY_AUTHORING.md)(알고리즘 여행 출제 규격과 교차 검증), [WEB_AUTHORING](WEB_AUTHORING.md)(웹 면접 준비 출제 규격과 교차 검증) |

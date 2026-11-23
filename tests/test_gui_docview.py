@@ -355,6 +355,27 @@ class DocViewTest(unittest.TestCase):
                 above, below = min(inside) - round(box.top()), round(box.bottom()) - 1 - max(inside)
                 self.assertLessEqual(abs(above - below), 2, (step, code, above, below))
 
+    def test_folded_code_line_continues_past_its_indent(self):
+        """조각 폭을 넘는 코드 줄을 접으면 뒷부분은 그 줄의 들여쓰기보다 HANG 칸 더 들인 자리에서 시작함. 맨 앞 칸에서 시작하면 함수 밖의
+        새 줄처럼 읽힘. 접히지 않은 줄은 HANG 을 더하기 전과 같은 자리에서 시작함."""
+        self.view.resize(320, 700)
+        code = "def f(a, b):\n    total = some_function_name(alpha_value, beta_value, gamma_value)\n    return total"
+        piece = self.shown("앞 문단입니다.\n\n```python\n%s\n```" % code)[0]
+        blocks, block = {}, piece.document().begin()
+        while block.isValid():
+            blocks[block.text()] = block
+            block = block.next()
+        folded = blocks[code.split("\n")[1]]
+        layout = folded.layout()
+        self.assertGreater(layout.lineCount(), 1)
+        space = QFontMetricsF(folded.charFormat().font().resolve(piece.document().defaultFont())).horizontalAdvance(" ")
+        self.assertAlmostEqual(layout.lineAt(0).x(), 0, delta=0.5)
+        for n in range(1, layout.lineCount()):
+            self.assertAlmostEqual(layout.lineAt(n).x(), (4 + docview.HANG) * space, delta=0.5)
+        for text in ("def f(a, b):", "    return total"):
+            self.assertEqual(1, blocks[text].layout().lineCount())
+            self.assertAlmostEqual(blocks[text].layout().lineAt(0).x(), 0, delta=0.5)
+
     def test_heading_after_a_code_box_sits_like_after_a_paragraph(self):
         """코드 상자 아래에서 다음 절 제목 글자까지가 문단 글 끝에서 절 제목 글자까지와 3px 안으로 같음(설계 7.2 마지막 줄).
         표의 아래 여백은 제목의 위 여백 24 와 겹치지 않고 더해지므로 제목 앞에서는 뺌. 제목 앞 가로줄이 있는 칸과 없는 칸(여행)을 다 봄."""

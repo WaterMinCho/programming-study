@@ -1,20 +1,23 @@
 # -*- coding: utf-8 -*-
 """모의고사 답안을 로컬에 저장하고 제출한 뒤에만 판정과 해설을 보임."""
 import math
+from time import monotonic
 
 from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtGui import QFontMetricsF
-from PyQt6.QtWidgets import QApplication, QBoxLayout, QFrame, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QBoxLayout, QFrame, QSizePolicy, QTextBrowser, QWidget
 
-from aiprep import bank, mixed_mock
+from aiprep import bank, mixed_mock, mock_code
 from aiprep.grade import BLANK
-from aiprep.mock import MockError
+from aiprep.mock import ENV_FAILED, MockError
+from journey import values as journey_values
 from gui import ai_text, kit, theme
 from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, RichPara, doc, reading_column
 from gui.disclosure import DisclosureButton
 from gui.docview import Doc
 from gui.ai_quiz import commit_input, split_stem
-from gui.widgets import AnswerLine, PasteBlock
+from gui.round_page import CONSOLE_CSS, run_html
+from gui.widgets import AnswerLine, CodePanel, PasteBlock, content_height
 from session import SessionError
 
 
@@ -22,9 +25,36 @@ SUMMARY_LEAST = 128  # 제출 뒤 요약 카드 최소 높이
 BAR_WIDTH = 120  # 보통 글자에서 차시별 막대 폭
 GRID_SHARE = 3  # 펼친 번호 칸 묶음이 스크롤 영역 높이의 1/3 을 넘으면 접음
 RESULT_NAME = {'pass': '맞음', 'stuck': '틀림', 'blank': '비움', 'ungraded': '이 기기에서 채점하지 못함'}
+RETRY_SECONDS = 60  # 마감 채점이 실행 환경 문제로 실패하면 다시 시도하기까지 기다리는 시간
+CODE_GUIDE = '채울 줄에 코드를 한 줄씩 씁니다. 다른 줄은 고칠 수 없습니다.'
+GRADING = '답안을 채점하고 있습니다. 채점이 끝날 때까지 답을 바꿀 수 없습니다.'
+AUTO_GRADING = '제한 시간이 끝나 저장해 둔 답안을 채점하고 있습니다. 채점이 끝날 때까지 답을 바꿀 수 없습니다.'
+AUTO_ENV = '시간이 끝나 제출하려 했지만 이 기기에서 코드 작성 문항을 채점하지 못했습니다. 1분 뒤 다시 채점합니다.'
+RUNNING = '공개 예시로 코드를 실행하고 있습니다.'
+JOB_BUSY = '다른 작업이 아직 끝나지 않았습니다. 잠시 뒤 같은 단추를 다시 눌러 주세요.'
 TYPE_CELL = 240  # 보통 글자에서 유형 카드 하나의 최소 폭. 카드 수만큼 들어가지 않으면 세로로 쌓음
 TYPES = (('blank', '빈칸', '지문이나 코드의 빈칸에 답을 씁니다.'), ('choice', '객관식', '보기에서 답을 고릅니다.'),
          ('code', '코드 작성', '함수의 빈 줄을 채워 숨은 테스트를 모두 통과하면 맞습니다.'))
+
+
+def solution_code(starter, lines):
+    """시작 코드의 채울 줄에 모범 답안 줄을 넣은 코드. 들여쓰기는 시작 코드를 따름(mock_code.source 와 같음)."""
+    rows, answers = starter.rstrip('\n').split('\n'), iter(lines)
+    return '\n'.join(row[:len(row) - len(row.lstrip())] + next(answers, '').lstrip() if row.strip() == mock_code.FILL else row
+                     for row in rows)
+
+
+def console_run(entry, result):
+    """MockExam.run_code 결과를 round_page.run_html 이 읽는 꼴로 바꿈. 'input' 값에는 함수 호출 글을 씀."""
+    cases = []
+    for case in result['cases']:
+        ran = case['status'] in ('pass', 'wrong')
+        cases.append({'ok': case['status'] == 'pass',
+                      'input': '%s(%s)' % (entry, journey_values.show_args(case['args'], 'python')),
+                      'want': journey_values.show(case['expected'], 'python'),
+                      'got': journey_values.show(case['actual'], 'python') if ran else (case['error'] or case['reason']),
+                      'printed': case['printed']})
+    return {'cases': cases, 'message': result['reason']}
 
 
 def lesson_parts(entries, lid):
@@ -199,6 +229,8 @@ class MockPage(QWidget):
         self.restart_required = False
         self.inputs, self.choices, self.nav = [], None, []
         self.busy, self.dirty = False, False
+        self.grading, self.retry_at = False, 0.0  # 마감 채점이 도는지, 실패 뒤 다시 시도할 monotonic 시각
+        self.split, self.console = None, None
         self.paste = PasteBlock(self)
         self.paste.blocked.connect(self.note_blocked)
         root = kit.box(self)
@@ -215,6 +247,9 @@ class MockPage(QWidget):
         self.notice = kit.banner('', 'danger')
         self.notice.hide()
         self.body.addWidget(self.notice)
+        self.busy_note = kit.banner('', '')  # 채점과 [코드 실행]이 도는 동안 하는 일을 적는 띠. 글은 set_busy 와 wait_note 가 넣음
+        self.busy_note.hide()
+        self.body.addWidget(self.busy_note)
         self.summary, summary_box = kit.card(24, 8)
         self.summary.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         # 제출 뒤에는 자동 제출 안내, 맞은 수 줄, 처음 점수를 따로 두고 heading 에는 복습 안내와 내 답 없음 안내만 둠
@@ -264,6 +299,9 @@ class MockPage(QWidget):
         root.addWidget(self.scroll, 1)
         self.bar = kit.BottomBar(dense=True)
         self.flag_btn = self.bar.add_tool(kit.button('나중에 보기', 'text', 'm'))
+        self.run_btn = self.bar.add_tool(kit.button('코드 실행', 'text', 'm'))
+        self.run_btn.setToolTip('공개 예시로 코드를 실행합니다. 실행 결과는 기록하지 않고 점수에 넣지 않습니다.')
+        self.run_btn.clicked.connect(self.run_code)
         self.previous_btn = self.bar.add_action(kit.button('이전', 'secondary', 'm'))
         self.next_btn = self.bar.add_action(kit.button('다음', 'primary', 'm'))
         self.submit_btn = self.bar.add_action(kit.button('제출', 'primary', 'm'))
@@ -292,7 +330,7 @@ class MockPage(QWidget):
         self.head_timer = QTimer(self)  # 창이 초점 받은 칸을 보이게 하는 타이머보다 나중에 시작해 그 뒤에 돎
         self.head_timer.setSingleShot(True)
         self.head_timer.timeout.connect(self.keep_head)
-        for button in (self.flag_btn, self.previous_btn, self.next_btn, self.submit_btn, self.retry_btn, self.home_btn, self.notes_btn, self.start_btn, self.top_submit):
+        for button in (self.flag_btn, self.run_btn, self.previous_btn, self.next_btn, self.submit_btn, self.retry_btn, self.home_btn, self.notes_btn, self.start_btn, self.top_submit):
             button.hide()
         self.timer.start()
 
@@ -344,7 +382,7 @@ class MockPage(QWidget):
         self.start_btn.setToolTip('새 자료로 새 응시를 시작하고 이전 초안과 응시 기록은 보관합니다.' if self.restart_required else
                                   '채점한 모의고사의 결과와 정답·해설을 엽니다.' if info['taken'] else
                                   '모의고사를 시작합니다. 프로그램을 꺼도 제한 시간은 계속 흐릅니다.')
-        for button in (self.flag_btn, self.previous_btn, self.next_btn, self.submit_btn, self.home_btn, self.notes_btn, self.top_submit):
+        for button in (self.flag_btn, self.run_btn, self.previous_btn, self.next_btn, self.submit_btn, self.home_btn, self.notes_btn, self.top_submit):
             button.hide()
         self.retry_btn.setVisible(info['taken'])
         self.start_btn.show()
@@ -399,13 +437,23 @@ class MockPage(QWidget):
                 item.widget().hide()
                 item.widget().deleteLater()
         self.inputs, self.choices, self.head = [], None, None
+        self.split, self.console = None, None
+        if not self.busy:  # 다른 화면의 작업은 끝나도 이 화면의 set_busy 를 부르지 않아 wait_note 띠가 남으므로 문항을 바꿀 때 숨김
+            self.busy_note.hide()
 
     def fail(self, error):
         self.notice.text.setText(str(error))
         self.notice.show()
 
+    def wait_note(self):
+        """다른 작업이 돌고 있어 [코드 실행]이나 제출을 시작하지 못했을 때 오류 띠가 아니라 안내 띠에 JOB_BUSY 를 띄움.
+        같은 단추를 다시 눌러 작업이 시작되면 set_busy 가 띠 글을 바꾸고, 그 작업이 끝나면 띠를 숨김.
+        다시 누르지 않으면 답을 저장하거나 문항을 바꿀 때 persist 와 empty_card 가 띠를 숨김."""
+        self.busy_note.text.setText(JOB_BUSY)
+        self.busy_note.show()
+
     def values(self):
-        if self.item['kind'] == 'blank':
+        if self.item['kind'] in ('blank', 'code'):
             return [field.text() for field in self.inputs]
         return [self.item['options'][n]['no'] for n in self.choices.picked()]
 
@@ -418,6 +466,7 @@ class MockPage(QWidget):
                 self.update_navigation()
             except SessionError as error:
                 self.fail(error)
+            self.expire_when_due()
 
     def persist(self):
         if self.exam is None or self.item is None or self.exam.result is not None:
@@ -430,7 +479,10 @@ class MockPage(QWidget):
             self.dirty = False
             self.save_timer.stop()
             self.notice.hide()
+            if not self.busy:
+                self.busy_note.hide()
             self.update_navigation()
+            self.expire_when_due()
             return True
         except MockError as error:
             self.fail(error)
@@ -449,7 +501,9 @@ class MockPage(QWidget):
             head.addWidget(kit.badge(ai_text.lesson_title(item['course_no'], '', item['course']), 'accent'))
         head.addStretch(1)
         self.card_box.addWidget(top)
-        if item['kind'] == 'blank':
+        if item['kind'] == 'code':
+            self.build_code(item, done)
+        elif item['kind'] == 'blank':
             blanks, count = item['blanks'], 0
             stem = bank.number_blanks(item['stem']) if len(blanks) > 1 else item['stem']
             for kind, text in split_stem(stem):
@@ -488,11 +542,6 @@ class MockPage(QWidget):
                         self.card_box.addWidget(holder)
                         self.inputs.append(field)
                         count += 1
-            for n, field in enumerate(self.inputs):
-                field.setText((item['mine'] or [])[n] if item['mine'] and n < len(item['mine']) else '')
-                field.setReadOnly(done)
-                self.paste.watch(field)
-                field.textEdited.connect(self.changed)
         else:
             doc(item['stem'], '', self.card_box)
             texts = [option['text'] for option in item['options']]
@@ -502,11 +551,21 @@ class MockPage(QWidget):
                 row.box.setChecked(item['options'][n]['no'] in (item['mine'] or []))
             self.choices.set_enabled(not done)
             self.choices.changed.connect(self.changed)
+        for n, field in enumerate(self.inputs):
+            field.setText((item['mine'] or [])[n] if item['mine'] and n < len(item['mine']) else '')
+            field.setReadOnly(done)
+            self.paste.watch(field)
+            field.textEdited.connect(self.changed)
         if done:
             info = self.exam.explain(item['card'])
             self.card_box.addWidget(kit.label(RESULT_NAME[info['result']], 'headline'))
-            correct = info['correct'] if item['kind'] == 'blank' else [self.exam.items[item['card']]['options'][n]['text'] for n in info['right']]
-            doc('정답: ' + ' / '.join(correct), '', self.card_box)
+            if item['kind'] == 'code':
+                if info['passed']:
+                    self.card_box.addWidget(kit.para('채점에 쓴 숨은 테스트 %d개 중 %d개 통과' % (info['passed'][1], info['passed'][0]), 'body'))
+                doc('**모범 답안**\n\n```python\n%s\n```' % solution_code(item['starter'], info['solution']), '', self.card_box)
+            else:
+                correct = info['correct'] if item['kind'] == 'blank' else [self.exam.items[item['card']]['options'][n]['text'] for n in info['right']]
+                doc('정답: ' + ' / '.join(correct), '', self.card_box)
             doc(info['explain'], '', self.card_box)
             if item['kind'] == 'choice':
                 for option in item['options']:
@@ -519,6 +578,100 @@ class MockPage(QWidget):
             self.inputs[0].setFocus(Qt.FocusReason.OtherFocusReason)
             self.head_timer.start(0)
         self.tick()
+
+    def build_code(self, item, done):
+        """코드 작성 문항. 지문, 코드, 실행 결과 순서로 한 열에 둠.
+        시작 코드의 ____ 줄마다 한 줄 칸을 두어 그 줄만 고칠 수 있음. 칸 사이는 Tab 으로 옮겨 감."""
+        self.split = QWidget()
+        box = kit.box(self.split, spacing=theme.GAP['group'])
+        left, right = QWidget(), QWidget()
+        stem = kit.box(left, spacing=theme.GAP['paragraph'])
+        doc(item['stem'], '', stem)
+        if item['examples']:
+            stem.addWidget(kit.para('예시', 'label', bold=True))
+            calls = ('>>> %s(%s)\n%s' % (item['entry'], journey_values.show_args(example['args'], 'python'),
+                                         journey_values.show(example['expected'], 'python')) for example in item['examples'])
+            doc('```python\n%s\n```' % '\n'.join(calls), '', stem)
+        stem.addStretch(1)
+        code = kit.box(right, spacing=theme.SPACE[2])
+        if not done:
+            code.addWidget(kit.para(CODE_GUIDE, 'caption', 'secondary'))
+        count = len(BLANK.findall(item['starter']))
+        slots = CodeSlots(item['starter'], [''] * count, [''] * count)
+        code.addWidget(slots)
+        for n, field in enumerate(slots.fields):
+            field.setAccessibleName('채울 줄 %d' % (n + 1))
+        self.inputs = list(slots.fields)
+        if not done:
+            self.console = QTextBrowser()
+            self.console.setObjectName('console')
+            self.console.setOpenLinks(False)
+            self.console.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self.console.html = ''
+            self.console.installEventFilter(self)
+            code.addWidget(self.console)
+            self.show_console('')
+        code.addStretch(1)
+        box.addWidget(left, 1)
+        box.addWidget(right, 1)
+        self.card_box.addWidget(self.split)
+
+    def show_console(self, html):
+        self.console.html = html
+        self.console.document().setDefaultStyleSheet(theme.learning_css() + CONSOLE_CSS % {name: theme.color(name) for name in ('ok', 'track')})
+        self.console.setHtml(html or '<body><p class="muted">%s</p></body>' % CodePanel.HINT)
+        self.fit_console()
+
+    def fit_console(self):
+        """실행 결과 상자 높이를 내용에 맞춤. 상자의 Resize 를 받을 때는 viewport 크기가 아직 옛 값이라 지금 크기로 잰 contentsRect 를 씀.
+        테두리 둥근 모서리 때문에 좌우와 위아래 안쪽 여백이 달라 frameWidth 를 쓰지 않음."""
+        if self.console is None:
+            return
+        document, inner = self.console.document(), self.console.contentsRect()
+        document.setTextWidth(inner.width())
+        self.console.setFixedHeight(math.ceil(content_height(document)) + self.console.height() - inner.height())
+
+    def run_code(self):
+        if self.busy or self.item is None or self.item['kind'] != 'code' or not self.persist() or self.grading:
+            return  # 마감 뒤에는 persist 가 마감 채점을 띄우므로 실행하지 않음
+        exam, lines, cid, entry = self.exam, self.values(), self.item['card'], self.item['entry']
+        if not self.win.run_job(RUNNING, lambda: exam.run_code(lines, cid), lambda result: self.ran(cid, entry, result)):
+            self.wait_note()
+
+    def ran(self, cid, entry, result):
+        if self.console is not None and self.item is not None and self.item['card'] == cid:
+            self.show_console(run_html(console_run(entry, result)))
+
+    def expire_when_due(self):
+        """코드 작성 회차는 마감 뒤 답 저장·문항 이동·나중에 보기 표시에서 제출하지 않고 거짓을 돌려줌. 그때 작업 스레드에서 마감 채점을 띄움."""
+        exam = self.exam
+        if exam is not None and exam.has_code and exam.result is None and exam.remaining() <= 0:
+            self.expire_code()
+
+    def expire_code(self):
+        """마감이 지난 코드 작성 회차를 작업 스레드에서 expire_mocks 로 제출함. 이미 채점 중이거나, 실패 뒤 다시 시도할 시각 전이거나,
+        다른 작업이 돌고 있으면 아무것도 하지 않음."""
+        if self.grading or monotonic() < self.retry_at or getattr(self.win, 'job', None) is not None:
+            return
+        self.grading = True
+        if not self.win.run_job(AUTO_GRADING, self.win.ai.expire_mocks, self.expired, self.expire_failed):
+            self.grading = False
+
+    def expired(self, _):
+        self.grading = False
+        ai = self.win.ai
+        if ai.expired_code_mocks:
+            self.retry_at = monotonic() + RETRY_SECONDS
+        if self.exam is not None and self.exam.result is None and self.exam.id in ai.expired_code_mocks:
+            error = ai.errors.get(self.exam.id, '')
+            self.fail(AUTO_ENV if error == ENV_FAILED else error)
+        elif self.exam is not None and self.exam.result is not None:
+            self.notice.hide()
+        self.tick()
+
+    def expire_failed(self):
+        self.grading = False
+        self.retry_at = monotonic() + RETRY_SECONDS
 
     def keep_head(self):
         """첫 칸에 초점을 준 뒤 창이 그 칸까지 스크롤해도 카드 머리는 화면에 남게 함."""
@@ -548,6 +701,7 @@ class MockPage(QWidget):
         self.flag_btn.setToolTip('현재 문항의 나중에 볼 표시를 지웁니다. 다른 문항으로 이동하지 않습니다.' if self.item.get('flagged') else
                                  '현재 문항에 나중에 볼 표시를 남깁니다. 다른 문항으로 이동하지 않습니다.')
         self.flag_btn.setVisible(not done)
+        self.run_btn.setVisible(not done and self.item['kind'] == 'code')
         self.previous_btn.show()
         self.lesson_results.setVisible(done)
         self.result_types.setVisible(done)
@@ -680,6 +834,8 @@ class MockPage(QWidget):
     def eventFilter(self, watched, event):
         if watched is self.scroll and event.type() == QEvent.Type.Resize:
             self.fit_grid()
+        if watched is self.console and event.type() == QEvent.Type.Resize:
+            self.fit_console()
         return super().eventFilter(watched, event)
 
     def refont(self):
@@ -694,6 +850,9 @@ class MockPage(QWidget):
         try:
             if self.exam.result is None:
                 self.exam.move(pos)
+                if self.exam.has_code and self.exam.result is None and self.exam.remaining() <= 0:
+                    self.expire_code()  # 마감 뒤에는 옮기지 않고 지금 문항에 둠
+                    return
                 self.show_question()
             else:
                 self.show_question(pos)
@@ -712,9 +871,10 @@ class MockPage(QWidget):
             self.update_navigation()
         except MockError as error:
             self.fail(error)
+        self.expire_when_due()
 
     def confirm_submit(self):
-        if not self.persist():
+        if not self.persist() or self.busy:
             return
         blank = sum(not row['answered'] for row in self.exam.progress())
         text = '모의고사를 제출하고 결과를 확인합니다.'
@@ -724,26 +884,51 @@ class MockPage(QWidget):
                      lambda choice: self.submit() if choice == 'submit' else None)
 
     def submit(self, auto=False):
-        if self.busy or not self.persist():
+        if self.busy or not self.persist() or self.grading:
+            return
+        if self.exam.has_code:  # 숨은 테스트를 실행하는 몇 초 동안 화면이 멈추지 않게 작업 스레드에서 채점함
+            exam = self.exam
+
+            def grade():  # MockError 는 창의 알림 대화 상자 대신 다른 회차처럼 문항 위 띠에 보임
+                try:
+                    exam.submit(auto=auto)
+                except MockError as error:
+                    return error
+            if not self.win.run_job(GRADING, grade, lambda error: self.submitted(exam, error)):
+                self.wait_note()
             return
         try:
             self.exam.submit(auto=auto)
+            self.notice.hide()  # 답을 바꾸지 않고 제출하면 persist 가 띠를 숨기지 않으므로 앞선 오류 띠를 여기서 숨김
             self.win.auto_submission.request()
             self.show_question(self.item['at'] - 1)
         except MockError as error:
             self.fail(error)
 
+    def submitted(self, exam, error=None):
+        if self.exam is not exam:
+            return
+        if error is not None:
+            self.fail(error)
+        else:
+            self.notice.hide()  # 앞선 실행 환경 실패 띠가 결과 화면에 남지 않게 함. 마감 채점의 expired 와 같음
+            self.win.auto_submission.request()
+            self.show_question(self.item['at'] - 1)
+
     def tick(self):
-        if self.busy:
+        if self.busy or self.grading:
             return
         if self.exam is not None and self.exam.result is None and self.exam.remaining() <= 1 and self.dirty:
             self.persist()
         if getattr(self.win, 'ai', None) is not None:
-            self.win.ai.expire_mocks()
+            self.win.ai.expire_mocks(code=False)
+            if self.win.ai.expired_code_mocks:
+                self.expire_code()
         if self.exam is None:
             return
         if self.exam.result is not None:
             if not self.showing_result and self.item is not None:
+                self.notice.hide()  # expire_mocks 가 제출한 회차에서도 앞선 오류 띠가 결과 화면에 남지 않게 함
                 self.win.auto_submission.request()
                 self.show_question(self.item['at'] - 1)
                 return
@@ -756,7 +941,7 @@ class MockPage(QWidget):
         self.set_clock_role('display')
         self.time.setText('%02d:%02d' % divmod(seconds, 60))
         kit.set_tone(self.time, 'danger' if seconds <= 60 else ('warning' if seconds <= 600 else ''))
-        if seconds == 0:
+        if seconds == 0 and not self.exam.has_code:
             self.submit(auto=True)
 
     def set_clock_role(self, role):
@@ -769,7 +954,7 @@ class MockPage(QWidget):
         self.time.setMinimumWidth(math.ceil(QFontMetricsF(self.time.font()).horizontalAdvance(self.time.property('measure'))))
 
     def go_back(self):
-        if self.persist():
+        if self.persist() and not self.busy:
             if self.exam is not None and self.exam.result is None and not self.leaving_hint:
                 self.leaving_hint = True
                 self.win.ask('모의고사', '시간은 계속 흐릅니다. 홈에서 다시 열 수 있습니다.',
@@ -785,7 +970,9 @@ class MockPage(QWidget):
 
     def set_busy(self, busy, text=''):
         self.busy = busy
-        for widget in (self.top.back, self.flag_btn, self.submit_btn, self.retry_btn, self.numbers, self.card, self.start_btn, self.notes_btn, self.home_btn, self.top_submit):
+        self.busy_note.text.setText(text)
+        self.busy_note.setVisible(busy and bool(text))
+        for widget in (self.top.back, self.flag_btn, self.run_btn, self.submit_btn, self.retry_btn, self.numbers, self.card, self.start_btn, self.notes_btn, self.home_btn, self.top_submit):
             widget.setEnabled(not busy)
         if self.exam and self.item:
             self.update_navigation()
@@ -797,5 +984,7 @@ class MockPage(QWidget):
             widget.restyle()
         for widget in self.findChildren(CodeSlots):
             widget.restyle()
+        if self.console is not None:  # 스타일은 다음에 넣는 HTML 부터 적용되므로 결과를 다시 넣음
+            self.show_console(self.console.html)
         for widget in self.findChildren(kit.Chevron):
             widget.update()
