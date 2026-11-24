@@ -222,7 +222,7 @@ class WorkerTest(unittest.TestCase):
         folder.mkdir(parents=True)
         data = {"number": number, "head": HEAD, "base": BASE, "title": self.pr["title"],
                 "description": self.pr["body"], "files": [FILE], "changed_paths": [FILE], "diff": DIFF, "context": [],
-                "discussion": discussion, "previous_review": previous_review, **self.packet_changes}
+                "discussion": discussion, "previous_review": previous_review, "draft": self.pr["draft"], **self.packet_changes}
         worker.save(folder/"snapshot.json", data)
         return data
 
@@ -272,12 +272,38 @@ class WorkerTest(unittest.TestCase):
     def test_three_members_and_excluded_pull_requests(self):
         for author in worker.AUTHORS:
             self.assertTrue(worker.eligible(dict(self.pr, user={"login": author.upper()})))
-        for change in ({"user": {"login": "stranger"}}, {"draft": True}, {"state": "closed"},
+        for change in ({"user": {"login": "stranger"}}, {"state": "closed"},
                        {"base": {"sha": BASE, "ref": "dev"}}, {"head": {"sha": HEAD, "ref": "study/michae18"}}):
             with self.subTest(change=change):
                 self.assertEqual("제외", worker.process(dict(self.pr, **change), self.root))
         self.pages_mock.assert_not_called()
         self.model_mock.assert_not_called()
+
+    def test_draft_gets_feedback_once_and_ready_gets_its_own_decision(self):
+        self.pr["draft"] = self.current["draft"] = True
+        self.result = assessment(blocking=True)
+        self.assertEqual([(12, "리뷰 게시함")], worker.once(self.root))
+        self.assertEqual("이미 검토함", self.process())
+        self.assertEqual("COMMENT", self.posted()[0]["event"])
+        self.assertIn("수정 필요", self.posted()[0]["body"])
+        self.assertEqual(["pending", "pending"], self.states())
+        self.assertEqual("초안 리뷰 등록", self.statuses[HEAD, worker.REVIEW_CONTEXT]["description"])
+        self.pr["draft"] = self.current["draft"] = False
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(["COMMENT", "REQUEST_CHANGES"], [row["event"] for row in self.posted()])
+        self.assertEqual(["pending", "pending", "pending", "failure"], self.states())
+
+    def test_large_change_gets_feedback_and_waits_for_operator(self):
+        self.packet_changes["diff"] = DIFF + "x" * 60_000
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual("COMMENT", self.posted()[0]["event"])
+        self.assertEqual(["pending", "pending"], self.states())
+        self.assertEqual("리뷰 등록 · 운영자 승인 대기", self.statuses[HEAD, worker.REVIEW_CONTEXT]["description"])
+        self.reviews.append(dict(self.reviews[0], id=101, state="APPROVED", body="확인했습니다.",
+                                 html_url="https://github.com/example/review/101"))
+        self.assertEqual("이미 검토함", self.process())
+        self.assertEqual("success", self.states()[-1])
+        self.assertEqual(1, len(self.posted()))
 
     def test_approval_readback_is_idempotent_and_never_merges(self):
         self.assertEqual("리뷰 게시함", self.process())
@@ -666,6 +692,63 @@ class WorkerTest(unittest.TestCase):
         self.assertEqual([], self.posted())
         self.commands.assert_not_called()
 
+    def test_model_failure_keeps_retrying_same_head_with_backoff(self):
+        self.model_mock.side_effect = worker.review.ReviewError("temporary model failure")
+        self.assertEqual([(12, "검토 보류")], worker.once(self.root))
+        self.assertEqual("pending", self.states()[-1])
+        state_path = self.folder()/"worker.json"
+        with mock.patch.object(worker.time, "time") as clock:
+            for expected in (2, 3, 4, 5, 6):
+                prior = json.loads(state_path.read_text())
+                clock.return_value = prior["retry_after"]
+                self.assertEqual([(12, "검토 보류")], worker.once(self.root))
+                state = json.loads(state_path.read_text())
+                self.assertEqual("retry_wait", state["phase"])
+                self.assertEqual(expected, state["attempts"])
+                delay = worker.MODEL_RETRY_DELAYS[min(expected, len(worker.MODEL_RETRY_DELAYS))-1]
+                self.assertEqual(delay, state["retry_after"]-clock.return_value)
+                self.assertEqual("대기", self.process())
+            self.model_mock.side_effect = self.model
+            clock.return_value = state["retry_after"]
+            self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(6, len(list((self.folder()/"quarantine").iterdir())))
+        self.assertEqual(["APPROVE"], [row["event"] for row in self.posted()])
+
+    def test_login_failure_records_reason_and_waits_for_login(self):
+        self.model_mock.side_effect = worker.review.ModelFailure("login_required")
+        self.assertEqual([(12, "검토 보류")], worker.once(self.root))
+        failure = self.folder()/"quarantine"/"attempt-1"/"failure.json"
+        self.assertEqual("login_required", json.loads(failure.read_text())["diagnostic"])
+        status = self.statuses[HEAD, worker.REVIEW_CONTEXT]
+        self.assertEqual(("pending", "Claude Code 구독 로그인 필요. 재시도 대기"), (status["state"], status["description"]))
+        self.assertEqual([], self.posted())
+
+    def test_preexisting_exhausted_model_failure_can_recover(self):
+        self.model_mock.side_effect = worker.review.ReviewError("temporary model failure")
+        with self.assertRaises(worker.AttemptError):
+            self.process()
+        state_path = self.folder()/"worker.json"
+        worker.save(state_path, {"phase": "exhausted", "attempts": 3, "reason": "model_failed", "retry_after": 0})
+        self.model_mock.side_effect = self.model
+        self.assertEqual("리뷰 게시함", self.process())
+        self.assertEqual(1, len(self.posted()))
+
+    def test_model_failures_do_not_consume_validation_attempts(self):
+        self.model_mock.side_effect = worker.review.ReviewError("temporary model failure")
+        with self.assertRaises(worker.AttemptError):
+            self.process()
+        state_path = self.folder()/"worker.json"
+        worker.save(state_path, {"phase": "exhausted", "attempts": 3, "reason": "model_failed", "retry_after": 0})
+        self.model_mock.side_effect = self.model
+        self.result["summary"] = "x" * 3001
+        with self.assertRaises(worker.AttemptError):
+            self.process()
+        state = json.loads(state_path.read_text())
+        self.assertEqual(("retry_wait", 4, 3), (state["phase"], state["attempts"], state["model_failures"]))
+        self.result = assessment()
+        with mock.patch.object(worker.time, "time", return_value=state["retry_after"]):
+            self.assertEqual("리뷰 게시함", self.process())
+
     def test_validation_failure_quarantines_artifacts_then_allows_fresh_review(self):
         self.result = assessment(blocking=True)
         self.result["findings"][0]["quote"] = "not in diff"
@@ -859,10 +942,10 @@ class WorkerTest(unittest.TestCase):
         self.model_mock.assert_not_called()
 
     @unittest.skipIf(os.name == "nt", "Mac worker")
-    def test_once_reports_quota_as_tool_error_not_code_feedback(self):
+    def test_once_reports_quota_as_retry_wait_not_code_feedback(self):
         self.model_mock.side_effect = worker.review.ReviewError("quota")
         self.assertEqual([(12, "검토 보류")], worker.once(self.root))
-        self.assertEqual("error", self.states()[-1])
+        self.assertEqual("pending", self.states()[-1])
         self.assertEqual([], self.posted())
 
     def test_subscription_runner_is_isolated_and_only_mocked(self):

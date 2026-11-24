@@ -23,6 +23,7 @@ from tools.study_checks import AUTHORS, REVIEW_CONTEXT
 
 ROOT = Path.home()/".rokey-collector/review-worker"
 LABEL = "com.rokey.study-review"
+MODEL_RETRY_DELAYS = (600, 600, 3600, 10800, 21600)
 RUNTIME_FILES = ("tools/study_review_worker.py", "tools/learning_review.py", "tools/study_checks.py",
                  "tools/pr_title.py", "tools/check_style.py", "learning_data/privacy.py")
 RUNTIME_PACKAGES = ("tools/__init__.py", "learning_data/__init__.py")
@@ -81,6 +82,8 @@ def pages(path):
 
 
 def status(pr, state, description, url=None):
+    if pr.get("draft"):
+        state = "pending"
     payload = {"state": state, "context": REVIEW_CONTEXT, "description": description[:120],
                "target_url": url or pr["html_url"]}
     for page in range(1, 32):
@@ -194,7 +197,9 @@ def finding_text(data, item, *, required):
 
 
 def body_for(data, assessment, marker, event, *, checked=None, conflicted=False):
-    if event == "APPROVE":
+    if data.get("draft"):
+        outcome = "초안에 검토 의견을 남깁니다."
+    elif event == "APPROVE":
         outcome = "현재 변경을 승인했습니다."
     elif event == "REQUEST_CHANGES":
         outcome = "수정이 필요합니다."
@@ -243,12 +248,13 @@ def body_for(data, assessment, marker, event, *, checked=None, conflicted=False)
 
 
 def eligible(pr):
-    return (pr["state"] == "open" and not pr["draft"] and pr["user"]["login"].lower() in AUTHORS
+    return (pr["state"] == "open" and pr["user"]["login"].lower() in AUTHORS
             and not pr["head"]["ref"].startswith("study/") and pr["base"]["ref"] == "main")
 
 
 def same(pr, data):
     return (eligible(pr) and pr["head"]["sha"] == data["head"] and pr["base"]["sha"] == data["base"]
+            and bool(pr.get("draft")) == bool(data.get("draft"))
             and pr["title"] == data["title"] and (pr.get("body") or "") == data["description"])
 
 
@@ -315,9 +321,15 @@ def passed_review(event, assessment, reviews, head):
                                       and assessment == "APPROVE")
 
 
-def finish(pr, state_path, row, passed):
-    status(pr, "success" if passed else "failure", "검토 통과" if passed else "피드백 확인 필요", row["html_url"])
-    save(state_path, {"phase": "done", "reason": "review_"+row["state"].lower(), "at": now(), "review_id": row["id"], "passed": passed})
+def finish(pr, state_path, row, passed, *, manual_review=False):
+    if pr.get("draft"):
+        status(pr, "pending", "초안 리뷰 등록", row["html_url"])
+    elif manual_review:
+        status(pr, "pending", "리뷰 등록 · 운영자 승인 대기", row["html_url"])
+    else:
+        status(pr, "success" if passed else "failure", "검토 통과" if passed else "피드백 확인 필요", row["html_url"])
+    save(state_path, {"phase": "done", "reason": "review_"+row["state"].lower(), "at": now(),
+                      "review_id": row["id"], "passed": passed, "manual_review": manual_review})
 
 
 def recover_passed(ready, folder, reviews, row, author):
@@ -346,8 +358,12 @@ def supersede(number, state_path, row, event):
 class AttemptError(review.ReviewError):
     """재시도 원인을 공개 상태의 정해진 문구로 전달함."""
 
+    def __init__(self, message, *, retrying=False):
+        super().__init__(message)
+        self.retrying = retrying
 
-def failed_attempt(folder, attempts, reason):
+
+def failed_attempt(folder, attempts, reason, *, model_failures=0, diagnostic=None):
     quarantine = folder/"quarantine"
     quarantine.mkdir(mode=0o700, exist_ok=True)
     destination = quarantine/("attempt-%d" % attempts)
@@ -359,13 +375,20 @@ def failed_attempt(folder, attempts, reason):
             if target.exists():
                 raise review.ReviewError("격리한 이전 응답을 덮어쓰지 않습니다.")
             source.rename(target)
-    save(destination/"failure.json", {"reason": reason, "attempt": attempts, "at": now()})
-    exhausted = attempts >= 3
+    failure = {"reason": reason, "attempt": attempts, "at": now()}
+    if diagnostic:
+        failure["diagnostic"] = diagnostic
+    save(destination/"failure.json", failure)
+    retry_model = reason == "model_failed"
+    model_failures += retry_model
+    exhausted = attempts - model_failures >= 3
+    delay = MODEL_RETRY_DELAYS[min(model_failures, len(MODEL_RETRY_DELAYS))-1] if retry_model else 600
     save(folder/"worker.json", {"phase": "exhausted" if exhausted else "retry_wait", "reason": reason,
-         "attempts": attempts, "retry_after": time.time()+600, "at": now()})
+         "attempts": attempts, "model_failures": model_failures, "retry_after": time.time()+delay, "at": now()})
     labels = {"model_failed": "검토 응답 생성 실패", "validation_failed": "검토 응답 검증 실패",
               "body_failed": "게시 문장 검증 실패", "attempt_limit": "검토 시도 상한 도달"}
-    raise AttemptError(labels[reason]+(". 재시도 종료" if exhausted else ". 재시도 대기"))
+    label = "Claude Code 구독 로그인 필요" if diagnostic == "login_required" else labels[reason]
+    raise AttemptError(label+(". 재시도 종료" if exhausted else ". 재시도 대기"), retrying=retry_model)
 
 
 def process(pr, root):
@@ -374,7 +397,10 @@ def process(pr, root):
         return "제외"
     reviews = pages("pulls/%d/reviews" % number)
     discussion = discussion_for(number, author, reviews)
-    input_key = json.dumps([pr["head"]["sha"], pr["base"]["sha"], pr["title"], pr.get("body"), discussion], ensure_ascii=False)
+    key_parts = [pr["head"]["sha"], pr["base"]["sha"], pr["title"], pr.get("body"), discussion]
+    if pr.get("draft"):
+        key_parts.append("draft")
+    input_key = json.dumps(key_parts, ensure_ascii=False)
     version = hashlib.sha256(input_key.encode()).hexdigest()[:24]
     folder = root/str(number)/version
     state_path = folder/"worker.json"
@@ -403,10 +429,12 @@ def process(pr, root):
         verify_saved(row, ready)
         current = api("pulls/%d" % number)
         base = ready.get("base") or json.loads((pending_path.parent/"snapshot.json").read_text())["base"]
-        if not eligible(current) or current["head"]["sha"] != ready["commit_id"] or current["base"]["sha"] != base:
+        if (not eligible(current) or current["head"]["sha"] != ready["commit_id"] or current["base"]["sha"] != base
+                or bool(current.get("draft")) != bool(ready.get("draft"))):
             supersede(number, pending_path, row, ready["event"])
         else:
-            finish(current, pending_path, row, recover_passed(ready, pending_path.parent, reviews, row, author))
+            finish(current, pending_path, row, recover_passed(ready, pending_path.parent, reviews, row, author),
+                   manual_review=ready.get("manual_review", False))
     existing = [row for row in reviews if row["user"]["login"].lower() == "watermincho" and marker in row.get("body", "")]
     if existing:
         if len(existing) != 1:
@@ -424,22 +452,38 @@ def process(pr, root):
                 return "판정 취소됨"
             verify_saved(row, ready)
             current = api("pulls/%d" % number)
-            data = {"head": pr["head"]["sha"], "base": pr["base"]["sha"], "title": pr["title"], "description": pr.get("body") or ""}
+            data = {"head": pr["head"]["sha"], "base": pr["base"]["sha"], "title": pr["title"],
+                    "description": pr.get("body") or "", "draft": pr.get("draft", False)}
             if not same(current, data):
                 supersede(number, state_path, row, ready["event"])
                 return "새 커밋 대기"
             passed = recover_passed(ready, folder, reviews, row, author)
-            finish(pr, state_path, row, passed)
+            finish(pr, state_path, row, passed, manual_review=ready.get("manual_review", False))
+        if state.get("manual_review"):
+            # 같은 커밋에서 나중에 남긴 운영자 판정을 GitHub 검사에도 반영함.
+            decisions = [entry for entry in reviews if entry["id"] > row["id"]
+                         and entry["user"]["login"].lower() == "watermincho" and entry.get("commit_id") == pr["head"]["sha"]
+                         and entry["state"] in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}]
+            decision = max(decisions, key=lambda entry: entry["id"], default=None)
+            if decision and decision["state"] in {"APPROVED", "CHANGES_REQUESTED"}:
+                passed = decision["state"] == "APPROVED"
+                status(pr, "success" if passed else "failure", "검토 통과" if passed else "피드백 확인 필요",
+                       decision["html_url"])
+            else:
+                status(pr, "pending", "리뷰 등록 · 운영자 승인 대기", row["html_url"])
         return "이미 검토함"
     if state.get("phase") in {"posting", "unconfirmed"}:
         status(pr, "error", "게시 응답을 확인하지 못해 중복 게시를 보류함")
         return "게시 확인 대기"
-    if state.get("phase") in {"prepare_failed", "input_failed", "exhausted"}:
+    retry_model = state.get("reason") == "model_failed"
+    if state.get("phase") in {"prepare_failed", "input_failed"} or (state.get("phase") == "exhausted" and not retry_model):
         return "준비 실패" if state["phase"] == "prepare_failed" else "검토 종료"
     if state.get("phase") == "done" or state.get("retry_after", 0) > time.time():
         return "대기"
-    if state.get("attempts", 0) >= 3:
-        failed_attempt(folder, state["attempts"], "attempt_limit")
+    previous_attempts = state.get("attempts", 0)
+    model_failures = state.get("model_failures", previous_attempts if retry_model else 0)
+    if previous_attempts - model_failures >= 3:
+        failed_attempt(folder, previous_attempts, "attempt_limit", model_failures=model_failures)
     folder.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     try:
         if not folder.exists():
@@ -460,13 +504,16 @@ def process(pr, root):
         save(state_path, {"phase": "input_failed", "reason": "input_failed", "at": now()})
         raise AttemptError("검토 입력 확인 실패. 같은 커밋의 검토를 중단함")
     status(pr, "pending", "고정한 현재 변경분을 검토 중")
-    attempts = state.get("attempts", 0)+1
-    save(state_path, {"phase": "reviewing", "attempts": attempts, "at": now()})
+    attempts = previous_attempts+1
+    running = {"phase": "reviewing", "attempts": attempts, "model_failures": model_failures, "at": now()}
+    save(state_path, running)
     if not (folder/"assessment.json").exists():
         try:
             review.review(folder, schema=SCHEMA, system=SYSTEM)
+        except review.ModelFailure as error:
+            failed_attempt(folder, attempts, "model_failed", model_failures=model_failures, diagnostic=error.reason)
         except (review.ReviewError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
-            failed_attempt(folder, attempts, "model_failed")
+            failed_attempt(folder, attempts, "model_failed", model_failures=model_failures, diagnostic="unknown")
     try:
         assessment = json.loads((folder/"assessment.json").read_text())
         if not (folder/"review.json").exists() or not (folder/"feedback.md").exists():
@@ -475,7 +522,7 @@ def process(pr, root):
             raise review.ReviewError("검토 응답의 커밋이 맞지 않습니다.")
         event = validate(data, assessment, author)
     except (review.ReviewError, OSError, ValueError, KeyError, TypeError):
-        failed_attempt(folder, attempts, "validation_failed")
+        failed_attempt(folder, attempts, "validation_failed", model_failures=model_failures)
     # 이미 승인한 커밋의 설명 답변만 의견으로 남기며 해소한 변경 요청은 다시 승인함.
     prior_terminal = [row for row in reviews if row["user"]["login"].lower() == "watermincho" and row.get("commit_id") == data["head"] and row.get("state") in {"APPROVED", "CHANGES_REQUESTED"}]
     checked = event
@@ -486,17 +533,21 @@ def process(pr, root):
         return "새 커밋 대기"
     # 충돌 여부를 아직 계산하지 못했으면 게시하지 않고 시도 횟수를 늘리지 않은 채 다음 실행에서 이어 감.
     if current.get("mergeable") is None:
-        save(state_path, {"phase": "reviewing", "attempts": attempts-1, "at": now()})
+        save(state_path, dict(running, attempts=attempts-1))
         return "충돌 확인 대기"
     conflicted = current["mergeable"] is False
-    if conflicted and event == "APPROVE":
+    if data.get("draft") or (conflicted and event == "APPROVE"):
         event = "COMMENT"
     try:
         body = body_for(data, assessment, marker, event, checked=checked, conflicted=conflicted)
     except (review.ReviewError, OSError, ValueError, KeyError, TypeError):
-        failed_attempt(folder, attempts, "body_failed")
-    passed = passed_review(event, checked, reviews, data["head"]) and not conflicted
-    save(folder/"publish-ready.json", {"commit_id": data["head"], "base": data["base"], "event": event, "body": body, "passed": passed})
+        failed_attempt(folder, attempts, "body_failed", model_failures=model_failures)
+    passed = passed_review(event, checked, reviews, data["head"]) and not conflicted and not data.get("draft")
+    manual_review = (not data.get("draft") and not passed and not conflicted
+                     and checked == "COMMENT" and assessment["decision"] == "approve")
+    save(folder/"publish-ready.json", {"commit_id": data["head"], "base": data["base"], "event": event,
+                                      "body": body, "passed": passed, "manual_review": manual_review,
+                                      "draft": bool(data.get("draft"))})
     save(state_path, {"phase": "posting", "at": now()})
     result = api("pulls/%d/reviews" % number, {"commit_id": data["head"], "event": event, "body": body})
     saved = api("pulls/%d/reviews/%d" % (number, result["id"]))
@@ -507,7 +558,7 @@ def process(pr, root):
     if not same(current, data):
         supersede(number, state_path, saved, event)
         return "새 커밋 대기"
-    finish(pr, state_path, saved, passed)
+    finish(pr, state_path, saved, passed, manual_review=manual_review)
     return "리뷰 게시함"
 
 
@@ -522,13 +573,13 @@ def once(root=ROOT):
             return ["이미 실행 중"]
         outputs = []
         for pr in pages("pulls?state=open&base=main"):
-            if pr["user"]["login"].lower() not in AUTHORS or pr["draft"] or pr["head"]["ref"].startswith("study/"):
+            if not eligible(pr):
                 continue
             try:
                 outputs.append((pr["number"], process(pr, root)))
             except AttemptError as error:
                 with contextlib.suppress(Exception):
-                    status(pr, "error", str(error))
+                    status(pr, "pending" if error.retrying else "error", str(error))
                 outputs.append((pr["number"], "검토 보류"))
             except (review.ReviewError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
                 with contextlib.suppress(Exception):
