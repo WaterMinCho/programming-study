@@ -34,6 +34,11 @@
    "what": "프레임 특징과 LSTM의 입력·마지막 상태",
    "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.LSTM.html",
    "checked": "2026-11-23"
+  },
+  {
+   "what": "큐브 회전 방향 분류 노트북의 학습 반복 횟수(5단계, 셀 9)",
+   "url": "https://drive.google.com/file/d/1_C6PsdX3By3TAs23dlvY-DCt2Es8H9Rl/view",
+   "checked": "2026-11-24"
   }
  ],
  "units": {
