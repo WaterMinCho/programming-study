@@ -1654,6 +1654,10 @@ def _mock_evidence(v, label, item, sources, mixed=False):
                 v.fail(label, 12, "%s의 step %s가 없습니다." % (cid, step))
             elif not set(steps[number - 1]["facts"]) & set(fids):
                 v.fail(label, 12, "%s의 facts가 step %s의 사실 줄과 겹치지 않습니다." % (cid, step))
+        if "learning_reference" in item:
+            target = aibank.resolve_code_reference(item["learning_reference"], sources.bank_dir)
+            if target["lesson"] != lid or "%s/%d" % (target["unit"]["key"], target["step"]["no"]) != step:
+                v.fail(label, 12, "%s의 관련 학습이 문항 근거 단계와 다릅니다." % cid)
         if not isinstance(refs, list) or not refs or not all(isinstance(ref, str) and ref for ref in refs):
             v.fail(label, 12, "%s의 ref는 비어 있지 않은 근거 목록이어야 합니다." % cid)
         else:

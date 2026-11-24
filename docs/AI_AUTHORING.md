@@ -511,7 +511,7 @@ meta.json의 draft=true에서는 구조 검사를 실행할 수 있습니다. �
 
 배분 버전이 `all44-v1`인 회차는 개론 1~17차시와 응용 1~5차시를 모두 담습니다. 문항은 44개, 시간은 120분이고 개론 31문항과 응용 13문항을 씁니다. 이 세 값은 `aiprep/mixed_mock.py`의 `CONTRACTS`에 적은 값이 기준이고, `tools/verify_ai.py`는 그 표를 읽어 index.json과 meta.json을 검사합니다. 두 파일에는 혼합 회차처럼 `scope=mixed`, `courses=["intro", "app"]`, `range=[1, 17]`, `blueprint`, `blueprint_revision`을 적고, `count`, `minutes`, `course_counts`도 `CONTRACTS`와 같은 값으로 적습니다. meta.json에는 회차 묶음 번호 `round_set`도 1 이상 정수로 적습니다. 1~3회는 1, 4~6회는 2입니다.
 
-현재 모의고사 1·2회는 `all52-v1`을 사용합니다. 회차마다 개론 36문항과 응용 16문항이 나오고 연습 시간은 120분입니다. format별 문항 수는 choice 18, bug 6, order 3, blank 10, predict 11, code 4이고, level 1/2/3은 13/26/13개입니다. 코드 작성 4문항은 level 2와 level 3에 두 개씩 있습니다.
+현재 모의고사 1~4회는 `all52-v1`을 사용합니다. 회차마다 개론 36문항과 응용 16문항이 나오고 연습 시간은 120분입니다. format별 문항 수는 choice 18, bug 6, order 3, blank 10, predict 11, code 4이고, level 1/2/3은 13/26/13개입니다. 코드 작성 4문항은 level 2와 level 3에 두 개씩 있습니다.
 
 blueprint는 `tools/ai_mock_rules.py`의 `allocate(LESSON_SCORES, 문항 수)`가 내는 값과 같아야 합니다. 문항 수는 그 회차 배분 버전의 `CONTRACTS` 값이라 `all44-v1`, `all46-v1`, `all50-v1`, `all52-v1`은 각각 44문항, 46문항, 50문항, 52문항을 나눕니다. `LESSON_SCORES`에는 차시마다 카드 수, 단원 수, 시험 근거, 현직자 근거, 뒤 차시 의존을 적고, `points`가 이 다섯 값으로 차시 점수를 셉니다. allocate는 문항 수 T 가운데 응용 몫을 (3T + 5) // 10으로 정합니다. 그다음 과정마다 차시당 1문항을 먼저 주고, 남은 자리를 점수의 제곱 ÷ (더 준 수 + 1)이 가장 큰 차시에 하나씩 줍니다. 한 차시는 4문항까지 받고 값이 같으면 앞 차시가 받습니다.
 

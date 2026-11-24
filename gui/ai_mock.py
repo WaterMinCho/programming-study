@@ -12,6 +12,7 @@ from aiprep.grade import BLANK
 from aiprep.mock import ENV_FAILED, MockError
 from journey import values as journey_values
 from gui import ai_text, kit, theme
+from gui.ai_code_help import CodeReferenceDialog
 from gui.ai_learn import ChoiceList, CodeChoices, CodeSlots, RichPara, doc, reading_column
 from gui.disclosure import DisclosureButton
 from gui.docview import Doc
@@ -565,6 +566,11 @@ class MockPage(QWidget):
                 correct = info['correct'] if item['kind'] == 'blank' else [self.exam.items[item['card']]['options'][n]['text'] for n in info['right']]
                 doc('정답: ' + ' / '.join(correct), '', self.card_box)
             doc(info['explain'], '', self.card_box)
+            reference = self.exam.items[item['card']].get('learning_reference')
+            if reference:
+                read_note = kit.button('관련 학습 보기', 'secondary', 'm')
+                read_note.clicked.connect(lambda: self.open_learning_reference(reference))
+                self.card_box.addWidget(read_note, 0, Qt.AlignmentFlag.AlignLeft)
             if item['kind'] == 'choice':
                 for option in item['options']:
                     why = info['why'].get(option['no'])
@@ -576,6 +582,14 @@ class MockPage(QWidget):
             self.inputs[0].setFocus(Qt.FocusReason.OtherFocusReason)
             self.head_timer.start(0)
         self.tick()
+
+    def open_learning_reference(self, reference):
+        try:
+            dialog = CodeReferenceDialog(self.win, reference)
+        except bank.AiBankError as error:
+            self.fail(error)
+            return
+        dialog.open()
 
     def build_code(self, item, done):
         """코드 작성 문항. 지문, 코드, 실행 결과 순서로 한 열에 둠.

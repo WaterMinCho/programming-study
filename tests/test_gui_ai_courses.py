@@ -110,7 +110,7 @@ class CourseGuiTest(AiTest):
         return {m['id'] for m in bank.read_index(bank.AI_DIR)['mocks'] if not m.get('hidden') and not m.get('legacy')} | set(extra)
 
     def test_course_switch_keeps_participant_old_cursor_and_scoped_lists(self):
-        self.assertEqual({'m11', 'm12'}, self.open_mocks())
+        self.assertEqual({'m11', 'm12', 'm13', 'm14'}, self.open_mocks())
         self.check_course_switch(self.open_mocks())
 
     def test_learner_who_submitted_an_old_round_sees_it_in_both_courses(self):
