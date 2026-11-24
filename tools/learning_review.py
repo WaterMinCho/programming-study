@@ -214,6 +214,8 @@ def prepare(number, destination, context=(), discussion=(), previous_review=None
               "files": [row["filename"] for row in files],
               "changed_paths": list(dict.fromkeys(path for row in files for path in (row["filename"], row.get("previous_filename", row["filename"])))),
               "unreviewed_images": [row["filename"] for row in files if Path(row["filename"]).suffix.lower() in IMAGES], "diff": diff, "context": excerpts}
+    if before.get("draft"):
+        packet["draft"] = True
     check_text(diff)
     check_text(packet["title"] + "\n" + packet["description"])
     for item in excerpts:
@@ -258,7 +260,8 @@ def prepare(number, destination, context=(), discussion=(), previous_review=None
         raise ReviewError("검토 자료가 너무 큽니다. 변경분이나 관련 문맥을 줄여 주세요.")
     check_text(text)
     current = pull(number)
-    if current["head"]["sha"] != packet["head"] or current["base"]["sha"] != packet["base"]:
+    if (current["head"]["sha"] != packet["head"] or current["base"]["sha"] != packet["base"]
+            or bool(current.get("draft")) != bool(packet.get("draft"))):
         raise ReviewError("자료를 읽는 동안 PR이 바뀌었습니다. 새 폴더에서 다시 준비해 주세요.")
     destination = private_folder(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
