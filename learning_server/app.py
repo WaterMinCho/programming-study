@@ -18,8 +18,8 @@ from learning_data.generation import from_item as generation_from_item
 
 MAX_BODY = 1024 * 1024
 MAX_EVENTS = 100
-MAX_STORED_BYTES = 64 * 1024 * 1024
-MAX_PARTICIPANT_BYTES = 16 * 1024 * 1024
+MAX_STORED_BYTES = 72 * 1024 * 1024
+MAX_PARTICIPANT_BYTES = 24 * 1024 * 1024
 MAX_PARTICIPANT_EVENTS = 20000
 REPOSITORY = str(Path(__file__).resolve().parent.parent)
 
