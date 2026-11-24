@@ -1,20 +1,36 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
+from experiments.michae18.constants import(Modelconfig)
 
-#  forward에 dropout 추가
 class SmallLSTM(nn.Module):
+    # 기존 인자 할당 방법과 Modelconfig 전달 방식 호환성 보완 
     def __init__(self,num_questions,num_concepts,
-                 embeding_num = 16, hidden_num = 16):
+                 embedding_num = Modelconfig.embedding_num,
+                 hidden_num = Modelconfig.hidden_num,
+                 *,
+                 config: Modelconfig | None = None):
         super().__init__()
-        # 문제 번호를 컴퓨터를 위해 번역한다 nn.Embedding 사용
-        self.embedding = nn.Embedding(num_questions, embeding_num,padding_idx=0)
-        # 과거 기록을 읽는 기억 장치(문제 푼 순서를 따라가며 학습 상태를 계산), 학습 가능한 내부 벡터 생성한다.
-        self.lstm = nn.LSTM(embeding_num + num_concepts + 1, hidden_num,batch_first=True)
 
-        self. dropout = nn.Dropout(p = 0.2)
+        # config 미전달 시 Modelconfig 생성
+        if config is None:
+            config = Modelconfig(
+                embedding_num = embedding_num,
+                hidden_num = hidden_num
+            )
+        
+        embedding_num = config.embedding_num
+        hidden_num = config.hidden_num
+        dropout = config.dropout
+
+        # 문제 번호를 컴퓨터를 위해 번역한다 nn.Embedding 사용
+        self.embedding = nn.Embedding(num_questions, embedding_num,padding_idx=0)
+        # 과거 기록을 읽는 기억 장치(문제 푼 순서를 따라가며 학습 상태를 계산), 학습 가능한 내부 벡터 생성한다.
+        self.lstm = nn.LSTM(embedding_num + num_concepts + 1, hidden_num,batch_first=True)
+        # dropout 값 변경하며 확인 필요
+        self. dropout = nn.Dropout(p = dropout)
         # 점수 계산(분류기 생성한다.)
-        self.fc = nn.Linear(hidden_num + embeding_num + num_concepts,1)
+        self.fc = nn.Linear(hidden_num + embedding_num + num_concepts,1)
 
     # 학생 기록 읽기(과거 기록을 숫자로 변경)
     def encode_history(self, inputs):

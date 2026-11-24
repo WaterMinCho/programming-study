@@ -3,11 +3,11 @@ import numpy as np
 import torch
 
 from learning_server.input_example import load, batch
+from experiments.michae18.constants import(
+    SEED, DATASET_PATH, SEQUENCE_LENGTH, TRACK
+)
 
 
-SEED = 42
-DATASET_PATH = "../study-data/common-input-f8-20261118/recorded"
-LENGTH = 32
 
 # 1. 데이터 정보 출력
 def print_data_info(name, inputs, targets, vocabulary):
@@ -60,11 +60,14 @@ def data_to_tensor(data):
     return inputs, targets
 
 # 3. 데이터 불러오기
-def load_data(split):
-    rows, vocabulary  = load(DATASET_PATH, 'ai', split)
-    data = batch(rows, vocabulary, length=LENGTH)
+def load_data(split, return_event_ids = False):
+    rows, vocabulary  = load(DATASET_PATH, TRACK, split)
+    data = batch(rows, vocabulary, length=SEQUENCE_LENGTH)
     # Tensor 변환
     inputs, targets = data_to_tensor(data)
+
+    if return_event_ids:
+        return inputs, targets, vocabulary, data['event_ids']
 
     return inputs, targets, vocabulary
 
@@ -91,7 +94,6 @@ def main():
             "targets": targets,
             "vocabulary": vocabulary
         }
-    print(len(vocabulary))
 
     return datasets
 
