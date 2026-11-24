@@ -1,12 +1,10 @@
 from experiments.michae18.model import SmallLSTM
 from experiments.michae18.input_check import load_data
-from experiments.michae18.constants import(
-    SEED, Trainconfig, Modelconfig
-)
-from experiments.michae18.evaluate import(
-    save_predictions, validate_predictions, run_score
-)
-from experiments.michae18.constants import DATASET_PATH
+from learning_server.score import render, score_validation
+from datetime import datetime
+from pathlib import Path
+
+from experiments.michae18.constants import DATASET_PATH, TRACK, SEED, Trainconfig, Modelconfig
 import random
 import numpy as np
 import torch
@@ -317,7 +315,7 @@ def main():
         device
     )
 
-    # 1. Validation 확률 예측
+    # Validation 확률 예측
     probabilities = predict_probabilities(
         model,
         val_inputs,
@@ -326,30 +324,17 @@ def main():
 
     assert len(probabilities) == len(val_event_ids)
     assert len(probabilities) == len(val_targets)
-
-    # 2. 파일 경로 설정
-    predictions_path = "../preds/lstm-validation.csv"
-
-    # 3. CSV 저장
-    save_predictions(
+     
+    result, run_dir = score_validation(
+        dataset_path=DATASET_PATH,
+        track=TRACK,
         event_ids=val_event_ids,
         probabilities=probabilities,
-        output_path=predictions_path,
-        model_version="small-lstm-v1"
+        model_name="small-lstm",
+        output_root=Path("../preds"),
     )
-
-    # 4. CSV 검증
-    validate_predictions(
-        csv_path=predictions_path,
-        expected_event_ids=val_event_ids
-    )
-
-    # 5. 로컬 채점
-    run_score(
-        dataset_path=DATASET_PATH,
-        predictions_path=predictions_path,
-        output_path="../preds/lstm-score-v1.json"
-    )
+    print(render(result))
+    print(f"검증 결과 저장: {run_dir}")
 
 
     # print(model, history[-1], best_history)

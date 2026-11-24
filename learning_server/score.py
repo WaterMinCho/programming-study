@@ -7,6 +7,10 @@ import json
 import math
 from collections import Counter
 from pathlib import Path
+import re
+import shutil
+import io
+
 
 from learning_data.collection import packed
 from learning_server import dataset, sample, starter
@@ -146,11 +150,16 @@ def baselines(train, rows, saved):
     ]
 
 
-def evaluate(folder, track, split, predictions):
+def evaluate(folder, track, split, predictions, *, inspect_all=True):
     if split not in PARTS:
         raise ValueError("채점할 구간은 train, validation, test 가운데 하나로 지정해 주세요.")
     probabilities, version, predictions_sha256 = read_predictions(predictions)
-    report, content, manifest_sha256 = sample.inspect(folder)
+    if inspect_all:
+        inspection = sample.inspect(folder)
+    else:
+        parts = ("train",) if split == "train" else ("train", split)
+    inspection = sample.inspect(folder, track=track, parts=parts)
+    report, content, manifest_sha256 = inspection
     if track not in content:
         raise ValueError("이 자료에는 %s 과목이 없습니다." % track)
     root = sample.private_path(folder)
@@ -187,6 +196,75 @@ def evaluate(folder, track, split, predictions):
             "predictions_sha256": predictions_sha256, "model_version": version,
             "cell": cell, "table": table, "warning": message, "unseen": unseen}
 
+def _previous_validation_version(root, model_name):
+    prefix = f"{model_name}-v"
+    pattern = re.compile(re.escape(prefix) + r"([0-9]+)")
+    names = [path.name for path in root.glob(f"{prefix}*")]
+
+    reports = list(root.glob("*score*.json"))
+    reports += list(root.glob(f"{model_name}-run*/score.json"))
+    for path in reports:
+        try:
+            report = json.loads(path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(report, dict):
+            names.append(report.get("model_version"))
+
+    csv_files = list(root.glob("*-validation*.csv"))
+    csv_files += list(root.glob(f"{model_name}-run*/predictions.csv"))
+    for path in csv_files:
+        try:
+            with path.open(encoding="utf-8-sig", newline="") as stream:
+                row = next(csv.DictReader(stream), {})
+        except (OSError, ValueError, csv.Error):
+            continue
+        names.append(row.get("model_version"))
+
+    versions = []
+    for name in names:
+        match = pattern.fullmatch(name) if isinstance(name, str) else None
+        if match:
+            versions.append(int(match.group(1)))
+    return max(versions, default=0)
+
+
+def score_validation(*, dataset_path, track, event_ids, probabilities, model_name, output_root):
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", model_name):
+        raise ValueError("모델 이름에는 소문자, 숫자, 하이픈을 써 주세요.")
+
+    ids, values = list(event_ids), list(probabilities)
+    if not ids or len(ids) != len(values):
+        raise ValueError("풀이 ID와 예측 확률의 개수를 맞춰 주세요.")
+
+    root = sample.private_path(output_root)
+    number = _previous_validation_version(root, model_name) + 1
+    while True:
+        version = f"{model_name}-v{number}"
+        run_dir = root / version
+        try:
+            run_dir.mkdir(mode=0o700, parents=True)
+        except FileExistsError:
+            if not run_dir.exists():
+                raise
+            number += 1
+        else:
+            break
+
+    predictions = run_dir / "predictions.csv"
+    try:
+        out = io.StringIO(newline="")
+        writer = csv.writer(out, lineterminator="\n")
+        writer.writerow(("event_id", "probability", "model_version"))
+        writer.writerows((key, value, version) for key, value in zip(ids, values))
+        dataset.write_private(predictions, out.getvalue())
+
+        result = evaluate(dataset_path, track, "validation", predictions, inspect_all=False)
+        dataset.write_private(run_dir / "score.json", packed(result) + "\n")
+    except (OSError, ValueError, KeyError, TypeError, csv.Error):
+        shutil.rmtree(run_dir, ignore_errors=True)
+        raise
+    return result, run_dir
 
 def _bucket(rows, lines, synthetic, subject):
     """행 묶음 하나의 행 수·오답·가명 수와 표, 경고를 냄. 행이 없으면 표와 경고를 비움."""
