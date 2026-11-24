@@ -14,11 +14,11 @@
 - **직접 구현한 코드 (`experiments/wamangdoo/`)**
   - `model.py`: `SmallTransformer` 모델 본체 (과거 풀이 인코딩 + 이번 문제 결합 후 `logits` 반환)
   - `run.py`: 합성 자료(`learning-demo-f8`)에서 핵심 6개 입력을 골라 `set_seed(42)`와 `get_device()`(`cuda` / `mps` / `cpu`) 적용 후 배치 단위로 `.to(device)` 이동해 학습 전 예측 확률 출력
-  - `test_model.py`: 일부/전원 빈 이력, 평가 모드 패딩 변경 불변성, 과거 풀이 순서(위치 정보) 반영 검증 (`unittest`)
+  - `test_model.py`: 일부/전원 빈 이력, 평가 모드 패딩 변경 불변성, 과거 풀이 순서(위치 정보) 반영 및 `train.py` 3개 함수 빈 입력(`rows=[]`) `ValueError` 방어 검증 (`unittest`)
   - `train.py`: 합성 자료(`learning-demo-f8`)의 `train` / `validation` 구간으로 소량 과적합 확인(`evaluate_one_epoch` 재측정 포함), 학습·검증 루프(`BCEWithLogitsLoss`, `Adam`), CPU·평가 모드 저장·불러오기(`torch.save` / `torch.load`) 최대 오차 확인
 - **참고·사용한 공통 코드**
   - 공통 데이터 로딩 및 배치 생성: `learning_server.input_example` (`load`, `batch`)
-  - 비교 기준 입력 차원(`embed_num=16`, `hidden_num=16`) 및 핵심 입력 항목 기준: `experiments/michae18/model.py` (`SmallLSTM`)
+  - 비교 기준 입력 차원(`embed_num=16`, `hidden_num=16`) 및 핵심 입력 항목 기준: `experiments/michae18/model.py` (`SmallLSTM`) 및 [PR #352](https://github.com/WaterMinCho/programming-study/pull/352)의 `experiments/michae18/constants.py` (`Modelconfig`)
 
 ### 2. 실행 조건 및 환경
 | 항목                         | 실제 사용한 값                                                                                                                                                                                |
@@ -51,7 +51,7 @@
 ### 5. 다른 사람이 실행할 방법과 실제 출력
 
 #### 학습 전 예측 및 모델 단위 테스트 (`run.py` / `test_model.py`)
-> 아래 출력은 **학습 전 초기 가중치 상태**의 순전파·구조 검증 결과이며, 학습된 모델 성능이 아닙니다.
+> 아래 출력은 **로컬 환경 (`Windows` / `Python 3.13.15` / `pytorch: 2.15.0+cu132` / `GTX 1660 Ti (cuda)`)**에서 실행한 결과이며, **학습 전 초기 가중치 상태**의 순전파·구조 검증 결과입니다.
 
 ```powershell
 python -m learning_server.starter --synthetic --out ..\learning-demo-f8
@@ -64,16 +64,19 @@ python -m experiments.wamangdoo.run
 - 배치 1(`rows[:4]`)과 배치 2(`rows[4:8]`) 모두 `NaN` 없이 `0 ~ 1` 사이 확률 4개씩 출력됨을 확인했습니다.
 
 ```powershell
-python -m unittest experiments/wamangdoo/test_model.py -v
+python -m unittest experiments.wamangdoo.test_model -v
 ```
 ```text
 test_all_empty_history (experiments.wamangdoo.test_model.TestSmallTransformer.test_all_empty_history) ... ok
+test_evaluate_one_epoch_empty_rows_raises_value_error (experiments.wamangdoo.test_model.TestSmallTransformer.test_evaluate_one_epoch_empty_rows_raises_value_error) ... ok
 test_mixed_empty_history (experiments.wamangdoo.test_model.TestSmallTransformer.test_mixed_empty_history) ... ok
 test_padding_does_not_change_prediction (experiments.wamangdoo.test_model.TestSmallTransformer.test_padding_does_not_change_prediction) ... ok
 test_position_order_changes_prediction (experiments.wamangdoo.test_model.TestSmallTransformer.test_position_order_changes_prediction) ... ok
+test_predict_probabilities_empty_rows_raises_value_error (experiments.wamangdoo.test_model.TestSmallTransformer.test_predict_probabilities_empty_rows_raises_value_error) ... ok
+test_train_one_epoch_empty_rows_raises_value_error (experiments.wamangdoo.test_model.TestSmallTransformer.test_train_one_epoch_empty_rows_raises_value_error) ... ok
 
 ----------------------------------------------------------------------
-Ran 4 tests in 1.425s
+Ran 7 tests in 2.455s
 
 OK
 
@@ -87,14 +90,15 @@ OK
 [4] 순서 A (1번O -> 2번X): 0.675672173500061
     순서 B (2번X -> 1번O): 0.6690245270729065
 ```
-- `num_questions=5`(허용 번호 `0~4`) 축소 조건에서 4개 테스트 모두 통과했습니다.
+- `num_questions=5`(허용 번호 `0~4`) 축소 조건에서 모델 구조 4개 + `train.py` 빈 입력(`rows=[]`) `ValueError` 방어 3개, 총 7개 테스트 모두 통과했습니다.
   - `[1]` 일부 빈 이력 포함 4명 확률: `[0.460568, 0.537853, 0.675672, 0.521446]`
   - `[2]` 전원 빈 이력(`mask` 전부 `False`) 4명 확률: `[0.460568, 0.509726, 0.569757, 0.402775]` (`NaN` 없음)
   - `[3]` 평가 모드 패딩 변경 전/후 확률: 두 경우 일치 (오차 `<= 1e-6`)
   - `[4]` 위치 정보(과거 풀이 순서) 변경 결과: 순서 A(`1번O -> 2번X`) `0.675672` vs 순서 B(`2번X -> 1번O`) `0.669025` (순서 반영 확인)
+  - `[5~7]` `train_one_epoch`, `evaluate_one_epoch`, `predict_probabilities`에 `rows=[]` 전달 시 `ZeroDivisionError` 대신 `ValueError` 발생 확인
 
 #### 학습·검증 및 저장·불러오기 (`train.py`)
-> 아래 출력은 **합성 자료(`learning-demo-f8`, `train` 8건 / `validation` 2건)**에서 학습·검증 루프와 저장·불러오기가 정상 동작하는지 확인한 결과이며, 실제 학습자 성능 지표가 아닙니다.
+> 아래 출력은 **로컬 환경 (`Windows` / `Python 3.13.15` / `pytorch: 2.15.0+cu132` / `GTX 1660 Ti (cuda)`, `[3]` 저장·불러오기 비교는 `CPU`)**에서 **합성 자료(`learning-demo-f8`, `train` 8건 / `validation` 2건)**로 실행한 결과입니다. (Colab 환경에서는 환경·메타데이터 호환만 확인했고, 아래 손실 수치는 로컬 실행 기준입니다.)
 
 ```powershell
 python -m experiments.wamangdoo.train
@@ -149,12 +153,15 @@ python -m experiments.wamangdoo.train
   - `torch.as_tensor()`: 파이썬 리스트를 PyTorch 텐서로 바꾸되, 이미 같은 텐서면 불필요한 복사를 줄여 줍니다.
   - 학습 5단계(`zero_grad → forward → BCEWithLogitsLoss → backward → step`): PyTorch는 기울기를 기본 누적하므로 매 배치 시작에 `zero_grad()`로 비운 뒤, `backward()`로 기울기를 계산하고 `step()`으로 가중치를 갱신합니다.
 
-### 7. 질문을 받고 바꾼 부분 (PR `#320` 피드백 반영 기록)
+### 7. 질문을 받고 바꾼 부분 (PR `#320` · `#353` 피드백 반영 기록)
 | 출처                       | 받은 질문 / 제안                                                                                      | 반영 내용 및 다시 확인한 결과                                                                                                                |
 | ------------------------ | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | PR `#320` 리뷰 (`48bf48f`) | `[1]` 소량 과적합 손실(`0.362748`)은 학습 모드 기준이며 하한 `0.173`의 약 2배이므로 **평가 모드로 재측정**하고 필요 시 `lr`/epoch 조정 | `evaluate_one_epoch`로 재측정해 `0.354550`(덜 수렴)임을 확인한 뒤, `lr=3e-3` 200 epoch로 조정해 평가 모드 손실 **`0.191674`**(이론 하한 `0.173` 근처) 달성 및 기록. |
 | PR `#320` 리뷰 (`48bf48f`) | `[2]` `train_loss 0.678`은 `ln 2 ≈ 0.693`과 비슷하므로 과적합 단정 대신 **관찰과 추정 구분**                         | 5절 해석에서 *"epoch 5 이후 `val_loss`가 상승했다"*는 관찰과 *"소규모 검증 2건의 변동이나 초기 과적합 가능성"*이라는 추정을 분리해 기재.                                       |
-| 스터디 피드백 | `train.py` 36줄(`/ len(rows)`) 부분을 추후 수정해야 할 것 같다는 안내 | `rows`가 비어 있을 때 `0`으로 나누는 오류(`ZeroDivisionError`)가 날 수 있기 때문이라고 추정하여, `train_one_epoch`·`evaluate_one_epoch`·`predict_probabilities` 시작 부분에 빈 입력 방어(`if not rows: raise ValueError(...)`)를 추가했습니다. 의도하신 수정 방향이 이 부분이 맞는지 확인 부탁드립니다. |
+| 스터디 피드백                  | `train.py` 36줄(`/ len(rows)`) 부분을 추후 수정해야 할 것 같다는 안내                                             | `rows`가 비어 있을 때 `0`으로 나누는 오류(`ZeroDivisionError`)가 날 수 있기 때문이라고 추정하여, `train_one_epoch`·`evaluate_one_epoch`·`predict_probabilities` 시작 부분에 빈 입력 방어(`if not rows: raise ValueError(...)`)를 추가했습니다. 의도하신 수정 방향이 이 부분이 맞는지 확인 부탁드립니다. |
+| PR `#353` 리뷰 (`3808c7e`) | 빈 입력 방어 3개 함수를 `test_model.py`의 `assertRaises(ValueError)` 테스트로 고정하기                             | `test_model.py`에 `rows=[]` 테스트 3개를 추가하고 `python -m unittest experiments.wamangdoo.test_model -v` 실행으로 7/7 통과 확인.                  |
+| PR `#353` 리뷰 (`3808c7e`) | 5절 출력 블록이 로컬과 Colab 중 어느 환경에서 나온 값인지 명시하기                                                        | 5절 `run.py`/`test_model.py` 및 `train.py` 출력 블록 바로 위에 로컬 실행 환경(`Windows / Python 3.13.15 / pytorch 2.15.0+cu132 / GTX 1660 Ti`, 저장·불러오기 비교 `CPU`)을 명시. |
+| PR `#353` 교차 검토          | 기준 차원 `16·16` 참고 위치에 `michae18`님 `#352`의 `constants.py` (`Modelconfig`)도 연결하기                     | 1절 참고 코드 항목에 `PR #352`의 `experiments/michae18/constants.py` (`Modelconfig`)를 함께 명시.                                                   |
 
 ### 8. 현재 미실행 항목 (다음 단계)
 - 저장한 모델을 별도 새 실행(새 프로세스)에서 불러와 최대 오차 `<= 0.000001` 확인
