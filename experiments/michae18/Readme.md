@@ -537,7 +537,7 @@ python -m learning_server.score --dataset ../study-data/common-input-f8-20261118
 
 3. 모델 성능 비교
 | 모델 | Log Loss ↓ | Brier ↓ | ROC-AUC ↑ | Accuracy ↑ |
-|---|---|
+|---|---|---|---|---|
 | SmallLSTM | 0.2951 | 0.0867 | 0.8293 | 0.8796 | 
 | majority |    -   | 0.1237 |    -   | 0.8763 |
 | overall-mean | 0.3871 | 0.1106 | 0.5000 | 0.8763 |
@@ -583,6 +583,77 @@ Learning Server는 오답이 50행 미만이거나 학습자가 5명 미만인 �
 따라서 이번 결과만으로 SmallLSTM이 기준선보다 일반화 성능이 우수하다고 결론 내리기는 어렵습니다.
 
 이번 실험은 모델 학습, 예측 파일 생성, CSV 검증 및 로컬 평가 파이프라인의 정상 동작을 확인한 결과로 활용합니다.
+
+### SmallLSTM 생성자에서 기존 위치 인자 방식과 Modelconfig 전달 방식 호환성 확인
+
+#### 모델 생성하기
+
+```python
+python -c "from experiments.kimjs85529_a11y.model import TimeGapLSTM; TimeGapLSTM(10, 4)" 
+```
+
+#### 테스트 실행 (kimjs85529_a11y,michae18)
+
+```python
+python -m experiments.kimjs85529_a11y.test_data_model 
+```
+
+```text
+사용 장치: cpu                      
+통과: 기본 LSTM과 초기 출력 일치
+통과: 출력 형상·확률·빈 이력·패딩
+통과: 시간 미확인/0초 구분
+통과: gap_log의 출력 반영
+통과: 역전파 및 가중치 갱신
+통과: 실제 데이터 전체 순전파 953 건
+통과: 모델 저장·복원 후 출력 일치
+```
+
+```python
+python -m experiments.michae18.test_data_model 
+```
+
+```text
+PASS: 일부 빈 이력 처리             
+PASS: 전체 빈 이력 처리
+PASS: 패딩 변경에 대한 예측 불변성
+```
+
+#### 인자 추가하여 테스트 진행
+
+```python
+python -c "from experiments.kimjs85529_a11y.model import TimeGapLSTM; TimeGapLSTM(10, 4, embeding_num=16, hidden_num = 32)" 
+```
+
+```python
+python -m experiments.kimjs85529_a11y.test_data_model     
+```
+
+```text
+사용 장치: cpu
+통과: 기본 LSTM과 초기 출력 일치
+통과: 출력 형상·확률·빈 이력·패딩
+통과: 시간 미확인/0초 구분
+통과: gap_log의 출력 반영
+통과: 역전파 및 가중치 갱신
+통과: 실제 데이터 전체 순전파 953 건
+통과: 모델 저장·복원 후 출력 일치
+
+기능 검증 완료
+실제 학습 및 성능 평가는 미실행
+```
+
+```python
+python -m experiments.michae18.test_data_model   
+```
+
+```text
+PASS: 일부 빈 이력 처리
+PASS: 전체 빈 이력 처리
+PASS: 패딩 변경에 대한 예측 불변성
+```
+
+SmallLSTM 생성자에서 기존 위치 인자 방식과 Modelconfig 전달 방식 호환성 확인하였습니다.
 
 ## 막힌 부분과 해결 내용
 
