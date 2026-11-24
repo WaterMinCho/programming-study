@@ -223,6 +223,8 @@ def linear_params(r):
 
 강의 자료 위치는 문항의 `ref`, facts.json의 `where`, meta.json의 `sources`에 남깁니다. 본문·블록·캡션·문항·보기·해설·생성기 견본에는 붙이지 않습니다. 앞에서 소개하지 않은 파일 별칭이나 셀 번호를 설명의 전제로 삼지 않습니다. 필요한 데이터·코드·계산 조건을 같은 화면에서 설명합니다. 더 볼 곳은 "5차시 여섯째 단원 3단계"처럼 학습 화면으로 안내합니다. 공식 문서 이름과 외부 그림의 출처 표시는 유지합니다.
 
+새 차시를 준비할 때는 강의와 과제의 원본에 이어 공유 폴더의 보충교안·실습, `data`, 대학원 참고 교안도 살핍니다. 해당 단원과 이어지는 자료는 실제 쪽이나 셀을 읽고 어느 그림·설명·문항에 쓰였는지 출처 검토 기록에 적습니다.
+
 ## 4. 상황별 코드 뼈대
 
 상황별 코드 단원의 카드는 뼈대 파일에서 엔진이 만듭니다. 과정마다 무리를 하나씩 두고 `index.json` 의 `patterns` 에 적습니다. 개론 무리 `pc` 는 노트 `l18`, 뼈대 `ai/patterns/S1.json`~, 문항 폴더 `ai/items/pc/` 를 씁니다. 응용 무리 `apc` 는 노트 `al18`, 뼈대 `ai/patterns/apc/S101.json`~, 문항 폴더 `ai/items/apc/` 를 씁니다. 문항 폴더에는 단원별 카드 수를 적은 `meta.json`, 계산 문항의 `gens.py`와 독립 정답 함수 `oracle.py`를 둡니다. `facts.json`과 `review.json`은 `sealed.json`에 묶습니다. 사실 id 는 개론 `F18-01`, 응용 `FA18-01` 이고 강의 자료 오류는 `X18-01`, `XA18-01` 입니다. 차시 사실을 옮긴 것은 `from` 에 원래 id 를 적습니다.
@@ -473,7 +475,11 @@ errata가 붙은 문항과 기존 연습에서 정정 근거로 함께 쓴 사�
 
 학습자에게 보이는 문장의 말투와 코드 울타리의 짝도 검사합니다. 빈칸에는 첫 등록 답을 채워 Python 코드 구문을 분석합니다. 코드의 실행 결과와 정답 사실은 대조자가 확인합니다. 객관식에 의도적으로 넣은 오류 코드는 구문 분석을 강제하지 않습니다. 검사를 통과한 회차는 기존 --answers·--first-pass·--keep-first-pass·--require-review 경로로 채점·기록·서명을 확인합니다. 첫 재풀이 파일을 읽지 못하면 서명을 중단하고 이전 기록을 보존합니다.
 
-서명한 회차의 문항이나 `ai/index.json` 회차 줄의 배분 버전(blueprint_revision)을 고칠 때는 `python3 tools/ai_seal.py unseal m4`처럼 먼저 풉니다. 학습자 기록에는 응시한 문항의 회차 버전 해시(fingerprint)가 남습니다. unseal은 서명한 문항을 이 해시 이름의 폴더 `work/versions/<fingerprint>/`에 items.json과 spec.json으로 남깁니다. 문항을 고쳐 seal하면 이 예전 문항도 함께 봉인됩니다. 그 버전으로 제출한 학습자는 결과·해설·오답 복습을 예전 문항으로 엽니다. 제출하지 않고 풀던 초안은 새 응시로 다시 시작합니다. `--sign`은 review.json에 그때의 fingerprint와 회차 줄 값을 적습니다. unseal은 이 회차 줄 값으로 fingerprint를 다시 계산해 예전 문항의 폴더 이름을 정합니다. 이 값이 없는 예전 서명은 지금 회차 줄로 계산하므로 회차 줄을 unseal한 뒤에 고칩니다. 서명한 뒤 fingerprint가 바뀌게 문항이나 회차 줄을 고치고 unseal을 건너뛰면 seal이 멈추고 unseal을 먼저 하라고 안내합니다. `verify_ai.py`는 남긴 예전 문항의 fingerprint를 다시 계산해 폴더 이름과 같은지 보고, 직전 커밋의 봉인에 있던 예전 문항이 빠지거나 바뀌면 실패합니다. 직전 커밋과 견주는 검사는 커밋하기 전의 작업 폴더에서만 차이를 찾습니다. `--sign`은 이전 서명에 있던 예전 문항이 빠졌거나, 서명한 버전의 예전 문항을 남기지 않은 채 fingerprint가 바뀌었으면 서명하지 않습니다.
+서명한 회차의 문항이나 `ai/index.json` 회차 줄의 배분 버전(blueprint_revision)을 고칠 때는 `python3 tools/ai_seal.py unseal m4`처럼 먼저 풉니다. 학습자 기록에는 응시한 문항의 회차 버전 해시(fingerprint)가 남습니다. unseal은 서명한 문항을 이 해시 이름의 폴더 `work/versions/<fingerprint>/`에 items.json과 spec.json으로 남깁니다. 문항을 고쳐 seal하면 이 예전 문항도 함께 봉인됩니다. 그 버전으로 제출한 학습자는 결과·해설·오답 복습을 예전 문항으로 엽니다. 제출하지 않고 풀던 초안은 새 응시로 다시 시작합니다. `--sign`은 review.json에 그때의 fingerprint와 회차 줄 값을 적습니다. unseal은 이 회차 줄 값으로 fingerprint를 다시 계산해 예전 문항의 폴더 이름을 정합니다. 이 값이 없는 예전 서명은 지금 회차 줄로 계산하므로 회차 줄을 unseal한 뒤에 고칩니다. 서명한 뒤 fingerprint가 바뀌게 문항이나 회차 줄을 고치고 unseal을 건너뛰면 seal이 멈추고 unseal을 먼저 하라고 안내합니다. `verify_ai.py`는 남긴 예전 문항의 fingerprint를 다시 계산해 폴더 이름과 같은지 보고, 직전 커밋의 봉인에 있던 예전 문항이 빠지거나 바뀌면 실패합니다. 예전 문항에 있던 ID를 지금 문항이 쓰면 두 문항의 차시(lesson)가 같아야 하고, 다르면 실패합니다. 뺀 문항의 ID는 meta.json의 retired_items에 적고 새 문항에는 가장 큰 번호 다음 번호를 줍니다. 직전 커밋과 견주는 검사는 커밋하기 전의 작업 폴더에서만 차이를 찾습니다. `--sign`은 이전 서명에 있던 예전 문항이 빠졌거나, 서명한 버전의 예전 문항을 남기지 않은 채 fingerprint가 바뀌었으면 서명하지 않습니다.
+
+서명한 회차의 `ai/index.json` 회차 줄에 `"hidden": true`를 두면 그 회차는 학습자 목록에 나오지 않습니다. 그 회차를 제출한 기록이 있는 사람에게만 [이전에 푼 회차] 아래에 보입니다. 회차를 공개할 때는 이 값을 지우고 `ai/README.md`의 회차 안내와 `docs/GUIDE_INDEX.md`의 링크를 함께 고칩니다. `hidden`은 fingerprint와 검토 서명에 들지 않으므로 지워도 다시 서명하지 않습니다.
+
+예전 회차를 목록에서 내릴 때는 회차 줄에 `"legacy": true`를 두고 제목을 '이전 모의고사 N회'로 바꿉니다. m1\~m6은 이렇게 내렸습니다. `legacy` 회차는 그 회차를 제출한 기록이 있는 사람에게만 [이전에 푼 회차] 아래에 보입니다. 시작했지만 제출하지 않았고 시간이 남은 사람에게는 목록에서 빠지고, 풀던 초안 파일은 지우지 않습니다. 시간이 이미 끝난 시도는 예전처럼 자동 제출합니다. 개론 전용 회차는 응시 기간 `window`에 [시작, 끝] 날짜가 있어야 `verify_ai.py`를 통과하지만, `legacy` 회차는 빈 목록이어도 통과합니다. `legacy`와 회차 제목도 fingerprint와 검토 서명에 들지 않으므로 바꿔도 다시 서명하지 않습니다.
 
 <a id="혼합-회차-m4를-검증합니다"></a>
 
@@ -505,18 +511,21 @@ meta.json의 draft=true에서는 구조 검사를 실행할 수 있습니다. �
 
 배분 버전이 `all44-v1`인 회차는 개론 1~17차시와 응용 1~5차시를 모두 담습니다. 문항은 44개, 시간은 120분이고 개론 31문항과 응용 13문항을 씁니다. 이 세 값은 `aiprep/mixed_mock.py`의 `CONTRACTS`에 적은 값이 기준이고, `tools/verify_ai.py`는 그 표를 읽어 index.json과 meta.json을 검사합니다. 두 파일에는 혼합 회차처럼 `scope=mixed`, `courses=["intro", "app"]`, `range=[1, 17]`, `blueprint`, `blueprint_revision`을 적고, `count`, `minutes`, `course_counts`도 `CONTRACTS`와 같은 값으로 적습니다. meta.json에는 회차 묶음 번호 `round_set`도 1 이상 정수로 적습니다. 1~3회는 1, 4~6회는 2입니다.
 
-blueprint는 `tools/ai_mock_rules.py`의 `allocate(LESSON_SCORES, 44)`가 내는 값과 같아야 합니다. `LESSON_SCORES`에는 차시마다 카드 수, 단원 수, 시험 근거, 현직자 근거, 뒤 차시 의존을 적고, `points`가 이 다섯 값으로 차시 점수를 셉니다. allocate는 문항 수 T 가운데 응용 몫을 (3T + 5) // 10으로 정합니다. 그다음 과정마다 차시당 1문항을 먼저 주고, 남은 자리를 점수의 제곱 ÷ (더 준 수 + 1)이 가장 큰 차시에 하나씩 줍니다. 한 차시는 4문항까지 받고 값이 같으면 앞 차시가 받습니다.
+현재 모의고사 1·2회는 `all52-v1`을 사용합니다. 회차마다 개론 36문항과 응용 16문항이 나오고 연습 시간은 120분입니다. format별 문항 수는 choice 18, bug 6, order 3, blank 10, predict 11, code 4이고, level 1/2/3은 13/26/13개입니다. 코드 작성 4문항은 level 2와 level 3에 두 개씩 있습니다.
+
+blueprint는 `tools/ai_mock_rules.py`의 `allocate(LESSON_SCORES, 문항 수)`가 내는 값과 같아야 합니다. 문항 수는 그 회차 배분 버전의 `CONTRACTS` 값이라 `all44-v1`, `all46-v1`, `all50-v1`, `all52-v1`은 각각 44문항, 46문항, 50문항, 52문항을 나눕니다. `LESSON_SCORES`에는 차시마다 카드 수, 단원 수, 시험 근거, 현직자 근거, 뒤 차시 의존을 적고, `points`가 이 다섯 값으로 차시 점수를 셉니다. allocate는 문항 수 T 가운데 응용 몫을 (3T + 5) // 10으로 정합니다. 그다음 과정마다 차시당 1문항을 먼저 주고, 남은 자리를 점수의 제곱 ÷ (더 준 수 + 1)이 가장 큰 차시에 하나씩 줍니다. 한 차시는 4문항까지 받고 값이 같으면 앞 차시가 받습니다.
 
 `python3 tools/verify_ai.py m11`은 혼합 회차와 같은 근거, 중복, 연습 겹침 검사에 더해 아래 항목을 봅니다.
 
-- format별 문항 수는 choice 16, bug 5, order 3, blank 8, predict 8, code 4입니다. choice·bug·order는 kind=choice, blank·predict는 kind=blank, code는 kind=code로 적으므로 객관식 24, 빈칸 16, 코드 작성 4문항이 됩니다.
-- level 1/2/3은 11/22/11개입니다. 이 가운데 코드 작성 4문항은 level 2 2개, level 3 2개입니다.
+- `all44-v1`의 format별 문항 수는 choice 16, bug 5, order 3, blank 8, predict 8, code 4입니다. choice·bug·order는 kind=choice, blank·predict는 kind=blank, code는 kind=code로 적으므로 객관식 24, 빈칸 16, 코드 작성 4문항이 됩니다.
+- `all44-v1`의 level 1/2/3은 11/22/11개입니다. 이 가운데 코드 작성 4문항은 level 2 2개, level 3 2개입니다.
 - `CONTRACTS`의 문항 수는 `exam_size(LESSON_SCORES의 차시 수)`와 같아야 합니다. `LESSON_SCORES`에 차시를 넣어 문항 수가 바뀌거나, 개론과 응용의 몫을 그 과정의 차시마다 1~4문항씩 나눌 수 없으면 지금 배분 버전으로 낸 회차가 실패합니다. 새 배분 버전을 `CONTRACTS`와 `ALL_LESSON_RULES`에 함께 등록하고 그 회차를 새 버전으로 다시 출제합니다.
-- 문항 ID는 회차 ID 뒤에 -01부터 -44까지 붙여 한 번씩 씁니다. m12이면 m12-01부터 m12-44까지입니다.
+- 문항 ID는 회차 ID 뒤에 두 자리 번호를 붙여 씁니다. meta.json에 `retired_items`가 없는 회차는 -01부터 문항 수까지 한 번씩 씁니다. m12이면 m12-01부터 m12-44까지입니다. 처음 낸 회차에는 `retired_items`를 적지 않습니다. 검사는 처음 낸 회차인지 알지 못해서, 번호를 잘못 써 생긴 빈 번호를 `retired_items`에 적어도 통과시킵니다. 이때는 `retired_items`를 적지 말고 번호를 고칩니다.
+- 배분 버전이 바뀌어 문항을 넣거나 빼도 남는 문항의 ID는 바꾸지 않습니다. 뺀 문항의 ID는 meta.json의 `retired_items` 목록에 적고 다시 쓰지 않습니다. 새 문항은 그 회차에서 가장 큰 번호 다음 번호부터 씁니다. 예를 들어 m11에서 m11-10을 빼고 두 문항을 더하면 `retired_items`에 m11-10을 적고 새 문항에 m11-45와 m11-46을 줍니다. 쓰는 ID와 `retired_items`를 합쳐 -01부터 가장 큰 번호까지 빈 번호가 있으면 `retired_items` 없이 사라진 ID로 보고 실패합니다. `retired_items`에 있는 ID를 문항에 다시 써도 실패합니다. 이 규칙은 32문항 회차(m4·m5·m6)에도 똑같이 걸립니다.
 - 공개된 개론·응용 차시가 blueprint에 하나라도 빠지면 실패합니다. 학습 노트 meta.json, 문항 meta.json, 봉인이나 작업본이 모두 있는 차시를 공개된 차시로 봅니다.
 - round_set이 같은 모든 차시 회차끼리 facts에 같은 사실 ID를 쓰면 실패합니다. round_set이 다르면 경고만 냅니다. 경고가 난 사실은 다른 단계나 조건으로 냈는지 회차 기록에 적습니다. related_sources의 보조 사실은 세지 않습니다. meta.json이 draft=true인 모든 차시 회차도 대조하므로, 두 회차를 모두 초안으로 쓰는 동안에도 같은 사실을 쓰면 실패합니다. 회차 사이의 같은 지문·보기 검사도 초안인 모든 차시 회차와 대조합니다. 32문항 회차를 검사할 때도 초안인 모든 차시 회차와 대조합니다.
 
-빠진 차시 검사는 지금 `all44-v1` 회차에만 걸립니다. 새 차시를 공개하면 그 차시의 다섯 값을 `LESSON_SCORES`에 넣고 앞 차시의 의존 값을 고칩니다. 그다음 `exam_size`로 새 문항 수를 정하고 `allocate`로 새 배분을 냅니다. 새 배분 버전은 `CONTRACTS`와 `tools/verify_ai.py`의 `ALL_LESSON_RULES`에 함께 등록합니다. `all44-v1`의 blueprint 기대값은 그때의 `LESSON_SCORES`로 다시 계산합니다. 새 차시를 넣거나 값을 고쳐 `allocate` 결과가 바뀐 PR에서는 `all44-v1` 회차가 모두 배분 불일치로 실패하므로, 그 PR에서 기존 회차를 새 배분 버전으로 함께 옮깁니다. 18차시 이상을 공개할 때는 1~17차시만 받는 `_MockSources.entries`, 보조 차시를 i01~i17로 거르는 `_mixed_mock_evidence`, `range`를 [1, 17]로 기대하는 `_mixed_shared_problems`도 고칩니다.
+빠진 차시 검사는 모든 차시 배분 버전(`all44-v1`, `all46-v1`, `all50-v1`, `all52-v1`)으로 낸 회차에만 걸립니다. 새 차시를 공개하면 그 차시의 다섯 값을 `LESSON_SCORES`에 넣고 앞 차시의 의존 값을 고칩니다. 그다음 `exam_size`로 새 문항 수를 정하고 `allocate`로 새 배분을 냅니다. 새 배분 버전은 `CONTRACTS`와 `tools/verify_ai.py`의 `ALL_LESSON_RULES`에 함께 등록합니다. 공개 회차의 blueprint 기대값은 그때의 `LESSON_SCORES`로 다시 계산합니다. 새 차시를 넣거나 값을 고쳐 `allocate` 결과가 바뀐 PR에서는 `all44-v1` 회차가 모두 배분 불일치로 실패하므로, 그 PR에서 기존 회차를 새 배분 버전으로 함께 옮깁니다. 18차시 이상을 공개할 때는 1~17차시만 받는 `_MockSources.entries`, 보조 차시를 i01~i17로 거르는 `_mixed_mock_evidence`, `range`를 [1, 17]로 기대하는 `_mixed_shared_problems`도 고칩니다.
 
 ### 코드 작성 문항 검사
 

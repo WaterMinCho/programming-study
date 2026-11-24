@@ -164,7 +164,9 @@ def _blank(item, value):
 
 
 class MockExam:
-    """회차 하나. question·save_answer·move·toggle_flag는 초안만 다루고 submit에서 채점함."""
+    """회차 하나. question·save_answer·move·toggle_flag는 초안만 다루고 submit에서 채점함.
+    코드 작성 회차는 생성자와 question 에서 마감을 넘겨도 제출하지 않음. 채점이 몇 초 걸려 화면이 작업 스레드에서
+    expire_mocks 를 불러 제출함."""
 
     def __init__(self, session, mid, repeat=False, seed=None, clock=None, monotonic=None, submit_expired=True):
         self.sess, self.id = session, mid
@@ -242,7 +244,7 @@ class MockExam:
                     session._collect_record(started_row)
             self._anchor = self.monotonic()
             self._budget = self._wall_remaining()
-            if submit_expired and self.result is None and self.remaining() <= 0:
+            if submit_expired and not self.has_code and self.result is None and self.remaining() <= 0:
                 self.submit(auto=True)
 
     def _path(self):
@@ -351,7 +353,9 @@ class MockExam:
 
     def _active(self, submit=True):
         """submit 이 거짓이면 시간이 다 돼도 제출하지 않음. save_answer·move·toggle_flag 는 잠금을 쥔 채 이 함수를 부르는데,
-        코드 작성 채점은 잠금을 놓고 해야 함. 그래서 코드 작성 회차에서는 거짓을 넘기고 만료 제출은 expire_mocks 가 맡음."""
+        코드 작성 채점은 잠금을 놓고 해야 함. 그래서 코드 작성 회차에서는 거짓을 넘기고 만료 제출은 expire_mocks 가 맡음.
+        question 은 잠금을 쥐지 않지만 화면 스레드에서 불림. 여기서 코드 작성 채점을 하면 채점하는 몇 초 동안 화면이 멈추므로
+        코드 작성 회차에서는 question 도 거짓을 넘김."""
         if self.result is not None or self.submitting:
             return False
         if self.remaining() <= 0:
@@ -444,7 +448,7 @@ class MockExam:
 
     def question(self, position=None):
         if self.result is None:
-            self._active()
+            self._active(submit=not self.has_code)
         position = self.draft["current"] if position is None else position
         if type(position) is not int or not 0 <= position < len(self.items):
             raise MockError("문항 번호가 맞지 않습니다.")
@@ -467,6 +471,19 @@ class MockExam:
                 **({"course": item["course"], "course_no": self.sess.mock_lessons[item["lesson"]]["no"]} if self.mixed else {}),
                 **({key: copy.deepcopy(item["code"][key]) for key in ("starter", "entry", "examples")}
                    if item["kind"] == "code" else {})}
+
+    def run_code(self, lines, cid=None):
+        """[코드 실행]. 지금 문항(cid 가 있으면 그 문항)의 공개 예시만 돌림. 시간 제한과 허용 오차는 채점과 같은 문항 값을 씀.
+        숨은 테스트와 모범 답안은 넘기지 않고 기록과 수집도 하지 않음. 실행하는 동안 잠금을 쥐지 않음."""
+        with self.lock:
+            cid = cid or self.draft["order"][self.draft["current"]]
+            item = self.items.get(cid)
+            if item is None or item["kind"] != "code":
+                raise MockError("코드 작성 문항에서만 실행할 수 있습니다.")
+            self._validate_answer(cid, lines)
+            code = copy.deepcopy(item["code"])
+        return mock_code.try_code(code["starter"], code["entry"], code["examples"], list(lines),
+                                  code.get("limit_ms"), code.get("tol"))
 
     def answered(self, cid):
         value = self.draft["answers"].get(cid) or []
@@ -627,4 +644,5 @@ class MockExam:
                 "right": grade.right_options(item) if item["kind"] == "choice" else [],
                 "explain": item.get("explain", ""), "why": {n: o.get("why", "") for n, o in enumerate(item.get("options") or [])},
                 "ref": list(item.get("ref") or []),
-                **({"solution": list(item["solution"])} if item["kind"] == "code" else {})}
+                **({"solution": list(item["solution"]), "passed": (self.draft.get("code_passed") or {}).get(cid)}
+                   if item["kind"] == "code" else {})}

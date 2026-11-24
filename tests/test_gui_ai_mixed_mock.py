@@ -8,7 +8,7 @@ from tests import guikit, test_gui_ai
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QLabel
 from gui import theme
-from tests.test_ai_mixed_mock import make_bank, without_mixed_metadata
+from tests.test_ai_mixed_mock import listing_legacy, make_bank, without_mixed_metadata
 from tests.test_gui_ai import visible_text
 
 
@@ -112,10 +112,16 @@ class PublishedMixedMockPageTest(unittest.TestCase):
     app_item = "20"
     real_bank = True
     pc = False
-    setUp = test_gui_ai.AiTest.setUp
     tearDown = test_gui_ai.AiTest.tearDown
     boot = test_gui_ai.AiTest.boot
     idle = test_gui_ai.AiTest.idle
+
+    def setUp(self):
+        test_gui_ai.AiTest.setUp(self)
+        # 실제 문항 화면을 보는 검사라 예전 회차의 legacy 표시만 이 검사 안에서 뺌
+        patch = listing_legacy(self.mid)
+        patch.start()
+        self.addCleanup(patch.stop)
 
     def test_actual_32_items_restore_across_tabs_at_largest_text_in_both_themes(self):
         self.addCleanup(theme.set_text,'normal')

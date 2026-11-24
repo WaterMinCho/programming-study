@@ -730,6 +730,47 @@ class CodeExamTest(unittest.TestCase):
         self.assertEqual(("stuck", True, 1), (result["results"]["m1-05"], result["auto"], grader.call_count))
         self.assertEqual(WRONG, study.read_json(exam.path)["answers"]["m1-05"])
 
+    def test_reopening_or_reading_an_expired_code_exam_does_not_grade_it(self):
+        """코드 작성 회차는 생성자와 question 이 마감 뒤에도 채점하지 않음. 빈칸·객관식만 있는 회차는
+        test_expired_exam_auto_submits_on_reopen 처럼 예전대로 자동 제출함."""
+        exam = self.exam(seed=2)
+        exam.save_answer(WRONG, "m1-05")
+        self.clock.advance(61)
+        with mock.patch.object(mock_code, "grade", side_effect=stuck_grade) as grader:
+            exam.question(0)
+            reopened = self.exam()
+            reopened.question()
+            self.assertEqual((0, None, None), (grader.call_count, exam.result, reopened.result))
+            self.assertEqual([], mock_submits(self.session.record.log))
+            result = reopened.submit()
+        self.assertEqual(("stuck", True, 1), (result["results"]["m1-05"], result["auto"], grader.call_count))
+
+    def test_run_code_uses_the_item_limits_without_hidden_tests_or_records(self):
+        exam = self.exam(seed=2)
+        exam.save_answer(RIGHT, "m1-05")
+        self.items[-1]["code"].update(limit_ms=1500, tol=0.25)
+        exam.items["m1-05"]["code"].update(limit_ms=1500, tol=0.25)
+        before = Path(self.session.record.path).read_bytes()
+        draft = Path(exam.path).read_bytes()
+        reply = {"result": "pass", "passed": 2, "total": 2, "reason": "", "cases": []}
+        with mock.patch.object(mock_code, "try_code", return_value=reply) as runner:
+            self.assertEqual(reply, exam.run_code(WRONG, "m1-05"))
+        code = self.items[-1]["code"]
+        runner.assert_called_once_with(code["starter"], "add", code["examples"], WRONG, 1500, 0.25)
+        self.assertNotIn("40017", json.dumps([list(runner.call_args.args), runner.call_args.kwargs]))
+        self.assertEqual((before, draft), (Path(self.session.record.path).read_bytes(), Path(exam.path).read_bytes()))
+        with self.assertRaisesRegex(MockError, "코드 작성 문항에서만"):
+            exam.run_code(["3"], "m1-03")
+
+    def test_explain_gives_the_local_pass_count_only_after_submit(self):
+        exam = self.exam(seed=2)
+        exam.save_answer(WRONG, "m1-05")
+        with mock.patch.object(mock_code, "grade", side_effect=stuck_grade):
+            exam.submit()
+        self.assertEqual([1, 2], exam.explain("m1-05")["passed"])
+        self.assertNotIn("passed", exam.explain("m1-03"))
+        self.assertNotIn("passed", json.dumps(self.session.record.load()))
+
     def test_only_code_revision_follows_the_runner_files(self):
         exam = self.exam(seed=2)
         code_before, blank_before = exam.collection_item("m1-05"), exam.collection_item("m1-03")
@@ -820,7 +861,7 @@ class CodeServiceTest(Base):
 
     def test_lesson_counts_cover_every_item(self):
         """시작 전 차시 표가 쓰는 mock_info()['lessons'] 는 문항에서 센 차시별 수이고 합이 문항 수와 같음.
-        blueprint 가 있는 실제 회차(m4·m11)는 blueprint 와 같음. m11 의 hidden 은 이 검사 안에서만 뺌."""
+        blueprint 가 있는 실제 회차(m4·m11)는 blueprint 와 같음. 예전 회차 m1·m4 의 legacy 는 이 검사 안에서만 뺌."""
         self.assertEqual({"i90": 5}, self.session().mock_info("m90")["lessons"])
         source = str(Path(__file__).resolve().parents[1] / "ai")
         real = bank.read_index
@@ -828,7 +869,7 @@ class CodeServiceTest(Base):
         def shown(path=None):
             index = real(path)
             for spec in index["mocks"]:
-                spec.pop("hidden", None)
+                spec.pop("legacy", None)
             return index
 
         with mock.patch.object(bank, "read_index", shown):
@@ -911,6 +952,22 @@ class CodeServiceTest(Base):
         keys = {item["key"] for group in sess.wrong_notes() for item in group["items"]}
         self.assertEqual({"m90-01", "m90-02", "m90-03", "m90-04"}, keys)
         self.assertNotIn("m90-05", sess.mock_code_cards)
+
+    def test_expired_code_exam_opened_by_start_mock_waits_for_expire_mocks(self):
+        sess = self.session()
+        exam = sess.start_mock("m90", seed=1)
+        exam.save_answer(WRONG, "m90-05")
+        self.at = "2026-11-09T21:01:00"
+        with mock.patch.object(mock_code, "grade", side_effect=stuck_grade) as grader:
+            fresh = self.session()
+            fresh._mock_exams.clear()
+            reopened = fresh.start_mock("m90")
+            self.assertEqual((0, None), (grader.call_count, reopened.result))
+            fresh.expire_mocks(code=False)
+            self.assertEqual((0, {"m90"}), (grader.call_count, fresh.expired_code_mocks))
+            fresh.expire_mocks()
+        submitted = self.log(fresh, "mock_submit")
+        self.assertEqual((1, 1, True), (grader.call_count, len(submitted), submitted[0]["auto"]))
 
     def test_ticker_skips_an_exam_while_its_code_is_graded(self):
         sess = self.session()

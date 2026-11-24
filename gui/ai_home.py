@@ -7,7 +7,7 @@
 from PyQt6.QtCore import QEvent, Qt
 from PyQt6.QtWidgets import QBoxLayout, QWidget
 
-from aiprep import bank, mixed_mock
+from aiprep import bank
 from gui import ai_text, kit, theme
 from gui.disclosure import DisclosureButton
 from gui.wrong_page import count_line
@@ -226,7 +226,7 @@ class AiHomePage(QWidget):
         self.browser.add_section("coding", ai_text.CODING_TITLE, "상황에 맞는 코드와 실행 순서를 연습합니다.", patterns)
 
         mocks = QWidget()
-        root = kit.box(mocks, spacing=16)
+        root = kit.box(mocks, spacing=theme.GAP["description_content"])
         head, _, self.mock_count = kit.section("모의고사")
         root.addWidget(kit.heading(head, kit.para("제한 시간 동안 풀고 제출한 뒤 정답과 해설을 확인합니다. 중간에 나가도 시간은 계속 흐릅니다.", "caption", "secondary")))
         self.mock_notice = kit.banner("")
@@ -234,7 +234,7 @@ class AiHomePage(QWidget):
         root.addWidget(self.mock_notice)
         self.mock_section = QWidget()
         mock_box = kit.box(self.mock_section, spacing=theme.GAP["description_content"])
-        self.mock_list = kit.RowList(separate=True, least=72, pad=11, gap=4)
+        self.mock_list = kit.RowList(separate=True, least=theme.CONTROL["row2"])
         mock_box.addWidget(self.mock_list)
         self.mock_pending = kit.para("", "body", "secondary")
         mock_box.addWidget(self.mock_pending)
@@ -245,7 +245,7 @@ class AiHomePage(QWidget):
         self.old_toggle.toggled.connect(self.toggle_old)
         self.old_toggle.hide()
         root.addWidget(self.old_toggle)
-        self.old_list = kit.RowList(separate=True, least=72, pad=11, gap=4)
+        self.old_list = kit.RowList(separate=True, least=theme.CONTROL["row2"])
         self.old_list.hide()
         root.addWidget(self.old_list)
         self.browser.add_section("mocks", "모의고사", "회차를 골라 제한 시간 안에 풉니다.", mocks, listed=False)
@@ -381,8 +381,7 @@ class AiHomePage(QWidget):
             hint = '남은 시간 %d분' % ((state['remaining'] + 59) // 60)
         elif state['first_score'] is not None:
             end = '%d / %d' % (state['first_score'], spec['count'])
-        detail = mixed_mock.description(spec) if mixed_mock.candidate(spec) else '%d문항 · %d분 · %d~%d차시' % (
-            spec['count'], spec['minutes'], spec['range'][0], spec['range'][1])
+        detail = ai_text.mock_description(spec)
         if state['error']:
             detail += '\n' + state['error']
         row = TailRow(spec['title'], detail, wrap=True, tail=kit.badge(end, tone))

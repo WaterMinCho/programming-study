@@ -226,7 +226,7 @@ def check_index(v, bank_dir):
                                                                                             and mock["range"][1] <= nos[-1])):
             v.fail("index", 1, "%s 의 range 가 차시 범위가 아닙니다: %s" % (mock["id"], mock["range"]))
         days = [review.parse_day(d) for d in mock["window"]]
-        if mixed_mock.candidate(mock) and mock.get("scope") == "mixed" and not days:
+        if not days and (mock.get("legacy") or (mixed_mock.candidate(mock) and mock.get("scope") == "mixed")):
             continue
         if len(days) != 2 or None in days or days[0] > days[1]:
             v.fail("index", 1, "%s 의 window 는 [시작, 끝] 날짜여야 합니다." % mock["id"])
@@ -1689,7 +1689,13 @@ MIXED_BLUEPRINTS = {"mixed32-blueprint-v1": MIXED_BLUEPRINT,
 VARIATION_REVISIONS = ("mixed32-transfer-v1", "mixed32-applied04-v1")
 # 모든 차시 회차의 배분 버전마다 format별 문항 수, level별 문항 수, 코드 작성 문항의 level별 수. kind 수는 format 수에서 셈
 ALL_LESSON_RULES = {"all44-v1": {"format": {"choice": 16, "bug": 5, "order": 3, "blank": 8, "predict": 8, "code": 4},
-                                 "level": {1: 11, 2: 22, 3: 11}, "code_level": {2: 2, 3: 2}}}
+                                 "level": {1: 11, 2: 22, 3: 11}, "code_level": {2: 2, 3: 2}},
+                    "all46-v1": {"format": {"choice": 17, "bug": 5, "order": 3, "blank": 8, "predict": 9, "code": 4},
+                                 "level": {1: 11, 2: 24, 3: 11}, "code_level": {2: 2, 3: 2}},
+                    "all50-v1": {"format": {"choice": 18, "bug": 6, "order": 3, "blank": 9, "predict": 10, "code": 4},
+                                 "level": {1: 13, 2: 25, 3: 12}, "code_level": {2: 2, 3: 2}},
+                    "all52-v1": {"format": {"choice": 18, "bug": 6, "order": 3, "blank": 10, "predict": 11, "code": 4},
+                                 "level": {1: 13, 2: 26, 3: 13}, "code_level": {2: 2, 3: 2}}}
 FORMAT_KINDS = {"choice": "choice", "bug": "choice", "order": "choice", "blank": "blank", "predict": "blank", "code": "code"}
 
 
@@ -1710,6 +1716,38 @@ def _mixed_blueprint(entry):
         return ai_mock_rules.allocate(ai_mock_rules.LESSON_SCORES, _mixed_contract(entry)["count"])
     revision = entry.get("blueprint_revision")
     return MIXED_BLUEPRINTS.get(revision) if isinstance(revision, str) else None
+
+
+def _item_id_problems(label, ids, retired, count):
+    """회차 문항 ID 규칙. 남는 ID 는 그대로 두고 새 ID 는 가장 큰 번호 다음을 씀. 뺀 ID 는 meta.json retired_items 에 적고
+    다시 쓰지 않음. 쓰는 ID 와 뺀 ID 를 합치면 {label}-01 부터 가장 큰 번호까지 빈 번호 없이 한 번씩 나와야 함.
+    처음 낸 회차인지는 알 수 없어서 빈 번호 안내 첫머리에 처음 낸 회차가 쓸 {label}-01..count 를 적음."""
+    out = []
+    if not isinstance(retired, list) or not all(isinstance(cid, str) for cid in retired):
+        out.append(f"{label} meta.json의 retired_items는 뺀 문항 ID 목록이어야 합니다.")
+        retired = []
+    numbers = {}
+    for cid in ids + retired:
+        match = re.fullmatch(re.escape(label) + r"-(\d{2,3})", str(cid))
+        if not match or str(cid) != "%s-%02d" % (label, int(match.group(1))) or int(match.group(1)) < 1:
+            out.append(f"{label}의 문항 ID {cid}는 {label}-01처럼 회차 ID와 두 자리 번호로 쓰세요.")
+        else:
+            numbers[cid] = int(match.group(1))
+    for name, rows in (("문항", ids), ("retired_items", retired)):
+        twice = sorted(cid for cid, n in collections.Counter(rows).items() if n > 1)
+        if twice:
+            out.append(f"{label}의 {name} ID가 두 번 나옵니다: {verify_web.listing(twice)}")
+    reused = sorted(set(ids) & set(retired))
+    if reused:
+        out.append(f"{label}의 retired_items에 있는 뺀 문항 ID를 다시 썼습니다: {verify_web.listing(reused)}. "
+                   f"새 문항은 가장 큰 번호 다음 번호를 쓰세요.")
+    top = max(numbers.values(), default=0)
+    gone = ["%s-%02d" % (label, n) for n in range(1, top + 1) if "%s-%02d" % (label, n) not in numbers]
+    if gone:
+        out.append(f"{label}의 문항 ID가 retired_items 없이 사라졌습니다: {verify_web.listing(gone)}. 처음 낸 회차는 "
+                   f"retired_items 없이 {label}-01부터 {label}-{count:02d}까지 한 번씩 쓰세요. 배분 버전을 바꿔 다시 낸 회차는 "
+                   f"남는 문항의 ID를 그대로 두고, 뺀 문항은 meta.json의 retired_items에 적고, 새 문항은 가장 큰 번호 다음 번호를 쓰세요.")
+    return out
 
 
 def _mixed_shared_problems(entry, meta, items, sources, contract, blueprint, counts):
@@ -1737,9 +1775,7 @@ def _mixed_shared_problems(entry, meta, items, sources, contract, blueprint, cou
         found = collections.Counter(item.get(field) for item in items if isinstance(item.get(field), (str, int)))
         if found != expected_counts:
             out.append(f"{label}의 실제 %s 배분이 일치하지 않습니다: %s" % (field, dict(found)))
-    count = contract["count"]
-    if sorted(item["id"] for item in items) != ["%s-%02d" % (label, n) for n in range(1, count + 1)]:
-        out.append(f"{label}의 문항 ID는 {label}-01부터 {label}-{count:02d}까지 한 번씩 사용하세요.")
+    out += _item_id_problems(label, [item["id"] for item in items], meta.get("retired_items", []), contract["count"])
     if revision in VARIATION_REVISIONS or "variation_types" in meta:
         axes = ["condition", "application", "code_analysis", "comparison"]
         if meta.get("variation_types") != axes:
@@ -2100,6 +2136,20 @@ def mock_version(mock, secrets):
     return {"fingerprint": fingerprint, "spec": {key: mock[key] for key in aimock.VERSION_KEYS if key in mock}}
 
 
+def _moved_id_problems(kept, items):
+    """보존본에 있던 문항 ID 가 지금 문항에도 있으면 차시(lesson)가 같아야 함. 뺀 문항의 ID 를 새 문항에 다시 주면 ID 만 보는
+    _item_id_problems 는 잡지 못함(가장 큰 번호를 빼고 그 번호를 새 문항에 준 경우). kept 는 {fingerprint: {id: 문항}}."""
+    now = {item.get("id"): item.get("lesson") for item in items if isinstance(item, dict)}
+    out = []
+    for fingerprint, rows in sorted(kept.items()):
+        moved = sorted(cid for cid, item in rows.items()
+                       if cid in now and isinstance(item, dict) and item.get("lesson") != now[cid])
+        if moved:
+            out.append("예전 버전 %s 에 있던 문항 ID %s 의 차시가 지금 문항과 다릅니다. 뺀 문항의 ID 는 meta.json 의 retired_items 에 "
+                       "적고, 새 문항은 가장 큰 번호 다음 번호를 쓰세요." % (fingerprint[:12], verify_web.listing(moved)))
+    return out
+
+
 def _version_problems(bank_dir, mock):
     """봉인 묶음의 versions/ 에 남긴 예전 버전 문항 검사. 파일 이름 꼴, items.json·spec.json 짝, 다시 계산한 fingerprint 가 폴더
     이름과 같은지, 직전 커밋의 봉인에 있던 보존본이 같은 글로 남아 있는지 봄. 메시지에는 fingerprint 앞 12자만 씀."""
@@ -2113,14 +2163,23 @@ def _version_problems(bank_dir, mock):
             problems.append("%s/ 에는 <fingerprint>/items.json 과 spec.json 만 둡니다: %s" % (aimock.VERSIONS, rel))
             continue
         parts.setdefault(found.group(1), set()).add(found.group(2))
+    kept = {}
     for fingerprint, names in sorted(parts.items()):
         if names != {"items", "spec"}:
             problems.append("예전 버전 %s 에 items.json 과 spec.json 이 함께 있어야 합니다." % fingerprint[:12])
             continue
         try:
-            aimock.load_version(bank_dir, mock, fingerprint)
+            loaded = aimock.load_version(bank_dir, mock, fingerprint)
         except aimock.MockError as error:
             problems.append("예전 버전 %s: %s" % (fingerprint[:12], error))
+            continue
+        if loaded:
+            kept[fingerprint] = loaded[1]
+    try:
+        current = json.loads(secrets["items.json"])["items"]
+    except (KeyError, ValueError, TypeError):
+        current = []
+    problems += _moved_id_problems(kept, current)
     gone = sorted({rel.split("/")[1][:12] for rel, text in git_versions(bank_dir, mock["id"]).items() if secrets.get(rel) != text})
     if gone:
         problems.append("직전 커밋의 봉인에 있던 예전 버전 문항이 빠지거나 바뀌었습니다: %s. 그 버전으로 제출한 사람의 결과와 오답 "

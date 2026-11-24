@@ -11,7 +11,7 @@ from unittest import mock
 import study
 from aiprep import bank, mixed_mock, service
 from learning_data import collection
-from tests.test_ai_mixed_mock import READ_INDEX, make_bank
+from tests.test_ai_mixed_mock import READ_INDEX, make_bank, submitted_before
 from tools import verify_ai
 
 
@@ -192,6 +192,17 @@ class MockVisibilityTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "일치하지 않습니다"):
             mixed_mock.validate(good, dict(good, draft=False, count=32))
 
+    def test_only_legacy_intro_mock_may_drop_its_window(self):
+        """예전 개론 회차는 제출한 사람에게만 보이므로 응시 기간을 비워도 됨. legacy 가 아닌 개론 회차는 기간이 있어야 함."""
+        for legacy, failed in ((True, False), (False, True)):
+            with self.subTest(legacy=legacy):
+                self.mark("m90", window=[], legacy=legacy)
+                out = io.StringIO()
+                verifier = verify_ai.Verifier(None, out=out)
+                verify_ai.check_index(verifier, str(self.bank))
+                self.assertEqual(failed, verifier.failed("index"), out.getvalue())
+                self.assertEqual(failed, "m90 의 window 는 [시작, 끝] 날짜여야 합니다." in out.getvalue())
+
     def test_switch_values_must_be_booleans(self):
         self.mark(hidden="yes")
         with self.assertRaisesRegex(bank.AiBankError, "hidden"):
@@ -204,24 +215,62 @@ class MockVisibilityTest(unittest.TestCase):
 
 
 class PublishedBankListTest(unittest.TestCase):
-    def test_actual_bank_lists_every_published_mock_as_before(self):
-        """실제 은행에는 legacy 회차가 없음. hidden 회차는 회차 목록(mocks)과 오류 목록(errors) 어디에도 나오지 않음. 준비 중 안내(mock_pending)는 비어 있음. hidden 회차를 뺀 목록은 index.json 의 회차 목록과 같음."""
-        root = Path(__file__).resolve().parents[1]/"ai"
-        specs = READ_INDEX(str(root))["mocks"]
-        self.assertFalse(any("legacy" in spec for spec in specs))
-        hidden = {spec["id"] for spec in specs if spec.get("hidden")}
-        specs = [spec for spec in specs if not spec.get("hidden")]
-        with tempfile.TemporaryDirectory(prefix="mock_visibility_actual_") as tmp, \
-                mock.patch.object(study, "SUBMISSIONS_DIR", str(Path(tmp)/"subs")):
-            for course in ("intro", "app"):
-                with self.subTest(course=course):
-                    sess = service.AiSession("synthetic", home=str(Path(tmp)/"home"), root=str(root), course=course)
-                    wanted = {spec["id"]: spec for spec in specs if course == "intro" or mixed_mock.candidate(spec)}
-                    self.assertEqual(wanted, sess.mocks)
-                    self.assertFalse(hidden & (set(sess.mocks) | set(sess.errors)))
-                    self.assertEqual({}, sess.mock_pending)
-                    self.assertEqual([], sess.legacy_drafts)
+    """실제 은행의 회차 목록. 예전 회차 m1~m6 은 legacy 라 제출한 사람에게만 보이고, 새 사용자는 hidden·legacy 가 아닌 회차만 봄."""
+    root = Path(__file__).resolve().parents[1]/"ai"
 
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="mock_visibility_actual_")
+        self.addCleanup(tmp.cleanup)
+        self.home = str(Path(tmp.name)/"home")
+        patch = mock.patch.object(study, "SUBMISSIONS_DIR", str(Path(tmp.name)/"subs"))
+        patch.start()
+        self.addCleanup(patch.stop)
+        mixed_mock._EXAMS.clear()
+        self.addCleanup(mixed_mock._EXAMS.clear)
+        self.specs = READ_INDEX(str(self.root))["mocks"]
+        self.fresh = {spec["id"] for spec in self.specs if not spec.get("hidden") and not spec.get("legacy")}
+
+    def session(self, user, course="intro"):
+        mixed_mock._EXAMS.clear()
+        return service.AiSession(user, home=self.home, root=str(self.root), course=course)
+
+    def test_index_marks_old_rounds_legacy_and_keeps_the_new_rounds_open(self):
+        specs = {spec["id"]: spec for spec in self.specs}
+        for n in range(1, 7):
+            with self.subTest(mock="m%d" % n):
+                self.assertIs(True, specs["m%d" % n].get("legacy"))
+                self.assertEqual("이전 모의고사 %d회" % n, specs["m%d" % n]["title"])
+        self.assertEqual([], specs["m2"]["window"])
+        self.assertEqual([], specs["m3"]["window"])
+        self.assertEqual({"m11", "m12"}, self.fresh)
+        self.assertEqual(("모의고사 1회", "모의고사 2회"), (specs["m11"]["title"], specs["m12"]["title"]))
+
+    def test_new_learner_sees_only_open_rounds(self):
+        """hidden·legacy 회차는 회차 목록(mocks)과 오류 목록(errors) 어디에도 나오지 않고 준비 중 안내(mock_pending)도 비어 있음.
+        모든 차시 회차 m11·m12 는 두 과정 목록에 모두 나옴."""
+        closed = {spec["id"] for spec in self.specs} - self.fresh
+        for course in ("intro", "app"):
+            with self.subTest(course=course):
+                sess = self.session("synthetic", course)
+                self.assertEqual({spec["id"]: spec for spec in self.specs if spec["id"] in self.fresh}, sess.mocks)
+                self.assertFalse(closed & (set(sess.mocks) | set(sess.errors)))
+                self.assertEqual({}, sess.mock_pending)
+                self.assertEqual([], sess.legacy_drafts)
+                titles = [row["title"] for row in sess.overview()["mocks"]]
+                self.assertEqual(len(titles), len(set(titles)))
+
+    def test_learner_who_submitted_an_old_round_keeps_it_listed(self):
+        submitted_before("m4-taker", self.home, str(self.root), "m4")
+        submitted_before("m1-taker", self.home, str(self.root), "m1")
+        for course in ("intro", "app"):
+            with self.subTest(course=course):
+                self.assertEqual(self.fresh | ({"m1"} if course == "intro" else set()), set(self.session("m1-taker", course).mocks))
+                sess = self.session("m4-taker", course)
+                self.assertEqual(self.fresh | {"m4"}, set(sess.mocks))
+                row = next(m for m in sess.overview()["mocks"] if m["id"] == "m4")
+                self.assertTrue(row["legacy"])
+                self.assertEqual("이전 모의고사 4회", row["title"])
+                self.assertEqual([], sess.legacy_drafts)
 
 if __name__ == "__main__":
     unittest.main()

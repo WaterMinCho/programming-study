@@ -22,6 +22,7 @@ from gui.editor import LANGS, CodeEditor
 CODE_MARKS = {"python": ("python", "py"), "javascript": ("javascript", "js")}  # 펜스 코드 블록에 붙는 언어 표시
 SCALE = 2  # 그림 파일은 화면에 보일 크기의 2배로 그려 둠
 NARROW_CSS = "pre { white-space: pre-wrap; }"  # 글 조각은 가로 스크롤이 없으므로 긴 코드 줄을 조각 폭에서 줄바꿈함
+HANG = 4  # 접힌 코드 줄의 뒷부분을 그 줄 들여쓰기보다 공백 몇 칸 더 들일지. 맨 앞 칸에서 시작하면 함수 밖의 새 줄처럼 읽힘
 RULED = (2, 3)  # 앞에 가로줄을 넣는 제목 단계. 지문·해설의 구역 제목은 2단계, 힌트 제목은 3단계임
 CODE_RADIUS = theme.RADIUS["control"]  # 코드 상자와 해설 그림의 모서리 반지름(12)
 CODE_MARGIN = (16, 10)  # 코드 상자의 초기 바깥 여백. 문단 사이 간격은 실제 글꼴과 줄 위치로 보정함.
@@ -203,8 +204,27 @@ class TextPiece(QTextBrowser):
             box.setTopMargin(CODE_MARGIN[0])
             box.setBottomMargin(max(0, CODE_MARGIN[1] - following.get(frame, 0)))
             frame.setFormat(box)
+            self.hang_code(frame)
         self.trim_ends()
         self.spread_width = None
+
+    def hang_code(self, frame):
+        """코드 상자의 코드 줄마다 왼쪽 여백을 그 줄 들여쓰기에 HANG 칸을 더한 폭으로 두고, 그 코드 줄이 화면에서 차지하는 첫 줄만
+        같은 폭만큼 당겨 원래 자리에서 시작하게 함. 그래서 접히지 않은 줄은 이 함수를 부르기 전과 같은 자리에서 시작하고, 접힌 뒷부분만
+        들여쓴 자리에서 시작함. 칸 폭은 그 코드 줄 글꼴의 공백 폭으로 잼."""
+        cell = frame.cellAt(0, 0)
+        block, end = cell.firstCursorPosition().block(), cell.lastCursorPosition().block()
+        while block.isValid():
+            text = block.text()
+            font = block.charFormat().font().resolve(self.document().defaultFont())
+            width = QFontMetricsF(font).horizontalAdvance(" " * (len(text) - len(text.lstrip(" ")) + HANG))
+            format_ = block.blockFormat()
+            format_.setLeftMargin(width)
+            format_.setTextIndent(-width)
+            QTextCursor(block).setBlockFormat(format_)
+            if block == end:
+                break
+            block = block.next()
 
     def following_margins(self):
         """문서 맨 바깥의 표마다 그 뒤 첫 글 블록의 위 여백 {표: 여백}. Qt 가 표 바로 뒤에 두는 빈 블록은 건너뜀."""

@@ -19,6 +19,14 @@ from submission_api import Client
 
 
 class PrivacyTest(unittest.TestCase):
+    def test_operator_name_update_keeps_existing_v3_receipt_valid(self):
+        from learning_data import privacy
+
+        old = dict(privacy.receipt(), policy="2026-11-13-v3",
+                   policy_hash="534b9e08a6f7eb0b3cb9a975a55db06c3030aa8723083e740878707caf1cd73b")
+        self.assertEqual(old, privacy.validate_receipt(old))
+        self.assertEqual(dict(privacy.NOTICE_ROWS)["운영자·문의"], "WaterMinCho · " + privacy.CONTACT)
+
     def test_v2_consent_survives_server_wording_update_without_resetting_collection(self):
         from learning_data import privacy
         old_version = "2026-11-12-v2"

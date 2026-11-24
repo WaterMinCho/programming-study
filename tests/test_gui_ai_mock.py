@@ -476,6 +476,31 @@ class MockPageTest(AiTest):
         page.begin()
         self.assertIn('0 / 4문항 맞음', page.summary_text())
 
+    def blocked_band_page(self):
+        """코드 작성 문항이 없는 회차를 열고, 답을 바꾸지 않은 채 붙여넣기를 막았다는 오류 띠를 띄움."""
+        page = self.open_mock((1024, 700))
+        self.assertFalse(page.exam.has_code)
+        page.note_blocked()
+        self.assertTrue(page.notice.isVisible())
+        return page
+
+    def assert_result_without_band(self, page):
+        self.idle()
+        self.assertIsNotNone(page.exam.result)
+        self.assertEqual('제출 완료', page.time.text())
+        self.assertFalse(page.notice.isVisible())
+
+    def test_error_band_hides_when_submitting_without_changing_the_answer(self):
+        page = self.blocked_band_page()
+        page.submit()
+        self.assert_result_without_band(page)
+
+    def test_error_band_hides_when_time_runs_out_without_changing_the_answer(self):
+        page = self.blocked_band_page()
+        self.clock = '2026-11-04T21:01:00'
+        page.tick()
+        self.assert_result_without_band(page)
+
     def test_preview_does_not_start_the_clock_or_write_a_record(self):
         page = self.open_mock(start=False)
         self.assertIsNone(page.exam)
@@ -582,8 +607,12 @@ class MockPageTest(AiTest):
             self.assertEqual([page.clock_note], banners)
             self.assertIn('시계가 멈추지 않습니다', page.clock_note.text.text())
             self.assertEqual('warning', page.clock_note.property('tone'))
-            self.assertLess(page.summary.geometry().bottom(), page.clock_note.geometry().top())
-            self.assertLess(page.clock_note.geometry().bottom(), page.ready_types.geometry().top())
+            for above, below in ((page.summary, page.clock_note), (page.clock_note, page.ready_types),
+                                 (page.ready_types, page.lesson_counts)):
+                self.assertEqual(theme.GAP['group'], below.y() - above.y() - above.height())
+            for cell in page.ready_types.cells:
+                self.assertEqual(theme.GAP['title_description'],
+                                 cell.second.y() - cell.name.y() - cell.name.height())
             # code=False 차례는 처음 응시라 다시 시작 안내와 지난 점수가 없어 카드를 숨김.
             # code=True 차례는 앞 차례에 시작한 초안과 문항이 달라 카드에 다시 시작 안내가 있음
             self.assertEqual(code, page.restart_required)
@@ -593,6 +622,9 @@ class MockPageTest(AiTest):
             self.idle()
             self.assertFalse(page.ready_types.isVisible() or page.lesson_counts.isVisible() or page.clock_note.isVisible())
             self.assertTrue(page.card.isVisible())
+            self.assertTrue(page.grid.isVisible())
+            self.assertEqual(theme.GAP['detail'],
+                             page.grid.y() - page.grid_toggle.y() - page.grid_toggle.height())
 
     def test_result_type_cells_and_lesson_rows_in_lesson_order_with_zero_rows_in_danger(self):
         theme.set_text('normal')
@@ -756,7 +788,7 @@ class MockPageTest(AiTest):
 
 
 class RealMockScreensTest(AiTest):
-    """실제 회차 m1(30문항)·m4(32문항)·m11(44문항)의 시작 전 유형 카드와 차시 표를 봄. m11 의 hidden 은 이 검사 안에서만 뺌."""
+    """실제 회차 m1(30문항)·m4(32문항)·m11(모든 차시)의 시작 전 유형 카드와 차시 표를 봄. 예전 회차 m1·m4 의 legacy 는 이 검사 안에서만 뺌."""
     real_bank = True
 
     def setUp(self):
@@ -766,8 +798,7 @@ class RealMockScreensTest(AiTest):
         def shown(path=None):
             index = real(path)
             for spec in index['mocks']:
-                if spec['id'] == 'm11':
-                    spec.pop('hidden', None)
+                spec.pop('legacy', None)
             return index
 
         patcher = mock.patch.object(bank, 'read_index', shown)
@@ -779,7 +810,8 @@ class RealMockScreensTest(AiTest):
         self.addCleanup(theme.set_text, 'normal')
         win = self.boot((1280, 800))
         place(win, (1280, 800))
-        for mid, count in (('m1', 30), ('m4', 32), ('m11', 44)):
+        current_count = next(m['count'] for m in bank.read_index()['mocks'] if m['id'] == 'm11')
+        for mid, count in (('m1', 30), ('m4', 32), ('m11', current_count)):
             self.assertTrue(win.open_ai_mock(mid), mid)
             page = win.ai_mock
             self.idle()
@@ -795,7 +827,7 @@ class RealMockScreensTest(AiTest):
         page.submit()
         self.idle()
         rows = page.lesson_results.rows
-        self.assertEqual(44, sum(int(row.end.text().split(' / ')[1]) for row in rows))
+        self.assertEqual(current_count, sum(int(row.end.text().split(' / ')[1]) for row in rows))
         for row in rows:
             self.assertTrue(row.end.text().startswith('0 / '))
             self.assertEqual('danger', row.title.property('tone'))

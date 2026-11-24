@@ -13,7 +13,10 @@ PUBLISHED_IDS = ("m4", "m5", "m6")
 _MIXED32 = {"count": 32, "minutes": 120, "course_counts": {"intro": 16, "app": 16}}
 # 배분 버전마다 문항 수·시간·과정별 문항 수를 둠. 표에 없는 배분 버전은 학습자 목록에서 숨김
 CONTRACTS = {"mixed32-blueprint-v1": _MIXED32, "mixed32-transfer-v1": _MIXED32, "mixed32-applied04-v1": _MIXED32,
-             "all44-v1": {"count": 44, "minutes": 120, "course_counts": {"intro": 31, "app": 13}, "all_lessons": True}}
+             "all44-v1": {"count": 44, "minutes": 120, "course_counts": {"intro": 31, "app": 13}, "all_lessons": True},
+             "all46-v1": {"count": 46, "minutes": 120, "course_counts": {"intro": 32, "app": 14}, "all_lessons": True},
+             "all50-v1": {"count": 50, "minutes": 120, "course_counts": {"intro": 35, "app": 15}, "all_lessons": True},
+             "all52-v1": {"count": 52, "minutes": 120, "course_counts": {"intro": 36, "app": 16}, "all_lessons": True}}
 
 
 def candidate(spec):
