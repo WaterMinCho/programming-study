@@ -788,7 +788,7 @@ class MockPageTest(AiTest):
 
 
 class RealMockScreensTest(AiTest):
-    """실제 회차 m1(30문항)·m4(32문항)·m11(44문항)의 시작 전 유형 카드와 차시 표를 봄. 예전 회차 m1·m4 의 legacy 는 이 검사 안에서만 뺌."""
+    """실제 회차 m1(30문항)·m4(32문항)·m11(모든 차시)의 시작 전 유형 카드와 차시 표를 봄. 예전 회차 m1·m4 의 legacy 는 이 검사 안에서만 뺌."""
     real_bank = True
 
     def setUp(self):
@@ -810,7 +810,8 @@ class RealMockScreensTest(AiTest):
         self.addCleanup(theme.set_text, 'normal')
         win = self.boot((1280, 800))
         place(win, (1280, 800))
-        for mid, count in (('m1', 30), ('m4', 32), ('m11', 44)):
+        current_count = next(m['count'] for m in bank.read_index()['mocks'] if m['id'] == 'm11')
+        for mid, count in (('m1', 30), ('m4', 32), ('m11', current_count)):
             self.assertTrue(win.open_ai_mock(mid), mid)
             page = win.ai_mock
             self.idle()
@@ -826,7 +827,7 @@ class RealMockScreensTest(AiTest):
         page.submit()
         self.idle()
         rows = page.lesson_results.rows
-        self.assertEqual(44, sum(int(row.end.text().split(' / ')[1]) for row in rows))
+        self.assertEqual(current_count, sum(int(row.end.text().split(' / ')[1]) for row in rows))
         for row in rows:
             self.assertTrue(row.end.text().startswith('0 / '))
             self.assertEqual('danger', row.title.property('tone'))

@@ -1691,7 +1691,9 @@ VARIATION_REVISIONS = ("mixed32-transfer-v1", "mixed32-applied04-v1")
 ALL_LESSON_RULES = {"all44-v1": {"format": {"choice": 16, "bug": 5, "order": 3, "blank": 8, "predict": 8, "code": 4},
                                  "level": {1: 11, 2: 22, 3: 11}, "code_level": {2: 2, 3: 2}},
                     "all46-v1": {"format": {"choice": 17, "bug": 5, "order": 3, "blank": 8, "predict": 9, "code": 4},
-                                 "level": {1: 11, 2: 24, 3: 11}, "code_level": {2: 2, 3: 2}}}
+                                 "level": {1: 11, 2: 24, 3: 11}, "code_level": {2: 2, 3: 2}},
+                    "all50-v1": {"format": {"choice": 18, "bug": 6, "order": 3, "blank": 9, "predict": 10, "code": 4},
+                                 "level": {1: 13, 2: 25, 3: 12}, "code_level": {2: 2, 3: 2}}}
 FORMAT_KINDS = {"choice": "choice", "bug": "choice", "order": "choice", "blank": "blank", "predict": "blank", "code": "code"}
 
 
@@ -2132,6 +2134,20 @@ def mock_version(mock, secrets):
     return {"fingerprint": fingerprint, "spec": {key: mock[key] for key in aimock.VERSION_KEYS if key in mock}}
 
 
+def _moved_id_problems(kept, items):
+    """보존본에 있던 문항 ID 가 지금 문항에도 있으면 차시(lesson)가 같아야 함. 뺀 문항의 ID 를 새 문항에 다시 주면 ID 만 보는
+    _item_id_problems 는 잡지 못함(가장 큰 번호를 빼고 그 번호를 새 문항에 준 경우). kept 는 {fingerprint: {id: 문항}}."""
+    now = {item.get("id"): item.get("lesson") for item in items if isinstance(item, dict)}
+    out = []
+    for fingerprint, rows in sorted(kept.items()):
+        moved = sorted(cid for cid, item in rows.items()
+                       if cid in now and isinstance(item, dict) and item.get("lesson") != now[cid])
+        if moved:
+            out.append("예전 버전 %s 에 있던 문항 ID %s 의 차시가 지금 문항과 다릅니다. 뺀 문항의 ID 는 meta.json 의 retired_items 에 "
+                       "적고, 새 문항은 가장 큰 번호 다음 번호를 쓰세요." % (fingerprint[:12], verify_web.listing(moved)))
+    return out
+
+
 def _version_problems(bank_dir, mock):
     """봉인 묶음의 versions/ 에 남긴 예전 버전 문항 검사. 파일 이름 꼴, items.json·spec.json 짝, 다시 계산한 fingerprint 가 폴더
     이름과 같은지, 직전 커밋의 봉인에 있던 보존본이 같은 글로 남아 있는지 봄. 메시지에는 fingerprint 앞 12자만 씀."""
@@ -2145,14 +2161,23 @@ def _version_problems(bank_dir, mock):
             problems.append("%s/ 에는 <fingerprint>/items.json 과 spec.json 만 둡니다: %s" % (aimock.VERSIONS, rel))
             continue
         parts.setdefault(found.group(1), set()).add(found.group(2))
+    kept = {}
     for fingerprint, names in sorted(parts.items()):
         if names != {"items", "spec"}:
             problems.append("예전 버전 %s 에 items.json 과 spec.json 이 함께 있어야 합니다." % fingerprint[:12])
             continue
         try:
-            aimock.load_version(bank_dir, mock, fingerprint)
+            loaded = aimock.load_version(bank_dir, mock, fingerprint)
         except aimock.MockError as error:
             problems.append("예전 버전 %s: %s" % (fingerprint[:12], error))
+            continue
+        if loaded:
+            kept[fingerprint] = loaded[1]
+    try:
+        current = json.loads(secrets["items.json"])["items"]
+    except (KeyError, ValueError, TypeError):
+        current = []
+    problems += _moved_id_problems(kept, current)
     gone = sorted({rel.split("/")[1][:12] for rel, text in git_versions(bank_dir, mock["id"]).items() if secrets.get(rel) != text})
     if gone:
         problems.append("직전 커밋의 봉인에 있던 예전 버전 문항이 빠지거나 바뀌었습니다: %s. 그 버전으로 제출한 사람의 결과와 오답 "

@@ -608,6 +608,11 @@ class AllLessonValidationTest(unittest.TestCase):
         for n in range(1, 6):
             self.add_app_lesson(index, n)
         self.spec = self.round_spec(self.mid)
+        # 44문항 합성 회차는 공개 당시의 22차시 배분을 씀.
+        scores = {lid: score for lid, score in verify_ai.ai_mock_rules.LESSON_SCORES.items() if lid in legacy.ALL44}
+        patcher = mock.patch.object(verify_ai.ai_mock_rules, 'LESSON_SCORES', scores)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.meta = dict(self.spec, format=1, draft=True, time_basis='연습 기본 시간입니다. 공식 시간은 아닙니다.', round_set=1)
         self.meta.pop('hidden')
         index['mocks'].append(self.spec)
@@ -939,3 +944,45 @@ class ItemIdRuleTest(unittest.TestCase):
         self.assertTrue(any('다시 썼습니다: m11-45.' in text for text in found), found)
         found = self.problems(self.kept + ['m11-10', 'm11-10'], [])
         self.assertTrue(any('문항 ID가 두 번 나옵니다: m11-10' in text for text in found), found)
+
+    def test_first_number_gone_without_retired_items_fails(self):
+        ids = ['m11-%02d' % n for n in range(2, 45)] + ['m11-45']
+        found = self.problems(ids, [])
+        self.assertEqual(1, len(found), found)
+        self.assertTrue(found[0].startswith('m11의 문항 ID가 retired_items 없이 사라졌습니다: m11-01.'), found)
+
+    def test_number_zero_and_three_digit_padding_fail(self):
+        whole = ['m11-%02d' % n for n in range(1, 45)]
+        for bad in ('m11-00', 'm11-001'):
+            found = self.problems(whole + [bad], [])
+            self.assertTrue(any('%s는 m11-01처럼' % bad in text for text in found), (bad, found))
+
+    def test_large_number_only_in_retired_items_still_needs_the_numbers_below(self):
+        found = self.problems(['m11-%02d' % n for n in range(1, 45)], ['m11-46'])
+        self.assertEqual(1, len(found), found)
+        self.assertTrue(found[0].startswith('m11의 문항 ID가 retired_items 없이 사라졌습니다: m11-45.'), found)
+
+
+class MovedIdRuleTest(unittest.TestCase):
+    """보존본에 있던 ID 를 지금 문항이 쓰면 차시가 같아야 함. 가장 큰 번호를 빼고 그 번호를 새 차시 문항에 준 경우를 잡음."""
+    old = {'m11-%02d' % n: {'id': 'm11-%02d' % n, 'lesson': 'a05' if n >= 42 else 'i01'} for n in range(1, 45)}
+
+    def now(self, changes):
+        rows = {cid: dict(item) for cid, item in self.old.items()}
+        for cid, lesson in changes.items():
+            rows[cid] = {'id': cid, 'lesson': lesson}
+        return list(rows.values())
+
+    def test_same_lessons_pass(self):
+        self.assertEqual([], verify_ai._moved_id_problems({'f' * 64: self.old}, self.now({'m11-45': 'a06'})))
+
+    def test_largest_id_given_to_a_new_lesson_fails(self):
+        found = verify_ai._moved_id_problems({'f' * 64: self.old}, self.now({'m11-44': 'a06'}))
+        self.assertEqual(1, len(found), found)
+        self.assertIn('ffffffffffff 에 있던 문항 ID m11-44 의 차시가 지금 문항과 다릅니다.', found[0])
+        # ID 만 보는 규칙은 이 경우를 통과시킴
+        self.assertEqual([], verify_ai._item_id_problems('m11', [item['id'] for item in self.now({'m11-44': 'a06'})], [], 44))
+
+    def test_retired_id_that_is_gone_now_passes(self):
+        rows = [item for item in self.now({}) if item['id'] != 'm11-44'] + [{'id': 'm11-45', 'lesson': 'a06'}]
+        self.assertEqual([], verify_ai._moved_id_problems({'f' * 64: self.old}, rows))

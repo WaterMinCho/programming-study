@@ -1,0 +1,99 @@
+{
+ "format": 1,
+ "id": "al08",
+ "lesson": "a08",
+ "title": "응용 8차시 CNN 특징으로 LSTM이 캡션 쓰기",
+ "defines": [],
+ "needs": [
+  "al05",
+  "al06",
+  "l05",
+  "l09",
+  "l13",
+  "l17"
+ ],
+ "sections": {
+  "a8a": "캡션을 번호 줄로 바꾸고 짧은 캡션 채우기",
+  "a8b": "사전학습 ResNet이 사진 한 장을 256개 숫자로 바꾸기",
+  "a8c": "이미지 특징을 첫 입력으로 넣고 한 칸 밀린 정답 맞추기",
+  "a8d": "LSTM 출력을 9,948개 점수로 바꾸고 손실 읽기",
+  "a8e": "greedy 탐색으로 한 낱말씩 고르고 <end>에서 멈추기",
+  "a8f": "BLEU·METEOR·CIDEr를 짧은 문장으로 계산하기"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "캡션을 번호 줄로 바꾸고 짧은 캡션 채우기",
+   "url": "https://docs.pytorch.org/docs/2.15/data.html",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "사전학습 ResNet이 사진 한 장을 256개 숫자로 바꾸기",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.BatchNorm1d.html",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "사전학습 ResNet이 사진 한 장을 256개 숫자로 바꾸기",
+   "url": "https://docs.pytorch.org/vision/stable/models.html",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "이미지 특징을 첫 입력으로 넣고 한 칸 밀린 정답 맞추기",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.utils.rnn.pack_padded_sequence.html",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "이미지 특징을 첫 입력으로 넣고 한 칸 밀린 정답 맞추기",
+   "url": "https://arxiv.org/abs/1411.4555",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "LSTM 출력을 9,948개 점수로 바꾸고 손실 읽기",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.LSTM.html",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "greedy 탐색으로 한 낱말씩 고르고 <end>에서 멈추기",
+   "url": "https://arxiv.org/abs/1411.4555",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "BLEU·METEOR·CIDEr를 짧은 문장으로 계산하기",
+   "url": "https://www.nltk.org/api/nltk.translate.bleu_score.html",
+   "checked": "2026-11-23"
+  }
+ ],
+ "units": {
+  "a8a": {
+   "minutes": 8,
+   "key_figure": "assets/a8a-1.gif",
+   "kind": "concept"
+  },
+  "a8b": {
+   "minutes": 8,
+   "key_figure": "assets/a8b-3.png",
+   "kind": "concept"
+  },
+  "a8c": {
+   "minutes": 8,
+   "key_figure": "assets/a8c-2.gif",
+   "kind": "concept"
+  },
+  "a8d": {
+   "minutes": 8,
+   "key_figure": "assets/a8d-2.gif",
+   "kind": "concept"
+  },
+  "a8e": {
+   "minutes": 8,
+   "key_figure": "assets/a8e-1.gif",
+   "kind": "concept"
+  },
+  "a8f": {
+   "minutes": 8,
+   "key_figure": "assets/a8f-1.gif",
+   "kind": "concept"
+  }
+ }
+}
