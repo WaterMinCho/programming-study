@@ -1,8 +1,6 @@
 from experiments.michae18.model import SmallLSTM
 from experiments.michae18.input_check import load_data
 from learning_server.score import render, score_validation
-from datetime import datetime
-from pathlib import Path
 
 from experiments.michae18.constants import DATASET_PATH, TRACK, SEED, Trainconfig, Modelconfig
 import random
@@ -331,7 +329,6 @@ def main():
         event_ids=val_event_ids,
         probabilities=probabilities,
         model_name="small-lstm",
-        output_root=Path("../preds"),
     )
     print(render(result))
     print(f"검증 결과 저장: {run_dir}")

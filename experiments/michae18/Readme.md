@@ -24,6 +24,16 @@
 - 입력 확인 파일: `experiments/michae18/input_check.py`
 - 테스트 파일: `experiments/michae18/test_data_model.py`
 
+## 학습과 검증 실행하기
+
+NumPy·PyTorch·Matplotlib를 설치한 환경에서 실행하세요. `constants.py`의 `DATASET_PATH`에 Git 저장소 밖의 공통 자료 폴더를 지정한 뒤, 프로젝트 루트에서 아래 명령을 실행합니다.
+
+```sh
+python -m experiments.michae18.train
+```
+
+검증 예측과 점수는 `.local/validation-results/<날짜>/` 안의 실행 폴더에 저장됩니다. [공통 검증 채점기 사용법](../../docs/LEARNING_STARTER.md#공통-검증-채점기)에서 다른 모델에 연결하는 예를 볼 수 있습니다.
+
 ### 현재 진행 상황
 
 기존 합성자료 기반 LSTM 순전파 및 입력 처리 검증을 완료한 후, 실제 기록 기반 F8 데이터로 학습과 Validation 평가를 진행했습니다.
@@ -456,74 +466,9 @@ Mean Weight Change: 0.000999827403575182
 이는 첫 번째 Adam 업데이트에서 관측한 결과이며, 이후 모든 Epoch에서 동일한 변화량이 발생한다는 의미는 아닙니다.
 
 
-### evaluate.py에 구현한 것
-#### Validation 예측 CSV 생성 및 검증
+### 실제 자료 검증 결과
 
-1. 예측 파일 생성
-
-학습 완료 후 최적 모델을 이용해 Validation 데이터의 정답 확률을 계산했습니다.
-
-모델이 출력한 Logit에 Sigmoid를 적용하여 0~1 범위의 예측 확률로 변환했습니다.
-
-```python
-model.eval()
-
-with torch.no_grad():
-    logits = model(inputs)
-    probabilities = torch.sigmoid(logits)
-```
-생성된 예측 확률과 원본 event_id를 연결하여 CSV 파일로 저장했습니다.
-
-CSV 형식:
-
-```text
-event_id,probability,model_version
-```
-
-2. CSV 검증 결과
-
-```text
-예측 파일 저장 완료: ../preds/lstm-validation.csv
-예측 행 수: 299
-
-CSV 검증 통과
-예측 행 수: 299
-모델 버전: small-lstm-v1
-
-예측 확률 shape: (299,)
-Validation 정답 개수: 299
-예측 확률 개수: 299
-event_id 개수: 299
-```
-
-검증 항목:
-
-- CSV 열 이름 및 순서 확인
-- event_id 중복 여부 확인
-- Validation 데이터와 event_id 순서 일치 확인
-- 예측 확률 개수와 정답 개수 일치 확인
-- 결측값 및 NaN/Inf 검사
-- 예측 확률의 0~1 범위 확인
-- 단일 model_version 사용 여부 확인
-
-검증 결과, Validation 299행에 대해 예측 확률과 event_id가 정상적으로 대응하는 것을 확인했습니다.
-
-예측 CSV는 Git 저장소 외부의 ../preds/ 폴더에 저장했습니다.
-
-#### Learning Server Validation 평가
-
-1. 평가 방법
-
-Learning Server의 로컬 평가기를 사용하여 SmallLSTM과 기준선 모델들의 성능을 비교했습니다.
-
-평가 데이터는 학습에 사용한 실제 기록 기반 F8 자료의 Validation 구간입니다.
-
-평가 명령 예시:
-
-```python
-python -m learning_server.score --dataset ../study-data/common-input-f8-20261118/recorded --track ai --split validation --predictions ../preds/lstm-validation.csv
-```
-2. 평가 데이터
+#### 평가 데이터
 | 항목 | 결과 |
 |---|---|
 | Track | "ai" |
@@ -535,7 +480,7 @@ python -m learning_server.score --dataset ../study-data/common-input-f8-20261118
 | Features Version | 8 |
 | 모델 버전 | small-lstm-v1 |
 
-3. 모델 성능 비교
+#### 모델 성능 비교
 | 모델 | Log Loss ↓ | Brier ↓ | ROC-AUC ↑ | Accuracy ↑ |
 |---|---|---|---|---|
 | SmallLSTM | 0.2951 | 0.0867 | 0.8293 | 0.8796 | 
@@ -655,54 +600,9 @@ PASS: 패딩 변경에 대한 예측 불변성
 
 SmallLSTM 생성자에서 기존 위치 인자 방식과 Modelconfig 전달 방식 호환성 확인하였습니다.
 
-## 막힌 부분과 해결 내용
-
-1. 기존 예측 파일의 event_id 불일치
-
-```python
-python -m learning_server.score --dataset ../learning-demo-f8 --track ai --predictions ../preds/lstm-validation.csv
-```
-#### 발생 오류
-
-오류: 예측 파일에 빠진 event_id 가 2개 있습니다.
-
-기존 lstm-validation.csv를 이용한 채점에서 오류가 발생했습니다.
-
-#### 결과
-
-lstm-validation.csv의 299개 event_id와 예측 확률이 정상적으로 대응했으며, Learning Server Score 실행에 성공했습니다.
-
- 기존 CSV에서 2개 ID가 누락된 정확한 원인은 확인하지 못했습니다.
-
-#### lstm-validation.csv 생성 시간
-
-`Get-Item ../preds/lstm-validation.csv | Select-Object Name, CreationTime, LastWriteTime`
-
-```text
-Name                CreationTime            LastWriteTime          
-----                ------------            -------------          
-lstm-validation.csv 2026-11-24 오전 3:36:27 2026-11-24 오전 3:36:27
-```
-
-#### 실행 커밋 SHA
-`git rev-parse HEAD`
-
-```git
-git rev-parse HEAD
-SHA : 5be591196bff917bdb4c3c34786d5b01da3b3e74 
-```
-
-#### train.py의 커밋 현황 파악 
-`git log --format="%H | %ai | %s" -- experiments/michae18/train.py`
-
-```git
-git log --format="%H | %ai | %s" -- experiments/michae18/train.py
-5be591196bff917bdb4c3c34786d5b01da3b3e74 | 2026-11-24 04:35:22 +0900 | feat(model): SmallLSTM 실 데이터 학습 및 Validation 성능 평가 완료 (#337)
-```
-
 ## 다음 작업
 
-- 추가적인 개선 과제: train과 valid loss 값 차이 줄이기, test를 통한 검증 진행
+- 검증 구간으로 설정을 조정하고 학습·검증 손실 차이를 확인합니다.
 - 실행 환경과 전체 커밋 SHA 기록
 - 이슈 121의 담당자와 LSTM 구조 및 실험 결과 공유
 

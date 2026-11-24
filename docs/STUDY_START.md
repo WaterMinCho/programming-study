@@ -57,7 +57,7 @@
 
 - [세 모델의 차이와 담당별 미션](LEARNING_MISSIONS.md)
 - [실제 자료 받기·샘플 뽑기·입력 테스트](LEARNING_DATA_ACCESS.md)
-- [공통 입력 버전·예제와 실제 자료의 한계](LEARNING_STARTER.md)
+- [공통 입력 예제](LEARNING_STARTER.md) · [검증 결과 저장하기](LEARNING_STARTER.md#공통-검증-채점기)
 - [실험 기록 양식](LEARNING_EXPERIMENT_TEMPLATE.md)
 - [코드 검토와 피드백 반영](LEARNING_REVIEW.md) · [Slack 알림](SLACK_NOTIFICATIONS.md)
 - [프로그램 설치·화면 사용법](../gui/README.md) · [수집 동의·철회](LEARNING_PRIVACY.md)

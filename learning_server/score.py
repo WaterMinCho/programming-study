@@ -3,14 +3,14 @@
 import argparse
 import csv
 import hashlib
+import io
 import json
 import math
-from collections import Counter
-from pathlib import Path
 import re
 import shutil
-import io
-
+from collections import Counter
+from datetime import date
+from pathlib import Path
 
 from learning_data.collection import packed
 from learning_server import dataset, sample, starter
@@ -20,11 +20,14 @@ METRICS = ("log_loss", "brier", "roc_auc", "accuracy")
 LABELS = {"log_loss": "로그 손실", "brier": "Brier", "roc_auc": "ROC-AUC", "accuracy": "정확도"}
 MIN_WRONG, MIN_PEOPLE = 50, 5
 FEW_PEOPLE, FEW_LABEL = 3, "3개 미만"
+VALIDATION_RESULTS = Path(__file__).resolve().parent.parent / ".local" / "validation-results"
 
 
 def read_predictions(path):
     """CSV(event_id,probability,model_version 머리줄) 또는 JSONL 을 읽음. 확률·버전만 확인하고 행 내용은 돌려주지 않음."""
-    path = sample.private_path(path)
+    path = Path(path).expanduser().resolve()
+    if not path.is_relative_to(VALIDATION_RESULTS):
+        path = sample.private_path(path)
     if path.suffix == ".csv":
         # Windows Excel 이 앞에 붙이는 BOM 을 머리줄로 읽지 않도록 utf-8-sig 로 읽음
         with path.open(encoding="utf-8-sig", newline="") as source:
@@ -158,7 +161,7 @@ def evaluate(folder, track, split, predictions, *, inspect_all=True):
         inspection = sample.inspect(folder)
     else:
         parts = ("train",) if split == "train" else ("train", split)
-    inspection = sample.inspect(folder, track=track, parts=parts)
+        inspection = sample.inspect(folder, track=track, parts=parts)
     report, content, manifest_sha256 = inspection
     if track not in content:
         raise ValueError("이 자료에는 %s 과목이 없습니다." % track)
@@ -229,7 +232,8 @@ def _previous_validation_version(root, model_name):
     return max(versions, default=0)
 
 
-def score_validation(*, dataset_path, track, event_ids, probabilities, model_name, output_root):
+def score_validation(*, dataset_path, track, event_ids, probabilities, model_name, output_root=None):
+    """검증 예측을 채점하고 예측 CSV, 결과 JSON, 저장 경로를 반환함."""
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", model_name):
         raise ValueError("모델 이름에는 소문자, 숫자, 하이픈을 써 주세요.")
 
@@ -237,7 +241,14 @@ def score_validation(*, dataset_path, track, event_ids, probabilities, model_nam
     if not ids or len(ids) != len(values):
         raise ValueError("풀이 ID와 예측 확률의 개수를 맞춰 주세요.")
 
-    root = sample.private_path(output_root)
+    if output_root is None:
+        day = date.today().isoformat()
+        root = (VALIDATION_RESULTS / day).resolve()
+        if root.parent != VALIDATION_RESULTS:
+            raise ValueError("검증 결과는 프로젝트의 .local/validation-results 아래에 저장해 주세요.")
+        model_name = f"{model_name}-{day}"
+    else:
+        root = sample.private_path(output_root)
     number = _previous_validation_version(root, model_name) + 1
     while True:
         version = f"{model_name}-v{number}"

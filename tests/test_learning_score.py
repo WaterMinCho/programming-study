@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 import math
+from datetime import date
 from pathlib import Path
 import statistics
 import sys
@@ -32,6 +33,46 @@ class ScoreTest(unittest.TestCase):
         lines += ["%s,%s,%s" % (row["event_id"], probability, version) for row in rows]
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return path
+
+    def test_validation_reads_only_the_selected_training_and_validation_records(self):
+        ids = [row["event_id"] for row in self.rows]
+        with mock.patch.object(input_example, "load", wraps=input_example.load) as load:
+            result, run_dir = score.score_validation(
+                dataset_path=self.data, track="ai", event_ids=ids, probabilities=[0.7] * len(ids),
+                model_name="example", output_root=self.tmp / "scores",
+            )
+        self.assertEqual(load.call_args_list, [
+            mock.call(self.data.resolve(), "ai", "train"),
+            mock.call(self.data.resolve(), "ai", "validation"),
+        ])
+        self.assertTrue(result["synthetic"])
+        self.assertEqual(result["split"], "validation")
+        self.assertEqual(run_dir.name, "example-v1")
+
+    def test_default_output_uses_the_repository_results_folder_and_run_date(self):
+        checkout = (self.tmp / "checkout").resolve()
+        checkout.mkdir()
+        (checkout / ".git").mkdir()
+        results = checkout / ".local" / "validation-results"
+        ids = [row["event_id"] for row in self.rows]
+        args = dict(
+            dataset_path=self.data, track="ai", event_ids=ids, probabilities=[0.7] * len(ids),
+            model_name="example",
+        )
+        with mock.patch.object(score, "VALIDATION_RESULTS", results), mock.patch.object(score, "date") as clock:
+            clock.today.return_value = date(2026, 11, 25)
+            first, run1 = score.score_validation(**args)
+            second, run2 = score.score_validation(**args)
+            clock.today.return_value = date(2026, 11, 26)
+            third, run3 = score.score_validation(**args)
+            with self.assertRaisesRegex(ValueError, "저장소 밖"):
+                score.score_validation(**args, output_root=checkout / "not-results")
+        self.assertEqual(run1, results / "2026-11-25" / "example-2026-11-25-v1")
+        self.assertEqual(run2, results / "2026-11-25" / "example-2026-11-25-v2")
+        self.assertEqual(run3, results / "2026-11-26" / "example-2026-11-26-v1")
+        for result, run_dir in ((first, run1), (second, run2), (third, run3)):
+            self.assertEqual(json.loads((run_dir / "score.json").read_text()), result)
+            self.assertTrue((run_dir / "predictions.csv").is_file())
 
     def test_table_has_model_and_six_baselines_without_private_ids(self):
         result = score.evaluate(self.data, "ai", "validation", self.predictions())

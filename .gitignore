@@ -3,6 +3,7 @@
 .study.lock
 .study_logs/
 .study-launcher/
+/.local/validation-results/
 /프로그래밍 스터디.lnk
 *.tmp[0-9]*
 *.bak

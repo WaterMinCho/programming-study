@@ -259,7 +259,7 @@ python experiments\kimjs85529_a11y\test_data_model.py
 
 ### 5. 실제 학습 및 평가
 
-현재 실제 데이터 기반 학습, 공식 채점, 예측 성능 비교는 실행하지 않았다.
+현재 실제 데이터 기반 학습, 공식 채점, 예측 성능 비교는 실행하지 않았다. 검증 예측을 계산한 뒤에는 [공통 검증 채점기](../../docs/LEARNING_STARTER.md#공통-검증-채점기)로 점수를 확인할 수 있다.
 
 인공 입력에 대한 SGD 1회 가중치 갱신은 학습 가능성을 확인하기 위한 기능 테스트이며, 실제 데이터 학습 결과가 아니다.
 
@@ -269,19 +269,9 @@ python experiments\kimjs85529_a11y\test_data_model.py
 
 2026-11-22에 PR 최초 구현 커밋 `187d7ba4a39fbb602a023bcb49623f656f97df1d` 기준으로 전처리 코드를 다시 검증했다.
 
-재검증 당시 작업 브랜치:
+재검증에는 `model/kimjs85529_a11y_timegap_lstm` 브랜치의 위 커밋을 사용했다.
 
-```text
-model/kimjs85529_a11y_timegap_lstm
-```
-
-재검증 당시 HEAD:
-
-```text
-187d7ba4a39fbb602a023bcb49623f656f97df1d
-```
-
-먼저 다음 명령을 실행했다.
+브랜치와 커밋을 확인하고 전처리 파일 두 개의 변경 내역을 비교했다.
 
 ```powershell
 cd C:\programming-study

@@ -204,6 +204,6 @@ Ctrl+Enter(맥은 Cmd+Enter)는 [확실함], Ctrl+Shift+Enter는 [긴가민가]�
 
 ### AI 답안과 진도 저장 위치
 
-연습의 답, 읽은 단원, 짐작과 떠올리기 결과는 `submissions/<내 ID>/ai/record.json` 에 쌓이고 [풀이 제출]을 누르면 같이 올라갑니다. 맞힌 답의 글은 남기지 않습니다. 개론에서 보던 단계는 저장소에 올리지 않는 `~/.rokey-study/ai/<내 ID>/state.json`에 둡니다. 응용에서 보던 위치와 연습 초안은 같은 폴더 아래 `app/state.json`에 따로 둡니다. 혼합 모의고사의 답안 초안은 두 과정에서 함께 쓰는 `~/.rokey-study/ai/<내 ID>/mocks/`에 보관합니다. 복습 날짜와 복습 확인 수는 기록에서 그때그때 계산하고 따로 저장하지 않습니다. 계산 규칙은 [docs/CRITERIA.md](../docs/CRITERIA.md)의 ‘AI 개론·응용’에 있습니다.
+연습의 답, 읽은 단원, 짐작과 떠올리기 결과는 `submissions/<내 ID>/ai/record.json` 에 쌓입니다. [풀이 제출]로 파일을 보낼 수 있습니다. 파일 자동 제출에 별도로 동의하면 프로그램을 시작할 때와 문제 묶음을 채점한 뒤 미제출 파일을 보냅니다. 맞힌 답의 글은 남기지 않습니다. 개론에서 보던 단계는 저장소에 올리지 않는 `~/.rokey-study/ai/<내 ID>/state.json`에 둡니다. 응용에서 보던 위치와 연습 초안은 같은 폴더 아래 `app/state.json`에 따로 둡니다. 혼합 모의고사의 답안 초안은 두 과정에서 함께 쓰는 `~/.rokey-study/ai/<내 ID>/mocks/`에 보관합니다. 복습 날짜와 복습 확인 수는 기록에서 그때그때 계산하고 따로 저장하지 않습니다. 계산 규칙은 [docs/CRITERIA.md](../docs/CRITERIA.md)의 ‘AI 개론·응용’에 있습니다.
 
 풀이 데이터 수집과 비공개 서버 전송은 [수집 안내](../learning_server/README.md#풀이-데이터-수집)에서 확인합니다.

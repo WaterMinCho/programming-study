@@ -54,9 +54,9 @@ def inspect(folder, *, track=None, parts=PARTS):
         raise ValueError("이 자료에는 %s 과목이 없습니다." % track)
     selected_tracks = tracks if track is None else (track,)
     content, counts = {}, {}
-    for track in tracks:
+    for track in selected_tracks:
         content[track], counts[track] = {}, {}
-        for part in PARTS:
+        for part in parts:
             rows, vocabulary = input_example.load(root, track, part)
             if len(rows) != record_manifest["files"][track + "-" + part + ".jsonl"]["rows"]:
                 raise ValueError("자료 목록의 행 수와 실제 파일이 맞지 않습니다.")

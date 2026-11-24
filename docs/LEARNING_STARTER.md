@@ -241,11 +241,35 @@ AI 자료는 같은 과정·문항·풀이 위치의 반환 기록이 하나로 
 
 `records/`에는 과목별 `train`·`validation`·`test` 파일과 목록이 있습니다. 같은 풀이 묶음을 서로 다른 구간에 나누지 않습니다. 평가할 예측 시점이 앞 구간의 채점 결과보다 이르면 해당 묶음을 제외합니다. 제외한 행 수는 자료 목록의 `excluded_split_rows`에 남깁니다. `vocabulary.json`은 학습 자료의 번호표이고 `manifest.json`은 원본과 결과 파일의 해시를 기록합니다. 입력 예제는 해시가 달라진 파일을 읽지 않습니다.
 
+<a id="공통-검증-채점기"></a>
+
+### 모델에서 검증 결과 저장하기
+
+모델 코드에서 검증 구간의 정답 확률을 계산한 다음 아래 함수를 호출하세요. 검증 구간 전체의 `event_id`와 0~1 사이 정답 확률을 일대일로 같은 순서에 맞춰 넘깁니다. 자료 경로는 검증 입력을 읽은 폴더를 씁니다.
+
+```python
+from learning_server.score import render, score_validation
+
+result, run_dir = score_validation(
+    dataset_path=DATASET_PATH,
+    track="ai",
+    event_ids=val_event_ids,
+    probabilities=val_probabilities,
+    model_name="small-lstm",
+)
+print(render(result))
+print(run_dir)
+```
+
+`model_name`에는 소문자·숫자·하이픈으로 만든 모델 이름을 넣으세요. `predictions.csv`와 `score.json`은 프로젝트의 `.local/validation-results/2026-11-25/small-lstm-2026-11-25-v1/`처럼 기기 날짜별로 저장됩니다. 같은 날짜에 같은 모델을 다시 돌리면 다음 번호가 붙습니다. 이 결과 폴더는 Git에서 제외하며, 입력 자료는 저장소 밖에 둡니다. 기존에 쓰던 저장소 밖 경로를 계속 쓰려면 `output_root`를 지정하세요.
+
+합성 자료로 호출을 확인한 뒤, 실제 모델을 비교할 때는 모두 같은 공통 자료의 `validation`을 사용하세요. 최종 평가 구간은 모델 설정을 정한 뒤 사용합니다.
+
 <a id="예측-파일-채점"></a>
 
 ### 예측 파일 채점
 
-모델이 낸 예측은 첫 줄이 `event_id,probability,model_version`인 CSV나, 줄마다 같은 세 키를 담은 JSONL로 저장합니다. 예측 파일은 저장소 밖에 둡니다. 채점 명령은 묶음 해시를 확인한 뒤 모델 점수를 같은 구간의 기준선과 한 표로 보여 줍니다. 기준선은 모델 없이 정답 비율만으로 낸 예측입니다. 모델 점수가 기준선보다 나아야 학습한 효과가 있다고 볼 수 있습니다.
+모델이 낸 예측은 첫 줄이 `event_id,probability,model_version`인 CSV나, 줄마다 같은 세 키를 담은 JSONL로 저장합니다. 공통 검증 채점기가 만든 로컬 결과나 저장소 밖에 둔 예측 파일을 지정할 수 있습니다. 채점 명령은 묶음 해시를 확인한 뒤 모델 점수를 같은 구간의 기준선과 한 표로 보여 줍니다. 기준선은 모델 없이 정답 비율만으로 낸 예측입니다. 모델 점수가 기준선보다 나아야 학습한 효과가 있다고 볼 수 있습니다.
 
 ```sh
 python -m learning_server.score --dataset ../learning-demo-f8 --track ai --predictions ../preds/lstm-validation.csv
