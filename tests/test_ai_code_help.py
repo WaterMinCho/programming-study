@@ -52,7 +52,8 @@ class CodeHelpTest(unittest.TestCase):
         invalid = [dict(data, reference=None), dict(data, explanation=""), dict(data, extra="unknown"),
                    dict(data, code=12), dict(data, title="두\n줄"), {k: v for k, v in data.items() if k != "reference"}]
         for change in ({"step": True}, {"step": 0}, {"step": "3"}, {"title": ""},
-                       {"course": "app"}, {"lesson": "i90"}, {"lesson": "../l90"}, {"unit": "90a/3"}):
+                       {"course": "app"}, {"lesson": "i90"}, {"lesson": "../l90"}, {"unit": "90a/3"},
+                       {"section": ""}, {"section": "두\n줄"}):
             invalid.append(dict(data, reference=dict(data["reference"], **change)))
         for row in invalid:
             with self.subTest(row=row):
@@ -65,7 +66,7 @@ class CodeHelpTest(unittest.TestCase):
             ref = sample()["reference"]
             self.assertEqual("i90", bank.resolve_code_reference(ref, root)["lesson"])
             for change in ({"course": "applied"}, {"lesson": "al90"}, {"step": 2},
-                           {"step": 999}, {"title": "학습 루프의 세 줄 "}, {"unit": "90i"}):
+                           {"step": 999}, {"title": "학습 루프의 세 줄 "}, {"unit": "90i"}, {"section": "없는 설명"}):
                 with self.subTest(change=change), self.assertRaises(bank.AiBankError):
                     bank.resolve_code_reference(dict(ref, **change), root)
             page = root / "learn/l90/page.md"

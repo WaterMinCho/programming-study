@@ -913,8 +913,9 @@ class WorkflowTest(unittest.TestCase):
     def test_ci_workflow_keeps_scoped_bank_model_and_gui_checks(self):
         text, data = self.load("ci.yml")
         jobs = data["jobs"]
-        self.assertEqual(["scope", "bank", "launcher", "model", "gui", "required"], list(jobs))
-        self.assertEqual(["변경 범위", "기능·자료 검사", "실행기 검사 (${{ matrix.os }})", "모델 제출 검사", "화면 테스트", "필수 검사"],
+        self.assertEqual(["scope", "bank", "launcher", "model", "gui_parts", "gui", "required"], list(jobs))
+        self.assertEqual(["변경 범위", "기능·자료 검사", "실행기 검사 (${{ matrix.os }})", "모델 제출 검사",
+                          "화면 검사 묶음 ${{ matrix.group }}", "화면 테스트", "필수 검사"],
                          [job["name"] for job in jobs.values()])
         self.assertEqual("needs.scope.outputs.launcher == 'true'", jobs["launcher"]["if"])
         self.assertEqual("needs.scope.outputs.bank == 'true' || needs.scope.outputs.unit == 'true'", jobs["bank"]["if"])
@@ -930,21 +931,28 @@ class WorkflowTest(unittest.TestCase):
                           "python tools/web_lint.py --bank ai --no-external", "python -m unittest discover -s tests"], bank_runs[at + 1:])
         self.assertEqual({"STUDY_LEAN_CI": "1"}, jobs["bank"]["steps"][-1]["env"])
         self.assertEqual(9, len(jobs["bank"]["steps"]))
-        gui = jobs["gui"]["steps"][-1]
-        self.assertEqual("python tools/check_gui.py", gui["run"])
+        parts = jobs["gui_parts"]
+        self.assertEqual({"group": ["1", "2"]}, parts["strategy"]["matrix"])
+        self.assertEqual("false", parts["strategy"]["fail-fast"])
+        gui = parts["steps"][-1]
+        self.assertEqual("python tools/check_gui.py --group ${{ matrix.group }}", gui["run"])
+        self.assertEqual(["scope", "gui_parts"], jobs["gui"]["needs"])
+        self.assertEqual("always() && needs.scope.outputs.gui == 'true'", jobs["gui"]["if"])
+        self.assertIn('test "$GUI_RESULT" = success', runs(jobs["gui"]))
+        self.assertEqual({"GUI_RESULT": "${{ needs.gui_parts.result }}"}, jobs["gui"]["steps"][0]["env"])
         with open(os.path.join(ROOT, "tools", "check_gui.py"), encoding="utf-8") as handle:
             script = handle.read()
         self.assertIn('pattern="test_gui*.py"', script)
         self.assertIn('return 0 if result.wasSuccessful() else 1', script)
         self.assertIn('faulthandler.dump_traceback_later(480, repeat=True)', script)
         self.assertIn('loads[target] += SLOW.get(name, count * REST)', script)  # 묶음을 테스트 수가 아니라 걸린 시간으로 나눔
-        installs = "\n".join(step.get("run", "") for step in jobs["gui"]["steps"])
+        installs = "\n".join(step.get("run", "") for step in parts["steps"])
         self.assertIn("libfontconfig1", installs)
         self.assertNotIn("fonts-nanum", installs)  # 같이 배포하는 글꼴과 이름이 같은 시스템 글꼴을 깔면 줄 높이가 실행마다 달라짐
         self.assertEqual({"QT_QPA_PLATFORM": "offscreen"}, gui["env"])
-        setup = next(step for step in jobs["gui"]["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
+        setup = next(step for step in parts["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
         self.assertEqual("3.13", setup["with"]["python-version"])
-        self.assertEqual("needs.scope.outputs.gui == 'true'", jobs["gui"]["if"])
+        self.assertEqual("needs.scope.outputs.gui == 'true'", parts["if"])
         self.assertEqual([], check_style.check(text, path=".github/workflows/ci.yml"))
 
     def test_gui_check_scale_option_enlarges_the_virtual_screen(self):
@@ -964,6 +972,16 @@ class WorkflowTest(unittest.TestCase):
                 mock.patch.object(check_gui, "run", return_value=0) as run, contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(0, check_gui.main())
         run.assert_called_once_with([names], scale=1.5)
+
+    def test_gui_check_dispatches_each_group_without_leaving_out_tests(self):
+        from tools import check_gui
+        batches = [["tests.test_gui_kit"], ["tests.test_gui_docview"]]
+        for number, batch in enumerate(batches, 1):
+            with self.subTest(group=number), mock.patch.object(sys, "argv", ["check_gui.py", "--group", str(number)]), \
+                    mock.patch.object(check_gui, "groups", return_value=(batches, [3, 5])), \
+                    mock.patch.object(check_gui, "run", return_value=0) as run, contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(0, check_gui.main())
+            run.assert_called_once_with([batch], scale=1)
 
     def test_style_workflow_reads_as_yaml(self):
         _, data = self.load("style.yml")

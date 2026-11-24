@@ -9,10 +9,11 @@ from unittest import mock
 from tests.test_gui_ai import AI_FIXTURE, AiTest, visible_text
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QImage, QInputMethodEvent, QPainter
-from PyQt6.QtWidgets import QApplication, QFrame, QLabel
+from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QPushButton
 from aiprep import bank
 from aiprep.mock import MockError
 from gui import kit, theme
+from gui.ai_code_help import CodeReferenceDialog
 from tests import guikit
 import study
 
@@ -804,6 +805,36 @@ class RealMockScreensTest(AiTest):
         patcher = mock.patch.object(bank, 'read_index', shown)
         patcher.start()
         self.addCleanup(patcher.stop)
+
+    def test_yolo_note_opens_from_submitted_exam_without_changing_progress(self):
+        win = self.boot((760, 480))
+        for mid in ('m13', 'm14'):
+            with self.subTest(round=mid):
+                self.assertTrue(win.open_ai_mock(mid))
+                page = win.ai_mock
+                page.begin()
+                refs = [cid for cid, item in page.exam.items.items() if item.get('learning_reference')]
+                self.assertEqual(1, len(refs))
+                pos = page.exam.draft['order'].index(refs[0])
+                page.go(pos)
+                self.idle()
+                self.assertFalse(any(b.text() == '관련 학습 보기' for b in page.card.findChildren(QPushButton)))
+                page.submit()
+                self.idle()
+                page.go(pos)
+                self.idle()
+                record = Path(win.ai.record.path)
+                before = record.read_bytes()
+                button = next(b for b in page.card.findChildren(QPushButton) if b.isVisible() and b.text() == '관련 학습 보기')
+                guikit.click(button)
+                self.idle()
+                note = next(d for d in win.findChildren(CodeReferenceDialog) if d.isVisible())
+                self.assertIn('보충 학습 · YOLO 검출 결과 읽기', visible_text(note))
+                self.assertIn('boxes.xyxy', visible_text(note))
+                self.assertNotIn('HoughCircles', visible_text(note))
+                guikit.click(note.close_btn)
+                self.idle()
+                self.assertEqual(before, record.read_bytes())
 
     def test_ready_tables_add_up_and_empty_m11_result_marks_every_lesson(self):
         theme.set_text('normal')
