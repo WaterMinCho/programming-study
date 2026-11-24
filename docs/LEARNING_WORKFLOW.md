@@ -264,8 +264,7 @@ model-study/
     experiments/
       본인ID/
         README.md                실행 방법과 본인의 설명
-        train.py                 모델 학습
-        evaluate.py              평가
+        train.py                 모델 학습과 공통 검증 채점기 호출
         predict.py               저장한 모델로 예측
         requirements.txt         사용한 라이브러리 버전
         configs/                 설정과 난수 시드

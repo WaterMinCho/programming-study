@@ -166,5 +166,5 @@ python -m experiments.wamangdoo.train
 ### 8. 현재 미실행 항목 (다음 단계)
 - 저장한 모델을 별도 새 실행(새 프로세스)에서 불러와 최대 오차 `<= 0.000001` 확인
 - 학습·검증 가중치 갱신/고정 여부 자동 테스트 코드 추가
-- 검증 구간 예측 파일(`event_id,probability,model_version`) 저장 및 `python -m learning_server.score` 채점
+- 검증 구간의 풀이 ID와 정답 확률을 [공통 검증 채점기](../../docs/LEARNING_STARTER.md#공통-검증-채점기)에 연결
 - 실제 자료 기반 학습·검증, 오류 사례 분석 및 같은 조건의 `michae18`님 LSTM 모델과 성능 비교
