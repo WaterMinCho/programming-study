@@ -170,7 +170,7 @@ class PrivacyTest(unittest.TestCase):
         confirmed = share.settings()["sequence"]
         with self.db.connect() as db:
             _, used = usage(db, participant)
-            self.db.storage_limit(db, participant, 8 * 1024 * 1024 + 1 - used)
+            self.db.storage_limit(db, participant, 16 * 1024 * 1024 + 1 - used)
 
         store.emit("answer", {"result": "pass"})
         pending = store.snapshot(after=confirmed)[1:]
