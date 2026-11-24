@@ -1,0 +1,105 @@
+{
+ "format": 1,
+ "id": "al07",
+ "lesson": "a07",
+ "title": "응용 7차시 노이즈에서 이미지를 만드는 GAN과 VAE",
+ "defines": [],
+ "needs": [
+  "al05",
+  "al06",
+  "l03",
+  "l04",
+  "l05",
+  "l06",
+  "l08",
+  "l09",
+  "l11",
+  "l12",
+  "l13"
+ ],
+ "sections": {
+  "a7a": "판별기와 생성기의 손실을 정답 레이블로 나누기",
+  "a7b": "detach와 옵티마이저 둘로 한쪽 신경망만 갱신하기",
+  "a7c": "DCGAN 생성기에서 16×16을 64×64로 키우기",
+  "a7d": "DCGAN 판별기에서 64를 4로 줄이고 2,048로 펴기",
+  "a7e": "VAE 인코더가 평균과 로그 분산을 내고 z 뽑기",
+  "a7f": "VAE 손실의 복원 항과 KL 항 계산하기",
+  "a7g": "U-Net 건너뛰기 연결과 pix2pix 판별기 입력"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "판별기와 생성기의 손실을 정답 레이블로 나누기",
+   "url": "https://arxiv.org/abs/1406.2661",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "detach와 옵티마이저 둘로 한쪽 신경망만 갱신하기",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.optim.Adam.html",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "DCGAN 생성기에서 16×16을 64×64로 키우기",
+   "url": "https://docs.pytorch.org/docs/2.15/generated/torch.nn.ConvTranspose2d.html",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "DCGAN 판별기에서 64를 4로 줄이고 2,048로 펴기",
+   "url": "https://arxiv.org/abs/1511.06434",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "VAE 인코더가 평균과 로그 분산을 내고 z 뽑기",
+   "url": "https://arxiv.org/abs/1312.6114",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "VAE 손실의 복원 항과 KL 항 계산하기",
+   "url": "https://arxiv.org/abs/1312.6114",
+   "checked": "2026-11-23"
+  },
+  {
+   "what": "U-Net 건너뛰기 연결과 pix2pix 판별기 입력",
+   "url": "https://arxiv.org/abs/1611.07004",
+   "checked": "2026-11-23"
+  }
+ ],
+ "units": {
+  "a7a": {
+   "minutes": 7,
+   "key_figure": "assets/a7a-1.gif",
+   "kind": "concept"
+  },
+  "a7b": {
+   "minutes": 7,
+   "key_figure": "assets/a7b-1.gif",
+   "kind": "concept"
+  },
+  "a7c": {
+   "minutes": 7,
+   "key_figure": "assets/a7c-1.gif",
+   "kind": "concept"
+  },
+  "a7d": {
+   "minutes": 7,
+   "key_figure": "assets/a7d-1.gif",
+   "kind": "concept"
+  },
+  "a7e": {
+   "minutes": 8,
+   "key_figure": "assets/a7e-1.gif",
+   "kind": "concept"
+  },
+  "a7f": {
+   "minutes": 8,
+   "key_figure": "assets/a7f-2.gif",
+   "kind": "concept"
+  },
+  "a7g": {
+   "minutes": 8,
+   "key_figure": "assets/a7g-1.gif",
+   "kind": "concept"
+  }
+ }
+}
