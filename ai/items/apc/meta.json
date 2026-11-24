@@ -56,7 +56,68 @@
     "apc-g402"
    ],
    "core": 4
+  },
+  "a18e": {
+   "slot": 2,
+   "order": 0,
+   "pick": 1,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a18f": {
+   "slot": 2,
+   "order": 0,
+   "pick": 1,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a18g": {
+   "slot": 2,
+   "order": 0,
+   "pick": 1,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a18h": {
+   "slot": 2,
+   "order": 0,
+   "pick": 1,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
+  },
+  "a18i": {
+   "slot": 2,
+   "order": 0,
+   "pick": 1,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
   }
  },
- "sources": []
+ "sources": [],
+ "resume_skeletons": [
+  "S101",
+  "S102",
+  "S103",
+  "S104"
+ ]
 }

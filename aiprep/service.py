@@ -318,6 +318,15 @@ class AiSession(object):
         except bank.AiBankError:
             return {}
 
+    def previous_skeletons(self, saved_ids):
+        """뼈대가 추가되기 전 목록으로 묶음 해시를 대조함."""
+        old_lists = [saved_ids] if saved_ids is not None else [
+            self.items.get(group, {}).get("meta", {}).get("resume_skeletons") for group in self.patterns]
+        for ids in old_lists:
+            if (isinstance(ids, list) and all(isinstance(sid, str) and sid in self.skeletons for sid in ids)
+                    and len(set(ids)) == len(ids) < len(self.skeletons)):
+                yield {sid: self.skeletons[sid] for sid in ids}
+
     def resume_course(self):
         """자료는 재사용하고 다른 과정에서 바뀐 기록·연습·모의고사를 다시 읽음."""
         self._content_versions_cache = None
@@ -2213,7 +2222,8 @@ class PracticeSet(object):
         data = {name: getattr(self, name) for name in names}
         data.update(rng=self.rng.getstate(), sure_before=sorted(self.sure_before), fill=self.fill,
                     before_due={k: d.isoformat() if d else None for k, d in self.before_due.items()},
-                    fingerprint=self.fingerprint(), set_records=[e for e in self.sess.record.log if e.get("set") == self.id])
+                    fingerprint=self.fingerprint(), skeleton_ids=sorted(self.sess.skeletons),
+                    set_records=[e for e in self.sess.record.log if e.get("set") == self.id])
         return data
 
     @classmethod
@@ -2230,9 +2240,10 @@ class PracticeSet(object):
             raise ValueError("문항이 바뀐 묶음")
         fingerprint = saved["fingerprint"]
         if fingerprint not in (result.fingerprint(), result.fingerprint(previous_refs=True)):
-            legacy = sess.legacy_skeletons()  # 뼈대 폴더를 나누기 전에 저장한 묶음은 예전 뼈대 구성으로 한 번 더 대조함
-            if legacy is None or fingerprint not in (result.fingerprint(skeletons=legacy),
-                                                     result.fingerprint(previous_refs=True, skeletons=legacy)):
+            candidates = [*sess.previous_skeletons(saved.get("skeleton_ids")), sess.legacy_skeletons()]
+            if not any(fingerprint in (result.fingerprint(skeletons=previous),
+                                       result.fingerprint(previous_refs=True, skeletons=previous))
+                       for previous in candidates if previous is not None):
                 raise ValueError("문항이 바뀐 묶음")
         result.before_due = {k: datetime.date.fromisoformat(d) if d else None for k, d in saved["before_due"].items()}
         result.sure_before = set(saved["sure_before"])

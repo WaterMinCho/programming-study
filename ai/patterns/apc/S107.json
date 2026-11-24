@@ -1,0 +1,107 @@
+{
+ "format": 1,
+ "id": "S107",
+ "title": "판별기 단계에서 생성기와 기울기 끊기",
+ "ref": [
+  "응용 7차시 노트북 03 [23]"
+ ],
+ "tags": [
+  "GAN 판별기만 갱신하기"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "generator와 discriminator는 각각 생성기와 판별기입니다. noise에 들어 있는 입력 하나마다 가짜 이미지 한 장이 나옵니다. loss_fn은 판별기가 낸 확률을 받는 이진 교차 엔트로피입니다. opt_d에는 판별기의 파라미터만 들어 있습니다. 이 코드는 가짜 입력에 대한 판별기의 연습 단계입니다.",
+   "lines": [
+    "opt_d.zero_grad()",
+    "fake = generator(noise)",
+    "scores = discriminator(fake.detach())",
+    "target = torch.zeros_like(scores)",
+    "d_loss = loss_fn(scores, target)",
+    "d_loss.backward()",
+    "opt_d.step()"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-k701",
+   "line": 2,
+   "token": "detach",
+   "answer": [
+    "detach"
+   ],
+   "mode": "code",
+   "hint": "생성기 쪽 기울기 연결을 끊는 메서드",
+   "explain": "fake.detach()를 주면 판별기 쪽의 역전파는 이어지고 생성기 쪽을 향한 연결은 끊깁니다.",
+   "step": "a18g/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-701"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 7차시 노트북 03 [23]"
+   ]
+  },
+  {
+   "id": "apc-k702",
+   "line": 6,
+   "token": "step",
+   "answer": [
+    "step"
+   ],
+   "mode": "code",
+   "hint": "파라미터를 갱신하는 메서드",
+   "explain": "opt_d가 가진 판별기의 파라미터에 계산한 기울기를 적용합니다.",
+   "step": "a18g/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-701"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 7차시 노트북 03 [23]"
+   ]
+  }
+ ],
+ "orders": [],
+ "picks": [
+  {
+   "id": "apc-p701",
+   "line": 3,
+   "stem": "가짜 입력만으로 판별기를 학습할 때 정답을 만드는 줄을 고르세요.",
+   "wrong": [
+    {
+     "text": "target = torch.ones_like(scores)",
+     "aim": "진짜 라벨을 사용",
+     "why": "판별기에서 1은 진짜 입력에 붙이는 라벨입니다."
+    },
+    {
+     "text": "target = scores.detach()",
+     "aim": "현재 예측을 정답으로 사용",
+     "why": "현재 확률을 정답으로 넣으면 가짜임을 알려 줄 수 없습니다."
+    },
+    {
+     "text": "target = torch.full_like(scores, 0.5)",
+     "aim": "가짜와 균형 상태를 혼동",
+     "why": "0.5는 판별기가 낼 수 있는 확률입니다. 가짜 입력의 정답은 0입니다."
+    }
+   ],
+   "explain": "detach는 텐서에 담긴 값을 건드리지 않고 기울기가 지나가는 연결을 끊습니다.",
+   "step": "a18g/3",
+   "variant": "표준형",
+   "facts": [
+    "FA18-701"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 7차시 노트북 03 [23]"
+   ]
+  }
+ ],
+ "changes": []
+}

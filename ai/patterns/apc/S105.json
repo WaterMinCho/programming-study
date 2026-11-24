@@ -1,0 +1,104 @@
+{
+ "format": 1,
+ "id": "S105",
+ "title": "점수에서 사진마다 예측 이름을 찾기",
+ "ref": [
+  "응용 5차시 노트북 03 [7]"
+ ],
+ "tags": [
+  "사진마다 분류 이름 읽기"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "사전학습 분류기가 사진 두 장에 낸 점수를 간단한 세 클래스 예로 읽습니다. scores의 행은 사진이고, 열 번호 0·1·2는 names에 있는 클래스의 번호입니다.",
+   "lines": [
+    "scores = torch.tensor([[0.2, 1.4, 0.6], [2.3, 0.1, 0.5]])",
+    "names = [\"고양이\", \"개\", \"새\"]",
+    "pred_ids = scores.argmax(dim=1)",
+    "pred_names = [names[i] for i in pred_ids.tolist()]"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-k501",
+   "line": 2,
+   "token": "argmax",
+   "answer": [
+    "argmax"
+   ],
+   "mode": "code",
+   "hint": "최댓값의 위치를 구하는 메서드",
+   "explain": "argmax는 점수 대신 가장 큰 점수가 있는 열 번호를 돌려줍니다.",
+   "step": "a18e/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-501"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 5차시 노트북 03 [7]"
+   ]
+  },
+  {
+   "id": "apc-k502",
+   "line": 3,
+   "token": "tolist",
+   "answer": [
+    "tolist"
+   ],
+   "mode": "code",
+   "hint": "리스트로 바꾸는 메서드",
+   "explain": "tolist로 번호 텐서를 파이썬 정수 리스트로 바꿔 names에서 이름을 하나씩 찾습니다.",
+   "step": "a18e/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-501"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 5차시 노트북 03 [7]"
+   ]
+  }
+ ],
+ "orders": [],
+ "picks": [
+  {
+   "id": "apc-p501",
+   "line": 2,
+   "stem": "사진마다 점수가 가장 높은 클래스 번호를 남기는 줄을 고르세요.",
+   "wrong": [
+    {
+     "text": "pred_ids = scores.argmax(dim=0)",
+     "aim": "사진 축을 고름",
+     "why": "dim=0이면 클래스마다 점수가 큰 사진의 번호가 나옵니다."
+    },
+    {
+     "text": "pred_ids = scores.max(dim=1).values",
+     "aim": "점수를 이름 인덱스로 사용",
+     "why": "values는 번호 대신 최대 점수를 돌려줍니다."
+    },
+    {
+     "text": "pred_ids = scores.argmin(dim=1)",
+     "aim": "가장 작은 점수를 선택",
+     "why": "argmin은 점수가 가장 작은 클래스 번호를 고릅니다."
+    }
+   ],
+   "explain": "열을 따라 비교하면 사진을 하나씩 남겨 사진마다 번호가 나옵니다.",
+   "step": "a18e/3",
+   "variant": "표준형",
+   "facts": [
+    "FA18-501"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 5차시 노트북 03 [7]"
+   ]
+  }
+ ],
+ "changes": []
+}
