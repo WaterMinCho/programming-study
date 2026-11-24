@@ -218,7 +218,7 @@ git commit -m "feat(model): 입력과 예측 코드 추가" -m "Refs WaterMinCho
 git push -u origin model/본인ID-model
 ```
 
-Stage 목록에 실제 자료나 가중치가 보이면 커밋 전에 SourceTree의 **Unstage(스테이지 해제)**로 뺍니다. 터미널에서는 `git restore --staged 파일경로`를 실행해 해당 파일을 Stage 목록에서 뺍니다.
+Stage 목록에 `submissions/` 아래의 개인 풀이 기록이나 실제 자료·가중치가 보이면 커밋 전에 SourceTree의 **Unstage(스테이지 해제)**로 뺍니다. 터미널에서는 `git restore --staged 파일경로`를 실행해 해당 파일을 Stage 목록에서 뺍니다.
 
 푸시 후 GitHub의 본인 fork에서 **Compare & pull request**를 누릅니다. 보이지 않으면 [공통 프로젝트의 Pull requests](https://github.com/WaterMinCho/programming-study/pulls)에서 **New pull request → compare across forks**를 누릅니다.
 
