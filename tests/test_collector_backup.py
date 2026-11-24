@@ -34,6 +34,7 @@ class BackupTest(unittest.TestCase):
             identity = None
             status = None
             capacity = "ok"
+            defer_for_capacity = False
             def __init__(self):
                 self.direct = {}
                 self.requests = []
@@ -51,10 +52,15 @@ class BackupTest(unittest.TestCase):
                         value = value.pop(0) if len(value) > 1 else value[0]
                     return value
                 if path.endswith("checkpoint.json"):
-                    if self.missing:
+                    if self.missing or self.defer_for_capacity:
                         return None
                     return json.dumps({"purpose": "offsite_checkpoint", "identity": self.identity,
                                        "capacity": {"status": self.capacity}}).encode()
+                if path.endswith(backup.CAPACITY_MARKER):
+                    if self.defer_for_capacity:
+                        return json.dumps({"purpose": "offsite_capacity_deferred", "identity": self.identity,
+                                           "capacity": {"status": "warning", "warnings": ["backup_headroom"]}}).encode()
+                    return None
                 raw = (test.server / Path(path).name).read_bytes()
                 return b"corrupt" if self.corrupt and path.endswith(".key") else raw
         self.api = Api()
@@ -99,7 +105,8 @@ class BackupTest(unittest.TestCase):
         (unrelated / "keep").write_text("keep")
         def execute(identity, old=None):
             code = shlex.split(backup.command(config, identity, old))[2]
-            with mock.patch("learning_server.capacity.report", return_value={"status": "ok"}):
+            with mock.patch("learning_server.capacity.report", return_value={
+                    "status": "ok", "allocation_estimate_bytes": 16, "database_bytes": 8, "configured_quota_bytes": 512}):
                 exec(code, {})
         execute(previous)
         (self.root / "managed" / previous / "checkpoint.json").write_bytes(b"")
@@ -129,11 +136,31 @@ class BackupTest(unittest.TestCase):
         staging.mkdir(parents=True)
         (staging / "learning.sqlite3").write_bytes(b"interrupted")
         before = (self.path.read_bytes(), operations.read_key(self.path))
-        with mock.patch("learning_server.capacity.report", return_value={"status": "ok"}):
+        with mock.patch("learning_server.capacity.report", return_value={
+                "status": "ok", "allocation_estimate_bytes": 16, "database_bytes": 8, "configured_quota_bytes": 512}):
             exec(shlex.split(backup.command(config, identity))[2], {})
         self.assertFalse(staging.exists())
         operations.verify_backup(staging.with_name(identity))
         self.assertEqual(before, (self.path.read_bytes(), operations.read_key(self.path)))
+
+    def test_console_defers_before_creating_third_database_copy(self):
+        config = dict(self.config, db=str(self.path), remote_root=str(self.root / "managed"))
+        previous, current = "833f8dcf-6503-4514-a620-f84c955bfe53", "d0d36025-80be-44d1-a6de-dba394bda732"
+        destination = Path(config["remote_root"])
+        destination.mkdir()
+        operations.backup(self.path, destination / previous)
+        before = operations.verify_backup(destination / previous)
+        code = shlex.split(backup.command(config, current, previous))[2]
+        capacity = {"status": "ok", "warnings": [], "allocation_estimate_bytes": 310,
+                    "database_bytes": 100, "configured_quota_bytes": 512}
+        with mock.patch("learning_server.capacity.report", return_value=capacity), self.assertRaises(SystemExit):
+            exec(code, {})
+        self.assertFalse((destination / current).exists())
+        self.assertFalse((destination / (current + ".pending")).exists())
+        self.assertEqual(before, operations.verify_backup(destination / previous))
+        decision = json.loads((destination / backup.CAPACITY_MARKER).read_bytes())
+        self.assertEqual((current, "offsite_capacity_deferred"), (decision["identity"], decision["purpose"]))
+        self.assertEqual(410, decision["capacity"]["backup_peak_estimate_bytes"])
 
     def test_configuration_rejects_foreign_host_public_path_and_shared_token_file(self):
         token = self.root / "token"
@@ -211,6 +238,21 @@ class FallbackAlertTest(unittest.TestCase):
         self.assertEqual([], list(root.glob("*.direct")) + list(root.glob("*.pending")))
         self.assertEqual(1, notifier.call_count)
         self.assertIn("전용 콘솔이 꺼져", notifier.call_args.args[1])
+
+    def test_capacity_fallback_verifies_direct_copy_and_keeps_latest_server_backup(self):
+        backup.run(self.config, self.api, polls=1)
+        previous = self.state()["remote_latest"]
+        self.api.defer_for_capacity = True
+        result = backup.run(self.config, self.api, polls=1)
+        self.assertEqual(("files_capacity", True, ["capacity"]), (result["path"], result["verified"], result["problems"]))
+        state = self.state()
+        self.assertEqual(previous, state["remote_latest"])
+        self.assertEqual(self.api.identity, state["latest"])
+        self.assertIsNone(state["pending"])
+        self.assertEqual(["backup_headroom"], state["capacity"]["warnings"])
+        folder = Path(self.config["destination"]) / state["latest"]
+        operations.restore(folder, self.root / "capacity-restored")
+        self.assertEqual("files_capacity", json.loads((folder / "checkpoint.json").read_bytes())["path"])
 
     def test_database_changing_while_downloading_is_not_promoted(self):
         raw = self.path.read_bytes()
