@@ -32,6 +32,8 @@
 
 이번 실험에서는 다음 작업을 추가로 완료했습니다.
 
+- `SmallLSTM` init 함수에 기존 인자 할당 방법과 Modelconfig 전달 방식 호환 가능하도록 보완하였습니다.
+    - 호출 가능 방법들 : `SmallLSTM(10, 4, 32, 64)` , `SmallLSTM(10, 4, config=Modelconfig())`
 - `optimizer.step()` 전후 가중치 변화를 비교하여 파라미터 업데이트 확인
 - `model.train()`과 `model.eval()`의 출력 차이 확인
 - Validation 예측 확률 및 `event_id`를 이용한 CSV 생성
@@ -583,19 +585,50 @@ Learning Server는 오답이 50행 미만이거나 학습자가 5명 미만인 �
 이번 실험은 모델 학습, 예측 파일 생성, CSV 검증 및 로컬 평가 파이프라인의 정상 동작을 확인한 결과로 활용합니다.
 
 ## 막힌 부분과 해결 내용
+
 1. 기존 예측 파일의 event_id 불일치
 
-발생 오류
+```python
+python -m learning_server.score --dataset ../learning-demo-f8 --track ai --predictions ../preds/lstm-validation.csv
+```
+#### 발생 오류
 
 오류: 예측 파일에 빠진 event_id 가 2개 있습니다.
 
 기존 lstm-validation.csv를 이용한 채점에서 오류가 발생했습니다.
 
-결과
+#### 결과
 
-lstm-validation_v2.csv의 299개 event_id와 예측 확률이 정상적으로 대응했으며, Learning Server Score 실행에 성공했습니다.
+lstm-validation.csv의 299개 event_id와 예측 확률이 정상적으로 대응했으며, Learning Server Score 실행에 성공했습니다.
 
  기존 CSV에서 2개 ID가 누락된 정확한 원인은 확인하지 못했습니다.
+
+#### lstm-validation.csv 생성 시간
+
+`Get-Item ../preds/lstm-validation.csv | Select-Object Name, CreationTime, LastWriteTime`
+
+```text
+Name                CreationTime            LastWriteTime          
+----                ------------            -------------          
+lstm-validation.csv 2026-11-24 오전 3:36:27 2026-11-24 오전 3:36:27
+```
+
+#### 실행 커밋 SHA
+`git rev-parse HEAD`
+
+```git
+git rev-parse HEAD
+SHA : 5be591196bff917bdb4c3c34786d5b01da3b3e74 
+```
+
+#### train.py의 커밋 현황 파악 
+`git log --format="%H | %ai | %s" -- experiments/michae18/train.py`
+
+```git
+git log --format="%H | %ai | %s" -- experiments/michae18/train.py
+5be591196bff917bdb4c3c34786d5b01da3b3e74 | 2026-11-24 04:35:22 +0900 | feat(model): SmallLSTM 실 데이터 학습 및 Validation 성능 평가 완료 (#337)
+```
+
 ## 다음 작업
 
 - 추가적인 개선 과제: train과 valid loss 값 차이 줄이기, test를 통한 검증 진행

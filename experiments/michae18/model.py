@@ -3,14 +3,26 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from experiments.michae18.constants import(Modelconfig)
 
-#  forward에 dropout 추가
 class SmallLSTM(nn.Module):
+    # 기존 인자 할당 방법과 Modelconfig 전달 방식 호환성 보완 
     def __init__(self,num_questions,num_concepts,
-                 config: Modelconfig):
+                 embedding_num = Modelconfig.embedding_num,
+                 hidden_num = Modelconfig.hidden_num,
+                 *,
+                 config: Modelconfig | None = None):
         super().__init__()
+
+        # config 미전달 시 Modelconfig 생성
+        if config is None:
+            config = Modelconfig(
+                embedding_num = embedding_num,
+                hidden_num = hidden_num
+            )
+        
         embedding_num = config.embedding_num
         hidden_num = config.hidden_num
         dropout = config.dropout
+
         # 문제 번호를 컴퓨터를 위해 번역한다 nn.Embedding 사용
         self.embedding = nn.Embedding(num_questions, embedding_num,padding_idx=0)
         # 과거 기록을 읽는 기억 장치(문제 푼 순서를 따라가며 학습 상태를 계산), 학습 가능한 내부 벡터 생성한다.
