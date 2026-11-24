@@ -1,6 +1,12 @@
 import unittest
 import torch
+from torch import nn
 from experiments.wamangdoo.model import SmallTransformer
+from experiments.wamangdoo.train import (
+    evaluate_one_epoch,
+    predict_probabilities,
+    train_one_epoch,
+)
 
 def make_model():
     torch.manual_seed(42)
@@ -152,6 +158,33 @@ class TestSmallTransformer(unittest.TestCase):
         print("\n[4] 순서 A (1번O -> 2번X):", probabilities_a)
         print("    순서 B (2번X -> 1번O):", probabilities_b)
 
+    def test_train_one_epoch_empty_rows_raises_value_error(self):
+        # 5) train_one_epoch에 빈 리스트(rows=[])를 넘기면 ZeroDivisionError 대신 ValueError가 나는지 확인
+        model = make_model()
+        loss_fn = nn.BCEWithLogitsLoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        vocabulary = {"questions": ["<PAD>", "<UNK>"], "concepts": ["<PAD>", "<UNK>"]}
+
+        with self.assertRaises(ValueError):
+            train_one_epoch(model, [], vocabulary, loss_fn, optimizer, torch.device("cpu"))
+
+    def test_evaluate_one_epoch_empty_rows_raises_value_error(self):
+        # 6) evaluate_one_epoch에 빈 리스트(rows=[])를 넘기면 ValueError가 나는지 확인
+        model = make_model()
+        loss_fn = nn.BCEWithLogitsLoss()
+        vocabulary = {"questions": ["<PAD>", "<UNK>"], "concepts": ["<PAD>", "<UNK>"]}
+
+        with self.assertRaises(ValueError):
+            evaluate_one_epoch(model, [], vocabulary, loss_fn, torch.device("cpu"))
+
+    def test_predict_probabilities_empty_rows_raises_value_error(self):
+        # 7) predict_probabilities에 빈 리스트(rows=[])를 넘기면 ValueError가 나는지 확인
+        model = make_model()
+        vocabulary = {"questions": ["<PAD>", "<UNK>"], "concepts": ["<PAD>", "<UNK>"]}
+
+        with self.assertRaises(ValueError):
+            predict_probabilities(model, [], vocabulary, torch.device("cpu"))
+
 if __name__ == "__main__":
-    # 이 파일을 직접 실행할 때 테스트 4개를 상세 출력(verbosity=2)으로 실행
+    # 이 파일을 직접 실행할 때 테스트를 상세 출력(verbosity=2)으로 실행
     unittest.main(verbosity=2)
