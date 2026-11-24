@@ -13,7 +13,9 @@ import uuid
 from aiprep.collection import Collection, CollectionError, NOTICE, stamp
 from aiprep.privacy import Consent, receipt
 from aiprep import sharing
+from learning_server import app
 from learning_server.app import Database, application
+from learning_server.storage import usage
 from learning_data.collection import packed
 from submission_api import Client
 
@@ -158,6 +160,47 @@ class PrivacyTest(unittest.TestCase):
         with self.db.connect() as db:
             self.assertEqual(1, db.execute("SELECT count(*) FROM events WHERE track='ai' AND json_extract(payload, '$.kind')='answer'").fetchone()[0])
             self.assertEqual(0, db.execute("SELECT count(*) FROM events WHERE track='python'").fetchone()[0])
+
+    def test_quota_rejection_keeps_cursor_and_retries_without_duplicate_after_lost_ack(self):
+        self.consent.choose(True)
+        self.assertFalse(self.consent.synchronize()["errors"])
+        store = self.collections["ai"]
+        share = sharing.Sharing(store)
+        participant = share.settings()["participant"]
+        confirmed = share.settings()["sequence"]
+        with self.db.connect() as db:
+            _, used = usage(db, participant)
+            self.db.storage_limit(db, participant, 8 * 1024 * 1024 + 1 - used)
+
+        store.emit("answer", {"result": "pass"})
+        pending = store.snapshot(after=confirmed)[1:]
+        self.assertEqual(1, len(pending))
+
+        def stored():
+            with self.db.connect() as db:
+                return db.execute("SELECT count(*) FROM events WHERE event_id=?", (pending[0]["event_id"],)).fetchone()[0]
+
+        with mock.patch.object(app, "MAX_PARTICIPANT_BYTES", used):
+            self.assertIn("보관량", self.consent.synchronize()["errors"][0])
+        self.assertEqual(0, stored())
+        self.assertEqual(confirmed, share.settings()["sequence"])
+        self.assertEqual(pending, store.snapshot(after=confirmed)[1:])
+
+        def lose_ack(base, path, *args, **kwargs):
+            result = self.transport(base, path, *args, **kwargs)
+            if path == "/v1/events":
+                raise CollectionError("시험에서 저장 확인 응답을 놓쳤습니다.")
+            return result
+
+        with mock.patch.object(sharing, "request", side_effect=lose_ack):
+            self.assertTrue(self.consent.synchronize()["errors"])
+        self.assertEqual(1, stored())
+        self.assertEqual(confirmed, share.settings()["sequence"])
+        reopened = Consent(self.collections, "https://example.test")
+        self.assertEqual({"sent": 1, "errors": []}, reopened.synchronize())
+        self.assertEqual(1, stored())
+        self.assertEqual(pending[0]["sequence"], share.settings()["sequence"])
+        self.assertEqual({"sent": 0, "errors": []}, reopened.synchronize())
 
     def test_offline_withdraw_stops_immediately_and_retries_remote_delete(self):
         self.consent.choose(True)
