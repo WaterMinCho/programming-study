@@ -714,6 +714,15 @@ class WorkerTest(unittest.TestCase):
         self.assertEqual(6, len(list((self.folder()/"quarantine").iterdir())))
         self.assertEqual(["APPROVE"], [row["event"] for row in self.posted()])
 
+    def test_login_failure_records_reason_and_waits_for_login(self):
+        self.model_mock.side_effect = worker.review.ModelFailure("login_required")
+        self.assertEqual([(12, "검토 보류")], worker.once(self.root))
+        failure = self.folder()/"quarantine"/"attempt-1"/"failure.json"
+        self.assertEqual("login_required", json.loads(failure.read_text())["diagnostic"])
+        status = self.statuses[HEAD, worker.REVIEW_CONTEXT]
+        self.assertEqual(("pending", "Claude Code 구독 로그인 필요. 재시도 대기"), (status["state"], status["description"]))
+        self.assertEqual([], self.posted())
+
     def test_preexisting_exhausted_model_failure_can_recover(self):
         self.model_mock.side_effect = worker.review.ReviewError("temporary model failure")
         with self.assertRaises(worker.AttemptError):

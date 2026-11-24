@@ -363,7 +363,7 @@ class AttemptError(review.ReviewError):
         self.retrying = retrying
 
 
-def failed_attempt(folder, attempts, reason, *, model_failures=0):
+def failed_attempt(folder, attempts, reason, *, model_failures=0, diagnostic=None):
     quarantine = folder/"quarantine"
     quarantine.mkdir(mode=0o700, exist_ok=True)
     destination = quarantine/("attempt-%d" % attempts)
@@ -375,7 +375,10 @@ def failed_attempt(folder, attempts, reason, *, model_failures=0):
             if target.exists():
                 raise review.ReviewError("격리한 이전 응답을 덮어쓰지 않습니다.")
             source.rename(target)
-    save(destination/"failure.json", {"reason": reason, "attempt": attempts, "at": now()})
+    failure = {"reason": reason, "attempt": attempts, "at": now()}
+    if diagnostic:
+        failure["diagnostic"] = diagnostic
+    save(destination/"failure.json", failure)
     retry_model = reason == "model_failed"
     model_failures += retry_model
     exhausted = attempts - model_failures >= 3
@@ -384,7 +387,8 @@ def failed_attempt(folder, attempts, reason, *, model_failures=0):
          "attempts": attempts, "model_failures": model_failures, "retry_after": time.time()+delay, "at": now()})
     labels = {"model_failed": "검토 응답 생성 실패", "validation_failed": "검토 응답 검증 실패",
               "body_failed": "게시 문장 검증 실패", "attempt_limit": "검토 시도 상한 도달"}
-    raise AttemptError(labels[reason]+(". 재시도 종료" if exhausted else ". 재시도 대기"), retrying=retry_model)
+    label = "Claude Code 구독 로그인 필요" if diagnostic == "login_required" else labels[reason]
+    raise AttemptError(label+(". 재시도 종료" if exhausted else ". 재시도 대기"), retrying=retry_model)
 
 
 def process(pr, root):
@@ -506,8 +510,10 @@ def process(pr, root):
     if not (folder/"assessment.json").exists():
         try:
             review.review(folder, schema=SCHEMA, system=SYSTEM)
+        except review.ModelFailure as error:
+            failed_attempt(folder, attempts, "model_failed", model_failures=model_failures, diagnostic=error.reason)
         except (review.ReviewError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
-            failed_attempt(folder, attempts, "model_failed", model_failures=model_failures)
+            failed_attempt(folder, attempts, "model_failed", model_failures=model_failures, diagnostic="unknown")
     try:
         assessment = json.loads((folder/"assessment.json").read_text())
         if not (folder/"review.json").exists() or not (folder/"feedback.md").exists():
