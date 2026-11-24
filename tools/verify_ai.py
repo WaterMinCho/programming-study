@@ -214,8 +214,8 @@ def check_index(v, bank_dir):
             v.fail("index", 1, "patterns %s 와 %s 의 뼈대 폴더가 같습니다." % (folders[pattern["folder"]], pattern["id"]))
         folders.setdefault(pattern["folder"], pattern["id"])
         for key, unit in pattern["units"].items():
-            if not re.match(r"%s[a-h]\Z" % head, key):
-                v.fail("index", 1, "patterns 의 단원 키는 %sa~%sh 여야 합니다: %s" % (head, head, key))
+            if not re.match(r"%s[a-z]\Z" % head, key):
+                v.fail("index", 1, "patterns 의 단원 키는 %sa~%sz 여야 합니다: %s" % (head, head, key))
             if unit["after"] and unit["after"] not in seen_ids:
                 v.fail("index", 1, "patterns %s 의 after %s 가 lessons 에 없습니다." % (key, unit["after"]))
             elif unit["after"] and aibank.course_of(unit["after"]) != pattern["course"]:

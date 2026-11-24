@@ -1440,7 +1440,7 @@ class AppPatternVerifyTest(AppPatternCase):
 
     def test_unit_key_course_and_after_follow_the_group(self):
         self.edit_app_index(lambda g, d: g["units"].update({"18c": {"after": "a90", "name": "잘못 쓴 키"}}))
-        self.assertFails("patterns 의 단원 키는 a18a~a18h 여야 합니다: 18c")
+        self.assertFails("patterns 의 단원 키는 a18a~a18z 여야 합니다: 18c")
         self.edit_app_index(lambda g, d: g["units"].pop("18c"))
         self.edit_app_index(lambda g, d: g["units"]["a18a"].update(after="i90"))
         self.assertFails("patterns a18a 의 after i90 는 다른 과정의 차시입니다.")

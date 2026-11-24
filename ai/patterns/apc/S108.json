@@ -1,0 +1,108 @@
+{
+ "format": 1,
+ "id": "S108",
+ "title": "사진 특징을 첫 자리로 붙인 뒤 유효한 캡션만 쓰기",
+ "ref": [
+  "응용 8차시 노트북 01 [20]"
+ ],
+ "tags": [
+  "이미지 특징을 캡션 배치에 붙이기"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "사진 두 장의 features는 (2, 4), captions는 (2, 5)입니다. caption마다 실제 길이는 lengths=[3, 5]이며 나머지 칸은 0으로 채웠습니다. embedding은 토큰을 길이 4인 벡터로 바꿉니다. 두 입력 배치는 모두 원래 사진 순서입니다.",
+   "lines": [
+    "words = embedding(captions)",
+    "first = features.unsqueeze(1)",
+    "steps = torch.cat((first, words), dim=1)",
+    "packed_in = pack_padded_sequence(steps, lengths, batch_first=True, enforce_sorted=False)",
+    "packed_target = pack_padded_sequence(captions, lengths, batch_first=True, enforce_sorted=False)"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-k801",
+   "line": 1,
+   "token": "unsqueeze",
+   "answer": [
+    "unsqueeze"
+   ],
+   "mode": "code",
+   "hint": "사진마다 길이 1인 축을 넣는 메서드",
+   "explain": "features에 1번 축을 넣어 (2, 1, 4)로 만들면 사진마다 첫 시간 자리에 붙일 수 있습니다.",
+   "step": "a18h/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-801"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 8차시 노트북 01 [20]"
+   ]
+  },
+  {
+   "id": "apc-k802",
+   "line": 2,
+   "token": "dim=1",
+   "answer": [
+    "dim=1",
+    "1",
+    "dim=-2",
+    "-2"
+   ],
+   "mode": "code",
+   "hint": "연결할 축",
+   "explain": "배치와 벡터 축은 그대로 두고 시간 축을 늘립니다.",
+   "step": "a18h/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-801"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 8차시 노트북 01 [20]"
+   ]
+  }
+ ],
+ "orders": [],
+ "picks": [
+  {
+   "id": "apc-p801",
+   "line": 2,
+   "stem": "first는 (2, 1, 4)인 사진 특징이고 words는 (2, 5, 4)인 캡션 벡터입니다. 두 텐서의 축은 배치·시간·벡터 순서입니다. 사진 특징을 첫 시간 자리에 놓는 줄을 고르세요.",
+   "wrong": [
+    {
+     "text": "steps = torch.cat((words, first), dim=1)",
+     "aim": "사진 특징을 맨 뒤에 둠",
+     "why": "이 순서에서는 사진 특징이 마지막 자리에 붙습니다."
+    },
+    {
+     "text": "steps = torch.cat((first, words), dim=0)",
+     "aim": "배치 축을 연결",
+     "why": "0번 축으로 합치려면 나머지 축 크기가 같아야 하는데 시간 길이가 1과 5로 다릅니다."
+    },
+    {
+     "text": "steps = torch.cat((first, words), dim=2)",
+     "aim": "벡터 축을 연결",
+     "why": "2번 축으로 합치려면 시간 길이가 같아야 합니다."
+    }
+   ],
+   "explain": "사진 뒤에 놓은 앞 낱말까지만 쓰면서 실제 정답 길이에 맞춰 마지막 입력을 빼고, 짧은 문장의 패딩도 제외합니다.",
+   "step": "a18h/3",
+   "variant": "표준형",
+   "facts": [
+    "FA18-801"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 8차시 노트북 01 [20]"
+   ]
+  }
+ ],
+ "changes": []
+}
