@@ -1693,7 +1693,9 @@ ALL_LESSON_RULES = {"all44-v1": {"format": {"choice": 16, "bug": 5, "order": 3, 
                     "all46-v1": {"format": {"choice": 17, "bug": 5, "order": 3, "blank": 8, "predict": 9, "code": 4},
                                  "level": {1: 11, 2: 24, 3: 11}, "code_level": {2: 2, 3: 2}},
                     "all50-v1": {"format": {"choice": 18, "bug": 6, "order": 3, "blank": 9, "predict": 10, "code": 4},
-                                 "level": {1: 13, 2: 25, 3: 12}, "code_level": {2: 2, 3: 2}}}
+                                 "level": {1: 13, 2: 25, 3: 12}, "code_level": {2: 2, 3: 2}},
+                    "all52-v1": {"format": {"choice": 18, "bug": 6, "order": 3, "blank": 10, "predict": 11, "code": 4},
+                                 "level": {1: 13, 2: 26, 3: 13}, "code_level": {2: 2, 3: 2}}}
 FORMAT_KINDS = {"choice": "choice", "bug": "choice", "order": "choice", "blank": "blank", "predict": "blank", "code": "code"}
 
 

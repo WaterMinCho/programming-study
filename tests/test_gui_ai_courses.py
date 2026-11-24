@@ -131,7 +131,7 @@ class CourseGuiTest(AiTest):
         self.assertEqual('app', win.ai.course)
         from gui import ai_text
         self.assertNotIn('응용 · 응용', ai_text.track_line(win.ai.overview()))
-        self.assertEqual(['a01', 'a02', 'a03', 'a04', 'a05', 'a06', 'a07', 'a08'], list(win.ai.lessons))
+        self.assertEqual(['a01', 'a02', 'a03', 'a04', 'a05', 'a06', 'a07', 'a08', 'a09'], list(win.ai.lessons))
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
         self.assertEqual(mocks, set(win.ai.mocks))
@@ -375,7 +375,7 @@ class CourseGuiTest(AiTest):
         for mode in ('light', 'dark'):
             theme.set_mode(mode)
             win.restyle()
-            for lesson in ('a01', 'a02', 'a03', 'a04', 'a05', 'a06', 'a07', 'a08'):
+            for lesson in ('a01', 'a02', 'a03', 'a04', 'a05', 'a06', 'a07', 'a08', 'a09'):
                 for row in win.ai.unit_list(lesson):
                     unit = row['key']
                     for step in win.ai.unit_steps(lesson, unit)['steps']:

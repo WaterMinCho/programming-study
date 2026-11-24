@@ -30,9 +30,10 @@
   {"id": "al06", "title": "응용 6차시 사전학습 특징으로 이미지의 스타일 옮기기"},
   {"id": "al07", "title": "응용 7차시 노이즈에서 이미지를 만드는 GAN과 VAE"},
   {"id": "al08", "title": "응용 8차시 CNN 특징으로 LSTM이 캡션 쓰기"},
+  {"id": "al09", "title": "응용 9차시 3D 장면을 새 카메라 시점에서 그리기"},
   {"id": "al18", "title": "코딩으로 실전학습하기"}
  ],
- "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03", "al04", "al05", "al06", "al07", "al08", "al18"],
+ "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03", "al04", "al05", "al06", "al07", "al08", "al09", "al18"],
  "exam": {"date": "2026-12-02", "last_new": "2026-11-24", "sweep_from": "2026-11-25", "last_review": "2026-12-01"},
  "lessons": [
   {"id": "i01", "no": 1, "title": "딥러닝에 필요한 파이썬", "page": "l01", "date": "2026-10-19", "weight": 0.8, "units": 7, "hw_due": null},
@@ -59,7 +60,8 @@
   {"id": "a05", "no": 5, "course": "app", "title": "사전학습 CNN을 새 분류와 추론에 맞추기", "page": "al05", "date": null, "weight": 1, "units": 5, "hw_due": null},
   {"id": "a06", "no": 6, "course": "app", "title": "사전학습 특징으로 이미지의 스타일 옮기기", "page": "al06", "date": null, "weight": 1, "units": 6, "hw_due": null},
   {"id": "a07", "no": 7, "course": "app", "title": "노이즈에서 이미지를 만드는 GAN과 VAE", "page": "al07", "date": null, "weight": 1, "units": 7, "hw_due": null},
-  {"id": "a08", "no": 8, "course": "app", "title": "CNN 특징으로 LSTM이 캡션 쓰기", "page": "al08", "date": null, "weight": 1, "units": 6, "hw_due": null}
+  {"id": "a08", "no": 8, "course": "app", "title": "CNN 특징으로 LSTM이 캡션 쓰기", "page": "al08", "date": null, "weight": 1, "units": 6, "hw_due": null},
+  {"id": "a09", "no": 9, "course": "app", "title": "3D 장면을 새 카메라 시점에서 그리기", "page": "al09", "date": null, "weight": 1, "units": 6, "hw_due": null}
  ],
  "patterns": [
   {"id": "pc", "page": "l18", "title": "코딩으로 실전학습하기", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}},
@@ -72,7 +74,7 @@
   {"id": "m4", "title": "이전 모의고사 4회", "legacy": true, "minutes": 120, "count": 32, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 16, "app": 16}, "blueprint": {"i01": 1, "i02": 1, "i03": 1, "i04": 1, "i05": 1, "i06": 1, "i07": 1, "i08": 1, "i09": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i15": 1, "i16": 1, "i17": 1, "a01": 5, "a02": 6, "a03": 5}, "blueprint_revision": "mixed32-blueprint-v1"},
   {"id": "m5", "title": "이전 모의고사 5회", "legacy": true, "minutes": 120, "count": 32, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 16, "app": 16}, "blueprint": {"i01": 1, "i02": 1, "i03": 1, "i04": 1, "i05": 1, "i06": 1, "i07": 1, "i08": 1, "i09": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i15": 1, "i16": 1, "i17": 1, "a01": 5, "a02": 6, "a03": 5}, "blueprint_revision": "mixed32-transfer-v1"},
   {"id": "m6", "title": "이전 모의고사 6회", "legacy": true, "minutes": 120, "count": 32, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 16, "app": 16}, "blueprint": {"i01": 1, "i02": 1, "i03": 1, "i04": 1, "i05": 1, "i06": 1, "i07": 1, "i08": 1, "i09": 1, "i11": 1, "i12": 1, "i13": 1, "i14": 1, "i15": 1, "i16": 1, "i17": 1, "a01": 4, "a02": 4, "a03": 4, "a04": 4}, "blueprint_revision": "mixed32-applied04-v1"},
-  {"id": "m11", "title": "모의고사 1회", "minutes": 120, "count": 50, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 35, "app": 15}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 2, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1}, "blueprint_revision": "all50-v1"},
-  {"id": "m12", "title": "모의고사 2회", "minutes": 120, "count": 50, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 35, "app": 15}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 2, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1}, "blueprint_revision": "all50-v1"}
+  {"id": "m11", "title": "모의고사 1회", "minutes": 120, "count": 52, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 36, "app": 16}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 3, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1, "a09": 1}, "blueprint_revision": "all52-v1"},
+  {"id": "m12", "title": "모의고사 2회", "minutes": 120, "count": 52, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 36, "app": 16}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 3, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1, "a09": 1}, "blueprint_revision": "all52-v1"}
  ]
 }

@@ -2,7 +2,7 @@
  "id": "m12",
  "title": "모의고사 2회",
  "minutes": 120,
- "count": 50,
+ "count": 52,
  "range": [
   1,
   17
@@ -14,15 +14,15 @@
   "app"
  ],
  "course_counts": {
-  "intro": 35,
-  "app": 15
+  "intro": 36,
+  "app": 16
  },
  "blueprint": {
   "i01": 1,
   "i02": 2,
   "i03": 2,
   "i04": 3,
-  "i05": 2,
+  "i05": 3,
   "i06": 2,
   "i07": 2,
   "i08": 3,
@@ -42,9 +42,10 @@
   "a05": 2,
   "a06": 1,
   "a07": 1,
-  "a08": 1
+  "a08": 1,
+  "a09": 1
  },
- "blueprint_revision": "all50-v1",
+ "blueprint_revision": "all52-v1",
  "format": 1,
  "draft": false,
  "time_basis": "120분은 약 두 시간 연습을 위한 기본값입니다.",
