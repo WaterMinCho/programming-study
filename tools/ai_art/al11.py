@@ -168,7 +168,7 @@ def counts_and_overlap():
     return s.image()
 
 
-@figure("a11b-2", *SIZE)
+@figure("a11b-31", *SIZE)
 def shared_cells():
     s = sheet("같은 칸을 덮는 두 상자", PURPLE)
     overlap_grid(s, 284, 130, 94, (0, 0, 3, 2), (2, 0, 6, 2), "outlines", rows=3)
@@ -176,7 +176,7 @@ def shared_cells():
     return s.image()
 
 
-@figure("a11b-3", *SIZE)
+@figure("a11b-32", *SIZE)
 def two_areas():
     s = sheet("두 박스의 면적에서 중복 덜기", PURPLE)
     overlap_grid(s, 70, 143, 99, (0, 0, 3, 2), (2, 0, 6, 2), "intersection", rows=3)
@@ -187,7 +187,7 @@ def two_areas():
     return s.image()
 
 
-@figure("a11b-4", *SIZE)
+@figure("a11b-33", *SIZE)
 def separate_intervals():
     s = sheet("가로축에서 겹칠 구간 찾기", PURPLE)
     x, cell = 113, 100
@@ -204,7 +204,7 @@ def separate_intervals():
     return s.image()
 
 
-@figure("a11c-2", *SIZE)
+@figure("a11c-31", *SIZE)
 def score_choices():
     s = sheet("같은 물체 둘레에 있던 후보 3개", PURPLE)
     box(s, (102, 129, 625, 455))
@@ -219,7 +219,7 @@ def score_choices():
     return s.image()
 
 
-@figure("a11c-3", *SIZE)
+@figure("a11c-32", *SIZE)
 def threshold_boundary():
     s = sheet("두 겹침 값을 같은 기준에 놓기", PURPLE)
     x, width, y = 99, 834, 291
@@ -233,7 +233,7 @@ def threshold_boundary():
     return s.image()
 
 
-@figure("a11c-4", *SIZE)
+@figure("a11c-33", *SIZE)
 def index_candidates():
     s = sheet("선택한 번호와 비교할 후보", PURPLE)
     badge(s, 359, 131, 322, "선택한 박스 · 4번", PURPLE_D, PURPLE_L)
@@ -244,7 +244,7 @@ def index_candidates():
     return s.image()
 
 
-@figure("a11f-2", *SIZE)
+@figure("a11f-31", *SIZE)
 def disjoint():
     s = sheet("실선과 점선의 위치를 비교하기", PURPLE)
     eval_pair(s, 153, 146, (8, 1, 11, 4), 61)
@@ -253,7 +253,7 @@ def disjoint():
     return s.image()
 
 
-@figure("a11f-3", *SIZE)
+@figure("a11f-32", *SIZE)
 def precision_counts():
     s = sheet("예측 수와 정답 수를 구분하기", PURPLE)
     for row, (label, count, fill, tone) in enumerate((
@@ -269,7 +269,7 @@ def precision_counts():
     return s.image()
 
 
-@figure("a11f-4", *SIZE)
+@figure("a11f-33", *SIZE)
 def one_reference():
     s = sheet("두 예측이 같은 정답을 가리킬 때", PURPLE)
     for y, label in ((155, "높은 점수의 예측"), (321, "낮은 점수의 예측")):

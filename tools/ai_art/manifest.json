@@ -1566,17 +1566,17 @@
    "script": "tools/ai_art/al11.py",
    "fn": "iou_sequence"
   },
-  "learn/al11/assets/a11b-2.png": {
+  "learn/al11/assets/a11b-31.png": {
    "sha256": "ea4e91d8f04d145c7f161a691959af1b32b4cfa78ee2eae801cdfb7449afe90e",
    "script": "tools/ai_art/al11.py",
    "fn": "shared_cells"
   },
-  "learn/al11/assets/a11b-3.png": {
+  "learn/al11/assets/a11b-32.png": {
    "sha256": "cfb7f6635dfe6b21bb4b3b0e11abc614f593924e0ab911789fde1b9addd2527b",
    "script": "tools/ai_art/al11.py",
    "fn": "two_areas"
   },
-  "learn/al11/assets/a11b-4.png": {
+  "learn/al11/assets/a11b-33.png": {
    "sha256": "3872012d17bf65737018a014562aeba4c8099110318777861c2a741557ce87c3",
    "script": "tools/ai_art/al11.py",
    "fn": "separate_intervals"
@@ -1586,17 +1586,17 @@
    "script": "tools/ai_art/al11.py",
    "fn": "nms_sequence"
   },
-  "learn/al11/assets/a11c-2.png": {
+  "learn/al11/assets/a11c-31.png": {
    "sha256": "00339fd55ca406eb9448122326500fd7d1e9bc4f1d3078317f28df0286e0b97c",
    "script": "tools/ai_art/al11.py",
    "fn": "score_choices"
   },
-  "learn/al11/assets/a11c-3.png": {
+  "learn/al11/assets/a11c-32.png": {
    "sha256": "c38c82c8733ab6aacfcfbfda306ee492a79539937d2dee7d7558de4da4b50e1b",
    "script": "tools/ai_art/al11.py",
    "fn": "threshold_boundary"
   },
-  "learn/al11/assets/a11c-4.png": {
+  "learn/al11/assets/a11c-33.png": {
    "sha256": "83c0b23e68490a3cffc8fd97a4df5fd766e1af86ce4b131588eec574cd8a71c6",
    "script": "tools/ai_art/al11.py",
    "fn": "index_candidates"
@@ -1616,17 +1616,17 @@
    "script": "tools/ai_art/al11.py",
    "fn": "counts_and_overlap"
   },
-  "learn/al11/assets/a11f-2.png": {
+  "learn/al11/assets/a11f-31.png": {
    "sha256": "3e3fb6ebe0b8c3a21be0e26f1fba2a60e4e5535ecac0d61396e1963f079c2069",
    "script": "tools/ai_art/al11.py",
    "fn": "disjoint"
   },
-  "learn/al11/assets/a11f-3.png": {
+  "learn/al11/assets/a11f-32.png": {
    "sha256": "ef81ec829b9c05506db90667ed6a8eb755df188f4a0c0bc3711eb2d8c9960546",
    "script": "tools/ai_art/al11.py",
    "fn": "precision_counts"
   },
-  "learn/al11/assets/a11f-4.png": {
+  "learn/al11/assets/a11f-33.png": {
    "sha256": "30ff10931027ae175ff885acaeb71384bb05ebc1fbb32e80a9a184eb9dd08911",
    "script": "tools/ai_art/al11.py",
    "fn": "one_reference"
