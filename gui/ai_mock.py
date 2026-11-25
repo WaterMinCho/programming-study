@@ -356,7 +356,8 @@ class MockPage(QWidget):
         clock_note = '시작하면 시계가 멈추지 않습니다. 프로그램을 꺼도 시간이 흐르고, 시간이 다 되면 그때까지 쓴 답으로 제출됩니다. 부분 점수는 없습니다.'
         self.heading.setText(ai_text.mock_description(info))
         if mixed_mock.candidate(info):
-            clock_note = '%d분은 이 회차의 연습 시간입니다. ' % info['minutes'] + clock_note
+            clock_note = ('%d분은 이 회차의 연습 시간입니다. 공식 평가 시간을 뜻하지 않습니다. '
+                          % info['minutes']) + clock_note
             entries = self.win.ai.mock_lessons
         else:
             entries = self.win.ai.lessons
