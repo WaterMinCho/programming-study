@@ -34,7 +34,7 @@ SmallLSTM을 기반으로 TimeGapLSTM을 구현하고, 실제 Recorded AI 데이
 | `test_gaps.py` | 시간 전처리 테스트 10개 및 실제 데이터 검증 |
 | `model.py` | 기본 LSTM 상속, 시간 특성 연결 및 공통 가중치 복사 |
 | `test_data_model.py` | 기본 모델 비교, 시간 특성 적용, 역전파, 실제 데이터 순전파, 저장·복원 검증 |
-| `train_compare.py` | SmallLSTM과 TimeGapLSTM 동일 조건 학습, Early Stopping, 학습 기록·최적 가중치 저장 |
+| `train_compare.py` | SmallLSTM과 TimeGapLSTM 동일 조건 학습, Early Stopping, 학습 기록·최적 가중치 저장, 공통 Validation 채점 및 결과 자동 저장 |
 | `test_compare.py` | 저장된 모델의 Validation·Test 평가, 공식 채점용 예측 CSV 생성, 과적합 분석 및 그래프 출력 |
 | `README.md` | 실행 환경, 검증 방법, 학습·채점 결과 및 제한 사항 |
 
@@ -356,6 +356,22 @@ python -m experiments.kimjs85529_a11y.train_compare
 
 학습 데이터는 Recorded AI Train 953건, Validation 299건이며 Full Batch와 Seed 42를 사용했다. 최적 Validation Loss 기준의 모델 가중치 및 학습 이력을 `comparison_results/`에 저장하였다.
 
+2026-11-25 공통 채점 모듈을 적용한 후에는 위 학습 명령만으로 두 모델의 최적 가중치를 복원하여 Validation 정답 확률을 계산하고, [공통 검증 채점기](../../docs/LEARNING_STARTER.md#공통-검증-채점기)의 `score_validation()`과 `render()`를 통해 공식 채점 결과를 출력·저장한다. 별도의 예측 CSV 생성 및 채점 명령은 필수 과정이 아니다.
+
+`output_root`는 지정하지 않아 공통 기본 경로인 `.local/validation-results/<날짜>/<모델명>-<날짜>-v<번호>/`를 사용한다. 이번 실행에서 생성된 경로는 다음과 같다.
+
+```text
+.local/validation-results/2026-11-25/
+    small-lstm-retrained-2026-11-25-v1/
+        predictions.csv
+        score.json
+    timegap-lstm-2026-11-25-v1/
+        predictions.csv
+        score.json
+```
+
+공통 모듈의 파일명은 두 모델 모두 `predictions.csv`, `score.json`으로 동일하지만 저장 폴더와 CSV·JSON의 모델 식별자는 서로 다르다. 재학습 SmallLSTM에는 `small-lstm-retrained`를 사용하여 #352의 `small-lstm`과 구분한다. 날짜와 버전 번호는 공통 모듈이 부여한다.
+
 ### 6. 저장된 모델 평가·과적합 분석
 
 ```powershell
@@ -377,6 +393,8 @@ python -m experiments.kimjs85529_a11y.test_compare --analyze-overfitting
 2026-11-25에는 `--split` 기본값을 `validation`으로 변경했다. 옵션 없이 실행하면 Validation 299건을 평가하고 `validation_comparison.csv`를 저장하며, `--split test`를 명시한 경우에만 Test 260건을 평가하고 `test_comparison.csv`를 저장한다. 평소 실험 설정 확인에는 Validation을 사용하고 Test 점수를 보고 학습 설정을 반복적으로 선택하지 않는다.
 
 ### 7. 공식 Validation 채점용 예측 파일 생성
+
+아래는 기존 체크포인트를 재학습하지 않고 별도로 예측 파일을 생성하는 방법이다. 학습과 함께 공식 채점을 실행할 때는 5절의 공통 채점 방식을 사용한다.
 
 ```powershell
 python -m experiments.kimjs85529_a11y.test_compare --split validation --export-predictions
@@ -406,7 +424,7 @@ timegap-lstm-v1   299
 
 ### 8. 공식 `learning_server.score` 실행
 
-이미 만든 예측 CSV는 아래 명령으로 채점한다. 앞으로 학습 코드에서 Validation 예측과 점수를 바로 저장할 때는 [공통 검증 채점기](../../docs/LEARNING_STARTER.md#공통-검증-채점기)의 `score_validation()`을 사용할 수 있다.
+이미 만든 예측 CSV는 아래 명령으로 채점한다. 학습 코드에서 Validation 예측과 점수를 바로 저장할 때는 [공통 검증 채점기](../../docs/LEARNING_STARTER.md#공통-검증-채점기)의 `score_validation()`을 사용하도록 적용했다.
 
 ```powershell
 python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118\recorded --track ai --predictions C:\study-data\model-predictions\small-lstm-retrained-validation.csv --out C:\study-data\model-predictions\small-lstm-retrained-validation-score.json
@@ -414,7 +432,7 @@ python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118
 python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118\recorded --track ai --predictions C:\study-data\model-predictions\timegap-lstm-validation.csv --out C:\study-data\model-predictions\timegap-lstm-validation-score.json
 ```
 
-기존 파일명(`small-lstm-validation.csv`, `timegap-lstm-validation.csv`)으로 Validation 공식 채점을 완료하였다. 위 명령은 변경된 예측 CSV의 재채점용이며, 2026-11-25에 생성한 CSV의 공식 재채점은 아직 수행하지 않았다. 아래 공식 채점 원문 및 수치는 기존 실행 결과를 유지한다. `--split` 생략 시 Validation 구간이며, 공식 Test 채점은 아직 수행하지 않았다. 생성된 원자료, 체크포인트, 개별 예측 CSV, 점수 JSON은 GitHub에 공개하지 않는다.
+기존 파일명(`small-lstm-validation.csv`, `timegap-lstm-validation.csv`)으로 Validation 공식 채점을 완료하였다. 위 명령은 변경된 예측 CSV의 재채점용이며, 2026-11-25에 별도로 생성한 기존 방식의 CSV에 대한 공식 재채점은 수행하지 않았다. 이후 공통 채점 모듈로 새 예측 CSV를 생성하고 공식 Validation 채점을 완료했다. 아래 공식 채점 원문은 2026-11-25 공통 모듈 실행 결과로 갱신했으며, 기존 실행과 표시된 평가 수치가 일치한다. `--split` 생략 시 Validation 구간이며, 공식 Test 채점은 아직 수행하지 않았다. 생성된 원자료, 체크포인트, 개별 예측 CSV, 점수 JSON은 GitHub에 공개하지 않는다.
 
 ## 결과와 오류 사례
 
@@ -679,19 +697,19 @@ Validation에서는 실제 오답 37건 중 36건을 정답으로 잘못 예측�
 
 ### 8. 공식 Validation 채점 원문: SmallLSTM
 
-아래는 식별자 변경 전 #351에서 재학습한 SmallLSTM의 공식 채점 기록이며, 당시 식별자인 `small-lstm-v1`과 출력 원문을 보존한다.
+2026-11-25 `train_compare.py`에서 공통 검증 채점 모듈로 자동 채점한 결과이다. 아래 명령은 저장된 JSON을 다시 출력하며 재학습이나 재채점을 수행하지 않는다.
 
-채점 명령:
+채점 결과 확인 명령:
 
 ```powershell
-python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118\recorded --track ai --predictions C:\study-data\model-predictions\small-lstm-validation.csv --out C:\study-data\model-predictions\small-lstm-validation-score.json
+python -X utf8 -c "import json; from pathlib import Path; from learning_server.score import render; print(render(json.loads(Path('.local/validation-results/2026-11-25/small-lstm-retrained-2026-11-25-v1/score.json').read_text(encoding='utf-8'))))"
 ```
 
 ```text
 ai validation 구간: 299행, 오답 37행, 가명 3개, 끼운 변형 0행 (자료 버전 8, 묶음 40141519fa79)
 표의 값: 값 ± 행 독립 표준오차 / 가명 묶음 표준오차
 이름 | 로그 손실 | Brier | ROC-AUC | 정확도
-small-lstm-v1 | 0.2952 ± 0.0358 / 0.4815 | 0.0873 ± 0.0128 / 0.1969 | 0.8357 ± 0.0277 / 0.0766 | 0.8796 ± 0.0188 / 0.3534
+small-lstm-retrained-2026-11-25-v1 | 0.2952 ± 0.0358 / 0.4815 | 0.0873 ± 0.0128 / 0.1969 | 0.8357 ± 0.0277 / 0.0766 | 0.8796 ± 0.0188 / 0.3534
 majority | - | 0.1237 ± 0.0191 / 0.3694 | - | 0.8763 ± 0.0190 / 0.3694
 overall-mean | 0.3871 ± 0.0472 / 0.9141 | 0.1106 ± 0.0161 / 0.3120 | 0.5000 ± 0.0508 / 0.0000 | 0.8763 ± 0.0190 / 0.3694
 per-question | 0.4819 ± 0.0623 / 1.1781 | 0.1257 ± 0.0170 / 0.3196 | 0.4849 ± 0.0511 / 0.1114 | 0.8763 ± 0.0190 / 0.3694
@@ -702,7 +720,7 @@ past-concept-ratio-v1 | 0.3174 ± 0.0179 / 0.2580 | 0.0936 ± 0.0073 / 0.1066 | 
 
 처음 보는 문제(학습 번호표에 없는 문제) 35개: 72행, 오답 13행, 가명 3개 미만, 끼운 변형 0행
 이름 | 로그 손실 | Brier | ROC-AUC | 정확도
-small-lstm-v1 | 0.4657 ± 0.0940 / 계산할 수 없음 | 0.1454 ± 0.0342 / 계산할 수 없음 | 0.6962 ± 0.0732 / 계산할 수 없음 | 0.8194 ± 0.0453 / 계산할 수 없음
+small-lstm-retrained-2026-11-25-v1 | 0.4657 ± 0.0940 / 계산할 수 없음 | 0.1454 ± 0.0342 / 계산할 수 없음 | 0.6962 ± 0.0732 / 계산할 수 없음 | 0.8194 ± 0.0453 / 계산할 수 없음
 majority | - | 0.1806 ± 0.0456 / 계산할 수 없음 | - | 0.8194 ± 0.0453 / 계산할 수 없음
 overall-mean | 0.5277 ± 0.1130 / 계산할 수 없음 | 0.1585 ± 0.0386 / 계산할 수 없음 | 0.5000 ± 0.0891 / 계산할 수 없음 | 0.8194 ± 0.0453 / 계산할 수 없음
 per-question | 0.5923 ± 0.1189 / 계산할 수 없음 | 0.1754 ± 0.0381 / 계산할 수 없음 | 0.4100 ± 0.0906 / 계산할 수 없음 | 0.8194 ± 0.0453 / 계산할 수 없음
@@ -714,17 +732,19 @@ past-concept-ratio-v1 | 0.5348 ± 0.0316 / 계산할 수 없음 | 0.1786 ± 0.01
 
 ### 9. 공식 Validation 채점 원문: TimeGapLSTM
 
-채점 명령:
+2026-11-25 `train_compare.py`에서 공통 검증 채점 모듈로 자동 채점한 결과이다. 아래 명령은 저장된 JSON을 다시 출력하며 재학습이나 재채점을 수행하지 않는다.
+
+채점 결과 확인 명령:
 
 ```powershell
-python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118\recorded --track ai --predictions C:\study-data\model-predictions\timegap-lstm-validation.csv --out C:\study-data\model-predictions\timegap-lstm-validation-score.json
+python -X utf8 -c "import json; from pathlib import Path; from learning_server.score import render; print(render(json.loads(Path('.local/validation-results/2026-11-25/timegap-lstm-2026-11-25-v1/score.json').read_text(encoding='utf-8'))))"
 ```
 
 ```text
 ai validation 구간: 299행, 오답 37행, 가명 3개, 끼운 변형 0행 (자료 버전 8, 묶음 40141519fa79)
 표의 값: 값 ± 행 독립 표준오차 / 가명 묶음 표준오차
 이름 | 로그 손실 | Brier | ROC-AUC | 정확도
-timegap-lstm-v1 | 0.2945 ± 0.0355 / 0.4798 | 0.0869 ± 0.0127 / 0.1964 | 0.8361 ± 0.0277 / 0.0749 | 0.8796 ± 0.0188 / 0.3534
+timegap-lstm-2026-11-25-v1 | 0.2945 ± 0.0355 / 0.4798 | 0.0869 ± 0.0127 / 0.1964 | 0.8361 ± 0.0277 / 0.0749 | 0.8796 ± 0.0188 / 0.3534
 majority | - | 0.1237 ± 0.0191 / 0.3694 | - | 0.8763 ± 0.0190 / 0.3694
 overall-mean | 0.3871 ± 0.0472 / 0.9141 | 0.1106 ± 0.0161 / 0.3120 | 0.5000 ± 0.0508 / 0.0000 | 0.8763 ± 0.0190 / 0.3694
 per-question | 0.4819 ± 0.0623 / 1.1781 | 0.1257 ± 0.0170 / 0.3196 | 0.4849 ± 0.0511 / 0.1114 | 0.8763 ± 0.0190 / 0.3694
@@ -735,7 +755,7 @@ past-concept-ratio-v1 | 0.3174 ± 0.0179 / 0.2580 | 0.0936 ± 0.0073 / 0.1066 | 
 
 처음 보는 문제(학습 번호표에 없는 문제) 35개: 72행, 오답 13행, 가명 3개 미만, 끼운 변형 0행
 이름 | 로그 손실 | Brier | ROC-AUC | 정확도
-timegap-lstm-v1 | 0.4609 ± 0.0918 / 계산할 수 없음 | 0.1445 ± 0.0339 / 계산할 수 없음 | 0.7027 ± 0.0724 / 계산할 수 없음 | 0.8194 ± 0.0453 / 계산할 수 없음
+timegap-lstm-2026-11-25-v1 | 0.4609 ± 0.0918 / 계산할 수 없음 | 0.1445 ± 0.0339 / 계산할 수 없음 | 0.7027 ± 0.0724 / 계산할 수 없음 | 0.8194 ± 0.0453 / 계산할 수 없음
 majority | - | 0.1806 ± 0.0456 / 계산할 수 없음 | - | 0.8194 ± 0.0453 / 계산할 수 없음
 overall-mean | 0.5277 ± 0.1130 / 계산할 수 없음 | 0.1585 ± 0.0386 / 계산할 수 없음 | 0.5000 ± 0.0891 / 계산할 수 없음 | 0.8194 ± 0.0453 / 계산할 수 없음
 per-question | 0.5923 ± 0.1189 / 계산할 수 없음 | 0.1754 ± 0.0381 / 계산할 수 없음 | 0.4100 ± 0.0906 / 계산할 수 없음 | 0.8194 ± 0.0453 / 계산할 수 없음
@@ -786,6 +806,43 @@ TimeGapLSTM은 SmallLSTM보다 전체 Validation 손실·Brier가 소폭 낮고 
 검증 범위에 포함되지 않은 항목은 원본 풀이 타임스탬프와 `query_gap_seconds`의 독립적 대조, UNK 제외 정책의 성능 영향 실험, 공식 Test 채점 및 새로운 학습자에 대한 일반화 검증이다. `question_min_count`는 사용 데이터의 `manifest.json`에서 확인할 수 없으며, 파일 자체의 전체 SHA-256은 기록하지 않았다.
 
 공식 Validation 전체는 **299행·오답 37행·가명 3개**, 처음 보는 문제 구간은 **72행·오답 13행·가명 3개 미만**이어서 공식 채점 도구가 모델 비교 근거로 쓰기 어렵다고 경고했다. 따라서 TimeGapLSTM의 로그 손실이 소폭 낮다는 사실을 통계적으로 입증된 우월성으로 표현하지 않는다.
+
+### 13. 공통 Validation 채점 적용 및 재현성 검증 (2026-11-25)
+
+PR #351 병합 이후 최신 main을 기준으로 `train_compare.py`에 공통 검증 채점 모듈을 적용했다. 모델 구조, 학습 조건, 기존 가중치·학습 이력 저장 및 그래프 출력 방식은 유지했다. `batch()`가 반환하는 `event_ids`를 사용하며, `_encode()`가 원본 행 순서대로 입력을 생성하는 것을 확인했다. 최적 모델을 `model.eval()` 및 `torch.no_grad()` 상태에서 실행하고 sigmoid 확률을 공통 채점 함수에 전달한다.
+
+```powershell
+python -m py_compile experiments/kimjs85529_a11y/train_compare.py
+python -m experiments.kimjs85529_a11y.test_data_model
+python -m experiments.kimjs85529_a11y.test_gaps
+python -m experiments.kimjs85529_a11y.train_compare
+```
+
+문법 검사, 모델 기능 검증 출력 8개 항목 및 시간 전처리 테스트 1~10을 모두 통과했다. 실제 AI Train 953건의 Full Batch 순전파와 두 모델의 초기 출력 일치를 확인했다. 재학습 시 최적 Epoch는 SmallLSTM 360, TimeGapLSTM 336으로 기존 기록과 일치했다.
+
+이번 공식 채점 원문은 8~9절, 비교 및 해석은 10절에 기록했다. 기존 공식 채점 기록과 표시된 정밀도에서 모든 지표 및 표준오차가 일치했다. 전체 Validation 및 처음 보는 문제 구간의 표본 부족 경고도 동일하게 출력되었다.
+
+| 자동 저장 검증 항목 | SmallLSTM | TimeGapLSTM |
+|---|---|---|
+| 모델 식별자 | `small-lstm-retrained-2026-11-25-v1` | `timegap-lstm-2026-11-25-v1` |
+| 예측 CSV 행 수 | 299 | 299 |
+| 고유 event_id 수 | 299 | 299 |
+| CSV·JSON 모델 식별자 | 일치 | 일치 |
+| Track / Split | ai / validation | ai / validation |
+| 공식 채점 행 수 | 299 | 299 |
+| 데이터 묶음 SHA-256 | 두 모델 동일 | 두 모델 동일 |
+
+학습 전 백업한 기존 결과와 재학습 결과의 SHA-256을 PowerShell `Get-FileHash -Algorithm SHA256`으로 비교했다.
+
+| 비교 파일 | SHA-256 비교 결과 |
+|---|---|
+| `SmallLSTM_best.pt` | 동일 |
+| `TimeGapLSTM_best.pt` | 동일 |
+| `SmallLSTM_history.csv` | 동일 |
+| `TimeGapLSTM_history.csv` | 동일 |
+| `validation_loss_comparison.png` | 동일 |
+
+비교 대상 5개 파일의 해시가 모두 일치하여 동일 환경·데이터에서 기존 학습 결과가 파일 단위로 재현되었음을 확인했다. 이번 검증에서는 자동 버전 증가를 위한 두 번째 실행 및 독립적인 Test 평가를 수행하지 않았다. Validation은 최적 Epoch 선택에 사용한 구간이며 독립적인 최종 평가가 아니다. 생성된 개별 예측 CSV와 채점 JSON은 공개 PR에 포함하지 않는다.
 
 ## 입력 처리부터 학습·예측까지 내 코드 설명
 
@@ -847,6 +904,10 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 
 학습 History CSV를 읽어 최적 Epoch 및 Train/Validation 격차를 비교하고 모델별 Loss·Accuracy 그래프를 생성한다. `learning_server.score`에 Validation 예측 CSV를 전달해 여섯 기준선과 비교하고, 표준오차·처음 보는 문제 평가 및 경고를 기록한다. 이 과정은 재학습하지 않는다.
 
+### 12. 공통 Validation 채점 및 자동 저장
+
+`train_compare.py`의 `score_model_validation()`은 최적 모델의 Validation Logit을 sigmoid 확률로 변환하고 `batch()`에서 반환된 `event_ids` 및 정답 개수와 일치하는지 확인한다. 두 모델에 각각 `score_validation()`을 호출하여 공식 점수와 예측 CSV를 자동 저장하고 `render()`로 결과를 출력한다. 기존 `test_compare.py`의 별도 평가·예측 기능은 유지한다.
+
 ## 질문을 받고 바꾼 부분
 
 | 확인 항목 | 구현 및 검증 방법 | 확인 결과 |
@@ -877,6 +938,8 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 | Dropout에 따른 초기 출력 차이 | 별도 로컬 검증 코드에서 두 모델의 Dropout 비활성화 | 학습 모드 초기 Logit 일치, 최대 차이 0.0 |
 | Validation 기준선 비교의 한계 | Validation에서 최적 Epoch 선택 후 동일 구간에서 평가했음을 명시 | 공식 채점 비교·해석 문단에 반영 |
 | 기본 평가 구간 변경 | `--split` 기본값을 `validation`으로 변경 | 기본 Validation 299건, 명시적 Test 260건 평가 확인 |
+| 공통 Validation 채점 적용 | `train_compare.py`에서 `score_validation()` 호출 및 모델별 식별자 구분 | 공식 채점 및 CSV·JSON 자동 저장 확인 |
+| 기존 학습 결과 재현성 | 재학습 전후 가중치·학습 이력·그래프 SHA-256 비교 | 비교 대상 5개 파일 모두 일치 |
 
 공개 저장소의 실험 소스 파일은 다음 7개로 구성된다.
 
