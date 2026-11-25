@@ -83,6 +83,25 @@ class AutoVariationTest(Base):
                 self.assertIn(source, sess._state().again)
                 self.assertIn(source, [e['card'] for e in sess.start_set('review', seed=7).queue])
 
+    def test_next_lesson_can_review_the_same_concept_after_exam_cutoff(self):
+        self.at = '2026-11-25T20:00:00'
+        sess = self.session()
+        source, target = 'i01-b02', 'i01-c02'
+        sess.mark_read('i01', '1a')
+        sess._append({'kind': 'answer', 'card': source, 'set': 'old', 'result': 'fail', 'again': 0})
+        sess.mark_read('i02', '2a')
+        state = sess._state()
+        self.assertFalse(state.eligible_new(sess.cards[target], ready=False))
+        trace = {}
+        ids = service.build_set(sess, state, 'unit', random.Random(9), lesson='i02', unit='2a', trace=trace)
+        self.assertEqual({source: target}, trace['unit_transfers'])
+        self.assertIn(target, ids)
+        self.assertNotIn(source, ids)
+        with mock.patch.object(service, 'NEW_PER_DAY', 0):
+            ids = service.build_set(sess, state, 'unit', random.Random(9), lesson='i02', unit='2a')
+            self.assertNotIn(target, ids)
+            self.assertIn(source, ids)
+
     def test_next_unit_uses_exact_original_only_if_other_cards_run_out(self):
         sess = self.session()
         sess.mark_read('i01', '1a')

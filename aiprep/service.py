@@ -1938,8 +1938,8 @@ def _unit_transfers(state, sources, skip, cap):
                     or card["deep"] or card.get("mock")):
                 continue
             if not state.is_open(card):
-                # 이전 단원에서 놓친 개념을 복습하므로 핵심 문항의 상자 조건은 기다리지 않음.
-                if cap <= 0 or not state.eligible_new(card, ready=False):
+                # 이미 읽은 단원의 당일 오답 복습이므로 핵심 상자와 시험 전 새 문항 마감은 기다리지 않음.
+                if cap <= 0:
                     continue
                 cap -= 1
             picked[source] = cid
