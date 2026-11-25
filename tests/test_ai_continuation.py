@@ -247,12 +247,12 @@ class ContinuationTest(Base):
             self.assertEqual(fix['current'], cards[cid]['ref'])
             self.assertEqual(fix['current'], cards[cid]['item']['ref'])
         practice = service.PracticeSet.__new__(service.PracticeSet)
-        practice.sess = SimpleNamespace(cards=cards, items={'a02': data}, terms={}, skeletons={}, root=root)
+        practice.sess = SimpleNamespace(cards=cards, items={'a02': data}, terms={}, patterns={}, skeletons={}, root=root)
         practice.stats = {cid: {} for cid in cards}
         # d7346a8의 37문항 전체를 용어·뼈대 없이 계산한 해시임.
         previous = '60acc9da498ba8cd4d8615f0562e212132a1c3c8c5414a279820809dd9dc657e'
         self.assertNotEqual(previous, practice.fingerprint())
-        self.assertEqual(previous, practice.fingerprint(previous_refs=True))
+        self.assertEqual(previous, practice.fingerprint(previous_refs=True, previous_wording=True))
 
     def test_reading_another_unit_keeps_its_cursor_when_practice_hides(self):
         sess = self.session()
