@@ -70,7 +70,7 @@ class AutoVariationTest(Base):
                 self.assertTrue(any(sess.cards[cid]['unit'] == next_unit for cid in ids))
                 set_rows = [row for row in sess.collection.snapshot() if row['kind'] == 'set']
                 trace = set_rows[-1]['data']['selection']
-                self.assertEqual('rules-v7', trace['policy'])
+                self.assertEqual('rules-v8', trace['policy'])
                 self.assertEqual({source: target}, trace['unit_transfers'])
                 self.assertEqual('unit_transfer', trace['selected_pools'][target])
                 self.assertEqual(ids, [e['card'] for e in sess.resume_set().queue])
@@ -132,6 +132,64 @@ class AutoVariationTest(Base):
         self.assertTrue({'a01-b07', 'a01-b08'}.isdisjoint(ids))
         self.assertEqual({'a01-b07': 'a01-c03'}, trace['unit_transfers'])
         self.assertEqual({'a01-b07', 'a01-b08'}, set(sess._state().again))
+
+    def test_unit_and_revisit_skip_unread_exam_review_cards_and_label_read_cards(self):
+        self.at = '2026-11-25T20:00:00'
+        sess = self.session()
+        sess._append({'kind': 'open', 'lesson': 'i11'})
+        sess.mark_read('i11', '11a')
+        candidates = {'i11-b16', 'i11-b19'}
+        state = sess._state()
+        self.assertTrue(candidates <= set(state.due_cards()))
+        for mode in ('unit', 'mixed'):
+            trace = {}
+            ids = service.build_set(sess, state, mode, random.Random(3), lesson='i11', unit='11a', trace=trace)
+            self.assertTrue(ids)
+            self.assertTrue(all(sess.cards[cid]['unit'] == '11a' for cid in trace['candidate_ids']))
+        sess.mark_read('i11', '11f')
+        practice = sess.start_set('unit', lesson='i11', unit='11a', seed=3)
+        ids = [entry['card'] for entry in practice.queue]
+        self.assertNotIn('i11-b19', ids)
+        practice.pos = ids.index('i11-b16')
+        self.assertIn('다른 단원 복습', practice.current()['chips'])
+        practice.pos = next(n for n, cid in enumerate(ids) if sess.cards[cid]['unit'] == '11a')
+        self.assertNotIn('다른 단원 복습', practice.current()['chips'])
+
+    def test_app_unit_skips_unread_bank_errors_and_mock_followups(self):
+        sess = self.session('app')
+        sess._append({'kind': 'mock_submit', 'mock': 'old', 'related': ['a01-b10']})
+        self.at = '2026-11-10T20:00:00'
+        sess._append({'kind': 'open', 'lesson': 'a01'})
+        sess._append({'kind': 'answer', 'card': 'a01-b07', 'set': 'bank', 'result': 'fail', 'again': 0})
+        sess.mark_read('a01', 'a1a')
+        state = sess._state()
+        self.assertIn('a01-b10', state.due_cards())
+        self.assertIn('a01-b07', state.again)
+        for mode in ('unit', 'mixed'):
+            trace = {}
+            service.build_set(sess, state, mode, random.Random(3), lesson='a01', unit='a1a', trace=trace)
+            self.assertTrue({'a01-b07', 'a01-b10'}.isdisjoint(trace['candidate_ids']))
+        full = self.select(sess, 'review')[0]
+        self.assertTrue({'a01-b07', 'a01-b10'} <= set(full))
+
+    def test_unread_statement_options_do_not_appear_in_unit_practice(self):
+        from aiprep import grade
+
+        sess = self.session()
+        for cid in ('i14-s03', 'i14-s16'):
+            unit = sess.cards[cid]['unit']
+            sess.mark_read('i14', unit)
+            ps = service.PracticeSet(sess, 'statement', 'unit', [cid], 7, lesson='i14', unit=unit)
+            item = ps._view(ps.queue[0])['item']
+            self.assertGreaterEqual(len(item['options']), 2)
+            for option in item['options']:
+                if option['id'] in sess.cards:
+                    self.assertIn(('i14', sess.cards[option['id']]['unit']), sess._state().reads)
+            if cid == 'i14-s16':
+                self.assertEqual({'맞습니다', '틀렸습니다'}, {option['text'] for option in item['options']})
+                correct = grade.right_options(item)[0]
+                self.assertEqual('틀렸습니다', item['options'][correct]['text'])
+                self.assertEqual('pass', grade.grade_choice(item, [correct])['result'])
 
     def test_unit_transfer_catalog_uses_distinct_fixed_tasks_in_same_unit(self):
         for course in ('intro', 'app'):
