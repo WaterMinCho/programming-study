@@ -330,6 +330,8 @@ python tools/verify_journey.py d01 --timing --pythons PY312,PY314 --nodes NODE20
 
 그림 한도는 GIF 하나 300KB, PNG 하나 200KB, 프레임 12개, 프레임 시간 800~2500ms, 파일 폭 1120px, 던전 assets 합계 2.5MB 입니다.
 
+알고리즘 상태나 풀이 절차를 설명하는 그림을 설계할 때는 [장면별 그림 제작 기준](AI_AUTHORING.md#관찰-순서에-맞춰-그림과-gif-만들기)을 참고합니다. 지문·힌트·해설마다 보여 줄 정보의 범위를 지킵니다.
+
 아래 옵션으로 돌릴 단계나 대상을 바꿉니다.
 
 - `--lang python` 이나 `--lang javascript`: 그 언어의 단계만 봅니다. JavaScript 는 7, 9, 10, 12, 13 단계의 JS 쪽만 돌고, 스트레스 대조의 기준은 solution.py 의 답으로 둡니다. Node.js 20 이상이 없으면 JavaScript 단계가 실패하므로 Node 가 없는 컴퓨터에서는 `--lang python` 을 씁니다.
