@@ -500,7 +500,7 @@ class JourneyMapPage(QWidget):
         self.count = kit.para("", "caption", "secondary")
         self.progress = kit.progress(thin=True)
         card_head = QWidget()
-        card_head_box = kit.box(card_head, (24, 20, 24, 0), theme.GAP["detail"])
+        card_head_box = kit.box(card_head, (24, 16, 24, 0), theme.GAP["detail"])
         card_head_box.addWidget(title_row)
         count_row = QWidget()
         count_box = kit.box(count_row, horizontal=True, spacing=12)
