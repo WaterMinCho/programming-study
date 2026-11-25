@@ -250,33 +250,24 @@ def test_real_data(device):
         num_concepts=len(vocabulary["concepts"]),
     ).to(device).eval()
 
-    count = 0
+    # 팀원과 동일하게 전체 데이터를 한 번에 Full Batch로 처리
+    example = batch(
+        rows,
+        vocabulary,
+        length=HISTORY_LENGTH,
+    )
+    inputs = make_model_inputs(
+        example["inputs"],
+        device,
+    )
 
     with torch.no_grad():
-        for start in range(0, len(rows), 32):
-            selected_rows = rows[start:start + 32]
+        logits = model(inputs)
 
-            example = batch(
-                selected_rows,
-                vocabulary,
-                length=HISTORY_LENGTH,
-            )
+        assert logits.shape == (len(rows),)
+        assert torch.isfinite(logits).all().item()
 
-            inputs = make_model_inputs(
-                example["inputs"],
-                device,
-            )
-
-            logits = model(inputs)
-
-            assert logits.shape == (len(selected_rows),)
-            assert torch.isfinite(logits).all().item()
-
-            count += len(selected_rows)
-
-    assert count == len(rows)
-
-    print("통과: 실제 데이터 전체 순전파", count, "건")
+    print("통과: 실제 데이터 Full Batch 순전파", len(rows), "건")
 
 
 def test_checkpoint(device):
@@ -320,12 +311,36 @@ def test_checkpoint(device):
     print("통과: 모델 저장·복원 후 출력 일치")
 
 
+def test_dropout(device):
+    # 팀원의 Dropout이 TimeGapLSTM의 forward에서도 호출되는지 확인
+    set_seed(SEED)
+    model = create_model(device).train()
+    inputs = sample_inputs(device)
+    dropout_calls = []
+
+    def record_dropout(module, input_values, output):
+        dropout_calls.append(tuple(output.shape))
+
+    hook = model.dropout.register_forward_hook(record_dropout)
+    try:
+        logits = model(inputs)
+    finally:
+        hook.remove()
+
+    assert logits.shape == (2,)
+    assert model.dropout.p == 0.2
+    assert dropout_calls == [(2, model.fc.in_features)]
+
+    print("통과: 최신 SmallLSTM Dropout(p=0.2) 적용")
+
+
 def main():
     device = get_device()
 
     print("사용 장치:", device)
 
     test_baseline(device)
+    test_dropout(device)
     test_model(device)
     test_real_data(device)
     test_checkpoint(device)
