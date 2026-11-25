@@ -186,12 +186,12 @@ class LearningContext(QFrame):
                                 kit.para("이 단원에서 연결할 과정: %s" % " · ".join(titles), "learn_caption", "accent", bold=True),
                                 self.flow_btn)
         box.addWidget(self.head)
-        if "tools" in focus:
-            box.addWidget(kit.para("파이썬·배열·텐서는 아래 학습 계산을 구현하는 도구입니다.", "learn_caption", "secondary"))
-        if data.get("unit_note"):
-            box.addWidget(kit.para(data["unit_note"], "learn_caption", "secondary"))
         self.diagram = QWidget()
-        diagram_box = kit.box(self.diagram, spacing=16)
+        diagram_box = kit.box(self.diagram, spacing=theme.LEARN_GAP["detail"])
+        if "tools" in focus:
+            diagram_box.addWidget(kit.para("파이썬·배열·텐서는 아래 학습 계산을 구현하는 도구입니다.", "learn_caption", "secondary"))
+        if data.get("unit_note"):
+            diagram_box.addWidget(kit.para(data["unit_note"], "learn_caption", "secondary"))
         self.map = TrainingMap(data, focus)
         diagram_box.addWidget(self.map)
         diagram_box.addWidget(kit.para("점선은 다음 반복입니다. 새 배치에서 새 파라미터로 예측과 손실을 다시 계산합니다.",

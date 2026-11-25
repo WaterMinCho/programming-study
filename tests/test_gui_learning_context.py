@@ -10,7 +10,7 @@ from gui.ai_learn import OptionRow, RevealBlock
 from gui.learning_context import ContextHead, LearningContext
 from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QFontMetricsF
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QLabel, QWidget
 
 
 class LearningLayoutTest(unittest.TestCase):
@@ -40,6 +40,7 @@ class LearningLayoutTest(unittest.TestCase):
         self.addCleanup(theme.set_text, theme.state["text"])
         theme.set_text("larger")
         data = json.loads((Path(guikit.ROOT) / "ai" / "learning-map.json").read_text(encoding="utf-8"))
+        data["unit_note"] = "이 단원에서 기울기로 갱신 방향을 정합니다."
         root = kit.page(QWidget())
         box = kit.box(root)
         context = LearningContext(data, ["gradient", "update"], reflect=True, expanded=False)
@@ -49,9 +50,13 @@ class LearningLayoutTest(unittest.TestCase):
         root.show()
         self.addCleanup(root.close)
         guikit.pump()
+        explanation = next(label for label in context.findChildren(QLabel) if label.text() == data["unit_note"])
         self.assertTrue(context.diagram.isHidden())
+        self.assertFalse(explanation.isVisible())
+        self.assertTrue(context.head.link.isVisible())
         guikit.click(context.flow_btn)
         self.assertTrue(context.diagram.isVisible())
+        self.assertTrue(explanation.isVisible())
         self.assertEqual(context.map.columns(), 3)
         width = (context.map.width() - 32) / 3 - 12
         for stage in ("data", "predict", "loss", "gradient", "update"):

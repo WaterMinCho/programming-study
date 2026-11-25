@@ -339,7 +339,17 @@ optimizer = torch.optim.Adam(params, lr=0.001)
 ### 사진 크기를 맞추는 전처리와 weights 인자
 <!-- facts: FA08-b3 FA08-b4 -->
 
-2단계의 backbone은 224×224 사진을 받았습니다. 첫 번째 코드는 COCO 사진을 학습 전에 한 번 256×256으로 줄여 저장합니다. 가로세로 비율은 지키지 않습니다. 학습할 때는 사진을 꺼낼 때마다 아래 변환을 차례로 적용합니다.
+첫 예제는 <u>학습 사진만 무작위로 잘라 냅니다.</u>
+
+```figure
+파일: assets/a8b-4.png
+캡션: 그림 8. 학습 사진은 256×256에서 224×224를 무작위로 자르고 절반의 확률로 좌우를 뒤집습니다. 추론 사진은 224×224로 줄이기만 합니다.
+내용: 위 줄은 256×256 회색 사각형 안에 224×224 점선 사각형, 좌우 뒤집기 화살표, 정규화 상자입니다. 아래 줄은 사각형 하나를 224×224로 줄이는 화살표와 정규화 상자입니다. 사진은 그리지 않고 회색 사각형으로 둡니다.
+```
+
+#### 학습 사진과 추론 사진 준비하기
+
+2단계의 ResNet은 224×224 사진을 받습니다. 첫 번째 예제는 COCO 사진의 비율을 유지하지 않고 256×256으로 한 번 줄여 저장합니다. 학습할 때는 사진을 꺼낼 때마다 아래 변환을 적용합니다.
 
 ```python
 transform = transforms.Compose([
@@ -349,19 +359,20 @@ transform = transforms.Compose([
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
 ```
 
-`RandomCrop(224)`는 256×256 사진에서 224×224 영역을 무작위 자리에서 잘라 냅니다. `RandomHorizontalFlip()`은 절반의 확률로 좌우를 뒤집습니다. 마지막 줄은 ImageNet 사진의 채널별 평균과 표준편차로 정규화합니다. 추론할 사진은 자르지 않고 224×224로 줄입니다. 두 번째 코드는 학습과 추론 모두 `Resize((224, 224))`로 줄이고 같은 평균과 표준편차로 정규화합니다.
+- <mark>첫 번째 예제</mark>는 학습 때 `RandomCrop(224)`로 무작위 위치를 자르고 `RandomHorizontalFlip()`으로 절반의 확률로 뒤집습니다. 추론 때는 자르지 않고 224×224로 줄입니다.
+- <mark>두 번째 예제</mark>는 학습과 추론 모두 `Resize((224, 224))`로 크기를 맞춥니다.
+- 두 예제 모두 ImageNet 사진의 채널별 평균과 표준편차로 정규화합니다.
 
-두 코드는 사전학습 가중치를 고르는 인자가 다릅니다. 첫 번째 코드는 `resnet152(pretrained=True)`를 쓰고, 두 번째 코드는 `resnet18(weights=ResNet18_Weights.DEFAULT)`를 씁니다. pretrained 인자는 torchvision 0.13부터 경고를 냅니다. 이 인자는 지금도 받아들여지고 `IMAGENET1K_V1` 가중치를 고릅니다. 지금 쓰는 꼴은 `weights=models.ResNet152_Weights.IMAGENET1K_V1`처럼 가중치 이름을 주는 것입니다. 2단계 코드는 첫 번째 코드의 줄을 이 꼴로 바꿔 적었습니다. 가중치 이름 자리에는 `IMAGENET1K_V1` 같은 버전 이름 대신 `DEFAULT`를 줄 수도 있습니다. `DEFAULT`는 그 모델에서 지금 쓸 수 있는 가장 좋은 가중치를 가리킵니다. ResNet-18의 가중치는 `IMAGENET1K_V1` 하나뿐이라, 두 번째 코드의 `ResNet18_Weights.DEFAULT`는 `IMAGENET1K_V1`을 가리킵니다. ResNet-152의 `ResNet152_Weights.DEFAULT`는 `IMAGENET1K_V2`를 가리킵니다. 그래서 `weights=ResNet152_Weights.DEFAULT`로 바꾸면 pretrained=True와 다른 가중치를 받습니다.
+#### 같은 사전학습 가중치 고르기
+
+첫 번째 예제의 `resnet152(pretrained=True)`는 `ResNet152_Weights.IMAGENET1K_V1`을 고릅니다. `pretrained`는 torchvision 0.13부터 경고가 나는 옛 인자입니다. 2단계에서는 같은 가중치를 `weights=models.ResNet152_Weights.IMAGENET1K_V1`로 지정했습니다.
+
+두 번째 예제는 `resnet18(weights=ResNet18_Weights.DEFAULT)`로 가중치를 고릅니다. `DEFAULT`는 해당 모델에서 라이브러리가 기본으로 고른 가중치의 별칭입니다. 현재 ResNet-18은 V1, ResNet-152는 V2를 가리킵니다. <u>옛 ResNet-152 예제를 같은 가중치로 실행하려면 V1을 직접 지정합니다.</u>
 
 ```ai-code-help
 {"title": "weights 인자와 버전 이름", "explanation": "응용 5차시는 VGG13을 weights=VGG13_Weights.IMAGENET1K_V1로 만들고, 옛 코드의 pretrained=True도 IMAGENET1K_V1을 고른다고 봤습니다. DEFAULT가 V1이 아닌 모델도 있어 버전 이름을 적습니다.", "reference": {"course": "applied", "lesson": "al05", "unit": "a5d", "step": 5, "title": "가중치 인자와 권장 전처리 맞추기"}}
 ```
 
-```figure
-파일: assets/a8b-4.png
-캡션: 그림 8. 학습 사진은 256×256에서 224×224를 무작위로 자르고 절반의 확률로 좌우를 뒤집습니다. 추론 사진은 224×224로 줄이기만 합니다.
-내용: 위 줄은 256×256 회색 사각형 안에 224×224 점선 사각형, 좌우 뒤집기 화살표, 정규화 상자입니다. 아래 줄은 사각형 하나를 224×224로 줄이는 화살표와 정규화 상자입니다. 사진은 그리지 않고 회색 사각형으로 둡니다.
-```
 ```ai-recall
 {"id": "r4", "q": "pretrained=True와 같은 ResNet-152 가중치를 weights 인자로 고르면 ResNet152_Weights.____ 입니다.", "answer": ["IMAGENET1K_V1"], "mode": "code"}
 ```
