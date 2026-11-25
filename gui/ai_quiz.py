@@ -23,6 +23,7 @@ from aiprep.grade import BLANK
 from gui import ai_text, kit, theme
 from gui.ai_learn import CARD_PAD, ChoiceList, CodeChoices, CodeSlots, NoteDialog, RichPara, Slot, doc, reading_column, reading_width, rich
 from gui.guard import NOTE as PASTE_NOTE
+from gui.team_dashboard import DashboardRow
 from gui.widgets import AnswerLine, LinkLabel, PasteBlock
 from learning_data.collection import AI_INPUT_SCHEMA
 from session import SessionError
@@ -640,6 +641,20 @@ class PracticePage(QWidget):
         self.home_btn.setFocus(Qt.FocusReason.OtherFocusReason)
         self.scroll.verticalScrollBar().setValue(0)
 
+    def summary_rows(self, title, rows, messages=()):
+        """완료 화면에서 항목 이름과 수치를 같은 세로선에 맞춤."""
+        fields = QWidget()
+        fields_box = kit.box(fields, spacing=theme.GAP["detail"])
+        for label, value in rows:
+            row = QWidget()
+            line = kit.box(row, spacing=theme.GAP["paragraph"], horizontal=True)
+            line.addWidget(kit.para(label), 1)
+            line.addWidget(kit.label(value, "label", bold=True), 0, Qt.AlignmentFlag.AlignTop)
+            fields_box.addWidget(row)
+        for message in messages:
+            fields_box.addWidget(kit.para(message, "body", "secondary"))
+        return kit.heading(kit.para(title, "label", bold=True), fields)
+
     def show_summary(self):
         self.win.auto_submission.request()
         summary = self.practice.summary()
@@ -653,18 +668,36 @@ class PracticePage(QWidget):
         self.item, self.feedback = None, None
         self.set_count()
         self.bar_line.setValue(100)
-        title = kit.heading(kit.para(ai_text.SET_FIRST, "caption", "secondary"),
-                            kit.para(ai_text.summary_head(summary), "headline"))
-        lines = QWidget()
-        lines_box = kit.box(lines, spacing=8)
-        for text in ai_text.summary_lines(summary, self.unlisted()):
-            lines_box.addWidget(kit.para(text))
+        score = kit.para(f"{summary['first_pass']} / {summary['n']}", "display", "accent")
+        self.card_box.addWidget(kit.heading(kit.para(ai_text.SET_FIRST, "label", "secondary"), score))
+        review = []
+        if summary.get("again"):
+            review.append(("오늘 다시 볼 문항", f"{len(summary['again'])}문항"))
+        if summary["next"]:
+            next_review = summary["next"]
+            review.append(("다음 복습", f"{next_review['text']} · {next_review['count']}문항"))
+        messages = []
         if complete:
-            lines_box.addWidget(kit.para(ai_text.REVIEW_COMPLETE))
+            messages.append(ai_text.REVIEW_COMPLETE)
             if self.review_state["next"] is None:
-                lines_box.addWidget(kit.para(ai_text.review_next(None)))
-        self.card_box.addWidget(kit.heading(title, lines))
-        self.card_box.addWidget(kit.para(ai_text.TRAINED, "body", "secondary"))
+                messages.append(ai_text.review_next(None))
+        sections = []
+        if review or messages:
+            sections.append(self.summary_rows("복습 일정", review, messages))
+        counts = ai_text.summary_counts(summary)
+        if counts:
+            sections.append(self.summary_rows("이번 연습", counts))
+        if sections:
+            layout = DashboardRow(sections, lambda: [20 * theme.TYPE["body"][0]] * len(sections),
+                                  spacing=theme.GAP["group"])
+            layout.setObjectName("practice_summary_sections")
+            for section in sections:
+                layout.row.setAlignment(section, Qt.AlignmentFlag.AlignTop)
+            self.card_box.addWidget(layout)
+        notes = ai_text.summary_notes(summary, self.unlisted())
+        notes.append(ai_text.TRAINED)
+        self.card_box.addWidget(kit.spaced(*(kit.para(line, "body", "secondary") for line in notes),
+                                          spacing=theme.GAP["paragraph"]))
         self.set_buttons()
         if complete:
             self.home_btn.setFocus(Qt.FocusReason.OtherFocusReason)

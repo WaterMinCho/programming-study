@@ -431,13 +431,12 @@ class TextTest(unittest.TestCase):
         self.assertIn("옳지 않은 문장: 가", html_text)
         self.assertEqual(ai_text.answer_word({"kind": "choice", "pick": "wrong"}), "옳지 않은 문장")
         self.assertEqual(ai_text.answer_word({"kind": "blank", "pick": None}), "정답")
-        lines = ai_text.summary_lines({"first_today": 2, "again_day": 1, "up": 0, "down": 0, "memorised": 0, "sure_wrong": 0, "left": [],
-                                       "next": None, "early": 0}, unlisted=1)
-        self.assertEqual(lines, ["오늘 새로 접한 문항 중 이번 묶음에서 마친 문항 2개", "이전 학습일에 풀었던 문항 중 이번 첫 답에 맞힌 문항 1개",
-                                 "단원을 읽은 날 틀린 1문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다."])
-        lines = ai_text.summary_lines({"first_today": 0, "again_day": 0, "up": 0, "down": 0, "memorised": 0, "sure_wrong": 0,
-                                       "left": ["i90-b02"], "again": ["i90-b02", "i90-b03"], "next": None, "early": 0})
-        self.assertEqual(lines, ["오늘 다시 볼 문항 2개"])
+        summary = {"first_today": 2, "again_day": 1, "up": 0, "down": 0, "memorised": 0, "sure_wrong": 0, "early": 0}
+        self.assertEqual(ai_text.summary_counts(summary),
+                         [("오늘 처음 본 문항 중 마친 수", "2문항"), ("이전 학습일에 푼 문항 중 첫 답에 맞힘", "1문항")])
+        self.assertEqual(ai_text.summary_notes(summary, 1),
+                         ["단원을 읽은 날 틀린 1문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다."])
+        self.assertEqual(ai_text.summary_counts(dict(summary, first_today=0, again_day=0)), [])
 
     def test_pattern_texts(self):
         """상황별 코드 줄, 나란히 보기 caption, 함께 가린 칸 줄, 뼈대 카드 오답 노트 줄과 코드 보기 HTML, 단원 이름을 쓰는 이어서 할 일."""
@@ -1096,7 +1095,8 @@ class PracticeTest(AiTest):
                 self.answer()
             guikit.click(page.next_btn)
         self.assertEqual(seen, 3)  # 틀림, 맞힘, 다시 맞힘
-        self.assertRegex(visible_text(page.card), r"\d+문항 가운데 \d+문항을 처음 답에 맞혔습니다.")
+        self.assertIn("이번 묶음에서 첫 답에 맞힌 문항", visible_text(page.card))
+        self.assertRegex(visible_text(page.card), r"\d+ / \d+")
         self.assertTrue(page.again_btn.isVisible())
         self.assertEqual(page.again_btn.text(), "한 번 더")
         self.assertTrue(self.log("set_end"))
