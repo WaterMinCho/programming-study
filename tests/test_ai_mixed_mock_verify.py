@@ -913,7 +913,7 @@ class AllLessonValidationTest(unittest.TestCase):
 
 
 class VersionedLessonScopeTest(unittest.TestCase):
-    """응용 10차시가 열린 은행에서 기존 회차와 새 회차를 각각 검증함."""
+    """응용 차시가 추가된 은행에서 회차마다 공개할 범위를 따로 확인함."""
     add_app_lesson = MixedValidationTest.add_app_lesson
     publish_app_lesson = MixedValidationTest.publish_app_lesson
     save = AllLessonValidationTest.save
@@ -975,7 +975,7 @@ class VersionedLessonScopeTest(unittest.TestCase):
         self.assertEqual(1, code, output)
         self.assertIn('blueprint가 혼합 배분과 일치하지 않습니다.', output)
 
-    def test_all54_uses_current_scores_and_accepts_a10(self):
+    def test_all54_keeps_published_allocation_and_accepts_a10(self):
         self.make_round('all54-v1')
         code, output = self.verify()
         self.assertEqual(0, code, output)
@@ -991,8 +991,7 @@ class VersionedLessonScopeTest(unittest.TestCase):
         scores = verify_ai.ai_mock_rules.LESSON_SCORES
         self.assertEqual((36, 6, 2, 3, 0), scores['a10'])
         with mock.patch.dict(scores, {'a10': (36, 6, 0, 0, 0)}):
-            self.assertEqual(verify_ai.ai_mock_rules.allocate(scores, 54), verify_ai._mixed_blueprint(self.spec))
-            self.assertNotEqual(self.spec['blueprint'], verify_ai._mixed_blueprint(self.spec))
+            self.assertEqual(self.spec['blueprint'], verify_ai._mixed_blueprint(self.spec))
 
     def test_registered_blueprints_allow_shorter_and_longer_rounds(self):
         self.make_round('all54-v1')
@@ -1041,10 +1040,8 @@ class VersionedLessonScopeTest(unittest.TestCase):
                         self.assertEqual(1, code, output)
                         self.assertIn('응용 범위 app_through를 적으세요.', output)
 
-    def test_all54_rejects_wrong_lesson_even_with_the_same_sized_score_table(self):
+    def test_all54_rejects_replacing_a10_with_a11(self):
         self.make_round('all54-v1')
-        scores = dict(verify_ai.ai_mock_rules.LESSON_SCORES)
-        scores['a11'] = scores.pop('a10')
         expanded = dict(self.spec['blueprint'])
         expanded['a11'] = expanded.pop('a10')
         forged = dict(self.spec, blueprint=expanded)
@@ -1059,20 +1056,16 @@ class VersionedLessonScopeTest(unittest.TestCase):
                                  formats=[item['format'] for item in self.items], levels=[item['level'] for item in self.items])
         self.update_index()
         self.save()
-        with mock.patch.object(verify_ai.ai_mock_rules, 'LESSON_SCORES', scores):
-            code, output = self.verify()
-        self.assertEqual(1, code, output)
-        self.assertIn('빠진 차시: a10. 범위 밖 차시: a11.', output)
-        self.assertNotIn('계산한 문항 수는', output)
-        self.assertNotIn('blueprint가 혼합 배분과 일치하지 않습니다.', output)
-
-    def test_all54_still_checks_for_unscored_ready_lessons(self):
-        self.make_round('all54-v1')
-        self.publish_app_lesson(11)
         code, output = self.verify()
         self.assertEqual(1, code, output)
-        self.assertIn('m15 index의 blueprint에 빠진 공개 차시가 있습니다: a11.', output)
-        self.assertIn('m15 meta.json의 blueprint에 빠진 공개 차시가 있습니다: a11.', output)
+        self.assertIn('blueprint가 혼합 배분과 일치하지 않습니다.', output)
+
+    def test_all54_remains_valid_after_a11_is_published(self):
+        self.make_round('all54-v1')
+        self.publish_app_lesson(11)
+        self.assertTrue(bank.is_ready({'id': 'a11', 'page': 'al11'}, str(self.bank)))
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
 
 
 class ItemIdRuleTest(unittest.TestCase):

@@ -1,7 +1,7 @@
 {
  "id": "m16",
  "title": "모의고사 6회",
- "count": 33,
+ "count": 35,
  "minutes": 60,
  "range": [
   1,
@@ -15,7 +15,7 @@
  ],
  "course_counts": {
   "intro": 19,
-  "app": 14
+  "app": 16
  },
  "blueprint": {
   "i01": 1,
@@ -44,9 +44,10 @@
   "a07": 1,
   "a08": 1,
   "a09": 1,
-  "a10": 1
+  "a10": 1,
+  "a11": 2
  },
- "blueprint_revision": "all33-v1",
+ "blueprint_revision": "all35-v1",
  "format": 1,
  "draft": false,
  "round_set": 4,

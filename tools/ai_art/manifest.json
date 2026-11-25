@@ -1556,6 +1556,81 @@
    "script": "tools/ai_art/al10.py",
    "fn": "a10f-1"
   },
+  "learn/al11/assets/a11a-1.png": {
+   "sha256": "737d7ea32223e9010e09be0fab870babcb4b74a437c7d78f71ca1482855047a2",
+   "script": "tools/ai_art/al11.py",
+   "fn": "detection_fields"
+  },
+  "learn/al11/assets/a11b-1.png": {
+   "sha256": "c685f9009a855cf88f9e73d267e9e1435ba28a7fccf3daad00011d4677483dbb",
+   "script": "tools/ai_art/al11.py",
+   "fn": "iou_sequence"
+  },
+  "learn/al11/assets/a11b-2.png": {
+   "sha256": "ea4e91d8f04d145c7f161a691959af1b32b4cfa78ee2eae801cdfb7449afe90e",
+   "script": "tools/ai_art/al11.py",
+   "fn": "shared_cells"
+  },
+  "learn/al11/assets/a11b-3.png": {
+   "sha256": "cfb7f6635dfe6b21bb4b3b0e11abc614f593924e0ab911789fde1b9addd2527b",
+   "script": "tools/ai_art/al11.py",
+   "fn": "two_areas"
+  },
+  "learn/al11/assets/a11b-4.png": {
+   "sha256": "3872012d17bf65737018a014562aeba4c8099110318777861c2a741557ce87c3",
+   "script": "tools/ai_art/al11.py",
+   "fn": "separate_intervals"
+  },
+  "learn/al11/assets/a11c-1.png": {
+   "sha256": "a53d57f72e1c536a5263308ada40502d2407ff11c7562dff023270280234b3a9",
+   "script": "tools/ai_art/al11.py",
+   "fn": "nms_sequence"
+  },
+  "learn/al11/assets/a11c-2.png": {
+   "sha256": "00339fd55ca406eb9448122326500fd7d1e9bc4f1d3078317f28df0286e0b97c",
+   "script": "tools/ai_art/al11.py",
+   "fn": "score_choices"
+  },
+  "learn/al11/assets/a11c-3.png": {
+   "sha256": "c38c82c8733ab6aacfcfbfda306ee492a79539937d2dee7d7558de4da4b50e1b",
+   "script": "tools/ai_art/al11.py",
+   "fn": "threshold_boundary"
+  },
+  "learn/al11/assets/a11c-4.png": {
+   "sha256": "83c0b23e68490a3cffc8fd97a4df5fd766e1af86ce4b131588eec574cd8a71c6",
+   "script": "tools/ai_art/al11.py",
+   "fn": "index_candidates"
+  },
+  "learn/al11/assets/a11d-1.png": {
+   "sha256": "9052aeddc71550409d07b8f6e8e51457a132e854f8e9528f42d0ca3aea61e6e8",
+   "script": "tools/ai_art/al11.py",
+   "fn": "detector_stages"
+  },
+  "learn/al11/assets/a11e-1.png": {
+   "sha256": "f52a2366b45f24aca808011f45a14f84f5b0ac2a04ef03805308bfbbe0d3f7ef",
+   "script": "tools/ai_art/al11.py",
+   "fn": "detection_batch"
+  },
+  "learn/al11/assets/a11f-1.png": {
+   "sha256": "6c2d260575a161f535fc88a771d8527377f79ef009bb72b7044d8c49f10215d0",
+   "script": "tools/ai_art/al11.py",
+   "fn": "counts_and_overlap"
+  },
+  "learn/al11/assets/a11f-2.png": {
+   "sha256": "3e3fb6ebe0b8c3a21be0e26f1fba2a60e4e5535ecac0d61396e1963f079c2069",
+   "script": "tools/ai_art/al11.py",
+   "fn": "disjoint"
+  },
+  "learn/al11/assets/a11f-3.png": {
+   "sha256": "ef81ec829b9c05506db90667ed6a8eb755df188f4a0c0bc3711eb2d8c9960546",
+   "script": "tools/ai_art/al11.py",
+   "fn": "precision_counts"
+  },
+  "learn/al11/assets/a11f-4.png": {
+   "sha256": "30ff10931027ae175ff885acaeb71384bb05ebc1fbb32e80a9a184eb9dd08911",
+   "script": "tools/ai_art/al11.py",
+   "fn": "one_reference"
+  },
   "learn/al18/assets/a18a-1.png": {
    "sha256": "f98d6df1811b208dd9410e2aacfcf7c57fd04e9cbfff0ddf3714e300302111ce",
    "script": "tools/ai_art/al18.py",

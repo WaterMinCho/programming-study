@@ -1,0 +1,130 @@
+{
+ "format": 1,
+ "id": "S111",
+ "title": "같은 정답 박스를 두 번 세지 않기",
+ "ref": [
+  "응용 11차시 슬 p22",
+  "응용 11차시 슬 p26"
+ ],
+ "tags": [
+  "검출 정답 매칭과 정밀도"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "한 사진에서 같은 클래스의 예측을 정답 두 개에 연결하고 정밀도를 구합니다. 각 행에는 점수와 정답 번호별 IoU를 보관합니다.",
+   "lines": [
+    "predictions = [(0.7, (0.82, 0.33)), (0.9, (0.67, 0.11)), (0.6, (0.43, 0.67))]",
+    "used = set()",
+    "results = []",
+    "ranked = sorted(predictions, key=lambda row: row[0], reverse=True)",
+    "for score, overlaps in ranked:",
+    "    eligible = [i for i, value in enumerate(overlaps) if value >= 0.5 and i not in used]",
+    "    if eligible:",
+    "        chosen = max(eligible, key=lambda i: overlaps[i])",
+    "        used.add(chosen)",
+    "        results.append((score, True))",
+    "    else:",
+    "        results.append((score, False))",
+    "print(results)",
+    "print(len(used) / len(results))"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-k012",
+   "line": 3,
+   "token": "reverse=True",
+   "answer": [
+    "reverse=True",
+    "reverse=1"
+   ],
+   "mode": "code",
+   "hint": "점수가 큰 값부터 정렬하는 옵션 값",
+   "line_answer": [
+    "ranked = sorted(predictions, key=lambda row: row[0], reverse=True)",
+    "ranked = sorted(predictions, key=lambda row: row[0], reverse=1)",
+    "ranked = sorted(predictions, key=lambda row: -row[0])"
+   ],
+   "explain": "점수가 높은 예측이 먼저 정답과 연결되도록 내림차순으로 정렬합니다.",
+   "step": "a18k/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-1101"
+   ],
+   "core": true,
+   "level": 1,
+   "ref": [
+    "응용 11차시 슬 p22",
+    "응용 11차시 슬 p26"
+   ]
+  },
+  {
+   "id": "apc-k013",
+   "line": 8,
+   "token": "used.add(chosen)",
+   "answer": [
+    "used.add(chosen)",
+    "used.update([chosen])"
+   ],
+   "mode": "code",
+   "hint": "선택한 정답 번호를 집합에 기록하기",
+   "line_answer": [
+    "used.add(chosen)",
+    "used.update([chosen])",
+    "used |= {chosen}"
+   ],
+   "explain": "선택한 정답 번호를 기록하면 뒤 예측의 연결 후보에서 빠집니다.",
+   "step": "a18k/3",
+   "variant": "표준형",
+   "facts": [
+    "FA18-1102"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 11차시 슬 p22",
+    "응용 11차시 슬 p26"
+   ]
+  }
+ ],
+ "orders": [],
+ "picks": [
+  {
+   "id": "apc-p011",
+   "line": 5,
+   "stem": "IoU 기준을 통과하고 아직 연결되지 않은 정답의 인덱스만 모으는 코드 줄을 고르세요.",
+   "wrong": [
+    {
+     "text": "eligible = [i for i, value in enumerate(overlaps) if value >= 0.5]",
+     "aim": "이미 사용한 정답 제외",
+     "why": "이미 연결한 정답이 후보에 다시 들어옵니다."
+    },
+    {
+     "text": "eligible = [i for i, value in enumerate(overlaps) if i not in used]",
+     "aim": "IoU 기준 확인",
+     "why": "사용하지 않은 정답이어도 IoU가 0.5 미만이면 제외합니다."
+    },
+    {
+     "text": "eligible = [i for i, value in enumerate(overlaps) if value >= 0.5 and i in used]",
+     "aim": "연결 여부 반대로 확인",
+     "why": "이미 연결된 정답만 모으므로 미연결 정답을 고를 수 없습니다."
+    }
+   ],
+   "explain": "IoU 조건을 충족하고 used에 없는 인덱스를 나열합니다.",
+   "step": "a18k/3",
+   "variant": "표준형",
+   "facts": [
+    "FA18-1102"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 11차시 슬 p22",
+    "응용 11차시 슬 p26"
+   ]
+  }
+ ],
+ "changes": []
+}
