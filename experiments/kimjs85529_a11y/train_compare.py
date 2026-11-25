@@ -1,4 +1,3 @@
-# 팀원의 최신 SmallLSTM과 TimeGapLSTM을 동일한 Full Batch 조건에서 학습·비교
 import copy
 import csv
 from pathlib import Path
@@ -9,6 +8,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 
 from learning_server.input_example import load, batch
+from learning_server.score import render, score_validation
 from experiments.michae18.model import SmallLSTM
 from experiments.kimjs85529_a11y.inspect_gaps import get_device, set_seed
 from experiments.kimjs85529_a11y.model import (
@@ -32,7 +32,11 @@ def load_data(split, vocabulary, device):
     data = batch(rows, vocabulary, length=HISTORY_LENGTH)
     inputs = make_model_inputs(data['inputs'], device)
     targets = torch.as_tensor(data['targets'], dtype=torch.float32, device=device)
-    return inputs, targets, len(rows)
+
+    # 공식 검증 채점에 사용할 풀이 기록 ID
+    event_ids = data['event_ids']
+
+    return inputs, targets, len(rows), event_ids
 
 
 def evaluate(model, inputs, targets, criterion):
@@ -110,6 +114,36 @@ def save_results(name, model, history):
         writer.writerows(history)
 
 
+def score_model_validation(model, inputs, targets, event_ids, model_name):
+    # Dropout 비활성화 및 최적 모델의 Validation 정답 확률 계산
+    model.eval()
+
+    with torch.no_grad():
+        logits = model(inputs)
+        probabilities = torch.sigmoid(logits).cpu().tolist()
+
+    # 풀이 기록 ID, 예측 확률, 실제 정답의 개수 확인
+    if not (
+        len(probabilities) == len(event_ids) == len(targets)
+    ):
+        raise ValueError('Validation 예측 확률, event_id, 정답 개수가 일치하지 않습니다.')
+
+    # 공통 검증 채점 모듈을 사용하여 공식 채점 및 결과 저장
+    result, run_dir = score_validation(
+        dataset_path=DATASET_PATH,
+        track=TRACK,
+        event_ids=event_ids,
+        probabilities=probabilities,
+        model_name=model_name,
+    )
+
+    print(f'\n===== {model_name} 공식 Validation 채점 =====')
+    print(render(result))
+    print(f'검증 결과 저장: {run_dir}')
+
+    return result, run_dir
+
+
 def main():
     set_seed(SEED)
     device = get_device()
@@ -117,13 +151,16 @@ def main():
     print('데이터:', DATASET_PATH)
 
     train_rows, vocabulary = load(str(DATASET_PATH), TRACK, 'train')
+
     # 두 모델에 동일한 Train·Validation Tensor 사용
     train_data = batch(train_rows, vocabulary, length=HISTORY_LENGTH)
     train_inputs = make_model_inputs(train_data['inputs'], device)
     train_targets = torch.as_tensor(train_data['targets'], dtype=torch.float32, device=device)
-    validation_inputs, validation_targets, validation_count = load_data(
+
+    validation_inputs, validation_targets, validation_count, validation_event_ids = load_data(
         'validation', vocabulary, device
     )
+
     print('Train:', len(train_rows), 'Validation:', validation_count)
     print('Batch: Full Batch, Seed:', SEED, 'Learning Rate:', LR)
 
@@ -150,6 +187,7 @@ def main():
         baseline, train_inputs, train_targets,
         validation_inputs, validation_targets, LR, NUM_EPOCH, 'SmallLSTM'
     )
+
     set_seed(SEED)
     timegap, timegap_history, timegap_epoch, timegap_loss = train_model(
         timegap, train_inputs, train_targets,
@@ -190,6 +228,27 @@ def main():
 
     print('결과 저장 위치:', OUTPUT_DIR)
     print('Test는 모델 선택에 사용하지 않았습니다.')
+
+    # 재학습 SmallLSTM 공식 Validation 채점
+    score_model_validation(
+        model=baseline,
+        inputs=validation_inputs,
+        targets=validation_targets,
+        event_ids=validation_event_ids,
+        model_name='small-lstm-retrained',
+    )
+
+    # TimeGapLSTM 공식 Validation 채점
+    score_model_validation(
+        model=timegap,
+        inputs=validation_inputs,
+        targets=validation_targets,
+        event_ids=validation_event_ids,
+        model_name='timegap-lstm',
+    )
+
+    print('\n===== 공통 Validation 채점 완료 =====')
+    print('Validation은 최적 Epoch 선택에 사용한 구간이며 독립적인 Test 평가가 아닙니다.')
 
 
 if __name__ == '__main__':
