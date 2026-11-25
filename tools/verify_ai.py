@@ -2524,6 +2524,7 @@ def check_review_variants(v, bank_dir, index):
             v.fail("review_variants", 1, "복습 변형 목록에 코딩 실습 카드를 넣지 않습니다: %s" % verify_web.listing(found))
     try:
         aibank.read_review_variants(bank_dir)
+        aibank.read_review_variants(bank_dir, unit_transfers=True)
     except aibank.AiBankError as error:
         v.fail("review_variants", 1, str(error))
 

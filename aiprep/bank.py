@@ -88,8 +88,8 @@ def _list(value):
     return [str(v) for v in (value or [])]
 
 
-def read_review_variants(root=None):
-    """내용을 대조한 변형 연결을 읽음. 예전 은행은 빈 연결을 사용함."""
+def read_review_variants(root=None, *, unit_transfers=False):
+    """내용을 대조한 일반 복습 또는 단원 연습 연결을 읽음. 예전 은행은 빈 연결을 사용함."""
     path = os.path.join(root or AI_DIR, "review_variants.json")
     if not os.path.isfile(path):
         return {}
@@ -97,10 +97,12 @@ def read_review_variants(root=None):
     if (not isinstance(data, dict) or data.get("version") != 1
             or not isinstance(data.get("pairs"), dict)):
         raise AiBankError("복습 변형 목록의 형식을 확인해 주세요.")
-    pairs = data["pairs"]
-    if any(not CARD_ID.fullmatch(cid) or not isinstance(ids, list)
-           or any(not isinstance(other, str) or not CARD_ID.fullmatch(other) for other in ids)
-           for cid, ids in pairs.items()):
+    pairs = data.get("unit_transfers", {}) if unit_transfers else data["pairs"]
+    if not isinstance(pairs, dict) or any(
+        not CARD_ID.fullmatch(cid) or not isinstance(ids, list)
+        or any(not isinstance(other, str) or not CARD_ID.fullmatch(other) for other in ids)
+        for cid, ids in pairs.items()
+    ):
         raise AiBankError("복습 변형 목록의 문항 번호를 확인해 주세요.")
     return pairs
 

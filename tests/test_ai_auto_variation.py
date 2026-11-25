@@ -45,6 +45,110 @@ class AutoVariationTest(Base):
         sess._cache = None
         return sess
 
+    def test_next_unit_mixes_a_different_task_and_keeps_original_wrong(self):
+        for course, source, target, next_unit in (
+            ('intro', 'i01-b02', 'i01-c02', '1b'),
+            ('app', 'a01-b07', 'a01-c03', 'a1d'),
+        ):
+            with self.subTest(course=course):
+                sess = self.session(course)
+                lead = sess.cards[source]
+                lesson = lead['lesson']
+                sess.collection.set_enabled(True)
+                sess.mark_read(lesson, lead['unit'])
+                first = sess.start_set('unit', lesson=lesson, unit=lead['unit'], seed=7)
+                while first.current()['card'] != source:
+                    first.answer(self.right(first, first.current()), 2, True)
+                    first.next()
+                first.dont_know(2)
+                sess.mark_read(lesson, next_unit)
+                before = copy.deepcopy(sess.record.log)
+                practice = sess.start_set('unit', lesson=lesson, unit=next_unit, seed=7)
+                ids = [e['card'] for e in practice.queue]
+                self.assertIn(target, ids)
+                self.assertNotIn(source, ids)
+                self.assertTrue(any(sess.cards[cid]['unit'] == next_unit for cid in ids))
+                set_rows = [row for row in sess.collection.snapshot() if row['kind'] == 'set']
+                trace = set_rows[-1]['data']['selection']
+                self.assertEqual('rules-v7', trace['policy'])
+                self.assertEqual({source: target}, trace['unit_transfers'])
+                self.assertEqual('unit_transfer', trace['selected_pools'][target])
+                self.assertEqual(ids, [e['card'] for e in sess.resume_set().queue])
+                while practice.current()['card'] != target:
+                    practice.answer(self.right(practice, practice.current()), 2, True)
+                    practice.next()
+                practice.answer(self.right(practice, practice.current()), 2, True)
+                self.assertEqual(before, sess.record.log[:len(before)])
+                self.assertEqual(target, sess.record.log[-1]['card'])
+                self.assertIn(source, sess._state().again)
+                self.assertIn(source, [e['card'] for e in sess.start_set('review', seed=7).queue])
+
+    def test_next_lesson_can_review_the_same_concept_after_exam_cutoff(self):
+        self.at = '2026-11-25T20:00:00'
+        sess = self.session()
+        source, target = 'i01-b02', 'i01-c02'
+        sess.mark_read('i01', '1a')
+        sess._append({'kind': 'answer', 'card': source, 'set': 'old', 'result': 'fail', 'again': 0})
+        sess.mark_read('i02', '2a')
+        state = sess._state()
+        self.assertFalse(state.eligible_new(sess.cards[target], ready=False))
+        trace = {}
+        ids = service.build_set(sess, state, 'unit', random.Random(9), lesson='i02', unit='2a', trace=trace)
+        self.assertEqual({source: target}, trace['unit_transfers'])
+        self.assertIn(target, ids)
+        self.assertNotIn(source, ids)
+        with mock.patch.object(service, 'NEW_PER_DAY', 0):
+            ids = service.build_set(sess, state, 'unit', random.Random(9), lesson='i02', unit='2a')
+            self.assertNotIn(target, ids)
+            self.assertIn(source, ids)
+
+    def test_next_unit_uses_exact_original_only_if_other_cards_run_out(self):
+        sess = self.session()
+        sess.mark_read('i01', '1a')
+        self.answer_before(sess, 'i01-b02', result='stuck', day='09')
+        # 연결 후보도 오늘 틀렸으므로 새 복습 후보로 다시 뽑지 않음.
+        self.answer_before(sess, 'i01-c02', result='stuck', day='09')
+        sess.mark_read('i01', '1b')
+        kw = dict(lesson='i01', unit='1b')
+        with mock.patch.object(service, 'SET_MIN', 1):
+            ids = service.build_set(sess, sess._state(), 'unit', random.Random(7), **kw)
+            self.assertNotIn('i01-b02', ids)
+            self.assertNotIn('i01-c02', ids)
+        trace = {}
+        ids = service.build_set(sess, sess._state(), 'unit', random.Random(7), trace=trace, **kw)
+        self.assertIn('i01-b02', ids)
+        self.assertEqual('carry', trace['selected_pools']['i01-b02'])
+
+    def test_next_unit_does_not_repeat_two_originals_with_the_same_counterpart(self):
+        sess = self.session('app')
+        sess.mark_read('a01', 'a1c')
+        for cid in ('a01-b07', 'a01-b08'):
+            self.answer_before(sess, cid, result='stuck', day='09')
+        sess.mark_read('a01', 'a1d')
+        trace = {}
+        ids = service.build_set(sess, sess._state(), 'unit', random.Random(7),
+                                lesson='a01', unit='a1d', trace=trace)
+        self.assertEqual(1, ids.count('a01-c03'))
+        self.assertTrue({'a01-b07', 'a01-b08'}.isdisjoint(ids))
+        self.assertEqual({'a01-b07': 'a01-c03'}, trace['unit_transfers'])
+        self.assertEqual({'a01-b07', 'a01-b08'}, set(sess._state().again))
+
+    def test_unit_transfer_catalog_uses_distinct_fixed_tasks_in_same_unit(self):
+        for course in ('intro', 'app'):
+            sess = self.session(course)
+            for source, targets in sess.unit_transfers.items():
+                if bank.course_of(source) != course:
+                    continue
+                self.assertEqual(len(targets), len(set(targets)))
+                lead = sess.cards[source]
+                for cid in targets:
+                    with self.subTest(source=source, target=cid):
+                        card = sess.cards[cid]
+                        self.assertEqual((lead['lesson'], lead['unit']), (card['lesson'], card['unit']))
+                        self.assertEqual({'blank', 'choice'}, {lead['kind'], card['kind']})
+                        self.assertFalse(lead['deep'] or card['deep'])
+                        self.assertNotEqual(lead['item']['stem'], card['item']['stem'])
+
     def test_review_and_sweep_pair_both_courses_and_record_actual_ids(self):
         for course, source, target in [('intro', 'i01-b02', 'i01-g01'), ('app', 'a01-b07', 'a01-g01')]:
             for mode in ('review', 'sweep'):
