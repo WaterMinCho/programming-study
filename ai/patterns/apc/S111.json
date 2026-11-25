@@ -104,7 +104,7 @@
     {
      "text": "eligible = [i for i, value in enumerate(overlaps) if i not in used]",
      "aim": "IoU 기준 확인",
-     "why": "사용하지 않은 정답이어도 IoU가 0.5 미만이면 제외합니다."
+     "why": "IoU 조건을 검사하지 않아 미연결 정답의 IoU가 0.5 미만이어도 후보에 들어갑니다."
     },
     {
      "text": "eligible = [i for i, value in enumerate(overlaps) if value >= 0.5 and i in used]",
