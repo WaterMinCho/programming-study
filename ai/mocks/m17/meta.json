@@ -1,7 +1,7 @@
 {
  "id": "m17",
  "title": "모의고사 7회",
- "count": 42,
+ "count": 44,
  "minutes": 90,
  "range": [
   1,
@@ -15,7 +15,7 @@
  ],
  "course_counts": {
   "intro": 24,
-  "app": 18
+  "app": 20
  },
  "blueprint": {
   "i01": 1,
@@ -44,9 +44,10 @@
   "a07": 2,
   "a08": 2,
   "a09": 1,
-  "a10": 2
+  "a10": 2,
+  "a11": 2
  },
- "blueprint_revision": "all42-v1",
+ "blueprint_revision": "all44-applied11-v1",
  "format": 1,
  "draft": false,
  "round_set": 5,

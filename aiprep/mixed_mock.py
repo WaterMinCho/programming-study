@@ -22,6 +22,8 @@ CONTRACTS = {"mixed32-blueprint-v1": _MIXED32, "mixed32-transfer-v1": _MIXED32, 
                           "app_through": 10},
              "all33-v1": {"count": 33, "minutes": 60, "course_counts": {"intro": 19, "app": 14}, "all_lessons": True, "app_through": 10},
              "all42-v1": {"count": 42, "minutes": 90, "course_counts": {"intro": 24, "app": 18}, "all_lessons": True, "app_through": 10},
+             "all35-v1": {"count": 35, "minutes": 60, "course_counts": {"intro": 19, "app": 16}, "all_lessons": True, "app_through": 11},
+             "all44-applied11-v1": {"count": 44, "minutes": 90, "course_counts": {"intro": 24, "app": 20}, "all_lessons": True, "app_through": 11},
 }
 
 

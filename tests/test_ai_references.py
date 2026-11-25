@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """문항의 참고 대상이 공개된 학습 단계인지 확인함."""
+import os
+
+from aiprep import bank, service
 from tests.test_ai_service import Base
 
 
@@ -36,3 +39,10 @@ class ReferenceTest(Base):
         self.assertEqual(sess.note_target(card["id"])["lesson"], "i90")
         card["after"] = "missing"
         self.assertEqual(sess.note_target(card["id"])["lesson"], "i90")
+
+
+    def test_applied_detection_practice_links_to_its_published_step(self):
+        sess = service.AiSession("alice", home=os.path.join(self.tmp, "home"), root=bank.AI_DIR, course="app")
+        target = sess.note_target("apc-k012")
+        self.assertEqual(("apc", "a18k/2"), (target["lesson"], target["step"]))
+        self.assertEqual([], self.log(sess))

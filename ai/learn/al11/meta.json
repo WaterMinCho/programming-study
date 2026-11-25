@@ -1,0 +1,101 @@
+{
+ "format": 1,
+ "id": "al11",
+ "lesson": "a11",
+ "title": "응용 11차시 객체의 위치를 찾고 검출 결과 평가하기",
+ "defines": [],
+ "needs": [
+  "l08",
+  "l11",
+  "l15"
+ ],
+ "sections": {
+  "a11a": "사진에서 클래스와 위치를 함께 읽기",
+  "a11b": "두 박스가 겹치는 비율 계산하기",
+  "a11c": "점수 순서대로 겹치는 후보 줄이기",
+  "a11d": "공유 특징에서 후보를 만들고 박스 다듬기",
+  "a11e": "사용자 데이터에 맞춰 검출 헤드 바꾸기",
+  "a11f": "정답 박스와 짝지어 검출 성능 계산하기"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "강의 PDF 12~28·30~34쪽의 IoU·GIoU·NMS·AP·두 단계 검출",
+   "url": "https://drive.google.com/file/d/1ThY_U6JXisxNBkNv6aSVQZIKi95zVzQK/view?usp=drivesdk",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "실습 01의 좌표·IoU·박스 회귀",
+   "url": "https://colab.research.google.com/drive/1sFQ6i5b1Lp5LrRNGdk2GCibNPy_teHs2",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "실습 02의 IoU·NMS와 사전학습 Faster R-CNN 추론",
+   "url": "https://colab.research.google.com/drive/1LbmxWgJSEj-2yE2bor33i8d9EtSzc_xy",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "실습 03의 PennFudan 데이터셋·헤드 교체·학습과 평가",
+   "url": "https://colab.research.google.com/drive/1zYqwB2CZJRWpG1CRtEJjBFb3BjORMmbT",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "과제 문항 1~6의 검출·평가·IoU·NMS·모델 설정",
+   "url": "https://drive.google.com/file/d/15MVt8NsqI3kwLvAkkDI82IY5d80DherH/view?usp=drivesdk",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "Torchvision Faster R-CNN의 학습·평가 입출력",
+   "url": "https://docs.pytorch.org/vision/0.25/models/generated/torchvision.models.detection.fasterrcnn_resnet50_fpn.html",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "Faster R-CNN 논문의 제안 네트워크와 공유 특징",
+   "url": "https://arxiv.org/abs/1506.01497",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "GIoU 논문의 최소 포함 영역과 보정값",
+   "url": "https://arxiv.org/abs/1902.09630",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "COCO 평가 구현의 클래스·IoU 기준·정답 매칭",
+   "url": "https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/cocoeval.py",
+   "checked": "2026-11-25"
+  }
+ ],
+ "units": {
+  "a11a": {
+   "minutes": 7,
+   "key_figure": "assets/a11a-1.png",
+   "kind": "concept"
+  },
+  "a11b": {
+   "minutes": 7,
+   "key_figure": "assets/a11b-1.png",
+   "kind": "concept"
+  },
+  "a11c": {
+   "minutes": 7,
+   "key_figure": "assets/a11c-1.png",
+   "kind": "concept"
+  },
+  "a11d": {
+   "minutes": 7,
+   "key_figure": "assets/a11d-1.png",
+   "kind": "concept"
+  },
+  "a11e": {
+   "minutes": 7,
+   "key_figure": "assets/a11e-1.png",
+   "kind": "concept"
+  },
+  "a11f": {
+   "minutes": 7,
+   "key_figure": "assets/a11f-1.png",
+   "kind": "concept"
+  }
+ }
+}

@@ -1001,7 +1001,7 @@ class AiSession(object):
             return None
         lid = card.get("after") if card.get("mock") else card.get("lesson")
         note = self.notes.get(lid)
-        found = re.fullmatch(r"(a?[0-9]{1,2}[a-i])/([1-9][0-9]*)", str(card.get("step") or ""))
+        found = re.fullmatch(r"(a?[0-9]{1,2}[a-z])/([1-9][0-9]*)", str(card.get("step") or ""))
         if note is None or found is None:
             return None
         key, number = found.group(1), int(found.group(2))

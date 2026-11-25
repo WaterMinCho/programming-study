@@ -14,7 +14,8 @@
   "al07",
   "al08",
   "al09",
-  "al10"
+  "al10",
+  "al11"
  ],
  "sections": {
   "a18a": "사진 한 장을 잘라 모델 입력으로 바꾸기",
@@ -26,7 +27,8 @@
   "a18g": "판별기 단계에서 생성기와 기울기 끊기",
   "a18h": "사진 특징을 첫 자리로 붙인 뒤 유효한 캡션만 쓰기",
   "a18i": "앞쪽 점이 남긴 투과율로 광선의 색 합치기",
-  "a18j": "목표 클래스의 입력 기여도 비교하기"
+  "a18j": "목표 클래스의 입력 기여도 비교하기",
+  "a18k": "같은 정답 박스를 두 번 세지 않기"
  },
  "outputs": [],
  "sources": [
@@ -109,6 +111,16 @@
    "what": "Integrated Gradients에서 기준선과 경로를 따라 구한 기울기",
    "url": "https://captum.ai/api/integrated_gradients.html",
    "checked": "2026-11-25"
+  },
+  {
+   "what": "강의 PDF 12~28·30~34쪽의 IoU·GIoU·NMS·AP·두 단계 검출",
+   "url": "https://drive.google.com/file/d/1ThY_U6JXisxNBkNv6aSVQZIKi95zVzQK/view?usp=drivesdk",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "COCO 평가 구현의 클래스·IoU 기준·정답 매칭",
+   "url": "https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/cocoeval.py",
+   "checked": "2026-11-25"
   }
  ],
  "credits": [],
@@ -154,6 +166,10 @@
    "kind": "pattern"
   },
   "a18j": {
+   "minutes": 7,
+   "kind": "pattern"
+  },
+  "a18k": {
    "minutes": 7,
    "kind": "pattern"
   }

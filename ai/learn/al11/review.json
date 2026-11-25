@@ -1,0 +1,29 @@
+{
+ "format": 1,
+ "writer": "출제 1",
+ "resolver": "재풀이 2",
+ "reviewer": "검토 4",
+ "files": {
+  "assets/a11a-1.png": "737d7ea32223e9010e09be0fab870babcb4b74a437c7d78f71ca1482855047a2",
+  "assets/a11b-1.png": "c685f9009a855cf88f9e73d267e9e1435ba28a7fccf3daad00011d4677483dbb",
+  "assets/a11b-31.png": "ea4e91d8f04d145c7f161a691959af1b32b4cfa78ee2eae801cdfb7449afe90e",
+  "assets/a11b-32.png": "cfb7f6635dfe6b21bb4b3b0e11abc614f593924e0ab911789fde1b9addd2527b",
+  "assets/a11b-33.png": "3872012d17bf65737018a014562aeba4c8099110318777861c2a741557ce87c3",
+  "assets/a11c-1.png": "a53d57f72e1c536a5263308ada40502d2407ff11c7562dff023270280234b3a9",
+  "assets/a11c-31.png": "00339fd55ca406eb9448122326500fd7d1e9bc4f1d3078317f28df0286e0b97c",
+  "assets/a11c-32.png": "c38c82c8733ab6aacfcfbfda306ee492a79539937d2dee7d7558de4da4b50e1b",
+  "assets/a11c-33.png": "83c0b23e68490a3cffc8fd97a4df5fd766e1af86ce4b131588eec574cd8a71c6",
+  "assets/a11d-1.png": "9052aeddc71550409d07b8f6e8e51457a132e854f8e9528f42d0ca3aea61e6e8",
+  "assets/a11e-1.png": "f52a2366b45f24aca808011f45a14f84f5b0ac2a04ef03805308bfbbe0d3f7ef",
+  "assets/a11f-1.png": "6c2d260575a161f535fc88a771d8527377f79ef009bb72b7044d8c49f10215d0",
+  "assets/a11f-31.png": "3e3fb6ebe0b8c3a21be0e26f1fba2a60e4e5535ecac0d61396e1963f079c2069",
+  "assets/a11f-32.png": "ef81ec829b9c05506db90667ed6a8eb755df188f4a0c0bc3711eb2d8c9960546",
+  "assets/a11f-33.png": "30ff10931027ae175ff885acaeb71384bb05ebc1fbb32e80a9a184eb9dd08911",
+  "meta.json": "6a81b6447feeffd4f650f49e1678f2471c957cd1dc3ce3edbcbf181c64f0e860",
+  "page.md": "73014ef6ee7206f321b6ca99bbb68c116b070f89f0199e9f6fb9e62e91a44945"
+ },
+ "findings": [
+  "강의의 좌표·NMS·정답 매칭을 실제 실습식과 대조하고 세 수준의 질문 9개를 재풀이함. 작은 창에서 학습 노트·그림·코딩 실습을 확인함.",
+  "세 수준 그림의 파일명을 차시 단계와 수준 표기에 맞춤."
+ ]
+}
