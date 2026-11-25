@@ -242,12 +242,12 @@ class PublishedBankListTest(unittest.TestCase):
                 self.assertEqual("이전 모의고사 %d회" % n, specs["m%d" % n]["title"])
         self.assertEqual([], specs["m2"]["window"])
         self.assertEqual([], specs["m3"]["window"])
-        self.assertEqual({"m11", "m12", "m13", "m14"}, self.fresh)
-        self.assertEqual([f"모의고사 {n}회" for n in range(1, 5)], [specs[f"m{n}"]["title"] for n in range(11, 15)])
+        self.assertEqual({"m11", "m12", "m13", "m14", "m15"}, self.fresh)
+        self.assertEqual([f"모의고사 {n}회" for n in range(1, 6)], [specs[f"m{n}"]["title"] for n in range(11, 16)])
 
     def test_new_learner_sees_only_open_rounds(self):
         """hidden·legacy 회차는 회차 목록(mocks)과 오류 목록(errors) 어디에도 나오지 않고 준비 중 안내(mock_pending)도 비어 있음.
-        모든 차시 회차 m11~m14 는 두 과정 목록에 모두 나옴."""
+        모든 차시 회차 m11~m15는 두 과정 목록에 모두 나옴."""
         closed = {spec["id"] for spec in self.specs} - self.fresh
         for course in ("intro", "app"):
             with self.subTest(course=course):

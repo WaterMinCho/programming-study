@@ -16,11 +16,21 @@ CONTRACTS = {"mixed32-blueprint-v1": _MIXED32, "mixed32-transfer-v1": _MIXED32, 
              "all44-v1": {"count": 44, "minutes": 120, "course_counts": {"intro": 31, "app": 13}, "all_lessons": True},
              "all46-v1": {"count": 46, "minutes": 120, "course_counts": {"intro": 32, "app": 14}, "all_lessons": True},
              "all50-v1": {"count": 50, "minutes": 120, "course_counts": {"intro": 35, "app": 15}, "all_lessons": True},
-             "all52-v1": {"count": 52, "minutes": 120, "course_counts": {"intro": 36, "app": 16}, "all_lessons": True}}
+             "all52-v1": {"count": 52, "minutes": 120, "course_counts": {"intro": 36, "app": 16}, "all_lessons": True,
+                          "app_through": 9},
+             "all54-v1": {"count": 54, "minutes": 120, "course_counts": {"intro": 38, "app": 16}, "all_lessons": True,
+                          "app_through": 10}}
 
 
 def candidate(spec):
     return spec.get("id") in PUBLISHED_IDS or spec.get("scope") == "mixed"
+
+
+def expected_lessons(contract):
+    """차시 범위를 명시한 배분 버전에서 과정별 차시 ID를 돌려줌."""
+    if "app_through" not in contract:
+        return None
+    return {"i%02d" % no for no in range(1, 18)} | {"a%02d" % no for no in range(1, contract["app_through"] + 1)}
 
 
 def validate(spec, meta, items=None, lessons=None):
@@ -34,6 +44,9 @@ def validate(spec, meta, items=None, lessons=None):
             or not isinstance(blueprint, dict) or not blueprint
             or any(type(n) is not int or n < 1 for n in blueprint.values())):
         raise ValueError("혼합 모의고사의 과정·배분 메타데이터 연결을 준비하고 있습니다.")
+    expected = expected_lessons(contract)
+    if expected is not None and blueprint.keys() != expected:
+        raise ValueError("혼합 모의고사의 차시 범위가 배분 버전과 일치하지 않습니다.")
     if not isinstance(meta, dict):
         raise ValueError("혼합 모의고사의 배분 자료를 읽을 수 없습니다.")
     for key in ("scope", "courses", "count", "minutes", "blueprint_revision", "course_counts", "blueprint"):

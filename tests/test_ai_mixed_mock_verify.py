@@ -912,6 +912,122 @@ class AllLessonValidationTest(unittest.TestCase):
         self.assertEqual(0, code, output)
 
 
+class VersionedLessonScopeTest(unittest.TestCase):
+    """응용 10차시가 열린 은행에서 기존 회차와 새 회차를 각각 검증함."""
+    add_app_lesson = MixedValidationTest.add_app_lesson
+    publish_app_lesson = MixedValidationTest.publish_app_lesson
+    save = AllLessonValidationTest.save
+    update_index = AllLessonValidationTest.update_index
+    verify = AllLessonValidationTest.verify
+
+    def setUp(self):
+        self.fixture = legacy.ValidationTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.bank = self.fixture.bank
+        index = self.fixture.read('index.json')
+        for no in range(1, 11):
+            self.add_app_lesson(index, no)
+        self.fixture.write('index.json', index)
+
+    def make_round(self, revision):
+        if revision == 'all52-v1':
+            self.mid = 'm11'
+            released = bank.read_index()['mocks']
+            blueprint = next(row['blueprint'] for row in released if row['id'] == self.mid)
+            formats = ['choice'] * 18 + ['bug'] * 6 + ['order'] * 3 + ['blank'] * 10 + ['predict'] * 11 + ['code'] * 4
+            levels = [1] * 13 + [2] * 24 + [3] * 11 + [2, 2, 3, 3]
+            counts = {'intro': 36, 'app': 16}
+        else:
+            self.mid = 'm15'
+            blueprint = dict(zip((f'i{n:02d}' for n in range(1, 18)), (2, 2, 2, 3, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 1, 2, 1)))
+            blueprint.update(zip((f'a{n:02d}' for n in range(1, 11)), (3, 1, 3, 1, 2, 1, 1, 1, 1, 2)))
+            formats = ['choice'] * 19 + ['bug'] * 6 + ['order'] * 3 + ['blank'] * 10 + ['predict'] * 12 + ['code'] * 4
+            levels = [1] * 14 + [2] * 25 + [3] * 11 + [2, 2, 3, 3]
+            counts = {'intro': 38, 'app': 16}
+        self.spec = dict(id=self.mid, title='모의고사 검증', count=len(formats), minutes=120, scope='mixed',
+                         range=[1, 17], window=[], courses=['intro', 'app'], course_counts=counts,
+                         blueprint=blueprint, blueprint_revision=revision)
+        self.meta = dict(self.spec, format=1, draft=True, time_basis='연습 기본 시간입니다.', round_set=1)
+        self.items = all44_items(self.mid, revision=revision, blueprint=blueprint, formats=formats, levels=levels)
+        index = self.fixture.read('index.json')
+        index['mocks'].append(self.spec)
+        self.fixture.write('index.json', index)
+        self.save()
+
+    def test_all52_verifies_with_a10_ready_and_keeps_its_own_scope(self):
+        self.make_round('all52-v1')
+        self.assertTrue(bank.is_ready({'id': 'a10', 'page': 'al10'}, str(self.bank)))
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        with mock.patch.dict(verify_ai.ai_mock_rules.LESSON_SCORES, {'a01': (100, 9, 3, 3, 3)}):
+            self.assertEqual(self.spec['blueprint'], verify_ai._mixed_blueprint(self.spec))
+        self.assertEqual('52문항 · 120분 · 개론 1~17차시 · 응용 1~9차시', verify_ai.mixed_mock.description(self.spec))
+        expanded = dict(self.spec['blueprint'])
+        expanded['a10'] = expanded.pop('a09')
+        forged = dict(self.spec, blueprint=expanded)
+        with self.assertRaisesRegex(ValueError, '차시 범위'):
+            verify_ai.mixed_mock.validate(forged, dict(forged, draft=False))
+        self.spec['blueprint'] = self.meta['blueprint'] = expanded
+        self.update_index()
+        self.save()
+        code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('blueprint가 혼합 배분과 일치하지 않습니다.', output)
+
+    def test_all54_uses_current_scores_and_accepts_a10(self):
+        self.make_round('all54-v1')
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.meta['draft'] = False
+        self.save()
+        index = bank.read_index(str(self.bank))
+        lessons = {row['id']: row for row in index['lessons']}
+        spec = next(row for row in index['mocks'] if row['id'] == self.mid)
+        items, _ = verify_ai.aimock.load_items(str(self.bank), spec, lessons)
+        self.assertEqual(54, len(items))
+        self.assertEqual(2, sum(row['lesson'] == 'a10' and row['course'] == 'app' for row in items.values()))
+        self.assertEqual('54문항 · 120분 · 개론 1~17차시 · 응용 1~10차시', verify_ai.mixed_mock.description(self.spec))
+        scores = verify_ai.ai_mock_rules.LESSON_SCORES
+        self.assertEqual((36, 6, 2, 3, 0), scores['a10'])
+        with mock.patch.dict(scores, {'a10': (36, 6, 0, 0, 0)}):
+            self.assertEqual(verify_ai.ai_mock_rules.allocate(scores, 54), verify_ai._mixed_blueprint(self.spec))
+            self.assertNotEqual(self.spec['blueprint'], verify_ai._mixed_blueprint(self.spec))
+
+    def test_all54_rejects_wrong_lesson_even_with_the_same_sized_score_table(self):
+        self.make_round('all54-v1')
+        scores = dict(verify_ai.ai_mock_rules.LESSON_SCORES)
+        scores['a11'] = scores.pop('a10')
+        expanded = dict(self.spec['blueprint'])
+        expanded['a11'] = expanded.pop('a10')
+        forged = dict(self.spec, blueprint=expanded)
+        with self.assertRaisesRegex(ValueError, '차시 범위'):
+            verify_ai.mixed_mock.validate(forged, dict(forged, draft=False))
+        self.publish_app_lesson(11)
+        index = self.fixture.read('index.json')
+        index['lessons'] = [lesson for lesson in index['lessons'] if lesson['id'] != 'a10']
+        self.fixture.write('index.json', index)
+        self.spec['blueprint'] = self.meta['blueprint'] = expanded
+        self.items = all44_items(self.mid, revision='all54-v1', blueprint=expanded,
+                                 formats=[item['format'] for item in self.items], levels=[item['level'] for item in self.items])
+        self.update_index()
+        self.save()
+        with mock.patch.object(verify_ai.ai_mock_rules, 'LESSON_SCORES', scores):
+            code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('빠진 차시: a10. 범위 밖 차시: a11.', output)
+        self.assertNotIn('계산한 문항 수는', output)
+        self.assertNotIn('blueprint가 혼합 배분과 일치하지 않습니다.', output)
+
+    def test_all54_still_checks_for_unscored_ready_lessons(self):
+        self.make_round('all54-v1')
+        self.publish_app_lesson(11)
+        code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('m15 index의 blueprint에 빠진 공개 차시가 있습니다: a11.', output)
+        self.assertIn('m15 meta.json의 blueprint에 빠진 공개 차시가 있습니다: a11.', output)
+
+
 class ItemIdRuleTest(unittest.TestCase):
     """회차 문항 ID 규칙만 따로 봄. 44문항 회차에서 하나를 빼고 둘을 더한 경우와 그 반례."""
     kept = ['m11-%02d' % n for n in range(1, 45) if n != 10]

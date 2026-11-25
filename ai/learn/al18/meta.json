@@ -13,7 +13,8 @@
   "al06",
   "al07",
   "al08",
-  "al09"
+  "al09",
+  "al10"
  ],
  "sections": {
   "a18a": "사진 한 장을 잘라 모델 입력으로 바꾸기",
@@ -24,7 +25,8 @@
   "a18f": "특징 채널 사이의 곱을 Gram 행렬로 모으기",
   "a18g": "판별기 단계에서 생성기와 기울기 끊기",
   "a18h": "사진 특징을 첫 자리로 붙인 뒤 유효한 캡션만 쓰기",
-  "a18i": "앞쪽 점이 남긴 투과율로 광선의 색 합치기"
+  "a18i": "앞쪽 점이 남긴 투과율로 광선의 색 합치기",
+  "a18j": "목표 클래스의 입력 기여도 비교하기"
  },
  "outputs": [],
  "sources": [
@@ -97,6 +99,16 @@
    "what": "광선의 투과율과 색 합성, 식 (3)",
    "url": "https://arxiv.org/abs/2003.08934",
    "checked": "2026-11-24"
+  },
+  {
+   "what": "Saliency의 배치 축, 목표 출력과 기울기 절댓값 기본값",
+   "url": "https://captum.ai/api/saliency.html",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "Integrated Gradients에서 기준선과 경로를 따라 구한 기울기",
+   "url": "https://captum.ai/api/integrated_gradients.html",
+   "checked": "2026-11-25"
   }
  ],
  "credits": [],
@@ -139,6 +151,10 @@
   },
   "a18i": {
    "minutes": 5,
+   "kind": "pattern"
+  },
+  "a18j": {
+   "minutes": 7,
    "kind": "pattern"
   }
  }

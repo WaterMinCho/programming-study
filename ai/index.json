@@ -31,9 +31,10 @@
   {"id": "al07", "title": "응용 7차시 노이즈에서 이미지를 만드는 GAN과 VAE"},
   {"id": "al08", "title": "응용 8차시 CNN 특징으로 LSTM이 캡션 쓰기"},
   {"id": "al09", "title": "응용 9차시 3D 장면을 새 카메라 시점에서 그리기"},
+  {"id": "al10", "title": "응용 10차시 분류 모델의 판단 근거 확인하기"},
   {"id": "al18", "title": "코딩으로 실전학습하기"}
  ],
- "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03", "al04", "al05", "al06", "al07", "al08", "al09", "al18"],
+ "order": ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l08", "l09", "l10", "l11", "l12", "l13", "l14", "l15", "l16", "l17", "l18", "al01", "al02", "al03", "al04", "al05", "al06", "al07", "al08", "al09", "al10", "al18"],
  "exam": {"date": "2026-12-02", "last_new": "2026-11-24", "sweep_from": "2026-11-25", "last_review": "2026-12-01"},
  "lessons": [
   {"id": "i01", "no": 1, "title": "딥러닝에 필요한 파이썬", "page": "l01", "date": "2026-10-19", "weight": 0.8, "units": 7, "hw_due": null},
@@ -61,11 +62,12 @@
   {"id": "a06", "no": 6, "course": "app", "title": "사전학습 특징으로 이미지의 스타일 옮기기", "page": "al06", "date": null, "weight": 1, "units": 6, "hw_due": null},
   {"id": "a07", "no": 7, "course": "app", "title": "노이즈에서 이미지를 만드는 GAN과 VAE", "page": "al07", "date": null, "weight": 1, "units": 7, "hw_due": null},
   {"id": "a08", "no": 8, "course": "app", "title": "CNN 특징으로 LSTM이 캡션 쓰기", "page": "al08", "date": null, "weight": 1, "units": 6, "hw_due": null},
-  {"id": "a09", "no": 9, "course": "app", "title": "3D 장면을 새 카메라 시점에서 그리기", "page": "al09", "date": null, "weight": 1, "units": 6, "hw_due": null}
+  {"id": "a09", "no": 9, "course": "app", "title": "3D 장면을 새 카메라 시점에서 그리기", "page": "al09", "date": null, "weight": 1, "units": 6, "hw_due": null},
+  {"id": "a10", "no": 10, "course": "app", "title": "분류 모델의 판단 근거 확인하기", "page": "al10", "date": null, "weight": 1, "units": 6, "hw_due": null}
  ],
  "patterns": [
   {"id": "pc", "page": "l18", "title": "코딩으로 실전학습하기", "units": {"18a": {"after": "i06", "name": "학습 루프"}, "18b": {"after": "i10", "name": "평가 루프"}, "18c": {"after": "i07", "name": "회귀"}, "18d": {"after": "i08", "name": "이진 분류"}, "18e": {"after": "i09", "name": "다중 분류"}, "18f": {"after": "i11", "name": "CNN 정의"}, "18g": {"after": "i15", "name": "사용자 Dataset"}, "18h": {"after": "i14", "name": "전이학습"}}},
-  {"id": "apc", "course": "app", "folder": "apc", "page": "al18", "title": "코딩으로 실전학습하기", "units": {"a18a": {"after": "a01", "name": "영역 자르기와 입력 준비"}, "a18b": {"after": "a02", "name": "펼친 영상의 색 범위"}, "a18c": {"after": "a03", "name": "프레임마다 중심 기록"}, "a18d": {"after": "a04", "name": "성공한 점의 변위"}, "a18e": {"after": "a05", "name": "사진마다 분류 이름 읽기"}, "a18f": {"after": "a06", "name": "특징 맵에서 Gram 행렬 만들기"}, "a18g": {"after": "a07", "name": "GAN 판별기만 갱신하기"}, "a18h": {"after": "a08", "name": "이미지 특징을 캡션 배치에 붙이기"}, "a18i": {"after": "a09", "name": "광선 위 색을 한 픽셀로 합치기"}}}
+  {"id": "apc", "course": "app", "folder": "apc", "page": "al18", "title": "코딩으로 실전학습하기", "units": {"a18a": {"after": "a01", "name": "영역 자르기와 입력 준비"}, "a18b": {"after": "a02", "name": "펼친 영상의 색 범위"}, "a18c": {"after": "a03", "name": "프레임마다 중심 기록"}, "a18d": {"after": "a04", "name": "성공한 점의 변위"}, "a18e": {"after": "a05", "name": "사진마다 분류 이름 읽기"}, "a18f": {"after": "a06", "name": "특징 맵에서 Gram 행렬 만들기"}, "a18g": {"after": "a07", "name": "GAN 판별기만 갱신하기"}, "a18h": {"after": "a08", "name": "이미지 특징을 캡션 배치에 붙이기"}, "a18i": {"after": "a09", "name": "광선 위 색을 한 픽셀로 합치기"}, "a18j": {"after": "a10", "name": "목표 클래스의 입력 기여도 비교하기"}}}
  ],
  "mocks": [
   {"id": "m1", "title": "이전 모의고사 1회", "legacy": true, "minutes": 60, "count": 30, "range": [1, 12], "window": ["2026-11-14", "2026-11-16"]},
@@ -77,6 +79,7 @@
   {"id": "m11", "title": "모의고사 1회", "minutes": 120, "count": 52, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 36, "app": 16}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 3, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1, "a09": 1}, "blueprint_revision": "all52-v1"},
   {"id": "m12", "title": "모의고사 2회", "minutes": 120, "count": 52, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 36, "app": 16}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 3, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1, "a09": 1}, "blueprint_revision": "all52-v1"},
   {"id": "m13", "title": "모의고사 3회", "minutes": 120, "count": 52, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 36, "app": 16}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 3, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1, "a09": 1}, "blueprint_revision": "all52-v1"},
-  {"id": "m14", "title": "모의고사 4회", "minutes": 120, "count": 52, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 36, "app": 16}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 3, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1, "a09": 1}, "blueprint_revision": "all52-v1"}
+  {"id": "m14", "title": "모의고사 4회", "minutes": 120, "count": 52, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 36, "app": 16}, "blueprint": {"i01": 1, "i02": 2, "i03": 2, "i04": 3, "i05": 3, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 2, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 4, "a02": 2, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1, "a09": 1}, "blueprint_revision": "all52-v1"},
+  {"id": "m15", "title": "모의고사 5회", "minutes": 120, "count": 54, "range": [1, 17], "window": [], "scope": "mixed", "courses": ["intro", "app"], "course_counts": {"intro": 38, "app": 16}, "blueprint": {"i01": 2, "i02": 2, "i03": 2, "i04": 3, "i05": 3, "i06": 2, "i07": 2, "i08": 3, "i09": 2, "i10": 3, "i11": 3, "i12": 3, "i13": 2, "i14": 2, "i15": 1, "i16": 2, "i17": 1, "a01": 3, "a02": 1, "a03": 3, "a04": 1, "a05": 2, "a06": 1, "a07": 1, "a08": 1, "a09": 1, "a10": 2}, "blueprint_revision": "all54-v1"}
  ]
 }
