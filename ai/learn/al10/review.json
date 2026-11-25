@@ -1,18 +1,18 @@
 {
  "format": 1,
- "writer": "복수 정답 연습 연결",
+ "writer": "그림 교정",
  "resolver": "새 연습과 노트 대조",
- "reviewer": "학습 문장 검토",
+ "reviewer": "그림 대조",
  "files": {
   "assets/a10a-1.png": "86aea5e9b474fa37131eb19d37eee6eb1c16a0a0b30461bf835772cdf9f26f13",
-  "assets/a10b-1.png": "b3dcab402a56068057b4771f008d3ffd3fa7e1ee3b3350a410e78d5f777d7714",
+  "assets/a10b-1.png": "16a2fc9e7d9c43d24deea6e1d678c55349ecce50b413ea53cbe9f1b6e2f2da23",
   "assets/a10b-31.png": "21b3e69f6c274866d0e647d877726af7b9304d057ce5626f9631db9b728dd3e4",
   "assets/a10b-32.png": "049f1798f1feeb62ee9f644c60690cdf0ffc5058b1c05b0345a3fbc6d9536d01",
   "assets/a10b-33.png": "28337d3a4bd43d553b56293acb499d86b2eff872a372e38202d2805c83847659",
   "assets/a10c-1.png": "099e2cd2ec0a72f7ac6d4d048894edc6cd1ee1ee93ec76d40b8a7d56225dbc68",
-  "assets/a10d-1.png": "0d589c0abd888953ff586323521e9d659eb2592f3108f884e877de4e2a79cc62",
-  "assets/a10d-31.png": "75445bdcca179db0d655cc888d34010da19e0cfb79e602fcf2b8cdb2dda55d22",
-  "assets/a10d-32.png": "2d56b1634206840b24edbd508385e816ccb6dd9afe1e9035d9d126c275b02cae",
+  "assets/a10d-1.png": "f456c3fafd09d92cdbecbbefccbf6b91e8e8797cb69566c7a93e21c5a00f614a",
+  "assets/a10d-31.png": "12d67e0bd95386c90addd8607b587a36696a30a04d0123a2126369d26d5bc7f2",
+  "assets/a10d-32.png": "ce0eb13572106a67e1917781aa1f47795c015ca7b643816985077578999b6db8",
   "assets/a10d-33.png": "aba934043108d7dbd7906131ecd7e5b44970ba13cffa8e9ca6cd4bb325fca5ee",
   "assets/a10e-1.png": "60838c38d0d218dbfd13d0aa62d906d6cc8f4e8b13d75921101afa6fb4ab4ada",
   "assets/a10e-2.png": "aaeb6b1cd900a54285a5e204ec83f6d6178a0e3fc6c068b3826a396df4dfa330",
@@ -28,6 +28,7 @@
   "그림과 코드의 위치 선택 순서 및 기준선 변경 문제의 점수 조건을 대조함. 세 수준 물음 9개와 S110의 첫 답안을 따로 확인함.",
   "보충교안 01의 분류 정확도 예제와 보충 실습 1_2의 자동 미분을 대조함. 분류 평가와 입력 기울기 설명의 실행 조건을 구분함.",
   "보충교안 03 PDF 5~7쪽의 필터와 특징맵 설명을 10차시 실습 예제와 대조함.",
-  "기존 외울 것 설명에 새 복수 정답 문항 번호를 연결함. 본문·기존 답은 유지함."
+  "기존 외울 것 설명에 새 복수 정답 문항 번호를 연결함. 본문·기존 답은 유지함.",
+  "합성곱 입출력 축과 기울기·기여도 부호 색을 그림 네 장에서 대조함. 기존 세 수준 질문과 첫 재풀이 기록을 유지함."
  ]
 }

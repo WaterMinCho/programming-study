@@ -409,7 +409,7 @@ ORDER_STEPS = [  # (l, r, cumin 개수, salt 개수, best, 테두리 구간, 설
     (2, 6, 3, 1, 3, None, "r = 6 salt: salt가 다시 들어와 주문이 찹니다."),
     (3, 6, 2, 1, 3, None, "2번 cumin은 남는 하나라 빼도 주문이 그대로 찹니다."),
     (4, 6, 1, 1, 3, (3, 6), "3번 cumin을 빼면 깨지므로 3~6번 길이 4를 재고 뺍니다."),
-    (6, 7, 1, 1, 3, (5, 7), "r = 7에서 다시 차고, pepper를 뺀 뒤 5~7번 길이 3을 잽니다."),
+    (6, 7, 1, 1, 3, (5, 7), "pepper를 빼고 5~7번 길이 3을 잰 뒤, 5번 cumin을 뺍니다."),
 ]
 
 
@@ -424,7 +424,7 @@ def order_window(fig):
         c.pointer(mid_x(rects[r - 1]) + (8 if l == r else 0), 66 + 60 + 16, "r", "decorator", above=False)
         if border:
             c.highlight(span(rects, border[0] - 1, border[1] - 1), "def", width=2, pad=4)
-            c.tag(rects[border[1] - 1][0] + 30, 40, "길이 %d" % (border[1] - border[0] + 1), "def")
+            c.tag(rects[border[0] - 1][0], 40, "빼기 전 길이 %d" % (border[1] - border[0] + 1), "def", size=11)
         have = {"cumin": cumin, "salt": salt}
         ok = sum(1 for name, need in NEED if have[name] >= need)
         base = 280
@@ -443,7 +443,8 @@ def order_window(fig):
         c.text(330, 254, "필요 수", "comment", 11, anchor="lm")
         dot(c, 410, 254, "string", r=6)
         c.text(422, 254, "채운 품목", "comment", 11, anchor="lm")
-        c.number_board(300, 176, "채워진 종류", "%d/2" % ok, "string" if ok == 2 else "missing", w=110)
+        label = "뺀 뒤 채운 종류" if border else "채워진 종류"
+        c.number_board(300, 176, label, "%d/2" % ok, "string" if ok == 2 else "missing", w=110)
         c.number_board(420, 176, "가장 짧은 길이", best if best else "-", w=110)
         note(c, text)
 
