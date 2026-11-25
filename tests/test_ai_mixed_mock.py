@@ -236,7 +236,7 @@ class MixedMockTest(unittest.TestCase):
         axes = {'condition', 'application', 'code_analysis', 'comparison'}
         # m6 는 예전 회차라 제출한 사람만 봄. 새 사용자는 hidden·legacy 가 아닌 회차만 봄
         fresh = {spec['id'] for spec in READ_INDEX(str(root))['mocks'] if not spec.get('hidden') and not spec.get('legacy')}
-        self.assertEqual({'m11', 'm12', 'm13', 'm14', 'm15'}, fresh)
+        self.assertEqual({f'm{n}' for n in range(11, 18)}, fresh)
         submitted_before('m6-taker', str(self.root/'published-home'), str(root), 'm6')
         for course in ('intro', 'app'):
             with self.subTest(course=course):
@@ -500,10 +500,16 @@ class MixedMockTest(unittest.TestCase):
     def test_all_lessons_round5_54_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
         self.check_actual_snapshots('m15')
 
+    def test_all_lessons_round6_33_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m16')
+
+    def test_all_lessons_round7_42_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m17')
+
     def check_actual_snapshots(self, mid):
         source=Path(__file__).resolve().parents[1]/'ai'
         raw=load_secrets(str(source/'mocks'/mid)).get('items.json')
-        if mid in ('m6','m11','m12','m13','m14','m15'):
+        if mid in ('m6','m11','m12','m13','m14','m15','m16','m17'):
             self.assertIsNotNone(raw, '%s 문항이 필요합니다.' % mid)
         if raw is None:
             self.skipTest('초안 문항은 검토 경로에서만 보관함')
