@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "출제 1",
- "resolver": "재풀이 2",
- "reviewer": "검토 4",
+ "writer": "복수 정답 연습 연결",
+ "resolver": "새 연습과 노트 대조",
+ "reviewer": "학습 문장 검토",
  "files": {
   "assets/a7a-1.gif": "7d3c5c3283d31ed0e8ebd3e8c5b8d5c994132a2b39eace7acd9e084cb7dfc450",
   "assets/a7a-2.png": "153ed0b7347aee920edd82914428d582e075e77f968b74f0f59831f8c369c75b",
@@ -44,9 +44,10 @@
   "assets/a7g-2.png": "d2f14acd8fbc5976ca7e2272a620a7d5183305a2ec679ed92402dc7475e9b2f5",
   "assets/a7g-3.png": "c6a43168a26fadf5cde703dc61534257ed0d4b138eb76501738ffca0c0686676",
   "meta.json": "1ac2dd62cbe2925c48cfa98c24379505a028a27fd4b6de376d30ed91a98e517d",
-  "page.md": "d607c4cd83740d22686f6f13bb27849f029f2a29f81a713ca53edf3471f3f0a0"
+  "page.md": "69200822517758f7c08328124c419818df8f953e30201c0c0e372714646abd6b"
  },
  "findings": [
-  "입력값을 바꾼 심화 물음을 정답 없이 다시 풀고 그림의 값과 구분되는지 확인했음."
+  "입력값을 바꾼 심화 물음을 정답 없이 다시 풀고 그림의 값과 구분되는지 확인했음.",
+  "기존 외울 것 설명에 새 복수 정답 문항 번호를 연결함. 본문·기존 답은 유지함."
  ]
 }

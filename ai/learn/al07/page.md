@@ -332,7 +332,7 @@ for real_images, _ in train_loader:
 <!-- facts: FA07-a7 FA07-b1 FA07-b2 FA07-b3 -->
 
 ```ai-memo
-[{"q": "판별기 단계에서 가짜 사진에 detach()를 붙이는 까닭은 무엇인가요?", "a": "판별기 손실의 backward()가 판별기 층까지만 기울기를 계산하게 합니다. 생성기 첫 층의 grad는 None으로 남습니다.", "cards": ["a07-b07", "a07-c03"]}, {"q": "생성기 단계의 backward()가 판별기 grad도 채우는데 판별기 가중치가 바뀌지 않는 까닭은 무엇인가요?", "a": "optimizer_G는 generator.parameters()만 받아서 생성기 가중치만 바꿉니다. 판별기에 남은 grad는 다음 배치의 optimizer_D.zero_grad()가 None으로 지웁니다.", "cards": ["a07-b08"]}, {"q": "DCGAN 논문의 Adam 설정은 무엇인가요?", "a": "lr 0.0002, betas (0.5, 0.999)입니다. 기본값 lr 0.001, β1 0.9에서 둘 다 낮췄습니다.", "cards": ["a07-b06", "a07-c04"]}, {"q": "60,000장을 128장씩 나누면 마지막 배치는 몇 장인가요?", "a": "60,000 − 128 × 468 = 96장입니다. 그래서 레이블을 current_batch_size로 만듭니다.", "cards": ["a07-b05"]}]
+[{"q": "판별기 단계에서 가짜 사진에 detach()를 붙이는 까닭은 무엇인가요?", "a": "판별기 손실의 backward()가 판별기 층까지만 기울기를 계산하게 합니다. 생성기 첫 층의 grad는 None으로 남습니다.", "cards": ["a07-b07", "a07-c03", "a07-c15"]}, {"q": "생성기 단계의 backward()가 판별기 grad도 채우는데 판별기 가중치가 바뀌지 않는 까닭은 무엇인가요?", "a": "optimizer_G는 generator.parameters()만 받아서 생성기 가중치만 바꿉니다. 판별기에 남은 grad는 다음 배치의 optimizer_D.zero_grad()가 None으로 지웁니다.", "cards": ["a07-b08"]}, {"q": "DCGAN 논문의 Adam 설정은 무엇인가요?", "a": "lr 0.0002, betas (0.5, 0.999)입니다. 기본값 lr 0.001, β1 0.9에서 둘 다 낮췄습니다.", "cards": ["a07-b06", "a07-c04"]}, {"q": "60,000장을 128장씩 나누면 마지막 배치는 몇 장인가요?", "a": "60,000 − 128 × 468 = 96장입니다. 그래서 레이블을 current_batch_size로 만듭니다.", "cards": ["a07-b05"]}]
 ```
 
 

@@ -537,7 +537,7 @@ optimizer = torch.optim.SGD(model.fc.parameters(), lr=0.01)
     "a": "출력 수를 행으로 두므로 (4,512)입니다.",
     "cards": [
       "i13-b07"
-    ]
+    , "i13-c102"]
   },
   {
     "q": "bias가 있는 Linear(512, 4)의 파라미터 수는 ____ 개입니다.",
