@@ -36,6 +36,7 @@ SET_SIZE = 20
 SET_MIN = 8
 UNIT_NEW = 8
 UNIT_REVIEW = 10
+UNIT_TRANSFERS = 3
 UNIT_OTHER_SHARE = 0.3
 GAP_WRONG = 3
 GAP_CONFIRM = 5
@@ -263,6 +264,11 @@ class AiSession(object):
             self.review_variants = bank.read_review_variants(self.root)
         except bank.AiBankError as error:
             self.errors["review_variants"] = str(error)
+        self.unit_transfers = {}
+        try:
+            self.unit_transfers = bank.read_review_variants(self.root, unit_transfers=True)
+        except bank.AiBankError as error:
+            self.errors["unit_transfers"] = str(error)
         try:
             bank.load_common(self.root)
         except bank.AiBankError as error:
@@ -1914,6 +1920,34 @@ def _note_variant(state, lead):
     return _variants(state, lead, fixed=True)[:1]
 
 
+def _unit_transfers(state, sources, skip, cap):
+    """직전까지 읽은 단원의 오답에서 다른 방식으로 확인하는 고정 문항을 고름."""
+    sess = state.sess
+    picked, families = {}, set()
+    for source in sources:
+        if len(picked) == UNIT_TRANSFERS:
+            break
+        lead = sess.cards[source]
+        for cid in sess.unit_transfers.get(source, []):
+            card = sess.cards.get(cid)
+            if not card or cid in skip or card["family"] in families:
+                continue
+            if (card["lesson"], card["unit"]) != (lead["lesson"], lead["unit"]):
+                continue
+            if (card["kind"] not in ("blank", "choice") or card["kind"] == lead["kind"]
+                    or card["deep"] or card.get("mock")):
+                continue
+            if not state.is_open(card):
+                # 이전 단원에서 놓친 개념을 복습하므로 핵심 문항의 상자 조건은 기다리지 않음.
+                if cap <= 0 or not state.eligible_new(card, ready=False):
+                    continue
+                cap -= 1
+            picked[source] = cid
+            families.add(card["family"])
+            break
+    return picked
+
+
 def _review_pairs(sess, state, chosen, pools, size):
     """다시 풀 원문항에 변형을 최대 세 장 연결함. 복습 일정과 정오답은 바꾸지 않음."""
     chosen = list(chosen)
@@ -2028,7 +2062,8 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     size = SET_SIZE
     pattern = None
     overflow = []
-    protected = {"again", "due", "new", "lead", "transfer", "pair"}
+    unit_transfers = {}
+    protected = {"again", "due", "new", "lead", "transfer", "pair", "unit_transfer"}
     if mode == "unit":
         fresh = new_cards(lambda c: c["lesson"] == lesson and c["unit"] == unit)
         # 핵심을 푼 뒤에는 고정 문항 뒤에 밀린 변형 문항도 한 장 먼저 연습함.
@@ -2044,9 +2079,16 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         others = [c for c in read_cards(lambda c: (c["lesson"], c["unit"]) != (lesson, unit)) if c not in due and c not in again]
         rng.shuffle(others)
         others, done = _split_done(state, others)
-        pools = [("again", again), ("new", fresh[:UNIT_NEW]), ("due", due[:UNIT_REVIEW]), ("other", others)]
-        # 묶음이 SET_MIN 보다 작을 때만 씀. 오늘 마친 문항은 맨 뒤에 둠
-        overflow = [("new", fresh[UNIT_NEW:]), ("due", due[UNIT_REVIEW:]), ("done", done)]
+        carry = [cid for cid in again if (cards[cid]["lesson"], cards[cid]["unit"]) in state.reads
+                 and (cards[cid]["lesson"], cards[cid]["unit"]) != (lesson, unit)]
+        skip = set(again + due) | state.completed_today
+        # 짧은 묶음에서는 현재 단원의 비핵심 새 문항을 더 뽑을 수 있어 그 몫도 남김.
+        extra = cap - sum(not cards[cid]["core"] for cid in fresh)
+        unit_transfers = _unit_transfers(state, carry, skip, extra)
+        pools = [("again", [cid for cid in again if cid not in carry]), ("new", fresh[:UNIT_NEW]),
+                 ("unit_transfer", list(unit_transfers.values())), ("due", due[:UNIT_REVIEW]), ("other", others)]
+        # 다른 문항이 모자란 경우에만 이전 단원의 오늘 오답과 오늘 마친 문항을 씀.
+        overflow = [("new", fresh[UNIT_NEW:]), ("due", due[UNIT_REVIEW:]), ("carry", carry), ("done", done)]
         pattern = "NNR"
     elif mode in ("review", "sweep"):
         low = sorted([c for c in read_cards() if c not in due and c not in again and c not in state.completed_today
@@ -2096,6 +2138,8 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     if trace is not None:
         # 2026-11-17 #278 부터 unit·lesson·mixed 는 오늘 마친 문항을 후보에서 빼고 모자랄 때만 채우므로 rules-v6
         policy = "rules-v6" if mode in ("unit", "lesson", "mixed") else "rules-v2"
+        if mode == "unit" and carry:
+            policy = "rules-v7"
         if mode == "note" and any(name == "transfer" and ids for name, ids in pools):
             policy = "rules-v3" if cards[card].get("mock") else "rules-v2"
         trace.update(policy=policy, retry_policy=RETRY_POLICY,
@@ -2109,6 +2153,9 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
                      selection_probability=None)
     chosen = _choose(sess, state, pools, size, rng)
     if len(chosen) < SET_MIN and overflow:
+        used = {cid for cid, pool in chosen if pool == "unit_transfer"}
+        overflow = [(name, [cid for cid in ids if used.isdisjoint(sess.unit_transfers.get(cid, []))])
+                    if name == "carry" else (name, ids) for name, ids in overflow]
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
     pairs = {}
     if mode in ("review", "sweep"):
@@ -2133,6 +2180,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
                                                if pool == "transfer") else "rules-v5"
         if trace["policy"] == "rules-v5":
             trace["variant_catalog_revision"] = collection.digest(sess.review_variants)
+        actual_transfers = {source: target for source, target in unit_transfers.items()
+                            if (target, "unit_transfer") in chosen}
+        if actual_transfers:
+            trace.update(unit_transfers=actual_transfers, variant_catalog_revision=collection.digest(sess.unit_transfers))
         trace["selected_pools"] = dict(chosen)
         trace["selected_sources"] = {cid: "learner_choice" if mode == "note" and cid == card else "rules"
                                      for cid, _ in chosen}
