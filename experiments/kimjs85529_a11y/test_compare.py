@@ -457,7 +457,7 @@ def run_evaluation(split, export_predictions):
 
         baseline_output = (
             PREDICTION_DIR
-            / f"small-lstm-{split}.csv"
+            / f"small-lstm-retrained-{split}.csv"
         )
 
         timegap_output = (
@@ -479,7 +479,7 @@ def run_evaluation(split, export_predictions):
         save_score_predictions(
             event_ids,
             baseline_probabilities,
-            "small-lstm-v1",
+            "small-lstm-retrained-v1",
             baseline_output
         )
 
@@ -829,8 +829,8 @@ def main():
     parser.add_argument(
         "--split",
         choices=["validation", "test"],
-        default="test",
-        help="평가 구간 선택 (기본값: test)"
+        default="validation",
+        help="평가 구간 선택 (기본값: validation)"
     )
 
     parser.add_argument(

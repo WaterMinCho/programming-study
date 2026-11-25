@@ -9,6 +9,7 @@
 - **학습·평가 브랜치:** `model/kimjs85529_a11y_timegap_evaluation`
 - **전처리·기능 검증일:** 2026-11-22
 - **학습·평가 검증일:** 2026-11-24
+- **추가 검증일:** 2026-11-25
 
 ## 예측할 값과 모델을 고른 이유
 
@@ -52,7 +53,9 @@ SmallLSTM을 기반으로 TimeGapLSTM을 구현하고, 실제 Recorded AI 데이
 
 동일한 입력에서 기본 LSTM과 TimeGapLSTM의 초기 Logit 일치를 확인했다. 비교 실험은 팀원의 `SmallLSTM` 클래스와 Dropout(p=0.2) 구조를 사용하되, 팀원의 학습된 가중치를 재사용하지 않고 `train_compare.py`로 두 모델을 각각 학습했다.
 
-TimeGapLSTM은 LSTM 상태·현재 문제 벡터·시간 특성 `[gap_log, gap_known]`을 결합한 `combined`에 `self.dropout(p=0.2)`을 적용한 후 최종 Linear 계층에 전달한다. 기존 SmallLSTM의 Dropout 적용 위치를 유지해 비교 구조를 맞춘 설정이지만, 학습 모드에서는 시간 특성 두 칸도 각각 무작위로 0이 될 수 있다. 이로 인해 확인된 시간 입력에서 `gap_known`만 0이 되거나 시간 특성이 소실되는 등 원본 데이터와 다른 조합이 생길 수 있다. PyTorch Dropout은 남은 값도 학습 중 `1/(1-p)`로 스케일하므로, 시간 특성의 값 자체가 달라질 수도 있다. 평가 모드(`model.eval()`)에서는 Dropout이 적용되지 않는다. 따라서 시간 신호의 학습 중 교란이 성능 비교에 영향을 줄 가능성을 실험 해석의 한계로 고려한다.
+TimeGapLSTM은 LSTM 상태·현재 문제 벡터·시간 특성 `[gap_log, gap_known]`을 결합한 `combined`에 `self.dropout(combined)`을 적용한 후 최종 Linear 계층에 전달한다. 기존 SmallLSTM의 Dropout 적용 위치를 유지해 비교 구조를 맞춘 설정이지만, 학습 모드에서는 시간 특성 두 칸도 각각 무작위로 0이 될 수 있다. 이로 인해 확인된 시간 입력에서 `gap_known`만 0이 되거나 시간 특성이 소실되는 등 원본 데이터와 다른 조합이 생길 수 있다. PyTorch Dropout은 남은 값도 학습 중 `1/(1-p)`로 스케일하므로, 시간 특성의 값 자체가 달라질 수도 있다. 평가 모드(`model.eval()`)에서는 Dropout이 적용되지 않는다. 따라서 시간 신호의 학습 중 교란이 성능 비교에 영향을 줄 가능성을 실험 해석의 한계로 고려한다.
+
+TimeGapLSTM의 최종 입력에는 시간 특성 두 칸이 추가되므로, 공통 가중치를 복사하고 시간 특성 가중치를 0으로 초기화하더라도 동일한 Seed의 학습 모드에서 Dropout 마스크가 달라질 수 있다. 이를 제외한 초기 출력 비교를 위해 별도의 로컬 검증 코드에서 두 모델의 Dropout 확률을 0으로 설정했다. 기존 모델 구조 및 실제 학습의 Dropout(p=0.2)은 유지했다.
 
 기본 LSTM의 SHA는 다음 명령으로 확인했다.
 
@@ -252,6 +255,97 @@ python experiments\kimjs85529_a11y\test_data_model.py
 
 기본 LSTM과 초기 출력 비교, 시간 특성 적용, 빈 이력 및 패딩, 역전파, 실제 데이터 순전파, 모델 저장·복원 등을 확인한다.
 
+Dropout을 비활성화한 학습 모드의 초기 출력 비교는 별도의 로컬 코드로 수행했다. 해당 파일은 공개 PR에 포함하지 않으며, 저장소 루트에서 아래 PowerShell 명령으로 동일한 검증 코드를 실행할 수 있다.
+
+```powershell
+@'
+import torch
+
+from experiments.michae18.model import SmallLSTM
+from experiments.kimjs85529_a11y.model import (
+    TimeGapLSTM,
+    copy_baseline_weights,
+)
+
+
+def main():
+    torch.manual_seed(42)
+
+    num_questions = 10
+    num_concepts = 4
+
+    baseline = SmallLSTM(num_questions, num_concepts)
+    timegap = TimeGapLSTM(num_questions, num_concepts)
+
+    # 공통 가중치를 복사하고 시간 특성 가중치는 0으로 설정
+    copy_baseline_weights(baseline, timegap)
+
+    # 두 모델의 Dropout만 비활성화
+    baseline.dropout.p = 0.0
+    timegap.dropout.p = 0.0
+
+    # 동일한 입력 데이터
+    inputs = {
+        "questions": torch.tensor([
+            [1, 2, 0],
+            [3, 0, 0],
+        ], dtype=torch.long),
+        "concepts": torch.tensor([
+            [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 0]],
+            [[0, 0, 1, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+        ], dtype=torch.float32),
+        "results": torch.tensor([
+            [1, 0, 0],
+            [0, 0, 0],
+        ], dtype=torch.float32),
+        "lengths": torch.tensor([2, 1], dtype=torch.long),
+        "query_question": torch.tensor(
+            [4, 5], dtype=torch.long
+        ),
+        "query_concepts": torch.tensor([
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+        ], dtype=torch.float32),
+        "time_features": torch.tensor([
+            [0.6931472, 1.0],
+            [2.3978953, 1.0],
+        ], dtype=torch.float32),
+    }
+
+    # 학습 모드에서도 Dropout이 꺼진 상태로 비교
+    baseline.train()
+    timegap.train()
+
+    with torch.no_grad():
+        baseline_output = baseline(inputs)
+        timegap_output = timegap(inputs)
+
+    difference = (
+        baseline_output - timegap_output
+    ).abs()
+
+    print("===== Dropout 비활성화 비교 =====")
+    print("SmallLSTM 출력:", baseline_output)
+    print("TimeGapLSTM 출력:", timegap_output)
+    print("최대 출력 차이:", difference.max().item())
+
+    assert torch.allclose(
+        baseline_output,
+        timegap_output,
+        atol=1e-6,
+        rtol=1e-6,
+    ), "Dropout을 비활성화했지만 두 모델의 출력이 다릅니다."
+
+    print("통과: Dropout 비활성화 시 두 모델의 출력 일치")
+
+
+if __name__ == "__main__":
+    main()
+'@ | python -
+```
+
+이 코드는 테스트에서 생성한 두 모델 객체의 Dropout만 비활성화하며, 기존 모델 및 학습 설정을 변경하지 않는다.
+
 ### 5. 실제 데이터 학습 및 비교
 
 `train_compare.py`로 SmallLSTM과 TimeGapLSTM을 동일한 조건에서 학습했다. 아래 명령은 재현용이며, 재실행하면 `comparison_results/`의 기존 체크포인트와 학습 이력을 덮어쓴다.
@@ -265,11 +359,14 @@ python -m experiments.kimjs85529_a11y.train_compare
 ### 6. 저장된 모델 평가·과적합 분석
 
 ```powershell
-# 기존 최적 모델로 Test 평가 후 과적합 분석표 및 그래프 출력
+# 기존 최적 모델로 Validation 평가 후 과적합 분석표 및 그래프 출력
 python -m experiments.kimjs85529_a11y.test_compare
 
 # Validation 평가 후 그래프 출력
 python -m experiments.kimjs85529_a11y.test_compare --split validation
+
+# Test 평가 후 그래프 출력
+python -m experiments.kimjs85529_a11y.test_compare --split test
 
 # 저장된 학습 이력으로 과적합 분석 및 그래프만 출력
 python -m experiments.kimjs85529_a11y.test_compare --analyze-overfitting
@@ -277,23 +374,45 @@ python -m experiments.kimjs85529_a11y.test_compare --analyze-overfitting
 
 `test_compare.py`는 모듈 실행과 파일 직접 실행 모두를 지원하도록 프로젝트 루트를 `sys.path`에 추가한다. 기본 실행 시 평가 종료 후 과적합 분석 결과를 출력하고 `SmallLSTM_overfitting.png`, `TimeGapLSTM_overfitting.png`를 저장한다. 2026-11-24 실행에서는 두 파일의 저장과 분석 완료를 확인했다. GUI 창의 실제 표시 여부는 로그만으로 확인되지 않는다.
 
+2026-11-25에는 `--split` 기본값을 `validation`으로 변경했다. 옵션 없이 실행하면 Validation 299건을 평가하고 `validation_comparison.csv`를 저장하며, `--split test`를 명시한 경우에만 Test 260건을 평가하고 `test_comparison.csv`를 저장한다. 평소 실험 설정 확인에는 Validation을 사용하고 Test 점수를 보고 학습 설정을 반복적으로 선택하지 않는다.
+
 ### 7. 공식 Validation 채점용 예측 파일 생성
 
 ```powershell
 python -m experiments.kimjs85529_a11y.test_compare --split validation --export-predictions
 ```
 
-예측 파일은 저장소 외부 `C:\study-data\model-predictions`에 `small-lstm-validation.csv`, `timegap-lstm-validation.csv` 이름으로 생성한다. CSV 열은 `event_id,probability,model_version`이며 기존 파일이 존재하면 덮어쓰지 않고 `FileExistsError`가 발생한다.
+예측 파일은 저장소 외부 `C:\study-data\model-predictions`에 `small-lstm-retrained-validation.csv`, `timegap-lstm-validation.csv` 이름으로 생성한다. CSV 열은 `event_id,probability,model_version`이며 기존 파일이 존재하면 덮어쓰지 않고 `FileExistsError`가 발생한다.
+
+#351에서 재학습한 SmallLSTM의 `model_version`은 `small-lstm-retrained-v1`으로 변경하여 #352의 `small-lstm-v1`과 구분한다. TimeGapLSTM은 기존 `timegap-lstm-v1`을 유지한다.
+
+2026-11-25 예측 CSV를 다시 생성하고 내부 모델 식별자 및 예측 수를 확인했다.
+
+```powershell
+Import-Csv "C:\study-data\model-predictions\small-lstm-retrained-validation.csv" | Group-Object model_version | Select-Object Name, Count
+
+Import-Csv "C:\study-data\model-predictions\timegap-lstm-validation.csv" | Group-Object model_version | Select-Object Name, Count
+```
+
+```text
+Name                    Count
+----                    -----
+small-lstm-retrained-v1   299
+
+Name            Count
+----            -----
+timegap-lstm-v1   299
+```
 
 ### 8. 공식 `learning_server.score` 실행
 
 ```powershell
-python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118\recorded --track ai --predictions C:\study-data\model-predictions\small-lstm-validation.csv --out C:\study-data\model-predictions\small-lstm-validation-score.json
+python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118\recorded --track ai --predictions C:\study-data\model-predictions\small-lstm-retrained-validation.csv --out C:\study-data\model-predictions\small-lstm-retrained-validation-score.json
 
 python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118\recorded --track ai --predictions C:\study-data\model-predictions\timegap-lstm-validation.csv --out C:\study-data\model-predictions\timegap-lstm-validation-score.json
 ```
 
-두 명령을 실제로 실행해 Validation 공식 채점을 완료하였다. `--split` 생략 시 Validation 구간이며, 공식 Test 채점은 아직 수행하지 않았다. 생성된 원자료, 체크포인트, 개별 예측 CSV, 점수 JSON은 GitHub에 공개하지 않는다.
+기존 파일명(`small-lstm-validation.csv`, `timegap-lstm-validation.csv`)으로 Validation 공식 채점을 완료하였다. 위 명령은 변경된 예측 CSV의 재채점용이며, 2026-11-25에 생성한 CSV의 공식 재채점은 아직 수행하지 않았다. 아래 공식 채점 원문 및 수치는 기존 실행 결과를 유지한다. `--split` 생략 시 Validation 구간이며, 공식 Test 채점은 아직 수행하지 않았다. 생성된 원자료, 체크포인트, 개별 예측 CSV, 점수 JSON은 GitHub에 공개하지 않는다.
 
 ## 결과와 오류 사례
 
@@ -461,6 +580,20 @@ PyTorch: 설치됨
 
 `test_data_model.py`의 마지막 출력인 `실제 학습 및 성능 평가는 미실행`은 해당 기능 검증 스크립트의 실행 범위를 가리킨다. 실제 데이터 학습과 성능 평가는 각각 `train_compare.py`, `test_compare.py`에서 별도로 수행했다.
 
+2026-11-25에는 앞의 실행 방법 4절에 기록한 별도 로컬 검증 코드로 두 모델의 공통 가중치를 복사하고 추가 시간 가중치를 0으로 초기화한 후 Dropout 확률을 0으로 설정했다. Seed 42, 문제 10개, 개념 4개의 인공 입력 2건을 사용하고 두 모델 모두 `train()` 상태에서 `torch.allclose()`로 비교했다.
+
+실제 실행 결과:
+
+```text
+===== Dropout 비활성화 비교 =====
+SmallLSTM 출력: tensor([-0.9010,  0.3926])
+TimeGapLSTM 출력: tensor([-0.9010,  0.3926])
+최대 출력 차이: 0.0
+통과: Dropout 비활성화 시 두 모델의 출력 일치
+```
+
+이는 Dropout을 끈 상태의 초기 출력 일치에 대한 검증이며, Dropout을 끈 실제 데이터 재학습 및 성능 비교는 수행하지 않았다. 기존 학습 설정인 Dropout(p=0.2)은 유지했다.
+
 ### 4. 모델 저장·복원 검증
 
 `torch.save(model.state_dict(), path)`를 사용해 모델 가중치를 임시 파일로 저장했다.
@@ -475,6 +608,8 @@ PyTorch: 설치됨
 
 ### 5. 기능 및 평가 재실행 검증
 
+2026-11-24 당시 기본 평가 구간은 Test였으며 다음 명령을 실행했다.
+
 ```powershell
 cd C:\programming-study
 python -m experiments.kimjs85529_a11y.test_gaps
@@ -483,6 +618,21 @@ python -m experiments.kimjs85529_a11y.test_compare
 ```
 
 전처리 테스트 **1~10 모두 통과**했고 `test_data_model.py`에서 **Dropout(p=0.2) 호출**, 초기 Logit 일치, 시간 특성 적용, 역전파, AI Train 953건 Full Batch 순전파, 모델 저장·복원 등이 통과했다. 통합 `test_compare.py`는 Test 260건을 평가한 뒤 과적합 분석표를 출력하고 두 그래프를 저장했으며, 최적 모델을 재학습하지 않았다.
+
+2026-11-25에는 기본 평가 구간 변경 후 다음 명령을 실행했다.
+
+```powershell
+python -m experiments.kimjs85529_a11y.test_compare
+python -m experiments.kimjs85529_a11y.test_compare --split test
+python -m experiments.kimjs85529_a11y.test_compare --split validation --export-predictions
+```
+
+| 검증 항목 | 확인 결과 |
+|---|---|
+| 기본 평가 | `평가 구간: validation`, 299건, `validation_comparison.csv` 저장, Test 점수 미출력 |
+| 명시적 Test 평가 | `평가 구간: test`, 260건, `test_comparison.csv` 저장 |
+| 예측 CSV 생성 | 두 모델 각각 299건, 변경된 모델 식별자 확인 |
+| 기존 모델 평가 | 기존 Validation·Test 수치와 일치, 추가 학습 없음 |
 
 | 과적합 분석 | SmallLSTM | TimeGapLSTM |
 |---|---:|---:|
@@ -536,6 +686,8 @@ python -m experiments.kimjs85529_a11y.test_compare
 Validation에서는 실제 오답 37건 중 36건을 정답으로 잘못 예측했고, Test에서는 오답 35건을 모두 정답으로 예측했다. 두 모델의 분류 정확도는 동일하므로 작은 손실 개선만을 근거로 정답·오답 판별 능력이 나아졌다고 할 수 없다. Test 자체 평가는 **공식 Test 채점**과 다르다.
 
 ### 8. 공식 Validation 채점 원문: SmallLSTM
+
+아래는 식별자 변경 전 #351에서 재학습한 SmallLSTM의 공식 채점 기록이며, 당시 식별자인 `small-lstm-v1`과 출력 원문을 보존한다.
 
 채점 명령:
 
@@ -619,7 +771,7 @@ past-concept-ratio-v1 | 0.5348 ± 0.0316 / 계산할 수 없음 | 0.1786 ± 0.01
 - SmallLSTM − 최저 기준선 = `0.2952 − 0.3174 = -0.0222`
 - TimeGapLSTM − 최저 기준선 = `0.2945 − 0.3174 = -0.0229`
 
-따라서 두 모델의 로그 손실과 Brier는 해당 기준선보다 낮았다. 그러나 ROC-AUC는 같은 기준선(`0.8874`)이 SmallLSTM(`0.8357`)과 TimeGapLSTM(`0.8361`)보다 높았다.
+따라서 두 모델의 로그 손실과 Brier는 해당 기준선보다 낮았다. 그러나 ROC-AUC는 같은 기준선(`0.8874`)이 SmallLSTM(`0.8357`)과 TimeGapLSTM(`0.8361`)보다 높았다. 다만 두 모델은 Validation Loss를 기준으로 최적 Epoch를 선택한 뒤 동일한 Validation 데이터에서 다시 측정한 점수를 기준선과 비교하였다. 따라서 독립적인 최종 평가 결과로 해석할 수 없다.
 
 TimeGapLSTM은 SmallLSTM보다 전체 Validation 손실·Brier가 소폭 낮고 ROC-AUC가 소폭 높지만, **전체 정확도는 같고 두 모델의 혼동행렬도 같다.** 모델별 표준오차는 두 모델 차이에 대한 유의성 검정 결과가 아니며, 공식 채점 경고가 있으므로 우열에 대한 확정 결론을 내리지 않는다.
 
@@ -629,7 +781,7 @@ TimeGapLSTM은 SmallLSTM보다 전체 Validation 손실·Brier가 소폭 낮고 
 
 - **기능 검증:** `test_gaps.py` 및 `test_data_model.py` 테스트 통과. 원본 타임스탬프와 공통 시간값의 독립적 대조는 수행하지 않았다.
 - **VSCode 실행 경로 오류:** 파일 직접 실행 시 `ModuleNotFoundError: No module named 'learning_server'`가 발생하였다. `test_compare.py` 시작 부분에서 프로젝트 루트를 `sys.path`에 추가해 직접 실행 경로를 지원하도록 수정했다. 2026-11-24에는 **PowerShell `python -m` 방식으로 통합 분석이 정상 실행**되었으며, VSCode 실행 버튼으로 직접 재검증했다는 의미는 아니다.
-- **공식 채점 CSV 중복 저장:** 이미 만든 예측 파일은 덮어쓰지 않도록 설계했으며 재생성을 시도하면 `FileExistsError`가 예상된다. 이는 예측 결과 보존 장치이며 실제 채점 실패 사례로 기록하지 않는다.
+- **공식 채점 CSV 중복 저장:** 이미 만든 예측 파일은 덮어쓰지 않도록 설계했으며 재생성을 시도하면 `FileExistsError`가 예상된다. 이는 예측 결과 보존 장치이며 실제 채점 실패 사례로 기록하지 않는다. 2026-11-25에는 기존 TimeGapLSTM 예측 CSV가 존재하여 `FileExistsError`가 발생했으며, 기존 예측 CSV와 채점 JSON을 백업한 후 정상적으로 예측 CSV를 생성했다.
 - **공식 채점 자체:** 두 모델 모두 채점 오류 없이 완료. 다만 전체 Validation에 **오답 37행·가명 3개**, 처음 보는 문제에 **오답 13행·가명 3개 미만**으로 공식 경고가 출력되었다. 해당 값은 성능 우열 판정이 아니라 **채점 파이프라인 실행 확인**으로 기록한다.
 - **클래스 불균형:** Validation에서 FP 36 / TN 1, Test에서 FP 35 / TN 0이다. 두 모델 모두 오답 판별이 부족하며 정확도만으로 모델이 유용하다고 말할 수 없다.
 - **재현성:** Seed 42와 동일 코드·데이터·환경에서는 반복 학습 결과가 같을 것으로 기대되지만, 환경이 달라지면 비결정성이 발생할 수 있다. Test 추론은 동일 가중치와 데이터에서 동일 값이 기대된다.
@@ -683,7 +835,7 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 
 ### 7. 실제 데이터 순전파
 
-실제 AI Train 데이터 953건을 배치 크기 32로 나누어 순전파를 수행한다.
+실제 AI Train 데이터 953건에 대해 Full Batch 방식으로 순전파를 수행한다.
 
 출력 형상과 유한성을 검사하고 전체 기록 수가 일치하는지 확인한다.
 
@@ -729,6 +881,10 @@ SGD 1회 갱신 전후 시간 특성 가중치가 변경되는지 확인한다.
 | 공식 Validation 채점 기록 | `learning_server.score` 결과와 기준선 6개, 표준오차·UNK 구간 경고 기록 | 두 모델 공식 Validation 실행 완료 |
 | 최신 공통 main 기준 | `main`, `origin/main` SHA를 `1b896bb4f25899daf07eb9d277c19b9fa3481642`로 확인 | 2026-11-24 Git 명령 결과 |
 | 실행 재검증 | 전처리·모델 테스트·Test 비교·과적합 통합 실행 | 세 명령 모두 정상 종료 |
+| 재학습 SmallLSTM 모델 식별자 중복 | `small-lstm-retrained-v1`으로 변경 | 예측 CSV 내부 식별자 299건 확인 |
+| Dropout에 따른 초기 출력 차이 | 별도 로컬 검증 코드에서 두 모델의 Dropout 비활성화 | 학습 모드 초기 Logit 일치, 최대 차이 0.0 |
+| Validation 기준선 비교의 한계 | Validation에서 최적 Epoch 선택 후 동일 구간에서 평가했음을 명시 | 공식 채점 비교·해석 문단에 반영 |
+| 기본 평가 구간 변경 | `--split` 기본값을 `validation`으로 변경 | 기본 Validation 299건, 명시적 Test 260건 평가 확인 |
 
 공개 저장소의 실험 소스 파일은 다음 7개로 구성된다.
 
