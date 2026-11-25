@@ -249,7 +249,7 @@ class ResultHeadTest(unittest.TestCase):
         return head["title"], head["bar"], head["caption"]
 
     def test_before_any_result(self):
-        self.assertEqual(self.head(), ("아직 실행하지 않았습니다.", None, "[코드 실행]을 누르면 결과가 여기에 나옵니다."))
+        self.assertEqual(self.head(), ("실행·채점 결과", None, "예제는 코드 실행, 숨은 테스트까지는 채점하기."))
         self.assertEqual(self.head(mine=3)[2], "[코드 실행]은 입출력 예와 내 테스트 3개를 돌립니다.")
         self.assertEqual(self.head(best=41.5, mine=3)[2], "지금까지 최고 점수는 100점 중 41.5점입니다.", "기록이 내 테스트보다 먼저")
         self.assertEqual(self.head(best=0.0)[2], "지금까지 최고 점수는 100점 중 0점입니다.")

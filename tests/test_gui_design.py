@@ -359,14 +359,14 @@ class JourneyDesignTest(test_gui_journey.Base):
                     guikit.click(page.run_btn)
                 guikit.pump()
                 self.assertFalse(page.result.collapsed)
-                inks += [(name, self.corner_inks(card)) for name, card in (("지문", page.problem_card), ("결과", page.result))]
+                inks += [(name, self.corner_inks(card)) for name, card in
+                         (("지문", page.problem_card), ("편집기", page.code_panel.editor_pane), ("결과", page.result))]
                 for name, colors in inks:
                     self.assertEqual([True] * 4, [guikit.near(color, "bg") for color in colors],
                                      "%s %s %s: %s" % (scheme, size, name, [color.name() for color in colors]))
 
-    def test_top_bar_keeps_its_buttons_and_the_tag_beside_the_name(self):
-        """1024×700 위 막대(설계 10.1-26). 다섯 경우와 글자 세 단계를 봄. 돌아가기·칩 글자가 잘리지 않음. 꼬리표는 이름 바로 옆에 붙음.
-        상태 글은 두 줄까지임. 화면이 1024 창을 넓히지 않음. 보통에서는 가장 긴 이름이 "저장했습니다" 옆에 다 보임."""
+    def test_navigation_and_problem_head_fit_together(self):
+        """1024×700 창에서 돌아가기와 언어 칩이 잘리지 않고, 지문 카드 안의 제목과 꼬리표가 겹치지 않는지 봄."""
         for step in theme.TEXT_STEPS:
             win = self.start(step, log=[passed("p2")])
             for title, status, pid, number in TOP_CASES:
@@ -384,8 +384,8 @@ class JourneyDesignTest(test_gui_journey.Base):
                 where = "%s %s · %s" % (step, page.title.text(), status)
                 for button in [page.map_btn] + list(page.lang_btns.values()):
                     self.assertGreaterEqual(button.width(), button.sizeHint().width(), "%s: %s" % (where, button.text()))
-                title_end = page.title.mapTo(page.top, QPoint(page.title.width(), 0)).x()
-                tag = page.badge.mapTo(page.top, QPoint(0, 0)).x()
+                title_end = page.title.mapTo(page.problem_card, QPoint(page.title.width(), 0)).x()
+                tag = page.badge.mapTo(page.problem_card, QPoint(0, 0)).x()
                 self.assertTrue(0 <= tag - title_end <= 16, "%s: 꼬리표 %d, 이름 끝 %d" % (where, tag, title_end))
                 self.assertLessEqual(page.status.height(), 2 * theme.TYPE["caption"][1], where)
                 self.assertGreaterEqual(page.title.width(), min(120, page.title.sizeHint().width()), where)
