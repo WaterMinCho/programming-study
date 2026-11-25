@@ -1699,7 +1699,9 @@ ALL_LESSON_RULES = {"all44-v1": {"format": {"choice": 16, "bug": 5, "order": 3, 
                     "all50-v1": {"format": {"choice": 18, "bug": 6, "order": 3, "blank": 9, "predict": 10, "code": 4},
                                  "level": {1: 13, 2: 25, 3: 12}, "code_level": {2: 2, 3: 2}},
                     "all52-v1": {"format": {"choice": 18, "bug": 6, "order": 3, "blank": 10, "predict": 11, "code": 4},
-                                 "level": {1: 13, 2: 26, 3: 13}, "code_level": {2: 2, 3: 2}}}
+                                 "level": {1: 13, 2: 26, 3: 13}, "code_level": {2: 2, 3: 2}},
+                    "all54-v1": {"format": {"choice": 19, "bug": 6, "order": 3, "blank": 10, "predict": 12, "code": 4},
+                                 "level": {1: 14, 2: 27, 3: 13}, "code_level": {2: 2, 3: 2}}}
 FORMAT_KINDS = {"choice": "choice", "bug": "choice", "order": "choice", "blank": "blank", "predict": "blank", "code": "code"}
 
 
@@ -1715,11 +1717,16 @@ def _all_lessons(entry):
 
 def _mixed_blueprint(entry):
     """회차의 배분 버전으로 차시 배분을 고름. 등록되지 않은 값이면 None을 돌려줌.
-    모든 차시 회차는 LESSON_SCORES 와 문항 수로 allocate 가 낸 배분임."""
+    공개 배분이 고정돼 있으면 그 값을 쓰고, 나머지 모든 차시 회차는 배점표와 문항 수로 계산함."""
+    revision = entry.get("blueprint_revision")
+    if not isinstance(revision, str):
+        return None
+    pinned = ai_mock_rules.PINNED_BLUEPRINTS.get(revision)
+    if pinned is not None:
+        return dict(pinned)
     if _all_lessons(entry):
         return ai_mock_rules.allocate(ai_mock_rules.LESSON_SCORES, _mixed_contract(entry)["count"])
-    revision = entry.get("blueprint_revision")
-    return MIXED_BLUEPRINTS.get(revision) if isinstance(revision, str) else None
+    return MIXED_BLUEPRINTS.get(revision)
 
 
 def _item_id_problems(label, ids, retired, count):
@@ -1826,13 +1833,22 @@ def _all_lesson_mock_problems(entry, meta, items, sources):
     """모든 차시 회차의 계약(문항 수와 exam_size, format·kind·level 수, 코드 작성 level 수, 문항 ID), allocate 배분,
     빠진 공개 차시, round_set을 대조함. 초안도 검사함."""
     out, label = [], entry["id"]
+    revision = entry["blueprint_revision"]
     contract = _mixed_contract(entry)
-    size = ai_mock_rules.exam_size(len(ai_mock_rules.LESSON_SCORES))
+    pinned = ai_mock_rules.PINNED_BLUEPRINTS.get(revision)
+    lessons = pinned if pinned is not None else ai_mock_rules.LESSON_SCORES
+    size = ai_mock_rules.exam_size(len(lessons))
     if contract["count"] != size:
-        out.append(f"{label}의 배분 버전 {entry['blueprint_revision']}은 {contract['count']}문항인데 LESSON_SCORES의 차시 "
-                   f"{len(ai_mock_rules.LESSON_SCORES)}개로 계산한 문항 수는 {size}개입니다. 새 배분 버전을 "
+        out.append(f"{label}의 배분 버전 {revision}은 {contract['count']}문항인데 LESSON_SCORES의 차시 "
+                   f"{len(lessons)}개로 계산한 문항 수는 {size}개입니다. 새 배분 버전을 "
                    "aiprep/mixed_mock.py의 CONTRACTS와 tools/verify_ai.py의 ALL_LESSON_RULES에 함께 등록하고 "
                    "이 회차를 그 버전으로 다시 출제하세요.")
+    expected = mixed_mock.expected_lessons(contract)
+    if expected is not None and lessons.keys() != expected:
+        missing = verify_web.listing(sorted(expected - lessons.keys()))
+        extra = verify_web.listing(sorted(lessons.keys() - expected))
+        out.append(f"{label}의 차시 구성이 {revision}의 범위와 일치하지 않습니다. 빠진 차시: {missing or '없음'}. "
+                   f"범위 밖 차시: {extra or '없음'}.")
     # 응용 차시가 늘면 계약 문항 수로 allocate 가 나누지 못해 ValueError 를 냄. 멈추지 않고 실패 목록에 넣음
     try:
         blueprint = _mixed_blueprint(entry)
@@ -1841,7 +1857,7 @@ def _all_lesson_mock_problems(entry, meta, items, sources):
                    "aiprep/mixed_mock.py의 CONTRACTS와 tools/verify_ai.py의 ALL_LESSON_RULES에 함께 등록하고 "
                    "이 회차를 그 버전으로 다시 출제하세요.")
         blueprint = {}
-    rules = ALL_LESSON_RULES.get(entry["blueprint_revision"])
+    rules = ALL_LESSON_RULES.get(revision)
     registered = rules is not None
     if not registered:
         out.append(f"{label}의 blueprint_revision에 format·level 배분이 등록되지 않았습니다.")
@@ -1862,7 +1878,8 @@ def _all_lesson_mock_problems(entry, meta, items, sources):
             allowed = [name for name, kind in FORMAT_KINDS.items() if kind == item["kind"]]
             out.append("%s의 format은 kind가 %s일 때 %s여야 합니다." % (
                 item["id"], item["kind"], allowed[0] if len(allowed) == 1 else ", ".join(allowed) + " 가운데 하나"))
-    ready = [lesson["id"] for lesson in sources.index["lessons"] if aibank.is_ready(lesson, sources.bank_dir)]
+    ready = [lesson["id"] for lesson in sources.index["lessons"]
+             if (pinned is None or lesson["id"] in pinned) and aibank.is_ready(lesson, sources.bank_dir)]
     for name, data in (("index", entry), ("meta.json", meta)):
         declared = data.get("blueprint") if isinstance(data.get("blueprint"), dict) else {}
         missing = [lid for lid in ready if lid not in declared]

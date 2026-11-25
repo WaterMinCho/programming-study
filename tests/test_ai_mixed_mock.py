@@ -221,7 +221,11 @@ class MixedMockTest(unittest.TestCase):
         specs = {spec['id']: spec for spec in index['mocks']}
         expected = {'m4': 'f5839fda6b66cf4ceaa3b16193b33a312d81275620b9b4f17d6fdbe45883d2e6',
                     'm5': 'c9ca185b1eb54f8fb960ecc5a3726857525aedd617ffb8a65bffeb6086c02448',
-                    'm6': 'fea01ba8705ff910899cfe983307b2653810adacc369eadf70ae935b40e4e236'}
+                    'm6': 'fea01ba8705ff910899cfe983307b2653810adacc369eadf70ae935b40e4e236',
+                    'm11': '0a64d66f2568947249d124485fb7f9819960ecd01ef1770e26b68d04ee0971ff',
+                    'm12': '6adcb61412123ab080238403c06c09f8f176bf25c210ef752b12516ede2ad0f1',
+                    'm13': '55778362804ffae066caf8802994f335494d245755e2b8982809154c7d0e94a1',
+                    'm14': 'db39c516229812edf2a4ede285712e5095271c4048749e16ef7e03c0fc0e0ce9'}
         for mid, fingerprint in expected.items():
             with self.subTest(mock=mid):
                 self.assertEqual(fingerprint, load_items(str(root), specs[mid], lessons)[1])
@@ -232,7 +236,7 @@ class MixedMockTest(unittest.TestCase):
         axes = {'condition', 'application', 'code_analysis', 'comparison'}
         # m6 는 예전 회차라 제출한 사람만 봄. 새 사용자는 hidden·legacy 가 아닌 회차만 봄
         fresh = {spec['id'] for spec in READ_INDEX(str(root))['mocks'] if not spec.get('hidden') and not spec.get('legacy')}
-        self.assertEqual({'m11', 'm12', 'm13', 'm14'}, fresh)
+        self.assertEqual({'m11', 'm12', 'm13', 'm14', 'm15'}, fresh)
         submitted_before('m6-taker', str(self.root/'published-home'), str(root), 'm6')
         for course in ('intro', 'app'):
             with self.subTest(course=course):
@@ -493,10 +497,13 @@ class MixedMockTest(unittest.TestCase):
     def test_all_lessons_round4_52_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
         self.check_actual_snapshots('m14')
 
+    def test_all_lessons_round5_54_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m15')
+
     def check_actual_snapshots(self, mid):
         source=Path(__file__).resolve().parents[1]/'ai'
         raw=load_secrets(str(source/'mocks'/mid)).get('items.json')
-        if mid in ('m6','m11','m12','m13','m14'):
+        if mid in ('m6','m11','m12','m13','m14','m15'):
             self.assertIsNotNone(raw, '%s 문항이 필요합니다.' % mid)
         if raw is None:
             self.skipTest('초안 문항은 검토 경로에서만 보관함')
@@ -551,6 +558,7 @@ class MixedMockTest(unittest.TestCase):
                     for key in ('course','concept','format','transferaxis','conditions','sourcefacts'):
                         self.assertEqual(item[key],content[key],(owner,cid,key))
                     self.assertEqual('mixed',content['scope'])
+                    self.assertEqual(spec['blueprint_revision'], content['blueprint_revision'])
                     self.assertEqual('author',content['classification_basis'])
                     self.assertEqual(item['course'],row['data']['course'])
                     self.assertEqual(int(item['lesson'][1:]),content['course_no'])
@@ -569,9 +577,10 @@ class MixedMockTest(unittest.TestCase):
                         self.assertNotIn('ok',option)
                     for blank in content['blanks']:
                         self.assertNotIn('answer',blank)
-                prepared=dataset.prepare(sess.collection.snapshot())
+                prepared=dataset.prepare([dict(row, synthetic=True) for row in sess.collection.snapshot()])
                 self.assertEqual(total,len(prepared))
-                self.assertTrue(all(not r['features']['sequence_history'] for r in prepared))
+                self.assertEqual(course_counts, Counter(row['course'] for row in prepared))
+                self.assertTrue(all(row['synthetic'] and not row['features']['sequence_history'] for row in prepared))
                 submits=self.rows(sess,'mock_submit')
                 self.assertEqual(len(course_counts),len(submits))
                 self.assertEqual(course_counts,{r['data']['course']:r['data']['of'] for r in submits})

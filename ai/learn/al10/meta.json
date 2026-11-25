@@ -1,0 +1,120 @@
+{
+ "format": 1,
+ "id": "al10",
+ "lesson": "a10",
+ "title": "응용 10차시 분류 모델의 판단 근거 확인하기",
+ "defines": [],
+ "needs": [
+  "l06",
+  "l11"
+ ],
+ "sections": {
+  "a10a": "모델의 답과 답을 낸 단서 구분하기",
+  "a10b": "합성곱 필터와 특징맵 구분하기",
+  "a10c": "CAM과 Grad-CAM으로 관련 위치 찾기",
+  "a10d": "Saliency로 입력이 조금 바뀔 때의 영향 읽기",
+  "a10e": "Integrated Gradients로 기준 입력과 비교하기",
+  "a10f": "DeepLIFT와 설명 그림을 비교해 읽기"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "수업 슬라이드의 CAM·Grad-CAM, Saliency, Integrated Gradients",
+   "url": "https://drive.google.com/file/d/1YTirnQPh6UuGdrwOXv7_M8qZF5AOgC-K/view",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "실습 01의 클래스 선택, 입력 기울기, 기준선, 기여도 표시",
+   "url": "https://drive.google.com/file/d/1HfRxthK3t_37jnZPa0h2I04B_DbP6iz7/view",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "실습 02의 필터 가중치, 합성곱 출력, 수동 합성곱 경로",
+   "url": "https://colab.research.google.com/drive/1XmoUdQ1jBTbB19nahTPYzKyHve-iTBIW",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "과제의 설명력, Captum 기여도 분석과 시각화",
+   "url": "https://drive.google.com/file/d/1glZmyeZ7bZICSypYAQDtzaVCTC6ZtoWh/view",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "보충교안 01 PDF 53·56·130쪽의 자동 미분과 분류 평가 예제",
+   "url": "https://drive.google.com/file/d/1GgvHvyZYidPnbmWWqnzf-18iuH8aN4CC/view",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "보충 실습 1_2의 STEP 2 자동 미분과 기울기 위젯",
+   "url": "https://drive.google.com/file/d/1U7gkNlB0tW8PQdl1CDB6pRmHS6sdTp3j/view",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "보충교안 03 PDF 5~7쪽의 합성곱 필터와 출력 채널",
+   "url": "https://drive.google.com/file/d/1pyjsbRrh0-QiwuizNSA7FJRVtoNAxYjd/view",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "CAM의 공간 지도와 선형 분류층 가중치",
+   "url": "https://arxiv.org/abs/1512.04150",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "Grad-CAM의 공간 평균과 양의 영향 강조",
+   "url": "https://arxiv.org/abs/1610.02391",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "Captum Saliency의 부호 옵션과 목표 클래스",
+   "url": "https://captum.ai/api/saliency.html",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "Captum IG의 경로, 기준선과 수치 근사 델타",
+   "url": "https://captum.ai/api/integrated_gradients.html",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "Captum DeepLift의 Rescale 규칙과 지원 범위",
+   "url": "https://captum.ai/api/deep_lift.html",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "PyTorch 모듈 출력 훅과 핸들 해제",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.register_forward_hook",
+   "checked": "2026-11-25"
+  }
+ ],
+ "units": {
+  "a10a": {
+   "minutes": 7,
+   "key_figure": "assets/a10a-1.png",
+   "kind": "concept"
+  },
+  "a10b": {
+   "minutes": 7,
+   "key_figure": "assets/a10b-1.png",
+   "kind": "concept"
+  },
+  "a10c": {
+   "minutes": 7,
+   "key_figure": "assets/a10c-1.png",
+   "kind": "concept"
+  },
+  "a10d": {
+   "minutes": 7,
+   "key_figure": "assets/a10d-1.png",
+   "kind": "concept"
+  },
+  "a10e": {
+   "minutes": 7,
+   "key_figure": "assets/a10e-1.png",
+   "kind": "concept"
+  },
+  "a10f": {
+   "minutes": 7,
+   "key_figure": "assets/a10f-1.png",
+   "kind": "concept"
+  }
+ }
+}

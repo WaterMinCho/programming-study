@@ -110,8 +110,21 @@ class CourseGuiTest(AiTest):
         return {m['id'] for m in bank.read_index(bank.AI_DIR)['mocks'] if not m.get('hidden') and not m.get('legacy')} | set(extra)
 
     def test_course_switch_keeps_participant_old_cursor_and_scoped_lists(self):
-        self.assertEqual({'m11', 'm12', 'm13', 'm14'}, self.open_mocks())
+        self.assertEqual({'m11', 'm12', 'm13', 'm14', 'm15'}, self.open_mocks())
         self.check_course_switch(self.open_mocks())
+
+    def test_each_round_keeps_its_scope_on_the_list_and_start_screen(self):
+        win = self.boot((760, 480))
+        win.go_ai()
+        guikit.click(win.ai_home.course_tabs.buttons[2])
+        details = {row.title.text(): row.second.text() for row in win.ai_home.mock_list.rows}
+        for no in range(1, 6):
+            with self.subTest(round=no):
+                count, app_end = (54, 10) if no == 5 else (52, 9)
+                expected = f'{count}문항 · 120분 · 개론 1~17차시 · 응용 1~{app_end}차시'
+                self.assertEqual(expected, details[f'모의고사 {no}회'])
+                self.assertTrue(win.open_ai_mock(f'm{10 + no}'))
+                self.assertEqual(expected, win.ai_mock.heading.text())
 
     def test_learner_who_submitted_an_old_round_sees_it_in_both_courses(self):
         import os
@@ -131,7 +144,8 @@ class CourseGuiTest(AiTest):
         self.assertEqual('app', win.ai.course)
         from gui import ai_text
         self.assertNotIn('응용 · 응용', ai_text.track_line(win.ai.overview()))
-        self.assertEqual(['a01', 'a02', 'a03', 'a04', 'a05', 'a06', 'a07', 'a08', 'a09'], list(win.ai.lessons))
+        ready = [row['id'] for row in win.ai.overview()['lessons'] if row['ready']]
+        self.assertEqual([f'a{no:02d}' for no in range(1, 11)], ready)
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
         self.assertEqual(mocks, set(win.ai.mocks))
@@ -372,10 +386,11 @@ class CourseGuiTest(AiTest):
         win.go_ai()
         win.switch_ai_course('app')
         win.set_text('larger')
+        ready = [row['id'] for row in win.ai.overview()['lessons'] if row['ready']]
         for mode in ('light', 'dark'):
             theme.set_mode(mode)
             win.restyle()
-            for lesson in ('a01', 'a02', 'a03', 'a04', 'a05', 'a06', 'a07', 'a08', 'a09'):
+            for lesson in ready:
                 for row in win.ai.unit_list(lesson):
                     unit = row['key']
                     for step in win.ai.unit_steps(lesson, unit)['steps']:
