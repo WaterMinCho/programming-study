@@ -145,7 +145,7 @@ class CourseGuiTest(AiTest):
         from gui import ai_text
         self.assertNotIn('응용 · 응용', ai_text.track_line(win.ai.overview()))
         ready = [row['id'] for row in win.ai.overview()['lessons'] if row['ready']]
-        self.assertEqual([f'a{no:02d}' for no in range(1, 11)], ready)
+        self.assertEqual([f'a{no:02d}' for no in range(1, 12)], ready)
         self.assertEqual(participant, win.ai.collection.status()['participant'])
         self.assertFalse(win.ai_home.pattern_section.isVisible())
         self.assertEqual(mocks, set(win.ai.mocks))

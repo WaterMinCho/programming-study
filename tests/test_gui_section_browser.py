@@ -307,7 +307,7 @@ class AiSectionBrowserTest(AiTest):
                     height = min(height, room.height() - frame.height() - 32)
                     win.move(room.topLeft() + QPoint(16, 16))
                 win.resize(width, height)
-                for course, count in (("intro", 17), ("app", 10)):
+                for course, count in (("intro", 17), ("app", 11)):
                     win.switch_ai_course(course)
                     browser.select("lessons")
                     self.settle()
