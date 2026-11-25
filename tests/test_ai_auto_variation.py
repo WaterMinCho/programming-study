@@ -163,6 +163,41 @@ class AutoVariationTest(Base):
         self.assertEqual({'values': ['zero_g']}, resumed.draft)
         self.assertEqual('pass', resumed.answer(['zero_grad'], 2, True)['result'])
 
+    def test_pytorch_statement_code_is_shown_before_options_and_old_draft_resumes(self):
+        sess = self.session()
+        legacy = self.session()
+        previous = sess.items['i01']['resume_wording']['topics']['i01-t01']['previous']
+        legacy.mark_read('i01', '1b')
+        sess.mark_read('i01', '1b')
+        ids = ['i01-s04', 'i01-s05']
+        cards = {s['id']: dict(legacy.cards[s['id']], topic=previous, stmt=s)
+                 for s in previous['statements']}
+        with mock.patch.dict(legacy.cards, cards):
+            old = service.PracticeSet(legacy, 'previous', 'unit', ids, 7, lesson='i01', unit='1b')
+            original = old.current()
+            old.draft = {'values': [original['options'][0]['no']]}
+            saved = old.snapshot()
+            old_versions = legacy._card_versions()
+        self.assertEqual({cid: old_versions[cid] for cid in cards},
+                         {cid: sess._card_versions()[cid] for cid in cards})
+        resumed = service.PracticeSet.restore(sess, saved)
+        self.assertEqual(old.draft, resumed.draft)
+        self.assertEqual(original['stem'], resumed.current()['stem'])
+        self.assertEqual(original['options'], resumed.current()['options'])
+
+        code = '\n'.join(('optimizer.zero_grad()', 'output = model(input)', 'loss = fn(output, target)',
+                          'loss.backward()', 'optimizer.step()'))
+        for cid, direction in zip(ids, ('옳은', '옳지 않은')):
+            with self.subTest(direction=direction):
+                practice = service.PracticeSet(sess, 'current-' + cid, 'unit', [cid], 7, lesson='i01', unit='1b')
+                question = practice.current()
+                self.assertIn('**%s** 것을 고르세요.' % direction, question['stem'])
+                self.assertTrue(question['stem'].endswith('\n\n```python\n' + code + '\n```'))
+                correct, = self.right(practice, question)
+                wrong = next(option['no'] for option in question['options'] if option['no'] != correct)
+                practice.answer([wrong], 2, False)
+                self.assertEqual(question['stem'], sess.wrong_item(question['card'])['stem'])
+
     def test_next_unit_prefers_unseen_pytorch_variant_for_scheduled_review(self):
         for seen, expected in ((False, 'i01-c103'), (True, 'i01-c04')):
             with self.subTest(seen=seen):
