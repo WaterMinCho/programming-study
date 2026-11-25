@@ -393,6 +393,39 @@ class MapTest(Base):
         self.assertEqual("문제 열기", win.dialog.windowTitle())
         self.assertEqual("보스 문제는 중급 문제를 통과하면 열립니다.", win.dialog.text.text())
 
+    def test_small_window_opens_the_list_and_keeps_the_selected_dungeon(self):
+        self.addCleanup(theme.set_text, "normal")
+        win = self.boot([passed("p1")])
+        page = win.journey_map
+        win.set_text("larger")
+        win.resize(760, 560)
+        guikit.pump()
+        self.assertEqual((760, 560), (win.width(), win.height()))
+        self.assertTrue(page.list_tab.isChecked() and page.rows.isVisible())
+        self.assertFalse(page.view.isVisible())
+        self.assertEqual((1, 4), (page.progress.value(), page.progress.maximum()))
+        self.assertEqual(0, page.scroll.horizontalScrollBar().maximum())
+        guikit.click(page.map_tab)
+        self.assertTrue(page.view.isVisible())
+        self.assertFalse(page.card.isVisible())
+        nodes = dict(page.view.nodes())
+        QTest.mouseClick(page.view, guikit.LEFT, pos=nodes["t03"].center().toPoint())
+        guikit.pump()
+        self.assertEqual("t03", page.did)
+        self.assertTrue(page.list_tab.isChecked() and page.note_box.isVisible())
+        self.assertFalse(page.progress.isVisible())
+        guikit.click(page.map_tab)
+        page.view.setFocus()
+        press(page.view, Qt.Key.Key_Home)
+        press(page.view, Qt.Key.Key_Return)
+        self.assertEqual("t01", page.did)
+        self.assertIs(QApplication.focusWidget(), page.rows.rows[0])
+        win.resize(1280, 800)
+        guikit.pump()
+        self.assertFalse(page.switcher.isVisible())
+        self.assertTrue(page.view.isVisible() and page.rows.isVisible())
+        self.assertEqual("t01", page.did)
+
     def test_next_card_holds_the_only_primary_button(self):
         win = self.boot([passed("p1")])
         page = win.journey_map
@@ -810,8 +843,8 @@ class WorkFrameTest(Base):
         self.assertTrue(result.collapsed)
         self.assertLessEqual(result.height(), 120 + 2 * journey_result.WELL_PAD)  # 빈 상태 회색 칸의 위아래 안 여백만큼 늘어남
         self.assertEqual(result.height(), result.folded_height())
-        self.assertEqual("result_empty", result.well.objectName())  # 결과 전에는 머리 글 두 줄을 회색 칸 가운데에 둠
-        self.assertTrue(result.title.alignment() & Qt.AlignmentFlag.AlignHCenter)
+        self.assertEqual("result_empty", result.well.objectName())
+        self.assertTrue(result.title.alignment() & Qt.AlignmentFlag.AlignLeft)
         self.assertGreaterEqual(full_lines(editor), 19)
         self.assertTrue(panel.split.locked)
         self.assertFalse(panel.split.handle(1).isEnabled())
@@ -821,6 +854,7 @@ class WorkFrameTest(Base):
             guikit.click(page.run_btn)
         self.assertGreaterEqual(min(seen), 160, "누른 순간 펼침")
         self.assertEqual("", result.well.objectName())
+        self.assertEqual("실행 결과", result.kind.text())
         self.assertTrue(result.title.alignment() & Qt.AlignmentFlag.AlignLeft)
         self.assertFalse(panel.split.locked)
         self.assertGreaterEqual(result.height(), 160)

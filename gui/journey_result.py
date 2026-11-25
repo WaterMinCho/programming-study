@@ -11,7 +11,8 @@ from PyQt6.QtWidgets import QFrame, QScrollArea, QSizePolicy, QWidget
 from gui import journey_html, journey_text, kit, theme
 from gui.docview import PAD, TextPiece  # 카드 안쪽 여백은 문서 칸의 안쪽 여백과 같은 24
 
-WELL_PAD = 16  # 결과가 없을 때 머리 글을 감싸는 회색 칸의 안 여백
+WELL_PAD = 8  # 결과 대기 상태의 안쪽 여백
+HEAD_PAD = 12  # 작은 창에서도 코드와 결과를 함께 볼 수 있게 결과 머리는 여백을 줄임
 
 
 class JourneyResult(QFrame):
@@ -27,17 +28,19 @@ class JourneyResult(QFrame):
         self.shown = (None, {}, True, "", 0)  # 지금 그린 (종류, 결과, 끝났는지, 채점 단계, 지난 초). redraw 가 같은 dict 로 다시 그림
         self.box = kit.box(self, spacing=16)
         self.head = QWidget()
-        head_box = kit.box(self.head, (PAD, PAD, PAD, 0))
+        head_box = kit.box(self.head, (PAD, HEAD_PAD, PAD, 0))
         self.title = kit.para("", "headline")
+        self.kind = kit.badge()
         self.gap = QWidget()  # 막대가 없을 때 제목과 설명 사이를 띄움.
         self.gap.setFixedHeight(theme.GAP["title_description"])
         self.bar_box = QWidget()  # 막대와 그 위 12, 아래 8
         self.bar = kit.progress()
         kit.box(self.bar_box, (0, 12, 0, 8)).addWidget(self.bar)
         self.caption = kit.para("", "caption", "secondary")
-        self.well = QFrame()  # 결과가 없을 때만 회색 칸(result_empty)으로 칠하고 두 글을 가운데에 둠
+        self.well = QFrame()
         well_box = kit.box(self.well)
-        for widget in (self.title, self.gap, self.bar_box, self.caption):
+        well_box.addLayout(kit.card_head(self.title, self.kind)[0])
+        for widget in (self.gap, self.bar_box, self.caption):
             well_box.addWidget(widget)
         head_box.addWidget(self.well)
         self.empty = False
@@ -70,6 +73,7 @@ class JourneyResult(QFrame):
         self.shown = (None, {"best": best, "mine": mine}, True, "", 0)
         self.following = False
         self.set_empty(True)
+        self.kind.hide()
         self._head(journey_text.result_head(best=best, mine=mine))
         self._body("<body></body>", [])
 
@@ -87,13 +91,15 @@ class JourneyResult(QFrame):
         """머리만 다시 그림(채점 중 1초마다 지난 초). 그린 머리 dict 를 돌려줌."""
         self.shown = (kind, result, done, stage, seconds)
         self.set_empty(False)
+        self.kind.setText("실행 결과" if kind == "run" else "채점 결과")
+        kit.set_tone(self.kind, "accent" if kind == "grade" else "")
+        self.kind.setVisible(done)
         head = journey_text.result_head(kind, result, done, stage=stage, seconds=seconds)
         self._head(head)
         return head
 
     def set_empty(self, empty):
-        """결과가 없을 때는 머리 글 두 줄을 회색 칸(안 여백 WELL_PAD) 가운데에 두고, 결과가 있으면 칸 없이 왼쪽에 둠.
-        회색 칸은 카드 왼쪽·오른쪽 끝에서 PAD - WELL_PAD(8) 떨어짐."""
+        """결과가 없으면 옅은 배경 안에 안내를 그림. 제목과 본문 시작점은 결과가 있을 때와 같음."""
         if empty == self.empty:
             return
         self.empty = empty
@@ -101,11 +107,8 @@ class JourneyResult(QFrame):
         kit.repolish(self.well)
         pad = WELL_PAD if empty else 0
         self.well.layout().setContentsMargins(pad, pad, pad, pad)
-        side = PAD - pad  # 회색 칸을 카드 안 여백 쪽으로 넓혀 머리 글의 폭은 결과가 있을 때와 같게 둠(1024 창 caption 한 줄)
-        self.head.layout().setContentsMargins(side, PAD, side, 0)
-        align = Qt.AlignmentFlag.AlignHCenter if empty else Qt.AlignmentFlag.AlignLeft
-        for label in (self.title, self.caption):
-            label.setAlignment(align | Qt.AlignmentFlag.AlignTop)
+        side = PAD - pad
+        self.head.layout().setContentsMargins(side, HEAD_PAD, side, 0)
 
     def _head(self, head):
         self.title.setText(head["title"])
@@ -145,11 +148,11 @@ class JourneyResult(QFrame):
     # 접기
 
     def set_collapsed(self, collapsed):
-        """접으면 막대와 스크롤 칸을 숨기고 머리 글 두 줄과 아래 여백 24 만 남김. 카드 높이를 그 높이로 묶어서 칸 나누기가
+        """접으면 막대와 스크롤 칸을 숨기고 머리 글과 아래 여백만 남김. 카드 높이를 그 높이로 묶어서 칸 나누기가
         남는 높이를 편집기에 줌. 펴면 묶음을 풂."""
         self.collapsed = bool(collapsed)
         self.scroll.setVisible(not self.collapsed)
-        self.box.setContentsMargins(0, 0, 0, PAD if self.collapsed else 0)
+        self.box.setContentsMargins(0, 0, 0, HEAD_PAD if self.collapsed else 0)
         if self.collapsed:
             self.bar_box.hide()
             self.gap.setVisible(bool(self.caption.text()))
@@ -185,7 +188,7 @@ class JourneyResult(QFrame):
         well = 2 * WELL_PAD if self.empty else 0  # 회색 칸은 위아래만 늘림. 좌우는 카드 안 여백을 나눠 씀
         width = max(1, (self.width() if self.width() > 2 * PAD else self.sizeHint().width()) - border - 2 * PAD)
         lines = sum(label.heightForWidth(width) for label in (self.title, self.caption) if label.text())
-        return border + 2 * PAD + well + theme.GAP["title_description"] + lines
+        return border + 2 * HEAD_PAD + well + theme.GAP["title_description"] + lines
 
     # 글자 크기 · 테마
 

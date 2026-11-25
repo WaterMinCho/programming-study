@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""알고리즘 여행의 문제 화면(작업 틀): 위 막대(← 알고리즘 여행 · 문제 이름 · 역할 꼬리표 · 번호 · 상태 / 풀이 언어 칩) ·
-왼쪽 지문 카드(문제·힌트·해설 탭) · 오른쪽 편집기와 결과 카드 · 아래 막대(코드 되돌리기, 테스트 추가 / 코드 실행, 채점하기).
+"""알고리즘 여행의 문제 화면. 위 막대에 돌아가기·상태·언어, 왼쪽 카드에 문제 이름과 지문·힌트·해설을 둠.
+오른쪽은 코드 편집기와 결과로 나뉘며 실행·채점과 테스트 도구는 아래 막대에 둠.
 
 두 칸과 편집기·결과 카드 사이는 사람이 끌어 옮기는 칸 나누기이고 옮긴 몫을 설정에 기억함. 결과가 아직 없으면 결과 카드를 머리만 남기고 접어
 편집기를 키우고, 처음 [코드 실행]·[채점하기]를 누르는 순간 기억한 몫으로 펼침. 지문 카드는 읽는 글의 단 폭(kit.doc_width)보다 넓어지지 않음.
@@ -49,12 +49,10 @@ RUN_TIP = "입출력 예와 내 테스트로 돌려 봅니다. 기록에 남지 
 GRADE_TIP = "숨은 테스트까지 채점합니다. 결과는 기록에 남습니다.\nCtrl+Shift+Enter (맥은 Cmd+Shift+Enter)"
 RUN_BUSY, GRADE_BUSY = "코드 실행 중", "채점 중"  # 실행·채점을 맡길 때 창에 넘기는 일 이름. 진행은 결과 카드 머리가 보이므로 위 막대에 쓰지 않음
 ESCAPE_NOTE = "Esc 를 누르면 편집기 밖으로 나갑니다."
-EDITOR_LINES = 6  # 편집기 최소 높이의 줄 수. 보통 글자(16px)에서 120
-PANE_GAP = 16  # 저장 실패 띠와 편집기 사이
+EDITOR_LINES = 5  # 편집기 최소 높이의 줄 수. 위 제목 줄과 결과 카드가 함께 보일 자리를 남김
+PANE_GAP = 8  # 저장 실패 띠와 편집기 사이
 RESULT_SPLIT = 340 / 608  # 펼친 결과 카드에서 편집기가 받는 처음 몫(1280×800 에서 편집기 331, 결과 카드 261)
-TITLE_MIN, TITLE_CAP = 120, 260  # 위 막대 문제 이름의 가장 좁은 폭과 다 보이는 상한(보통 headline 22px 기준, 글자에 비례)
-STATUS_LOW, STATUS_MAX = 120, 420  # 위 막대 상태 글의 하한(보통 caption 14px 기준, 글자에 비례)과 상한. 넘으면 두 줄
-STATUS_GAP = 4  # 번호와 상태 글 사이를 막대 간격 12 에 더해 16 으로 둠
+STATUS_MAX = 420  # 위 막대의 상태 글 최대 폭
 TAB_COUNT = re.compile(r"(.+) (\d+/\d+)\Z")  # "힌트 1/3" 처럼 숫자 꼬리표로 나눠 그리는 탭 글
 COUNT_GAP = 6  # 탭 글과 숫자 꼬리표 사이
 SAVE_ERROR = "코드를 저장하지 못했습니다"  # 저장 실패를 창으로 알릴 때의 첫 문장. 서비스 문구도 이것으로 시작함
@@ -375,8 +373,10 @@ class JourneyCodePanel(QWidget):
         super().__init__()
         box = kit.box(self)
         self.split = kit.splitter(Qt.Orientation.Vertical, "journey/split_v", RESULT_SPLIT, 16, settings)
-        self.editor_pane = QWidget()  # 찾기 막대도 여기에 떠서 실행·채점 중에 편집기를 잠가도 쓰임
-        pane_box = kit.box(self.editor_pane, spacing=PANE_GAP)
+        self.editor_pane, pane_box = kit.card(pad=8, spacing=PANE_GAP)
+        editor_head = QWidget()
+        kit.box(editor_head, (8, 4, 8, 0)).addWidget(kit.label("코드 편집기", "body", bold=True))
+        pane_box.addWidget(editor_head)
         self.save_banner = kit.banner(SAVE_FAILED, "danger")
         self.save_banner.hide()
         self.editor = CodeEditor(paste=True)
@@ -480,23 +480,14 @@ class JourneyPage(QWidget):
         root = kit.box(self)
 
         # 위 막대
-        self.top = kit.TopBar("← 알고리즘 여행", "", dense=True)
-        self.map_btn, self.title = self.top.back, self.top.title
-        self.title.show()
-        self.top.row.setStretchFactor(self.title, 0)
-        self.title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        self.heads = QWidget()  # 역할 꼬리표와 번호 칩
-        heads_box = kit.box(self.heads, spacing=8, horizontal=True)
-        self.badge = kit.badge()
-        self.number = kit.number_chip("", "neutral")
-        heads_box.addWidget(self.badge, 0, Qt.AlignmentFlag.AlignVCenter)
-        heads_box.addWidget(self.number, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.status = kit.para("", "caption", "tertiary")  # 동작 결과 한 문장. 두 줄까지
+        self.top = kit.TopBar("← 알고리즘 여행", dense=True)
+        self.map_btn = self.top.back
+        self.status = kit.para("", "caption", "secondary")
+        self.status.setMinimumWidth(1)
+        self.status.setMaximumWidth(STATUS_MAX)
         self.status.hide()
-        self.top.row.insertWidget(2, self.heads, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.top.row.insertSpacing(3, STATUS_GAP)
-        self.top.row.insertWidget(4, self.status, 1, Qt.AlignmentFlag.AlignVCenter)
-        self.top.row.insertStretch(5, 0)  # 남는 폭은 상태 글이 상한까지 먼저 받고 나머지가 여기로 감
+        self.top.row.insertWidget(1, self.status, 1, Qt.AlignmentFlag.AlignVCenter)
+        self.top.row.insertStretch(2, 0)
         self.lang_bar = LangChips()
         self.lang_btns = self.lang_bar.buttons
         self.lang_bar.note.setMinimumWidth(1)  # 화면의 최소 폭에 넣지 않음. 자리가 모자라면 fit_top 이 숨김
@@ -536,6 +527,16 @@ class JourneyPage(QWidget):
         self.tabs.layout().insertWidget(1, self.facts.band)  # 탭 막대 아래 선 바로 밑, 카드 전폭
         self.tabs.currentChanged.connect(lambda number: self.facts.band.setVisible(number == 0))
         self.problem_card, card_box = kit.card(0, 0)
+        self.title = kit.ElideLabel("", "headline")
+        self.title.setMinimumWidth(1)
+        self.badge = kit.badge()
+        self.number = kit.number_chip("", "neutral")
+        problem_head = QWidget()
+        head_box = kit.box(problem_head, (PAD, 12, PAD, 4), 8, horizontal=True)
+        head_box.addWidget(self.title, 1, Qt.AlignmentFlag.AlignVCenter)
+        head_box.addWidget(self.badge, 0, Qt.AlignmentFlag.AlignVCenter)
+        head_box.addWidget(self.number, 0, Qt.AlignmentFlag.AlignVCenter)
+        card_box.addWidget(problem_head)
         card_box.addWidget(self.tabs)
 
         # 오른쪽 편집기와 결과 카드
@@ -619,33 +620,14 @@ class JourneyPage(QWidget):
         self.split.place()
 
     def fit_top(self):
-        """위 막대의 문제 이름과 상태 글 폭. 돌아가기·꼬리표·번호·칩을 뺀 폭을 둘이 나눔. 이름은 다 보이되 상한(TITLE_CAP)까지,
-        상태 글은 하한과 STATUS_MAX 사이이고 넘으면 줄을 바꿈. 자리가 모자라면 이름이 TITLE_MIN 까지 줄임표로 줄고,
-        그래도 모자라면 "Node.js 필요" 를 숨김(같은 말이 JavaScript 칩 도움말에 있음). 최소 폭은 늘 TITLE_MIN 과 상태 하한이라
-        창이 좁아져도 이 막대가 1024 창을 넓히지 않음. 상하한은 글자 크기에 비례함."""
+        """위 막대가 좁으면 JavaScript 칩의 도움말에 Node.js 안내를 남김."""
         status, note, row = self.status, self.lang_bar.note, self.top.row
         status.setVisible(bool(status.text()))
-        scale = theme.TYPE["headline"][0] / theme.BASE_TYPE["headline"][0]
-        title_full = text_width(self.title, self.title.text()) + 2
-        cap = round(TITLE_CAP * scale)
-        status_full = text_width(status, status.text()) + 2 if status.text() else 0  # 글 폭을 소수점까지 재어 올림하고도 한 줄에 들게 2 를 더함
-        low = min(status_full, round(STATUS_LOW * theme.TYPE["caption"][0] / theme.BASE_TYPE["caption"][0]))
         left, _, right, _ = row.getContentsMargins()
-        gaps = row.spacing() * (4 if status.text() else 3) + STATUS_GAP
-
-        def room():
-            parts = (self.map_btn, self.heads, self.lang_bar)
-            return self.top.width() - left - right - gaps - sum(widget.sizeHint().width() for widget in parts)
-
         note.setVisible(self.node_missing)
-        if self.node_missing and room() < min(TITLE_MIN, title_full) + low:
+        room = self.top.width() - left - right - 2 * row.spacing() - self.map_btn.sizeHint().width() - self.lang_bar.sizeHint().width()
+        if self.node_missing and room < min(160, text_width(status, status.text())):
             note.hide()
-        space = room()
-        title = max(min(TITLE_MIN, title_full), min(title_full, cap, space - low))
-        self.title.setMinimumWidth(min(TITLE_MIN, title_full))
-        self.title.setMaximumWidth(title)
-        status.setMinimumWidth(low)
-        status.setMaximumWidth(max(low, min(STATUS_MAX, status_full, space - title)))
 
     def pin_widths(self):
         """돌아가기 단추와 칩의 최소 폭을 지금 글자 폭으로 묶음."""
@@ -762,6 +744,7 @@ class JourneyPage(QWidget):
         """위 막대의 이름·꼬리표·번호와 지문 머리."""
         data = self.data
         self.title.setText(data["title"])
+        self.title.setAccessibleName(self.title.text())
         self.badge.setText(data["role_label"])
         kit.set_tone(self.badge, "accent" if data["role"] == "boss" else "")  # 보스는 번호 칩 "던전 N 보스" 와 같은 말이 이어 보여서 꼬리표 색만 다르게 둠
         self.number.setText(number_text(data))

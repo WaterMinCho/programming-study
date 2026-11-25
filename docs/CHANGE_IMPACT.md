@@ -185,6 +185,7 @@ flowchart TD
 | --- | --- | --- |
 | 문서만 수정 | `tools/check_style.py`, 이전 링크·앵커·수치와 현재 구현의 대조 | 실행 동작이 바뀌지 않으면 화면·모델 검사를 새로 실행하지 않습니다. |
 | 파이썬 Round의 반응형 분할·입력 배치 | `test_gui_round_layout.py`, `test_gui.py`의 `BankTest`·`ChoiceCardTest`·`HighlightRoundTest`·`FindTest`와 저장·제출 관련 검사 | 작은 창·최대 글자에서 지문·답안·실행 결과의 겹침과 조작 가능 여부를 확인합니다. 사용자가 바꾼 가로 분할에서 창을 줄였다가 넓히고 목록 폭·지문·답안 비율과 답안·선택·커서·저장·제출을 대조합니다. |
+| 알고리즘 여행 지도·풀이 화면 | `test_gui_journey.py`, `test_gui_design.py`, `test_gui_global_consistency.py` | 좁은 창에서 던전 선택 뒤 목록과 초점이 돌아오는지 확인합니다. 넓은 창과 왕복할 때 선택한 던전, 풀이 코드, 읽던 위치, 분할 크기를 대조합니다. 실행·채점·중지·저장 실패에서 버튼과 결과를 확인합니다. |
 | 공통 색·글자·버튼·선택 탐색 | `test_gui.py`, `test_gui_kit.py`, `test_gui_navigation.py` | 기본 버튼 `m`의 44px 기준과 글자 확대 높이, 제목·탐색 역할, 선택·비활성·초점 조합과 두 테마의 대비를 확인합니다. 기존 40px 기대값은 새 기준과 대조하고 다른 크기·동작 검사는 유지합니다. |
 | Hub 카드·팀 수집 현황 | `test_gui_hub.py`와 통계·과목 카드 관련 검사 | 과목 열과 오답·최근 7일 열의 2열·1열 전환, 빈 기록·최근 채점 숨김·글자 확대, 그래프·누적 순서와 지표·권한·기간을 확인합니다. |
 | 커리어·매거진 카드 구성 | `test_gui_career.py`, `test_gui_career_navigation.py`, `test_gui_career_learning_path.py`, `test_gui_career_paper_preview.py`, `test_gui_career_onboarding.py` | 변경한 카드와 연결된 항목을 고릅니다. 목록 복귀·상세 탭·관심 저장·접기·펼치기·단계 연결선·논문 그림·검색·영상 종료·안내 위치를 확인합니다. |

@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-"""알고리즘 여행의 던전 지도. 첫 화면·웹 홈과 같은 홈 틀임: 위 막대(← 처음 화면, 풀이 언어 칩, 캐시 비우기), 제목과 한 줄 설명,
-주의 띠(Node.js 없음, 읽지 못한 던전), 이어서 할 일 카드(화면에 하나뿐인 주 단추), 그 아래 3:5 두 구역(왼쪽 던전 지도 카드,
-오른쪽 고른 던전의 목록 카드). 구역 이름은 카드 안 머리 줄에 둠. 가용 폭이 부족하면 두 구역을 세로로 놓고 스크롤함.
+"""알고리즘 여행의 던전 지도. 이어서 할 일 아래에 지도와 선택한 던전의 문제를 나란히 놓음.
+좁은 창에서는 문제 목록을 먼저 보여 주고 전환 단추로 전체 지도를 열 수 있음.
 
-던전은 모두 열려 있고 지도는 권장 순서만 보여 줌. 보스 줄은 그 던전의 중급 문제를 모두 통과하기 전에는 눌리지 않음.
+공개된 던전은 원하는 순서로 고를 수 있음. 보스 줄은 그 던전의 중급 문제를 모두 통과하기 전에는 눌리지 않음.
 "보스에서 익힌 기술" 은 보스를 통과했거나 보스 해설을 연 뒤에만 서비스가 내용을 줌. 화면 낱말은 gui/journey_text.py 가 만듦."""
 import math
 
 from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPen
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QSizePolicy, QToolTip, QWidget
+from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QFrame, QHBoxLayout, QSizePolicy, QToolTip, QWidget
 
 from gui import kit, theme
 from gui.docview import Doc
@@ -35,12 +34,13 @@ MARK = 16  # 범례 표시의 지름
 WIDTH_HINT = 390  # 1280 창의 지도 카드 폭. 실제 폭은 카드 폭을 따름
 CARD_GAP = 16  # 띠·이어서 할 일·두 구역 카드 사이
 COLUMN_GAP = 20  # 두 구역 사이
+COMPACT_WIDTH = 960  # 지도와 문제 목록이 각각 이름과 상태를 읽을 폭을 확보하는 데 필요한 화면 폭
 INTRO_WIDTH = 640  # 던전 소개 글의 최대 폭. 목록 카드가 넓어도 한 줄이 이보다 길어지지 않음
 LEGEND_ITEMS = (("cleared", "클리어"), ("progress", "진행 중"), ("todo", "시작 전"), ("waiting", "준비 중"))
 STATE_TONE = {"cleared": "success", "progress": "accent"}  # 목록 머리 상태 꼬리표의 색. 시작 전·준비 중은 회색
 ARROWS = {Qt.Key.Key_Left: (0, -1), Qt.Key.Key_Right: (0, 1), Qt.Key.Key_Up: (-1, 0), Qt.Key.Key_Down: (1, 0)}  # 화면의 이웃: (줄, 칸)
 
-ABOUT = "코딩 테스트 유형을 던전 %d개로 나눴습니다. 던전마다 문제를 차례로 풀고 보스 문제로 마무리합니다."
+ABOUT = "던전 %d개를 따라 코딩 테스트 유형을 연습합니다."
 NODE_TEXT = "JavaScript 로 풀려면 Node.js %d 이상이 필요합니다. 지금은 Python 으로 풉니다." % MIN_MAJOR
 ALL_CLEAR = "준비된 던전을 모두 클리어했습니다. [설정]의 [업데이트 확인]에서 새 던전이 있는지 확인할 수 있습니다."
 NO_DUNGEON = "아직 준비된 던전이 없습니다. [설정]의 [업데이트 확인]에서 새 자료가 있는지 확인해 주세요."
@@ -108,6 +108,7 @@ class MapView(QWidget):
     위·아래 줄의 같은 칸)으로 움직임. 높이는 글자 단계의 caption 줄 높이로 정하고(refont) 늘어나지 않음. 색과 글꼴은 칠할 때마다 읽음."""
     picked = pyqtSignal(str)
     entered = pyqtSignal(str)
+    clicked = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -255,8 +256,10 @@ class MapView(QWidget):
             self.keyed = False
             self.update()
         did = self.at(event.position())
-        if did and did != self.selected and event.button() == Qt.MouseButton.LeftButton:  # 고른 던전을 다시 누르면 목록을 다시 그리지 않음
-            self.picked.emit(did)
+        if did and event.button() == Qt.MouseButton.LeftButton:
+            if did != self.selected:  # 고른 던전을 다시 누르면 목록을 다시 그리지 않음
+                self.picked.emit(did)
+            self.clicked.emit(did)
 
     def mouseMoveEvent(self, event):
         over = self.at(event.position())
@@ -395,6 +398,7 @@ class JourneyMapPage(QWidget):
         self.setObjectName("page")
         self.win = win
         self.did, self.info, self.overview, self.target, self.busy = None, None, None, None, False
+        self.compact, self.map_open = False, False
         self.cache_size = 0  # show_cache 가 읽어 둔 캐시 크기(바이트). 확인 창 본문에 씀
         outer = kit.box(self)
 
@@ -421,28 +425,49 @@ class JourneyMapPage(QWidget):
         inner = kit.dense(QWidget())
         root = kit.box(inner, (0, 16, 0, 24))
         self.about = kit.para(ABOUT % 16, "body", "secondary")
-        root.addWidget(kit.heading(kit.label("알고리즘 여행", "title"), self.about))
-        root.addSpacing(theme.GAP["description_content"])
+        self.header = QBoxLayout(QBoxLayout.Direction.LeftToRight)
+        self.header.setSpacing(COLUMN_GAP)
+        heading = kit.heading(kit.label("알고리즘 여행", "title"), self.about)
+        self.header.addWidget(heading, 4, Qt.AlignmentFlag.AlignVCenter)
+        next_area = QWidget()
+        next_box = kit.box(next_area)
+        self.next_card = kit.NextCard(compact=True)
+        self.next_minimum = self.next_card.minimumHeight()
+        self.next_btn = self.next_card.button
+        self.next_note = kit.para("", "body", "secondary")
+        self.next_note.hide()
+        next_box.addWidget(self.next_card)
+        next_box.addWidget(self.next_note)
+        self.header.addWidget(next_area, 6)
+        root.addLayout(self.header)
+        root.setSpacing(CARD_GAP)
         self.node_banner = kit.banner(NODE_TEXT, "warning", action="Node 찾기")
         self.bank_banner = kit.banner("", "warning")  # 읽지 못한 던전. 서비스가 남긴 원문은 도움말에만
-        banners = QWidget()  # 숨은 알림 자리를 비우고 다음 행동까지 묶음.
-        banner_box = kit.box(banners, spacing=CARD_GAP)
+        self.banners = QWidget()
+        self.banners.hide()
+        banner_box = kit.box(self.banners, spacing=CARD_GAP)
         for banner in (self.node_banner, self.bank_banner):
             banner.hide()
             banner_box.addWidget(banner)
-        root.addWidget(banners)
-        self.next_card = kit.NextCard(compact=True)
-        self.next_btn = self.next_card.button
-        self.next_note = kit.para("", "body", "secondary")  # 이어서 할 일이 없을 때 카드 대신 보이는 한 줄
-        self.next_note.hide()
-        banner_box.addWidget(self.next_card)
-        banner_box.addWidget(self.next_note)
-        root.addSpacing(CARD_GAP)
+        root.addWidget(self.banners)
 
-        self.columns = cols = QHBoxLayout()
+        self.switcher = QWidget()
+        switch = kit.box(self.switcher, horizontal=True)
+        self.switch_group = QButtonGroup(self.switcher)
+        self.list_tab = kit.chip("문제 목록", "list", onbg=True)
+        self.map_tab = kit.chip("던전 지도", "map", onbg=True)
+        for button, show_map in ((self.list_tab, False), (self.map_tab, True)):
+            switch.addWidget(button)
+            self.switch_group.addButton(button)
+            button.clicked.connect(lambda checked=False, show_map=show_map: self.set_map_open(show_map))
+        kit.segmented(self.switcher)
+        self.list_tab.setChecked(True)
+        self.switcher.hide()
+
+        cols = QHBoxLayout()
         cols.setContentsMargins(0, 0, 0, 0)
         cols.setSpacing(COLUMN_GAP)
-        left = QWidget()
+        self.map_pane = left = QWidget()
         left_box = kit.box(left)
         self.map_card, map_box = kit.card(pad=0, spacing=0)
         map_box.setContentsMargins(0, 24, 0, 24)
@@ -451,7 +476,7 @@ class JourneyMapPage(QWidget):
         map_head_box = kit.box(map_head, (24, 0, 24, 0))
         map_head_box.addWidget(kit.heading(kit.label("던전 지도", "headline"), self.passed))  # 진도 글은 제목 아래 작은 글
         self.view = MapView()
-        self.view.setMinimumWidth(WIDTH_HINT)  # 3:5 몫이 이보다 좁으면 던전 이름이 줄임표로 더 줄어듦. 카드 머리가 더 넓으면 카드는 머리를 따름
+        self.view.setMinimumWidth(WIDTH_HINT)
         self.legend = Legend()
         legend_box = QWidget()
         kit.box(legend_box, (24, 0, 24, 0)).addWidget(self.legend)
@@ -463,19 +488,25 @@ class JourneyMapPage(QWidget):
         left_box.addWidget(self.map_card)
         left_box.addStretch(1)
 
-        right = QWidget()
+        self.detail_pane = right = QWidget()
         right_box = kit.box(right)
         self.card, card_box = kit.card(0, 0)
-        self.title = kit.label("", "headline")
+        self.title = kit.ElideLabel("", "headline")
         self.state_tag = kit.badge()  # 고른 던전의 지도 상태. 범례와 같은 이름
         title_row = QWidget()
         title_box = kit.box(title_row, spacing=8, horizontal=True)
-        title_box.addWidget(self.title, 0, Qt.AlignmentFlag.AlignVCenter)
+        title_box.addWidget(self.title, 1, Qt.AlignmentFlag.AlignVCenter)
         title_box.addWidget(self.state_tag, 0, Qt.AlignmentFlag.AlignVCenter)
-        title_box.addStretch(1)
-        self.count = kit.label("", "caption", "secondary")
+        self.count = kit.para("", "caption", "secondary")
+        self.progress = kit.progress(thin=True)
         card_head = QWidget()
-        kit.box(card_head, (24, 24, 24, 0)).addLayout(kit.card_head(title_row, self.count)[0])
+        card_head_box = kit.box(card_head, (24, 16, 24, 0), theme.GAP["detail"])
+        card_head_box.addWidget(title_row)
+        count_row = QWidget()
+        count_box = kit.box(count_row, horizontal=True, spacing=12)
+        count_box.addWidget(self.progress, 1)
+        count_box.addWidget(self.count, 0, Qt.AlignmentFlag.AlignVCenter)
+        card_head_box.addWidget(count_row)
         card_box.addWidget(card_head)
         lines = QWidget()
         lines_box = kit.box(lines, (24, 16, 24, 8), 8)
@@ -505,9 +536,13 @@ class JourneyMapPage(QWidget):
             card_box.addWidget(widget)
         right_box.addWidget(self.card)
         right_box.addStretch(1)
-        cols.addWidget(left, 3)
-        cols.addWidget(right, 5)
-        root.addLayout(cols)
+        cols.addWidget(left, 4)
+        cols.addWidget(right, 6)
+        route = QWidget()
+        route_box = kit.box(route, spacing=theme.GAP["group"])
+        route_box.addWidget(self.switcher, 0, Qt.AlignmentFlag.AlignLeft)
+        route_box.addLayout(cols)
+        root.addWidget(route)
         root.addStretch(1)
         self.scroll = kit.scroll(kit.dense_column(inner))
         self.scroll.viewport().installEventFilter(self)
@@ -517,6 +552,7 @@ class JourneyMapPage(QWidget):
 
         self.home_btn.clicked.connect(lambda: self.win.go_hub())
         self.view.picked.connect(self.show_dungeon)
+        self.view.clicked.connect(self.show_compact_detail)
         self.view.entered.connect(self.focus_rows)
         self.lang_bar.picked.connect(self.pick_lang)
         self.node_banner.action.clicked.connect(lambda: ask_node(self.win, lambda: self.pick_lang("javascript")))
@@ -526,10 +562,33 @@ class JourneyMapPage(QWidget):
     def arrange_columns(self):
         if not hasattr(self, "scroll"):
             return
-        needed = sum(self.columns.itemAt(i).minimumSize().width() for i in range(self.columns.count())) + self.columns.spacing()
-        width = self.scroll.viewport().width() - 2 * kit.DENSE_MARGIN
-        direction = self.columns.Direction.LeftToRight if width >= needed else self.columns.Direction.TopToBottom
-        self.columns.setDirection(direction)
+        compact = self.width() < COMPACT_WIDTH
+        if compact != self.compact:
+            self.about.setVisible(not compact)
+            self.header.setSpacing(theme.GAP["title_description"] if compact else COLUMN_GAP)
+            self.column_body.layout().setSpacing(theme.GAP["title_description"] if compact else CARD_GAP)
+            self.next_card.setMinimumHeight(0 if compact else self.next_minimum)
+            left, _, right, _ = self.next_card.row.getContentsMargins()
+            pad = theme.GAP["title_description"] if compact else theme.GAP["paragraph"]
+            self.next_card.row.setContentsMargins(left, pad, right, pad)
+        self.compact = compact
+        direction = QBoxLayout.Direction.TopToBottom if self.compact else QBoxLayout.Direction.LeftToRight
+        self.header.setDirection(direction)
+        self.switcher.setVisible(self.compact)
+        self.map_pane.setVisible(not self.compact or self.map_open)
+        self.detail_pane.setVisible(not self.compact or not self.map_open)
+
+    def set_map_open(self, opened):
+        """좁은 창에서 같은 던전의 지도와 문제 목록을 전환함."""
+        self.map_open = opened
+        self.map_tab.setChecked(opened)
+        self.list_tab.setChecked(not opened)
+        self.arrange_columns()
+
+    def show_compact_detail(self, did):
+        if self.compact and did == self.did:
+            self.set_map_open(False)
+            self.list_tab.setFocus()
 
     @staticmethod
     def fit_row(line):
@@ -587,14 +646,19 @@ class JourneyMapPage(QWidget):
         self.view.set_rows(rows, did)
         if did is not None:
             self.show_dungeon(did)
+        self.set_map_open(False)
 
     def usable_lang(self):
         """설정의 언어. JavaScript 인데 node 가 없으면 Python 으로 풀고 Node.js 띠를 보임. 그 밖에는 띠를 숨김.
         node 는 JavaScript 를 고른 적이 있을 때만 창이 이 화면을 열기 전에 워커에서 찾아 두므로, 여기서는 기억한 결과만 읽음."""
         lang = saved_lang(self.win.settings)
         missing = lang == "javascript" and not node_ready(self.win)
-        self.node_banner.setVisible(missing)
+        self.show_node_banner(missing)
         return "python" if missing else lang
+
+    def show_node_banner(self, missing):
+        self.node_banner.setVisible(missing)
+        self.banners.setVisible(missing or not self.bank_banner.isHidden())
 
     def show_next(self, overview):
         """이어서 할 일 카드. 할 일이 없으면 카드 대신 한 줄(모두 클리어했거나 준비된 던전이 없음)."""
@@ -624,11 +688,18 @@ class JourneyMapPage(QWidget):
         info = self.info = self.win.journey.dungeon(did)
         numbers = {row["id"]: row["no"] for row in (self.overview or {"dungeons": []})["dungeons"]}
         self.title.setText(place(info))
+        self.title.setAccessibleName(self.title.text())
         row = next((row for row in (self.overview or {"dungeons": []})["dungeons"] if row["id"] == did), None)
         state = MapView.state(row) if row else "waiting"
         self.state_tag.setText(dict(LEGEND_ITEMS)[state])
         kit.set_tone(self.state_tag, STATE_TONE.get(state, ""))
         self.count.setText(dungeon_count(info))
+        self.count.setVisible(info["ready"])
+        self.progress.setVisible(info["ready"] and info["total"] > 0)
+        self.progress.setRange(0, max(1, info["total"]))
+        self.progress.setValue(info["passed"])
+        self.progress.setAccessibleName(self.count.text())
+        kit.set_tone(self.progress, "success" if state == "cleared" else "")
         lines = dungeon_lines(info, numbers)
         self.meta.set_line(lines[0], tier_tip(info["boss_target"], boss=True))
         self.meta_more.setText(lines[1] if len(lines) > 1 else "")
@@ -716,6 +787,7 @@ class JourneyMapPage(QWidget):
 
     def focus_rows(self, did):
         """지도에서 Enter·Space 를 누르면 그 던전의 첫 열 수 있는 줄로 초점을 옮김."""
+        self.show_compact_detail(did)
         first = next((row for row in self.rows.rows if not row.inert), None) if did == self.did and self.rows.isVisible() else None
         if first is not None:
             first.setFocus(Qt.FocusReason.TabFocusReason)
@@ -747,11 +819,11 @@ class JourneyMapPage(QWidget):
             return
         if lang == "javascript" and not node_ok:
             self.lang_bar.set_lang(self.lang_bar.lang)  # 누르는 순간 옮겨 간 체크를 지금 언어로 되돌림
-            self.node_banner.show()
+            self.show_node_banner(True)
             ask_node(self.win, lambda: self.pick_lang("javascript"))
             return
         self.win.settings.setValue("journey/lang", lang)
-        self.node_banner.hide()
+        self.show_node_banner(False)
         self.lang_bar.set_lang(lang)
         if self.info and self.info["ready"]:
             self.intro.set_markdown(self.info["intro"], self.info["base_dir"], lang)
@@ -770,7 +842,7 @@ class JourneyMapPage(QWidget):
     def set_busy(self, busy, text=""):
         """도는 일이 있는 동안 돌아가기·칩·캐시 단추·띠 단추·이어서 할 일·지도·목록 줄을 끄고 위 막대에 일의 이름과 반복 막대를 보임."""
         self.busy = busy
-        for widget in (self.home_btn, self.lang_bar, self.clear_cache_btn, self.node_banner.action, self.next_btn, self.view):
+        for widget in (self.home_btn, self.lang_bar, self.clear_cache_btn, self.node_banner.action, self.next_btn, self.view, self.switcher):
             widget.setEnabled(not busy)
         for row in self.rows.rows:
             row.setEnabled(not busy)
