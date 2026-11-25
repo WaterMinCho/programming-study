@@ -2,10 +2,9 @@
 """고정 은행과 임시 기록으로 빈 복습·완료 화면·계속 복습 단추를 offscreen에서 확인함."""
 from unittest import mock
 
-from PyQt6.QtWidgets import QLabel, QWidget
-
 from tests import guikit
 from tests.test_gui_ai import AiTest, visible_text
+from PyQt6.QtWidgets import QLabel, QWidget
 
 
 class ReviewCompletionPageTest(AiTest):
