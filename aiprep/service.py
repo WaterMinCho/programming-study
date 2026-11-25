@@ -2015,18 +2015,29 @@ def _split_done(state, ids):
     return [cid for cid in ids if cid not in state.completed_today], sorted(done, key=key)
 
 
+def _in_read_scope(state, lesson, unit, card):
+    """지금 단원과 학습 기록상 읽은 단원을 확인함."""
+    place = card["lesson"], card["unit"]
+    return place == (lesson, unit) or place in state.reads
+
+
 def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=None):
     """모드별 묶음 카드 id 목록(설계 2.9). 화면 순서까지 정해서 돌려줌."""
     cards = sess.cards
     today = state.today
-    again = [c for c in state.again if c in cards]
-    due = [c for c in state.due_cards() if c not in again]
+    scoped = bool(lesson and unit and mode in ("unit", "mixed"))
+
+    def allowed(card):
+        return not scoped or _in_read_scope(state, lesson, unit, card)
+
+    again = [c for c in state.again if c in cards and allowed(cards[c])]
+    due = [c for c in state.due_cards() if c not in again and allowed(cards[c])]
     cap = state.new_cap_left()
 
     def new_cards(where=None):
         rows, extra = [], 0
         for c in sorted(cards.values(), key=lambda c: (sess._home(c)["no"], c["kind"] == "skel", c["unit"], c["order"])):
-            if where and not where(c):
+            if not allowed(c) or where and not where(c):
                 continue
             if not state.eligible_new(c):
                 continue
@@ -2039,7 +2050,8 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         return rows
 
     def read_cards(where=None):
-        return [c["id"] for c in cards.values() if state.is_open(c) and c["id"] in state.events and (not where or where(c))]
+        return [c["id"] for c in cards.values()
+                if allowed(c) and c["id"] in state.events and state.is_open(c) and (not where or where(c))]
 
     def weighted(ids):
         pool = list(ids)
@@ -2076,11 +2088,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
             if candidate is not None:
                 fresh.remove(candidate)
                 fresh.insert(len(cores), candidate)
-        others = [c for c in read_cards(lambda c: (c["lesson"], c["unit"]) != (lesson, unit)) if c not in due and c not in again]
+        others = [c for c in read_cards() if c not in due and c not in again]
         rng.shuffle(others)
         others, done = _split_done(state, others)
-        carry = [cid for cid in again if (cards[cid]["lesson"], cards[cid]["unit"]) in state.reads
-                 and (cards[cid]["lesson"], cards[cid]["unit"]) != (lesson, unit)]
+        carry = [cid for cid in again if (cards[cid]["lesson"], cards[cid]["unit"]) != (lesson, unit)]
         skip = set(again + due) | state.completed_today
         # 짧은 묶음에서는 현재 단원의 비핵심 새 문항을 더 뽑을 수 있어 그 몫도 남김.
         extra = cap - sum(not cards[cid]["core"] for cid in fresh)
@@ -2138,8 +2149,8 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     if trace is not None:
         # 2026-11-17 #278 부터 unit·lesson·mixed 는 오늘 마친 문항을 후보에서 빼고 모자랄 때만 채우므로 rules-v6
         policy = "rules-v6" if mode in ("unit", "lesson", "mixed") else "rules-v2"
-        if mode == "unit" and carry:
-            policy = "rules-v7"
+        if scoped:
+            policy = "rules-v8"
         if mode == "note" and any(name == "transfer" and ids for name, ids in pools):
             policy = "rules-v3" if cards[card].get("mock") else "rules-v2"
         trace.update(policy=policy, retry_policy=RETRY_POLICY,
@@ -2364,17 +2375,30 @@ class PracticeSet(object):
             raise AiError("문항을 만들 수 없습니다: %s" % error)
 
     def _statement_choice(self, card, state, rng, again, seen=()):
-        """문장 카드의 고르기판. 참 문장이면 거짓 문장 셋과 pick right, 거짓이면 참 문장 셋과 pick wrong. 함께 낼 문장은 열린
+        """문장 카드의 객관식. 참 문장이면 거짓 문장 셋과 pick right, 거짓이면 참 문장 셋과 pick wrong. 함께 낼 문장은 열린
         것부터 상자가 낮은 순(다시 낼 때는 열린 것 가운데 아무거나), 모자라면 같은 차시 같은 tag 주제에서 빌림. 다시 낼 때는
         seen(이 묶음에서 이미 보인 보기 id 집합들)과 같은 조합을 피함."""
         sess, statement, topic = self.sess, card["stmt"], card["topic"]
         want = not bool(statement.get("ok"))
-        pool = [s for s in topic.get("statements", []) if bool(s.get("ok")) == want and s["id"] != statement["id"]]
+        scoped = self.mode in ("unit", "mixed") and self.lesson and self.unit
+
+        def allowed(other):
+            return not scoped or _in_read_scope(state, self.lesson, self.unit, other)
+
+        pool = [s for s in topic.get("statements", []) if bool(s.get("ok")) == want and s["id"] != statement["id"]
+                and (not scoped or s["id"] in sess.cards and allowed(sess.cards[s["id"]]))]
         if len(pool) < 3:
             for other in sess.cards.values():
                 if other["kind"] == "stmt" and other["lesson"] == card["lesson"] and other["topic"]["id"] != topic["id"] \
-                        and set(other["tags"]) & set(card["tags"]) and bool(other["stmt"].get("ok")) == want:
+                        and set(other["tags"]) & set(card["tags"]) and bool(other["stmt"].get("ok")) == want and allowed(other):
                     pool.append(other["stmt"])
+        if scoped and not pool:
+            # 아직 배우지 않은 문장을 보기로 빌리지 않고 이 문장만 확인함.
+            options = [{"id": statement["id"] + suffix, "text": text, "ok": ok, "why": statement.get("why", "")}
+                       for suffix, text, ok in (("-true", "맞습니다", not want), ("-false", "틀렸습니다", want))]
+            rng.shuffle(options)
+            return {"kind": "choice", "stem": "다음 문장이 맞는지 고르세요.\n\n" + statement["text"],
+                    "options": options, "pick": "right", "multi": False, "explain": statement.get("why", "")}
         rows = list(pool)
         rng.shuffle(rows)
         opened = [s for s in rows if s["id"] in sess.cards and state.is_open(sess.cards[s["id"]])]
@@ -2409,6 +2433,8 @@ class PracticeSet(object):
             chips.append(self.sess.lesson_label(lesson))
         elif card["lesson"] in self.sess.patterns:
             chips.append(card.get("name") or self.sess.place(card["lesson"])["label"])
+        if self.mode in ("unit", "mixed") and self.lesson and self.unit and (card["lesson"], card["unit"]) != (self.lesson, self.unit):
+            chips.append("다른 단원 복습")
         if card["kind"] == "skel":
             chips.append(skel.PART_CHIP[card["part"]])
         else:
