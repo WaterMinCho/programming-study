@@ -19,7 +19,10 @@ CONTRACTS = {"mixed32-blueprint-v1": _MIXED32, "mixed32-transfer-v1": _MIXED32, 
              "all52-v1": {"count": 52, "minutes": 120, "course_counts": {"intro": 36, "app": 16}, "all_lessons": True,
                           "app_through": 9},
              "all54-v1": {"count": 54, "minutes": 120, "course_counts": {"intro": 38, "app": 16}, "all_lessons": True,
-                          "app_through": 10}}
+                          "app_through": 10},
+             "all33-v1": {"count": 33, "minutes": 60, "course_counts": {"intro": 19, "app": 14}, "all_lessons": True, "app_through": 10},
+             "all42-v1": {"count": 42, "minutes": 90, "course_counts": {"intro": 24, "app": 18}, "all_lessons": True, "app_through": 10},
+}
 
 
 def candidate(spec):

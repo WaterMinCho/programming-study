@@ -110,7 +110,7 @@ class CourseGuiTest(AiTest):
         return {m['id'] for m in bank.read_index(bank.AI_DIR)['mocks'] if not m.get('hidden') and not m.get('legacy')} | set(extra)
 
     def test_course_switch_keeps_participant_old_cursor_and_scoped_lists(self):
-        self.assertEqual({'m11', 'm12', 'm13', 'm14', 'm15'}, self.open_mocks())
+        self.assertEqual({f'm{n}' for n in range(11, 18)}, self.open_mocks())
         self.check_course_switch(self.open_mocks())
 
     def test_each_round_keeps_its_scope_on_the_list_and_start_screen(self):

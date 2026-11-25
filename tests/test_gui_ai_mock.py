@@ -836,6 +836,18 @@ class RealMockScreensTest(AiTest):
                 self.idle()
                 self.assertEqual(before, record.read_bytes())
 
+    def test_new_rounds_show_their_own_count_and_time_before_start(self):
+        win = self.boot((760, 480))
+        for mid, count, minutes in (('m16', 33, 60), ('m17', 42, 90)):
+            with self.subTest(mid=mid):
+                self.assertTrue(win.open_ai_mock(mid))
+                page = win.ai_mock
+                self.assertIn('%d문항' % count, page.heading.text())
+                self.assertIn('%d분' % minutes, page.heading.text())
+                self.assertIn('%d분은 이 회차의 연습 시간입니다' % minutes, page.clock_note.text.text())
+                self.assertEqual(count, sum(int(row.end.text()[:-2]) for row in page.lesson_counts.rows))
+                self.assertIsNone(page.exam)
+
     def test_ready_tables_add_up_and_empty_m11_result_marks_every_lesson(self):
         theme.set_text('normal')
         self.addCleanup(theme.set_text, 'normal')
