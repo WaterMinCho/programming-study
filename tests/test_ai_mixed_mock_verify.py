@@ -994,6 +994,53 @@ class VersionedLessonScopeTest(unittest.TestCase):
             self.assertEqual(verify_ai.ai_mock_rules.allocate(scores, 54), verify_ai._mixed_blueprint(self.spec))
             self.assertNotEqual(self.spec['blueprint'], verify_ai._mixed_blueprint(self.spec))
 
+    def test_registered_blueprints_allow_shorter_and_longer_rounds(self):
+        self.make_round('all54-v1')
+        original = self.spec['blueprint']
+        short = dict.fromkeys(original, 1)
+        short.update(i04=2, i11=2, a01=2, a02=2, a03=2, a04=2)
+        long = dict(original, a02=2, a04=2, a05=3, a10=3)
+        for count, blueprint, courses, minutes in ((33, short, {'intro': 19, 'app': 14}, 60),
+                                                   (58, long, {'intro': 38, 'app': 20}, 120)):
+            with self.subTest(count=count):
+                revision = f'all{count}-test'
+                contract = dict(verify_ai.mixed_mock.CONTRACTS['all54-v1'], count=count,
+                                course_counts=courses, minutes=minutes)
+                values = dict(count=count, blueprint_revision=revision, blueprint=blueprint,
+                              course_counts=courses, minutes=minutes)
+                self.spec.update(values)
+                self.meta.update(values)
+                formats = ['choice'] * (count - 9) + ['predict'] * 5 + ['code'] * 4
+                levels = [1] * (count - 4) + [2, 2, 3, 3]
+                rules = {'format': {'choice': count - 9, 'predict': 5, 'code': 4},
+                         'level': {1: count - 4, 2: 2, 3: 2}, 'code_level': {2: 2, 3: 2}}
+                self.items = all44_items(self.mid, revision=revision, blueprint=blueprint, formats=formats, levels=levels)
+                self.update_index()
+                self.save()
+                with (mock.patch.dict(verify_ai.mixed_mock.CONTRACTS, {revision: contract}),
+                      mock.patch.dict(verify_ai.ai_mock_rules.PINNED_BLUEPRINTS, {revision: blueprint}),
+                      mock.patch.dict(verify_ai.ALL_LESSON_RULES, {revision: rules})):
+                    code, output = self.verify()
+                    self.assertEqual(0, code, output)
+                    verify_ai.mixed_mock.validate(self.spec, dict(self.meta, draft=False), self.items,
+                                                 {row['id']: row for row in bank.read_index(str(self.bank))['lessons']})
+                    with mock.patch.dict(verify_ai.ai_mock_rules.PINNED_BLUEPRINTS,
+                                         {revision: dict(blueprint, a10=blueprint['a10'] + 1)}):
+                        code, output = self.verify()
+                        self.assertEqual(1, code, output)
+                        self.assertIn(f'등록한 차시별 문항 수의 합은 {count + 1}개입니다.', output)
+                    missing = dict(blueprint)
+                    missing['a09'] += missing.pop('a10')
+                    with mock.patch.dict(verify_ai.ai_mock_rules.PINNED_BLUEPRINTS, {revision: missing}):
+                        code, output = self.verify()
+                        self.assertEqual(1, code, output)
+                        self.assertIn('빠진 차시: a10. 범위 밖 차시: 없음.', output)
+                    without_scope = {key: value for key, value in contract.items() if key != 'app_through'}
+                    with mock.patch.dict(verify_ai.mixed_mock.CONTRACTS, {revision: without_scope}):
+                        code, output = self.verify()
+                        self.assertEqual(1, code, output)
+                        self.assertIn('응용 범위 app_through를 적으세요.', output)
+
     def test_all54_rejects_wrong_lesson_even_with_the_same_sized_score_table(self):
         self.make_round('all54-v1')
         scores = dict(verify_ai.ai_mock_rules.LESSON_SCORES)

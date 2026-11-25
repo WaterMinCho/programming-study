@@ -1717,7 +1717,7 @@ def _all_lessons(entry):
 
 def _mixed_blueprint(entry):
     """회차의 배분 버전으로 차시 배분을 고름. 등록되지 않은 값이면 None을 돌려줌.
-    공개 배분이 고정돼 있으면 그 값을 쓰고, 나머지 모든 차시 회차는 배점표와 문항 수로 계산함."""
+    등록한 차시별 문항 수가 있으면 그 값을 쓰고, 나머지 모든 차시 회차는 배점표와 문항 수로 계산함."""
     revision = entry.get("blueprint_revision")
     if not isinstance(revision, str):
         return None
@@ -1830,21 +1830,25 @@ def _mixed_mock_problems(entry, meta, items, sources):
 
 
 def _all_lesson_mock_problems(entry, meta, items, sources):
-    """모든 차시 회차의 계약(문항 수와 exam_size, format·kind·level 수, 코드 작성 level 수, 문항 ID), allocate 배분,
+    """모든 차시 회차의 문항 수, format·kind·level 수, 코드 작성 level 수, 문항 ID, 차시 배분,
     빠진 공개 차시, round_set을 대조함. 초안도 검사함."""
     out, label = [], entry["id"]
     revision = entry["blueprint_revision"]
     contract = _mixed_contract(entry)
     pinned = ai_mock_rules.PINNED_BLUEPRINTS.get(revision)
     lessons = pinned if pinned is not None else ai_mock_rules.LESSON_SCORES
-    size = ai_mock_rules.exam_size(len(lessons))
-    if contract["count"] != size:
+    size = sum(pinned.values()) if pinned is not None else ai_mock_rules.exam_size(len(lessons))
+    if contract["count"] != size and pinned is not None:
+        out.append(f"{label}의 배분 버전 {revision}은 {contract['count']}문항인데 등록한 차시별 문항 수의 합은 {size}개입니다.")
+    elif contract["count"] != size:
         out.append(f"{label}의 배분 버전 {revision}은 {contract['count']}문항인데 LESSON_SCORES의 차시 "
                    f"{len(lessons)}개로 계산한 문항 수는 {size}개입니다. 새 배분 버전을 "
                    "aiprep/mixed_mock.py의 CONTRACTS와 tools/verify_ai.py의 ALL_LESSON_RULES에 함께 등록하고 "
                    "이 회차를 그 버전으로 다시 출제하세요.")
     expected = mixed_mock.expected_lessons(contract)
-    if expected is not None and lessons.keys() != expected:
+    if pinned is not None and expected is None:
+        out.append(f"{label}의 배분 버전 {revision}에 응용 범위 app_through를 적으세요.")
+    elif expected is not None and lessons.keys() != expected:
         missing = verify_web.listing(sorted(expected - lessons.keys()))
         extra = verify_web.listing(sorted(lessons.keys() - expected))
         out.append(f"{label}의 차시 구성이 {revision}의 범위와 일치하지 않습니다. 빠진 차시: {missing or '없음'}. "
