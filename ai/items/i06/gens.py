@@ -185,7 +185,9 @@ def bce_input_contract(r):
         input_why = ("BCELoss에 시그모이드를 지난 확률을 넣었습니다." if apply_sigmoid
                      else "BCEWithLogitsLoss에 시그모이드 전 logit을 넣었습니다.")
     elif apply_sigmoid:
-        input_why = "이미 확률로 바꾼 값을 BCEWithLogitsLoss에 넣어 시그모이드가 한 번 더 적용됩니다."
+        input_why = ("모양을 맞추고 이대로 실행하면 BCEWithLogitsLoss가 이미 확률로 바뀐 값을 다시 변환합니다."
+                     if not same_shape else
+                     "BCEWithLogitsLoss가 이미 확률로 바뀐 값을 다시 변환합니다. 시그모이드 전 값을 넣어야 합니다.")
     else:
         input_why = "BCELoss는 logit 대신 시그모이드를 지난 확률을 받습니다."
     explain = shape_why + " " + input_why
@@ -195,8 +197,14 @@ def bce_input_contract(r):
         (False, True, "손실에 넣은 값은 맞지만 출력과 정답의 모양을 맞춰야 합니다."),
         (False, False, "모양과 logit·확률 구분을 모두 고쳐야 합니다."),
     ]
-    options = [(text, (shape_ok, input_ok) == (same_shape, suitable_input), explain)
-               for shape_ok, input_ok, text in descriptions]
+    options = []
+    for shape_ok, input_ok, text in descriptions:
+        reasons = []
+        if shape_ok != same_shape:
+            reasons.append(shape_why)
+        if input_ok != suitable_input:
+            reasons.append(input_why)
+        options.append((text, not reasons, " ".join(reasons) or explain))
     return choice(stem=stem, options=options, explain=explain,
                   params={"batch": batch, "output_shape": output_shape, "label_shape": label_shape,
                           "apply_sigmoid": apply_sigmoid, "loss_name": loss_name})

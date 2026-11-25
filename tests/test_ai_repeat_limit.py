@@ -414,7 +414,7 @@ class LinkedSourceRecordTest(VariantTest):
         self.assertNotIn("queued_for", shown[("i90-b03", 0)])
         self.assertEqual({"retry-v2"}, {e["retry_policy"] for e in shown.values()})
         selection = self.collected(sess, "set")[0]["selection"]
-        self.assertEqual(("rules-v8", "retry-v2"), (selection["policy"], selection["retry_policy"]))
+        self.assertEqual(("rules-v9", "retry-v2"), (selection["policy"], selection["retry_policy"]))
         for row in self.log(sess):
             self.assertFalse({"queued_for", "retry_policy", "selection"} & set(row))
 
@@ -430,5 +430,5 @@ class LinkedSourceRecordTest(VariantTest):
             service.build_set(sess, state, mode, random.Random(4), trace=trace, **kwargs)
             with self.subTest(mode=mode):
                 self.assertEqual("retry-v2", trace["retry_policy"])
-                expected = {"unit": "rules-v8", "mixed": "rules-v8", "lesson": "rules-v6"}
+                expected = {"unit": "rules-v9", "mixed": "rules-v8", "lesson": "rules-v6"}
                 self.assertEqual(expected.get(mode, "rules-v2"), trace["policy"])

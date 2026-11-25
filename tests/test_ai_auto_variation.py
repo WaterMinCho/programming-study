@@ -70,7 +70,7 @@ class AutoVariationTest(Base):
                 self.assertTrue(any(sess.cards[cid]['unit'] == next_unit for cid in ids))
                 set_rows = [row for row in sess.collection.snapshot() if row['kind'] == 'set']
                 trace = set_rows[-1]['data']['selection']
-                self.assertEqual('rules-v8', trace['policy'])
+                self.assertEqual('rules-v9', trace['policy'])
                 self.assertEqual({source: target}, trace['unit_transfers'])
                 self.assertEqual('unit_transfer', trace['selected_pools'][target])
                 self.assertEqual(ids, [e['card'] for e in sess.resume_set().queue])
@@ -133,6 +133,59 @@ class AutoVariationTest(Base):
         self.assertEqual({'a01-b07': 'a01-c03'}, trace['unit_transfers'])
         self.assertEqual({'a01-b07', 'a01-b08'}, set(sess._state().again))
 
+    def test_first_pytorch_unit_checks_all_three_calls(self):
+        sess = self.session()
+        sess.mark_read('i01', '1b')
+        practice = sess.start_set('unit', lesson='i01', unit='1b', seed=7)
+        order = [entry['card'] for entry in practice.queue]
+        expected = {'i01-b91': 'loss.backward()', 'i01-b04': 'step', 'i01-b05': 'zero_grad'}
+        for cid, answer in expected.items():
+            with self.subTest(cid=cid):
+                practice.pos = order.index(cid)
+                self.assertEqual('blank', practice.current()['kind'])
+                self.assertEqual([answer], self.right(practice, practice.current()))
+        self.assertEqual(list(expected), [cid for cid in order if cid in expected])
+        self.assertIn('i01-c101', order)
+
+    def test_pre_edit_practice_resumes_with_its_shown_question_and_draft(self):
+        sess = self.session()
+        legacy = self.session()
+        cid = 'i01-b05'
+        previous = sess.items['i01']['resume_wording']['cards'][cid]
+        with mock.patch.dict(legacy.cards, {cid: previous}):
+            old = service.PracticeSet(legacy, 'previous', 'unit', [cid], 7, lesson='i01', unit='1b')
+            original = old.current()['stem']
+            old.draft = {'values': ['zero_g']}
+            saved = old.snapshot()
+        self.assertNotEqual(original, sess.cards[cid]['item']['stem'])
+        resumed = service.PracticeSet.restore(sess, saved)
+        self.assertEqual(original, resumed.current()['stem'])
+        self.assertEqual({'values': ['zero_g']}, resumed.draft)
+        self.assertEqual('pass', resumed.answer(['zero_grad'], 2, True)['result'])
+
+    def test_next_unit_prefers_unseen_pytorch_variant_for_scheduled_review(self):
+        for seen, expected in ((False, 'i01-c103'), (True, 'i01-c04')):
+            with self.subTest(seen=seen):
+                sess = self.session()
+                sess.mark_read('i01', '1b')
+                self.answer_before(sess, 'i01-b04')
+                self.answer_before(sess, 'i01-c05')
+                if seen:
+                    self.answer_before(sess, 'i01-c103')
+                sess.mark_read('i01', '1c')
+                state = sess._state()
+                self.assertIn('i01-b04', state.due_cards())
+                trace = {}
+                ids = service.build_set(sess, state, 'unit', random.Random(7),
+                                        lesson='i01', unit='1c', trace=trace)
+                self.assertEqual({'i01-b04': expected}, trace['unit_transfers'])
+                self.assertIn(expected, ids)
+                self.assertNotIn('i01-b04', ids)
+                self.assertNotIn('i01-b04', trace['selected_pools'])
+                self.assertNotIn('i01-c05', {cid for pool in trace['candidate_pools'] if not pool['overflow']
+                                             for cid in pool['ids']})
+                self.assertIn('i01-b04', sess._state().due_cards())
+
     def test_unit_and_revisit_skip_unread_exam_review_cards_and_label_read_cards(self):
         self.at = '2026-11-25T20:00:00'
         sess = self.session()
@@ -190,6 +243,20 @@ class AutoVariationTest(Base):
                 correct = grade.right_options(item)[0]
                 self.assertEqual('틀렸습니다', item['options'][correct]['text'])
                 self.assertEqual('pass', grade.grade_choice(item, [correct])['result'])
+
+    def test_statement_without_title_and_rounded_number_cloze(self):
+        from aiprep import grade
+
+        sess = self.session()
+        sess.mark_read('i13', '13b')
+        practice = service.PracticeSet(sess, 'untitled', 'unit', ['i13-s01'], 7, lesson='i13', unit='13b')
+        choice = practice.current()
+        self.assertGreater(len(choice['options']), 2)
+        self.assertEqual('다음 중 **옳은** 설명을 고르세요.', choice['stem'])
+
+        item = service.cloze_item(sess.cards['i09-s03']['stmt'])
+        self.assertEqual('pass', grade.grade_item(item, ['2.71828'])['result'])
+        self.assertNotEqual('pass', grade.grade_item(item, ['2.719'])['result'])
 
     def test_unit_transfer_catalog_uses_distinct_fixed_tasks_in_same_unit(self):
         for course in ('intro', 'app'):

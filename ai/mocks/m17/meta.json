@@ -51,5 +51,8 @@
  "format": 1,
  "draft": false,
  "round_set": 5,
- "time_basis": "90분은 문항 수와 코드 작성에 걸리는 시간을 고려한 연습용 시간입니다."
+ "time_basis": "90분은 문항 수와 코드 작성에 걸리는 시간을 고려한 연습용 시간입니다.",
+ "resume_wording": [
+  "b6442e51e39b437783f92bf74f1d4f42db8335d70cb69b2596e6d63cad581e4b"
+ ]
 }

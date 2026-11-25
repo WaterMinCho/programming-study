@@ -726,6 +726,11 @@ def load_items(lesson, root=None, with_gens=True):
     out = {"dir": idir, "meta": meta, "items": [], "topics": [], "facts": {}, "errata": {}, "review": secrets.get("review.json"),
            "gens": [], "gens_loaded": bool(with_gens), "sources": {}}
     try:
+        if "resume_wording.json" in secrets:
+            saved = json.loads(secrets["resume_wording.json"])
+            if not isinstance(saved, dict) or any(not isinstance(rows, dict) for rows in saved.values()):
+                raise ValueError("resume_wording.json")
+            out["resume_wording"] = saved
         if "items.json" in secrets:
             out["items"] = list(json.loads(secrets["items.json"]).get("items") or [])
         if "statements.json" in secrets:

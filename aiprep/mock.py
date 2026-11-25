@@ -152,6 +152,17 @@ def load_version(root, spec, fingerprint):
     return old, {item["id"]: item for item in items}
 
 
+def resumable_version(root, spec, fingerprint):
+    """지문을 다듬기 전에 시작한 시험은 지정한 보존본으로 이어 풂."""
+    try:
+        meta = study.read_json(os.path.join(bank.mock_dir(spec["id"], root), "meta.json"))
+    except (OSError, ValueError) as error:
+        raise MockError("모의고사 안내 파일을 읽을 수 없습니다.") from error
+    if fingerprint in (meta.get("resume_wording") or []):
+        return load_version(root, spec, fingerprint)
+    return None
+
+
 def submissions(log, mid):
     """회차 제출 기록을 실제로 기록된 순서로 돌려줌."""
     return [row for row in log if row.get("kind") == "mock_submit" and row.get("mock") == mid]
@@ -195,9 +206,12 @@ class MockExam:
             submitted = {int(row.get("try") or 1): row for row in done}
             active = latest is not None and int(latest.get("try") or 1) not in submitted
             changed = latest is not None and latest.get("fingerprint") != self.fingerprint
-            if changed and not repeat and not active:
-                # 제출한 시도는 그 시도의 버전 보존본으로 결과·해설을 엶. 보존본이 없으면 아래에서 예전처럼 멈춤
-                kept = load_version(session.root, self.spec, latest.get("fingerprint"))
+            if changed:
+                kept = resumable_version(session.root, self.spec, latest.get("fingerprint")) if active else None
+                if not active and not repeat:
+                    kept = load_version(session.root, self.spec, latest.get("fingerprint"))
+                if repeat and kept is not None:
+                    raise MockError("풀고 있는 모의고사를 먼저 제출하세요.")
                 if kept is not None:
                     self.spec, self.items = kept
                     self.fingerprint = latest["fingerprint"]

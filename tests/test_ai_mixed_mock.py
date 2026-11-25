@@ -14,7 +14,7 @@ from unittest import mock
 
 import study
 from aiprep import bank, grade, mixed_mock, mock_code, service
-from aiprep.mock import MockError, MockExam, load_items
+from aiprep.mock import MockError, MockExam, load_items, load_version
 from learning_data import collection
 from learning_server import dataset
 from tests.test_ai_mock import WRONG, code_item, stuck_grade
@@ -214,7 +214,7 @@ class MixedMockTest(unittest.TestCase):
                          options=[{k:o.get(k) for k in ('text','ok')} for o in i.get('options') or []]) for i in items.values()]
             self.assertEqual(fingerprint,hashlib.sha256(json.dumps(stable,ensure_ascii=False,sort_keys=True).encode()).hexdigest())
 
-    def test_published_mixed_exam_fingerprints_do_not_change(self):
+    def test_published_mixed_exam_versions_remain_available(self):
         root = Path(__file__).resolve().parents[1]/'ai'
         index = READ_INDEX(str(root))
         lessons = {entry['id']: entry for entry in index['lessons']}
@@ -225,10 +225,19 @@ class MixedMockTest(unittest.TestCase):
                     'm11': '0a64d66f2568947249d124485fb7f9819960ecd01ef1770e26b68d04ee0971ff',
                     'm12': '6adcb61412123ab080238403c06c09f8f176bf25c210ef752b12516ede2ad0f1',
                     'm13': '55778362804ffae066caf8802994f335494d245755e2b8982809154c7d0e94a1',
-                    'm14': 'db39c516229812edf2a4ede285712e5095271c4048749e16ef7e03c0fc0e0ce9'}
+                    'm14': 'db39c516229812edf2a4ede285712e5095271c4048749e16ef7e03c0fc0e0ce9',
+                    'm15': '890389ae498942d1a1e0a04b28e45da22ddecdf8ceed7668840c5dd15ab8f139',
+                    'm16': 'f04919ccaa04ece765f59253e6125439f8f167beb2130fce6d48a8f3e1aa368c',
+                    'm17': 'b6442e51e39b437783f92bf74f1d4f42db8335d70cb69b2596e6d63cad581e4b'}
         for mid, fingerprint in expected.items():
             with self.subTest(mock=mid):
-                self.assertEqual(fingerprint, load_items(str(root), specs[mid], lessons)[1])
+                _, current = load_items(str(root), specs[mid], lessons)
+                if mid in ('m4', 'm5', 'm6'):
+                    self.assertEqual(fingerprint, current)
+                else:
+                    kept = load_version(str(root), specs[mid], fingerprint)
+                    self.assertIsNotNone(kept)
+                    self.assertNotEqual(fingerprint, current)
 
     def test_applied04_blueprint_and_published_lists_match_both_courses(self):
         root = Path(__file__).resolve().parents[1]/'ai'
