@@ -389,7 +389,8 @@ class AiSession(object):
         exam = self._mock_exams.get(mid)
         latest = next((row for row in reversed(self.record.log) if row.get("kind") == "mock_start" and row.get("mock") == mid), None)
         restart_required = (latest is not None and latest.get("fingerprint") != fingerprint
-                            and not any(int(row.get("try") or 1) == int(latest.get("try") or 1) for row in rows))
+                            and not any(int(row.get("try") or 1) == int(latest.get("try") or 1) for row in rows)
+                            and not (exam and exam.result is None and exam.fingerprint == latest.get("fingerprint")))
         return dict(self.mocks[mid], blanks=sum(item['kind'] == 'blank' for item in items.values()),
                     choices=sum(item['kind'] == 'choice' for item in items.values()),
                     codes=sum(item['kind'] == 'code' for item in items.values()),
@@ -1023,8 +1024,13 @@ class AiSession(object):
                     _, fingerprint = mock.load_items(self.root, self.mocks[mid], self.mock_lessons)
                     exam = mixed_mock.cached(self, mid)
                     starts = [r for r in self.record.reload() if r.get("kind") == "mock_start" and r.get("mock") == mid]
-                    latest = max((int(r.get("try") or 1) for r in starts), default=0)
-                    if repeat or exam is None or exam.fingerprint != fingerprint or exam.attempt != latest:
+                    latest = max(starts, key=lambda row: int(row.get("try") or 1), default={})
+                    same_archived = (exam is not None and exam.fingerprint != fingerprint
+                                     and exam.fingerprint == latest.get("fingerprint")
+                                     and (exam.result is not None or mock.resumable_version(
+                                         self.root, self.mocks[mid], exam.fingerprint) is not None))
+                    if (repeat or exam is None or exam.attempt != int(latest.get("try") or 1)
+                            or (exam.fingerprint != fingerprint and not same_archived)):
                         exam = mock.MockExam(self, mid, repeat=repeat, seed=seed, clock=clock or (lambda: now()),
                                              monotonic=monotonic, submit_expired=_submit_expired)
                         mixed_mock.remember(self, exam)
@@ -1732,8 +1738,11 @@ def _fix_blanks(sess, state, chosen, pools, protected):
 def cloze_item(statement):
     """문장 카드의 빈칸판 문항."""
     cloze = statement["cloze"]
+    blank = {"answer": cloze["answer"], "mode": cloze.get("mode") or "word", "hint": cloze.get("hint", "")}
+    if "places" in cloze:
+        blank["places"] = cloze["places"]
     return {"kind": "blank", "stem": cloze["text"],
-            "blanks": [{"answer": cloze["answer"], "mode": cloze.get("mode") or "word", "hint": cloze.get("hint", "")}],
+            "blanks": [blank],
             "explain": statement.get("why", "")}
 
 
@@ -1921,7 +1930,7 @@ def _note_variant(state, lead):
 
 
 def _unit_transfers(state, sources, skip, cap):
-    """직전까지 읽은 단원의 오답에서 다른 방식으로 확인하는 고정 문항을 고름."""
+    """이미 읽은 단원의 오답·예정 복습에서 아직 풀지 않은 변형을 고름."""
     sess = state.sess
     picked, families = {}, set()
     for source in sources:
@@ -1930,7 +1939,7 @@ def _unit_transfers(state, sources, skip, cap):
         lead = sess.cards[source]
         for cid in sess.unit_transfers.get(source, []):
             card = sess.cards.get(cid)
-            if not card or cid in skip or card["family"] in families:
+            if not card or cid in skip or cid in state.events or card["family"] in families:
                 continue
             if (card["lesson"], card["unit"]) != (lead["lesson"], lead["unit"]):
                 continue
@@ -1938,7 +1947,7 @@ def _unit_transfers(state, sources, skip, cap):
                     or card["deep"] or card.get("mock")):
                 continue
             if not state.is_open(card):
-                # 이미 읽은 단원의 당일 오답 복습이므로 핵심 상자와 시험 전 새 문항 마감은 기다리지 않음.
+                # 이미 읽은 내용의 복습이므로 핵심 상자와 시험 전 새 문항 마감은 기다리지 않음.
                 if cap <= 0:
                     continue
                 cap -= 1
@@ -2077,7 +2086,10 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     unit_transfers = {}
     protected = {"again", "due", "new", "lead", "transfer", "pair", "unit_transfer"}
     if mode == "unit":
-        fresh = new_cards(lambda c: c["lesson"] == lesson and c["unit"] == unit)
+        def current(cid):
+            return (cards[cid]["lesson"], cards[cid]["unit"]) == (lesson, unit)
+
+        fresh = new_cards(lambda c: current(c["id"]))
         # 핵심을 푼 뒤에는 고정 문항 뒤에 밀린 변형 문항도 한 장 먼저 연습함.
         # 이미 복습할 생성기가 있으면 기존 순서와 생성기 상한을 유지함.
         cores = [cid for cid in fresh if cards[cid]["core"]]
@@ -2091,15 +2103,27 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         others = [c for c in read_cards() if c not in due and c not in again]
         rng.shuffle(others)
         others, done = _split_done(state, others)
-        carry = [cid for cid in again if (cards[cid]["lesson"], cards[cid]["unit"]) != (lesson, unit)]
+        carry = [cid for cid in again if not current(cid)]
+        past_due = [cid for cid in due if not current(cid) and cid in state.events and cards[cid]["kind"] != "gen"]
+        other_gens = [cid for cid in others if cards[cid]["kind"] == "gen"]
+        other_fixed = [cid for cid in others if cards[cid]["kind"] != "gen"]
         skip = set(again + due) | state.completed_today
-        # 짧은 묶음에서는 현재 단원의 비핵심 새 문항을 더 뽑을 수 있어 그 몫도 남김.
-        extra = cap - sum(not cards[cid]["core"] for cid in fresh)
-        unit_transfers = _unit_transfers(state, carry, skip, extra)
+        extra = cap - sum(not cards[cid]["core"] for cid in fresh[:UNIT_NEW])
+        unit_transfers = _unit_transfers(state, carry + past_due, skip, extra)
+        extra -= sum(not state.is_open(cards[cid]) for cid in unit_transfers.values())
+        extra_fresh = []
+        for cid in fresh[UNIT_NEW:]:
+            if not cards[cid]["core"]:
+                if extra <= 0:
+                    continue
+                extra -= 1
+            extra_fresh.append(cid)
+        due = [cid for cid in due if cid not in past_due]
         pools = [("again", [cid for cid in again if cid not in carry]), ("new", fresh[:UNIT_NEW]),
-                 ("unit_transfer", list(unit_transfers.values())), ("due", due[:UNIT_REVIEW]), ("other", others)]
-        # 다른 문항이 모자란 경우에만 이전 단원의 오늘 오답과 오늘 마친 문항을 씀.
-        overflow = [("new", fresh[UNIT_NEW:]), ("due", due[UNIT_REVIEW:]), ("carry", carry), ("done", done)]
+                 ("unit_transfer", list(unit_transfers.values())), ("due", due[:UNIT_REVIEW]), ("other", other_gens)]
+        # 새 문항과 변형으로 짧은 묶음도 못 채우면 이미 본 고정 지문을 다시 씀.
+        overflow = [("new", extra_fresh), ("due", due[UNIT_REVIEW:]),
+                    ("carry", carry), ("due", past_due), ("other", other_fixed), ("done", done)]
         pattern = "NNR"
     elif mode in ("review", "sweep"):
         low = sorted([c for c in read_cards() if c not in due and c not in again and c not in state.completed_today
@@ -2150,7 +2174,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         # 2026-11-17 #278 부터 unit·lesson·mixed 는 오늘 마친 문항을 후보에서 빼고 모자랄 때만 채우므로 rules-v6
         policy = "rules-v6" if mode in ("unit", "lesson", "mixed") else "rules-v2"
         if scoped:
-            policy = "rules-v8"
+            policy = "rules-v9" if mode == "unit" else "rules-v8"
         if mode == "note" and any(name == "transfer" and ids for name, ids in pools):
             policy = "rules-v3" if cards[card].get("mock") else "rules-v2"
         trace.update(policy=policy, retry_policy=RETRY_POLICY,
@@ -2166,7 +2190,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     if len(chosen) < SET_MIN and overflow:
         used = {cid for cid, pool in chosen if pool == "unit_transfer"}
         overflow = [(name, [cid for cid in ids if used.isdisjoint(sess.unit_transfers.get(cid, []))])
-                    if name == "carry" else (name, ids) for name, ids in overflow]
+                    if name in ("carry", "due") else (name, ids) for name, ids in overflow]
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
     pairs = {}
     if mode in ("review", "sweep"):
@@ -2241,13 +2265,18 @@ class PracticeSet(object):
         self.card, self.draft = None, {}
         self.fill = None  # 오늘 마친 문항을 빼거나 채운 수 {"done", "skipped"}. start_set 이 정함
 
-    def fingerprint(self, previous_refs=False, skeletons=None):
-        """묶음 전체를 대조함. 출처 정정은 등록한 이전 ref로만 다시 계산함. skeletons 를 주면 세션 뼈대 대신 그 값을 넣음."""
+    def fingerprint(self, previous_refs=False, skeletons=None, previous_wording=False):
+        """묶음 전체를 대조함. 등록한 이전 출처·문구나 뼈대 목록은 예전 묶음을 복원할 때만 씀."""
         def generator(value):
             if not isinstance(value, gen.GenSpec):
                 raise TypeError(type(value).__name__)
             sources = []
             for path in (value.path, os.path.join(self.sess.root, "items", "common", "gens.py")):
+                lesson = os.path.basename(os.path.dirname(path))
+                old = self.sess.items.get(lesson, {}).get("resume_wording", {}).get("generator_source", {})
+                if previous_wording and os.path.basename(path) in old:
+                    sources.append(old[os.path.basename(path)])
+                    continue
                 try:
                     with open(path, "rb") as stream:
                         sources.append(hashlib.sha256(stream.read()).hexdigest())
@@ -2258,6 +2287,18 @@ class PracticeSet(object):
         skeletons = self.sess.skeletons if skeletons is None else skeletons
         content = {"cards": [self.sess.cards[c] for c in self.stats], "terms": self.sess.terms,
                    "skeletons": {sid: skel.card_skeleton(value) for sid, value in skeletons.items()}}
+        if previous_wording:
+            cards = []
+            for card in content["cards"]:
+                old = self.sess.items.get(card["lesson"], {}).get("resume_wording", {})
+                earlier = old.get("cards", {}).get(card["id"], card)
+                order = old.get("order", {}).get(card["id"], earlier["order"])
+                cards.append(dict(earlier, order=order))
+            content["cards"] = cards
+            for group in self.sess.patterns:
+                old = self.sess.items.get(group, {}).get("resume_wording", {}).get("skeletons", {})
+                for sid in content["skeletons"].keys() & old.keys():
+                    content["skeletons"][sid] = skel.card_skeleton(old[sid])
         if previous_refs:
             cards, replaced = [], False
             for card in content["cards"]:
@@ -2302,10 +2343,10 @@ class PracticeSet(object):
             raise ValueError("문항이 바뀐 묶음")
         fingerprint = saved["fingerprint"]
         if fingerprint not in (result.fingerprint(), result.fingerprint(previous_refs=True)):
-            candidates = [*sess.previous_skeletons(saved.get("skeleton_ids")), sess.legacy_skeletons()]
-            if not any(fingerprint in (result.fingerprint(skeletons=previous),
-                                       result.fingerprint(previous_refs=True, skeletons=previous))
-                       for previous in candidates if previous is not None):
+            candidates = [sess.skeletons, *sess.previous_skeletons(saved.get("skeleton_ids")), sess.legacy_skeletons()]
+            if not any(fingerprint == result.fingerprint(previous_refs=refs, skeletons=previous, previous_wording=wording)
+                       for previous in candidates if previous is not None
+                       for wording in (False, True) for refs in (False, True)):
                 raise ValueError("문항이 바뀐 묶음")
         result.before_due = {k: datetime.date.fromisoformat(d) if d else None for k, d in saved["before_due"].items()}
         result.sure_before = set(saved["sure_before"])
@@ -2370,7 +2411,16 @@ class PracticeSet(object):
                      if other["kind"] == "skel" and other["part"] == "slot" and other["pattern"] == card["pattern"]
                      and other["variant"] == card["variant"] and (other["id"] == card["id"] or state.is_open(other))}
         try:
-            return skel.view(card, sess.skeletons[card["pattern"]], entry["seed"], boxes, entry["again"])
+            skeleton = sess.skeletons[card["pattern"]]
+            item = skel.view(card, skeleton, entry["seed"], boxes, entry["again"])
+            if card["part"] == "slot" and item["skel"]["masked"] and any(
+                    previous["card"] != card["id"]
+                    and (previous.get("view") or {}).get("item", {}).get("stem") == item["stem"]
+                    for previous in self.queue[:self.pos]):
+                # 다른 주 자리의 앞 문항과 코드가 같으면 이번 주 자리만 가림.
+                item = skel.slot_view(card, skeleton, boxes, entry["again"],
+                                      masked=[], whole=item["skel"]["whole"])
+            return item
         except (bank.AiBankError, KeyError) as error:
             raise AiError("문항을 만들 수 없습니다: %s" % error)
 
@@ -2411,7 +2461,11 @@ class PracticeSet(object):
                           if {statement["id"]} | {s["id"] for s in combo} not in seen), mates)
         options = [{"id": s["id"], "text": s["text"], "ok": bool(s.get("ok")), "why": s.get("why", "")} for s in [statement] + mates]
         rng.shuffle(options)
-        return {"kind": "choice", "stem": "%s에 대한 설명으로 **%s** 것을 고르세요." % (topic.get("title", ""), "옳은" if statement.get("ok") else "옳지 않은"),
+        title = (topic.get("title") or "").strip()
+        direction = "옳은" if statement.get("ok") else "옳지 않은"
+        stem = ("%s에 대한 설명으로 **%s** 것을 고르세요." % (title, direction) if title
+                else "다음 중 **%s** 설명을 고르세요." % direction)
+        return {"kind": "choice", "stem": stem,
                 "options": options, "pick": "right" if statement.get("ok") else "wrong", "multi": False,
                 "explain": statement.get("why", "")}
 

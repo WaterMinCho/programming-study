@@ -169,6 +169,24 @@ class SealedVersionTest(Base):
             fresh.start_mock("m90")
         self.assertEqual(2, fresh.start_mock("m90", repeat=True).attempt)
 
+    def test_unsubmitted_wording_revision_continues_with_the_saved_questions(self):
+        exam = self.session().start_mock("m90", seed=1)
+        exam.save_answer(["3"], "m90-01")
+        before = Path(exam.path).read_bytes()
+        meta = os.path.join(self.folder, "meta.json")
+        study.write_text(meta, json.dumps({"resume_wording": [exam.fingerprint]}))
+        self.reseal(lambda items: items[0].update(stem="빈칸에 수를 쓰세요. ____"))
+        fresh = self.session()
+        self.assertFalse(fresh.mock_info("m90")["restart_required"])
+        reopened = fresh.start_mock("m90")
+        self.assertEqual(exam.fingerprint, reopened.fingerprint)
+        self.assertEqual(exam.items, reopened.items)
+        self.assertEqual(before, Path(reopened.path).read_bytes())
+        with self.assertRaisesRegex(AiError, "먼저 제출하세요"):
+            fresh.start_mock("m90", repeat=True)
+        self.assertEqual(1, reopened.submit()["score"])
+        self.assertNotEqual(exam.fingerprint, fresh.start_mock("m90", repeat=True).fingerprint)
+
     def test_kept_version_that_does_not_match_its_name_is_refused(self):
         _, first = self.submit_first_try()
         self.reseal(self.new_second_item)

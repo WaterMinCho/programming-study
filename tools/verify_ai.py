@@ -1143,11 +1143,11 @@ def load_pattern_group(v, bank_dir, group, skeletons):
     if not data["facts"]:
         v.fail(label, 7, "봉인 안 facts.json 이 없거나 사실이 비었습니다.")
     try:
-        extra = sorted(set(webbank.load_secrets(data["dir"])) - {"facts.json", "review.json"})
+        extra = sorted(set(webbank.load_secrets(data["dir"])) - {"facts.json", "review.json", "resume_wording.json"})
     except webbank.BankError:
         extra = []
     if extra:
-        v.fail(label, 2, "items/%s 의 봉인에는 facts.json 과 review.json 만 둡니다. 코드 카드는 ai/patterns 뼈대에서 만듭니다: %s"
+        v.fail(label, 2, "items/%s 의 봉인에는 사실·검토·이전 묶음 복원 자료만 둡니다. 코드 카드는 ai/patterns 뼈대에서 만듭니다: %s"
                % (label, ", ".join(extra)))
     units = {}
     for key, info in group["units"].items():
@@ -2485,11 +2485,31 @@ def check_level_figure(v, label, manifest, pid, key, step, block, level):
 
 def check_secrets(v, bank_dir):
     """공개 파일과 봉인 안 글에 키·토큰 꼴이 없는지. 해시를 적는 review.json·facts.json·manifest 는 보지 않음."""
+    def without_resume_hashes(text, key, hashes):
+        try:
+            fields = json.loads(text)
+            values = fields.get(key)
+            fields[key] = hashes(values)
+        except (ValueError, AttributeError, TypeError):
+            return text
+        return json.dumps(fields, ensure_ascii=False)
+
     for rel, path in verify_web.walk_files(bank_dir, skip=("assets", "__pycache__", "lecture")):
         name = os.path.basename(rel)
         if not name.endswith(TEXT_EXT) or name in ("review.json", "sealed.json", "art_manifest.json") or "/work/" in "/" + rel:
             continue
-        found = SECRET.search(study.read_text(path))
+        text = study.read_text(path)
+        if re.fullmatch(r"mocks/m[0-9]+/meta\.json", rel) and "resume_wording" in text:
+            try:
+                files = webbank.load_secrets(os.path.dirname(path))
+                text = without_resume_hashes(text, "resume_wording", lambda values: [
+                    value for value in values
+                    if not (isinstance(value, str) and aimock.FINGERPRINT.fullmatch(value)
+                            and "versions/%s/items.json" % value in files
+                            and "versions/%s/spec.json" % value in files)])
+            except webbank.BankError:
+                pass
+        found = SECRET.search(text)
         if found:
             v.fail("secrets", 15, "%s 에 키나 토큰처럼 보이는 글이 있습니다: %s…" % (rel, found.group(0)[:6]))
     for parent in ("items", "mocks"):
@@ -2502,6 +2522,10 @@ def check_secrets(v, bank_dir):
             for rel, text in files.items():
                 if rel in ("facts.json", "review.json"):
                     continue
+                if parent == "items" and rel == "resume_wording.json" and "generator_source" in text:
+                    text = without_resume_hashes(text, "generator_source", lambda values: {
+                        key: value for key, value in values.items()
+                        if not (key == "gens.py" and isinstance(value, str) and aimock.FINGERPRINT.fullmatch(value))})
                 found = SECRET.search(text)
                 if found:
                     v.fail("secrets", 15, "%s/%s 봉인 안 %s 에 키나 토큰처럼 보이는 글이 있습니다: %s…" % (parent, name, rel, found.group(0)[:6]))

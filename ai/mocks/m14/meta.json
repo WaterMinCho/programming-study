@@ -49,5 +49,8 @@
  "format": 1,
  "draft": false,
  "round_set": 2,
- "time_basis": "120분은 약 두 시간 연습을 위한 기본값입니다."
+ "time_basis": "120분은 약 두 시간 연습을 위한 기본값입니다.",
+ "resume_wording": [
+  "db39c516229812edf2a4ede285712e5095271c4048749e16ef7e03c0fc0e0ce9"
+ ]
 }

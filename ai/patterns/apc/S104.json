@@ -159,7 +159,7 @@
    "mode": "code",
    "hint": "함수 이름",
    "note_only": true,
-   "explain": "`cv2.goodFeaturesToTrack(gray, 50, 0.01, 7)`은 `gray`에서 최고 점수의 0.01배 이상인 점을 서로 7픽셀 이상 떨어지게 최대 50개 고릅니다."
+   "explain": "`cv2.goodFeaturesToTrack(gray, 50, 0.01, 7)`은 모서리 후보를 점수가 높은 순서로 살핍니다. 점수가 최고 점수의 0.01배를 넘고 이미 고른 점과 7픽셀 이상 떨어진 후보를 최대 50개 고릅니다."
   }
  ],
  "orders": [
@@ -209,7 +209,7 @@
     {
      "text": "keep = status.ravel()",
      "aim": "0과 1을 그대로 True·False로 봅니다.",
-     "why": "uint8 배열로 고르면 값을 점 번호로 읽습니다. 이 예에서는 1번, 1번, 0번, 1번 점을 꺼내 네 행이 나오고, 실패한 점을 빼지 못합니다."
+     "why": "uint8 배열의 값은 참·거짓 표시가 아니라 행 번호로 쓰입니다. 이 예에서는 1번, 1번, 0번, 1번 점이 나와 성공한 3번 점이 빠지고 1번 점이 반복됩니다."
     },
     {
      "text": "keep = status.ravel() == 0",
@@ -240,12 +240,12 @@
    "id": "apc-p402",
    "variant": "표준형",
    "line": 3,
-   "stem": "`prev_pts`와 `next_pts`에서 같은 번호의 행은 같은 점입니다. `keep`은 성공한 점만 True인 길이 N의 배열이고 `new_ok`는 `next_pts[keep].reshape(-1, 2)`입니다. 예를 들어 점 4개의 `status`가 [[1], [1], [0], [1]]이면 2번 점만 실패했습니다. 성공한 점의 이전 좌표를 `old_ok`에 담는 줄로 **옳은** 것을 고르세요.",
+   "stem": "`prev_pts`와 `next_pts`에서 같은 번호의 행은 같은 점의 이전·현재 좌표입니다. `status`는 점의 성공 여부를 기록한 uint8 배열입니다. 점이 4개이고 `status`가 [[1], [1], [0], [1]]일 때 2번 점만 실패했습니다. `keep`은 성공한 점만 True인 길이 N의 배열이고 `new_ok`는 `next_pts[keep].reshape(-1, 2)`입니다. 성공한 점의 이전 좌표를 `old_ok`에 담는 줄을 고르세요.",
    "wrong": [
     {
      "text": "old_ok = prev_pts.reshape(-1, 2)",
      "aim": "이전 점은 고르지 않아도 된다고 봅니다.",
-     "why": "실패한 점이 있으면 `old_ok`는 N행, `new_ok`는 K행이라 같은 점끼리 뺄 수 없습니다. 이 예에서는 뒤에서 `new_ok - old_ok`를 계산할 때 (3, 2)에서 (4, 2)를 빼게 되어 ValueError가 납니다."
+     "why": "이 예에서 이 줄은 실패한 점까지 남겨 old_ok는 (4, 2), new_ok는 (3, 2)입니다. 두 배열의 첫 축 길이 4와 3이 달라 빼면 ValueError가 납니다. 성공한 점이 하나인 경우에는 좌표 하나가 여러 점과 짝지어져 계산 결과를 변위로 쓸 수 없습니다."
     },
     {
      "text": "old_ok = next_pts[keep].reshape(-1, 2)",

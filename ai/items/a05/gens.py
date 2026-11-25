@@ -107,7 +107,9 @@ def branch3_mults(r):
     if code in wrong:
         raise Retry("다른 구성으로 센 값과 겹침")
     args = "(%d, %d, %d, %d, %d, %d, %d)" % (cin, n1, r3, n3, red, out, pp)
-    stem = ("InceptionModule%s의 block3에 있는 합성곱 층을 이 단원의 코드에 적힌 대로 셉니다. %s "
+    stem = ("InceptionModule%s를 만들었습니다. %s "
+            "block3은 1×1, 3×3, 3×3 합성곱을 차례로 적용합니다. 첫 층의 출력 채널은 block3 첫 층 출력 인수이고, "
+            "이후 두 층의 출력 채널은 block3 출력 인수입니다. "
             "출력 위치 하나에서 block3의 합성곱 층이 하는 곱셈 수는 모두 ____ 번입니다. "
             "bias, BatchNorm2d, ReLU는 세지 않습니다." % (args, _ARGS))
     explain = ("block3은 1×1 합성곱(%d→%d), 3×3 합성곱(%d→%d), 3×3 합성곱(%d→%d) 세 층입니다. "

@@ -965,6 +965,28 @@ class PatternSetTest(PatternBase):
 
 
 class PatternAnswerTest(PatternBase):
+    def test_other_main_slot_does_not_repeat_the_same_masked_code(self):
+        sess = self.opened_slots()
+        ps = service.PracticeSet(sess, "s1", "unit", ["pc-k01", "pc-k02"], 1)
+        boxes = {"pc-k01": 2, "pc-k02": 2}
+        first, second = [sess.cards[cid] for cid in boxes]
+        skeleton = sess.skeletons[first["pattern"]]
+        from aiprep import skel
+        similar = skel.slot_view(first, skeleton, boxes)
+        self.assertEqual(similar["stem"], skel.slot_view(second, skeleton, boxes)["stem"])
+
+        with mock.patch.object(sess._state(), "box", side_effect=boxes.get), mock.patch.object(
+                sess._state(), "is_open", side_effect=lambda card: card["id"] in boxes):
+            initial = ps.current()
+            ps.pos = 1
+            shown = ps.current()
+
+        self.assertEqual(similar["stem"], initial["stem"])
+        self.assertNotEqual(initial["stem"], shown["stem"])
+        self.assertEqual(1, len(shown["blanks"]))
+        self.assertEqual("pass", ps.answer(["zero_grad"], 2, True)["result"])
+        self.assertEqual([], self.log(sess, "answer")[-1]["masked"])
+
     def test_slot_answer_records_fade_masked_and_also(self):
         sess = self.opened_slots()
         ps = service.PracticeSet(sess, "s1", "unit", ["pc-k02"], 1)
