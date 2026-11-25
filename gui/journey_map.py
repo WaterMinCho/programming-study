@@ -432,6 +432,7 @@ class JourneyMapPage(QWidget):
         next_area = QWidget()
         next_box = kit.box(next_area)
         self.next_card = kit.NextCard(compact=True)
+        self.next_minimum = self.next_card.minimumHeight()
         self.next_btn = self.next_card.button
         self.next_note = kit.para("", "body", "secondary")
         self.next_note.hide()
@@ -561,7 +562,16 @@ class JourneyMapPage(QWidget):
     def arrange_columns(self):
         if not hasattr(self, "scroll"):
             return
-        self.compact = self.width() < COMPACT_WIDTH
+        compact = self.width() < COMPACT_WIDTH
+        if compact != self.compact:
+            self.about.setVisible(not compact)
+            self.header.setSpacing(theme.GAP["title_description"] if compact else COLUMN_GAP)
+            self.column_body.layout().setSpacing(theme.GAP["title_description"] if compact else CARD_GAP)
+            self.next_card.setMinimumHeight(0 if compact else self.next_minimum)
+            left, _, right, _ = self.next_card.row.getContentsMargins()
+            pad = theme.GAP["title_description"] if compact else theme.GAP["paragraph"]
+            self.next_card.row.setContentsMargins(left, pad, right, pad)
+        self.compact = compact
         direction = QBoxLayout.Direction.TopToBottom if self.compact else QBoxLayout.Direction.LeftToRight
         self.header.setDirection(direction)
         self.switcher.setVisible(self.compact)

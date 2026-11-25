@@ -487,7 +487,7 @@ class JourneyPage(QWidget):
         self.status.setMaximumWidth(STATUS_MAX)
         self.status.hide()
         self.top.row.insertWidget(1, self.status, 1, Qt.AlignmentFlag.AlignVCenter)
-        self.top.row.insertStretch(2, 1)
+        self.top.row.insertStretch(2, 0)
         self.lang_bar = LangChips()
         self.lang_btns = self.lang_bar.buttons
         self.lang_bar.note.setMinimumWidth(1)  # 화면의 최소 폭에 넣지 않음. 자리가 모자라면 fit_top 이 숨김
