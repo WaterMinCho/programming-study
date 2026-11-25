@@ -110,7 +110,7 @@ def first_true(n, ok):
 def lower_bound_steps(fig):
     steps, answer = first_true(len(SORTED), lambda i: SORTED[i] >= 5)
     assert [s[:3] for s in steps] == [(0, 5, 2), (0, 2, 1)] and answer == 2  # 해설의 단계
-    frames = [(0, 5, None, None, "찾는 자리는 [0, 5) 안에 있고, lo = 0, hi = 5에서 시작합니다.")]
+    frames = [(0, 5, None, None, "검사 범위는 인덱스 [0, 5)입니다. 첫 T가 없으면 배열 끝 5를 반환합니다.")]
     rows = []
     for lo, hi, mid, ok in steps:
         word = "5 이상이라 T" if ok else "5보다 작아 F"
@@ -131,7 +131,8 @@ def lower_bound_steps(fig):
         ghost = (20 + 5 * 48, 92, 40, 40)
         dashed_box(c, *ghost)
         c.text(mid_x(ghost), 92 + 43, "5", "line_no", 10, mono=True, anchor="ma")
-        c.text(mid_x(ghost), 92 + 20, "n", "comment", 13, mono=True, anchor="mm")
+        c.text(mid_x(ghost), 92 + 20, "n", "ink", 13, mono=True, anchor="mm")
+        c.text(mid_x(ghost), 92 + 62, "배열 끝", "ink", 11, anchor="ma")
         slots = rects + [ghost]
         pointers(c, mid_x(slots[lo]), mid_x(slots[hi]), 92)
         if mid is not None:

@@ -116,10 +116,10 @@ def kernel_and_maps():
     box(s, (48, 301, 410, 463), BLUE_L, BLUE)
     box(s, (630, 301, 992, 463), BLUE_L, BLUE)
     center(s, 229, 335, "입력 이미지 배치", 34, BLUE_D, True)
-    center(s, 229, 377, "[N, Cin, H, W]", 31, INK, code=True)
+    center(s, 229, 377, "[N, Cin, Hin, Win]", 31, INK, code=True)
     center(s, 229, 421, f"[2, {in_channels}, {height}, {width}]", 35, INK, True, True)
     center(s, 811, 335, "출력 특징 맵", 34, BLUE_D, True)
-    center(s, 811, 377, "[N, Cout, H, W]", 31, INK, code=True)
+    center(s, 811, 377, "[N, Cout, Hout, Wout]", 31, INK, code=True)
     center(s, 811, 421, f"[2, {out_channels}, {out_height}, {out_width}]", 35, INK, True, True)
     arrow(s, (425, 377), (615, 377), BLUE)
     center(s, 520, 348, "3×3 합성곱", 30, BLUE_D, True)
@@ -170,8 +170,8 @@ def local_gradient():
     s = sheet("한 입력에서 읽는 기울기")
     left(s, 63, 122, "세로축은 대상 점수, 가로축은 입력", 33)
     for x, sign, color, label in (
-        (278, 1, BLUE_D, "입력을 늘리면 점수가 오릅니다."),
-        (762, -1, RED_D, "입력을 늘리면 점수가 내립니다."),
+        (278, 1, RED_D, "입력을 늘리면 점수가 오릅니다."),
+        (762, -1, BLUE_D, "입력을 늘리면 점수가 내립니다."),
     ):
         assert abs(3 * sign) == 3
         center(s, x, 193, "+3" if sign == 1 else "−3", 61, color, True, True)
@@ -341,7 +341,7 @@ def slope_axes(s, x, top=164, bottom=435):
 def tangent_direction():
     s = sheet("픽셀을 조금 밝게 하면")
     left(s, 66, 118, "대상 점수", 34, INK, True)
-    for x, direction, color in ((268, 1, BLUE_D), (759, -1, RED_D)):
+    for x, direction, color in ((268, 1, RED_D), (759, -1, BLUE_D)):
         slope_axes(s, x)
         def curve(t):
             return 302 - direction * 0.60 * t - 0.0018 * t * t
@@ -352,8 +352,8 @@ def tangent_direction():
                 (x + 68, 302 - direction * 0.60 * 68)], color, 7)
         dot(s, x, 302, color, 10)
         s.path([(x, 313), (x, 435)], RULE, 3, dash=(6, 7))
-        arrow(s, (x, 479), (x + 100, 479), color, 4)
-        center(s, x + 43, 518, "픽셀 값 증가", 34, color, True)
+        arrow(s, (x, 479), (x + 100, 479), INK, 4)
+        center(s, x + 43, 518, "픽셀 값 증가", 34, INK, True)
     return s.image()
 
 
@@ -362,9 +362,9 @@ def two_slope_magnitudes():
     s = sheet("두 픽셀의 기울기 비교")
     left(s, 66, 119, "대상 점수", 34, INK, True)
     rise_per_unit, run_per_unit = 12, 36
-    for x, slope, color in ((270, 2, BLUE_D), (764, -6, RED_D)):
+    for x, slope, color in ((270, 2, RED_D), (764, -6, BLUE_D)):
         label = "+2" if slope == 2 else "−6"
-        box(s, (x - 67, 123, x + 67, 199), BLUE_L if slope > 0 else RED_L, color)
+        box(s, (x - 67, 123, x + 67, 199), RED_L if slope > 0 else BLUE_L, color)
         center(s, x, 161, label, 54, color, True, True)
         slope_axes(s, x, 216, 462)
         half_run = 1.35

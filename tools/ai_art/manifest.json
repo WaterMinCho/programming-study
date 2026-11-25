@@ -1482,7 +1482,7 @@
    "fn": "a10a-1"
   },
   "learn/al10/assets/a10b-1.png": {
-   "sha256": "b3dcab402a56068057b4771f008d3ffd3fa7e1ee3b3350a410e78d5f777d7714",
+   "sha256": "16a2fc9e7d9c43d24deea6e1d678c55349ecce50b413ea53cbe9f1b6e2f2da23",
    "script": "tools/ai_art/al10.py",
    "fn": "a10b-1"
   },
@@ -1507,17 +1507,17 @@
    "fn": "a10c-1"
   },
   "learn/al10/assets/a10d-1.png": {
-   "sha256": "0d589c0abd888953ff586323521e9d659eb2592f3108f884e877de4e2a79cc62",
+   "sha256": "f456c3fafd09d92cdbecbbefccbf6b91e8e8797cb69566c7a93e21c5a00f614a",
    "script": "tools/ai_art/al10.py",
    "fn": "a10d-1"
   },
   "learn/al10/assets/a10d-31.png": {
-   "sha256": "75445bdcca179db0d655cc888d34010da19e0cfb79e602fcf2b8cdb2dda55d22",
+   "sha256": "12d67e0bd95386c90addd8607b587a36696a30a04d0123a2126369d26d5bc7f2",
    "script": "tools/ai_art/al10.py",
    "fn": "a10d-31"
   },
   "learn/al10/assets/a10d-32.png": {
-   "sha256": "2d56b1634206840b24edbd508385e816ccb6dd9afe1e9035d9d126c275b02cae",
+   "sha256": "ce0eb13572106a67e1917781aa1f47795c015ca7b643816985077578999b6db8",
    "script": "tools/ai_art/al10.py",
    "fn": "a10d-32"
   },
