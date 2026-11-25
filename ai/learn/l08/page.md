@@ -637,7 +637,7 @@ BCEWithLogitsLoss 방식의 출력에 `torch.where(z_out < 0.5, 0, 1)`처럼 0.5
 질문을 읽고 답을 충분히 생각한 뒤 펼쳐보세요.
 
 ```ai-memo
-[{"q": "BCELoss 방식과 BCEWithLogitsLoss 방식은 모델 끝과 손실 줄이 어떻게 다른가요?", "a": "BCELoss 방식은 모델 끝에 `nn.Sigmoid()`를 두고 `nn.BCELoss()`를 씁니다. BCEWithLogitsLoss 방식은 Linear 층에서 끝나고 `nn.BCEWithLogitsLoss()`를 씁니다.", "cards": ["i08-c11", "i08-c13", "i08-b13"]},
+[{"q": "BCELoss 방식과 BCEWithLogitsLoss 방식은 모델 끝과 손실 줄이 어떻게 다른가요?", "a": "BCELoss 방식은 모델 끝에 `nn.Sigmoid()`를 두고 `nn.BCELoss()`를 씁니다. BCEWithLogitsLoss 방식은 Linear 층에서 끝나고 `nn.BCEWithLogitsLoss()`를 씁니다.", "cards": ["i08-c11", "i08-c13", "i08-b13", "i08-c103"]},
  {"q": "두 방식의 예측 기준은 각각 무엇인가요?", "a": "BCELoss 방식은 p를 0.5와, BCEWithLogitsLoss 방식은 z를 0.0과 견줍니다. σ(0) = 0.5라 같은 예측이 나옵니다.", "cards": ["i08-b10"]},
  {"q": "BCEWithLogitsLoss 방식 출력에 0.5 기준을 쓰면 무엇이 틀어지나요?", "a": "`torch.where(z < 0.5, 0, 1)`이면 0 ≤ z < 0.5인 데이터를 0으로 예측합니다. z = 0.3은 p ≈ 0.5744인데 0이 됩니다.", "cards": ["i08-c12"]},
  {"q": "BCEWithLogitsLoss 방식 모델에서 확률을 얻는 함수는 무엇인가요?", "a": "`torch.sigmoid(z)`입니다.", "cards": ["i08-b11"]},

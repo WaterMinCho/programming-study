@@ -342,7 +342,7 @@ PyTorch는 `backward()`를 부를 때마다 새 기울기를 기존 버퍼에 �
 
 ```ai-memo
 [{"q": "PyTorch가 맡는 일 넷은 무엇인가요?", "a": "자동 미분, 손실 함수와 옵티마이저 모듈, numpy와 비슷한 텐서 연산, GPU 가속입니다. 모델 구조는 사람이 정합니다.", "cards": ["i01-c05"]},
- {"q": "학습 기본 패턴을 순서대로 말해 보세요.", "a": "optimizer.zero_grad(), output = model(input), loss = fn(output, target), loss.backward(), optimizer.step() 입니다.", "cards": ["i01-b05", "i01-s01"]},
+ {"q": "학습 기본 패턴을 순서대로 말해 보세요.", "a": "optimizer.zero_grad(), output = model(input), loss = fn(output, target), loss.backward(), optimizer.step() 입니다.", "cards": ["i01-b05", "i01-s01", "i01-c101"]},
  {"q": "zero_grad()를 바퀴마다 부르는 까닭은 무엇인가요?", "a": "backward()가 새 기울기를 앞의 값에 더하므로, 지우지 않으면 기울기가 쌓입니다.", "cards": ["i01-b05", "i01-s07"]},
  {"q": "loss.backward()와 optimizer.step()은 각각 무엇을 하나요?", "a": "backward()는 기울기를 계산해 담고 파라미터 값은 바꾸지 않습니다. step()이 그 기울기로 파라미터를 갱신합니다.", "cards": ["i01-c04", "i01-b04", "i01-s02"]},
  {"q": "평가할 때 with torch.no_grad(): 를 쓰는 까닭은 무엇인가요?", "a": "기울기가 필요 없으므로 기울기 기록을 끄고 메모리와 연산을 아낍니다.", "cards": ["i01-s03"]},

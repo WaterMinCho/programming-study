@@ -334,7 +334,7 @@ finetune_model(model_finetuned, loss_func, optimizer)
 <!-- facts: FA05-b1 FA05-b3 -->
 
 ```ai-memo
-[{"q": "조건 값 하나로 with 블록 안의 기울기 기록을 켜고 끄는 코드는 무엇인가요?", "a": "with torch.set_grad_enabled(mode):입니다. mode가 True이면 켜고 False이면 끕니다.", "cards": ["a05-b08"]}, {"q": "학습 단계에서만 기울기 기록을 켜려면 set_grad_enabled에 무엇을 넘기나요?", "a": "dset == 'train'을 넘깁니다. 학습 단계에서는 True, 검증 단계에서는 False가 됩니다.", "cards": ["a05-b06"]}, {"q": "검증 단계에서 계산한 loss_curr의 requires_grad는 무엇인가요?", "a": "기울기 기록을 끈 블록에서 계산해 False입니다. 검증 단계는 파라미터를 바꾸지 않으므로 기록이 필요 없습니다.", "cards": ["a05-b09"]}]
+[{"q": "조건 값 하나로 with 블록 안의 기울기 기록을 켜고 끄는 코드는 무엇인가요?", "a": "with torch.set_grad_enabled(mode):입니다. mode가 True이면 켜고 False이면 끕니다.", "cards": ["a05-b08", "a05-c12"]}, {"q": "학습 단계에서만 기울기 기록을 켜려면 set_grad_enabled에 무엇을 넘기나요?", "a": "dset == 'train'을 넘깁니다. 학습 단계에서는 True, 검증 단계에서는 False가 됩니다.", "cards": ["a05-b06"]}, {"q": "검증 단계에서 계산한 loss_curr의 requires_grad는 무엇인가요?", "a": "기울기 기록을 끈 블록에서 계산해 False입니다. 검증 단계는 파라미터를 바꾸지 않으므로 기록이 필요 없습니다.", "cards": ["a05-b09"]}]
 ```
 
 
