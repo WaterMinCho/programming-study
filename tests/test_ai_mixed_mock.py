@@ -13,7 +13,7 @@ import unittest
 from unittest import mock
 
 import study
-from aiprep import bank, mixed_mock, mock_code, service
+from aiprep import bank, grade, mixed_mock, mock_code, service
 from aiprep.mock import MockError, MockExam, load_items
 from learning_data import collection
 from learning_server import dataset
@@ -21,6 +21,41 @@ from tests.test_ai_mock import WRONG, code_item, stuck_grade
 from webprep.bank import load_secrets
 
 READ_INDEX = bank.read_index
+HASH_KEYS = ('_revision', '_hash', 'sha256')
+
+
+def listing_legacy(*mids):
+    """실제 은행의 예전(legacy) 회차를 이 patch 안에서만 아무나 볼 수 있게 함."""
+    def read(path=None):
+        index = READ_INDEX(path)
+        for spec in index['mocks']:
+            if spec['id'] in mids:
+                spec.pop('legacy', None)
+        return index
+    return mock.patch.object(bank, 'read_index', read)
+
+
+def submitted_before(user, home, root, mid, seed=1):
+    """예전 회차를 이미 제출한 사람을 준비함. legacy 표시를 뺀 세션에서 모두 맞힌 답으로 내서 복습 카드가 생기지 않게 함."""
+    with listing_legacy(mid):
+        exam = service.AiSession(user, home=home, root=root, course='intro').start_mock(mid, seed=seed)
+        for cid, item in exam.items.items():
+            if item['kind'] == 'blank':
+                exam.save_answer([b['answer'][0] for b in item['blanks']], cid)
+            elif item['kind'] == 'choice':
+                exam.save_answer(grade.right_options(item), cid)
+        return exam.submit()
+
+
+def without_hashes(value):
+    """해시 칸(키가 _revision·_hash·sha256 으로 끝나고 값이 16자 이상의 16진 글자 0~9·a~f 인 칸)을 뺀 사본. 숨은 테스트 값과 같은 숫자가 해시 안에 우연히 들어가도 누설로 보지 않게 함."""
+    if isinstance(value, dict):
+        return {key: without_hashes(item) for key, item in value.items()
+                if not (key.endswith(HASH_KEYS) and isinstance(item, str) and len(item) >= 16
+                        and all(c in '0123456789abcdef' for c in item))}
+    if isinstance(value, list):
+        return [without_hashes(item) for item in value]
+    return value
 
 
 def make_bank(root):
@@ -186,7 +221,11 @@ class MixedMockTest(unittest.TestCase):
         specs = {spec['id']: spec for spec in index['mocks']}
         expected = {'m4': 'f5839fda6b66cf4ceaa3b16193b33a312d81275620b9b4f17d6fdbe45883d2e6',
                     'm5': 'c9ca185b1eb54f8fb960ecc5a3726857525aedd617ffb8a65bffeb6086c02448',
-                    'm6': 'fea01ba8705ff910899cfe983307b2653810adacc369eadf70ae935b40e4e236'}
+                    'm6': 'fea01ba8705ff910899cfe983307b2653810adacc369eadf70ae935b40e4e236',
+                    'm11': '0a64d66f2568947249d124485fb7f9819960ecd01ef1770e26b68d04ee0971ff',
+                    'm12': '6adcb61412123ab080238403c06c09f8f176bf25c210ef752b12516ede2ad0f1',
+                    'm13': '55778362804ffae066caf8802994f335494d245755e2b8982809154c7d0e94a1',
+                    'm14': 'db39c516229812edf2a4ede285712e5095271c4048749e16ef7e03c0fc0e0ce9'}
         for mid, fingerprint in expected.items():
             with self.subTest(mock=mid):
                 self.assertEqual(fingerprint, load_items(str(root), specs[mid], lessons)[1])
@@ -195,11 +234,16 @@ class MixedMockTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]/'ai'
         expected = dict({'i%02d' % n: 1 for n in range(1, 18) if n != 10}, a01=4, a02=4, a03=4, a04=4)
         axes = {'condition', 'application', 'code_analysis', 'comparison'}
+        # m6 는 예전 회차라 제출한 사람만 봄. 새 사용자는 hidden·legacy 가 아닌 회차만 봄
+        fresh = {spec['id'] for spec in READ_INDEX(str(root))['mocks'] if not spec.get('hidden') and not spec.get('legacy')}
+        self.assertEqual({'m11', 'm12', 'm13', 'm14', 'm15'}, fresh)
+        submitted_before('m6-taker', str(self.root/'published-home'), str(root), 'm6')
         for course in ('intro', 'app'):
             with self.subTest(course=course):
-                sess = service.AiSession('synthetic', home=str(self.root/'published-home'), root=str(root), course=course)
-                wanted = {'m4', 'm5', 'm6'} | ({'m1', 'm2', 'm3'} if course == 'intro' else set())
-                self.assertEqual(wanted, set(sess.mocks))
+                new = service.AiSession('synthetic', home=str(self.root/'published-home'), root=str(root), course=course)
+                self.assertEqual(fresh, set(new.mocks))
+                sess = service.AiSession('m6-taker', home=str(self.root/'published-home'), root=str(root), course=course)
+                self.assertEqual(fresh | {'m6'}, set(sess.mocks))
                 spec = sess.mocks['m6']
                 self.assertEqual('mixed32-applied04-v1', spec['blueprint_revision'])
                 self.assertEqual(expected, spec['blueprint'])
@@ -351,7 +395,7 @@ class MixedMockTest(unittest.TestCase):
                 self.assertEqual(code['code']['examples'],row['item']['examples'])
                 for hidden in ('tests','solution','code','limit_ms'):
                     self.assertNotIn(hidden,row['item'])
-        text=json.dumps(snapshot,ensure_ascii=False)
+        text=json.dumps(without_hashes(snapshot),ensure_ascii=False)
         for hidden in ('40017','40019','50013','total = a','"passed"','code_passed'):
             self.assertNotIn(hidden,text)
         prepared=[r for r in dataset.prepare(snapshot) if r['question_id']=='m4-32']
@@ -447,10 +491,19 @@ class MixedMockTest(unittest.TestCase):
     def test_all_lessons_round2_44_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
         self.check_actual_snapshots('m12')
 
+    def test_all_lessons_round3_52_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m13')
+
+    def test_all_lessons_round4_52_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m14')
+
+    def test_all_lessons_round5_54_snapshots_match_for_both_starting_courses_without_answer_leaks(self):
+        self.check_actual_snapshots('m15')
+
     def check_actual_snapshots(self, mid):
         source=Path(__file__).resolve().parents[1]/'ai'
         raw=load_secrets(str(source/'mocks'/mid)).get('items.json')
-        if mid in ('m6','m11','m12'):
+        if mid in ('m6','m11','m12','m13','m14','m15'):
             self.assertIsNotNone(raw, '%s 문항이 필요합니다.' % mid)
         if raw is None:
             self.skipTest('초안 문항은 검토 경로에서만 보관함')
@@ -458,12 +511,13 @@ class MixedMockTest(unittest.TestCase):
         shutil.copytree(source,root)
         meta=study.read_json(root/'mocks'/mid/'meta.json')
         study.write_text(root/'mocks'/mid/'meta.json',json.dumps(dict(meta,draft=False)))
-        # 공개 전 회차도 같은 검사를 받게 hidden 표시만 이 검사 안에서 뺌
+        # 공개 전 회차와 예전 회차도 같은 검사를 받게 hidden·legacy 표시만 이 검사 안에서 뺌. 문항 스냅샷을 보는 검사라 목록 표시와 무관함
         def shown(path):
             index=READ_INDEX(path)
             for spec in index['mocks']:
                 if spec['id']==mid:
                     spec.pop('hidden',None)
+                    spec.pop('legacy',None)
             return index
         unhide=mock.patch.object(bank,'read_index',shown)
         unhide.start();self.addCleanup(unhide.stop)
@@ -504,6 +558,7 @@ class MixedMockTest(unittest.TestCase):
                     for key in ('course','concept','format','transferaxis','conditions','sourcefacts'):
                         self.assertEqual(item[key],content[key],(owner,cid,key))
                     self.assertEqual('mixed',content['scope'])
+                    self.assertEqual(spec['blueprint_revision'], content['blueprint_revision'])
                     self.assertEqual('author',content['classification_basis'])
                     self.assertEqual(item['course'],row['data']['course'])
                     self.assertEqual(int(item['lesson'][1:]),content['course_no'])
@@ -522,9 +577,10 @@ class MixedMockTest(unittest.TestCase):
                         self.assertNotIn('ok',option)
                     for blank in content['blanks']:
                         self.assertNotIn('answer',blank)
-                prepared=dataset.prepare(sess.collection.snapshot())
+                prepared=dataset.prepare([dict(row, synthetic=True) for row in sess.collection.snapshot()])
                 self.assertEqual(total,len(prepared))
-                self.assertTrue(all(not r['features']['sequence_history'] for r in prepared))
+                self.assertEqual(course_counts, Counter(row['course'] for row in prepared))
+                self.assertTrue(all(row['synthetic'] and not row['features']['sequence_history'] for row in prepared))
                 submits=self.rows(sess,'mock_submit')
                 self.assertEqual(len(course_counts),len(submits))
                 self.assertEqual(course_counts,{r['data']['course']:r['data']['of'] for r in submits})

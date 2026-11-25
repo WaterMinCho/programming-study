@@ -26,7 +26,7 @@ Git을 준비해 프로그램을 받은 뒤 Windows에서는 `start.bat`, macOS�
 
 담당 미션 확인 → fork·작업 브랜치 → 비공개 자료·샘플 확인 → 코드·테스트·PR
 
-[**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [실제 자료 받기·샘플링](docs/LEARNING_DATA_ACCESS.md) · [프로젝트 구조와 팀원 역할](docs/ARCHITECTURE.md)
+[**내 담당과 첫 작업 확인하기**](docs/STUDY_START.md) · [실제 자료 받기·샘플링](docs/LEARNING_DATA_ACCESS.md) · [검증 결과 저장하기](docs/LEARNING_STARTER.md#공통-검증-채점기) · [프로젝트 구조와 팀원 역할](docs/ARCHITECTURE.md)
 
 프로그램·서버를 수정할 때는 [변경 영향과 데이터 보존 기준](docs/CHANGE_IMPACT.md)을 먼저 확인합니다.
 

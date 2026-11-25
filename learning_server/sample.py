@@ -21,7 +21,7 @@ def private_path(path):
     return path
 
 
-def inspect(folder):
+def inspect(folder, *, track=None, parts=PARTS):
     root = private_path(folder)
     path = root / "manifest.json"
     if not path.is_file():
@@ -50,10 +50,13 @@ def inspect(folder):
         raise ValueError("자료의 출처와 입력 버전 표시가 맞지 않습니다.")
     if set(record_manifest["files"]) != {track + "-" + part + ".jsonl" for track in tracks for part in PARTS}:
         raise ValueError("자료의 과목과 파일 목록이 맞지 않습니다.")
+    if track is not None and track not in tracks:
+        raise ValueError("이 자료에는 %s 과목이 없습니다." % track)
+    selected_tracks = tracks if track is None else (track,)
     content, counts = {}, {}
-    for track in tracks:
+    for track in selected_tracks:
         content[track], counts[track] = {}, {}
-        for part in PARTS:
+        for part in parts:
             rows, vocabulary = input_example.load(root, track, part)
             if len(rows) != record_manifest["files"][track + "-" + part + ".jsonl"]["rows"]:
                 raise ValueError("자료 목록의 행 수와 실제 파일이 맞지 않습니다.")

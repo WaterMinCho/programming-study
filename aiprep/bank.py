@@ -335,13 +335,16 @@ def _formula_block(text, folder=None):
 
 
 def valid_code_reference(ref):
-    """노트 페이지와 단계 번호·제목을 모두 지정한 참조인지 확인함."""
-    return (isinstance(ref, dict) and set(ref) == {"course", "lesson", "unit", "step", "title"}
+    """노트 페이지와 단계 번호·제목, 선택한 소제목을 확인함."""
+    required = {"course", "lesson", "unit", "step", "title"}
+    return (isinstance(ref, dict) and required <= set(ref) <= required | {"section"}
             and ref["course"] in ("intro", "applied")
             and isinstance(ref["lesson"], str) and bool(PAGE_ID.fullmatch(ref["lesson"]))
             and isinstance(ref["unit"], str) and bool(UNIT_KEY.fullmatch(ref["unit"]))
             and type(ref["step"]) is int and ref["step"] > 0
-            and isinstance(ref["title"], str) and bool(ref["title"].strip()))
+            and isinstance(ref["title"], str) and bool(ref["title"].strip())
+            and ("section" not in ref or (isinstance(ref["section"], str) and bool(ref["section"].strip())
+                                          and ref["section"].splitlines() == [ref["section"]])))
 
 
 def _code_help_block(text):
@@ -377,8 +380,16 @@ def resolve_code_reference(ref, root=None):
                and s["title"] == ref["title"]]
     if len(matches) != 1:
         raise AiBankError("참고 단계의 번호와 제목이 현재 학습 내용과 맞지 않습니다.")
+    step = matches[0]
+    if "section" in ref:
+        heading = "#### " + ref["section"]
+        sections = [b["markdown"].partition("\n")[2].strip() for b in step["blocks"]
+                    if b["kind"] == "text" and b["markdown"].partition("\n")[0] == heading]
+        if len(sections) != 1 or not sections[0]:
+            raise AiBankError("참고 단계에서 지정한 보충 설명을 찾을 수 없습니다.")
+        step = dict(step, title=ref["section"], blocks=[{"kind": "text", "markdown": sections[0]}])
     name = "%s %d차시 · %s" % (COURSES[course], entry["no"], unit["title"])
-    return {"lesson": entry["id"], "unit": unit, "step": matches[0], "name": name, "base_dir": note["dir"]}
+    return {"lesson": entry["id"], "unit": unit, "step": step, "name": name, "base_dir": note["dir"]}
 
 
 def _json_block(kind, text):

@@ -328,6 +328,37 @@ class ResumeTest(CodingBase):
         study.write_text(self.path("patterns/apc/S190.json"), json.dumps(data, ensure_ascii=False))
         self.assertIsNone(self.session("app").resume_set())
 
+    def test_adding_an_app_skeleton_preserves_the_saved_draft(self):
+        app = self.session("app")
+        app.mark_read("apc", "a18a")
+        practice = app.start_set("unit", lesson="apc", unit="a18a", seed=3)
+        practice.draft = {"picked": [0]}
+        app.save_practice(practice)
+        before = list(app.record.log)
+        saved = self.saved_practice(app)
+        self.assertEqual(["S190"], saved["skeleton_ids"])
+        added = {"id": "S191", "variants": {"단일 예제": {"lines": ["value = 1"]}}}
+        study.write_text(self.path("patterns/apc/S191.json"), json.dumps(added, ensure_ascii=False))
+        self.assertEqual(practice.draft, self.session("app").resume_set().draft)
+
+        local_path = os.path.join(app.home, "state.json")
+        local = study.read_json(local_path)
+        local["practice"].pop("skeleton_ids")
+        study.write_text(local_path, json.dumps(local))
+        meta_path = self.path("items/apc/meta.json")
+        meta = study.read_json(meta_path)
+        meta["resume_skeletons"] = ["S190"]
+        study.write_text(meta_path, json.dumps(meta, ensure_ascii=False))
+        updated = self.session("app")
+        self.assertEqual(practice.draft, updated.resume_set().draft)
+        self.assertEqual(before, updated.record.log)
+
+        skeleton_path = self.path("patterns/apc/S190.json")
+        skeleton = study.read_json(skeleton_path)
+        skeleton["title"] = "바뀐 제목"
+        study.write_text(skeleton_path, json.dumps(skeleton, ensure_ascii=False))
+        self.assertIsNone(self.session("app").resume_set())
+
 
 class NoteReferenceTest(CodingBase):
     def test_app_lesson_reference_reads_app_skeletons(self):

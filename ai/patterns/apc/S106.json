@@ -1,0 +1,108 @@
+{
+ "format": 1,
+ "id": "S106",
+ "title": "특징 채널 사이의 곱을 Gram 행렬로 모으기",
+ "ref": [
+  "응용 6차시 노트북 01 [4]"
+ ],
+ "tags": [
+  "특징 맵에서 Gram 행렬 만들기"
+ ],
+ "prio": 3,
+ "variants": {
+  "표준형": {
+   "situation": "features는 (배치, 채널, 높이, 너비) 모양입니다. 이미지마다 채널 둘의 곱을 모아, 나누기 전의 Gram 행렬을 계산합니다.",
+   "lines": [
+    "features = torch.tensor([[[[1., 2.]], [[3., 4.]]]])",
+    "flat = features.flatten(start_dim=2)",
+    "other = flat.transpose(1, 2)",
+    "gram = torch.bmm(flat, other)"
+   ]
+  }
+ },
+ "slots": [
+  {
+   "id": "apc-k601",
+   "line": 1,
+   "token": "start_dim=2",
+   "answer": [
+    "start_dim=2",
+    "2",
+    "start_dim=2, end_dim=-1"
+   ],
+   "mode": "code",
+   "hint": "펴기 시작할 축",
+   "explain": "공간 축만 펼치려면 높이가 놓인 2번 축부터 합칩니다.",
+   "step": "a18f/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-601"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 6차시 노트북 01 [4]"
+   ]
+  },
+  {
+   "id": "apc-k602",
+   "line": 2,
+   "token": "transpose",
+   "answer": [
+    "transpose",
+    "swapaxes",
+    "swapdims"
+   ],
+   "mode": "code",
+   "hint": "두 축을 바꾸는 메서드",
+   "explain": "채널과 위치의 자리를 바꿔 같은 위치의 값끼리 곱할 수 있게 준비합니다.",
+   "step": "a18f/2",
+   "variant": "표준형",
+   "facts": [
+    "FA18-601"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 6차시 노트북 01 [4]"
+   ]
+  }
+ ],
+ "orders": [],
+ "picks": [
+  {
+   "id": "apc-p601",
+   "line": 3,
+   "stem": "flat은 (배치, 채널, 위치)이고 other는 flat에서 채널과 위치 축을 바꾼 텐서입니다. 이미지마다 채널 사이의 Gram 행렬을 만드는 줄을 고르세요.",
+   "wrong": [
+    {
+     "text": "gram = torch.mm(flat, other)",
+     "aim": "배치 축을 놓침",
+     "why": "mm은 두 입력을 2차원 행렬로 받습니다."
+    },
+    {
+     "text": "gram = torch.bmm(other, flat)",
+     "aim": "채널 대신 위치 축을 남깁니다.",
+     "why": "이 순서에서는 위치마다 다른 위치와 곱해 더합니다."
+    },
+    {
+     "text": "gram = flat * other",
+     "aim": "원소별 곱과 행렬곱을 혼동",
+     "why": "이 줄은 원소끼리 곱하고 채널 조합마다 위치의 값을 더하는 계산을 하지 않습니다."
+    }
+   ],
+   "explain": "두 축이 모두 채널이라 이미지 하나의 Gram 행렬은 (3, 3)입니다.",
+   "step": "a18f/3",
+   "variant": "표준형",
+   "facts": [
+    "FA18-601"
+   ],
+   "core": true,
+   "level": 2,
+   "ref": [
+    "응용 6차시 노트북 01 [4]"
+   ]
+  }
+ ],
+ "changes": []
+}

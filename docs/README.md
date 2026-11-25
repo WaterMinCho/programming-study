@@ -23,7 +23,7 @@
 | `ai/`, `aiprep/` | AI 개론·응용의 학습 자료와 문항, 학습·연습·채점 기능 |
 | `career/` | 커리어 메뉴의 세부 직무와 영상·논문 목록입니다. 화면에서 찾는 방법은 [커리어 안내](career/README.md)에 있습니다. |
 | `learning_data/` | 파이썬·AI의 공통 기록, 수집 동의·철회, 전송과 비공개 파일 제출 |
-| `learning_server/` | 비공개 수집 API, 파일 보관, 공통 학습 자료 준비와 운영 명령 |
+| `learning_server/` | 비공개 수집 API, 파일 보관, 공통 학습 자료 준비와 운영 명령. 모델의 예측은 [공통 검증 채점기](LEARNING_STARTER.md#공통-검증-채점기)로 확인합니다. |
 | `experiments/본인GitHubID/` | 스터디원이 직접 만드는 모델 코드·테스트·실험 설명 |
 | `web/missions`, `web/drills`, `web/learn` | 웹 면접 준비의 미션, 꼬리 질문 주제, 학습 노트. 읽기 안내(`brief.md`), 템플릿 코드(`app/`), 학습 노트(`page.md`)는 공개 파일이고, 단계 요구, 검사, 해설, 사슬 본문은 미션과 주제마다 `sealed.json` 하나에 묶여 있습니다. 목록과 권장 순서는 `web/index.json` 에 있고, 아직 출제되지 않은 것은 폴더가 없습니다 |
 | `webprep/` | 웹 면접 준비의 서비스, 검사 실행, 기록, 복습 일정, 터미널 명령 |
@@ -31,4 +31,4 @@
 | `submissions/<내 ID>` | 내 회차, 풀이, 기록(`profile.json`) |
 | `submissions/<내 ID>/journey` | 알고리즘 여행의 내 코드(`d01/p1.py`, `d01/p1.js`), 내가 추가한 테스트 케이스(`d01/p1.cases.json`), 기록(`progress.json`) |
 | `submissions/<내 ID>/web` | 웹 면접 준비의 내 미션 코드(`missions/w03/`)와 기록(`record.json`) |
-| `docs` | [GIT_GUIDE](GIT_GUIDE.md)(프로그램 업데이트와 개발 PR), [CRITERIA](CRITERIA.md)(판정 규칙), [AUTHORING](AUTHORING.md)(스터디장용 운영 메모와 출제 규격), [JOURNEY_AUTHORING](JOURNEY_AUTHORING.md)(알고리즘 여행 출제 규격과 교차 검증), [WEB_AUTHORING](WEB_AUTHORING.md)(웹 면접 준비 출제 규격과 교차 검증) |
+| `docs` | [CRITERIA](CRITERIA.md)(판정 규칙), [AUTHORING](AUTHORING.md)(스터디장용 운영 메모와 출제 규격), [JOURNEY_AUTHORING](JOURNEY_AUTHORING.md)(알고리즘 여행 출제 규격과 교차 검증), [WEB_AUTHORING](WEB_AUTHORING.md)(웹 면접 준비 출제 규격과 교차 검증) |

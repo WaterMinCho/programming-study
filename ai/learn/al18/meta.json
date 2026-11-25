@@ -8,13 +8,25 @@
   "al01",
   "al02",
   "al03",
-  "al04"
+  "al04",
+  "al05",
+  "al06",
+  "al07",
+  "al08",
+  "al09",
+  "al10"
  ],
  "sections": {
   "a18a": "사진 한 장을 잘라 모델 입력으로 바꾸기",
   "a18b": "펼친 영상에서 정한 색 범위만 남기기",
   "a18c": "프레임마다 물체의 중심을 원본 좌표로 기록하기",
-  "a18d": "성공한 점만 골라 변위를 구하고 다음 프레임으로 넘기기"
+  "a18d": "성공한 점만 골라 변위를 구하고 다음 프레임으로 넘기기",
+  "a18e": "점수에서 사진마다 예측 이름을 찾기",
+  "a18f": "특징 채널 사이의 곱을 Gram 행렬로 모으기",
+  "a18g": "판별기 단계에서 생성기와 기울기 끊기",
+  "a18h": "사진 특징을 첫 자리로 붙인 뒤 유효한 캡션만 쓰기",
+  "a18i": "앞쪽 점이 남긴 투과율로 광선의 색 합치기",
+  "a18j": "목표 클래스의 입력 기여도 비교하기"
  },
  "outputs": [],
  "sources": [
@@ -62,6 +74,41 @@
    "what": "NumPy transpose·mean·astype 와 자료형 승격",
    "url": "https://numpy.org/doc/stable/reference/generated/numpy.transpose.html",
    "checked": "2026-11-17"
+  },
+  {
+   "what": "사진마다 최대 점수 위치의 번호와 리스트 변환",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.argmax.html",
+   "checked": "2026-11-24"
+  },
+  {
+   "what": "배치별 행렬곱의 입력과 출력 모양",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.bmm.html",
+   "checked": "2026-11-24"
+  },
+  {
+   "what": "detach가 반환한 텐서의 기울기 연결",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.Tensor.detach.html",
+   "checked": "2026-11-24"
+  },
+  {
+   "what": "캡션 배치의 실제 길이와 정렬 옵션",
+   "url": "https://docs.pytorch.org/docs/stable/generated/torch.nn.utils.rnn.pack_padded_sequence.html",
+   "checked": "2026-11-24"
+  },
+  {
+   "what": "광선의 투과율과 색 합성, 식 (3)",
+   "url": "https://arxiv.org/abs/2003.08934",
+   "checked": "2026-11-24"
+  },
+  {
+   "what": "Saliency의 배치 축, 목표 출력과 기울기 절댓값 기본값",
+   "url": "https://captum.ai/api/saliency.html",
+   "checked": "2026-11-25"
+  },
+  {
+   "what": "Integrated Gradients에서 기준선과 경로를 따라 구한 기울기",
+   "url": "https://captum.ai/api/integrated_gradients.html",
+   "checked": "2026-11-25"
   }
  ],
  "credits": [],
@@ -84,6 +131,30 @@
   "a18d": {
    "minutes": 9,
    "key_figure": "assets/a18d-5.png",
+   "kind": "pattern"
+  },
+  "a18e": {
+   "minutes": 5,
+   "kind": "pattern"
+  },
+  "a18f": {
+   "minutes": 5,
+   "kind": "pattern"
+  },
+  "a18g": {
+   "minutes": 5,
+   "kind": "pattern"
+  },
+  "a18h": {
+   "minutes": 5,
+   "kind": "pattern"
+  },
+  "a18i": {
+   "minutes": 5,
+   "kind": "pattern"
+  },
+  "a18j": {
+   "minutes": 7,
    "kind": "pattern"
   }
  }

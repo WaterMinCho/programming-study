@@ -82,7 +82,7 @@ LSTM에 `pack_padded_sequence`를 쓰면 길이 0인 행을 그대로 넣을 수
 
 ## 풀이 기록에서 다음 문제 추천까지
 
-수집·공통 자료 준비는 구현했습니다. 아래 그림은 각 모델이 들어갈 위치입니다. 모델 학습·비교·추천 연결은 앞으로 진행합니다. 실제 참가자의 등록·사용 결과는 [시범 운영 안내](LEARNING_PILOT.md)에서 구분합니다.
+수집·공통 자료 준비 코드는 `learning_server/`에, 세 모델의 코드는 `experiments/`에 있습니다. 그림에서 각 모델이 추천 과정의 어느 단계에 쓰이는지 볼 수 있습니다. 실제 참가자의 등록·사용 결과는 [시범 운영 안내](LEARNING_PILOT.md)에서 구분합니다.
 
 [![공통 입력에서 세 팀원의 모델로 갈라진 뒤 같은 형식으로 결과를 내고 앱 추천에 연결할 담당을 보여줍니다. 점선은 예정입니다.](img/architecture/model-roles.png)](img/architecture/model-roles.png)
 
@@ -292,13 +292,12 @@ flowchart TD
 
 각자 `WaterMinCho/programming-study`를 fork하고 그 안의 `experiments/본인GitHubID/`에서 모델을 만듭니다. 별도 모델 저장소를 만들지 않고 코드·실험 기록을 같은 fork에 커밋해 공통 프로젝트로 PR을 보냅니다. [fork에서 모델 개발과 첫 PR까지](LEARNING_WORKFLOW.md)에서 SourceTree와 터미널 절차를 확인합니다. [실험 기록 양식](LEARNING_EXPERIMENT_TEMPLATE.md)은 본인 폴더의 README나 실험 노트에 복사합니다.
 
-모델 코드·설정·공개 설명을 모두 `experiments/<GitHub ID>/`에 모읍니다. 아래는 앞으로 만들 파일의 예시이며 아직 실행 가능한 공통 모델 코드는 아닙니다.
+모델 코드·설정·공개 설명을 모두 `experiments/<GitHub ID>/`에 모읍니다. 아래는 모델 폴더 구성 예시입니다. 검증 예측은 [공통 검증 채점기](LEARNING_STARTER.md#공통-검증-채점기)로 비교합니다.
 
 ```text
 programming-study/experiments/<GitHub ID>/
   README.md          실행 순서와 본인이 설명할 수 있는 내용
-  train.py           모델 학습
-  evaluate.py        같은 평가 자료로 비교
+  train.py           모델 학습과 공통 검증 채점기 호출
   predict.py         저장한 모델을 불러와 예측
   requirements.txt   사용한 라이브러리 버전
   configs/           설정과 난수 시드

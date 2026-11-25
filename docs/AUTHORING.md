@@ -37,7 +37,7 @@ submissions/<ID>/        스터디원별 회차, 풀이, profile.json
 submissions/<ID>/journey/  알고리즘 여행 코드, 내가 추가한 테스트 케이스, progress.json
 submissions/<ID>/web/    웹 면접 준비의 미션 코드(missions/<미션>/)와 record.json
 submissions/<ID>/ai/     AI 개론·응용의 공통 기록 record.json
-docs/                    GIT_GUIDE(설치·제출·개발 안내 링크), CRITERIA(판정 규칙), AUTHORING(이 문서), JOURNEY_AUTHORING(알고리즘 여행 출제), WEB_AUTHORING(웹 면접 준비 출제), AI_AUTHORING(AI 개론·응용 출제)
+docs/                    LEARNER_START(설치와 학습), LEARNING_WORKFLOW(모델 개발과 PR), CRITERIA(판정 규칙), AUTHORING(이 문서), JOURNEY_AUTHORING(알고리즘 여행 출제), WEB_AUTHORING(웹 면접 준비 출제), AI_AUTHORING(AI 개론·응용 출제)
 tools/, tests/           출제와 CI 에 쓰는 도구, 테스트 (알고리즘 여행은 journey_seal.py, verify_journey.py, journey_art/, 웹 면접 준비는 web_seal.py, verify_web.py, web_lint.py, web_art/, AI 비전 개론은 ai_seal.py, verify_ai.py, ai_overlap.py, ai_art/)
 ```
 

@@ -7,10 +7,18 @@ import random
 from unittest import mock
 
 from aiprep import bank, grade, mixed_mock, service
+from tests.test_ai_mixed_mock import listing_legacy
 from tests.test_ai_service import Base
 
 
 class MockTransferTest(Base):
+    def setUp(self):
+        super().setUp()
+        # 예전 회차 m4~m6 의 오답 연결을 보는 검사라 legacy 표시만 이 검사 안에서 뺌
+        patch = listing_legacy('m4', 'm5', 'm6')
+        patch.start()
+        self.addCleanup(patch.stop)
+
     def session(self, course='intro'):
         return service.AiSession('transfer-' + course, home=os.path.join(self.tmp, 'home'), root=bank.AI_DIR, course=course)
 

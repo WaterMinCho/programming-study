@@ -307,7 +307,7 @@ class AiSectionBrowserTest(AiTest):
                     height = min(height, room.height() - frame.height() - 32)
                     win.move(room.topLeft() + QPoint(16, 16))
                 win.resize(width, height)
-                for course, count in (("intro", 17), ("app", 5)):
+                for course, count in (("intro", 17), ("app", 10)):
                     win.switch_ai_course(course)
                     browser.select("lessons")
                     self.settle()
@@ -593,8 +593,11 @@ class AiSectionBrowserTest(AiTest):
         guikit.click(browser.buttons["coding"])
         self.settle()
         self.assertFalse(home.pattern_empty.isVisible())
-        self.assertEqual("공개된 단원 4개", home.pattern_count.text())
-        empty = dict(win.ai.overview(), patterns=[])  # 응용 코딩 실습을 공개했으므로 무리가 없는 목록은 바꿔 넣어 확인함
+        overview = win.ai.overview()
+        count = sum(len(group["units"]) for group in overview["patterns"])
+        self.assertGreater(count, 0)
+        self.assertEqual(f"공개된 단원 {count}개", home.pattern_count.text())
+        empty = dict(overview, patterns=[])  # 실습이 없는 경우의 안내를 확인함
         with mock.patch.object(win.ai, "overview", return_value=empty):
             home.refresh()
             self.settle()

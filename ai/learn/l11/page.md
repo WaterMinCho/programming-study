@@ -78,7 +78,7 @@ Conv2d의 앞 두 수는 입력·출력 채널 수입니다. bias=False는 편�
 ```
 
 ```ai-recall
-{"id": "r3", "q": "이 Conv2d 코드에서 출력 채널 수는 ____ 입니다.", "answer": ["1"], "mode": "number"}
+{"id": "r3-v2", "q": "`nn.Conv2d(3, 8, kernel_size=2)`가 만드는 출력 채널 수는 ____ 입니다.", "answer": ["8"], "mode": "number", "unit": "개", "why": "첫 번째 인수는 입력 채널 수, 두 번째 인수는 출력 채널 수입니다."}
 ```
 
 

@@ -220,6 +220,31 @@ class ReviewTest(unittest.TestCase):
                 review.review(self.folder)
             run.assert_not_called()
 
+    def test_claude_failures_distinguish_login_quota_and_unclassified_output(self):
+        for stage, stdout, stderr, reason in (
+            ("auth", '{"loggedIn":false}', "", "login_required"),
+            ("auth", "오류 응답", "", "auth_check"),
+            ("generate", "", "API Error: 429 rate_limit_error", "quota"),
+            ("generate", "", "request timed out: ECONNRESET", "connection"),
+            ("generate", "", "arbitrary private error output", "unknown"),
+        ):
+            with self.subTest(reason=reason), mock.patch.object(
+                review.subprocess, "run", return_value=mock.Mock(returncode=1, stdout=stdout, stderr=stderr)
+            ), self.assertRaises(review.ModelFailure) as caught:
+                review.run(["claude"], claude_stage=stage)
+            self.assertEqual(reason, caught.exception.reason)
+            self.assertNotIn("arbitrary private error output", str(caught.exception))
+
+    def test_quota_result_without_initialization_is_reported_as_quota(self):
+        self.prepare()
+        error = json.dumps({"type": "result", "is_error": True, "errors": ["You've hit your limit."]})
+        with mock.patch.object(review, "pull", return_value=self.info), mock.patch.object(review.shutil, "which", return_value="claude"), \
+                mock.patch.object(review, "run", side_effect=["test-version", AUTH, error]), \
+                self.assertRaises(review.ModelFailure) as caught:
+            review.review(self.folder)
+        self.assertEqual("quota", caught.exception.reason)
+        self.assertFalse((self.folder/"feedback.md").exists())
+
     def test_schema_allows_only_the_output_formatter_and_saves_after_current_head_check(self):
         self.prepare()
         assessment = {"decision": "needs_context"}

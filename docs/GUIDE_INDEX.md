@@ -88,7 +88,7 @@ Git 준비부터 프로그램 내려받기와 첫 실행까지 안내합니다. 
 - [파이썬 스터디](../problems/README.md#답-적는-법과-채점): 답은 자동 저장되며 [회차 제출]을 누르면 회차 전체를 채점합니다.
 - [알고리즘 여행](../journey/README.md#코드-실행과-채점): [코드 실행]으로 예시를 확인하고 [채점하기]로 숨은 테스트까지 검사합니다.
 - [AI 개론·응용 연습](../ai/README.md#답-적는-법과-채점): 빈칸을 적거나 보기를 고른 뒤 [확실함]·[긴가민가]로 한 문항씩 답을 확인합니다.
-- [개론 모의고사 1~3회](../ai/README.md#ai-개론-모의고사)와 [개론·응용 혼합 모의고사](../ai/README.md#mixed-mock-exam)는 AI 홈 위쪽의 [모의고사] 탭에서 풉니다. 두 모의고사 모두 다시 열면 같은 답안과 남은 시간으로 이어집니다. [제출]을 누르거나 시간이 끝나면 채점합니다.
+- [모든 차시 모의고사 m11·m12](../ai/README.md#all-lessons-mock-exam)는 AI 홈 위쪽의 [모의고사] 탭에서 풉니다. 예전 [개론 모의고사 1~3회](../ai/README.md#ai-개론-모의고사)와 [개론·응용 혼합 모의고사](../ai/README.md#mixed-mock-exam)는 [제출한 사람에게만 보입니다](../ai/README.md#legacy-mock-exam). 어느 모의고사든 다시 열면 같은 답안과 남은 시간으로 이어집니다. [제출]을 누르거나 시간이 끝나면 채점합니다.
 
 ---
 
@@ -129,8 +129,8 @@ Git 준비부터 프로그램 내려받기와 첫 실행까지 안내합니다. 
 
 개론과 응용을 나눠 읽고, 그림·확인 물음·연습·복습으로 이어갑니다.
 
-- <a id="응용은-입력-준비부터-이어갑니다"></a>[AI 응용 1~5차시 학습 순서](../ai/README.md#ai-응용-15차시-학습-순서)
-- <a id="ai-개론-모의고사"></a>[개론 모의고사](../ai/README.md#ai-개론-모의고사) · [개론·응용 혼합 모의고사](../ai/README.md#mixed-mock-exam)
+- <a id="응용은-입력-준비부터-이어갑니다"></a>[AI 응용 1~10차시 학습 순서](../ai/README.md#ai-응용-110차시-학습-순서)
+- <a id="ai-개론-모의고사"></a>[개론 모의고사](../ai/README.md#ai-개론-모의고사) · [개론·응용 혼합 모의고사](../ai/README.md#mixed-mock-exam) · [모든 차시 모의고사](../ai/README.md#all-lessons-mock-exam)
 - <a id="학습-단원"></a>[학습 단원](../ai/README.md#학습-단원)
 - <a id="연습"></a>[연습](../ai/README.md#연습)
 - <a id="복습-확인"></a>[복습 날짜와 복습 확인 기준](../ai/README.md#복습-날짜와-복습-확인-기준)
@@ -145,9 +145,9 @@ Git 준비부터 프로그램 내려받기와 첫 실행까지 안내합니다. 
 
 [수집하는 항목과 전체 배포 전 확인할 조건](../docs/LEARNING_READINESS.md)을 확인할 수 있습니다.
 
-풀이 기록을 모으고, 각자 모델을 만들어 같은 자료로 비교합니다. 모델 학습과 추천 연결은 앞으로 진행합니다.
+모델 코드는 `experiments/`에 있습니다. 각 모델의 학습 방법과 동일한 검증 자료로 점수를 비교하는 방법을 확인할 수 있습니다.
 
-팀원은 [실제 자료 받기·샘플링](LEARNING_DATA_ACCESS.md)과 [각자 fork에서 첫 PR까지](../docs/LEARNING_WORKFLOW.md)를 먼저 읽습니다. [담당별 미션](../docs/LEARNING_MISSIONS.md)에서 세 모델의 차이를, [모델 개발 로드맵](../docs/LEARNING_ROADMAP.md)에서 남길 산출물과 다음 학습을 확인합니다.
+팀원은 [실제 자료 받기·샘플링](LEARNING_DATA_ACCESS.md)과 [각자 fork에서 첫 PR까지](../docs/LEARNING_WORKFLOW.md)를 먼저 읽습니다. [담당별 미션](../docs/LEARNING_MISSIONS.md)에서 세 모델의 차이를, [모델 개발 로드맵](../docs/LEARNING_ROADMAP.md)에서 남길 산출물과 다음 학습을 확인합니다. 예측과 점수는 [공통 검증 채점기](LEARNING_STARTER.md#공통-검증-채점기)로 저장합니다.
 
 개발 PR의 검사와 리뷰 결과는 [Slack의 오늘의 PR 스레드](SLACK_NOTIFICATIONS.md#오늘의-pr-스레드와-상태-알림)에 모입니다. 자세한 피드백은 알림에 연결된 PR에서 확인하세요.
 

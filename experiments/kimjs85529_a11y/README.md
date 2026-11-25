@@ -406,6 +406,8 @@ timegap-lstm-v1   299
 
 ### 8. 공식 `learning_server.score` 실행
 
+이미 만든 예측 CSV는 아래 명령으로 채점한다. 앞으로 학습 코드에서 Validation 예측과 점수를 바로 저장할 때는 [공통 검증 채점기](../../docs/LEARNING_STARTER.md#공통-검증-채점기)의 `score_validation()`을 사용할 수 있다.
+
 ```powershell
 python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118\recorded --track ai --predictions C:\study-data\model-predictions\small-lstm-retrained-validation.csv --out C:\study-data\model-predictions\small-lstm-retrained-validation-score.json
 
@@ -420,19 +422,9 @@ python -m learning_server.score --dataset C:\study-data\common-input-f8-20261118
 
 2026-11-22에 전처리·모델 구현 커밋 `187d7ba4a39fbb602a023bcb49623f656f97df1d`의 코드를 기준으로 시간 전처리 테스트를 실행했다.
 
-검증 시 브랜치:
+재검증에는 `model/kimjs85529_a11y_timegap_lstm` 브랜치의 위 커밋을 사용했다.
 
-```text
-model/kimjs85529_a11y_timegap_lstm
-```
-
-검증 시 HEAD:
-
-```text
-187d7ba4a39fbb602a023bcb49623f656f97df1d
-```
-
-먼저 다음 명령을 실행했다.
+브랜치와 커밋을 확인하고 전처리 파일 두 개의 변경 내역을 비교했다.
 
 ```powershell
 cd C:\programming-study

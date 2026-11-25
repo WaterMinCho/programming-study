@@ -182,31 +182,33 @@ ALL44 = dict(i01=1, i02=2, i03=2, i04=3, i05=2, i06=2, i07=2, i08=2, i09=2, i10=
 class AllocateTest(unittest.TestCase):
     """모든 차시 회차의 배분 함수가 44문항 전체 배분과 개론 31·응용 13 배분, 차시가 늘 때의 규칙을 따르는지 봄."""
 
+    original_scores = {lid: score for lid, score in rules.LESSON_SCORES.items() if lid in ALL44}
+
     def test_scores_match_the_research_table(self):
-        marks = rules.points(rules.LESSON_SCORES)
+        marks = rules.points(self.original_scores)
         table = dict(i01=0.60, i02=0.74, i03=0.84, i04=0.99, i05=0.89, i06=0.68, i07=0.69, i08=0.90, i09=0.74, i10=0.86,
                      i11=0.93, i12=0.89, i13=0.77, i14=0.65, i15=0.56, i16=0.67, i17=0.42, a01=0.82, a02=0.51, a03=0.72,
                      a04=0.38, a05=0.63)
         self.assertEqual(table, {lid: round(float(mark), 2) for lid, mark in marks.items()})
 
     def test_whole_pool_and_course_split_reproduce_both_tables(self):
-        whole = rules.apportion(rules.points(rules.LESSON_SCORES), 44)
+        whole = rules.apportion(rules.points(self.original_scores), 44)
         self.assertEqual(dict(ALL44, i05=3, i08=3, i11=3, i12=3, i14=2, a01=2, a03=2, a05=2, a02=1), whole)
         self.assertEqual((36, 8), (sum(v for k, v in whole.items() if k[0] == "i"), sum(v for k, v in whole.items() if k[0] == "a")))
-        split = rules.allocate(rules.LESSON_SCORES, 44)
+        split = rules.allocate(self.original_scores, 44)
         self.assertEqual(ALL44, split)
         self.assertEqual((31, 13), (sum(v for k, v in split.items() if k[0] == "i"), sum(v for k, v in split.items() if k[0] == "a")))
 
     def test_app_share_rounds_thirty_percent(self):
         for total, app in ((44, 13), (46, 14), (48, 14)):
             with self.subTest(total=total):
-                scores = dict(rules.LESSON_SCORES, **{"a%02d" % n: (44, 7, 1, 1, 0) for n in range(6, 6 + (total - 44) // 2)})
+                scores = dict(self.original_scores, **{"a%02d" % n: (44, 7, 1, 1, 0) for n in range(6, 6 + (total - 44) // 2)})
                 result = rules.allocate(scores, total)
                 self.assertEqual((total, app), (sum(result.values()), sum(v for k, v in result.items() if k[0] == "a")))
 
     def test_new_lesson_grows_the_exam_and_reallocates(self):
         self.assertEqual((44, 44, 46, 48, 56, 56), tuple(rules.exam_size(n) for n in (21, 22, 23, 24, 28, 30)))
-        scores = dict(rules.LESSON_SCORES, a06=(57, 7, 2, 3, 1))
+        scores = dict(self.original_scores, a06=(57, 7, 2, 3, 1))
         total = rules.exam_size(len(scores))
         result = rules.allocate(scores, total)
         self.assertEqual(46, total)

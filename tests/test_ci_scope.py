@@ -34,7 +34,7 @@ class ScopeTest(unittest.TestCase):
 
     def test_user_guides_and_submissions_skip_gui(self):
         self.assertFalse(needs_gui(["README.md", "gui/README.md", "journey/README.md",
-                                    "ai/README.md", "problems/README.md", "docs/GIT_GUIDE.md",
+                                    "ai/README.md", "problems/README.md", "docs/LEARNER_START.md",
                                     "docs/roadmap/README.md", "submissions/learner/profile.json"]))
 
     def test_learning_content_assets_and_mixed_changes_keep_gui(self):

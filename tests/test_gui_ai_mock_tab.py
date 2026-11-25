@@ -12,7 +12,7 @@ import study
 from aiprep import bank, mixed_mock
 from aiprep import service as ai_service
 from tests import guikit, test_gui_ai
-from tests.test_ai_mixed_mock import make_bank
+from tests.test_ai_mixed_mock import listing_legacy, make_bank
 from tests.test_gui_ai import AiTest
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QFont
@@ -117,7 +117,7 @@ class MockTabTest(AiTest):
         self.assertTrue(home.course_tabs.buttons[2].isChecked())
         self.assertTrue(home.mock_list.isVisible())
         guikit.click(home.course_tabs.buttons[0])
-        self.assertTrue(win.open_ai_mock("m1"))
+        self.assertTrue(win.open_ai_mock("m11"))
         self.assertEqual("← AI 개론", win.ai_mock.top.back.text())
         guikit.click(win.ai_mock.top.back)
         guikit.pump()
@@ -280,6 +280,9 @@ class MockTabTest(AiTest):
         self.assertEqual("mock", win.settings.value("ai/tab/" + win.user))
 
     def test_hub_counts_follow_the_application_course_after_a_mixed_mock_submit(self):
+        patch = listing_legacy("m4")  # 문항이 빈칸·객관식뿐인 예전 회차 m4 로 보므로 legacy 표시만 이 검사 안에서 뺌
+        patch.start()
+        self.addCleanup(patch.stop)
         win = self.boot((1280, 800))
         self.read_application_unit(win)
         self.choose_mock_tab(win)
@@ -315,11 +318,12 @@ class MockTabTest(AiTest):
 
     def test_expired_intro_round_is_submitted_once_when_the_mock_tab_opens(self):
         self.clock = "2026-11-04T10:00:00"
-        exam = ai_service.AiSession(test_gui_ai.USER, course="intro").start_mock("m1")
-        cid = exam.draft["order"][0]
-        item = exam.items[cid]
-        exam.save_answer(["x"] if item["kind"] == "blank" else [item["options"][0]["no"]], cid)
-        del exam
+        with listing_legacy("m1"):  # 예전 회차 m1 을 legacy 가 되기 전에 시작해 둔 사람. 시간이 끝난 시도는 legacy 여도 제출함
+            exam = ai_service.AiSession(test_gui_ai.USER, course="intro").start_mock("m1")
+            cid = exam.draft["order"][0]
+            item = exam.items[cid]
+            exam.save_answer(["x"] if item["kind"] == "blank" else [item["options"][0]["no"]], cid)
+            del exam
         self.clock = "2026-11-04T20:00:00"
         self.settings.setValue("ai/course/" + test_gui_ai.USER, "app")
         self.settings.setValue("ai/tab/" + test_gui_ai.USER, "course")
@@ -364,6 +368,9 @@ class MockTabTest(AiTest):
 
     def test_mock_list_end_gap_follows_the_shared_list_rule(self):
         """목록 끝 빈 자리는 제출 알림 자리(Workspace.position_reminder)와 본문 아래 여백으로 생기고 개론 탭의 [문제집] 목록과 같음."""
+        patch = listing_legacy("m1", "m2", "m3", "m4", "m5", "m6")  # 목록이 창보다 길어야 끝 빈 자리를 잴 수 있어 legacy 표시만 이 검사 안에서 뺌
+        patch.start()
+        self.addCleanup(patch.stop)
         win = self.boot((1280, 800))
         win.go_ai()
         home = win.ai_home

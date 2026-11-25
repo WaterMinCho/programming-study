@@ -1,5 +1,8 @@
-from learning_server.input_example import load, batch
 from experiments.michae18.model import SmallLSTM
+from experiments.michae18.input_check import load_data
+from learning_server.score import render, score_validation
+
+from experiments.michae18.constants import DATASET_PATH, TRACK, SEED, Trainconfig, Modelconfig
 import random
 import numpy as np
 import torch
@@ -7,11 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import copy
-from experiments.michae18.input_check import load_data
 
-print("PyTorch:", torch.__version__)
-print("CUDA 사용 가능:", torch.cuda.is_available())
-print("PyTorch CUDA 버전:", torch.version.cuda)
 
 def get_device():
     if torch.cuda.is_available():
@@ -21,10 +20,8 @@ def get_device():
     else:
         return torch.device("cpu")  # GPU 없을 때
 
-device = get_device()
-print(device)
-
-def set_seed(seed=42):
+def set_seed():
+    seed = SEED
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -36,24 +33,19 @@ def set_seed(seed=42):
 
     return seed
 
-seed = set_seed()
-print(seed)
-
-# input_check에서 텐서변화된 데이터들(train, validation, test) 불러오기. vocabulary는 동일하여 _ 처리
-train_inputs, train_targets, train_vocabulary = load_data('train')
-validation_inputs, validation_targets, _ = load_data('validation')
-test_inputs, test_targets, _ = load_data('test')
-
-
-# vocabulary의 크기로 Embedding 크기 설정 (수정 후)
-num_questions = len(train_vocabulary["questions"])
-num_concepts = len(train_vocabulary["concepts"])
-
 # 과적합 방지를 위한 수단: early_stopping, weight_decay, dropout, embeding_num, hidden_num 수정
 # SmallLSTM 학습 모델 생성
 def train_model(
-        train_inputs, train_targets, val_inputs, val_targets, lr, num_epoch,
-):  
+    train_inputs,
+    train_targets,
+    val_inputs,
+    val_targets,
+    num_questions: int,
+    num_concepts: int,
+    device: torch.device,
+    config: Trainconfig,
+    model_config: Modelconfig
+): 
     # train 입력 값 데이터 설정
     train_inputs = {
         key: value.to(device)
@@ -74,7 +66,7 @@ def train_model(
 
     
     # SmallLSTM 불러오기
-    model = SmallLSTM(num_questions, num_concepts).to(device) 
+    model = SmallLSTM(num_questions, num_concepts, config = model_config).to(device)
     # 데이터 많아진 만큼 embeding_num, hidden_num 수정 필요?
 
     # 손실 함수 정의
@@ -83,7 +75,7 @@ def train_model(
     # 최적화 정의
     # 가중치 과도한 상승을 막기 위한 weight_decay 비교하기(0, 1e-5, 1e-4,1e-3)
     # 최적화 함수 비교하기(Adam  VS  AdamW)
-    optimizer = optim.Adam(model.parameters(), lr = lr, weight_decay= 1e-3)
+    optimizer = optim.Adam(model.parameters(), lr = config.lr, weight_decay = config.weight_decay)
 
     # 기록
     history = []
@@ -94,19 +86,33 @@ def train_model(
     # best_epoch 초기화
     best_epoch = 0
     # 얼마까지 봐줄래?
-    patience = 20
+    patience = config.patience
     # loss가 변하지 않은 횟수
     counter = 0
     # best_epoch일 때의 파라미터 값 저장하기
     best_model_state = None
+    best_history = None
 
-    
+    # 상수값 확인하기
+    print()
+    print("=== Model Config ===")
+    print("Embedding Dim:", model.embedding.embedding_dim)
+    print("Hidden Size:", model.lstm.hidden_size)
+    print("Dropout Rate:", model.dropout.p)
+
+    print("=== Train Config ===")
+    print("Learning Rate:", optimizer.param_groups[0]["lr"])
+    print("Weight Decay:", optimizer.param_groups[0]["weight_decay"])
+    print("Max Epoch:", config.max_epoch)
+    print("Patience:", config.patience)
+    print("Prediction Threshold:", config.prediction_threshold)
+    print()
 
     # 학습 시작
-    for epoch in range(num_epoch):
+    for epoch in range(config.max_epoch):
         # 학습 한다~
         model.train()
-        # 가중치 초기화
+        # 이전 학습 단계에서 누적된 기울기 초기화
         optimizer.zero_grad()
         # train 입력값 넣은 모델의 출력 값 = logit 값
         logits = model(train_inputs)
@@ -114,9 +120,28 @@ def train_model(
         loss = criterion(logits, train_targets)
         # 기울기 계산
         loss.backward()
+
+        # optimizer 전 
+        if epoch == 0:
+            weight_before = model.fc.weight.detach().clone()
+
         # 가중치 업데이트
         optimizer.step()
 
+        # optim 후
+        if epoch == 0:
+            weight_after = model.fc.weight.detach().clone()
+
+            weight_change = (
+                weight_after - weight_before
+            ).abs()
+
+            print("=== Optimizer Step Comparison ===")
+            print("Before:", weight_before.flatten()[:5])
+            print("After :", weight_after.flatten()[:5])
+            print("Max weight change:", weight_change.max().item())
+            print("Mean weight change:", weight_change.mean().item())
+            
         # 예측할거야~!
         model.eval()
         # 학습 안한다~!
@@ -125,8 +150,9 @@ def train_model(
             logits = model(train_inputs)
             # 손실값 확인
             train_loss = criterion(logits, train_targets).item()
+            
             # 확률로 변환
-            predicted = (torch.sigmoid(logits) >= 0.5).float()
+            predicted = (torch.sigmoid(logits) >= config.prediction_threshold).float()
             # 
             train_acc = (
                 (predicted == train_targets).float().mean().item()
@@ -150,7 +176,7 @@ def train_model(
                 # best_val_loss가 변하지 않을 때 횟수 증가
                 counter += 1
             
-            val_predicted = (torch.sigmoid(val_logit) >= 0.5).float()
+            val_predicted = (torch.sigmoid(val_logit) >= config.prediction_threshold).float()
     
             val_acc = (val_predicted == val_targets).float().mean().item()
     
@@ -168,45 +194,163 @@ def train_model(
                 break
 
             if epoch % 100 == 0:
-                print(f'''epoch: {epoch} | train_loss: {train_loss:.4f} | 
-                val_loss: {val_loss:.4f} | train_acc: {train_acc:.4f} | val_acc: {val_acc:.4f}''')
+                print(f'''epoch: {epoch} | train_loss: {train_loss:.4f} | val_loss: {val_loss:.4f} 
+                | train_acc: {train_acc:.4f} | val_acc: {val_acc:.4f} \n''')
 
     # best_model_state가 존재한다면 최적의 가중치 뽑기
     if best_model_state is not None:
-        best_history = model.load_state_dict(best_model_state)
+        model.load_state_dict(best_model_state)
+        best_history = history[best_epoch - 1]
 
     return model, history, best_history
 
-model, history, best_history = train_model(
-    train_inputs,
-    train_targets,
-    validation_inputs,
-    validation_targets,
-    lr=0.001,
-    num_epoch=500
-)
+# eval () 전후 비교 명령
+def compare_train_eval(model, inputs, device):
+    inputs = {
+        key: value.to(device)
+        for key, value in inputs.items()
+    }
 
-print(model, history[-1], best_history)
+    # Train 모드
+    model.train()
 
-history_name = ['epoch', 'train_loss', 'val_loss', 'train_acc', 'val_acc']
-key_name = {name: [record[name] for record in history] for name in history_name}
+    with torch.no_grad():
+        train_logits = model(inputs)
 
-plt.figure(figsize=(10,6))
-plt.subplot(1,2,1)
-plt.plot(key_name["epoch"],key_name["train_loss"],label="Train Loss")
-plt.plot(key_name["epoch"],key_name["val_loss"],label="validation loss")
-plt.title("Train and Validation Loss")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.legend()
+    # Eval 모드
+    model.eval()
 
-plt.subplot(1,2,2)
-plt.plot(key_name["epoch"],key_name["train_acc"],label="Train acc")
-plt.plot(key_name["epoch"],key_name["val_acc"],label="validation acc")
-plt.title("Train and Validation acc")
-plt.xlabel("Epoch")
-plt.ylabel("accuracy")
-plt.legend()
+    with torch.no_grad():
+        eval_logits = model(inputs)
 
-plt.tight_layout()
-plt.show()
+    difference = (
+        train_logits - eval_logits
+    ).abs()
+
+    print("=== Train vs Eval ===")
+    print("Train:", train_logits[:5])
+    print("Eval :", eval_logits[:5])
+    print("Max difference:", difference.max().item())
+    print("Mean difference:", difference.mean().item())
+
+    return train_logits, eval_logits
+
+def predict_probabilities(model, inputs, device):
+    model.eval()
+
+    inputs = {
+        key: value.to(device)
+        for key, value in inputs.items()
+    }
+
+    with torch.no_grad():
+        logits = model(inputs)
+        probabilities = torch.sigmoid(logits)
+        
+    return probabilities.cpu().numpy()
+
+def make_plt(history):
+    history_name = ['epoch', 'train_loss', 'val_loss', 'train_acc', 'val_acc']
+    key_name = {name: [record[name] for record in history] for name in history_name}
+
+    plt.figure(figsize=(10,6))
+    plt.subplot(1,2,1)
+    plt.plot(key_name["epoch"],key_name["train_loss"],label="Train Loss")
+    plt.plot(key_name["epoch"],key_name["val_loss"],label="validation loss")
+    plt.title("Train and Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+
+    plt.subplot(1,2,2)
+    plt.plot(key_name["epoch"],key_name["train_acc"],label="Train acc")
+    plt.plot(key_name["epoch"],key_name["val_acc"],label="validation acc")
+    plt.title("Train and Validation acc")
+    plt.xlabel("Epoch")
+    plt.ylabel("accuracy")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+def main():
+
+    print("PyTorch:", torch.__version__)
+    print("CUDA 사용 가능:", torch.cuda.is_available())
+    print("PyTorch CUDA 버전:", torch.version.cuda)
+
+    device = get_device()    
+    seed = set_seed()
+    print(seed)
+
+    train_config = Trainconfig()
+    model_config = Modelconfig()
+
+    # input_check에서 텐서변화된 데이터들(train, validation, test) 불러오기. vocabulary는 동일하여 _ 처리
+    train_inputs, train_targets, train_vocabulary = load_data('train')
+    val_inputs, val_targets, _, val_event_ids = load_data('validation', return_event_ids=True)
+    # test_inputs, test_targets, _ = load_data('test')
+
+    # vocabulary의 크기로 Embedding 크기 설정 (수정 후)
+    num_questions = len(train_vocabulary["questions"])
+    num_concepts = len(train_vocabulary["concepts"])
+
+    model, history, best_history = train_model(
+        train_inputs=train_inputs,
+        train_targets=train_targets,
+        val_inputs=val_inputs,
+        val_targets=val_targets,
+        num_questions=num_questions,
+        num_concepts=num_concepts,
+        device=device,
+        config=train_config,
+        model_config=model_config
+    )
+
+    compare_train_eval(
+        model,
+        val_inputs,
+        device
+    )
+
+    # Validation 확률 예측
+    probabilities = predict_probabilities(
+        model,
+        val_inputs,
+        device
+    )
+
+    assert len(probabilities) == len(val_event_ids)
+    assert len(probabilities) == len(val_targets)
+     
+    result, run_dir = score_validation(
+        dataset_path=DATASET_PATH,
+        track=TRACK,
+        event_ids=val_event_ids,
+        probabilities=probabilities,
+        model_name="small-lstm",
+    )
+    print(render(result))
+    print(f"검증 결과 저장: {run_dir}")
+
+
+    # print(model, history[-1], best_history)
+    print(model, history[-1])
+    print(f"Best Epoch : {best_history['epoch']}")
+    print(f"Best valid loss : {best_history['val_loss']}")
+
+    print("예측 확률 shape:", probabilities.shape)
+    print("예측 확률 상위 5개:", probabilities[:5])
+    print("Validation 정답 개수:", len(val_targets))
+
+    print("예측 확률 개수:", len(probabilities))
+    print("event_id 개수:", len(val_event_ids))
+
+
+
+    make_plt(history)
+
+    return model, history, best_history
+
+if __name__ == "__main__":
+    main()

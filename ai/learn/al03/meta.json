@@ -134,6 +134,11 @@
    "what": "배열 원소 순서를 유지한 모양 변경",
    "url": "https://numpy.org/doc/2.4/reference/generated/numpy.reshape.html",
    "checked": "2026-11-17"
+  },
+  {
+   "what": "YOLO의 검출 상자 좌표와 신뢰도 기준",
+   "url": "https://docs.ultralytics.com/modes/predict/",
+   "checked": "2026-11-24"
   }
  ],
  "units": {

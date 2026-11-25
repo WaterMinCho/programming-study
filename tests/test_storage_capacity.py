@@ -69,6 +69,19 @@ class StorageCapacityTest(unittest.TestCase):
             plan = db.execute("EXPLAIN QUERY PLAN SELECT events,bytes FROM storage_totals WHERE participant=?", ("",)).fetchall()
             self.assertTrue(all("SEARCH" in row[3] for row in plan))
 
+    def test_storage_limits_accept_the_boundary_and_reject_overflow(self):
+        mib = 1024 * 1024
+        with self.database.connect() as db:
+            db.execute("UPDATE storage_totals SET bytes=? WHERE participant=''", (72 * mib - 10,))
+            db.execute("INSERT INTO storage_totals VALUES ('one', 19999, ?)", (24 * mib - 5,))
+            self.database.storage_limit(db, "one", 5, 1)
+            self.database.storage_limit(db, "two", 10)
+            for participant, extra_bytes, extra_events in (("one", 6, 1), ("two", 11, 0), ("one", 0, 2)):
+                with self.subTest(participant=participant, added_bytes=extra_bytes, added_events=extra_events):
+                    with self.assertRaises(app.ApiError) as error:
+                        self.database.storage_limit(db, participant, extra_bytes, extra_events)
+                    self.assertEqual(error.exception.status, 507)
+
     def test_concurrent_writes_cannot_exceed_global_quota_and_rollback_counters(self):
         def write(index):
             try:

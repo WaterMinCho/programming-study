@@ -31,6 +31,7 @@ STALE = 12 * 3600
 REPEAT = 24 * 3600
 KST = datetime.timezone(datetime.timedelta(hours=9))
 DB_LIMIT = 256 * 1024 * 1024
+CAPACITY_MARKER = ".capacity-deferred.json"
 TITLE = "수집 서버 백업"
 MESSAGES = {
     "stale": "마지막 백업 사본이 만들어진 지 12시간이 넘었습니다.",
@@ -159,11 +160,30 @@ from learning_server import operations
 from learning_server.capacity import report
 root=Path(c['remote_root']);root.mkdir(parents=True,exist_ok=True)
 target=root/identity
+capacity_marker=root/%r
+home=Path('/home')/c['username']
+def publish(path,result):
+ fd,temp=tempfile.mkstemp(prefix='.checkpoint-',dir=path.parent)
+ try:
+  with os.fdopen(fd,'wb') as output:
+   output.write((json.dumps(result)+'\\n').encode());output.flush();os.fsync(output.fileno())
+  os.replace(temp,path)
+ finally:
+  if os.path.exists(temp):os.unlink(temp)
 if not target.exists():
+ if capacity_marker.exists() and json.loads(capacity_marker.read_bytes()).get('identity')==identity:
+  sys.exit(0)
  staging=root/(identity+'.pending')
  if staging.exists():
   if staging.is_symlink():raise ValueError('Unexpected backup path')
   shutil.rmtree(staging)
+ capacity=report(c['db'],home,512)
+ projected=capacity['allocation_estimate_bytes']+capacity['database_bytes']
+ if projected*100>=capacity['configured_quota_bytes']*80:
+  capacity['status']='warning';capacity['warnings'].append('backup_headroom')
+  capacity['backup_peak_estimate_bytes']=projected
+  publish(capacity_marker,{'purpose':'offsite_capacity_deferred','identity':identity,'capacity':capacity})
+  sys.exit(0)
  operations.backup(c['db'],staging)
  operations.verify_backup(staging)
  staging.rename(target)
@@ -179,15 +199,9 @@ if previous and previous!=identity:
    if {p.name for p in old.iterdir()}=={'learning.sqlite3','learning.sqlite3.key','manifest.json','checkpoint.json'}:
     for p in old.iterdir():p.unlink()
     old.rmdir()
-result={'purpose':'offsite_checkpoint','identity':identity,'capacity':report(c['db'],Path('/home')/c['username'],512)}
-fd,temp=tempfile.mkstemp(prefix='.checkpoint-',dir=target)
-try:
- with os.fdopen(fd,'wb') as output:
-  output.write((json.dumps(result)+'\\n').encode());output.flush();os.fsync(output.fileno())
- os.replace(temp,target/'checkpoint.json')
-finally:
- if os.path.exists(temp):os.unlink(temp)
-''' % (values, identity, previous)
+result={'purpose':'offsite_checkpoint','identity':identity,'capacity':report(c['db'],home,512)}
+publish(target/'checkpoint.json',result)
+''' % (values, identity, previous, CAPACITY_MARKER)
     encoded = base64.b64encode(code.encode()).decode()
     return "python3.12 -c " + shlex.quote("import base64;exec(base64.b64decode(%r))" % encoded) + "\n"
 
@@ -212,8 +226,8 @@ def remove_folder(path):
         shutil.rmtree(path)
 
 
-def direct_copy(config, api, root, identity, *, tries=3, pause=time.sleep):
-    """콘솔 없이 운영 DB 파일을 받아 맥에서 SQLite 백업 API 로 다시 복사함.
+def direct_copy(config, api, root, identity, *, tries=3, pause=time.sleep, capacity=None):
+    """서버 사본을 더 만들지 않고 운영 DB 파일을 받아 맥에서 다시 복사함.
 
     저널이 없을 때 DB 를 두 번 받아 해시가 같고 키가 앞뒤로 같을 때만 씀. 서버 용량은 재지 않음.
     """
@@ -246,8 +260,9 @@ def direct_copy(config, api, root, identity, *, tries=3, pause=time.sleep):
         break
     else:
         raise BackupError("운영 DB 를 세 번 받으려 했지만 매번 쓰는 중이었거나 받는 동안 내용이 바뀌었습니다.", last)
-    checkpoint = {"purpose": "offsite_checkpoint", "identity": identity, "path": "files",
-                  "capacity": {"status": "unknown", "warnings": ["capacity_unchecked"]}}
+    checkpoint = {"purpose": "offsite_checkpoint", "identity": identity,
+                  "path": "files_capacity" if capacity is not None else "files",
+                  "capacity": capacity if capacity is not None else {"status": "unknown", "warnings": ["capacity_unchecked"]}}
     source = root / (identity + ".direct")
     staging = root / (identity + ".pending")
     target = root / identity
@@ -274,7 +289,8 @@ def direct_copy(config, api, root, identity, *, tries=3, pause=time.sleep):
 
 
 def console_copy(config, api, root, identity, previous, *, polls, pause):
-    remote = str(PurePosixPath(config["remote_root"]) / identity)
+    remote_root = PurePosixPath(config["remote_root"])
+    remote = str(remote_root / identity)
     ready = None
     with step("poll"):
         for index in range(polls):
@@ -283,6 +299,11 @@ def console_copy(config, api, root, identity, previous, *, polls, pause):
             ready = api.file(remote + "/checkpoint.json")
             if ready is not None:
                 break
+            deferred = api.file(str(remote_root / CAPACITY_MARKER))
+            if deferred is not None:
+                decision = json.loads(deferred)
+                if decision.get("identity") == identity and decision.get("purpose") == "offsite_capacity_deferred":
+                    return decision
         if ready is None:
             raise ValueError("백업 완료를 확인하지 못했습니다. 전용 콘솔을 확인해 주세요. 같은 작업 번호로 다시 확인합니다.")
         checkpoint = json.loads(ready)
@@ -307,7 +328,7 @@ def console_copy(config, api, root, identity, previous, *, polls, pause):
 
 
 def copy(config, api, root, state, state_path, *, polls, pause):
-    """콘솔 백업을 먼저 쓰고 send_input 이 412 일 때만 직접 받기로 넘어감.
+    """콘솔을 우선 쓰고 서버에 추가 사본을 만들 수 없을 때 직접 받음.
 
     앞 실행에서 남은 pending 은 콘솔에 이미 보냈을 수 있어 직접 받기에 쓰지 않음.
     직접 받기는 새 번호로 만들고 pending 은 남겨 다음 콘솔 백업이 서버의 같은 번호를 이어받게 함.
@@ -328,7 +349,12 @@ def copy(config, api, root, state, state_path, *, polls, pause):
         return "files", identity, direct_copy(config, api, root, identity, pause=pause)
     except OSError as error:
         raise BackupError(str(error), "send_input") from None
-    return "console", identity, console_copy(config, api, root, identity, previous, polls=polls, pause=pause)
+    checkpoint = console_copy(config, api, root, identity, previous, polls=polls, pause=pause)
+    if checkpoint["purpose"] == "offsite_capacity_deferred":
+        capacity = checkpoint["capacity"]
+        state.update(capacity=capacity, capacity_checked_at=operations.stamp())
+        return "files_capacity", identity, direct_copy(config, api, root, identity, pause=pause, capacity=capacity)
+    return "console", identity, checkpoint
 
 
 def problems(state, now, path=None):

@@ -555,11 +555,18 @@ ALL44_FORMATS = ['choice'] * 16 + ['bug'] * 5 + ['order'] * 3 + ['blank'] * 8 + 
 ALL44_LEVELS = [1] * 11 + [2] * 20 + [3] * 9 + [2, 2, 3, 3]
 
 
-def all44_items(mid, fact_no=20, revision='all44-v1'):
-    """allocate 배분대로 44문항을 만듦. 코드 작성 4문항은 level 2 둘, level 3 둘이고 맨 뒤에 둠."""
-    lessons = [lid for lid, count in legacy.ALL44.items() for _ in range(count)]
+ALL46 = dict(legacy.ALL44, i11=3, a01=3, a05=2, a06=3)
+ALL46_FORMATS = ['choice'] * 17 + ['bug'] * 5 + ['order'] * 3 + ['blank'] * 8 + ['predict'] * 9 + ['code'] * 4
+ALL46_LEVELS = [1] * 11 + [2] * 22 + [3] * 9 + [2, 2, 3, 3]
+A06_SCORES = (57, 7, 2, 3, 1)
+
+
+def all44_items(mid, fact_no=20, revision='all44-v1', blueprint=None, formats=ALL44_FORMATS, levels=ALL44_LEVELS):
+    """allocate 배분대로 44문항을 만듦. 코드 작성 4문항은 level 2 둘, level 3 둘이고 맨 뒤에 둠.
+    blueprint·formats·levels 를 주면 그 배분과 형식 표로 만듦(46문항 회차)."""
+    lessons = [lid for lid, count in (blueprint or legacy.ALL44).items() for _ in range(count)]
     items = []
-    for n, (lid, form, level) in enumerate(zip(lessons, ALL44_FORMATS, ALL44_LEVELS)):
+    for n, (lid, form, level) in enumerate(zip(lessons, formats, levels)):
         app = lid.startswith('a')
         no = int(lid[1:])
         unit = ('a%da' if app else '%da') % no
@@ -601,6 +608,11 @@ class AllLessonValidationTest(unittest.TestCase):
         for n in range(1, 6):
             self.add_app_lesson(index, n)
         self.spec = self.round_spec(self.mid)
+        # 44문항 합성 회차는 공개 당시의 22차시 배분을 씀.
+        scores = {lid: score for lid, score in verify_ai.ai_mock_rules.LESSON_SCORES.items() if lid in legacy.ALL44}
+        patcher = mock.patch.object(verify_ai.ai_mock_rules, 'LESSON_SCORES', scores)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.meta = dict(self.spec, format=1, draft=True, time_basis='연습 기본 시간입니다. 공식 시간은 아닙니다.', round_set=1)
         self.meta.pop('hidden')
         index['mocks'].append(self.spec)
@@ -664,7 +676,8 @@ class AllLessonValidationTest(unittest.TestCase):
             ('level', lambda rows: retag(rows, 0, level=2), '실제 level 배분'),
             ('코드 작성 level', lambda rows: (retag(rows, 42, level=2), retag(rows, 11, level=3)),
              'm11의 코드 작성 문항은 level 2 2개, level 3 2개여야 합니다. 지금은 level 2 3개, level 3 1개입니다.'),
-            ('문항 id', lambda rows: retag(rows, 43, id='m11-45'), 'm11-01부터 m11-44까지'),
+            ('문항 id', lambda rows: retag(rows, 43, id='m11-45'),
+             'm11의 문항 ID가 retired_items 없이 사라졌습니다: m11-44. 처음 낸 회차는 retired_items 없이 m11-01부터 m11-44까지 한 번씩 쓰세요.'),
         )
         for name, edit, expected in cases:
             with self.subTest(name=name):
@@ -672,6 +685,57 @@ class AllLessonValidationTest(unittest.TestCase):
                 edit(self.items)
                 self.save()
                 self.assert_fails(expected)
+
+    def test_item_ids_keep_retire_and_continue_in_a_round(self):
+        """뺀 문항 m11-10 을 retired_items 에 적고 새 문항에 m11-45 를 주면 통과함. 적지 않으면 사라진 ID 로,
+        뺀 ID 를 다시 쓰면 다시 쓴 ID 로 실패함."""
+        original = copy.deepcopy(self.items)
+        self.items[9]['id'] = 'm11-45'
+        self.meta['retired_items'] = ['m11-10']
+        self.save()
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.meta.pop('retired_items')
+        self.save()
+        self.assert_fails('m11의 문항 ID가 retired_items 없이 사라졌습니다: m11-10.')
+        self.items = original
+        self.meta['retired_items'] = ['m11-10']
+        self.save()
+        code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('m11의 retired_items에 있는 뺀 문항 ID를 다시 썼습니다: m11-10.', output)
+        self.assertNotIn('사라졌습니다', output)
+
+    def test_all46_round_with_a06_passes_after_retiring_and_adding_ids(self):
+        """a06 이 공개되고 LESSON_SCORES 에 a06 값이 들어간 뒤의 46문항 회차. 44문항에서 m11-10 을 빼고 m11-45~m11-47 을 더함."""
+        self.publish_app_lesson(6)
+        self.spec = dict(self.round_spec(self.mid), count=46, course_counts={'intro': 32, 'app': 14}, blueprint=dict(ALL46),
+                         blueprint_revision='all46-v1')
+        self.meta = dict(self.spec, format=1, draft=True, time_basis='연습 기본 시간입니다. 공식 시간은 아닙니다.', round_set=1,
+                         retired_items=['m11-10'])
+        self.meta.pop('hidden')
+        self.update_index()
+        self.items = all44_items(self.mid, revision='all46-v1', blueprint=ALL46, formats=ALL46_FORMATS, levels=ALL46_LEVELS)
+        self.items[9]['id'] = 'm11-47'
+        self.save()
+        scores = dict(verify_ai.ai_mock_rules.LESSON_SCORES, a06=A06_SCORES)
+        with mock.patch.object(verify_ai.ai_mock_rules, 'LESSON_SCORES', scores):
+            self.assertEqual(ALL46, verify_ai._mixed_blueprint(self.spec))
+            code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.assertIn('OK: 묶음 1개 통과, 경고 0개', output)
+
+    def test_all46_contract_matches_allocate_and_format_table(self):
+        contract = verify_ai.mixed_mock.CONTRACTS['all46-v1']
+        rules = verify_ai.ALL_LESSON_RULES['all46-v1']
+        result = verify_ai.ai_mock_rules.allocate(dict(verify_ai.ai_mock_rules.LESSON_SCORES, a06=A06_SCORES), 46)
+        self.assertEqual(ALL46, result)
+        courses = {'intro': sum(n for lid, n in result.items() if lid[0] == 'i'),
+                   'app': sum(n for lid, n in result.items() if lid[0] == 'a')}
+        self.assertEqual((46, 120, courses, True),
+                         (contract['count'], contract['minutes'], contract['course_counts'], contract['all_lessons']))
+        self.assertEqual((46, 46, 4), (sum(rules['format'].values()), sum(rules['level'].values()),
+                                       sum(rules['code_level'].values())))
 
     def test_declared_contract_must_follow_registry_and_allocate(self):
         target = next(item for item in self.items if item['lesson'] == 'i04')
@@ -846,3 +910,195 @@ class AllLessonValidationTest(unittest.TestCase):
         self.save()
         code, output = self.verify()
         self.assertEqual(0, code, output)
+
+
+class VersionedLessonScopeTest(unittest.TestCase):
+    """응용 10차시가 열린 은행에서 기존 회차와 새 회차를 각각 검증함."""
+    add_app_lesson = MixedValidationTest.add_app_lesson
+    publish_app_lesson = MixedValidationTest.publish_app_lesson
+    save = AllLessonValidationTest.save
+    update_index = AllLessonValidationTest.update_index
+    verify = AllLessonValidationTest.verify
+
+    def setUp(self):
+        self.fixture = legacy.ValidationTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.bank = self.fixture.bank
+        index = self.fixture.read('index.json')
+        for no in range(1, 11):
+            self.add_app_lesson(index, no)
+        self.fixture.write('index.json', index)
+
+    def make_round(self, revision):
+        if revision == 'all52-v1':
+            self.mid = 'm11'
+            released = bank.read_index()['mocks']
+            blueprint = next(row['blueprint'] for row in released if row['id'] == self.mid)
+            formats = ['choice'] * 18 + ['bug'] * 6 + ['order'] * 3 + ['blank'] * 10 + ['predict'] * 11 + ['code'] * 4
+            levels = [1] * 13 + [2] * 24 + [3] * 11 + [2, 2, 3, 3]
+            counts = {'intro': 36, 'app': 16}
+        else:
+            self.mid = 'm15'
+            blueprint = dict(zip((f'i{n:02d}' for n in range(1, 18)), (2, 2, 2, 3, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 1, 2, 1)))
+            blueprint.update(zip((f'a{n:02d}' for n in range(1, 11)), (3, 1, 3, 1, 2, 1, 1, 1, 1, 2)))
+            formats = ['choice'] * 19 + ['bug'] * 6 + ['order'] * 3 + ['blank'] * 10 + ['predict'] * 12 + ['code'] * 4
+            levels = [1] * 14 + [2] * 25 + [3] * 11 + [2, 2, 3, 3]
+            counts = {'intro': 38, 'app': 16}
+        self.spec = dict(id=self.mid, title='모의고사 검증', count=len(formats), minutes=120, scope='mixed',
+                         range=[1, 17], window=[], courses=['intro', 'app'], course_counts=counts,
+                         blueprint=blueprint, blueprint_revision=revision)
+        self.meta = dict(self.spec, format=1, draft=True, time_basis='연습 기본 시간입니다.', round_set=1)
+        self.items = all44_items(self.mid, revision=revision, blueprint=blueprint, formats=formats, levels=levels)
+        index = self.fixture.read('index.json')
+        index['mocks'].append(self.spec)
+        self.fixture.write('index.json', index)
+        self.save()
+
+    def test_all52_verifies_with_a10_ready_and_keeps_its_own_scope(self):
+        self.make_round('all52-v1')
+        self.assertTrue(bank.is_ready({'id': 'a10', 'page': 'al10'}, str(self.bank)))
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        with mock.patch.dict(verify_ai.ai_mock_rules.LESSON_SCORES, {'a01': (100, 9, 3, 3, 3)}):
+            self.assertEqual(self.spec['blueprint'], verify_ai._mixed_blueprint(self.spec))
+        self.assertEqual('52문항 · 120분 · 개론 1~17차시 · 응용 1~9차시', verify_ai.mixed_mock.description(self.spec))
+        expanded = dict(self.spec['blueprint'])
+        expanded['a10'] = expanded.pop('a09')
+        forged = dict(self.spec, blueprint=expanded)
+        with self.assertRaisesRegex(ValueError, '차시 범위'):
+            verify_ai.mixed_mock.validate(forged, dict(forged, draft=False))
+        self.spec['blueprint'] = self.meta['blueprint'] = expanded
+        self.update_index()
+        self.save()
+        code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('blueprint가 혼합 배분과 일치하지 않습니다.', output)
+
+    def test_all54_uses_current_scores_and_accepts_a10(self):
+        self.make_round('all54-v1')
+        code, output = self.verify()
+        self.assertEqual(0, code, output)
+        self.meta['draft'] = False
+        self.save()
+        index = bank.read_index(str(self.bank))
+        lessons = {row['id']: row for row in index['lessons']}
+        spec = next(row for row in index['mocks'] if row['id'] == self.mid)
+        items, _ = verify_ai.aimock.load_items(str(self.bank), spec, lessons)
+        self.assertEqual(54, len(items))
+        self.assertEqual(2, sum(row['lesson'] == 'a10' and row['course'] == 'app' for row in items.values()))
+        self.assertEqual('54문항 · 120분 · 개론 1~17차시 · 응용 1~10차시', verify_ai.mixed_mock.description(self.spec))
+        scores = verify_ai.ai_mock_rules.LESSON_SCORES
+        self.assertEqual((36, 6, 2, 3, 0), scores['a10'])
+        with mock.patch.dict(scores, {'a10': (36, 6, 0, 0, 0)}):
+            self.assertEqual(verify_ai.ai_mock_rules.allocate(scores, 54), verify_ai._mixed_blueprint(self.spec))
+            self.assertNotEqual(self.spec['blueprint'], verify_ai._mixed_blueprint(self.spec))
+
+    def test_all54_rejects_wrong_lesson_even_with_the_same_sized_score_table(self):
+        self.make_round('all54-v1')
+        scores = dict(verify_ai.ai_mock_rules.LESSON_SCORES)
+        scores['a11'] = scores.pop('a10')
+        expanded = dict(self.spec['blueprint'])
+        expanded['a11'] = expanded.pop('a10')
+        forged = dict(self.spec, blueprint=expanded)
+        with self.assertRaisesRegex(ValueError, '차시 범위'):
+            verify_ai.mixed_mock.validate(forged, dict(forged, draft=False))
+        self.publish_app_lesson(11)
+        index = self.fixture.read('index.json')
+        index['lessons'] = [lesson for lesson in index['lessons'] if lesson['id'] != 'a10']
+        self.fixture.write('index.json', index)
+        self.spec['blueprint'] = self.meta['blueprint'] = expanded
+        self.items = all44_items(self.mid, revision='all54-v1', blueprint=expanded,
+                                 formats=[item['format'] for item in self.items], levels=[item['level'] for item in self.items])
+        self.update_index()
+        self.save()
+        with mock.patch.object(verify_ai.ai_mock_rules, 'LESSON_SCORES', scores):
+            code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('빠진 차시: a10. 범위 밖 차시: a11.', output)
+        self.assertNotIn('계산한 문항 수는', output)
+        self.assertNotIn('blueprint가 혼합 배분과 일치하지 않습니다.', output)
+
+    def test_all54_still_checks_for_unscored_ready_lessons(self):
+        self.make_round('all54-v1')
+        self.publish_app_lesson(11)
+        code, output = self.verify()
+        self.assertEqual(1, code, output)
+        self.assertIn('m15 index의 blueprint에 빠진 공개 차시가 있습니다: a11.', output)
+        self.assertIn('m15 meta.json의 blueprint에 빠진 공개 차시가 있습니다: a11.', output)
+
+
+class ItemIdRuleTest(unittest.TestCase):
+    """회차 문항 ID 규칙만 따로 봄. 44문항 회차에서 하나를 빼고 둘을 더한 경우와 그 반례."""
+    kept = ['m11-%02d' % n for n in range(1, 45) if n != 10]
+
+    def problems(self, ids, retired):
+        return verify_ai._item_id_problems('m11', ids, retired, 44)
+
+    def test_retire_one_and_add_two_passes(self):
+        self.assertEqual([], self.problems(self.kept + ['m11-45', 'm11-46'], ['m11-10']))
+
+    def test_reusing_a_retired_id_fails(self):
+        found = self.problems(self.kept + ['m11-45', 'm11-10'], ['m11-10'])
+        self.assertEqual(['m11의 retired_items에 있는 뺀 문항 ID를 다시 썼습니다: m11-10. 새 문항은 가장 큰 번호 다음 번호를 쓰세요.'],
+                         found)
+
+    def test_id_gone_without_retired_items_fails(self):
+        found = self.problems(self.kept + ['m11-45', 'm11-46'], [])
+        self.assertEqual(1, len(found), found)
+        self.assertTrue(found[0].startswith('m11의 문항 ID가 retired_items 없이 사라졌습니다: m11-10.'), found)
+
+    def test_new_id_must_follow_the_largest_number(self):
+        found = self.problems(self.kept + ['m11-10', 'm11-47'], [])
+        self.assertTrue(any('사라졌습니다: m11-45, m11-46.' in text for text in found), found)
+
+    def test_retired_items_shape_and_id_form(self):
+        self.assertIn('m11 meta.json의 retired_items는 뺀 문항 ID 목록이어야 합니다.',
+                      self.problems(self.kept + ['m11-10'], 'm11-10'))
+        found = self.problems(self.kept + ['m11-10', 'm11-45'], ['m12-01', 'm11-45'])
+        self.assertTrue(any('m12-01는 m11-01처럼' in text for text in found), found)
+        self.assertTrue(any('다시 썼습니다: m11-45.' in text for text in found), found)
+        found = self.problems(self.kept + ['m11-10', 'm11-10'], [])
+        self.assertTrue(any('문항 ID가 두 번 나옵니다: m11-10' in text for text in found), found)
+
+    def test_first_number_gone_without_retired_items_fails(self):
+        ids = ['m11-%02d' % n for n in range(2, 45)] + ['m11-45']
+        found = self.problems(ids, [])
+        self.assertEqual(1, len(found), found)
+        self.assertTrue(found[0].startswith('m11의 문항 ID가 retired_items 없이 사라졌습니다: m11-01.'), found)
+
+    def test_number_zero_and_three_digit_padding_fail(self):
+        whole = ['m11-%02d' % n for n in range(1, 45)]
+        for bad in ('m11-00', 'm11-001'):
+            found = self.problems(whole + [bad], [])
+            self.assertTrue(any('%s는 m11-01처럼' % bad in text for text in found), (bad, found))
+
+    def test_large_number_only_in_retired_items_still_needs_the_numbers_below(self):
+        found = self.problems(['m11-%02d' % n for n in range(1, 45)], ['m11-46'])
+        self.assertEqual(1, len(found), found)
+        self.assertTrue(found[0].startswith('m11의 문항 ID가 retired_items 없이 사라졌습니다: m11-45.'), found)
+
+
+class MovedIdRuleTest(unittest.TestCase):
+    """보존본에 있던 ID 를 지금 문항이 쓰면 차시가 같아야 함. 가장 큰 번호를 빼고 그 번호를 새 차시 문항에 준 경우를 잡음."""
+    old = {'m11-%02d' % n: {'id': 'm11-%02d' % n, 'lesson': 'a05' if n >= 42 else 'i01'} for n in range(1, 45)}
+
+    def now(self, changes):
+        rows = {cid: dict(item) for cid, item in self.old.items()}
+        for cid, lesson in changes.items():
+            rows[cid] = {'id': cid, 'lesson': lesson}
+        return list(rows.values())
+
+    def test_same_lessons_pass(self):
+        self.assertEqual([], verify_ai._moved_id_problems({'f' * 64: self.old}, self.now({'m11-45': 'a06'})))
+
+    def test_largest_id_given_to_a_new_lesson_fails(self):
+        found = verify_ai._moved_id_problems({'f' * 64: self.old}, self.now({'m11-44': 'a06'}))
+        self.assertEqual(1, len(found), found)
+        self.assertIn('ffffffffffff 에 있던 문항 ID m11-44 의 차시가 지금 문항과 다릅니다.', found[0])
+        # ID 만 보는 규칙은 이 경우를 통과시킴
+        self.assertEqual([], verify_ai._item_id_problems('m11', [item['id'] for item in self.now({'m11-44': 'a06'})], [], 44))
+
+    def test_retired_id_that_is_gone_now_passes(self):
+        rows = [item for item in self.now({}) if item['id'] != 'm11-44'] + [{'id': 'm11-45', 'lesson': 'a06'}]
+        self.assertEqual([], verify_ai._moved_id_problems({'f' * 64: self.old}, rows))
