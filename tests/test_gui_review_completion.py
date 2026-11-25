@@ -4,6 +4,7 @@ from unittest import mock
 
 from tests import guikit
 from tests.test_gui_ai import AiTest, visible_text
+from PyQt6.QtWidgets import QLabel, QWidget
 
 
 class ReviewCompletionPageTest(AiTest):
@@ -47,12 +48,45 @@ class ReviewCompletionPageTest(AiTest):
         win.open_ai_practice("review")
         page = win.ai_quiz
         self.finish(page)
-        self.assertIn("이번 묶음의 첫 답", visible_text(page.card))
+        self.assertIn("이번 묶음에서 첫 답에 맞힌 문항", visible_text(page.card))
+        self.assertIn("1 / 1", visible_text(page.card))
         self.assertIn("복습할 문항이 없습니다", visible_text(page.card))
         self.assertIn("11월 6일", visible_text(page.card))
         self.assertEqual(1, self.log("set_end")[-1]["first_pass"])
         self.assertFalse(page.again_btn.isVisible())
         self.assertTrue(page.home_btn.isVisible())
+
+    def test_summary_aligns_review_and_counts_and_stacks_at_max_text(self):
+        win, _ = self.prepare()
+        win.open_ai_practice("review")
+        page = win.ai_quiz
+        self.finish(page)
+        data = dict(page.practice.summary(), first_today=1, up=3, memorised=2)
+        upcoming = {"date": "2026-12-31", "text": "12월 31일", "count": 120}
+        with mock.patch.object(page.practice, "summary", return_value=data), \
+                mock.patch.object(win.ai, "review_status", return_value={"available": False, "next": upcoming}):
+            page.show_summary()
+        guikit.pump()
+        self.assertIn("복습 간격이 늘어난 문항", visible_text(page.card))
+        self.assertIn("복습 간격이 줄어든 문항", visible_text(page.card))
+        sections = page.card.findChild(QWidget, "practice_summary_sections")
+        review, counts = (sections.layout().itemAt(i).widget() for i in range(2))
+        for mode in ("light", "dark"):
+            win.set_theme(mode)
+            win.resize(1200, 780)
+            win.set_text("regular")
+            guikit.pump()
+            self.assertLess(review.x(), counts.x())
+            self.assertEqual(review.y(), counts.y())
+            win.resize(760, 480)
+            win.set_text("larger")
+            guikit.pump()
+            self.assertEqual(review.x(), counts.x())
+            self.assertGreaterEqual(counts.y(), review.geometry().bottom() + 24)
+            self.assertEqual(0, page.scroll.horizontalScrollBar().maximum())
+            date = next(label for label in review.findChildren(QLabel) if label.text() == "12월 31일 · 120문항")
+            self.assertGreaterEqual(date.width(), date.sizeHint().width())
+            self.assertTrue(page.home_btn.isVisible())
 
     def test_finished_review_can_continue_when_another_card_remains(self):
         win, sess = self.prepare(("i90-b01", "i90-b02"))

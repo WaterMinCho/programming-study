@@ -47,7 +47,7 @@ MEMO_HINT = "질문을 읽고 답을 충분히 생각한 뒤 펼쳐보세요."
 RECALL_EMPTY = "답을 적은 뒤 [확인]을 누르세요."
 BLOCK_BROKEN = "이 부분을 읽지 못했습니다. 프로그램을 다시 실행해 최신 버전을 받아 보세요."
 TRAINED = "다음 복습에서는 해설을 보기 전에 답을 먼저 떠올려 보세요."
-SET_FIRST = "이번 묶음의 첫 답"
+SET_FIRST = "이번 묶음에서 첫 답에 맞힌 문항"
 REVIEW_COMPLETE = "지금 복습할 문항이 없습니다."
 EARLY = "복습 날짜 전에 맞힌 %d문항은 날짜가 되면 다시 확인합니다."
 EMPTY_ANSWER = {"blank": "답을 적은 뒤 [확실함]이나 [긴가민가]를 누르세요. 모르면 [모르겠어요]를 누르세요.",
@@ -393,32 +393,27 @@ def review_next(upcoming):
     return "차시 문제집이나 섞어 풀기에서 더 연습할 수 있습니다."
 
 
-def summary_head(summary):
-    return "%d문항 가운데 %d문항을 처음 답에 맞혔습니다." % (summary["n"], summary["first_pass"])
-
-
-def summary_lines(summary, unlisted=0):
-    """끝 요약의 글 줄들(위에서 아래로). unlisted 는 처음 답이 틀렸지만 단원을 읽은 날이라 오답 노트에 넣지 않은 문항 수."""
-    lines = []
-    if summary["first_today"]:
-        lines.append("오늘 새로 접한 문항 중 이번 묶음에서 마친 문항 %d개" % summary["first_today"])
-    if summary["again_day"]:
-        lines.append("이전 학습일에 풀었던 문항 중 이번 첫 답에 맞힌 문항 %d개" % summary["again_day"])
+def summary_counts(summary):
+    """이번 연습에서 생긴 수를 항목 이름과 값으로 나눔."""
+    counts = [("오늘 처음 본 문항 중 마친 수", "first_today", "문항"),
+              ("이전 학습일에 푼 문항 중 첫 답에 맞힘", "again_day", "문항"),
+              ("복습 기준을 충족한 문제 묶음", "memorised", "묶음"),
+              ("확실하다고 답했지만 틀림", "sure_wrong", "문항")]
+    rows = [(label, f"{summary[key]}{unit}") for label, key, unit in counts if summary[key]]
     if summary["up"] or summary["down"]:
-        lines.append("복습 간격이 늘어난 문항 %d개 · 줄어든 문항 %d개" % (summary["up"], summary["down"]))
-    if summary["memorised"]:
-        lines.append("복습 기준을 충족한 묶음 %d개" % summary["memorised"])
-    if summary["sure_wrong"]:
-        lines.append("확실하다고 했지만 틀린 문항 %d개" % summary["sure_wrong"])
-    if summary.get("again"):
-        lines.append("오늘 다시 볼 문항 %d개" % len(summary["again"]))
-    if summary["next"]:
-        lines.append("다음 복습: %s %d문항" % (summary["next"]["text"], summary["next"]["count"]))
+        rows.extend((("복습 간격이 늘어난 문항", f"{summary['up']}문항"),
+                     ("복습 간격이 줄어든 문항", f"{summary['down']}문항")))
+    return rows
+
+
+def summary_notes(summary, unlisted):
+    """다시 나오는 조건과 오답 노트에 기록되는 조건을 설명함."""
+    notes = []
     if summary["early"]:
-        lines.append(EARLY % summary["early"])
+        notes.append(EARLY % summary["early"])
     if unlisted:
-        lines.append("단원을 읽은 날 틀린 %d문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다." % unlisted)
-    return lines
+        notes.append("단원을 읽은 날 틀린 %d문항은 오답 노트에 넣지 않고 다음 복습에서 다시 냅니다." % unlisted)
+    return notes
 
 
 KEPT = "이 문항은 이 묶음에서 더 나오지 않습니다. 오늘 다시 볼 문항으로 남아 다음 묶음에서 먼저 나옵니다."
