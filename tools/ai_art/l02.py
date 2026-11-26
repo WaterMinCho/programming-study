@@ -584,6 +584,7 @@ def reshape_order():
 @figure("l02-11", "png")
 def minus_one():
     assert DATA.reshape(3, -1).shape == (3, 2)
+    assert DATA.reshape(-1, 3).shape == (2, 3)
     assert np.arange(24).reshape(2, -1, 3).shape == (2, 4, 3)
     assert np.zeros((1, 3, 1)).squeeze().shape == (3,)
     for bad in ((4, -1), (-1, -1)):
@@ -593,21 +594,22 @@ def minus_one():
         except ValueError:
             pass
     c = Canvas(520)
-    c.title("-1 자리는 남은 길이를 나눗셈으로 정함")
-    rows = (("data.reshape(3, -1)", "6 ÷ 3 = 2", "(3, 2)", True),
-            ("n9.reshape(2, -1, 3)", "24 ÷ (2×3) = 4", "(2, 4, 3)", True),
+    c.title("reshape에서 -1은 무슨 뜻일까요?")
+    c.text(40, 72, "data의 원소는 6개입니다.", size=18, color=MUTED)
+    rows = (("data.reshape(3, -1)", "열 수   6 ÷ 3 = 2", "(3, 2)", True),
+            ("data.reshape(-1, 3)", "행 수   6 ÷ 3 = 2", "(2, 3)", True),
+            ("np.arange(24).reshape(2, -1, 3)", "가운데 축   24 ÷ (2×3) = 4", "(2, 4, 3)", True),
             ("data.reshape(4, -1)", "6 ÷ 4 = 1.5", "ValueError", False),
-            ("data.reshape(-1, -1)", "-1 은 한 자리만", "ValueError", False))
+            ("data.reshape(-1, -1)", "두 축의 크기를 모두 맡김", "ValueError", False))
     for k, (code, calc, res, ok) in enumerate(rows):
-        y = 100 + k * 78
-        c.text(40, y, code, size=21, code=True, bold=True)
-        c.text(470, y, calc, size=21)
-        c.text(790, y, "→ " + res, size=21, code=True, color=GREEN if ok else RED)
-    c.text(40, 210, "n9 는 원소 24개(np.arange(24))", size=16, color=MUTED)
+        y = 126 + k * 60
+        c.text(40, y, code, size=19, code=True, bold=True)
+        c.text(480, y, calc, size=18)
+        c.text(860, y, "→ " + res, size=21, code=True, color=GREEN if ok else RED)
     c.line([20, 1100], [430, 430], color=FAINT, lw=1.5)
     c.text(40, 470, "np.zeros((1, 3, 1)).squeeze()", size=21, code=True, bold=True)
     c.text(560, 470, "(1, 3, 1) → (3,)", size=20, code=True)
-    c.text(790, 470, "길이 1 인 축을 지움", size=20)
+    c.text(790, 470, "길이가 1인 축을 뺍니다.", size=19)
     return c.image()
 
 

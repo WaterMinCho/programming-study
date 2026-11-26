@@ -2022,7 +2022,7 @@
    "fn": "l02-10"
   },
   "learn/l02/assets/l02-11.png": {
-   "sha256": "8423cac02cdf7e6bfc6c51af0ae499409770e6e5b9cb30fec373deb8605b5bf3",
+   "sha256": "bb04aa0d9cc96b02cdbffb4a2bb864fc4cd52bcc3d04cab6dd6eb9969eb9fb6f",
    "script": "tools/ai_art/l02.py",
    "fn": "l02-11"
   },
