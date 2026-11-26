@@ -52,16 +52,18 @@ def request(base, path, data=None, token=None, method="POST", timeout=5, error_d
     except urllib.error.HTTPError as error:
         message = "수집 서버가 요청을 받지 않았습니다. 상태 코드 %d입니다." % error.code
         reason = None
+        withdrawn_at = ...
         try:
             failure = json.loads(error.read(4096))
             detail = failure.get("error")
             reason = "revoked" if failure.get("code") == "revoked" else None
+            withdrawn_at = failure.get("withdrawn_at", ...)
             if error_detail and isinstance(detail, str) and len(detail) <= 500:
                 message += " " + detail
         except (OSError, ValueError, AttributeError):
             pass
         error.close()
-        raise CollectionError(message, status=error.code, code=reason) from None
+        raise CollectionError(message, status=error.code, code=reason, withdrawn_at=withdrawn_at) from None
     except (urllib.error.URLError, OSError, ValueError):
         raise CollectionError("수집 서버에 연결하지 못했습니다. 데이터는 이 기기에 남아 있으니 다시 보내 주세요.", code="network") from None
 
@@ -99,13 +101,20 @@ class Sharing:
             if path and os.path.exists(path):
                 os.unlink(path)
 
-    def connect_open(self, base, consent, after=0):
-        """동의 뒤의 기록을 개인 초대 코드 없이 연결함."""
+    def connect_open(self, base, consent, after=0, research=None):
+        """동의 뒤의 기록을 개인 초대 코드 없이 연결함. research 는 여러 과목·컴퓨터를 잇는 연구용 번호임."""
         from learning_data.privacy import validate_receipt, POLICY_VERSION
         try:
             receipt = validate_receipt(consent)
         except ValueError as error:
             raise CollectionError(str(error)) from error
+        link = {}
+        if research:
+            link["research_link"] = research["link"]
+            if research.get("proof"):
+                link["research_proof"] = research["proof"]
+            if research.get("secret"):
+                link["research_secret"] = research["secret"]
         base = endpoint(base)
         status = self.collection.status()
         if not status["enabled"] or status["error"]:
@@ -121,15 +130,18 @@ class Sharing:
             config.update(enroll_sent=True, consent_receipt=receipt)
             self._save(config)
             enrolled = request(base, "/v1/enroll/open", {"participant": config["participant"], "notice": NOTICE,
-                               "registration_secret": config["registration_secret"], "consent": receipt}, error_detail=True)
+                               "registration_secret": config["registration_secret"], "consent": receipt, **link}, error_detail=True)
             if enrolled.get("participant") != config["participant"] or not isinstance(enrolled.get("token"), str):
                 raise CollectionError("참가자 등록 응답을 확인해 주세요.")
             config["token"] = enrolled["token"]
             self._save(config)
-        if config.get("consent_policy") != POLICY_VERSION or config.get("consent_receipt") != receipt or after > config.get("sequence", 0):
-            request(base, "/v1/consent", {"consent": receipt}, token=config["token"], error_detail=True)
+        if (config.get("consent_policy") != POLICY_VERSION or config.get("consent_receipt") != receipt or after > config.get("sequence", 0)
+                or (research and config.get("research_link") != research["link"])):
+            request(base, "/v1/consent", {"consent": receipt, **link}, token=config["token"], error_detail=True)
             config.update(consent_policy=POLICY_VERSION, consent_receipt=receipt, include_answers=False,
                           sequence=max(config.get("sequence", 0), after))
+            if research:
+                config["research_link"] = research["link"]
             self._save(config)
 
     def sync(self, base, invite="", include_answers=False, canceled=lambda: False):
