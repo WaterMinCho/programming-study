@@ -1,8 +1,8 @@
 {
  "format": 1,
- "writer": "복수 정답 연습 연결",
- "resolver": "새 연습과 노트 대조",
- "reviewer": "학습 문장 검토",
+ "writer": "학습 설명 수정",
+ "resolver": "reshape 계산 검산",
+ "reviewer": "학습 문장 다시 읽기",
  "files": {
   "assets/2d-31.png": "38425a4a76d769b6de3904fb6f9d1e13443a9d2cb255ffc22ad058b6f1e432f8",
   "assets/2d-32.png": "bbd071adba2e610e91ad4fc9f4de0dd421fbd8bab8954b576fd6677702736f89",
@@ -15,7 +15,7 @@
   "assets/2e-33.png": "4e92246045b34f4ef35115eab06b92acdde9d66f690d4d66f4c8fdfd912e9f7d",
   "assets/l02-1.png": "454e888b32cce1d0c47e98733e69455c3a9b22cfadeac3a6ff473383e5a799a8",
   "assets/l02-10.gif": "58522032dc782f396764c598d921e9a85d3f025dca7c500c6bbe864a5bfba9ff",
-  "assets/l02-11.png": "8423cac02cdf7e6bfc6c51af0ae499409770e6e5b9cb30fec373deb8605b5bf3",
+  "assets/l02-11.png": "bb04aa0d9cc96b02cdbffb4a2bb864fc4cd52bcc3d04cab6dd6eb9969eb9fb6f",
   "assets/l02-12.gif": "61f5170f7791b3751fa7db916db39efb942b900668af43f22efc53dd93323462",
   "assets/l02-13.gif": "0c0111d221c47c8c8f6fdd33db8dd15a05ddb76cf113a319459928fd4af076b7",
   "assets/l02-14.png": "964b24ca9314af3092e5d4699d8058b8e96a88625b7302750405d8a574d76e3b",
@@ -45,7 +45,7 @@
   "assets/l02-8.png": "1fc01c53977c9e1a641afac2131a8a0037f8e2ecae6af701b1a62385846c4069",
   "assets/l02-9.png": "70af38913ba55b1d2d5c5c309acd16794bb0ff1b0183976e5fc068c2044844f8",
   "meta.json": "f39873d00327d27d8047201861c66d84b77c04b4745acb0032483201f88deaff",
-  "page.md": "fe7a0052fe58b26c6c7a15ba1aa1d0b7b6d6cff2686d2675d005aa4346264fea"
+  "page.md": "14478cc7dcb5918716e67806f64c4fded891dc4c4c8e77527981227b9fd2ac64"
  },
  "findings": [
   "처음 배우는 사람으로 2a~2f 를 읽고 고침: 2a/5 정규분포와 표준편차를 쓰기 전에 정의함, 2d/3 장 설명과 본문에 샘플과 특징을 정의함, 2e/2 가중치 초기화를 풀어 씀, 2b/4 라벨을 정답으로 바꿈, 2f/3 에 epochs, train_loss, val_loss 설명을 더함",
@@ -69,6 +69,7 @@
   "2026-11-13: 현재 버튼 이름·문구·복습 답과 바뀐 그림의 수치·조건을 대조함. 문항 식별자와 기존 검토 기록을 보존함.",
   "2026-11-14 브로드캐스팅의 입력 복사와 결과 메모리를 구분함. 기존 첫 재풀이의 답·점수·시간과 이전 검토 메모를 보존함. 변경한 지문·해설·본문·그림의 조건만 독립 대조했으며 전체 문항의 새 첫 재풀이로 세지 않음. 공식 문서와 순수 계산을 확인했으며 PyTorch를 import하거나 모델을 실행하지 않았음.",
   "2026-11-15 제목·목차 문구를 짧은 행동형으로 수정했음. 제목의 조건·수치·API를 교차 검토하고 본문·코드·물음·정답·단계 ID와 분류가 바뀌지 않았음을 대조했음. 기존 물음의 재풀이를 반복하지 않았음.",
-  "기존 외울 것 설명에 새 복수 정답 문항 번호를 연결함. 본문·기존 답은 유지함."
+  "기존 외울 것 설명에 새 복수 정답 문항 번호를 연결함. 본문·기존 답은 유지함.",
+  "2c/3에서 reshape의 -1이 맡기는 축을 행·열·가운데 축 예로 설명하고 그림 13과 복습 해설을 맞춤. 기존 단계 번호, 확인 문제 r11과 연결 문항의 정답을 대조함."
  ]
 }
