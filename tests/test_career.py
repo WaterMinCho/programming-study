@@ -115,7 +115,7 @@ class CareerCatalogTest(unittest.TestCase):
             self.assertEqual(load_catalog(root).states["roles"], "invalid")
 
     def test_paper_schema_accepts_supplied_content_and_keeps_scope_and_rights(self):
-        self.assertEqual(len(self.catalog.papers), 6)
+        self.assertEqual(len(self.catalog.papers), 8)
         for paper in self.catalog.papers:
             self.assertTrue(paper.license_url.startswith("https://arxiv.org/"))
             self.assertEqual(len(paper.figure_description), 4)
@@ -133,7 +133,8 @@ class CareerCatalogTest(unittest.TestCase):
         groups = {paper.paper_id: paper.group for paper in self.catalog.papers}
         self.assertEqual(groups, {"paper-mobilenetv4": "recent", "paper-convnext-v2": "recent", "paper-dinov2": "recent",
                                   "paper-sam2": "recent", "paper-dora-weight-decomposed": "recent",
-                                  "paper-resnet": "foundation"})
+                                  "paper-resnet": "foundation", "paper-attention": "foundation",
+                                  "paper-bytetrack": "foundation"})
         raw = json.loads((DATA / "papers.json").read_text())
         self.assertNotIn("group", raw["papers"][0])
         for value, state in ((None, "ready"), ("foundation", "ready"), ("classic", "invalid"), ("", "invalid")):

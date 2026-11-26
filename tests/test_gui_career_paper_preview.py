@@ -84,7 +84,8 @@ class PaperPreviewTest(unittest.TestCase):
             page = self.show(on_figure=figure, on_paper=paper_open, on_source=source,
                              on_video=play, on_stop=stop)
             expected = {"paper-mobilenetv4": 1, "paper-convnext-v2": 0, "paper-dinov2": 0,
-                        "paper-sam2": 0, "paper-dora-weight-decomposed": 0, "paper-resnet": 1}
+                        "paper-sam2": 0, "paper-dora-weight-decomposed": 0, "paper-resnet": 1,
+                        "paper-attention": 2, "paper-bytetrack": 2}
             self.assertEqual(PREVIEW_STAGES, expected)
             for paper in self.catalog.papers:
                 preview = page.paper_previews[paper.paper_id]
@@ -112,9 +113,10 @@ class PaperPreviewTest(unittest.TestCase):
         foundation = [paper.paper_id for paper in self.catalog.papers if paper.group == "foundation"]
         self.assertEqual(recent, ["paper-mobilenetv4", "paper-convnext-v2", "paper-dinov2", "paper-sam2",
                                   "paper-dora-weight-decomposed"])
-        self.assertEqual(foundation, ["paper-resnet"])
+        self.assertEqual(foundation, ["paper-resnet", "paper-attention", "paper-bytetrack"])
         cards = [page.paper_previews[paper_id].parentWidget() for paper_id in recent + foundation]
-        self.assertEqual(items, [items[0], page.paper_groups["recent"], *cards[:5], page.paper_groups["foundation"], cards[5]])
+        self.assertEqual(items, [items[0], page.paper_groups["recent"], *cards[:5],
+                                 page.paper_groups["foundation"], *cards[5:]])
         intro_x = items[0].mapTo(page.paper_content, QPoint()).x()
         for (_, name, note), heading in zip(PAPER_GROUPS, (page.paper_groups["recent"], page.paper_groups["foundation"])):
             self.assertEqual((heading.title.text(), heading.description.text()), (name, note))

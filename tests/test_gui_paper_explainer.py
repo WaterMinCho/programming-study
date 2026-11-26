@@ -16,7 +16,8 @@ from PyQt6.QtWidgets import QPushButton, QWidget
 
 from career import load_catalog
 from gui import kit, motion, theme
-from gui.paper_explainer import EXPLANATIONS, MASK, PAPER_IDS, PaperDiagram, PaperExplanationDialog, load_explanations, small_examples
+from gui.paper_explainer import (EXPLANATIONS, MASK, PAPER_IDS, PaperDiagram, PaperExplanationDialog,
+                                 attention_example, bytetrack_example, load_explanations, small_examples)
 
 
 class PaperExplainerTest(unittest.TestCase):
@@ -58,7 +59,7 @@ class PaperExplainerTest(unittest.TestCase):
     def test_papers_have_four_stages_and_no_external_image_dependencies(self):
         data = load_explanations()
         self.assertEqual(set(data), set(PAPER_IDS))
-        self.assertEqual(sum(len(row["steps"]) for row in data.values()), 24)
+        self.assertEqual(sum(len(row["steps"]) for row in data.values()), 32)
         text = EXPLANATIONS.read_text()
         for forbidden in ("/Users/", "<img", "data:image", ".png", ".jpg", "transcript"):
             self.assertNotIn(forbidden, text)
@@ -67,6 +68,25 @@ class PaperExplainerTest(unittest.TestCase):
                 dialog = self.show(paper)
                 self.assertFalse(dialog.answer.isVisible())
                 self.assertEqual(dialog.stage, 0)
+
+    def test_attention_uses_each_query_row_to_weight_value_rows(self):
+        _, _, _, scores, scaled, weights, output = attention_example()
+        self.assertEqual(scores, [[2, 0], [0, 2]])
+        self.assertAlmostEqual(scaled[0][0], 1.4142135624)
+        self.assertEqual([round(sum(row), 10) for row in weights], [1, 1])
+        self.assertEqual([[round(value, 3) for value in row] for row in weights],
+                         [[0.804, 0.196], [0.196, 0.804]])
+        self.assertEqual([[round(value, 3) for value in row] for row in output],
+                         [[1.609, 0.782], [0.391, 3.218]])
+
+    def test_bytetrack_example_checks_high_then_low_and_filters_before_association(self):
+        _, detections, overlaps = bytetrack_example()
+        self.assertEqual([name for name, (_, score) in detections.items() if score >= 0.60], ["A"])
+        self.assertEqual([track for track in (7, 9) if overlaps[track, "A"] >= 0.50], [7])
+        self.assertEqual([name for name in ("B", "C") if overlaps[9, name] >= 0.50], ["B"])
+        self.assertEqual(overlaps[9, "B"], 0.60)
+        self.assertEqual(overlaps[9, "C"], 0)
+        self.assertEqual([name for name, (_, score) in detections.items() if score >= 0.50], ["A"])
 
     def test_small_examples_recalculate_convolution_and_pointwise(self):
         mobile = small_examples()["mobile"]
