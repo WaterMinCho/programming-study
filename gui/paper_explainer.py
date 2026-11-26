@@ -14,7 +14,7 @@ from gui.disclosure import DisclosureButton
 
 EXPLANATIONS = Path(__file__).resolve().parents[1] / "career/data/paper_explanations.json"
 PAPER_IDS = ("paper-mobilenetv4", "paper-convnext-v2", "paper-dinov2", "paper-sam2", "paper-dora-weight-decomposed",
-             "paper-resnet")
+             "paper-resnet", "paper-attention", "paper-bytetrack")
 MASK = ((0, 0, 0, 0, 0), (0, 1, 1, 1, 0), (0, 1, 1, 1, 0), (0, 0, 0, 0, 0))
 
 
@@ -164,14 +164,15 @@ class VectorScene:
                     self.glyph(values[row][col], rect)
         return QRectF(x, y, cols * cell, rows * cell)
 
-    def planes(self, planes, names, start=16, selected=(), axes=False, columns=2, tail_space=0):
-        grid_width = len(planes[0][0]) * self.cell
+    def planes(self, planes, names, start=16, selected=(), axes=False, columns=2, tail_space=0, cell=None):
+        cell = cell or self.cell
+        grid_width = len(planes[0][0]) * cell
         needed = grid_width + (48 if axes else 0)
         columns = min(columns, len(planes), max(1, int((self.width - 32 + 24) // (needed + 24))))
         pane_width = (self.width - 32 - (columns - 1) * 24) / columns
         title_heights = [self.measure(name, pane_width, bold=True) for name in names]
         title_h = max(title_heights)
-        rows_h = len(planes[0]) * self.cell
+        rows_h = len(planes[0]) * cell
         pitch = title_h + 12 + (40 if axes else 0) + rows_h + 24 + tail_space
         rects = []
         for index, (plane, name) in enumerate(zip(planes, names)):
@@ -180,18 +181,21 @@ class VectorScene:
             self.text(name, left, top, pane_width, color="link", bold=True, center=True)
             x = left + (pane_width - needed) / 2 + (48 if axes else 0)
             y = top + title_h + 12 + (40 if axes else 0)
-            rects.append(self.grid(x, y, plane, selected=selected, axes=axes))
+            rects.append(self.grid(x, y, plane, cell=cell, selected=selected, axes=axes))
         return rects
 
     def measure(self, text, width, bold=False):
         probe = VectorScene(width)
         return probe.text(text, 0, 0, width, bold=bold)
 
+    def matrix_cell(self, matrices):
+        metrics = QFontMetricsF(theme.font("learn_body"))
+        return max(self.cell, math.ceil(max(metrics.horizontalAdvance(str(value))
+                                           for matrix in matrices for row in matrix for value in row)) + 24)
+
     def matrix_chain(self, matrices, names, captions=(), multiplication=False):
         """행렬 안 글자 여백을 확보하고 세 행렬이 들어가지 않으면 세로로 연결함."""
-        metrics = QFontMetricsF(theme.font("learn_body"))
-        cell = max(self.cell, math.ceil(max(metrics.horizontalAdvance(str(value))
-                                           for matrix in matrices for row in matrix for value in row)) + 24)
+        cell = self.matrix_cell(matrices)
         grid_width = max(len(matrix[0]) for matrix in matrices) * cell
         horizontal = self.width >= 32 + 3 * grid_width + 2 * 48
         pane = (self.width - 32 - 96) / 3 if horizontal else self.width - 32
@@ -504,6 +508,98 @@ def _number(value, digits=6):
     return f"{value:.{digits}f}".rstrip("0").rstrip(".").replace("-", "−")
 
 
+def attention_example():
+    """토큰 두 개와 마스크 없는 헤드 하나의 계산을 재현함."""
+    q, k, v = ((1, 0), (0, 1)), ((2, 0), (0, 2)), ((2, 0), (0, 4))
+    scores = [[sum(a * b for a, b in zip(query, key)) for key in k] for query in q]
+    scaled = [[value / math.sqrt(len(k[0])) for value in row] for row in scores]
+    exp_scores = [[math.exp(value) for value in row] for row in scaled]
+    weights = [[value / sum(row) for value in row] for row in exp_scores]
+    output = [[sum(weight * value for weight, value in zip(row, column)) for column in zip(*v)]
+              for row in weights]
+    return q, k, v, scores, scaled, weights, output
+
+
+def _attention(scene, stage):
+    q, k, v, scores, scaled, weights, output = attention_example()
+
+    def rounded(matrix):
+        return [[_number(value, 3) for value in row] for row in matrix]
+
+    scaled, weights, output = map(rounded, (scaled, weights, output))
+    cell = scene.matrix_cell((scaled, weights))
+    if stage == 0:
+        scene.planes((q, k, v), ("Query (Q)", "Key (K)", "Value (V)"),
+                     selected=((0, 0), (0, 1)), columns=3)
+        caption = "강조한 첫째 행은 모두 토큰 1에서 나왔습니다."
+    elif stage == 1:
+        scene.planes((scores, scaled), ("내적 점수", "√2로 나눈 점수"),
+                     selected=((0, 0), (0, 1)), cell=cell)
+        caption = "첫째 Query의 점수  [2, 0] → [√2, 0]"
+    elif stage == 2:
+        scene.planes((scaled, weights), ("√2로 나눈 점수", "행별 소프트맥스"),
+                     selected=((0, 0), (0, 1)), cell=cell)
+        caption = "첫째 Query의 가중치  0.804 + 0.196 ≈ 1"
+    else:
+        scene.matrix_chain((weights, v, output),
+                           ("가중치", "Value (V)", "Query별 출력"), multiplication=True)
+        caption = "첫째 출력  0.804 × [2, 0] + 0.196 × [0, 4] ≈ [1.609, 0.782]"
+    scene.text(caption, 16, scene.bottom + 24, scene.width - 32, center=True)
+
+
+def bytetrack_example():
+    """세로 길이와 범위가 같은 학습용 박스의 IoU를 계산함."""
+    tracks = {7: (0, 4), 9: (6, 10)}
+    detections = {"A": ((1, 5), 0.92), "B": ((7, 11), 0.32), "C": ((13, 17), 0.27)}
+    overlaps = {}
+    for track_id, (left, right) in tracks.items():
+        for name, ((a, b), _) in detections.items():
+            intersection = max(0, min(right, b) - max(left, a))
+            union = (right - left) + (b - a) - intersection
+            overlaps[track_id, name] = intersection / union
+    return tracks, detections, overlaps
+
+
+def _bytetrack(scene, stage):
+    tracks, detections, overlaps = bytetrack_example()
+    w = scene.width
+    if stage == 3:
+        lanes = (
+            ("B가 추적기에 들어온 경우", [("A · ID 7", detections["A"][0], "ok"),
+                                       ("B · ID 9", detections["B"][0], "ok")]),
+            ("검출기에서 0.50 미만을 버린 경우", [("A · ID 7", detections["A"][0], "ok")]),
+        )
+        caption = "첫째 줄에서 C는 제외했습니다. 둘째 줄에는 ID 9에 연결할 검출 박스가 없습니다."
+    else:
+        track_ids, candidates = (((7, 9), ("A", "B", "C")), ((7, 9), ("A",)), ((9,), ("B", "C")))[stage]
+        lanes = (
+            ("이전 ID의 예측 위치", [(f"ID {track_id}", tracks[track_id], "muted") for track_id in track_ids]),
+            ("이번 프레임의 검출 위치",
+             [(f"{name} · {detections[name][1]:.2f}", detections[name][0], "link") for name in candidates]),
+        )
+        caption = (
+            "A의 가로 범위는 1부터 5까지입니다. 점선 박스는 예측 위치입니다.",
+            f"A와의 IoU  ·  ID 7은 {overlaps[7, 'A']:.2f}, ID 9는 {overlaps[9, 'A']:.2f}",
+            f"ID 9와의 IoU  ·  B는 {overlaps[9, 'B']:.2f}, C는 {overlaps[9, 'C']:.2f}",
+        )[stage]
+
+    left = 24
+    unit = (w - 2 * left) / 17
+    for title, boxes in lanes:
+        scene.text(title, 16, scene.bottom + 20, w - 32, bold=True)
+        top = scene.bottom + 8
+        box_height = theme.TYPE["learn_caption"][1] + 14
+        scene.line((left, top + box_height), (w - left, top + box_height), color="line")
+        for label, (start, stop), color in boxes:
+            rect = QRectF(left + start * unit, top, (stop - start) * unit, box_height)
+            scene.rect(rect, "selection" if color == "link" else "surface_alt", color,
+                       dashed=color == "muted")
+            scene.text(label, rect.left(), top, rect.width(), role="caption", center=True, align_height=box_height)
+    for mark, x in ((0, left - 16), (17, w - left - 16)):
+        scene.text(mark, x, top + box_height + 8, 32, role="caption", color="muted", center=True)
+    scene.text(caption, 16, scene.bottom + 20, w - 32, center=True)
+
+
 def _vector(values):
     return "[" + ", ".join(_number(value) for value in values) + "]"
 
@@ -626,6 +722,10 @@ class PaperDiagram(QWidget):
             _dora(scene, self.stage, self.examples["dora"])
         elif self.paper_id == PAPER_IDS[5]:
             _resnet(scene, self.stage, self.examples["resnet"])
+        elif self.paper_id == "paper-attention":
+            _attention(scene, self.stage)
+        elif self.paper_id == "paper-bytetrack":
+            _bytetrack(scene, self.stage)
         return scene
 
     def hasHeightForWidth(self):

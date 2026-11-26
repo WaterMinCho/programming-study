@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2026-11-18-v1",
+  "version": "2026-11-27-v1",
   "papers": [
     {
       "paper_id": "paper-mobilenetv4",
@@ -211,6 +211,68 @@
       "adoption_urls": [
         "https://github.com/KaimingHe/deep-residual-networks",
         "https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py"
+      ]
+    },
+    {
+      "paper_id": "paper-attention",
+      "group": "foundation",
+      "title": "Attention Is All You Need",
+      "url": "https://arxiv.org/abs/1706.03762",
+      "published_date": "2017-06-12",
+      "checked_date": "2026-11-27",
+      "summary": "Transformer를 제안한 논문입니다. 각 토큰이 다른 토큰에서 가져올 정보의 비율을 어텐션으로 계산합니다.",
+      "beginner_explanation": "DINOv2 해설에서 이미지를 패치 토큰으로 바꿨습니다. 여기서는 토큰 두 개가 서로의 정보를 얼마나 섞는지 계산합니다. Query와 Key를 비교해 가중치를 정한 뒤, 그 가중치로 Value를 섞어 각 토큰의 새 벡터를 만듭니다.",
+      "verification_scope": "3.2.1절 식 (1)의 내적·스케일링·소프트맥스·가중합과 3.2.3절의 인코더 자기 어텐션을 확인했습니다. 번역 학습과 성능 실험은 재현 범위에서 제외했습니다.",
+      "examined_version": "v7",
+      "method_url": "https://arxiv.org/html/1706.03762v7",
+      "license_label": "arXiv perpetual non-exclusive license",
+      "license_url": "https://arxiv.org/licenses/nonexclusive-distrib/1.0/license.html",
+      "license_scope": "원문은 arXiv 배포 라이선스를 표시하고 표와 그림의 이용에는 별도 조건을 둡니다. 여기서는 작은 행렬 예와 그림을 직접 만들었습니다.",
+      "prerequisites": [
+        "벡터의 내적",
+        "행렬의 행과 열",
+        "소프트맥스"
+      ],
+      "figure_description": [
+        "토큰 두 개의 Query, Key, Value를 같은 순서의 행으로 그립니다.",
+        "내적 점수를 구하고 Query와 Key의 벡터 길이에서 정한 값으로 나눕니다.",
+        "같은 Query가 본 점수에 소프트맥스를 적용해 가중치를 얻습니다.",
+        "가중치로 Value의 행을 섞어 Query별 출력 벡터를 만듭니다."
+      ],
+      "figure_status": "original_diagram_proposal",
+      "adoption_urls": [
+        "https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html"
+      ]
+    },
+    {
+      "paper_id": "paper-bytetrack",
+      "group": "foundation",
+      "title": "ByteTrack: Multi-Object Tracking by Associating Every Detection Box",
+      "url": "https://arxiv.org/abs/2110.06864",
+      "published_date": "2021-10-13",
+      "checked_date": "2026-11-27",
+      "summary": "점수가 높은 검출 박스를 먼저 연결한 뒤, 남은 추적 대상에 점수가 낮은 박스를 한 번 더 연결하는 다중 객체 추적 방법입니다.",
+      "beginner_explanation": "컨베이어 위 물체가 일부 가려져 검출 점수가 낮아져도, 직전까지 추적하던 물체가 있을 법한 위치에서 박스를 찾으면 같은 ID를 이어갈 수 있습니다. 응용 11차시의 IoU와 12차시의 YOLO 검출 점수를 함께 써 봅니다.",
+      "verification_scope": "3절과 알고리즘 1의 두 차례 연결, 예측 위치의 사용, 남은 저점수 박스의 처리를 확인하고 공개 구현과 대조했습니다. 추적 데이터셋이나 성능 지표는 재현 범위에서 제외했습니다.",
+      "examined_version": "v3",
+      "method_url": "https://arxiv.org/html/2110.06864v3",
+      "license_label": "arXiv perpetual non-exclusive license",
+      "license_url": "https://arxiv.org/licenses/nonexclusive-distrib/1.0/license.html",
+      "license_scope": "arXiv 배포 라이선스와 구현 저장소의 이용 조건은 별도로 적용됩니다. 여기서는 가정한 박스와 그림을 직접 만들었습니다.",
+      "prerequisites": [
+        "바운딩 박스의 좌표",
+        "박스의 교집합과 합집합을 이용해 IoU 구하기",
+        "객체 검출 점수와 임계값"
+      ],
+      "figure_description": [
+        "기존 ID의 예측 박스와 새 프레임에서 검출한 박스를 같은 좌표에 놓습니다.",
+        "높은 점수의 박스만 보고 먼저 ID를 연결합니다.",
+        "아직 연결되지 않은 ID에 낮은 점수의 박스 두 개를 차례로 비교합니다.",
+        "기존 ID를 이은 박스와 연결 없이 버린 박스를 표시합니다."
+      ],
+      "figure_status": "original_diagram_proposal",
+      "adoption_urls": [
+        "https://github.com/FoundationVision/ByteTrack/blob/main/yolox/tracker/byte_tracker.py"
       ]
     }
   ]
