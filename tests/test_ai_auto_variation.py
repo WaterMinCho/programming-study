@@ -151,6 +151,43 @@ class AutoVariationTest(Base):
         self.assertIn('i01-b02', ids)
         self.assertEqual('carry', trace['selected_pools']['i01-b02'])
 
+    def test_current_unit_cards_keep_their_family_and_next_transfer_is_selected(self):
+        for pool in ('new', 'due'):
+            with self.subTest(pool=pool):
+                self.at = '2026-11-07T20:00:00'
+                sess = self.session()
+                sess.mark_read('i01', '1a')
+                sess.mark_read('i04', '4b')
+                if pool == 'due':
+                    self.answer_before(sess, 'i04-b05')
+                self.answer_before(sess, 'i01-b01')
+                self.answer_before(sess, 'i01-c02', result='stuck', day='09')
+                trace = {}
+                with mock.patch.object(service, 'UNIT_TRANSFERS', 1):
+                    ids = service.build_set(sess, sess._state(), 'unit', random.Random(7),
+                                            lesson='i04', unit='4b', trace=trace)
+                self.assertEqual(pool, trace['selected_pools'].get('i04-b05'))
+                self.assertNotIn('i01-b02', ids)
+                self.assertEqual({'i01-b01': 'i01-c01'}, trace.get('unit_transfers'))
+
+    def test_revisit_balances_blanks_after_replacing_an_earlier_blank(self):
+        self.at = '2026-11-07T20:00:00'
+        sess = self.session()
+        scenario = ('i01-b01', 'i01-b02', 'i01-c01', 'i01-c02', 'i04-b06')
+        sess.cards = {cid: sess.cards[cid] for cid in scenario}
+        sess.mark_read('i01', '1a')
+        sess.mark_read('i04', '4b')
+        self.answer_before(sess, 'i01-b02')
+        self.answer_before(sess, 'i01-b01', day='08')
+        self.answer_before(sess, 'i01-c01', day='08')
+        trace = {}
+        with mock.patch.multiple(service, SET_SIZE=3, SET_MIN=3):
+            ids = service.build_set(sess, sess._state(), 'mixed', random.Random(5),
+                                    lesson='i04', unit='4b', trace=trace)
+        self.assertEqual('i04-b06', ids[0])
+        self.assertEqual({'i01-b02': 'i01-c02'}, trace['unit_transfers'])
+        self.assertEqual({'i01-b01', 'i01-c02', 'i04-b06'}, set(ids))
+
     def test_next_unit_does_not_repeat_two_originals_with_the_same_counterpart(self):
         sess = self.session('app')
         sess.mark_read('a01', 'a1c')

@@ -1929,12 +1929,12 @@ def _note_variant(state, lead):
     return _variants(state, lead, fixed=True)[:1]
 
 
-def _unit_transfers(state, sources, skip, cap, selected=()):
+def _unit_transfers(state, sources, skip, cap, selected=(), reserved_families=()):
     """이미 읽은 다른 단원에서 아직 풀지 않은 검토 문항을 고름."""
     sess = state.sess
     selected = set(selected)
     occupied = {sess.cards[cid]["family"]: cid for cid in selected}
-    picked, families = {}, set()
+    picked, families = {}, set(reserved_families)
     for source in sources:
         if len(picked) == UNIT_TRANSFERS:
             break
@@ -2112,9 +2112,12 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         other_gens = [cid for cid in others if cards[cid]["kind"] == "gen"]
         other_fixed = [cid for cid in others if cards[cid]["kind"] != "gen"]
         skip = set(again + due) | state.completed_today
+        current_again = [cid for cid in again if cid not in carry]
+        due = [cid for cid in due if cid not in past_due]
         extra = cap - sum(not cards[cid]["core"] for cid in fresh[:UNIT_NEW])
         past_fixed = [cid for cid in other_fixed if not current(cid)]
-        unit_transfers = _unit_transfers(state, carry + past_due + past_fixed, skip, extra)
+        reserved = {cards[cid]["family"] for cid in current_again + fresh[:UNIT_NEW] + due[:UNIT_REVIEW]}
+        unit_transfers = _unit_transfers(state, carry + past_due + past_fixed, skip, extra, reserved_families=reserved)
         extra -= sum(not state.is_open(cards[cid]) for cid in unit_transfers.values())
         extra_fresh = []
         for cid in fresh[UNIT_NEW:]:
@@ -2123,8 +2126,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
                     continue
                 extra -= 1
             extra_fresh.append(cid)
-        due = [cid for cid in due if cid not in past_due]
-        pools = [("again", [cid for cid in again if cid not in carry]), ("new", fresh[:UNIT_NEW]),
+        pools = [("again", current_again), ("new", fresh[:UNIT_NEW]),
                  ("unit_transfer", list(unit_transfers.values())), ("due", due[:UNIT_REVIEW]), ("other", other_gens)]
         # 새 문항과 변형으로 짧은 묶음도 못 채우면 이미 본 고정 지문을 다시 씀.
         overflow = [("new", extra_fresh), ("due", due[UNIT_REVIEW:]),
@@ -2226,11 +2228,13 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         previous_size = len(chosen)
         chosen = [(unit_transfers[cid], "unit_transfer") if cid in unit_transfers else (cid, pool)
                   for cid, pool in chosen if cid not in targets]
-        if len(chosen) < previous_size:
-            # 변형이 새 문항에도 들어 있었다면 한 번만 출제하고 열린 카드로 빈자리를 채움.
-            refill = [(name, [cid for cid in ids if cid not in unit_transfers and state.is_open(cards[cid])])
-                      for name, ids in pools]
-            chosen = _choose(sess, state, refill, previous_size, rng, taken=chosen)
+        if unit_transfers:
+            available = [(name, [cid for cid in ids if cid not in unit_transfers and state.is_open(cards[cid])])
+                         for name, ids in pools]
+            if len(chosen) < previous_size:
+                # 변형이 새 문항에도 들어 있었다면 한 번만 출제하고 열린 카드로 빈자리를 채움.
+                chosen = _choose(sess, state, available, previous_size, rng, taken=chosen)
+            chosen = _fix_blanks(sess, state, chosen, available, protected)
         if trace is not None and unit_transfers:
             linked = list(unit_transfers.values())
             trace["candidate_pools"].append({"name": "unit_transfer", "ids": linked, "overflow": False})
