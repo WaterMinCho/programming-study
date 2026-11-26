@@ -813,7 +813,8 @@ class RealMockScreensTest(AiTest):
                 self.assertTrue(win.open_ai_mock(mid))
                 page = win.ai_mock
                 page.begin()
-                refs = [cid for cid, item in page.exam.items.items() if item.get('learning_reference')]
+                refs = [cid for cid, item in page.exam.items.items()
+                        if (item.get('learning_reference') or {}).get('lesson') == 'al03']
                 self.assertEqual(1, len(refs))
                 pos = page.exam.draft['order'].index(refs[0])
                 page.go(pos)
@@ -838,7 +839,8 @@ class RealMockScreensTest(AiTest):
 
     def test_new_rounds_show_their_own_count_and_time_before_start(self):
         win = self.boot((760, 480))
-        for mid, count, minutes in (('m16', 35, 60), ('m17', 44, 90)):
+        for mid, count, minutes in (
+                ('m14', 56, 120), ('m15', 57, 120), ('m16', 37, 60), ('m17', 46, 90), ('m18', 32, 60)):
             with self.subTest(mid=mid):
                 self.assertTrue(win.open_ai_mock(mid))
                 page = win.ai_mock
@@ -846,8 +848,8 @@ class RealMockScreensTest(AiTest):
                 self.assertIn('%d분' % minutes, page.heading.text())
                 self.assertIn('%d분은 이 회차의 연습 시간입니다' % minutes, page.clock_note.text.text())
                 self.assertEqual(count, sum(int(row.end.text()[:-2]) for row in page.lesson_counts.rows))
-                applied_11 = [row.end.text() for row in page.lesson_counts.rows if row.where.text() == '응용 11차시']
-                self.assertEqual(['2문항'], applied_11)
+                applied_12 = [row.end.text() for row in page.lesson_counts.rows if row.where.text() == '응용 12차시']
+                self.assertEqual(['2문항'], applied_12)
                 self.assertIsNone(page.exam)
 
     def test_ready_tables_add_up_and_empty_m11_result_marks_every_lesson(self):

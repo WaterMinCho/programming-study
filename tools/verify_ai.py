@@ -1710,6 +1710,11 @@ ALL_LESSON_RULES = {"all44-v1": {"format": {"choice": 16, "bug": 5, "order": 3, 
                                  "level": {1: 12, 2: 20, 3: 3}, "code_level": {2: 1, 3: 2}},
                     "all44-applied11-v1": {"format": {"blank": 6, "bug": 6, "choice": 16, "code": 4, "order": 3, "predict": 9},
                                           "level": {1: 5, 2: 26, 3: 13}, "code_level": {3: 4}},
+                    'all56-applied12-v1': {'format': {'blank': 10, 'bug': 7, 'choice': 20, 'code': 4, 'order': 3, 'predict': 12}, 'level': {1: 13, 2: 30, 3: 13}, 'code_level': {2: 2, 3: 2}},
+                    'all57-applied12-v1': {'format': {'blank': 12, 'bug': 6, 'choice': 20, 'code': 4, 'order': 3, 'predict': 12}, 'level': {1: 15, 2: 28, 3: 14}, 'code_level': {2: 2, 3: 2}},
+                    'all37-applied12-v1': {'format': {'blank': 6, 'bug': 5, 'choice': 16, 'code': 3, 'order': 2, 'predict': 5}, 'level': {1: 12, 2: 22, 3: 3}, 'code_level': {2: 1, 3: 2}},
+                    'all46-applied12-v1': {'format': {'blank': 6, 'bug': 6, 'choice': 17, 'code': 4, 'order': 3, 'predict': 10}, 'level': {1: 5, 2: 27, 3: 14}, 'code_level': {3: 4}},
+                    'all32-applied12-v1': {'format': {'blank': 10, 'bug': 3, 'choice': 17, 'order': 1, 'predict': 1}, 'level': {1: 9, 2: 21, 3: 2}, 'code_level': {}},
 }
 FORMAT_KINDS = {"choice": "choice", "bug": "choice", "order": "choice", "blank": "blank", "predict": "blank", "code": "code"}
 

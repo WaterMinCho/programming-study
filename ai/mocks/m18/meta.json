@@ -1,0 +1,62 @@
+{
+ "format": 1,
+ "draft": false,
+ "round_set": 6,
+ "time_basis": "60분은 개론과 응용의 모든 차시를 빈칸과 객관식으로 점검하는 연습 시간입니다.",
+ "variation_types": [
+  "condition",
+  "application",
+  "code_analysis",
+  "comparison"
+ ],
+ "id": "m18",
+ "title": "모의고사 8회",
+ "minutes": 60,
+ "range": [
+  1,
+  17
+ ],
+ "window": [],
+ "scope": "mixed",
+ "courses": [
+  "intro",
+  "app"
+ ],
+ "count": 32,
+ "course_counts": {
+  "intro": 17,
+  "app": 15
+ },
+ "blueprint": {
+  "i01": 1,
+  "i02": 1,
+  "i03": 1,
+  "i04": 1,
+  "i05": 1,
+  "i06": 1,
+  "i07": 1,
+  "i08": 1,
+  "i09": 1,
+  "i10": 1,
+  "i11": 1,
+  "i12": 1,
+  "i13": 1,
+  "i14": 1,
+  "i15": 1,
+  "i16": 1,
+  "i17": 1,
+  "a01": 1,
+  "a02": 1,
+  "a03": 1,
+  "a04": 1,
+  "a05": 1,
+  "a06": 1,
+  "a07": 1,
+  "a08": 1,
+  "a09": 1,
+  "a10": 2,
+  "a11": 2,
+  "a12": 2
+ },
+ "blueprint_revision": "all32-applied12-v1"
+}

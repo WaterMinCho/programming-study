@@ -1,7 +1,7 @@
 {
  "id": "m16",
  "title": "모의고사 6회",
- "count": 35,
+ "count": 37,
  "minutes": 60,
  "range": [
   1,
@@ -15,7 +15,7 @@
  ],
  "course_counts": {
   "intro": 19,
-  "app": 16
+  "app": 18
  },
  "blueprint": {
   "i01": 1,
@@ -45,14 +45,16 @@
   "a08": 1,
   "a09": 1,
   "a10": 1,
-  "a11": 2
+  "a11": 2,
+  "a12": 2
  },
- "blueprint_revision": "all35-v1",
+ "blueprint_revision": "all37-applied12-v1",
  "format": 1,
  "draft": false,
  "round_set": 4,
  "time_basis": "60분은 문항 수와 코드 작성에 걸리는 시간을 고려한 연습용 시간입니다.",
  "resume_wording": [
-  "f04919ccaa04ece765f59253e6125439f8f167beb2130fce6d48a8f3e1aa368c"
+  "f04919ccaa04ece765f59253e6125439f8f167beb2130fce6d48a8f3e1aa368c",
+  "b247b5ec43424683ef30b790778e88d6f92208be620ce6cdb98c927fcc6984a1"
  ]
 }

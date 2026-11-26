@@ -1,0 +1,77 @@
+{
+ "format": 1,
+ "id": "a12",
+ "no": 12,
+ "page": "al12",
+ "units": {
+  "a12a": {
+   "blank": 2,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "a12b": {
+   "blank": 2,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "a12c": {
+   "blank": 2,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "a12d": {
+   "blank": 2,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "a12e": {
+   "blank": 2,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  },
+  "a12f": {
+   "blank": 2,
+   "choice": 2,
+   "stmt": 0,
+   "gen": [],
+   "core": 4
+  }
+ },
+ "sources": [],
+ "card_order": [
+  "a12-b01",
+  "a12-b02",
+  "a12-c01",
+  "a12-c02",
+  "a12-b03",
+  "a12-b04",
+  "a12-c03",
+  "a12-c04",
+  "a12-b05",
+  "a12-b06",
+  "a12-c05",
+  "a12-c06",
+  "a12-b07",
+  "a12-b08",
+  "a12-c07",
+  "a12-c08",
+  "a12-b09",
+  "a12-b10",
+  "a12-c09",
+  "a12-c10",
+  "a12-b11",
+  "a12-b12",
+  "a12-c11",
+  "a12-c12"
+ ]
+}

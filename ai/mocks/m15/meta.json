@@ -2,7 +2,7 @@
  "id": "m15",
  "title": "모의고사 5회",
  "minutes": 120,
- "count": 54,
+ "count": 57,
  "range": [
   1,
   17
@@ -15,7 +15,7 @@
  ],
  "course_counts": {
   "intro": 38,
-  "app": 16
+  "app": 19
  },
  "blueprint": {
   "i01": 2,
@@ -44,14 +44,17 @@
   "a07": 1,
   "a08": 1,
   "a09": 1,
-  "a10": 2
+  "a10": 2,
+  "a11": 1,
+  "a12": 2
  },
- "blueprint_revision": "all54-v1",
+ "blueprint_revision": "all57-applied12-v1",
  "format": 1,
  "draft": false,
  "round_set": 3,
  "time_basis": "120분은 약 두 시간 연습을 위한 기본값입니다.",
  "resume_wording": [
-  "890389ae498942d1a1e0a04b28e45da22ddecdf8ceed7668840c5dd15ab8f139"
+  "890389ae498942d1a1e0a04b28e45da22ddecdf8ceed7668840c5dd15ab8f139",
+  "3bc4a6c9b536c18dfbf1eac9f4c265c04836f8a2c17e46475e6dce486ecdfc35"
  ]
 }

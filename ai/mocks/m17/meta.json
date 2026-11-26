@@ -1,7 +1,7 @@
 {
  "id": "m17",
  "title": "모의고사 7회",
- "count": 44,
+ "count": 46,
  "minutes": 90,
  "range": [
   1,
@@ -15,7 +15,7 @@
  ],
  "course_counts": {
   "intro": 24,
-  "app": 20
+  "app": 22
  },
  "blueprint": {
   "i01": 1,
@@ -45,14 +45,16 @@
   "a08": 2,
   "a09": 1,
   "a10": 2,
-  "a11": 2
+  "a11": 2,
+  "a12": 2
  },
- "blueprint_revision": "all44-applied11-v1",
+ "blueprint_revision": "all46-applied12-v1",
  "format": 1,
  "draft": false,
  "round_set": 5,
  "time_basis": "90분은 문항 수와 코드 작성에 걸리는 시간을 고려한 연습용 시간입니다.",
  "resume_wording": [
-  "b6442e51e39b437783f92bf74f1d4f42db8335d70cb69b2596e6d63cad581e4b"
+  "b6442e51e39b437783f92bf74f1d4f42db8335d70cb69b2596e6d63cad581e4b",
+  "78ca1bc4a9018ee24b8720f475ecfa6cf5fdfb31028789a90596d8d29e5065ba"
  ]
 }

@@ -1,0 +1,28 @@
+{
+ "format": 1,
+ "writer": "출제 1",
+ "resolver": "재풀이 2",
+ "reviewer": "대조 3",
+ "files": {
+  "assets/a12b-1.png": "8536060fd5eac1e4934db7382d6c42fca00e06589e418c8fd748122f703e7bba",
+  "assets/a12b-21.png": "150e755bee345bd60d3adab90680c5996e9287b5665cae0616283c0c57e2370d",
+  "assets/a12b-22.png": "286b4a9bf7c7e2f643a222d2973a36b33fee9578a4c2f6be96e26b5cdc7599e8",
+  "assets/a12b-23.png": "d5b85e9a41df6b72327e92195e5a00ee446ddc63210ddf735cea1c4e935a1571",
+  "assets/a12c-1.png": "6e3ae7f22aa0b92d29fdab49fda59f0b9c0c6cf2a31a0001c214295694a4496e",
+  "assets/a12c-21.png": "3a07f9b3f625693e89755ae55d3366b966d655535a749afaf091fafdbf612e74",
+  "assets/a12c-22.png": "c0ccc8fd5da111ef15d94381288c23ddcd8e44ec1f63c96f73a9af4b67662d9a",
+  "assets/a12c-23.png": "5c411a4d8c3ea096ac8f719f9b5cc19db178327ff316a7aa1ef17c7a4865ec63",
+  "assets/a12d-1.png": "c63003f46c7f41572d0cdf8522e29ab4118c28dbe96531093b09d3a007539f39",
+  "assets/a12d-31.png": "b51a89bbc1b7dd2b280fe3b5fa9447089cda91d4377c45d3d9106a1a20b16597",
+  "assets/a12d-32.png": "1db1fd96e20451728b7810eb3c0ebc9e06e8ab89d10a8bb98252cf6ca261f165",
+  "assets/a12d-33.png": "a34035b577e595066b856033a14c7422847e8d80b402b7748331654cf9e50753",
+  "meta.json": "a6f8a0cf9056b5482a92c9924a399df03782d242d025ddb6d9938db10795ef3f",
+  "page.md": "9f835b305e15509a27ed0b02129fbd493448fe8660dbec3cbffa04348eb46a19"
+ },
+ "findings": [
+  "합성 박스·분할 계산과 공개 설명을 대조하고 세 수준 물음과 그림을 확인함.",
+  "합성 좌표·분할 계산과 그림을 대조함. 세 수준 물음 9개를 다시 풂.",
+  "세 수준의 그림은 같은 입력을 유지하고 계산할 값의 표시를 달리함.",
+  "세 수준별 그림에서 계산할 값의 표시를 대조함."
+ ]
+}
