@@ -1929,9 +1929,11 @@ def _note_variant(state, lead):
     return _variants(state, lead, fixed=True)[:1]
 
 
-def _unit_transfers(state, sources, skip, cap):
-    """이미 읽은 단원의 오답·예정 복습에서 아직 풀지 않은 변형을 고름."""
+def _unit_transfers(state, sources, skip, cap, selected=()):
+    """이미 읽은 다른 단원에서 아직 풀지 않은 검토 문항을 고름."""
     sess = state.sess
+    selected = set(selected)
+    occupied = {sess.cards[cid]["family"]: cid for cid in selected}
     picked, families = {}, set()
     for source in sources:
         if len(picked) == UNIT_TRANSFERS:
@@ -1939,14 +1941,16 @@ def _unit_transfers(state, sources, skip, cap):
         lead = sess.cards[source]
         for cid in sess.unit_transfers.get(source, []):
             card = sess.cards.get(cid)
-            if not card or cid in skip or cid in state.events or card["family"] in families:
+            if not card or (cid in skip and cid not in selected) or cid in state.events or card["family"] in families:
+                continue
+            if occupied.get(card["family"]) not in (None, source, cid):
                 continue
             if (card["lesson"], card["unit"]) != (lead["lesson"], lead["unit"]):
                 continue
             if (card["kind"] not in ("blank", "choice") or card["kind"] == lead["kind"]
                     or card["deep"] or card.get("mock")):
                 continue
-            if not state.is_open(card):
+            if cid not in selected and not state.is_open(card):
                 # 이미 읽은 내용의 복습이므로 핵심 상자와 시험 전 새 문항 마감은 기다리지 않음.
                 if cap <= 0:
                     continue
@@ -2109,7 +2113,8 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         other_fixed = [cid for cid in others if cards[cid]["kind"] != "gen"]
         skip = set(again + due) | state.completed_today
         extra = cap - sum(not cards[cid]["core"] for cid in fresh[:UNIT_NEW])
-        unit_transfers = _unit_transfers(state, carry + past_due, skip, extra)
+        past_fixed = [cid for cid in other_fixed if not current(cid)]
+        unit_transfers = _unit_transfers(state, carry + past_due + past_fixed, skip, extra)
         extra -= sum(not state.is_open(cards[cid]) for cid in unit_transfers.values())
         extra_fresh = []
         for cid in fresh[UNIT_NEW:]:
@@ -2174,7 +2179,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
         # 2026-11-17 #278 부터 unit·lesson·mixed 는 오늘 마친 문항을 후보에서 빼고 모자랄 때만 채우므로 rules-v6
         policy = "rules-v6" if mode in ("unit", "lesson", "mixed") else "rules-v2"
         if scoped:
-            policy = "rules-v9" if mode == "unit" else "rules-v8"
+            policy = "rules-v10"
         if mode == "note" and any(name == "transfer" and ids for name, ids in pools):
             policy = "rules-v3" if cards[card].get("mock") else "rules-v2"
         trace.update(policy=policy, retry_policy=RETRY_POLICY,
@@ -2190,7 +2195,7 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     if len(chosen) < SET_MIN and overflow:
         used = {cid for cid, pool in chosen if pool == "unit_transfer"}
         overflow = [(name, [cid for cid in ids if used.isdisjoint(sess.unit_transfers.get(cid, []))])
-                    if name in ("carry", "due") else (name, ids) for name, ids in overflow]
+                    if name in ("carry", "due", "other", "done") else (name, ids) for name, ids in overflow]
         chosen = _choose(sess, state, overflow, SET_MIN, rng, taken=chosen)
     pairs = {}
     if mode in ("review", "sweep"):
@@ -2208,6 +2213,28 @@ def build_set(sess, state, mode, rng, lesson=None, unit=None, card=None, trace=N
     if mode in ("review", "sweep"):
         keep.update(cid for cid, pool in chosen if pool in ("again", "due"))
     chosen = _gen_trim(sess, chosen, keep=keep, minimum=1 if mode == "unit" else 0)
+    if mode == "mixed" and scoped:
+        # 다시 보기에서 고른 단원과 예정 복습을 담은 뒤, 다른 단원 문항 자리에 변형을 씀.
+        selected_cards = [cards[cid] for cid, _ in chosen]
+        prior = {c["id"] for c in selected_cards if (c["lesson"], c["unit"]) != (lesson, unit)}
+        sources = [cid for cid in again + due if cid in prior and cid in state.events]
+        sources.extend(cid for cid, pool in chosen if cid in prior and pool == "rest")
+        skip = set(again + due) | state.completed_today
+        extra = cap - sum(not state.is_open(c) for c in selected_cards)
+        unit_transfers = _unit_transfers(state, sources, skip, extra, selected=(cid for cid, _ in chosen))
+        targets = set(unit_transfers.values())
+        previous_size = len(chosen)
+        chosen = [(unit_transfers[cid], "unit_transfer") if cid in unit_transfers else (cid, pool)
+                  for cid, pool in chosen if cid not in targets]
+        if len(chosen) < previous_size:
+            # 변형이 새 문항에도 들어 있었다면 한 번만 출제하고 열린 카드로 빈자리를 채움.
+            refill = [(name, [cid for cid in ids if cid not in unit_transfers and state.is_open(cards[cid])])
+                      for name, ids in pools]
+            chosen = _choose(sess, state, refill, previous_size, rng, taken=chosen)
+        if trace is not None and unit_transfers:
+            linked = list(unit_transfers.values())
+            trace["candidate_pools"].append({"name": "unit_transfer", "ids": linked, "overflow": False})
+            trace["candidate_ids"] = list(dict.fromkeys(trace["candidate_ids"] + linked))
     if trace is not None:
         if mode == "note" and not cards[card].get("mock") and any(pool == "transfer" for _, pool in chosen):
             trace["policy"] = "rules-v4" if any(cards[cid]["kind"] == "gen"

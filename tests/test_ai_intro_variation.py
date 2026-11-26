@@ -48,7 +48,7 @@ class IntroVariationTest(Base):
         self.assertEqual([f'i04-test-{n}' for n in range(7)], fresh[1:])
         self.assertIn('i04-g03', chosen)
         self.assertEqual('new', trace['selected_pools']['i04-g03'])
-        self.assertEqual('rules-v9', trace['policy'])
+        self.assertEqual('rules-v10', trace['policy'])
         self.assertEqual(len(chosen), len({sess.cards[c]['family'] for c in chosen}))
         self.assertLessEqual(sum(sess.cards[c]['kind'] == 'gen' for c in chosen), max(1, int(len(chosen) * service.GEN_SHARE)))
 
