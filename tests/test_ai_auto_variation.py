@@ -70,7 +70,7 @@ class AutoVariationTest(Base):
                 self.assertTrue(any(sess.cards[cid]['unit'] == next_unit for cid in ids))
                 set_rows = [row for row in sess.collection.snapshot() if row['kind'] == 'set']
                 trace = set_rows[-1]['data']['selection']
-                self.assertEqual('rules-v9', trace['policy'])
+                self.assertEqual('rules-v10', trace['policy'])
                 self.assertEqual({source: target}, trace['unit_transfers'])
                 self.assertEqual('unit_transfer', trace['selected_pools'][target])
                 self.assertEqual(ids, [e['card'] for e in sess.resume_set().queue])
@@ -101,6 +101,38 @@ class AutoVariationTest(Base):
             ids = service.build_set(sess, state, 'unit', random.Random(9), lesson='i02', unit='2a')
             self.assertNotIn(target, ids)
             self.assertIn(source, ids)
+
+    def test_other_unit_practice_uses_a_variant_before_the_original_is_due(self):
+        for course, source, target, next_lesson, next_unit in (
+            ('intro', 'i09-b21', 'i09-c13', 'i09', '9g'),
+            ('app', 'a08-b06', 'a08-c03', 'a09', 'a9a'),
+        ):
+            for mode in ('unit', 'mixed'):
+                with self.subTest(course=course, mode=mode):
+                    self.at = '2026-11-07T20:00:00'
+                    sess = self.session(course)
+                    lead = sess.cards[source]
+                    sess.collection.set_enabled(True)
+                    sess.mark_read(lead['lesson'], lead['unit'])
+                    self.answer_before(sess, source, day='08')
+                    sess.mark_read(next_lesson, next_unit)
+                    state = sess._state()
+                    self.assertGreater(state.due_day(source), state.today)
+                    before = copy.deepcopy(sess.record.log)
+                    practice = sess.start_set(mode, lesson=next_lesson, unit=next_unit, seed=7)
+                    ids = [entry['card'] for entry in practice.queue]
+                    self.assertIn(target, ids)
+                    self.assertNotIn(source, ids)
+                    self.assertTrue(any((sess.cards[cid]['lesson'], sess.cards[cid]['unit'])
+                                        == (next_lesson, next_unit) for cid in ids))
+                    trace = [row for row in sess.collection.snapshot() if row['kind'] == 'set'][-1]['data']['selection']
+                    self.assertEqual({source: target}, trace['unit_transfers'])
+                    practice.pos = ids.index(target)
+                    self.assertIn('다른 단원 복습', practice.current()['chips'])
+                    self.assertEqual('pass', practice.answer(self.right(practice, practice.current()), 2, True)['result'])
+                    self.assertEqual(target, sess.record.log[-1]['card'])
+                    self.assertEqual(before, sess.record.log[:len(before)])
+                    self.assertEqual(state.due_day(source), sess._state().due_day(source))
 
     def test_next_unit_uses_exact_original_only_if_other_cards_run_out(self):
         sess = self.session()
