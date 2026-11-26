@@ -1,0 +1,86 @@
+{
+ "format": 1,
+ "id": "al12",
+ "lesson": "a12",
+ "title": "응용 12차시 YOLO 검출 결과를 읽고 학습 자료 준비하기",
+ "defines": [],
+ "needs": [
+  "al11"
+ ],
+ "sections": {
+  "a12a": "후보 영역을 만드는 검출과 한 번에 예측하는 검출",
+  "a12b": "사진마다 돌아온 YOLO 결과 읽기",
+  "a12c": "두 모서리를 YOLO 라벨 한 줄로 바꾸기",
+  "a12d": "이미지와 라벨을 짝지어 나누기",
+  "a12e": "클래스 번호표를 맞추고 훈련과 평가 나누기",
+  "a12f": "YOLOv8에서 기록된 손실 구분하기"
+ },
+ "outputs": [],
+ "credits": [],
+ "sources": [
+  {
+   "what": "실습 01의 YOLOv8 입력과 예측 결과",
+   "url": "https://colab.research.google.com/drive/1mkUGQJetnIMwKIpEXItRVZBaufsI4R2s",
+   "checked": "2026-11-26"
+  },
+  {
+   "what": "실습 02의 추론·데이터 변환·분할·학습 로그",
+   "url": "https://colab.research.google.com/drive/1WMj9brW4OuiBEq_Mjqz5w4H88BoCJoTz",
+   "checked": "2026-11-26"
+  },
+  {
+   "what": "과제의 검출 문제와 손실 참조",
+   "url": "https://colab.research.google.com/drive/17MJid6UR5HqE-NV-rZlC2o60zjWZRxoz",
+   "checked": "2026-11-26"
+  },
+  {
+   "what": "YOLOv8 모델과 사전학습 가중치",
+   "url": "https://docs.ultralytics.com/models/yolov8/",
+   "checked": "2026-11-26"
+  },
+  {
+   "what": "사진별 Results와 boxes",
+   "url": "https://docs.ultralytics.com/modes/predict/",
+   "checked": "2026-11-26"
+  },
+  {
+   "what": "검출용 데이터 설정과 라벨 형식",
+   "url": "https://docs.ultralytics.com/datasets/detect/",
+   "checked": "2026-11-26"
+  },
+  {
+   "what": "검출 손실 구현",
+   "url": "https://docs.ultralytics.com/reference/utils/loss/",
+   "checked": "2026-11-26"
+  }
+ ],
+ "units": {
+  "a12a": {
+   "minutes": 7,
+   "kind": "concept"
+  },
+  "a12b": {
+   "minutes": 7,
+   "kind": "concept",
+   "key_figure": "assets/a12b-1.png"
+  },
+  "a12c": {
+   "minutes": 7,
+   "kind": "concept",
+   "key_figure": "assets/a12c-1.png"
+  },
+  "a12d": {
+   "minutes": 7,
+   "kind": "concept",
+   "key_figure": "assets/a12d-1.png"
+  },
+  "a12e": {
+   "minutes": 7,
+   "kind": "concept"
+  },
+  "a12f": {
+   "minutes": 7,
+   "kind": "concept"
+  }
+ }
+}

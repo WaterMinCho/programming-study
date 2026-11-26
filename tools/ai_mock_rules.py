@@ -22,7 +22,7 @@ LESSON_SCORES = {
     "i17": (59, 6, 1, 1, 0),
     "a01": (44, 8, 2, 3, 3), "a02": (41, 6, 1, 2, 1), "a03": (57, 7, 2, 3, 1), "a04": (44, 7, 1, 1, 0),
     "a05": (36, 5, 2, 3, 1), "a06": (39, 6, 1, 2, 0), "a07": (44, 7, 1, 2, 0), "a08": (39, 6, 1, 2, 0),
-    "a09": (36, 6, 1, 2, 0), "a10": (36, 6, 2, 3, 0), "a11": (30, 6, 2, 2, 0),
+    "a09": (36, 6, 1, 2, 0), "a10": (36, 6, 2, 3, 0), "a11": (30, 6, 2, 2, 2), "a12": (24, 6, 2, 2, 0),
 }
 # 출제할 때 정한 차시별 문항 수와 공개한 회차의 기존 배분을 보관함.
 # 차시 추가나 배점 변경 뒤에도 등록한 배분을 그대로 씀.
@@ -50,6 +50,11 @@ PINNED_BLUEPRINTS = {
 }
 PINNED_BLUEPRINTS["all35-v1"] = {**PINNED_BLUEPRINTS["all33-v1"], "a11": 2}
 PINNED_BLUEPRINTS["all44-applied11-v1"] = {**PINNED_BLUEPRINTS["all42-v1"], "a11": 2}
+PINNED_BLUEPRINTS['all56-applied12-v1'] = {**PINNED_BLUEPRINTS['all52-v1'], 'a10': 1, 'a11': 1, 'a12': 2}
+PINNED_BLUEPRINTS['all57-applied12-v1'] = {**PINNED_BLUEPRINTS['all54-v1'], 'a11': 1, 'a12': 2}
+PINNED_BLUEPRINTS['all37-applied12-v1'] = {**PINNED_BLUEPRINTS['all35-v1'], 'a12': 2}
+PINNED_BLUEPRINTS['all46-applied12-v1'] = {**PINNED_BLUEPRINTS['all44-applied11-v1'], 'a12': 2}
+PINNED_BLUEPRINTS['all32-applied12-v1'] = {**{f'i{n:02d}': 1 for n in range(1, 18)}, **{f'a{n:02d}': 1 for n in range(1, 13)}, 'a10': 2, 'a11': 2, 'a12': 2}
 LESSON_CAP = 4
 TOKEN = re.compile(r"\d+(?:\.\d+)?(?:e[+-]?\d+)?|[^\W\d]\w*", re.UNICODE)
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})\s*([^\s]*)\s*$")

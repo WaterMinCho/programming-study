@@ -133,6 +133,17 @@
    "stmt": 0,
    "gen": [],
    "core": 3
+  },
+  "a18l": {
+   "slot": 2,
+   "order": 0,
+   "pick": 1,
+   "change": 0,
+   "blank": 0,
+   "choice": 0,
+   "stmt": 0,
+   "gen": [],
+   "core": 3
   }
  },
  "sources": [],

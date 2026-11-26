@@ -24,6 +24,11 @@ CONTRACTS = {"mixed32-blueprint-v1": _MIXED32, "mixed32-transfer-v1": _MIXED32, 
              "all42-v1": {"count": 42, "minutes": 90, "course_counts": {"intro": 24, "app": 18}, "all_lessons": True, "app_through": 10},
              "all35-v1": {"count": 35, "minutes": 60, "course_counts": {"intro": 19, "app": 16}, "all_lessons": True, "app_through": 11},
              "all44-applied11-v1": {"count": 44, "minutes": 90, "course_counts": {"intro": 24, "app": 20}, "all_lessons": True, "app_through": 11},
+             'all56-applied12-v1': {'count': 56, 'minutes': 120, 'course_counts': {'intro': 36, 'app': 20}, "all_lessons": True, 'app_through': 12},
+             'all57-applied12-v1': {'count': 57, 'minutes': 120, 'course_counts': {'intro': 38, 'app': 19}, "all_lessons": True, 'app_through': 12},
+             'all37-applied12-v1': {'count': 37, 'minutes': 60, 'course_counts': {'intro': 19, 'app': 18}, "all_lessons": True, 'app_through': 12},
+             'all46-applied12-v1': {'count': 46, 'minutes': 90, 'course_counts': {'intro': 24, 'app': 22}, "all_lessons": True, 'app_through': 12},
+             'all32-applied12-v1': {'count': 32, 'minutes': 60, 'course_counts': {'intro': 17, 'app': 15}, "all_lessons": True, 'app_through': 12},
 }
 
 
