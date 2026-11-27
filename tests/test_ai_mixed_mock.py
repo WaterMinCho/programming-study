@@ -228,7 +228,8 @@ class MixedMockTest(unittest.TestCase):
                     'm14': 'db39c516229812edf2a4ede285712e5095271c4048749e16ef7e03c0fc0e0ce9',
                     'm15': '890389ae498942d1a1e0a04b28e45da22ddecdf8ceed7668840c5dd15ab8f139',
                     'm16': 'f04919ccaa04ece765f59253e6125439f8f167beb2130fce6d48a8f3e1aa368c',
-                    'm17': 'b6442e51e39b437783f92bf74f1d4f42db8335d70cb69b2596e6d63cad581e4b'}
+                    'm17': 'b6442e51e39b437783f92bf74f1d4f42db8335d70cb69b2596e6d63cad581e4b',
+                    'm18': '876e9293edd433a188c544b14b097c8d86f9f0fcd62ec780e36daf8181a8dc1b'}
         for mid, fingerprint in expected.items():
             with self.subTest(mock=mid):
                 _, current = load_items(str(root), specs[mid], lessons)

@@ -58,5 +58,8 @@
   "a11": 2,
   "a12": 2
  },
- "blueprint_revision": "all32-applied12-v1"
+ "blueprint_revision": "all32-applied12-v1",
+ "resume_wording": [
+  "876e9293edd433a188c544b14b097c8d86f9f0fcd62ec780e36daf8181a8dc1b"
+ ]
 }
