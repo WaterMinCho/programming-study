@@ -535,7 +535,7 @@ class AiSession(object):
         for cid, card in self.cards.items():
             if card.get("mock"):
                 continue
-            content = dict(card)
+            content = dict(_statement_revision_card(card, self.items))
             content.pop("gen", None)
             source_text = []
             if card["kind"] == "gen":
@@ -1207,10 +1207,10 @@ class AiSession(object):
         texts = {s["id"]: s for s in card["topic"].get("statements", [])}
         shown = [texts[i] for i in entry.get("shown") or [] if i in texts]
         if shown:
-            return {"kind": "choice", "stem": "%s에 대한 설명으로 **%s** 것을 고르세요."
-                    % (card["topic"].get("title", ""), "옳은" if statement.get("ok") else "옳지 않은"),
+            pick = entry.get("pick") or ("right" if statement.get("ok") else "wrong")
+            return {"kind": "choice", "stem": statement_choice_stem(card["topic"], pick),
                     "options": [{"text": s["text"], "ok": bool(s.get("ok")), "why": s.get("why", "")} for s in shown],
-                    "pick": entry.get("pick") or ("right" if statement.get("ok") else "wrong"), "explain": statement.get("why", "")}
+                    "pick": pick, "explain": statement.get("why", "")}
         if entry.get("kind") == "answer" and statement.get("cloze"):  # 고르기판 답에는 shown 이 늘 있으니 빈칸판에서 틀린 것
             return cloze_item(statement)
         return {"kind": "choice", "stem": "다음 문장이 맞는지 고르세요.\n\n%s" % statement["text"], "options": [],
@@ -1733,6 +1733,30 @@ def _fix_blanks(sess, state, chosen, pools, protected):
             continue
         chosen[swap] = new
     return chosen
+
+
+def _statement_revision_card(card, items):
+    """보기의 판정이 같은 문장 수정에도 기존 답과 이어 풀기를 연결함."""
+    if card["kind"] != "stmt":
+        return card
+    topic = card["topic"]
+    saved = items.get(card["lesson"], {}).get("resume_wording", {}).get("topics", {}).get(topic["id"], {})
+    if not isinstance(saved, dict) or saved.get("current") != topic or not isinstance(saved.get("previous"), dict):
+        return card
+    previous = saved["previous"]
+    statement = next((s for s in previous.get("statements", []) if s["id"] == card["id"]), None)
+    return dict(card, topic=previous, stmt=statement) if statement is not None else card
+
+
+def statement_choice_stem(topic, pick):
+    """문장형 객관식의 지문과 참고 코드를 만듦."""
+    title = (topic.get("title") or "").strip()
+    direction = "옳은" if pick == "right" else "옳지 않은"
+    stem = ("%s에 대한 설명으로 **%s** 것을 고르세요." % (title, direction) if title
+            else "다음 중 **%s** 설명을 고르세요." % direction)
+    if code := topic.get("context_code"):
+        stem += "\n\n```python\n%s\n```" % code.rstrip()
+    return stem
 
 
 def cloze_item(statement):
@@ -2316,7 +2340,8 @@ class PracticeSet(object):
             return {"id": value.id, "meta": value.meta, "doc": value.doc, "sources": sources}
 
         skeletons = self.sess.skeletons if skeletons is None else skeletons
-        content = {"cards": [self.sess.cards[c] for c in self.stats], "terms": self.sess.terms,
+        cards = [_statement_revision_card(self.sess.cards[c], self.sess.items) for c in self.stats]
+        content = {"cards": cards, "terms": self.sess.terms,
                    "skeletons": {sid: skel.card_skeleton(value) for sid, value in skeletons.items()}}
         if previous_wording:
             cards = []
@@ -2492,12 +2517,9 @@ class PracticeSet(object):
                           if {statement["id"]} | {s["id"] for s in combo} not in seen), mates)
         options = [{"id": s["id"], "text": s["text"], "ok": bool(s.get("ok")), "why": s.get("why", "")} for s in [statement] + mates]
         rng.shuffle(options)
-        title = (topic.get("title") or "").strip()
-        direction = "옳은" if statement.get("ok") else "옳지 않은"
-        stem = ("%s에 대한 설명으로 **%s** 것을 고르세요." % (title, direction) if title
-                else "다음 중 **%s** 설명을 고르세요." % direction)
-        return {"kind": "choice", "stem": stem,
-                "options": options, "pick": "right" if statement.get("ok") else "wrong", "multi": False,
+        pick = "right" if statement.get("ok") else "wrong"
+        return {"kind": "choice", "stem": statement_choice_stem(topic, pick),
+                "options": options, "pick": pick, "multi": False,
                 "explain": statement.get("why", "")}
 
     def current(self, *, measure_input=False):

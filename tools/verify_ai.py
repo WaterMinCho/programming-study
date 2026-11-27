@@ -493,6 +493,10 @@ def check_topic(v, les, topic, all_topics):
     tid = str(topic.get("id", ""))
     if not re.match(r"%s-t\d{2,3}\Z" % les.id, tid):
         v.fail(label, 5, "주제 id 꼴이 %s-t01 이 아닙니다: %s" % (les.id, tid))
+    if "context_code" in topic:
+        code = topic["context_code"]
+        if not isinstance(code, str) or not code.strip() or "```" in code or aibank.BLANK.search(code):
+            v.fail(label, 5, "%s의 context_code에는 코드 울타리와 빈칸 표시 없이 Python 코드를 적으세요." % tid)
     statements = topic.get("statements") or []
     pool = list(statements)
     tags = set(topic.get("tags") or [])

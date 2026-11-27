@@ -441,6 +441,8 @@ def brief(bank_dir, iid, out_dir):
             answers[item["id"]] = _blank_answers(item.get("stem", ""))
     for topic in topics:
         lines += ["## 주제 %s · %s" % (topic.get("id"), topic.get("title", "")), ""]
+        if code := topic.get("context_code"):
+            lines += ["```python", code.rstrip(), "```", ""]
         for tag, statement in statement_rows(topic):
             lines.append("- %s: %s (참/거짓)" % (tag, statement["text"]))
             answers[tag] = {"ok": None, "cloze": [""]}
